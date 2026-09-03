@@ -1,0 +1,84 @@
+2026-09-03 11:26:40 | DEBUG : Completed iperf3 between h106 and h18 on port 3875
+5
+2026-09-03 11:26:40 | DEBUG : Flow finished, current: 15 decreasing running coun
+t by 1
+2026-09-03 11:26:40 | DEBUG : Completed iperf3 between h49 and h14 on port 43619
+2026-09-03 11:26:40 | DEBUG : Flow finished, current: 14 decreasing running coun
+t by 1
+2026-09-03 11:26:40 | DEBUG : Completed iperf3 between h61 and h18 on port 49063
+2026-09-03 11:26:40 | INFO : 9.003233949 sec pass
+2026-09-03 11:26:40 | INFO : Current simulation time: 9 seconds
+2026-09-03 11:26:40 | DEBUG : Type assignment: [['-n'], ['-n'], ['-n']]
+2026-09-03 11:26:40 | DEBUG : Generating flow from h111 to h18 with parameters {
+'-n': '0.001841032919836M', '-l': '10K'}...
+2026-09-03 11:26:40 | DEBUG : Generating flow from h46 to h107 with parameters {
+'-n': '0.0925691304635996M', '-l': '10K'}...
+2026-09-03 11:26:40 | DEBUG : Generating flow from h112 to h64 with parameters {
+'-n': '0.0067618788883113M', '-l': '10K'}...
+2026-09-03 11:26:41 | DEBUG : Flow finished, current: 16 decreasing running coun
+t by 1
+2026-09-03 11:26:41 | DEBUG : Completed iperf3 between h115 and h80 on port 4041
+3
+2026-09-03 11:26:41 | DEBUG : Flow finished, current: 15 decreasing running coun
+t by 1
+2026-09-03 11:26:41 | DEBUG : Completed iperf3 between h82 and h60 on port 34599
+2026-09-03 11:26:41 | DEBUG : Flow finished, current: 14 decreasing running coun
+t by 1
+2026-09-03 11:26:41 | DEBUG : Completed iperf3 between h29 and h104 on port 4787
+3
+2026-09-03 11:26:41 | DEBUG : Flow finished, current: 13 decreasing running coun
+t by 1
+2026-09-03 11:26:41 | DEBUG : Completed iperf3 between h83 and h42 on port 60301
+2026-09-03 11:26:41 | INFO : 10.001360042 sec pass
+2026-09-03 11:26:41 | INFO : Current simulation time: 10 seconds
+2026-09-03 11:26:41 | DEBUG : Type assignment: [['-b', '-un'], ['-b', '-un']]
+2026-09-03 11:26:41 | DEBUG : Generating flow from h64 to h1 with parameters {'-
+b': '0.0074970094007424M', '-l': '10K', '-t': '0'}...
+2026-09-03 11:26:41 | DEBUG : Generating flow from h56 to h7 with parameters {'-
+b': '0.0009264906424479M', '-l': '10K', '-t': '0'}...
+2026-09-03 11:26:42 | INFO : 11.002237696 sec pass
+2026-09-03 11:26:42 | INFO : Waiting for all connections to be restored, current
+ly running host pairs: 14 with 2 unlimited duration flows
+2026-09-03 11:26:42 | DEBUG : Flow finished, current: 14 decreasing running coun
+t by 1
+2026-09-03 11:26:42 | DEBUG : Completed iperf3 between h126 and h14 on port 4946
+1
+2026-09-03 11:26:43 | INFO : Waiting for all connections to be restored, current
+ly running host pairs: 13 with 2 unlimited duration flows
+2026-09-03 11:26:44 | INFO : Waiting for all connections to be restored, current
+ly running host pairs: 13 with 2 unlimited duration flows
+2026-09-03 11:26:45 | DEBUG : Flow finished, current: 13 decreasing running coun
+t by 1
+2026-09-03 11:26:45 | DEBUG : Completed iperf3 between h46 and h107 on port 4327
+1
+2026-09-03 11:26:45 | DEBUG : Flow finished, current: 12 decreasing running coun
+t by 1
+2026-09-03 11:26:45 | DEBUG : Completed iperf3 between h1 and h63 on port 38043
+2026-09-03 11:26:45 | DEBUG : Flow finished, current: 11 decreasing running coun
+t by 1
+2026-09-03 11:26:45 | DEBUG : Completed iperf3 between h112 and h64 on port 5038
+7
+2026-09-03 11:26:45 | DEBUG : Flow finished, current: 10 decreasing running coun
+t by 1
+2026-09-03 11:26:45 | DEBUG : Completed iperf3 between h99 and h94 on port 57903
+2026-09-03 11:26:45 | DEBUG : Flow finished, current: 9 decreasing running count
+ by 1
+2026-09-03 11:26:45 | DEBUG : Completed iperf3 between h111 and h18 on port 5161
+1
+2026-09-03 11:26:45 | DEBUG : Flow finished, current: 8 decreasing running count
+ by 1
+2026-09-03 11:26:45 | DEBUG : Completed iperf3 between h17 and h112 on port 3611
+7
+2026-09-03 11:26:45 | INFO : Waiting for all connections to be restored, current
+ly running host pairs: 7 with 2 unlimited duration flows
+2026-09-03 11:26:46 | INFO : Waiting for all connections to be restored, current
+ly running host pairs: 7 with 2 unlimited duration flows
+2026-09-03 11:26:47 | INFO : Waiting for all connections to be restored, current
+ly running host pairs: 7 with 2 unlimited duration flows
+2026-09-03 11:26:48 | INFO : Waiting for all connections to be restored, current
+ly running host pairs: 7 with 2 unlimited duration flows
+2026-09-03 11:26:49 | INFO : Waiting for all connections to be restored, current
+ly running host pairs: 7 with 2 unlimited duration flows
+2026-09-03 11:26:50 | INFO : Waiting for all connections to be restored, current
+ly running host pairs: 7 with 2 unlimited duration flows
+

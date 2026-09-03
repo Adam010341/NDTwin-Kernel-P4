@@ -1,0 +1,54 @@
++ cd /home/ndt
++ debug_dump_many_install_files /home/ndt/usr-local-3-after-grpc.txt
++ local OUT_FNAME=/home/ndt/usr-local-3-after-grpc.txt
+++ basename /home/ndt/usr-local-3-after-grpc.txt .txt
++ local DIRNAME=/home/ndt/usr-local-3-after-grpc
++ '[' 2 -ge 2 ']'
++ find /usr/lib /usr/local /home/ndt/.local /home/ndt/p4dev-python-venv
++ sort
+find: ‘/home/ndt/.local’: No such file or directory
++ '[' 2 -ge 3 ']'
++ set +x
+------------------------------------------------------------
+Installing p4lang/PI, needed for installing p4lang/behavioral-model simple_switc
+h_grpc
+start install PI:
++ date
+Thu Sep  3 10:32:49 UTC 2026
+++ date +%s
++ TIME_PI_CLONE_START=1788431569
+++ date +%s
++ TIME_PI_CLONE_END=1788431569
+++ date +%s
++ TIME_PI_INSTALL_START=1788431569
++ '[' ubuntu = ubuntu ']'
++ sudo apt-get --yes install libreadline-dev valgrind libtool-bin libboost-dev l
+ibboost-system-dev libboost-thread-dev
+Reading package lists...
+Building dependency tree...
+Reading state information...
+libboost-dev is already the newest version (1.83.0.1ubuntu2).
+libboost-dev set to manually installed.
+libboost-system-dev is already the newest version (1.83.0.1ubuntu2).
+libboost-system-dev set to manually installed.
+libboost-thread-dev is already the newest version (1.83.0.1ubuntu2).
+libboost-thread-dev set to manually installed.
+The following additional packages will be installed:
+  gdb libbabeltrace1 libc6-dbg libdebuginfod-common libdebuginfod1t64 libipt2
+  libncurses-dev libncurses6 libncursesw6 libsource-highlight-common
+  libsource-highlight4t64 libtinfo6 ncurses-base ncurses-bin ncurses-term
+Suggested packages:
+  gdb-doc gdbserver ncurses-doc readline-doc valgrind-dbg valgrind-mpi
+  kcachegrind alleyoop valkyrie
+The following NEW packages will be installed:
+  gdb libbabeltrace1 libc6-dbg libdebuginfod-common libdebuginfod1t64 libipt2
+  libncurses-dev libreadline-dev libsource-highlight-common
+  libsource-highlight4t64 libtool-bin valgrind
+The following packages will be upgraded:
+  libncurses6 libncursesw6 libtinfo6 ncurses-base ncurses-bin ncurses-term
+6 upgraded, 12 newly installed, 0 to remove and 35 not upgraded.
+Need to get 28.5 MB of archives.
+After this operation, 106 MB of additional disk space will be used.
+Get:1 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 ncurses-bin amd6
+4 6.4+20240113-1ubuntu2.2 [188 kB]
+

@@ -1,0 +1,29 @@
+11:08:12
+=== state before: NSR pid, display_on_console ===
+144093 python3 network_state_recorder.py
+    display_on_console: true
+
+=== the manual's troubleshooting remedy: 'Cannot Stop NSR | Permission restrictions |
+    Use sudo ./stop_network_state_recorder.sh' ===
+[sudo] password for ndt: 144093
+SUDO_STOP_EXIT=0
+--- still running? ---
+144093 python3 network_state_recorder.py
+--- display_on_console now ---
+    display_on_console: true
+
+=== F10: foreground mode (doc: set display_on_console true, run python3 network_state_recorder.py) ===
+[32m2026-09-03 11:08:17[0m | [1mINFO : Recorder settings: NDTwin server: http://127.0.0.1:8000, Request interval: 5 seconds, Storage interval: 2 minutes[0m
+[32m2026-09-03 11:08:17[0m | [1mINFO : Starting NSR...[0m
+[32m2026-09-03 11:08:17[0m | [1mINFO : Storing data from flowinfo queue to file: ./recorded_info/2026_09_03_11-08-17_flowinfo.json...[0m
+[32m2026-09-03 11:08:17[0m | [34m[1mDEBUG : Writing item with timestamp 1788433697872 to ./recorded_info/2026_09_03_11-08-17_flowinfo.json...[0m
+[32m2026-09-03 11:08:17[0m | [1mINFO : Storing data from graphinfo queue to file: ./recorded_info/2026_09_03_11-08-17_graphinfo.json...[0m
+[32m2026-09-03 11:08:17[0m | [32m[1mSUCCESS : All components started successfully.[0m
+[32m2026-09-03 11:08:17[0m | [32m[1mSUCCESS : NSR is running.[0m
+[32m2026-09-03 11:08:22[0m | [34m[1mDEBUG : Writing item with timestamp 1788433697893 to ./recorded_info/2026_09_03_11-08-17_graphinfo.json...[0m
+[32m2026-09-03 11:08:22[0m | [33m[1mWARNING : No new data from http://127.0.0.1:8000/ndt/get_detected_flow_data.[0m
+[32m2026-09-03 11:08:27[0m | [34m[1mDEBUG : Writing item with timestamp 1788433702872 to ./recorded_info/2026_09_03_11-08-17_flowinfo.json...[0m
+[32m2026-09-03 11:08:27[0m | [34m[1mDEBUG : Writing item with timestamp 1788433702889 to ./recorded_info/2026_09_03_11-08-17_graphinfo.json...[0m
+[32m2026-09-03 11:08:27[0m | [33m[1mWARNING : No new data from http://127.0.0.1:8000/ndt/get_detected_flow_data.[0m
+(stopped after 20s)
+11:08:44

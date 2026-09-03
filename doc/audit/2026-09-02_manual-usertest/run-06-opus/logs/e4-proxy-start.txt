@@ -1,0 +1,1936 @@
+[5] Modified route: 10.0.0.81/32 -> port 3, mac 00:00:00:00:00:51
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.81/32 -> Port 3 (MAC: 00:00:00:
+00:00:51)
+[4] Modified route: 10.0.0.113/32 -> port 19, mac 00:00:00:00:00:71
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.113/32 -> Port 3 (MAC: 00:00:00
+:00:00:71)
+[6] Modified route: 10.0.0.81/32 -> port 3, mac 00:00:00:00:00:51
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.81/32 -> Port 1 (MAC: 00:00:00:
+00:00:51)
+[5] Modified route: 10.0.0.113/32 -> port 3, mac 00:00:00:00:00:71
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.113/32 -> Port 3 (MAC: 00:00:00
+:00:00:71)
+[7] Modified route: 10.0.0.81/32 -> port 1, mac 00:00:00:00:00:51
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.81/32 -> Port 1 (MAC: 00:00:00:
+00:00:51)
+[6] Modified route: 10.0.0.113/32 -> port 3, mac 00:00:00:00:00:71
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.113/32 -> Port 2 (MAC: 00:00:00
+:00:00:71)
+[8] Modified route: 10.0.0.81/32 -> port 1, mac 00:00:00:00:00:51
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.81/32 -> Port 3 (MAC: 00:00:00:
+00:00:51)
+[7] Modified route: 10.0.0.113/32 -> port 2, mac 00:00:00:00:00:71
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.113/32 -> Port 2 (MAC: 00:00:00
+:00:00:71)
+[9] Modified route: 10.0.0.81/32 -> port 3, mac 00:00:00:00:00:51
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.81/32 -> Port 3 (MAC: 00:00:00
+:00:00:51)
+[8] Modified route: 10.0.0.113/32 -> port 2, mac 00:00:00:00:00:71
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.113/32 -> Port 4 (MAC: 00:00:00
+:00:00:71)
+[10] Modified route: 10.0.0.81/32 -> port 3, mac 00:00:00:00:00:51
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.82/32 -> Port 1 (MAC: 00:00:00:
+00:00:52)
+[9] Modified route: 10.0.0.113/32 -> port 4, mac 00:00:00:00:00:71
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.113/32 -> Port 3 (MAC: 00:00:0
+0:00:00:71)
+[1] Modified route: 10.0.0.82/32 -> port 1, mac 00:00:00:00:00:52
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.82/32 -> Port 1 (MAC: 00:00:00:
+00:00:52)
+[10] Modified route: 10.0.0.113/32 -> port 3, mac 00:00:00:00:00:71
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.114/32 -> Port 1 (MAC: 00:00:00
+:00:00:72)
+[2] Modified route: 10.0.0.82/32 -> port 1, mac 00:00:00:00:00:52
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.82/32 -> Port 20 (MAC: 00:00:00
+:00:00:52)
+[1] Modified route: 10.0.0.114/32 -> port 1, mac 00:00:00:00:00:72
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.114/32 -> Port 1 (MAC: 00:00:00
+:00:00:72)
+[3] Modified route: 10.0.0.82/32 -> port 20, mac 00:00:00:00:00:52
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.82/32 -> Port 1 (MAC: 00:00:00:
+00:00:52)
+[2] Modified route: 10.0.0.114/32 -> port 1, mac 00:00:00:00:00:72
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.114/32 -> Port 1 (MAC: 00:00:00
+:00:00:72)
+[4] Modified route: 10.0.0.82/32 -> port 1, mac 00:00:00:00:00:52
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.82/32 -> Port 3 (MAC: 00:00:00:
+00:00:52)
+[3] Modified route: 10.0.0.114/32 -> port 1, mac 00:00:00:00:00:72
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.114/32 -> Port 20 (MAC: 00:00:0
+0:00:00:72)
+[5] Modified route: 10.0.0.82/32 -> port 3, mac 00:00:00:00:00:52
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.82/32 -> Port 3 (MAC: 00:00:00:
+00:00:52)
+[4] Modified route: 10.0.0.114/32 -> port 20, mac 00:00:00:00:00:72
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.114/32 -> Port 3 (MAC: 00:00:00
+:00:00:72)
+[6] Modified route: 10.0.0.82/32 -> port 3, mac 00:00:00:00:00:52
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.82/32 -> Port 1 (MAC: 00:00:00:
+00:00:52)
+[5] Modified route: 10.0.0.114/32 -> port 3, mac 00:00:00:00:00:72
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.114/32 -> Port 3 (MAC: 00:00:00
+:00:00:72)
+[7] Modified route: 10.0.0.82/32 -> port 1, mac 00:00:00:00:00:52
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.82/32 -> Port 1 (MAC: 00:00:00:
+00:00:52)
+[6] Modified route: 10.0.0.114/32 -> port 3, mac 00:00:00:00:00:72
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.114/32 -> Port 2 (MAC: 00:00:00
+:00:00:72)
+[8] Modified route: 10.0.0.82/32 -> port 1, mac 00:00:00:00:00:52
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.82/32 -> Port 3 (MAC: 00:00:00:
+00:00:52)
+[7] Modified route: 10.0.0.114/32 -> port 2, mac 00:00:00:00:00:72
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.114/32 -> Port 2 (MAC: 00:00:00
+:00:00:72)
+[9] Modified route: 10.0.0.82/32 -> port 3, mac 00:00:00:00:00:52
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.82/32 -> Port 3 (MAC: 00:00:00
+:00:00:52)
+[8] Modified route: 10.0.0.114/32 -> port 2, mac 00:00:00:00:00:72
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.114/32 -> Port 4 (MAC: 00:00:00
+:00:00:72)
+[10] Modified route: 10.0.0.82/32 -> port 3, mac 00:00:00:00:00:52
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.83/32 -> Port 1 (MAC: 00:00:00:
+00:00:53)
+[9] Modified route: 10.0.0.114/32 -> port 4, mac 00:00:00:00:00:72
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.114/32 -> Port 3 (MAC: 00:00:0
+0:00:00:72)
+[1] Modified route: 10.0.0.83/32 -> port 1, mac 00:00:00:00:00:53
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.83/32 -> Port 1 (MAC: 00:00:00:
+00:00:53)
+[10] Modified route: 10.0.0.114/32 -> port 3, mac 00:00:00:00:00:72
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.115/32 -> Port 1 (MAC: 00:00:00
+:00:00:73)
+[2] Modified route: 10.0.0.83/32 -> port 1, mac 00:00:00:00:00:53
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.83/32 -> Port 21 (MAC: 00:00:00
+:00:00:53)
+[1] Modified route: 10.0.0.115/32 -> port 1, mac 00:00:00:00:00:73
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.115/32 -> Port 1 (MAC: 00:00:00
+:00:00:73)
+[3] Modified route: 10.0.0.83/32 -> port 21, mac 00:00:00:00:00:53
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.83/32 -> Port 1 (MAC: 00:00:00:
+00:00:53)
+[2] Modified route: 10.0.0.115/32 -> port 1, mac 00:00:00:00:00:73
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.115/32 -> Port 1 (MAC: 00:00:00
+:00:00:73)
+[4] Modified route: 10.0.0.83/32 -> port 1, mac 00:00:00:00:00:53
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.83/32 -> Port 3 (MAC: 00:00:00:
+00:00:53)
+[3] Modified route: 10.0.0.115/32 -> port 1, mac 00:00:00:00:00:73
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.115/32 -> Port 21 (MAC: 00:00:0
+0:00:00:73)
+[5] Modified route: 10.0.0.83/32 -> port 3, mac 00:00:00:00:00:53
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.83/32 -> Port 3 (MAC: 00:00:00:
+00:00:53)
+[4] Modified route: 10.0.0.115/32 -> port 21, mac 00:00:00:00:00:73
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.115/32 -> Port 3 (MAC: 00:00:00
+:00:00:73)
+[6] Modified route: 10.0.0.83/32 -> port 3, mac 00:00:00:00:00:53
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.83/32 -> Port 1 (MAC: 00:00:00:
+00:00:53)
+[5] Modified route: 10.0.0.115/32 -> port 3, mac 00:00:00:00:00:73
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.115/32 -> Port 3 (MAC: 00:00:00
+:00:00:73)
+[7] Modified route: 10.0.0.83/32 -> port 1, mac 00:00:00:00:00:53
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.83/32 -> Port 1 (MAC: 00:00:00:
+00:00:53)
+[6] Modified route: 10.0.0.115/32 -> port 3, mac 00:00:00:00:00:73
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.115/32 -> Port 2 (MAC: 00:00:00
+:00:00:73)
+[8] Modified route: 10.0.0.83/32 -> port 1, mac 00:00:00:00:00:53
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.83/32 -> Port 3 (MAC: 00:00:00:
+00:00:53)
+[7] Modified route: 10.0.0.115/32 -> port 2, mac 00:00:00:00:00:73
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.115/32 -> Port 2 (MAC: 00:00:00
+:00:00:73)
+[9] Modified route: 10.0.0.83/32 -> port 3, mac 00:00:00:00:00:53
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.83/32 -> Port 3 (MAC: 00:00:00
+:00:00:53)
+[8] Modified route: 10.0.0.115/32 -> port 2, mac 00:00:00:00:00:73
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.115/32 -> Port 4 (MAC: 00:00:00
+:00:00:73)
+[10] Modified route: 10.0.0.83/32 -> port 3, mac 00:00:00:00:00:53
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.84/32 -> Port 1 (MAC: 00:00:00:
+00:00:54)
+[9] Modified route: 10.0.0.115/32 -> port 4, mac 00:00:00:00:00:73
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.115/32 -> Port 3 (MAC: 00:00:0
+0:00:00:73)
+[1] Modified route: 10.0.0.84/32 -> port 1, mac 00:00:00:00:00:54
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.84/32 -> Port 1 (MAC: 00:00:00:
+00:00:54)
+[10] Modified route: 10.0.0.115/32 -> port 3, mac 00:00:00:00:00:73
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.116/32 -> Port 1 (MAC: 00:00:00
+:00:00:74)
+[2] Modified route: 10.0.0.84/32 -> port 1, mac 00:00:00:00:00:54
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.84/32 -> Port 22 (MAC: 00:00:00
+:00:00:54)
+[1] Modified route: 10.0.0.116/32 -> port 1, mac 00:00:00:00:00:74
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.116/32 -> Port 1 (MAC: 00:00:00
+:00:00:74)
+[3] Modified route: 10.0.0.84/32 -> port 22, mac 00:00:00:00:00:54
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.84/32 -> Port 1 (MAC: 00:00:00:
+00:00:54)
+[2] Modified route: 10.0.0.116/32 -> port 1, mac 00:00:00:00:00:74
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.116/32 -> Port 1 (MAC: 00:00:00
+:00:00:74)
+[4] Modified route: 10.0.0.84/32 -> port 1, mac 00:00:00:00:00:54
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.84/32 -> Port 3 (MAC: 00:00:00:
+00:00:54)
+[3] Modified route: 10.0.0.116/32 -> port 1, mac 00:00:00:00:00:74
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.116/32 -> Port 22 (MAC: 00:00:0
+0:00:00:74)
+[5] Modified route: 10.0.0.84/32 -> port 3, mac 00:00:00:00:00:54
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.84/32 -> Port 3 (MAC: 00:00:00:
+00:00:54)
+[4] Modified route: 10.0.0.116/32 -> port 22, mac 00:00:00:00:00:74
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.116/32 -> Port 3 (MAC: 00:00:00
+:00:00:74)
+[6] Modified route: 10.0.0.84/32 -> port 3, mac 00:00:00:00:00:54
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.84/32 -> Port 1 (MAC: 00:00:00:
+00:00:54)
+[5] Modified route: 10.0.0.116/32 -> port 3, mac 00:00:00:00:00:74
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.116/32 -> Port 3 (MAC: 00:00:00
+:00:00:74)
+[7] Modified route: 10.0.0.84/32 -> port 1, mac 00:00:00:00:00:54
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.84/32 -> Port 1 (MAC: 00:00:00:
+00:00:54)
+[6] Modified route: 10.0.0.116/32 -> port 3, mac 00:00:00:00:00:74
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.116/32 -> Port 2 (MAC: 00:00:00
+:00:00:74)
+[8] Modified route: 10.0.0.84/32 -> port 1, mac 00:00:00:00:00:54
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.84/32 -> Port 3 (MAC: 00:00:00:
+00:00:54)
+[7] Modified route: 10.0.0.116/32 -> port 2, mac 00:00:00:00:00:74
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.116/32 -> Port 2 (MAC: 00:00:00
+:00:00:74)
+[9] Modified route: 10.0.0.84/32 -> port 3, mac 00:00:00:00:00:54
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.84/32 -> Port 3 (MAC: 00:00:00
+:00:00:54)
+[8] Modified route: 10.0.0.116/32 -> port 2, mac 00:00:00:00:00:74
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.116/32 -> Port 4 (MAC: 00:00:00
+:00:00:74)
+[10] Modified route: 10.0.0.84/32 -> port 3, mac 00:00:00:00:00:54
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.85/32 -> Port 1 (MAC: 00:00:00:
+00:00:55)
+[9] Modified route: 10.0.0.116/32 -> port 4, mac 00:00:00:00:00:74
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.116/32 -> Port 3 (MAC: 00:00:0
+0:00:00:74)
+[1] Modified route: 10.0.0.85/32 -> port 1, mac 00:00:00:00:00:55
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.85/32 -> Port 1 (MAC: 00:00:00:
+00:00:55)
+[10] Modified route: 10.0.0.116/32 -> port 3, mac 00:00:00:00:00:74
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.117/32 -> Port 1 (MAC: 00:00:00
+:00:00:75)
+[2] Modified route: 10.0.0.85/32 -> port 1, mac 00:00:00:00:00:55
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.85/32 -> Port 23 (MAC: 00:00:00
+:00:00:55)
+[1] Modified route: 10.0.0.117/32 -> port 1, mac 00:00:00:00:00:75
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.117/32 -> Port 1 (MAC: 00:00:00
+:00:00:75)
+[3] Modified route: 10.0.0.85/32 -> port 23, mac 00:00:00:00:00:55
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.85/32 -> Port 1 (MAC: 00:00:00:
+00:00:55)
+[2] Modified route: 10.0.0.117/32 -> port 1, mac 00:00:00:00:00:75
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.117/32 -> Port 1 (MAC: 00:00:00
+:00:00:75)
+[4] Modified route: 10.0.0.85/32 -> port 1, mac 00:00:00:00:00:55
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.85/32 -> Port 3 (MAC: 00:00:00:
+00:00:55)
+[3] Modified route: 10.0.0.117/32 -> port 1, mac 00:00:00:00:00:75
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.117/32 -> Port 23 (MAC: 00:00:0
+0:00:00:75)
+[5] Modified route: 10.0.0.85/32 -> port 3, mac 00:00:00:00:00:55
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.85/32 -> Port 3 (MAC: 00:00:00:
+00:00:55)
+[4] Modified route: 10.0.0.117/32 -> port 23, mac 00:00:00:00:00:75
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.117/32 -> Port 3 (MAC: 00:00:00
+:00:00:75)
+[6] Modified route: 10.0.0.85/32 -> port 3, mac 00:00:00:00:00:55
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.85/32 -> Port 1 (MAC: 00:00:00:
+00:00:55)
+[5] Modified route: 10.0.0.117/32 -> port 3, mac 00:00:00:00:00:75
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.117/32 -> Port 3 (MAC: 00:00:00
+:00:00:75)
+[7] Modified route: 10.0.0.85/32 -> port 1, mac 00:00:00:00:00:55
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.85/32 -> Port 1 (MAC: 00:00:00:
+00:00:55)
+[6] Modified route: 10.0.0.117/32 -> port 3, mac 00:00:00:00:00:75
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.117/32 -> Port 2 (MAC: 00:00:00
+:00:00:75)
+[8] Modified route: 10.0.0.85/32 -> port 1, mac 00:00:00:00:00:55
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.85/32 -> Port 3 (MAC: 00:00:00:
+00:00:55)
+[7] Modified route: 10.0.0.117/32 -> port 2, mac 00:00:00:00:00:75
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.117/32 -> Port 2 (MAC: 00:00:00
+:00:00:75)
+[9] Modified route: 10.0.0.85/32 -> port 3, mac 00:00:00:00:00:55
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.85/32 -> Port 3 (MAC: 00:00:00
+:00:00:55)
+[8] Modified route: 10.0.0.117/32 -> port 2, mac 00:00:00:00:00:75
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.117/32 -> Port 4 (MAC: 00:00:00
+:00:00:75)
+[10] Modified route: 10.0.0.85/32 -> port 3, mac 00:00:00:00:00:55
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.86/32 -> Port 1 (MAC: 00:00:00:
+00:00:56)
+[9] Modified route: 10.0.0.117/32 -> port 4, mac 00:00:00:00:00:75
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.117/32 -> Port 3 (MAC: 00:00:0
+0:00:00:75)
+[1] Modified route: 10.0.0.86/32 -> port 1, mac 00:00:00:00:00:56
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.86/32 -> Port 1 (MAC: 00:00:00:
+00:00:56)
+[10] Modified route: 10.0.0.117/32 -> port 3, mac 00:00:00:00:00:75
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.118/32 -> Port 1 (MAC: 00:00:00
+:00:00:76)
+[2] Modified route: 10.0.0.86/32 -> port 1, mac 00:00:00:00:00:56
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.86/32 -> Port 24 (MAC: 00:00:00
+:00:00:56)
+[1] Modified route: 10.0.0.118/32 -> port 1, mac 00:00:00:00:00:76
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.118/32 -> Port 1 (MAC: 00:00:00
+:00:00:76)
+[3] Modified route: 10.0.0.86/32 -> port 24, mac 00:00:00:00:00:56
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.86/32 -> Port 1 (MAC: 00:00:00:
+00:00:56)
+[2] Modified route: 10.0.0.118/32 -> port 1, mac 00:00:00:00:00:76
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.118/32 -> Port 1 (MAC: 00:00:00
+:00:00:76)
+[4] Modified route: 10.0.0.86/32 -> port 1, mac 00:00:00:00:00:56
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.86/32 -> Port 3 (MAC: 00:00:00:
+00:00:56)
+[3] Modified route: 10.0.0.118/32 -> port 1, mac 00:00:00:00:00:76
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.118/32 -> Port 24 (MAC: 00:00:0
+0:00:00:76)
+[5] Modified route: 10.0.0.86/32 -> port 3, mac 00:00:00:00:00:56
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.86/32 -> Port 3 (MAC: 00:00:00:
+00:00:56)
+[4] Modified route: 10.0.0.118/32 -> port 24, mac 00:00:00:00:00:76
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.118/32 -> Port 3 (MAC: 00:00:00
+:00:00:76)
+[6] Modified route: 10.0.0.86/32 -> port 3, mac 00:00:00:00:00:56
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.86/32 -> Port 1 (MAC: 00:00:00:
+00:00:56)
+[5] Modified route: 10.0.0.118/32 -> port 3, mac 00:00:00:00:00:76
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.118/32 -> Port 3 (MAC: 00:00:00
+:00:00:76)
+[7] Modified route: 10.0.0.86/32 -> port 1, mac 00:00:00:00:00:56
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.86/32 -> Port 1 (MAC: 00:00:00:
+00:00:56)
+[6] Modified route: 10.0.0.118/32 -> port 3, mac 00:00:00:00:00:76
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.118/32 -> Port 2 (MAC: 00:00:00
+:00:00:76)
+[8] Modified route: 10.0.0.86/32 -> port 1, mac 00:00:00:00:00:56
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.86/32 -> Port 3 (MAC: 00:00:00:
+00:00:56)
+[7] Modified route: 10.0.0.118/32 -> port 2, mac 00:00:00:00:00:76
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.118/32 -> Port 2 (MAC: 00:00:00
+:00:00:76)
+[9] Modified route: 10.0.0.86/32 -> port 3, mac 00:00:00:00:00:56
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.86/32 -> Port 3 (MAC: 00:00:00
+:00:00:56)
+[8] Modified route: 10.0.0.118/32 -> port 2, mac 00:00:00:00:00:76
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.118/32 -> Port 4 (MAC: 00:00:00
+:00:00:76)
+[10] Modified route: 10.0.0.86/32 -> port 3, mac 00:00:00:00:00:56
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.87/32 -> Port 1 (MAC: 00:00:00:
+00:00:57)
+[9] Modified route: 10.0.0.118/32 -> port 4, mac 00:00:00:00:00:76
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.118/32 -> Port 3 (MAC: 00:00:0
+0:00:00:76)
+[1] Modified route: 10.0.0.87/32 -> port 1, mac 00:00:00:00:00:57
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.87/32 -> Port 1 (MAC: 00:00:00:
+00:00:57)
+[10] Modified route: 10.0.0.118/32 -> port 3, mac 00:00:00:00:00:76
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.119/32 -> Port 1 (MAC: 00:00:00
+:00:00:77)
+[2] Modified route: 10.0.0.87/32 -> port 1, mac 00:00:00:00:00:57
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.87/32 -> Port 25 (MAC: 00:00:00
+:00:00:57)
+[1] Modified route: 10.0.0.119/32 -> port 1, mac 00:00:00:00:00:77
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.119/32 -> Port 1 (MAC: 00:00:00
+:00:00:77)
+[3] Modified route: 10.0.0.87/32 -> port 25, mac 00:00:00:00:00:57
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.87/32 -> Port 1 (MAC: 00:00:00:
+00:00:57)
+[2] Modified route: 10.0.0.119/32 -> port 1, mac 00:00:00:00:00:77
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.119/32 -> Port 1 (MAC: 00:00:00
+:00:00:77)
+[4] Modified route: 10.0.0.87/32 -> port 1, mac 00:00:00:00:00:57
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.87/32 -> Port 3 (MAC: 00:00:00:
+00:00:57)
+[3] Modified route: 10.0.0.119/32 -> port 1, mac 00:00:00:00:00:77
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.119/32 -> Port 25 (MAC: 00:00:0
+0:00:00:77)
+[5] Modified route: 10.0.0.87/32 -> port 3, mac 00:00:00:00:00:57
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.87/32 -> Port 3 (MAC: 00:00:00:
+00:00:57)
+[4] Modified route: 10.0.0.119/32 -> port 25, mac 00:00:00:00:00:77
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.119/32 -> Port 3 (MAC: 00:00:00
+:00:00:77)
+[6] Modified route: 10.0.0.87/32 -> port 3, mac 00:00:00:00:00:57
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.87/32 -> Port 1 (MAC: 00:00:00:
+00:00:57)
+[5] Modified route: 10.0.0.119/32 -> port 3, mac 00:00:00:00:00:77
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.119/32 -> Port 3 (MAC: 00:00:00
+:00:00:77)
+[7] Modified route: 10.0.0.87/32 -> port 1, mac 00:00:00:00:00:57
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.87/32 -> Port 1 (MAC: 00:00:00:
+00:00:57)
+[6] Modified route: 10.0.0.119/32 -> port 3, mac 00:00:00:00:00:77
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.119/32 -> Port 2 (MAC: 00:00:00
+:00:00:77)
+[8] Modified route: 10.0.0.87/32 -> port 1, mac 00:00:00:00:00:57
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.87/32 -> Port 3 (MAC: 00:00:00:
+00:00:57)
+[7] Modified route: 10.0.0.119/32 -> port 2, mac 00:00:00:00:00:77
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.119/32 -> Port 2 (MAC: 00:00:00
+:00:00:77)
+[9] Modified route: 10.0.0.87/32 -> port 3, mac 00:00:00:00:00:57
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.87/32 -> Port 3 (MAC: 00:00:00
+:00:00:57)
+[8] Modified route: 10.0.0.119/32 -> port 2, mac 00:00:00:00:00:77
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.119/32 -> Port 4 (MAC: 00:00:00
+:00:00:77)
+[10] Modified route: 10.0.0.87/32 -> port 3, mac 00:00:00:00:00:57
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.88/32 -> Port 1 (MAC: 00:00:00:
+00:00:58)
+[9] Modified route: 10.0.0.119/32 -> port 4, mac 00:00:00:00:00:77
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.119/32 -> Port 3 (MAC: 00:00:0
+0:00:00:77)
+[1] Modified route: 10.0.0.88/32 -> port 1, mac 00:00:00:00:00:58
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.88/32 -> Port 1 (MAC: 00:00:00:
+00:00:58)
+[10] Modified route: 10.0.0.119/32 -> port 3, mac 00:00:00:00:00:77
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.120/32 -> Port 1 (MAC: 00:00:00
+:00:00:78)
+[2] Modified route: 10.0.0.88/32 -> port 1, mac 00:00:00:00:00:58
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.88/32 -> Port 26 (MAC: 00:00:00
+:00:00:58)
+[1] Modified route: 10.0.0.120/32 -> port 1, mac 00:00:00:00:00:78
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.120/32 -> Port 1 (MAC: 00:00:00
+:00:00:78)
+[3] Modified route: 10.0.0.88/32 -> port 26, mac 00:00:00:00:00:58
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.88/32 -> Port 1 (MAC: 00:00:00:
+00:00:58)
+[2] Modified route: 10.0.0.120/32 -> port 1, mac 00:00:00:00:00:78
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.120/32 -> Port 1 (MAC: 00:00:00
+:00:00:78)
+[4] Modified route: 10.0.0.88/32 -> port 1, mac 00:00:00:00:00:58
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.88/32 -> Port 3 (MAC: 00:00:00:
+00:00:58)
+[3] Modified route: 10.0.0.120/32 -> port 1, mac 00:00:00:00:00:78
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.120/32 -> Port 26 (MAC: 00:00:0
+0:00:00:78)
+[5] Modified route: 10.0.0.88/32 -> port 3, mac 00:00:00:00:00:58
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.88/32 -> Port 3 (MAC: 00:00:00:
+00:00:58)
+[4] Modified route: 10.0.0.120/32 -> port 26, mac 00:00:00:00:00:78
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.120/32 -> Port 3 (MAC: 00:00:00
+:00:00:78)
+[6] Modified route: 10.0.0.88/32 -> port 3, mac 00:00:00:00:00:58
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.88/32 -> Port 1 (MAC: 00:00:00:
+00:00:58)
+[5] Modified route: 10.0.0.120/32 -> port 3, mac 00:00:00:00:00:78
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.120/32 -> Port 3 (MAC: 00:00:00
+:00:00:78)
+[7] Modified route: 10.0.0.88/32 -> port 1, mac 00:00:00:00:00:58
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.88/32 -> Port 1 (MAC: 00:00:00:
+00:00:58)
+[6] Modified route: 10.0.0.120/32 -> port 3, mac 00:00:00:00:00:78
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.120/32 -> Port 2 (MAC: 00:00:00
+:00:00:78)
+[8] Modified route: 10.0.0.88/32 -> port 1, mac 00:00:00:00:00:58
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.88/32 -> Port 3 (MAC: 00:00:00:
+00:00:58)
+[7] Modified route: 10.0.0.120/32 -> port 2, mac 00:00:00:00:00:78
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.120/32 -> Port 2 (MAC: 00:00:00
+:00:00:78)
+[9] Modified route: 10.0.0.88/32 -> port 3, mac 00:00:00:00:00:58
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.88/32 -> Port 3 (MAC: 00:00:00
+:00:00:58)
+[8] Modified route: 10.0.0.120/32 -> port 2, mac 00:00:00:00:00:78
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.120/32 -> Port 4 (MAC: 00:00:00
+:00:00:78)
+[10] Modified route: 10.0.0.88/32 -> port 3, mac 00:00:00:00:00:58
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.89/32 -> Port 1 (MAC: 00:00:00:
+00:00:59)
+[9] Modified route: 10.0.0.120/32 -> port 4, mac 00:00:00:00:00:78
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.120/32 -> Port 3 (MAC: 00:00:0
+0:00:00:78)
+[1] Modified route: 10.0.0.89/32 -> port 1, mac 00:00:00:00:00:59
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.89/32 -> Port 1 (MAC: 00:00:00:
+00:00:59)
+[10] Modified route: 10.0.0.120/32 -> port 3, mac 00:00:00:00:00:78
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.121/32 -> Port 1 (MAC: 00:00:00
+:00:00:79)
+[2] Modified route: 10.0.0.89/32 -> port 1, mac 00:00:00:00:00:59
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.89/32 -> Port 27 (MAC: 00:00:00
+:00:00:59)
+[1] Modified route: 10.0.0.121/32 -> port 1, mac 00:00:00:00:00:79
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.121/32 -> Port 1 (MAC: 00:00:00
+:00:00:79)
+[3] Modified route: 10.0.0.89/32 -> port 27, mac 00:00:00:00:00:59
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.89/32 -> Port 1 (MAC: 00:00:00:
+00:00:59)
+[2] Modified route: 10.0.0.121/32 -> port 1, mac 00:00:00:00:00:79
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.121/32 -> Port 1 (MAC: 00:00:00
+:00:00:79)
+[4] Modified route: 10.0.0.89/32 -> port 1, mac 00:00:00:00:00:59
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.89/32 -> Port 3 (MAC: 00:00:00:
+00:00:59)
+[3] Modified route: 10.0.0.121/32 -> port 1, mac 00:00:00:00:00:79
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.121/32 -> Port 27 (MAC: 00:00:0
+0:00:00:79)
+[5] Modified route: 10.0.0.89/32 -> port 3, mac 00:00:00:00:00:59
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.89/32 -> Port 3 (MAC: 00:00:00:
+00:00:59)
+[4] Modified route: 10.0.0.121/32 -> port 27, mac 00:00:00:00:00:79
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.121/32 -> Port 3 (MAC: 00:00:00
+:00:00:79)
+[6] Modified route: 10.0.0.89/32 -> port 3, mac 00:00:00:00:00:59
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.89/32 -> Port 1 (MAC: 00:00:00:
+00:00:59)
+[5] Modified route: 10.0.0.121/32 -> port 3, mac 00:00:00:00:00:79
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.121/32 -> Port 3 (MAC: 00:00:00
+:00:00:79)
+[7] Modified route: 10.0.0.89/32 -> port 1, mac 00:00:00:00:00:59
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.89/32 -> Port 1 (MAC: 00:00:00:
+00:00:59)
+[6] Modified route: 10.0.0.121/32 -> port 3, mac 00:00:00:00:00:79
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.121/32 -> Port 2 (MAC: 00:00:00
+:00:00:79)
+[8] Modified route: 10.0.0.89/32 -> port 1, mac 00:00:00:00:00:59
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.89/32 -> Port 3 (MAC: 00:00:00:
+00:00:59)
+[7] Modified route: 10.0.0.121/32 -> port 2, mac 00:00:00:00:00:79
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.121/32 -> Port 2 (MAC: 00:00:00
+:00:00:79)
+[9] Modified route: 10.0.0.89/32 -> port 3, mac 00:00:00:00:00:59
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.89/32 -> Port 3 (MAC: 00:00:00
+:00:00:59)
+[8] Modified route: 10.0.0.121/32 -> port 2, mac 00:00:00:00:00:79
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.121/32 -> Port 4 (MAC: 00:00:00
+:00:00:79)
+[10] Modified route: 10.0.0.89/32 -> port 3, mac 00:00:00:00:00:59
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.90/32 -> Port 1 (MAC: 00:00:00:
+00:00:5a)
+[9] Modified route: 10.0.0.121/32 -> port 4, mac 00:00:00:00:00:79
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.121/32 -> Port 3 (MAC: 00:00:0
+0:00:00:79)
+[1] Modified route: 10.0.0.90/32 -> port 1, mac 00:00:00:00:00:5a
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.90/32 -> Port 1 (MAC: 00:00:00:
+00:00:5a)
+[10] Modified route: 10.0.0.121/32 -> port 3, mac 00:00:00:00:00:79
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.122/32 -> Port 1 (MAC: 00:00:00
+:00:00:7a)
+[2] Modified route: 10.0.0.90/32 -> port 1, mac 00:00:00:00:00:5a
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.90/32 -> Port 28 (MAC: 00:00:00
+:00:00:5a)
+[1] Modified route: 10.0.0.122/32 -> port 1, mac 00:00:00:00:00:7a
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.122/32 -> Port 1 (MAC: 00:00:00
+:00:00:7a)
+[3] Modified route: 10.0.0.90/32 -> port 28, mac 00:00:00:00:00:5a
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.90/32 -> Port 1 (MAC: 00:00:00:
+00:00:5a)
+[2] Modified route: 10.0.0.122/32 -> port 1, mac 00:00:00:00:00:7a
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.122/32 -> Port 1 (MAC: 00:00:00
+:00:00:7a)
+[4] Modified route: 10.0.0.90/32 -> port 1, mac 00:00:00:00:00:5a
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.90/32 -> Port 3 (MAC: 00:00:00:
+00:00:5a)
+[3] Modified route: 10.0.0.122/32 -> port 1, mac 00:00:00:00:00:7a
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.122/32 -> Port 28 (MAC: 00:00:0
+0:00:00:7a)
+[5] Modified route: 10.0.0.90/32 -> port 3, mac 00:00:00:00:00:5a
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.90/32 -> Port 3 (MAC: 00:00:00:
+00:00:5a)
+[4] Modified route: 10.0.0.122/32 -> port 28, mac 00:00:00:00:00:7a
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.122/32 -> Port 3 (MAC: 00:00:00
+:00:00:7a)
+[6] Modified route: 10.0.0.90/32 -> port 3, mac 00:00:00:00:00:5a
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.90/32 -> Port 1 (MAC: 00:00:00:
+00:00:5a)
+[5] Modified route: 10.0.0.122/32 -> port 3, mac 00:00:00:00:00:7a
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.122/32 -> Port 3 (MAC: 00:00:00
+:00:00:7a)
+[7] Modified route: 10.0.0.90/32 -> port 1, mac 00:00:00:00:00:5a
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.90/32 -> Port 1 (MAC: 00:00:00:
+00:00:5a)
+[6] Modified route: 10.0.0.122/32 -> port 3, mac 00:00:00:00:00:7a
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.122/32 -> Port 2 (MAC: 00:00:00
+:00:00:7a)
+[8] Modified route: 10.0.0.90/32 -> port 1, mac 00:00:00:00:00:5a
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.90/32 -> Port 3 (MAC: 00:00:00:
+00:00:5a)
+[7] Modified route: 10.0.0.122/32 -> port 2, mac 00:00:00:00:00:7a
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.122/32 -> Port 2 (MAC: 00:00:00
+:00:00:7a)
+[9] Modified route: 10.0.0.90/32 -> port 3, mac 00:00:00:00:00:5a
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.90/32 -> Port 3 (MAC: 00:00:00
+:00:00:5a)
+[8] Modified route: 10.0.0.122/32 -> port 2, mac 00:00:00:00:00:7a
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.122/32 -> Port 4 (MAC: 00:00:00
+:00:00:7a)
+[10] Modified route: 10.0.0.90/32 -> port 3, mac 00:00:00:00:00:5a
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.91/32 -> Port 1 (MAC: 00:00:00:
+00:00:5b)
+[9] Modified route: 10.0.0.122/32 -> port 4, mac 00:00:00:00:00:7a
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.122/32 -> Port 3 (MAC: 00:00:0
+0:00:00:7a)
+[1] Modified route: 10.0.0.91/32 -> port 1, mac 00:00:00:00:00:5b
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.91/32 -> Port 1 (MAC: 00:00:00:
+00:00:5b)
+[10] Modified route: 10.0.0.122/32 -> port 3, mac 00:00:00:00:00:7a
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.123/32 -> Port 1 (MAC: 00:00:00
+:00:00:7b)
+[2] Modified route: 10.0.0.91/32 -> port 1, mac 00:00:00:00:00:5b
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.91/32 -> Port 29 (MAC: 00:00:00
+:00:00:5b)
+[1] Modified route: 10.0.0.123/32 -> port 1, mac 00:00:00:00:00:7b
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.123/32 -> Port 1 (MAC: 00:00:00
+:00:00:7b)
+[3] Modified route: 10.0.0.91/32 -> port 29, mac 00:00:00:00:00:5b
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.91/32 -> Port 1 (MAC: 00:00:00:
+00:00:5b)
+[2] Modified route: 10.0.0.123/32 -> port 1, mac 00:00:00:00:00:7b
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.123/32 -> Port 1 (MAC: 00:00:00
+:00:00:7b)
+[4] Modified route: 10.0.0.91/32 -> port 1, mac 00:00:00:00:00:5b
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.91/32 -> Port 3 (MAC: 00:00:00:
+00:00:5b)
+[3] Modified route: 10.0.0.123/32 -> port 1, mac 00:00:00:00:00:7b
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.123/32 -> Port 29 (MAC: 00:00:0
+0:00:00:7b)
+[5] Modified route: 10.0.0.91/32 -> port 3, mac 00:00:00:00:00:5b
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.91/32 -> Port 3 (MAC: 00:00:00:
+00:00:5b)
+[4] Modified route: 10.0.0.123/32 -> port 29, mac 00:00:00:00:00:7b
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.123/32 -> Port 3 (MAC: 00:00:00
+:00:00:7b)
+[6] Modified route: 10.0.0.91/32 -> port 3, mac 00:00:00:00:00:5b
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.91/32 -> Port 1 (MAC: 00:00:00:
+00:00:5b)
+[5] Modified route: 10.0.0.123/32 -> port 3, mac 00:00:00:00:00:7b
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.123/32 -> Port 3 (MAC: 00:00:00
+:00:00:7b)
+[7] Modified route: 10.0.0.91/32 -> port 1, mac 00:00:00:00:00:5b
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.91/32 -> Port 1 (MAC: 00:00:00:
+00:00:5b)
+[6] Modified route: 10.0.0.123/32 -> port 3, mac 00:00:00:00:00:7b
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.123/32 -> Port 2 (MAC: 00:00:00
+:00:00:7b)
+[8] Modified route: 10.0.0.91/32 -> port 1, mac 00:00:00:00:00:5b
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.91/32 -> Port 3 (MAC: 00:00:00:
+00:00:5b)
+[7] Modified route: 10.0.0.123/32 -> port 2, mac 00:00:00:00:00:7b
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.123/32 -> Port 2 (MAC: 00:00:00
+:00:00:7b)
+[9] Modified route: 10.0.0.91/32 -> port 3, mac 00:00:00:00:00:5b
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.91/32 -> Port 3 (MAC: 00:00:00
+:00:00:5b)
+[8] Modified route: 10.0.0.123/32 -> port 2, mac 00:00:00:00:00:7b
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.123/32 -> Port 4 (MAC: 00:00:00
+:00:00:7b)
+[10] Modified route: 10.0.0.91/32 -> port 3, mac 00:00:00:00:00:5b
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.92/32 -> Port 1 (MAC: 00:00:00:
+00:00:5c)
+[9] Modified route: 10.0.0.123/32 -> port 4, mac 00:00:00:00:00:7b
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.123/32 -> Port 3 (MAC: 00:00:0
+0:00:00:7b)
+[1] Modified route: 10.0.0.92/32 -> port 1, mac 00:00:00:00:00:5c
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.92/32 -> Port 1 (MAC: 00:00:00:
+00:00:5c)
+[10] Modified route: 10.0.0.123/32 -> port 3, mac 00:00:00:00:00:7b
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.124/32 -> Port 1 (MAC: 00:00:00
+:00:00:7c)
+[2] Modified route: 10.0.0.92/32 -> port 1, mac 00:00:00:00:00:5c
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.92/32 -> Port 30 (MAC: 00:00:00
+:00:00:5c)
+[1] Modified route: 10.0.0.124/32 -> port 1, mac 00:00:00:00:00:7c
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.124/32 -> Port 1 (MAC: 00:00:00
+:00:00:7c)
+[3] Modified route: 10.0.0.92/32 -> port 30, mac 00:00:00:00:00:5c
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.92/32 -> Port 1 (MAC: 00:00:00:
+00:00:5c)
+[2] Modified route: 10.0.0.124/32 -> port 1, mac 00:00:00:00:00:7c
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.124/32 -> Port 1 (MAC: 00:00:00
+:00:00:7c)
+[4] Modified route: 10.0.0.92/32 -> port 1, mac 00:00:00:00:00:5c
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.92/32 -> Port 3 (MAC: 00:00:00:
+00:00:5c)
+[3] Modified route: 10.0.0.124/32 -> port 1, mac 00:00:00:00:00:7c
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.124/32 -> Port 30 (MAC: 00:00:0
+0:00:00:7c)
+[5] Modified route: 10.0.0.92/32 -> port 3, mac 00:00:00:00:00:5c
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.92/32 -> Port 3 (MAC: 00:00:00:
+00:00:5c)
+[4] Modified route: 10.0.0.124/32 -> port 30, mac 00:00:00:00:00:7c
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.124/32 -> Port 3 (MAC: 00:00:00
+:00:00:7c)
+[6] Modified route: 10.0.0.92/32 -> port 3, mac 00:00:00:00:00:5c
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.92/32 -> Port 1 (MAC: 00:00:00:
+00:00:5c)
+[5] Modified route: 10.0.0.124/32 -> port 3, mac 00:00:00:00:00:7c
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.124/32 -> Port 3 (MAC: 00:00:00
+:00:00:7c)
+[7] Modified route: 10.0.0.92/32 -> port 1, mac 00:00:00:00:00:5c
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.92/32 -> Port 1 (MAC: 00:00:00:
+00:00:5c)
+[6] Modified route: 10.0.0.124/32 -> port 3, mac 00:00:00:00:00:7c
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.124/32 -> Port 2 (MAC: 00:00:00
+:00:00:7c)
+[8] Modified route: 10.0.0.92/32 -> port 1, mac 00:00:00:00:00:5c
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.92/32 -> Port 3 (MAC: 00:00:00:
+00:00:5c)
+[7] Modified route: 10.0.0.124/32 -> port 2, mac 00:00:00:00:00:7c
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.124/32 -> Port 2 (MAC: 00:00:00
+:00:00:7c)
+[9] Modified route: 10.0.0.92/32 -> port 3, mac 00:00:00:00:00:5c
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.92/32 -> Port 3 (MAC: 00:00:00
+:00:00:5c)
+[8] Modified route: 10.0.0.124/32 -> port 2, mac 00:00:00:00:00:7c
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.124/32 -> Port 4 (MAC: 00:00:00
+:00:00:7c)
+[10] Modified route: 10.0.0.92/32 -> port 3, mac 00:00:00:00:00:5c
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.93/32 -> Port 1 (MAC: 00:00:00:
+00:00:5d)
+[9] Modified route: 10.0.0.124/32 -> port 4, mac 00:00:00:00:00:7c
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.124/32 -> Port 3 (MAC: 00:00:0
+0:00:00:7c)
+[1] Modified route: 10.0.0.93/32 -> port 1, mac 00:00:00:00:00:5d
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.93/32 -> Port 1 (MAC: 00:00:00:
+00:00:5d)
+[10] Modified route: 10.0.0.124/32 -> port 3, mac 00:00:00:00:00:7c
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.125/32 -> Port 1 (MAC: 00:00:00
+:00:00:7d)
+[2] Modified route: 10.0.0.93/32 -> port 1, mac 00:00:00:00:00:5d
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.93/32 -> Port 31 (MAC: 00:00:00
+:00:00:5d)
+[1] Modified route: 10.0.0.125/32 -> port 1, mac 00:00:00:00:00:7d
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.125/32 -> Port 1 (MAC: 00:00:00
+:00:00:7d)
+[3] Modified route: 10.0.0.93/32 -> port 31, mac 00:00:00:00:00:5d
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.93/32 -> Port 1 (MAC: 00:00:00:
+00:00:5d)
+[2] Modified route: 10.0.0.125/32 -> port 1, mac 00:00:00:00:00:7d
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.125/32 -> Port 1 (MAC: 00:00:00
+:00:00:7d)
+[4] Modified route: 10.0.0.93/32 -> port 1, mac 00:00:00:00:00:5d
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.93/32 -> Port 3 (MAC: 00:00:00:
+00:00:5d)
+[3] Modified route: 10.0.0.125/32 -> port 1, mac 00:00:00:00:00:7d
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.125/32 -> Port 31 (MAC: 00:00:0
+0:00:00:7d)
+[5] Modified route: 10.0.0.93/32 -> port 3, mac 00:00:00:00:00:5d
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.93/32 -> Port 3 (MAC: 00:00:00:
+00:00:5d)
+[4] Modified route: 10.0.0.125/32 -> port 31, mac 00:00:00:00:00:7d
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.125/32 -> Port 3 (MAC: 00:00:00
+:00:00:7d)
+[6] Modified route: 10.0.0.93/32 -> port 3, mac 00:00:00:00:00:5d
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.93/32 -> Port 1 (MAC: 00:00:00:
+00:00:5d)
+[5] Modified route: 10.0.0.125/32 -> port 3, mac 00:00:00:00:00:7d
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.125/32 -> Port 3 (MAC: 00:00:00
+:00:00:7d)
+[7] Modified route: 10.0.0.93/32 -> port 1, mac 00:00:00:00:00:5d
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.93/32 -> Port 1 (MAC: 00:00:00:
+00:00:5d)
+[6] Modified route: 10.0.0.125/32 -> port 3, mac 00:00:00:00:00:7d
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.125/32 -> Port 2 (MAC: 00:00:00
+:00:00:7d)
+[8] Modified route: 10.0.0.93/32 -> port 1, mac 00:00:00:00:00:5d
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.93/32 -> Port 3 (MAC: 00:00:00:
+00:00:5d)
+[7] Modified route: 10.0.0.125/32 -> port 2, mac 00:00:00:00:00:7d
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.125/32 -> Port 2 (MAC: 00:00:00
+:00:00:7d)
+[9] Modified route: 10.0.0.93/32 -> port 3, mac 00:00:00:00:00:5d
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.93/32 -> Port 3 (MAC: 00:00:00
+:00:00:5d)
+[8] Modified route: 10.0.0.125/32 -> port 2, mac 00:00:00:00:00:7d
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.125/32 -> Port 4 (MAC: 00:00:00
+:00:00:7d)
+[10] Modified route: 10.0.0.93/32 -> port 3, mac 00:00:00:00:00:5d
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.94/32 -> Port 1 (MAC: 00:00:00:
+00:00:5e)
+[9] Modified route: 10.0.0.125/32 -> port 4, mac 00:00:00:00:00:7d
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.125/32 -> Port 3 (MAC: 00:00:0
+0:00:00:7d)
+[1] Modified route: 10.0.0.94/32 -> port 1, mac 00:00:00:00:00:5e
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.94/32 -> Port 1 (MAC: 00:00:00:
+00:00:5e)
+[10] Modified route: 10.0.0.125/32 -> port 3, mac 00:00:00:00:00:7d
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.126/32 -> Port 1 (MAC: 00:00:00
+:00:00:7e)
+[2] Modified route: 10.0.0.94/32 -> port 1, mac 00:00:00:00:00:5e
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.94/32 -> Port 32 (MAC: 00:00:00
+:00:00:5e)
+[1] Modified route: 10.0.0.126/32 -> port 1, mac 00:00:00:00:00:7e
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.126/32 -> Port 1 (MAC: 00:00:00
+:00:00:7e)
+[3] Modified route: 10.0.0.94/32 -> port 32, mac 00:00:00:00:00:5e
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.94/32 -> Port 1 (MAC: 00:00:00:
+00:00:5e)
+[2] Modified route: 10.0.0.126/32 -> port 1, mac 00:00:00:00:00:7e
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.126/32 -> Port 1 (MAC: 00:00:00
+:00:00:7e)
+[4] Modified route: 10.0.0.94/32 -> port 1, mac 00:00:00:00:00:5e
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.94/32 -> Port 3 (MAC: 00:00:00:
+00:00:5e)
+[3] Modified route: 10.0.0.126/32 -> port 1, mac 00:00:00:00:00:7e
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.126/32 -> Port 32 (MAC: 00:00:0
+0:00:00:7e)
+[5] Modified route: 10.0.0.94/32 -> port 3, mac 00:00:00:00:00:5e
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.94/32 -> Port 3 (MAC: 00:00:00:
+00:00:5e)
+[4] Modified route: 10.0.0.126/32 -> port 32, mac 00:00:00:00:00:7e
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.126/32 -> Port 3 (MAC: 00:00:00
+:00:00:7e)
+[6] Modified route: 10.0.0.94/32 -> port 3, mac 00:00:00:00:00:5e
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.94/32 -> Port 1 (MAC: 00:00:00:
+00:00:5e)
+[5] Modified route: 10.0.0.126/32 -> port 3, mac 00:00:00:00:00:7e
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.126/32 -> Port 3 (MAC: 00:00:00
+:00:00:7e)
+[7] Modified route: 10.0.0.94/32 -> port 1, mac 00:00:00:00:00:5e
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.94/32 -> Port 1 (MAC: 00:00:00:
+00:00:5e)
+[6] Modified route: 10.0.0.126/32 -> port 3, mac 00:00:00:00:00:7e
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.126/32 -> Port 2 (MAC: 00:00:00
+:00:00:7e)
+[8] Modified route: 10.0.0.94/32 -> port 1, mac 00:00:00:00:00:5e
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.94/32 -> Port 3 (MAC: 00:00:00:
+00:00:5e)
+[7] Modified route: 10.0.0.126/32 -> port 2, mac 00:00:00:00:00:7e
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.126/32 -> Port 2 (MAC: 00:00:00
+:00:00:7e)
+[9] Modified route: 10.0.0.94/32 -> port 3, mac 00:00:00:00:00:5e
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.94/32 -> Port 3 (MAC: 00:00:00
+:00:00:5e)
+[8] Modified route: 10.0.0.126/32 -> port 2, mac 00:00:00:00:00:7e
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.126/32 -> Port 4 (MAC: 00:00:00
+:00:00:7e)
+[10] Modified route: 10.0.0.94/32 -> port 3, mac 00:00:00:00:00:5e
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.95/32 -> Port 1 (MAC: 00:00:00:
+00:00:5f)
+[9] Modified route: 10.0.0.126/32 -> port 4, mac 00:00:00:00:00:7e
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.126/32 -> Port 3 (MAC: 00:00:0
+0:00:00:7e)
+[1] Modified route: 10.0.0.95/32 -> port 1, mac 00:00:00:00:00:5f
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.95/32 -> Port 1 (MAC: 00:00:00:
+00:00:5f)
+[10] Modified route: 10.0.0.126/32 -> port 3, mac 00:00:00:00:00:7e
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.127/32 -> Port 1 (MAC: 00:00:00
+:00:00:7f)
+[2] Modified route: 10.0.0.95/32 -> port 1, mac 00:00:00:00:00:5f
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.95/32 -> Port 33 (MAC: 00:00:00
+:00:00:5f)
+[1] Modified route: 10.0.0.127/32 -> port 1, mac 00:00:00:00:00:7f
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.127/32 -> Port 1 (MAC: 00:00:00
+:00:00:7f)
+[3] Modified route: 10.0.0.95/32 -> port 33, mac 00:00:00:00:00:5f
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.95/32 -> Port 1 (MAC: 00:00:00:
+00:00:5f)
+[2] Modified route: 10.0.0.127/32 -> port 1, mac 00:00:00:00:00:7f
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.127/32 -> Port 1 (MAC: 00:00:00
+:00:00:7f)
+[4] Modified route: 10.0.0.95/32 -> port 1, mac 00:00:00:00:00:5f
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.95/32 -> Port 3 (MAC: 00:00:00:
+00:00:5f)
+[3] Modified route: 10.0.0.127/32 -> port 1, mac 00:00:00:00:00:7f
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.127/32 -> Port 33 (MAC: 00:00:0
+0:00:00:7f)
+[5] Modified route: 10.0.0.95/32 -> port 3, mac 00:00:00:00:00:5f
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.95/32 -> Port 3 (MAC: 00:00:00:
+00:00:5f)
+[4] Modified route: 10.0.0.127/32 -> port 33, mac 00:00:00:00:00:7f
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.127/32 -> Port 3 (MAC: 00:00:00
+:00:00:7f)
+[6] Modified route: 10.0.0.95/32 -> port 3, mac 00:00:00:00:00:5f
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.95/32 -> Port 1 (MAC: 00:00:00:
+00:00:5f)
+[5] Modified route: 10.0.0.127/32 -> port 3, mac 00:00:00:00:00:7f
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.127/32 -> Port 3 (MAC: 00:00:00
+:00:00:7f)
+[7] Modified route: 10.0.0.95/32 -> port 1, mac 00:00:00:00:00:5f
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.95/32 -> Port 1 (MAC: 00:00:00:
+00:00:5f)
+[6] Modified route: 10.0.0.127/32 -> port 3, mac 00:00:00:00:00:7f
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.127/32 -> Port 2 (MAC: 00:00:00
+:00:00:7f)
+[8] Modified route: 10.0.0.95/32 -> port 1, mac 00:00:00:00:00:5f
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.95/32 -> Port 3 (MAC: 00:00:00:
+00:00:5f)
+[7] Modified route: 10.0.0.127/32 -> port 2, mac 00:00:00:00:00:7f
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.127/32 -> Port 2 (MAC: 00:00:00
+:00:00:7f)
+[9] Modified route: 10.0.0.95/32 -> port 3, mac 00:00:00:00:00:5f
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.95/32 -> Port 3 (MAC: 00:00:00
+:00:00:5f)
+[8] Modified route: 10.0.0.127/32 -> port 2, mac 00:00:00:00:00:7f
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.127/32 -> Port 4 (MAC: 00:00:00
+:00:00:7f)
+[10] Modified route: 10.0.0.95/32 -> port 3, mac 00:00:00:00:00:5f
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.96/32 -> Port 1 (MAC: 00:00:00:
+00:00:60)
+[9] Modified route: 10.0.0.127/32 -> port 4, mac 00:00:00:00:00:7f
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.127/32 -> Port 3 (MAC: 00:00:0
+0:00:00:7f)
+[1] Modified route: 10.0.0.96/32 -> port 1, mac 00:00:00:00:00:60
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.96/32 -> Port 1 (MAC: 00:00:00:
+00:00:60)
+[10] Modified route: 10.0.0.127/32 -> port 3, mac 00:00:00:00:00:7f
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.128/32 -> Port 1 (MAC: 00:00:00
+:00:00:80)
+[2] Modified route: 10.0.0.96/32 -> port 1, mac 00:00:00:00:00:60
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.96/32 -> Port 34 (MAC: 00:00:00
+:00:00:60)
+[1] Modified route: 10.0.0.128/32 -> port 1, mac 00:00:00:00:00:80
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.128/32 -> Port 1 (MAC: 00:00:00
+:00:00:80)
+[3] Modified route: 10.0.0.96/32 -> port 34, mac 00:00:00:00:00:60
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.96/32 -> Port 1 (MAC: 00:00:00:
+00:00:60)
+[2] Modified route: 10.0.0.128/32 -> port 1, mac 00:00:00:00:00:80
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.128/32 -> Port 1 (MAC: 00:00:00
+:00:00:80)
+[4] Modified route: 10.0.0.96/32 -> port 1, mac 00:00:00:00:00:60
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.96/32 -> Port 3 (MAC: 00:00:00:
+00:00:60)
+[3] Modified route: 10.0.0.128/32 -> port 1, mac 00:00:00:00:00:80
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.128/32 -> Port 34 (MAC: 00:00:0
+0:00:00:80)
+[5] Modified route: 10.0.0.96/32 -> port 3, mac 00:00:00:00:00:60
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.96/32 -> Port 3 (MAC: 00:00:00:
+00:00:60)
+[4] Modified route: 10.0.0.128/32 -> port 34, mac 00:00:00:00:00:80
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.128/32 -> Port 3 (MAC: 00:00:00
+:00:00:80)
+[6] Modified route: 10.0.0.96/32 -> port 3, mac 00:00:00:00:00:60
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.96/32 -> Port 1 (MAC: 00:00:00:
+00:00:60)
+[5] Modified route: 10.0.0.128/32 -> port 3, mac 00:00:00:00:00:80
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.128/32 -> Port 3 (MAC: 00:00:00
+:00:00:80)
+[7] Modified route: 10.0.0.96/32 -> port 1, mac 00:00:00:00:00:60
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.96/32 -> Port 1 (MAC: 00:00:00:
+00:00:60)
+[6] Modified route: 10.0.0.128/32 -> port 3, mac 00:00:00:00:00:80
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.128/32 -> Port 2 (MAC: 00:00:00
+:00:00:80)
+[8] Modified route: 10.0.0.96/32 -> port 1, mac 00:00:00:00:00:60
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.96/32 -> Port 3 (MAC: 00:00:00:
+00:00:60)
+[7] Modified route: 10.0.0.128/32 -> port 2, mac 00:00:00:00:00:80
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.128/32 -> Port 2 (MAC: 00:00:00
+:00:00:80)
+[9] Modified route: 10.0.0.96/32 -> port 3, mac 00:00:00:00:00:60
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.96/32 -> Port 3 (MAC: 00:00:00
+:00:00:60)
+[8] Modified route: 10.0.0.128/32 -> port 2, mac 00:00:00:00:00:80
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.128/32 -> Port 4 (MAC: 00:00:00
+:00:00:80)
+[10] Modified route: 10.0.0.96/32 -> port 3, mac 00:00:00:00:00:60
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.97/32 -> Port 1 (MAC: 00:00:00:
+00:00:61)
+[9] Modified route: 10.0.0.128/32 -> port 4, mac 00:00:00:00:00:80
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.128/32 -> Port 3 (MAC: 00:00:0
+0:00:00:80)
+[1] Modified route: 10.0.0.97/32 -> port 1, mac 00:00:00:00:00:61
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.97/32 -> Port 1 (MAC: 00:00:00:
+00:00:61)
+[10] Modified route: 10.0.0.128/32 -> port 3, mac 00:00:00:00:00:80
+[2] Modified route: 10.0.0.97/32 -> port 1, mac 00:00:00:00:00:61
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.97/32 -> Port 1 (MAC: 00:00:00:
+00:00:61)
+[3] Modified route: 10.0.0.97/32 -> port 1, mac 00:00:00:00:00:61
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.97/32 -> Port 3 (MAC: 00:00:00:
+00:00:61)
+[4] Modified route: 10.0.0.97/32 -> port 3, mac 00:00:00:00:00:61
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.97/32 -> Port 3 (MAC: 00:00:00:
+00:00:61)
+[5] Modified route: 10.0.0.97/32 -> port 3, mac 00:00:00:00:00:61
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.97/32 -> Port 3 (MAC: 00:00:00:
+00:00:61)
+[6] Modified route: 10.0.0.97/32 -> port 3, mac 00:00:00:00:00:61
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.97/32 -> Port 2 (MAC: 00:00:00:
+00:00:61)
+[7] Modified route: 10.0.0.97/32 -> port 2, mac 00:00:00:00:00:61
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.97/32 -> Port 2 (MAC: 00:00:00:
+00:00:61)
+[8] Modified route: 10.0.0.97/32 -> port 2, mac 00:00:00:00:00:61
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.97/32 -> Port 3 (MAC: 00:00:00:
+00:00:61)
+[9] Modified route: 10.0.0.97/32 -> port 3, mac 00:00:00:00:00:61
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.97/32 -> Port 3 (MAC: 00:00:00
+:00:00:61)
+[10] Modified route: 10.0.0.97/32 -> port 3, mac 00:00:00:00:00:61
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.98/32 -> Port 1 (MAC: 00:00:00:
+00:00:62)
+[1] Modified route: 10.0.0.98/32 -> port 1, mac 00:00:00:00:00:62
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.98/32 -> Port 1 (MAC: 00:00:00:
+00:00:62)
+[2] Modified route: 10.0.0.98/32 -> port 1, mac 00:00:00:00:00:62
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.98/32 -> Port 1 (MAC: 00:00:00:
+00:00:62)
+[3] Modified route: 10.0.0.98/32 -> port 1, mac 00:00:00:00:00:62
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.98/32 -> Port 4 (MAC: 00:00:00:
+00:00:62)
+[4] Modified route: 10.0.0.98/32 -> port 4, mac 00:00:00:00:00:62
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.98/32 -> Port 3 (MAC: 00:00:00:
+00:00:62)
+[5] Modified route: 10.0.0.98/32 -> port 3, mac 00:00:00:00:00:62
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.98/32 -> Port 3 (MAC: 00:00:00:
+00:00:62)
+[6] Modified route: 10.0.0.98/32 -> port 3, mac 00:00:00:00:00:62
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.98/32 -> Port 2 (MAC: 00:00:00:
+00:00:62)
+[7] Modified route: 10.0.0.98/32 -> port 2, mac 00:00:00:00:00:62
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.98/32 -> Port 2 (MAC: 00:00:00:
+00:00:62)
+[8] Modified route: 10.0.0.98/32 -> port 2, mac 00:00:00:00:00:62
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.98/32 -> Port 3 (MAC: 00:00:00:
+00:00:62)
+[9] Modified route: 10.0.0.98/32 -> port 3, mac 00:00:00:00:00:62
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.98/32 -> Port 3 (MAC: 00:00:00
+:00:00:62)
+[10] Modified route: 10.0.0.98/32 -> port 3, mac 00:00:00:00:00:62
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.99/32 -> Port 1 (MAC: 00:00:00:
+00:00:63)
+[1] Modified route: 10.0.0.99/32 -> port 1, mac 00:00:00:00:00:63
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.99/32 -> Port 1 (MAC: 00:00:00:
+00:00:63)
+[2] Modified route: 10.0.0.99/32 -> port 1, mac 00:00:00:00:00:63
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.99/32 -> Port 1 (MAC: 00:00:00:
+00:00:63)
+[3] Modified route: 10.0.0.99/32 -> port 1, mac 00:00:00:00:00:63
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.99/32 -> Port 5 (MAC: 00:00:00:
+00:00:63)
+[4] Modified route: 10.0.0.99/32 -> port 5, mac 00:00:00:00:00:63
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.99/32 -> Port 3 (MAC: 00:00:00:
+00:00:63)
+[5] Modified route: 10.0.0.99/32 -> port 3, mac 00:00:00:00:00:63
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.99/32 -> Port 3 (MAC: 00:00:00:
+00:00:63)
+[6] Modified route: 10.0.0.99/32 -> port 3, mac 00:00:00:00:00:63
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.99/32 -> Port 2 (MAC: 00:00:00:
+00:00:63)
+[7] Modified route: 10.0.0.99/32 -> port 2, mac 00:00:00:00:00:63
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.99/32 -> Port 2 (MAC: 00:00:00:
+00:00:63)
+[8] Modified route: 10.0.0.99/32 -> port 2, mac 00:00:00:00:00:63
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.99/32 -> Port 3 (MAC: 00:00:00:
+00:00:63)
+[9] Modified route: 10.0.0.99/32 -> port 3, mac 00:00:00:00:00:63
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.99/32 -> Port 3 (MAC: 00:00:00
+:00:00:63)
+[10] Modified route: 10.0.0.99/32 -> port 3, mac 00:00:00:00:00:63
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.100/32 -> Port 1 (MAC: 00:00:00
+:00:00:64)
+[1] Modified route: 10.0.0.100/32 -> port 1, mac 00:00:00:00:00:64
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.100/32 -> Port 1 (MAC: 00:00:00
+:00:00:64)
+[2] Modified route: 10.0.0.100/32 -> port 1, mac 00:00:00:00:00:64
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.100/32 -> Port 1 (MAC: 00:00:00
+:00:00:64)
+[3] Modified route: 10.0.0.100/32 -> port 1, mac 00:00:00:00:00:64
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.100/32 -> Port 6 (MAC: 00:00:00
+:00:00:64)
+[4] Modified route: 10.0.0.100/32 -> port 6, mac 00:00:00:00:00:64
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.100/32 -> Port 3 (MAC: 00:00:00
+:00:00:64)
+[5] Modified route: 10.0.0.100/32 -> port 3, mac 00:00:00:00:00:64
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.100/32 -> Port 3 (MAC: 00:00:00
+:00:00:64)
+[6] Modified route: 10.0.0.100/32 -> port 3, mac 00:00:00:00:00:64
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.100/32 -> Port 2 (MAC: 00:00:00
+:00:00:64)
+[7] Modified route: 10.0.0.100/32 -> port 2, mac 00:00:00:00:00:64
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.100/32 -> Port 2 (MAC: 00:00:00
+:00:00:64)
+[8] Modified route: 10.0.0.100/32 -> port 2, mac 00:00:00:00:00:64
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.100/32 -> Port 3 (MAC: 00:00:00
+:00:00:64)
+[9] Modified route: 10.0.0.100/32 -> port 3, mac 00:00:00:00:00:64
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.100/32 -> Port 3 (MAC: 00:00:0
+0:00:00:64)
+[10] Modified route: 10.0.0.100/32 -> port 3, mac 00:00:00:00:00:64
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.101/32 -> Port 1 (MAC: 00:00:00
+:00:00:65)
+[1] Modified route: 10.0.0.101/32 -> port 1, mac 00:00:00:00:00:65
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.101/32 -> Port 1 (MAC: 00:00:00
+:00:00:65)
+[2] Modified route: 10.0.0.101/32 -> port 1, mac 00:00:00:00:00:65
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.101/32 -> Port 1 (MAC: 00:00:00
+:00:00:65)
+[3] Modified route: 10.0.0.101/32 -> port 1, mac 00:00:00:00:00:65
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.101/32 -> Port 7 (MAC: 00:00:00
+:00:00:65)
+[4] Modified route: 10.0.0.101/32 -> port 7, mac 00:00:00:00:00:65
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.101/32 -> Port 3 (MAC: 00:00:00
+:00:00:65)
+[5] Modified route: 10.0.0.101/32 -> port 3, mac 00:00:00:00:00:65
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.101/32 -> Port 3 (MAC: 00:00:00
+:00:00:65)
+[6] Modified route: 10.0.0.101/32 -> port 3, mac 00:00:00:00:00:65
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.101/32 -> Port 2 (MAC: 00:00:00
+:00:00:65)
+[7] Modified route: 10.0.0.101/32 -> port 2, mac 00:00:00:00:00:65
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.101/32 -> Port 2 (MAC: 00:00:00
+:00:00:65)
+[8] Modified route: 10.0.0.101/32 -> port 2, mac 00:00:00:00:00:65
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.101/32 -> Port 3 (MAC: 00:00:00
+:00:00:65)
+[9] Modified route: 10.0.0.101/32 -> port 3, mac 00:00:00:00:00:65
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.101/32 -> Port 3 (MAC: 00:00:0
+0:00:00:65)
+[10] Modified route: 10.0.0.101/32 -> port 3, mac 00:00:00:00:00:65
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.102/32 -> Port 1 (MAC: 00:00:00
+:00:00:66)
+[1] Modified route: 10.0.0.102/32 -> port 1, mac 00:00:00:00:00:66
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.102/32 -> Port 1 (MAC: 00:00:00
+:00:00:66)
+[2] Modified route: 10.0.0.102/32 -> port 1, mac 00:00:00:00:00:66
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.102/32 -> Port 1 (MAC: 00:00:00
+:00:00:66)
+[3] Modified route: 10.0.0.102/32 -> port 1, mac 00:00:00:00:00:66
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.102/32 -> Port 8 (MAC: 00:00:00
+:00:00:66)
+[4] Modified route: 10.0.0.102/32 -> port 8, mac 00:00:00:00:00:66
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.102/32 -> Port 3 (MAC: 00:00:00
+:00:00:66)
+[5] Modified route: 10.0.0.102/32 -> port 3, mac 00:00:00:00:00:66
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.102/32 -> Port 3 (MAC: 00:00:00
+:00:00:66)
+[6] Modified route: 10.0.0.102/32 -> port 3, mac 00:00:00:00:00:66
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.102/32 -> Port 2 (MAC: 00:00:00
+:00:00:66)
+[7] Modified route: 10.0.0.102/32 -> port 2, mac 00:00:00:00:00:66
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.102/32 -> Port 2 (MAC: 00:00:00
+:00:00:66)
+[8] Modified route: 10.0.0.102/32 -> port 2, mac 00:00:00:00:00:66
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.102/32 -> Port 3 (MAC: 00:00:00
+:00:00:66)
+[9] Modified route: 10.0.0.102/32 -> port 3, mac 00:00:00:00:00:66
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.102/32 -> Port 3 (MAC: 00:00:0
+0:00:00:66)
+[10] Modified route: 10.0.0.102/32 -> port 3, mac 00:00:00:00:00:66
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.103/32 -> Port 1 (MAC: 00:00:00
+:00:00:67)
+[1] Modified route: 10.0.0.103/32 -> port 1, mac 00:00:00:00:00:67
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.103/32 -> Port 1 (MAC: 00:00:00
+:00:00:67)
+[2] Modified route: 10.0.0.103/32 -> port 1, mac 00:00:00:00:00:67
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.103/32 -> Port 1 (MAC: 00:00:00
+:00:00:67)
+[3] Modified route: 10.0.0.103/32 -> port 1, mac 00:00:00:00:00:67
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.103/32 -> Port 9 (MAC: 00:00:00
+:00:00:67)
+[4] Modified route: 10.0.0.103/32 -> port 9, mac 00:00:00:00:00:67
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.103/32 -> Port 3 (MAC: 00:00:00
+:00:00:67)
+[5] Modified route: 10.0.0.103/32 -> port 3, mac 00:00:00:00:00:67
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.103/32 -> Port 3 (MAC: 00:00:00
+:00:00:67)
+[6] Modified route: 10.0.0.103/32 -> port 3, mac 00:00:00:00:00:67
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.103/32 -> Port 2 (MAC: 00:00:00
+:00:00:67)
+[7] Modified route: 10.0.0.103/32 -> port 2, mac 00:00:00:00:00:67
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.103/32 -> Port 2 (MAC: 00:00:00
+:00:00:67)
+[8] Modified route: 10.0.0.103/32 -> port 2, mac 00:00:00:00:00:67
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.103/32 -> Port 3 (MAC: 00:00:00
+:00:00:67)
+[9] Modified route: 10.0.0.103/32 -> port 3, mac 00:00:00:00:00:67
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.103/32 -> Port 3 (MAC: 00:00:0
+0:00:00:67)
+[10] Modified route: 10.0.0.103/32 -> port 3, mac 00:00:00:00:00:67
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.104/32 -> Port 1 (MAC: 00:00:00
+:00:00:68)
+[1] Modified route: 10.0.0.104/32 -> port 1, mac 00:00:00:00:00:68
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.104/32 -> Port 1 (MAC: 00:00:00
+:00:00:68)
+[2] Modified route: 10.0.0.104/32 -> port 1, mac 00:00:00:00:00:68
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.104/32 -> Port 1 (MAC: 00:00:00
+:00:00:68)
+[3] Modified route: 10.0.0.104/32 -> port 1, mac 00:00:00:00:00:68
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.104/32 -> Port 10 (MAC: 00:00:0
+0:00:00:68)
+[4] Modified route: 10.0.0.104/32 -> port 10, mac 00:00:00:00:00:68
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.104/32 -> Port 3 (MAC: 00:00:00
+:00:00:68)
+[5] Modified route: 10.0.0.104/32 -> port 3, mac 00:00:00:00:00:68
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.104/32 -> Port 3 (MAC: 00:00:00
+:00:00:68)
+[6] Modified route: 10.0.0.104/32 -> port 3, mac 00:00:00:00:00:68
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.104/32 -> Port 2 (MAC: 00:00:00
+:00:00:68)
+[7] Modified route: 10.0.0.104/32 -> port 2, mac 00:00:00:00:00:68
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.104/32 -> Port 2 (MAC: 00:00:00
+:00:00:68)
+[8] Modified route: 10.0.0.104/32 -> port 2, mac 00:00:00:00:00:68
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.104/32 -> Port 3 (MAC: 00:00:00
+:00:00:68)
+[9] Modified route: 10.0.0.104/32 -> port 3, mac 00:00:00:00:00:68
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.104/32 -> Port 3 (MAC: 00:00:0
+0:00:00:68)
+[10] Modified route: 10.0.0.104/32 -> port 3, mac 00:00:00:00:00:68
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.105/32 -> Port 1 (MAC: 00:00:00
+:00:00:69)
+[1] Modified route: 10.0.0.105/32 -> port 1, mac 00:00:00:00:00:69
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.105/32 -> Port 1 (MAC: 00:00:00
+:00:00:69)
+[2] Modified route: 10.0.0.105/32 -> port 1, mac 00:00:00:00:00:69
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.105/32 -> Port 1 (MAC: 00:00:00
+:00:00:69)
+[3] Modified route: 10.0.0.105/32 -> port 1, mac 00:00:00:00:00:69
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.105/32 -> Port 11 (MAC: 00:00:0
+0:00:00:69)
+[4] Modified route: 10.0.0.105/32 -> port 11, mac 00:00:00:00:00:69
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.105/32 -> Port 3 (MAC: 00:00:00
+:00:00:69)
+[5] Modified route: 10.0.0.105/32 -> port 3, mac 00:00:00:00:00:69
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.105/32 -> Port 3 (MAC: 00:00:00
+:00:00:69)
+[6] Modified route: 10.0.0.105/32 -> port 3, mac 00:00:00:00:00:69
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.105/32 -> Port 2 (MAC: 00:00:00
+:00:00:69)
+[7] Modified route: 10.0.0.105/32 -> port 2, mac 00:00:00:00:00:69
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.105/32 -> Port 2 (MAC: 00:00:00
+:00:00:69)
+[8] Modified route: 10.0.0.105/32 -> port 2, mac 00:00:00:00:00:69
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.105/32 -> Port 3 (MAC: 00:00:00
+:00:00:69)
+[9] Modified route: 10.0.0.105/32 -> port 3, mac 00:00:00:00:00:69
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.105/32 -> Port 3 (MAC: 00:00:0
+0:00:00:69)
+[10] Modified route: 10.0.0.105/32 -> port 3, mac 00:00:00:00:00:69
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.106/32 -> Port 1 (MAC: 00:00:00
+:00:00:6a)
+[1] Modified route: 10.0.0.106/32 -> port 1, mac 00:00:00:00:00:6a
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.106/32 -> Port 1 (MAC: 00:00:00
+:00:00:6a)
+[2] Modified route: 10.0.0.106/32 -> port 1, mac 00:00:00:00:00:6a
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.106/32 -> Port 1 (MAC: 00:00:00
+:00:00:6a)
+[3] Modified route: 10.0.0.106/32 -> port 1, mac 00:00:00:00:00:6a
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.106/32 -> Port 12 (MAC: 00:00:0
+0:00:00:6a)
+[4] Modified route: 10.0.0.106/32 -> port 12, mac 00:00:00:00:00:6a
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.106/32 -> Port 3 (MAC: 00:00:00
+:00:00:6a)
+[5] Modified route: 10.0.0.106/32 -> port 3, mac 00:00:00:00:00:6a
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.106/32 -> Port 3 (MAC: 00:00:00
+:00:00:6a)
+[6] Modified route: 10.0.0.106/32 -> port 3, mac 00:00:00:00:00:6a
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.106/32 -> Port 2 (MAC: 00:00:00
+:00:00:6a)
+[7] Modified route: 10.0.0.106/32 -> port 2, mac 00:00:00:00:00:6a
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.106/32 -> Port 2 (MAC: 00:00:00
+:00:00:6a)
+[8] Modified route: 10.0.0.106/32 -> port 2, mac 00:00:00:00:00:6a
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.106/32 -> Port 3 (MAC: 00:00:00
+:00:00:6a)
+[9] Modified route: 10.0.0.106/32 -> port 3, mac 00:00:00:00:00:6a
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.106/32 -> Port 3 (MAC: 00:00:0
+0:00:00:6a)
+[10] Modified route: 10.0.0.106/32 -> port 3, mac 00:00:00:00:00:6a
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.107/32 -> Port 1 (MAC: 00:00:00
+:00:00:6b)
+[1] Modified route: 10.0.0.107/32 -> port 1, mac 00:00:00:00:00:6b
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.107/32 -> Port 1 (MAC: 00:00:00
+:00:00:6b)
+[2] Modified route: 10.0.0.107/32 -> port 1, mac 00:00:00:00:00:6b
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.107/32 -> Port 1 (MAC: 00:00:00
+:00:00:6b)
+[3] Modified route: 10.0.0.107/32 -> port 1, mac 00:00:00:00:00:6b
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.107/32 -> Port 13 (MAC: 00:00:0
+0:00:00:6b)
+[4] Modified route: 10.0.0.107/32 -> port 13, mac 00:00:00:00:00:6b
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.107/32 -> Port 3 (MAC: 00:00:00
+:00:00:6b)
+[5] Modified route: 10.0.0.107/32 -> port 3, mac 00:00:00:00:00:6b
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.107/32 -> Port 3 (MAC: 00:00:00
+:00:00:6b)
+[6] Modified route: 10.0.0.107/32 -> port 3, mac 00:00:00:00:00:6b
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.107/32 -> Port 2 (MAC: 00:00:00
+:00:00:6b)
+[7] Modified route: 10.0.0.107/32 -> port 2, mac 00:00:00:00:00:6b
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.107/32 -> Port 2 (MAC: 00:00:00
+:00:00:6b)
+[8] Modified route: 10.0.0.107/32 -> port 2, mac 00:00:00:00:00:6b
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.107/32 -> Port 3 (MAC: 00:00:00
+:00:00:6b)
+[9] Modified route: 10.0.0.107/32 -> port 3, mac 00:00:00:00:00:6b
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.107/32 -> Port 3 (MAC: 00:00:0
+0:00:00:6b)
+[10] Modified route: 10.0.0.107/32 -> port 3, mac 00:00:00:00:00:6b
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.108/32 -> Port 1 (MAC: 00:00:00
+:00:00:6c)
+[1] Modified route: 10.0.0.108/32 -> port 1, mac 00:00:00:00:00:6c
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.108/32 -> Port 1 (MAC: 00:00:00
+:00:00:6c)
+[2] Modified route: 10.0.0.108/32 -> port 1, mac 00:00:00:00:00:6c
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.108/32 -> Port 1 (MAC: 00:00:00
+:00:00:6c)
+[3] Modified route: 10.0.0.108/32 -> port 1, mac 00:00:00:00:00:6c
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.108/32 -> Port 14 (MAC: 00:00:0
+0:00:00:6c)
+[4] Modified route: 10.0.0.108/32 -> port 14, mac 00:00:00:00:00:6c
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.108/32 -> Port 3 (MAC: 00:00:00
+:00:00:6c)
+[5] Modified route: 10.0.0.108/32 -> port 3, mac 00:00:00:00:00:6c
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.108/32 -> Port 3 (MAC: 00:00:00
+:00:00:6c)
+[6] Modified route: 10.0.0.108/32 -> port 3, mac 00:00:00:00:00:6c
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.108/32 -> Port 2 (MAC: 00:00:00
+:00:00:6c)
+[7] Modified route: 10.0.0.108/32 -> port 2, mac 00:00:00:00:00:6c
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.108/32 -> Port 2 (MAC: 00:00:00
+:00:00:6c)
+[8] Modified route: 10.0.0.108/32 -> port 2, mac 00:00:00:00:00:6c
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.108/32 -> Port 3 (MAC: 00:00:00
+:00:00:6c)
+[9] Modified route: 10.0.0.108/32 -> port 3, mac 00:00:00:00:00:6c
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.108/32 -> Port 3 (MAC: 00:00:0
+0:00:00:6c)
+[10] Modified route: 10.0.0.108/32 -> port 3, mac 00:00:00:00:00:6c
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.109/32 -> Port 1 (MAC: 00:00:00
+:00:00:6d)
+[1] Modified route: 10.0.0.109/32 -> port 1, mac 00:00:00:00:00:6d
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.109/32 -> Port 1 (MAC: 00:00:00
+:00:00:6d)
+[2] Modified route: 10.0.0.109/32 -> port 1, mac 00:00:00:00:00:6d
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.109/32 -> Port 1 (MAC: 00:00:00
+:00:00:6d)
+[3] Modified route: 10.0.0.109/32 -> port 1, mac 00:00:00:00:00:6d
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.109/32 -> Port 15 (MAC: 00:00:0
+0:00:00:6d)
+[4] Modified route: 10.0.0.109/32 -> port 15, mac 00:00:00:00:00:6d
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.109/32 -> Port 3 (MAC: 00:00:00
+:00:00:6d)
+[5] Modified route: 10.0.0.109/32 -> port 3, mac 00:00:00:00:00:6d
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.109/32 -> Port 3 (MAC: 00:00:00
+:00:00:6d)
+[6] Modified route: 10.0.0.109/32 -> port 3, mac 00:00:00:00:00:6d
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.109/32 -> Port 2 (MAC: 00:00:00
+:00:00:6d)
+[7] Modified route: 10.0.0.109/32 -> port 2, mac 00:00:00:00:00:6d
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.109/32 -> Port 2 (MAC: 00:00:00
+:00:00:6d)
+[8] Modified route: 10.0.0.109/32 -> port 2, mac 00:00:00:00:00:6d
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.109/32 -> Port 3 (MAC: 00:00:00
+:00:00:6d)
+[9] Modified route: 10.0.0.109/32 -> port 3, mac 00:00:00:00:00:6d
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.109/32 -> Port 3 (MAC: 00:00:0
+0:00:00:6d)
+[10] Modified route: 10.0.0.109/32 -> port 3, mac 00:00:00:00:00:6d
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.110/32 -> Port 1 (MAC: 00:00:00
+:00:00:6e)
+[1] Modified route: 10.0.0.110/32 -> port 1, mac 00:00:00:00:00:6e
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.110/32 -> Port 1 (MAC: 00:00:00
+:00:00:6e)
+[2] Modified route: 10.0.0.110/32 -> port 1, mac 00:00:00:00:00:6e
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.110/32 -> Port 1 (MAC: 00:00:00
+:00:00:6e)
+[3] Modified route: 10.0.0.110/32 -> port 1, mac 00:00:00:00:00:6e
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.110/32 -> Port 16 (MAC: 00:00:0
+0:00:00:6e)
+[4] Modified route: 10.0.0.110/32 -> port 16, mac 00:00:00:00:00:6e
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.110/32 -> Port 3 (MAC: 00:00:00
+:00:00:6e)
+[5] Modified route: 10.0.0.110/32 -> port 3, mac 00:00:00:00:00:6e
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.110/32 -> Port 3 (MAC: 00:00:00
+:00:00:6e)
+[6] Modified route: 10.0.0.110/32 -> port 3, mac 00:00:00:00:00:6e
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.110/32 -> Port 2 (MAC: 00:00:00
+:00:00:6e)
+[7] Modified route: 10.0.0.110/32 -> port 2, mac 00:00:00:00:00:6e
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.110/32 -> Port 2 (MAC: 00:00:00
+:00:00:6e)
+[8] Modified route: 10.0.0.110/32 -> port 2, mac 00:00:00:00:00:6e
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.110/32 -> Port 3 (MAC: 00:00:00
+:00:00:6e)
+[9] Modified route: 10.0.0.110/32 -> port 3, mac 00:00:00:00:00:6e
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.110/32 -> Port 3 (MAC: 00:00:0
+0:00:00:6e)
+[10] Modified route: 10.0.0.110/32 -> port 3, mac 00:00:00:00:00:6e
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.111/32 -> Port 1 (MAC: 00:00:00
+:00:00:6f)
+[1] Modified route: 10.0.0.111/32 -> port 1, mac 00:00:00:00:00:6f
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.111/32 -> Port 1 (MAC: 00:00:00
+:00:00:6f)
+[2] Modified route: 10.0.0.111/32 -> port 1, mac 00:00:00:00:00:6f
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.111/32 -> Port 1 (MAC: 00:00:00
+:00:00:6f)
+[3] Modified route: 10.0.0.111/32 -> port 1, mac 00:00:00:00:00:6f
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.111/32 -> Port 17 (MAC: 00:00:0
+0:00:00:6f)
+[4] Modified route: 10.0.0.111/32 -> port 17, mac 00:00:00:00:00:6f
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.111/32 -> Port 3 (MAC: 00:00:00
+:00:00:6f)
+[5] Modified route: 10.0.0.111/32 -> port 3, mac 00:00:00:00:00:6f
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.111/32 -> Port 3 (MAC: 00:00:00
+:00:00:6f)
+[6] Modified route: 10.0.0.111/32 -> port 3, mac 00:00:00:00:00:6f
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.111/32 -> Port 2 (MAC: 00:00:00
+:00:00:6f)
+[7] Modified route: 10.0.0.111/32 -> port 2, mac 00:00:00:00:00:6f
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.111/32 -> Port 2 (MAC: 00:00:00
+:00:00:6f)
+[8] Modified route: 10.0.0.111/32 -> port 2, mac 00:00:00:00:00:6f
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.111/32 -> Port 3 (MAC: 00:00:00
+:00:00:6f)
+[9] Modified route: 10.0.0.111/32 -> port 3, mac 00:00:00:00:00:6f
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.111/32 -> Port 3 (MAC: 00:00:0
+0:00:00:6f)
+[10] Modified route: 10.0.0.111/32 -> port 3, mac 00:00:00:00:00:6f
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.112/32 -> Port 1 (MAC: 00:00:00
+:00:00:70)
+[1] Modified route: 10.0.0.112/32 -> port 1, mac 00:00:00:00:00:70
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.112/32 -> Port 1 (MAC: 00:00:00
+:00:00:70)
+[2] Modified route: 10.0.0.112/32 -> port 1, mac 00:00:00:00:00:70
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.112/32 -> Port 1 (MAC: 00:00:00
+:00:00:70)
+[3] Modified route: 10.0.0.112/32 -> port 1, mac 00:00:00:00:00:70
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.112/32 -> Port 18 (MAC: 00:00:0
+0:00:00:70)
+[4] Modified route: 10.0.0.112/32 -> port 18, mac 00:00:00:00:00:70
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.112/32 -> Port 3 (MAC: 00:00:00
+:00:00:70)
+[5] Modified route: 10.0.0.112/32 -> port 3, mac 00:00:00:00:00:70
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.112/32 -> Port 3 (MAC: 00:00:00
+:00:00:70)
+[6] Modified route: 10.0.0.112/32 -> port 3, mac 00:00:00:00:00:70
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.112/32 -> Port 2 (MAC: 00:00:00
+:00:00:70)
+[7] Modified route: 10.0.0.112/32 -> port 2, mac 00:00:00:00:00:70
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.112/32 -> Port 2 (MAC: 00:00:00
+:00:00:70)
+[8] Modified route: 10.0.0.112/32 -> port 2, mac 00:00:00:00:00:70
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.112/32 -> Port 3 (MAC: 00:00:00
+:00:00:70)
+[9] Modified route: 10.0.0.112/32 -> port 3, mac 00:00:00:00:00:70
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.112/32 -> Port 3 (MAC: 00:00:0
+0:00:00:70)
+[10] Modified route: 10.0.0.112/32 -> port 3, mac 00:00:00:00:00:70
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.113/32 -> Port 1 (MAC: 00:00:00
+:00:00:71)
+[1] Modified route: 10.0.0.113/32 -> port 1, mac 00:00:00:00:00:71
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.113/32 -> Port 1 (MAC: 00:00:00
+:00:00:71)
+[2] Modified route: 10.0.0.113/32 -> port 1, mac 00:00:00:00:00:71
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.113/32 -> Port 1 (MAC: 00:00:00
+:00:00:71)
+[3] Modified route: 10.0.0.113/32 -> port 1, mac 00:00:00:00:00:71
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.113/32 -> Port 19 (MAC: 00:00:0
+0:00:00:71)
+[4] Modified route: 10.0.0.113/32 -> port 19, mac 00:00:00:00:00:71
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.113/32 -> Port 3 (MAC: 00:00:00
+:00:00:71)
+[5] Modified route: 10.0.0.113/32 -> port 3, mac 00:00:00:00:00:71
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.113/32 -> Port 3 (MAC: 00:00:00
+:00:00:71)
+[6] Modified route: 10.0.0.113/32 -> port 3, mac 00:00:00:00:00:71
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.113/32 -> Port 2 (MAC: 00:00:00
+:00:00:71)
+[7] Modified route: 10.0.0.113/32 -> port 2, mac 00:00:00:00:00:71
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.113/32 -> Port 2 (MAC: 00:00:00
+:00:00:71)
+[8] Modified route: 10.0.0.113/32 -> port 2, mac 00:00:00:00:00:71
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.113/32 -> Port 3 (MAC: 00:00:00
+:00:00:71)
+[9] Modified route: 10.0.0.113/32 -> port 3, mac 00:00:00:00:00:71
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.113/32 -> Port 3 (MAC: 00:00:0
+0:00:00:71)
+[10] Modified route: 10.0.0.113/32 -> port 3, mac 00:00:00:00:00:71
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.114/32 -> Port 1 (MAC: 00:00:00
+:00:00:72)
+[1] Modified route: 10.0.0.114/32 -> port 1, mac 00:00:00:00:00:72
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.114/32 -> Port 1 (MAC: 00:00:00
+:00:00:72)
+[2] Modified route: 10.0.0.114/32 -> port 1, mac 00:00:00:00:00:72
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.114/32 -> Port 1 (MAC: 00:00:00
+:00:00:72)
+[3] Modified route: 10.0.0.114/32 -> port 1, mac 00:00:00:00:00:72
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.114/32 -> Port 20 (MAC: 00:00:0
+0:00:00:72)
+[4] Modified route: 10.0.0.114/32 -> port 20, mac 00:00:00:00:00:72
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.114/32 -> Port 3 (MAC: 00:00:00
+:00:00:72)
+[5] Modified route: 10.0.0.114/32 -> port 3, mac 00:00:00:00:00:72
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.114/32 -> Port 3 (MAC: 00:00:00
+:00:00:72)
+[6] Modified route: 10.0.0.114/32 -> port 3, mac 00:00:00:00:00:72
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.114/32 -> Port 2 (MAC: 00:00:00
+:00:00:72)
+[7] Modified route: 10.0.0.114/32 -> port 2, mac 00:00:00:00:00:72
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.114/32 -> Port 2 (MAC: 00:00:00
+:00:00:72)
+[8] Modified route: 10.0.0.114/32 -> port 2, mac 00:00:00:00:00:72
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.114/32 -> Port 3 (MAC: 00:00:00
+:00:00:72)
+[9] Modified route: 10.0.0.114/32 -> port 3, mac 00:00:00:00:00:72
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.114/32 -> Port 3 (MAC: 00:00:0
+0:00:00:72)
+[10] Modified route: 10.0.0.114/32 -> port 3, mac 00:00:00:00:00:72
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.115/32 -> Port 1 (MAC: 00:00:00
+:00:00:73)
+[1] Modified route: 10.0.0.115/32 -> port 1, mac 00:00:00:00:00:73
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.115/32 -> Port 1 (MAC: 00:00:00
+:00:00:73)
+[2] Modified route: 10.0.0.115/32 -> port 1, mac 00:00:00:00:00:73
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.115/32 -> Port 1 (MAC: 00:00:00
+:00:00:73)
+[3] Modified route: 10.0.0.115/32 -> port 1, mac 00:00:00:00:00:73
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.115/32 -> Port 21 (MAC: 00:00:0
+0:00:00:73)
+[4] Modified route: 10.0.0.115/32 -> port 21, mac 00:00:00:00:00:73
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.115/32 -> Port 3 (MAC: 00:00:00
+:00:00:73)
+[5] Modified route: 10.0.0.115/32 -> port 3, mac 00:00:00:00:00:73
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.115/32 -> Port 3 (MAC: 00:00:00
+:00:00:73)
+[6] Modified route: 10.0.0.115/32 -> port 3, mac 00:00:00:00:00:73
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.115/32 -> Port 2 (MAC: 00:00:00
+:00:00:73)
+[7] Modified route: 10.0.0.115/32 -> port 2, mac 00:00:00:00:00:73
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.115/32 -> Port 2 (MAC: 00:00:00
+:00:00:73)
+[8] Modified route: 10.0.0.115/32 -> port 2, mac 00:00:00:00:00:73
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.115/32 -> Port 3 (MAC: 00:00:00
+:00:00:73)
+[9] Modified route: 10.0.0.115/32 -> port 3, mac 00:00:00:00:00:73
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.115/32 -> Port 3 (MAC: 00:00:0
+0:00:00:73)
+[10] Modified route: 10.0.0.115/32 -> port 3, mac 00:00:00:00:00:73
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.116/32 -> Port 1 (MAC: 00:00:00
+:00:00:74)
+[1] Modified route: 10.0.0.116/32 -> port 1, mac 00:00:00:00:00:74
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.116/32 -> Port 1 (MAC: 00:00:00
+:00:00:74)
+[2] Modified route: 10.0.0.116/32 -> port 1, mac 00:00:00:00:00:74
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.116/32 -> Port 1 (MAC: 00:00:00
+:00:00:74)
+[3] Modified route: 10.0.0.116/32 -> port 1, mac 00:00:00:00:00:74
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.116/32 -> Port 22 (MAC: 00:00:0
+0:00:00:74)
+[4] Modified route: 10.0.0.116/32 -> port 22, mac 00:00:00:00:00:74
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.116/32 -> Port 3 (MAC: 00:00:00
+:00:00:74)
+[5] Modified route: 10.0.0.116/32 -> port 3, mac 00:00:00:00:00:74
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.116/32 -> Port 3 (MAC: 00:00:00
+:00:00:74)
+[6] Modified route: 10.0.0.116/32 -> port 3, mac 00:00:00:00:00:74
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.116/32 -> Port 2 (MAC: 00:00:00
+:00:00:74)
+[7] Modified route: 10.0.0.116/32 -> port 2, mac 00:00:00:00:00:74
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.116/32 -> Port 2 (MAC: 00:00:00
+:00:00:74)
+[8] Modified route: 10.0.0.116/32 -> port 2, mac 00:00:00:00:00:74
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.116/32 -> Port 3 (MAC: 00:00:00
+:00:00:74)
+[9] Modified route: 10.0.0.116/32 -> port 3, mac 00:00:00:00:00:74
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.116/32 -> Port 3 (MAC: 00:00:0
+0:00:00:74)
+[10] Modified route: 10.0.0.116/32 -> port 3, mac 00:00:00:00:00:74
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.117/32 -> Port 1 (MAC: 00:00:00
+:00:00:75)
+[1] Modified route: 10.0.0.117/32 -> port 1, mac 00:00:00:00:00:75
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.117/32 -> Port 1 (MAC: 00:00:00
+:00:00:75)
+[2] Modified route: 10.0.0.117/32 -> port 1, mac 00:00:00:00:00:75
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.117/32 -> Port 1 (MAC: 00:00:00
+:00:00:75)
+[3] Modified route: 10.0.0.117/32 -> port 1, mac 00:00:00:00:00:75
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.117/32 -> Port 23 (MAC: 00:00:0
+0:00:00:75)
+[4] Modified route: 10.0.0.117/32 -> port 23, mac 00:00:00:00:00:75
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.117/32 -> Port 3 (MAC: 00:00:00
+:00:00:75)
+[5] Modified route: 10.0.0.117/32 -> port 3, mac 00:00:00:00:00:75
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.117/32 -> Port 3 (MAC: 00:00:00
+:00:00:75)
+[6] Modified route: 10.0.0.117/32 -> port 3, mac 00:00:00:00:00:75
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.117/32 -> Port 2 (MAC: 00:00:00
+:00:00:75)
+[7] Modified route: 10.0.0.117/32 -> port 2, mac 00:00:00:00:00:75
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.117/32 -> Port 2 (MAC: 00:00:00
+:00:00:75)
+[8] Modified route: 10.0.0.117/32 -> port 2, mac 00:00:00:00:00:75
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.117/32 -> Port 3 (MAC: 00:00:00
+:00:00:75)
+[9] Modified route: 10.0.0.117/32 -> port 3, mac 00:00:00:00:00:75
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.117/32 -> Port 3 (MAC: 00:00:0
+0:00:00:75)
+[10] Modified route: 10.0.0.117/32 -> port 3, mac 00:00:00:00:00:75
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.118/32 -> Port 1 (MAC: 00:00:00
+:00:00:76)
+[1] Modified route: 10.0.0.118/32 -> port 1, mac 00:00:00:00:00:76
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.118/32 -> Port 1 (MAC: 00:00:00
+:00:00:76)
+[2] Modified route: 10.0.0.118/32 -> port 1, mac 00:00:00:00:00:76
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.118/32 -> Port 1 (MAC: 00:00:00
+:00:00:76)
+[3] Modified route: 10.0.0.118/32 -> port 1, mac 00:00:00:00:00:76
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.118/32 -> Port 24 (MAC: 00:00:0
+0:00:00:76)
+[4] Modified route: 10.0.0.118/32 -> port 24, mac 00:00:00:00:00:76
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.118/32 -> Port 3 (MAC: 00:00:00
+:00:00:76)
+[5] Modified route: 10.0.0.118/32 -> port 3, mac 00:00:00:00:00:76
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.118/32 -> Port 3 (MAC: 00:00:00
+:00:00:76)
+[6] Modified route: 10.0.0.118/32 -> port 3, mac 00:00:00:00:00:76
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.118/32 -> Port 2 (MAC: 00:00:00
+:00:00:76)
+[7] Modified route: 10.0.0.118/32 -> port 2, mac 00:00:00:00:00:76
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.118/32 -> Port 2 (MAC: 00:00:00
+:00:00:76)
+[8] Modified route: 10.0.0.118/32 -> port 2, mac 00:00:00:00:00:76
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.118/32 -> Port 3 (MAC: 00:00:00
+:00:00:76)
+[9] Modified route: 10.0.0.118/32 -> port 3, mac 00:00:00:00:00:76
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.118/32 -> Port 3 (MAC: 00:00:0
+0:00:00:76)
+[10] Modified route: 10.0.0.118/32 -> port 3, mac 00:00:00:00:00:76
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.119/32 -> Port 1 (MAC: 00:00:00
+:00:00:77)
+[1] Modified route: 10.0.0.119/32 -> port 1, mac 00:00:00:00:00:77
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.119/32 -> Port 1 (MAC: 00:00:00
+:00:00:77)
+[2] Modified route: 10.0.0.119/32 -> port 1, mac 00:00:00:00:00:77
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.119/32 -> Port 1 (MAC: 00:00:00
+:00:00:77)
+[3] Modified route: 10.0.0.119/32 -> port 1, mac 00:00:00:00:00:77
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.119/32 -> Port 25 (MAC: 00:00:0
+0:00:00:77)
+[4] Modified route: 10.0.0.119/32 -> port 25, mac 00:00:00:00:00:77
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.119/32 -> Port 3 (MAC: 00:00:00
+:00:00:77)
+[5] Modified route: 10.0.0.119/32 -> port 3, mac 00:00:00:00:00:77
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.119/32 -> Port 3 (MAC: 00:00:00
+:00:00:77)
+[6] Modified route: 10.0.0.119/32 -> port 3, mac 00:00:00:00:00:77
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.119/32 -> Port 2 (MAC: 00:00:00
+:00:00:77)
+[7] Modified route: 10.0.0.119/32 -> port 2, mac 00:00:00:00:00:77
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.119/32 -> Port 2 (MAC: 00:00:00
+:00:00:77)
+[8] Modified route: 10.0.0.119/32 -> port 2, mac 00:00:00:00:00:77
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.119/32 -> Port 3 (MAC: 00:00:00
+:00:00:77)
+[9] Modified route: 10.0.0.119/32 -> port 3, mac 00:00:00:00:00:77
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.119/32 -> Port 3 (MAC: 00:00:0
+0:00:00:77)
+[10] Modified route: 10.0.0.119/32 -> port 3, mac 00:00:00:00:00:77
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.120/32 -> Port 1 (MAC: 00:00:00
+:00:00:78)
+[1] Modified route: 10.0.0.120/32 -> port 1, mac 00:00:00:00:00:78
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.120/32 -> Port 1 (MAC: 00:00:00
+:00:00:78)
+[2] Modified route: 10.0.0.120/32 -> port 1, mac 00:00:00:00:00:78
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.120/32 -> Port 1 (MAC: 00:00:00
+:00:00:78)
+[3] Modified route: 10.0.0.120/32 -> port 1, mac 00:00:00:00:00:78
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.120/32 -> Port 26 (MAC: 00:00:0
+0:00:00:78)
+[4] Modified route: 10.0.0.120/32 -> port 26, mac 00:00:00:00:00:78
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.120/32 -> Port 3 (MAC: 00:00:00
+:00:00:78)
+[5] Modified route: 10.0.0.120/32 -> port 3, mac 00:00:00:00:00:78
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.120/32 -> Port 3 (MAC: 00:00:00
+:00:00:78)
+[6] Modified route: 10.0.0.120/32 -> port 3, mac 00:00:00:00:00:78
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.120/32 -> Port 2 (MAC: 00:00:00
+:00:00:78)
+[7] Modified route: 10.0.0.120/32 -> port 2, mac 00:00:00:00:00:78
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.120/32 -> Port 2 (MAC: 00:00:00
+:00:00:78)
+[8] Modified route: 10.0.0.120/32 -> port 2, mac 00:00:00:00:00:78
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.120/32 -> Port 3 (MAC: 00:00:00
+:00:00:78)
+[9] Modified route: 10.0.0.120/32 -> port 3, mac 00:00:00:00:00:78
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.120/32 -> Port 3 (MAC: 00:00:0
+0:00:00:78)
+[10] Modified route: 10.0.0.120/32 -> port 3, mac 00:00:00:00:00:78
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.121/32 -> Port 1 (MAC: 00:00:00
+:00:00:79)
+[1] Modified route: 10.0.0.121/32 -> port 1, mac 00:00:00:00:00:79
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.121/32 -> Port 1 (MAC: 00:00:00
+:00:00:79)
+[2] Modified route: 10.0.0.121/32 -> port 1, mac 00:00:00:00:00:79
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.121/32 -> Port 1 (MAC: 00:00:00
+:00:00:79)
+[3] Modified route: 10.0.0.121/32 -> port 1, mac 00:00:00:00:00:79
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.121/32 -> Port 27 (MAC: 00:00:0
+0:00:00:79)
+[4] Modified route: 10.0.0.121/32 -> port 27, mac 00:00:00:00:00:79
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.121/32 -> Port 3 (MAC: 00:00:00
+:00:00:79)
+[5] Modified route: 10.0.0.121/32 -> port 3, mac 00:00:00:00:00:79
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.121/32 -> Port 3 (MAC: 00:00:00
+:00:00:79)
+[6] Modified route: 10.0.0.121/32 -> port 3, mac 00:00:00:00:00:79
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.121/32 -> Port 2 (MAC: 00:00:00
+:00:00:79)
+[7] Modified route: 10.0.0.121/32 -> port 2, mac 00:00:00:00:00:79
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.121/32 -> Port 2 (MAC: 00:00:00
+:00:00:79)
+[8] Modified route: 10.0.0.121/32 -> port 2, mac 00:00:00:00:00:79
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.121/32 -> Port 3 (MAC: 00:00:00
+:00:00:79)
+[9] Modified route: 10.0.0.121/32 -> port 3, mac 00:00:00:00:00:79
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.121/32 -> Port 3 (MAC: 00:00:0
+0:00:00:79)
+[10] Modified route: 10.0.0.121/32 -> port 3, mac 00:00:00:00:00:79
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.122/32 -> Port 1 (MAC: 00:00:00
+:00:00:7a)
+[1] Modified route: 10.0.0.122/32 -> port 1, mac 00:00:00:00:00:7a
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.122/32 -> Port 1 (MAC: 00:00:00
+:00:00:7a)
+[2] Modified route: 10.0.0.122/32 -> port 1, mac 00:00:00:00:00:7a
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.122/32 -> Port 1 (MAC: 00:00:00
+:00:00:7a)
+[3] Modified route: 10.0.0.122/32 -> port 1, mac 00:00:00:00:00:7a
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.122/32 -> Port 28 (MAC: 00:00:0
+0:00:00:7a)
+[4] Modified route: 10.0.0.122/32 -> port 28, mac 00:00:00:00:00:7a
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.122/32 -> Port 3 (MAC: 00:00:00
+:00:00:7a)
+[5] Modified route: 10.0.0.122/32 -> port 3, mac 00:00:00:00:00:7a
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.122/32 -> Port 3 (MAC: 00:00:00
+:00:00:7a)
+[6] Modified route: 10.0.0.122/32 -> port 3, mac 00:00:00:00:00:7a
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.122/32 -> Port 2 (MAC: 00:00:00
+:00:00:7a)
+[7] Modified route: 10.0.0.122/32 -> port 2, mac 00:00:00:00:00:7a
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.122/32 -> Port 2 (MAC: 00:00:00
+:00:00:7a)
+[8] Modified route: 10.0.0.122/32 -> port 2, mac 00:00:00:00:00:7a
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.122/32 -> Port 3 (MAC: 00:00:00
+:00:00:7a)
+[9] Modified route: 10.0.0.122/32 -> port 3, mac 00:00:00:00:00:7a
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.122/32 -> Port 3 (MAC: 00:00:0
+0:00:00:7a)
+[10] Modified route: 10.0.0.122/32 -> port 3, mac 00:00:00:00:00:7a
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.123/32 -> Port 1 (MAC: 00:00:00
+:00:00:7b)
+[1] Modified route: 10.0.0.123/32 -> port 1, mac 00:00:00:00:00:7b
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.123/32 -> Port 1 (MAC: 00:00:00
+:00:00:7b)
+[2] Modified route: 10.0.0.123/32 -> port 1, mac 00:00:00:00:00:7b
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.123/32 -> Port 1 (MAC: 00:00:00
+:00:00:7b)
+[3] Modified route: 10.0.0.123/32 -> port 1, mac 00:00:00:00:00:7b
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.123/32 -> Port 29 (MAC: 00:00:0
+0:00:00:7b)
+[4] Modified route: 10.0.0.123/32 -> port 29, mac 00:00:00:00:00:7b
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.123/32 -> Port 3 (MAC: 00:00:00
+:00:00:7b)
+[5] Modified route: 10.0.0.123/32 -> port 3, mac 00:00:00:00:00:7b
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.123/32 -> Port 3 (MAC: 00:00:00
+:00:00:7b)
+[6] Modified route: 10.0.0.123/32 -> port 3, mac 00:00:00:00:00:7b
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.123/32 -> Port 2 (MAC: 00:00:00
+:00:00:7b)
+[7] Modified route: 10.0.0.123/32 -> port 2, mac 00:00:00:00:00:7b
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.123/32 -> Port 2 (MAC: 00:00:00
+:00:00:7b)
+[8] Modified route: 10.0.0.123/32 -> port 2, mac 00:00:00:00:00:7b
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.123/32 -> Port 3 (MAC: 00:00:00
+:00:00:7b)
+[9] Modified route: 10.0.0.123/32 -> port 3, mac 00:00:00:00:00:7b
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.123/32 -> Port 3 (MAC: 00:00:0
+0:00:00:7b)
+[10] Modified route: 10.0.0.123/32 -> port 3, mac 00:00:00:00:00:7b
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.124/32 -> Port 1 (MAC: 00:00:00
+:00:00:7c)
+[1] Modified route: 10.0.0.124/32 -> port 1, mac 00:00:00:00:00:7c
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.124/32 -> Port 1 (MAC: 00:00:00
+:00:00:7c)
+[2] Modified route: 10.0.0.124/32 -> port 1, mac 00:00:00:00:00:7c
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.124/32 -> Port 1 (MAC: 00:00:00
+:00:00:7c)
+[3] Modified route: 10.0.0.124/32 -> port 1, mac 00:00:00:00:00:7c
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.124/32 -> Port 30 (MAC: 00:00:0
+0:00:00:7c)
+[4] Modified route: 10.0.0.124/32 -> port 30, mac 00:00:00:00:00:7c
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.124/32 -> Port 3 (MAC: 00:00:00
+:00:00:7c)
+[5] Modified route: 10.0.0.124/32 -> port 3, mac 00:00:00:00:00:7c
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.124/32 -> Port 3 (MAC: 00:00:00
+:00:00:7c)
+[6] Modified route: 10.0.0.124/32 -> port 3, mac 00:00:00:00:00:7c
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.124/32 -> Port 2 (MAC: 00:00:00
+:00:00:7c)
+[7] Modified route: 10.0.0.124/32 -> port 2, mac 00:00:00:00:00:7c
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.124/32 -> Port 2 (MAC: 00:00:00
+:00:00:7c)
+[8] Modified route: 10.0.0.124/32 -> port 2, mac 00:00:00:00:00:7c
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.124/32 -> Port 3 (MAC: 00:00:00
+:00:00:7c)
+[9] Modified route: 10.0.0.124/32 -> port 3, mac 00:00:00:00:00:7c
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.124/32 -> Port 3 (MAC: 00:00:0
+0:00:00:7c)
+[10] Modified route: 10.0.0.124/32 -> port 3, mac 00:00:00:00:00:7c
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.125/32 -> Port 1 (MAC: 00:00:00
+:00:00:7d)
+[1] Modified route: 10.0.0.125/32 -> port 1, mac 00:00:00:00:00:7d
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.125/32 -> Port 1 (MAC: 00:00:00
+:00:00:7d)
+[2] Modified route: 10.0.0.125/32 -> port 1, mac 00:00:00:00:00:7d
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.125/32 -> Port 1 (MAC: 00:00:00
+:00:00:7d)
+[3] Modified route: 10.0.0.125/32 -> port 1, mac 00:00:00:00:00:7d
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.125/32 -> Port 31 (MAC: 00:00:0
+0:00:00:7d)
+[4] Modified route: 10.0.0.125/32 -> port 31, mac 00:00:00:00:00:7d
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.125/32 -> Port 3 (MAC: 00:00:00
+:00:00:7d)
+[5] Modified route: 10.0.0.125/32 -> port 3, mac 00:00:00:00:00:7d
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.125/32 -> Port 3 (MAC: 00:00:00
+:00:00:7d)
+[6] Modified route: 10.0.0.125/32 -> port 3, mac 00:00:00:00:00:7d
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.125/32 -> Port 2 (MAC: 00:00:00
+:00:00:7d)
+[7] Modified route: 10.0.0.125/32 -> port 2, mac 00:00:00:00:00:7d
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.125/32 -> Port 2 (MAC: 00:00:00
+:00:00:7d)
+[8] Modified route: 10.0.0.125/32 -> port 2, mac 00:00:00:00:00:7d
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.125/32 -> Port 3 (MAC: 00:00:00
+:00:00:7d)
+[9] Modified route: 10.0.0.125/32 -> port 3, mac 00:00:00:00:00:7d
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.125/32 -> Port 3 (MAC: 00:00:0
+0:00:00:7d)
+[10] Modified route: 10.0.0.125/32 -> port 3, mac 00:00:00:00:00:7d
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.126/32 -> Port 1 (MAC: 00:00:00
+:00:00:7e)
+[1] Modified route: 10.0.0.126/32 -> port 1, mac 00:00:00:00:00:7e
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.126/32 -> Port 1 (MAC: 00:00:00
+:00:00:7e)
+[2] Modified route: 10.0.0.126/32 -> port 1, mac 00:00:00:00:00:7e
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.126/32 -> Port 1 (MAC: 00:00:00
+:00:00:7e)
+[3] Modified route: 10.0.0.126/32 -> port 1, mac 00:00:00:00:00:7e
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.126/32 -> Port 32 (MAC: 00:00:0
+0:00:00:7e)
+[4] Modified route: 10.0.0.126/32 -> port 32, mac 00:00:00:00:00:7e
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.126/32 -> Port 3 (MAC: 00:00:00
+:00:00:7e)
+[5] Modified route: 10.0.0.126/32 -> port 3, mac 00:00:00:00:00:7e
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.126/32 -> Port 3 (MAC: 00:00:00
+:00:00:7e)
+[6] Modified route: 10.0.0.126/32 -> port 3, mac 00:00:00:00:00:7e
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.126/32 -> Port 2 (MAC: 00:00:00
+:00:00:7e)
+[7] Modified route: 10.0.0.126/32 -> port 2, mac 00:00:00:00:00:7e
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.126/32 -> Port 2 (MAC: 00:00:00
+:00:00:7e)
+[8] Modified route: 10.0.0.126/32 -> port 2, mac 00:00:00:00:00:7e
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.126/32 -> Port 3 (MAC: 00:00:00
+:00:00:7e)
+[9] Modified route: 10.0.0.126/32 -> port 3, mac 00:00:00:00:00:7e
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.126/32 -> Port 3 (MAC: 00:00:0
+0:00:00:7e)
+[10] Modified route: 10.0.0.126/32 -> port 3, mac 00:00:00:00:00:7e
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.127/32 -> Port 1 (MAC: 00:00:00
+:00:00:7f)
+[1] Modified route: 10.0.0.127/32 -> port 1, mac 00:00:00:00:00:7f
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.127/32 -> Port 1 (MAC: 00:00:00
+:00:00:7f)
+[2] Modified route: 10.0.0.127/32 -> port 1, mac 00:00:00:00:00:7f
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.127/32 -> Port 1 (MAC: 00:00:00
+:00:00:7f)
+[3] Modified route: 10.0.0.127/32 -> port 1, mac 00:00:00:00:00:7f
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.127/32 -> Port 33 (MAC: 00:00:0
+0:00:00:7f)
+[4] Modified route: 10.0.0.127/32 -> port 33, mac 00:00:00:00:00:7f
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.127/32 -> Port 3 (MAC: 00:00:00
+:00:00:7f)
+[5] Modified route: 10.0.0.127/32 -> port 3, mac 00:00:00:00:00:7f
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.127/32 -> Port 3 (MAC: 00:00:00
+:00:00:7f)
+[6] Modified route: 10.0.0.127/32 -> port 3, mac 00:00:00:00:00:7f
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.127/32 -> Port 2 (MAC: 00:00:00
+:00:00:7f)
+[7] Modified route: 10.0.0.127/32 -> port 2, mac 00:00:00:00:00:7f
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.127/32 -> Port 2 (MAC: 00:00:00
+:00:00:7f)
+[8] Modified route: 10.0.0.127/32 -> port 2, mac 00:00:00:00:00:7f
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.127/32 -> Port 3 (MAC: 00:00:00
+:00:00:7f)
+[9] Modified route: 10.0.0.127/32 -> port 3, mac 00:00:00:00:00:7f
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.127/32 -> Port 3 (MAC: 00:00:0
+0:00:00:7f)
+[10] Modified route: 10.0.0.127/32 -> port 3, mac 00:00:00:00:00:7f
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.128/32 -> Port 1 (MAC: 00:00:00
+:00:00:80)
+[1] Modified route: 10.0.0.128/32 -> port 1, mac 00:00:00:00:00:80
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.128/32 -> Port 1 (MAC: 00:00:00
+:00:00:80)
+[2] Modified route: 10.0.0.128/32 -> port 1, mac 00:00:00:00:00:80
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.128/32 -> Port 1 (MAC: 00:00:00
+:00:00:80)
+[3] Modified route: 10.0.0.128/32 -> port 1, mac 00:00:00:00:00:80
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.128/32 -> Port 34 (MAC: 00:00:0
+0:00:00:80)
+[4] Modified route: 10.0.0.128/32 -> port 34, mac 00:00:00:00:00:80
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.128/32 -> Port 3 (MAC: 00:00:00
+:00:00:80)
+[5] Modified route: 10.0.0.128/32 -> port 3, mac 00:00:00:00:00:80
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.128/32 -> Port 3 (MAC: 00:00:00
+:00:00:80)
+[6] Modified route: 10.0.0.128/32 -> port 3, mac 00:00:00:00:00:80
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.128/32 -> Port 2 (MAC: 00:00:00
+:00:00:80)
+[7] Modified route: 10.0.0.128/32 -> port 2, mac 00:00:00:00:00:80
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.128/32 -> Port 2 (MAC: 00:00:00
+:00:00:80)
+[8] Modified route: 10.0.0.128/32 -> port 2, mac 00:00:00:00:00:80
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.128/32 -> Port 3 (MAC: 00:00:00
+:00:00:80)
+[9] Modified route: 10.0.0.128/32 -> port 3, mac 00:00:00:00:00:80
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.128/32 -> Port 3 (MAC: 00:00:0
+0:00:00:80)
+[10] Modified route: 10.0.0.128/32 -> port 3, mac 00:00:00:00:00:80
+[Kernel] switch 1 entered: FAILED ConnectionError: HTTPConnectionPool(host='loca
+lhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dp
+id=1 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000):
+ Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 2 entered: FAILED ConnectionError: HTTPConnectionPool(host='loca
+lhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dp
+id=2 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000):
+ Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 3 entered: FAILED ConnectionError: HTTPConnectionPool(host='loca
+lhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dp
+id=3 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000):
+ Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 4 entered: FAILED ConnectionError: HTTPConnectionPool(host='loca
+lhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dp
+id=4 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000):
+ Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 5 entered: FAILED ConnectionError: HTTPConnectionPool(host='loca
+lhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dp
+id=5 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000):
+ Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 6 entered: FAILED ConnectionError: HTTPConnectionPool(host='loca
+lhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dp
+id=6 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000):
+ Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 7 entered: FAILED ConnectionError: HTTPConnectionPool(host='loca
+lhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dp
+id=7 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000):
+ Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 8 entered: FAILED ConnectionError: HTTPConnectionPool(host='loca
+lhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dp
+id=8 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000):
+ Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 9 entered: FAILED ConnectionError: HTTPConnectionPool(host='loca
+lhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dp
+id=9 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000):
+ Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 10 entered: FAILED ConnectionError: HTTPConnectionPool(host='loc
+alhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?d
+pid=10 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000
+): Failed to establish a new connection: [Errno 111] Connection refused"))
+

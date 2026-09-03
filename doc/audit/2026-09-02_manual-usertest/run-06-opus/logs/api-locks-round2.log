@@ -1,0 +1,44 @@
+waiting 40s for any ttl to lapse (doc: default ttl 5s; I used 30 earlier)
+10:53:47
+############ ROUND 2 -- reproducing the missing-type result from a clean state ############
+
+===== 0) confirm nothing held: release routing_lock =====
+HTTP 200
+{"status":"released","type":"routing_lock"}
+
+===== 1) acquire_lock, body {"ttl":30}, NO type =====
+HTTP 200
+{"status":"locked","ttl":30,"type":"routing_lock"}
+
+===== 2) proof it really took routing_lock: ask for routing_lock =====
+HTTP 423
+{"detail":"System busy or invalid lock type: routing_lock","error":"Lock acquisition failed"}
+
+===== 3) release it =====
+HTTP 200
+{"status":"released","type":"routing_lock"}
+
+===== 4) acquire_lock with EMPTY body {} from clean state =====
+HTTP 200
+{"status":"locked","ttl":5,"type":"routing_lock"}
+
+===== 5) release =====
+HTTP 200
+{"status":"released","type":"routing_lock"}
+
+===== 6) acquire_lock with NON-STRING type 123 from clean state =====
+HTTP 200
+{"status":"locked","ttl":5,"type":"routing_lock"}
+
+===== 7) release =====
+HTTP 200
+{"status":"released","type":"routing_lock"}
+
+===== 8) acquire_lock with NO BODY AT ALL =====
+HTTP 200
+{"status":"locked","ttl":5,"type":"routing_lock"}
+
+===== 9) release =====
+HTTP 200
+{"status":"released","type":"routing_lock"}
+10:53:56

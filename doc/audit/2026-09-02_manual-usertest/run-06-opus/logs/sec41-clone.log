@@ -1,0 +1,40 @@
++ date +%H:%M
+10:19
++ which git
+/usr/bin/git
++ mkdir -p /home/ndt/Desktop
++ cd /home/ndt/Desktop
++ git clone https://github.com/ndtwin-lab/NDTwin-Kernel-P4-public.git NDTwin-Kernel
+Cloning into 'NDTwin-Kernel'...
++ echo CLONE_EXIT=0
+CLONE_EXIT=0
++ ls -la /home/ndt/Desktop/NDTwin-Kernel
++ head -40
+total 256
+drwxrwxr-x 15 ndt ndt   4096 Sep  3 10:19 .
+drwxrwxr-x  3 ndt ndt   4096 Sep  3 10:19 ..
+-rw-rw-r--  1 ndt ndt    472 Sep  3 10:19 .clang-format
+drwxrwxr-x  3 ndt ndt   4096 Sep  3 10:19 .claude
+drwxrwxr-x  8 ndt ndt   4096 Sep  3 10:19 .git
+-rw-rw-r--  1 ndt ndt   2172 Sep  3 10:19 .gitattributes
+drwxrwxr-x  3 ndt ndt   4096 Sep  3 10:19 .github
+-rw-rw-r--  1 ndt ndt   2900 Sep  3 10:19 .gitignore
+drwxrwxr-x  2 ndt ndt   4096 Sep  3 10:19 .vscode
+-rw-rw-r--  1 ndt ndt  27391 Sep  3 10:19 CHANGELOG.md
+-rw-rw-r--  1 ndt ndt   5174 Sep  3 10:19 CMakeLists.txt
+-rw-rw-r--  1 ndt ndt  10728 Sep  3 10:19 LICENSE
+-rw-rw-r--  1 ndt ndt   2354 Sep  3 10:19 README.md
+drwxrwxr-x  2 ndt ndt   4096 Sep  3 10:19 cmake
+drwxrwxr-x  4 ndt ndt   4096 Sep  3 10:19 doc
+drwxrwxr-x  6 ndt ndt   4096 Sep  3 10:19 include
+-rw-rw-r--  1 ndt ndt 114953 Sep  3 10:19 intelligent_router.py
+drwxrwxr-x  4 ndt ndt   4096 Sep  3 10:19 libs
+-rw-rw-r--  1 ndt ndt   1011 Sep  3 10:19 ndtwin-license-header.txt
+drwxrwxr-x  7 ndt ndt   4096 Sep  3 10:19 p4_proxy
+drwxrwxr-x  2 ndt ndt   4096 Sep  3 10:19 setting
+drwxrwxr-x  5 ndt ndt   4096 Sep  3 10:19 src
+-rwxrwxr-x  1 ndt ndt  10575 Sep  3 10:19 testbed_topo.py
+drwxrwxr-x  7 ndt ndt   4096 Sep  3 10:19 tests
+drwxrwxr-x  6 ndt ndt   4096 Sep  3 10:19 tools
++ date +%H:%M
+10:19

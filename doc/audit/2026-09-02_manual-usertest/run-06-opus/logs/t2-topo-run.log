@@ -1,0 +1,61 @@
+10:38:59
+=== first 40 lines of the topology pane ===
+ig. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consid
+er r2q change.
+(h46, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is b
+ig. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consid
+er r2q change.
+(h47, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is b
+ig. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consid
+er r2q change.
+(h48, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is b
+ig. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consid
+er r2q change.
+(h49, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is b
+ig. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consid
+er r2q change.
+(h50, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is b
+ig. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consid
+er r2q change.
+(h51, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is b
+ig. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consid
+er r2q change.
+(h52, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is b
+ig. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consid
+er r2q change.
+(h53, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is b
+ig. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consid
+er r2q change.
+(h54, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is b
+ig. Consider r2q change.
+(1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is big. Consid
+er r2q change.
+(h55, s2) (1000.00Mbit) *** Error: Warning: sch_htb: quantum of class 50001 is b
+=== last 15 lines ===
+
+
+Result from h126 to 10.0.0.62:
+PING 10.0.0.62 (10.0.0.62) 56(84) bytes of data.
+
+--- 10.0.0.62 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+
+
+
+--- Final Configuration Active ---
+Host internet: OK | sFlow reachability: OK | Switch identification: OK
+Run 'sflowtool -p 6343' in another terminal to see the data.
+*** Starting CLI:
+mininet>
+=== B3: does the documented bandwidth warning appear? ===
+32
+10:40:04

@@ -1,0 +1,6 @@
+=== measuring the exit status of the refusal cleanly (no pipe) ===
+exit status when the override file is missing: 1
+stdout/stderr was:
+Error: no bmv2 binary override at /home/ndt/Desktop/NDTwin-Kernel/p4_proxy/mininet/bmv2_binary_override. This file is tracked and must name the simple_switch_grpc to run -- there is no default to fall back to on purpose. Both installs answer --version identically, so a silent fallback picks a binary that differs by ~10x in throughput and says nothing. Write one absolute path, e.g. /usr/local/bmv2-fast/bin/simple_switch_grpc
+restored: /usr/local/bin/simple_switch_grpc
+13:19:35

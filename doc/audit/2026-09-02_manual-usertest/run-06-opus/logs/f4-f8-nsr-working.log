@@ -1,0 +1,40 @@
+11:01:07
+=== reproduction check: run the documented way a SECOND time ===
+  File "/home/ndt/Network-State-Recorder/network_state_recorder.py", line 6, in <module>
+    from nornir import InitNornir
+ModuleNotFoundError: No module named 'nornir'
+SCRIPT_EXIT=0
+  NOTHING RUNNING (reproduced)
+
+=== workaround: activate ~/nsr-env first, then run the same script ===
+Python 3.12.3
+--- F5: User Manual status check ---
+144093 python3 network_state_recorder.py
+NSR pid recorded: 144093
+
+--- F6: data location and naming convention ---
+doc: Raw: YYYY_MM_DD_HH-MM-SS_<datatype>.json ; Compressed: ..._json.zip ; types flowinfo/graphinfo
+total 240
+drwxrwxr-x 2 ndt ndt   4096 Sep  3 11:01 .
+drwxrwxr-x 8 ndt ndt   4096 Sep  3 11:01 ..
+-rw-rw-r-- 1 ndt ndt      0 Sep  3 11:01 2026_09_03_11-01-11_flowinfo.json
+-rw-rw-r-- 1 ndt ndt 236581 Sep  3 11:01 2026_09_03_11-01-11_graphinfo.json
+
+--- F8: log file logs/NSR_YYYY-MM-DD.log ---
+total 12
+drwxrwxr-x 2 ndt ndt 4096 Sep  3 11:01 .
+drwxrwxr-x 8 ndt ndt 4096 Sep  3 11:01 ..
+-rw-rw-r-- 1 ndt ndt 1632 Sep  3 11:01 NSR_2026-09-03.log
+expected name: logs/NSR_2026-09-03.log
+[32m2026-09-03 11:01:16[0m | [34m[1mDEBUG : Writing item with timestamp 1788433271307 to ./recorded_info/2026_09_03_11-01-11_graphinfo.json...[0m
+[32m2026-09-03 11:01:16[0m | [33m[1mWARNING : No new data from http://127.0.0.1:8000/ndt/get_detected_flow_data.[0m
+[32m2026-09-03 11:01:21[0m | [34m[1mDEBUG : Writing item with timestamp 1788433276292 to ./recorded_info/2026_09_03_11-01-11_flowinfo.json...[0m
+[32m2026-09-03 11:01:21[0m | [34m[1mDEBUG : Writing item with timestamp 1788433276313 to ./recorded_info/2026_09_03_11-01-11_graphinfo.json...[0m
+[32m2026-09-03 11:01:21[0m | [33m[1mWARNING : No new data from http://127.0.0.1:8000/ndt/get_detected_flow_data.[0m
+
+--- F7: JSON structure of the two data types ---
+== recorded_info/2026_09_03_11-01-11_flowinfo.json ==
+
+== recorded_info/2026_09_03_11-01-11_graphinfo.json ==
+{"timestamp":1788433271307,"edges":[{"admin_disabled":false,"dst_dpid":5,"dst_interface":1,"dst_ip":[259762368],"flow_set":[],"is_enabled":true,"is_up":true,"left_link_bandwidth_bps":1000000000,"link_bandwidth_bps":1000000000,"link_bandwidth_usage_bps":0,"link_bandwidth_utilization_percent":0.0,"src_dpid":1,"src_interface":1,"src_ip":[192653504]},{"admin_disabled":false,"dst_dpid":6,"dst_interface
+11:01:23

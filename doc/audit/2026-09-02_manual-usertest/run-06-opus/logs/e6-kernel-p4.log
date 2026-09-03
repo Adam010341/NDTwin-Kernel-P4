@@ -1,0 +1,19 @@
+13:11:20
+############ P4 Terminal 3: the kernel, with the 128-host P4 model ############
+=== E6: what the manual says to expect: 10 switches, all up and enabled, 288 edges ===
+aneHomogeneity] Data plane: bmv2 (10 switch(es))
+
+=== E7: doc says ONE failed request to port 8080 at startup is expected and self-healing ===
+  requests to :8080 that failed: 0
+  requests to :8081 (the proxy, where it should settle): 2
+gyApiUrls] All-bmv2 topology: polling http://localhost:8081/v1.0/topology for sw
+ionPathsPeriodically] Destination paths loaded from localhost:8081 (16256 pairs)
+
+=== :8000 listening? ===
+LISTEN 0      4096         0.0.0.0:8000       0.0.0.0:*          
+=== kernel's own view via the API ===
+ nodes 138  switches 10  hosts 128
+ edges 288
+ switches up 10  enabled 10
+ brand_name sample: ['BMv2', 'BMv2', 'BMv2', 'BMv2']
+13:12:05

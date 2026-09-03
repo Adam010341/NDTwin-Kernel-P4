@@ -1,0 +1,36 @@
+13:17:05
+=== put the stack back to a coherent P4 state first ===
+kernel graph: 138 nodes 288 edges
+
+############ E10: the manual's P4 shutdown, steps 1-7, in order ############
+--- step 1: Ctrl+C the kernel ---
+--- step 2: Ctrl+C the proxy ---
+--- step 3: exit the Mininet CLI ---
+--- step 4: sudo mn -c ---
+
+--- step 5: check for surviving BMv2 processes (the manual's own command) ---
+  ps -eo args= | grep -c '[s]imple_switch_grpc'  -> 0
+  (and the truncated-name form)                  -> 0
+0
+
+--- step 6: E12 confirm the proxy released 8081 ---
+  released
+
+--- step 7: E13 confirm the kernel released 8000 ---
+  released
+
+--- panes, for the record ---
+INFO:     Waiting for application shutdown.
+[Proxy Agent] Shutting down...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [268654]
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel/p4_proxy$
+83 h84 h85 h86 h87 h88 h89 h90 h91 h92 h93 h94 h95 h96 h97 h98 h99 h100 h101 h10
+2 h103 h104 h105 h106 h107 h108 h109 h110 h111 h112 h113 h114 h115 h116 h117 h11
+8 h119 h120 h121 h122 h123 h124 h125 h126 h127 h128
+*** Done
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel$
+kernel: 1 windows (created Thu Sep  3 13:17:15 2026)
+p4topo: 1 windows (created Thu Sep  3 13:07:31 2026)
+proxy: 1 windows (created Thu Sep  3 13:10:01 2026)
+13:18:46

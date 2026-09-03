@@ -1,0 +1,47 @@
+10:47:51
+=== kernel pane (tail 35) ===
+[2026-09-03 10:47:56.258] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [run] pid=112992 tid=112995
+[2026-09-03 10:47:56.258] [info] [FlowLinkUsageCollector.cpp:708 run] Run with 2
+0 workers
+[2026-09-03 10:47:56.258] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [calAvgFlowSendingRatesPeriodically] pid=112992 tid=112996
+[2026-09-03 10:47:56.258] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [purgeIdleFlows] pid=112992 tid=112998
+[2026-09-03 10:47:56.258] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [calFlowPathByQueried] pid=112992 tid=112999
+[2026-09-03 10:47:56.258] [info] [DeviceConfigurationAndPowerManager.cpp:118 sta
+rt] DeviceConfigurationAndPowerManager Starts Up
+[2026-09-03 10:47:56.258] [info] [ControllerAndOtherEventHandler.cpp:196 runServ
+er] Server Listening on port 8000
+[2026-09-03 10:47:56.258] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [testCalAvgFlowSendingRatesRandomly] pid=112992 tid=112997
+[2026-09-03 10:47:56.258] [info] [TopologyAndFlowMonitor.cpp:2059 run] TopologyA
+ndFlowMonitor Run
+[2026-09-03 10:47:56.258] [info] [TopologyAndFlowMonitor.cpp:211 loadStaticTopol
+ogyFromFile] Load Static Topology File
+[2026-09-03 10:47:56.259] [info] [FlowLinkUsageCollector.cpp:749 run] Listening
+for sFlow on UDP port 6343
+[2026-09-03 10:47:56.273] [info] [TopologyAndFlowMonitor.cpp:1192 validateDataPl
+aneHomogeneity] Data plane: ovs (10 switch(es))
+[2026-09-03 10:47:56.316] [info] [TopologyAndFlowMonitor.cpp:2081 run] topology
+from the control plane: 10 switches, 128 hosts, 288 edges up
+[2026-09-03 10:48:01.574] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestin
+ationPaths] Pulled 16256 paths from controller
+[2026-09-03 10:48:01.634] [info] [FlowLinkUsageCollector.cpp:566 refreshDestinat
+ionPathsPeriodically] Destination paths loaded from localhost:8080 (16256 pairs)
+; path and switch-count queries will answer from now on.
+[2026-09-03 10:48:02.258] [info] [FlowLinkUsageCollector.cpp:2072 calAvgFlowSend
+ingRatesPeriodically] sFlow ingest healthy: rx=1, app_drop=0, addressed=0, sock_
+ovfl_total=0
+
+
+=== :8000 listening? ===
+LISTEN 0      4096         0.0.0.0:8000      0.0.0.0:*          
+
+=== first smoke: get_graph_data node/edge counts ===
+bytes: 118246
+nodes: 138  switches: 10  hosts: 128
+edges: 288
+switches up: 10  enabled: 10
+10:48:26

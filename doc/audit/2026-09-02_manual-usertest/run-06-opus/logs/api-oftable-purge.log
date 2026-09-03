@@ -1,0 +1,29 @@
+10:55:42
+############ B14: the iperf3 -t 300 started 10:49:27 should have ended ~10:54:27 ############
+doc: 'A flow disappears 15 seconds after its last packet ... [] after it stopped just means you waited too long'
+body: [{"dst_ip":33554442,"dst_port":43182,"estimated_flow_sending_rate_bps_in_the_last_sec":1146880,"estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot":573440,"estimated_packet_rate_in_the_last_sec":2048,"estimated_packet_rate_in_the_proceeding_1sec_timeslot":1024,"first_sampled_time":"2026
+record count: 2
+-- is iperf3 still running in the mininet pane? --
+Run 'sflowtool -p 6343' in another terminal to see the data.
+*** Starting CLI:
+mininet> h1 iperf3 -s &
+mininet> h2 iperf3 -c h1 -t 300 &
+[1] 116038
+mininet>
+
+############ D5: get_switch_openflow_table_entries cross-checked against the switch itself ############
+switch entries returned: 10
+  dpid=1 key=['1'] flow count=130
+  dpid=2 key=['2'] flow count=130
+  dpid=3 key=['3'] flow count=130
+per-dpid flow counts: {1: 130, 2: 130, 3: 130, 4: 130, 5: 130, 6: 130, 7: 130, 8: 130, 9: 130, 10: 130}
+-- same thing from the switch, for comparison (manual's own method) --
+  s1 ovs-ofctl count: 130
+  s2 ovs-ofctl count: 130
+  s3 ovs-ofctl count: 130
+
+############ D15 doc claim: 'and StaticNetworkTopology.json' -- did the file change? ############
+3811:      "device_name": "sX",
+  git status of the setting dir:
+ M setting/StaticNetworkTopologyMininet_10Switches.json
+10:55:42

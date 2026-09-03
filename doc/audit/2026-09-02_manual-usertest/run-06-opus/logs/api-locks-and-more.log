@@ -1,0 +1,62 @@
+10:51:39
+
+===== D27 acquire_lock (valid: routing_lock, ttl 30) =====
+HTTP 200
+{"status":"locked","ttl":30,"type":"routing_lock"}
+
+===== D27b acquire_lock (NO type -- doc: 400 and NO lock acquired) =====
+HTTP 423
+{"detail":"System busy or invalid lock type: routing_lock","error":"Lock acquisition failed"}
+
+===== D27b acquire_lock (bogus type -- doc: 400) =====
+HTTP 423
+{"detail":"System busy or invalid lock type: not_a_lock","error":"Lock acquisition failed"}
+
+===== D27b acquire_lock (non-string type -- doc: 400) =====
+HTTP 423
+{"detail":"System busy or invalid lock type: routing_lock","error":"Lock acquisition failed"}
+
+===== D28 renew_lock =====
+HTTP 200
+{"status":"renewed","ttl":30,"type":"routing_lock"}
+
+===== D29 release_lock =====
+HTTP 200
+{"status":"released","type":"routing_lock"}
+
+===== D25 total_input_traffic_load (dpid 1) =====
+HTTP 200
+{"status":"success","total_input_traffic_load_bps":703354281}
+
+===== D26 num_of_flows (dpid 1) =====
+HTTP 200
+{"num_of_flows":2,"status":"success"}
+
+===== D16 app_register =====
+HTTP 200
+{"app_id":1,"message":"Application registered successfully"}
+
+===== D41 intent_translator/text (doc: 503 with --no-ai) =====
+HTTP 503
+{"error":"Intent translator is disabled; the kernel was started with --no-ai."}
+
+===== D39 historical_logging?state=enable (doc: READ 'recording', not 'status') =====
+HTTP 200
+{"message":"Historical data logging is enabled, but this deployment does not record: the recorder is only started outside MININET mode, so no rows will be written.","recording":false,"status":"success"}
+
+===== D39 historical_logging?state=disable =====
+HTTP 200
+{"message":"Historical data logging has been disabled.","recording":false,"status":"success"}
+
+===== D39 historical_logging (no state -- doc: 400) =====
+HTTP 400
+{"error":"Invalid or missing 'state' parameter. Use 'enable' or 'disable'."}
+
+===== D31 install_group_entry (OVS) =====
+HTTP 200
+{"status":"Group entry installed"}
+
+===== D34 install_meter_entry (OVS) =====
+HTTP 200
+{"status":"Meter entry installed"}
+10:51:39

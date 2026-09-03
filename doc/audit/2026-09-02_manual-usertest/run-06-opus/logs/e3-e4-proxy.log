@@ -1,0 +1,60 @@
+13:10:01
+############ E3: the manifest the manual says to confirm with ############
+{
+    "s1": {
+        "pid": 253943,
+        "device_id": 1,
+        "grpc_port": 50051,
+        "thrift_port": 9091,
+        "log_file": "/tmp/s1_bmv2.log",
+        "argv": "LD_LIBRARY_PATH=/usr/local/lib /usr/local/bin/simple_switch_grpc -i 3@s1-eth3 -i 4@s1-eth4 -i 5@s1-eth5 -i 6@s1-eth6 -i 7@s1-eth7 -i 8@s1-eth8 -i 9@s1-eth9 -i 10@s1-eth10 -i 11@s1-eth11 -i 12@s1-eth12 -i 13@s1-eth13 -i 14@s1-eth14 -i 15@s1-eth15 -i 16@s1-eth16 -i 17@s1-eth17 -i 18@s1-eth18 -i 19@s1-eth19 -i 20@s1-eth20 -i 21@s1-eth21 -i 22@s1-eth22 -i 23@s1-eth23 -i 24@s1-eth24 -i 25@s1-eth25 -i 26@s1-eth26 -i 27@s1-eth27 -i 28@s1-eth28 -i 29@s1-eth29 -i 30@s1-eth30 -i 31@s1-eth31 -i 32@s1-eth32 -i 33@s1-eth33 -i 34@s1-eth34 -i 1@s1-eth1 -i 2@s1-eth2 --thrift-port 9091 --device-id 1 /home/ndt/Desktop/NDTwin-Kernel/p4_proxy/mininet/../p4_src/build/ndtwin_switch.json -- --grpc-server-addr 0.0.0.0:50051 --cpu-port 255"
+    },
+    "s2": {
+        "pid": 253944,
+        "device_id": 2,
+        "grpc_port": 50052,
+        "thrift_port": 9092,
+        "log_file": "/tmp/s2_bmv2.log",
+        "argv": "LD_LIBRARY_PATH=/usr/local/lib /usr/local/bin/simple_switch_grpc -i 3@s2-eth3 -i 4@s2-eth4 -i 5@s2-eth5 -i 6@s2-eth6 -i 7@s2-eth7 -i 8@s2-eth8 -i 9@s2-eth9 -i 10@s2-eth10 -i 11@s2-eth11 -i 12@s2-eth12 -i 13@s2-eth13 -i 14@s2-eth14 -i 15@s2-eth15 -i 16@s2-eth16 -i 17@s2-eth17 -i 18@s2-eth18 -i 19@s2-eth19 -i 20@s2-eth20 -i 21@s2-eth21 -i 22@s2-eth22 -i 23@s2-eth23 -i 24@s2-eth24 -i 25@s2-eth25 -i 26@s2-eth26 -i 27@s2-eth27 -i 28@s2-eth28 -i 29@s2-eth29 -i 30@s2-eth30 -i 31@s2-eth31 -i 32@s2-eth32 -i 33@s2-eth33 -i 34@s2-eth34 -i 1@s2-eth1 -i 2@s2-eth2 --thrift-port 9092 --device-id 2 /home/ndt/Desktop/NDTwin-Kernel/p4_proxy/mininet/../p4_src/build/ndtwin_switch.json -- --grpc-server-addr 0.0.0.0:50052 --cpu-port 255"
+    },
+    "s3": {
+        "pid": 253945,
+        "device_id": 3,
+--- how many switches does the manifest list? ---
+dict entries: 10
+keys/names: ['s1', 's2', 's3', 's4', 's5', 's6', 's7', 's8', 's9', 's10']
+
+############ E11: the manual's pgrep warning, tested both ways ############
+doc: 'Linux truncates the process comm field to 15 characters, so that command reports 0
+      even with ten switches running.'
+  ps -eo args= | grep -c '[s]imple_switch_grpc'  -> 10
+  pgrep -c simple_switch_grpc                    -> pgrep: pattern that searches for process name longer than 15 characters will result in zero matches
+Try `pgrep -f' option to match against the complete command line.
+0
+  pgrep -c simple_switch_g   (truncated name)    -> 10
+
+############ P4 Terminal 2: the proxy agent ############
+=== proxy pane (last 20) ===
+lhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dp
+id=6 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000):
+ Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 7 entered: FAILED ConnectionError: HTTPConnectionPool(host='loca
+lhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dp
+id=7 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000):
+ Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 8 entered: FAILED ConnectionError: HTTPConnectionPool(host='loca
+lhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dp
+id=8 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000):
+ Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 9 entered: FAILED ConnectionError: HTTPConnectionPool(host='loca
+lhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dp
+id=9 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000):
+ Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 10 entered: FAILED ConnectionError: HTTPConnectionPool(host='loc
+alhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?d
+pid=10 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000
+): Failed to establish a new connection: [Errno 111] Connection refused"))
+
+=== is 8081 listening? ===
+LISTEN 0      2048         0.0.0.0:8081       0.0.0.0:*          
+13:10:31

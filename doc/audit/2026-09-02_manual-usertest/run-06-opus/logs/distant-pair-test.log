@@ -1,0 +1,22 @@
+10:57:03
+=== baseline avg link usage with no traffic ===
+{"avg_link_usage":0.0,"status":"success"}
+=== start h1 <-> h128 (5 switches on the path) ===
+=== flows detected ===
+record count: 2
+  10.0.0.1:5301 -> 10.0.0.128:58398  rate=1204224 bps  path_hops=7
+      path nodes: [16777226, 1, 6, 9, 7, 4, 2147483658]
+  10.0.0.128:58398 -> 10.0.0.1:5301  rate=1062609715 bps  path_hops=7
+      path nodes: [2147483658, 4, 8, 10, 5, 1, 16777226]
+
+=== D24 average link usage NOW (inter-switch links are actually carrying it) ===
+{"avg_link_usage":0.22311055685,"status":"success"}
+=== D25 total input traffic on dpid 1 and dpid 10 ===
+  dpid 1: {"status":"success","total_input_traffic_load_bps":691180770}
+  dpid 5: {"status":"success","total_input_traffic_load_bps":1247451728}
+  dpid 10: {"status":"success","total_input_traffic_load_bps":1396401189}
+=== D26 flows passing each of those ===
+  dpid 1: {"num_of_flows":2,"status":"success"}
+  dpid 5: {"num_of_flows":1,"status":"success"}
+  dpid 10: {"num_of_flows":1,"status":"success"}
+10:57:32

@@ -1,0 +1,52 @@
+10:52:17
+############ LOCKS, clean state this time ############
+
+===== release routing_lock first (make sure nothing is held) =====
+HTTP 412
+{"detail":"Lock 'routing_lock' is not held or is an invalid type","error":"Release failed"}
+
+===== release graph_lock =====
+HTTP 412
+{"detail":"Lock 'graph_lock' is not held or is an invalid type","error":"Release failed"}
+
+===== release power_lock =====
+HTTP 412
+{"detail":"Lock 'power_lock' is not held or is an invalid type","error":"Release failed"}
+
+===== A) acquire_lock with NO type, nothing held (doc: 400, no lock touched) =====
+HTTP 200
+{"status":"locked","ttl":30,"type":"routing_lock"}
+
+===== B) is routing_lock now held? try to acquire it properly =====
+HTTP 423
+{"detail":"System busy or invalid lock type: routing_lock","error":"Lock acquisition failed"}
+
+===== C) acquire_lock with UNKNOWN type, nothing held (doc: 400) =====
+HTTP 423
+{"detail":"System busy or invalid lock type: not_a_lock","error":"Lock acquisition failed"}
+
+===== D) acquire_lock with empty body (doc: 400) =====
+HTTP 423
+{"detail":"System busy or invalid lock type: routing_lock","error":"Lock acquisition failed"}
+
+===== E) acquire_lock graph_lock (a different valid one) =====
+HTTP 200
+{"status":"locked","ttl":5,"type":"graph_lock"}
+
+############ Did the group / meter entries actually land on s1? ############
+--- ovs-ofctl -O OpenFlow13 dump-groups s1 ---
+[sudo] password for ndt: OFPST_GROUP_DESC reply (OF1.3) (xid=0x2):
+ group_id=1,type=all,bucket=actions=output:1
+--- ovs-ofctl -O OpenFlow13 dump-meters s1 ---
+OFPST_METER_CONFIG reply (OF1.3) (xid=0x2):
+meter=1 kbps bands=
+type=drop rate=1000
+
+############ D16: did app_register create the NFS folder the doc promises? ############
+doc: 'Creates a dedicated folder for the application in the NFS export directory (e.g., /srv/nfs/sim/<app_id>)'
+total 12
+drwxr-xr-x 3 root root 4096 Sep  3 10:51 .
+drwxr-xr-x 3 root root 4096 Sep  3 10:51 ..
+drwxrwxrwx 2 root root 4096 Sep  3 10:51 1
+/srv/nfs
+10:52:33

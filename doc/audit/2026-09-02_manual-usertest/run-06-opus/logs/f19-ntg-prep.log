@@ -1,0 +1,24 @@
+11:19:33
+=== HOST_NUM in NTG's testbed_topo.py ===
+19:HOST_NUM = 128
+
+=== F19: the doc's claim -- bare 'sudo ./testbed_topo.py' should fail on loguru ===
+doc: 'the script stops immediately with ModuleNotFoundError: No module named loguru'
+[sudo] password for ndt: Traceback (most recent call last):
+  File "/home/ndt/Network-Traffic-Generator/./testbed_topo.py", line 14, in <module>
+    from network_traffic_generator import command_line
+  File "/home/ndt/Network-Traffic-Generator/network_traffic_generator.py", line 10, in <module>
+    from loguru import logger
+ModuleNotFoundError: No module named 'loguru'
+
+=== F14: make the documented edit to NTG.yaml (host_file -> ./setting/Mininet.yaml) ===
+--- before ---
+    host_file: "./setting/Hardware.yaml"
+--- after ---
+    host_file: "./setting/Mininet.yaml"
+
+=== shipped setting/Mininet.yaml vs the Installation Manual's printed copy ===
+manual shows:  hostname: "mininet_testbed"   and   mode: "cli"
+shipped file:
+6:    mode: "custom_command" 
+11:19:34

@@ -1,0 +1,64 @@
+2026-09-03 11:22:50 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+2026-09-03 11:22:52 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+2026-09-03 11:22:54 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+2026-09-03 11:22:56 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+2026-09-03 11:22:58 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+2026-09-03 11:23:00 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+2026-09-03 11:23:02 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+2026-09-03 11:23:04 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+2026-09-03 11:23:06 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+2026-09-03 11:23:08 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+2026-09-03 11:23:10 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+2026-09-03 11:23:12 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+2026-09-03 11:23:14 | WARNING : Failed to get hosts from NDTwin server., retryin
+g...
+2026-09-03 11:23:16 | WARNING : Failed to get paths from NDTwin server., retryin
+g...
+2026-09-03 11:23:18 | WARNING : Failed to get paths from NDTwin server., retryin
+g...
+2026-09-03 11:23:20 | WARNING : Failed to get paths from NDTwin server., retryin
+g...
+2026-09-03 11:23:22 | INFO : Link relationships computed successfully.
+2026-09-03 11:23:22 | DEBUG : Connection relationships:
+2026-09-03 11:23:22 | DEBUG : Near connections sample: [{'src': {'ip': '10.0.0.1
+', 'name': 'h1'}, 'dst': {'ip': '10.0.0.2', 'name': 'h2'}}, {'src': {'ip': '10.0
+.0.1', 'name': 'h1'}, 'dst': {'ip': '10.0.0.3', 'name': 'h3'}}, {'src': {'ip': '
+10.0.0.1', 'name': 'h1'}, 'dst': {'ip': '10.0.0.4', 'name': 'h4'}}, {'src': {'ip
+': '10.0.0.1', 'name': 'h1'}, 'dst': {'ip': '10.0.0.5', 'name': 'h5'}}, {'src':
+{'ip': '10.0.0.1', 'name': 'h1'}, 'dst': {'ip': '10.0.0.6', 'name': 'h6'}}]
+2026-09-03 11:23:22 | DEBUG : Middle connections sample: [{'src': {'ip': '10.0.0
+.1', 'name': 'h1'}, 'dst': {'ip': '10.0.0.33', 'name': 'h33'}}, {'src': {'ip': '
+10.0.0.1', 'name': 'h1'}, 'dst': {'ip': '10.0.0.34', 'name': 'h34'}}, {'src': {'
+ip': '10.0.0.1', 'name': 'h1'}, 'dst': {'ip': '10.0.0.35', 'name': 'h35'}}, {'sr
+c': {'ip': '10.0.0.1', 'name': 'h1'}, 'dst': {'ip': '10.0.0.36', 'name': 'h36'}}
+, {'src': {'ip': '10.0.0.1', 'name': 'h1'}, 'dst': {'ip': '10.0.0.37', 'name': '
+h37'}}]
+2026-09-03 11:23:22 | DEBUG : Far connections sample: [{'src': {'ip': '10.0.0.1'
+, 'name': 'h1'}, 'dst': {'ip': '10.0.0.65', 'name': 'h65'}}, {'src': {'ip': '10.
+0.0.1', 'name': 'h1'}, 'dst': {'ip': '10.0.0.66', 'name': 'h66'}}, {'src': {'ip'
+: '10.0.0.1', 'name': 'h1'}, 'dst': {'ip': '10.0.0.67', 'name': 'h67'}}, {'src':
+ {'ip': '10.0.0.1', 'name': 'h1'}, 'dst': {'ip': '10.0.0.68', 'name': 'h68'}}, {
+'src': {'ip': '10.0.0.1', 'name': 'h1'}, 'dst': {'ip': '10.0.0.69', 'name': 'h69
+'}}]
+NTG> flow
+2026-09-03 11:24:06 | WARNING : No config file
+NTG>
+
+
+
+
+
+
+

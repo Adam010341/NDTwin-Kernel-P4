@@ -1,0 +1,31 @@
+10:57:58
+doc D8: 'MININET mode: Simulates switch power ON/OFF by adding (on) or removing (off) the corresponding OVS bridge via ovs-vsctl commands.'
+=== bridges BEFORE ===
+s1 s10 s2 s3 s4 s5 s6 s7 s8 s9 
+=== power state BEFORE ===
+{"192.168.123.13":"ON"}
+
+=== D8: power OFF s3 (192.168.123.13) ===
+HTTP 200
+{"192.168.123.13":"Success"}
+=== bridges AFTER off (expect s3 gone) ===
+s1 s10 s2 s4 s5 s6 s7 s8 s9 
+=== power state AFTER off ===
+{"192.168.123.13":"OFF"}
+=== graph view of dpid 3 ===
+  dpid 3: is_up=False is_enabled=True name=sX
+
+=== D8: power ON s3 again ===
+HTTP 200
+{"192.168.123.13":"Success"}
+=== bridges AFTER on (expect s3 back) ===
+s1 s10 s2 s3 s4 s5 s6 s7 s8 s9 
+=== power state AFTER on ===
+{"192.168.123.13":"ON"}
+=== rules on s3 after power cycle (was 130) ===
+  s3: 130
+=== error cases ===
+HTTP 400 {"error":"Missing or invalid ip/action"}
+HTTP 500 {"error":"Failed to change switch power state"}
+HTTP 404 {"error":"Unknown switch IP"}
+10:58:31

@@ -1,0 +1,20 @@
+=== cleaning up the stale stack (kernel and Ryu are pointing at a fabric I already tore down) ===
+13:06:17
+ports after cleanup: 0
+  all released
+bridges: 
+
+############ Step 6.2: compile the NDTwin P4 pipeline ############
+p4_proxy/p4_src/ndtwin_switch.p4(38): [--Wwarn=unused] warning: 'TYPE_ARP' is unused
+const bit<16> TYPE_ARP = 0x0806;
+              ^^^^^^^^
+[--Wwarn=deprecated] warning: .txt format is being deprecated; use .txtpb instead
+
+real	0m0.370s
+user	0m0.338s
+sys	0m0.030s
+P4C_EXIT=0
+--- the two files the manual says this produces ---
+-rw-rw-r-- 1 ndt ndt 75852 Sep  3 13:06 p4_proxy/p4_src/build/ndtwin_switch.json
+-rw-rw-r-- 1 ndt ndt  4051 Sep  3 13:06 p4_proxy/p4_src/build/ndtwin_switch.p4info.txt
+13:06:30

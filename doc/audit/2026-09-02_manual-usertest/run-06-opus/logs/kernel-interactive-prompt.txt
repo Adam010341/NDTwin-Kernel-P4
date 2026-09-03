@@ -1,0 +1,25 @@
+cd ~/Desktop/NDTwin-Kernel/build && echo ndt | sudo -S bin/ndtwin_kernel
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel/build$ cd ~/Desktop/NDTwin-Kernel/buil
+d && echo ndt | sudo -S bin/ndtwin_kernel
+[sudo] password for ndt: [2026-09-03 10:36:31.765] [info] [main.cpp:299 main] Lo
+gger Loads Successfully! level
+stdin is not a TTY, so --mode must be given explicitly.
+
+Usage: bin/ndtwin_kernel [options]
+
+Deployment options (prompted interactively if omitted and stdin is a TTY):
+  --mode <mininet|testbed>   deployment environment
+  --topology <path>          topology JSON to load. Defaults to the mode's
+                             configured file; for mininet, pick a P4 topology
+                             here to run against bmv2
+  --ai / --no-ai             enable or disable the Intent Translator
+                             (--ai needs an OpenAI token)
+  -h, --help                 show this message
+
+Logging options are also accepted; see --logfile / --loglevel.
+
+Examples:
+  bin/ndtwin_kernel --mode mininet --no-ai
+  bin/ndtwin_kernel --mode mininet --no-ai \
+      --topology ../setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel/build$

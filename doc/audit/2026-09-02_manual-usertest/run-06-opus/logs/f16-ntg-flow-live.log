@@ -1,0 +1,23 @@
+11:25:26
+=== F16 again, polling the kernel WHILE the experiment runs ===
+baseline flow records: 0
+  t+3s : flow_data=173  top_k=50  avg_link_usage=0.08157330780000001   (11:25:30)
+  t+6s : flow_data=206  top_k=50  avg_link_usage=0.01853196542   (11:25:33)
+  t+9s : flow_data=206  top_k=50  avg_link_usage=0.01677507483   (11:25:36)
+  t+12s : flow_data=206  top_k=50  avg_link_usage=0.014156675366666663   (11:25:39)
+  t+15s : flow_data=213  top_k=50  avg_link_usage=0.010310383341666668   (11:25:42)
+  t+18s : flow_data=44  top_k=44  avg_link_usage=0.0013147112   (11:25:45)
+  t+21s : flow_data=28  top_k=28  avg_link_usage=0.0   (11:25:48)
+  t+24s : flow_data=28  top_k=28  avg_link_usage=0.0   (11:25:52)
+  t+27s : flow_data=28  top_k=28  avg_link_usage=0.0   (11:25:55)
+  t+30s : flow_data=14  top_k=14  avg_link_usage=0.0   (11:25:58)
+  t+33s : flow_data=0  top_k=0  avg_link_usage=0.0   (11:26:01)
+  t+36s : flow_data=0  top_k=0  avg_link_usage=0.0   (11:26:04)
+  t+39s : flow_data=0  top_k=0  avg_link_usage=0.0   (11:26:07)
+  t+42s : flow_data=0  top_k=0  avg_link_usage=0.0   (11:26:10)
+=== peak sample of what the kernel saw ===
+records: 0
+=== experiment end marker ===
+2026-09-03 11:24:34 | SUCCESS : Experiment completed.
+2026-09-03 11:25:43 | SUCCESS : Experiment completed.
+11:26:10

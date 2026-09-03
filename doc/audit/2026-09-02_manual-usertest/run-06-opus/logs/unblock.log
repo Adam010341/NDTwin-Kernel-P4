@@ -1,0 +1,19 @@
+10:32:26
+The following NEW packages will be installed:
+  gdb libbabeltrace1 libc6-dbg libdebuginfod-common libdebuginfod1t64 libipt2
+  libncurses-dev libreadline-dev libsource-highlight-common
+  libsource-highlight4t64 libtool-bin valgrind
+The following packages will be upgraded:
+  libncurses6 libncursesw6 libtinfo6 ncurses-base ncurses-bin ncurses-term
+6 upgraded, 12 newly installed, 0 to remove and 35 not upgraded.
+Need to get 28.5 MB of archives.
+After this operation, 106 MB of additional disk space will be used.
+Get:1 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 ncurses-bin amd6
+4 6.4+20240113-1ubuntu2.2 [188 kB]
+
+=== log.txt now ===
+456 /home/ndt/log.txt
+Need to get 28.5 MB of archives.
+After this operation, 106 MB of additional disk space will be used.
+Get:1 http://archive.ubuntu.com/ubuntu noble-updates/main amd64 ncurses-bin amd64 6.4+20240113-1ubuntu2.2 [188 kB]
+10:32:51

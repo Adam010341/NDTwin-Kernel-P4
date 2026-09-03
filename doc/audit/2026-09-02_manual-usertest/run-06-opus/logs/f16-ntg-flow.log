@@ -1,0 +1,56 @@
+11:24:06
+=== NTG: 'flow' with no --config (doc says --config is required) ===
+NTG> flow
+2026-09-03 11:24:06 | WARNING : No config file
+NTG>
+
+
+
+
+
+
+
+
+=== NTG: a command that does not exist ===
+NTG>
+
+
+
+
+
+
+
+
+=== F16: the documented command, with the shipped template ===
+11:24:17
+--- last 25 lines ---
+ by 1
+2026-09-03 11:24:34 | DEBUG : Completed iperf3 between h83 and h45 on port 56545
+2026-09-03 11:24:34 | DEBUG : Flow finished, current: 4 decreasing running count
+ by 1
+2026-09-03 11:24:34 | DEBUG : Completed iperf3 between h9 and h62 on port 50231
+2026-09-03 11:24:34 | DEBUG : Flow finished, current: 3 decreasing running count
+ by 1
+2026-09-03 11:24:34 | DEBUG : Completed iperf3 between h51 and h70 on port 47347
+2026-09-03 11:24:34 | SUCCESS : Experiment completed.
+2026-09-03 11:24:35 | DEBUG : Flow finished, current: 2 decreasing running count
+ by 1
+2026-09-03 11:24:35 | DEBUG : Completed iperf3 between h114 and h30 on port 4531
+9
+2026-09-03 11:24:35 | DEBUG : Flow finished, current: 1 decreasing running count
+ by 1
+2026-09-03 11:24:35 | DEBUG : Completed iperf3 between h25 and h55 on port 55699
+iperf: no process found
+NTG>
+
+
+
+
+
+
+
+
+=== did NDTwin actually see the generated flows? ===
+flow records in the kernel: 0
+  ... (showing at most 8)
+11:25:02

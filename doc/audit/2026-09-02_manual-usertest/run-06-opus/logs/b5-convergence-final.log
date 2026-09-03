@@ -1,0 +1,14 @@
+--- sample 1 at 10:46:42 ---
+s1=130 s2=130 s3=130 s4=130 s5=130 s6=130 s7=130 s8=130 s9=130 s10=130 
+--- sample 2 at 10:46:59 ---
+s1=130 s2=130 s3=130 s4=130 s5=130 s6=130 s7=130 s8=130 s9=130 s10=130 
+--- sample 3 at 10:47:15 ---
+s1=130 s2=130 s3=130 s4=130 s5=130 s6=130 s7=130 s8=130 s9=130 s10=130 
+=== breakdown on s1 (manual: 128 dest rules + 1 LLDP + 1 table-miss = 130) ===
+total actions= lines : 130
+nw_dst rules         : 128
+LLDP rules           : 1
+priority=0 (miss)    : 1
+ cookie=0x0, duration=478.500s, table=0, n_packets=0, n_bytes=0, idle_age=479, priority=10,ip,nw_dst=10.0.0.127 actions=output:2
+ cookie=0x0, duration=478.500s, table=0, n_packets=0, n_bytes=0, idle_age=479, priority=10,ip,nw_dst=10.0.0.128 actions=output:2
+ cookie=0x0, duration=500.938s, table=0, n_packets=516, n_bytes=41198, idle_age=2, priority=0 actions=CONTROLLER:65535

@@ -1,0 +1,33 @@
+13:14:05
+############ my own value: a 5-switch pair on the BMv2 fabric ############
+record count: 2
+  10.0.0.1:5201 -> 10.0.0.2:59546 rate=675840 bps hops=3
+     path: [16777226, 1, 33554442]
+  10.0.0.2:59546 -> 10.0.0.1:5201 rate=49610752 bps hops=3
+     path: [33554442, 1, 16777226]
+avg link usage: {"avg_link_usage":0.0,"status":"success"}
+
+############ E14: the documented refusal of a MIXED OVS+BMv2 topology ############
+doc (Install 6.4 + architecture): 'A topology may not mix the two ... The kernel logs an
+error naming the mixture when it loads such a topology.'
+Building my own mixed model in /tmp (NOT touching the repo): take the 4-host P4 model and
+flip ONE switch's brand_name to OVS.
+  flipping s1 BMv2 -> OVS
+  switch brands in my mixed file: ['BMv2', 'OVS']
+-rw-rw-r-- 1 ndt ndt 13913 Sep  3 13:14 /tmp/MixedTopology.json
+--- stop the current kernel, then load the mixed file ---
+=== what the kernel said about the mixture ===
+ mininet --topology /tmp/MixedTopology.json --no-ai --loglevel info
+[2026-09-03 13:15:06.808] [info] [main.cpp:311 main] Topology file: /tmp/MixedTo
+laneHomogeneity] Topology mixes data planes (ovs=[1]; bmv2=[2,3,4,5,6,7,8,9,10])
+ file, or set AppConfig::ALLOW_MIXED_DATAPLANE to override.
+=== did it keep running or refuse? ===
+LISTEN 0      4096         0.0.0.0:8000       0.0.0.0:*          
+  :8000 open -- it did NOT refuse
+endingRatesPeriodically] Other Side Agent Miss
+[2026-09-03 13:15:29.812] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+[2026-09-03 13:15:30.812] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+
+13:15:31

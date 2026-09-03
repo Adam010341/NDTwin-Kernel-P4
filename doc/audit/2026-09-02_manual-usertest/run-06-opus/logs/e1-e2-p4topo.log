@@ -1,0 +1,47 @@
+13:07:31
+############ E1: the User Manual's four P4 pre-flight checks ############
+1. Pipeline compiled:
+-rw-rw-r-- 1 ndt ndt 75852 Sep  3 13:06 p4_proxy/p4_src/build/ndtwin_switch.json
+   OK
+2. Proxy environment:
+p4_proxy/venv
+   OK
+3. Sizes agree - host_count_override:
+128
+   128-host model present: OK
+4. Binary override (the manual's own snippet):
+   OK: /usr/local/bin/simple_switch_grpc
+
+############ P4 Terminal 1: the BMv2 Mininet topology (128 hosts, the manual's example) ############
+launched at 13:07:36
+=== last 25 lines at +120s ===
+c)
+s4 Starting s4 (gRPC: 50054, Thrift: 9094, bin: /usr/local/bin/simple_switch_grp
+c)
+s5 Starting s5 (gRPC: 50055, Thrift: 9095, bin: /usr/local/bin/simple_switch_grp
+c)
+s6 Starting s6 (gRPC: 50056, Thrift: 9096, bin: /usr/local/bin/simple_switch_grp
+c)
+s7 Starting s7 (gRPC: 50057, Thrift: 9097, bin: /usr/local/bin/simple_switch_grp
+c)
+s8 Starting s8 (gRPC: 50058, Thrift: 9098, bin: /usr/local/bin/simple_switch_grp
+c)
+s9 Starting s9 (gRPC: 50059, Thrift: 9099, bin: /usr/local/bin/simple_switch_grp
+c)
+s10 Starting s10 (gRPC: 50060, Thrift: 9100, bin: /usr/local/bin/simple_switch_g
+rpc)
+
+
+======================================================================
+Multi-Switch Network Started.
+All 10 BMv2 switches verified listening on gRPC 50051 ~ 50060
+Switch manifest: /tmp/ndtwin_p4_switches.json
+======================================================================
+
+*** Starting CLI:
+mininet>
+=== E2: the verification line the manual says to wait for ===
+All 10 BMv2 switches verified listening on gRPC 50051 ~ 50060
+=== bmv2 processes (manual's own counting method) ===
+10
+13:09:36

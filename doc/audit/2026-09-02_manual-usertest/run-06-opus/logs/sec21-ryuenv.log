@@ -1,0 +1,203 @@
++ date +%H:%M
+10:15
++ source /home/ndt/miniconda3/etc/profile.d/conda.sh
+++ export CONDA_EXE=/home/ndt/miniconda3/bin/conda
+++ CONDA_EXE=/home/ndt/miniconda3/bin/conda
+++ export _CONDA_EXE=/home/ndt/miniconda3/bin/conda
+++ _CONDA_EXE=/home/ndt/miniconda3/bin/conda
+++ export _CE_M=
+++ _CE_M=
+++ export _CE_CONDA=
+++ _CE_CONDA=
+++ export CONDA_PYTHON_EXE=/home/ndt/miniconda3/bin/python
+++ CONDA_PYTHON_EXE=/home/ndt/miniconda3/bin/python
+++ export _CONDA_ROOT=/home/ndt/miniconda3
+++ _CONDA_ROOT=/home/ndt/miniconda3
+++ '[' -z '' ']'
+++ export CONDA_SHLVL=0
+++ CONDA_SHLVL=0
+++ '[' -n '' ']'
+++++ dirname /home/ndt/miniconda3/bin/conda
++++ dirname /home/ndt/miniconda3/bin
+++ PATH=/home/ndt/miniconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+++ export PATH
+++ '[' -z '' ']'
+++ PS1=
++ conda --version
++ local cmd=--version
++ case "$cmd" in
++ __conda_exe --version
++ '[' -n '' ']'
++ /home/ndt/miniconda3/bin/conda --version
+conda 26.7.1
++ conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
++ local cmd=tos
++ case "$cmd" in
++ __conda_exe tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
++ '[' -n '' ']'
++ /home/ndt/miniconda3/bin/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+accepted Terms of Service for https://repo.anaconda.com/pkgs/main
++ conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
++ local cmd=tos
++ case "$cmd" in
++ __conda_exe tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
++ '[' -n '' ']'
++ /home/ndt/miniconda3/bin/conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+accepted Terms of Service for https://repo.anaconda.com/pkgs/r
++ conda create -n ryu-env python=3.8 -y
++ local cmd=create
++ case "$cmd" in
++ __conda_exe create -n ryu-env python=3.8 -y
++ '[' -n '' ']'
++ /home/ndt/miniconda3/bin/conda create -n ryu-env python=3.8 -y
+2 channel Terms of Service accepted
+Retrieving notices: ...working... done
+Channels:
+ - defaults
+Platform: linux-64
+Collecting package metadata (repodata.json): ...working... done
+Solving environment: ...working... done
+
+## Package Plan ##
+
+  environment location: /home/ndt/miniconda3/envs/ryu-env
+
+  added / updated specs:
+    - python=3.8
+
+
+The following packages will be downloaded:
+
+    package                    |            build
+    ---------------------------|-----------------
+    openssl-3.5.8              |       h1b28b03_0         5.5 MB
+    pip-24.2                   |   py38h06a4308_0         2.2 MB
+    python-3.8.20              |       he870216_0        23.8 MB
+    setuptools-75.1.0          |   py38h06a4308_0         1.7 MB
+    tk-8.6.15                  |       h54e0aa7_0         3.4 MB
+    wheel-0.44.0               |   py38h06a4308_0         108 KB
+    ------------------------------------------------------------
+                                           Total:        36.7 MB
+
+The following NEW packages will be INSTALLED:
+
+  _libgcc_mutex      pkgs/main/linux-64::_libgcc_mutex-0.1-main 
+  _openmp_mutex      pkgs/main/linux-64::_openmp_mutex-5.1-52_gnu 
+  ca-certificates    pkgs/main/linux-64::ca-certificates-2026.8.13-h06a4308_0 
+  ld_impl_linux-64   pkgs/main/linux-64::ld_impl_linux-64-2.44-h9e0c5a2_3 
+  libffi             pkgs/main/linux-64::libffi-3.4.8-h06d3fd0_3 
+  libgcc             pkgs/main/linux-64::libgcc-15.2.0-h69a1729_8 
+  libgcc-ng          pkgs/main/linux-64::libgcc-ng-15.2.0-h166f726_8 
+  libstdcxx          pkgs/main/linux-64::libstdcxx-15.2.0-h39759b7_8 
+  libstdcxx-ng       pkgs/main/linux-64::libstdcxx-ng-15.2.0-hc03a8fd_8 
+  libxcb             pkgs/main/linux-64::libxcb-1.17.0-h9b100fa_0 
+  libzlib            pkgs/main/linux-64::libzlib-1.3.2-h47b2149_0 
+  ncurses            pkgs/main/linux-64::ncurses-6.6-hfaaeb4e_0 
+  openssl            pkgs/main/linux-64::openssl-3.5.8-h1b28b03_0 
+  pip                pkgs/main/linux-64::pip-24.2-py38h06a4308_0 
+  pthread-stubs      pkgs/main/linux-64::pthread-stubs-0.3-h47b2149_2 
+  python             pkgs/main/linux-64::python-3.8.20-he870216_0 
+  readline           pkgs/main/linux-64::readline-8.3-hc2a1206_0 
+  setuptools         pkgs/main/linux-64::setuptools-75.1.0-py38h06a4308_0 
+  sqlite             pkgs/main/linux-64::sqlite-3.53.2-h795bf6d_0 
+  tk                 pkgs/main/linux-64::tk-8.6.15-h54e0aa7_0 
+  wheel              pkgs/main/linux-64::wheel-0.44.0-py38h06a4308_0 
+  xorg-libx11        pkgs/main/linux-64::xorg-libx11-1.8.13-h65de747_0 
+  xorg-libxau        pkgs/main/linux-64::xorg-libxau-1.0.12-h9b100fa_0 
+  xorg-libxdmcp      pkgs/main/linux-64::xorg-libxdmcp-1.1.5-h9b100fa_0 
+  xorg-xorgproto     pkgs/main/linux-64::xorg-xorgproto-2025.1-h47b2149_0 
+  xz                 pkgs/main/linux-64::xz-5.8.2-h448239c_0 
+  zlib               pkgs/main/linux-64::zlib-1.3.2-h47b2149_0 
+
+
+
+Downloading and Extracting Packages: ...working... done
+Preparing transaction: ...working... done
+Verifying transaction: ...working... done
+Executing transaction: ...working... done
+WARNING conda.conda_pypi.main:notify_externally_managed_future(156): 
+  Did you know? You can install many PyPI packages with conda
+  using the conda-pypi beta. Get started:
+    https://docs.conda.io/projects/conda/en/stable/new-features.html
+
+#
+# To activate this environment, use
+#
+#     $ conda activate ryu-env
+#
+# To deactivate an active environment, use
+#
+#     $ conda deactivate
+
+
+Channel "defaults" has the following notices:
+  [info] -- Thu Aug  6 00:00:00 2026
+  main-x (Anaconda's new authenticated channel) is now generally available, with thousands of additional packages from our secure supply chain. Get started at: https://anaconda.com/docs/getting-started/main-x?utm_source=channel_notices
+
++ conda activate ryu-env
++ local cmd=activate
++ case "$cmd" in
++ __conda_activate activate ryu-env
++ '[' -n '' ']'
++ local ask_conda
+++ PS1=
+++ __conda_exe shell.posix activate ryu-env
+++ '[' -n '' ']'
+++ /home/ndt/miniconda3/bin/conda shell.posix activate ryu-env
++ ask_conda='export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+PS1='\''(ryu-env) '\''
+export PATH='\''/home/ndt/miniconda3/envs/ryu-env/bin:/home/ndt/miniconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin'\''
+export CONDA_PREFIX='\''/home/ndt/miniconda3/envs/ryu-env'\''
+export CONDA_SHLVL='\''1'\''
+export CONDA_DEFAULT_ENV='\''ryu-env'\''
+export CONDA_PROMPT_MODIFIER='\''(ryu-env) '\''
+export CONDA_EXE='\''/home/ndt/miniconda3/bin/conda'\''
+export _CONDA_EXE='\''/home/ndt/miniconda3/bin/conda'\''
+export CONDA_PYTHON_EXE='\''/home/ndt/miniconda3/bin/python'\''
+export _CONDA_ROOT='\''/home/ndt/miniconda3'\'''
++ eval 'export _CE_M='\'''\''
+export _CE_CONDA='\'''\''
+PS1='\''(ryu-env) '\''
+export PATH='\''/home/ndt/miniconda3/envs/ryu-env/bin:/home/ndt/miniconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin'\''
+export CONDA_PREFIX='\''/home/ndt/miniconda3/envs/ryu-env'\''
+export CONDA_SHLVL='\''1'\''
+export CONDA_DEFAULT_ENV='\''ryu-env'\''
+export CONDA_PROMPT_MODIFIER='\''(ryu-env) '\''
+export CONDA_EXE='\''/home/ndt/miniconda3/bin/conda'\''
+export _CONDA_EXE='\''/home/ndt/miniconda3/bin/conda'\''
+export CONDA_PYTHON_EXE='\''/home/ndt/miniconda3/bin/python'\''
+export _CONDA_ROOT='\''/home/ndt/miniconda3'\'''
+++ export _CE_M=
+++ _CE_M=
+++ export _CE_CONDA=
+++ _CE_CONDA=
+++ PS1='(ryu-env) '
+++ export PATH=/home/ndt/miniconda3/envs/ryu-env/bin:/home/ndt/miniconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+++ PATH=/home/ndt/miniconda3/envs/ryu-env/bin:/home/ndt/miniconda3/condabin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+++ export CONDA_PREFIX=/home/ndt/miniconda3/envs/ryu-env
+++ CONDA_PREFIX=/home/ndt/miniconda3/envs/ryu-env
+++ export CONDA_SHLVL=1
+++ CONDA_SHLVL=1
+++ export CONDA_DEFAULT_ENV=ryu-env
+++ CONDA_DEFAULT_ENV=ryu-env
+++ export 'CONDA_PROMPT_MODIFIER=(ryu-env) '
+++ CONDA_PROMPT_MODIFIER='(ryu-env) '
+++ export CONDA_EXE=/home/ndt/miniconda3/bin/conda
+++ CONDA_EXE=/home/ndt/miniconda3/bin/conda
+++ export _CONDA_EXE=/home/ndt/miniconda3/bin/conda
+++ _CONDA_EXE=/home/ndt/miniconda3/bin/conda
+++ export CONDA_PYTHON_EXE=/home/ndt/miniconda3/bin/python
+++ CONDA_PYTHON_EXE=/home/ndt/miniconda3/bin/python
+++ export _CONDA_ROOT=/home/ndt/miniconda3
+++ _CONDA_ROOT=/home/ndt/miniconda3
++ __conda_hashr
++ '[' -n '' ']'
++ '[' -n '' ']'
++ hash -r
++ python --version
+Python 3.8.20
++ which python
+/home/ndt/miniconda3/envs/ryu-env/bin/python
++ date +%H:%M
+10:15

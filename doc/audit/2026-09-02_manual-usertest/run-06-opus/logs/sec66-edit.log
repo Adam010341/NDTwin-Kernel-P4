@@ -1,0 +1,10 @@
+=== Step 6.6 edit: replace the directive line with the stock build ===
+
+/usr/local/bin/simple_switch_grpc
+--- manual's verification snippet ---
+selected: /usr/local/bin/simple_switch_grpc
+OK: exists and is executable
+--- manual: 'Editing this file leaves your working tree dirty' ---
+ M p4_proxy/mininet/bmv2_binary_override
+ M setting/StaticNetworkTopologyMininet_10Switches.json
+SEC66_OK

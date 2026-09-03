@@ -1,0 +1,43 @@
+11:26:31
+=== F17: the dist command needs 3 csv distribution files. What ships? ===
+{
+    "traffic_generator(iperf_or_iperf3)": "iperf3",
+    "flow_size_csv": "./cesnet_2022/distribution_flow_size.csv",
+    "flow_duration_csv": "./cesnet_2022/distribution_flow_duration.csv",
+    "flow_sending_rate_csv": "./cesnet_2022/distribution_flow_sending_rate.csv",
+    "intervals": [
+        {
+            "interval_duration(d/h/m/s)": "5s",
+            "varied_traffic": {
+                "flow_arrival_rate(flow/sec)": 3,
+                "flow_distance_probability": {
+                    "near": 0.0,
+--- csv files present in the repo root? ---
+ls: cannot access '*.csv': No such file or directory
+--- cesnet_2022/ (looks like it might hold distributions) ---
+total 332
+drwxrwxr-x  2 ndt ndt  4096 Sep  3 10:33 .
+drwxrwxr-x 11 ndt ndt  4096 Sep  3 11:24 ..
+-rw-rw-r--  1 ndt ndt 15010 Sep  3 10:33 distribution_flow_duration.csv
+-rw-rw-r--  1 ndt ndt 25316 Sep  3 10:33 distribution_flow_sending_rate.csv
+-rw-rw-r--  1 ndt ndt 32472 Sep  3 10:33 distribution_flow_size.csv
+-rw-rw-r--  1 ndt ndt 84728 Sep  3 10:33 distribution_flow_size_adaptive.png
+-rw-rw-r--  1 ndt ndt 77222 Sep  3 10:33 distribution_lifespan_adaptive.png
+-rw-rw-r--  1 ndt ndt 89842 Sep  3 10:33 distribution_sending_rate_mbps_adaptive.png
+
+=== F17 attempt: run dist with the shipped template as-is ===
+7
+2026-09-03 11:26:45 | INFO : Waiting for all connections to be restored, current
+ly running host pairs: 7 with 2 unlimited duration flows
+2026-09-03 11:26:46 | INFO : Waiting for all connections to be restored, current
+ly running host pairs: 7 with 2 unlimited duration flows
+2026-09-03 11:26:47 | INFO : Waiting for all connections to be restored, current
+ly running host pairs: 7 with 2 unlimited duration flows
+2026-09-03 11:26:48 | INFO : Waiting for all connections to be restored, current
+ly running host pairs: 7 with 2 unlimited duration flows
+2026-09-03 11:26:49 | INFO : Waiting for all connections to be restored, current
+ly running host pairs: 7 with 2 unlimited duration flows
+2026-09-03 11:26:50 | INFO : Waiting for all connections to be restored, current
+ly running host pairs: 7 with 2 unlimited duration flows
+
+11:26:51

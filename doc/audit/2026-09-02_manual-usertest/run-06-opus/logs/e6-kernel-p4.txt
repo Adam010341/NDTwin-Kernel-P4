@@ -1,0 +1,103 @@
+cd ~/Desktop/NDTwin-Kernel/build && sudo -v
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel/build$ cd ~/Desktop/NDTwin-Kernel/buil
+d && sudo -v
+[sudo] password for ndt:
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel/build$ sudo ./bin/ndtwin_kernel --mode
+ mininet --topology ../setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+--no-ai --loglevel info
+[2026-09-03 13:11:26.041] [info] [main.cpp:299 main] Logger Loads Successfully!
+level
+Running in Mininet environment.
+[2026-09-03 13:11:26.041] [info] [main.cpp:311 main] Topology file: ../setting/S
+taticNetworkTopologyP4_10Switches_128Hosts.json
+[2026-09-03 13:11:26.041] [info] [main.cpp:358 main] IntentTranslator is disable
+d by user.
+[2026-09-03 13:11:26.041] [info] [ApplicationManager.cpp:410 cleanupStaleEntries
+] Checking for stale NFS entries in /srv/nfs/sim
+[2026-09-03 13:11:26.042] [info] [TopologyAndFlowMonitor.cpp:2059 run] TopologyA
+ndFlowMonitor Run
+[2026-09-03 13:11:26.042] [info] [FlowLinkUsageCollector.cpp:472 start] Collecto
+r Starts Up
+[2026-09-03 13:11:26.042] [info] [TopologyAndFlowMonitor.cpp:211 loadStaticTopol
+ogyFromFile] Load Static Topology File
+[2026-09-03 13:11:26.042] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [calAvgFlowSendingRatesPeriodically] pid=269080 tid=269084
+[2026-09-03 13:11:26.042] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [run] pid=269080 tid=269083
+[2026-09-03 13:11:26.042] [info] [FlowLinkUsageCollector.cpp:708 run] Run with 2
+0 workers
+[2026-09-03 13:11:26.042] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [purgeIdleFlows] pid=269080 tid=269086
+[2026-09-03 13:11:26.042] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [calFlowPathByQueried] pid=269080 tid=269087
+[2026-09-03 13:11:26.042] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [testCalAvgFlowSendingRatesRandomly] pid=269080 tid=269085
+[2026-09-03 13:11:26.042] [info] [DeviceConfigurationAndPowerManager.cpp:118 sta
+rt] DeviceConfigurationAndPowerManager Starts Up
+[2026-09-03 13:11:26.042] [info] [ControllerAndOtherEventHandler.cpp:196 runServ
+er] Server Listening on port 8000
+[2026-09-03 13:11:26.043] [info] [FlowLinkUsageCollector.cpp:749 run] Listening
+for sFlow on UDP port 6343
+[2026-09-03 13:11:26.057] [info] [TopologyAndFlowMonitor.cpp:1192 validateDataPl
+aneHomogeneity] Data plane: bmv2 (10 switch(es))
+[2026-09-03 13:11:26.058] [info] [TopologyAndFlowMonitor.cpp:145 configureTopolo
+gyApiUrls] All-bmv2 topology: polling http://localhost:8081/v1.0/topology for sw
+itch/host/link state instead of Ryu.
+[2026-09-03 13:11:26.103] [info] [TopologyAndFlowMonitor.cpp:2081 run] topology
+from the control plane: 10 switches, 128 hosts, 288 edges up
+[2026-09-03 13:11:31.794] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestin
+ationPaths] Pulled 16256 paths from controller
+[2026-09-03 13:11:31.844] [info] [FlowLinkUsageCollector.cpp:566 refreshDestinat
+ionPathsPeriodically] Destination paths loaded from localhost:8081 (16256 pairs)
+; path and switch-count queries will answer from now on.
+[2026-09-03 13:11:33.487] [info] [ControllerAndOtherEventHandler.cpp:239 operato
+r()] Accepted new connection
+[2026-09-03 13:11:33.494] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/inform_switch_entered?dpid=1
+[2026-09-03 13:11:33.494] [info] [HttpSession.cpp:1126 handleInformSwitchEntered
+] Handle Inform Switch Entered
+[2026-09-03 13:11:33.498] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/inform_switch_entered?dpid=2
+[2026-09-03 13:11:33.498] [info] [HttpSession.cpp:1126 handleInformSwitchEntered
+] Handle Inform Switch Entered
+[2026-09-03 13:11:33.502] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/inform_switch_entered?dpid=3
+[2026-09-03 13:11:33.502] [info] [HttpSession.cpp:1126 handleInformSwitchEntered
+] Handle Inform Switch Entered
+[2026-09-03 13:11:33.508] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/inform_switch_entered?dpid=4
+[2026-09-03 13:11:33.508] [info] [HttpSession.cpp:1126 handleInformSwitchEntered
+] Handle Inform Switch Entered
+[2026-09-03 13:11:33.515] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/inform_switch_entered?dpid=5
+[2026-09-03 13:11:33.515] [info] [HttpSession.cpp:1126 handleInformSwitchEntered
+] Handle Inform Switch Entered
+[2026-09-03 13:11:33.517] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/inform_switch_entered?dpid=6
+[2026-09-03 13:11:33.517] [info] [HttpSession.cpp:1126 handleInformSwitchEntered
+] Handle Inform Switch Entered
+[2026-09-03 13:11:33.521] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/inform_switch_entered?dpid=7
+[2026-09-03 13:11:33.521] [info] [HttpSession.cpp:1126 handleInformSwitchEntered
+] Handle Inform Switch Entered
+[2026-09-03 13:11:33.522] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/inform_switch_entered?dpid=8
+[2026-09-03 13:11:33.522] [info] [HttpSession.cpp:1126 handleInformSwitchEntered
+] Handle Inform Switch Entered
+[2026-09-03 13:11:33.524] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/inform_switch_entered?dpid=9
+[2026-09-03 13:11:33.524] [info] [HttpSession.cpp:1126 handleInformSwitchEntered
+] Handle Inform Switch Entered
+[2026-09-03 13:11:33.525] [info] [HttpSession.cpp:95 handleRequest] Got request:
+ GET /ndt/inform_switch_entered?dpid=10
+[2026-09-03 13:11:33.525] [info] [HttpSession.cpp:1126 handleInformSwitchEntered
+] Handle Inform Switch Entered
+[2026-09-03 13:11:56.048] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSend
+ingRatesPeriodically] rate loop period: last 29 iters mean 1000.2 ms | since sta
+rt (29 iters) mean 1000.2 ms, min 1000.1, max 1000.4 (flows=0, counters=0) -- th
+e LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 13:11:56.048] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSend
+ingRatesPeriodically] rate divisor check: measured_interval_s=1.000578 divisor_u
+sed_s=-1.000000 (ticket Q gate: these must agree to 1%; a negative divisor means
+ no rate has been published yet, which is not a pass)
+

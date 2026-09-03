@@ -1,0 +1,146 @@
+cd ~/Desktop/NDTwin-Kernel/build && sudo -v
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel/build$ cd ~/Desktop/NDTwin-Kernel/buil
+d && sudo -v
+[sudo] password for ndt:
+ndt@ndtwin-lab-vm:~/Desktop/NDTwin-Kernel/build$ sudo ./bin/ndtwin_kernel --mode
+ mininet --topology /tmp/MixedTopology.json --no-ai --loglevel info
+[2026-09-03 13:15:06.808] [info] [main.cpp:299 main] Logger Loads Successfully!
+level
+Running in Mininet environment.
+[2026-09-03 13:15:06.808] [info] [main.cpp:311 main] Topology file: /tmp/MixedTo
+pology.json
+[2026-09-03 13:15:06.808] [info] [main.cpp:358 main] IntentTranslator is disable
+d by user.
+[2026-09-03 13:15:06.808] [info] [ApplicationManager.cpp:410 cleanupStaleEntries
+] Checking for stale NFS entries in /srv/nfs/sim
+[2026-09-03 13:15:06.809] [info] [TopologyAndFlowMonitor.cpp:2059 run] TopologyA
+ndFlowMonitor Run
+[2026-09-03 13:15:06.809] [info] [TopologyAndFlowMonitor.cpp:211 loadStaticTopol
+ogyFromFile] Load Static Topology File
+[2026-09-03 13:15:06.809] [info] [FlowLinkUsageCollector.cpp:472 start] Collecto
+r Starts Up
+[2026-09-03 13:15:06.809] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [run] pid=270732 tid=270735
+[2026-09-03 13:15:06.809] [info] [FlowLinkUsageCollector.cpp:708 run] Run with 2
+0 workers
+[2026-09-03 13:15:06.809] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [calAvgFlowSendingRatesPeriodically] pid=270732 tid=270736
+[2026-09-03 13:15:06.809] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [calFlowPathByQueried] pid=270732 tid=270739
+[2026-09-03 13:15:06.809] [info] [DeviceConfigurationAndPowerManager.cpp:118 sta
+rt] DeviceConfigurationAndPowerManager Starts Up
+[2026-09-03 13:15:06.809] [info] [ControllerAndOtherEventHandler.cpp:196 runServ
+er] Server Listening on port 8000
+[2026-09-03 13:15:06.811] [info] [FlowLinkUsageCollector.cpp:749 run] Listening
+for sFlow on UDP port 6343
+[2026-09-03 13:15:06.811] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [testCalAvgFlowSendingRatesRandomly] pid=270732 tid=270737
+[2026-09-03 13:15:06.811] [error] [TopologyAndFlowMonitor.cpp:1226 validateDataP
+laneHomogeneity] Topology mixes data planes (ovs=[1]; bmv2=[2,3,4,5,6,7,8,9,10])
+. A single run must be all-OVS or all-BMv2: the flow dispatch is per-DPID and wo
+uld cope, but the telemetry and liveness paths assume one kind. Fix the topology
+ file, or set AppConfig::ALLOW_MIXED_DATAPLANE to override.
+[2026-09-03 13:15:06.811] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids]
+ [purgeIdleFlows] pid=270732 tid=270738
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/switches
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/hosts
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/links
+[2026-09-03 13:15:06.830] [info] [TopologyAndFlowMonitor.cpp:2081 run] topology
+from the control plane: 0 switches, 0 hosts, 0 edges up
+[2026-09-03 13:15:06.883] [info] [FlowLinkUsageCollector.cpp:271 populateIfIndex
+ToOfportMap] Populating ifIndex to OFPort map...
+[2026-09-03 13:15:07.005] [info] [FlowLinkUsageCollector.cpp:437 populateIfIndex
+ToOfportMap] Finished populating ifIndex to OFPort map. Size: 0
+[2026-09-03 13:15:07.809] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+[2026-09-03 13:15:07.809] [info] [FlowLinkUsageCollector.cpp:2072 calAvgFlowSend
+ingRatesPeriodically] sFlow ingest healthy: rx=20, app_drop=0, addressed=20, soc
+k_ovfl_total=0
+[2026-09-03 13:15:08.809] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+[2026-09-03 13:15:09.810] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+[2026-09-03 13:15:10.810] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+[2026-09-03 13:15:11.810] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+Command failed (exit code 7): curl -s --connect-timeout 2 --max-time 10 -H "User
+-Agent: NDT-client/1.1" "http://localhost:8080/ryu_server/all_destination_paths"
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/switches
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/hosts
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/links
+[2026-09-03 13:15:12.810] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+[2026-09-03 13:15:13.810] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+[2026-09-03 13:15:14.810] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+[2026-09-03 13:15:15.810] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+[2026-09-03 13:15:16.810] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+Command failed (exit code 7): curl -s --connect-timeout 2 --max-time 10 -H "User
+-Agent: NDT-client/1.1" "http://localhost:8080/ryu_server/all_destination_paths"
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/switches
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/hosts
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/links
+[2026-09-03 13:15:17.811] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+[2026-09-03 13:15:18.811] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+[2026-09-03 13:15:19.811] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+[2026-09-03 13:15:20.811] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+[2026-09-03 13:15:21.811] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+Command failed (exit code 7): curl -s --connect-timeout 2 --max-time 10 -H "User
+-Agent: NDT-client/1.1" "http://localhost:8080/ryu_server/all_destination_paths"
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/switches
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/hosts
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/links
+[2026-09-03 13:15:22.811] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+[2026-09-03 13:15:22.815] [warning] [FlowLinkUsageCollector.cpp:2938 calFlowPath
+ByQueried] no flow table for dpid 1; the control plane has not reported it, so p
+aths through it stay empty
+[2026-09-03 13:15:22.815] [warning] [FlowLinkUsageCollector.cpp:2938 calFlowPath
+ByQueried] no flow table for dpid 2; the control plane has not reported it, so p
+aths through it stay empty
+[2026-09-03 13:15:23.811] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+[2026-09-03 13:15:24.811] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+[2026-09-03 13:15:25.812] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+[2026-09-03 13:15:26.812] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+Command failed (exit code 7): curl -s --connect-timeout 2 --max-time 10 -H "User
+-Agent: NDT-client/1.1" "http://localhost:8080/ryu_server/all_destination_paths"
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/switches
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/hosts
+Command failed (exit code 7): curl -s -X GET http://localhost:8080/v1.0/topology
+/links
+[2026-09-03 13:15:27.812] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+[2026-09-03 13:15:28.812] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+[2026-09-03 13:15:29.812] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+[2026-09-03 13:15:30.812] [warning] [FlowLinkUsageCollector.cpp:1985 calAvgFlowS
+endingRatesPeriodically] Other Side Agent Miss
+

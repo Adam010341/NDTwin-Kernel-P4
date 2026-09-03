@@ -1,0 +1,53 @@
+--- captured ---
+source ~/miniconda3/etc/profile.d/conda.sh && conda activate ryu-env && ryu-mana
+ger ryu.app.simple_switch_13
+ndt@ndtwin-lab-vm:~$ source ~/miniconda3/etc/profile.d/conda.sh && conda activat
+e ryu-env && ryu-manager ryu.app.simple_switch_13
+loading app ryu.app.simple_switch_13
+loading app ryu.controller.ofp_handler
+instantiating app ryu.app.simple_switch_13 of SimpleSwitch13
+instantiating app ryu.controller.ofp_handler of OFPHandler
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--- is it still running (the success case per the manual)? ---
+ryutest: 1 windows (created Thu Sep  3 10:19:12 2026)
+--- after Ctrl-C ---
+source ~/miniconda3/etc/profile.d/conda.sh && conda activate ryu-env && ryu-mana
+ger ryu.app.simple_switch_13
+ndt@ndtwin-lab-vm:~$ source ~/miniconda3/etc/profile.d/conda.sh && conda activat
+e ryu-env && ryu-manager ryu.app.simple_switch_13
+loading app ryu.app.simple_switch_13
+loading app ryu.controller.ofp_handler
+instantiating app ryu.app.simple_switch_13 of SimpleSwitch13
+instantiating app ryu.controller.ofp_handler of OFPHandler
+^C(ryu-env) ndt@ndtwin-lab-vm:~$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+10:19

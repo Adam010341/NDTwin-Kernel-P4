@@ -1,0 +1,4 @@
+get_switch_openflow_table_entries -> 315175 bytes
+get_static_topology_json -> 98203 bytes
+get_openflow_capacity -> 1426 bytes
+get_detected_top_k_flow_data -> 1029 bytes
