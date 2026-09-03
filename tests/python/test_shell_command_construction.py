@@ -56,7 +56,12 @@ import unittest
 SHELL_CALL = re.compile(
     r'(?:\bpopen\s*\(\s*[A-Za-z_"]'
     r'|\bstd::system\s*\(\s*[A-Za-z_"]'
-    r'|\butils::execCommand\s*\('
+    # [Co-developed with claude code -- Adam] execCommandCancellable (FINDINGS #27/#76) is
+    # execCommand with a pid the caller can kill: SAME string, SAME `/bin/sh -c`. Without the
+    # optional group below, converting a site to it would remove that site from this inventory
+    # altogether -- the four conversions on 2026-09-04 did exactly that, and this file caught it.
+    # A shell site must not be able to leave this list by being renamed.
+    r'|\butils::execCommand(?:Cancellable)?\s*\('
     r'|\bexecuteSystemCommand\s*\(\s*[A-Za-z_"])'
 )
 
@@ -110,7 +115,7 @@ SHELL_SITES = {
         "AppConfig::RYU_IP_AND_PORT (FlowLinkUsageCollector.cpp:216/218).",
     ),
     ("src/ndt_core/collection/TopologyAndFlowMonitor.cpp",
-     "return classifyEndpointReply(utils::execCommand(buildTopologyFetchCommand(url)));"): (
+     "utils::execCommandCancellable(buildTopologyFetchCommand(url), m_stopSignal)"): (
         1, CONFIG,
         "url is 'http://' + AppConfig::{RYU,P4_PROXY}_IP_AND_PORT + a literal path; the timeouts "
         "are std::to_string of constexpr ints. "
@@ -131,14 +136,31 @@ SHELL_SITES = {
         "--write-out argument interpolates only kHttpStatusSentinel, a `static constexpr const "
         "char*` literal (TopologyAndFlowMonitor.hpp:559), and classifyEndpointReply wraps the "
         "RESULT of execCommand -- it passes nothing to the shell.",
+        # [Co-developed with claude code -- Adam] Key moved 2026-09-04 (FINDINGS #27/#76):
+        # execCommand -> execCommandCancellable. RE-DERIVED, not chased: the executor now
+        # owns the child pid so stop() can kill it, but it hands the SAME std::string to
+        # the SAME `/bin/sh -c`, and the StopSignal argument never reaches the command
+        # line. Nothing interpolated changed, so the classification is unchanged.
     ),
     ("src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp",
-     'FILE* fp = popen("sudo ovs-vsctl list-br 2>/dev/null", "r");'): (
-        1, CONSTANT, "String literal, no interpolation.",
+     'outcome = utils::execCommandCancellable("sudo ovs-vsctl list-br 2>/dev/null",'): (
+        1, CONSTANT,
+        "String literal, no interpolation. "
+        # [Co-developed with claude code -- Adam] Was `FILE* fp = popen("sudo ovs-vsctl list-br
+        # 2>/dev/null", "r");` until 2026-09-04 (FINDINGS #27): a bare popen with no deadline on a
+        # thread stop() joins. Re-derived, not renamed: the argument is still the same string
+        # literal and still reaches the same `/bin/sh -c`, so CONSTANT still holds.
+        "Re-derived 2026-09-04: the single argument is a literal; the only other argument is the "
+        "StopSignal, which is not part of the command line.",
     ),
     ("src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp",
-     "response = utils::execCommand(cmd);"): (
+     "response = utils::execCommandCancellable(cmd, m_stopSignal).output;"): (
         1, CONFIG, "buildSwitchStateCommand(AppConfig::P4_PROXY_IP_AND_PORT).",
+        # [Co-developed with claude code -- Adam] Key moved 2026-09-04 (FINDINGS #27/#76):
+        # execCommand -> execCommandCancellable. RE-DERIVED, not chased: the executor now
+        # owns the child pid so stop() can kill it, but it hands the SAME std::string to
+        # the SAME `/bin/sh -c`, and the StopSignal argument never reaches the command
+        # line. Nothing interpolated changed, so the classification is unchanged.
     ),
     ("src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp",
      "std::string output = utils::execCommand(cmd);"): (
@@ -147,10 +169,15 @@ SHELL_SITES = {
         "(DeviceConfigurationAndPowerManager.cpp:691); the timeout is std::to_string(int).",
     ),
     ("src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp",
-     "std::string raw = utils::execCommand(cmd);"): (
+     "std::string raw = utils::execCommandCancellable(cmd, m_stopSignal).output;"): (
         1, CONFIG,
         "buildFlowStatsCommand(ip_and_port, dpid): ip_and_port is an AppConfig constant, dpid is "
         "a uint64_t.",
+        # [Co-developed with claude code -- Adam] Key moved 2026-09-04 (FINDINGS #27/#76):
+        # execCommand -> execCommandCancellable. RE-DERIVED, not chased: the executor now
+        # owns the child pid so stop() can kill it, but it hands the SAME std::string to
+        # the SAME `/bin/sh -c`, and the StopSignal argument never reaches the command
+        # line. Nothing interpolated changed, so the classification is unchanged.
     ),
     ("src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp",
      "std::string raw = utils::execCommand(cmd.str());"): (

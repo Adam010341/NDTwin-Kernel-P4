@@ -3,7 +3,9 @@
 #include "../setting/AppConfig.hpp"
 #include "common_types/GraphTypes.hpp" // for Graph
 #include "common_types/SFlowType.hpp"  // for FlowKey, Path
+#include "utils/StopSignal.hpp"        // for StopSignal (FINDINGS #76: a bounded stop)
 #include "utils/Utils.hpp"             // for DeploymentMode
+#include <chrono>                      // for milliseconds
 #include <array>                       // for array
 #include <atomic>                      // for atomic
 #include <cstdint>                     // for uint32_t, uint64_t, int64_t
@@ -117,6 +119,15 @@ class TopologyAndFlowMonitor
      * flushing thread, ensuring a clean shutdown and proper resource release.
      */
     void stop();
+
+    /** @brief How long stop() waits before saying what it is still waiting on. Default 2 s.
+     *
+     * [Co-developed with claude code -- Adam]
+     * FINDINGS #76. See DeviceConfigurationAndPowerManager::setStopReportBound -- same seam, same
+     * reason: a report that only fires when something is wrong cannot be tested without a way to
+     * make it fire. Nothing in the kernel calls this.
+     */
+    void setStopReportBound(std::chrono::milliseconds bound);
 
     /**
      * @brief Prints the current graph -- every vertex and edge -- to the log at DEBUG.
@@ -875,6 +886,13 @@ class TopologyAndFlowMonitor
 
     std::thread m_thread;
     std::thread m_flushEdgeFlowLoop;
+
+    // [Co-developed with claude code -- Adam]
+    // FINDINGS #76. m_running is read between rounds; this is read inside one, and it is what kills
+    // the `curl --max-time 5` the poll is blocked in when main.cpp prints `Exiting` and calls
+    // stop(). See utils/StopSignal.hpp.
+    utils::StopSignal m_stopSignal;
+    std::chrono::milliseconds m_stopReportBound{2000};
 
     std::shared_ptr<Graph> m_graph;
     std::shared_ptr<std::shared_mutex> m_graphMutex;

@@ -461,14 +461,37 @@ TopologyAndFlowMonitor::start()
     m_staticTopologyLoaded.store(true, std::memory_order_release);
 
     m_running.store(true);
+    // Before any worker exists. [Co-developed with claude code -- Adam]
+    m_stopSignal.reset();
     m_thread = thread(&TopologyAndFlowMonitor::run, this);
     m_flushEdgeFlowLoop = thread(&TopologyAndFlowMonitor::flushEdgeFlowLoop, this);
+}
+
+void
+TopologyAndFlowMonitor::setStopReportBound(std::chrono::milliseconds bound)
+{
+    m_stopReportBound = bound;
 }
 
 void
 TopologyAndFlowMonitor::stop()
 {
     m_running.store(false);
+
+    // [Co-developed with claude code -- Adam]
+    // FINDINGS #76. main.cpp's bind-failure path prints its message and then calls this; without
+    // the line below, "this" is a join that waits out whichever of the three topology requests was
+    // in flight -- up to 5 s each, and 8 s was measured. request() kills it.
+    const std::size_t killed = m_stopSignal.request();
+    if (killed > 0)
+    {
+        SPDLOG_LOGGER_INFO(Logger::instance(),
+                           "stop: cancelled {} in-flight topology request(s)",
+                           killed);
+    }
+
+    utils::reportIfWorkersOutlastTheBound(m_stopSignal, m_stopReportBound, "topology monitor");
+
     if (m_thread.joinable())
     {
         m_thread.join();
@@ -879,7 +902,9 @@ TopologyAndFlowMonitor::fetchTopologyEndpoint(const std::string& url)
 {
     try
     {
-        return classifyEndpointReply(utils::execCommand(buildTopologyFetchCommand(url)));
+        return classifyEndpointReply(
+            utils::execCommandCancellable(buildTopologyFetchCommand(url), m_stopSignal)
+                .output);
     }
     catch (const exception& ex)
     {
@@ -1145,9 +1170,26 @@ TopologyAndFlowMonitor::pollControlPlaneTopology()
     // is a separate decision from bounding the wait.
     const auto startedAt = std::chrono::steady_clock::now();
 
+    // [Co-developed with claude code -- Adam]
+    // FINDINGS #76. Three requests, and a stop used to be answered only after all three. The checks
+    // below make the unit of shutdown latency one request instead of a whole round; returning early
+    // leaves the graph exactly as a round that never ran would -- see the note above on all three
+    // writers returning early on an empty body.
     const EndpointReply switchesReply = fetchTopologyEndpoint(m_ryuUrl[0]);
+    if (m_stopSignal.stopRequested())
+    {
+        return;
+    }
     const EndpointReply hostsReply = fetchTopologyEndpoint(m_ryuUrl[1]);
+    if (m_stopSignal.stopRequested())
+    {
+        return;
+    }
     const EndpointReply linksReply = fetchTopologyEndpoint(m_ryuUrl[2]);
+    if (m_stopSignal.stopRequested())
+    {
+        return;
+    }
 
     // [Co-developed with claude code -- Adam]
     // Round 6 N1, the half of the fix that is not a report. An unreadable reply now reaches the
@@ -3161,6 +3203,8 @@ TopologyAndFlowMonitor::runLoop()
     // here, which is what made them race every caller main.cpp sequences after start(). They now
     // run inside start(), on the caller's thread; see the note there. This thread only polls.
 
+    utils::StopSignal::WorkerScope scope(m_stopSignal, "topology-poll");
+
     const auto startedAt = std::chrono::steady_clock::now();
     auto previous = graphLivenessSummary();
     bool first = true;
@@ -3187,10 +3231,13 @@ TopologyAndFlowMonitor::runLoop()
         const auto interval = (std::chrono::steady_clock::now() - startedAt < kConvergingFor)
                                   ? kWhileConverging
                                   : kOnceConverged;
-        // Sliced so stop() does not wait out a whole interval.
-        for (auto slept = 0s; slept < interval && m_running.load(); slept += 1s)
+        // [Co-developed with claude code -- Adam]
+        // Was sliced into 1 s naps so stop() did not wait out a whole interval. waitFor() ends on
+        // the stop request itself, so the nap contributes nothing to the bound rather than up to
+        // a second.
+        if (m_stopSignal.waitFor(interval))
         {
-            std::this_thread::sleep_for(1s);
+            break;
         }
     }
     SPDLOG_LOGGER_INFO(Logger::instance(), "Exiting TopologyAndFlowMonitor's updating");
@@ -4166,6 +4213,8 @@ TopologyAndFlowMonitor::flushEdgeFlowLoop()
 {
     SPDLOG_LOGGER_DEBUG(Logger::instance(), "flushEdgeFlowLoop started");
 
+    utils::StopSignal::WorkerScope scope(m_stopSignal, "edge-flow-flush");
+
     while (m_running.load())
     {
         // prune under graph lock
@@ -4196,7 +4245,13 @@ TopologyAndFlowMonitor::flushEdgeFlowLoop()
             }
         }
 
-        this_thread::sleep_for(chrono::milliseconds(1000));
+        // [Co-developed with claude code -- Adam]
+        // An unsliced 1 s sleep. stop() joins this thread too, so it was a 1 s floor under the
+        // monitor's shutdown even after the poll thread was made prompt.
+        if (m_stopSignal.waitFor(std::chrono::milliseconds(1000)))
+        {
+            break;
+        }
     }
 
     SPDLOG_LOGGER_DEBUG(Logger::instance(), "flushEdgeFlowLoop stopped");

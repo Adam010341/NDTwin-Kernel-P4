@@ -472,11 +472,22 @@ main(int argc, char* argv[])
     }
     catch (const std::exception& e)
     {
+        // [Co-developed with claude code -- Adam]
+        // FINDINGS #76. This used to say "Exiting" and then call a stop() that blocked in the poll
+        // thread's in-flight curl; measured with the proxy wedged, the process was still alive 8 s
+        // after the line was printed. A restart script that treats "Exiting" as "it has exited"
+        // then finds the port still held and blames the wrong thing -- which is #47's misleading
+        // message all over again, from the other end.
+        //
+        // Two changes, and the second one is the one that matters. The wording no longer claims
+        // the exit has happened, and the line that does claim it is printed *after* the stop.
         SPDLOG_LOGGER_CRITICAL(Logger::instance(),
-                               "cannot start telemetry collection: {}. Exiting -- see the error "
-                               "above for which resource was unavailable.",
+                               "cannot start telemetry collection: {}. Shutting down -- see the "
+                               "error above for which resource was unavailable.",
                                e.what());
         topologyAndFlowMonitor->stop();
+        SPDLOG_LOGGER_CRITICAL(Logger::instance(),
+                               "telemetry collection could not start; exiting now.");
         return EXIT_FAILURE;
     }
 

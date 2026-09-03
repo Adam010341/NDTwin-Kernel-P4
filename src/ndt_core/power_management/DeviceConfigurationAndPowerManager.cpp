@@ -170,6 +170,9 @@ DeviceConfigurationAndPowerManager::start()
     }
 
     this->m_running.store(true);
+    // Before any worker exists, so a stop left over from a previous start() cannot kill the first
+    // request this one makes. [Co-developed with claude code -- Adam]
+    m_stopSignal.reset();
     m_pingThread = thread(&DeviceConfigurationAndPowerManager::pingWorker, this, 1);
     m_statusUpdateThread = thread(&DeviceConfigurationAndPowerManager::statusUpdateWorker, this);
     m_openflowTablesUpdateThread =
@@ -187,11 +190,33 @@ DeviceConfigurationAndPowerManager::~DeviceConfigurationAndPowerManager()
 }
 
 void
+DeviceConfigurationAndPowerManager::setStopReportBound(std::chrono::milliseconds bound)
+{
+    m_stopReportBound = bound;
+}
+
+void
 DeviceConfigurationAndPowerManager::stop()
 {
     this->m_running.store(false);
 
+    // [Co-developed with claude code -- Adam]
+    // FINDINGS #27, and the whole of it. Setting m_running is what the three loops read *between*
+    // rounds; this is what reaches a worker that is inside one. It kills the `curl -s --max-time 8`
+    // that fetchOpenFlowTablesInternal is blocked on, so the join below waits for a thread that is
+    // already returning rather than for nine more switch deadlines. Measured before this line
+    // existed: 81.09 s to shut down, ~72 s of it in that join.
+    const std::size_t killed = m_stopSignal.request();
+    if (killed > 0)
+    {
+        SPDLOG_LOGGER_INFO(Logger::instance(),
+                           "stop: cancelled {} in-flight control-plane request(s)",
+                           killed);
+    }
+
     SPDLOG_LOGGER_INFO(Logger::instance(), "Collector Stops");
+
+    utils::reportIfWorkersOutlastTheBound(m_stopSignal, m_stopReportBound, "power manager");
 
     if (m_pingThread.joinable())
     {
@@ -567,7 +592,9 @@ DeviceConfigurationAndPowerManager::fetchP4SwitchState()
     std::string response;
     try
     {
-        response = utils::execCommand(cmd);
+        // FINDINGS #27: `curl -s --max-time 3`, on a thread stop() joins. Same command, now
+        // killable. [Co-developed with claude code -- Adam]
+        response = utils::execCommandCancellable(cmd, m_stopSignal).output;
     }
     catch (const std::exception& e)
     {
@@ -685,9 +712,18 @@ DeviceConfigurationAndPowerManager::reportBridgeQueryRecovered()
 void
 DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
 {
+    utils::StopSignal::WorkerScope scope(m_stopSignal, "switch-liveness");
+
     while (m_running.load())
     {
-        std::this_thread::sleep_for(std::chrono::seconds(interval_sec));
+        // [Co-developed with claude code -- Adam]
+        // An unsliced 1 s sleep was a 1 s floor under this object's stop(), on every shutdown.
+        // The shell-outs further down this loop are NOT yet cancellable -- see
+        // FIX-KERNEL-STOP-BOUNDED.md for the list of what this branch did not convert and why.
+        if (m_stopSignal.waitFor(std::chrono::seconds(interval_sec)))
+        {
+            break;
+        }
 
         Graph graph = m_topologyAndFlowMonitor->getGraph();
         auto [vi, vi_end] = boost::vertices(graph);
@@ -701,32 +737,64 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
         if (m_mode == utils::DeploymentMode::MININET)
         {
             listOvsBridges = [&]() -> std::optional<std::vector<std::string>> {
-                FILE* fp = popen("sudo ovs-vsctl list-br 2>/dev/null", "r");
-                if (!fp)
+                // [Co-developed with claude code -- Adam]
+                // FINDINGS #27. This was a bare popen() with NO deadline at all -- `sudo` waiting
+                // on a password prompt, or an ovs-vsctl blocked on the database, was an unbounded
+                // step inside a shutdown, on a thread stop() joins. Same command, same shell, same
+                // exit-status handling; the only difference is that stop() can now end it.
+                utils::CommandOutcome outcome;
+                try
+                {
+                    outcome = utils::execCommandCancellable("sudo ovs-vsctl list-br 2>/dev/null",
+                                                            m_stopSignal);
+                }
+                catch (const std::exception&)
+                {
+                    // pipe() failed. Reported the way popen() returning null was, and caught here
+                    // because this worker has no try/catch of its own and an exception reaching a
+                    // std::thread's entry point is std::terminate.
+                    reportBridgeQueryFailure("could not run the command at all");
+                    return std::nullopt;
+                }
+                if (!outcome.ran)
                 {
                     reportBridgeQueryFailure("could not run the command at all");
                     return std::nullopt;
                 }
+                if (m_stopSignal.stopRequested())
+                {
+                    // Cancelled, not failed. Reporting "`ovs-vsctl list-br` failed" on the way
+                    // down would describe a fault that did not happen, and would freeze OVS
+                    // liveness in the log as the last thing an operator reads.
+                    return std::nullopt;
+                }
 
                 std::vector<std::string> bridges;
-                char buf[128];
-                while (fgets(buf, sizeof(buf), fp))
+                std::size_t at = 0;
+                while (at <= outcome.output.size())
                 {
-                    std::string line(buf);
+                    const std::size_t nl = outcome.output.find('\n', at);
+                    std::string line = outcome.output.substr(
+                        at, nl == std::string::npos ? std::string::npos : nl - at);
                     // Trim trailing newline and whitespace
-                    line.erase(line.find_last_not_of(" \n\r\t") + 1);
+                    const auto last = line.find_last_not_of(" \n\r\t");
+                    line.erase(last == std::string::npos ? 0 : last + 1);
                     if (!line.empty())
                     {
                         bridges.push_back(line);
                     }
+                    if (nl == std::string::npos)
+                    {
+                        break;
+                    }
+                    at = nl + 1;
                 }
 
                 // The exit status was previously discarded, which is how a failing sudo looked
                 // exactly like a healthy machine with no bridges.
-                const int rc = pclose(fp);
-                if (rc != 0)
+                if (outcome.status != 0)
                 {
-                    reportBridgeQueryFailure(describeCommandStatus(rc));
+                    reportBridgeQueryFailure(describeCommandStatus(outcome.status));
                     return std::nullopt;
                 }
                 reportBridgeQueryRecovered();
@@ -1153,6 +1221,22 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
             continue;
         }
 
+        // [Co-developed with claude code -- Adam]
+        // FINDINGS #27. THE check the walk did not have. Without it a stop is answered after the
+        // last switch rather than after the current one, and with a control plane that accepts and
+        // never answers that difference is (N-1) x 8 s -- 72 s on the ten-switch fabric.
+        //
+        // `break`, not `continue`: the switches not reached are simply not in this round's result,
+        // which is the same state a round that never ran leaves behind. They are deliberately NOT
+        // pushed to fetched.unread -- carrying a table forward is for a switch that was asked and
+        // did not answer, and these were not asked. applyFetchedTables is not called at all on
+        // this path (see the worker), so nothing is overwritten either way.
+        if (m_stopSignal.stopRequested())
+        {
+            fetched.abandoned = true;
+            break;
+        }
+
         uint64_t dpid = props.dpid;
         // [Co-developed with claude code -- Adam]
         // Typed kind rather than a brand-name string compare: a topology that spelled it
@@ -1175,7 +1259,20 @@ DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal()
         // Timed, because the round trip is the only thing separating "this switch has no rules"
         // from "Ryu waited out its 1 s stats timeout and gave up". See classifyFlowStatsReply.
         const auto requestStart = std::chrono::steady_clock::now();
-        std::string raw = utils::execCommand(cmd);
+        // [Co-developed with claude code -- Adam]
+        // FINDINGS #27. Same shell command, same `/bin/sh -c`, same wire format that
+        // tests/test_RequestDeadlines.cpp pins -- the only difference is that this process now owns
+        // the child's pid and can end it. popen() does not expose one, which is why the 8 s
+        // deadline was the *only* bound available here.
+        std::string raw = utils::execCommandCancellable(cmd, m_stopSignal).output;
+        if (m_stopSignal.stopRequested())
+        {
+            // The request above was cancelled, not answered. Falling through would read the empty
+            // body as "the control plane said nothing" and emit the wedge warning once per switch
+            // on the way down -- describing a control-plane fault that did not happen.
+            fetched.abandoned = true;
+            break;
+        }
         const double elapsedSeconds =
             std::chrono::duration<double>(std::chrono::steady_clock::now() - requestStart).count();
         SPDLOG_LOGGER_TRACE(spdlog::default_logger(),
@@ -2056,6 +2153,8 @@ DeviceConfigurationAndPowerManager::getSingleSwitchCpuReport(const std::string& 
 void
 DeviceConfigurationAndPowerManager::statusUpdateWorker()
 {
+    utils::StopSignal::WorkerScope scope(m_stopSignal, "device-status");
+
     // Main update loop
     while (m_running.load())
     {
@@ -2081,14 +2180,11 @@ DeviceConfigurationAndPowerManager::statusUpdateWorker()
             SPDLOG_LOGGER_ERROR(Logger::instance(), "Error in statusUpdateWorker: {}", e.what());
         }
 
-        // 3. Sleep for 10 seconds (in an interruptible way)
-        for (int i = 0; i < 10; ++i) // 10 * 1s = 10s sleep
+        // 3. Sleep for 10 seconds, ending the moment a stop is requested. See the same call in
+        // openflowTablesUpdateWorker for why this is not ten 1 s naps any more.
+        if (m_stopSignal.waitFor(std::chrono::seconds(10)))
         {
-            if (!m_running.load())
-            {
-                break; // Exit loop early if stop() was called
-            }
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            break;
         }
     }
 }
@@ -2138,6 +2234,8 @@ DeviceConfigurationAndPowerManager::applyFetchedTables(FlowTableFetch fetched,
 void
 DeviceConfigurationAndPowerManager::openflowTablesUpdateWorker()
 {
+    utils::StopSignal::WorkerScope scope(m_stopSignal, "openflow-tables");
+
     // Main update loop
     while (m_running.load())
     {
@@ -2145,7 +2243,20 @@ DeviceConfigurationAndPowerManager::openflowTablesUpdateWorker()
         {
             // 1. Fetch new data (SLOW part, no lock held)
             // 2. Lock, merge and update the cache (FAST part) -- see applyFetchedTables.
-            applyFetchedTables(fetchOpenFlowTablesInternal(),
+            //
+            // [Co-developed with claude code -- Adam]
+            // FINDINGS #27. An abandoned round is not applied. carryForwardUnreadTables would
+            // otherwise walk a `tables` holding only the switches polled before the stop and
+            // delete every switch after it -- a shutdown that damages the cache it is shutting
+            // down. Nothing consumes the cache after this point anyway; the reason to be careful
+            // is that stop() is also reachable from the destructor on paths that do not end the
+            // process.
+            FlowTableFetch fetched = fetchOpenFlowTablesInternal();
+            if (fetched.abandoned)
+            {
+                break;
+            }
+            applyFetchedTables(std::move(fetched),
                                utils::getCurrentTimeMillisSystemClock() / 1000);
         }
         catch (const std::exception& e)
@@ -2155,14 +2266,14 @@ DeviceConfigurationAndPowerManager::openflowTablesUpdateWorker()
                                 e.what());
         }
 
-        // 3. Sleep for 10 seconds (in an interruptible way)
-        for (int i = 0; i < 10; ++i) // 10 * 1s = 10s sleep
+        // 3. Sleep for 10 seconds, ending the moment a stop is requested.
+        // [Co-developed with claude code -- Adam]
+        // Was ten 1 s naps with a flag check between them. Correct, but its resolution was its
+        // cost: it answered a stop after up to a second, on every worker, and main.cpp stops five
+        // subsystems in a row. waitFor() blocks on a condition variable that request() notifies.
+        if (m_stopSignal.waitFor(std::chrono::seconds(10)))
         {
-            if (!m_running.load())
-            {
-                break; // Exit loop early if stop() was called
-            }
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            break;
         }
     }
 }

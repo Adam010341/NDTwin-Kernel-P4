@@ -1,6 +1,8 @@
 #pragma once
 
+#include "utils/StopSignal.hpp" // for StopSignal (FINDINGS #27: a bounded stop)
 #include "utils/Utils.hpp"   // for DeploymentMode
+#include <chrono>            // for milliseconds
 #include <atomic>            // for atomic
 #include <functional>        // for function (the T-11 programmed-entry predicate)
 #include <memory>            // for shared_ptr
@@ -264,6 +266,16 @@ class DeviceConfigurationAndPowerManager
      */
     void stop();
 
+    /** @brief How long stop() waits before saying what it is still waiting on. Default 2 s.
+     *
+     * [Co-developed with claude code -- Adam]
+     * FINDINGS #27. A seam, not a knob: the report is the last line of defence for a stop that is
+     * somehow still not bounded, and a test cannot assert it fires without being able to make it
+     * fire. Setting it to 0 makes the report unconditional, which is what
+     * tests/test_KernelStopIsBounded.cpp does. Nothing in the kernel calls this.
+     */
+    void setStopReportBound(std::chrono::milliseconds bound);
+
     /**
      * @brief Is this an all-bmv2 fabric? -- the gate on the bmv2 liveness poll.
      *
@@ -407,6 +419,19 @@ class DeviceConfigurationAndPowerManager
     {
         json tables = json::array();
         std::vector<UnreadSwitch> unread;
+
+        /** @brief The walk stopped early because a stop was requested. **Do not apply this.**
+         *
+         * [Co-developed with claude code -- Adam]
+         * FINDINGS #27. `tables` then holds only the switches polled before the stop, and
+         * applyFetchedTables assigns it over the whole cache -- so applying an abandoned round
+         * deletes every switch the walk had not reached yet. carryForwardUnreadTables cannot save
+         * them either: they are not in `unread`, because they were never asked.
+         *
+         * A field rather than an exception because this is not an error. The round did not fail;
+         * it was cancelled, and the caller's correct response is to do nothing at all.
+         */
+        bool abandoned = false;
     };
 
     /**
@@ -877,6 +902,14 @@ class DeviceConfigurationAndPowerManager
 
     std::thread m_statusUpdateThread;
     std::thread m_openflowTablesUpdateThread;
+
+    // [Co-developed with claude code -- Adam]
+    // FINDINGS #27. m_running says "stop was requested" to a loop that is between rounds;
+    // m_stopSignal says it to a worker that is *inside* one -- it wakes the sleeps and kills the
+    // in-flight curl. Both are kept: m_running is read in a dozen places that are not shutdown
+    // paths, and narrowing it is a bigger change than this fix.
+    utils::StopSignal m_stopSignal;
+    std::chrono::milliseconds m_stopReportBound{2000};
     mutable std::shared_mutex m_statusMutex;
     mutable std::shared_mutex m_openflowTablesMutex;
 
