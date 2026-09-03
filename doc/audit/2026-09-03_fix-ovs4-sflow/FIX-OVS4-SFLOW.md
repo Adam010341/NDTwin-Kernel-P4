@@ -3,7 +3,7 @@
 分支 `fix/ovs4-has-sflow`，基底 `integrate/2026-09-03-auditor-merge @ 5c64d432`。
 🔴 **raw 不在這條分支上**：`.gitignore:74` 的 `doc/audit/**/raw*/*` 把它擋掉，而
 `tools/githooks/pre-commit` 會拒絕 raw 出現在 `audit-raw` 以外的分支。十四個 log 全部在
-**`audit-raw` 的 `e6ff2125`**，路徑同名 `doc/audit/2026-09-03_fix-ovs4-sflow/raw/`。下面所有
+**`audit-raw` 的 `dc0a84d2`**（十四個 live log ＋ 閘門 log），路徑同名 `doc/audit/2026-09-03_fix-ovs4-sflow/raw/`。下面所有
 「raw 在 `raw/`」的指涉都是指那裡。
 [Co-developed with claude code -- Adam]
 
@@ -14,7 +14,7 @@
 `testbed_topo.py` 那套參數對每座 bridge 設定 sFlow，並讓 `ndt up ovs4` 的驗證會因為「沒在取樣」
 而變紅。
 
-## 2. 前後對照（全部 live，raw 在 `audit-raw` `e6ff2125` 的 `raw/`）
+## 2. 前後對照（全部 live，raw 在 `audit-raw` `dc0a84d2` 的 `raw/`）
 
 同一台機器、**同一顆 kernel binary**（`a8ba99c2…`）、同一份流量配方。唯一變數是拓樸腳本。
 
