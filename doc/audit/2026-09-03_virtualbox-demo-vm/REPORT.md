@@ -114,3 +114,114 @@ one. So this is Adam's call, not a step-level judgement.
   until a public key could be injected. That path needs no Guest Additions.
 
 [Co-developed with claude code -- Adam]
+
+---
+
+# Step 5 (Adam's ruling): fixed and repacked
+
+Adam ruled **not** to download the 17.9 GB published image -- it is the old
+standard build (kernel tip 2026-01-29) and the Download page still marks the P4
+row "not yet published", so the artefact that matters is this one; the download
+quota gets spent once, when the repacked image is uploaded. He ruled the fix and
+repack happen on nslab.
+
+## The change
+
+`/etc/netplan/50-cloud-init.yaml`, in the image:
+
+```yaml
+network:
+  version: 2
+  ethernets:
+    all-ethernets:
+      match:
+        name: "en*"
+      dhcp4: true
+      dhcp6: true
+```
+
+Plus `/etc/cloud/cloud.cfg.d/99-disable-network-config.cfg` =
+`network: {config: disabled}`, so cloud-init cannot rewrite the file on a later
+boot and reintroduce the pin. Nothing else in the image was touched.
+
+Repacked with A-3's exact recipe, not a new one -- `qemu-img convert -O vmdk -o
+subformat=monolithicSparse` then `ovftool --maxVirtualHardwareVersion=14
+--annotation="$(cat annotation.txt)"`. The edit was made in qcow2 and converted
+back, so qemu never wrote into the vmdk ovftool reads.
+
+## Result
+
+| | |
+|---|---|
+| artefact | `nslab:/home/nslab/a9pack/out/NDTwin-P4-demo.ova` |
+| size | **3 213 910 528 B** (was 3 212 982 272 -- **+0.029%**) |
+| sha256 | `5ed8dcb942d5fa7ecde4f019b95125084e9c9e6fb221927d15e8e7f9c03fefab` |
+| supersedes | `c303adb57c99f87a7f4f4c77de9763dc7f369e0fabd580a1db6089823966c8e8` |
+
+## Acceptance -- both directions, because a fix that only works in the new place is a fix that moved the bug
+
+**Old environment must not break** (qemu, the NIC named `ens3`): after the
+change, `ens3 UP 10.0.2.15/24`, `ping` 2/2. Unchanged from before the change.
+
+**New environment must now work, with zero intervention** (VirtualBox, the NIC
+named `enp0s17`): imported the repacked `.ova` fresh and booted it without
+touching anything inside.
+
+| check | result |
+|---|---|
+| `<Name>` / `VirtualSystemType` | `NDTwin-P4-demo` / `vmx-14` |
+| declared hardware | `E1000`, `vmware.sata.ahci`, `vmware.vmci` |
+| annotation names all four apps | yes, all four |
+| **SSH banner through the NAT forward** | **✅ ~25 s, `SSH-2.0-OpenSSH_9.6p1`** |
+| interface | `enp0s17 UP 10.0.2.15/24` |
+| netplan actually shipped | the `en*` form above |
+| **no key of mine left in the image** | **✅ no `authorized_keys`** |
+| internet | `rtt min/avg/max 2.192/2.487/2.782 ms` |
+| dataplane | `*** Results: 0% dropped (6/6 received)` |
+| stack | `p4c 1.2.5.16`, BMv2 `1.15.5-fdd3b893` |
+
+## 🔴 Reconciliation: what this overturns
+
+`doc/audit/2026-08-31_p4-demo-vm/README.md` records, under "Also verified, each
+on the accept path rather than by reading config":
+
+> **Boots without virtio** -- root came up on `/dev/sda1` via AHCI and `ens3`
+> took a DHCP lease on E1000. VMware offers neither virtio-blk nor virtio-net,
+> so this was the single largest risk in the whole conversion.
+
+**The observation is true. The inference drawn from it was too broad.** That
+test named the right risk -- "will this work on hardware VMware actually
+offers" -- and varied the **device model** (virtio → E1000, virtio-blk → AHCI)
+while holding the **MAC address** fixed at qemu's `52:54:00:12:34:56`. The MAC
+was the variable that decided the outcome, and it was the one held constant.
+`ens3` did take a DHCP lease, and it did so *because netplan still matched*.
+
+So the A-3 line should not be read as "the NIC works on a foreign hypervisor".
+It establishes that E1000 and AHCI work **under qemu**. Nothing in that round
+could have caught this, because the whole round ran under the tool that pins
+the MAC.
+
+## Still open
+
+- 🔴 **VMware is not tested.** nslab has `ovftool` but no VMware hypervisor, so
+  "the `en*` form also fixes VMware" is **inferred from the OUI, not measured**.
+  It is written here as inference deliberately. VMware's OUIs (`00:0c:29`,
+  `00:50:56`) are not `52:54:00`, so the *old* image should have failed there
+  too -- also not measured.
+- 🔴 **The published 17.9 GB standard image was not examined**, by Adam's
+  ruling. Whether it carries the same pin is unknown. It has separate
+  provenance (its OVF declares `lsilogic` and `vmx-21`, unlike this one), so
+  the defect does not transfer by assumption either way.
+- The repacked `.ova` has **not been uploaded**. Nothing on the website points
+  at it yet.
+
+## Registered vs actual, recorded because the gap keeps going the same way
+
+Registered peak disk **+25 GB**; measured **+39 GB** (258 G used → 297 G).
+Underestimated again, in the same direction as H-18 (registered 40–55 GB,
+actual 106 GB) and against H-20 (registered ~8 GB, actual ~7 GB). Released
+state, verified as state rather than exit codes: no VirtualBox VM registered or
+running, the only qemu on the host is Adam's `ndtwin-lab-vm` (182232), ports
+2350/2351/2352 not listening, available 21 370 MB, disk back to 600 G free.
+
+[Co-developed with claude code -- Adam]
