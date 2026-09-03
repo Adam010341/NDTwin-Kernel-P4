@@ -15,7 +15,17 @@ Adam 交辦、但還沒有 session 在做的事。**這個 build 沒有 `TaskCre
 
 **材料已經在機器上**：`~/tutorials`（p4lang/tutorials，13 個 exercise）。不需要重新 clone。
 
-### 「1–5」是哪五個 —— 這個要 Adam 確認
+### ✅ Adam 15:xx 已釐清（原本的兩個問題都答了）
+
+- **「1–5」＝五個主題群，共 13 個 exercise**，沒有期限。
+- **目的不是跑 tutorial**：教授知道那只是量 p4lang 的東西。要測的是 **NDTwin 能不能在不同的 `.p4` 檔下正常橋接它們的 p4info**。
+- 分析（auditor 15:xx）：我們的 `ndtwin_switch.p4` 的 `ipv4_lpm` 就是 p4lang `basic.p4` 那張表加 `send_to_cpu`，proxy 寫死查
+  `MyIngress.ipv4_lpm`。⇒ **8 個 exercise**（basic／ecn／qos／mri／firewall／link_monitor／basic_tunnel／p4runtime）路由橋得過去、
+  但**沒有 CPU port／`send_to_cpu`／clone session** ⇒ LLDP 與 sFlow 全滅——要測的是 NDTwin 會說「看不到」還是回報一個健康的空網路；
+  **5 個**（flowcache／calc／load_balance／multicast／source_routing）連 `ipv4_lpm` 都沒有 ⇒ 第一個量測：proxy 在 p4info 找不到表時做什麼。
+  建議順序 `source_routing`（沒有表，最快炸）→ `basic`（基線）→ `flowcache`（與 idle-timeout 已知缺陷重疊）→ `p4runtime`（參照 controller）→ 其餘。
+
+### （原問題留底）「1–5」是哪五個
 
 `~/tutorials/README.md` **不是平面編號**，它分成四個主題群。照 README 由上而下取前五個是：
 
