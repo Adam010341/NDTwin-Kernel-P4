@@ -507,6 +507,8 @@ tester 自己在 JOURNAL 標成「Tooling note」並明講不歸咎 NDTwin。
 **建議 (a)**：`--check` 的意義是「起來的東西跟我要求的一樣嗎」，基準就該是那次 `up` 的要求；(b) 會在你改設定檔但沒重起時假紅。
 你裁了我就派。
 
+**裁決（09-03 20:2x，Adam，表單）：(a) 跟著那次 `ndt up` 的實際目標走。** 已派 `fix/ndt-status-check-baseline`（#8）。
+
 ## N13. `testbed_topo.py` 有兩份，`ndt up ovs` 跑的是 NTG 那份（#77）——修哪一份？
 
 `ndtwin-lab ovs-topo-start` 起的是 `/home/adam/Network-Traffic-Generator/testbed_topo.py`；本 repo 根目錄那份只被 `stack.sh` 印成一行指令叫操作員自己跑。
@@ -515,3 +517,5 @@ tester 自己在 JOURNAL 標成「Tooling note」並明講不歸咎 NDTwin。
 **建議 (b)**：一份實際執行的副本、在會被測試的 repo 裡；NTG 那份的存在理由（NTG 自己的 topology）要先問你它還需不需要。
 你裁了我就派；(a) 需要你開 NTG 的權限與 push 的裁決。
 
+
+**裁決（09-03 20:2x，Adam，表單）：(b) `ndtwin-lab` 改跑本 repo 的 `testbed_topo.py`，NTG 那份退役、不動 NTG repo。** 已派 `fix/ndt-up-ovs-runs-repo-topo`（#77）。
