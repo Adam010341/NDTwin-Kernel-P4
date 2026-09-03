@@ -5,8 +5,10 @@
 #include "utils/Logger.hpp"
 #include "utils/Utils.hpp"
 
+#include <chrono>
 #include <sstream>
 #include <string>
+#include <thread>
 
 using json = nlohmann::json;
 
@@ -528,6 +530,13 @@ HttpRoutingStrategyBase::entryExists(EntryKind kind, uint64_t dpid, long long id
     return Existence::Absent;
 }
 
+// [Co-developed with claude code -- Adam] Finding #1. @see the header for why this exists.
+void
+HttpRoutingStrategyBase::pauseBeforeReVerify()
+{
+    std::this_thread::sleep_for(std::chrono::milliseconds(VERIFY_PAUSE_MS));
+}
+
 OpResult
 HttpRoutingStrategyBase::guardedMod(const json& j,
                                     EntryKind kind,
@@ -570,7 +579,29 @@ HttpRoutingStrategyBase::guardedMod(const json& j,
         return result;
     }
 
-    OpResult result = post(path, j, operation);
+    // [Co-developed with claude code -- Adam] Finding #1, part 1 of 2: what is sent.
+    //
+    // A *_MOD delete NAMES an entry; it does not carry a definition of one. OpenFlow 1.3
+    // §6.4/A.3.4.2 gives ofp_group_mod's bucket list no meaning for OFPGC_DELETE, and Ryu
+    // forwards whatever it is handed -- mod_group_entry (ofctl_v1_3.py:1134-1150) builds an
+    // OFPBucket for every element of the caller's `buckets` and packs them into the DELETE.
+    // A caller that reuses its install body for the delete therefore emits a delete carrying
+    // buckets, and a switch that rejects that shape rejects it ASYNCHRONOUSLY: Ryu has already
+    // answered 200 (ofctl_rest.py:275-277), the error arrives correlated to nothing, and the
+    // group stays. That is a silent no-op with a 200 on it.
+    //
+    // So a delete is rebuilt from the two fields that address the entry, rather than forwarded.
+    // Only when the entry is addressable: a group_id Ryu accepts as a name ("ALL" -> OFPG_ALL)
+    // is not something readEntryId can turn into an integer, and rewriting the body would
+    // silently change which entries the caller asked to remove. Those keep going through
+    // verbatim, and the outcome below records that nothing was verified.
+    json outbound = j;
+    if (op == EntryOp::Delete && addressable)
+    {
+        outbound = json{{"dpid", dpid}, {idField, id}};
+    }
+
+    OpResult result = post(path, outbound, operation);
     if (!result.ok)
     {
         return result;
@@ -582,6 +613,62 @@ HttpRoutingStrategyBase::guardedMod(const json& j,
     {
         return result.withOutcome("unverified");
     }
+
+    // [Co-developed with claude code -- Adam] Finding #1, part 2 of 2: what is claimed.
+    //
+    // Part 1 fixes one reason a delete does not land. This fixes the reason nobody could tell.
+    // "Forwarded" was being reported as "deleted", so every way the switch can decline a
+    // delete -- a shape it rejects, a group another entry still references, a bug on either
+    // side of the wire -- arrived at the caller as 200 {"outcome":"deleted"} and at the log as
+    // nothing at all. The id was then unusable for the life of the switch, because the next
+    // install of it correctly answered 409. Measured on ovs4 2026-09-03: five deletes, five
+    // 200s, five groups still on the switch, zero log lines.
+    //
+    // A claim of deletion is now made only after asking the switch. Absent is the only answer
+    // that earns "deleted"; Present is a failure with a reason; Unknown says so rather than
+    // guessing in either direction -- a read-back that could not be performed is not evidence
+    // that the delete failed, and inventing a 502 from it would republish the kernel's own
+    // reach as a finding about the fabric (the same rule the pre-check follows above).
+    if (op == EntryOp::Delete)
+    {
+        Existence after = Existence::Unknown;
+        for (int attempt = 0; attempt < VERIFY_ATTEMPTS; ++attempt)
+        {
+            if (attempt > 0)
+            {
+                pauseBeforeReVerify();
+            }
+            after = entryExists(kind, dpid, id);
+            if (after != Existence::Present)
+            {
+                break;
+            }
+        }
+
+        if (after == Existence::Present)
+        {
+            auto failed =
+                OpResult::failure(502, named + " is still on the switch after the delete was "
+                                               "forwarded and acknowledged; it was NOT deleted")
+                    .withOutcome("still_present");
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "{} did not take effect: {}",
+                               operation,
+                               failed.message);
+            return failed;
+        }
+        if (after == Existence::Unknown)
+        {
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "{} was forwarded but {} could not be read back, so whether it "
+                               "was deleted is unknown",
+                               operation,
+                               named);
+            return result.withOutcome("unverified");
+        }
+        return result.withOutcome("deleted");
+    }
+
     switch (op)
     {
     case EntryOp::Add:
@@ -589,7 +676,7 @@ HttpRoutingStrategyBase::guardedMod(const json& j,
     case EntryOp::Modify:
         return result.withOutcome("modified");
     case EntryOp::Delete:
-        return result.withOutcome("deleted");
+        break; // handled above, where the read-back decides.
     }
     return result;
 }
