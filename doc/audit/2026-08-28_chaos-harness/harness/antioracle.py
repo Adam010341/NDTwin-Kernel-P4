@@ -39,6 +39,15 @@ PASS = "PASS"
 FAIL = "FAIL"
 INCONCLUSIVE_CPU = "INCONCLUSIVE-CPU"
 SKIPPED = "SKIPPED"
+# NOT-MEASURED is a fourth answer, and it is deliberately not any of the other three
+# (FINDINGS-ALL #75). A check can be wired, called, and still have had nothing to measure --
+# INV-01's latency half needs a power-on that OUGHT to do work, and on a healthy fabric there
+# is none. PASS would claim "checked, and it was fine"; FAIL would accuse the system of the
+# harness's own missing precondition; SKIPPED already means "this check did not run", which is
+# the opposite fact and the one #17 chose for a refused request. Keeping them apart is what
+# stops a reader -- or a grep over a round's JSON -- reading "no power-on happened this round"
+# as "the power-on was honest".
+NOT_MEASURED = "NOT-MEASURED"
 
 # Invariants whose evidence is rate- or path-shaped, and therefore CPU-contention-sensitive.
 CPU_SENSITIVE = {"INV-04", "INV-05"}
