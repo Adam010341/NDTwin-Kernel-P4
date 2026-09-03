@@ -110,10 +110,27 @@ SHELL_SITES = {
         "AppConfig::RYU_IP_AND_PORT (FlowLinkUsageCollector.cpp:216/218).",
     ),
     ("src/ndt_core/collection/TopologyAndFlowMonitor.cpp",
-     "return utils::execCommand(buildTopologyFetchCommand(url));"): (
+     "return classifyEndpointReply(utils::execCommand(buildTopologyFetchCommand(url)));"): (
         1, CONFIG,
         "url is 'http://' + AppConfig::{RYU,P4_PROXY}_IP_AND_PORT + a literal path; the timeouts "
-        "are std::to_string of constexpr ints.",
+        "are std::to_string of constexpr ints. "
+        # [Co-developed with claude code -- Adam] The line changed on 2026-09-03 when
+        # fix/topology-round-reads-status wrapped the call in classifyEndpointReply and added
+        # --write-out. The provenance below was RE-DERIVED before the key was updated, not
+        # carried over: an inventory edit that only chases the new line text would relabel a
+        # command injection as CONFIG just as readily as it records a rename.
+        "Re-derived 2026-09-03: the only argument is url, from m_ryuUrl[0..2] "
+        "(TopologyAndFlowMonitor.cpp:985-987). m_ryuUrl is written only by setTopologyApiUrls "
+        "(:161-165), whose production callers are the constructor (:157, ryuTopologyBaseUrl() "
+        "= 'http://' + AppConfig::RYU_IP_AND_PORT + '/v1.0/topology', :143) and "
+        "configureTopologyApiUrls (:199, 'http://' + AppConfig::P4_PROXY_IP_AND_PORT + "
+        "'/v1.0/topology', :198). Both AppConfig values are build-time `static const "
+        "std::string` (setting/AppConfig.hpp.example:8,10); the only other caller of "
+        "setTopologyApiUrls is tests/test_TopologyUrlAndPathJson.cpp:110, a unit test. No HTTP "
+        "handler reaches any of them, so nothing request-controlled is in the command. The new "
+        "--write-out argument interpolates only kHttpStatusSentinel, a `static constexpr const "
+        "char*` literal (TopologyAndFlowMonitor.hpp:559), and classifyEndpointReply wraps the "
+        "RESULT of execCommand -- it passes nothing to the shell.",
     ),
     ("src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp",
      'FILE* fp = popen("sudo ovs-vsctl list-br 2>/dev/null", "r");'): (
