@@ -166,6 +166,58 @@ port_listener_desc() {
     echo "$out"
 }
 
+# port_owner_local <port> [proto] -> ours | foreign | unknown
+#
+# [Co-developed with claude code -- Adam]
+# FINDING #3, first half. preflight already names every held port and what a foreign holder
+# costs (ports.sh), and then proceeds anyway. On 2026-09-02 23:36 a sibling session's kernel
+# took :8000 four seconds before `ndt up ovs4` started; `up` built Ryu (:8080/:6653/:6633) and
+# a 15-process / 36-veth data plane, and only THEN did stack.sh's [3/3] refuse -- ":8000 is
+# held by ndtwin_kernel (pid 992261), not by the kernel this script started". The refusal
+# existed. It just ran after the machine had been changed.
+#
+# The advisory was deliberate, for one stated reason: `ndt up` on an already-running stack
+# finds :8000 and :6343 held by ITS OWN kernel, so a blanket refusal makes the reuse path
+# unusable -- and "telling ours from a stray needs the pidfile ownership test, which lives in
+# stack.sh". So bring that test here, rather than dropping the distinction it protects.
+#
+# Three answers, and `unknown` is a real one that must not be folded into either:
+#   ours     a listener whose pid, or whose process group, is in THIS checkout's
+#            .test_run/pids ledger -- the reuse path, and what the advisory was protecting.
+#   foreign  a listener we CAN see that no ledger entry of ours accounts for. This is #3.
+#   unknown  no listener pid is visible at all: the socket belongs to another user (bmv2 runs
+#            as root under ndtwin-lab, so :3005x and :909x are always unknown to us), or `ss`
+#            is missing. Refusing on unknown would refuse every live P4 fabric -- the reuse
+#            path again, by a different route -- so it warns instead and says it could not see.
+#
+# 🔴 Scope, said out loud because it will surprise someone: the ledger is PER CHECKOUT (#79).
+# A kernel started from the main checkout is `foreign` to a worktree's `ndt up`. That is not a
+# new opinion -- stack.sh would have called the same socket "not ours" and refused at [3/3].
+# The verdict is identical; it just arrives before the fabric instead of after it.
+#
+# The ownership rule -- the pid itself, or its process group leader -- is stack.sh's
+# port_owner_verdict rule, because start_bg setsids and stop_one signals `-$pid`. The two are
+# not one shared function on purpose: stack.sh defines its own err/ok/warn/info with different
+# shapes, so sourcing it here would silently rewrite this script's entire output. proc_pgid
+# rather than `ps -o pgid=`: it reads /proc directly, so no child of ours carries a matchable
+# argv (header trap note 2).
+port_owner_local() {
+    local port="$1" proto="${2:-tcp}" pids pid pgid f recorded
+    pids="$(ndt_port_listener_pids "$port" "$proto")"
+    [[ -z "$pids" ]] && { echo unknown; return 0; }
+    for pid in $pids; do
+        pgid="$(proc_pgid "$pid" 2>/dev/null)"
+        for f in "$REPO"/.test_run/pids/*; do
+            [[ -f "$f" ]] || continue
+            recorded="$(cat "$f" 2>/dev/null)"
+            [[ "$recorded" =~ ^[0-9]+$ ]] || continue
+            [[ "$pid" == "$recorded" ]] && { echo ours; return 0; }
+            [[ -n "$pgid" && "$pgid" == "$recorded" ]] && { echo ours; return 0; }
+        done
+    done
+    echo foreign
+}
+
 # deep_sweep -- kill whatever still holds the stack's ports, whoever started it.
 #
 # Off by default and deliberately so. `stop_one` only knows what this stack started, which is
@@ -692,6 +744,85 @@ rate_label() {
     esac
 }
 
+# --- is the helper this script runs the helper in this tree? ------------------------
+#
+# [Co-developed with claude code -- Adam]
+# FINDING #83. $LAB is /usr/local/sbin/ndtwin-lab -- a root-owned COPY, installed by hand with
+# the command in ndtwin-lab's own header. The copy on this machine was made on 08-30
+# (0b6db9e3, sha256 288b71cb...); tools/test_workflow/ndtwin-lab has moved five commits since
+# -- G-9's /proc-verified sweep replacing `pkill -f`, G-7's install-time config file, the ports
+# table, and #77's topology file. Every `ndt up` and every `ndt down` on this machine runs the
+# COPY, so not one of those fixes has ever executed here, and NOTHING SAID SO: not `status`,
+# not the preflight, not a gate. A branch's FIX document that reports a live arm through
+# `ndt up` is describing whichever helper is installed, and none of them names its sha.
+#
+# 🔴 This compares two files and says what it found. It does not install anything: which
+# program root runs under a NOPASSWD rule is root's decision, and an unprivileged script that
+# quietly arranged to change it would be the escalation ndtwin-lab's header refuses to allow.
+# It is also why $LAB stays hard-coded and is NOT read from the environment -- same header.
+#
+# 🔴 "Could not compare" is not "the same". Every non-matching verdict is reported, including
+# the two unreadable ones: an installed helper that is missing means `ndt up` cannot work at
+# all, and a repo copy this script cannot read means the question was never answered.
+LAB_INSTALL_CMD="sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sbin/ndtwin-lab"
+
+lab_repo_file() { echo "$HERE/ndtwin-lab"; }
+lab_sha() { [[ -r "$1" ]] || return 1; sha256sum "$1" 2>/dev/null | cut -d' ' -f1; }
+
+# lab_version_verdict -- same | differs | not-installed | no-repo-copy, plus the two shas on
+# stdout: "<verdict> <installed-sha-or-?> <repo-sha-or-?>".
+lab_version_verdict() {
+    local inst repo
+    inst="$(lab_sha "$LAB")" || inst=""
+    repo="$(lab_sha "$(lab_repo_file)")" || repo=""
+    if [[ -z "$inst" ]]; then echo "not-installed ? ${repo:-?}"; return; fi
+    if [[ -z "$repo" ]]; then echo "no-repo-copy $inst ?"; return; fi
+    if [[ "$inst" == "$repo" ]]; then echo "same $inst $repo"; else echo "differs $inst $repo"; fi
+}
+
+# lab_version_report -- print it. 0 the installed helper IS this tree's, 1 it is not (or is
+# absent), 2 the comparison could not be made. Callers decide whether that is a warning or a
+# problem; this decides nothing except how to say it.
+lab_version_report() {
+    local verdict inst repo
+    read -r verdict inst repo <<<"$(lab_version_verdict)"
+    case "$verdict" in
+        same)
+            ok "helper: $LAB is tools/test_workflow/ndtwin-lab (sha256 ${inst:0:8})"
+            return 0 ;;
+        differs)
+            warn "helper: $LAB is sha256 ${inst:0:8}, tools/test_workflow/ndtwin-lab is ${repo:0:8}"
+            warn "  'ndt up' and 'ndt down' run the INSTALLED copy, so nothing merged into this"
+            warn "  tree since it was installed has executed on this machine (finding #83)."
+            warn "  install it -- root's decision, not this script's:"
+            warn "    $LAB_INSTALL_CMD"
+            return 1 ;;
+        not-installed)
+            err "helper: $LAB is not installed (or is unreadable)"
+            err "  every 'ndt up'/'ndt down' verb goes through it. install it:"
+            err "    $LAB_INSTALL_CMD"
+            return 1 ;;
+        *)
+            warn "helper: could not compare $LAB (sha256 ${inst:0:8}) against $(lab_repo_file)"
+            warn "  -- this checkout's copy is missing or unreadable, so which code 'ndt up'"
+            warn "  runs is an open question, not a match."
+            return 2 ;;
+    esac
+}
+
+# lab_version_problem -- the one-line form for `status --check`'s problem list, or nothing when
+# the installed helper is this tree's.
+lab_version_problem() {
+    local verdict inst repo
+    read -r verdict inst repo <<<"$(lab_version_verdict)"
+    case "$verdict" in
+        same) ;;
+        differs)       echo "the installed $LAB (${inst:0:8}) is not tools/test_workflow/ndtwin-lab (${repo:0:8}) -- 'ndt up'/'ndt down' run the installed copy" ;;
+        not-installed) echo "the installed $LAB is missing or unreadable -- every 'ndt up'/'ndt down' verb goes through it" ;;
+        *)             echo "the installed $LAB could not be compared against tools/test_workflow/ndtwin-lab -- which helper 'ndt up' runs is unanswered" ;;
+    esac
+}
+
 # --- preflight --------------------------------------------------------------------
 
 preflight() {
@@ -721,7 +852,159 @@ preflight() {
         warn "run measures them). stack.sh refuses at wait_for_port if they are not ours:"
         printf '%s\n' "$residue" | sed 's/^/  /'
     fi
+
+    # [Co-developed with claude code -- Adam]
+    # FINDING #3, first half: the residue report above names the port and stops there, and the
+    # refusal that would have saved the run lived in stack.sh's [3/3] kernel step -- after Ryu,
+    # after the tmux topo session, after 15 processes and 36 veths. So ask the ownership
+    # question HERE, where the answer still costs nothing, and refuse only on the answer that
+    # the late check would also have refused on.
+    #
+    # Only `foreign` refuses. `ours` is the reuse path this warning was written to protect, and
+    # `unknown` is a root-owned socket we cannot attribute -- bmv2's :3005x and :909x are always
+    # unknown to an unprivileged reader, so refusing on it would refuse every live P4 fabric.
+    # Both are said out loud rather than skipped: an unattributable holder is a fact about the
+    # reading, not a clean port.
+    local foreign=0 spec proto rowplane owner consequence p
+    while IFS='|' read -r spec proto rowplane owner consequence; do
+        [[ -z "$spec" ]] && continue
+        for p in $(ndt_port_expand "$spec"); do
+            ndt_port_open "$p" "$proto" || continue
+            case "$(port_owner_local "$p" "$proto")" in
+                ours) ;;
+                unknown)
+                    info "  :$p ($proto) is held by a process this user cannot see (root-owned, or no ss)."
+                    info "     not refused: bmv2 runs as root, so a live P4 fabric always looks like this."
+                    ;;
+                foreign)
+                    if (( foreign == 0 )); then
+                        err "refusing to build: a port this bring-up needs is held by a process that is"
+                        err "not part of this checkout's stack (nothing in .test_run/pids/ accounts for it)."
+                    fi
+                    foreign=1
+                    err "  :$p ($proto) is held by $(ndt_port_holder "$p" "$proto")"
+                    err "     should be: $owner"
+                    err "     if it is not ours: $consequence"
+                    ;;
+            esac
+        done
+    done < <(ndt_port_rows "$mode")
+    if (( foreign == 1 )); then
+        err "  refused HERE, before anything is built. stack.sh would refuse at its [3/3]"
+        err "  kernel step instead, and on 2026-09-02 that cost a whole Ryu, a topo session and"
+        err "  a 15-process data plane, left running with no kernel (finding #3)."
+        err "  .test_run/pids/ is per checkout (#79): a stack started from a DIFFERENT checkout"
+        err "  of this repo is foreign here -- stack.sh would have called the same socket"
+        err "  'not ours'. Take it down from the checkout that started it:  ndt down"
+        err "  If it is a stray nobody owns:  ndt down --deep"
+        bad=1
+    fi
+
+    # #83, as a warning and never a refusal: whether to install the helper is Adam's call, and
+    # a bring-up that refuses to run until someone runs a sudo command is a worse failure than
+    # one that runs the old helper and says which one it ran.
+    local labout labrc
+    labout="$(lab_version_report 2>&1)"; labrc=$?
+    if (( labrc != 0 )); then
+        warn "the helper this bring-up will use is not the one in this tree:"
+        printf '%s\n' "$labout" | sed 's/^/  /'
+    fi
     return $bad
+}
+
+# --- rollback: take back what THIS bring-up started --------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# FINDING #3, second half. The 09-02 run returned failure and left Ryu (:8080/:6653/:6633), a
+# tmux topo session and a 15-process / 36-veth data plane running with no kernel; three minutes
+# later all of it was still there. A failed bring-up that leaves a live network behind is worse
+# than one that leaves nothing, because the operator has been told it failed: the next thing
+# anyone starts adopts that Ryu (ports.sh's :6653 row) or measures that fabric.
+#
+# 🔴 What is rolled back is what THIS run started, recorded as it goes -- not everything on the
+# machine that looks like ours. `up_p4` can REUSE a fabric it found running; sweeping that would
+# be tearing down someone else's lab in response to our own failure.
+#
+# 🔴 A stage is recorded BEFORE the call that changes the machine, not after it. A verb that
+# fails part way through has still changed the machine, and the case this exists for is exactly
+# the one where we do not know how far it got. topo-stop and cleanup are both idempotent, so
+# the cost of rolling back a step that never happened is a line of output; the cost of the
+# other error is a live fabric nobody owns.
+#
+# 🔴 NOT called for a stack that came up and then failed VERIFICATION. `up` already reports
+# that state as "up, but not verified -- do not measure on this", and it is the state an
+# operator most needs to look at: the kernel is there, the graph is there, and the reason it
+# failed is readable from a running system. Tearing it down would destroy the evidence and
+# answer a question nobody asked. #3 is about a bring-up that could not finish, not about one
+# that finished and did not pass.
+UP_STARTED=()
+
+# up_started <stage> -- record a machine-changing step about to be taken. `fabric` = a topology
+# session and its data plane; `stack` = whatever stack.sh starts (Ryu, proxy, kernel).
+up_started() { UP_STARTED+=("$1"); }
+
+up_did_start() {   # <stage> -- did this run start it?
+    local s
+    for s in ${UP_STARTED[@]+"${UP_STARTED[@]}"}; do [[ "$s" == "$1" ]] && return 0; done
+    return 1
+}
+
+# rollback_up <why> -- undo the recorded stages, newest first, then say what is left.
+rollback_up() {
+    local why="$1" i stage rc=0 out src crc left=0
+    if (( ${#UP_STARTED[@]} == 0 )); then
+        info "nothing to roll back: this 'ndt up' had not changed the machine yet"
+        return 0
+    fi
+    echo
+    say "rollback"
+    warn "$why"
+    info "this bring-up started: ${UP_STARTED[*]} -- taking them back down"
+    for (( i = ${#UP_STARTED[@]} - 1; i >= 0; i-- )); do
+        stage="${UP_STARTED[$i]}"
+        case "$stage" in
+            stack)
+                info "stopping what stack.sh started (kernel, proxy, Ryu)"
+                out="$(NO_COLOR=1 bash "$STACK" down 2>&1)"; src=$?
+                printf '%s\n' "$out" | grep -E 'stopped|still|held' | sed 's/^/      /'
+                if (( src != 0 )); then err "stack.sh down exited $src"; rc=1; fi
+                ;;
+            fabric)
+                info "stopping the topology session"
+                sudo -n "$LAB" topo-stop 2>&1 | sed 's/^/      /'
+                info "sweeping the data plane"
+                # #21 applies here too: this sweep's rc is the only thing that can tell a
+                # finished rollback from one that left an orphan holding :3005x.
+                out="$(sudo -n "$LAB" cleanup 2>&1)"; crc=$?
+                printf '%s\n' "$out" | sed 's/^/      /'
+                if (( crc != 0 )); then
+                    err "cleanup exited $crc -- something survived TERM and KILL; it is named above"
+                    rc=1
+                fi
+                ;;
+        esac
+    done
+
+    # #49's rule, for the same reason: a kill is a request, and the process table catches up
+    # afterwards. Assert after the bounded wait, never instead of it.
+    if up_did_start fabric; then
+        wait_reaped "${NDT_REAP_WAIT:-20}" || true
+        if topo_session; then err "rollback: the topo session is still present"; left=1; fi
+        [[ "$(bmv2_count)" -ne 0 ]] && { err "rollback: $(bmv2_count) bmv2 process(es) still running"; left=1; }
+        [[ "$(mn_count)"   -ne 0 ]] && { err "rollback: $(mn_count) host/switch process(es) still running"; left=1; }
+    fi
+    if (( rc == 0 && left == 0 )); then
+        ok "rolled back: the machine is back to what it was before this 'ndt up'"
+    else
+        err "rollback INCOMPLETE -- see above. finish it by hand:  ndt down --deep"
+        rc=1
+    fi
+    # Adam has not ruled on N15 Q3, so today's behaviour stands: the record survives a failed
+    # bring-up. This run DID ask for a fabric, and `ndt status --check` should be able to call
+    # whatever is left red rather than answering "could not check".
+    info "kept .test_run/up.target: this run asked for a fabric, so 'ndt status --check' still"
+    info "has a baseline to judge the leftovers against. 'ndt down' is what clears it."
+    return $rc
 }
 
 # --- up ---------------------------------------------------------------------------
@@ -800,7 +1083,28 @@ up_p4() {
             # ports instead of a count of processes. [Co-developed with claude code -- Adam]
             warn "$n orphan bmv2 process(es) with no topo session; sweeping first"
             ndt_port_residue p4 | sed 's/^/  /'
-            sudo -n "$LAB" cleanup >/dev/null 2>&1
+            # [Co-developed with claude code -- Adam]
+            # FINDING #21. This was `sudo -n "$LAB" cleanup >/dev/null 2>&1`: output discarded,
+            # exit status discarded, and then a fabric built on top of whatever survived. Until
+            # G-9 that was invisible rather than wrong -- every kill in the old cleanup was
+            # `|| true`, so it was structurally incapable of returning non-zero and had nothing
+            # to say. G-9 made it able to fail AND made it name the survivor, so both halves are
+            # now a real loss. The consequence is in ports.sh's 30051-30060 row: an orphan that
+            # outlived TERM and KILL keeps a gRPC port, the fabric this function is about to
+            # build cannot bind, and what the operator sees is an error that reads like a P4
+            # pipeline problem rather than a leftover process.
+            local cout crc
+            cout="$(sudo -n "$LAB" cleanup 2>&1)"; crc=$?
+            printf '%s\n' "$cout" | sed 's/^/      /'
+            if (( crc != 0 )); then
+                err "the orphan sweep exited $crc: it did not finish, and what survived is named"
+                err "above. Building a fabric over it is how a leftover process turns into an"
+                err "error that looks like a P4 problem (ports.sh, the 30051-30060 row), so this"
+                err "refuses instead of proceeding. Ports still held:"
+                ndt_port_residue p4 | sed 's/^/        /' >&2
+                err "deal with it, then retry:  ndt down --deep && ndt up p4"
+                return 1
+            fi
         fi
         # [Co-developed with claude code -- Adam]
         # Refuse a live OVS fabric instead of quietly removing it. `up_ovs` already refuses the
@@ -814,7 +1118,13 @@ up_p4() {
         # already returned in every branch a test could reach.
         guard_no_live_ovs || return 1
         topo_session && { info "stopping the existing topo session"; sudo -n "$LAB" topo-stop >/dev/null 2>&1; }
-        sudo -n "$LAB" topo-start >/dev/null || { err "topo-start failed"; return 1; }
+        # Recorded before the call, not after: a topo-start that fails part way through has
+        # still changed the machine, and topo-stop/cleanup are idempotent. See rollback_up.
+        up_started fabric
+        sudo -n "$LAB" topo-start >/dev/null || {
+            err "topo-start failed"
+            rollback_up "topo-start failed; this run had already begun changing the machine"
+            return 1; }
         info "waiting for $SWITCHES switches and the manifest"
         local i
         for i in $(seq 1 180); do
@@ -826,6 +1136,7 @@ up_p4() {
         if [[ "$n" -lt "$SWITCHES" || ! -s "$MANIFEST" ]]; then
             err "fabric did not come up: $n/$SWITCHES switches, manifest $( [[ -s $MANIFEST ]] && echo present || echo missing )"
             err "look at the pane:  sudo -n $LAB topo-out 40"
+            rollback_up "the fabric never came up, and a half-built one holds :3005x/:909x"
             return 1
         fi
         ok "$n switches up after ${i}s, manifest written"
@@ -841,6 +1152,7 @@ up_p4() {
     info "stack.sh prompt is answered immediately: the fabric is already up"
     # CONVERGE_WAIT is an upper bound, not a sleep. 128 hosts means 16256 destination paths.
     local out rc
+    up_started stack
     out="$(printf '\n' \
            | TOPO_P4="$topo" CONVERGE_WAIT="${CONVERGE_WAIT:-300}" NO_COLOR=1 \
              bash "$STACK" up p4 2>&1)"
@@ -848,6 +1160,7 @@ up_p4() {
     if (( rc != 0 )); then
         err "stack.sh up p4 exited $rc"
         printf '%s\n' "$out" | tail -20 | sed 's/^/      /'
+        rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"
         return 1
     fi
     printf '%s\n' "$out" | grep -E 'started|converged|up$|waiting for|already running|DIFFERENT command' | sed 's/^/      /'
@@ -1056,6 +1369,9 @@ up_ovs() {
     # is why that round's numbers are sound and every unattended run since was not. This is
     # the mirror image of NDTWIN_CLONE_DISABLE, which has setters and no reader.
     # [Co-developed with claude code -- Adam]
+    # Recorded before the launch: this is the first thing in up_ovs that changes the machine,
+    # and by the time it has failed Ryu may already own :8080/:6653/:6633. See rollback_up.
+    up_started stack
     ( cd "$REPO" && TOPO_OVS="$ovs_topo" NDTWIN_RYU_TOPO_FILE="$ovs_topo" \
         CONVERGE_WAIT="${CONVERGE_WAIT:-400}" NO_COLOR=1 \
         bash "$STACK" up ovs > "$out" 2>&1 < "$fifo" ) &
@@ -1064,17 +1380,30 @@ up_ovs() {
 
     for i in $(seq 1 90); do
         grep -q '2/3' "$out" && break
-        kill -0 "$stack_pid" 2>/dev/null || { err "stack.sh exited early"; sed 's/^/      /' "$out"; exec 3>&-; rm -f "$fifo" "$out"; return 1; }
+        kill -0 "$stack_pid" 2>/dev/null || {
+            err "stack.sh exited early"; sed 's/^/      /' "$out"
+            exec 3>&-; rm -f "$fifo" "$out"
+            rollback_up "stack.sh exited before the Mininet prompt; Ryu may already hold :6653"
+            return 1; }
         sleep 1
     done
     if ! grep -q '2/3' "$out"; then
         err "Ryu never reached the Mininet prompt"; sed 's/^/      /' "$out"
-        exec 3>&-; kill "$stack_pid" 2>/dev/null; rm -f "$fifo" "$out"; return 1
+        exec 3>&-; kill "$stack_pid" 2>/dev/null; rm -f "$fifo" "$out"
+        # `kill $stack_pid` ends the shell that launched Ryu, not Ryu: start_bg setsids it into
+        # its own process group, which is precisely why a failed `ndt up ovs4` left :8080/:6653/
+        # :6633 bound on 09-02. stack.sh down is the thing that knows how to stop it.
+        rollback_up "Ryu never reached the Mininet prompt"
+        return 1
     fi
     ok "Ryu up, prompt reached"
 
     say "[2/4] data plane (OVS fabric)"
-    sudo -n "$LAB" "$ovs_verb" >/dev/null || { err "$ovs_verb failed"; exec 3>&-; rm -f "$fifo" "$out"; return 1; }
+    up_started fabric
+    sudo -n "$LAB" "$ovs_verb" >/dev/null || {
+        err "$ovs_verb failed"; exec 3>&-; rm -f "$fifo" "$out"
+        rollback_up "$ovs_verb failed; it may still have left a topo session behind"
+        return 1; }
     # Wait on the HOST count, not on "at least N processes". `-ge` against hosts+10 was
     # satisfied by any fabric at least that big -- 139 >= 26 -- which is how a 128-host fabric
     # passed for 16. [Co-developed with claude code -- Adam]
@@ -1088,11 +1417,15 @@ up_ovs() {
     n="$(mn_count)"
     if [[ "$live_hosts" -ne "$ovs_hosts" ]]; then
         err "fabric has $live_hosts hosts, expected $ovs_hosts"
-        exec 3>&-; kill "$stack_pid" 2>/dev/null; rm -f "$fifo" "$out"; return 1
+        exec 3>&-; kill "$stack_pid" 2>/dev/null; rm -f "$fifo" "$out"
+        rollback_up "the fabric built $live_hosts hosts, not $ovs_hosts"
+        return 1
     fi
     if [[ "$n" -lt "$want_procs" ]]; then
         err "fabric did not build: $n host/switch processes"
-        exec 3>&-; kill "$stack_pid" 2>/dev/null; rm -f "$fifo" "$out"; return 1
+        exec 3>&-; kill "$stack_pid" 2>/dev/null; rm -f "$fifo" "$out"
+        rollback_up "the data plane did not build ($n host/switch processes)"
+        return 1
     fi
     ok "$n host/switch processes after ${i}s"
 
@@ -1112,11 +1445,20 @@ up_ovs() {
     wait "$stack_pid"; local rc=$?
     exec 3>&-; rm -f "$fifo"
     if (( rc != 0 )); then
-        err "stack.sh up ovs exited $rc"; tail -20 "$out" | sed 's/^/      /'; rm -f "$out"; return 1
+        # The measured case, 2026-09-02 23:36: stack.sh's [3/3] refused :8000 and `ndt up`
+        # returned here, leaving Ryu, the topo session and 15 processes running with no kernel.
+        err "stack.sh up ovs exited $rc"; tail -20 "$out" | sed 's/^/      /'; rm -f "$out"
+        rollback_up "stack.sh could not bring the kernel up over this fabric"
+        return 1
     fi
     grep -E 'started|converged|up$|already running|DIFFERENT command' "$out" | sed 's/^/      /'
     rm -f "$out"
 
+    # 🔴 From here on nothing rolls back, and that is the decision rather than an omission. The
+    # stack is UP; what follows can only report that it does not measure what it should. That is
+    # the state an operator has to be able to look at -- "up, but not verified" already says
+    # what it is -- and tearing it down would answer a question nobody asked. rollback_up is for
+    # a bring-up that could not finish. [Co-developed with claude code -- Adam]
     say "[4/4] verify"
     local graph
     graph="$(curl -sf --max-time 5 http://localhost:8000/ndt/get_graph_data \
@@ -1180,8 +1522,54 @@ print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1), len(t["edges"]))' "
 
 # --- down -------------------------------------------------------------------------
 
+# wait_reaped <budget-seconds> -- wait, up to a bound, for the processes the sweep has just
+# signalled to actually leave the process table. Then let the caller assert.
+#
+# [Co-developed with claude code -- Adam]
+# FINDING #49. `ndt down` printed "XX bmv2 switches: 5 still running" and "not clean", and
+# `ps -eo comm=` counted 0 of them twenty seconds later (round3-restart-concurrency, 15_,
+# 2026-09-03). Nothing was wrong with the teardown. The verdict was taken before the machine
+# had finished agreeing with it: a kill is a request to the kernel, not an event that has
+# already happened, and `mn -c` -- which is what removes the host namespaces -- forks its own
+# children to do it. The verify and the sweep were simply not synchronised.
+#
+# 🔴 Fixed on THIS side rather than in the helper, and that is not a preference. `ndt` runs
+# from the repo, so this takes effect immediately; the sweep runs from /usr/local/sbin/
+# ndtwin-lab, which on this machine is the 08-30 copy whose cleanup is `pkill -f ... || true`
+# with no wait at all and no rc (finding #83). A wait added to the helper would not execute
+# here until somebody runs `sudo install`. This one works under either helper.
+#
+# 🔴 A WAIT, not a retry-until-green. The bound is real: when it expires the assertion runs
+# anyway, against whatever is actually there. A loop that ended when the machine finally looked
+# clean would be #49 with the sign flipped -- a genuine leftover reported as a clean teardown,
+# which is strictly worse than the false negative it replaces.
+#
+# 🔴 And it says it waited. "clean, after 6.0s" and "clean" are different statements: the first
+# one says the sweep was slow, which is the fact that was invisible.
+#
+# Deliberately NOT inside cmd_clean. `ndt clean` is the teardown ASSERTION, separately callable
+# to ask "is this machine clean right now"; giving that question a 20-second wait would answer
+# a different one.
+wait_reaped() {
+    local budget="${1:-20}" i n0 m0 n m ticks=0
+    n0="$(bmv2_count)"; m0="$(mn_count)"
+    [[ "$n0" -eq 0 && "$m0" -eq 0 ]] && return 0
+    for (( i = 0; i < budget * 2; i++ )); do
+        sleep 0.5
+        ticks=$(( ticks + 1 ))
+        n="$(bmv2_count)"; m="$(mn_count)"
+        if [[ "$n" -eq 0 && "$m" -eq 0 ]]; then
+            info "waited $(( ticks / 2 )).$(( (ticks % 2) * 5 ))s for $n0 bmv2 + $m0 host/switch process(es) to be reaped"
+            return 0
+        fi
+    done
+    warn "still $(bmv2_count) bmv2 and $(mn_count) host/switch process(es) after ${budget}s;"
+    warn "not waiting further -- the assertion below reports what is actually there"
+    return 1
+}
+
 cmd_down() {
-    local force="" deep="" arg busy held
+    local force="" deep="" arg busy held down_rc=0
     for arg in "$@"; do
         case "$arg" in
             --force) force=--force ;;
@@ -1258,7 +1646,20 @@ cmd_down() {
     say "[3/3] sweep"
     # Safe to call from inside this script: see trap note 1 in the header. `mn -c` kills by
     # command line, and this script's argv mentions neither pattern.
-    sudo -n "$LAB" cleanup 2>&1 | sed 's/^/      /'
+    #
+    # [Co-developed with claude code -- Adam]
+    # FINDING #21, the cmd_down half. This was `sudo -n "$LAB" cleanup 2>&1 | sed ...`: pipefail
+    # does carry the rc out of the pipeline, and nothing read it. G-9 made cleanup able to fail
+    # and made it name what survived TERM and KILL, so a dropped rc here means the one line a
+    # human has to see -- "STILL RUNNING <label> pid N" -- scrolls past inside a teardown that
+    # then reports whatever cmd_clean happens to think.
+    local sweep_out sweep_rc
+    sweep_out="$(sudo -n "$LAB" cleanup 2>&1)"; sweep_rc=$?
+    printf '%s\n' "$sweep_out" | sed 's/^/      /'
+    if (( sweep_rc != 0 )); then
+        err "cleanup exited $sweep_rc -- the sweep did not finish; what survived is named above"
+        down_rc=1
+    fi
 
     # Last, and only when asked: anything still holding the ports was not started by this
     # stack, so removing it is a decision rather than a cleanup step.
@@ -1274,7 +1675,16 @@ cmd_down() {
 
     echo
     say "verify clean"
-    cmd_clean
+    # FINDING #49: wait for the sweep before judging it, with a bound, and then judge it. See
+    # wait_reaped -- the wait is not allowed to decide anything, only to stop the assertion from
+    # being taken while the process table is still catching up.
+    wait_reaped "${NDT_REAP_WAIT:-20}" || true
+    cmd_clean; local clean_rc=$?
+    # Both halves count. A sweep that could not finish is a failed teardown even in the case
+    # where cmd_clean cannot see what survived -- cleanup also sweeps patterns cmd_clean does
+    # not check (the NTG topology, for one), so "clean" and "the sweep worked" are two answers.
+    (( clean_rc != 0 )) && down_rc=1
+    return "$down_rc"
 }
 
 # The teardown assertion, separately callable. Exits non-zero if anything survived, because
@@ -1944,6 +2354,16 @@ cmd_status() {
         printf '  %-14s %s\n' "measuring" "nothing"
     fi
     git_lines
+    # [Co-developed with claude code -- Adam]
+    # FINDING #83, beside the `code` line and for the same reason: `code` answers "what is this
+    # checkout", and until now nothing answered "and is that the code `ndt up` actually runs".
+    # It is not, on this machine -- $LAB is a root-owned copy that has been five commits behind
+    # since 08-30, and every live arm any branch has reported through `ndt up` since then was
+    # measuring it. Printed unconditionally, including when the two agree, because "they agree"
+    # is the fact a reader of a live measurement needs and cannot otherwise get.
+    lab_version_report
+    local labprob; labprob="$(lab_version_problem)"
+    [[ -n "$labprob" ]] && problems+=("$labprob")
     echo
 
     # -- the state that decides every number --
