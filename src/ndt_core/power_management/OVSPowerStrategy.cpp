@@ -315,8 +315,17 @@ OVSPowerStrategy::powerOn(Graph::vertex_descriptor node,
     //
     // `restorePending` is false for every switch that was never powered off through here, so
     // outside the A-4f path this guard is unchanged.
+    // [Co-developed with claude code -- Adam]
+    // FINDINGS #46/#35. Three questions now, and the third is here rather than only in the P4
+    // strategy because both early returns below would otherwise be traps: a switch carrying a
+    // standing commanded power-off whose `isUp` some other writer has lifted would take one of
+    // them, return success, and never reach the line that clears the flag -- leaving discovery
+    // declining to mark a live bridge up for the rest of the run. Folding the question into
+    // `alreadyUp` means the full bring-up path is the only way out for such a switch, and that
+    // path is where the flag is cleared.
     const SflowBridgeState saved = topoMonitor->getBridgeSflowState(node);
-    const bool alreadyUp = topoMonitor->getVertexIsUp(node);
+    const bool alreadyUp =
+        topoMonitor->getVertexIsUp(node) && !topoMonitor->getVertexAdminPoweredOff(node);
     if (alreadyUp && !saved.restorePending)
     {
         // Already up with nothing owed: nothing to do, and reporting success is accurate.
@@ -392,6 +401,16 @@ OVSPowerStrategy::powerOn(Graph::vertex_descriptor node,
     // below even on the failure path -- claiming it is down would be a lie in the other
     // direction, and the 1 Hz liveness probe would overwrite it within a second regardless.
     // What must not happen is for the loss to go unsaid.
+
+    // [Co-developed with claude code -- Adam]
+    // FINDINGS #46. The commanded power-off is spent here, where `add-br`/`add-port`/`ifconfig
+    // up`/`set-controller` have all just been observed to succeed -- the OVS equivalent of the
+    // point where P4PowerStrategy closes its distrust window. Before finishTelemetryRestore, not
+    // after, for the same reason it is before readopt over there: the telemetry restore has two
+    // failure paths that leave a forwarding bridge behind, and a flag cleared only on the happy
+    // path would leave discovery permanently refusing to mark a live switch up.
+    topoMonitor->clearVertexAdminPowerOff(node);
+
     return finishTelemetryRestore(node, swName, saved, topoMonitor);
 }
 
@@ -538,6 +557,14 @@ OVSPowerStrategy::powerOff(Graph::vertex_descriptor node,
                                  "shutting down " + swName + "; see the log for which");
     }
 
-    topoMonitor->setVertexDown(node);
+    // [Co-developed with claude code -- Adam]
+    // FINDINGS #46, the OVS half. The defect is in TopologyAndFlowMonitor::updateSwitches, which
+    // is plane-agnostic: it applies the same reply shape whether the switches behind it are bmv2
+    // or OVS bridges, and it lifted `isUp` for both. Live evidence was taken on the P4 fabric, so
+    // the OVS numbers are unmeasured -- but a deleted bridge that Ryu is slow to stop announcing
+    // is the same race with a different clock, and leaving this call as the observation writer
+    // would have made the fix hold on the plane that was measured and not on the default one.
+    // See setVertexPoweredOffByCommand.
+    topoMonitor->setVertexPoweredOffByCommand(node);
     return OpResult::success();
 }

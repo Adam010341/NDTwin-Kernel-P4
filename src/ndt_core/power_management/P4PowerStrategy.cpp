@@ -70,7 +70,24 @@ P4PowerStrategy::powerOn(Graph::vertex_descriptor node,
     // is always yes and nothing changes: an already-up switch is still a no-op success that runs
     // no commands, which is what keeps the Energy-Saving-App's repeated desired-state requests
     // from turning into helper "already running" failures.
-    if (topoMonitor->getVertexIsUp(node) && !poweredOffWithinDistrustWindow(swName))
+    //
+    // [Co-developed with claude code -- Adam]
+    // FINDINGS #35/#36, the residual the distrust window did not reach. The window is bounded by
+    // TIME (15 s), and the measurement that made it necessary is not: with #46 in place a
+    // commanded-off switch keeps `isUp = false`, so this guard already stops firing for it -- but
+    // only while nothing else writes up. The third question closes the gap that is left, and
+    // states the rule the other two only imply: a no-op success is honest exactly when nothing
+    // the twin knows contradicts "it is already on". A standing commanded power-off contradicts
+    // it. Measured before this fix: past the 15 s window, 4 of 4 power-ons returned Success in
+    // ~1 ms having run no command, on a switch whose process was gone.
+    //
+    // The cost is named rather than hidden: a switch restarted OUT OF BAND (helper invoked by
+    // hand, not through this API) still carries the off command, so the next power-on actuates
+    // and the helper refuses to start a second instance -- a 500 that names the wrong step. That
+    // is a loud wrong answer replacing a silent one, which is the right direction, and it is
+    // written up in FIX-POLL-RESURRECT.md §6.
+    if (topoMonitor->getVertexIsUp(node) && !topoMonitor->getVertexAdminPoweredOff(node) &&
+        !poweredOffWithinDistrustWindow(swName))
     {
         // Already up, on evidence that is allowed to count: nothing to do, and reporting success
         // is accurate.
@@ -100,6 +117,16 @@ P4PowerStrategy::powerOn(Graph::vertex_descriptor node,
     // into a 500 that names the wrong problem. The pipeline-less half-state is what step 2's
     // failure and its named recovery are for; it is not a power-state question.
     clearPowerOffRecord(swName);
+
+    // [Co-developed with claude code -- Adam]
+    // FINDINGS #46. The commanded power-off is spent at exactly the same instant and for exactly
+    // the reason spelled out above: a bmv2 is serving that gRPC port again, so discovery's word
+    // about this switch is worth having again. Cleared HERE and not after readopt, because the
+    // 502 path below leaves a running process the twin must still be able to learn about -- and
+    // its named recovery (POST the readopt endpoint directly) never comes back through this
+    // function, so a flag cleared later would never be cleared at all and every subsequent poll
+    // would go on declining to mark a live switch up.
+    topoMonitor->clearVertexAdminPowerOff(node);
 
     // Step 2, the relationship. A restarted bmv2 comes back with no pipeline, no clone
     // session, no table entries and no P4Runtime mastership, and the liveness probe cannot
@@ -177,10 +204,30 @@ P4PowerStrategy::powerOff(Graph::vertex_descriptor node,
                           const std::string& swName,
                           TopologyAndFlowMonitor* topoMonitor)
 {
-    if (!topoMonitor->getVertexIsUp(node))
-    {
-        return OpResult::success();
-    }
+    // [Co-developed with claude code -- Adam]
+    // FINDINGS #35, the power-off direction. This began as
+    //
+    //     if (!topoMonitor->getVertexIsUp(node)) { return OpResult::success(); }
+    //
+    // -- "already down, nothing to do". It asked the graph, and the graph is a cache of somebody
+    // else's opinion about this switch. The opinion is wrong in this exact direction on a
+    // schedule: the 1 Hz liveness worker writes `isUp = false` the moment the proxy's probe stops
+    // answering, which happens for a switch that is briefly unreachable, mid-restart, or whose
+    // proxy channel is in reconnect backoff -- all states a real bmv2 process lives through while
+    // still running and still forwarding. A power-off arriving then returned 200 "Success" having
+    // sent no signal to anything, and the caller had no way to tell that from a kill.
+    //
+    // There is no early return any more, because there does not need to be one: the guard's only
+    // job was idempotence, and the helper already provides it FROM A MEASUREMENT. `off` reads the
+    // manifest PID, checks /proc, and prints {"status":"already-stopped"} with exit 0 when the
+    // process is gone -- re-verifying the pid is still that switch before it signals anything, so
+    // a recycled pid is not killed. The cost of dropping the guard is one sudo+exec per redundant
+    // request (the Energy-Saving-App re-sends desired state); the benefit is that "Success" now
+    // means /proc was consulted rather than that the graph agreed with us.
+    //
+    // What must NOT be done here is asking the graph a *different* question -- `adminPoweredOff`
+    // instead of `isUp` -- and returning early on that. It is the same class of answer: a record
+    // of what we last decided, not a look at the machine.
 
     // The helper SIGTERMs the one PID the manifest names for this switch -- after
     // re-verifying the PID still is that switch -- and exits 0 only once the process is
@@ -202,7 +249,14 @@ P4PowerStrategy::powerOff(Graph::vertex_descriptor node,
     // describes, and recorded only here -- on the path where the helper confirmed the process is
     // gone. A powerOff that failed left the switch running, so there is nothing to distrust.
     notePowerOff(swName);
-    topoMonitor->setVertexDown(node);
+
+    // [Co-developed with claude code -- Adam]
+    // FINDINGS #46. setVertexDown, which this was, is the OBSERVATION writer -- the same call the
+    // 1 Hz liveness worker makes -- so the graph could not tell "the twin killed this" from "the
+    // probe missed a beat", and the next topology poll lifted `isUp` straight back and never
+    // wrote false again. This records the same down *and* the fact that it was commanded, which
+    // is what updateSwitches now refuses to overrule.
+    topoMonitor->setVertexPoweredOffByCommand(node);
     return OpResult::success();
 }
 

@@ -90,6 +90,9 @@ add_executable(
   # the sh/curl children popen() forks, so :8000 and :6343 outlived the kernel by ~2 s and the
   # restart inside that window blamed a second kernel that did not exist.
   test_CloseOnExecSockets.cpp
+  # [Co-developed with claude code -- Adam] FINDINGS #46/#35/#36: the topology poll overwrote a
+  # commanded power-off and the resurrection was permanent. Both directions -- see the header.
+  test_PollDoesNotResurrect.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

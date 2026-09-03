@@ -1574,13 +1574,24 @@ DeviceConfigurationAndPowerManager::setPowerStateTestbed(const SwitchInfo& si,
             return false;
         }
 
+        // [Co-developed with claude code -- Adam]
+        // FINDINGS #46, the TESTBED plane. Same distinction as in the two Mininet strategies: the
+        // gateway has just confirmed it switched the plug, so this is a commanded state, not the
+        // pingWorker's opinion -- and updateSwitches runs against this graph too. Written through
+        // the commanded writers so a poll cannot undo a plug that was actually switched.
+        //
+        // Unmeasured on real hardware: the physical testbed is out of service, so the evidence
+        // for this defect is all from the Mininet planes. It is the same function doing the
+        // overwriting, though, and leaving one of the three power paths on the observation
+        // writer would leave the hole open on the plane nobody can currently test.
         if (action == "on")
         {
             m_topologyAndFlowMonitor->setVertexUp(*nodeOpt);
+            m_topologyAndFlowMonitor->clearVertexAdminPowerOff(*nodeOpt);
         }
         else
         {
-            m_topologyAndFlowMonitor->setVertexDown(*nodeOpt);
+            m_topologyAndFlowMonitor->setVertexPoweredOffByCommand(*nodeOpt);
         }
 
         SPDLOG_LOGGER_INFO(Logger::instance(),
