@@ -761,6 +761,79 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ---
 
+### A-10 🔴 `/ndt/delete_group_entry` 在 OVS 上是無聲的 no-op，而且會永久洩漏 group id
+
+- **狀態**：OPEN（2026-09-03 夜巡第一輪確認）。未修。
+- **平面**：OVS（P4 未測同一配方）
+- **失效方向**：樂觀 ＋ 靜默
+- **會發生什麼**：`POST /ndt/delete_group_entry` 回 **200 `{"outcome":"deleted"}`**，
+  而 group 還在交換機上——`duration_sec` 繼續累加、buckets 一個都沒動。
+  用**同一個 id** 再裝一次會被 409 拒絕「已存在」⇒ **那個 id 從此拿不回來**。
+- **機制（未定位到行）**：kernel log 對這件事**一行都沒有**（5 次 `handleDeleteGroupEntry`、
+  0 條刪除失敗）。而 API 自己的說明叫呼叫者「去 kernel log 看每一筆的結果」——
+  **它指向一個空的地方**。⇒「說刪掉了」與「真的刪掉了」在**所有**可觀測管道上長得一樣。
+- **繞法**：刪除後不要相信 `outcome`，改用 `ovs-ofctl dump-groups` 直接讀交換機；
+  id 用過就當作已消耗，不要重用。
+- **證據**：`doc/audit/2026-09-03_night-rounds/round1-ovs/21_delete_group_meter_says_deleted_but_persists.log`
+
+### A-11 🔴 失敗的 `ndt up ovs4` 不會回滾 —— 留下一個沒有大腦的網路
+
+- **狀態**：OPEN（2026-09-03 夜巡第一輪確認）。未修。
+- **平面**：OVS
+- **失效方向**：靜默（使用者以為什麼都沒發生）
+- **會發生什麼**：`ndt up ovs4` 失敗之後，Ryu（`:8080`／`:6633`／`:6653`）、tmux 的 topo
+  session、**15 個行程與 36 條 veth 的整個資料平面全部留著**，而**沒有 kernel**。
+  下一步做什麼都會踩到它。
+- **機制**：`:8000` 被佔用的檢查在 `stack.sh` 的 **[3/3]**，也就是**在 fabric 已經建好之後**。
+  檢查的位置決定了失敗時留下什麼。
+- **繞法**：`ndt up` 失敗後**一定要跑 `ndt down`** 再重試——對照組 log 顯示
+  `ndt down` 之後才真的乾淨。
+- **證據**：`.../round1-ovs/02_ndt_up_failure_leaves_fabric_running.log`
+  （對照：`.../round1-ovs/03_*` 顯示 `ndt down` 之後清乾淨）
+
+### A-12 🔴 `ovs4` 拓樸完全沒有配置 sFlow ⇒ 分身看到的流量結構性為零
+
+- **狀態**：OPEN（2026-09-03 夜巡第一輪確認）。未修。
+- **平面**：**只有 `ovs4`。** `ndt up ovs`（128 主機）走 NTG 的 `testbed_topo.py`，**有** sFlow。
+- **失效方向**：靜默；而且錯的方向是「把沒問到說成很閒」
+- **會發生什麼**：十座 bridge 的 `sflow` 欄全是 `[]`，而 kernel 照常在 `:6343` 聽。
+  ⇒ 流速率與鏈路使用率**結構性為零**，`/ndt/get_average_link_usage` 回
+  `{"avg_link_usage":0.0,"status":"success"}`——**`status` 是關於請求，不是關於答案**。
+- **機制（歸屬明確）**：`tools/test_workflow/ovs_4host_topo.py` 有 **0** 個 sFlow 參照；
+  參考拓樸 `testbed_topo.py` 在 `:105` 定義 `enable_sflow()`、在 `:202` 呼叫它。
+- **繞法**：在 `ovs4` 上不要引用任何流量或使用率數字；要量測請用 `ndt up ovs`。
+- **證據**：`.../round1-ovs/11_sflow_state_on_ovs.log`、`12_*`
+  （對照：同一份 log 裡有 3000 封包／0% loss 的**真流**，數字前後都是 0.0）
+
+### A-13 🔴 kernel 關機時 abort，而文件描述的那條乾淨關機路徑**從來沒有被執行過**
+
+- **狀態**：修法在分支 `fix/b5-kernel-shutdown`，**未併入**（2026-09-02 B-5）。
+- **平面**：兩者
+- **失效方向**：崩潰 ＋ 靜默（沒有人看得出來）
+- **會發生什麼**：SIGINT 之下 **7/7 次 exit 134**（`std::terminate`）；修法後 7/7 exit 0。
+- **機制**：`DeviceConfigurationAndPowerManager::start()` 開**三**條 thread，`stop()` 只 join **兩**條
+  ⇒ 解構一條 joinable 的 `std::thread` ⇒ `std::terminate`。gdb backtrace 對得到 offset。
+- 🔴 **更重要的第二半**：**`ndt down` 送的是 SIGTERM，而 kernel 只註冊 SIGINT**
+  ⇒ 那條「乾淨關機」在正式路徑上**從未跑過**，行程一直是被硬殺的。
+  ⇒ 修好 abort **不會**讓 `ndt down` 走上那條路；SIGTERM handler 是另一件事。
+- **證據**：`doc/audit/2026-09-02_live-round/raw/D2_b5_kernel_exit.log` ＋ B-5 報告
+
+### A-14 🔴 `ndt` 有兩個 `sudo -n` 不在手冊教的 sudoers 規則裡 ⇒ 一道守衛永不觸發
+
+- **狀態**：OPEN。**🔴 這一條是手冊線的 desk check，未在需要密碼的機器上實跑**——
+  引用時必須連這句一起引。
+- **平面**：兩者
+- **失效方向**：靜默；而且其中一處的誤判方向是「把量不到說成一句具體的失敗」
+- **會發生什麼**：`ndt:1177`（`ovs-vsctl list-br`）與 `ndt:1206`（`mnexec`）兩個 `sudo -n`
+  不在 User Manual 教的 sudoers 規則裡。權限被拒 ⇒ `ovs_bridge_count` **靜靜回 0**
+  ⇒ **`ndt up p4` 的「底下有活的 OVS fabric 就拒絕」守衛永不觸發**，
+  會**靜靜拆掉別人的 fabric**。另一處把「沒權限問」翻成
+  `h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding` 這句**具體斷言**。
+- 🔑 **為什麼四輪 usertest 都看不見它**：tester VM 有**全域免密碼 sudo**
+  ⇒ **儀器把缺陷遮住了**。這是 [test-environment-masks-the-defect] 的實例。
+- **繞法**：在按手冊設定 sudoers 的機器上，先手動確認這兩條指令不會提示密碼。
+- **證據**：手冊線 desk check（未實跑）
+
 ## B. 需要特定操作才會踩到
 
 ### B-1 被交換機拒絕的規則，twin 當成存在的來服務（幽靈規則）
@@ -1652,6 +1725,21 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
 
 ---
 
+### C-4 🔴 B-1 的幽靈規則過濾器沒有覆蓋 OVS 的寫入路徑
+
+- **狀態**：OPEN（2026-09-03 夜巡第一輪確認）。**08-31 判定「已修」的東西只在一個平面成立。**
+- **平面**：OVS（P4 上同一份配方是乾淨的）
+- **失效方向**：樂觀 ＋ 靜默
+- **會發生什麼**：OVS 上 kernel 在 **t=0.257 s** 就送出快取列——形狀是**呼叫端的 `ipv4_dst` 詞彙、
+  沒有計數器**——並持續約 **1.0 s**；真正輪詢回來的列 **t=13.4 s** 才到。
+  同一份配方在 P4 上是 `first_sighting=never`。
+- **機制**：B-1 的過濾器擋的是讀取路徑，不是 OVS 的寫入路徑。
+- 🔑 **這一條的形狀值得單獨記住**：一個修法在**它被驗證的那個平面**成立，
+  不表示在另一個平面成立；而原本的驗證在結構上不可能發現這件事。
+- **證據**：`.../round1-ovs/22_x5_b1_phantom_window_ovs.log`。
+  **含陽性對照**：合法的 port-2 規則有**同樣的**幽靈形狀 ⇒ 那一列是快取，不是合法性判定。
+  探測解析度 0.25 s vs 約 1.0 s 的窗 ⇒ 排除「探測太慢」。
+
 ## D. 已明確裁定不修（含理由）
 
 | 缺陷 | 裁定 | 理由 |
@@ -2420,6 +2508,20 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   或明講它跑在收斂前、結果不可用。
 
 ---
+
+### G-11 🔴 `ndt apps stop` 只殺 bash wrapper —— 三個存活通道一起說謊，而且會汙染別人的數字
+
+- **狀態**：OPEN（2026-09-02 live round 實測）。相關修法在 `fix/g6-ndt-apps-liveness`（未併）。
+- **平面**：兩者
+- **失效方向**：靜默 ＋ **會製造假的測試結果**
+- **會發生什麼**：`ndt apps stop` 之後，viz 的 **JVM 活了 1 小時 54 分、111% CPU、875 MB log**，
+  而 **`ndt status`／`ndt apps orphans`／teardown log 三個通道全部說它沒在跑**。
+- **機制**：停止的對象是 bash wrapper，不是 wrapper 生出來的 JVM；三個存活檢查查的都是 wrapper。
+- 🔴 **後果不只是沒停下來**：它**汙染了 09-02 live round 從 C27（21:44）之後的所有量測**——
+  一個 111% CPU 的孤兒在旁邊跑，而每一個檢查都說機器是空的。
+- **繞法**：`ndt apps stop` 之後用 `ps -eo pid,comm` 確認沒有 `java`／預期外的長命行程；
+  不要拿三個通道之一當證據。
+- **證據**：`doc/audit/2026-09-02_live-round/ADDENDUM-01-viz-orphan-contamination.md`
 
 ## 證據索引
 
