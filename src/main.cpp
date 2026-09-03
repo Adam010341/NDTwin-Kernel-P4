@@ -76,8 +76,13 @@ printUsage(const char* argv0)
            "                             (--ai needs an OpenAI token)\n"
            "  -h, --help                 show this message\n"
            "\n"
-           "Logging options are also accepted; see --logfile / --loglevel.\n"
-           "\n"
+           // [Co-developed with claude code -- Adam]
+           // Printed, not pointed at. This used to read "Logging options are also accepted; see
+           // --logfile / --loglevel" -- and there was nowhere to see them: Logger's own --help
+           // branch is unreachable from this binary, because the block above has already exited.
+           "Logging options:\n"
+        << Logger::cli_usage()
+        << "\n"
            "Examples:\n"
            "  " << argv0 << " --mode mininet --no-ai\n"
            "  " << argv0 << " --mode mininet --no-ai \\\n"
