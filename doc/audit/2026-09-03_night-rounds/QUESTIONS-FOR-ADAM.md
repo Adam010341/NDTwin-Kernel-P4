@@ -573,3 +573,16 @@ sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sb
 **Q4 判準單一來源＋我的但書**：`dt < 0.1 s` 旁邊沒有狀態對照。而且可量測條件②（圖說 up 的台數 > 行程數）選的是 `--power-ip` 那台——若那台本身在跑，它快回是正確的，A-1 會被記在它頭上；該輪本來就因 agreement FAIL 而紅，**判定不錯、歸屬可能錯**。(a) 下一輪補「power-on 之後 process count／graph 有沒有變」的對照，並把條件②改成只選「圖 up 但沒行程」的那台（建議）；(b) 先記錄不動。
 
 **Q5 lab 窗口**：要不要排一次把 `INV-01-latency` 真的量一次（claim、`ndt up p4 4`、關 s1、`--power-ip 192.168.123.11 --null`）？那會是這個檢查存在以來第一次量到真的 power-on。(a) 排進 W 清單、跟 W-N11 同一個 P4 窗口做（建議）；(b) 不排。
+
+
+## N17. #3／#21／#49／#83 碼半併入之後（`ndt up` 先拒絕再動手、失敗回滾；`ndt down` 讀 rc 也等 sweep），ndtupdown agent 的四題
+
+**白話**：以前 `ndt up ovs4` 遇到 :8000 被別人佔著，會先把 Ryu 和整座 128 主機的網路建好，最後一步才說「不行」，然後把建好的東西留在機器上。現在它在動手前就問「這個 port 是誰的」：是自己上一輪留下的就照常重用，是別人的就拒絕，看不到主人的（root 跑的 bmv2）就只講一聲不擋。做到一半失敗會把自己建的收回去，但**不收**它重用的、也**不拆**已經起來只是驗證沒過的（那是最該留著看的狀態）。`ndt down` 現在會等 sweep 做完再判、也會讀 sweep 有沒有失敗。另外 `ndt status` 從現在起會比對機器上裝的 helper 跟 repo 裡那份，不一樣就講——**所以在你 `sudo install` 之前，`ndt status --check` 在這台機器上會回 rc 1，唯一的問題就是這件事。**
+
+**Q1 `ndt up` 被別人的 port 擋住時要不要 `--force`？** 現在沒有，訊息指到 `ndt down`／`ndt down --deep`。(a) 先不加，等真的有人被錯擋再談（agent 與我都建議）；(b) 加，比照 `ndt down --force`。
+
+**Q2 失敗的 `ndt up` 之後 `.test_run/up.target` 留還是清？** 同 N15 Q3，這次照今天行為留著並明講；要清只需在 `rollback_up` 加一行。(a) 留（建議）；(b) 清。
+
+**Q3 helper 不一致要不要從「警告」升級成「`ndt up` 拒絕」？** (a) 維持警告（建議：要不要裝是你的決定，卡住 bring-up 比跑舊版但講明白更糟）；(b) 拒絕。
+
+**Q4 新閘門 `mutate_ndt_up_down_robust.sh` 要不要進 `local_ci.sh`／`l1_unit_tests.sh` 之類的彙總跑批？** agent 沒動任何彙總腳本。(a) 開一張工單一併處理 N15 Q4（建議）；(b) 先不接。
