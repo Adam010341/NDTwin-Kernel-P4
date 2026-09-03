@@ -112,6 +112,24 @@ class FlowLinkUsageCollector
     ~FlowLinkUsageCollector();
 
     /**
+     * @brief Creates, binds and returns the sFlow receive socket. The only place this happens.
+     *
+     * [Co-developed with claude code -- Adam]
+     * FINDINGS #47. Public and port-parameterised so a test can exercise the real thing: this
+     * function -- not a copy of it -- is what must produce a descriptor no child can inherit, and
+     * what must produce an honest message when the port is taken. Called by openReceiveSocket()
+     * with SFLOW_PORT; a test calls it with 0, which binds an ephemeral port and therefore cannot
+     * collide with a kernel running on this machine.
+     *
+     * @param port Port to bind. 0 means "any free port" and is for tests.
+     * @return A non-blocking, close-on-exec UDP socket bound to @p port.
+     * @throws std::runtime_error if the socket cannot be created or bound. The bind message names
+     *         the actual holder read out of /proc, and does not claim another kernel is running
+     *         unless one is.
+     */
+    static int openSflowSocket(uint16_t port);
+
+    /**
      * @brief Start sFlow reception and background maintenance threads.
      *
      * This function creates/opens a non-blocking UDP socket bound to SFLOW_PORT and

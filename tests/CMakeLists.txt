@@ -86,6 +86,10 @@ add_executable(
   # [Co-developed with claude code -- Adam] Round 4 lead 5(b): the sFlow drop counters were
   # reachable from none of the 105 JSON keys the kernel serves. Gate for the health verdict.
   test_TelemetryHealth.cpp
+  # [Co-developed with claude code -- Adam] FINDINGS #47: the listening sockets were inherited by
+  # the sh/curl children popen() forks, so :8000 and :6343 outlived the kernel by ~2 s and the
+  # restart inside that window blamed a second kernel that did not exist.
+  test_CloseOnExecSockets.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

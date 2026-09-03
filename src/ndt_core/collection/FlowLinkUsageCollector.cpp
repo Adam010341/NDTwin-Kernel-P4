@@ -4,6 +4,9 @@
 #include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
 #include "ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp"
 #include "utils/Logger.hpp"
+// [Co-developed with claude code -- Adam] FINDINGS #47: cloexecSocket() and the /proc lookup that
+// says who is actually holding the sFlow port.
+#include "utils/FdHygiene.hpp"
 #include "utils/KeyedFailureLog.hpp"
 #include "utils/Utils.hpp"
 #include <limits>
@@ -654,8 +657,24 @@ FlowLinkUsageCollector::stopAndJoinWorkers()
 void
 FlowLinkUsageCollector::openReceiveSocket()
 {
-    m_sockfd = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (m_sockfd < 0)
+    // Assigned only on success. openSflowSocket() closes its own descriptor before throwing, so
+    // m_sockfd stays at -1 on failure and neither stop() nor the destructor closes a number that
+    // has since been handed to somebody else.
+    m_sockfd = openSflowSocket(SFLOW_PORT);
+}
+
+int
+FlowLinkUsageCollector::openSflowSocket(uint16_t port)
+{
+    // [Co-developed with claude code -- Adam]
+    // FINDINGS #47: SOCK_CLOEXEC, and it must be here rather than an fcntl() on the next line.
+    // This process runs curl through popen() from its poll threads, and popen() is fork()+exec();
+    // a descriptor created without SOCK_CLOEXEC and marked a moment later is inherited by any
+    // child that happens to be forked in between. Measured 2026-09-03 (round3 step 03): the sFlow
+    // socket was still held by orphaned `sh`/`curl` for 2.01-2.22 s after the kernel's pid was
+    // gone, and the six restarts attempted inside that window all failed.
+    int sockfd = utils::cloexecSocket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (sockfd < 0)
     {
         SPDLOG_LOGGER_ERROR(Logger::instance(), "socket() failed: {}", strerror(errno));
         throw std::runtime_error("Failed to create UDP socket");
@@ -663,7 +682,7 @@ FlowLinkUsageCollector::openReceiveSocket()
 
     // Increase receive buffer
     int rcvbuf = 4 * 1024 * 1024; // 4 MB
-    setsockopt(m_sockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
 
     // [Co-developed with claude code -- Adam]
     // SO_REUSEADDR was set here and has been removed deliberately. On Linux, two unicast UDP
@@ -674,31 +693,39 @@ FlowLinkUsageCollector::openReceiveSocket()
     // option was buying nothing in exchange for that. Without it the second bind gets EADDRINUSE,
     // which is a diagnosis rather than a mystery.
     int one = 1;
-    setsockopt(m_sockfd, SOL_SOCKET, SO_RXQ_OVFL, &one, sizeof(one));
+    setsockopt(sockfd, SOL_SOCKET, SO_RXQ_OVFL, &one, sizeof(one));
 
     // Non-blocking mode
-    int flags = fcntl(m_sockfd, F_GETFL, 0);
-    fcntl(m_sockfd, F_SETFL, flags | O_NONBLOCK);
+    int flags = fcntl(sockfd, F_GETFL, 0);
+    fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
 
     sockaddr_in bindAddr{};
     bindAddr.sin_family = AF_INET;
-    bindAddr.sin_port = htons(SFLOW_PORT);
+    bindAddr.sin_port = htons(port);
     bindAddr.sin_addr.s_addr = INADDR_ANY;
-    if (::bind(m_sockfd, reinterpret_cast<sockaddr*>(&bindAddr), sizeof(bindAddr)) < 0)
+    if (::bind(sockfd, reinterpret_cast<sockaddr*>(&bindAddr), sizeof(bindAddr)) < 0)
     {
         const int err = errno;
+        // [Co-developed with claude code -- Adam]
+        // FINDINGS #47, the other half. This used to read "Another NDTwin kernel is almost
+        // certainly still running and holding it" -- an assertion, printed without looking. In
+        // the 6 measured failures there was no other kernel: the holder was this kernel's own
+        // orphaned curl, which had inherited the socket across popen()'s exec. An operator who
+        // believes that sentence goes hunting for a process that does not exist. So the holder is
+        // now read out of /proc and the sentence is built from what was found; "another kernel"
+        // is printed only when a process actually named like this one is holding the port.
+        const std::string who =
+            utils::diagnosePortInUse(port, utils::PortProtocol::Udp, "ndtwin_kernel");
         SPDLOG_LOGGER_ERROR(Logger::instance(),
-                            "bind() to sFlow port {} failed: {}. Another NDTwin kernel is almost "
-                            "certainly still running and holding it; without telemetry this twin "
+                            "bind() to sFlow port {} failed: {}. {} Without telemetry this twin "
                             "would report every flow rate as zero, so it will not start.",
-                            SFLOW_PORT,
-                            strerror(err));
-        ::close(m_sockfd);
-        // Left at -1 so stop() and the destructor do not close a descriptor number that has since
-        // been handed to somebody else.
-        m_sockfd = -1;
+                            port,
+                            strerror(err),
+                            who);
+        ::close(sockfd);
         throw std::runtime_error("Failed to bind UDP socket");
     }
+    return sockfd;
 }
 
 void

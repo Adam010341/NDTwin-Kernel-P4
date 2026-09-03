@@ -696,6 +696,16 @@ execArgv(const std::vector<std::string>& argv)
             ::_exit(127);
         }
         ::close(fds[1]);
+        // [Co-developed with claude code -- Adam]
+        // FINDINGS #47, defence in depth. SOCK_CLOEXEC on the listening sockets is the fix; this
+        // is the line that also covers the descriptor somebody opens next year and forgets to
+        // mark. close_range() is one syscall, so it is async-signal-safe, and it starts at 3
+        // *precisely* so that stdin, the pipe now on stdout, and the inherited stderr survive: a
+        // child that cannot write is not a hardened child, it is a broken one, and
+        // tests/test_CloseOnExecSockets.cpp asserts the output still comes back for that reason.
+        // Failure is ignored on purpose -- an older kernel without the syscall leaves this
+        // process exactly where it was before, protected by CLOEXEC alone.
+        (void)::close_range(3, ~0U, 0);
         ::execvp(cArgv[0], cArgv.data());
         // Only reached if exec failed. 127 is what a shell reports for "not found", so
         // describeCommandStatus names the missing tool the same way for both executors.

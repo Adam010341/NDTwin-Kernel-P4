@@ -1,6 +1,9 @@
 # src/utils/CMakeLists.txt
 add_library(UtilsLib STATIC
     Logger.cpp
+    # [Co-developed with claude code -- Adam] FINDINGS #47: descriptors that must not survive an
+    # exec, and the /proc lookup that says who really holds a port.
+    FdHygiene.cpp
     # Utils.cpp  # Uncomment and add if you have a Utils.cpp implementing Utils.hpp
 )
 

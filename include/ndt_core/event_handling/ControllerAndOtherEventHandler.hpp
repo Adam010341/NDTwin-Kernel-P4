@@ -90,12 +90,53 @@ class ControllerAndOtherEventHandler
     void runServer();
 
     /**
+     * @brief Creates the API listening socket. The only place this process makes one.
+     *
+     * [Co-developed with claude code -- Adam]
+     * FINDINGS #47. Boost.Asio 1.83 creates its sockets with a plain `::socket(af, type,
+     * protocol)` and accepts with a plain `::accept()` -- no SOCK_CLOEXEC, no accept4() -- so
+     * every descriptor it hands back is inherited by every `sh` and `curl` this kernel spawns.
+     * Measured 2026-09-03 (round3 step 03): `ss -ltnp` listed `curl` and `sh` as users of :8000
+     * alongside the kernel, all on fd 8, and the port stayed bound for 2.01-2.22 s after the
+     * kernel's pid was gone.
+     *
+     * Public and port-parameterised so that the function production uses is the function the
+     * tests drive: port 0 binds an ephemeral port, so a test cannot collide with a kernel running
+     * on this machine.
+     *
+     * @param port Port to listen on. 0 means "any free port" and is for tests.
+     * @throws boost::system::system_error if the port cannot be bound. The log line before the
+     *         throw names the holder read out of /proc.
+     */
+    static std::unique_ptr<tcp::acceptor> openApiAcceptor(net::io_context& ioc,
+                                                          unsigned short port);
+
+    /**
+     * @brief Marks an accepted connection close-on-exec.
+     *
+     * [Co-developed with claude code -- Adam]
+     * FINDINGS #47, the part the listening socket alone does not cover. Handlers on this server
+     * shell out -- DeviceConfigurationAndPowerManager runs curl from inside a request handler --
+     * so a connection accepted without FD_CLOEXEC is held open by that curl for as long as it
+     * lives, and the client sees a request that never finishes rather than a closed connection.
+     */
+    static void adoptAcceptedSocket(tcp::socket& socket);
+
+    /**
      * @brief Start the HTTP server in a background thread.
      *
      * Sets m_serverRunning=true, launches m_serverThread, and begins accepting
      * incoming connections.
+     *
+     * @param port Port to listen on; defaults to NDT_PORT. 0 binds an ephemeral port, which is
+     *        what the wiring test in tests/test_CloseOnExecSockets.cpp uses so that it can assert
+     *        against a real running server without touching :8000.
      */
-    void start();
+    void start(unsigned short port = NDT_PORT);
+
+    /// @return The port the acceptor is actually bound to, or 0 before start(). With port 0 this
+    ///         is the only way to find out which port the kernel picked -- stop()'s poke needs it.
+    unsigned short boundPort() const;
     /**
      * @brief Stop the HTTP server and close active connections.
      *
@@ -113,6 +154,9 @@ class ControllerAndOtherEventHandler
     net::io_context& m_ioContext;
 
     std::unique_ptr<tcp::acceptor> m_serverAcceptor;
+    /// The port the acceptor actually bound. Set by start(); read by stop()'s poke, which used to
+    /// hardcode NDT_PORT and would otherwise connect to somebody else's kernel.
+    std::atomic<unsigned short> m_boundPort{0};
     std::thread m_serverThread;
 
     std::shared_ptr<TopologyAndFlowMonitor> m_topologyAndFlowMonitor;
