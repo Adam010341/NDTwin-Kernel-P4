@@ -2508,6 +2508,43 @@ cmd_ntg() {
     esac
 }
 
+# --- what `ndt up` means ----------------------------------------------------------
+
+# [Co-developed with claude code -- Adam]
+# resolve_up_target <arg1> <arg2> -- prints "<fn> <arg>" for `ndt up`'s arguments, or nothing
+# with rc 2 when they name nothing this script can build.
+#
+# A FUNCTION, above the source seam, and not a case block inside the dispatch: the dispatch
+# runs only when this file is executed, so a case block there is reachable from a test only by
+# bringing up a real fabric. The one thing worth testing here is which plane and which size a
+# given argv means -- see tests/shell/test_ndt_up_target.sh.
+#
+# 🔴 THE DEFAULT PLANE IS OVS (Adam, 2026-09-03). It was p4 until then. Two consequences that
+# are not visible from the change itself:
+#
+#   * `ndt up` means `ndt up ovs`, i.e. 128 hosts through NTG's testbed_topo.py. up_ovs has
+#     exactly TWO sizes, 128 and 4, because each is a different ndtwin-lab verb
+#     (ovs-topo-start / ovs-topo-4host) -- there is no host_count() override on the OVS side
+#     the way there is on the P4 side, so "the current host count" has no meaning here and a
+#     default had to be picked rather than inherited.
+#   * a bare number now follows the default plane: `ndt up 4` is OVS at 4 hosts, where it used
+#     to be P4 at 4. Any other number is refused, because up_ovs cannot build one -- it used to
+#     be accepted and built a P4 fabric of that size. To get the old meaning, say `ndt up p4 N`.
+resolve_up_target() {
+    case "${1:-ovs}" in
+        p4)     printf 'up_p4 %s\n'  "${2:-}"    ;;
+        ovs)    printf 'up_ovs %s\n' "${2:-128}" ;;
+        ovs4)   printf 'up_ovs 4\n'              ;;
+        # A bare number follows the default plane, so it is a size, not a plane. up_ovs builds
+        # only 128 and 4; anything else is refused here rather than silently building the other
+        # plane's fabric at that size.
+        128)    printf 'up_ovs 128\n'            ;;
+        4)      printf 'up_ovs 4\n'              ;;
+        [0-9]*) return 2                          ;;
+        *)      return 2                          ;;
+    esac
+}
+
 # --- dispatch ---------------------------------------------------------------------
 
 # [Co-developed with claude code -- Adam]
@@ -2530,14 +2567,14 @@ fi
 
 case "${1:-}" in
     up)
-        case "${2:-p4}" in
-            p4)   up_p4 "${3:-}" ;;
-            ovs)  up_ovs "${3:-128}" ;;
-            ovs4) up_ovs 4 ;;
-            # A bare number means p4 at that host count -- `ndt up 4` is the short form.
-            [0-9]*) up_p4 "$2" ;;
-            *)    err "usage: ndt up [p4 [hosts] | ovs [hosts] | ovs4]"; exit 2 ;;
-        esac
+        if ! plan="$(resolve_up_target "${2:-}" "${3:-}")"; then
+            err "usage: ndt up [p4 [hosts] | ovs [128|4] | ovs4 | 128 | 4]"
+            err "   the default plane is OVS: bare 'ndt up' is 'ndt up ovs' (128 hosts)."
+            err "   OVS builds only 128 or 4. For any other size, name the plane: ndt up p4 ${2:-N}"
+            exit 2
+        fi
+        # shellcheck disable=SC2086 -- plan is "<fn> <arg>", both produced by resolve_up_target
+        $plan
         ;;
     down)    shift; cmd_down "$@" ;;
     clean)   cmd_clean ;;
@@ -2552,11 +2589,15 @@ case "${1:-}" in
 usage: ndt <command>
 
   up [what]     bring the whole lab up and verify it
-                  ndt up            p4 at the current host count (default)
-                  ndt up 4          p4 at 4 hosts   (rewrites host_count_override)
+                  ndt up            Ryu + OVS, 128 hosts  (the default plane is OVS)
+                  ndt up 4          Ryu + OVS on the P4 test bed's 4-host layout
+                  ndt up ovs        the same as a bare 'ndt up'
+                  ndt up ovs4       the same as 'ndt up 4'
+                  ndt up p4         p4 at the current host count
+                  ndt up p4 4       p4 at 4 hosts   (rewrites host_count_override)
                   ndt up p4 128     p4 at 128 hosts
-                  ndt up ovs        Ryu + OVS, 128 hosts
-                  ndt up ovs4       Ryu + OVS on the P4 test bed's 4-host layout
+                OVS builds only 128 or 4 -- each is a different ndtwin-lab verb, not a
+                parameter. For any other size, name the plane: 'ndt up p4 N'.
                 NDT_TOPO=<file> forces a specific kernel model.
   down [--deep] take it all down and prove the machine is clean
                   --deep also kills whatever still holds :8000/:8080/:8081, including
