@@ -865,7 +865,7 @@ preflight() {
     # unknown to an unprivileged reader, so refusing on it would refuse every live P4 fabric.
     # Both are said out loud rather than skipped: an unattributable holder is a fact about the
     # reading, not a clean port.
-    local foreign=0 blind=0 spec proto rowplane owner consequence p
+    local foreign=0 spec proto rowplane owner consequence p
     while IFS='|' read -r spec proto rowplane owner consequence; do
         [[ -z "$spec" ]] && continue
         for p in $(ndt_port_expand "$spec"); do
@@ -873,7 +873,6 @@ preflight() {
             case "$(port_owner_local "$p" "$proto")" in
                 ours) ;;
                 unknown)
-                    blind=1
                     info "  :$p ($proto) is held by a process this user cannot see (root-owned, or no ss)."
                     info "     not refused: bmv2 runs as root, so a live P4 fabric always looks like this."
                     ;;
