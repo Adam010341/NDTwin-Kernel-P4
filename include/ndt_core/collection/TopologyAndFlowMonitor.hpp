@@ -221,6 +221,41 @@ class TopologyAndFlowMonitor
     void setVertexDown(Graph::vertex_descriptor v);
     void setVertexUp(Graph::vertex_descriptor v);
     bool getVertexIsUp(Graph::vertex_descriptor v);
+
+    /**
+     * @brief Records that a commanded power-off for @p v was carried out, and takes it down.
+     *
+     * [Co-developed with claude code -- Adam]
+     * FINDINGS #46. The two writers of vertex liveness answer different questions and must be
+     * different calls, because only one of them is allowed to survive a topology poll:
+     *
+     *   setVertexDown / setVertexUp        -- an OBSERVATION. The 1 Hz liveness worker, and the
+     *                                         readopt-confirmed end of powerOn. Leaves
+     *                                         `adminPoweredOff` alone in both directions.
+     *   setVertexPoweredOffByCommand       -- an INTENT that was carried out. Called only from a
+     *                                         power strategy, only where the actuation was
+     *                                         confirmed. Discovery may not overrule it.
+     *   clearVertexAdminPowerOff           -- that intent is spent: a process is serving again.
+     *
+     * Calling setVertexDown from a power path instead of this is the defect: it is
+     * indistinguishable from the liveness worker's opinion, so the next `updateSwitches` lifts
+     * `isUp` straight back and no later poll ever writes false again.
+     */
+    void setVertexPoweredOffByCommand(Graph::vertex_descriptor v);
+
+    /**
+     * @brief Forgets a commanded power-off, because a power-on has confirmed a process is up.
+     *
+     * Deliberately does NOT touch `isUp`: whether the switch is *usable* is still the business of
+     * the caller that can tell (powerOn only claims up once readopt succeeded), and of the
+     * liveness worker. This call answers only "is the twin still holding an off command against
+     * this switch". [Co-developed with claude code -- Adam]
+     */
+    void clearVertexAdminPowerOff(Graph::vertex_descriptor v);
+
+    /// Whether a commanded power-off is still standing for @p v.
+    /// [Co-developed with claude code -- Adam]
+    bool getVertexAdminPoweredOff(Graph::vertex_descriptor v);
     void setVertexEnable(Graph::vertex_descriptor v);
     void setVertexDisable(Graph::vertex_descriptor v);
     std::pair<uint64_t, uint32_t> getEdgeStats(Graph::edge_descriptor e) const;
@@ -794,6 +829,18 @@ class TopologyAndFlowMonitor
     /// same ownership as m_topologyFetchFailures above, and for the same reason it needs no mutex.
     /// [Co-developed with claude code -- Adam]
     std::map<uint64_t, unsigned> m_switchUnusablePolls;
+
+    /// dpids for which discovery has already declined to lift `isUp` over a standing commanded
+    /// power-off, so the WARN is written once per episode rather than once per poll.
+    ///
+    /// [Co-developed with claude code -- Adam]
+    /// FINDINGS #46. Edge-triggered for the same reason as m_topologyFetchFailures above: the
+    /// control plane keeps listing a commanded-off switch for as long as it is configured to know
+    /// about it -- which is for ever, in a Mininet fabric -- so a line per decline would be one
+    /// line per switch every 30 s until someone powers it back on. Written under *m_graphMutex
+    /// (updateSwitches already holds it, and clearVertexAdminPowerOff takes it), which is what
+    /// lets the poll thread and an HTTP power thread both touch it.
+    std::set<uint64_t> m_resurrectionDeclined;
 
     /// Switch management addresses this run has already seen offered as hosts, so the warning is
     /// written once and not once every 5 to 30 seconds forever.

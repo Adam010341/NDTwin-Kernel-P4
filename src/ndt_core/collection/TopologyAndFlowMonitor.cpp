@@ -882,6 +882,11 @@ TopologyAndFlowMonitor::shouldAnnouncePartialRound(PollRoundKind previous, PollR
  *      so does updateLinks; neither removes a vertex or an edge. A partial round therefore cannot
  *      manufacture a "down" -- it can only fail to lift one. Discarding the half that answered
  *      would throw away the only evidence available that those switches are up.
+ *      [Co-developed with claude code -- Adam] Still true after FINDINGS #46, and worth saying
+ *      why rather than leaving the reader to check: updateSwitches now *declines* to lift `isUp`
+ *      for a switch with a standing commanded power-off, but declining is not writing false. It
+ *      leaves the vertex exactly as it found it, so the argument above -- a partial round cannot
+ *      manufacture a down -- is unchanged. `isEnabled` is still written unconditionally.
  *   2. A-2's failure direction is pessimistic and silent: the twin showed 40 links down and 10
  *      switches disabled while the fabric forwarded at 0% loss. Dropping a good switches reply
  *      because links did not answer converts a partial answer into no answer, which is a move in
@@ -1165,8 +1170,56 @@ TopologyAndFlowMonitor::updateSwitches(const string& topologyData)
                 auto vertexSwitchOpt = findSwitchByDpidNoLock(switchDpidUint64);
                 if (vertexSwitchOpt)
                 {
-                    (*m_graph)[*vertexSwitchOpt].isUp = true;
-                    (*m_graph)[*vertexSwitchOpt].isEnabled = true;
+                    auto& vprop = (*m_graph)[*vertexSwitchOpt];
+
+                    // [Co-developed with claude code -- Adam]
+                    // FINDINGS #46, and the only line of this fix that changes what the twin
+                    // reports. This was an unconditional `isUp = true` with no else branch
+                    // anywhere in the function, so the *only* thing a topology poll could ever
+                    // say about a switch's power was "up" -- which made it not a liveness writer
+                    // at all, but a one-way ratchet.
+                    //
+                    // Being listed by the control plane is not evidence that a switch is
+                    // powered. The proxy went on listing a killed switch for D = 3.06 s after it
+                    // died (round3 07_), so the reply this loop is applying can be, and measurably
+                    // was, about a switch that is already gone. What makes that permanent rather
+                    // than transient is the missing else: the next poll re-asserts it, and the
+                    // one after that, for ever -- so one badly-timed power-off left the fabric
+                    // with a dead process the twin called up, and #35's early-return then made
+                    // the power API decline to fix it. 8 of 14 at the losing phase; the winning
+                    // arm 0 of 4.
+                    //
+                    // The narrowest rule that closes it: discovery is still allowed to lift
+                    // `isUp` -- it must be, since on a healthy fabric it is real evidence and a
+                    // poll that never wrote up would leave the graph dark for anything the
+                    // liveness worker answers Unknown about -- but it is not allowed to overrule
+                    // a power-off the twin itself commanded and confirmed. Exactly the shape of
+                    // the adminDisabled rule three lines below, arrived at the same way.
+                    if (vprop.adminPoweredOff)
+                    {
+                        // Edge-triggered: see m_resurrectionDeclined. This says the twin is
+                        // holding a state the control plane disagrees with, and which of the two
+                        // it is believing -- the sentence nobody could read before, because the
+                        // overwrite was silent.
+                        if (m_resurrectionDeclined.insert(switchDpidUint64).second)
+                        {
+                            SPDLOG_LOGGER_WARN(
+                                Logger::instance(),
+                                "the control plane still lists switch {} (dpid {}), but a "
+                                "power-off was commanded for it and confirmed, so this poll is "
+                                "not marking it up. The control plane lists a stopped switch for "
+                                "a few seconds after it dies, and for as long as it is configured "
+                                "to know about it in a Mininet fabric. Power it on to clear this",
+                                switchDpidStr,
+                                switchDpidUint64);
+                        }
+                    }
+                    else
+                    {
+                        vprop.isUp = true;
+                    }
+
+                    vprop.isEnabled = true;
                 }
                 else
                 {
@@ -3152,6 +3205,15 @@ TopologyAndFlowMonitor::setVertexUp(Graph::vertex_descriptor v)
     (*m_graph)[v].isUp = true;
     /// @see setEdgeUp for why the reason is cleared here.
     (*m_graph)[v].downReason = DownReason::None;
+
+    // [Co-developed with claude code -- Adam]
+    // FINDINGS #46. `adminPoweredOff` is deliberately NOT cleared here. This is the observation
+    // writer -- the 1 Hz liveness worker calls it on every tick a probe answers Up -- and the
+    // proxy's `probe_ok` is cached, so within a second of a confirmed kill this function is
+    // called for a switch that is already dead (P4PowerStrategy.cpp documents that sequence from
+    // a live fabric). Clearing the commanded state here would hand the resurrection a second
+    // door, one tick wide instead of one poll wide. The command is spent when a power-on
+    // confirms a process is serving again, and that is clearVertexAdminPowerOff's job.
 }
 
 bool
@@ -3159,6 +3221,37 @@ TopologyAndFlowMonitor::getVertexIsUp(Graph::vertex_descriptor v)
 {
     shared_lock lock(*m_graphMutex);
     return (*m_graph)[v].isUp;
+}
+
+/** @brief See the header. FINDINGS #46. [Co-developed with claude code -- Adam] */
+void
+TopologyAndFlowMonitor::setVertexPoweredOffByCommand(Graph::vertex_descriptor v)
+{
+    unique_lock lock(*m_graphMutex);
+    auto& vprop = (*m_graph)[v];
+    vprop.isUp = false;
+    vprop.adminPoweredOff = true;
+
+    // A fresh episode: the next poll that declines to resurrect this switch should say so, even
+    // if a previous off/on cycle already used up the one-shot.
+    m_resurrectionDeclined.erase(vprop.dpid);
+}
+
+/** @brief See the header. FINDINGS #46. [Co-developed with claude code -- Adam] */
+void
+TopologyAndFlowMonitor::clearVertexAdminPowerOff(Graph::vertex_descriptor v)
+{
+    unique_lock lock(*m_graphMutex);
+    auto& vprop = (*m_graph)[v];
+    vprop.adminPoweredOff = false;
+    m_resurrectionDeclined.erase(vprop.dpid);
+}
+
+bool
+TopologyAndFlowMonitor::getVertexAdminPoweredOff(Graph::vertex_descriptor v)
+{
+    shared_lock lock(*m_graphMutex);
+    return (*m_graph)[v].adminPoweredOff;
 }
 
 bool

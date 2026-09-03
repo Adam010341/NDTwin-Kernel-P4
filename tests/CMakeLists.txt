@@ -86,6 +86,9 @@ add_executable(
   # [Co-developed with claude code -- Adam] Round 4 lead 5(b): the sFlow drop counters were
   # reachable from none of the 105 JSON keys the kernel serves. Gate for the health verdict.
   test_TelemetryHealth.cpp
+  # [Co-developed with claude code -- Adam] FINDINGS #46/#35/#36: the topology poll overwrote a
+  # commanded power-off and the resurrection was permanent. Both directions -- see the header.
+  test_PollDoesNotResurrect.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

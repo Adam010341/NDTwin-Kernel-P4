@@ -248,10 +248,27 @@ TEST(P4PowerStrategyTest, PowerOffFailureLeavesTheVertexUp)
     expectNoNameMatchingKills(p4);
 }
 
-TEST(P4PowerStrategyTest, PowerOffOnAnAlreadyDownSwitchRunsNothing)
+TEST(P4PowerStrategyTest, PowerOffOnAnAlreadyDownSwitchStillAsksTheHelper)
 {
-    // Energy-Saving-App re-sends the state it wants, so the already-down case is routine, and
-    // running the helper anyway would make it report "no live pid" as a failure.
+    // [Co-developed with claude code -- Adam]
+    // 🔴 THIS CASE USED TO ASSERT THE OPPOSITE, and the reason it gave was not true.
+    //
+    //   "Energy-Saving-App re-sends the state it wants, so the already-down case is routine, and
+    //    running the helper anyway would make it report 'no live pid' as a failure."
+    //
+    // The helper does no such thing. tools/p4_power_helper.py's cmd_off returns
+    // {"status":"already-stopped"} and exits 0 both when the manifest holds no pid and when the
+    // pid it holds is no longer alive -- it is idempotent by design, and its own comment says so.
+    // So the early return was buying nothing that the helper was not already providing, and it
+    // was paying for it with FINDINGS #35: the guard read the graph, the graph carries the
+    // liveness worker's opinion, and that opinion is `false` for a live switch whenever the
+    // proxy's probe is failing -- mid-restart, in reconnect backoff, or having missed one RPC
+    // deadline under load. A power-off arriving in any of those states returned 200 "Success"
+    // having sent no signal to anything, and the caller could not tell that from a kill.
+    //
+    // What the idempotence is worth keeping is the RESULT, not the shortcut: a redundant
+    // power-off is still a success, and it still leaves the switch down. Both are asserted here.
+    // What changes is that the answer now comes from /proc rather than from our own cache.
     Fixture fix;
     (*fix.graph)[fix.sw].isUp = false;
     FakeP4 p4;
@@ -259,7 +276,9 @@ TEST(P4PowerStrategyTest, PowerOffOnAnAlreadyDownSwitchRunsNothing)
     const OpResult result = p4.powerOff(fix.sw, "s1", fix.monitor.get());
 
     EXPECT_TRUE(result.ok) << result.message;
-    EXPECT_TRUE(p4.commands.empty()) << "ran " << p4.commands.size() << " commands anyway";
+    EXPECT_TRUE(p4.ran("ndtwin-p4-power off s1"))
+        << "returned success without asking anything whether the process was still there";
+    EXPECT_EQ(p4.commands.size(), 1u) << "a power-off is one command, not a sequence";
     EXPECT_FALSE(fix.isUp());
 }
 
@@ -428,17 +447,31 @@ TEST(P4PowerStrategyTest, PowerOnActsWhenTheGraphSaysUpButThisStrategyJustStoppe
     expectNoNameMatchingKills(p4);
 }
 
-TEST(P4PowerStrategyTest, PowerOnTrustsTheGraphAgainOnceTheDistrustWindowHasPassed)
+TEST(P4PowerStrategyTest, PowerOnActsPastTheWindowWhileThePowerOffStandsUnwithdrawn)
 {
-    // The bound matters as much as the distrust. Past the window the graph is the only source
-    // there is, and a switch that reads up then really is up -- the worker has had ten-plus
-    // ticks and a Down verdict available to it. A fix that never re-trusted the graph would
-    // send the helper at a live process and get "refusing to start a second instance".
+    // [Co-developed with claude code -- Adam]
+    // 🔴 THIS CASE USED TO ASSERT THE OPPOSITE, and a live fabric falsified the premise it gave:
+    //
+    //   "Past the window the graph is the only source there is, and a switch that reads up then
+    //    really is up -- the worker has had ten-plus ticks and a Down verdict available to it."
+    //
+    // The worker's Down verdict never got to stand. FINDINGS #46: the topology poll re-asserted
+    // `isUp = true` every 30 s for a switch the control plane was still listing, so a graph that
+    // read up past the window was not the worker's considered opinion at all -- it was the poll's
+    // one-way ratchet. Measured (round3, and #36's narrowing): inside 15 s, 14 of 14 power-ons
+    // acted and took ~1.47 s; past it, 4 of 4 returned Success in ~1 ms having run no command, on
+    // switches whose processes were gone. That is the state this case used to require.
+    //
+    // The window is still bounded and still closes -- ASuccessfulPowerOnClosesTheWindow... and
+    // PowerOnOnAnAlreadyUpSwitchRunsNothing pin that, and neither of them changed. What is no
+    // longer true is that TIME alone is enough to withdraw a power-off. A command is withdrawn by
+    // a power-on, and until one arrives the twin holds it -- which is exactly what stops the poll
+    // resurrecting the switch, and what leaves this call something real to do.
     Fixture fix;
     FakeP4 p4;
 
     ASSERT_TRUE(p4.powerOff(fix.sw, "s1", fix.monitor.get()).ok);
-    (*fix.graph)[fix.sw].isUp = true;
+    (*fix.graph)[fix.sw].isUp = true; // the resurrection, written by the writer that performed it
 
     p4.advance(std::chrono::seconds(20));
     p4.commands.clear();
@@ -446,9 +479,10 @@ TEST(P4PowerStrategyTest, PowerOnTrustsTheGraphAgainOnceTheDistrustWindowHasPass
     const OpResult result = p4.powerOn(fix.sw, "s1", 7, fix.monitor.get());
 
     EXPECT_TRUE(result.ok) << result.message;
-    EXPECT_TRUE(p4.commands.empty())
-        << "still distrusting the graph " << 20 << "s after the power-off; ran "
-        << p4.commands.size() << " commands";
+    EXPECT_TRUE(p4.ran("ndtwin-p4-power on s1"))
+        << "believed a graph that says up about a switch this strategy stopped and nobody has "
+           "asked it to start; that is FINDINGS #36 -- 200 Success, no command, dead switch";
+    EXPECT_TRUE(p4.ran("/p4/readopt/7")) << "started the process but never re-adopted it";
     EXPECT_TRUE(fix.isUp());
 }
 

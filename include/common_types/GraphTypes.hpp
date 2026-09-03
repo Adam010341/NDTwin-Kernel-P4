@@ -311,6 +311,48 @@ struct VertexProperties
      */
     bool adminDisabled = false;
 
+    /** @brief A power-off was commanded for this switch and confirmed, and discovery may not
+     *         overrule it.
+     *
+     * [Co-developed with claude code -- Adam]
+     * FINDINGS #46 (with #35 and #36, which are the same root). `isUp` carries two questions at
+     * once -- "did anyone command this off" and "is it reachable" -- and only the second one has
+     * a writer that re-derives it every poll. So the first one lost:
+     *
+     *   updateSwitches sets `isUp = true` for every dpid the control plane lists, with no else
+     *   branch that ever writes false. The proxy keeps listing a killed switch for about three
+     *   seconds after it dies (measured D = 3.06 s), so a power-off that lands shortly before a
+     *   poll is overwritten by that poll's answer -- and because nothing else writes `isUp =
+     *   false` on the discovery path, the resurrection is permanent: every later poll re-asserts
+     *   it. Measured on a live 10-switch bmv2 fabric: a power-off fired 1.5 s before the next
+     *   poll was lost 8 times in 14, one fired 2 s after a poll 0 times in 4, and every loss put
+     *   `is_up` back to 1 at t_off + 2.31 s -- the instant the poll that still listed the switch
+     *   was applied (round3 08_/09_/11_).
+     *
+     * A fourth flag rather than a new meaning for an existing one, for exactly the reasons
+     * `adminDisabled` is a third one:
+     *
+     *   - `isUp`             -- powered / reachable. Written by liveness probing AND, today, by
+     *                           discovery. An observation.
+     *   - `adminPoweredOff`  -- an intent that was carried out. Written ONLY by the power
+     *                           strategies, on the path where the actuation was confirmed.
+     *                           Discovery must never touch it.
+     *
+     * What it buys: `updateSwitches` still lifts `isUp` for everything else -- which it must,
+     * since discovery is a real source of evidence and a poll that never wrote up would leave
+     * the graph dark -- but it declines for a switch the twin has been told is off, and says so
+     * once. Power-on clears the flag as soon as the helper confirms a process is serving again,
+     * which is the same moment P4PowerStrategy already closes its distrust window and for the
+     * same reason: the graph is once more backed by something real.
+     *
+     * 🔴 NOT SERIALISED, on purpose. Q12 (doc/audit/2026-09-03_night-rounds/QUESTIONS-FOR-ADAM.md)
+     * asks whether `is_up` should be split into `admin_state` and `reachable` on the wire, and
+     * that is Adam's call, not this fix's. So the separation is made internally and the emitted
+     * shape is left exactly as it was: no key is added to to_json, and from_json does not read
+     * one. See doc/audit/2026-09-03_fix-poll-resurrect/FIX-POLL-RESURRECT.md §6.
+     */
+    bool adminPoweredOff = false;
+
     /** @brief Why `isUp` is false, when the twin derived it rather than observing it.
      *  @see DownReason. Owned by TopologyAndFlowMonitor::reconcileDerivedLiveness; every other
      *  writer of `isUp` leaves it at None. [Co-developed with claude code -- Adam] */
