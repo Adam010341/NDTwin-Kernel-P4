@@ -209,6 +209,8 @@ baseline byte-identical: yes (check_gate_anchors.py 9e4b0563...)
 | 1 | `check_gate_anchors.py 209251dd` | `209251dd` | `209251dd`（未修） | **37/50 cells ok**（13 not ok，其中 10 NOT CHECKED），exit 2 |
 | 2 | `check_gate_anchors.py 209251dd` | `209251dd` | `aed8f299`（已修） | **37/50 cells ok**（13 not ok，其中 10 NOT CHECKED），exit 2 |
 | 3 | `check_gate_anchors.py HEAD` | `aed8f299` | `aed8f299` | **38/51 cells ok**（13 not ok，其中 10 NOT CHECKED），exit 2 |
+| 4 | `check_gate_anchors.py trunk` | `507ff3e8` | `209251dd`（未修） | **40/53 cells ok**（13 not ok，其中 10 NOT CHECKED），exit 2 |
+| 5 | `check_gate_anchors.py trunk` | `507ff3e8` | `aed8f299`（已修） | **40/53 cells ok**（13 not ok，其中 10 NOT CHECKED），exit 2 |
 
 **1 vs 2 是隔離變因的那一組：gate 完全相同，只換工具。兩份輸出 `diff` 完全一樣——不只格子，
 連 broken-anchor 明細和 UNPARSED 清單都逐字相同。**
@@ -228,6 +230,14 @@ $ diff <(grep ^mutate_ 舊工具@209251dd) <(grep ^mutate_ 新工具@HEAD)
 ```
 
 37/50 → 38/51 ＝ 多一格、多一格 ok。**沒有任何既有 gate 的判決被搬動。**
+
+**4 vs 5 是同一組隔離比較，但跑在「合併之後真正會長成的樣子」上。** 我開工用的 `209251dd` 在
+我做事的期間被推進到 `507ff3e8`（多了 3 個 gate，其中就有帶著 `./` 繞道的
+`mutate_testbed_banner.sh`）。同樣只換工具、gate 不動：**40/53 對 40/53，`diff` 一格都沒動。**
+banner gate 在兩邊都是 `ok(23)`——因為繞道還在，它本來就讀得到。
+
+`507ff3e8` 沒有碰過我改的三個檔案（`git diff --stat 209251dd..trunk --` 這三條路徑是空的），
+`git merge-tree --write-tree trunk HEAD` rc=0（tree `9ea7e85d`）。
 
 （前一位 agent 加 banner gate 時量到的 37/50 → 38/51 是**另一件事**——那是它自己那個 gate 的
 那一格。兩者不衝突：這裡的 +1 是 `mutate_gate_anchors_root_files.sh`，那裡的 +1 是
