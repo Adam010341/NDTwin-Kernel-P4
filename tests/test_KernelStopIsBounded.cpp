@@ -272,6 +272,14 @@ fabricOfUpBmv2Switches(int count)
         props.dpid = static_cast<uint64_t>(i + 1);
         props.isUp = true;
         props.isEnabled = true;
+        // 🔴 An address, and NOT because this test needs one. fetchCpuReportInternal does
+        // `utils::ipToString(vp.ip.front())` on every SWITCH vertex with no empty check
+        // (DeviceConfigurationAndPowerManager.cpp:1689), so a switch carrying no IP segfaults the
+        // status worker -- confirmed here under gdb before this line existed: SIGSEGV on thread 4
+        // in fetchCpuReportInternal <- statusUpdateWorker. That is a defect in its own right and
+        // it is NOT what this file is about, so the fixture stays on the realistic side of it and
+        // the finding is reported separately rather than being fixed in passing.
+        props.ip.push_back(0x0A000001u + static_cast<uint32_t>(i)); // 10.0.0.1 upward
         boost::add_vertex(props, *graph);
     }
     return graph;
@@ -400,9 +408,84 @@ TEST_F(KernelStopIsBoundedTest, ATopologyPollBlockedInItsHttpCallReturnsWithinTh
            "line as 'it has exited' finds the port still held.";
 }
 
-// NOTE (red run only): the two `setStopReportBound` cases live in the same file on the fixed
-// branch. They are held out of THIS commit because they call an API trunk does not have, and a
-// test that does not compile is a survivor, not a red -- see the mutation gate's own rule.
+// ================================================================================================
+// The report. A bounded stop that is somehow still not bounded must say what it is waiting on --
+// once, naming the worker, with the elapsed time -- rather than looking like a hang.
+//
+// The bound is set to zero here so the report is guaranteed to fire. That is the honest way to
+// test it: the alternative is a test that depends on a worker being slow, which after the fix
+// above nothing is.
+// ================================================================================================
+TEST_F(KernelStopIsBoundedTest, AStopThatExceedsItsBoundSaysWhatItIsWaitingOn)
+{
+    WedgedControlPlane wedged(kP4ProxyPort);
+    if (!wedged.bound())
+    {
+        GTEST_SKIP() << "port " << kP4ProxyPort << " is in use";
+    }
+
+    auto graph = fabricOfUpBmv2Switches(kSwitchesInFabric);
+    auto graphMutex = std::make_shared<std::shared_mutex>();
+    auto eventBus = std::make_shared<EventBus>();
+    auto monitor = std::make_shared<TopologyAndFlowMonitor>(graph, graphMutex, eventBus,
+                                                            utils::MININET);
+    // A real Classifier, not nullptr. fetchOpenFlowTablesInternal ends in
+    // m_classifier->updateFromQueriedTables(result), which the empty-topology fixture in
+    // test_PowerManagerShutdown.cpp never reaches because its walk polls nothing -- a fabric with
+    // switches in it does, and nullptr there is a segfault, not a test failure. main.cpp has
+    // always passed one.
+    auto classifier = std::make_shared<ndtClassifier::Classifier>();
+    auto manager = std::make_shared<DeviceConfigurationAndPowerManager>(monitor, utils::MININET,
+                                                                        "127.0.0.1", classifier);
+    manager->setStopReportBound(std::chrono::milliseconds(0));
+    manager->start();
+    ASSERT_TRUE(wedged.waitForConnections(1, 10s));
+
+    LogCapture captured;
+    manager->stop();
+
+    const std::string log = captured.text();
+    ASSERT_GT(captured.recordCount(), 0u)
+        << "the capture sink recorded nothing at all, so the assertion below would pass vacuously";
+    // Deliberately NOT asserting the sentence. The wording is a diagnostic, not the behaviour,
+    // and the mutation gate's W2 rewords it precisely to prove this suite does not pin prose.
+    // What is asserted is the two identifiers the report exists to carry: which subsystem is
+    // still stopping, and which of its workers has not returned.
+    EXPECT_NE(log.find("openflow-tables"), std::string::npos)
+        << "the report did not name the worker it is waiting on, which is the only part an "
+           "operator can act on. Captured log:\n" << log;
+    EXPECT_NE(log.find("power manager"), std::string::npos)
+        << "the report did not name the subsystem whose stop passed its bound. Captured log:\n"
+        << log;
+}
+
+// The same property for the monitor, whose stop() joins two threads rather than three.
+TEST_F(KernelStopIsBoundedTest, TheMonitorsStopReportNamesItsOwnWorkers)
+{
+    WedgedControlPlane wedged(0);
+    ASSERT_TRUE(wedged.bound());
+
+    auto graph = std::make_shared<Graph>();
+    auto graphMutex = std::make_shared<std::shared_mutex>();
+    auto eventBus = std::make_shared<EventBus>();
+    auto monitor = std::make_shared<TopologyAndFlowMonitor>(graph, graphMutex, eventBus,
+                                                            utils::MININET);
+    (void)monitor->loadStaticTopology();
+    monitor->setTopologyApiUrls("http://127.0.0.1:" + std::to_string(wedged.port())
+                                + "/v1.0/topology");
+    monitor->setStopReportBound(std::chrono::milliseconds(0));
+    monitor->start();
+    ASSERT_TRUE(wedged.waitForConnections(1, 10s));
+
+    LogCapture captured;
+    monitor->stop();
+
+    const std::string log = captured.text();
+    EXPECT_NE(log.find("topology-poll"), std::string::npos)
+        << "the report did not name the poll thread. Captured log:\n" << log;
+    EXPECT_NE(log.find("topology monitor"), std::string::npos)
+        << "the report did not name the subsystem. Captured log:\n" << log;
+}
 
 // Stopping twice, and stopping something that was never started, must both be free. main.cpp calls
 // stop() explicitly and the destructors call it again; a bound that only holds the first time is
