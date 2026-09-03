@@ -1,0 +1,1764 @@
+/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/main.py:333: DeprecationWarning:
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+
+  @app.on_event("startup")
+/home/tester/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/main.py:338: DeprecationWarning:
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+
+  @app.on_event("shutdown")
+INFO:     Started server process [3708]
+INFO:     Waiting for application startup.
+[Proxy Agent] Starting up...
+[2] Received arbitration response: Mastership confirmed.
+[1] Received arbitration response: Mastership confirmed.
+[3] Received arbitration response: Mastership confirmed.
+[5] Received arbitration response: Mastership confirmed.
+[4] Received arbitration response: Mastership confirmed.
+[6] Received arbitration response: Mastership confirmed.
+[7] Received arbitration response: Mastership confirmed.
+[8] Received arbitration response: Mastership confirmed.
+[9] Received arbitration response: Mastership confirmed.
+[10] Received arbitration response: Mastership confirmed.
+[1] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 1
+[2] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 2
+[3] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 3
+[4] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 4
+[5] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 5
+[6] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 6
+[7] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 7
+[8] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 8
+[9] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 9
+[10] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 10
+[1] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[2] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 2 sampling to sFlow as 192.168.123.12
+[3] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 3 sampling to sFlow as 192.168.123.13
+[4] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 4 sampling to sFlow as 192.168.123.14
+[5] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 5 sampling to sFlow as 192.168.123.15
+[6] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 6 sampling to sFlow as 192.168.123.16
+[7] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 7 sampling to sFlow as 192.168.123.17
+[8] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 8 sampling to sFlow as 192.168.123.18
+[9] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 9 sampling to sFlow as 192.168.123.19
+[10] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 10 sampling to sFlow as 192.168.123.20
+[Kernel] switch 1 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 2 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=2 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 3 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=3 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 4 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=4 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 5 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=5 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 6 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=6 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 7 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=7 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 8 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=8 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 9 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=9 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 10 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=10 (Caused by NewConnectionError("HT
+TPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Proxy Agent] Kernel did not acknowledge 10/10 switches yet ([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) -- normal when the kernel starts after the proxy. Its topology poll enables switches on its own; retrying
+the push in the background for up to 5 minutes.
+[Proxy Agent] Started LLDP Discovery...
+[TopologyManager] Discovered link: S5-p1 -> S1-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S9-p1 -> S5-p3
+[TopologyManager] Discovered link: S4-p1 -> S7-p2
+[TopologyManager] Discovered link: S9-p2 -> S6-p3
+[TopologyManager] Discovered link: S5-p2 -> S2-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S8-p2 -> S4-p2
+[TopologyManager] Discovered link: S3-p2 -> S8-p1
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Discovered link: S7-p4 -> S10-p3
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Discovered link: S7-p3 -> S9-p3
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[1] Added route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Discovered link: S8-p1 -> S3-p2
+[TopologyManager] link watchdog seeded with 32 declared links
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[Proxy Agent] Started LLDP link watchdog...
+[2] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[Proxy Agent] Started liveness polling...
+INFO:     Application startup complete.
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[5] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[6] Added route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[9] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[2] Added route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[1] Added route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[6] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[3] Added route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[6] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[4] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[6] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[5] Added route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Discovered link: S6-p1 -> S1-p2
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[9] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[3] Modified route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[3] Added route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[9] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[3] Modified route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[6] Added route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[1] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[4] Added route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[3] Modified route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[9] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[4] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[9] Added route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[4] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[4] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[6] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[1] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[6] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[1] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[3] Modified route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[9] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[4] Added route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[6] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[6] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[6] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[9] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[6] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[4] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[7] Added route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[1] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[7] Added route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[7] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[7] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[6] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[8] Added route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[6] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[7] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[9] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[4] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[3] Added route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[9] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[8] Added route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[8] Modified route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[6] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[8] Modified route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[6] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[4] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[7] Added route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[8] Modified route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[9] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[7] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[9] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[7] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[10] Added route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[1] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[9] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[8] Added route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[9] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[8] Modified route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[9] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[7] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[8] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[7] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[10] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Discovered link: S10-p2 -> S6-p4
+[TopologyManager] Discovered link: S10-p1 -> S5-p4
+[4] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[10] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[8] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[10] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[9] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[3] Added route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[1] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[10] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Installing initial routes proactively...
+[10] Added route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[1] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[7] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[8] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[3] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[3] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[1] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[4] Added route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[10] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[10] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[3] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[3] Modified route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[7] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[1] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[4] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[7] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[3] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[8] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[4] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[3] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[6] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[10] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[4] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[3] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Discovered link: S9-p4 -> S8-p3
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[8] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[7] Added route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[3] Modified route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[4] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[4] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[6] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[6] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[8] Added route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[10] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[6] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[7] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[9] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[7] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[3] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[8] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Discovered link: S3-p1 -> S7-p1
+[10] Added route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[6] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[6] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[8] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[3] Modified route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[7] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[9] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[7] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[4] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[10] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[7] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[7] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[1] Added route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[4] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[8] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[8] Modified route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[8] Modified route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[10] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[6] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Added route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[8] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[9] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[9] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[9] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[1] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[7] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[9] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[6] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[10] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[4] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[10] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[10] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[3] Modified route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[10] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[5] Added route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[2] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[7] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[8] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[1] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[4] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[1] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[6] Added route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[1] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[8] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[1] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[9] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[2] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[9] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[4] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[3] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[7] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[2] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[10] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[6] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[5] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[8] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[10] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[1] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[7] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[4] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[4] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[3] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[6] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[1] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[7] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[9] Added route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[5] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[4] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[2] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[4] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[8] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[6] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[9] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[7] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[6] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[8] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[10] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[8] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[1] Added route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[10] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[7] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[9] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[5] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[4] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[8] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[6] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[1] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[9] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[3] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[2] Added route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[10] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[5] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[9] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[7] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[4] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[10] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[3] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[10] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[1] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[6] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[6] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[8] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[6] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[7] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[1] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[3] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[1] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[5] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[4] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[8] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[9] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[6] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[2] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[2] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[7] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[2] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[9] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[10] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[3] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[8] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[7] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[7] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[10] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[8] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[6] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[3] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[9] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[8] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[10] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[9] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[1] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[2] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[5] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[7] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[4] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[5] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[10] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[6] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[2] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[9] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[7] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[8] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[6] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[1] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[5] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[4] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[7] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[9] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[3] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[10] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[8] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[6] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[8] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[5] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[9] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[1] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[2] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[9] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[7] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[10] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[10] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[10] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[2] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[6] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Discovered link: S8-p4 -> S10-p4
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[1] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[8] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[5] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[4] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Installing initial routes proactively...
+[2] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[3] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[7] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[9] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[5] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[8] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[6] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[10] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[4] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[6] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[9] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[1] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[7] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[7] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[5] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[5] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[2] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[10] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[8] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.3/32 -> Port 4 (MAC: 00:00:00:00:00:03)
+[6] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[8] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[3] Modified route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[3] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[6] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[1] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[9] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[9] Modified route: 10.0.0.3/32 -> port 4, mac 00:00:00:00:00:03
+[7] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[4] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[7] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[10] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[2] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[10] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Discovered link: S6-p2 -> S2-p2
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Installing initial routes proactively...
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[5] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[8] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[1] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[1] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[3] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[8] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[6] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[2] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[6] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[9] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[9] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.1/32 -> Port 2 (MAC: 00:00:00:00:00:01)
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[2] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[10] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[7] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[7] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[10] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[5] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[3] Modified route: 10.0.0.1/32 -> port 2, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[3] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[1] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[8] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[8] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[9] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[2] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[6] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[4] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[9] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[5] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[7] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[10] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[5] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[3] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[6] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[1] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[10] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[7] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[8] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[5] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[6] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[3] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[8] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[6] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[7] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.1/32 -> Port 3 (MAC: 00:00:00:00:00:01)
+[9] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[4] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[7] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[8] Modified route: 10.0.0.1/32 -> port 3, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[10] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[8] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[9] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[9] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.1/32 -> Port 1 (MAC: 00:00:00:00:00:01)
+[6] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[9] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[7] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[10] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[10] Modified route: 10.0.0.1/32 -> port 1, mac 00:00:00:00:00:01
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[8] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[10] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[9] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[2] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[10] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[3] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[1] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[4] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[2] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[5] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.2/32 -> Port 2 (MAC: 00:00:00:00:00:02)
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[4] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[6] Modified route: 10.0.0.2/32 -> port 2, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[5] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[7] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.2/32 -> Port 3 (MAC: 00:00:00:00:00:02)
+[6] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[7] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[8] Modified route: 10.0.0.2/32 -> port 3, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[8] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[9] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.2/32 -> Port 1 (MAC: 00:00:00:00:00:02)
+[9] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[10] Modified route: 10.0.0.2/32 -> port 1, mac 00:00:00:00:00:02
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[10] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[1] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[1] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[2] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[2] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[3] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[3] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[4] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[5] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[5] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[6] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[6] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[7] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.3/32 -> Port 1 (MAC: 00:00:00:00:00:03)
+[7] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[8] Modified route: 10.0.0.3/32 -> port 1, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[8] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[9] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.3/32 -> Port 3 (MAC: 00:00:00:00:00:03)
+[9] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[10] Modified route: 10.0.0.3/32 -> port 3, mac 00:00:00:00:00:03
+[TopologyManager] Proactive Rule: DPID 1: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[10] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[1] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 2: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[2] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 3: 10.0.0.4/32 -> Port 1 (MAC: 00:00:00:00:00:04)
+[3] Modified route: 10.0.0.4/32 -> port 1, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 4: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[4] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 5: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[5] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 6: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[6] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 7: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[7] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 8: 10.0.0.4/32 -> Port 2 (MAC: 00:00:00:00:00:04)
+[8] Modified route: 10.0.0.4/32 -> port 2, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 9: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[9] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+[TopologyManager] Proactive Rule: DPID 10: 10.0.0.4/32 -> Port 3 (MAC: 00:00:00:00:00:04)
+[10] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
+INFO:     127.0.0.1:46032 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+[Kernel] switch 1 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 2 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=2 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 3 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=3 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 4 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=4 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 5 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=5 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 6 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=6 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 7 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=7 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 8 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=8 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 9 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=9 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 10 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=10 (Caused by NewConnectionError("HT
+TPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 1 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 2 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=2 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 3 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=3 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 4 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=4 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 5 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=5 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 6 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=6 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 7 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=7 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 8 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=8 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 9 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=9 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 10 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=10 (Caused by NewConnectionError("HT
+TPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 1 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 2 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=2 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 3 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=3 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 4 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=4 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 5 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=5 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 6 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=6 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 7 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=7 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 8 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=8 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 9 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=9 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 10 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=10 (Caused by NewConnectionError("HT
+TPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 1 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 2 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=2 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 3 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=3 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 4 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=4 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 5 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=5 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 6 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=6 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 7 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=7 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 8 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=8 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 9 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=9 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 10 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=10 (Caused by NewConnectionError("HT
+TPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 1 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 2 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=2 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 3 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=3 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 4 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=4 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 5 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=5 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 6 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=6 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 7 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=7 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 8 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=8 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 9 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=9 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 10 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=10 (Caused by NewConnectionError("HT
+TPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 1 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 2 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=2 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 3 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=3 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 4 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=4 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 5 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=5 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 6 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=6 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 7 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=7 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 8 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=8 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 9 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=9 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 10 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=10 (Caused by NewConnectionError("HT
+TPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 1 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 2 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=2 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 3 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=3 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 4 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=4 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 5 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=5 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 6 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=6 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 7 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=7 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 8 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=8 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 9 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=9 (Caused by NewConnectionError("HTTP
+Connection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 10 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=10 (Caused by NewConnectionError("HT
+TPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+INFO:     127.0.0.1:44472 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44486 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44492 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44498 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44514 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44522 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44524 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+[Kernel] switch 1 entered: ok
+[Kernel] switch 2 entered: ok
+[Kernel] switch 3 entered: ok
+[Kernel] switch 4 entered: ok
+[Kernel] switch 5 entered: ok
+[Kernel] switch 6 entered: ok
+[Kernel] switch 7 entered: ok
+[Kernel] switch 8 entered: ok
+[Kernel] switch 9 entered: ok
+[Kernel] switch 10 entered: ok
+[Proxy Agent] switch-entered acknowledged for all remaining switches on retry
+INFO:     127.0.0.1:34342 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34344 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34348 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34346 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34356 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34372 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34378 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34384 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34400 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34406 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34412 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34420 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34434 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34440 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34444 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34448 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39724 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39738 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39746 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39762 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39774 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39784 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39794 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39810 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39820 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39834 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39836 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39850 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39856 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39870 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39874 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39882 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48442 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48456 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48464 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48474 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48476 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48490 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48496 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48498 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48512 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48528 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48536 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48540 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48552 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48558 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48562 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:48574 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56262 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56274 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56280 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56294 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56298 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56314 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56326 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56334 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56342 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56352 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56356 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56372 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56374 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56384 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56396 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56412 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39776 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39778 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39794 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39800 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39808 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39818 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39828 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39836 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39840 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39852 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39864 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39872 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39882 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39898 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39900 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39912 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44046 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44058 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44062 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44074 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44088 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44100 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44112 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44124 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44126 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44130 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44136 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44146 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44150 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44154 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44168 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44176 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44178 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37362 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37352 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37368 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37370 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37382 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37398 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37402 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37404 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37416 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37428 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37434 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37444 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37452 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37466 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37476 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37482 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35414 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35416 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35432 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35446 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35454 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35470 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35476 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35478 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35484 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35488 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35504 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35508 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35514 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35522 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35538 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35540 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43562 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43578 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43594 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43600 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43608 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43618 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43628 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43644 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43648 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43652 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43668 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43684 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43696 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43710 - "GET /v1.0/topology HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:43726 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43732 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34960 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34962 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34972 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34986 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34994 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35000 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35004 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35008 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35016 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:35024 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58074 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58080 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58082 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58094 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58106 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58112 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58124 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58138 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58144 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58156 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34014 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34024 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34036 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34048 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34050 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34052 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34054 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34062 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34074 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34080 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34092 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34094 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34106 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34114 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36248 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36262 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36276 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36284 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36298 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36310 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36316 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36324 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36328 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:36336 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33384 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33394 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33406 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33410 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33422 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33428 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33444 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33456 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33468 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:33480 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+[TopologyManager] Pushing P4 rule to DPID 1: 10.0.0.3/32 -> Port 2 (MAC: 00:00:00:00:00:03)
+[1] Modified route: 10.0.0.3/32 -> port 2, mac 00:00:00:00:00:03
+INFO:     127.0.0.1:33492 - "POST /stats/flowentry/add HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40194 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40204 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40208 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40216 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40222 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40232 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40244 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40256 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40268 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40284 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40300 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40310 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40324 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45596 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45600 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45610 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45614 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45620 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45622 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45626 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45630 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45642 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:45644 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49652 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49664 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49678 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49688 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49694 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49700 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49716 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49724 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49738 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49748 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54382 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54386 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54400 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54408 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54418 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54430 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54438 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54446 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54448 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54450 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54454 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54466 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54474 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54484 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34376 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34378 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34392 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34406 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34416 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34430 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34432 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34438 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34450 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34458 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38116 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38122 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38126 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38128 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38130 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38132 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38146 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38148 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38154 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:38158 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32784 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32794 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32798 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32800 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32808 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32822 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32824 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32840 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32848 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32850 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32860 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32862 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:32864 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52916 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52924 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52930 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52934 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52944 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52958 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52972 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52980 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52984 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52994 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40366 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40372 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40386 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40398 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40414 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40430 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40442 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40452 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40454 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40470 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60406 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60408 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60416 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60432 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60436 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60452 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60460 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60470 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60480 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60488 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60496 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60510 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60520 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60532 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60536 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50482 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50492 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50500 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50508 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50522 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50528 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50532 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50540 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50552 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50560 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41242 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41248 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41250 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41266 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41276 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41288 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41292 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41294 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41304 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:41308 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56624 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56630 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56642 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56652 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56666 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56682 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56692 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56696 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56710 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56712 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56724 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56728 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56742 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39620 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39626 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39630 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39646 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39662 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39678 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39682 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39696 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39706 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:39714 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34108 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34114 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34124 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34128 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34136 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34140 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34148 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34158 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34172 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:34174 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43134 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43144 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43150 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43156 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43166 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43178 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43184 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43200 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43206 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43214 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43216 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43230 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43240 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:43248 - "GET /ryu_server/all_destination_paths HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53622 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53626 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53642 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53650 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53660 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53674 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53688 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53698 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53708 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53720 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40132 - "GET /stats/flow/1 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40146 - "GET /stats/flow/2 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40154 - "GET /stats/flow/3 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40164 - "GET /stats/flow/4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40176 - "GET /stats/flow/5 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40182 - "GET /stats/flow/6 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40198 - "GET /stats/flow/7 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40212 - "GET /stats/flow/8 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40214 - "GET /stats/flow/9 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40226 - "GET /stats/flow/10 HTTP/1.1" 200 OK
+

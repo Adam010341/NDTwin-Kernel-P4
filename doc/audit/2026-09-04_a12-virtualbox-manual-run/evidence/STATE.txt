@@ -1,0 +1,61 @@
+# A-12 state at harvest
+2026-09-03T16:45:46+00:00
+
+## listening
+State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess                                   
+LISTEN 0      4096         0.0.0.0:35361      0.0.0.0:*                                             
+LISTEN 0      64           0.0.0.0:43903      0.0.0.0:*                                             
+LISTEN 0      4096         0.0.0.0:35023      0.0.0.0:*                                             
+LISTEN 0      64           0.0.0.0:2049       0.0.0.0:*                                             
+LISTEN 0      4096         0.0.0.0:56857      0.0.0.0:*                                             
+LISTEN 0      2048         0.0.0.0:8081       0.0.0.0:*                                             
+LISTEN 0      4096   127.0.0.53%lo:53         0.0.0.0:*                                             
+LISTEN 0      4096         0.0.0.0:8000       0.0.0.0:*                                             
+LISTEN 0      4096         0.0.0.0:8001       0.0.0.0:*                                             
+LISTEN 0      4096         0.0.0.0:8002       0.0.0.0:*    users:(("request_manager",pid=5689,fd=6))
+LISTEN 0      4096      127.0.0.54:53         0.0.0.0:*                                             
+LISTEN 0      1024         0.0.0.0:9091       0.0.0.0:*                                             
+LISTEN 0      1024         0.0.0.0:9092       0.0.0.0:*                                             
+LISTEN 0      1024         0.0.0.0:9093       0.0.0.0:*                                             
+LISTEN 0      1024         0.0.0.0:9094       0.0.0.0:*                                             
+LISTEN 0      1024         0.0.0.0:9095       0.0.0.0:*                                             
+LISTEN 0      1024         0.0.0.0:9096       0.0.0.0:*                                             
+LISTEN 0      1024         0.0.0.0:9097       0.0.0.0:*                                             
+LISTEN 0      1024         0.0.0.0:9098       0.0.0.0:*                                             
+LISTEN 0      1024         0.0.0.0:9099       0.0.0.0:*                                             
+LISTEN 0      1024         0.0.0.0:9100       0.0.0.0:*                                             
+LISTEN 0      4096         0.0.0.0:9000       0.0.0.0:*                                             
+LISTEN 0      4096         0.0.0.0:22         0.0.0.0:*                                             
+LISTEN 0      4096         0.0.0.0:111        0.0.0.0:*                                             
+LISTEN 0      4096         0.0.0.0:59071      0.0.0.0:*                                             
+LISTEN 0      4096            [::]:56003         [::]:*                                             
+LISTEN 0      64              [::]:2049          [::]:*                                             
+LISTEN 0      64              [::]:41543         [::]:*                                             
+LISTEN 0      4096               *:50051            *:*                                             
+LISTEN 0      4096               *:50052            *:*                                             
+LISTEN 0      4096               *:50053            *:*                                             
+LISTEN 0      4096               *:50054            *:*                                             
+LISTEN 0      4096               *:50055            *:*                                             
+LISTEN 0      4096               *:50056            *:*                                             
+LISTEN 0      4096               *:50057            *:*                                             
+LISTEN 0      4096               *:50058            *:*                                             
+LISTEN 0      4096               *:50059            *:*                                             
+LISTEN 0      4096               *:50060            *:*                                             
+LISTEN 0      4096            [::]:22            [::]:*                                             
+LISTEN 0      4096            [::]:111           [::]:*                                             
+LISTEN 0      4096            [::]:49651         [::]:*                                             
+LISTEN 0      4096            [::]:54851         [::]:*                                             
+LISTEN 0      4096            [::]:46231         [::]:*                                             
+
+## free
+               total        used        free      shared  buff/cache   available
+Mem:            5925         815        4789           1         576        5109
+Swap:              0           0           0
+
+## units
+active
+active
+active
+
+## p4 switch_state
+{"status":"success","probe_interval_s":2.0,"switches":{"1":{"probe_ok":true,"probe_detail":"answered GetForwardingPipelineConfig","probe_age_s":1.782,"last_packet_in_age_s":2.134,"last_lldp_age_s":2.136,"stream_alive":true,"grpc_addr":"localhost:50051"},"2":{"probe_ok":true,"probe_detail":"answered GetForwardingPipelineConfig","probe_age_s":1.78,"last_packet_in_age_s":2.142,"last_lldp_age_s":2.14,"stream_alive":true,"grpc_addr":"localhost:50052"},"3":{"probe_ok":true,"probe_detail":"answered GetForwardingPipelineConfig","probe_age_s":1.778,"last_packet_in_age_s":2.141,"last_lldp_age_s":2.139,"stream_alive":true,"grpc_addr":"localhost:50053"},"4":{"probe_ok":true,"probe_detail":"answered GetForwardingPipelineConfig","probe_age_s":1.776,"last_packet_in_age_s":2.146,"last_lldp_age_s":2.138,"stream_alive":true,"grpc_addr":"localhost:50054"},"5":{"probe_ok":true,"probe_detail":"answered GetForwardingPipelineConfig","probe_age_s":1.774,"last_packet_in_age_s":2.136,"last_lldp_age_s":2.133,"stream_alive":true,"grpc_addr":"localhost:50055"},"6":{"probe_ok":true,"probe_detail":"answered GetForwardingPipelineConfig","probe_age_s":1.772,"last_packet_in_age_s":2.138,"last_lldp_age_s":2.139,"stream_alive":true,"grpc_addr":"localhost:50056"},"7":{"probe_ok":true,"probe_detail":"answered GetForwardingPipelineConfig","probe_age_s":1.771,"last_packet_in_age_s":2.133,"last_lldp_age_s":2.136,"stream_alive":true,"grpc_addr":"localhost:50057"},"8":{"probe_ok":true,"probe_detail":"answered GetForwardingPipelineConfig","probe_age_s":1.769,"last_packet_in_age_s":2.133,"last_lldp_age_s":2.133,"stream_alive":true,"grpc_addr":"localhost:50058"},"9":{"probe_ok":true,"probe_detail":"answered GetForwardingPipelineConfig","probe_age_s":1.768,"last_packet_in_age_s":2.136,"last_lldp_age_s":2.133,"stream_alive":true,"grpc_addr":"localhost:50059"},"10":{"probe_ok":true,"probe_detail":"answered GetForwardingPipelineConfig","probe_age_s":1.767,"last_packet_in_age_s":2.133,"last_lldp_age_s":2.133,"stream_alive":true,"grpc_addr":"localhost:50060"}},"links":{"1:1->5:1":{"last_beacon_age_s":2.136,"down":false,"reported_to_kernel":true},"1:2->6:1":{"last_beacon_age_s":2.138,"down":false,"reported_to_kernel":true},"2:1->5:2":{"last_beacon_age_s":2.14,"down":false,"reported_to_kernel":true},"2:2->6:2":{"last_beacon_age_s":2.141,"down":false,"reported_to_kernel":true},"3:1->7:1":{"last_beacon_age_s":2.154,"down":false,"reported_to_kernel":true},"3:2->8:1":{"last_beacon_age_s":2.139,"down":false,"reported_to_kernel":true},"4:1->7:2":{"last_beacon_age_s":2.146,"down":false,"reported_to_kernel":true},"4:2->8:2":{"last_beacon_age_s":2.138,"down":false,"reported_to_kernel":true},"5:1->1:1":{"last_beacon_age_s":2.134,"down":false,"reported_to_kernel":true},"5:2->2:1":{"last_beacon_age_s":2.142,"down":false,"reported_to_kernel":true},"5:3->9:1":{"last_beacon_age_s":2.143,"down":false,"reported_to_kernel":true},"5:4->10:1":{"last_beacon_age_s":2.134,"down":false,"reported_to_kernel":true},"6:1->1:2":{"last_beacon_age_s":2.139,"down":false,"reported_to_kernel":true},"6:2->2:2":{"last_beacon_age_s":2.15,"down":false,"reported_to_kernel":true},"6:3->9:2":{"last_beacon_age_s":2.153,"down":false,"reported_to_kernel":true},"6:4->10:2":{"last_beacon_age_s":2.141,"down":false,"reported_to_kernel":true},"7:1->3:1":{"last_beacon_age_s":2.141,"down":false,"reported_to_kernel":true},"7:2->4:1":{"last_beacon_age_s":2.152,"down":false,"reported_to_kernel":true},"7:3->9:3":{"last_beacon_age_s":2.149,"down":false,"reported_to_kernel":true},"7:4->10:3":{"last_beacon_age_s":2.136,"down":false,"reported_to_kernel":true},"8:1->3:2":{"last_beacon_age_s":2.155,"down":false,"reported_to_kernel":true},"8:2->4:2":{"last_beacon_age_s":2.146,"down":false,"reported_to_kernel":true},"8:3->9:4":{"last_beacon_age_s":2.136,"down":false,"reported_to_kernel":true},"8:4->10:4":{"last_beacon_age_s":2.133,"down":false,"reported_to_kernel":true},"9:1->5:3":{"last_beacon_age_s":2.139,"down":false,"reported_to_kernel":true},"9:2->6:3":{"last_beacon_age_s":2.145,"down":false,"reported_to_kernel":true},"9:3->7:3":{"last_beacon_age_s":2.133,"down":false,"reported_to_kernel":true},"9:4->8:3":{"last_beacon_age_s":2.133,"down":false,"reported_to_kernel":true},"10:1->5:4":{"last_beacon_age_s":2.148,"down":false,"reported_to_kernel":true},"10:2->6:4":{"last_beacon_age_s":2.139,"down":false,"reported_to_kernel":true},"10:3->7:4":{"last_beacon_age_s":2.136,"down":false,"reported_to_kernel":true},"10:4->8:4":{"last_beacon_age_s":2.133,"down":false,"reported_to_kernel":true}}}

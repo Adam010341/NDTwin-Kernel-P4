@@ -1,0 +1,82 @@
+{
+  "s1": {
+    "pid": 3466,
+    "device_id": 1,
+    "grpc_port": 50051,
+    "thrift_port": 9091,
+    "log_file": "/tmp/s1_bmv2.log",
+    "argv": "LD_LIBRARY_PATH=/usr/local/bmv2-fast/lib /usr/local/bmv2-fast/bin/simple_switch_grpc -i 3@s1-eth3 -i 1@s1-eth1 -i 2@s1-eth2 --thrift-port 9091 --device-id 1 /home/tester/Desktop/NDTwin-Kernel/p4_proxy/mininet/../p4_src/build/ndtwin_switch.json -- --grpc-server-addr 0.0.0.0:50051 --cpu-port 255"
+  },
+  "s2": {
+    "pid": 3467,
+    "device_id": 2,
+    "grpc_port": 50052,
+    "thrift_port": 9092,
+    "log_file": "/tmp/s2_bmv2.log",
+    "argv": "LD_LIBRARY_PATH=/usr/local/bmv2-fast/lib /usr/local/bmv2-fast/bin/simple_switch_grpc -i 3@s2-eth3 -i 1@s2-eth1 -i 2@s2-eth2 --thrift-port 9092 --device-id 2 /home/tester/Desktop/NDTwin-Kernel/p4_proxy/mininet/../p4_src/build/ndtwin_switch.json -- --grpc-server-addr 0.0.0.0:50052 --cpu-port 255"
+  },
+  "s3": {
+    "pid": 3468,
+    "device_id": 3,
+    "grpc_port": 50053,
+    "thrift_port": 9093,
+    "log_file": "/tmp/s3_bmv2.log",
+    "argv": "LD_LIBRARY_PATH=/usr/local/bmv2-fast/lib /usr/local/bmv2-fast/bin/simple_switch_grpc -i 3@s3-eth3 -i 1@s3-eth1 -i 2@s3-eth2 --thrift-port 9093 --device-id 3 /home/tester/Desktop/NDTwin-Kernel/p4_proxy/mininet/../p4_src/build/ndtwin_switch.json -- --grpc-server-addr 0.0.0.0:50053 --cpu-port 255"
+  },
+  "s4": {
+    "pid": 3469,
+    "device_id": 4,
+    "grpc_port": 50054,
+    "thrift_port": 9094,
+    "log_file": "/tmp/s4_bmv2.log",
+    "argv": "LD_LIBRARY_PATH=/usr/local/bmv2-fast/lib /usr/local/bmv2-fast/bin/simple_switch_grpc -i 3@s4-eth3 -i 1@s4-eth1 -i 2@s4-eth2 --thrift-port 9094 --device-id 4 /home/tester/Desktop/NDTwin-Kernel/p4_proxy/mininet/../p4_src/build/ndtwin_switch.json -- --grpc-server-addr 0.0.0.0:50054 --cpu-port 255"
+  },
+  "s5": {
+    "pid": 3470,
+    "device_id": 5,
+    "grpc_port": 50055,
+    "thrift_port": 9095,
+    "log_file": "/tmp/s5_bmv2.log",
+    "argv": "LD_LIBRARY_PATH=/usr/local/bmv2-fast/lib /usr/local/bmv2-fast/bin/simple_switch_grpc -i 1@s5-eth1 -i 2@s5-eth2 -i 3@s5-eth3 -i 4@s5-eth4 --thrift-port 9095 --device-id 5 /home/tester/Desktop/NDTwin-Kernel/p4_proxy/mininet/../p4_src/build/ndtwin_switch.json -- --grpc-server-addr 0.0.0.0:50055 --cpu-port 255"
+  },
+  "s6": {
+    "pid": 3471,
+    "device_id": 6,
+    "grpc_port": 50056,
+    "thrift_port": 9096,
+    "log_file": "/tmp/s6_bmv2.log",
+    "argv": "LD_LIBRARY_PATH=/usr/local/bmv2-fast/lib /usr/local/bmv2-fast/bin/simple_switch_grpc -i 1@s6-eth1 -i 2@s6-eth2 -i 3@s6-eth3 -i 4@s6-eth4 --thrift-port 9096 --device-id 6 /home/tester/Desktop/NDTwin-Kernel/p4_proxy/mininet/../p4_src/build/ndtwin_switch.json -- --grpc-server-addr 0.0.0.0:50056 --cpu-port 255"
+  },
+  "s7": {
+    "pid": 3474,
+    "device_id": 7,
+    "grpc_port": 50057,
+    "thrift_port": 9097,
+    "log_file": "/tmp/s7_bmv2.log",
+    "argv": "LD_LIBRARY_PATH=/usr/local/bmv2-fast/lib /usr/local/bmv2-fast/bin/simple_switch_grpc -i 1@s7-eth1 -i 2@s7-eth2 -i 3@s7-eth3 -i 4@s7-eth4 --thrift-port 9097 --device-id 7 /home/tester/Desktop/NDTwin-Kernel/p4_proxy/mininet/../p4_src/build/ndtwin_switch.json -- --grpc-server-addr 0.0.0.0:50057 --cpu-port 255"
+  },
+  "s8": {
+    "pid": 3476,
+    "device_id": 8,
+    "grpc_port": 50058,
+    "thrift_port": 9098,
+    "log_file": "/tmp/s8_bmv2.log",
+    "argv": "LD_LIBRARY_PATH=/usr/local/bmv2-fast/lib /usr/local/bmv2-fast/bin/simple_switch_grpc -i 1@s8-eth1 -i 2@s8-eth2 -i 3@s8-eth3 -i 4@s8-eth4 --thrift-port 9098 --device-id 8 /home/tester/Desktop/NDTwin-Kernel/p4_proxy/mininet/../p4_src/build/ndtwin_switch.json -- --grpc-server-addr 0.0.0.0:50058 --cpu-port 255"
+  },
+  "s9": {
+    "pid": 3477,
+    "device_id": 9,
+    "grpc_port": 50059,
+    "thrift_port": 9099,
+    "log_file": "/tmp/s9_bmv2.log",
+    "argv": "LD_LIBRARY_PATH=/usr/local/bmv2-fast/lib /usr/local/bmv2-fast/bin/simple_switch_grpc -i 1@s9-eth1 -i 2@s9-eth2 -i 3@s9-eth3 -i 4@s9-eth4 --thrift-port 9099 --device-id 9 /home/tester/Desktop/NDTwin-Kernel/p4_proxy/mininet/../p4_src/build/ndtwin_switch.json -- --grpc-server-addr 0.0.0.0:50059 --cpu-port 255"
+  },
+  "s10": {
+    "pid": 3479,
+    "device_id": 10,
+    "grpc_port": 50060,
+    "thrift_port": 9100,
+    "log_file": "/tmp/s10_bmv2.log",
+    "argv": "LD_LIBRARY_PATH=/usr/local/bmv2-fast/lib /usr/local/bmv2-fast/bin/simple_switch_grpc -i 1@s10-eth1 -i 2@s10-eth2 -i 3@s10-eth3 -i 4@s10-eth4 --thrift-port 9100 --device-id 10 /home/tester/Desktop/NDTwin-Kernel/p4_proxy/mininet/../p4_src/build/ndtwin_switch.json -- --grpc-server-addr 0.0.0.0:50060 --cpu-port 255"
+  }
+}

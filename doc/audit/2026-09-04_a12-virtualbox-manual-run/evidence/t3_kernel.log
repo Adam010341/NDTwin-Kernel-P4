@@ -1,0 +1,595 @@
+[2026-09-03 16:39:29.246] [info] [main.cpp:299 main] Logger Loads Successfully! level
+Select your deployment environment:
+  [1] Local Mininet (simulated testbed)
+  [2] Remote Testbed (physical or virtual deployment)
+Enter environment choice (1-2): 1
+
+Select your Mininet Topology:
+  [1] OVS Environment (128 Hosts)
+  [2] P4 / BMv2 Environment (4 Hosts)
+Enter topology choice (1-2): 2
+
+Do you want to enable Intent Translator (requires OpenAI Token)?
+  [1] Yes (Enable AI features)
+  [2] No  (Disable AI features)
+Enter choice (1-2): 2
+Running in Mininet environment.
+[2026-09-03 16:40:19.656] [info] [main.cpp:311 main] Topology file: ../setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+[2026-09-03 16:40:19.659] [info] [main.cpp:358 main] IntentTranslator is disabled by user.
+[2026-09-03 16:40:19.659] [info] [ApplicationManager.cpp:410 cleanupStaleEntries] Checking for stale NFS entries in /srv/nfs/sim
+[2026-09-03 16:40:19.661] [info] [FlowLinkUsageCollector.cpp:472 start] Collector Starts Up
+[2026-09-03 16:40:19.661] [info] [TopologyAndFlowMonitor.cpp:2059 run] TopologyAndFlowMonitor Run
+[2026-09-03 16:40:19.661] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids] [run] pid=3895 tid=4030
+[2026-09-03 16:40:19.661] [info] [FlowLinkUsageCollector.cpp:708 run] Run with 20 workers
+[2026-09-03 16:40:19.661] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids] [calAvgFlowSendingRatesPeriodically] pid=3895 tid=4031
+[2026-09-03 16:40:19.661] [info] [TopologyAndFlowMonitor.cpp:211 loadStaticTopologyFromFile] Load Static Topology File
+[2026-09-03 16:40:19.661] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids] [testCalAvgFlowSendingRatesRandomly] pid=3895 tid=4032
+[2026-09-03 16:40:19.662] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids] [purgeIdleFlows] pid=3895 tid=4033
+[2026-09-03 16:40:19.662] [info] [FlowLinkUsageCollector.cpp:466 log_thread_ids] [calFlowPathByQueried] pid=3895 tid=4034
+[2026-09-03 16:40:19.662] [info] [DeviceConfigurationAndPowerManager.cpp:118 start] DeviceConfigurationAndPowerManager Starts Up
+[2026-09-03 16:40:19.662] [info] [ControllerAndOtherEventHandler.cpp:196 runServer] Server Listening on port 8000
+[2026-09-03 16:40:19.662] [info] [FlowLinkUsageCollector.cpp:749 run] Listening for sFlow on UDP port 6343
+[2026-09-03 16:40:19.664] [info] [TopologyAndFlowMonitor.cpp:1192 validateDataPlaneHomogeneity] Data plane: bmv2 (10 switch(es))
+[2026-09-03 16:40:19.664] [info] [TopologyAndFlowMonitor.cpp:145 configureTopologyApiUrls] All-bmv2 topology: polling http://localhost:8081/v1.0/topology for switch/host/link state instead of Ryu.
+[2026-09-03 16:40:19.681] [info] [TopologyAndFlowMonitor.cpp:2081 run] topology from the control plane: 10 switches, 4 hosts, 40 edges up
+[2026-09-03 16:40:24.723] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestinationPaths] Pulled 12 paths from controller
+[2026-09-03 16:40:24.723] [info] [FlowLinkUsageCollector.cpp:566 refreshDestinationPathsPeriodically] Destination paths loaded from localhost:8081 (12 pairs); path and switch-count queries will answer
+ from now on.
+[2026-09-03 16:40:28.584] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:40:28.588] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/inform_switch_entered?dpid=1
+[2026-09-03 16:40:28.588] [info] [HttpSession.cpp:1126 handleInformSwitchEntered] Handle Inform Switch Entered
+[2026-09-03 16:40:28.590] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/inform_switch_entered?dpid=2
+[2026-09-03 16:40:28.590] [info] [HttpSession.cpp:1126 handleInformSwitchEntered] Handle Inform Switch Entered
+[2026-09-03 16:40:28.590] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/inform_switch_entered?dpid=3
+[2026-09-03 16:40:28.590] [info] [HttpSession.cpp:1126 handleInformSwitchEntered] Handle Inform Switch Entered
+[2026-09-03 16:40:28.591] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/inform_switch_entered?dpid=4
+[2026-09-03 16:40:28.591] [info] [HttpSession.cpp:1126 handleInformSwitchEntered] Handle Inform Switch Entered
+[2026-09-03 16:40:28.592] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/inform_switch_entered?dpid=5
+[2026-09-03 16:40:28.592] [info] [HttpSession.cpp:1126 handleInformSwitchEntered] Handle Inform Switch Entered
+[2026-09-03 16:40:28.593] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/inform_switch_entered?dpid=6
+[2026-09-03 16:40:28.593] [info] [HttpSession.cpp:1126 handleInformSwitchEntered] Handle Inform Switch Entered
+[2026-09-03 16:40:28.593] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/inform_switch_entered?dpid=7
+[2026-09-03 16:40:28.593] [info] [HttpSession.cpp:1126 handleInformSwitchEntered] Handle Inform Switch Entered
+[2026-09-03 16:40:28.594] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/inform_switch_entered?dpid=8
+[2026-09-03 16:40:28.594] [info] [HttpSession.cpp:1126 handleInformSwitchEntered] Handle Inform Switch Entered
+[2026-09-03 16:40:28.594] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/inform_switch_entered?dpid=9
+[2026-09-03 16:40:28.594] [info] [HttpSession.cpp:1126 handleInformSwitchEntered] Handle Inform Switch Entered
+[2026-09-03 16:40:28.595] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/inform_switch_entered?dpid=10
+[2026-09-03 16:40:28.595] [info] [HttpSession.cpp:1126 handleInformSwitchEntered] Handle Inform Switch Entered
+[2026-09-03 16:40:49.785] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSendingRatesPeriodically] rate loop period: last 29 iters mean 1004.1 ms | since start (29 iters) mean 1004.1 ms, min 1000.1
+, max 1011.8 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 16:40:49.785] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSendingRatesPeriodically] rate divisor check: measured_interval_s=1.011308 divisor_used_s=-1.000000 (ticket Q gate: these mu
+st agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-03 16:41:19.879] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSendingRatesPeriodically] rate loop period: last 30 iters mean 1003.1 ms | since start (59 iters) mean 1003.6 ms, min 1000.1
+, max 1023.3 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 16:41:19.879] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSendingRatesPeriodically] rate divisor check: measured_interval_s=1.005081 divisor_used_s=-1.000000 (ticket Q gate: these mu
+st agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-03 16:41:19.879] [warning] [FlowLinkUsageCollector.cpp:2089 calAvgFlowSendingRatesPeriodically] no sFlow datagram has arrived in 60s. Every flow rate and link utilisation will read zero, whic
+h is indistinguishable from an idle network. Check that the switches are sampling to this host on port 6343.
+[2026-09-03 16:41:24.992] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestinationPaths] Pulled 12 paths from controller
+[2026-09-03 16:41:50.048] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSendingRatesPeriodically] rate loop period: last 30 iters mean 1005.7 ms | since start (89 iters) mean 1004.3 ms, min 1000.1
+, max 1029.3 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 16:41:50.049] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSendingRatesPeriodically] rate divisor check: measured_interval_s=1.000792 divisor_used_s=-1.000000 (ticket Q gate: these mu
+st agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-03 16:41:52.702] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:41:52.702] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/get_topology
+[2026-09-03 16:41:52.702] [warning] [HttpSession.cpp:1903 handleNotFound] Received unsupported request: method=GET, target=/ndt/get_topology
+[2026-09-03 16:41:52.703] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:41:52.724] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:41:52.724] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/get_all_switches
+[2026-09-03 16:41:52.724] [warning] [HttpSession.cpp:1903 handleNotFound] Received unsupported request: method=GET, target=/ndt/get_all_switches
+[2026-09-03 16:41:52.725] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:41:52.735] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:41:52.735] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/get_switch_count
+[2026-09-03 16:41:52.735] [warning] [HttpSession.cpp:1903 handleNotFound] Received unsupported request: method=GET, target=/ndt/get_switch_count
+[2026-09-03 16:41:52.736] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:41:52.756] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:41:52.756] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/get_all_flows
+[2026-09-03 16:41:52.757] [warning] [HttpSession.cpp:1903 handleNotFound] Received unsupported request: method=GET, target=/ndt/get_all_flows
+[2026-09-03 16:41:52.758] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:42:20.249] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSendingRatesPeriodically] rate loop period: last 30 iters mean 1006.7 ms | since start (119 iters) mean 1004.9 ms, min 1000.
+1, max 1096.7 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 16:42:20.249] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSendingRatesPeriodically] rate divisor check: measured_interval_s=1.001671 divisor_used_s=-1.000000 (ticket Q gate: these mu
+st agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-03 16:42:25.379] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestinationPaths] Pulled 12 paths from controller
+[2026-09-03 16:42:42.357] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:42:42.358] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/install_flow_entry
+[2026-09-03 16:42:42.358] [info] [HttpSession.cpp:678 handleInstallFlowEntry] Handle Install Flow Entry
+[2026-09-03 16:42:42.358] [info] [HttpSession.cpp:895 processFlowBatch] j {
+  "delete_flow_entries": [],
+  "install_flow_entries": [
+    {
+      "actions": [
+        {
+          "port": 2,
+          "type": "OUTPUT"
+        }
+      ],
+      "dpid": 1,
+      "match": {
+        "eth_type": 2048,
+        "ipv4_dst": "10.0.0.3"
+      },
+      "priority": 99
+    }
+  ],
+  "modify_flow_entries": []
+}
+[2026-09-03 16:42:42.359] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:42:42.362] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:42:42.362] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/install_flow_entry
+[2026-09-03 16:42:42.362] [info] [HttpSession.cpp:678 handleInstallFlowEntry] Handle Install Flow Entry
+[2026-09-03 16:42:42.362] [info] [HttpSession.cpp:895 processFlowBatch] j {
+  "delete_flow_entries": [],
+  "install_flow_entries": [
+    {
+      "actions": [
+        {
+          "port": 24,
+          "type": "OUTPUT"
+        }
+      ],
+      "dpid": 106225808380928,
+      "match": {
+        "eth_type": 2048,
+        "ipv4_dst": "10.0.0.3"
+      },
+      "priority": 99
+    }
+  ],
+  "modify_flow_entries": []
+}
+[2026-09-03 16:42:42.362] [warning] [HttpSession.cpp:1029 processFlowBatch] refusing flow batch: none of its 1 entries names a switch in the loaded topology (1 distinct unknown dpid(s))
+[2026-09-03 16:42:42.363] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:42:42.367] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:42:42.367] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries
+[2026-09-03 16:42:42.367] [info] [HttpSession.cpp:1104 handleInstallModifyDeleteFlowEntries] Handle Install Modify Delete Flow Entries
+[2026-09-03 16:42:42.367] [info] [HttpSession.cpp:895 processFlowBatch] j {
+  "delete": [],
+  "install": [
+    {
+      "actions": [
+        {
+          "port": 2,
+          "type": "OUTPUT"
+        }
+      ],
+      "dpid": 1,
+      "match": {
+        "eth_type": 2048,
+        "ipv4_dst": "10.0.0.4"
+      },
+      "priority": 88
+    }
+  ],
+  "modify": []
+}
+[2026-09-03 16:42:42.367] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:42:42.370] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:42:42.370] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/get_static_topology_json
+[2026-09-03 16:42:42.370] [info] [HttpSession.cpp:1297 handleGetStaticTopology] Handle Get Static Topology
+[2026-09-03 16:42:42.370] [info] [TopologyAndFlowMonitor.cpp:2659 getStaticTopologyJson] Processing static topology json file request
+[2026-09-03 16:42:42.371] [info] [TopologyAndFlowMonitor.cpp:2734 getStaticTopologyJson] get static topo file success
+[2026-09-03 16:42:42.372] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:42:42.376] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:42:42.376] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/get_graph_data
+[2026-09-03 16:42:42.376] [info] [HttpSession.cpp:526 handleGetGraphData] Handle Get Graph Data
+[2026-09-03 16:42:42.377] [info] [HttpSession.cpp:571 handleGetGraphData] get_graph_data success
+[2026-09-03 16:42:42.378] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:42:42.382] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:42:42.382] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/get_cpu_utilization
+[2026-09-03 16:42:42.382] [info] [HttpSession.cpp:1112 handleGetCpuUtilization] Handle Get CPU Utilization
+[2026-09-03 16:42:42.382] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:42:42.386] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:42:42.386] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/get_memory_utilization
+[2026-09-03 16:42:42.386] [info] [HttpSession.cpp:1119 handleGetMemoryUtilization] Handle Get Memory Utilization
+[2026-09-03 16:42:42.386] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:42:42.390] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:42:42.390] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/get_openflow_capacity
+[2026-09-03 16:42:42.390] [info] [HttpSession.cpp:1748 handleGetOpenflowCapacity] Handle Get Openflow Capacity
+[2026-09-03 16:42:42.390] [error] [HttpSession.cpp:1752 handleGetOpenflowCapacity] Cannot open 2026-01-02_OpenflowCapacity.json
+[2026-09-03 16:42:42.390] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:42:42.394] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:42:42.394] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/get_power_report
+[2026-09-03 16:42:42.394] [info] [HttpSession.cpp:623 handleGetPowerReport] Handle Get Power Report
+[2026-09-03 16:42:42.395] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:42:42.398] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:42:42.398] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/get_switches_power_state
+[2026-09-03 16:42:42.398] [info] [HttpSession.cpp:630 handleGetSwitchesPowerState] Handle Get Switches Power State
+[2026-09-03 16:42:42.398] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:42:42.402] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:42:42.402] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/get_average_link_usage
+[2026-09-03 16:42:42.402] [info] [HttpSession.cpp:1824 handleGetAvgLinkUsage] Handle Get Avg Link Usage
+[2026-09-03 16:42:42.402] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:42:42.406] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:42:42.406] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/get_temperature
+[2026-09-03 16:42:42.406] [info] [HttpSession.cpp:1649 handleGetTemperature] Handle Get Temperature
+[2026-09-03 16:42:42.407] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:42:50.349] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSendingRatesPeriodically] rate loop period: last 30 iters mean 1003.3 ms | since start (149 iters) mean 1004.6 ms, min 1000.
+1, max 1096.7 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 16:42:50.349] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSendingRatesPeriodically] rate divisor check: measured_interval_s=1.000521 divisor_used_s=-1.000000 (ticket Q gate: these mu
+st agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-03 16:43:20.497] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSendingRatesPeriodically] rate loop period: last 30 iters mean 1004.9 ms | since start (179 iters) mean 1004.6 ms, min 1000.
+1, max 1096.7 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 16:43:20.497] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSendingRatesPeriodically] rate divisor check: measured_interval_s=1.008832 divisor_used_s=-1.000000 (ticket Q gate: these mu
+st agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-03 16:43:25.779] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestinationPaths] Pulled 12 paths from controller
+[2026-09-03 16:43:37.101] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:43:37.101] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/app_register
+[2026-09-03 16:43:37.101] [info] [HttpSession.cpp:1360 handleAppRegister] Handle App Register
+[2026-09-03 16:43:37.101] [info] [ApplicationManager.cpp:38 registerApplication] Registered app ' power ' with App ID: 1
+[2026-09-03 16:43:37.101] [info] [ApplicationManager.cpp:182 updateNFSConfig] Updated /etc/exports for App ID 1
+[2026-09-03 16:43:37.125] [info] [ApplicationManager.cpp:260 reloadNFSServer] NFS server reloaded.
+[2026-09-03 16:43:37.126] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:43:37.159] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:43:37.160] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:43:37.160] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:43:37.160] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:43:37.160] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:43:37.160] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/get_graph_data
+[2026-09-03 16:43:37.160] [info] [HttpSession.cpp:526 handleGetGraphData] Handle Get Graph Data
+[2026-09-03 16:43:37.162] [info] [HttpSession.cpp:571 handleGetGraphData] get_graph_data success
+[2026-09-03 16:43:37.162] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:43:37.164] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:43:37.164] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-03 16:43:37.164] [info] [HttpSession.cpp:616 handleGetSwitchOpenflowEntries] Handle Get Swithc OpenFlow Entries
+[2026-09-03 16:43:37.165] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:43:37.167] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:43:37.167] [info] [HttpSession.cpp:95 handleRequest] Got request: GET /ndt/get_detected_flow_data
+[2026-09-03 16:43:37.167] [info] [HttpSession.cpp:577 handleGetDetectedFlowData] Handle Get Detected Flow Data
+[2026-09-03 16:43:37.168] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:43:37.168] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:43:37.171] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/received_a_simulation_case
+[2026-09-03 16:43:37.171] [info] [HttpSession.cpp:1237 handleReceivedSimulationCase] Handle Recieved Simulation Case
+[2026-09-03 16:43:37.177] [info] [SimulationRequestManager.cpp:128 requestSimulation] Requested simulation on http://localhost:9000/submit - response: {"status":"Request received"}
+[2026-09-03 16:43:37.177] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:43:37.177] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:43:37.177] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:43:37.180] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/received_a_simulation_case
+[2026-09-03 16:43:37.180] [info] [HttpSession.cpp:1237 handleReceivedSimulationCase] Handle Recieved Simulation Case
+[2026-09-03 16:43:37.185] [info] [SimulationRequestManager.cpp:128 requestSimulation] Requested simulation on http://localhost:9000/submit - response: {"status":"Request received"}
+[2026-09-03 16:43:37.185] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/simulation_completed
+[2026-09-03 16:43:37.185] [info] [HttpSession.cpp:1266 handleSimulationCompleted] Handle Simulation Completed
+[2026-09-03 16:43:37.186] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:43:37.186] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:43:37.186] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:43:37.186] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:43:37.186] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/simulation_completed
+[2026-09-03 16:43:37.186] [info] [HttpSession.cpp:1266 handleSimulationCompleted] Handle Simulation Completed
+[2026-09-03 16:43:37.187] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:43:37.190] [info] [SimulationRequestManager.cpp:154 operator()] Forwarded simulation result, response: {"status":"Result Received"}
+[2026-09-03 16:43:37.191] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/received_a_simulation_case
+[2026-09-03 16:43:37.191] [info] [HttpSession.cpp:1237 handleReceivedSimulationCase] Handle Recieved Simulation Case
+[2026-09-03 16:43:37.191] [info] [SimulationRequestManager.cpp:154 operator()] Forwarded simulation result, response: {"status":"Result Received"}
+[2026-09-03 16:43:37.195] [info] [SimulationRequestManager.cpp:128 requestSimulation] Requested simulation on http://localhost:9000/submit - response: {"status":"Request received"}
+[2026-09-03 16:43:37.195] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:43:37.195] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:43:37.195] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:43:37.197] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/simulation_completed
+[2026-09-03 16:43:37.197] [info] [HttpSession.cpp:1266 handleSimulationCompleted] Handle Simulation Completed
+[2026-09-03 16:43:37.197] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:43:37.198] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/received_a_simulation_case
+[2026-09-03 16:43:37.198] [info] [HttpSession.cpp:1237 handleReceivedSimulationCase] Handle Recieved Simulation Case
+[2026-09-03 16:43:37.201] [info] [SimulationRequestManager.cpp:154 operator()] Forwarded simulation result, response: {"status":"Result Received"}
+[2026-09-03 16:43:37.202] [info] [SimulationRequestManager.cpp:128 requestSimulation] Requested simulation on http://localhost:9000/submit - response: {"status":"Request received"}
+[2026-09-03 16:43:37.203] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:43:37.203] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:43:37.203] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:43:37.204] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/simulation_completed
+[2026-09-03 16:43:37.204] [info] [HttpSession.cpp:1266 handleSimulationCompleted] Handle Simulation Completed
+[2026-09-03 16:43:37.204] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:43:37.205] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/received_a_simulation_case
+[2026-09-03 16:43:37.205] [info] [HttpSession.cpp:1237 handleReceivedSimulationCase] Handle Recieved Simulation Case
+[2026-09-03 16:43:37.208] [info] [SimulationRequestManager.cpp:154 operator()] Forwarded simulation result, response: {"status":"Result Received"}
+[2026-09-03 16:43:37.210] [info] [SimulationRequestManager.cpp:128 requestSimulation] Requested simulation on http://localhost:9000/submit - response: {"status":"Request received"}
+[2026-09-03 16:43:37.210] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:43:37.210] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:43:37.210] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:43:37.211] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/simulation_completed
+[2026-09-03 16:43:37.211] [info] [HttpSession.cpp:1266 handleSimulationCompleted] Handle Simulation Completed
+[2026-09-03 16:43:37.211] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:43:37.216] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/received_a_simulation_case
+[2026-09-03 16:43:37.216] [info] [HttpSession.cpp:1237 handleReceivedSimulationCase] Handle Recieved Simulation Case
+[2026-09-03 16:43:37.217] [info] [SimulationRequestManager.cpp:154 operator()] Forwarded simulation result, response: {"status":"Result Received"}
+[2026-09-03 16:43:37.221] [info] [SimulationRequestManager.cpp:128 requestSimulation] Requested simulation on http://localhost:9000/submit - response: {"status":"Request received"}
+[2026-09-03 16:43:37.221] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:43:37.221] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:43:37.223] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/simulation_completed
+[2026-09-03 16:43:37.223] [info] [HttpSession.cpp:1266 handleSimulationCompleted] Handle Simulation Completed
+[2026-09-03 16:43:37.223] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:43:37.229] [info] [SimulationRequestManager.cpp:154 operator()] Forwarded simulation result, response: {"status":"Result Received"}
+[2026-09-03 16:43:50.667] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSendingRatesPeriodically] rate loop period: last 30 iters mean 1005.7 ms | since start (209 iters) mean 1004.8 ms, min 1000.
+1, max 1096.7 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 16:43:50.667] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSendingRatesPeriodically] rate divisor check: measured_interval_s=1.010369 divisor_used_s=-1.000000 (ticket Q gate: these mu
+st agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-03 16:44:20.780] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSendingRatesPeriodically] rate loop period: last 30 iters mean 1003.8 ms | since start (239 iters) mean 1004.7 ms, min 1000.
+1, max 1096.7 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 16:44:20.780] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSendingRatesPeriodically] rate divisor check: measured_interval_s=1.021049 divisor_used_s=-1.000000 (ticket Q gate: these mu
+st agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-03 16:44:26.058] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestinationPaths] Pulled 12 paths from controller
+[2026-09-03 16:44:37.173] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:37.174] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:37.175] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:37.176] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:38.188] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:38.188] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:38.188] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:38.188] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:39.203] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:39.203] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:39.203] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:39.204] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:40.206] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:40.207] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:40.207] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:40.208] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:41.209] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:41.210] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:41.210] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:41.211] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:42.215] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:42.215] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:42.215] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:42.215] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:43.225] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:43.225] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:43.225] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:43.227] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:44.243] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:44.243] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:44.243] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:44.244] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:45.248] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:45.248] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:45.248] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:45.249] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:46.261] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:46.261] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:46.261] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:46.262] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:47.269] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:47.270] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:47.270] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:47.271] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:48.283] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:48.283] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:48.284] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:48.285] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:49.299] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:49.299] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:49.300] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:49.301] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:50.307] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:50.308] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:50.308] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:50.308] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:50.874] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSendingRatesPeriodically] rate loop period: last 30 iters mean 1003.1 ms | since start (269 iters) mean 1004.5 ms, min 1000.
+1, max 1096.7 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 16:44:50.874] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSendingRatesPeriodically] rate divisor check: measured_interval_s=1.000811 divisor_used_s=-1.000000 (ticket Q gate: these mu
+st agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-03 16:44:51.313] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:51.313] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:51.313] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:51.314] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:52.315] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:52.315] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:52.316] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:52.316] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:53.319] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:53.319] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:53.319] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:53.320] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:54.327] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:54.328] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:54.328] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:54.329] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:55.336] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:55.336] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:55.336] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:55.337] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:56.338] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:56.338] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:56.338] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:56.338] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:57.339] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:57.340] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:57.340] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:57.341] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:58.341] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:58.341] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:58.341] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:58.342] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:44:59.342] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:44:59.342] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:44:59.342] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:44:59.343] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:00.343] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:00.344] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:00.344] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:00.346] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:01.351] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:01.351] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:01.351] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:01.352] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:02.359] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:02.360] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:02.360] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:02.361] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:03.363] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:03.364] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:03.364] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:03.365] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:04.367] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:04.367] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:04.368] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:04.368] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:05.372] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:05.373] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:05.373] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:05.374] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:06.377] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:06.377] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:06.377] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:06.378] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:07.384] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:07.384] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:07.384] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:07.385] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:08.388] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:08.388] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:08.388] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:08.389] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:09.390] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:09.391] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:09.391] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:09.392] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:10.397] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:10.398] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:10.398] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:10.399] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:11.400] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:11.400] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:11.401] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:11.401] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:12.403] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:12.403] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:12.403] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:12.404] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:13.424] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:13.424] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:13.424] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:13.425] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:14.429] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:14.429] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:14.429] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:14.430] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:15.438] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:15.439] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:15.439] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:15.439] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:16.458] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:16.459] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:16.459] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:16.460] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:17.461] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:17.461] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:17.461] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:17.462] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:18.473] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:18.474] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:18.474] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:18.475] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:19.477] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:19.477] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:19.477] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:19.478] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:20.479] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:20.480] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:20.480] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:20.481] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:20.983] [info] [FlowLinkUsageCollector.cpp:1807 calAvgFlowSendingRatesPeriodically] rate loop period: last 30 iters mean 1003.6 ms | since start (299 iters) mean 1004.4 ms, min 1000.
+1, max 1096.7 (flows=0, counters=0) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-03 16:45:20.984] [info] [FlowLinkUsageCollector.cpp:2016 calAvgFlowSendingRatesPeriodically] rate divisor check: measured_interval_s=1.000830 divisor_used_s=-1.000000 (ticket Q gate: these mu
+st agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-03 16:45:21.495] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:21.495] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:21.495] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:21.496] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:22.508] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:22.509] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:22.509] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:22.510] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:23.511] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:23.512] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:23.512] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:23.513] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:24.531] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:24.531] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:24.531] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:24.532] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:25.536] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:25.536] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:25.536] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:25.537] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:26.232] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestinationPaths] Pulled 12 paths from controller
+[2026-09-03 16:45:26.576] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:26.577] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:26.577] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:26.578] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:27.601] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:27.602] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:27.602] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:27.603] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:28.607] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:28.607] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:28.608] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:28.608] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:29.613] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:29.613] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:29.613] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:29.614] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:30.615] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:30.615] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:30.615] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:30.616] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:31.623] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:31.623] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:31.623] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:31.624] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:32.632] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:32.632] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:32.632] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:32.633] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:33.634] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:33.635] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:33.635] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:33.636] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:34.642] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:34.643] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:34.643] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:34.644] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:35.652] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:35.653] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:35.653] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:35.653] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:36.677] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:36.678] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:36.678] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:36.679] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:37.685] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:37.685] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:37.685] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:37.685] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:38.693] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:38.693] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:38.693] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:38.694] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:39.698] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:39.698] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:39.698] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:39.699] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:40.710] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:40.710] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:40.710] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:40.711] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:41.732] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:41.732] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:41.732] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:41.733] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:42.737] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:42.738] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:42.738] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:42.739] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:43.767] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:43.768] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:43.768] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:43.769] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:44.774] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:44.774] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:44.774] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:44.776] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+[2026-09-03 16:45:45.778] [info] [ControllerAndOtherEventHandler.cpp:239 operator()] Accepted new connection
+[2026-09-03 16:45:45.778] [info] [HttpSession.cpp:95 handleRequest] Got request: POST /ndt/acquire_lock
+[2026-09-03 16:45:45.778] [info] [HttpSession.cpp:1914 handleAcquireLock] Handle Acquire Lock
+[2026-09-03 16:45:45.778] [info] [HttpSession.cpp:397 closeSocket] Close Socket
+
