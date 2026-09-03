@@ -339,6 +339,45 @@ def _prune(env):
             if not (re.search(r"\$\{?[A-Za-z_]", v) and "/" in v)}
 
 
+# A repo-root target has no directory part to give it away. `testbed_topo.py`, `Makefile.am`,
+# `CMakeLists.txt` -- shaped like a filename, and that is all the shape can say.
+_BARE_FILENAME = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.+-]*\.[A-Za-z0-9]{1,8}")
+
+
+def is_repo_path(v, exists=None):
+    """Is this string a FILE the gate mutates, rather than the TEXT it searches for?
+
+    🔴 `"/" in v` used to be the whole of it, everywhere this question is asked (`path_at`,
+    `default_file_of`, the generic `<file> <anchor>` rule, ...). A gate whose target sits at the
+    repo ROOT declares `TOPO="$REPO/testbed_topo.py"`, which `_repo_relative` reduces to
+    `testbed_topo.py` -- no slash, therefore not a file, therefore every one of its anchors fell
+    through to the only slash-bearing string the gate declared and was counted in the wrong file.
+    Measured 2026-09-03 on tests/shell/mutate_testbed_banner.sh: `MISSING:23` against a gate whose
+    23 anchors are all present and all unique. That is the failure mode this tool is built to make
+    impossible -- not `NO-ANCHORS`, not `UNPARSED`, but a confident wrong answer.
+
+    The slash rule is kept exactly as it was: a value with a directory part is a path, as before.
+    What is added is the only other way to know, and it is git's answer rather than a guess --
+    a bare word shaped like a filename is a file when, and only when, this rev's tree actually
+    holds one by that name. `exists` is the caller's `git show <rev>:<path>` probe; without it
+    (extract() called directly, no rev to ask) nothing is added and the answer is the old one.
+
+    A string that neither carries a slash nor names a file git can produce is NOT quietly promoted
+    to a path: it stays unidentified, and an anchor whose file this tool could not pin down is
+    reported unresolved. Widening this to "any argument is a file" is the relaxing direction and
+    is what tests/shell/mutate_gate_anchors_root_files.sh's control mutation does.
+
+    [Co-developed with claude code -- Adam]
+    """
+    if not isinstance(v, str) or not v:
+        return False
+    if "/" in v:
+        return True                             # unchanged: a directory part is a path
+    if exists is None:
+        return False                            # no rev to ask -- do not guess
+    return _BARE_FILENAME.fullmatch(v) is not None and bool(exists(v))
+
+
 def resolve_env(env, rounds=4):
     """Expand "$VAR" / "${VAR}" that appear inside other values, so `CTRL_FILE="$SRC"` is a path.
 
@@ -546,7 +585,7 @@ def default_file_of(body, env, exists=None):
     """
     for var in re.findall(r'"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?"', body):
         v = env.get(var)
-        if v and "/" in v and "$" not in v and (exists is None or exists(v)):
+        if v and "$" not in v and is_repo_path(v, exists) and (exists is None or exists(v)):
             return v
     return None
 
@@ -602,11 +641,15 @@ def array_ref(word, quote):
 PACKED_SEP = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 
 
-def declared_paths(gate_text, env):
-    """Every repo path the gate names: plain assignments, and `$DIR/$name` combinations."""
+def declared_paths(gate_text, env, exists=None):
+    """Every repo path the gate names: plain assignments, and `$DIR/$name` combinations.
+
+    A repo-root target (`testbed_topo.py`) belongs here too, or the union an unpinned anchor
+    falls back to would be every file the gate declares EXCEPT the one it mutates.
+    """
     out = []
     for v in env.values():
-        if "/" in v and re.search(r"\.[A-Za-z0-9]+$", v):
+        if is_repo_path(v, exists) and re.search(r"\.[A-Za-z0-9]+$", v):
             out.append(v)
     dirs = [v for v in env.values() if "/" in v and not re.search(r"\.[A-Za-z0-9]+$", v)]
     for m in re.finditer(r"(?<![\w/.-])([A-Za-z0-9_.-]+\.(?:sh|py|cpp|hpp|h|txt|md|env))"
@@ -664,7 +707,8 @@ def extract(gate_text, gate_name, gate_path=None, exists=None):
             continue
 
         if (head == "mutate"
-                and not any("/" in deref(w, q, env) and deref(w, q, env) is not w
+                and not any(deref(w, q, env) is not w
+                            and is_repo_path(deref(w, q, env), exists)
                             for w, q in cmd[1:])
                 and not any(_looks_like_python(w) for w, _ in cmd[1:])):
             # The file is baked into the mutate() body, so the first argument is the anchor.
@@ -696,9 +740,9 @@ def extract(gate_text, gate_name, gate_path=None, exists=None):
                     continue
                 val = deref(w, q, env)
                 # Either it resolved from a declared path variable, or it is a literal path.
-                if val is not w and "/" in val:
+                if val is not w and is_repo_path(val, exists):
                     files.append(val)
-                elif q != "'" and "/" in val and not val.startswith("s/"):
+                elif q != "'" and is_repo_path(val, exists) and not val.startswith("s/"):
                     files.append(val)
 
             if head == "perl":
@@ -756,7 +800,7 @@ def extract(gate_text, gate_name, gate_path=None, exists=None):
             return None
         w, q = cmd[pos]
         v = deref(w, q, env)
-        return v if (v is not w and "/" in v) else None
+        return v if (v is not w and is_repo_path(v, exists)) else None
 
     def var_head_targets(head, hq):
         """`"$m" ... ` -- a callback. The value is at the enclosing function's own call sites:
@@ -878,7 +922,7 @@ def extract(gate_text, gate_name, gate_path=None, exists=None):
                 same_line = []
                 for x, xq in cmd[1:]:
                     v = deref(x, xq, env)
-                    if v is not x and "/" in v:
+                    if v is not x and is_repo_path(v, exists):
                         same_line.append(v)
                     elif re.fullmatch(r"[A-Za-z0-9_.-]+\.(sh|py|env|txt)", v):
                         # A bare basename: the gate joins it to one of its directory
@@ -899,7 +943,7 @@ def extract(gate_text, gate_name, gate_path=None, exists=None):
         for k in range(len(args) - 1):
             w, q = args[k]
             val = deref(w, q, env)
-            if val is w or "/" not in val:
+            if val is w or not is_repo_path(val, exists):
                 continue
             nxt, nq = args[k + 1]
             if nq not in ("'", '"') or len(nxt) < 8 or nxt.startswith("-"):
@@ -951,7 +995,7 @@ def extract(gate_text, gate_name, gate_path=None, exists=None):
     anchors = [a for a in anchors
                if a[0] is not None or (a[1], a[2], a[4]) not in pinned]
 
-    union = tuple(declared_paths(gate_text, paths_env))
+    union = tuple(declared_paths(gate_text, paths_env, exists))
     fixed = []
     for f, text, kind, where, want in anchors:
         if f is None:
