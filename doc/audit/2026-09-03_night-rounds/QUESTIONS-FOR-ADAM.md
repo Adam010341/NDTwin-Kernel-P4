@@ -51,6 +51,43 @@ $ git ls-tree -r --name-only main     -- doc/2026-08-29_europ4-poster-abstract |
 | C. 改寫歷史把 `fbf60530` 濾掉 | 動到所有既有 clone 的祖先；重寫過的 trunk 與 lab/p4 上的分歧要處理 |
 | D. 推一個 orphan 的單一 commit 快照 | 公開端沒有歷史可查；但那本來就是「快照 repo」的定位 |
 
+### 🔄 09-03 14:0x 更新：Adam 把 `NDTwin-Kernel-P4-public` 改成 private 了
+
+原話：「NDTwin-Kernel-P4-public 我先改成 private，等穩定下來再開 public」。查證（打公開 URL、未認證，
+**不是** `gh` 的 tracking 資訊）：
+
+```
+$ curl -s -o /dev/null -w '%{http_code}' https://github.com/ndtwin-lab/NDTwin-Kernel-P4-public
+404          ← 未認證看不到 ⇒ 現在確實是 private
+```
+
+而內容那一邊**一格都沒有動**：
+
+```
+$ git merge-base --is-ancestor fbf60530 trunk                                            YES
+$ git ls-tree -r --name-only trunk -- doc/2026-08-29_europ4-poster-abstract | wc -l        0   ← HEAD 上沒有
+$ git ls-tree -r --name-only fbf60530 -- doc/2026-08-29_europ4-poster-abstract | wc -l    12   ← 歷史裡有
+$ git log --oneline --all -- doc/2026-08-29_europ4-poster-abstract | wc -l                 8   ← 八顆 commit 碰過
+```
+
+🔴 **改成 private 沒有解除這個阻擋，它把阻擋改成了一個計時器——而且是往壞的方向。**
+
+- **今天**不推，是因為有一個人正在對這件事做判斷。
+- 若現在把 trunk 推進那顆 private repo，那 12 個檔就**進了它的物件庫**。
+- 「等穩定下來再開 public」是**一次沒有 diff 的設定切換**，而切換的當下腦子裡的問題是
+  「碼穩不穩」，不是「歷史裡有什麼」。⇒ **曝光被排程到一個沒有人在看的時刻。**
+
+這正是 09-03 早上那條的下一步：**授權移除的是存取控制，不是它存在的理由。**
+改 private 移除的也是存取控制，而理由不變，現在還多了一個到期日。
+
+⇒ **選項 A（推 `main` 為基底的快照）從「推薦」升級為「唯一不需要有人記得的做法」。**
+`main` 的歷史裡完全沒有那 12 個檔，所以之後那一次開 public 是**構造上安全**的，
+不依賴任何人在那一刻想起來要檢查。選項 B／C／D 都要求「開 public 的那一天有人記得先看歷史」。
+
+⚠️ **還有一件我沒查、但推之前該查的**：投稿包是**已知**的一項。trunk 的歷史裡有沒有**別的**
+不該公開的東西（audit raw 裡的憑證、內部主機名、學姊給的未發表資料），我沒有系統性掃過。
+**要我掃就說一聲**；用 `main` 為基底則連掃都不必，因為那條線本來就沒帶這些。
+
 **在你回答之前我不會推任何東西。**
 
 ---
