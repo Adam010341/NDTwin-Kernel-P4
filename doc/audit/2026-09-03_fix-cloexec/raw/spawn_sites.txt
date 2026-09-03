@@ -1,0 +1,66 @@
+include/utils/SSHHelper.hpp:52	popen	FILE* pipe = popen(command.c_str(), "r");
+include/utils/Utils.hpp:653	execArgv	execArgv(const std::vector<std::string>& argv)
+include/utils/Utils.hpp:676	fork	const pid_t pid = ::fork();
+include/utils/Utils.hpp:709	execvp	::execvp(cArgv[0], cArgv.data());
+include/utils/Utils.hpp:785	execCommand	execCommand(const std::string& cmd)
+include/utils/Utils.hpp:789	popen	FILE* pipe = popen(cmd.c_str(), "r");
+libs/spdlog/async_logger-inl.h:102	clone	spdlog::async_logger::clone(std::string new_name)
+libs/spdlog/async_logger.h:64	clone	std::shared_ptr<logger> clone(std::string new_name) override;
+libs/spdlog/details/registry-inl.h:67	clone	new_logger->set_formatter(formatter_->clone());
+libs/spdlog/details/registry-inl.h:152	clone	l.second->set_formatter(formatter_->clone());
+libs/spdlog/fmt/bundled/os.h:182	system	std::system(format("say \"{}\"", format(fmt, args...)).c_str());
+libs/spdlog/formatter.h:17	clone	virtual std::unique_ptr<formatter> clone() const = 0;
+libs/spdlog/logger-inl.h:109	clone	(*it)->set_formatter(f->clone());
+libs/spdlog/logger-inl.h:182	clone	logger::clone(std::string logger_name)
+libs/spdlog/logger.h:364	clone	virtual std::shared_ptr<logger> clone(std::string logger_name);
+libs/spdlog/pattern_formatter-inl.h:1200	clone	pattern_formatter::clone() const
+libs/spdlog/pattern_formatter-inl.h:1205	clone	cloned_custom_formatters[it.first] = it.second->clone();
+libs/spdlog/pattern_formatter-inl.h:1273	clone	auto custom_handler = it->second->clone();
+libs/spdlog/pattern_formatter.h:78	clone	virtual std::unique_ptr<custom_flag_formatter> clone() const = 0;
+libs/spdlog/pattern_formatter.h:103	clone	std::unique_ptr<formatter> clone() const override;
+libs/spdlog/sinks/dist_sink.h:91	clone	sub_sink->set_formatter(base_sink<Mutex>::formatter_->clone());
+src/ndt_core/application_management/ApplicationManager.cpp:260	system	int ret = std::system("exportfs -ra && systemctl reload nfs-server");
+src/ndt_core/application_management/ApplicationManager.cpp:286	system	if (const auto why = describeCommandFailure(std::system("sudo exportfs -ra")); !why.empty())
+src/ndt_core/application_management/ApplicationManager.cpp:318	execArgv	utils::execArgv(buildUnexportCommand(folder));
+src/ndt_core/application_management/ApplicationManager.cpp:331	execArgv	utils::execArgv(buildExportsPurgeCommand(folder, "/etc/exports"));
+src/ndt_core/application_management/ApplicationManager.cpp:447	system	if (const auto why = describeCommandFailure(std::system("sudo exportfs -ra")); !why.empty())
+src/ndt_core/application_management/SimulationRequestManager.cpp:179	execArgv	const utils::CommandOutcome outcome = utils::execArgv(argv);
+src/ndt_core/application_management/SimulationRequestManager.cpp:256	execArgv	const utils::CommandOutcome outcome = utils::execArgv(argv);
+src/ndt_core/collection/FlowLinkUsageCollector.cpp:276	popen	FILE* pipe = popen("sudo ovs-vsctl list interface", "r");
+src/ndt_core/collection/FlowLinkUsageCollector.cpp:2795	execCommand	const std::string output = utils::execCommand(cmd);
+src/ndt_core/collection/TopologyAndFlowMonitor.cpp:724	execCommand	return classifyEndpointReply(utils::execCommand(buildTopologyFetchCommand(url)));
+src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:298	execCommand	std::string raw = utils::execCommand(cmd.str());
+src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:396	execCommand	std::string output = utils::execCommand(cmd);
+src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:570	execCommand	response = utils::execCommand(cmd);
+src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:704	popen	FILE* fp = popen("sudo ovs-vsctl list-br 2>/dev/null", "r");
+src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:1039	execCommand	std::string snmp_result = utils::execCommand(cmd);
+src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:1053	execCommand	std::string snmp_result = utils::execCommand(cmd);
+src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:1178	execCommand	std::string raw = utils::execCommand(cmd);
+src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:1456	execCommand	std::string snmp_result = utils::execCommand(cmd);
+src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:1545	execArgv	utils::execArgv(buildRelayPowerCommand(GW_IP, si, action)).output);
+src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:1717	execCommand	std::string snmp_result = utils::execCommand(cmd);
+src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:1731	execCommand	std::string snmp_result = utils::execCommand(cmd);
+src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:1813	execCommand	std::string snmp_result = utils::execCommand(cmd);
+src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:1898	execCommand	std::string snmp_result = utils::execCommand(cmd);
+src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:2019	execArgv	utils::execArgv({"snmpget", "-v2c", "-c", "public", deviceIdentifier,
+src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:2032	execArgv	utils::execArgv({"snmpget", "-v2c", "-c", "public", deviceIdentifier,
+src/ndt_core/power_management/OVSPowerStrategy.cpp:15	system	const int rc = std::system(cmd.c_str());
+src/ndt_core/power_management/OVSPowerStrategy.cpp:37	execArgv	const utils::CommandOutcome outcome = utils::execArgv(argv);
+src/ndt_core/power_management/OVSPowerStrategy.cpp:53	popen	FILE* fp = popen(cmd.c_str(), "r");
+src/ndt_core/power_management/OVSPowerStrategy.cpp:109	execArgv	const utils::CommandOutcome outcome = utils::execArgv(argv);
+src/ndt_core/power_management/P4PowerStrategy.cpp:28	system	const int rc = std::system(cmd.c_str());
+src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp:85	execArgv	return utils::execArgv(argv);
+tests/test_ApplicationManager.cpp:144	execArgv	const utils::CommandOutcome outcome = utils::execArgv(argv);
+tests/test_CloseOnExecSockets.cpp:131	posix_spawnp	const int rc = ::posix_spawnp(&pid, "sh", &actions, nullptr, argv, environ);
+tests/test_CloseOnExecSockets.cpp:527	execArgv	const utils::CommandOutcome outcome = utils::execArgv({"sh", "-c", "ls -l /proc/self/fd"});
+tests/test_CloseOnExecSockets.cpp:544	execArgv	const utils::CommandOutcome outcome = utils::execArgv({"sh", "-c", "echo alive"});
+tests/test_CommandFailure.cpp:37	system	return ApplicationManager::describeCommandFailure(std::system(command));
+tests/test_CommandFailure.cpp:64	system	const int raw = std::system("/bin/false");
+tests/test_ExecArgv.cpp:52	execArgv	const utils::CommandOutcome outcome = utils::execArgv({"/bin/echo", kHostileValue});
+tests/test_ExecArgv.cpp:66	execArgv	utils::execArgv({"/bin/echo", "Content-Type: application/json", "second 'arg'"});
+tests/test_ExecArgv.cpp:88	execArgv	const utils::CommandOutcome outcome = utils::execArgv({"/bin/echo", payload});
+tests/test_ExecArgv.cpp:101	execArgv	const utils::CommandOutcome outcome = utils::execArgv({"/bin/false"});
+tests/test_ExecArgv.cpp:114	execArgv	utils::execArgv({"/nonexistent/ndtwin-no-such-program-a6f9"});
+tests/test_ExecArgv.cpp:128	execArgv	EXPECT_THROW(utils::execArgv({}), std::invalid_argument);
+tests/test_ExecArgv.cpp:143	execArgv	const utils::CommandOutcome outcome = utils::execArgv(argv);
+tests/test_ExecArgv.cpp:156	execArgv	const utils::CommandOutcome outcome = utils::execArgv({"/bin/sh", "-c", "echo from-a-shell"});

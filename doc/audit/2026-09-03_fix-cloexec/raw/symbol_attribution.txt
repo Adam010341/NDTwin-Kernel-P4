@@ -1,0 +1,43 @@
+# FINDINGS #47 -- which translation unit references which process-creation / socket primitive
+# generated 2026-09-03T17:07:32+08:00 on fix/cloexec-listening-sockets
+# binary: build/bin/ndtwin_kernel sha256 12769502b5535e637f4df5c9fd41d008e998a3e3f08023a832b80045e2b66549
+
+== dynamic imports of the linked kernel, restricted to process creation + sockets ==
+accept
+bind
+close_range
+execvp
+fcntl
+fork
+pclose
+popen
+socket
+system
+
+== BEFORE binary (wt-before, 5c64d432) sha256 de20d071b5148cd6b83fcbad101784f0ae44b4b99e54cbfd6ae1d5bf47e49224 ==
+accept
+execvp
+fork
+pclose
+popen
+socket
+system
+
+== per-object attribution (production objects only; googletest and tests excluded) ==
+popen:         DeviceConfigurationAndPowerManager.cpp FlowLinkUsageCollector.cpp OVSPowerStrategy.cpp TopologyAndFlowMonitor.cpp    [libs: NdtCore_CollectionLib NdtCore_PowerManagementLib]
+system:        ApplicationManager.cpp OVSPowerStrategy.cpp P4PowerStrategy.cpp    [libs: NdtCore_ApplicationLib NdtCore_PowerManagementLib]
+fork:          ApplicationManager.cpp DeviceConfigurationAndPowerManager.cpp HttpRoutingStrategyBase.cpp OVSPowerStrategy.cpp SimulationRequestManager.cpp    [libs: NdtCore_ApplicationLib NdtCore_PowerManagementLib NdtCore_RoutingManagementLib]
+execvp:        ApplicationManager.cpp DeviceConfigurationAndPowerManager.cpp HttpRoutingStrategyBase.cpp OVSPowerStrategy.cpp SimulationRequestManager.cpp    [libs: NdtCore_ApplicationLib NdtCore_PowerManagementLib NdtCore_RoutingManagementLib]
+posix_spawn:   <none>
+posix_spawnp:  <none>
+execve:        <none>
+execl:         <none>
+execlp:        <none>
+execv:         <none>
+daemon:        <none>
+vfork:         <none>
+clone:         <none>
+close_range:   ApplicationManager.cpp DeviceConfigurationAndPowerManager.cpp HttpRoutingStrategyBase.cpp OVSPowerStrategy.cpp SimulationRequestManager.cpp    [libs: NdtCore_ApplicationLib NdtCore_PowerManagementLib NdtCore_RoutingManagementLib]
+socket:        ControllerAndOtherEventHandler.cpp FdHygiene.cpp LLMAgent.cpp    [libs: NdtCore_EventHandlingLib NdtCore_IntentTranslatorLib UtilsLib]
+accept:        ControllerAndOtherEventHandler.cpp    [libs: NdtCore_EventHandlingLib]
+accept4:       <none>

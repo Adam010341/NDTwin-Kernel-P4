@@ -1,0 +1,11 @@
+blackhole pid 3026196; :8081 1 listener(s)
+### 2026-09-03T17:20:35+08:00  arm before-wedgedproxy
+### 2026-09-03T17:23:44+08:00  arm before-wedgedproxy exit 0
+### 2026-09-03T17:23:44+08:00  arm after-wedgedproxy
+### 2026-09-03T17:23:44+08:00  arm after-wedgedproxy exit 0
+blackhole stopped; :8081 listeners now: 0
+### 2026-09-03T17:23:44+08:00  arm before-noproxy
+### 2026-09-03T17:26:40+08:00  arm before-noproxy exit 0
+### 2026-09-03T17:26:40+08:00  arm after-noproxy
+### 2026-09-03T17:29:35+08:00  arm after-noproxy exit 0
+### all arms done 2026-09-03T17:29:35+08:00

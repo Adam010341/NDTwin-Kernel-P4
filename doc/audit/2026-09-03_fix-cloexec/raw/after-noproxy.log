@@ -1,0 +1,52 @@
+#### FINDINGS #47 port-release experiment -- after-noproxy ####
+date        2026-09-03T17:26:40+08:00
+binary      /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-cloexec/build/bin/ndtwin_kernel
+sha256      12769502b5535e637f4df5c9fd41d008e998a3e3f08023a832b80045e2b66549
+topology    /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-cloexec/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+trials      8
+uname       7.0.0-30-generic
+loadavg     4.58 4.41 3.72   (other builds may be running; recorded so the numbers are read in context)
+proxy :8081 nothing listening -- every poll curl is refused in 0 ms and dies before the kernel does
+
+=== A. holders while the kernel is alive ===
+kernel pid  3118468
+-- ss -ltnp :8000 --
+   users:(("ndtwin_kernel",pid=3118468,fd=9))
+-- ss -ulnp :6343 --
+   users:(("ndtwin_kernel",pid=3118468,fd=3))
+-- children of 3118468 (ps by ppid; never pgrep -f) --
+
+=== B. seconds each port stays bound after the kernel's pid is gone (SIGKILL) ===
+trial  tcp8000_s  udp6343_s  holders_at_t+0.3s
+1      0.001      0.001      <none>
+2      0.001      0.001      <none>
+3      0.001      0.001      <none>
+4      0.001      0.001      <none>
+5      0.001      0.001      <none>
+6      0.001      0.001      <none>
+7      0.002      0.002      <none>
+8      0.001      0.001      <none>
+
+-- distribution --
+tcp8000: 0.001 0.001 0.001 0.001 0.001 0.001 0.002 0.001
+udp6343: 0.001 0.001 0.001 0.001 0.001 0.001 0.002 0.001
+tcp8000  n=8 min=0.001 max=0.002 mean=0.001
+udp6343  n=8 min=0.001 max=0.002 mean=0.001
+
+=== C. restart 0.2 s after SIGKILL, 6 trials (inside the old ~2 s window) ===
+trial 1: tcp=0 udp=0 -> SUCCEEDED (pid 3126504 alive, api=200)
+trial 2: tcp=0 udp=0 -> SUCCEEDED (pid 3128740 alive, api=200)
+trial 3: tcp=0 udp=0 -> SUCCEEDED (pid 3133240 alive, api=200)
+trial 4: tcp=0 udp=0 -> SUCCEEDED (pid 3137819 alive, api=200)
+trial 5: tcp=0 udp=0 -> SUCCEEDED (pid 3139500 alive, api=200)
+trial 6: tcp=0 udp=0 -> SUCCEEDED (pid 3142305 alive, api=200)
+
+restart-inside-window: 6/6 succeeded
+
+=== D. NEGATIVE CONTROL: restart 3.0 s after SIGKILL, 3 trials ===
+control 1: SUCCEEDED (pid 3144894 alive, api=200)
+control 2: SUCCEEDED (pid 3145507 alive, api=200)
+control 3: SUCCEEDED (pid 3146013 alive, api=200)
+restart-outside-window: 3/3 succeeded
+
+#### end after-noproxy -- 2026-09-03T17:29:35+08:00 ####

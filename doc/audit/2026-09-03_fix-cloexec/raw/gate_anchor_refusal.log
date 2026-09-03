@@ -1,0 +1,19 @@
+guarded_build: jobs=2 mem_max=5G lock=/tmp/ndtwin-build.lock
+guarded_build: $ ./tests/shell/mutate_cloexec_listening_sockets.sh
+=== anchor uniqueness (exact substring count must be 1) ===
+  ok     cloexec-socket         src/utils/FdHygiene.cpp                              x1
+  ok     set-cloexec            src/utils/FdHygiene.cpp                              x1
+  ok     is-cloexec             src/utils/FdHygiene.cpp                              x1
+  ok     render-entry           src/utils/FdHygiene.cpp                              x1
+  ok     self-among-them        src/utils/FdHygiene.cpp                              x1
+  ok     attribute-holder       src/utils/FdHygiene.cpp                              x1
+  ok     kernel-sentence        src/utils/FdHygiene.cpp                              x1
+  REFUSE fd-comment             src/utils/FdHygiene.cpp                              x0
+  ok     collector-socket       src/ndt_core/collection/FlowLinkUsageCollector.cpp   x1
+  ok     collector-message      src/ndt_core/collection/FlowLinkUsageCollector.cpp   x1
+  ok     acceptor-marked        src/ndt_core/event_handling/ControllerAndOtherEventHandler.cpp x1
+  ok     start-uses-factory     src/ndt_core/event_handling/ControllerAndOtherEventHandler.cpp x1
+  ok     accept-adopts          src/ndt_core/event_handling/ControllerAndOtherEventHandler.cpp x1
+  ok     execargv-closerange    include/utils/Utils.hpp                              x1
+🔴 anchors have drifted; this gate cannot render a verdict
+guarded_build: exit 2

@@ -1,0 +1,54 @@
+#### FINDINGS #47 port-release experiment -- after-wedgedproxy ####
+date        2026-09-03T17:31:53+08:00
+binary      /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-cloexec/build/bin/ndtwin_kernel
+sha256      12769502b5535e637f4df5c9fd41d008e998a3e3f08023a832b80045e2b66549
+topology    /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-cloexec/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+trials      8
+uname       7.0.0-30-generic
+loadavg     2.76 4.03 3.81   (other builds may be running; recorded so the numbers are read in context)
+proxy :8081 LISTENING (see raw/blackhole_8081.py -- accepts and never answers, which is what keeps a poll curl alive)
+
+=== A. holders while the kernel is alive ===
+kernel pid  3162420
+-- ss -ltnp :8000 --
+   users:(("ndtwin_kernel",pid=3162420,fd=8))
+-- ss -ulnp :6343 --
+   users:(("ndtwin_kernel",pid=3162420,fd=3))
+-- children of 3162420 (ps by ppid; never pgrep -f) --
+   3162427 sh
+   3162494 sh
+
+=== B. seconds each port stays bound after the kernel's pid is gone (SIGKILL) ===
+trial  tcp8000_s  udp6343_s  holders_at_t+0.3s
+1      0.001      0.001      <none>
+2      0.001      0.001      <none>
+3      0.001      0.001      <none>
+4      0.001      0.001      <none>
+5      0.001      0.001      <none>
+6      0.001      0.001      <none>
+7      0.001      0.001      <none>
+8      0.001      0.001      <none>
+
+-- distribution --
+tcp8000: 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001
+udp6343: 0.001 0.001 0.001 0.001 0.001 0.001 0.001 0.001
+tcp8000  n=8 min=0.001 max=0.001 mean=0.001
+udp6343  n=8 min=0.001 max=0.001 mean=0.001
+
+=== C. restart 0.2 s after SIGKILL, 6 trials (inside the old ~2 s window) ===
+trial 1: tcp=0 udp=0 -> SUCCEEDED (pid 3167188 alive, api=200)
+trial 2: tcp=0 udp=0 -> SUCCEEDED (pid 3171348 alive, api=200)
+trial 3: tcp=0 udp=0 -> SUCCEEDED (pid 3175753 alive, api=200)
+trial 4: tcp=0 udp=0 -> SUCCEEDED (pid 3176133 alive, api=200)
+trial 5: tcp=0 udp=0 -> SUCCEEDED (pid 3176494 alive, api=200)
+trial 6: tcp=0 udp=0 -> SUCCEEDED (pid 3181178 alive, api=200)
+
+restart-inside-window: 6/6 succeeded
+
+=== D. NEGATIVE CONTROL: restart 3.0 s after SIGKILL, 3 trials ===
+control 1: SUCCEEDED (pid 3181581 alive, api=200)
+control 2: SUCCEEDED (pid 3181887 alive, api=200)
+control 3: SUCCEEDED (pid 3185852 alive, api=200)
+restart-outside-window: 3/3 succeeded
+
+#### end after-wedgedproxy -- 2026-09-03T17:34:49+08:00 ####

@@ -1,0 +1,66 @@
+#### FINDINGS #47 port-release experiment -- before-wedgedproxy ####
+date        2026-09-03T17:20:35+08:00
+binary      /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-before/build/bin/ndtwin_kernel
+sha256      de20d071b5148cd6b83fcbad101784f0ae44b4b99e54cbfd6ae1d5bf47e49224
+topology    /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-cloexec/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+trials      8
+uname       7.0.0-30-generic
+loadavg     4.52 3.88 3.27   (other builds may be running; recorded so the numbers are read in context)
+proxy :8081 LISTENING (see raw/blackhole_8081.py -- accepts and never answers, which is what keeps a poll curl alive)
+
+=== A. holders while the kernel is alive ===
+kernel pid  3026247
+-- ss -ltnp :8000 --
+   users:(("curl",pid=3026373,fd=5),("sh",pid=3026372,fd=5),("ndtwin_kernel",pid=3026247,fd=5))
+-- ss -ulnp :6343 --
+   users:(("curl",pid=3026373,fd=3),("sh",pid=3026372,fd=3),("curl",pid=3026288,fd=3),("sh",pid=3026255,fd=3),("ndtwin_kernel",pid=3026247,fd=3))
+-- children of 3026247 (ps by ppid; never pgrep -f) --
+   3026255 sh
+   3026372 sh
+
+=== B. seconds each port stays bound after the kernel's pid is gone (SIGKILL) ===
+trial  tcp8000_s  udp6343_s  holders_at_t+0.3s
+1      0.663      1.646      tcp[users:(("curl",pid=3026373,fd=5),("sh",pid=3026372,fd=5))] udp[users:(("curl",pid=3026373,fd=3),("sh",pid=3026372,fd=3),("curl",pid=3026288,fd=3),("sh",pid=3026255,fd=3))]
+2      0.808      1.789      tcp[users:(("curl",pid=3030495,fd=8),("sh",pid=3030494,fd=8))] udp[users:(("curl",pid=3030495,fd=3),("sh",pid=3030494,fd=3),("curl",pid=3030355,fd=3),("sh",pid=3030329,fd=3))]
+3      0.794      1.769      tcp[users:(("curl",pid=3031362,fd=9),("sh",pid=3031361,fd=9))] udp[users:(("curl",pid=3031362,fd=3),("sh",pid=3031361,fd=3),("curl",pid=3031197,fd=3),("sh",pid=3031166,fd=3))]
+4      0.798      1.776      tcp[users:(("curl",pid=3032283,fd=9),("sh",pid=3032282,fd=9))] udp[users:(("curl",pid=3032283,fd=3),("sh",pid=3032282,fd=3),("curl",pid=3032163,fd=3),("sh",pid=3032123,fd=3))]
+5      0.802      1.780      tcp[users:(("curl",pid=3033101,fd=8),("sh",pid=3033100,fd=8))] udp[users:(("curl",pid=3033101,fd=3),("sh",pid=3033100,fd=3),("curl",pid=3032980,fd=3),("sh",pid=3032949,fd=3))]
+6      0.790      1.787      tcp[users:(("curl",pid=3033688,fd=9),("sh",pid=3033687,fd=9))] udp[users:(("curl",pid=3033688,fd=3),("sh",pid=3033687,fd=3),("curl",pid=3033619,fd=3),("sh",pid=3033580,fd=3))]
+7      0.752      1.748      tcp[users:(("curl",pid=3035860,fd=9),("sh",pid=3035859,fd=9))] udp[users:(("curl",pid=3035860,fd=3),("sh",pid=3035859,fd=3),("curl",pid=3035828,fd=3),("sh",pid=3035786,fd=3))]
+8      0.796      1.763      tcp[users:(("curl",pid=3036269,fd=9),("sh",pid=3036268,fd=9))] udp[users:(("curl",pid=3036269,fd=3),("sh",pid=3036268,fd=3),("curl",pid=3036225,fd=3),("sh",pid=3036187,fd=3))]
+
+-- distribution --
+tcp8000: 0.663 0.808 0.794 0.798 0.802 0.790 0.752 0.796
+udp6343: 1.646 1.789 1.769 1.776 1.780 1.787 1.748 1.763
+tcp8000  n=8 min=0.663 max=0.808 mean=0.775
+udp6343  n=8 min=1.646 max=1.789 mean=1.757
+
+=== C. restart 0.2 s after SIGKILL, 6 trials (inside the old ~2 s window) ===
+trial 1: tcp=1 udp=1 -> FAILED (pid 3041502 alive=yes, api=000). kernel said:
+    [2026-09-03 17:21:23.320] [error] [FlowLinkUsageCollector.cpp:690 openReceiveSocket] bind() to sFlow port 6343 failed: Address already in use. Another NDTwin kernel is almost certainly still running and holding it; without telemetry this twin would report every flow rate as zero, so it will not start.
+    [2026-09-03 17:21:23.320] [critical] [main.cpp:450 main] cannot start telemetry collection: Failed to bind UDP socket. Exiting -- see the error above for which resource was unavailable.
+trial 2: tcp=1 udp=1 -> FAILED (pid 3045813 alive=yes, api=000). kernel said:
+    [2026-09-03 17:21:38.831] [error] [FlowLinkUsageCollector.cpp:690 openReceiveSocket] bind() to sFlow port 6343 failed: Address already in use. Another NDTwin kernel is almost certainly still running and holding it; without telemetry this twin would report every flow rate as zero, so it will not start.
+    [2026-09-03 17:21:38.831] [critical] [main.cpp:450 main] cannot start telemetry collection: Failed to bind UDP socket. Exiting -- see the error above for which resource was unavailable.
+trial 3: tcp=1 udp=1 -> FAILED (pid 3056043 alive=yes, api=000). kernel said:
+    [2026-09-03 17:21:54.335] [error] [FlowLinkUsageCollector.cpp:690 openReceiveSocket] bind() to sFlow port 6343 failed: Address already in use. Another NDTwin kernel is almost certainly still running and holding it; without telemetry this twin would report every flow rate as zero, so it will not start.
+    [2026-09-03 17:21:54.335] [critical] [main.cpp:450 main] cannot start telemetry collection: Failed to bind UDP socket. Exiting -- see the error above for which resource was unavailable.
+trial 4: tcp=1 udp=1 -> FAILED (pid 3065486 alive=yes, api=000). kernel said:
+    [2026-09-03 17:22:09.843] [error] [FlowLinkUsageCollector.cpp:690 openReceiveSocket] bind() to sFlow port 6343 failed: Address already in use. Another NDTwin kernel is almost certainly still running and holding it; without telemetry this twin would report every flow rate as zero, so it will not start.
+    [2026-09-03 17:22:09.843] [critical] [main.cpp:450 main] cannot start telemetry collection: Failed to bind UDP socket. Exiting -- see the error above for which resource was unavailable.
+trial 5: tcp=1 udp=1 -> FAILED (pid 3067013 alive=yes, api=000). kernel said:
+    [2026-09-03 17:22:25.352] [error] [FlowLinkUsageCollector.cpp:690 openReceiveSocket] bind() to sFlow port 6343 failed: Address already in use. Another NDTwin kernel is almost certainly still running and holding it; without telemetry this twin would report every flow rate as zero, so it will not start.
+    [2026-09-03 17:22:25.352] [critical] [main.cpp:450 main] cannot start telemetry collection: Failed to bind UDP socket. Exiting -- see the error above for which resource was unavailable.
+trial 6: tcp=1 udp=1 -> FAILED (pid 3069373 alive=yes, api=000). kernel said:
+    [2026-09-03 17:22:40.867] [error] [FlowLinkUsageCollector.cpp:690 openReceiveSocket] bind() to sFlow port 6343 failed: Address already in use. Another NDTwin kernel is almost certainly still running and holding it; without telemetry this twin would report every flow rate as zero, so it will not start.
+    [2026-09-03 17:22:40.868] [critical] [main.cpp:450 main] cannot start telemetry collection: Failed to bind UDP socket. Exiting -- see the error above for which resource was unavailable.
+
+restart-inside-window: 0/6 succeeded
+
+=== D. NEGATIVE CONTROL: restart 3.0 s after SIGKILL, 3 trials ===
+control 1: SUCCEEDED (pid 3073704 alive, api=200)
+control 2: SUCCEEDED (pid 3077475 alive, api=200)
+control 3: SUCCEEDED (pid 3082280 alive, api=200)
+restart-outside-window: 3/3 succeeded
+
+#### end before-wedgedproxy -- 2026-09-03T17:23:44+08:00 ####

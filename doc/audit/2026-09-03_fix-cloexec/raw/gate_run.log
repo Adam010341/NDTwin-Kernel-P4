@@ -1,0 +1,91 @@
+guarded_build: jobs=2 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ ./tests/shell/mutate_cloexec_listening_sockets.sh
+=== anchor uniqueness (exact substring count must be 1) ===
+  ok     cloexec-socket         src/utils/FdHygiene.cpp                              x1
+  ok     set-cloexec            src/utils/FdHygiene.cpp                              x1
+  ok     is-cloexec             src/utils/FdHygiene.cpp                              x1
+  ok     render-entry           src/utils/FdHygiene.cpp                              x1
+  ok     self-among-them        src/utils/FdHygiene.cpp                              x1
+  ok     attribute-holder       src/utils/FdHygiene.cpp                              x1
+  ok     kernel-sentence        src/utils/FdHygiene.cpp                              x1
+  ok     fd-comment             src/utils/FdHygiene.cpp                              x1
+  ok     collector-socket       src/ndt_core/collection/FlowLinkUsageCollector.cpp   x1
+  ok     collector-message      src/ndt_core/collection/FlowLinkUsageCollector.cpp   x1
+  ok     acceptor-marked        src/ndt_core/event_handling/ControllerAndOtherEventHandler.cpp x1
+  ok     start-uses-factory     src/ndt_core/event_handling/ControllerAndOtherEventHandler.cpp x1
+  ok     accept-adopts          src/ndt_core/event_handling/ControllerAndOtherEventHandler.cpp x1
+  ok     execargv-closerange    include/utils/Utils.hpp                              x1
+
+=== baseline (unmutated working tree) must build and be green ===
+  ok       baseline green (16 cases in CloseOnExecSocketsTest*:PortOwnershipMessageTest*)
+  ok       test_routing_strategy sha256 4f93e27beeac3e05
+
+=== M1. cloexecSocket stops asking for SOCK_CLOEXEC ===
+  expect red: CloseOnExecSocketsTest.TheSflowReceiveSocketIsCloseOnExec CloseOnExecSocketsTest.AChildCannotSeeTheSflowReceiveSocket
+  ✅ caught  red: CloseOnExecSocketsTest.TheSflowReceiveSocketIsCloseOnExec CloseOnExecSocketsTest.AChildCannotSeeTheSflowReceiveSocket
+
+=== M2. setCloseOnExec reports success without setting the flag ===
+  expect red: CloseOnExecSocketsTest.TheApiAcceptorIsCloseOnExec CloseOnExecSocketsTest.AChildCannotSeeTheApiAcceptor CloseOnExecSocketsTest.AnAcceptedConnectionIsMarkedCloseOnExec CloseOnExecSocketsTest.AStartedServerHasACloseOnExecAcceptor CloseOnExecSocketsTest.AConnectionAcceptedByTheRunningServerIsCloseOnExec
+  ✅ caught  red: CloseOnExecSocketsTest.TheApiAcceptorIsCloseOnExec CloseOnExecSocketsTest.AChildCannotSeeTheApiAcceptor CloseOnExecSocketsTest.AnAcceptedConnectionIsMarkedCloseOnExec CloseOnExecSocketsTest.AStartedServerHasACloseOnExecAcceptor CloseOnExecSocketsTest.AConnectionAcceptedByTheRunningServerIsCloseOnExec
+
+=== M3. the sFlow socket is created with a bare ::socket() again ===
+  expect red: CloseOnExecSocketsTest.TheSflowReceiveSocketIsCloseOnExec CloseOnExecSocketsTest.AChildCannotSeeTheSflowReceiveSocket
+  ✅ caught  red: CloseOnExecSocketsTest.TheSflowReceiveSocketIsCloseOnExec CloseOnExecSocketsTest.AChildCannotSeeTheSflowReceiveSocket
+
+=== M4. the API acceptor is left as Boost.Asio made it ===
+  expect red: CloseOnExecSocketsTest.TheApiAcceptorIsCloseOnExec CloseOnExecSocketsTest.AChildCannotSeeTheApiAcceptor CloseOnExecSocketsTest.AStartedServerHasACloseOnExecAcceptor
+  ✅ caught  red: CloseOnExecSocketsTest.TheApiAcceptorIsCloseOnExec CloseOnExecSocketsTest.AChildCannotSeeTheApiAcceptor CloseOnExecSocketsTest.AStartedServerHasACloseOnExecAcceptor
+
+=== M5. start() bypasses openApiAcceptor and constructs the acceptor itself ===
+  expect red: CloseOnExecSocketsTest.AStartedServerHasACloseOnExecAcceptor
+  ✅ caught  red: CloseOnExecSocketsTest.AStartedServerHasACloseOnExecAcceptor
+
+=== M6. doAccept() stops marking the connection it accepted ===
+  expect red: CloseOnExecSocketsTest.AConnectionAcceptedByTheRunningServerIsCloseOnExec
+  ✅ caught  red: CloseOnExecSocketsTest.AConnectionAcceptedByTheRunningServerIsCloseOnExec
+
+=== M7. the diagnosis goes back to asserting another kernel is running ===
+  expect red: PortOwnershipMessageTest.OrphanedChildrenAreNotReportedAsAnotherKernel PortOwnershipMessageTest.AnUnattributableHolderIsNotCalledAKernel PortOwnershipMessageTest.NoSocketFoundSaysSoInsteadOfInventingAHolder PortOwnershipMessageTest.TheSflowBindFailureNamesTheRealHolderRatherThanBlamingAKernel
+  ✅ caught  red: PortOwnershipMessageTest.OrphanedChildrenAreNotReportedAsAnotherKernel PortOwnershipMessageTest.AnUnattributableHolderIsNotCalledAKernel PortOwnershipMessageTest.NoSocketFoundSaysSoInsteadOfInventingAHolder PortOwnershipMessageTest.TheSflowBindFailureNamesTheRealHolderRatherThanBlamingAKernel
+
+=== M8. the diagnosis can no longer recognise a real second kernel ===
+  expect red: PortOwnershipMessageTest.AnotherKernelIsNamedWhenOneIsActuallyHoldingThePort
+  ✅ caught  red: PortOwnershipMessageTest.AnotherKernelIsNamedWhenOneIsActuallyHoldingThePort
+
+=== M9. the /proc walk never attributes the port to any process ===
+  expect red: PortOwnershipMessageTest.TheProcScanFindsThisProcessHoldingItsOwnPort PortOwnershipMessageTest.TheSflowBindFailureNamesTheRealHolderRatherThanBlamingAKernel
+  ✅ caught  red: PortOwnershipMessageTest.TheProcScanFindsThisProcessHoldingItsOwnPort PortOwnershipMessageTest.TheSflowBindFailureNamesTheRealHolderRatherThanBlamingAKernel
+
+=== M10. the bind failure stops consulting /proc and hard-codes the old sentence ===
+  expect red: PortOwnershipMessageTest.TheSflowBindFailureNamesTheRealHolderRatherThanBlamingAKernel
+  ✅ caught  red: PortOwnershipMessageTest.TheSflowBindFailureNamesTheRealHolderRatherThanBlamingAKernel
+
+=== M11. execArgv's child stops closing the descriptors nobody marked ===
+  expect red: CloseOnExecSocketsTest.ExecArgvChildDoesNotInheritAnUnmarkedDescriptor
+  ✅ caught  red: CloseOnExecSocketsTest.ExecArgvChildDoesNotInheritAnUnmarkedDescriptor
+
+=== M12. execArgv's child closes stdin/stdout/stderr as well ===
+  expect red: CloseOnExecSocketsTest.ExecArgvChildKeepsTheDescriptorsItNeeds
+  ✅ caught  red: CloseOnExecSocketsTest.ExecArgvChildKeepsTheDescriptorsItNeeds
+
+=== W1. a comment, nothing else (MUST stay green) ===
+  ✅ survived -- behaviour unchanged, so the catches above are about behaviour
+
+=== W2. isCloseOnExec tests the same bit a different way (MUST stay green) ===
+  ✅ survived -- behaviour unchanged, so the catches above are about behaviour
+
+=== W3. the second-kernel sentence is reworded around the phrase that matters (MUST stay green) ===
+  ✅ survived -- behaviour unchanged, so the catches above are about behaviour
+
+=== restore ===
+  all 4 files byte-identical to the pre-run snapshot
+  rebuilt from the restored tree
+  suite green again after restore
+  test binary: 4f93e27beeac3e05 (was 4f93e27beeac3e05)
+
+=== verdict ===
+  12 mutations, 0 survived
+  3 widenings, 0 wrongly caught
+  FINDINGS #47 gate: every mutation was caught by the test it names, and every
+  behaviour-preserving change was left alone.
+guarded_build: exit 0

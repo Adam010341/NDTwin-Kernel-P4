@@ -1,0 +1,45 @@
+#### FINDINGS #47 -- the fixed kernel under the real P4 stack (2026-09-03T17:38:16+08:00) ####
+kernel binary sha256 12769502b5535e637f4df5c9fd41d008e998a3e3f08023a832b80045e2b66549
+kernel pid from .test_run/pids: 3235014
+
+== ten samples over ten seconds: who holds :8000 and :6343 while the 1 Hz poll forks curl ==
+-- t+1s
+   tcp8000 users:(("ndtwin_kernel",pid=3235020,fd=9))
+   udp6343 users:(("ndtwin_kernel",pid=3235020,fd=3))
+   children of 3235014: 3235020(ndtwin_kernel) 
+-- t+2s
+   tcp8000 users:(("ndtwin_kernel",pid=3235020,fd=9))
+   udp6343 users:(("ndtwin_kernel",pid=3235020,fd=3))
+   children of 3235014: 3235020(ndtwin_kernel) 
+-- t+3s
+   tcp8000 users:(("ndtwin_kernel",pid=3235020,fd=9))
+   udp6343 users:(("ndtwin_kernel",pid=3235020,fd=3))
+   children of 3235014: 3235020(ndtwin_kernel) 
+-- t+4s
+   tcp8000 users:(("ndtwin_kernel",pid=3235020,fd=9))
+   udp6343 users:(("ndtwin_kernel",pid=3235020,fd=3))
+   children of 3235014: 3235020(ndtwin_kernel) 
+-- t+5s
+   tcp8000 users:(("ndtwin_kernel",pid=3235020,fd=9))
+   udp6343 users:(("ndtwin_kernel",pid=3235020,fd=3))
+   children of 3235014: 3235020(ndtwin_kernel) 
+-- t+6s
+   tcp8000 users:(("ndtwin_kernel",pid=3235020,fd=9))
+   udp6343 users:(("ndtwin_kernel",pid=3235020,fd=3))
+   children of 3235014: 3235020(ndtwin_kernel) 
+-- t+7s
+   tcp8000 users:(("ndtwin_kernel",pid=3235020,fd=9))
+   udp6343 users:(("ndtwin_kernel",pid=3235020,fd=3))
+   children of 3235014: 3235020(ndtwin_kernel) 
+-- t+8s
+   tcp8000 users:(("ndtwin_kernel",pid=3235020,fd=9))
+   udp6343 users:(("ndtwin_kernel",pid=3235020,fd=3))
+   children of 3235014: 3235020(ndtwin_kernel) 
+-- t+9s
+   tcp8000 users:(("ndtwin_kernel",pid=3235020,fd=9))
+   udp6343 users:(("ndtwin_kernel",pid=3235020,fd=3))
+   children of 3235014: 3235020(ndtwin_kernel) 
+-- t+10s
+   tcp8000 users:(("ndtwin_kernel",pid=3235020,fd=9))
+   udp6343 users:(("ndtwin_kernel",pid=3235020,fd=3))
+   children of 3235014: 3235020(ndtwin_kernel) 

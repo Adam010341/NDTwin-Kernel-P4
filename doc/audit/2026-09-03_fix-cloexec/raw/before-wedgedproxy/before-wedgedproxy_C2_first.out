@@ -1,0 +1,27 @@
+[2026-09-03 17:21:35.335] [info] [[94mmain.cpp[0m:[95m304[0m [96mmain[0m] Logger Loads Successfully! level
+Running in Mininet environment.
+[2026-09-03 17:21:35.335] [info] [[94mmain.cpp[0m:[95m316[0m [96mmain[0m] Topology file: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-cloexec/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+[2026-09-03 17:21:35.335] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m407[0m [96mparseStaticTopologyFile[0m] Load Static Topology File
+[2026-09-03 17:21:35.338] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2036[0m [96mvalidateDataPlaneHomogeneity[0m] Data plane: bmv2 (10 switch(es))
+[2026-09-03 17:21:35.338] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m200[0m [96mconfigureTopologyApiUrls[0m] All-bmv2 topology: polling http://localhost:8081/v1.0/topology for switch/host/link state instead of Ryu.
+[2026-09-03 17:21:35.338] [info] [[94mmain.cpp[0m:[95m386[0m [96mmain[0m] IntentTranslator is disabled by user.
+[2026-09-03 17:21:35.338] [info] [[94mApplicationManager.cpp[0m:[95m421[0m [96mcleanupStaleEntries[0m] Checking for stale NFS entries in /srv/nfs/sim
+[2026-09-03 17:21:35.339] [warning] [[94mApplicationManager.cpp[0m:[95m437[0m [96mcleanupStaleEntries[0m] Found stale application folder from a previous run: /srv/nfs/sim/3
+[2026-09-03 17:21:35.339] [warning] [[94mApplicationManager.cpp[0m:[95m372[0m [96mcleanupAppFolder[0m] Leaving /srv/nfs/sim/3 in place: /srv/nfs/sim/3/energy_saving_simulator/1.0/case4/input belongs to a squashed NFS client, so removing it needs root. The next registration that reuses this app id will reuse the folder rather than recreate it.
+[2026-09-03 17:21:35.339] [warning] [[94mApplicationManager.cpp[0m:[95m437[0m [96mcleanupStaleEntries[0m] Found stale application folder from a previous run: /srv/nfs/sim/1
+[2026-09-03 17:21:35.339] [warning] [[94mApplicationManager.cpp[0m:[95m372[0m [96mcleanupAppFolder[0m] Leaving /srv/nfs/sim/1 in place: /srv/nfs/sim/1/energy_saving_simulator/1.0/case10/input belongs to a squashed NFS client, so removing it needs root. The next registration that reuses this app id will reuse the folder rather than recreate it.
+[2026-09-03 17:21:35.339] [warning] [[94mApplicationManager.cpp[0m:[95m437[0m [96mcleanupStaleEntries[0m] Found stale application folder from a previous run: /srv/nfs/sim/2
+[2026-09-03 17:21:35.339] [warning] [[94mApplicationManager.cpp[0m:[95m372[0m [96mcleanupAppFolder[0m] Leaving /srv/nfs/sim/2 in place: /srv/nfs/sim/2/energy_saving_simulator/1.0/case4/input belongs to a squashed NFS client, so removing it needs root. The next registration that reuses this app id will reuse the folder rather than recreate it.
+[2026-09-03 17:21:35.339] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2946[0m [96mrunLoop[0m] TopologyAndFlowMonitor Run
+[2026-09-03 17:21:35.339] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m472[0m [96mstart[0m] Collector Starts Up
+[2026-09-03 17:21:35.339] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [run] pid=3042070 tid=3042076
+[2026-09-03 17:21:35.339] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m708[0m [96mrun[0m] Run with 20 workers
+[2026-09-03 17:21:35.339] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [testCalAvgFlowSendingRatesRandomly] pid=3042070 tid=3042079
+[2026-09-03 17:21:35.339] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [calAvgFlowSendingRatesPeriodically] pid=3042070 tid=3042078
+[2026-09-03 17:21:35.339] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [calFlowPathByQueried] pid=3042070 tid=3042081
+[2026-09-03 17:21:35.339] [warning] [[94mHistoricalDataManager.cpp[0m:[95m66[0m [96mstart[0m] HistoricalDataManager not started: MININET deployments do not run the recorder, so no historical link row will ever be written. /ndt/historical_logging reports this as reason=not-available-in-mininet-mode.
+[2026-09-03 17:21:35.340] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [purgeIdleFlows] pid=3042070 tid=3042080
+[2026-09-03 17:21:35.340] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m162[0m [96mstart[0m] DeviceConfigurationAndPowerManager Starts Up
+[2026-09-03 17:21:35.340] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m196[0m [96mrunServer[0m] Server Listening on port 8000
+[2026-09-03 17:21:35.340] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m749[0m [96mrun[0m] Listening for sFlow on UDP port 6343
+curl: (28) Operation timed out after 5002 milliseconds with 0 bytes received

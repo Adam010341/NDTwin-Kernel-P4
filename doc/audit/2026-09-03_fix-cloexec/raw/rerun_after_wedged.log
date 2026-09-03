@@ -1,0 +1,5 @@
+### settle: waiting for :8000 and :6343 to be free
+### settled after 1 polls of 0.5 s
+### blackhole pid 3162272 on :8081
+### arm after-wedgedproxy exit 0
+### blackhole stopped; :8081 listeners now: 0

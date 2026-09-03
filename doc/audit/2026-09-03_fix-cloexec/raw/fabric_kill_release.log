@@ -1,0 +1,13 @@
+#### FINDINGS #47 -- port release measured on the LIVE P4 stack (real proxy on :8081) ####
+date 2026-09-03T17:38:59+08:00
+kernel pid 3235020 (child of the stack.sh supervisor 3235014)
+-- holders immediately before the kill --
+   tcp8000 users:(("ndtwin_kernel",pid=3235020,fd=9))
+   udp6343 users:(("ndtwin_kernel",pid=3235020,fd=3))
+   children: 
+-- release after the kernel pid was gone --
+   tcp8000 free after 0.001s
+   udp6343 free after 0.001s
+-- holders 0.3 s later (expected: none) --
+   tcp8000 
+   udp6343 

@@ -1,0 +1,13 @@
+#### FINDINGS #47 port-release experiment -- after-wedgedproxy ####
+date        2026-09-03T17:23:44+08:00
+binary      /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-cloexec/build/bin/ndtwin_kernel
+sha256      12769502b5535e637f4df5c9fd41d008e998a3e3f08023a832b80045e2b66549
+topology    /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-cloexec/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+trials      8
+uname       7.0.0-30-generic
+loadavg     4.64 4.24 3.53   (other builds may be running; recorded so the numbers are read in context)
+proxy :8081 LISTENING (see raw/blackhole_8081.py -- accepts and never answers, which is what keeps a poll curl alive)
+
+REFUSING TO START: :8000 or :6343 is already bound. Holders:
+  tcp users:(("curl",pid=3082867,fd=9),("sh",pid=3082866,fd=9))
+  udp users:(("curl",pid=3082867,fd=3),("sh",pid=3082866,fd=3))
