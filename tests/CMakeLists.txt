@@ -78,6 +78,9 @@ add_executable(
   # [Co-developed with claude code -- Adam] D15: the startup race that left bmv2 liveness off for
   # the whole process lifetime. Asserts the ordering, not the outcome -- see the file header.
   test_DataPlaneKindOrdering.cpp
+  # [Co-developed with claude code -- Adam] Round 4 lead 5(b): the sFlow drop counters were
+  # reachable from none of the 105 JSON keys the kernel serves. Gate for the health verdict.
+  test_TelemetryHealth.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

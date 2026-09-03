@@ -1730,6 +1730,106 @@ FlowLinkUsageCollector::telemetryStatusFor(uint32_t agentIp,
 }
 
 // [Co-developed with claude code -- Adam]
+// Round 4 lead 5(b). The verdict on the ingest, with no clock, no socket and no collector --
+// see the header for why it is split out and why it must stay that way.
+FlowLinkUsageCollector::IngestHealth
+FlowLinkUsageCollector::classifyIngestHealth(bool windowClosed,
+                                             uint64_t samplesInWindow,
+                                             uint64_t socketDropsInWindow,
+                                             uint64_t appDropsInWindow,
+                                             double windowSeconds)
+{
+    IngestHealth out;
+
+    // Nothing has been measured yet. Saying "ok" here would be the code grading a check that
+    // never ran -- exactly the shape this whole family of defects has.
+    if (!windowClosed)
+    {
+        out.status = "unknown";
+        out.lossFraction = -1.0;
+        out.windowSeconds = 0.0;
+        return out;
+    }
+
+    out.samplesInWindow = samplesInWindow;
+    out.socketDropsInWindow = socketDropsInWindow;
+    out.appDropsInWindow = appDropsInWindow;
+    out.windowSeconds = windowSeconds;
+
+    const uint64_t dropped = socketDropsInWindow + appDropsInWindow;
+    out.offeredInWindow = samplesInWindow + dropped;
+
+    if (out.offeredInWindow == 0)
+    {
+        // A closed window in which nothing at all was offered. This is a real measurement -- we
+        // asked and the answer was zero -- so lossFraction is 0.0, not -1.0. But it is NOT "ok":
+        // every rate derived from this window is zero because we saw nothing, and a consumer
+        // must be able to tell that from a network that genuinely carried nothing. It cannot be
+        // told apart downstream, so it is told apart here.
+        out.status = "no_samples";
+        out.lossFraction = 0.0;
+        return out;
+    }
+
+    out.lossFraction = static_cast<double>(dropped) / static_cast<double>(out.offeredInWindow);
+
+    if (dropped == 0)
+    {
+        out.status = "ok";
+    }
+    else if (out.lossFraction >= kIngestSevereLossFraction)
+    {
+        out.status = "severe_loss";
+    }
+    else if (out.lossFraction > kIngestLossyFraction)
+    {
+        out.status = "lossy";
+    }
+    else
+    {
+        // Loss below the "lossy" threshold is still loss. Round 4's 150 000/s cell lost 0.34% and
+        // that under-reports; the honest report is "lossy", not "ok" with a footnote.
+        out.status = "lossy";
+    }
+    return out;
+}
+
+FlowLinkUsageCollector::IngestHealth
+FlowLinkUsageCollector::ingestHealth() const
+{
+    // Acquire pairs with the release store in the rate loop.
+    const bool closed = m_healthWindowClosed.load(std::memory_order_acquire);
+    return classifyIngestHealth(
+        closed,
+        m_healthSamplesInWindow.load(std::memory_order_relaxed),
+        m_healthSockDropsInWindow.load(std::memory_order_relaxed),
+        m_healthAppDropsInWindow.load(std::memory_order_relaxed),
+        static_cast<double>(m_healthWindowMicros.load(std::memory_order_relaxed)) / 1e6);
+}
+
+nlohmann::json
+FlowLinkUsageCollector::ingestHealthJson() const
+{
+    const IngestHealth h = ingestHealth();
+    return nlohmann::json{
+        {"status", h.status},
+        // The numerator and the denominator, over the same window, so a reader can recompute the
+        // fraction and disagree with our thresholds without calling anything else.
+        {"samples_in_window", h.samplesInWindow},
+        {"offered_in_window", h.offeredInWindow},
+        {"dropped_in_window", h.socketDropsInWindow + h.appDropsInWindow},
+        {"socket_drops_in_window", h.socketDropsInWindow},
+        {"app_drops_in_window", h.appDropsInWindow},
+        {"loss_fraction", h.lossFraction},
+        {"window_seconds", h.windowSeconds},
+        // Totals since start, for a consumer keeping its own baseline across polls.
+        {"rx_total", receivedPacketNumFromSocket.load(std::memory_order_relaxed)},
+        {"addressed_total", addresedSampleNum.load(std::memory_order_relaxed)},
+        {"sock_ovfl_total", m_sockOvflDrops.load(std::memory_order_relaxed)},
+        {"app_drop_total", droppedPackets.load(std::memory_order_relaxed)}};
+}
+
+// [Co-developed with claude code -- Adam]
 // A-4f. The decision, with no clock and no state -- see the header for why it is split out.
 FlowLinkUsageCollector::LinkTelemetryStatus
 FlowLinkUsageCollector::classifyTelemetry(int64_t nowMillis,
@@ -1853,6 +1953,9 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
     // each other's deltas.
     uint64_t lastSockOvfl = 0;
     uint64_t lastAppDrop = 0;
+    // Same reasoning, for the received count: ingestHealth() publishes a per-window rx delta.
+    // [Co-developed with claude code -- Adam]
+    uint64_t lastRx = 0;
 
     // [Co-developed with claude code -- Adam]
     // "sFlow ingest healthy: rx=0" used to be printed on the first pass, one second after start,
@@ -2135,6 +2238,26 @@ FlowLinkUsageCollector::calAvgFlowSendingRatesPeriodically()
             }
         }
 
+        // [Co-developed with claude code -- Adam]
+        // Publish the window that just closed, so an API consumer can ask what the ingest did
+        // during the second the rates in their response were computed from. Deltas, not totals:
+        // "41273 samples lost since boot" cannot answer "is the number I am holding usable".
+        // rx is published for the same reason -- a window with zero samples is the only way an
+        // outside reader can distinguish "we failed to ask" from "the network is idle".
+        {
+            const uint64_t rxNow = receivedPacketNumFromSocket.load(std::memory_order_relaxed);
+            const uint64_t rxDelta = (rxNow >= lastRx) ? rxNow - lastRx : 0;
+            m_healthSamplesInWindow.store(rxDelta, std::memory_order_relaxed);
+            m_healthSockDropsInWindow.store(sockOvflDelta, std::memory_order_relaxed);
+            m_healthAppDropsInWindow.store(appDropDelta, std::memory_order_relaxed);
+            m_healthWindowMicros.store(
+                static_cast<uint64_t>(drainElapsedSeconds > 0.0 ? drainElapsedSeconds * 1e6 : 0.0),
+                std::memory_order_relaxed);
+            // Released last: a reader that sees `true` sees the four counts that go with it.
+            m_healthWindowClosed.store(true, std::memory_order_release);
+            lastRx = rxNow;
+        }
+
         lastSockOvfl = sockOvfl;
         lastAppDrop = appDrop;
     }
@@ -2366,6 +2489,13 @@ FlowLinkUsageCollector::getFlowInfoJson(sflow::FlowLivenessFilter filter)
     // [Co-developed with claude code -- Adam]
     const int64_t now = utils::getCurrentTimeMillisSystemClock();
 
+    // [Co-developed with claude code -- Adam]
+    // Built once for the whole pass, then copied into every row: the health is a property of the
+    // ingest window all these rates came out of, not of any one flow, and two rows in one body
+    // must not be able to disagree about it. Beside the data on purpose -- an endpoint nobody
+    // calls is the shape that let round 4's 2.76x under-report be invisible to every consumer.
+    const nlohmann::json health = ingestHealthJson();
+
     for (const auto& [flowKey, flowInfo] : m_flowInfoTable)
     {
         const auto liveness = sflow::classifyFlowLiveness(
@@ -2391,6 +2521,9 @@ FlowLinkUsageCollector::getFlowInfoJson(sflow::FlowLivenessFilter filter)
         j["liveness"] = sflow::toString(liveness);
         j["last_seen_ms"] = flowInfo.endTime;
         j["ended_at_ms"] = sflow::flowEndedAtMs(flowInfo.endTime, FLOW_IDLE_TIMEOUT);
+        // Every rate in this row was computed from `telemetry_health.samples_in_window` samples,
+        // out of `offered_in_window` the network tried to give us. [Co-developed ... -- Adam]
+        j["telemetry_health"] = health;
 
         j["src_ip"] = flowKey.srcIP;
         j["dst_ip"] = flowKey.dstIP;
