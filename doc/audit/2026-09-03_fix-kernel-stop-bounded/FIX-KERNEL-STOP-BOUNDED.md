@@ -147,7 +147,47 @@ detach 一個還在碰物件成員的 thread 是 use-after-free，而**一個用
 
 ## 6. Live 數字（沒有用 lab）
 
-（本節數字在跑完後填入。）
+沒有 `ndt up`、沒有 claim、沒有 Mininet／bmv2／OVS、沒有 sudo。全部在 loopback 上：
+一個 python 假控制平面（`live/fake_control_plane.py`）＋真的 `ndtwin_kernel`。
+今晚有三支 agent 在排 lab，這條路徑完全不碰它。
+
+### 6.1 為什麼假控制平面要「接受然後不回話」
+
+FIX-CLOEXEC.md §2.3 已經量過：**`:8081` 沒人聽的時候，每個 poll 的 curl 0 ms 就失敗**，
+兩個缺陷都不重現——**「拒絕」是快的**。要花掉整個 `--max-time` 的，是一個完成三向交握
+之後就不再說話的對端。所以假控制平面 accept、讀完 request、然後**永遠不寫一個 byte**。
+
+### 6.2 為什麼 #27 的假控制平面必須先回答一部分
+
+`loadStaticTopologyFromFile` 把每個 vertex 都設成 `isUp = false`，而
+`isPollableForFlowTable` 要 `isUp`。**一個什麼都不回答的 proxy 會讓每台 switch 都是 down，
+flow-table worker 就什麼都不 poll，#27 不重現。** row 27 量到的是一個 switch 本來就 up
+的 fabric 上控制平面停止回答。所以 s27 這一臂：
+`/v1.0/topology/switches` **回答 10 台**（把它們抬成 up）、`/stats/flow/*` **卡住**——
+拓樸面健康、flow-stats 面卡住，正是 row 27 描述的條件。
+
+### 6.3 BEFORE（trunk `b57736cd`，sha256 `50ad6e35…0b0f468`）
+
+| 情境 | 量的是什麼 | N | 每次（秒） | 平均 |
+|---|---|---|---|---|
+| **s27**（#27） | SIGINT → 行程消失，10 台 switch、flow-stats 卡住 | 5 | 79.756／79.759／79.773／79.799／79.741 | **79.77** |
+| **s76**（#76） | `Exiting` 那行 → 行程消失，bind 失敗＋全部卡住 | 5 | 15.006／14.983／15.000／15.009／14.984 | **15.00** |
+
+**兩個都對得上算術，而不是「差不多」：**
+
+- s27：假控制平面記到**整整 10 次** `/stats/flow/` 被卡住（每 rep 都是 10），
+  10 × 8 秒 `--max-time` = 80 秒，量到 79.77 秒。
+  FINDINGS row 27 在真 fabric 上量到的是 **81.09 秒**——**同一個數字**。
+- s76：3 個 endpoint × 5 秒 `--max-time` = 15 秒，量到 15.00 秒（五次的全距只有 26 ms）。
+  🔴 **row 76 記的「8 秒後行程仍在」是一個下界，不是總長**：那是一次點取樣。
+  實際上這條路徑要 **15 秒**，接近兩倍。
+
+s76 的 `exit_code` 是 1（`EXIT_FAILURE`，kernel 自己決定退出）；
+s27 的是 0（SIGINT 走完整關機路徑），兩者都不是被殺的——**慢，但不是壞**。
+
+### 6.4 AFTER
+
+（等 fix 建置完成後填入。建置鎖今晚由三支別的 agent 的變異閘門排滿。）
 
 ---
 
