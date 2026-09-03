@@ -35,10 +35,10 @@
 |---|---:|---|
 | ✅ IN TRUNK / 已修 | **41** | 4–7, 10–17, 19–20, 22–24, 26, 28–30, 32, 41–42, 45, 47–48, 50, 53, 56, 58–60, 63–65, 71–74, 78 |
 | 🛠 派工中 | **5** | 35–36, 46, 69–70 |
-| ⭕ UNASSIGNED | **30** | 1–3, 8–9, 18, 21, 25, 27, 31, 33–34, 37–40, 43, 49, 51–52, 54–55, 61–62, 66–68, 75–77 |
+| ⭕ UNASSIGNED | **34** | 1–3, 8–9, 18, 21, 25, 27, 31, 33–34, 37–40, 43, 49, 51–52, 54–55, 61–62, 66–68, 75–77, 79–82 |
 | ➖ NOT A DEFECT | **1** | 44 |
 | ❓ UNKNOWN | **1** | 57 |
-| **合計** | **78** | （09-03 19:3x 由各列狀態欄重算；派工中＝2 支：poll #35/36/46、logger #69/70；⭕ 含 #77「等 Adam 裁」） |
+| **合計** | **82** | （09-03 20:0x 由各列狀態欄重算；派工中＝2 支：poll #35/36/46（驗收中，合併樹建置排隊）、logger #69/70；⭕ 含 #77「等 Adam 裁」，#79–82 是 poll 交付時挖出的） |
 
 **未併分支的實況（`git for-each-ref` ＋ 逐支 `git rev-list --count`）**
 
@@ -222,6 +222,10 @@
 | 76 | proxy 卡住時，bind 失敗的 kernel 印完 `Exiting` 後 8 秒還在（shutdown 卡在 poll thread 的 curl） | ⭕ UNASSIGNED | #47 agent 順帶觀察，未追 | 與 B-5 關機路徑同族；重啟腳本若拿「印了 Exiting」當退出訊號會踩到 |
 | 77 | `ndt up ovs` 跑的是 NTG repo 那份 `testbed_topo.py`（同樣的常數橫幅），本 repo 的 #42 修法改不到那條路 | ⭕ 等 Adam 裁（QUESTIONS N13） | #42 agent 讀 caller 發現（`ndtwin-lab:571-580`） | 跨 repo；建議改 `ndtwin-lab` 跑本 repo 那份 |
 | 78 | `check_gate_anchors.py` 對 repo 根目錄檔案用 `"/" in v` 判檔名，回報自信的錯答案 `MISSING:23` | ✅ IN TRUNK | `1ec39977`（merge of `fix/gate-anchors-root-files`，修法 `aed8f299`）：`tests/shell/check_gate_anchors.py` +1 述詞 `is_repo_path`／7 呼叫點、`tests/python/test_check_gate_anchors.py` +14 case（對 trunk 工具 9 FAIL＋3 ERROR）、`tests/shell/mutate_gate_anchors_root_files.sh` 13/0；全 repo 掃描 40/53→41/54、既有格一格沒動；raw `audit-raw @ 1cfbbc73`；MERGE-LOG 26 | #42 agent 撞到、閘門內以 `./` 繞過（繞道留著，兩種寫法都 `ok(23)`）；已知極限：名為 `foo.d` 的目錄會被放行、未修 |
+| 79 | `ndt` claim／pids 是 per-checkout，多 worktree 下互相隱形 | ⭕ UNASSIGNED | auditor 讀 `tools/test_workflow/ndt`：`CLAIM=` 第 256 行、`.test_run/pids` 第 243 行，都由 `$REPO` 組出；沒有任何分支碰它 | 修法方向：claim／pid 目錄改到與 checkout 無關的位置（`/tmp/ndtwin-lab/` 或 `$XDG_RUNTIME_DIR`），要 Adam 點頭再派——它改的是交接協定 |
+| 80 | liveness worker 用快取 `probe_ok` 把 `is_up` 寫回 true 8–13 s | ⭕ UNASSIGNED | poll agent 兩臂 18/18（raw 在 `audit-raw`）；沒有分支 | 與 Q12 綁在一起裁；候選修法：distrust window 改證據界定 |
+| 81 | `handleInformSwitchEntered` 無條件 `setVertexUp` | ⭕ UNASSIGNED | `HttpSession.cpp:1449`（agent 讀碼）；沒有分支 | 小；可併入 #80 的工單 |
+| 82 | OVS `powerOff` 的 `!isUp` 早退（#35 同型） | ⭕ UNASSIGNED | `OVSPowerStrategy::powerOff`（agent 讀碼）；沒有分支 | 先補 `br-exists` 量測；OVS 平面補一輪 live |
 
 ### 2.2 兩支動到同一段碼（合併衝突預警）
 
