@@ -586,3 +586,44 @@ sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sb
 **Q3 helper 不一致要不要從「警告」升級成「`ndt up` 拒絕」？** (a) 維持警告（建議：要不要裝是你的決定，卡住 bring-up 比跑舊版但講明白更糟）；(b) 拒絕。
 
 **Q4 新閘門 `mutate_ndt_up_down_robust.sh` 要不要進 `local_ci.sh`／`l1_unit_tests.sh` 之類的彙總跑批？** agent 沒動任何彙總腳本。(a) 開一張工單一併處理 N15 Q4（建議）；(b) 先不接。
+
+
+## N18. #61／#62 併入之後（壞的拓樸檔在啟動時整份拒絕），topoval agent 的四題
+
+**白話**：以前拓樸檔裡一條線接到不存在的交換機，kernel 只在 log 印一行 warning，然後把剩下 39 條線當成完整網路端出去、每個 API 都回 200；port 填 0 或 999999 也照收照公布。現在載入前先整份檢查，錯就不啟動（exit 1、不開 port）、訊息指名第幾條 edge 哪個欄位。主機那一側的 port 0 照舊合法（API 文件這樣寫、五個出貨檔這樣填）。
+
+**Q1 上限 65535 要不要換？** 它不是協定推出來的（OF 1.3 下 999999 合法），是「夠寬、又擋得掉六位數」的理智值；現有檔最大 67。(a) 維持 65535（agent 與我都建議）；(b) 收到 256／512 之類；(c) 依 OF 1.3 用 `0xffffff00`（那就擋不掉 999999，等於沒修）。
+
+**Q2 `tools/contract_test/spec.py` 的 `src_interface: Int(min=0)` 要不要加上限？** 沒加，因為 API 上的 interface 還有控制平面輪詢這個來源（OF 保留 port 合法）。(a) 不加，檔案規則≠API 規則（建議）；(b) 只對拓樸檔來源的欄位設上限。
+
+**Q3 要不要另開工單收其他三扇門？** `GraphTypes.hpp` 的 `from_json`（不是檔案載入路徑；isup 在改那個檔）、`ecmp_groups[].port_id`、node 迴圈裡既有三個「加了一部分 vertex 才 throw」的半套用。(a) 開一張（建議，等 isup 併了再派）；(b) 先不。
+
+**Q4 要不要把「檢查器早就知道、kernel 不知道」記成 finding？** `spec.py:348` 的 `inv_graph_matches_topology` 本來就會比對端出的 edge 數與檔案的 edge 數——40→39 這件事 contract test 看得見、kernel 自己看不見，與 #22–24 同形。(a) 記成 #85（建議：知識在不會被執行的那段碼裡，是這個 codebase 反覆出現的形狀）；(b) 不記。
+
+
+## N19. #82 併入之後（OVS 關機問 `br-exists` 不問圖），ovsoff agent 的四題
+
+**白話**：以前 OVS 的關機 API 先看分身自己的快取「這台是不是 up」，快取說 down 就直接回 200 什麼都不做——而快取在四種情況下會對一座還在轉送的 bridge 說 down（剛載入、`list-br` 被拒、抖動、以及 #46 之後任何已被命令關過的）。所以第二次關機一律 200 卻什麼都沒記。現在改問 ovs-vsctl「這座 bridge 在不在」：在就拆，不在就不拆但照樣記下命令，問不到就照舊嘗試拆。實測：帶外刪掉 bridge 再關機，以前 500×3、現在 200×3。
+
+**Q1 sudoers 的形狀**：本機 `NOPASSWD: /usr/bin/ovs-vsctl` 是整顆 binary，`br-exists` 自動涵蓋、不用加規則；但**手冊教使用者寫的是哪一種**？若是逐 argv（`ovs-vsctl list-ports *`），使用者機器會拒 `br-exists`，行為退回「照舊嘗試拆」，#82 在他們那裡等於沒修。(a) 我去查手冊那一段、不符就改手冊（建議）；(b) 不管。
+
+**Q2 `add-br`／`add-port` 要不要改成 `--may-exist` 讓 bring-up 真正冪等？** 會動到既有成功路徑（明晚會走）。(a) 明晚測完再議（建議）；(b) 現在做。
+
+**Q3 `utils::execArgv` 對「預期中的非零 status」仍會印 `Command failed (exit code 2)`**——每次對已不在的 bridge 關機都會先印這行誤導、再印正確的 INFO。**明晚 kernel log 會看到，不是新缺陷。** `Utils.hpp` 共用，agent 沒動。(a) 開一張小工單，等今晚分支都併完再改（建議）；(b) 不改。
+
+**Q4 OVS 的 bridge 名在 `ndt down` 後會重用**：對「不存在的 bridge」關機現在回成功並記命令；若同名 bridge 稍後被別人重建，那道命令仍掛在同一 vertex（要 power-on 才撤）。這是 #46 既有語義。(a) 讓 `ndt up` 開場清掉所有 `adminPoweredOff`（建議，跟 #8 的 `up.target` 一起想）；(b) 不動。
+
+另外 agent 明講：**「輪詢不復活」在 OVS 平面仍無 live 佐證**（本輪配方零鑑別力，結構性：bridge 真沒了、liveness 每秒寫 false、Ryu 也不列它）——#46 在 OVS 上仍只有 gtest＋閘門。
+
+
+## N20. #27／#76 併入之後（關機有界），stop agent 的四題＋一個順手挖到的崩潰
+
+**白話**：以前按下停止，kernel 要把手上那一輪對每台交換機的 HTTP 請求「等完」才肯停——對面不回話時一台 8 秒，十台 80 秒（實測 81 秒）。現在停止請求會直接殺掉正在飛的那個 curl，並在下一台之前就收手；監視器與電源管理各自的 stop 從 15 秒／80 秒變成 21 毫秒。**但整個行程還要 4.7 秒**，全在還沒改的遙測 collector 那四條 thread。
+
+**Q1 對外要承諾哪一層的界？** (a) 只承諾 5 秒，等 collector 收完再改 3 秒；(b) 現在就派 collector 那支（W-27b，照抄同一原語），兩支併完承諾 3 秒（agent 與我都建議）；(c) 文件寫兩層（子系統 3 秒／行程 5 秒）。
+
+**Q2 `Exiting` 這個對外可見的字串改了**（→ `Shutting down`，真的退出時才印 `exiting now`）。repo 外有沒有腳本在 grep `Exiting`？agent 查不到。(a) 沒有，照改（建議）；(b) 有，我來改回並另加一行。
+
+**Q3 TESTBED 的 snmp／ssh 是這批唯一真正無界的**（沒 `-t`／`-r`）。(a) 等能實測再動（建議：沒 testbed 就是沒看過紅的交付）；(b) 現在只補逾時參數。
+
+**Q4 #85 要不要現在派？** `fetchCpuReportInternal` 對沒 IP 的 switch vertex 直接 `ip.front()` ⇒ SIGSEGV（gdb 確認）；`updateSwitches` 會為控制平面回覆裡拓樸檔沒有的 dpid 造 vertex，那份回覆沒 IP ⇒ **可能是線上崩潰**。(a) 現在派一支小的（空檢查＋WARN＋先查可達性）（建議：明晚整機測試若控制平面多報一台就會踩到）；(b) 明晚之後。

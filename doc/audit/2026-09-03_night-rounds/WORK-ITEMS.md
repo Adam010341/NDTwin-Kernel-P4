@@ -115,3 +115,7 @@ Adam 裁（09-03 21:1x）：journal 現況不動，先量。要量的是 REST `/
 ## W-Q12 `is_up` 拆成 `admin_state`＋`reachable`
 
 Adam 裁（09-03 21:1x）：(a)。派 `fix/is-up-split-admin-state-reachable`。狀態：🛠 派工中（09-03 21:1x）。
+
+## W-27b — finding #27 的下半：`FlowLinkUsageCollector::stop()` 接上同一個 `StopSignal`（⭕ 未派）
+
+`fix/kernel-stop-is-bounded` 併入後，行程層級的關機是 **4.70 s**，其中 **4.607 s** 在 collector 的 `stop()`（`refreshDestinationPathsPeriodically` 的 `--max-time 10` curl 與 `testCalAvgFlowSendingRatesRandomly`／`purgeIdleFlows`／`calAvgFlowSendingRatesPeriodically`／`calFlowPathByQueried` 四條沒切片的 1–2 s sleep）。照抄同一個原語（`WorkerScope`＋`waitFor`＋`execCommandCancellable`）即可；做完才能對外承諾 3 s。stop agent 建議現在就派（N20 Q1 建議 (b)）。前提：`FlowLinkUsageCollector.cpp` 今晚有別的分支在動的話先等它們併完。
