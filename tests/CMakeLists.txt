@@ -106,6 +106,12 @@ add_executable(
   # workers read their stop flag only between rounds, so a stop waited out one curl per switch
   # (81.09 s measured) or per topology endpoint. Timed against a listener that never answers.
   test_KernelStopIsBounded.cpp
+  # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-4: B-1's phantom filter covered the
+  # read path on both planes but only ever had a confirmation signal on one. Ryu answers 200
+  # before any switch has seen the FLOW_MOD, so the OVS half stamped a token on an entry nothing
+  # had observed and served it 0.257 s after the POST. Next to test_PendingEntryFilter.cpp in
+  # spirit -- that one owns the rule, this one owns what the two planes are allowed to confirm.
+  test_PhantomFilterCoversOvs.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there
