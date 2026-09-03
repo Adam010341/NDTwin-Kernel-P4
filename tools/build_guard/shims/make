@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# PATH shim: force make to a small -j. See ./cmake for why.
+# make is shimmed because tools/test_workflow/build_bmv2_fast.sh:170 is `make -j$(nproc)` --
+# a cmake-only guard would have let the single heaviest build in the tree straight through.
+# Unlike ninja, an undecorated `make` is serial, so -j is added only when the caller asked
+# for parallelism. Forcing -j2 on a plain `make` would make builds FASTER than the author
+# asked for, which is not this guard's business.
+# [Co-developed with claude code -- Adam]
+set -uo pipefail
+# readlink -f, so a shim SYMLINKED into some other bin dir still finds _resolve.sh beside the
+# real file. Without it the source fails, guard_real_tool is undefined, and the shim exits 127
+# saying it cannot find the real tool -- a true rc reached by a false route.
+SHIM_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd -P)"
+source "$SHIM_DIR/_resolve.sh"
+real="$(guard_real_tool "$SHIM_DIR" make)"
+[[ -n "$real" ]] || { echo "build_guard: no real make on PATH outside the shim dir" >&2; exit 127; }
+
+args=(); skip=0; asked_parallel=0
+for a in "$@"; do
+    if [[ $skip == 1 ]]; then skip=0; continue; fi
+    case "$a" in
+        -j|--jobs)        skip=1; asked_parallel=1 ;;
+        -j*|--jobs=*)     asked_parallel=1 ;;
+        *)                args+=("$a") ;;
+    esac
+done
+
+if [[ $asked_parallel == 1 ]]; then
+    exec "$real" -j"$(guard_jobs)" "${args[@]}"
+fi
+exec "$real" "${args[@]}"

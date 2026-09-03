@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# PATH shim: force ninja to a small -j. See ./cmake for why.
+# ninja's own default is nproc+2, so an UNDECORATED `ninja` is just as dangerous as -j14 --
+# which is why this shim adds -j even when the caller passed none.
+# [Co-developed with claude code -- Adam]
+set -uo pipefail
+# readlink -f, so a shim SYMLINKED into some other bin dir still finds _resolve.sh beside the
+# real file. Without it the source fails, guard_real_tool is undefined, and the shim exits 127
+# saying it cannot find the real tool -- a true rc reached by a false route.
+SHIM_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd -P)"
+source "$SHIM_DIR/_resolve.sh"
+real="$(guard_real_tool "$SHIM_DIR" ninja)"
+[[ -n "$real" ]] || { echo "build_guard: no real ninja on PATH outside the shim dir" >&2; exit 127; }
+
+args=(); skip=0
+for a in "$@"; do
+    if [[ $skip == 1 ]]; then skip=0; continue; fi
+    case "$a" in
+        -j)  skip=1 ;;
+        -j*) ;;
+        *)   args+=("$a") ;;
+    esac
+done
+exec "$real" -j"$(guard_jobs)" "${args[@]}"

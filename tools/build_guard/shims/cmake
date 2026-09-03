@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# PATH shim: force `cmake --build` to a small -j no matter what the caller asked for.
+#
+# 23 call sites in this repo hardcode -j$(nproc) or -j4. On this 14-core / 15 GB laptop
+# -j14 of this C++ tree is enough for systemd-oomd to kill the cgroup, and on 2026-09-02 it
+# took the user's own application down with it. The call sites are not edited: several are
+# mutation-gate anchors that check_gate_anchors.py parses, and editing them would move the
+# anchors. A shim needs no edit anywhere.
+#
+# [Co-developed with claude code -- Adam]
+set -uo pipefail
+# readlink -f, so a shim SYMLINKED into some other bin dir still finds _resolve.sh beside the
+# real file. Without it the source fails, guard_real_tool is undefined, and the shim exits 127
+# saying it cannot find the real tool -- a true rc reached by a false route.
+SHIM_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd -P)"
+source "$SHIM_DIR/_resolve.sh"
+real="$(guard_real_tool "$SHIM_DIR" cmake)"
+[[ -n "$real" ]] || { echo "build_guard: no real cmake on PATH outside the shim dir" >&2; exit 127; }
+
+args=(); skip=0; is_build=0
+for a in "$@"; do
+    if [[ $skip == 1 ]]; then skip=0; continue; fi
+    case "$a" in
+        -j|--parallel)   skip=1 ;;                 # value is the NEXT argv
+        -j*|--parallel=*) ;;                       # value is glued on
+        --build)         is_build=1; args+=("$a") ;;
+        *)               args+=("$a") ;;
+    esac
+done
+
+if [[ $is_build == 1 ]]; then
+    exec "$real" "${args[@]}" -j"$(guard_jobs)"
+fi
+exec "$real" "${args[@]}"
