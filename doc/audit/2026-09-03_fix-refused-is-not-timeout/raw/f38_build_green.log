@@ -1,0 +1,10 @@
+guarded_build: jobs=2 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ cmake --build build --target test_routing_strategy
+[1/7] Building CXX object src/ndt_core/application_management/CMakeFiles/NdtCore_ApplicationLib.dir/SimulationRequestManager.cpp.o
+[2/7] Linking CXX static library lib/libNdtCore_ApplicationLib.a
+[3/7] Building CXX object src/ndt_core/http/CMakeFiles/NdtCore_HttpLib.dir/HttpSession.cpp.o
+[4/7] Linking CXX static library lib/libNdtCore_HttpLib.a
+[5/7] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_SimulationRequestValidation.cpp.o
+[6/7] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_RefusedIsNotTimeout.cpp.o
+[7/7] Linking CXX executable bin/test_routing_strategy
+guarded_build: exit 0

@@ -1,0 +1,48 @@
+guarded_build: jobs=2 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/refused38/run_all.sh
+
+########## 1. build ##########
+[1/2] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_RefusedIsNotTimeout.cpp.o
+[2/2] Linking CXX executable bin/test_routing_strategy
+build rc=0
+test_routing_strategy sha256 f9bf55574c43473e8f673d52a8f1e6f3bab86eb3959bf8dc625038ed0aad0b89
+
+########## 2. the new suite (with the message it produces) ##########
+[----------] Global test environment tear-down
+[==========] 5 tests from 1 test suite ran. (4225 ms total)
+[ PASSED ] 5 tests.
+GTEST_EXIT=0
+
+########## 3. the whole gtest binary ##########
+[----------] 5 tests from RefusedIsNotTimeoutTest (4226 ms total)
+
+[----------] Global test environment tear-down
+[==========] 970 tests from 125 test suites ran. (113406 ms total)
+[ PASSED ] 970 tests.
+GTEST_EXIT=0
+
+########## 4. ctest ##########
+970/970 Test #970: RefusedIsNotTimeoutTest.ADroppedConnectionIsNeitherOfTheTwo ....................................... Passed 0.17 sec
+
+100% tests passed, 0 tests failed out of 970
+
+Total Test time (real) = 133.68 sec
+CTEST_EXIT=0
+
+########## 5. mutation gate ##########
+gate rc=1
+=== W3. the timeout is reworded, same classification (MUST stay green) ===
+ ✅ survived -- behaviour unchanged, so the catches above are about behaviour
+
+=== restore ===
+ all 1 file(s) byte-identical to the pre-run snapshot
+ rebuilt from the restored tree
+ suite green again after restore
+ test binary sha unchanged: f9bf55574c43473e
+
+=== verdict ===
+ 7 mutations, 1 survived
+ 3 widenings, 0 wrongly caught
+
+########## done ##########
+guarded_build: exit 0

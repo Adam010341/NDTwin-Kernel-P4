@@ -1,0 +1,65 @@
+guarded_build: jobs=2 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ ./tests/shell/mutate_refused_is_not_timeout.sh
+=== anchor uniqueness (exact substring count must be 1) ===
+  ok     classify-call    src/ndt_core/application_management/SimulationRequestManager.cpp x1
+  ok     measurement      src/ndt_core/application_management/SimulationRequestManager.cpp x1
+  ok     curl-exit-7      src/ndt_core/application_management/SimulationRequestManager.cpp x1
+  ok     curl-exit-28     src/ndt_core/application_management/SimulationRequestManager.cpp x1
+  ok     curl-exit-56     src/ndt_core/application_management/SimulationRequestManager.cpp x1
+  ok     finding-comment  src/ndt_core/application_management/SimulationRequestManager.cpp x1
+
+=== baseline (unmutated working tree) must build and be green ===
+  ok       baseline green (5 cases in RefusedIsNotTimeoutTest.*)
+  ok       test_routing_strategy sha256 f9bf55574c43473e
+
+=== M1. the shipped message: 'no response ... within Ns' for every cause ===
+  expect red: RefusedIsNotTimeoutTest.ARefusalIsNotDescribedAsATimeout RefusedIsNotTimeoutTest.AHangIsStillDescribedAsATimeout RefusedIsNotTimeoutTest.TheTwoFailuresDoNotProduceTheSameSentence RefusedIsNotTimeoutTest.TheRefusalCarriesTheDurationThatWasActuallyMeasured
+  ✅ caught  red: RefusedIsNotTimeoutTest.ARefusalIsNotDescribedAsATimeout RefusedIsNotTimeoutTest.AHangIsStillDescribedAsATimeout RefusedIsNotTimeoutTest.TheTwoFailuresDoNotProduceTheSameSentence RefusedIsNotTimeoutTest.TheRefusalCarriesTheDurationThatWasActuallyMeasured
+
+=== M2. curl's exit status is discarded again (a constant is classified instead) ===
+  expect red: RefusedIsNotTimeoutTest.ARefusalIsNotDescribedAsATimeout RefusedIsNotTimeoutTest.AHangIsStillDescribedAsATimeout
+  ✅ caught  red: RefusedIsNotTimeoutTest.ARefusalIsNotDescribedAsATimeout RefusedIsNotTimeoutTest.AHangIsStillDescribedAsATimeout
+
+=== M3. curl exit 7 renders the timeout sentence ===
+  expect red: RefusedIsNotTimeoutTest.ARefusalIsNotDescribedAsATimeout
+  ✅ caught  red: RefusedIsNotTimeoutTest.ARefusalIsNotDescribedAsATimeout
+
+=== M4. the timeout wording is removed everywhere ===
+  expect red: RefusedIsNotTimeoutTest.AHangIsStillDescribedAsATimeout
+  ✅ caught  red: RefusedIsNotTimeoutTest.AHangIsStillDescribedAsATimeout
+
+=== M5. a genuine timeout is reported as a refusal ===
+  expect red: RefusedIsNotTimeoutTest.AHangIsStillDescribedAsATimeout
+  ✅ caught  red: RefusedIsNotTimeoutTest.AHangIsStillDescribedAsATimeout
+
+=== M6. a reset connection is reported as a refusal ===
+  expect red: RefusedIsNotTimeoutTest.ADroppedConnectionIsNeitherOfTheTwo
+  ✅ caught  red: RefusedIsNotTimeoutTest.ADroppedConnectionIsNeitherOfTheTwo
+
+=== M7. the message quotes the deadline instead of the measured duration ===
+  expect red: RefusedIsNotTimeoutTest.TheRefusalCarriesTheDurationThatWasActuallyMeasured
+  ✅ caught  red: RefusedIsNotTimeoutTest.TheRefusalCarriesTheDurationThatWasActuallyMeasured
+
+=== W1. a comment, nothing else (MUST stay green) ===
+  ✅ survived -- behaviour unchanged, so the catches above are about behaviour
+
+=== W2. the refusal is reworded, same classification (MUST stay green) ===
+  ✅ survived -- behaviour unchanged, so the catches above are about behaviour
+
+=== W3. the timeout is reworded, same classification (MUST stay green) ===
+  ✅ survived -- behaviour unchanged, so the catches above are about behaviour
+
+=== restore ===
+  all 1 file(s) byte-identical to the pre-run snapshot
+  rebuilt from the restored tree
+  suite green again after restore
+  test binary sha unchanged: f9bf55574c43473e
+
+=== verdict ===
+  7 mutations, 0 survived
+  3 widenings, 0 wrongly caught
+  FINDINGS #38 gate: the refusal cannot be called a timeout again by any of five routes,
+  dropping the timeout wording or calling everything a refusal is caught too, the quoted
+  duration must be one this process measured, and three behaviour-preserving edits --
+  including a rewording of each message -- were left alone.
+guarded_build: exit 0

@@ -1,0 +1,69 @@
+# BEFORE THE FIX (branch fix/refused-is-not-timeout at the red step, HEAD=92a79392)
+# binary: build/bin/test_routing_strategy sha256 9aee62202a1dd1c1452f3ee205ff8fa176c372dce37ce7282e4ff3815f439bae
+# 2026-09-03T23:46:28+08:00
+
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-refused/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = RefusedIsNotTimeoutTest.*
+[==========] Running 5 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 5 tests from RefusedIsNotTimeoutTest
+[ RUN      ] RefusedIsNotTimeoutTest.ARefusalIsNotDescribedAsATimeout
+Command failed (exit code 7): curl -s -w \n%{http_code} --max-time 2 -X POST http://127.0.0.1:54851/submit -H Content-Type: application/json -d {"simulator":"MySimulator","version":"1.0.0","app_id":"1","case_id":"case_123","inputfile":"/srv/nfs/sim/1/case_123.json"}
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-refused/tests/test_RefusedIsNotTimeout.cpp:211: Failure
+Value of: claimsATimeout(reason)
+  Actual: true
+Expected: false
+FINDINGS #38: a connection refused in 0.0063242580000000001s is being reported as a wait that ran out. Message was: no response from the simulator server at http://127.0.0.1:54851/submit within 2s
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-refused/tests/test_RefusedIsNotTimeout.cpp:214: Failure
+Value of: mentions(reason, "refused")
+  Actual: false
+Expected: true
+the message does not say what happened. Message was: no response from the simulator server at http://127.0.0.1:54851/submit within 2s
+[  FAILED  ] RefusedIsNotTimeoutTest.ARefusalIsNotDescribedAsATimeout (6 ms)
+[ RUN      ] RefusedIsNotTimeoutTest.AHangIsStillDescribedAsATimeout
+Command failed (exit code 28): curl -s -w \n%{http_code} --max-time 2 -X POST http://127.0.0.1:48215/submit -H Content-Type: application/json -d {"simulator":"MySimulator","version":"1.0.0","app_id":"1","case_id":"case_123","inputfile":"/srv/nfs/sim/1/case_123.json"}
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-refused/tests/test_RefusedIsNotTimeout.cpp:234: Failure
+Value of: mentions(reason, "timed out")
+  Actual: false
+Expected: true
+a request that really did run out of time must say so. Message was: no response from the simulator server at http://127.0.0.1:48215/submit within 2s
+[  FAILED  ] RefusedIsNotTimeoutTest.AHangIsStillDescribedAsATimeout (2009 ms)
+[ RUN      ] RefusedIsNotTimeoutTest.TheTwoFailuresDoNotProduceTheSameSentence
+Command failed (exit code 7): curl -s -w \n%{http_code} --max-time 2 -X POST http://127.0.0.1:38739/submit -H Content-Type: application/json -d {"simulator":"MySimulator","version":"1.0.0","app_id":"1","case_id":"case_123","inputfile":"/srv/nfs/sim/1/case_123.json"}
+Command failed (exit code 28): curl -s -w \n%{http_code} --max-time 2 -X POST http://127.0.0.1:54033/submit -H Content-Type: application/json -d {"simulator":"MySimulator","version":"1.0.0","app_id":"1","case_id":"case_123","inputfile":"/srv/nfs/sim/1/case_123.json"}
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-refused/tests/test_RefusedIsNotTimeout.cpp:264: Failure
+Expected: (withoutEndpoint(refused)) != (withoutEndpoint(hung)), actual: "no response from the simulator server at <url> within 2s" vs "no response from the simulator server at <url> within 2s"
+FINDINGS #38: a refused connection and a request that timed out are reported with the same sentence.
+  refused: no response from the simulator server at http://127.0.0.1:38739/submit within 2s
+  hung:    no response from the simulator server at http://127.0.0.1:54033/submit within 2s
+[  FAILED  ] RefusedIsNotTimeoutTest.TheTwoFailuresDoNotProduceTheSameSentence (2013 ms)
+[ RUN      ] RefusedIsNotTimeoutTest.TheRefusalCarriesTheDurationThatWasActuallyMeasured
+Command failed (exit code 7): curl -s -w \n%{http_code} --max-time 2 -X POST http://127.0.0.1:47375/submit -H Content-Type: application/json -d {"simulator":"MySimulator","version":"1.0.0","app_id":"1","case_id":"case_123","inputfile":"/srv/nfs/sim/1/case_123.json"}
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-refused/tests/test_RefusedIsNotTimeout.cpp:283: Failure
+Value of: std::regex_search(reason, match, seconds)
+  Actual: false
+Expected: true
+the message states no measured duration at all. Message was: no response from the simulator server at http://127.0.0.1:47375/submit within 2s
+[  FAILED  ] RefusedIsNotTimeoutTest.TheRefusalCarriesTheDurationThatWasActuallyMeasured (8 ms)
+[ RUN      ] RefusedIsNotTimeoutTest.ADroppedConnectionIsNeitherOfTheTwo
+Command failed (exit code 56): curl -s -w \n%{http_code} --max-time 2 -X POST http://127.0.0.1:59477/submit -H Content-Type: application/json -d {"simulator":"MySimulator","version":"1.0.0","app_id":"1","case_id":"case_123","inputfile":"/srv/nfs/sim/1/case_123.json"}
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-refused/tests/test_RefusedIsNotTimeout.cpp:323: Failure
+Value of: claimsATimeout(reason)
+  Actual: true
+Expected: false
+the connection broke after 0.15165372799999999s, well inside the deadline, and is still being reported as a wait that ran out. Message was: no response from the simulator server at http://127.0.0.1:59477/submit within 2s
+[  FAILED  ] RefusedIsNotTimeoutTest.ADroppedConnectionIsNeitherOfTheTwo (151 ms)
+[----------] 5 tests from RefusedIsNotTimeoutTest (4188 ms total)
+
+[----------] Global test environment tear-down
+[==========] 5 tests from 1 test suite ran. (4189 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 5 tests, listed below:
+[  FAILED  ] RefusedIsNotTimeoutTest.ARefusalIsNotDescribedAsATimeout
+[  FAILED  ] RefusedIsNotTimeoutTest.AHangIsStillDescribedAsATimeout
+[  FAILED  ] RefusedIsNotTimeoutTest.TheTwoFailuresDoNotProduceTheSameSentence
+[  FAILED  ] RefusedIsNotTimeoutTest.TheRefusalCarriesTheDurationThatWasActuallyMeasured
+[  FAILED  ] RefusedIsNotTimeoutTest.ADroppedConnectionIsNeitherOfTheTwo
+
+ 5 FAILED TESTS
+GTEST_EXIT=1

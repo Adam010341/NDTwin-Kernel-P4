@@ -1,0 +1,36 @@
+# AFTER THE FIX -- binary sha256 f9bf55574c43473e8f673d52a8f1e6f3bab86eb3959bf8dc625038ed0aad0b89
+# 2026-09-04T00:30:06+08:00
+
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-refused/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = RefusedIsNotTimeoutTest.*
+[==========] Running 5 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 5 tests from RefusedIsNotTimeoutTest
+[ RUN      ] RefusedIsNotTimeoutTest.ARefusalIsNotDescribedAsATimeout
+Command failed (exit code 7): curl -s -w \n%{http_code} --max-time 2 -X POST http://127.0.0.1:39993/submit -H Content-Type: application/json -d {"simulator":"MySimulator","version":"1.0.0","app_id":"1","case_id":"case_123","inputfile":"/srv/nfs/sim/1/case_123.json"}
+    502 details would read: connection refused after 0.012s: nothing accepted a connection at http://127.0.0.1:39993/submit (curl exit 7)
+[       OK ] RefusedIsNotTimeoutTest.ARefusalIsNotDescribedAsATimeout (11 ms)
+[ RUN      ] RefusedIsNotTimeoutTest.AHangIsStillDescribedAsATimeout
+Command failed (exit code 28): curl -s -w \n%{http_code} --max-time 2 -X POST http://127.0.0.1:59147/submit -H Content-Type: application/json -d {"simulator":"MySimulator","version":"1.0.0","app_id":"1","case_id":"case_123","inputfile":"/srv/nfs/sim/1/case_123.json"}
+    502 details would read: timed out after 2.015s: no reply from http://127.0.0.1:59147/submit within the 2s deadline (curl exit 28)
+[       OK ] RefusedIsNotTimeoutTest.AHangIsStillDescribedAsATimeout (2014 ms)
+[ RUN      ] RefusedIsNotTimeoutTest.TheTwoFailuresDoNotProduceTheSameSentence
+Command failed (exit code 7): curl -s -w \n%{http_code} --max-time 2 -X POST http://127.0.0.1:34545/submit -H Content-Type: application/json -d {"simulator":"MySimulator","version":"1.0.0","app_id":"1","case_id":"case_123","inputfile":"/srv/nfs/sim/1/case_123.json"}
+    502 details would read: connection refused after 0.010s: nothing accepted a connection at http://127.0.0.1:34545/submit (curl exit 7)
+Command failed (exit code 28): curl -s -w \n%{http_code} --max-time 2 -X POST http://127.0.0.1:59383/submit -H Content-Type: application/json -d {"simulator":"MySimulator","version":"1.0.0","app_id":"1","case_id":"case_123","inputfile":"/srv/nfs/sim/1/case_123.json"}
+    502 details would read: timed out after 2.016s: no reply from http://127.0.0.1:59383/submit within the 2s deadline (curl exit 28)
+[       OK ] RefusedIsNotTimeoutTest.TheTwoFailuresDoNotProduceTheSameSentence (2027 ms)
+[ RUN      ] RefusedIsNotTimeoutTest.TheRefusalCarriesTheDurationThatWasActuallyMeasured
+Command failed (exit code 7): curl -s -w \n%{http_code} --max-time 2 -X POST http://127.0.0.1:57535/submit -H Content-Type: application/json -d {"simulator":"MySimulator","version":"1.0.0","app_id":"1","case_id":"case_123","inputfile":"/srv/nfs/sim/1/case_123.json"}
+    502 details would read: connection refused after 0.013s: nothing accepted a connection at http://127.0.0.1:57535/submit (curl exit 7)
+[       OK ] RefusedIsNotTimeoutTest.TheRefusalCarriesTheDurationThatWasActuallyMeasured (14 ms)
+[ RUN      ] RefusedIsNotTimeoutTest.ADroppedConnectionIsNeitherOfTheTwo
+Command failed (exit code 56): curl -s -w \n%{http_code} --max-time 2 -X POST http://127.0.0.1:50859/submit -H Content-Type: application/json -d {"simulator":"MySimulator","version":"1.0.0","app_id":"1","case_id":"case_123","inputfile":"/srv/nfs/sim/1/case_123.json"}
+    502 details would read: connection reset after 0.156s by http://127.0.0.1:50859/submit (curl exit 56)
+[       OK ] RefusedIsNotTimeoutTest.ADroppedConnectionIsNeitherOfTheTwo (156 ms)
+[----------] 5 tests from RefusedIsNotTimeoutTest (4224 ms total)
+
+[----------] Global test environment tear-down
+[==========] 5 tests from 1 test suite ran. (4225 ms total)
+[  PASSED  ] 5 tests.
+GTEST_EXIT=0
