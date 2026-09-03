@@ -201,9 +201,40 @@ Ran 33 checks, 17 failed
 **真正逐條可信的紅是變異閘門的 M1**——它把修法前的 `ovs_bridge_count` 語意原樣放回**修好之後的
 結構**裡，其他一切不變，該案例照樣紅。3.3 只當旁證，M1 才是主證。
 
-### 3.4 這個閘門自己被檢查得到
+### 3.4 這個閘門自己被檢查得到（finding #28）
 
-`tests/shell/check_gate_anchors.py` 對本分支的結果見 §6（finding #28：新出廠的儀器預設是未被檢查的）。
+新出廠的閘門預設是**未被檢查**的，所以先驗了再說。第一版寫成之後：
+
+```
+$ python3 tests/shell/check_gate_anchors.py fix/ndt-sudo-surface --gates mutate_ndt_sudo_surface.sh
+mutate_ndt_sudo_surface.sh  NO-ANCHORS
+0/1 cells ok  (1 not ok, of which 1 were NOT CHECKED AT ALL)      exit 2
+```
+
+原因：檢查器是從變異函式**自己的 `local … file="$2" old="$3"` 那一行**認出哪個參數是 anchor、
+哪個是檔案，而我的 `mutant()` 用位置參數、檔案只給 basename。改成具名參數、呼叫點傳
+`"$NDT"`／`"$SURFACE"`（檢查器本來就解得開的變數）之後：
+
+```
+$ python3 tests/shell/check_gate_anchors.py fix/ndt-sudo-surface --gates mutate_ndt_sudo_surface.sh
+mutate_ndt_sudo_surface.sh  ok(13)
+1/1 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+```
+
+13 而不是 14，因為 M1 與 N1 用同一段 anchor（同一行、兩種改法），檢查器會去重。
+變異、anchor、案例一個都沒改，改完重跑仍是 **14 mutations, 0 survived**。
+
+### 3.5 沒有弄壞鄰居
+
+同樣在這個 worktree 裡跑過，全綠：
+
+```
+test_ndt_lab_session.sh                     rc=0  14 passed, 0 failed
+test_teardown_guards.sh                     rc=0  14 passed, 0 failed
+test_ndt_app_orphans.sh                     rc=0  Ran 52 checks, all passed
+test_up_ovs_wedge_guard.sh                  rc=0  Ran 10 checks, all passed
+test_ndt_sample_rate_reads_both_bounds.sh   rc=0  Ran 6 checks, 0 failed
+```
 
 ---
 
