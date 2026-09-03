@@ -33,12 +33,12 @@
 
 | 狀態 | 條數 | 編號 |
 |---|---:|---|
-| ✅ IN TRUNK | **9** | 13, 14, 15, 16, 19, 20, 28, 29, 30 |
-| 🔧 ON BRANCH | **18** | 5, 10, 11, 12, 22, 23, 24, 26, 32, 41, 45, 53, 56, 58, 59, 60, 64, 65 |
-| ⭕ UNASSIGNED | **39** | 1–4, 6–9, 17, 18, 21, 25, 27, 31, 33–40, 42, 43, 46–52, 54, 55, 61–63, 66–68 |
+| ✅ IN TRUNK / 已修 | **36** | 4–5, 7, 10–17, 19–20, 22–24, 26, 28–30, 32, 41, 45, 50, 53, 56, 58–60, 63–65, 71–74 |
+| 🛠 派工中 | **6** | 6, 35–36, 46–48 |
+| ⭕ UNASSIGNED | **31** | 1–3, 8–9, 18, 21, 25, 27, 31, 33–34, 37–40, 42–43, 49, 51–52, 54–55, 61–62, 66–70, 75 |
 | ➖ NOT A DEFECT | **1** | 44 |
 | ❓ UNKNOWN | **1** | 57 |
-| **合計** | **68** | |
+| **合計** | **75** | （09-03 18:2x 由各列狀態欄重算；派工中＝3 支：poll #35/36/46、cloexec #47、apps-stop #6/48） |
 
 **未併分支的實況（`git for-each-ref` ＋ 逐支 `git rev-list --count`）**
 
@@ -216,8 +216,8 @@
 | 70 | `Logger` 的 `--help` 在 kernel 裡不可達（`cli::parse` 先 `return 0`），而 `main.cpp` 的 usage 正指向那段印不出來的字；兩個 parser 對不認得的旗標都靜默忽略 | ⭕ UNASSIGNED | 同上分支的旗標完整表；auditor 在 `origin/main` 上確認同一形狀 | 🔴 **靜默忽略未知旗標這半沒有人在修**，要讓兩個 parser 知道對方的旗標集合，是另一個改動 |
 | 71 | 🔴 rule journal 在 production 從來沒被寫過，而 `test_journal_wiring.py` 14 個測試全綠（注入依賴，證明的是「給它 journal 它會寫」） | ✅ IN TRUNK（09-03 `486d89fb`，併 `fix/rule-journal-is-wired @ 1f3fd41f`；auditor 丟棄式樹重跑閘門 **14/0**、合併樹 25 個 proxy 模組全綠；三個裁決在 QUESTIONS N11） | auditor 查證：`main.py:26` 不傳 journal、`_note_in_journal` 第一行 `if … self._journal is None: return`；production 零 import | 修法＝`main.py` 建構真 `RuleJournal` 並注入＋一支**不注入**的接線測試（直接跑 `main` 的建構路徑），否則 A-4c 的 replay 永遠拿到空 journal |
 | 72 | demo image 的 netplan 綁死 QEMU 的 MAC，換 hypervisor 沒網路 | ✅ 已修（image） | `開機手冊` session，`doc/audit/2026-09-03_virtualbox-demo-vm/REPORT.md`，紅綠都量；`ndtwin-vm.sh` 仍釘著該 MAC（工具側待修）；08-31「Untested on real VMware — closed」被降級（依據是 ovftool 轉檔，碰不到 netplan） | 工具側：`ndtwin-vm.sh` 的 MAC；VMware 真開機一次 |
-| 73 | `KERNEL_ENDPOINTS` 手抄表漏 `GET /ndt/get_sflow_stats`，`test_l3_dispatch_drift` 在 trunk 紅 | 🛠 派工中（17:5x，`fix/inventories-follow-the-merges`，base `65d4a32f`） | auditor：沿 trunk first-parent 逐 commit 跑，`ea139d1c`（telemetry-health 併入）起紅 | 合併驗證缺口，見 MERGE-LOG「第七個教訓」 |
-| 74 | `SHELL_SITES` 清單對不上被 `classifyEndpointReply(...)` 包起來的 `execCommand` 站點，`test_shell_command_construction` 兩個 case 紅 | 🛠 派工中（同上） | auditor：`d00fa57c`（topology-round 併入）起紅；我讀過 `url` 來源不變（`AppConfig` IP:port＋字面路徑） | agent 要再讀一次 provenance；若 request 可達 ⇒ 升級為真缺陷、不准只改清單 |
+| 73 | `KERNEL_ENDPOINTS` 手抄表漏 `GET /ndt/get_sflow_stats`，`test_l3_dispatch_drift` 在 trunk 紅 | ✅ IN TRUNK（09-03 `431d98a5`，併 `fix/inventories-follow-the-merges @ 8d492733`；auditor 在 trunk 看過紅、合併樹 28＋25 個 python 模組全綠） | auditor：沿 trunk first-parent 逐 commit 跑，`ea139d1c`（telemetry-health 併入）起紅 | 合併驗證缺口，見 MERGE-LOG「第七個教訓」 |
+| 74 | `SHELL_SITES` 清單對不上被 `classifyEndpointReply(...)` 包起來的 `execCommand` 站點，`test_shell_command_construction` 兩個 case 紅 | ✅ IN TRUNK（同上；provenance 由 agent 重新推導：`m_ryuUrl` 唯一寫入點 `setTopologyApiUrls`，來源是兩個 build-time `AppConfig` 常數，無 HTTP handler 可達 ⇒ 清單漂移，不是注入路徑） | auditor：`d00fa57c`（topology-round 併入）起紅；我讀過 `url` 來源不變（`AppConfig` IP:port＋字面路徑） | agent 要再讀一次 provenance；若 request 可達 ⇒ 升級為真缺陷、不准只改清單 |
 | 75 | `inv01_powercycle_latency()` 修好了（#17）但 `harness/chaos.py` 沒接，零呼叫點 | ⭕ UNASSIGNED | #17 agent 查證（FIX-CHAOS-INVARIANTS §未做到） | existence ≠ wiring；接之前要先定 INV-01 兩個檢查（agreement 已接、latency 沒接）的關係 |
 
 ### 2.2 兩支動到同一段碼（合併衝突預警）
