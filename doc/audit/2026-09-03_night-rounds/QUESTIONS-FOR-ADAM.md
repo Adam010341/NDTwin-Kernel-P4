@@ -440,6 +440,17 @@ orphan 佔住 `:3005x` ⇒ 下一個 fabric 綁不上 ⇒ **使用者看到的�
 **選項**：(a) 拆成兩個欄位（`admin_state` 與 `reachable`），API 各報各的；(b) 保留一個欄位但加
 `source`（commanded／observed）；(c) 不動，只在文件說明。**我建議 (a)**——(b) 只是把歧義搬進欄位裡。
 
+## Q12 補充（#46 修完之後的 live 數字，09-03 20:0x）
+
+poll agent 的修法**只在內部**分開了「被命令關機」（`adminPoweredOff`）與「可達」（`isUp`），對外 JSON 一個 key 沒動——
+`TheEmittedVertexShapeGainsNoNewKey` 會在有人不小心回答 Q12 時變紅。live 兩臂各 9 次（raw 在 `audit-raw`）改變了這題的分量：
+
+- poll 那扇門修好了（fixed 臂 6/9 在 poll 瞬間印出拒絕復活，逐筆對上 t_off+2.6 s），但 **`is_up` 在 API 上還是會在 kill 後 0.3–1.5 s 回 true、撐 8–13 s**（#80：liveness worker 讀 proxy 的快取 `probe_ok`）。兩臂 18/18。
+- 所以在你裁 Q12 之前，`/ndt/get_graph_data` 對「剛被命令關掉的交換機」有 8–13 s 說謊，而且是**觀測**在說謊，不是 #46 那種覆蓋。
+- 修法的一個具名代價：帶外重啟一台被命令關掉的交換機後再打 `action=on`，會 500（helper 拒絕第二個實例）——大聲的錯取代安靜的錯。
+
+**建議不變：(a) 拆成 `admin_state` ＋ `reachable`。** 理由多一條：拆了以後 `reachable` 可以誠實地說「快取還沒過期」，`admin_state` 由命令決定、立刻正確。裁 (a) 的話 #80 的 distrust window 一起改成證據界定（下一次真的 probe 成功才關窗）。
+
 ## Q13. Energy app 沒有 `sim` 就不可能關機，而且會卡死——文件一個字都沒講
 
 `send_case` 是 void，所以 Simulation-Platform-Manager 沒開時的 502 被丟掉，Energy app **永久卡住**
