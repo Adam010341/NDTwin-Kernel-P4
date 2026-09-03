@@ -284,6 +284,105 @@ HANDOFF="$REPO/.test_run/lab.handoff"
 claim_field() { [[ -f "$CLAIM" ]] && sed -n "s/^$1=//p" "$CLAIM" | head -1; }
 handoff_field() { [[ -f "$HANDOFF" ]] && sed -n "s/^$1=//p" "$HANDOFF" | head -1; }
 
+# --- what the last `ndt up` was asked for -------------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# The baseline `status --check` compares the running lab against. Adam's decision, 2026-09-03
+# (QUESTIONS-FOR-ADAM N12 (a)): the baseline is the TARGET OF THE LAST `ndt up`. `up` writes
+# down what it was asked to build; `--check` compares what is live against that record.
+#
+# The alternative -- read the current contents of setting/ and p4_proxy/mininet/ and infer a
+# baseline from them -- is what `status` did until now, and it is finding #8: BOTH the host
+# count and the model file came from p4_proxy/mininet/host_count_override, which is a P4-only
+# knob that `ndt up ovs4` never writes. On a healthy 4-host OVS fabric that produced
+#     model  MISMATCH: graph has 4 hosts / 40 edges, file says 128 288
+#     check: 1 problem(s) / - the kernel graph does not match the topology file
+# (round1-ovs/07_, 2026-09-02 23:42) -- a false red naming the P4 128-host model as the thing
+# an OVS fabric failed to be. Setting the knob "correctly" made it worse rather than better:
+# the comparison was (hosts, edges) only, and P4_10Switches_4Hosts and OVS_10Switches_4Hosts
+# are both (4, 40), so the check went GREEN while comparing an OVS fabric against a P4 model
+# file. A check with zero discriminating power on the plane it is run on.
+#
+# Hence: an explicit record, and a comparison that includes the DATA PLANE KIND. Two numbers
+# that two different networks share cannot tell those networks apart, and no amount of care
+# about which file to read fixes that -- the missing field has to be added.
+#
+#     .test_run/up.target
+#         plane=<p4|ovs>          which data plane `up` was asked to build
+#         hosts=<n>               how many hosts it was asked for
+#         topology=<path>         the kernel's model file, relative to the repo
+#         topology_sha256=<hex>   its identity AT THAT MOMENT, so a later edit is visible
+#         model_hosts=<n>         hosts that file declares  (vertex_type == 1)
+#         model_edges=<n>         edges that file declares
+#         at=<unix seconds>       when `up` was asked
+#         by=<NDT_OWNER|unset>    who asked
+#         builder=<up_p4|up_ovs>  the function that was about to run
+#
+# 🔴 SCOPE, and it is the same limitation finding #79 records for the claim file: `.test_run/`
+# is PER CHECKOUT. This record describes what the last `ndt up` RUN FROM THIS CHECKOUT asked
+# for. A worktree that runs `ndt up ovs4` and a main checkout that then runs `ndt status
+# --check` are two different files, so the second sees no record and says so ("could not
+# check") rather than inventing one. That is the honest failure of a per-checkout file, not a
+# fix for #79, which is not being fixed here.
+up_target_file() { echo "${NDT_UP_TARGET:-$REPO/.test_run/up.target}"; }
+up_target_field() { local f; f="$(up_target_file)"; [[ -f "$f" ]] && sed -n "s/^$1=//p" "$f" | head -1; }
+
+# topo_model_counts <file> -- "<hosts> <edges>" the topology JSON declares, or nothing.
+topo_model_counts() {
+    python3 -c '
+import json,sys; t=json.load(open(sys.argv[1]))
+print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1), len(t["edges"]))' "$1" 2>/dev/null
+}
+
+# record_up_target <plane> <hosts> <topology-file> -- write the baseline.
+#
+# Called from up_p4 and up_ovs at the point where the target is fully decided and every
+# refusal that can be decided without touching the lab has already passed -- i.e. immediately
+# before the first numbered step. Recording it EARLIER would name a fabric no one ever tried
+# to build (a refused claim, a failed preflight); recording it LATER would leave the failure
+# case -- which is exactly the case worth checking -- with no baseline at all. A bring-up that
+# fails half way is still a bring-up that asked for something, and #3 (a failed `ndt up ovs4`
+# leaves Ryu, a topo session and a dataplane behind with no kernel) is precisely the state
+# `--check` should be able to call red afterwards.
+record_up_target() {
+    local plane="$1" hosts="$2" topo="$3" f sum counts
+    f="$(up_target_file)"
+    mkdir -p "$(dirname "$f")" || return 1
+    sum="$(sha256sum "$topo" 2>/dev/null | cut -d' ' -f1)"
+    counts="$(topo_model_counts "$topo")"
+    printf 'plane=%s\nhosts=%s\ntopology=%s\ntopology_sha256=%s\nmodel_hosts=%s\nmodel_edges=%s\nat=%s\nby=%s\nbuilder=%s\n' \
+        "$plane" "$hosts" "${topo#$REPO/}" "${sum:-unavailable}" \
+        "${counts%% *}" "${counts##* }" "$(date +%s)" "${NDT_OWNER:-unset}" "up_$plane" > "$f" || return 1
+    info "recorded this target in ${f#$REPO/} -- 'ndt status --check' compares against it"
+}
+
+# clear_up_target -- forget it. `down` is the statement "I am no longer asking for that
+# fabric", so the baseline goes with it; otherwise every `--check` on a deliberately idle
+# machine is red about a fabric nobody wants, and a check that cries wolf gets ignored. After
+# a `down`, "could not check" is the true answer: nothing has been asked for.
+clear_up_target() {
+    local f; f="$(up_target_file)"
+    [[ -f "$f" ]] || return 0
+    rm -f "$f" && info "cleared the 'ndt up' target record (${f#$REPO/})"
+}
+
+# live_dataplane_kind -- p4 | ovs | none | unknown. The field #8 was missing.
+#
+# bmv2 first, because that answer needs no privilege and is definitive: a `simple_switch_grpc`
+# process is a P4 data plane, whoever started it. OVS is asked second and can come back
+# "cannot tell" -- ovs_bridge_count returns 2 for a refused `sudo -n ovs-vsctl`, which is NOT
+# zero bridges (that conflation is finding #7, and guard_no_live_ovs was fixed for it). It is
+# passed through here as `unknown` so the comparison can report an unanswered question rather
+# than a match. [Co-developed with claude code -- Adam]
+live_dataplane_kind() {
+    local n brc
+    [[ "$(bmv2_count)" -gt 0 ]] && { echo p4; return 0; }
+    n="$(ovs_bridge_count)"; brc=$?
+    (( brc != 0 )) && { echo unknown; return 0; }
+    [[ "$n" -gt 0 ]] && { echo ovs; return 0; }
+    echo none
+}
+
 # foreign_claim -- prints a description when someone else holds an unexpired claim.
 # NDT_OWNER identifies this session. With it unset, any claim counts as foreign, which is the
 # safe default: an unnamed caller cannot prove the claim is its own.
@@ -670,6 +769,10 @@ up_p4() {
 
     preflight p4 || return 1
 
+    # What this run was asked for, written down before anything is built, so `status --check`
+    # has a baseline that does not depend on reading a P4-only knob back afterwards. (#8, N12)
+    record_up_target p4 "$hosts" "$topo"
+
     # -- 1. fabric --
     say "[1/3] bmv2 fabric"
     n="$(bmv2_count)"
@@ -933,6 +1036,10 @@ up_ovs() {
         rm -f "$fifo" "$out"; return 1
     fi
 
+    # Same as up_p4: the target is recorded once every pre-lab refusal has passed and just
+    # before the first thing that changes the machine. (#8, N12)
+    record_up_target ovs "$ovs_hosts" "$ovs_topo"
+
     say "[1/4] control plane (Ryu)"
     # NDTWIN_RYU_TOPO_FILE is set to the SAME file as TOPO_OVS, and that is the whole point.
     #
@@ -1159,6 +1266,11 @@ cmd_down() {
         say "[4/4] deep sweep (--deep)"
         deep_sweep
     fi
+
+    # The lab is no longer being asked for anything, so the baseline `status --check` compares
+    # against goes with it. Left in place it would make every later --check red about a fabric
+    # nobody wants; removed, the honest answer after a `down` is "could not check". (#8)
+    clear_up_target
 
     echo
     say "verify clean"
@@ -1618,12 +1730,130 @@ verify_sflow() {
 
 # --- status -----------------------------------------------------------------------
 
+# check_up_target <graph_hosts> <graph_edges> -- compare the running lab against the baseline
+# the last `ndt up` recorded. Empty arguments mean the kernel gave no graph.
+#
+# [Co-developed with claude code -- Adam]
+# Prints one row per field, live value beside recorded value, so the reader can see WHAT was
+# compared and not merely the verdict -- the old check printed a single sentence ("the kernel
+# graph does not match the topology file") that named neither the file nor the field.
+#
+# Fills UP_TARGET_PROBLEMS with one sentence per differing field, each naming that field.
+#   rc 0  every field compared and matched
+#   rc 1  at least one field differs, or could not be read (unobtainable is RED, never green)
+#   rc 3  there is no record: NOT CHECKED. Never reported as a match, and never as a mismatch.
+check_up_target() {
+    local g_hosts="${1:-}" g_edges="${2:-}"
+    UP_TARGET_PROBLEMS=()
+    local f; f="$(up_target_file)"
+
+    say "up target"
+    if [[ ! -f "$f" ]]; then
+        printf '  %-14s %s\n' "record" "${Y}none -- no 'ndt up' has run in this checkout${N}  (${f#$REPO/})"
+        printf '  %-14s %s\n' "" "there is no baseline, so --check did NOT check. this is not 'checked and matched'."
+        printf '  %-14s %s\n' "" "bring the lab up from this checkout first:  ndt up <target>"
+        printf '  %-14s %s\n' "" ".test_run/ is per checkout, so another checkout's 'up' is invisible here (finding #79)"
+        return 3
+    fi
+    local plane hosts topo sum m_hosts m_edges at by
+    plane="$(up_target_field plane)";       hosts="$(up_target_field hosts)"
+    topo="$(up_target_field topology)";     sum="$(up_target_field topology_sha256)"
+    m_hosts="$(up_target_field model_hosts)"; m_edges="$(up_target_field model_edges)"
+    at="$(up_target_field at)";             by="$(up_target_field by)"
+    if [[ -z "$plane" || -z "$hosts" || -z "$topo" ]]; then
+        printf '  %-14s %s\n' "record" "${Y}unreadable -- ${f#$REPO/} has no plane/hosts/topology${N}"
+        printf '  %-14s %s\n' "" "--check did NOT check. delete it and run 'ndt up' again."
+        return 3
+    fi
+
+    local when="$at"
+    [[ "$at" =~ ^[0-9]+$ ]] && when="$(date -d "@$at" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "$at")"
+    printf '  %-14s %s\n' "asked for" "$plane, $hosts hosts   (recorded $when by ${by:-?})"
+    printf '  %-14s %s\n' "topology" "$topo   (declares ${m_hosts:-?} hosts / ${m_edges:-?} edges)"
+
+    local bad=0
+    # row <field> <live> <want> -- print the comparison and record the difference by NAME.
+    _ut_row() {
+        local field="$1" live="$2" want="$3"
+        if [[ "$live" == "$want" ]]; then
+            printf '  %-14s %-22s %s\n' "$field" "$live" "== $want   ok"
+        else
+            printf '  %-14s %-22s %s\n' "$field" "${R}$live${N}" "${R}!= $want   MISMATCH${N}"
+            UP_TARGET_PROBLEMS+=("$field: the lab has '$live', the last 'ndt up' asked for '$want'")
+            bad=1
+        fi
+    }
+    # unreadable <field> <why> -- a question that could not be asked is a failure, not a pass.
+    _ut_unreadable() {
+        printf '  %-14s %s\n' "$1" "${R}$2 -- NOT COMPARED${N}"
+        UP_TARGET_PROBLEMS+=("$1: could not be compared against the 'ndt up' target ($2)")
+        bad=1
+    }
+
+    # 1. the data plane. The field whose absence made this check useless on OVS: (hosts, edges)
+    #    is (4, 40) for both the P4 and the OVS 4-host model, so without this row a bmv2 fabric
+    #    passes as the OVS fabric that was asked for, and vice versa.
+    local kind; kind="$(live_dataplane_kind)"
+    case "$kind" in
+        unknown) _ut_unreadable "dataplane" "cannot tell (ovs-vsctl refused; see the sudo grants block)" ;;
+        *)       _ut_row "dataplane" "$kind" "$plane" ;;
+    esac
+
+    # 2. the fabric itself, counted out of ps -- the only side of this that is not the model
+    #    talking about the model. 0 means the reading failed, and a failed reading is red
+    #    (same rule as verify_p4's model/fabric assertion).
+    local live_hosts; live_hosts="$(fabric_host_count)"
+    if [[ ! "$live_hosts" =~ ^[0-9]+$ ]] || [[ "$live_hosts" -eq 0 ]]; then
+        _ut_unreadable "fabric hosts" "no host namespaces found (fabric_host_count gave '${live_hosts:-<empty>}')"
+    else
+        _ut_row "fabric hosts" "$live_hosts" "$hosts"
+    fi
+
+    # 3+4. the kernel's own graph, through the north-bound API, as before.
+    if [[ -z "$g_hosts" || -z "$g_edges" ]]; then
+        _ut_unreadable "kernel graph" "the kernel gave no graph on :8000"
+    else
+        _ut_row "graph hosts" "$g_hosts" "$hosts"
+        _ut_row "graph edges" "$g_edges" "${m_edges:-?}"
+    fi
+
+    # 5. is the model file still the file that was loaded? An edit under a running kernel is
+    #    invisible in every count above, because the kernel pulled once at startup.
+    local path="$REPO/$topo" now
+    if [[ ! -f "$path" ]]; then
+        _ut_unreadable "topology file" "$topo is gone"
+    elif [[ ! "$sum" =~ ^[0-9a-f]{64}$ ]]; then
+        _ut_unreadable "topology file" "no sha256 was recorded at 'up' time"
+    else
+        now="$(sha256sum "$path" 2>/dev/null | cut -d' ' -f1)"
+        if [[ "$now" == "$sum" ]]; then
+            printf '  %-14s %-22s %s\n' "topology file" "sha256 ${sum:0:12}" "== recorded   ok"
+        else
+            printf '  %-14s %-22s %s\n' "topology file" "${R}sha256 ${now:0:12}${N}" "${R}!= ${sum:0:12}   CHANGED SINCE up${N}"
+            UP_TARGET_PROBLEMS+=("topology file: $topo has been edited since 'ndt up' loaded it; the kernel pulls once and never retries")
+            bad=1
+        fi
+    fi
+    unset -f _ut_row _ut_unreadable
+    return "$bad"
+}
+
 cmd_status() {
     local check="" ; [[ "${1:-}" == "--check" ]] && check=1
     local hosts topo rate n problems=()
+    # p4_proxy/mininet/host_count_override, and the P4 model that goes with it. This pair used
+    # to be presented as "the configuration" of whatever is running, which is finding #8: it is
+    # a P4-ONLY knob, `ndt up ovs4` never writes it, and on a 4-host OVS fabric it reported
+    # `hosts 128` and the P4 128-host model file. Kept, because it really does decide the next
+    # `ndt up p4`, but printed as what it is and NOT as a description of the running lab. What
+    # the running lab was asked to be comes from the up-target record below.
     hosts="$(host_count)"
     topo="$(topo_for_hosts "$hosts" p4)"
     rate="$(sample_rate)"
+    # The recorded target, when there is one -- it is what the "hosts" line should say.
+    local ut_plane ut_hosts ut_topo
+    ut_plane="$(up_target_field plane)"; ut_hosts="$(up_target_field hosts)"
+    ut_topo="$(up_target_field topology)"
 
     # -- who has the machine, and what code is this --
     say "lab"
@@ -1712,8 +1942,14 @@ cmd_status() {
 
     # -- the state that decides every number --
     say "configuration"
-    printf '  %-14s %s\n' "hosts" "$hosts"
-    printf '  %-14s %s\n' "topology" "$( [[ -n "$topo" ]] && echo "${topo#$REPO/}" || echo "NONE for $hosts hosts" )"
+    if [[ -n "$ut_plane" && -n "$ut_hosts" ]]; then
+        printf '  %-14s %s\n' "hosts" "$ut_hosts   (what the last 'ndt up' asked for: $ut_plane)"
+        printf '  %-14s %s\n' "topology" "${ut_topo:-?}"
+        printf '  %-14s %s\n' "p4 host knob" "$hosts   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')"
+    else
+        printf '  %-14s %s\n' "hosts" "$hosts   (p4_proxy/mininet/host_count_override -- P4 only; no 'ndt up' recorded here)"
+        printf '  %-14s %s\n' "topology" "$( [[ -n "$topo" ]] && echo "${topo#$REPO/}" || echo "NONE for $hosts hosts" )   (the P4 model that knob selects, NOT necessarily what is running)"
+    fi
     printf '  %-14s %s\n' "bmv2" "$(bmv2_binary)"
     if stale_pipeline; then
         printf '  %-14s %s   %s\n' "sample rate" "$(rate_label "$rate")" "${Y}<- from the BUILT json; the running switches predate it${N}"
@@ -1760,15 +1996,10 @@ cmd_status() {
         (( g_sdis > 0 ))   && problems+=("$g_sdis switch(es) are admin-disabled -- a power test may not have been undone")
         (( g_edown > 0 ))  && problems+=("$g_edown link(s) are down")
         (( g_edis  > 0 ))  && problems+=("$g_edis link(s) are admin-disabled")
-        # The model the kernel loaded must describe the fabric that exists.
-        local want
-        want="$(python3 -c '
-import json,sys; t=json.load(open(sys.argv[1]))
-print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1), len(t["edges"]))' "$topo" 2>/dev/null)"
-        if [[ -n "$want" && "$g_hosts $g_edges" != "$want" ]]; then
-            printf '  %-14s %s\n' "model" "${R}MISMATCH: graph has $g_hosts hosts / $g_edges edges, file says $want${N}"
-            problems+=("the kernel graph does not match the topology file")
-        fi
+        # The model comparison that used to live here compared the kernel graph against the
+        # P4 model that host_count_override selects -- on an OVS fabric, a file nobody loaded.
+        # It has moved into the "up target" block below, where the baseline is what `ndt up`
+        # was actually asked for and the data plane kind is part of the comparison. (#8)
     else
         printf '  %-14s %s\n' "switches" "kernel not answering; no graph"
     fi
@@ -1824,20 +2055,39 @@ print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1), len(t["edges"]))' "
             "$g_sw" "$g_up" "$g_en" "$g_hosts" "$g_edges"
     fi
     if port_open 8081; then
-        local paths
+        local paths ph="${ut_hosts:-$hosts}"
         paths="$(curl -s --max-time 5 http://localhost:8081/ryu_server/all_destination_paths | json_len all_destination_paths)"
         say "proxy"
-        echo "  ${paths:-?} destination paths (want $(( hosts * (hosts - 1) )) for $hosts hosts)"
-        [[ -n "$paths" && "$paths" != "$(( hosts * (hosts - 1) ))" ]] &&
-            problems+=("proxy reports $paths destination paths, want $(( hosts * (hosts - 1) ))")
+        echo "  ${paths:-?} destination paths (want $(( ph * (ph - 1) )) for $ph hosts)"
+        [[ -n "$paths" && "$paths" != "$(( ph * (ph - 1) ))" ]] &&
+            problems+=("proxy reports $paths destination paths, want $(( ph * (ph - 1) ))")
     fi
+
+    # -- does the running lab match what `ndt up` was asked for? (#8, decision N12 (a)) --
+    echo
+    check_up_target "${g_hosts:-}" "${g_edges:-}"; local utrc=$?
+    (( ${#UP_TARGET_PROBLEMS[@]} > 0 )) && problems+=("${UP_TARGET_PROBLEMS[@]}")
 
     # --check turns the report into a gate. Plain `status` always exits 0, so reading it by
     # hand never looks like a failure.
     if [[ -n "$check" ]]; then
         echo
+        # 🔴 "could not check" is its own answer, and it outranks "ok". With no baseline the
+        # report is not a verdict about the lab, so it must not exit 0 -- and it must not exit
+        # 1 either, because 1 means "I compared and found this wrong". Its own code, 3, and its
+        # own sentence. (The mismatch wording is unreachable from here: nothing was compared.)
+        if (( utrc == 3 )); then
+            say "${Y}check: COULD NOT CHECK -- no 'ndt up' target recorded in this checkout${N}"
+            printf '  - %s\n' "no baseline: run 'ndt up <target>' here first. this is NOT 'checked and matched'."
+            if (( ${#problems[@]} > 0 )); then
+                printf '  %s\n' "everything else this report could still check:"
+                printf '  - %s\n' "${problems[@]}"
+            fi
+            return 3
+        fi
         if (( ${#problems[@]} == 0 )); then
             say "${G}check: ok${N}"
+            printf '  %s\n' "compared against the last 'ndt up': dataplane, fabric hosts, kernel graph, topology file"
             return 0
         fi
         say "${R}check: ${#problems[@]} problem(s)${N}"
@@ -3498,6 +3748,12 @@ usage: ndt <command>
   status [--check]     what is running, who has the lab, and the state that
                 decides every number. --check also exits non-zero on anything
                 that would make a measurement untrustworthy.
+                  it compares the live lab against what the last 'ndt up' asked
+                  for, recorded in .test_run/up.target -- data plane kind, host
+                  count, kernel graph, and the model file's sha256.
+                  exit 0 all compared fields match; 1 one of them does not (the
+                  message names it); 3 nothing was compared, because no 'ndt up'
+                  has run in THIS checkout. 3 is never "checked and matched".
   clean         just the teardown assertion (exit 1 if anything survived)
   check         telemetry double-count tripwire
   apps [names]  start readers/apps; no args on a terminal = interactive picker
