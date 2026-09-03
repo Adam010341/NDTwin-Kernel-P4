@@ -10,43 +10,52 @@ can fix it. Everything else survives unattended.
 
 ---
 
-## 🔴 The one real time bomb
+## ~~The one real time bomb~~ — RETRACTED, it self-heals
+
+An earlier version of this file said VirtualBox would break at the next reboot
+and that only root could repair it, and gave a `dkms add` command to run first.
+**Both halves were wrong.** The command would also have failed outright:
+`/usr/src/vboxhost-7.1.18/` has no `dkms.conf`, because Oracle's `virtualbox-7.1`
+package does not use DKMS.
+
+The facts that made it look like a bomb are real:
 
 | measured | value |
 |---|---|
 | running kernel | `7.0.0-28-generic` |
-| kernels installed | `7.0.0-28-generic`, **`7.0.0-30-generic`** |
-| `vboxdrv.ko` built for | **`7.0.0-28-generic` only** |
-| `/lib/modules/7.0.0-30-generic/misc/` | **does not exist** |
-| `dkms status` | **empty — `vboxhost` is not registered** |
-| `/usr/src/vboxhost-7.1.18` | present (so a rebuild has everything it needs) |
-| `linux-headers-7.0.0-30` | installed |
-| `unattended-upgrades` | **enabled** (more kernels will keep arriving) |
-| `Automatic-Reboot` | off (so it will not reboot itself) |
+| kernels installed | `7.0.0-28`, **`7.0.0-30`** |
+| `vboxdrv.ko` built for | `7.0.0-28` only |
+| `/lib/modules/7.0.0-30-generic/misc/` | does not exist |
+| `dkms status` | empty |
 
-The modules are loaded right now only because the machine has been up 3 days on
-the old kernel. **The next reboot boots `-30`, finds no `vboxdrv`, and VirtualBox
-is dead** — no import, no boot, nothing. `VBoxManage` the file still exists, which
-is exactly how this was misread once before.
+What I had not read is what the already-enabled `vboxdrv.service` does at boot.
+`/usr/lib/virtualbox/vboxdrv.sh`:
 
-### Fix — one command, needs your password, ~1 minute
-
-```bash
-ssh -t nslab 'sudo dkms add -m vboxhost -v 7.1.18 && sudo dkms autoinstall && dkms status'
+```sh
+if ! running vboxdrv; then
+    # Check if system already has matching modules installed.
+    [ "$(setup_complete)" = "1" ] || setup
 ```
 
-Acceptance is **not** "apt printed no error". It is:
+`setup_complete()` just asks whether the three modules are available for the
+running kernel; if they are not, `setup` **rebuilds them**. The service runs as
+root at boot, and everything the rebuild needs is present:
 
-```bash
-ssh -n nslab 'dkms status; ls /lib/modules/7.0.0-30-generic/misc/vboxdrv.ko'
-```
+| precondition | state |
+|---|---|
+| `gcc`, `make` | present |
+| headers for `-28` and `-30` | both present |
+| `linux-headers-generic-hwe-24.04` meta | **installed** ⇒ future kernels bring their own headers |
+| Secure Boot | **disabled** ⇒ no module signing step to get stuck on |
 
-`dkms status` must name `vboxhost/7.1.18` against **both** kernels, and that
-`vboxdrv.ko` must exist. Registering it with DKMS also means **future** kernel
-updates rebuild the modules by themselves, which is the part that matters once
-nobody can reach the machine.
+⇒ **After a reboot onto a new kernel, VirtualBox repairs itself. Nothing to do,
+before leaving or after.**
 
----
+🔑 The lesson worth keeping: *"the module is built for the running kernel only"*
+is a true observation that says nothing on its own about whether anything breaks.
+The question is what runs at boot, and that meant reading the init script instead
+of inferring from the file listing. I inferred, and told Adam to run a command
+that could not have worked.
 
 ## 🟡 The one risk that cannot be fixed from here
 
@@ -116,8 +125,8 @@ Disk is not a constraint: **596 G free** of 915 G.
 
 ## Before you go — the short list
 
-1. **Run the DKMS command above.** This is the only item that silently breaks
-   later and cannot be repaired without root.
+1. ~~Run the DKMS command.~~ **Retracted — see above. VirtualBox repairs itself at boot; there is nothing to do.**
+
 2. **Ask the lab for a DHCP reservation** on `60:cf:84:bf:1f:59`.
 3. Nothing else needs doing. The machine comes back from a reboot by itself.
 
