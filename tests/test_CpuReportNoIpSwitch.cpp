@@ -285,6 +285,14 @@ TEST_F(NoIpSwitchTest, UpdateSwitchesInventsNoVertexForADpidTheTopologyDoesNotDe
 
 TEST_F(NoIpSwitchTest, AStatusRoundOverASwitchWithNoAddressDoesNotKillTheProcess)
 {
+    // Set rather than inherited. This flag is global and sticky, and test_LoggerCliArgs.cpp --
+    // linked into the same binary -- sets it per death test, so whatever this suite got would
+    // depend on execution order. "threadsafe" re-executes the binary for the child instead of
+    // forking it, which is what the other suites here use and what keeps gtest from warning
+    // about the threads test_KernelStopIsBounded leaves behind. The child re-runs this test body
+    // from the top, so the graph below is rebuilt in it.
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+
     buildManager(utils::MININET);
     addSwitch("10.0.0.1", 1);
     addSwitchWithNoIp(kAddresslessDpid);
