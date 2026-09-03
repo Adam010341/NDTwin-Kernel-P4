@@ -1,6 +1,6 @@
 # 今晨修法分支一覽（每支一頁）
 
-2026-09-03 上午 10:00–11:00 那批。基準：`trunk` = `3b321bb7`。
+2026-09-03 上午 10:00–11:00 那批。派工時的基準：`trunk` = `3b321bb7`；**寫這份之後 trunk 走到 `a986d876`**（多的都是稽核文件），下面標 base 的地方以各分支自己寫的為準。
 [Co-developed with claude code -- Adam]
 
 這是 `BRANCHES-FOR-REVIEW.md` 的**續篇，不是取代**。那份寫的是夜巡之前就存在的六支
@@ -11,9 +11,10 @@
 
 ## 讀之前先知道的四件事
 
-**1. 🔴 有一條分支被三個 agent 疊在一起了，這是我的疏失造成的。**
+**1. 曾經有一條分支被三個 agent 疊在一起，🏁 已於 12:2x 解開。**
 共用工作樹的 HEAD 被其中一支 agent 用 `git checkout -b` 移到 `fix/ports-that-block-restart`，
-之後兩個 agent 的 commit 就落在那裡。現況：
+之後兩個 agent 的 commit 就落在那裡，變成兩支分支同一個指標（併 ports 會連 priority 一起帶走）。
+當時的樣子：
 
 ```
 fix/ports-that-block-restart == fix/p4-priority-not-silently-dropped == 9d64a36a
@@ -23,8 +24,30 @@ fix/ports-that-block-restart == fix/p4-priority-not-silently-dropped == 9d64a36a
   b93a7a3f  Night rounds: one review page per unmerged fix/* branch ← 文件，該進 trunk
 ```
 
-**沒有東西遺失，但兩支分支現在是同一個指標。** 併 ports 會連 priority 一起帶進去，反之亦然。
-拆法寫在最後一節，需要你點頭才動（要動到已 checkout 的分支）。
+現在的樣子——**兩支各自從 trunk 長出來，交集 0 顆 commit**：
+
+```
+trunk a986d876
+ ├─ fix/ports-that-block-restart        2fe70075  (3 顆：fa40fc63 → 569094ec → 2fe70075)
+ └─ fix/p4-priority-not-silently-dropped 4c5a92da  (1 顆)
+```
+
+| 舊 sha | 新 sha | 說明 |
+|---|---|---|
+| `a8b0e1e5` | `fa40fc63` | ports 表本體，rebase 到 trunk |
+| `62a3aea8` | `569094ec` | FIX-PORT-TABLE 的補記 |
+| — | `2fe70075` | 🆕 auditor 補的：兩支 shell gate 從 100644 改成 100755 |
+| `9d64a36a` | `4c5a92da` | p4 priority，單獨 cherry-pick 到 trunk |
+
+**沒有東西遺失。** 舊鏈用 tag `pin/pre-untangle-2026-09-03` 釘住（＝舊的 `9d64a36a`），
+要對帳舊 sha 隨時找得到。**沒有推任何東西。**
+
+為什麼不是原地 `branch -f` 就好：ports 那條鏈掛在 `b93a7a3f`，而 trunk 在那之後多了四顆稽核文件
+commit ⇒ `git diff trunk..fix/ports-…` 會把那些文件顯示成**刪除**，你會看到一份不是這支在做的事的 diff。
+重設到 trunk 之後，`git diff trunk..<branch>` 剛好等於那支的修法，沒有雜訊。
+
+🔴 **rebase 過的碼要重驗**，所以兩支的變異閘我在新 sha 上又跑了一次（見 `AUDITOR-VERIFICATION.md`）：
+ports **9/9 全捕**、p4 **7/7 全捕**，兩支的 baseline 都 byte-identical。
 
 **2. 這批的閘門，有三支是我自己重跑過的，不是採信作者。**
 （見 `AUDITOR-VERIFICATION.md`。）上一批六支我做不到這件事——那六支只有 B-5 把 raw log
@@ -42,7 +65,7 @@ commit 進 repo。**這一批的差別是閘門腳本本身可以在乾淨 workt
 
 # 1／7 — `fix/deterministic-path-tiebreak`
 
-1 commit（`966734be`）｜base `3b321bb7`（＝目前 trunk）｜動 `p4_proxy/proxy_agent/{ryu_topology,topology_manager}.py`
+1 commit（`966734be`）｜base `3b321bb7`（**trunk 的祖先，非目前 trunk**）｜動 `p4_proxy/proxy_agent/{ryu_topology,topology_manager}.py`
 
 ## 1. 一句話
 
@@ -112,8 +135,8 @@ M3→`test_no_switch_on_a_shortest_path_is_left_dark`、M5→`test_same_answer_u
 
 # 2／7 — `fix/ports-that-block-restart`
 
-2 commits（`a8b0e1e5`、`62a3aea8`）｜🔴 分支上另有兩個別人的 commit（見前言第 1 點）
-｜動 `tools/test_workflow/{ndt,ndtwin-lab,ovs_4host_topo.py}` ＋新增 `ports.sh`
+3 commits（`fa40fc63`、`569094ec`、`2fe70075`）｜base `a986d876`（＝目前 trunk）｜🏁 糾纏已解（見前言第 1 點）
+｜動 `tools/test_workflow/{ndt,ndtwin-lab,ovs_4host_topo.py}` ＋新增 `ports.sh`＋兩支 gate 改 100755
 
 ## 1. 一句話
 
@@ -233,7 +256,7 @@ C++ 半邊未編未跑（上述）。`run()` 現在是 `try/catch` 包 `runLoop(
 
 # 4／7 — `fix/p4-priority-not-silently-dropped`
 
-1 commit（`9d64a36a`）｜🔴 指標與 ports 分支相同（見前言第 1 點）｜動 `p4_proxy/proxy_agent/api_routes.py`
+1 commit（`4c5a92da`）｜base `a986d876`（＝目前 trunk）｜🏁 已與 ports 分支分開（見前言第 1 點）｜動 `p4_proxy/proxy_agent/api_routes.py`
 
 ## 1. 一句話
 

@@ -1,6 +1,6 @@
 # Auditor verification of the morning fix branches
 
-2026-09-03, 10:30–10:50. [Co-developed with claude code -- Adam]
+2026-09-03, 10:30–10:50，＋12:2x 的解糾纏後重驗。[Co-developed with claude code -- Adam]
 
 Each fix agent reported its own gate. This file records what the **auditor re-ran
 independently**, in a throwaway worktree of the branch, without the agent present. An agent's
@@ -15,6 +15,28 @@ HEAD is never moved), run the gate there, read the exit code, keep the named-tes
 | `fix/ports-that-block-restart` (`62a3aea8`) | `tests/shell/mutate_ports_that_block_restart.sh` | baseline 18 checks, 0 failed; **9 mutations, 0 survived**; `ports.sh` and `ndt` byte-identical afterwards |
 | `fix/topology-load-fails-before-listen` (`896f6674`) | `tests/python/test_make_topology.py`, plus the generator both ways | 29 tests OK as a script and under `unittest` discovery; `--hosts 300` → rc=1 naming the 254-address ceiling; control `--hosts 8` → rc=0, still emits a full model |
 | `fix/p4-priority-not-silently-dropped` (`9d64a36a`) | `tests/shell/mutate_p4_priority_refusal.sh` | **7 mutations, 0 survived**, exit 0; each caught by the test the script names, including the four that must NOT fire (the kernel's priority-less delete, `makeModifyJob`'s absent-priority 0, the -1 non-strict sentinel, a five-tuple match); `api_routes.py` byte-identical afterwards |
+
+## 12:2x — 解糾纏後的重驗（新 sha，不是上面那批）
+
+`fix/ports-that-block-restart` 與 `fix/p4-priority-not-silently-dropped` 原本指向同一顆
+`9d64a36a`。解開的做法是：ports 那三顆 rebase 到 trunk，p4 那顆單獨 cherry-pick 到 trunk。
+**rebase／cherry-pick 產生的是沒有人驗過的新 commit**，所以兩支的閘門在新 sha 上重跑：
+
+| Branch | 新 sha | Re-run | Observed |
+|---|---|---|---|
+| `fix/ports-that-block-restart` | `2fe70075` | `tests/shell/mutate_ports_that_block_restart.sh` | baseline `Ran 18 checks, 0 failed`；**9 mutations, 0 survived**（M1…M9 逐一寫出是哪一個 check 變紅）；`baseline byte-identical: yes (ports.sh and ndt)` |
+| `fix/p4-priority-not-silently-dropped` | `4c5a92da` | `tests/shell/mutate_p4_priority_refusal.sh` | **7 mutations, 0 survived**, exit 0；四個「必須不觸發」的仍然不觸發；`api_routes.py` byte-identical |
+
+另外補了一顆 `2fe70075`：`tests/shell/{mutate_,test_}ports_that_block_restart.sh` 從 `100644`
+改成 `100755`。兩支都帶 `#!/usr/bin/env bash`，而 `tests/shell/` 底下每一支被直接呼叫的同類都是
+`100755`。**變異 harness 遮住了這件事**——它用 `bash "$TEST"` 呼叫，所以閘門一直是綠的，而
+`./tests/shell/test_ports_that_block_restart.sh` 這條路徑根本跑不起來。改完後直接呼叫實測
+`Ran 18 checks, 0 failed`。`tools/test_workflow/ports.sh` 刻意留在 `100644`：`ndt` 是 source 它，
+mutant builder 也只 `chmod +x` 旁邊的 `ndt`。
+
+🔴 **一個 setsid 的坑順手記著**：`setsid <cmd> > log` 在背景執行時會**立刻返回 rc=0**（setsid fork
+後父行程就退了），工具因此回報「completed, exit code 0」，而閘門其實才跑到 M3。**那個 rc 是 setsid
+的，不是閘門的。** 判定一律讀 log 的結尾行，不要讀 exit code。
 
 ## What this does NOT establish
 

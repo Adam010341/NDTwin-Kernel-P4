@@ -21,9 +21,14 @@
 | **第 1 件** 路由不確定 | `fix/deterministic-path-tiebreak` | 5 mutations, 0 survived | 沒有 live 的十次 bring-up 確認 |
 | **第 2 件** 的「看不見」那一半 | `fix/telemetry-health-visible` | **auditor 編後 17/18** | agent 死亡→我救援；原本**編不過**，修好後紅在一個沒有任何綠測試在約束的帶寬邊界 |
 | **第 3 件** bmv2 liveness 競態 | `fix/d15-dataplane-kind-race` | **auditor 編後 3/4** | 紅的**不是修法是測試**（漏掉 `manager->start()`）；🔴 **要先併 B-5 才關得起來**；4 列回歸仍全未跑 |
-| 夜巡重複五次的殘留形狀 | `fix/ports-that-block-restart` | 9 mutations, 0 survived | 兩支閘門腳本 commit 成 `100644` |
-| P4 priority 靜默丟棄 | `fix/p4-priority-not-silently-dropped` | 7 mutations, 0 survived（含四個反向） | 未經 live |
+| 夜巡重複五次的殘留形狀 | `fix/ports-that-block-restart` → `2fe70075` | 9 mutations, 0 survived（**解糾纏後重跑**） | 🏁 `100644` 已改成 `100755` |
+| P4 priority 靜默丟棄 | `fix/p4-priority-not-silently-dropped` → `4c5a92da` | 7 mutations, 0 survived（含四個反向，**解糾纏後重跑**） | 未經 live |
 | 拓樸檔壞掉才發現 | `fix/topology-load-fails-before-listen` | 29 tests ＋兩向對照 | 🔴 **C++ 半邊未編未跑** |
+
+🏁 **那條「兩支分支同一個指標」的糾纏已經解開**（12:2x）：ports 三顆 rebase 到 trunk（`2fe70075`）、
+p4 priority 單獨 cherry-pick 到 trunk（`4c5a92da`），交集 0 顆 commit，兩支的變異閘在新 sha 上都重跑過
+（9/9、7/7，baseline 都 byte-identical）。舊鏈用 tag `pin/pre-untangle-2026-09-03` 釘住。**沒有推任何東西。**
+細節與新舊 sha 對照在 `FIX-BRANCHES-FOR-REVIEW.md` 前言第 1 點。
 
 🔴 **第 2 件的低報本身沒有人在修。** `fix/telemetry-health-visible` 修的是「所有健康訊號都說正常」，
 不是 2.76 倍那個數字——**成因還沒釘到單一行，現在派修法會是猜。**
