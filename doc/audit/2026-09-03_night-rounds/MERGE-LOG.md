@@ -50,3 +50,9 @@ topo-load×D15 在 `TopologyAndFlowMonitor::start()` **語意重疊**（兩支�
 | — | **trunk fast-forward** | 見下 | 共用工作樹有 16 個 tracked 髒檔（早上我派的 agent 留下的草稿）；逐檔比對整合分支：15 個是**子集**（無獨有行）、1 個（`stack.sh`）是真工作、已接進。還原那 15 個（備份在 scratchpad `ff-discarded-drafts/`）後 ff |
 | — | **trunk fast-forward 完成** | ✅ | 期間 trunk 兩度被同事的 A-9／A-10 純文件 commit 推進，兩次都先併進整合分支（零交集、零 C++）再 ff。擋路的兩類：(1) 16 個 tracked 髒檔——12 個對整合分支零獨有行，**4 個有「獨有行」但是舊草稿**（`FlowLinkUsageCollector.cpp` +119＝telemetry 舊版含 `>`、`TopologyAndFlowMonitor.cpp` +27＝D15 doc 註解舊寫法、`DeviceConfigurationAndPowerManager.cpp` +1 註解、`tests/CMakeLists.txt` +3＝telemetry 那三行的舊位置）；(2) 16 個**未追蹤**檔＝agent 在共用樹裡的工作副本，13 個與整合版 byte-identical、3 個是更早的草稿（`test_DataPlaneKindOrdering.cpp` 修 fixture 前、`test_TelemetryHealth.cpp` 補 `sflow::` 前、`FIX-TOPOLOGY-COMPLETENESS.md` 舊版）。**全部備份（含各自對整合分支的 diff）於 `/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/ff-discarded-drafts-1642`** 後還原／移除。auditor 裁決，依 Adam「怎麼合併你自己決定」 |
 
+## 第二批（16:xx 派、從 `5c64d432` 長）
+
+| # | 分支 | 裁決 | 理由 / 衝突 / 事後動作 |
+|---|---|---|---|
+| 19 | `fix/ovs4-has-sflow`（#4） | ✅ 併 | 4 commits。**auditor 乾淨樹重跑**：閘門 24/0、`test_ovs4_sflow.py` 21 OK、`test_ovs4_sflow_verify.sh` 48/0；raw 15 檔在 `audit-raw @ dc0a84d2`；主樹暫換過的 `ovs_4host_topo.py` 已按 sha 還原（`0b3f9796`）。live：ovs4 sflow 0→10 列、負載下 `avg_link_usage` 0.0→0.504（五次）、停後 8 s 回 0、對照組 128 台 0.196–0.274 與 `testbed_topo.py` 舊註記一致。對 trunk 乾淨；合併樹上動 `ndt` 的六套 shell 套件＋python 全綠。**未做**：`verify_sflow` 只掛 `up_ovs` 沒掛 `status --check`；`avg_link_usage` 的數值語意未對帳 |
+
