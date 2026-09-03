@@ -40,12 +40,26 @@
 
 ## ③ 閘門證據
 
-**以下全部是我自己在這台機器上跑的**，不是轉述。原始輸出見同目錄各檔。
+**以下全部是我自己在這台機器上跑的**，不是轉述。
+
+🔴 **原始輸出全部在 `audit-raw` 分支的 `19e3ab88`**（CLAUDE.md：raw 進 audit-raw），路徑
+`doc/audit/2026-09-03_fix-poll-resurrect/raw/`。這個 doc 目錄只留這份 write-up 與可重跑的
+harness `phase_a_trials.py`。讀某一份：
+
+```
+git show audit-raw:doc/audit/2026-09-03_fix-poll-resurrect/raw/<檔名>
+```
+
+十三個檔：`01_gate_mutate_poll_does_not_resurrect.log`（＝`gate_mutate_poll_does_not_resurrect.log`，
+同一次跑的兩個檔名，blob 相同）、`02_phase_a_base.log{,.json}`、`03_phase_a_fixed.log{,.json}`、
+`04_fixed_arm_kernel_declines.log`、兩臂各約 2 MB 的 `kernel_base_arm.log`／`kernel_fixed_arm.log`、
+以及兩次作廢的 base 跑 `02_phase_a_base_firstrun_no_latency_probe.log{,.json}`
+與 `02_phase_a_base_polltimes_invalid.log{,.json}`。
 
 ### 3.1 變異閘 `tests/shell/mutate_poll_does_not_resurrect.sh`
 
 `/home/adam/Desktop/NDTwin-Kernel/tools/build_guard/guarded_build.sh ./tests/shell/mutate_poll_does_not_resurrect.sh`
-全文在 `01_gate_mutate_poll_does_not_resurrect.log`：
+全文：`git show audit-raw:doc/audit/2026-09-03_fix-poll-resurrect/raw/01_gate_mutate_poll_does_not_resurrect.log`
 
 ```
   ok       baseline green (11 cases in PollDoesNotResurrectTest.*)
@@ -102,7 +116,8 @@
 
 #### 3.3.1 結果一：poll 的那扇門——**6/9 被擋下，每一次都在 poll 的瞬間**
 
-fixed 臂的 kernel log（`04_fixed_arm_kernel_declines.log`）對照 trial 的 `t_off`：
+fixed 臂的 kernel log（`git show audit-raw:doc/audit/2026-09-03_fix-poll-resurrect/raw/04_fixed_arm_kernel_declines.log`，
+未裁切的原本在同目錄 `kernel_fixed_arm.log`）對照 trial 的 `t_off`：
 
 | trial | t_off | 拒絕復活的 WARN | 差 |
 |---|---|---|---|
@@ -173,9 +188,11 @@ helper 去讀 manifest pid、比對 `/proc`、回 `already-stopped` 並 exit 0�
   取樣率 1/256，與本實驗無關。
 - claim 期間 `exclusive_cpu=no`，其他 session 可能同時在編譯；每個 trial 都記了自己的相位
   （9/9 都是 poll+28.5 s 開火、poll 落在 t_off+2.6 s），沒有看到被污染的樣本。
-- `polls applied ...` 這個欄位在**第一次** base 跑（`raw/02_phase_a_base_polltimes_invalid.log`）
+- `polls applied ...` 這個欄位在**第一次** base 跑
+  （`git show audit-raw:doc/audit/2026-09-03_fix-poll-resurrect/raw/02_phase_a_base_polltimes_invalid.log`）
   是壞的：drain 放在 40 s 視窗**之後**，所以每一筆都被蓋上 drain 的時間（都是 t_off+39.9）。
-  已改成在取樣迴圈內 drain，正式的兩臂都是修好的儀器。壞的那份留在 `raw/` 並在檔名裡說明。
+  已改成在取樣迴圈內 drain，正式的兩臂都是修好的儀器。壞的那兩份連同更早一次沒有延遲探針的跑
+  都留在 audit-raw 上，並在檔名裡說明作廢的理由——丟掉它們是一個關於儀器的宣稱，那個宣稱要可查。
   另外每個視窗第一次 drain 會把上一次 drain 之後累積的行一起蓋上時戳，所以 `t_off+~0.3 s` 那幾筆
   是 backlog 不是抵達時間；真正的 in-window poll 是 2.6 s 與 33.3 s 那兩筆（間隔 30.7 s，與 cadence 一致）。
 - 🔴 **`ndt` 的 claim 是 per-checkout 的**（`CLAIM="$REPO/.test_run/lab.claim"`，`$REPO` 來自腳本位置）。
