@@ -25,11 +25,25 @@ under test and this codebase has twelve documented "fails while reporting succes
      and their docstrings say what that costs.
   2. **Every shell-out carries a timeout.** `popen(curl)` has been measured wedging for
      131 s against an IPv6 blackhole. "Known to fail" is not the same as "fails cheaply".
+  3. **No request leaves this module with a method the kernel does not register for that
+     path.** Added 2026-09-03, FINDINGS-ALL #17. Rules 1 and 2 both assume the request
+     ASKED THE RIGHT QUESTION, and five call sites did not: they sent GET to
+     `/ndt/set_switches_power_state`, which `HttpSession.cpp:189` registers under
+     `http::verb::post` alone. Rule 1 then did its job perfectly and made things worse --
+     the 404 was carried honestly all the way back to a caller that read it as a
+     measurement of the system.
+
+     `assert_route` is called inside `_request`, before curl runs, and raises `HarnessBug`.
+     `HarnessBug` is deliberately **not** a subclass of `NotAnswered`, so the lenient
+     `api_get` / `api_post` cannot absorb it: "the system answered nothing" and "this
+     harness asked the wrong question" are different facts with different remedies, and
+     collapsing them is the whole of #17.
 
 [Co-developed with claude code -- Adam]
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import math
 import os
@@ -87,6 +101,50 @@ class NotAnswered(Exception):
                          + (" (the route is not registered)" if status == 404 else ""))
 
 
+class HarnessBug(Exception):
+    """This harness asked a question the kernel has no route for. Not a fact about NDTwin.
+
+    [Co-developed with claude code -- Adam] -- FINDINGS-ALL #17.
+
+    🔴 NOT a subclass of `NotAnswered`, and that is the entire point. `NotAnswered` means the
+    system was asked properly and did not give an answer a caller may reason about, and the
+    lenient `api_get` / `api_post` absorb it into `None` on purpose, for callers that tolerate
+    a missing endpoint. If a wrong-method request arrived as a `NotAnswered`, those same
+    wrappers would absorb it too -- and a defect in the instrument would go on being read as a
+    reading of the instrument's subject, which is what #17 is.
+
+    So this one escapes every lenient path and reaches the caller as an exception. There is no
+    tolerant reading of "the harness sent GET to a POST-only route": nobody's round is
+    salvaged by continuing, and the verdict that follows would be about this file.
+    """
+
+
+class RouteNotRegistered(HarnessBug):
+    """(method, path) is not in the kernel's dispatch chain.
+
+    Covers both shapes #17 names: a route that exists under a DIFFERENT verb (the GET-at-a-
+    POST-route family, five call sites) and a route the kernel has never registered at all
+    (`/ndt/get_all_destination_paths`, the G-3 family). Both produce a 404 on the wire and
+    both were being read as content.
+    """
+
+    def __init__(self, method: str, path: str, detail: str):
+        self.method = method
+        self.path = path
+        super().__init__(f"{method} {path}: {detail} -- this is a defect in the harness, not a "
+                         f"reading of the kernel; nothing may be concluded from the response")
+
+
+class RouteTableUnavailable(HarnessBug):
+    """The kernel's dispatch chain could not be read, so no route can be verified.
+
+    Loud rather than permissive, on the `OVERRIDE_UNREADABLE` precedent in `bmv2_provenance`
+    below: a check that silently becomes no check is worse than no check, because the report
+    still carries the sentence that says it ran. A harness that cannot verify its own routes
+    has no business publishing verdicts about what the answers mean.
+    """
+
+
 class SchemaDrift(Exception):
     """The graph payload did not carry the field a check depends on.
 
@@ -106,6 +164,122 @@ def run(argv: list[str], timeout: float = 5.0,
         return p.returncode, p.stdout, p.stderr
     except subprocess.TimeoutExpired:
         raise Timeout(f"{argv[0]} exceeded {timeout}s")
+
+
+# --------------------------------------------------------------------------------------------
+# Route conformance -- (method, path) against the kernel's real dispatch chain
+#
+# 🔴 The table is NOT transcribed here. `tools/contract_test/components.py` already owns the
+# one scanner in this repo that parses the if/else-if chain out of HttpSession.cpp, and it
+# already knows all three registration spellings (`==`, `.starts_with(`, `utils::pathIs(` --
+# the third added 2026-09-03 for KNOWN-ISSUES L-5). A second hand-copy living here would be a
+# second thing to rot, and the failure mode of a rotted route table is a harness that refuses
+# routes the kernel serves -- the exact false-negative this guard exists to prevent.
+#
+# It reads the SOURCE rather than `components.KERNEL_ENDPOINTS`, which is hand-maintained and
+# is currently stale: it omits GET /ndt/get_sflow_stats, added to HttpSession.cpp by the
+# telemetry-health merge. `check_dispatch_drift()` reports that, and it is that check's job,
+# not this one's.
+# --------------------------------------------------------------------------------------------
+_ROUTES: dict[str, str] | None = None
+
+
+def _find_repo_root() -> str | None:
+    """Walk up from THIS FILE to the kernel repo. NDT_KERNEL_REPO overrides.
+
+    Resolved from `__file__`, not from the cwd, for the reason recorded in `bmv2_provenance`:
+    the same walk written against the cwd made a check quietly become no check, and only for
+    the people who ran it the normal way.
+    """
+    override = os.environ.get("NDT_KERNEL_REPO")
+    if override:
+        return override
+    here = os.path.dirname(os.path.abspath(__file__))
+    for _ in range(10):
+        if os.path.isdir(os.path.join(here, "tools", "contract_test")):
+            return here
+        parent = os.path.dirname(here)
+        if parent == here:
+            return None
+        here = parent
+    return None
+
+
+def kernel_routes() -> dict[str, str]:
+    """{route name without /ndt/: VERB} straight out of src/ndt_core/http/HttpSession.cpp.
+
+    Raises RouteTableUnavailable rather than returning an empty dict. An empty table would
+    make `assert_route` refuse everything, which reads in a report exactly like a kernel that
+    registers nothing -- another instrument failure wearing the system's clothes.
+    """
+    global _ROUTES
+    if _ROUTES is not None:
+        return _ROUTES
+
+    repo = _find_repo_root()
+    if repo is None:
+        raise RouteTableUnavailable(
+            "could not locate the kernel repo by walking up from this file, and NDT_KERNEL_REPO "
+            "is unset, so no route can be checked against the dispatch chain")
+    comp_py = os.path.join(repo, "tools", "contract_test", "components.py")
+    cpp = os.path.join(repo, "src", "ndt_core", "http", "HttpSession.cpp")
+    for p in (comp_py, cpp):
+        if not os.path.exists(p):
+            raise RouteTableUnavailable(f"{p} is missing; the dispatch chain cannot be read")
+    try:
+        spec = importlib.util.spec_from_file_location("_ndt_components", comp_py)
+        mod = importlib.util.module_from_spec(spec)          # type: ignore[arg-type]
+        spec.loader.exec_module(mod)                          # type: ignore[union-attr]
+        table = mod.scan_kernel_dispatch(cpp)
+    except Exception as e:                                    # noqa: BLE001 -- report, don't cope
+        raise RouteTableUnavailable(f"scan_kernel_dispatch({cpp}) failed: {e}") from e
+    if not table:
+        raise RouteTableUnavailable(
+            f"the scanner found ZERO routes in {cpp}. That is a scanner or source change, not a "
+            f"kernel with no endpoints, and refusing every request on the strength of it would "
+            f"publish the harness's own breakage as a finding")
+    _ROUTES = table
+    return _ROUTES
+
+
+def route_name(path: str) -> str:
+    """`/ndt/historical_logging?state=enable` -> `historical_logging`.
+
+    The query string is dropped because the dispatch chain matches on the path: the kernel's
+    own handlers pull `ip`, `action`, `state`, `dpid` out with `utils::queryParam` AFTER
+    routing. Which is why a wrong query parameter is a 400 and a wrong METHOD is a 404 -- two
+    different defects, and #17's call sites had both at once.
+    """
+    return path.split("?", 1)[0].rstrip("/").removeprefix("/ndt/")
+
+
+def assert_route(method: str, path: str, base: str = KERNEL) -> None:
+    """Refuse, before the request is sent, any (method, path) the kernel does not register.
+
+    [Co-developed with claude code -- Adam] -- FINDINGS-ALL #17.
+
+    ⚠️ SCOPE, stated because a guard's boundary is the first thing to vanish in a handoff:
+    this checks the KERNEL only. `base=PROXY` is a different server (Ryu, `/stats/...`,
+    `/p4/...`) whose dispatch table this repo does not own and cannot scan, so those calls
+    pass unchecked and that gap is real. It is recorded in the fix document rather than
+    papered over by pretending the check covers them.
+    """
+    if base != KERNEL:
+        return
+    name = route_name(path)
+    if not path.startswith("/ndt/"):
+        raise RouteNotRegistered(method, path,
+                                 "the kernel serves only /ndt/* and this path is not one")
+    table = kernel_routes()
+    if name not in table:
+        raise RouteNotRegistered(
+            method, path,
+            f"/ndt/{name} is not one of the {len(table)} routes HttpSession.cpp registers")
+    if table[name] != method:
+        raise RouteNotRegistered(
+            method, path,
+            f"the kernel registers /ndt/{name} under {table[name]} only, so a {method} falls "
+            f"through the if/else-if chain to 404")
 
 
 # --------------------------------------------------------------------------------------------
@@ -129,7 +303,13 @@ def _request(method: str, path: str, base: str, payload: dict | None = None) -> 
     writes 000 there and exits non-zero; both are treated as "no answer".
 
     The status is read, acted on, and then dropped. It never reaches a caller as a value.
+
+    🔴 The route is checked BEFORE curl runs (#17). Deliberately before, not after: a
+    wrong-method request costs a real round trip against a real kernel and comes back 404 in
+    ~0.007 s, and "suspiciously fast" is A-1's signature -- so sending it at all manufactures
+    the evidence the caller is about to weigh.
     """
+    assert_route(method, path, base)
     url = f"{base}{path}"
     argv = ["curl", "-s", "--max-time", str(CURL_MAX_TIME), "-w", "\n%{http_code}"]
     stdin = None
@@ -212,9 +392,33 @@ def api_post_timed(path: str, payload: dict, base: str = KERNEL) -> tuple[Any | 
     timing alone and a request that matched no route at all came back in 0.0069 s and was scored
     as a reproduction. Fast means "this returned quickly", not "this returned quickly having
     skipped the work" -- the second reading needs a state check beside it.
+
+    ⚠️ LENIENT, so a 400 or a 500 becomes `None` and the clock keeps its reading. Any caller
+    whose verdict is the DURATION must use `api_post_checked_timed` instead: a refusal is fast,
+    and a fast refusal timed by this function is indistinguishable from the defect.
     """
     t0 = time.monotonic()
     body = api_post(path, payload, base)
+    return body, time.monotonic() - t0
+
+
+def api_post_checked_timed(path: str, payload: dict,
+                           base: str = KERNEL) -> tuple[Any | None, float]:
+    """POST with wall-clock, raising `NotAnswered` on anything that is not a 2xx.
+
+    [Co-developed with claude code -- Adam] -- FINDINGS-ALL #17.
+
+    The honest counterpart of `api_post_timed`, for the one use latency has here: an elapsed
+    time is only evidence about the work if the work was REACHED. A 404, a 405 and a 400 all
+    return in single-digit milliseconds, so a timing check built on a lenient call has its
+    fastest, most confident answer exactly when nothing ran -- which is how INV-01's latency
+    check came to report "A-1 early return" on every round it was ever asked to make.
+
+    The clock starts before the request and is reported only on the success path. On the
+    failure path there is no duration to hand back, because there is nothing it measured.
+    """
+    t0 = time.monotonic()
+    body = api_post_checked(path, payload, base)
     return body, time.monotonic() - t0
 
 

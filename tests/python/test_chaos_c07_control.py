@@ -49,6 +49,12 @@ HARNESS = os.environ.get("NDT_CHAOS_HARNESS") or os.path.join(
     REPO, "doc", "audit", "2026-08-28_chaos-harness", "harness")
 sys.path.insert(0, HARNESS)
 sys.path.insert(0, os.path.join(REPO, "tools", "contract_test"))
+# 🔧 2026-09-03, FINDINGS-ALL #17. probes.assert_route reads the kernel's dispatch chain by
+# walking up from probes.py to find the repo; under this file's own mutation gate probes.py is
+# a copy in /tmp, where that walk finds nothing and every request would be refused as
+# unverifiable. Pinning it here keeps the route table coming from the REAL kernel source, so a
+# mutation to the harness never also mutates the authority the harness is checked against.
+os.environ.setdefault("NDT_KERNEL_REPO", REPO)
 
 import actions  # noqa: E402
 import components  # noqa: E402
@@ -181,9 +187,15 @@ class StatusIsNotDiscarded(ProbeBase):
         self.assertEqual(probes.api_get_checked("/ndt/get_graph_data"), {"ok": 1})
 
     def test_404_raises_and_carries_the_status(self):
+        # 🔧 2026-09-03, FINDINGS-ALL #17: the route is now checked before the request is sent,
+        # so this case can no longer use a phantom path as an arbitrary URL -- probes.assert_route
+        # refuses it as a harness bug before _request's status handling is ever reached. The
+        # subject here is the STATUS handling, so the fixture uses a registered route and the
+        # fake kernel answers 404 for it. Unchanged in intent; see
+        # tests/python/test_chaos_invariants_method.py for the route guard itself.
         self.curl(status=404, body={"error": "no such endpoint"})
         with self.assertRaises(probes.NotAnswered) as cm:
-            probes.api_get_checked("/ndt/get_historical_data")
+            probes.api_get_checked("/ndt/get_graph_data")
         self.assertEqual(cm.exception.status, 404)
         self.assertIn("not registered", str(cm.exception))
 
@@ -212,10 +224,17 @@ class StatusIsNotDiscarded(ProbeBase):
 
     def test_the_lenient_probes_still_answer_none_for_callers_that_tolerate_it(self):
         """Unchanged contract: existing callers that genuinely cope with a missing endpoint
-        keep their behaviour. What changed is that a verdict may no longer be built on it."""
+        keep their behaviour. What changed is that a verdict may no longer be built on it.
+
+        🔧 2026-09-03, FINDINGS-ALL #17: registered routes now, for the reason above -- and the
+        distinction they draw is the point of this case. A REGISTERED route answering 404 (the
+        flow is not there) is still absorbed into None, because that is a state a caller may
+        tolerate. An UNREGISTERED route, or the wrong method for a real one, is not: it raises
+        HarnessBug, which no lenient wrapper catches.
+        """
         self.curl(status=404, body={"error": "x"})
-        self.assertIsNone(probes.api_get("/ndt/whatever"))
-        self.assertIsNone(probes.api_post("/ndt/whatever", {}))
+        self.assertIsNone(probes.api_get("/ndt/get_switch_openflow_table_entries?dpid=99"))
+        self.assertIsNone(probes.api_post("/ndt/historical_logging?state=enable", {}))
 
 
 # ============================================================================================
