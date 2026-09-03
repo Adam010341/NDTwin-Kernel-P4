@@ -774,21 +774,26 @@ class TopologyManager:
         if drop:
             search = nx.restricted_view(search, [], drop)
 
+        # [Co-developed with claude code -- Adam]
+        # 🔴 This used to be `nx.shortest_path` per pair, which is BFS, which breaks an
+        # equal-length tie by neighbour iteration order -- i.e. by `add_link` insertion order,
+        # i.e. by LLDP packet-in arrival across the ten receive threads named above. On the
+        # shipped 4-host P4 fabric that is an eight-way tie for h3 -> h1, and eight bring-ups of
+        # one command produced four different fabric-wide routing tables and five different
+        # published utilisations for the s3-s7 link (round 5, 2026-09-03). `canonical_paths_to`
+        # ranks the equal-distance candidates by a fixed digest of (destination, here, candidate)
+        # instead: same edge set, same answer, whatever order it arrived in. See the block above
+        # `_node_token` in ryu_topology for why the key is destination-keyed and hashed rather
+        # than lowest-dpid-wins.
+        #
+        # One distance sweep per destination now serves every source, so this also stops being
+        # a quadratic number of full searches.
         for dst in nodes:
-            paths_dict[dst] = {}
-            for src in nodes:
-                if src == dst:
-                    continue
-                try:
-                    # BFS shortest path
-                    path = nx.shortest_path(search, source=src, target=dst)
-                    paths_dict[dst][src] = {
-                        "path": path,
-                        "length": len(path) - 1
-                    }
-                except nx.NetworkXNoPath:
-                    pass
-                    
+            paths_dict[dst] = {
+                src: {"path": path, "length": len(path) - 1}
+                for src, path in ryu_topology.canonical_paths_to(search, dst).items()
+            }
+
         self.dest_paths = paths_dict
         return self.dest_paths
 

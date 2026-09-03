@@ -293,14 +293,162 @@ def render_destination_paths(net, down_endpoints=(), installed=None) -> dict:
     return {"status": "success", "all_destination_paths": paths}
 
 
+# --- Canonical shortest paths. [Co-developed with claude code -- Adam] ------------------------
+#
+# 🔴 `nx.shortest_path` on an unweighted graph is BFS, and BFS breaks an equal-length tie by the
+# order it iterates a node's neighbours -- which for `nx.DiGraph` is *insertion* order. This
+# graph is filled by `TopologyManager.add_link` from ten concurrent gRPC receive threads as LLDP
+# discovers links, so insertion order is packet arrival order and the tie is decided by a race.
+#
+# Measured (round 5, 2026-09-03): the shipped 4-host P4 fabric has EIGHT equal-length h3 -> h1
+# paths. Eight bring-ups of the same command on the same file put s3's traffic out via s7 four
+# times and via s8 four times, and the utilisation published for the s3-s7 link took five
+# distinct values -- from one command, one file, one machine, inside ten minutes. Rebuilding the
+# same edge set here in 300 different insertion orders reproduces all eight paths.
+#
+# The fix is a canonical tie-break, not a lock. Serialising the inserts would only make one
+# arbitrary order likelier; the answer would still be undefined. Three properties are wanted and
+# two of them constrain the key:
+#
+#   1. DETERMINISTIC -- a pure function of the edge set, never of insertion order. Distances are
+#      already order-independent; only the choice among equal-distance next hops was not.
+#   2. DESTINATION-KEYED, NOT SOURCE-KEYED. `install_initial_routes` writes one rule per
+#      (switch, destination IP) into `ipv4_lpm`, so a switch has exactly one next hop per
+#      destination no matter who sent the packet. A key containing the source would let the path
+#      advertised for h3 -> h1 disagree with the rule s7 actually holds for 10.0.0.1: measured on
+#      this fabric, 22 advertised hops out of the all-pairs set disagreed. Keying on
+#      (destination, this node, candidate) makes the advertised path and the installed hop-by-hop
+#      forwarding the same object by construction. `get_path_switch_count` counts the hops of a
+#      path nobody has to trust separately.
+#   3. SPREAD ACROSS PARALLEL LINKS. The obvious canonical rule -- lowest dpid wins -- is
+#      deterministic and concentrates load: on this fabric it puts every rule on s5, s7 and s10
+#      and leaves s6, s8 and s9 carrying nothing at all. Ranking by a digest of
+#      (destination, here, candidate) is just as deterministic and spreads the same 24 rules over
+#      all six core switches, because the digest varies with the destination.
+#
+# This is ordinary destination-based ECMP with a fixed hash, which is what the hardware being
+# modelled does. What it deliberately is NOT is *load-adaptive* balancing -- "send it out of
+# whichever uplink is quieter". That would be better balanced and it would put the defect back:
+# the path would depend on traffic at the moment of computation, so the same experiment would
+# stop being reproducible again. Where balance and determinism conflict, determinism wins; the
+# balance kept here is the static kind, which costs determinism nothing.
+#
+# `hashlib`, not `hash()`: `hash()` on a str is salted per process by PYTHONHASHSEED, so it would
+# trade an insertion-order race for a per-process one -- the same defect wearing a hat.
+
+def _node_token(node) -> bytes:
+    """
+    A node identifier as canonical bytes, stable across processes, runs and versions.
+
+    Type-tagged because this graph mixes switch dpids (int) with host IPs (str) and `2` must not
+    collide with `"2"`.
+    """
+    if isinstance(node, bool):
+        # bool is an int subclass; keep it out of the int branch so True is not 1.
+        return b"b:1" if node else b"b:0"
+    if isinstance(node, int):
+        return b"i:" + str(node).encode("ascii")
+    return b"s:" + str(node).encode("utf-8", "surrogatepass")
+
+
+def _hop_rank(dst, here, candidate) -> bytes:
+    """Rank of one candidate next hop. Length-prefixed so no two field splits can collide."""
+    import hashlib
+    h = hashlib.blake2b(digest_size=16)
+    for tok in (_node_token(dst), _node_token(here), _node_token(candidate)):
+        h.update(len(tok).to_bytes(2, "big"))
+        h.update(tok)
+    return h.digest()
+
+
+def hop_distances_to(net, dst) -> dict:
+    """
+    `{node: hops from node to dst}` -- BFS over reversed edges, one sweep per destination.
+
+    Distances do not depend on traversal order, so this half was never the problem; it is
+    separated out because the all-pairs caller wants one sweep per destination rather than one
+    per (source, destination) pair.
+    """
+    from collections import deque
+    if dst not in net:
+        return {}
+    dist = {dst: 0}
+    queue = deque((dst,))
+    while queue:
+        node = queue.popleft()
+        for prev in net.predecessors(node):
+            if prev not in dist:
+                dist[prev] = dist[node] + 1
+                queue.append(prev)
+    return dist
+
+
+def canonical_next_hop(net, node, dst, dist):
+    """
+    The one next hop `node` uses for `dst`: among the neighbours that are strictly closer to
+    `dst`, the one with the smallest `_hop_rank`. `None` when `node` cannot reach `dst`.
+
+    The digest is the whole tie-break. The node token is appended as a second key so that even a
+    digest collision resolves to a defined answer rather than to whichever neighbour came first.
+    """
+    if node not in dist:
+        return None
+    target = dist[node] - 1
+    best = None
+    best_key = None
+    for nxt in net.successors(node):
+        if dist.get(nxt) != target:
+            continue
+        key = (_hop_rank(dst, node, nxt), _node_token(nxt))
+        if best_key is None or key < best_key:
+            best, best_key = nxt, key
+    return best
+
+
+def canonical_path(net, src, dst, dist=None):
+    """
+    The canonical shortest path `src -> dst` as a node list, or None when there is no route.
+
+    Walking hop by hop with `canonical_next_hop` is what makes the advertised path and the
+    installed rules the same thing: every node on the returned path chooses the successor it
+    would choose on its own behalf, because the choice never mentions the source.
+    """
+    if dist is None:
+        dist = hop_distances_to(net, dst)
+    if src not in dist:
+        return None
+    path = [src]
+    node = src
+    # dist[src] is the exact hop count, so the walk cannot loop; the bound is belt-and-braces
+    # against a caller passing a `dist` computed on a different graph.
+    for _ in range(dist[src]):
+        node = canonical_next_hop(net, node, dst, dist)
+        if node is None:
+            return None
+        path.append(node)
+    return path if path[-1] == dst else None
+
+
+def canonical_paths_to(net, dst) -> dict:
+    """`{src: path}` for every node that can reach `dst`, from a single distance sweep."""
+    dist = hop_distances_to(net, dst)
+    out = {}
+    for src in dist:
+        if src == dst:
+            continue
+        path = canonical_path(net, src, dst, dist)
+        if path is not None:
+            out[src] = path
+    return out
+
+
 def _shortest_path(net, src, dst):
     """Shortest path as a node list, or None when the two are not connected."""
     try:
-        import networkx as nx
-        return nx.shortest_path(net, source=src, target=dst)
+        return canonical_path(net, src, dst)
     except Exception:
-        # NetworkXNoPath, NodeNotFound, or networkx missing. A pair with no route is normal
-        # while discovery is still converging, so it is skipped rather than raised.
+        # A pair with no route is normal while discovery is still converging, so it is skipped
+        # rather than raised; the same tolerance covers a node this renderer has not seen yet.
         return None
 
 
