@@ -1,0 +1,10 @@
+# 2026-09-03T23:22:35+08:00  HEAD=2e087930
+anchors of each gate, counted in each rev's own files
+columns:
+  c0   HEAD
+
+                            c0            
+mutate_ndt_status_check.sh  ok(11)        
+
+1/1 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+ANCHORS_RC=0

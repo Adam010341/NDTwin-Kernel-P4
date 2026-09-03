@@ -1,0 +1,21 @@
+baseline (must be green before any mutation):
+Ran 33 checks, 0 failed
+
+  caught   M1: ovs_bridge_count discards sudo's exit status again     (refused: ovs_bridge_count returns 2 and prints no number went red)
+  caught   M2: ndt_sudo_capture throws sudo's exit status away        (refused: ovs_bridge_count returns 2 and prints no number went red)
+  caught   M3: the guard reads 'could not tell' as 'nothing there'    (refused: the guard stops the bring-up went red)
+  caught   M4: a refusal is reported as 'does not forward' again      (refused: dataplane_ok returns 2 (not tested), and says why went red)
+  caught   M5: the classifier stops recognising sudo's measured wording (refused: dataplane_ok returns 2 (not tested), and says why went red)
+  caught   M6: the exit status is kept but the message is dropped     (refused: dataplane_ok returns 2 (not tested), and says why went red)
+  caught   M7: the mnexec row leaves the table (a call with no row again) (every privileged command ndt names has a row (nothing new can go unlisted) went red)
+  caught   M8: explain() names the problem but not the line that fixes it (explain() prints the sudoers line that fixes it went red)
+  caught   M9: up_p4 stops asking the guard                           (up_p4 asks guard_no_live_ovs went red)
+  caught   M10: cmd_status --check stops reading the sudo table       (cmd_status --check reads ndt_sudo_report went red)
+  caught   N1 (control): ovs_bridge_count always says 'cannot tell'   (control, permitted: ovs_bridge_count returns 0 and the real count went red)
+  caught   N2 (control): the guard refuses whenever a topo session exists (control, permitted and no bridges: the guard PASSES and the bring-up proceeds went red)
+  caught   N3 (control): no unprivileged early-out, so a P4-only machine cannot start (control, no ovs-vswitchd: a definite 0, answered without sudo went red)
+  caught   N4 (control): dataplane_ok never tests, so a real outage is never seen (control, permitted and the ping really fails: 'not forwarding' is still said went red)
+
+baseline byte-identical: yes (sudo_surface.sh and ndt)
+mutation gate: 14 mutations, 0 survived
+GATE_RC=0

@@ -1,0 +1,37 @@
+=== 1. ndt up ovs4 ===
+# 2026-09-03T23:30:24+08:00
+ndt up ovs4
+  hosts        4
+  topology     setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json
+  recorded this target in .test_run/up.target -- 'ndt status --check' compares against it
+[1/4] control plane (Ryu)
+  ok  Ryu up, prompt reached
+[2/4] data plane (OVS fabric)
+  ok  15 host/switch processes after 2s
+[3/4] proxy-less convergence + kernel
+  Ryu settles for 40s before installing paths (NDTWIN_RYU_SETTLE_S)
+        started ryu (pid 1049832) -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ndtcheck/.test_run/logs/ryu.log
+        waiting for Ryu REST on :8080 . up
+          switches=10 links=32 paths=installed                                                        converged after 3s
+        started kernel (pid 1051291) -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ndtcheck/.test_run/logs/kernel.log
+        waiting for kernel API on :8000 . up
+[4/4] verify
+  ok  kernel: 10 switches up+enabled
+  ok  kernel graph matches the model file: 4 hosts, 40 edges
+  ok  data plane: h1 -> 10.0.0.2 forwards
+  ok  sFlow: 10/10 bridges sampling to :6343, 10 records
+
+up. ready
+UP_RC=0
+
+--- the record it wrote ---
+plane=ovs
+hosts=4
+topology=setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json
+topology_sha256=2266c69cbcd3d0ac5272b62925709c70b8fffca8669faee1e4113e50ed58b285
+model_hosts=4
+model_edges=40
+at=1788449424
+by=ndtcheck
+builder=up_ovs
+# 2026-09-03T23:30:31+08:00

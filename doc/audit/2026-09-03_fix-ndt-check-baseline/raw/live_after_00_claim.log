@@ -1,0 +1,16 @@
+=== FIX #8 LIVE 'AFTER' ARM (fix/ndt-status-check-baseline) ===
+# 2026-09-03T23:30:24+08:00  host adam-Yoga-7-2-in-1-16IML9  owner ndtcheck
+# ndt under test: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ndtcheck/tools/test_workflow/ndt
+# sha256:         51a7c09ac1d9caaf318594e6c078251bba485ba0bba857b11b5307370f6abac0
+# worktree HEAD:  2e08793016036e6b413742358523cef9f89c44d3
+# kernel binary:  /home/adam/Desktop/NDTwin-Kernel/build/bin/ndtwin_kernel
+#   sha256:       a8ba99c25f0393159d5111815c406c7fe85ee1f2842c3cd390f05094417fdc06
+
+--- 0. claim (worktree file, then the main-checkout copy per finding #79) ---
+  ok  lab claimed by ndtcheck for 60m (fix #8 --check baseline: after arm)
+claim_rc=0
+owner=ndtcheck
+expires=1788453024
+note=fix #8 --check baseline: after arm
+exclusive_cpu=no
+copied to /home/adam/Desktop/NDTwin-Kernel/.test_run/lab.claim

@@ -1,0 +1,10 @@
+# 2026-09-03T23:36:19+08:00
+# trunk = 92a79392d0f55db12ea18579ec788556081c9290  (92a79392 Night rounds: row 28 (logger #69/#70 in trunk), coverage flips for 69/70)
+# branch = 2e08793016036e6b413742358523cef9f89c44d3
+# merge-base = 0be954ad511f300d02d15fafb965369203d28c39
+$ git merge-tree --write-tree trunk fix/ndt-status-check-baseline
+deb2effc30835d5b0cc7eab895c8df84542a91b9
+MERGE_TREE_RC=0
+
+# did trunk touch tools/test_workflow/ndt since my base?
+1803a7cd Merge branch 'fix/poll-does-not-resurrect' into integrate/2026-09-03-auditor-merge

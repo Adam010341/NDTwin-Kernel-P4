@@ -1,0 +1,34 @@
+=== machine state BEFORE claiming (read-only) ===
+# 2026-09-03T23:29:36+08:00
+lab
+  claim          none
+  measuring      nothing
+  code           2e087930  +3 file(s) with uncommitted changes
+                 1 of them can change behaviour:
+                 tools/test_workflow/ndt.trunk
+
+configuration
+  hosts          128   (p4_proxy/mininet/host_count_override -- P4 only; no 'ndt up' recorded here)
+  topology       setting/StaticNetworkTopologyP4_10Switches_128Hosts.json   (the P4 model that knob selects, NOT necessarily what is running)
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate    1/unknown
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    0       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+
+network health
+  switches       kernel not answering; no graph
+  tc netem       none
+  sudo grants    all 3 granted
+  apps           none running
+
+
+up target
+  record         none -- no 'ndt up' has run in this checkout  (.test_run/up.target)
+                 there is no baseline, so --check did NOT check. this is not 'checked and matched'.
+                 bring the lab up from this checkout first:  ndt up <target>
+                 .test_run/ is per checkout, so another checkout's 'up' is invisible here (finding #79)
+STATUS_RC=0

@@ -1,0 +1,20 @@
+baseline (must be green before any mutation):
+Ran 71 checks, 0 failed
+
+  caught   M1: app_spawn leaves the app in ndt's own process group    (the app is its own process group leader went red)
+  caught   M2: stop signals the leader and not the group              (🔴 the app's process group is empty went red)
+  caught   M3: the verifier reports clean whatever it found           (🔴 the verifier says NO while the app is running went red)
+  caught   M4: any fd on the log counts, not only a writable one      (a reader of the log is NOT a writer went red)
+  caught   M5: apps orphans stops consulting the new channels         (🔴 apps orphans exits 1 (it answered 0 on 09-02) went red)
+  caught   M6: the log is opened without O_APPEND again               (🔴 the running app resumes at offset 0 went red)
+  caught   M7: 'gone' is asked of pid_is_app, which cannot see a JVM  (  and it really is gone went red)
+  caught   M8: a channel that names the whole machine is believed     (a channel naming 199 processes is discarded went red)
+  caught   N1 (control): the group signal is sent to ndt's own group  (🔴 app_kill_group refuses its own group -- the caller lives went red)
+  caught   N2 (control): a group id known only from a stale file is signalled (an uncorroborated .pgid group is refused went red)
+  caught   N3 (control): no group is ever signalled, so nothing can be stopped (🔴 the app's process group is empty went red)
+  caught   N4 (control): the verifier never says clean, so no stop ever succeeds (stop returns 0 went red)
+  caught   N5 (control): every app is reported as an orphan, always   (a clean machine has no orphans (rc 0) went red)
+
+baseline byte-identical: yes (tools/test_workflow/ndt)
+mutation gate: 13 mutations, 0 survived
+GATE_RC=0

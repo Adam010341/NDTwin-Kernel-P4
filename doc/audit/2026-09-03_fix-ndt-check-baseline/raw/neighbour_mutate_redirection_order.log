@@ -1,0 +1,27 @@
+baseline (must be green before any mutation):
+Ran 29 checks, 0 failed
+
+  caught   M1: ndt pid_is_app -- silencer back behind the read        (🔑 pid_is_app is SILENT when /proc/<pid>/cmdline is gone went red)
+  caught   M2: ndt app_stop argv line -- order reverted               (app_stop's argv line is silent for a pid that cannot exist went red)
+  caught   M2b: ndt app_wait_stopped argv line (g6) -- order reverted (app_wait_stopped's argv line (g6) is silent for a pid that cannot exist went red)
+  caught   M3: ndt apps_orphans argv line -- order reverted           (apps_orphans' argv line is silent for a pid that cannot exist went red)
+  caught   M3b: ndt apps_orphans orphaned-children argv line -- order reverted (apps_orphans' orphaned-children argv line is silent for a pid that cannot exist went red)
+  caught   M3c: ndt app_verify_stopped survivor argv line -- order reverted (app_verify_stopped's survivor argv line is silent for a pid that cannot exist went red)
+  caught   M3d: ndt app_kill_by_existence argv line -- order reverted (app_kill_by_existence's argv line is silent for a pid that cannot exist went red)
+  caught   M4: test_teardown_guards /proc sweep -- order reverted     (test_teardown_guards.sh (args="$(tr) is silent went red)
+  caught   M5: test_ndt_app_orphans retry loop -- order reverted      (test_ndt_app_orphans.sh (mapfile -d '' -t argv) is silent went red)
+  caught   M6: test_ep4 header size probe -- order reverted           (test_ep4_gate_and_abort_evidence.sh (hdr=$(wc -c) is silent went red)
+  caught   M7: test_preflight listener read -- order reverted         (test_preflight_instrument_self_failures.sh (read -r LPORT) is silent went red)
+  caught   M8: host_witness kernel-thread probe -- order reverted     (host_witness.sh (IFS= read -r -d '' cmd) is silent went red)
+  caught   M9: ndtwin-vm /proc sweep -- order reverted                (ndtwin-vm.sh (a0=""; IFS= read) is silent went red)
+  caught   M10: ndtwin-vm unparseable-disk report -- order reverted   (ndtwin-vm.sh (cut -c1-200) is silent went red)
+  caught   M11: ndtwin-vm no-CONFIG work point -- order reverted      (ndtwin-vm.sh (/^-m$/{getline;m=$0}) is silent went red)
+  caught   M12: p4_patch_preflight dry-run -- order reverted          (p4_patch_preflight.sh (patch -p1 --dry-run) is silent went red)
+  caught   M13: ndtwin-vm's two multi-line awk readers -- order reverted (static guard: the 3 multi-line sites keep 2> ahead of < (3 lines read) went red)
+  caught   M14: ndt up-ovs capture -- order reverted (fifo failure escapes the log) (static guard: the 3 multi-line sites keep 2> ahead of < (3 lines read) went red)
+  caught   M15: 'exec 2>/dev/null' at the top of pid_is_app (silences EVERYTHING) (🔑 a REAL error inside pid_is_app still reaches the caller went red)
+  caught   M16: delete the read entirely (nothing opened, nothing leaks) (pid_is_app MATCHES from cmdline when comm says otherwise (rc 0) went red)
+
+baseline byte-identical: yes (all 8 source files)
+mutation gate: 20 mutations, 0 survived
+GATE_RC=0

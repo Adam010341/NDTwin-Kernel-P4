@@ -1,0 +1,64 @@
+=== 4. ndt down + clean assertions (also drops the up-target record) ===
+# 2026-09-03T23:30:34+08:00
+ndt down
+[1/3] kernel + proxy/Ryu
+        stopped ryu
+[2/3] topology session
+      topo stopped
+[3/3] sweep
+      cleanup done
+  cleared the 'ndt up' target record (.test_run/up.target)
+
+verify clean
+  ok  bmv2 switches: 0
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+  ok  ports closed: 8000/8080/8081/6653/6633/6343/30051-30060/9091-9100/9000
+
+clean
+DOWN_RC=0
+
+--- the record after down ---
+cat: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ndtcheck/.test_run/up.target: No such file or directory
+(gone -- as it should be)
+
+=== ndt status --check on the torn-down lab: COULD NOT CHECK (rc 3), not a mismatch ===
+lab
+  claim          yours -- 60m left (until 00:30:24)
+  note           fix #8 --check baseline: after arm
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           2e087930  +3 file(s) with uncommitted changes
+                 1 of them can change behaviour:
+                 tools/test_workflow/ndt.trunk
+
+configuration
+  hosts          128   (p4_proxy/mininet/host_count_override -- P4 only; no 'ndt up' recorded here)
+  topology       setting/StaticNetworkTopologyP4_10Switches_128Hosts.json   (the P4 model that knob selects, NOT necessarily what is running)
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate    1/unknown
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    0       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+
+network health
+  switches       kernel not answering; no graph
+  tc netem       none
+  sudo grants    all 3 granted
+  apps           none running
+
+
+up target
+  record         none -- no 'ndt up' has run in this checkout  (.test_run/up.target)
+                 there is no baseline, so --check did NOT check. this is not 'checked and matched'.
+                 bring the lab up from this checkout first:  ndt up <target>
+                 .test_run/ is per checkout, so another checkout's 'up' is invisible here (finding #79)
+
+check: COULD NOT CHECK -- no 'ndt up' target recorded in this checkout
+  - no baseline: run 'ndt up <target>' here first. this is NOT 'checked and matched'.
+CHECK_RC=3
+# 2026-09-03T23:30:49+08:00

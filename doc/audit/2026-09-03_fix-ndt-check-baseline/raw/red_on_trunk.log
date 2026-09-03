@@ -1,0 +1,143 @@
+### RED ARM: tests/shell/test_ndt_status_check_baseline.sh against trunk's ndt ###
+# 2026-09-03T23:35:09+08:00   suite = the committed 61-check version
+# NDT_UNDER_TEST=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/trunkndt/ndt   sha256=42c2844191b79139b86a271ff3003401c64931edee67d35398274de5a992ac0e
+# (== git show trunk:tools/test_workflow/ndt, trunk 0be954ad)
+
+
+1. the ovs4 false red: a healthy 4-host OVS fabric is GREEN
+  FAILED   a healthy ovs4 exits 0
+             expected: [0]  actual: [1]
+  FAILED   and says so
+             no match for 'check: ok'
+  FAILED   🔴 no false red about the topology file
+             unexpected 'the kernel graph does not match the topology file' in the output
+  FAILED   🔴 and the P4 128-host model is not the baseline
+             unexpected 'StaticNetworkTopologyP4_10Switches_128Hosts.json' in the output
+  FAILED   it names the fabric it was asked for
+             no match for 'ovs, 4 hosts'
+  FAILED   and the model file that goes with it
+             no match for 'setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json'
+  FAILED   configuration reports 4 hosts, not the knob's 128
+             no match for 'hosts          4'
+  FAILED   the P4 knob is still shown, named for what it is
+             no match for 'p4 host knob'
+  FAILED   it prints what it compared: the data plane
+             no match for 'dataplane'
+  FAILED     the fabric-side host count
+             no match for 'fabric hosts'
+  FAILED     the kernel graph
+             no match for 'graph hosts'
+  FAILED     and the identity of the model file
+             no match for 'topology file  sha256'
+
+2. zero discriminating power: a P4 fabric where ovs4 was asked for is RED
+  FAILED   🔴 a P4 fabric under an ovs4 record is not ok
+             expected: [1]  actual: [0]
+  FAILED     and it is NOT reported as checked-and-matched
+             unexpected 'check: ok' in the output
+  FAILED   the mismatch names the field: dataplane
+             no match for 'dataplane: the lab has 'p4', the last 'ndt up' asked for 'ovs''
+  FAILED     and shows it in the comparison
+             no match for 'MISMATCH'
+  ok         host count is NOT what differs (it agrees)
+
+3. no record: 'could not check' has its own words and its own exit code
+  FAILED   🔴 no baseline exits 3, not 0 and not 1
+             expected: [3]  actual: [1]
+  FAILED     and says it could not check
+             no match for 'COULD NOT CHECK'
+  FAILED     never the mismatch sentence
+             unexpected 'the kernel graph does not match the topology file' in the output
+  ok         never 'ok'
+  FAILED     it says where the record would be
+             no match for '.test_run/up.target'
+  FAILED     and that .test_run is per checkout (#79)
+             no match for 'per checkout'
+  FAILED   🔴 a coincidence must not be reported as a pass
+             expected: [3]  actual: [0]
+  FAILED     'could not check' is never 'checked and matched'
+             unexpected 'check: ok' in the output
+
+4. a mismatch names the field that differs
+  ok       a 128-host graph under a 4-host record is red
+  FAILED     and the field is named
+             no match for 'graph hosts: the lab has '128', the last 'ndt up' asked for '4''
+  ok       a link-count dip in the kernel graph is red
+  FAILED     and the field is named
+             no match for 'graph edges: the lab has '31''
+  FAILED   a 128-host FABRIC under a 4-host record is red
+             expected: [1]  actual: [0]
+  FAILED     and the field is named
+             no match for 'fabric hosts: the lab has '128''
+
+5. a reading that could not be taken is RED, never green
+  FAILED   no host namespaces at all is red
+             expected: [1]  actual: [0]
+  FAILED     named as not compared, not as agreement
+             no match for 'fabric hosts: could not be compared'
+  FAILED   🔴 a refused ovs-vsctl is not 'no OVS here'
+             expected: [1]  actual: [0]
+  FAILED     it is reported as an unanswered question
+             no match for 'dataplane: could not be compared'
+  FAILED     and is not reported as a match
+             unexpected 'check: ok' in the output
+  FAILED   a kernel that answers nothing is red
+             expected: [1]  actual: [0]
+  FAILED     named as the kernel graph, not as a mismatch
+             no match for 'kernel graph: could not be compared'
+  FAILED   the model file edited under a running kernel is red
+             expected: [1]  actual: [0]
+  FAILED     and it says the file changed, naming it
+             no match for 'topology file: setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json has been edited since the ndt up that loaded it'
+
+6. 🔴 the other direction: it is not simply always red
+  ok       a healthy P4 fabric under a p4 record is ok
+  ok         and it says what it compared
+  FAILED     naming the plane it was asked for
+             no match for 'p4, 4 hosts'
+  FAILED   and the ovs4 case is still ok after all of that
+             expected: [0]  actual: [1]
+
+7. the record itself: written by 'up', read by '--check', dropped by 'down'
+  FAILED   record_up_target writes the plane
+             no match for 'plane=ovs'
+  FAILED     the host count
+             no match for 'hosts=4'
+  FAILED     the topology path, relative to the repo
+             no match for 'topology=setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json'
+  FAILED     the counts that file declares
+             no match for 'model_edges=40'
+  FAILED     and the file's sha256 as it was at 'up' time
+             expected: [6cd0d606f4dadfd1bfbd18e9539f26139d7436eaf4c7db2f6f0ee077f305fbe3]  actual: []
+  FAILED   up_target_field reads them back
+             expected: [ovs
+4]  actual: [bash: line 3: up_target_field: command not found
+bash: line 3: up_target_field: command not found]
+  FAILED   clear_up_target removes it ('down' calls it)
+             expected: [gone]  actual: [bash: line 3: clear_up_target: command not found
+gone]
+  FAILED   live_dataplane_kind: bmv2 running is p4
+             expected: [p4]  actual: [bash: line 3: live_dataplane_kind: command not found]
+  FAILED     bridges and no bmv2 is ovs
+             expected: [ovs]  actual: [bash: line 3: live_dataplane_kind: command not found]
+  FAILED     neither is 'none'
+             expected: [none]  actual: [bash: line 3: live_dataplane_kind: command not found]
+  FAILED   🔴 a refused ovs-vsctl is 'unknown', not 'none'
+             expected: [unknown]  actual: [bash: line 3: live_dataplane_kind: command not found]
+
+8. the wiring: 'up' really writes it and 'down' really drops it
+  FAILED   'ndt up ovs4' records its target
+             no match for 'plane=ovs'
+  FAILED     with the host count it was asked for
+             no match for 'hosts=4'
+  FAILED     and the OVS model, not the P4 one
+             no match for 'topology=setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json'
+  FAILED   'ndt up p4' records its target too
+             no match for 'plane=p4'
+  FAILED     with the P4 model
+             no match for 'topology=setting/StaticNetworkTopologyP4_10Switches_4Hosts.json'
+  FAILED   'ndt down' drops the record
+             expected: [gone]  actual: [still-there]
+
+Ran 61 checks, 55 failed
+SUITE_RC=1

@@ -1,0 +1,10 @@
+=== FIX #8 LIVE P4 ARM (fix/ndt-status-check-baseline) ===
+# 2026-09-03T23:32:15+08:00  owner ndtcheck
+# the worktree borrows the main checkout's build artefacts read-only:
+lrwxrwxrwx 1 adam adam 38 Sep  3 23:27 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ndtcheck/build -> /home/adam/Desktop/NDTwin-Kernel/build
+lrwxrwxrwx 1 adam adam 54 Sep  3 23:32 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ndtcheck/p4_proxy/p4_src/build -> /home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build
+lrwxrwxrwx 1 adam adam 46 Sep  3 23:32 /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ndtcheck/p4_proxy/venv -> /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv
+# host_count_override before: 128
+  ok  lab claimed by ndtcheck for 40m (fix #8 --check baseline: p4 discrimination arm)
+claim_rc=0
+copied to /home/adam/Desktop/NDTwin-Kernel/.test_run/lab.claim

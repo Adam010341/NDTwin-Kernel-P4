@@ -1,0 +1,61 @@
+=== 3. break one real thing: stop the kernel, by the pid in its own pidfile ===
+# 2026-09-03T23:30:32+08:00
+--- pidfiles ---
+total 40
+drwxrwxr-x 2 adam adam 4096 Sep  3 23:30 .
+drwxrwxr-x 4 adam adam 4096 Sep  3 23:30 ..
+-rw-rw-r-- 1 adam adam    8 Sep  3 23:30 kernel.child.pid
+-rw-rw-r-- 1 adam adam  359 Sep  3 23:30 kernel.cmd
+-rw-rw-r-- 1 adam adam  125 Sep  3 23:29 kernel.exit.log
+-rw-rw-r-- 1 adam adam    8 Sep  3 23:30 kernel.pid
+-rw-rw-r-- 1 adam adam    8 Sep  3 23:30 ryu.child.pid
+-rw-rw-r-- 1 adam adam  500 Sep  3 23:30 ryu.cmd
+-rw-rw-r-- 1 adam adam  125 Sep  3 23:29 ryu.exit.log
+-rw-rw-r-- 1 adam adam    8 Sep  3 23:30 ryu.pid
+kernel pid from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ndtcheck/.test_run/pids/kernel.pid: 1051291   comm=bash
+--- kill -TERM 1051291 (exact pid, never pkill -f) ---
+kill_rc=0
+after 2s: /proc/1051291 gone
+
+=== ndt status --check  -- must be RED, naming the field it could not compare ===
+lab
+  claim          yours -- 60m left (until 00:30:24)
+  note           fix #8 --check baseline: after arm
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           2e087930  +3 file(s) with uncommitted changes
+                 1 of them can change behaviour:
+                 tools/test_workflow/ndt.trunk
+
+configuration
+  hosts          4   (what the last 'ndt up' asked for: ovs)
+  topology       setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json
+  p4 host knob   128   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate    1/unknown
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   present
+  host/switch    15      manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu open
+
+network health
+  switches       kernel not answering; no graph
+  tc netem       none
+  sudo grants    all 3 granted
+  apps           none running
+
+
+up target
+  asked for      ovs, 4 hosts   (recorded 2026-09-03 23:30:24 by ndtcheck)
+  topology       setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json   (declares 4 hosts / 40 edges)
+  dataplane      ovs                    == ovs   ok
+  fabric hosts   4                      == 4   ok
+  kernel graph   the kernel gave no graph on :8000 -- NOT COMPARED
+  topology file  sha256 2266c69cbcd3    == recorded   ok
+
+check: 1 problem(s)
+  - kernel graph: could not be compared against the 'ndt up' target (the kernel gave no graph on :8000)
+CHECK_RC=1
+# 2026-09-03T23:30:34+08:00

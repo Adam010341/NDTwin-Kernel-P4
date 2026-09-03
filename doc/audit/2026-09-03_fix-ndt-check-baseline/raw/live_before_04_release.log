@@ -1,0 +1,6 @@
+=== 4. release ===
+  ok  lab released
+RELEASE_RC=0
+removed the main-checkout claim copy
+ls: cannot access '/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ndtcheck/.test_run/lab.claim': No such file or directory
+# 2026-09-03T23:30:08+08:00

@@ -1,0 +1,20 @@
+# 2026-09-03T23:22:35+08:00
+baseline (must be green before any mutation):
+Ran 61 checks, 0 failed
+
+  caught   M1: the host baseline comes from the P4 knob again         (a healthy ovs4 exits 0 went red)
+  caught   M2: the data plane is shown but not compared               (🔴 a P4 fabric under an ovs4 record is not ok went red)
+  caught   M3: no record is reported as a mismatch                    (🔴 no baseline exits 3, not 0 and not 1 went red)
+  caught   M4: a failed fabric reading becomes a host count of 0      (  named as not compared, not as agreement went red)
+  caught   M5: a model file edited since up is not reported           (the model file edited under a running kernel is red went red)
+  caught   M6: ndt up ovs stops recording its target                  ('ndt up ovs4' records its target went red)
+  caught   M7: ndt up p4 stops recording its target                   ('ndt up p4' records its target too went red)
+  caught   M8: ndt down leaves a stale baseline behind                ('ndt down' drops the record went red)
+  caught   M9: a refused ovs-vsctl becomes no OVS here                (🔴 a refused ovs-vsctl is 'unknown', not 'none' went red)
+  caught   N1 (control, always green): --check compares nothing       (🔴 a P4 fabric under an ovs4 record is not ok went red)
+  caught   N2 (widening, green): no baseline is a pass                (🔴 no baseline exits 3, not 0 and not 1 went red)
+  caught   N3 (widening, green): differences printed, never reported  (a 128-host graph under a 4-host record is red went red)
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 51a7c09ac1d9caaf318594e6c078251bba485ba0bba857b11b5307370f6abac0
+mutation gate: 12 mutations, 0 survived
+GATE_RC=0

@@ -1,0 +1,16 @@
+baseline (must be green before any mutation):
+Ran 18 checks, 0 failed
+
+  caught   M1: drop the sFlow row (the 09-02 incident's own port)   (6343 is in the table AND declared udp (the 09-02 incident) went red)
+  caught   M2: cover 6653 but not 6633 (the half-fix)               (BOTH 6653 and 6633 are rows (the probe order reaches both) went red)
+  caught   M3: drop the bmv2 gRPC block (ndt:635's comment, unexecuted) (the bmv2 gRPC block is a row (ndt:635 said :3005x in a comment) went red)
+  caught   M4: ndt_port_open ignores proto (TCP-only, the original probe) (injection took effect: something really is holding udp :45902 went red)
+  caught   M5: residue prints a count instead of naming the holder  (the residue line names the HOLDER by pid, not a count went red)
+  caught   M6: residue drops the consequence column                 (the residue line states the consequence from the row went red)
+  caught   M7: ranges are not expanded (30051-30060 stays a string) (30051-30060 expands to all ten device ports went red)
+  caught   M8: residue reports whether or not the port is held      (a free port produces no residue and returns 0 went red)
+  caught   M9: cmd_clean stops reading the table (its own list again) (cmd_clean's port residue comes from the shared table function went red)
+
+baseline byte-identical: yes (ports.sh and ndt)
+mutation gate: 9 mutations, 0 survived
+GATE_RC=0
