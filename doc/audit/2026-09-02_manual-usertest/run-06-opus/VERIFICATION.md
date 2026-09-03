@@ -6,8 +6,8 @@ against a source independent of the tester: the manual at the frozen docs commit
 unauthenticated from the public snapshot), trunk, or the shipping repository of
 the tool concerned.
 
-**4 of 17 verified so far. The other 13 are untouched and must not be quoted as
-findings until they are.**
+**11 of 17 confirmed, 1 partial, 5 not verified.** The unverified ones are named at
+the end and must not be quoted as findings.
 
 Run ended without a `## SUMMARY`: three interruptions, none from the thing under
 test. See NSLAB-USAGE-RULES.md row A-11.
@@ -121,20 +121,83 @@ not.
 
 ---
 
-## Not yet verified — 13 items
+## BUG-04 — CONFIRMED, and it is a regression I introduced today
 
-BUG-01, 02, 04, 05, 06, 07, 08, 12, 13, 14, 15, 16, 17.
+**Claim:** `install/modify/delete_flow_entry` return a body different from the
+documented `{"status": "Flows installed, modified and deleted"}`. The tester saw
+`{"accepted":1,"detail":"…","status":"queued"}`.
 
-Two of them look likely to matter and should go next:
+**The two clone paths return different bodies, and the manual documents one:**
 
-* **BUG-02** — the manual's own detached form of Step 6.1 blocking on a sudo
-  password prompt that the manual's own progress check cannot see. This is the
-  one finding **produced by this round's single changed variable** (the tester VM
-  no longer has blanket passwordless sudo), so rounds 01–04 could not have found
-  it. That makes it the round's most interesting result even though it is filed
-  as friction.
-* **BUG-01** — the cloned README pointing at a demo VM the Download page marks as
-  unpublished. That page changed today; check against `c5262c3`, not against the
-  working tree.
+| ref | `"queued"` | `"accepted"` | what it actually returns |
+|---|---|---|---|
+| `9e6cc307` — what the manual's **P4 path** clones | 2 | 1 | line 1080 builds `{"status","queued"},{"accepted",…}` |
+| `origin/main` — what the manual's **OVS path** clones | 0 | 0 | line 878: `R"({"status":"Flows installed, modified and deleted"})"` |
+| trunk | 3 | 1 | as the snapshot |
+
+⚠️ A keyword count alone would have got this wrong: `Flows installed` appears
+once in the snapshot too — **inside a comment** (`// This used to answer …`), not
+in a response. Counts had to be resolved to code before they meant anything.
+
+🔴 **How this got here.** Earlier today I changed this page *from* the queued body
+*to* `Flows installed, modified and deleted`, after the auditor showed that
+`origin/main` returns the latter. That evidence was correct. The change was still
+wrong, because **the manual has two clone paths and tells an unsure reader to
+take the P4 one** — so I made the page right for the OVS reader and wrong for the
+default reader. An outside tester following the manual hit it within hours.
+
+**The fix cannot be a single body.** The page has to key the response to which
+repository the reader cloned, because no one string is true for both.
+
+---
+
+## BUG-06, BUG-07, BUG-12, BUG-13 — CONFIRMED
+
+* **BUG-06** — the API page documents `404` for `get_nickname` with no
+  identifier; the server answers `400`. Confirmed against the page at `c5262c3`.
+  The tester notes the observed behaviour is arguably the better one; that is a
+  doc fix, not a code fix.
+* **BUG-07** — page line 628 documents
+  `{"error": "Missing or malformed query parameters"}`; snapshot line 659 returns
+  `{"error":"Missing or invalid ip/action"}`. Exact mismatch.
+* **BUG-12** — machine-checkable and unambiguous: of the three ```json blocks on
+  the NSR User Manual page, **3 of 3 fail to parse**. No judgement involved.
+* **BUG-13** — confirmed, with a nuance the tester could not see from outside.
+  The snapshot *does* carry a shape guard, and its comment says exactly why it
+  exists. But it validates **entries**, and a body whose *top-level* keys are
+  unrecognised has no entries to validate — so the guard never fires, and the
+  caller gets `200 "queued"` with `"accepted":0` as the only signal that nothing
+  was taken. A guard that checks the contents of an envelope does not check
+  whether the envelope was understood.
+
+---
+
+## BUG-05 — PARTIALLY VERIFIED
+
+The page says *"In MININET mode, dummy values are generated for demonstration
+purposes"* for **both** CPU (line 851) and memory (line 869), which is verified.
+Whether the two endpoints return byte-identical maps rests on the tester's
+capture alone; I did not re-run it. Given identical wording for both, identical
+output is not surprising — the defect, if any, is that the worked examples imply
+they differ.
+
+---
+
+## Not verified — 5 items
+
+**BUG-08, BUG-14, BUG-15, BUG-16, BUG-17.** Recorded, not adjudicated. BUG-17
+(three pages describing the mixed OVS+BMv2 refusal three ways) was spot-checked
+only as far as confirming that six pages discuss it; which description is the
+true one was not settled, and that is the whole claim.
+
+## Standing note on classes
+
+Two kinds of confirmed finding here, and they must not be reported together:
+
+* **Snapshot lags trunk** — BUG-03. Real for readers, already fixed in trunk.
+  Ledger only, per Adam's ruling; the live half is the documentation.
+* **Live in what ships today** — BUG-09/10/11 (Network-State-Recorder `main`),
+  BUG-04/06/07/12/13 (documentation, or behaviour on the ref the manual sends
+  readers to). These are not waiting on anything.
 
 [Co-developed with claude code -- Adam]
