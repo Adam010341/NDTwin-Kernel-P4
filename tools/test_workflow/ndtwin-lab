@@ -571,6 +571,9 @@ case "${1:-}" in
     ovs-topo-start)
         # NTG's own OVS topology (128 hosts, RemoteController -> Ryu). Ryu must already be
         # listening on 6653 -- the agent starts it unprivileged before calling this.
+        # Whose Ryu, though, is not checked here and cannot be: a controller left over from the
+        # previous round answers this probe exactly like the one the agent just started. That is
+        # rows 6653/6633 of tools/test_workflow/ports.sh, read by `ndt clean` and the preflight.
         session_running topo && die "topo session already running (topo-stop first)"
         $TMUX new-session -d -s topo -c /home/adam/Network-Traffic-Generator \
             "$NTG_PY" /home/adam/Network-Traffic-Generator/testbed_topo.py
@@ -581,7 +584,8 @@ case "${1:-}" in
         # varies the data plane and nothing else. Every such comparison before 2026-08-17 also
         # changed the topology (4 hosts / 40 edges vs 128 hosts / 288 edges) and the link
         # shaping, so none of them could attribute a difference to the data plane.
-        # Ryu must already be listening on 6653 -- the agent starts it unprivileged first.
+        # Ryu must already be listening on 6653 -- the agent starts it unprivileged first, and
+        # ports.sh's 6653/6633 rows are what say whether it is THIS round's Ryu.
         session_running topo && die "topo session already running (topo-stop first)"
         $TMUX new-session -d -s topo -c "$KERNEL_DIR" \
             "$NTG_PY" "$KERNEL_DIR/tools/test_workflow/ovs_4host_topo.py"
