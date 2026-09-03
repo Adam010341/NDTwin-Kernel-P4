@@ -33,12 +33,12 @@
 
 | 狀態 | 條數 | 編號 |
 |---|---:|---|
-| ✅ IN TRUNK / 已修 | **40** | 4–7, 10–17, 19–20, 22–24, 26, 28–30, 32, 41–42, 45, 47–48, 50, 53, 56, 58–60, 63–65, 71–74 |
-| 🛠 派工中 | **6** | 35–36, 46, 69–70, 78 |
+| ✅ IN TRUNK / 已修 | **41** | 4–7, 10–17, 19–20, 22–24, 26, 28–30, 32, 41–42, 45, 47–48, 50, 53, 56, 58–60, 63–65, 71–74, 78 |
+| 🛠 派工中 | **5** | 35–36, 46, 69–70 |
 | ⭕ UNASSIGNED | **30** | 1–3, 8–9, 18, 21, 25, 27, 31, 33–34, 37–40, 43, 49, 51–52, 54–55, 61–62, 66–68, 75–77 |
 | ➖ NOT A DEFECT | **1** | 44 |
 | ❓ UNKNOWN | **1** | 57 |
-| **合計** | **78** | （09-03 19:1x 由各列狀態欄重算；派工中＝3 支：poll #35/36/46、logger #69/70、anchors #78；⭕ 含 #77「等 Adam 裁」） |
+| **合計** | **78** | （09-03 19:3x 由各列狀態欄重算；派工中＝2 支：poll #35/36/46、logger #69/70；⭕ 含 #77「等 Adam 裁」） |
 
 **未併分支的實況（`git for-each-ref` ＋ 逐支 `git rev-list --count`）**
 
@@ -221,7 +221,7 @@
 | 75 | `inv01_powercycle_latency()` 修好了（#17）但 `harness/chaos.py` 沒接，零呼叫點 | ⭕ UNASSIGNED | #17 agent 查證（FIX-CHAOS-INVARIANTS §未做到） | existence ≠ wiring；接之前要先定 INV-01 兩個檢查（agreement 已接、latency 沒接）的關係 |
 | 76 | proxy 卡住時，bind 失敗的 kernel 印完 `Exiting` 後 8 秒還在（shutdown 卡在 poll thread 的 curl） | ⭕ UNASSIGNED | #47 agent 順帶觀察，未追 | 與 B-5 關機路徑同族；重啟腳本若拿「印了 Exiting」當退出訊號會踩到 |
 | 77 | `ndt up ovs` 跑的是 NTG repo 那份 `testbed_topo.py`（同樣的常數橫幅），本 repo 的 #42 修法改不到那條路 | ⭕ 等 Adam 裁（QUESTIONS N13） | #42 agent 讀 caller 發現（`ndtwin-lab:571-580`） | 跨 repo；建議改 `ndtwin-lab` 跑本 repo 那份 |
-| 78 | `check_gate_anchors.py` 對 repo 根目錄檔案用 `"/" in v` 判檔名，回報自信的錯答案 `MISSING:23` | 🛠 派工中（18:5x，`fix/gate-anchors-root-files`，base `209251dd`，離線 Python） | #42 agent 撞到、閘門內以 `./` 繞過 | 修工具本身；全 repo 掃描不得改動其他閘門的判讀 |
+| 78 | `check_gate_anchors.py` 對 repo 根目錄檔案用 `"/" in v` 判檔名，回報自信的錯答案 `MISSING:23` | ✅ IN TRUNK | `1ec39977`（merge of `fix/gate-anchors-root-files`，修法 `aed8f299`）：`tests/shell/check_gate_anchors.py` +1 述詞 `is_repo_path`／7 呼叫點、`tests/python/test_check_gate_anchors.py` +14 case（對 trunk 工具 9 FAIL＋3 ERROR）、`tests/shell/mutate_gate_anchors_root_files.sh` 13/0；全 repo 掃描 40/53→41/54、既有格一格沒動；raw `audit-raw @ 1cfbbc73`；MERGE-LOG 26 | #42 agent 撞到、閘門內以 `./` 繞過（繞道留著，兩種寫法都 `ok(23)`）；已知極限：名為 `foo.d` 的目錄會被放行、未修 |
 
 ### 2.2 兩支動到同一段碼（合併衝突預警）
 
