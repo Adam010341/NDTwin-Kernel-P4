@@ -3,6 +3,9 @@
 #include "nlohmann/json.hpp" // for json
 #include "spdlog/spdlog.h"
 #include "utils/Logger.hpp"
+// [Co-developed with claude code -- Adam] FINDINGS #47: setCloseOnExec() for the descriptors
+// Boost.Asio hands us inheritable, and the /proc lookup behind the bind-failure message.
+#include "utils/FdHygiene.hpp"
 #include "utils/Utils.hpp"
 #include "ndt_core/lock_management/LockManager.hpp"
 #include <algorithm> // for max
@@ -82,12 +85,76 @@ ControllerAndOtherEventHandler::~ControllerAndOtherEventHandler()
     stop();
 }
 
+std::unique_ptr<tcp::acceptor>
+ControllerAndOtherEventHandler::openApiAcceptor(net::io_context& ioc, unsigned short port)
+{
+    // [Co-developed with claude code -- Adam]
+    // FINDINGS #47. The construction is unchanged; what is new is the two lines after it. Asio
+    // gives us a descriptor it made with a bare ::socket(), which is inheritable, and this
+    // process forks a shell on its 1 Hz poll. Marking it here -- at the single place an acceptor
+    // is created -- is what keeps a `curl` started three seconds from now from holding :8000
+    // open after this process is gone.
+    std::unique_ptr<tcp::acceptor> acceptor;
+    try
+    {
+        acceptor = make_unique<tcp::acceptor>(ioc, tcp::endpoint{tcp::v4(), port});
+    }
+    catch (const boost::system::system_error& e)
+    {
+        // The bind failed. Say who has it, for the same reason the sFlow collector does: the
+        // operator's next action depends on whether the holder is another kernel or an orphan
+        // that will exit on its own.
+        SPDLOG_LOGGER_ERROR(Logger::instance(),
+                            "cannot listen on API port {}: {}. {}",
+                            port,
+                            e.what(),
+                            utils::diagnosePortInUse(port, utils::PortProtocol::Tcp,
+                                                     "ndtwin_kernel"));
+        throw;
+    }
+
+    if (!utils::setCloseOnExec(acceptor->native_handle()))
+    {
+        // Not fatal, but it must not pass silently: this is the exact condition the finding is
+        // about, and a kernel running with an inheritable listening socket will strand its port
+        // for seconds after it exits.
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "could not mark the API listening socket close-on-exec; a child "
+                           "process may inherit it and hold port {} after this kernel exits",
+                           port);
+    }
+    return acceptor;
+}
+
 void
-ControllerAndOtherEventHandler::start()
+ControllerAndOtherEventHandler::adoptAcceptedSocket(tcp::socket& socket)
+{
+    if (!socket.is_open())
+    {
+        return;
+    }
+    if (!utils::setCloseOnExec(socket.native_handle()))
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "could not mark an accepted connection close-on-exec; a child process "
+                           "may inherit it and hold the client's connection open");
+    }
+}
+
+unsigned short
+ControllerAndOtherEventHandler::boundPort() const
+{
+    return m_boundPort.load();
+}
+
+void
+ControllerAndOtherEventHandler::start(unsigned short port)
 {
     this->m_serverRunning.store(true);
 
-    m_serverAcceptor = make_unique<tcp::acceptor>(m_ioContext, tcp::endpoint{tcp::v4(), NDT_PORT});
+    m_serverAcceptor = openApiAcceptor(m_ioContext, port);
+    // Read back rather than stored from the argument: with port 0 the argument is not the answer.
+    m_boundPort.store(m_serverAcceptor->local_endpoint().port());
 
     this->m_serverThread = thread(&ControllerAndOtherEventHandler::runServer, this);
 }
@@ -140,7 +207,11 @@ ControllerAndOtherEventHandler::stop()
 
         net::io_context pokeIoContext;
         tcp::socket poke_socket(pokeIoContext);
-        tcp::endpoint endPoint(net::ip::address::from_string("127.0.0.1"), NDT_PORT);
+        // [Co-developed with claude code -- Adam]
+        // The port the acceptor actually bound, not the compile-time NDT_PORT. With an ephemeral
+        // port the constant is simply wrong, and "wrong" here means opening a TCP connection to
+        // whatever else on this machine is listening on 8000 -- another kernel, most likely.
+        tcp::endpoint endPoint(net::ip::address::from_string("127.0.0.1"), m_boundPort.load());
         boost::system::error_code ecPoke;
 
         poke_socket.connect(endPoint, ecPoke);
@@ -237,6 +308,13 @@ ControllerAndOtherEventHandler::doAccept()
         if (!ec && m_serverRunning.load())
         {
             SPDLOG_LOGGER_INFO(Logger::instance(), "Accepted new connection");
+
+            // [Co-developed with claude code -- Adam]
+            // FINDINGS #47. Asio accepts with ::accept(), not accept4(SOCK_CLOEXEC), so this
+            // descriptor is inheritable until somebody says otherwise. Before the session is
+            // handed the socket, because the handlers this session dispatches to are the ones
+            // that fork a shell.
+            adoptAcceptedSocket(*sock);
 
             std::make_shared<HttpSession>(std::move(*sock),
                                           m_topologyAndFlowMonitor,
