@@ -2338,8 +2338,45 @@ DeviceConfigurationAndPowerManager::getOpenFlowTables()
     std::shared_lock<std::shared_mutex> lock(m_openflowTablesMutex);
 
     json out = m_cachedOpenFlowTables;
-    stripUnprogrammedEntries(out, m_isProgrammed);
+    const std::size_t withheld = stripUnprogrammedEntries(out, m_isProgrammed);
+    reportWithheldRows(withheld);
     return out;
+}
+
+// [Co-developed with claude code -- Adam]
+// doc/KNOWN-ISSUES.md B-1's 2026-09-02 review, clause 3: stripUnprogrammedEntries returns a count
+// whose own docstring says "so a caller can log or assert on it", and the caller dropped it. A
+// view that is quietly short of rows reads to its consumer exactly like a switch with fewer rules
+// -- the phantom's own shape, one level up, and the reason this line exists at all.
+//
+// Edge-triggered on the count. Three consumers read this cache and each read would otherwise emit
+// a line; a line that is always there is a line nobody reads. The exchange races between readers
+// holding the shared lock, and the cost of losing that race is a duplicated or a skipped line,
+// never a wrong count -- not worth a second mutex on a read path.
+void
+DeviceConfigurationAndPowerManager::reportWithheldRows(std::size_t withheld)
+{
+    const std::size_t previous = m_lastWithheldRows.exchange(withheld, std::memory_order_relaxed);
+    if (withheld == previous)
+    {
+        return;
+    }
+
+    if (withheld == 0)
+    {
+        SPDLOG_LOGGER_INFO(Logger::instance(),
+                           "flow-table view is no longer withholding rows; every cached entry has "
+                           "now been observed on a switch");
+        return;
+    }
+
+    SPDLOG_LOGGER_WARN(Logger::instance(),
+                       "flow-table view is withholding {} row(s) from "
+                       "get_switch_openflow_table_entries: dispatched, but not observed on a "
+                       "switch. Why each one is unconfirmed is logged where it was dispatched; a "
+                       "row appears as soon as a poll reads it back off the switch "
+                       "(KNOWN-ISSUES C-4).",
+                       withheld);
 }
 
 static uint32_t

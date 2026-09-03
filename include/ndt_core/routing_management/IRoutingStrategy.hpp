@@ -54,6 +54,23 @@ class IRoutingStrategy
     virtual OpResult deleteAMeterEntry(const nlohmann::json& j) = 0;
     virtual OpResult modifyAMeterEntry(const nlohmann::json& j) = 0;
 
+    /**
+     * @brief Whether a successful answer from this control plane is evidence that a switch
+     *        programmed the rule.
+     *
+     * [Co-developed with claude code -- Adam]
+     * doc/KNOWN-ISSUES.md C-4. The two planes answer the same route with the same status code and
+     * mean different things by it, and until this question was asked the kernel could not tell
+     * them apart: DispatchOutcomeLog stamped a flow entry as programmed on any 200, so on OVS the
+     * optimistic cache row was served 0.257 s after the POST while the polled row arrived at 13.4 s.
+     *
+     * Pure virtual on purpose. A default would be a guess made once, here, on behalf of every
+     * control plane added later -- and it fails silently in both directions: guess true and the
+     * phantom comes back, guess false and real entries vanish for a poll interval. A new plane has
+     * to answer for itself.
+     */
+    virtual bool successConfirmsProgramming() const = 0;
+
     /// Name of the control plane this strategy talks to, for log messages.
     virtual const char* describe() const = 0;
 };

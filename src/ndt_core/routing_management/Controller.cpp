@@ -8,6 +8,13 @@ Controller::Controller(std::shared_ptr<FlowRoutingManager> flowRoutingManager)
       dispatcher_(
           // SenderFn: batch send using your existing flow manager
           [this](const std::vector<FlowJob>& batch) {
+              // [Co-developed with claude code -- Adam]
+              // doc/KNOWN-ISSUES.md C-4. Tallied over the batch and reported once below rather
+              // than once per job: a burst is 2000 entries, and a line each would be its own
+              // outage. One worker per dpid, so a batch names one switch.
+              std::size_t unconfirmed = 0;
+              uint64_t unconfirmedDpid = 0;
+
               for (const auto& job : batch)
               {
                   // [Co-developed with claude code -- Adam]
@@ -58,6 +65,17 @@ Controller::Controller(std::shared_ptr<FlowRoutingManager> flowRoutingManager)
                   // on DispatchOutcomeLog::record.
                   outcomes_.record(job, result);
 
+                  // job.token != 0 as well as the two result bits: only an install mints a
+                  // token, so a modify or a delete withholds nothing from the view and must not
+                  // be counted here. Saying "these rows are withheld" about entries that have no
+                  // cache row is the same kind of over-claim the ticket is about, pointed the
+                  // other way.
+                  if (job.token != 0 && result.ok && !result.confirmsProgramming)
+                  {
+                      ++unconfirmed;
+                      unconfirmedDpid = job.dpid;
+                  }
+
                   if (!result.ok)
                   {
                       SPDLOG_LOGGER_ERROR(Logger::instance(),
@@ -69,6 +87,26 @@ Controller::Controller(std::shared_ptr<FlowRoutingManager> flowRoutingManager)
                                           result.httpStatus,
                                           result.message);
                   }
+              }
+
+              // [Co-developed with claude code -- Adam]
+              // doc/KNOWN-ISSUES.md C-4. The "why" belongs here, because this is the only place
+              // the control plane's answer is in scope. Deliberately not worded with "failed":
+              // check_logs.py fails a run on a dispatched-*-failed line, and an entry the far end
+              // accepted has not failed -- it is merely unwitnessed, which is a different thing
+              // to tell an operator and leads to a different action.
+              if (unconfirmed > 0)
+              {
+                  SPDLOG_LOGGER_WARN(Logger::instance(),
+                                     "{} of {} dispatched flow entries for dpid {} were accepted "
+                                     "by the control plane, but this plane's acceptance is not "
+                                     "evidence the switch programmed them -- it answers before "
+                                     "the switch adjudicates. They are withheld from "
+                                     "get_switch_openflow_table_entries until a poll observes "
+                                     "them (KNOWN-ISSUES C-4).",
+                                     unconfirmed,
+                                     batch.size(),
+                                     unconfirmedDpid);
               }
               // (Optional) fence/Barrier here if your southbound supports it
           },

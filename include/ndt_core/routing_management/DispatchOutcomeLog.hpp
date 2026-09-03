@@ -103,7 +103,18 @@ class DispatchOutcomeLog
         if (result.ok)
         {
             succeeded_.fetch_add(1, std::memory_order_relaxed);
-            noteProgrammed_(job.token);
+            // [Co-developed with claude code -- Adam]
+            // doc/KNOWN-ISSUES.md C-4. This was an unconditional noteProgrammed_(job.token), and
+            // that one line is the whole of the OVS half of B-1: `ok` means the far end took the
+            // request, and only on P4 does the far end taking it imply that a switch programmed
+            // it. Counting is deliberately unchanged -- an accepted entry is still a success.
+            // Withholding a row from the table view is not the same claim as failing to dispatch
+            // it, and merging the two would report a healthy OVS fabric as one full of rejected
+            // rules: a different false alarm, not one fewer.
+            if (result.confirmsProgramming)
+            {
+                noteProgrammed_(job.token);
+            }
             return;
         }
 
@@ -153,6 +164,12 @@ class DispatchOutcomeLog
      * KNOWN-ISSUES T-11's filter predicate. This is the index the A-7 note said a future ticket
      * would add here; adding it needed no change to any call site, which was the point of routing
      * successes through record().
+     *
+     * "Confirmed" means the plane's answer was an *adjudication*, not merely an acceptance --
+     * see OpResult::confirmsProgramming. On OVS no answer to a flow-mod is an adjudication, so a
+     * token there is confirmed by nothing and its row becomes visible when the periodic poll reads
+     * it back off the switch. That is the contract, and it is about observation, not about elapsed
+     * time: nothing here is waiting for a timer to expire.
      *
      * `token == 0` answers **true**: an untokened entry was not minted by the optimistic write
      * path -- it came from a poll of the actual switch, or from a caller predating tokens -- and

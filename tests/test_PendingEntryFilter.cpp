@@ -168,7 +168,15 @@ TEST(PendingEntryFilterTest, MalformedShapesAreLeftAloneRatherThanThrowing)
 
 // --- The confirmation signal itself, which is what the predicate reads in production.
 
-TEST(ProgrammedTokenTest, OnlyASouthboundSuccessConfirmsAToken)
+// [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md C-4.
+// Renamed, and the two OpResults below now say which kind of success they are. The old name --
+// OnlyASouthboundSuccessConfirmsAToken -- and its bare OpResult::success() together asserted the
+// defect: that any southbound success confirms an entry. That is true on P4, where the proxy
+// adjudicates before replying, and false on OVS, where Ryu's 200 precedes the switch entirely. So
+// this suite had pinned the OVS half of B-1 in place as expected behaviour, and the 08-31
+// acceptance could not see it because it only ever ran on P4. Same shape as
+// test_LockManager.cpp's RenewingAnExpiredLockPutsItBackInForce, which pinned B-2 the same way.
+TEST(ProgrammedTokenTest, OnlyAnAdjudicatingSouthboundSuccessConfirmsAToken)
 {
     DispatchOutcomeLog log;
 
@@ -182,10 +190,17 @@ TEST(ProgrammedTokenTest, OnlyASouthboundSuccessConfirmsAToken)
     FlowJob refused = confirmed;
     refused.token = 22;
 
-    log.record(confirmed, OpResult::success());
+    FlowJob accepted = confirmed;
+    accepted.token = 44;
+
+    log.record(confirmed, OpResult::success().withProgrammingConfirmed(true));
     log.record(refused, OpResult::failure(400, "rejected"));
+    log.record(accepted, OpResult::success().withProgrammingConfirmed(false));
 
     EXPECT_TRUE(log.isProgrammed(11));
+    EXPECT_FALSE(log.isProgrammed(44))
+        << "a plane that answers before its switch adjudicates confirms nothing, however "
+           "successful the answer (KNOWN-ISSUES C-4)";
     EXPECT_FALSE(log.isProgrammed(22)) << "a refused rule must never be reported as programmed";
     EXPECT_FALSE(log.isProgrammed(33)) << "a token nobody has answered for yet";
     EXPECT_TRUE(log.isProgrammed(0)) << "untokened rows are not the filter's business";
@@ -208,7 +223,7 @@ TEST(ProgrammedTokenTest, ForgettingATokenHidesARealEntryRatherThanShowingAPhant
     for (uint64_t t = 1; t <= kOverflow; ++t)
     {
         job.token = t;
-        log.record(job, OpResult::success());
+        log.record(job, OpResult::success().withProgrammingConfirmed(true));
     }
 
     EXPECT_TRUE(log.isProgrammed(kOverflow)) << "the most recent confirmation must survive";

@@ -922,7 +922,18 @@ class DeviceConfigurationAndPowerManager
     /// T-11: answers whether a cached entry's token was confirmed by the southbound. Guarded by
     /// m_openflowTablesMutex, which is also the lock held while filtering, so it is set once at
     /// wiring time and read under the same lock as the cache it filters.
+    /// [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md C-4. Says, once per change,
+    /// that the flow-table view is short of rows and where to read why. See the definition for
+    /// the edge trigger and why it is not per-read.
+    void reportWithheldRows(std::size_t withheld);
+
     std::function<bool(uint64_t)> m_isProgrammed;
+
+    /// [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md C-4. The last count
+    /// reportWithheldRows announced, so the line is edge-triggered rather than emitted on every
+    /// read. Atomic because getOpenFlowTables holds only a shared lock and several readers can be
+    /// inside it at once.
+    std::atomic<std::size_t> m_lastWithheldRows{0};
 
     std::string GW_IP;
 
