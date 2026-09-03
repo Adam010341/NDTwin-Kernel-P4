@@ -37,4 +37,10 @@ topo-load×D15 在 `TopologyAndFlowMonitor::start()` **語意重疊**（兩支�
 |---|---|---|---|
 | 12 | `fix/b5-kernel-shutdown` | ✅ 併 | 7 commits，raw log 進 repo（SIGINT 7/7 exit 0）。乾淨。合併後 `stop()` 有 3 個 join（查證） |
 | 13 | `fix/d15-dataplane-kind-race` | ✅ 併，**解 `tests/CMakeLists.txt`** | 與 B5 純 add/add（各加自己的測試檔），兩邊留。🔴 **它的測試紅在 fixture**：`startMonitor()` 只 `m_monitor->start()`，而 main.cpp 是 409 monitor → 432 manager；補 `m_manager->start()`＋TearDown 反序 `stop()`（B5 已進所以 join 得完）。建置後驗 4/4 |
+| — | D15 fixture 補完 | ✅ | `startMonitor()` 照 main.cpp 409→432 起 monitor 再起 manager，TearDown 反序 stop。**冷編後 B5 3/3 ＋ D15 4/4 = 7/7** |
+| 14 | `fix/flow-rate-denominator` | ✅ 併 | 乾淨。`SFlowType.hpp`／`FlowLinkUsageCollector.{hpp,cpp}`／`test_RateDenominator.cpp`＋建置型閘門 |
+| 15 | `fix/telemetry-health-visible` | ✅ 併，**解 2 檔** | `FlowLinkUsageCollector.hpp` 與 flow-rate **相鄰**（`IngestHealth` vs `lastFlowRateDivisorSeconds()` 插同一點）兩邊留；`tests/CMakeLists.txt` 純 add/add。**裁決：severe 邊界 `>` → `>=`**（紅的測試要「剛好 10% 算 severe」，邊界歸較重的那一帶；lossy 那條沒有測試約束、不動） |
+| 16 | `fix/logfile-takes-a-path` | ✅ 併 | 乾淨 |
+| 17 | `fix/topology-round-reads-status` | ✅ 併 | 乾淨 |
+| 18 | `fix/topology-load-fails-before-listen` | ✅ 併，**解 2 檔，唯一一個語意重疊** | 兩支各解了同一個排序問題的一半：D15 把載入搬進 `start()`（同步、發布 `isStaticTopologyLoaded()`），topo-load 做了會回報失敗的 `loadStaticTopology()`（main 在綁 port 前呼叫、失敗就 `EXIT_FAILURE`）但 `start()` 沒載入。**合法**：hpp 兩個 API 都留；cpp 留 `loadStaticTopology()` 定義、丟掉它在 `run()` 的後備呼叫（D15 的註解成立：那條 thread 只 poll）；`start()` 改成 `(void)loadStaticTopology()` 再設 D15 的兩個旗標。這支的 C++ 半邊**第一次被編譯**就是這次整合建置。Python 半邊合併後重跑：29/29、`--hosts 300` rc 1、`--hosts 8 --stdout` 是 JSON、l9 的 5/5 |
 
