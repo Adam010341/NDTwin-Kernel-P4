@@ -61,6 +61,12 @@ KERNEL_ENDPOINTS = {
     "get_openflow_capacity": "GET",
     "historical_logging": "POST",
     "get_average_link_usage": "GET",
+    # [Co-developed with claude code -- Adam] Registered by fix/telemetry-health-visible
+    # (HttpSession.cpp:306, utils::pathIs) so the four sFlow ingest counters have a reader that is
+    # not a log line. Deliberately absent from every Component's endpoint list below, for the same
+    # reason get_flow_dispatch_status is: those lists record which sibling repo actually calls
+    # what, and nothing calls this one yet.
+    "get_sflow_stats": "GET",
     "get_total_input_traffic_load_passing_a_switch": "POST",
     "get_num_of_flows_passing_a_switch": "POST",
     "acquire_lock": "POST",
