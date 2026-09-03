@@ -2017,7 +2017,7 @@ app_wait_stopped() {
     done
     err "$name is STILL RUNNING after $LAB $name-stop"
     for pid in "${APP_LIVE_PIDS[@]}"; do
-        err "   pid $pid: $(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-90)"
+        err "   pid $pid: $(tr '\0' ' ' 2>/dev/null < "/proc/$pid/cmdline" | cut -c1-90)"
     done
     err "   the lab stops a tmux SESSION; an instance started outside one survives that."
     err "   verify, then stop it yourself:  sudo kill -TERM <pid>"
