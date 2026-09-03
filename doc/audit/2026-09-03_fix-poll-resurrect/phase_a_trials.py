@@ -46,10 +46,22 @@ SWITCHES = [
 BY_NAME = {s["name"]: s for s in SWITCHES}
 
 POLL_PERIOD = 30.0  # kOnceConverged in TopologyAndFlowMonitor::run()
-FIRE_AFTER_POLL = 28.5  # phase A: 1.5 s before the next one
+LEAD_S = 1.5  # phase A: fire this far BEFORE the next /switches request
 WATCH_S = 40.0  # long enough to contain the next poll and the one after it
+PROXY_TRACE_S = 12.0  # how long to also sample the proxy's own list -- see below
 SAMPLE_HZ = 10.0
 
+#: 🔴 THE PHASE REFERENCE IS /links, NOT /switches, AND THAT IS NOT A DETAIL.
+#: This harness itself GETs /v1.0/topology/switches ten times a second to record whether the
+#: control plane still lists the switch, and those requests land in the same uvicorn access log.
+#: Anchoring on /switches would therefore have read this script's own probes as kernel polls and
+#: aimed every trial at a phase that does not exist -- an instrument measuring itself, which is
+#: the shape memory `an-instrument-must-not-look-like-its-own-finding` is about. The kernel fetches
+#: switches, then hosts, then links, ~0.21 s apart (round3 06_); nothing here ever asks for links,
+#: so /links is the kernel's alone. The switches->links offset is MEASURED at self-check time
+#: rather than assumed, because it is what converts a /links arrival into the /switches arrival
+#: the recipe is actually phased against.
+POLL_REQ = re.compile(r"/v1\.0/topology/links")
 SWITCH_REQ = re.compile(r"/v1\.0/topology/switches")
 
 
@@ -122,12 +134,16 @@ class PollWatcher:
         self.path = path
         self.fh = open(path, "r", errors="replace")
         self.fh.seek(0, os.SEEK_END)
-        self.arrivals = []
+        self.arrivals = []       # /links -- the kernel's, and only the kernel's
+        self.switch_reqs = []    # /switches -- the kernel's AND this script's, during a trial
+        self.offset = 0.42       # switches -> links, replaced by the measured value
 
     def drain(self):
         for line in self.fh:
-            if SWITCH_REQ.search(line):
+            if POLL_REQ.search(line):
                 self.arrivals.append(time.time())
+            elif SWITCH_REQ.search(line):
+                self.switch_reqs.append(time.time())
         return self.arrivals
 
     def wait_for_poll(self, timeout=90.0):
@@ -154,16 +170,34 @@ def self_check(watcher, seconds, out):
         print(f"    REFUSE: only {len(ts)} poll(s) seen. No phase to aim at.", file=out)
         return False
     gaps = [round(b - a, 2) for a, b in zip(ts, ts[1:])]
-    print(f"    {len(ts)} polls, inter-arrival gaps: {gaps}", file=out)
+    print(f"    {len(ts)} polls (/links), inter-arrival gaps: {gaps}", file=out)
     ok = all(abs(g - POLL_PERIOD) < 3.0 for g in gaps)
     print(f"    cadence within 3s of {POLL_PERIOD:.0f}s: {ok}", file=out)
+
+    # Nothing but the kernel asked for /switches during this window, so every /links can be paired
+    # with the /switches that preceded it. Measured, not assumed -- the recipe is phased against
+    # /switches and this is the only thing that converts one into the other.
+    offs = []
+    for t in ts:
+        before = [s for s in watcher.switch_reqs if 0 < t - s < 2.0]
+        if before:
+            offs.append(t - before[-1])
+    if not offs:
+        print("    REFUSE: no /switches request could be paired with a /links one.", file=out)
+        return False
+    offs.sort()
+    watcher.offset = offs[len(offs) // 2]
+    print(f"    measured /switches -> /links offset: {[round(o, 3) for o in offs]} "
+          f"-> using {watcher.offset:.3f}s", file=out)
     return ok
 
 
 def trial(sw, watcher, out):
     r = {"switch": sw["name"], "verdict": "VOID"}
-    poll_at = watcher.wait_for_poll()
-    target = poll_at + FIRE_AFTER_POLL
+    poll_at = watcher.wait_for_poll()          # a /links arrival
+    # The /switches request this poll belongs to arrived `offset` earlier; the next one is a
+    # period after that. Fire LEAD_S before it.
+    target = poll_at - watcher.offset + POLL_PERIOD - LEAD_S
     while time.time() < target:
         time.sleep(0.01)
 
@@ -172,7 +206,8 @@ def trial(sw, watcher, out):
     t_off = time.time()
     status, body, secs = post(f"{NDT}/ndt/set_switches_power_state?ip={sw['ip']}&action=off")
     r.update(t_off=t_off, off_status=status, off_body=body.strip(), off_secs=round(secs, 3),
-             fired_at_poll_plus=round(t_off - poll_at, 2))
+             fired_at_poll_plus=round(t_off - (poll_at - watcher.offset), 2),
+             poll_links_at=poll_at, offset=round(watcher.offset, 3))
 
     # 10 Hz for WATCH_S: is_up (the claim) and the proxy's list (the mechanism).
     samples = []
@@ -183,10 +218,26 @@ def trial(sw, watcher, out):
         d = due - time.time()
         if d > 0:
             time.sleep(d)
-        samples.append((round(time.time() - t_off, 2), is_up(sw["dpid"]), proxy_lists(sw["dpid"])))
+        # The proxy's list is sampled only for the first PROXY_TRACE_S: it is the mechanism
+        # evidence, it is only interesting around the poll, and every one of these requests is a
+        # /switches line this script has to keep out of its own phase reference.
+        # 🔴 DRAINED INSIDE THE LOOP, and that is not tidiness. drain() stamps a line with the
+        # clock at the moment it READS it, so draining once after the watch stamps every poll of
+        # the window with the drain instant -- which is what the first base run did, and it
+        # reported both polls at t_off+39.93. A field that is always the end of the window is not
+        # a measurement of anything. At 10 Hz the stamp is within ~0.1 s of the arrival.
+        watcher.drain()
+        listed = proxy_lists(sw["dpid"]) if (i * step) < PROXY_TRACE_S else None
+        samples.append((round(time.time() - t_off, 2), is_up(sw["dpid"]), listed))
 
     r["port_open_after"] = port_open(sw["grpc"])
     r["procs_after"] = bmv2_count()
+
+    # Which polls actually landed in the window. Without this, "the poll resurrected it" is an
+    # inference from a timestamp; with it, the poll and the transition are two separate records
+    # that either line up or do not. Stamped during the loop above, not here.
+    r["polls_in_window"] = [round(t - t_off, 2) for t in watcher.arrivals
+                            if 0 <= t - t_off <= WATCH_S]
 
     trans = [(t, prev[1], cur[1])
              for prev, cur in zip(samples, samples[1:])
@@ -205,14 +256,32 @@ def trial(sw, watcher, out):
     else:
         r["verdict"] = "KEPT"
 
-    print(f"\n--- {sw['name']} phase A (fired at poll+{r['fired_at_poll_plus']}s) ---", file=out)
+    print(f"\n--- {sw['name']} phase A (fired {round(target - (poll_at - watcher.offset), 2)}s "
+          f"after the /switches of the previous poll, i.e. ~{LEAD_S}s before the next) ---",
+          file=out)
     print(f"    t_off={t_off:.3f}  API {status} {body.strip()} in {secs:.3f}s  "
           f"is_up_before={r['is_up_before']}  procs {r['procs_before']}->{r['procs_after']}",
           file=out)
     print(f"    process really died: :{sw['grpc']} open={r['port_open_after']}", file=out)
-    print(f"    proxy still listed it until t_off+{r['proxy_listed_until']}s", file=out)
+    print(f"    proxy still listed it until t_off+{r['proxy_listed_until']}s "
+          f"(traced for the first {PROXY_TRACE_S:.0f}s only)", file=out)
+    print(f"    polls applied during the {WATCH_S:.0f}s watch, at t_off+: {r['polls_in_window']}",
+          file=out)
     print(f"    is_up transitions (t-t_off, from, to): {trans}", file=out)
     print(f"    final is_up={r['final_is_up']}  => {r['verdict']}", file=out)
+
+    # --- FINDINGS #35, the power-off half, measured -----------------------------------------
+    # The switch is now confirmed dead and the graph agrees. A SECOND power-off is therefore the
+    # redundant case the old guard existed for, and its latency says which oracle answered it:
+    #   before -- `if (!getVertexIsUp(node)) return success;`  no command runs, ~1 ms
+    #   after  -- the helper runs, re-verifies the manifest pid against /proc, prints
+    #             already-stopped and exits 0; a sudo + python exec, tens of ms at least
+    # This is the one part of the finding that IS separable in a live is_up trace on this build
+    # (see the arm summary for why the poll door is not).
+    st2, bd2, sec2 = post(f"{NDT}/ndt/set_switches_power_state?ip={sw['ip']}&action=off")
+    r["redundant_off_status"], r["redundant_off_secs"] = st2, round(sec2, 4)
+    print(f"    redundant power-off on a switch already down: {st2} {bd2.strip()} "
+          f"in {sec2 * 1000:.1f} ms", file=out)
 
     # --- restore, and say which route restored it ------------------------------------------
     st, bd, sec = post(f"{NDT}/ndt/set_switches_power_state?ip={sw['ip']}&action=on")
@@ -251,8 +320,9 @@ def main():
     with open(a.out, "w", buffering=1) as out:
         print(f"#### FINDINGS #46 phase-A trials -- arm={a.arm} ####", file=out)
         print(f"# kernel binary sha256 {a.sha}", file=out)
-        print(f"# recipe: power-off fired {FIRE_AFTER_POLL}s after a poll arrival (= ~1.5s before "
-              f"the next), then is_up sampled at {SAMPLE_HZ:.0f} Hz for {WATCH_S:.0f}s", file=out)
+        print(f"# recipe: power-off fired {LEAD_S}s BEFORE the next /v1.0/topology/switches "
+              f"request (phase A), then is_up sampled at {SAMPLE_HZ:.0f} Hz for {WATCH_S:.0f}s; "
+              f"the proxy's own list traced for the first {PROXY_TRACE_S:.0f}s", file=out)
         print(f"# {time.strftime('%Y-%m-%dT%H:%M:%S%z')}  bmv2 procs = {bmv2_count()}", file=out)
 
         w = PollWatcher(a.proxy_log)
@@ -273,9 +343,16 @@ def main():
         lost = sum(1 for r in results if r["verdict"] == "LOST")
         kept = sum(1 for r in results if r["verdict"] == "KEPT")
         void = sum(1 for r in results if r["verdict"] == "VOID")
+        offs = [r["redundant_off_secs"] for r in results if "redundant_off_secs" in r]
+        offs.sort()
         print(f"\n=== arm={a.arm} verdict ===", file=out)
         print(f"    LOST {lost} / KEPT {kept} / VOID {void}   "
               f"(failure rate {lost}/{lost + kept} of the trials that killed something)", file=out)
+        if offs:
+            print(f"    redundant power-off latency, {len(offs)} samples, ms: "
+                  f"{[round(o * 1000, 1) for o in offs]}", file=out)
+            print(f"      min {offs[0] * 1000:.1f}  median {offs[len(offs) // 2] * 1000:.1f}  "
+                  f"max {offs[-1] * 1000:.1f}", file=out)
         with open(a.out + ".json", "w") as jf:
             json.dump({"arm": a.arm, "sha": a.sha, "results": results,
                        "lost": lost, "kept": kept, "void": void}, jf, indent=1)

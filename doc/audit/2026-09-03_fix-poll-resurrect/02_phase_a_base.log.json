@@ -1,0 +1,358 @@
+{
+ "arm": "base",
+ "sha": "395753ec31ca955dd58f36fc3274f8fd88f29ccf57af780f92ca701629e4971c",
+ "results": [
+  {
+   "switch": "s6",
+   "verdict": "KEPT",
+   "is_up_before": true,
+   "procs_before": 10,
+   "t_off": 1788435411.2377205,
+   "off_status": 200,
+   "off_body": "{\"192.168.123.16\":\"Success\"}",
+   "off_secs": 0.297,
+   "fired_at_poll_plus": 28.58,
+   "poll_links_at": 1788435383.1603794,
+   "offset": 0.501,
+   "port_open_after": false,
+   "procs_after": 9,
+   "polls_in_window": [
+    2.6,
+    33.3,
+    36.4,
+    37.4,
+    39.4
+   ],
+   "transitions": [
+    [
+     0.32,
+     false,
+     true
+    ],
+    [
+     11.6,
+     true,
+     false
+    ]
+   ],
+   "final_is_up": false,
+   "proxy_listed_until": 3.3,
+   "redundant_off_status": 200,
+   "redundant_off_secs": 0.0021,
+   "restore_status": 200,
+   "restore_secs": 1.553,
+   "restore_needed_out_of_band": false
+  },
+  {
+   "switch": "s7",
+   "verdict": "KEPT",
+   "is_up_before": true,
+   "procs_before": 10,
+   "t_off": 1788435503.2334135,
+   "off_status": 200,
+   "off_body": "{\"192.168.123.17\":\"Success\"}",
+   "off_secs": 0.312,
+   "fired_at_poll_plus": 28.55,
+   "poll_links_at": 1788435475.1830318,
+   "offset": 0.501,
+   "port_open_after": false,
+   "procs_after": 9,
+   "polls_in_window": [
+    0.31,
+    0.31,
+    0.31,
+    0.31,
+    2.6,
+    33.3
+   ],
+   "transitions": [
+    [
+     0.5,
+     false,
+     true
+    ],
+    [
+     10.5,
+     true,
+     false
+    ]
+   ],
+   "final_is_up": false,
+   "proxy_listed_until": 2.8,
+   "redundant_off_status": 200,
+   "redundant_off_secs": 0.0022,
+   "restore_status": 200,
+   "restore_secs": 1.551,
+   "restore_needed_out_of_band": false
+  },
+  {
+   "switch": "s8",
+   "verdict": "KEPT",
+   "is_up_before": true,
+   "procs_before": 10,
+   "t_off": 1788435595.2289035,
+   "off_status": 200,
+   "off_body": "{\"192.168.123.18\":\"Success\"}",
+   "off_secs": 0.286,
+   "fired_at_poll_plus": 28.56,
+   "poll_links_at": 1788435567.1742334,
+   "offset": 0.501,
+   "port_open_after": false,
+   "procs_after": 9,
+   "polls_in_window": [
+    2.6,
+    33.3
+   ],
+   "transitions": [
+    [
+     0.7,
+     false,
+     true
+    ],
+    [
+     8.1,
+     true,
+     false
+    ]
+   ],
+   "final_is_up": false,
+   "proxy_listed_until": 2.3,
+   "redundant_off_status": 200,
+   "redundant_off_secs": 0.0022,
+   "restore_status": 200,
+   "restore_secs": 1.545,
+   "restore_needed_out_of_band": false
+  },
+  {
+   "switch": "s9",
+   "verdict": "KEPT",
+   "is_up_before": true,
+   "procs_before": 10,
+   "t_off": 1788435687.2120655,
+   "off_status": 200,
+   "off_body": "{\"192.168.123.19\":\"Success\"}",
+   "off_secs": 0.286,
+   "fired_at_poll_plus": 28.55,
+   "poll_links_at": 1788435659.1586668,
+   "offset": 0.501,
+   "port_open_after": false,
+   "procs_after": 9,
+   "polls_in_window": [
+    2.6,
+    33.3
+   ],
+   "transitions": [
+    [
+     0.7,
+     false,
+     true
+    ],
+    [
+     10.7,
+     true,
+     false
+    ]
+   ],
+   "final_is_up": false,
+   "proxy_listed_until": 1.8,
+   "redundant_off_status": 200,
+   "redundant_off_secs": 0.0019,
+   "restore_status": 200,
+   "restore_secs": 1.548,
+   "restore_needed_out_of_band": false
+  },
+  {
+   "switch": "s10",
+   "verdict": "KEPT",
+   "is_up_before": true,
+   "procs_before": 10,
+   "t_off": 1788435779.1949332,
+   "off_status": 200,
+   "off_body": "{\"192.168.123.20\":\"Success\"}",
+   "off_secs": 0.286,
+   "fired_at_poll_plus": 28.55,
+   "poll_links_at": 1788435751.1476514,
+   "offset": 0.501,
+   "port_open_after": false,
+   "procs_after": 9,
+   "polls_in_window": [
+    2.6,
+    33.3
+   ],
+   "transitions": [
+    [
+     0.8,
+     false,
+     true
+    ],
+    [
+     9.5,
+     true,
+     false
+    ]
+   ],
+   "final_is_up": false,
+   "proxy_listed_until": 3.3,
+   "redundant_off_status": 200,
+   "redundant_off_secs": 0.002,
+   "restore_status": 200,
+   "restore_secs": 1.536,
+   "restore_needed_out_of_band": false
+  },
+  {
+   "switch": "s6",
+   "verdict": "KEPT",
+   "is_up_before": true,
+   "procs_before": 10,
+   "t_off": 1788435871.2138395,
+   "off_status": 200,
+   "off_body": "{\"192.168.123.16\":\"Success\"}",
+   "off_secs": 0.293,
+   "fired_at_poll_plus": 28.56,
+   "poll_links_at": 1788435843.1584568,
+   "offset": 0.501,
+   "port_open_after": false,
+   "procs_after": 9,
+   "polls_in_window": [
+    2.6,
+    33.3
+   ],
+   "transitions": [
+    [
+     0.9,
+     false,
+     true
+    ],
+    [
+     12.1,
+     true,
+     false
+    ]
+   ],
+   "final_is_up": false,
+   "proxy_listed_until": 2.7,
+   "redundant_off_status": 200,
+   "redundant_off_secs": 0.002,
+   "restore_status": 200,
+   "restore_secs": 1.571,
+   "restore_needed_out_of_band": false
+  },
+  {
+   "switch": "s7",
+   "verdict": "KEPT",
+   "is_up_before": true,
+   "procs_before": 10,
+   "t_off": 1788435963.177983,
+   "off_status": 200,
+   "off_body": "{\"192.168.123.17\":\"Success\"}",
+   "off_secs": 0.321,
+   "fired_at_poll_plus": 28.56,
+   "poll_links_at": 1788435935.1224604,
+   "offset": 0.501,
+   "port_open_after": false,
+   "procs_after": 9,
+   "polls_in_window": [
+    2.7,
+    33.3
+   ],
+   "transitions": [
+    [
+     1.0,
+     false,
+     true
+    ],
+    [
+     9.7,
+     true,
+     false
+    ]
+   ],
+   "final_is_up": false,
+   "proxy_listed_until": 2.3,
+   "redundant_off_status": 200,
+   "redundant_off_secs": 0.0022,
+   "restore_status": 200,
+   "restore_secs": 1.564,
+   "restore_needed_out_of_band": false
+  },
+  {
+   "switch": "s8",
+   "verdict": "KEPT",
+   "is_up_before": true,
+   "procs_before": 10,
+   "t_off": 1788436055.1863258,
+   "off_status": 200,
+   "off_body": "{\"192.168.123.18\":\"Success\"}",
+   "off_secs": 0.302,
+   "fired_at_poll_plus": 28.55,
+   "poll_links_at": 1788436027.1409657,
+   "offset": 0.501,
+   "port_open_after": false,
+   "procs_after": 9,
+   "polls_in_window": [
+    2.6,
+    33.3
+   ],
+   "transitions": [
+    [
+     1.29,
+     false,
+     true
+    ],
+    [
+     8.7,
+     true,
+     false
+    ]
+   ],
+   "final_is_up": false,
+   "proxy_listed_until": 1.7,
+   "redundant_off_status": 200,
+   "redundant_off_secs": 0.0026,
+   "restore_status": 200,
+   "restore_secs": 1.564,
+   "restore_needed_out_of_band": false
+  },
+  {
+   "switch": "s9",
+   "verdict": "KEPT",
+   "is_up_before": true,
+   "procs_before": 10,
+   "t_off": 1788436147.2023294,
+   "off_status": 200,
+   "off_body": "{\"192.168.123.19\":\"Success\"}",
+   "off_secs": 0.293,
+   "fired_at_poll_plus": 28.56,
+   "poll_links_at": 1788436119.1449966,
+   "offset": 0.501,
+   "port_open_after": false,
+   "procs_after": 9,
+   "polls_in_window": [
+    2.6,
+    33.3
+   ],
+   "transitions": [
+    [
+     1.4,
+     false,
+     true
+    ],
+    [
+     11.3,
+     true,
+     false
+    ]
+   ],
+   "final_is_up": false,
+   "proxy_listed_until": 3.2,
+   "redundant_off_status": 200,
+   "redundant_off_secs": 0.002,
+   "restore_status": 200,
+   "restore_secs": 1.543,
+   "restore_needed_out_of_band": false
+  }
+ ],
+ "lost": 0,
+ "kept": 9,
+ "void": 0
+}
