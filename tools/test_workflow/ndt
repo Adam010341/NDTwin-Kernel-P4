@@ -1579,9 +1579,17 @@ sflow_state() {
 
     # An sFlow record nothing points at is what a second `create` leaves behind. Counted
     # separately from the per-bridge check because the per-bridge check cannot see it.
+    #
+    # 🔴 And the two directions of the mismatch get DIFFERENT sentences. Written as one line it
+    # said "a record referenced by no bridge is a configuration that ran twice" for a database
+    # holding zero records against ten bridges -- sending the reader to look for a phantom
+    # extra record when the per-bridge lines above had already said the opposite. A message
+    # produced from the wrong branch of the condition it is reporting on.
     local n_records; n_records="$(printf '%s\n' "$records" | grep -c . || true)"
-    if [[ "$n_records" -ne "${#names[@]}" ]]; then
-        NDT_SFLOW_PROBLEMS+=("the OVS database holds $n_records sFlow records for ${#names[@]} bridges -- a record referenced by no bridge is a configuration that ran twice, or one applied to a bridge that does not exist")
+    if [[ "$n_records" -gt "${#names[@]}" ]]; then
+        NDT_SFLOW_PROBLEMS+=("the OVS database holds $n_records sFlow records for ${#names[@]} bridges -- a record no bridge references is a configuration that ran twice, or one applied to a bridge that does not exist")
+    elif [[ "$n_records" -lt "${#names[@]}" ]]; then
+        NDT_SFLOW_PROBLEMS+=("the OVS database holds $n_records sFlow records for ${#names[@]} bridges -- the bridges named above have none")
     fi
 
     NDT_SFLOW_SUMMARY="$configured/${#names[@]} bridges sampling to :$SFLOW_PORT, $n_records records"

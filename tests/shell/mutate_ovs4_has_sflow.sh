@@ -260,7 +260,7 @@ report_sh "M15: the agent address is read from the model, not measured" "$m" \
           "an agent interface with no IPv4 is red"
 
 m=$(mutant m16 "$NDT" \
-    '    if [[ "$n_records" -ne "${#names[@]}" ]]; then' \
+    '    if [[ "$n_records" -gt "${#names[@]}" ]]; then' \
     '    if false; then')
 report_sh "M16 (loosening): records no bridge references stop being counted" "$m" \
           "an sFlow record no bridge references is red"
