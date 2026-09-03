@@ -14,8 +14,34 @@ public:
 
     OpResult powerOn(Graph::vertex_descriptor node, const std::string& swName, uint64_t dpid, TopologyAndFlowMonitor* topoMonitor) override;
     OpResult powerOff(Graph::vertex_descriptor node, const std::string& swName, TopologyAndFlowMonitor* topoMonitor) override;
-    
+
     const char* describe() const override { return "Open vSwitch"; }
+
+    /**
+     * @brief Turns one `ovs-vsctl br-exists` result into the three-way answer. No process, no
+     *        shell, no bridge.
+     *
+     * @param ran        utils::CommandOutcome::ran -- whether the program was reached at all.
+     * @param waitStatus the wait status from waitpid(), NOT an exit code.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * FINDINGS #82. Split out of executeBridgeExists so the rule can be tested without running
+     * anything: every double in tests/ replaces the seam, so the seam's own body would otherwise
+     * be exercised by no test at all -- the same gap tests/test_OvsPowerStrategy.cpp's
+     * `TheRealShellSeamRunsTheCommandAndReportsItsExitStatus` was written to close for
+     * executeSystemCommand, arrived at before it could open.
+     *
+     * The rule, from ovs-vsctl(8) EXIT STATUS:
+     *   - exit 0     -> true      the bridge exists
+     *   - exit 2     -> false     it does not. An answer.
+     *   - otherwise  -> nullopt   1 (a usage or connection error), a signal, or never ran.
+     *
+     * 🔴 `waitStatus` is a wait status. Exit 2 is 512 as an int, which is why this takes WIFEXITED
+     * apart rather than comparing the number: executeSystemCommand's own comment records that
+     * this file once logged "status 256" for a command that exited 1.
+     */
+    static std::optional<bool> interpretBrExistsStatus(bool ran, int waitStatus);
 
 protected:
     /**
@@ -81,6 +107,78 @@ protected:
      * two cases.
      */
     virtual std::optional<std::vector<std::string>> executeListPorts(const std::string& br);
+
+    /**
+     * @brief Whether the bridge exists on this machine right now, or nothing when the question
+     *        could not be asked.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * FINDINGS #82. `powerOff` used to open with
+     *
+     *     if (!topoMonitor->getVertexIsUp(node)) { return OpResult::success(); }
+     *
+     * -- the OVS twin of the P4 early return #35 names. It asked the graph, and the graph is a
+     * cache of somebody else's opinion about this bridge: `loadStaticTopologyFromFile` starts
+     * every vertex at `isUp = false`, the 1 Hz liveness worker writes false the moment
+     * `ovs-vsctl list-br` stops naming the bridge or cannot be run at all, and after FINDINGS #46
+     * a commanded-off switch stays false until a power-on lifts it. A power-off arriving in any
+     * of those states returned 200 "Success" having deleted nothing -- and, since #46, without
+     * ever reaching `setVertexPoweredOffByCommand`, so on OVS the #46 fix held only when `isUp`
+     * happened to be true at power-off time.
+     *
+     * The P4 side could simply delete its guard because its helper is idempotent FROM A
+     * MEASUREMENT (`already-stopped`, read out of /proc). OVS has no such helper, and the reason
+     * the guard could not just be deleted here is `executeListPorts`: `list-ports` on a bridge
+     * that does not exist writes nothing and exits 1, so an unguarded power-off on an
+     * already-deleted bridge would refuse with a 500. This seam is the measurement that makes
+     * the guard unnecessary -- the same role the P4 helper plays, one question smaller.
+     *
+     * `ovs-vsctl br-exists NAME` is ovs-vsctl's own existence predicate and the one command here
+     * whose entire answer IS its exit status (ovs-vsctl(8), EXIT STATUS):
+     *
+     *   - exit 0            -- the bridge exists.
+     *   - exit 2            -- it does not. An ANSWER, not a failure.
+     *   - anything else     -- `std::nullopt`. The question was not answered: the binary is
+     *                          missing, sudo refused, ovsdb-server is not listening.
+     *
+     * 🔴 Three outcomes, kept apart for the reason spelled out on `executeListPorts` and
+     * `executeReadSflowState`: a refusal that got read as "no such bridge" would make every
+     * power-off on that machine skip the teardown and report success, which is a louder version
+     * of the defect this seam exists to remove.
+     *
+     * ⚠️ `br-exists` is a NEW `sudo` argv shape, and a NOPASSWD allowlist is argv-pattern scoped
+     * -- `list-ports` being permitted says nothing about `br-exists`. `powerOff` therefore treats
+     * `std::nullopt` as "attempt the teardown anyway" rather than as a refusal: on a machine
+     * where the question cannot be asked, behaviour degrades to exactly what this file did
+     * before, instead of to a power-management outage.
+     *
+     * Runs through `utils::execArgv`, so the bridge name never becomes shell code (B-2b) and the
+     * shell-site population in tests/python/test_shell_command_construction.py is unchanged.
+     *
+     * 🔴 Virtual for the reason all three seams above it are: this file's test header records
+     * that `add-br` once bypassed the fake and really ran `sudo ovs-vsctl` against a developer's
+     * machine because a seam had a hole in it. Every double in tests/ must override this one too.
+     */
+    virtual std::optional<bool> executeBridgeExists(const std::string& br);
+
+    /**
+     * @brief Deletes the bridge and saves what `powerOn` will need to rebuild it.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * FINDINGS #82. This is `powerOff`'s body as it stood, lifted out unchanged so that the
+     * bridge-absent path can skip it without duplicating the line that records the command.
+     * There is exactly one `setVertexPoweredOffByCommand` call in this translation unit, in
+     * `powerOff`, on both paths -- which is what makes "a redundant power-off is still a
+     * command" true by construction rather than by two call sites agreeing.
+     *
+     * Returns a failure when the ports could not be read or a command failed; the vertex is left
+     * up in both cases, because a bridge that is still there is still forwarding.
+     */
+    OpResult tearDownBridge(Graph::vertex_descriptor node,
+                            const std::string& swName,
+                            TopologyAndFlowMonitor* topoMonitor);
 
     /**
      * @brief Reads a bridge's sFlow record and its agent interface's address, or reports that it

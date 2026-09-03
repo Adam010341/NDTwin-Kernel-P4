@@ -147,6 +147,14 @@ class FakeOvs : public OVSPowerStrategy
   public:
     std::vector<std::string> commands;
 
+    /// FINDINGS #82. The bridge this fake's machine has, rather than a constant: `del-br` takes
+    /// it away and `add-br` puts it back, so a power-off followed by a power-on sees the machine
+    /// it just changed. A fixed answer would make one of the two directions untestable here --
+    /// "exists" always would stop power-on ever rebuilding, "absent" always would stop power-off
+    /// ever tearing down -- and the cases below need both to happen in sequence.
+    /// [Co-developed with claude code -- Adam]
+    bool bridgePresent = true;
+
     bool ran(const std::string& fragment) const
     {
         for (const std::string& cmd : commands)
@@ -163,6 +171,14 @@ class FakeOvs : public OVSPowerStrategy
     bool executeSystemCommand(const std::string& cmd) override
     {
         commands.push_back(cmd);
+        if (cmd.find("del-br") != std::string::npos)
+        {
+            bridgePresent = false;
+        }
+        else if (cmd.find("add-br") != std::string::npos)
+        {
+            bridgePresent = true;
+        }
         return true;
     }
 
@@ -179,6 +195,14 @@ class FakeOvs : public OVSPowerStrategy
     std::optional<SflowBridgeState> executeReadSflowState(const std::string&) override
     {
         return SflowBridgeState{};
+    }
+
+    /// FINDINGS #82's seam. Covered here for the reason the other four are: without it these
+    /// cases would run `sudo ovs-vsctl br-exists` against whatever machine the suite is on, and
+    /// the answer would depend on whether a fabric happened to be up.
+    std::optional<bool> executeBridgeExists(const std::string&) override
+    {
+        return bridgePresent;
     }
 };
 
@@ -515,6 +539,54 @@ TEST_F(PollDoesNotResurrectTest, AnOvsPowerOffAlsoSurvivesThePoll)
     EXPECT_FALSE(m_monitor->getVertexAdminPoweredOff(sw()))
         << "the OVS power-on left the commanded-off record standing, so discovery would go on "
            "refusing to mark a live bridge up";
+}
+
+/**
+ * FINDINGS #82: the OVS half of #35, and the reason #46's fix was conditional on this plane.
+ *
+ * [Co-developed with claude code -- Adam]
+ * OVSPowerStrategy::powerOff opened with `if (!getVertexIsUp(node)) return success;`, and that
+ * early return sits ABOVE setVertexPoweredOffByCommand. So on OVS the commanded-off record was
+ * written only when the graph happened to say up at the moment the power-off arrived -- and after
+ * a first power-off the graph says down by construction. A second `action=off` therefore returned
+ * 200 having recorded nothing, and any poll that still listed the switch lifted it straight back.
+ *
+ * This is the same shape as AnOvsPowerOffAlsoSurvivesThePoll one case up, entered from the state
+ * that used to defeat it: the bridge is already gone, so there is nothing to tear down, and the
+ * ONLY thing the power-off has to do is the thing the early return skipped.
+ */
+TEST_F(PollDoesNotResurrectTest, ARedundantOvsPowerOffIsStillRecordedAsACommand)
+{
+    startMonitor();
+    converge();
+    FakeOvs ovs;
+
+    ASSERT_EQ(ovs.powerOff(sw(), "s1", m_monitor.get()).ok, true);
+    ASSERT_TRUE(ovs.ran("del-br s1"));
+
+    // The graph now says down and the bridge is really gone -- the exact state the early return
+    // read as "nothing to do". Clear the command first, so this case cannot pass on the record
+    // the FIRST power-off left behind: what is asserted below has to have been written by the
+    // second one.
+    m_monitor->clearVertexAdminPowerOff(sw());
+    ASSERT_FALSE(m_monitor->getVertexAdminPoweredOff(sw()));
+    ovs.commands.clear();
+
+    const OpResult again = ovs.powerOff(sw(), "s1", m_monitor.get());
+
+    EXPECT_EQ(again.ok, true) << again.message;
+    EXPECT_FALSE(ovs.ran("del-br"))
+        << "deleted a bridge that ovs-vsctl says is not there; on a fabric whose bridge names are "
+           "reused that is somebody else's switch";
+    EXPECT_TRUE(m_monitor->getVertexAdminPoweredOff(sw()))
+        << "the redundant power-off returned 200 and recorded nothing. FINDINGS #82: on OVS this "
+           "is how a power-off stopped being protected by #46 at all";
+
+    m_monitor->pollSwitches(switchListing(kDpid));
+
+    EXPECT_FALSE(isUp())
+        << "the poll lifted a switch whose bridge does not exist, because the power-off that "
+           "would have vetoed it took an early return on the graph's own cached isUp";
 }
 
 // --- 6. Q12: the wire shape is deliberately unchanged --------------------------------------------
