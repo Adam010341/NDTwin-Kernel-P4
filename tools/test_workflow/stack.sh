@@ -33,6 +33,10 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=components.env
 source "$HERE/components.env"
+# The ports that block a bring-up, with owner and consequence per row. Same table `ndt` reads
+# -- the point of it being a file. [Co-developed with claude code -- Adam]
+# shellcheck source=ports.sh
+source "$HERE/ports.sh"
 
 if [[ -t 1 && -z "${NO_COLOR:-}" ]]; then
     R=$'\033[31m'; G=$'\033[32m'; Y=$'\033[33m'; D=$'\033[2m'; N=$'\033[0m'
@@ -799,6 +803,13 @@ cmd_up() {
     #        proxy is a gRPC *client* connecting to each one. So Mininet has to be up first, or
     #        the proxy's first real RPC gets ECONNREFUSED and uvicorn exits before opening :8081.
     #
+    # Every port number named above is also a row in ports.sh, with its owner and what a
+    # foreign holder costs, and cmd_down/cmd_clean/deep_sweep/preflight read those rows. This
+    # comment is kept for the ORDERING argument and the 2026-08-21 three-arm measurement, which
+    # no table can hold; it is no longer the only place the numbers exist. If you change a port
+    # here, change the row -- a comment that describes moved behaviour sends the next reader
+    # looking for something that is not there.
+    #
     # Treating both as "control plane first" is what used to break P4 mode.
     if [[ "$mode" == "ovs" ]]; then
         echo "[1/3] control plane (Ryu)"
@@ -961,11 +972,22 @@ cmd_down() {
     # :8080 are two of the most commonly occupied ports on a developer machine, so an unrelated
     # listener made every `down` exit non-zero while claiming something it had not established.
     # port_owner_verdict answers it properly, using the same `ss -ltnp` the advice below names.
-    local leftovers=0
-    for port in 8000 8080 8081; do
-        port_open "$port" || continue
+    #
+    # The set of ports is now ports.sh's table, not three literals here. The literals were the
+    # ports that are easy to name; the table is the ports that block the next bring-up, and it
+    # carries the consequence of each, which is what turns a leftover into an actionable line.
+    local leftovers=0 spec proto rowplane rowowner consequence port
+    while IFS='|' read -r spec proto rowplane rowowner consequence; do
+      [[ -z "$spec" ]] && continue
+      for port in $(ndt_port_expand "$spec"); do
+        ndt_port_open "$port" "$proto" || continue
         (( leftovers++ ))
-        local owner; owner="$(port_listener_description "$port")"
+        local owner; owner="$(ndt_port_holder "$port" "$proto")"
+        # port_owner_verdict reads TCP listeners only, so a UDP row can never come back
+        # `ours`. That is correct rather than convenient: :6343's holder is not in $PID_DIR
+        # either, and claiming ownership we cannot establish is the shape this file's own
+        # comment at cmd_down already warns about.
+        err "  -> $consequence"
         case "$(port_owner_verdict "$port" kernel)$(port_owner_verdict "$port" p4_proxy)$(port_owner_verdict "$port" ryu)" in
             *ours*)
                 # A component this script started is still holding the port: teardown really failed.
@@ -978,7 +1000,8 @@ cmd_down() {
                 err "    measure the wrong process, so this is reported rather than ignored."
                 ;;
         esac
-    done
+      done
+    done < <(ndt_port_rows all)
     # [Co-developed with claude code -- Adam]
     # KNOWN-ISSUES B-5. A component that ended on a fatal signal fails this command and is named
     # in the failure. Until now a crash on shutdown was not merely unreported -- it was
@@ -1003,7 +1026,7 @@ cmd_down() {
 
     if (( leftovers > 0 )); then
         err "  find and stop it, or the next 'up' will report on it:"
-        err "    ss -ltnp | grep -E ':(8000|8080|8081)'"
+        err "    ss -ltnp   # tcp rows;  ss -lunp   # the udp one (:6343) -- see ports.sh"
         err "    pgrep -ax ndtwin_kernel"
         return 1
     fi
