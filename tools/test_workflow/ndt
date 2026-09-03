@@ -1900,6 +1900,413 @@ pid_is_app() {
 
 app_pidfile() { echo "$REPO/.test_run/pids/app_$1.pid"; }
 
+# The other two paths that belong to an app, derived here rather than spelled out again at each
+# use: the log its stdout and stderr go to, and the file recording the process GROUP it was
+# started in. [Co-developed with claude code -- Adam]
+app_logfile()  { echo "$REPO/.test_run/logs/app_$1.log"; }
+app_pgidfile() { echo "$REPO/.test_run/pids/app_$1.pgid"; }
+
+# app_port <name> -- the TCP port this app owns, or nothing.
+#
+# Read out of the ports.sh table instead of written here a second time. :9000 appeared zero
+# times in ndt and zero times in stack.sh while the 09-02 live round was using "there is a
+# listener on :9000" as its criterion for the sim app being up (finding #24) -- the knowledge
+# existed and was not in the code that runs. A second copy here would be the same defect.
+app_port() {
+    local want spec proto plane owner rest
+    case "$1" in
+        sim) want="Simulation-Platform-Manager" ;;
+        *)   return 0 ;;
+    esac
+    while IFS='|' read -r spec proto plane owner rest; do
+        [[ "$owner" == *"$want"* ]] || continue
+        [[ "$spec" == *-* ]] && continue          # a range belongs to a fabric, not to one app
+        echo "$spec"; return 0
+    done < <(ndt_port_rows apps)
+    return 0
+}
+
+# --- the channels that do not go through the pidfile or through argv ---------------
+#
+# [Co-developed with claude code -- Adam]
+# FINDINGS #6 and #48. `ndt apps stop viz` sent TERM to one pid -- the bash launcher -- and
+# printed `ok viz stopped`, rc 0. The two JVMs that launcher had started were reparented and
+# went on running: 1h54m at 111% of a core on 09-02, with app_viz.log at 875 MB, and every
+# liveness channel agreeing it was gone (`ndt status`, `ndt apps orphans`, and D1_teardown.log's
+# "no live instance found by pid or by scan"). It happened again in front of Adam on 09-03:
+# stop returned, maven ran for another 43 minutes. Round 3 measured the chain (14_viz_process_
+# chain.log): STOP_RC=0, "pid 1320231 gone", "SURVIVOR pid 1320234", "SURVIVOR pid 1320294".
+#
+# Two defects, and this section is the second one.
+#
+#   * app_spawn put the app in `ndt`'s OWN process group, so there was no group to signal --
+#     only a pid, and the pid was the launcher. That is fixed at app_spawn (setsid).
+#   * every witness the stop consulted descends from the same idea: a pidfile, or an argv that
+#     carries the app's signature. The JVM's command line contains no
+#     `network_traffic_visualizer.sh` -- round 3 counted it: 0 occurrences in either JVM, 1 in
+#     the launcher -- so app_scan_pids structurally cannot see it, and the pidfile named the
+#     launcher that had just died. Three interfaces, one blind spot, three confident answers.
+#
+# So what is added here is channels that do NOT share that blind spot. They are used to
+# CONTRADICT a success, never to manufacture one:
+#
+#   process group   every descendant inherits the pgid whatever its argv says, /proc/<pid>/stat
+#                   is world-readable, and Linux will not recycle a pid while it is still in use
+#                   as a process group id -- so a group id whose leader has died still names
+#                   that group and nothing else. This is the channel that catches the JVM.
+#   log writers     whoever holds a WRITABLE fd on .test_run/logs/app_<name>.log. The reparented
+#                   JVM inherited that fd -- which is why the file kept growing after the
+#                   launcher was killed -- and reverse-looking it through /proc/<pid>/fd is how
+#                   09-03 found the survivors by hand. Writable and not merely open, so a
+#                   `tail -f` or an editor on the log is not mistaken for the app.
+#   the port        for an app that owns one (sim, :9000). A listener still there after a stop
+#                   is the same evidence a bring-up uses to claim the app IS up.
+#
+# What none of them may do is turn "I could not look" into "there is nothing there": each
+# reports blindness separately (APP_SURVIVOR_BLIND) and app_verify_stopped prints it.
+
+# proc_stat_rest <pid> -- /proc/<pid>/stat from the state field onwards, or nothing.
+#
+# Split on the LAST ") ": comm is the program's own basename, it is not escaped, and it can
+# contain both spaces and parentheses -- everything after the final one is the fixed-width part.
+#
+# 🔴 `2>/dev/null` comes BEFORE `<`, and has to stay there. Redirections are applied left to
+# right, so the other order opens the file while fd 2 is still the inherited stderr and prints
+# the ENOENT the silencer was meant to suppress -- for a pid that has exited, which is the
+# ordinary case in every loop below. See tests/shell/test_redirection_order.sh.
+proc_stat_rest() {
+    local line
+    [[ "$1" =~ ^[0-9]+$ ]] || return 1
+    read -r line 2>/dev/null < "/proc/$1/stat" || return 1
+    [[ "$line" == *") "* ]] || return 1
+    echo "${line##*) }"
+}
+
+# proc_pgid <pid> -- the process group of a live pid. Fields after comm: state, ppid, pgrp.
+proc_pgid() {
+    local rest; rest="$(proc_stat_rest "$1")" || return 1
+    rest="${rest#* }"; rest="${rest#* }"; rest="${rest%% *}"
+    [[ "$rest" =~ ^[0-9]+$ ]] || return 1
+    echo "$rest"
+}
+
+# proc_sid <pid> -- the session of a live pid (one field further along).
+proc_sid() {
+    local rest; rest="$(proc_stat_rest "$1")" || return 1
+    rest="${rest#* }"; rest="${rest#* }"; rest="${rest#* }"; rest="${rest%% *}"
+    [[ "$rest" =~ ^[0-9]+$ ]] || return 1
+    echo "$rest"
+}
+
+# app_proc_pids -- every pid /proc knows about, one per line.
+#
+# /proc rather than ps, and a seam for the tests like app_ps_snapshot: this feeds a question
+# about process groups, and ps's own argv appearing in its own output is trap note 2's failure.
+app_proc_pids() {
+    local p
+    for p in /proc/[0-9]*; do echo "${p#/proc/}"; done
+}
+
+# app_group_pids <pgid> -- live pids in that process group, one per line.
+#
+# 🔴 rc 2 and NO OUTPUT when the group asked about is this script's own. That state means
+# app_spawn's setsid did not take effect, and it is the one case where the whole mechanism
+# turns on its owner: `kill -TERM -<pgid>` would take out `ndt` itself and everything else
+# sharing its group. Answering "empty" there would report the blindness as cleanliness, which
+# is the shape of the defect being fixed, so callers must read the rc -- app_survivors turns it
+# into APP_SURVIVOR_BLIND and app_kill_group refuses.
+#
+# No forks in the loop: parameter expansion on a line read by the builtin. One command
+# substitution per pid made `apps orphans` take seconds on an idle machine.
+app_group_pids() {
+    local want="$1" pid line rest mine
+    [[ "$want" =~ ^[0-9]+$ ]] && (( want > 1 )) || return 2
+    mine="$(proc_pgid "$$")"
+    [[ -n "$mine" && "$want" == "$mine" ]] && return 2
+    while read -r pid; do
+        line=""
+        read -r line 2>/dev/null < "/proc/$pid/stat" || continue
+        rest="${line##*) }"
+        [[ "$rest" == "$line" ]] && continue
+        rest="${rest#* }"; rest="${rest#* }"
+        [[ "${rest%% *}" == "$want" ]] && echo "$pid"
+    done < <(app_proc_pids)
+    return 0
+}
+
+# app_log_writers <name> -- pids holding a WRITABLE fd on this app's log, one per line.
+#
+# The fd, not the file's name in an argv: a JVM started by a wrapper inherits the wrapper's
+# stdout and never mentions it. `-lname "$log"*` also matches `<log> (deleted)` and the rotated
+# `<log>.prev`, which is exactly right -- an instance from before the last start is still
+# writing into the generation it opened, and that instance is the orphan.
+#
+# WRITABLE, from /proc/<pid>/fdinfo: `flags & 3` is the access mode, so O_RDONLY drops out and
+# a `tail -f` or a pager on the log is not reported as the app. flags is printed in octal and
+# read as octal by (( )), which is what the leading zero already means there.
+#
+# rc 2 when find is missing: not being able to look is not the same answer as looking and
+# finding nothing.
+app_log_writers() {
+    local name="$1" log p pid fd flags junk
+    log="$(app_logfile "$name")"
+    [[ -n "$log" ]] || return 0
+    command -v find >/dev/null 2>&1 || return 2
+    while read -r p; do
+        pid="${p#/proc/}"; pid="${pid%%/*}"
+        fd="${p##*/}"
+        [[ "$pid" =~ ^[0-9]+$ && "$fd" =~ ^[0-9]+$ ]] || continue
+        flags=""
+        { read -r junk; read -r junk flags; } 2>/dev/null < "/proc/$pid/fdinfo/$fd" || continue
+        [[ "$flags" =~ ^[0-7]+$ ]] || continue
+        (( (flags & 3) != 0 )) || continue
+        echo "$pid"
+    done < <(find /proc/[0-9]*/fd -maxdepth 1 -lname "$log*" -print 2>/dev/null)
+    return 0
+}
+
+# app_port_pids <name> -- pids listening on the port this app owns, one per line.
+#
+# Asked only about an app we have just tried to stop, never used to discover an orphan: a
+# stranger holding :9000 is a real problem but it is not evidence that the sim app is running,
+# and reporting it as one would be the "existence is not wiring" mistake in a new place.
+app_port_pids() {
+    local port; port="$(app_port "$1")"
+    [[ -n "$port" ]] || return 0
+    ndt_port_listener_pids "$port" tcp
+}
+
+# app_recorded_pgid <name> -- "<pgid> proc" or "<pgid> file", or nothing.
+#
+# /proc first, the file second, because a file is a claim about a process and this repo has
+# been burned every time it preferred the claim. The live pid is consulted only after
+# pid_is_app agrees it is still this app -- a recycled pid's group is a stranger's group, and
+# `kill -TERM -<that>` is how a whole unrelated session gets signalled.
+#
+# WHERE the number came from is part of the answer, not a side effect, so it is printed
+# alongside it. Written as a global first, and that was wrong in a way worth recording: every
+# caller reads this through `$(...)`, so the flag was set in a subshell and the parent kept its
+# initial value -- the same shape as the snapshot counter in tests/shell/test_ndt_app_orphans.sh
+# §3. It made the corroboration check below unconditionally true, i.e. it silently disabled the
+# guard it exists to be. A value that must survive a command substitution has to be ON STDOUT.
+#
+# The distinction matters because when the leader is dead the recorded number is all there is,
+# and an empty group's id can be recycled like any pid: a group known only from the file may be
+# REPORTED but is signalled only with corroboration -- see app_kill_group.
+app_recorded_pgid() {
+    local name="$1" pid pgid f
+    pid="$(cat "$(app_pidfile "$name")" 2>/dev/null)"
+    if [[ "$pid" =~ ^[0-9]+$ ]] && (( pid > 1 )) && pid_is_app "$pid" "$name"; then
+        pgid="$(proc_pgid "$pid")" && { echo "$pgid proc"; return 0; }
+    fi
+    f="$(app_pgidfile "$name")"
+    [[ -f "$f" && ! -L "$f" ]] || return 1
+    pgid="$(cat "$f" 2>/dev/null)"
+    [[ "$pgid" =~ ^[0-9]+$ ]] && (( pgid > 1 )) || return 1
+    echo "$pgid file"
+}
+
+# app_survivors <name> -- everything still alive that belongs to this app, by the channels
+# above. Sets APP_SURVIVORS ("<pid> <channel>" per entry) and APP_SURVIVOR_BLIND (a sentence
+# naming any channel that could not look, empty when all of them could).
+#
+# Globals rather than stdout for app_probe's reason: a caller reading this through `< <(...)`
+# or `$(...)` runs it in a subshell, and the blindness -- the half that must not be lost -- is
+# the half that would not come back.
+# APP_SURVIVOR_CORROBORATED is 1 when at least one survivor was named by a channel OTHER than
+# the process group. It is what lets a group known only from the .pgid file be signalled: the
+# group says "these pids share an id we wrote down", and the log fd says "and this one is
+# holding our log open", which is the pair the auditor used by hand on 09-03.
+#
+# 🔴 APP_SURVIVOR_MAX is a belt, and it is here because of what these pids are used for: they
+# are SIGNALLED. A channel that names half the machine is a broken channel, not a hundred
+# orphans -- and this repo's own history is a list of predicates that quietly widened until they
+# matched everything (`pgrep -f` matching the search itself, `grep -c simple_switch_grpc`
+# answering 3 on a machine with zero switches). So a channel that returns more than this many
+# pids is discarded and reported as BLIND rather than believed and acted on. An app is a handful
+# of processes: viz at its worst was three.
+APP_SURVIVOR_MAX="${NDT_APP_SURVIVOR_MAX:-64}"
+APP_SURVIVORS=()
+APP_SURVIVOR_BLIND=""
+APP_SURVIVOR_CORROBORATED=0
+app_survivors() {
+    local name="$1" pgid rec out rc pid
+    APP_SURVIVORS=(); APP_SURVIVOR_BLIND=""; APP_SURVIVOR_CORROBORATED=0
+    # The narrow channels first, so a pid found by two of them is reported by the one that says
+    # more -- "writing to .test_run/logs/app_viz.log" is evidence a person can check; "in
+    # process group 1320231" is a number. The corroboration flag does not depend on the order.
+    out="$(app_log_writers "$name")"; rc=$?
+    if (( rc == 2 )); then
+        APP_SURVIVOR_BLIND="log writers: find is not installed, so nobody was asked who holds $(app_logfile "$name")"
+    elif [[ -n "$out" ]] && ! app_channel_sane "$out" "log writers"; then
+        :
+    elif [[ -n "$out" ]]; then
+        while read -r pid; do
+            [[ -n "$pid" ]] || continue
+            app_survivor_add "$pid" "writing to $(app_logfile "$name")" && APP_SURVIVOR_CORROBORATED=1
+        done <<<"$out"
+    fi
+    out="$(app_port_pids "$name")"
+    if [[ -n "$out" ]]; then
+        while read -r pid; do
+            [[ -n "$pid" ]] || continue
+            app_survivor_add "$pid" "listening on :$(app_port "$name")" && APP_SURVIVOR_CORROBORATED=1
+        done <<<"$out"
+    fi
+    rec="$(app_recorded_pgid "$name")" || rec=""
+    pgid="${rec%% *}"
+    if [[ -n "$pgid" ]]; then
+        out="$(app_group_pids "$pgid")"; rc=$?
+        if (( rc == 2 )); then
+            APP_SURVIVOR_BLIND="${APP_SURVIVOR_BLIND:+$APP_SURVIVOR_BLIND; }process group: $name is in this shell's own group ($pgid), so the group channel cannot be used"
+        elif [[ -n "$out" ]] && ! app_channel_sane "$out" "process group $pgid"; then
+            :
+        elif [[ -n "$out" ]]; then
+            while read -r pid; do
+                [[ -n "$pid" ]] && app_survivor_add "$pid" "process group $pgid"
+            done <<<"$out"
+        fi
+    fi
+    return 0
+}
+
+# app_channel_sane <pids> <channel> -- false, and BLIND, when a channel names too many pids.
+# See APP_SURVIVOR_MAX. Sets the blindness itself so no caller can drop it on the floor.
+app_channel_sane() {
+    local out="$1" chan="$2" n
+    n="$(printf '%s\n' "$out" | grep -c .)"
+    (( n <= APP_SURVIVOR_MAX )) && return 0
+    APP_SURVIVOR_BLIND="${APP_SURVIVOR_BLIND:+$APP_SURVIVOR_BLIND; }$chan named $n processes (more than $APP_SURVIVOR_MAX) -- that is a broken channel, not that many orphans, so it is discarded"
+    return 1
+}
+
+# app_survivor_add <pid> <channel> -- append unless this pid is already named, or is this shell.
+# rc 0 when it was added, 1 when it was skipped, so the caller can count NEW pids: a process
+# holding the log on two fds is two lines out of find and one survivor.
+#
+# `$$`/`$PPID` are excluded for the reason trap note 2 gives: a scan that can find itself cannot
+# tell "the app is running" from "I am looking for the app". The channels here are narrow enough
+# that this has not been observed -- ndt holds no writable fd on an app log, and the group
+# channel refuses its own group outright -- so this is the belt, not the mechanism.
+app_survivor_add() {
+    local pid="$1" chan="$2" e
+    [[ "$pid" =~ ^[0-9]+$ ]] && (( pid > 1 )) || return 1
+    [[ "$pid" == "$$" || "$pid" == "$PPID" ]] && return 1
+    for e in ${APP_SURVIVORS[@]+"${APP_SURVIVORS[@]}"}; do
+        [[ "${e%% *}" == "$pid" ]] && return 1
+    done
+    APP_SURVIVORS+=("$pid $chan")
+    return 0
+}
+
+# app_kill_group <pgid> <name> -- TERM the whole process group, wait, KILL, and prove it empty.
+#
+# 🔴 The two refusals are the point of the function, not paperwork around it:
+#
+#   * its own group. Without setsid the app shares this shell's group, and `kill -TERM -<pgid>`
+#     would then kill `ndt` -- the tool doing the stopping -- along with whatever else the
+#     invoking shell is running. A stop that takes out its own caller is a worse failure than
+#     the one being fixed, so the mutation that removes setsid must land HERE, as a refusal
+#     with a reason, and not as a signal.
+#   * a group known only from the .pgid file, with nothing else confirming it. An empty group's
+#     id is a pid like any other and Linux will hand it out again; signalling it would be the
+#     recycled-pid mistake with a whole session as the target. Corroboration is any member that
+#     another channel also named.
+#
+# rc 0 the group is empty now; 1 members survived TERM and KILL; 2 refused (nothing signalled).
+app_kill_group() {
+    local pgid="$1" name="$2" corroborated="${3:-1}" mine i left
+    if [[ ! "$pgid" =~ ^[0-9]+$ ]] || (( pgid < 2 )); then
+        err "refusing to signal process group ${pgid:-empty}"
+        return 2
+    fi
+    mine="$(proc_pgid "$$")"
+    if [[ -n "$mine" && "$pgid" == "$mine" ]]; then
+        err "$name is in THIS shell's process group ($pgid) -- refusing to signal it"
+        err "   that means it was started without a session of its own, so 'stop' can only"
+        err "   reach the pids it can name. Restart it with this version of ndt to get a group."
+        return 2
+    fi
+    if (( corroborated == 0 )); then
+        err "process group $pgid is recorded for $name, but nothing else confirms its members"
+        err "   are $name -- an empty group's id gets reused, so this is not signalled."
+        return 2
+    fi
+    kill -TERM "-$pgid" 2>/dev/null
+    # 🔴 A failed re-read is rc 2, and rc 2 is NOT an empty group. Both of these were written
+    # first as `|| break` and `|| return 0` -- i.e. "the scan could not answer" would have
+    # escalated to a group-wide SIGKILL, and then reported success. That is the same
+    # cannot-look-so-call-it-clean move this whole change exists to remove, reintroduced inside
+    # the function that removes it.
+    for i in 1 2 3 4 5 6 7 8 9 10; do
+        left="$(app_group_pids "$pgid")" || return 2
+        [[ -z "$left" ]] && return 0
+        sleep 0.5
+    done
+    kill -KILL "-$pgid" 2>/dev/null; sleep 1
+    left="$(app_group_pids "$pgid")" || return 2
+    [[ -z "$left" ]] && return 0
+    return 1
+}
+
+# app_verify_stopped <name> -- ask the independent channels whether anything is left.
+#
+# 🔴 This is what stands between "the signal was sent" and "the app is gone". Every stop this
+# repo has had to retract reported the first and was read as the second, and on 09-02 all three
+# of the interfaces that could have contradicted it were reading the pidfile the stop had just
+# deleted.
+#
+# rc 0  nothing is left and every channel was able to look
+# rc 1  something is still there -- named, with the channel that found it
+# rc 2  nothing found, but a channel was blind; the caller must say so rather than print a
+#       clean bill of health that no instrument produced
+app_verify_stopped() {
+    local name="$1" i e
+    for i in 1 2 3 4 5 6 7 8 9 10; do
+        app_survivors "$name"
+        (( ${#APP_SURVIVORS[@]} == 0 )) && break
+        sleep 0.5
+    done
+    if (( ${#APP_SURVIVORS[@]} > 0 )); then
+        err "$name is STILL RUNNING after stop -- the pidfile is not the witness here:"
+        for e in "${APP_SURVIVORS[@]}"; do
+            # Same reason as apps_orphans: `pid` is what test_redirection_order.sh binds when it
+            # runs this line against a pid that cannot exist.
+            local pid="${e%% *}"
+            err "   pid $pid  (${e#* })"
+            err "      it is $(tr '\0' ' ' 2>/dev/null < "/proc/$pid/cmdline" | cut -c1-90)"
+        done
+        err "   stop them by exact pid:  kill -TERM ${APP_SURVIVORS[*]%% *}"
+        return 1
+    fi
+    [[ -n "$APP_SURVIVOR_BLIND" ]] && return 2
+    return 0
+}
+
+# app_log_bytes <name> -- size of the app's log in bytes, or nothing when there is none.
+app_log_bytes() {
+    local log; log="$(app_logfile "$1")"
+    [[ -f "$log" ]] || return 1
+    stat -c %s "$log" 2>/dev/null
+}
+
+# human_bytes <n> -- a size a person can read, for the log column.
+human_bytes() {
+    local n="$1"
+    [[ "$n" =~ ^[0-9]+$ ]] || { echo "-"; return; }
+    if   (( n >= 1073741824 )); then printf '%d.%01d GB\n' $(( n / 1073741824 )) $(( (n % 1073741824) * 10 / 1073741824 ))
+    elif (( n >= 1048576 ));    then printf '%d MB\n' $(( n / 1048576 ))
+    elif (( n >= 1024 ));       then printf '%d kB\n' $(( n / 1024 ))
+    else printf '%d B\n' "$n"; fi
+}
+
+# The size at which an app log stops being a log and becomes a disk problem. 09-02: app_viz.log
+# reached 875,463,322 bytes in 1h54m on an IDLE 14-node topology with zero flows -- one DEBUG
+# line per rendered frame -- on a filesystem that was already at 85%. 09-03 it reached 364 MB
+# and the root filesystem touched 98%. Overridable because the right number depends on the disk
+# this is running on, not on this repo. [Co-developed with claude code -- Adam]
+APP_LOG_MAX_BYTES="${NDT_APP_LOG_MAX_BYTES:-268435456}"      # 256 MB
+
 # Silent and boolean on purpose: `ndt apps status` calls it inside a command substitution, so
 # anything printed here would land in the status table.
 #
@@ -2122,6 +2529,39 @@ app_kill_pid() {
     return 1
 }
 
+# app_kill_by_existence <pid> <name> <channel> -- TERM, wait, KILL a pid that was identified by
+# something other than its command line, and prove it gone by EXISTENCE.
+#
+# [Co-developed with claude code -- Adam]
+# app_kill_pid asks pid_is_app on both sides of the signal. That is the right check when argv is
+# the identity, and it is the WRONG one here -- it would be a false success in the exact case
+# this fix exists for. A reparented JVM carries no signature of the app that launched it (round
+# 3 counted zero occurrences in either JVM), so `pid_is_app || return 0` answers "gone" the
+# instant it is asked, about a process that is still running at 111% of a core.
+#
+# What identifies these pids is the channel that found them -- a process group we recorded, or a
+# writable fd on our own log file -- and that is named in the message so the operator can see
+# what is being signalled and why. What proves them stopped is /proc/<pid> disappearing.
+app_kill_by_existence() {
+    local pid="$1" name="$2" chan="$3" i
+    if [[ ! "$pid" =~ ^[0-9]+$ ]] || (( pid < 2 )) || [[ "$pid" == "$$" || "$pid" == "$PPID" ]]; then
+        err "refusing to signal pid ${pid:-empty}"
+        return 1
+    fi
+    info "  signalling pid $pid ($chan)"
+    kill -TERM "$pid" 2>/dev/null
+    for i in 1 2 3 4 5 6 7 8 9 10; do
+        [[ -d "/proc/$pid" ]] || return 0
+        sleep 0.5
+    done
+    kill -KILL "$pid" 2>/dev/null; sleep 1
+    [[ -d "/proc/$pid" ]] || return 0
+    err "$name: pid $pid is STILL RUNNING after TERM and KILL ($chan)"
+    err "   it is $(tr '\0' ' ' 2>/dev/null < "/proc/$pid/cmdline" | cut -c1-90)"
+    err "   verify, then:  sudo kill -TERM $pid"
+    return 1
+}
+
 # app_spawn <name> <dir> <cmd...> -- start a user-side app and record its REAL pid.
 #
 # Not `setsid CMD & echo $!`. setsid detaches into a new session, so the job `$!` names is a
@@ -2132,12 +2572,44 @@ app_kill_pid() {
 #
 # `( cd D && exec nohup CMD )&` keeps one pid from subshell to nohup to CMD, because each
 # step execs rather than forks. nohup detaches it from any HUP without changing the pid.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 FINDINGS #6/#48: `setsid` is now in that chain, and the paragraph above is why it took
+# three attempts to get there. The 2026-08-20 note is about `setsid CMD & echo $!`, and it is
+# still true of THAT shape -- but the reason is narrower than "setsid detaches, so the pid is
+# wrong". setsid(1) forks only when it is already a process group leader; a process forked from
+# this shell never is (a leader's pid equals its pgid, and a fresh fork's pid cannot equal a
+# pgid its still-living parent holds), so here it execs in place and the pid survives the whole
+# chain. stack.sh's start_bg has launched every stack component this way since August, which is
+# why `stop_one` can signal `-$pid` and why port_owner_verdict can compare pgids -- the apps
+# path simply never got the same treatment.
+#
+# It is not assumed, though. The pid is checked against /proc afterwards: it must be its own
+# process group leader AND its own session leader, or this says so and records that the group
+# is unusable, because "we called setsid" and "the app has a group of its own" are different
+# claims and only the second one makes `stop` able to reach the JVM.
+#
+# The log is opened with `>>` rather than `>`: it is truncated by the rotation just above, so
+# nothing is lost, and O_APPEND is what makes `ndt apps trim` able to bound a running app's log
+# without the writer carrying on at its old offset and leaving a hole the size of the file.
 app_spawn() {
     local name="$1" dir="$2"; shift 2
-    local pid_dir="$REPO/.test_run/pids" log_dir="$REPO/.test_run/logs"
-    local log="$log_dir/app_$name.log"
-    [[ -s "$log" ]] && mv -f "$log" "$log.prev"
-    ( cd "$dir" && exec nohup "$@" >"$log" 2>&1 ) &
+    local pid_dir="$REPO/.test_run/pids"
+    local log; log="$(app_logfile "$name")"
+    local pgidfile; pgidfile="$(app_pgidfile "$name")"
+    # Two generations, the same depth and for the same reason as stack.sh's start_bg: the second
+    # restart is the one that used to overwrite the era that explains the first.
+    if [[ -s "$log" ]]; then
+        [[ -s "$log.prev" ]] && mv -f "$log.prev" "$log.prev2"
+        mv -f "$log" "$log.prev"
+    fi
+    rm -f "$pgidfile"
+    if ! command -v setsid >/dev/null 2>&1; then
+        warn "setsid is not installed: $name will share this shell's process group,"
+        warn "  so 'ndt apps stop $name' can only reach pids it can name -- a child that"
+        warn "  outlives its launcher (a JVM, a maven wrapper) will survive the stop."
+    fi
+    ( cd "$dir" && exec setsid nohup "$@" >>"$log" 2>&1 ) &
     local pid=$!
     echo "$pid" >"$pid_dir/app_$name.pid"
     sleep 1
@@ -2147,7 +2619,21 @@ app_spawn() {
         rm -f "$pid_dir/app_$name.pid"
         return 1
     fi
-    ok "$name started (pid $pid) -> .test_run/logs/app_$name.log"
+    local pgid sid
+    pgid="$(proc_pgid "$pid")" || pgid=""
+    sid="$(proc_sid "$pid")"   || sid=""
+    if [[ "$pgid" == "$pid" && "$sid" == "$pid" ]]; then
+        echo "$pgid" >"$pgidfile"
+        ok "$name started (pid $pid, process group $pgid) -> .test_run/logs/app_$name.log"
+    else
+        # Started, and honestly diminished. Refusing to start would be a worse product than the
+        # one this fix began with; reporting `ok` and leaving stop to discover it later is how
+        # 875 MB of orphan happened.
+        warn "$name started (pid $pid) but is NOT in a session of its own"
+        warn "  (pgid ${pgid:-unknown}, sid ${sid:-unknown}, this shell's group $(proc_pgid "$$"))"
+        warn "  'ndt apps stop $name' will not be able to signal its children as a group."
+        ok "$name started (pid $pid) -> .test_run/logs/app_$name.log"
+    fi
 }
 
 # app_wait_started <name> -- poll until the app is really there; explain it if it is not.
@@ -2186,11 +2672,24 @@ app_wait_started() {
 # been bitten by every one of them -- a child reparented out of the pane, or an instance that
 # was never in a pane at all (started by hand), survives it untouched. The old code printed
 # `ok <name> stopped` without asking. This asks.
+#
+# [Co-developed with claude code -- Adam]
+# FINDINGS #6/#48. app_probe is not the last word here either: it reads a tmux session and a
+# /proc scan for the app's signature, and both are argv-shaped. The independent channels are
+# asked afterwards, and for sim they include :9000 -- the port the 09-02 round used as its
+# criterion for the app being up, which had never been consulted for the reverse claim.
 app_wait_stopped() {
     local name="$1" i pid
     for i in 1 2 3 4 5 6 7 8 9 10; do
         app_probe "$name"
-        [[ "$APP_STATE" == not-running ]] && return 0
+        if [[ "$APP_STATE" == not-running ]]; then
+            app_verify_stopped "$name"; local vrc=$?
+            case "$vrc" in
+                0) return 0 ;;
+                2) warn "  not every channel could look: $APP_SURVIVOR_BLIND"; return 0 ;;
+                *) return 1 ;;
+            esac
+        fi
         sleep 0.5
     done
     err "$name is STILL RUNNING after $LAB $name-stop"
@@ -2327,24 +2826,56 @@ app_stop() {
                 fi
             fi
             app_probe "$name"
+            # [Co-developed with claude code -- Adam]
+            # FINDINGS #6/#48. The channels that do not go through the pidfile or through argv,
+            # read BEFORE anything is removed or signalled -- app_recorded_pgid starts at the
+            # pidfile, and the not-running branch below used to delete it. APP_SURVIVORS is what
+            # turns "no live instance found by pid or by scan" from an answer into a question:
+            # on 09-02 that exact sentence was printed while two JVMs ran for another two hours.
+            app_survivors "$name"
+            local -a extra=()
+            local e epid
+            for e in ${APP_SURVIVORS[@]+"${APP_SURVIVORS[@]}"}; do
+                epid="${e%% *}"
+                for pid in ${APP_LIVE_PIDS[@]+"${APP_LIVE_PIDS[@]}"}; do
+                    [[ "$pid" == "$epid" ]] && { epid=""; break; }
+                done
+                [[ -n "$epid" ]] && extra+=("$e")
+            done
             case "$APP_STATE" in
                 not-running)
-                    # Earned, not assumed: the pidfile named nothing that is this app AND a
-                    # /proc-verified scan of the machine found no instance either.
-                    info "$name not running (no live instance found by pid or by scan)"
-                    if [[ "$poisoned" == 0 && -e "$p" ]]; then
-                        rm -f "$p"
-                        info "  discarded a pidfile whose pid is not $name"
-                    fi
-                    # [Co-developed with claude code -- Adam]
-                    # G-6. Was `return "$poisoned"`, i.e. 0 in the ordinary case -- the same rc
-                    # a real stop returns. The MESSAGE here has been honest since 08-31; the
-                    # exit code was not, and a driver script reads the exit code. D1
-                    # (2026-09-02) recorded APPS_STOP_ALL_RC=0 for a teardown in which two of
-                    # the five apps were never running: nothing distinguished it from a
-                    # teardown that stopped five.
-                    (( poisoned == 1 )) && return 1
-                    return 2 ;;
+                    if (( ${#extra[@]} > 0 )); then
+                        # The 09-02 state, named at last. Neither witness the old code had could
+                        # see these: the pidfile names a dead launcher, and the JVM's own command
+                        # line carries no signature of the app that started it.
+                        warn "$name has NO pidfile and NO process carrying its signature --"
+                        warn "  and these are still alive and belong to it:"
+                        for e in "${extra[@]}"; do
+                            warn "    pid ${e%% *}  (${e#* })"
+                        done
+                        APP_STATE=orphaned-children
+                    else
+                        # Earned, not assumed: the pidfile named nothing that is this app AND a
+                        # /proc-verified scan found no instance either -- and now also that no
+                        # process group, no log writer and no listener of this app's is left.
+                        info "$name not running (nothing found by pid, by scan, by process group or by log)"
+                        [[ -n "$APP_SURVIVOR_BLIND" ]] &&
+                            warn "  one channel could not look, so this is 'nothing found', not 'nothing there': $APP_SURVIVOR_BLIND"
+                        if [[ "$poisoned" == 0 && -e "$p" ]]; then
+                            rm -f "$p"
+                            info "  discarded a pidfile whose pid is not $name"
+                        fi
+                        rm -f "$(app_pgidfile "$name")"
+                        # [Co-developed with claude code -- Adam]
+                        # G-6. Was `return "$poisoned"`, i.e. 0 in the ordinary case -- the same
+                        # rc a real stop returns. The MESSAGE here has been honest since 08-31;
+                        # the exit code was not, and a driver script reads the exit code. D1
+                        # (2026-09-02) recorded APPS_STOP_ALL_RC=0 for a teardown in which two of
+                        # the five apps were never running: nothing distinguished it from a
+                        # teardown that stopped five.
+                        (( poisoned == 1 )) && return 1
+                        return 2
+                    fi ;;
                 pidfile-lost-but-alive)
                     warn "$name is RUNNING as pid(s) ${APP_LIVE_PIDS[*]} and the pidfile does not name it"
                     warn "  this is the state that used to answer 'not running' with rc 0"
@@ -2352,12 +2883,56 @@ app_stop() {
                         info "  pid $pid: $(tr '\0' ' ' 2>/dev/null < "/proc/$pid/cmdline" | cut -c1-90)"
                     done ;;
             esac
-            for pid in "${APP_LIVE_PIDS[@]}"; do
+            # [Co-developed with claude code -- Adam]
+            # 🔴 The group BEFORE the pids, because the group is the only signal in this
+            # function that reaches what the pidfile never knew about. On 09-03 the pid this
+            # loop was given was `/bin/bash ./network_traffic_visualizer.sh`; the maven wrapper
+            # and the JVM under it were pids 1320234 and 1320294, in the same process group and
+            # in nobody's records. TERM to the leader alone left both of them running.
+            #
+            # app_kill_group refuses this shell's own group, so an app started by an older ndt
+            # (or on a machine with no setsid) degrades to the per-pid path below with the
+            # reason printed, instead of taking `ndt` down with it.
+            local rec="" pgid="" pgsrc="" grc=0 corr=1
+            rec="$(app_recorded_pgid "$name")" || rec=""
+            pgid="${rec%% *}"; pgsrc="${rec#* }"
+            if [[ -n "$pgid" ]]; then
+                # A group known only from the .pgid file needs a member that some OTHER channel
+                # also named; see app_kill_group for why an uncorroborated one is refused.
+                [[ "$pgsrc" == file ]] && corr="$APP_SURVIVOR_CORROBORATED"
+                app_kill_group "$pgid" "$name" "$corr"; grc=$?
+                case "$grc" in
+                    0) info "  process group $pgid: empty" ;;
+                    1) err "  process group $pgid still has members after TERM and KILL"; rc=1 ;;
+                    # rc 2 is a refusal, and app_kill_group has already said why on stderr. It is
+                    # not a failure on its own: the pid path below may still finish the job, and
+                    # app_verify_stopped is what decides whether it did. What must not happen is
+                    # this becoming a silent rc 0, which is why the refusal prints.
+                esac
+            fi
+            for pid in ${APP_LIVE_PIDS[@]+"${APP_LIVE_PIDS[@]}"}; do
+                [[ -d "/proc/$pid" ]] || continue
                 app_kill_pid "$pid" "$name" || rc=1
             done
+            # Whatever the group did not reach: a survivor found by the log fd whose group is a
+            # dead shell's, i.e. the orphan an ndt from before this fix left behind.
+            for e in ${extra[@]+"${extra[@]}"}; do
+                pid="${e%% *}"
+                [[ -d "/proc/$pid" ]] || continue
+                app_kill_by_existence "$pid" "$name" "${e#* }" || rc=1
+            done
             if (( rc == 0 )); then
-                [[ "$poisoned" == 0 ]] && rm -f "$p"
-                ok "$name stopped (was: $APP_STATE)"
+                app_verify_stopped "$name"; local vrc=$?
+                case "$vrc" in
+                    0) [[ "$poisoned" == 0 ]] && rm -f "$p"
+                       rm -f "$(app_pgidfile "$name")"
+                       ok "$name stopped (was: $APP_STATE) -- no process group, log writer or listener left" ;;
+                    2) [[ "$poisoned" == 0 ]] && rm -f "$p"
+                       rm -f "$(app_pgidfile "$name")"
+                       ok "$name stopped (was: $APP_STATE)"
+                       warn "  not every channel could look: $APP_SURVIVOR_BLIND" ;;
+                    *) rc=1 ;;
+                esac
             fi
             (( poisoned == 1 )) && rc=1
             return "$rc" ;;
@@ -2376,29 +2951,64 @@ app_stop() {
 #
 # Exit 1 when it finds some, so a driver script can gate on it:
 #     ndt apps orphans || { echo "clean up first"; exit 1; }
+#
+# 🔴 FINDING #48. This verb answered `ok no untracked app processes`, rc 0, with two viz JVMs
+# alive and 531 MB resident -- measured twice, 09-02 and 09-03 (round 3, 14_viz_process_chain.
+# log). It could not have said anything else: it asked app_probe, app_probe asks a pidfile and
+# an argv scan, and the JVM is invisible to both. A pre-run gate whose discriminating power is
+# zero for the app most likely to be left behind is worse than no gate, because a run then
+# starts with a written record that the machine was clean.
+#
+# So the pidfile-lost-but-alive state is now one of two ways to be reported here. The other is
+# "nothing names it at all, and these processes still belong to it" -- the process group we
+# recorded, or a writable fd on our own log. Both are reported; both exit 1.
 apps_orphans() {
-    local a found=0 pid
+    local a found=0 pid e blind=""
     for a in $APP_NAMES; do
         app_probe "$a"
-        [[ "$APP_STATE" == pidfile-lost-but-alive ]] || continue
+        app_survivors "$a"
+        [[ -n "$APP_SURVIVOR_BLIND" ]] && blind="${blind:+$blind; }$a: $APP_SURVIVOR_BLIND"
+        if [[ "$APP_STATE" == pidfile-lost-but-alive ]]; then
+            found=$(( found + 1 ))
+            err "$a: pidfile-lost-but-alive -- $(app_label "$a")"
+            for pid in "${APP_LIVE_PIDS[@]}"; do
+                err "    pid $pid  $(tr '\0' ' ' 2>/dev/null < "/proc/$pid/cmdline" | cut -c1-80)"
+            done
+            err "    stop it with:  ndt apps stop $a"
+            continue
+        fi
+        # The 09-02 shape: no pidfile, no signature in any argv, and the children are still
+        # there. Reported by the channel that found them, because "how do you know" is the
+        # question this whole family of failures could not answer.
+        (( ${#APP_SURVIVORS[@]} == 0 )) && continue
         found=$(( found + 1 ))
-        err "$a: pidfile-lost-but-alive -- $(app_label "$a")"
-        for pid in "${APP_LIVE_PIDS[@]}"; do
-            err "    pid $pid  $(tr '\0' ' ' 2>/dev/null < "/proc/$pid/cmdline" | cut -c1-80)"
+        err "$a: children with no pidfile and no signature -- $(app_label "$a")"
+        for e in "${APP_SURVIVORS[@]}"; do
+            # pid in a variable of its own rather than `${e%% *}` inline: this argv line is one
+            # of the sites tests/shell/test_redirection_order.sh lifts out of this file and runs
+            # against a pid that cannot exist, and that harness binds `pid`.
+            pid="${e%% *}"
+            err "    pid $pid  (${e#* })"
+            err "      $(tr '\0' ' ' 2>/dev/null < "/proc/$pid/cmdline" | cut -c1-80)"
         done
         err "    stop it with:  ndt apps stop $a"
     done
     if (( found == 0 )); then
+        if [[ -n "$blind" ]]; then
+            # "Could not look" is not "nothing there", and this verb gates measurements.
+            warn "no untracked app processes found, but a channel was blind: $blind"
+            return 2
+        fi
         ok "no untracked app processes"
         return 0
     fi
-    err "$found app(s) are running without a pidfile that names them"
+    err "$found app(s) are running with nothing tracking them"
     return 1
 }
 
 apps_status() {
     say "apps"
-    local a shown
+    local a shown bytes over=0
     for a in $APP_NAMES; do
         app_probe "$a"
         # The third state gets its own word in the column that used to print "-" for it. "-"
@@ -2411,7 +3021,54 @@ apps_status() {
         printf '  %-8s %-9s %s\n' "$a" "$shown" "$(app_label "$a")"
         [[ "$APP_STATE" == pidfile-lost-but-alive ]] &&
             printf '  %-8s %-9s %s\n' "" "" "^ pid(s) ${APP_LIVE_PIDS[*]}, no pidfile names it -- 'ndt apps stop $a'"
+        # [Co-developed with claude code -- Adam]
+        # The log's size, because on 09-02 nothing in this repo would have told anyone that
+        # app_viz.log had reached 875 MB on a filesystem at 85% -- it was found by hand, after
+        # the round. The size is printed whenever there is a log, not only over the threshold:
+        # a number that appears only when it is bad is a number nobody has a baseline for.
+        bytes="$(app_log_bytes "$a")" || bytes=""
+        if [[ -n "$bytes" ]]; then
+            if (( bytes > APP_LOG_MAX_BYTES )); then
+                over=1
+                printf '  %-8s %-9s %s\n' "" "" \
+                    "${Y}log $(human_bytes "$bytes") -- over $(human_bytes "$APP_LOG_MAX_BYTES"); 'ndt apps trim $a'${N}"
+            else
+                printf '  %-8s %-9s %s\n' "" "" "${D}log $(human_bytes "$bytes")${N}"
+            fi
+        fi
     done
+    (( over == 1 )) && info "a log over the cap is a disk problem before it is a logging problem: 875 MB in 1h54m on 09-02"
+    return 0
+}
+
+# apps_trim [name...] -- bound a running app's log without stopping the app.
+#
+# [Co-developed with claude code -- Adam]
+# Truncate in place, never rotate: the app holds the fd, so `mv` would leave the writer
+# appending to the file under its new name while a fresh empty one sits where everybody looks.
+# app_spawn opens the log with `>>`, so after ftruncate the next write goes to offset 0 rather
+# than back to where the file used to end -- without O_APPEND this would produce a sparse file
+# whose apparent size never drops, which is the shape that makes `ls -l` and `du` disagree.
+#
+# The tail is kept because the end of a log is the part that explains what the app is doing now.
+apps_trim() {
+    local a bytes log rc=0
+    for a in "$@"; do
+        case " $APP_NAMES " in *" $a "*) ;; *) err "unknown app: $a (known: $APP_NAMES)"; rc=1; continue ;; esac
+        log="$(app_logfile "$a")"
+        bytes="$(app_log_bytes "$a")" || { info "$a has no log"; continue; }
+        if (( bytes <= APP_LOG_MAX_BYTES )); then
+            info "$a log is $(human_bytes "$bytes") -- under $(human_bytes "$APP_LOG_MAX_BYTES"), left alone"
+            continue
+        fi
+        tail -c 1048576 "$log" >"$log.tail" 2>/dev/null || { err "$a: could not keep the tail; not truncating"; rc=1; continue; }
+        if truncate -s 0 "$log" 2>/dev/null; then
+            ok "$a log truncated: $(human_bytes "$bytes") -> 0 (last 1 MB kept as $(basename "$log").tail)"
+        else
+            err "$a: truncate failed on $log"; rc=1
+        fi
+    done
+    return "$rc"
 }
 
 cmd_apps() {
@@ -2477,6 +3134,13 @@ cmd_apps() {
             ;;
         # The pre-run check. Same scan as `stop`, without stopping anything.
         orphans) apps_orphans ;;
+        # The disk half of findings #6/#48: bound a log that is still being written to.
+        trim)
+            shift
+            local ttargets="${*:-all}"
+            [[ "$ttargets" == all ]] && ttargets="$APP_NAMES"
+            # shellcheck disable=SC2086
+            apps_trim $ttargets ;;
         *)
             local a; for a in "$@"; do app_start "$a"; done
             ;;
@@ -2610,9 +3274,12 @@ usage: ndt <command>
   check         telemetry double-count tripwire
   apps [names]  start readers/apps; no args on a terminal = interactive picker
                   energy sim nsr viz te      ('ndt apps stop [names|all]')
-                  ndt apps orphans  -- is an app running that no pidfile names?
-                    exits 1 if so. run it before a measurement: an untracked TE
-                    or Energy writes to the fabric and 'down' used to skip it.
+                  ndt apps orphans  -- is anything of an app's still running?
+                    exits 1 if so, 2 if a channel could not look. run it before a
+                    measurement: an untracked TE or Energy writes to the fabric,
+                    and a leftover viz JVM cost 09-02 a core for two hours.
+                  ndt apps trim [names|all]  -- bound a running app's log
+                    (viz wrote 875 MB in 1h54m; the app keeps running)
   ntg [cli|prompt]     which prompt the topology hands control to
   claim [min] [note]   reserve the lab (default 30m); needs NDT_OWNER set
   release              give it back
