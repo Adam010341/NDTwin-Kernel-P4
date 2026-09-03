@@ -39,6 +39,37 @@ class Context:
     notes: list[str] = field(default_factory=list)
 
 
+# INV-01 is TWO checks, and a round reports them under two names (FINDINGS-ALL #75). They ask
+# different questions -- "does the graph agree with the process table" and "does a power-on
+# take long enough to have done the work" -- and one row cannot carry two verdicts.
+INV01 = "INV-01"
+INV01_LATENCY = "INV-01-latency"
+
+# The A-1 fingerprint's two reference durations, in seconds, named so the runner can print the
+# threshold it judged against instead of keeping a second copy of the number. A reported
+# threshold that can drift from the comparison is worse than none: it is a number that looks
+# checkable and is not.
+#
+#   A1_FAST_S    below this, a 2xx power-on cannot have done the work  -> the lie
+#   A1_HONEST_S  what the honest path measured on this fabric          -> documentation only
+A1_FAST_S = 0.1
+A1_HONEST_S = 1.27
+
+
+def node_ip(n: dict) -> str | None:
+    """A graph node's management address as a dotted quad, or None if it has none.
+
+    The field is a LIST of raw little-endian uint32 (`"ip": [192653504]` is 192.168.123.11 --
+    see probes.decode_ip, and the same encoding bit the flow endpoint). Returns None rather
+    than guessing: an address the harness cannot read must not be matched against a target by
+    accident, because the thing it selects is a switch to power on.
+    """
+    v = n.get("ip")
+    if isinstance(v, list):
+        v = v[0] if v else None
+    return probes.decode_ip(v) if isinstance(v, int) else None
+
+
 # --------------------------------------------------------------------------------------------
 def inv01_power_state_agreement(ctx: Context) -> Finding:
     """Graph is_up must agree with the process table and the data plane, not with its own 200.
@@ -64,7 +95,14 @@ def inv01_power_state_agreement(ctx: Context) -> Finding:
     except (RuntimeError, probes.Timeout) as e:
         return Finding("INV-01", SKIPPED, f"process count unavailable: {e}")
 
-    ev = {"graph_up": up_in_graph, "bmv2_processes": live, "expected": ctx.expected_switches}
+    # `down_by_ip` is carried for the latency half (#75), which needs a switch it can prove a
+    # power-on would really start. It comes from THIS snapshot on purpose: a second graph read
+    # in the runner could disagree with the one this verdict was formed from, and the two
+    # halves of INV-01 would then be reasoning about different fabrics.
+    down_by_ip = {a: n.get("device_name", k) for k, n in flags.items()
+                  if n.get("is_up") is not True and (a := node_ip(n))}
+    ev = {"graph_up": up_in_graph, "bmv2_processes": live, "expected": ctx.expected_switches,
+          "down_by_ip": down_by_ip}
 
     # Only the optimistic direction is a lie. Fewer graph-up than processes means the twin is
     # behind, which is a different (and much less dangerous) shape than claiming health.
@@ -141,7 +179,7 @@ def inv01_powercycle_latency(ip: str) -> Finding:
                        f"no duration was measured and this check reaches no conclusion",
                        {"status": e.status, "error": str(e)})
     ev = {"elapsed_s": round(dt, 4), "ip": ip}
-    if dt < 0.1:
+    if dt < A1_FAST_S:
         return Finding("INV-01", FAIL,
                        f"power-on answered in {dt:.4f}s; the honest path measures ~1.27s, so "
                        f"nothing was attempted (A-1 early return)", ev)

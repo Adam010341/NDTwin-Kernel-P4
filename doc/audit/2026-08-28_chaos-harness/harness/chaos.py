@@ -29,12 +29,12 @@ import argparse
 import json
 import sys
 import time
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 
 import actions as A
 import invariants as I
 import probes
-from antioracle import FAIL, INCONCLUSIVE_CPU, PASS, SKIPPED, CpuGate
+from antioracle import FAIL, INCONCLUSIVE_CPU, NOT_MEASURED, PASS, SKIPPED, CpuGate
 
 
 # ============================================================================================
@@ -228,9 +228,118 @@ def build_context() -> I.Context:
     return I.Context(expected_switches=n, plane="p4")
 
 
+@dataclass
+class PowerOnChance:
+    """Does this round have a power-on worth timing, and why (in both directions)?
+
+    `ip` is the switch to power on, or None when there is nothing to time. `why` is printed
+    either way: "not measured" without a reason is the same silence as an omitted row.
+    """
+
+    ip: str | None
+    why: str
+
+
+def power_on_chance(agreement: I.Finding, power_ip: str | None) -> PowerOnChance:
+    """🔴 FINDINGS-ALL #17's second half, which is why #75 is not simply "call the function".
+
+    `P4PowerStrategy::powerOn` returns success immediately when the vertex is already up. That
+    early return is CORRECT for a healthy, running switch -- and INV-01's latency check reads a
+    fast 2xx as the A-1 lie. So calling it unconditionally would manufacture a FAIL on a
+    perfectly healthy fabric, which is `instrument-must-not-mimic-its-own-finding` for the
+    third time in this harness (`switch_flags` collided 128 hosts into a +1; #17 timed a 404).
+
+    The precondition is therefore: a power-on that OUGHT to do work. Two states qualify, and
+    both are read from the agreement check's OWN snapshot rather than from a second graph
+    fetch, so the two halves of INV-01 cannot end up reasoning about different fabrics:
+
+      1. the target is a switch the graph itself calls DOWN -- powering it on must start it;
+      2. the graph certifies more switches up than there are BMv2 processes -- the A-1 state,
+         where at least one "up" switch is not running and a power-on has work to do.
+
+    Everything else is NOT MEASURED, and nothing is sent. Refusing to send is half the point:
+    a request costs a real round trip whose duration is the very number the caller is about to
+    weigh, and on this route it also changes the fabric.
+    """
+    ev = agreement.evidence or {}
+    if not power_ip:
+        return PowerOnChance(None, "no --power-ip was given, so this round had no switch to "
+                                   "power on and nothing timed a power-on")
+    if agreement.verdict == SKIPPED or "graph_up" not in ev:
+        return PowerOnChance(None, f"the power-state check reached no conclusion "
+                                   f"({agreement.detail}), so whether a power-on would have "
+                                   f"work to do is unknown -- and unknown is not permission "
+                                   f"to time one")
+    down = ev.get("down_by_ip") or {}
+    if power_ip in down:
+        return PowerOnChance(power_ip,
+                             f"the graph says {down[power_ip]} at {power_ip} is down, so "
+                             f"powering it on has to start a switch rather than return early")
+    if ev.get("graph_up", 0) > ev.get("bmv2_processes", 0):
+        return PowerOnChance(power_ip,
+                             f"the graph certifies {ev['graph_up']} switch(es) up with only "
+                             f"{ev['bmv2_processes']} BMv2 process(es) alive -- the A-1 state, "
+                             f"in which at least one power-on has real work to do")
+    return PowerOnChance(None,
+                         f"{power_ip} is not among the switches the graph calls down, and "
+                         f"every switch it calls up has a live process ({ev.get('graph_up')} "
+                         f"up, {ev.get('bmv2_processes')} alive), so a power-on would "
+                         f"legitimately return at once and its duration would mean nothing")
+
+
+def inv01_latency_check(agreement: I.Finding, power_ip: str | None) -> I.Finding:
+    """INV-01's second half, run or honestly declined -- FINDINGS-ALL #75.
+
+    #17 rewrote `inv01_powercycle_latency` to send the request the kernel actually registers.
+    It fixed a function with ZERO call sites: this round called `inv01_power_state_agreement`
+    and stopped, so the latency half has never run. `existence != wiring`, the same family as
+    #71.
+
+    The result is reported under its OWN name beside the agreement check, never merged into
+    it. Two verdicts about different questions in one row means one of them is invisible, and
+    the invisible one is whichever a reader is not looking for.
+    """
+    chance = power_on_chance(agreement, power_ip)
+    if chance.ip is None:
+        return I.Finding(I.INV01_LATENCY, NOT_MEASURED, f"not measured -- {chance.why}",
+                         # 🔴 elapsed_s is None, never 0.0. 0.0 is precisely the fast-return
+                         # signature this check reads as the A-1 lie, so writing it as the
+                         # default for a measurement that never happened would hand the next
+                         # reader the accusation with nothing behind it.
+                         {"elapsed_s": None, "threshold_s": I.A1_FAST_S,
+                          "honest_reference_s": I.A1_HONEST_S,
+                          "why_not_measured": chance.why})
+    f = I.inv01_powercycle_latency(chance.ip)
+    f.inv = I.INV01_LATENCY
+    f.evidence.setdefault("elapsed_s", None)     # a refusal has no duration to report (#17)
+    f.evidence.update({"threshold_s": I.A1_FAST_S, "honest_reference_s": I.A1_HONEST_S,
+                       "measurable_because": chance.why})
+    return f
+
+
+def round_verdict(findings: list[I.Finding]) -> dict:
+    """One verdict for the round, and it fails if ANY check failed -- including either half of
+    INV-01.
+
+    The counterpart rule is on the other side: a check that reached no conclusion is listed,
+    by name, and is explicitly not a pass. This harness has already been bitten by "omitted is
+    indistinguishable from passed" (`run_invariants`' own docstring), and a summary line is
+    exactly where that happens next.
+    """
+    failed = [f.inv for f in findings if f.verdict == FAIL]
+    unresolved = [f.inv for f in findings
+                  if f.verdict in (NOT_MEASURED, SKIPPED, INCONCLUSIVE_CPU)]
+    if failed:
+        return {"verdict": FAIL,
+                "verdict_detail": f"{len(failed)} check(s) failed: {failed}"}
+    return {"verdict": PASS,
+            "verdict_detail": (f"no check failed; {len(unresolved)} reached no conclusion and "
+                               f"are NOT passes: {unresolved}")}
+
+
 def run_invariants(ctx: I.Context, gate: CpuGate, iface: str | None,
                    pair: tuple[str, str] | None, dpid: str | None = None,
-                   slow: bool = False) -> list[I.Finding]:
+                   slow: bool = False, power_ip: str | None = None) -> list[I.Finding]:
     """All eight invariants appear in every report, including the ones that did not run.
 
     An invariant omitted from the output is indistinguishable from one that passed, and this
@@ -238,8 +347,15 @@ def run_invariants(ctx: I.Context, gate: CpuGate, iface: str | None,
     skipped say so, and say why, in the same list as the ones that ran.
     """
     out: list[I.Finding] = []
-    for _, fn in I.ALWAYS_ON:                       # INV-01, INV-02, INV-08
-        out.append(fn(ctx))
+    for inv_id, fn in I.ALWAYS_ON:                  # INV-01, INV-02, INV-08
+        f = fn(ctx)
+        out.append(f)
+        # 🔴 FINDINGS-ALL #75. INV-01 is two checks; until now the round ran one of them and
+        # the other had no call site anywhere in the repo. Appended HERE, next to the check it
+        # shares an id with, so removing INV-01 from ALWAYS_ON cannot silently take the
+        # latency half with it -- and so the two rows arrive together in the report.
+        if inv_id == I.INV01:
+            out.append(inv01_latency_check(f, power_ip))
 
     if dpid:
         out.append(I.inv03_flow_table_identity(ctx, dpid))
@@ -279,17 +395,19 @@ def run_invariants(ctx: I.Context, gate: CpuGate, iface: str | None,
 
 
 def null_round(iface: str | None, pair: tuple[str, str] | None,
-               dpid: str | None = None, slow: bool = False) -> dict:
+               dpid: str | None = None, slow: bool = False,
+               power_ip: str | None = None) -> dict:
     """Inject NOTHING. Any violation here is this harness's own defect."""
     ctx = build_context()
     ctx.round_name = "null"
     gate = CpuGate()
     gate.take_baseline()
-    findings = run_invariants(ctx, gate, iface, pair, dpid, slow)
+    findings = run_invariants(ctx, gate, iface, pair, dpid, slow, power_ip)
     gate.sample()
     fails = [f for f in findings if f.verdict == FAIL]
     return {
         "round": "null",
+        **round_verdict(findings),
         "cpu_baseline": round(gate.baseline, 4),
         "cpu_peak": round(gate.peak, 4),
         "findings": [asdict(f) for f in findings],
@@ -304,7 +422,7 @@ def null_round(iface: str | None, pair: tuple[str, str] | None,
 
 def injection_round(action: A.Action, dry_run: bool, iface: str | None,
                     pair: tuple[str, str] | None, dpid: str | None = None,
-                    slow: bool = False) -> dict:
+                    slow: bool = False, power_ip: str | None = None) -> dict:
     ctx = build_context()
     ctx.round_name = action.id
     gate = CpuGate()
@@ -315,10 +433,12 @@ def injection_round(action: A.Action, dry_run: bool, iface: str | None,
 
     if dry_run:
         return {"round": action.id, "dry_run": True, "applied": applied.detail,
+                "verdict": "DRY-RUN", "verdict_detail": "no invariant was evaluated",
                 "findings": [], "note": "allow-path dry run exercised; nothing was touched"}
 
     if not applied.ok:
         return {"round": action.id, "aborted": True, "applied": applied.detail,
+                "verdict": "ABORTED", "verdict_detail": "no invariant was evaluated",
                 "why": "the injection did not apply, so no conclusion about the system is "
                        "available; scoring this round would report the absence of a fault as "
                        "the absence of a defect"}
@@ -329,18 +449,20 @@ def injection_round(action: A.Action, dry_run: bool, iface: str | None,
         if action.undo:
             action.undo()
         return {"round": action.id, "aborted": True, "applied": applied.detail,
+                "verdict": "ABORTED", "verdict_detail": "no invariant was evaluated",
                 "verify": v.detail,
                 "why": "G2 failed: the fault could not be confirmed to have landed. A clean "
                        "round here would mean 'the fault never happened', not 'the system "
                        "coped'."}
 
-    findings = run_invariants(ctx, gate, iface, pair, dpid, slow)
+    findings = run_invariants(ctx, gate, iface, pair, dpid, slow, power_ip)
     gate.sample()
     if action.undo:
         action.undo()
 
     return {
         "round": action.id,
+        **round_verdict(findings),
         "targets": action.targets,
         "applied": applied.detail,
         "verified": v.detail,
@@ -366,6 +488,12 @@ def main() -> int:
     ap.add_argument("--pair", help="src,dst for INV-05, e.g. 10.0.0.2,10.0.0.1")
     ap.add_argument("--dpid", help="dpid to compare twin cache against the real table for INV-03")
     ap.add_argument("--slow", action="store_true", help="include INV-07, which needs a 20 s quiet window")
+    ap.add_argument("--power-ip",
+                    help="management IP of the switch INV-01's latency half may power on, e.g. "
+                         "192.168.123.11. Without it that check reports NOT-MEASURED in every "
+                         "round: it POSTs a real power-on, so it needs a target named on "
+                         "purpose rather than a default, and it still only sends one when the "
+                         "graph proves that power-on would have work to do")
     ap.add_argument("--owner", help="expected claim owner substring for G3")
     ap.add_argument("--allow-poweroff", action="store_true",
                     help="permit G1-01, which really powers a switch down and whose restore "
@@ -411,11 +539,12 @@ def main() -> int:
     if args.gates:
         report["result"] = "gates only"
     elif args.dry_run:
-        report["rounds"] = [injection_round(a, True, args.iface, pair, args.dpid, args.slow)
+        report["rounds"] = [injection_round(a, True, args.iface, pair, args.dpid, args.slow,
+                                            args.power_ip)
                             for a in A.CHAOS_ACTIONS + [A.link_blackhole(args.iface or "s1-eth3")]]
         report["result"] = "dry run complete; every destructive allow path printed its intent and touched nothing"
     elif args.null:
-        report["rounds"] = [null_round(args.iface, pair, args.dpid, args.slow)]
+        report["rounds"] = [null_round(args.iface, pair, args.dpid, args.slow, args.power_ip)]
         report["result"] = "null round complete"
     elif args.controls:
         report["result"] = (
@@ -424,10 +553,11 @@ def main() -> int:
             "notice, which is strictly worse than a missing control because it looks like "
             "coverage. G1 is met only when every row reads FIRED.")
     else:
-        rounds = [null_round(args.iface, pair, args.dpid, args.slow)]
+        rounds = [null_round(args.iface, pair, args.dpid, args.slow, args.power_ip)]
         floor = rounds[0]["false_positive_floor"]
         for a in A.CHAOS_ACTIONS:
-            rounds.append(injection_round(a, False, args.iface, pair, args.dpid, args.slow))
+            rounds.append(injection_round(a, False, args.iface, pair, args.dpid, args.slow,
+                                          args.power_ip))
         report["rounds"] = rounds
         report["false_positive_floor"] = floor
         n_incon = sum(1 for r in rounds for f in r.get("findings", [])
