@@ -66,7 +66,7 @@
 | 4 | `ovs4` 完全沒配 sFlow ⇒ 流速率與鏈路使用率結構性為零 | ⭕ UNASSIGNED | `tools/test_workflow/ovs_4host_topo.py` 只被 `fix/ports-that-block-restart` 動到，且**只加了 7 行 docstring 段落講 `:6653/:6633`**（diff 全文已讀），**零行 sFlow**。`enable_sflow` 在該檔仍 0 次；參考實作在 `testbed_topo.py:105`（定義）與 `:202`（呼叫） | **見下方「最該先派的五條」第 1 條** |
 | 5 | kernel 關機時 abort（`stop()` 只 join 兩條 thread） | 🔧 ON BRANCH | `fix/b5-kernel-shutdown @ e9f1326e`，修法 commit `4203d857`，動 `include/ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp` ＋ `src/.../DeviceConfigurationAndPowerManager.cpp`。閘門：**作者宣稱** `tests/shell/mutate_b5_power_manager_shutdown.sh` 3 變異／0 存活，**raw log 有 commit**（`doc/audit/2026-09-02_live-round/raw/b5-fix/mutation_gate.log`）；**無 control 變異**；**auditor 未重跑** | ⚠️ SIGTERM handler 刻意沒註冊 ⇒ `ndt down` 走的仍是硬殺，「乾淨關機」在正式路徑上還是沒跑過（見 #27） |
 | 6 | `ndt apps stop` 只殺 bash wrapper，viz 的 JVM 活著而三個通道都說沒在跑 | ⭕ UNASSIGNED | 🔴 **分支名會騙人。** `fix/g6-ndt-apps-liveness @ e83ef1d1` 只替 energy／sim 補了 signature：分支上的 `tools/test_workflow/ndt:1636` 仍是 `viz) echo "network_traffic_visualizer.sh"`，而存活的兩個 JVM 的 argv **不含這個字串**（round3 `14_viz_process_chain.log` 已量到）。`e83ef1d1` 本身只加 `NEXT.md`，不是修法 | viz 的 argv 已到手 ⇒ 可以動手；比對字串是目錄名 `Network-Traffic-Visualizer` |
-| 7 | `ndt` 有兩個 `sudo -n` 不在手冊教的 sudoers 規則裡 | ⭕ UNASSIGNED | trunk `ndt:1177 ovs_bridge_count() { sudo -n ovs-vsctl list-br …}`、`:1206 sudo -n mnexec -a` 在三支動 `ndt` 的分支（`fix/ports-that-block-restart`、`fix/g6-ndt-apps-liveness`、`t8-t10-fixes`）上**逐字相同**；13 個 `sudo -n` 出現點無一被改 | 要嘛補 sudoers、要嘛讓權限被拒回非 0 而不是靜靜回 0 |
+| 7 | `ndt` 有兩個 `sudo -n` 不在手冊教的 sudoers 規則裡 | 🔧 ON BRANCH | 🆕 12:5x **`fix/ndt-sudo-surface @ 20d834aa`**（base `ed23a3b3`），新增 `tools/test_workflow/sudo_surface.sh`（一張被讀取的宣告式表，形狀照 `ports.sh`）＋ `ndt` 的 `ovs_bridge_count`／`dataplane_ok` 改成**問不到就 rc 2 且不作答**＋ `up_p4` 的守衛在「不知道」時**停下來**。閘門：**auditor 自己重跑** `tests/shell/mutate_ndt_sudo_surface.sh` → baseline 33 checks 0 failed、**14 mutations, 0 survived**、baseline byte-identical（`sudo_surface.sh` 與 `ndt` 兩個）。**兩面成立**：M1–M10 把缺陷放回去，**N1–N4 是「什麼都拒絕」的四種寫法**（通得過全部十條 M，只有 control 抓得到）| 🔴 **與 `fix/ports-that-block-restart` 在 `tools/test_workflow/ndt` 衝突**（auditor 實測）；vs `g6`／`g9` 乾淨。🔴 **從未在真的需要密碼的機器上實跑**——所有「被拒」由 PATH 上的假 `sudo` 產生 ⇒ 仍是 desk check |
 
 ### 中等（8–31）
 
@@ -218,6 +218,10 @@
 | **`fix/telemetry-health-visible`** | **`fix/flow-rate-denominator`** | **`include/ndt_core/collection/FlowLinkUsageCollector.hpp`** | 🔴 **沒有任何審查文件提過。** 兩支都在同一個 header 加東西（telemetry 加 `IngestHealth`／`classifyIngestHealth`；flow-rate 改速率函式的簽名與常數）。兩支都要進 trunk ⇒ 其中一支必須 rebase |
 | `fix/d15-dataplane-kind-race` | `fix/b5-kernel-shutdown` | **只有 `tests/CMakeLists.txt`** | 🟠 **與既有記載不符（往好的方向）。** `6ad6811b` 預告的是 `DeviceConfigurationAndPowerManager.cpp` 的文字衝突；實測那個 `.cpp` **併得起來**，真正衝突的是兩支各自新增的測試檔在 `tests/CMakeLists.txt` 的同一段 |
 | `fix/b5-kernel-shutdown` | `fix/telemetry-health-visible` | `tests/CMakeLists.txt` | 🟠 未記載。同上，是新測試檔的登記行相撞 |
+
+🆕 **12:5x 新增一對（auditor 實測）**：`fix/ndt-sudo-surface` × `fix/ports-that-block-restart`
+在 `tools/test_workflow/ndt` **衝突**——兩支都在改同一支腳本的相鄰區域（一個加 sudo 表、一個加 port 表）。
+vs `fix/g6-ndt-apps-liveness` 與 `fix/g9-cleanup-no-pkill-f` 則都乾淨。
 
 **沒有衝突、可以放心的兩對**（也實測過，列出來免得別人重做）：
 `fix/topology-load-fails-before-listen` × `fix/l9-make-topology-stdout-json`（兩支都動

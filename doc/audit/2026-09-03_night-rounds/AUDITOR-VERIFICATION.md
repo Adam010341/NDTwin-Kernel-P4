@@ -53,6 +53,19 @@ mutant builder 也只 `chmod +x` 旁邊的 `ndt`。
 🔑 **而我在 `t8-t10-fixes` 上先問錯了問題。** 我用 `git merge-base --is-ancestor t8-t10-fixes trunk` 得到「否」，差點把總帳的「它已經在 trunk 上」記成誤判。正確的工具是 `git cherry -v trunk t8-t10-fixes`——**10 顆 commit 全部標 `-`**，也就是 trunk 已經有每一顆的等價 patch（它是被 cherry-pick／rebase 進去的，所以血緣說否而內容說是）。
 **`--is-ancestor` 問的是「這顆 commit 在不在歷史裡」，`git cherry` 問的是「這份工作在不在 trunk 上」。判斷一支分支還要不要留，要問後者。**
 
+## 12:5x — `fix/ndt-sudo-surface`（finding #7），auditor 重跑
+
+| Re-run | Observed |
+|---|---|
+| `tests/shell/mutate_ndt_sudo_surface.sh`，在 `git worktree add --detach` 出來的乾淨樹裡 | baseline `Ran 33 checks, 0 failed`；**14 mutations, 0 survived**；`baseline byte-identical: yes (sudo_surface.sh and ndt)`。M1–M10 各自指名一條變紅的 check；**N1–N4 是反向控制**——四種「什麼都拒絕」的寫法，它們通得過全部十條 M，只有 control 案例抓得到。少了 N1–N4，這道閘門會替一個永遠起不了 fabric 的 `ndt` 背書 |
+| `git merge-tree --write-tree` 對三支同樣動 `ndt` 的分支 | 🔴 **與 `fix/ports-that-block-restart` 在 `tools/test_workflow/ndt` 衝突**；vs `fix/g6-ndt-apps-liveness`、`fix/g9-cleanup-no-pkill-f` 乾淨 |
+| 這台機器自己的 `sudo -n -l`（唯讀） | 帶著 `(ALL : ALL) ALL`，**證實該分支自己指出的儀器問題**：`sudo -n -l -- <cmd>` 回答的是「這個 user 可不可以跑」，不是「要不要密碼」⇒ 在這台機器上對 NOPASSWD 這個問題**鑑別力為零**。而 `ovs-vsctl`／`mnexec` **在本機的 NOPASSWD 清單裡**，這正是四輪 usertest 看不見 #7 的原因 |
+| 網站 repo `174beca` 的 `content/` | 全站 `NOPASSWD` 只有兩行、都只涵蓋 `ndtwin-lab` — **成立**。但分支文件原本寫「沒有任何一頁提到 `ovs-vsctl`／`mnexec`」，**不成立**：Installation Manual 的 `…/Native-Linux Excution Environment.md:339` 就在教 `sudo ovs-vsctl show`。已在分支上補 `20d834aa` 更正 |
+
+🔑 **那個更正讓 #7 更利，不是更鈍。** 手冊叫讀者跑 `sudo ovs-vsctl show`，讀者當場會成功（互動式 sudo 問密碼），
+於是他有充分理由相信 `ovs-vsctl` 在 sudo 下是通的；而 `ndt` 用的是 `sudo -n`。
+**縫隙不在「指令沒被提過」，在「互動式可以問密碼、非互動式不能」**——照手冊親手操作的人必然看不見，只咬工具。
+
 ## What this does NOT establish
 
 - **The tie-break is not confirmed live.** No fabric was brought up; the eight-bring-up
