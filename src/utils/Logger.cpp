@@ -1,4 +1,5 @@
 #include "utils/Logger.hpp"
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 #include <spdlog/sinks/basic_file_sink.h>
@@ -61,6 +62,120 @@ require_value(const std::string& flag, int& i, int argc, char* argv[])
     }
     ++i;
     return value;
+}
+
+// [Co-developed with claude code -- Adam]
+// The accepted option names, in one line, for the message that refuses an unknown one. Built from
+// the same two tables the check itself consults, so a refusal can never advertise a flag the check
+// would go on to reject -- which is the failure mode of every hand-maintained "valid options" list.
+static std::string
+known_option_names(const std::vector<CliFlag>& also_known)
+{
+    std::vector<std::string> names;
+    for (const CliFlag& f : Logger::logging_flags())
+    {
+        names.emplace_back(f.name);
+    }
+    for (const CliFlag& f : also_known)
+    {
+        // The two tables overlap on purpose (--help is answered by whichever parser runs first),
+        // and a message that says "--help, --help" reads like a bug in the message.
+        if (std::find(names.begin(), names.end(), f.name) == names.end())
+        {
+            names.emplace_back(f.name);
+        }
+    }
+    std::sort(names.begin(), names.end());
+
+    std::string out;
+    for (const std::string& n : names)
+    {
+        if (!out.empty())
+        {
+            out += ", ";
+        }
+        out += n;
+    }
+    return out;
+}
+
+// [Co-developed with claude code -- Adam]
+// FINDINGS #70. See include/utils/Logger.hpp for why this is one pass over the union of both
+// parsers' tables rather than a check inside each parser.
+const std::vector<CliFlag>&
+Logger::logging_flags()
+{
+    // Every entry here is driven through parse_cli_args by tests/test_LoggerCliArgs.cpp, because
+    // a table that has drifted from the parser turns a flag the program honours into "unknown
+    // option" -- a refusal is only an improvement while it is accurate.
+    static const std::vector<CliFlag> flags = {
+        {"--logfile", 1},
+        {"-f", 1},
+        {"--loglevel", 1},
+        {"-l", 1},
+        {"--help", 0},
+        {"-h", 0},
+    };
+    return flags;
+}
+
+void
+Logger::reject_unknown_flags(int argc, char* argv[], const std::vector<CliFlag>& also_known)
+{
+    // The union, in one place. Logger's own flags are always in it; the caller adds the rest.
+    const auto arity_of = [&also_known](const std::string& token) -> int {
+        for (const CliFlag& f : Logger::logging_flags())
+        {
+            if (token == f.name)
+            {
+                return f.arity;
+            }
+        }
+        for (const CliFlag& f : also_known)
+        {
+            if (token == f.name)
+            {
+                return f.arity;
+            }
+        }
+        return -1;
+    };
+
+    for (int i = 1; i < argc; ++i)
+    {
+        const std::string token(argv[i]);
+
+        // Not option-shaped, so not this function's business: a positional belongs to whoever
+        // wants one, and a bare "-" is a value by convention -- the same convention require_value
+        // above is written to.
+        if (token.size() < 2 || token[0] != '-')
+        {
+            continue;
+        }
+
+        const int arity = arity_of(token);
+        if (arity < 0)
+        {
+            std::cerr << "unknown option '" << token << "'\n"
+                      << "Accepted options: " << known_option_names(also_known) << "\n"
+                      << "Run with --help for the full usage.\n";
+            std::exit(2);
+        }
+
+        // Step OVER the value of a value-taking flag instead of scanning it. `--topology
+        // -weird.json` is a path this function has no opinion about; the parser that owns the
+        // flag is the one entitled to judge its value.
+        //
+        // 🔴 THE max IS NOT DECORATION, AND IT WAS NOT IN THE FIRST VERSION. `arity` is >= 0 here
+        // only because the branch above exits on everything else -- so the loop's index depended
+        // on an argument made three lines earlier rather than on anything the compiler checks.
+        // tests/shell/mutate_logger_cli.sh's M1 disables that branch, which is the defect as it
+        // shipped; `i += -1` then cancels the ++i and the process spins forever. The gate reported
+        // it as HUNG -- correctly refusing to score it as a catch -- and a hang is the one outcome
+        // that is neither a red nor a survivor you can reason about. A loop index must not be one
+        // edit away from never terminating.
+        i += std::max(arity, 0);
+    }
 }
 
 const char*
