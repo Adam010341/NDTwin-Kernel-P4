@@ -3,10 +3,16 @@
 Measured 2026-09-03 ~20:10 CST, on the machine, not from memory.
 Adam loses physical access to the lab from 2026-09-05.
 
-## TL;DR — one thing must be done before you go
+## TL;DR — one request to make, nothing to install
 
-**VirtualBox will stop working the next time that machine reboots**, and only root
-can fix it. Everything else survives unattended.
+Everything on that machine survives unattended, including VirtualBox across a
+kernel change. The single thing worth doing is **asking the lab to reserve the
+address**, because that is the only failure nobody outside the lab can recover
+from.
+
+*(An earlier version of this file led with a VirtualBox "time bomb" and a command
+to run. Both were wrong — see the retraction below. The command would not even
+have run.)*
 
 ---
 
@@ -90,7 +96,7 @@ Options, best first:
 | ssh at boot | `ssh.socket` **enabled** (`ssh.service` disabled is normal on 24.04 — socket activation) |
 | `/dev/kvm` access | `nslab` **is in the `kvm` group** ⇒ durable. The `user:nslab:rw-` ACL from the desktop session is also there, but nothing depends on it |
 | self-reboot | `Automatic-Reboot` off ⇒ it will not reboot itself |
-| `vboxdrv` unit | `enabled` (it will try — it just has nothing to load after a kernel change) |
+| `vboxdrv` unit | `enabled`, and its `start` path **rebuilds the modules** when they are missing for the running kernel ⇒ survives a kernel change on its own |
 
 The `/dev/kvm` point is worth stating plainly because it was the thing most
 likely to bite: the ACL is granted by logind because someone is logged in at
