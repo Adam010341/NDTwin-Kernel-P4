@@ -310,6 +310,7 @@ class FlowLinkUsageCollector
      * has been published yet -- which is not a pass.
      */
     double lastFlowRateDivisorSeconds() const { return m_lastFlowRateDivisorSeconds.load(); }
+    /**
      * @brief What the sFlow ingest did during the most recently *closed* rate window.
      *
      * @details

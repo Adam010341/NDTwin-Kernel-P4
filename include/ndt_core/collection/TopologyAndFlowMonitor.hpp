@@ -94,6 +94,7 @@ class TopologyAndFlowMonitor
     {
         return m_staticTopologyLoadThread.load(std::memory_order_acquire);
     }
+    /**
      * @brief Loads the static topology synchronously and reports whether it worked.
      *
      * @return false if the topology could not be loaded. The caller must end the process; the
