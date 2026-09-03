@@ -106,12 +106,58 @@
 
 ## 五、紅→綠
 
-（見 `RED-GREEN.md`／本輪 raw。）
+測試檔 `tests/test_PhantomFilterCoversOvs.cpp`（12 顆）。
+
+🔑 **裡面沒有一顆斷言碰到新欄位的名字**。每一顆斷言的都是**後果**——確認索引怎麼回答、
+端點讀的那份快取裝了什麼、kernel.log 說了什麼——沒有一顆斷言機制。
+這不是風格問題：**這是它能夠對著未修的 trunk 編譯並看到紅色的唯一寫法**。
+照新拼字寫的測試只會編不過，而編不過不是紅色，是沒有證據。
+附帶好處是修法日後換一種寫法時，判它的測試不必跟著重寫。
+
+四顆是**對照**、不是被修的東西：P4 確認過的列仍立即服務、P4 被拒的列仍被扣住、
+輪詢回來的列兩個平面都不扣、A-7 的計數器意義不變。
+沒有這四顆，「讓 OVS 遵守契約」可以靠「什麼都扣住」達成——那是穿著修法外衣的中斷。
+
+（gtest 逐字紅／綠與數量：見本輪 raw。）
+
+### 另一層：不需要整包連結的紅→綠
+
+`raw/00_header_level_red_green.log`。同一份 source，只用 include 路徑切換 trunk 的標頭與修過的標頭：
+
+| | trunk | 修法後 |
+|---|---|---|
+| Ryu 接受的那筆 `isProgrammed` | **1**（錯） | **0** |
+| P4 編程確認的那筆 | 1 | 1 |
+| P4 被拒的那筆 | 0 | 0 |
+| 未帶 token（輪詢來的） | 1 | 1 |
+| 過濾器扣住幾列 | **0** | **1** |
+| 服務出去幾列 | **3**（含幽靈） | 2 |
+
+trunk 那一欄服務出去的第一列就是 FINDING-03 的指紋：`ipv4_dst` 詞彙、沒有計數器。
 
 ## 六、變異閘
 
-`tests/shell/mutate_phantom_filter_covers_ovs.sh`。
+`tests/shell/mutate_phantom_filter_covers_ovs.sh`：11 個致命變異（每個指名唯一該紅的那顆）
+＋ 4 個保行為的放寬（必須維持綠）。過濾器含既有的 B-1 兩套
+（`PendingEntryFilterTest`／`ProgrammedTokenTest`）——**這次要證的有一半是 P4 沒有動**。
+
+（逐項結果：見本輪 raw。）
 
 ## 七、Live
 
-（見 §五同一組 raw。）
+（見本輪 raw。）
+
+## 八、附記：兩件順手發現、沒有一起修的事
+
+1. **既有測試把這個缺陷釘成了預期行為。** `tests/test_PendingEntryFilter.cpp` 有一顆綠的
+   `OnlyASouthboundSuccessConfirmsAToken`，用 `OpResult::success()` 斷言 token 被蓋上。
+   那句話在 P4 上為真、在 OVS 上為假，所以這套測試**把 B-1 的 OVS 那一半釘住了**，
+   而 08-31 的驗收只在 P4 上跑、結構上看不到。已改名為
+   `OnlyAnAdjudicatingSouthboundSuccessConfirmsAToken` 並補上第三筆（接受但未裁決）。
+   **與 B-2 的 `RenewingAnExpiredLockPutsItBackInForce` 同型，這是第二例。**
+2. **`ndt` 的預檢查的不是它接著啟動的那一個。** `ndt:830` 檢查
+   `$REPO/build/bin/ndtwin_kernel`（主 checkout），而 `stack.sh:908` 啟動的是
+   `$KERNEL_DIR/build/bin/ndtwin_kernel`，`KERNEL_DIR` 可由環境覆寫（`components.env:16` 用 `:=`）。
+   兩者預設相同、被覆寫時不同 ⇒ **預檢查會對一個不會被執行的檔案回綠。**
+   本輪的 live arm 正是靠這個覆寫跑自己的 binary 的。**沒有修**（不在本工單範圍），
+   但值得單獨開一條。
