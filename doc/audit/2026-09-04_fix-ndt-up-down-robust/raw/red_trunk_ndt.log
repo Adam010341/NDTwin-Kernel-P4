@@ -1,0 +1,151 @@
+
+1. #3(a): the cheap refusals are decided BEFORE the machine is touched
+  FAILED   🔴 a foreign holder of :8000 refuses the bring-up
+             expected: [1]  actual: [0]
+  ok         and names the port
+  FAILED     and says it is not this checkout's
+             no match for 'not part of this checkout'
+  ok         and carries the row's consequence
+  FAILED     and names where the late refusal used to happen
+             no match for 'stack.sh would refuse at its [3/3]'
+  FAILED     and says what to do about it
+             no match for 'ndt down'
+  ok       🔴 :8000 held by OUR OWN kernel is not a refusal
+  ok         and is not reported as foreign
+  ok         it is still named, as residue
+  ok       a listener in our recorded process group is ours
+  ok       🔴 a holder we cannot see is NOT refused
+  ok         it is reported as unowned-as-far-as-we-can-tell
+  ok         and never as foreign
+  ok       a P4-only port does not block an OVS bring-up
+  FAILED     and does block a P4 one
+             expected: [1]  actual: [0]
+  ok       nothing held: preflight passes
+  ok         and says nothing about foreign holders
+
+2. #3(b): a bring-up that fails after changing the machine takes it back down
+  ok       a failed 'ndt up ovs4' exits non-zero
+  FAILED     and rolls back
+             no match for 'rollback'
+  FAILED     naming what it had started
+             no match for 'this bring-up started'
+  FAILED     stops what stack.sh started (Ryu)
+             no match for 'stopped ryu'
+  FAILED     stops the topo session
+             no match for 'topo-stop'
+  FAILED     sweeps the data plane
+             no match for 'cleanup'
+  FAILED     and takes the control plane down through stack.sh
+             no match for 'down'
+  FAILED   🔴 keeps .test_run/up.target on purpose
+             no match for 'kept .test_run/up.target'
+  ok         the record really is still there
+  ok       a bring-up that came up but did not verify is red
+  ok       🔴 and is NOT rolled back
+  ok         nothing is swept
+  ok       a bring-up that reused a fabric still exits non-zero
+  FAILED     and rolls back what it did start
+             no match for 'rollback'
+  ok       🔴 but does NOT sweep the fabric it reused
+  ok         and does not stop its topo session
+  ok       a preflight refusal exits non-zero
+  ok         and does not claim to have rolled anything back
+  FAILED     the machine was not touched at all
+             expected: []  actual: [installed-ndtwin-lab ovs-topo-4host]
+  ok       stack.sh exiting early is red
+  FAILED     and rolls back
+             no match for 'rollback'
+  FAILED     through stack.sh down
+             no match for 'down'
+  ok       a failed ovs-topo-4host is red
+  FAILED     and rolls back
+             no match for 'rollback'
+  FAILED     including the topo session it may have created
+             no match for 'topo-stop'
+  FAILED   an incomplete rollback says so
+             no match for 'rollback INCOMPLETE'
+  FAILED     and names the survivor cleanup reported
+             no match for 'STILL RUNNING'
+  ok         and never claims the machine is back as it was
+
+3. #21: cleanup's exit status is read, not thrown away
+  FAILED   🔴 a failed orphan sweep refuses the bring-up
+             expected: [1]  actual: [0]
+  FAILED     and names the survivor
+             no match for 'STILL RUNNING'
+  FAILED     and says why building on it misleads
+             no match for 'looks like a P4 problem'
+  FAILED   🔴 and no fabric is started on top of it
+             unexpected 'topo-start' in the output
+  ok       🔴 a successful orphan sweep is not turned into a refusal
+  ok         and the bring-up proceeds
+  FAILED   🔴 'ndt down' is red when its sweep did not finish
+             expected: [1]  actual: [0]
+  ok         and names what survived
+  FAILED     saying the sweep itself failed
+             no match for 'cleanup exited 1'
+  ok       🔴 and a clean teardown is still green
+  ok         with no complaint about the sweep
+
+4. #49: the teardown verify waits for the sweep it is verifying
+  FAILED   🔴 processes reaped just after the sweep are not a failure
+             expected: [0]  actual: [1]
+  FAILED     and the wait is reported, not hidden
+             no match for 'waited'
+  FAILED     no false 'still running'
+             unexpected 'bmv2 switches: 5 still running' in the output
+  FAILED     the assertion still ran
+             no match for 'bmv2 switches: 0'
+  ok       🔴 a process that never leaves is still RED
+  FAILED     and the bound is stated
+             no match for 'not waiting further'
+  ok         and the assertion reports what is there
+  ok       a clean machine is not made to wait
+  ok       🔴 'ndt clean' alone does not wait
+  ok         it answers about this instant
+
+5. #83: the installed helper is compared with this tree's, and named
+  FAILED   a differing helper is reported
+             expected: [1]  actual: [127]
+  FAILED     naming the installed path
+             no match for '/installed-ndtwin-lab'
+  FAILED     naming the repo path
+             no match for 'tools/test_workflow/ndtwin-lab'
+  FAILED     with both sha256 prefixes
+             no match for '47c2da56'
+  FAILED     and the other one
+             no match for '701cc762'
+  FAILED     it says which copy actually runs
+             no match for 'run the INSTALLED copy'
+  FAILED     and gives the install command verbatim
+             no match for 'sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sbin/ndtwin-lab'
+  FAILED   🔴 matching copies are green and quiet
+             expected: [0]  actual: [127]
+  ok         no install advice when nothing needs installing
+  FAILED   a missing installed helper is a problem
+             expected: [1]  actual: [127]
+  FAILED     and is named as missing, not as a mismatch
+             no match for 'is not installed'
+  FAILED   🔴 'could not compare' is not green
+             expected: [2]  actual: [127]
+  FAILED     and says which side it could not read
+             no match for 'could not compare'
+  FAILED   'ndt status' prints it in the lab section
+             no match for 'helper'
+  FAILED     with the install command
+             no match for 'sudo install -o root -g root -m 755'
+  FAILED   🔴 'ndt status --check' counts it as a problem
+             expected: [1]  actual: [0]
+  FAILED     and lists it among the problems
+             no match for '- the installed'
+  FAILED     naming the path a reader can act on
+             no match for 'tools/test_workflow/ndtwin-lab'
+  ok       🔴 and matching copies leave --check green
+  ok         with nothing in the problem list about it
+  ok       🔴 preflight WARNS and does not refuse
+  FAILED     the operator is told before the run
+             no match for 'helper'
+  FAILED     and told what to do
+             no match for 'sudo install -o root -g root -m 755'
+
+39 passed, 50 failed

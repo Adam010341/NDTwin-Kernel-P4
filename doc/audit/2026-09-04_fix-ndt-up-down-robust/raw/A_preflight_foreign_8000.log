@@ -1,0 +1,51 @@
+#### LIVE ARM A: preflight against a foreign holder of :8000, on the real machine ####
+# recorded 2026-09-04T01:24:19+08:00   host adam-Yoga-7-2-in-1-16IML9
+# foreign holder: LISTEN 0      5      0.0.0.0:8000 0.0.0.0:* users:(("python3",pid=2281646,fd=3))
+# .test_run/pids of the checkout under test:
+#   ls: cannot access '/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ndtupdown/.test_run/pids/': No such file or directory
+# installed helper sha256: 288b71cb8ccc7c9472f4229d46c5fe1408592ede091be180536ed65676b0ce4c  /usr/local/sbin/ndtwin-lab
+# worktree helper  sha256: 6685d3a90fd94884f8fa72916c4d03716fb62d86eae0a124750aa892d05f9e24  /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ndtupdown/tools/test_workflow/ndtwin-lab
+
+== CONTROL: trunk's ndt (47c6cb1a), preflight ovs ==
+  !!  ports already held before bring-up (yours if a stack is up; otherwise the next
+  !!  run measures them). stack.sh refuses at wait_for_port if they are not ours:
+  residue: python3 pid 2281646 holding :8000 (tcp)
+           -> owner: the kernel's northbound API (ndtwin_kernel)
+           -> if something else holds it: the next 'up' measures the stray kernel while the one it started is dead of EADDRINUSE -- a P4 session reported the OVS topology's 288 edges and 128 hosts this way
+RC=0
+
+== FIXED: this branch's ndt, preflight ovs ==
+  !!  ports already held before bring-up (yours if a stack is up; otherwise the next
+  !!  run measures them). stack.sh refuses at wait_for_port if they are not ours:
+  residue: python3 pid 2281646 holding :8000 (tcp)
+           -> owner: the kernel's northbound API (ndtwin_kernel)
+           -> if something else holds it: the next 'up' measures the stray kernel while the one it started is dead of EADDRINUSE -- a P4 session reported the OVS topology's 288 edges and 128 hosts this way
+  XX  refusing to build: a port this bring-up needs is held by a process that is
+  XX  not part of this checkout's stack (nothing in .test_run/pids/ accounts for it).
+  XX    :8000 (tcp) is held by python3 pid 2281646
+  XX       should be: the kernel's northbound API (ndtwin_kernel)
+  XX       if it is not ours: the next 'up' measures the stray kernel while the one it started is dead of EADDRINUSE -- a P4 session reported the OVS topology's 288 edges and 128 hosts this way
+  XX    refused HERE, before anything is built. stack.sh would refuse at its [3/3]
+  XX    kernel step instead, and on 2026-09-02 that cost a whole Ryu, a topo session and
+  XX    a 15-process data plane, left running with no kernel (finding #3).
+  XX    .test_run/pids/ is per checkout (#79): a stack started from a DIFFERENT checkout
+  XX    of this repo is foreign here -- stack.sh would have called the same socket
+  XX    'not ours'. Take it down from the checkout that started it:  ndt down
+  XX    If it is a stray nobody owns:  ndt down --deep
+  !!  the helper this bring-up will use is not the one in this tree:
+    !!  helper: /usr/local/sbin/ndtwin-lab is sha256 288b71cb, tools/test_workflow/ndtwin-lab is 6685d3a9
+    !!    'ndt up' and 'ndt down' run the INSTALLED copy, so nothing merged into this
+    !!    tree since it was installed has executed on this machine (finding #83).
+    !!    install it -- root's decision, not this script's:
+    !!      sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sbin/ndtwin-lab
+RC=1
+
+== the OTHER direction, same machine, same holder: the pid is put in this checkout's ledger ==
+# echo 2281646 > /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ndtupdown/.test_run/pids/kernel.pid   (what stack.sh's start_bg would have written)
+  !!  ports already held before bring-up (yours if a stack is up; otherwise the next
+  !!  run measures them). stack.sh refuses at wait_for_port if they are not ours:
+  residue: python3 pid 2281646 holding :8000 (tcp)
+           -> owner: the kernel's northbound API (ndtwin_kernel)
+           -> if something else holds it: the next 'up' measures the stray kernel while the one it started is dead of EADDRINUSE -- a P4 session reported the OVS topology's 288 edges and 128 hosts this way
+    !!    tree since it was installed has executed on this machine (finding #83).
+RC=0

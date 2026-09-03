@@ -1,0 +1,23 @@
+=== test_ndt_status_check_baseline.sh start 01:22:11
+=== test_ndt_status_check_baseline.sh rc=0 end 01:22:14
+=== test_ndtwin_lab_sweep.sh start 01:22:14
+=== test_ndtwin_lab_sweep.sh rc=0 end 01:22:15
+=== test_ndtwin_lab_config.sh start 01:22:15
+=== test_ndtwin_lab_config.sh rc=0 end 01:22:15
+=== mutate_ndt_status_check.sh start 01:22:15
+=== mutate_ndt_status_check.sh rc=0 end 01:22:52
+=== mutate_ndt_up_target.sh start 01:22:52
+=== mutate_ndt_up_target.sh rc=0 end 01:22:52
+=== mutate_ports_that_block_restart.sh start 01:22:52
+=== mutate_ports_that_block_restart.sh rc=0 end 01:23:10
+=== mutate_ndt_sudo_surface.sh start 01:23:10
+=== mutate_ndt_sudo_surface.sh rc=0 end 01:23:21
+=== mutate_redirection_order.sh start 01:23:21
+=== mutate_redirection_order.sh rc=0 end 01:23:26
+=== mutate_ovs4_has_sflow.sh start 01:23:26
+=== mutate_ovs4_has_sflow.sh rc=0 end 01:24:03
+=== mutate_ndt_ovs_topo_script.sh start 01:24:03
+=== mutate_ndt_ovs_topo_script.sh rc=0 end 01:24:13
+=== mutate_apps_stop_kills_the_group.sh start 01:24:13
+=== mutate_apps_stop_kills_the_group.sh rc=0 end 01:44:30
+ALL DONE 01:44:30

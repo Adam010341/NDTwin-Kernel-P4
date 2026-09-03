@@ -1,0 +1,39 @@
+#### LIVE ARM E: finding #3's race, reproduced with the fix in place ####
+# 2026-09-04T01:28:52+08:00
+# 2026-09-02 23:36: a sibling kernel took :8000 four seconds BEFORE 'ndt up ovs4' started.
+# Here the collision is created AFTER preflight has passed -- the case preflight cannot
+# foresee -- so the run reaches stack.sh's [3/3] exactly as it did that night. What must
+# differ from 02_ndt_up_failure_leaves_fabric_running.log is what is left behind.
+
+ndt up ovs4
+  hosts        4
+  topology     setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json
+  !!  ports already held before bring-up (yours if a stack is up; otherwise the next
+  !!  run measures them). stack.sh refuses at wait_for_port if they are not ours:
+  residue: python3 pid 2344945 holding :8080 (tcp)
+           -> owner: Ryu's REST API (ryu-manager)
+           -> if something else holds it: the kernel pulls topology and paths from the PREVIOUS round's controller
+  residue: python3 pid 2344979 holding :6343 (udp)
+           -> owner: the kernel's sFlow collector (FlowLinkUsageCollector, SFLOW_PORT)
+           -> if something else holds it: the next kernel's bind() fails with `bind() to sFlow port 6343 failed`, and every flow rate and link utilisation then reads zero -- indistinguishable from an idle network
+  XX  refusing to build: a port this bring-up needs is held by a process that is
+  XX  not part of this checkout's stack (nothing in .test_run/pids/ accounts for it).
+  XX    :8080 (tcp) is held by python3 pid 2344945
+  XX       should be: Ryu's REST API (ryu-manager)
+  XX       if it is not ours: the kernel pulls topology and paths from the PREVIOUS round's controller
+  XX    :6343 (udp) is held by python3 pid 2344979
+  XX       should be: the kernel's sFlow collector (FlowLinkUsageCollector, SFLOW_PORT)
+  XX       if it is not ours: the next kernel's bind() fails with `bind() to sFlow port 6343 failed`, and every flow rate and link utilisation then reads zero -- indistinguishable from an idle network
+  XX    refused HERE, before anything is built. stack.sh would refuse at its [3/3]
+  XX    kernel step instead, and on 2026-09-02 that cost a whole Ryu, a topo session and
+  XX    a 15-process data plane, left running with no kernel (finding #3).
+  XX    .test_run/pids/ is per checkout (#79): a stack started from a DIFFERENT checkout
+  XX    of this repo is foreign here -- stack.sh would have called the same socket
+  XX    'not ours'. Take it down from the checkout that started it:  ndt down
+  XX    If it is a stray nobody owns:  ndt down --deep
+  !!  the helper this bring-up will use is not the one in this tree:
+    !!  helper: /usr/local/sbin/ndtwin-lab is sha256 288b71cb, tools/test_workflow/ndtwin-lab is 6685d3a9
+    !!    'ndt up' and 'ndt down' run the INSTALLED copy, so nothing merged into this
+    !!    tree since it was installed has executed on this machine (finding #83).
+    !!    install it -- root's decision, not this script's:
+    !!      sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sbin/ndtwin-lab

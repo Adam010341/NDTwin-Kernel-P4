@@ -1,0 +1,52 @@
+fix/ndt-up-down-robust -- raw evidence provenance
+=================================================
+branch base : 47c6cb1a  (trunk at the time the worktree was created)
+branch head : see the commit this blob was added in
+trunk when  : 1cf1556f  ("A-12b: the OVS path forwards within a switch, not between switches")
+machine     : adam-Yoga-7-2-in-1-16IML9
+date        : 2026-09-04, 00:57 - 01:50 (+08:00)
+
+what ran what
+--------------
+red_trunk_ndt.log          tests/shell/test_ndt_up_down_robust.sh with
+                           NDT_UNDER_TEST pointed at `git show trunk:tools/test_workflow/ndt`
+                           (47c6cb1a) copied into a temp dir beside ports.sh, sudo_surface.sh,
+                           components.env.   -> 39 passed, 50 failed
+green_branch_ndt.log       the same suite against this branch's ndt.  -> 89 passed, 0 failed
+mutation_gate.log          tests/shell/mutate_ndt_up_down_robust.sh -> 25 mutations, 0 survived
+gate_anchors.log           check_gate_anchors.py HEAD --gates mutate_ndt_up_down_robust.sh
+                           -> ok(25)
+neighbour_*.log            the eight neighbour gates and three suites that read `ndt`,
+                           ndtwin-lab or ports.sh, run SEQUENTIALLY (never in parallel);
+                           neighbour_PROGRESS.txt has the start/end timestamps and rcs.
+merge_tree_against_trunk.txt   `git merge-tree --write-tree trunk HEAD` -- one tree oid, rc 0.
+
+live arms (lab claimed by NDT_OWNER=ndtupdown, 01:23:56 -> 01:32:17)
+---------------------------------------------------------------------
+A_preflight_foreign_8000.log   paired control: the SAME foreign holder of :8000 (a python
+                               listener, pid 2281646) seen by trunk's preflight (RC=0) and by
+                               this branch's (RC=1); then the same pid written into
+                               .test_run/pids/kernel.pid -> RC=0 again.
+B_up_ovs4.log                  a real `ndt up ovs4` from the worktree. All four verify steps ok.
+C_status_check_live.log        `ndt status --check` on that live fabric: 1 problem, and it is
+                               the helper sha mismatch. CHECK_RC=1.
+D_down.log                     `ndt down` on that fabric. Clean. wait_reaped printed nothing,
+                               i.e. #49's timing did NOT occur -- a NEGATIVE result, see the .md.
+E_rollback_race.log            the attempt to reproduce #3's race. A sibling session took :8080
+                               and :6343 for its own test mid-window, so the run refused at
+                               PREFLIGHT against a real unplanned collision instead of reaching
+                               stack.sh's [3/3]. The rollback was therefore not exercised live.
+E_holder.log, holder.log       the :8000 listeners this round started, stopped by exact pid.
+
+🔴 the boundary every live number here depends on
+--------------------------------------------------
+`ndt` and `stack.sh` ran from the repo (this branch). Every ndtwin-lab verb ran the INSTALLED
+copy /usr/local/sbin/ndtwin-lab, sha256
+  288b71cb8ccc7c9472f4229d46c5fe1408592ede091be180536ed65676b0ce4c   (08-30, commit 0b6db9e3)
+against this tree's tools/test_workflow/ndtwin-lab, sha256
+  6685d3a90fd94884f8fa72916c4d03716fb62d86eae0a124750aa892d05f9e24
+Nothing was installed by this round. The installed copy also hard-codes
+KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel, so `ovs-topo-4host` ran the MAIN checkout's
+ovs_4host_topo.py, not the worktree's.
+
+[Co-developed with claude code -- Adam]

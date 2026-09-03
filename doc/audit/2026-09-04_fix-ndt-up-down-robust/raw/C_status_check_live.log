@@ -1,0 +1,66 @@
+#### LIVE ARM C: 'ndt status --check' on the live ovs4 fabric, from this branch ####
+# 2026-09-04T01:27:10+08:00
+
+lab
+  claim          yours -- 22m left (until 01:48:56)
+  note           fix/ndt-up-down-robust live arms: preflight refusal + one ovs4 up/down
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           9f6fd14f  +1 file(s) with uncommitted changes
+  !!  helper: /usr/local/sbin/ndtwin-lab is sha256 288b71cb, tools/test_workflow/ndtwin-lab is 6685d3a9
+  !!    'ndt up' and 'ndt down' run the INSTALLED copy, so nothing merged into this
+  !!    tree since it was installed has executed on this machine (finding #83).
+  !!    install it -- root's decision, not this script's:
+  !!      sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sbin/ndtwin-lab
+
+configuration
+  hosts          4   (what the last 'ndt up' asked for: ovs)
+  topology       setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json
+  p4 host knob   128   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate    1/unknown
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   present
+  host/switch    15      manifest       absent
+  :8000 kernel   open    :8081 proxy    closed  :8080 ryu open
+
+network health
+  switches       10 up, 10 enabled, 0 admin-disabled
+  links          40 total, 0 down, 0 admin-disabled
+  tc netem       none
+  sudo grants    all 3 granted
+  apps           none running
+
+kernel graph
+  10 switches (10 up, 10 enabled), 4 hosts, 40 edges
+
+up target
+  asked for      ovs, 4 hosts   (recorded 2026-09-04 01:25:04 by ndtupdown)
+  topology       setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json   (declares 4 hosts / 40 edges)
+  dataplane      ovs                    == ovs   ok
+  fabric hosts   4                      == 4   ok
+  graph hosts    4                      == 4   ok
+  graph edges    40                     == 40   ok
+  topology file  sha256 2266c69cbcd3    == recorded   ok
+
+check: 1 problem(s)
+  - the installed /usr/local/sbin/ndtwin-lab (288b71cb) is not tools/test_workflow/ndtwin-lab (6685d3a9) -- 'ndt up'/'ndt down' run the installed copy
+CHECK_RC=1
+
+== CONTROL: trunk's ndt (47c6cb1a) on the SAME live fabric ==
+lab
+  claim          none
+  measuring      nothing
+  code           ?  (clean tree)
+
+configuration
+  hosts          4   (p4_proxy/mininet/host_count_override -- P4 only; no 'ndt up' recorded here)
+  topology       NONE for 4 hosts   (the P4 model that knob selects, NOT necessarily what is running)
+  bmv2           simple_switch_grpc (stock, PATH)
+  sample rate    1/unknown
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+check: COULD NOT CHECK -- no 'ndt up' target recorded in this checkout
+  - no baseline: run 'ndt up <target>' here first. this is NOT 'checked and matched'.

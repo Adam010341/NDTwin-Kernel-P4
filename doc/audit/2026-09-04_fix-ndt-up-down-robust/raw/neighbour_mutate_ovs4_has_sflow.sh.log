@@ -1,0 +1,31 @@
+baseline (must be green before any mutation):
+OK
+Ran 48 checks, 0 failed
+
+  caught   M1: main() stops configuring sFlow (the defect, verbatim)  (py test_main_configures_sflow went red)
+  caught   M2 (loosening): nine of the ten bridges are configured     (py test_every_bridge_is_configured went red)
+  caught   M3: the target port stops being the collector's            (py test_ndt_verifies_against_the_same_port went red)
+  caught   M4 (loosening): every bridge is configured twice           (py test_no_bridge_is_configured_twice went red)
+  caught   M5 (loosening): the record lands on a bridge that does not exist (py test_no_bridge_outside_the_fabric went red)
+  caught   M6: the agent addresses stop being the model file's        (py test_the_helper_agrees_with_the_model_on_every_switch went red)
+  caught   M7: the agent interface never gets an address at all       (py test_each_switch_gets_the_address_the_model_declares went red)
+  caught   M8: the exit status is discarded again (os.system's shape) (py test_the_default_runner_checks_the_exit_status went red)
+  caught   M9: a second set of sFlow parameters, unlike the reference (py test_header_sampling_polling_match_the_reference went red)
+  caught   M10: the record is created before the agent has an address (py test_the_address_is_assigned_before_the_record_is_created went red)
+  caught   N1 (control): no fabric can be configured at all           (py test_every_bridge_is_configured went red)
+  caught   M11: up_ovs stops verifying telemetry (the bring-up that said ready) (sh up_ovs calls verify_sflow went red)
+  caught   M12: a bridge with no sFlow record reads as fine           (sh   ... and names a bridge that samples nothing went red)
+  caught   M13: the bridge query's own refusal guard is gone          (sh   ... reported with the reason ovs-vsctl gave went red)
+  caught   M13b: the record query's own refusal guard is gone         (sh a failed record query is 'could not tell' went red)
+  caught   M14: the agent address is no longer compared to the model  (sh an agent address the model does not declare is red went red)
+  caught   M15: the agent address is read from the model, not measured (sh an agent interface with no IPv4 is red went red)
+  caught   M16 (loosening): records no bridge references stop being counted (sh an sFlow record no bridge references is red went red)
+  caught   M17 (loosening): a bridge may reference any number of records (sh   ... and says a bridge samples to one went red)
+  caught   M18: the target port stops being checked                   (sh a target on the wrong port is red went red)
+  caught   M19: every failure to ask is blamed on sudo                (sh   ... and the reason is ovs-vsctl's, not sudo's went red)
+  caught   N2 (control): no fabric ever passes                        (sh control: the healthy fabric passes went red)
+  caught   N3 (control): only ovs4's collector address is accepted    (sh control: the 128-host topology's collector alias passes went red)
+  caught   N4 (control): a missing sudo grant stops the bring-up      (sh control: a refusal does not fail the bring-up went red)
+
+baseline byte-identical: yes (ovs_4host_topo.py and ndt)
+mutation gate: 24 mutations, 0 survived

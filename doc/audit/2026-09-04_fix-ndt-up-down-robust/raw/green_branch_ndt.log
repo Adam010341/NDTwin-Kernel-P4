@@ -1,0 +1,101 @@
+
+1. #3(a): the cheap refusals are decided BEFORE the machine is touched
+  ok       🔴 a foreign holder of :8000 refuses the bring-up
+  ok         and names the port
+  ok         and says it is not this checkout's
+  ok         and carries the row's consequence
+  ok         and names where the late refusal used to happen
+  ok         and says what to do about it
+  ok       🔴 :8000 held by OUR OWN kernel is not a refusal
+  ok         and is not reported as foreign
+  ok         it is still named, as residue
+  ok       a listener in our recorded process group is ours
+  ok       🔴 a holder we cannot see is NOT refused
+  ok         it is reported as unowned-as-far-as-we-can-tell
+  ok         and never as foreign
+  ok       a P4-only port does not block an OVS bring-up
+  ok         and does block a P4 one
+  ok       nothing held: preflight passes
+  ok         and says nothing about foreign holders
+
+2. #3(b): a bring-up that fails after changing the machine takes it back down
+  ok       a failed 'ndt up ovs4' exits non-zero
+  ok         and rolls back
+  ok         naming what it had started
+  ok         stops what stack.sh started (Ryu)
+  ok         stops the topo session
+  ok         sweeps the data plane
+  ok         and takes the control plane down through stack.sh
+  ok       🔴 keeps .test_run/up.target on purpose
+  ok         the record really is still there
+  ok       a bring-up that came up but did not verify is red
+  ok       🔴 and is NOT rolled back
+  ok         nothing is swept
+  ok       a bring-up that reused a fabric still exits non-zero
+  ok         and rolls back what it did start
+  ok       🔴 but does NOT sweep the fabric it reused
+  ok         and does not stop its topo session
+  ok       a preflight refusal exits non-zero
+  ok         and does not claim to have rolled anything back
+  ok         the machine was not touched at all
+  ok       stack.sh exiting early is red
+  ok         and rolls back
+  ok         through stack.sh down
+  ok       a failed ovs-topo-4host is red
+  ok         and rolls back
+  ok         including the topo session it may have created
+  ok       an incomplete rollback says so
+  ok         and names the survivor cleanup reported
+  ok         and never claims the machine is back as it was
+
+3. #21: cleanup's exit status is read, not thrown away
+  ok       🔴 a failed orphan sweep refuses the bring-up
+  ok         and names the survivor
+  ok         and says why building on it misleads
+  ok       🔴 and no fabric is started on top of it
+  ok       🔴 a successful orphan sweep is not turned into a refusal
+  ok         and the bring-up proceeds
+  ok       🔴 'ndt down' is red when its sweep did not finish
+  ok         and names what survived
+  ok         saying the sweep itself failed
+  ok       🔴 and a clean teardown is still green
+  ok         with no complaint about the sweep
+
+4. #49: the teardown verify waits for the sweep it is verifying
+  ok       🔴 processes reaped just after the sweep are not a failure
+  ok         and the wait is reported, not hidden
+  ok         no false 'still running'
+  ok         the assertion still ran
+  ok       🔴 a process that never leaves is still RED
+  ok         and the bound is stated
+  ok         and the assertion reports what is there
+  ok       a clean machine is not made to wait
+  ok       🔴 'ndt clean' alone does not wait
+  ok         it answers about this instant
+
+5. #83: the installed helper is compared with this tree's, and named
+  ok       a differing helper is reported
+  ok         naming the installed path
+  ok         naming the repo path
+  ok         with both sha256 prefixes
+  ok         and the other one
+  ok         it says which copy actually runs
+  ok         and gives the install command verbatim
+  ok       🔴 matching copies are green and quiet
+  ok         no install advice when nothing needs installing
+  ok       a missing installed helper is a problem
+  ok         and is named as missing, not as a mismatch
+  ok       🔴 'could not compare' is not green
+  ok         and says which side it could not read
+  ok       'ndt status' prints it in the lab section
+  ok         with the install command
+  ok       🔴 'ndt status --check' counts it as a problem
+  ok         and lists it among the problems
+  ok         naming the path a reader can act on
+  ok       🔴 and matching copies leave --check green
+  ok         with nothing in the problem list about it
+  ok       🔴 preflight WARNS and does not refuse
+  ok         the operator is told before the run
+  ok         and told what to do
+
+89 passed, 0 failed

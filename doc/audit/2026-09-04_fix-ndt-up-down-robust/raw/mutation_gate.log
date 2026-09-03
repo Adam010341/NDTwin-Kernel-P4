@@ -1,0 +1,31 @@
+baseline (must be green before any mutation):
+89 passed, 0 failed
+
+  caught   M1: a foreign holder is named and then built over anyway   (🔴 a foreign holder of :8000 refuses the bring-up went red)
+  caught   M2: every visible listener is called ours                  (🔴 a foreign holder of :8000 refuses the bring-up went red)
+  caught   M3: a holder we cannot see becomes a stray                 (🔴 a holder we cannot see is NOT refused went red)
+  caught   M4: the pid ledger no longer identifies our own listener   (🔴 :8000 held by OUR OWN kernel is not a refusal went red)
+  caught   M5: the preflight asks about every plane's ports           (a P4-only port does not block an OVS bring-up went red)
+  caught   M6: a failed 'ndt up ovs4' returns without rolling back    (  and rolls back went red)
+  caught   M7: up_ovs never records that it built a fabric            (  stops the topo session went red)
+  caught   M8: a REUSED fabric is rolled back as if we built it       (🔴 but does NOT sweep the fabric it reused went red)
+  caught   M9: a stack that failed VERIFICATION is torn down too      (🔴 and is NOT rolled back went red)
+  caught   M10: up_p4 throws the orphan sweep's rc away again         (🔴 a failed orphan sweep refuses the bring-up went red)
+  caught   M11: 'ndt down' ignores a sweep that did not finish        (🔴 'ndt down' is red when its sweep did not finish went red)
+  caught   M12: 'ndt down' asserts at the instant of the sweep        (🔴 processes reaped just after the sweep are not a failure went red)
+  caught   M13: a wait that times out is reported as clean            (🔴 a process that never leaves is still RED went red)
+  caught   M14: 'ndt clean' waits too                                 (🔴 'ndt clean' alone does not wait went red)
+  caught   M15: a mismatched helper is shown but not counted          (🔴 'ndt status --check' counts it as a problem went red)
+  caught   M16: an unanswerable helper comparison is called a match   (🔴 'could not compare' is not green went red)
+  caught   M17: a mismatched helper refuses the bring-up              (🔴 preflight WARNS and does not refuse went red)
+  caught   N1 (control, always green): preflight refuses nothing      (🔴 a foreign holder of :8000 refuses the bring-up went red)
+  caught   N2 (widening, green): the rollback prints and does nothing (  stops the topo session went red)
+  caught   N3 (widening, green): 'ndt down' always exits 0            (🔴 a process that never leaves is still RED went red)
+  caught   N4 (widening, green): the helpers always agree             (a differing helper is reported went red)
+  green    W1 (behaviour-preserving): an arithmetic test written as a string test ((( x == 1 )) and [[ x == 1 ]] decide the same thing on a 0/1 flag)
+  green    W2 (behaviour-preserving): wait_reaped's guard rewritten   (the same condition, spelled differently)
+  green    W3 (behaviour-preserving): an advice line reworded         (the advice text is not the behaviour under test)
+  green    W4 (behaviour-preserving): echo written as printf          (identical bytes on stdout)
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 5b3baba9485c9e1a8ef3b01687c8c5dc7693b4778de2a22cd313c0e6cc8e5bc4
+mutation gate: 25 mutations, 0 survived
