@@ -1309,7 +1309,7 @@ violations (admin_disabled AND is_enabled): 0
 | `avg_link_usage` = 0 但有流量 | 流量兩端是不是在同一台交換機 | 不是 bug（設計上排除 host 邊） |
 | `num_of_flows` = 0 | 流量還在跑嗎；那台交換機在路徑上嗎 | 它不是 OpenFlow 規則數 |
 | `{"error":"Not Found"}` | 端點是 GET 還是 POST；是不是多加了 `?dpid=` | 不是功能沒實作 |
-| `get_detected_flow_data` 回 0 筆 | iperf 還在跑嗎（flow 幾秒內老化） | 不是 ingest 壞掉——是流量停了 |
+| `get_detected_flow_data` 回 0 筆 | ①iperf 還在跑嗎（flow 幾秒內老化）②**封包率夠嗎**——預設窗口在 ~22 pps 就有一半的查詢看不到一條完全送達的流；先用 `?liveness=all` 再查一次 | 不是 ingest 壞掉；**也不必然是流量停了**（2026-09-03 更正：低封包率下「送得好好的」和「停了」在預設窗口上長得一樣，見 §5j） |
 | 全部節點紅色 | `.test_run/logs/kernel.log` 找 `ovs-vsctl list-br failed` 或 `sudo: a password is required` | 不要以為整個 stack 壞了——是 liveness query 失敗 |
 | Ryu 突然沒 log | `pgrep -f "[r]yu-manager"` | **2026-07-30 曾經無聲死亡一次，死因至今未確定**（沒 traceback、沒 OOM 紀錄）。再發生請把 `ryu.log` 完整留下。來源：`doc/2026-07-30_full_test_runbook.md` |
 
