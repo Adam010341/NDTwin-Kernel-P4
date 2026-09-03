@@ -471,3 +471,19 @@ tester 自己在 JOURNAL 標成「Tooling note」並明講不歸咎 NDTwin。
    而 `pid_is_app`（`ndt:1683-1692`）的規則是「argv 元素**等於** sig 或以 `/sig` 結尾」——中段吃不下。
    改比對規則會連帶命中任何 argv 提到該目錄的行程（例如開著那個目錄的編輯器）。
    **這是設計取捨，已寫進分支的 NEXT.md，沒有替你定案。**
+
+## N11. rule journal 接上之後的三個裁決（#71，已併 trunk `486d89fb`）
+
+1. **`fsync` 留不留。** 接線後每一筆被接受的規則寫入多一次 `fsync`：本機 ext4 直接量 `RuleJournal.record` 200 次，
+   median **6.37 ms**（stub 掉 fsync 是 0.027 ms，236×）。它落在 REST 安裝路徑（`/stats/flowentry/add|delete|modify`）
+   並在 `RuleJournal._lock` 上序列化 ⇒ 單機約 **150 rules/s** 上界。`rule_journal.py` 自己說「一次 gRPC table write
+   本來就比 fsync 慢」，**但 repo 裡沒有那個量測**——agent 沒推翻也沒證實，fsync 沒動。
+   建議：**先留**（設計理由是撐過不乾淨關機），排一次帶 bmv2 的 per-rule install latency 量測對帳後再決定；
+   如果你要的是吞吐，改成批次 fsync 或關掉都是一行的事。
+2. **replay 要不要接、接在哪。** journal 現在有內容了但沒人讀：`NDTWIN_RULE_JOURNAL_REPLAY` 仍是沒有 reader 的環境變數。
+   接的位置有兩個候選（`main.startup()` 的 pipeline push 之後／`install_initial_routes` 之後），而 `install_initial_routes`
+   在拓樸每次變動時重寫 (switch, host) 且不 journal ⇒ replay 的順序不完整，這個缺口要先處理。
+   建議：**維持關閉**，等 A-4c 的裁決一起做。
+3. **`quarantine()` 的順序。** 沒有呼叫點 ⇒ `p4_proxy/.run/rule_journal.jsonl` 跨 proxy 世代累積（132 bytes/筆，只記 REST 進來的規則）。
+   先接 quarantine 會讓未來的 replay 讀到空檔——正是 #71 的失敗模式——所以開機順序（讀 → 決定 replay → quarantine）要跟 2. 一起定。
+
