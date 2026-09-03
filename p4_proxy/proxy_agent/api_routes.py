@@ -198,6 +198,115 @@ async def _flowentry_body(request: Request):
     return data
 
 
+def _named_priority(data):
+    """
+    The priority this caller actually asked for, or None if they asked for none.
+
+    [Co-developed with claude code -- Adam]
+    Three values mean "no priority named", and telling them apart from a real request is the
+    whole difference between a refusal that protects the fabric and one that stops it:
+
+      * the key is absent -- HttpRoutingStrategyBase omits it entirely for the non-strict
+        routes, which is every delete the control plane and the IntentTranslator make;
+      * -1 -- FlowRoutingManager::deleteAnEntry's default, the "delete anything matching"
+        sentinel the kernel turns into the non-strict POST;
+      * 0 -- HttpSession::makeModifyJob's default for an ABSENT priority, so it arrives on
+        every ordinary modify. `p4_priority` reads 0 the same way, mapping it to the lowest
+        ternary band as the default for a caller who expressed no preference.
+
+    A non-integer is not diagnosed here. It is not this predicate's error to own, and guessing
+    would turn a value problem into a capability answer that names the wrong fault.
+    """
+    raw = data.get("priority")
+    if raw is None:
+        return None
+    try:
+        priority = int(raw)
+    except (TypeError, ValueError):
+        return None
+    return priority if priority > 0 else None
+
+
+def _refuse_unhonourable_priority(data, match, verb):
+    """
+    Refuse a delete or modify whose priority the destination table cannot honour.
+
+    [Co-developed with claude code -- Adam]
+    doc/audit/2026-09-03_night-rounds/DECISION-P4-PRIORITY.md. This is deliberately NOT applied
+    to /stats/flowentry/add, and the difference is not squeamishness about breaking callers --
+    it is that the priority means two different things on the two sides:
+
+      * On an install it is a request about PRECEDENCE. The rule is programmed and does
+        forward; what is lost is the layering. add_flow_entry answers that with
+        `priority_honoured: false` and a note, per T-15 Option 0 and the 2026-08-30 §1.2
+        ruling, and this change leaves that ruling exactly where it stands.
+
+      * On delete_strict and modify it is IDENTITY -- it names WHICH entry the caller means.
+        ipv4_lpm holds one entry per destination and has no priority column, so every priority
+        names that same entry. Measured 2026-09-03: a modify at priority 777, a priority that
+        had never existed on this switch, rewrote the entry that was there, and a delete at
+        priority 999 removed it; both answered 200. A disclosure field cannot repair that,
+        because it is read after the rule the caller never named is already gone.
+
+    501, not 400. The request is well-formed OpenFlow -- nothing about it is the client's
+    mistake, and answering 400 makes the same misattribution OpResult::notSent was added to
+    stop (OpResult.hpp:78-98). What is true is that this data plane does not implement it, in
+    exactly the sense the six group/meter endpoints already mean by it, so this reuses their
+    shape: a 501 whose body names why, carrying `outcome: "unsupported_on_p4"`
+    (src/ndt_core/routing_management/P4RoutingStrategy.cpp:11-23). A client that already
+    handles those six needs no new code for this one.
+
+    The kernel needs no change either: HttpRoutingStrategyBase::post turns any non-2xx into an
+    OpResult::failure carrying the status and the body, HttpSession passes 400..599 through,
+    and the flow path -- which answers "queued" before the southbound request is made -- books
+    it as failed+1 with the reason in get_flow_dispatch_status's `recent_failures` instead of
+    counting it in `succeeded`.
+
+    Raises HTTPException(501) or returns None.
+    """
+    priority = _named_priority(data)
+    if priority is None or needs_five_tuple(match):
+        return
+    raise HTTPException(
+        status_code=501,
+        detail={
+            "error": "priority not honourable on this table",
+            "outcome": "unsupported_on_p4",
+            "table": "ipv4_lpm",
+            "requested_priority": priority,
+            "message": (
+                f"this {verb} names priority {priority}, and on a P4/bmv2 data plane a match "
+                "of this shape compiles to the ipv4_lpm table, which has no priority column: "
+                "precedence there is the prefix length, and the table holds one entry per "
+                "destination. The priority cannot select an entry, so honouring the request "
+                f"would {verb} whichever entry that destination has, at whatever priority it "
+                "was installed with, rather than the one named -- which is what this used to "
+                "do while answering 200. A match naming more than a destination compiles to "
+                "flow_5tuple, where priority is part of the entry's identity and is honoured; "
+                "a request that means \"whatever is there\" should omit the priority and take "
+                "the non-strict route."),
+        })
+
+
+def _priority_disclosure(match):
+    """
+    `table` and `priority_honoured` for a write that was not refused.
+
+    [Co-developed with claude code -- Adam]
+    The same two fields add_flow_entry already returns, derived by the same predicate the
+    topology branches on so they cannot drift from where the rule actually went. Additive, so
+    the kernel -- whose only check on this body is `status == "error"`,
+    HttpRoutingStrategyBase.cpp:123-125 -- cannot see the difference.
+
+    They describe the TABLE's capability, not this request: a priority-less delete against
+    ipv4_lpm reports `priority_honoured: false` even though it asked for nothing, exactly as
+    the add endpoint does. Making the field mean "your particular priority survived" would give
+    the same word two readings across three endpoints.
+    """
+    table = "flow_5tuple" if needs_five_tuple(match) else "ipv4_lpm"
+    return {"table": table, "priority_honoured": table == "flow_5tuple"}
+
+
 @router.post("/stats/flowentry/add")
 async def add_flow_entry(request: Request):
     """
@@ -288,7 +397,11 @@ async def delete_flow_entry(request: Request):
     data = await _flowentry_body(request)
     dpid = data.get("dpid")
     match = data.get("match", {})
-    
+
+    # [Co-developed with claude code -- Adam] Before the topology call, not after: a refusal
+    # that answers 501 once the entry is already gone is the same defect wearing a status code.
+    _refuse_unhonourable_priority(data, match, "delete")
+
     try:
         success = await run_in_threadpool(topology.unroute_flow, dpid, match,
                                           data.get("priority"))
@@ -297,7 +410,7 @@ async def delete_flow_entry(request: Request):
                             detail={"error": "unsupported match", "fields": err.fields,
                                     "message": str(err)})
     if success:
-        return {"status": "success"}
+        return {"status": "success", **_priority_disclosure(match)}
     else:
         return {"status": "error", "message": "Failed to delete route"}
 
@@ -307,7 +420,11 @@ async def modify_flow_entry(request: Request):
     dpid = data.get("dpid")
     match = data.get("match", {})
     actions = data.get("actions", [])
-    
+
+    # [Co-developed with claude code -- Adam] As delete_flow_entry: before the write, because
+    # the harm this refuses is an edit to an entry the caller never named.
+    _refuse_unhonourable_priority(data, match, "modify")
+
     # [Co-developed with claude code -- Adam]
     # The two branches after the raise were unreachable. More importantly the raise itself
     # fired on every *successful* modify, because modify_ipv4_route had no `return True` on
@@ -321,7 +438,7 @@ async def modify_flow_entry(request: Request):
                                     "message": str(err)})
     if not success:
         raise HTTPException(status_code=400, detail="Failed to modify flow entry in P4 switch")
-    return {"status": "success"}
+    return {"status": "success", **_priority_disclosure(match)}
 
 @router.post("/p4/readopt/{dpid}")
 def readopt(dpid: int):

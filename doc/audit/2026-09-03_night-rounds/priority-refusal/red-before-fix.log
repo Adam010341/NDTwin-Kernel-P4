@@ -1,0 +1,84 @@
+test_a_delete_naming_a_priority_ipv4_lpm_cannot_honour_is_501 (__main__.APriorityThatNamesAnEntryIsRefusedNotObeyedTest.test_a_delete_naming_a_priority_ipv4_lpm_cannot_honour_is_501) ... FAIL
+test_a_delete_that_is_honoured_says_which_table_it_reached (__main__.APriorityThatNamesAnEntryIsRefusedNotObeyedTest.test_a_delete_that_is_honoured_says_which_table_it_reached) ... ERROR
+test_a_failed_delete_is_still_reported_as_an_error (__main__.APriorityThatNamesAnEntryIsRefusedNotObeyedTest.test_a_failed_delete_is_still_reported_as_an_error) ... ok
+test_a_five_tuple_match_at_the_same_priority_is_not_refused (__main__.APriorityThatNamesAnEntryIsRefusedNotObeyedTest.test_a_five_tuple_match_at_the_same_priority_is_not_refused) ... 
+  test_a_five_tuple_match_at_the_same_priority_is_not_refused (__main__.APriorityThatNamesAnEntryIsRefusedNotObeyedTest.test_a_five_tuple_match_at_the_same_priority_is_not_refused) (verb='unroute') ... ERROR
+  test_a_five_tuple_match_at_the_same_priority_is_not_refused (__main__.APriorityThatNamesAnEntryIsRefusedNotObeyedTest.test_a_five_tuple_match_at_the_same_priority_is_not_refused) (verb='modify') ... ERROR
+test_a_modify_naming_a_priority_ipv4_lpm_cannot_honour_is_501 (__main__.APriorityThatNamesAnEntryIsRefusedNotObeyedTest.test_a_modify_naming_a_priority_ipv4_lpm_cannot_honour_is_501) ... FAIL
+test_an_install_is_still_disclosed_rather_than_refused (__main__.APriorityThatNamesAnEntryIsRefusedNotObeyedTest.test_an_install_is_still_disclosed_rather_than_refused) ... ok
+test_the_kernels_own_modify_at_the_absent_priority_default_still_works (__main__.APriorityThatNamesAnEntryIsRefusedNotObeyedTest.test_the_kernels_own_modify_at_the_absent_priority_default_still_works) ... ok
+test_the_kernels_own_priority_less_delete_still_works (__main__.APriorityThatNamesAnEntryIsRefusedNotObeyedTest.test_the_kernels_own_priority_less_delete_still_works) ... ok
+test_the_non_strict_delete_sentinel_is_not_a_named_priority (__main__.APriorityThatNamesAnEntryIsRefusedNotObeyedTest.test_the_non_strict_delete_sentinel_is_not_a_named_priority) ... ok
+test_the_refused_write_never_reaches_the_switch (__main__.APriorityThatNamesAnEntryIsRefusedNotObeyedTest.test_the_refused_write_never_reaches_the_switch) ... FAIL
+test_a_body_that_is_not_json_answers_400_on_every_write_endpoint (__main__.MalformedBodyIsTheClientsErrorTest.test_a_body_that_is_not_json_answers_400_on_every_write_endpoint) ... ok
+test_a_json_body_that_is_not_an_object_answers_400_not_500 (__main__.MalformedBodyIsTheClientsErrorTest.test_a_json_body_that_is_not_an_object_answers_400_not_500) ... ok
+test_a_malformed_body_reaches_no_topology_call (__main__.MalformedBodyIsTheClientsErrorTest.test_a_malformed_body_reaches_no_topology_call) ... ok
+test_it_answers_400_on_every_write_endpoint (__main__.MalformedMatchValueIsA400Test.test_it_answers_400_on_every_write_endpoint) ... ok
+test_the_400_body_names_the_field_and_the_value_the_caller_sent (__main__.MalformedMatchValueIsA400Test.test_the_400_body_names_the_field_and_the_value_the_caller_sent) ... ok
+test_a_delete_without_a_destination_is_refused_not_a_wipe (__main__.NonStrictDeleteRouteTest.test_a_delete_without_a_destination_is_refused_not_a_wipe) ... ok
+test_both_delete_paths_are_registered_on_the_same_handler (__main__.NonStrictDeleteRouteTest.test_both_delete_paths_are_registered_on_the_same_handler) ... ok
+test_the_delete_handler_still_reports_the_real_outcome (__main__.NonStrictDeleteRouteTest.test_the_delete_handler_still_reports_the_real_outcome) ... ok
+test_a_destination_only_rule_says_its_priority_was_not_honoured (__main__.TheAddResponseSaysWhetherThePriorityWasHonouredTest.test_a_destination_only_rule_says_its_priority_was_not_honoured) ... ok
+test_a_failed_write_is_still_reported_as_an_error (__main__.TheAddResponseSaysWhetherThePriorityWasHonouredTest.test_a_failed_write_is_still_reported_as_an_error) ... ok
+test_a_five_tuple_rule_says_its_priority_was_honoured (__main__.TheAddResponseSaysWhetherThePriorityWasHonouredTest.test_a_five_tuple_rule_says_its_priority_was_honoured) ... ok
+test_the_note_is_only_for_a_caller_that_actually_asked_for_a_priority (__main__.TheAddResponseSaysWhetherThePriorityWasHonouredTest.test_the_note_is_only_for_a_caller_that_actually_asked_for_a_priority) ... ok
+test_the_priority_still_reaches_the_topology_unchanged (__main__.TheAddResponseSaysWhetherThePriorityWasHonouredTest.test_the_priority_still_reaches_the_topology_unchanged) ... ok
+
+======================================================================
+ERROR: test_a_delete_that_is_honoured_says_which_table_it_reached (__main__.APriorityThatNamesAnEntryIsRefusedNotObeyedTest.test_a_delete_that_is_honoured_says_which_table_it_reached)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/tests/test_flowentry_endpoints.py", line 428, in test_a_delete_that_is_honoured_says_which_table_it_reached
+    self.assertEqual(out["table"], "ipv4_lpm")
+                     ~~~^^^^^^^^^
+KeyError: 'table'
+
+======================================================================
+ERROR: test_a_five_tuple_match_at_the_same_priority_is_not_refused (__main__.APriorityThatNamesAnEntryIsRefusedNotObeyedTest.test_a_five_tuple_match_at_the_same_priority_is_not_refused) (verb='unroute')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/tests/test_flowentry_endpoints.py", line 415, in test_a_five_tuple_match_at_the_same_priority_is_not_refused
+    self.assertIs(out["priority_honoured"], True)
+                  ~~~^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'priority_honoured'
+
+======================================================================
+ERROR: test_a_five_tuple_match_at_the_same_priority_is_not_refused (__main__.APriorityThatNamesAnEntryIsRefusedNotObeyedTest.test_a_five_tuple_match_at_the_same_priority_is_not_refused) (verb='modify')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/tests/test_flowentry_endpoints.py", line 415, in test_a_five_tuple_match_at_the_same_priority_is_not_refused
+    self.assertIs(out["priority_honoured"], True)
+                  ~~~^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'priority_honoured'
+
+======================================================================
+FAIL: test_a_delete_naming_a_priority_ipv4_lpm_cannot_honour_is_501 (__main__.APriorityThatNamesAnEntryIsRefusedNotObeyedTest.test_a_delete_naming_a_priority_ipv4_lpm_cannot_honour_is_501)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/tests/test_flowentry_endpoints.py", line 356, in test_a_delete_naming_a_priority_ipv4_lpm_cannot_honour_is_501
+    with self.assertRaises(HTTPException) as caught:
+         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+AssertionError: HTTPException not raised
+
+======================================================================
+FAIL: test_a_modify_naming_a_priority_ipv4_lpm_cannot_honour_is_501 (__main__.APriorityThatNamesAnEntryIsRefusedNotObeyedTest.test_a_modify_naming_a_priority_ipv4_lpm_cannot_honour_is_501)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/tests/test_flowentry_endpoints.py", line 365, in test_a_modify_naming_a_priority_ipv4_lpm_cannot_honour_is_501
+    with self.assertRaises(HTTPException) as caught:
+         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+AssertionError: HTTPException not raised
+
+======================================================================
+FAIL: test_the_refused_write_never_reaches_the_switch (__main__.APriorityThatNamesAnEntryIsRefusedNotObeyedTest.test_the_refused_write_never_reaches_the_switch)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/tests/test_flowentry_endpoints.py", line 378, in test_the_refused_write_never_reaches_the_switch
+    with self.assertRaises(HTTPException):
+         ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+AssertionError: HTTPException not raised
+
+----------------------------------------------------------------------
+Ran 23 tests in 0.188s
+
+FAILED (failures=3, errors=3)

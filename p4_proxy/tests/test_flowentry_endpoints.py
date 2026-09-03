@@ -203,18 +203,26 @@ class NonStrictDeleteRouteTest(unittest.TestCase):
     def test_the_delete_handler_still_reports_the_real_outcome(self):
         # Plumbing check on the now-shared handler: the verdict from unroute_flow is what
         # the body says, for both the success and the refusal.
+        #
+        # [Co-developed with claude code -- Adam] The match gained its L4 fields on 2026-09-03.
+        # This test's own second assertion is about the ternary table -- "on the ternary table
+        # a delete that loses the priority removes nothing" -- but the match it sent was
+        # destination-only, which compiles to ipv4_lpm, where that priority is not honourable
+        # at all and the request is now a 501 (see
+        # APriorityThatNamesAnEntryIsRefusedNotObeyedTest). Sending the match the assertion was
+        # always describing keeps both claims and stops the test pinning the behaviour the
+        # refusal exists to remove.
+        match = {"nw_dst": "10.0.0.4", "tp_dst": 5201, "nw_proto": 6}
         for verdict, expected in ((True, "success"), (False, "error")):
             with self.subTest(verdict=verdict):
                 recorder = RecordingTopology(verdict=verdict)
                 api_routes.topology = recorder
-                body = json.dumps({"dpid": 1, "match": {"nw_dst": "10.0.0.4"},
-                                   "priority": 100}).encode()
+                body = json.dumps({"dpid": 1, "match": match, "priority": 100}).encode()
                 reply = call(api_routes.delete_flow_entry, body)
                 self.assertEqual(reply["status"], expected)
                 # The priority the body carried must reach the manager: on the ternary table a
                 # delete that loses it removes nothing and still reports success.
-                self.assertEqual(recorder.calls,
-                                 [("unroute", 1, {"nw_dst": "10.0.0.4"}, 100)])
+                self.assertEqual(recorder.calls, [("unroute", 1, match, 100)])
 
     def test_a_delete_without_a_destination_is_refused_not_a_wipe(self):
         # OpenFlow's non-strict delete treats an empty match as "clear the table". Serving
@@ -303,6 +311,137 @@ class TheAddResponseSaysWhetherThePriorityWasHonouredTest(unittest.TestCase):
         self._add({"dl_type": 2048, "nw_dst": "10.0.0.240"}, priority=915)
         self.assertEqual(self.recorder.calls[-1][0], "route")
         self.assertEqual(self.recorder.calls[-1][4], 915)
+
+
+
+
+class APriorityThatNamesAnEntryIsRefusedNotObeyedTest(unittest.TestCase):
+    """
+    The half of FINDING-07 that disclosure cannot reach.
+
+    [Co-developed with claude code -- Adam]
+    `TheAddResponseSaysWhetherThePriorityWasHonouredTest` above pins the *install* answer, and
+    deliberately does not assert a refusal: on an install the priority is a request about
+    *precedence*, the rule is programmed and does forward, and the 2026-08-30 §1.2 ruling
+    (T-15 Option 0) settled that a 200 -> 4xx there is a breaking change this project cannot
+    take. None of that transfers to delete_strict and modify, because on those two verbs the
+    priority is not precedence, it is *identity*: it names WHICH entry the caller means.
+
+    ipv4_lpm holds one entry per destination and has no priority column, so every priority
+    names that one entry. Measured 2026-09-03 (doc/audit/2026-09-03_night-rounds/): a modify at
+    priority 777, a priority that had never existed on the switch, rewrote the entry that was
+    there; a delete at priority 999 removed it. Both answered success. That is not an
+    under-delivery a note can qualify after the fact -- the rule the caller never named is
+    already gone by the time anyone reads the body. The only honest answer is to not do it.
+
+    The two-sidedness is the point and is asserted in both directions: this must fire for a
+    priority the table cannot honour, and must NOT fire for the requests the kernel itself
+    makes. A refusal that refused everything would satisfy half these tests and break the
+    fabric.
+    """
+
+    def setUp(self):
+        self.recorder = RecordingTopology(verdict=True)
+        api_routes.topology = self.recorder
+
+    def tearDown(self):
+        api_routes.topology = None
+
+    @staticmethod
+    def _body(match, priority=None, port=2):
+        body = {"dpid": 1, "match": match, "actions": [{"type": "OUTPUT", "port": port}]}
+        if priority is not None:
+            body["priority"] = priority
+        return json.dumps(body).encode()
+
+    DEST_ONLY = {"dl_type": 2048, "nw_dst": "10.0.0.240"}
+    FIVE_TUPLE = {"dl_type": 2048, "nw_dst": "10.0.0.240", "tp_dst": 5201, "nw_proto": 6}
+
+    # --- the refusal fires, for the reason it claims -------------------------------------
+
+    def test_a_delete_naming_a_priority_ipv4_lpm_cannot_honour_is_501(self):
+        # The measured call: delete at 999 against a rule that is not at 999.
+        with self.assertRaises(HTTPException) as caught:
+            call(api_routes.delete_flow_entry, self._body(self.DEST_ONLY, priority=999))
+        self.assertEqual(caught.exception.status_code, 501)
+        self.assertEqual(caught.exception.detail["outcome"], "unsupported_on_p4")
+        self.assertEqual(caught.exception.detail["requested_priority"], 999)
+        self.assertIn("ipv4_lpm", caught.exception.detail["message"])
+
+    def test_a_modify_naming_a_priority_ipv4_lpm_cannot_honour_is_501(self):
+        # The measured call: modify at 777, a priority that never existed.
+        with self.assertRaises(HTTPException) as caught:
+            call(api_routes.modify_flow_entry, self._body(self.DEST_ONLY, priority=777))
+        self.assertEqual(caught.exception.status_code, 501)
+        self.assertEqual(caught.exception.detail["outcome"], "unsupported_on_p4")
+        self.assertEqual(caught.exception.detail["requested_priority"], 777)
+
+    def test_the_refused_write_never_reaches_the_switch(self):
+        # A refusal that answers 501 *after* actuating is the same defect wearing a status
+        # code. Nothing may be handed to the topology on either verb.
+        for handler, raw in ((api_routes.delete_flow_entry,
+                              self._body(self.DEST_ONLY, priority=999)),
+                             (api_routes.modify_flow_entry,
+                              self._body(self.DEST_ONLY, priority=777))):
+            with self.assertRaises(HTTPException):
+                call(handler, raw)
+        self.assertEqual(self.recorder.calls, [])
+
+    # --- and does not fire for anything else ---------------------------------------------
+
+    def test_the_kernels_own_priority_less_delete_still_works(self):
+        # FlowRoutingManager::deleteAnEntry defaults to -1, which HttpRoutingStrategyBase turns
+        # into the non-strict route with NO priority key at all. This is every delete the
+        # control plane and the IntentTranslator make.
+        out = call(api_routes.delete_flow_entry, self._body(self.DEST_ONLY))
+        self.assertEqual(out["status"], "success")
+        self.assertEqual(self.recorder.calls[-1][0], "unroute")
+
+    def test_the_kernels_own_modify_at_the_absent_priority_default_still_works(self):
+        # HttpSession::makeModifyJob defaults an absent priority to 0, so 0 reaches here on
+        # every ordinary modify. Refusing 0 would refuse the whole modify path.
+        out = call(api_routes.modify_flow_entry, self._body(self.DEST_ONLY, priority=0))
+        self.assertEqual(out["status"], "success")
+        self.assertEqual(self.recorder.calls[-1][0], "modify")
+
+    def test_the_non_strict_delete_sentinel_is_not_a_named_priority(self):
+        # -1 is "delete anything matching", not a request for precedence -1.
+        out = call(api_routes.delete_flow_entry, self._body(self.DEST_ONLY, priority=-1))
+        self.assertEqual(out["status"], "success")
+        self.assertEqual(self.recorder.calls[-1][0], "unroute")
+
+    def test_a_five_tuple_match_at_the_same_priority_is_not_refused(self):
+        # Same verb, same priority, a match that compiles to the ternary table -- where the
+        # priority IS the entry's identity and IS programmed. If this were refused too, the
+        # refusal would be about the verb rather than about what the plane can honour.
+        for handler, verb in ((api_routes.delete_flow_entry, "unroute"),
+                              (api_routes.modify_flow_entry, "modify")):
+            with self.subTest(verb=verb):
+                out = call(handler, self._body(self.FIVE_TUPLE, priority=999))
+                self.assertEqual(out["status"], "success")
+                self.assertEqual(self.recorder.calls[-1][0], verb)
+                self.assertIs(out["priority_honoured"], True)
+
+    def test_an_install_is_still_disclosed_rather_than_refused(self):
+        # The standing ruling, pinned from this class as well so that widening the refusal to
+        # the install path reddens the test that names the ruling rather than passing quietly.
+        out = call(api_routes.add_flow_entry, self._body(self.DEST_ONLY, priority=500))
+        self.assertEqual(out["status"], "success")
+        self.assertIs(out["priority_honoured"], False)
+
+    # --- and the answers that are not refused still say where the rule went ---------------
+
+    def test_a_delete_that_is_honoured_says_which_table_it_reached(self):
+        out = call(api_routes.delete_flow_entry, self._body(self.DEST_ONLY))
+        self.assertEqual(out["table"], "ipv4_lpm")
+        self.assertIs(out["priority_honoured"], False)
+
+    def test_a_failed_delete_is_still_reported_as_an_error(self):
+        # The disclosure must not leak onto the failure path, as on the add endpoint.
+        self.recorder.verdict = False
+        out = call(api_routes.delete_flow_entry, self._body(self.DEST_ONLY))
+        self.assertEqual(out["status"], "error")
+        self.assertNotIn("priority_honoured", out)
 
 
 if __name__ == "__main__":
