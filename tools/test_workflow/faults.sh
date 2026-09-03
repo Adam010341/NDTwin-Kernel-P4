@@ -57,7 +57,7 @@
 #                      The default FAULTS_TC is therefore correct on this machine now, and the
 #                      safe form is the one that gets used on a shaped interface. Keep the
 #                      escape below for any machine whose sudoers is still the 08-13 shape:
-#                        FAULTS_TC="sudo -n mnexec -a $(pgrep -f '[t]estbed_topo.py'|head -1) tc"
+#                        FAULTS_TC="sudo -n mnexec -a $(bash tools/test_workflow/faults.sh --topo-pid) tc"
 #                      (mnexec runs as root, so tc under it needs no tc-specific grant --
 #                      the same escape doc/2026-07-29_environment_gotchas.md uses for ovs-ofctl.)
 #   FAULTS_KILL        signal command            (default: sudo -n kill)
@@ -118,6 +118,49 @@ err()  { echo "${R}$*${N}" >&2; }
 
 run_tc()     { ${FAULTS_TC} "$@"; }
 run_signal() { ${FAULTS_KILL} "-$1" "$2"; }
+
+# topo_pid [script] -- the pid of the running Mininet topology, or nothing.
+#
+# [Co-developed with claude code -- Adam]
+# G-9. This exists because the two places below used to hand the operator
+#
+#     FAULTS_TC="sudo -n mnexec -a $(pgrep -f '[t]estbed_topo.py'|head -1) tc"
+#
+# and a `pgrep -f` printed in an ERROR MESSAGE spreads further than one in code: it gets pasted
+# into shells, runbooks and other scripts by people who never read this file. Three things are
+# wrong with it and the bracket trick fixes none of them:
+#
+#   * `[t]estbed_topo.py` dodges the searcher matching ITSELF, but not the shell that ran it --
+#     that shell's argv usually also carries the unbracketed form, which is ndt's header trap
+#     note 2, measured at 11 matches for 10 switches;
+#   * `-f` matches anywhere in the command line, so a log path or an editor holding the file
+#     open scores as the topology, and mnexec would then be pointed at it;
+#   * `| head -1` under `set -o pipefail` is the SIGPIPE trap that made lab_session report a
+#     live session as absent on 2026-08-20.
+#
+# Same rule as ndtwin-lab's sweep: ps is the index, /proc is the authority, and an argv ELEMENT
+# has to BE the script -- not merely contain its name. Prints at most one pid and nothing at all
+# when it is not sure, because a wrong pid here is handed to `mnexec -a` and runs tc as root
+# inside a stranger's namespace.
+topo_pid() {
+    local want="${1:-testbed_topo.py}" pid args e found=""
+    local -a argv=()
+    while read -r pid args; do
+        [[ "$pid" =~ ^[0-9]+$ ]] || continue
+        (( pid > 1 )) || continue
+        [[ "$pid" == "$$" || "$pid" == "$PPID" ]] && continue
+        [[ "$args" == *"$want"* ]] || continue
+        argv=()
+        mapfile -d '' -t argv 2>/dev/null < "/proc/$pid/cmdline" || continue
+        for e in "${argv[@]}"; do
+            [[ "${e##*/}" == "$want" ]] || continue
+            [[ -n "$found" ]] && { err "more than one $want is running ($found and $pid) -- name the pid yourself"; return 1; }
+            found="$pid"
+        done
+    done < <(ps -eo pid=,args= 2>/dev/null)
+    [[ -n "$found" ]] || return 1
+    echo "$found"
+}
 show_qdisc() { ${FAULTS_TC} qdisc show dev "$1" 2>/dev/null; }
 settle()     { sleep "$1"; }
 qdisc_save() { "$FAULTS_QDISC" save "$1"; }
@@ -275,7 +318,7 @@ inject_link_loss() {
                 # ovs-ofctl, which is not in sudoers either.
                 err "The NOPASSWD grant for tc covers only the 'root netem' form, which is"
                 err "exactly the form that destroys TCLink's htb. Run tc as uid 0 instead:"
-                err "  FAULTS_TC=\"sudo -n mnexec -a \$(pgrep -f '[t]estbed_topo.py' | head -1) tc\""
+                err "  FAULTS_TC=\"sudo -n mnexec -a \$(bash $0 --topo-pid) tc\""
             fi
             return 1
         fi
@@ -489,6 +532,10 @@ main() {
             shift
             parse_opts "$@" || return 2
             run_round "$id" ;;
+        # G-9. A verb rather than a snippet, because the snippet it replaces was printed in an
+        # error message and got pasted into other people's shells. Prints one pid or nothing.
+        --topo-pid|topo-pid)
+            topo_pid "${1:-testbed_topo.py}" ;;
         run-all)
             parse_opts "$@" || return 2
             local id failed=0
@@ -498,7 +545,7 @@ main() {
             done
             return $failed ;;
         *)
-            err "usage: $0 {list|run <ID>|run-all} [--pair SRC,DST] [--iface DEV]"
+            err "usage: $0 {list|run <ID>|run-all|--topo-pid [script]} [--pair SRC,DST] [--iface DEV]"
             err "          [--peer-iface DEV] [--pid PID]"
             return 2 ;;
     esac
