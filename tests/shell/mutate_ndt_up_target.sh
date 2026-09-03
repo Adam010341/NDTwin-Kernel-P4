@@ -27,6 +27,10 @@ TEST="$REPO/tests/shell/test_ndt_up_target.sh"
 
 BK="$(mktemp -d)"; trap 'rm -rf "$BK"' EXIT
 A="$BK/anchors"; mkdir -p "$A"
+# 2026-09-03 merge: ndt sources ports.sh and sudo_surface.sh from beside itself, so every copy
+# in $BK needs both tables next to it or it exits at source time -- silently, because the suite
+# sources it with output discarded, and every mutant then reads "red, but NOT on the named check".
+cp "$(dirname "$NDT")/ports.sh" "$(dirname "$NDT")/sudo_surface.sh" "$BK/"
 BASE_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"
 
 mutant() {   # <name> -- copies ndt, applies A/<name>.{old,new}; prints the copy or ANCHOR:n

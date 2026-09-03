@@ -19,6 +19,12 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NDT="${NDT_UNDER_TEST:-$HERE/../../tools/test_workflow/ndt}"
 [[ -r "$NDT" ]] || { echo "no ndt at $NDT"; exit 2; }
 
+# ndt sources two tables from beside itself and exits 2 when either is missing. Sourced with
+# output discarded, that exit would kill this suite with no message at all (measured 2026-09-03,
+# through a mutation gate whose copies carried ndt alone). Name the precondition instead.
+for sib in ports.sh sudo_surface.sh; do
+    [[ -r "$(dirname "$NDT")/$sib" ]] || { echo "ndt needs $sib beside it; not at $(dirname "$NDT")/$sib"; exit 2; }
+done
 # shellcheck disable=SC1090
 source "$NDT" >/dev/null 2>&1
 if ! declare -F resolve_up_target >/dev/null; then
