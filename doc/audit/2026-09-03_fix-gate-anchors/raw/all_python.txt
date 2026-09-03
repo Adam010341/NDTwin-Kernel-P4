@@ -1,0 +1,30 @@
+PASS   rc=0   test_chaos_c07_control.py                      OK
+PASS   rc=0   test_chaos_invariants_method.py                OK
+PASS   rc=0   test_check_gate_anchors.py                     OK (skipped=2)
+PASS   rc=0   test_check_logs_powered_off.py                 OK
+PASS   rc=0   test_contract_spec.py                          OK
+PASS   rc=0   test_cpu_gate_lifetime.py                      OK
+PASS   rc=0   test_find_host_by_ip.py                        OK (skipped=5)
+PASS   rc=0   test_grpc_port_block.py                        OK
+PASS   rc=0   test_host_discovery_gate.py                    OK
+PASS   rc=0   test_l3_dispatch_drift.py                      OK
+PASS   rc=0   test_lldp_backoff.py                           OK
+PASS   rc=0   test_make_topology.py                          OK
+PASS   rc=0   test_ovs4_sflow.py                             OK
+PASS   rc=0   test_p4_power_helper.py                        OK
+PASS   rc=0   test_route_install_gate.py                     OK
+PASS   rc=0   test_route_reinstall.py                        OK
+PASS   rc=0   test_ryu_rest_topology_bounded.py              OK
+PASS   rc=0   test_sflow_emitter_batching.py                 OK
+PASS   rc=0   test_sflow_stats_endpoint.py                   OK
+PASS   rc=0   test_shell_command_construction.py             OK
+PASS   rc=0   test_t11_filter_is_wired.py                    OK
+PASS   rc=0   test_topology_read_timeouts.py                 OK (skipped=5)
+PASS   rc=0   test_topology_worker_coalescing.py             OK (skipped=7)
+PASS   rc=0   test_twin_audit_criteria.py                    OK
+PASS   rc=0   test_twin_audit.py                             OK
+PASS   rc=0   test_unavailable_metric_sentinel.py            OK
+PASS   rc=0   test_unidirectional_link_loss.py               OK
+PASS   rc=0   test_walk_instrumentation.py                   OK (skipped=10)
+---
+files: pass=28 fail=0 total=28

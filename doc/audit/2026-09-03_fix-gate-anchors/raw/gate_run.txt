@@ -1,0 +1,20 @@
+baseline (must be green before any mutation):
+OK (skipped=2)
+
+  caught   R1 (control): every string is a file, anchors included         (test_anchor_text_is_never_promoted_to_a_file went red)
+  caught   R3 (control): anything the tree answers to is a file, whatever its shape (test_anchor_text_is_never_promoted_to_a_file went red)
+  caught   R2: a filename-shaped word is a file without asking the tree   (test_a_root_target_that_is_not_in_the_tree_is_not_checked went red)
+  caught   R4: with no rev to ask, guess yes                              (test_a_bare_name_is_a_path_only_when_the_tree_holds_one went red)
+  caught   R5: a path with a directory part now needs the tree's permission too (test_a_path_with_a_directory_part_still_needs_no_permission went red)
+  caught   R6: the positional file lookup is slash-only again             (test_a_short_anchors_root_target_is_pinned_by_the_appliers_named_roles went red)
+  caught   R7: a file baked into the applier body is slash-only again     (test_a_baked_in_root_targets_anchor_is_pinned_to_the_root_file went red)
+  caught   R8: the generic <file> <anchor> rule is slash-only again       (test_a_generic_appliers_root_target_is_pinned_to_the_root_file went red)
+  caught   R9: an interpreter operand is slash-only again                 (test_a_heredoc_appliers_root_target_is_pinned_to_the_root_file went red)
+  caught   R10: a file beside an inline python body is slash-only again   (test_an_inline_python_appliers_root_target_is_pinned_to_the_root_file went red)
+  caught   R11: the declared-path union drops repo-root files             (test_a_root_target_is_in_the_union_an_unpinned_anchor_falls_back_to went red)
+  caught   R12: a mutate call naming a root target is read as naming no file (test_a_bare_mutate_call_with_a_root_target_is_read_not_refused went red)
+  caught   R13 (control): every anchor is present, so nothing ever drifts (test_a_root_targets_drift_is_still_caught went red)
+
+baseline byte-identical: yes (check_gate_anchors.py 9e4b05630ec7954776b559372226e93c078a1a9025b504dcdda1a71a448bc37b)
+GATE-SUMMARY mutations=13 survived=0
+mutation gate: 13 mutations, 0 survived

@@ -1,0 +1,126 @@
+check_gate_anchors: 1 cell(s) not ok (exit 1)
+anchors of each gate, counted in each rev's own files
+columns:
+  c0   01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+
+                          c0            
+mutate_testbed_banner.sh  MISSING:23    
+
+--- broken anchors ---
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:         for line in banner_lines(ping_summary): ...
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:         ping_summary = run_ping_self_test(net, HOST_NUM)
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:         for line in banner_lines(ping_summary):
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:     if sink is not None: ...
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:     if ping_summary is None or not ping_summary.ok: ...
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:         return (self.expected > 0
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:                 and self.attempted == self.expected ...
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:                 and self.distinct == self.expected ...
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:                 and self.replied == self.expected)
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:         lost=expected - replied,
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:         loss_pct=100.0 if expected <= 0 else 100.0 * (expected - replied) / expected,
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:         return self.parsed and self.received > 0
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:     match = _PING_STATS_RE.search(text or "") ...
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:     r"[^\n]*?(?P<loss>\d+(?:\.\d+)?)%\s+packet\s+loss"
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:     except Exception as exc:
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:     expected = 2 * pairs
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:     return summarize_pings(sink.all(), expected=expected)
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:             f"host reachability: FAIL -- {summary.replied}/{summary.expected} pings replied, "
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:     lines.append("sFlow reachability: NOT MEASURED (configured above, never read back here)")
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:             f"{summary.lost} lost ({summary.loss_pct:.1f}% loss)"
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:         if summary.attempted != summary.expected:
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:     if summary.ok:
+mutate_testbed_banner.sh @ 01f5ff5f66ad04d5ce8d950bcac51310e924e98f
+  file  : tests/python/test_testbed_banner.py
+  from  : mutant (literal)
+  count : 0 (want 1)
+  anchor:     match = _PING_STATS_RE.search(text or "")
+
+0/1 cells ok  (1 not ok, of which 0 were NOT CHECKED AT ALL)
