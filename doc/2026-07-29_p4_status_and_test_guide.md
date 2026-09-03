@@ -447,7 +447,13 @@ converged after 0s
 
 1. **flow table 會老化**。流量停了幾秒，`get_detected_flow_data` 就變回 0 筆。
 2. **sFlow 是 1/256 取樣**。`ping` 每秒 1 個封包，要 256 秒才產生一個 sample —— `ping -c 20`
-   幾乎不可能產生任何 sample。**只有 iperf 這種能打滿頻寬的流量才夠**。
+   幾乎不可能產生任何 sample。
+   🔴 **【2026-09-03 更正】原文寫「只有 iperf 這種能打滿頻寬的流量才夠」，那個口徑是錯的單位。**
+   夠不夠由**封包率**決定，不由頻寬決定：同樣 1 Mbit/s，1400 B frame 是 89 pps、100 B frame 是
+   1250 pps，可見度差一個檔次。實測界線（1400 B、3 跳、1/256、線上零丟失）＝`get_detected_flow_data`
+   的**預設**窗口 ~89 pps 開始漏、**~22 pps 有一半的每秒查詢看不到**，`?liveness=all` 到 ~5 pps
+   才開始漏。**打滿頻寬不是條件，~幾百 pps 才是**——`ping -i 0.002`（~500 pps）就夠，
+   不必 iperf。完整表格見 `doc/2026-01-02_ndt_api.md` §4。[Co-developed with claude code -- Adam]
 
 判斷流量夠不夠的方法：看 kernel log 的 `addressed=` 有沒有在**增加**。`rx=` 會一直漲（那是週期性的
 counter sample），但 `addressed=` 只有在收到 **flow sample**（也就是真的有流量）時才會漲。
