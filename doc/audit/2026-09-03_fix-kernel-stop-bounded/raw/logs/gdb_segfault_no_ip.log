@@ -1,0 +1,107 @@
+
+This GDB supports auto-downloading debuginfo from the following URLs:
+  <https://debuginfod.ubuntu.com>
+Enable debuginfod for this session? (y or [n]) [answered N; input not from terminal]
+Debuginfod has been disabled.
+To make this setting permanent, add 'set debuginfod enabled off' to .gdbinit.
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = KernelStopIsBoundedTest.AFlowTablePollCaughtMidRoundStopsWithinTheBound
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from KernelStopIsBoundedTest
+[ RUN      ] KernelStopIsBoundedTest.AFlowTablePollCaughtMidRoundStopsWithinTheBound
+[New Thread 0x7ffff71ff6c0 (LWP 1939229)]
+[New Thread 0x7ffff69fe6c0 (LWP 1939230)]
+[New Thread 0x7ffff61fd6c0 (LWP 1939231)]
+[New Thread 0x7ffff59fc6c0 (LWP 1939232)]
+
+Thread 4 "test_routing_st" received signal SIGSEGV, Segmentation fault.
+[Switching to Thread 0x7ffff61fd6c0 (LWP 1939231)]
+0x0000555555b7a08e in DeviceConfigurationAndPowerManager::fetchCpuReportInternal[abi:cxx11]() (this=0x5555561b6f70) at /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:1689
+1689	        std::string ip_str = utils::ipToString(vp.ip.front());
+#0  0x0000555555b7a08e in DeviceConfigurationAndPowerManager::fetchCpuReportInternal[abi:cxx11]() (this=0x5555561b6f70) at /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:1689
+#1  0x0000555555b7cb4f in DeviceConfigurationAndPowerManager::statusUpdateWorker (this=0x5555561b6f70) at /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:2066
+#2  0x0000555555bbb36d in std::__invoke_impl<void, void (DeviceConfigurationAndPowerManager::*)(), DeviceConfigurationAndPowerManager*> (__f=@0x5555561b2ea0: (void (DeviceConfigurationAndPowerManager::*)(DeviceConfigurationAndPowerManager * const)) 0x555555b7caf2 <DeviceConfigurationAndPowerManager::statusUpdateWorker()>, __t=@0x5555561b2e98: 0x5555561b6f70) at /usr/include/c++/13/bits/invoke.h:74
+#3  0x0000555555bbb1df in std::__invoke<void (DeviceConfigurationAndPowerManager::*)(), DeviceConfigurationAndPowerManager*> (__fn=@0x5555561b2ea0: (void (DeviceConfigurationAndPowerManager::*)(DeviceConfigurationAndPowerManager * const)) 0x555555b7caf2 <DeviceConfigurationAndPowerManager::statusUpdateWorker()>) at /usr/include/c++/13/bits/invoke.h:96
+#4  0x0000555555bbb04d in std::thread::_Invoker<std::tuple<void (DeviceConfigurationAndPowerManager::*)(), DeviceConfigurationAndPowerManager*> >::_M_invoke<0ul, 1ul> (this=0x5555561b2e98) at /usr/include/c++/13/bits/std_thread.h:292
+#5  0x0000555555bbafa4 in std::thread::_Invoker<std::tuple<void (DeviceConfigurationAndPowerManager::*)(), DeviceConfigurationAndPowerManager*> >::operator() (this=0x5555561b2e98) at /usr/include/c++/13/bits/std_thread.h:299
+#6  0x0000555555bbae6e in std::thread::_State_impl<std::thread::_Invoker<std::tuple<void (DeviceConfigurationAndPowerManager::*)(), DeviceConfigurationAndPowerManager*> > >::_M_run (this=0x5555561b2e90) at /usr/include/c++/13/bits/std_thread.h:244
+#7  0x00007ffff76ecdb4 in ?? () from /lib/x86_64-linux-gnu/libstdc++.so.6
+#8  0x00007ffff729cb84 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:447
+#9  0x00007ffff7329d6c in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:78
+  Id   Target Id                                             Frame 
+  1    Thread 0x7ffff7f22300 (LWP 1939208) "test_routing_st" 0x00007ffff72ecbdf in __GI___clock_nanosleep (clock_id=clock_id@entry=0, flags=flags@entry=0, req=0x7fffffffd250, rem=0x7fffffffd250) at ../sysdeps/unix/sysv/linux/clock_nanosleep.c:78
+  2    Thread 0x7ffff71ff6c0 (LWP 1939229) "test_routing_st" 0x00007ffff732b96d in __libc_accept (fd=3, addr=..., len=0x0) at ../sysdeps/unix/sysv/linux/accept.c:26
+  3    Thread 0x7ffff69fe6c0 (LWP 1939230) "test_routing_st" 0x00007ffff72ecbdf in __GI___clock_nanosleep (clock_id=clock_id@entry=0, flags=flags@entry=0, req=0x7ffff69fdb70, rem=0x7ffff69fdb70) at ../sysdeps/unix/sysv/linux/clock_nanosleep.c:78
+* 4    Thread 0x7ffff61fd6c0 (LWP 1939231) "test_routing_st" 0x0000555555b7a08e in DeviceConfigurationAndPowerManager::fetchCpuReportInternal[abi:cxx11]() (this=0x5555561b6f70) at /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:1689
+  5    Thread 0x7ffff59fc6c0 (LWP 1939232) "test_routing_st" clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:62
+
+Thread 5 (Thread 0x7ffff59fc6c0 (LWP 1939232) "test_routing_st"):
+#0  clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:62
+#1  0x00007ffff730f7e2 in __spawnix (pid=pid@entry=0x7fffe8000f00, file=file@entry=0x7ffff73cb42f "/bin/sh", file_actions=file_actions@entry=0x7ffff59fb770, attrp=attrp@entry=0x0, argv=argv@entry=0x7ffff59fb740, envp=0x7fffffffd9b0, xflags=0, exec=0x7ffff72ef030 <__GI_execve>) at ../sysdeps/unix/sysv/linux/spawni.c:417
+#2  0x00007ffff730ffeb in __spawni (pid=pid@entry=0x7fffe8000f00, file=file@entry=0x7ffff73cb42f "/bin/sh", acts=acts@entry=0x7ffff59fb770, attrp=attrp@entry=0x0, argv=argv@entry=0x7ffff59fb740, envp=<optimized out>, xflags=0) at ../sysdeps/unix/sysv/linux/spawni.c:485
+#3  0x00007ffff730eddf in __GI___posix_spawn (pid=pid@entry=0x7fffe8000f00, path=path@entry=0x7ffff73cb42f "/bin/sh", file_actions=file_actions@entry=0x7ffff59fb770, attrp=attrp@entry=0x0, argv=argv@entry=0x7ffff59fb740, envp=<optimized out>) at ./posix/spawn.c:30
+#4  0x00007ffff728773b in spawn_process (child_pipe_fd=1, child_end=1, parent_end=0, pipe_fds=0x7ffff59fb738, do_cloexec=0, command=0x0, fp=0x7fffe8000e20, fa=0x7ffff59fb770) at ./libio/iopopen.c:89
+#5  _IO_new_proc_open (fp=fp@entry=0x7fffe8000e20, command=command@entry=0x7fffe8000dd0 "curl -s --max-time 8 -X GET http://localhost:8081/stats/flow/1", mode=<optimized out>, mode@entry=0x555555d7d719 "r") at ./libio/iopopen.c:200
+#6  0x00007ffff72879f6 in _IO_new_popen (command=0x7fffe8000dd0 "curl -s --max-time 8 -X GET http://localhost:8081/stats/flow/1", mode=0x555555d7d719 "r") at ./libio/iopopen.c:244
+#7  0x0000555555a9d71c in utils::execCommand (cmd="curl -s --max-time 8 -X GET http://localhost:8081/stats/flow/1") at /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/include/utils/Utils.hpp:789
+#8  0x0000555555b768d0 in DeviceConfigurationAndPowerManager::fetchOpenFlowTablesInternal (this=0x5555561b6f70) at /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:1178
+#9  0x0000555555b7d173 in DeviceConfigurationAndPowerManager::openflowTablesUpdateWorker (this=0x5555561b6f70) at /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:2148
+#10 0x0000555555bbb36d in std::__invoke_impl<void, void (DeviceConfigurationAndPowerManager::*)(), DeviceConfigurationAndPowerManager*> (__f=@0x5555561b2d70: (void (DeviceConfigurationAndPowerManager::*)(DeviceConfigurationAndPowerManager * const)) 0x555555b7d106 <DeviceConfigurationAndPowerManager::openflowTablesUpdateWorker()>, __t=@0x5555561b2d68: 0x5555561b6f70) at /usr/include/c++/13/bits/invoke.h:74
+#11 0x0000555555bbb1df in std::__invoke<void (DeviceConfigurationAndPowerManager::*)(), DeviceConfigurationAndPowerManager*> (__fn=@0x5555561b2d70: (void (DeviceConfigurationAndPowerManager::*)(DeviceConfigurationAndPowerManager * const)) 0x555555b7d106 <DeviceConfigurationAndPowerManager::openflowTablesUpdateWorker()>) at /usr/include/c++/13/bits/invoke.h:96
+
+Thread 4 (Thread 0x7ffff61fd6c0 (LWP 1939231) "test_routing_st"):
+#0  0x0000555555b7a08e in DeviceConfigurationAndPowerManager::fetchCpuReportInternal[abi:cxx11]() (this=0x5555561b6f70) at /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:1689
+#1  0x0000555555b7cb4f in DeviceConfigurationAndPowerManager::statusUpdateWorker (this=0x5555561b6f70) at /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:2066
+#2  0x0000555555bbb36d in std::__invoke_impl<void, void (DeviceConfigurationAndPowerManager::*)(), DeviceConfigurationAndPowerManager*> (__f=@0x5555561b2ea0: (void (DeviceConfigurationAndPowerManager::*)(DeviceConfigurationAndPowerManager * const)) 0x555555b7caf2 <DeviceConfigurationAndPowerManager::statusUpdateWorker()>, __t=@0x5555561b2e98: 0x5555561b6f70) at /usr/include/c++/13/bits/invoke.h:74
+#3  0x0000555555bbb1df in std::__invoke<void (DeviceConfigurationAndPowerManager::*)(), DeviceConfigurationAndPowerManager*> (__fn=@0x5555561b2ea0: (void (DeviceConfigurationAndPowerManager::*)(DeviceConfigurationAndPowerManager * const)) 0x555555b7caf2 <DeviceConfigurationAndPowerManager::statusUpdateWorker()>) at /usr/include/c++/13/bits/invoke.h:96
+#4  0x0000555555bbb04d in std::thread::_Invoker<std::tuple<void (DeviceConfigurationAndPowerManager::*)(), DeviceConfigurationAndPowerManager*> >::_M_invoke<0ul, 1ul> (this=0x5555561b2e98) at /usr/include/c++/13/bits/std_thread.h:292
+#5  0x0000555555bbafa4 in std::thread::_Invoker<std::tuple<void (DeviceConfigurationAndPowerManager::*)(), DeviceConfigurationAndPowerManager*> >::operator() (this=0x5555561b2e98) at /usr/include/c++/13/bits/std_thread.h:299
+#6  0x0000555555bbae6e in std::thread::_State_impl<std::thread::_Invoker<std::tuple<void (DeviceConfigurationAndPowerManager::*)(), DeviceConfigurationAndPowerManager*> > >::_M_run (this=0x5555561b2e90) at /usr/include/c++/13/bits/std_thread.h:244
+#7  0x00007ffff76ecdb4 in ?? () from /lib/x86_64-linux-gnu/libstdc++.so.6
+#8  0x00007ffff729cb84 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:447
+#9  0x00007ffff7329d6c in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:78
+
+Thread 3 (Thread 0x7ffff69fe6c0 (LWP 1939230) "test_routing_st"):
+#0  0x00007ffff72ecbdf in __GI___clock_nanosleep (clock_id=clock_id@entry=0, flags=flags@entry=0, req=0x7ffff69fdb70, rem=0x7ffff69fdb70) at ../sysdeps/unix/sysv/linux/clock_nanosleep.c:78
+#1  0x00007ffff72f9b27 in __GI___nanosleep (req=<optimized out>, rem=<optimized out>) at ../sysdeps/unix/sysv/linux/nanosleep.c:25
+#2  0x0000555555ad0539 in std::this_thread::sleep_for<long, std::ratio<1l, 1l> > (__rtime=std::chrono::duration = { 1s }) at /usr/include/c++/13/bits/this_thread_sleep.h:80
+#3  0x0000555555b7469f in DeviceConfigurationAndPowerManager::pingWorker (this=0x5555561b6f70, interval_sec=1) at /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:690
+#4  0x0000555555bbb44c in std::__invoke_impl<void, void (DeviceConfigurationAndPowerManager::*)(int), DeviceConfigurationAndPowerManager*, int> (__f=@0x5555561b2cc8: (void (DeviceConfigurationAndPowerManager::*)(class DeviceConfigurationAndPowerManager * const, int)) 0x555555b74640 <DeviceConfigurationAndPowerManager::pingWorker(int)>, __t=@0x5555561b2cc0: 0x5555561b6f70) at /usr/include/c++/13/bits/invoke.h:74
+#5  0x0000555555bbb2bd in std::__invoke<void (DeviceConfigurationAndPowerManager::*)(int), DeviceConfigurationAndPowerManager*, int> (__fn=@0x5555561b2cc8: (void (DeviceConfigurationAndPowerManager::*)(class DeviceConfigurationAndPowerManager * const, int)) 0x555555b74640 <DeviceConfigurationAndPowerManager::pingWorker(int)>) at /usr/include/c++/13/bits/invoke.h:96
+#6  0x0000555555bbb0b7 in std::thread::_Invoker<std::tuple<void (DeviceConfigurationAndPowerManager::*)(int), DeviceConfigurationAndPowerManager*, int> >::_M_invoke<0ul, 1ul, 2ul> (this=0x5555561b2cb8) at /usr/include/c++/13/bits/std_thread.h:292
+#7  0x0000555555bbafc4 in std::thread::_Invoker<std::tuple<void (DeviceConfigurationAndPowerManager::*)(int), DeviceConfigurationAndPowerManager*, int> >::operator() (this=0x5555561b2cb8) at /usr/include/c++/13/bits/std_thread.h:299
+#8  0x0000555555bbae92 in std::thread::_State_impl<std::thread::_Invoker<std::tuple<void (DeviceConfigurationAndPowerManager::*)(int), DeviceConfigurationAndPowerManager*, int> > >::_M_run (this=0x5555561b2cb0) at /usr/include/c++/13/bits/std_thread.h:244
+#9  0x00007ffff76ecdb4 in ?? () from /lib/x86_64-linux-gnu/libstdc++.so.6
+#10 0x00007ffff729cb84 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:447
+#11 0x00007ffff7329d6c in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:78
+
+Thread 2 (Thread 0x7ffff71ff6c0 (LWP 1939229) "test_routing_st"):
+#0  0x00007ffff732b96d in __libc_accept (fd=3, addr=..., len=0x0) at ../sysdeps/unix/sysv/linux/accept.c:26
+#1  0x0000555555a99cd6 in (anonymous namespace)::WedgedControlPlane::acceptLoop (this=0x7fffffffd3a0) at /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/tests/test_KernelStopIsBounded.cpp:193
+#2  0x0000555555a996d9 in operator() (__closure=0x5555561b08c8) at /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/tests/test_KernelStopIsBounded.cpp:139
+#3  0x0000555555a9d474 in std::__invoke_impl<void, (anonymous namespace)::WedgedControlPlane::WedgedControlPlane(uint16_t)::<lambda()> >(std::__invoke_other, struct {...} &&) (__f=...) at /usr/include/c++/13/bits/invoke.h:61
+#4  0x0000555555a9d437 in std::__invoke<(anonymous namespace)::WedgedControlPlane::WedgedControlPlane(uint16_t)::<lambda()> >(struct {...} &&) (__fn=...) at /usr/include/c++/13/bits/invoke.h:96
+#5  0x0000555555a9d3e4 in std::thread::_Invoker<std::tuple<(anonymous namespace)::WedgedControlPlane::WedgedControlPlane(uint16_t)::<lambda()> > >::_M_invoke<0>(std::_Index_tuple<0>) (this=0x5555561b08c8) at /usr/include/c++/13/bits/std_thread.h:292
+#6  0x0000555555a9d38c in std::thread::_Invoker<std::tuple<(anonymous namespace)::WedgedControlPlane::WedgedControlPlane(uint16_t)::<lambda()> > >::operator()(void) (this=0x5555561b08c8) at /usr/include/c++/13/bits/std_thread.h:299
+#7  0x0000555555a9d0e4 in std::thread::_State_impl<std::thread::_Invoker<std::tuple<(anonymous namespace)::WedgedControlPlane::WedgedControlPlane(uint16_t)::<lambda()> > > >::_M_run(void) (this=0x5555561b08c0) at /usr/include/c++/13/bits/std_thread.h:244
+#8  0x00007ffff76ecdb4 in ?? () from /lib/x86_64-linux-gnu/libstdc++.so.6
+#9  0x00007ffff729cb84 in start_thread (arg=<optimized out>) at ./nptl/pthread_create.c:447
+#10 0x00007ffff7329d6c in clone3 () at ../sysdeps/unix/sysv/linux/x86_64/clone3.S:78
+
+Thread 1 (Thread 0x7ffff7f22300 (LWP 1939208) "test_routing_st"):
+#0  0x00007ffff72ecbdf in __GI___clock_nanosleep (clock_id=clock_id@entry=0, flags=flags@entry=0, req=0x7fffffffd250, rem=0x7fffffffd250) at ../sysdeps/unix/sysv/linux/clock_nanosleep.c:78
+#1  0x00007ffff72f9b27 in __GI___nanosleep (req=<optimized out>, rem=<optimized out>) at ../sysdeps/unix/sysv/linux/nanosleep.c:25
+#2  0x00005555556bd194 in std::this_thread::sleep_for<long, std::ratio<1l, 1000l> > (__rtime=std::chrono::duration = { 20ms }) at /usr/include/c++/13/bits/this_thread_sleep.h:80
+#3  0x0000555555a99bf5 in (anonymous namespace)::WedgedControlPlane::waitForConnections (this=0x7fffffffd3a0, n=1, limit=std::chrono::duration = { 10000ms }) at /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/tests/test_KernelStopIsBounded.cpp:180
+#4  0x0000555555a9a992 in (anonymous namespace)::KernelStopIsBoundedTest_AFlowTablePollCaughtMidRoundStopsWithinTheBound_Test::TestBody (this=0x5555561b5c10) at /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/tests/test_KernelStopIsBounded.cpp:349
+#5  0x0000555555cf808b in testing::internal::HandleSehExceptionsInMethodIfSupported<testing::Test, void> (object=0x5555561b5c10, method=&virtual testing::Test::TestBody(), location=0x555555e08d73 "the test body") at /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/build/_deps/googletest-src/googletest/src/gtest.cc:2609
+#6  0x0000555555cf14c6 in testing::internal::HandleExceptionsInMethodIfSupported<testing::Test, void> (object=0x5555561b5c10, method=&virtual testing::Test::TestBody(), location=0x555555e08d73 "the test body") at /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/build/_deps/googletest-src/googletest/src/gtest.cc:2645
+#7  0x0000555555cce37a in testing::Test::Run (this=0x5555561b5c10) at /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/build/_deps/googletest-src/googletest/src/gtest.cc:2684
+#8  0x0000555555cceea9 in testing::TestInfo::Run (this=0x5555561b0640) at /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/build/_deps/googletest-src/googletest/src/gtest.cc:2864
+#9  0x0000555555ccf7e7 in testing::TestSuite::Run (this=0x5555561b0490) at /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/build/_deps/googletest-src/googletest/src/gtest.cc:3023
+#10 0x0000555555cdf276 in testing::internal::UnitTestImpl::RunAllTests (this=0x5555561172d0) at /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/build/_deps/googletest-src/googletest/src/gtest.cc:5885
+#11 0x0000555555cf94ae in testing::internal::HandleSehExceptionsInMethodIfSupported<testing::internal::UnitTestImpl, bool> (object=0x5555561172d0, method=(bool (testing::internal::UnitTestImpl::*)(class testing::internal::UnitTestImpl * const)) 0x555555cdee62 <testing::internal::UnitTestImpl::RunAllTests()>, location=0x555555e097b0 "auxiliary test code (environments or event listeners)") at /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/build/_deps/googletest-src/googletest/src/gtest.cc:2609
+GDB_RC=0

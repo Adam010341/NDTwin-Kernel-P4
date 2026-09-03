@@ -1,0 +1,64 @@
+guarded_build: jobs=2 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ cmake --build build -j2
+[1/61] Building CXX object CMakeFiles/ndtwin_kernel.dir/src/main.cpp.o
+[2/61] Building CXX object src/ndt_core/collection/CMakeFiles/NdtCore_CollectionLib.dir/FlowLinkUsageCollector.cpp.o
+[3/61] Building CXX object src/ndt_core/routing_management/CMakeFiles/NdtCore_RoutingManagementLib.dir/FlowRoutingManager.cpp.o
+[4/61] Linking CXX static library lib/libNdtCore_RoutingManagementLib.a
+[5/61] Building CXX object src/ndt_core/collection/CMakeFiles/NdtCore_CollectionLib.dir/TopologyAndFlowMonitor.cpp.o
+[6/61] Linking CXX static library lib/libNdtCore_CollectionLib.a
+[7/61] Building CXX object src/ndt_core/data_management/CMakeFiles/NdtCore_DataManagementLib.dir/HistoricalDataManager.cpp.o
+[8/61] Linking CXX static library lib/libNdtCore_DataManagementLib.a
+[9/61] Building CXX object src/ndt_core/power_management/CMakeFiles/NdtCore_PowerManagementLib.dir/DeviceConfigurationAndPowerManager.cpp.o
+[10/61] Building CXX object src/ndt_core/power_management/CMakeFiles/NdtCore_PowerManagementLib.dir/OVSPowerStrategy.cpp.o
+[11/61] Building CXX object src/ndt_core/power_management/CMakeFiles/NdtCore_PowerManagementLib.dir/P4PowerStrategy.cpp.o
+[12/61] Linking CXX static library lib/libNdtCore_PowerManagementLib.a
+[13/61] Building CXX object src/ndt_core/intent_translator/CMakeFiles/NdtCore_IntentTranslatorLib.dir/IntentTranslator.cpp.o
+[14/61] Building CXX object src/ndt_core/intent_translator/CMakeFiles/NdtCore_IntentTranslatorLib.dir/LLMAgent.cpp.o
+[15/61] Linking CXX static library lib/libNdtCore_IntentTranslatorLib.a
+[16/61] Building CXX object src/ndt_core/http/CMakeFiles/NdtCore_HttpLib.dir/HttpSession.cpp.o
+[17/61] Linking CXX static library lib/libNdtCore_HttpLib.a
+[18/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_EstimatedRates.cpp.o
+[19/61] Linking CXX executable bin/ndtwin_kernel
+[20/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_RateDenominator.cpp.o
+[21/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_LeftBandwidthCapacity.cpp.o
+[22/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_SwitchKindDispatch.cpp.o
+[23/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_SFlowParsing.cpp.o
+[24/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_GoldenFixture.cpp.o
+[25/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_SFlowEmitterRoundtrip.cpp.o
+[26/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_OvsLiveness.cpp.o
+[27/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_SyntheticPower.cpp.o
+[28/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_OvsPowerStrategy.cpp.o
+[29/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_SimulatedDeviceMetrics.cpp.o
+[30/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_P4PowerStrategy.cpp.o
+[31/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_P4Liveness.cpp.o
+[32/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_RelayResponse.cpp.o
+[33/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_RequestDeadlines.cpp.o
+[34/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_FlowTableCacheOptionalFields.cpp.o
+[35/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_ReverseEdgeLookup.cpp.o
+[36/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_AllDestinationPaths.cpp.o
+[37/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_LastHopAttribution.cpp.o
+[38/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_FlowStatsTimeout.cpp.o
+[39/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_HttpSessionRouting.cpp.o
+[40/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_StaleTableCarryForward.cpp.o
+[41/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_FlowTableConcurrency.cpp.o
+[42/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_TopKFlowInfoLocking.cpp.o
+[43/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_FlowLiveness.cpp.o
+[44/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_TopologyAndFlowMonitor.cpp.o
+[45/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_TopologyAndFlowMonitor_mininet.cpp.o
+[46/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_TopologyPollRound.cpp.o
+[47/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_AdministrativeDisable.cpp.o
+[48/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_AdminDisableConsumers.cpp.o
+[49/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_OptimisticTopologyReporting.cpp.o
+[50/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_ApiKeyNotLogged.cpp.o
+[51/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_IntentTaskOutcomes.cpp.o
+[52/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_HttpSessionStatusCodes.cpp.o
+[53/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_GroupMeterExistence.cpp.o
+[54/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_HistoricalLogging.cpp.o
+[55/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_TopologyUrlAndPathJson.cpp.o
+[56/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_SmartPlugFields.cpp.o
+[57/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_PowerManagerShutdown.cpp.o
+[58/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_DataPlaneKindOrdering.cpp.o
+[59/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_PollDoesNotResurrect.cpp.o
+[60/61] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_KernelStopIsBounded.cpp.o
+[61/61] Linking CXX executable bin/test_routing_strategy
+guarded_build: exit 0

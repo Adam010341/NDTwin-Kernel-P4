@@ -1,0 +1,20 @@
+fake-cp 1788461073.477 listening on 127.0.0.1:8081 (wedge_all=False, answer_topology=10)
+fake-cp 1788461073.478 listening on 127.0.0.1:8080 (wedge_all=False, answer_topology=10)
+fake-cp 1788461074.078 answered  /v1.0/topology/switches  (10 switches)
+fake-cp 1788461074.087 answered  /v1.0/topology/hosts  (empty array)
+fake-cp 1788461074.096 answered  /v1.0/topology/links  (empty array)
+fake-cp 1788461075.099 WEDGED    /p4/switch_state
+fake-cp 1788461078.478 stats accepted=4 answered=3 wedged=1 held=1
+fake-cp 1788461079.079 WEDGED    /ryu_server/all_destination_paths
+fake-cp 1788461079.106 answered  /v1.0/topology/switches  (10 switches)
+fake-cp 1788461079.115 answered  /v1.0/topology/hosts  (empty array)
+fake-cp 1788461079.123 answered  /v1.0/topology/links  (empty array)
+fake-cp 1788461079.124 WEDGED    /p4/switch_state
+fake-cp 1788461083.148 WEDGED    /p4/switch_state
+fake-cp 1788461083.478 stats accepted=10 answered=6 wedged=4 held=4
+fake-cp 1788461084.080 WEDGED    /stats/flow/1
+fake-cp 1788461084.133 answered  /v1.0/topology/switches  (10 switches)
+fake-cp 1788461084.140 answered  /v1.0/topology/hosts  (empty array)
+fake-cp 1788461084.148 answered  /v1.0/topology/links  (empty array)
+fake-cp 1788461087.171 WEDGED    /p4/switch_state
+fake-cp 1788461088.478 stats accepted=15 answered=9 wedged=6 held=6

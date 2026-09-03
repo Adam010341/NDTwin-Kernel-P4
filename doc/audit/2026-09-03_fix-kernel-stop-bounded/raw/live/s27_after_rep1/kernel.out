@@ -1,0 +1,53 @@
+[2026-09-04 02:44:34.066] [info] [[94mmain.cpp[0m:[95m304[0m [96mmain[0m] Logger Loads Successfully! level
+Running in Mininet environment.
+[2026-09-04 02:44:34.066] [info] [[94mmain.cpp[0m:[95m316[0m [96mmain[0m] Topology file: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+[2026-09-04 02:44:34.066] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m430[0m [96mparseStaticTopologyFile[0m] Load Static Topology File
+[2026-09-04 02:44:34.069] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2131[0m [96mvalidateDataPlaneHomogeneity[0m] Data plane: bmv2 (10 switch(es))
+[2026-09-04 02:44:34.070] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m200[0m [96mconfigureTopologyApiUrls[0m] All-bmv2 topology: polling http://localhost:8081/v1.0/topology for switch/host/link state instead of Ryu.
+[2026-09-04 02:44:34.070] [info] [[94mmain.cpp[0m:[95m386[0m [96mmain[0m] IntentTranslator is disabled by user.
+[2026-09-04 02:44:34.070] [info] [[94mApplicationManager.cpp[0m:[95m421[0m [96mcleanupStaleEntries[0m] Checking for stale NFS entries in /srv/nfs/sim
+[2026-09-04 02:44:34.070] [warning] [[94mApplicationManager.cpp[0m:[95m437[0m [96mcleanupStaleEntries[0m] Found stale application folder from a previous run: /srv/nfs/sim/3
+[2026-09-04 02:44:34.070] [warning] [[94mApplicationManager.cpp[0m:[95m372[0m [96mcleanupAppFolder[0m] Leaving /srv/nfs/sim/3 in place: /srv/nfs/sim/3/energy_saving_simulator/1.0/case4/input belongs to a squashed NFS client, so removing it needs root. The next registration that reuses this app id will reuse the folder rather than recreate it.
+[2026-09-04 02:44:34.070] [warning] [[94mApplicationManager.cpp[0m:[95m437[0m [96mcleanupStaleEntries[0m] Found stale application folder from a previous run: /srv/nfs/sim/1
+[2026-09-04 02:44:34.070] [warning] [[94mApplicationManager.cpp[0m:[95m372[0m [96mcleanupAppFolder[0m] Leaving /srv/nfs/sim/1 in place: /srv/nfs/sim/1/energy_saving_simulator/1.0/case10/input belongs to a squashed NFS client, so removing it needs root. The next registration that reuses this app id will reuse the folder rather than recreate it.
+[2026-09-04 02:44:34.070] [warning] [[94mApplicationManager.cpp[0m:[95m437[0m [96mcleanupStaleEntries[0m] Found stale application folder from a previous run: /srv/nfs/sim/2
+[2026-09-04 02:44:34.070] [warning] [[94mApplicationManager.cpp[0m:[95m372[0m [96mcleanupAppFolder[0m] Leaving /srv/nfs/sim/2 in place: /srv/nfs/sim/2/energy_saving_simulator/1.0/case4/input belongs to a squashed NFS client, so removing it needs root. The next registration that reuses this app id will reuse the folder rather than recreate it.
+[2026-09-04 02:44:34.070] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m3041[0m [96mrunLoop[0m] TopologyAndFlowMonitor Run
+[2026-09-04 02:44:34.070] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m475[0m [96mstart[0m] Collector Starts Up
+[2026-09-04 02:44:34.071] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m469[0m [96mlog_thread_ids[0m] [calAvgFlowSendingRatesPeriodically] pid=3191480 tid=3191487
+[2026-09-04 02:44:34.071] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m469[0m [96mlog_thread_ids[0m] [run] pid=3191480 tid=3191486
+[2026-09-04 02:44:34.071] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m735[0m [96mrun[0m] Run with 20 workers
+[2026-09-04 02:44:34.071] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m469[0m [96mlog_thread_ids[0m] [testCalAvgFlowSendingRatesRandomly] pid=3191480 tid=3191489
+[2026-09-04 02:44:34.071] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m469[0m [96mlog_thread_ids[0m] [purgeIdleFlows] pid=3191480 tid=3191490
+[2026-09-04 02:44:34.071] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m469[0m [96mlog_thread_ids[0m] [calFlowPathByQueried] pid=3191480 tid=3191491
+[2026-09-04 02:44:34.071] [warning] [[94mHistoricalDataManager.cpp[0m:[95m66[0m [96mstart[0m] HistoricalDataManager not started: MININET deployments do not run the recorder, so no historical link row will ever be written. /ndt/historical_logging reports this as reason=not-available-in-mininet-mode.
+[2026-09-04 02:44:34.071] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m162[0m [96mstart[0m] DeviceConfigurationAndPowerManager Starts Up
+[2026-09-04 02:44:34.071] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m267[0m [96mrunServer[0m] Server Listening on port 8000
+[2026-09-04 02:44:34.072] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m776[0m [96mrun[0m] Listening for sFlow on UDP port 6343
+[2026-09-04 02:44:34.097] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m3064[0m [96mrunLoop[0m] topology from the control plane: 10 switches, 0 hosts, 0 edges up
+[2026-09-04 02:44:38.103] [warning] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m584[0m [96moperator()[0m] cannot read bmv2 liveness from the proxy (HTTP 000); switch state is left unchanged rather than reported as down
+[2026-09-04 02:44:44.476] [info] [[94mmain.cpp[0m:[95m477[0m [96mmain[0m] Shutdown requested. Cleaning up…
+[2026-09-04 02:44:44.476] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m3085[0m [96mrunLoop[0m] Exiting TopologyAndFlowMonitor's updating
+[2026-09-04 02:44:44.476] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m583[0m [96mstop[0m] Collector Stops
+[2026-09-04 02:44:44.487] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m905[0m [96mrun[0m] Run loop exiting
+[2026-09-04 02:44:44.487] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m915[0m [96mrun[0m] Run loop existing
+[2026-09-04 02:44:45.072] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2468[0m [96mpurgeIdleFlows[0m] Exiting Loop of purgeIdleFlows
+[2026-09-04 02:44:45.072] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2291[0m [96mcalAvgFlowSendingRatesPeriodically[0m] Exiting Loop of calAvgFlowSendingRatesPeriodically
+[2026-09-04 02:44:45.347] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2389[0m [96mtestCalAvgFlowSendingRatesRandomly[0m] Exiting Loop of testCalAvgFlowSendingRatesRandomly
+[2026-09-04 02:44:49.082] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m165[0m [96mstop[0m] ControllerAndOtherEventHandler Stop Start
+[2026-09-04 02:44:49.083] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m175[0m [96mstop[0m] io_context stopped
+[2026-09-04 02:44:49.083] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m182[0m [96mstop[0m] acceptor_ close
+[2026-09-04 02:44:49.083] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m205[0m [96mstop[0m] Attempting to poke the server socket to unblock accept.
+[2026-09-04 02:44:49.083] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m228[0m [96mstop[0m] Poke connection refused (port likely already fully closed).
+[2026-09-04 02:44:49.083] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m251[0m [96mstop[0m] Waiting for server thread to join...
+[2026-09-04 02:44:49.083] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m285[0m [96mrunServer[0m] Exiting Loop of run event server
+[2026-09-04 02:44:49.083] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m253[0m [96mstop[0m] m_serverThread joined.
+[2026-09-04 02:44:49.083] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m260[0m [96mstop[0m] ControllerAndOtherEventHandler stopped.
+[2026-09-04 02:44:49.083] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m212[0m [96mstop[0m] stop: cancelled 2 in-flight control-plane request(s)
+[2026-09-04 02:44:49.083] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m217[0m [96mstop[0m] Collector Stops
+[2026-09-04 02:44:49.084] [info] [[94mmain.cpp[0m:[95m485[0m [96mmain[0m] All subsystems stopped. Exiting.
+[2026-09-04 02:44:49.084] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m165[0m [96mstop[0m] ControllerAndOtherEventHandler Stop Start
+[2026-09-04 02:44:49.084] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m169[0m [96mstop[0m] ControllerAndOtherEventHandler already stopped.
+[2026-09-04 02:44:49.084] [info] [[94mApplicationManager.cpp[0m:[95m273[0m [96mcleanupNFS[0m] Cleaning up registered NFS folders in /srv/nfs/sim
+[2026-09-04 02:44:49.084] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m583[0m [96mstop[0m] Collector Stops
+[2026-09-04 02:44:49.084] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m217[0m [96mstop[0m] Collector Stops

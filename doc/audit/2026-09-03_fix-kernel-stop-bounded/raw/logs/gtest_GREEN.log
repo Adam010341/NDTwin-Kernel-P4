@@ -1,0 +1,23 @@
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = KernelStopIsBoundedTest.*
+[==========] Running 6 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 6 tests from KernelStopIsBoundedTest
+[ RUN      ] KernelStopIsBoundedTest.TheInstrumentReallyWedgesACurl
+Command failed (exit code 28): curl -s --max-time 1 http://127.0.0.1:43313/v1.0/topology/switches
+[       OK ] KernelStopIsBoundedTest.TheInstrumentReallyWedgesACurl (1009 ms)
+[ RUN      ] KernelStopIsBoundedTest.AFlowTablePollCaughtMidRoundStopsWithinTheBound
+[       OK ] KernelStopIsBoundedTest.AFlowTablePollCaughtMidRoundStopsWithinTheBound (21 ms)
+[ RUN      ] KernelStopIsBoundedTest.ATopologyPollBlockedInItsHttpCallReturnsWithinTheBound
+[       OK ] KernelStopIsBoundedTest.ATopologyPollBlockedInItsHttpCallReturnsWithinTheBound (21 ms)
+[ RUN      ] KernelStopIsBoundedTest.AStopThatExceedsItsBoundSaysWhatItIsWaitingOn
+[       OK ] KernelStopIsBoundedTest.AStopThatExceedsItsBoundSaysWhatItIsWaitingOn (21 ms)
+[ RUN      ] KernelStopIsBoundedTest.TheMonitorsStopReportNamesItsOwnWorkers
+[       OK ] KernelStopIsBoundedTest.TheMonitorsStopReportNamesItsOwnWorkers (21 ms)
+[ RUN      ] KernelStopIsBoundedTest.StoppingTwiceAndStoppingWhatNeverRanAreBothImmediate
+[       OK ] KernelStopIsBoundedTest.StoppingTwiceAndStoppingWhatNeverRanAreBothImmediate (1 ms)
+[----------] 6 tests from KernelStopIsBoundedTest (1096 ms total)
+
+[----------] Global test environment tear-down
+[==========] 6 tests from 1 test suite ran. (1096 ms total)
+[  PASSED  ] 6 tests.

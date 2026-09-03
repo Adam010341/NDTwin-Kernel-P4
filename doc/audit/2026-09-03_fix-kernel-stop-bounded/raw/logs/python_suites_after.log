@@ -1,0 +1,60 @@
+=== tests/python (per module) ===
+  ok   test_chaos_c07_control.py
+  ok   test_chaos_invariants_method.py
+  ok   test_check_gate_anchors.py
+  ok   test_check_logs_powered_off.py
+  ok   test_contract_spec.py
+  ok   test_cpu_gate_lifetime.py
+  ok   test_find_host_by_ip.py
+  ok   test_grpc_port_block.py
+  ok   test_host_discovery_gate.py
+  ok   test_l3_dispatch_drift.py
+  ok   test_lldp_backoff.py
+  ok   test_make_topology.py
+  ok   test_ovs4_sflow.py
+  ok   test_p4_power_helper.py
+  ok   test_route_install_gate.py
+  ok   test_route_reinstall.py
+  ok   test_ryu_rest_topology_bounded.py
+  ok   test_sflow_emitter_batching.py
+  ok   test_sflow_stats_endpoint.py
+  ok   test_shell_command_construction.py
+  ok   test_t11_filter_is_wired.py
+  ok   test_testbed_banner.py
+  ok   test_topology_read_timeouts.py
+  ok   test_topology_worker_coalescing.py
+  ok   test_twin_audit_criteria.py
+  ok   test_twin_audit.py
+  ok   test_unavailable_metric_sentinel.py
+  ok   test_unidirectional_link_loss.py
+  ok   test_walk_instrumentation.py
+tests/python: 29 ok, 0 failed:
+
+=== p4_proxy/tests (per module) ===
+  ok   test_bmv2_binary_override.py
+  ok   test_clone_session.py
+  ok   test_delete_restores_route.py
+  ok   test_five_tuple_match.py
+  ok   test_flowentry_endpoints.py
+  ok   test_flow_stats_route.py
+  ok   test_journal_is_wired_in_main.py
+  ok   test_journal_wiring.py
+  ok   test_kernel_notifier.py
+  ok   test_link_watchdog.py
+  ok   test_lldp_beacon.py
+  ok   test_p4_client.py
+  ok   test_p4_client_writes.py
+  ok   test_path_determinism.py
+  ok   test_port_guard.py
+  ok   test_readopt.py
+  ok   test_rule_journal.py
+  ok   test_ryu_flow_stats.py
+  ok   test_ryu_topology.py
+  ok   test_sflow_emitter.py
+  ok   test_startup.py
+  ok   test_switch_state.py
+  ok   test_table_generation.py
+  ok   test_topology_properties.py
+  ok   test_unsupported_match.py
+p4_proxy/tests: 25 ok, 0 failed:
+SUITES DONE python=29/29 proxy=25/25

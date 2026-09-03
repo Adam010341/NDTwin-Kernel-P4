@@ -1,0 +1,8 @@
+fake-cp 1788456952.663 listening on 127.0.0.1:8081 (wedge_all=True, answer_topology=10)
+fake-cp 1788456952.663 listening on 127.0.0.1:8080 (wedge_all=True, answer_topology=10)
+fake-cp 1788456953.663 WEDGED    /v1.0/topology/switches
+fake-cp 1788456957.663 stats accepted=1 answered=0 wedged=1 held=1
+fake-cp 1788456958.672 WEDGED    /v1.0/topology/hosts
+fake-cp 1788456962.663 stats accepted=2 answered=0 wedged=2 held=2
+fake-cp 1788456963.684 WEDGED    /v1.0/topology/links
+fake-cp 1788456967.664 stats accepted=3 answered=0 wedged=3 held=3

@@ -1,0 +1,6 @@
+rep	scenario	arm	announce_to_exit_s	signal_to_exit_s	exit_code	flow_reqs	note
+1	s27	before	-	79.756088160	0	10	
+2	s27	before	-	79.759293798	0	10	
+3	s27	before	-	79.772526177	0	10	
+4	s27	before	-	79.798906362	0	10	
+5	s27	before	-	79.740563820	0	10	

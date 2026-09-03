@@ -1,0 +1,3 @@
+fake-cp 1788461063.009 listening on 127.0.0.1:8081 (wedge_all=True, answer_topology=10)
+fake-cp 1788461063.009 listening on 127.0.0.1:8080 (wedge_all=True, answer_topology=10)
+fake-cp 1788461064.013 WEDGED    /v1.0/topology/switches

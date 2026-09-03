@@ -1,0 +1,9 @@
+3c6f58e981fdc1bdc2aa8aae716075bc6adeeef6
+100644 0075e0ee85dc97910356c1f75d401d5ffd4b8ec4 1	tests/CMakeLists.txt
+100644 199e0532b05e7fb517f1212f68e404f502a46d53 2	tests/CMakeLists.txt
+100644 e3616b5bb91b93bf1c796cfe84262e2eb8b8ace5 3	tests/CMakeLists.txt
+
+Auto-merging include/ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp
+Auto-merging src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp
+Auto-merging tests/CMakeLists.txt
+CONFLICT (content): Merge conflict in tests/CMakeLists.txt

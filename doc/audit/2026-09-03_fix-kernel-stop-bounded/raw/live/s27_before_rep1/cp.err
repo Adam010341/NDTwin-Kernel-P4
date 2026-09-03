@@ -1,0 +1,44 @@
+fake-cp 1788457061.479 listening on 127.0.0.1:8081 (wedge_all=False, answer_topology=10)
+fake-cp 1788457061.479 listening on 127.0.0.1:8080 (wedge_all=False, answer_topology=10)
+fake-cp 1788457062.072 answered  /v1.0/topology/switches  (10 switches)
+fake-cp 1788457062.079 answered  /v1.0/topology/hosts  (empty array)
+fake-cp 1788457062.086 answered  /v1.0/topology/links  (empty array)
+fake-cp 1788457063.084 WEDGED    /p4/switch_state
+fake-cp 1788457066.479 stats accepted=4 answered=3 wedged=1 held=1
+fake-cp 1788457067.073 WEDGED    /ryu_server/all_destination_paths
+fake-cp 1788457067.096 answered  /v1.0/topology/switches  (10 switches)
+fake-cp 1788457067.105 answered  /v1.0/topology/hosts  (empty array)
+fake-cp 1788457067.105 WEDGED    /p4/switch_state
+fake-cp 1788457067.111 answered  /v1.0/topology/links  (empty array)
+fake-cp 1788457071.126 WEDGED    /p4/switch_state
+fake-cp 1788457071.480 stats accepted=10 answered=6 wedged=4 held=4
+fake-cp 1788457072.073 WEDGED    /stats/flow/1
+fake-cp 1788457072.119 answered  /v1.0/topology/switches  (10 switches)
+fake-cp 1788457072.126 answered  /v1.0/topology/hosts  (empty array)
+fake-cp 1788457072.133 answered  /v1.0/topology/links  (empty array)
+fake-cp 1788457075.145 WEDGED    /p4/switch_state
+fake-cp 1788457076.480 stats accepted=15 answered=9 wedged=6 held=6
+fake-cp 1788457080.081 WEDGED    /stats/flow/2
+fake-cp 1788457081.480 stats accepted=16 answered=9 wedged=7 held=7
+fake-cp 1788457086.480 stats accepted=16 answered=9 wedged=7 held=7
+fake-cp 1788457088.090 WEDGED    /stats/flow/3
+fake-cp 1788457091.480 stats accepted=17 answered=9 wedged=8 held=8
+fake-cp 1788457096.099 WEDGED    /stats/flow/4
+fake-cp 1788457096.480 stats accepted=18 answered=9 wedged=9 held=9
+fake-cp 1788457101.481 stats accepted=18 answered=9 wedged=9 held=9
+fake-cp 1788457104.110 WEDGED    /stats/flow/5
+fake-cp 1788457106.481 stats accepted=19 answered=9 wedged=10 held=10
+fake-cp 1788457111.481 stats accepted=19 answered=9 wedged=10 held=10
+fake-cp 1788457112.119 WEDGED    /stats/flow/6
+fake-cp 1788457116.481 stats accepted=20 answered=9 wedged=11 held=11
+fake-cp 1788457120.129 WEDGED    /stats/flow/7
+fake-cp 1788457121.481 stats accepted=21 answered=9 wedged=12 held=12
+fake-cp 1788457126.481 stats accepted=21 answered=9 wedged=12 held=12
+fake-cp 1788457128.137 WEDGED    /stats/flow/8
+fake-cp 1788457131.481 stats accepted=22 answered=9 wedged=13 held=13
+fake-cp 1788457136.147 WEDGED    /stats/flow/9
+fake-cp 1788457136.482 stats accepted=23 answered=9 wedged=14 held=14
+fake-cp 1788457141.482 stats accepted=23 answered=9 wedged=14 held=14
+fake-cp 1788457144.159 WEDGED    /stats/flow/10
+fake-cp 1788457146.482 stats accepted=24 answered=9 wedged=15 held=15
+fake-cp 1788457151.482 stats accepted=24 answered=9 wedged=15 held=15

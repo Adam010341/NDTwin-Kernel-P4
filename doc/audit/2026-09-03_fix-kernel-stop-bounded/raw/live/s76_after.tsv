@@ -1,0 +1,11 @@
+rep	scenario	arm	announce_to_exit_s	signal_to_exit_s	exit_code	flow_reqs	note
+1	s76	after	.006968816	-	1	0
+0	
+2	s76	after	.006848598	-	1	0
+0	
+3	s76	after	.006085905	-	1	0
+0	
+4	s76	after	.006980804	-	1	0
+0	
+5	s76	after	.005604295	-	1	0
+0	
