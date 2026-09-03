@@ -110,9 +110,19 @@ m=$(mutant m1 tools/test_workflow/ndt "$(printf 'mapfile -d '"''"' -t argv 2>/de
 report "M1: ndt pid_is_app -- silencer back behind the read" "$m" \
        "🔑 pid_is_app is SILENT when /proc/<pid>/cmdline is gone"
 
-m=$(mutant m2 tools/test_workflow/ndt "$(printf 'tr '"'"'\\0'"'"' '"'"' '"'"' 2>/dev/null < "/proc/$pid/cmdline" | cut -c1-90\x1ftr '"'"'\\0'"'"' '"'"' '"'"' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-90')")
+# 2026-09-03 merge note: `cut -c1-90` stopped being a unique anchor when fix/g6-ndt-apps-liveness
+# added a second site (app_wait_stopped). Each site now anchors on its own full line, and the
+# g6 site gets its own mutation -- a merge that reintroduces the shape at either site must be
+# caught, not reported as a non-unique anchor.
+A2='info "  pid $pid: $(tr '"'"'\0'"'"' '"'"' '"'"' 2>/dev/null < "/proc/$pid/cmdline" | cut -c1-90)"'; B2='info "  pid $pid: $(tr '"'"'\0'"'"' '"'"' '"'"' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-90)"'
+m=$(mutant m2 tools/test_workflow/ndt "$A2"$'\x1f'"$B2")
 report "M2: ndt app_stop argv line -- order reverted" "$m" \
        "app_stop's argv line is silent for a pid that cannot exist"
+
+A2b='err "   pid $pid: $(tr '"'"'\0'"'"' '"'"' '"'"' 2>/dev/null < "/proc/$pid/cmdline" | cut -c1-90)"'; B2b='err "   pid $pid: $(tr '"'"'\0'"'"' '"'"' '"'"' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-90)"'
+m=$(mutant m2b tools/test_workflow/ndt "$A2b"$'\x1f'"$B2b")
+report "M2b: ndt app_wait_stopped argv line (g6) -- order reverted" "$m" \
+       "app_wait_stopped's argv line (g6) is silent for a pid that cannot exist"
 
 m=$(mutant m3 tools/test_workflow/ndt "$(printf 'tr '"'"'\\0'"'"' '"'"' '"'"' 2>/dev/null < "/proc/$pid/cmdline" | cut -c1-80\x1ftr '"'"'\\0'"'"' '"'"' '"'"' < "/proc/$pid/cmdline" 2>/dev/null | cut -c1-80')")
 report "M3: ndt apps_orphans argv line -- order reverted" "$m" \

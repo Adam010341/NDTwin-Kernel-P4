@@ -49,6 +49,8 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = case that must fail
 mutant() {   # $1 = name, $2 = file to mutate (ports.sh|ndt), $3 = "old<US>new"; prints the dir
     local d="$BK/$1"; mkdir -p "$d"
     cp "$PORTS" "$d/ports.sh"; cp "$NDT" "$d/ndt"; chmod +x "$d/ndt"
+    # ndt also sources sudo_surface.sh from beside itself (fix/ndt-sudo-surface); ship it, unmutated.
+    cp "$REPO/tools/test_workflow/sudo_surface.sh" "$d/sudo_surface.sh"
     python3 - "$d/$2" "$3" <<'PY'
 import sys
 p, spec = sys.argv[1], sys.argv[2]
@@ -62,6 +64,7 @@ PY
 
 echo "baseline (must be green before any mutation):"
 base="$BK/base"; mkdir -p "$base"; cp "$PORTS" "$base/ports.sh"; cp "$NDT" "$base/ndt"; chmod +x "$base/ndt"
+cp "$REPO/tools/test_workflow/sudo_surface.sh" "$base/sudo_surface.sh"
 run_against "$base" | tail -1
 run_against "$base" >/dev/null 2>&1 || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
 echo

@@ -133,6 +133,9 @@ while read -r tok; do
     [[ -z "$tok" ]] && continue
     case "$tok" in
         '$LAB'|'${LAB}') key=lab ;;
+        # A literal spelling of the same command (prose in a comment counts: the extractor reads
+        # the whole file on purpose, a taught `sudo -n X` needs a grant as much as a run one).
+        ndtwin-lab|*/ndtwin-lab) key=lab ;;
         -*)              continue ;;
         \$*)             key="UNRESOLVED-VARIABLE:$tok" ;;
         *)               key="${tok##*/}" ;;

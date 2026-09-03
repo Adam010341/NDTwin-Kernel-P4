@@ -59,6 +59,8 @@ mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replac
     local label="$1" file="$2" old="$3" new="$4"
     local d="$BK/$label"; mkdir -p "$d"
     cp "$SURFACE" "$d/sudo_surface.sh"; cp "$NDT" "$d/ndt"; chmod +x "$d/ndt"
+    # ndt also sources ports.sh from beside itself (fix/ports-that-block-restart); ship it, unmutated.
+    cp "$REPO/tools/test_workflow/ports.sh" "$d/ports.sh"
     python3 - "$d/$(basename "$file")" "$old" "$new" <<'PY'
 import sys
 p, a, b = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -72,6 +74,7 @@ PY
 echo "baseline (must be green before any mutation):"
 base="$BK/base"; mkdir -p "$base"
 cp "$SURFACE" "$base/sudo_surface.sh"; cp "$NDT" "$base/ndt"; chmod +x "$base/ndt"
+cp "$REPO/tools/test_workflow/ports.sh" "$base/ports.sh"
 run_against "$base" | tail -1
 run_against "$base" >/dev/null 2>&1 || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
 echo

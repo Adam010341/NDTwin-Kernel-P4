@@ -150,7 +150,12 @@ unique_line() {   # <file> <fixed anchor> -- the one matching line, or nothing (
     [[ "$n" == 1 ]] || { echo "anchor '$2' matches $n lines in ${1##*/} (want exactly 1)" >&3; return 1; }
     grep -F -m1 -- "$2" "$1"
 }
-for spec in "app_stop's argv line|cut -c1-90|info" "apps_orphans' argv line|cut -c1-80|err"; do
+# 2026-09-03 merge note: fix/g6-ndt-apps-liveness added a second `cut -c1-90` site
+# (app_wait_stopped), so that anchor stopped being unique -- which this loop is built to refuse.
+# Each site now carries its own unique anchor, and the new site is covered rather than ignored.
+for spec in "app_stop's argv line|info \"  pid \$pid: \$(tr|info" \
+            "app_wait_stopped's argv line (g6)|err \"   pid \$pid: \$(tr|err" \
+            "apps_orphans' argv line|cut -c1-80|err"; do
     IFS='|' read -r label anchor stub <<<"$spec"
     if ! src="$(unique_line "$NDT" "$anchor" 3>"$T/.why")"; then
         t_bad "$label is silent for a pid that cannot exist" "$(cat "$T/.why")"
@@ -239,17 +244,26 @@ done
 # The two `tr ... | awk '` sites in ndtwin-vm.sh and ndt:894 are multi-line commands: 209/263
 # open an awk program that continues below, and 894 would start the stack. They get a static
 # ordering guard instead -- weaker than the cases above, and named as such.
+# 2026-09-03 merge note: this guard used to read the three sites BY LINE NUMBER (ndt:894). Five
+# branches merged above that line moved it to 954; the guard kept reading 894 -- a comment --
+# and stayed green while M14 mutated the real line. Sites are now found by an order-agnostic
+# content anchor, every occurrence is checked, and the count is asserted: a moved line still
+# gets read, a reverted line is flagged by the regex rather than by vanishing, and a fourth
+# site turns the count red instead of going unread.
 static_bad=0; static_seen=0
-while IFS= read -r loc; do
-    file="${loc%%:*}"; ln="${loc##*:}"
-    src="$(sed -n "${ln}p" "$REPO/$file")"
-    static_seen=$((static_seen+1))
-    # an input redirection from a path, textually ahead of a stderr redirection, on one line
-    [[ "$src" =~ \<[[:space:]]*\"[^\"]*\"[^\|]*(2\>|\&\>) ]] && { static_bad=$((static_bad+1)); echo "             $loc: $src"; }
-done <<EOF
-tools/remote-lab/ndtwin-vm.sh:209
-tools/remote-lab/ndtwin-vm.sh:263
-tools/test_workflow/ndt:894
+while IFS=$'\t' read -r rel anchor want; do
+    [[ -z "$rel" ]] && continue
+    f="$REPO/$rel"
+    n="$(grep -cF -- "$anchor" "$f")"
+    [[ "$n" == "$want" ]] || echo "             $rel: anchor '$anchor' matches $n lines (want $want)"
+    while IFS= read -r src; do
+        static_seen=$((static_seen+1))
+        # an input redirection from a path, textually ahead of a stderr redirection, on one line
+        [[ "$src" =~ \<[[:space:]]*\"[^\"]*\"[^\|]*(2\>|\&\>) ]] && { static_bad=$((static_bad+1)); echo "             $rel: $src"; }
+    done < <(grep -F -- "$anchor" "$f")
+done <<'EOF'
+tools/remote-lab/ndtwin-vm.sh	"/proc/$1/cmdline"	2
+tools/test_workflow/ndt	bash "$STACK" up ovs	1
 EOF
 check "static guard: the 3 multi-line sites keep 2> ahead of < (3 lines read)" "3 0" "$static_seen $static_bad"
 
