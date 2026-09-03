@@ -49,6 +49,40 @@ ModuleNotFoundError: No module named 'mininet'
 `ndt` 路徑執行過**——它在 trunk 的直譯器下連 import 都過不了。所以 **#42 的修法在
 「跑起來」這一層從未被驗證**，只被單元測試驗過。本次是它第一次真的被執行（見 §5）。
 
+### 1.3 而 NTG 那兩行 bootstrap **從來沒有被 commit 過**
+
+修完之後回頭查 NTG（唯讀）發現的，比 #77 原文更嚴重：
+
+```
+NTG HEAD = 6e3f3881 (2026-04-30)
+$ git -C ~/Network-Traffic-Generator status --porcelain -- testbed_topo.py
+ M testbed_topo.py                       ← 工作樹是髒的，mtime 2026-07-08
+$ git -C ~/Network-Traffic-Generator diff -- testbed_topo.py
+-#!/usr/bin/env python3
+-
++import sys
++sys.path.append('/usr/lib/python3/dist-packages')
++sys.path.append('/usr/local/lib/python3/dist-packages')
+```
+
+也就是說：**那兩行只存在於 Adam 這台機器的 NTG 工作樹裡，是 7 月的一次未提交編輯。**
+NTG 的 `HEAD` 那份在 `NTG_PY` 下一樣 `ModuleNotFoundError: No module named 'mininet'`（實跑）。
+
+⇒ **`ndt up ovs` 從 7 月起就依賴另一個 repo 工作樹裡的一個未提交編輯。**
+在 NTG 裡下一次 `git checkout .`／`git stash`／重新 clone，`ndt up ovs` 就會死在第一個 import。
+
+這不是假設——**四輪 manual usertest 的 tester 在乾淨 clone 上撞到的正是同一行**
+（`run-01-sonnet/tester-files/BUGS.md:387-395`）：
+
+```
+File "/home/ndt/Desktop/Network-Traffic-Generator/testbed_topo.py", line 4, in <module>
+  from mininet.topo import Topo
+ModuleNotFoundError: No module named 'mininet'
+```
+
+當時那被記成「手冊的 bug」。它與今晚這條是同一個根：**能跑的那份不在版控裡。**
+本修法把這個依賴搬進本 repo 的版控（§2.2），所以順帶把它關掉了。
+
 ### 1.2 第三半：sweep 的路徑後綴
 
 `ndtwin-lab cleanup`（`ndt down` 的 `[3/3]`）用 `sweep_matches` 認行程，規則是
@@ -342,6 +376,13 @@ sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sb
 （`cat > $A/m1.old` heredoc 那種寫法）。Finding #19 的修法沒有涵蓋這個形狀。
 本次的閘門已改成讀得懂的寫法而**沒有**去動那三支——要不要另開一張工單？
 
-**Q5 #42 的驗證等級要不要更正？** 依 §1.1，本 repo 的 `testbed_topo.py` 在 trunk 上
+**Q5 要不要把 §1.3 開成一條 finding？** 「`ndt up ovs` 依賴 NTG 工作樹裡一個 7 月的未提交
+編輯，而四輪 tester 在乾淨 clone 上撞到的 traceback 就是它」——這條比 #77 本身影響面大，
+而且解釋了一個已經被記成「手冊 bug」的觀測。本修法讓 `ndt` 這條路徑不再依賴它，
+但**手動路徑（照手冊 clone NTG 然後 `sudo ~/ntg-env/bin/python testbed_topo.py`）仍然會壞**，
+因為那要改 NTG，而 N13 說不要改 NTG。要不要 (a) 只在手冊上改成叫人跑本 repo 那份、
+(b) 請 NTG 那邊 commit 那兩行、(c) 先記錄不動？我建議 **(a)**。
+
+**Q6 #42 的驗證等級要不要更正？** 依 §1.1，本 repo 的 `testbed_topo.py` 在 trunk 上
 連 import 都過不了，所以 #42 的修法在合併前**從未被執行過**（只有單元測試）。
 今晚是它第一次真的跑起來。要不要在 #42 的文件補一句更正？
