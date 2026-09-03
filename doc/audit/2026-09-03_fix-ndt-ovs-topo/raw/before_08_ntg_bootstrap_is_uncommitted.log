@@ -1,0 +1,44 @@
+=== the bootstrap lines are an UNCOMMITTED edit in NTG's working tree (read-only check) ===
+2026-09-03T23:38:22+08:00
+-- NTG repo HEAD --
+6e3f38817229bd784517e3296a2faca2280e166c 2026-04-30 10:31:29 +0800 Merge branch 'main' of https://github.com/AlenChen0216/Network-Traffic-Generator
+-- NTG working tree is dirty, and has been since July --
+-rwxrwxr-x 1 adam docker 9752 2026-07-08 14:18:42.854334413 +0800 /home/adam/Network-Traffic-Generator/testbed_topo.py
+ M testbed_topo.py
+-- what the uncommitted edit IS --
+diff --git a/testbed_topo.py b/testbed_topo.py
+index f6208f0..8c3758e 100755
+--- a/testbed_topo.py
++++ b/testbed_topo.py
+@@ -1,5 +1,7 @@
+ #!/usr/bin/env python3
+-
++import sys
++sys.path.append('/usr/lib/python3/dist-packages')
++sys.path.append('/usr/local/lib/python3/dist-packages')
+ 
+ from mininet.topo import Topo
+ from mininet.net import Mininet
+@@ -236,7 +238,7 @@ if __name__ == "__main__":
+-- so NTG's COMMITTED file starts like this (no bootstrap) --
+#!/usr/bin/env python3
+
+
+from mininet.topo import Topo
+from mininet.net import Mininet
+from mininet.node import RemoteController, OVSKernelSwitch
+# from mininet.cli import CLI
+from mininet.log import setLogLevel
+-- does the committed NTG file import under NTG_PY? --
+    from mininet.topo import Topo
+ModuleNotFoundError: No module named 'mininet'
+-- and the manual-path tester hit exactly this in run-04 --
+  `sudo ~/ntg-env/bin/python testbed_topo.py` from `~/Desktop/Network-Traffic-Generator`.
+- **Expected:** the topology builds (NTG's own script, using its own documented launch
+  method, run through the interpreter the Installation Manual actually created).
+- **Observed (verbatim):**
+  ```
+  Traceback (most recent call last):
+    File "/home/ndt/Desktop/Network-Traffic-Generator/testbed_topo.py", line 4, in <module>
+      from mininet.topo import Topo
+  ModuleNotFoundError: No module named 'mininet'
