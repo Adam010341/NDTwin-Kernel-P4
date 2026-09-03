@@ -1,0 +1,43 @@
+#### Wire verification for FIX-TOPOLOGY-COMPLETENESS.md -- 2026-09-03T10:47:07+08:00
+# [Co-developed with claude code -- Adam]
+# fake_southbound.py (round6-bug-shapes) on 127.0.0.1:18081, 2 switches / 1 host / 1 link.
+# For each MODE: an INDEPENDENT probe asserts the injection took effect (status + body),
+# and only then is the exact command buildTopologyFetchCommand() emits run against it.
+# No fabric, no lab claim. '|' below is a newline.
+
+fake southbound on :18081  switches=2 hosts=1 links=1
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-03_night-rounds/round6-bug-shapes/fake_southbound.py", line 155, in <module>
+    ThreadingHTTPServer(("0.0.0.0", PORT), H).serve_forever()
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/adam/miniconda3/lib/python3.13/socketserver.py", line 457, in __init__
+    self.server_bind()
+    ~~~~~~~~~~~~~~~~^^
+  File "/home/adam/miniconda3/lib/python3.13/http/server.py", line 140, in server_bind
+    socketserver.TCPServer.server_bind(self)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/home/adam/miniconda3/lib/python3.13/socketserver.py", line 478, in server_bind
+    self.socket.bind(self.server_address)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+OSError: [Errno 98] Address already in use
+
+COMMAND UNDER TEST: curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' <url>
+
+MODE={}
+  injection asserted: status=200 body=[[{"src": {"dpid": "0000000000000001", "port_no": "00000001",]
+  under test        : [[{"src": {"dpid": "0000000000000001", "port_no": "00000001", "name": "s1-eth1"}, "dst": {"dpid": "0000000000000002", "port_no": "00000001", "name": "s2-eth1"}}]|@@ndt-topology-http-status@@200]
+MODE={"links":"http500"}
+  injection asserted: status=500 body=[{"error": "synthetic endpoint failure"}]
+  under test        : [{"error": "synthetic endpoint failure"}|@@ndt-topology-http-status@@500]
+MODE={"links":"malformed"}
+  injection asserted: status=200 body=[{"not": "an array"}]
+  under test        : [{"not": "an array"}|@@ndt-topology-http-status@@200]
+MODE={"links":"garbage"}
+  injection asserted: status=200 body=[<html>not json</html>]
+  under test        : [<html>not json</html>|@@ndt-topology-http-status@@200]
+MODE={"links":"emptybody"}
+  injection asserted: status=200 body=[]
+  under test        : [|@@ndt-topology-http-status@@200]
+
+# All five shapes deliver body + marker + status. classifyEndpointReply maps them to
+# ok / reported_failure / wrong_shape / unparseable / no_response respectively.
