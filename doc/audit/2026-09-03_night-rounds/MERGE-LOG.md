@@ -15,3 +15,9 @@ Adam 14:xx：「不會（看 18 份 diff），怎麼合併你自己決定。」�
 
 | # | 分支 | 裁決 | 理由 / 衝突 / 事後動作 |
 |---|---|---|---|
+| 1 | `docs/known-issues-batch1` | ✅ 併 | 純文件；Adam 說不看 diff ⇒ 依規則進。乾淨 |
+| 2 | `fix/deterministic-path-tiebreak` | ✅ 併 | 5 變異 0 存活（auditor 重跑）。乾淨 |
+| 3 | `fix/p4-priority-not-silently-dropped` | ✅ 併 | 7 變異 0 存活（auditor 重跑，含 cherry-pick 後）。501 取代假成功是正確性不是行為裁量。乾淨 |
+| 4 | `fix/l9-make-topology-stdout-json` | ✅ 併 | 見 `BRANCHES-FOR-REVIEW.md`。乾淨 |
+| 5 | `fix/g7-ndtwin-lab-config` | ✅ 併 | 59 checks＋閘門；乾淨（先於 g9 進，所以衝突落在 g9 那一步） |
+| 6 | `fix/g9-cleanup-no-pkill-f` | ✅ 併，**解了 3 檔衝突** | `ndtwin-lab` 兩塊：第一塊兩份同義註解取 G-9；第二塊是相鄰（sweep 函式 vs `lab_conf_gate`），兩者都留，順序 sweep→sourced-return→gate→case。`NEXT.md`／`RATIONALE.md` 兩份文件撞名，全留。**合併後重跑**：G-7 59/59、G-9 29/29、兩閘門全捕 |
