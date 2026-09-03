@@ -503,6 +503,69 @@ sweep_count() {
     echo "${n:-0}"
 }
 
+# -------------------------------------------------------------------------------------
+# THE 128-HOST OVS TOPOLOGY: WHICH FILE, AND HOW THE SWEEP FINDS IT AFTERWARDS.
+#
+# [Co-developed with claude code -- Adam]
+#
+# Finding #77 (2026-09-03). `ovs-topo-start` ran /home/adam/Network-Traffic-Generator/
+# testbed_topo.py -- a file in ANOTHER REPO -- while everything else in this project that names
+# the 128-host OVS topology names THIS repo's copy: components.env:80 defines
+# OVS_TOPO_SCRIPT=$KERNEL_DIR/testbed_topo.py, and stack.sh:775 prints exactly that path for the
+# operator to run by hand. So the manual path and the `ndt up ovs` path ran two different files.
+#
+# What that cost, concretely: finding #42 fixed this repo's copy so the closing banner is derived
+# from the ping self-test (counts, NOT MEASURED for the two claims nothing here tests, exit 1 on
+# loss). NTG's copy still prints the old constant
+#
+#     Host internet: OK | sFlow reachability: OK | Switch identification: OK
+#
+# unconditionally -- so an operator running `ndt up ovs` after #42 was merged still saw the
+# painted needle. "Fixed" was true of a file that this command did not run. Adam decided
+# 2026-09-03 (N13): ndt's paths run THIS repo's copy; NTG's is retired from them and NTG is not
+# modified.
+#
+# 🔑 The two functions below exist as functions, not as literals inside the dispatch, for one
+#    reason: the dispatch is unreachable from a non-root test (the root guard above, and sudo
+#    always execs) so a launch written inline can only ever be checked by grepping the source --
+#    which is what let the NTG path sit here for weeks. Sourced, these are callable, and
+#    tests/shell/test_ndt_ovs_topo_script.sh drives ovs_topo_start with a recording $TMUX and
+#    reads back the argv root would have been handed.
+
+# ovs_topo_script -- the topology file `ovs-topo-start` launches.
+#
+# Derived from KERNEL_DIR rather than written out, so an install-time config file that moves the
+# tree (G-7) moves this too. A second constant here would reintroduce FINDING-01's shape: two
+# places that name a tree and no message when they disagree.
+ovs_topo_script() { printf '%s/testbed_topo.py' "$KERNEL_DIR"; }
+
+# ovs_topo_pattern -- the path suffix that identifies that topology's process afterwards.
+#
+# 🔴 This is the half that is easy to forget, and forgetting it is worse than the original bug.
+# `cleanup` finds processes with sweep_matches, whose rule is "an argv element ENDS WITH
+# /<pattern>" -- that two-component suffix is precisely what lets one testbed_topo.py be named
+# and not another (see sweep_matches). Change which file runs and the old pattern
+# "Network-Traffic-Generator/testbed_topo.py" stops matching it: `ndt down`'s sweep would report
+# a clean machine over a live 128-host fabric. So the pattern is derived from the same KERNEL_DIR
+# the launch is, and cleanup sweeps the NTG suffix as well -- an orphan from a round that ran the
+# old code is still an orphan this is called to reap.
+ovs_topo_pattern() { printf '%s/testbed_topo.py' "${KERNEL_DIR##*/}"; }
+
+# ovs_topo_start -- start it, in root's tmux, from the tree the config file chose.
+#
+# The readability check is not decoration: without it a missing file makes tmux's window exit
+# instantly, `ovs-topo-start` still prints "started", and the caller (`ndt up ovs`) then waits
+# 300 s for a fabric that was never going to appear. Refusing here names the file instead.
+ovs_topo_start() {
+    local script; script="$(ovs_topo_script)"
+    [[ -r "$script" ]] || die "no readable OVS topology at $script
+  KERNEL_DIR is $KERNEL_DIR ($LAB_CONF_SOURCE).
+  This is the file components.env calls OVS_TOPO_SCRIPT and stack.sh prints for the operator."
+    $TMUX new-session -d -s topo -c "$KERNEL_DIR" "$NTG_PY" "$script"
+    # Which tree, every time -- the same reason topo-start says it (FINDING-01).
+    echo "OVS topo session started from $script (attach: sudo tmux -L ndtwinlab attach -t topo)"
+}
+
 # Sourced rather than executed: define the functions and stop, exactly as ndt and stack.sh do.
 # Without this there is no way to test lab_config_load at all. sudo always execs, never sources.
 (( NDTWIN_LAB_SOURCED == 1 )) && return 0
@@ -554,6 +617,12 @@ case "${1:-}" in
         rc=0
         sweep_kill "ntg_bmv2_topo"  ntg_bmv2_topo.py  || rc=1
         sweep_kill "p4_testbed_topo" p4_testbed_topo.py || rc=1
+        # The one this lab starts (finding #77), named from the same KERNEL_DIR the launch uses.
+        sweep_kill "OVS testbed_topo" "$(ovs_topo_pattern)" || rc=1
+        # ...and NTG's, which this lab no longer starts. Kept because `cleanup` means "reset the
+        # lab": an orphan left by a round that ran the old code, or by a hand-typed
+        # `sudo python3 testbed_topo.py` in the NTG tree, is still an orphan to reap. Dropping it
+        # would trade one silent survivor for another.
         sweep_kill "NTG testbed_topo" "Network-Traffic-Generator/testbed_topo.py" || rc=1
         mn -c >/dev/null 2>&1 || true
         sweep_kill "simple_switch_grpc" simple_switch_grpc || rc=1
@@ -569,15 +638,16 @@ case "${1:-}" in
         fi
         ;;
     ovs-topo-start)
-        # NTG's own OVS topology (128 hosts, RemoteController -> Ryu). Ryu must already be
-        # listening on 6653 -- the agent starts it unprivileged before calling this.
-        # Whose Ryu, though, is not checked here and cannot be: a controller left over from the
-        # previous round answers this probe exactly like the one the agent just started. That is
-        # rows 6653/6633 of tools/test_workflow/ports.sh, read by `ndt clean` and the preflight.
+        # This repo's 128-host OVS topology (RemoteController -> Ryu), the file components.env
+        # calls OVS_TOPO_SCRIPT. Until 2026-09-03 this ran NTG's copy instead; see
+        # ovs_topo_script above for what that cost and for Adam's decision (finding #77).
+        # Ryu must already be listening on 6653 -- the agent starts it unprivileged before
+        # calling this. Whose Ryu, though, is not checked here and cannot be: a controller left
+        # over from the previous round answers this probe exactly like the one the agent just
+        # started. That is rows 6653/6633 of tools/test_workflow/ports.sh, read by `ndt clean`
+        # and the preflight.
         session_running topo && die "topo session already running (topo-stop first)"
-        $TMUX new-session -d -s topo -c /home/adam/Network-Traffic-Generator \
-            "$NTG_PY" /home/adam/Network-Traffic-Generator/testbed_topo.py
-        echo "OVS topo session started (attach: sudo tmux -L ndtwinlab attach -t topo)"
+        ovs_topo_start
         ;;
     ovs-topo-4host)
         # OVS on the P4 test bed's own 10-switch/4-host layout, so a P4-vs-OVS comparison
