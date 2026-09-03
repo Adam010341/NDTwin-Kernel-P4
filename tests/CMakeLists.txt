@@ -2,6 +2,11 @@
 add_executable(
   test_routing_strategy
   test_LoggerEnvironment.cpp
+  # [Co-developed with claude code -- Adam] FINDINGS #63: `--logfile` was documented as taking a
+  # path and was in fact a boolean, so the named file stayed 0 bytes and stderr said nothing.
+  # Next to test_LoggerEnvironment.cpp because they are the two halves of the same object: that
+  # one owns "a logger exists", this one owns "it logs where it was told to".
+  test_LoggerCliArgs.cpp
   test_RoutingStrategies.cpp
   test_EstimatedRates.cpp
   test_RateDenominator.cpp

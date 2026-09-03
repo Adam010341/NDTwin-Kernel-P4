@@ -19,12 +19,19 @@
 /**
  * @brief Runtime logging configuration options for the global logger.
  *
- * enableFile controls whether logs are also written to a file sink.
+ * filePath selects the file logs are ALSO written to. Empty means console only.
  * level selects the minimum log severity that will be emitted.
+ *
+ * [Co-developed with claude code -- Adam]
+ * This used to be `bool enableFile` beside a hard-coded "netdt.log" inside Logger::init, and the
+ * two could disagree: `--logfile /where/i/want.log` set the bool, the path was dropped on the
+ * floor, and the run wrote to a file the operator had not named while the one they had named
+ * stayed 0 bytes with nothing on stderr. One field cannot contradict itself -- there is no
+ * "logging to a file is on" state that does not carry the file it is on.
  */
 struct LogConfig
 {
-    bool enableFile = false;
+    std::string filePath;
     spdlog::level::level_enum level = spdlog::level::info;
 };
 
@@ -69,6 +76,19 @@ class Logger
      * @return Parsed LogConfig.
      */
     static LogConfig parse_cli_args(int argc, char* argv[]);
+    /**
+     * @brief The logging options block, exactly as it is printed to a user.
+     *
+     * [Co-developed with claude code -- Adam]
+     * One string, two printers. `ndtwin_kernel --help` is answered by src/main.cpp's own parser,
+     * which runs first and exits before Logger::parse_cli_args is ever reached -- so the help text
+     * below this class used to be unreachable from the kernel, and main.cpp's usage merely pointed
+     * at it ("Logging options are also accepted; see --logfile / --loglevel"). Two texts, one of
+     * them invisible, is how a help text and a behaviour drift apart. Both callers print this.
+     *
+     * @return A newline-terminated, two-space-indented option block. Never null.
+     */
+    static const char* cli_usage();
     /**
      * @brief Initialize the global logger instance.
      *
