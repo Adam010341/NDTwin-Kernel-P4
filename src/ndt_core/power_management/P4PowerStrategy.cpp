@@ -267,25 +267,64 @@ P4PowerStrategy::now() const
     return std::chrono::steady_clock::now();
 }
 
-/** @brief Whether this strategy stopped @p swName recently enough that the graph cannot yet be
- *         believed about it. See kPostPowerOffDistrustWindow for where the bound comes from.
+/** @brief Whether this strategy stopped @p swName and nothing has observed it serving since.
  *
- * [Co-developed with claude code -- Adam]
+ * [Co-developed with claude code -- Adam] -- FINDINGS #80.
+ * This used to be `now() - it->second < kPostPowerOffDistrustWindow`, i.e. "has fifteen seconds
+ * passed". It is now "has anything looked". The record's PRESENCE is the answer: notePowerOff
+ * writes it on a confirmed stop, and the two things that can erase it are the two things that
+ * constitute post-kill evidence -- the helper's `on` exiting 0 (clearPowerOffRecord) and a
+ * liveness probe taken after the kill (acceptLivenessUp). Nothing else, and in particular not
+ * the passage of time.
+ *
+ * The clock is still read on the write side, because the comparison acceptLivenessUp makes needs
+ * a moment to compare against; it is no longer read here, because there is no longer a duration
+ * to measure.
  */
 bool
 P4PowerStrategy::poweredOffWithinDistrustWindow(const std::string& swName) const
 {
-    // Read the clock before taking the lock: now() is virtual, and nothing that overrides it
-    // should have to know what this function holds.
-    const std::chrono::steady_clock::time_point at = now();
+    const std::lock_guard<std::mutex> guard(m_lastPowerOffMutex);
+    return m_lastPowerOffAt.find(swName) != m_lastPowerOffAt.end();
+}
 
+/** @brief See the header. Judges one liveness Up and, when it counts, closes the window.
+ *
+ * [Co-developed with claude code -- Adam] -- FINDINGS #80.
+ */
+bool
+P4PowerStrategy::acceptLivenessUp(const std::string& swName,
+                                  std::optional<std::chrono::steady_clock::time_point> observedAt)
+{
     const std::lock_guard<std::mutex> guard(m_lastPowerOffMutex);
     const auto it = m_lastPowerOffAt.find(swName);
     if (it == m_lastPowerOffAt.end())
     {
+        // Nothing has been commanded off, so nothing is being distrusted and every observation
+        // counts. This is the branch the entire fabric takes on every tick.
+        return true;
+    }
+
+    // An Up whose probe cannot be placed in time. The proxy sends `probe_age_s` alongside every
+    // non-null `probe_ok`, so this means the two processes disagree about the schema -- and
+    // p4LivenessFor's standing policy for a reading it cannot trust is to decline a verdict
+    // rather than take the optimistic one. Same policy, one layer up.
+    if (!observedAt.has_value())
+    {
         return false;
     }
-    return at - it->second < kPostPowerOffDistrustWindow;
+
+    // Strictly after: a probe taken at the same instant as the kill saw the switch before the
+    // SIGTERM landed. The helper only exits 0 once the process is gone, so notePowerOff's stamp
+    // is already later than the death itself and the comparison has margin in the safe
+    // direction.
+    if (*observedAt <= it->second)
+    {
+        return false;
+    }
+
+    m_lastPowerOffAt.erase(it);
+    return true;
 }
 
 /** @brief Opens the distrust window for @p swName.

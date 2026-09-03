@@ -67,8 +67,11 @@
 #include <fstream>
 #include <memory>
 #include <shared_mutex>
+#include <stdexcept>
 #include <string>
 #include <vector>
+
+#include <unistd.h> // getpid, for the per-process fixture path
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
@@ -218,7 +221,19 @@ class PollDoesNotResurrectTest : public ::testing::Test
 
     void SetUp() override
     {
-        m_topoPath = std::string(::testing::TempDir()) + "f46_one_bmv2_switch.json";
+        // [Co-developed with claude code -- Adam]
+        // 🔴 PER PROCESS AND PER CASE. This was a single fixed name, and ctest runs one process
+        // per case (gtest_discover_tests) -- so two cases of this suite running at the same time
+        // wrote, read and std::remove()d ONE file. The loser's start() found no topology, sw()
+        // then indexed an empty graph, and the case died with SIGSEGV rather than failing.
+        // Measured before this line existed: `ctest -j8 -R PollDoesNotResurrectTest` eight times
+        // gave five failing runs and seven SegFaults, across five different cases; the same
+        // command at -j2 passed six times out of six, which is why it survived until a suite
+        // this size made the window wide enough. The test name is in the path as well as the
+        // pid, so a future --gtest_repeat or a sharded run cannot collide with itself either.
+        m_topoPath = std::string(::testing::TempDir()) + "f46_one_bmv2_switch_" +
+                     ::testing::UnitTest::GetInstance()->current_test_info()->name() + "_" +
+                     std::to_string(static_cast<long>(::getpid())) + ".json";
         std::ofstream out(m_topoPath);
         ASSERT_TRUE(out.is_open()) << "cannot write the fixture topology to " << m_topoPath;
         out << kOneBmv2Switch;
@@ -266,11 +281,32 @@ class PollDoesNotResurrectTest : public ::testing::Test
     void converge() { m_monitor->setVertexUp(sw()); }
 
     /// The fixture switch, after start() has loaded the topology.
+    ///
+    /// [Co-developed with claude code -- Adam]
+    /// 🔴 THROWS rather than returning a default descriptor. It used to be
+    ///
+    ///     EXPECT_TRUE(vOpt.has_value()) << "the fixture topology did not load";
+    ///     return vOpt.value_or(Graph::vertex_descriptor{});
+    ///
+    /// -- and every caller feeds the result straight to `(*m_graph)[...]`. A default descriptor
+    /// indexed into an empty graph is undefined behaviour, so a fixture that failed to load did
+    /// not fail its case: it took the whole test process down with SIGSEGV, and under ctest that
+    /// is one line of "Exception: SegFault" with the EXPECT's message nowhere in sight.
+    ///
+    /// The EXPECT was the giveaway -- a non-fatal assertion in a function whose return value is
+    /// then dereferenced can only report the problem, never prevent it, and ASSERT_ is not
+    /// available here because it needs a void return. gtest reports an escaped exception as a
+    /// failure of the case that threw, which is what a broken fixture should be.
     Graph::vertex_descriptor sw()
     {
         const auto vOpt = m_monitor->findSwitchByDpid(kDpid);
-        EXPECT_TRUE(vOpt.has_value()) << "the fixture topology did not load";
-        return vOpt.value_or(Graph::vertex_descriptor{});
+        if (!vOpt.has_value())
+        {
+            throw std::runtime_error("the fixture topology did not load: no switch with dpid " +
+                                     std::to_string(kDpid) + " (topology file " + m_topoPath +
+                                     ")");
+        }
+        return *vOpt;
     }
 
     bool isUp()
@@ -478,8 +514,23 @@ TEST_F(PollDoesNotResurrectTest, PowerOnActuatesWhenACommandedOffIsStillStanding
     FakeP4 p4;
     ASSERT_EQ(p4.powerOff(sw(), "s1", m_monitor.get()).ok, true);
 
-    p4.advance(std::chrono::seconds(60)); // long past kPostPowerOffDistrustWindow
+    p4.advance(std::chrono::seconds(60));
     m_monitor->setVertexUp(sw());         // the graph now lies about this switch
+
+    // [Co-developed with claude code -- Adam] -- FINDINGS #80.
+    // 🔴 THIS LINE IS WHAT MAKES THE CASE DISCRIMINATE, and it was not needed before. The
+    // distrust window used to expire on a clock, so `advance(60)` above closed it and the only
+    // thing left forcing this power-on to act was the standing COMMAND -- which is what the case
+    // is named for. The window is now bounded by evidence, so time alone leaves it open and the
+    // call would actuate whether or not the command survived: the case would pass while saying
+    // nothing about the flag. mutate_poll_does_not_resurrect.sh M2/M3/M8 caught exactly that.
+    //
+    // A probe taken after the kill is also the real scenario: somebody restarted the switch out
+    // of band, the twin has seen it serving, and the command has still not been withdrawn.
+    ASSERT_TRUE(p4.acceptLivenessUp("s1", p4.fakeNow))
+        << "a probe dated after the kill did not close the window, so the assertion below would "
+           "pass on the window rather than on the command";
+
     p4.commands.clear();
 
     const OpResult r = p4.powerOn(sw(), "s1", kDpid, m_monitor.get());
@@ -589,15 +640,20 @@ TEST_F(PollDoesNotResurrectTest, ARedundantOvsPowerOffIsStillRecordedAsACommand)
            "would have vetoed it took an early return on the graph's own cached isUp";
 }
 
-// --- 6. Q12: the wire shape is deliberately unchanged --------------------------------------------
+// --- 6. Q12: the wire shape, after the ruling ----------------------------------------------------
 
 /**
- * Q12 asks Adam whether `is_up` should become `admin_state` + `reachable` on the wire. That is a
- * design decision and it is not this fix's to take, so the separation is internal and the emitted
- * shape is byte-for-byte what it was. This case fails if anyone -- including a later version of
- * this fix -- answers Q12 by accident.
+ * Q12 asked Adam whether `is_up` should become `admin_state` + `reachable` on the wire. He ruled
+ * (a) on 2026-09-03: split them, and keep `is_up` as a deprecated alias of `reachable` so the
+ * external readers keep working. This case used to assert the opposite -- that no new key
+ * appeared -- and was written to go red the moment the question was answered, which is what it
+ * has now done.
+ *
+ * It stays here, pointed the other way, because the state it checks the shape in is this file's
+ * state and no other: after a commanded power-off AND the poll that used to undo it. The wider
+ * shape and alias assertions live in tests/test_IsUpSplit.cpp.
  */
-TEST_F(PollDoesNotResurrectTest, TheEmittedVertexShapeGainsNoNewKey)
+TEST_F(PollDoesNotResurrectTest, TheEmittedVertexShapeCarriesAdminStateAndReachable)
 {
     startMonitor();
     converge();
@@ -613,11 +669,13 @@ TEST_F(PollDoesNotResurrectTest, TheEmittedVertexShapeGainsNoNewKey)
         j = (*m_graph)[sw()];
     }
 
-    EXPECT_FALSE(j.contains("admin_powered_off"))
-        << "Q12 has not been ruled on; the internal split must not reach the wire";
-    EXPECT_FALSE(j.contains("admin_state"));
-    EXPECT_FALSE(j.contains("reachable"));
-    EXPECT_TRUE(j.contains("is_up")) << "is_up is what four consumers read; it must still be there";
-    EXPECT_FALSE(j["is_up"].get<bool>())
-        << "a commanded-off switch must report is_up false through the shape that already exists";
+    EXPECT_EQ(j.value("admin_state", ""), "off")
+        << "the commanded half of the old is_up now has its own name, and this switch was "
+           "commanded off";
+    EXPECT_FALSE(j.value("reachable", true))
+        << "the observed half must still say the poll did not resurrect it";
+    EXPECT_TRUE(j.contains("is_up")) << "is_up is what four consumers read; the ruling keeps it "
+                                        "as an alias rather than removing it";
+    EXPECT_EQ(j.value("is_up", true), j.value("reachable", false))
+        << "the alias drifted from the field it aliases";
 }

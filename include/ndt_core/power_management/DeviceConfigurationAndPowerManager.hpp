@@ -7,6 +7,7 @@
 #include <functional>        // for function (the T-11 programmed-entry predicate)
 #include <memory>            // for shared_ptr
 #include <nlohmann/json.hpp> // for json
+#include <set>              // for set (pingWorker's edge-trigger memory)
 #include <shared_mutex>
 #include <stdint.h>           // for uint32_t, uint64_t
 #include <optional>           // for optional
@@ -23,6 +24,12 @@ struct VertexProperties;
 
 // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
 #include "ndt_core/power_management/IPowerStrategy.hpp"
+// [Co-developed with claude code -- Adam] -- FINDINGS #80.
+// The concrete type, not just the interface: the 1 Hz worker feeds probe timestamps to the P4
+// strategy's distrust bookkeeping (acceptLivenessUp), which is a bmv2 concern and has no meaning
+// for OVS. Putting it on IPowerStrategy would give OVSPowerStrategy a method that can only
+// return "yes, accept" -- an interface member no implementation shares is not an interface.
+#include "ndt_core/power_management/P4PowerStrategy.hpp"
 // [Co-developed with claude code -- Adam] KNOWN-ISSUES F-6: UnreadSwitch and the carry-forward rule.
 #include "ndt_core/power_management/StaleTableCarryForward.hpp"
 
@@ -553,6 +560,69 @@ class DeviceConfigurationAndPowerManager
      */
     static OvsLiveness p4LivenessFor(uint64_t dpid, const std::optional<nlohmann::json>& payload);
 
+    /**
+     * @brief The age in seconds of the probe p4LivenessFor's verdict rests on, when the payload
+     *        says; nullopt when it does not.
+     *
+     * [Co-developed with claude code -- Adam] -- FINDINGS #80.
+     * Separate from p4LivenessFor rather than returned beside the verdict, so the verdict policy
+     * above keeps exactly the shape it had and this can be read on its own by a test. It reads
+     * the same `probe_age_s` p4LivenessFor uses for its staleness branch -- one number, two
+     * questions: "has the proxy's poller stalled" (that branch) and "was this probe taken before
+     * or after we killed the switch" (this one). Only the second can distinguish a cache from an
+     * observation, which is why the first was not enough.
+     *
+     * Malformed (a string where a number belongs) is nullopt, not zero: the same reading the
+     * verdict policy refuses to trust must not become a confident "just now" here.
+     */
+    static std::optional<double> p4ProbeAgeSeconds(uint64_t dpid,
+                                                   const std::optional<nlohmann::json>& payload);
+
+    /**
+     * @brief Whether a bmv2 liveness Up may be written to the graph, and closes the distrust
+     *        window when it may.
+     *
+     * [Co-developed with claude code -- Adam] -- FINDINGS #80.
+     * The join between the two halves: it turns the payload's `probe_age_s` into the absolute
+     * moment the probe was taken and hands that to P4PowerStrategy::acceptLivenessUp, which owns
+     * the record of when this switch was stopped. Not static, and not const: it writes the
+     * once-per-episode warning's memory and, through the strategy, closes the window.
+     */
+    bool acceptP4LivenessUp(const std::string& swName,
+                            uint64_t dpid,
+                            const std::optional<nlohmann::json>& payload);
+
+    /**
+     * @brief The verdict the 1 Hz worker acts on for one bmv2 switch: p4LivenessFor's answer,
+     *        with an Up that rests on a pre-kill probe downgraded to Unknown.
+     *
+     * [Co-developed with claude code -- Adam] -- FINDINGS #80.
+     * Extracted for the same reason ovsLivenessFor and p4LivenessFor were, and the mutation gate
+     * is what made the reason concrete: while this lived inline in pingWorker's switch, the line
+     * that consults the evidence could not be reached by any test -- the worker needs a running
+     * proxy -- so a mutation deleting it survived. Policy that cannot be driven is policy that
+     * is not gated.
+     *
+     * Downgraded to Unknown rather than to Down: a stale reading is an absence of current
+     * evidence, not evidence of death, and Unknown is the branch this file already reserves for
+     * "cannot tell, so do not touch the graph".
+     */
+    OvsLiveness p4VerdictFor(const std::string& swName,
+                             uint64_t dpid,
+                             const std::optional<nlohmann::json>& payload);
+
+    /**
+     * @brief The P4 strategy the 1 Hz worker consults about post-kill evidence.
+     *
+     * [Co-developed with claude code -- Adam] -- FINDINGS #80.
+     * A seam, in the same sense as the power strategies' executeSystemCommand: production has
+     * exactly one implementation. It exists because the only way to open a distrust window is to
+     * confirm a stop, and confirming a stop means running the real root helper against a real
+     * bmv2 -- so a test that wants to ask "is a pre-kill probe declined" has no other way in. A
+     * subclass hands back a strategy whose shell calls are recorded instead of run.
+     */
+    virtual P4PowerStrategy* p4Strategy() { return m_p4PowerStrategy.get(); }
+
     /// What the smart-plug gateway's reply says about a power request.
     /// [Co-developed with claude code -- Adam]
     struct RelayResult
@@ -753,7 +823,16 @@ class DeviceConfigurationAndPowerManager
 
     // [P4 Proxy Integration] Developed in collaboration with Gemini 3.1 Pro.
     std::unique_ptr<IPowerStrategy> m_ovsPowerStrategy;
-    std::unique_ptr<IPowerStrategy> m_p4PowerStrategy;
+    // [Co-developed with claude code -- Adam] -- FINDINGS #80. Concrete: see the include note.
+    std::unique_ptr<P4PowerStrategy> m_p4PowerStrategy;
+
+    /// Switches whose liveness Up is currently being declined as a pre-kill reading, so the
+    /// warning is emitted once per episode rather than once per second.
+    ///
+    /// [Co-developed with claude code -- Adam]
+    /// Touched only by pingWorker's thread, like FailureRun above and for the same reason: ten
+    /// identical warnings per second is how the last log flood happened.
+    std::set<std::string> m_decliningStaleUp;
 
     /**
      * @brief Selects the power strategy for a switch, in O(1).

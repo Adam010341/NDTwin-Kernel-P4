@@ -106,6 +106,10 @@ add_executable(
   # workers read their stop flag only between rounds, so a stop waited out one curl per switch
   # (81.09 s measured) or per topology endpoint. Timed against a listener that never answers.
   test_KernelStopIsBounded.cpp
+  # [Co-developed with claude code -- Adam] Q12 (Adam's ruling (a), 2026-09-03) with FINDINGS #80:
+  # `is_up` answered two questions at once, so a commanded-off switch and a crashed one were the
+  # same shape. Split into admin_state + reachable, is_up kept as a deprecated alias.
+  test_IsUpSplit.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

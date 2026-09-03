@@ -176,9 +176,22 @@ def facts_util_map(d):
 
 
 def facts_power_state(d):
-    vals = set(d.values()) if isinstance(d, dict) else set()
+    # [Co-developed with claude code -- Adam] -- Q12.
+    # Two shapes: the pre-split scalar "ON"/"OFF", and the post-split per-switch object. A
+    # baseline recorded against one kernel is compared against another, so both must reduce to
+    # the same fact names or every comparison across the change reads as a regression.
+    vals = set()
+    admin = set()
+    if isinstance(d, dict):
+        for v in d.values():
+            if isinstance(v, dict):
+                admin.add(str(v.get("admin_state")).strip().lower())
+            else:
+                vals.add(v)
     return {"switches_reporting": _cat(len(d) if isinstance(d, dict) else 0),
-            "values_are_on_off": vals <= {"ON", "OFF"} if vals else False}
+            "values_are_on_off": (vals <= {"ON", "OFF"} if vals else False)
+                                 or (admin <= {"on", "off"} if admin else False),
+            "reports_admin_state_separately": bool(admin)}
 
 
 FACT_EXTRACTORS = {
