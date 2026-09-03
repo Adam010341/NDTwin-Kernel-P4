@@ -568,6 +568,25 @@ class DeviceConfigurationAndPowerManager
                             const std::optional<nlohmann::json>& payload);
 
     /**
+     * @brief The verdict the 1 Hz worker acts on for one bmv2 switch: p4LivenessFor's answer,
+     *        with an Up that rests on a pre-kill probe downgraded to Unknown.
+     *
+     * [Co-developed with claude code -- Adam] -- FINDINGS #80.
+     * Extracted for the same reason ovsLivenessFor and p4LivenessFor were, and the mutation gate
+     * is what made the reason concrete: while this lived inline in pingWorker's switch, the line
+     * that consults the evidence could not be reached by any test -- the worker needs a running
+     * proxy -- so a mutation deleting it survived. Policy that cannot be driven is policy that
+     * is not gated.
+     *
+     * Downgraded to Unknown rather than to Down: a stale reading is an absence of current
+     * evidence, not evidence of death, and Unknown is the branch this file already reserves for
+     * "cannot tell, so do not touch the graph".
+     */
+    OvsLiveness p4VerdictFor(const std::string& swName,
+                             uint64_t dpid,
+                             const std::optional<nlohmann::json>& payload);
+
+    /**
      * @brief The P4 strategy the 1 Hz worker consults about post-kill evidence.
      *
      * [Co-developed with claude code -- Adam] -- FINDINGS #80.

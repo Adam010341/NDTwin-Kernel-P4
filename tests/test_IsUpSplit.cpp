@@ -164,6 +164,8 @@ class TestableManager : public DeviceConfigurationAndPowerManager
 
     using DeviceConfigurationAndPowerManager::acceptP4LivenessUp;
     using DeviceConfigurationAndPowerManager::p4ProbeAgeSeconds;
+    using DeviceConfigurationAndPowerManager::p4VerdictFor;
+    using DeviceConfigurationAndPowerManager::OvsLiveness;
 
   protected:
     P4PowerStrategy* p4Strategy() override { return m_fake; }
@@ -627,6 +629,50 @@ TEST_F(IsUpSplitTest, TheWorkerAcceptsAFreshUpAndItClosesTheWindow)
     EXPECT_TRUE(fake.commands.empty())
         << "the window was still open after a probe that had seen the switch serving; ran: "
         << (fake.commands.empty() ? std::string{} : fake.commands[0]);
+}
+
+/**
+ * 🔴 THE VERDICT THE WORKER ACTS ON, which is the only thing the graph ever sees. The case above
+ * proves the judgement; this one proves it is WIRED -- that a declined Up becomes Unknown, the
+ * one verdict the worker does not write. The gate found this gap: while the check sat inline in
+ * pingWorker's switch, no test could reach it and deleting it survived.
+ */
+TEST_F(IsUpSplitTest, AStaleUpBecomesUnknownSoTheWorkerWritesNothing)
+{
+    Fixture fix;
+    FakeP4 fake;
+    TestableManager manager(fix.monitor, &fake);
+
+    fake.fakeNow = std::chrono::steady_clock::now();
+    ASSERT_TRUE(fake.powerOff(fix.commanded, "s1", fix.monitor.get()).ok);
+
+    EXPECT_EQ(manager.p4VerdictFor("s1", 1, switchState(1, true, 30.0)),
+              TestableManager::OvsLiveness::Unknown)
+        << "a pre-kill probe still reaches the graph as Up. Unknown is the verdict the worker "
+           "does not act on, and it is the only one that leaves the vertex alone";
+
+    EXPECT_EQ(manager.p4VerdictFor("s1", 1, switchState(1, true, 0.0)),
+              TestableManager::OvsLiveness::Up)
+        << "a probe taken now was downgraded too; that is 'never believe liveness again'";
+}
+
+/**
+ * Downgraded, not inverted. A stale Up must not become Down -- the twin would be asserting that
+ * a switch is dead on the strength of a reading it has just declared unusable.
+ */
+TEST_F(IsUpSplitTest, ADownVerdictIsPassedThroughUntouched)
+{
+    Fixture fix;
+    FakeP4 fake;
+    TestableManager manager(fix.monitor, &fake);
+
+    fake.fakeNow = std::chrono::steady_clock::now();
+    ASSERT_TRUE(fake.powerOff(fix.commanded, "s1", fix.monitor.get()).ok);
+
+    EXPECT_EQ(manager.p4VerdictFor("s1", 1, switchState(1, false, 0.5)),
+              TestableManager::OvsLiveness::Down)
+        << "the evidence check touched a verdict that was not Up; it exists to stop a stale "
+           "reading LIFTING a switch, not to stop the twin noticing a dead one";
 }
 
 /**

@@ -20,14 +20,20 @@
 #       measured length is 8-13 s of stale cache. A timer cannot know whether anything looked.
 #
 # 🔴 TWO DIRECTIONS, AND THE SECOND IS WHY THIS GATE IS MORE THAN A SHAPE CHECK
-#   1. PUTTING THE CONFLATION BACK must be caught     (M1-M8, M12, M13, M15)
+#   1. PUTTING THE CONFLATION BACK must be caught  (M1-M10, M12, M13, M14, M17)
 #      -- the wire losing a field, the alias tracking the wrong one, admin_state derived from the
-#         observation again, the endpoint back to one scalar, distrust back on a clock.
-#   2. OVER-CORRECTING must ALSO be caught            (M9, M11, M14, M16)
+#         observation again, the endpoint back to one scalar, distrust back on a clock, the probe
+#         age discarded, and the control-plane push withdrawing a command.
+#   2. OVER-CORRECTING must ALSO be caught          (M15, M16, M18, and M11's second half)
 #      -- "never believe liveness again" satisfies every assertion in direction 1 and is a bigger
 #         outage than the defect: the 1 Hz worker is the only writer that brings a bmv2 switch
 #         back. A gate without these would green-light `return false;` at the top of
 #         acceptLivenessUp, and a twin that reports a live fabric dead.
+#
+# 🔴 BUILD WITH JOBS=1. Two of this target's translation units (HttpSession.cpp, LLMAgent.cpp)
+# hold ~1.6 GB each, and the build guard's cgroup is MemoryHigh=3G -- so at JOBS=2 they exceed it
+# together and the kernel throttles both to about 20% CPU indefinitely. The first run of this gate
+# was abandoned at W2 for exactly that. One TU fits.
 #
 # 🔴 THREE MUTATIONS MUST **NOT** BE CAUGHT (W1, W2, W3). A suite that reddens on these is
 # pinning source text rather than behaviour:
@@ -52,11 +58,11 @@
 # starts Mininet, bmv2, OVS or a listening socket.
 #
 # 🔴 BUILD UNDER THE GUARD. This laptop's oomd took the user's own application down on 2026-09-02.
-#   tools/build_guard/guarded_build.sh ./tests/shell/mutate_is_up_split.sh
+#   JOBS=1 tools/build_guard/guarded_build.sh ./tests/shell/mutate_is_up_split.sh
 #
-# Usage:  tools/build_guard/guarded_build.sh ./tests/shell/mutate_is_up_split.sh
+# Usage:  JOBS=1 tools/build_guard/guarded_build.sh ./tests/shell/mutate_is_up_split.sh
 #   BUILD_DIR=build     configured build directory (ninja)
-#   JOBS=2              build parallelism
+#   JOBS=1              build parallelism -- see the MemoryHigh note above before raising it
 #   TEST_TIMEOUT=300    seconds allowed per test-binary run
 #
 # Exit: 0 every mutation caught by the test it names, all three widenings survived, tree restored
@@ -66,7 +72,7 @@ set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
 BUILD_DIR="${BUILD_DIR:-build}"
-JOBS="${JOBS:-2}"
+JOBS="${JOBS:-1}"
 TEST_TIMEOUT="${TEST_TIMEOUT:-300}"
 TARGET=test_routing_strategy
 BIN="$BUILD_DIR/bin/$TARGET"
@@ -135,7 +141,7 @@ add_anchor "endpoint"      "$PM" '        result[sip] = json{
             {"admin_state",
              m_topologyAndFlowMonitor->getVertexAdminPoweredOff(nodeOpt.value()) ? "off" : "on"},
             {"reachable", m_topologyAndFlowMonitor->getVertexIsUp(nodeOpt.value())}};'
-add_anchor "worker-join"   "$PM" '                            if (!acceptP4LivenessUp(swName, graph[v].dpid, p4SwitchState))'
+add_anchor "worker-join"   "$PM" '    if (verdict == OvsLiveness::Up && !acceptP4LivenessUp(swName, dpid, payload))'
 add_anchor "probe-age"     "$PM" '    return ageIt->get<double>();'
 add_anchor "decline-warn"  "$PM" '                           "declining a liveness Up for {}: the twin powered it off and the "'
 add_anchor "window"        "$P4" '    const std::lock_guard<std::mutex> guard(m_lastPowerOffMutex);
@@ -437,13 +443,17 @@ mutate "an untimed Up counts as evidence" \
     }' \
     IsUpSplitTest.AnUpWithNoProbeTimestampIsNotEvidence
 
-# M13. The worker stops asking: the join is bypassed and every Up is written, which is trunk's
-#      behaviour and the 8-13 s of `is_up=true` after every kill that #80 measured.
-mutate "the 1 Hz worker writes every Up without dating it" \
+# M13. The worker stops asking: the verdict is passed through undated and every Up is written,
+#      which is trunk's behaviour and the 8-13 s of `is_up=true` after every kill that #80
+#      measured. 🔴 THIS MUTATION SURVIVED THE GATE'S FIRST RUN, because the check was inline in
+#      pingWorker's switch and the worker needs a running proxy -- no test could reach the line.
+#      That is what moved the policy into p4VerdictFor: policy that cannot be driven is policy
+#      that is not gated.
+mutate "the worker acts on the raw verdict without dating it" \
     "$PM" \
-    '                            if (!acceptP4LivenessUp(swName, graph[v].dpid, p4SwitchState))' \
-    '                            if (false)' \
-    IsUpSplitTest.TheWorkerDeclinesAnUpWhoseProbePredatesTheKill
+    '    if (verdict == OvsLiveness::Up && !acceptP4LivenessUp(swName, dpid, payload))' \
+    '    if (false)' \
+    IsUpSplitTest.AStaleUpBecomesUnknownSoTheWorkerWritesNothing
 
 # M14. The probe's age is discarded, so every reading is dated to the moment it was COLLECTED --
 #      which is how a cache launders itself into current evidence. The join still runs.
@@ -458,20 +468,22 @@ mutate "the probe age is thrown away and every reading is dated now" \
 #    direction 2 -- over-correcting. 🔴 These are why this gate is not just a shape check.
 # ================================================================================================
 
-# M15. THE OVER-CORRECTION: nothing is ever believed again. Every catch in direction 1 gets
-#      GREENER, and the twin reports a live fabric dead -- the 1 Hz worker is the only writer
-#      that brings a bmv2 switch back for anything discovery answers Unknown about.
-mutate "no liveness Up is ever accepted again" \
+# M15. THE OVER-CORRECTION: a switch this strategy never stopped is distrusted too, so nothing
+#      is ever believed again. Every catch in direction 1 gets GREENER, and the twin reports a
+#      live fabric dead -- the 1 Hz worker is the only writer that brings a bmv2 switch back for
+#      anything discovery answers Unknown about.
+#      🔴 The gate's first run named a third test here that has a power-off RECORD, so this branch
+#      is not on its path at all -- a mutation must name the tests it can actually reach.
+mutate "an uncommanded switch's liveness is distrusted too" \
     "$P4" \
-    '    if (it == m_lastPowerOffAt.end())
-    {
-        // Nothing has been commanded off, so nothing is being distrusted and every observation' \
-    '    if (false)
-    {
-        // Nothing has been commanded off, so nothing is being distrusted and every observation' \
+    '        // Nothing has been commanded off, so nothing is being distrusted and every observation
+        // counts. This is the branch the entire fabric takes on every tick.
+        return true;' \
+    '        // Nothing has been commanded off, so nothing is being distrusted and every observation
+        // counts. This is the branch the entire fabric takes on every tick.
+        return false;' \
     IsUpSplitTest.AnUncommandedSwitchAcceptsEveryLivenessUp \
-    IsUpSplitTest.TheWorkerAcceptsEveryUpForASwitchItNeverStopped \
-    IsUpSplitTest.AProbeTakenAfterTheKillClosesTheWindow
+    IsUpSplitTest.TheWorkerAcceptsEveryUpForASwitchItNeverStopped
 
 # M16. The narrower over-correction: the window never closes on evidence, only on a power-on. A
 #      switch restarted out of band is then distrusted for the life of the process.

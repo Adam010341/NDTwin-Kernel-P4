@@ -506,6 +506,23 @@ DeviceConfigurationAndPowerManager::p4ProbeAgeSeconds(uint64_t dpid,
     return ageIt->get<double>();
 }
 
+/** @brief See the header. p4LivenessFor's verdict, with a stale Up downgraded to Unknown.
+ *
+ * [Co-developed with claude code -- Adam] -- FINDINGS #80.
+ */
+DeviceConfigurationAndPowerManager::OvsLiveness
+DeviceConfigurationAndPowerManager::p4VerdictFor(const std::string& swName,
+                                                 uint64_t dpid,
+                                                 const std::optional<json>& payload)
+{
+    const OvsLiveness verdict = p4LivenessFor(dpid, payload);
+    if (verdict == OvsLiveness::Up && !acceptP4LivenessUp(swName, dpid, payload))
+    {
+        return OvsLiveness::Unknown;
+    }
+    return verdict;
+}
+
 /** @brief See the header. Dates one Up verdict and asks the P4 strategy whether it counts.
  *
  * [Co-developed with claude code -- Adam] -- FINDINGS #80.
@@ -928,7 +945,7 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
                         // that had been killed reported healthy again within one second. Now keyed
                         // on what the proxy actually observed: a round-tripped P4Runtime RPC, and
                         // LLDP freshness as corroboration. See p4LivenessFor for the policy.
-                        switch (p4LivenessFor(graph[v].dpid, p4SwitchState))
+                        switch (p4VerdictFor(swName, graph[v].dpid, p4SwitchState))
                         {
                         case OvsLiveness::Up:
                             // [Co-developed with claude code -- Adam] -- FINDINGS #80.
@@ -948,15 +965,12 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
                             // stamped with the moment it was COLLECTED, which is precisely how a
                             // cache launders itself into current evidence.
                             //
-                            // Declining is silent in the graph -- the vertex keeps whatever it
-                            // held -- and that is the same Unknown the branch below takes when
-                            // the payload cannot be trusted. It applies ONLY to a switch this
-                            // strategy has stopped and nothing has seen since; for every other
-                            // switch acceptLivenessUp answers yes and this costs one map lookup.
-                            if (!acceptP4LivenessUp(swName, graph[v].dpid, p4SwitchState))
-                            {
-                                break;
-                            }
+                            // Declining is silent in the graph -- the vertex keeps whatever
+                            // it held -- because p4VerdictFor turns such a reading into the same
+                            // Unknown the branch below takes when the payload cannot be trusted.
+                            // It applies ONLY to a switch this strategy has stopped and nothing
+                            // has seen since; for every other switch the verdict is unchanged
+                            // and it costs one map lookup.
                             SPDLOG_LOGGER_DEBUG(Logger::instance(), "{} reachable", swName);
                             m_topologyAndFlowMonitor->setVertexUp(v);
                             break;
