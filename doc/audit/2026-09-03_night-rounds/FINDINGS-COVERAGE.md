@@ -33,12 +33,12 @@
 
 | 狀態 | 條數 | 編號 |
 |---|---:|---|
-| ✅ IN TRUNK / 已修 | **47** | 4–7, 10–17, 19–20, 22–24, 26, 28–30, 32, 41–42, 45, 47–48, 50, 53, 56, 58–60, 63–65, 71–74, 78, 35–36, 46, 69–70, 77 |
-| 🛠 派工中 | **12** | 8, 27, 33–34, 38, 61–62, 75–76, 80–82 |
+| ✅ IN TRUNK / 已修 | **49** | 4–7, 10–17, 19–20, 22–24, 26, 28–30, 32, 41–42, 45, 47–48, 50, 53, 56, 58–60, 63–65, 71–74, 78, 35–36, 46, 69–70, 77, 75, 8 |
+| 🛠 派工中 | **10** | 27, 33–34, 38, 61–62, 76, 80–82 |
 | ⭕ UNASSIGNED | **23** | 1–3, 9, 18, 21, 25, 31, 37, 39–40, 43, 49, 51–52, 54–55, 66–68, 79, 83–84 |
 | ➖ NOT A DEFECT | **1** | 44 |
 | ❓ UNKNOWN | **1** | 57 |
-| **合計** | **84** | （09-03 23:5x 由各列狀態欄重算；派工中＝7 支：ndtcheck #8（已交付、驗收中）、isup Q12+#33/34/80/81、chaoswire #75（已交付、驗收中）、stop #27/76、ovsoff #82、topoval #61/62、refused #38；⭕ 含 #52 碼半（文件半已併）、#83＝Adam 的 `sudo install`、#84 等 N14 Q5；#83–84 是 #77 交付時挖出的） |
+| **合計** | **84** | （09-04 00:4x 由各列狀態欄重算；派工中＝5 支（全 C++，排在同一把建置鎖後）：isup Q12+#33/34/80/81、stop #27/76（00:0x 被 watchdog 收掉、00:15 接回）、ovsoff #82、topoval #61/62、refused #38；⭕ 含 #52 碼半（文件半已併）、#83＝Adam 的 `sudo install`、#84 等 N14 Q5；#83–84 是 #77 交付時挖出的） |
 
 **未併分支的實況（`git for-each-ref` ＋ 逐支 `git rev-list --count`）**
 
@@ -72,7 +72,7 @@
 
 | # | 一句話 | 狀態 | 證據 | 誰該接手 |
 |---|---|---|---|---|
-| 8 | `ndt status --check` 在健康 ovs4 上報假紅，且在 OVS 上零鑑別力 | 🛠 派工中（20:4x，`fix/ndt-status-check-baseline`，base trunk，N12 裁 (a)） | trunk `ndt:1367-1375`：`want` 取自 `$topo`，比 `"$g_hosts $g_edges"`，紅時 push `the kernel graph does not match the topology file`。`host_count_override` 在 trunk 的 `ndt` 出現 7 次，在 `fix/ports`／`fix/g6`／`t8-t10` 三支上**也是 7 次** ⇒ 沒人動 | 🔑 **規格現成**：trunk `eae75da5`（`verify_p4` 改讀 `fabric_host_count()`）是同一形狀的解法。⚠️ `t8-t10-fixes` 的 `39ee5484` 修的是 `verify_p4`，**不是**這個檢查 |
+| 8 | `ndt status --check` 在健康 ovs4 上報假紅，且在 OVS 上零鑑別力 | ✅ IN TRUNK | `98b5e642`（merge `48c929fc` of `fix/ndt-status-check-baseline`，修法 `11de4b7e`）：`up` 寫 `.test_run/up.target`、`--check` 逐欄比對含 `dataplane`、rc 3＝沒比對；auditor 紅臂 55/61、綠 61/0、閘門 12/0、鄰居 88/0、合併樹重跑；MERGE-LOG 32 | 🔑 **規格現成**：trunk `eae75da5`（`verify_p4` 改讀 `fabric_host_count()`）是同一形狀的解法。⚠️ `t8-t10-fixes` 的 `39ee5484` 修的是 `verify_p4`，**不是**這個檢查 |
 | 9 | OVS 收下 action 為 `OUTPUT:999` 的流（s1 上不存在的 port） | ⭕ UNASSIGNED | `OUTPUT:999` 在所有分支 diff 0 命中；OVS 側的 flow 安裝驗證路徑不在任何分支的變更檔清單裡 | 需要 ovs4 |
 | 10 | 每條流的速率沒有分母，誤差＝迴圈週期，大象流門檻一定錯 | ✅ IN TRUNK（09-03 整合 `b466407b`） | `fix/flow-rate-denominator @ 6088c0b5`，動 `include/common_types/SFlowType.hpp`（新純函式 `updateFlowRatesForInterval`）、`include/ndt_core/collection/FlowLinkUsageCollector.hpp`、`src/.../FlowLinkUsageCollector.cpp`、`tests/test_RateDenominator.cpp`、`tests/shell/mutate_flow_rate_denominator.sh`。閘門：**作者宣稱** 5 變異／0 存活（F1 逐字還原出貨運算式，F4 是唯一斷言接線的那格）；**無 control 變異**、**分支上無 raw log**、**auditor 未重跑** | 🔴 合併前置條件是作者自己下的：T1／T2／T3 三筆既有結論要先對帳 |
 | 11 | `check_logs.py` 崩潰樣式表缺 12 類致命訊息（含 SIGKILL／oomd） | ✅ IN TRUNK（09-03 整合 `b466407b`） | `fix/b5-kernel-shutdown @ e9f1326e`，commit `d050bb35`，動 `tools/contract_test/check_logs.py` ＋ `tests/shell/test_check_logs_crash_patterns.sh`。閘門：**先看過紅且 raw 有 commit**——`raw/b5-fix/test_crash_patterns_vs_HEAD.red.txt`（對 HEAD 32 checks／12 failed，本分支 0 failed）；auditor 未重跑 | 併入後對既有 audit log 重跑會出現新的紅，要有人吃 |
@@ -218,7 +218,7 @@
 | 72 | demo image 的 netplan 綁死 QEMU 的 MAC，換 hypervisor 沒網路 | ✅ 已修（image） | `開機手冊` session，`doc/audit/2026-09-03_virtualbox-demo-vm/REPORT.md`，紅綠都量；`ndtwin-vm.sh` 仍釘著該 MAC（工具側待修）；08-31「Untested on real VMware — closed」被降級（依據是 ovftool 轉檔，碰不到 netplan） | 工具側：`ndtwin-vm.sh` 的 MAC；VMware 真開機一次 |
 | 73 | `KERNEL_ENDPOINTS` 手抄表漏 `GET /ndt/get_sflow_stats`，`test_l3_dispatch_drift` 在 trunk 紅 | ✅ IN TRUNK（09-03 `431d98a5`，併 `fix/inventories-follow-the-merges @ 8d492733`；auditor 在 trunk 看過紅、合併樹 28＋25 個 python 模組全綠） | auditor：沿 trunk first-parent 逐 commit 跑，`ea139d1c`（telemetry-health 併入）起紅 | 合併驗證缺口，見 MERGE-LOG「第七個教訓」 |
 | 74 | `SHELL_SITES` 清單對不上被 `classifyEndpointReply(...)` 包起來的 `execCommand` 站點，`test_shell_command_construction` 兩個 case 紅 | ✅ IN TRUNK（同上；provenance 由 agent 重新推導：`m_ryuUrl` 唯一寫入點 `setTopologyApiUrls`，來源是兩個 build-time `AppConfig` 常數，無 HTTP handler 可達 ⇒ 清單漂移，不是注入路徑） | auditor：`d00fa57c`（topology-round 併入）起紅；我讀過 `url` 來源不變（`AppConfig` IP:port＋字面路徑） | agent 要再讀一次 provenance；若 request 可達 ⇒ 升級為真缺陷、不准只改清單 |
-| 75 | `inv01_powercycle_latency()` 修好了（#17）但 `harness/chaos.py` 沒接，零呼叫點 | 🛠 派工中（21:2x，`fix/chaos-runner-runs-latency-check`，python、無 build） | #17 agent 查證（FIX-CHAOS-INVARIANTS §未做到） | existence ≠ wiring；接之前要先定 INV-01 兩個檢查（agreement 已接、latency 沒接）的關係 |
+| 75 | `inv01_powercycle_latency()` 修好了（#17）但 `harness/chaos.py` 沒接，零呼叫點 | ✅ IN TRUNK | `98b5e642`（merge `078b2736` of `fix/chaos-runner-runs-latency-check`，修法 `3e992f0d`）：`run_invariants` 接上 `inv01_latency_check`，NOT-MEASURED 不是 pass、不送請求；auditor 紅臂 12+1 紅、綠 13、閘門 7+4/0；MERGE-LOG 31。live 仍未量過一次真 power-on（N16 Q5） | existence ≠ wiring；接之前要先定 INV-01 兩個檢查（agreement 已接、latency 沒接）的關係 |
 | 76 | proxy 卡住時，bind 失敗的 kernel 印完 `Exiting` 後 8 秒還在（shutdown 卡在 poll thread 的 curl） | 🛠 派工中（21:2x，`fix/kernel-stop-is-bounded`（與 #27 一支，C++）） | #47 agent 順帶觀察，未追 | 與 B-5 關機路徑同族；重啟腳本若拿「印了 Exiting」當退出訊號會踩到 |
 | 77 | `ndt up ovs` 跑的是 NTG repo 那份 `testbed_topo.py`（同樣的常數橫幅），本 repo 的 #42 修法改不到那條路 | ✅ IN TRUNK | `06bc713d`（merge of `fix/ndt-up-ovs-runs-repo-topo`，修法 `87612059`）：`ovs-topo-start` 跑 `$KERNEL_DIR/testbed_topo.py`、cleanup 掃新後綴、topo 補回 bootstrap；auditor 丟棄式樹重跑 41/0、閘門 12/0、紅臂 5/3 與 41/2；MERGE-LOG 30。🔴 **機器上要 `sudo install` 才生效（#83、N14 Q1）** | — |
 | 78 | `check_gate_anchors.py` 對 repo 根目錄檔案用 `"/" in v` 判檔名，回報自信的錯答案 `MISSING:23` | ✅ IN TRUNK | `1ec39977`（merge of `fix/gate-anchors-root-files`，修法 `aed8f299`）：`tests/shell/check_gate_anchors.py` +1 述詞 `is_repo_path`／7 呼叫點、`tests/python/test_check_gate_anchors.py` +14 case（對 trunk 工具 9 FAIL＋3 ERROR）、`tests/shell/mutate_gate_anchors_root_files.sh` 13/0；全 repo 掃描 40/53→41/54、既有格一格沒動；raw `audit-raw @ 1cfbbc73`；MERGE-LOG 26 | #42 agent 撞到、閘門內以 `./` 繞過（繞道留著，兩種寫法都 `ok(23)`）；已知極限：名為 `foo.d` 的目錄會被放行、未修 |
