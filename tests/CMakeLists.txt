@@ -106,6 +106,11 @@ add_executable(
   # workers read their stop flag only between rounds, so a stop waited out one curl per switch
   # (81.09 s measured) or per topology endpoint. Timed against a listener that never answers.
   test_KernelStopIsBounded.cpp
+  # [Co-developed with claude code -- Adam] FINDINGS #85: a SWITCH vertex with an empty `ip` made
+  # the status worker's four reports call `front()` on an empty vector -- SIGSEGV on that thread,
+  # which ends the kernel. Includes the reachability evidence (updateSwitches invents no vertex),
+  # so the day that stops being true, this suite says so. One death test; forks once.
+  test_CpuReportNoIpSwitch.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there
