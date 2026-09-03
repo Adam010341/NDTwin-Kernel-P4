@@ -27,6 +27,7 @@
 #include <shared_mutex>
 #include <string>
 #include <thread>
+#include <vector>
 #include <cstdio>
 #include <cstdlib>
 #include <unistd.h> // for isatty
@@ -89,11 +90,35 @@ printUsage(const char* argv0)
            "      --topology ../setting/StaticNetworkTopologyP4_10Switches_4Hosts.json\n";
 }
 
+// [Co-developed with claude code -- Adam]
+// FINDINGS #70. The deployment flags, with the argv each consumes -- the other half of the union
+// Logger::reject_unknown_flags decides over. It is a second statement of the branch chain below,
+// and the two must not drift: a flag missing here is refused even though parse() honours it, and
+// a flag listed here but not honoured is accepted and does nothing, which is the defect this
+// whole change is about. tests/shell/mutate_logger_cli.sh drives every entry through the real
+// binary's --help path for that reason.
+const std::vector<CliFlag>&
+deploymentFlags()
+{
+    static const std::vector<CliFlag> flags = {
+        {"--mode", 1}, {"--topology", 1}, {"--ai", 0}, {"--no-ai", 0}, {"--help", 0}, {"-h", 0},
+    };
+    return flags;
+}
+
 // Parses only the flags we own; anything else (including Logger's) is ignored here and
 // handled by Logger::parse_cli_args.
 Options
 parse(int argc, char* argv[])
 {
+    // [Co-developed with claude code -- Adam]
+    // FINDINGS #70: `--logfle /tmp/x.log` used to be accepted, do nothing and print nothing.
+    // Neither parser could refuse it alone -- each ignores what the other owns -- so the decision
+    // is made once here, over both tables, BEFORE anything acts on argv. It runs ahead of the
+    // --help branch on purpose: a user who mistyped a flag is told which one, and the accepted
+    // names are in the same message, which is more than --help would have told them.
+    Logger::reject_unknown_flags(argc, argv, deploymentFlags());
+
     Options opts;
     auto needsValue = [&](int& i, const std::string& flag) -> std::string {
         if (i + 1 >= argc)

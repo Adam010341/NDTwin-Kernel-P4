@@ -44,6 +44,20 @@
  *
  * Gate: tests/shell/mutate_logfile_takes_a_path.sh -- each mutation names the one test that must
  * be the one to go red, and two mutations are widenings that must leave every test GREEN.
+ *
+ * -------------------------------------------------------------------------------------------
+ * FINDINGS #70 (added on fix/logger-cli-refuses-unknown) -- THE SAME SHAPE, ONE FLAG WIDER.
+ *
+ * `--logfle /tmp/x.log` was accepted, did nothing and printed nothing, exit 0. Both parsers
+ * ignored what they did not recognise, and neither was in a position to do otherwise: each walks
+ * the whole argv and must tolerate the other's flags. So the refusal cannot live inside either
+ * parser -- it is one pass over the UNION of the two tables, Logger::reject_unknown_flags, and the
+ * cases below are as much about what it must still ACCEPT as about what it must refuse. A check
+ * that refused everything would satisfy every "is it refused?" case in this file.
+ *
+ * The gate for the new cases is tests/shell/mutate_logger_cli.sh, which also drives the real
+ * ndtwin_kernel binary: src/main.cpp is not linked into this test binary, so main's half of the
+ * union cannot be observed from here at all.
  */
 
 #include "utils/Logger.hpp"
@@ -55,6 +69,7 @@
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
+#include <iostream>
 #include <sstream>
 #include <string>
 #include <unistd.h>
@@ -134,6 +149,105 @@ initThenExitZeroIfAccepted(const std::string& path)
     cfg.filePath = path;
     Logger::init(cfg);
     std::exit(0);
+}
+
+/// The kernel's deployment table, spelled out again because src/main.cpp has a main() of its own
+/// and is not linked into this binary. This copy is a STAND-IN, not evidence: it cannot go stale
+/// against the real table in a way any case here would notice. tests/shell/mutate_logger_cli.sh
+/// deletes an entry from the REAL table and catches it on the REAL binary; that is where main's
+/// half is actually pinned, and saying so here is the only thing that stops this stand-in from
+/// being read as coverage it does not provide.
+const std::vector<CliFlag>&
+deploymentFlagsAsMainDeclaresThem()
+{
+    static const std::vector<CliFlag> flags = {
+        {"--mode", 1}, {"--topology", 1}, {"--ai", 0}, {"--no-ai", 0}, {"--help", 0}, {"-h", 0},
+    };
+    return flags;
+}
+
+std::vector<std::string>
+splitWords(const std::string& line)
+{
+    std::vector<std::string> words;
+    std::istringstream in(line);
+    for (std::string w; in >> w;)
+    {
+        words.push_back(w);
+    }
+    return words;
+}
+
+/// Runs the union check over a command line with the deployment flags declared, then exits 0 if
+/// the check ACCEPTED it. Takes one string for the same preprocessor reason
+/// parseThenExitZeroIfAccepted does: a braced list inside a macro argument is split on its commas.
+[[noreturn]] void
+checkThenExitZeroIfAccepted(const std::string& commandLine)
+{
+    std::vector<std::string> words = splitWords(commandLine);
+    std::vector<char*> argv;
+    for (auto& w : words)
+    {
+        argv.push_back(w.data());
+    }
+    argv.push_back(nullptr);
+    Logger::reject_unknown_flags(static_cast<int>(words.size()), argv.data(),
+                                 deploymentFlagsAsMainDeclaresThem());
+    std::exit(0);
+}
+
+/// The same check with NO caller flags at all, so only what Logger owns is known. This is how the
+/// union is shown to be a union: the answer to `--mode mininet` depends on who is asking.
+[[noreturn]] void
+checkLoggingOnlyThenExitZeroIfAccepted(const std::string& commandLine)
+{
+    std::vector<std::string> words = splitWords(commandLine);
+    std::vector<char*> argv;
+    for (auto& w : words)
+    {
+        argv.push_back(w.data());
+    }
+    argv.push_back(nullptr);
+    Logger::reject_unknown_flags(static_cast<int>(words.size()), argv.data(), {});
+    std::exit(0);
+}
+
+/// Drives Logger::parse_cli_args far enough to reach its --help branch, with stdout redirected
+/// into stderr because a death test's matcher reads the CHILD'S STDERR and that branch prints to
+/// stdout. Exits 3 -- a code the branch itself never produces -- when the branch did not run, so
+/// "the help never printed" and "the help printed the wrong thing" are different failures.
+[[noreturn]] void
+helpBranchThenExitThreeIfItDidNotRun(const std::string& commandLine)
+{
+    std::cout.rdbuf(std::cerr.rdbuf());
+    // unitbuf as well as the rdbuf swap. std::exit does flush cout on the way out, so this is
+    // belt and braces -- but the failure it insures against is a case that goes red for a reason
+    // that has nothing to do with the code under test, and a flaky death test is worse than none.
+    std::cout.setf(std::ios::unitbuf);
+    std::vector<std::string> words = splitWords(commandLine);
+    std::vector<char*> argv;
+    for (auto& w : words)
+    {
+        argv.push_back(w.data());
+    }
+    argv.push_back(nullptr);
+    Logger::parse_cli_args(static_cast<int>(words.size()), argv.data());
+    std::exit(3);
+}
+
+/// In-process: the check must RETURN. The failure mode these cases look for is the process
+/// exiting, so there is nothing to EXPECT_ -- reaching the next line is the assertion.
+void
+runCheck(const std::string& commandLine, const std::vector<CliFlag>& alsoKnown)
+{
+    std::vector<std::string> words = splitWords(commandLine);
+    std::vector<char*> argv;
+    for (auto& w : words)
+    {
+        argv.push_back(w.data());
+    }
+    argv.push_back(nullptr);
+    Logger::reject_unknown_flags(static_cast<int>(words.size()), argv.data(), alsoKnown);
 }
 
 std::string
@@ -426,6 +540,228 @@ TEST(LoggerUsageTextTest, TheUsageShowsLoglevelTakingAValue)
 {
     const std::string usage = Logger::cli_usage();
     EXPECT_NE(usage.find("--loglevel, -l <level>"), std::string::npos) << usage;
+}
+
+// =================================================================================================
+// FINDINGS #70 -- an option nobody owns is an ERROR, and an option somebody owns is not
+//
+// Half of this block asserts a refusal and half asserts an acceptance, and the second half is the
+// one that gives the first half its meaning. `reject_unknown_flags` returning void and exiting on
+// failure means "refuse everything" would pass every refusal case here; only the acceptance cases
+// can tell a check that reads the tables from a check that does not.
+// =================================================================================================
+
+TEST(LoggerCliArgsDeathTest, AnUnknownOptionIsRefusedRatherThanSilentlyIgnored)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    // The finding, verbatim. Before the fix this exited 0, wrote nothing, and left the operator
+    // with a run that had silently not been given a log file.
+    EXPECT_EXIT(checkThenExitZeroIfAccepted("ndtwin_kernel --logfle /tmp/x.log"),
+                ::testing::ExitedWithCode(2),
+                "unknown option '--logfle'");
+}
+
+/// A refusal that does not say what WOULD have been accepted just moves the guessing one step
+/// along, and the accepted list is built from the same tables the check consults -- so this also
+/// pins that the message cannot advertise a flag the check would go on to reject.
+TEST(LoggerCliArgsDeathTest, TheRefusalNamesTheOptionsThatWouldHaveBeenAccepted)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    EXPECT_EXIT(checkThenExitZeroIfAccepted("ndtwin_kernel --logfle /tmp/x.log"),
+                ::testing::ExitedWithCode(2),
+                "Accepted options:.*--loglevel");
+}
+
+TEST(LoggerCliArgsDeathTest, AMistypedShortOptionIsRefusedToo)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    EXPECT_EXIT(checkThenExitZeroIfAccepted("ndtwin_kernel -x"), ::testing::ExitedWithCode(2),
+                "unknown option '-x'");
+}
+
+/// `--loglevel=debug` is the shape every operator tries at least once, and NEITHER parser honours
+/// the equals form -- both branch on the whole token. Accepting it silently would be the original
+/// defect with a different spelling: a request taken and dropped.
+TEST(LoggerCliArgsDeathTest, TheEqualsFormIsRefusedBecauseNeitherParserHonoursIt)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    EXPECT_EXIT(checkThenExitZeroIfAccepted("ndtwin_kernel --loglevel=debug"),
+                ::testing::ExitedWithCode(2),
+                "unknown option '--loglevel=debug'");
+}
+
+/// The union is a union. `--mode` is fine in the kernel and unknown in a binary that has no
+/// deployment flags, and the check answers from the tables it was given rather than from a
+/// hard-coded idea of what a command line looks like.
+TEST(LoggerCliArgsDeathTest, AFlagTheCallerDidNotDeclareIsUnknownEvenThoughTheKernelOwnsIt)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    EXPECT_EXIT(checkLoggingOnlyThenExitZeroIfAccepted("standalone --mode mininet"),
+                ::testing::ExitedWithCode(2),
+                "unknown option '--mode'");
+}
+
+// ---- the other direction: what must still be accepted -------------------------------------------
+
+/// RELAXING-DIRECTION CONTROL. A check written as `std::exit(2)` on every option-shaped token
+/// would pass all five cases above. Every flag Logger owns is driven through it here; if the
+/// process dies inside this case, the check has stopped reading its own table.
+TEST(LoggerCliArgsTest, EveryFlagTheLoggingParserOwnsSurvivesTheCheck)
+{
+    for (const CliFlag& f : Logger::logging_flags())
+    {
+        const std::string line =
+            std::string("ndtwin_kernel ") + f.name + (f.arity == 1 ? " avalue" : "");
+        runCheck(line, deploymentFlagsAsMainDeclaresThem());
+        SUCCEED() << f.name << " accepted";
+    }
+}
+
+/// RELAXING-DIRECTION CONTROL, the caller's half. This is the stand-in table, not main's -- see
+/// deploymentFlagsAsMainDeclaresThem. What it pins is that a flag the CALLER declares is honoured
+/// at all; that main declares the right ones is pinned by the gate, on the real binary.
+TEST(LoggerCliArgsTest, EveryFlagTheCallerDeclaresSurvivesTheCheck)
+{
+    for (const CliFlag& f : deploymentFlagsAsMainDeclaresThem())
+    {
+        const std::string line =
+            std::string("ndtwin_kernel ") + f.name + (f.arity == 1 ? " avalue" : "");
+        runCheck(line, deploymentFlagsAsMainDeclaresThem());
+        SUCCEED() << f.name << " accepted";
+    }
+}
+
+/// A whole realistic command line, both parsers' flags interleaved. This is the case that would
+/// go red if the check ever forgot that the two tables are consulted together.
+TEST(LoggerCliArgsTest, ACommandLineUsingBothParsersFlagsIsAccepted)
+{
+    runCheck("ndtwin_kernel --mode mininet --topology /etc/topo.json --no-ai "
+             "--logfile /tmp/a.log --loglevel debug",
+             deploymentFlagsAsMainDeclaresThem());
+    SUCCEED();
+}
+
+/// The VALUE of a value-taking flag is stepped over, not scanned. A path that begins with '-' is
+/// unusual and legal, and the parser that owns the flag is the one entitled to judge its value --
+/// this check must not start refusing command lines on the strength of a filename.
+TEST(LoggerCliArgsTest, TheValueOfAValueTakingFlagIsNotScannedAsAnOption)
+{
+    runCheck("ndtwin_kernel --topology -weird-but-a-real-path.json",
+             deploymentFlagsAsMainDeclaresThem());
+    SUCCEED();
+}
+
+/// NEGATIVE, and a documented limit rather than an accident: this check owns option-shaped tokens
+/// only. A positional is somebody else's business, and a bare "-" is a value by the same
+/// convention require_value is written to.
+TEST(LoggerCliArgsTest, APositionalAndABareDashAreNotOptions)
+{
+    runCheck("ndtwin_kernel somefile - ", deploymentFlagsAsMainDeclaresThem());
+    SUCCEED();
+}
+
+// ---- the table and the parser are two statements of one fact -------------------------------------
+
+/// DRIFT GUARD. Logger::logging_flags() is what the check believes the parser accepts; the branch
+/// chain in parse_cli_args is what it actually accepts. A flag in the parser but not the table is
+/// refused even though the program understands it, and a flag in the table but not the parser is
+/// accepted and does nothing -- which is the defect this file exists for. Every arity-1 entry is
+/// driven through the real parser here and must change the config it returns.
+///
+/// 🔴 ONE PROBE VALUE, NOT A PER-FLAG LOOKUP, AND THE GATE IS WHY. The first version of this case
+/// carried a name -> value map and failed on any table entry it did not recognise. That reads like
+/// diligence and is the opposite: it made this case pin the table's CONTENTS, so
+/// tests/shell/mutate_logger_cli.sh's W2 widening -- adding a third legitimate spelling of an
+/// existing flag -- turned it red, and a suite that cannot tell a widening from a break cannot
+/// give its catches any meaning. "debug" is a valid level name AND a usable file path, so it is a
+/// legal value for every value-taking logging flag there is; the table drives the loop and the
+/// test knows nothing about which flag is which.
+TEST(LoggerCliArgsTest, EveryValueTakingFlagInTheTableIsHonouredByTheParser)
+{
+    const LogConfig defaults;
+    for (const CliFlag& f : Logger::logging_flags())
+    {
+        if (f.arity == 0)
+        {
+            continue; // --help/-h exit the process; they have death tests of their own below.
+        }
+        Argv a{"ndtwin_kernel", f.name, "debug"};
+        const LogConfig cfg = Logger::parse_cli_args(a.argc(), a.argv());
+        EXPECT_TRUE(cfg.filePath != defaults.filePath || cfg.level != defaults.level)
+            << f.name << " is in the table, so the check accepts it -- but the parser did nothing "
+                         "with it, which is the 'accepted and had no effect' shape exactly";
+    }
+}
+
+/// FINDINGS #70's first half, executed. This branch has never run in the kernel: src/main.cpp's
+/// parser answers --help first and returns 0, so `ndtwin_kernel --help` is main's text, not this
+/// one. It is still the only --help a logging-only binary has (see
+/// doc/audit/2026-09-01_esa-power-off-injection/driver.cpp), and an unexecuted branch is how a
+/// help text and a behaviour drift apart -- so it is run here rather than left to be assumed.
+TEST(LoggerCliArgsDeathTest, TheHelpBranchOfTheLoggingParserRunsAndPrintsTheOptionBlock)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    EXPECT_EXIT(helpBranchThenExitThreeIfItDidNotRun("standalone --help"),
+                ::testing::ExitedWithCode(0),
+                "--logfile, -f <path>");
+}
+
+TEST(LoggerCliArgsDeathTest, TheShortHelpBranchRunsToo)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+    EXPECT_EXIT(helpBranchThenExitThreeIfItDidNotRun("standalone -h"),
+                ::testing::ExitedWithCode(0),
+                "--loglevel, -l <level>");
+}
+
+// =================================================================================================
+// FINDINGS #69 -- the level names, from the other direction
+//
+// EveryLevelNameTheHelpAdvertisesIsAccepted (above) reads a list written out in this file. This
+// one reads the list out of the HELP TEXT ITSELF, so a name added to the usage that parse_level
+// does not accept is caught -- the direction the hard-coded case cannot see.
+// =================================================================================================
+
+TEST(LoggerUsageTextTest, EveryLevelNameTheUsageActuallyPrintsIsAcceptedByTheParser)
+{
+    const std::string usage = Logger::cli_usage();
+    const std::string marker = "--loglevel, -l <level>";
+    const std::size_t at = usage.find(marker);
+    ASSERT_NE(at, std::string::npos) << usage;
+    const std::size_t eol = usage.find('\n', at);
+    ASSERT_NE(eol, std::string::npos) << usage;
+
+    std::string names = usage.substr(at + marker.size(), eol - at - marker.size());
+    std::size_t start = 0;
+    std::vector<std::string> listed;
+    while (start <= names.size())
+    {
+        const std::size_t comma = names.find(',', start);
+        std::string one = names.substr(start, comma == std::string::npos ? std::string::npos
+                                                                        : comma - start);
+        const std::size_t b = one.find_first_not_of(" \t");
+        const std::size_t e = one.find_last_not_of(" \t");
+        if (b != std::string::npos)
+        {
+            listed.push_back(one.substr(b, e - b + 1));
+        }
+        if (comma == std::string::npos)
+        {
+            break;
+        }
+        start = comma + 1;
+    }
+
+    ASSERT_GE(listed.size(), 5u) << "the usage line was not parsed as a list of levels: " << names;
+    for (const std::string& name : listed)
+    {
+        // parse_level exits 2 on a name it does not accept, so a failure here ends the process
+        // inside this case rather than printing a FAILED line. The gate reads that as a red for
+        // this case by name; see run_tests in tests/shell/mutate_logger_cli.sh.
+        const spdlog::level::level_enum got = Logger::parse_level(name);
+        EXPECT_TRUE(got != spdlog::level::off || name == "off")
+            << "the usage advertises '" << name << "', which the parser turns into off";
+    }
 }
 
 } // namespace
