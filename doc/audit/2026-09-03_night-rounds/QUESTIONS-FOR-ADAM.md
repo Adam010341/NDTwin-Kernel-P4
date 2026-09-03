@@ -169,6 +169,35 @@ run-03 的 tester 從 GitHub clone，當場重現了那個「已修」的 bug。
 ---
 
 ## Q9. `local_ci.sh` 的 python 那關紅在缺 fastapi（小事，順便問要不要修）
+### Q9 補充（09-03 11:0x 實測，**結論與原本的敘述不同**）
+
+**不是「缺 fastapi」。fastapi 裝好了，只是裝在另一個直譯器裡。**
+
+```
+/home/adam/miniconda3/envs/ryu-env/bin/python   networkx  ryu     NO-fastapi   ← lane 選中的
+p4_proxy/venv/bin/python3                       networkx  NO-ryu  fastapi
+/usr/bin/python3                                NO-networkx NO-ryu NO-fastapi
+```
+
+`l1_unit_tests.sh:363` 的探針問的是 `import networkx, ryu`，而且**整條 lane 只挑一個直譯器**
+（`PY_KERNEL`）跑 `tests/python/test_*.py` 全部。`tests/python/` 裡有兩支需要 fastapi
+（`test_grpc_port_block.py`、`test_sflow_stats_endpoint.py`），在 ryu-env 底下 import 不到
+⇒ 全跳過 ⇒ 而**這條 lane 把全跳過算成失敗**（那是刻意的，見 `:53` 的註解）。
+
+🔴 **真正的結論：這台機器上沒有任何一個直譯器能跑完這條 lane 的全部套件。**
+`ryu` 與 `fastapi` 目前不共存於任何一個 env ⇒ **不管裝什麼，總有一支會紅**，
+除非改掉「一條 lane 一個直譯器」這個設計。
+
+**兩個選項**：
+
+| | 做法 | 代價 |
+|---|---|---|
+| **A**（推薦） | 加第二個探針 `PY_FASTAPI`，那兩支用它跑，其餘不變——**與檔案裡已經做過兩次的動作同型**（P4Runtime 一次、networkx+ryu 一次） | 約 15 行；要配一把變異閘（測「探針壞掉時那兩支會不會安靜地跳過」） |
+| B | 把 fastapi 裝進 ryu-env | 改的是**機器**不是 repo ⇒ 別台機器再撞一次；而且 `requirements.txt` 已經釘了 `fastapi>=0.95.0`，它宣告的是 p4_proxy 的環境 |
+
+**我沒有動它**——你把它列成「順便問要不要修」，那是要你裁的，不是我自己決定的。
+
+
 
 `test_sflow_stats_endpoint.py` 在 CI 裡 `ModuleNotFoundError: fastapi`——這是老問題的又一個實例：
 **測試要用 venv 的直譯器，而 conda 那顆缺 grpc／networkx／fastapi**。修法是讓 `local_ci.sh` 用 venv 跑

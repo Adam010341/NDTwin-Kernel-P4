@@ -335,6 +335,12 @@ C++ 半邊未編未跑（上述）。`run()` 現在是 `try/catch` 包 `runLoop(
 - base 比 trunk 舊，需要 rebase。
 - 🔴 **與 `fix/topology-load-fails-before-listen` 同檔同區**（兩支都搬 `run()` 開頭那三行）。
   **先併 D15，再 rebase topoload。**
+- 🔴 **第二個衝突，作者沒有提**：D15 動 `DeviceConfigurationAndPowerManager.{hpp,cpp}`
+  （`refreshDataPlaneKind()` 住在那個 class 裡），而 **`fix/b5-kernel-shutdown` 的 `4203d857`
+  也動同一個 `.cpp`**（join 第三條 worker）。兩支都要進 trunk ⇒ 其中一支必須 rebase。
+  兩處改的區塊不同（一個是 `refreshDataPlaneKind`、一個是 `stop()`），**預期是文字衝突而非語意衝突**。
+- 🟠 共用工作樹裡還躺著 D15 的**較早一版**同檔修改（未提交，與分支上的差在註解措辭）。
+  併入後要清掉，否則會看起來像有人手改過。
 - D15 動 `start()`，topoload 動 `loadStaticTopology()` 並刻意保持冪等以求可組合。
 
 ## 5. 回退方式
