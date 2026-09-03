@@ -316,10 +316,20 @@ echo "  ok       $TARGET sha256 $BIN_SHA_BEFORE"
 #     is still refused, by the builder's own guard -- but refused AFTER 14 vertices and 32 edges
 #     have been added, which is the partial application the fix exists to stop. That split is
 #     exactly what the two #61 tests are for, and only one of them may go red here.
+#
+#     🔴 `if (false)` rather than deleting the call, and the first draft of this gate got it
+#     wrong. Replacing the call with `(void)j;` leaves validateStaticTopologyJson defined and
+#     unreferenced in an anonymous namespace, which is -Wunused-function, which is -Werror here:
+#     the mutant did not compile and this gate scored it a SURVIVOR -- correctly, because a suite
+#     that never ran proves nothing. Keeping the call in dead code removes the validation while
+#     leaving the function used, so what is measured is the missing check and not the warning.
 mutate "validation removed: the whole pass is never called" \
     "$TFM" \
     '    validateStaticTopologyJson(j, where);' \
-    '    (void)j;' \
+    '    if (false)
+    {
+        validateStaticTopologyJson(j, where);
+    }' \
     TopologyInputValidationTest.AGhostDpidEdgeLeavesNoPartiallyLoadedGraph \
     TopologyInputValidationTest.ASixDigitInterfaceIsRefused \
     TopologyInputValidationTest.TheRefusalNamesTheInterfaceThatWasOutOfRange \
