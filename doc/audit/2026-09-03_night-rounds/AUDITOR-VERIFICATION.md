@@ -66,6 +66,23 @@ mutant builder 也只 `chmod +x` 旁邊的 `ndt`。
 於是他有充分理由相信 `ovs-vsctl` 在 sudo 下是通的；而 `ndt` 用的是 `sudo -n`。
 **縫隙不在「指令沒被提過」，在「互動式可以問密碼、非互動式不能」**——照手冊親手操作的人必然看不見，只咬工具。
 
+## 13:5x — `fix/logfile-takes-a-path`（#63）與 `fix/redirection-order`（#50）
+
+| Re-run | Observed |
+|---|---|
+| `tests/shell/mutate_logfile_takes_a_path.sh`，經 `tools/build_guard/guarded_build.sh` | **9 mutations, 0 survived；3 widenings, 0 wrongly caught**。三個檔還原後 byte-identical，測試 binary sha 前後同為 `921e7e4fb44e3d3d`。widening 是真的反向：W1（只加一行註解）與 W2（`--log-file` 當第三種拼法）都必須保持綠 |
+| `spdlog` 的 `from_str`（#69 的核心） | **auditor 讀碼**：`SPDLOG_NOEXCEPT` 在 `libs/spdlog/common.h:294` 與 `common-inl.h:38` 兩處都有 ⇒ `Logger.cpp:16` 的 catch 不可達；`common-inl.h` 結尾 `return level::off;` ⇒ 打錯等級＝**完全不記錄**。`origin/main` 的 `Logger.cpp:10-20` 與 `common.h:294` 逐字相同 ⇒ **公開 build 也中** |
+| `git show fix/g6-ndt-apps-liveness:tools/test_workflow/ndt`（#50 的合併預警） | **成立**。g6 的 `:2011` 新增了一行 `< "/proc/$pid/cmdline" 2>/dev/null`，順序仍然是錯的，而 trunk 沒有這一行 ⇒ 與 `fix/redirection-order` 乾淨合併、缺陷回來、閘門抓不到 |
+
+⚠️ **這一次的重跑有一個我要說清楚的折扣。** 前幾支我都是 `git worktree add --detach` 開乾淨樹再跑；
+這支的閘門**在乾淨樹裡拒絕執行**（`'build' is not a configured build dir`），而冷編在 `-j2` 要 20 分鐘以上。
+所以我改在 **agent 自己的 worktree** 裡跑，並先逐檔比對五個相關檔與分支 byte-identical
+（`Logger.cpp`／`Logger.hpp`／`main.cpp`／`test_LoggerCliArgs.cpp`／閘門腳本）。
+⇒ **驗的是分支的內容，繼承的是它的 build 目錄。** 這比前幾支弱一階，寫在這裡而不是含混帶過。
+
+🏁 **`tools/build_guard/` 這一輪有了第一個真實使用者**：修法 agent 全程用 `guarded_build.sh` 建置
+（`JOBS=2 MEM_MAX=5G` ＋自己的 lock），我的重跑也是。沒有再發生 oomd 事件。
+
 ## What this does NOT establish
 
 - **The tie-break is not confirmed live.** No fabric was brought up; the eight-bring-up

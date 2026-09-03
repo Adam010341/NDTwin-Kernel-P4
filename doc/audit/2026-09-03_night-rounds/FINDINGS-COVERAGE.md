@@ -129,7 +129,7 @@
 | 47 | 🔴 kernel 的 listening socket 被自己 `popen` 出來的 sh／curl 繼承（2.01–2.22 s，48/48） | ⭕ UNASSIGNED | `FD_CLOEXEC`／`O_CLOEXEC`／`closefrom` 在所有未併分支的改動行 **0 次新增**。唯一碰 `utils::execCommand` 的是 `fix/topology-round-reads-status`，而它只在 curl 命令尾巴加 `--write-out`（`TopologyAndFlowMonitor.cpp:488` 附近），**沒有動 fd 繼承** | 錯誤訊息「另一個 NDTwin kernel 幾乎確定還在跑」會把人推向錯誤診斷，值得早修 |
 | 48 | `ndt apps stop viz` 回 ok 而兩個 JVM（531 MB）仍活著；`apps orphans` 也說沒有 | ⭕ UNASSIGNED | 與 #6 同一缺陷、第二次量到。證據同 #6（分支上 `app_sig viz` 未變） | 同 #6 |
 | 49 | `ndt down` 自己的 verify 誤報（說 5 still running，20 秒後 `ps` 數到 0） | ⭕ UNASSIGNED | trunk `ndt:1103/1106` 的 `bmv2_count`／`mn_count` 斷言在 `fix/ports-that-block-restart` 上**未改**——該分支只把底下的 `for p in 8000 8080 8081` 換成表。verify 與 sweep 之間仍沒有同步 | 與 #21／#26 同一族，適合一起做 |
-| 50 | `ndt:1687` 的 `2>/dev/null` 放在 `<` 之後，擋不住它唯一要擋的訊息 | ⭕ UNASSIGNED | 三支帶 `ndt` 的分支上都還是原樣：`fix/ports-that-block-restart:1744`、`fix/g6-ndt-apps-liveness:1703` 都是 `mapfile -d '' -t argv < "/proc/$pid/cmdline" 2>/dev/null`。同族 `:1999`／`:2034` 亦然 | **見下方第 5 條**；驗收條件 FINDINGS 已寫好（用不存在的 pid 呼叫，斷言 stderr 為空） |
+| 50 | `ndt:1687` 的 `2>/dev/null` 放在 `<` 之後，所以它擋不住它唯一要擋的訊息 | 🔧 ON BRANCH | 🆕 **`fix/redirection-order @ 7fdd8971`**（base `feb9baef`）。**同形共 20 處**（lexer 掃描＋粗 regex 交叉檢查＋3084 次注入量偽陰性率），修 15 處、5 處判定為 `< /dev/null` 不會失敗故不改。閘門 **16 mutations, 0 survived**（agent 自陳，auditor 未重跑） | 🔴 **合併預警，auditor 實測**：`fix/g6-ndt-apps-liveness` 與它**乾淨合併，卻把缺陷帶回來**——g6 的 `ndt:2011` 新增 `err "   pid $pid: $(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null \| cut -c1-90)"`，`<` 仍在 `2>` 之前，而 trunk 沒有這一行 ⇒ git 看不出衝突，閘門也抓不到（錨點逐處指名）。**g6 落地後要補這一行** |
 
 ### Round 4 — 高流量與量測失真（51–57）
 
@@ -152,7 +152,7 @@
 | 60 | P4 平面上 `priority` 被收下、寫進 log、然後丟掉（777 改到既有規則、999 也刪得掉） | 🔧 ON BRANCH | `fix/p4-priority-not-silently-dropped @ 4c5a92da`，動 `p4_proxy/proxy_agent/api_routes.py` ＋ `p4_proxy/tests/test_flowentry_endpoints.py` ＋ `tests/shell/mutate_p4_priority_refusal.sh`。閘門：**auditor 在解糾纏後的新 sha 上重跑**——**7 mutations, 0 survived**, rc=0，四個「必須不觸發」的仍不觸發，`api_routes.py` byte-identical；**red-before-fix 的 raw log 有 commit**（`doc/audit/2026-09-03_night-rounds/priority-refusal/red-before-fix.log`，六支紅） | ⚠️ **`add` 路徑刻意維持揭露不拒絕**（沿用 T-15 Option 0 的既有裁決）；未實機驗證 501 穿過 kernel 的路徑 |
 | 61 | dpid 對不到交換機的 host edge 被靜默丟棄（40 條進 39 條），只有一行 WARN | ⭕ UNASSIGNED | `fix/topology-load-fails-before-listen` **不涵蓋這一條**：我讀了該分支的 `loadStaticTopology()` 全文（`:236-287`），它只在 (a) parse／IP 例外、(b) `num_vertices == 0` 兩種情況拒絕啟動；dpid 解不出來的邊仍走既有的 `continue`（該檔 20 處 `continue` 未變）。round 5 的 T4 與現成重現檔 `round5-topology-repro/03_mutant_m1_host_edge_ghost_dpid.log` 都還沒有對應修法 | 規格與重現檔都現成，適合接在 #59 後面 |
 | 62 | `src_interface` 0 與 999999 完全不做範圍檢查，原樣公布並流進 flow path | ⭕ UNASSIGNED | `src_interface` 在所有未併分支的改動行只命中 **1 次**，且是 `fix/deterministic-path-tiebreak` 的**測試檔**在讀 `edge["src_interface"]`，不是驗證 | 重現檔現成（`06_mutant_m4a_port_zero.log`、`07_mutant_m4b_port_six_digits.log`） |
-| 63 | `--logfile` 文件寫得像吃路徑，實際是 boolean；指定的檔 0 bytes、stderr 無話 | ⭕ UNASSIGNED | trunk `src/utils/Logger.cpp:29-33`：`if (arg == "--logfile" \|\| arg == "-f") { cfg.enableFile = true; }`——**下一個 argv 完全沒有被消費**。`src/utils/Logger.cpp` **不在任何未併分支的變更檔清單裡**（15 份 diff 的變更檔我列完了） | **見下方第 4 條**——完全離線可做完 |
+| 63 | `--logfile` 文件寫得像吃路徑，實際是 boolean；指定的檔 0 bytes、stderr 無話 | 🔧 ON BRANCH | 🆕 **`fix/logfile-takes-a-path @ 12291b17`**（base `feb9baef`），動 `src/utils/Logger.cpp`、`include/utils/Logger.hpp`、`src/main.cpp`＋新增 `tests/test_LoggerCliArgs.cpp`（19 cases）。閘門：**auditor 自己重跑**（走 `tools/build_guard/guarded_build.sh`）→ **9 mutations, 0 survived；3 widenings, 0 wrongly caught**；三個檔還原後 byte-identical、測試 binary sha 前後同為 `921e7e4fb44e3d3d` | ⚠️ **重跑是在 agent 自己的 worktree 裡做的**（乾淨 worktree 沒有已設定的 `build/`，冷編要 20 分鐘）——五個相關檔已逐一比對與分支 byte-identical，所以驗的是分支的內容，繼承的只有 build 目錄。🔴 **同族仍缺一塊**：不認得的旗標（`--logfle /tmp/x.log`）仍然靜默忽略 |
 
 ### Round 6 — 歷史 bug 形狀的未檢驗實例（64–68）
 
@@ -206,6 +206,14 @@
 | `fix/d15-dataplane-kind-race @ 75c2b526` | **#32, #45** | 同一個啟動競態的根因與它的定量版本 |
 | `fix/topology-round-reads-status @ e970d716` | **#64, #65** | 拓樸路徑與 flow-table 路徑共用同一套 outcome 詞彙（`wrong_shape` 同時加進兩邊） |
 | `fix/flow-rate-denominator @ 6088c0b5` | **#10**（＋ #18 的高估那半） | — |
+
+
+### 🆕 09-03 下午新增的兩條（#69／#70，修 #63 的過程中發現）
+
+| # | 缺陷 | 狀態 | 證據 | 誰該接手 |
+|---|---|---|---|---|
+| 69 | 🔴 `--loglevel <打錯的值>` 把 log 整個關掉，rc 0、無訊息，而攔它的錯誤路徑不可能執行 | ⭕ UNASSIGNED | **auditor 親自讀碼查證**：`from_str` 在 `libs/spdlog/common.h:294` 與 `common-inl.h:38` **兩處都宣告 `SPDLOG_NOEXCEPT`** ⇒ `Logger.cpp:16` 的 `catch (const spdlog::spdlog_ex&)` 永遠到不了；`common-inl.h` 的結尾是 `return level::off;` ⇒ 不是「用預設等級」是**完全不記錄**。⚠️ **`origin/main` 逐字相同**，讀者也中 | `fix/logfile-takes-a-path` 已經**順手**加了 `AMistypedLevelIsRefusedRatherThanSilentlyDisablingLogging` 這條測試並在閘門 M8 驗過 ⇒ **併那支就一起修掉**。但它沒有被登記成一條 finding，所以列在這裡免得被當成「附帶效果」而沒有人對帳 |
+| 70 | `Logger` 的 `--help` 在 kernel 裡不可達（`cli::parse` 先 `return 0`），而 `main.cpp` 的 usage 正指向那段印不出來的字；兩個 parser 對不認得的旗標都靜默忽略 | ⭕ UNASSIGNED | 同上分支的旗標完整表；auditor 在 `origin/main` 上確認同一形狀 | 🔴 **靜默忽略未知旗標這半沒有人在修**，要讓兩個 parser 知道對方的旗標集合，是另一個改動 |
 
 ### 2.2 兩支動到同一段碼（合併衝突預警）
 

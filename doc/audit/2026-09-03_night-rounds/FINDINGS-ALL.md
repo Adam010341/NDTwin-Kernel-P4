@@ -111,6 +111,14 @@
 | 67 | **power cycle 會弄丟操作者裝的規則且不還原**，而 `get_flow_dispatch_status` 仍把它們記為 succeeded。 | 規則消失，而計數器說它們還在 | round6 `N4` |
 | 68 | **兩個 elephant flag 是唯寫的**：1 個宣告、6 個賦值、**全樹 0 個讀取**，也不在端點的 15 個 key 裡。 | 見下方對我自己的更正 | round6 `N5` |
 
+### 09-03 下午新增（修 #63 的過程中發現，auditor 自己查證）
+
+| # | 缺陷 | 為什麼嚴重 | 證據 |
+|---|---|---|---|
+| 69 | 🔴 **`--loglevel <打錯的值>` 把 log 整個關掉，rc 0、一句話都沒有，而寫來攔它的錯誤路徑不可能執行。** `Logger::parse_level`（`src/utils/Logger.cpp:10-22`）把 `spdlog::level::from_str` 包在 `try/catch (const spdlog::spdlog_ex&)` 裡，印 `Unknown log level:` 並 `exit(1)`。但 `from_str` **兩處都宣告 `SPDLOG_NOEXCEPT`**（`libs/spdlog/common.h:294` 與 `libs/spdlog/common-inl.h:38`）⇒ **catch 永遠到不了**；而它認不得任何名字時的結尾是 `return level::off;`（`common-inl.h`）⇒ `--loglevel inf` 不是「用預設等級」，是 **`off`＝完全不記錄**。⚠️ **公開 build 上一模一樣**（`origin/main` 的 `Logger.cpp:10-20` 與 `common.h:294` 逐字相同）⇒ 讀者也中。 | 比 #63 更糟：#63 是 log 跑到別的檔（還在），這條是 log **不存在**，而兩者都不出聲。操作者接著會用「log 裡沒有錯誤」當證據。 | auditor 讀碼查證（`common.h:294`、`common-inl.h:38-56`、`Logger.cpp:10-22`），trunk 與 `origin/main` 兩邊都確認 |
+| 70 | **`Logger` 的 `--help` 分支在 kernel 裡不可達**，而 `main.cpp` 的 usage 正好指向那段印不出來的字：`cli::parse` 先跑並 `return 0`，所以 `Logger::parse_cli_args` 的 `--help` 永遠沒機會執行。連帶：**兩個 parser 對不認得的旗標都靜默忽略**（`--logfle /tmp/x.log` 被收下、什麼都沒做、沒有訊息）。 | 「說明文字描述的行為從未執行過」，與 B-5 的關機路徑同型 | 同上；修法分支 `fix/logfile-takes-a-path` 的 §旗標完整表 |
+
+
 ## 驗證結果（不是缺陷，但今晚第一次問得出來）
 
 - **Round 6 關掉六道門**（推翻與確認同等有價值）：`:2020-2027` 的 Immediately 路徑**兩道保護都在**、
