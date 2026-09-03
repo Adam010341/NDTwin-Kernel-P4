@@ -32,8 +32,20 @@ website's Installation Manual and User Manual」）。
 echo "$USER ALL=(root) NOPASSWD: /usr/local/sbin/ndtwin-lab" | sudo tee /etc/sudoers.d/ndtwin-lab
 ```
 
-`grep -rn 'sudoers\|NOPASSWD' content/` 在整個網站只有這兩行。**沒有任何一頁提到 `ovs-vsctl`、
-`mnexec`、`ifconfig` 或 `tc`。**
+`grep -rn 'sudoers\|NOPASSWD' content/` 在整個網站只有這兩行。
+
+> **auditor 更正（12:5x）。** 上一句原本寫的是「沒有任何一頁提到 `ovs-vsctl`、`mnexec`、`ifconfig`
+> 或 `tc`」，**那是錯的**：Installation Manual 的
+> `NDTwin Kernel/Operate an Emulated (Software) Network/Native-Linux Excution Environment.md:339`
+> 就在教讀者跑 `sudo ovs-vsctl show`（當成 OVS daemon 的驗證步驟），另有兩頁 Developer Manual 也提到。
+> 成立的是**較窄的那句**：**沒有任何一頁教過 `ovs-vsctl`／`mnexec` 的 sudoers 規則**——全站唯二的
+> `NOPASSWD` 行都只涵蓋 `ndtwin-lab`。
+>
+> 🔑 **而更正之後這條 finding 更利，不是更鈍。** 手冊叫讀者跑 `sudo ovs-vsctl show`，讀者當場會**成功**
+> （互動式 sudo 問密碼、他打進去、它動了），於是他有充分理由相信「`ovs-vsctl` 在 sudo 下是通的」。
+> 而 `ndt` 用的是 `sudo -n`。**差別不在指令有沒有被提過，而在互動式可以問密碼、非互動式不能**——
+> 這個縫隙對照手冊親手操作的人**必然看不見**，只咬工具。這也解釋了為什麼四輪 usertest 都沒撞到它：
+> tester VM 是全域 NOPASSWD，連那道縫都不存在。
 
 | # | 位置（修法前行號） | 呼叫 | 需要的規則 | 在手冊裡？ |
 |---|---|---|---|---|
