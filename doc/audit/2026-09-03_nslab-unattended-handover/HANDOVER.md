@@ -119,10 +119,30 @@ Disk is not a constraint: **596 G free** of 915 G.
 1. **Run the DKMS command above.** This is the only item that silently breaks
    later and cannot be repaired without root.
 2. **Ask the lab for a DHCP reservation** on `60:cf:84:bf:1f:59`.
-3. Decide whether **VM-1** (boot the shipped `.ova` on a real VMware hypervisor)
-   happens before you lose access — it needs a Broadcom account *and* a machine
-   with VMware on it, and it is currently the only untested claim on the Download
-   page. See `doc/audit/2026-09-03_virtualbox-demo-vm/REPORT.md`.
-4. Nothing else needs doing. The machine comes back from a reboot by itself.
+3. Nothing else needs doing. The machine comes back from a reboot by itself.
+
+## Not on this list, and an earlier draft wrongly put it here
+
+**VM-1** — boot the shipped `.ova` on a real VMware hypervisor — **has no nslab
+dependency at all.** The image is on a public Drive link now, so any machine can
+fetch it. Adam pointed this out; the deadline does not apply to it.
+
+Worth recording where it should run, though, because the two candidates are not
+equally cheap:
+
+* **Windows** — VMware Workstation Pro ships a hypervisor that needs no kernel
+  module compiled on the spot.
+* **Linux** — Workstation Pro has to build `vmmon` and `vmnet` against the
+  running kernel. That is **the same failure class that cost this project a day
+  already**: VirtualBox 7.0.16 could not build `vboxdrv` against 7.0.0-28, and
+  the kernel on Adam's laptop is newer still (`7.0.0-30`). Testing there risks
+  measuring the module build rather than the image.
+
+Adam's laptop is a poor host for it on a second count: 15.4 GB of RAM, already
+killed once today by `systemd-oomd`, against an OVA that declares 4 vCPU and
+6144 MB.
+
+⇒ **Windows is the low-risk place to run VM-1.** It still needs a Broadcom
+account for the download, which is a human step either way.
 
 [Co-developed with claude code -- Adam]
