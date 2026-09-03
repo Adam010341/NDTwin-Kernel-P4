@@ -57,6 +57,61 @@ reverseEdgeFailures()
     static utils::KeyedFailureLog log{std::chrono::seconds(60)};
     return log;
 }
+
+/** @brief Name one node or edge of a topology JSON well enough to find it in the file.
+ *
+ * [Co-developed with claude code -- Adam]
+ * Every field is read defensively, through contains() and a catch-all, because this runs
+ * *while reporting* a failure that one of those fields caused: a describer that trusts
+ * `at("device_name")` throws out of the error path and we are back to a diagnostic naming
+ * nothing. Falls back to the item's index, which is always available and is still enough to
+ * find the entry with `jq '.nodes[41]'`.
+ */
+std::string
+describeTopologyItem(const json& item, const char* kind, std::size_t index)
+{
+    auto field = [&item](const char* key) -> std::string {
+        try
+        {
+            if (!item.is_object() || !item.contains(key))
+            {
+                return {};
+            }
+            const auto& value = item.at(key);
+            return value.is_string() ? value.get<std::string>() : value.dump();
+        }
+        catch (...)
+        {
+            return {};
+        }
+    };
+
+    std::string desc = std::string(kind) + " #" + std::to_string(index);
+
+    // Node identity first, then edge identity: one describer, because the caller already
+    // knows which loop it is in and the fields do not overlap.
+    const std::string name = field("device_name").empty() ? field("nickname")
+                                                          : field("device_name");
+    if (!name.empty())
+    {
+        desc += " \"" + name + "\"";
+    }
+    const std::string ip = field("ip");
+    if (!ip.empty())
+    {
+        desc += " ip=" + ip;
+    }
+    const std::string srcIp = field("src_ip");
+    const std::string dstIp = field("dst_ip");
+    if (!srcIp.empty() || !dstIp.empty())
+    {
+        desc += " src_ip=" + (srcIp.empty() ? std::string("?") : srcIp) +
+                " dst_ip=" + (dstIp.empty() ? std::string("?") : dstIp) +
+                " src_dpid=" + (field("src_dpid").empty() ? std::string("?") : field("src_dpid")) +
+                " dst_dpid=" + (field("dst_dpid").empty() ? std::string("?") : field("dst_dpid"));
+    }
+    return desc;
+}
 } // namespace
 
 /**
@@ -152,6 +207,85 @@ TopologyAndFlowMonitor::~TopologyAndFlowMonitor()
     stop();
 }
 
+/** @brief Load the static topology now, on the caller's thread, and say whether it worked.
+ *
+ * @details
+ * [Co-developed with claude code -- Adam]
+ * The ordering fix. The load used to be the first statement of run(), i.e. on the thread
+ * start() spawns, so main.cpp went straight on to bind the sFlow socket and the REST server
+ * while the JSON was still being parsed. Measured 2026-09-03 (round5-topology-repro step 09) on
+ * a 17 KB topology with one bad host address: `:8000` was accepting connections at 0.50 s and
+ * "Server Listening on port 8000" was in the log; the process aborted at 1.50 s, rc=134.
+ *
+ * That second is the whole problem. Anything that has opened :8000 has told every health check,
+ * every guard script and every human reading the log that this kernel is up. A twin that
+ * announces itself and then dies is worse than one that never starts, because the announcement
+ * is what the rest of the system keys off -- and 1.0 s is comfortably long enough for a poller
+ * to have seen it and recorded the kernel as healthy.
+ *
+ * So the load is pulled forward to the one place that is unambiguously before any bind:
+ * main.cpp, before collector->start() and handler->start(). Returning bool rather than throwing
+ * keeps the decision at the call site, next to the other startup refusal (the sFlow bind), and
+ * makes the ordering readable in main() instead of implied by a thread's first statement.
+ *
+ * Idempotent: run() calls this too, so a caller that only calls start() still gets a topology,
+ * and the second call is a no-op. That matters because it is what lets this compose with the
+ * separate D15 change that moves the same three calls into start().
+ */
+bool
+TopologyAndFlowMonitor::loadStaticTopology()
+{
+    if (m_staticTopologyLoadAttempted.exchange(true))
+    {
+        // Already done -- by main, or by an earlier start(). loadStaticTopologyFromFile refuses
+        // a second load anyway; this just keeps the log quiet about it.
+        return m_staticTopologyLoadOk.load();
+    }
+
+    const std::string path = activeTopologyPath();
+    try
+    {
+        loadStaticTopologyFromFile(path);
+        initializeMappingsFromGraph();
+        // Only now is it known whether this is a bmv2 fabric, so only now can the poll be aimed.
+        configureTopologyApiUrls();
+    }
+    catch (const std::exception& err)
+    {
+        // CRITICAL, one line, and it carries the file and the entry -- see the rethrow in
+        // loadStaticTopologyFromFile for why "Invalid IP address: 10.0.0.256" on its own is not
+        // a diagnostic. The caller ends the process; nothing has been bound yet.
+        SPDLOG_LOGGER_CRITICAL(Logger::instance(),
+                               "cannot load the static topology: {}. Refusing to start: a kernel "
+                               "whose topology did not load answers every query confidently and "
+                               "wrongly. No port has been opened.",
+                               err.what());
+        m_staticTopologyLoadOk.store(false);
+        return false;
+    }
+
+    {
+        std::shared_lock lock(*m_graphMutex);
+        if (boost::num_vertices(*m_graph) == 0)
+        {
+            // The file was missing, empty, or held no usable nodes. loadStaticTopologyFromFile
+            // logs and returns for an unopenable path rather than throwing, so without this the
+            // kernel would come up with an empty graph and report a network of zero switches as
+            // if that were an observation.
+            SPDLOG_LOGGER_CRITICAL(Logger::instance(),
+                                   "the static topology \"{}\" produced no nodes at all. "
+                                   "Refusing to start; see the error above for whether the file "
+                                   "was missing or empty. No port has been opened.",
+                                   path);
+            m_staticTopologyLoadOk.store(false);
+            return false;
+        }
+    }
+
+    m_staticTopologyLoadOk.store(true);
+    return true;
+}
+
 void
 TopologyAndFlowMonitor::start()
 {
@@ -176,8 +310,48 @@ TopologyAndFlowMonitor::stop()
     }
 }
 
+/** @brief loadStaticTopologyFromFile, with the file and the offending entry attached.
+ *
+ * @details
+ * [Co-developed with claude code -- Adam]
+ * Measured 2026-09-03 (round5-topology-repro step 09): feeding the kernel a host whose `ip` is
+ * `10.0.0.256` -- which `tools/make_topology.py --hosts 300` emits for h256..h300 -- produced
+ * exactly two lines on stderr,
+ *
+ *     terminate called after throwing an instance of 'std::invalid_argument'
+ *       what():  Invalid IP address: 10.0.0.256
+ *
+ * and nothing else. Neither line names the topology file, and neither names the node. With
+ * `--topology` pointing at one of several candidate files and 310 nodes in it, that is a
+ * diagnostic the reader has to *guess* their way out of -- and this codebase has a documented
+ * habit of guessing wrong under exactly that pressure (a permission denial read as a data-plane
+ * failure; an orphaned curl read as "another kernel is running").
+ *
+ * So the parse keeps a description of the entry it is currently on, and any exception out of it
+ * -- json::type_error, our own invalid_argument from an unparseable address, anything a future
+ * field adds -- is rethrown with the file and that entry in front of it. The original `what()`
+ * is preserved verbatim at the end, because it is the part that says what was wrong.
+ */
 void
 TopologyAndFlowMonitor::loadStaticTopologyFromFile(const std::string& path)
+{
+    std::string where;
+    try
+    {
+        parseStaticTopologyFile(path, where);
+    }
+    catch (const std::exception& err)
+    {
+        throw std::runtime_error(
+            "topology file \"" + path + "\": " +
+            (where.empty() ? std::string("the file itself could not be read as topology JSON")
+                           : where) +
+            ": " + err.what());
+    }
+}
+
+void
+TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::string& where)
 {
     // [Co-developed with claude code -- Adam]
     // Refused rather than repeated. This function *adds* vertices and edges from the file; it does
@@ -231,8 +405,13 @@ TopologyAndFlowMonitor::loadStaticTopologyFromFile(const std::string& path)
     std::unordered_map<uint64_t, Graph::vertex_descriptor> dpidToVertex;
 
     // Add nodes
+    std::size_t itemIndex = 0;
     for (const auto& nodeJson : j["nodes"])
     {
+        // Set before anything is read out of the entry, so the description survives a throw
+        // from the very first field access.
+        where = describeTopologyItem(nodeJson, "node", itemIndex++);
+
         // VertexProperties vp = nodeJson.get<VertexProperties>();
         // Custom extraction (like from_json function)
         VertexProperties vp;
@@ -310,8 +489,11 @@ TopologyAndFlowMonitor::loadStaticTopologyFromFile(const std::string& path)
         }
     }
     // Add edges
+    itemIndex = 0;
     for (const auto& edgeJson : j["edges"])
     {
+        where = describeTopologyItem(edgeJson, "edge", itemIndex++);
+
         // EdgeProperties ep = edgeJson.get<EdgeProperties>();
         // Custom extraction (like above, like from_json function)
         EdgeProperties ep;
@@ -2499,8 +2681,44 @@ TopologyAndFlowMonitor::setVertexNickname(Graph::vertex_descriptor v, std::strin
  * Fast at first, then slow, and time-boxed rather than gated on a convergence test: a genuinely
  * absent host would keep a convergence gate in fast mode forever.
  */
+/** @brief The thread entry. Exists only so that nothing can escape it.
+ *
+ * [Co-developed with claude code -- Adam]
+ * An exception reaching a std::thread's entry point is std::terminate -- abort() of the whole
+ * kernel, with the two lines the C++ runtime prints on stderr and nothing of ours: no logger
+ * line, no file, no node, no thread name. That is exactly what round5-topology-repro step 09
+ * captured, and this thread had no try/catch anywhere in it. Every individual parse inside
+ * runLoop() is guarded on its own, so this should be unreachable; it is here so that "a bad
+ * input costs us the poll, not the process" is true for a failure shape nobody has thought of
+ * yet. The kernel's topology view freezes, which is a degraded twin -- but a degraded twin that
+ * is still there to be asked, and that said so, beats a core dump.
+ */
 void
 TopologyAndFlowMonitor::run()
+{
+    try
+    {
+        runLoop();
+    }
+    catch (const std::exception& err)
+    {
+        SPDLOG_LOGGER_CRITICAL(Logger::instance(),
+                               "the topology thread is exiting after an unhandled error: {}. The "
+                               "kernel stays up, but its view of the topology is now frozen at "
+                               "whatever was last read.",
+                               err.what());
+    }
+    catch (...)
+    {
+        SPDLOG_LOGGER_CRITICAL(Logger::instance(),
+                               "the topology thread is exiting after an unhandled non-standard "
+                               "exception. The kernel stays up, but its view of the topology is "
+                               "now frozen at whatever was last read.");
+    }
+}
+
+void
+TopologyAndFlowMonitor::runLoop()
 {
     using namespace std::chrono_literals;
     constexpr auto kWhileConverging = 5s;
@@ -2509,11 +2727,14 @@ TopologyAndFlowMonitor::run()
 
     SPDLOG_LOGGER_INFO(Logger::instance(), "TopologyAndFlowMonitor Run");
 
-    // Once: the static topology is static, and loading it twice duplicates it.
-    loadStaticTopologyFromFile(activeTopologyPath());
-    initializeMappingsFromGraph();
-    // Only now is it known whether this is a bmv2 fabric, so only now can the poll be aimed.
-    configureTopologyApiUrls();
+    // [Co-developed with claude code -- Adam]
+    // Once, and guarded. This used to be three bare calls, and loadStaticTopologyFromFile throws
+    // on a bad address, a bad switch_kind or an empty switch "ip" -- with no try/catch anywhere
+    // between here and the thread entry, so the exception went straight to std::terminate and
+    // took the process down with abort(), rc=134, from a thread whose name appears nowhere in
+    // the output. main.cpp now calls loadStaticTopology() before anything binds, so by the time
+    // this runs it is normally a no-op; it stays because start() is callable on its own.
+    (void)loadStaticTopology();
 
     const auto startedAt = std::chrono::steady_clock::now();
     auto previous = graphLivenessSummary();
@@ -2547,7 +2768,6 @@ TopologyAndFlowMonitor::run()
             std::this_thread::sleep_for(1s);
         }
     }
-
     SPDLOG_LOGGER_INFO(Logger::instance(), "Exiting TopologyAndFlowMonitor's updating");
 }
 

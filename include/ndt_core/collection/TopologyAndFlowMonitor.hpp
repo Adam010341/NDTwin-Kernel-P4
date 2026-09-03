@@ -52,6 +52,22 @@ class TopologyAndFlowMonitor
     void start();
 
     /**
+     * @brief Loads the static topology synchronously and reports whether it worked.
+     *
+     * @return false if the topology could not be loaded. The caller must end the process; the
+     *         reason has already been logged at CRITICAL, naming the file and the offending
+     *         node or edge.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * Call this *before* anything opens a socket. It exists because the load used to happen on
+     * the thread start() spawns, so a topology the kernel cannot read was discovered a full
+     * second after it had already bound :8000 and logged "Server Listening" -- see the
+     * definition for the measurement. Idempotent: run() calls it too.
+     */
+    bool loadStaticTopology();
+
+    /**
      * @brief Destructor for the TopologyAndFlowMonitor class.
      *
      * Calls the stop() method to terminate the monitoring thread and the edge flow
@@ -329,7 +345,10 @@ class TopologyAndFlowMonitor
 
   private:
     std::mutex m_configurationFileMutex;
+    /// Thread entry: a try/catch around runLoop(), so nothing reaches std::terminate.
     void run();
+    /// The poll loop proper. Everything run() used to be.
+    void runLoop();
 
   protected:
     /**
@@ -438,6 +457,16 @@ class TopologyAndFlowMonitor
      * [Co-developed with claude code -- Adam]
      */
     void loadStaticTopologyFromFile(const std::string& path);
+
+    /**
+     * @brief The body of loadStaticTopologyFromFile, reporting where it got to.
+     *
+     * @param where set to a description of the node or edge currently being read, so the
+     *        wrapper can name it when this throws. Empty means nothing was reached.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    void parseStaticTopologyFile(const std::string& path, std::string& where);
 
     /**
      * @brief Builds the curl command for one topology endpoint.
@@ -569,6 +598,11 @@ class TopologyAndFlowMonitor
   private:
     void initializeMappingsFromGraph();
     void flushEdgeFlowLoop();
+
+    /// Set by the first loadStaticTopology() call, so run() does not repeat main's work.
+    std::atomic<bool> m_staticTopologyLoadAttempted{false};
+    /// The verdict of that one attempt, for any later caller.
+    std::atomic<bool> m_staticTopologyLoadOk{false};
 
     uint64_t hashDstIp(const std::string& str);
 
