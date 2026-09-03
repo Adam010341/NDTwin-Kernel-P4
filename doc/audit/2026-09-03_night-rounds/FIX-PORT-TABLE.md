@@ -45,7 +45,14 @@ UDP `:6343`，正當的 Terminal 3 死在 `bind() to sFlow port 6343 failed`，�
 | `deep_sweep`（`--deep`） | `ndt` | 逐列 kill；訊息帶上 `$consequence` |
 | bring-up guard `preflight` | `ndt` | `ndt_port_residue "$mode"`，**只警告不改 return** |
 | `up_p4` 的 orphan 分支 | `ndt`（原 :635） | 印實際被佔的 P4 ports，取代「數幾個 process」 |
-| `stack.sh cmd_down` | `stack.sh` | 保留 ours/stray 判定，port 集合改讀表 |
+| `stack.sh cmd_down` | `stack.sh` | 保留 ours/stray 判定，port 集合改讀表——🔴 **改動在工作樹裡，未進本 commit**，見下 |
+
+🔴 **`tools/test_workflow/stack.sh` 沒有進這個 commit。** 我開工前它就已經有**別的 agent 的
+未提交修改**（`supervise.sh`／`report_exit`／B-5 crash reporting，177 行）。CLAUDE.md 的規則是
+列到檔案，但**列到檔案擋不住同一個檔案裡別人的 hunk**——`git commit -- stack.sh` 會把他們的
+工作一起帶進一個沒有描述它的 commit message。所以我的三處 stack.sh 修改（source ports.sh、
+`cmd_down` 的 port 迴圈改讀表、`ss -ltnp` 那行建議改寫）**留在工作樹裡未提交**，等 stack.sh
+的擁有者先提交後再單獨提交。引用時請註明這是**未提交的觀測**。
 
 `preflight` 為什麼只警告：`ndt up` 打在已經起來的 stack 上時，`:8000`／`:6343` 由**它自己的
 kernel** 持有，硬失敗會讓 reuse 路徑不能用。分辨自己人要 pidfile 歸屬判定，那在 `stack.sh`
