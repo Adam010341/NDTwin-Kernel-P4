@@ -93,6 +93,11 @@ add_executable(
   # [Co-developed with claude code -- Adam] FINDINGS #46/#35/#36: the topology poll overwrote a
   # commanded power-off and the resurrection was permanent. Both directions -- see the header.
   test_PollDoesNotResurrect.cpp
+  # [Co-developed with claude code -- Adam] FINDINGS #61/#62: a host edge naming a dpid no switch
+  # has was dropped with one WARN (40 edges in, 39 served), and src_interface 0 / 999999 passed
+  # with no range check. Both are now load-time refusals -- see the file header for why the host
+  # side of a host edge must keep its documented port 0.
+  test_TopologyInputValidation.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there
