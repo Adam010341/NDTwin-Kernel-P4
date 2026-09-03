@@ -267,16 +267,17 @@ mutate "5. post() inverts the plane's claim" \
     '.withProgrammingConfirmed(!successConfirmsProgramming());' \
     'PhantomOvsFixture.AProxySuccessStillConfirmsTheEntry'
 
-# 6. `ok` stops being required, so a REFUSED entry confirms itself. B-1's original guarantee,
-#    which this change must not spend.
-mutate "6. a refusal confirms its own token" \
-    "$OUTCOMES" \
-    'if (result.ok)
-        {
-            succeeded_' \
-    'if (result.ok || result.confirmsProgramming || true)
-        {
-            succeeded_' \
+# 6. The proxy's refusal stops being read as a refusal: a rejected entry answers 200 with an
+#    error body, is scored ok, is confirmed by the P4 plane, and is served. B-1's ORIGINAL
+#    guarantee, which this change must not spend to buy the OVS one.
+#
+#    Not written as a loosening of `ok`: a failure never sets confirmsProgramming, so widening
+#    that condition alone changes nothing about the token and the mutation would survive for a
+#    reason unrelated to what it claims to test.
+mutate "6. the proxy's error body stops being read, so a refusal confirms itself" \
+    "$HTTPBASE" \
+    'parsed["status"].get<std::string>() == "error"' \
+    'parsed["status"].get<std::string>() == "an-outcome-nothing-sends"' \
     'PhantomOvsFixture.AProxyRefusalConfirmsNothingEither'
 
 # 7. Withholding reported as failing. The tempting simplification -- "if we are not confirming it,
@@ -293,7 +294,7 @@ mutate "7. an accepted-but-unconfirmed entry is counted as a failure" \
 mutate "8. the view withholds silently again" \
     "$DEVMGR" \
     '    reportWithheldRows(withheld);' \
-    '    (void)withheld;' \
+    '    reportWithheldRows(withheld * 0);' \
     'PhantomOvsFixture.TheViewSaysItIsWithholdingRows'
 
 # 9. The view cries wolf: it reports withholding on every read, whether or not anything was
@@ -301,7 +302,7 @@ mutate "8. the view withholds silently again" \
 mutate "9. the view reports withholding unconditionally" \
     "$DEVMGR" \
     'if (withheld == previous)' \
-    'if (false)' \
+    'if (false && withheld == previous)' \
     'PhantomOvsFixture.TheViewDoesNotClaimToWithholdWhatItServed'
 
 # 10. The dispatch stops saying WHY. The view can then only report a count, and "this plane
@@ -310,7 +311,7 @@ mutate "9. the view reports withholding unconditionally" \
 mutate "10. the dispatch stops explaining an unconfirmed acceptance" \
     "$CONTROLLER" \
     'if (unconfirmed > 0)' \
-    'if (false)' \
+    'if (false && unconfirmed > 0)' \
     'PhantomOvsFixture.TheDispatchSaysWhyAnAcceptedEntryIsStillWithheld'
 
 # 11. The filter itself widened to hide untokened rows. Not new in this change, but this suite has
