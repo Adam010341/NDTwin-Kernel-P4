@@ -71,6 +71,9 @@ add_executable(
   test_SmartPlugFields.cpp
   test_PathNodeParsing.cpp
   test_ApplicationManager.cpp
+  # [Co-developed with claude code -- Adam] D15: the startup race that left bmv2 liveness off for
+  # the whole process lifetime. Asserts the ordering, not the outcome -- see the file header.
+  test_DataPlaneKindOrdering.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

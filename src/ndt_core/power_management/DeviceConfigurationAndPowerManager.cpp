@@ -102,17 +102,58 @@ DeviceConfigurationAndPowerManager::getPowerStrategyForDpid(uint64_t dpid) const
     return nullptr;
 }
 
-// [Co-developed with claude code -- Adam]
+/** @brief D15. Compute the data-plane kind, but only from a topology that exists.
+ *
+ * @details
+ * [Co-developed with claude code -- Adam]
+ *
+ * This used to write `m_dataPlaneIsBmv2 = false` and return whenever the switch-kind index was
+ * empty, which is indistinguishable from "this is an OVS fabric" -- and start() called it while
+ * the topology was still being parsed on another thread. The false answer was then cached for the
+ * life of the process, so fetchP4SwitchState() was never called at all.
+ *
+ * Two independent things now prevent that:
+ *   - the load is finished before start() runs at all (TopologyAndFlowMonitor::start), and
+ *   - an answer derived from an unloaded topology is *not an answer*: it is refused here, left
+ *     undetermined, and re-derived at the point of use. Ordering and synchronisation, so that
+ *     re-introducing the race on a small file still cannot latch a wrong verdict.
+ */
 void
 DeviceConfigurationAndPowerManager::refreshDataPlaneKind()
 {
-    m_dataPlaneIsBmv2 = false;
+    m_dataPlaneIsBmv2.store(false);
+    m_dataPlaneKindDetermined.store(false);
     if (!m_topologyAndFlowMonitor)
     {
         return;
     }
+    if (!m_topologyAndFlowMonitor->isStaticTopologyLoaded())
+    {
+        // Not a warning to be ignored: it names the exact ordering violation, so the next person
+        // to reintroduce it reads the cause rather than "bmv2 liveness seems to be off".
+        SPDLOG_LOGGER_ERROR(Logger::instance(),
+                            "data-plane kind was asked for before the static topology finished "
+                            "loading; refusing to cache 'not bmv2' from an empty switch-kind "
+                            "index (D15). It will be derived again on first use.");
+        return;
+    }
     const auto groups = m_topologyAndFlowMonitor->getSwitchKindGroups();
-    m_dataPlaneIsBmv2 = (groups.size() == 1 && groups.count(SwitchKind::BMV2) == 1);
+    m_dataPlaneIsBmv2.store(groups.size() == 1 && groups.count(SwitchKind::BMV2) == 1);
+    m_dataPlaneKindDetermined.store(true);
+}
+
+// [Co-developed with claude code -- Adam]
+// D15. The point-of-use read. Same remedy the collector already uses for the identical race
+// (FlowLinkUsageCollector::lookupOfport): decide where the answer is needed, not at start(), so a
+// topology that arrives late still produces the right verdict instead of a latched wrong one.
+bool
+DeviceConfigurationAndPowerManager::dataPlaneIsBmv2()
+{
+    if (!m_dataPlaneKindDetermined.load())
+    {
+        refreshDataPlaneKind();
+    }
+    return m_dataPlaneIsBmv2.load();
 }
 
 void
@@ -672,7 +713,7 @@ DeviceConfigurationAndPowerManager::pingWorker(int interval_sec = 1)
         // Guarded on m_dataPlaneIsBmv2 so an OVS run never talks to a proxy that is not there --
         // the same conservatism as configureTopologyApiUrls.
         std::optional<json> p4SwitchState;
-        if (m_mode == utils::DeploymentMode::MININET && m_dataPlaneIsBmv2)
+        if (m_mode == utils::DeploymentMode::MININET && dataPlaneIsBmv2())
         {
             p4SwitchState = fetchP4SwitchState();
         }
