@@ -33,12 +33,12 @@
 
 | 狀態 | 條數 | 編號 |
 |---|---:|---|
-| ✅ IN TRUNK / 已修 | **44** | 4–7, 10–17, 19–20, 22–24, 26, 28–30, 32, 41–42, 45, 47–48, 50, 53, 56, 58–60, 63–65, 71–74, 78, 35–36, 46 |
-| 🛠 派工中 | **12** | 8, 27, 33–34, 52, 69–70, 75–77, 80–81 |
+| ✅ IN TRUNK / 已修 | **46** | 4–7, 10–17, 19–20, 22–24, 26, 28–30, 32, 41–42, 45, 47–48, 50, 53, 56, 58–60, 63–65, 71–74, 78, 35–36, 46, 69–70 |
+| 🛠 派工中 | **10** | 8, 27, 33–34, 52, 75–77, 80–81 |
 | ⭕ UNASSIGNED | **24** | 1–3, 9, 18, 21, 25, 31, 37–40, 43, 49, 51, 54–55, 61–62, 66–68, 79, 82 |
 | ➖ NOT A DEFECT | **1** | 44 |
 | ❓ UNKNOWN | **1** | 57 |
-| **合計** | **82** | （09-03 20:xx 由各列狀態欄重算；派工中＝7 支：logger #69/70（驗收中）、ndtcheck #8、ovstopo #77、isup Q12+#33/34/80/81、chaoswire #75、ppsdocs #52 文件半、stop #27/76；⭕ 含 #77「等 Adam 裁」，#79–82 是 poll 交付時挖出的） |
+| **合計** | **82** | （09-03 20:xx 由各列狀態欄重算；派工中＝6 支：ndtcheck #8、ovstopo #77、isup Q12+#33/34/80/81、chaoswire #75、ppsdocs #52 文件半、stop #27/76；⭕ 含 #77「等 Adam 裁」，#79–82 是 poll 交付時挖出的） |
 
 **未併分支的實況（`git for-each-ref` ＋ 逐支 `git rev-list --count`）**
 
@@ -212,8 +212,8 @@
 
 | # | 缺陷 | 狀態 | 證據 | 誰該接手 |
 |---|---|---|---|---|
-| 69 | 🔴 `--loglevel <打錯的值>` 把 log 整個關掉，rc 0、無訊息，而攔它的錯誤路徑不可能執行 | 🛠 派工中（18:3x，`fix/logger-cli-refuses-unknown`，base `431d98a5`，C++，建置排在 lock 後） | **auditor 親自讀碼查證**：`from_str` 在 `libs/spdlog/common.h:294` 與 `common-inl.h:38` **兩處都宣告 `SPDLOG_NOEXCEPT`** ⇒ `Logger.cpp:16` 的 `catch (const spdlog::spdlog_ex&)` 永遠到不了；`common-inl.h` 的結尾是 `return level::off;` ⇒ 不是「用預設等級」是**完全不記錄**。⚠️ **`origin/main` 逐字相同**，讀者也中 | `fix/logfile-takes-a-path` 已經**順手**加了 `AMistypedLevelIsRefusedRatherThanSilentlyDisablingLogging` 這條測試並在閘門 M8 驗過 ⇒ **併那支就一起修掉**。但它沒有被登記成一條 finding，所以列在這裡免得被當成「附帶效果」而沒有人對帳 |
-| 70 | `Logger` 的 `--help` 在 kernel 裡不可達（`cli::parse` 先 `return 0`），而 `main.cpp` 的 usage 正指向那段印不出來的字；兩個 parser 對不認得的旗標都靜默忽略 | 🛠 派工中（同上，同一支） | 同上分支的旗標完整表；auditor 在 `origin/main` 上確認同一形狀 | 🔴 **靜默忽略未知旗標這半沒有人在修**，要讓兩個 parser 知道對方的旗標集合，是另一個改動 |
+| 69 | 🔴 `--loglevel <打錯的值>` 把 log 整個關掉，rc 0、無訊息，而攔它的錯誤路徑不可能執行 | ✅ IN TRUNK | `6d10cc51`（merge of `fix/logger-cli-refuses-unknown`，修法 `4837f57d`）：`Logger::reject_unknown_flags` 聯集檢查；閘門 9/0＋3 widenings 0 wrongly caught；gtest 965/965；MERGE-LOG 28。#69 與 #70 文字半早由 `fix/logfile-takes-a-path` 修掉（agent 對帳） | `fix/logfile-takes-a-path` 已經**順手**加了 `AMistypedLevelIsRefusedRatherThanSilentlyDisablingLogging` 這條測試並在閘門 M8 驗過 ⇒ **併那支就一起修掉**。但它沒有被登記成一條 finding，所以列在這裡免得被當成「附帶效果」而沒有人對帳 |
+| 70 | `Logger` 的 `--help` 在 kernel 裡不可達（`cli::parse` 先 `return 0`），而 `main.cpp` 的 usage 正指向那段印不出來的字；兩個 parser 對不認得的旗標都靜默忽略 | ✅ IN TRUNK | `6d10cc51`（merge of `fix/logger-cli-refuses-unknown`，修法 `4837f57d`）：`Logger::reject_unknown_flags` 聯集檢查；閘門 9/0＋3 widenings 0 wrongly caught；gtest 965/965；MERGE-LOG 28。#69 與 #70 文字半早由 `fix/logfile-takes-a-path` 修掉（agent 對帳） | 🔴 **靜默忽略未知旗標這半沒有人在修**，要讓兩個 parser 知道對方的旗標集合，是另一個改動 |
 | 71 | 🔴 rule journal 在 production 從來沒被寫過，而 `test_journal_wiring.py` 14 個測試全綠（注入依賴，證明的是「給它 journal 它會寫」） | ✅ IN TRUNK（09-03 `486d89fb`，併 `fix/rule-journal-is-wired @ 1f3fd41f`；auditor 丟棄式樹重跑閘門 **14/0**、合併樹 25 個 proxy 模組全綠；三個裁決在 QUESTIONS N11） | auditor 查證：`main.py:26` 不傳 journal、`_note_in_journal` 第一行 `if … self._journal is None: return`；production 零 import | 修法＝`main.py` 建構真 `RuleJournal` 並注入＋一支**不注入**的接線測試（直接跑 `main` 的建構路徑），否則 A-4c 的 replay 永遠拿到空 journal |
 | 72 | demo image 的 netplan 綁死 QEMU 的 MAC，換 hypervisor 沒網路 | ✅ 已修（image） | `開機手冊` session，`doc/audit/2026-09-03_virtualbox-demo-vm/REPORT.md`，紅綠都量；`ndtwin-vm.sh` 仍釘著該 MAC（工具側待修）；08-31「Untested on real VMware — closed」被降級（依據是 ovftool 轉檔，碰不到 netplan） | 工具側：`ndtwin-vm.sh` 的 MAC；VMware 真開機一次 |
 | 73 | `KERNEL_ENDPOINTS` 手抄表漏 `GET /ndt/get_sflow_stats`，`test_l3_dispatch_drift` 在 trunk 紅 | ✅ IN TRUNK（09-03 `431d98a5`，併 `fix/inventories-follow-the-merges @ 8d492733`；auditor 在 trunk 看過紅、合併樹 28＋25 個 python 模組全綠） | auditor：沿 trunk first-parent 逐 commit 跑，`ea139d1c`（telemetry-health 併入）起紅 | 合併驗證缺口，見 MERGE-LOG「第七個教訓」 |
