@@ -1,5 +1,27 @@
 #!/usr/bin/env python3
 
+# [Co-developed with claude code -- Adam]
+# Mininet is installed for the SYSTEM python, in /usr/lib/python3/dist-packages, and this file is
+# launched by two interpreters that do not have that directory on sys.path:
+#
+#   sudo /home/adam/miniconda3/envs/ntg-env/bin/python testbed_topo.py
+#       tools/test_workflow/ndtwin-lab `ovs-topo-start`, i.e. what `ndt up ovs` runs.
+#   sudo python3 testbed_topo.py
+#       what stack.sh prints for the operator -- `python3` on this machine is conda's.
+#
+# Without these two lines both die at the first import with ModuleNotFoundError: mininet, the
+# tmux window exits instantly, and `ndt up ovs` then waits 300 s for a fabric that was never
+# going to be built. Appending (not inserting) leaves a real system python's own paths in front.
+#
+# 🔑 The lines are not new: NTG's copy of this file has carried them since it was written, and
+#    tools/test_workflow/ovs_4host_topo.py -- the sibling this lab already launches under the
+#    same interpreter -- carries the first one and its docstring says "testbed_topo.py already
+#    uses" it. They were lost when this copy was imported into the repo. Nothing noticed,
+#    because until finding #77 nothing in ndt's paths ever executed this copy.
+import sys
+
+sys.path.append('/usr/lib/python3/dist-packages')
+sys.path.append('/usr/local/lib/python3/dist-packages')
 
 from mininet.topo import Topo
 from mininet.net import Mininet
