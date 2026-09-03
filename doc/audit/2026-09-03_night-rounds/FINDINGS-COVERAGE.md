@@ -34,11 +34,11 @@
 | 狀態 | 條數 | 編號 |
 |---|---:|---|
 | ✅ IN TRUNK / 已修 | **58** | 4–7, 10–17, 19–20, 22–24, 26, 28–30, 32, 41–42, 45, 47–48, 50, 53, 56, 58–60, 63–65, 71–74, 78, 35–36, 46, 69–70, 77, 75, 8, 3, 21, 49, 61–62, 38, 82, 27, 76 |
-| 🛠 派工中 | **6** | 1–2, 33–34, 80–81 |
-| ⭕ UNASSIGNED | **19** | 9, 18, 25, 31, 37, 39–40, 43, 51–52, 54–55, 66–68, 79, 83–85 |
+| 🛠 派工中 | **7** | 1–2, 33–34, 80–81, 85 |
+| ⭕ UNASSIGNED | **18** | 9, 18, 25, 31, 37, 39–40, 43, 51–52, 54–55, 66–68, 79, 83–84 |
 | ➖ NOT A DEFECT | **1** | 44 |
 | ❓ UNKNOWN | **1** | 57 |
-| **合計** | **85** | （09-04 0x:xx 由各列狀態欄重算；派工中＝3 支（isup Q12+#33/34/80/81 合併樹驗證中；phantomovs #2、delgroup #1 06:5x 派、C++）：isup Q12+#33/34/80/81、stop #27/76（00:0x 被 watchdog 收掉、00:15 接回）、ovsoff #82、topoval #61/62、refused #38；⭕ 含 #52 碼半（文件半已併）、#83＝Adam 的 `sudo install`、#84 等 N14 Q5；#83–84 是 #77 交付時挖出的） |
+| **合計** | **85** | （09-04 0x:xx 由各列狀態欄重算；派工中＝4 支（isup Q12+#33/34/80/81 合併樹驗證中；phantomovs #2、delgroup #1、noip #85 07:0x 派、C++）：isup Q12+#33/34/80/81、stop #27/76（00:0x 被 watchdog 收掉、00:15 接回）、ovsoff #82、topoval #61/62、refused #38；⭕ 含 #52 碼半（文件半已併）、#83＝Adam 的 `sudo install`、#84 等 N14 Q5；#83–84 是 #77 交付時挖出的） |
 
 **未併分支的實況（`git for-each-ref` ＋ 逐支 `git rev-list --count`）**
 
@@ -228,7 +228,7 @@
 | 82 | OVS `powerOff` 的 `!isUp` 早退（#35 同型） | ✅ IN TRUNK | `63792cc9`（merge `3d2b38fe` of `fix/ovs-power-off-asks-the-bridge`，修法 `6945e6f9`）：`powerOff` 問 `br-exists` 不問圖、命令兩路都記、`powerOn` 不盲 `add-br`；agent 紅 6/45→綠、閘門 10/0＋3、#46 閘門 10/0；live ovs4 帶外 del-br 後 off 500×3→200×3；auditor 合併樹重跑；MERGE-LOG 36 | 先補 `br-exists` 量測；OVS 平面補一輪 live |
 | 83 | 安裝副本 `/usr/local/sbin/ndtwin-lab` 停在 08-30 `0b6db9e3`；trunk 五個 commit 在機器上沒生效、沒東西會說 | ⭕ UNASSIGNED（**碼半 ✅ 已併 trunk `257e4eb0`**，MERGE-LOG 33：`ndt status`／`--check`／preflight 比對兩份 sha 並出聲、`--check` 在本機回 rc 1 直到裝好；**剩下那半＝Adam 的 `sudo install`（N14 Q1）**） | auditor 09-03 23:5x 親比 sha；`ndt:55` 寫死路徑 | 裝完我補一趟真正走 `ndt up ovs` 的 #77 AFTER 臂 |
 | 84 | `ndt up ovs` 曾依賴 NTG 工作樹未提交的兩行 bootstrap；手冊的手動路徑在乾淨 clone 仍會壞 | ⭕ UNASSIGNED（N14 Q5 等裁：改手冊 vs 請 NTG commit vs 記錄不動） | #77 agent 唯讀查證；auditor 唯讀重查一致 | 建議 (a) 手冊改成叫人跑本 repo 那份 |
-| 85 | `fetchCpuReportInternal` 對無 IP 的 switch vertex `ip.front()` ⇒ SIGSEGV（gdb 確認）；`updateSwitches` 可能造出這種 vertex | ⭕ UNASSIGNED | stop agent gdb；auditor 未親驗 | 小 C++：空檢查＋略過並 WARN；先查 `updateSwitches` 新增 vertex 的 `ip` 是否為空（可達性） |
+| 85 | `fetchCpuReportInternal` 對無 IP 的 switch vertex `ip.front()` ⇒ SIGSEGV（gdb 確認）；`updateSwitches` 可能造出這種 vertex | 🛠 派工中（09-04 07:0x，`fix/cpu-report-no-ip-switch`，base trunk `f138b767`，C++ 小修＋可達性判定） | stop agent gdb；auditor 未親驗 | 小 C++：空檢查＋略過並 WARN；先查 `updateSwitches` 新增 vertex 的 `ip` 是否為空（可達性） |
 
 ### 2.2 兩支動到同一段碼（合併衝突預警）
 
