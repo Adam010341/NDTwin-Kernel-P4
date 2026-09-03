@@ -1,0 +1,332 @@
+guarded_build: jobs=2 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/red_run.sh
+=== configure ===
+-- Detecting C compile features - done
+-- Found Python: /home/adam/miniconda3/bin/python3 (found version "3.13.13") found components: Interpreter 
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD
+-- Performing Test CMAKE_HAVE_LIBC_PTHREAD - Success
+-- Found Threads: TRUE  
+-- Configuring done (2.4s)
+-- Generating done (0.0s)
+-- Build files have been written to: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovsoff/build
+=== build test_routing_strategy ===
+[65/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_RelayResponse.cpp.o
+[66/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_RequestDeadlines.cpp.o
+[67/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_FlowTableCacheOptionalFields.cpp.o
+[68/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_ReverseEdgeLookup.cpp.o
+[69/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_LastHopAttribution.cpp.o
+[70/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_AllDestinationPaths.cpp.o
+[71/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_HttpSessionRouting.cpp.o
+[72/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_LLMResponseParsing.cpp.o
+[73/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_LockLeaseExpiry.cpp.o
+[74/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_LockManager.cpp.o
+[75/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_ClassifierActionForms.cpp.o
+[76/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_LockOwnership.cpp.o
+[77/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_FlowStatsTimeout.cpp.o
+[78/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_StaleTableCarryForward.cpp.o
+[79/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_FlowTableConcurrency.cpp.o
+[80/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_TopKFlowInfoLocking.cpp.o
+[81/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_FlowBatchPartition.cpp.o
+[82/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_FlowLiveness.cpp.o
+[83/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_TopologyAndFlowMonitor.cpp.o
+[84/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_TopologyAndFlowMonitor_mininet.cpp.o
+[85/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_TopologyPollRound.cpp.o
+[86/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_AdministrativeDisable.cpp.o
+[87/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_AdminDisableConsumers.cpp.o
+[88/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_OptimisticTopologyReporting.cpp.o
+[89/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_ApiKeyNotLogged.cpp.o
+[90/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_IntentTaskOutcomes.cpp.o
+[91/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_HttpSessionStatusCodes.cpp.o
+[92/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_GroupMeterExistence.cpp.o
+[93/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_CommandFailure.cpp.o
+[94/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_HistoricalLogging.cpp.o
+[95/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_TopologyUrlAndPathJson.cpp.o
+[96/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_SmartPlugFields.cpp.o
+[97/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_PathNodeParsing.cpp.o
+[98/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_ApplicationManager.cpp.o
+[99/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_DataPlaneKindOrdering.cpp.o
+[100/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_PowerManagerShutdown.cpp.o
+[101/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_TelemetryHealth.cpp.o
+[102/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_CloseOnExecSockets.cpp.o
+[103/104] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_PollDoesNotResurrect.cpp.o
+[104/104] Linking CXX executable bin/test_routing_strategy
+BUILD_RC=0
+=== RED RUN: the #82 cases against trunk's powerOff/powerOn logic ===
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovsoff/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = OvsPowerStrategyTest.*:OvsPowerStrategyConcurrencyTest.*:PollDoesNotResurrectTest.*
+[==========] Running 45 tests from 3 test suites.
+[----------] Global test environment set-up.
+[----------] 32 tests from OvsPowerStrategyTest
+[ RUN      ] OvsPowerStrategyTest.PowerOffSavesThePortsThenDeletesTheBridge
+[       OK ] OvsPowerStrategyTest.PowerOffSavesThePortsThenDeletesTheBridge (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOffRefusesWhenItCannotReadThePorts
+[       OK ] OvsPowerStrategyTest.PowerOffRefusesWhenItCannotReadThePorts (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOffDistinguishesABridgeWithNoPortsFromAFailedQuery
+[       OK ] OvsPowerStrategyTest.PowerOffDistinguishesABridgeWithNoPortsFromAFailedQuery (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOffLeavesTheVertexUpWhenACommandFails
+[       OK ] OvsPowerStrategyTest.PowerOffLeavesTheVertexUpWhenACommandFails (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOffTearsDownABridgeThatExistsThoughTheGraphSaysDown
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovsoff/tests/test_OvsPowerStrategy.cpp:369: Failure
+Expected equality of these values:
+  ovs.bridgeExistsCalls
+    Which is: 0
+  1
+believed the graph instead of asking ovs-vsctl
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovsoff/tests/test_OvsPowerStrategy.cpp:370: Failure
+Value of: ovs.ran("del-br s1")
+  Actual: false
+Expected: true
+returned success with the bridge still there, because the graph already said down. FINDINGS #82: 'Success' has to mean ovs-vsctl was consulted
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovsoff/tests/test_OvsPowerStrategy.cpp:373: Failure
+Value of: ovs.ran("ifconfig s1-eth1 down")
+  Actual: false
+Expected: true
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovsoff/tests/test_OvsPowerStrategy.cpp:374: Failure
+Expected equality of these values:
+  fix.savedPorts()
+    Which is: {}
+  (std::vector<std::string>{"s1-eth1", "s1-eth2"})
+    Which is: { "s1-eth1", "s1-eth2" }
+powerOn has nothing else to reattach from
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovsoff/tests/test_OvsPowerStrategy.cpp:377: Failure
+Value of: fix.monitor->getVertexAdminPoweredOff(fix.sw)
+  Actual: false
+Expected: true
+the teardown ran but the power-off was not recorded as commanded, so the next topology poll would lift this switch straight back (FINDINGS #46)
+[  FAILED  ] OvsPowerStrategyTest.PowerOffTearsDownABridgeThatExistsThoughTheGraphSaysDown (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOffOnAnAbsentBridgeSucceedsWithoutDeletingAnythingAndStillRecordsTheCommand
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovsoff/tests/test_OvsPowerStrategy.cpp:406: Failure
+Expected equality of these values:
+  ovs.bridgeExistsCalls
+    Which is: 0
+  1
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovsoff/tests/test_OvsPowerStrategy.cpp:413: Failure
+Value of: fix.monitor->getVertexAdminPoweredOff(fix.sw)
+  Actual: false
+Expected: true
+a redundant power-off is still a command; without this record the next poll lifts the switch and the operator's second 'off' has been silently discarded
+[  FAILED  ] OvsPowerStrategyTest.PowerOffOnAnAbsentBridgeSucceedsWithoutDeletingAnythingAndStillRecordsTheCommand (0 ms)
+[ RUN      ] OvsPowerStrategyTest.ASecondPowerOffOnAStillRunningSwitchIsNotSwallowedByTheFirst
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovsoff/tests/test_OvsPowerStrategy.cpp:435: Failure
+Value of: ovs.ran("del-br s1")
+  Actual: false
+Expected: true
+the second power-off ran nothing because the first had already written isUp = false
+[  FAILED  ] OvsPowerStrategyTest.ASecondPowerOffOnAStillRunningSwitchIsNotSwallowedByTheFirst (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOffAttemptsTheTeardownWhenItCannotAskWhetherTheBridgeExists
+[       OK ] OvsPowerStrategyTest.PowerOffAttemptsTheTeardownWhenItCannotAskWhetherTheBridgeExists (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOffStillRefusesWhenTheBridgeIsThereButItsPortsCannotBeRead
+[       OK ] OvsPowerStrategyTest.PowerOffStillRefusesWhenTheBridgeIsThereButItsPortsCannotBeRead (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnRecreatesTheBridgeWithTheSavedPorts
+[       OK ] OvsPowerStrategyTest.PowerOnRecreatesTheBridgeWithTheSavedPorts (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnSetsTheDatapathIdAsSixteenHexDigits
+[       OK ] OvsPowerStrategyTest.PowerOnSetsTheDatapathIdAsSixteenHexDigits (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnDoesNotMarkUpWhenACommandFails
+[       OK ] OvsPowerStrategyTest.PowerOnDoesNotMarkUpWhenACommandFails (0 ms)
+[ RUN      ] OvsPowerStrategyTest.AFailedPortCommandFailsTheWholeOperation
+[       OK ] OvsPowerStrategyTest.AFailedPortCommandFailsTheWholeOperation (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnOnAnAlreadyUpSwitchDoesNothing
+[       OK ] OvsPowerStrategyTest.PowerOnOnAnAlreadyUpSwitchDoesNothing (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnDoesNotBlindAddBrWhenTheBridgeIsAlreadyThere
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovsoff/tests/test_OvsPowerStrategy.cpp:611: Failure
+Expected equality of these values:
+  ovs.bridgeExistsCalls
+    Which is: 0
+  1
+went straight to add-br without asking
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovsoff/tests/test_OvsPowerStrategy.cpp:612: Failure
+Value of: ovs.ran("add-br")
+  Actual: true
+Expected: false
+ran add-br on a bridge that exists; it exits 1 and the whole power-on 500s at step one, for a reason that has nothing to do with the switch
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovsoff/tests/test_OvsPowerStrategy.cpp:615: Failure
+Expected equality of these values:
+  ovs.countContaining("add-port")
+    Which is: 2
+  0u
+    Which is: 0
+add-port on a port already attached fails the same way
+[  FAILED  ] OvsPowerStrategyTest.PowerOnDoesNotBlindAddBrWhenTheBridgeIsAlreadyThere (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnOnAnExistingBridgeWithdrawsAStandingPowerOffCommand
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovsoff/tests/test_OvsPowerStrategy.cpp:638: Failure
+Value of: on.ran("add-br")
+  Actual: true
+Expected: false
+[  FAILED  ] OvsPowerStrategyTest.PowerOnOnAnExistingBridgeWithdrawsAStandingPowerOffCommand (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnBuildsTheBridgeWhenTheMachineSaysItIsNotThere
+[       OK ] OvsPowerStrategyTest.PowerOnBuildsTheBridgeWhenTheMachineSaysItIsNotThere (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnWithNoSavedPortsStillReportsSuccessButBuildsAnEmptyBridge
+[       OK ] OvsPowerStrategyTest.PowerOnWithNoSavedPortsStillReportsSuccessButBuildsAnEmptyBridge (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOffReadsTheSflowRecordBeforeItDeletesTheBridge
+[       OK ] OvsPowerStrategyTest.PowerOffReadsTheSflowRecordBeforeItDeletesTheBridge (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOffRecordsAnUnreadableSflowAsUnknownRatherThanAsAbsent
+[       OK ] OvsPowerStrategyTest.PowerOffRecordsAnUnreadableSflowAsUnknownRatherThanAsAbsent (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOffLeavesNothingPendingForABridgeThatHadNoSflow
+[       OK ] OvsPowerStrategyTest.PowerOffLeavesNothingPendingForABridgeThatHadNoSflow (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnRestoresTheAgentAddressAndTheSflowRecord
+[       OK ] OvsPowerStrategyTest.PowerOnRestoresTheAgentAddressAndTheSflowRecord (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnRestoresTheSflowAfterTheBridgeExists
+[       OK ] OvsPowerStrategyTest.PowerOnRestoresTheSflowAfterTheBridgeExists (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnReportsFailureWhenTheSflowRecordDoesNotComeBack
+[       OK ] OvsPowerStrategyTest.PowerOnReportsFailureWhenTheSflowRecordDoesNotComeBack (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnReportsFailureWhenTheAgentInterfaceHasNoAddress
+[       OK ] OvsPowerStrategyTest.PowerOnReportsFailureWhenTheAgentInterfaceHasNoAddress (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnTreatsAnUnreadableReadBackAsFailureNotAsSuccess
+[       OK ] OvsPowerStrategyTest.PowerOnTreatsAnUnreadableReadBackAsFailureNotAsSuccess (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnSaysSoWhenPowerOffNeverManagedToReadTheRecord
+[       OK ] OvsPowerStrategyTest.PowerOnSaysSoWhenPowerOffNeverManagedToReadTheRecord (0 ms)
+[ RUN      ] OvsPowerStrategyTest.ARetriedPowerOnReAttemptsTheSflowRestore
+[       OK ] OvsPowerStrategyTest.ARetriedPowerOnReAttemptsTheSflowRestore (0 ms)
+[ RUN      ] OvsPowerStrategyTest.AnAlreadyUpSwitchWithNothingOwedStillRunsNoCommands
+[       OK ] OvsPowerStrategyTest.AnAlreadyUpSwitchWithNothingOwedStillRunsNoCommands (0 ms)
+[ RUN      ] OvsPowerStrategyTest.TheRealShellSeamRunsTheCommandAndReportsItsExitStatus
+[       OK ] OvsPowerStrategyTest.TheRealShellSeamRunsTheCommandAndReportsItsExitStatus (10 ms)
+[ RUN      ] OvsPowerStrategyTest.BrExistsTreatsExitTwoAsAnAnswerAndEveryOtherFailureAsUnknown
+[       OK ] OvsPowerStrategyTest.BrExistsTreatsExitTwoAsAnAnswerAndEveryOtherFailureAsUnknown (0 ms)
+[ RUN      ] OvsPowerStrategyTest.DescribesItselfForLogsAndErrors
+[       OK ] OvsPowerStrategyTest.DescribesItselfForLogsAndErrors (0 ms)
+[----------] 32 tests from OvsPowerStrategyTest (10 ms total)
+
+[----------] 1 test from OvsPowerStrategyConcurrencyTest
+[ RUN      ] OvsPowerStrategyConcurrencyTest.AFailedRequestDoesNotMakeAConcurrentOneReportFailure
+[       OK ] OvsPowerStrategyConcurrencyTest.AFailedRequestDoesNotMakeAConcurrentOneReportFailure (0 ms)
+[----------] 1 test from OvsPowerStrategyConcurrencyTest (0 ms total)
+
+[----------] 12 tests from PollDoesNotResurrectTest
+[ RUN      ] PollDoesNotResurrectTest.ACommandedPowerOffSurvivesTheNextPollThatStillListsTheSwitch
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+Command failed (exit code 7): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+[       OK ] PollDoesNotResurrectTest.ACommandedPowerOffSurvivesTheNextPollThatStillListsTheSwitch (2001 ms)
+[ RUN      ] PollDoesNotResurrectTest.EveryLaterPollDeclinesToo
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+Command failed (exit code 7): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+[       OK ] PollDoesNotResurrectTest.EveryLaterPollDeclinesToo (2001 ms)
+[ RUN      ] PollDoesNotResurrectTest.DiscoveryStillEnablesACommandedOffSwitch
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+Command failed (exit code 7): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+[       OK ] PollDoesNotResurrectTest.DiscoveryStillEnablesACommandedOffSwitch (2001 ms)
+[ RUN      ] PollDoesNotResurrectTest.DiscoveryStillMarksAnUncommandedSwitchUp
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+Command failed (exit code 7): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+[       OK ] PollDoesNotResurrectTest.DiscoveryStillMarksAnUncommandedSwitchUp (2001 ms)
+[ RUN      ] PollDoesNotResurrectTest.APowerOnLetsDiscoveryLiftTheSwitchAgain
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+Command failed (exit code 7): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+[       OK ] PollDoesNotResurrectTest.APowerOnLetsDiscoveryLiftTheSwitchAgain (2001 ms)
+[ RUN      ] PollDoesNotResurrectTest.TheLivenessWorkersUpDoesNotWithdrawTheCommand
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+Command failed (exit code 7): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+[       OK ] PollDoesNotResurrectTest.TheLivenessWorkersUpDoesNotWithdrawTheCommand (2001 ms)
+[ RUN      ] PollDoesNotResurrectTest.PowerOffActuatesEvenWhenTheGraphAlreadySaysDown
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -s --max-time 8 -X GET http://localhost:8081/stats/flow/46288
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+Command failed (exit code 7): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+[       OK ] PollDoesNotResurrectTest.PowerOffActuatesEvenWhenTheGraphAlreadySaysDown (2001 ms)
+[ RUN      ] PollDoesNotResurrectTest.PowerOnActuatesWhenACommandedOffIsStillStanding
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+Command failed (exit code 7): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+[       OK ] PollDoesNotResurrectTest.PowerOnActuatesWhenACommandedOffIsStillStanding (2001 ms)
+[ RUN      ] PollDoesNotResurrectTest.AnAlreadyUpUncommandedPowerOnStillRunsNoCommands
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+Command failed (exit code 7): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+[       OK ] PollDoesNotResurrectTest.AnAlreadyUpUncommandedPowerOnStillRunsNoCommands (2001 ms)
+[ RUN      ] PollDoesNotResurrectTest.AnOvsPowerOffAlsoSurvivesThePoll
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+Command failed (exit code 7): curl -s --max-time 8 -X GET http://localhost:8081/stats/flow/46288
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+Command failed (exit code 7): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+[       OK ] PollDoesNotResurrectTest.AnOvsPowerOffAlsoSurvivesThePoll (2001 ms)
+[ RUN      ] PollDoesNotResurrectTest.ARedundantOvsPowerOffIsStillRecordedAsACommand
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovsoff/tests/test_PollDoesNotResurrect.cpp:581: Failure
+Value of: m_monitor->getVertexAdminPoweredOff(sw())
+  Actual: false
+Expected: true
+the redundant power-off returned 200 and recorded nothing. FINDINGS #82: on OVS this is how a power-off stopped being protected by #46 at all
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovsoff/tests/test_PollDoesNotResurrect.cpp:587: Failure
+Value of: isUp()
+  Actual: true
+Expected: false
+the poll lifted a switch whose bridge does not exist, because the power-off that would have vetoed it took an early return on the graph's own cached isUp
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switchesCommand failed (exit code 7): curl -s --max-time 8 -X GET http://localhost:8081/stats/flow/46288
+
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+Command failed (exit code 7): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+[  FAILED  ] PollDoesNotResurrectTest.ARedundantOvsPowerOffIsStillRecordedAsACommand (2000 ms)
+[ RUN      ] PollDoesNotResurrectTest.TheEmittedVertexShapeGainsNoNewKey
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/switches
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/hosts
+curl: (7) Failed to connect to localhost port 8081 after 0 ms: Couldn't connect to server
+Command failed (exit code 7): curl -sS -X GET --connect-timeout 2 --max-time 5 --write-out '\n@@ndt-topology-http-status@@%{http_code}' http://localhost:8081/v1.0/topology/links
+Command failed (exit code 7): curl -s --max-time 3 -w '\n%{http_code}' http://localhost:8081/p4/switch_state 2>/dev/null
+[       OK ] PollDoesNotResurrectTest.TheEmittedVertexShapeGainsNoNewKey (2020 ms)
+[----------] 12 tests from PollDoesNotResurrectTest (24033 ms total)
+
+[----------] Global test environment tear-down
+[==========] 45 tests from 3 test suites ran. (24045 ms total)
+[  PASSED  ] 39 tests.
+[  FAILED  ] 6 tests, listed below:
+[  FAILED  ] OvsPowerStrategyTest.PowerOffTearsDownABridgeThatExistsThoughTheGraphSaysDown
+[  FAILED  ] OvsPowerStrategyTest.PowerOffOnAnAbsentBridgeSucceedsWithoutDeletingAnythingAndStillRecordsTheCommand
+[  FAILED  ] OvsPowerStrategyTest.ASecondPowerOffOnAStillRunningSwitchIsNotSwallowedByTheFirst
+[  FAILED  ] OvsPowerStrategyTest.PowerOnDoesNotBlindAddBrWhenTheBridgeIsAlreadyThere
+[  FAILED  ] OvsPowerStrategyTest.PowerOnOnAnExistingBridgeWithdrawsAStandingPowerOffCommand
+[  FAILED  ] PollDoesNotResurrectTest.ARedundantOvsPowerOffIsStillRecordedAsACommand
+
+ 6 FAILED TESTS
+TEST_RC=1
+guarded_build: exit 0

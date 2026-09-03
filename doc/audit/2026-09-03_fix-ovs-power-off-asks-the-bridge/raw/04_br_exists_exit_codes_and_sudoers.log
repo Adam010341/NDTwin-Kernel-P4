@@ -1,0 +1,40 @@
+FINDINGS #82 -- the seam's rule measured against the REAL ovs-vsctl on this machine
+date: 2026-09-04T02:16:02+08:00   host: adam-Yoga-7-2-in-1-16IML9
+ovs-vsctl: /usr/bin/ovs-vsctl  ovs-vsctl (Open vSwitch) 3.3.9
+
+$ sudo -n ovs-vsctl br-exists nosuchbridge_test82
+exit=2   <-- ovs-vsctl(8) EXIT STATUS: 2 = the bridge does not exist
+
+$ sudo -n ovs-vsctl list-br
+exit=0   (no fabric up right now; empty output, exit 0)
+
+$ man ovs-vsctl | sed -n "/EXIT STATUS/,/SEE ALSO/p"
+EXIT STATUS
+       0      Successful program execution.
+
+       1      Usage, syntax, or configuration file error.
+
+       2      The  bridge argument to br-exists specified the name of a bridge
+              that does not exist.
+
+SEE ALSO
+
+$ sudo -n -l   (does br-exists need a new sudoers rule? -- doc Q1)
+Matching Defaults entries for adam on adam-Yoga-7-2-in-1-16IML9:
+    env_reset, mail_badpass,
+    secure_path=/usr/local/sbin\:/usr/local/bin\:/usr/sbin\:/usr/bin\:/sbin\:/bin\:/snap/bin,
+    use_pty
+
+User adam may run the following commands on adam-Yoga-7-2-in-1-16IML9:
+    (ALL : ALL) ALL
+    (root) NOPASSWD: /usr/sbin/iptables -I INPUT -p tcp --dport 8080 -j DROP,
+        /usr/sbin/iptables -D INPUT -p tcp --dport 8080 -j DROP
+    (root) NOPASSWD: /usr/local/sbin/ndtwin-lab
+    (root) NOPASSWD: /usr/bin/ovs-vsctl, /usr/sbin/ifconfig, /usr/bin/mnexec
+    (root) NOPASSWD: /usr/sbin/tc qdisc add dev s[0-9]*-eth[0-9]* root netem *
+    (root) NOPASSWD: /usr/sbin/tc qdisc del dev s[0-9]*-eth[0-9]* root
+    (root) NOPASSWD: /usr/sbin/tc qdisc show dev s[0-9]*-eth[0-9]*
+    (root) NOPASSWD: /usr/local/sbin/ndtwin-p4-power
+    (root) NOPASSWD: /usr/sbin/tc qdisc add dev s[0-9]*-eth[0-9]* parent *
+        netem *
+    (root) NOPASSWD: /usr/sbin/tc qdisc del dev s[0-9]*-eth[0-9]* parent *

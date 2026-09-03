@@ -1,0 +1,41 @@
+$ python3 tests/shell/check_gate_anchors.py HEAD --gates mutate_ovs_power_off_asks_the_bridge.sh mutate_poll_does_not_resurrect.sh
+(HEAD = 6945e6f9)
+anchors of each gate, counted in each rev's own files
+columns:
+  c0   HEAD
+
+                                         c0            
+mutate_ovs_power_off_asks_the_bridge.sh  ok(11)        
+mutate_poll_does_not_resurrect.sh        ok(13)        
+
+2/2 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+
+$ git merge-tree --write-tree --messages trunk fix/ovs-power-off-asks-the-bridge
+db21865d63bddfc0c9dc3ff0e2f2154812298a81
+
+rc=0
+$ for each fix/* integrate/* verify/* branch: does it touch the four files?
+  fix/is-up-split-admin-state-reachable -> 1
+  fix/ovs-power-off-asks-the-bridge -> 4
+
+$ git merge-tree --write-tree --messages fix/is-up-split-admin-state-reachable fix/ovs-power-off-asks-the-bridge
+a5d441584604f5a940eae4663153772e3b2d4759
+100644 90a9cf4108504f7050766c3ecd7c6711ae4e1c1c 1	tests/test_PollDoesNotResurrect.cpp
+100644 2a63b91197eaa7747b864de5704c13ee56b1a66d 2	tests/test_PollDoesNotResurrect.cpp
+100644 95116bbce4eb7dc031a37536e1a5c0248e5cf97e 3	tests/test_PollDoesNotResurrect.cpp
+
+Auto-merging tests/test_PollDoesNotResurrect.cpp
+CONFLICT (content): Merge conflict in tests/test_PollDoesNotResurrect.cpp
+
+$ branches touching the four files (trunk...<branch>)
+  fix/is-up-split-admin-state-reachable -> 1
+  fix/ovs-power-off-asks-the-bridge -> 4
+
+$ git merge-tree --write-tree --messages fix/is-up-split-admin-state-reachable fix/ovs-power-off-asks-the-bridge
+a5d441584604f5a940eae4663153772e3b2d4759
+100644 90a9cf4108504f7050766c3ecd7c6711ae4e1c1c 1	tests/test_PollDoesNotResurrect.cpp
+100644 2a63b91197eaa7747b864de5704c13ee56b1a66d 2	tests/test_PollDoesNotResurrect.cpp
+100644 95116bbce4eb7dc031a37536e1a5c0248e5cf97e 3	tests/test_PollDoesNotResurrect.cpp
+
+Auto-merging tests/test_PollDoesNotResurrect.cpp
+CONFLICT (content): Merge conflict in tests/test_PollDoesNotResurrect.cpp

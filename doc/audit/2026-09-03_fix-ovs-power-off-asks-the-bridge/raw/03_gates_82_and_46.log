@@ -1,0 +1,169 @@
+guarded_build: jobs=2 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/gates_run.sh
+############ GATE 1: FINDINGS #82 ############
+=== anchor uniqueness (exact substring count must be 1) ===
+  ok     off-asks         src/ndt_core/power_management/OVSPowerStrategy.cpp   x1
+  ok     off-decides      src/ndt_core/power_management/OVSPowerStrategy.cpp   x1
+  ok     off-branch       src/ndt_core/power_management/OVSPowerStrategy.cpp   x1
+  ok     off-records      src/ndt_core/power_management/OVSPowerStrategy.cpp   x1
+  ok     off-teardown     src/ndt_core/power_management/OVSPowerStrategy.cpp   x1
+  ok     teardown-fails   src/ndt_core/power_management/OVSPowerStrategy.cpp   x1
+  ok     on-asks          src/ndt_core/power_management/OVSPowerStrategy.cpp   x1
+  ok     on-clears        src/ndt_core/power_management/OVSPowerStrategy.cpp   x1
+  ok     seam-exit2       src/ndt_core/power_management/OVSPowerStrategy.cpp   x1
+  ok     absent-log       src/ndt_core/power_management/OVSPowerStrategy.cpp   x1
+  ok     off-comment      src/ndt_core/power_management/OVSPowerStrategy.cpp   x1
+
+=== no double reaches a real ovs-vsctl (executeListPorts overrides == executeBridgeExists overrides) ===
+  tests/test_OvsPowerStrategy.cpp        doubles=3  listPorts=2  brExists=2  ok
+  tests/test_PollDoesNotResurrect.cpp    doubles=1  listPorts=1  brExists=1  ok
+
+=== baseline (unmutated working tree) must build and be green ===
+  ok       baseline green (35 cases in the #82 filter)
+  ok       test_routing_strategy sha256 388ec050979f6492
+
+=== M1. early return restored: powerOff believes the graph's cached isUp ===
+  expect red: OvsPowerStrategyTest.PowerOffTearsDownABridgeThatExistsThoughTheGraphSaysDown OvsPowerStrategyTest.PowerOffOnAnAbsentBridgeSucceedsWithoutDeletingAnythingAndStillRecordsTheCommand OvsPowerStrategyTest.ASecondPowerOffOnAStillRunningSwitchIsNotSwallowedByTheFirst PollDoesNotResurrectTest.ARedundantOvsPowerOffIsStillRecordedAsACommand
+  ✅ caught  red: OvsPowerStrategyTest.PowerOffTearsDownABridgeThatExistsThoughTheGraphSaysDown OvsPowerStrategyTest.PowerOffOnAnAbsentBridgeSucceedsWithoutDeletingAnythingAndStillRecordsTheCommand OvsPowerStrategyTest.ASecondPowerOffOnAStillRunningSwitchIsNotSwallowedByTheFirst PollDoesNotResurrectTest.ARedundantOvsPowerOffIsStillRecordedAsACommand
+
+=== M2. br-exists result ignored: the teardown runs whatever the machine answered ===
+  expect red: OvsPowerStrategyTest.PowerOffOnAnAbsentBridgeSucceedsWithoutDeletingAnythingAndStillRecordsTheCommand PollDoesNotResurrectTest.ARedundantOvsPowerOffIsStillRecordedAsACommand
+  ✅ caught  red: OvsPowerStrategyTest.PowerOffOnAnAbsentBridgeSucceedsWithoutDeletingAnythingAndStillRecordsTheCommand PollDoesNotResurrectTest.ARedundantOvsPowerOffIsStillRecordedAsACommand
+
+=== M3. command not recorded on the absent path ===
+  expect red: OvsPowerStrategyTest.PowerOffOnAnAbsentBridgeSucceedsWithoutDeletingAnythingAndStillRecordsTheCommand PollDoesNotResurrectTest.ARedundantOvsPowerOffIsStillRecordedAsACommand
+  ✅ caught  red: OvsPowerStrategyTest.PowerOffOnAnAbsentBridgeSucceedsWithoutDeletingAnythingAndStillRecordsTheCommand PollDoesNotResurrectTest.ARedundantOvsPowerOffIsStillRecordedAsACommand
+
+=== M4. unknown conflated with absent at the decision site ===
+  expect red: OvsPowerStrategyTest.PowerOffAttemptsTheTeardownWhenItCannotAskWhetherTheBridgeExists
+  ✅ caught  red: OvsPowerStrategyTest.PowerOffAttemptsTheTeardownWhenItCannotAskWhetherTheBridgeExists
+
+=== M5. the seam reads every failure as 'no such bridge' ===
+  expect red: OvsPowerStrategyTest.BrExistsTreatsExitTwoAsAnAnswerAndEveryOtherFailureAsUnknown
+  ✅ caught  red: OvsPowerStrategyTest.BrExistsTreatsExitTwoAsAnAnswerAndEveryOtherFailureAsUnknown
+
+=== M6. power-on blind-adds the bridge again ===
+  expect red: OvsPowerStrategyTest.PowerOnDoesNotBlindAddBrWhenTheBridgeIsAlreadyThere OvsPowerStrategyTest.PowerOnOnAnExistingBridgeWithdrawsAStandingPowerOffCommand
+  ✅ caught  red: OvsPowerStrategyTest.PowerOnDoesNotBlindAddBrWhenTheBridgeIsAlreadyThere OvsPowerStrategyTest.PowerOnOnAnExistingBridgeWithdrawsAStandingPowerOffCommand
+
+=== M7. the teardown's failure is dropped by its new caller ===
+  expect red: OvsPowerStrategyTest.PowerOffStillRefusesWhenTheBridgeIsThereButItsPortsCannotBeRead OvsPowerStrategyTest.PowerOffRefusesWhenItCannotReadThePorts OvsPowerStrategyTest.PowerOffLeavesTheVertexUpWhenACommandFails
+  ✅ caught  red: OvsPowerStrategyTest.PowerOffStillRefusesWhenTheBridgeIsThereButItsPortsCannotBeRead OvsPowerStrategyTest.PowerOffRefusesWhenItCannotReadThePorts OvsPowerStrategyTest.PowerOffLeavesTheVertexUpWhenACommandFails
+
+=== M8. power-off never tears anything down ===
+  expect red: OvsPowerStrategyTest.PowerOffSavesThePortsThenDeletesTheBridge OvsPowerStrategyTest.PowerOffTearsDownABridgeThatExistsThoughTheGraphSaysDown PollDoesNotResurrectTest.AnOvsPowerOffAlsoSurvivesThePoll
+  ✅ caught  red: OvsPowerStrategyTest.PowerOffSavesThePortsThenDeletesTheBridge OvsPowerStrategyTest.PowerOffTearsDownABridgeThatExistsThoughTheGraphSaysDown PollDoesNotResurrectTest.AnOvsPowerOffAlsoSurvivesThePoll
+
+=== M9. power-on never builds the bridge ===
+  expect red: OvsPowerStrategyTest.PowerOnRecreatesTheBridgeWithTheSavedPorts OvsPowerStrategyTest.PowerOnBuildsTheBridgeWhenTheMachineSaysItIsNotThere
+  ✅ caught  red: OvsPowerStrategyTest.PowerOnRecreatesTheBridgeWithTheSavedPorts OvsPowerStrategyTest.PowerOnBuildsTheBridgeWhenTheMachineSaysItIsNotThere
+
+=== M10. the existing-bridge power-on never withdraws the command ===
+  expect red: OvsPowerStrategyTest.PowerOnOnAnExistingBridgeWithdrawsAStandingPowerOffCommand
+  ✅ caught  red: OvsPowerStrategyTest.PowerOnOnAnExistingBridgeWithdrawsAStandingPowerOffCommand
+
+=== W1. a comment, nothing else (MUST stay green) ===
+  ✅ survived -- behaviour unchanged, so the catches above are about behaviour
+
+=== W2. the already-stopped log line is reworded (MUST stay green) ===
+  ✅ survived -- behaviour unchanged, so the catches above are about behaviour
+
+=== W3. the absent/present branch is inverted (MUST stay green) ===
+  ✅ survived -- behaviour unchanged, so the catches above are about behaviour
+
+=== restore ===
+  all 2 files byte-identical to the pre-run snapshot
+  rebuilt from the restored tree
+  suite green again after restore
+  test binary sha unchanged: 388ec050979f6492
+
+=== verdict ===
+  10 mutations, 0 survived
+  3 widenings, 0 wrongly caught
+  FINDINGS #82 gate: the early return cannot be put back by any of seven routes, a
+  power-off that stops deleting bridges and a power-on that stops building them are
+  caught too, and three behaviour-preserving edits were left alone.
+GATE82_RC=0
+
+############ GATE 2: FINDINGS #46 re-run (must stay 10/0 + 3/0) ############
+=== anchor uniqueness (exact substring count must be 1) ===
+  ok     poll-veto        src/ndt_core/collection/TopologyAndFlowMonitor.cpp   x1
+  ok     poll-lifts       src/ndt_core/collection/TopologyAndFlowMonitor.cpp   x1
+  ok     poll-enables     src/ndt_core/collection/TopologyAndFlowMonitor.cpp   x1
+  ok     commanded-off    src/ndt_core/collection/TopologyAndFlowMonitor.cpp   x1
+  ok     observed-up      src/ndt_core/collection/TopologyAndFlowMonitor.cpp   x1
+  ok     warn-text        src/ndt_core/collection/TopologyAndFlowMonitor.cpp   x1
+  ok     p4-off-writes    src/ndt_core/power_management/P4PowerStrategy.cpp    x1
+  ok     p4-on-guard      src/ndt_core/power_management/P4PowerStrategy.cpp    x1
+  ok     p4-on-clears     src/ndt_core/power_management/P4PowerStrategy.cpp    x1
+  ok     ovs-off-writes   src/ndt_core/power_management/OVSPowerStrategy.cpp   x1
+  ok     ovs-comment      src/ndt_core/collection/TopologyAndFlowMonitor.cpp   x1
+
+=== baseline (unmutated working tree) must build and be green ===
+  ok       baseline green (12 cases in PollDoesNotResurrectTest.*)
+  ok       test_routing_strategy sha256 388ec050979f6492
+
+=== M1. the defect verbatim: the poll writes isUp = true unconditionally ===
+  expect red: PollDoesNotResurrectTest.ACommandedPowerOffSurvivesTheNextPollThatStillListsTheSwitch PollDoesNotResurrectTest.EveryLaterPollDeclinesToo PollDoesNotResurrectTest.AnOvsPowerOffAlsoSurvivesThePoll PollDoesNotResurrectTest.TheEmittedVertexShapeGainsNoNewKey
+  ✅ caught  red: PollDoesNotResurrectTest.ACommandedPowerOffSurvivesTheNextPollThatStillListsTheSwitch PollDoesNotResurrectTest.EveryLaterPollDeclinesToo PollDoesNotResurrectTest.AnOvsPowerOffAlsoSurvivesThePoll PollDoesNotResurrectTest.TheEmittedVertexShapeGainsNoNewKey
+
+=== M2. P4 power-off records an observation instead of a command ===
+  expect red: PollDoesNotResurrectTest.ACommandedPowerOffSurvivesTheNextPollThatStillListsTheSwitch PollDoesNotResurrectTest.EveryLaterPollDeclinesToo PollDoesNotResurrectTest.TheLivenessWorkersUpDoesNotWithdrawTheCommand PollDoesNotResurrectTest.PowerOnActuatesWhenACommandedOffIsStillStanding
+  ✅ caught  red: PollDoesNotResurrectTest.ACommandedPowerOffSurvivesTheNextPollThatStillListsTheSwitch PollDoesNotResurrectTest.EveryLaterPollDeclinesToo PollDoesNotResurrectTest.TheLivenessWorkersUpDoesNotWithdrawTheCommand PollDoesNotResurrectTest.PowerOnActuatesWhenACommandedOffIsStillStanding
+
+=== M3. a liveness observation withdraws the power-off command ===
+  expect red: PollDoesNotResurrectTest.TheLivenessWorkersUpDoesNotWithdrawTheCommand PollDoesNotResurrectTest.PowerOnActuatesWhenACommandedOffIsStillStanding
+  ✅ caught  red: PollDoesNotResurrectTest.TheLivenessWorkersUpDoesNotWithdrawTheCommand PollDoesNotResurrectTest.PowerOnActuatesWhenACommandedOffIsStillStanding
+
+=== M4. power-off marks down but records no command ===
+  expect red: PollDoesNotResurrectTest.ACommandedPowerOffSurvivesTheNextPollThatStillListsTheSwitch PollDoesNotResurrectTest.EveryLaterPollDeclinesToo PollDoesNotResurrectTest.TheLivenessWorkersUpDoesNotWithdrawTheCommand
+  ✅ caught  red: PollDoesNotResurrectTest.ACommandedPowerOffSurvivesTheNextPollThatStillListsTheSwitch PollDoesNotResurrectTest.EveryLaterPollDeclinesToo PollDoesNotResurrectTest.TheLivenessWorkersUpDoesNotWithdrawTheCommand
+
+=== M5. the poll never marks any switch up ===
+  expect red: PollDoesNotResurrectTest.DiscoveryStillMarksAnUncommandedSwitchUp PollDoesNotResurrectTest.APowerOnLetsDiscoveryLiftTheSwitchAgain
+  ✅ caught  red: PollDoesNotResurrectTest.DiscoveryStillMarksAnUncommandedSwitchUp PollDoesNotResurrectTest.APowerOnLetsDiscoveryLiftTheSwitchAgain
+
+=== M6. power-on never withdraws the command ===
+  expect red: PollDoesNotResurrectTest.APowerOnLetsDiscoveryLiftTheSwitchAgain
+  ✅ caught  red: PollDoesNotResurrectTest.APowerOnLetsDiscoveryLiftTheSwitchAgain
+
+=== M7. power-off returns success on the graph's cached isUp ===
+  expect red: PollDoesNotResurrectTest.PowerOffActuatesEvenWhenTheGraphAlreadySaysDown
+  ✅ caught  red: PollDoesNotResurrectTest.PowerOffActuatesEvenWhenTheGraphAlreadySaysDown
+
+=== M8. power-on returns success on a cached isUp with a command standing ===
+  expect red: PollDoesNotResurrectTest.PowerOnActuatesWhenACommandedOffIsStillStanding
+  ✅ caught  red: PollDoesNotResurrectTest.PowerOnActuatesWhenACommandedOffIsStillStanding
+
+=== M9. OVS power-off records an observation instead of a command ===
+  expect red: PollDoesNotResurrectTest.AnOvsPowerOffAlsoSurvivesThePoll
+  ✅ caught  red: PollDoesNotResurrectTest.AnOvsPowerOffAlsoSurvivesThePoll
+
+=== M10. the veto consults adminDisabled instead of the power command ===
+  expect red: PollDoesNotResurrectTest.ACommandedPowerOffSurvivesTheNextPollThatStillListsTheSwitch PollDoesNotResurrectTest.EveryLaterPollDeclinesToo PollDoesNotResurrectTest.AnOvsPowerOffAlsoSurvivesThePoll
+  ✅ caught  red: PollDoesNotResurrectTest.ACommandedPowerOffSurvivesTheNextPollThatStillListsTheSwitch PollDoesNotResurrectTest.EveryLaterPollDeclinesToo PollDoesNotResurrectTest.AnOvsPowerOffAlsoSurvivesThePoll
+
+=== W1. a comment, nothing else (MUST stay green) ===
+  ✅ survived -- behaviour unchanged, so the catches above are about behaviour
+
+=== W2. the declined-resurrection warning is reworded (MUST stay green) ===
+  ✅ survived -- behaviour unchanged, so the catches above are about behaviour
+
+=== W3. the veto is written as the negated branch instead (MUST stay green) ===
+  ✅ survived -- behaviour unchanged, so the catches above are about behaviour
+
+=== restore ===
+  all 3 files byte-identical to the pre-run snapshot
+  rebuilt from the restored tree
+  suite green again after restore
+  test binary sha unchanged: 388ec050979f6492
+
+=== verdict ===
+  10 mutations, 0 survived
+  3 widenings, 0 wrongly caught
+  FINDINGS #46 gate: the defect cannot be put back by any of six routes, a poll that
+  stops marking switches up is caught too, and three behaviour-preserving edits were
+  left alone.
+GATE46_RC=0
+GATES_DONE
+guarded_build: exit 0

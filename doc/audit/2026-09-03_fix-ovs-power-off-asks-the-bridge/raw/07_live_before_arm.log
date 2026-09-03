@@ -1,0 +1,135 @@
+
+########## ARM before: install the binary ##########
+53fdd8dbf3dad7478a046fa7d52f26fd05c484b44c25f7fcb236df7895fb445f  /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovsoff/build/bin/ndtwin_kernel
+
+########## ARM before: ndt up ovs4 ##########
+ndt up ovs4
+  hosts        4
+  topology     setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json
+[1/4] control plane (Ryu)
+  ok  Ryu up, prompt reached
+[2/4] data plane (OVS fabric)
+  ok  15 host/switch processes after 2s
+[3/4] proxy-less convergence + kernel
+  Ryu settles for 40s before installing paths (NDTWIN_RYU_SETTLE_S)
+        started ryu (pid 3179129) -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovsoff/.test_run/logs/ryu.log
+        waiting for Ryu REST on :8080 .. up
+          switches=10 links=32 paths=pending              switches=10 links=32 paths=installed                                                        converged after 4s
+        started kernel (pid 3179582) -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovsoff/.test_run/logs/kernel.log
+        waiting for kernel API on :8000 . up
+[4/4] verify
+  ok  kernel: 10 switches up+enabled
+  ok  kernel graph matches the model file: 4 hosts, 40 edges
+  ok  data plane: h1 -> 10.0.0.2 forwards
+  ok  sFlow: 10/10 bridges sampling to :6343, 10 records
+
+up. ready
+  up rc=0
+
+########## ARM before: the measurement ##########
+
+=== arm=before  started 2026-09-04T02:39:41+08:00 ===
+
+=== kernel binary identity ===
+53fdd8dbf3dad7478a046fa7d52f26fd05c484b44c25f7fcb236df7895fb445f  /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-ovsoff/build/bin/ndtwin_kernel
+strings marker "has no bridge on this machine": 0
+strings marker "br-exists": 0
+
+=== 0. fabric state before anything ===
+s1 s10 s2 s3 s4 s5 s6 s7 s8 s9 
+  s1 is_up=True  br-exists s1 -> exit 0
+  s4 is_up=True  br-exists s4 -> exit 0
+  s5 is_up=True  br-exists s5 -> exit 0
+  s6 is_up=True  br-exists s6 -> exit 0
+
+=== A. s1: two power-offs in a row (the redundant one is the finding) ===
+-- A1: first power-off of s1 (192.168.123.11)
+   http/time: 200 0.131113 body={"192.168.123.11":"Success"}
+   is_up=False
+br-exists s1 -> exit 2
+-- kernel log since the request:
+[2026-09-04 02:39:42.526] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/set_switches_power_state?ip=192.168.123.11&action=off
+[2026-09-04 02:39:42.526] [info] [[94mHttpSession.cpp[0m:[95m863[0m [96mhandleSetSwitchesPowerState[0m] Handle Set Switches Power State
+[2026-09-04 02:39:42.656] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m1671[0m [96msetPowerStateMininet[0m] MININET: switch s1 -> off
+-- A2: SECOND power-off of s1, the bridge is already gone
+   http/time: 200 0.000898 body={"192.168.123.11":"Success"}
+   is_up=False
+br-exists s1 -> exit 2
+-- kernel log since the second request (a del-br here would be deleting nothing):
+[2026-09-04 02:39:42.699] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/set_switches_power_state?ip=192.168.123.11&action=off
+[2026-09-04 02:39:42.699] [info] [[94mHttpSession.cpp[0m:[95m863[0m [96mhandleSetSwitchesPowerState[0m] Handle Set Switches Power State
+[2026-09-04 02:39:42.700] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m1671[0m [96msetPowerStateMininet[0m] MININET: switch s1 -> off
+-- del-br count in the second window: 0
+
+=== B. the bridge is removed OUT OF BAND, then the API is asked to power it off ===
+
+-- B[s4]: before: is_up=True
+br-exists s4 -> exit 0
+   del-br s4 rc=0
+   http/time: 500 0.014651 body={"error":"Failed to change switch power state"}
+   is_up after=True
+br-exists s4 -> exit 2
+   -- kernel log since the request:
+     ovs-vsctl: no bridge named s4
+     [2026-09-04 02:39:42.870] [warning] [[94mOVSPowerStrategy.cpp[0m:[95m77[0m [96mexecuteListPorts[0m] sudo ovs-vsctl list-ports s4 failed (exit code 1 (ovs-vsctl refused; a sudo password prompt does this on a process with no controlling terminal)); treating the port list as unknown rather than empty
+     [2026-09-04 02:39:42.871] [warning] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m1662[0m [96msetPowerStateMininet[0m] MININET: switch s4 -> off failed on the Open vSwitch data plane: could not read the ports of s4, so it was left running: deleting the bridge would lose the only record of what to reattach on power-on
+
+-- B[s5]: before: is_up=True
+br-exists s5 -> exit 0
+   del-br s5 rc=0
+   http/time: 500 0.013391 body={"error":"Failed to change switch power state"}
+   is_up after=True
+br-exists s5 -> exit 2
+   -- kernel log since the request:
+     ovs-vsctl: no bridge named s5
+     [2026-09-04 02:39:43.032] [warning] [[94mOVSPowerStrategy.cpp[0m:[95m77[0m [96mexecuteListPorts[0m] sudo ovs-vsctl list-ports s5 failed (exit code 1 (ovs-vsctl refused; a sudo password prompt does this on a process with no controlling terminal)); treating the port list as unknown rather than empty
+     [2026-09-04 02:39:43.032] [warning] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m1662[0m [96msetPowerStateMininet[0m] MININET: switch s5 -> off failed on the Open vSwitch data plane: could not read the ports of s5, so it was left running: deleting the bridge would lose the only record of what to reattach on power-on
+
+-- B[s6]: before: is_up=True
+br-exists s6 -> exit 0
+   del-br s6 rc=0
+   http/time: 500 0.012635 body={"error":"Failed to change switch power state"}
+   is_up after=True
+br-exists s6 -> exit 2
+   -- kernel log since the request:
+     ovs-vsctl: no bridge named s6
+     [2026-09-04 02:39:43.191] [warning] [[94mOVSPowerStrategy.cpp[0m:[95m77[0m [96mexecuteListPorts[0m] sudo ovs-vsctl list-ports s6 failed (exit code 1 (ovs-vsctl refused; a sudo password prompt does this on a process with no controlling terminal)); treating the port list as unknown rather than empty
+     [2026-09-04 02:39:43.191] [warning] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m1662[0m [96msetPowerStateMininet[0m] MININET: switch s6 -> off failed on the Open vSwitch data plane: could not read the ports of s6, so it was left running: deleting the bridge would lose the only record of what to reattach on power-on
+
+=== C. wait past a topology poll (35 s) and re-read ===
+  t+5s  s1=False  s4=False  s5=False  s6=False
+  t+10s  s1=False  s4=False  s5=False  s6=False
+  t+15s  s1=False  s4=False  s5=False  s6=False
+  t+20s  s1=False  s4=False  s5=False  s6=False
+  t+25s  s1=False  s4=False  s5=False  s6=False
+  t+30s  s1=False  s4=False  s5=False  s6=False
+  t+35s  s1=False  s4=False  s5=False  s6=False
+  t+40s  s1=False  s4=False  s5=False  s6=False
+-- declined-resurrection lines in that window:
+0
+
+=== D. the other eight bridges are untouched ===
+s10 s2 s3 s7 s8 s9 
+
+=== arm=before  finished 2026-09-04T02:40:24+08:00 ===
+  live_arm rc=0
+
+########## ARM before: ndt down ##########
+ndt down
+[1/3] kernel + proxy/Ryu
+        stopped kernel
+        stopped ryu
+[2/3] topology session
+      topo stopped
+[3/3] sweep
+      cleanup done
+
+verify clean
+  ok  bmv2 switches: 0
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+  ok  ports closed: 8000/8080/8081/6653/6633/6343/30051-30060/9091-9100/9000
+
+clean
+  down rc=0

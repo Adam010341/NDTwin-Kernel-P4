@@ -1,0 +1,29 @@
+guarded_build: jobs=2 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/build_arms.sh
+=== AFTER arm: this branch (6945e6f9) ===
+[1/2] Building CXX object CMakeFiles/ndtwin_kernel.dir/src/main.cpp.o
+[2/2] Linking CXX executable bin/ndtwin_kernel
+18373873fdb56faad74c6bbd3d9579c8fdf3eadd920d4d4bb2b1efb62be216dd  /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/arms/ndtwin_kernel.after
+
+=== BEFORE arm: the same tree with ONLY the two #82 files back at trunk ===
+[1/4] Building CXX object src/ndt_core/power_management/CMakeFiles/NdtCore_PowerManagementLib.dir/OVSPowerStrategy.cpp.o
+[2/4] Building CXX object src/ndt_core/power_management/CMakeFiles/NdtCore_PowerManagementLib.dir/DeviceConfigurationAndPowerManager.cpp.o
+[3/4] Linking CXX static library lib/libNdtCore_PowerManagementLib.a
+[4/4] Linking CXX executable bin/ndtwin_kernel
+53fdd8dbf3dad7478a046fa7d52f26fd05c484b44c25f7fcb236df7895fb445f  /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/arms/ndtwin_kernel.before
+
+=== the tree is back on the branch's own files ===
+  (empty above = restored)
+
+=== cross-check: the arms really are different, in the way claimed ===
+  before  "has no bridge on this machine" x0   "br-exists" x0
+  after   "has no bridge on this machine" x1   "br-exists" x1
+
+=== rebuild the branch's kernel so build/bin holds the AFTER arm again ===
+[1/4] Building CXX object src/ndt_core/power_management/CMakeFiles/NdtCore_PowerManagementLib.dir/OVSPowerStrategy.cpp.o
+[2/4] Building CXX object src/ndt_core/power_management/CMakeFiles/NdtCore_PowerManagementLib.dir/DeviceConfigurationAndPowerManager.cpp.o
+[3/4] Linking CXX static library lib/libNdtCore_PowerManagementLib.a
+[4/4] Linking CXX executable bin/ndtwin_kernel
+18373873fdb56faad74c6bbd3d9579c8fdf3eadd920d4d4bb2b1efb62be216dd  build/bin/ndtwin_kernel
+ARMS_DONE
+guarded_build: exit 0
