@@ -93,6 +93,10 @@ add_executable(
   # [Co-developed with claude code -- Adam] FINDINGS #46/#35/#36: the topology poll overwrote a
   # commanded power-off and the resurrection was permanent. Both directions -- see the header.
   test_PollDoesNotResurrect.cpp
+  # [Co-developed with claude code -- Adam] FINDINGS #27/#76: "said it would stop, hasn't". Both
+  # workers read their stop flag only between rounds, so a stop waited out one curl per switch
+  # (81.09 s measured) or per topology endpoint. Timed against a listener that never answers.
+  test_KernelStopIsBounded.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there
