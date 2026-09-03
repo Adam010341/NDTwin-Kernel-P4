@@ -1,0 +1,298 @@
+{
+ "arm": "base",
+ "sha": "395753ec31ca955dd58f36fc3274f8fd88f29ccf57af780f92ca701629e4971c",
+ "results": [
+  {
+   "switch": "s6",
+   "verdict": "KEPT",
+   "is_up_before": true,
+   "procs_before": 10,
+   "t_off": 1788431761.8863556,
+   "off_status": 200,
+   "off_body": "{\"192.168.123.16\":\"Success\"}",
+   "off_secs": 0.252,
+   "fired_at_poll_plus": 28.55,
+   "poll_links_at": 1788431733.7413552,
+   "offset": 0.401,
+   "port_open_after": false,
+   "procs_after": 9,
+   "transitions": [
+    [
+     1.1,
+     false,
+     true
+    ],
+    [
+     12.1,
+     true,
+     false
+    ]
+   ],
+   "final_is_up": false,
+   "proxy_listed_until": 3.0,
+   "restore_status": 200,
+   "restore_secs": 1.445,
+   "restore_needed_out_of_band": false
+  },
+  {
+   "switch": "s7",
+   "verdict": "KEPT",
+   "is_up_before": true,
+   "procs_before": 10,
+   "t_off": 1788431853.831859,
+   "off_status": 200,
+   "off_body": "{\"192.168.123.17\":\"Success\"}",
+   "off_secs": 0.252,
+   "fired_at_poll_plus": 28.53,
+   "poll_links_at": 1788431825.6986244,
+   "offset": 0.401,
+   "port_open_after": false,
+   "procs_after": 9,
+   "transitions": [
+    [
+     1.0,
+     false,
+     true
+    ],
+    [
+     10.8,
+     true,
+     false
+    ]
+   ],
+   "final_is_up": false,
+   "proxy_listed_until": 2.3,
+   "restore_status": 200,
+   "restore_secs": 1.485,
+   "restore_needed_out_of_band": false
+  },
+  {
+   "switch": "s8",
+   "verdict": "VOID",
+   "is_up_before": true,
+   "procs_before": 10,
+   "t_off": 1788431945.7128081,
+   "off_status": 200,
+   "off_body": "{\"192.168.123.18\":\"Success\"}",
+   "off_secs": 0.256,
+   "fired_at_poll_plus": 28.53,
+   "poll_links_at": 1788431917.5808125,
+   "offset": 0.401,
+   "port_open_after": false,
+   "procs_after": 10,
+   "transitions": [
+    [
+     0.9,
+     false,
+     true
+    ],
+    [
+     8.2,
+     true,
+     false
+    ]
+   ],
+   "final_is_up": false,
+   "proxy_listed_until": 1.7,
+   "void_reason": "the switch process did not die, so is_up has nothing to be wrong about",
+   "restore_status": 200,
+   "restore_secs": 1.478,
+   "restore_needed_out_of_band": false
+  },
+  {
+   "switch": "s9",
+   "verdict": "KEPT",
+   "is_up_before": true,
+   "procs_before": 10,
+   "t_off": 1788432037.6437893,
+   "off_status": 200,
+   "off_body": "{\"192.168.123.19\":\"Success\"}",
+   "off_secs": 0.254,
+   "fired_at_poll_plus": 28.53,
+   "poll_links_at": 1788432009.516906,
+   "offset": 0.401,
+   "port_open_after": false,
+   "procs_after": 9,
+   "transitions": [
+    [
+     0.9,
+     false,
+     true
+    ],
+    [
+     11.9,
+     true,
+     false
+    ]
+   ],
+   "final_is_up": false,
+   "proxy_listed_until": 3.0,
+   "restore_status": 200,
+   "restore_secs": 1.494,
+   "restore_needed_out_of_band": false
+  },
+  {
+   "switch": "s10",
+   "verdict": "KEPT",
+   "is_up_before": true,
+   "procs_before": 10,
+   "t_off": 1788432129.5316737,
+   "off_status": 200,
+   "off_body": "{\"192.168.123.20\":\"Success\"}",
+   "off_secs": 0.248,
+   "fired_at_poll_plus": 28.53,
+   "poll_links_at": 1788432101.4031777,
+   "offset": 0.401,
+   "port_open_after": false,
+   "procs_after": 9,
+   "transitions": [
+    [
+     0.8,
+     false,
+     true
+    ],
+    [
+     10.6,
+     true,
+     false
+    ]
+   ],
+   "final_is_up": false,
+   "proxy_listed_until": 2.4,
+   "restore_status": 200,
+   "restore_secs": 1.492,
+   "restore_needed_out_of_band": false
+  },
+  {
+   "switch": "s6",
+   "verdict": "KEPT",
+   "is_up_before": true,
+   "procs_before": 10,
+   "t_off": 1788432221.4393141,
+   "off_status": 200,
+   "off_body": "{\"192.168.123.16\":\"Success\"}",
+   "off_secs": 0.313,
+   "fired_at_poll_plus": 28.54,
+   "poll_links_at": 1788432193.3037496,
+   "offset": 0.401,
+   "port_open_after": false,
+   "procs_after": 9,
+   "transitions": [
+    [
+     0.9,
+     false,
+     true
+    ],
+    [
+     8.2,
+     true,
+     false
+    ]
+   ],
+   "final_is_up": false,
+   "proxy_listed_until": 1.8,
+   "restore_status": 200,
+   "restore_secs": 1.482,
+   "restore_needed_out_of_band": false
+  },
+  {
+   "switch": "s7",
+   "verdict": "KEPT",
+   "is_up_before": true,
+   "procs_before": 10,
+   "t_off": 1788432313.3890977,
+   "off_status": 200,
+   "off_body": "{\"192.168.123.17\":\"Success\"}",
+   "off_secs": 0.255,
+   "fired_at_poll_plus": 28.53,
+   "poll_links_at": 1788432285.2617002,
+   "offset": 0.401,
+   "port_open_after": false,
+   "procs_after": 9,
+   "transitions": [
+    [
+     0.8,
+     false,
+     true
+    ],
+    [
+     10.6,
+     true,
+     false
+    ]
+   ],
+   "final_is_up": false,
+   "proxy_listed_until": 3.1,
+   "restore_status": 200,
+   "restore_secs": 1.481,
+   "restore_needed_out_of_band": false
+  },
+  {
+   "switch": "s8",
+   "verdict": "KEPT",
+   "is_up_before": true,
+   "procs_before": 10,
+   "t_off": 1788432405.3238308,
+   "off_status": 200,
+   "off_body": "{\"192.168.123.18\":\"Success\"}",
+   "off_secs": 0.25,
+   "fired_at_poll_plus": 28.54,
+   "poll_links_at": 1788432377.187797,
+   "offset": 0.401,
+   "port_open_after": false,
+   "procs_after": 9,
+   "transitions": [
+    [
+     0.6,
+     false,
+     true
+    ],
+    [
+     9.2,
+     true,
+     false
+    ]
+   ],
+   "final_is_up": false,
+   "proxy_listed_until": 2.4,
+   "restore_status": 200,
+   "restore_secs": 1.482,
+   "restore_needed_out_of_band": false
+  },
+  {
+   "switch": "s9",
+   "verdict": "KEPT",
+   "is_up_before": true,
+   "procs_before": 10,
+   "t_off": 1788432497.213133,
+   "off_status": 200,
+   "off_body": "{\"192.168.123.19\":\"Success\"}",
+   "off_secs": 0.255,
+   "fired_at_poll_plus": 28.54,
+   "poll_links_at": 1788432469.0745041,
+   "offset": 0.401,
+   "port_open_after": false,
+   "procs_after": 9,
+   "transitions": [
+    [
+     0.5,
+     false,
+     true
+    ],
+    [
+     12.7,
+     true,
+     false
+    ]
+   ],
+   "final_is_up": false,
+   "proxy_listed_until": 1.7,
+   "restore_status": 200,
+   "restore_secs": 1.483,
+   "restore_needed_out_of_band": false
+  }
+ ],
+ "lost": 0,
+ "kept": 8,
+ "void": 1
+}

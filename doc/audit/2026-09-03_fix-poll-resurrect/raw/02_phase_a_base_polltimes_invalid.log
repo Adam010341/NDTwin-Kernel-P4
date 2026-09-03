@@ -1,0 +1,112 @@
+#### FINDINGS #46 phase-A trials -- arm=base ####
+# kernel binary sha256 395753ec31ca955dd58f36fc3274f8fd88f29ccf57af780f92ca701629e4971c
+# recipe: power-off fired 1.5s BEFORE the next /v1.0/topology/switches request (phase A), then is_up sampled at 10 Hz for 40s; the proxy's own list traced for the first 12s
+# 2026-09-03T18:58:11+0800  bmv2 procs = 10
+--- instrument check: watching poll arrivals for 65s ---
+    2 polls (/links), inter-arrival gaps: [30.64]
+    cadence within 3s of 30s: True
+    measured /switches -> /links offset: [0.401, 0.401] -> using 0.401s
+
+--- s6 phase A (fired 28.5s after the /switches of the previous poll, i.e. ~1.5s before the next) ---
+    t_off=1788433197.251  API 200 {"192.168.123.16":"Success"} in 0.262s  is_up_before=True  procs 10->9
+    process really died: :30056 open=False
+    proxy still listed it until t_off+3.0s (traced for the first 12s only)
+    polls applied during the 40s watch, at t_off+: [39.93, 39.93]
+    is_up transitions (t-t_off, from, to): [(0.9, False, True), (13.2, True, False)]
+    final is_up=False  => KEPT
+    redundant power-off on a switch already down: 200 {"192.168.123.16":"Success"} in 1.4 ms
+    restore via API: 200 {"192.168.123.16":"Success"} in 1.485s -> :30056 open=True
+    restored: :30056 open=True  twin is_up=True  bmv2 procs=10
+
+--- s7 phase A (fired 28.5s after the /switches of the previous poll, i.e. ~1.5s before the next) ---
+    t_off=1788433289.160  API 200 {"192.168.123.17":"Success"} in 0.254s  is_up_before=True  procs 10->9
+    process really died: :30057 open=False
+    proxy still listed it until t_off+2.4s (traced for the first 12s only)
+    polls applied during the 40s watch, at t_off+: [39.93, 39.93]
+    is_up transitions (t-t_off, from, to): [(0.7, False, True), (10.6, True, False)]
+    final is_up=False  => KEPT
+    redundant power-off on a switch already down: 200 {"192.168.123.17":"Success"} in 1.3 ms
+    restore via API: 200 {"192.168.123.17":"Success"} in 1.489s -> :30057 open=True
+    restored: :30057 open=True  twin is_up=True  bmv2 procs=10
+
+--- s8 phase A (fired 28.5s after the /switches of the previous poll, i.e. ~1.5s before the next) ---
+    t_off=1788433381.047  API 200 {"192.168.123.18":"Success"} in 0.791s  is_up_before=True  procs 10->9
+    process really died: :30058 open=False
+    proxy still listed it until t_off+3.7s (traced for the first 12s only)
+    polls applied during the 40s watch, at t_off+: [39.93, 39.93]
+    is_up transitions (t-t_off, from, to): [(1.8, False, True), (9.2, True, False)]
+    final is_up=False  => KEPT
+    redundant power-off on a switch already down: 200 {"192.168.123.18":"Success"} in 1.2 ms
+    restore via API: 200 {"192.168.123.18":"Success"} in 1.487s -> :30058 open=True
+    restored: :30058 open=True  twin is_up=True  bmv2 procs=10
+
+--- s9 phase A (fired 28.5s after the /switches of the previous poll, i.e. ~1.5s before the next) ---
+    t_off=1788433472.934  API 200 {"192.168.123.19":"Success"} in 0.242s  is_up_before=True  procs 10->9
+    process really died: :30059 open=False
+    proxy still listed it until t_off+3.1s (traced for the first 12s only)
+    polls applied during the 40s watch, at t_off+: [39.92, 39.92]
+    is_up transitions (t-t_off, from, to): [(0.4, False, True), (11.4, True, False)]
+    final is_up=False  => KEPT
+    redundant power-off on a switch already down: 200 {"192.168.123.19":"Success"} in 1.3 ms
+    restore via API: 200 {"192.168.123.19":"Success"} in 1.473s -> :30059 open=True
+    restored: :30059 open=True  twin is_up=True  bmv2 procs=10
+
+--- s10 phase A (fired 28.5s after the /switches of the previous poll, i.e. ~1.5s before the next) ---
+    t_off=1788433564.873  API 200 {"192.168.123.20":"Success"} in 0.248s  is_up_before=True  procs 10->9
+    process really died: :30060 open=False
+    proxy still listed it until t_off+2.3s (traced for the first 12s only)
+    polls applied during the 40s watch, at t_off+: [39.93, 39.93]
+    is_up transitions (t-t_off, from, to): [(1.5, False, True), (10.1, True, False)]
+    final is_up=False  => KEPT
+    redundant power-off on a switch already down: 200 {"192.168.123.20":"Success"} in 1.2 ms
+    restore via API: 200 {"192.168.123.20":"Success"} in 1.471s -> :30060 open=True
+    restored: :30060 open=True  twin is_up=True  bmv2 procs=10
+
+--- s6 phase A (fired 28.5s after the /switches of the previous poll, i.e. ~1.5s before the next) ---
+    t_off=1788433656.740  API 200 {"192.168.123.16":"Success"} in 0.260s  is_up_before=True  procs 10->9
+    process really died: :30056 open=False
+    proxy still listed it until t_off+1.7s (traced for the first 12s only)
+    polls applied during the 40s watch, at t_off+: [39.93, 39.93]
+    is_up transitions (t-t_off, from, to): [(1.4, False, True), (8.7, True, False)]
+    final is_up=False  => KEPT
+    redundant power-off on a switch already down: 200 {"192.168.123.16":"Success"} in 1.5 ms
+    restore via API: 200 {"192.168.123.16":"Success"} in 1.491s -> :30056 open=True
+    restored: :30056 open=True  twin is_up=True  bmv2 procs=10
+
+--- s7 phase A (fired 28.5s after the /switches of the previous poll, i.e. ~1.5s before the next) ---
+    t_off=1788433748.637  API 200 {"192.168.123.17":"Success"} in 0.244s  is_up_before=True  procs 10->9
+    process really died: :30057 open=False
+    proxy still listed it until t_off+3.0s (traced for the first 12s only)
+    polls applied during the 40s watch, at t_off+: [39.93, 39.93]
+    is_up transitions (t-t_off, from, to): [(1.2, False, True), (11.0, True, False)]
+    final is_up=False  => KEPT
+    redundant power-off on a switch already down: 200 {"192.168.123.17":"Success"} in 1.2 ms
+    restore via API: 200 {"192.168.123.17":"Success"} in 1.488s -> :30057 open=True
+    restored: :30057 open=True  twin is_up=True  bmv2 procs=10
+
+--- s8 phase A (fired 28.5s after the /switches of the previous poll, i.e. ~1.5s before the next) ---
+    t_off=1788433840.582  API 200 {"192.168.123.18":"Success"} in 0.254s  is_up_before=True  procs 11->9
+    process really died: :30058 open=False
+    proxy still listed it until t_off+2.3s (traced for the first 12s only)
+    polls applied during the 40s watch, at t_off+: []
+    is_up transitions (t-t_off, from, to): [(1.0, False, True), (9.6, True, False)]
+    final is_up=False  => KEPT
+    redundant power-off on a switch already down: 200 {"192.168.123.18":"Success"} in 1.8 ms
+    restore via API: 200 {"192.168.123.18":"Success"} in 1.478s -> :30058 open=True
+    restored: :30058 open=True  twin is_up=True  bmv2 procs=10
+
+--- s9 phase A (fired 28.5s after the /switches of the previous poll, i.e. ~1.5s before the next) ---
+    t_off=1788433932.459  API 200 {"192.168.123.19":"Success"} in 0.237s  is_up_before=True  procs 10->9
+    process really died: :30059 open=False
+    proxy still listed it until t_off+1.7s (traced for the first 12s only)
+    polls applied during the 40s watch, at t_off+: [39.92, 39.92]
+    is_up transitions (t-t_off, from, to): [(1.2, False, True), (12.2, True, False)]
+    final is_up=False  => KEPT
+    redundant power-off on a switch already down: 200 {"192.168.123.19":"Success"} in 0.7 ms
+    restore via API: 200 {"192.168.123.19":"Success"} in 1.466s -> :30059 open=True
+    restored: :30059 open=True  twin is_up=True  bmv2 procs=10
+
+=== arm=base verdict ===
+    LOST 0 / KEPT 9 / VOID 0   (failure rate 0/9 of the trials that killed something)
+    redundant power-off latency, 9 samples, ms: [0.7, 1.2, 1.2, 1.2, 1.3, 1.3, 1.4, 1.5, 1.8]
+      min 0.7  median 1.3  max 1.8
