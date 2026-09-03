@@ -691,6 +691,13 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      */
     void handleGetAvgLinkUsage(http::response<http::string_body>& res);
     /**
+     * @brief GET /ndt/get_sflow_stats -- the sFlow ingest's own health, as `telemetry_health`.
+     *
+     * [Co-developed with claude code -- Adam] Round 4 lead 5(b): this path was one of eleven
+     * that answered 404 while samples were being dropped at 72.5%.
+     */
+    void handleGetSflowStats(http::response<http::string_body>& res);
+    /**
      * @brief Returns the total incoming traffic load (bps) entering a given switch.
      *
      * This HTTP handler expects a JSON request body containing:

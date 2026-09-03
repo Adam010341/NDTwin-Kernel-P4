@@ -301,6 +301,12 @@ HttpSession::buildResponse()
         {
             handleGetAvgLinkUsage(*response);
         }
+        // [Co-developed with claude code -- Adam] Round 4 lead 5(b): this path answered 404, and
+        // so did every other name a consumer might try for the four sFlow drop counters.
+        else if (method == http::verb::get && utils::pathIs(target, "/ndt/get_sflow_stats"))
+        {
+            handleGetSflowStats(*response);
+        }
         else if (method == http::verb::post &&
                  target.starts_with("/ndt/get_total_input_traffic_load_passing_a_switch"))
         {
@@ -2189,7 +2195,39 @@ HttpSession::handleGetAvgLinkUsage(http::response<http::string_body>& res)
     double avgLinkUsage =
         m_topologyAndFlowMonitor->getAvgLinkUsage(m_topologyAndFlowMonitor->getGraph());
     res.result(http::status::ok);
-    res.body() = json{{"status", "success"}, {"avg_link_usage", avgLinkUsage}}.dump();
+    // [Co-developed with claude code -- Adam] Round 4 section 1: under a flood that lost 72.5% of
+    // samples this number moved the WRONG WAY (0.0103 -> 0.0221) and still answered 200
+    // "success". `status` there is about the request; `telemetry_health` is about the answer.
+    json body{{"status", "success"}, {"avg_link_usage", avgLinkUsage}};
+    if (m_flowLinkUsageCollector)
+    {
+        body["telemetry_health"] = m_flowLinkUsageCollector->ingestHealthJson();
+    }
+    res.body() = body.dump();
+}
+
+// [Co-developed with claude code -- Adam]
+// The four counters at FlowLinkUsageCollector's tail had exactly one reader before this: a log
+// line. This endpoint exists for a consumer that wants them without polling a measurement, and
+// carries the same object under the same key as every other response so there is one shape to
+// learn. See doc/audit/2026-09-03_night-rounds/FIX-TELEMETRY-HEALTH.md.
+void
+HttpSession::handleGetSflowStats(http::response<http::string_body>& res)
+{
+    SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Get sFlow Stats");
+    if (!m_flowLinkUsageCollector)
+    {
+        // No collector means no ingest to report on. Answering `{"status":"success"}` with an
+        // absent or zeroed health object would say "nothing was lost", which is not known.
+        res.result(http::status::service_unavailable);
+        res.body() = json{{"status", "error"},
+                          {"message", "no sFlow collector in this deployment"}}.dump();
+        return;
+    }
+    res.result(http::status::ok);
+    res.body() =
+        json{{"status", "success"},
+             {"telemetry_health", m_flowLinkUsageCollector->ingestHealthJson()}}.dump();
 }
 
 void

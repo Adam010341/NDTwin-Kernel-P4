@@ -298,6 +298,89 @@ class FlowLinkUsageCollector
                                                  int64_t agentLastSampleMillis,
                                                  double windowSeconds);
 
+    /**
+     * @brief What the sFlow ingest did during the most recently *closed* rate window.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam] doc/audit/2026-09-03_night-rounds/
+     * round4-traffic-measurement/SUMMARY.md, lead 5(b) and section 1.
+     *
+     * The four drop counters existed and were correct; they were reachable from none of the 105
+     * JSON keys the kernel serves, so under a 72.5% socket-drop flood the twin reported a
+     * 20 Mbit/s flow as 7.14 Mbit/s while every endpoint answered 200 `success`, every flow read
+     * `active`, and `avg_link_usage` moved the wrong way. The only trace was 33 WARN lines in a
+     * file no API consumer reads.
+     *
+     * 🔴 A drop count on its own is not actionable: `dropped_in_window: 41273` does not tell a
+     * reader whether their measurement is usable. So this carries the DENOMINATOR over the same
+     * window -- `offered_in_window` = what arrived plus what was lost -- and `samples_in_window`,
+     * which is the count the rates in this response were actually computed from. `loss_fraction`
+     * is derived from those two rather than stored, so it cannot disagree with them.
+     *
+     * `samples_in_window == 0` is also the steady-state channel `rx` never had: before this, the
+     * ingest INFO line fired once per process and everything after it was TRACE, so from outside
+     * "no warning" and "we have received nothing since boot" were the same observation.
+     * `status` separates them: **"no_samples" is not "ok"**.
+     */
+    struct IngestHealth
+    {
+        /// "unknown" | "no_samples" | "ok" | "lossy" | "severe_loss". A string because it
+        /// crosses /ndt/, and never omitted -- an absent field reads as a passing one.
+        std::string status;
+        /// Samples the collector actually took delivery of in the window. The rates beside this
+        /// field were computed from these and no others.
+        uint64_t samplesInWindow = 0;
+        /// Lost to the socket receive queue in the window (SO_RXQ_OVFL).
+        uint64_t socketDropsInWindow = 0;
+        /// Dropped by us in the window, when a worker queue was full.
+        uint64_t appDropsInWindow = 0;
+        /// The denominator: samples + both kinds of drop. What the network tried to tell us.
+        uint64_t offeredInWindow = 0;
+        /// (socket + app drops) / offered, in [0,1]. -1.0 when no window has closed yet, and
+        /// 0.0 for a closed window that was offered nothing -- those are different facts.
+        double lossFraction = -1.0;
+        /// Length of the window the counts above cover. 0 when none has closed.
+        double windowSeconds = 0.0;
+    };
+
+    /**
+     * @brief The verdict on its own -- no clock, no socket, no collector.
+     *
+     * @details
+     * Pure and static for the same reason `classifyTelemetry` is: left inside the rate loop, the
+     * one claim this feature makes ("this measurement is usable / is not") would have been
+     * reachable from a test only by standing up a collector and flooding a real socket, so a
+     * mutation pinning every answer to "ok" would have survived the suite. That is the defect
+     * this fix exists to remove; it must not be reintroduced by the fix's own shape.
+     *
+     * @param windowClosed        False until the rate loop has completed one window. Forces
+     *                            "unknown": at start-up we have not yet failed to receive, and
+     *                            claiming health before measuring it is the original defect.
+     * @param samplesInWindow     Samples delivered in that window.
+     * @param socketDropsInWindow Socket-queue overflow delta over that window.
+     * @param appDropsInWindow    Application-level drop delta over that window.
+     * @param windowSeconds       Length of the window in seconds.
+     */
+    static IngestHealth classifyIngestHealth(bool windowClosed,
+                                             uint64_t samplesInWindow,
+                                             uint64_t socketDropsInWindow,
+                                             uint64_t appDropsInWindow,
+                                             double windowSeconds);
+
+    /// Loss above this fraction of the offered samples means the numbers in the same response are
+    /// materially understated: round 4 measured a 2.76x under-report at 0.725. 0.01 is one lost
+    /// sample in a hundred, which at 18.5 samples/s is already visible in a per-second rate.
+    static constexpr double kIngestLossyFraction = 0.01;
+    /// Above this, do not treat the response's rates as a measurement at all.
+    static constexpr double kIngestSevereLossFraction = 0.10;
+
+    /// The most recently closed window's health, safe to call from any thread.
+    IngestHealth ingestHealth() const;
+
+    /// `ingestHealth()` as the JSON object published as `telemetry_health`. One place, so every
+    /// endpoint that carries it carries the same keys. [Co-developed with claude code -- Adam]
+    nlohmann::json ingestHealthJson() const;
+
   private:
     inline std::string ourIpToString(uint32_t ipFront, uint32_t ipBack);
     inline uint32_t ipFromFrontBack(uint32_t ipFront, uint32_t ipBack);
@@ -586,6 +669,19 @@ class FlowLinkUsageCollector
     mutable std::shared_mutex m_topologyMutex;
     std::atomic_uint64_t droppedPackets{0};
     std::atomic<uint64_t> m_sockOvflDrops{0};
+
+    // [Co-developed with claude code -- Adam]
+    // The most recently CLOSED rate window, published for ingestHealth(). Written once per
+    // second by the rate loop, read by HTTP handler threads, hence atomics: the totals above are
+    // monotonic and useless for "is the answer I am holding right now trustworthy", which is a
+    // question about one window. m_healthWindowClosed gates the whole thing so a reader can tell
+    // "not measured yet" from "measured, nothing lost".
+    std::atomic<bool> m_healthWindowClosed{false};
+    std::atomic<uint64_t> m_healthSamplesInWindow{0};
+    std::atomic<uint64_t> m_healthSockDropsInWindow{0};
+    std::atomic<uint64_t> m_healthAppDropsInWindow{0};
+    // Stored as microseconds because std::atomic<double> is not lock-free everywhere.
+    std::atomic<uint64_t> m_healthWindowMicros{0};
 };
 
 } // namespace sflow
