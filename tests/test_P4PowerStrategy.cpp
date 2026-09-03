@@ -474,6 +474,13 @@ TEST(P4PowerStrategyTest, PowerOnActsPastTheWindowWhileThePowerOffStandsUnwithdr
     (*fix.graph)[fix.sw].isUp = true; // the resurrection, written by the writer that performed it
 
     p4.advance(std::chrono::seconds(20));
+
+    // [Co-developed with claude code -- Adam] -- FINDINGS #80.
+    // The window is bounded by evidence now, not by the 15 s clock this case was written
+    // against, so `advance(20)` no longer closes it and "past the window" is no longer a state
+    // time can produce. Closing it with a post-kill probe restores what the case is about: the
+    // command, and nothing else, is what makes this power-on act.
+    ASSERT_TRUE(p4.acceptLivenessUp("s1", p4.fakeNow));
     p4.commands.clear();
 
     const OpResult result = p4.powerOn(fix.sw, "s1", 7, fix.monitor.get());

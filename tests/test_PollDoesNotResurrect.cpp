@@ -454,8 +454,23 @@ TEST_F(PollDoesNotResurrectTest, PowerOnActuatesWhenACommandedOffIsStillStanding
     FakeP4 p4;
     ASSERT_EQ(p4.powerOff(sw(), "s1", m_monitor.get()).ok, true);
 
-    p4.advance(std::chrono::seconds(60)); // time alone; the window is closed by evidence now
+    p4.advance(std::chrono::seconds(60));
     m_monitor->setVertexUp(sw());         // the graph now lies about this switch
+
+    // [Co-developed with claude code -- Adam] -- FINDINGS #80.
+    // 🔴 THIS LINE IS WHAT MAKES THE CASE DISCRIMINATE, and it was not needed before. The
+    // distrust window used to expire on a clock, so `advance(60)` above closed it and the only
+    // thing left forcing this power-on to act was the standing COMMAND -- which is what the case
+    // is named for. The window is now bounded by evidence, so time alone leaves it open and the
+    // call would actuate whether or not the command survived: the case would pass while saying
+    // nothing about the flag. mutate_poll_does_not_resurrect.sh M2/M3/M8 caught exactly that.
+    //
+    // A probe taken after the kill is also the real scenario: somebody restarted the switch out
+    // of band, the twin has seen it serving, and the command has still not been withdrawn.
+    ASSERT_TRUE(p4.acceptLivenessUp("s1", p4.fakeNow))
+        << "a probe dated after the kill did not close the window, so the assertion below would "
+           "pass on the window rather than on the command";
+
     p4.commands.clear();
 
     const OpResult r = p4.powerOn(sw(), "s1", kDpid, m_monitor.get());
