@@ -74,6 +74,19 @@ constexpr auto kFlowPathRecomputeInterval = std::chrono::seconds(1);
 // to exist is catching faults -- but it is a real cost, and it is the reason `?liveness=retained`
 // exists for a caller that would rather over-report.
 //
+// 🔴 That cost has since been measured, and IT IS A PACKET RATE, NOT A BIT RATE. 2026-09-03, one
+// flow delivered with 0% loss on the wire, 1400 B frames, 3 sampling hops, sFlow 1/256, 30
+// one-second polls per cell: this window returned the flow 30/30 at 179 pps, 26/30 at 89 pps and
+// 16/30 at 22 pps -- so at ~22 pps a fully delivered flow is absent from more than half of all
+// polls, while `?liveness=all` was still 30/30 there and did not start missing until ~5 pps.
+// Holding the bandwidth at 1 Mbit/s and shrinking the frame 1400 B -> 100 B (14x the packets)
+// moved visibility on the 2 s edge count from 0.70 to 1.00, which is what rules out quoting any
+// of this in Mbit/s. Raw:
+// doc/audit/2026-09-03_night-rounds/round4-traffic-measurement/{06_lead4_rate_sweep,07b_sweepB_analysis}.log
+// Nothing here changes because of it: widening the window trades this miss for the idle-tail
+// population B-x just removed. The number is recorded so a caller can size its polling against it,
+// and the API document publishes the whole table (doc/2026-01-02_ndt_api.md section 4).
+//
 // Named rather than a literal so an arm can report which value it measured.
 constexpr int64_t kFlowActiveWindowMs = 3000;
 

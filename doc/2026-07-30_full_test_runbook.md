@@ -321,10 +321,16 @@ log: PASS
 請求會落進檢查窗口，變成一片沒有意義的紅（實測跑四次 → 47 條問題，全部是測試自己打的）。
 `run_layers.sh` 現在會偵測並提示你重啟 kernel。
 
-⚠️ **`get_detected_flow_data` 偶發 FAIL** 有兩個原因，都不是 bug：
+⚠️ **`get_detected_flow_data` 偶發 FAIL** 的原因：
 1. **流量停了** —— flow 幾秒內就老化，`--traffic` 會報「no flows detected」。iperf 要一直跑著。
 2. ~~多播~~ 已修：本機 Avahi 的 mDNS（`192.168.123.16 -> 224.0.0.251`）會漏進 sFlow 取樣，
    而多播沒有單播路徑。檢查現在豁免多播／廣播／link-local。
+3. 🔴 **【2026-09-03 新增】封包率太低——而這一條是 bug**（原文寫「兩個原因，都不是 bug」，
+   該句已撤）。**界線的單位是 pps 不是 bit/s**：1400 B frame、3 跳、1/256、線上零丟失下，
+   預設窗口在 **~89 pps 開始漏**、**~22 pps 有一半的每秒查詢看不到一條完全送達的流**，
+   而同一刻 `?liveness=all` 仍 30/30。⇒ **偶發 FAIL 不必然代表流量停了**；
+   要分辨就加 `?liveness=all` 重查一次。完整表格見 `doc/2026-01-02_ndt_api.md` §4。
+   [Co-developed with claude code -- Adam]
 
 | 已知 FAIL | 原因 |
 |---|---|

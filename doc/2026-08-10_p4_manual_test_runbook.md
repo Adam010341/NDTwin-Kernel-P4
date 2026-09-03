@@ -398,6 +398,14 @@ mininet> h1 ping -c 20000 -i 0.002 10.0.0.4
 
 ⚠️ **P4 的 sFlow 是 1/256 取樣**。ping 每秒 1 個封包要 256 秒才產生一個 sample。用 `-i 0.002`（~500 pps）才能穩定產生 sample。
 
+⚠️ **【2026-09-03 補】要多少封包率才穩定看得到，已經量出來了——而且單位是 pps 不是 bit/s。**
+1400 B frame、3 跳、1/256、線上零丟失下，`get_detected_flow_data` 的**預設**窗口在
+**~89 pps 開始漏**、**~22 pps 有一半的每秒查詢看不到**（此時 `?liveness=all` 仍 30/30），
+`?liveness=all` 要到 **~5 pps** 才開始漏；`get_num_of_flows_passing_a_switch` 最窄，
+**179 pps 就已經 21/30**。⇒ **本節的 ~500 pps 是有餘裕的**，但**降速改用 `-i 0.02`（~50 pps）
+就會踩到預設窗口的漏檢區**。完整表格與 frame size 的影響見
+`doc/2026-01-02_ndt_api.md` §4。[Co-developed with claude code -- Adam]
+
 ### 5b. 確認流量有被觀測到（terminal A）
 
 ```bash
@@ -988,7 +996,7 @@ violations (admin_disabled AND is_enabled): 0
 | `avg_link_usage` = 0 但有流量 | 流量兩端是不是在同一台交換機 | 不是 bug（設計上排除 host 邊） |
 | `num_of_flows` = 0 | 流量還在跑嗎；那台交換機在路徑上嗎 | 它不是 OpenFlow 規則數 |
 | `{"error":"Not Found"}` | 端點是 GET 還是 POST；是不是多加了 `?dpid=` | 不是功能沒實作 |
-| `get_detected_flow_data` 回 0 筆 | ping 還在跑嗎（flow 幾秒內老化） | 不是 ingest 壞掉——是流量停了 |
+| `get_detected_flow_data` 回 0 筆 | ①ping 還在跑嗎（flow 幾秒內老化）②**封包率夠嗎**——預設窗口在 ~22 pps 就有一半的查詢看不到一條完全送達的流；先用 `?liveness=all` 再查一次 | 不是 ingest 壞掉；**也不必然是流量停了**（2026-09-03 更正：低封包率下「送得好好的」和「停了」在預設窗口上長得一樣，見 §5a 的補註） |
 | `addressed=0` 但 `rx` 在漲 | （2026-08-13 更正）P4 **沒有** counter sample，rx 在漲＝有 flow sample 進來；addressed 不動代表**歸戶失敗**——查 proxy 的 flow 快取與 kernel flow 表（舊解釋「rx 是 counter sample」是 OVS 的行為） | 這在 P4 模式**是**異常，要查 |
 | power off 後 `switches` 少於 10 | 這是 `32afeb9` 之後的**正常**行為：死掉的 switch 從 `/v1.0/topology/switches` **消失**（不再是留在清單裡 `enabled` < 10） | 不要當成 topology 掉資料 |
 | `/p4/readopt/{dpid}` 回 502 `step:"mastership"` | 舊 client 還是 primary（switch 是健康的）。readopt 是給 power-cycle 後用的；2026-08-13 起這種情況被 gate 擋下、**switch 不會被動到**。對健康 switch 不要硬跑 readopt | 不是 readopt 壞掉 |

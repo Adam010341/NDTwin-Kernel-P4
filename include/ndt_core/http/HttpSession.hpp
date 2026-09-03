@@ -210,6 +210,16 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      * @param[out] res HTTP response whose body is set to the serialized detected-flow JSON.
      *
      * @note Intended for clients such as a dashboard/GUI to query live flow visibility.
+     *
+     * @note 🔴 Absence from the default view is NOT evidence that a flow stopped, and the
+     *       boundary is a PACKET rate, not a bit rate. Measured 2026-09-03 on one flow delivered
+     *       with 0% loss, 1400 B frames, 3 hops, sFlow 1/256: the default (`ActiveOnly`,
+     *       kFlowActiveWindowMs = 3 s) listed it in 26 of 30 one-second polls at 89 pps and only
+     *       16 of 30 at 22 pps, while `?liveness=all` was 30/30 at both. Holding bandwidth at
+     *       1 Mbit/s and shrinking the frame to 100 B restored full visibility, which is why the
+     *       same band cannot be quoted in Mbit/s. A caller that acts on idleness should read
+     *       `?liveness=all` plus `last_seen_ms`. Table: doc/2026-01-02_ndt_api.md section 4.
+     *       [Co-developed with claude code -- Adam]
      */
     void handleGetDetectedFlowData(http::response<http::string_body>& res);
 
@@ -738,6 +748,17 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      *
      * @note This is an aggregate count across all incoming edges. If the same flow key appears on
      *       multiple incoming edges, it will be counted multiple times (no global deduplication).
+     *
+     * @note 🔴 Each flowSet entry is dropped 2 s after that edge's last sample for it
+     *       (TopologyAndFlowMonitor::flushEdgeFlowLoop, swept once a second), so this is the
+     *       NARROWEST of the three flow views -- narrower than the 3 s default behind
+     *       get_detected_flow_data and the 15 s retained table -- and it undercounts first as the
+     *       packet rate falls. Measured 2026-09-03, one flow delivered with 0% loss, 1400 B
+     *       frames, 3 hops, sFlow 1/256, 30 one-second polls per cell: 30/30 at 446 pps, 21/30 at
+     *       179 pps (where both get_detected_flow_data views were still 30/30), 17/30 at 89 pps,
+     *       6/30 at 22 pps, 0/30 at 3 pps. The boundary is a packet rate, not a bit rate: the
+     *       whole band shifts by up to 14x with the frame size. Table:
+     *       doc/2026-01-02_ndt_api.md section 26. [Co-developed with claude code -- Adam]
      */
     void handleGetNumOfFlowsPassingASwitch(http::response<http::string_body>& res);
     /**
