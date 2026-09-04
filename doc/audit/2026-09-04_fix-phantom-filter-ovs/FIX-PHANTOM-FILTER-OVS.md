@@ -118,7 +118,19 @@
 輪詢回來的列兩個平面都不扣、A-7 的計數器意義不變。
 沒有這四顆，「讓 OVS 遵守契約」可以靠「什麼都扣住」達成——那是穿著修法外衣的中斷。
 
-（gtest 逐字紅／綠與數量：見本輪 raw。）
+🔴 **這 12 顆到 2026-09-04 09:xx 為止一次都沒有被執行過，紅綠都沒有。**
+整台機器的建置閘（`tools/build_guard/guarded_build.sh` 的 flock）從 07:03 起連續由別的
+session（`wt-stop` → `wt-integrate`）持有，我排隊約三個半小時、`my_objects=0`——
+**一個 object 都沒編到**。繞過那道鎖就是 09-02 兩次把 Adam 的 app 連帶殺掉的那件事，所以沒有繞。
+
+**因此下面每一句關於這 12 顆的話都是「讀碼＋編譯期」的等級，不是「跑過」的等級**：
+- 12 顆對**未修的 trunk 標頭**與**修過的標頭**都 `-fsyntax-only` 通過（旗標抄自
+  `build/build.ninja`）⇒ 紅色跑得起來、綠色也編得過；
+- 但**哪幾顆會紅、紅在哪一行、綠的總數是多少，我沒有量到**。
+- 已備好 `red_on_trunk.sh`（把 10 個檔案還原成 trunk 內容、增量重建、跑、還原並驗 byte-identical），
+  它需要的只是一次拿到建置鎖。
+
+⚠️ **在那之前，這份修法不算交付**（mutation gate 的規矩：沒看過紅不算）。
 
 ### 另一層：不需要整包連結的紅→綠
 
@@ -141,11 +153,31 @@ trunk 那一欄服務出去的第一列就是 FINDING-03 的指紋：`ipv4_dst` 
 ＋ 4 個保行為的放寬（必須維持綠）。過濾器含既有的 B-1 兩套
 （`PendingEntryFilterTest`／`ProgrammedTokenTest`）——**這次要證的有一半是 P4 沒有動**。
 
-（逐項結果：見本輪 raw。）
+🔴 **同樣沒有執行過**（要 15 次重建，全都排在同一道鎖後面）。
+已通過的只有靜態檢查：`bash -n` 語法、以及
+`python3 tests/shell/check_gate_anchors.py HEAD --gates mutate_phantom_filter_covers_ovs.sh`
+回 **`ok(13)` / 1-1 cells ok / 0 未檢查**——**13 個錨點在修法後的檔案裡各出現剛好一次**。
+那證明的是「這個閘門讀得懂、錨點對得上」，**不是「變異真的被殺掉了」**。
+
+修過一輪：原本有四個變異寫成 `if (false)` 或 `(void)x`，那會讓被讀的變數變成未使用；
+這棵樹是 `-Wall -Wextra -Wunused -Werror`，那些變異會**編不過**，而本閘門把編不過的變異
+記成 SURVIVOR ⇒ 會出現一個與測試無關的假存活。已改成 `false && <原條件>`。
+另外原本的變異 6 在自己的說法上就是錯的：放寬 `if (result.ok)` 不可能讓一個被拒的請求
+確認自己，因為失敗本來就不會設 `confirmsProgramming`。已改成關掉 proxy 的 error-body 閘。
 
 ## 七、Live
 
-（見本輪 raw。）
+🔴 **沒有跑。** 兩個 arm 都需要先有 binary，而 binary 需要建置鎖。
+`ndt status` 07:05 讀到 `claim none / measuring nothing`，**lab 是空的、不是被佔住**——
+擋住的是建置，不是實驗台。**我沒有 claim 過 lab，也沒有起過任何 fabric。**
+
+已備好且已驗過機制的部分：
+- `live_arm.sh <before|after> <binary>`：裝上指定的 binary、`ndt up ovs4`、
+  用 **09-03 同一支探測** `doc/audit/2026-08-31_live-acceptance-batch/probe.py`
+  跑無效 port 999 與合法 port 2 兩臂、讀 Ryu 的獨立通道、抓 kernel.log 的兩條新 log、`ndt down`。
+- 讓 arm 跑**自己**的 kernel 的辦法已實測：`export KERNEL_DIR=<worktree>`
+  （`components.env:16` 用 `:=`，所以環境值優先；`stack.sh:908` 啟動
+  `$KERNEL_DIR/build/bin/ndtwin_kernel`），實測 `LOG_DIR`／`PID_DIR` 也跟著搬到該 worktree。
 
 ## 八、附記：兩件順手發現、沒有一起修的事
 
