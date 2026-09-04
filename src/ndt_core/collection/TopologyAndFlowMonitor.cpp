@@ -2955,6 +2955,104 @@ TopologyAndFlowMonitor::getGraph() const
     return *m_graph;
 }
 
+// [Co-developed with claude code -- Adam]
+// OV-1, 2026-09-04. The two functions below are the only writers of the topology file in this
+// process, and both used to read it into an `nlohmann::json`, change one string, and write the
+// whole document back. nlohmann::json's default ObjectType is std::map, so EVERY object came
+// back out in dictionary order: one POST /ndt/modify_nickname produced a 3998-insertion,
+// 3998-deletion diff on a file the repository tracks, with the JSON semantically unchanged
+// (measured twice on 2026-09-04, once per data plane -- it follows activeTopologyPath(), not a
+// plane). The consequence that made it urgent is `ndt status --check`, which compares the
+// topology file's sha256 against the one the `ndt up` loaded (tools/test_workflow/ndt:2239-2255)
+// and so reported the kernel's own rewrite as "the topology file has been edited".
+//
+// ordered_json preserves the order the document was read in. That alone is not enough: the
+// shipped files are not all indented the same way and not all end in a newline, so a writer with
+// a fixed `setw(2) << ... << std::endl` reformats every line of a 4-space file -- trading a
+// re-ordering diff for a re-indentation diff, and leaving the sha256 just as changed.
+//
+// Measured, on the thirteen shipped setting/StaticNetworkTopology*.json (see the FIX doc):
+//   * order only, setw(2):          5 of 13 round-trip byte-identically
+//   * order + indent + newline:     9 of 13, INCLUDING every file the two data planes use
+//     (both OV-1 incident files, all five OVS ones, both P4 ones)
+//   * the remaining four are the legacy `_ipAlias4_*` testbed files, which contain hand-left
+//     BLANK LINES inside arrays. No JSON serialiser preserves those, so those four would still
+//     be reformatted once if a rename happened while one of them was the active topology. That
+//     is stated rather than hidden: this fix is complete for the files in use and not for those.
+struct TopologyFileLayout
+{
+    nlohmann::ordered_json json;
+    /// Spaces per level, as the file on disk uses them.
+    int indent = 2;
+    bool endsWithNewline = true;
+};
+
+/// One level of indentation, read off the document rather than assumed.
+static int
+detectJsonIndent(const std::string& text)
+{
+    std::size_t at = 0;
+    while (at < text.size())
+    {
+        const std::size_t eol = text.find('\n', at);
+        if (eol == std::string::npos)
+        {
+            break;
+        }
+        std::size_t spaces = 0;
+        while (at + spaces < eol && text[at + spaces] == ' ')
+        {
+            ++spaces;
+        }
+        if (spaces > 0)
+        {
+            return static_cast<int>(spaces);
+        }
+        at = eol + 1;
+    }
+    return 2;
+}
+
+static TopologyFileLayout
+readTopologyFileWithLayout(const std::string& path)
+{
+    std::ifstream ifs;
+    ifs.open(path);
+    if (!ifs.is_open())
+    {
+        throw std::runtime_error("Cannot open topology file");
+    }
+    std::ostringstream text;
+    text << ifs.rdbuf();
+    const std::string raw = text.str();
+
+    TopologyFileLayout out;
+    out.indent = detectJsonIndent(raw);
+    out.endsWithNewline = !raw.empty() && raw.back() == '\n';
+    out.json = nlohmann::ordered_json::parse(raw);
+    return out;
+}
+
+/// Writes to a temp file and renames, so a reader never sees a half-written topology.
+static void
+writeTopologyFileWithLayout(const std::string& path, const TopologyFileLayout& doc)
+{
+    const std::string tmp = path + ".tmp";
+    {
+        std::ofstream ofs(tmp);
+        if (!ofs.is_open())
+        {
+            throw std::runtime_error("Cannot open temp file");
+        }
+        ofs << std::setw(doc.indent) << doc.json;
+        if (doc.endsWithNewline)
+        {
+            ofs << "\n";
+        }
+    }
+    std::filesystem::rename(tmp, path);
+}
+
 void
 TopologyAndFlowMonitor::setVertexDeviceName(Graph::vertex_descriptor v, std::string name)
 {
@@ -2966,19 +3064,11 @@ TopologyAndFlowMonitor::setVertexDeviceName(Graph::vertex_descriptor v, std::str
     // Also modify configuration file
     {
         std::lock_guard guard(m_configurationFileMutex);
-        nlohmann::json j;
-        {
-            // [Co-developed with claude code -- Adam]
-            // activeTopologyPath() honours NDTWIN_TOPO_FILE; the mode branch this replaces
-            // always read the OVS file in Mininet mode, even when running the P4 fabric.
-            std::ifstream ifs;
-            ifs.open(activeTopologyPath());
-            if (!ifs.is_open())
-            {
-                throw std::runtime_error("Cannot open topology file");
-            }
-            ifs >> j;
-        }
+        // [Co-developed with claude code -- Adam]
+        // activeTopologyPath() honours NDTWIN_TOPO_FILE; the mode branch this replaces
+        // always read the OVS file in Mininet mode, even when running the P4 fabric.
+        TopologyFileLayout doc = readTopologyFileWithLayout(activeTopologyPath());
+        auto& j = doc.json;
 
         bool updated = false;
         // TODO: Read Lock? (But these information wouldn't change in reality)
@@ -3020,18 +3110,7 @@ TopologyAndFlowMonitor::setVertexDeviceName(Graph::vertex_descriptor v, std::str
         }
 
         // [Co-developed with claude code -- Adam]
-        const auto topoPath = activeTopologyPath();
-        const auto tmp = topoPath + ".tmp";
-        {
-            std::ofstream ofs(tmp);
-            if (!ofs.is_open())
-            {
-                throw std::runtime_error("Cannot open temp file");
-            }
-            ofs << std::setw(2) << j << std::endl;
-        }
-        std::filesystem::rename(tmp,
-                                topoPath);
+        writeTopologyFileWithLayout(activeTopologyPath(), doc);
     }
 }
 
@@ -3048,21 +3127,13 @@ TopologyAndFlowMonitor::setVertexNickname(Graph::vertex_descriptor v, std::strin
     // 2. Update the nickname in the persistent JSON configuration file.
     {
         std::lock_guard guard(m_configurationFileMutex);
-        nlohmann::json j;
-
-        // Read the entire contents of the current topology file.
-        {
-            // [Co-developed with claude code -- Adam]
-            // activeTopologyPath() honours NDTWIN_TOPO_FILE; the mode branch this replaces
-            // always read the OVS file in Mininet mode, even when running the P4 fabric.
-            std::ifstream ifs;
-            ifs.open(activeTopologyPath());
-            if (!ifs.is_open())
-            {
-                throw std::runtime_error("Cannot open topology file");
-            }
-            ifs >> j;
-        }
+        // [Co-developed with claude code -- Adam]
+        // activeTopologyPath() honours NDTWIN_TOPO_FILE; the mode branch this replaces
+        // always read the OVS file in Mininet mode, even when running the P4 fabric.
+        // OV-1: the layout of the file on disk travels with the document -- see the note above
+        // readTopologyFileWithLayout for why order alone is not enough.
+        TopologyFileLayout doc = readTopologyFileWithLayout(activeTopologyPath());
+        auto& j = doc.json;
 
         bool updated = false;
         auto vertexType = (*m_graph)[v].vertexType == VertexType::SWITCH ? 0 : 1;
@@ -3105,18 +3176,7 @@ TopologyAndFlowMonitor::setVertexNickname(Graph::vertex_descriptor v, std::strin
 
         // Safely write the modified JSON data back to the file.
         // [Co-developed with claude code -- Adam]
-        const auto topoPath = activeTopologyPath();
-        const auto tmp = topoPath + ".tmp";
-        {
-            std::ofstream ofs(tmp);
-            if (!ofs.is_open())
-            {
-                throw std::runtime_error("Cannot open temp file");
-            }
-            ofs << std::setw(2) << j << std::endl;
-        }
-        std::filesystem::rename(tmp,
-                                topoPath);
+        writeTopologyFileWithLayout(activeTopologyPath(), doc);
     }
 }
 
