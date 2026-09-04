@@ -38,17 +38,25 @@
  *
  *  1. updateSwitches invents no vertex for an unknown dpid   (green before and after: the
  *     reachability evidence, and a regression guard on it)
- *  2. a status round over an address-less switch does not kill the process   (SIGSEGV -> exit 0)
- *  3. the switch keeps a key, at the documented sentinel, in all three IP-keyed reports
- *  4. the WARN is edge-triggered: once per episode, not once per round
- *  5. the power report -- keyed by dpid, so it needs no substitute key -- reports the sentinel in
+ *  2. a status round over an address-less switch does not kill the process, in MININET
+ *     (SIGSEGV -> exit 0)
+ *  3. the same round in TESTBED, which is a different code path and not a duplicate: in MININET
+ *     the power report reads no address at all, so mode 2 cannot reach the power guard
+ *  4. the switch keeps a key, at the documented sentinel, in all three IP-keyed reports
+ *  5. the WARN is edge-triggered: once per episode, not once per round
+ *  6. the power report -- keyed by dpid, so it needs no substitute key -- reports the sentinel in
  *     TESTBED mode, and STILL reports a real synthetic figure in MININET mode, where the value
  *     never depended on the address in the first place
  *
- * Test 2 is a death test on purpose. Test 3's assertions would also go red on the old code, but
- * only by taking the whole binary with them: a SEGFAULT produces no "[  FAILED  ]" line and every
- * later suite in test_routing_strategy silently never runs. Forking one child to contain the
- * crash is what turns "the run died" into a named red line.
+ * Tests 2 and 3 are death tests on purpose. The later assertions would also go red on the old
+ * code, but only by taking the whole binary with them: a SEGFAULT produces no "[  FAILED  ]" line
+ * and every later suite in test_routing_strategy silently never runs. Forking a child to contain
+ * the crash is what turns "the run died" into a named red line.
+ *
+ * Test 3 exists because the mutation gate proved test 2 alone was not enough: on 2026-09-04 the
+ * M2 mutant (TESTBED power path dereferences an empty ip) was scored SURVIVED, because the fault
+ * landed in an in-process test and killed the binary with no verdict. Both death tests are
+ * declared before every in-process test for that reason.
  */
 
 #include <cstdlib>
@@ -302,6 +310,36 @@ TEST_F(NoIpSwitchTest, AStatusRoundOverASwitchWithNoAddressDoesNotKillTheProcess
         << "a switch with no management address must not be able to end the process. The status "
            "worker runs these four in one round every 10 s, and an unhandled SIGSEGV on that "
            "thread ends the kernel, not just the round.";
+}
+
+// [Co-developed with claude code -- Adam]
+// The second mode, and it is not redundant. The test above builds the manager in MININET, where
+// fetchPowerReportInternal never reads an address at all -- the synthetic figure is a function of
+// the dpid -- so the guard on the power path's TESTBED branch is not exercised by it. The
+// mutation gate proved that the hard way on 2026-09-04: M2 (the TESTBED power site dereferences
+// an empty ip again) was NOT caught by the test above. It faulted in
+// TestbedPowerReportsTheSentinelForAnAddresslessSwitch instead, which is an ordinary in-process
+// call, so the binary died with no verdict line and the gate scored it SURVIVED rather than
+// letting a crash read as a clean red.
+//
+// Declared HERE, above every in-process TESTBED test, on purpose: gtest runs a suite in
+// declaration order, so this fork has to happen before anything that would take the process down
+// with it. Moving it below them puts the gate back where it was.
+TEST_F(NoIpSwitchTest, ATestbedStatusRoundOverASwitchWithNoAddressDoesNotKillTheProcess)
+{
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
+
+    // TESTBED, and only the address-less switch in the graph. Nothing here shells out: the power
+    // path's guard returns before the SSH/SNMP branch, and the other three answer the sentinel
+    // before their snmpget. A switch WITH an address in this mode would run real commands, which
+    // is why there is not one.
+    buildManager(utils::TESTBED);
+    addSwitchWithNoIp(kAddresslessDpid);
+
+    EXPECT_EXIT(oneStatusRoundThenExitZero(), ::testing::ExitedWithCode(0), "")
+        << "in TESTBED mode the power report is the FIRST of the four the status worker calls "
+           "and the first to read the address, so this is the site that actually faults on a "
+           "real testbed -- before the CPU report the gdb backtrace happened to name.";
 }
 
 // ---------------------------------------------------------------------------------------------

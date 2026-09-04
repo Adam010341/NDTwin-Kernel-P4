@@ -254,11 +254,18 @@ mutate_must_die \
 
 # --- M2: the same defect on the power path -----------------------------------------------------
 # statusUpdateWorker calls the power report FIRST, so in TESTBED mode this is the site that would
-# actually have faulted before the CPU one ever ran. Covered by the same death test, which drives
-# all four reports in the worker's own order.
+# actually have faulted before the CPU one ever ran.
+#
+# 🔴 This mutation SURVIVED on 2026-09-04 11:54, and the survivor was real. It used to name the
+# MININET death test, which cannot reach this site at all: in MININET the power figure is
+# syntheticPowerMilliwattsFor(dpid) and no address is read. The fault landed in
+# TestbedPowerReportsTheSentinelForAnAddresslessSwitch instead -- an ordinary in-process call --
+# so the binary died with no verdict line and this gate scored it SURVIVED rather than letting a
+# crash read as a clean red. It now names a second death test that runs the round in TESTBED
+# mode, declared above every in-process TESTBED test so the fork happens first.
 mutate_must_die \
     "M2 testbed-power-dereferences-empty-ip" \
-    "NoIpSwitchTest.AStatusRoundOverASwitchWithNoAddressDoesNotKillTheProcess" \
+    "NoIpSwitchTest.ATestbedStatusRoundOverASwitchWithNoAddressDoesNotKillTheProcess" \
     "$SRC" \
     '            const auto ipOpt = managementIpForReport(props);
             if (!ipOpt)
