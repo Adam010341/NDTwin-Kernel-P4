@@ -1,0 +1,44 @@
+ndt down
+[1/3] kernel + proxy/Ryu
+        stopped kernel
+        stopped p4_proxy
+        :30051 is still listening, held by a process this user cannot see (probably root-owned)
+        :30052 is still listening, held by a process this user cannot see (probably root-owned)
+        :30053 is still listening, held by a process this user cannot see (probably root-owned)
+        :30054 is still listening, held by a process this user cannot see (probably root-owned)
+        :30055 is still listening, held by a process this user cannot see (probably root-owned)
+        :30056 is still listening, held by a process this user cannot see (probably root-owned)
+        :30057 is still listening, held by a process this user cannot see (probably root-owned)
+        :30058 is still listening, held by a process this user cannot see (probably root-owned)
+        :30059 is still listening, held by a process this user cannot see (probably root-owned)
+        :30060 is still listening, held by a process this user cannot see (probably root-owned)
+        :9091 is still listening, held by a process this user cannot see (probably root-owned)
+        :9092 is still listening, held by a process this user cannot see (probably root-owned)
+        :9093 is still listening, held by a process this user cannot see (probably root-owned)
+        :9094 is still listening, held by a process this user cannot see (probably root-owned)
+        :9095 is still listening, held by a process this user cannot see (probably root-owned)
+        :9096 is still listening, held by a process this user cannot see (probably root-owned)
+        :9097 is still listening, held by a process this user cannot see (probably root-owned)
+        :9098 is still listening, held by a process this user cannot see (probably root-owned)
+        :9099 is still listening, held by a process this user cannot see (probably root-owned)
+        :9100 is still listening, held by a process this user cannot see (probably root-owned)
+[2/3] topology session
+      topo stopped
+[3/3] sweep
+        none           ntg_bmv2_topo
+        none           p4_testbed_topo
+        none           OVS testbed_topo
+        none           NTG testbed_topo
+        stopped        simple_switch_grpc pid 3931184
+      cleanup done
+  cleared the 'ndt up' target record (.test_run/up.target)
+
+verify clean
+  waited 0.5s for 1 bmv2 + 0 host/switch process(es) to be reaped
+  ok  bmv2 switches: 0
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+  ok  ports closed: 8000/8080/8081/6653/6633/6343/30051-30060/9091-9100/9000
+
+clean

@@ -1,0 +1,85 @@
+[15:30:21] === pre-test smoke :: main checkout c8a8cbfb binary cca5e3e4ebc42358 (2026-09-04 14:42) helper 6685d3a9 ===
+     ok  lab claimed by auditor for 45m (pre-test smoke of the rebuilt main-checkout kernel, OVS then P4 (auditor))
+[15:30:21] ##### OVS arm: ndt up ovs4 (real helper path) #####
+[15:30:28] ndt up ovs4 rc=0
+     ok  data plane: h1 -> 10.0.0.2 forwards
+     ok  sFlow: 10/10 bridges sampling to :6343, 10 records
+   
+   up. ready
+[15:30:28] --- #77: which testbed_topo.py is running (must be this repo's, not NTG's) ---
+   logs: app_nsr.log app_sim.log app_te.log app_te.log.prev app_viz.log app_viz.log.gz app_viz.log.prev build_contract_tools.log build_energy_app.log build_kernel.log build_network_state_recorder.log build_network_traffic_generator.log build_p4.log build_sim_mgr.log build_traffic_engineering_app.log build_visualizer.log build_webgui.log kernel.log kernel.log.prev kernel.log.prev2 l1_build.log l1_configure.log l1_ctest.log l1_direct_test_routing_strategy.log l1_kernel_test_cell_gate_suspect_wiring.log l1_kernel_test_check_logs_powered_off.log l1_kernel_test_contract_spec.log l1_kernel_test_cpu_gate_lifetime.log l1_kernel_test_ep4_gate_and_abort_evidence.log l1_kernel_test_faults.log l1_kernel_test_find_host_by_ip.log l1_kernel_test_gate_exit_code_not_tee.log l1_kernel_test_grpc_port_block.log l1_kernel_test_harness_instruments.log l1_kernel_test_host_discovery_gate.log l1_kernel_test_l1_shell_scoring.log l1_kernel_test_lab_handoff.log l1_kernel_test_lldp_backoff.log l1_kernel_test_local_ci.log l1_kernel_test_log_suffix_idempotent.log l1_kernel_test_make_topology.log l1_kernel_test_ndt_app_orphans.log l1_kernel_test_ndt_sample_rate_reads_both_bounds.log l1_kernel_test_p4_coverage_gate.log l1_kernel_test_p4_power_helper.log l1_kernel_test_qdisc_snapshot.log l1_kernel_test_route_install_gate.log l1_kernel_test_route_reinstall.log l1_kernel_test_ryu_rest_topology_bounded.log l1_kernel_test_sflow_emitter_batching.log l1_kernel_test_sflow_stats_endpoint.log l1_kernel_test_shell_command_construction.log l1_kernel_test_slim_client_json.log l1_kernel_test_start_bg_log_rotation.log l1_kernel_test_supervise_exit_status.log l1_kernel_test_t11_filter_is_wired.log l1_kernel_test_topk_no_recursive_shared_lock.log l1_kernel_test_topology_read_timeouts.log l1_kernel_test_topology_worker_coalescing.log l1_kernel_test_twin_audit_criteria.log l1_kernel_test_twin_audit.log l1_kernel_test_unavailable_metric_sentinel.log l1_kernel_test_unidirectional_link_loss.log l1_kernel_test_up_ovs_wedge_guard.log l1_kernel_test_wait_for_port.log l1_kernel_test_walk_instrumentation.log l1_python_test_bmv2_binary_override.log l1_python_test_clone_session.log l1_python_test_delete_restores_route.log l1_python_test_five_tuple_match.log l1_python_test_flowentry_endpoints.log l1_python_test_flow_stats_route.log l1_python_test_journal_wiring.log l1_python_test_kernel_notifier.log l1_python_test_link_watchdog.log l1_python_test_lldp_beacon.log l1_python_test_p4_client.log l1_python_test_p4_client_writes.log l1_python_test_port_guard.log l1_python_test_readopt.log l1_python_test_rule_journal.log l1_python_test_ryu_flow_stats.log l1_python_test_ryu_topology.log l1_python_test_sflow_emitter.log l1_python_test_startup.log l1_python_test_switch_state.log l1_python_test_table_generation.log l1_python_test_topology_properties.log l1_python_test_unsupported_match.log p4_coverage_gate.log p4_proxy.log p4_proxy.log.prev p4_proxy.log.prev2 p4_proxy.restart.log ryu.log ryu.log.prev ryu.log.prev2 stall_8080.log 
+[15:30:43] --- Q12 shape ---
+   power_state: switches=10 object-shaped=10 sample={"192.168.123.11": {"admin_state": "on", "reachable": true}}
+   graph: vertices=14 switches~4 edges=40 reachable_true=14
+[15:30:43] --- #82: power OFF/ON s4 via br-exists path ---
+200  {"192.168.123.14":"Success"}
+   s4 after off: {'admin_state': 'off', 'reachable': False}
+   br-exists s4 rc=2 (2=absent)
+200  {"192.168.123.14":"Success"}
+   s4 after on: {'admin_state': 'on', 'reachable': True}
+   br-exists s4 rc=0 (0=present)
+[15:30:50] --- #1: group 801 install / delete(install-shaped) / re-install / delete(min) ---
+200  {"outcome":"installed","status":"Group entry installed"}
+   ryu groupdesc dpid1: [801]
+200  {"outcome":"deleted","status":"Group entry deleted"}
+   ryu groupdesc dpid1: []
+200  {"outcome":"installed","status":"Group entry installed"}
+   ryu groupdesc dpid1: [801]
+200  {"outcome":"deleted","status":"Group entry deleted"}
+   ryu groupdesc dpid1: []
+[15:30:52] --- #85 keys ---
+   cpu keys=10 non-ip=[]
+[15:30:52] --- #2: phantom probe (invalid port 999, then valid port 2) ---
+   POST at t=0.000 -> HTTP 200  {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}
+     t= 4.812  POLLED-SHAPE(real)   (table total=61)
+   RESULT: first_sighting=t=4.812 s
+   POST at t=0.000 -> HTTP 200  {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}
+     t=10.128  POLLED-SHAPE(real)   (table total=62)
+   RESULT: first_sighting=t=10.128 s
+[15:31:42] --- ndt status --check ---
+   rc=0
+     note           pre-test smoke of the rebuilt main-checkout kernel, OVS then P4 (auditor)
+     ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6685d3a9)
+     dataplane      ovs                    == ovs   ok
+     fabric hosts   4                      == 4   ok
+   kernel.log: lines=801 withholding=4 not-evidence=2 still_present=0 unverified=0 no-mgmt-addr=0 cmd-failed-exit2=1 shutting-down=0 exiting-now=0 SIGSEGV=0
+[15:31:43] --- #27/#76 down ---
+[15:31:57] ndt down rc=0 wall=14.24 s
+   
+   clean
+   kernel.log: lines=801 withholding=4 not-evidence=2 still_present=0 unverified=0 no-mgmt-addr=0 cmd-failed-exit2=1 shutting-down=0 exiting-now=0 SIGSEGV=0
+   still:    1279 ovs-vswitchd
+[15:31:57] ##### P4 arm: ndt up p4 4 #####
+[15:32:12] ndt up p4 4 rc=0
+     ok  data plane: h1 -> 10.0.0.2 forwards
+   
+   up. ready
+     proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+[15:32:37] --- graph / Q12 / keys ---
+   graph: vertices=14 switches~4 edges=40 reachable_true=14
+   power_state: switches=10 object-shaped=10 sample={"192.168.123.11": {"admin_state": "on", "reachable": true}}
+   cpu keys=10 non-ip=[]
+[15:32:37] --- P4 power OFF/ON s4 (ndtwin-p4-power path) ---
+200  {"192.168.123.14":"Success"}
+   s4 after off: {'admin_state': 'off', 'reachable': False}
+   bmv2 procs: 9
+200  {"192.168.123.14":"Success"}
+   s4 after on: {'admin_state': 'on', 'reachable': True}
+   bmv2 procs: 10
+[15:32:48] --- #2 on P4 (control: polled-shape only) ---
+   POST at t=0.000 -> HTTP 200  {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}
+     t= 0.255  REQUEST-SHAPE(phantom-signature)   (table total=41)
+     t= 9.110  POLLED-SHAPE(real)   (table total=41)
+   RESULT: first_sighting=t=0.255 s
+[15:33:13] --- ndt status --check ---
+   rc=0
+   kernel.log: lines=435 withholding=2 not-evidence=0 still_present=0 unverified=0 no-mgmt-addr=0 cmd-failed-exit2=0 shutting-down=0 exiting-now=0 SIGSEGV=0
+[15:33:14] --- down ---
+[15:33:29] ndt down rc=0 wall=14.84 s
+   
+   clean
+   kernel.log: lines=435 withholding=2 not-evidence=0 still_present=0 unverified=0 no-mgmt-addr=0 cmd-failed-exit2=0 shutting-down=0 exiting-now=0 SIGSEGV=0
+   still:    1279 ovs-vswitchd
+     ok  lab released
+[15:33:30] lab after:  claim none; measuring nothing;
+[15:33:30] === SMOKE DONE ===

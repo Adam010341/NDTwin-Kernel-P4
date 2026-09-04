@@ -1,0 +1,36 @@
+### pretest check 2026-09-04 14:14:01
+## git: trunk=a243403c main-checkout HEAD=a243403c (trunk); dirty=21
+## kernel binary: sha=a8ba99c2 mtime=2026-09-03 00:46 size=75990144
+## helper: installed=288b71cb repo=6685d3a9
+## processes by name (ps -C):
+    950 root      2-01:54:10 ovsdb-server    ovsdb-server /etc/openvswitch/conf.db -vconsole:emer -vsyslog:err -vfile:info --remote=punix:/v
+   1279 root      2-01:54:10 ovs-vswitchd    ovs-vswitchd unix:/var/run/openvswitch/db.sock -vconsole:emer -vsyslog:err -vfile:info --mlocka
+   1545 root      2-01:54:09 python3         /usr/bin/python3 -m proton.vpn.daemon
+ 266532 adam        19:09:51 python3         /home/adam/.local/share/mcp-servers/venv/bin/python3 /home/adam/.local/share/mcp-servers/ai_too
+1614046 adam        13:58:39 python3         /home/adam/.local/share/mcp-servers/venv/bin/python3 /home/adam/.local/share/mcp-servers/ai_too
+1685271 adam      1-03:04:43 python3         python3 cli.py dashboard
+3424173 adam        20:23:16 python3         /home/adam/.local/share/mcp-servers/venv/bin/python3 /home/adam/.local/share/mcp-servers/ai_too
+3852556 adam           19:03 python3         /home/adam/.local/share/mcp-servers/venv/bin/python3 /home/adam/.local/share/mcp-servers/ai_too
+3866638 adam           09:25 python3         /home/adam/.local/share/mcp-servers/venv/bin/python3 /home/adam/.local/share/mcp-servers/ai_too
+3867559 adam           08:19 python3         /home/adam/.local/share/mcp-servers/venv/bin/python3 /home/adam/.local/share/mcp-servers/ai_too
+## listeners (ss -ltn) on lab ports:
+State  Recv-Q Send-Q Local Address:Port  Peer Address:PortProcess                              
+LISTEN 0      5          127.0.0.1:9090       0.0.0.0:*    users:(("python3",pid=1685271,fd=3))
+## lab-shaped interfaces:
+br-634fc31085ec 
+## .test_run state (main + worktrees):
+   /home/adam/Desktop/NDTwin-Kernel: baseline binaries bsegment.done lab.handoff_empty lab.handoff.prev logs pids run_ab.lock 
+## ndt status:
+lab
+  claim          none
+  measuring      nothing
+  code           a243403c  +21 file(s) with uncommitted changes
+                 1 of them can change behaviour:
+                 p4_proxy/mininet/host_count_override
+  !!  helper: /usr/local/sbin/ndtwin-lab is sha256 288b71cb, tools/test_workflow/ndtwin-lab is 6685d3a9
+  !!    'ndt up' and 'ndt down' run the INSTALLED copy, so nothing merged into this
+## build guard: lock holder= 3729136 3736233 3877084 3877123 3880043 3880044 3880308; scopes: ndtwin-build-3729136.scope 
+## memory: used=8280M avail=7131M swap=5873M ; pressure: avg10=0.00 avg60=0.00
+## disk: /=5.7G free /=5.7G free 
+## oomd kills since 13:00: 0 (user) 0
+## audit-raw tip=6015390d integrate=c2b55184
