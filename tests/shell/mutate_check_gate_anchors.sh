@@ -86,7 +86,13 @@ m3=$(mutant m3 '    m = re.fullmatch(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\[[^\]]*\]\}"
     return m.group(1) if m else None'$'\x1f''    return None')
 report "M3: an array reference is not recognised" "$m3" "test_array_table_ok"
 
-m4=$(mutant m4 '    return re.fullmatch(r"\$\{?[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]*\])?\}?", word.strip()) is not None'$'\x1f''    return False')
+# 2026-09-04: re-anchored. is_whole_param_ref's regex grew a `|[0-9]+` alternative (it must
+# also recognise a bare numbered positional parameter, $1/$2/..., as a whole reference -- see
+# the function's own docstring, which already listed "$1" as an example the old regex did not
+# actually match) and wrapped onto a second line for its length; same return statement, same
+# mutation (drop it to `return False`, an unconditional "never a reference").
+m4=$(mutant m4 '    return re.fullmatch(r"\$\{?(?:[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]*\])?|[0-9]+)\}?",
+                        word.strip()) is not None'$'\x1f''    return False')
 report "M4: an unexpanded parameter counts as a literal anchor" "$m4" \
        "test_an_array_reference_is_never_reported_as_a_literal_anchor"
 
