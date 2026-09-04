@@ -158,7 +158,18 @@ stop() took 15.010119827 s while the poll was inside `curl --connect-timeout 2 -
 儀器對照組 `TheInstrumentReallyWedgesACurl` 同一輪是綠的（1014 ms、body 空、curl exit 28），
 所以上面那個紅不是「假控制平面壞了」。
 
-🔴 **`AFlowTablePollCaughtMidRoundStopsWithinTheBound` 的紅沒有以 gtest 形式收到**，
+🏁 **09-04 補收到了**（把 `DeviceConfigurationAndPowerManager.cpp` 單獨還原成修法前那一版
+`535f8f4b^`、其餘不動，＝ trunk 的走訪對上本支的測試）：
+
+```
+Expected: (elapsed) < (kStopBound), actual: 32018696072ns vs 3s
+stop() took 32.018696071999997 s with 4 switches against a control plane that accepts and never answers.
+[  FAILED  ] KernelStopIsBoundedTest.AFlowTablePollCaughtMidRoundStopsWithinTheBound (32039 ms)
+```
+
+**32.019 秒 ＝ 4 台 × 8 秒**，對到小數點。跑完該檔還原為 byte-identical。
+
+以下是當時的紀錄：**`AFlowTablePollCaughtMidRoundStopsWithinTheBound` 的紅當晚沒有以 gtest 形式收到**，
 原因與程式無關：整晚建置鎖被另外三支 agent 的變異閘門佔滿（一次 2 步的增量建置排了 80 分鐘），
 而我把僅有的一次建置機會用在修法上。
 **它的紅是 live 收的**：§6.3 的 **79.77 秒**，真 kernel、真 SIGINT、10 台 switch、
@@ -221,7 +232,52 @@ M8 是這支閘門真正的重點：**刪掉 join 會讓 `stop()` 在微秒內�
 **5 個放寬控制組（必須全綠）**：W1 註解、W2 報告換句話（測試只斷言 worker 名與子系統名，
 不斷言句子）、W3 停止檢查改成等價寫法、**W4／W5 兩個「這套測試守不住」的冗餘檢查**（見 §8.3）。
 
-🔴 **本次未能執行完畢。** 建置鎖整夜由其他 agent 的四支變異閘門佔用
+### 5.1 09-04 補跑：8/0，但第一次跑出 2 個誤捕，而錯的是這套測試
+
+第一次在合併樹 `63792cc9` 跑完：**8 變異 0 存活**（每一條缺陷路線都守住了），
+但 **5 放寬 2 誤捕**——W4（走訪迴圈開頭的停止檢查拿掉）與 W5（三個 endpoint 之間的檢查拿掉）
+都讓 `AStopThatExceedsItsBoundSaysWhatItIsWaitingOn` 變紅。
+
+**原因是那個 case 自己有競態，不是那兩個檢查是行為。** 同一顆 binary、同一份原始碼，
+**只改 CPU affinity**：
+
+| 條件 | 結果 |
+|---|---|
+| 14 顆核心 | **15/15 綠** |
+| `taskset -c 3`（釘在一顆） | **0/15 綠** |
+
+而失敗那幾次擷取到的 log 是
+
+```
+stop: cancelled 1 in-flight control-plane request(s)
+Collector Stops
+```
+
+——**那是 `stop()` 做對了**：它取消了正在飛的請求，三條 worker 隨即結束，
+報告因此正確地沒有印，因為**已經沒有東西在等了**。錯的是斷言，不是 kernel。
+
+競態本身：`stop()` 依序做 `m_running=false` → `request()`（殺掉 curl **並且** `notify_all()`
+叫醒每個睡眠中的 worker）→ 然後才 `waitForWorkers(0ms)` **取樣一次**。
+那一瞬間還有沒有 worker 登記著，是主執行緒與三條 worker 的賽跑；14 核時主執行緒穩贏，
+單核時穩輸，而放寬動到 worker 離開迴圈路徑上的幾個指令，就足以把它推過去。
+
+修法在測試這一側：報告改成在它真正住的地方被測——**測試自己持有的 `StopSignal`，
+以及測試自己撐著不放的 `WorkerScope`**。落單的 worker 因此是 fixture 的事實，
+而不是排程器的結果。用當初打爛舊寫法的條件驗證：**釘在一顆核心，15/15 綠**。
+三個 case 取代兩個，第三個是**零鑑別力守衛**（無條件印的報告會滿足前兩個，
+卻對操作者謊稱健康的關機卡住了）。
+
+**補跑結果（`JOBS=1`，guard 下）：8 變異 0 存活、5 放寬 0 誤捕、`guarded_build: exit 0`。**
+baseline 10 個 case 全綠且沒有任何 skip；還原後三個檔 byte-identical；
+test binary sha 回到基準 `8d45ef8f308cc3e9`。
+
+🔴 **這樣放棄了什麼**：現在沒有任何測試釘住
+`DeviceConfigurationAndPowerManager::stop()` **仍然呼叫**那個報告。那個呼叫點靠 review 守，
+不靠這套測試——**一個三次裡守住兩次的測試什麼都沒守住，而且對另外那一次說了假話。**
+
+### 5.2 第一次跑的紀錄
+
+🔴 **第一次未能由我執行完畢。** 建置鎖整夜由其他 agent 的四支變異閘門佔用
 （單次 2 步增量建置排隊 80 分鐘；本閘門排入後到交班時仍未取得鎖）。
 閘門腳本已 `bash -n` 通過、15 個錨點在本支修法後的樹上**逐一驗證為唯一**，
 但**「幾抓幾存活」這個數字我沒有量到，因此不報**。
