@@ -214,6 +214,30 @@ M8（episode 永不結束）、**M9（過度守衛：把守衛提到模式分支
 M9 是這裡唯一一個「看起來比較整齊」的變異，也是最重要的一個：suite 若在它面前綠了，
 釘住的就只是「不會崩」而不是「能報的照報」。
 
+### 🔴 09-04 11:54：M2 SURVIVED，抓到的是**我的測試**的洞
+
+閘門第一次跑到 M2（TESTBED power 路徑把解參考放回去）就把它判成 **SURVIVED**，而且判得對。
+
+原因：M2 指名的必死測試 `AStatusRound...DoesNotKillTheProcess` 是
+`buildManager(utils::MININET)`，而 **MININET 的 power 報表根本不讀位址**
+（`syntheticPowerMilliwattsFor(dpid)` 只吃 dpid）⇒ 那個 death test 永遠碰不到 M2 改的那一行。
+fault 於是落在 `TestbedPowerReportsTheSentinelForAnAddresslessSwitch`——一個**行程內**的呼叫——
+binary 當場死掉、一行 `[  FAILED  ]` 都沒有。閘門自己的規則把這種情形印成 SURVIVED
+而不是 caught（那條規則就是為了不讓 crash 被讀成乾淨的紅），於是它抓到了。
+
+**修法**：加第二個 death test
+
+```
+NoIpSwitchTest.ATestbedStatusRoundOverASwitchWithNoAddressDoesNotKillTheProcess
+```
+
+在 TESTBED 下跑同一輪四份報表，**宣告在所有行程內 TESTBED 測試之前**（gtest 依宣告順序跑）。
+閘門的 M2 已改指這一支。
+
+⚠️ **這一支只做過 `-fsyntax-only`，沒看過紅。** 依 `03-test-discipline` 的規矩，
+**在 merged-tree 閘門跑出它的紅之前，它不算交付**。M3–M9／C1–C3 的判定同樣來自那一輪
+（本輪 M3 起卡在 build lock，auditor 12:58 停掉，EXIT trap 已復原兩個原始檔）。
+
 **我也順手修好了別人的閘門**：`mutate_f1_mininet_health_metrics.sh` 的 M8 anchor
 指著 `fetchTemperatureReportInternal` 裡那句 `std::string ip_str = utils::ipToString(vp.ip.front());`，
 被我這支改掉了 ⇒ anchor 會失效（= SURVIVOR）。已重新指到新文字、判定不變（expected survivor），
