@@ -527,7 +527,7 @@ def _looks_like_python(s):
 # stays unnamed and the gate stays UNPARSED.
 
 ROLE_ANCHOR = {"anchor", "old", "needle", "pattern", "search", "from", "before"}
-ROLE_FILE = {"file", "src", "path", "target", "source"}
+ROLE_FILE = {"file", "src", "path", "target", "source", "rel"}
 
 
 def function_bodies(text):
@@ -854,6 +854,76 @@ def extract(gate_text, gate_name, gate_path=None, exists=None):
         frm = head.split(CASE_MARKER + "\n", 1)[0]
         if frm:
             anchors.append((case_file, frm, LITERAL, "write_case heredoc", 1))
+
+    # -------------------------------------------------------------- pass 1.6: "<name>.old/.new"
+    # 2026-09-04. `cat > "$DIR/<name>.old" <<'EOF' ... EOF` / same for `.new` -- tests/shell/
+    # mutate_build_guard.sh and mutate_ndt_up_target.sh (whose own header says its shape is
+    # copied from build_guard's) store their mutation table as a PAIR of files per case, written
+    # by `cat >` and read back at runtime by a small python applier. build_guard's own header
+    # explains why this shape exists at all: an earlier version packed old/new as shell WORDS and
+    # silently lost six mutations to backslash-escaping and a `grep -F` that read a trailing
+    # newline as a second, empty pattern matching every line -- "files have no quoting" is the
+    # point, and also why this text is never a shell argument for pass 2 below to find.
+    CASE_FILE_RE = re.compile(r"^\$\{?[A-Za-z_][A-Za-z0-9_]*\}?/([A-Za-z0-9_.+-]+)\.(old|new)$")
+    case_pairs = {}
+    pending_case = None
+    for cmd in full:
+        if not cmd:
+            continue
+        head, hq = cmd[0]
+        if hq == "H":
+            if pending_case:
+                name, suffix = pending_case
+                case_pairs.setdefault(name, {})[suffix] = head
+            pending_case = None
+            continue
+        pending_case = None
+        if head != "cat" or len(cmd) != 3 or cmd[1] != (">", ""):
+            continue
+        m = CASE_FILE_RE.match(cmd[2][0])
+        if m:
+            pending_case = (m.group(1), m.group(2))
+
+    # Whichever function's body reads BOTH suffixes back (the applier, e.g. mutant()) -- found
+    # the same positive way write_case's applier is, rather than assumed from its name or from
+    # being the gate's only function with a baked-in file (run_suite()-shaped functions exist
+    # here too).
+    case_applier = next((n for n, b in funcs.items() if ".old" in b and ".new" in b), None)
+    case_file = fdefault.get(case_applier) if case_applier else None
+
+    # mutate_build_guard.sh's applier is not this simple: `mutant <name> <rel>` takes its target
+    # FILE per-case too (cmake/ninja/make/_resolve.sh all share one gate), so a single case_file
+    # for the whole gate is wrong for it specifically. Its own baked-in value is a DIRECTORY, not
+    # a file ($GUARD, no extension, so default_file_of above correctly declined it) -- combined
+    # here with whatever relative path sits beside a bare word naming one of these cases, at the
+    # call site of any locally-defined function whose OWN signature names a ROLE_FILE argument
+    # (check() in build_guard: `local label=$1 name=$2 rel=$3 want=$4`, two levels above mutant()
+    # itself, which is why this is not simply another ROLE_FILE pin further down).
+    if case_pairs and case_applier:
+        case_dir = next((paths_env[v] for v in re.findall(r'"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?"',
+                                                           funcs[case_applier])
+                         if paths_env.get(v) and "/" in paths_env[v]
+                         and not re.search(r"\.[A-Za-z0-9]+$", paths_env[v])), None)
+        if case_dir:
+            for cmd in full:
+                if len(cmd) < 2:
+                    continue
+                head, hq = cmd[0]
+                fpos = role_position(sigs.get(head) or {}, ROLE_FILE)
+                if fpos is None or fpos >= len(cmd):
+                    continue
+                names_here = {w for w, q in cmd[1:] if q == "" and w in case_pairs}
+                relw, relq = cmd[fpos]
+                if not names_here or relq != "" or "$" in relw:
+                    continue
+                for nm in names_here:
+                    case_pairs[nm]["_file"] = case_dir.rstrip("/") + "/" + relw
+
+    for name, pair in case_pairs.items():
+        old = pair.get("old")
+        if old:
+            anchors.append((pair.get("_file", case_file), old, LITERAL,
+                            "cat > *.old heredoc", 1))
 
     # ------------------------------------------------------------------- pass 2: the call sites
     # This pass reads the FULL text, function bodies included, because that is where three of the

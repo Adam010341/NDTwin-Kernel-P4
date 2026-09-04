@@ -63,6 +63,11 @@ TARGETS = {
     # would read this as DUP:1 against a gate that is not broken -- see 2026-09-04 note there.
     "src/zeta.cpp": "void z1()\n{\n    int zeta = 1;\n}\n\nvoid z2()\n{\n    int zeta = 1;\n}\n",
     "src/theta.cpp": "void t()\n{\n    int theta = 1;\n}\n",
+    "src/iota.cpp": "void i()\n{\n    int iota = 1;\n}\n",
+    # Two path components on purpose: default_file_of's own is_repo_path check is satisfied by
+    # a slash alone, and mutate_build_guard.sh's real $GUARD ("tools/build_guard") has one --
+    # a single-component directory here would pass locally but miss what the real gate does.
+    "src/nested/kappa.cpp": "void k()\n{\n    int kappa = 1;\n}\n",
 }
 
 # --- one gate per shape, each written the way the real gate of that shape is written -------------
@@ -225,6 +230,70 @@ s = src.read_text()
 src.write_text(s.replace(frm, to))
 PYAPPLY
 }
+"""
+
+# (q) mutate_ndt_up_target.sh's shape (its own header says copied from mutate_build_guard.sh's):
+#     `cat > "$DIR/<name>.old" <<'EOF' ... EOF`, likewise `.new` -- a PAIR OF FILES per case,
+#     never a shell word, read back at runtime. No python inside a case heredoc -- just the raw
+#     old/new text -- and the target file is baked into the one applier that reads both back.
+GATE_CASE_FILES = r"""#!/usr/bin/env bash
+set -uo pipefail
+SRC=src/iota.cpp
+A=/tmp/mutate-shape-casefiles
+mkdir -p "$A"
+mutant() {
+    local name="$1"
+    python3 - "$SRC" "$A/$name.old" "$A/$name.new" <<'PY'
+import sys, io
+target, oldf, newf = sys.argv[1], sys.argv[2], sys.argv[3]
+s = io.open(target).read()
+o = io.open(oldf).read()
+n = io.open(newf).read()
+io.open(target, "w").write(s.replace(o, n, 1))
+PY
+}
+cat > "$A/m1.old" <<'EOF'
+    int iota = %(IOTA)s;
+EOF
+cat > "$A/m1.new" <<'EOF'
+    int iota = 99;
+EOF
+"""
+
+# (r) mutate_build_guard.sh's shape specifically: the SAME file-pair table, but the applier's
+#     target file also VARIES per case (`mutant <name> <rel>`), resolved through a SECOND
+#     function (`check`) whose own signature names a ROLE_FILE argument ("rel") sitting beside a
+#     bare word naming the case -- not simply another baked-in single file like GATE_CASE_FILES.
+GATE_CASE_FILES_PERCASE = r"""#!/usr/bin/env bash
+set -uo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$HERE/../.." && pwd)"
+DIR="$REPO/src/nested"
+A=/tmp/mutate-shape-casefiles2
+mkdir -p "$A"
+mutant() {
+    local name="$1" rel="$2"
+    cp -r "$DIR" "$A/$name.shadow" 2>/dev/null || true
+    python3 - "$DIR/$rel" "$A/$name.old" "$A/$name.new" <<'PY'
+import sys, io
+target, oldf, newf = sys.argv[1], sys.argv[2], sys.argv[3]
+s = io.open(target).read()
+o = io.open(oldf).read()
+n = io.open(newf).read()
+io.open(target, "w").write(s.replace(o, n, 1))
+PY
+}
+check() {
+    local label="$1" name="$2" rel="$3" want="$4"
+    mutant "$name" "$rel"
+}
+cat > "$A/k1.old" <<'EOF'
+    int kappa = %(KAPPA)s;
+EOF
+cat > "$A/k1.new" <<'EOF'
+    int kappa = 99;
+EOF
+check "kappa becomes 99" k1 kappa.cpp "some test"
 """
 
 # --- the repo-root shapes (finding #78) ----------------------------------------------------------
@@ -423,7 +492,7 @@ class Fixture:
     """A throwaway git repo holding the four target files and one gate per shape."""
 
     def __init__(self, alpha="1", beta="3", gamma="7", epsilon="11", zeta="1", theta="1",
-                gates=None):
+                iota="1", kappa="1", gates=None):
         self.dir = tempfile.mkdtemp(prefix="anchorcheck_")
         for rel, body in TARGETS.items():
             full = os.path.join(self.dir, rel)
@@ -434,12 +503,13 @@ class Fixture:
                 fh.write(body)
         os.makedirs(os.path.join(self.dir, "tests", "shell"), exist_ok=True)
         subs = {"ALPHA": alpha, "BETA": beta, "GAMMA": gamma, "EPSILON": epsilon, "ZETA": zeta,
-               "THETA": theta}
+               "THETA": theta, "IOTA": iota, "KAPPA": kappa}
         want = gates if gates is not None else ["array", "callback", "packed", "driver"]
         source = {"array": GATE_ARRAY, "callback": GATE_CALLBACK, "packed": GATE_PACKED,
                   "driver": GATE_DRIVER, "unreadable": GATE_UNREADABLE,
                   "replace_all": GATE_REPLACE_ALL, "positional": GATE_POSITIONAL,
                   "case_heredoc": GATE_CASE_HEREDOC,
+                  "case_files": GATE_CASE_FILES, "case_files_percase": GATE_CASE_FILES_PERCASE,
                   "root_named": GATE_ROOT_NAMED, "root_short": GATE_ROOT_SHORT,
                   "root_baked": GATE_ROOT_BAKED,
                   "root_union": GATE_ROOT_UNION, "root_generic": GATE_ROOT_GENERIC,
@@ -636,6 +706,60 @@ class ShapesAreChecked(unittest.TestCase):
                         "a drifted case-heredoc anchor must be MISSING, got %s\n%s"
                         % (f2.cell(out2, "case_heredoc"), out2))
         self.assertEqual(1, rc2, out2 + err2)
+
+    def test_case_file_pair_is_read_and_pinned_to_the_baked_in_file(self):
+        """mutate_ndt_up_target.sh was NO-ANCHORS: `cat > "$A/<name>.old" <<'EOF'` is a heredoc
+        attached to `cat`, not python, and the text never appears as a shell word anywhere for
+        pass 2 to find."""
+        anchors, problems, _delegates = load_checker().extract(
+            GATE_CASE_FILES % {"IOTA": "1"}, "mutate_shape_case_files.sh",
+            "tests/shell/mutate_shape_case_files.sh")
+        self.assertEqual([], problems, problems)
+        self.assertEqual(1, len(anchors), anchors)
+        f, text, _kind, _where, want = anchors[0]
+        self.assertEqual("src/iota.cpp", f, anchors)
+        self.assertEqual(1, want, anchors)
+        self.assertEqual("    int iota = 1;\n", text, anchors)
+
+    def test_case_files_gate_ok_and_drift_end_to_end(self):
+        f = Fixture(gates=["case_files"])
+        self.addCleanup(f.close)
+        rc, out, err = f.run()
+        self.assertTrue(f.cell(out, "case_files").startswith("ok"),
+                        "case-files gate: %s\n%s" % (f.cell(out, "case_files"), out))
+        self.assertEqual(0, rc, out + err)
+
+        f2 = Fixture(gates=["case_files"], iota="2")
+        self.addCleanup(f2.close)
+        rc2, out2, err2 = f2.run()
+        self.assertTrue(f2.cell(out2, "case_files").startswith("MISSING"),
+                        "a drifted case-files anchor must be MISSING, got %s\n%s"
+                        % (f2.cell(out2, "case_files"), out2))
+        self.assertEqual(1, rc2, out2 + err2)
+
+    def test_case_file_pair_with_a_per_case_file_is_pinned_correctly(self):
+        """mutate_build_guard.sh's applier target varies per case (`mutant <name> <rel>`); a
+        single case_file for the whole gate would be wrong. The file must resolve through
+        check()'s own "rel" argument (a ROLE_FILE role) combined with mutant()'s baked-in
+        DIRECTORY, not to whatever declared_paths()'s union happens to contain."""
+        anchors, problems, _delegates = load_checker().extract(
+            GATE_CASE_FILES_PERCASE % {"KAPPA": "1"}, "mutate_shape_case_files_percase.sh",
+            "tests/shell/mutate_shape_case_files_percase.sh")
+        self.assertEqual([], problems, problems)
+        self.assertEqual(1, len(anchors), anchors)
+        f, text, _kind, _where, want = anchors[0]
+        self.assertEqual("src/nested/kappa.cpp", f, anchors)
+        self.assertEqual(1, want, anchors)
+        self.assertEqual("    int kappa = 1;\n", text, anchors)
+
+    def test_case_files_percase_gate_ok_end_to_end(self):
+        f = Fixture(gates=["case_files_percase"])
+        self.addCleanup(f.close)
+        rc, out, err = f.run()
+        self.assertTrue(f.cell(out, "case_files_percase").startswith("ok"),
+                        "case-files-percase gate: %s\n%s" % (f.cell(out, "case_files_percase"),
+                                                              out))
+        self.assertEqual(0, rc, out + err)
 
 
 class DriverInheritsItsDelegatesVerdict(unittest.TestCase):
