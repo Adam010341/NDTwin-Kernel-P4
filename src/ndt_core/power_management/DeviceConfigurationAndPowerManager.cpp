@@ -1836,6 +1836,36 @@ DeviceConfigurationAndPowerManager::fetchPowerReportInternal()
     return result;
 }
 
+// [Co-developed with claude code -- Adam]
+// OV-2. The lookup the GET side already did, lifted out so the POST side can do the same one.
+// Deliberately NOT implemented by calling setSwitchPowerState and reading its bool: that bool
+// also carries "the relay refused", "the vertex vanished", "the action is unrecognised" and
+// "an exception was thrown", and those four are server failures. Merging them would relabel
+// real 500s as 404s -- the opposite defect, and the harder one to notice.
+bool
+DeviceConfigurationAndPowerManager::knowsSwitchIp(const std::string& ip) const
+{
+    if (ip.empty())
+    {
+        return false;
+    }
+
+    if (m_mode == utils::DeploymentMode::TESTBED)
+    {
+        // The same predicate as queryTestbed's, over the same table.
+        return std::any_of(switchSmartPlugTable.begin(),
+                           switchSmartPlugTable.end(),
+                           [&](const auto& si) { return si.switchIp == ip; });
+    }
+
+    if (!m_topologyAndFlowMonitor)
+    {
+        return false;
+    }
+    // The same lookup queryMininet does before it throws "Unknown switch IP".
+    return m_topologyAndFlowMonitor->findSwitchByIp(utils::ipStringToUint32(ip)).has_value();
+}
+
 bool
 DeviceConfigurationAndPowerManager::setSwitchPowerState(const std::string& ip,
                                                         const std::string& action)

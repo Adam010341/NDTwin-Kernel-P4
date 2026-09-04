@@ -38,18 +38,22 @@
  * never the part that was wrong.
  */
 
+#include <filesystem>
 #include <memory>
 #include <shared_mutex>
 #include <string>
 
+#include <boost/graph/adjacency_list.hpp>
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 
+#include "common_types/GraphTypes.hpp"
 #include "event_system/EventBus.hpp"
 #include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
 #include "ndt_core/data_management/HistoricalDataManager.hpp"
 #include "ndt_core/http/HttpSession.hpp"
 #include "ndt_core/lock_management/LockManager.hpp"
+#include "ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp"
 #include "utils/Utils.hpp"
 
 /**
@@ -60,19 +64,23 @@
 class HttpSessionStatusTestPeer
 {
   public:
+    /// @param power the real DeviceConfigurationAndPowerManager, for the power endpoints. Defaulted
+    ///        to nullptr so every pre-existing caller is unchanged; the power endpoints are the
+    ///        only ones that dereference it.
     HttpSessionStatusTestPeer(std::shared_ptr<LockManager> lockManager,
                               std::shared_ptr<TopologyAndFlowMonitor> monitor,
-                              std::shared_ptr<HistoricalDataManager> historical)
+                              std::shared_ptr<HistoricalDataManager> historical,
+                              std::shared_ptr<DeviceConfigurationAndPowerManager> power = nullptr)
         : m_session(std::make_shared<HttpSession>(tcp::socket(m_ioc),
                                                   std::move(monitor),
                                                   nullptr,        // EventBus
                                                   utils::MININET, // mode
                                                   nullptr,        // FlowLinkUsageCollector
                                                   nullptr,        // FlowRoutingManager
-                                                  nullptr,        // DeviceConfig...PowerManager
-                                                  nullptr,        // ApplicationManager
-                                                  nullptr,        // SimulationRequestManager
-                                                  nullptr,        // IntentTranslator
+                                                  std::move(power),
+                                                  nullptr, // ApplicationManager
+                                                  nullptr, // SimulationRequestManager
+                                                  nullptr, // IntentTranslator
                                                   std::move(historical),
                                                   nullptr, // Controller
                                                   std::move(lockManager)))
@@ -119,6 +127,130 @@ class LockEndpointTest : public ::testing::Test
     std::shared_ptr<LockManager> m_locks;
     std::shared_ptr<Graph> m_graph;
     std::shared_ptr<TopologyAndFlowMonitor> m_monitor;
+    std::unique_ptr<HttpSessionStatusTestPeer> m_peer;
+};
+
+// --- OV-3: a dpid that names no switch --------------------------------------------------------
+//
+// [Co-developed with claude code -- Adam]
+// LockEndpointTest's graph is empty, so every dpid is unknown there -- which is what the two
+// 404 cases need and is exactly why it cannot host the control. `getSwitchKind` is answered from
+// m_dpidToSwitchKind, and the only thing that writes that map is the topology loader
+// (TopologyAndFlowMonitor.cpp:689). So a fixture that wants a dpid the kernel KNOWS has to load
+// a topology, and this is that fixture. Without it, "unknown dpid -> 404" would be satisfied by
+// a handler that answered 404 to every dpid, and the endpoint would be broken in the other
+// direction with a full set of green tests.
+
+/// Exposes the protected loader, the same seam tests/test_TopologyInputValidation.cpp uses.
+class LoadingMonitor : public TopologyAndFlowMonitor
+{
+  public:
+    using TopologyAndFlowMonitor::TopologyAndFlowMonitor;
+
+    void load(const std::string& path)
+    {
+        loadStaticTopologyFromFile(path);
+    }
+};
+
+/// The repo's `setting/` directory, wherever the binary was started from. Same three candidates
+/// and the same reason as test_TopologyInputValidation.cpp: ctest runs from the build tree,
+/// l1_unit_tests.sh runs the binary from the repo root.
+std::string
+settingDir()
+{
+    static const char* kCandidates[] = {"setting", "../setting", "../../setting"};
+    for (const char* candidate : kCandidates)
+    {
+        if (std::filesystem::is_directory(candidate))
+        {
+            return candidate;
+        }
+    }
+    return {};
+}
+
+/// Switch dpids 1..10, hosts on 0. Loaded in TESTBED mode: the file carries every field, and
+/// MININET adds a bridge_name requirement this test has no reason to depend on.
+constexpr uint64_t kAKnownSwitchDpid = 3;
+
+class KnownSwitchEndpointTest : public ::testing::Test
+{
+  protected:
+    void SetUp() override
+    {
+        const std::string dir = settingDir();
+        ASSERT_FALSE(dir.empty()) << "cannot find the repo's setting/ directory from "
+                                  << std::filesystem::current_path()
+                                  << " -- this test would otherwise assert over an empty graph, "
+                                     "which is the very condition it exists to tell apart";
+
+        m_locks = std::make_shared<LockManager>();
+        m_graph = std::make_shared<Graph>();
+        m_monitor = std::make_shared<LoadingMonitor>(m_graph,
+                                                     std::make_shared<std::shared_mutex>(),
+                                                     std::make_shared<EventBus>(),
+                                                     utils::TESTBED);
+        ASSERT_NO_THROW(m_monitor->load(dir + "/StaticNetworkTopologyP4_10Switches_4Hosts.json"));
+        ASSERT_TRUE(m_monitor->getSwitchKind(kAKnownSwitchDpid).has_value())
+            << "the fixture did not make dpid " << kAKnownSwitchDpid
+            << " known, so the control below would pass for the wrong reason";
+
+        m_peer = std::make_unique<HttpSessionStatusTestPeer>(m_locks, m_monitor, nullptr);
+    }
+
+    std::shared_ptr<LockManager> m_locks;
+    std::shared_ptr<Graph> m_graph;
+    std::shared_ptr<LoadingMonitor> m_monitor;
+    std::unique_ptr<HttpSessionStatusTestPeer> m_peer;
+};
+
+// --- OV-2: an address that names no switch ----------------------------------------------------
+//
+// A real DeviceConfigurationAndPowerManager over a graph this test builds by hand. Nothing here
+// starts a thread and nothing reaches the machine: the constructor only builds the two power
+// strategies (same construction as tests/test_CpuReportNoIpSwitch.cpp), start() is never called,
+// and the one failing case below fails at getPowerStrategyForDpid -- before any command is built,
+// let alone run. That matters on a shared laptop with a lab session live next door.
+class PowerStateEndpointTest : public ::testing::Test
+{
+  protected:
+    void SetUp() override
+    {
+        m_locks = std::make_shared<LockManager>();
+        m_graph = std::make_shared<Graph>();
+        m_monitor = std::make_shared<TopologyAndFlowMonitor>(m_graph,
+                                                             std::make_shared<std::shared_mutex>(),
+                                                             std::make_shared<EventBus>(),
+                                                             utils::MININET);
+        addSwitch(kKnownSwitchIp, 1);
+        m_power = std::make_shared<DeviceConfigurationAndPowerManager>(m_monitor,
+                                                                       utils::MININET,
+                                                                       "localhost",
+                                                                       nullptr);
+        m_peer = std::make_unique<HttpSessionStatusTestPeer>(m_locks, m_monitor, nullptr, m_power);
+    }
+
+    void addSwitch(const std::string& ip, uint64_t dpid)
+    {
+        const auto v = boost::add_vertex(*m_graph);
+        (*m_graph)[v].vertexType = VertexType::SWITCH;
+        (*m_graph)[v].dpid = dpid;
+        (*m_graph)[v].isUp = true;
+        (*m_graph)[v].ip.push_back(utils::ipStringToUint32(ip));
+    }
+
+    /// In the graph, so findSwitchByIp answers yes. NOT in m_dpidToSwitchKind -- nothing loaded a
+    /// topology -- so getPowerStrategyForDpid returns nullptr and the power change genuinely
+    /// fails. That is the state the discrimination test needs: a switch this kernel knows, whose
+    /// power operation it cannot carry out.
+    static constexpr const char* kKnownSwitchIp = "192.168.123.1";
+    static constexpr const char* kUnknownSwitchIp = "203.0.113.9";
+
+    std::shared_ptr<LockManager> m_locks;
+    std::shared_ptr<Graph> m_graph;
+    std::shared_ptr<TopologyAndFlowMonitor> m_monitor;
+    std::shared_ptr<DeviceConfigurationAndPowerManager> m_power;
     std::unique_ptr<HttpSessionStatusTestPeer> m_peer;
 };
 
@@ -601,28 +733,141 @@ TEST_F(LockEndpointTest, NumOfFlowsWithoutADpidIsABadRequestNotA200)
 }
 
 /**
- * The accept path for both. A present dpid must still answer 200 -- otherwise "always 400" would
- * pass the two tests above. The graph is empty, so the answer is zero, but the status is what is
- * under test here.
+ * 🔴 THESE TWO REPLACE TWO ASSERTIONS THAT WERE GREEN, and the record of that matters more than
+ * the change: rewriting a passing expectation is the cheapest way there is to legalise a defect.
+ *
+ * [Co-developed with claude code -- Adam]
+ * What stood here until 2026-09-04 was `TotalInputTrafficLoadWithADpidStillAnswers200` and
+ * `NumOfFlowsWithADpidStillAnswers200`, sending {"dpid":1} against this fixture's EMPTY graph and
+ * asserting 200 + status "success". They were green -- verified before the change on the binary
+ * this worktree had built at 14:30 (test_routing_strategy, sha256 d05cd399683d8a24): all four
+ * cases in this section passed. Their stated job was to stop "always 400" from satisfying the two
+ * missing-dpid cases above, and their own comment said "The graph is empty, so the answer is
+ * zero, but the status is what is under test here".
+ *
+ * That is the defect, written down as a requirement. dpid 1 is not a switch in an empty topology,
+ * so the answer being asserted was the one OV-3 was filed for: 200 with a zero that a caller
+ * cannot tell from a real, idle switch.
+ *
+ * The accept-path job they were doing is real, and it has NOT been dropped -- it moved to
+ * KnownSwitchEndpointTest.AKnownButIdleSwitchStillAnswersZero, which asks a dpid that really is
+ * in the loaded topology and requires 200 + zero. Between them the two pairs say the thing
+ * neither could say alone: zero and unknown are different answers.
  */
-TEST_F(LockEndpointTest, TotalInputTrafficLoadWithADpidStillAnswers200)
+TEST_F(LockEndpointTest, TotalInputTrafficLoadForAnUnknownDpidIsA404NotAZero)
 {
     const auto& res = m_peer->send(http::verb::post,
                                    "/ndt/get_total_input_traffic_load_passing_a_switch",
                                    R"({"dpid":1})");
 
-    EXPECT_EQ(res.result_int(), 200u) << "body: " << res.body();
-    EXPECT_EQ(nlohmann::json::parse(res.body()).value("status", ""), "success");
+    EXPECT_EQ(res.result_int(), 404u) << "body: " << res.body();
+    const auto body = nlohmann::json::parse(res.body());
+    EXPECT_EQ(body.value("error", ""), "unknown dpid") << res.body();
+    EXPECT_EQ(body.value("unknown_dpids", nlohmann::json::array()), nlohmann::json::array({1}))
+        << "the refusal must name the dpid it refused: " << res.body();
+    EXPECT_EQ(body.count("total_input_traffic_load_bps"), 0u)
+        << "a refusal must not also carry a number, or a caller reading the body still sees a "
+           "measurement: "
+        << res.body();
 }
 
-TEST_F(LockEndpointTest, NumOfFlowsWithADpidStillAnswers200)
+TEST_F(LockEndpointTest, NumOfFlowsForAnUnknownDpidIsA404NotAZero)
 {
     const auto& res = m_peer->send(http::verb::post,
                                    "/ndt/get_num_of_flows_passing_a_switch",
                                    R"({"dpid":1})");
 
-    EXPECT_EQ(res.result_int(), 200u) << "body: " << res.body();
-    EXPECT_EQ(nlohmann::json::parse(res.body()).value("status", ""), "success");
+    EXPECT_EQ(res.result_int(), 404u) << "body: " << res.body();
+    const auto body = nlohmann::json::parse(res.body());
+    EXPECT_EQ(body.value("error", ""), "unknown dpid") << res.body();
+    EXPECT_EQ(body.value("unknown_dpids", nlohmann::json::array()), nlohmann::json::array({1}))
+        << "the refusal must name the dpid it refused: " << res.body();
+    EXPECT_EQ(body.count("num_of_flows"), 0u)
+        << "a refusal must not also carry a count: " << res.body();
+}
+
+/**
+ * 🔴 The control, and the half that makes the two above mean anything: a dpid that IS a switch in
+ * the loaded topology, carrying no traffic, still answers 200 and zero. Without this, "404 for an
+ * unknown dpid" is satisfied by a handler that answers 404 for every dpid -- the same endpoint
+ * broken in the opposite direction, with a green suite.
+ */
+TEST_F(KnownSwitchEndpointTest, AKnownButIdleSwitchStillAnswersZero)
+{
+    const auto& flows = m_peer->send(http::verb::post,
+                                     "/ndt/get_num_of_flows_passing_a_switch",
+                                     R"({"dpid":3})");
+    EXPECT_EQ(flows.result_int(), 200u) << "body: " << flows.body();
+    EXPECT_EQ(nlohmann::json::parse(flows.body()).value("status", ""), "success") << flows.body();
+    EXPECT_EQ(nlohmann::json::parse(flows.body()).value("num_of_flows", -1), 0) << flows.body();
+
+    const auto& load = m_peer->send(http::verb::post,
+                                    "/ndt/get_total_input_traffic_load_passing_a_switch",
+                                    R"({"dpid":3})");
+    EXPECT_EQ(load.result_int(), 200u) << "body: " << load.body();
+    EXPECT_EQ(nlohmann::json::parse(load.body()).value("status", ""), "success") << load.body();
+    EXPECT_EQ(nlohmann::json::parse(load.body()).value("total_input_traffic_load_bps", -1), 0)
+        << load.body();
+}
+
+// --- OV-2: /ndt/set_switches_power_state -------------------------------------------------------
+//
+// Measured 2026-09-04 on OVS: ?ip=203.0.113.9&action=off answered 500, while a GET of the same
+// address answered 404 and action=sideways answered 400. One address, two endpoints, two verdicts
+// on the same question.
+
+TEST_F(PowerStateEndpointTest, SetSwitchesPowerStateWithAnUnknownIpIsA404NotA500)
+{
+    const auto& res =
+        m_peer->send(http::verb::post,
+                     std::string("/ndt/set_switches_power_state?ip=") + kUnknownSwitchIp +
+                         "&action=off");
+
+    EXPECT_EQ(res.result_int(), 404u) << "body: " << res.body();
+    // The same sentence the GET side answers, from the same lookup. Two wordings for one state
+    // is how a caller ends up writing two error branches for one condition.
+    EXPECT_EQ(nlohmann::json::parse(res.body()).value("error", ""), "Unknown switch IP")
+        << res.body();
+}
+
+TEST_F(PowerStateEndpointTest, SetSwitchesPowerStateWithAKnownIpStillReachesTheManager)
+{
+    // The accept-path control: the guard must not swallow addresses the kernel does know. The
+    // manager is reached and fails downstream (no power strategy for this dpid), which is a 500 --
+    // asserted properly in the next test. Here the point is only that it is NOT the 404 above.
+    const auto& res = m_peer->send(http::verb::post,
+                                   std::string("/ndt/set_switches_power_state?ip=") +
+                                       kKnownSwitchIp + "&action=on");
+
+    EXPECT_NE(res.result_int(), 404u)
+        << "a known switch address was refused as unknown: " << res.body();
+}
+
+/**
+ * 🔴 The discrimination test. Without it, "answer 404 whenever the bool is false" passes every
+ * other case in this file and relabels four genuine server failures -- the relay refusing, the
+ * vertex gone, an unrecognised action, an exception -- as "no such switch".
+ */
+TEST_F(PowerStateEndpointTest, ARealPowerFailureIsStillA500)
+{
+    const auto& res = m_peer->send(http::verb::post,
+                                   std::string("/ndt/set_switches_power_state?ip=") +
+                                       kKnownSwitchIp + "&action=on");
+
+    EXPECT_EQ(res.result_int(), 500u) << "body: " << res.body();
+    EXPECT_NE(res.body().find("Failed to change switch power state"), std::string::npos)
+        << res.body();
+}
+
+TEST_F(PowerStateEndpointTest, SetSwitchesPowerStateWithABadActionIsStillA400)
+{
+    // The pre-existing guard, kept honest: an unknown IP now short-circuits to 404, and it must
+    // not have overtaken the malformed-request check. A bad action is a 400 whatever the address.
+    const auto& res = m_peer->send(http::verb::post,
+                                   std::string("/ndt/set_switches_power_state?ip=") +
+                                       kUnknownSwitchIp + "&action=sideways");
+
+    EXPECT_EQ(res.result_int(), 400u) << "body: " << res.body();
 }
 
 // ---------------------------------------------------------------------------
