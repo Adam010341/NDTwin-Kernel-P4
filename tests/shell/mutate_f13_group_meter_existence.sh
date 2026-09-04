@@ -369,13 +369,18 @@ fi
 # rather than being stamped "deleted" by the layer that only checked the precondition.
 # =================================================================================================
 
+# ⚠️ ANCHOR UPDATED 2026-09-04 (finding #1): the forwarded body is `outbound`, not `j` -- a
+# delete is now rebuilt from the fields that address the entry instead of being forwarded
+# verbatim. The old anchor named `j` and would have gone unmatched, which this gate scores as a
+# SURVIVOR plus a harness fault. Recorded rather than silently retyped: an anchor that moves
+# because the code was fixed is the case the anchors checker exists to surface.
 apply_exact "$STRAT" \
-'    OpResult result = post(path, j, operation);
+'    OpResult result = post(path, outbound, operation);
     if (!result.ok)
     {
         return result;
     }' \
-'    OpResult result = post(path, j, operation);' \
+'    OpResult result = post(path, outbound, operation);' \
     1
 if [[ $? -ne 0 ]]; then anchor_moved "A\" a controller failure gets relabelled with an outcome"; else
 

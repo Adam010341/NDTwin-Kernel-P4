@@ -129,7 +129,25 @@ class ScriptedRyu : public OpenFlowRoutingStrategy
     /// Reply to the mod itself. Ryu's real answer here is an empty 200.
     std::string postReply = "\n200";
 
+    /**
+     * What the stats query answers AFTER a mod has been forwarded, when that differs.
+     *
+     * [Co-developed with claude code -- Adam] Finding #1.
+     * Empty means "the same as before", and that is not a shortcut -- it is the finding.
+     * A fake whose only setting is one fixed stats reply cannot express the difference
+     * between a switch that carried the delete out and one that ignored it, so a test written
+     * against it asserts "deleted" in both worlds. That is precisely what the delete path did
+     * on ovs4, and precisely why the accept twin below passed while the endpoint was a no-op:
+     * the instrument could not represent the defect. Setting this makes the fake a switch with
+     * state rather than a constant.
+     */
+    std::string getReplyAfterPost;
+
     std::vector<std::string> commands;
+
+    /// How many times the guard paused to re-read an entry. Asserted so the bounded retry
+    /// cannot silently become an unbounded wait, or vanish.
+    int pauses = 0;
 
     bool issued(const std::string& fragment) const
     {
@@ -166,8 +184,22 @@ class ScriptedRyu : public OpenFlowRoutingStrategy
     {
         commands.push_back(utils::describeArgv(argv));
         const bool isGet = commands.back().find("-X GET") != std::string::npos;
-        return utils::CommandOutcome{isGet ? getReply : postReply, true, 0};
+        if (!isGet)
+        {
+            m_posted = true;
+            return utils::CommandOutcome{postReply, true, 0};
+        }
+        const bool afterPost = m_posted && !getReplyAfterPost.empty();
+        return utils::CommandOutcome{afterPost ? getReplyAfterPost : getReply, true, 0};
     }
+
+    /// [Co-developed with claude code -- Adam] Finding #1. Counted, not slept: the guard's
+    /// decisions are what these tests are about, and real milliseconds would only make the
+    /// suite slower without making any assertion stronger.
+    void pauseBeforeReVerify() override { ++pauses; }
+
+  private:
+    bool m_posted = false;
 };
 
 /// A groupdesc reply in Ryu's shape: {"<dpid>": [ {group_id, type, buckets}, ... ]}.
@@ -328,6 +360,10 @@ TEST_F(GroupMeterFixture, DeletingAGroupThatIsThereGoesThroughAndSaysItWasDelete
 {
     ScriptedRyu ryu;
     ryu.getReply = groupDescReply(1, {9});
+    // [Co-developed with claude code -- Adam] Finding #1. This line is the whole difference
+    // between a switch and a constant: the group is there when asked before, and gone when
+    // asked after. Until it existed, this test passed against an endpoint that deleted nothing.
+    ryu.getReplyAfterPost = groupDescReply(1, {});
 
     const OpResult r = ryu.deleteAGroupEntry(groupPayload(9));
 
@@ -365,6 +401,7 @@ TEST_F(GroupMeterFixture, TheMeterAcceptPathsGoThrough)
     {
         ScriptedRyu ryu;
         ryu.getReply = meterConfigReply(1, {3});
+        ryu.getReplyAfterPost = meterConfigReply(1, {}); // the switch really removed it
         const OpResult r = ryu.deleteAMeterEntry(meterPayload(3));
         EXPECT_TRUE(r.ok) << r.message;
         EXPECT_EQ(r.outcome, "deleted");
@@ -386,6 +423,152 @@ TEST_F(GroupMeterFixture, TheMeterAcceptPathsGoThrough)
         EXPECT_EQ(r.outcome, "installed");
         EXPECT_TRUE(ryu.issued("/stats/meterentry/add"));
     }
+}
+
+// --- finding #1: a delete is claimed only after the switch is asked ------------------------------
+//
+// [Co-developed with claude code -- Adam]
+// Measured on ovs4 2026-09-03 (doc/audit/2026-09-03_night-rounds/round1-ovs/
+// 21_delete_group_meter_says_deleted_but_persists.log): /ndt/delete_group_entry answered
+// 200 {"outcome":"deleted"} five times while all five groups stayed on the switch with
+// duration_sec still climbing, re-installing the id answered 409 "already exists" -- so the id
+// was gone for the life of the switch -- and the kernel log held not one line about any of it.
+// The pre-check from F-13 could not catch this: it establishes that the entry was there BEFORE,
+// which is the precondition for deleting it, not evidence that it left.
+
+TEST_F(GroupMeterFixture, AGroupTheSwitchStillHasAfterTheDeleteIsNotReportedAsDeleted)
+{
+    ScriptedRyu ryu;
+    // Present before AND after: the switch acknowledged the mod and did not carry it out.
+    ryu.getReply = groupDescReply(1, {9});
+
+    const OpResult r = ryu.deleteAGroupEntry(groupPayload(9));
+
+    EXPECT_TRUE(ryu.issued("/stats/groupentry/delete")) << "the mod was never forwarded";
+    EXPECT_FALSE(r.ok) << "reported a deletion the switch did not perform";
+    EXPECT_GE(r.httpStatus, 400) << "a no-op must not answer 2xx: " << r.message;
+    EXPECT_EQ(r.outcome, "still_present");
+    EXPECT_NE(r.message.find("still on the switch"), std::string::npos)
+        << "the reason must name what is wrong, not just fail: " << r.message;
+}
+
+TEST_F(GroupMeterFixture, AMeterTheSwitchStillHasAfterTheDeleteIsNotReportedAsDeleted)
+{
+    ScriptedRyu ryu;
+    ryu.getReply = meterConfigReply(1, {3});
+
+    const OpResult r = ryu.deleteAMeterEntry(meterPayload(3));
+
+    EXPECT_TRUE(ryu.issued("/stats/meterentry/delete"));
+    EXPECT_FALSE(r.ok) << "reported a deletion the switch did not perform";
+    EXPECT_GE(r.httpStatus, 400) << r.message;
+    EXPECT_EQ(r.outcome, "still_present");
+}
+
+/**
+ * The id leak, stated as the caller experiences it.
+ *
+ * A verified delete has to make the id usable again -- that is what "deleted" is FOR. On ovs4
+ * the reply said deleted and the next install of the same id answered 409, so the 200 cost the
+ * caller an id rather than returning one.
+ */
+TEST_F(GroupMeterFixture, AGroupIdCanBeInstalledAgainAfterAVerifiedDelete)
+{
+    ScriptedRyu del;
+    del.getReply = groupDescReply(1, {9});
+    del.getReplyAfterPost = groupDescReply(1, {});
+
+    const OpResult deleted = del.deleteAGroupEntry(groupPayload(9));
+    ASSERT_TRUE(deleted.ok) << deleted.message;
+    ASSERT_EQ(deleted.outcome, "deleted");
+
+    // A fresh strategy against the switch state the delete left behind: 9 is gone.
+    ScriptedRyu add;
+    add.getReply = groupDescReply(1, {});
+
+    const OpResult reinstalled = add.installAGroupEntry(groupPayload(9));
+
+    EXPECT_TRUE(reinstalled.ok) << "the id did not come back after a successful delete: "
+                                << reinstalled.message;
+    EXPECT_EQ(reinstalled.outcome, "installed");
+    EXPECT_TRUE(add.issued("/stats/groupentry/add"));
+}
+
+/**
+ * What is actually put on the wire for a delete.
+ *
+ * OpenFlow 1.3 gives ofp_group_mod's bucket list no meaning for OFPGC_DELETE, and Ryu packs
+ * whatever `buckets` the body carries into the message it builds (ofctl_v1_3.py:1134-1150).
+ * groupPayload() is an install-shaped body -- type, buckets and all -- because that is what a
+ * caller who reuses its install body sends, and the API doc's own delete example is the
+ * addressing pair alone. Forwarding the definition with the delete is the request-side half of
+ * this finding, and it is invisible in the response either way, so it is asserted here.
+ */
+TEST_F(GroupMeterFixture, ADeleteNamesTheEntryAndDoesNotCarryADefinitionOfIt)
+{
+    ScriptedRyu ryu;
+    ryu.getReply = groupDescReply(1, {9});
+    ryu.getReplyAfterPost = groupDescReply(1, {});
+
+    ASSERT_TRUE(ryu.deleteAGroupEntry(groupPayload(9)).ok);
+
+    const int at = ryu.indexOf("/stats/groupentry/delete");
+    ASSERT_GE(at, 0) << "the delete was never forwarded";
+    const std::string& sent = ryu.commands[static_cast<size_t>(at)];
+
+    EXPECT_EQ(sent.find("buckets"), std::string::npos)
+        << "the delete carried a bucket list, which OFPGC_DELETE gives no meaning and a switch "
+           "may reject asynchronously -- after Ryu has already answered 200: "
+        << sent;
+    EXPECT_NE(sent.find("\"group_id\":9"), std::string::npos)
+        << "the delete must still name the entry it removes: " << sent;
+    EXPECT_NE(sent.find("\"dpid\":1"), std::string::npos) << sent;
+}
+
+/**
+ * The Unknown rule, applied to the new check. A read-back that could not be performed is not
+ * evidence that the delete failed. Inventing a 502 out of it would be the mirror image of the
+ * defect -- the kernel publishing its own reach as a finding about the fabric -- and it is the
+ * failure mode a guard like this one is most likely to grow.
+ */
+TEST_F(GroupMeterFixture, ADeleteThatCannotBeReadBackIsUnverifiedRatherThanFailed)
+{
+    ScriptedRyu ryu;
+    ryu.getReply = groupDescReply(1, {9});    // present before: the delete is allowed to proceed
+    ryu.getReplyAfterPost = "\n000";          // and then the controller stops answering
+
+    const OpResult r = ryu.deleteAGroupEntry(groupPayload(9));
+
+    EXPECT_TRUE(r.ok) << "an unanswerable read-back was reported as a failed delete: "
+                      << r.message;
+    EXPECT_EQ(r.outcome, "unverified")
+        << "a caller must be able to tell a verified delete from an unverifiable one";
+}
+
+/**
+ * The re-check is bounded and it is a re-check.
+ *
+ * Ryu answers 200 before the switch has seen the message, so one immediate read is not enough
+ * to call a delete failed; but "keep asking" would wedge a FlowDispatcher worker on a switch
+ * that really did refuse. Both halves are asserted here because a mutation to either -- one
+ * attempt, or unbounded ones -- changes behaviour that no other test in this file can see.
+ */
+TEST_F(GroupMeterFixture, TheDeleteReCheckIsRetriedAndBounded)
+{
+    ScriptedRyu persistent;
+    persistent.getReply = groupDescReply(1, {9});
+    ASSERT_FALSE(persistent.deleteAGroupEntry(groupPayload(9)).ok);
+    EXPECT_GT(persistent.pauses, 0) << "the switch was asked only once, so a delete still in "
+                                       "flight would be reported as a failure";
+    EXPECT_LE(persistent.pauses, 8) << "the re-check is not bounded";
+
+    // And when the switch did carry it out, the answer is taken the first time: no delay is
+    // paid on the path that every successful delete takes.
+    ScriptedRyu prompt;
+    prompt.getReply = groupDescReply(1, {9});
+    prompt.getReplyAfterPost = groupDescReply(1, {});
+    ASSERT_TRUE(prompt.deleteAGroupEntry(groupPayload(9)).ok);
+    EXPECT_EQ(prompt.pauses, 0) << "a delete that landed still waited";
 }
 
 // --- Unknown must not become Absent -------------------------------------------------------------
