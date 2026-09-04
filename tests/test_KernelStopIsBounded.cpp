@@ -50,6 +50,7 @@
 #include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
 #include "ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp"
 #include "utils/Logger.hpp"
+#include "utils/StopSignal.hpp"
 #include "utils/Utils.hpp"
 
 #include <gtest/gtest.h>
@@ -409,48 +410,57 @@ TEST_F(KernelStopIsBoundedTest, ATopologyPollBlockedInItsHttpCallReturnsWithinTh
 }
 
 // ================================================================================================
-// The report. A bounded stop that is somehow still not bounded must say what it is waiting on --
-// once, naming the worker, with the elapsed time -- rather than looking like a hang.
+// The report. A bounded stop that is somehow still NOT bounded must say what it is waiting on --
+// once, naming the worker and the subsystem, with the elapsed time -- rather than looking like a
+// hang.
 //
-// The bound is set to zero here so the report is guaranteed to fire. That is the honest way to
-// test it: the alternative is a test that depends on a worker being slow, which after the fix
-// above nothing is.
+// 🔴 THESE TWO CASES USED TO BE INTEGRATION TESTS, AND THAT WAS THE BUG IN THEM.
+//
+// They started a real manager against the wedged control plane, set the report bound to 0, called
+// stop(), and asserted the report appeared in the log. That form contains a race, and the mutation
+// gate found it: two behaviour-PRESERVING widenings (the walk's top-of-loop stop check removed,
+// and the between-endpoint checks removed) both turned AStopThatExceedsItsBoundSaysWhatItIsWaitingOn
+// red, which is a gate reporting that its own suite cannot tell an edit from a behaviour change.
+//
+// The race: stop() runs m_running=false, then request() -- which kills the in-flight curl AND
+// notify_all()s every sleeper -- and only then reportIfWorkersOutlastTheBound, whose
+// waitForWorkers(0ms) samples the worker set ONCE. Between request()'s notify and that sample,
+// the three woken workers are racing to break out of their loops and destroy their WorkerScopes.
+// If they all win, the set is empty, the report correctly does not fire, and the assertion fails.
+// Nothing about that is a property of the code under test: it is a property of which of four
+// threads the scheduler ran first, and any edit that moves a few instructions on the worker's exit
+// path -- which is exactly what a widening does -- reshuffles it.
+//
+// So the report is now exercised where it actually lives: a StopSignal the TEST owns, with a
+// WorkerScope the TEST keeps alive for the duration of the call. The straggler is then a fact of
+// the fixture rather than an outcome of a scheduling race, and the assertion is about what
+// reportIfWorkersOutlastTheBound does with a straggler -- which is the whole of its behaviour.
+//
+// What this deliberately gives up is stated in FIX-KERNEL-STOP-BOUNDED.md §8.3: nothing here pins
+// that DeviceConfigurationAndPowerManager::stop() still CALLS the report. That call site is
+// defended by review, not by this suite, and saying so is better than a test that pretends to
+// defend it two runs out of three.
 // ================================================================================================
-TEST_F(KernelStopIsBoundedTest, AStopThatExceedsItsBoundSaysWhatItIsWaitingOn)
+TEST_F(KernelStopIsBoundedTest, TheOverBoundReportNamesTheWorkerAndTheSubsystem)
 {
-    WedgedControlPlane wedged(kP4ProxyPort);
-    if (!wedged.bound())
-    {
-        GTEST_SKIP() << "port " << kP4ProxyPort << " is in use";
-    }
-
-    auto graph = fabricOfUpBmv2Switches(kSwitchesInFabric);
-    auto graphMutex = std::make_shared<std::shared_mutex>();
-    auto eventBus = std::make_shared<EventBus>();
-    auto monitor = std::make_shared<TopologyAndFlowMonitor>(graph, graphMutex, eventBus,
-                                                            utils::MININET);
-    // A real Classifier, not nullptr. fetchOpenFlowTablesInternal ends in
-    // m_classifier->updateFromQueriedTables(result), which the empty-topology fixture in
-    // test_PowerManagerShutdown.cpp never reaches because its walk polls nothing -- a fabric with
-    // switches in it does, and nullptr there is a segfault, not a test failure. main.cpp has
-    // always passed one.
-    auto classifier = std::make_shared<ndtClassifier::Classifier>();
-    auto manager = std::make_shared<DeviceConfigurationAndPowerManager>(monitor, utils::MININET,
-                                                                        "127.0.0.1", classifier);
-    manager->setStopReportBound(std::chrono::milliseconds(0));
-    manager->start();
-    ASSERT_TRUE(wedged.waitForConnections(1, 10s));
+    utils::StopSignal signal;
+    // Held for the whole call, so "a worker is still running" is a fact of this fixture and not a
+    // race the scheduler decides. This is the straggler the report exists to describe.
+    utils::StopSignal::WorkerScope straggler(signal, "openflow-tables");
+    signal.request();
 
     LogCapture captured;
-    manager->stop();
+    const bool reported =
+        utils::reportIfWorkersOutlastTheBound(signal, std::chrono::milliseconds(0), "power manager");
 
+    EXPECT_TRUE(reported) << "a worker was still registered and the bound had expired, so the "
+                             "report had to fire";
     const std::string log = captured.text();
     ASSERT_GT(captured.recordCount(), 0u)
-        << "the capture sink recorded nothing at all, so the assertion below would pass vacuously";
-    // Deliberately NOT asserting the sentence. The wording is a diagnostic, not the behaviour,
-    // and the mutation gate's W2 rewords it precisely to prove this suite does not pin prose.
-    // What is asserted is the two identifiers the report exists to carry: which subsystem is
-    // still stopping, and which of its workers has not returned.
+        << "the capture sink recorded nothing at all, so the assertions below would pass vacuously";
+    // Deliberately NOT asserting the sentence. The wording is a diagnostic, not the behaviour, and
+    // the gate's W2 rewords it precisely to prove this suite does not pin prose. What is asserted
+    // is the two identifiers the report exists to carry.
     EXPECT_NE(log.find("openflow-tables"), std::string::npos)
         << "the report did not name the worker it is waiting on, which is the only part an "
            "operator can act on. Captured log:\n" << log;
@@ -459,32 +469,48 @@ TEST_F(KernelStopIsBoundedTest, AStopThatExceedsItsBoundSaysWhatItIsWaitingOn)
         << log;
 }
 
-// The same property for the monitor, whose stop() joins two threads rather than three.
-TEST_F(KernelStopIsBoundedTest, TheMonitorsStopReportNamesItsOwnWorkers)
+// The monitor's names, same shape. Two cases rather than one parameterised case because what is
+// being pinned is that each subsystem passes ITS OWN name and ITS OWN worker label.
+TEST_F(KernelStopIsBoundedTest, TheMonitorsOverBoundReportNamesItsOwnWorker)
 {
-    WedgedControlPlane wedged(0);
-    ASSERT_TRUE(wedged.bound());
-
-    auto graph = std::make_shared<Graph>();
-    auto graphMutex = std::make_shared<std::shared_mutex>();
-    auto eventBus = std::make_shared<EventBus>();
-    auto monitor = std::make_shared<TopologyAndFlowMonitor>(graph, graphMutex, eventBus,
-                                                            utils::MININET);
-    (void)monitor->loadStaticTopology();
-    monitor->setTopologyApiUrls("http://127.0.0.1:" + std::to_string(wedged.port())
-                                + "/v1.0/topology");
-    monitor->setStopReportBound(std::chrono::milliseconds(0));
-    monitor->start();
-    ASSERT_TRUE(wedged.waitForConnections(1, 10s));
+    utils::StopSignal signal;
+    utils::StopSignal::WorkerScope straggler(signal, "topology-poll");
+    signal.request();
 
     LogCapture captured;
-    monitor->stop();
+    const bool reported = utils::reportIfWorkersOutlastTheBound(
+        signal, std::chrono::milliseconds(0), "topology monitor");
 
+    EXPECT_TRUE(reported);
     const std::string log = captured.text();
     EXPECT_NE(log.find("topology-poll"), std::string::npos)
         << "the report did not name the poll thread. Captured log:\n" << log;
     EXPECT_NE(log.find("topology monitor"), std::string::npos)
         << "the report did not name the subsystem. Captured log:\n" << log;
+}
+
+// 🔴 The zero-discrimination guard, and the reason the two cases above are worth reading.
+//
+// A report that fires unconditionally would satisfy every assertion above while telling an operator
+// that a healthy shutdown is stuck. This is the same trap the gate's direction-2 mutations exist
+// for: "it printed something" is not the property, "it printed something WHEN THERE WAS SOMETHING
+// TO SAY" is.
+TEST_F(KernelStopIsBoundedTest, TheReportSaysNothingWhenEveryWorkerHasAlreadyFinished)
+{
+    utils::StopSignal signal;
+    {
+        utils::StopSignal::WorkerScope finished(signal, "openflow-tables");
+    } // gone before the report runs, which is what a healthy stop looks like
+    signal.request();
+
+    LogCapture captured;
+    const bool reported =
+        utils::reportIfWorkersOutlastTheBound(signal, std::chrono::milliseconds(0), "power manager");
+
+    EXPECT_FALSE(reported) << "no worker was left, so there was nothing to report";
+    EXPECT_EQ(captured.text().find("openflow-tables"), std::string::npos)
+        << "the report named a worker that had already finished. Captured log:\n"
+        << captured.text();
 }
 
 // Stopping twice, and stopping something that was never started, must both be free. main.cpp calls
