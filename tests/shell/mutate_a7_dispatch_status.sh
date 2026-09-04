@@ -268,9 +268,19 @@ each_mutation() {
     # FINDING-07: every rule is reported as reaching the ternary table, so a caller is told its
     # priority was honoured when the rule went to ipv4_lpm. The exact lie the disclosure exists
     # to stop, reintroduced one level up from where it used to live.
+    #
+    # 2026-09-04: re-anchored. This exact line is now written twice -- once in the standalone
+    # helper _priority_disclosure() (api_routes.py:306, used elsewhere) and once inlined in
+    # add_flow_entry() (api_routes.py:367, the site this mutation and its expected test are
+    # about). A one-line anchor now matches both, and mutate()'s `s.replace(a, r, 1)` would have
+    # silently mutated the FIRST one in file order -- _priority_disclosure, the wrong site -- so
+    # the anchor is widened to the next line (body = ..., untouched, unique to add_flow_entry) to
+    # pin it to the right one.
     "$m" "4. every rule claims it reached the priority-bearing table" proxy "$API" \
-        '    table = "flow_5tuple" if needs_five_tuple(match) else "ipv4_lpm"' \
-        '    table = "flow_5tuple"' \
+        '    table = "flow_5tuple" if needs_five_tuple(match) else "ipv4_lpm"
+    body = {"status": "success", "table": table, "priority_honoured": table == "flow_5tuple"}' \
+        '    table = "flow_5tuple"
+    body = {"status": "success", "table": table, "priority_honoured": table == "flow_5tuple"}' \
         'test_a_destination_only_rule_says_its_priority_was_not_honoured' ''
 
     "$m" "5. priority_honoured is pinned true whatever the table" proxy "$API" \
@@ -417,10 +427,14 @@ if [[ "$MODE" == full ]]; then
     std::atomic<bool> running_{false};'
 fi
 
+# 2026-09-04: re-anchored (same reason as mutation #4 above -- this line now exists twice, and
+# the control has to land on the same add_flow_entry site the mutation does).
 control proxy "$API" \
-    '    table = "flow_5tuple" if needs_five_tuple(match) else "ipv4_lpm"' \
+    '    table = "flow_5tuple" if needs_five_tuple(match) else "ipv4_lpm"
+    body = {"status": "success", "table": table, "priority_honoured": table == "flow_5tuple"}' \
     '    # MUTANT: a comment, and nothing else.
-    table = "flow_5tuple" if needs_five_tuple(match) else "ipv4_lpm"'
+    table = "flow_5tuple" if needs_five_tuple(match) else "ipv4_lpm"
+    body = {"status": "success", "table": table, "priority_honoured": table == "flow_5tuple"}'
 
 control contract "$SPC" \
     '    c = data.get("counters") or {}' \

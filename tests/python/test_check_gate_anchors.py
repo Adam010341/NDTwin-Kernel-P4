@@ -58,6 +58,10 @@ TARGETS = {
     "src/delta.cpp": "void d()\n{\n    short delta = 5;\n}\n",
     "epsilon.py": "epsilon_value = 11\n\n\ndef e():\n    return epsilon_value\n",
     "tests/python/test_epsilon.py": "import epsilon\n\n\ndef test_e():\n    assert epsilon.e()\n",
+    # Deliberately holds the SAME line twice: the target for GATE_REPLACE_ALL, whose anchor is
+    # meant to match everywhere. A checker that assumes every anchor wants exactly one match
+    # would read this as DUP:1 against a gate that is not broken -- see 2026-09-04 note there.
+    "src/zeta.cpp": "void z1()\n{\n    int zeta = 1;\n}\n\nvoid z2()\n{\n    int zeta = 1;\n}\n",
 }
 
 # --- one gate per shape, each written the way the real gate of that shape is written -------------
@@ -149,6 +153,41 @@ apply_it() { echo "$1 $2"; }
 for i in "${!TBL[@]}"; do
     apply_it "$SRC" "${TBL[$i]}"
 done
+"""
+
+# (m) mutate_harness_instruments.sh's shape: a quoted python ARGUMENT (not a heredoc) whose body
+#     is a bare `s.replace(old, new)` -- no count, Python's own default -- so it touches EVERY
+#     occurrence of `old` in the file uniformly. 2026-09-04: the checker used to assume every
+#     anchor wants exactly one match and reported that gate DUP:1 against src/zeta.cpp's
+#     equivalent (FINDING-02 Defect B's hidden-owner sentinel, which collapses at two call sites
+#     on purpose). `_replace_call_want` reads a bare two-argument call as "at least one, no upper
+#     bound" instead.
+GATE_REPLACE_ALL = r"""#!/usr/bin/env bash
+set -uo pipefail
+SRC=src/zeta.cpp
+mutate() { :; }
+mutate "m1" "$SRC" '
+s = s.replace("    int zeta = %(ZETA)s;", "    int zeta = 99;")
+'
+"""
+
+# (n) mutate_logger_cli.sh's widen() shape: a named-role applier (`apply`, argument 2 is
+#     "anchor") called with a DIFFERENT function's raw, unnamed positional parameters ($1 $2 $3
+#     forwarded after a `shift`-loop, never bound to a local). 2026-09-04: "$2" is a parameter
+#     reference exactly like "$anchor" is, and was misread as two characters of literal text --
+#     see is_whole_param_ref.
+GATE_POSITIONAL = r"""#!/usr/bin/env bash
+set -uo pipefail
+SRC=src/delta.cpp
+apply() { local file="$1" anchor="$2" new="$3"; echo "$file $anchor $new"; }
+relay() {
+    local label="$1"; shift
+    while [[ $# -ge 3 ]]; do
+        apply "$1" "$2" "$3"
+        shift 3
+    done
+}
+relay "delta becomes ninety-nine" "$SRC" '    short delta = 5;' '    short delta = 99;'
 """
 
 # --- the repo-root shapes (finding #78) ----------------------------------------------------------
@@ -346,7 +385,7 @@ def git(repo, *args):
 class Fixture:
     """A throwaway git repo holding the four target files and one gate per shape."""
 
-    def __init__(self, alpha="1", beta="3", gamma="7", epsilon="11", gates=None):
+    def __init__(self, alpha="1", beta="3", gamma="7", epsilon="11", zeta="1", gates=None):
         self.dir = tempfile.mkdtemp(prefix="anchorcheck_")
         for rel, body in TARGETS.items():
             full = os.path.join(self.dir, rel)
@@ -356,10 +395,11 @@ class Fixture:
             with open(full, "w") as fh:
                 fh.write(body)
         os.makedirs(os.path.join(self.dir, "tests", "shell"), exist_ok=True)
-        subs = {"ALPHA": alpha, "BETA": beta, "GAMMA": gamma, "EPSILON": epsilon}
+        subs = {"ALPHA": alpha, "BETA": beta, "GAMMA": gamma, "EPSILON": epsilon, "ZETA": zeta}
         want = gates if gates is not None else ["array", "callback", "packed", "driver"]
         source = {"array": GATE_ARRAY, "callback": GATE_CALLBACK, "packed": GATE_PACKED,
                   "driver": GATE_DRIVER, "unreadable": GATE_UNREADABLE,
+                  "replace_all": GATE_REPLACE_ALL, "positional": GATE_POSITIONAL,
                   "root_named": GATE_ROOT_NAMED, "root_short": GATE_ROOT_SHORT,
                   "root_baked": GATE_ROOT_BAKED,
                   "root_union": GATE_ROOT_UNION, "root_generic": GATE_ROOT_GENERIC,
@@ -454,6 +494,28 @@ class ShapesAreChecked(unittest.TestCase):
                         % (f.cell(out, "packed"), out))
         self.assertEqual(1, rc, out + err)
 
+    def test_bare_replace_matches_every_occurrence_and_is_ok(self):
+        """`s.replace(old, new)` -- no count argument -- is Python's own "replace all", and
+        src/zeta.cpp holds the anchor twice on purpose. Before 2026-09-04 this read DUP:1
+        against a gate that is not broken (tests/shell/mutate_harness_instruments.sh)."""
+        f = Fixture(gates=["replace_all"])
+        self.addCleanup(f.close)
+        rc, out, err = f.run()
+        self.assertTrue(f.cell(out, "replace_all").startswith("ok"),
+                        "bare-replace gate: %s\n%s" % (f.cell(out, "replace_all"), out))
+        self.assertEqual(0, rc, out + err)
+
+    def test_bare_replace_drift_is_still_caught(self):
+        """The relaxation is "no upper bound", not "anything goes": zero matches is still
+        MISSING."""
+        f = Fixture(gates=["replace_all"], zeta="2")   # the gate's anchor now matches nothing
+        self.addCleanup(f.close)
+        rc, out, err = f.run()
+        self.assertTrue(f.cell(out, "replace_all").startswith("MISSING"),
+                        "a drifted bare-replace anchor must be MISSING, got %s\n%s"
+                        % (f.cell(out, "replace_all"), out))
+        self.assertEqual(1, rc, out + err)
+
     def test_an_array_reference_is_never_reported_as_a_literal_anchor(self):
         """`${MUT_ANCHOR[$i]}` is an indirection, not text. Reporting it as a literal is what
         made mutate_ryu_rest_topology_bounded.sh read MISSING against an intact file."""
@@ -466,6 +528,43 @@ class ShapesAreChecked(unittest.TestCase):
                 "an unexpanded parameter was recorded as the text to search for: %r" % text)
         self.assertIn("    int alpha = 1;", anchors,
                       "the array's real anchor was not among %r" % (anchors,))
+
+    def test_bare_numbered_parameters_are_whole_param_refs(self):
+        """is_whole_param_ref's own docstring already claimed "$1" as an example; before
+        2026-09-04 the regex disagreed with it -- the name part required a letter or underscore
+        FIRST, so a bare numbered positional parameter never matched."""
+        mod = load_checker()
+        for word in ("$1", "$2", "$9", "${1}", "${10}", "$anchor", "${MUT_ANCHOR[$i]}"):
+            self.assertTrue(mod.is_whole_param_ref(word, '"'),
+                            "%r must be recognised as a parameter reference" % word)
+        for word in ("value=$1", "$1x", "plain text"):
+            self.assertFalse(mod.is_whole_param_ref(word, '"'),
+                             "%r is not WHOLLY a parameter reference" % word)
+
+    def test_a_relayed_positional_parameter_is_not_read_as_literal_anchor_text(self):
+        """tests/shell/mutate_logger_cli.sh's widen() relays its OWN "$1" "$2" "$3" into
+        apply(), whose signature names argument 2 "anchor" -- the same shape as GATE_POSITIONAL
+        below. Before the fix above, "$2" was recorded as two characters of literal text and
+        reported MISSING against every file the gate declares, since nothing spells out "$2"."""
+        anchors, problems, _delegates = load_checker().extract(
+            GATE_POSITIONAL, "mutate_shape_positional.sh",
+            "tests/shell/mutate_shape_positional.sh")
+        self.assertEqual([], problems, problems)
+        texts = [t for _f, t, _k, _w, _n in anchors]
+        self.assertNotIn("$2", texts,
+                         "a relayed positional parameter must never be read as literal anchor "
+                         "text: %r" % (anchors,))
+        self.assertIn("    short delta = 5;", texts,
+                      "the real anchor, reached through relay()'s own literal call site, must "
+                      "still be found: %r" % (anchors,))
+
+    def test_positional_relay_gate_is_ok_end_to_end(self):
+        f = Fixture(gates=["positional"])
+        self.addCleanup(f.close)
+        rc, out, err = f.run()
+        self.assertTrue(f.cell(out, "positional").startswith("ok"),
+                        "positional-relay gate: %s\n%s" % (f.cell(out, "positional"), out))
+        self.assertEqual(0, rc, out + err)
 
 
 class DriverInheritsItsDelegatesVerdict(unittest.TestCase):

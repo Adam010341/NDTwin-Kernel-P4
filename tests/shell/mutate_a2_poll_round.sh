@@ -116,15 +116,21 @@ add "4. a fully silent round is classified partial" \
     '        return PollRoundKind::Partial;' \
     'TopologyPollRound.NoneAnsweredIsSilent'
 
-# 5. 🔴 THE ONE THAT INVENTS A FAULT. "[]" is two bytes and a complete answer; size() > 2 makes a
-#    zero-link fabric read as an unanswered endpoint. Every OVS boot reports "[]" from /links
-#    until LLDP has discovered anything, so this turns normal startup into a logged wedge -- an
-#    unexpected case dressed up as a deliberate one, which is the error mode this repo has
+# 5. 🔴 THE ONE THAT INVENTS A FAULT. "[]" is two bytes and a complete answer; treating it as blank
+#    makes a zero-link fabric read as an unanswered endpoint. Every OVS boot reports "[]" from
+#    /links until LLDP has discovered anything, so this turns normal startup into a logged wedge --
+#    an unexpected case dressed up as a deliberate one, which is the error mode this repo has
 #    already recorded once.
+#    2026-09-04: re-anchored. Round 6 N1 moved the "" vs "[]" distinction out of a per-endpoint
+#    `linksAnswered` bool (gone) and into classifyEndpointReply's bodyIsBlank computation -- the
+#    function's own comment at TopologyAndFlowMonitor.cpp says so ("the emptiness rule ... moved
+#    into classifyEndpointReply, where '[]' is still an answer and '' is still not"). The anchor
+#    below is that line; the replacement reproduces the original fault by also treating a
+#    <=2-byte body (i.e. "[]") as blank.
 add "5. an empty JSON list is treated as no answer" \
     "$SRC" \
-    '    const bool linksAnswered = !linksBody.empty();' \
-    '    const bool linksAnswered = linksBody.size() > 2;' \
+    '    const bool bodyIsBlank = (firstReal == std::string::npos);' \
+    '    const bool bodyIsBlank = (firstReal == std::string::npos) || body.size() <= 2;' \
     'TopologyPollRoundWiring.AnEmptyJsonListIsAnAnswerNotSilence'
 
 # 6. The edge-trigger is aimed at the wrong predecessor: a control plane that stays partial writes
@@ -170,17 +176,24 @@ add "9. the stable grep token is renamed" \
 #     needs a control plane, which is the same reason buildTopologyFetchCommand was extracted
 #     rather than tested in place. Closing it is a live step, not a unit test: see §6 of the A-2
 #     findings (stall a listener on :8080, watch for the token in kernel.log).
+#     2026-09-04: re-anchored. noteAndAnnouncePollRound's signature moved from three std::string
+#     bodies to three EndpointReply objects (Round 6 N1); the call site's argument names followed
+#     the rename (switchesStr/hostsStr/linksStr -> switchesReply/hostsReply/linksReply). The
+#     property under test -- does the poll call the bookkeeping at all -- is unchanged.
 add "10. the poll never calls the round bookkeeping at all" \
     "$SRC" \
-    '    noteAndAnnouncePollRound(switchesStr, hostsStr, linksStr);' \
+    '    noteAndAnnouncePollRound(switchesReply, hostsReply, linksReply);' \
     '    // MUTANT: the poll no longer records or announces its round' \
     'TopologyPollRoundWiring.TheRoundKindIsRecordedForReading' \
     'the call site needs three live curls and a control plane; no gtest can reach it'
 
 CTRL_FILE="$SRC"
-CTRL_ANCHOR='    const PollRoundKind kind = classifyPollRound(switchesAnswered, hostsAnswered, linksAnswered);'
+# 2026-09-04: re-anchored. classifyPollRound's parameters are now read as switches.outcome /
+# hosts.outcome / links.outcome (EndpointOutcome members of the EndpointReply objects) rather than
+# separately-named *Answered bools; same call, same line, renamed arguments.
+CTRL_ANCHOR='    const PollRoundKind kind = classifyPollRound(switches.outcome, hosts.outcome, links.outcome);'
 CTRL_REPL='    // MUTANT: a comment, and nothing else.
-    const PollRoundKind kind = classifyPollRound(switchesAnswered, hostsAnswered, linksAnswered);'
+    const PollRoundKind kind = classifyPollRound(switches.outcome, hosts.outcome, links.outcome);'
 
 # --- anchor check (never a verdict) -------------------------------------------------------------
 

@@ -13,7 +13,10 @@ given git rev it reads each gate script, works out which files that gate mutates
 anchor strings it looks for, and counts each anchor in that rev's copy of the file. An
 anchor that occurs zero times cannot be applied; one that occurs more often than the gate
 declares would mutate the wrong site; both are reported. The expected count is 1 unless the
-gate states otherwise (`apply_exact <file> <old> <new> <count>`).
+gate states otherwise (`apply_exact <file> <old> <new> <count>`), or is applying the anchor
+with a bare python `s.replace(old, new)` -- no count argument, Python's own default -- which
+touches every occurrence uniformly and so has no wrong site for a second match to be; such an
+anchor is expected at least once, with no upper bound (`_replace_call_want`).
 
     check_gate_anchors.py 4cbec52d                        # every gate in one rev
     check_gate_anchors.py 4cbec52d fix/a-9-lock-lease      # matrix over revs
@@ -459,8 +462,33 @@ def _perl_subst_pattern(prog):
     return ("(?%s)" % flags) + pat if flags else pat
 
 
+
+# 2026-09-04: `mutate_harness_instruments.sh` reported DUP:1 against a target where the anchor is
+# fine -- it occurs twice on purpose (FINDING-02 Defect B's "hidden owner" sentinel collapses to
+# empty at two call sites since L-10 split the pid search out of port_holder). The gate's own
+# `s.replace(old, new)` -- Python's own default, no count argument -- replaces BOTH, uniformly,
+# which is the correct and intended mutation; this tool was inventing a failure by assuming every
+# anchor wants exactly one match. `_replace_call_want` reads the call the way `apply_exact`'s
+# trailing count already is read: a bare two-argument call implies "at least one, no upper bound"
+# (Python's replace() cannot ever hit the wrong site the way a hand-rolled single-replace can, so
+# there is nothing for a second match to get wrong); an explicit third argument is an exact count;
+# anything this cannot confidently parse (a non-literal second argument, an unusual call shape)
+# falls back to 1, the old and only behaviour, rather than guess.
+_REPL_TAIL = re.compile(
+    r'^\s*,\s*(?:"(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)*\')\s*(?:,\s*(\d+)\s*)?\)')
+
+
+def _replace_call_want(block, end):
+    """want implied by a `.replace(anchor, repl[, count])` call, reading from just past the
+    anchor argument. None means "at least one, no upper bound"; see the note above."""
+    m = _REPL_TAIL.match(block[end:])
+    if not m:
+        return 1
+    return int(m.group(1)) if m.group(1) else None
+
+
 def _py_anchors(block):
-    """Every anchor a python mutation body searches for.
+    """Every anchor a python mutation body searches for, as (label, text, want).
 
     Two spellings are in use across this repo's gates: a named `old=`/`guard=`/`store=`
     literal that is then asserted and replaced, and an inline `s.replace("anchor", ...)`.
@@ -474,14 +502,14 @@ def _py_anchors(block):
         except (ValueError, SyntaxError):
             continue
         if isinstance(val, str):
-            found.append((m.group(1), val))
+            found.append((m.group(1), val, 1))
     for m in re.finditer(r"\.replace\(\s*(\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*')", block):
         try:
             val = ast.literal_eval(m.group(1))
         except (ValueError, SyntaxError):
             continue
         if isinstance(val, str) and val:
-            found.append(("replace", val))
+            found.append(("replace", val, _replace_call_want(block, m.end())))
     return found
 
 
@@ -609,10 +637,22 @@ def is_whole_param_ref(word, quote):
     Distinguished from a word that merely contains a `$`: a mixed word like "value=$x" is a
     literal with a substitution in it and has always been counted as one, whereas a word that is
     only a parameter carries no text at all and is one more indirection to follow or to report.
+
+    🔴 2026-09-04: the docstring's own third example, "$1", used to be a lie -- the name part of
+    the pattern required a letter or underscore FIRST, so a bare numbered positional parameter
+    ($1..$9, or ${10}+) never matched and fell through as if it were two characters of literal
+    anchor text. tests/shell/mutate_logger_cli.sh's `widen() { ... apply "$1" "$2" "$3" ...; }`
+    calls `apply` (whose own signature names its 2nd argument `anchor`) with widen's OWN
+    positional parameters, not a named local -- exactly the indirection this function exists to
+    recognise -- and was reported MISSING against the literal string "$2", which occurs nowhere
+    because it is not text. The generic rule further down already had a dead `name.isdigit()`
+    branch for precisely this case that the bug made unreachable, which is the tell that
+    recognising digits here was always the intent.
     """
     if quote == "'":
         return False
-    return re.fullmatch(r"\$\{?[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]*\])?\}?", word.strip()) is not None
+    return re.fullmatch(r"\$\{?(?:[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]*\])?|[0-9]+)\}?",
+                        word.strip()) is not None
 
 
 def expand_word(word, quote, env):
@@ -701,8 +741,8 @@ def extract(gate_text, gate_name, gate_path=None, exists=None):
         head, hq = cmd[0]
 
         if hq == "H":                                    # heredoc body
-            for name, val in _py_anchors(head):
-                anchors.append((pending_py_file, val, LITERAL, "%s (heredoc)" % name, 1))
+            for name, val, want in _py_anchors(head):
+                anchors.append((pending_py_file, val, LITERAL, "%s (heredoc)" % name, want))
             pending_py_file = None
             continue
 
@@ -931,8 +971,8 @@ def extract(gate_text, gate_name, gate_path=None, exists=None):
                                       if "/" in d and not re.search(r"\.[A-Za-z0-9]+$", d)]
                 tgt = tuple(dict.fromkeys(same_line)) if len(same_line) > 1 else (
                     same_line[0] if same_line else None)
-                for name, val in got:
-                    add(tgt, val, "%s (%s)" % (name, head))
+                for name, val, want in got:
+                    add(tgt, val, "%s (%s)" % (name, head), want)
         if took_python:
             continue
 
@@ -1201,6 +1241,14 @@ def main():
                 if a.verbose:
                     print("    %-34s %-28s %s x%d  %s" % (os.path.basename(gate), rv.rev,
                                                           kind, c, f))
+                if want is None:
+                    # "at least one, no upper bound" -- see _replace_call_want. A bare
+                    # `s.replace(old, new)` cannot mutate the wrong site the way a single-target
+                    # applier can, so more than one match is not a DUP; zero still is MISSING.
+                    if c >= 1:
+                        continue
+                    missing.append((f, anchor, kind, where, c, 1))
+                    continue
                 if c == want:
                     continue
                 (dup if c > want else missing).append((f, anchor, kind, where, c, want))
