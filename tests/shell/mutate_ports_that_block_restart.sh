@@ -46,15 +46,27 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = case that must fail
 
 # A mutant is a whole directory: ndt sources ports.sh from beside itself, so both files travel
 # together and a mutation to either is exercised through the real seam.
-mutant() {   # $1 = name, $2 = file to mutate (ports.sh|ndt), $3 = "old<US>new"; prints the dir
+#
+# 2026-09-04: $3/$4 used to be ONE argument, "old<US>new" packed at RUNTIME by each call site's
+# own "$(printf '...\x1f...')" -- tools/test_workflow's own text never changed, only how this
+# gate's 9 call sites SPELL the anchor they pass down. check_gate_anchors.py deliberately never
+# evaluates a command substitution ("what the substitution EVALUATES to is not something this
+# tool can know" -- its own words), so every one of those 9 anchors was invisible to it, not
+# merely unusual. Split into two plain arguments -- named here so the checker's existing
+# role-based reading applies -- and read back with `bash "$HERE/mutate_ports_that_block_restart.sh"`
+# `printf '%s\x1f%s' "$old" "$new"`-equivalent decoding (base64-captured, split on 0x1f, verified
+# byte-identical to what each ORIGINAL "$(printf ...)" call actually produced, and each anchor's
+# count against tools/test_workflow/{ports.sh,ndt} unchanged at 1) before this rewrite; nothing
+# about what gets mutated changed, only how the text reaches this function.
+mutant() {   # $1 = name, $2 = file to mutate (ports.sh|ndt), $3 = old text, $4 = new text
+    local name="$1" file="$2" old="$3" new="$4"
     local d="$BK/$1"; mkdir -p "$d"
     cp "$PORTS" "$d/ports.sh"; cp "$NDT" "$d/ndt"; chmod +x "$d/ndt"
     # ndt also sources sudo_surface.sh from beside itself (fix/ndt-sudo-surface); ship it, unmutated.
     cp "$REPO/tools/test_workflow/sudo_surface.sh" "$d/sudo_surface.sh"
-    python3 - "$d/$2" "$3" <<'PY'
+    python3 - "$d/$2" "$3" "$4" <<'PY'
 import sys
-p, spec = sys.argv[1], sys.argv[2]
-a, b = spec.split("\x1f")
+p, a, b = sys.argv[1], sys.argv[2], sys.argv[3]
 s = open(p).read()
 assert s.count(a) == 1, "anchor not unique (%d hits): %s" % (s.count(a), a[:70])
 open(p, "w").write(s.replace(a, b))
@@ -70,46 +82,51 @@ run_against "$base" >/dev/null 2>&1 || { echo "  baseline is RED -- fix that fir
 echo
 
 # --- the table's content: rows that used to live in comments -------------------------------
-m=$(mutant m1 ports.sh "$(printf '6343|udp|both\x1fNOPE-6343|udp|both')")
+m=$(mutant m1 ports.sh '6343|udp|both' 'NOPE-6343|udp|both')
 report "M1: drop the sFlow row (the 09-02 incident's own port)" "$m" \
        "6343 is in the table AND declared udp (the 09-02 incident)"
 
-m=$(mutant m2 ports.sh "$(printf '\n6633|tcp|ovs\x1f\nNOPE-6633|tcp|ovs')")
+m=$(mutant m2 ports.sh '
+6633|tcp|ovs' '
+NOPE-6633|tcp|ovs')
 report "M2: cover 6653 but not 6633 (the half-fix)" "$m" \
        "BOTH 6653 and 6633 are rows (the probe order reaches both)"
 
-m=$(mutant m3 ports.sh "$(printf '30051-30060|tcp|p4\x1fNOPE|tcp|p4')")
+m=$(mutant m3 ports.sh '30051-30060|tcp|p4' 'NOPE|tcp|p4')
 report "M3: drop the bmv2 gRPC block (ndt:635's comment, unexecuted)" "$m" \
        "the bmv2 gRPC block is a row (ndt:635 said :3005x in a comment)"
 
 # --- the proto column: the reason :6343 was invisible even to a check that looked -----------
-m=$(mutant m4 ports.sh "$(printf 'if [[ "$proto" == udp ]]; then\n        command -v ss\x1fif false; then\n        command -v ss')")
+m=$(mutant m4 ports.sh 'if [[ "$proto" == udp ]]; then
+        command -v ss' 'if false; then
+        command -v ss')
 report "M4: ndt_port_open ignores proto (TCP-only, the original probe)" "$m" \
        "injection took effect: something really is holding udp :45902"
 
 # --- the residue report: holder and consequence, not a count -------------------------------
-m=$(mutant m5 ports.sh "$(printf "printf 'residue: %%s holding :%%s (%%s)\\\\n' \"\$(ndt_port_holder \"\$port\" \"\$proto\")\"\x1fprintf 'residue: 1 listener on :%%s (%%s)\\\\n' \"\"")")
+m=$(mutant m5 ports.sh 'printf '"'"'residue: %s holding :%s (%s)\n'"'"' "$(ndt_port_holder "$port" "$proto")"' 'printf '"'"'residue: 1 listener on :%s (%s)\n'"'"' ""')
 report "M5: residue prints a count instead of naming the holder" "$m" \
        "the residue line names the HOLDER by pid, not a count"
 
-m=$(mutant m6 ports.sh "$(printf "            printf '         -> if something else holds it: %%s\\\\n' \"\$consequence\"\n\x1f")")
+m=$(mutant m6 ports.sh '            printf '"'"'         -> if something else holds it: %s\n'"'"' "$consequence"
+' '')
 report "M6: residue drops the consequence column" "$m" \
        "the residue line states the consequence from the row"
 
 # --- ranges ---------------------------------------------------------------------------------
-m=$(mutant m7 ports.sh "$(printf 'if [[ "$spec" == *-* ]]; then\x1fif false; then')")
+m=$(mutant m7 ports.sh 'if [[ "$spec" == *-* ]]; then' 'if false; then')
 report "M7: ranges are not expanded (30051-30060 stays a string)" "$m" \
        "30051-30060 expands to all ten device ports"
 
 # --- zero-discrimination guard ---------------------------------------------------------------
 # If residue reported unconditionally, every "it caught the holder" case above would pass
 # against a function that never looked. The free-port control is what forbids that.
-m=$(mutant m8 ports.sh "$(printf '                *) continue ;;\x1f                *) : ;;')")
+m=$(mutant m8 ports.sh '                *) continue ;;' '                *) : ;;')
 report "M8: residue reports whether or not the port is held" "$m" \
        "a free port produces no residue and returns 0"
 
 # --- the wiring: cmd_clean must READ the table, not keep a copy -------------------------------
-m=$(mutant m9 ndt "$(printf 'residue="$(ndt_port_residue all)"; local prc=$?\x1fresidue=""; local prc=0')")
+m=$(mutant m9 ndt 'residue="$(ndt_port_residue all)"; local prc=$?' 'residue=""; local prc=0')
 report "M9: cmd_clean stops reading the table (its own list again)" "$m" \
        "cmd_clean's port residue comes from the shared table function"
 
