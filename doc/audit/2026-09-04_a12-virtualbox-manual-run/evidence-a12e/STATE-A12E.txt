@@ -1,0 +1,58 @@
+A-12e STATE  2026-09-04T03:43:01+00:00   guest=ubuntu
+
+== ~/Desktop 實際內容 ==
+Energy-Saving-App
+NDTwin-Kernel
+Network-Traffic-Visualizer
+PROVENANCE.txt
+README-NDTwin-tools.md
+Simulation-Platform-Manager
+Traffic-Engineering-App
+
+== 兩頁 Tutorials 點名的目錄 ==
+/home/tester/Desktop/Network-Traffic-Generator MISSING
+/home/tester/Desktop/Network-Traffic-Visualizer DIR
+/home/tester/Desktop/Traffic-Engineering-App   DIR
+/home/tester/Desktop/Simulation-Platform-Manager DIR
+/home/tester/Desktop/Energy-Saving-App         DIR
+/home/tester/Desktop/NDTwin-Kernel             DIR
+
+== 點名的檔案，全機 find ==
+network_traffic_visualizer.sh          /home/tester/Desktop/Network-Traffic-Visualizer/network_traffic_visualizer.sh
+simulation_platform_manager            /home/tester/Desktop/Simulation-Platform-Manager/simulation_platform_manager
+energy_saving_app                      /home/tester/Desktop/Energy-Saving-App/energy_saving_app
+Traffic-engineering-App.py             /home/tester/Desktop/Traffic-Engineering-App/Traffic-engineering-App.py
+config_template.json                   NOT ON IMAGE
+config_template2.json                  NOT ON IMAGE
+intelligent_router_static_topo.py      NOT ON IMAGE
+intelligent_router_static_topo2.py     NOT ON IMAGE
+example_topology.py                    NOT ON IMAGE
+
+== intelligent_router* 萬用字元（比逐個檔名強的儀器） ==
+/home/tester/Desktop/NDTwin-Kernel/__pycache__/intelligent_router.cpython-38.pyc
+/home/tester/Desktop/NDTwin-Kernel/intelligent_router.py
+
+== conda env ==
+
+# conda environments:
+#
+# * -> active
+# + -> frozen
+base                     /home/tester/miniconda3
+ryu-env                  /home/tester/miniconda3/envs/ryu-env
+
+
+== NTG 樹的 template ==
+/home/tester/Network-Traffic-Generator/flow_template.json
+/home/tester/Network-Traffic-Generator/dist_template.json
+
+== systemd unit（測試後已停回） ==
+ndtwin-esa       active=inactive enabled=disabled
+ndtwin-spm       active=inactive enabled=disabled
+ndtwin-reqmgr    active=inactive enabled=disabled
+nfs-server       active=active enabled=disabled
+
+== ndtwin-esa unit 檔的關鍵行 ==
+After=network-online.target nfs-server.service
+ExecStartPre=/usr/local/sbin/ndtwin-nfs-up
+ExecStart=/home/tester/Desktop/Energy-Saving-App/energy_saving_app

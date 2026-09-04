@@ -425,4 +425,105 @@ fabric is measuring a link an order of magnitude below the one the topology desc
 * Part A's suspicion that `setting/` lacked an OVS 128-host topology was wrong; choice [1] loads
   `StaticNetworkTopologyMininet_10Switches.json`, which is present.
 
+---
+
+# Part D -- the two Tutorials pages, run (A-12e)
+
+Adam's instruction after Part C was: fix the page you ran, then **go run the pages you have
+not run**, and if there really is a problem, fix those too. Parts A-C covered the User Manual's
+Quick Start page. `TrafficEngineeringApp.md` and `EnergySavingApp.md` had never been run; between
+them they carry about 30 commands, and only four of those had ever been checked.
+
+**Evidence:** `evidence-a12e/` (`STATE-A12E.txt`, `apps.txt`, `te.txt`),
+`sha256 4499aea73c957346acf13da15f26a682d1b1ba759a99113602dcf9b41fb6cc96`, equal at all three hops.
+
+## What is on the image, measured
+
+| Named on the pages | On the image |
+| :--- | :--- |
+| `~/Desktop/{Traffic-Engineering-App, Energy-Saving-App, Network-Traffic-Visualizer, Simulation-Platform-Manager}` | **all four present** |
+| `energy_saving_app`, `simulation_platform_manager`, `network_traffic_visualizer.sh`, `Traffic-engineering-App.py` | **all four present, at the documented paths** |
+| `~/Desktop/Network-Traffic-Generator` | **absent** -- NTG is at `~/Network-Traffic-Generator` |
+| `intelligent_router_static_topo.py`, `intelligent_router_static_topo2.py` | **neither is on the image** |
+| `example_topology.py` | **absent** -- NTG ships `testbed_topo.py` |
+| `ntg_env`, `te-env` | **absent** -- `conda env list` is `base` and `ryu-env` |
+| `config_template.json`, `config_template2.json` | **absent** -- NTG ships `flow_template.json` and `dist_template.json` |
+
+The router row is worth a note on **instruments**. Earlier rounds searched for
+`intelligent_router_static_topo.py` by exact name, which says nothing about `_topo2.py`. This
+round used `find / -name 'intelligent_router*'`, and the whole image holds exactly one Ryu
+application: `intelligent_router.py`. Until that wildcard was run, `_topo2.py` was a genuine
+unknown, not a settled absence.
+
+## 🔴 D15 -- the two NFS applications block; the Installation Manual says they abort
+
+The Installation Manual states that `energy_saving_app` and `simulation_platform_manager`
+*"mount NFS as their first action and abort with `Mount NFS Failed` if it does not succeed."*
+
+Run as the Tutorials pages instruct, on a fresh boot where `nfs-server` is inactive:
+
+```
+[info] energy_saving_app.cpp:977 main] Mount NFS
+[info] energy_saving_app.cpp:978 main] mount -t nfs localhost:/srv/nfs/sim/power /mnt/nfs/app
+[rc=124]                                        <- still blocked when killed at 25 s
+mount.nfs: Connection refused for localhost:/srv/nfs/sim/power on /mnt/nfs/app
+```
+
+**`Mount NFS Failed` never appeared.** The `mount.nfs` error surfaced only *after* the parent was
+killed. A user gets a program that sits there silently, not one that aborts with a message.
+⚠️ Bound, not a limit: the 25 s window is mine. It may abort eventually; it does not abort promptly.
+
+`energy_saving_app` also prints a raw Boost internal string when its first connection is refused
+-- `Error: connect: Connection refused [system:111 at /usr/include/boost/asio/detail/
+reactive_socket_service.hpp:589:5 ...]` -- and then continues anyway.
+
+**The documented systemd path does work**, and was verified rather than assumed:
+
+| | result |
+| :--- | :--- |
+| `sudo systemctl start ndtwin-spm` | `active`, listening on **:9000** |
+| `sudo systemctl start ndtwin-esa` | `active`, listening on **:8001** |
+| mechanism | `After=nfs-server.service`, `ExecStartPre=/usr/local/sbin/ndtwin-nfs-up` |
+| `nfs-server` after | `inactive` -> **`active`**, both exports mounted |
+
+## 🔴 D16 -- both pages name a traffic-generator config file that does not exist
+
+`flow --config` -> `config_template.json` (TE page) and `config_template2.json` (ESA page).
+Neither is on the image. NTG's own README documents `flow_template.json` (intervals and flow mix)
+and `dist_template.json` (the same with parameters drawn from distribution files).
+
+## 🔴 D17 -- `te-env` is not merely missing, it is unnecessary
+
+The TE page says to `conda activate te-env` and adds that `$(which python)` is needed *"to force
+`sudo` to use the Conda environment's Python instead of the system Python."* Run under the image's
+plain `python3`, the application starts and reaches its own prompt:
+
+```
+Select TE mode:
+  1) Execute run_te() when you press Enter
+  2) Execute run_te() periodically (e.g., every 5 seconds)
+Enter 1 or 2 [default 1]:
+```
+
+It then raised `EOFError` -- **because I fed it no stdin**, which is my harness, not a defect.
+
+## ⚠️ Not a finding: the visualizer
+
+`./network_traffic_visualizer.sh` failed here with `java.lang.UnsupportedOperationException:
+Unable to open DISPLAY`. **That is this headless SSH environment, not the script** -- it got all
+the way to the JavaFX launch, so the maven and JavaFX setup around it is sound. Nothing on that
+step was changed.
+
+## What was changed on the website, and on what evidence
+
+Three commits on branch `docs/p4-bmv2-environment`, **not pushed**. Each commit message separates
+what was *executed*, what is *documentation-sourced*, and what was *left alone deliberately*. Two
+lines carry explicit, visible uncertainty rather than a silent guess:
+
+* `config_template.json` -> `flow_template.json` rests on NTG's README; the NTG interface itself
+  was never driven.
+* `intelligent_router_static_topo2.py` -> `intelligent_router.py` carries a note **on the page**
+  saying the substitution brings the fabric up but has **not** been verified to reproduce the
+  energy-saving behaviour the page demonstrates.
+
 [Co-developed with claude code -- Adam]
