@@ -1,0 +1,24 @@
+reverted src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp to 535f8f4b^ (pre-fix)
+guarded_build: exit 0
+=== RED RUN (trunk's walk, this branch's test) ===
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = KernelStopIsBoundedTest.AFlowTablePollCaughtMidRoundStopsWithinTheBound
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from KernelStopIsBoundedTest
+[ RUN      ] KernelStopIsBoundedTest.AFlowTablePollCaughtMidRoundStopsWithinTheBound
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-stop/tests/test_KernelStopIsBounded.cpp:366: Failure
+Expected: (elapsed) < (kStopBound), actual: 32018696072ns vs 3s
+stop() took 32.018696071999997 s with 4 switches against a control plane that accepts and never answers. FINDINGS #27: the worker only reads its stop flag between rounds, so the stop waits out one `curl --max-time 8` per remaining switch.
+[  FAILED  ] KernelStopIsBoundedTest.AFlowTablePollCaughtMidRoundStopsWithinTheBound (32039 ms)
+[----------] 1 test from KernelStopIsBoundedTest (32039 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1 test from 1 test suite ran. (32039 ms total)
+[  PASSED  ] 0 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] KernelStopIsBoundedTest.AFlowTablePollCaughtMidRoundStopsWithinTheBound
+
+ 1 FAILED TEST
+RED27_RC=0
+restored byte-identical

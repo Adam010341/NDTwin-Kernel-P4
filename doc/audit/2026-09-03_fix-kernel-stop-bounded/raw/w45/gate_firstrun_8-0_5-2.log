@@ -1,0 +1,83 @@
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ ./tests/shell/mutate_kernel_stop_is_bounded.sh
+=== anchor uniqueness (exact substring count must be 1) ===
+  ok     walk-check       src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp x1
+  ok     flow-curl        src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp x1
+  ok     pm-request       src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp x1
+  ok     pm-report        src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp x1
+  ok     pm-join          src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp x1
+  ok     pm-sleep         src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp x1
+  ok     of-scope         src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp x1
+  ok     topo-curl        src/ndt_core/collection/TopologyAndFlowMonitor.cpp   x1
+  ok     topo-request     src/ndt_core/collection/TopologyAndFlowMonitor.cpp   x1
+  ok     topo-endchecks   src/ndt_core/collection/TopologyAndFlowMonitor.cpp   x1
+  ok     ss-kill          include/utils/StopSignal.hpp                         x1
+  ok     ss-waitfor       include/utils/StopSignal.hpp                         x1
+  ok     ss-report-log    include/utils/StopSignal.hpp                         x1
+  ok     ss-report-body   include/utils/StopSignal.hpp                         x1
+  ok     ss-comment       include/utils/StopSignal.hpp                         x1
+
+=== baseline (unmutated working tree) must build and be green ===
+  ok       baseline green (9 cases in KernelStopIsBoundedTest.*:PowerManagerShutdownDeathTest.*)
+  ok       nothing skipped
+  ok       test_routing_strategy sha256 bac9faadad41c5f5
+
+=== M1. the flow-table request goes back to the uncancellable executor ===
+  expect red: KernelStopIsBoundedTest.AFlowTablePollCaughtMidRoundStopsWithinTheBound
+  ✅ caught  red: KernelStopIsBoundedTest.AFlowTablePollCaughtMidRoundStopsWithinTheBound
+
+=== M2. the topology request goes back to the uncancellable executor ===
+  expect red: KernelStopIsBoundedTest.ATopologyPollBlockedInItsHttpCallReturnsWithinTheBound
+  ✅ caught  red: KernelStopIsBoundedTest.ATopologyPollBlockedInItsHttpCallReturnsWithinTheBound
+
+=== M3. request() no longer kills the in-flight child ===
+  expect red: KernelStopIsBoundedTest.AFlowTablePollCaughtMidRoundStopsWithinTheBound KernelStopIsBoundedTest.ATopologyPollBlockedInItsHttpCallReturnsWithinTheBound
+  ✅ caught  red: KernelStopIsBoundedTest.AFlowTablePollCaughtMidRoundStopsWithinTheBound KernelStopIsBoundedTest.ATopologyPollBlockedInItsHttpCallReturnsWithinTheBound
+
+=== M4. waitFor ignores the stop and sleeps out its full duration ===
+  expect red: KernelStopIsBoundedTest.AFlowTablePollCaughtMidRoundStopsWithinTheBound
+  ✅ caught  red: KernelStopIsBoundedTest.AFlowTablePollCaughtMidRoundStopsWithinTheBound
+
+=== M5. the power manager's stop() no longer requests the stop ===
+  expect red: KernelStopIsBoundedTest.AFlowTablePollCaughtMidRoundStopsWithinTheBound
+  ✅ caught  red: KernelStopIsBoundedTest.AFlowTablePollCaughtMidRoundStopsWithinTheBound
+
+=== M6. the monitor's stop() no longer requests the stop ===
+  expect red: KernelStopIsBoundedTest.ATopologyPollBlockedInItsHttpCallReturnsWithinTheBound
+  ✅ caught  red: KernelStopIsBoundedTest.ATopologyPollBlockedInItsHttpCallReturnsWithinTheBound
+
+=== M7. the over-bound report returns without saying anything ===
+  expect red: KernelStopIsBoundedTest.AStopThatExceedsItsBoundSaysWhatItIsWaitingOn KernelStopIsBoundedTest.TheMonitorsStopReportNamesItsOwnWorkers
+  ✅ caught  red: KernelStopIsBoundedTest.AStopThatExceedsItsBoundSaysWhatItIsWaitingOn KernelStopIsBoundedTest.TheMonitorsStopReportNamesItsOwnWorkers
+
+=== M8. the openflow join is deleted -- a 'fast' stop that aborts the process ===
+  expect red: PowerManagerShutdownDeathTest.AStoppedManagerIsDestroyedWithoutAborting PowerManagerShutdownDeathTest.AManagerNeverStoppedIsDestroyedWithoutAborting
+  ✅ caught  red: PowerManagerShutdownDeathTest.AStoppedManagerIsDestroyedWithoutAborting PowerManagerShutdownDeathTest.AManagerNeverStoppedIsDestroyedWithoutAborting
+
+=== W1. a comment is reworded (MUST stay green) ===
+  ✅ survived -- behaviour unchanged, so the catches above are about behaviour
+
+=== W2. the over-bound report is reworded (MUST stay green) ===
+  ✅ survived -- behaviour unchanged, so the catches above are about behaviour
+
+=== W3. the walk's stop check is written as an equivalent expression (MUST stay green) ===
+  ✅ survived -- behaviour unchanged, so the catches above are about behaviour
+
+=== W4. the walk's top-of-loop stop check is removed (redundant for timing -- see the note above) (MUST stay green) ===
+  🔴 CAUGHT: tests went red on a behaviour-preserving change: KernelStopIsBoundedTest.AStopThatExceedsItsBoundSaysWhatItIsWaitingOn  
+     This gate cannot tell an edit from a behaviour change.
+
+=== W5. the between-endpoint stop checks are removed (redundant today -- see the header) (MUST stay green) ===
+  🔴 CAUGHT: tests went red on a behaviour-preserving change: KernelStopIsBoundedTest.AStopThatExceedsItsBoundSaysWhatItIsWaitingOn  
+     This gate cannot tell an edit from a behaviour change.
+
+=== restore ===
+  all 3 files byte-identical to the pre-run snapshot
+  rebuilt from the restored tree
+  suite green again after restore
+  test binary sha unchanged: bac9faadad41c5f5
+
+=== verdict ===
+  8 mutations, 0 survived
+  5 widenings, 2 wrongly caught
+guarded_build: exit 1

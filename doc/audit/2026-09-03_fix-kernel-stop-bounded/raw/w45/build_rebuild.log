@@ -1,0 +1,7 @@
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ cmake --build build --target test_routing_strategy -j1
+[1/4] Building CXX object src/ndt_core/power_management/CMakeFiles/NdtCore_PowerManagementLib.dir/DeviceConfigurationAndPowerManager.cpp.o
+[2/4] Linking CXX static library lib/libNdtCore_PowerManagementLib.a
+[3/4] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_KernelStopIsBounded.cpp.o
+[4/4] Linking CXX executable bin/test_routing_strategy
+guarded_build: exit 0
