@@ -884,4 +884,69 @@ when all three are importable -- `loguru` from the system interpreter (the TE ap
 **D19 survives the better instrument**: `pandas` and `nornir` are genuinely absent from all three
 interpreters, which is why NTG and NSR cannot start.
 
+---
+
+# Part G -- the run-06 backlog, and a defect found while fixing another one (A-12i)
+
+`doc/audit/2026-09-02_manual-usertest/run-06-opus/VERIFICATION.md` carried five items marked
+"Not verified" and one partial. **All six are now adjudicated on the shipped image**; the full
+adjudication is an addendum in that file. Summary: BUG-05 verified, BUG-08 confirmed and worse
+than reported, BUG-14 confirmed, BUG-15 confirmed as a documentation defect but corrected as a
+product claim (`?k=N` does work), BUG-16 confirmed, BUG-17 confirmed with the source comment
+sharing the documentation's error.
+
+**Evidence:** `evidence-a12i/`, `sha256 38265491a0ad765c54a3eb9f707f5c9f6cc610b1718c6f0641806d5a5fc39300`.
+
+## 🔴 D27 -- every configuration block on the NTG installation page is unusable if copied
+
+Found while trying to correct BUG-16: a string match failed, and `cat -A` showed why. The page's
+code blocks are indented with **U+00A0**, not spaces -- **443 of them inside fences**, 451 in the
+file.
+
+| block | what happens when a reader copies it |
+| :--- | :--- |
+| the three `json` blocks (`flow`/`dist` configs for `flow --config`) | **`JSONDecodeError`** -- U+00A0 is not JSON whitespace |
+| the `NTG.yaml` block | **parses, and is wrong** |
+
+The YAML case is the dangerous one. It raises nothing and produces:
+
+```
+keys: ['inventory', '\xa0 plugin', '\xa0 options', '\xa0 \xa0 host_file',
+       '\xa0 \xa0 group_file', 'runner', '\xa0 \xa0 num_workers', 'logging', '\xa0 enabled']
+inventory: None
+'\xa0 plugin': 'threaded'
+```
+
+Every nested key is promoted to the top level, `inventory` becomes `null`, and `runner`'s
+`plugin: threaded` **silently overwrites** `inventory`'s `plugin: SimpleInventory` because they
+are now the same key. A user gets no error and a configuration that means nothing like what the
+page shows.
+
+Fixed by replacing U+00A0 with ordinary spaces of the same width inside fences, and **verified by
+re-parsing**: the YAML now yields `inventory.plugin = SimpleInventory` with `options` nested under
+it, and all three JSON blocks load. A scan of the whole `docs/` tree shows the problem is confined
+to the two NTG pages.
+
+## 🔴 BUG-08, restated -- the rewrite is not byte-stable
+
+`POST /ndt/modify_device_name` returns `200 {"status":"Device name updated successfully."}` and
+rewrites `setting/StaticNetworkTopologyMininet_10Switches.json`:
+
+| | sha256 (first 12) |
+| :--- | :--- |
+| before | `14988a44c0e6` |
+| after renaming `s1` -> `a12i-renamed` | `949b082ff482` |
+| after renaming back to `s1` | **`3c2ff0602230`** |
+
+The logical content is restored -- zero occurrences of the test name -- but **the file is still
+different**. On a real checkout, undoing the change does not clean the working tree, and nothing
+in the response or the log ever said a tracked file was written.
+
+## ⚠️ Two harness errors of mine in this round, both caught and retested
+
+The first attempt at BUG-08 extracted an empty dpid and posted malformed JSON; the second supplied
+a dpid but omitted `vertex_type`. Both returned 400. **Neither was a product result** -- they were
+measurements that never reached the path being claimed about, the same shape as Part E's P2, and
+the second time today. Recorded because the tempting misreading is "the defect does not reproduce".
+
 [Co-developed with claude code -- Adam]
