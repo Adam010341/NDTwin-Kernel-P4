@@ -119,3 +119,7 @@ Adam 裁（09-03 21:1x）：(a)。派 `fix/is-up-split-admin-state-reachable`。
 ## W-27b — finding #27 的下半：`FlowLinkUsageCollector::stop()` 接上同一個 `StopSignal`（⭕ 未派）
 
 `fix/kernel-stop-is-bounded` 併入後，行程層級的關機是 **4.70 s**，其中 **4.607 s** 在 collector 的 `stop()`（`refreshDestinationPathsPeriodically` 的 `--max-time 10` curl 與 `testCalAvgFlowSendingRatesRandomly`／`purgeIdleFlows`／`calAvgFlowSendingRatesPeriodically`／`calFlowPathByQueried` 四條沒切片的 1–2 s sleep）。照抄同一個原語（`WorkerScope`＋`waitFor`＋`execCommandCancellable`）即可；做完才能對外承諾 3 s。stop agent 建議現在就派（N20 Q1 建議 (b)）。前提：`FlowLinkUsageCollector.cpp` 今晚有別的分支在動的話先等它們併完。
+
+## W-GATE-LOCK — C++ 變異閘門整輪持鎖，餓死其他 agent（⭕ 未派，工具層）
+
+09-04 凌晨實測：一支 C++ 閘門在 `guarded_build.sh` 的**單次持鎖**內對每個 mutant 重編（-j1、動到 `GraphTypes.hpp` 的每個 mutant 重編大半棵樹），連續持鎖 1 h 33 m；同時 7 個 waiter，delgroup 的 configure 排 76 分鐘沒拿到、noip 也停下等。`LOCK_WAIT` 預設 3600 s 讓排隊者直接放棄（已改 verify 腳本預設 10800）。**改法候選**：閘門對每個 mutant 各自取放鎖（`build()` 包一層 guard，而不是整支腳本包一層）；或 guard 加公平佇列（ticket）。代價：每次取放鎖多幾秒；好處：多 agent 之夜不再餓死。要 Adam 點頭再動 `tools/build_guard/`（它是 09-02 為了保護 app 加的）。
