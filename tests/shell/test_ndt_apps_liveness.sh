@@ -41,11 +41,15 @@
 #     claim window (lab held by another session) is the reason that is not negotiable here.
 #
 # Run:  bash tests/shell/test_ndt_apps_liveness.sh
+# Env:  NDT_UNDER_TEST=<path>   (a mutation gate points this at a copy, so the gate never has
+#                                to write tools/test_workflow/ndt -- same convention as
+#                                tests/shell/test_apps_stop_kills_the_group.sh:49. Unset, this
+#                                is the working tree's ndt exactly as before.)
 set -uo pipefail
 
 export NO_COLOR=1
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NDT="$HERE/../../tools/test_workflow/ndt"
+NDT="${NDT_UNDER_TEST:-$HERE/../../tools/test_workflow/ndt}"
 
 PASS=0
 FAIL=0
@@ -92,6 +96,10 @@ reap_fixtures() {
 }
 cleanup_fixtures() {
     [[ -f "$FIXTURE_REG" ]] && reap_fixtures >/dev/null
+    # Section 6 spawns through app_spawn itself, so its fixtures are not `sleep` processes and
+    # reap_fixtures cannot see them. Guarded by declare -F because the trap is armed here, long
+    # before that section defines the reaper.
+    declare -F reap_spawned >/dev/null && reap_spawned >/dev/null
     [[ -n "${TMPROOT:-}" && "$TMPROOT" == /tmp/ndt-apps-liveness-* ]] && rm -rf "$TMPROOT"
     return 0
 }
@@ -343,9 +351,131 @@ SNAPSHOT_LINES=""
 check "one of five was running -> rc 0"           0 "$rc"
 check "  and the mix is stated"                   yes "$(has "were already not running" "$out")"
 
-# --- 6. this suite does not become the thing it tests --------------------------------
+# --- 6. W7: the launcher's stdin, for an app that reads it before it does anything ----
+#
+# [Co-developed with claude code -- Adam]
+# Measured 2026-09-04: `ndt apps start te` returned 1 inside the second, and
+# .test_run/logs/app_te.log ended in `EOFError: EOF when reading a line` from
+# Traffic-engineering-App.py:599 -- an input() at startup, reading the fd 0 that `ndt` handed
+# down, which in any non-interactive context is already at EOF. The app's repo is read-only for
+# us and it has no non-interactive path of its own, so app_spawn grew an optional APP_STDIN.
+#
+# Three things a "working" version of that feed can still get wrong, one check each:
+#   * the feed does not actually reach the program (it went to the subshell, or to nothing);
+#   * it reaches apps that never asked for one -- nsr and viz inherit fd 0 today, and handing
+#     them an empty herestring would give them an immediate EOF they do not have now;
+#   * it costs the app its identity or its session. A `bash -c`/`script -c` wrapper buries
+#     `Traffic-engineering-App.py` inside one argv element, and pid_is_app compares argv
+#     ELEMENTS -- `apps status` would then print not-running for a process that is there. That
+#     is the mutation this section exists to make red.
+echo "app_spawn stdin (W7: te died of EOFError one second in)"
+
+SPAWN_DIR="$TMPROOT/NDT-TEST-FIXTURE-te"
+mkdir -p "$SPAWN_DIR"
+MARKER="$TMPROOT/te_fixture_answers"
+export MARKER
+# Named for the real app deliberately: app_sig te is `Traffic-engineering-App.py`, and a fixture
+# under any other name could not tell a herestring apart from a wrapper. It touches nothing but
+# its own marker file.
+#
+# 🔴 Started by BARE FILENAME from its own directory, exactly as the te branch starts the real
+# one, and NOT by absolute path -- measured 2026-09-04: with an absolute path the wrapper
+# mutation SURVIVES this suite. pid_is_app accepts an element that ends in "/" + the signature,
+# and a wrapper's `-c` string ending in .../Traffic-engineering-App.py satisfies that glob. The
+# real launcher passes a bare filename, so the real wrapper's string ends in "python
+# Traffic-engineering-App.py" -- a space, not a slash, and no match. A fixture that does not
+# copy the launcher's own argv shape cannot see the bug the launcher would have.
+#
+# The extra NDT-TEST-FIXTURE argument is how a leaked one stays readable as a fixture in ps
+# without disturbing that: pid_is_app compares elements, and this is a different element.
+cat > "$SPAWN_DIR/Traffic-engineering-App.py" <<'FIXTURE'
+#!/usr/bin/env bash
+# NDT-TEST-FIXTURE -- not the real Traffic-engineering-App.py. Same shape: two reads at
+# startup, then a loop that never looks at stdin again. `sleep` is a child rather than an exec
+# so that argv keeps carrying the signature the launcher is judged on.
+#
+# EOF and an empty line are recorded as DIFFERENT answers, and that distinction is the whole
+# point of the control below: input() raises EOFError on one and returns "" on the other, and a
+# launcher that fed every app an empty herestring would look identical to the old behaviour if
+# this only checked the value.
+if read -r mode;     then m="${mode:-EMPTY}";     else m=EOF; fi
+if read -r interval; then i="${interval:-EMPTY}"; else i=EOF; fi
+printf '%s/%s\n' "$m" "$i" > "$MARKER"
+sleep "${FIXTURE_TTL:-120}"
+FIXTURE
+chmod +x "$SPAWN_DIR/Traffic-engineering-App.py"
+
+# Both spawns are given a caller stdin with known contents, and BOTH are expected to ignore it.
+# That is not a redundant setup, it is the measurement: `( ... ) &` is an asynchronous command,
+# so with job control off bash redirects it from /dev/null whatever the caller's fd 0 is (checked
+# 2026-09-04 with readlink /proc/self/fd/0 in this exact shape). The old launcher therefore fed
+# te /dev/null however `ndt` was started -- there was no terminal in which a human could have
+# answered that prompt -- and the feed has to come from inside the async command or not at all.
+INHERITED="$TMPROOT/inherited_stdin"
+printf 'INHERITED\nSTDIN\n' > "$INHERITED"
+
+SPAWNED=""
+SPAWN_PID=""
+spawn_app_fixture() {   # $1 = the APP_STDIN feed, or "" for none. Sets SPAWN_PID.
+    local feed="$1"
+    : > "$MARKER"
+    rm -f "$PIDDIR/app_te.pid" "$PIDDIR/app_te.pgid"
+    if [[ -n "$feed" ]]; then
+        APP_STDIN="$feed" app_spawn te "$SPAWN_DIR" bash Traffic-engineering-App.py NDT-TEST-FIXTURE \
+            >/dev/null 2>&1 <"$INHERITED"
+    else
+        app_spawn te "$SPAWN_DIR" bash Traffic-engineering-App.py NDT-TEST-FIXTURE \
+            >/dev/null 2>&1 <"$INHERITED"
+    fi
+    SPAWN_PID="$(cat "$PIDDIR/app_te.pid" 2>/dev/null)"
+    SPAWNED="$SPAWNED $SPAWN_PID"
+    # Off the jobs table, so that reaping it at the end does not print bash's own "Killed" line
+    # into the middle of a gate's output. It changes nothing about the process or how it is
+    # reaped -- reap_spawned works from the pid, not from a jobspec.
+    disown "$SPAWN_PID" 2>/dev/null || true
+}
+answers() { cat "$MARKER" 2>/dev/null; }
+# By the GROUP where there is one -- the fixture's `sleep` is its child, and a stop that cannot
+# reach a child is the failure the pgid machinery exists for. Never by name: no pkill, no pgrep.
+reap_spawned() {
+    local pid left=0
+    for pid in $SPAWNED; do
+        [[ "$pid" =~ ^[0-9]+$ ]] || continue
+        kill -KILL "-$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null
+    done
+    sleep 0.3
+    for pid in $SPAWNED; do
+        [[ "$pid" =~ ^[0-9]+$ ]] || continue
+        [[ -e "/proc/$pid" ]] && left=$((left + 1))
+    done
+    echo "$left"
+}
+
+spawn_app_fixture $'2\n5\n'
+FED_PID="$SPAWN_PID"
+check "app_spawn feeds APP_STDIN to the program"  "2/5" "$(answers)"
+check "a fed app is still its own session leader" yes \
+      "$(yn test "$(proc_pgid "$FED_PID")" = "$FED_PID" -a "$(proc_sid "$FED_PID")" = "$FED_PID")"
+check "  and its group was recorded for stop"     "$FED_PID" "$(cat "$(app_pgidfile te)" 2>/dev/null)"
+check "pid_is_app still matches a fed app"        yes "$(yn pid_is_app "$FED_PID" te)"
+
+# The control. EOF/EOF is the UNCHANGED behaviour -- what every app got before this fix and what
+# nsr and viz must keep getting. An unconditional herestring would read EMPTY/EOF here, which is
+# why the fixture distinguishes a failed read from an empty line.
+spawn_app_fixture ""
+check "app_spawn without APP_STDIN behaves as before" "EOF/EOF" "$(answers)"
+
+# Which mode the launcher asks for is part of the fix, not a detail: mode 1 starts the app's
+# enter_listener thread (Traffic-engineering-App.py:623-625), whose input() takes the EOF after
+# this feed, so the app would come up looking healthy with its Enter trigger dead. 5 is the
+# app's own default interval (:603), so the launcher is not quietly changing its behaviour.
+check "the te branch requests mode 2"             yes \
+      "$(has "APP_STDIN=\$'2\\n5\\n' app_spawn te" "$(grep -F 'app_spawn te ' "$NDT")")"
+
+# --- 7. this suite does not become the thing it tests --------------------------------
 echo "the suite reaps its own fixtures"
 check "no fixture survives this run"              0 "$(reap_fixtures)"
+check "no spawned app survives this run"          0 "$(reap_spawned)"
 
 echo
 if (( FAIL > 0 )); then
