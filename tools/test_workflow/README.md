@@ -258,3 +258,12 @@ TOPO_P4=/path/to/my_topo.json ./stack.sh up p4
 - **L0 的 Python 檢查只驗語法**：這些腳本的執行期依賴太重（Mininet、nornir、活的 kernel），沒辦法在這一層 import。
 - **步驟 4-6 沒有腳本化**：Visualizer 需要顯示器、Web-GUI 是 Docker、NTG 要在 Mininet 裡跑，各測試情境需求不同，所以留給人工或個別情境腳本。
 - **`components.env` 的路徑是這台機器的實際配置**，換機器要調整。
+- **`ndt down`／`stack.sh down` 送的是 SIGTERM，kernel 只裝了 SIGINT handler**（`src/main.cpp:344`
+  只有 `std::signal(SIGINT, handleSigint)`，沒有對應的 SIGTERM 註冊）：SIGTERM 的預設動作直接
+  終止行程，所以健康 kernel 收到 `ndt down` 之後的 exit code 是 **143**——這是 `stack.sh` 自己
+  認定的正常值（`report_exit`／`fatal_exit_status` 不把 143 算進「壞掉」的清單），不是失敗的
+  訊號。連帶後果：`main.cpp` 裡「Shutdown requested」／「All subsystems stopped」那段關機序列、
+  以及倚賴它的「stop 有界」量測，在 `ndt down` 這條真正的關機路徑上從來沒有執行過——只有手動
+  `kill -INT`（或 Ctrl-C）會走到。2026-09-04 讀了三代 `.test_run/logs/kernel.log`／`.prev`／
+  `.prev2`，三份「All subsystems stopped」都是 0 次，跟這個機制一致。要看關機序列本身，用
+  `kill -INT <kernel pid>`，不要用 `ndt down`。
