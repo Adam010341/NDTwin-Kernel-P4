@@ -1,0 +1,2438 @@
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[==========] Running 1007 tests from 128 test suites.
+[----------] Global test environment set-up.
+[----------] 12 tests from LoggerCliArgsDeathTest
+[ RUN      ] LoggerCliArgsDeathTest.AMistypedLevelIsRefusedRatherThanSilentlyDisablingLogging
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[       OK ] LoggerCliArgsDeathTest.AMistypedLevelIsRefusedRatherThanSilentlyDisablingLogging (12 ms)
+[ RUN      ] LoggerCliArgsDeathTest.LogfileWithNoPathIsRefusedRatherThanDefaulted
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[       OK ] LoggerCliArgsDeathTest.LogfileWithNoPathIsRefusedRatherThanDefaulted (9 ms)
+[ RUN      ] LoggerCliArgsDeathTest.LogfileFollowedByAnotherOptionIsRefused
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[       OK ] LoggerCliArgsDeathTest.LogfileFollowedByAnotherOptionIsRefused (9 ms)
+[ RUN      ] LoggerCliArgsDeathTest.LoglevelWithNoValueIsRefusedRatherThanIgnored
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[       OK ] LoggerCliArgsDeathTest.LoglevelWithNoValueIsRefusedRatherThanIgnored (10 ms)
+[ RUN      ] LoggerCliArgsDeathTest.LoglevelFollowedByAnotherOptionIsRefused
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[       OK ] LoggerCliArgsDeathTest.LoglevelFollowedByAnotherOptionIsRefused (10 ms)
+[ RUN      ] LoggerCliArgsDeathTest.AnUnknownOptionIsRefusedRatherThanSilentlyIgnored
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[       OK ] LoggerCliArgsDeathTest.AnUnknownOptionIsRefusedRatherThanSilentlyIgnored (9 ms)
+[ RUN      ] LoggerCliArgsDeathTest.TheRefusalNamesTheOptionsThatWouldHaveBeenAccepted
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[       OK ] LoggerCliArgsDeathTest.TheRefusalNamesTheOptionsThatWouldHaveBeenAccepted (9 ms)
+[ RUN      ] LoggerCliArgsDeathTest.AMistypedShortOptionIsRefusedToo
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[       OK ] LoggerCliArgsDeathTest.AMistypedShortOptionIsRefusedToo (10 ms)
+[ RUN      ] LoggerCliArgsDeathTest.TheEqualsFormIsRefusedBecauseNeitherParserHonoursIt
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[       OK ] LoggerCliArgsDeathTest.TheEqualsFormIsRefusedBecauseNeitherParserHonoursIt (7 ms)
+[ RUN      ] LoggerCliArgsDeathTest.AFlagTheCallerDidNotDeclareIsUnknownEvenThoughTheKernelOwnsIt
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[       OK ] LoggerCliArgsDeathTest.AFlagTheCallerDidNotDeclareIsUnknownEvenThoughTheKernelOwnsIt (8 ms)
+[ RUN      ] LoggerCliArgsDeathTest.TheHelpBranchOfTheLoggingParserRunsAndPrintsTheOptionBlock
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[       OK ] LoggerCliArgsDeathTest.TheHelpBranchOfTheLoggingParserRunsAndPrintsTheOptionBlock (9 ms)
+[ RUN      ] LoggerCliArgsDeathTest.TheShortHelpBranchRunsToo
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[       OK ] LoggerCliArgsDeathTest.TheShortHelpBranchRunsToo (9 ms)
+[----------] 12 tests from LoggerCliArgsDeathTest (116 ms total)
+
+[----------] 1 test from LoggerFileSinkDeathTest
+[ RUN      ] LoggerFileSinkDeathTest.ALogFileThatCannotBeOpenedEndsTheRun
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[       OK ] LoggerFileSinkDeathTest.ALogFileThatCannotBeOpenedEndsTheRun (61 ms)
+[----------] 1 test from LoggerFileSinkDeathTest (61 ms total)
+
+[----------] 3 tests from PowerManagerShutdownDeathTest
+[ RUN      ] PowerManagerShutdownDeathTest.DestroyingAJoinableThreadIsVisibleToThisHarness
+[       OK ] PowerManagerShutdownDeathTest.DestroyingAJoinableThreadIsVisibleToThisHarness (1098 ms)
+[ RUN      ] PowerManagerShutdownDeathTest.AStoppedManagerIsDestroyedWithoutAborting
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[       OK ] PowerManagerShutdownDeathTest.AStoppedManagerIsDestroyedWithoutAborting (10 ms)
+[ RUN      ] PowerManagerShutdownDeathTest.AManagerNeverStoppedIsDestroyedWithoutAborting
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[       OK ] PowerManagerShutdownDeathTest.AManagerNeverStoppedIsDestroyedWithoutAborting (7 ms)
+[----------] 3 tests from PowerManagerShutdownDeathTest (1116 ms total)
+
+[----------] 14 tests from LoggerCliArgsTest
+[ RUN      ] LoggerCliArgsTest.LogfileConsumesThePathThatFollowsIt
+[       OK ] LoggerCliArgsTest.LogfileConsumesThePathThatFollowsIt (0 ms)
+[ RUN      ] LoggerCliArgsTest.TheShortFormConsumesAPathToo
+[       OK ] LoggerCliArgsTest.TheShortFormConsumesAPathToo (0 ms)
+[ RUN      ] LoggerCliArgsTest.TheOptionAfterTheLogfilePathIsStillParsed
+[       OK ] LoggerCliArgsTest.TheOptionAfterTheLogfilePathIsStillParsed (0 ms)
+[ RUN      ] LoggerCliArgsTest.LoglevelStillTakesItsValue
+[       OK ] LoggerCliArgsTest.LoglevelStillTakesItsValue (0 ms)
+[ RUN      ] LoggerCliArgsTest.WithoutTheFlagNoFileIsRequestedAtAll
+[       OK ] LoggerCliArgsTest.WithoutTheFlagNoFileIsRequestedAtAll (0 ms)
+[ RUN      ] LoggerCliArgsTest.ATopologyPathIsNotMistakenForALogPath
+[       OK ] LoggerCliArgsTest.ATopologyPathIsNotMistakenForALogPath (0 ms)
+[ RUN      ] LoggerCliArgsTest.EveryLevelNameTheHelpAdvertisesIsAccepted
+[       OK ] LoggerCliArgsTest.EveryLevelNameTheHelpAdvertisesIsAccepted (0 ms)
+[ RUN      ] LoggerCliArgsTest.AskingForOffIsARequestAndNotATypo
+[       OK ] LoggerCliArgsTest.AskingForOffIsARequestAndNotATypo (0 ms)
+[ RUN      ] LoggerCliArgsTest.EveryFlagTheLoggingParserOwnsSurvivesTheCheck
+[       OK ] LoggerCliArgsTest.EveryFlagTheLoggingParserOwnsSurvivesTheCheck (0 ms)
+[ RUN      ] LoggerCliArgsTest.EveryFlagTheCallerDeclaresSurvivesTheCheck
+[       OK ] LoggerCliArgsTest.EveryFlagTheCallerDeclaresSurvivesTheCheck (0 ms)
+[ RUN      ] LoggerCliArgsTest.ACommandLineUsingBothParsersFlagsIsAccepted
+[       OK ] LoggerCliArgsTest.ACommandLineUsingBothParsersFlagsIsAccepted (0 ms)
+[ RUN      ] LoggerCliArgsTest.TheValueOfAValueTakingFlagIsNotScannedAsAnOption
+[       OK ] LoggerCliArgsTest.TheValueOfAValueTakingFlagIsNotScannedAsAnOption (0 ms)
+[ RUN      ] LoggerCliArgsTest.APositionalAndABareDashAreNotOptions
+[       OK ] LoggerCliArgsTest.APositionalAndABareDashAreNotOptions (0 ms)
+[ RUN      ] LoggerCliArgsTest.EveryValueTakingFlagInTheTableIsHonouredByTheParser
+[       OK ] LoggerCliArgsTest.EveryValueTakingFlagInTheTableIsHonouredByTheParser (0 ms)
+[----------] 14 tests from LoggerCliArgsTest (0 ms total)
+
+[----------] 2 tests from LoggerFileSinkTest
+[ RUN      ] LoggerFileSinkTest.InitWritesToThePathTheConfigNamesAndToNoOther
+[2026-09-04 11:29:09.725] [info] [[94mtest_LoggerCliArgs.cpp[0m:[95m481[0m [96mTestBody[0m] MARKER-ndtwin-logfile-takes-a-path
+[       OK ] LoggerFileSinkTest.InitWritesToThePathTheConfigNamesAndToNoOther (0 ms)
+[ RUN      ] LoggerFileSinkTest.AnEmptyPathOpensNoFile
+[2026-09-04 11:29:09.726] [info] [[94mtest_LoggerCliArgs.cpp[0m:[95m501[0m [96mTestBody[0m] MARKER-no-file-was-requested
+[       OK ] LoggerFileSinkTest.AnEmptyPathOpensNoFile (0 ms)
+[----------] 2 tests from LoggerFileSinkTest (0 ms total)
+
+[----------] 4 tests from LoggerUsageTextTest
+[ RUN      ] LoggerUsageTextTest.TheUsageShowsLogfileTakingAPath
+[       OK ] LoggerUsageTextTest.TheUsageShowsLogfileTakingAPath (0 ms)
+[ RUN      ] LoggerUsageTextTest.TheUsageNoLongerPromisesAHardCodedFilename
+[       OK ] LoggerUsageTextTest.TheUsageNoLongerPromisesAHardCodedFilename (0 ms)
+[ RUN      ] LoggerUsageTextTest.TheUsageShowsLoglevelTakingAValue
+[       OK ] LoggerUsageTextTest.TheUsageShowsLoglevelTakingAValue (0 ms)
+[ RUN      ] LoggerUsageTextTest.EveryLevelNameTheUsageActuallyPrintsIsAcceptedByTheParser
+[       OK ] LoggerUsageTextTest.EveryLevelNameTheUsageActuallyPrintsIsAcceptedByTheParser (0 ms)
+[----------] 4 tests from LoggerUsageTextTest (0 ms total)
+
+[----------] 20 tests from RoutingStrategyFixture
+[ RUN      ] RoutingStrategyFixture.InstallTargetsTheRyuAddRoute
+[       OK ] RoutingStrategyFixture.InstallTargetsTheRyuAddRoute (0 ms)
+[ RUN      ] RoutingStrategyFixture.EveryRequestAsksForTheStatusCodeAndBoundsItsTime
+[       OK ] RoutingStrategyFixture.EveryRequestAsksForTheStatusCodeAndBoundsItsTime (0 ms)
+[ RUN      ] RoutingStrategyFixture.DeleteWithoutPriorityUsesTheNonStrictRoute
+[       OK ] RoutingStrategyFixture.DeleteWithoutPriorityUsesTheNonStrictRoute (0 ms)
+[ RUN      ] RoutingStrategyFixture.DeleteWithPriorityUsesTheStrictRoute
+[       OK ] RoutingStrategyFixture.DeleteWithPriorityUsesTheStrictRoute (0 ms)
+[ RUN      ] RoutingStrategyFixture.ModifyWithPriorityUsesTheStrictRouteSoItCanOnlyHitThatEntry
+[       OK ] RoutingStrategyFixture.ModifyWithPriorityUsesTheStrictRouteSoItCanOnlyHitThatEntry (0 ms)
+[ RUN      ] RoutingStrategyFixture.ModifyWithoutAPriorityStaysOnTheNonStrictRoute
+[       OK ] RoutingStrategyFixture.ModifyWithoutAPriorityStaysOnTheNonStrictRoute (0 ms)
+[ RUN      ] RoutingStrategyFixture.ModifyOnTheP4ProxyKeepsTheRouteTheProxyActuallyServes
+[       OK ] RoutingStrategyFixture.ModifyOnTheP4ProxyKeepsTheRouteTheProxyActuallyServes (0 ms)
+[ RUN      ] RoutingStrategyFixture.ModifyAndDeleteAgreeOnWhatAPriorityMeans
+[       OK ] RoutingStrategyFixture.ModifyAndDeleteAgreeOnWhatAPriorityMeans (0 ms)
+[ RUN      ] RoutingStrategyFixture.IdleTimeoutIsOmittedForBothSentinels
+[       OK ] RoutingStrategyFixture.IdleTimeoutIsOmittedForBothSentinels (0 ms)
+[ RUN      ] RoutingStrategyFixture.P4StrategyTargetsTheProxyNotRyu
+[       OK ] RoutingStrategyFixture.P4StrategyTargetsTheProxyNotRyu (0 ms)
+[ RUN      ] RoutingStrategyFixture.ReportsFailureWhenNothingAnswers
+[       OK ] RoutingStrategyFixture.ReportsFailureWhenNothingAnswers (0 ms)
+[ RUN      ] RoutingStrategyFixture.ReportsFailureOnHttpErrorStatus
+[       OK ] RoutingStrategyFixture.ReportsFailureOnHttpErrorStatus (0 ms)
+[ RUN      ] RoutingStrategyFixture.TreatsAnErrorBodyInA200AsFailure
+[       OK ] RoutingStrategyFixture.TreatsAnErrorBodyInA200AsFailure (0 ms)
+[ RUN      ] RoutingStrategyFixture.AcceptsASuccessBodyAndANonJsonBody
+[       OK ] RoutingStrategyFixture.AcceptsASuccessBodyAndANonJsonBody (0 ms)
+[ RUN      ] RoutingStrategyFixture.HandlesOutputWithNoStatusLine
+[       OK ] RoutingStrategyFixture.HandlesOutputWithNoStatusLine (0 ms)
+[ RUN      ] RoutingStrategyFixture.AQuoteInAMatchValueIsSentAsDataAndDoesNotBreakTheRequest
+[       OK ] RoutingStrategyFixture.AQuoteInAMatchValueIsSentAsDataAndDoesNotBreakTheRequest (0 ms)
+[ RUN      ] RoutingStrategyFixture.ARequestThatNeverRanDoesNotAccuseTheController
+[       OK ] RoutingStrategyFixture.ARequestThatNeverRanDoesNotAccuseTheController (0 ms)
+[ RUN      ] RoutingStrategyFixture.P4RefusesGroupAndMeterEntriesWithoutSendingAnything
+[       OK ] RoutingStrategyFixture.P4RefusesGroupAndMeterEntriesWithoutSendingAnything (0 ms)
+[ RUN      ] RoutingStrategyFixture.OpenFlowStillSupportsGroupAndMeterEntries
+[       OK ] RoutingStrategyFixture.OpenFlowStillSupportsGroupAndMeterEntries (0 ms)
+[ RUN      ] RoutingStrategyFixture.StrategiesNameThemselvesForLogs
+[       OK ] RoutingStrategyFixture.StrategiesNameThemselvesForLogs (0 ms)
+[----------] 20 tests from RoutingStrategyFixture (0 ms total)
+
+[----------] 8 tests from ComputeEstimatedRatesTest
+[ RUN      ] ComputeEstimatedRatesTest.ZeroHopsReportsNoActiveHopsInsteadOfDividing
+[       OK ] ComputeEstimatedRatesTest.ZeroHopsReportsNoActiveHopsInsteadOfDividing (0 ms)
+[ RUN      ] ComputeEstimatedRatesTest.NegativeHopsIsTreatedAsNoActiveHops
+[       OK ] ComputeEstimatedRatesTest.NegativeHopsIsTreatedAsNoActiveHops (0 ms)
+[ RUN      ] ComputeEstimatedRatesTest.SingleHopReturnsAccumulatedTotalsUnchanged
+[       OK ] ComputeEstimatedRatesTest.SingleHopReturnsAccumulatedTotalsUnchanged (0 ms)
+[ RUN      ] ComputeEstimatedRatesTest.AveragesAcrossHopsThatObservedTraffic
+[       OK ] ComputeEstimatedRatesTest.AveragesAcrossHopsThatObservedTraffic (0 ms)
+[ RUN      ] ComputeEstimatedRatesTest.IntegerDivisionTruncatesTowardZero
+[       OK ] ComputeEstimatedRatesTest.IntegerDivisionTruncatesTowardZero (0 ms)
+[ RUN      ] ComputeEstimatedRatesTest.ZeroTotalsAcrossActiveHopsStillCountsAsActive
+[       OK ] ComputeEstimatedRatesTest.ZeroTotalsAcrossActiveHopsStillCountsAsActive (0 ms)
+[ RUN      ] ComputeEstimatedRatesTest.FlowAndPacketRatesAreDerivedFromSeparateAccumulators
+[       OK ] ComputeEstimatedRatesTest.FlowAndPacketRatesAreDerivedFromSeparateAccumulators (0 ms)
+[ RUN      ] ComputeEstimatedRatesTest.HandlesLargeAccumulatedTotalsWithoutOverflow
+[       OK ] ComputeEstimatedRatesTest.HandlesLargeAccumulatedTotalsWithoutOverflow (0 ms)
+[----------] 8 tests from ComputeEstimatedRatesTest (0 ms total)
+
+[----------] 6 tests from CounterDeltaTest
+[ RUN      ] CounterDeltaTest.TheOrdinaryForwardCaseIsPlainSubtraction
+[       OK ] CounterDeltaTest.TheOrdinaryForwardCaseIsPlainSubtraction (0 ms)
+[ RUN      ] CounterDeltaTest.NoTrafficSinceTheLastReadingIsZeroNotAnError
+[       OK ] CounterDeltaTest.NoTrafficSinceTheLastReadingIsZeroNotAnError (0 ms)
+[ RUN      ] CounterDeltaTest.ACounterThatWentBackwardsYieldsZeroRatherThanWrappingTo18Exa
+[       OK ] CounterDeltaTest.ACounterThatWentBackwardsYieldsZeroRatherThanWrappingTo18Exa (0 ms)
+[ RUN      ] CounterDeltaTest.TheWrappedValueWouldHaveBeenReportedAsAnElephantFlow
+[       OK ] CounterDeltaTest.TheWrappedValueWouldHaveBeenReportedAsAnElephantFlow (0 ms)
+[ RUN      ] CounterDeltaTest.ARealCounterResetToZeroIsTheCommonBackwardsCase
+[       OK ] CounterDeltaTest.ARealCounterResetToZeroIsTheCommonBackwardsCase (0 ms)
+[ RUN      ] CounterDeltaTest.LargeForwardDeltasAreNotClamped
+[       OK ] CounterDeltaTest.LargeForwardDeltasAreNotClamped (0 ms)
+[----------] 6 tests from CounterDeltaTest (0 ms total)
+
+[----------] 7 tests from RateDenominator
+[ RUN      ] RateDenominator.SameBytesOverTwoSecondsIsHalfTheRate
+[       OK ] RateDenominator.SameBytesOverTwoSecondsIsHalfTheRate (0 ms)
+[ RUN      ] RateDenominator.TheIntervalActuallyUsedIsTheOneSupplied
+[       OK ] RateDenominator.TheIntervalActuallyUsedIsTheOneSupplied (0 ms)
+[ RUN      ] RateDenominator.ARealisticLoopPeriodOverstatesByExactlyThatPeriod
+[       OK ] RateDenominator.ARealisticLoopPeriodOverstatesByExactlyThatPeriod (0 ms)
+[ RUN      ] RateDenominator.ZeroIntervalPublishesNothing
+[       OK ] RateDenominator.ZeroIntervalPublishesNothing (0 ms)
+[ RUN      ] RateDenominator.NegativeIntervalPublishesNothing
+[       OK ] RateDenominator.NegativeIntervalPublishesNothing (0 ms)
+[ RUN      ] RateDenominator.ZeroIntervalDoesNotRecordADivisor
+[       OK ] RateDenominator.ZeroIntervalDoesNotRecordADivisor (0 ms)
+[ RUN      ] RateDenominator.DivisorStartsAtASentinelNotZero
+[       OK ] RateDenominator.DivisorStartsAtASentinelNotZero (0 ms)
+[----------] 7 tests from RateDenominator (0 ms total)
+
+[----------] 10 tests from FlowRateDenominator
+[ RUN      ] FlowRateDenominator.FlowSameBytesOverTwoSecondsIsHalfTheRate
+[       OK ] FlowRateDenominator.FlowSameBytesOverTwoSecondsIsHalfTheRate (0 ms)
+[ RUN      ] FlowRateDenominator.FlowPacketRateIsPerSecondToo
+[       OK ] FlowRateDenominator.FlowPacketRateIsPerSecondToo (0 ms)
+[ RUN      ] FlowRateDenominator.ARealisticLoopPeriodOverstatesTheFlowRateByThatPeriod
+[       OK ] FlowRateDenominator.ARealisticLoopPeriodOverstatesTheFlowRateByThatPeriod (0 ms)
+[ RUN      ] FlowRateDenominator.AnElephantIsDecidedOnTheDividedRate
+[       OK ] FlowRateDenominator.AnElephantIsDecidedOnTheDividedRate (0 ms)
+[ RUN      ] FlowRateDenominator.OneDivisorForEveryFlowSoTheOrderSurvives
+[       OK ] FlowRateDenominator.OneDivisorForEveryFlowSoTheOrderSurvives (0 ms)
+[ RUN      ] FlowRateDenominator.ZeroIntervalLeavesTheFlowAlone
+[       OK ] FlowRateDenominator.ZeroIntervalLeavesTheFlowAlone (0 ms)
+[ RUN      ] FlowRateDenominator.NegativeIntervalLeavesTheFlowAlone
+[       OK ] FlowRateDenominator.NegativeIntervalLeavesTheFlowAlone (0 ms)
+[ RUN      ] FlowRateDenominator.CountersAreDrainedSoTheNextIntervalStartsFromHere
+[       OK ] FlowRateDenominator.CountersAreDrainedSoTheNextIntervalStartsFromHere (0 ms)
+[ RUN      ] FlowRateDenominator.TheFlowDivisorIsMeasuredNotAssumed
+[       OK ] FlowRateDenominator.TheFlowDivisorIsMeasuredNotAssumed (300 ms)
+[ RUN      ] FlowRateDenominator.TheFlowDivisorStartsAtASentinelNotZero
+[       OK ] FlowRateDenominator.TheFlowDivisorStartsAtASentinelNotZero (0 ms)
+[----------] 10 tests from FlowRateDenominator (300 ms total)
+
+[----------] 5 tests from LeftBandwidthCapacityTest
+[ RUN      ] LeftBandwidthCapacityTest.ADeclaredTenGigabitLinkAdvertisesTenGigabitsBeforeAnySample
+[       OK ] LeftBandwidthCapacityTest.ADeclaredTenGigabitLinkAdvertisesTenGigabitsBeforeAnySample (1 ms)
+[ RUN      ] LeftBandwidthCapacityTest.ADeclaredOneGigabitLinkIsRightForARecordedReason
+[       OK ] LeftBandwidthCapacityTest.ADeclaredOneGigabitLinkIsRightForARecordedReason (0 ms)
+[ RUN      ] LeftBandwidthCapacityTest.AnUnsampledEdgeIsNotReportedAsMeasured
+[       OK ] LeftBandwidthCapacityTest.AnUnsampledEdgeIsNotReportedAsMeasured (0 ms)
+[ RUN      ] LeftBandwidthCapacityTest.TheFirstFlowSampleTurnsDeclaredIntoMeasured
+[       OK ] LeftBandwidthCapacityTest.TheFirstFlowSampleTurnsDeclaredIntoMeasured (0 ms)
+[ RUN      ] LeftBandwidthCapacityTest.AnIdleMeasuredEdgeAndAnUnsampledEdgeShareANumberAndDifferInProvenance
+[       OK ] LeftBandwidthCapacityTest.AnIdleMeasuredEdgeAndAnUnsampledEdgeShareANumberAndDifferInProvenance (0 ms)
+[----------] 5 tests from LeftBandwidthCapacityTest (3 ms total)
+
+[----------] 3 tests from LeftBandwidthDefaultTest
+[ RUN      ] LeftBandwidthDefaultTest.ADefaultConstructedEdgeDoesNotAdvertiseAGigabitOfHeadroom
+[       OK ] LeftBandwidthDefaultTest.ADefaultConstructedEdgeDoesNotAdvertiseAGigabitOfHeadroom (0 ms)
+[ RUN      ] LeftBandwidthDefaultTest.AnUnrecognisedProvenanceReadsBackAsUnknownNotAsCapacity
+[       OK ] LeftBandwidthDefaultTest.AnUnrecognisedProvenanceReadsBackAsUnknownNotAsCapacity (0 ms)
+[ RUN      ] LeftBandwidthDefaultTest.TheWireVocabularyIsExactlyThreeWords
+[       OK ] LeftBandwidthDefaultTest.TheWireVocabularyIsExactlyThreeWords (0 ms)
+[----------] 3 tests from LeftBandwidthDefaultTest (0 ms total)
+
+[----------] 3 tests from FlowPathRecomputeInterval
+[ RUN      ] FlowPathRecomputeInterval.IsOneSecondNotOneMillisecond
+[       OK ] FlowPathRecomputeInterval.IsOneSecondNotOneMillisecond (0 ms)
+[ RUN      ] FlowPathRecomputeInterval.AFlowSurvivingToTheIdleTimeoutGetsManyChancesAtAPath
+[       OK ] FlowPathRecomputeInterval.AFlowSurvivingToTheIdleTimeoutGetsManyChancesAtAPath (0 ms)
+[ RUN      ] FlowPathRecomputeInterval.ShortFlowsCanDieWithoutAPathAndThatIsTheKnownCost
+[       OK ] FlowPathRecomputeInterval.ShortFlowsCanDieWithoutAPathAndThatIsTheKnownCost (0 ms)
+[----------] 3 tests from FlowPathRecomputeInterval (0 ms total)
+
+[----------] 6 tests from SwitchKindMappingTest
+[ RUN      ] SwitchKindMappingTest.MapsKnownBrandNames
+[       OK ] SwitchKindMappingTest.MapsKnownBrandNames (0 ms)
+[ RUN      ] SwitchKindMappingTest.UnknownBrandNameIsHardware
+[       OK ] SwitchKindMappingTest.UnknownBrandNameIsHardware (0 ms)
+[ RUN      ] SwitchKindMappingTest.BrandNameMappingIsCaseSensitiveByDesign
+[       OK ] SwitchKindMappingTest.BrandNameMappingIsCaseSensitiveByDesign (0 ms)
+[ RUN      ] SwitchKindMappingTest.ExplicitKindStringIsCaseInsensitiveAndAcceptsP4Alias
+[       OK ] SwitchKindMappingTest.ExplicitKindStringIsCaseInsensitiveAndAcceptsP4Alias (0 ms)
+[ RUN      ] SwitchKindMappingTest.GarbageKindThrowsRatherThanDefaulting
+[       OK ] SwitchKindMappingTest.GarbageKindThrowsRatherThanDefaulting (0 ms)
+[ RUN      ] SwitchKindMappingTest.ToStringCoversEveryKind
+[       OK ] SwitchKindMappingTest.ToStringCoversEveryKind (0 ms)
+[----------] 6 tests from SwitchKindMappingTest (0 ms total)
+
+[----------] 18 tests from SwitchKindFixture
+[ RUN      ] SwitchKindFixture.DerivesKindFromBrandNameWhenSwitchKindAbsent
+[       OK ] SwitchKindFixture.DerivesKindFromBrandNameWhenSwitchKindAbsent (0 ms)
+[ RUN      ] SwitchKindFixture.DerivesOvsFromBrandName
+[       OK ] SwitchKindFixture.DerivesOvsFromBrandName (0 ms)
+[ RUN      ] SwitchKindFixture.ExplicitSwitchKindOverridesBrandName
+[       OK ] SwitchKindFixture.ExplicitSwitchKindOverridesBrandName (0 ms)
+[ RUN      ] SwitchKindFixture.UnknownDpidHasNoKind
+[       OK ] SwitchKindFixture.UnknownDpidHasNoKind (0 ms)
+[ RUN      ] SwitchKindFixture.GroupsSwitchesByKind
+[       OK ] SwitchKindFixture.GroupsSwitchesByKind (0 ms)
+[ RUN      ] SwitchKindFixture.HomogeneousTopologyValidates
+[       OK ] SwitchKindFixture.HomogeneousTopologyValidates (0 ms)
+[ RUN      ] SwitchKindFixture.MixedTopologyIsRejectedByDefault
+[       OK ] SwitchKindFixture.MixedTopologyIsRejectedByDefault (0 ms)
+[ RUN      ] SwitchKindFixture.MixedTopologyIsAllowedWhenOptedIn
+[       OK ] SwitchKindFixture.MixedTopologyIsAllowedWhenOptedIn (0 ms)
+[ RUN      ] SwitchKindFixture.EmptyTopologyFailsValidation
+[       OK ] SwitchKindFixture.EmptyTopologyFailsValidation (0 ms)
+[ RUN      ] SwitchKindFixture.TopologyOverrideAppliesInMininetMode
+[       OK ] SwitchKindFixture.TopologyOverrideAppliesInMininetMode (0 ms)
+[ RUN      ] SwitchKindFixture.TopologyOverrideAlsoAppliesInTestbedMode
+[       OK ] SwitchKindFixture.TopologyOverrideAlsoAppliesInTestbedMode (0 ms)
+[ RUN      ] SwitchKindFixture.EmptyOverrideCountsAsUnset
+[       OK ] SwitchKindFixture.EmptyOverrideCountsAsUnset (0 ms)
+[ RUN      ] SwitchKindFixture.FallsBackToModeDefaultWithoutOverride
+[       OK ] SwitchKindFixture.FallsBackToModeDefaultWithoutOverride (0 ms)
+[ RUN      ] SwitchKindFixture.Bmv2DpidSelectsTheP4Strategy
+[       OK ] SwitchKindFixture.Bmv2DpidSelectsTheP4Strategy (0 ms)
+[ RUN      ] SwitchKindFixture.OvsDpidSelectsTheOpenFlowStrategy
+[       OK ] SwitchKindFixture.OvsDpidSelectsTheOpenFlowStrategy (0 ms)
+[ RUN      ] SwitchKindFixture.HardwareDpidSelectsTheOpenFlowStrategy
+[       OK ] SwitchKindFixture.HardwareDpidSelectsTheOpenFlowStrategy (0 ms)
+[ RUN      ] SwitchKindFixture.UnknownDpidReturnsNullptrRatherThanFallingBackToOvs
+[       OK ] SwitchKindFixture.UnknownDpidReturnsNullptrRatherThanFallingBackToOvs (0 ms)
+[ RUN      ] SwitchKindFixture.MixedTopologyDispatchesPerDpid
+[       OK ] SwitchKindFixture.MixedTopologyDispatchesPerDpid (0 ms)
+[----------] 18 tests from SwitchKindFixture (1 ms total)
+
+[----------] 3 tests from TopologyIpValidationTest
+[ RUN      ] TopologyIpValidationTest.ASwitchWithAnEmptyIpArrayIsRejectedAtLoad
+[       OK ] TopologyIpValidationTest.ASwitchWithAnEmptyIpArrayIsRejectedAtLoad (0 ms)
+[ RUN      ] TopologyIpValidationTest.ASwitchWithAnAddressStillLoads
+[       OK ] TopologyIpValidationTest.ASwitchWithAnAddressStillLoads (0 ms)
+[ RUN      ] TopologyIpValidationTest.AHostWithNoAddressIsStillAllowed
+[       OK ] TopologyIpValidationTest.AHostWithNoAddressIsStillAllowed (0 ms)
+[----------] 3 tests from TopologyIpValidationTest (0 ms total)
+
+[----------] 18 tests from SFlowParsingFixture
+[ RUN      ] SFlowParsingFixture.RejectsNullBuffer
+[       OK ] SFlowParsingFixture.RejectsNullBuffer (0 ms)
+[ RUN      ] SFlowParsingFixture.RejectsDatagramShorterThanTheHeader
+[       OK ] SFlowParsingFixture.RejectsDatagramShorterThanTheHeader (0 ms)
+[ RUN      ] SFlowParsingFixture.RejectsUnalignedLength
+[       OK ] SFlowParsingFixture.RejectsUnalignedLength (0 ms)
+[ RUN      ] SFlowParsingFixture.ExtractsFlowsWhenTheVersionIsFive
+[       OK ] SFlowParsingFixture.ExtractsFlowsWhenTheVersionIsFive (26 ms)
+[ RUN      ] SFlowParsingFixture.IgnoresUnsupportedVersion
+[       OK ] SFlowParsingFixture.IgnoresUnsupportedVersion (0 ms)
+[ RUN      ] SFlowParsingFixture.HandlesHeaderThatPromisesASampleWithNoBodyAtAll
+[       OK ] SFlowParsingFixture.HandlesHeaderThatPromisesASampleWithNoBodyAtAll (0 ms)
+[ RUN      ] SFlowParsingFixture.HandlesEveryTruncationOfACounterSample
+[       OK ] SFlowParsingFixture.HandlesEveryTruncationOfACounterSample (0 ms)
+[ RUN      ] SFlowParsingFixture.HandlesEveryTruncationOfAFlowSample
+[       OK ] SFlowParsingFixture.HandlesEveryTruncationOfAFlowSample (0 ms)
+[ RUN      ] SFlowParsingFixture.RejectsAnImpossibleSampleCount
+[       OK ] SFlowParsingFixture.RejectsAnImpossibleSampleCount (0 ms)
+[ RUN      ] SFlowParsingFixture.TerminatesWhenSampleLengthIsZero
+[       OK ] SFlowParsingFixture.TerminatesWhenSampleLengthIsZero (0 ms)
+[ RUN      ] SFlowParsingFixture.TerminatesWhenFlowDataLengthExceedsSampleLength
+[       OK ] SFlowParsingFixture.TerminatesWhenFlowDataLengthExceedsSampleLength (0 ms)
+[ RUN      ] SFlowParsingFixture.HandlesSampleLengthLargerThanTheDatagram
+[       OK ] SFlowParsingFixture.HandlesSampleLengthLargerThanTheDatagram (0 ms)
+[ RUN      ] SFlowParsingFixture.HandlesUnknownSampleTypes
+[       OK ] SFlowParsingFixture.HandlesUnknownSampleTypes (0 ms)
+[ RUN      ] SFlowParsingFixture.HandlesManySamplesWithinOneDatagram
+[       OK ] SFlowParsingFixture.HandlesManySamplesWithinOneDatagram (0 ms)
+[ RUN      ] SFlowParsingFixture.HandlesNonIpv4EtherType
+[       OK ] SFlowParsingFixture.HandlesNonIpv4EtherType (0 ms)
+[ RUN      ] SFlowParsingFixture.SurvivesStructuredGarbage
+[       OK ] SFlowParsingFixture.SurvivesStructuredGarbage (1 ms)
+[ RUN      ] SFlowParsingFixture.SurvivesTruncationSweepOverGarbage
+[       OK ] SFlowParsingFixture.SurvivesTruncationSweepOverGarbage (0 ms)
+[ RUN      ] SFlowParsingFixture.CountsEveryMalformedDatagramEvenThoughLoggingIsRateLimited
+[       OK ] SFlowParsingFixture.CountsEveryMalformedDatagramEvenThoughLoggingIsRateLimited (0 ms)
+[----------] 18 tests from SFlowParsingFixture (28 ms total)
+
+[----------] 4 tests from BoundedWordsTest
+[ RUN      ] BoundedWordsTest.ReadsInRangeWordsUnchanged
+[       OK ] BoundedWordsTest.ReadsInRangeWordsUnchanged (0 ms)
+[ RUN      ] BoundedWordsTest.ThrowsPastTheEnd
+[       OK ] BoundedWordsTest.ThrowsPastTheEnd (0 ms)
+[ RUN      ] BoundedWordsTest.ReportsTheOffendingOffset
+[       OK ] BoundedWordsTest.ReportsTheOffendingOffset (0 ms)
+[ RUN      ] BoundedWordsTest.EmptyViewThrowsOnAnyAccess
+[       OK ] BoundedWordsTest.EmptyViewThrowsOnAnyAccess (0 ms)
+[----------] 4 tests from BoundedWordsTest (0 ms total)
+
+[----------] 8 tests from TelemetrySilenceTest
+[ RUN      ] TelemetrySilenceTest.AnAgentThatHasNeverReportedIsUnknownRatherThanSilent
+[       OK ] TelemetrySilenceTest.AnAgentThatHasNeverReportedIsUnknownRatherThanSilent (0 ms)
+[ RUN      ] TelemetrySilenceTest.ARecentSampleOnThisPortIsLive
+[       OK ] TelemetrySilenceTest.ARecentSampleOnThisPortIsLive (0 ms)
+[ RUN      ] TelemetrySilenceTest.AnAgentStillReportingElsewhereMakesThisLinksZeroAMeasurement
+[       OK ] TelemetrySilenceTest.AnAgentStillReportingElsewhereMakesThisLinksZeroAMeasurement (0 ms)
+[ RUN      ] TelemetrySilenceTest.AnAgentReportingNowhereMakesThisLinksZeroAnAbsence
+[       OK ] TelemetrySilenceTest.AnAgentReportingNowhereMakesThisLinksZeroAnAbsence (0 ms)
+[ RUN      ] TelemetrySilenceTest.APortNeverSeenUnderALiveAgentIsIdleNotUnknown
+[       OK ] TelemetrySilenceTest.APortNeverSeenUnderALiveAgentIsIdleNotUnknown (0 ms)
+[ RUN      ] TelemetrySilenceTest.TheWindowBoundaryIsInclusiveOnBothSides
+[       OK ] TelemetrySilenceTest.TheWindowBoundaryIsInclusiveOnBothSides (0 ms)
+[ RUN      ] TelemetrySilenceTest.TheWindowIsConsultedRatherThanHardcoded
+[       OK ] TelemetrySilenceTest.TheWindowIsConsultedRatherThanHardcoded (0 ms)
+[ RUN      ] TelemetrySilenceTest.TheRawAgesAreReportedAlongsideEveryVerdict
+[       OK ] TelemetrySilenceTest.TheRawAgesAreReportedAlongsideEveryVerdict (0 ms)
+[----------] 8 tests from TelemetrySilenceTest (0 ms total)
+
+[----------] 7 tests from GoldenFixtureTest
+[ RUN      ] GoldenFixtureTest.TheFixtureSetIsCapturedTrafficOnly
+[       OK ] GoldenFixtureTest.TheFixtureSetIsCapturedTrafficOnly (3 ms)
+[ RUN      ] GoldenFixtureTest.FixturesArePresentAndWellFormed
+[       OK ] GoldenFixtureTest.FixturesArePresentAndWellFormed (1 ms)
+[ RUN      ] GoldenFixtureTest.ParsesRealOvsDatagramsIntoFlows
+[       OK ] GoldenFixtureTest.ParsesRealOvsDatagramsIntoFlows (13 ms)
+[ RUN      ] GoldenFixtureTest.ExtractsTheCapturedIperfFlowExactly
+[       OK ] GoldenFixtureTest.ExtractsTheCapturedIperfFlowExactly (10 ms)
+[ RUN      ] GoldenFixtureTest.ExtractsAllThreeProtocolPathsFromRealTraffic
+[       OK ] GoldenFixtureTest.ExtractsAllThreeProtocolPathsFromRealTraffic (10 ms)
+[ RUN      ] GoldenFixtureTest.IgnoresNonIpv4Frames
+[       OK ] GoldenFixtureTest.IgnoresNonIpv4Frames (10 ms)
+[ RUN      ] GoldenFixtureTest.RequiresExtendedSwitchRecordBeforeTheRawHeader
+[       OK ] GoldenFixtureTest.RequiresExtendedSwitchRecordBeforeTheRawHeader (1 ms)
+[----------] 7 tests from GoldenFixtureTest (52 ms total)
+
+[----------] 9 tests from EmitterRoundtripTest
+[ RUN      ] EmitterRoundtripTest.ParsesEmittedTcpSampleIntoTheExactFiveTuple
+[       OK ] EmitterRoundtripTest.ParsesEmittedTcpSampleIntoTheExactFiveTuple (9 ms)
+[ RUN      ] EmitterRoundtripTest.ParsesEmittedUdpSample
+[       OK ] EmitterRoundtripTest.ParsesEmittedUdpSample (10 ms)
+[ RUN      ] EmitterRoundtripTest.ParsesEmittedIcmpSampleWithTypeAndCodeInThePortFields
+[       OK ] EmitterRoundtripTest.ParsesEmittedIcmpSampleWithTypeAndCodeInThePortFields (11 ms)
+[ RUN      ] EmitterRoundtripTest.ParsesIcmpWithBothTypeAndCodeNonZero
+[       OK ] EmitterRoundtripTest.ParsesIcmpWithBothTypeAndCodeNonZero (11 ms)
+[ RUN      ] EmitterRoundtripTest.IgnoresEmittedArpWithoutInventingAFlow
+[       OK ] EmitterRoundtripTest.IgnoresEmittedArpWithoutInventingAFlow (0 ms)
+[ RUN      ] EmitterRoundtripTest.ParsesATruncatedFrameAndReportsTheOriginalLength
+[       OK ] EmitterRoundtripTest.ParsesATruncatedFrameAndReportsTheOriginalLength (11 ms)
+[ RUN      ] EmitterRoundtripTest.WalksEverySampleInAMultiSampleDatagram
+[       OK ] EmitterRoundtripTest.WalksEverySampleInAMultiSampleDatagram (12 ms)
+[ RUN      ] EmitterRoundtripTest.BatchedSamplesBankEverySampleBytes
+[       OK ] EmitterRoundtripTest.BatchedSamplesBankEverySampleBytes (40 ms)
+[ RUN      ] EmitterRoundtripTest.EmittedAndCapturedDatagramsAgreeOnStructure
+[       OK ] EmitterRoundtripTest.EmittedAndCapturedDatagramsAgreeOnStructure (10 ms)
+[----------] 9 tests from EmitterRoundtripTest (118 ms total)
+
+[----------] 5 tests from IdentityPortMappingTest
+[ RUN      ] IdentityPortMappingTest.AnAllBmv2TopologySkipsOvsVsctl
+[       OK ] IdentityPortMappingTest.AnAllBmv2TopologySkipsOvsVsctl (0 ms)
+[ RUN      ] IdentityPortMappingTest.AnAllOvsTopologyStillTranslates
+[       OK ] IdentityPortMappingTest.AnAllOvsTopologyStillTranslates (0 ms)
+[ RUN      ] IdentityPortMappingTest.AnEmptyTopologyKeepsTheExistingBehaviour
+[       OK ] IdentityPortMappingTest.AnEmptyTopologyKeepsTheExistingBehaviour (0 ms)
+[ RUN      ] IdentityPortMappingTest.AMixedTopologyDoesNotUseIdentity
+[       OK ] IdentityPortMappingTest.AMixedTopologyDoesNotUseIdentity (0 ms)
+[ RUN      ] IdentityPortMappingTest.HardwareSwitchesTranslate
+[       OK ] IdentityPortMappingTest.HardwareSwitchesTranslate (0 ms)
+[----------] 5 tests from IdentityPortMappingTest (0 ms total)
+
+[----------] 4 tests from LateTopologyFixture
+[ RUN      ] LateTopologyFixture.IdentityMappingIsChosenEvenWhenTheTopologyLoadsAfterStartup
+[       OK ] LateTopologyFixture.IdentityMappingIsChosenEvenWhenTheTopologyLoadsAfterStartup (0 ms)
+[ RUN      ] LateTopologyFixture.TheDecisionIsMadeOnceAndSticks
+[       OK ] LateTopologyFixture.TheDecisionIsMadeOnceAndSticks (0 ms)
+[ RUN      ] LateTopologyFixture.AnOvsTopologyStillGoesThroughTheMap
+[       OK ] LateTopologyFixture.AnOvsTopologyStillGoesThroughTheMap (10 ms)
+[ RUN      ] LateTopologyFixture.ConcurrentFirstLookupsAgreeOnOneDecision
+[       OK ] LateTopologyFixture.ConcurrentFirstLookupsAgreeOnOneDecision (0 ms)
+[----------] 4 tests from LateTopologyFixture (12 ms total)
+
+[----------] 7 tests from ClassifierDropRule
+[ RUN      ] ClassifierDropRule.IngestingARuleWithNoActionsDoesNotCrash
+[       OK ] ClassifierDropRule.IngestingARuleWithNoActionsDoesNotCrash (0 ms)
+[ RUN      ] ClassifierDropRule.ADropRuleAmongNormalOnesDoesNotCrash
+[       OK ] ClassifierDropRule.ADropRuleAmongNormalOnesDoesNotCrash (0 ms)
+[ RUN      ] ClassifierDropRule.AnUnparseableOutputTargetAlsoYieldsNoOutputPort
+[       OK ] ClassifierDropRule.AnUnparseableOutputTargetAlsoYieldsNoOutputPort (0 ms)
+[ RUN      ] ClassifierDropRule.LookupOnATableWhoseOnlyRuleDropsDoesNotCrash
+[       OK ] ClassifierDropRule.LookupOnATableWhoseOnlyRuleDropsDoesNotCrash (0 ms)
+[ RUN      ] ClassifierDropRule.ANegativePriorityDoesNotCrashTheLookup
+[       OK ] ClassifierDropRule.ANegativePriorityDoesNotCrashTheLookup (0 ms)
+[ RUN      ] ClassifierDropRule.TheHighestPriorityRuleStillWinsAcrossSubtables
+[       OK ] ClassifierDropRule.TheHighestPriorityRuleStillWinsAcrossSubtables (0 ms)
+[ RUN      ] ClassifierDropRule.ANormalRuleStillReportsItsOutputPort
+[       OK ] ClassifierDropRule.ANormalRuleStillReportsItsOutputPort (0 ms)
+[----------] 7 tests from ClassifierDropRule (0 ms total)
+
+[----------] 8 tests from EventBusTest
+[ RUN      ] EventBusTest.EmitWithNoHandlersDoesNothing
+[       OK ] EventBusTest.EmitWithNoHandlersDoesNothing (0 ms)
+[ RUN      ] EventBusTest.DeliversToEveryHandlerForThatType
+[       OK ] EventBusTest.DeliversToEveryHandlerForThatType (0 ms)
+[ RUN      ] EventBusTest.DoesNotDeliverToHandlersForOtherTypes
+[       OK ] EventBusTest.DoesNotDeliverToHandlersForOtherTypes (0 ms)
+[ RUN      ] EventBusTest.HandlerCarriesThePayload
+[       OK ] EventBusTest.HandlerCarriesThePayload (0 ms)
+[ RUN      ] EventBusTest.AHandlerMayRegisterAnotherHandler
+[       OK ] EventBusTest.AHandlerMayRegisterAnotherHandler (0 ms)
+[ RUN      ] EventBusTest.AHandlerMayEmitAnotherEvent
+[       OK ] EventBusTest.AHandlerMayEmitAnotherEvent (0 ms)
+[ RUN      ] EventBusTest.AHandlerMayEmitTheSameEventTypeWithoutInfiniteRecursion
+[       OK ] EventBusTest.AHandlerMayEmitTheSameEventTypeWithoutInfiniteRecursion (0 ms)
+[ RUN      ] EventBusTest.ConcurrentEmitAndRegisterDoNotDeadlock
+[       OK ] EventBusTest.ConcurrentEmitAndRegisterDoNotDeadlock (1 ms)
+[----------] 8 tests from EventBusTest (1 ms total)
+
+[----------] 11 tests from P4FlowStatsToClassifier
+[ RUN      ] P4FlowStatsToClassifier.AnEmptyTableClearsTheRulesItReplaces
+[       OK ] P4FlowStatsToClassifier.AnEmptyTableClearsTheRulesItReplaces (0 ms)
+[ RUN      ] P4FlowStatsToClassifier.AnEmptyTableStillCountsAsHavingHeardFromTheSwitch
+[       OK ] P4FlowStatsToClassifier.AnEmptyTableStillCountsAsHavingHeardFromTheSwitch (0 ms)
+[ RUN      ] P4FlowStatsToClassifier.AMalformedTableLeavesTheExistingRulesAlone
+[       OK ] P4FlowStatsToClassifier.AMalformedTableLeavesTheExistingRulesAlone (0 ms)
+[ RUN      ] P4FlowStatsToClassifier.TheProxyResponseIsIngestedAtAll
+[       OK ] P4FlowStatsToClassifier.TheProxyResponseIsIngestedAtAll (0 ms)
+[ RUN      ] P4FlowStatsToClassifier.ALookupYieldsANonEmptyOutputPort
+[       OK ] P4FlowStatsToClassifier.ALookupYieldsANonEmptyOutputPort (0 ms)
+[ RUN      ] P4FlowStatsToClassifier.TheHigherPriorityFiveTupleRuleWins
+[       OK ] P4FlowStatsToClassifier.TheHigherPriorityFiveTupleRuleWins (0 ms)
+[ RUN      ] P4FlowStatsToClassifier.TrafficNotCoveredByTheFiveTupleRuleFallsBackToTheLpmRoute
+[       OK ] P4FlowStatsToClassifier.TrafficNotCoveredByTheFiveTupleRuleFallsBackToTheLpmRoute (0 ms)
+[ RUN      ] P4FlowStatsToClassifier.AnObjectFormActionWouldNotHaveWorked
+[       OK ] P4FlowStatsToClassifier.AnObjectFormActionWouldNotHaveWorked (0 ms)
+[ RUN      ] P4FlowStatsToClassifier.AnEmptyFlowListIsHandledCleanly
+[       OK ] P4FlowStatsToClassifier.AnEmptyFlowListIsHandledCleanly (0 ms)
+[ RUN      ] P4FlowStatsToClassifier.AVlanMatchIsIngestedRatherThanPoisoningEveryLaterPoll
+[       OK ] P4FlowStatsToClassifier.AVlanMatchIsIngestedRatherThanPoisoningEveryLaterPoll (0 ms)
+[ RUN      ] P4FlowStatsToClassifier.AVlanRuleDoesNotStopTheSwitchesPolledAfterIt
+[       OK ] P4FlowStatsToClassifier.AVlanRuleDoesNotStopTheSwitchesPolledAfterIt (0 ms)
+[----------] 11 tests from P4FlowStatsToClassifier (0 ms total)
+
+[----------] 7 tests from OvsLivenessTest
+[ RUN      ] OvsLivenessTest.APresentBridgeIsUp
+[       OK ] OvsLivenessTest.APresentBridgeIsUp (0 ms)
+[ RUN      ] OvsLivenessTest.AnAbsentBridgeIsDown
+[       OK ] OvsLivenessTest.AnAbsentBridgeIsDown (0 ms)
+[ RUN      ] OvsLivenessTest.AFailedQueryIsUnknownRatherThanDown
+[       OK ] OvsLivenessTest.AFailedQueryIsUnknownRatherThanDown (0 ms)
+[ RUN      ] OvsLivenessTest.AnEmptyButSuccessfulQueryStillMeansDown
+[       OK ] OvsLivenessTest.AnEmptyButSuccessfulQueryStillMeansDown (0 ms)
+[ RUN      ] OvsLivenessTest.TheDecisionIsSymmetricSoASwitchCanRecover
+[       OK ] OvsLivenessTest.TheDecisionIsSymmetricSoASwitchCanRecover (0 ms)
+[ RUN      ] OvsLivenessTest.MatchingIsExactSoSimilarNamesDoNotSatisfyEachOther
+[       OK ] OvsLivenessTest.MatchingIsExactSoSimilarNamesDoNotSatisfyEachOther (0 ms)
+[ RUN      ] OvsLivenessTest.AnEmptyBridgeNameIsNotMatchedByAccident
+[       OK ] OvsLivenessTest.AnEmptyBridgeNameIsNotMatchedByAccident (0 ms)
+[----------] 7 tests from OvsLivenessTest (0 ms total)
+
+[----------] 4 tests from FailureRunTest
+[ RUN      ] FailureRunTest.OnlyTheFirstFailureOfARunReports
+[       OK ] FailureRunTest.OnlyTheFirstFailureOfARunReports (0 ms)
+[ RUN      ] FailureRunTest.SuccessWithNoOpenRunSaysNothing
+[       OK ] FailureRunTest.SuccessWithNoOpenRunSaysNothing (0 ms)
+[ RUN      ] FailureRunTest.RecoveryReportsTheRunLengthExactlyOnce
+[       OK ] FailureRunTest.RecoveryReportsTheRunLengthExactlyOnce (0 ms)
+[ RUN      ] FailureRunTest.ASecondRunReportsAgainRatherThanStayingQuietForever
+[       OK ] FailureRunTest.ASecondRunReportsAgainRatherThanStayingQuietForever (0 ms)
+[----------] 4 tests from FailureRunTest (0 ms total)
+
+[----------] 12 tests from CommandStatusTest
+[ RUN      ] CommandStatusTest.AnExitCodeIsReportedAsAnExitCodeNotAWaitStatus
+[       OK ] CommandStatusTest.AnExitCodeIsReportedAsAnExitCodeNotAWaitStatus (0 ms)
+[ RUN      ] CommandStatusTest.TheTwoStatusesThisCommandActuallyProducesAreExplained
+[       OK ] CommandStatusTest.TheTwoStatusesThisCommandActuallyProducesAreExplained (0 ms)
+[ RUN      ] CommandStatusTest.ASignalledCommandIsNotReportedAsAnExitCode
+[       OK ] CommandStatusTest.ASignalledCommandIsNotReportedAsAnExitCode (0 ms)
+[ RUN      ] CommandStatusTest.MinusOneIsReportedAsAFailureToReapRatherThanAsSuccess
+[       OK ] CommandStatusTest.MinusOneIsReportedAsAFailureToReapRatherThanAsSuccess (0 ms)
+[ RUN      ] CommandStatusTest.DecodesAWaitStatusRatherThanPrintingIt
+[       OK ] CommandStatusTest.DecodesAWaitStatusRatherThanPrintingIt (0 ms)
+[ RUN      ] CommandStatusTest.NamesTheTwoCasesThatSendAnOperatorElsewhere
+[       OK ] CommandStatusTest.NamesTheTwoCasesThatSendAnOperatorElsewhere (0 ms)
+[ RUN      ] CommandStatusTest.NamesTheToolTheCommandActuallyRan
+[       OK ] CommandStatusTest.NamesTheToolTheCommandActuallyRan (0 ms)
+[ RUN      ] CommandStatusTest.DoesNotBlameOvsVsctlForAnotherToolsFailure
+[       OK ] CommandStatusTest.DoesNotBlameOvsVsctlForAnotherToolsFailure (0 ms)
+[ RUN      ] CommandStatusTest.TheSudoHintOnlyAppliesWhenSudoWasUsed
+[       OK ] CommandStatusTest.TheSudoHintOnlyAppliesWhenSudoWasUsed (0 ms)
+[ RUN      ] CommandStatusTest.SaysSomethingUsefulWithNoCommandAtAll
+[       OK ] CommandStatusTest.SaysSomethingUsefulWithNoCommandAtAll (0 ms)
+[ RUN      ] CommandStatusTest.ReportsSignalsAndUnreapedChildren
+[       OK ] CommandStatusTest.ReportsSignalsAndUnreapedChildren (0 ms)
+[ RUN      ] CommandStatusTest.TheNumberInTheMessageIsNeverTheRawStatus
+[       OK ] CommandStatusTest.TheNumberInTheMessageIsNeverTheRawStatus (0 ms)
+[----------] 12 tests from CommandStatusTest (0 ms total)
+
+[----------] 5 tests from SyntheticPowerTest
+[ RUN      ] SyntheticPowerTest.IsAPlausibleWattageForEveryTopologySwitch
+[       OK ] SyntheticPowerTest.IsAPlausibleWattageForEveryTopologySwitch (0 ms)
+[ RUN      ] SyntheticPowerTest.NeverReportsAnAstronomicalValue
+[       OK ] SyntheticPowerTest.NeverReportsAnAstronomicalValue (0 ms)
+[ RUN      ] SyntheticPowerTest.IsStableAcrossPollsForTheSameSwitch
+[       OK ] SyntheticPowerTest.IsStableAcrossPollsForTheSameSwitch (0 ms)
+[ RUN      ] SyntheticPowerTest.SwitchesAreSpreadAcrossTheBandNotBunchedAtOneEnd
+[       OK ] SyntheticPowerTest.SwitchesAreSpreadAcrossTheBandNotBunchedAtOneEnd (0 ms)
+[ RUN      ] SyntheticPowerTest.AnUnexpectedDpidStillYieldsSomethingPlausible
+[       OK ] SyntheticPowerTest.AnUnexpectedDpidStillYieldsSomethingPlausible (0 ms)
+[----------] 5 tests from SyntheticPowerTest (0 ms total)
+
+[----------] 9 tests from SimulatedDeviceMetricsTest
+[ RUN      ] SimulatedDeviceMetricsTest.CpuReportsUnavailableForEverySwitch
+[       OK ] SimulatedDeviceMetricsTest.CpuReportsUnavailableForEverySwitch (0 ms)
+[ RUN      ] SimulatedDeviceMetricsTest.MemoryReportsUnavailableForEverySwitch
+[       OK ] SimulatedDeviceMetricsTest.MemoryReportsUnavailableForEverySwitch (0 ms)
+[ RUN      ] SimulatedDeviceMetricsTest.TemperatureReportsUnavailableForEverySwitch
+[       OK ] SimulatedDeviceMetricsTest.TemperatureReportsUnavailableForEverySwitch (0 ms)
+[ RUN      ] SimulatedDeviceMetricsTest.CpuAndMemoryNoLongerDifferOnlyByAccident
+[       OK ] SimulatedDeviceMetricsTest.CpuAndMemoryNoLongerDifferOnlyByAccident (0 ms)
+[ RUN      ] SimulatedDeviceMetricsTest.NoTwoSwitchesShareAFabricatedNumber
+[       OK ] SimulatedDeviceMetricsTest.NoTwoSwitchesShareAFabricatedNumber (0 ms)
+[ RUN      ] SimulatedDeviceMetricsTest.TheIntentTranslatorsPerDeviceQueryAgreesWithTheMap
+[       OK ] SimulatedDeviceMetricsTest.TheIntentTranslatorsPerDeviceQueryAgreesWithTheMap (0 ms)
+[ RUN      ] SimulatedDeviceMetricsTest.ADownSwitchStillReportsTheSameSentinel
+[       OK ] SimulatedDeviceMetricsTest.ADownSwitchStillReportsTheSameSentinel (0 ms)
+[ RUN      ] SimulatedDeviceMetricsTest.AVertexWithNoIpIsSkippedRatherThanDereferenced
+[       OK ] SimulatedDeviceMetricsTest.AVertexWithNoIpIsSkippedRatherThanDereferenced (0 ms)
+[ RUN      ] SimulatedDeviceMetricsTest.HostsAreStillOmittedFromEveryReport
+[       OK ] SimulatedDeviceMetricsTest.HostsAreStillOmittedFromEveryReport (0 ms)
+[----------] 9 tests from SimulatedDeviceMetricsTest (0 ms total)
+
+[----------] 7 tests from KeyedFailureLogTest
+[ RUN      ] KeyedFailureLogTest.AFailureIsReportedOnceThenStaysQuiet
+[       OK ] KeyedFailureLogTest.AFailureIsReportedOnceThenStaysQuiet (0 ms)
+[ RUN      ] KeyedFailureLogTest.RecoveryIsReportedWithHowLongItLasted
+[       OK ] KeyedFailureLogTest.RecoveryIsReportedWithHowLongItLasted (0 ms)
+[ RUN      ] KeyedFailureLogTest.RecoveryIsReportedOnlyOnce
+[       OK ] KeyedFailureLogTest.RecoveryIsReportedOnlyOnce (0 ms)
+[ RUN      ] KeyedFailureLogTest.AFailureThatReturnsIsReportedAgain
+[       OK ] KeyedFailureLogTest.AFailureThatReturnsIsReportedAgain (0 ms)
+[ RUN      ] KeyedFailureLogTest.DistinctFailuresAreTrackedIndependently
+[       OK ] KeyedFailureLogTest.DistinctFailuresAreTrackedIndependently (0 ms)
+[ RUN      ] KeyedFailureLogTest.RepeatsWithinOnePassCountAsOne
+[       OK ] KeyedFailureLogTest.RepeatsWithinOnePassCountAsOne (0 ms)
+[ RUN      ] KeyedFailureLogTest.AQuietLoopReportsNothingAtAll
+[       OK ] KeyedFailureLogTest.AQuietLoopReportsNothingAtAll (0 ms)
+[----------] 7 tests from KeyedFailureLogTest (0 ms total)
+
+[----------] 5 tests from KeyedFailureLogHoldOffTest
+[ RUN      ] KeyedFailureLogHoldOffTest.AFailureShorterThanTheHoldOffIsNeverReported
+[       OK ] KeyedFailureLogHoldOffTest.AFailureShorterThanTheHoldOffIsNeverReported (0 ms)
+[ RUN      ] KeyedFailureLogHoldOffTest.AFailureThatOutlastsTheHoldOffIsReportedOnce
+[       OK ] KeyedFailureLogHoldOffTest.AFailureThatOutlastsTheHoldOffIsReportedOnce (0 ms)
+[ RUN      ] KeyedFailureLogHoldOffTest.RecoveryIsReportedOnlyForAFailureThatWasReported
+[       OK ] KeyedFailureLogHoldOffTest.RecoveryIsReportedOnlyForAFailureThatWasReported (0 ms)
+[ RUN      ] KeyedFailureLogHoldOffTest.TheHoldOffIsPerKeyNotGlobal
+[       OK ] KeyedFailureLogHoldOffTest.TheHoldOffIsPerKeyNotGlobal (0 ms)
+[ RUN      ] KeyedFailureLogHoldOffTest.ZeroHoldOffKeepsTheImmediateBehaviour
+[       OK ] KeyedFailureLogHoldOffTest.ZeroHoldOffKeepsTheImmediateBehaviour (0 ms)
+[----------] 5 tests from KeyedFailureLogHoldOffTest (0 ms total)
+
+[----------] 7 tests from KeyedFailureLogForgetWindowTest
+[ RUN      ] KeyedFailureLogForgetWindowTest.ARepeatedlyInterruptedFailureIsStillReported
+[       OK ] KeyedFailureLogForgetWindowTest.ARepeatedlyInterruptedFailureIsStillReported (38 ms)
+[ RUN      ] KeyedFailureLogForgetWindowTest.AFlappingFailureAccumulatesTowardsTheHoldOff
+[       OK ] KeyedFailureLogForgetWindowTest.AFlappingFailureAccumulatesTowardsTheHoldOff (0 ms)
+[ RUN      ] KeyedFailureLogForgetWindowTest.AGapLongerThanTheForgetWindowDoesRestartTheHoldOff
+[       OK ] KeyedFailureLogForgetWindowTest.AGapLongerThanTheForgetWindowDoesRestartTheHoldOff (0 ms)
+[ RUN      ] KeyedFailureLogForgetWindowTest.TheForgetWindowCanBeSetIndependently
+[       OK ] KeyedFailureLogForgetWindowTest.TheForgetWindowCanBeSetIndependently (0 ms)
+[ RUN      ] KeyedFailureLogForgetWindowTest.AStaleEntryIsForgottenEvenIfNoPassRanDuringTheGap
+[       OK ] KeyedFailureLogForgetWindowTest.AStaleEntryIsForgottenEvenIfNoPassRanDuringTheGap (0 ms)
+[ RUN      ] KeyedFailureLogForgetWindowTest.AReportedFailureThatVanishesWithNoFurtherPassesStillRecovers
+[       OK ] KeyedFailureLogForgetWindowTest.AReportedFailureThatVanishesWithNoFurtherPassesStillRecovers (0 ms)
+[ RUN      ] KeyedFailureLogForgetWindowTest.AZeroHoldOffForgetsImmediatelyAsBefore
+[       OK ] KeyedFailureLogForgetWindowTest.AZeroHoldOffForgetsImmediatelyAsBefore (0 ms)
+[----------] 7 tests from KeyedFailureLogForgetWindowTest (38 ms total)
+
+[----------] 4 tests from IpToStringTest
+[ RUN      ] IpToStringTest.ConvertsKnownAddresses
+[       OK ] IpToStringTest.ConvertsKnownAddresses (0 ms)
+[ RUN      ] IpToStringTest.ConcurrentCallersEachGetTheirOwnAnswer
+[       OK ] IpToStringTest.ConcurrentCallersEachGetTheirOwnAnswer (8 ms)
+[ RUN      ] IpToStringTest.TheVectorOverloadIsAlsoSafeAndPreservesOrder
+[       OK ] IpToStringTest.TheVectorOverloadIsAlsoSafeAndPreservesOrder (6 ms)
+[ RUN      ] IpToStringTest.RoundTripsThroughIpStringToUint32
+[       OK ] IpToStringTest.RoundTripsThroughIpStringToUint32 (0 ms)
+[----------] 4 tests from IpToStringTest (14 ms total)
+
+[----------] 7 tests from TryMacToUint64Test
+[ RUN      ] TryMacToUint64Test.AWellFormedMacParses
+[       OK ] TryMacToUint64Test.AWellFormedMacParses (0 ms)
+[ RUN      ] TryMacToUint64Test.TheDashSeparatorIsAcceptedToo
+[       OK ] TryMacToUint64Test.TheDashSeparatorIsAcceptedToo (0 ms)
+[ RUN      ] TryMacToUint64Test.AMacOneDigitShortIsRefusedRatherThanSilentlyWrong
+[       OK ] TryMacToUint64Test.AMacOneDigitShortIsRefusedRatherThanSilentlyWrong (0 ms)
+[ RUN      ] TryMacToUint64Test.AnythingThatIsNotExactlySeventeenCharactersIsRefused
+[       OK ] TryMacToUint64Test.AnythingThatIsNotExactlySeventeenCharactersIsRefused (0 ms)
+[ RUN      ] TryMacToUint64Test.TheSeparatorsMustActuallyBeSeparators
+[       OK ] TryMacToUint64Test.TheSeparatorsMustActuallyBeSeparators (0 ms)
+[ RUN      ] TryMacToUint64Test.NonHexDigitsAreRefused
+[       OK ] TryMacToUint64Test.NonHexDigitsAreRefused (0 ms)
+[ RUN      ] TryMacToUint64Test.TheThrowingWrapperStillThrowsAndOnTheSameInputs
+[       OK ] TryMacToUint64Test.TheThrowingWrapperStillThrowsAndOnTheSameInputs (0 ms)
+[----------] 7 tests from TryMacToUint64Test (0 ms total)
+
+[----------] 9 tests from FlowDispatcherTest
+[ RUN      ] FlowDispatcherTest.DeliversWhatWasEnqueued
+[       OK ] FlowDispatcherTest.DeliversWhatWasEnqueued (2 ms)
+[ RUN      ] FlowDispatcherTest.StopReturnsRatherThanDeadlockingOnAnIdleWorker
+[       OK ] FlowDispatcherTest.StopReturnsRatherThanDeadlockingOnAnIdleWorker (2 ms)
+[ RUN      ] FlowDispatcherTest.StopIsSafeWhileJobsAreStillArriving
+[       OK ] FlowDispatcherTest.StopIsSafeWhileJobsAreStillArriving (2 ms)
+[ RUN      ] FlowDispatcherTest.EnqueueAfterStopIsDroppedRatherThanSpawningAnUnownedThread
+[       OK ] FlowDispatcherTest.EnqueueAfterStopIsDroppedRatherThanSpawningAnUnownedThread (52 ms)
+[ RUN      ] FlowDispatcherTest.StopIsIdempotentBecauseTheDestructorCallsItToo
+[       OK ] FlowDispatcherTest.StopIsIdempotentBecauseTheDestructorCallsItToo (2 ms)
+[ RUN      ] FlowDispatcherTest.EnqueueBeforeStartDoesNotRunWork
+[       OK ] FlowDispatcherTest.EnqueueBeforeStartDoesNotRunWork (52 ms)
+[ RUN      ] FlowDispatcherTest.DeterministicNoLostWakeupWhenEnqueueRacesWithWorkerSleep
+[       OK ] FlowDispatcherTest.DeterministicNoLostWakeupWhenEnqueueRacesWithWorkerSleep (6 ms)
+[ RUN      ] FlowDispatcherTest.JobsDroppedAfterStopAreCountedAndNotSilent
+[       OK ] FlowDispatcherTest.JobsDroppedAfterStopAreCountedAndNotSilent (2 ms)
+[ RUN      ] FlowDispatcherTest.RunningTellsAZeroDropCountApartFromAStoppedQueue
+[       OK ] FlowDispatcherTest.RunningTellsAZeroDropCountApartFromAStoppedQueue (0 ms)
+[----------] 9 tests from FlowDispatcherTest (122 ms total)
+
+[----------] 9 tests from DispatchOutcomeLogTest
+[ RUN      ] DispatchOutcomeLogTest.SuccessesAreCountedButNotStored
+[       OK ] DispatchOutcomeLogTest.SuccessesAreCountedButNotStored (0 ms)
+[ RUN      ] DispatchOutcomeLogTest.AFailureKeepsEnoughIdentityToActOn
+[       OK ] DispatchOutcomeLogTest.AFailureKeepsEnoughIdentityToActOn (0 ms)
+[ RUN      ] DispatchOutcomeLogTest.UnreachableControllerIsDistinguishableFromRefusal
+[       OK ] DispatchOutcomeLogTest.UnreachableControllerIsDistinguishableFromRefusal (0 ms)
+[ RUN      ] DispatchOutcomeLogTest.ASuccessBurstDoesNotEvictAnEarlierFailure
+[       OK ] DispatchOutcomeLogTest.ASuccessBurstDoesNotEvictAnEarlierFailure (2 ms)
+[ RUN      ] DispatchOutcomeLogTest.OverflowDropsTheOldestAndSaysHowMany
+[       OK ] DispatchOutcomeLogTest.OverflowDropsTheOldestAndSaysHowMany (0 ms)
+[ RUN      ] DispatchOutcomeLogTest.SeqIsGlobalSoGapsBetweenFailuresAreVisible
+[       OK ] DispatchOutcomeLogTest.SeqIsGlobalSoGapsBetweenFailuresAreVisible (0 ms)
+[ RUN      ] DispatchOutcomeLogTest.ConcurrentRecordersLoseNothing
+[       OK ] DispatchOutcomeLogTest.ConcurrentRecordersLoseNothing (4 ms)
+[ RUN      ] DispatchOutcomeLogTest.EveryOpHasAName
+[       OK ] DispatchOutcomeLogTest.EveryOpHasAName (0 ms)
+[ RUN      ] DispatchOutcomeLogTest.ZeroCapacityStillKeepsOneRatherThanDividingByZero
+[       OK ] DispatchOutcomeLogTest.ZeroCapacityStillKeepsOneRatherThanDividingByZero (0 ms)
+[----------] 9 tests from DispatchOutcomeLogTest (7 ms total)
+
+[----------] 6 tests from PendingEntryFilterTest
+[ RUN      ] PendingEntryFilterTest.APendingEntryIsWithheldUntilConfirmed
+[       OK ] PendingEntryFilterTest.APendingEntryIsWithheldUntilConfirmed (0 ms)
+[ RUN      ] PendingEntryFilterTest.AConfirmedEntryIsServedAndLosesItsStamp
+[       OK ] PendingEntryFilterTest.AConfirmedEntryIsServedAndLosesItsStamp (0 ms)
+[ RUN      ] PendingEntryFilterTest.PolledEntriesAreNeverTouchedEvenWhenNothingIsConfirmed
+[       OK ] PendingEntryFilterTest.PolledEntriesAreNeverTouchedEvenWhenNothingIsConfirmed (0 ms)
+[ RUN      ] PendingEntryFilterTest.TheFilterIsKeyedOnProvenanceNotOnLookingLikeARequest
+[       OK ] PendingEntryFilterTest.TheFilterIsKeyedOnProvenanceNotOnLookingLikeARequest (0 ms)
+[ RUN      ] PendingEntryFilterTest.AnUnwiredPredicateWithholdsRatherThanRestoresThePhantom
+[       OK ] PendingEntryFilterTest.AnUnwiredPredicateWithholdsRatherThanRestoresThePhantom (0 ms)
+[ RUN      ] PendingEntryFilterTest.MalformedShapesAreLeftAloneRatherThanThrowing
+[       OK ] PendingEntryFilterTest.MalformedShapesAreLeftAloneRatherThanThrowing (0 ms)
+[----------] 6 tests from PendingEntryFilterTest (0 ms total)
+
+[----------] 2 tests from ProgrammedTokenTest
+[ RUN      ] ProgrammedTokenTest.OnlyASouthboundSuccessConfirmsAToken
+[       OK ] ProgrammedTokenTest.OnlyASouthboundSuccessConfirmsAToken (0 ms)
+[ RUN      ] ProgrammedTokenTest.ForgettingATokenHidesARealEntryRatherThanShowingAPhantom
+[       OK ] ProgrammedTokenTest.ForgettingATokenHidesARealEntryRatherThanShowingAPhantom (4 ms)
+[----------] 2 tests from ProgrammedTokenTest (4 ms total)
+
+[----------] 11 tests from ControllerTest
+[ RUN      ] ControllerTest.EachFlowOpReachesItsOwnManagerMethod
+[       OK ] ControllerTest.EachFlowOpReachesItsOwnManagerMethod (2 ms)
+[ RUN      ] ControllerTest.TheJobsFieldsArePassedThroughRatherThanDefaulted
+[       OK ] ControllerTest.TheJobsFieldsArePassedThroughRatherThanDefaulted (2 ms)
+[ RUN      ] ControllerTest.ADeleteKeepsItsPriorityIncludingTheNonStrictDefault
+[       OK ] ControllerTest.ADeleteKeepsItsPriorityIncludingTheNonStrictDefault (2 ms)
+[ RUN      ] ControllerTest.AFailedResultDoesNotStopTheRestOfTheBatch
+[       OK ] ControllerTest.AFailedResultDoesNotStopTheRestOfTheBatch (2 ms)
+[ RUN      ] ControllerTest.ASuccessfulResultIsAlsoFineAndNothingIsRetried
+[       OK ] ControllerTest.ASuccessfulResultIsAlsoFineAndNothingIsRetried (102 ms)
+[ RUN      ] ControllerTest.AFailedDispatchIsReportedWithTheDpidAndTheControllersReply
+[       OK ] ControllerTest.AFailedDispatchIsReportedWithTheDpidAndTheControllersReply (2 ms)
+[ RUN      ] ControllerTest.EachOperationNamesItselfWhenItFails
+[       OK ] ControllerTest.EachOperationNamesItselfWhenItFails (6 ms)
+[ RUN      ] ControllerTest.ASuccessfulDispatchReportsNothing
+[       OK ] ControllerTest.ASuccessfulDispatchReportsNothing (82 ms)
+[ RUN      ] ControllerTest.AFailedDispatchReachesTheDispatchOutcomeLog
+[       OK ] ControllerTest.AFailedDispatchReachesTheDispatchOutcomeLog (2 ms)
+[ RUN      ] ControllerTest.ASuccessfulDispatchIsCountedEvenThoughNothingIsStored
+[       OK ] ControllerTest.ASuccessfulDispatchIsCountedEvenThoughNothingIsStored (2 ms)
+[ RUN      ] ControllerTest.EveryOperationsFailureIsRecordedNotJustInstalls
+[       OK ] ControllerTest.EveryOperationsFailureIsRecordedNotJustInstalls (6 ms)
+[----------] 11 tests from ControllerTest (214 ms total)
+
+[----------] 5 tests from TryIpStringToUint32Test
+[ RUN      ] TryIpStringToUint32Test.ParsesDottedQuads
+[       OK ] TryIpStringToUint32Test.ParsesDottedQuads (0 ms)
+[ RUN      ] TryIpStringToUint32Test.RejectsTheStringThatUsedToProduceA500
+[       OK ] TryIpStringToUint32Test.RejectsTheStringThatUsedToProduceA500 (0 ms)
+[ RUN      ] TryIpStringToUint32Test.RejectsEmptyRatherThanTreatingItAsZero
+[       OK ] TryIpStringToUint32Test.RejectsEmptyRatherThanTreatingItAsZero (0 ms)
+[ RUN      ] TryIpStringToUint32Test.RejectsOutOfRangeOctetsAndGarbage
+[       OK ] TryIpStringToUint32Test.RejectsOutOfRangeOctetsAndGarbage (0 ms)
+[ RUN      ] TryIpStringToUint32Test.TheShortFormsInetAtonAcceptsAreDocumentedNotAssumed
+[       OK ] TryIpStringToUint32Test.TheShortFormsInetAtonAcceptsAreDocumentedNotAssumed (0 ms)
+[----------] 5 tests from TryIpStringToUint32Test (0 ms total)
+
+[----------] 6 tests from TryParseUint64Test
+[ RUN      ] TryParseUint64Test.ParsesPlainDigits
+[       OK ] TryParseUint64Test.ParsesPlainDigits (0 ms)
+[ RUN      ] TryParseUint64Test.RejectsTheStringThatUsedToProduceA500
+[       OK ] TryParseUint64Test.RejectsTheStringThatUsedToProduceA500 (0 ms)
+[ RUN      ] TryParseUint64Test.IsStricterThanStoullSoAMistypedDpidIsRefused
+[       OK ] TryParseUint64Test.IsStricterThanStoullSoAMistypedDpidIsRefused (0 ms)
+[ RUN      ] TryParseUint64Test.RefusesSomethingTooLargeRatherThanWrapping
+[       OK ] TryParseUint64Test.RefusesSomethingTooLargeRatherThanWrapping (0 ms)
+[ RUN      ] TryParseUint64Test.RejectsEmpty
+[       OK ] TryParseUint64Test.RejectsEmpty (0 ms)
+[ RUN      ] TryParseUint64Test.DoesNotThrowOnAnythingItRejects
+[       OK ] TryParseUint64Test.DoesNotThrowOnAnythingItRejects (0 ms)
+[----------] 6 tests from TryParseUint64Test (0 ms total)
+
+[----------] 9 tests from QueryParamTest
+[ RUN      ] QueryParamTest.ReadsAValueByName
+[       OK ] QueryParamTest.ReadsAValueByName (0 ms)
+[ RUN      ] QueryParamTest.ReadsAValueThatIsNotTheFirstOrTheLast
+[       OK ] QueryParamTest.ReadsAValueThatIsNotTheFirstOrTheLast (0 ms)
+[ RUN      ] QueryParamTest.AnAbsentKeyAndAnAbsentQueryStringBothGiveEmpty
+[       OK ] QueryParamTest.AnAbsentKeyAndAnAbsentQueryStringBothGiveEmpty (0 ms)
+[ RUN      ] QueryParamTest.AnEmptyValueIsIndistinguishableFromAMissingOne
+[       OK ] QueryParamTest.AnEmptyValueIsIndistinguishableFromAMissingOne (0 ms)
+[ RUN      ] QueryParamTest.TheValueStopsAtTheNextAmpersand
+[       OK ] QueryParamTest.TheValueStopsAtTheNextAmpersand (0 ms)
+[ RUN      ] QueryParamTest.KeysAreComparedExactlyAndPrefixesDoNotMatch
+[       OK ] QueryParamTest.KeysAreComparedExactlyAndPrefixesDoNotMatch (0 ms)
+[ RUN      ] QueryParamTest.APairWithNoEqualsIsSkippedAndOnlyStopsTheScanWhenNoEqualsRemains
+[       OK ] QueryParamTest.APairWithNoEqualsIsSkippedAndOnlyStopsTheScanWhenNoEqualsRemains (0 ms)
+[ RUN      ] QueryParamTest.NoPercentDecodingAndNoPlusAsSpace
+[       OK ] QueryParamTest.NoPercentDecodingAndNoPlusAsSpace (0 ms)
+[ RUN      ] QueryParamTest.AQuestionMarkInsideAValueDoesNotRestartParsing
+[       OK ] QueryParamTest.AQuestionMarkInsideAValueDoesNotRestartParsing (0 ms)
+[----------] 9 tests from QueryParamTest (0 ms total)
+
+[----------] 4 tests from TryParseHexUint64Test
+[ RUN      ] TryParseHexUint64Test.ParsesHexDigitsInEitherCase
+[       OK ] TryParseHexUint64Test.ParsesHexDigitsInEitherCase (0 ms)
+[ RUN      ] TryParseHexUint64Test.RejectsTheStringsThatUsedToTerminateTheKernel
+[       OK ] TryParseHexUint64Test.RejectsTheStringsThatUsedToTerminateTheKernel (0 ms)
+[ RUN      ] TryParseHexUint64Test.IsStricterThanStoullSoAMistypedDpidIsRefused
+[       OK ] TryParseHexUint64Test.IsStricterThanStoullSoAMistypedDpidIsRefused (0 ms)
+[ RUN      ] TryParseHexUint64Test.RefusesRatherThanWrappingOnOverflow
+[       OK ] TryParseHexUint64Test.RefusesRatherThanWrappingOnOverflow (0 ms)
+[----------] 4 tests from TryParseHexUint64Test (0 ms total)
+
+[----------] 8 tests from ExecArgvTest
+[ RUN      ] ExecArgvTest.PassesAnArgumentThroughUnchangedNoMatterWhatIsInIt
+[       OK ] ExecArgvTest.PassesAnArgumentThroughUnchangedNoMatterWhatIsInIt (12 ms)
+[ RUN      ] ExecArgvTest.KeepsArgumentsSeparateEvenWhenTheyContainSpacesAndQuotes
+[       OK ] ExecArgvTest.KeepsArgumentsSeparateEvenWhenTheyContainSpacesAndQuotes (1 ms)
+[ RUN      ] ExecArgvTest.DoesNotInterpretShellMetacharactersInAnyPosition
+[       OK ] ExecArgvTest.DoesNotInterpretShellMetacharactersInAnyPosition (10 ms)
+[ RUN      ] ExecArgvTest.ReportsThatItRanEvenWhenTheProgramFailed
+Command failed (exit code 1): /bin/false
+[       OK ] ExecArgvTest.ReportsThatItRanEvenWhenTheProgramFailed (1 ms)
+[ RUN      ] ExecArgvTest.ReportsExitOneTwentySevenWhenTheProgramIsNotThere
+Command failed (exit code 127 (command not found -- is ndtwin-no-such-program-a6f9 installed?)): /nonexistent/ndtwin-no-such-program-a6f9
+[       OK ] ExecArgvTest.ReportsExitOneTwentySevenWhenTheProgramIsNotThere (0 ms)
+[ RUN      ] ExecArgvTest.RefusesAnEmptyArgv
+[       OK ] ExecArgvTest.RefusesAnEmptyArgv (0 ms)
+[ RUN      ] ExecArgvTest.CapturesLargeOutputWithoutTruncatingOrDeadlocking
+[       OK ] ExecArgvTest.CapturesLargeOutputWithoutTruncatingOrDeadlocking (1 ms)
+[ RUN      ] ExecArgvTest.RunsAShellOnlyWhenTheCallerNamesOneAsTheProgram
+[       OK ] ExecArgvTest.RunsAShellOnlyWhenTheCallerNamesOneAsTheProgram (0 ms)
+[----------] 8 tests from ExecArgvTest (29 ms total)
+
+[----------] 1 test from DescribeArgvTest
+[ RUN      ] DescribeArgvTest.RendersForHumansAndIsNotAShellQuoter
+[       OK ] DescribeArgvTest.RendersForHumansAndIsNotAShellQuoter (0 ms)
+[----------] 1 test from DescribeArgvTest (0 ms total)
+
+[----------] 12 tests from SimulationRequestValidationTest
+[ RUN      ] SimulationRequestValidationTest.AcceptsTheBodyTheRealCallerSends
+[       OK ] SimulationRequestValidationTest.AcceptsTheBodyTheRealCallerSends (0 ms)
+[ RUN      ] SimulationRequestValidationTest.RejectsTheBodyThatUsedToReturn202
+[       OK ] SimulationRequestValidationTest.RejectsTheBodyThatUsedToReturn202 (0 ms)
+[ RUN      ] SimulationRequestValidationTest.TheRequiredFieldListIsExactlyWhatTheSimulatorNeeds
+[       OK ] SimulationRequestValidationTest.TheRequiredFieldListIsExactlyWhatTheSimulatorNeeds (0 ms)
+[ RUN      ] SimulationRequestValidationTest.RejectsAnEmptyObjectAndNamesEveryMissingField
+[       OK ] SimulationRequestValidationTest.RejectsAnEmptyObjectAndNamesEveryMissingField (0 ms)
+[ RUN      ] SimulationRequestValidationTest.EachRequiredFieldIsIndividuallyRequired
+[       OK ] SimulationRequestValidationTest.EachRequiredFieldIsIndividuallyRequired (0 ms)
+[ RUN      ] SimulationRequestValidationTest.RejectsNullAsAbsentRatherThanForwardingTheWordNull
+[       OK ] SimulationRequestValidationTest.RejectsNullAsAbsentRatherThanForwardingTheWordNull (0 ms)
+[ RUN      ] SimulationRequestValidationTest.RejectsAFieldOfTheWrongTypeAndSaysWhatItGot
+[       OK ] SimulationRequestValidationTest.RejectsAFieldOfTheWrongTypeAndSaysWhatItGot (0 ms)
+[ RUN      ] SimulationRequestValidationTest.ReportsMissingAndWrongTypedFieldsTogether
+[       OK ] SimulationRequestValidationTest.ReportsMissingAndWrongTypedFieldsTogether (0 ms)
+[ RUN      ] SimulationRequestValidationTest.RejectsValidJsonThatIsNotAnObject
+[       OK ] SimulationRequestValidationTest.RejectsValidJsonThatIsNotAnObject (0 ms)
+[ RUN      ] SimulationRequestValidationTest.IgnoresExtraFields
+[       OK ] SimulationRequestValidationTest.IgnoresExtraFields (0 ms)
+[ RUN      ] SimulationRequestValidationTest.NeverThrowsWhateverItIsGiven
+[       OK ] SimulationRequestValidationTest.NeverThrowsWhateverItIsGiven (0 ms)
+[ RUN      ] SimulationRequestValidationTest.ShapeCheckIsStillNotASanitiserAndNoLongerNeedsToBe
+[       OK ] SimulationRequestValidationTest.ShapeCheckIsStillNotASanitiserAndNoLongerNeedsToBe (0 ms)
+[----------] 12 tests from SimulationRequestValidationTest (1 ms total)
+
+[----------] 4 tests from SimulationCompletedAppIdTest
+[ RUN      ] SimulationCompletedAppIdTest.RejectsWhatStoiWouldHaveThrownOn
+[       OK ] SimulationCompletedAppIdTest.RejectsWhatStoiWouldHaveThrownOn (0 ms)
+[ RUN      ] SimulationCompletedAppIdTest.RejectsWhatStoiWouldHaveSilentlyTruncated
+[       OK ] SimulationCompletedAppIdTest.RejectsWhatStoiWouldHaveSilentlyTruncated (0 ms)
+[ RUN      ] SimulationCompletedAppIdTest.AcceptsTheDocumentedForm
+[       OK ] SimulationCompletedAppIdTest.AcceptsTheDocumentedForm (0 ms)
+[ RUN      ] SimulationCompletedAppIdTest.SomethingTooBigForIntParsesSoTheRangeCheckIsWhatMustRejectIt
+[       OK ] SimulationCompletedAppIdTest.SomethingTooBigForIntParsesSoTheRangeCheckIsWhatMustRejectIt (0 ms)
+[----------] 4 tests from SimulationCompletedAppIdTest (0 ms total)
+
+[----------] 32 tests from OvsPowerStrategyTest
+[ RUN      ] OvsPowerStrategyTest.PowerOffSavesThePortsThenDeletesTheBridge
+[       OK ] OvsPowerStrategyTest.PowerOffSavesThePortsThenDeletesTheBridge (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOffRefusesWhenItCannotReadThePorts
+[       OK ] OvsPowerStrategyTest.PowerOffRefusesWhenItCannotReadThePorts (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOffDistinguishesABridgeWithNoPortsFromAFailedQuery
+[       OK ] OvsPowerStrategyTest.PowerOffDistinguishesABridgeWithNoPortsFromAFailedQuery (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOffLeavesTheVertexUpWhenACommandFails
+[       OK ] OvsPowerStrategyTest.PowerOffLeavesTheVertexUpWhenACommandFails (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOffTearsDownABridgeThatExistsThoughTheGraphSaysDown
+[       OK ] OvsPowerStrategyTest.PowerOffTearsDownABridgeThatExistsThoughTheGraphSaysDown (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOffOnAnAbsentBridgeSucceedsWithoutDeletingAnythingAndStillRecordsTheCommand
+[       OK ] OvsPowerStrategyTest.PowerOffOnAnAbsentBridgeSucceedsWithoutDeletingAnythingAndStillRecordsTheCommand (0 ms)
+[ RUN      ] OvsPowerStrategyTest.ASecondPowerOffOnAStillRunningSwitchIsNotSwallowedByTheFirst
+[       OK ] OvsPowerStrategyTest.ASecondPowerOffOnAStillRunningSwitchIsNotSwallowedByTheFirst (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOffAttemptsTheTeardownWhenItCannotAskWhetherTheBridgeExists
+[       OK ] OvsPowerStrategyTest.PowerOffAttemptsTheTeardownWhenItCannotAskWhetherTheBridgeExists (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOffStillRefusesWhenTheBridgeIsThereButItsPortsCannotBeRead
+[       OK ] OvsPowerStrategyTest.PowerOffStillRefusesWhenTheBridgeIsThereButItsPortsCannotBeRead (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnRecreatesTheBridgeWithTheSavedPorts
+[       OK ] OvsPowerStrategyTest.PowerOnRecreatesTheBridgeWithTheSavedPorts (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnSetsTheDatapathIdAsSixteenHexDigits
+[       OK ] OvsPowerStrategyTest.PowerOnSetsTheDatapathIdAsSixteenHexDigits (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnDoesNotMarkUpWhenACommandFails
+[       OK ] OvsPowerStrategyTest.PowerOnDoesNotMarkUpWhenACommandFails (0 ms)
+[ RUN      ] OvsPowerStrategyTest.AFailedPortCommandFailsTheWholeOperation
+[       OK ] OvsPowerStrategyTest.AFailedPortCommandFailsTheWholeOperation (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnOnAnAlreadyUpSwitchDoesNothing
+[       OK ] OvsPowerStrategyTest.PowerOnOnAnAlreadyUpSwitchDoesNothing (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnDoesNotBlindAddBrWhenTheBridgeIsAlreadyThere
+[       OK ] OvsPowerStrategyTest.PowerOnDoesNotBlindAddBrWhenTheBridgeIsAlreadyThere (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnOnAnExistingBridgeWithdrawsAStandingPowerOffCommand
+[       OK ] OvsPowerStrategyTest.PowerOnOnAnExistingBridgeWithdrawsAStandingPowerOffCommand (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnBuildsTheBridgeWhenTheMachineSaysItIsNotThere
+[       OK ] OvsPowerStrategyTest.PowerOnBuildsTheBridgeWhenTheMachineSaysItIsNotThere (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnWithNoSavedPortsStillReportsSuccessButBuildsAnEmptyBridge
+[       OK ] OvsPowerStrategyTest.PowerOnWithNoSavedPortsStillReportsSuccessButBuildsAnEmptyBridge (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOffReadsTheSflowRecordBeforeItDeletesTheBridge
+[       OK ] OvsPowerStrategyTest.PowerOffReadsTheSflowRecordBeforeItDeletesTheBridge (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOffRecordsAnUnreadableSflowAsUnknownRatherThanAsAbsent
+[       OK ] OvsPowerStrategyTest.PowerOffRecordsAnUnreadableSflowAsUnknownRatherThanAsAbsent (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOffLeavesNothingPendingForABridgeThatHadNoSflow
+[       OK ] OvsPowerStrategyTest.PowerOffLeavesNothingPendingForABridgeThatHadNoSflow (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnRestoresTheAgentAddressAndTheSflowRecord
+[       OK ] OvsPowerStrategyTest.PowerOnRestoresTheAgentAddressAndTheSflowRecord (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnRestoresTheSflowAfterTheBridgeExists
+[       OK ] OvsPowerStrategyTest.PowerOnRestoresTheSflowAfterTheBridgeExists (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnReportsFailureWhenTheSflowRecordDoesNotComeBack
+[       OK ] OvsPowerStrategyTest.PowerOnReportsFailureWhenTheSflowRecordDoesNotComeBack (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnReportsFailureWhenTheAgentInterfaceHasNoAddress
+[       OK ] OvsPowerStrategyTest.PowerOnReportsFailureWhenTheAgentInterfaceHasNoAddress (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnTreatsAnUnreadableReadBackAsFailureNotAsSuccess
+[       OK ] OvsPowerStrategyTest.PowerOnTreatsAnUnreadableReadBackAsFailureNotAsSuccess (0 ms)
+[ RUN      ] OvsPowerStrategyTest.PowerOnSaysSoWhenPowerOffNeverManagedToReadTheRecord
+[       OK ] OvsPowerStrategyTest.PowerOnSaysSoWhenPowerOffNeverManagedToReadTheRecord (0 ms)
+[ RUN      ] OvsPowerStrategyTest.ARetriedPowerOnReAttemptsTheSflowRestore
+[       OK ] OvsPowerStrategyTest.ARetriedPowerOnReAttemptsTheSflowRestore (0 ms)
+[ RUN      ] OvsPowerStrategyTest.AnAlreadyUpSwitchWithNothingOwedStillRunsNoCommands
+[       OK ] OvsPowerStrategyTest.AnAlreadyUpSwitchWithNothingOwedStillRunsNoCommands (0 ms)
+[ RUN      ] OvsPowerStrategyTest.TheRealShellSeamRunsTheCommandAndReportsItsExitStatus
+[       OK ] OvsPowerStrategyTest.TheRealShellSeamRunsTheCommandAndReportsItsExitStatus (3 ms)
+[ RUN      ] OvsPowerStrategyTest.BrExistsTreatsExitTwoAsAnAnswerAndEveryOtherFailureAsUnknown
+[       OK ] OvsPowerStrategyTest.BrExistsTreatsExitTwoAsAnAnswerAndEveryOtherFailureAsUnknown (0 ms)
+[ RUN      ] OvsPowerStrategyTest.DescribesItselfForLogsAndErrors
+[       OK ] OvsPowerStrategyTest.DescribesItselfForLogsAndErrors (0 ms)
+[----------] 32 tests from OvsPowerStrategyTest (4 ms total)
+
+[----------] 2 tests from CommandToolNameTest
+[ RUN      ] CommandToolNameTest.PicksTheToolOutOfACommandLine
+[       OK ] CommandToolNameTest.PicksTheToolOutOfACommandLine (0 ms)
+[ RUN      ] CommandToolNameTest.ReturnsNothingRatherThanGuessing
+[       OK ] CommandToolNameTest.ReturnsNothingRatherThanGuessing (0 ms)
+[----------] 2 tests from CommandToolNameTest (0 ms total)
+
+[----------] 1 test from OvsPowerStrategyConcurrencyTest
+[ RUN      ] OvsPowerStrategyConcurrencyTest.AFailedRequestDoesNotMakeAConcurrentOneReportFailure
+[       OK ] OvsPowerStrategyConcurrencyTest.AFailedRequestDoesNotMakeAConcurrentOneReportFailure (0 ms)
+[----------] 1 test from OvsPowerStrategyConcurrencyTest (0 ms total)
+
+[----------] 1 test from CurlFlagHelpersTest
+[ RUN      ] CurlFlagHelpersTest.BundledShortOptionsCarryTheFailFlag
+[       OK ] CurlFlagHelpersTest.BundledShortOptionsCarryTheFailFlag (0 ms)
+[----------] 1 test from CurlFlagHelpersTest (0 ms total)
+
+[----------] 16 tests from P4PowerStrategyTest
+[ RUN      ] P4PowerStrategyTest.PowerOffRunsTheHelperOnceAgainstExactlyThatSwitch
+[       OK ] P4PowerStrategyTest.PowerOffRunsTheHelperOnceAgainstExactlyThatSwitch (0 ms)
+[ RUN      ] P4PowerStrategyTest.PowerOffFailureLeavesTheVertexUp
+[       OK ] P4PowerStrategyTest.PowerOffFailureLeavesTheVertexUp (0 ms)
+[ RUN      ] P4PowerStrategyTest.PowerOffOnAnAlreadyDownSwitchStillAsksTheHelper
+[       OK ] P4PowerStrategyTest.PowerOffOnAnAlreadyDownSwitchStillAsksTheHelper (0 ms)
+[ RUN      ] P4PowerStrategyTest.PowerOnRunsHelperThenReadoptInThatOrder
+[       OK ] P4PowerStrategyTest.PowerOnRunsHelperThenReadoptInThatOrder (0 ms)
+[ RUN      ] P4PowerStrategyTest.TheReadoptCurlKeepsTheProxysAccountOfWhatBroke
+[       OK ] P4PowerStrategyTest.TheReadoptCurlKeepsTheProxysAccountOfWhatBroke (0 ms)
+[ RUN      ] P4PowerStrategyTest.PowerOnHelperFailureIsA500AndReadoptNeverRuns
+[       OK ] P4PowerStrategyTest.PowerOnHelperFailureIsA500AndReadoptNeverRuns (0 ms)
+[ RUN      ] P4PowerStrategyTest.PowerOnReadoptFailureIsA502AndDoesNotMarkUp
+[       OK ] P4PowerStrategyTest.PowerOnReadoptFailureIsA502AndDoesNotMarkUp (0 ms)
+[ RUN      ] P4PowerStrategyTest.PowerOnOnAnAlreadyUpSwitchRunsNothing
+[       OK ] P4PowerStrategyTest.PowerOnOnAnAlreadyUpSwitchRunsNothing (0 ms)
+[ RUN      ] P4PowerStrategyTest.PowerOnActsWhenTheGraphSaysUpButThisStrategyJustStoppedTheSwitch
+[       OK ] P4PowerStrategyTest.PowerOnActsWhenTheGraphSaysUpButThisStrategyJustStoppedTheSwitch (0 ms)
+[ RUN      ] P4PowerStrategyTest.PowerOnActsPastTheWindowWhileThePowerOffStandsUnwithdrawn
+[       OK ] P4PowerStrategyTest.PowerOnActsPastTheWindowWhileThePowerOffStandsUnwithdrawn (0 ms)
+[ RUN      ] P4PowerStrategyTest.ASuccessfulPowerOnClosesTheWindowSoAnImmediateRepeatIsStillANoOp
+[       OK ] P4PowerStrategyTest.ASuccessfulPowerOnClosesTheWindowSoAnImmediateRepeatIsStillANoOp (0 ms)
+[ RUN      ] P4PowerStrategyTest.AFailedPowerOffDoesNotOpenTheDistrustWindow
+[       OK ] P4PowerStrategyTest.AFailedPowerOffDoesNotOpenTheDistrustWindow (0 ms)
+[ RUN      ] P4PowerStrategyTest.TheDistrustWindowIsPerSwitchNotFabricWide
+[       OK ] P4PowerStrategyTest.TheDistrustWindowIsPerSwitchNotFabricWide (0 ms)
+[ RUN      ] P4PowerStrategyTest.TheReadoptFailureNamesARecoveryThatCanActuallyRun
+[       OK ] P4PowerStrategyTest.TheReadoptFailureNamesARecoveryThatCanActuallyRun (0 ms)
+[ RUN      ] P4PowerStrategyTest.TheRealShellSeamRunsTheCommandAndReportsItsExitStatus
+[       OK ] P4PowerStrategyTest.TheRealShellSeamRunsTheCommandAndReportsItsExitStatus (3 ms)
+[ RUN      ] P4PowerStrategyTest.DescribesItselfForLogsAndErrors
+[       OK ] P4PowerStrategyTest.DescribesItselfForLogsAndErrors (0 ms)
+[----------] 16 tests from P4PowerStrategyTest (3 ms total)
+
+[----------] 17 tests from P4LivenessTest
+[ RUN      ] P4LivenessTest.ASwitchThatAnsweredAProbeIsUp
+[       OK ] P4LivenessTest.ASwitchThatAnsweredAProbeIsUp (0 ms)
+[ RUN      ] P4LivenessTest.AFreshSuccessfulProbeOutweighsSilenceOnTheDataPlane
+[       OK ] P4LivenessTest.AFreshSuccessfulProbeOutweighsSilenceOnTheDataPlane (0 ms)
+[ RUN      ] P4LivenessTest.AFailedProbeWithNoRecentBeaconIsDown
+[       OK ] P4LivenessTest.AFailedProbeWithNoRecentBeaconIsDown (0 ms)
+[ RUN      ] P4LivenessTest.AFailedProbeForASwitchThatWasNeverSeenForwardingIsDown
+[       OK ] P4LivenessTest.AFailedProbeForASwitchThatWasNeverSeenForwardingIsDown (0 ms)
+[ RUN      ] P4LivenessTest.AnUnreachableProxyLeavesEveryStateUnknown
+[       OK ] P4LivenessTest.AnUnreachableProxyLeavesEveryStateUnknown (0 ms)
+[ RUN      ] P4LivenessTest.ASwitchTheProxyHasNeverHeardOfIsUnknown
+[       OK ] P4LivenessTest.ASwitchTheProxyHasNeverHeardOfIsUnknown (0 ms)
+[ RUN      ] P4LivenessTest.ASwitchNotYetProbedIsUnknownRatherThanDown
+[       OK ] P4LivenessTest.ASwitchNotYetProbedIsUnknownRatherThanDown (0 ms)
+[ RUN      ] P4LivenessTest.AStaleFailedProbeIsUnknownBecauseItDescribesTheProxyNotTheSwitch
+[       OK ] P4LivenessTest.AStaleFailedProbeIsUnknownBecauseItDescribesTheProxyNotTheSwitch (0 ms)
+[ RUN      ] P4LivenessTest.ConflictingEvidenceIsUnknownRatherThanADecision
+[       OK ] P4LivenessTest.ConflictingEvidenceIsUnknownRatherThanADecision (0 ms)
+[ RUN      ] P4LivenessTest.TheBeaconFreshnessBoundaryIsWhereTheDocumentedThresholdSays
+[       OK ] P4LivenessTest.TheBeaconFreshnessBoundaryIsWhereTheDocumentedThresholdSays (0 ms)
+[ RUN      ] P4LivenessTest.APayloadWithoutASwitchesObjectIsUnknown
+[       OK ] P4LivenessTest.APayloadWithoutASwitchesObjectIsUnknown (0 ms)
+[ RUN      ] P4LivenessTest.AnEntryOfTheWrongShapeIsUnknown
+[       OK ] P4LivenessTest.AnEntryOfTheWrongShapeIsUnknown (0 ms)
+[ RUN      ] P4LivenessTest.ANonBooleanProbeOkIsUnknownRatherThanTruthy
+[       OK ] P4LivenessTest.ANonBooleanProbeOkIsUnknownRatherThanTruthy (0 ms)
+[ RUN      ] P4LivenessTest.MissingAgesDoNotPreventAVerdict
+[       OK ] P4LivenessTest.MissingAgesDoNotPreventAVerdict (0 ms)
+[ RUN      ] P4LivenessTest.AMalformedAgeIsUnknownWhileAnAbsentOneIsNot
+[       OK ] P4LivenessTest.AMalformedAgeIsUnknownWhileAnAbsentOneIsNot (0 ms)
+[ RUN      ] P4LivenessTest.NeverThrowsOnAnythingTheProxyCouldSend
+[       OK ] P4LivenessTest.NeverThrowsOnAnythingTheProxyCouldSend (0 ms)
+[ RUN      ] P4LivenessTest.ADpidBeyondThirtyTwoBitsIsLookedUpCorrectly
+[       OK ] P4LivenessTest.ADpidBeyondThirtyTwoBitsIsLookedUpCorrectly (0 ms)
+[----------] 17 tests from P4LivenessTest (1 ms total)
+
+[----------] 12 tests from RelayResponseTest
+[ RUN      ] RelayResponseTest.A200IsAcceptedAndTheStatusTextIsReported
+[       OK ] RelayResponseTest.A200IsAcceptedAndTheStatusTextIsReported (0 ms)
+[ RUN      ] RelayResponseTest.AnyTwoHundredSeriesStatusIsAccepted
+[       OK ] RelayResponseTest.AnyTwoHundredSeriesStatusIsAccepted (0 ms)
+[ RUN      ] RelayResponseTest.NoResponseAtAllIsRefusedRatherThanTreatedAsSuccess
+[       OK ] RelayResponseTest.NoResponseAtAllIsRefusedRatherThanTreatedAsSuccess (0 ms)
+[ RUN      ] RelayResponseTest.CurlsOwnNoResponseCodeIsRefused
+[       OK ] RelayResponseTest.CurlsOwnNoResponseCodeIsRefused (0 ms)
+[ RUN      ] RelayResponseTest.AnErrorStatusIsRefusedAndNamed
+[       OK ] RelayResponseTest.AnErrorStatusIsRefusedAndNamed (0 ms)
+[ RUN      ] RelayResponseTest.AThreeHundredIsNotSuccess
+[       OK ] RelayResponseTest.AThreeHundredIsNotSuccess (0 ms)
+[ RUN      ] RelayResponseTest.AResponseWithNoStatusLineIsRefused
+[       OK ] RelayResponseTest.AResponseWithNoStatusLineIsRefused (0 ms)
+[ RUN      ] RelayResponseTest.AnEmptyBodyWithA200IsStillAccepted
+[       OK ] RelayResponseTest.AnEmptyBodyWithA200IsStillAccepted (0 ms)
+[ RUN      ] RelayResponseTest.HtmlWithoutTheExpectedShapeStillSucceedsWithTheWholeBody
+[       OK ] RelayResponseTest.HtmlWithoutTheExpectedShapeStillSucceedsWithTheWholeBody (0 ms)
+[ RUN      ] RelayResponseTest.AMultiLineBodyKeepsItsStatusAtTheEnd
+[       OK ] RelayResponseTest.AMultiLineBodyKeepsItsStatusAtTheEnd (0 ms)
+[ RUN      ] RelayResponseTest.ANonNumericStatusIsRefused
+[       OK ] RelayResponseTest.ANonNumericStatusIsRefused (0 ms)
+[ RUN      ] RelayResponseTest.NeverThrowsOnAnythingTheGatewayCouldSend
+[       OK ] RelayResponseTest.NeverThrowsOnAnythingTheGatewayCouldSend (0 ms)
+[----------] 12 tests from RelayResponseTest (0 ms total)
+
+[----------] 5 tests from RelayPowerCommandTest
+[ RUN      ] RelayPowerCommandTest.CarriesTheThreeParametersTheGatewayIsKnownToAccept
+[       OK ] RelayPowerCommandTest.CarriesTheThreeParametersTheGatewayIsKnownToAccept (0 ms)
+[ RUN      ] RelayPowerCommandTest.AHostileActionValueStaysInsideOneArgument
+[       OK ] RelayPowerCommandTest.AHostileActionValueStaysInsideOneArgument (0 ms)
+[ RUN      ] RelayPowerCommandTest.AsksForTheHttpStatusInterpretRelayResponseReadsItsVerdictFrom
+[       OK ] RelayPowerCommandTest.AsksForTheHttpStatusInterpretRelayResponseReadsItsVerdictFrom (0 ms)
+[ RUN      ] RelayPowerCommandTest.IsBoundedInTimeBecauseItRunsInsideARequestHandler
+[       OK ] RelayPowerCommandTest.IsBoundedInTimeBecauseItRunsInsideARequestHandler (0 ms)
+[ RUN      ] RelayPowerCommandTest.TheStatusLineSurvivesTheRoundTripIntoAVerdict
+[       OK ] RelayPowerCommandTest.TheStatusLineSurvivesTheRoundTripIntoAVerdict (0 ms)
+[----------] 5 tests from RelayPowerCommandTest (0 ms total)
+
+[----------] 12 tests from RequestDeadlines
+[ RUN      ] RequestDeadlines.TheFlowTableRequestIsBounded
+[       OK ] RequestDeadlines.TheFlowTableRequestIsBounded (0 ms)
+[ RUN      ] RequestDeadlines.TheLivenessRequestIsBounded
+[       OK ] RequestDeadlines.TheLivenessRequestIsBounded (0 ms)
+[ RUN      ] RequestDeadlines.TheRelayRequestIsBounded
+[       OK ] RequestDeadlines.TheRelayRequestIsBounded (0 ms)
+[ RUN      ] RequestDeadlines.TheFlowTableDeadlineOutlivesTheProxysOwnGrpcDeadline
+[       OK ] RequestDeadlines.TheFlowTableDeadlineOutlivesTheProxysOwnGrpcDeadline (0 ms)
+[ RUN      ] RequestDeadlines.TheLivenessDeadlineFitsInsideItsOwnPollInterval
+[       OK ] RequestDeadlines.TheLivenessDeadlineFitsInsideItsOwnPollInterval (0 ms)
+[ RUN      ] RequestDeadlines.TheFlowTableRequestStillAddressesTheRightSwitch
+[       OK ] RequestDeadlines.TheFlowTableRequestStillAddressesTheRightSwitch (0 ms)
+[ RUN      ] RequestDeadlines.TheLivenessRequestStillAsksForTheStatusLine
+[       OK ] RequestDeadlines.TheLivenessRequestStillAsksForTheStatusLine (0 ms)
+[ RUN      ] RequestDeadlines.TheTopologyPollIsBounded
+[       OK ] RequestDeadlines.TheTopologyPollIsBounded (0 ms)
+[ RUN      ] RequestDeadlines.TheTopologyPollBoundsTheConnectAndNotJustTheTransfer
+[       OK ] RequestDeadlines.TheTopologyPollBoundsTheConnectAndNotJustTheTransfer (0 ms)
+[ RUN      ] RequestDeadlines.TheWholeTopologyPassFitsInsideItsOwnPollInterval
+[       OK ] RequestDeadlines.TheWholeTopologyPassFitsInsideItsOwnPollInterval (0 ms)
+[ RUN      ] RequestDeadlines.TheTopologyRequestStillFetchesTheUrlItWasGiven
+[       OK ] RequestDeadlines.TheTopologyRequestStillFetchesTheUrlItWasGiven (0 ms)
+[ RUN      ] RequestDeadlines.TheTopologyRequestKeepsCurlsOwnDiagnosisOnStderr
+[       OK ] RequestDeadlines.TheTopologyRequestKeepsCurlsOwnDiagnosisOnStderr (0 ms)
+[----------] 12 tests from RequestDeadlines (0 ms total)
+
+[----------] 6 tests from FlowTableCacheOptionalFields
+[ RUN      ] FlowTableCacheOptionalFields.AnInstallWithoutPriorityDoesNotThrow
+[       OK ] FlowTableCacheOptionalFields.AnInstallWithoutPriorityDoesNotThrow (0 ms)
+[ RUN      ] FlowTableCacheOptionalFields.AnInstallWithoutPriorityIsCachedAtMakeInstallJobsDefault
+[       OK ] FlowTableCacheOptionalFields.AnInstallWithoutPriorityIsCachedAtMakeInstallJobsDefault (0 ms)
+[ RUN      ] FlowTableCacheOptionalFields.AnInstallWithoutActionsDoesNotThrowEither
+[       OK ] FlowTableCacheOptionalFields.AnInstallWithoutActionsDoesNotThrowEither (0 ms)
+[ RUN      ] FlowTableCacheOptionalFields.AModifyWithoutPriorityDoesNotThrow
+[       OK ] FlowTableCacheOptionalFields.AModifyWithoutPriorityDoesNotThrow (0 ms)
+[ RUN      ] FlowTableCacheOptionalFields.AModifyWithoutAMatchDoesNotThrow
+[       OK ] FlowTableCacheOptionalFields.AModifyWithoutAMatchDoesNotThrow (0 ms)
+[ RUN      ] FlowTableCacheOptionalFields.ADeleteWithoutAMatchDoesNotThrow
+[       OK ] FlowTableCacheOptionalFields.ADeleteWithoutAMatchDoesNotThrow (0 ms)
+[----------] 6 tests from FlowTableCacheOptionalFields (0 ms total)
+
+[----------] 6 tests from ReverseEdgeLookupTest
+[ RUN      ] ReverseEdgeLookupTest.AMissingReverseEdgeIsReportedAsNotFound
+[       OK ] ReverseEdgeLookupTest.AMissingReverseEdgeIsReportedAsNotFound (0 ms)
+[ RUN      ] ReverseEdgeLookupTest.AMissingReverseEdgeIsReportedAsNotFoundByTheNoLockTwin
+[       OK ] ReverseEdgeLookupTest.AMissingReverseEdgeIsReportedAsNotFoundByTheNoLockTwin (0 ms)
+[ RUN      ] ReverseEdgeLookupTest.ThePresentReverseEdgeIsStillFound
+[       OK ] ReverseEdgeLookupTest.ThePresentReverseEdgeIsStillFound (0 ms)
+[ RUN      ] ReverseEdgeLookupTest.AnAgentKeyThatMatchesNoEdgeIsNotFound
+[       OK ] ReverseEdgeLookupTest.AnAgentKeyThatMatchesNoEdgeIsNotFound (0 ms)
+[ RUN      ] ReverseEdgeLookupTest.ALinkWithOnlyOneDirectionIsReportedAsSuchNotAnswered
+[       OK ] ReverseEdgeLookupTest.ALinkWithOnlyOneDirectionIsReportedAsSuchNotAnswered (0 ms)
+[ RUN      ] ReverseEdgeLookupTest.ALinkWithBothDirectionsIsStillReported
+[       OK ] ReverseEdgeLookupTest.ALinkWithBothDirectionsIsStillReported (0 ms)
+[----------] 6 tests from ReverseEdgeLookupTest (0 ms total)
+
+[----------] 8 tests from LastHopAttributionTest
+[ RUN      ] LastHopAttributionTest.FindEdgeToHostReturnsTheHostBoundEdgeOnly
+[       OK ] LastHopAttributionTest.FindEdgeToHostReturnsTheHostBoundEdgeOnly (0 ms)
+[ RUN      ] LastHopAttributionTest.TheHostBoundSiteDividesByTheIntervalItWasGiven
+[       OK ] LastHopAttributionTest.TheHostBoundSiteDividesByTheIntervalItWasGiven (0 ms)
+[ RUN      ] LastHopAttributionTest.OneSampleCreditsTheLastHopEdgeWithSampledBytesTimesRate
+[       OK ] LastHopAttributionTest.OneSampleCreditsTheLastHopEdgeWithSampledBytesTimesRate (0 ms)
+[ RUN      ] LastHopAttributionTest.SwitchToSwitchEgressEntriesAreDroppedNotWritten
+[       OK ] LastHopAttributionTest.SwitchToSwitchEgressEntriesAreDroppedNotWritten (0 ms)
+[ RUN      ] LastHopAttributionTest.TheCreditDecaysToZeroWhenTrafficStops
+[       OK ] LastHopAttributionTest.TheCreditDecaysToZeroWhenTrafficStops (0 ms)
+[ RUN      ] LastHopAttributionTest.TwoSamplesInOneSecondAccumulate
+[       OK ] LastHopAttributionTest.TwoSamplesInOneSecondAccumulate (0 ms)
+[ RUN      ] LastHopAttributionTest.AnIngressLessSampleIsNotBankedTwice
+[       OK ] LastHopAttributionTest.AnIngressLessSampleIsNotBankedTwice (0 ms)
+[ RUN      ] LastHopAttributionTest.TheLastHopEdgeJoinsTheFlowSetOnceThePathIsKnown
+[       OK ] LastHopAttributionTest.TheLastHopEdgeJoinsTheFlowSetOnceThePathIsKnown (0 ms)
+[----------] 8 tests from LastHopAttributionTest (2 ms total)
+
+[----------] 9 tests from AllDestinationPaths
+[ RUN      ] AllDestinationPaths.ASnapshotIsStored
+[       OK ] AllDestinationPaths.ASnapshotIsStored (0 ms)
+[ RUN      ] AllDestinationPaths.ALaterSnapshotReplacesRatherThanMerges
+[       OK ] AllDestinationPaths.ALaterSnapshotReplacesRatherThanMerges (0 ms)
+[ RUN      ] AllDestinationPaths.ThePairThatSurvivesGetsItsNewCount
+[       OK ] AllDestinationPaths.ThePairThatSurvivesGetsItsNewCount (0 ms)
+[ RUN      ] AllDestinationPaths.AnEmptySnapshotDoesNotWipeAPopulatedMap
+[       OK ] AllDestinationPaths.AnEmptySnapshotDoesNotWipeAPopulatedMap (0 ms)
+[ RUN      ] AllDestinationPaths.AnEmptySnapshotOnAnEmptyMapIsHarmless
+[       OK ] AllDestinationPaths.AnEmptySnapshotOnAnEmptyMapIsHarmless (0 ms)
+[ RUN      ] AllDestinationPaths.RepeatingTheSameSnapshotIsStable
+[       OK ] AllDestinationPaths.RepeatingTheSameSnapshotIsStable (0 ms)
+[ RUN      ] AllDestinationPaths.AnEmptyPathInASnapshotIsSkippedRatherThanDereferenced
+[       OK ] AllDestinationPaths.AnEmptyPathInASnapshotIsSkippedRatherThanDereferenced (0 ms)
+[ RUN      ] AllDestinationPaths.TheUsablePathsInAMixedSnapshotAreStillStored
+[       OK ] AllDestinationPaths.TheUsablePathsInAMixedSnapshotAreStillStored (0 ms)
+[ RUN      ] AllDestinationPaths.AnEmptyPathDoesNotPreventTheReplacementOfEarlierData
+[       OK ] AllDestinationPaths.AnEmptyPathDoesNotPreventTheReplacementOfEarlierData (0 ms)
+[----------] 9 tests from AllDestinationPaths (0 ms total)
+
+[----------] 22 tests from HttpSessionRoutingTest
+[ RUN      ] HttpSessionRoutingTest.ANonNumericAppIdIsAClientErrorNotAServerError
+[       OK ] HttpSessionRoutingTest.ANonNumericAppIdIsAClientErrorNotAServerError (0 ms)
+[ RUN      ] HttpSessionRoutingTest.AnAppIdWithTrailingGarbageIsRejectedRatherThanTruncated
+[       OK ] HttpSessionRoutingTest.AnAppIdWithTrailingGarbageIsRejectedRatherThanTruncated (0 ms)
+[ RUN      ] HttpSessionRoutingTest.ANegativeAppIdIsRejectedRatherThanWrappedAround
+[       OK ] HttpSessionRoutingTest.ANegativeAppIdIsRejectedRatherThanWrappedAround (0 ms)
+[ RUN      ] HttpSessionRoutingTest.AnAppIdTooWideForIntIsRejected
+[       OK ] HttpSessionRoutingTest.AnAppIdTooWideForIntIsRejected (0 ms)
+[ RUN      ] HttpSessionRoutingTest.AnAppIdTooWideForUint64IsRejected
+[       OK ] HttpSessionRoutingTest.AnAppIdTooWideForUint64IsRejected (0 ms)
+[ RUN      ] HttpSessionRoutingTest.AnAppIdSentAsANumberIsAClientError
+[       OK ] HttpSessionRoutingTest.AnAppIdSentAsANumberIsAClientError (0 ms)
+[ RUN      ] HttpSessionRoutingTest.AMissingAppIdIsAClientError
+[       OK ] HttpSessionRoutingTest.AMissingAppIdIsAClientError (0 ms)
+[ RUN      ] HttpSessionRoutingTest.ANonNumericDpidIsAClientErrorNotAServerError
+[       OK ] HttpSessionRoutingTest.ANonNumericDpidIsAClientErrorNotAServerError (0 ms)
+[ RUN      ] HttpSessionRoutingTest.ADpidWithTrailingGarbageIsRejectedRatherThanTruncated
+[       OK ] HttpSessionRoutingTest.ADpidWithTrailingGarbageIsRejectedRatherThanTruncated (0 ms)
+[ RUN      ] HttpSessionRoutingTest.AnAbsentDpidParameterIsReportedAsMissingNotAsMalformed
+[       OK ] HttpSessionRoutingTest.AnAbsentDpidParameterIsReportedAsMissingNotAsMalformed (0 ms)
+[ RUN      ] HttpSessionRoutingTest.AnEmptyDpidParameterIsReportedAsMissingNotAsMalformed
+[       OK ] HttpSessionRoutingTest.AnEmptyDpidParameterIsReportedAsMissingNotAsMalformed (0 ms)
+[ RUN      ] HttpSessionRoutingTest.AnUnparseableBodyIsAClientError
+[       OK ] HttpSessionRoutingTest.AnUnparseableBodyIsAClientError (0 ms)
+[ RUN      ] HttpSessionRoutingTest.AParseableBodyMissingItsRequiredKeyIsAClientError
+[       OK ] HttpSessionRoutingTest.AParseableBodyMissingItsRequiredKeyIsAClientError (0 ms)
+[ RUN      ] HttpSessionRoutingTest.AClientErrorStillCarriesADiagnosticBody
+[       OK ] HttpSessionRoutingTest.AClientErrorStillCarriesADiagnosticBody (0 ms)
+[ RUN      ] HttpSessionRoutingTest.AnUnknownEndpointIsNotFound
+[       OK ] HttpSessionRoutingTest.AnUnknownEndpointIsNotFound (0 ms)
+[ RUN      ] HttpSessionRoutingTest.TheMethodIsPartOfTheRoute
+[       OK ] HttpSessionRoutingTest.TheMethodIsPartOfTheRoute (0 ms)
+[ RUN      ] HttpSessionRoutingTest.APreflightIsAnsweredWithoutRunningAHandler
+[       OK ] HttpSessionRoutingTest.APreflightIsAnsweredWithoutRunningAHandler (0 ms)
+[ RUN      ] HttpSessionRoutingTest.CorsHeadersAreSetEvenOnAFailedRequest
+[       OK ] HttpSessionRoutingTest.CorsHeadersAreSetEvenOnAFailedRequest (0 ms)
+[ RUN      ] HttpSessionRoutingTest.AQueryStringOnGetDetectedFlowDataStillReachesItsRoute
+[       OK ] HttpSessionRoutingTest.AQueryStringOnGetDetectedFlowDataStillReachesItsRoute (0 ms)
+[ RUN      ] HttpSessionRoutingTest.AnUnrecognisedLivenessValueIsRefusedRatherThanQuietlyDefaulted
+[       OK ] HttpSessionRoutingTest.AnUnrecognisedLivenessValueIsRefusedRatherThanQuietlyDefaulted (0 ms)
+[ RUN      ] HttpSessionRoutingTest.TopKRefusesAnUnrecognisedLivenessValueBeforeTouchingTheCollector
+[       OK ] HttpSessionRoutingTest.TopKRefusesAnUnrecognisedLivenessValueBeforeTouchingTheCollector (0 ms)
+[ RUN      ] HttpSessionRoutingTest.AMistypedFlowDataEndpointIsNotFoundRatherThanServed
+[       OK ] HttpSessionRoutingTest.AMistypedFlowDataEndpointIsNotFoundRatherThanServed (0 ms)
+[----------] 22 tests from HttpSessionRoutingTest (1 ms total)
+
+[----------] 4 tests from LinkTransitionEndpointsTest
+[ RUN      ] LinkTransitionEndpointsTest.AFailureWithBothDirectionsPresentTakesBothDownAndAnswers200
+[       OK ] LinkTransitionEndpointsTest.AFailureWithBothDirectionsPresentTakesBothDownAndAnswers200 (0 ms)
+[ RUN      ] LinkTransitionEndpointsTest.AFailureWhoseReverseEdgeIsMissingIsNotReportedAsSuccess
+[       OK ] LinkTransitionEndpointsTest.AFailureWhoseReverseEdgeIsMissingIsNotReportedAsSuccess (0 ms)
+[ RUN      ] LinkTransitionEndpointsTest.ARecoveryWithBothDirectionsPresentBringsBothUpAndAnswers200
+[       OK ] LinkTransitionEndpointsTest.ARecoveryWithBothDirectionsPresentBringsBothUpAndAnswers200 (0 ms)
+[ RUN      ] LinkTransitionEndpointsTest.ARecoveryWhoseReverseEdgeIsMissingIsNotReportedAsSuccess
+[       OK ] LinkTransitionEndpointsTest.ARecoveryWhoseReverseEdgeIsMissingIsNotReportedAsSuccess (0 ms)
+[----------] 4 tests from LinkTransitionEndpointsTest (0 ms total)
+
+[----------] 2 tests from GraphDataHeadroomTest
+[ RUN      ] GraphDataHeadroomTest.TheHeadroomFigureCarriesItsProvenance
+[       OK ] GraphDataHeadroomTest.TheHeadroomFigureCarriesItsProvenance (1 ms)
+[ RUN      ] GraphDataHeadroomTest.TheExistingHeadroomKeyKeepsItsNameAndType
+[       OK ] GraphDataHeadroomTest.TheExistingHeadroomKeyKeepsItsNameAndType (0 ms)
+[----------] 2 tests from GraphDataHeadroomTest (1 ms total)
+
+[----------] 5 tests from LLMResponseEnumsTest
+[ RUN      ] LLMResponseEnumsTest.EveryTaskTypeSurvivesARoundTripThroughItsWireName
+[       OK ] LLMResponseEnumsTest.EveryTaskTypeSurvivesARoundTripThroughItsWireName (0 ms)
+[ RUN      ] LLMResponseEnumsTest.AnUnmappedTaskTypeIsNamedRatherThanRenderedAsAnInteger
+[       OK ] LLMResponseEnumsTest.AnUnmappedTaskTypeIsNamedRatherThanRenderedAsAnInteger (0 ms)
+[ RUN      ] LLMResponseEnumsTest.AnUnknownTaskNameIsRejectedRatherThanDefaultingToATask
+[       OK ] LLMResponseEnumsTest.AnUnknownTaskNameIsRejectedRatherThanDefaultingToATask (0 ms)
+[ RUN      ] LLMResponseEnumsTest.TaskNamesAreCaseSensitiveSoNearMissesAreRejected
+[       OK ] LLMResponseEnumsTest.TaskNamesAreCaseSensitiveSoNearMissesAreRejected (0 ms)
+[ RUN      ] LLMResponseEnumsTest.EveryStateSurvivesARoundTripAndUnknownOnesAreRejected
+[       OK ] LLMResponseEnumsTest.EveryStateSurvivesARoundTripAndUnknownOnesAreRejected (0 ms)
+[----------] 5 tests from LLMResponseEnumsTest (0 ms total)
+
+[----------] 38 tests from LLMResponseParsingTest
+[ RUN      ] LLMResponseParsingTest.ADiscussionReplyBecomesADiscussionCarryingItsPrompt
+[       OK ] LLMResponseParsingTest.ADiscussionReplyBecomesADiscussionCarryingItsPrompt (0 ms)
+[ RUN      ] LLMResponseParsingTest.AValidationReplyCarriesItsErrorMessageFromTheErrorField
+[       OK ] LLMResponseParsingTest.AValidationReplyCarriesItsErrorMessageFromTheErrorField (0 ms)
+[ RUN      ] LLMResponseParsingTest.AReplyWithNoStateIsRejectedRatherThanAssumedToBeAnAnswer
+[       OK ] LLMResponseParsingTest.AReplyWithNoStateIsRejectedRatherThanAssumedToBeAnAnswer (0 ms)
+[ RUN      ] LLMResponseParsingTest.ANullResponsePointerSerialisesToJsonNullRatherThanAnEmptyObject
+[       OK ] LLMResponseParsingTest.ANullResponsePointerSerialisesToJsonNullRatherThanAnEmptyObject (0 ms)
+[ RUN      ] LLMResponseParsingTest.ANullTaskPointerSerialisesToJsonNullRatherThanAnEmptyObject
+[       OK ] LLMResponseParsingTest.ANullTaskPointerSerialisesToJsonNullRatherThanAnEmptyObject (0 ms)
+[ RUN      ] LLMResponseParsingTest.AnAnswerMarkedInvalidDiscardsTheTasksItStillCarries
+[       OK ] LLMResponseParsingTest.AnAnswerMarkedInvalidDiscardsTheTasksItStillCarries (0 ms)
+[ RUN      ] LLMResponseParsingTest.ValidIsReadNumericallySoOneAndZeroBothWork
+[       OK ] LLMResponseParsingTest.ValidIsReadNumericallySoOneAndZeroBothWork (0 ms)
+[ RUN      ] LLMResponseParsingTest.AStringlyTypedValidIsRejectedRatherThanReadAsTruthy
+[       OK ] LLMResponseParsingTest.AStringlyTypedValidIsRejectedRatherThanReadAsTruthy (0 ms)
+[ RUN      ] LLMResponseParsingTest.AnEmptyTaskListIsAcceptedButAMissingOneIsNot
+[       OK ] LLMResponseParsingTest.AnEmptyTaskListIsAcceptedButAMissingOneIsNot (0 ms)
+[ RUN      ] LLMResponseParsingTest.EachTaskNameProducesItsOwnConcreteType
+[       OK ] LLMResponseParsingTest.EachTaskNameProducesItsOwnConcreteType (0 ms)
+[ RUN      ] LLMResponseParsingTest.ATaskWithNoOrderIsRejectedBecauseTheOrderDecidesWhatRunsFirst
+[       OK ] LLMResponseParsingTest.ATaskWithNoOrderIsRejectedBecauseTheOrderDecidesWhatRunsFirst (0 ms)
+[ RUN      ] LLMResponseParsingTest.OrderIsCarriedThroughForValuesBeyondASingleByte
+[       OK ] LLMResponseParsingTest.OrderIsCarriedThroughForValuesBeyondASingleByte (0 ms)
+[ RUN      ] LLMResponseParsingTest.ANegativeOrderWrapsToItsUnsignedValueDocumentsCurrentBehaviour
+[       OK ] LLMResponseParsingTest.ANegativeOrderWrapsToItsUnsignedValueDocumentsCurrentBehaviour (0 ms)
+[ RUN      ] LLMResponseParsingTest.AResultSuppliedByTheModelIsDiscardedRatherThanTrusted
+[       OK ] LLMResponseParsingTest.AResultSuppliedByTheModelIsDiscardedRatherThanTrusted (0 ms)
+[ RUN      ] LLMResponseParsingTest.ATaskThatTakesNoParametersDoesNotRequireAParametersObject
+[       OK ] LLMResponseParsingTest.ATaskThatTakesNoParametersDoesNotRequireAParametersObject (0 ms)
+[ RUN      ] LLMResponseParsingTest.ATaskThatNeedsAParameterIsRejectedWhenItIsMissingOrNull
+[       OK ] LLMResponseParsingTest.ATaskThatNeedsAParameterIsRejectedWhenItIsMissingOrNull (0 ms)
+[ RUN      ] LLMResponseParsingTest.ADeviceNameGivenAsANumberIsRejectedRatherThanStringified
+[       OK ] LLMResponseParsingTest.ADeviceNameGivenAsANumberIsRejectedRatherThanStringified (0 ms)
+[ RUN      ] LLMResponseParsingTest.AnInstallFlowEntryCarriesItsDeviceMatchPriorityAndAction
+[       OK ] LLMResponseParsingTest.AnInstallFlowEntryCarriesItsDeviceMatchPriorityAndAction (0 ms)
+[ RUN      ] LLMResponseParsingTest.AnEmptyActionsArrayMeansDropAndIsSignalledByPortMinusOne
+[       OK ] LLMResponseParsingTest.AnEmptyActionsArrayMeansDropAndIsSignalledByPortMinusOne (0 ms)
+[ RUN      ] LLMResponseParsingTest.OnlyTheFirstActionIsReadAndTheRestAreSilentlyIgnored
+[       OK ] LLMResponseParsingTest.OnlyTheFirstActionIsReadAndTheRestAreSilentlyIgnored (0 ms)
+[ RUN      ] LLMResponseParsingTest.TheStringActionFormRyuUsesIsRejectedHereDocumentsCurrentBehaviour
+[       OK ] LLMResponseParsingTest.TheStringActionFormRyuUsesIsRejectedHereDocumentsCurrentBehaviour (0 ms)
+[ RUN      ] LLMResponseParsingTest.AnActionMissingItsPortIsRejectedRatherThanDefaultingToZero
+[       OK ] LLMResponseParsingTest.AnActionMissingItsPortIsRejectedRatherThanDefaultingToZero (0 ms)
+[ RUN      ] LLMResponseParsingTest.APriorityAboveSixteenBitsWrapsDocumentsCurrentBehaviour
+[       OK ] LLMResponseParsingTest.APriorityAboveSixteenBitsWrapsDocumentsCurrentBehaviour (0 ms)
+[ RUN      ] LLMResponseParsingTest.AMatchIsCarriedThroughVerbatimWithoutBeingValidated
+[       OK ] LLMResponseParsingTest.AMatchIsCarriedThroughVerbatimWithoutBeingValidated (0 ms)
+[ RUN      ] LLMResponseParsingTest.ARerouteCarriesEveryHopInTheOrderTheModelGaveThem
+[       OK ] LLMResponseParsingTest.ARerouteCarriesEveryHopInTheOrderTheModelGaveThem (0 ms)
+[ RUN      ] LLMResponseParsingTest.ARerouteWithANonStringHopIsRejectedRatherThanPartiallyParsed
+[       OK ] LLMResponseParsingTest.ARerouteWithANonStringHopIsRejectedRatherThanPartiallyParsed (0 ms)
+[ RUN      ] LLMResponseParsingTest.AGroupEntrysBucketsAreCarriedThroughVerbatim
+[       OK ] LLMResponseParsingTest.AGroupEntrysBucketsAreCarriedThroughVerbatim (0 ms)
+[ RUN      ] LLMResponseParsingTest.AMeterEntrysFlagsListIsCarriedThroughInOrder
+[       OK ] LLMResponseParsingTest.AMeterEntrysFlagsListIsCarriedThroughInOrder (0 ms)
+[ RUN      ] LLMResponseParsingTest.AKGivenAsAStringIsRejectedRatherThanParsedOutOfTheText
+[       OK ] LLMResponseParsingTest.AKGivenAsAStringIsRejectedRatherThanParsedOutOfTheText (0 ms)
+[ RUN      ] LLMResponseParsingTest.ANegativeKIsCarriedThroughForTheCallerToDealWith
+[       OK ] LLMResponseParsingTest.ANegativeKIsCarriedThroughForTheCallerToDealWith (0 ms)
+[ RUN      ] LLMResponseParsingTest.SeveralTasksArriveInTheOrderTheyWereListed
+[       OK ] LLMResponseParsingTest.SeveralTasksArriveInTheOrderTheyWereListed (0 ms)
+[ RUN      ] LLMResponseParsingTest.OneUnparseableTaskRejectsTheWholeReplyRatherThanPartOfIt
+[       OK ] LLMResponseParsingTest.OneUnparseableTaskRejectsTheWholeReplyRatherThanPartOfIt (0 ms)
+[ RUN      ] LLMResponseParsingTest.ATasksEntryThatIsNotATaskObjectIsRejected
+[       OK ] LLMResponseParsingTest.ATasksEntryThatIsNotATaskObjectIsRejected (0 ms)
+[ RUN      ] LLMResponseParsingTest.AnAnswerRoundTripsThroughJsonWithItsTasksIntact
+[       OK ] LLMResponseParsingTest.AnAnswerRoundTripsThroughJsonWithItsTasksIntact (0 ms)
+[ RUN      ] LLMResponseParsingTest.NothingAModelCouldSendCausesAnythingWorseThanAnException
+[       OK ] LLMResponseParsingTest.NothingAModelCouldSendCausesAnythingWorseThanAnException (0 ms)
+[ RUN      ] LLMResponseParsingTest.AModifyFlowEntryTaskConstructsItselfAsAModify
+[       OK ] LLMResponseParsingTest.AModifyFlowEntryTaskConstructsItselfAsAModify (0 ms)
+[ RUN      ] LLMResponseParsingTest.DeserialisingAnAnswerReplacesExistingTasks
+[       OK ] LLMResponseParsingTest.DeserialisingAnAnswerReplacesExistingTasks (0 ms)
+[ RUN      ] LLMResponseParsingTest.AnAnswerClaimingValidWithNullTasksIsRejected
+[       OK ] LLMResponseParsingTest.AnAnswerClaimingValidWithNullTasksIsRejected (0 ms)
+[----------] 38 tests from LLMResponseParsingTest (3 ms total)
+
+[----------] 18 tests from LockManagerTest
+[ RUN      ] LockManagerTest.TheThreeDocumentedLockNamesAreValidAndNothingElseIs
+[       OK ] LockManagerTest.TheThreeDocumentedLockNamesAreValidAndNothingElseIs (0 ms)
+[ RUN      ] LockManagerTest.TheDefaultLockNameConstantIsOneTheManagerActuallyAccepts
+[       OK ] LockManagerTest.TheDefaultLockNameConstantIsOneTheManagerActuallyAccepts (0 ms)
+[ RUN      ] LockManagerTest.AnUnknownLockNameIsRefusedRatherThanCreatingAFourthLock
+[       OK ] LockManagerTest.AnUnknownLockNameIsRefusedRatherThanCreatingAFourthLock (0 ms)
+[ RUN      ] LockManagerTest.ASecondAcquireOfAHeldLockIsRefused
+[       OK ] LockManagerTest.ASecondAcquireOfAHeldLockIsRefused (0 ms)
+[ RUN      ] LockManagerTest.TheThreeLocksAreIndependentOfEachOther
+[       OK ] LockManagerTest.TheThreeLocksAreIndependentOfEachOther (0 ms)
+[ RUN      ] LockManagerTest.UnlockingMakesTheLockAvailableAgain
+[       OK ] LockManagerTest.UnlockingMakesTheLockAvailableAgain (0 ms)
+[ RUN      ] LockManagerTest.UnlockingIsIdempotentAndSafeOnALockNobodyEverTook
+[       OK ] LockManagerTest.UnlockingIsIdempotentAndSafeOnALockNobodyEverTook (0 ms)
+[ RUN      ] LockManagerTest.UnlockingAnUnknownNameDoesNotReleaseARealLock
+[       OK ] LockManagerTest.UnlockingAnUnknownNameDoesNotReleaseARealLock (0 ms)
+[ RUN      ] LockManagerTest.AZeroTtlLockIsAlreadyExpiredWhenTheNextCallerAsks
+[       OK ] LockManagerTest.AZeroTtlLockIsAlreadyExpiredWhenTheNextCallerAsks (0 ms)
+[ RUN      ] LockManagerTest.ANegativeTtlIsTreatedAsAlreadyExpiredRatherThanAsForever
+[       OK ] LockManagerTest.ANegativeTtlIsTreatedAsAlreadyExpiredRatherThanAsForever (0 ms)
+[ RUN      ] LockManagerTest.APositiveTtlStillHoldsTheLockWhileItHasTimeLeft
+[       OK ] LockManagerTest.APositiveTtlStillHoldsTheLockWhileItHasTimeLeft (0 ms)
+[ RUN      ] LockManagerTest.RenewingALockThatIsStillInForceRewritesItsDeadline
+[       OK ] LockManagerTest.RenewingALockThatIsStillInForceRewritesItsDeadline (0 ms)
+[ RUN      ] LockManagerTest.RenewingAnExpiredLeaseIsRefusedRatherThanResurrectingIt
+[       OK ] LockManagerTest.RenewingAnExpiredLeaseIsRefusedRatherThanResurrectingIt (0 ms)
+[ RUN      ] LockManagerTest.ANonHolderCannotKeepADeadLeaseAliveAndLockEverybodyOut
+[       OK ] LockManagerTest.ANonHolderCannotKeepADeadLeaseAliveAndLockEverybodyOut (0 ms)
+[ RUN      ] LockManagerTest.RenewIsRefusedOnAnExpiredLockForEachOfTheThreeLocks
+[       OK ] LockManagerTest.RenewIsRefusedOnAnExpiredLockForEachOfTheThreeLocks (0 ms)
+[ RUN      ] LockManagerTest.RenewingALockNobodyHoldsIsRefused
+[       OK ] LockManagerTest.RenewingALockNobodyHoldsIsRefused (0 ms)
+[ RUN      ] LockManagerTest.RenewingOneLockDoesNotExtendAnother
+[       OK ] LockManagerTest.RenewingOneLockDoesNotExtendAnother (0 ms)
+[ RUN      ] LockManagerTest.ExactlyOneOfManyConcurrentAcquiresWins
+[       OK ] LockManagerTest.ExactlyOneOfManyConcurrentAcquiresWins (0 ms)
+[----------] 18 tests from LockManagerTest (1 ms total)
+
+[----------] 11 tests from LockRequestParsing
+[ RUN      ] LockRequestParsing.MalformedBodyIsRefusedRatherThanDefaulted
+[       OK ] LockRequestParsing.MalformedBodyIsRefusedRatherThanDefaulted (0 ms)
+[ RUN      ] LockRequestParsing.MissingTypeIsRefusedRatherThanSubstituted
+[       OK ] LockRequestParsing.MissingTypeIsRefusedRatherThanSubstituted (0 ms)
+[ RUN      ] LockRequestParsing.InvalidTypeIsDistinguishedFromMissingType
+[       OK ] LockRequestParsing.InvalidTypeIsDistinguishedFromMissingType (0 ms)
+[ RUN      ] LockRequestParsing.AllThreeRealLocksAreAccepted
+[       OK ] LockRequestParsing.AllThreeRealLocksAreAccepted (0 ms)
+[ RUN      ] LockRequestParsing.ExplicitTtlIsHonoured
+[       OK ] LockRequestParsing.ExplicitTtlIsHonoured (0 ms)
+[ RUN      ] LockRequestParsing.TheShapeBothSiblingAppsSendStillWorks
+[       OK ] LockRequestParsing.TheShapeBothSiblingAppsSendStillWorks (0 ms)
+[ RUN      ] LockRequestParsing.AnAbsentBodyNamesNoLockAtAll
+[       OK ] LockRequestParsing.AnAbsentBodyNamesNoLockAtAll (0 ms)
+[ RUN      ] LockRequestParsing.AWhitespaceOnlyBodyIsTreatedAsAbsentRatherThanAsMalformed
+[       OK ] LockRequestParsing.AWhitespaceOnlyBodyIsTreatedAsAbsentRatherThanAsMalformed (0 ms)
+[ RUN      ] LockRequestParsing.ANonStringTypeIsDistinguishedFromAMissingOne
+[       OK ] LockRequestParsing.ANonStringTypeIsDistinguishedFromAMissingOne (0 ms)
+[ RUN      ] LockRequestParsing.TheExactBodiesTheReleaseAndRenewCallersSendAreAccepted
+[       OK ] LockRequestParsing.TheExactBodiesTheReleaseAndRenewCallersSendAreAccepted (0 ms)
+[ RUN      ] LockRequestParsing.EachRefusalReasonProducesADistinctMessageQuotingTheCaller
+[       OK ] LockRequestParsing.EachRefusalReasonProducesADistinctMessageQuotingTheCaller (0 ms)
+[----------] 11 tests from LockRequestParsing (0 ms total)
+
+[----------] 18 tests from LockLeaseExpiryTest
+[ RUN      ] LockLeaseExpiryTest.ReleasingAnExpiredLeaseIsReportedAsExpiredNotAsReleased
+[       OK ] LockLeaseExpiryTest.ReleasingAnExpiredLeaseIsReportedAsExpiredNotAsReleased (0 ms)
+[ RUN      ] LockLeaseExpiryTest.ALiveLeaseIsStillReleasedNormally
+[       OK ] LockLeaseExpiryTest.ALiveLeaseIsStillReleasedNormally (0 ms)
+[ RUN      ] LockLeaseExpiryTest.ExpiredAndNeverHeldAreDifferentAnswers
+[       OK ] LockLeaseExpiryTest.ExpiredAndNeverHeldAreDifferentAnswers (0 ms)
+[ RUN      ] LockLeaseExpiryTest.AnUnknownLockNameIsNotHeldRatherThanExpired
+[       OK ] LockLeaseExpiryTest.AnUnknownLockNameIsNotHeldRatherThanExpired (0 ms)
+[ RUN      ] LockLeaseExpiryTest.ALateReleaseNamingItsOwnLeaseCannotFreeTheLeaseThatReplacedIt
+[       OK ] LockLeaseExpiryTest.ALateReleaseNamingItsOwnLeaseCannotFreeTheLeaseThatReplacedIt (0 ms)
+[ RUN      ] LockLeaseExpiryTest.ALateReleaseThatNamesNoLeaseStillFreesTheNewHoldersLock
+[       OK ] LockLeaseExpiryTest.ALateReleaseThatNamesNoLeaseStillFreesTheNewHoldersLock (0 ms)
+[ RUN      ] LockLeaseExpiryTest.LeaseIdZeroMeansUnnamedAndKeepsTheOldBehaviourExactly
+[       OK ] LockLeaseExpiryTest.LeaseIdZeroMeansUnnamedAndKeepsTheOldBehaviourExactly (0 ms)
+[ RUN      ] LockLeaseExpiryTest.TheCurrentLeaseIdIsAcceptedAndAnyOtherIsRefused
+[       OK ] LockLeaseExpiryTest.TheCurrentLeaseIdIsAcceptedAndAnyOtherIsRefused (0 ms)
+[ RUN      ] LockLeaseExpiryTest.LeaseIdsAreNeverReusedAcrossAcquiresOrAcrossLocks
+[       OK ] LockLeaseExpiryTest.LeaseIdsAreNeverReusedAcrossAcquiresOrAcrossLocks (0 ms)
+[ RUN      ] LockLeaseExpiryTest.AReclaimedLeaseIsCountedAndNamedSoItCanBeSeenAfterwards
+[       OK ] LockLeaseExpiryTest.AReclaimedLeaseIsCountedAndNamedSoItCanBeSeenAfterwards (0 ms)
+[ RUN      ] LockLeaseExpiryTest.SnapshotAnswersWhoHoldsItAndForHowLongWithoutTakingIt
+[       OK ] LockLeaseExpiryTest.SnapshotAnswersWhoHoldsItAndForHowLongWithoutTakingIt (0 ms)
+[ RUN      ] LockLeaseExpiryTest.SnapshotDoesNotReapTheLeaseItIsReporting
+[       OK ] LockLeaseExpiryTest.SnapshotDoesNotReapTheLeaseItIsReporting (0 ms)
+[ RUN      ] LockLeaseExpiryTest.AnAcquireThatTakesOverADeadLeaseSaysSo
+[       OK ] LockLeaseExpiryTest.AnAcquireThatTakesOverADeadLeaseSaysSo (0 ms)
+[ RUN      ] LockLeaseExpiryTest.ARefusedAcquireIsToldWhichLeaseBlocksItAndForHowLong
+[       OK ] LockLeaseExpiryTest.ARefusedAcquireIsToldWhichLeaseBlocksItAndForHowLong (0 ms)
+[ RUN      ] LockLeaseExpiryTest.RenewingAnExpiredLeaseSaysExpiredAndRenewingNothingSaysNotHeld
+[       OK ] LockLeaseExpiryTest.RenewingAnExpiredLeaseSaysExpiredAndRenewingNothingSaysNotHeld (0 ms)
+[ RUN      ] LockLeaseExpiryTest.RenewingALiveLeaseStillSucceedsAndAWrongLeaseIdIsRefused
+[       OK ] LockLeaseExpiryTest.RenewingALiveLeaseStillSucceedsAndAWrongLeaseIdIsRefused (0 ms)
+[ RUN      ] LockLeaseExpiryTest.RenewingOneLockDoesNotReapAnother
+[       OK ] LockLeaseExpiryTest.RenewingOneLockDoesNotReapAnother (0 ms)
+[ RUN      ] LockLeaseExpiryTest.TheThreeLocksExpireIndependently
+[       OK ] LockLeaseExpiryTest.TheThreeLocksExpireIndependently (0 ms)
+[----------] 18 tests from LockLeaseExpiryTest (0 ms total)
+
+[----------] 13 tests from LockOwnershipTest
+[ RUN      ] LockOwnershipTest.AnyCallerCanStillReleaseAnyCallersLiveLockWhenNoLeaseIsNamed
+[       OK ] LockOwnershipTest.AnyCallerCanStillReleaseAnyCallersLiveLockWhenNoLeaseIsNamed (0 ms)
+[ RUN      ] LockOwnershipTest.AnyCallerCanStillRenewAnyCallersLiveLease
+[       OK ] LockOwnershipTest.AnyCallerCanStillRenewAnyCallersLiveLease (0 ms)
+[ RUN      ] LockOwnershipTest.AnUnattributableReleaseIsCountedEvenThoughItIsAllowed
+[       OK ] LockOwnershipTest.AnUnattributableReleaseIsCountedEvenThoughItIsAllowed (0 ms)
+[ RUN      ] LockOwnershipTest.AnAttributedActionIsNotCountedAsUnattributable
+[       OK ] LockOwnershipTest.AnAttributedActionIsNotCountedAsUnattributable (0 ms)
+[ RUN      ] LockOwnershipTest.ARefusedActionIsNotCountedAsOneThatHappened
+[       OK ] LockOwnershipTest.ARefusedActionIsNotCountedAsOneThatHappened (0 ms)
+[ RUN      ] LockOwnershipTest.EnforcementIsOffByDefault
+[       OK ] LockOwnershipTest.EnforcementIsOffByDefault (0 ms)
+[ RUN      ] LockOwnershipTest.WithEnforcementOnAReleaseNamingNoLeaseIsRefusedAndTheLockStaysHeld
+[       OK ] LockOwnershipTest.WithEnforcementOnAReleaseNamingNoLeaseIsRefusedAndTheLockStaysHeld (0 ms)
+[ RUN      ] LockOwnershipTest.WithEnforcementOnARenewNamingNoLeaseIsRefusedAndNothingIsExtended
+[       OK ] LockOwnershipTest.WithEnforcementOnARenewNamingNoLeaseIsRefusedAndNothingIsExtended (0 ms)
+[ RUN      ] LockOwnershipTest.WithEnforcementOnTheHolderNamingItsOwnLeaseIsStillServed
+[       OK ] LockOwnershipTest.WithEnforcementOnTheHolderNamingItsOwnLeaseIsStillServed (0 ms)
+[ RUN      ] LockOwnershipTest.WithEnforcementOnAWrongLeaseIsStillAMismatchNotALeaseRequirement
+[       OK ] LockOwnershipTest.WithEnforcementOnAWrongLeaseIsStillAMismatchNotALeaseRequirement (0 ms)
+[ RUN      ] LockOwnershipTest.EnforcementDoesNotTurnNotHeldOrExpiredIntoALeaseRequirement
+[       OK ] LockOwnershipTest.EnforcementDoesNotTurnNotHeldOrExpiredIntoALeaseRequirement (0 ms)
+[ RUN      ] LockOwnershipTest.EnforcementDoesNotAffectAcquire
+[       OK ] LockOwnershipTest.EnforcementDoesNotAffectAcquire (0 ms)
+[ RUN      ] LockOwnershipTest.TheTwoValuedUnlockWrapperReportsAnEnforcementRefusalAsFailure
+[       OK ] LockOwnershipTest.TheTwoValuedUnlockWrapperReportsAnEnforcementRefusalAsFailure (0 ms)
+[----------] 13 tests from LockOwnershipTest (0 ms total)
+
+[----------] 16 tests from ClassifierActionFormsTest
+[ RUN      ] ClassifierActionFormsTest.TheStringOutputFormYieldsThePortItNames
+[       OK ] ClassifierActionFormsTest.TheStringOutputFormYieldsThePortItNames (0 ms)
+[ RUN      ] ClassifierActionFormsTest.TheActionKindIsMatchedCaseInsensitivelyButThePortIsNot
+[       OK ] ClassifierActionFormsTest.TheActionKindIsMatchedCaseInsensitivelyButThePortIsNot (0 ms)
+[ RUN      ] ClassifierActionFormsTest.SeveralOutputActionsAllArriveInTheOrderTheyWereListed
+[       OK ] ClassifierActionFormsTest.SeveralOutputActionsAllArriveInTheOrderTheyWereListed (0 ms)
+[ RUN      ] ClassifierActionFormsTest.AGroupActionIsRecordedSeparatelyFromOutputPorts
+[       OK ] ClassifierActionFormsTest.AGroupActionIsRecordedSeparatelyFromOutputPorts (0 ms)
+[ RUN      ] ClassifierActionFormsTest.AnUnparseableGroupIdLeavesTheGroupUnsetRatherThanZero
+[       OK ] ClassifierActionFormsTest.AnUnparseableGroupIdLeavesTheGroupUnsetRatherThanZero (0 ms)
+[ RUN      ] ClassifierActionFormsTest.AGotoTableInstructionIsPickedUpFromTheInstructionsArray
+[       OK ] ClassifierActionFormsTest.AGotoTableInstructionIsPickedUpFromTheInstructionsArray (0 ms)
+[ RUN      ] ClassifierActionFormsTest.ActionsNestedInsideAnInstructionAreAlsoParsed
+[       OK ] ClassifierActionFormsTest.ActionsNestedInsideAnInstructionAreAlsoParsed (0 ms)
+[ RUN      ] ClassifierActionFormsTest.TheObjectActionFormIsIgnoredEntirelyDocumentsCurrentBehaviour
+[       OK ] ClassifierActionFormsTest.TheObjectActionFormIsIgnoredEntirelyDocumentsCurrentBehaviour (0 ms)
+[ RUN      ] ClassifierActionFormsTest.AnObjectGroupActionIsIgnoredTheSameWay
+[       OK ] ClassifierActionFormsTest.AnObjectGroupActionIsIgnoredTheSameWay (0 ms)
+[ RUN      ] ClassifierActionFormsTest.AnActionsValueThatIsNotAnArrayIsIgnoredWithoutThrowing
+[       OK ] ClassifierActionFormsTest.AnActionsValueThatIsNotAnArrayIsIgnoredWithoutThrowing (0 ms)
+[ RUN      ] ClassifierActionFormsTest.AnActionKindTheParserDoesNotKnowIsSkippedButOthersStillApply
+[       OK ] ClassifierActionFormsTest.AnActionKindTheParserDoesNotKnowIsSkippedButOthersStillApply (0 ms)
+[ RUN      ] ClassifierActionFormsTest.AnOutputWithNoTargetIsSkippedRatherThanBecomingPortZero
+[       OK ] ClassifierActionFormsTest.AnOutputWithNoTargetIsSkippedRatherThanBecomingPortZero (0 ms)
+[ RUN      ] ClassifierActionFormsTest.LeadingWhitespaceAndAPlusSignAreAcceptedInAPortNumber
+[       OK ] ClassifierActionFormsTest.LeadingWhitespaceAndAPlusSignAreAcceptedInAPortNumber (0 ms)
+[ RUN      ] ClassifierActionFormsTest.AnOutputPortTooLargeForThirtyTwoBitsIsRefusedNotTruncated
+[       OK ] ClassifierActionFormsTest.AnOutputPortTooLargeForThirtyTwoBitsIsRefusedNotTruncated (0 ms)
+[ RUN      ] ClassifierActionFormsTest.AReservedTargetWithATrailingPortNumberUsesTheReservedValue
+[       OK ] ClassifierActionFormsTest.AReservedTargetWithATrailingPortNumberUsesTheReservedValue (0 ms)
+[ RUN      ] ClassifierActionFormsTest.TheFourReservedOutputTargetsMapToDistinctOpenFlow13PortNumbers
+[       OK ] ClassifierActionFormsTest.TheFourReservedOutputTargetsMapToDistinctOpenFlow13PortNumbers (0 ms)
+[----------] 16 tests from ClassifierActionFormsTest (2 ms total)
+
+[----------] 15 tests from FlowStatsTimeoutTest
+[ RUN      ] FlowStatsTimeoutTest.AnEmptyTableThatTookRyusFullTimeoutIsNotBelieved
+[       OK ] FlowStatsTimeoutTest.AnEmptyTableThatTookRyusFullTimeoutIsNotBelieved (0 ms)
+[ RUN      ] FlowStatsTimeoutTest.AnEmptyTableThatCameBackImmediatelyIsBelieved
+[       OK ] FlowStatsTimeoutTest.AnEmptyTableThatCameBackImmediatelyIsBelieved (0 ms)
+[ RUN      ] FlowStatsTimeoutTest.TheWholeHealthyLatencyRangeIsBelievedForAnEmptyTable
+[       OK ] FlowStatsTimeoutTest.TheWholeHealthyLatencyRangeIsBelievedForAnEmptyTable (0 ms)
+[ RUN      ] FlowStatsTimeoutTest.TheWholeWedgedLatencyRangeIsRefusedForAnEmptyTable
+[       OK ] FlowStatsTimeoutTest.TheWholeWedgedLatencyRangeIsRefusedForAnEmptyTable (0 ms)
+[ RUN      ] FlowStatsTimeoutTest.ATableWithEntriesIsAlwaysBelievedNoMatterHowSlow
+[       OK ] FlowStatsTimeoutTest.ATableWithEntriesIsAlwaysBelievedNoMatterHowSlow (0 ms)
+[ RUN      ] FlowStatsTimeoutTest.EntriesInAnyTableCountNotJustTheFirst
+[       OK ] FlowStatsTimeoutTest.EntriesInAnyTableCountNotJustTheFirst (0 ms)
+[ RUN      ] FlowStatsTimeoutTest.AnObjectWithNoTablesAtAllIsTreatedTheSameAsEmptyTables
+[       OK ] FlowStatsTimeoutTest.AnObjectWithNoTablesAtAllIsTreatedTheSameAsEmptyTables (0 ms)
+[ RUN      ] FlowStatsTimeoutTest.TheP4ProxyArrayShapeIsHandledToo
+[       OK ] FlowStatsTimeoutTest.TheP4ProxyArrayShapeIsHandledToo (0 ms)
+[ RUN      ] FlowStatsTimeoutTest.AShapeTheParserShouldNeverProduceIsNotTakenAsEvidence
+[       OK ] FlowStatsTimeoutTest.AShapeTheParserShouldNeverProduceIsNotTakenAsEvidence (0 ms)
+[ RUN      ] FlowStatsTimeoutTest.TheThresholdIsInclusiveAndSitsBetweenTheTwoMeasuredRanges
+[       OK ] FlowStatsTimeoutTest.TheThresholdIsInclusiveAndSitsBetweenTheTwoMeasuredRanges (0 ms)
+[ RUN      ] FlowStatsTimeoutTest.AFastEmptyTableIsUsableWhichIsWhyAFailedParseMustNotLookLikeOne
+[       OK ] FlowStatsTimeoutTest.AFastEmptyTableIsUsableWhichIsWhyAFailedParseMustNotLookLikeOne (0 ms)
+[ RUN      ] FlowStatsTimeoutTest.AnErrorBodyIsAReportedFailureNoMatterHowFastItArrived
+[       OK ] FlowStatsTimeoutTest.AnErrorBodyIsAReportedFailureNoMatterHowFastItArrived (0 ms)
+[ RUN      ] FlowStatsTimeoutTest.AnErrorBodyIsAReportedFailureEvenWhenSlow
+[       OK ] FlowStatsTimeoutTest.AnErrorBodyIsAReportedFailureEvenWhenSlow (0 ms)
+[ RUN      ] FlowStatsTimeoutTest.AFastApiDetailBodyIsAlsoAReportedFailure
+[       OK ] FlowStatsTimeoutTest.AFastApiDetailBodyIsAlsoAReportedFailure (0 ms)
+[ RUN      ] FlowStatsTimeoutTest.ARealTableIsNeverMistakenForAFailureReport
+[       OK ] FlowStatsTimeoutTest.ARealTableIsNeverMistakenForAFailureReport (0 ms)
+[----------] 15 tests from FlowStatsTimeoutTest (0 ms total)
+
+[----------] 4 tests from PollPolicy
+[ RUN      ] PollPolicy.AnUpSwitchIsPolledAndMayThereforeBeCarriedForward
+[       OK ] PollPolicy.AnUpSwitchIsPolledAndMayThereforeBeCarriedForward (0 ms)
+[ RUN      ] PollPolicy.ADownSwitchIsNeverPolledSoItCanNeverEnterTheUnreadList
+[       OK ] PollPolicy.ADownSwitchIsNeverPolledSoItCanNeverEnterTheUnreadList (0 ms)
+[ RUN      ] PollPolicy.AHostIsNeverPolledEvenWhenItIsUp
+[       OK ] PollPolicy.AHostIsNeverPolledEvenWhenItIsUp (0 ms)
+[ RUN      ] PollPolicy.ADownHostIsNeverPolledEither
+[       OK ] PollPolicy.ADownHostIsNeverPolledEither (0 ms)
+[----------] 4 tests from PollPolicy (0 ms total)
+
+[----------] 13 tests from StaleTableCarryForward
+[ RUN      ] StaleTableCarryForward.AnUnreadSwitchKeepsItsPreviousTable
+[       OK ] StaleTableCarryForward.AnUnreadSwitchKeepsItsPreviousTable (0 ms)
+[ RUN      ] StaleTableCarryForward.TheCarriedTableSaysItIsStaleAndWhy
+[       OK ] StaleTableCarryForward.TheCarriedTableSaysItIsStaleAndWhy (0 ms)
+[ RUN      ] StaleTableCarryForward.EveryReadFailureModeCarriesTheTableAndNamesItself
+[       OK ] StaleTableCarryForward.EveryReadFailureModeCarriesTheTableAndNamesItself (0 ms)
+[ RUN      ] StaleTableCarryForward.StaleSinceNamesTheFirstFailedPollNotTheLatest
+[       OK ] StaleTableCarryForward.StaleSinceNamesTheFirstFailedPollNotTheLatest (0 ms)
+[ RUN      ] StaleTableCarryForward.LastErrorReportsTheLatestReasonNotTheFirst
+[       OK ] StaleTableCarryForward.LastErrorReportsTheLatestReasonNotTheFirst (0 ms)
+[ RUN      ] StaleTableCarryForward.ASwitchThatWasNeverAttemptedIsNotCarriedForward
+[       OK ] StaleTableCarryForward.ASwitchThatWasNeverAttemptedIsNotCarriedForward (0 ms)
+[ RUN      ] StaleTableCarryForward.ASwitchReadSuccessfullyCarriesNoStaleMarkers
+[       OK ] StaleTableCarryForward.ASwitchReadSuccessfullyCarriesNoStaleMarkers (0 ms)
+[ RUN      ] StaleTableCarryForward.AFreshReadIsNeverOverwrittenByAStaleCopy
+[       OK ] StaleTableCarryForward.AFreshReadIsNeverOverwrittenByAStaleCopy (0 ms)
+[ RUN      ] StaleTableCarryForward.ASwitchNeverReadIsStillListedAndSaysSo
+[       OK ] StaleTableCarryForward.ASwitchNeverReadIsStillListedAndSaysSo (0 ms)
+[ RUN      ] StaleTableCarryForward.ASwitchThatStaysUnreadSinceBootKeepsCountingAndStaysFlagged
+[       OK ] StaleTableCarryForward.ASwitchThatStaysUnreadSinceBootKeepsCountingAndStaysFlagged (0 ms)
+[ RUN      ] StaleTableCarryForward.TheStaleMarkersSurviveTheT11PendingEntryFilter
+[       OK ] StaleTableCarryForward.TheStaleMarkersSurviveTheT11PendingEntryFilter (0 ms)
+[ RUN      ] StaleTableCarryForward.AMalformedPreviousCacheIsTreatedAsHavingNothingToCarry
+[       OK ] StaleTableCarryForward.AMalformedPreviousCacheIsTreatedAsHavingNothingToCarry (0 ms)
+[ RUN      ] StaleTableCarryForward.MalformedEntriesInThePreviousCacheAreSkippedNotDereferenced
+[       OK ] StaleTableCarryForward.MalformedEntriesInThePreviousCacheAreSkippedNotDereferenced (0 ms)
+[----------] 13 tests from StaleTableCarryForward (0 ms total)
+
+[----------] 3 tests from StaleTableCarryForwardWiring
+[ RUN      ] StaleTableCarryForwardWiring.TheServedCacheKeepsASwitchWhoseReadFailed
+[       OK ] StaleTableCarryForwardWiring.TheServedCacheKeepsASwitchWhoseReadFailed (0 ms)
+[ RUN      ] StaleTableCarryForwardWiring.TheServedCacheDropsTheMarkersOnceTheSwitchAnswersAgain
+[       OK ] StaleTableCarryForwardWiring.TheServedCacheDropsTheMarkersOnceTheSwitchAnswersAgain (0 ms)
+[ RUN      ] StaleTableCarryForwardWiring.ConsecutiveFailedPollsAccumulateInTheServedCache
+[       OK ] StaleTableCarryForwardWiring.ConsecutiveFailedPollsAccumulateInTheServedCache (0 ms)
+[----------] 3 tests from StaleTableCarryForwardWiring (0 ms total)
+
+[----------] 2 tests from FlowTableConcurrencyFixture
+[ RUN      ] FlowTableConcurrencyFixture.TheAccumulatedTotalsDoNotDependOnHowManyThreadsDeliveredThem
+[       OK ] FlowTableConcurrencyFixture.TheAccumulatedTotalsDoNotDependOnHowManyThreadsDeliveredThem (204 ms)
+[ RUN      ] FlowTableConcurrencyFixture.ConcurrentDeliveryOfTheSameFlowNeitherCrashesNorLosesPackets
+[       OK ] FlowTableConcurrencyFixture.ConcurrentDeliveryOfTheSameFlowNeitherCrashesNorLosesPackets (24 ms)
+[----------] 2 tests from FlowTableConcurrencyFixture (229 ms total)
+
+[----------] 5 tests from TopKFlowInfoTest
+[ RUN      ] TopKFlowInfoTest.TheSortKeyIsAFieldTheRowsActuallyCarry
+[       OK ] TopKFlowInfoTest.TheSortKeyIsAFieldTheRowsActuallyCarry (11 ms)
+[ RUN      ] TopKFlowInfoTest.TopKReturnsKRowsAndEveryOneOfThemIsARowOfTheTable
+[       OK ] TopKFlowInfoTest.TopKReturnsKRowsAndEveryOneOfThemIsARowOfTheTable (9 ms)
+[ RUN      ] TopKFlowInfoTest.AskingForMoreRowsThanExistReturnsTheTableRatherThanReadingPastTheEnd
+[       OK ] TopKFlowInfoTest.AskingForMoreRowsThanExistReturnsTheTableRatherThanReadingPastTheEnd (10 ms)
+[ RUN      ] TopKFlowInfoTest.AKOfZeroOrLessIsAnEmptyArrayRatherThanTheWholeTable
+[       OK ] TopKFlowInfoTest.AKOfZeroOrLessIsAnEmptyArrayRatherThanTheWholeTable (11 ms)
+[ RUN      ] TopKFlowInfoTest.TopKKeepsAnsweringWhileAWriterIsFeedingTheTable
+[       OK ] TopKFlowInfoTest.TopKKeepsAnsweringWhileAWriterIsFeedingTheTable (31 ms)
+[----------] 5 tests from TopKFlowInfoTest (74 ms total)
+
+[----------] 16 tests from FlowLivenessTest
+[ RUN      ] FlowLivenessTest.AFlowSampledJustNowIsActive
+[       OK ] FlowLivenessTest.AFlowSampledJustNowIsActive (0 ms)
+[ RUN      ] FlowLivenessTest.TheActiveWindowIsHalfOpenSoItsUpperBoundIsAlreadyIdle
+[       OK ] FlowLivenessTest.TheActiveWindowIsHalfOpenSoItsUpperBoundIsAlreadyIdle (0 ms)
+[ RUN      ] FlowLivenessTest.TheWholeRetentionTailIsIdleRatherThanActiveOrEnded
+[       OK ] FlowLivenessTest.TheWholeRetentionTailIsIdleRatherThanActiveOrEnded (0 ms)
+[ RUN      ] FlowLivenessTest.EndedBeginsExactlyWherePurgeIdleFlowsWouldRemoveTheRow
+[       OK ] FlowLivenessTest.EndedBeginsExactlyWherePurgeIdleFlowsWouldRemoveTheRow (0 ms)
+[ RUN      ] FlowLivenessTest.ASampleStampedInTheFutureIsActiveBecauseThePurgeAlsoSkipsIt
+[       OK ] FlowLivenessTest.ASampleStampedInTheFutureIsActiveBecauseThePurgeAlsoSkipsIt (0 ms)
+[ RUN      ] FlowLivenessTest.ActiveOnlyAdmitsNothingButActive
+[       OK ] FlowLivenessTest.ActiveOnlyAdmitsNothingButActive (0 ms)
+[ RUN      ] FlowLivenessTest.RetainedKeepsIdleAndIsThereforeNotTheDefault
+[       OK ] FlowLivenessTest.RetainedKeepsIdleAndIsThereforeNotTheDefault (0 ms)
+[ RUN      ] FlowLivenessTest.AllAdmitsEveryClass
+[       OK ] FlowLivenessTest.AllAdmitsEveryClass (0 ms)
+[ RUN      ] FlowLivenessTest.TheActiveWindowSitsBetweenARateLoopPeriodAndTheIdleTimeout
+[       OK ] FlowLivenessTest.TheActiveWindowSitsBetweenARateLoopPeriodAndTheIdleTimeout (0 ms)
+[ RUN      ] FlowLivenessTest.TheEndpointDefaultIsActiveOnlyRatherThanTheWholeTable
+[       OK ] FlowLivenessTest.TheEndpointDefaultIsActiveOnlyRatherThanTheWholeTable (0 ms)
+[ RUN      ] FlowLivenessTest.EndedAtIsExactlyOneTimeoutAfterTheLastSample
+[       OK ] FlowLivenessTest.EndedAtIsExactlyOneTimeoutAfterTheLastSample (0 ms)
+[ RUN      ] FlowLivenessTest.TheThreeAcceptedValuesParseToTheirFilters
+[       OK ] FlowLivenessTest.TheThreeAcceptedValuesParseToTheirFilters (0 ms)
+[ RUN      ] FlowLivenessTest.AnAbsentValueLeavesTheCallersDefaultAlone
+[       OK ] FlowLivenessTest.AnAbsentValueLeavesTheCallersDefaultAlone (0 ms)
+[ RUN      ] FlowLivenessTest.AnUnrecognisedValueIsRejectedRatherThanFallingBackToTheDefault
+[       OK ] FlowLivenessTest.AnUnrecognisedValueIsRejectedRatherThanFallingBackToTheDefault (0 ms)
+[ RUN      ] FlowLivenessTest.PathIsAcceptsTheBarePathAndTheSamePathWithAQuery
+[       OK ] FlowLivenessTest.PathIsAcceptsTheBarePathAndTheSamePathWithAQuery (0 ms)
+[ RUN      ] FlowLivenessTest.PathIsRejectsASuffixThatIsNotAQuery
+[       OK ] FlowLivenessTest.PathIsRejectsASuffixThatIsNotAQuery (0 ms)
+[----------] 16 tests from FlowLivenessTest (0 ms total)
+
+[----------] 5 tests from FlowLivenessTableTest
+[ RUN      ] FlowLivenessTableTest.EveryRowCarriesTheThreeFieldsThatSayWhetherItIsStillSending
+[       OK ] FlowLivenessTableTest.EveryRowCarriesTheThreeFieldsThatSayWhetherItIsStillSending (12 ms)
+[ RUN      ] FlowLivenessTableTest.RowsJustReplayedAreActiveAndSurviveTheDefaultFilter
+[       OK ] FlowLivenessTableTest.RowsJustReplayedAreActiveAndSurviveTheDefaultFilter (12 ms)
+[ RUN      ] FlowLivenessTableTest.AStoppedFlowIsGoneFromTheDefaultViewAndStillThereUnderAll
+[       OK ] FlowLivenessTableTest.AStoppedFlowIsGoneFromTheDefaultViewAndStillThereUnderAll (10 ms)
+[ RUN      ] FlowLivenessTableTest.TopKFiltersBeforeItTruncatesRatherThanAfter
+[       OK ] FlowLivenessTableTest.TopKFiltersBeforeItTruncatesRatherThanAfter (13 ms)
+[ RUN      ] FlowLivenessTableTest.TheCountsAddUpToTheWholeTableAndMoveTogether
+[       OK ] FlowLivenessTableTest.TheCountsAddUpToTheWholeTableAndMoveTogether (13 ms)
+[----------] 5 tests from FlowLivenessTableTest (61 ms total)
+
+[----------] 8 tests from FlowBatchPartitionTest
+[ RUN      ] FlowBatchPartitionTest.ABatchOfKnownDpidsIsAcceptedWhole
+[       OK ] FlowBatchPartitionTest.ABatchOfKnownDpidsIsAcceptedWhole (0 ms)
+[ RUN      ] FlowBatchPartitionTest.AnUnknownDpidIsDroppedAndTheRestSurvive
+[       OK ] FlowBatchPartitionTest.AnUnknownDpidIsDroppedAndTheRestSurvive (0 ms)
+[ RUN      ] FlowBatchPartitionTest.ABatchWhereNothingIsKnownAcceptsNothing
+[       OK ] FlowBatchPartitionTest.ABatchWhereNothingIsKnownAcceptsNothing (0 ms)
+[ RUN      ] FlowBatchPartitionTest.EntriesAreCountedButDpidsAreDeduplicated
+[       OK ] FlowBatchPartitionTest.EntriesAreCountedButDpidsAreDeduplicated (0 ms)
+[ RUN      ] FlowBatchPartitionTest.UnknownDpidsAreReportedInAscendingOrder
+[       OK ] FlowBatchPartitionTest.UnknownDpidsAreReportedInAscendingOrder (0 ms)
+[ RUN      ] FlowBatchPartitionTest.AcceptedEntriesKeepTheirRequestedOrder
+[       OK ] FlowBatchPartitionTest.AcceptedEntriesKeepTheirRequestedOrder (0 ms)
+[ RUN      ] FlowBatchPartitionTest.AnEmptyBatchIsNotAnError
+[       OK ] FlowBatchPartitionTest.AnEmptyBatchIsNotAnError (0 ms)
+[ RUN      ] FlowBatchPartitionTest.ThePayloadOfAnAcceptedEntrySurvivesTheMove
+[       OK ] FlowBatchPartitionTest.ThePayloadOfAnAcceptedEntrySurvivesTheMove (0 ms)
+[----------] 8 tests from FlowBatchPartitionTest (0 ms total)
+
+[----------] 9 tests from FlowEntryShapeTest
+[ RUN      ] FlowEntryShapeTest.TheBodyThatStartedThisIsRejected
+[       OK ] FlowEntryShapeTest.TheBodyThatStartedThisIsRejected (0 ms)
+[ RUN      ] FlowEntryShapeTest.AnExplicitlyEmptyActionListIsADropRuleAndStaysLegal
+[       OK ] FlowEntryShapeTest.AnExplicitlyEmptyActionListIsADropRuleAndStaysLegal (0 ms)
+[ RUN      ] FlowEntryShapeTest.AbsentMatchAndPriorityAreAcceptedBecauseTheyMeanSomething
+[       OK ] FlowEntryShapeTest.AbsentMatchAndPriorityAreAcceptedBecauseTheyMeanSomething (0 ms)
+[ RUN      ] FlowEntryShapeTest.DeleteNeedsOnlyADpid
+[       OK ] FlowEntryShapeTest.DeleteNeedsOnlyADpid (0 ms)
+[ RUN      ] FlowEntryShapeTest.ModifyIsHeldToTheSameBarAsInstall
+[       OK ] FlowEntryShapeTest.ModifyIsHeldToTheSameBarAsInstall (0 ms)
+[ RUN      ] FlowEntryShapeTest.AMissingDpidIsNamedRatherThanThrown
+[       OK ] FlowEntryShapeTest.AMissingDpidIsNamedRatherThanThrown (0 ms)
+[ RUN      ] FlowEntryShapeTest.ADpidThatIsNotANonNegativeIntegerIsRejected
+[       OK ] FlowEntryShapeTest.ADpidThatIsNotANonNegativeIntegerIsRejected (0 ms)
+[ RUN      ] FlowEntryShapeTest.ANonObjectEntryIsRejectedBeforeAnyFieldLookup
+[       OK ] FlowEntryShapeTest.ANonObjectEntryIsRejectedBeforeAnyFieldLookup (0 ms)
+[ RUN      ] FlowEntryShapeTest.AWellFormedEntryReportsNoProblem
+[       OK ] FlowEntryShapeTest.AWellFormedEntryReportsNoProblem (0 ms)
+[----------] 9 tests from FlowEntryShapeTest (0 ms total)
+
+[----------] 5 tests from TopologyAndFlowMonitorTest
+[ RUN      ] TopologyAndFlowMonitorTest.LoadingTheP4TopologyProducesTheCorrectNumberOfVertices
+[       OK ] TopologyAndFlowMonitorTest.LoadingTheP4TopologyProducesTheCorrectNumberOfVertices (2 ms)
+[ RUN      ] TopologyAndFlowMonitorTest.LoadingTheP4TopologyProducesTheCorrectNumberOfEdges
+[       OK ] TopologyAndFlowMonitorTest.LoadingTheP4TopologyProducesTheCorrectNumberOfEdges (2 ms)
+[ RUN      ] TopologyAndFlowMonitorTest.SwitchVerticesHaveVertexTypeZeroHostsHaveVertexTypeOne
+[       OK ] TopologyAndFlowMonitorTest.SwitchVerticesHaveVertexTypeZeroHostsHaveVertexTypeOne (2 ms)
+[ RUN      ] TopologyAndFlowMonitorTest.HostEdgesHaveDpidZeroOnTheHostSide
+[       OK ] TopologyAndFlowMonitorTest.HostEdgesHaveDpidZeroOnTheHostSide (2 ms)
+[ RUN      ] TopologyAndFlowMonitorTest.EveryVertexHasTheFieldsRequiredByTheApiSpec
+[       OK ] TopologyAndFlowMonitorTest.EveryVertexHasTheFieldsRequiredByTheApiSpec (2 ms)
+[----------] 5 tests from TopologyAndFlowMonitorTest (12 ms total)
+
+[----------] 14 tests from ControlPlaneReplyRobustnessTest
+[ RUN      ] ControlPlaneReplyRobustnessTest.ASwitchesEntryWithNoDpidDoesNotTerminateTheProcess
+[       OK ] ControlPlaneReplyRobustnessTest.ASwitchesEntryWithNoDpidDoesNotTerminateTheProcess (2 ms)
+[ RUN      ] ControlPlaneReplyRobustnessTest.ASwitchesEntryWithANonHexDpidDoesNotTerminateTheProcess
+[       OK ] ControlPlaneReplyRobustnessTest.ASwitchesEntryWithANonHexDpidDoesNotTerminateTheProcess (2 ms)
+[ RUN      ] ControlPlaneReplyRobustnessTest.OneBadSwitchesEntryDoesNotCostTheEntriesAfterIt
+[       OK ] ControlPlaneReplyRobustnessTest.OneBadSwitchesEntryDoesNotCostTheEntriesAfterIt (2 ms)
+[ RUN      ] ControlPlaneReplyRobustnessTest.AHostsEntryWithAMalformedMacDoesNotTerminateTheProcess
+[       OK ] ControlPlaneReplyRobustnessTest.AHostsEntryWithAMalformedMacDoesNotTerminateTheProcess (2 ms)
+[ RUN      ] ControlPlaneReplyRobustnessTest.OneBadHostsEntryDoesNotCostTheEntriesAfterIt
+[       OK ] ControlPlaneReplyRobustnessTest.OneBadHostsEntryDoesNotCostTheEntriesAfterIt (2 ms)
+[ RUN      ] ControlPlaneReplyRobustnessTest.ALinksEntryWithMissingEndpointsDoesNotTerminateTheProcess
+[       OK ] ControlPlaneReplyRobustnessTest.ALinksEntryWithMissingEndpointsDoesNotTerminateTheProcess (2 ms)
+[ RUN      ] ControlPlaneReplyRobustnessTest.ALinksEntryWithANonHexDpidDoesNotTerminateTheProcess
+[       OK ] ControlPlaneReplyRobustnessTest.ALinksEntryWithANonHexDpidDoesNotTerminateTheProcess (2 ms)
+[ RUN      ] ControlPlaneReplyRobustnessTest.AHostsEntryWithNoAttachmentPortDoesNotTerminateTheProcess
+[       OK ] ControlPlaneReplyRobustnessTest.AHostsEntryWithNoAttachmentPortDoesNotTerminateTheProcess (2 ms)
+[ RUN      ] ControlPlaneReplyRobustnessTest.AHostsEntryWithANonHexAttachmentDpidDoesNotTerminateTheProcess
+[       OK ] ControlPlaneReplyRobustnessTest.AHostsEntryWithANonHexAttachmentDpidDoesNotTerminateTheProcess (2 ms)
+[ RUN      ] ControlPlaneReplyRobustnessTest.AHostsEntryWithAnUnparseableIpDoesNotTerminateTheProcess
+[       OK ] ControlPlaneReplyRobustnessTest.AHostsEntryWithAnUnparseableIpDoesNotTerminateTheProcess (2 ms)
+[ RUN      ] ControlPlaneReplyRobustnessTest.OneBadLinksEntryDoesNotCostTheEntriesAfterIt
+[       OK ] ControlPlaneReplyRobustnessTest.OneBadLinksEntryDoesNotCostTheEntriesAfterIt (2 ms)
+[ RUN      ] ControlPlaneReplyRobustnessTest.OneBadHostIpDoesNotCostTheEntriesAfterIt
+[       OK ] ControlPlaneReplyRobustnessTest.OneBadHostIpDoesNotCostTheEntriesAfterIt (2 ms)
+[ RUN      ] ControlPlaneReplyRobustnessTest.AHostIpOfTheWrongTypeDoesNotCostTheEntriesAfterIt
+[       OK ] ControlPlaneReplyRobustnessTest.AHostIpOfTheWrongTypeDoesNotCostTheEntriesAfterIt (2 ms)
+[ RUN      ] ControlPlaneReplyRobustnessTest.AKnownHexDpidThatIsNotInTheTopologyDoesNotCostTheRest
+[       OK ] ControlPlaneReplyRobustnessTest.AKnownHexDpidThatIsNotInTheTopologyDoesNotCostTheRest (2 ms)
+[----------] 14 tests from ControlPlaneReplyRobustnessTest (30 ms total)
+
+[----------] 11 tests from MininetTopologyTest
+[ RUN      ] MininetTopologyTest.AfterLoadingTopologyAllVerticesAndEdgesAreDisabled
+[       OK ] MininetTopologyTest.AfterLoadingTopologyAllVerticesAndEdgesAreDisabled (16 ms)
+[ RUN      ] MininetTopologyTest.EnableSwitchAndEdgesEnablesSwitchAndAllItsAdjacentEdgesButNotOtherSwitches
+[       OK ] MininetTopologyTest.EnableSwitchAndEdgesEnablesSwitchAndAllItsAdjacentEdgesButNotOtherSwitches (16 ms)
+[ RUN      ] MininetTopologyTest.SetVertexEnableOnlyEnablesThatVertexNotItsEdges
+[       OK ] MininetTopologyTest.SetVertexEnableOnlyEnablesThatVertexNotItsEdges (15 ms)
+[ RUN      ] MininetTopologyTest.FindEdgeBySrcAndDstDpidFindsCorrectEdgeAndDistinguishesDirection
+[       OK ] MininetTopologyTest.FindEdgeBySrcAndDstDpidFindsCorrectEdgeAndDistinguishesDirection (15 ms)
+[ RUN      ] MininetTopologyTest.SetEdgeDownAffectsOnlyTargetEdgeNotReverseAndIsIdempotent
+[       OK ] MininetTopologyTest.SetEdgeDownAffectsOnlyTargetEdgeNotReverseAndIsIdempotent (15 ms)
+[ RUN      ] MininetTopologyTest.MininetTopologyHasCorrectVertexAndEdgeCounts
+[       OK ] MininetTopologyTest.MininetTopologyHasCorrectVertexAndEdgeCounts (16 ms)
+[ RUN      ] MininetTopologyTest.MininetTopologyHasExactly10SwitchesWithDpid1Through10
+[       OK ] MininetTopologyTest.MininetTopologyHasExactly10SwitchesWithDpid1Through10 (15 ms)
+[ RUN      ] MininetTopologyTest.EveryHostHasAtLeastOneIpv4Address
+[       OK ] MininetTopologyTest.EveryHostHasAtLeastOneIpv4Address (15 ms)
+[ RUN      ] MininetTopologyTest.SwitchToSwitchEdgesCountIsExactly32
+[       OK ] MininetTopologyTest.SwitchToSwitchEdgesCountIsExactly32 (15 ms)
+[ RUN      ] MininetTopologyTest.TouchEdgeFlowAccumulatesEntriesCurrentBehavior
+[       OK ] MininetTopologyTest.TouchEdgeFlowAccumulatesEntriesCurrentBehavior (16 ms)
+[ RUN      ] MininetTopologyTest.GetSwitchKindReturnsOvsForKnownDpidsAndNulloptForUnknown
+[       OK ] MininetTopologyTest.GetSwitchKindReturnsOvsForKnownDpidsAndNulloptForUnknown (15 ms)
+[----------] 11 tests from MininetTopologyTest (176 ms total)
+
+[----------] 7 tests from TopologyPollRound
+[ RUN      ] TopologyPollRound.AllThreeAnsweredIsComplete
+[       OK ] TopologyPollRound.AllThreeAnsweredIsComplete (0 ms)
+[ RUN      ] TopologyPollRound.NoneAnsweredIsSilent
+[       OK ] TopologyPollRound.NoneAnsweredIsSilent (0 ms)
+[ RUN      ] TopologyPollRound.OneSilentEndpointIsPartial
+[       OK ] TopologyPollRound.OneSilentEndpointIsPartial (0 ms)
+[ RUN      ] TopologyPollRound.OnlyOneAnsweredIsStillPartial
+[       OK ] TopologyPollRound.OnlyOneAnsweredIsStillPartial (0 ms)
+[ RUN      ] TopologyPollRound.TheStableTokenIsTheOneTheRunbookGreps
+[       OK ] TopologyPollRound.TheStableTokenIsTheOneTheRunbookGreps (0 ms)
+[ RUN      ] TopologyPollRound.APartialRoundIsAnnouncedOnlyWhenItBecomesPartial
+[       OK ] TopologyPollRound.APartialRoundIsAnnouncedOnlyWhenItBecomesPartial (0 ms)
+[ RUN      ] TopologyPollRound.NoRoundOtherThanPartialIsAnnounced
+[       OK ] TopologyPollRound.NoRoundOtherThanPartialIsAnnounced (0 ms)
+[----------] 7 tests from TopologyPollRound (0 ms total)
+
+[----------] 4 tests from TopologyPollRoundWiring
+[ RUN      ] TopologyPollRoundWiring.TheRoundKindIsRecordedForReading
+[       OK ] TopologyPollRoundWiring.TheRoundKindIsRecordedForReading (0 ms)
+[ RUN      ] TopologyPollRoundWiring.AnEmptyJsonListIsAnAnswerNotSilence
+[       OK ] TopologyPollRoundWiring.AnEmptyJsonListIsAnAnswerNotSilence (0 ms)
+[ RUN      ] TopologyPollRoundWiring.APartialRoundWritesTheStableTokenOncePerEpisode
+[       OK ] TopologyPollRoundWiring.APartialRoundWritesTheStableTokenOncePerEpisode (0 ms)
+[ RUN      ] TopologyPollRoundWiring.ASilentRoundDoesNotWriteThePartialToken
+[       OK ] TopologyPollRoundWiring.ASilentRoundDoesNotWriteThePartialToken (0 ms)
+[----------] 4 tests from TopologyPollRoundWiring (0 ms total)
+
+[----------] 8 tests from TopologyRoundReadsStatus
+[ RUN      ] TopologyRoundReadsStatus.AnErrorStatusIsNotAnAnswer
+[       OK ] TopologyRoundReadsStatus.AnErrorStatusIsNotAnAnswer (0 ms)
+[ RUN      ] TopologyRoundReadsStatus.TwoHundredCarryingTheWrongShapeIsNotAnAnswer
+[       OK ] TopologyRoundReadsStatus.TwoHundredCarryingTheWrongShapeIsNotAnAnswer (0 ms)
+[ RUN      ] TopologyRoundReadsStatus.TwoHundredCarryingPlainTextIsNotAnAnswer
+[       OK ] TopologyRoundReadsStatus.TwoHundredCarryingPlainTextIsNotAnAnswer (0 ms)
+[ RUN      ] TopologyRoundReadsStatus.AHealthyAnswerIsStillAnAnswer
+[       OK ] TopologyRoundReadsStatus.AHealthyAnswerIsStillAnAnswer (0 ms)
+[ RUN      ] TopologyRoundReadsStatus.AnEmptyBodyIsStillTheCaseThatAlreadyWorked
+[       OK ] TopologyRoundReadsStatus.AnEmptyBodyIsStillTheCaseThatAlreadyWorked (0 ms)
+[ RUN      ] TopologyRoundReadsStatus.AllFourShapesReachTheRoundVerdictAndTheApi
+[       OK ] TopologyRoundReadsStatus.AllFourShapesReachTheRoundVerdictAndTheApi (0 ms)
+[ RUN      ] TopologyRoundReadsStatus.AnUnreadRoundIsNeverComplete
+[       OK ] TopologyRoundReadsStatus.AnUnreadRoundIsNeverComplete (0 ms)
+[ RUN      ] TopologyRoundReadsStatus.TheCommandAsksForTheStatus
+[       OK ] TopologyRoundReadsStatus.TheCommandAsksForTheStatus (0 ms)
+[----------] 8 tests from TopologyRoundReadsStatus (0 ms total)
+
+[----------] 6 tests from AdministrativeDisableTest
+[ RUN      ] AdministrativeDisableTest.ADisableSurvivesTheTopologyPollThatUsedToUndoIt
+[       OK ] AdministrativeDisableTest.ADisableSurvivesTheTopologyPollThatUsedToUndoIt (15 ms)
+[ RUN      ] AdministrativeDisableTest.TheDisabledSwitchsEdgesAlsoSurviveALinkPoll
+[       OK ] AdministrativeDisableTest.TheDisabledSwitchsEdgesAlsoSurviveALinkPoll (15 ms)
+[ RUN      ] AdministrativeDisableTest.AnAdministrativeEnableClearsIt
+[       OK ] AdministrativeDisableTest.AnAdministrativeEnableClearsIt (15 ms)
+[ RUN      ] AdministrativeDisableTest.DiscoveryStillEnablesEverythingElse
+[       OK ] AdministrativeDisableTest.DiscoveryStillEnablesEverythingElse (15 ms)
+[ RUN      ] AdministrativeDisableTest.IsUsableNeedsAllThreeFlags
+[       OK ] AdministrativeDisableTest.IsUsableNeedsAllThreeFlags (0 ms)
+[ RUN      ] AdministrativeDisableTest.TheEmittedIsEnabledFoldsInTheAdministrativeDisable
+[       OK ] AdministrativeDisableTest.TheEmittedIsEnabledFoldsInTheAdministrativeDisable (0 ms)
+[----------] 6 tests from AdministrativeDisableTest (63 ms total)
+
+[----------] 6 tests from AdminDisableConsumersTest
+[ RUN      ] AdminDisableConsumersTest.BfsShortestPathDoesNotUseAdminDisabledEdge
+[       OK ] AdminDisableConsumersTest.BfsShortestPathDoesNotUseAdminDisabledEdge (18 ms)
+[ RUN      ] AdminDisableConsumersTest.BfsShortestPathDoesNotUseAdminDisabledVertex
+[       OK ] AdminDisableConsumersTest.BfsShortestPathDoesNotUseAdminDisabledVertex (17 ms)
+[ RUN      ] AdminDisableConsumersTest.AllPathsDepthFirstSearchDoesNotUseAdminDisabledEdge
+[       OK ] AdminDisableConsumersTest.AllPathsDepthFirstSearchDoesNotUseAdminDisabledEdge (17 ms)
+[ RUN      ] AdminDisableConsumersTest.LinkBandwidthStatusHonorsAdminDisabled
+[       OK ] AdminDisableConsumersTest.LinkBandwidthStatusHonorsAdminDisabled (16 ms)
+[ RUN      ] AdminDisableConsumersTest.TopKCongestedLinksOmitsLinkWhenOneDirectionAdminDisabled
+[       OK ] AdminDisableConsumersTest.TopKCongestedLinksOmitsLinkWhenOneDirectionAdminDisabled (24 ms)
+[ RUN      ] AdminDisableConsumersTest.AvgLinkUsageExcludesAdminDisabledLink
+[       OK ] AdminDisableConsumersTest.AvgLinkUsageExcludesAdminDisabledLink (16 ms)
+[----------] 6 tests from AdminDisableConsumersTest (110 ms total)
+
+[----------] 9 tests from OptimisticTopologyReportingTest
+[ RUN      ] OptimisticTopologyReportingTest.ASwitchLearnedAsAHostDoesNotResurrectASwitchLink
+[       OK ] OptimisticTopologyReportingTest.ASwitchLearnedAsAHostDoesNotResurrectASwitchLink (16 ms)
+[ RUN      ] OptimisticTopologyReportingTest.ARealHostEntryStillRaisesItsOwnTwoEdges
+[       OK ] OptimisticTopologyReportingTest.ARealHostEntryStillRaisesItsOwnTwoEdges (16 ms)
+[ RUN      ] OptimisticTopologyReportingTest.HostFacingEdgesOfAnUnreachableSwitchGoDownWithAReason
+[       OK ] OptimisticTopologyReportingTest.HostFacingEdgesOfAnUnreachableSwitchGoDownWithAReason (15 ms)
+[ RUN      ] OptimisticTopologyReportingTest.AHostBehindAnUnreachableSwitchIsMarkedDownWithAReason
+[       OK ] OptimisticTopologyReportingTest.AHostBehindAnUnreachableSwitchIsMarkedDownWithAReason (15 ms)
+[ RUN      ] OptimisticTopologyReportingTest.AHostWhoseSwitchIsHealthyStaysUp
+[       OK ] OptimisticTopologyReportingTest.AHostWhoseSwitchIsHealthyStaysUp (16 ms)
+[ RUN      ] OptimisticTopologyReportingTest.OneMissedPollDoesNotIsolateAnything
+[       OK ] OptimisticTopologyReportingTest.OneMissedPollDoesNotIsolateAnything (16 ms)
+[ RUN      ] OptimisticTopologyReportingTest.RecoveryClearsTheReasonWithoutRaisingAnything
+[       OK ] OptimisticTopologyReportingTest.RecoveryClearsTheReasonWithoutRaisingAnything (16 ms)
+[ RUN      ] OptimisticTopologyReportingTest.TheDerivationRunsAsPartOfAPollNotOnlyWhenCalledDirectly
+[       OK ] OptimisticTopologyReportingTest.TheDerivationRunsAsPartOfAPollNotOnlyWhenCalledDirectly (17 ms)
+[ RUN      ] OptimisticTopologyReportingTest.AHostsEntryWithAnUnknownMacIsStillAppliedByItsAddress
+[       OK ] OptimisticTopologyReportingTest.AHostsEntryWithAnUnknownMacIsStillAppliedByItsAddress (16 ms)
+[----------] 9 tests from OptimisticTopologyReportingTest (146 ms total)
+
+[----------] 3 tests from ApiKeyNotLoggedTest
+[ RUN      ] ApiKeyNotLoggedTest.ConstructingAnLLMAgentDoesNotWriteTheKeyToAnySink
+[       OK ] ApiKeyNotLoggedTest.ConstructingAnLLMAgentDoesNotWriteTheKeyToAnySink (0 ms)
+[ RUN      ] ApiKeyNotLoggedTest.TheCaptureRigActuallyRecordsTheConstructorsOwnLogging
+[       OK ] ApiKeyNotLoggedTest.TheCaptureRigActuallyRecordsTheConstructorsOwnLogging (0 ms)
+[ RUN      ] ApiKeyNotLoggedTest.AMissingKeyThrowsRatherThanFormattingANullPointer
+[       OK ] ApiKeyNotLoggedTest.AMissingKeyThrowsRatherThanFormattingANullPointer (0 ms)
+[----------] 3 tests from ApiKeyNotLoggedTest (0 ms total)
+
+[----------] 9 tests from IntentTaskOutcomesTest
+[ RUN      ] IntentTaskOutcomesTest.PowerOffOnAnUnknownDeviceReportsAnErrorRatherThanOk
+[       OK ] IntentTaskOutcomesTest.PowerOffOnAnUnknownDeviceReportsAnErrorRatherThanOk (0 ms)
+[ RUN      ] IntentTaskOutcomesTest.PowerOffThatFailsReportsTheFailureRatherThanOk
+[       OK ] IntentTaskOutcomesTest.PowerOffThatFailsReportsTheFailureRatherThanOk (0 ms)
+[ RUN      ] IntentTaskOutcomesTest.PowerOnOnAnUnknownDeviceReportsAnErrorRatherThanOk
+[       OK ] IntentTaskOutcomesTest.PowerOnOnAnUnknownDeviceReportsAnErrorRatherThanOk (0 ms)
+[ RUN      ] IntentTaskOutcomesTest.PowerOnThatFailsReportsTheFailureRatherThanOk
+[       OK ] IntentTaskOutcomesTest.PowerOnThatFailsReportsTheFailureRatherThanOk (0 ms)
+[ RUN      ] IntentTaskOutcomesTest.AFailedInstallReportsTheControllersVerdictRatherThanOk
+[       OK ] IntentTaskOutcomesTest.AFailedInstallReportsTheControllersVerdictRatherThanOk (0 ms)
+[ RUN      ] IntentTaskOutcomesTest.ASuccessfulInstallIsStillReportedAsSuccess
+[       OK ] IntentTaskOutcomesTest.ASuccessfulInstallIsStillReportedAsSuccess (0 ms)
+[ RUN      ] IntentTaskOutcomesTest.AFailedDeleteReportsTheFailureRatherThanOk
+[       OK ] IntentTaskOutcomesTest.AFailedDeleteReportsTheFailureRatherThanOk (0 ms)
+[ RUN      ] IntentTaskOutcomesTest.AnUnknownDeviceOnAFlowInstallIsRefusedBeforeTheControllerIsCalled
+[       OK ] IntentTaskOutcomesTest.AnUnknownDeviceOnAFlowInstallIsRefusedBeforeTheControllerIsCalled (0 ms)
+[ RUN      ] IntentTaskOutcomesTest.ADeviceNameContainingAQuoteCannotInjectKeysIntoADisableReply
+[       OK ] IntentTaskOutcomesTest.ADeviceNameContainingAQuoteCannotInjectKeysIntoADisableReply (0 ms)
+[----------] 9 tests from IntentTaskOutcomesTest (1 ms total)
+
+[----------] 4 tests from IntentReplyRenderingTest
+[ RUN      ] IntentReplyRenderingTest.SwitchNotFoundNamesTheDevice
+[       OK ] IntentReplyRenderingTest.SwitchNotFoundNamesTheDevice (0 ms)
+[ RUN      ] IntentReplyRenderingTest.PowerReplyDistinguishesSuccessFromFailure
+[       OK ] IntentReplyRenderingTest.PowerReplyDistinguishesSuccessFromFailure (0 ms)
+[ RUN      ] IntentReplyRenderingTest.FlowReplyCarriesTheHttpStatusAndDetail
+[       OK ] IntentReplyRenderingTest.FlowReplyCarriesTheHttpStatusAndDetail (0 ms)
+[ RUN      ] IntentReplyRenderingTest.ADeviceNameContainingAQuoteStillProducesParseableJson
+[       OK ] IntentReplyRenderingTest.ADeviceNameContainingAQuoteStillProducesParseableJson (0 ms)
+[----------] 4 tests from IntentReplyRenderingTest (0 ms total)
+
+[----------] 26 tests from LockEndpointTest
+[ RUN      ] LockEndpointTest.ReleasingALockNobodyHoldsIsRefusedRatherThanReportedAsReleased
+[       OK ] LockEndpointTest.ReleasingALockNobodyHoldsIsRefusedRatherThanReportedAsReleased (0 ms)
+[ RUN      ] LockEndpointTest.ReleasingAnUnknownLockTypeIsARequestErrorNotAStateError
+[       OK ] LockEndpointTest.ReleasingAnUnknownLockTypeIsARequestErrorNotAStateError (0 ms)
+[ RUN      ] LockEndpointTest.AMalformedBodyIsRejectedRatherThanReleasingTheDefaultLock
+[       OK ] LockEndpointTest.AMalformedBodyIsRejectedRatherThanReleasingTheDefaultLock (0 ms)
+[ RUN      ] LockEndpointTest.ATypeFieldOfTheWrongJsonTypeIsAClientErrorNotAServerError
+[       OK ] LockEndpointTest.ATypeFieldOfTheWrongJsonTypeIsAClientErrorNotAServerError (0 ms)
+[ RUN      ] LockEndpointTest.ReleasingAHeldLockSucceeds
+[       OK ] LockEndpointTest.ReleasingAHeldLockSucceeds (0 ms)
+[ RUN      ] LockEndpointTest.AReleasedLockIsAcquirableAgain
+[       OK ] LockEndpointTest.AReleasedLockIsAcquirableAgain (0 ms)
+[ RUN      ] LockEndpointTest.AnAbsentBodyIsRefusedRatherThanReleasingTheDefaultLock
+[       OK ] LockEndpointTest.AnAbsentBodyIsRefusedRatherThanReleasingTheDefaultLock (0 ms)
+[ RUN      ] LockEndpointTest.ABodylessReleaseDoesNotReleaseSomebodyElsesRoutingLock
+[       OK ] LockEndpointTest.ABodylessReleaseDoesNotReleaseSomebodyElsesRoutingLock (0 ms)
+[ RUN      ] LockEndpointTest.ARenewWithAMalformedBodyDoesNotExtendTheDefaultLock
+[       OK ] LockEndpointTest.ARenewWithAMalformedBodyDoesNotExtendTheDefaultLock (0 ms)
+[ RUN      ] LockEndpointTest.ARenewWithNoTypeFieldDoesNotExtendTheDefaultLock
+[       OK ] LockEndpointTest.ARenewWithNoTypeFieldDoesNotExtendTheDefaultLock (0 ms)
+[ RUN      ] LockEndpointTest.ABodylessRenewDoesNotExtendSomebodyElsesRoutingLock
+[       OK ] LockEndpointTest.ABodylessRenewDoesNotExtendSomebodyElsesRoutingLock (0 ms)
+[ RUN      ] LockEndpointTest.ARenewNamingAnUnknownLockTypeIsARequestErrorNotAStateError
+[       OK ] LockEndpointTest.ARenewNamingAnUnknownLockTypeIsARequestErrorNotAStateError (0 ms)
+[ RUN      ] LockEndpointTest.RenewingAnExpiredLeaseIs412AndLeavesTheLockAcquirable
+[       OK ] LockEndpointTest.RenewingAnExpiredLeaseIs412AndLeavesTheLockAcquirable (0 ms)
+[ RUN      ] LockEndpointTest.ARenewNamingItsOwnLockSucceedsAndKeepsItsReplyShape
+[       OK ] LockEndpointTest.ARenewNamingItsOwnLockSucceedsAndKeepsItsReplyShape (0 ms)
+[ RUN      ] LockEndpointTest.RenewingAValidLockNobodyHoldsIsStill412NotA400
+[       OK ] LockEndpointTest.RenewingAValidLockNobodyHoldsIsStill412NotA400 (0 ms)
+[ RUN      ] LockEndpointTest.ReleasingAnExpiredLeaseIs412AndSaysExpiredRatherThan200Released
+[       OK ] LockEndpointTest.ReleasingAnExpiredLeaseIs412AndSaysExpiredRatherThan200Released (0 ms)
+[ RUN      ] LockEndpointTest.ReleasingALiveLockIsStill200AndStillSaysReleased
+[       OK ] LockEndpointTest.ReleasingALiveLockIsStill200AndStillSaysReleased (0 ms)
+[ RUN      ] LockEndpointTest.AnAcquireHandsBackALeaseIdAndSaysWhenItTookOverADeadOne
+[       OK ] LockEndpointTest.AnAcquireHandsBackALeaseIdAndSaysWhenItTookOverADeadOne (0 ms)
+[ RUN      ] LockEndpointTest.WithEnforcementOnAReleaseNamingNoLeaseIs400AndReleasesNothing
+[       OK ] LockEndpointTest.WithEnforcementOnAReleaseNamingNoLeaseIs400AndReleasesNothing (0 ms)
+[ RUN      ] LockEndpointTest.WithEnforcementOnAReleaseNamingItsOwnLeaseStillSucceeds
+[       OK ] LockEndpointTest.WithEnforcementOnAReleaseNamingItsOwnLeaseStillSucceeds (0 ms)
+[ RUN      ] LockEndpointTest.TotalInputTrafficLoadWithoutADpidIsABadRequestNotA200
+[       OK ] LockEndpointTest.TotalInputTrafficLoadWithoutADpidIsABadRequestNotA200 (0 ms)
+[ RUN      ] LockEndpointTest.NumOfFlowsWithoutADpidIsABadRequestNotA200
+[       OK ] LockEndpointTest.NumOfFlowsWithoutADpidIsABadRequestNotA200 (0 ms)
+[ RUN      ] LockEndpointTest.TotalInputTrafficLoadWithADpidStillAnswers200
+[       OK ] LockEndpointTest.TotalInputTrafficLoadWithADpidStillAnswers200 (0 ms)
+[ RUN      ] LockEndpointTest.NumOfFlowsWithADpidStillAnswers200
+[       OK ] LockEndpointTest.NumOfFlowsWithADpidStillAnswers200 (0 ms)
+[ RUN      ] LockEndpointTest.APathHopWithOnlyOneElementIsRejectedRatherThanReadPastTheEnd
+[       OK ] LockEndpointTest.APathHopWithOnlyOneElementIsRejectedRatherThanReadPastTheEnd (0 ms)
+[ RUN      ] LockEndpointTest.APathInterfaceThatIsNotANumberIsAClientErrorNotAServerError
+[       OK ] LockEndpointTest.APathInterfaceThatIsNotANumberIsAClientErrorNotAServerError (0 ms)
+[----------] 26 tests from LockEndpointTest (1 ms total)
+
+[----------] 1 test from LockManagerUnlockTest
+[ RUN      ] LockManagerUnlockTest.UnlockDistinguishesHeldFromNotHeldFromInvalid
+[       OK ] LockManagerUnlockTest.UnlockDistinguishesHeldFromNotHeldFromInvalid (0 ms)
+[----------] 1 test from LockManagerUnlockTest (0 ms total)
+
+[----------] 19 tests from GroupMeterFixture
+[ RUN      ] GroupMeterFixture.DeletingAGroupThatIsNotThereIsRefusedRatherThanReportedDeleted
+[       OK ] GroupMeterFixture.DeletingAGroupThatIsNotThereIsRefusedRatherThanReportedDeleted (0 ms)
+[ RUN      ] GroupMeterFixture.ModifyingAGroupThatIsNotThereIsRefusedRatherThanReportedModified
+[       OK ] GroupMeterFixture.ModifyingAGroupThatIsNotThereIsRefusedRatherThanReportedModified (0 ms)
+[ RUN      ] GroupMeterFixture.AddingAGroupThatAlreadyExistsIsAConflictNotAnInstall
+[       OK ] GroupMeterFixture.AddingAGroupThatAlreadyExistsIsAConflictNotAnInstall (0 ms)
+[ RUN      ] GroupMeterFixture.DeletingAMeterThatIsNotThereIsRefused
+[       OK ] GroupMeterFixture.DeletingAMeterThatIsNotThereIsRefused (0 ms)
+[ RUN      ] GroupMeterFixture.ModifyingAMeterThatIsNotThereIsRefused
+[       OK ] GroupMeterFixture.ModifyingAMeterThatIsNotThereIsRefused (0 ms)
+[ RUN      ] GroupMeterFixture.AddingAMeterThatAlreadyExistsIsAConflict
+[       OK ] GroupMeterFixture.AddingAMeterThatAlreadyExistsIsAConflict (0 ms)
+[ RUN      ] GroupMeterFixture.DeletingAGroupThatIsThereGoesThroughAndSaysItWasDeleted
+[       OK ] GroupMeterFixture.DeletingAGroupThatIsThereGoesThroughAndSaysItWasDeleted (0 ms)
+[ RUN      ] GroupMeterFixture.ModifyingAGroupThatIsThereGoesThrough
+[       OK ] GroupMeterFixture.ModifyingAGroupThatIsThereGoesThrough (0 ms)
+[ RUN      ] GroupMeterFixture.AddingAGroupThatIsNotThereGoesThrough
+[       OK ] GroupMeterFixture.AddingAGroupThatIsNotThereGoesThrough (0 ms)
+[ RUN      ] GroupMeterFixture.TheMeterAcceptPathsGoThrough
+[       OK ] GroupMeterFixture.TheMeterAcceptPathsGoThrough (0 ms)
+[ RUN      ] GroupMeterFixture.AnUnreachableControllerDoesNotTurnEveryGroupIntoA404
+[       OK ] GroupMeterFixture.AnUnreachableControllerDoesNotTurnEveryGroupIntoA404 (0 ms)
+[ RUN      ] GroupMeterFixture.AStatsReplyInAnUnexpectedShapeIsUnknownNotAbsent
+[       OK ] GroupMeterFixture.AStatsReplyInAnUnexpectedShapeIsUnknownNotAbsent (0 ms)
+[ RUN      ] GroupMeterFixture.AnUnparseableStatsReplyIsUnknownNotAbsent
+[       OK ] GroupMeterFixture.AnUnparseableStatsReplyIsUnknownNotAbsent (0 ms)
+[ RUN      ] GroupMeterFixture.ANonNumericGroupIdIsUnknownRatherThanRefused
+[       OK ] GroupMeterFixture.ANonNumericGroupIdIsUnknownRatherThanRefused (0 ms)
+[ RUN      ] GroupMeterFixture.TheGroupCheckAsksForTheWholeListBecauseRyuIgnoresTheIdOnOf13
+[       OK ] GroupMeterFixture.TheGroupCheckAsksForTheWholeListBecauseRyuIgnoresTheIdOnOf13 (0 ms)
+[ RUN      ] GroupMeterFixture.TheMeterCheckNamesTheMeterItIsAskingAbout
+[       OK ] GroupMeterFixture.TheMeterCheckNamesTheMeterItIsAskingAbout (0 ms)
+[ RUN      ] GroupMeterFixture.TheCheckHappensBeforeTheModNotAfterIt
+[       OK ] GroupMeterFixture.TheCheckHappensBeforeTheModNotAfterIt (0 ms)
+[ RUN      ] GroupMeterFixture.TheExistenceCheckAsksForTheStatusCodeAndBoundsItsTime
+[       OK ] GroupMeterFixture.TheExistenceCheckAsksForTheStatusCodeAndBoundsItsTime (0 ms)
+[ RUN      ] GroupMeterFixture.AControllerRefusalOfTheModIsStillReported
+[       OK ] GroupMeterFixture.AControllerRefusalOfTheModIsStillReported (0 ms)
+[----------] 19 tests from GroupMeterFixture (0 ms total)
+
+[----------] 11 tests from GroupMeterEndpointTest
+[ RUN      ] GroupMeterEndpointTest.DeleteGroupRelaysA404WithAnOutcomeNamingWhatWasNotFound
+[       OK ] GroupMeterEndpointTest.DeleteGroupRelaysA404WithAnOutcomeNamingWhatWasNotFound (0 ms)
+[ RUN      ] GroupMeterEndpointTest.ModifyGroupRelaysA404WithItsOutcome
+[       OK ] GroupMeterEndpointTest.ModifyGroupRelaysA404WithItsOutcome (0 ms)
+[ RUN      ] GroupMeterEndpointTest.InstallGroupRelaysA409WithItsOutcome
+[       OK ] GroupMeterEndpointTest.InstallGroupRelaysA409WithItsOutcome (0 ms)
+[ RUN      ] GroupMeterEndpointTest.DeleteMeterRelaysA404WithItsOutcome
+[       OK ] GroupMeterEndpointTest.DeleteMeterRelaysA404WithItsOutcome (0 ms)
+[ RUN      ] GroupMeterEndpointTest.ModifyMeterRelaysA404WithItsOutcome
+[       OK ] GroupMeterEndpointTest.ModifyMeterRelaysA404WithItsOutcome (0 ms)
+[ RUN      ] GroupMeterEndpointTest.InstallMeterRelaysA409WithItsOutcome
+[       OK ] GroupMeterEndpointTest.InstallMeterRelaysA409WithItsOutcome (0 ms)
+[ RUN      ] GroupMeterEndpointTest.EachEndpointKeepsItsOwnSuccessSentenceAndCarriesTheOutcome
+[       OK ] GroupMeterEndpointTest.EachEndpointKeepsItsOwnSuccessSentenceAndCarriesTheOutcome (0 ms)
+[ RUN      ] GroupMeterEndpointTest.AnUnverifiedSuccessSaysSoRatherThanClaimingItWasDeleted
+[       OK ] GroupMeterEndpointTest.AnUnverifiedSuccessSaysSoRatherThanClaimingItWasDeleted (0 ms)
+[ RUN      ] GroupMeterEndpointTest.AResultWithNoOutcomeStillAnswersTheOriginalThreeFieldFailureBody
+[       OK ] GroupMeterEndpointTest.AResultWithNoOutcomeStillAnswersTheOriginalThreeFieldFailureBody (0 ms)
+[ RUN      ] GroupMeterEndpointTest.AP4RefusalIsStill501AndNamesItself
+[       OK ] GroupMeterEndpointTest.AP4RefusalIsStill501AndNamesItself (0 ms)
+[ RUN      ] GroupMeterEndpointTest.TheTwoDifferentNotFoundsAreDistinguishableInTheBody
+[       OK ] GroupMeterEndpointTest.TheTwoDifferentNotFoundsAreDistinguishableInTheBody (0 ms)
+[----------] 11 tests from GroupMeterEndpointTest (0 ms total)
+
+[----------] 1 test from HistoricalLoggingWiringTest
+[ RUN      ] HistoricalLoggingWiringTest.TheEventHandlerStoresTheHistoricalDataManagerItIsGiven
+[       OK ] HistoricalLoggingWiringTest.TheEventHandlerStoresTheHistoricalDataManagerItIsGiven (0 ms)
+[----------] 1 test from HistoricalLoggingWiringTest (0 ms total)
+
+[----------] 7 tests from HistoricalLoggingTest
+[ RUN      ] HistoricalLoggingTest.DisablingLoggingStopsRowsBeingWritten
+[       OK ] HistoricalLoggingTest.DisablingLoggingStopsRowsBeingWritten (0 ms)
+[ RUN      ] HistoricalLoggingTest.LoggingEnabledWritesOneRowPerEdge
+[       OK ] HistoricalLoggingTest.LoggingEnabledWritesOneRowPerEdge (0 ms)
+[ RUN      ] HistoricalLoggingTest.ReEnablingLoggingResumesWriting
+[       OK ] HistoricalLoggingTest.ReEnablingLoggingResumesWriting (0 ms)
+[ RUN      ] HistoricalLoggingTest.TheWrittenRowCarriesTheEdgesBandwidthFigures
+[       OK ] HistoricalLoggingTest.TheWrittenRowCarriesTheEdgesBandwidthFigures (0 ms)
+[ RUN      ] HistoricalLoggingTest.AnUnwritableDirectoryIsReportedRatherThanSilentlyLosingData
+[       OK ] HistoricalLoggingTest.AnUnwritableDirectoryIsReportedRatherThanSilentlyLosingData (0 ms)
+[ RUN      ] HistoricalLoggingTest.RepeatedFailuresAreReportedOnceNotOncePerInterval
+[       OK ] HistoricalLoggingTest.RepeatedFailuresAreReportedOnceNotOncePerInterval (0 ms)
+[ RUN      ] HistoricalLoggingTest.AFailureAfterARecoveryIsReportedAgain
+[       OK ] HistoricalLoggingTest.AFailureAfterARecoveryIsReportedAgain (0 ms)
+[----------] 7 tests from HistoricalLoggingTest (0 ms total)
+
+[----------] 1 test from HistoricalLoggingStartupTest
+[ RUN      ] HistoricalLoggingStartupTest.ConstructionDoesNotThrowWhenTheOutputDirectoryCannotBeMade
+[       OK ] HistoricalLoggingStartupTest.ConstructionDoesNotThrowWhenTheOutputDirectoryCannotBeMade (0 ms)
+[----------] 1 test from HistoricalLoggingStartupTest (0 ms total)
+
+[----------] 1 test from HistoricalLoggingModeGateTest
+[ RUN      ] HistoricalLoggingModeGateTest.MininetReportsThatItCannotRecordRatherThanImplyingItDid
+[       OK ] HistoricalLoggingModeGateTest.MininetReportsThatItCannotRecordRatherThanImplyingItDid (0 ms)
+[----------] 1 test from HistoricalLoggingModeGateTest (0 ms total)
+
+[----------] 5 tests from HistoricalLoggingReplyTest
+[ RUN      ] HistoricalLoggingReplyTest.MininetEnableIsNotAnsweredWithTheSameStatusFieldAsARealEnable
+[       OK ] HistoricalLoggingReplyTest.MininetEnableIsNotAnsweredWithTheSameStatusFieldAsARealEnable (0 ms)
+[ RUN      ] HistoricalLoggingReplyTest.TheEnableReplyNamesTheReasonInAMachineReadableField
+[       OK ] HistoricalLoggingReplyTest.TheEnableReplyNamesTheReasonInAMachineReadableField (0 ms)
+[ RUN      ] HistoricalLoggingReplyTest.AnUnstartedRecorderIsNotReportedAsRecordingEither
+[       OK ] HistoricalLoggingReplyTest.AnUnstartedRecorderIsNotReportedAsRecordingEither (0 ms)
+[ RUN      ] HistoricalLoggingReplyTest.DisablingIsStillAPlainSuccess
+[       OK ] HistoricalLoggingReplyTest.DisablingIsStillAPlainSuccess (0 ms)
+[ RUN      ] HistoricalLoggingReplyTest.AnInvalidStateIsStillRejectedBeforeTheAvailabilityCheck
+[       OK ] HistoricalLoggingReplyTest.AnInvalidStateIsStillRejectedBeforeTheAvailabilityCheck (0 ms)
+[----------] 5 tests from HistoricalLoggingReplyTest (0 ms total)
+
+[----------] 3 tests from HistoricalLoggingStateTest
+[ RUN      ] HistoricalLoggingStateTest.StartInMininetLeavesTheObjectNotClaimingToBeRunning
+[       OK ] HistoricalLoggingStateTest.StartInMininetLeavesTheObjectNotClaimingToBeRunning (0 ms)
+[ RUN      ] HistoricalLoggingStateTest.StartOutsideMininetIsStillTheThingThatMakesItRun
+[       OK ] HistoricalLoggingStateTest.StartOutsideMininetIsStillTheThingThatMakesItRun (0 ms)
+[ RUN      ] HistoricalLoggingStateTest.TheReportedStateDistinguishesTheFourReachableCauses
+[       OK ] HistoricalLoggingStateTest.TheReportedStateDistinguishesTheFourReachableCauses (0 ms)
+[----------] 3 tests from HistoricalLoggingStateTest (0 ms total)
+
+[----------] 6 tests from CommandFailureTest
+[ RUN      ] CommandFailureTest.ACommandThatSucceedsIsReportedAsSuccess
+[       OK ] CommandFailureTest.ACommandThatSucceedsIsReportedAsSuccess (2 ms)
+[ RUN      ] CommandFailureTest.ACommandThatFailsIsReportedAsAFailure
+[       OK ] CommandFailureTest.ACommandThatFailsIsReportedAsAFailure (1 ms)
+[ RUN      ] CommandFailureTest.TheExitCodeIsDecodedFromTheWaitStatusNotPrintedRaw
+[       OK ] CommandFailureTest.TheExitCodeIsDecodedFromTheWaitStatusNotPrintedRaw (1 ms)
+[ RUN      ] CommandFailureTest.ACommandTheShellCannotRunIsNamedAsSuch
+sh: 1: /nonexistent/definitely-not-a-real-command-8f2a1c: not found
+[       OK ] CommandFailureTest.ACommandTheShellCannotRunIsNamedAsSuch (0 ms)
+[ RUN      ] CommandFailureTest.AChildThatCouldNotBeCreatedIsDistinguishedFromANonZeroExit
+[       OK ] CommandFailureTest.AChildThatCouldNotBeCreatedIsDistinguishedFromANonZeroExit (0 ms)
+[ RUN      ] CommandFailureTest.ASignalledCommandIsReportedAsSignalledRatherThanAsAnExitCode
+[       OK ] CommandFailureTest.ASignalledCommandIsReportedAsSignalledRatherThanAsAnExitCode (0 ms)
+[----------] 6 tests from CommandFailureTest (5 ms total)
+
+[----------] 4 tests from TopologyApiUrlTest
+[ RUN      ] TopologyApiUrlTest.TheDefaultPollFollowsAppConfigRatherThanAHardCodedHost
+[       OK ] TopologyApiUrlTest.TheDefaultPollFollowsAppConfigRatherThanAHardCodedHost (0 ms)
+[ RUN      ] TopologyApiUrlTest.TheDefaultPollIsTheAppConfigAddressWithTheTopologyPathAppended
+[       OK ] TopologyApiUrlTest.TheDefaultPollIsTheAppConfigAddressWithTheTopologyPathAppended (0 ms)
+[ RUN      ] TopologyApiUrlTest.ConfigureLeavesTheRyuDefaultAloneForANonBmv2Topology
+[       OK ] TopologyApiUrlTest.ConfigureLeavesTheRyuDefaultAloneForANonBmv2Topology (0 ms)
+[ RUN      ] TopologyApiUrlTest.SetTopologyApiUrlsOverridesAllThreeEndpoints
+[       OK ] TopologyApiUrlTest.SetTopologyApiUrlsOverridesAllThreeEndpoints (0 ms)
+[----------] 4 tests from TopologyApiUrlTest (0 ms total)
+
+[----------] 5 tests from PathJsonTest
+[ RUN      ] PathJsonTest.AMissingHostYieldsAnObjectNotAJsonStringValue
+[       OK ] PathJsonTest.AMissingHostYieldsAnObjectNotAJsonStringValue (0 ms)
+[ RUN      ] PathJsonTest.TheIntentTranslatorsRoundTripLeavesAnErrorClientReadable
+[       OK ] PathJsonTest.TheIntentTranslatorsRoundTripLeavesAnErrorClientReadable (0 ms)
+[ RUN      ] PathJsonTest.TwoKnownHostsWithNoPathAlsoYieldAnObject
+[       OK ] PathJsonTest.TwoKnownHostsWithNoPathAlsoYieldAnObject (0 ms)
+[ RUN      ] PathJsonTest.TheNoPathErrorSurvivesTheCallersDumpAndReparse
+[       OK ] PathJsonTest.TheNoPathErrorSurvivesTheCallersDumpAndReparse (0 ms)
+[ RUN      ] PathJsonTest.OnlyTheMissingHostIsNamed
+[       OK ] PathJsonTest.OnlyTheMissingHostIsNamed (0 ms)
+[----------] 5 tests from PathJsonTest (0 ms total)
+
+[----------] 3 tests from SmartPlugFieldsTest
+[ RUN      ] SmartPlugFieldsTest.EachSwitchIsServedItsOwnPlugAssignment
+[       OK ] SmartPlugFieldsTest.EachSwitchIsServedItsOwnPlugAssignment (8 ms)
+[ RUN      ] SmartPlugFieldsTest.TheSwitchesDoNotAllShareOnePlug
+[       OK ] SmartPlugFieldsTest.TheSwitchesDoNotAllShareOnePlug (8 ms)
+[ RUN      ] SmartPlugFieldsTest.ASwitchWithNoAssignmentIsServedAnEmptyOneRatherThanSomeoneElses
+[       OK ] SmartPlugFieldsTest.ASwitchWithNoAssignmentIsServedAnEmptyOneRatherThanSomeoneElses (23 ms)
+[----------] 3 tests from SmartPlugFieldsTest (40 ms total)
+
+[----------] 12 tests from PathNodeParsingTest
+[ RUN      ] PathNodeParsingTest.AHopWithOnlyOneElementIsRefusedRatherThanReadPastTheEnd
+[       OK ] PathNodeParsingTest.AHopWithOnlyOneElementIsRefusedRatherThanReadPastTheEnd (0 ms)
+[ RUN      ] PathNodeParsingTest.AnEmptyHopIsRefused
+[       OK ] PathNodeParsingTest.AnEmptyHopIsRefused (0 ms)
+[ RUN      ] PathNodeParsingTest.AHopThatIsNotAnArrayIsRefused
+[       OK ] PathNodeParsingTest.AHopThatIsNotAnArrayIsRefused (0 ms)
+[ RUN      ] PathNodeParsingTest.AHostHopCarriesADottedAddress
+[       OK ] PathNodeParsingTest.AHostHopCarriesADottedAddress (0 ms)
+[ RUN      ] PathNodeParsingTest.ASwitchHopCarriesANumericId
+[       OK ] PathNodeParsingTest.ASwitchHopCarriesANumericId (0 ms)
+[ RUN      ] PathNodeParsingTest.AnInterfaceMayArriveAsAStringOrANumber
+[       OK ] PathNodeParsingTest.AnInterfaceMayArriveAsAStringOrANumber (0 ms)
+[ RUN      ] PathNodeParsingTest.ExtraElementsBeyondTheFirstTwoAreIgnored
+[       OK ] PathNodeParsingTest.ExtraElementsBeyondTheFirstTwoAreIgnored (0 ms)
+[ RUN      ] PathNodeParsingTest.AnAddressThatIsNotAnAddressIsRefusedRatherThanThrown
+[       OK ] PathNodeParsingTest.AnAddressThatIsNotAnAddressIsRefusedRatherThanThrown (0 ms)
+[ RUN      ] PathNodeParsingTest.AnInterfaceStringThatIsNotANumberIsRefusedRatherThanThrown
+[       OK ] PathNodeParsingTest.AnInterfaceStringThatIsNotANumberIsRefusedRatherThanThrown (0 ms)
+[ RUN      ] PathNodeParsingTest.AnInterfaceStringWithTrailingJunkIsRefused
+[       OK ] PathNodeParsingTest.AnInterfaceStringWithTrailingJunkIsRefused (0 ms)
+[ RUN      ] PathNodeParsingTest.NegativeIdentifiersAreRefusedRatherThanWrapped
+[       OK ] PathNodeParsingTest.NegativeIdentifiersAreRefusedRatherThanWrapped (0 ms)
+[ RUN      ] PathNodeParsingTest.AHopFieldOfTheWrongTypeIsRefused
+[       OK ] PathNodeParsingTest.AHopFieldOfTheWrongTypeIsRefused (0 ms)
+[----------] 12 tests from PathNodeParsingTest (0 ms total)
+
+[----------] 5 tests from DescribeCommandFailure
+[ RUN      ] DescribeCommandFailure.SuccessIsTheEmptyString
+[       OK ] DescribeCommandFailure.SuccessIsTheEmptyString (0 ms)
+[ RUN      ] DescribeCommandFailure.MinusOneMeansTheChildWasNeverCreated
+[       OK ] DescribeCommandFailure.MinusOneMeansTheChildWasNeverCreated (0 ms)
+[ RUN      ] DescribeCommandFailure.AWaitStatusIsDecodedNotEchoed
+[       OK ] DescribeCommandFailure.AWaitStatusIsDecodedNotEchoed (0 ms)
+[ RUN      ] DescribeCommandFailure.OneTwoSevenNamesTheShellNotTheCommand
+[       OK ] DescribeCommandFailure.OneTwoSevenNamesTheShellNotTheCommand (0 ms)
+[ RUN      ] DescribeCommandFailure.ASignalIsReportedAsASignal
+[       OK ] DescribeCommandFailure.ASignalIsReportedAsASignal (0 ms)
+[----------] 5 tests from DescribeCommandFailure (0 ms total)
+
+[----------] 2 tests from UnexportCommand
+[ RUN      ] UnexportCommand.NamesExportfsAndTheFolder
+[       OK ] UnexportCommand.NamesExportfsAndTheFolder (0 ms)
+[ RUN      ] UnexportCommand.AFolderContainingASpaceStaysOneArgument
+[       OK ] UnexportCommand.AFolderContainingASpaceStaysOneArgument (0 ms)
+[----------] 2 tests from UnexportCommand (0 ms total)
+
+[----------] 1 test from ExportsLine
+[ RUN      ] ExportsLine.StartsWithTheDirectoryAndASpace
+[       OK ] ExportsLine.StartsWithTheDirectoryAndASpace (0 ms)
+[----------] 1 test from ExportsLine (0 ms total)
+
+[----------] 4 tests from ExportsPurge
+[ RUN      ] ExportsPurge.RemovesExactlyTheLineTheWriterWrote
+[       OK ] ExportsPurge.RemovesExactlyTheLineTheWriterWrote (1 ms)
+[ RUN      ] ExportsPurge.APrefixSiblingSurvives
+[       OK ] ExportsPurge.APrefixSiblingSurvives (13 ms)
+[ RUN      ] ExportsPurge.ADotInTheExportRootIsNotAWildcard
+[       OK ] ExportsPurge.ADotInTheExportRootIsNotAWildcard (1 ms)
+[ RUN      ] ExportsPurge.AMidlineMentionOfTheFolderIsNotItsLine
+[       OK ] ExportsPurge.AMidlineMentionOfTheFolderIsNotItsLine (1 ms)
+[----------] 4 tests from ExportsPurge (18 ms total)
+
+[----------] 4 tests from ExportsFileHasEntry
+[ RUN      ] ExportsFileHasEntry.FindsExactlyTheFoldersOwnLine
+[       OK ] ExportsFileHasEntry.FindsExactlyTheFoldersOwnLine (0 ms)
+[ RUN      ] ExportsFileHasEntry.AMidlineMentionIsNotTheFoldersLine
+[       OK ] ExportsFileHasEntry.AMidlineMentionIsNotTheFoldersLine (0 ms)
+[ RUN      ] ExportsFileHasEntry.AFolderWhoseIdExtendsTheQueriedOneIsNotAMatch
+[       OK ] ExportsFileHasEntry.AFolderWhoseIdExtendsTheQueriedOneIsNotAMatch (0 ms)
+[ RUN      ] ExportsFileHasEntry.AnUnreadableFileMeansAttemptCleanupAnyway
+[       OK ] ExportsFileHasEntry.AnUnreadableFileMeansAttemptCleanupAnyway (0 ms)
+[----------] 4 tests from ExportsFileHasEntry (0 ms total)
+
+[----------] 2 tests from OpenUpAppDirPermissions
+[ RUN      ] OpenUpAppDirPermissions.MakesTheDirectoryWritableForSquashedClients
+[       OK ] OpenUpAppDirPermissions.MakesTheDirectoryWritableForSquashedClients (0 ms)
+[ RUN      ] OpenUpAppDirPermissions.AMissingPathReportsFalseNotSuccess
+[       OK ] OpenUpAppDirPermissions.AMissingPathReportsFalseNotSuccess (0 ms)
+[----------] 2 tests from OpenUpAppDirPermissions (0 ms total)
+
+[----------] 1 test from NonRootLifecycle
+[ RUN      ] NonRootLifecycle.RegistrationProvisionsAWritableWorkspaceWithoutRoot
+[       OK ] NonRootLifecycle.RegistrationProvisionsAWritableWorkspaceWithoutRoot (0 ms)
+[----------] 1 test from NonRootLifecycle (0 ms total)
+
+[----------] 3 tests from SetupNFSForApp
+[ RUN      ] SetupNFSForApp.AnAlreadyExistingDirectoryIsReusedAndItsPermissionsReapplied
+[       OK ] SetupNFSForApp.AnAlreadyExistingDirectoryIsReusedAndItsPermissionsReapplied (0 ms)
+[ RUN      ] SetupNFSForApp.AFreshDirectoryIsStillCreatedAndOpenedUp
+[       OK ] SetupNFSForApp.AFreshDirectoryIsStillCreatedAndOpenedUp (0 ms)
+[ RUN      ] SetupNFSForApp.APathBlockedByARegularFileStillReportsFailure
+[       OK ] SetupNFSForApp.APathBlockedByARegularFileStillReportsFailure (0 ms)
+[----------] 3 tests from SetupNFSForApp (0 ms total)
+
+[----------] 6 tests from SquashedClientContentFailure
+[ RUN      ] SquashedClientContentFailure.TheRealObservedFailureIsRecognised
+[       OK ] SquashedClientContentFailure.TheRealObservedFailureIsRecognised (0 ms)
+[ RUN      ] SquashedClientContentFailure.DeniedOnTheFolderItselfStaysAnError
+[       OK ] SquashedClientContentFailure.DeniedOnTheFolderItselfStaysAnError (0 ms)
+[ RUN      ] SquashedClientContentFailure.AnotherAppsFolderIsNotThisOnesContents
+[       OK ] SquashedClientContentFailure.AnotherAppsFolderIsNotThisOnesContents (0 ms)
+[ RUN      ] SquashedClientContentFailure.ADifferentErrorOnTheSamePathIsNotExcused
+[       OK ] SquashedClientContentFailure.ADifferentErrorOnTheSamePathIsNotExcused (0 ms)
+[ RUN      ] SquashedClientContentFailure.AnEmptySecondPathIsNotEnoughToExcuseIt
+[       OK ] SquashedClientContentFailure.AnEmptySecondPathIsNotEnoughToExcuseIt (0 ms)
+[ RUN      ] SquashedClientContentFailure.TrailingSlashesAndDotsDoNotChangeTheAnswer
+[       OK ] SquashedClientContentFailure.TrailingSlashesAndDotsDoNotChangeTheAnswer (0 ms)
+[----------] 6 tests from SquashedClientContentFailure (0 ms total)
+
+[----------] 4 tests from DataPlaneKindOrderingTest
+[ RUN      ] DataPlaneKindOrderingTest.StartLoadsTheStaticTopologyBeforeItReturns
+[       OK ] DataPlaneKindOrderingTest.StartLoadsTheStaticTopologyBeforeItReturns (1 ms)
+[ RUN      ] DataPlaneKindOrderingTest.TheLoadRunsOnTheCallersThreadNotOnTheSpawnedPollThread
+[       OK ] DataPlaneKindOrderingTest.TheLoadRunsOnTheCallersThreadNotOnTheSpawnedPollThread (1 ms)
+[ RUN      ] DataPlaneKindOrderingTest.AVerdictTakenBeforeTheTopologyExistsIsNotCached
+[       OK ] DataPlaneKindOrderingTest.AVerdictTakenBeforeTheTopologyExistsIsNotCached (0 ms)
+[ RUN      ] DataPlaneKindOrderingTest.TheStartupSequenceMainUsesYieldsABmv2Verdict
+[       OK ] DataPlaneKindOrderingTest.TheStartupSequenceMainUsesYieldsABmv2Verdict (0 ms)
+[----------] 4 tests from DataPlaneKindOrderingTest (3 ms total)
+
+[----------] 10 tests from TelemetryHealth
+[ RUN      ] TelemetryHealth.BeforeTheFirstWindowClosesTheAnswerIsUnknownNotOk
+[       OK ] TelemetryHealth.BeforeTheFirstWindowClosesTheAnswerIsUnknownNotOk (0 ms)
+[ RUN      ] TelemetryHealth.AClosedWindowWithNoSamplesIsNotOk
+[       OK ] TelemetryHealth.AClosedWindowWithNoSamplesIsNotOk (0 ms)
+[ RUN      ] TelemetryHealth.SamplesWithNoDropsIsOk
+[       OK ] TelemetryHealth.SamplesWithNoDropsIsOk (0 ms)
+[ RUN      ] TelemetryHealth.TheDenominatorIsSamplesPlusBothKindsOfDrop
+[       OK ] TelemetryHealth.TheDenominatorIsSamplesPlusBothKindsOfDrop (0 ms)
+[ RUN      ] TelemetryHealth.AppDropsAloneMoveTheVerdict
+[       OK ] TelemetryHealth.AppDropsAloneMoveTheVerdict (0 ms)
+[ RUN      ] TelemetryHealth.SmallLossIsReportedAsLossNotOk
+[       OK ] TelemetryHealth.SmallLossIsReportedAsLossNotOk (0 ms)
+[ RUN      ] TelemetryHealth.OneLostSampleIsEnoughToLeaveOk
+[       OK ] TelemetryHealth.OneLostSampleIsEnoughToLeaveOk (0 ms)
+[ RUN      ] TelemetryHealth.TheMeasuredSevereLossCellReadsSevere
+[       OK ] TelemetryHealth.TheMeasuredSevereLossCellReadsSevere (0 ms)
+[ RUN      ] TelemetryHealth.TheBandsAreOrderedAndDistinct
+[       OK ] TelemetryHealth.TheBandsAreOrderedAndDistinct (0 ms)
+[ RUN      ] TelemetryHealth.TheWindowLengthIsCarriedThrough
+[       OK ] TelemetryHealth.TheWindowLengthIsCarriedThrough (0 ms)
+[----------] 10 tests from TelemetryHealth (0 ms total)
+
+[----------] 10 tests from CloseOnExecSocketsTest
+[ RUN      ] CloseOnExecSocketsTest.TheSflowReceiveSocketIsCloseOnExec
+[       OK ] CloseOnExecSocketsTest.TheSflowReceiveSocketIsCloseOnExec (0 ms)
+[ RUN      ] CloseOnExecSocketsTest.AChildCannotSeeTheSflowReceiveSocket
+[       OK ] CloseOnExecSocketsTest.AChildCannotSeeTheSflowReceiveSocket (6 ms)
+[ RUN      ] CloseOnExecSocketsTest.TheProbeSeesASocketThatWasNotMarked
+[       OK ] CloseOnExecSocketsTest.TheProbeSeesASocketThatWasNotMarked (2 ms)
+[ RUN      ] CloseOnExecSocketsTest.TheApiAcceptorIsCloseOnExec
+[       OK ] CloseOnExecSocketsTest.TheApiAcceptorIsCloseOnExec (0 ms)
+[ RUN      ] CloseOnExecSocketsTest.AChildCannotSeeTheApiAcceptor
+[       OK ] CloseOnExecSocketsTest.AChildCannotSeeTheApiAcceptor (1 ms)
+[ RUN      ] CloseOnExecSocketsTest.AnAcceptedConnectionIsMarkedCloseOnExec
+[       OK ] CloseOnExecSocketsTest.AnAcceptedConnectionIsMarkedCloseOnExec (0 ms)
+[ RUN      ] CloseOnExecSocketsTest.AStartedServerHasACloseOnExecAcceptor
+[       OK ] CloseOnExecSocketsTest.AStartedServerHasACloseOnExecAcceptor (2 ms)
+[ RUN      ] CloseOnExecSocketsTest.AConnectionAcceptedByTheRunningServerIsCloseOnExec
+[       OK ] CloseOnExecSocketsTest.AConnectionAcceptedByTheRunningServerIsCloseOnExec (0 ms)
+[ RUN      ] CloseOnExecSocketsTest.ExecArgvChildDoesNotInheritAnUnmarkedDescriptor
+[       OK ] CloseOnExecSocketsTest.ExecArgvChildDoesNotInheritAnUnmarkedDescriptor (2 ms)
+[ RUN      ] CloseOnExecSocketsTest.ExecArgvChildKeepsTheDescriptorsItNeeds
+[       OK ] CloseOnExecSocketsTest.ExecArgvChildKeepsTheDescriptorsItNeeds (0 ms)
+[----------] 10 tests from CloseOnExecSocketsTest (16 ms total)
+
+[----------] 6 tests from PortOwnershipMessageTest
+[ RUN      ] PortOwnershipMessageTest.OrphanedChildrenAreNotReportedAsAnotherKernel
+[       OK ] PortOwnershipMessageTest.OrphanedChildrenAreNotReportedAsAnotherKernel (0 ms)
+[ RUN      ] PortOwnershipMessageTest.AnotherKernelIsNamedWhenOneIsActuallyHoldingThePort
+[       OK ] PortOwnershipMessageTest.AnotherKernelIsNamedWhenOneIsActuallyHoldingThePort (0 ms)
+[ RUN      ] PortOwnershipMessageTest.AnUnattributableHolderIsNotCalledAKernel
+[       OK ] PortOwnershipMessageTest.AnUnattributableHolderIsNotCalledAKernel (0 ms)
+[ RUN      ] PortOwnershipMessageTest.NoSocketFoundSaysSoInsteadOfInventingAHolder
+[       OK ] PortOwnershipMessageTest.NoSocketFoundSaysSoInsteadOfInventingAHolder (0 ms)
+[ RUN      ] PortOwnershipMessageTest.TheProcScanFindsThisProcessHoldingItsOwnPort
+[       OK ] PortOwnershipMessageTest.TheProcScanFindsThisProcessHoldingItsOwnPort (18 ms)
+[ RUN      ] PortOwnershipMessageTest.TheSflowBindFailureNamesTheRealHolderRatherThanBlamingAKernel
+[       OK ] PortOwnershipMessageTest.TheSflowBindFailureNamesTheRealHolderRatherThanBlamingAKernel (10 ms)
+[----------] 6 tests from PortOwnershipMessageTest (28 ms total)
+
+[----------] 12 tests from PollDoesNotResurrectTest
+[ RUN      ] PollDoesNotResurrectTest.ACommandedPowerOffSurvivesTheNextPollThatStillListsTheSwitch
+[       OK ] PollDoesNotResurrectTest.ACommandedPowerOffSurvivesTheNextPollThatStillListsTheSwitch (1 ms)
+[ RUN      ] PollDoesNotResurrectTest.EveryLaterPollDeclinesToo
+[       OK ] PollDoesNotResurrectTest.EveryLaterPollDeclinesToo (1 ms)
+[ RUN      ] PollDoesNotResurrectTest.DiscoveryStillEnablesACommandedOffSwitch
+[       OK ] PollDoesNotResurrectTest.DiscoveryStillEnablesACommandedOffSwitch (1 ms)
+[ RUN      ] PollDoesNotResurrectTest.DiscoveryStillMarksAnUncommandedSwitchUp
+[       OK ] PollDoesNotResurrectTest.DiscoveryStillMarksAnUncommandedSwitchUp (1 ms)
+[ RUN      ] PollDoesNotResurrectTest.APowerOnLetsDiscoveryLiftTheSwitchAgain
+[       OK ] PollDoesNotResurrectTest.APowerOnLetsDiscoveryLiftTheSwitchAgain (1 ms)
+[ RUN      ] PollDoesNotResurrectTest.TheLivenessWorkersUpDoesNotWithdrawTheCommand
+[       OK ] PollDoesNotResurrectTest.TheLivenessWorkersUpDoesNotWithdrawTheCommand (1 ms)
+[ RUN      ] PollDoesNotResurrectTest.PowerOffActuatesEvenWhenTheGraphAlreadySaysDown
+[       OK ] PollDoesNotResurrectTest.PowerOffActuatesEvenWhenTheGraphAlreadySaysDown (0 ms)
+[ RUN      ] PollDoesNotResurrectTest.PowerOnActuatesWhenACommandedOffIsStillStanding
+[       OK ] PollDoesNotResurrectTest.PowerOnActuatesWhenACommandedOffIsStillStanding (0 ms)
+[ RUN      ] PollDoesNotResurrectTest.AnAlreadyUpUncommandedPowerOnStillRunsNoCommands
+[       OK ] PollDoesNotResurrectTest.AnAlreadyUpUncommandedPowerOnStillRunsNoCommands (0 ms)
+[ RUN      ] PollDoesNotResurrectTest.AnOvsPowerOffAlsoSurvivesThePoll
+[       OK ] PollDoesNotResurrectTest.AnOvsPowerOffAlsoSurvivesThePoll (0 ms)
+[ RUN      ] PollDoesNotResurrectTest.ARedundantOvsPowerOffIsStillRecordedAsACommand
+[       OK ] PollDoesNotResurrectTest.ARedundantOvsPowerOffIsStillRecordedAsACommand (0 ms)
+[ RUN      ] PollDoesNotResurrectTest.TheEmittedVertexShapeGainsNoNewKey
+[       OK ] PollDoesNotResurrectTest.TheEmittedVertexShapeGainsNoNewKey (0 ms)
+[----------] 12 tests from PollDoesNotResurrectTest (13 ms total)
+
+[----------] 14 tests from TopologyInputValidationTest
+[ RUN      ] TopologyInputValidationTest.AnEdgeNamingADpidNoSwitchHasIsRefused
+[       OK ] TopologyInputValidationTest.AnEdgeNamingADpidNoSwitchHasIsRefused (4 ms)
+[ RUN      ] TopologyInputValidationTest.TheRefusalNamesTheDpidThatMatchedNothing
+[       OK ] TopologyInputValidationTest.TheRefusalNamesTheDpidThatMatchedNothing (4 ms)
+[ RUN      ] TopologyInputValidationTest.AGhostDpidEdgeLeavesNoPartiallyLoadedGraph
+[       OK ] TopologyInputValidationTest.AGhostDpidEdgeLeavesNoPartiallyLoadedGraph (3 ms)
+[ RUN      ] TopologyInputValidationTest.AHostEdgeWhoseAddressMatchesNoNodeIsRefused
+[       OK ] TopologyInputValidationTest.AHostEdgeWhoseAddressMatchesNoNodeIsRefused (2 ms)
+[ RUN      ] TopologyInputValidationTest.AZeroInterfaceOnTheSwitchSideIsRefused
+[       OK ] TopologyInputValidationTest.AZeroInterfaceOnTheSwitchSideIsRefused (2 ms)
+[ RUN      ] TopologyInputValidationTest.ASixDigitInterfaceIsRefused
+[       OK ] TopologyInputValidationTest.ASixDigitInterfaceIsRefused (2 ms)
+[ RUN      ] TopologyInputValidationTest.TheRefusalNamesTheInterfaceThatWasOutOfRange
+[       OK ] TopologyInputValidationTest.TheRefusalNamesTheInterfaceThatWasOutOfRange (2 ms)
+[ RUN      ] TopologyInputValidationTest.ADestinationInterfaceIsCheckedToo
+[       OK ] TopologyInputValidationTest.ADestinationInterfaceIsCheckedToo (2 ms)
+[ RUN      ] TopologyInputValidationTest.TheLargestInRangeInterfaceIsAccepted
+[       OK ] TopologyInputValidationTest.TheLargestInRangeInterfaceIsAccepted (5 ms)
+[ RUN      ] TopologyInputValidationTest.OneAboveTheLargestInRangeInterfaceIsRefused
+[       OK ] TopologyInputValidationTest.OneAboveTheLargestInRangeInterfaceIsRefused (2 ms)
+[ RUN      ] TopologyInputValidationTest.TheSmallestInRangeSwitchInterfaceIsAccepted
+[       OK ] TopologyInputValidationTest.TheSmallestInRangeSwitchInterfaceIsAccepted (3 ms)
+[ RUN      ] TopologyInputValidationTest.AZeroInterfaceOnTheHostSideIsStillAccepted
+[       OK ] TopologyInputValidationTest.AZeroInterfaceOnTheHostSideIsStillAccepted (3 ms)
+[ RUN      ] TopologyInputValidationTest.EveryShippedTopologyStillLoadsWithNothingDropped
+[       OK ] TopologyInputValidationTest.EveryShippedTopologyStillLoadsWithNothingDropped (136 ms)
+[ RUN      ] TopologyInputValidationTest.TheTwoMininetCapableTopologiesStillLoadInMininetMode
+[       OK ] TopologyInputValidationTest.TheTwoMininetCapableTopologiesStillLoadInMininetMode (6 ms)
+[----------] 14 tests from TopologyInputValidationTest (182 ms total)
+
+[----------] 5 tests from RefusedIsNotTimeoutTest
+[ RUN      ] RefusedIsNotTimeoutTest.ARefusalIsNotDescribedAsATimeout
+Command failed (exit code 7): curl -s -w \n%{http_code} --max-time 2 -X POST http://127.0.0.1:50947/submit -H Content-Type: application/json -d {"simulator":"MySimulator","version":"1.0.0","app_id":"1","case_id":"case_123","inputfile":"/srv/nfs/sim/1/case_123.json"}
+    502 details would read: connection refused after 0.004s: nothing accepted a connection at http://127.0.0.1:50947/submit (curl exit 7)
+[       OK ] RefusedIsNotTimeoutTest.ARefusalIsNotDescribedAsATimeout (4 ms)
+[ RUN      ] RefusedIsNotTimeoutTest.AHangIsStillDescribedAsATimeout
+Command failed (exit code 28): curl -s -w \n%{http_code} --max-time 2 -X POST http://127.0.0.1:47651/submit -H Content-Type: application/json -d {"simulator":"MySimulator","version":"1.0.0","app_id":"1","case_id":"case_123","inputfile":"/srv/nfs/sim/1/case_123.json"}
+    502 details would read: timed out after 2.007s: no reply from http://127.0.0.1:47651/submit within the 2s deadline (curl exit 28)
+[       OK ] RefusedIsNotTimeoutTest.AHangIsStillDescribedAsATimeout (2007 ms)
+[ RUN      ] RefusedIsNotTimeoutTest.TheTwoFailuresDoNotProduceTheSameSentence
+Command failed (exit code 7): curl -s -w \n%{http_code} --max-time 2 -X POST http://127.0.0.1:59535/submit -H Content-Type: application/json -d {"simulator":"MySimulator","version":"1.0.0","app_id":"1","case_id":"case_123","inputfile":"/srv/nfs/sim/1/case_123.json"}
+    502 details would read: connection refused after 0.006s: nothing accepted a connection at http://127.0.0.1:59535/submit (curl exit 7)
+Command failed (exit code 28): curl -s -w \n%{http_code} --max-time 2 -X POST http://127.0.0.1:35289/submit -H Content-Type: application/json -d {"simulator":"MySimulator","version":"1.0.0","app_id":"1","case_id":"case_123","inputfile":"/srv/nfs/sim/1/case_123.json"}
+    502 details would read: timed out after 2.009s: no reply from http://127.0.0.1:35289/submit within the 2s deadline (curl exit 28)
+[       OK ] RefusedIsNotTimeoutTest.TheTwoFailuresDoNotProduceTheSameSentence (2015 ms)
+[ RUN      ] RefusedIsNotTimeoutTest.TheRefusalCarriesTheDurationThatWasActuallyMeasured
+Command failed (exit code 7): curl -s -w \n%{http_code} --max-time 2 -X POST http://127.0.0.1:45193/submit -H Content-Type: application/json -d {"simulator":"MySimulator","version":"1.0.0","app_id":"1","case_id":"case_123","inputfile":"/srv/nfs/sim/1/case_123.json"}
+    502 details would read: connection refused after 0.007s: nothing accepted a connection at http://127.0.0.1:45193/submit (curl exit 7)
+[       OK ] RefusedIsNotTimeoutTest.TheRefusalCarriesTheDurationThatWasActuallyMeasured (8 ms)
+[ RUN      ] RefusedIsNotTimeoutTest.ADroppedConnectionIsNeitherOfTheTwo
+Command failed (exit code 56): curl -s -w \n%{http_code} --max-time 2 -X POST http://127.0.0.1:38125/submit -H Content-Type: application/json -d {"simulator":"MySimulator","version":"1.0.0","app_id":"1","case_id":"case_123","inputfile":"/srv/nfs/sim/1/case_123.json"}
+    502 details would read: connection reset after 0.152s by http://127.0.0.1:38125/submit (curl exit 56)
+[       OK ] RefusedIsNotTimeoutTest.ADroppedConnectionIsNeitherOfTheTwo (152 ms)
+[----------] 5 tests from RefusedIsNotTimeoutTest (4188 ms total)
+
+[----------] 6 tests from KernelStopIsBoundedTest
+[ RUN      ] KernelStopIsBoundedTest.TheInstrumentReallyWedgesACurl
+Command failed (exit code 28): curl -s --max-time 1 http://127.0.0.1:38057/v1.0/topology/switches
+[       OK ] KernelStopIsBoundedTest.TheInstrumentReallyWedgesACurl (1010 ms)
+[ RUN      ] KernelStopIsBoundedTest.AFlowTablePollCaughtMidRoundStopsWithinTheBound
+[       OK ] KernelStopIsBoundedTest.AFlowTablePollCaughtMidRoundStopsWithinTheBound (223 ms)
+[ RUN      ] KernelStopIsBoundedTest.ATopologyPollBlockedInItsHttpCallReturnsWithinTheBound
+[       OK ] KernelStopIsBoundedTest.ATopologyPollBlockedInItsHttpCallReturnsWithinTheBound (21 ms)
+[ RUN      ] KernelStopIsBoundedTest.AStopThatExceedsItsBoundSaysWhatItIsWaitingOn
+[       OK ] KernelStopIsBoundedTest.AStopThatExceedsItsBoundSaysWhatItIsWaitingOn (221 ms)
+[ RUN      ] KernelStopIsBoundedTest.TheMonitorsStopReportNamesItsOwnWorkers
+[       OK ] KernelStopIsBoundedTest.TheMonitorsStopReportNamesItsOwnWorkers (21 ms)
+[ RUN      ] KernelStopIsBoundedTest.StoppingTwiceAndStoppingWhatNeverRanAreBothImmediate
+[       OK ] KernelStopIsBoundedTest.StoppingTwiceAndStoppingWhatNeverRanAreBothImmediate (0 ms)
+[----------] 6 tests from KernelStopIsBoundedTest (1498 ms total)
+
+[----------] 8 tests from NoIpSwitchTest
+[ RUN      ] NoIpSwitchTest.UpdateSwitchesInventsNoVertexForADpidTheTopologyDoesNotDeclare
+[       OK ] NoIpSwitchTest.UpdateSwitchesInventsNoVertexForADpidTheTopologyDoesNotDeclare (0 ms)
+[ RUN      ] NoIpSwitchTest.AStatusRoundOverASwitchWithNoAddressDoesNotKillTheProcess
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[       OK ] NoIpSwitchTest.AStatusRoundOverASwitchWithNoAddressDoesNotKillTheProcess (10 ms)
+[ RUN      ] NoIpSwitchTest.TheAddresslessSwitchKeepsAKeyAtTheDocumentedSentinel
+[       OK ] NoIpSwitchTest.TheAddresslessSwitchKeepsAKeyAtTheDocumentedSentinel (0 ms)
+[ RUN      ] NoIpSwitchTest.TheSentinelIsNotSomethingAReaderWouldTakeForAMeasurement
+[       OK ] NoIpSwitchTest.TheSentinelIsNotSomethingAReaderWouldTakeForAMeasurement (0 ms)
+[ RUN      ] NoIpSwitchTest.TheMissingAddressWarnsOncePerEpisodeAndNamesTheDpid
+[       OK ] NoIpSwitchTest.TheMissingAddressWarnsOncePerEpisodeAndNamesTheDpid (0 ms)
+[ RUN      ] NoIpSwitchTest.ANewEpisodeWarnsAgain
+[       OK ] NoIpSwitchTest.ANewEpisodeWarnsAgain (0 ms)
+[ RUN      ] NoIpSwitchTest.TestbedPowerReportsTheSentinelForAnAddresslessSwitch
+[       OK ] NoIpSwitchTest.TestbedPowerReportsTheSentinelForAnAddresslessSwitch (0 ms)
+[ RUN      ] NoIpSwitchTest.MininetPowerStillReportsARealFigureForAnAddresslessSwitch
+[       OK ] NoIpSwitchTest.MininetPowerStillReportsARealFigureForAnAddresslessSwitch (0 ms)
+[----------] 8 tests from NoIpSwitchTest (11 ms total)
+
+[----------] Global test environment tear-down
+[==========] 1007 tests from 128 test suites ran. (9202 ms total)
+[  PASSED  ] 1007 tests.

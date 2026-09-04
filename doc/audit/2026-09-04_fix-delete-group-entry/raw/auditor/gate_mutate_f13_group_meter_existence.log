@@ -1,0 +1,37 @@
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_f13_group_meter_existence.sh
+F-13 mutation gate
+  build dir : build
+  target    : test_routing_strategy   (tests/test_GroupMeterExistence.cpp compiles into this binary)
+  filter    : GroupMeterFixture.*:GroupMeterEndpointTest.*
+  baseline  : src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp  sha256 5686b58d36b55815
+  baseline  : src/ndt_core/http/HttpSession.cpp  sha256 ef4406698c4a5cb4
+
+=== BASELINE (unmutated) ===
+  ✅ green  (36 tests)
+
+=== A   the guard stops asking (F-13 put back) ===
+  ✅ caught   A   the guard stops asking (F-13 put back)  (14 red, 6 reverse guards held)
+
+=== A'  Unknown collapses into Absent (instrument reports its own failure) ===
+  ✅ caught   A'  Unknown collapses into Absent (instrument reports its own failure)  (4 red, 11 reverse guards held)
+
+=== A" a controller failure gets relabelled with an outcome ===
+  ✅ caught   A" a controller failure gets relabelled with an outcome  (1 red, 5 reverse guards held)
+
+=== B   respondToOpResult stops emitting outcome ===
+  ✅ caught   B   respondToOpResult stops emitting outcome  (10 red, 4 reverse guards held)
+
+=== B'  respondToOpResult emits outcome unconditionally ===
+  ✅ caught   B'  respondToOpResult emits outcome unconditionally  (1 red, 5 reverse guards held)
+
+=== C   CONTROL: comment-only edit, must stay green ===
+  ✅ green after a comment-only rebuild (the reds above are the mutations)
+
+--- restore ---
+  ok  src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp byte-identical to the pre-run snapshot
+  ok  src/ndt_core/http/HttpSession.cpp byte-identical to the pre-run snapshot
+
+5 mutations, 0 survived
+every mutation caught, every reverse guard held, baseline restored
+guarded_build: exit 0

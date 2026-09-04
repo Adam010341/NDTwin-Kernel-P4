@@ -1,0 +1,684 @@
+[2026-09-04 10:50:55.317] [info] [[94mmain.cpp[0m:[95m299[0m [96mmain[0m] Logger Loads Successfully! level
+Running in Mininet environment.
+[2026-09-04 10:50:55.317] [info] [[94mmain.cpp[0m:[95m311[0m [96mmain[0m] Topology file: /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json
+[2026-09-04 10:50:55.318] [info] [[94mmain.cpp[0m:[95m358[0m [96mmain[0m] IntentTranslator is disabled by user.
+[2026-09-04 10:50:55.318] [info] [[94mApplicationManager.cpp[0m:[95m421[0m [96mcleanupStaleEntries[0m] Checking for stale NFS entries in /srv/nfs/sim
+[2026-09-04 10:50:55.319] [warning] [[94mApplicationManager.cpp[0m:[95m437[0m [96mcleanupStaleEntries[0m] Found stale application folder from a previous run: /srv/nfs/sim/3
+[2026-09-04 10:50:55.321] [warning] [[94mApplicationManager.cpp[0m:[95m372[0m [96mcleanupAppFolder[0m] Leaving /srv/nfs/sim/3 in place: /srv/nfs/sim/3/energy_saving_simulator/1.0/case4/input belongs to a squashed NFS client, so removing it needs root. The next registration that reuses this app id will reuse the folder rather than recreate it.
+[2026-09-04 10:50:55.321] [warning] [[94mApplicationManager.cpp[0m:[95m437[0m [96mcleanupStaleEntries[0m] Found stale application folder from a previous run: /srv/nfs/sim/1
+[2026-09-04 10:50:55.322] [warning] [[94mApplicationManager.cpp[0m:[95m372[0m [96mcleanupAppFolder[0m] Leaving /srv/nfs/sim/1 in place: /srv/nfs/sim/1/energy_saving_simulator/1.0/case10/input belongs to a squashed NFS client, so removing it needs root. The next registration that reuses this app id will reuse the folder rather than recreate it.
+[2026-09-04 10:50:55.322] [warning] [[94mApplicationManager.cpp[0m:[95m437[0m [96mcleanupStaleEntries[0m] Found stale application folder from a previous run: /srv/nfs/sim/2
+[2026-09-04 10:50:55.322] [warning] [[94mApplicationManager.cpp[0m:[95m372[0m [96mcleanupAppFolder[0m] Leaving /srv/nfs/sim/2 in place: /srv/nfs/sim/2/energy_saving_simulator/1.0/case4/input belongs to a squashed NFS client, so removing it needs root. The next registration that reuses this app id will reuse the folder rather than recreate it.
+[2026-09-04 10:50:55.323] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2510[0m [96mrun[0m] TopologyAndFlowMonitor Run
+[2026-09-04 10:50:55.323] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m472[0m [96mstart[0m] Collector Starts Up
+[2026-09-04 10:50:55.323] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m211[0m [96mloadStaticTopologyFromFile[0m] Load Static Topology File
+[2026-09-04 10:50:55.323] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [run] pid=3649877 tid=3649880
+[2026-09-04 10:50:55.323] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m708[0m [96mrun[0m] Run with 20 workers
+[2026-09-04 10:50:55.323] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [testCalAvgFlowSendingRatesRandomly] pid=3649877 tid=3649882
+[2026-09-04 10:50:55.323] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [calAvgFlowSendingRatesPeriodically] pid=3649877 tid=3649881
+[2026-09-04 10:50:55.323] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [purgeIdleFlows] pid=3649877 tid=3649883
+[2026-09-04 10:50:55.323] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m466[0m [96mlog_thread_ids[0m] [calFlowPathByQueried] pid=3649877 tid=3649884
+[2026-09-04 10:50:55.323] [warning] [[94mHistoricalDataManager.cpp[0m:[95m66[0m [96mstart[0m] HistoricalDataManager not started: MININET deployments do not run the recorder, so no historical link row will ever be written. /ndt/historical_logging reports this as reason=not-available-in-mininet-mode.
+[2026-09-04 10:50:55.323] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m121[0m [96mstart[0m] DeviceConfigurationAndPowerManager Starts Up
+[2026-09-04 10:50:55.323] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m196[0m [96mrunServer[0m] Server Listening on port 8000
+[2026-09-04 10:50:55.324] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m749[0m [96mrun[0m] Listening for sFlow on UDP port 6343
+[2026-09-04 10:50:55.325] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m1636[0m [96mvalidateDataPlaneHomogeneity[0m] Data plane: ovs (10 switch(es))
+[2026-09-04 10:50:55.351] [info] [[94mTopologyAndFlowMonitor.cpp[0m:[95m2532[0m [96mrun[0m] topology from the control plane: 10 switches, 4 hosts, 40 edges up
+[2026-09-04 10:50:55.782] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m271[0m [96mpopulateIfIndexToOfportMap[0m] Populating ifIndex to OFPort map...
+[2026-09-04 10:50:55.797] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m437[0m [96mpopulateIfIndexToOfportMap[0m] Finished populating ifIndex to OFPort map. Size: 36
+[2026-09-04 10:50:55.816] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:50:55.820] [info] [[94mHttpSession.cpp[0m:[95m409[0m [96mcloseSocket[0m] Close Socket
+[2026-09-04 10:50:55.875] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:50:55.875] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_graph_data
+[2026-09-04 10:50:55.875] [info] [[94mHttpSession.cpp[0m:[95m538[0m [96mhandleGetGraphData[0m] Handle Get Graph Data
+[2026-09-04 10:50:55.879] [info] [[94mHttpSession.cpp[0m:[95m626[0m [96mhandleGetGraphData[0m] get_graph_data success
+[2026-09-04 10:50:55.879] [info] [[94mHttpSession.cpp[0m:[95m409[0m [96mcloseSocket[0m] Close Socket
+[2026-09-04 10:50:56.323] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2163[0m [96mcalAvgFlowSendingRatesPeriodically[0m] sFlow ingest healthy: rx=1, app_drop=0, addressed=1, sock_ovfl_total=0
+[2026-09-04 10:51:00.332] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2746[0m [96mfetchAllDestinationPaths[0m] Pulled 12 paths from controller
+[2026-09-04 10:51:00.332] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m566[0m [96mrefreshDestinationPathsPeriodically[0m] Destination paths loaded from localhost:8080 (12 pairs); path and switch-count queries will answer from now on.
+[2026-09-04 10:51:11.324] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2346[0m [96mpurgeIdleFlows[0m] Flow Key: 192.168.123.13 -> 224.0.0.251 idles
+[2026-09-04 10:51:17.272] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:17.272] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:17.272] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:17.274] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:17.274] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/install_flow_entry
+[2026-09-04 10:51:17.274] [info] [[94mHttpSession.cpp[0m:[95m879[0m [96mhandleInstallFlowEntry[0m] Handle Install Flow Entry
+[2026-09-04 10:51:17.274] [info] [[94mHttpSession.cpp[0m:[95m1118[0m [96mprocessFlowBatch[0m] j {
+  "delete_flow_entries": [],
+  "install_flow_entries": [
+    {
+      "actions": [
+        {
+          "port": 999,
+          "type": "OUTPUT"
+        }
+      ],
+      "dpid": 1,
+      "match": {
+        "eth_type": 2048,
+        "ipv4_dst": "10.0.0.241"
+      },
+      "priority": 915
+    }
+  ],
+  "modify_flow_entries": []
+}
+[2026-09-04 10:51:17.276] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:17.276] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:17.276] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:17.528] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:17.528] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:17.528] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:17.780] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:17.781] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:17.781] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:18.033] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:18.033] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:18.033] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:18.285] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:18.285] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:18.286] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:18.538] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:18.538] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:18.538] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:18.790] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:18.790] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:18.790] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:19.042] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:19.042] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:19.042] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:19.295] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:19.295] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:19.295] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:19.548] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:19.548] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:19.548] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:19.801] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:19.801] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:19.801] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:20.053] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:20.053] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:20.053] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:20.306] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:20.306] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:20.306] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:20.558] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:20.559] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:20.559] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:20.811] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:20.811] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:20.811] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:21.064] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:21.064] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:21.064] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:21.316] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:21.316] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:21.316] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:21.569] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:21.569] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:21.569] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:21.821] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:21.821] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:21.821] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:22.073] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:22.074] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:22.074] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:22.326] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:22.326] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:22.327] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:22.579] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:22.579] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:22.579] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:22.833] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:22.833] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:22.833] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:23.085] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:23.085] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:23.085] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:23.338] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:23.338] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:23.338] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:23.591] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:23.592] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:23.592] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:23.845] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:23.845] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:23.845] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:24.097] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:24.097] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:24.097] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:24.351] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:24.351] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:24.351] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:24.603] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:24.603] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:24.603] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:24.856] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:24.856] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:24.856] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:25.109] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:25.109] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:25.109] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:25.327] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1898[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 29 iters mean 1000.1 ms | since start (29 iters) mean 1000.1 ms, min 1000.1, max 1000.5 (flows=0, counters=1) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-04 10:51:25.327] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2107[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000193 divisor_used_s=1.000193 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-04 10:51:25.361] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:25.361] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:25.361] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:25.614] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:25.614] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:25.614] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:25.866] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:25.866] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:25.866] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:26.118] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:26.118] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:26.118] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:26.371] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:26.371] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:26.371] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:26.624] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:26.624] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:26.624] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:26.877] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:26.877] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:26.877] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:27.129] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:27.129] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:27.129] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:27.381] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:27.382] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:27.382] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:27.634] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:27.634] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:27.634] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:27.886] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:27.887] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:27.887] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:28.139] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:28.139] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:28.139] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:28.393] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:28.393] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:28.393] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:28.646] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:28.646] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:28.646] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:28.900] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:28.900] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:28.900] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:29.152] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:29.152] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:29.152] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:29.405] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:29.405] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:29.405] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:29.659] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:29.659] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:29.659] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:29.913] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:29.913] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:29.913] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:30.175] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:30.591] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:30.591] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:30.845] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:30.929] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:30.929] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:31.182] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:31.182] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:31.182] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:31.435] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:31.435] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:31.435] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:31.688] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:31.688] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:31.688] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:31.940] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:31.940] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:31.940] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:32.192] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:32.193] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:32.193] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:32.445] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:32.446] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:32.446] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:32.698] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:32.698] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:32.698] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:32.950] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:32.951] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:32.951] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:33.203] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:33.203] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:33.203] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:33.456] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:33.456] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:33.456] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:33.708] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:33.708] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:33.708] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:33.960] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:33.961] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:33.961] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:34.213] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:34.213] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:34.213] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:34.465] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:34.465] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:34.465] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:34.717] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:34.718] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:34.718] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:34.970] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:34.970] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:34.970] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:35.223] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:35.223] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:35.223] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:35.476] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:35.476] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:35.476] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:35.728] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:35.728] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:35.728] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:35.980] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:35.980] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:35.981] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:36.233] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:36.233] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:36.233] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:36.486] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:36.486] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:36.486] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:36.738] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:36.738] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:36.738] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:36.991] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:36.991] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:36.991] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:37.243] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:37.243] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:37.243] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:37.495] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:37.496] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:37.496] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:37.748] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:37.748] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:37.748] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:38.000] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:38.001] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:38.001] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:38.253] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:38.253] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:38.253] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:38.506] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:38.506] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:38.506] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:38.759] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:38.759] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:38.760] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:39.012] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:39.012] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:39.012] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:39.265] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:39.265] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:39.265] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:39.517] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:39.518] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:39.518] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:39.770] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:39.770] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:39.770] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:40.022] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:40.022] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:40.022] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:40.274] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:40.275] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:40.275] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:40.527] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:40.527] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:40.527] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:40.779] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:40.779] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:40.779] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:41.032] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:41.032] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:41.032] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:41.284] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:41.285] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:41.285] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:41.537] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:41.538] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:41.538] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:41.790] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:41.790] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:41.790] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:42.043] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:42.043] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:42.043] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:42.365] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:42.365] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:42.365] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:42.368] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:42.368] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: POST /ndt/install_flow_entry
+[2026-09-04 10:51:42.368] [info] [[94mHttpSession.cpp[0m:[95m879[0m [96mhandleInstallFlowEntry[0m] Handle Install Flow Entry
+[2026-09-04 10:51:42.368] [info] [[94mHttpSession.cpp[0m:[95m1118[0m [96mprocessFlowBatch[0m] j {
+  "delete_flow_entries": [],
+  "install_flow_entries": [
+    {
+      "actions": [
+        {
+          "port": 2,
+          "type": "OUTPUT"
+        }
+      ],
+      "dpid": 1,
+      "match": {
+        "eth_type": 2048,
+        "ipv4_dst": "10.0.0.242"
+      },
+      "priority": 916
+    }
+  ],
+  "modify_flow_entries": []
+}
+[2026-09-04 10:51:42.370] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:42.370] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:42.370] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:42.623] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:42.623] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:42.623] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:42.877] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:42.877] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:42.877] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:43.130] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:43.130] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:43.130] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:43.382] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:43.383] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:43.383] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:43.635] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:43.635] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:43.635] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:43.890] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:43.890] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:43.890] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:44.142] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:44.142] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:44.142] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:44.394] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:44.395] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:44.395] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:44.649] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:44.649] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:44.649] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:44.901] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:44.901] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:44.901] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:45.155] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:45.155] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:45.155] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:45.409] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:45.409] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:45.409] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:45.662] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:45.662] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:45.662] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:45.915] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:45.915] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:45.915] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:46.168] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:46.168] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:46.168] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:46.422] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:46.422] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:46.422] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:46.674] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:46.674] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:46.674] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:46.926] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:46.927] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:46.927] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:47.180] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:47.180] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:47.180] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:47.432] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:47.432] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:47.432] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:47.685] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:47.685] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:47.685] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:47.938] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:47.938] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:47.938] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:48.191] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:48.191] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:48.191] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:48.443] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:48.443] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:48.443] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:48.695] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:48.696] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:48.696] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:48.948] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:48.948] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:48.948] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:49.200] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:49.200] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:49.200] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:49.452] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:49.453] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:49.453] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:49.706] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:49.706] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:49.706] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:49.959] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:49.959] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:49.959] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:50.211] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:50.211] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:50.211] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:50.463] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:50.464] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:50.464] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:50.717] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:50.717] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:50.717] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:50.969] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:50.970] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:50.970] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:51.223] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:51.223] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:51.223] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:51.476] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:51.476] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:51.476] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:51.728] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:51.728] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:51.728] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:51.981] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:51.981] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:51.981] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:52.233] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:52.233] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:52.233] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:52.486] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:52.486] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:52.486] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:52.738] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:52.738] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:52.738] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:52.990] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:52.991] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:52.991] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:53.243] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:53.243] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:53.243] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:53.495] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:53.496] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:53.496] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:53.749] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:53.749] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:53.749] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:54.003] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:54.003] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:54.003] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:54.257] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:54.257] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:54.257] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:54.509] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:54.509] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:54.509] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:54.762] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:54.762] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:54.762] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:55.014] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:55.015] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:55.015] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:55.268] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:55.268] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:55.268] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:55.330] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m1898[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate loop period: last 30 iters mean 1000.1 ms | since start (59 iters) mean 1000.1 ms, min 1000.1, max 1000.5 (flows=0, counters=1) -- the LAST-N figure is the current denominator; the since-start one lags it
+[2026-09-04 10:51:55.331] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2107[0m [96mcalAvgFlowSendingRatesPeriodically[0m] rate divisor check: measured_interval_s=1.000188 divisor_used_s=1.000188 (ticket Q gate: these must agree to 1%; a negative divisor means no rate has been published yet, which is not a pass)
+[2026-09-04 10:51:55.520] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:55.521] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:55.521] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:55.773] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:55.773] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:55.773] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:56.025] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:56.026] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:56.026] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:56.278] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:56.278] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:56.278] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:56.532] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:56.532] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:56.532] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:56.784] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:56.784] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:56.784] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:57.037] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:57.037] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:57.037] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:57.291] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:57.291] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:57.291] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:57.544] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:57.544] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:57.544] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:57.798] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:57.798] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:57.798] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:58.052] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:58.052] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:58.052] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:58.304] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:58.304] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:58.305] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:58.557] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:58.557] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:58.557] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:58.811] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:58.811] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:58.811] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:59.064] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:59.064] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:59.064] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:59.316] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:59.317] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:59.317] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:59.570] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:59.570] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:59.570] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:51:59.824] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:51:59.824] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:51:59.824] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:00.077] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:00.077] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:00.077] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:00.331] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:00.331] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:00.331] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:00.347] [info] [[94mFlowLinkUsageCollector.cpp[0m:[95m2746[0m [96mfetchAllDestinationPaths[0m] Pulled 12 paths from controller
+[2026-09-04 10:52:00.584] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:00.584] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:00.584] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:00.838] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:00.838] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:00.838] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:01.090] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:01.090] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:01.090] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:01.343] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:01.343] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:01.344] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:01.597] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:01.597] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:01.597] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:01.850] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:01.851] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:01.851] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:02.103] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:02.104] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:02.104] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:02.357] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:02.357] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:02.357] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:02.611] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:02.611] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:02.611] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:02.863] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:02.864] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:02.864] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:03.116] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:03.116] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:03.116] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:03.370] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:03.370] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:03.370] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:03.622] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:03.622] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:03.622] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:03.876] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:03.876] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:03.876] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:04.128] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:04.129] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:04.129] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:04.381] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:04.381] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:04.381] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:04.634] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:04.634] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:04.634] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:04.886] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:04.886] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:04.886] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:05.139] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:05.139] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:05.139] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:05.391] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:05.391] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:05.391] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:05.644] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:05.644] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:05.644] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:05.897] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:05.897] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:05.897] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:06.149] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:06.149] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:06.149] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:06.402] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:06.402] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:06.402] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:06.655] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:06.655] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:06.655] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:06.907] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:06.907] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:06.907] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries
+[2026-09-04 10:52:07.160] [info] [[94mControllerAndOtherEventHandler.cpp[0m:[95m239[0m [96moperator()[0m] Accepted new connection
+[2026-09-04 10:52:07.160] [info] [[94mHttpSession.cpp[0m:[95m96[0m [96mhandleRequest[0m] Got request: GET /ndt/get_switch_openflow_table_entries
+[2026-09-04 10:52:07.160] [info] [[94mHttpSession.cpp[0m:[95m725[0m [96mhandleGetSwitchOpenflowEntries[0m] Handle Get Swithc OpenFlow Entries

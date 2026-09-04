@@ -1,0 +1,71 @@
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ cmake --build build --target test_routing_strategy -j1
+[0/1] Re-running CMake...
+--  [Config] Found local config: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-integrate/setting/AppConfig.hpp
+CMake Warning (dev) at /usr/share/cmake-3.28/Modules/FetchContent.cmake:1331 (message):
+  The DOWNLOAD_EXTRACT_TIMESTAMP option was not given and policy CMP0135 is
+  not set.  The policy's OLD behavior will be used.  When using a URL
+  download, the timestamps of extracted files should preferably be that of
+  the time of extraction, otherwise code that depends on the extracted
+  contents might not be rebuilt if the URL changes.  The OLD behavior
+  preserves the timestamps from the archive instead, but this is usually not
+  what you want.  Update your project to the NEW behavior or specify the
+  DOWNLOAD_EXTRACT_TIMESTAMP option with a value of true to avoid this
+  robustness issue.
+Call Stack (most recent call first):
+  CMakeLists.txt:126 (FetchContent_Declare)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+-- Configuring done (0.5s)
+-- Generating done (0.0s)
+-- Build files have been written to: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-integrate/build
+[1/49] Building CXX object src/ndt_core/collection/CMakeFiles/NdtCore_CollectionLib.dir/FlowLinkUsageCollector.cpp.o
+[2/49] Linking CXX static library lib/libNdtCore_CollectionLib.a
+[3/49] Building CXX object src/ndt_core/routing_management/CMakeFiles/NdtCore_RoutingManagementLib.dir/FlowRoutingManager.cpp.o
+[4/49] Building CXX object src/ndt_core/routing_management/CMakeFiles/NdtCore_RoutingManagementLib.dir/Controller.cpp.o
+[5/49] Building CXX object src/ndt_core/routing_management/CMakeFiles/NdtCore_RoutingManagementLib.dir/HttpRoutingStrategyBase.cpp.o
+[6/49] Building CXX object src/ndt_core/routing_management/CMakeFiles/NdtCore_RoutingManagementLib.dir/P4RoutingStrategy.cpp.o
+[7/49] Linking CXX static library lib/libNdtCore_RoutingManagementLib.a
+[8/49] Building CXX object src/ndt_core/event_handling/CMakeFiles/NdtCore_EventHandlingLib.dir/ControllerAndOtherEventHandler.cpp.o
+[9/49] Linking CXX static library lib/libNdtCore_EventHandlingLib.a
+[10/49] Building CXX object src/ndt_core/power_management/CMakeFiles/NdtCore_PowerManagementLib.dir/DeviceConfigurationAndPowerManager.cpp.o
+[11/49] Building CXX object src/ndt_core/power_management/CMakeFiles/NdtCore_PowerManagementLib.dir/OVSPowerStrategy.cpp.o
+[12/49] Building CXX object src/ndt_core/power_management/CMakeFiles/NdtCore_PowerManagementLib.dir/P4PowerStrategy.cpp.o
+[13/49] Linking CXX static library lib/libNdtCore_PowerManagementLib.a
+[14/49] Building CXX object src/ndt_core/intent_translator/CMakeFiles/NdtCore_IntentTranslatorLib.dir/IntentTranslator.cpp.o
+[15/49] Building CXX object src/ndt_core/intent_translator/CMakeFiles/NdtCore_IntentTranslatorLib.dir/LLMAgent.cpp.o
+[16/49] Linking CXX static library lib/libNdtCore_IntentTranslatorLib.a
+[17/49] Building CXX object src/ndt_core/http/CMakeFiles/NdtCore_HttpLib.dir/HttpSession.cpp.o
+[18/49] Linking CXX static library lib/libNdtCore_HttpLib.a
+[19/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_RoutingStrategies.cpp.o
+[20/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_SwitchKindDispatch.cpp.o
+[21/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_OvsLiveness.cpp.o
+[22/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_SyntheticPower.cpp.o
+[23/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_SimulatedDeviceMetrics.cpp.o
+[24/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_DispatchOutcomeLog.cpp.o
+[25/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_PendingEntryFilter.cpp.o
+[26/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_Controller.cpp.o
+[27/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_OvsPowerStrategy.cpp.o
+[28/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_P4PowerStrategy.cpp.o
+[29/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_P4Liveness.cpp.o
+[30/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_RelayResponse.cpp.o
+[31/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_RequestDeadlines.cpp.o
+[32/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_FlowTableCacheOptionalFields.cpp.o
+[33/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_HttpSessionRouting.cpp.o
+[34/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_FlowStatsTimeout.cpp.o
+[35/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_StaleTableCarryForward.cpp.o
+[36/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_FlowLiveness.cpp.o
+[37/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_ApiKeyNotLogged.cpp.o
+[38/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_IntentTaskOutcomes.cpp.o
+[39/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_HttpSessionStatusCodes.cpp.o
+[40/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_GroupMeterExistence.cpp.o
+[41/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_HistoricalLogging.cpp.o
+[42/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_PowerManagerShutdown.cpp.o
+[43/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_DataPlaneKindOrdering.cpp.o
+[44/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_PollDoesNotResurrect.cpp.o
+[45/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_KernelStopIsBounded.cpp.o
+[46/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_IsUpSplit.cpp.o
+[47/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_CpuReportNoIpSwitch.cpp.o
+[48/49] Building CXX object tests/CMakeFiles/test_routing_strategy.dir/test_PhantomFilterCoversOvs.cpp.o
+[49/49] Linking CXX executable bin/test_routing_strategy
+guarded_build: exit 0

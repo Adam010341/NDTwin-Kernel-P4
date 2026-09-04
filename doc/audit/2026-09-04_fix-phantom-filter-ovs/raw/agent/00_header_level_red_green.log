@@ -1,0 +1,26 @@
+# C-4 header-level red/green, 2026-09-04, no fabric and no full link.
+# Same source in both arms; the include path selects trunk's headers or the patched ones.
+# Compiler flags copied from build/build.ninja for NdtCore_RoutingManagementLib.
+# This is NOT the gtest suite -- it is the core conversion in isolation, run while the
+# machine-wide build lock was held by another session.
+
+== TRUNK (unpatched headers) ==
+ryu-accepted  isProgrammed=1 (want 0)
+p4-programmed isProgrammed=1 (want 1)
+p4-refused    isProgrammed=0 (want 0)
+untokened     isProgrammed=1 (want 1)
+counters: dispatched=3 succeeded=2 failed=1 (want 3/2/1)
+withheld=0 (want 1), served=3 (want 2)
+  served: {"match":{"eth_type":2048,"ipv4_dst":"10.0.0.241"},"priority":915}
+  served: {"match":{"eth_type":2048,"ipv4_dst":"10.0.0.242"},"priority":915}
+  served: {"match":{"dl_type":2048,"nw_dst":"10.0.0.9"},"packet_count":0,"priority":0}
+
+== PATCHED ==
+ryu-accepted  isProgrammed=0 (want 0)
+p4-programmed isProgrammed=1 (want 1)
+p4-refused    isProgrammed=0 (want 0)
+untokened     isProgrammed=1 (want 1)
+counters: dispatched=3 succeeded=2 failed=1 (want 3/2/1)
+withheld=1 (want 1), served=2 (want 2)
+  served: {"match":{"eth_type":2048,"ipv4_dst":"10.0.0.242"},"priority":915}
+  served: {"match":{"dl_type":2048,"nw_dst":"10.0.0.9"},"packet_count":0,"priority":0}

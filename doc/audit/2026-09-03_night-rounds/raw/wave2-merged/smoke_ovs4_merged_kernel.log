@@ -1,0 +1,58 @@
+[11:48:03] === smoke wave2 :: kernel 2cc4465203da1614 tree c2b55184 ===
+     ok  lab claimed by auditor for 30m (wave-2 merged-kernel smoke on ovs4 (auditor, from wt-integrate))
+     ok  lab claimed by auditor for 30m (wave-2 smoke (auditor))
+[11:48:03] ndt up ovs4 ...
+[11:48:10] ndt up rc=0
+     ok  sFlow: 10/10 bridges sampling to :6343, 10 records
+   
+   up. ready
+[11:48:25] --- Q12: get_switches_power_state shape ---
+   switches=10 object-shaped=10 sample={"192.168.123.11": {"admin_state": "on", "reachable": true}, "192.168.123.12": {"admin_state": "on", "reachable": true}}
+[11:48:25] --- #82/Q12: power OFF s4 (192.168.123.14) ---
+200  {"192.168.123.14":"Success"}
+   s4 after off: {'admin_state': 'off', 'reachable': False}
+   ovs-vsctl br-exists s4 rc=2 (2 = absent)
+[11:48:29] --- #82/Q12: power ON s4 ---
+200  {"192.168.123.14":"Success"}
+   s4 after on: {'admin_state': 'on', 'reachable': True}
+   ovs-vsctl br-exists s4 rc=0 (0 = present)
+[11:48:32] --- #1 AFTER: group 801 on dpid 1 ---
+[11:48:32] install (install shape)
+200  {"outcome":"installed","status":"Group entry installed"}
+   ryu groupdesc dpid1: [801]
+[11:48:32] delete sending the INSTALL-SHAPED body (the caller-reuse case that used to be a silent no-op)
+200  {"outcome":"deleted","status":"Group entry deleted"}
+   ryu groupdesc dpid1: []
+[11:48:33] re-install the same id (409 here = id still leaked)
+200  {"outcome":"installed","status":"Group entry installed"}
+   ryu groupdesc dpid1: [801]
+[11:48:34] delete with the minimal body
+200  {"outcome":"deleted","status":"Group entry deleted"}
+   ryu groupdesc dpid1: []
+[11:48:36] delete a group that is not there (pre-check 404 expected)
+404  {"controller_status":404,"error":"no such group 801 on dpid 1; nothing was deleted","outcome":"no_such_group","status":"error"}
+[11:48:37] --- meter 802 twin ---
+200  {"outcome":"installed","status":"Meter entry installed"}
+   ryu meterconfig dpid1: [802]
+200  {"outcome":"deleted","status":"Meter entry deleted"}
+   ryu meterconfig dpid1: []
+[11:48:42] --- #85: report keys are all addresses? ---
+   cpu keys=10 non-ip=[]
+[11:48:42] --- C-4 (#2) re-run on THIS binary ---
+   POST at t=0.000 -> HTTP 200  {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}
+     t=12.947  POLLED-SHAPE(real)   (table total=61)
+   RESULT: first_sighting=t=12.947 s
+   POST at t=0.000 -> HTTP 200  {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}
+     t=12.190  POLLED-SHAPE(real)   (table total=62)
+   RESULT: first_sighting=t=12.190 s
+[11:49:32] --- kernel.log ---
+   withholding=4 not-evidence=2 still_present=0 did-not-take-effect=0 no-management-address=0 outlast=0 lines=803
+[11:49:32] --- #27/#76: ndt down timed ---
+[11:49:46] ndt down rc=0 wall=14.21 s
+     ok  ports closed: 8000/8080/8081/6653/6633/6343/30051-30060/9091-9100/9000
+   
+   clean
+     ok  lab released
+     ok  lab released
+[11:49:48] lab after:  claim none; measuring nothing; :8000 kernel closed :8081 proxy closed :8080 ryu closed;
+[11:49:48] === SMOKE DONE ===

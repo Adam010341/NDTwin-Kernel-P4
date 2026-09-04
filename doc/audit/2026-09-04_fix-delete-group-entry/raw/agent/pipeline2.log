@@ -1,0 +1,50 @@
+### 0. configure ###
+2026-09-04T08:26:24+08:00
+-- Configuring done (0.3s)
+-- Generating done (0.0s)
+-- Build files have been written to: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-delgroup/build
+guarded_build: exit 0
+### 1. GREEN build (the committed fix) ###
+2026-09-04T09:18:56+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ cmake --build build --target test_routing_strategy -j1
+ninja: no work to do.
+guarded_build: exit 0
+### 2. GREEN run ###
+GREEN_RC=0
+[----------] 11 tests from GroupMeterEndpointTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 36 tests from 2 test suites ran. (3 ms total)
+[  PASSED  ] 36 tests.
+ALL_RC=0
+[----------] Global test environment tear-down
+[==========] 1005 tests from 127 test suites ran. (8780 ms total)
+[  PASSED  ] 1005 tests.
+### 3. RED variant on disk (trunk behaviour, new seam kept so it COMPILES) ###
+2026-09-04T09:38:05+08:00
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ cmake --build build --target test_routing_strategy -j1
+[1/3] Building CXX object src/ndt_core/routing_management/CMakeFiles/NdtCore_RoutingManagementLib.dir/HttpRoutingStrategyBase.cpp.o
+[2/3] Linking CXX static library lib/libNdtCore_RoutingManagementLib.a
+[3/3] Linking CXX executable bin/test_routing_strategy
+guarded_build: exit 0
+### 4. RED run -- these must FAIL ###
+RED_RC=1
+[  FAILED  ] 5 tests, listed below:
+[  FAILED  ] GroupMeterFixture.ADeleteNamesTheEntryAndDoesNotCarryADefinitionOfIt
+[  FAILED  ] GroupMeterFixture.ADeleteNamesTheEntryAndDoesNotCarryADefinitionOfIt (0 ms)
+[  FAILED  ] GroupMeterFixture.ADeleteThatCannotBeReadBackIsUnverifiedRatherThanFailed
+[  FAILED  ] GroupMeterFixture.ADeleteThatCannotBeReadBackIsUnverifiedRatherThanFailed (0 ms)
+[  FAILED  ] GroupMeterFixture.AGroupTheSwitchStillHasAfterTheDeleteIsNotReportedAsDeleted
+[  FAILED  ] GroupMeterFixture.AGroupTheSwitchStillHasAfterTheDeleteIsNotReportedAsDeleted (0 ms)
+[  FAILED  ] GroupMeterFixture.AMeterTheSwitchStillHasAfterTheDeleteIsNotReportedAsDeleted
+[  FAILED  ] GroupMeterFixture.AMeterTheSwitchStillHasAfterTheDeleteIsNotReportedAsDeleted (0 ms)
+[  FAILED  ] GroupMeterFixture.TheDeleteReCheckIsRetriedAndBounded
+[  FAILED  ] GroupMeterFixture.TheDeleteReCheckIsRetriedAndBounded (0 ms)
+[==========] 36 tests from 2 test suites ran. (4 ms total)
+[  PASSED  ] 31 tests.
+[  FAILED  ] 5 tests, listed below:
+### 5. restore + rebuild ###
+2026-09-04T09:51:31+08:00
+restore ok (5686b58d36b55815d341880dc2058000d1c241f9bbe188bbc8bb683e2a19bc2f)

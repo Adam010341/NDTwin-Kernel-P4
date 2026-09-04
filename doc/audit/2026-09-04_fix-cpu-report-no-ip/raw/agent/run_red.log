@@ -1,0 +1,17 @@
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = NoIpSwitchTest.*
+[==========] Running 8 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 8 tests from NoIpSwitchTest
+[ RUN      ] NoIpSwitchTest.UpdateSwitchesInventsNoVertexForADpidTheTopologyDoesNotDeclare
+[       OK ] NoIpSwitchTest.UpdateSwitchesInventsNoVertexForADpidTheTopologyDoesNotDeclare (0 ms)
+[ RUN      ] NoIpSwitchTest.AStatusRoundOverASwitchWithNoAddressDoesNotKillTheProcess
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/tests/test_CpuReportNoIpSwitch.cpp:301: Failure
+Death test: oneStatusRoundThenExitZero()
+    Result: died but not with expected exit code:
+            Terminated by signal 11 (core dumped)
+Actual msg:
+[  DEATH   ] 
+a switch with no management address must not be able to end the process. The status worker runs these four in one round every 10 s, and an unhandled SIGSEGV on that thread ends the kernel, not just the round.
+[  FAILED  ] NoIpSwitchTest.AStatusRoundOverASwitchWithNoAddressDoesNotKillTheProcess (1122 ms)
+[ RUN      ] NoIpSwitchTest.TheAddresslessSwitchKeepsAKeyAtTheDocumentedSentinel

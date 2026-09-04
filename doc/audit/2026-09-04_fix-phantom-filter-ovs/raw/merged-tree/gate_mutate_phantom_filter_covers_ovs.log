@@ -1,0 +1,106 @@
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ ./tests/shell/mutate_phantom_filter_covers_ovs.sh
+C-4 mutation gate -- the phantom filter covers the OVS write path
+  build dir : build
+  target    : test_routing_strategy
+  filter    : PhantomOvsFixture.*:PendingEntryFilterTest.*:ProgrammedTokenTest.*
+  baseline  : 86499289627bd90c include/ndt_core/routing_management/OpResult.hpp
+  baseline  : e8721fcd0bedc778 include/ndt_core/routing_management/OpenFlowRoutingStrategy.hpp
+  baseline  : 4bfb6da89ff7ab2a include/ndt_core/routing_management/P4RoutingStrategy.hpp
+  baseline  : dcfc73fa0d211eab src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp
+  baseline  : 3ec3d13ee2d16507 include/ndt_core/routing_management/DispatchOutcomeLog.hpp
+  baseline  : 99d236ef51619055 include/ndt_core/routing_management/PendingEntryFilter.hpp
+  baseline  : cee8b2b066f7e4ff src/ndt_core/routing_management/Controller.cpp
+  baseline  : 84a946cfa92ffc19 src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp
+
+baseline (unmutated) must build and be green:
+    [----------] Global test environment tear-down
+    [==========] 20 tests from 3 test suites ran. (10 ms total)
+    [  PASSED  ] 20 tests.
+  ok       baseline green
+
+=== 1. Ryu claims its fire-and-forget 200 confirms programming ===
+  anchor occurrences: 1 in include/ndt_core/routing_management/OpenFlowRoutingStrategy.hpp
+  ✅ caught by PhantomOvsFixture.AnOvsInstallIsNotServedBeforeAPollObservesIt
+     all red: PhantomOvsFixture.AnOvsInstallIsNotServedBeforeAPollObservesIt PhantomOvsFixture.ARyuAcceptanceIsSuccessfulButConfirmsNothing PhantomOvsFixture.TheLegitimateOvsRuleIsWithheldTooBecauseTheRowIsACacheArtefact PhantomOvsFixture.TheViewSaysItIsWithholdingRows 
+
+=== 2. the P4 proxy stops confirming, so a real entry disappears ===
+  anchor occurrences: 1 in include/ndt_core/routing_management/P4RoutingStrategy.hpp
+  ✅ caught by PhantomOvsFixture.AConfirmedP4InstallIsStillServedImmediately
+     all red: PhantomOvsFixture.AConfirmedP4InstallIsStillServedImmediately PhantomOvsFixture.AProxySuccessStillConfirmsTheEntry PhantomOvsFixture.TheViewDoesNotClaimToWithholdWhatItServed 
+
+=== 3. record() stamps a token for any success again ===
+  anchor occurrences: 1 in include/ndt_core/routing_management/DispatchOutcomeLog.hpp
+  ✅ caught by PhantomOvsFixture.AnOvsInstallIsNotServedBeforeAPollObservesIt
+     all red: PhantomOvsFixture.AnOvsInstallIsNotServedBeforeAPollObservesIt PhantomOvsFixture.ARyuAcceptanceIsSuccessfulButConfirmsNothing PhantomOvsFixture.TheLegitimateOvsRuleIsWithheldTooBecauseTheRowIsACacheArtefact PhantomOvsFixture.TheViewSaysItIsWithholdingRows ProgrammedTokenTest.OnlyAnAdjudicatingSouthboundSuccessConfirmsAToken 
+
+=== 4. post() drops the plane's claim on the way out ===
+  anchor occurrences: 1 in src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp
+  ✅ caught by PhantomOvsFixture.AProxySuccessStillConfirmsTheEntry
+     all red: PhantomOvsFixture.AConfirmedP4InstallIsStillServedImmediately PhantomOvsFixture.AProxySuccessStillConfirmsTheEntry PhantomOvsFixture.TheViewDoesNotClaimToWithholdWhatItServed 
+
+=== 5. post() inverts the plane's claim ===
+  anchor occurrences: 1 in src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp
+  ✅ caught by PhantomOvsFixture.AProxySuccessStillConfirmsTheEntry
+     all red: PhantomOvsFixture.AConfirmedP4InstallIsStillServedImmediately PhantomOvsFixture.AnOvsInstallIsNotServedBeforeAPollObservesIt PhantomOvsFixture.AProxySuccessStillConfirmsTheEntry PhantomOvsFixture.ARyuAcceptanceIsSuccessfulButConfirmsNothing PhantomOvsFixture.TheLegitimateOvsRuleIsWithheldTooBecauseTheRowIsACacheArtefact PhantomOvsFixture.TheViewDoesNotClaimToWithholdWhatItServed PhantomOvsFixture.TheViewSaysItIsWithholdingRows 
+
+=== 6. the proxy's error body stops being read, so a refusal confirms itself ===
+  anchor occurrences: 1 in src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp
+  ✅ caught by PhantomOvsFixture.AProxyRefusalConfirmsNothingEither
+     all red: PhantomOvsFixture.AP4RefusalIsStillWithheld PhantomOvsFixture.AProxyRefusalConfirmsNothingEither 
+
+=== 7. an accepted-but-unconfirmed entry is counted as a failure ===
+  anchor occurrences: 1 in include/ndt_core/routing_management/DispatchOutcomeLog.hpp
+  ✅ caught by PhantomOvsFixture.TheCountersStillMeanWhatA7SaysTheyMean
+     all red: PhantomOvsFixture.TheCountersStillMeanWhatA7SaysTheyMean 
+
+=== 8. the view withholds silently again ===
+  anchor occurrences: 1 in src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp
+  ✅ caught by PhantomOvsFixture.TheViewSaysItIsWithholdingRows
+     all red: PhantomOvsFixture.TheViewSaysItIsWithholdingRows 
+
+=== 9. the view reports withholding unconditionally ===
+  anchor occurrences: 1 in src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp
+  ✅ caught by PhantomOvsFixture.TheViewDoesNotClaimToWithholdWhatItServed
+     all red: PhantomOvsFixture.TheViewDoesNotClaimToWithholdWhatItServed 
+
+=== 10. the dispatch stops explaining an unconfirmed acceptance ===
+  anchor occurrences: 1 in src/ndt_core/routing_management/Controller.cpp
+  ✅ caught by PhantomOvsFixture.TheDispatchSaysWhyAnAcceptedEntryIsStillWithheld
+     all red: PhantomOvsFixture.TheDispatchSaysWhyAnAcceptedEntryIsStillWithheld 
+
+=== 11. the filter hides rows polled off a real switch ===
+  anchor occurrences: 1 in include/ndt_core/routing_management/PendingEntryFilter.hpp
+  ✅ caught by PhantomOvsFixture.PolledRowsAreNeverWithheldOnEitherPlane
+     all red: PendingEntryFilterTest.AnUnwiredPredicateWithholdsRatherThanRestoresThePhantom PendingEntryFilterTest.PolledEntriesAreNeverTouchedEvenWhenNothingIsConfirmed PendingEntryFilterTest.TheFilterIsKeyedOnProvenanceNotOnLookingLikeARequest PhantomOvsFixture.PolledRowsAreNeverWithheldOnEitherPlane 
+
+=== WIDENING: W1. Ryu's answer through a named local ===
+  same value, one indirection out -- nothing about the behaviour changes
+  anchor occurrences: 1 in include/ndt_core/routing_management/OpenFlowRoutingStrategy.hpp
+  ✅ stayed green, as it must
+
+=== WIDENING: W2. the confirmation test written the other way round ===
+  inside the ok branch already, so && result.ok is a redundant true
+  anchor occurrences: 1 in include/ndt_core/routing_management/DispatchOutcomeLog.hpp
+  ✅ stayed green, as it must
+
+=== WIDENING: W3. the view's line reworded around its two load-bearing fragments ===
+  same two fragments, extra prose -- a message may be improved without breaking a test
+  anchor occurrences: 1 in src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp
+  ✅ stayed green, as it must
+
+=== WIDENING: W4. post() names the plane's claim before returning it ===
+  same expression, hoisted -- a refactor the suite must not forbid
+  anchor occurrences: 1 in src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp
+  ✅ stayed green, as it must
+
+restoring and rebuilding the pristine tree:
+  ok       all 8 sources byte-identical to the pre-run snapshot
+
+================================================================
+mutations : 11
+survivors : 0
+widenings : 4 green of 4
+================================================================
+all mutations caught, all widenings green
+guarded_build: exit 0

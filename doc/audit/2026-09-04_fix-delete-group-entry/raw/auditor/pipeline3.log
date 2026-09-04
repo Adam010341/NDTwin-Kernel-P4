@@ -1,0 +1,76 @@
+HEAD 5b9471b6 dirty=0 STRAT sha 5686b58d36b55815d341880dc2058000d1c241f9bbe188bbc8bb683e2a19bc2f
+### 5. rebuild after restore (guarded) ###
+2026-09-04T10:15:52+08:00
+guarded_build: $ cmake --build build --target test_routing_strategy -j1
+[1/3] Building CXX object src/ndt_core/routing_management/CMakeFiles/NdtCore_RoutingManagementLib.dir/HttpRoutingStrategyBase.cpp.o
+[2/3] Linking CXX static library lib/libNdtCore_RoutingManagementLib.a
+[3/3] Linking CXX executable bin/test_routing_strategy
+guarded_build: exit 0
+GREEN2_RC=0
+[----------] Global test environment tear-down
+[==========] 36 tests from 2 test suites ran. (5 ms total)
+[  PASSED  ] 36 tests.
+ALL2_RC=0
+[----------] Global test environment tear-down
+[==========] 1005 tests from 127 test suites ran. (9207 ms total)
+[  PASSED  ] 1005 tests.
+### 6. gate: finding #1 (under guard) ###
+2026-09-04T11:29:35+08:00
+GATE_RC=0
+  ✅ caught   M4  the read-back happens once
+     by       GroupMeterFixture.TheDeleteReCheckIsRetriedAndBounded
+     (1 red, 5 reverse guards held)
+
+=== M5  the retry loop spins on success instead of on Present ===
+  ✅ caught   M5  the retry loop spins on success instead of on Present
+     by       GroupMeterFixture.TheDeleteReCheckIsRetriedAndBounded
+     (1 red, 4 reverse guards held)
+
+=== W1  '<' becomes '!=' over the same bound (an equivalent loop) ===
+  ✅ green    W1  '<' becomes '!=' over the same bound (an equivalent loop)  (the tests are not pinned to this)
+
+=== W2  502 becomes 503 (still a non-2xx naming the far end) ===
+  ✅ green    W2  502 becomes 503 (still a non-2xx naming the far end)  (the tests are not pinned to this)
+
+=== W3  the failure sentence is reworded (the phrase under test is kept) ===
+  ✅ green    W3  the failure sentence is reworded (the phrase under test is kept)  (the tests are not pinned to this)
+
+=== W4  'attempt > 0' becomes 'attempt >= 1' (the same predicate) ===
+  ✅ green    W4  'attempt > 0' becomes 'attempt >= 1' (the same predicate)  (the tests are not pinned to this)
+
+=== C   CONTROL: comment-only edit, must stay green ===
+  ✅ green after a comment-only rebuild (the reds above are the mutations)
+
+--- restore ---
+  ok  src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp byte-identical to the pre-run snapshot
+
+5 mutations, 0 survived; 4 widenings, 0 went red
+every mutation caught by its named guard, every widening green, baseline restored
+guarded_build: exit 0
+### 7. gate: F-13 re-run (under guard) ###
+2026-09-04T11:39:12+08:00
+F13_RC=0
+
+=== A" a controller failure gets relabelled with an outcome ===
+  ✅ caught   A" a controller failure gets relabelled with an outcome  (1 red, 5 reverse guards held)
+
+=== B   respondToOpResult stops emitting outcome ===
+  ✅ caught   B   respondToOpResult stops emitting outcome  (10 red, 4 reverse guards held)
+
+=== B'  respondToOpResult emits outcome unconditionally ===
+  ✅ caught   B'  respondToOpResult emits outcome unconditionally  (1 red, 5 reverse guards held)
+
+=== C   CONTROL: comment-only edit, must stay green ===
+  ✅ green after a comment-only rebuild (the reds above are the mutations)
+
+--- restore ---
+  ok  src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp byte-identical to the pre-run snapshot
+  ok  src/ndt_core/http/HttpSession.cpp byte-identical to the pre-run snapshot
+
+5 mutations, 0 survived
+every mutation caught, every reverse guard held, baseline restored
+guarded_build: exit 0
+tree dirty after: 0
+### PIPELINE3 DONE ###
+2026-09-04T11:50:20+08:00
+restore ok (5686b58d36b55815d341880dc2058000d1c241f9bbe188bbc8bb683e2a19bc2f)

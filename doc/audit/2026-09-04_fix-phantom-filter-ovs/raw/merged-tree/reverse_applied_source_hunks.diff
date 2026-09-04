@@ -1,0 +1,299 @@
+diff --git a/include/ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp b/include/ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp
+index 4b84b45c..a2c02185 100644
+--- a/include/ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp
++++ b/include/ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp
+@@ -922,8 +922,19 @@ class DeviceConfigurationAndPowerManager
+     /// T-11: answers whether a cached entry's token was confirmed by the southbound. Guarded by
+     /// m_openflowTablesMutex, which is also the lock held while filtering, so it is set once at
+     /// wiring time and read under the same lock as the cache it filters.
++    /// [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md C-4. Says, once per change,
++    /// that the flow-table view is short of rows and where to read why. See the definition for
++    /// the edge trigger and why it is not per-read.
++    void reportWithheldRows(std::size_t withheld);
++
+     std::function<bool(uint64_t)> m_isProgrammed;
+ 
++    /// [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md C-4. The last count
++    /// reportWithheldRows announced, so the line is edge-triggered rather than emitted on every
++    /// read. Atomic because getOpenFlowTables holds only a shared lock and several readers can be
++    /// inside it at once.
++    std::atomic<std::size_t> m_lastWithheldRows{0};
++
+     std::string GW_IP;
+ 
+     std::shared_ptr<ndtClassifier::Classifier> m_classifier;
+diff --git a/include/ndt_core/routing_management/DispatchOutcomeLog.hpp b/include/ndt_core/routing_management/DispatchOutcomeLog.hpp
+index f183abe0..b5fa0fe9 100644
+--- a/include/ndt_core/routing_management/DispatchOutcomeLog.hpp
++++ b/include/ndt_core/routing_management/DispatchOutcomeLog.hpp
+@@ -103,7 +103,18 @@ class DispatchOutcomeLog
+         if (result.ok)
+         {
+             succeeded_.fetch_add(1, std::memory_order_relaxed);
+-            noteProgrammed_(job.token);
++            // [Co-developed with claude code -- Adam]
++            // doc/KNOWN-ISSUES.md C-4. This was an unconditional noteProgrammed_(job.token), and
++            // that one line is the whole of the OVS half of B-1: `ok` means the far end took the
++            // request, and only on P4 does the far end taking it imply that a switch programmed
++            // it. Counting is deliberately unchanged -- an accepted entry is still a success.
++            // Withholding a row from the table view is not the same claim as failing to dispatch
++            // it, and merging the two would report a healthy OVS fabric as one full of rejected
++            // rules: a different false alarm, not one fewer.
++            if (result.confirmsProgramming)
++            {
++                noteProgrammed_(job.token);
++            }
+             return;
+         }
+ 
+@@ -154,6 +165,12 @@ class DispatchOutcomeLog
+      * would add here; adding it needed no change to any call site, which was the point of routing
+      * successes through record().
+      *
++     * "Confirmed" means the plane's answer was an *adjudication*, not merely an acceptance --
++     * see OpResult::confirmsProgramming. On OVS no answer to a flow-mod is an adjudication, so a
++     * token there is confirmed by nothing and its row becomes visible when the periodic poll reads
++     * it back off the switch. That is the contract, and it is about observation, not about elapsed
++     * time: nothing here is waiting for a timer to expire.
++     *
+      * `token == 0` answers **true**: an untokened entry was not minted by the optimistic write
+      * path -- it came from a poll of the actual switch, or from a caller predating tokens -- and
+      * the filter must not hide entries it has no provenance claim about.
+diff --git a/include/ndt_core/routing_management/IRoutingStrategy.hpp b/include/ndt_core/routing_management/IRoutingStrategy.hpp
+index 855b9a0a..28888f14 100644
+--- a/include/ndt_core/routing_management/IRoutingStrategy.hpp
++++ b/include/ndt_core/routing_management/IRoutingStrategy.hpp
+@@ -54,6 +54,23 @@ class IRoutingStrategy
+     virtual OpResult deleteAMeterEntry(const nlohmann::json& j) = 0;
+     virtual OpResult modifyAMeterEntry(const nlohmann::json& j) = 0;
+ 
++    /**
++     * @brief Whether a successful answer from this control plane is evidence that a switch
++     *        programmed the rule.
++     *
++     * [Co-developed with claude code -- Adam]
++     * doc/KNOWN-ISSUES.md C-4. The two planes answer the same route with the same status code and
++     * mean different things by it, and until this question was asked the kernel could not tell
++     * them apart: DispatchOutcomeLog stamped a flow entry as programmed on any 200, so on OVS the
++     * optimistic cache row was served 0.257 s after the POST while the polled row arrived at 13.4 s.
++     *
++     * Pure virtual on purpose. A default would be a guess made once, here, on behalf of every
++     * control plane added later -- and it fails silently in both directions: guess true and the
++     * phantom comes back, guess false and real entries vanish for a poll interval. A new plane has
++     * to answer for itself.
++     */
++    virtual bool successConfirmsProgramming() const = 0;
++
+     /// Name of the control plane this strategy talks to, for log messages.
+     virtual const char* describe() const = 0;
+ };
+diff --git a/include/ndt_core/routing_management/OpResult.hpp b/include/ndt_core/routing_management/OpResult.hpp
+index db43c94f..43f8f1ca 100644
+--- a/include/ndt_core/routing_management/OpResult.hpp
++++ b/include/ndt_core/routing_management/OpResult.hpp
+@@ -51,6 +51,38 @@ struct OpResult
+      */
+     std::string outcome;
+ 
++    /**
++     * Whether this answer is evidence that a switch now holds the rule.
++     *
++     * [Co-developed with claude code -- Adam]
++     * doc/KNOWN-ISSUES.md C-4. `ok` answers "did the far end accept the request". On the P4 plane
++     * that is the same question, because the proxy agent programs the table before replying and
++     * reports a per-entry refusal as {"status":"error"} in a 200 body. On the OVS plane it is not:
++     * Ryu's /stats/flowentry/add returns once it has built the OFPFlowMod, and OpenFlow does not
++     * acknowledge a FLOW_MOD, so its 200 is emitted before any switch has adjudicated anything.
++     *
++     * Measured 2026-09-03 on ovs4: a cache row served 0.257 s after the POST whose first real
++     * sighting was 13.4 s later -- and the same for a legitimate rule as for an illegitimate one,
++     * which is what proves the row is the cache's own rather than a verdict about the rule.
++     *
++     * So this is a second bit, answered by the strategy that owns the connection, and it is what
++     * DispatchOutcomeLog::record requires before it will stamp a token as programmed.
++     *
++     * **Default false, and the direction is deliberate.** An answer that says nothing about
++     * programming must not be read as confirming it. The cost of the conservative direction is a
++     * real entry withheld until the next poll, which is recoverable; the cost of the optimistic
++     * one is the phantom this exists to remove.
++     */
++    bool confirmsProgramming = false;
++
++    /// A copy of this result carrying @p confirmed. Chainable at a return statement.
++    OpResult withProgrammingConfirmed(bool confirmed) const
++    {
++        OpResult copy = *this;
++        copy.confirmsProgramming = confirmed;
++        return copy;
++    }
++
+     /// A copy of this result carrying @p name as its outcome. Chainable at a return statement.
+     OpResult withOutcome(std::string name) const
+     {
+diff --git a/include/ndt_core/routing_management/OpenFlowRoutingStrategy.hpp b/include/ndt_core/routing_management/OpenFlowRoutingStrategy.hpp
+index 509dda7a..1a221496 100644
+--- a/include/ndt_core/routing_management/OpenFlowRoutingStrategy.hpp
++++ b/include/ndt_core/routing_management/OpenFlowRoutingStrategy.hpp
+@@ -21,4 +21,11 @@ class OpenFlowRoutingStrategy : public HttpRoutingStrategyBase
+     }
+ 
+     const char* describe() const override { return "Ryu controller"; }
++
++    /// [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md C-4.
++    /// Ryu answers /stats/flowentry/* as soon as it has built the OFPFlowMod, and OpenFlow does
++    /// not acknowledge a FLOW_MOD, so nothing in a 200 from here has been adjudicated by a switch.
++    /// An OFPBarrierRequest is what an acknowledgement would be; ofctl_rest exposes no route for
++    /// one, so the honest answer available today is that this plane cannot confirm.
++    bool successConfirmsProgramming() const override { return false; }
+ };
+diff --git a/include/ndt_core/routing_management/P4RoutingStrategy.hpp b/include/ndt_core/routing_management/P4RoutingStrategy.hpp
+index 821aedf4..6c33dd93 100644
+--- a/include/ndt_core/routing_management/P4RoutingStrategy.hpp
++++ b/include/ndt_core/routing_management/P4RoutingStrategy.hpp
+@@ -31,6 +31,12 @@ class P4RoutingStrategy : public HttpRoutingStrategyBase
+ 
+     const char* describe() const override { return "P4 proxy agent"; }
+ 
++    /// [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md C-4 / B-1.
++    /// The proxy agent programs the table before it answers and reports a per-entry refusal as
++    /// {"status":"error"} in a 200 body, which post() already turns into ok=false. Its success is
++    /// therefore an adjudication -- and that is what makes first_sighting=never true on P4.
++    bool successConfirmsProgramming() const override { return true; }
++
+     OpResult installAGroupEntry(const nlohmann::json& j) override;
+     OpResult deleteAGroupEntry(const nlohmann::json& j) override;
+     OpResult modifyAGroupEntry(const nlohmann::json& j) override;
+diff --git a/src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp b/src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp
+index 917112fc..2eeeb957 100644
+--- a/src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp
++++ b/src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp
+@@ -2338,10 +2338,47 @@ DeviceConfigurationAndPowerManager::getOpenFlowTables()
+     std::shared_lock<std::shared_mutex> lock(m_openflowTablesMutex);
+ 
+     json out = m_cachedOpenFlowTables;
+-    stripUnprogrammedEntries(out, m_isProgrammed);
++    const std::size_t withheld = stripUnprogrammedEntries(out, m_isProgrammed);
++    reportWithheldRows(withheld);
+     return out;
+ }
+ 
++// [Co-developed with claude code -- Adam]
++// doc/KNOWN-ISSUES.md B-1's 2026-09-02 review, clause 3: stripUnprogrammedEntries returns a count
++// whose own docstring says "so a caller can log or assert on it", and the caller dropped it. A
++// view that is quietly short of rows reads to its consumer exactly like a switch with fewer rules
++// -- the phantom's own shape, one level up, and the reason this line exists at all.
++//
++// Edge-triggered on the count. Three consumers read this cache and each read would otherwise emit
++// a line; a line that is always there is a line nobody reads. The exchange races between readers
++// holding the shared lock, and the cost of losing that race is a duplicated or a skipped line,
++// never a wrong count -- not worth a second mutex on a read path.
++void
++DeviceConfigurationAndPowerManager::reportWithheldRows(std::size_t withheld)
++{
++    const std::size_t previous = m_lastWithheldRows.exchange(withheld, std::memory_order_relaxed);
++    if (withheld == previous)
++    {
++        return;
++    }
++
++    if (withheld == 0)
++    {
++        SPDLOG_LOGGER_INFO(Logger::instance(),
++                           "flow-table view is no longer withholding rows; every cached entry has "
++                           "now been observed on a switch");
++        return;
++    }
++
++    SPDLOG_LOGGER_WARN(Logger::instance(),
++                       "flow-table view is withholding {} row(s) from "
++                       "get_switch_openflow_table_entries: dispatched, but not observed on a "
++                       "switch. Why each one is unconfirmed is logged where it was dispatched; a "
++                       "row appears as soon as a poll reads it back off the switch "
++                       "(KNOWN-ISSUES C-4).",
++                       withheld);
++}
++
+ static uint32_t
+ parseIpv4U32(const nlohmann::json& v)
+ {
+diff --git a/src/ndt_core/routing_management/Controller.cpp b/src/ndt_core/routing_management/Controller.cpp
+index 5046939d..b53f449e 100644
+--- a/src/ndt_core/routing_management/Controller.cpp
++++ b/src/ndt_core/routing_management/Controller.cpp
+@@ -8,6 +8,13 @@ Controller::Controller(std::shared_ptr<FlowRoutingManager> flowRoutingManager)
+       dispatcher_(
+           // SenderFn: batch send using your existing flow manager
+           [this](const std::vector<FlowJob>& batch) {
++              // [Co-developed with claude code -- Adam]
++              // doc/KNOWN-ISSUES.md C-4. Tallied over the batch and reported once below rather
++              // than once per job: a burst is 2000 entries, and a line each would be its own
++              // outage. One worker per dpid, so a batch names one switch.
++              std::size_t unconfirmed = 0;
++              uint64_t unconfirmedDpid = 0;
++
+               for (const auto& job : batch)
+               {
+                   // [Co-developed with claude code -- Adam]
+@@ -58,6 +65,17 @@ Controller::Controller(std::shared_ptr<FlowRoutingManager> flowRoutingManager)
+                   // on DispatchOutcomeLog::record.
+                   outcomes_.record(job, result);
+ 
++                  // job.token != 0 as well as the two result bits: only an install mints a
++                  // token, so a modify or a delete withholds nothing from the view and must not
++                  // be counted here. Saying "these rows are withheld" about entries that have no
++                  // cache row is the same kind of over-claim the ticket is about, pointed the
++                  // other way.
++                  if (job.token != 0 && result.ok && !result.confirmsProgramming)
++                  {
++                      ++unconfirmed;
++                      unconfirmedDpid = job.dpid;
++                  }
++
+                   if (!result.ok)
+                   {
+                       SPDLOG_LOGGER_ERROR(Logger::instance(),
+@@ -70,6 +88,26 @@ Controller::Controller(std::shared_ptr<FlowRoutingManager> flowRoutingManager)
+                                           result.message);
+                   }
+               }
++
++              // [Co-developed with claude code -- Adam]
++              // doc/KNOWN-ISSUES.md C-4. The "why" belongs here, because this is the only place
++              // the control plane's answer is in scope. Deliberately not worded with "failed":
++              // check_logs.py fails a run on a dispatched-*-failed line, and an entry the far end
++              // accepted has not failed -- it is merely unwitnessed, which is a different thing
++              // to tell an operator and leads to a different action.
++              if (unconfirmed > 0)
++              {
++                  SPDLOG_LOGGER_WARN(Logger::instance(),
++                                     "{} of {} dispatched flow entries for dpid {} were accepted "
++                                     "by the control plane, but this plane's acceptance is not "
++                                     "evidence the switch programmed them -- it answers before "
++                                     "the switch adjudicates. They are withheld from "
++                                     "get_switch_openflow_table_entries until a poll observes "
++                                     "them (KNOWN-ISSUES C-4).",
++                                     unconfirmed,
++                                     batch.size(),
++                                     unconfirmedDpid);
++              }
+               // (Optional) fence/Barrier here if your southbound supports it
+           },
+           /*burstSize*/ 2000)
+diff --git a/src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp b/src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp
+index 97fb71c8..f4090e6f 100644
+--- a/src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp
++++ b/src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp
+@@ -210,7 +210,12 @@ HttpRoutingStrategyBase::post(const std::string& path, const json& body, const c
+         }
+     }
+ 
+-    return OpResult::success(status);
++    // [Co-developed with claude code -- Adam]
++    // doc/KNOWN-ISSUES.md C-4. The gate just above is where the two planes stop meaning the same
++    // thing by a 200 -- its own comment says so, in as many words -- and this is the line that
++    // carries that difference forward instead of dropping it here, which is what left the OVS
++    // half of B-1 open for two weeks after the P4 half was closed.
++    return OpResult::success(status).withProgrammingConfirmed(successConfirmsProgramming());
+ }
+ 
+ // [Co-developed with claude code -- Adam] F-13.

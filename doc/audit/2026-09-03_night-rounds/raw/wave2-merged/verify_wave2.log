@@ -1,0 +1,39 @@
+=== A0. merged tree c2b55184 dirty=0 10:25:14 ===
+=== A1. reverse-apply phantomovs source hunks + trunk's tests/test_PendingEntryFilter.cpp ===
+red tree dirty=10 (expect 10)
+    M include/ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp
+    M include/ndt_core/routing_management/DispatchOutcomeLog.hpp
+    M include/ndt_core/routing_management/IRoutingStrategy.hpp
+    M include/ndt_core/routing_management/OpResult.hpp
+    M include/ndt_core/routing_management/OpenFlowRoutingStrategy.hpp
+    M include/ndt_core/routing_management/P4RoutingStrategy.hpp
+    M src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp
+    M src/ndt_core/routing_management/Controller.cpp
+    M src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp
+   M  tests/test_PendingEntryFilter.cpp
+=== A2. guarded build test_routing_strategy (RED tree) 10:25:14 ===
+red build guard exit=0 11:36:23
+=== A3. run PhantomOvsFixture.* on the RED tree (must fail) ===
+RED rc=1
+[  FAILED  ] 5 tests, listed below:
+[  FAILED  ] PhantomOvsFixture.AnOvsInstallIsNotServedBeforeAPollObservesIt
+[  FAILED  ] PhantomOvsFixture.AnOvsInstallIsNotServedBeforeAPollObservesIt (0 ms)
+[  FAILED  ] PhantomOvsFixture.ARyuAcceptanceIsSuccessfulButConfirmsNothing
+[  FAILED  ] PhantomOvsFixture.ARyuAcceptanceIsSuccessfulButConfirmsNothing (0 ms)
+[  FAILED  ] PhantomOvsFixture.TheDispatchSaysWhyAnAcceptedEntryIsStillWithheld
+[  FAILED  ] PhantomOvsFixture.TheDispatchSaysWhyAnAcceptedEntryIsStillWithheld (5002 ms)
+[  FAILED  ] PhantomOvsFixture.TheLegitimateOvsRuleIsWithheldTooBecauseTheRowIsACacheArtefact
+[  FAILED  ] PhantomOvsFixture.TheLegitimateOvsRuleIsWithheldTooBecauseTheRowIsACacheArtefact (0 ms)
+[  FAILED  ] PhantomOvsFixture.TheViewSaysItIsWithholdingRows
+[  FAILED  ] PhantomOvsFixture.TheViewSaysItIsWithholdingRows (0 ms)
+[  PASSED  ] 7 tests.
+restored: dirty=0
+=== B. generic merged pipeline 11:36:28 ===
+=== 0. tree c2b55184 dirty=0 11:36:28 ===
+=== 1. guarded build (all targets) ===
+build guard exit=0 11:46:39
+=== 2. full gtest ===
+gtest rc=0 [  PASSED  ] 1049 tests. 
+=== 3. ctest ===
+ctest rc=0 100% tests passed, 0 tests failed out of 1049
+=== 4. gate mutate_phantom_filter_covers_ovs under guard 11:46:58 ===

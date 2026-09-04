@@ -1,0 +1,15 @@
+[09:28:43] waiting for the configure to finish
+[09:28:43] configure ok
+[09:28:43] building the RED tree (trunk's dereferences restored)
+trunk has 8 such reads; the red source has 9 (want 8 + 1 = 9)
+[09:51:15] red build ok; running NoIpSwitchTest.*
+pipeline.sh: line 58: 3529152 Segmentation fault      (core dumped) "$BIN" --gtest_filter="$FILTER" > "$OUT/run_red.log" 2>&1
+[09:51:17] RED run exit=139 (see run_red.log)
+[09:51:17] building the GREEN tree (the fix)
+[11:29:06] green build ok; running NoIpSwitchTest.*
+[11:29:06] GREEN run exit=0 (see run_green.log)
+[11:29:06] running the two neighbouring suites over the same files
+[11:29:08] neighbours exit=0 (see run_neighbours.log)
+[11:29:08] running the whole binary
+[11:29:17] full suite exit=0 (see run_all.log)
+[11:29:17] running the mutation gate (this is the long one: 14 guarded builds)

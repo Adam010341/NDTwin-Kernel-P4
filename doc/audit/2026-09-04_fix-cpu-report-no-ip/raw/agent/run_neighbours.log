@@ -1,0 +1,70 @@
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = SimulatedDeviceMetricsTest.*:PowerManagerShutdown*:TopologyInputValidation*
+[==========] Running 26 tests from 3 test suites.
+[----------] Global test environment set-up.
+[----------] 3 tests from PowerManagerShutdownDeathTest
+[ RUN      ] PowerManagerShutdownDeathTest.DestroyingAJoinableThreadIsVisibleToThisHarness
+[       OK ] PowerManagerShutdownDeathTest.DestroyingAJoinableThreadIsVisibleToThisHarness (1114 ms)
+[ RUN      ] PowerManagerShutdownDeathTest.AStoppedManagerIsDestroyedWithoutAborting
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[       OK ] PowerManagerShutdownDeathTest.AStoppedManagerIsDestroyedWithoutAborting (10 ms)
+[ RUN      ] PowerManagerShutdownDeathTest.AManagerNeverStoppedIsDestroyedWithoutAborting
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[       OK ] PowerManagerShutdownDeathTest.AManagerNeverStoppedIsDestroyedWithoutAborting (6 ms)
+[----------] 3 tests from PowerManagerShutdownDeathTest (1131 ms total)
+
+[----------] 9 tests from SimulatedDeviceMetricsTest
+[ RUN      ] SimulatedDeviceMetricsTest.CpuReportsUnavailableForEverySwitch
+[       OK ] SimulatedDeviceMetricsTest.CpuReportsUnavailableForEverySwitch (0 ms)
+[ RUN      ] SimulatedDeviceMetricsTest.MemoryReportsUnavailableForEverySwitch
+[       OK ] SimulatedDeviceMetricsTest.MemoryReportsUnavailableForEverySwitch (0 ms)
+[ RUN      ] SimulatedDeviceMetricsTest.TemperatureReportsUnavailableForEverySwitch
+[       OK ] SimulatedDeviceMetricsTest.TemperatureReportsUnavailableForEverySwitch (0 ms)
+[ RUN      ] SimulatedDeviceMetricsTest.CpuAndMemoryNoLongerDifferOnlyByAccident
+[       OK ] SimulatedDeviceMetricsTest.CpuAndMemoryNoLongerDifferOnlyByAccident (0 ms)
+[ RUN      ] SimulatedDeviceMetricsTest.NoTwoSwitchesShareAFabricatedNumber
+[       OK ] SimulatedDeviceMetricsTest.NoTwoSwitchesShareAFabricatedNumber (0 ms)
+[ RUN      ] SimulatedDeviceMetricsTest.TheIntentTranslatorsPerDeviceQueryAgreesWithTheMap
+[       OK ] SimulatedDeviceMetricsTest.TheIntentTranslatorsPerDeviceQueryAgreesWithTheMap (0 ms)
+[ RUN      ] SimulatedDeviceMetricsTest.ADownSwitchStillReportsTheSameSentinel
+[       OK ] SimulatedDeviceMetricsTest.ADownSwitchStillReportsTheSameSentinel (0 ms)
+[ RUN      ] SimulatedDeviceMetricsTest.AVertexWithNoIpIsSkippedRatherThanDereferenced
+[       OK ] SimulatedDeviceMetricsTest.AVertexWithNoIpIsSkippedRatherThanDereferenced (0 ms)
+[ RUN      ] SimulatedDeviceMetricsTest.HostsAreStillOmittedFromEveryReport
+[       OK ] SimulatedDeviceMetricsTest.HostsAreStillOmittedFromEveryReport (0 ms)
+[----------] 9 tests from SimulatedDeviceMetricsTest (0 ms total)
+
+[----------] 14 tests from TopologyInputValidationTest
+[ RUN      ] TopologyInputValidationTest.AnEdgeNamingADpidNoSwitchHasIsRefused
+[       OK ] TopologyInputValidationTest.AnEdgeNamingADpidNoSwitchHasIsRefused (5 ms)
+[ RUN      ] TopologyInputValidationTest.TheRefusalNamesTheDpidThatMatchedNothing
+[       OK ] TopologyInputValidationTest.TheRefusalNamesTheDpidThatMatchedNothing (2 ms)
+[ RUN      ] TopologyInputValidationTest.AGhostDpidEdgeLeavesNoPartiallyLoadedGraph
+[       OK ] TopologyInputValidationTest.AGhostDpidEdgeLeavesNoPartiallyLoadedGraph (2 ms)
+[ RUN      ] TopologyInputValidationTest.AHostEdgeWhoseAddressMatchesNoNodeIsRefused
+[       OK ] TopologyInputValidationTest.AHostEdgeWhoseAddressMatchesNoNodeIsRefused (2 ms)
+[ RUN      ] TopologyInputValidationTest.AZeroInterfaceOnTheSwitchSideIsRefused
+[       OK ] TopologyInputValidationTest.AZeroInterfaceOnTheSwitchSideIsRefused (2 ms)
+[ RUN      ] TopologyInputValidationTest.ASixDigitInterfaceIsRefused
+[       OK ] TopologyInputValidationTest.ASixDigitInterfaceIsRefused (2 ms)
+[ RUN      ] TopologyInputValidationTest.TheRefusalNamesTheInterfaceThatWasOutOfRange
+[       OK ] TopologyInputValidationTest.TheRefusalNamesTheInterfaceThatWasOutOfRange (2 ms)
+[ RUN      ] TopologyInputValidationTest.ADestinationInterfaceIsCheckedToo
+[       OK ] TopologyInputValidationTest.ADestinationInterfaceIsCheckedToo (2 ms)
+[ RUN      ] TopologyInputValidationTest.TheLargestInRangeInterfaceIsAccepted
+[       OK ] TopologyInputValidationTest.TheLargestInRangeInterfaceIsAccepted (3 ms)
+[ RUN      ] TopologyInputValidationTest.OneAboveTheLargestInRangeInterfaceIsRefused
+[       OK ] TopologyInputValidationTest.OneAboveTheLargestInRangeInterfaceIsRefused (4 ms)
+[ RUN      ] TopologyInputValidationTest.TheSmallestInRangeSwitchInterfaceIsAccepted
+[       OK ] TopologyInputValidationTest.TheSmallestInRangeSwitchInterfaceIsAccepted (5 ms)
+[ RUN      ] TopologyInputValidationTest.AZeroInterfaceOnTheHostSideIsStillAccepted
+[       OK ] TopologyInputValidationTest.AZeroInterfaceOnTheHostSideIsStillAccepted (5 ms)
+[ RUN      ] TopologyInputValidationTest.EveryShippedTopologyStillLoadsWithNothingDropped
+[       OK ] TopologyInputValidationTest.EveryShippedTopologyStillLoadsWithNothingDropped (234 ms)
+[ RUN      ] TopologyInputValidationTest.TheTwoMininetCapableTopologiesStillLoadInMininetMode
+[       OK ] TopologyInputValidationTest.TheTwoMininetCapableTopologiesStillLoadInMininetMode (6 ms)
+[----------] 14 tests from TopologyInputValidationTest (300 ms total)
+
+[----------] Global test environment tear-down
+[==========] 26 tests from 3 test suites ran. (1433 ms total)
+[  PASSED  ] 26 tests.

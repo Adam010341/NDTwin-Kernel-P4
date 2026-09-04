@@ -1,0 +1,27 @@
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = NoIpSwitchTest.*
+[==========] Running 8 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 8 tests from NoIpSwitchTest
+[ RUN      ] NoIpSwitchTest.UpdateSwitchesInventsNoVertexForADpidTheTopologyDoesNotDeclare
+[       OK ] NoIpSwitchTest.UpdateSwitchesInventsNoVertexForADpidTheTopologyDoesNotDeclare (0 ms)
+[ RUN      ] NoIpSwitchTest.AStatusRoundOverASwitchWithNoAddressDoesNotKillTheProcess
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-noip/build/_deps/googletest-src/googletest/src/gtest_main.cc
+[       OK ] NoIpSwitchTest.AStatusRoundOverASwitchWithNoAddressDoesNotKillTheProcess (10 ms)
+[ RUN      ] NoIpSwitchTest.TheAddresslessSwitchKeepsAKeyAtTheDocumentedSentinel
+[       OK ] NoIpSwitchTest.TheAddresslessSwitchKeepsAKeyAtTheDocumentedSentinel (0 ms)
+[ RUN      ] NoIpSwitchTest.TheSentinelIsNotSomethingAReaderWouldTakeForAMeasurement
+[       OK ] NoIpSwitchTest.TheSentinelIsNotSomethingAReaderWouldTakeForAMeasurement (0 ms)
+[ RUN      ] NoIpSwitchTest.TheMissingAddressWarnsOncePerEpisodeAndNamesTheDpid
+[       OK ] NoIpSwitchTest.TheMissingAddressWarnsOncePerEpisodeAndNamesTheDpid (0 ms)
+[ RUN      ] NoIpSwitchTest.ANewEpisodeWarnsAgain
+[       OK ] NoIpSwitchTest.ANewEpisodeWarnsAgain (0 ms)
+[ RUN      ] NoIpSwitchTest.TestbedPowerReportsTheSentinelForAnAddresslessSwitch
+[       OK ] NoIpSwitchTest.TestbedPowerReportsTheSentinelForAnAddresslessSwitch (0 ms)
+[ RUN      ] NoIpSwitchTest.MininetPowerStillReportsARealFigureForAnAddresslessSwitch
+[       OK ] NoIpSwitchTest.MininetPowerStillReportsARealFigureForAnAddresslessSwitch (0 ms)
+[----------] 8 tests from NoIpSwitchTest (11 ms total)
+
+[----------] Global test environment tear-down
+[==========] 8 tests from 1 test suite ran. (12 ms total)
+[  PASSED  ] 8 tests.

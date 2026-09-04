@@ -1,0 +1,85 @@
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-delgroup/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = GroupMeterFixture.*:GroupMeterEndpointTest.*
+[==========] Running 36 tests from 2 test suites.
+[----------] Global test environment set-up.
+[----------] 25 tests from GroupMeterFixture
+[ RUN      ] GroupMeterFixture.DeletingAGroupThatIsNotThereIsRefusedRatherThanReportedDeleted
+[       OK ] GroupMeterFixture.DeletingAGroupThatIsNotThereIsRefusedRatherThanReportedDeleted (0 ms)
+[ RUN      ] GroupMeterFixture.ModifyingAGroupThatIsNotThereIsRefusedRatherThanReportedModified
+[       OK ] GroupMeterFixture.ModifyingAGroupThatIsNotThereIsRefusedRatherThanReportedModified (0 ms)
+[ RUN      ] GroupMeterFixture.AddingAGroupThatAlreadyExistsIsAConflictNotAnInstall
+[       OK ] GroupMeterFixture.AddingAGroupThatAlreadyExistsIsAConflictNotAnInstall (0 ms)
+[ RUN      ] GroupMeterFixture.DeletingAMeterThatIsNotThereIsRefused
+[       OK ] GroupMeterFixture.DeletingAMeterThatIsNotThereIsRefused (0 ms)
+[ RUN      ] GroupMeterFixture.ModifyingAMeterThatIsNotThereIsRefused
+[       OK ] GroupMeterFixture.ModifyingAMeterThatIsNotThereIsRefused (0 ms)
+[ RUN      ] GroupMeterFixture.AddingAMeterThatAlreadyExistsIsAConflict
+[       OK ] GroupMeterFixture.AddingAMeterThatAlreadyExistsIsAConflict (0 ms)
+[ RUN      ] GroupMeterFixture.DeletingAGroupThatIsThereGoesThroughAndSaysItWasDeleted
+[       OK ] GroupMeterFixture.DeletingAGroupThatIsThereGoesThroughAndSaysItWasDeleted (0 ms)
+[ RUN      ] GroupMeterFixture.ModifyingAGroupThatIsThereGoesThrough
+[       OK ] GroupMeterFixture.ModifyingAGroupThatIsThereGoesThrough (0 ms)
+[ RUN      ] GroupMeterFixture.AddingAGroupThatIsNotThereGoesThrough
+[       OK ] GroupMeterFixture.AddingAGroupThatIsNotThereGoesThrough (0 ms)
+[ RUN      ] GroupMeterFixture.TheMeterAcceptPathsGoThrough
+[       OK ] GroupMeterFixture.TheMeterAcceptPathsGoThrough (0 ms)
+[ RUN      ] GroupMeterFixture.AGroupTheSwitchStillHasAfterTheDeleteIsNotReportedAsDeleted
+[       OK ] GroupMeterFixture.AGroupTheSwitchStillHasAfterTheDeleteIsNotReportedAsDeleted (0 ms)
+[ RUN      ] GroupMeterFixture.AMeterTheSwitchStillHasAfterTheDeleteIsNotReportedAsDeleted
+[       OK ] GroupMeterFixture.AMeterTheSwitchStillHasAfterTheDeleteIsNotReportedAsDeleted (0 ms)
+[ RUN      ] GroupMeterFixture.AGroupIdCanBeInstalledAgainAfterAVerifiedDelete
+[       OK ] GroupMeterFixture.AGroupIdCanBeInstalledAgainAfterAVerifiedDelete (0 ms)
+[ RUN      ] GroupMeterFixture.ADeleteNamesTheEntryAndDoesNotCarryADefinitionOfIt
+[       OK ] GroupMeterFixture.ADeleteNamesTheEntryAndDoesNotCarryADefinitionOfIt (0 ms)
+[ RUN      ] GroupMeterFixture.ADeleteThatCannotBeReadBackIsUnverifiedRatherThanFailed
+[       OK ] GroupMeterFixture.ADeleteThatCannotBeReadBackIsUnverifiedRatherThanFailed (0 ms)
+[ RUN      ] GroupMeterFixture.TheDeleteReCheckIsRetriedAndBounded
+[       OK ] GroupMeterFixture.TheDeleteReCheckIsRetriedAndBounded (0 ms)
+[ RUN      ] GroupMeterFixture.AnUnreachableControllerDoesNotTurnEveryGroupIntoA404
+[       OK ] GroupMeterFixture.AnUnreachableControllerDoesNotTurnEveryGroupIntoA404 (0 ms)
+[ RUN      ] GroupMeterFixture.AStatsReplyInAnUnexpectedShapeIsUnknownNotAbsent
+[       OK ] GroupMeterFixture.AStatsReplyInAnUnexpectedShapeIsUnknownNotAbsent (0 ms)
+[ RUN      ] GroupMeterFixture.AnUnparseableStatsReplyIsUnknownNotAbsent
+[       OK ] GroupMeterFixture.AnUnparseableStatsReplyIsUnknownNotAbsent (0 ms)
+[ RUN      ] GroupMeterFixture.ANonNumericGroupIdIsUnknownRatherThanRefused
+[       OK ] GroupMeterFixture.ANonNumericGroupIdIsUnknownRatherThanRefused (0 ms)
+[ RUN      ] GroupMeterFixture.TheGroupCheckAsksForTheWholeListBecauseRyuIgnoresTheIdOnOf13
+[       OK ] GroupMeterFixture.TheGroupCheckAsksForTheWholeListBecauseRyuIgnoresTheIdOnOf13 (0 ms)
+[ RUN      ] GroupMeterFixture.TheMeterCheckNamesTheMeterItIsAskingAbout
+[       OK ] GroupMeterFixture.TheMeterCheckNamesTheMeterItIsAskingAbout (0 ms)
+[ RUN      ] GroupMeterFixture.TheCheckHappensBeforeTheModNotAfterIt
+[       OK ] GroupMeterFixture.TheCheckHappensBeforeTheModNotAfterIt (0 ms)
+[ RUN      ] GroupMeterFixture.TheExistenceCheckAsksForTheStatusCodeAndBoundsItsTime
+[       OK ] GroupMeterFixture.TheExistenceCheckAsksForTheStatusCodeAndBoundsItsTime (0 ms)
+[ RUN      ] GroupMeterFixture.AControllerRefusalOfTheModIsStillReported
+[       OK ] GroupMeterFixture.AControllerRefusalOfTheModIsStillReported (0 ms)
+[----------] 25 tests from GroupMeterFixture (2 ms total)
+
+[----------] 11 tests from GroupMeterEndpointTest
+[ RUN      ] GroupMeterEndpointTest.DeleteGroupRelaysA404WithAnOutcomeNamingWhatWasNotFound
+[       OK ] GroupMeterEndpointTest.DeleteGroupRelaysA404WithAnOutcomeNamingWhatWasNotFound (0 ms)
+[ RUN      ] GroupMeterEndpointTest.ModifyGroupRelaysA404WithItsOutcome
+[       OK ] GroupMeterEndpointTest.ModifyGroupRelaysA404WithItsOutcome (0 ms)
+[ RUN      ] GroupMeterEndpointTest.InstallGroupRelaysA409WithItsOutcome
+[       OK ] GroupMeterEndpointTest.InstallGroupRelaysA409WithItsOutcome (0 ms)
+[ RUN      ] GroupMeterEndpointTest.DeleteMeterRelaysA404WithItsOutcome
+[       OK ] GroupMeterEndpointTest.DeleteMeterRelaysA404WithItsOutcome (0 ms)
+[ RUN      ] GroupMeterEndpointTest.ModifyMeterRelaysA404WithItsOutcome
+[       OK ] GroupMeterEndpointTest.ModifyMeterRelaysA404WithItsOutcome (0 ms)
+[ RUN      ] GroupMeterEndpointTest.InstallMeterRelaysA409WithItsOutcome
+[       OK ] GroupMeterEndpointTest.InstallMeterRelaysA409WithItsOutcome (0 ms)
+[ RUN      ] GroupMeterEndpointTest.EachEndpointKeepsItsOwnSuccessSentenceAndCarriesTheOutcome
+[       OK ] GroupMeterEndpointTest.EachEndpointKeepsItsOwnSuccessSentenceAndCarriesTheOutcome (0 ms)
+[ RUN      ] GroupMeterEndpointTest.AnUnverifiedSuccessSaysSoRatherThanClaimingItWasDeleted
+[       OK ] GroupMeterEndpointTest.AnUnverifiedSuccessSaysSoRatherThanClaimingItWasDeleted (0 ms)
+[ RUN      ] GroupMeterEndpointTest.AResultWithNoOutcomeStillAnswersTheOriginalThreeFieldFailureBody
+[       OK ] GroupMeterEndpointTest.AResultWithNoOutcomeStillAnswersTheOriginalThreeFieldFailureBody (0 ms)
+[ RUN      ] GroupMeterEndpointTest.AP4RefusalIsStill501AndNamesItself
+[       OK ] GroupMeterEndpointTest.AP4RefusalIsStill501AndNamesItself (0 ms)
+[ RUN      ] GroupMeterEndpointTest.TheTwoDifferentNotFoundsAreDistinguishableInTheBody
+[       OK ] GroupMeterEndpointTest.TheTwoDifferentNotFoundsAreDistinguishableInTheBody (0 ms)
+[----------] 11 tests from GroupMeterEndpointTest (0 ms total)
+
+[----------] Global test environment tear-down
+[==========] 36 tests from 2 test suites ran. (3 ms total)
+[  PASSED  ] 36 tests.

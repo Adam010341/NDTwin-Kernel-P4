@@ -1,0 +1,75 @@
+Running main() from /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-integrate/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = PhantomOvsFixture.*
+[==========] Running 12 tests from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 12 tests from PhantomOvsFixture
+[ RUN      ] PhantomOvsFixture.ARyuAcceptanceIsSuccessfulButConfirmsNothing
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-integrate/tests/test_PhantomFilterCoversOvs.cpp:462: Failure
+Value of: log.isProgrammed(101)
+  Actual: true
+Expected: false
+Ryu's fire-and-forget 200 stamped the token, so the view served the optimistic row 0.257 s after the POST -- 13 seconds before anything observed the rule. Ryu returns as soon as it has built the OFPFlowMod, and OpenFlow does not acknowledge a FLOW_MOD.
+[  FAILED  ] PhantomOvsFixture.ARyuAcceptanceIsSuccessfulButConfirmsNothing (0 ms)
+[ RUN      ] PhantomOvsFixture.AProxySuccessStillConfirmsTheEntry
+[       OK ] PhantomOvsFixture.AProxySuccessStillConfirmsTheEntry (0 ms)
+[ RUN      ] PhantomOvsFixture.AProxyRefusalConfirmsNothingEither
+[       OK ] PhantomOvsFixture.AProxyRefusalConfirmsNothingEither (0 ms)
+[ RUN      ] PhantomOvsFixture.TheCountersStillMeanWhatA7SaysTheyMean
+[       OK ] PhantomOvsFixture.TheCountersStillMeanWhatA7SaysTheyMean (0 ms)
+[ RUN      ] PhantomOvsFixture.AnOvsInstallIsNotServedBeforeAPollObservesIt
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-integrate/tests/test_PhantomFilterCoversOvs.cpp:520: Failure
+Expected equality of these values:
+  before.size()
+    Which is: 1
+  0u
+    Which is: 0
+get_switch_openflow_table_entries served a row nothing has observed: [{"actions":[{"port":999,"type":"OUTPUT"}],"match":{"eth_type":2048,"ipv4_dst":"10.0.0.241"},"priority":915,"table_id":0}]
+[  FAILED  ] PhantomOvsFixture.AnOvsInstallIsNotServedBeforeAPollObservesIt (0 ms)
+[ RUN      ] PhantomOvsFixture.TheLegitimateOvsRuleIsWithheldTooBecauseTheRowIsACacheArtefact
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-integrate/tests/test_PhantomFilterCoversOvs.cpp:544: Failure
+Expected equality of these values:
+  r.served().size()
+    Which is: 1
+  0u
+    Which is: 0
+a legitimate but unobserved rule was served as an observed row
+[  FAILED  ] PhantomOvsFixture.TheLegitimateOvsRuleIsWithheldTooBecauseTheRowIsACacheArtefact (0 ms)
+[ RUN      ] PhantomOvsFixture.AConfirmedP4InstallIsStillServedImmediately
+[       OK ] PhantomOvsFixture.AConfirmedP4InstallIsStillServedImmediately (0 ms)
+[ RUN      ] PhantomOvsFixture.AP4RefusalIsStillWithheld
+[       OK ] PhantomOvsFixture.AP4RefusalIsStillWithheld (0 ms)
+[ RUN      ] PhantomOvsFixture.PolledRowsAreNeverWithheldOnEitherPlane
+[       OK ] PhantomOvsFixture.PolledRowsAreNeverWithheldOnEitherPlane (0 ms)
+[ RUN      ] PhantomOvsFixture.TheViewSaysItIsWithholdingRows
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-integrate/tests/test_PhantomFilterCoversOvs.cpp:603: Failure
+Value of: capture.sawLineContaining({"withholding", "not observed"})
+  Actual: false
+Expected: true
+nothing in kernel.log says the table view is short of a row, or why. Lines seen:
+execArgv: curl -s -w \n%{http_code} --max-time 5 -X POST http://localhost:8080/stats/flowentry/add -H Content-Type: application/json -d {"actions":[{"port":999,"type":"OUTPUT"}],"dpid":1,"match":{"eth_type":2048,"ipv4_dst":"10.0.0.241"},"priority":915}
+
+
+[  FAILED  ] PhantomOvsFixture.TheViewSaysItIsWithholdingRows (0 ms)
+[ RUN      ] PhantomOvsFixture.TheViewDoesNotClaimToWithholdWhatItServed
+[       OK ] PhantomOvsFixture.TheViewDoesNotClaimToWithholdWhatItServed (0 ms)
+[ RUN      ] PhantomOvsFixture.TheDispatchSaysWhyAnAcceptedEntryIsStillWithheld
+/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-integrate/tests/test_PhantomFilterCoversOvs.cpp:636: Failure
+Value of: waitFor([&] { return capture.sawLineContaining({"not evidence", "dpid 1"}); })
+  Actual: false
+Expected: true
+kernel.log does not say why an accepted entry is being kept out of the table view. Lines seen:
+
+[  FAILED  ] PhantomOvsFixture.TheDispatchSaysWhyAnAcceptedEntryIsStillWithheld (5002 ms)
+[----------] 12 tests from PhantomOvsFixture (5004 ms total)
+
+[----------] Global test environment tear-down
+[==========] 12 tests from 1 test suite ran. (5005 ms total)
+[  PASSED  ] 7 tests.
+[  FAILED  ] 5 tests, listed below:
+[  FAILED  ] PhantomOvsFixture.ARyuAcceptanceIsSuccessfulButConfirmsNothing
+[  FAILED  ] PhantomOvsFixture.AnOvsInstallIsNotServedBeforeAPollObservesIt
+[  FAILED  ] PhantomOvsFixture.TheLegitimateOvsRuleIsWithheldTooBecauseTheRowIsACacheArtefact
+[  FAILED  ] PhantomOvsFixture.TheViewSaysItIsWithholdingRows
+[  FAILED  ] PhantomOvsFixture.TheDispatchSaysWhyAnAcceptedEntryIsStillWithheld
+
+ 5 FAILED TESTS

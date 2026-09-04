@@ -1,0 +1,22 @@
+# Why this round has no gtest, no gate and no live numbers.
+# The machine-wide build guard (tools/build_guard/guarded_build.sh, flock on
+# /tmp/ndtwin-build.lock) was held continuously by other sessions from 07:03.
+
+== my queued test-target build, stdout in full ==
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ cmake --build build --target test_routing_strategy -j1
+
+== my queued kernel build, stdout in full ==
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ cmake --build build --target ndtwin_kernel -j1
+
+== objects compiled in my build dir ==
+count: 0
+
+== lock holder, sampled 08:01:29 ==
+cwd: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-integrate/build
+
+== configure did complete (it is cheap and got a slot at 07:01) ==
+-- Generating done (0.0s)
+-- Build files have been written to: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-phantomovs/build
+guarded_build: exit 0

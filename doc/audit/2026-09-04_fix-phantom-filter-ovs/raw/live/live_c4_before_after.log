@@ -1,0 +1,91 @@
+[10:50:49] lab before:  claim none; measuring nothing;
+[10:50:49] === arm before :: checkout /home/adam/Desktop/NDTwin-Kernel :: kernel sha256 a8ba99c25f039315 ===
+     ok  lab claimed by auditor for 30m (C-4 live before arm (auditor))
+[10:50:49] ndt up ovs4 ...
+[10:50:57] ndt up rc=0
+     ok  data plane: h1 -> 10.0.0.2 forwards
+     ok  sFlow: 10/10 bridges sampling to :6343, 10 records
+   
+   up. ready
+[10:51:17] --- ARM: invalid port 999 ---
+   === B-1 OVS arm (before), invalid port : dpid=1 ipv4_dst=10.0.0.241 port=999 priority=915 ===
+   pre-POST: target rows=0, table total=60
+   POST at t=0.000 -> HTTP 200  {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}
+     t= 0.004  ABSENT   (table total=60)
+     t= 0.256  REQUEST-SHAPE(phantom-signature)   (table total=61)
+          first sighting entry: {"actions": [{"port": 999, "type": "OUTPUT"}], "match": {"eth_type": 2048, "ipv4_dst": "10.0.0.241"}, "priority": 915, "table_id": 0}
+     t= 8.594  POLLED-SHAPE(real)   (table total=61)
+   RESULT: first_sighting=t=0.256 s
+[10:51:42] PROBE_RC=0
+[10:51:42] --- CONTROL A: valid port 2 ---
+   === B-1 OVS control (before), valid port : dpid=1 ipv4_dst=10.0.0.242 port=2 priority=916 ===
+   pre-POST: target rows=0, table total=61
+   POST at t=0.000 -> HTTP 200  {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}
+     t= 0.005  ABSENT   (table total=61)
+     t= 0.259  REQUEST-SHAPE(phantom-signature)   (table total=62)
+          first sighting entry: {"actions": [{"port": 2, "type": "OUTPUT"}], "match": {"eth_type": 2048, "ipv4_dst": "10.0.0.242"}, "priority": 916, "table_id": 0}
+     t= 3.549  POLLED-SHAPE(real)   (table total=62)
+   RESULT: first_sighting=t=0.259 s
+[10:52:07] CONTROL_RC=0
+[10:52:07] --- Ryu's own view (prio 915/916) ---
+   ryu: prio=915 match={'dl_type': 2048, 'nw_dst': '10.0.0.241'} actions=['OUTPUT:999']
+   ryu: prio=916 match={'dl_type': 2048, 'nw_dst': '10.0.0.242'} actions=['OUTPUT:2']
+   (ryu rules with prio 915/916: 2)
+[10:52:07] --- kernel.log (/home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log) ---
+   counts: withholding=0 not-evidence=0 lines=684
+[10:52:07] ndt down ...
+[10:52:21] ndt down rc=0
+     ok  ports closed: 8000/8080/8081/6653/6633/6343/30051-30060/9091-9100/9000
+   
+   clean
+     ok  lab released
+[10:52:21] === arm before done ===
+     ok  lab claimed by auditor for 30m (C-4 live AFTER arm runs from wt-phantomovs (auditor))
+[10:52:26] === arm after :: checkout /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-phantomovs :: kernel sha256 7b9b7ada1621a3f1 ===
+     ok  lab claimed by auditor for 30m (C-4 live after arm (auditor))
+[10:52:26] ndt up ovs4 ...
+[10:52:35] ndt up rc=0
+     ok  data plane: h1 -> 10.0.0.2 forwards
+     ok  sFlow: 10/10 bridges sampling to :6343, 10 records
+   
+   up. ready
+[10:52:55] --- ARM: invalid port 999 ---
+   === B-1 OVS arm (after), invalid port : dpid=1 ipv4_dst=10.0.0.241 port=999 priority=915 ===
+   pre-POST: target rows=0, table total=60
+   POST at t=0.000 -> HTTP 200  {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}
+     t= 0.005  ABSENT   (table total=60)
+     t= 8.614  POLLED-SHAPE(real)   (table total=61)
+          first sighting entry: {"actions": ["OUTPUT:999"], "byte_count": 0, "cookie": 0, "duration_nsec": 339000000, "duration_sec": 8, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 96, "match": {"dl_type": 2048, "nw_dst": "10.0.0.241"}, "packet_count": 0, "priority": 915, "table_id": 0}
+   RESULT: first_sighting=t=8.614 s
+[10:53:20] PROBE_RC=0
+[10:53:20] --- CONTROL A: valid port 2 ---
+   === B-1 OVS control (after), valid port : dpid=1 ipv4_dst=10.0.0.242 port=2 priority=916 ===
+   pre-POST: target rows=0, table total=61
+   POST at t=0.000 -> HTTP 200  {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log and, since they are not in this response, are readable afterwards from GET /ndt/get_flow_dispatch_status","status":"queued"}
+     t= 0.003  ABSENT   (table total=61)
+     t= 3.795  POLLED-SHAPE(real)   (table total=62)
+          first sighting entry: {"actions": ["OUTPUT:2"], "byte_count": 0, "cookie": 0, "duration_nsec": 505000000, "duration_sec": 3, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 96, "match": {"dl_type": 2048, "nw_dst": "10.0.0.242"}, "packet_count": 0, "priority": 916, "table_id": 0}
+   RESULT: first_sighting=t=3.795 s
+[10:53:45] CONTROL_RC=0
+[10:53:45] --- Ryu's own view (prio 915/916) ---
+   ryu: prio=915 match={'dl_type': 2048, 'nw_dst': '10.0.0.241'} actions=['OUTPUT:999']
+   ryu: prio=916 match={'dl_type': 2048, 'nw_dst': '10.0.0.242'} actions=['OUTPUT:2']
+   (ryu rules with prio 915/916: 2)
+[10:53:45] --- kernel.log (/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-phantomovs/.test_run/logs/kernel.log) ---
+   66:[2026-09-04 10:52:55.281] [warning] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m2373[0m [96mreportWithheldRows[0m] flow-table view is withholding 1 row(s) from get_switch_openflow_table_entries: dispatched, but not observed on a switch. Why each one is unconfirmed is logged where it was dispatched; a row appears as soon as a poll reads it back off the switch (KNOWN-ISSUES C-4).
+   67:[2026-09-04 10:52:55.288] [warning] [[94mController.cpp[0m:[95m100[0m [96moperator()[0m] 1 of 1 dispatched flow entries for dpid 1 were accepted by the control plane, but this plane's acceptance is not evidence the switch programmed them -- it answers before the switch adjudicates. They are withheld from get_switch_openflow_table_entries until a poll observes them (KNOWN-ISSUES C-4).
+   172:[2026-09-04 10:53:03.890] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m2367[0m [96mreportWithheldRows[0m] flow-table view is no longer withholding rows; every cached entry has now been observed on a switch
+   394:[2026-09-04 10:53:20.403] [warning] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m2373[0m [96mreportWithheldRows[0m] flow-table view is withholding 1 row(s) from get_switch_openflow_table_entries: dispatched, but not observed on a switch. Why each one is unconfirmed is logged where it was dispatched; a row appears as soon as a poll reads it back off the switch (KNOWN-ISSUES C-4).
+   395:[2026-09-04 10:53:20.412] [warning] [[94mController.cpp[0m:[95m100[0m [96moperator()[0m] 1 of 1 dispatched flow entries for dpid 1 were accepted by the control plane, but this plane's acceptance is not evidence the switch programmed them -- it answers before the switch adjudicates. They are withheld from get_switch_openflow_table_entries until a poll observes them (KNOWN-ISSUES C-4).
+   441:[2026-09-04 10:53:24.194] [info] [[94mDeviceConfigurationAndPowerManager.cpp[0m:[95m2367[0m [96mreportWithheldRows[0m] flow-table view is no longer withholding rows; every cached entry has now been observed on a switch
+   counts: withholding=4 not-evidence=2 lines=693
+[10:53:45] ndt down ...
+[10:53:59] ndt down rc=0
+     ok  ports closed: 8000/8080/8081/6653/6633/6343/30051-30060/9091-9100/9000
+   
+   clean
+     ok  lab released
+[10:53:59] === arm after done ===
+     ok  lab released
+[10:54:00] lab after:  claim none; measuring nothing; :8000 kernel closed :8081 proxy closed :8080 ryu closed;
+[10:54:00] === ALL ARMS DONE ===

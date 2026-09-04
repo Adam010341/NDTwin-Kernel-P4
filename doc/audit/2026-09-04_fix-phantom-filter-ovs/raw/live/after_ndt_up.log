@@ -1,0 +1,28 @@
+ndt up ovs4
+  hosts        4
+  topology     setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json
+  !!  the helper this bring-up will use is not the one in this tree:
+    !!  helper: /usr/local/sbin/ndtwin-lab is sha256 288b71cb, tools/test_workflow/ndtwin-lab is 6685d3a9
+    !!    'ndt up' and 'ndt down' run the INSTALLED copy, so nothing merged into this
+    !!    tree since it was installed has executed on this machine (finding #83).
+    !!    install it -- root's decision, not this script's:
+    !!      sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sbin/ndtwin-lab
+  recorded this target in .test_run/up.target -- 'ndt status --check' compares against it
+[1/4] control plane (Ryu)
+  ok  Ryu up, prompt reached
+[2/4] data plane (OVS fabric)
+  ok  15 host/switch processes after 2s
+[3/4] proxy-less convergence + kernel
+  Ryu settles for 40s before installing paths (NDTWIN_RYU_SETTLE_S)
+        started ryu (pid 3653440) -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-phantomovs/.test_run/logs/ryu.log
+        waiting for Ryu REST on :8080 . up
+          switches=10 links=32 paths=pending              switches=10 links=32 paths=installed                                                        converged after 4s
+        started kernel (pid 3653902) -> /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad/wt-phantomovs/.test_run/logs/kernel.log
+        waiting for kernel API on :8000 . up
+[4/4] verify
+  ok  kernel: 10 switches up+enabled
+  ok  kernel graph matches the model file: 4 hosts, 40 edges
+  ok  data plane: h1 -> 10.0.0.2 forwards
+  ok  sFlow: 10/10 bridges sampling to :6343, 10 records
+
+up. ready

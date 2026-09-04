@@ -1,0 +1,15 @@
+baseline (unmutated) must build and be green:
+  ok       baseline green ([  PASSED  ] 8 tests.)
+
+mutations:
+tests/shell/mutate_cpu_report_no_ip.sh: line 111: 3722641 Segmentation fault      (core dumped) "$BIN" --gtest_filter="$FILTER" > "$BK/run.log" 2>&1
+  caught   M1 cpu-dereferences-empty-ip-again             (NoIpSwitchTest.AStatusRoundOverASwitchWithNoAddressDoesNotKillTheProcess went red)
+tests/shell/mutate_cpu_report_no_ip.sh: line 111: 3736232 Segmentation fault      (core dumped) "$BIN" --gtest_filter="$FILTER" > "$BK/run.log" 2>&1
+  SURVIVED M2 testbed-power-dereferences-empty-ip         (process DIED with no verdict line -- the death test was
+                                                           meant to contain this; NoIpSwitchTest.AStatusRoundOverASwitchWithNoAddressDoesNotKillTheProcess never reported)
+             [       OK ] NoIpSwitchTest.TheSentinelIsNotSomethingAReaderWouldTakeForAMeasurement (0 ms)
+             [ RUN      ] NoIpSwitchTest.TheMissingAddressWarnsOncePerEpisodeAndNamesTheDpid
+             [       OK ] NoIpSwitchTest.TheMissingAddressWarnsOncePerEpisodeAndNamesTheDpid (0 ms)
+             [ RUN      ] NoIpSwitchTest.ANewEpisodeWarnsAgain
+             [       OK ] NoIpSwitchTest.ANewEpisodeWarnsAgain (0 ms)
+             [ RUN      ] NoIpSwitchTest.TestbedPowerReportsTheSentinelForAnAddresslessSwitch

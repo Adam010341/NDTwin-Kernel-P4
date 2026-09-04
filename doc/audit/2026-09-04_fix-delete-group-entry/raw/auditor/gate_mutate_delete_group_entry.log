@@ -1,0 +1,57 @@
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_delete_group_entry.sh
+finding #1 mutation gate -- a delete is claimed only after the switch is asked
+  build dir : build
+  target    : test_routing_strategy   (tests/test_GroupMeterExistence.cpp compiles into this binary)
+  filter    : GroupMeterFixture.*:GroupMeterEndpointTest.*
+  baseline  : src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp  sha256 5686b58d36b55815
+
+=== BASELINE (unmutated) ===
+  ✅ green  (36 tests)
+
+=== M1  a group the switch still has is reported as deleted ===
+  ✅ caught   M1  a group the switch still has is reported as deleted
+     by       GroupMeterFixture.AGroupTheSwitchStillHasAfterTheDeleteIsNotReportedAsDeleted
+     (3 red, 7 reverse guards held)
+
+=== M2  an unanswerable read-back becomes a failed delete ===
+  ✅ caught   M2  an unanswerable read-back becomes a failed delete
+     by       GroupMeterFixture.ADeleteThatCannotBeReadBackIsUnverifiedRatherThanFailed
+     (1 red, 6 reverse guards held)
+
+=== M3  the delete forwards the caller's body verbatim ===
+  ✅ caught   M3  the delete forwards the caller's body verbatim
+     by       GroupMeterFixture.ADeleteNamesTheEntryAndDoesNotCarryADefinitionOfIt
+     (1 red, 6 reverse guards held)
+
+=== M4  the read-back happens once ===
+  ✅ caught   M4  the read-back happens once
+     by       GroupMeterFixture.TheDeleteReCheckIsRetriedAndBounded
+     (1 red, 5 reverse guards held)
+
+=== M5  the retry loop spins on success instead of on Present ===
+  ✅ caught   M5  the retry loop spins on success instead of on Present
+     by       GroupMeterFixture.TheDeleteReCheckIsRetriedAndBounded
+     (1 red, 4 reverse guards held)
+
+=== W1  '<' becomes '!=' over the same bound (an equivalent loop) ===
+  ✅ green    W1  '<' becomes '!=' over the same bound (an equivalent loop)  (the tests are not pinned to this)
+
+=== W2  502 becomes 503 (still a non-2xx naming the far end) ===
+  ✅ green    W2  502 becomes 503 (still a non-2xx naming the far end)  (the tests are not pinned to this)
+
+=== W3  the failure sentence is reworded (the phrase under test is kept) ===
+  ✅ green    W3  the failure sentence is reworded (the phrase under test is kept)  (the tests are not pinned to this)
+
+=== W4  'attempt > 0' becomes 'attempt >= 1' (the same predicate) ===
+  ✅ green    W4  'attempt > 0' becomes 'attempt >= 1' (the same predicate)  (the tests are not pinned to this)
+
+=== C   CONTROL: comment-only edit, must stay green ===
+  ✅ green after a comment-only rebuild (the reds above are the mutations)
+
+--- restore ---
+  ok  src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp byte-identical to the pre-run snapshot
+
+5 mutations, 0 survived; 4 widenings, 0 went red
+every mutation caught by its named guard, every widening green, baseline restored
+guarded_build: exit 0

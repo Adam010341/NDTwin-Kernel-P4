@@ -1,0 +1,18 @@
+ndt down
+[1/3] kernel + proxy/Ryu
+        stopped kernel
+        stopped ryu
+[2/3] topology session
+      topo stopped
+[3/3] sweep
+      cleanup done
+  cleared the 'ndt up' target record (.test_run/up.target)
+
+verify clean
+  ok  bmv2 switches: 0
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+  ok  ports closed: 8000/8080/8081/6653/6633/6343/30051-30060/9091-9100/9000
+
+clean
