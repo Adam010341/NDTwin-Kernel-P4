@@ -110,6 +110,11 @@ add_executable(
   # `is_up` answered two questions at once, so a commanded-off switch and a crashed one were the
   # same shape. Split into admin_state + reachable, is_up kept as a deprecated alias.
   test_IsUpSplit.cpp
+  # [Co-developed with claude code -- Adam] FINDINGS #85: a SWITCH vertex with an empty `ip` made
+  # the status worker's four reports call `front()` on an empty vector -- SIGSEGV on that thread,
+  # which ends the kernel. Includes the reachability evidence (updateSwitches invents no vertex),
+  # so the day that stops being true, this suite says so. One death test; forks once.
+  test_CpuReportNoIpSwitch.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

@@ -11,6 +11,7 @@
 #include <shared_mutex>
 #include <stdint.h>           // for uint32_t, uint64_t
 #include <optional>           // for optional
+#include <set>                // for set (the missing-address WARN's edge trigger, FINDINGS #85)
 #include <string>             // for string, basic_string
 #include <thread>             // for thread
 #include <tuple>              // for tuple
@@ -805,6 +806,91 @@ class DeviceConfigurationAndPowerManager
      */
     static constexpr int kHealthMetricUnavailable = -1;
 
+    /**
+     * @brief The management address of @p vp, or nullopt when the vertex carries none.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * FINDINGS #85. The four status-worker reports each opened their loop body with
+     * `utils::ipToString(vp.ip.front())`, and `VertexProperties::ip` is a `std::vector` that
+     * starts empty -- so a SWITCH vertex with no address was `front()` on an empty vector, i.e.
+     * undefined behaviour, and in practice a SIGSEGV on the status thread that took the whole
+     * kernel with it. gdb stack in the audit-raw log named in
+     * doc/audit/2026-09-04_fix-cpu-report-no-ip/.
+     *
+     * The invariant "every switch has at least one address" is real and is enforced --
+     * TopologyAndFlowMonitor::loadStaticTopologyFromFile refuses such a file at load (2da6954f),
+     * which is why no production path reaches this today. It is enforced in *another subsystem*,
+     * one file edit away, and the cost of it being wrong here is the process. This function is
+     * the belt to that subsystem's braces: it makes the four reports answer rather than fault.
+     *
+     * Deliberately returns nullopt rather than a placeholder address: "0.0.0.0" would be a
+     * plausible-looking answer to a question that has none, which is the failure mode this file
+     * has been burned by twice already (see kHealthMetricUnavailable).
+     */
+    static std::optional<std::string> managementIpOf(const VertexProperties& vp);
+
+    /**
+     * @brief The report key for a switch that has no management address.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * The CPU, memory and temperature bodies are keyed by management IP, so a switch without one
+     * has no natural key -- and dropping it is not available either: `continue` here is exactly
+     * the bug fixed on 2026-08-18, where a switch that vanished from the body rendered as **0%**
+     * in the Web-GUI's `data[ip] || 0`, i.e. as an idle switch rather than an unreadable one.
+     * tests/test_SimulatedDeviceMetrics.cpp pins that ("every switch must still have a key").
+     *
+     * So the entry is kept and keyed by dpid under this prefix. The prefix is what makes it safe:
+     * `dpid:3` cannot be mistaken for, and cannot collide with, a dotted-quad, so no consumer that
+     * parses keys as addresses turns it into a plausible one, and no real switch's key is
+     * shadowed. The *value* is the documented sentinel (kHealthMetricUnavailable), not a third
+     * invention -- doc/2026-01-02_ndt_api.md §12/§13 already say "-1 means SNMP query failed or
+     * data is unavailable", which is precisely this switch's situation.
+     *
+     * 🔴 This is an outward-visible key shape. See the question raised in
+     * doc/audit/2026-09-04_fix-cpu-report-no-ip/FIX-CPU-REPORT-NO-IP.md.
+     */
+    static std::string reportKeyForSwitchWithoutIp(uint64_t dpid);
+
+    /**
+     * @brief Edge-trigger for the missing-address WARN: true only on the first tick of an episode.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * Same reasoning as FailureRun and as TopologyAndFlowMonitor's m_resurrectionDeclined: the
+     * status worker re-reads the whole graph every round, so a per-round WARN is a line every
+     * 10 s for as long as the topology is wrong -- the shape that put 3596 sudo errors in one run
+     * and buried everything else. One line per dpid per episode; the episode ends, and the WARN
+     * re-arms, when that dpid is next seen carrying an address.
+     *
+     * A dpid is claimed by whichever of the four reports runs first in a round
+     * (statusUpdateWorker calls power, CPU, memory, temperature in that order), so the log gets
+     * one line per episode rather than four.
+     *
+     * Not thread-safe, and does not need to be: only statusUpdateWorker's thread touches it in
+     * production, exactly as FailureRun documents for pingWorker's.
+     */
+    bool noteSwitchMissingManagementIp(uint64_t dpid);
+
+    /// Ends the episode for @p dpid, so a later disappearance warns again. See above.
+    void noteSwitchHasManagementIp(uint64_t dpid);
+
+    /**
+     * @brief managementIpOf(), plus the edge-triggered WARN. The form the four reports call.
+     *
+     * @return The address to key this switch's entry by, or nullopt -- in which case the caller
+     *         must still emit an entry, under reportKeyForSwitchWithoutIp(), valued at the
+     *         documented sentinel. Answering nullopt is not permission to drop the switch.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    std::optional<std::string> managementIpForReport(const VertexProperties& vp);
+
+    /// dpids already warned about for a missing management address. [Co-developed with claude
+    /// code -- Adam]
+    std::set<uint64_t> m_switchesMissingManagementIp;
+
     // [Co-developed with claude code -- Adam]
     // Protected rather than private for the test seam the neighbouring policy helpers use (see
     // PowerProbe in test_SyntheticPower.cpp, LivenessProbe in test_OvsLiveness.cpp): a derived
@@ -814,6 +900,12 @@ class DeviceConfigurationAndPowerManager
     json fetchMemoryReportInternal();
     json fetchCpuReportInternal();
     json fetchTemperatureReportInternal();
+    // [Co-developed with claude code -- Adam]
+    // Moved up from private to join its three siblings (FINDINGS #85). statusUpdateWorker calls
+    // all four in one round and all four read a switch's management address, so a test that
+    // drives "one status round" over a hand-built graph has to be able to call all four -- and
+    // this was the only one it could not reach.
+    json fetchPowerReportInternal();
 
   private:
     std::shared_ptr<TopologyAndFlowMonitor> m_topologyAndFlowMonitor;
@@ -968,9 +1060,9 @@ class DeviceConfigurationAndPowerManager
     void openflowTablesUpdateWorker();
     // --- The *actual* (slow) data-fetching functions ---
     // These are the original implementations, just renamed.
-    json fetchPowerReportInternal();
-    // fetchMemoryReportInternal / fetchCpuReportInternal / fetchTemperatureReportInternal are
-    // declared in the protected section above, for the test seam. [Co-developed with claude code -- Adam]
+    // fetchPowerReportInternal / fetchMemoryReportInternal / fetchCpuReportInternal /
+    // fetchTemperatureReportInternal are declared in the protected section above, for the test
+    // seam. [Co-developed with claude code -- Adam]
 
     /// Returns both halves of the poll: see FlowTableFetch, declared protected above beside
     /// FlowStatsVerdict so a test can reach it by subclassing the way FlowStatsReader does. The

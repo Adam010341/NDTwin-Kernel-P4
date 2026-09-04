@@ -1216,6 +1216,65 @@ DeviceConfigurationAndPowerManager::interpretRelayResponse(const std::string& re
     return {true, text};
 }
 
+// [Co-developed with claude code -- Adam]
+// FINDINGS #85. See the four declarations in the header for why these exist and what they refuse
+// to invent. The short version: `vp.ip.front()` on a switch that carries no address is undefined
+// behaviour on the status thread, and the status thread dying takes the kernel with it.
+std::optional<std::string>
+DeviceConfigurationAndPowerManager::managementIpOf(const VertexProperties& vp)
+{
+    if (vp.ip.empty())
+    {
+        return std::nullopt;
+    }
+    return utils::ipToString(vp.ip.front());
+}
+
+std::string
+DeviceConfigurationAndPowerManager::reportKeyForSwitchWithoutIp(uint64_t dpid)
+{
+    return "dpid:" + std::to_string(dpid);
+}
+
+bool
+DeviceConfigurationAndPowerManager::noteSwitchMissingManagementIp(uint64_t dpid)
+{
+    return m_switchesMissingManagementIp.insert(dpid).second;
+}
+
+void
+DeviceConfigurationAndPowerManager::noteSwitchHasManagementIp(uint64_t dpid)
+{
+    m_switchesMissingManagementIp.erase(dpid);
+}
+
+std::optional<std::string>
+DeviceConfigurationAndPowerManager::managementIpForReport(const VertexProperties& vp)
+{
+    if (auto ip = managementIpOf(vp))
+    {
+        noteSwitchHasManagementIp(vp.dpid);
+        return ip;
+    }
+
+    // Edge-triggered. This worker re-reads the whole graph every round, so the unguarded form of
+    // this line is one WARN per switch per round for as long as the topology is wrong -- the shape
+    // that put 3596 sudo errors into a single run. One line per dpid per episode.
+    if (noteSwitchMissingManagementIp(vp.dpid))
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "switch dpid {} carries no management address, so its device-health "
+                           "figures (power, CPU, memory, temperature) cannot be read from it. "
+                           "Reporting the unavailable sentinel {} under the key \"{}\". Give the "
+                           "switch a non-empty \"ip\" array in the static topology file. Logged "
+                           "once per episode, not once per round",
+                           vp.dpid,
+                           kHealthMetricUnavailable,
+                           reportKeyForSwitchWithoutIp(vp.dpid));
+    }
+    return std::nullopt;
+}
+
 json
 DeviceConfigurationAndPowerManager::fetchMemoryReportInternal()
 {
@@ -1230,7 +1289,17 @@ DeviceConfigurationAndPowerManager::fetchMemoryReportInternal()
             continue;
         }
 
-        std::string ip_str = utils::ipToString(vp.ip.front());
+        // [Co-developed with claude code -- Adam]
+        // FINDINGS #85. Was `std::string ip_str = utils::ipToString(vp.ip.front());` -- see
+        // managementIpForReport in the header. A switch with no address keeps an entry, at the
+        // documented sentinel, under a key that cannot be confused with an address.
+        const auto ipOpt = managementIpForReport(vp);
+        if (!ipOpt)
+        {
+            result_json[reportKeyForSwitchWithoutIp(vp.dpid)] = kHealthMetricUnavailable;
+            continue;
+        }
+        const std::string ip_str = *ipOpt;
 
         // [Co-developed with claude code -- Adam]
         // A switch that is down gets the documented sentinel, not a missing key.
@@ -1705,7 +1774,25 @@ DeviceConfigurationAndPowerManager::fetchPowerReportInternal()
         else if (m_mode == utils::DeploymentMode::TESTBED)
         {
             const std::string username = "admin";
-            std::string ip_str = utils::ipToString(props.ip.front());
+
+            // [Co-developed with claude code -- Adam]
+            // FINDINGS #85. Was `std::string ip_str = utils::ipToString(props.ip.front());`. This
+            // one sits inside the TESTBED branch on purpose and the guard stays there with it:
+            // the MININET figure is a function of the dpid alone (see syntheticPowerMilliwattsFor,
+            // whose doc comment already says this path must not call ip.front()), so a switch with
+            // no address still has a perfectly real synthetic power figure and must keep getting
+            // it. Only the TESTBED branch, which SSHes/SNMPs to the address, has nothing to ask.
+            //
+            // This body is keyed by dpid, so unlike the three IP-keyed reports it needs no
+            // substitute key -- the entry is well-formed, only the value is unavailable.
+            const auto ipOpt = managementIpForReport(props);
+            if (!ipOpt)
+            {
+                result.push_back(
+                    {{"dpid", dpid}, {"power_consumed", kHealthMetricUnavailable}});
+                continue;
+            }
+            const std::string ip_str = *ipOpt;
 
             SPDLOG_INFO("Getting power report from DPID {} at IP {}", dpid, ip_str);
 
@@ -1948,7 +2035,19 @@ DeviceConfigurationAndPowerManager::fetchCpuReportInternal()
             continue;
         }
 
-        std::string ip_str = utils::ipToString(vp.ip.front());
+        // [Co-developed with claude code -- Adam]
+        // FINDINGS #85, and the site the gdb backtrace named. Was
+        // `std::string ip_str = utils::ipToString(vp.ip.front());`, which is `front()` on an
+        // empty vector for a switch carrying no address: undefined behaviour on the status
+        // thread, observed as a SIGSEGV that killed the whole kernel within one round. See
+        // managementIpForReport in the header.
+        const auto ipOpt = managementIpForReport(vp);
+        if (!ipOpt)
+        {
+            result[reportKeyForSwitchWithoutIp(vp.dpid)] = kHealthMetricUnavailable;
+            continue;
+        }
+        const std::string ip_str = *ipOpt;
 
         // [Co-developed with claude code -- Adam]
         // A switch that is down gets the documented sentinel, not a missing key.
@@ -2046,7 +2145,16 @@ DeviceConfigurationAndPowerManager::fetchTemperatureReportInternal()
             continue;
         }
 
-        std::string ip_str = utils::ipToString(vp.ip.front());
+        // [Co-developed with claude code -- Adam]
+        // FINDINGS #85, the third of the three the comment above predicted would "still fault one
+        // branch later". See managementIpForReport in the header.
+        const auto ipOpt = managementIpForReport(vp);
+        if (!ipOpt)
+        {
+            result[reportKeyForSwitchWithoutIp(vp.dpid)] = kHealthMetricUnavailable;
+            continue;
+        }
+        const std::string ip_str = *ipOpt;
 
         if (!vp.isUp)
         {
