@@ -31,6 +31,12 @@ class P4RoutingStrategy : public HttpRoutingStrategyBase
 
     const char* describe() const override { return "P4 proxy agent"; }
 
+    /// [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md C-4 / B-1.
+    /// The proxy agent programs the table before it answers and reports a per-entry refusal as
+    /// {"status":"error"} in a 200 body, which post() already turns into ok=false. Its success is
+    /// therefore an adjudication -- and that is what makes first_sighting=never true on P4.
+    bool successConfirmsProgramming() const override { return true; }
+
     OpResult installAGroupEntry(const nlohmann::json& j) override;
     OpResult deleteAGroupEntry(const nlohmann::json& j) override;
     OpResult modifyAGroupEntry(const nlohmann::json& j) override;

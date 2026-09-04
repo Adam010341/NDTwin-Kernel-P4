@@ -115,6 +115,12 @@ add_executable(
   # which ends the kernel. Includes the reachability evidence (updateSwitches invents no vertex),
   # so the day that stops being true, this suite says so. One death test; forks once.
   test_CpuReportNoIpSwitch.cpp
+  # [Co-developed with claude code -- Adam] KNOWN-ISSUES C-4: B-1's phantom filter covered the
+  # read path on both planes but only ever had a confirmation signal on one. Ryu answers 200
+  # before any switch has seen the FLOW_MOD, so the OVS half stamped a token on an entry nothing
+  # had observed and served it 0.257 s after the POST. Next to test_PendingEntryFilter.cpp in
+  # spirit -- that one owns the rule, this one owns what the two planes are allowed to confirm.
+  test_PhantomFilterCoversOvs.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

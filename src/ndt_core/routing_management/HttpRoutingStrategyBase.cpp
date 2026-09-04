@@ -212,7 +212,12 @@ HttpRoutingStrategyBase::post(const std::string& path, const json& body, const c
         }
     }
 
-    return OpResult::success(status);
+    // [Co-developed with claude code -- Adam]
+    // doc/KNOWN-ISSUES.md C-4. The gate just above is where the two planes stop meaning the same
+    // thing by a 200 -- its own comment says so, in as many words -- and this is the line that
+    // carries that difference forward instead of dropping it here, which is what left the OVS
+    // half of B-1 open for two weeks after the P4 half was closed.
+    return OpResult::success(status).withProgrammingConfirmed(successConfirmsProgramming());
 }
 
 // [Co-developed with claude code -- Adam] F-13.

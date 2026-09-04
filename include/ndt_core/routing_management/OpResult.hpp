@@ -51,6 +51,38 @@ struct OpResult
      */
     std::string outcome;
 
+    /**
+     * Whether this answer is evidence that a switch now holds the rule.
+     *
+     * [Co-developed with claude code -- Adam]
+     * doc/KNOWN-ISSUES.md C-4. `ok` answers "did the far end accept the request". On the P4 plane
+     * that is the same question, because the proxy agent programs the table before replying and
+     * reports a per-entry refusal as {"status":"error"} in a 200 body. On the OVS plane it is not:
+     * Ryu's /stats/flowentry/add returns once it has built the OFPFlowMod, and OpenFlow does not
+     * acknowledge a FLOW_MOD, so its 200 is emitted before any switch has adjudicated anything.
+     *
+     * Measured 2026-09-03 on ovs4: a cache row served 0.257 s after the POST whose first real
+     * sighting was 13.4 s later -- and the same for a legitimate rule as for an illegitimate one,
+     * which is what proves the row is the cache's own rather than a verdict about the rule.
+     *
+     * So this is a second bit, answered by the strategy that owns the connection, and it is what
+     * DispatchOutcomeLog::record requires before it will stamp a token as programmed.
+     *
+     * **Default false, and the direction is deliberate.** An answer that says nothing about
+     * programming must not be read as confirming it. The cost of the conservative direction is a
+     * real entry withheld until the next poll, which is recoverable; the cost of the optimistic
+     * one is the phantom this exists to remove.
+     */
+    bool confirmsProgramming = false;
+
+    /// A copy of this result carrying @p confirmed. Chainable at a return statement.
+    OpResult withProgrammingConfirmed(bool confirmed) const
+    {
+        OpResult copy = *this;
+        copy.confirmsProgramming = confirmed;
+        return copy;
+    }
+
     /// A copy of this result carrying @p name as its outcome. Chainable at a return statement.
     OpResult withOutcome(std::string name) const
     {
