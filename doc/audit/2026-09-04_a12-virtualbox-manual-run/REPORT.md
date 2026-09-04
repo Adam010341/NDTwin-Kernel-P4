@@ -269,6 +269,44 @@ configuration the image can actually express.
 
 ## 🔴 D13 -- 7 of 10 switches never receive their flow rules, and nothing ever repairs it
 
+> **Rewritten a second time, 2026-09-04 (A-12f): this is a publishing defect, not a code defect.**
+> The fix has been in the source since **2026-07-31** and is in the public repository the Download
+> page links to. Only the shipped VM image predates it. Everything below the next section still
+> stands as the description of what the image does; what changed is what should be done about it.
+
+### The fix already exists, and users of the repo already have it
+
+`2c81b26b` (2026-07-31, Adam) carries a comment that states the root cause in the same terms this
+round re-derived from scratch a month later:
+
+> `install_all_pair_paths` ran exactly once per process, because
+> `install_initial_openflow_entries_completed` is set on the line immediately before the call.
+
+Verified **by content, at each ref**:
+
+| ref | `intelligent_router.py` | the one-shot flag |
+| :--- | :--- | :--- |
+| `trunk` | 2084 lines | fixed -- `:721` *"Deliberately does NOT set ... itself"* |
+| `20cd80b` (internal source of the snapshot) | 2084 lines | fixed |
+| **`936f8c6` (the public repo the Download page links to)** | 2084 lines | **fixed** |
+| **the published VM image** | the old structure: flag set on the line before the call | **not fixed** |
+
+So the two artefacts offered on the same Download page disagree: **clone the repository and you get
+the fix; download the VM image and you get the bug.**
+
+⚠️ **Instrument error worth recording.** I first asked whether the five fix commits were ancestors
+of `936f8c6`, with `git merge-base --is-ancestor`, and got "none of them". That answer was wrong.
+`936f8c6` is an **orphan snapshot** with no parents, so ancestry returns false for every commit in
+existence. **Ancestry is not the question to ask of an orphan snapshot; content is.**
+`git show 936f8c6:intelligent_router.py` shows the fix plainly.
+
+✅ **Answered, and it became D18.** The image's `PROVENANCE.txt` does name a kernel commit --
+`20cd80b62948e316646dd24f302f5278fee544ee`, which matches this repository exactly -- and states
+that the tree is that commit minus `doc/`. It is not: five files differ, and
+`intelligent_router.py` is one of them. See **D18**.
+
+### What the image does, as measured (unchanged from A-12c)
+
 > **Rewritten 2026-09-04 by run A-12c.** The A-12b heading read *"inter-switch forwarding does
 > not work on the OVS path"*. **That was wrong, and A-12c falsified it with a measurement:**
 > inter-switch forwarding works fine between two switches that hold rules. The defect is that
@@ -507,12 +545,20 @@ Enter 1 or 2 [default 1]:
 
 It then raised `EOFError` -- **because I fed it no stdin**, which is my harness, not a defect.
 
-## ⚠️ Not a finding: the visualizer
+## ⚠️ Not a finding: the visualizer -- and a limitation I asserted without checking
 
 `./network_traffic_visualizer.sh` failed here with `java.lang.UnsupportedOperationException:
-Unable to open DISPLAY`. **That is this headless SSH environment, not the script** -- it got all
-the way to the JavaFX launch, so the maven and JavaFX setup around it is sound. Nothing on that
-step was changed.
+Unable to open DISPLAY`. That is this headless SSH environment, not the script, and nothing on
+that step was changed.
+
+> 🔴 **Correction (A-12f).** A-12e went further and said this step could *never* be verified
+> headlessly. **Wrong, and wrong for the worst reason: I never checked whether the image has a
+> virtual framebuffer.** It does -- `xvfb-run`, `Xvfb` and `xdpyinfo` are all installed. Re-run as
+> `xvfb-run -a ./network_traffic_visualizer.sh`, the DISPLAY error count is **0** and the
+> application runs its render loop normally (`TopologyCanvas.draw() ... Canvas size: 1198.0x900.0`),
+> drawing zero nodes only because the kernel was not up in that run. **The script is fine, and the
+> limitation was mine and imaginary.** A stated limitation is a claim like any other; this one had
+> no evidence behind it.
 
 ## What was changed on the website, and on what evidence
 
@@ -525,5 +571,103 @@ lines carry explicit, visible uncertainty rather than a silent guess:
 * `intelligent_router_static_topo2.py` -> `intelligent_router.py` carries a note **on the page**
   saying the substitution brings the fabric up but has **not** been verified to reproduce the
   energy-saving behaviour the page demonstrates.
+
+## 🔴 D18 -- the image's `PROVENANCE.txt` names a commit the image does not contain
+
+`~/Desktop/NDTwin-Kernel/PROVENANCE.txt` states:
+
+> The kernel tree here is 20cd80b MINUS its doc/ directory, removed 2026-09-01 before ...
+
+The commit id it gives, `20cd80b62948e316646dd24f302f5278fee544ee`, resolves in this repository and
+is exactly right. The claim about the tree is not.
+
+Every tracked file of `20cd80b` outside `doc/` -- 405 of them -- was hashed on the image with
+`git hash-object` (git 2.43.0 is installed) and compared against `git ls-tree -r 20cd80b`:
+
+```
+相符 400   不符 5   缺檔 0   （總 405）
+```
+
+| file | image | `20cd80b` |
+| :--- | :--- | :--- |
+| `intelligent_router.py` | 724 lines, `sha256 c994bf5c...` | 2084 lines, `sha256 1a3937bb...` |
+| `p4_proxy/proxy_agent/main.py` | 405 lines | 358 lines -- **the image's copy is longer** |
+| `testbed_topo.py` | 240 lines | 257 lines |
+| `p4_proxy/mininet/host_count_override` | `4` | `128` |
+| `p4_proxy/mininet/bmv2_binary_override` | bare path, comments stripped | same path, with its rationale |
+
+The divergence does not point one way. One file is far older *and* carries a machine-specific
+hardcode (`static_topology_file_path = Path("/home/tester/Desktop/NDTwin-Kernel/setting/...")`),
+one is **longer** than the commit's, one differs by 17 lines, and one override has a different
+value. That is the signature of an image built from **a working directory somebody had edited**,
+not from a checkout of the commit it names.
+
+### Why this is the heaviest item in this report
+
+**D13 is a consequence of D18.** The switch-programming defect exists on the image *because*
+`intelligent_router.py` is not the file `20cd80b` contains. The commit's own version has carried
+the fix since 2026-07-31. A reader who trusts `PROVENANCE.txt` -- and it is written to be trusted
+-- would reasonably conclude that reading `20cd80b` tells them what the image runs. For this file
+it does not, and the difference is the difference between a working fabric and a silently broken one.
+
+It is also the **second** false claim in this same file. The first is D1's *"Nothing the software
+READS at run time lived under doc/. **Checked, not assumed**"*, contradicted by
+`HttpSession.cpp:1749`. Two independent, confidently-worded, false assertions in the one document
+whose entire purpose is to be the thing you do not have to verify yourself.
+
+**What would fix it:** rebuild the image from a clean checkout, or -- if those five files are
+deliberate -- say so in `PROVENANCE.txt`, file by file, with the reason. `host_count_override`
+being `4` rather than `128` looks deliberate; `intelligent_router.py` being a year-older file with
+a hardcoded path does not.
+
+## 🔴 D19 -- two of the six applications cannot start at all, and the manual says all six were started
+
+The Installation Manual's Quick Start page states:
+
+> **Applications:** Network-Traffic-Generator, Network-State-Recorder, Energy-Saving-App,
+> Traffic-Engineering-App, Network-Traffic-Visualizer and Simulation-Platform-Manager -- all built
+> on the image and **each one started once to confirm it comes up**
+
+Each of the six was started on the image. Four do. Two cannot:
+
+| application | started? | how |
+| :--- | :--- | :--- |
+| Energy-Saving-App | ✅ | `systemctl start ndtwin-esa`, listening on `:8001` |
+| Simulation-Platform-Manager | ✅ | `systemctl start ndtwin-spm`, listening on `:9000` |
+| Network-Traffic-Visualizer | ✅ | `xvfb-run ./network_traffic_visualizer.sh`, render loop runs |
+| Traffic-Engineering-App | ✅ | `sudo python3`, and `run_te()` executes against the kernel |
+| **Network-Traffic-Generator** | ❌ | `ModuleNotFoundError: No module named 'pandas'`, **rc 1** |
+| **Network-State-Recorder** | ❌ | `ModuleNotFoundError: No module named 'nornir'`, **rc 1** |
+
+Neither module is anywhere on the image: not in the system `python3`, not in `base`, not in
+`ryu-env`, and `find / -type d -name pandas` (and `-name nornir`) returns nothing. The manual's own
+remedy for NTG -- `conda activate ntg_env` -- names an environment that does not exist either
+(D5), so there is no documented or undocumented path to starting it.
+
+### What this costs the two tutorials
+
+Both application tutorials end with a traffic-generation step performed *inside the NTG interface*.
+That step cannot be reached, so **neither demonstration can be completed on this image**. The
+Traffic Engineering application itself is fine -- it acquires the routing lock, polls
+`get_graph_data` every 5 s and runs its loop -- but it reports `0 entries are added` forever,
+because nothing can generate the traffic it is supposed to react to.
+
+That also demotes D16 from a defect to a detail: the config file the pages name does not exist, but
+the program that would read it cannot start.
+
+### A third false verification claim, from a third document
+
+D1 is `PROVENANCE.txt` asserting *"Checked, not assumed"* about a path the software does read.
+D18 is the same file naming a commit the image does not contain. D19 is the Installation Manual
+asserting that each application was started once to confirm it comes up, when two of them exit
+immediately with an import error. **Three separate documents each claim a verification that was
+not performed, and each is written in the register that makes a reader skip checking.**
+
+### One detail, measured
+
+NTG's own source documents its command as `flow --config <file>` -- one line, the file as an
+argument (`network_traffic_generator.py:287`, `:436`). Both tutorial pages show it as two steps,
+`flow --config` and then the filename on its own line. **Untested**: the interface could not be
+reached, so whether the two-step form would also work is unknown.
 
 [Co-developed with claude code -- Adam]

@@ -1,0 +1,24 @@
+=== xvfb-run ./network_traffic_visualizer.sh ===
+[rc=124]
+Unable to open DISPLAY 出現次數: 0
+[DEBUG] drawRealtimeFlows: Processing 0 links
+[DEBUG] drawRealtimeFlows: Top-K enabled=false, visibleFlowIndices.size=0, total flows=0
+[DEBUG] drawRealtimeFlows: Processed 0 links with flows
+[TOP-K] drawRealtimeFlows: Processed=0, Filtered=0, Shown=0
+[DEBUG] drawNodes() - Drawing 0 nodes, size: 16.0
+[DEBUG] WARNING: No nodes to draw!
+[DEBUG] TopologyCanvas.draw() - nodes: 0, links: 0, flows: 0
+[DEBUG] Canvas size: 1198.0x900.0
+[DEBUG] Offset: (0.0, 0.0), Scale: 1.0
+[DEBUG] TopologyCanvas.draw() - nodes: 0, links: 0, flows: 0
+[DEBUG] Canvas size: 1198.0x900.0
+[DEBUG] Offset: (0.0, 0.0), Scale: 1.0
+[DEBUG] drawFlows: showFlows=true, showLinks=false, playbackMode=false
+[DEBUG] drawFlows: Drawing simple connection lines (Flow Only mode)
+[DEBUG] drawRealtimeFlows: Processing 0 links
+[DEBUG] drawRealtimeFlows: Top-K enabled=false, visibleFlowIndices.size=0, total flows=0
+[DEBUG] drawRealtimeFlows: Processed 0 links with flows
+[TOP-K] drawRealtimeFlows: Processed=0, Filtered=0, Shown=0
+[DEBUG] drawNodes() - Drawing 0 nodes, size: 16.0
+[DEBUG] WARNING: No nodes to draw!
+DONE

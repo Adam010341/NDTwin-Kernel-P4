@@ -1,0 +1,35 @@
+A-12f STATE  2026-09-04T04:33:19+00:00  guest=ubuntu
+
+== 兩個缺的 Python 套件，全機確認 ==
+pandas   system-python3=MISSING  filesystem-dir=
+nornir   system-python3=MISSING  filesystem-dir=
+
+== 六個 app 實測起動狀況 ==
+Energy-Saving-App            OK   via systemd unit ndtwin-esa, :8001 listening
+Simulation-Platform-Manager  OK   via systemd unit ndtwin-spm, :9000 listening
+Network-Traffic-Visualizer   OK   xvfb-run ./network_traffic_visualizer.sh, render loop runs
+Traffic-Engineering-App      OK   sudo python3, run_te() executes against kernel :8000
+Network-Traffic-Generator    FAIL ModuleNotFoundError: pandas   (true rc=1)
+Network-State-Recorder       FAIL ModuleNotFoundError: nornir   (true rc=1)
+
+== NTG 自己文件裡的用法（手冊寫成兩段式） ==
+287:        flow --config <file>: Start dynamic traffic generation from JSON config.
+436:        - 'flow --config <file>': Execute flow-based traffic generation using
+
+== 本輪 stack 狀態 ==
+[2026-09-04 04:28:55.220] [info] [TopologyAndFlowMonitor.cpp:2081 run] topology from the control plane: 10 switches, 128 hosts, 288 edges up
+--- 埠 ---
+LISTEN 0      50           0.0.0.0:6633 0.0.0.0:*
+LISTEN 0      4096         0.0.0.0:8000 0.0.0.0:*
+LISTEN 0      50           0.0.0.0:8080 0.0.0.0:*
+DONE
+每台交換機規則數:
+130 130 130 130 2 130 130 2 130 130 
+
+== PROVENANCE 對帳（D18）==
+image intelligent_router.py: 724 行  sha256 c994bf5c28f4952a…
+宣稱的 commit:   commit: 20cd80b62948e316646dd24f302f5278fee544ee
+比對結果: 405 個追蹤檔中 400 相符 / 5 不符 / 0 缺
+
+== xvfb ==
+/usr/bin/xvfb-run /usr/bin/Xvfb 
