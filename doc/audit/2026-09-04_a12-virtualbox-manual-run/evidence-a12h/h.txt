@@ -1,0 +1,97 @@
+== 頁面點名的目錄 ==
+~                                        DIR
+~/Desktop                                DIR
+~/Desktop/NDTwin-Kernel                  DIR
+~/Desktop/NDTwin-Kernel/build            DIR
+~/Desktop/NDTwin-Kernel/p4_proxy         DIR
+~/Simulation-Platform-Manager            MISSING
+
+== 頁面點名的檔案／腳本（全機 find） ==
+Simulation-Platform-Manager        /home/tester/Desktop/Simulation-Platform-Manager
+autogen.sh                         /home/tester/miniconda3/share/doc/gettext/examples/hello-smalltalk/autogen.sh
+configure                          /usr/share/libtool/configure
+energy_saving_simulator            /home/tester/Desktop/Energy-Saving-App/energy_saving_simulator
+mvnw                               /home/tester/Desktop/Network-Traffic-Visualizer/mvnw
+network_state_recorder.py          /home/tester/Network-State-Recorder/network_state_recorder.py
+network_traffic_generator.py       /home/tester/Network-Traffic-Generator/network_traffic_generator.py
+network_traffic_visualizer.sh      /home/tester/Desktop/Network-Traffic-Visualizer/network_traffic_visualizer.sh
+simulation_platform_manager        /home/tester/Desktop/Simulation-Platform-Manager/simulation_platform_manager
+start_network_state_recorder.sh    /home/tester/Network-State-Recorder/start_network_state_recorder.sh
+stop_network_state_recorder.sh     /home/tester/Network-State-Recorder/stop_network_state_recorder.sh
+testbed_topo.py                    /home/tester/Network-Traffic-Generator/testbed_topo.py
+web_gui_deploy.sh                  
+
+== 頁面要求的套件／工具在不在 ==
+build-essential          installed
+ca-certificates          installed
+cmake                    /usr/bin/cmake
+installed
+docker-ce                MISSING
+docker-compose           MISSING
+eventlet                 MISSING
+fastapi                  MISSING
+install                  /usr/bin/install
+installed
+java                     /usr/bin/java
+installed
+kill                     kill
+installed
+libboost-all-dev         installed
+libfmt-dev               installed
+libspdlog-dev            installed
+libssh-dev               installed
+libssl-dev               installed
+ln                       /usr/bin/ln
+installed
+loguru                   MISSING
+make                     /usr/bin/make
+installed
+mininet                  installed
+mn                       /usr/bin/mn
+installed
+newgrp                   /usr/bin/newgrp
+installed
+nfs-common               installed
+nfs-kernel-server        installed
+ninja                    /usr/bin/ninja
+installed
+ninja-build              installed
+nlohmann-json3-dev       installed
+nornir                   MISSING
+openjdk-21-jdk           installed
+openvswitch-switch       installed
+ovs-vsctl                /usr/bin/ovs-vsctl
+installed
+p4c-bm2-ss               /usr/local/bin/p4c-bm2-ss
+installed
+pgrep                    /usr/bin/pgrep
+installed
+printf                   printf
+installed
+ps                       /usr/bin/ps
+installed
+python3                  /usr/bin/python3
+installed
+python3-venv             installed
+rm                       /usr/bin/rm
+installed
+ryu                      MISSING
+ryu-manager              MISSING
+simple_switch_grpc       /usr/local/bin/simple_switch_grpc
+installed
+ss                       /usr/bin/ss
+installed
+tail                     /usr/bin/tail
+installed
+torch                    MISSING
+usermod                  /usr/sbin/usermod
+installed
+uvicorn                  MISSING
+
+== docker / systemd unit ==
+docker                   MISSING
+docker-compose           MISSING
+nfs-kernel-server        1
+
+== conda envs ==
+DONE

@@ -773,4 +773,115 @@ The interesting one is P2. My prediction was right about the response and wrong 
 reach it: the harness used the documented body, and the documented body is itself broken. **A
 prediction can be correct and still not be what the first measurement tests.**
 
+---
+
+# Part F -- everything that was left (A-12h)
+
+A parser over the whole `docs/` tree found **14 pages and 387 commands** still untested after
+Parts A-E. Two of those pages (78 commands) are `Operate a Physical (Hardware) Network`.
+
+## 🚫 Not tested, because not permitted
+
+The physical-testbed pages were **not run**. The standing rules for this project forbid touching
+the power-strip API, the switches and the physical NICs, and nothing in that section can be
+exercised without at least one of them. They were read, not run, and **nothing in this report
+makes any claim about them**. That is a permission boundary, not an instrument limit and not a
+verdict on the pages.
+
+## ⚪ Not applicable to this image -- checked before being called a defect
+
+Three of the remaining pages describe a **different installation**, and reporting their missing
+files as image defects would be the framing error this campaign exists to avoid. Each was checked
+against its own stated audience first:
+
+| page | states | on this image | verdict |
+| :--- | :--- | :--- | :--- |
+| `WebGUI.md` | *"deploy ... on Ubuntu systems ... containerized using Docker"* | no `docker`, no `docker-compose`, no `web_gui_deploy.sh`; Web-GUI is not among the repositories the Download page says the image carries | **not applicable** -- a separate deployment |
+| `AI Model Training and Inference.md` | conceptual, names PyTorch/scikit-learn as examples | `torch` absent | **not applicable** -- it claims nothing about the image |
+| `Native-Linux Excution Environment.md` ×2 (164 commands) | building NDTwin from source on a Linux server | `autogen.sh`/`configure` etc. absent from any NDTwin tree | **not applicable** -- a from-source path, not the demo VM |
+
+## ✅ A negative result worth recording
+
+Every `git clone` URL in the manual was checked unauthenticated: **all ten resolve and are
+public** (`jafingerhut/p4-guide`, `p4lang/behavioral-model`, and the eight `ndtwin-lab` repos
+including `Web-GUI` and `NDTwin-Kernel-P4-public`). I predicted at least one would 404, on this
+campaign's track record. **Wrong, and it is worth saying so** -- the repository references are in
+good shape.
+
+## 🔴 D24 -- the Simulation Platform page sends you to a directory that is not there
+
+```bash
+cd ~/Simulation-Platform-Manager
+```
+
+| path | on the image |
+| :--- | :--- |
+| `~/Simulation-Platform-Manager` (as documented) | **MISSING** |
+| `~/Desktop/Simulation-Platform-Manager` | present |
+
+Same shape as D4. The binary inside it is fine and, started through `ndtwin-spm`, listens on
+`:9000` (Part D).
+
+## 🔴 D25 / D26 -- the Network State Recorder's start and stop scripts both exit 0 having done nothing
+
+These are the two failure shapes this project has recorded from a tester's run of the upstream
+repository. **They are confirmed here on the published VM image.**
+
+`start_network_state_recorder.sh` is, in full, a `sed` on a settings file and then:
+
+```bash
+nohup python3 network_state_recorder.py &
+```
+
+The Python exits immediately -- `ModuleNotFoundError: No module named 'nornir'`, true rc 1 when
+run in the foreground -- but it is backgrounded, so the script returns:
+
+```
+start true rc = 0
+NSR processes alive afterwards = 0        (walked /proc, not pgrep)
+```
+
+**D25: reports success, started nothing.**
+
+`stop_network_state_recorder.sh`:
+
+```bash
+echo $(pgrep -f network_state_recorder.py)
+sudo kill -15 $(pgrep -f network_state_recorder.py)
+# ... then a sed on the settings file
+```
+
+With nothing running, the command substitution is empty, `kill` is called with no pid and prints
+its usage, and the script's exit status comes from the trailing block:
+
+```
+stop true rc = 0
+```
+
+**D26: reports success, stopped nothing, and leaks `kill`'s usage text at the user.**
+
+Both true exit codes were taken **without a pipe in the way** -- a pipeline would have handed me
+the exit status of `head` instead, which is how this pair can look fine.
+
+## ⚠️ An instrument error, caught mid-round
+
+My first pass answered "is this package present?" with `command -v X || dpkg -s X`. That is the
+wrong question for a **Python** package: it reported `loguru`, `eventlet` and `ryu` as MISSING
+when all three are importable -- `loguru` from the system interpreter (the TE app uses it), and
+`eventlet` and `ryu` from inside `ryu-env`. Re-asked with the interpreter itself:
+
+| module | system `python3` | `base` | `ryu-env` |
+| :--- | :--- | :--- | :--- |
+| `pandas` | MISSING | MISSING | MISSING |
+| `nornir` | MISSING | MISSING | MISSING |
+| `loguru` | **ok** | MISSING | MISSING |
+| `eventlet` | MISSING | MISSING | **ok** |
+| `ryu` | MISSING | MISSING | **ok** |
+| `requests` | ok | ok | ok |
+| `networkx` | ok | MISSING | ok |
+| `fastapi`, `uvicorn`, `torch` | MISSING | MISSING | MISSING |
+
+**D19 survives the better instrument**: `pandas` and `nornir` are genuinely absent from all three
+interpreters, which is why NTG and NSR cannot start.
+
 [Co-developed with claude code -- Adam]
