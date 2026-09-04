@@ -62,6 +62,7 @@ TARGETS = {
     # meant to match everywhere. A checker that assumes every anchor wants exactly one match
     # would read this as DUP:1 against a gate that is not broken -- see 2026-09-04 note there.
     "src/zeta.cpp": "void z1()\n{\n    int zeta = 1;\n}\n\nvoid z2()\n{\n    int zeta = 1;\n}\n",
+    "src/theta.cpp": "void t()\n{\n    int theta = 1;\n}\n",
 }
 
 # --- one gate per shape, each written the way the real gate of that shape is written -------------
@@ -188,6 +189,42 @@ relay() {
     done
 }
 relay "delta becomes ninety-nine" "$SRC" '    short delta = 5;' '    short delta = 99;'
+"""
+
+# (o) mutate_g6_apps_liveness.sh's shape (also g7/g9/g9-faults): a mutation table of
+#     `write_case <name> <expect> <<'PAIR' <FROM> @@@TO@@@ <TO> PAIR` heredocs, read back and
+#     applied at RUNTIME by a small python applier -- there is no python in a case heredoc
+#     itself, only FROM/TO text, so _py_anchors finds nothing there. run_suite() below bakes in
+#     a file of its OWN ("$OTHER") the same way apply() bakes in "$SRC" -- the gate has to pick
+#     the right one (whichever function's body actually consumes the @@@TO@@@ marker), not just
+#     "the gate's only baked-in file".
+GATE_CASE_HEREDOC = r"""#!/usr/bin/env bash
+set -uo pipefail
+SRC=src/theta.cpp
+OTHER=tests/python/test_epsilon.py
+MUT_DIR=/tmp/mutate-shape-case
+write_case() {
+    mkdir -p "$MUT_DIR/$1"
+    printf '%s' "$2" > "$MUT_DIR/$1/expect"
+    cat > "$MUT_DIR/$1/pair"
+}
+CASES=()
+CASES+=(theta-one)
+write_case theta-one "some check" <<'PAIR'
+    int theta = %(THETA)s;
+@@@TO@@@
+    int theta = 99;
+PAIR
+run_suite() { bash "$OTHER"; }
+apply() {
+    python3 - "$SRC" "$MUT_DIR/$1/pair" <<'PYAPPLY'
+import sys, pathlib
+src, pair = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]).read_text()
+frm, to = pair.split("@@@TO@@@\n")
+s = src.read_text()
+src.write_text(s.replace(frm, to))
+PYAPPLY
+}
 """
 
 # --- the repo-root shapes (finding #78) ----------------------------------------------------------
@@ -385,7 +422,8 @@ def git(repo, *args):
 class Fixture:
     """A throwaway git repo holding the four target files and one gate per shape."""
 
-    def __init__(self, alpha="1", beta="3", gamma="7", epsilon="11", zeta="1", gates=None):
+    def __init__(self, alpha="1", beta="3", gamma="7", epsilon="11", zeta="1", theta="1",
+                gates=None):
         self.dir = tempfile.mkdtemp(prefix="anchorcheck_")
         for rel, body in TARGETS.items():
             full = os.path.join(self.dir, rel)
@@ -395,11 +433,13 @@ class Fixture:
             with open(full, "w") as fh:
                 fh.write(body)
         os.makedirs(os.path.join(self.dir, "tests", "shell"), exist_ok=True)
-        subs = {"ALPHA": alpha, "BETA": beta, "GAMMA": gamma, "EPSILON": epsilon, "ZETA": zeta}
+        subs = {"ALPHA": alpha, "BETA": beta, "GAMMA": gamma, "EPSILON": epsilon, "ZETA": zeta,
+               "THETA": theta}
         want = gates if gates is not None else ["array", "callback", "packed", "driver"]
         source = {"array": GATE_ARRAY, "callback": GATE_CALLBACK, "packed": GATE_PACKED,
                   "driver": GATE_DRIVER, "unreadable": GATE_UNREADABLE,
                   "replace_all": GATE_REPLACE_ALL, "positional": GATE_POSITIONAL,
+                  "case_heredoc": GATE_CASE_HEREDOC,
                   "root_named": GATE_ROOT_NAMED, "root_short": GATE_ROOT_SHORT,
                   "root_baked": GATE_ROOT_BAKED,
                   "root_union": GATE_ROOT_UNION, "root_generic": GATE_ROOT_GENERIC,
@@ -565,6 +605,37 @@ class ShapesAreChecked(unittest.TestCase):
         self.assertTrue(f.cell(out, "positional").startswith("ok"),
                         "positional-relay gate: %s\n%s" % (f.cell(out, "positional"), out))
         self.assertEqual(0, rc, out + err)
+
+    def test_write_case_heredoc_is_read_and_pinned_to_the_right_file(self):
+        """mutate_g6_apps_liveness.sh (and g7/g9/g9-faults) were all NO-ANCHORS: their mutation
+        table is FROM/TO text in a heredoc, not python, so _py_anchors found nothing. The anchor
+        must also land on src/theta.cpp (apply()'s file) and not on OTHER (run_suite()'s) --
+        both functions bake in a file of their own."""
+        anchors, problems, _delegates = load_checker().extract(
+            GATE_CASE_HEREDOC % {"THETA": "1"}, "mutate_shape_case_heredoc.sh",
+            "tests/shell/mutate_shape_case_heredoc.sh")
+        self.assertEqual([], problems, problems)
+        self.assertEqual(1, len(anchors), anchors)
+        f, text, _kind, _where, want = anchors[0]
+        self.assertEqual("src/theta.cpp", f, anchors)
+        self.assertEqual(1, want, anchors)
+        self.assertEqual("    int theta = 1;\n", text, anchors)
+
+    def test_write_case_heredoc_gate_ok_and_drift_end_to_end(self):
+        f = Fixture(gates=["case_heredoc"])
+        self.addCleanup(f.close)
+        rc, out, err = f.run()
+        self.assertTrue(f.cell(out, "case_heredoc").startswith("ok"),
+                        "case-heredoc gate: %s\n%s" % (f.cell(out, "case_heredoc"), out))
+        self.assertEqual(0, rc, out + err)
+
+        f2 = Fixture(gates=["case_heredoc"], theta="2")   # the gate's FROM text now matches nothing
+        self.addCleanup(f2.close)
+        rc2, out2, err2 = f2.run()
+        self.assertTrue(f2.cell(out2, "case_heredoc").startswith("MISSING"),
+                        "a drifted case-heredoc anchor must be MISSING, got %s\n%s"
+                        % (f2.cell(out2, "case_heredoc"), out2))
+        self.assertEqual(1, rc2, out2 + err2)
 
 
 class DriverInheritsItsDelegatesVerdict(unittest.TestCase):

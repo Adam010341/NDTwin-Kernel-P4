@@ -98,11 +98,16 @@ write_case probe-session-only "session up + NO process     -> not-running" <<'PA
 PAIR
 
 CASES+=(notrunning-rc-zero)
+# 2026-09-04: re-anchored. The poisoned-pidfile guard around the `rm -f "$p"` cleanup a few
+# lines up added its own if/fi, pushing this branch's body one indent level deeper (20 -> 24
+# spaces) and separating `return 2` from the `fi ;;` that used to sit on the same line as it.
+# Same two lines, same fix being reverted; only the whitespace and the now-separate `fi ;;`
+# changed.
 write_case notrunning-rc-zero "stop of a never-started pidfile app -> rc 2" <<'PAIR'
-                    (( poisoned == 1 )) && return 1
-                    return 2 ;;
+                        (( poisoned == 1 )) && return 1
+                        return 2
 @@@TO@@@
-                    return "$poisoned" ;;
+                        return "$poisoned"
 PAIR
 
 CASES+=(aggregate-or-rc1)

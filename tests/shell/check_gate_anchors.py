@@ -818,12 +818,48 @@ def extract(gate_text, gate_name, gate_path=None, exists=None):
                 pending_py_file = files[-1]
             continue
 
+    full = split_commands(gate_text)
+
+    # -------------------------------------------------------------- pass 1.5: "case" heredocs
+    # 2026-09-04. `write_case <name> <expect> <<'PAIR'\n<FROM>\n@@@TO@@@\n<TO>\nPAIR` -- all four
+    # of tests/shell/mutate_g6_apps_liveness.sh, mutate_g7_ndtwin_lab_config.sh,
+    # mutate_g9_cleanup_no_pkill_f.sh and mutate_g9_faults_topo_pid.sh store their mutation table
+    # this way: one heredoc per case, split on the literal marker line by a small python applier
+    # read back at RUNTIME (`frm, to = pair.split("@@@TO@@@\n")`). Every one of them was
+    # NO-ANCHORS: pass 1's heredoc handling only looks for python inside a heredoc, via
+    # `_py_anchors`, and there is no python in a write_case heredoc to find -- it is FROM/TO text,
+    # not code.
+    #
+    # The target file is not named at write_case's own call site; it is resolved the same way
+    # default_file_of resolves any other applier's baked-in file, applied to whichever function's
+    # body contains the split marker AS PYTHON SOURCE (whichever function actually consumes
+    # "@@@TO@@@", as opposed to some unrelated function -- run_suite() in these same gates also
+    # bakes in a file of its own, the test SUITE it runs, and guessing "the gate's only baked-in
+    # file" would have pinned every case to the wrong one).
+    CASE_MARKER = "@@@TO@@@"
+    applier = next((n for n, b in funcs.items()
+                    if ('"%s' % CASE_MARKER) in b or ("'%s" % CASE_MARKER) in b), None)
+    case_file = fdefault.get(applier) if applier else None
+    for cmd in full:
+        if not cmd:
+            continue
+        head, hq = cmd[0]
+        # The marker on a line of its OWN, i.e. followed by a real newline byte -- not merely
+        # present, or the applier's own heredoc (`pair.split("@@@TO@@@\n")` is genuine python
+        # source, the marker followed by a literal backslash-n inside a quoted string, matched
+        # here too if this required only substring presence) would be misread as a case of its
+        # own with no FROM text worth anything.
+        if hq != "H" or (CASE_MARKER + "\n") not in head:
+            continue
+        frm = head.split(CASE_MARKER + "\n", 1)[0]
+        if frm:
+            anchors.append((case_file, frm, LITERAL, "write_case heredoc", 1))
+
     # ------------------------------------------------------------------- pass 2: the call sites
     # This pass reads the FULL text, function bodies included, because that is where three of the
     # four unreadable gates keep their mutation tables. It runs only rules that need a positively
     # identified file AND a literal anchor; the appliers themselves (perl/sed/python over "$1")
     # stay in pass 1 above, where a positional parameter cannot be mistaken for a string in a file.
-    full = split_commands(gate_text)
     seen = {(f, t, k, n) for f, t, k, _w, n in anchors}
     unread_params = []
 
