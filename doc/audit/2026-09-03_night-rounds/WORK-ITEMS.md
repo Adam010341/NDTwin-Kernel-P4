@@ -173,3 +173,11 @@ OVS 的 bridge 名在 `ndt down` 後會重用；對「不存在的 bridge」關�
 ## W-APPS-LIVE — 四個外部 app 對著跑起來的 kernel 用一次（⭕ 未派；今晚整機測試若開 app 就是第一次）
 
 09-02 手動測試只到安裝／建置／headless smoke（run-04 `JOURNAL.md:506` 明寫 GUI 功能頁不在範圍）；auditor 09-04 14:0x 的 grep 是第一次查 consumer（六個本地 repo：沒人讀 `get_switches_power_state`，五個讀 `is_up`）。→ FINDINGS #90。
+
+## W-SCRATCH — 多支 agent 共用 auditor 的 scratchpad 根目錄，互相覆寫（⭕ 未派，派工模板層）
+
+09-04 上午三起：phantomovs 覆寫了 `logs/build_red.log`／`configure.log`（那是 stop agent 的 log 目錄）並兩次 `rm -rf scratchpad/shadow`；delgroup 的 `live_arm.sh` 被 phantomovs 蓋掉；chaoswire 的 `suite.log` 稍早也被蓋。**沒有一件影響已併入的證據**（raw 在 audit-raw、結論在 MERGE-LOG），但 stop 第一波的 `build_red.log` 原檔已不在。派工 prompt 從此固定寫 `scratchpad/<name>-work/`，接回訊息重述；auditor 自己的東西也搬進 `<label>-work/`。
+
+## W-GATE-LOCK 補記（09-04 上午）
+
+第二波三支全部排在 stop 補件的閘門（單次持鎖 ~50 分）之後；phantomovs 的 guard 行程更是在排隊中無聲死掉（沒寫 giving up、不在 ps）。auditor 改成**只在合併樹跑一次**紅臂＋五個閘門（`wave2-work/verify_wave2.sh`），省掉每支在自己樹上重建整套測試 object 的成本。工具層的修法（閘門每個 mutant 各自取放鎖）仍未派。

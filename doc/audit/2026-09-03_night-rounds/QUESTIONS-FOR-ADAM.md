@@ -671,3 +671,22 @@ sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sb
 **Q4 #81 agent 裁成「保留 `setVertexUp`、不清命令」**（三個 caller 都是握手完成的邊緣觸發）。(a) 認（建議）；(b) 控制平面推播也不得抬 `reachable`（一行改成 edge-triggered 拒絕，測試已釘住不清命令那一條）。
 
 **裁決（Adam 09-04 14:0x）**：Q1 由盤點結案（見上表：六個本地 repo 沒人讀 `get_switches_power_state`）；Q2 (a) `is_up` 別名留到四個 consumer 都改用 `reachable`，API 文件已標 deprecated（`2cd796ff`）；Q3 (a) #80 無時間上界，認；Q4 (a) #81 保留 `setVertexUp`、不清命令，認。
+
+## N22. 第二波併入之後（#1 delete、#85 no-IP、#2 幽靈列的 OVS 半邊、stop 補件），今晚整機測試前要知道的三件事＋五題
+
+**今晚會撞到的對外變化**（都已在 trunk `b0807723`）：
+1. **OVS 上剛 `install_flow_entry` 的列，在下一次輪詢（約 10 s）之前不會出現在 `get_switch_openflow_table_entries`**；kernel.log 會多兩種 WARN（dispatch 端「N of M dispatched flow entries … withheld」、view 端「flow-table view is withholding N row(s)」）。這是 #2 的修法本身，不是 bug。P4 不變。
+2. **`delete_group_entry`／`delete_meter_entry` 在交換機沒真的刪掉時回 502 `{"outcome":"still_present"}`**、讀不回來時回 200 `unverified`；成功的 delete 現在送最小 body（`dpid`＋id）。API 文件 §33 還沒改。
+3. **`get_cpu_utilization`／`get_memory_utilization`／`get_temperature` 的 body 可能出現非 IP 的 key `dpid:<n>`（值 -1）**——只在拓樸裡有沒有 IP 的 switch 時；今天的載入端會拒絕那種檔，所以正常測試看不到。
+
+**Q1（#85）`"dpid:<n>"` 這個 key 形狀可以嗎？** (a) 照現在——保留 entry、`dpid:<n>` 當 key、值 -1（agent 與我都建議；「丟掉一台 switch」是 08-18 修過的失敗模式，前綴不可能被誤讀成位址；後果＝要通知 Web-GUI「key 不保證是 IP」）；(b) 省略那台、只留 WARN（body 定義域不變，但 Web-GUI 少一列＝重演 08-18）；(c) 十進位 dpid 不加前綴（一個 `3` 夾在 `10.0.0.x` 中間會被當壞位址）。
+
+**Q2（#85）`get_power_report` 的 `power_consumed: -1` 要不要寫進 API 文件？** 文件沒替這個端點記哨兵；`0` 在這裡已是「關機」。(a) 補一行，沿用 §12/§13 的「-1 means … unavailable」（建議）；(b) 不補。
+
+**Q3（#1 → #87）install／modify 是同型缺陷，要另開工單嗎？** 會改既有回應契約（被拒的 install 從 200 變 502）。(a) 開（建議，但排在整機測試之後）；(b) 不開，記 KNOWN-ISSUES。
+
+**Q4（#1）`502 still_present`／`unverified` 要進 API 文件 §33 嗎？** 該節目前叫使用者「去 kernel log 看每筆結果」，而 log 一直是空的。(a) 我改（建議）；(b) 交 mainDev；(c) 不改。
+
+**Q5（#2）要不要做 OpenFlow barrier？** 那才是 OVS 上真正的「觀測」，但 Ryu 的 REST 沒有 barrier 路由——要改 southbound 協定或跨 repo 改 proxy。(a) 不做，接受「新列等一次輪詢」（agent 建議）；(b) 開工單研究 Ryu 自訂 REST 路由；(c) 縮短輪詢間隔（治標，且輪詢成本已是 #55/#56 的主題）。
+
+**順手發現、未派的三條**：#86（`ndt` 預檢與啟動不是同一支 binary）、#87（上面 Q3）、#88（`findSwitchByIp` 等五處 `ip.front()`）。都是 agent 讀碼，auditor 未親驗。
