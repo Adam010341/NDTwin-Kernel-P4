@@ -116,10 +116,60 @@ Adam 裁（09-03 21:1x）：journal 現況不動，先量。要量的是 REST `/
 
 Adam 裁（09-03 21:1x）：(a)。派 `fix/is-up-split-admin-state-reachable`。狀態：🛠 派工中（09-03 21:1x）。
 
-## W-27b — finding #27 的下半：`FlowLinkUsageCollector::stop()` 接上同一個 `StopSignal`（⭕ 未派）
+## W-27b — finding #27 的下半：`FlowLinkUsageCollector::stop()` 接上同一個 `StopSignal`（Adam 09-04 裁：今晚測完派；⭕ 未派）
 
 `fix/kernel-stop-is-bounded` 併入後，行程層級的關機是 **4.70 s**，其中 **4.607 s** 在 collector 的 `stop()`（`refreshDestinationPathsPeriodically` 的 `--max-time 10` curl 與 `testCalAvgFlowSendingRatesRandomly`／`purgeIdleFlows`／`calAvgFlowSendingRatesPeriodically`／`calFlowPathByQueried` 四條沒切片的 1–2 s sleep）。照抄同一個原語（`WorkerScope`＋`waitFor`＋`execCommandCancellable`）即可；做完才能對外承諾 3 s。stop agent 建議現在就派（N20 Q1 建議 (b)）。前提：`FlowLinkUsageCollector.cpp` 今晚有別的分支在動的話先等它們併完。
+
+Adam 裁（09-04 14:0x，N20 Q1）：(b) 今晚測完派；兩支併完對外承諾 3 秒，在那之前文件寫「行程 5 秒」。
 
 ## W-GATE-LOCK — C++ 變異閘門整輪持鎖，餓死其他 agent（⭕ 未派，工具層）
 
 09-04 凌晨實測：一支 C++ 閘門在 `guarded_build.sh` 的**單次持鎖**內對每個 mutant 重編（-j1、動到 `GraphTypes.hpp` 的每個 mutant 重編大半棵樹），連續持鎖 1 h 33 m；同時 7 個 waiter，delgroup 的 configure 排 76 分鐘沒拿到、noip 也停下等。`LOCK_WAIT` 預設 3600 s 讓排隊者直接放棄（已改 verify 腳本預設 10800）。**改法候選**：閘門對每個 mutant 各自取放鎖（`build()` 包一層 guard，而不是整支腳本包一層）；或 guard 加公平佇列（ticket）。代價：每次取放鎖多幾秒；好處：多 agent 之夜不再餓死。要 Adam 點頭再動 `tools/build_guard/`（它是 09-02 為了保護 app 加的）。
+
+## W-LOGS-TO-AUDIT-RAW — trunk 上 09-03 起的 1,049 個 log／證據檔搬去 `audit-raw`（Adam 09-04 裁 (b)；⭕ 今晚測完做）
+
+`doc/audit/2026-09-02_manual-usertest/**/logs`、`**/tester-files/logs`、A-12 的 `evidence/`（`8baf9074`、`69bd66c1`、`f6158e8a`、`47c6cb1a`、`1cf1556f`、`64602876` 等，共 12.9 MB／約 330 個 .log/.txt/.err＋夜巡 round 1–6 約 150 個）→ `audit-raw` 同路徑（temp-index 法，逐檔 sha256 對帳），trunk 上 `git rm`（**列到檔案，不用目錄 pathspec**）。不改寫歷史（p4／lab 已有）。**做完才解凍 push。**
+
+## W-GROUP-INSTALL-MODIFY — install／modify group/meter 與 #1 同型（FINDINGS #87；Adam 09-04 裁：測完開工單）
+
+同一套「先讀回再宣稱」接到 `install_group_entry`／`modify_group_entry`（meter 同）；會動既有回應契約 ⇒ API 文件 `doc/2026-01-02_ndt_api.md` §33 一併改（該節現在叫使用者去看一直是空的 kernel log）。
+
+## W-OF-BARRIER — 幽靈 flow 修法之後的 OpenFlow barrier（N22 Q5；Adam 09-04 裁：先不做）
+
+#2 修完，OVS 上剛 `install_flow_entry` 的列要等下一次輪詢（3–13 s）才進 `get_*`。**今晚整機測試量到的延遲＝這張工單的 BEFORE。** 候選做法：install 後送 barrier 再讀回；動到 Ryu 的呼叫方式與南向驗證路徑，需要一輪 live A/B。
+
+## W-GATE-ANCHORS-HEREDOC — 三支閘門 anchor checker 讀不到（N14 Q4；⭕ 未派，工具層）
+
+`mutate_ndt_up_target.sh`、`mutate_g7_ndtwin_lab_config.sh`、`mutate_g9_cleanup_no_pkill_f.sh` 回 NO-ANCHORS（heredoc 寫法；#19 的修法沒涵蓋這個形狀，ndtcheck agent 也撞到）。改閘門寫法或教 `tests/shell/check_gate_anchors.py` 讀 heredoc，二擇一；判決不得變。
+
+## W-RC3-AGGREGATE — `ndt status --check` 的 rc 3 與新閘門接進彙總跑批（N15 Q4＋N17 Q4；⭕ 未派）
+
+目前沒有任何呼叫端讀 rc 3（三態只有人眼看得到）；`mutate_ndt_up_down_robust.sh` 也沒進 `local_ci.sh`／`l1_unit_tests.sh` 之類的彙總。一張工單一起做。
+
+## W-TOPO-THREE-DOORS — 拓樸輸入驗證的其他三扇門（N18 Q3；⭕ 未派，isup 已併可派）
+
+`GraphTypes.hpp` 的 `from_json`（不是檔案載入路徑）、`ecmp_groups[].port_id`、node 迴圈裡三個「加了一部分 vertex 才 throw」的半套用。連同 FINDINGS #89（檢查器知道、kernel 不知道）。
+
+## W-EXECARGV-EXPECTED-NONZERO — `utils::execArgv` 對預期中的非零 status 仍印 `Command failed (exit code 2)`（N19 Q3；⭕ 未派，小）
+
+每次對已不在的 bridge 關機都會先印這行誤導、再印正確的 INFO。**今晚 kernel log 會看到，不是新缺陷。** `Utils.hpp` 共用，等今晚分支都併完再改。
+
+## W-INV01-LATENCY-LIVE — 把 INV-01-latency 真的量一次（N16 Q5；⭕ 未派，需要 P4 窗口）
+
+claim → `ndt up p4 4` → 關 s1 → `--power-ip 192.168.123.11 --null`；那會是這個檢查存在以來第一次量到真的 power-on。跟 W-N11 同一個 P4 窗口做。
+
+## W-DOCS-NDT-NTG-AND-MANUAL-TOPO — 兩處文件（N14 Q2＋Q5；⭕ 未派，純文字）
+
+① `ndt ntg cli|prompt` 的說明改成「只對手動路徑有效」（`ndt up ovs` 現在落進本 repo 那份的 `CLI(net)`）；② 手冊的手動路徑改成叫人跑本 repo 的 `testbed_topo.py`（#84：NTG 那份靠一個沒 commit 的編輯），不動 NTG。
+
+## W-OVS-MAY-EXIST — `add-br`／`add-port` 改 `--may-exist` 讓 bring-up 真正冪等（N19 Q2；Adam 裁：測完再議）
+
+動到既有成功路徑（今晚會走），所以今晚之後。
+
+## W-ADMIN-POWEREDOFF-CLEAR — `ndt up` 開場清掉所有 `adminPoweredOff`（N19 Q4；⭕ 未派）
+
+OVS 的 bridge 名在 `ndt down` 後會重用；對「不存在的 bridge」關機現在回成功並記命令，同名 bridge 稍後被別人重建時那道命令仍掛在同一 vertex（要 power-on 才撤）。跟 #8 的 `up.target` 一起想。
+
+## W-APPS-LIVE — 四個外部 app 對著跑起來的 kernel 用一次（⭕ 未派；今晚整機測試若開 app 就是第一次）
+
+09-02 手動測試只到安裝／建置／headless smoke（run-04 `JOURNAL.md:506` 明寫 GUI 功能頁不在範圍）；auditor 09-04 14:0x 的 grep 是第一次查 consumer（六個本地 repo：沒人讀 `get_switches_power_state`，五個讀 `is_up`）。→ FINDINGS #90。
