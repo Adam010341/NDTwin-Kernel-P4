@@ -33,12 +33,12 @@
 
 | 狀態 | 條數 | 編號 |
 |---|---:|---|
-| ✅ IN TRUNK / 已修 | **58** | 4–7, 10–17, 19–20, 22–24, 26, 28–30, 32, 41–42, 45, 47–48, 50, 53, 56, 58–60, 63–65, 71–74, 78, 35–36, 46, 69–70, 77, 75, 8, 3, 21, 49, 61–62, 38, 82, 27, 76 |
-| 🛠 派工中 | **7** | 1–2, 33–34, 80–81, 85 |
+| ✅ IN TRUNK / 已修 | **62** | 4–7, 10–17, 19–20, 22–24, 26, 28–30, 32, 41–42, 45, 47–48, 50, 53, 56, 58–60, 63–65, 71–74, 78, 35–36, 46, 69–70, 77, 75, 8, 3, 21, 49, 61–62, 38, 82, 27, 76, 33–34, 80–81 |
+| 🛠 派工中 | **3** | 1–2, 85 |
 | ⭕ UNASSIGNED | **18** | 9, 18, 25, 31, 37, 39–40, 43, 51–52, 54–55, 66–68, 79, 83–84 |
 | ➖ NOT A DEFECT | **1** | 44 |
 | ❓ UNKNOWN | **1** | 57 |
-| **合計** | **85** | （09-04 0x:xx 由各列狀態欄重算；派工中＝4 支（isup Q12+#33/34/80/81 合併樹驗證中；phantomovs #2、delgroup #1、noip #85 07:0x 派、C++）：isup Q12+#33/34/80/81、stop #27/76（00:0x 被 watchdog 收掉、00:15 接回）、ovsoff #82、topoval #61/62、refused #38；⭕ 含 #52 碼半（文件半已併）、#83＝Adam 的 `sudo install`、#84 等 N14 Q5；#83–84 是 #77 交付時挖出的） |
+| **合計** | **85** | （09-04 0x:xx 由各列狀態欄重算；派工中＝3 支（phantomovs #2、delgroup #1、noip #85；第一波九支全部併入）：isup Q12+#33/34/80/81、stop #27/76（00:0x 被 watchdog 收掉、00:15 接回）、ovsoff #82、topoval #61/62、refused #38；⭕ 含 #52 碼半（文件半已併）、#83＝Adam 的 `sudo install`、#84 等 N14 Q5；#83–84 是 #77 交付時挖出的） |
 
 **未併分支的實況（`git for-each-ref` ＋ 逐支 `git rev-list --count`）**
 
@@ -102,8 +102,8 @@
 | # | 一句話 | 狀態 | 證據 | 誰該接手 |
 |---|---|---|---|---|
 | 32 | 🔴 根因：啟動競態讓 bmv2 的 liveness 路徑從不執行 | ✅ IN TRUNK（09-03 整合 `b466407b`） | `fix/d15-dataplane-kind-race @ 75c2b526`，動 `include/ndt_core/collection/TopologyAndFlowMonitor.hpp`、`include/ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp`、對應兩個 `.cpp`、`tests/CMakeLists.txt`、新增 `tests/test_DataPlaneKindOrdering.cpp`。閘門：**auditor 親自編譯並執行**——編譯乾淨（98 目標、0 個 `FAILED:`），**閘門 3／4**。紅的 `TheStartupSequenceMainUsesYieldsABmv2Verdict` 是**測試自己名不副實**（只呼叫 `startMonitor()`，沒呼叫 `m_manager->start()`），不是修法紅 | 🔴 **這支的閘門在自己的分支上關不起來**：要照 main 的順序跑就得呼叫 `m_manager->start()`，而 B-5 的漏 join 還在 ⇒ **B-5 必須先落地** |
-| 33 | `/ndt/get_switches_power_state` 回報的是下過的指令不是量測 | 🛠 派工中（21:2x，`fix/is-up-split-admin-state-reachable`（Q12 裁 (a)；`get_switches_power_state` 報 admin_state＋reachable）） | `set_switches_power_state`／`get_switches_power_state`／`PowerState`／`powerState` 在**所有未併分支的改動行 0 次命中**；D15 的文件把它列成「UNRUN／預測形狀改變但仍讀同一個 `isUp` bit」，**沒有修** | 電源 API 的主人；`isUp` 承載兩個意思是共同根因（見 #46） |
-| 34 | A-8 的三態檢查在 MININET 下不可能失敗，且硬把原因歸給 Energy-Saving-App | 🛠 派工中（21:2x，`fix/is-up-split-admin-state-reachable`（Q12；A-8 改讀兩欄才會響）） | `unexplained_down` 在 trunk 只出現在 audit 文件裡，不在任何分支的改動行 | — |
+| 33 | `/ndt/get_switches_power_state` 回報的是下過的指令不是量測 | ✅ IN TRUNK | `147c5ad1`（merge `95a9f743` of `fix/is-up-split-admin-state-reachable`，修法 `76b8313e`）：`get_switches_power_state` 改報 `admin_state`（命令）＋`reachable`（觀測），不再拿 `isUp` 冒充電源狀態（breaking：scalar→object）；閘門 18/0＋3、#46 閘門 10/0；auditor 合併樹重跑；MERGE-LOG 38 | 電源 API 的主人；`isUp` 承載兩個意思是共同根因（見 #46） |
+| 34 | A-8 的三態檢查在 MININET 下不可能失敗，且硬把原因歸給 Energy-Saving-App | ✅ IN TRUNK | `147c5ad1`（merge `95a9f743` of `fix/is-up-split-admin-state-reachable`，修法 `76b8313e`）：A-8 改讀 node 的 `admin_state`／`reachable`（全有才走、否則退回 power endpoint）⇒ `unexplained_down` 開得了火；python 紅 7/141→OK；閘門 18/0＋3、#46 閘門 10/0；auditor 合併樹重跑；MERGE-LOG 38 | — |
 | 35 | 電源 API 兩個方向都用 `isUp` 提前 return Success | ✅ IN TRUNK | `85c1a159`（merge of `fix/poll-does-not-resurrect`，修法 `7e8d91e0`）：`adminPoweredOff` 旗標＋`updateSwitches` 不抬、三條電源路徑 commanded writer、#35 早退刪除；閘門 10/0＋3 widenings；gtest 951/951；raw `audit-raw @ 19e3ab88`；MERGE-LOG 27 | — |
 | 36 | 命令的關機會遺失，9 次中 2 次 | ✅ IN TRUNK | `85c1a159`（merge of `fix/poll-does-not-resurrect`，修法 `7e8d91e0`）：`adminPoweredOff` 旗標＋`updateSwitches` 不抬、三條電源路徑 commanded writer、#35 早退刪除；閘門 10/0＋3 widenings；gtest 951/951；raw `audit-raw @ 19e3ab88`；MERGE-LOG 27 | 與 #46 同一根 |
 | 37 | 被拒的模擬 case 讓 Energy app 永久卡死並霸佔 `routing_lock` | ⭕ UNASSIGNED | 已被 Lead E **降級**為單一 app 的 liveness bug（`routing_lock` 後面什麼都沒擋）。修法對象 `energy_saving_app.cpp` **不在本 repo**（`~/Energy-Saving-App`），本 repo 無分支涉及 | Energy-Saving-App 的主人；⚠️ MEMORY 記著那個 repo 的 power bug「已修但不要 push」 |
@@ -223,8 +223,8 @@
 | 77 | `ndt up ovs` 跑的是 NTG repo 那份 `testbed_topo.py`（同樣的常數橫幅），本 repo 的 #42 修法改不到那條路 | ✅ IN TRUNK | `06bc713d`（merge of `fix/ndt-up-ovs-runs-repo-topo`，修法 `87612059`）：`ovs-topo-start` 跑 `$KERNEL_DIR/testbed_topo.py`、cleanup 掃新後綴、topo 補回 bootstrap；auditor 丟棄式樹重跑 41/0、閘門 12/0、紅臂 5/3 與 41/2；MERGE-LOG 30。🔴 **機器上要 `sudo install` 才生效（#83、N14 Q1）** | — |
 | 78 | `check_gate_anchors.py` 對 repo 根目錄檔案用 `"/" in v` 判檔名，回報自信的錯答案 `MISSING:23` | ✅ IN TRUNK | `1ec39977`（merge of `fix/gate-anchors-root-files`，修法 `aed8f299`）：`tests/shell/check_gate_anchors.py` +1 述詞 `is_repo_path`／7 呼叫點、`tests/python/test_check_gate_anchors.py` +14 case（對 trunk 工具 9 FAIL＋3 ERROR）、`tests/shell/mutate_gate_anchors_root_files.sh` 13/0；全 repo 掃描 40/53→41/54、既有格一格沒動；raw `audit-raw @ 1cfbbc73`；MERGE-LOG 26 | #42 agent 撞到、閘門內以 `./` 繞過（繞道留著，兩種寫法都 `ok(23)`）；已知極限：名為 `foo.d` 的目錄會被放行、未修 |
 | 79 | `ndt` claim／pids 是 per-checkout，多 worktree 下互相隱形 | ⭕ UNASSIGNED | auditor 讀 `tools/test_workflow/ndt`：`CLAIM=` 第 256 行、`.test_run/pids` 第 243 行，都由 `$REPO` 組出；沒有任何分支碰它 | 修法方向：claim／pid 目錄改到與 checkout 無關的位置（`/tmp/ndtwin-lab/` 或 `$XDG_RUNTIME_DIR`），要 Adam 點頭再派——它改的是交接協定 |
-| 80 | liveness worker 用快取 `probe_ok` 把 `is_up` 寫回 true 8–13 s | 🛠 派工中（21:2x，`fix/is-up-split-admin-state-reachable`（distrust window 改證據界定）） | poll agent 兩臂 18/18（raw 在 `audit-raw`）；沒有分支 | 與 Q12 綁在一起裁；候選修法：distrust window 改證據界定 |
-| 81 | `handleInformSwitchEntered` 無條件 `setVertexUp` | 🛠 派工中（21:2x，`fix/is-up-split-admin-state-reachable`（順手：不得清 adminPoweredOff）） | `HttpSession.cpp:1449`（agent 讀碼）；沒有分支 | 小；可併入 #80 的工單 |
+| 80 | liveness worker 用快取 `probe_ok` 把 `is_up` 寫回 true 8–13 s | ✅ IN TRUNK | `147c5ad1`（merge `95a9f743` of `fix/is-up-split-admin-state-reachable`，修法 `76b8313e`）：distrust window 從 15 s 計時器改成證據界定（probe 時刻晚於 kill 才關窗；`p4VerdictFor` 讓 stale Up 變 Unknown）；**無活體佐證**（agent 排不到鎖）；閘門 18/0＋3、#46 閘門 10/0；auditor 合併樹重跑；MERGE-LOG 38 | 與 Q12 綁在一起裁；候選修法：distrust window 改證據界定 |
+| 81 | `handleInformSwitchEntered` 無條件 `setVertexUp` | ✅ IN TRUNK | `147c5ad1`（merge `95a9f743` of `fix/is-up-split-admin-state-reachable`，修法 `76b8313e`）：`handleInformSwitchEntered` 保留 `setVertexUp`（三個 caller 皆握手完成的邊緣觸發）但不得清 `adminPoweredOff`（測試釘住）、命令仍站著時 WARN；閘門 18/0＋3、#46 閘門 10/0；auditor 合併樹重跑；MERGE-LOG 38 | 小；可併入 #80 的工單 |
 | 82 | OVS `powerOff` 的 `!isUp` 早退（#35 同型） | ✅ IN TRUNK | `63792cc9`（merge `3d2b38fe` of `fix/ovs-power-off-asks-the-bridge`，修法 `6945e6f9`）：`powerOff` 問 `br-exists` 不問圖、命令兩路都記、`powerOn` 不盲 `add-br`；agent 紅 6/45→綠、閘門 10/0＋3、#46 閘門 10/0；live ovs4 帶外 del-br 後 off 500×3→200×3；auditor 合併樹重跑；MERGE-LOG 36 | 先補 `br-exists` 量測；OVS 平面補一輪 live |
 | 83 | 安裝副本 `/usr/local/sbin/ndtwin-lab` 停在 08-30 `0b6db9e3`；trunk 五個 commit 在機器上沒生效、沒東西會說 | ⭕ UNASSIGNED（**碼半 ✅ 已併 trunk `257e4eb0`**，MERGE-LOG 33：`ndt status`／`--check`／preflight 比對兩份 sha 並出聲、`--check` 在本機回 rc 1 直到裝好；**剩下那半＝Adam 的 `sudo install`（N14 Q1）**） | auditor 09-03 23:5x 親比 sha；`ndt:55` 寫死路徑 | 裝完我補一趟真正走 `ndt up ovs` 的 #77 AFTER 臂 |
 | 84 | `ndt up ovs` 曾依賴 NTG 工作樹未提交的兩行 bootstrap；手冊的手動路徑在乾淨 clone 仍會壞 | ⭕ UNASSIGNED（N14 Q5 等裁：改手冊 vs 請 NTG commit vs 記錄不動） | #77 agent 唯讀查證；auditor 唯讀重查一致 | 建議 (a) 手冊改成叫人跑本 repo 那份 |

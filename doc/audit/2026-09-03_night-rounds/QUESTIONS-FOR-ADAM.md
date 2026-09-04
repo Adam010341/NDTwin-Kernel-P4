@@ -627,3 +627,16 @@ sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sb
 **Q3 TESTBED 的 snmp／ssh 是這批唯一真正無界的**（沒 `-t`／`-r`）。(a) 等能實測再動（建議：沒 testbed 就是沒看過紅的交付）；(b) 現在只補逾時參數。
 
 **Q4 #85 要不要現在派？** `fetchCpuReportInternal` 對沒 IP 的 switch vertex 直接 `ip.front()` ⇒ SIGSEGV（gdb 確認）；`updateSwitches` 會為控制平面回覆裡拓樸檔沒有的 dpid 造 vertex，那份回覆沒 IP ⇒ **可能是線上崩潰**。(a) 現在派一支小的（空檢查＋WARN＋先查可達性）（建議：明晚整機測試若控制平面多報一台就會踩到）；(b) 明晚之後。
+
+
+## N21. Q12 併入之後（`admin_state`＋`reachable`，`is_up` 留作別名），isup agent 的四題
+
+**白話**：以前一個 `is_up` 同時回答「有沒有人叫它關」與「連不連得到」；現在分成兩個欄位，`is_up` 照舊存在（等於 `reachable`）所以四個外部 app 不用改。**唯一會弄壞外部程式的**是 `get_switches_power_state`：以前每台回 `"ON"`／`"OFF"` 字串，現在回 `{"admin_state":"off","reachable":false}` 這種物件。Energy-Saving-App 不讀這支；Visualizer／Web-GUI／TE-App 沒人第一手查過。API 文件已補改。
+
+**Q1 breaking change 要不要先通知外部 consumer？** (a) 你確認那三個 app 有沒有讀 `get_switches_power_state`，有就先通知（建議：明晚整機測試前）；(b) 不管，等它們報錯再改；(c) 我出一份「哪個 repo 讀哪支 endpoint」的盤點（需要那三個 repo 的存取）。
+
+**Q2 `is_up` 別名要留多久？** (a) 留到四個 consumer 都改用 `reachable` 再拿掉，API 文件標 deprecated（agent 與我都建議）；(b) 訂一個版本；(c) 永久留。
+
+**Q3 #80 沒有時間上界，認不認？** 上界的唯一效果是「沒佐證時宣布圖可信」；代價：一台從此沒人觀測的交換機 power-on 會真跑 helper，若它其實活著就 500（大聲的錯換掉安靜的錯，與 #46 同方向）。(a) 認（建議）；(b) 要一個保底上界（例如 5 分鐘）。
+
+**Q4 #81 agent 裁成「保留 `setVertexUp`、不清命令」**（三個 caller 都是握手完成的邊緣觸發）。(a) 認（建議）；(b) 控制平面推播也不得抬 `reachable`（一行改成 edge-triggered 拒絕，測試已釘住不清命令那一條）。
