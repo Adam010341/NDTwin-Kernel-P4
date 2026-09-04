@@ -1,0 +1,1382 @@
+loading app intelligent_router.py
+loading app ryu.app.rest_topology
+loading app ryu.app.ofctl_rest
+loading app ryu.controller.ofp_handler
+instantiating app None of DPSet
+creating context dpset
+instantiating app None of Switches
+creating context topology_api_app
+creating context wsgi
+creating context topology
+instantiating app intelligent_router.py of IntelligentRyu
+instantiating app ryu.app.rest_topology of TopologyAPI
+instantiating app ryu.app.ofctl_rest of RestStatsApi
+instantiating app ryu.controller.ofp_handler of OFPHandler
+(4715) wsgi starting up on http://0.0.0.0:8080
+Datapath ID: 1
+Datapath ID: 6
+Datapath ID: 3
+Datapath ID: 10
+Datapath ID: 8
+Datapath ID: 9
+Datapath ID: 2
+Datapath ID: 7
+Datapath ID: 4
+Datapath ID: 5
+Switch 0000000000000003 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=3 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7be415620eb0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000009 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=9 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7be41561b280>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000002 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=2 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7be4155d05b0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000006 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=6 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7be4155e4160>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000004 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=4 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7be4156208b0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 000000000000000a connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=10 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7be4155d09d0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000008 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=8 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7be41561b790>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000007 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=7 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7be4156202e0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000005 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=5 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7be416af3b80>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Switch 0000000000000001 connected (EventOFPStateChange)
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7be4155edcd0>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+Topology update triggered
+Complete get_switch
+Complete get_link
+Switch entered: 3
+Failed to notify NDT (switch enter): HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=3 (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x7be41557fb80>: Failed to establish a new connection: [Errno 111] ECONNREFUSED'))
+len(self.switches) 10
+Loaded static topology from /home/tester/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyMininet_10Switches.json
+(4715) accepted ('127.0.0.1', 58560)
+127.0.0.1 - - [04/Sep/2026 04:28:19] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.005105
+(4715) accepted ('127.0.0.1', 58566)
+127.0.0.1 - - [04/Sep/2026 04:28:19] "GET /v1.0/topology/hosts HTTP/1.1" 200 6088 0.000461
+(4715) accepted ('127.0.0.1', 58574)
+127.0.0.1 - - [04/Sep/2026 04:28:19] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000474
+(4715) accepted ('127.0.0.1', 36614)
+all_destination_paths in
+127.0.0.1 - - [04/Sep/2026 04:28:24] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000152
+(4715) accepted ('127.0.0.1', 36622)
+127.0.0.1 - - [04/Sep/2026 04:28:24] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.000573
+(4715) accepted ('127.0.0.1', 36632)
+127.0.0.1 - - [04/Sep/2026 04:28:24] "GET /v1.0/topology/hosts HTTP/1.1" 200 6088 0.001813
+(4715) accepted ('127.0.0.1', 36640)
+127.0.0.1 - - [04/Sep/2026 04:28:24] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000255
+(4715) accepted ('127.0.0.1', 36644)
+all_destination_paths in
+127.0.0.1 - - [04/Sep/2026 04:28:29] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000149
+(4715) accepted ('127.0.0.1', 36646)
+(4715) accepted ('127.0.0.1', 36662)
+127.0.0.1 - - [04/Sep/2026 04:28:29] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.001127
+(4715) accepted ('127.0.0.1', 36668)
+127.0.0.1 - - [04/Sep/2026 04:28:29] "GET /v1.0/topology/hosts HTTP/1.1" 200 6088 0.001006
+(4715) accepted ('127.0.0.1', 36676)
+127.0.0.1 - - [04/Sep/2026 04:28:29] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000390
+127.0.0.1 - - [04/Sep/2026 04:28:30] "GET /stats/flow/1 HTTP/1.1" 200 116 1.006793
+(4715) accepted ('127.0.0.1', 36684)
+127.0.0.1 - - [04/Sep/2026 04:28:31] "GET /stats/flow/2 HTTP/1.1" 200 116 1.000877
+(4715) accepted ('127.0.0.1', 38596)
+127.0.0.1 - - [04/Sep/2026 04:28:32] "GET /stats/flow/3 HTTP/1.1" 200 116 1.005077
+(4715) accepted ('127.0.0.1', 38600)
+127.0.0.1 - - [04/Sep/2026 04:28:33] "GET /stats/flow/4 HTTP/1.1" 200 116 1.010054
+(4715) accepted ('127.0.0.1', 38616)
+(4715) accepted ('127.0.0.1', 38620)
+all_destination_paths in
+127.0.0.1 - - [04/Sep/2026 04:28:34] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000536
+127.0.0.1 - - [04/Sep/2026 04:28:34] "GET /stats/flow/5 HTTP/1.1" 200 116 1.002154
+(4715) accepted ('127.0.0.1', 38634)
+(4715) accepted ('127.0.0.1', 38640)
+127.0.0.1 - - [04/Sep/2026 04:28:34] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.000560
+(4715) accepted ('127.0.0.1', 38654)
+127.0.0.1 - - [04/Sep/2026 04:28:34] "GET /v1.0/topology/hosts HTTP/1.1" 200 6088 0.000222
+(4715) accepted ('127.0.0.1', 38660)
+127.0.0.1 - - [04/Sep/2026 04:28:34] "GET /v1.0/topology/links HTTP/1.1" 200 7062 0.000220
+127.0.0.1 - - [04/Sep/2026 04:28:35] "GET /stats/flow/6 HTTP/1.1" 200 116 1.000756
+(4715) accepted ('127.0.0.1', 38676)
+127.0.0.1 - - [04/Sep/2026 04:28:36] "GET /stats/flow/7 HTTP/1.1" 200 116 1.024191
+(4715) accepted ('127.0.0.1', 38678)
+127.0.0.1 - - [04/Sep/2026 04:28:37] "GET /stats/flow/8 HTTP/1.1" 200 116 1.002192
+(4715) accepted ('127.0.0.1', 38680)
+127.0.0.1 - - [04/Sep/2026 04:28:38] "GET /stats/flow/9 HTTP/1.1" 200 116 1.001364
+(4715) accepted ('127.0.0.1', 38690)
+(4715) accepted ('127.0.0.1', 38694)
+all_destination_paths in
+127.0.0.1 - - [04/Sep/2026 04:28:39] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 158 0.000459
+127.0.0.1 - - [04/Sep/2026 04:28:39] "GET /stats/flow/10 HTTP/1.1" 200 118 1.007579
+(4715) accepted ('127.0.0.1', 38696)
+127.0.0.1 - - [04/Sep/2026 04:28:39] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.002328
+(4715) accepted ('127.0.0.1', 38712)
+127.0.0.1 - - [04/Sep/2026 04:28:39] "GET /v1.0/topology/hosts HTTP/1.1" 200 6088 0.000903
+(4715) accepted ('127.0.0.1', 38720)
+127.0.0.1 - - [04/Sep/2026 04:28:39] "GET /v1.0/topology/links HTTP/1.1" 200 7062 0.000981
+install_all_pair_paths
+=== NODES 138 ===
+1: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+2: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+3: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+4: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}]}
+5: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+6: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+7: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+8: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+9: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}, {'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+10: {'ecmp_groups': [{'members': [{'type': 'port', 'port_id': 1}, {'type': 'port', 'port_id': 2}]}, {'members': [{'type': 'port', 'port_id': 3}, {'type': 'port', 'port_id': 4}]}]}
+00:00:00:00:00:01: {'ip_list': ['10.0.0.1']}
+00:00:00:00:00:02: {'ip_list': ['10.0.0.2']}
+00:00:00:00:00:03: {'ip_list': ['10.0.0.3']}
+00:00:00:00:00:04: {'ip_list': ['10.0.0.4']}
+00:00:00:00:00:05: {'ip_list': ['10.0.0.5']}
+00:00:00:00:00:06: {'ip_list': ['10.0.0.6']}
+00:00:00:00:00:07: {'ip_list': ['10.0.0.7']}
+00:00:00:00:00:08: {'ip_list': ['10.0.0.8']}
+00:00:00:00:00:09: {'ip_list': ['10.0.0.9']}
+00:00:00:00:00:0a: {'ip_list': ['10.0.0.10']}
+00:00:00:00:00:0b: {'ip_list': ['10.0.0.11']}
+00:00:00:00:00:0c: {'ip_list': ['10.0.0.12']}
+00:00:00:00:00:0d: {'ip_list': ['10.0.0.13']}
+00:00:00:00:00:0e: {'ip_list': ['10.0.0.14']}
+00:00:00:00:00:0f: {'ip_list': ['10.0.0.15']}
+00:00:00:00:00:10: {'ip_list': ['10.0.0.16']}
+00:00:00:00:00:11: {'ip_list': ['10.0.0.17']}
+00:00:00:00:00:12: {'ip_list': ['10.0.0.18']}
+00:00:00:00:00:13: {'ip_list': ['10.0.0.19']}
+00:00:00:00:00:14: {'ip_list': ['10.0.0.20']}
+00:00:00:00:00:15: {'ip_list': ['10.0.0.21']}
+00:00:00:00:00:16: {'ip_list': ['10.0.0.22']}
+00:00:00:00:00:17: {'ip_list': ['10.0.0.23']}
+00:00:00:00:00:18: {'ip_list': ['10.0.0.24']}
+00:00:00:00:00:19: {'ip_list': ['10.0.0.25']}
+00:00:00:00:00:1a: {'ip_list': ['10.0.0.26']}
+00:00:00:00:00:1b: {'ip_list': ['10.0.0.27']}
+00:00:00:00:00:1c: {'ip_list': ['10.0.0.28']}
+00:00:00:00:00:1d: {'ip_list': ['10.0.0.29']}
+00:00:00:00:00:1e: {'ip_list': ['10.0.0.30']}
+00:00:00:00:00:1f: {'ip_list': ['10.0.0.31']}
+00:00:00:00:00:20: {'ip_list': ['10.0.0.32']}
+00:00:00:00:00:21: {'ip_list': ['10.0.0.33']}
+00:00:00:00:00:22: {'ip_list': ['10.0.0.34']}
+00:00:00:00:00:23: {'ip_list': ['10.0.0.35']}
+00:00:00:00:00:24: {'ip_list': ['10.0.0.36']}
+00:00:00:00:00:25: {'ip_list': ['10.0.0.37']}
+00:00:00:00:00:26: {'ip_list': ['10.0.0.38']}
+00:00:00:00:00:27: {'ip_list': ['10.0.0.39']}
+00:00:00:00:00:28: {'ip_list': ['10.0.0.40']}
+00:00:00:00:00:29: {'ip_list': ['10.0.0.41']}
+00:00:00:00:00:2a: {'ip_list': ['10.0.0.42']}
+00:00:00:00:00:2b: {'ip_list': ['10.0.0.43']}
+00:00:00:00:00:2c: {'ip_list': ['10.0.0.44']}
+00:00:00:00:00:2d: {'ip_list': ['10.0.0.45']}
+00:00:00:00:00:2e: {'ip_list': ['10.0.0.46']}
+00:00:00:00:00:2f: {'ip_list': ['10.0.0.47']}
+00:00:00:00:00:30: {'ip_list': ['10.0.0.48']}
+00:00:00:00:00:31: {'ip_list': ['10.0.0.49']}
+00:00:00:00:00:32: {'ip_list': ['10.0.0.50']}
+00:00:00:00:00:33: {'ip_list': ['10.0.0.51']}
+00:00:00:00:00:34: {'ip_list': ['10.0.0.52']}
+00:00:00:00:00:35: {'ip_list': ['10.0.0.53']}
+00:00:00:00:00:36: {'ip_list': ['10.0.0.54']}
+00:00:00:00:00:37: {'ip_list': ['10.0.0.55']}
+00:00:00:00:00:38: {'ip_list': ['10.0.0.56']}
+00:00:00:00:00:39: {'ip_list': ['10.0.0.57']}
+00:00:00:00:00:3a: {'ip_list': ['10.0.0.58']}
+00:00:00:00:00:3b: {'ip_list': ['10.0.0.59']}
+00:00:00:00:00:3c: {'ip_list': ['10.0.0.60']}
+00:00:00:00:00:3d: {'ip_list': ['10.0.0.61']}
+00:00:00:00:00:3e: {'ip_list': ['10.0.0.62']}
+00:00:00:00:00:3f: {'ip_list': ['10.0.0.63']}
+00:00:00:00:00:40: {'ip_list': ['10.0.0.64']}
+00:00:00:00:00:41: {'ip_list': ['10.0.0.65']}
+00:00:00:00:00:42: {'ip_list': ['10.0.0.66']}
+00:00:00:00:00:43: {'ip_list': ['10.0.0.67']}
+00:00:00:00:00:44: {'ip_list': ['10.0.0.68']}
+00:00:00:00:00:45: {'ip_list': ['10.0.0.69']}
+00:00:00:00:00:46: {'ip_list': ['10.0.0.70']}
+00:00:00:00:00:47: {'ip_list': ['10.0.0.71']}
+00:00:00:00:00:48: {'ip_list': ['10.0.0.72']}
+00:00:00:00:00:49: {'ip_list': ['10.0.0.73']}
+00:00:00:00:00:4a: {'ip_list': ['10.0.0.74']}
+00:00:00:00:00:4b: {'ip_list': ['10.0.0.75']}
+00:00:00:00:00:4c: {'ip_list': ['10.0.0.76']}
+00:00:00:00:00:4d: {'ip_list': ['10.0.0.77']}
+00:00:00:00:00:4e: {'ip_list': ['10.0.0.78']}
+00:00:00:00:00:4f: {'ip_list': ['10.0.0.79']}
+00:00:00:00:00:50: {'ip_list': ['10.0.0.80']}
+00:00:00:00:00:51: {'ip_list': ['10.0.0.81']}
+00:00:00:00:00:52: {'ip_list': ['10.0.0.82']}
+00:00:00:00:00:53: {'ip_list': ['10.0.0.83']}
+00:00:00:00:00:54: {'ip_list': ['10.0.0.84']}
+00:00:00:00:00:55: {'ip_list': ['10.0.0.85']}
+00:00:00:00:00:56: {'ip_list': ['10.0.0.86']}
+00:00:00:00:00:57: {'ip_list': ['10.0.0.87']}
+00:00:00:00:00:58: {'ip_list': ['10.0.0.88']}
+00:00:00:00:00:59: {'ip_list': ['10.0.0.89']}
+00:00:00:00:00:5a: {'ip_list': ['10.0.0.90']}
+00:00:00:00:00:5b: {'ip_list': ['10.0.0.91']}
+00:00:00:00:00:5c: {'ip_list': ['10.0.0.92']}
+00:00:00:00:00:5d: {'ip_list': ['10.0.0.93']}
+00:00:00:00:00:5e: {'ip_list': ['10.0.0.94']}
+00:00:00:00:00:5f: {'ip_list': ['10.0.0.95']}
+00:00:00:00:00:60: {'ip_list': ['10.0.0.96']}
+00:00:00:00:00:61: {'ip_list': ['10.0.0.97']}
+00:00:00:00:00:62: {'ip_list': ['10.0.0.98']}
+00:00:00:00:00:63: {'ip_list': ['10.0.0.99']}
+00:00:00:00:00:64: {'ip_list': ['10.0.0.100']}
+00:00:00:00:00:65: {'ip_list': ['10.0.0.101']}
+00:00:00:00:00:66: {'ip_list': ['10.0.0.102']}
+00:00:00:00:00:67: {'ip_list': ['10.0.0.103']}
+00:00:00:00:00:68: {'ip_list': ['10.0.0.104']}
+00:00:00:00:00:69: {'ip_list': ['10.0.0.105']}
+00:00:00:00:00:6a: {'ip_list': ['10.0.0.106']}
+00:00:00:00:00:6b: {'ip_list': ['10.0.0.107']}
+00:00:00:00:00:6c: {'ip_list': ['10.0.0.108']}
+00:00:00:00:00:6d: {'ip_list': ['10.0.0.109']}
+00:00:00:00:00:6e: {'ip_list': ['10.0.0.110']}
+00:00:00:00:00:6f: {'ip_list': ['10.0.0.111']}
+00:00:00:00:00:70: {'ip_list': ['10.0.0.112']}
+00:00:00:00:00:71: {'ip_list': ['10.0.0.113']}
+00:00:00:00:00:72: {'ip_list': ['10.0.0.114']}
+00:00:00:00:00:73: {'ip_list': ['10.0.0.115']}
+00:00:00:00:00:74: {'ip_list': ['10.0.0.116']}
+00:00:00:00:00:75: {'ip_list': ['10.0.0.117']}
+00:00:00:00:00:76: {'ip_list': ['10.0.0.118']}
+00:00:00:00:00:77: {'ip_list': ['10.0.0.119']}
+00:00:00:00:00:78: {'ip_list': ['10.0.0.120']}
+00:00:00:00:00:79: {'ip_list': ['10.0.0.121']}
+00:00:00:00:00:7a: {'ip_list': ['10.0.0.122']}
+00:00:00:00:00:7b: {'ip_list': ['10.0.0.123']}
+00:00:00:00:00:7c: {'ip_list': ['10.0.0.124']}
+00:00:00:00:00:7d: {'ip_list': ['10.0.0.125']}
+00:00:00:00:00:7e: {'ip_list': ['10.0.0.126']}
+00:00:00:00:00:7f: {'ip_list': ['10.0.0.127']}
+00:00:00:00:00:80: {'ip_list': ['10.0.0.128']}
+
+=== EDGES 288 ===
+1 -> 5: {'port': 1}
+1 -> 6: {'port': 2}
+1 -> 00:00:00:00:00:01: {'port': 3}
+1 -> 00:00:00:00:00:02: {'port': 4}
+1 -> 00:00:00:00:00:03: {'port': 5}
+1 -> 00:00:00:00:00:04: {'port': 6}
+1 -> 00:00:00:00:00:05: {'port': 7}
+1 -> 00:00:00:00:00:06: {'port': 8}
+1 -> 00:00:00:00:00:07: {'port': 9}
+1 -> 00:00:00:00:00:08: {'port': 10}
+1 -> 00:00:00:00:00:09: {'port': 11}
+1 -> 00:00:00:00:00:0a: {'port': 12}
+1 -> 00:00:00:00:00:0b: {'port': 13}
+1 -> 00:00:00:00:00:0c: {'port': 14}
+1 -> 00:00:00:00:00:0d: {'port': 15}
+1 -> 00:00:00:00:00:0e: {'port': 16}
+1 -> 00:00:00:00:00:0f: {'port': 17}
+1 -> 00:00:00:00:00:10: {'port': 18}
+1 -> 00:00:00:00:00:11: {'port': 19}
+1 -> 00:00:00:00:00:12: {'port': 20}
+1 -> 00:00:00:00:00:13: {'port': 21}
+1 -> 00:00:00:00:00:14: {'port': 22}
+1 -> 00:00:00:00:00:15: {'port': 23}
+1 -> 00:00:00:00:00:16: {'port': 24}
+1 -> 00:00:00:00:00:17: {'port': 25}
+1 -> 00:00:00:00:00:18: {'port': 26}
+1 -> 00:00:00:00:00:19: {'port': 27}
+1 -> 00:00:00:00:00:1a: {'port': 28}
+1 -> 00:00:00:00:00:1b: {'port': 29}
+1 -> 00:00:00:00:00:1c: {'port': 30}
+1 -> 00:00:00:00:00:1d: {'port': 31}
+1 -> 00:00:00:00:00:1e: {'port': 32}
+1 -> 00:00:00:00:00:1f: {'port': 33}
+1 -> 00:00:00:00:00:20: {'port': 34}
+2 -> 5: {'port': 1}
+2 -> 6: {'port': 2}
+2 -> 00:00:00:00:00:21: {'port': 3}
+2 -> 00:00:00:00:00:22: {'port': 4}
+2 -> 00:00:00:00:00:23: {'port': 5}
+2 -> 00:00:00:00:00:24: {'port': 6}
+2 -> 00:00:00:00:00:25: {'port': 7}
+2 -> 00:00:00:00:00:26: {'port': 8}
+2 -> 00:00:00:00:00:27: {'port': 9}
+2 -> 00:00:00:00:00:28: {'port': 10}
+2 -> 00:00:00:00:00:29: {'port': 11}
+2 -> 00:00:00:00:00:2a: {'port': 12}
+2 -> 00:00:00:00:00:2b: {'port': 13}
+2 -> 00:00:00:00:00:2c: {'port': 14}
+2 -> 00:00:00:00:00:2d: {'port': 15}
+2 -> 00:00:00:00:00:2e: {'port': 16}
+2 -> 00:00:00:00:00:2f: {'port': 17}
+2 -> 00:00:00:00:00:30: {'port': 18}
+2 -> 00:00:00:00:00:31: {'port': 19}
+2 -> 00:00:00:00:00:32: {'port': 20}
+2 -> 00:00:00:00:00:33: {'port': 21}
+2 -> 00:00:00:00:00:34: {'port': 22}
+2 -> 00:00:00:00:00:35: {'port': 23}
+2 -> 00:00:00:00:00:36: {'port': 24}
+2 -> 00:00:00:00:00:37: {'port': 25}
+2 -> 00:00:00:00:00:38: {'port': 26}
+2 -> 00:00:00:00:00:39: {'port': 27}
+2 -> 00:00:00:00:00:3a: {'port': 28}
+2 -> 00:00:00:00:00:3b: {'port': 29}
+2 -> 00:00:00:00:00:3c: {'port': 30}
+2 -> 00:00:00:00:00:3d: {'port': 31}
+2 -> 00:00:00:00:00:3e: {'port': 32}
+2 -> 00:00:00:00:00:3f: {'port': 33}
+2 -> 00:00:00:00:00:40: {'port': 34}
+3 -> 7: {'port': 1}
+3 -> 8: {'port': 2}
+3 -> 00:00:00:00:00:41: {'port': 3}
+3 -> 00:00:00:00:00:42: {'port': 4}
+3 -> 00:00:00:00:00:43: {'port': 5}
+3 -> 00:00:00:00:00:44: {'port': 6}
+3 -> 00:00:00:00:00:45: {'port': 7}
+3 -> 00:00:00:00:00:46: {'port': 8}
+3 -> 00:00:00:00:00:47: {'port': 9}
+3 -> 00:00:00:00:00:48: {'port': 10}
+3 -> 00:00:00:00:00:49: {'port': 11}
+3 -> 00:00:00:00:00:4a: {'port': 12}
+3 -> 00:00:00:00:00:4b: {'port': 13}
+3 -> 00:00:00:00:00:4c: {'port': 14}
+3 -> 00:00:00:00:00:4d: {'port': 15}
+3 -> 00:00:00:00:00:4e: {'port': 16}
+3 -> 00:00:00:00:00:4f: {'port': 17}
+3 -> 00:00:00:00:00:50: {'port': 18}
+3 -> 00:00:00:00:00:51: {'port': 19}
+3 -> 00:00:00:00:00:52: {'port': 20}
+3 -> 00:00:00:00:00:53: {'port': 21}
+3 -> 00:00:00:00:00:54: {'port': 22}
+3 -> 00:00:00:00:00:55: {'port': 23}
+3 -> 00:00:00:00:00:56: {'port': 24}
+3 -> 00:00:00:00:00:57: {'port': 25}
+3 -> 00:00:00:00:00:58: {'port': 26}
+3 -> 00:00:00:00:00:59: {'port': 27}
+3 -> 00:00:00:00:00:5a: {'port': 28}
+3 -> 00:00:00:00:00:5b: {'port': 29}
+3 -> 00:00:00:00:00:5c: {'port': 30}
+3 -> 00:00:00:00:00:5d: {'port': 31}
+3 -> 00:00:00:00:00:5e: {'port': 32}
+3 -> 00:00:00:00:00:5f: {'port': 33}
+3 -> 00:00:00:00:00:60: {'port': 34}
+4 -> 7: {'port': 1}
+4 -> 8: {'port': 2}
+4 -> 00:00:00:00:00:61: {'port': 3}
+4 -> 00:00:00:00:00:62: {'port': 4}
+4 -> 00:00:00:00:00:63: {'port': 5}
+4 -> 00:00:00:00:00:64: {'port': 6}
+4 -> 00:00:00:00:00:65: {'port': 7}
+4 -> 00:00:00:00:00:66: {'port': 8}
+4 -> 00:00:00:00:00:67: {'port': 9}
+4 -> 00:00:00:00:00:68: {'port': 10}
+4 -> 00:00:00:00:00:69: {'port': 11}
+4 -> 00:00:00:00:00:6a: {'port': 12}
+4 -> 00:00:00:00:00:6b: {'port': 13}
+4 -> 00:00:00:00:00:6c: {'port': 14}
+4 -> 00:00:00:00:00:6d: {'port': 15}
+4 -> 00:00:00:00:00:6e: {'port': 16}
+4 -> 00:00:00:00:00:6f: {'port': 17}
+4 -> 00:00:00:00:00:70: {'port': 18}
+4 -> 00:00:00:00:00:71: {'port': 19}
+4 -> 00:00:00:00:00:72: {'port': 20}
+4 -> 00:00:00:00:00:73: {'port': 21}
+4 -> 00:00:00:00:00:74: {'port': 22}
+4 -> 00:00:00:00:00:75: {'port': 23}
+4 -> 00:00:00:00:00:76: {'port': 24}
+4 -> 00:00:00:00:00:77: {'port': 25}
+4 -> 00:00:00:00:00:78: {'port': 26}
+4 -> 00:00:00:00:00:79: {'port': 27}
+4 -> 00:00:00:00:00:7a: {'port': 28}
+4 -> 00:00:00:00:00:7b: {'port': 29}
+4 -> 00:00:00:00:00:7c: {'port': 30}
+4 -> 00:00:00:00:00:7d: {'port': 31}
+4 -> 00:00:00:00:00:7e: {'port': 32}
+4 -> 00:00:00:00:00:7f: {'port': 33}
+4 -> 00:00:00:00:00:80: {'port': 34}
+5 -> 1: {'port': 1}
+5 -> 9: {'port': 3}
+5 -> 2: {'port': 2}
+5 -> 10: {'port': 4}
+6 -> 1: {'port': 1}
+6 -> 9: {'port': 3}
+6 -> 2: {'port': 2}
+6 -> 10: {'port': 4}
+7 -> 3: {'port': 1}
+7 -> 9: {'port': 3}
+7 -> 4: {'port': 2}
+7 -> 10: {'port': 4}
+8 -> 3: {'port': 1}
+8 -> 9: {'port': 3}
+8 -> 4: {'port': 2}
+8 -> 10: {'port': 4}
+9 -> 5: {'port': 1}
+9 -> 6: {'port': 2}
+9 -> 7: {'port': 3}
+9 -> 8: {'port': 4}
+10 -> 5: {'port': 1}
+10 -> 6: {'port': 2}
+10 -> 7: {'port': 3}
+10 -> 8: {'port': 4}
+00:00:00:00:00:01 -> 1: {'port': 0}
+00:00:00:00:00:02 -> 1: {'port': 0}
+00:00:00:00:00:03 -> 1: {'port': 0}
+00:00:00:00:00:04 -> 1: {'port': 0}
+00:00:00:00:00:05 -> 1: {'port': 0}
+00:00:00:00:00:06 -> 1: {'port': 0}
+00:00:00:00:00:07 -> 1: {'port': 0}
+00:00:00:00:00:08 -> 1: {'port': 0}
+00:00:00:00:00:09 -> 1: {'port': 0}
+00:00:00:00:00:0a -> 1: {'port': 0}
+00:00:00:00:00:0b -> 1: {'port': 0}
+00:00:00:00:00:0c -> 1: {'port': 0}
+00:00:00:00:00:0d -> 1: {'port': 0}
+00:00:00:00:00:0e -> 1: {'port': 0}
+00:00:00:00:00:0f -> 1: {'port': 0}
+00:00:00:00:00:10 -> 1: {'port': 0}
+00:00:00:00:00:11 -> 1: {'port': 0}
+00:00:00:00:00:12 -> 1: {'port': 0}
+00:00:00:00:00:13 -> 1: {'port': 0}
+00:00:00:00:00:14 -> 1: {'port': 0}
+00:00:00:00:00:15 -> 1: {'port': 0}
+00:00:00:00:00:16 -> 1: {'port': 0}
+00:00:00:00:00:17 -> 1: {'port': 0}
+00:00:00:00:00:18 -> 1: {'port': 0}
+00:00:00:00:00:19 -> 1: {'port': 0}
+00:00:00:00:00:1a -> 1: {'port': 0}
+00:00:00:00:00:1b -> 1: {'port': 0}
+00:00:00:00:00:1c -> 1: {'port': 0}
+00:00:00:00:00:1d -> 1: {'port': 0}
+00:00:00:00:00:1e -> 1: {'port': 0}
+00:00:00:00:00:1f -> 1: {'port': 0}
+00:00:00:00:00:20 -> 1: {'port': 0}
+00:00:00:00:00:21 -> 2: {'port': 0}
+00:00:00:00:00:22 -> 2: {'port': 0}
+00:00:00:00:00:23 -> 2: {'port': 0}
+00:00:00:00:00:24 -> 2: {'port': 0}
+00:00:00:00:00:25 -> 2: {'port': 0}
+00:00:00:00:00:26 -> 2: {'port': 0}
+00:00:00:00:00:27 -> 2: {'port': 0}
+00:00:00:00:00:28 -> 2: {'port': 0}
+00:00:00:00:00:29 -> 2: {'port': 0}
+00:00:00:00:00:2a -> 2: {'port': 0}
+00:00:00:00:00:2b -> 2: {'port': 0}
+00:00:00:00:00:2c -> 2: {'port': 0}
+00:00:00:00:00:2d -> 2: {'port': 0}
+00:00:00:00:00:2e -> 2: {'port': 0}
+00:00:00:00:00:2f -> 2: {'port': 0}
+00:00:00:00:00:30 -> 2: {'port': 0}
+00:00:00:00:00:31 -> 2: {'port': 0}
+00:00:00:00:00:32 -> 2: {'port': 0}
+00:00:00:00:00:33 -> 2: {'port': 0}
+00:00:00:00:00:34 -> 2: {'port': 0}
+00:00:00:00:00:35 -> 2: {'port': 0}
+00:00:00:00:00:36 -> 2: {'port': 0}
+00:00:00:00:00:37 -> 2: {'port': 0}
+00:00:00:00:00:38 -> 2: {'port': 0}
+00:00:00:00:00:39 -> 2: {'port': 0}
+00:00:00:00:00:3a -> 2: {'port': 0}
+00:00:00:00:00:3b -> 2: {'port': 0}
+00:00:00:00:00:3c -> 2: {'port': 0}
+00:00:00:00:00:3d -> 2: {'port': 0}
+00:00:00:00:00:3e -> 2: {'port': 0}
+00:00:00:00:00:3f -> 2: {'port': 0}
+00:00:00:00:00:40 -> 2: {'port': 0}
+00:00:00:00:00:41 -> 3: {'port': 0}
+00:00:00:00:00:42 -> 3: {'port': 0}
+00:00:00:00:00:43 -> 3: {'port': 0}
+00:00:00:00:00:44 -> 3: {'port': 0}
+00:00:00:00:00:45 -> 3: {'port': 0}
+00:00:00:00:00:46 -> 3: {'port': 0}
+00:00:00:00:00:47 -> 3: {'port': 0}
+00:00:00:00:00:48 -> 3: {'port': 0}
+00:00:00:00:00:49 -> 3: {'port': 0}
+00:00:00:00:00:4a -> 3: {'port': 0}
+00:00:00:00:00:4b -> 3: {'port': 0}
+00:00:00:00:00:4c -> 3: {'port': 0}
+00:00:00:00:00:4d -> 3: {'port': 0}
+00:00:00:00:00:4e -> 3: {'port': 0}
+00:00:00:00:00:4f -> 3: {'port': 0}
+00:00:00:00:00:50 -> 3: {'port': 0}
+00:00:00:00:00:51 -> 3: {'port': 0}
+00:00:00:00:00:52 -> 3: {'port': 0}
+00:00:00:00:00:53 -> 3: {'port': 0}
+00:00:00:00:00:54 -> 3: {'port': 0}
+00:00:00:00:00:55 -> 3: {'port': 0}
+00:00:00:00:00:56 -> 3: {'port': 0}
+00:00:00:00:00:57 -> 3: {'port': 0}
+00:00:00:00:00:58 -> 3: {'port': 0}
+00:00:00:00:00:59 -> 3: {'port': 0}
+00:00:00:00:00:5a -> 3: {'port': 0}
+00:00:00:00:00:5b -> 3: {'port': 0}
+00:00:00:00:00:5c -> 3: {'port': 0}
+00:00:00:00:00:5d -> 3: {'port': 0}
+00:00:00:00:00:5e -> 3: {'port': 0}
+00:00:00:00:00:5f -> 3: {'port': 0}
+00:00:00:00:00:60 -> 3: {'port': 0}
+00:00:00:00:00:61 -> 4: {'port': 0}
+00:00:00:00:00:62 -> 4: {'port': 0}
+00:00:00:00:00:63 -> 4: {'port': 0}
+00:00:00:00:00:64 -> 4: {'port': 0}
+00:00:00:00:00:65 -> 4: {'port': 0}
+00:00:00:00:00:66 -> 4: {'port': 0}
+00:00:00:00:00:67 -> 4: {'port': 0}
+00:00:00:00:00:68 -> 4: {'port': 0}
+00:00:00:00:00:69 -> 4: {'port': 0}
+00:00:00:00:00:6a -> 4: {'port': 0}
+00:00:00:00:00:6b -> 4: {'port': 0}
+00:00:00:00:00:6c -> 4: {'port': 0}
+00:00:00:00:00:6d -> 4: {'port': 0}
+00:00:00:00:00:6e -> 4: {'port': 0}
+00:00:00:00:00:6f -> 4: {'port': 0}
+00:00:00:00:00:70 -> 4: {'port': 0}
+00:00:00:00:00:71 -> 4: {'port': 0}
+00:00:00:00:00:72 -> 4: {'port': 0}
+00:00:00:00:00:73 -> 4: {'port': 0}
+00:00:00:00:00:74 -> 4: {'port': 0}
+00:00:00:00:00:75 -> 4: {'port': 0}
+00:00:00:00:00:76 -> 4: {'port': 0}
+00:00:00:00:00:77 -> 4: {'port': 0}
+00:00:00:00:00:78 -> 4: {'port': 0}
+00:00:00:00:00:79 -> 4: {'port': 0}
+00:00:00:00:00:7a -> 4: {'port': 0}
+00:00:00:00:00:7b -> 4: {'port': 0}
+00:00:00:00:00:7c -> 4: {'port': 0}
+00:00:00:00:00:7d -> 4: {'port': 0}
+00:00:00:00:00:7e -> 4: {'port': 0}
+00:00:00:00:00:7f -> 4: {'port': 0}
+00:00:00:00:00:80 -> 4: {'port': 0}
+Static topology initialized, all-destination paths installed.
+Topology update triggered
+Complete get_switch
+Complete get_link
+Switch entered: 9
+Notified NDT (switch enter), status: 200
+len(self.switches) 10
+Topology update triggered
+Complete get_switch
+Complete get_link
+Switch entered: 2
+Notified NDT (switch enter), status: 200
+len(self.switches) 10
+Topology update triggered
+Complete get_switch
+Complete get_link
+Switch entered: 6
+Notified NDT (switch enter), status: 200
+len(self.switches) 10
+Topology update triggered
+Complete get_switch
+Complete get_link
+Switch entered: 4
+Notified NDT (switch enter), status: 200
+len(self.switches) 10
+Topology update triggered
+Complete get_switch
+Complete get_link
+Switch entered: 10
+Notified NDT (switch enter), status: 200
+len(self.switches) 10
+Topology update triggered
+Complete get_switch
+Complete get_link
+Switch entered: 8
+Notified NDT (switch enter), status: 200
+len(self.switches) 10
+Topology update triggered
+Complete get_switch
+Complete get_link
+Switch entered: 7
+Notified NDT (switch enter), status: 200
+len(self.switches) 10
+Topology update triggered
+Complete get_switch
+Complete get_link
+Switch entered: 5
+Notified NDT (switch enter), status: 200
+len(self.switches) 10
+Topology update triggered
+Complete get_switch
+Complete get_link
+Switch entered: 1
+Notified NDT (switch enter), status: 200
+len(self.switches) 10
+Link added: Link: Port<dpid=1, port_no=1, LIVE> to Port<dpid=5, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=1, port_no=2, LIVE> to Port<dpid=6, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=7, port_no=1, LIVE> to Port<dpid=3, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=8, port_no=1, LIVE> to Port<dpid=3, port_no=2, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=7, port_no=4, LIVE> to Port<dpid=10, port_no=3, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=5, port_no=4, LIVE> to Port<dpid=10, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=8, port_no=4, LIVE> to Port<dpid=10, port_no=4, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=10, port_no=1, LIVE> to Port<dpid=5, port_no=4, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=5, port_no=2, LIVE> to Port<dpid=2, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=5, port_no=1, LIVE> to Port<dpid=1, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=7, port_no=3, LIVE> to Port<dpid=9, port_no=3, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=5, port_no=3, LIVE> to Port<dpid=9, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=8, port_no=3, LIVE> to Port<dpid=9, port_no=4, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=10, port_no=4, LIVE> to Port<dpid=8, port_no=4, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=10, port_no=3, LIVE> to Port<dpid=7, port_no=4, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=4, port_no=1, LIVE> to Port<dpid=7, port_no=2, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=7, port_no=2, LIVE> to Port<dpid=4, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=8, port_no=2, LIVE> to Port<dpid=4, port_no=2, LIVE>
+DPSET: Multiple connections from 0000000000000008
+Multiple connections from 0000000000000008
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=10, port_no=2, LIVE> to Port<dpid=6, port_no=4, LIVE>
+Multiple connections from 0000000000000005
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=4, port_no=2, LIVE> to Port<dpid=8, port_no=2, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=6, port_no=3, LIVE> to Port<dpid=9, port_no=2, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=6, port_no=4, LIVE> to Port<dpid=10, port_no=2, LIVE>
+DPSET: Multiple connections from 0000000000000005
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=2, port_no=2, LIVE> to Port<dpid=6, port_no=2, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=2, port_no=1, LIVE> to Port<dpid=5, port_no=2, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=6, port_no=2, LIVE> to Port<dpid=2, port_no=2, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=6, port_no=1, LIVE> to Port<dpid=1, port_no=2, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=9, port_no=1, LIVE> to Port<dpid=5, port_no=3, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=9, port_no=4, LIVE> to Port<dpid=8, port_no=3, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=9, port_no=2, LIVE> to Port<dpid=6, port_no=3, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=9, port_no=3, LIVE> to Port<dpid=7, port_no=3, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=3, port_no=1, LIVE> to Port<dpid=7, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=3, port_no=2, LIVE> to Port<dpid=8, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=1, port_no=1, LIVE> to Port<dpid=5, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=1, port_no=2, LIVE> to Port<dpid=6, port_no=1, LIVE>
+Notified NDT, status code: 200
+Datapath ID: 8
+Datapath ID: 5
+Switch 0000000000000008 connected (EventOFPStateChange)
+Notified NDT (switch enter), status: 200
+Switch 0000000000000008 disconnected (EventOFPStateChange)
+Switch 0000000000000005 connected (EventOFPStateChange)
+Notified NDT (switch enter), status: 200
+Switch 0000000000000005 disconnected (EventOFPStateChange)
+Link added: Link: Port<dpid=1, port_no=2, LIVE> to Port<dpid=6, port_no=1, LIVE>
+Notified NDT, status code: 200
+(4715) accepted ('127.0.0.1', 36466)
+all_destination_paths in
+127.0.0.1 - - [04/Sep/2026 04:28:44] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 1110641 0.021337
+(4715) accepted ('127.0.0.1', 36472)
+127.0.0.1 - - [04/Sep/2026 04:28:44] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.000481
+(4715) accepted ('127.0.0.1', 36488)
+127.0.0.1 - - [04/Sep/2026 04:28:44] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000450
+(4715) accepted ('127.0.0.1', 36504)
+127.0.0.1 - - [04/Sep/2026 04:28:44] "GET /v1.0/topology/links HTTP/1.1" 200 7062 0.000548
+Link added: Link: Port<dpid=1, port_no=1, LIVE> to Port<dpid=5, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=10, port_no=1, LIVE> to Port<dpid=5, port_no=4, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=10, port_no=4, LIVE> to Port<dpid=8, port_no=4, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=4, port_no=2, LIVE> to Port<dpid=8, port_no=2, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=9, port_no=1, LIVE> to Port<dpid=5, port_no=3, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=9, port_no=4, LIVE> to Port<dpid=8, port_no=3, LIVE>
+Notified NDT, status code: 200
+Link deleted: Link: Port<dpid=3, port_no=2, LIVE> to Port<dpid=8, port_no=1, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=9, port_no=1, LIVE> to Port<dpid=5, port_no=3, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=9, port_no=4, LIVE> to Port<dpid=8, port_no=3, LIVE>
+Notified NDT, status code: 200
+Link added: Link: Port<dpid=3, port_no=2, LIVE> to Port<dpid=8, port_no=1, LIVE>
+Notified NDT, status code: 200
+(4715) accepted ('127.0.0.1', 36516)
+127.0.0.1 - - [04/Sep/2026 04:28:49] "GET /stats/flow/1 HTTP/1.1" 200 35106 0.030116
+Link added: Link: Port<dpid=4, port_no=2, LIVE> to Port<dpid=8, port_no=2, LIVE>
+Notified NDT, status code: 200
+(4715) accepted ('127.0.0.1', 36526)
+127.0.0.1 - - [04/Sep/2026 04:28:49] "GET /stats/flow/2 HTTP/1.1" 200 35096 0.017568
+(4715) accepted ('127.0.0.1', 36534)
+127.0.0.1 - - [04/Sep/2026 04:28:49] "GET /stats/flow/3 HTTP/1.1" 200 35114 0.014457
+(4715) accepted ('127.0.0.1', 36536)
+127.0.0.1 - - [04/Sep/2026 04:28:49] "GET /stats/flow/4 HTTP/1.1" 200 35114 0.013562
+(4715) accepted ('127.0.0.1', 36542)
+127.0.0.1 - - [04/Sep/2026 04:28:49] "GET /stats/flow/5 HTTP/1.1" 200 651 0.000589
+(4715) accepted ('127.0.0.1', 36556)
+127.0.0.1 - - [04/Sep/2026 04:28:49] "GET /stats/flow/6 HTTP/1.1" 200 35093 0.014744
+Link added: Link: Port<dpid=10, port_no=4, LIVE> to Port<dpid=8, port_no=4, LIVE>
+Notified NDT, status code: 200
+(4715) accepted ('127.0.0.1', 36572)
+127.0.0.1 - - [04/Sep/2026 04:28:49] "GET /stats/flow/7 HTTP/1.1" 200 35109 0.013830
+(4715) accepted ('127.0.0.1', 36588)
+127.0.0.1 - - [04/Sep/2026 04:28:49] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.000689
+(4715) accepted ('127.0.0.1', 36594)
+127.0.0.1 - - [04/Sep/2026 04:28:49] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000714
+(4715) accepted ('127.0.0.1', 36600)
+(4715) accepted ('127.0.0.1', 36612)
+127.0.0.1 - - [04/Sep/2026 04:28:49] "GET /stats/flow/8 HTTP/1.1" 200 653 0.001160
+127.0.0.1 - - [04/Sep/2026 04:28:49] "GET /v1.0/topology/links HTTP/1.1" 200 7061 0.000431
+(4715) accepted ('127.0.0.1', 36624)
+127.0.0.1 - - [04/Sep/2026 04:28:50] "GET /stats/flow/9 HTTP/1.1" 200 35109 0.038055
+Link added: Link: Port<dpid=10, port_no=1, LIVE> to Port<dpid=5, port_no=4, LIVE>
+Notified NDT, status code: 200
+(4715) accepted ('127.0.0.1', 36638)
+127.0.0.1 - - [04/Sep/2026 04:28:50] "GET /stats/flow/10 HTTP/1.1" 200 35095 0.014069
+(4715) accepted ('127.0.0.1', 34714)
+127.0.0.1 - - [04/Sep/2026 04:28:55] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.001142
+(4715) accepted ('127.0.0.1', 34728)
+127.0.0.1 - - [04/Sep/2026 04:28:55] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.001097
+(4715) accepted ('127.0.0.1', 34738)
+127.0.0.1 - - [04/Sep/2026 04:28:55] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000850
+(4715) accepted ('127.0.0.1', 34750)
+127.0.0.1 - - [04/Sep/2026 04:29:00] "GET /stats/flow/1 HTTP/1.1" 200 35263 0.029125
+(4715) accepted ('127.0.0.1', 34758)
+127.0.0.1 - - [04/Sep/2026 04:29:00] "GET /stats/flow/2 HTTP/1.1" 200 35248 0.013853
+(4715) accepted ('127.0.0.1', 34762)
+127.0.0.1 - - [04/Sep/2026 04:29:00] "GET /stats/flow/3 HTTP/1.1" 200 35247 0.013913
+(4715) accepted ('127.0.0.1', 34766)
+127.0.0.1 - - [04/Sep/2026 04:29:00] "GET /stats/flow/4 HTTP/1.1" 200 35244 0.013342
+(4715) accepted ('127.0.0.1', 34768)
+127.0.0.1 - - [04/Sep/2026 04:29:00] "GET /stats/flow/5 HTTP/1.1" 200 655 0.000732
+(4715) accepted ('127.0.0.1', 34774)
+127.0.0.1 - - [04/Sep/2026 04:29:00] "GET /stats/flow/6 HTTP/1.1" 200 35220 0.014536
+(4715) accepted ('127.0.0.1', 34784)
+127.0.0.1 - - [04/Sep/2026 04:29:00] "GET /stats/flow/7 HTTP/1.1" 200 35235 0.025231
+(4715) accepted ('127.0.0.1', 34790)
+127.0.0.1 - - [04/Sep/2026 04:29:00] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.000421
+(4715) accepted ('127.0.0.1', 34794)
+(4715) accepted ('127.0.0.1', 34808)
+127.0.0.1 - - [04/Sep/2026 04:29:00] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000512
+127.0.0.1 - - [04/Sep/2026 04:29:00] "GET /stats/flow/8 HTTP/1.1" 200 655 0.001080
+(4715) accepted ('127.0.0.1', 34820)
+127.0.0.1 - - [04/Sep/2026 04:29:00] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000212
+(4715) accepted ('127.0.0.1', 34828)
+127.0.0.1 - - [04/Sep/2026 04:29:00] "GET /stats/flow/9 HTTP/1.1" 200 35237 0.014382
+(4715) accepted ('127.0.0.1', 34830)
+127.0.0.1 - - [04/Sep/2026 04:29:00] "GET /stats/flow/10 HTTP/1.1" 200 35223 0.013887
+(4715) accepted ('127.0.0.1', 58154)
+127.0.0.1 - - [04/Sep/2026 04:29:05] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.000540
+(4715) accepted ('127.0.0.1', 58164)
+127.0.0.1 - - [04/Sep/2026 04:29:05] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000916
+(4715) accepted ('127.0.0.1', 58178)
+127.0.0.1 - - [04/Sep/2026 04:29:05] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000533
+(4715) accepted ('127.0.0.1', 58186)
+(4715) accepted ('127.0.0.1', 58200)
+127.0.0.1 - - [04/Sep/2026 04:29:10] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.000898
+127.0.0.1 - - [04/Sep/2026 04:29:10] "GET /stats/flow/1 HTTP/1.1" 200 35231 0.017663
+(4715) accepted ('127.0.0.1', 58210)
+127.0.0.1 - - [04/Sep/2026 04:29:10] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000502
+(4715) accepted ('127.0.0.1', 58226)
+127.0.0.1 - - [04/Sep/2026 04:29:10] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000224
+(4715) accepted ('127.0.0.1', 58230)
+127.0.0.1 - - [04/Sep/2026 04:29:10] "GET /stats/flow/2 HTTP/1.1" 200 35248 0.013805
+(4715) accepted ('127.0.0.1', 58238)
+127.0.0.1 - - [04/Sep/2026 04:29:10] "GET /stats/flow/3 HTTP/1.1" 200 35232 0.013381
+(4715) accepted ('127.0.0.1', 58248)
+127.0.0.1 - - [04/Sep/2026 04:29:10] "GET /stats/flow/4 HTTP/1.1" 200 35233 0.013230
+(4715) accepted ('127.0.0.1', 58256)
+127.0.0.1 - - [04/Sep/2026 04:29:10] "GET /stats/flow/5 HTTP/1.1" 200 655 0.000568
+(4715) accepted ('127.0.0.1', 58268)
+127.0.0.1 - - [04/Sep/2026 04:29:10] "GET /stats/flow/6 HTTP/1.1" 200 35222 0.013766
+(4715) accepted ('127.0.0.1', 58282)
+127.0.0.1 - - [04/Sep/2026 04:29:10] "GET /stats/flow/7 HTTP/1.1" 200 35222 0.013441
+(4715) accepted ('127.0.0.1', 58284)
+127.0.0.1 - - [04/Sep/2026 04:29:10] "GET /stats/flow/8 HTTP/1.1" 200 655 0.001041
+(4715) accepted ('127.0.0.1', 58296)
+127.0.0.1 - - [04/Sep/2026 04:29:10] "GET /stats/flow/9 HTTP/1.1" 200 35207 0.018514
+(4715) accepted ('127.0.0.1', 58304)
+127.0.0.1 - - [04/Sep/2026 04:29:10] "GET /stats/flow/10 HTTP/1.1" 200 35223 0.014356
+(4715) accepted ('127.0.0.1', 52972)
+127.0.0.1 - - [04/Sep/2026 04:29:15] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.000502
+(4715) accepted ('127.0.0.1', 52986)
+127.0.0.1 - - [04/Sep/2026 04:29:15] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.001303
+(4715) accepted ('127.0.0.1', 52988)
+127.0.0.1 - - [04/Sep/2026 04:29:15] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000767
+(4715) accepted ('127.0.0.1', 52992)
+127.0.0.1 - - [04/Sep/2026 04:29:20] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.001431
+(4715) accepted ('127.0.0.1', 53004)
+127.0.0.1 - - [04/Sep/2026 04:29:20] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000979
+(4715) accepted ('127.0.0.1', 53018)
+127.0.0.1 - - [04/Sep/2026 04:29:20] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000551
+(4715) accepted ('127.0.0.1', 53024)
+127.0.0.1 - - [04/Sep/2026 04:29:20] "GET /stats/flow/1 HTTP/1.1" 200 35242 0.019218
+(4715) accepted ('127.0.0.1', 53034)
+127.0.0.1 - - [04/Sep/2026 04:29:20] "GET /stats/flow/2 HTTP/1.1" 200 35248 0.015375
+(4715) accepted ('127.0.0.1', 53050)
+127.0.0.1 - - [04/Sep/2026 04:29:20] "GET /stats/flow/3 HTTP/1.1" 200 35249 0.015638
+(4715) accepted ('127.0.0.1', 53066)
+127.0.0.1 - - [04/Sep/2026 04:29:21] "GET /stats/flow/4 HTTP/1.1" 200 35264 0.014721
+(4715) accepted ('127.0.0.1', 53068)
+127.0.0.1 - - [04/Sep/2026 04:29:21] "GET /stats/flow/5 HTTP/1.1" 200 655 0.000953
+(4715) accepted ('127.0.0.1', 53072)
+127.0.0.1 - - [04/Sep/2026 04:29:21] "GET /stats/flow/6 HTTP/1.1" 200 35237 0.016013
+(4715) accepted ('127.0.0.1', 53078)
+127.0.0.1 - - [04/Sep/2026 04:29:21] "GET /stats/flow/7 HTTP/1.1" 200 35222 0.017384
+(4715) accepted ('127.0.0.1', 53088)
+127.0.0.1 - - [04/Sep/2026 04:29:21] "GET /stats/flow/8 HTTP/1.1" 200 655 0.000623
+(4715) accepted ('127.0.0.1', 53102)
+127.0.0.1 - - [04/Sep/2026 04:29:21] "GET /stats/flow/9 HTTP/1.1" 200 35222 0.013862
+(4715) accepted ('127.0.0.1', 53110)
+127.0.0.1 - - [04/Sep/2026 04:29:21] "GET /stats/flow/10 HTTP/1.1" 200 35223 0.013598
+(4715) accepted ('127.0.0.1', 60830)
+127.0.0.1 - - [04/Sep/2026 04:29:25] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.002162
+(4715) accepted ('127.0.0.1', 60842)
+127.0.0.1 - - [04/Sep/2026 04:29:25] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.002024
+(4715) accepted ('127.0.0.1', 60854)
+127.0.0.1 - - [04/Sep/2026 04:29:25] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000876
+(4715) accepted ('127.0.0.1', 60858)
+127.0.0.1 - - [04/Sep/2026 04:29:30] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.002027
+(4715) accepted ('127.0.0.1', 60864)
+127.0.0.1 - - [04/Sep/2026 04:29:30] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.002229
+(4715) accepted ('127.0.0.1', 60872)
+127.0.0.1 - - [04/Sep/2026 04:29:30] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000787
+(4715) accepted ('127.0.0.1', 60874)
+127.0.0.1 - - [04/Sep/2026 04:29:31] "GET /stats/flow/1 HTTP/1.1" 200 35266 0.041036
+(4715) accepted ('127.0.0.1', 60886)
+127.0.0.1 - - [04/Sep/2026 04:29:31] "GET /stats/flow/2 HTTP/1.1" 200 35251 0.013967
+(4715) accepted ('127.0.0.1', 60888)
+127.0.0.1 - - [04/Sep/2026 04:29:31] "GET /stats/flow/3 HTTP/1.1" 200 35248 0.015966
+(4715) accepted ('127.0.0.1', 60904)
+127.0.0.1 - - [04/Sep/2026 04:29:31] "GET /stats/flow/4 HTTP/1.1" 200 35248 0.014129
+(4715) accepted ('127.0.0.1', 60912)
+127.0.0.1 - - [04/Sep/2026 04:29:31] "GET /stats/flow/5 HTTP/1.1" 200 655 0.000608
+(4715) accepted ('127.0.0.1', 60918)
+127.0.0.1 - - [04/Sep/2026 04:29:31] "GET /stats/flow/6 HTTP/1.1" 200 35237 0.013291
+(4715) accepted ('127.0.0.1', 51730)
+127.0.0.1 - - [04/Sep/2026 04:29:31] "GET /stats/flow/7 HTTP/1.1" 200 35237 0.014316
+(4715) accepted ('127.0.0.1', 51738)
+127.0.0.1 - - [04/Sep/2026 04:29:31] "GET /stats/flow/8 HTTP/1.1" 200 655 0.000585
+(4715) accepted ('127.0.0.1', 51746)
+127.0.0.1 - - [04/Sep/2026 04:29:31] "GET /stats/flow/9 HTTP/1.1" 200 35239 0.013530
+(4715) accepted ('127.0.0.1', 51758)
+127.0.0.1 - - [04/Sep/2026 04:29:31] "GET /stats/flow/10 HTTP/1.1" 200 35225 0.014786
+(4715) accepted ('127.0.0.1', 51772)
+127.0.0.1 - - [04/Sep/2026 04:29:35] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.000541
+(4715) accepted ('127.0.0.1', 51780)
+127.0.0.1 - - [04/Sep/2026 04:29:35] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000427
+(4715) accepted ('127.0.0.1', 51794)
+127.0.0.1 - - [04/Sep/2026 04:29:35] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000525
+(4715) accepted ('127.0.0.1', 51808)
+127.0.0.1 - - [04/Sep/2026 04:29:41] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.002112
+(4715) accepted ('127.0.0.1', 51822)
+127.0.0.1 - - [04/Sep/2026 04:29:41] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.002181
+(4715) accepted ('127.0.0.1', 51834)
+127.0.0.1 - - [04/Sep/2026 04:29:41] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000902
+(4715) accepted ('127.0.0.1', 39088)
+127.0.0.1 - - [04/Sep/2026 04:29:41] "GET /stats/flow/1 HTTP/1.1" 200 35234 0.016091
+(4715) accepted ('127.0.0.1', 39102)
+127.0.0.1 - - [04/Sep/2026 04:29:41] "GET /stats/flow/2 HTTP/1.1" 200 35250 0.014046
+(4715) accepted ('127.0.0.1', 39106)
+127.0.0.1 - - [04/Sep/2026 04:29:41] "GET /stats/flow/3 HTTP/1.1" 200 35220 0.013786
+(4715) accepted ('127.0.0.1', 39120)
+127.0.0.1 - - [04/Sep/2026 04:29:41] "GET /stats/flow/4 HTTP/1.1" 200 35235 0.014953
+(4715) accepted ('127.0.0.1', 39134)
+127.0.0.1 - - [04/Sep/2026 04:29:41] "GET /stats/flow/5 HTTP/1.1" 200 655 0.000758
+(4715) accepted ('127.0.0.1', 39142)
+127.0.0.1 - - [04/Sep/2026 04:29:41] "GET /stats/flow/6 HTTP/1.1" 200 35224 0.016726
+(4715) accepted ('127.0.0.1', 39150)
+127.0.0.1 - - [04/Sep/2026 04:29:41] "GET /stats/flow/7 HTTP/1.1" 200 35224 0.027474
+(4715) accepted ('127.0.0.1', 39158)
+127.0.0.1 - - [04/Sep/2026 04:29:41] "GET /stats/flow/8 HTTP/1.1" 200 655 0.000674
+(4715) accepted ('127.0.0.1', 39160)
+127.0.0.1 - - [04/Sep/2026 04:29:41] "GET /stats/flow/9 HTTP/1.1" 200 35224 0.013885
+(4715) accepted ('127.0.0.1', 39172)
+127.0.0.1 - - [04/Sep/2026 04:29:41] "GET /stats/flow/10 HTTP/1.1" 200 35225 0.013529
+(4715) accepted ('127.0.0.1', 39184)
+all_destination_paths in
+127.0.0.1 - - [04/Sep/2026 04:29:45] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 1110641 0.014942
+(4715) accepted ('127.0.0.1', 39194)
+127.0.0.1 - - [04/Sep/2026 04:29:46] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.001230
+(4715) accepted ('127.0.0.1', 39210)
+127.0.0.1 - - [04/Sep/2026 04:29:46] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000797
+(4715) accepted ('127.0.0.1', 39226)
+127.0.0.1 - - [04/Sep/2026 04:29:46] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000276
+(4715) accepted ('127.0.0.1', 39238)
+127.0.0.1 - - [04/Sep/2026 04:29:51] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.001408
+(4715) accepted ('127.0.0.1', 39242)
+127.0.0.1 - - [04/Sep/2026 04:29:51] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000663
+(4715) accepted ('127.0.0.1', 39248)
+127.0.0.1 - - [04/Sep/2026 04:29:51] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000270
+(4715) accepted ('127.0.0.1', 41480)
+127.0.0.1 - - [04/Sep/2026 04:29:51] "GET /stats/flow/1 HTTP/1.1" 200 35251 0.027353
+(4715) accepted ('127.0.0.1', 41492)
+127.0.0.1 - - [04/Sep/2026 04:29:51] "GET /stats/flow/2 HTTP/1.1" 200 35245 0.026696
+(4715) accepted ('127.0.0.1', 41508)
+127.0.0.1 - - [04/Sep/2026 04:29:51] "GET /stats/flow/3 HTTP/1.1" 200 35245 0.017582
+(4715) accepted ('127.0.0.1', 41524)
+127.0.0.1 - - [04/Sep/2026 04:29:51] "GET /stats/flow/4 HTTP/1.1" 200 35245 0.020903
+(4715) accepted ('127.0.0.1', 41532)
+127.0.0.1 - - [04/Sep/2026 04:29:51] "GET /stats/flow/5 HTTP/1.1" 200 653 0.000747
+(4715) accepted ('127.0.0.1', 41542)
+127.0.0.1 - - [04/Sep/2026 04:29:51] "GET /stats/flow/6 HTTP/1.1" 200 35223 0.013808
+(4715) accepted ('127.0.0.1', 41552)
+127.0.0.1 - - [04/Sep/2026 04:29:51] "GET /stats/flow/7 HTTP/1.1" 200 35239 0.013883
+(4715) accepted ('127.0.0.1', 41560)
+127.0.0.1 - - [04/Sep/2026 04:29:51] "GET /stats/flow/8 HTTP/1.1" 200 655 0.000583
+(4715) accepted ('127.0.0.1', 41562)
+127.0.0.1 - - [04/Sep/2026 04:29:52] "GET /stats/flow/9 HTTP/1.1" 200 35239 0.013525
+(4715) accepted ('127.0.0.1', 41572)
+127.0.0.1 - - [04/Sep/2026 04:29:52] "GET /stats/flow/10 HTTP/1.1" 200 35240 0.013589
+(4715) accepted ('127.0.0.1', 54058)
+127.0.0.1 - - [04/Sep/2026 04:30:02] "GET /stats/flow/1 HTTP/1.1" 200 35251 0.014377
+(4715) accepted ('127.0.0.1', 54068)
+127.0.0.1 - - [04/Sep/2026 04:30:02] "GET /stats/flow/2 HTTP/1.1" 200 35251 0.015721
+(4715) accepted ('127.0.0.1', 54084)
+127.0.0.1 - - [04/Sep/2026 04:30:02] "GET /stats/flow/3 HTTP/1.1" 200 35251 0.028408
+(4715) accepted ('127.0.0.1', 54096)
+127.0.0.1 - - [04/Sep/2026 04:30:02] "GET /stats/flow/4 HTTP/1.1" 200 35266 0.013972
+(4715) accepted ('127.0.0.1', 54110)
+127.0.0.1 - - [04/Sep/2026 04:30:02] "GET /stats/flow/5 HTTP/1.1" 200 655 0.000688
+(4715) accepted ('127.0.0.1', 54126)
+127.0.0.1 - - [04/Sep/2026 04:30:02] "GET /stats/flow/6 HTTP/1.1" 200 35239 0.013834
+(4715) accepted ('127.0.0.1', 54138)
+127.0.0.1 - - [04/Sep/2026 04:30:02] "GET /stats/flow/7 HTTP/1.1" 200 35223 0.014033
+(4715) accepted ('127.0.0.1', 54142)
+127.0.0.1 - - [04/Sep/2026 04:30:02] "GET /stats/flow/8 HTTP/1.1" 200 655 0.000592
+(4715) accepted ('127.0.0.1', 54152)
+127.0.0.1 - - [04/Sep/2026 04:30:02] "GET /stats/flow/9 HTTP/1.1" 200 35221 0.013589
+(4715) accepted ('127.0.0.1', 54164)
+127.0.0.1 - - [04/Sep/2026 04:30:02] "GET /stats/flow/10 HTTP/1.1" 200 35222 0.013754
+(4715) accepted ('127.0.0.1', 43280)
+127.0.0.1 - - [04/Sep/2026 04:30:12] "GET /stats/flow/1 HTTP/1.1" 200 35251 0.022736
+(4715) accepted ('127.0.0.1', 43288)
+127.0.0.1 - - [04/Sep/2026 04:30:12] "GET /stats/flow/2 HTTP/1.1" 200 35252 0.017369
+(4715) accepted ('127.0.0.1', 43290)
+127.0.0.1 - - [04/Sep/2026 04:30:12] "GET /stats/flow/3 HTTP/1.1" 200 35251 0.013357
+(4715) accepted ('127.0.0.1', 43296)
+127.0.0.1 - - [04/Sep/2026 04:30:12] "GET /stats/flow/4 HTTP/1.1" 200 35251 0.014304
+(4715) accepted ('127.0.0.1', 43302)
+127.0.0.1 - - [04/Sep/2026 04:30:12] "GET /stats/flow/5 HTTP/1.1" 200 655 0.000941
+(4715) accepted ('127.0.0.1', 43318)
+127.0.0.1 - - [04/Sep/2026 04:30:12] "GET /stats/flow/6 HTTP/1.1" 200 35207 0.017986
+(4715) accepted ('127.0.0.1', 43320)
+127.0.0.1 - - [04/Sep/2026 04:30:12] "GET /stats/flow/7 HTTP/1.1" 200 35223 0.013809
+(4715) accepted ('127.0.0.1', 43322)
+127.0.0.1 - - [04/Sep/2026 04:30:12] "GET /stats/flow/8 HTTP/1.1" 200 655 0.000589
+(4715) accepted ('127.0.0.1', 43328)
+127.0.0.1 - - [04/Sep/2026 04:30:12] "GET /stats/flow/9 HTTP/1.1" 200 35208 0.016073
+(4715) accepted ('127.0.0.1', 43344)
+127.0.0.1 - - [04/Sep/2026 04:30:12] "GET /stats/flow/10 HTTP/1.1" 200 35209 0.014155
+(4715) accepted ('127.0.0.1', 37292)
+127.0.0.1 - - [04/Sep/2026 04:30:21] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.001276
+(4715) accepted ('127.0.0.1', 37308)
+127.0.0.1 - - [04/Sep/2026 04:30:21] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.001590
+(4715) accepted ('127.0.0.1', 37320)
+127.0.0.1 - - [04/Sep/2026 04:30:21] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.001513
+(4715) accepted ('127.0.0.1', 37324)
+127.0.0.1 - - [04/Sep/2026 04:30:22] "GET /stats/flow/1 HTTP/1.1" 200 35372 0.029338
+(4715) accepted ('127.0.0.1', 37334)
+127.0.0.1 - - [04/Sep/2026 04:30:22] "GET /stats/flow/2 HTTP/1.1" 200 35373 0.013962
+(4715) accepted ('127.0.0.1', 37344)
+127.0.0.1 - - [04/Sep/2026 04:30:22] "GET /stats/flow/3 HTTP/1.1" 200 35388 0.014851
+(4715) accepted ('127.0.0.1', 37356)
+127.0.0.1 - - [04/Sep/2026 04:30:22] "GET /stats/flow/4 HTTP/1.1" 200 35373 0.013733
+(4715) accepted ('127.0.0.1', 37370)
+127.0.0.1 - - [04/Sep/2026 04:30:22] "GET /stats/flow/5 HTTP/1.1" 200 655 0.000747
+(4715) accepted ('127.0.0.1', 37382)
+127.0.0.1 - - [04/Sep/2026 04:30:22] "GET /stats/flow/6 HTTP/1.1" 200 35345 0.013635
+(4715) accepted ('127.0.0.1', 37396)
+127.0.0.1 - - [04/Sep/2026 04:30:22] "GET /stats/flow/7 HTTP/1.1" 200 35352 0.013787
+(4715) accepted ('127.0.0.1', 37402)
+127.0.0.1 - - [04/Sep/2026 04:30:22] "GET /stats/flow/8 HTTP/1.1" 200 656 0.000596
+(4715) accepted ('127.0.0.1', 37412)
+127.0.0.1 - - [04/Sep/2026 04:30:22] "GET /stats/flow/9 HTTP/1.1" 200 35367 0.014774
+(4715) accepted ('127.0.0.1', 37416)
+127.0.0.1 - - [04/Sep/2026 04:30:23] "GET /stats/flow/10 HTTP/1.1" 200 35368 0.013861
+(4715) accepted ('127.0.0.1', 55454)
+127.0.0.1 - - [04/Sep/2026 04:30:33] "GET /stats/flow/1 HTTP/1.1" 200 35379 0.020289
+(4715) accepted ('127.0.0.1', 55466)
+127.0.0.1 - - [04/Sep/2026 04:30:33] "GET /stats/flow/2 HTTP/1.1" 200 35379 0.013767
+(4715) accepted ('127.0.0.1', 55478)
+127.0.0.1 - - [04/Sep/2026 04:30:33] "GET /stats/flow/3 HTTP/1.1" 200 35394 0.014142
+(4715) accepted ('127.0.0.1', 55490)
+127.0.0.1 - - [04/Sep/2026 04:30:33] "GET /stats/flow/4 HTTP/1.1" 200 35394 0.014075
+(4715) accepted ('127.0.0.1', 55504)
+127.0.0.1 - - [04/Sep/2026 04:30:33] "GET /stats/flow/5 HTTP/1.1" 200 657 0.000658
+(4715) accepted ('127.0.0.1', 55514)
+127.0.0.1 - - [04/Sep/2026 04:30:33] "GET /stats/flow/6 HTTP/1.1" 200 35367 0.014021
+(4715) accepted ('127.0.0.1', 55522)
+127.0.0.1 - - [04/Sep/2026 04:30:33] "GET /stats/flow/7 HTTP/1.1" 200 35335 0.030725
+(4715) accepted ('127.0.0.1', 55524)
+127.0.0.1 - - [04/Sep/2026 04:30:33] "GET /stats/flow/8 HTTP/1.1" 200 657 0.000612
+(4715) accepted ('127.0.0.1', 55532)
+127.0.0.1 - - [04/Sep/2026 04:30:33] "GET /stats/flow/9 HTTP/1.1" 200 35349 0.013903
+(4715) accepted ('127.0.0.1', 55548)
+127.0.0.1 - - [04/Sep/2026 04:30:33] "GET /stats/flow/10 HTTP/1.1" 200 35350 0.013961
+(4715) accepted ('127.0.0.1', 42488)
+127.0.0.1 - - [04/Sep/2026 04:30:43] "GET /stats/flow/1 HTTP/1.1" 200 35379 0.025648
+(4715) accepted ('127.0.0.1', 42496)
+127.0.0.1 - - [04/Sep/2026 04:30:43] "GET /stats/flow/2 HTTP/1.1" 200 35380 0.014123
+(4715) accepted ('127.0.0.1', 42498)
+127.0.0.1 - - [04/Sep/2026 04:30:43] "GET /stats/flow/3 HTTP/1.1" 200 35394 0.021704
+(4715) accepted ('127.0.0.1', 42500)
+127.0.0.1 - - [04/Sep/2026 04:30:43] "GET /stats/flow/4 HTTP/1.1" 200 35362 0.013960
+(4715) accepted ('127.0.0.1', 42502)
+127.0.0.1 - - [04/Sep/2026 04:30:43] "GET /stats/flow/5 HTTP/1.1" 200 657 0.000778
+(4715) accepted ('127.0.0.1', 42514)
+127.0.0.1 - - [04/Sep/2026 04:30:43] "GET /stats/flow/6 HTTP/1.1" 200 35351 0.015948
+(4715) accepted ('127.0.0.1', 42516)
+127.0.0.1 - - [04/Sep/2026 04:30:43] "GET /stats/flow/7 HTTP/1.1" 200 35336 0.013743
+(4715) accepted ('127.0.0.1', 42518)
+127.0.0.1 - - [04/Sep/2026 04:30:43] "GET /stats/flow/8 HTTP/1.1" 200 657 0.000609
+(4715) accepted ('127.0.0.1', 42528)
+127.0.0.1 - - [04/Sep/2026 04:30:43] "GET /stats/flow/9 HTTP/1.1" 200 35336 0.013940
+(4715) accepted ('127.0.0.1', 42540)
+127.0.0.1 - - [04/Sep/2026 04:30:43] "GET /stats/flow/10 HTTP/1.1" 200 35353 0.013574
+(4715) accepted ('127.0.0.1', 42546)
+all_destination_paths in
+127.0.0.1 - - [04/Sep/2026 04:30:46] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 1110641 0.017664
+(4715) accepted ('127.0.0.1', 58454)
+127.0.0.1 - - [04/Sep/2026 04:30:52] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.001602
+(4715) accepted ('127.0.0.1', 58460)
+127.0.0.1 - - [04/Sep/2026 04:30:52] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.001566
+(4715) accepted ('127.0.0.1', 58466)
+127.0.0.1 - - [04/Sep/2026 04:30:52] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.001004
+(4715) accepted ('127.0.0.1', 58476)
+127.0.0.1 - - [04/Sep/2026 04:30:53] "GET /stats/flow/1 HTTP/1.1" 200 35364 0.034959
+(4715) accepted ('127.0.0.1', 58478)
+127.0.0.1 - - [04/Sep/2026 04:30:53] "GET /stats/flow/2 HTTP/1.1" 200 35380 0.014257
+(4715) accepted ('127.0.0.1', 58482)
+127.0.0.1 - - [04/Sep/2026 04:30:53] "GET /stats/flow/3 HTTP/1.1" 200 35379 0.014139
+(4715) accepted ('127.0.0.1', 58484)
+127.0.0.1 - - [04/Sep/2026 04:30:53] "GET /stats/flow/4 HTTP/1.1" 200 35373 0.014115
+(4715) accepted ('127.0.0.1', 58500)
+127.0.0.1 - - [04/Sep/2026 04:30:53] "GET /stats/flow/5 HTTP/1.1" 200 649 0.000553
+(4715) accepted ('127.0.0.1', 58512)
+127.0.0.1 - - [04/Sep/2026 04:30:53] "GET /stats/flow/6 HTTP/1.1" 200 35329 0.013759
+(4715) accepted ('127.0.0.1', 58516)
+127.0.0.1 - - [04/Sep/2026 04:30:53] "GET /stats/flow/7 HTTP/1.1" 200 35346 0.013681
+(4715) accepted ('127.0.0.1', 58522)
+127.0.0.1 - - [04/Sep/2026 04:30:53] "GET /stats/flow/8 HTTP/1.1" 200 655 0.000658
+(4715) accepted ('127.0.0.1', 58536)
+127.0.0.1 - - [04/Sep/2026 04:30:53] "GET /stats/flow/9 HTTP/1.1" 200 35352 0.013507
+(4715) accepted ('127.0.0.1', 58552)
+127.0.0.1 - - [04/Sep/2026 04:30:53] "GET /stats/flow/10 HTTP/1.1" 200 35353 0.013291
+(4715) accepted ('127.0.0.1', 34490)
+127.0.0.1 - - [04/Sep/2026 04:31:04] "GET /stats/flow/1 HTTP/1.1" 200 35394 0.019808
+(4715) accepted ('127.0.0.1', 34492)
+127.0.0.1 - - [04/Sep/2026 04:31:04] "GET /stats/flow/2 HTTP/1.1" 200 35394 0.013254
+(4715) accepted ('127.0.0.1', 34498)
+127.0.0.1 - - [04/Sep/2026 04:31:04] "GET /stats/flow/3 HTTP/1.1" 200 35394 0.013649
+(4715) accepted ('127.0.0.1', 34508)
+127.0.0.1 - - [04/Sep/2026 04:31:04] "GET /stats/flow/4 HTTP/1.1" 200 35362 0.013260
+(4715) accepted ('127.0.0.1', 34518)
+127.0.0.1 - - [04/Sep/2026 04:31:04] "GET /stats/flow/5 HTTP/1.1" 200 657 0.000558
+(4715) accepted ('127.0.0.1', 34532)
+127.0.0.1 - - [04/Sep/2026 04:31:04] "GET /stats/flow/6 HTTP/1.1" 200 35352 0.013762
+(4715) accepted ('127.0.0.1', 34542)
+127.0.0.1 - - [04/Sep/2026 04:31:04] "GET /stats/flow/7 HTTP/1.1" 200 35348 0.013767
+(4715) accepted ('127.0.0.1', 34556)
+127.0.0.1 - - [04/Sep/2026 04:31:04] "GET /stats/flow/8 HTTP/1.1" 200 657 0.000587
+(4715) accepted ('127.0.0.1', 34564)
+127.0.0.1 - - [04/Sep/2026 04:31:04] "GET /stats/flow/9 HTTP/1.1" 200 35349 0.016185
+(4715) accepted ('127.0.0.1', 34578)
+127.0.0.1 - - [04/Sep/2026 04:31:04] "GET /stats/flow/10 HTTP/1.1" 200 35366 0.029592
+(4715) accepted ('127.0.0.1', 45100)
+127.0.0.1 - - [04/Sep/2026 04:31:14] "GET /stats/flow/1 HTTP/1.1" 200 35379 0.017149
+(4715) accepted ('127.0.0.1', 45116)
+127.0.0.1 - - [04/Sep/2026 04:31:14] "GET /stats/flow/2 HTTP/1.1" 200 35380 0.013317
+(4715) accepted ('127.0.0.1', 45132)
+127.0.0.1 - - [04/Sep/2026 04:31:14] "GET /stats/flow/3 HTTP/1.1" 200 35379 0.013653
+(4715) accepted ('127.0.0.1', 45140)
+127.0.0.1 - - [04/Sep/2026 04:31:14] "GET /stats/flow/4 HTTP/1.1" 200 35379 0.013193
+(4715) accepted ('127.0.0.1', 45148)
+127.0.0.1 - - [04/Sep/2026 04:31:14] "GET /stats/flow/5 HTTP/1.1" 200 657 0.000594
+(4715) accepted ('127.0.0.1', 45150)
+127.0.0.1 - - [04/Sep/2026 04:31:14] "GET /stats/flow/6 HTTP/1.1" 200 35367 0.013401
+(4715) accepted ('127.0.0.1', 45162)
+127.0.0.1 - - [04/Sep/2026 04:31:14] "GET /stats/flow/7 HTTP/1.1" 200 35351 0.013410
+(4715) accepted ('127.0.0.1', 45176)
+127.0.0.1 - - [04/Sep/2026 04:31:14] "GET /stats/flow/8 HTTP/1.1" 200 657 0.000665
+(4715) accepted ('127.0.0.1', 45184)
+127.0.0.1 - - [04/Sep/2026 04:31:14] "GET /stats/flow/9 HTTP/1.1" 200 35351 0.014349
+(4715) accepted ('127.0.0.1', 45200)
+127.0.0.1 - - [04/Sep/2026 04:31:14] "GET /stats/flow/10 HTTP/1.1" 200 35337 0.016716
+(4715) accepted ('127.0.0.1', 48270)
+127.0.0.1 - - [04/Sep/2026 04:31:22] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.001183
+(4715) accepted ('127.0.0.1', 48278)
+127.0.0.1 - - [04/Sep/2026 04:31:22] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000827
+(4715) accepted ('127.0.0.1', 48282)
+127.0.0.1 - - [04/Sep/2026 04:31:22] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000304
+(4715) accepted ('127.0.0.1', 48298)
+127.0.0.1 - - [04/Sep/2026 04:31:24] "GET /stats/flow/1 HTTP/1.1" 200 35364 0.017936
+(4715) accepted ('127.0.0.1', 48306)
+127.0.0.1 - - [04/Sep/2026 04:31:24] "GET /stats/flow/2 HTTP/1.1" 200 35379 0.014138
+(4715) accepted ('127.0.0.1', 48318)
+127.0.0.1 - - [04/Sep/2026 04:31:24] "GET /stats/flow/3 HTTP/1.1" 200 35349 0.013641
+(4715) accepted ('127.0.0.1', 48326)
+127.0.0.1 - - [04/Sep/2026 04:31:24] "GET /stats/flow/4 HTTP/1.1" 200 35364 0.013915
+(4715) accepted ('127.0.0.1', 48330)
+127.0.0.1 - - [04/Sep/2026 04:31:24] "GET /stats/flow/5 HTTP/1.1" 200 657 0.000661
+(4715) accepted ('127.0.0.1', 48346)
+127.0.0.1 - - [04/Sep/2026 04:31:24] "GET /stats/flow/6 HTTP/1.1" 200 35352 0.013934
+(4715) accepted ('127.0.0.1', 48358)
+127.0.0.1 - - [04/Sep/2026 04:31:24] "GET /stats/flow/7 HTTP/1.1" 200 35352 0.017940
+(4715) accepted ('127.0.0.1', 48362)
+127.0.0.1 - - [04/Sep/2026 04:31:24] "GET /stats/flow/8 HTTP/1.1" 200 657 0.000971
+(4715) accepted ('127.0.0.1', 48364)
+127.0.0.1 - - [04/Sep/2026 04:31:24] "GET /stats/flow/9 HTTP/1.1" 200 35361 0.015641
+(4715) accepted ('127.0.0.1', 48374)
+127.0.0.1 - - [04/Sep/2026 04:31:24] "GET /stats/flow/10 HTTP/1.1" 200 35347 0.013823
+(4715) accepted ('127.0.0.1', 51930)
+127.0.0.1 - - [04/Sep/2026 04:31:35] "GET /stats/flow/1 HTTP/1.1" 200 35394 0.029563
+(4715) accepted ('127.0.0.1', 51934)
+127.0.0.1 - - [04/Sep/2026 04:31:35] "GET /stats/flow/2 HTTP/1.1" 200 35394 0.013914
+(4715) accepted ('127.0.0.1', 51942)
+127.0.0.1 - - [04/Sep/2026 04:31:35] "GET /stats/flow/3 HTTP/1.1" 200 35394 0.013752
+(4715) accepted ('127.0.0.1', 51950)
+127.0.0.1 - - [04/Sep/2026 04:31:35] "GET /stats/flow/4 HTTP/1.1" 200 35378 0.014341
+(4715) accepted ('127.0.0.1', 51962)
+127.0.0.1 - - [04/Sep/2026 04:31:35] "GET /stats/flow/5 HTTP/1.1" 200 658 0.000594
+(4715) accepted ('127.0.0.1', 51976)
+127.0.0.1 - - [04/Sep/2026 04:31:35] "GET /stats/flow/6 HTTP/1.1" 200 35350 0.013855
+(4715) accepted ('127.0.0.1', 51990)
+127.0.0.1 - - [04/Sep/2026 04:31:35] "GET /stats/flow/7 HTTP/1.1" 200 35349 0.013753
+(4715) accepted ('127.0.0.1', 51994)
+127.0.0.1 - - [04/Sep/2026 04:31:35] "GET /stats/flow/8 HTTP/1.1" 200 657 0.001066
+(4715) accepted ('127.0.0.1', 52010)
+127.0.0.1 - - [04/Sep/2026 04:31:35] "GET /stats/flow/9 HTTP/1.1" 200 35365 0.033886
+(4715) accepted ('127.0.0.1', 52016)
+127.0.0.1 - - [04/Sep/2026 04:31:35] "GET /stats/flow/10 HTTP/1.1" 200 35248 0.013976
+(4715) accepted ('127.0.0.1', 36784)
+127.0.0.1 - - [04/Sep/2026 04:31:45] "GET /stats/flow/1 HTTP/1.1" 200 35379 0.016453
+(4715) accepted ('127.0.0.1', 36792)
+127.0.0.1 - - [04/Sep/2026 04:31:45] "GET /stats/flow/2 HTTP/1.1" 200 35378 0.013988
+(4715) accepted ('127.0.0.1', 36804)
+127.0.0.1 - - [04/Sep/2026 04:31:45] "GET /stats/flow/3 HTTP/1.1" 200 35394 0.030679
+(4715) accepted ('127.0.0.1', 36820)
+127.0.0.1 - - [04/Sep/2026 04:31:45] "GET /stats/flow/4 HTTP/1.1" 200 35379 0.013928
+(4715) accepted ('127.0.0.1', 36830)
+127.0.0.1 - - [04/Sep/2026 04:31:45] "GET /stats/flow/5 HTTP/1.1" 200 658 0.000732
+(4715) accepted ('127.0.0.1', 36840)
+127.0.0.1 - - [04/Sep/2026 04:31:45] "GET /stats/flow/6 HTTP/1.1" 200 35323 0.017059
+(4715) accepted ('127.0.0.1', 36850)
+127.0.0.1 - - [04/Sep/2026 04:31:45] "GET /stats/flow/7 HTTP/1.1" 200 35338 0.014799
+(4715) accepted ('127.0.0.1', 36854)
+127.0.0.1 - - [04/Sep/2026 04:31:45] "GET /stats/flow/8 HTTP/1.1" 200 658 0.000783
+(4715) accepted ('127.0.0.1', 36858)
+127.0.0.1 - - [04/Sep/2026 04:31:45] "GET /stats/flow/9 HTTP/1.1" 200 35352 0.016153
+(4715) accepted ('127.0.0.1', 36870)
+127.0.0.1 - - [04/Sep/2026 04:31:45] "GET /stats/flow/10 HTTP/1.1" 200 35347 0.014069
+(4715) accepted ('127.0.0.1', 36874)
+all_destination_paths in
+127.0.0.1 - - [04/Sep/2026 04:31:47] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 1110641 0.023404
+(4715) accepted ('127.0.0.1', 33778)
+127.0.0.1 - - [04/Sep/2026 04:31:52] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.001946
+(4715) accepted ('127.0.0.1', 33782)
+127.0.0.1 - - [04/Sep/2026 04:31:52] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000478
+(4715) accepted ('127.0.0.1', 33786)
+127.0.0.1 - - [04/Sep/2026 04:31:52] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000499
+(4715) accepted ('127.0.0.1', 33796)
+127.0.0.1 - - [04/Sep/2026 04:31:55] "GET /stats/flow/1 HTTP/1.1" 200 35379 0.020847
+(4715) accepted ('127.0.0.1', 33798)
+127.0.0.1 - - [04/Sep/2026 04:31:56] "GET /stats/flow/2 HTTP/1.1" 200 35394 0.021055
+(4715) accepted ('127.0.0.1', 33804)
+127.0.0.1 - - [04/Sep/2026 04:31:56] "GET /stats/flow/3 HTTP/1.1" 200 35394 0.013874
+(4715) accepted ('127.0.0.1', 33818)
+127.0.0.1 - - [04/Sep/2026 04:31:56] "GET /stats/flow/4 HTTP/1.1" 200 35364 0.038085
+(4715) accepted ('127.0.0.1', 33826)
+127.0.0.1 - - [04/Sep/2026 04:31:56] "GET /stats/flow/5 HTTP/1.1" 200 658 0.001200
+(4715) accepted ('127.0.0.1', 33828)
+127.0.0.1 - - [04/Sep/2026 04:31:56] "GET /stats/flow/6 HTTP/1.1" 200 35353 0.018424
+(4715) accepted ('127.0.0.1', 33832)
+127.0.0.1 - - [04/Sep/2026 04:31:56] "GET /stats/flow/7 HTTP/1.1" 200 35353 0.013724
+(4715) accepted ('127.0.0.1', 33842)
+127.0.0.1 - - [04/Sep/2026 04:31:56] "GET /stats/flow/8 HTTP/1.1" 200 658 0.000674
+(4715) accepted ('127.0.0.1', 33846)
+127.0.0.1 - - [04/Sep/2026 04:31:56] "GET /stats/flow/9 HTTP/1.1" 200 35368 0.014132
+(4715) accepted ('127.0.0.1', 33854)
+127.0.0.1 - - [04/Sep/2026 04:31:56] "GET /stats/flow/10 HTTP/1.1" 200 35369 0.013974
+(4715) accepted ('127.0.0.1', 44366)
+127.0.0.1 - - [04/Sep/2026 04:32:06] "GET /stats/flow/1 HTTP/1.1" 200 35394 0.026827
+(4715) accepted ('127.0.0.1', 44372)
+127.0.0.1 - - [04/Sep/2026 04:32:06] "GET /stats/flow/2 HTTP/1.1" 200 35380 0.013822
+(4715) accepted ('127.0.0.1', 44384)
+127.0.0.1 - - [04/Sep/2026 04:32:06] "GET /stats/flow/3 HTTP/1.1" 200 35379 0.016990
+(4715) accepted ('127.0.0.1', 44394)
+127.0.0.1 - - [04/Sep/2026 04:32:06] "GET /stats/flow/4 HTTP/1.1" 200 35379 0.014014
+(4715) accepted ('127.0.0.1', 44400)
+127.0.0.1 - - [04/Sep/2026 04:32:06] "GET /stats/flow/5 HTTP/1.1" 200 658 0.000625
+(4715) accepted ('127.0.0.1', 44412)
+127.0.0.1 - - [04/Sep/2026 04:32:06] "GET /stats/flow/6 HTTP/1.1" 200 35353 0.013751
+(4715) accepted ('127.0.0.1', 44420)
+127.0.0.1 - - [04/Sep/2026 04:32:06] "GET /stats/flow/7 HTTP/1.1" 200 35368 0.013508
+(4715) accepted ('127.0.0.1', 44424)
+127.0.0.1 - - [04/Sep/2026 04:32:06] "GET /stats/flow/8 HTTP/1.1" 200 658 0.000623
+(4715) accepted ('127.0.0.1', 44426)
+127.0.0.1 - - [04/Sep/2026 04:32:06] "GET /stats/flow/9 HTTP/1.1" 200 35352 0.013847
+(4715) accepted ('127.0.0.1', 44436)
+127.0.0.1 - - [04/Sep/2026 04:32:06] "GET /stats/flow/10 HTTP/1.1" 200 35353 0.013922
+(4715) accepted ('127.0.0.1', 44716)
+127.0.0.1 - - [04/Sep/2026 04:32:16] "GET /stats/flow/1 HTTP/1.1" 200 35364 0.019834
+(4715) accepted ('127.0.0.1', 44718)
+127.0.0.1 - - [04/Sep/2026 04:32:16] "GET /stats/flow/2 HTTP/1.1" 200 35379 0.014704
+(4715) accepted ('127.0.0.1', 44720)
+127.0.0.1 - - [04/Sep/2026 04:32:16] "GET /stats/flow/3 HTTP/1.1" 200 35349 0.013927
+(4715) accepted ('127.0.0.1', 44728)
+127.0.0.1 - - [04/Sep/2026 04:32:16] "GET /stats/flow/4 HTTP/1.1" 200 35364 0.013481
+(4715) accepted ('127.0.0.1', 44730)
+127.0.0.1 - - [04/Sep/2026 04:32:16] "GET /stats/flow/5 HTTP/1.1" 200 658 0.000620
+(4715) accepted ('127.0.0.1', 44734)
+127.0.0.1 - - [04/Sep/2026 04:32:16] "GET /stats/flow/6 HTTP/1.1" 200 35353 0.028548
+(4715) accepted ('127.0.0.1', 44742)
+127.0.0.1 - - [04/Sep/2026 04:32:16] "GET /stats/flow/7 HTTP/1.1" 200 35347 0.014290
+(4715) accepted ('127.0.0.1', 44744)
+127.0.0.1 - - [04/Sep/2026 04:32:16] "GET /stats/flow/8 HTTP/1.1" 200 656 0.000678
+(4715) accepted ('127.0.0.1', 44756)
+127.0.0.1 - - [04/Sep/2026 04:32:16] "GET /stats/flow/9 HTTP/1.1" 200 35347 0.015943
+(4715) accepted ('127.0.0.1', 44766)
+127.0.0.1 - - [04/Sep/2026 04:32:16] "GET /stats/flow/10 HTTP/1.1" 200 35348 0.016463
+(4715) accepted ('127.0.0.1', 50096)
+127.0.0.1 - - [04/Sep/2026 04:32:22] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.000722
+(4715) accepted ('127.0.0.1', 50112)
+127.0.0.1 - - [04/Sep/2026 04:32:22] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000957
+(4715) accepted ('127.0.0.1', 50126)
+127.0.0.1 - - [04/Sep/2026 04:32:22] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000607
+(4715) accepted ('127.0.0.1', 50132)
+127.0.0.1 - - [04/Sep/2026 04:32:27] "GET /stats/flow/1 HTTP/1.1" 200 35394 0.027867
+(4715) accepted ('127.0.0.1', 50140)
+127.0.0.1 - - [04/Sep/2026 04:32:27] "GET /stats/flow/2 HTTP/1.1" 200 35274 0.014442
+(4715) accepted ('127.0.0.1', 50152)
+127.0.0.1 - - [04/Sep/2026 04:32:27] "GET /stats/flow/3 HTTP/1.1" 200 35379 0.014592
+(4715) accepted ('127.0.0.1', 50158)
+127.0.0.1 - - [04/Sep/2026 04:32:27] "GET /stats/flow/4 HTTP/1.1" 200 35379 0.013162
+(4715) accepted ('127.0.0.1', 50168)
+127.0.0.1 - - [04/Sep/2026 04:32:27] "GET /stats/flow/5 HTTP/1.1" 200 658 0.000844
+(4715) accepted ('127.0.0.1', 50174)
+127.0.0.1 - - [04/Sep/2026 04:32:27] "GET /stats/flow/6 HTTP/1.1" 200 35353 0.013948
+(4715) accepted ('127.0.0.1', 50178)
+127.0.0.1 - - [04/Sep/2026 04:32:27] "GET /stats/flow/7 HTTP/1.1" 200 35368 0.013330
+(4715) accepted ('127.0.0.1', 50194)
+127.0.0.1 - - [04/Sep/2026 04:32:27] "GET /stats/flow/8 HTTP/1.1" 200 658 0.000676
+(4715) accepted ('127.0.0.1', 50204)
+127.0.0.1 - - [04/Sep/2026 04:32:27] "GET /stats/flow/9 HTTP/1.1" 200 35368 0.013731
+(4715) accepted ('127.0.0.1', 50214)
+127.0.0.1 - - [04/Sep/2026 04:32:27] "GET /stats/flow/10 HTTP/1.1" 200 35369 0.013355
+(4715) accepted ('127.0.0.1', 57450)
+127.0.0.1 - - [04/Sep/2026 04:32:37] "GET /stats/flow/1 HTTP/1.1" 200 35379 0.028457
+(4715) accepted ('127.0.0.1', 57464)
+127.0.0.1 - - [04/Sep/2026 04:32:37] "GET /stats/flow/2 HTTP/1.1" 200 35380 0.023494
+(4715) accepted ('127.0.0.1', 57476)
+127.0.0.1 - - [04/Sep/2026 04:32:37] "GET /stats/flow/3 HTTP/1.1" 200 35379 0.014263
+(4715) accepted ('127.0.0.1', 57484)
+127.0.0.1 - - [04/Sep/2026 04:32:37] "GET /stats/flow/4 HTTP/1.1" 200 35394 0.014643
+(4715) accepted ('127.0.0.1', 57494)
+127.0.0.1 - - [04/Sep/2026 04:32:37] "GET /stats/flow/5 HTTP/1.1" 200 658 0.000615
+(4715) accepted ('127.0.0.1', 57496)
+127.0.0.1 - - [04/Sep/2026 04:32:37] "GET /stats/flow/6 HTTP/1.1" 200 35352 0.014036
+(4715) accepted ('127.0.0.1', 57504)
+127.0.0.1 - - [04/Sep/2026 04:32:37] "GET /stats/flow/7 HTTP/1.1" 200 35352 0.020862
+(4715) accepted ('127.0.0.1', 57512)
+127.0.0.1 - - [04/Sep/2026 04:32:37] "GET /stats/flow/8 HTTP/1.1" 200 658 0.000882
+(4715) accepted ('127.0.0.1', 57522)
+127.0.0.1 - - [04/Sep/2026 04:32:37] "GET /stats/flow/9 HTTP/1.1" 200 35337 0.017021
+(4715) accepted ('127.0.0.1', 57530)
+127.0.0.1 - - [04/Sep/2026 04:32:37] "GET /stats/flow/10 HTTP/1.1" 200 35354 0.013920
+(4715) accepted ('127.0.0.1', 40006)
+all_destination_paths in
+127.0.0.1 - - [04/Sep/2026 04:32:47] "GET /ryu_server/all_destination_paths HTTP/1.1" 200 1110641 0.019745
+(4715) accepted ('127.0.0.1', 40018)
+127.0.0.1 - - [04/Sep/2026 04:32:47] "GET /stats/flow/1 HTTP/1.1" 200 35394 0.014649
+(4715) accepted ('127.0.0.1', 40026)
+127.0.0.1 - - [04/Sep/2026 04:32:47] "GET /stats/flow/2 HTTP/1.1" 200 35379 0.013685
+(4715) accepted ('127.0.0.1', 40030)
+127.0.0.1 - - [04/Sep/2026 04:32:47] "GET /stats/flow/3 HTTP/1.1" 200 35379 0.014234
+(4715) accepted ('127.0.0.1', 40038)
+127.0.0.1 - - [04/Sep/2026 04:32:47] "GET /stats/flow/4 HTTP/1.1" 200 35349 0.013714
+(4715) accepted ('127.0.0.1', 40052)
+127.0.0.1 - - [04/Sep/2026 04:32:47] "GET /stats/flow/5 HTTP/1.1" 200 658 0.000565
+(4715) accepted ('127.0.0.1', 40064)
+127.0.0.1 - - [04/Sep/2026 04:32:47] "GET /stats/flow/6 HTTP/1.1" 200 35338 0.014176
+(4715) accepted ('127.0.0.1', 40078)
+127.0.0.1 - - [04/Sep/2026 04:32:47] "GET /stats/flow/7 HTTP/1.1" 200 35353 0.013648
+(4715) accepted ('127.0.0.1', 40082)
+127.0.0.1 - - [04/Sep/2026 04:32:47] "GET /stats/flow/8 HTTP/1.1" 200 658 0.000714
+(4715) accepted ('127.0.0.1', 40090)
+127.0.0.1 - - [04/Sep/2026 04:32:47] "GET /stats/flow/9 HTTP/1.1" 200 35347 0.019976
+(4715) accepted ('127.0.0.1', 40104)
+127.0.0.1 - - [04/Sep/2026 04:32:47] "GET /stats/flow/10 HTTP/1.1" 200 35333 0.031245
+(4715) accepted ('127.0.0.1', 33554)
+127.0.0.1 - - [04/Sep/2026 04:32:52] "GET /v1.0/topology/switches HTTP/1.1" 200 17265 0.002311
+(4715) accepted ('127.0.0.1', 33556)
+127.0.0.1 - - [04/Sep/2026 04:32:52] "GET /v1.0/topology/hosts HTTP/1.1" 200 26456 0.000787
+(4715) accepted ('127.0.0.1', 33562)
+127.0.0.1 - - [04/Sep/2026 04:32:52] "GET /v1.0/topology/links HTTP/1.1" 200 7286 0.000324
+(4715) accepted ('127.0.0.1', 33568)
+127.0.0.1 - - [04/Sep/2026 04:32:58] "GET /stats/flow/1 HTTP/1.1" 200 35394 0.017547
+(4715) accepted ('127.0.0.1', 33584)
+127.0.0.1 - - [04/Sep/2026 04:32:58] "GET /stats/flow/2 HTTP/1.1" 200 35394 0.013477
+(4715) accepted ('127.0.0.1', 33588)
+127.0.0.1 - - [04/Sep/2026 04:32:58] "GET /stats/flow/3 HTTP/1.1" 200 35274 0.013168
+(4715) accepted ('127.0.0.1', 33590)
+127.0.0.1 - - [04/Sep/2026 04:32:58] "GET /stats/flow/4 HTTP/1.1" 200 35379 0.013304
+(4715) accepted ('127.0.0.1', 33594)
+127.0.0.1 - - [04/Sep/2026 04:32:58] "GET /stats/flow/5 HTTP/1.1" 200 658 0.000647
+(4715) accepted ('127.0.0.1', 33600)
+127.0.0.1 - - [04/Sep/2026 04:32:58] "GET /stats/flow/6 HTTP/1.1" 200 35353 0.013440
+(4715) accepted ('127.0.0.1', 33614)
+127.0.0.1 - - [04/Sep/2026 04:32:58] "GET /stats/flow/7 HTTP/1.1" 200 35353 0.013877
+(4715) accepted ('127.0.0.1', 33628)
+127.0.0.1 - - [04/Sep/2026 04:32:58] "GET /stats/flow/8 HTTP/1.1" 200 658 0.000724
+(4715) accepted ('127.0.0.1', 33638)
+127.0.0.1 - - [04/Sep/2026 04:32:58] "GET /stats/flow/9 HTTP/1.1" 200 35368 0.015987
+(4715) accepted ('127.0.0.1', 33644)
+127.0.0.1 - - [04/Sep/2026 04:32:58] "GET /stats/flow/10 HTTP/1.1" 200 35369 0.016670
+(4715) accepted ('127.0.0.1', 56942)
+127.0.0.1 - - [04/Sep/2026 04:33:08] "GET /stats/flow/1 HTTP/1.1" 200 35377 0.014419
+(4715) accepted ('127.0.0.1', 56956)
+127.0.0.1 - - [04/Sep/2026 04:33:08] "GET /stats/flow/2 HTTP/1.1" 200 35377 0.014042
+(4715) accepted ('127.0.0.1', 56960)
+127.0.0.1 - - [04/Sep/2026 04:33:08] "GET /stats/flow/3 HTTP/1.1" 200 35392 0.013719
+(4715) accepted ('127.0.0.1', 56974)
+127.0.0.1 - - [04/Sep/2026 04:33:08] "GET /stats/flow/4 HTTP/1.1" 200 35392 0.013798
+(4715) accepted ('127.0.0.1', 56988)
+127.0.0.1 - - [04/Sep/2026 04:33:08] "GET /stats/flow/5 HTTP/1.1" 200 658 0.000540
+(4715) accepted ('127.0.0.1', 56994)
+127.0.0.1 - - [04/Sep/2026 04:33:08] "GET /stats/flow/6 HTTP/1.1" 200 35368 0.013548
+(4715) accepted ('127.0.0.1', 57000)
+127.0.0.1 - - [04/Sep/2026 04:33:08] "GET /stats/flow/7 HTTP/1.1" 200 35338 0.016930
+(4715) accepted ('127.0.0.1', 57014)
+127.0.0.1 - - [04/Sep/2026 04:33:08] "GET /stats/flow/8 HTTP/1.1" 200 658 0.000979
+(4715) accepted ('127.0.0.1', 57028)
+127.0.0.1 - - [04/Sep/2026 04:33:08] "GET /stats/flow/9 HTTP/1.1" 200 35353 0.027014
+(4715) accepted ('127.0.0.1', 57030)
+127.0.0.1 - - [04/Sep/2026 04:33:08] "GET /stats/flow/10 HTTP/1.1" 200 35354 0.019907
+(4715) accepted ('127.0.0.1', 46962)
+127.0.0.1 - - [04/Sep/2026 04:33:18] "GET /stats/flow/1 HTTP/1.1" 200 35363 0.028288
+(4715) accepted ('127.0.0.1', 46974)
+127.0.0.1 - - [04/Sep/2026 04:33:18] "GET /stats/flow/2 HTTP/1.1" 200 35362 0.013617
+(4715) accepted ('127.0.0.1', 46982)
+127.0.0.1 - - [04/Sep/2026 04:33:18] "GET /stats/flow/3 HTTP/1.1" 200 35379 0.013786
+(4715) accepted ('127.0.0.1', 46996)
+127.0.0.1 - - [04/Sep/2026 04:33:18] "GET /stats/flow/4 HTTP/1.1" 200 35379 0.013199
+(4715) accepted ('127.0.0.1', 47006)
+127.0.0.1 - - [04/Sep/2026 04:33:18] "GET /stats/flow/5 HTTP/1.1" 200 658 0.000589
+(4715) accepted ('127.0.0.1', 47022)
+127.0.0.1 - - [04/Sep/2026 04:33:18] "GET /stats/flow/6 HTTP/1.1" 200 35368 0.013345
+(4715) accepted ('127.0.0.1', 47038)
+127.0.0.1 - - [04/Sep/2026 04:33:18] "GET /stats/flow/7 HTTP/1.1" 200 35353 0.013993
+(4715) accepted ('127.0.0.1', 47052)
+127.0.0.1 - - [04/Sep/2026 04:33:18] "GET /stats/flow/8 HTTP/1.1" 200 658 0.000534
+(4715) accepted ('127.0.0.1', 47060)
+127.0.0.1 - - [04/Sep/2026 04:33:18] "GET /stats/flow/9 HTTP/1.1" 200 35233 0.013567
+(4715) accepted ('127.0.0.1', 47072)
+127.0.0.1 - - [04/Sep/2026 04:33:18] "GET /stats/flow/10 HTTP/1.1" 200 35339 0.014158

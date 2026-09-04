@@ -1,0 +1,27 @@
+A-12h STATE  2026-09-04T05:09:31+00:00
+== Python 模組（正確儀器：直譯器，不是 dpkg） ==
+module      sys-py3   base      ryu-env
+pandas      MISSING   MISSING   MISSING
+nornir      MISSING   MISSING   MISSING
+loguru      ok        MISSING   MISSING
+eventlet    MISSING   MISSING   ok
+fastapi     MISSING   MISSING   MISSING
+uvicorn     MISSING   MISSING   MISSING
+torch       MISSING   MISSING   MISSING
+requests    ok        ok        ok
+networkx    ok        MISSING   ok
+ryu         MISSING   MISSING   ok
+
+== Simulation Platform 頁的路徑 ==
+~/Simulation-Platform-Manager (手冊)     MISSING
+~/Desktop/Simulation-Platform-Manager (實際) DIR
+
+== NSR start/stop：rc 與實際狀態 ==
+start 真 rc=0
+start 之後存活的 NSR 行程數 = 0
+stop 真 rc=0
+stop 的輸出前兩行:   
+手動跑 python3 network_state_recorder.py 的真 rc: 1  死因: ModuleNotFoundError: No module named 'nornir'
+
+== docker（WebGUI 頁需要） ==
+docker=MISSING docker-compose=MISSING web_gui_deploy.sh=

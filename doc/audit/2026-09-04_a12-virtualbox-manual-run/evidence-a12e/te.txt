@@ -1,0 +1,32 @@
+----- Tutorials 叫你先 conda activate te-env（不存在），再跑 Traffic-engineering-App.py -----
+LICENSE
+Traffic-engineering-App.py
+ndtwin-license-header.txt
+--- 用 image 上有的 python3 直接跑 ---
+Select TE mode:
+  1) Execute run_te() when you press Enter
+  2) Execute run_te() periodically (e.g., every 5 seconds)
+Enter 1 or 2 [default 1]: Traceback (most recent call last):
+  File "/home/tester/Desktop/Traffic-Engineering-App/Traffic-engineering-App.py", line 701, in <module>
+    main()
+  File "/home/tester/Desktop/Traffic-Engineering-App/Traffic-engineering-App.py", line 617, in main
+    mode, te_interval = ask_mode()
+                        ^^^^^^^^^^
+  File "/home/tester/Desktop/Traffic-Engineering-App/Traffic-engineering-App.py", line 599, in ask_mode
+    choice = input("Enter 1 or 2 [default 1]: ").strip() or "1"
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+EOFError: EOF when reading a line
+[rc=0]
+
+===== Installation Manual 說的 systemd unit 現況 =====
+ndtwin-esa       enabled=disabled active=inactive
+ndtwin-spm       enabled=disabled active=inactive
+ndtwin-reqmgr    enabled=disabled active=inactive
+
+===== NFS 伺服器本身 =====
+inactive
+
+===== 對照：照 Installation Manual 用 unit 啟 ESA，會不會就好了 =====
+ndtwin-esa active=active
+LISTEN 0      4096         0.0.0.0:8001  0.0.0.0:*
+DONE

@@ -1,0 +1,49 @@
+INSTALL DONE at T+60s after restart
+--- ryu.log 標記 ---
+install_all_pair_paths             1
+Static topology initialized        1
+Failed to load static topology     0
+Traceback                          0
+--- 每台：connect/disconnect/flows ---
+s1    c=1   d=0   flows=130  
+s2    c=2   d=1   flows=130  
+s3    c=2   d=1   flows=2    
+s4    c=2   d=1   flows=130  
+s5    c=2   d=1   flows=2    
+s6    c=1   d=0   flows=130  
+s7    c=1   d=0   flows=130  
+s8    c=1   d=0   flows=130  
+s9    c=2   d=1   flows=2    
+s10   c=2   d=1   flows=2    
+--- 跨交換機 ping ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+Result from h127 to 10.0.0.63:
+PING 10.0.0.63 (10.0.0.63) 56(84) bytes of data.
+--- 10.0.0.63 ping statistics ---
+1 packets transmitted, 0 received, 100% packet loss, time 0ms
+--- Final Configuration Active ---
+Host internet: OK | sFlow reachability: OK | Switch identification: OK
+Run 'sflowtool -p 6343' in another terminal to see the data.
+*** Starting CLI:
+mininet> h1 ping -c3 -W3 h128
+PING 10.0.0.128 (10.0.0.128) 56(84) bytes of data.
+--- 10.0.0.128 ping statistics ---
+3 packets transmitted, 0 received, 100% packet loss, time 2077ms
+mininet> h5 ping -c3 -W3 h64
+PING 10.0.0.64 (10.0.0.64) 56(84) bytes of data.
+64 bytes from 10.0.0.64: icmp_seq=1 ttl=64 time=0.262 ms
+64 bytes from 10.0.0.64: icmp_seq=2 ttl=64 time=0.125 ms
+64 bytes from 10.0.0.64: icmp_seq=3 ttl=64 time=0.160 ms
+--- 10.0.0.64 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2163ms
+rtt min/avg/max/mdev = 0.125/0.182/0.262/0.058 ms
+mininet> h1 ping -c3 -W3 h2
+PING 10.0.0.2 (10.0.0.2) 56(84) bytes of data.
+64 bytes from 10.0.0.2: icmp_seq=1 ttl=64 time=0.145 ms
+64 bytes from 10.0.0.2: icmp_seq=2 ttl=64 time=0.108 ms
+64 bytes from 10.0.0.2: icmp_seq=3 ttl=64 time=0.101 ms
+--- 10.0.0.2 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2070ms
+rtt min/avg/max/mdev = 0.101/0.118/0.145/0.019 ms
+mininet>
+DONE

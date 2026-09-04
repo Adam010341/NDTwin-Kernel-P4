@@ -1,0 +1,21 @@
+A-12i STATE  2026-09-04T05:20:48+00:00
+== BUG-05（A-12g 已量到，這裡再確認一次） ==
+cpu md5:    480e906c87b2
+memory md5: 480e906c87b2
+== BUG-08 ==
+modify_device_name 回 200，且 setting/StaticNetworkTopologyMininet_10Switches.json 被改寫
+  sha 14988a44c0e6 -> 949b082ff482, mtime 2026-08-29 -> 2026-09-04；回應無任何警告
+  還原後殘留=0  現 sha=3c2ff0602230
+== BUG-14 ==
+nfs-server=inactive  /srv/nfs/sim: 1 power 
+  app_register 回 200 {"app_id":1,...} 且建立了目錄 1，回應與 log 無警告
+== BUG-15 ==
+  HttpSession.cpp:589 int k = 50;  來源 utils::queryParam(target,"k") ⇒ ?k=N 可設
+  ?k=abc 在 kernel log 產生 [warning] handleGetDetectedTopKFlowData] Invalid k value: abc
+== BUG-16 ==
+  image 的 NTG.yaml host_file:     host_file: "./setting/Hardware.yaml"
+  手冊印的是 ./setting/Mininet.yaml
+== BUG-17 ==
+  TopologyAndFlowMonitor.cpp:385 validateDataPlaneHomogeneity(...) 回傳值被丟棄
+  AppConfig.hpp:15 ALLOW_MIXED_DATAPLANE = false
+  混合分支：SPDLOG_LOGGER_ERROR 後 return false —— 呼叫端不看 ⇒ 只記錄，不拒絕

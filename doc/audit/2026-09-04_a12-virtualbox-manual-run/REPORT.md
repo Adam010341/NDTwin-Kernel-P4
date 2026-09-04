@@ -3,8 +3,14 @@
 **Machine:** nslab, VirtualBox 7.1.18r173720
 **Guest:** `a12-manual`, imported from the published `.ova`, 4 vCPU / 6144 MB (OVF-declared, unchanged)
 **Ledger row:** A-12 in `doc/audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md`
-**Date:** 2026-09-04, 00:32-00:47 CST
-**Evidence:** `evidence/` (harvested with sha256 verified at all three hops, `09eb1f90...`)
+**Date:** 2026-09-04, 00:32-00:47 CST (Part A), 01:0x-01:1x (Part B), 01:2x-02:3x (Part C)
+**Evidence:** `evidence/` (Parts A+B, sha256 verified at all three hops, `09eb1f90...` / `5d221a68...`)
+and `evidence-a12c/` (Part C, `7e6e7064b115b3a3d222ab60c2af5c693cf89d8b73dc2b8b290c71f861f2f496`).
+
+> ⚠️ `evidence-a12c/STATE-A12C.txt` was captured **while two deliberate test flows were still
+> present** (`s3` reads 3 and `s6` reads 131 instead of 2 and 130). They were removed
+> afterwards and the removal verified by `dump-flows`. Every other table in this report uses
+> the clean counts.
 
 ## Why this round exists
 
@@ -21,9 +27,25 @@ This round closes that gap and tests the boot manual itself.
 
 ## The object under test
 
-`~/a9pack/out/NDTwin-P4-demo.ova`, `sha256 5ed8dcb942d5fa7ecde4f019b95125084e9c9e6fb221927d15e8e7f9c03fefab`.
-That hash is **character-for-character the value published on the Download page**, so what was
-tested is what a user downloads. Verified before the import, not after.
+`~/a9pack/out/NDTwin-P4-demo.ova`, `sha256 5ed8dcb942d5fa7ecde4f019b95125084e9c9e6fb221927d15e8e7f9c03fefab`,
+verified before the import, not after.
+
+> 🔴 **Correction, 2026-09-04.** This paragraph originally read *"that hash is character-for-character
+> the value published on the Download page, so what was tested is what a user downloads."*
+> **That is false, and it was load-bearing.** `git grep` over `origin/main` -- the branch the site
+> is built from -- finds that hash **nowhere**. It exists only in commit `287575a` on the unpushed
+> branch `docs/p4-bmv2-environment`, which **I wrote today**. What I actually read at the time was
+> an *uncommitted draft* sitting in the working tree, and I reported it as a published page.
+>
+> The live Download page offers **one** demo VM: the 17.9 GB standard image, "Requires VMware",
+> with no checksum. **The P4/BMv2 image this whole report tests is not on the published site at
+> all** -- `git grep` for `P4/BMv2`, the Drive id, and `NDTwin-P4-demo` over `origin/main` returns
+> nothing.
+>
+> So the chain "what was tested is what a user downloads" **was never established**, in either
+> direction: the artefact is not offered publicly, and the bytes behind the draft's Drive link were
+> never compared against the `.ova` on nslab. Everything measured below is true **of the file at
+> `~/a9pack/out/NDTwin-P4-demo.ova`**. Whether a downloader gets those same bytes is open.
 
 ---
 
@@ -261,68 +283,179 @@ configuration the image can actually express.
   `Pulled 16256 paths` = 128 × 127.
 * Ryu's REST API, stable over 60 s: **switches 10, hosts 128, links 32**.
 
-## 🔴 D13 -- inter-switch forwarding does not work on the OVS path
+## 🔴 D13 -- 7 of 10 switches never receive their flow rules, and nothing ever repairs it
 
-| probe | result |
+> **Rewritten a second time, 2026-09-04 (A-12f): this is a publishing defect, not a code defect.**
+> The fix has been in the source since **2026-07-31** and is in the public repository the Download
+> page links to. Only the shipped VM image predates it. Everything below the next section still
+> stands as the description of what the image does; what changed is what should be done about it.
+
+### The fix already exists, and users of the repo already have it
+
+`2c81b26b` (2026-07-31, Adam) carries a comment that states the root cause in the same terms this
+round re-derived from scratch a month later:
+
+> `install_all_pair_paths` ran exactly once per process, because
+> `install_initial_openflow_entries_completed` is set on the line immediately before the call.
+
+Verified **by content, at each ref**:
+
+| ref | `intelligent_router.py` | the one-shot flag |
+| :--- | :--- | :--- |
+| `trunk` | 2084 lines | fixed -- `:721` *"Deliberately does NOT set ... itself"* |
+| `20cd80b` (internal source of the snapshot) | 2084 lines | fixed |
+| **`936f8c6` (the public repo the Download page links to)** | 2084 lines | **fixed** |
+| **the published VM image** | the old structure: flag set on the line before the call | **not fixed** |
+
+So the two artefacts offered on the same Download page disagree: **clone the repository and you get
+the fix; download the VM image and you get the bug.**
+
+⚠️ **Instrument error worth recording.** I first asked whether the five fix commits were ancestors
+of `936f8c6`, with `git merge-base --is-ancestor`, and got "none of them". That answer was wrong.
+`936f8c6` is an **orphan snapshot** with no parents, so ancestry returns false for every commit in
+existence. **Ancestry is not the question to ask of an orphan snapshot; content is.**
+`git show 936f8c6:intelligent_router.py` shows the fix plainly.
+
+✅ **Answered, and it became D18.** The image's `PROVENANCE.txt` does name a kernel commit --
+`20cd80b62948e316646dd24f302f5278fee544ee`, which matches this repository exactly -- and states
+that the tree is that commit minus `doc/`. It is not: five files differ, and
+`intelligent_router.py` is one of them. See **D18**.
+
+### What the image does, as measured (unchanged from A-12c)
+
+> **Rewritten 2026-09-04 by run A-12c.** The A-12b heading read *"inter-switch forwarding does
+> not work on the OVS path"*. **That was wrong, and A-12c falsified it with a measurement:**
+> inter-switch forwarding works fine between two switches that hold rules. The defect is that
+> most switches never get rules. The original A-12b text is preserved below under
+> "What A-12b said, and which parts A-12c overturned".
+
+### The run that settled it
+
+One change from A-12b: **Ryu's stdout went to a file instead of a tmux pane.** A-12b could not
+read the startup window because `tmux history-limit` is 2000 and the pane already held 1883
+lines. Everything below comes from that file (`evidence-a12c/ryu-run1.log`, `ryu.log`).
+
+### What actually happens
+
+```
+ryu-run1.log:59    install_all_pair_paths            <- runs
+ryu-run1.log:489   Static topology initialized, all-destination paths installed.
+ryu-run1.log:630+  seven switches disconnect and reconnect
+```
+
+`install_all_pair_paths` **runs exactly once, completes, and logs success.**
+`Failed to load static topology` = 0. `Traceback` = 0. No exception at all.
+
+And yet, per switch (`evidence-a12c/STATE-A12C.txt`):
+
+| run | switches that received all 128 rules | switches left with only the 2 defaults |
+| :--- | :--- | :--- |
+| run 1 (fresh boot) | s1, s2, s4 | s3, s5, s6, s7, s8, s9, s10 |
+| run 2 (Ryu restarted, fabric untouched) | *newly* s6, s7, s8 | s3, s5, s9, s10 |
+
+Three facts pin the shape:
+
+1. **All-or-nothing per switch.** Counts are 130 or 2, never in between. So this is not "the
+   install was cut off part-way"; it is a per-switch decision.
+2. **The set changes between runs.** s1/s2/s4, then s6/s7/s8. So it is not iteration order --
+   it is a race. (A-12b's three 60-s samples were identical *within* one run, which is what made
+   it look deterministic.)
+3. **The one-shot flag guarantees no repair.** `intelligent_router.py:280` sets
+   `install_initial_openflow_entries_completed = True` **before** calling the installer on the
+   next line, and `:174` gates the whole static-topology load behind
+   `if not self.install_initial_openflow_entries_completed:`. It is never reset. So a switch that
+   comes up empty stays empty for the life of the controller -- through reconnects, through
+   topology changes, through everything.
+
+### The control that says it is the app, not the channel
+
+Ryu itself reports all ten datapaths connected:
+
+```
+$ curl -s http://localhost:8080/stats/switches
+[6, 10, 5, 3, 8, 2, 7, 9, 1, 4]
+```
+
+So I pushed one flow through **Ryu's own** `ofctl_rest` to `s3` -- a switch the app had left
+empty -- and to `s6` as a positive control:
+
+```
+POST /stats/flowentry/add  dpid=3  ->  http 200
+s3 flows: 2 -> 3, and dump-flows shows  priority=1,ip,nw_dst=10.99.99.99 actions=output:1
+POST /stats/flowentry/add  dpid=6  ->  http 200   (control: same result)
+```
+
+**The OpenFlow channel to the "broken" switch is perfectly usable.** The rules the app believes
+it installed were simply never delivered. (Both test flows were removed afterwards and the
+removal verified by `dump-flows`, not by the 200 -- the first `delete_strict` returned 200 and
+deleted nothing, because strict deletion also matches on priority and I had omitted it. My
+omission, not a product defect, but it is the same "200 means nothing happened" shape as D2.)
+
+### Forwarding, re-measured
+
+| probe | switches involved | result |
+| :--- | :--- | :--- |
+| `h1 → h2` | both on a switch **with** rules | **3/3** |
+| `h5 → h64` | **different switches**, both **with** rules | **3/3** |
+| `h1 → h128` | far end on a switch **without** rules | **0/3** |
+
+`h5 → h64` is the measurement that overturns the A-12b heading: **inter-switch forwarding
+works.** What fails is any path that has to traverse a switch the installer skipped.
+
+### What is established, and what is not
+
+**Established:** the installer reports success after programming 3 of 10 switches; the survivors
+vary run to run; the channel to the skipped switches is live; nothing ever re-provisions them.
+
+**Not re-tested in Part C:** the `Ryu 128 hosts` vs `kernel 96 hosts` mismatch A-12b recorded.
+The kernel was never started in this run, so that observation is untouched -- see
+"Corrected notes to Part A", which explains the 96 as a control-plane poll, not a model defect.
+
+**Not established:** *why* the flow-mods for the other seven are dropped inside the app. The
+leading candidate is that `self.switches` (rebuilt only in the topology-update handler at
+`:140`, `{sw.dp.id: sw.dp for sw in switch_list}`) holds **datapath objects whose sockets have
+since been replaced by a reconnect** -- a stale object is not `None`, so `.get()` succeeds,
+`send_msg()` writes into a dead socket, and nothing is raised. That would explain the
+all-or-nothing shape exactly. **I did not prove it**, and it is recorded here as a candidate,
+not a finding.
+
+Also latent but **not** what happened here: `:400-401`
+
+```python
+datapath = self.switches.get(current_switch)
+parser = datapath.ofproto_parser        # no None guard
+```
+
+would crash on a genuinely absent dpid. There was no traceback in either run, so this line did
+not fire -- A-12b listed it as a possible explanation and A-12c rules it out.
+
+### Why this is worth more than a routing bug
+
+`Static topology initialized, all-destination paths installed.` is printed after 70% of the
+fabric was left unprogrammed. That is the same shape as D1 and D2 on the P4 side: **the system
+states success for work it did not do.** A user following the manual sees a clean controller
+log, a full topology in the GUI, and a network that silently drops most traffic.
+
+### What A-12b said, and which parts A-12c overturned
+
+| A-12b claim | A-12c |
 | :--- | :--- |
-| `h1 → h2` (same switch) | **5/5 received** |
-| `h1 → h3` (same switch) | 3/3 received |
-| `h1 → h13` (same switch, s1 port 15) | 3/3 received |
-| `h1 → 10.0.0.96` (h96 is on **s3**) | **0/3** |
-| `h1 → 10.0.0.97` | **0/3** |
-| `h1 → h128` | **0/5** |
+| "inter-switch forwarding does not work" | ❌ **overturned** -- `h5 → h64` crosses switches, 3/3 |
+| rules land on exactly s1/s3/s5 | ⚠️ **narrowed** -- exactly three, but *which* three varies |
+| "identical across 3 samples ⇒ stalled, not slow" | ✅ holds, and now explained: nothing retries |
+| `:400` missing None guard could be the cause | ❌ **ruled out** -- zero tracebacks |
+| `:173` switch-count gate could be the cause | ❌ **ruled out** -- `len(self.switches) 10`, gate passed |
+| directed-graph traversal | ✅ stays falsified |
+| startup race with the kernel | ✅ stays falsified |
 
-Proactive rules land on **exactly three of the ten switches**:
+### Why D13 still does not read as "OVS is broken"
 
-```
-s1 s2 s3 s4 s5 s6 s7 s8 s9 s10
-128  0 128  0 128  0  0  0  0  0
-```
+The Ryu app the manual names -- `intelligent_router_static_topo.py` -- **is not on the image**.
+The honest statement is unchanged:
 
-Three samples 60 s apart are **identical**, so this is stalled, not slow. `s1` does hold a rule
-for every destination including `10.0.0.128` (`actions=output:2`); the packets die further along,
-on a switch with an empty table.
-
-Persistent model mismatch: Ryu reports **128 hosts / 32 links**; the kernel's
-`topology from the control plane` line says **96 hosts / 224 edges up**, and never moves.
-
-### Two hypotheses tested and **both falsified** -- so neither is the cause
-
-1. **Startup race.** Ryu logs many
-   `Failed to notify NDT: ... :8000 ... ECONNREFUSED` on `/ndt/link_recovery_detected`, sent
-   while the kernel was not yet listening and never retried. If lost notifications were the
-   cause, restarting the kernel against a converged control plane would fix it.
-   **Restarted it: byte-identical outcome** -- 96 hosts, the same three switches, the same
-   forwarding failure. Not a race; deterministic.
-2. **Directed-graph traversal.** `install_all_pair_paths()` BFS-walks `self.static_net`, a
-   `networkx.DiGraph`, whose `neighbors()` yields successors only -- so a link recorded in one
-   direction would stop the walk. **Checked the data: all 32 switch-to-switch edges have reverse
-   counterparts, and directed BFS from every dpid reaches all ten.** The graph is fine.
-
-### What is *not* established, and the test that would settle it
-
-`intelligent_router.py:400` does `datapath = self.switches.get(current_switch)` with no None
-guard, and `:173` gates the static-topology load behind `if len(self.switches) >= switch_num`.
-Either could explain three-of-ten. **I could not read which**: `install_all_pair_paths`'s entry
-log never appears in the captured scrollback -- but `tmux history-limit` is **2000** and the Ryu
-pane already held **1883** lines, so the startup window had rolled off. **"Not seen" here is the
-instrument, not the system**, and it is recorded that way deliberately.
-
-**Next test:** restart Ryu with stdout redirected to a file rather than a tmux pane, and read
-whether `len(self.switches)` ever reaches `switch_num` and whether `install_all_pair_paths` runs.
-One run, no new resources.
-
-### Why D13 does not read as "OVS is broken"
-
-The Ryu app the manual names -- `intelligent_router_static_topo.py`, whose name says it programs
-from the static topology -- **is not on the image**. So the honest statement is:
-
-> With the only Ryu app this image ships, the OVS fabric forwards within a switch and not
-> between switches. The application the manual tells you to run is absent, so the documented
-> configuration was never testable.
-
-That makes D3 heavier than "a wrong path in the manual": the missing file may be the one that
-makes this path work.
+> With the only Ryu app this image ships, 7 of 10 switches are left unprogrammed and the
+> controller reports success. The application the manual tells you to run is absent, so the
+> documented configuration was never testable.
 
 ## ⚠️ D14 -- the topology asks for 10 Gbit links and Mininet refuses
 
@@ -345,5 +478,491 @@ fabric is measuring a link an order of magnitude below the one the topology desc
   parser** -- `dst_ip` holds integers, not dotted strings -- not missing data.
 * Part A's suspicion that `setting/` lacked an OVS 128-host topology was wrong; choice [1] loads
   `StaticNetworkTopologyMininet_10Switches.json`, which is present.
+
+---
+
+# Part D -- the two Tutorials pages, run (A-12e)
+
+Adam's instruction after Part C was: fix the page you ran, then **go run the pages you have
+not run**, and if there really is a problem, fix those too. Parts A-C covered the User Manual's
+Quick Start page. `TrafficEngineeringApp.md` and `EnergySavingApp.md` had never been run; between
+them they carry about 30 commands, and only four of those had ever been checked.
+
+**Evidence:** `evidence-a12e/` (`STATE-A12E.txt`, `apps.txt`, `te.txt`),
+`sha256 4499aea73c957346acf13da15f26a682d1b1ba759a99113602dcf9b41fb6cc96`, equal at all three hops.
+
+## What is on the image, measured
+
+| Named on the pages | On the image |
+| :--- | :--- |
+| `~/Desktop/{Traffic-Engineering-App, Energy-Saving-App, Network-Traffic-Visualizer, Simulation-Platform-Manager}` | **all four present** |
+| `energy_saving_app`, `simulation_platform_manager`, `network_traffic_visualizer.sh`, `Traffic-engineering-App.py` | **all four present, at the documented paths** |
+| `~/Desktop/Network-Traffic-Generator` | **absent** -- NTG is at `~/Network-Traffic-Generator` |
+| `intelligent_router_static_topo.py`, `intelligent_router_static_topo2.py` | **neither is on the image** |
+| `example_topology.py` | **absent** -- NTG ships `testbed_topo.py` |
+| `ntg_env`, `te-env` | **absent** -- `conda env list` is `base` and `ryu-env` |
+| `config_template.json`, `config_template2.json` | **absent** -- NTG ships `flow_template.json` and `dist_template.json` |
+
+The router row is worth a note on **instruments**. Earlier rounds searched for
+`intelligent_router_static_topo.py` by exact name, which says nothing about `_topo2.py`. This
+round used `find / -name 'intelligent_router*'`, and the whole image holds exactly one Ryu
+application: `intelligent_router.py`. Until that wildcard was run, `_topo2.py` was a genuine
+unknown, not a settled absence.
+
+## 🔴 D15 -- the two NFS applications block; the Installation Manual says they abort
+
+The Installation Manual states that `energy_saving_app` and `simulation_platform_manager`
+*"mount NFS as their first action and abort with `Mount NFS Failed` if it does not succeed."*
+
+Run as the Tutorials pages instruct, on a fresh boot where `nfs-server` is inactive:
+
+```
+[info] energy_saving_app.cpp:977 main] Mount NFS
+[info] energy_saving_app.cpp:978 main] mount -t nfs localhost:/srv/nfs/sim/power /mnt/nfs/app
+[rc=124]                                        <- still blocked when killed at 25 s
+mount.nfs: Connection refused for localhost:/srv/nfs/sim/power on /mnt/nfs/app
+```
+
+**`Mount NFS Failed` never appeared.** The `mount.nfs` error surfaced only *after* the parent was
+killed. A user gets a program that sits there silently, not one that aborts with a message.
+⚠️ Bound, not a limit: the 25 s window is mine. It may abort eventually; it does not abort promptly.
+
+`energy_saving_app` also prints a raw Boost internal string when its first connection is refused
+-- `Error: connect: Connection refused [system:111 at /usr/include/boost/asio/detail/
+reactive_socket_service.hpp:589:5 ...]` -- and then continues anyway.
+
+**The documented systemd path does work**, and was verified rather than assumed:
+
+| | result |
+| :--- | :--- |
+| `sudo systemctl start ndtwin-spm` | `active`, listening on **:9000** |
+| `sudo systemctl start ndtwin-esa` | `active`, listening on **:8001** |
+| mechanism | `After=nfs-server.service`, `ExecStartPre=/usr/local/sbin/ndtwin-nfs-up` |
+| `nfs-server` after | `inactive` -> **`active`**, both exports mounted |
+
+## 🔴 D16 -- both pages name a traffic-generator config file that does not exist
+
+`flow --config` -> `config_template.json` (TE page) and `config_template2.json` (ESA page).
+Neither is on the image. NTG's own README documents `flow_template.json` (intervals and flow mix)
+and `dist_template.json` (the same with parameters drawn from distribution files).
+
+## 🔴 D17 -- `te-env` is not merely missing, it is unnecessary
+
+The TE page says to `conda activate te-env` and adds that `$(which python)` is needed *"to force
+`sudo` to use the Conda environment's Python instead of the system Python."* Run under the image's
+plain `python3`, the application starts and reaches its own prompt:
+
+```
+Select TE mode:
+  1) Execute run_te() when you press Enter
+  2) Execute run_te() periodically (e.g., every 5 seconds)
+Enter 1 or 2 [default 1]:
+```
+
+It then raised `EOFError` -- **because I fed it no stdin**, which is my harness, not a defect.
+
+## ⚠️ Not a finding: the visualizer -- and a limitation I asserted without checking
+
+`./network_traffic_visualizer.sh` failed here with `java.lang.UnsupportedOperationException:
+Unable to open DISPLAY`. That is this headless SSH environment, not the script, and nothing on
+that step was changed.
+
+> 🔴 **Correction (A-12f).** A-12e went further and said this step could *never* be verified
+> headlessly. **Wrong, and wrong for the worst reason: I never checked whether the image has a
+> virtual framebuffer.** It does -- `xvfb-run`, `Xvfb` and `xdpyinfo` are all installed. Re-run as
+> `xvfb-run -a ./network_traffic_visualizer.sh`, the DISPLAY error count is **0** and the
+> application runs its render loop normally (`TopologyCanvas.draw() ... Canvas size: 1198.0x900.0`),
+> drawing zero nodes only because the kernel was not up in that run. **The script is fine, and the
+> limitation was mine and imaginary.** A stated limitation is a claim like any other; this one had
+> no evidence behind it.
+
+## What was changed on the website, and on what evidence
+
+Three commits on branch `docs/p4-bmv2-environment`, **not pushed**. Each commit message separates
+what was *executed*, what is *documentation-sourced*, and what was *left alone deliberately*. Two
+lines carry explicit, visible uncertainty rather than a silent guess:
+
+* `config_template.json` -> `flow_template.json` rests on NTG's README; the NTG interface itself
+  was never driven.
+* `intelligent_router_static_topo2.py` -> `intelligent_router.py` carries a note **on the page**
+  saying the substitution brings the fabric up but has **not** been verified to reproduce the
+  energy-saving behaviour the page demonstrates.
+
+## 🔴 D18 -- the image's `PROVENANCE.txt` names a commit the image does not contain
+
+`~/Desktop/NDTwin-Kernel/PROVENANCE.txt` states:
+
+> The kernel tree here is 20cd80b MINUS its doc/ directory, removed 2026-09-01 before ...
+
+The commit id it gives, `20cd80b62948e316646dd24f302f5278fee544ee`, resolves in this repository and
+is exactly right. The claim about the tree is not.
+
+Every tracked file of `20cd80b` outside `doc/` -- 405 of them -- was hashed on the image with
+`git hash-object` (git 2.43.0 is installed) and compared against `git ls-tree -r 20cd80b`:
+
+```
+相符 400   不符 5   缺檔 0   （總 405）
+```
+
+| file | image | `20cd80b` |
+| :--- | :--- | :--- |
+| `intelligent_router.py` | 724 lines, `sha256 c994bf5c...` | 2084 lines, `sha256 1a3937bb...` |
+| `p4_proxy/proxy_agent/main.py` | 405 lines | 358 lines -- **the image's copy is longer** |
+| `testbed_topo.py` | 240 lines | 257 lines |
+| `p4_proxy/mininet/host_count_override` | `4` | `128` |
+| `p4_proxy/mininet/bmv2_binary_override` | bare path, comments stripped | same path, with its rationale |
+
+The divergence does not point one way. One file is far older *and* carries a machine-specific
+hardcode (`static_topology_file_path = Path("/home/tester/Desktop/NDTwin-Kernel/setting/...")`),
+one is **longer** than the commit's, one differs by 17 lines, and one override has a different
+value. That is the signature of an image built from **a working directory somebody had edited**,
+not from a checkout of the commit it names.
+
+### Why this is the heaviest item in this report
+
+**D13 is a consequence of D18.** The switch-programming defect exists on the image *because*
+`intelligent_router.py` is not the file `20cd80b` contains. The commit's own version has carried
+the fix since 2026-07-31. A reader who trusts `PROVENANCE.txt` -- and it is written to be trusted
+-- would reasonably conclude that reading `20cd80b` tells them what the image runs. For this file
+it does not, and the difference is the difference between a working fabric and a silently broken one.
+
+It is also the **second** false claim in this same file. The first is D1's *"Nothing the software
+READS at run time lived under doc/. **Checked, not assumed**"*, contradicted by
+`HttpSession.cpp:1749`. Two independent, confidently-worded, false assertions in the one document
+whose entire purpose is to be the thing you do not have to verify yourself.
+
+**What would fix it:** rebuild the image from a clean checkout, or -- if those five files are
+deliberate -- say so in `PROVENANCE.txt`, file by file, with the reason. `host_count_override`
+being `4` rather than `128` looks deliberate; `intelligent_router.py` being a year-older file with
+a hardcoded path does not.
+
+## 🔴 D19 -- two of the six applications cannot start at all, and the manual says all six were started
+
+The Installation Manual's Quick Start page states:
+
+> **Applications:** Network-Traffic-Generator, Network-State-Recorder, Energy-Saving-App,
+> Traffic-Engineering-App, Network-Traffic-Visualizer and Simulation-Platform-Manager -- all built
+> on the image and **each one started once to confirm it comes up**
+
+Each of the six was started on the image. Four do. Two cannot:
+
+| application | started? | how |
+| :--- | :--- | :--- |
+| Energy-Saving-App | ✅ | `systemctl start ndtwin-esa`, listening on `:8001` |
+| Simulation-Platform-Manager | ✅ | `systemctl start ndtwin-spm`, listening on `:9000` |
+| Network-Traffic-Visualizer | ✅ | `xvfb-run ./network_traffic_visualizer.sh`, render loop runs |
+| Traffic-Engineering-App | ✅ | `sudo python3`, and `run_te()` executes against the kernel |
+| **Network-Traffic-Generator** | ❌ | `ModuleNotFoundError: No module named 'pandas'`, **rc 1** |
+| **Network-State-Recorder** | ❌ | `ModuleNotFoundError: No module named 'nornir'`, **rc 1** |
+
+Neither module is anywhere on the image: not in the system `python3`, not in `base`, not in
+`ryu-env`, and `find / -type d -name pandas` (and `-name nornir`) returns nothing. The manual's own
+remedy for NTG -- `conda activate ntg_env` -- names an environment that does not exist either
+(D5), so there is no documented or undocumented path to starting it.
+
+### What this costs the two tutorials
+
+Both application tutorials end with a traffic-generation step performed *inside the NTG interface*.
+That step cannot be reached, so **neither demonstration can be completed on this image**. The
+Traffic Engineering application itself is fine -- it acquires the routing lock, polls
+`get_graph_data` every 5 s and runs its loop -- but it reports `0 entries are added` forever,
+because nothing can generate the traffic it is supposed to react to.
+
+That also demotes D16 from a defect to a detail: the config file the pages name does not exist, but
+the program that would read it cannot start.
+
+### A third false verification claim, from a third document
+
+D1 is `PROVENANCE.txt` asserting *"Checked, not assumed"* about a path the software does read.
+D18 is the same file naming a commit the image does not contain. D19 is the Installation Manual
+asserting that each application was started once to confirm it comes up, when two of them exit
+immediately with an import error. **Three separate documents each claim a verification that was
+not performed, and each is written in the register that makes a reader skip checking.**
+
+### One detail, measured
+
+NTG's own source documents its command as `flow --config <file>` -- one line, the file as an
+argument (`network_traffic_generator.py:287`, `:436`). Both tutorial pages show it as two steps,
+`flow --config` and then the filename on its own line. **Untested**: the interface could not be
+reached, so whether the two-step form would also work is unknown.
+
+---
+
+# Part E -- all 41 documented API endpoints, called (A-12g)
+
+`NDTwin Developer Manual / NDTwin Application / NDTwin Kernel API.md` is 3060 lines and documents
+**41 endpoints** (15 GET, 26 POST; 23 of the POSTs carry an example request body, three carry
+none). It is the most mechanically checkable page in the manual, and BUG-04 came from it. Every
+endpoint was extracted by parser and called against a running kernel.
+
+**Evidence:** `evidence-a12g/` (`STATE-A12G.txt`, `api.txt`, `api2.txt`),
+`sha256 e617042951e1f37435a05034d3eb0ba2953b57d94410b66dfe4b0e865cb5d372`, equal at all three hops.
+
+**Two known defects were used as positive controls**, so that a clean sweep would have meant a
+broken harness rather than a correct API. Both reproduced.
+
+## ✅ What works, verified by state rather than by the response
+
+The write path is genuinely sound. Each of these was checked in the switch, not in the reply:
+
+| call | response | switch state afterwards |
+| :--- | :--- | :--- |
+| `install_flow_entry` (dpid 1, `10.77.77.77`) | 200 `queued` | `dump-flows s1` shows the rule |
+| `delete_flow_entry` (same match) | 200 `queued` | rule gone, count 0 |
+| `install_group_entry` | 200 | `dump-groups s1`: `group_id=1,type=all,bucket=actions=output:2` |
+| `install_meter_entry` | 200 | `dump-meters s1`: `meter=1 kbps bands=type=drop rate=1000` |
+
+Locks behave: `acquire_lock` → `{"status":"locked","ttl":30}`, `renew_lock` → `renewed`,
+`release_lock` → `released`. `app_register` returns an app id. **No path-level 404s: all 41
+documented endpoints exist.**
+
+## 🔴 D20 -- `get_cpu_utilization` and `get_memory_utilization` return the same numbers, and they never change
+
+```
+cpu:    {"192.168.123.11":14,"192.168.123.12":54,...,"192.168.123.20":26}
+memory: {"192.168.123.11":14,"192.168.123.12":54,...,"192.168.123.20":26}
+```
+
+**Byte-identical.** Sampled again six seconds later: identical again, both of them.
+`get_temperature` returns a different series that also does not move.
+
+All three report on `192.168.123.11`-`.20`. Those addresses come from
+`setting/StaticNetworkTopologyMininet_10Switches.json` -- the **physical testbed's management
+addresses**. The switches actually running are `s1`-`s10` in Mininet. So three "health" endpoints
+answer with static numbers about hosts that are not present, and two of them answer with the *same*
+static numbers. A consumer polling them sees a plausible, stable, entirely fictional dashboard.
+
+## 🔴 D21 -- the page's own example bodies do not work against the setup the manual tells you to run
+
+The examples use physical-testbed dpids such as `106225808380928`. In the emulated topology the
+User Manual walks you through, the dpids are `1`-`10`. Pasting the documented body in returns:
+
+```
+404  {"detail":"these dpids are not switches in the loaded topology; check the dpid, or that
+     the topology file matches the running network","error":"unknown dpid"}
+```
+
+**14 of the 23 documented POST examples returned 404** on the documented setup. Substituting a
+dpid that exists turns them into 200 -- verified for seven of them (`install`/`modify`/
+`delete_flow_entry`, `install_group_entry`, `install_meter_entry`, `link_failure_detected`,
+`link_recovery_detected`). The remaining six are the same shape and were **not** retested.
+
+The kernel's error text is, to its credit, excellent -- it names the likely cause. The defect is
+that the page ships examples that cannot be run as written.
+
+## 🔴 BUG-04, confirmed on the shipped image for three endpoints
+
+| endpoint | documented | actual |
+| :--- | :--- | :--- |
+| `install_flow_entry` | `{"status":"Flows installed, modified and deleted"}` | `{"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log, not in this response","status":"queued"}` |
+| `modify_flow_entry` | same | same as above |
+| `delete_flow_entry` | same | same as above |
+
+The real response is the more honest of the two -- it says outcomes are in the log. The page
+promises a completed action that the API does not claim to have performed.
+
+## ⚠️ D22 -- `intent_translator` is documented but not there
+
+`POST /ndt/intent_translator` returns `404 {"error":"Not Found"}` -- a different shape from the
+topology 404s above, and it does not change with the request body. Documented as endpoint 41 of 41.
+
+## ℹ️ Smaller things, recorded not chased
+
+* `received_a_simulation_case` returns **202** with `{"status":""}` -- an empty status string.
+* Three documented POSTs carry **no example body at all** (`set_switches_power_state`,
+  `modify_meter_entry`, `historical_logging`). Sent `{}`, each returns a 400 that names the
+  missing field, which is good behaviour and a documentation gap.
+* `get_openflow_capacity` reproduced **200 with 0 bytes** (D2), as predicted.
+* `get_static_topology_json` carries `link_bandwidth_bps` of 10 Gbit, consistent with D14.
+
+## R12 for this round
+
+| prediction | outcome |
+| :--- | :--- |
+| P1 `get_openflow_capacity` 200/0 bytes | ✅ reproduced -- harness proven |
+| P2 `install_flow_entry` returns `queued`, not the documented text | ✅ **but only on the second pass** -- with the page's own example body it 404s first, which is D21 |
+| P3 at least three more endpoints disagree with the page | ✅ D20, D21, D22 |
+| P4 the three body-less POSTs 400 or 500 on `{}` | ✅ all three 400 with a named field |
+| P5 no path-level 404s | ✅ all 41 exist |
+
+The interesting one is P2. My prediction was right about the response and wrong about how to
+reach it: the harness used the documented body, and the documented body is itself broken. **A
+prediction can be correct and still not be what the first measurement tests.**
+
+---
+
+# Part F -- everything that was left (A-12h)
+
+A parser over the whole `docs/` tree found **14 pages and 387 commands** still untested after
+Parts A-E. Two of those pages (78 commands) are `Operate a Physical (Hardware) Network`.
+
+## 🚫 Not tested, because not permitted
+
+The physical-testbed pages were **not run**. The standing rules for this project forbid touching
+the power-strip API, the switches and the physical NICs, and nothing in that section can be
+exercised without at least one of them. They were read, not run, and **nothing in this report
+makes any claim about them**. That is a permission boundary, not an instrument limit and not a
+verdict on the pages.
+
+## ⚪ Not applicable to this image -- checked before being called a defect
+
+Three of the remaining pages describe a **different installation**, and reporting their missing
+files as image defects would be the framing error this campaign exists to avoid. Each was checked
+against its own stated audience first:
+
+| page | states | on this image | verdict |
+| :--- | :--- | :--- | :--- |
+| `WebGUI.md` | *"deploy ... on Ubuntu systems ... containerized using Docker"* | no `docker`, no `docker-compose`, no `web_gui_deploy.sh`; Web-GUI is not among the repositories the Download page says the image carries | **not applicable** -- a separate deployment |
+| `AI Model Training and Inference.md` | conceptual, names PyTorch/scikit-learn as examples | `torch` absent | **not applicable** -- it claims nothing about the image |
+| `Native-Linux Excution Environment.md` ×2 (164 commands) | building NDTwin from source on a Linux server | `autogen.sh`/`configure` etc. absent from any NDTwin tree | **not applicable** -- a from-source path, not the demo VM |
+
+## ✅ A negative result worth recording
+
+Every `git clone` URL in the manual was checked unauthenticated: **all ten resolve and are
+public** (`jafingerhut/p4-guide`, `p4lang/behavioral-model`, and the eight `ndtwin-lab` repos
+including `Web-GUI` and `NDTwin-Kernel-P4-public`). I predicted at least one would 404, on this
+campaign's track record. **Wrong, and it is worth saying so** -- the repository references are in
+good shape.
+
+## 🔴 D24 -- the Simulation Platform page sends you to a directory that is not there
+
+```bash
+cd ~/Simulation-Platform-Manager
+```
+
+| path | on the image |
+| :--- | :--- |
+| `~/Simulation-Platform-Manager` (as documented) | **MISSING** |
+| `~/Desktop/Simulation-Platform-Manager` | present |
+
+Same shape as D4. The binary inside it is fine and, started through `ndtwin-spm`, listens on
+`:9000` (Part D).
+
+## 🔴 D25 / D26 -- the Network State Recorder's start and stop scripts both exit 0 having done nothing
+
+These are the two failure shapes this project has recorded from a tester's run of the upstream
+repository. **They are confirmed here on the published VM image.**
+
+`start_network_state_recorder.sh` is, in full, a `sed` on a settings file and then:
+
+```bash
+nohup python3 network_state_recorder.py &
+```
+
+The Python exits immediately -- `ModuleNotFoundError: No module named 'nornir'`, true rc 1 when
+run in the foreground -- but it is backgrounded, so the script returns:
+
+```
+start true rc = 0
+NSR processes alive afterwards = 0        (walked /proc, not pgrep)
+```
+
+**D25: reports success, started nothing.**
+
+`stop_network_state_recorder.sh`:
+
+```bash
+echo $(pgrep -f network_state_recorder.py)
+sudo kill -15 $(pgrep -f network_state_recorder.py)
+# ... then a sed on the settings file
+```
+
+With nothing running, the command substitution is empty, `kill` is called with no pid and prints
+its usage, and the script's exit status comes from the trailing block:
+
+```
+stop true rc = 0
+```
+
+**D26: reports success, stopped nothing, and leaks `kill`'s usage text at the user.**
+
+Both true exit codes were taken **without a pipe in the way** -- a pipeline would have handed me
+the exit status of `head` instead, which is how this pair can look fine.
+
+## ⚠️ An instrument error, caught mid-round
+
+My first pass answered "is this package present?" with `command -v X || dpkg -s X`. That is the
+wrong question for a **Python** package: it reported `loguru`, `eventlet` and `ryu` as MISSING
+when all three are importable -- `loguru` from the system interpreter (the TE app uses it), and
+`eventlet` and `ryu` from inside `ryu-env`. Re-asked with the interpreter itself:
+
+| module | system `python3` | `base` | `ryu-env` |
+| :--- | :--- | :--- | :--- |
+| `pandas` | MISSING | MISSING | MISSING |
+| `nornir` | MISSING | MISSING | MISSING |
+| `loguru` | **ok** | MISSING | MISSING |
+| `eventlet` | MISSING | MISSING | **ok** |
+| `ryu` | MISSING | MISSING | **ok** |
+| `requests` | ok | ok | ok |
+| `networkx` | ok | MISSING | ok |
+| `fastapi`, `uvicorn`, `torch` | MISSING | MISSING | MISSING |
+
+**D19 survives the better instrument**: `pandas` and `nornir` are genuinely absent from all three
+interpreters, which is why NTG and NSR cannot start.
+
+---
+
+# Part G -- the run-06 backlog, and a defect found while fixing another one (A-12i)
+
+`doc/audit/2026-09-02_manual-usertest/run-06-opus/VERIFICATION.md` carried five items marked
+"Not verified" and one partial. **All six are now adjudicated on the shipped image**; the full
+adjudication is an addendum in that file. Summary: BUG-05 verified, BUG-08 confirmed and worse
+than reported, BUG-14 confirmed, BUG-15 confirmed as a documentation defect but corrected as a
+product claim (`?k=N` does work), BUG-16 confirmed, BUG-17 confirmed with the source comment
+sharing the documentation's error.
+
+**Evidence:** `evidence-a12i/`, `sha256 38265491a0ad765c54a3eb9f707f5c9f6cc610b1718c6f0641806d5a5fc39300`.
+
+## 🔴 D27 -- every configuration block on the NTG installation page is unusable if copied
+
+Found while trying to correct BUG-16: a string match failed, and `cat -A` showed why. The page's
+code blocks are indented with **U+00A0**, not spaces -- **443 of them inside fences**, 451 in the
+file.
+
+| block | what happens when a reader copies it |
+| :--- | :--- |
+| the three `json` blocks (`flow`/`dist` configs for `flow --config`) | **`JSONDecodeError`** -- U+00A0 is not JSON whitespace |
+| the `NTG.yaml` block | **parses, and is wrong** |
+
+The YAML case is the dangerous one. It raises nothing and produces:
+
+```
+keys: ['inventory', '\xa0 plugin', '\xa0 options', '\xa0 \xa0 host_file',
+       '\xa0 \xa0 group_file', 'runner', '\xa0 \xa0 num_workers', 'logging', '\xa0 enabled']
+inventory: None
+'\xa0 plugin': 'threaded'
+```
+
+Every nested key is promoted to the top level, `inventory` becomes `null`, and `runner`'s
+`plugin: threaded` **silently overwrites** `inventory`'s `plugin: SimpleInventory` because they
+are now the same key. A user gets no error and a configuration that means nothing like what the
+page shows.
+
+Fixed by replacing U+00A0 with ordinary spaces of the same width inside fences, and **verified by
+re-parsing**: the YAML now yields `inventory.plugin = SimpleInventory` with `options` nested under
+it, and all three JSON blocks load. A scan of the whole `docs/` tree shows the problem is confined
+to the two NTG pages.
+
+## 🔴 BUG-08, restated -- the rewrite is not byte-stable
+
+`POST /ndt/modify_device_name` returns `200 {"status":"Device name updated successfully."}` and
+rewrites `setting/StaticNetworkTopologyMininet_10Switches.json`:
+
+| | sha256 (first 12) |
+| :--- | :--- |
+| before | `14988a44c0e6` |
+| after renaming `s1` -> `a12i-renamed` | `949b082ff482` |
+| after renaming back to `s1` | **`3c2ff0602230`** |
+
+The logical content is restored -- zero occurrences of the test name -- but **the file is still
+different**. On a real checkout, undoing the change does not clean the working tree, and nothing
+in the response or the log ever said a tracked file was written.
+
+## ⚠️ Two harness errors of mine in this round, both caught and retested
+
+The first attempt at BUG-08 extracted an empty dpid and posted malformed JSON; the second supplied
+a dpid but omitted `vertex_type`. Both returned 400. **Neither was a product result** -- they were
+measurements that never reached the path being claimed about, the same shape as Part E's P2, and
+the second time today. Recorded because the tempting misreading is "the defect does not reproduce".
 
 [Co-developed with claude code -- Adam]

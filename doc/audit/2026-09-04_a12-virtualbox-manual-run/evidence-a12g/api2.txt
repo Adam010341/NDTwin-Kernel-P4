@@ -1,0 +1,23 @@
+===== 第二輪：把範例的實體 dpid 換成這個模擬網路真的有的 dpid=1 =====
+POST /ndt/install_flow_entry                        200|149      {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log, not in this response","status":"queued"}
+POST /ndt/modify_flow_entry                         200|149      {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log, not in this response","status":"queued"}
+POST /ndt/delete_flow_entry                         200|149      {"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported in the kernel log, not in this response","status":"queued"}
+POST /ndt/install_group_entry                       200|34       {"status":"Group entry installed"}
+POST /ndt/install_meter_entry                       200|34       {"status":"Meter entry installed"}
+POST /ndt/link_failure_detected                     200|35       {"status":"link failure processed"}
+POST /ndt/link_recovery_detected                    200|36       {"status":"link recovery processed"}
+
+===== 那三支「主機健康」端點是不是同一組假數字 =====
+get_cpu_utilization      480e906c87b2
+get_memory_utilization   480e906c87b2
+get_temperature          6690f7d6cd57
+--- 隔 6 秒再取一次（會不會變） ---
+get_cpu_utilization      480e906c87b2
+get_memory_utilization   480e906c87b2
+get_temperature          6690f7d6cd57
+
+===== 那些 192.168.123.x 是哪來的 =====
+192.168.123.11 192.168.123.12 192.168.123.13 192.168.123.14 192.168.123.15 192.168.123.16 192.168.123.17 192.168.123.18 192.168.123.19 192.168.123.20 
+實際跑的 mininet 交換機:
+s1 s10 s2 s3 s4 s5 s6 s7 s8 s9 
+DONE

@@ -1,0 +1,27 @@
+EXERCISE         SOURCE                     RC   JSON_BYTES WARNINGS FIRST_ERROR
+basic            basic.p4                   0    9282      5        -
+basic            solution/basic.p4          0    14000     0        -
+basic_tunnel     basic_tunnel.p4            0    14360     1        -
+basic_tunnel     solution/basic_tunnel.p4   0    19548     0        -
+calc             calc.p4                    0    13480     7        -
+calc             solution/calc.p4           0    70246     0        -
+ecn              ecn.p4                     0    13672     2        -
+ecn              solution/ecn.p4            0    17729     1        -
+firewall         basic.p4                   0    13922     0        -
+firewall         firewall.p4                0    40000     4        -
+firewall         solution/firewall.p4       0    50458     0        -
+flowcache        flowcache.p4               1    -         1        /home/adam/tutorials/exercises/flowcache/flowcache.p4(232): [--Werror=
+flowcache        solution/flowcache.p4      0    50620     1        -
+link_monitor     link_monitor.p4            0    48079     3        -
+link_monitor     solution/link_monitor.p4   0    56155     0        -
+load_balance     load_balance.p4            0    19737     4        -
+load_balance     solution/load_balance.p4   0    25353     0        -
+mri              mri.p4                     0    19730     4        -
+mri              solution/mri.p4            0    32030     1        -
+multicast        multicast.p4               0    10446     1        -
+multicast        solution/multicast.p4      0    11287     1        -
+p4runtime        advanced_tunnel.p4         0    27957     1        -
+qos              qos.p4                     0    13827     14       -
+qos              solution/qos.p4            0    18792     25       -
+source_routing   source_routing.p4          0    12410     4        -
+source_routing   solution/source_routing.p4 0    19572     1        -

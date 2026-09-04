@@ -118,6 +118,20 @@ $ git log --oneline --all -- doc/2026-08-29_europ4-poster-abstract | wc -l      
 
 ---
 
+## ✅ 已裁決（09-04 13:5x–14:1x，auditor 用互動表單逐題問、Adam 逐題點選；「建議」＝agent 與 auditor 的共同建議）
+
+| 題目 | 裁決 |
+|---|---|
+| N14 Q1 helper 重裝 | **現在就裝**。14:0x 指令已給（`sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sbin/ndtwin-lab`，repo 那份＝`87612059`，sha `6685d3a9`）；裝完 auditor 以 sha256 對帳（`288b71cb` → `6685d3a9`），再補一趟真走 `ndt up ovs` 的 AFTER 臂（15:30 後、claim）。 |
+| trunk 上 09-03 起的 1,049 個 log／證據檔（12.9 MB） | **(b) 搬去 `audit-raw`、trunk `git rm`**，今晚測完做；不改寫歷史（p4／lab 已有）。**做完之前不推任何東西到 `p4`／`lab`。** → W-LOGS-TO-AUDIT-RAW |
+| 今晚的 binary 含不含第二波（#1／#2／#85＋stop 補件） | **含**：phantom 閘門結束即 ff trunk＋主 checkout 重建（約 15:00）。#85 第二顆死測試的紅由合併樹閘門補證（約 19:00 前），不過關照實記、不影響今晚的 binary。 |
+| auditor session 遷移點 | **16:00**（trunk ff＋binary＋HANDOFF 到位）；剩下四個閘門由管線自己跑完，新 session 照 HANDOFF 把判決補進 MERGE-LOG 40／41 列並發第二批 raw。 |
+| N20 Q1 關機有界對外承諾哪一層 | **(b) 今晚測完派 W-27b，兩支併完承諾 3 秒**；在那之前文件寫「行程 5 秒」。 |
+| N21 Q1 `get_switches_power_state` 的 breaking change 要不要通知 | Adam：「那三個 repo 已在本地 `/home/adam`，你去看。」→ auditor 14:0x 盤點六個本地 repo（ESA `9facb78`、Web-GUI `f63a55c`、TE-App `f108c7c`、Visualizer `9b56b30`、NSR `850f61d`、SPM `b7efd93`）：**沒有任何一個讀它 ⇒ 不用通知。** `is_up` 有五個在讀，別名留著所以不用改。但書：三個 GUI repo 的 HEAD 停在 04-20，看的是磁碟上這一版。順帶記到的缺口：四個 app 從沒對著跑起來的 kernel 用過（→ FINDINGS #90、W-APPS-LIVE）。 |
+| N22 Q5 幽靈 flow 修法之後的 OpenFlow barrier | **先不做，今晚照 3–13 s 測**；今晚量到的延遲＝barrier 工單的 BEFORE。→ W-OF-BARRIER |
+| N22 Q1 install／modify 與 #1 同型 | **測完開工單**（含 API 文件 §33）。→ W-GROUP-INSTALL-MODIFY |
+| N14 Q2–Q6、N15 Q1–Q4、N16 Q1–Q5、N17 Q1–Q4、N18 Q1–Q4、N19 Q1–Q4、N20 Q2–Q3、N21 Q2–Q4（31 題） | **全照建議**（每題第一個選項；細目在各 N 節末的「裁決」行）。衍生工單：W-GATE-ANCHORS-HEREDOC、W-RC3-AGGREGATE、W-TOPO-THREE-DOORS、W-EXECARGV-EXPECTED-NONZERO、W-INV01-LATENCY-LIVE、W-DOCS-NDT-NTG-AND-MANUAL-TOPO、W-OVS-MAY-EXIST、W-ADMIN-POWEREDOFF-CLEAR。**今晚不動碼，全部測完才派。** |
+
 # 尚未裁決的（原始清單）
 
 
@@ -547,6 +561,8 @@ sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sb
 
 **Q6 #42 的驗證等級**：本 repo 的 `testbed_topo.py` 在 #77 之前於 `NTG_PY` 下連 import 都過不了 ⇒ #42 的修法併入時只有單元測試、從未執行過；今晚是第一次實跑。我已在 FINDINGS-ALL #42 補記；要不要在 `FIX-TESTBED-BANNER` 文件也補一句由你定（我建議補）。
 
+**裁決（Adam 09-04 14:0x）**：Q1 現在就裝（見上表）；Q2 (a) `ndt ntg cli|prompt` 的說明改成「只對手動路徑有效」；Q3 不急、排 W；Q4 開工單 W-GATE-ANCHORS-HEREDOC；Q5 (a) 手冊的手動路徑改成叫人跑本 repo 的 `testbed_topo.py`，不動 NTG（與 Q2 同一張 W-DOCS-NDT-NTG-AND-MANUAL-TOPO）；Q6 補——已補進 `doc/audit/2026-09-03_fix-testbed-banner/FIX-TESTBED-BANNER.md`。
+
 
 ## N15. #8 併入之後（`ndt status --check` 的三態），ndtcheck agent 的四題
 
@@ -559,6 +575,9 @@ sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sb
 **Q3 `ndt up` 失敗時記錄留著，對嗎？** 留著的代價：一次 preflight 之後才失敗的 `up`，會讓後續 `--check` 一直紅到有人 `ndt down`。(a) 留（建議：失敗到一半的 fabric 正是最該被判紅的狀態，#3）；(b) 失敗就清。
 
 **Q4 要不要把 rc 3 接進 `run_layers.sh`／`local_ci.sh`？** 目前沒有任何呼叫端讀這個 rc，三態只有人眼看得到。(a) 開一張工單（建議）；(b) 先不接。
+
+**裁決（Adam 09-04 14:0x）**：Q1 (a) 維持 rc 3 蓋過 rc 1；Q2 (a) 先不加有效期（#79 修成共用位置後一起想）；Q3 (a) 失敗的 `up` 記錄留著；Q4 (a) 開工單 W-RC3-AGGREGATE（與 N17 Q4 同一張）。
+
 
 ## N16. #75 併入之後（chaos runner 跑 INV-01 兩半），chaoswire agent 的五題＋我的一個但書
 
@@ -574,6 +593,8 @@ sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sb
 
 **Q5 lab 窗口**：要不要排一次把 `INV-01-latency` 真的量一次（claim、`ndt up p4 4`、關 s1、`--power-ip 192.168.123.11 --null`）？那會是這個檢查存在以來第一次量到真的 power-on。(a) 排進 W 清單、跟 W-N11 同一個 P4 窗口做（建議）；(b) 不排。
 
+**裁決（Adam 09-04 14:0x）**：Q1 (a) 不加「太慢也違規」；Q2 (a) `--power-ip` 不預設；Q3 (a) harness 不自己關機；Q4 (a) 下一輪補「power-on 之後 process count／graph 有沒有變」的對照；Q5 (a) 排 W-INV01-LATENCY-LIVE，跟 W-N11 同一個 P4 窗口做。
+
 
 ## N17. #3／#21／#49／#83 碼半併入之後（`ndt up` 先拒絕再動手、失敗回滾；`ndt down` 讀 rc 也等 sweep），ndtupdown agent 的四題
 
@@ -587,6 +608,8 @@ sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sb
 
 **Q4 新閘門 `mutate_ndt_up_down_robust.sh` 要不要進 `local_ci.sh`／`l1_unit_tests.sh` 之類的彙總跑批？** agent 沒動任何彙總腳本。(a) 開一張工單一併處理 N15 Q4（建議）；(b) 先不接。
 
+**裁決（Adam 09-04 14:0x）**：Q1 (a) 不加 `--force`；Q2 (a) `up.target` 留；Q3 (a) helper 不一致維持警告（今晚前 Adam 自己重裝，見 N14 Q1）；Q4 (a) 併入 W-RC3-AGGREGATE。
+
 
 ## N18. #61／#62 併入之後（壞的拓樸檔在啟動時整份拒絕），topoval agent 的四題
 
@@ -599,6 +622,8 @@ sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sb
 **Q3 要不要另開工單收其他三扇門？** `GraphTypes.hpp` 的 `from_json`（不是檔案載入路徑；isup 在改那個檔）、`ecmp_groups[].port_id`、node 迴圈裡既有三個「加了一部分 vertex 才 throw」的半套用。(a) 開一張（建議，等 isup 併了再派）；(b) 先不。
 
 **Q4 要不要把「檢查器早就知道、kernel 不知道」記成 finding？** `spec.py:348` 的 `inv_graph_matches_topology` 本來就會比對端出的 edge 數與檔案的 edge 數——40→39 這件事 contract test 看得見、kernel 自己看不見，與 #22–24 同形。(a) 記成 #85（建議：知識在不會被執行的那段碼裡，是這個 codebase 反覆出現的形狀）；(b) 不記。
+
+**裁決（Adam 09-04 14:0x）**：Q1 (a) 上限 65535；Q2 (a) `spec.py` 不加上限；Q3 (a) 開工單 W-TOPO-THREE-DOORS（isup 已併，可派）；Q4 (a) 記成 finding——**編號改 #89**（#85 已是無 IP 崩潰、86–88 由第二波帳本用掉），第二波列落檔後補。
 
 
 ## N19. #82 併入之後（OVS 關機問 `br-exists` 不問圖），ovsoff agent 的四題
@@ -615,6 +640,8 @@ sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sb
 
 另外 agent 明講：**「輪詢不復活」在 OVS 平面仍無 live 佐證**（本輪配方零鑑別力，結構性：bridge 真沒了、liveness 每秒寫 false、Ryu 也不列它）——#46 在 OVS 上仍只有 gtest＋閘門。
 
+**裁決（Adam 09-04 14:0x）**：Q1 (a) auditor 14:1x 查過——網站手冊（`NDTwin-Website` … `Native-Linux Excution Environment.md`）叫使用者 **`sudo bin/ndtwin_kernel …` 以 root 跑 kernel**，`ovs-vsctl` 根本不經 sudoers；它唯一的 NOPASSWD 行是給 `ndt` 用的 `/usr/local/sbin/ndtwin-lab`。本機與 `doc/2026-07-29_environment_gotchas.md:23`／`doc/2026-07-29_p4_status_and_test_guide.md:315` 教的是整顆 binary 形（`NOPASSWD: /usr/bin/ovs-vsctl, /usr/sbin/ifconfig, /usr/bin/mnexec`）⇒ `br-exists` 自動涵蓋。**兩條路徑都不需要改手冊。** Q2 (a) `--may-exist` 測完再議 → W-OVS-MAY-EXIST；Q3 (a) 小工單 W-EXECARGV-EXPECTED-NONZERO（今晚 kernel log 會看到那行，不是新缺陷）；Q4 (a) → W-ADMIN-POWEREDOFF-CLEAR。
+
 
 ## N20. #27／#76 併入之後（關機有界），stop agent 的四題＋一個順手挖到的崩潰
 
@@ -628,6 +655,8 @@ sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sb
 
 **Q4 #85 要不要現在派？** `fetchCpuReportInternal` 對沒 IP 的 switch vertex 直接 `ip.front()` ⇒ SIGSEGV（gdb 確認）；`updateSwitches` 會為控制平面回覆裡拓樸檔沒有的 dpid 造 vertex，那份回覆沒 IP ⇒ **可能是線上崩潰**。(a) 現在派一支小的（空檢查＋WARN＋先查可達性）（建議：明晚整機測試若控制平面多報一台就會踩到）；(b) 明晚之後。
 
+**裁決（Adam 09-04 14:0x）**：Q1 (b) 見上表（測完派 W-27b，兩支併完承諾 3 秒）；Q2 (a) `Exiting`→`Shutting down` 照改；Q3 (a) TESTBED snmp／ssh 逾時等能實測再動；Q4 作廢——#85 已於第二波派出並修（MERGE-LOG 41）。
+
 
 ## N21. Q12 併入之後（`admin_state`＋`reachable`，`is_up` 留作別名），isup agent 的四題
 
@@ -640,3 +669,5 @@ sudo install -o root -g root -m 755 tools/test_workflow/ndtwin-lab /usr/local/sb
 **Q3 #80 沒有時間上界，認不認？** 上界的唯一效果是「沒佐證時宣布圖可信」；代價：一台從此沒人觀測的交換機 power-on 會真跑 helper，若它其實活著就 500（大聲的錯換掉安靜的錯，與 #46 同方向）。(a) 認（建議）；(b) 要一個保底上界（例如 5 分鐘）。
 
 **Q4 #81 agent 裁成「保留 `setVertexUp`、不清命令」**（三個 caller 都是握手完成的邊緣觸發）。(a) 認（建議）；(b) 控制平面推播也不得抬 `reachable`（一行改成 edge-triggered 拒絕，測試已釘住不清命令那一條）。
+
+**裁決（Adam 09-04 14:0x）**：Q1 由盤點結案（見上表：六個本地 repo 沒人讀 `get_switches_power_state`）；Q2 (a) `is_up` 別名留到四個 consumer 都改用 `reachable`，API 文件已標 deprecated（`2cd796ff`）；Q3 (a) #80 無時間上界，認；Q4 (a) #81 保留 `setVertexUp`、不清命令，認。

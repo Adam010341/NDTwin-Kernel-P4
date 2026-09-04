@@ -393,3 +393,7 @@ python3 tests/shell/check_gate_anchors.py <rev> --gates mutate_testbed_banner.sh
 ```
 
 [Co-developed with claude code -- Adam]
+
+---
+
+**auditor 補記（09-04，Adam 裁 N14 Q6）**：#77 併入之前，本 repo 的 `testbed_topo.py` 在 `NTG_PY` 下連 import 都過不了（#84 那兩行只存在於 NTG 的工作樹）⇒ 本修法（#42）併入時只有單元測試、**從未執行過**；09-04 晚上的整機測試是它第一次實跑。FINDINGS-ALL #42 已於 N14 同步補記。

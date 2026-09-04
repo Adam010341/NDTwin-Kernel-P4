@@ -1,0 +1,23 @@
+=== NTG 進入點與用法（先讀，不猜） ===
+30:from prompt_toolkit import PromptSession
+31:from prompt_toolkit.completion import NestedCompleter,PathCompleter,Completer,Completion
+32:from prompt_toolkit.document import Document
+33:from prompt_toolkit.history import InMemoryHistory
+34:from prompt_toolkit.patch_stdout import patch_stdout
+61:# == prompt autocomplete setting ==
+67:    This completer provides contextual auto-completion for the NTG command prompt.
+102:            complete_event: The completion event triggered by the prompt toolkit.
+116:# == prompt autocomplete setting ==
+287:        flow --config <file>: Start dynamic traffic generation from JSON config.
+431:    This function provides an interactive prompt that accepts and processes
+432:    user commands for network traffic generation. It uses prompt_toolkit for
+436:        - 'flow --config <file>': Execute flow-based traffic generation using
+459:                line = await session.prompt_async("NTG> ")
+
+=== 照手冊：進互動介面，flow --config，再給檔名 ===
+Traceback (most recent call last):
+  File "/home/tester/Network-Traffic-Generator/network_traffic_generator.py", line 12, in <module>
+    import pandas as pd
+ModuleNotFoundError: No module named 'pandas'
+[rc=0]
+DONE

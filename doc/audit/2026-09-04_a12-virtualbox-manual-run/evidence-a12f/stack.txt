@@ -1,0 +1,16 @@
+ryu 6633 up T+4s
+mininet prompt T+30s
+--- kernel 尾段 ---
+[2026-09-04 04:28:24.475] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestinationPaths] Pulled 0 paths from controller
+[2026-09-04 04:28:29.503] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestinationPaths] Pulled 0 paths from controller
+[2026-09-04 04:28:34.590] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestinationPaths] Pulled 0 paths from controller
+[2026-09-04 04:28:39.658] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestinationPaths] Pulled 0 paths from controller
+[2026-09-04 04:28:44.964] [info] [TopologyAndFlowMonitor.cpp:2081 run] topology from the control plane: 10 switches, 128 hosts, 287 edges up
+[2026-09-04 04:28:44.970] [info] [FlowLinkUsageCollector.cpp:2558 fetchAllDestinationPaths] Pulled 16256 paths from controller
+[2026-09-04 04:28:45.009] [info] [FlowLinkUsageCollector.cpp:566 refreshDestinationPathsPeriodically] Destination paths loaded from localhost:8080 (16256 pairs); path and switch-count queries will ans
+[2026-09-04 04:28:55.220] [info] [TopologyAndFlowMonitor.cpp:2081 run] topology from the control plane: 10 switches, 128 hosts, 288 edges up
+--- 埠 ---
+LISTEN 0      50           0.0.0.0:6633 0.0.0.0:*
+LISTEN 0      4096         0.0.0.0:8000 0.0.0.0:*
+LISTEN 0      50           0.0.0.0:8080 0.0.0.0:*
+DONE

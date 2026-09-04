@@ -1,0 +1,50 @@
+A-12c STATE  2026-09-04T02:25:30+00:00
+guest: ubuntu  uptime: up 13 minutes
+
+== Ryu 認為連著的 dpid ==
+[6, 10, 5, 3, 8, 2, 7, 9, 1, 4]
+== 每台交換機：run2 log 的 connect/disconnect、最後 connect 行號、流表條數 ==
+sw    c    d    last_conn  flows
+s1    1    0    486        130
+s2    2    1    622        130
+s3    2    1    630        3
+s4    2    1    620        130
+s5    2    1    626        2
+s6    1    0    25         131
+s7    1    0    482        130
+s8    1    0    478        130
+s9    2    1    633        2
+s10   2    1    624        2
+
+== run1 / run2 的關鍵標記 ==
+-- ryu-run1.log (715 行) --
+   install_all_pair_paths             1
+   Static topology initialized        1
+   Failed to load static topology     0
+   Traceback                          0
+   Loaded static topology             1
+   install 行號: 59 
+   done    行號: 489 
+-- ryu.log (649 行) --
+   install_all_pair_paths             1
+   Static topology initialized        1
+   Failed to load static topology     0
+   Traceback                          0
+   Loaded static topology             1
+   install 行號: 43 
+   done    行號: 473 
+
+== 一次性旗標在源碼裡 ==
+69:        self.install_initial_openflow_entries_completed = False
+174:            if not self.install_initial_openflow_entries_completed:
+208:            self.install_initial_openflow_entries_completed = True
+280:            self.install_initial_openflow_entries_completed = True
+570:            # if self.install_initial_openflow_entries_completed == True:
+
+== 無 None 防護的那兩行 ==
+                datapath = self.switches.get(current_switch)
+                parser = datapath.ofproto_parser
+
+== 記憶體 ==
+               total        used        free      shared  buff/cache   available
+Mem:            5925         690        5149           2         327        5234

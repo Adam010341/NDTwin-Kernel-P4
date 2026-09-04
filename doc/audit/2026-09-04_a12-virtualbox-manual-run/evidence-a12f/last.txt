@@ -1,0 +1,42 @@
+=== 六個 app 逐一：能不能起來（Installation Manual 宣稱每個都起過一次） ===
+--- NSR (Network-State-Recorder) ---
+/home/tester/Network-State-Recorder
+LICENSE
+NSR.yaml
+README.md
+development_guide
+installation_guide
+logs
+ndtwin-license-header.txt
+network_state_recorder.py
+  試 network_state_recorder.py
+  真 rc=1
+  File "/home/tester/Network-State-Recorder/network_state_recorder.py", line 6, in <module>
+    from nornir import InitNornir
+ModuleNotFoundError: No module named 'nornir'
+
+--- TE app：這次餵 stdin，讓 run_te() 真的執行（kernel 已在 :8000） ---
+真 rc=124
+2026-09-04 04:31:27.206 | DEBUG    | __main__:acquire_lock_api_call:72 - {'status': 'locked', 'ttl': 300, 'type': 'routing_lock'}
+2026-09-04 04:31:27.206 | DEBUG    | __main__:acquire_lock_api_call:74 - acquire_lock_api_call succeeded
+2026-09-04 04:31:27.207 | DEBUG    | __main__:run_te:553 - check congested links that are not in first layer
+2026-09-04 04:31:27.207 | INFO     | __main__:run_te:562 - 0 entries are added
+2026-09-04 04:31:27.207 | DEBUG    | __main__:release_lock_api_call:83 - release_lock_api_call
+2026-09-04 04:31:27.208 | DEBUG    | __main__:release_lock_api_call:87 - release_lock succeeded
+2026-09-04 04:31:28.182 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-09-04 04:31:29.158 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-09-04 04:31:30.157 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-09-04 04:31:31.160 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-09-04 04:31:32.169 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-09-04 04:31:32.188 | DEBUG    | __main__:acquire_lock_api_call:69 - acquire_lock_api_call
+2026-09-04 04:31:32.189 | DEBUG    | __main__:acquire_lock_api_call:72 - {'status': 'locked', 'ttl': 300, 'type': 'routing_lock'}
+2026-09-04 04:31:32.189 | DEBUG    | __main__:acquire_lock_api_call:74 - acquire_lock_api_call succeeded
+2026-09-04 04:31:32.190 | DEBUG    | __main__:run_te:553 - check congested links that are not in first layer
+2026-09-04 04:31:32.190 | INFO     | __main__:run_te:562 - 0 entries are added
+2026-09-04 04:31:32.190 | DEBUG    | __main__:release_lock_api_call:83 - release_lock_api_call
+2026-09-04 04:31:32.191 | DEBUG    | __main__:release_lock_api_call:87 - release_lock succeeded
+2026-09-04 04:31:33.158 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-09-04 04:31:34.161 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-09-04 04:31:35.157 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+2026-09-04 04:31:36.158 | DEBUG    | __main__:get_graph_data_api_call:49 - get_graph_data_api_call
+DONE

@@ -1,0 +1,135 @@
+----- sudo ./energy_saving_app -----
+[2026-09-04 03:35:50.282189508] [info] [[94menergy_saving_app.cpp[0m:[95m973[0m [96mmain[0m] Logger Loads Successfully!
+Error: connect: Connection refused [system:111 at /usr/include/boost/asio/detail/reactive_socket_service.hpp:589:5 in function 'boost::system::error_code boost::asio::detail::reactive_socket_service<Protocol>::connect(implementation_type&, const endpoint_type&, boost::system::error_code&)']
+[2026-09-04 03:35:50.282467565] [info] [[94menergy_saving_app.cpp[0m:[95m977[0m [96mmain[0m] Mount NFS
+[2026-09-04 03:35:50.282473706] [info] [[94menergy_saving_app.cpp[0m:[95m978[0m [96mmain[0m] mount -t nfs localhost:/srv/nfs/sim/power /mnt/nfs/app
+[rc=124 (124=timeout,可能是常駐)]
+----- sudo ./simulation_platform_manager -----
+[2026-09-04 03:36:15.308617209] [info] [[94msimulation_platform_manager.cpp[0m:[95m481[0m [96mmain[0m] Logger Loads Successfully!
+[2026-09-04 03:36:15.308717719] [info] [[94msimulation_platform_manager.cpp[0m:[95m483[0m [96mmain[0m] Mount NFS
+[2026-09-04 03:36:15.308737891] [info] [[94msimulation_platform_manager.cpp[0m:[95m484[0m [96mmain[0m] mount -t nfs localhost:/srv/nfs/sim /mnt/nfs/sim
+[rc=124 (124=timeout,可能是常駐)]
+----- ./network_traffic_visualizer.sh -----
+Starting Network Traffic Visualizer...
+API URL: http://localhost:8000
+==========================================
+
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ----------------------< org.example:NDTanimation >----------------------
+[INFO] Building demo2 1.0-SNAPSHOT
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> javafx-maven-plugin:0.0.8:run (default-cli) > process-classes @ NDTanimation >>>
+[INFO] 
+[INFO] --- maven-resources-plugin:2.6:resources (default-resources) @ NDTanimation ---
+[INFO] Using 'UTF-8' encoding to copy filtered resources.
+[INFO] Copying 1 resource
+[INFO] Copying 4 resources to images
+[INFO] 
+[INFO] --- maven-compiler-plugin:3.13.0:compile (default-compile) @ NDTanimation ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] <<< javafx-maven-plugin:0.0.8:run (default-cli) < process-classes @ NDTanimation <<<
+[INFO] 
+[INFO] 
+[INFO] --- javafx-maven-plugin:0.0.8:run (default-cli) @ NDTanimation ---
+Exception in thread "main" java.lang.reflect.InvocationTargetException
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:118)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/sun.launcher.LauncherHelper$FXHelper.main(LauncherHelper.java:1156)
+Caused by: java.lang.UnsupportedOperationException: Unable to open DISPLAY
+	at javafx.graphics@22.0.2/com.sun.glass.ui.gtk.GtkApplication.lambda$new$5(GtkApplication.java:165)
+	at java.base/java.security.AccessController.doPrivileged(AccessController.java:319)
+	at javafx.graphics@22.0.2/com.sun.glass.ui.gtk.GtkApplication.<init>(GtkApplication.java:163)
+	at javafx.graphics@22.0.2/com.sun.glass.ui.gtk.GtkPlatformFactory.createApplication(GtkPlatformFactory.java:40)
+	at javafx.graphics@22.0.2/com.sun.glass.ui.Application.run(Application.java:145)
+	at javafx.graphics@22.0.2/com.sun.javafx.tk.quantum.QuantumToolkit.startup(QuantumToolkit.java:290)
+	at javafx.graphics@22.0.2/com.sun.javafx.application.PlatformImpl.startup(PlatformImpl.java:292)
+	at javafx.graphics@22.0.2/com.sun.javafx.application.PlatformImpl.startup(PlatformImpl.java:162)
+	at javafx.graphics@22.0.2/com.sun.javafx.application.LauncherImpl.startToolkit(LauncherImpl.java:651)
+	at javafx.graphics@22.0.2/com.sun.javafx.application.LauncherImpl.launchApplicationWithArgs(LauncherImpl.java:409)
+	at javafx.graphics@22.0.2/com.sun.javafx.application.LauncherImpl.launchApplication(LauncherImpl.java:364)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	... 2 more
+[ERROR] Command execution failed.
+org.apache.commons.exec.ExecuteException: Process exited with an error: 1 (Exit value: 1)
+    at org.apache.commons.exec.DefaultExecutor.executeInternal (DefaultExecutor.java:404)
+    at org.apache.commons.exec.DefaultExecutor.execute (DefaultExecutor.java:166)
+    at org.openjfx.JavaFXBaseMojo.executeCommandLine (JavaFXBaseMojo.java:567)
+    at org.openjfx.JavaFXBaseMojo.executeCommandLine (JavaFXBaseMojo.java:434)
+    at org.openjfx.JavaFXRunMojo.execute (JavaFXRunMojo.java:105)
+    at org.apache.maven.plugin.DefaultBuildPluginManager.executeMojo (DefaultBuildPluginManager.java:137)
+    at org.apache.maven.lifecycle.internal.MojoExecutor.doExecute (MojoExecutor.java:301)
+    at org.apache.maven.lifecycle.internal.MojoExecutor.execute (MojoExecutor.java:211)
+    at org.apache.maven.lifecycle.internal.MojoExecutor.execute (MojoExecutor.java:165)
+    at org.apache.maven.lifecycle.internal.MojoExecutor.execute (MojoExecutor.java:157)
+    at org.apache.maven.lifecycle.internal.LifecycleModuleBuilder.buildProject (LifecycleModuleBuilder.java:121)
+    at org.apache.maven.lifecycle.internal.LifecycleModuleBuilder.buildProject (LifecycleModuleBuilder.java:81)
+    at org.apache.maven.lifecycle.internal.builder.singlethreaded.SingleThreadedBuilder.build (SingleThreadedBuilder.java:56)
+    at org.apache.maven.lifecycle.internal.LifecycleStarter.execute (LifecycleStarter.java:127)
+    at org.apache.maven.DefaultMaven.doExecute (DefaultMaven.java:294)
+    at org.apache.maven.DefaultMaven.doExecute (DefaultMaven.java:192)
+    at org.apache.maven.DefaultMaven.execute (DefaultMaven.java:105)
+    at org.apache.maven.cli.MavenCli.execute (MavenCli.java:960)
+    at org.apache.maven.cli.MavenCli.doMain (MavenCli.java:293)
+    at org.apache.maven.cli.MavenCli.main (MavenCli.java:196)
+    at jdk.internal.reflect.DirectMethodHandleAccessor.invoke (DirectMethodHandleAccessor.java:103)
+    at java.lang.reflect.Method.invoke (Method.java:580)
+    at org.codehaus.plexus.classworlds.launcher.Launcher.launchEnhanced (Launcher.java:282)
+    at org.codehaus.plexus.classworlds.launcher.Launcher.launch (Launcher.java:225)
+    at org.codehaus.plexus.classworlds.launcher.Launcher.mainWithExitCode (Launcher.java:406)
+    at org.codehaus.plexus.classworlds.launcher.Launcher.main (Launcher.java:347)
+    at jdk.internal.reflect.DirectMethodHandleAccessor.invoke (DirectMethodHandleAccessor.java:103)
+    at java.lang.reflect.Method.invoke (Method.java:580)
+    at org.apache.maven.wrapper.BootstrapMainStarter.start (BootstrapMainStarter.java:47)
+    at org.apache.maven.wrapper.WrapperExecutor.execute (WrapperExecutor.java:156)
+    at org.apache.maven.wrapper.MavenWrapperMain.main (MavenWrapperMain.java:72)
+org.apache.commons.exec.ExecuteException: Process exited with an error: 1 (Exit value: 1)
+	at org.apache.commons.exec.DefaultExecutor.executeInternal(DefaultExecutor.java:404)
+	at org.apache.commons.exec.DefaultExecutor.execute(DefaultExecutor.java:166)
+	at org.openjfx.JavaFXBaseMojo.executeCommandLine(JavaFXBaseMojo.java:567)
+	at org.openjfx.JavaFXBaseMojo.executeCommandLine(JavaFXBaseMojo.java:434)
+	at org.openjfx.JavaFXRunMojo.execute(JavaFXRunMojo.java:105)
+	at org.apache.maven.plugin.DefaultBuildPluginManager.executeMojo(DefaultBuildPluginManager.java:137)
+	at org.apache.maven.lifecycle.internal.MojoExecutor.doExecute(MojoExecutor.java:301)
+	at org.apache.maven.lifecycle.internal.MojoExecutor.execute(MojoExecutor.java:211)
+	at org.apache.maven.lifecycle.internal.MojoExecutor.execute(MojoExecutor.java:165)
+	at org.apache.maven.lifecycle.internal.MojoExecutor.execute(MojoExecutor.java:157)
+	at org.apache.maven.lifecycle.internal.LifecycleModuleBuilder.buildProject(LifecycleModuleBuilder.java:121)
+	at org.apache.maven.lifecycle.internal.LifecycleModuleBuilder.buildProject(LifecycleModuleBuilder.java:81)
+	at org.apache.maven.lifecycle.internal.builder.singlethreaded.SingleThreadedBuilder.build(SingleThreadedBuilder.java:56)
+	at org.apache.maven.lifecycle.internal.LifecycleStarter.execute(LifecycleStarter.java:127)
+	at org.apache.maven.DefaultMaven.doExecute(DefaultMaven.java:294)
+	at org.apache.maven.DefaultMaven.doExecute(DefaultMaven.java:192)
+	at org.apache.maven.DefaultMaven.execute(DefaultMaven.java:105)
+	at org.apache.maven.cli.MavenCli.execute(MavenCli.java:960)
+	at org.apache.maven.cli.MavenCli.doMain(MavenCli.java:293)
+	at org.apache.maven.cli.MavenCli.main(MavenCli.java:196)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.codehaus.plexus.classworlds.launcher.Launcher.launchEnhanced(Launcher.java:282)
+	at org.codehaus.plexus.classworlds.launcher.Launcher.launch(Launcher.java:225)
+	at org.codehaus.plexus.classworlds.launcher.Launcher.mainWithExitCode(Launcher.java:406)
+	at org.codehaus.plexus.classworlds.launcher.Launcher.main(Launcher.java:347)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.apache.maven.wrapper.BootstrapMainStarter.start(BootstrapMainStarter.java:47)
+	at org.apache.maven.wrapper.WrapperExecutor.execute(WrapperExecutor.java:156)
+	at org.apache.maven.wrapper.MavenWrapperMain.main(MavenWrapperMain.java:72)
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  0.801 s
+[INFO] Finished at: 2026-09-04T03:36:41Z
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.openjfx:javafx-maven-plugin:0.0.8:run (default-cli) on project NDTanimation: Error: Command execution failed. Process exited with an error: 1 (Exit value: 1) -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException
+[rc=1 (124=timeout,可能是常駐)]
+mount.nfs: Connection refused for localhost:/srv/nfs/sim/power on /mnt/nfs/app
+mount.nfs: Connection refused for localhost:/srv/nfs/sim on /mnt/nfs/sim
