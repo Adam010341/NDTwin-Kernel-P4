@@ -3,8 +3,14 @@
 **Machine:** nslab, VirtualBox 7.1.18r173720
 **Guest:** `a12-manual`, imported from the published `.ova`, 4 vCPU / 6144 MB (OVF-declared, unchanged)
 **Ledger row:** A-12 in `doc/audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md`
-**Date:** 2026-09-04, 00:32-00:47 CST
-**Evidence:** `evidence/` (harvested with sha256 verified at all three hops, `09eb1f90...`)
+**Date:** 2026-09-04, 00:32-00:47 CST (Part A), 01:0x-01:1x (Part B), 01:2x-02:3x (Part C)
+**Evidence:** `evidence/` (Parts A+B, sha256 verified at all three hops, `09eb1f90...` / `5d221a68...`)
+and `evidence-a12c/` (Part C, `7e6e7064b115b3a3d222ab60c2af5c693cf89d8b73dc2b8b290c71f861f2f496`).
+
+> ⚠️ `evidence-a12c/STATE-A12C.txt` was captured **while two deliberate test flows were still
+> present** (`s3` reads 3 and `s6` reads 131 instead of 2 and 130). They were removed
+> afterwards and the removal verified by `dump-flows`. Every other table in this report uses
+> the clean counts.
 
 ## Why this round exists
 
@@ -261,68 +267,141 @@ configuration the image can actually express.
   `Pulled 16256 paths` = 128 × 127.
 * Ryu's REST API, stable over 60 s: **switches 10, hosts 128, links 32**.
 
-## 🔴 D13 -- inter-switch forwarding does not work on the OVS path
+## 🔴 D13 -- 7 of 10 switches never receive their flow rules, and nothing ever repairs it
 
-| probe | result |
+> **Rewritten 2026-09-04 by run A-12c.** The A-12b heading read *"inter-switch forwarding does
+> not work on the OVS path"*. **That was wrong, and A-12c falsified it with a measurement:**
+> inter-switch forwarding works fine between two switches that hold rules. The defect is that
+> most switches never get rules. The original A-12b text is preserved below under
+> "What A-12b said, and which parts A-12c overturned".
+
+### The run that settled it
+
+One change from A-12b: **Ryu's stdout went to a file instead of a tmux pane.** A-12b could not
+read the startup window because `tmux history-limit` is 2000 and the pane already held 1883
+lines. Everything below comes from that file (`evidence-a12c/ryu-run1.log`, `ryu.log`).
+
+### What actually happens
+
+```
+ryu-run1.log:59    install_all_pair_paths            <- runs
+ryu-run1.log:489   Static topology initialized, all-destination paths installed.
+ryu-run1.log:630+  seven switches disconnect and reconnect
+```
+
+`install_all_pair_paths` **runs exactly once, completes, and logs success.**
+`Failed to load static topology` = 0. `Traceback` = 0. No exception at all.
+
+And yet, per switch (`evidence-a12c/STATE-A12C.txt`):
+
+| run | switches that received all 128 rules | switches left with only the 2 defaults |
+| :--- | :--- | :--- |
+| run 1 (fresh boot) | s1, s2, s4 | s3, s5, s6, s7, s8, s9, s10 |
+| run 2 (Ryu restarted, fabric untouched) | *newly* s6, s7, s8 | s3, s5, s9, s10 |
+
+Three facts pin the shape:
+
+1. **All-or-nothing per switch.** Counts are 130 or 2, never in between. So this is not "the
+   install was cut off part-way"; it is a per-switch decision.
+2. **The set changes between runs.** s1/s2/s4, then s6/s7/s8. So it is not iteration order --
+   it is a race. (A-12b's three 60-s samples were identical *within* one run, which is what made
+   it look deterministic.)
+3. **The one-shot flag guarantees no repair.** `intelligent_router.py:280` sets
+   `install_initial_openflow_entries_completed = True` **before** calling the installer on the
+   next line, and `:174` gates the whole static-topology load behind
+   `if not self.install_initial_openflow_entries_completed:`. It is never reset. So a switch that
+   comes up empty stays empty for the life of the controller -- through reconnects, through
+   topology changes, through everything.
+
+### The control that says it is the app, not the channel
+
+Ryu itself reports all ten datapaths connected:
+
+```
+$ curl -s http://localhost:8080/stats/switches
+[6, 10, 5, 3, 8, 2, 7, 9, 1, 4]
+```
+
+So I pushed one flow through **Ryu's own** `ofctl_rest` to `s3` -- a switch the app had left
+empty -- and to `s6` as a positive control:
+
+```
+POST /stats/flowentry/add  dpid=3  ->  http 200
+s3 flows: 2 -> 3, and dump-flows shows  priority=1,ip,nw_dst=10.99.99.99 actions=output:1
+POST /stats/flowentry/add  dpid=6  ->  http 200   (control: same result)
+```
+
+**The OpenFlow channel to the "broken" switch is perfectly usable.** The rules the app believes
+it installed were simply never delivered. (Both test flows were removed afterwards and the
+removal verified by `dump-flows`, not by the 200 -- the first `delete_strict` returned 200 and
+deleted nothing, because strict deletion also matches on priority and I had omitted it. My
+omission, not a product defect, but it is the same "200 means nothing happened" shape as D2.)
+
+### Forwarding, re-measured
+
+| probe | switches involved | result |
+| :--- | :--- | :--- |
+| `h1 → h2` | both on a switch **with** rules | **3/3** |
+| `h5 → h64` | **different switches**, both **with** rules | **3/3** |
+| `h1 → h128` | far end on a switch **without** rules | **0/3** |
+
+`h5 → h64` is the measurement that overturns the A-12b heading: **inter-switch forwarding
+works.** What fails is any path that has to traverse a switch the installer skipped.
+
+### What is established, and what is not
+
+**Established:** the installer reports success after programming 3 of 10 switches; the survivors
+vary run to run; the channel to the skipped switches is live; nothing ever re-provisions them.
+
+**Not re-tested in Part C:** the `Ryu 128 hosts` vs `kernel 96 hosts` mismatch A-12b recorded.
+The kernel was never started in this run, so that observation is untouched -- see
+"Corrected notes to Part A", which explains the 96 as a control-plane poll, not a model defect.
+
+**Not established:** *why* the flow-mods for the other seven are dropped inside the app. The
+leading candidate is that `self.switches` (rebuilt only in the topology-update handler at
+`:140`, `{sw.dp.id: sw.dp for sw in switch_list}`) holds **datapath objects whose sockets have
+since been replaced by a reconnect** -- a stale object is not `None`, so `.get()` succeeds,
+`send_msg()` writes into a dead socket, and nothing is raised. That would explain the
+all-or-nothing shape exactly. **I did not prove it**, and it is recorded here as a candidate,
+not a finding.
+
+Also latent but **not** what happened here: `:400-401`
+
+```python
+datapath = self.switches.get(current_switch)
+parser = datapath.ofproto_parser        # no None guard
+```
+
+would crash on a genuinely absent dpid. There was no traceback in either run, so this line did
+not fire -- A-12b listed it as a possible explanation and A-12c rules it out.
+
+### Why this is worth more than a routing bug
+
+`Static topology initialized, all-destination paths installed.` is printed after 70% of the
+fabric was left unprogrammed. That is the same shape as D1 and D2 on the P4 side: **the system
+states success for work it did not do.** A user following the manual sees a clean controller
+log, a full topology in the GUI, and a network that silently drops most traffic.
+
+### What A-12b said, and which parts A-12c overturned
+
+| A-12b claim | A-12c |
 | :--- | :--- |
-| `h1 → h2` (same switch) | **5/5 received** |
-| `h1 → h3` (same switch) | 3/3 received |
-| `h1 → h13` (same switch, s1 port 15) | 3/3 received |
-| `h1 → 10.0.0.96` (h96 is on **s3**) | **0/3** |
-| `h1 → 10.0.0.97` | **0/3** |
-| `h1 → h128` | **0/5** |
+| "inter-switch forwarding does not work" | ❌ **overturned** -- `h5 → h64` crosses switches, 3/3 |
+| rules land on exactly s1/s3/s5 | ⚠️ **narrowed** -- exactly three, but *which* three varies |
+| "identical across 3 samples ⇒ stalled, not slow" | ✅ holds, and now explained: nothing retries |
+| `:400` missing None guard could be the cause | ❌ **ruled out** -- zero tracebacks |
+| `:173` switch-count gate could be the cause | ❌ **ruled out** -- `len(self.switches) 10`, gate passed |
+| directed-graph traversal | ✅ stays falsified |
+| startup race with the kernel | ✅ stays falsified |
 
-Proactive rules land on **exactly three of the ten switches**:
+### Why D13 still does not read as "OVS is broken"
 
-```
-s1 s2 s3 s4 s5 s6 s7 s8 s9 s10
-128  0 128  0 128  0  0  0  0  0
-```
+The Ryu app the manual names -- `intelligent_router_static_topo.py` -- **is not on the image**.
+The honest statement is unchanged:
 
-Three samples 60 s apart are **identical**, so this is stalled, not slow. `s1` does hold a rule
-for every destination including `10.0.0.128` (`actions=output:2`); the packets die further along,
-on a switch with an empty table.
-
-Persistent model mismatch: Ryu reports **128 hosts / 32 links**; the kernel's
-`topology from the control plane` line says **96 hosts / 224 edges up**, and never moves.
-
-### Two hypotheses tested and **both falsified** -- so neither is the cause
-
-1. **Startup race.** Ryu logs many
-   `Failed to notify NDT: ... :8000 ... ECONNREFUSED` on `/ndt/link_recovery_detected`, sent
-   while the kernel was not yet listening and never retried. If lost notifications were the
-   cause, restarting the kernel against a converged control plane would fix it.
-   **Restarted it: byte-identical outcome** -- 96 hosts, the same three switches, the same
-   forwarding failure. Not a race; deterministic.
-2. **Directed-graph traversal.** `install_all_pair_paths()` BFS-walks `self.static_net`, a
-   `networkx.DiGraph`, whose `neighbors()` yields successors only -- so a link recorded in one
-   direction would stop the walk. **Checked the data: all 32 switch-to-switch edges have reverse
-   counterparts, and directed BFS from every dpid reaches all ten.** The graph is fine.
-
-### What is *not* established, and the test that would settle it
-
-`intelligent_router.py:400` does `datapath = self.switches.get(current_switch)` with no None
-guard, and `:173` gates the static-topology load behind `if len(self.switches) >= switch_num`.
-Either could explain three-of-ten. **I could not read which**: `install_all_pair_paths`'s entry
-log never appears in the captured scrollback -- but `tmux history-limit` is **2000** and the Ryu
-pane already held **1883** lines, so the startup window had rolled off. **"Not seen" here is the
-instrument, not the system**, and it is recorded that way deliberately.
-
-**Next test:** restart Ryu with stdout redirected to a file rather than a tmux pane, and read
-whether `len(self.switches)` ever reaches `switch_num` and whether `install_all_pair_paths` runs.
-One run, no new resources.
-
-### Why D13 does not read as "OVS is broken"
-
-The Ryu app the manual names -- `intelligent_router_static_topo.py`, whose name says it programs
-from the static topology -- **is not on the image**. So the honest statement is:
-
-> With the only Ryu app this image ships, the OVS fabric forwards within a switch and not
-> between switches. The application the manual tells you to run is absent, so the documented
-> configuration was never testable.
-
-That makes D3 heavier than "a wrong path in the manual": the missing file may be the one that
-makes this path work.
+> With the only Ryu app this image ships, 7 of 10 switches are left unprogrammed and the
+> controller reports success. The application the manual tells you to run is absent, so the
+> documented configuration was never testable.
 
 ## ⚠️ D14 -- the topology asks for 10 Gbit links and Mininet refuses
 
