@@ -200,4 +200,110 @@ Two kinds of confirmed finding here, and they must not be reported together:
   BUG-04/06/07/12/13 (documentation, or behaviour on the ref the manual sends
   readers to). These are not waiting on anything.
 
+---
+
+# Addendum, 2026-09-04 (A-12i) -- the six open items, adjudicated on the shipped image
+
+Everything below was run on the published P4/BMv2 demo image
+(`sha256 5ed8dcb9...3fefab`), which is a **different artefact** from the one run-06's tester used.
+Evidence: `doc/audit/2026-09-04_a12-virtualbox-manual-run/evidence-a12i/` and `-a12g/`.
+
+## BUG-05 — now **VERIFIED** (was partial)
+
+This document said the byte-identical CPU/memory maps rested on the tester's capture alone and
+were not re-run. **They were re-run.** `get_cpu_utilization` and `get_memory_utilization` return
+the same body, md5 `480e906c87b2` for both, and **sampled again six seconds later both are
+unchanged**. `get_temperature` is a different series that also does not move. All three report on
+`192.168.123.11`-`.20`, the physical management addresses in the static topology file, while the
+switches running are `s1`-`s10`.
+
+The doubt recorded here -- that identical wording makes identical output unsurprising -- stands,
+and the defect is sharper than "dummy values": **the two endpoints return the *same* dummy values**,
+so a reader comparing CPU against memory is comparing a series with itself.
+
+## BUG-08 — **CONFIRMED**, and worse than reported
+
+```
+POST /ndt/modify_device_name  {"vertex_type":0,"dpid":1,"new_name":"a12i-renamed"}
+200  {"status":"Device name updated successfully."}
+```
+
+`setting/StaticNetworkTopologyMininet_10Switches.json`:
+
+| | sha256 (first 12) | mtime |
+| :--- | :--- | :--- |
+| before | `14988a44c0e6` | 2026-08-29 16:55:59 |
+| after | `949b082ff482` | **2026-09-04 05:19:45** |
+| after renaming back to `s1` | **`3c2ff0602230`** | later still |
+
+**The endpoint rewrites the whole file, and the rewrite is not byte-stable.** Changing a name and
+changing it back does *not* restore the file -- so on a real checkout, an API call dirties the
+working tree and undoing the change does not clean it. Nothing in the response or the log warns
+that a file in your source tree was written.
+
+⚠️ The *git-tracked* half of the original claim could not be tested here: the image ships with
+git metadata removed. What is confirmed is the file modification and the silence.
+
+## BUG-14 — **CONFIRMED**
+
+With `nfs-server` **inactive**:
+
+```
+before:  /srv/nfs/sim -> power
+POST /ndt/app_register  {"app_name":"a12i-probe","simulation_completed_url":"..."}
+200  {"app_id":1,"message":"Application registered successfully"}
+after:   /srv/nfs/sim -> 1  power
+```
+
+The export directory is created on a machine with no NFS running, and the response says only that
+registration succeeded.
+
+## BUG-15 — **CONFIRMED as a documentation defect, corrected as a product claim**
+
+`HttpSession.cpp:589` is `int k = 50;` -- but `k` is read from the query string first, via
+`utils::queryParam(m_req.target(), "k")`. **`?k=N` works.** Proof that it is really parsed, rather
+than inferred from source: `?k=abc` produces
+
+```
+[warning] [HttpSession.cpp:599 handleGetDetectedTopKFlowData] Invalid k value: abc
+```
+
+So the correct statement is **not** "silently caps at K=50 with no way to set it". It is: *the
+default is 50, the parameter exists, and §30 documents neither.* The defect is real and it is in
+the page, not the product.
+
+## BUG-16 — **CONFIRMED**
+
+| `NTG.yaml` `host_file` | value |
+| :--- | :--- |
+| as printed in the Installation Manual | `"./setting/Mininet.yaml"` |
+| as shipped on the image | `"./setting/Hardware.yaml"` |
+
+The page's own note beneath the block reads *"If you want to use `Mininet`, please change the path
+of `host_file` to `./setting/Mininet.yaml`"* -- telling the reader to change it to the value the
+block above already shows. The printed configuration is not what the repository ships, and the note
+contradicts the print.
+
+## BUG-17 — **CONFIRMED, and the source comment shares the error**
+
+`TopologyAndFlowMonitor.cpp:385`:
+
+```cpp
+// Report the data plane, and refuse a mixed topology unless explicitly allowed. ...
+validateDataPlaneHomogeneity(AppConfig::ALLOW_MIXED_DATAPLANE);
+```
+
+**The return value is discarded** -- no `if`, no assignment, no early return, no throw; the
+enclosing function ends on the next line. Inside, with `ALLOW_MIXED_DATAPLANE = false`
+(`AppConfig.hpp:15`), the mixed branch emits `SPDLOG_LOGGER_ERROR(... "Topology mixes data planes
+...")` and returns `false`, which nobody reads.
+
+So the kernel **logs an error and loads the topology anyway**:
+
+* `architecture.md` -- *"refuses to load"* — **false**
+* Installation Manual §6 -- *"logs an error naming the mixture when it loads"* — **true**
+
+which is exactly this bug's claim. The additional finding is that **the code's own comment says
+"refuse" too**, so the documentation and the source agree on a verb the code does not implement.
+
 [Co-developed with claude code -- Adam]
