@@ -27,9 +27,25 @@ This round closes that gap and tests the boot manual itself.
 
 ## The object under test
 
-`~/a9pack/out/NDTwin-P4-demo.ova`, `sha256 5ed8dcb942d5fa7ecde4f019b95125084e9c9e6fb221927d15e8e7f9c03fefab`.
-That hash is **character-for-character the value published on the Download page**, so what was
-tested is what a user downloads. Verified before the import, not after.
+`~/a9pack/out/NDTwin-P4-demo.ova`, `sha256 5ed8dcb942d5fa7ecde4f019b95125084e9c9e6fb221927d15e8e7f9c03fefab`,
+verified before the import, not after.
+
+> 🔴 **Correction, 2026-09-04.** This paragraph originally read *"that hash is character-for-character
+> the value published on the Download page, so what was tested is what a user downloads."*
+> **That is false, and it was load-bearing.** `git grep` over `origin/main` -- the branch the site
+> is built from -- finds that hash **nowhere**. It exists only in commit `287575a` on the unpushed
+> branch `docs/p4-bmv2-environment`, which **I wrote today**. What I actually read at the time was
+> an *uncommitted draft* sitting in the working tree, and I reported it as a published page.
+>
+> The live Download page offers **one** demo VM: the 17.9 GB standard image, "Requires VMware",
+> with no checksum. **The P4/BMv2 image this whole report tests is not on the published site at
+> all** -- `git grep` for `P4/BMv2`, the Drive id, and `NDTwin-P4-demo` over `origin/main` returns
+> nothing.
+>
+> So the chain "what was tested is what a user downloads" **was never established**, in either
+> direction: the artefact is not offered publicly, and the bytes behind the draft's Drive link were
+> never compared against the `.ova` on nslab. Everything measured below is true **of the file at
+> `~/a9pack/out/NDTwin-P4-demo.ova`**. Whether a downloader gets those same bytes is open.
 
 ---
 
