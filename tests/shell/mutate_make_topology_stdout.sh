@@ -38,6 +38,12 @@ report() {   # $1 = name, $2 = mutant path, $3 = case that must go red
     fi
 }
 mutant() {   # $1 = name, $2 = old text, $3 = new text; prints the path to the mutated copy
+    # 2026-09-04: `name`/`old`/`new` are read nowhere below ($1/$2/$3 are used directly, as
+    # before) -- they exist only so tests/shell/check_gate_anchors.py's role-based reading can
+    # see that argument 2 is the anchor text, the same way every OTHER hand-rolled applier in
+    # this repo names its own roles. The file itself stays baked into this function's body
+    # ($TOOL, a few lines down) and is picked up the same way it always was.
+    local name="$1" old="$2" new="$3"
     local d="$BK/$1"
     mkdir -p "$d/tools" "$d/setting"
     ln -sf "$REPO/setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json" "$d/setting/"
