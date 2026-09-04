@@ -150,6 +150,26 @@ FAILURES=0
 
 step() { echo; echo "${D}--- $* ---${N}"; }
 
+# --- 0. gate anchors (read-only, no build, runs even under --no-build) ----------
+# [Co-developed with claude code -- Adam]
+# 2026-09-04. tests/shell/check_gate_anchors.py: can every mutation gate still find the text it
+# mutates? It never builds and never runs a gate, so it belongs ahead of the build below, not
+# behind it -- a mutation gate whose anchor has silently drifted keeps exiting 0 (the gtest suite
+# it protects is still green; the gate itself is what stopped mutating anything), and nothing
+# else in this lane would ever say so. Checked against HEAD: this tool reads git revisions, not
+# the working tree, so an uncommitted gate edit is not caught here -- known, and stated so
+# nothing mistakes silence for having checked it.
+step "gate anchors (read-only, no build)"
+GATE_ANCHORS_LOG="$LOG_DIR/l1_gate_anchors.log"
+mkdir -p "$LOG_DIR"
+if python3 "$KERNEL_DIR/tests/shell/check_gate_anchors.py" HEAD >"$GATE_ANCHORS_LOG" 2>&1; then
+    echo "${G}gate anchors ok${N}  ${D}($(grep -oE '^[0-9]+/[0-9]+ cells ok' "$GATE_ANCHORS_LOG" | head -1))${N}"
+else
+    echo "${R}gate anchors FAILED${N} (see $GATE_ANCHORS_LOG)"
+    grep -E "^[0-9]+/[0-9]+ cells ok|NOT CHECKED AT ALL" "$GATE_ANCHORS_LOG" | head -5 | sed 's/^/  /'
+    FAILURES=$((FAILURES + 1))
+fi
+
 if [[ $DO_BUILD -eq 1 ]]; then
     step "building"
     if ! cmake -S "$KERNEL_DIR" -B "$BUILD_DIR" -DCMAKE_BUILD_TYPE=Debug \
