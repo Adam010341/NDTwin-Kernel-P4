@@ -34,13 +34,30 @@
 #                                        never the prose around them, and this proves it.
 #   W3  a stop check written as an equivalent expression -- proves the tests assert elapsed time,
 #                                        not the shape of the branch that produced it
-#   W4  the three between-endpoint checks in pollControlPlaneTopology REMOVED.
-#       🔴 Read this one before trusting the tally. These checks are genuinely redundant *today*:
-#       execCommandCancellable asks stopRequested() before it forks, so after a stop the two
-#       remaining endpoints cost a syscall each and the round ends inside the bound anyway. This
-#       gate therefore CANNOT catch their removal, and listing them as a widening is the honest
-#       way to say so -- they are defence in depth against a future edit to the executor, not
-#       behaviour this suite defends. FIX-KERNEL-STOP-BOUNDED.md §"what is not defended" repeats it.
+#   W4  the walk's top-of-loop stop check REMOVED
+#   W5  the three between-endpoint checks in pollControlPlaneTopology REMOVED
+#       🔴 Read these two before trusting the tally. They are genuinely redundant *today*:
+#       execCommandCancellable asks stopRequested() before it forks, so after a stop the remaining
+#       switches and endpoints cost a syscall each and the round ends inside the bound anyway. This
+#       gate therefore CANNOT catch their removal, and listing them as widenings is the honest way
+#       to say so -- they are defence in depth against a future edit to the executor, not behaviour
+#       this suite defends. FIX-KERNEL-STOP-BOUNDED.md §8.3 repeats it.
+#
+#       🔴 THE 2026-09-04 RUN CAUGHT BOTH OF THEM, AND THE FAULT WAS IN THIS SUITE, NOT IN THEM.
+#       Both reddened AStopThatExceedsItsBoundSaysWhatItIsWaitingOn, which was then an integration
+#       test: it started a real manager, set the report bound to 0, called stop() and demanded the
+#       report appear. stop() runs request() -- which kills the in-flight curl AND notify_all()s
+#       every sleeper -- and only then samples the worker set once. Whether any worker is still
+#       registered at that instant is a race between the main thread and three workers, and the
+#       widenings move a few instructions on the workers' exit path.
+#       MEASURED, same binary, same source, only CPU affinity changed:
+#           all 14 cores  15/15 pass
+#           taskset -c 3   0/15 pass
+#       In the failing runs stop() had behaved correctly -- the captured log carries
+#       "cancelled 1 in-flight control-plane request(s)" and no report, which is right, because
+#       every worker had already finished and there was nothing to wait on. The case was replaced
+#       with three cases that own their own StopSignal and hold a WorkerScope alive, so the
+#       straggler is a fact of the fixture instead of an outcome of the scheduler.
 #
 # 🔴 A MUTANT THAT DOES NOT COMPILE IS A SURVIVOR, not a skip: the suite never ran, so it proves
 # nothing. Same for an anchor that has moved, and for a run that hangs.
@@ -442,8 +459,8 @@ mutate "the over-bound report returns without saying anything" \
     {
         return false;
     }' \
-    KernelStopIsBoundedTest.AStopThatExceedsItsBoundSaysWhatItIsWaitingOn \
-    KernelStopIsBoundedTest.TheMonitorsStopReportNamesItsOwnWorkers
+    KernelStopIsBoundedTest.TheOverBoundReportNamesTheWorkerAndTheSubsystem \
+    KernelStopIsBoundedTest.TheMonitorsOverBoundReportNamesItsOwnWorker
 
 # ================================================================================================
 # 6. direction 2: buying the bound by dropping the join
