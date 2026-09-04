@@ -35,10 +35,10 @@
 |---|---:|---|
 | ✅ IN TRUNK / 已修 | **65** | 4–7, 10–17, 19–20, 22–24, 26, 28–30, 32, 41–42, 45, 47–48, 50, 53, 56, 58–60, 63–65, 71–74, 78, 35–36, 46, 69–70, 77, 75, 8, 3, 21, 49, 61–62, 38, 82, 27, 76, 33–34, 80–81, 1–2, 85 |
 | 🛠 派工中 | **0** | — |
-| ⭕ UNASSIGNED | **21** | 9, 18, 25, 31, 37, 39–40, 43, 51–52, 54–55, 66–68, 79, 83–84, 86–88 |
+| ⭕ UNASSIGNED | **23** | 9, 18, 25, 31, 37, 39–40, 43, 51–52, 54–55, 66–68, 79, 83–84, 86–90 |
 | ➖ NOT A DEFECT | **1** | 44 |
 | ❓ UNKNOWN | **1** | 57 |
-| **合計** | **88** | （09-04 1x:xx 由各列狀態欄重算；派工中＝0——第二波 delgroup #1、noip #85、phantomovs #2 與 stop 補件上午併入（MERGE-LOG 39–42），新增 #86–#88（agent 順手發現、auditor 未親驗）；第一波九支：isup Q12+#33/34/80/81、stop #27/76（00:0x 被 watchdog 收掉、00:15 接回）、ovsoff #82、topoval #61/62、refused #38；⭕ 含 #52 碼半（文件半已併）、#83＝Adam 的 `sudo install`、#84 等 N14 Q5；#83–84 是 #77 交付時挖出的） |
+| **合計** | **90** | （09-04 1x:xx 由各列狀態欄重算；派工中＝0——第二波 delgroup #1、noip #85、phantomovs #2 與 stop 補件上午併入（MERGE-LOG 39–42），新增 #86–#88（agent 順手發現、auditor 未親驗）；第一波九支：isup Q12+#33/34/80/81、stop #27/76（00:0x 被 watchdog 收掉、00:15 接回）、ovsoff #82、topoval #61/62、refused #38；⭕ 含 #52 碼半（文件半已併）、#83＝Adam 的 `sudo install`、#84 等 N14 Q5；#83–84 是 #77 交付時挖出的） |
 
 **未併分支的實況（`git for-each-ref` ＋ 逐支 `git rev-list --count`）**
 
@@ -232,6 +232,8 @@
 | 86 | `ndt` 預檢（`ndt:830`）看的是主 checkout 的 `build/bin/ndtwin_kernel`，`stack.sh:908` 啟動的是 `$KERNEL_DIR/build/bin/ndtwin_kernel`（`components.env:16` 用 `:=`，環境可覆寫）⇒ 覆寫時預檢對一個不會被執行的檔案回綠 | ⭕ UNASSIGNED | phantomovs agent 讀碼＋用 `KERNEL_DIR` 覆寫跑自己的 binary 時實測 `LOG_DIR`／`PID_DIR` 跟著搬；auditor 未親驗 | shell 小修：預檢改讀 `stack.sh` 實際用的路徑，並在 `ndt status` 印出「將啟動哪一支」 |
 | 87 | `install_group_entry`／`modify_group_entry`（與 meter 同型）仍拿 Ryu 的 200 當結論——#1 只修了 delete 那一半；Ryu 對 group/meter mod 不下 barrier、不等回覆 | ⭕ UNASSIGNED | delgroup agent 讀 `guardedMod`＋ovs4 對照實驗的推論；install 的 409 是 kernel 自己的 pre-check 給的，不是交換機 | C++：install／modify 也讀回再宣稱；會改既有回應契約（N22 Q3，等 Adam 裁） |
 | 88 | `TopologyAndFlowMonitor::findSwitchByIp`／`findSwitchByIpNoLock`（`:3377`／`:3391`）對**每一個** switch vertex 做 `ip.front()`——一台 `"ip": []` 的 switch 不只弄壞自己，是弄壞整張圖的 IP 查詢；同檔 `queryMininet:383`、`getSingleSwitchPowerReport:2154`、`getSingleSwitchCpuReport:2183` 同型 | ⭕ UNASSIGNED | noip agent 讀碼（#85 的 §6）；與 #85 同一條不變式（載入端拒絕空 ip）擋著，線上不可達；auditor 未親驗 | C++ 小修：五處改走 `managementIpOf`（#85 已提供）；不在 status worker 路徑上，優先度低 |
+| 89 | 檢查器知道、kernel 不知道：edge 數不符只有 contract test 看得見（#61／#62 修了載入那扇門，其他三扇沒） | ⭕ UNASSIGNED（09-04 14:0x，Adam 裁記） | N18 Q4；auditor 未親跑 `spec.py:348` | W-TOPO-THREE-DOORS 一起 |
+| 90 | 四個外部 app 從沒對著活的 kernel 用過；`get_switches_power_state` 的 breaking change 只有 grep 證 | ⭕ UNASSIGNED（09-04 14:0x） | auditor 09-04 grep 六個本地 repo | W-APPS-LIVE；今晚開 app 就是第一次 |
 
 ### 2.2 兩支動到同一段碼（合併衝突預警）
 
