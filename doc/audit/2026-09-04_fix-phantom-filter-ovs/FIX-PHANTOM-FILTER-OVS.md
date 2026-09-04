@@ -196,3 +196,54 @@ trunk 那一欄服務出去的第一列就是 FINDING-03 的指紋：`ipv4_dst` 
    兩者預設相同、被覆寫時不同 ⇒ **預檢查會對一個不會被執行的檔案回綠。**
    本輪的 live arm 正是靠這個覆寫跑自己的 binary 的。**沒有修**（不在本工單範圍），
    但值得單獨開一條。
+
+
+---
+
+## 九、auditor 補記（09-04，併入前後）
+
+agent 在 §五／§六／§七明講「一次都沒跑」；下面是 auditor 跑的，全部在合併樹或 lab 上，
+raw 在 audit-raw 的 `doc/audit/2026-09-04_fix-phantom-filter-ovs/raw/`。
+
+### 9.1 紅 → 綠（合併樹 `c2b55184`＝trunk `07753cf1`＋stop 補件＋#1＋#85＋本修法）
+
+紅臂不能用 agent 的 `red_on_trunk.sh`（`git checkout trunk --` 會連 #85 對 `DeviceConfigurationAndPowerManager` 的改動一起拿掉）；
+改成**反向套用本分支 9 個原始檔的 hunks**（`git apply -R`），`tests/test_PendingEntryFilter.cpp` 回 trunk（它用了新 API），
+測試檔保留，重建 `test_routing_strategy`。
+
+| 臂 | 結果 |
+|---|---|
+| 紅（trunk 行為＋本分支的 12 顆） | **5 紅／12**：`AnOvsInstallIsNotServedBeforeAPollObservesIt`、`ARyuAcceptanceIsSuccessfulButConfirmsNothing`、`TheDispatchSaysWhyAnAcceptedEntryIsStillWithheld`、`TheLegitimateOvsRuleIsWithheldTooBecauseTheRowIsACacheArtefact`、`TheViewSaysItIsWithholdingRows`；其餘 7 顆（四顆 P4／輪詢對照、`AProxyRefusalConfirmsNothingEither`、`TheCountersStillMeanWhatA7SaysTheyMean`、`TheViewDoesNotClaimToWithholdWhatItServed`）在未修碼上本來就綠——它們守的是「沒有動到的東西」 |
+| 還原 | `git status` dirty 0 |
+| 綠（合併樹全建置） | 整支 `test_routing_strategy` **1049/1049**、`ctest -j2` **1049/1049** |
+
+§五說「12 顆對未修的標頭編得過」——成立：紅樹的建置 `guarded_build: exit 0`。
+
+### 9.2 變異閘門（合併樹，guard JOBS=1）
+
+`mutate_phantom_filter_covers_ovs.sh`（合併樹，11:46 起，guard 整輪持鎖）：**11 mutations、0 survivors、widenings 4 green of 4**、還原 byte-identical。逐條判決在 `wave2-merged/gate-mutate_phantom_filter_covers_ovs.log`（audit-raw）與 MERGE-LOG 第 42 列。錨點 `check_gate_anchors.py HEAD` ⇒ `ok(13)`。
+
+### 9.3 Live：ovs4 的 A/B（10:50–10:54，auditor 的 `live_c4.run.sh`，同一支 09-03 的 `probe.py`）
+
+兩臂各自用該 checkout 自己的 `ndt`／`build/bin/ndtwin_kernel`（`components.env:16` 由檔案位置推 `KERNEL_DIR`），沒有複製 binary。
+
+| | BEFORE `a8ba99c2`（主 checkout，09-03 00:46 建置） | AFTER `7b9b7ada`（`wt-phantomovs`，trunk `7de4ef2f`＋本修法） |
+|---|---|---|
+| 無效 port 999：第一次看見 | **t=0.256 s，REQUEST-SHAPE（幽靈）**；真列 8.594 s | **t=8.614 s，POLLED-SHAPE（真列）**；0.005 s 時 ABSENT |
+| 合法 port 2：第一次看見 | **t=0.259 s，幽靈**；真列 3.549 s | **t=3.795 s，真列** |
+| Ryu 自己的表 | 兩條都在 | 兩條都在（相同） |
+| kernel.log | `withholding` 0、`not evidence` 0 | `withholding 1 row(s)` ×2、`1 of 1 dispatched … not evidence` ×2、`no longer withholding` ×2（輪詢看見後） |
+
+⚠️ BEFORE 那支 binary 早於第一波所有修法，兩臂差的不只本修法一個檔；但第一波沒有任何分支動到過濾器或 token 路徑
+（FINDINGS-COVERAGE 第 2 列的查證），對**這個**觀測量它是公平的對照。09-03 夜巡的 `22_x5_b1_phantom_window_ovs.log` 是另一份 BEFORE。
+
+### 9.4 合併樹 kernel 的 smoke（`2cc44652`，11:48，`smoke_wave2.run.sh`）
+
+同一探測在合併後的 kernel 上重跑：無效 port **12.947 s** 真列、合法 port **12.190 s** 真列，兩者都沒有 0.25 s 的幽靈；
+kernel.log `withholding` 4、`not evidence` 2。⇒ **今晚整機測試在 OVS 上會看到：剛裝的 flow 要等下一次輪詢（3–13 s）才進表。**
+
+### 9.5 沒做的
+
+- OpenFlow barrier（§四.2）——留 Adam 裁（QUESTIONS N22 Q5）。
+- 快取裡被拒的列（§四.3）——未動。
+- `ndt` 預檢與啟動不是同一支 binary（§八.2）——已另開 FINDINGS #86。
