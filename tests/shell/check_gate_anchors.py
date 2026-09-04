@@ -278,8 +278,15 @@ def scalar_assignments(text, gate_dir=None):
     uses and both are knowable without running anything: $HERE is the directory the gate is IN
     (which the caller passes in) and $REPO is the root above it. Nothing else is guessed.
     """
+    # 2026-09-04: `SFT=include/common_types/SFlowType.hpp   # the arithmetic and its guard` (from
+    # tests/shell/mutate_flow_rate_denominator.sh) matched nothing -- `\s*$` requires the rest of
+    # the line to be BLANK, and a trailing inline comment is not blank, so the whole assignment
+    # was invisible and every anchor attributed through it fell through to "no target file". A
+    # comment is only ever preceded by WHITESPACE here (bash's own rule for where `#` starts one;
+    # `X=a#b` has no comment at all, `#` is just part of the word), so the added group requires
+    # that whitespace rather than allowing a bare trailing `#`.
     out = {}
-    for m in re.finditer(r"^\s*([A-Za-z_][A-Za-z0-9_]*)=(\S*)\s*$", text, re.M):
+    for m in re.finditer(r"^\s*([A-Za-z_][A-Za-z0-9_]*)=(\S*)(?:[ \t]+#.*)?\s*$", text, re.M):
         name, val = m.group(1), m.group(2)
         if "$(" in val or "`" in val:
             continue
