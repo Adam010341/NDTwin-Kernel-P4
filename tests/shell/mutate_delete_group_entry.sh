@@ -309,11 +309,16 @@ printf '  ✅ green  (%s tests)\n' "$BASELINE_COUNT"
 # still there -- so if the suite does not go red here it does not test the finding at all.
 # =================================================================================================
 
+# [Co-developed with claude code -- Adam] 2026-09-04, FINDINGS #87: the read-back block was
+# lifted out of `if (op == EntryOp::Delete)` and made to serve all three verbs, so it lost four
+# spaces of indentation and its Present/Absent tests became `expected`. Same mutation, same
+# verdict, new coordinates. `after != expected` IS "the entry is still there" for a delete,
+# because expected is Absent for Delete.
 apply_exact "$STRAT" \
-'        if (after == Existence::Present)
-        {' \
-'        if (false)
-        {' \
+'    if (after != expected)
+    {' \
+'    if (false)
+    {' \
     1
 if [[ $? -ne 0 ]]; then anchor_moved "M1  a group the switch still has is reported as deleted"; else
 
@@ -347,9 +352,14 @@ fi
 # follows; this is the test that keeps the new guard honest about not knowing.
 # =================================================================================================
 
+# Re-pointed with M1 (#87). Same defect from the other side: after #87 the Unknown arm is what
+# keeps an unanswerable read-back out of the failure branch, so removing IT is what turns a
+# read-back the kernel could not perform into a 502 about the switch.
 apply_exact "$STRAT" \
-'        if (after == Existence::Present)' \
-'        if (after != Existence::Absent)' \
+'    if (after == Existence::Unknown)
+    {' \
+'    if (false)
+    {' \
     1
 if [[ $? -ne 0 ]]; then anchor_moved "M2  an unanswerable read-back becomes a failed delete"; else
 
@@ -411,8 +421,8 @@ fi
 # =================================================================================================
 
 apply_exact "$STRAT" \
-'        for (int attempt = 0; attempt < VERIFY_ATTEMPTS; ++attempt)' \
-'        for (int attempt = 0; attempt < 1; ++attempt)' \
+'    for (int attempt = 0; attempt < VERIFY_ATTEMPTS; ++attempt)' \
+'    for (int attempt = 0; attempt < 1; ++attempt)' \
     1
 if [[ $? -ne 0 ]]; then anchor_moved "M4  the read-back happens once"; else
 
@@ -442,14 +452,14 @@ fi
 # =================================================================================================
 
 apply_exact "$STRAT" \
-'            if (after != Existence::Present)
-            {
-                break;
-            }' \
-'            if (after == Existence::Present)
-            {
-                break;
-            }' \
+'        if (after == expected || after == Existence::Unknown)
+        {
+            break;
+        }' \
+'        if (after != expected)
+        {
+            break;
+        }' \
     1
 if [[ $? -ne 0 ]]; then anchor_moved "M5  the retry loop spins on success instead of on Present"; else
 
@@ -473,8 +483,8 @@ fi
 # =================================================================================================
 
 apply_exact "$STRAT" \
-'        for (int attempt = 0; attempt < VERIFY_ATTEMPTS; ++attempt)' \
-'        for (int attempt = 0; attempt != VERIFY_ATTEMPTS; ++attempt)' \
+'    for (int attempt = 0; attempt < VERIFY_ATTEMPTS; ++attempt)' \
+'    for (int attempt = 0; attempt != VERIFY_ATTEMPTS; ++attempt)' \
     1
 if [[ $? -ne 0 ]]; then
     echo "  🔴 W1 anchor moved"; HARNESS_FAULT=1; restore
@@ -482,9 +492,13 @@ else
     widen "W1  '<' becomes '!=' over the same bound (an equivalent loop)"
 fi
 
+# Re-pointed (#87): both verbs now share one construction, `OpResult::failure(502, what)`.
+# 🔴 That is also why the new #87 tests assert the status code at the ENDPOINT layer and not at
+# the strategy -- a strategy-level EXPECT_EQ(httpStatus, 502) would turn this widening red and
+# cost this gate its control.
 apply_exact "$STRAT" \
-'            OpResult::failure(502, named + " is still on the switch after the delete was "' \
-'            OpResult::failure(503, named + " is still on the switch after the delete was "' \
+'        auto failed = OpResult::failure(502, what).withOutcome(outcome);' \
+'        auto failed = OpResult::failure(503, what).withOutcome(outcome);' \
     1
 if [[ $? -ne 0 ]]; then
     echo "  🔴 W2 anchor moved"; HARNESS_FAULT=1; restore
@@ -493,11 +507,10 @@ else
 fi
 
 apply_exact "$STRAT" \
-'                OpResult::failure(502, named + " is still on the switch after the delete was "
-                                               "forwarded and acknowledged; it was NOT deleted")' \
-'                OpResult::failure(502, named + " is still on the switch -- the delete was "
-                                               "acknowledged by the controller and not carried "
-                                               "out by the switch")' \
+'                ? named + " is still on the switch after the delete was forwarded and "
+                          "acknowledged; it was NOT deleted"' \
+'                ? named + " is still on the switch -- the delete was acknowledged by the "
+                          "controller and not carried out by the switch"' \
     1
 if [[ $? -ne 0 ]]; then
     echo "  🔴 W3 anchor moved"; HARNESS_FAULT=1; restore
@@ -506,8 +519,8 @@ else
 fi
 
 apply_exact "$STRAT" \
-'            if (attempt > 0)' \
-'            if (attempt >= 1)' \
+'        if (attempt > 0)' \
+'        if (attempt >= 1)' \
     1
 if [[ $? -ne 0 ]]; then
     echo "  🔴 W4 anchor moved"; HARNESS_FAULT=1; restore
