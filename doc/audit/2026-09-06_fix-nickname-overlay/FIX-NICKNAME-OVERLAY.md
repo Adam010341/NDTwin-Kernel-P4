@@ -175,8 +175,10 @@ suite 名 `NicknamePersistenceTest` 保留，**16 個 case**（跑過：16/16 �
 
 ## 5. 看紅
 
-閘門：`tests/shell/mutate_nickname_overlay.sh`，13 個變異（10 個 kernel + 3 個 `ndt`）＋2 個對照。
-逐字紅在 `RED-GREEN.md`。
+閘門：`tests/shell/mutate_nickname_overlay.sh`，**15 個變異**（10 個 kernel + 3 個 `ndt` + 2 個對照）。
+🟢 **跑過：15 個變異、0 存活、2 個對照留綠、原始碼逐位元還原、還原後重建再綠（`GATE_RC=0`）。**
+逐字的紅、以及這一輪自己踩到的兩件事（閘門第一輪五個 anchor 沒套用、第一版的紅是 800 KB），
+全部在 `RED-GREEN.md`。
 
 ## 6. 沒做的事
 
