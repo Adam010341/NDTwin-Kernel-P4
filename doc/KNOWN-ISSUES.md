@@ -1441,6 +1441,111 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 > ⚠️ 該檔的 `OV-n` **只編到 OV-4**（`recon/fixplan.md` §0.1 寫成「OV-1…OV-6」是筆誤，
 > 2026-09-05 開檔查證）。
 
+### B-9 🔴 OVS：一次 `set_switches_power_state` off→on 永久切斷該交換機底下的所有主機，而四種儀器都回報健康
+
+- **狀態**：**OPEN。** 2026-09-05 夜巡 R4 實測（128 台 OVS，兩次獨立重現＋三組對照）。
+  Adam 2026-09-05 18:0x 裁定：**登記、開單、儀器側先擋住**。
+  修法單 **W9**（`W9-ovs-power-cycle-keeps-port-mapping.md`，2026-09-05 開，**只開不修**；
+  兩個方向尚未拍板）。🔴 **W9 寫在 09-05 夜巡 session 的 scratch 裡，`scratch/` 不進版控**
+  ⇒ 這份單子不在 repo，引用前先向該 session 要。
+  儀器側已落：`scratch/overnight-2026-09-05/sweep.py` 的 s4 power off/on 改成**預設不做**
+  （要跑帶 `SWEEP_POWER_CYCLE=1`）——這只擋住夜巡自己的 sweep，**產品端點沒有改**。
+- **平面**：**只有 OVS。P4 不受影響**（對照見下）
+- **失效方向**：**樂觀 ＋ 靜默**——資料面全斷，控制面四種檢查全綠，沒有任何 log 記錄這次重排
+- **會發生什麼**：`POST /ndt/set_switches_power_state?ip=<葉節點>&action=off` 再 `action=on`，
+  兩次都回 **200 `{"<ip>":"Success"}`**，`ovs-vsctl br-exists` rc=0，Ryu 說那台的流表列數
+  **跟 cycle 前一模一樣（130）**——而**那台底下的每一台主機從此 100% loss，直到整個 fabric 重建**。
+  128 台的 fabric 上一次 cycle 打死 32 台（s1–s4 各掛 32 台）。
+- 🔴 **四種儀器同時說健康**（`logs/r4-20-twin-view-of-dead-leaves.log`，此時 64/128 台主機是死的）：
+  ```
+    node s3  dpid=3 reachable=True admin_state=on
+    dpid 3 edges=34 is_up_true=34 admin_disabled=0
+    path 10.0.0.1 -> 10.0.0.65   : {"...","status":"success","switch_count":5}
+    ndt status --check rc: 0
+    10 switches (10 up, 10 enabled), 128 hosts, 288 edges
+  ```
+  ⇒ `reachable`／`is_up`／`get_path_switch_count`／`ndt status --check` **四種全部通過**。
+- **重現步驟**（逐字照 R4-1；跑在 kernel `4c9e0be1`／helper `6685d3a9`／trunk `68c1dde4`）：
+  ```bash
+  export NDT_OWNER=overnight-0905
+  tools/test_workflow/ndt up ovs            # 128 hosts / 10 switches
+  H1=$(ps -eo pid,args | awk '$NF=="mininet:h1"{print $1;exit}')
+  H65=$(ps -eo pid,args | awk '$NF=="mininet:h65"{print $1;exit}')
+  # 對照組：s3 底下的 h65 現在是通的
+  sudo -n mnexec -a "$H1"  ping -c 4 -W 1 10.0.0.65   # 0% loss
+  sudo -n mnexec -a "$H65" ping -c 4 -W 1 10.0.0.66   # 0% loss
+  # 動作：官方端點，一次 off 一次 on
+  curl -s -X POST "http://localhost:8000/ndt/set_switches_power_state?ip=192.168.123.13&action=off"
+  sleep 5
+  curl -s -X POST "http://localhost:8000/ndt/set_switches_power_state?ip=192.168.123.13&action=on"
+  sleep 15
+  # 實驗組：同樣兩條 ping
+  sudo -n mnexec -a "$H1"  ping -c 5 -W 1 10.0.0.65   # 100% loss
+  sudo -n mnexec -a "$H65" ping -c 5 -W 1 10.0.0.66   # 100% loss
+  ```
+- 🔑 **機制——兩個來源各自對，但只在「bridge 從來沒被重建過」時彼此相等**
+  （行號由 2026-09-05 本次登記時**開檔覆核**於 trunk `cff98191`，不是抄 finding 的偏移量）：
+  - **ofport 號來自 `add-port` 的插入順序，而順序來自 `ovs-vsctl list-ports`（字典序）**：
+    power-off 在 `src/ndt_core/power_management/OVSPowerStrategy.cpp:661` 用 `executeListPorts`
+    （`:51-54`，`sudo ovs-vsctl list-ports <br>`）抓下當時的 port 名單，`:703`
+    `setMininetBridgePorts` 存進 `bridgeConnectedPortsForMininet`
+    （`include/common_types/GraphTypes.hpp:397`），然後 `:708` `del-br`。
+    power-on 在 **`:471-478`** 照那個順序一條一條 `sudo ovs-vsctl add-port <br> <port>`，
+    **沒有帶 `ofport_request`**（全檔零個實例）⇒ OVS 按插入順序發 ofport 1…N。
+    `ovs-vsctl list-ports` 的輸出是**字典序**，於是 `sN-eth10` 排在 `sN-eth2` 前面，
+    重建後 **port 2 = `sN-eth10`**。
+  - **流表裡的 port 號來自靜態拓樸 JSON 的 `src_interface`，與交換機無關**：
+    `intelligent_router.py:1432`（switch↔switch）與 `:1429`（switch→host）建圖時
+    `port=edge.get("src_interface")`；重灌路徑 `:814`
+    `install_all_pair_paths(self._active_net())`（`:703` `_active_net` 在有靜態拓樸檔時回
+    `static_net`）→ `:1639` `out_port = edge["port"]`／`:1550`
+    `get_host_port` 回 `net[switch][host]["port"]` → `:1663` `OFPActionOutput(out_port)`。
+    **重灌完全不讀交換機現在的 portdesc。**
+  - ⇒ 設計時的 `sN-ethM` ↔ port M 恆等映射被**寫死在 JSON 那一側**，而交換機那一側在重建後
+    改成字典序。**兩邊都沒有錯，錯的是沒有人負責讓它們對齊。**
+- **為什麼四種檢查看不到**：`get_switch_openflow_table_entries`／Ryu 只**數列數與動作**，
+  而 port 重排**不改列數（130＝130）、不改動作的 port 號、不改 port 總數（34＝34）**——
+  唯一變的是「那個號碼接到哪一條線」，沒有任何端點報這件事
+  （`logs/r4-19-portdesc-mechanism.log`：dpid 1 未 cycle＝`(1,'s1-eth1'),(2,'s1-eth2')…`；
+  dpid 3 已 cycle＝`(1,'s3-eth1'),(2,'s3-eth10'),(3,'s3-eth11')…`）。
+- 🔑 **三組對照組（缺陷是這樣被定位出來的，不是免責條款）**：
+  ① **同一個 fabric、沒被 cycle 過的 s1／s2**：`h1 -> 10.0.0.2/…/96` 全 0% loss
+  （`logs/r4-12/13-*.log`）——邊界正好落在 96／97 之間；
+  ② **全新 fabric、一次 cycle 都沒下過**：`ndt up ovs` 之後 128 台全通，含第一輪死掉的
+  97/100/128（`logs/r4b-02-control-nopowercycle.log`）⇒ 死因是 power cycle，不是 `ndt up ovs`、
+  不是規模、不是 h97+ 那批主機；
+  ③ 🔴 **P4 平面免疫**：同一支 sweep、同一個端點、同一台 s4，P4 128 跑完之後 **128 台全通**
+  （`logs/r4p4-10-scale-reads.log`）。bmv2 用**明確的 `-i N@sN-ethN`** 建立 port 對應
+  （`/tmp/ndtwin_p4_switches.json` 的 `argv`），重啟不重排。
+  ⇒ **這是 OVS 平面獨有的缺陷，根因是 bridge 重建後 port 的加入順序，不是「power cycle 這個概念」。**
+- 🔴 **影響面**：
+  - **任何關開交換機的 app 或實驗**——energy-saving app 的省電動作走的就是這個端點；
+  - **`sweep.py` 對 s4 做的那一下**：09-05 夜巡每個上 OVS 128 的角色，**從 arm_up 結束那一刻起
+    手上就有 1/4 的 fabric 是死的，而 `ndt status --check` 說一切正常**。該輪 `traffic.sh` 四對
+    iperf3 有三對落在 s4，跑滿 120 s 傳了 **0 byte**，取樣行照印
+    ⇒ **R4-1 之後的 OVS 流量數字全部作廢**；
+  - 這一條接到「注入後必須斷言注入成功」那條紀律上：power cycle 之後要**重讀 portdesc 並與
+    流表的 OUTPUT port 對帳**，不能只信那個 200，也不能只數列數。
+- **繞法**：**不要在量測期間 power cycle OVS 交換機**；非做不可就在 `on` 之後整個 fabric 重建
+  （`ndt down` ＋ `ndt up ovs`），或自行以 ping 矩陣驗證該交換機底下的主機仍然可達
+  ——**四種既有檢查都不能當作驗證**。
+- **對帳舊結果**：
+  - FINDINGS **#67**（「power cycle 弄丟操作者裝的規則且不還原」）的**加強版**——不是弄丟規則，
+    是**把轉送全部指到錯的線**，而且**列數對得上**所以「數列數」式檢查看不到；
+  - FINDINGS **#42**（128 對 ping 全 100% loss、banner 照印 OK）的**更新**：不是全滅，是
+    **剛好被 cycle 過的那台底下的主機**全滅，其餘正常 ⇒ **#42 的「全部」口徑要改成
+    「被 power cycle 過的葉節點底下的那些」，該條要重量**（W9 影響面已列）。
+  - 🟠 上列兩條歷史條目**本次未開 FINDINGS 原文核對**（R4 角色與本次登記者都只讀轉述）。
+- **證據**：**實測 2026-09-05 夜巡 R4**，`scratch/overnight-2026-09-05/rounds/04-R4-scale.md` **R4-1**；
+  raw 在 `scratch/overnight-2026-09-05/logs/`：`r4-17-s3-control.log`（對照臂逐字）、
+  `r4-18-s3-powercycle.log`（處理臂逐字）、`r4-19-portdesc-mechanism.log`（機制）、
+  `r4-20-twin-view-of-dead-leaves.log`（四種儀器）、`r4-12/13-*.log`（同 fabric 對照）、
+  `r4b-02-control-nopowercycle.log`（全新 fabric 對照）、`r4p4-10-scale-reads.log`（P4 對照）。
+  🔴 **上列 raw 全在 `scratch/`，不在版控**——引用前先確認那個 session 的目錄還在。
+  ⚠️ **可信度分級**：資料面與端點的數字是 **R4 角色實測（🟢 對他）**；
+  **本條登記者沒有複驗任何一次 live 重現（🟠 轉述）**，只有上面「機制」那一段的 file:line
+  是登記者自己開檔查證的（🟢）。**兩者不要混用。**
+
 ---
 
 ## B-x. `/ndt/get_detected_flow_data` 包含已經結束的流（churn 下約 92%）
