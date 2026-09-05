@@ -196,6 +196,23 @@ relay() {
 relay "delta becomes ninety-nine" "$SRC" '    short delta = 5;' '    short delta = 99;'
 """
 
+# (n2) mutate_redirection_order.sh's shape after 2026-09-05: an applier whose signature names
+#      BOTH a file role and an anchor role, called with a trailing declared hit count because the
+#      anchor is deliberately not unique (its M13 reverts two identical multi-line awk readers in
+#      tools/remote-lab/ndtwin-vm.sh at once). Two rules in extract() fire on this one call site
+#      -- the role-named one and the generic `<file> <anchor>` one -- and only the second used to
+#      read the trailing count, so the same mutation produced TWO anchors, want=1 and want=2, and
+#      the want=1 copy was reported DUP against a gate that is not broken. See _declared_want.
+GATE_DECLARED_COUNT = r"""#!/usr/bin/env bash
+set -uo pipefail
+SRC=src/zeta.cpp
+mutant() {
+    local name="$1" rel="$2" old="$3" new="$4" want="${5:-1}"
+    echo "$name $rel $old $new $want"
+}
+mutant m1 "$SRC" '    int zeta = %(ZETA)s;' '    int zeta = 99;' 2
+"""
+
 # (o) mutate_g6_apps_liveness.sh's shape (also g7/g9/g9-faults): a mutation table of
 #     `write_case <name> <expect> <<'PAIR' <FROM> @@@TO@@@ <TO> PAIR` heredocs, read back and
 #     applied at RUNTIME by a small python applier -- there is no python in a case heredoc
@@ -508,6 +525,7 @@ class Fixture:
         source = {"array": GATE_ARRAY, "callback": GATE_CALLBACK, "packed": GATE_PACKED,
                   "driver": GATE_DRIVER, "unreadable": GATE_UNREADABLE,
                   "replace_all": GATE_REPLACE_ALL, "positional": GATE_POSITIONAL,
+                  "declared_count": GATE_DECLARED_COUNT,
                   "case_heredoc": GATE_CASE_HEREDOC,
                   "case_files": GATE_CASE_FILES, "case_files_percase": GATE_CASE_FILES_PERCASE,
                   "root_named": GATE_ROOT_NAMED, "root_short": GATE_ROOT_SHORT,
@@ -675,6 +693,53 @@ class ShapesAreChecked(unittest.TestCase):
         self.assertTrue(f.cell(out, "positional").startswith("ok"),
                         "positional-relay gate: %s\n%s" % (f.cell(out, "positional"), out))
         self.assertEqual(0, rc, out + err)
+
+    def test_a_declared_count_is_read_once_by_both_rules(self):
+        """One call site, two rules, one anchor. The role-named rule used to take the same
+        `mutant <name> <file> <old> <new> 2` call as want=1 while the generic rule took it as
+        want=2, so extract() returned TWO anchors for one mutation and the want=1 copy was
+        reported DUP against a gate whose anchor is exactly as non-unique as it declares."""
+        f = Fixture(gates=["declared_count"])
+        self.addCleanup(f.close)
+        anchors, problems, _delegates = f.extract_gate("declared_count")
+        self.assertEqual([], problems, problems)
+        self.assertEqual(1, len(anchors),
+                         "one call site is one anchor; the declared count must not split it in "
+                         "two: %r" % (anchors,))
+        tgt, text, _kind, _where, want = anchors[0]
+        self.assertEqual("src/zeta.cpp", tgt, anchors)
+        self.assertEqual("    int zeta = 1;", text, anchors)
+        self.assertEqual(2, want,
+                         "the call site declares 2 hits; reading it as 1 invents a DUP: %r"
+                         % (anchors,))
+
+    def test_declared_count_gate_is_ok_and_goes_red_on_drift(self):
+        f = Fixture(gates=["declared_count"])
+        self.addCleanup(f.close)
+        rc, out, err = f.run()
+        self.assertTrue(f.cell(out, "declared_count").startswith("ok"),
+                        "declared-count gate: %s\n%s" % (f.cell(out, "declared_count"), out))
+        self.assertEqual(0, rc, out + err)
+
+        drifted = Fixture(zeta="9", gates=["declared_count"])
+        self.addCleanup(drifted.close)
+        rc, out, _err = drifted.run()
+        self.assertTrue(drifted.cell(out, "declared_count").startswith("MISSING"),
+                        "an anchor that moved must still be reported: %s\n%s"
+                        % (drifted.cell(out, "declared_count"), out))
+        self.assertEqual(1, rc, out)
+
+    def test_declared_want_reads_the_count_two_past_the_anchor(self):
+        """The convention itself, alone: `<file> <old> <new> <count>`, and 1 when the call site
+        names no count or names something that is not a number."""
+        want_of = load_checker()._declared_want
+        call = [("mutant", ""), ("m1", ""), ("$SRC", '"'), ("old", "'"), ("new", "'"), ("3", "")]
+        self.assertEqual(3, want_of(call, 3))
+        self.assertEqual(1, want_of(call[:5], 3), "no count argument -> 1")
+        self.assertEqual(1, want_of(call[:4], 3), "no replacement either -> 1")
+        self.assertEqual(1, want_of([("check", ""), ("label", '"'), ("$D", '"'), ("anchor", "'"),
+                                     ("new", "'"), ("red", '"')], 3),
+                         "a non-numeric argument in that slot is not a count")
 
     def test_write_case_heredoc_is_read_and_pinned_to_the_right_file(self):
         """mutate_g6_apps_liveness.sh (and g7/g9/g9-faults) were all NO-ANCHORS: their mutation
