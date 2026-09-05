@@ -2004,6 +2004,77 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
   **含陽性對照**：合法的 port-2 規則有**同樣的**幽靈形狀 ⇒ 那一列是快取，不是合法性判定。
   探測解析度 0.25 s vs 約 1.0 s 的窗 ⇒ 排除「探測太慢」。
 
+### C-4b 🔴 `get_switch_openflow_table_entries` 在 delete 之後繼續回報**已經不在交換機上**的規則 9.61 s
+
+> **與 C-4 的關係**：C-4 承認的是 **install 那一半**（規則已下發、視圖刻意扣留，kernel.log 有寫）。
+> **這一條是 delete 那一半**：規則**已經不在交換機上**，而 §5 繼續說它在。**兩邊方向相反、成因不同，
+> 但落在同一個視圖上** ⇒ Adam 2026-09-05 grill 第五輪裁定：**併進 C-4 的修法一起處理**
+> （delete 也走 withholding，讓兩個方向對稱），不另開單。
+
+- **狀態**：**OPEN。** 2026-09-05 夜巡 R6 實測（install 方向 2/2、delete 方向 2/2），2026-09-06 登記。
+  文件側已落（2026-09-06，**只改文件、行為不動**）：`doc/2026-01-02_ndt_api.md` §5 加上兩個方向的
+  落後值與「不要拿它當即時 read-back」，並新增一節
+  〈Closed-loop apps: how long until a change is visible〉。
+- **平面**：**OVS 實測。P4 沒量**（R6 整輪跑在 OVS 10-switch／4-host）
+- **失效方向**：**樂觀 ＋ 靜默**——一條交換機已經丟掉的規則被回報成還在，而回應裡沒有任何欄位
+  說這份資料有多新
+- **會發生什麼**（逐字，`logs/r6-29-s5-stale-after-delete.log`；t=0 是 `POST /ndt/delete_flow_entry`
+  回 200 的瞬間，取樣 0.5 s）：
+  ```
+  === install a throwaway rule and wait until BOTH views show it ===
+    both views agree: ryu=True s5=True
+  === now DELETE it, and watch how long manual-s5 keeps reporting it ===
+    POST delete_flow_entry -> HTTP 200
+     t+  0.00s ryu=True s5=True
+    +  0.51s  Ryu: rule GONE (the switch really lost it)
+     t+  3.04s ryu=False s5=True
+     t+  6.07s ryu=False s5=True
+     t+  9.11s ryu=False s5=True
+    + 10.12s  manual s5: rule GONE
+  === ryu_gone_at=0.5058937072753906 s5_gone_at=10.120249032974243 STALE WINDOW = 9.61s
+  ```
+- 🔑 **對照組（缺陷是這樣被定位出來的，不是免責條款）**：
+  ① **同一支探針的 install 方向**（`logs/r6-28-s5-withhold.log`）：
+  `ryu_visible_at=0.406  s5_visible_at=3.656  gap=3.25s` ⇒ **兩個方向都會說謊，但長度差 3 倍**；
+  ② **Ryu `/stats/flow/<dpid>` 是交換機那一側的真相**，兩個方向都在 0.4–0.5 s 內就對了
+  ⇒ 排除「交換機自己慢」，落後的是視圖不是資料面；
+  ③ **kernel.log 對 install 方向有話說、對 delete 方向一個字都沒有**——
+  `logs/r6-91-kernel.log` 有 **8 次**這一行（逐字，已去除色碼）：
+  ```
+  [Controller.cpp:100 operator()] 1 of 1 dispatched flow entries for dpid 1 were accepted by the
+  control plane, but this plane's acceptance is not evidence the switch programmed them -- it
+  answers before the switch adjudicates. They are withheld from get_switch_openflow_table_entries
+  until a poll observes them (KNOWN-ISSUES C-4).
+  ```
+  而全檔 grep `stale`／`no longer on the switch`／`removed` 的 5 個命中**全部**是
+  `ApplicationManager.cpp cleanupStaleEntries` 的 NFS 目錄清理，**與流表無關**
+  ⇒ **delete 那一側連 log 都沒有承認。**
+- **機制**：🟠 **未開檔查證。** 本條登記者這一輪只動文件、**沒有讀 `src/`**；
+  可觀測的形狀是「視圖直到下一次輪詢把它清掉為止都還留著那一列」，
+  與 C-4 的「刻意扣留」**不是同一個成因**（扣留是主動不給，這裡是被動沒更新）。
+  要寫進修法單之前必須有人開檔確認 §5 的 delete 路徑是否真的沒有對應的失效處理。
+- 🔴 **影響面**：
+  - **一支社群 app 刪完規則立刻驗，會讀到「沒刪掉」**，於是重刪；
+    而 §10 對「什麼都沒刪到」也回 **200**、與真的刪掉逐字相同（見 `doc/2026-01-02_ndt_api.md` §10
+    2026-09-06 新增的那一段），**兩件事疊起來就是一個沒有任何錯誤訊號的重試迴圈**；
+  - R6 那支需求驅動的 app 輪詢週期是 **5 s**，**install（3.66 s）與 delete（10.12 s）兩個方向
+    都落在錯誤區間內**；
+  - 這一條接到「注入後必須斷言注入成功」那條紀律上：**§5 不能當作「規則已生效／已移除」的斷言**，
+    要斷言就讀交換機那一側（控制器 REST），或等到 §30 的 `path` 換掉（6–7 s）。
+- **繞法**：不要拿 §5 做即時 read-back；輪詢週期拉到 ≥ 15 s，或改用 §30 `get_detected_top_k_flow_data`
+  的 `path` 確認。時序表在 `doc/2026-01-02_ndt_api.md`〈Closed-loop apps: how long until a change
+  is visible〉。
+- **修法方向**（Adam 裁定：併進 C-4）：delete 也走 withholding——寫入路徑在刪除成功後把該列
+  從視圖裡拿掉並標記為「等 poll 確認」，讓兩個方向的語意對稱。**今晚只登記，不改行為。**
+- **證據**：**實測 2026-09-05 夜巡 R6**，`scratch/overnight-2026-09-05/rounds/02-R6-appdev.md` **K-2**；
+  raw 在 `scratch/overnight-2026-09-05/logs/`：`r6-29-s5-stale-after-delete.log`（delete 臂逐字）、
+  `r6-28-s5-withhold.log`（install 臂對照）、`r6-91-kernel.log`（kernel.log 保存本）、
+  `r6-17-install-reroute.log`／`r6-25-delete-reroute.log`（同一輪的收斂時序）。
+  🔴 **上列 raw 全在 `scratch/`，不在版控**——引用前先確認那個 session 的目錄還在。
+  ⚠️ **可信度分級**：時間數字與逐字輸出是 **R6 角色實測（🟢 對他）**；
+  **本條登記者沒有複驗任何一次 live 重現（🟠 轉述）**，只有上面對 `r6-91-kernel.log` 的兩次 grep
+  是登記者自己跑的（🟢）。**兩者不要混用。**
+
 ## D. 已明確裁定不修（含理由）
 
 | 缺陷 | 裁定 | 理由 |
@@ -2786,6 +2857,59 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 - **繞法**：`ndt apps stop` 之後用 `ps -eo pid,comm` 確認沒有 `java`／預期外的長命行程；
   不要拿三個通道之一當證據。
 - **證據**：`doc/audit/2026-09-02_live-round/ADDENDUM-01-viz-orphan-contamination.md`
+
+---
+
+### G-12 🔴 一支死掉的 app 留下的**流表規則與鎖**，沒有任何「這台 lab 乾淨嗎」的指令會告訴你
+
+> **與 G-11 的分工**：G-11 是**行程**沒被停掉而三個通道都說停了。
+> **這一條相反——行程真的死了，死得乾乾淨淨，但它改過的網路狀態留在原地**，
+> 而 `ndt apps orphans` 與 `ndt status --check` 兩個都回綠。
+
+- **狀態**：**OPEN。** 2026-09-05 夜巡 R6 實測（1/1），2026-09-06 登記。
+  Adam 2026-09-05 grill 第五輪裁定：**`ndt apps stop`／`ndt apps orphans` 要把該 app 裝的規則
+  列出來，但不自動刪**——工單 **W16**（2026-09-05 開，**只開不修**）。
+  🔴 **W16 寫在 09-05 夜巡 session 的 scratch 裡，`scratch/` 不進版控**
+  ⇒ 這份單子不在 repo，引用前先向該 session 要。
+- **平面**：**OVS 實測**（P4 未量）
+- **失效方向**：**靜默 ＋ 會製造假的乾淨**——每一個既有的乾淨度檢查都通過，而網路上留著別人的規則
+- **會發生什麼**：一支拿了鎖、裝了規則、然後被 `kill -TERM` 的 app（R6 的 `r6_crash_app.py`，
+  pid 從 pidfile 取得、指名殺，**沒有用 `pkill -f`**）留下：
+  - **規則還在**：s2 上 `pri=96`、`["OUTPUT:2"]` 1 條；
+  - **鎖還被死掉的 app 握著**：`acquire_lock graph_lock` 回 **423**
+    `{"detail":"lock \"graph_lock\" is held by another client; retry after its TTL","error":"Lock acquisition failed","held_by_lease":4,"retry_after_s":30}`；
+  - **`ndt apps orphans` 回 `ok  no untracked app processes` rc=0**；
+  - **`ndt status --check` rc=0**。
+- 🔑 **對照組（缺陷是這樣被定位出來的）**：`ndt apps orphans` 在**行程還活著**時抓得到
+  ——**它看的是行程，不是行程留下的狀態**。（同一件事的反面：09-05 夜巡的 `LAB-RULES.md` 硬規則 10
+  記著它會把別的 worktree 的 test fixture 行程算成孤兒。🔴 那份檔在 `scratch/`，不在版控。）
+  ⇒ 這不是 orphans 壞了，是**沒有任何一支工具負責回答「網路上還有誰的殘留」**。
+- **兩種殘留的自癒能力不一樣**：
+  - **鎖會自癒**：TTL 到期後可被接管，且接管者拿到 `reclaimed_expired_lease: true`，有紀錄；
+  - 🔴 **規則不會**：沒有 TTL、沒有 owner 欄位、沒有任何清理路徑。**它會一直在那裡轉發流量。**
+- 🔴 **影響面**：
+  - **對開源社群的 app 生態**：一支崩潰的社群 app 會把整座 fabric 留在一個沒人知道被改過的狀態，
+    而下一個使用者跑遍所有既有檢查都是綠的；
+  - **對夜巡與量測**：「lab 是乾淨的」這句話目前沒有任何指令支撐得起來
+    ——`--check` 比的是 dataplane／host 數／graph edges／拓樸檔 sha，**流表不在它的比對範圍內**
+    （`logs/r6-21-check-with-rule.log`：手上握著 `routing_lock`、s1 上有 `pri=99` 改道規則時，
+    `check: ok`，沒有任何一列反映這兩件事）。
+- **繞法**：把「乾淨」自己定義出來並自己驗——收尾前逐台掃控制器的 flow stats，
+  比對 baseline 的 priority 清單（R6 用的就是這個：s1..s10 掃 priority 92–99 → 0 條，
+  s1／s2 的完整清單回到 `[0, 10, 10, 10, 10, 65535]`）；鎖則逐把 acquire 一次確認拿得到。
+  **不要拿 `ndt apps orphans` 或 `ndt status --check` 當殘留檢查。**
+- ⚠️ **沒測到的（R6 自己聲明）**：`ndt down` 會不會清掉這些規則、`ndt up` 會不會繼承，
+  **本輪沒測**——角色腳本要求收尾前把規則刪光，與「讓規則活著穿過 `ndt down`」互斥。
+  補測成本很低：裝一條標記規則 → `ndt down` → `ndt up` → 查該 priority 還在不在。
+- **證據**：**實測 2026-09-05 夜巡 R6**，`scratch/overnight-2026-09-05/rounds/02-R6-appdev.md` **K-3**；
+  raw `scratch/overnight-2026-09-05/logs/r6-23-crashapp.log`（逐字：pid 104678、
+  `graph_lock` lease 4 ttl=45、s2 `pri=96` install 的 200 body、`now hanging on purpose`）、
+  `logs/r6-21-check-with-rule.log`（`--check` 在有規則＋有鎖時 `check: ok`）。
+  🔴 **raw 在 `scratch/`，不在版控**——引用前先確認那個 session 的目錄還在。
+  ⚠️ **可信度分級**：🟠 **殺掉之後那三行**（規則還在／423 held_by_lease=4／orphans ok）
+  **是 R6 的 console 輸出，沒有 tee 成獨立檔，本條登記者也沒有重跑**；
+  上面列的兩個 raw 檔涵蓋的是**殺之前的設置**與 **`--check` 的盲點**。
+  🟢／🟠 不要混用；要把這條寫進 W16 的驗收條件之前，先重跑一次並存檔。
 
 ## 證據索引
 
