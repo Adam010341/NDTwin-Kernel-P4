@@ -58,6 +58,16 @@ W5（OV-1，09-04）把一次改名的 diff 從 **3998 行降到 1 行**，做�
    （2026-09-06 開檔讀 `tools/test_workflow/ndt` 的 `cmd_clean`）。
    全 repo `grep` 也沒有任何 `rm -rf .test_run`。
 
+🔴 **錨在「模型檔的 checkout」，不是 kernel 的 cwd**（09-06 live 抓到，見 §8）：
+`<checkout>/setting/<model>.json` ⇒ `<checkout>`。
+模型檔不在叫 `setting` 的目錄裡時（手打的 `--topology`、`/tmp` 裡的 fixture），
+overlay 放在**該檔自己的目錄旁邊**，不往上爬——往上爬會落到無關甚至不可寫的地方
+（`/tmp/x.json` 會爬到 `/`）。
+**相對路徑刻意保持相對，而且仍然對**：kernel 若開得了那個模型檔，它的 cwd 就已經讓那個
+相對路徑解得開，同一個 cwd 也會把 overlay 解到同一個 checkout；
+出貨的 `AppConfig` 寫的是 `../setting/<model>.json`，在 `ndt` 的啟動方式下 root 就是 `..`
+⇒ `<checkout>/.test_run/`，正是 `ndt` 看的地方。
+
 `NDTWIN_NICKNAME_OVERLAY` 可整條覆寫（測試用，以及在沒有 `.test_run/` 的目錄裡跑 kernel 的人）；
 空字串當作沒設，理由與 `NDTWIN_TOPO_FILE` 同一條（`getenv` 對 `VAR=` 回傳合法的 `""`，
 而 append `.tmp` 之後會 rename 到不存在的地方）。
@@ -117,8 +127,13 @@ local catch ⇒ **400**（`HttpSession.cpp` 的 `handleModifyNickname`）；
   device names   2 set through the API   not compared -- the model file is the baseline
 ```
 
-沒有 overlay 時印 `none set through the API   (.test_run/...)`；
-overlay 壞掉時印 `? set through the API` —— **裝飾性的檔案不准把環境檢查判紅**。
+沒有 overlay 時印 `no overlay file at .test_run/…` **並且明說那不是「沒有人設過名字」**
+（那一列看不到那件事）；overlay 壞掉時印 `? set through the API`
+—— **裝飾性的檔案不准把環境檢查判紅**。檔案在的時候，那一列**也會印出檔案路徑**，
+讀的人才看得到數字是從哪來的。
+
+🔴 那句「`none set through the API`」是 09-06 live 抓到的**第二個**缺陷（第一個是路徑，見 §8）：
+**一個檔案不在，是關於這個檢查的事實，不是關於世界的事實。**
 
 🟢 **實際輸出**（兩個 nickname 已設，2026-09-06 跑出來的，逐字）：
 
@@ -143,7 +158,7 @@ RC=0
 
 `tests/test_NicknameDoesNotRewriteTheFile.cpp` → **改名並改寫**成 `tests/test_NicknameOverlay.cpp`
 （`git mv`；舊檔的主題「模型檔被重寫得多整齊」已經不存在了）。
-suite 名 `NicknamePersistenceTest` 保留，**16 個 case**（跑過：16/16 綠）：
+suite 名 `NicknamePersistenceTest` 保留，**17 個 case**（跑過：17/17 綠，從 repo 根與從 `build/` 各跑一次都綠）：
 
 | 群 | case | 斷言 |
 |---|---|---|
@@ -161,7 +176,8 @@ suite 名 `NicknamePersistenceTest` 保留，**16 個 case**（跑過：16/16 �
 | | `ADeviceNameChangeStillReachesTheGraph` | 孿生 |
 | | `AnUnreadableOverlayDoesNotStopTheTopologyFromLoading` | 🔴 壞檔不准擋啟動 |
 | | `AnOverlayEntryForAnAbsentDeviceIsIgnoredRatherThanMisapplied` | 找不到的 dpid ⇒ 忽略，**且不落到別台** |
-| 位置 | `TheDefaultOverlayPathIsOutsideSettingAndNamedAfterTheModel` | 不在 `setting/`、在 `.test_run/`、帶 model 名 |
+| 位置 | `TheDefaultOverlayPathIsOutsideSettingAndNamedAfterTheModel` | 不在 `setting/`、在 `.test_run/`、帶 model 名、**逐字等於算出來的期望路徑** |
+| | `TheOverlayIsAnchoredToTheCheckoutNotTheProcessWorkingDirectory` | 🔴 **09-06 live 抓到的那一條**（§8）：cwd 換到別的目錄，路徑仍要落在 checkout 根、且不含 `/build/` |
 | | `TheOverlayPathFollowsTheActiveTopology` | 兩個平面兩份 overlay |
 
 🔴 **每一支都用 `NDTWIN_TOPO_FILE`＋`NDTWIN_NICKNAME_OVERLAY` 指到 pid-tagged 的暫存檔**
@@ -175,7 +191,7 @@ suite 名 `NicknamePersistenceTest` 保留，**16 個 case**（跑過：16/16 �
 
 ## 5. 看紅
 
-閘門：`tests/shell/mutate_nickname_overlay.sh`，**15 個變異**（10 個 kernel + 3 個 `ndt` + 2 個對照）。
+閘門：`tests/shell/mutate_nickname_overlay.sh`，**16 個變異**（11 個 kernel + 3 個 `ndt` + 2 個對照；M14 是 live 那一條）。
 🟢 **跑過：15 個變異、0 存活、2 個對照留綠、原始碼逐位元還原、還原後重建再綠（`GATE_RC=0`）。**
 逐字的紅、以及這一輪自己踩到的兩件事（閘門第一輪五個 anchor 沒套用、第一版的紅是 800 KB），
 全部在 `RED-GREEN.md`。
@@ -207,3 +223,56 @@ suite 名 `NicknamePersistenceTest` 保留，**16 個 case**（跑過：16/16 �
 - `doc/KNOWN-ISSUES.md` 新增 **B-10**，狀態 **OPEN**、修法在分支上 ——
   照該檔 §B-7／B-8 前面那段自己立的慣例（條目照登、狀態維持 OPEN、分支與 commit 寫在狀態行），
   以及 A-1 的「變異閘在 trunk 上跑綠之前不得改 RESOLVED」。
+
+---
+
+## 8. 🔴 live 抓到的：overlay 寫在 `build/` 裡（09-06 07:15）
+
+`scratch/overnight-2026-09-05/logs/lw10-console.log`，分支 `9c535a4c`、kernel `44a8a22e78bc7f0e`、
+OVS4，用 wt-w10 自己的 `ndt` 起。**W10 的每一項宣稱都成立**——改名成功、
+`git status setting/` 0 行、`--check` rc=0、名字活過一次 down/up——**而有一列在說謊**：
+
+```
+     device names   none set through the API   (.test_run/nickname_overlay/StaticNetworkTopologyOVS_10Switches_4Hosts.names.json)
+```
+
+印了三次，其中兩次是在名字**已經設好**之後。
+
+**機制**：`tools/test_workflow/stack.sh` 起 kernel 的方式是
+`bash -c "cd '$KERNEL_DIR/build' && exec ./bin/ndtwin_kernel …"`
+⇒ cwd 是 `<checkout>/build`；`kNameOverlayDir` 是相對路徑
+⇒ overlay 落在 `<checkout>/build/.test_run/nickname_overlay/`，
+而 `ndt status --check` 讀的是 `<checkout>/.test_run/nickname_overlay/`。
+**兩邊各自誠實，合起來說了一句假話。** 而且名字住在 build 目錄裡，`rm -rf build` 就沒了。
+實體證據（那一輪留下的檔案，`topology` 欄是絕對路徑，證明 `activeTopologyPath()` 給的是絕對路徑）：
+
+```json
+{ "hosts": {}, "switches": { "4": { "nickname": "s4" } },
+  "topology": "/home/adam/…/wt-w10/setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json",
+  "version": 1 }
+```
+
+### 為什麼 17 支 gtest 與 78 個 shell check 全都看不到它
+
+**因為每一支都把 `NDTWIN_NICKNAME_OVERLAY` 指到暫存檔**——那是為了不要寫到真的 `.test_run/`，
+而它同時讓**沒有任何一支走到預設路徑**。唯二讀預設路徑的兩支
+（`TheDefaultOverlayPathIsOutsideSettingAndNamedAfterTheModel`／`TheOverlayPathFollowsTheActiveTopology`）
+**是從 repo 根跑的，而在那裡 cwd 與 checkout 是同一個目錄，這個 bug 照定義顯不出來。**
+🔑 這是「儀器與被測物共用同一個假設」的又一例：測試選的 cwd 剛好是唯一不會出事的那一個。
+
+### 修法與新的守衛
+
+1. `nicknameOverlayPath()` 改成錨在模型檔的 checkout（§3-1）。
+2. 新測試 `TheOverlayIsAnchoredToTheCheckoutNotTheProcessWorkingDirectory`：
+   **把 cwd 換到一個不是 checkout 根的目錄**再問路徑，斷言它落在 checkout 根、
+   而且路徑裡沒有 `/build/`。**在舊碼上紅**（逐字見 `RED-GREEN.md`）。
+   附帶兩個 RAII（`ScopedEnvCleared`／`ScopedCwd`）——cwd 是行程全域的，
+   一支改了沒改回來會讓後面每一支解相對路徑的測試壞掉。
+3. 既有兩支路徑測試改成**用 `checkoutRoot()` 算期望值**，不寫死字面
+   ——路徑要 cwd-independent，測試自己就得是。
+4. 閘門新增 **M14**（把錨拿掉、退回相對 cwd）⇒ 指名新測試必死。
+5. `ndt` 那一列的**措辭**也修了（§3-4），因為那是**第二個**缺陷：
+   路徑錯是一件事，「那一列宣稱它看不到的事」是另一件事。
+
+⚠️ **那一輪留下的 `wt-w10/build/.test_run/nickname_overlay/…names.json` 已刪**
+（bug 的殘骸；修好之後沒有人會再讀它）。

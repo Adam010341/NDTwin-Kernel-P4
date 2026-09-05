@@ -1,7 +1,7 @@
 # W10 看紅：`tests/shell/mutate_nickname_overlay.sh`
 
 分支 `fix/w10-nickname-overlay`。2026-09-06。
-`src/ndt_core/collection/TopologyAndFlowMonitor.cpp` sha256 `fa3b82b449da3fcb3432d94a77a9f226c3a64adb60849b475d0b51a94e64276e`；
+`src/ndt_core/collection/TopologyAndFlowMonitor.cpp` sha256 `f60ed2c03a6444056caa6b6a087f535406143562f86caf6652e0c7af4edc9c37`；
 `tools/test_workflow/ndt` sha256 `fa6b8c4d27d4d8f7…`。**兩份在整輪之後都逐位元還原。**
 
 [Co-developed with claude code -- Adam]
@@ -12,11 +12,9 @@
 
 ```
 W10 mutation gate -- the model file is read-only and the names live in an overlay
-  baseline  : src/ndt_core/collection/TopologyAndFlowMonitor.cpp  sha256 fa3b82b449da3fcb
-  baseline  : tools/test_workflow/ndt  sha256 fa6b8c4d27d4d8f7
 baseline (unmutated) must build and be green:
-  ok       gtest baseline green ([  PASSED  ] 16 tests.)
-  ok       ndt baseline green (Ran 73 checks, 0 failed)
+  ok       gtest baseline green ([  PASSED  ] 17 tests.)
+  ok       ndt baseline green (Ran 78 checks, 0 failed)
 
 mutations -- the kernel:
   caught   M1 a nickname is written to the model file again     (NicknamePersistenceTest.AModifyNicknameLeavesTheTopologyFileByteIdentical went red)
@@ -27,6 +25,7 @@ mutations -- the kernel:
   caught   M6 a host is keyed by dpid on the write side         (NicknamePersistenceTest.AHostIsKeyedByItsMacAndNotByItsDpid went red)
   caught   M7 the loader looks hosts up by dpid                 (NicknamePersistenceTest.AFreshLoadPicksAHostsNicknameBackUpUnderItsMac went red)
   caught   M8 all models share one overlay                      (NicknamePersistenceTest.TheOverlayPathFollowsTheActiveTopology went red)
+  caught   M14 the overlay follows the process's cwd            (NicknamePersistenceTest.TheOverlayIsAnchoredToTheCheckoutNotTheProcessWorkingDirectory went red)
   caught   M9 the overlay is inside setting/                    (NicknamePersistenceTest.TheDefaultOverlayPathIsOutsideSettingAndNamedAfterTheModel went red)
   caught   M10 an unreadable overlay refuses the load           (NicknamePersistenceTest.AnUnreadableOverlayDoesNotStopTheTopologyFromLoading went red)
 
@@ -43,10 +42,10 @@ baseline restored: src/ndt_core/collection/TopologyAndFlowMonitor.cpp and tools/
 rebuilding from the restored source:
   ok       green again from the restored source
 
-15 mutations, 0 survived
+16 mutations, 0 survived
 ```
 
-**15 個變異、0 存活、2 個對照留綠、原始碼逐位元還原、還原後重建再綠。**
+**16 個變異、0 存活、2 個對照留綠、原始碼逐位元還原、還原後重建再綠。**
 
 ---
 
@@ -58,8 +57,8 @@ rebuilding from the restored source:
 ### GREEN（未變異）
 
 ```
-[==========] 16 tests from 1 test suite ran. (159 ms total)
-[  PASSED  ] 16 tests.
+[==========] 17 tests from 1 test suite ran. (161 ms total)
+[  PASSED  ] 17 tests.
 gtest rc=0
 ```
 
@@ -81,7 +80,7 @@ the kernel wrote the model file; W10 is that it must not touch it at all
 同一顆變異底下另外五支也紅（`TheMininetTopologyKeepsItsBytesToo`、
 `EveryShippedTopologySurvivesARenameByteForByte`、`AFreshLoadPicksTheNicknameBackUp`、
 `AFreshLoadPicksAHostsNicknameBackUpUnderItsMac`、`AnOverlayOnlyTouchesTheDeviceItNames`），
-`[  PASSED  ] 10 tests.`／`gtest rc=1`。
+`[  PASSED  ] 11 tests.`／`gtest rc=1`。
 
 ### 🔴 M3 — 啟動不疊 overlay
 
@@ -98,16 +97,36 @@ the overlay was written but never applied, so the rename did not outlive the pro
 [  FAILED  ] NicknamePersistenceTest.AFreshLoadPicksTheNicknameBackUp (4 ms)
 ```
 
-`[  PASSED  ] 13 tests.`／`gtest rc=1`。
+`[  PASSED  ] 14 tests.`／`gtest rc=1`。
 🔴 **這顆變異底下所有「檔案逐位元相同」的斷言全部留綠** ——
 一個「乾脆什麼都不存」的 kernel 會通過那些斷言，這三支才看得見它。
+
+### 🔴 M14 — overlay 跟著行程的 cwd 跑（**09-06 live 抓到、閘門原本沒有的那一條**）
+
+變異：`nicknameOverlayPath()` 的錨拿掉，退回相對 cwd 的舊寫法。
+
+```
+tests/test_NicknameOverlay.cpp:750: Failure
+Expected equality of these values:
+  std::filesystem::path(path).lexically_normal()
+    Which is: ".test_run/nickname_overlay/StaticNetworkTopologyOVS_10Switches_4Hosts.names.json"
+  expected.lexically_normal()
+    Which is: "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-w10/.test_run/nickname_overlay/StaticNetworkTopologyOVS_10Switches_4Hosts.names.json"
+the overlay follows the process's working directory instead of the model's checkout, so a kernel started from build/ writes where nothing reads: .test_run/nickname_overlay/StaticNetworkTopologyOVS_10Switches_4Hosts.names.json
+[  FAILED  ] NicknamePersistenceTest.TheOverlayIsAnchoredToTheCheckoutNotTheProcessWorkingDirectory (0 ms)
+```
+
+`[  PASSED  ] 16 tests.`／`gtest rc=1` —— **只有這一支紅**。
+🔴 其餘 16 支全綠，包含所有「檔案逐位元相同」「名字活過重啟」的斷言：
+**這個缺陷在舊碼上不影響任何一項 W10 的功能宣稱**，它只讓 overlay 住錯地方
+（`ndt` 看不到、`rm -rf build` 會刪掉）。所以它只能被一支**換 cwd**的測試看見。
 
 ### GREEN AGAIN（還原）
 
 ```
-[  PASSED  ] 16 tests.
+[  PASSED  ] 17 tests.
 gtest rc=0
-restored sha256:  fa3b82b449da3fcb3432d94a77a9f226c3a64adb60849b475d0b51a94e64276e
+restored sha256:  f60ed2c03a6444056caa6b6a087f535406143562f86caf6652e0c7af4edc9c37
 ```
 
 ---
@@ -126,6 +145,15 @@ restored sha256:  fa3b82b449da3fcb3432d94a77a9f226c3a64adb60849b475d0b51a94e6427
 2. **第一版的紅是 800 KB。** `EXPECT_EQ` 兩個完整拓樸檔在失敗時會把**兩份文件都印出來**。
    改成 `firstDifference()`（相等時回 `"same"`，所以性質沒變），紅訊息變成上面那一行
    （`cdf607c8`）。**那一行就是本文件要引用的東西**，800 KB 引不了。
+
+---
+
+3. 🔴 **這個閘門原本沒抓到 live 抓到的那一條**（M14 的主題）。原因寫在
+   `FIX-NICKNAME-OVERLAY.md` §8：**17 支 gtest 每一支都把 `NDTWIN_NICKNAME_OVERLAY`
+   指到暫存檔**（為了不寫到真的 `.test_run/`），所以沒有一支走預設路徑；
+   唯二讀預設路徑的兩支**從 repo 根跑，而在那裡 cwd 與 checkout 是同一個目錄**。
+   ⇒ **儀器與被測物共用了同一個假設**，而那個假設剛好是唯一不會出事的情況。
+   M14 與它指名的測試都把 cwd 換到別的地方。
 
 ---
 
