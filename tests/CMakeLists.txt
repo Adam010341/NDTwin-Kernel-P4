@@ -129,6 +129,13 @@ add_executable(
   # edited". This owns the property that a rename changes the field it was asked to change and
   # nothing else, for every shipped topology and not only the two it was measured on.
   test_NicknameDoesNotRewriteTheFile.cpp
+
+  # [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md B-6, second half: where a netem
+  # may be attached so that cutting a link does not silently replace TCLink's htb -- the rule
+  # tools/test_workflow/faults.sh bought with the lost 2026-08-13 overnight round, moved into the
+  # kernel for POST /ndt/inject_link_failure. Pure functions over real `tc qdisc show` output; no
+  # test here runs tc.
+  test_NetemLinkFault.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

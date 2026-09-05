@@ -76,6 +76,30 @@ class HttpSessionTestPeer
      * test of what they do -- rather than what they refuse -- needs real ones.
      * [Co-developed with claude code -- Adam]
      */
+    /// Mode-carrying variant. [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md B-6:
+    /// /ndt/inject_link_failure runs tc on a MININET deployment and must NOT on any other, so the
+    /// mode is the subject of a case rather than a fixture constant. Kept as a third constructor,
+    /// not a default argument on the one below, so that every existing call site keeps naming
+    /// MININET by the same route it always did.
+    HttpSessionTestPeer(std::shared_ptr<TopologyAndFlowMonitor> monitor,
+                        std::shared_ptr<EventBus> bus,
+                        utils::DeploymentMode mode)
+        : m_session(std::make_shared<HttpSession>(tcp::socket(m_ioc),
+                                                 std::move(monitor),
+                                                 std::move(bus),
+                                                 mode,
+                                                 nullptr,          // FlowLinkUsageCollector
+                                                 nullptr,          // FlowRoutingManager
+                                                 nullptr,          // DeviceConfig...PowerManager
+                                                 nullptr,          // ApplicationManager
+                                                 nullptr,          // SimulationRequestManager
+                                                 nullptr,          // IntentTranslator
+                                                 nullptr,          // HistoricalDataManager
+                                                 nullptr,          // Controller
+                                                 nullptr))         // LockManager
+    {
+    }
+
     HttpSessionTestPeer(std::shared_ptr<TopologyAndFlowMonitor> monitor,
                         std::shared_ptr<EventBus> bus)
         : m_session(std::make_shared<HttpSession>(tcp::socket(m_ioc),
@@ -726,4 +750,228 @@ TEST_F(InformSwitchEnteredTest, TheResultingVertexReportsTheDisagreementRatherTh
     EXPECT_EQ(j.value("admin_state", ""), "off");
     EXPECT_TRUE(j.value("reachable", false));
     EXPECT_TRUE(j.value("is_up", false)) << "the alias must track reachable";
+}
+
+// --- B-6: a declared link failure must survive the topology poll, and say why it is down --------
+// [Co-developed with claude code -- Adam]
+//
+// The unit-level behaviour is in tests/test_PollDoesNotResurrect.cpp, which drives the monitor's
+// writers directly. This case is here because it is the only one that runs the WHOLE path an
+// operator runs -- POST /ndt/link_failure_detected, a topology poll, GET /ndt/get_graph_data --
+// and because two of the three steps are decided by HttpSession: which monitor call the push path
+// makes, and which string the edge's `down_reason` is serialised from. A test that reached the
+// monitor directly cannot see either, which is the same argument that put the app_id cases above
+// in this file.
+//
+// Measured 2026-09-04 (R2-B): the endpoint answered 200, both directions read is_up=false within
+// 0.02 s, and 5 trials of 5 flipped back to is_up=true within 30 s -- each one just after a poll,
+// with /ndt/link_recovery_detected never called.
+
+namespace
+{
+
+/// Exposes the protected discovery writer, so a case can apply one control-plane poll.
+class PollableMonitor : public TopologyAndFlowMonitor
+{
+  public:
+    using TopologyAndFlowMonitor::TopologyAndFlowMonitor;
+    void pollLinks(const std::string& json) { updateLinks(json); }
+};
+
+class DeclaredLinkFailureWireTest : public ::testing::Test
+{
+  protected:
+    void SetUp() override
+    {
+        m_graph = std::make_shared<Graph>();
+        m_bus = std::make_shared<EventBus>();
+        m_monitor = std::make_shared<PollableMonitor>(
+            m_graph, std::make_shared<std::shared_mutex>(), m_bus, utils::MININET);
+
+        const auto s1 = addSwitch(1, "s1");
+        const auto s5 = addSwitch(5, "s5");
+        addEdge(s1, s5, 1, 5);
+        addEdge(s5, s1, 5, 1);
+    }
+
+    Graph::vertex_descriptor addSwitch(uint64_t dpid, const std::string& bridge)
+    {
+        VertexProperties vp;
+        vp.vertexType = VertexType::SWITCH;
+        vp.dpid = dpid;
+        vp.isUp = true;
+        vp.isEnabled = true;
+        vp.deviceName = bridge;
+        vp.bridgeNameForMininet = bridge;
+        return boost::add_vertex(vp, *m_graph);
+    }
+
+    void addEdge(Graph::vertex_descriptor u,
+                 Graph::vertex_descriptor v,
+                 uint64_t srcDpid,
+                 uint64_t dstDpid)
+    {
+        EdgeProperties ep;
+        ep.srcDpid = srcDpid;
+        ep.dstDpid = dstDpid;
+        ep.srcInterface = 1;
+        ep.dstInterface = 1;
+        ep.isUp = true;
+        ep.isEnabled = true;
+        boost::add_edge(u, v, ep, *m_graph);
+    }
+
+    /// What /ndt/get_graph_data publishes for the (src, dst) edge.
+    nlohmann::json edgeFromGraphData(HttpSessionTestPeer& peer, uint64_t src, uint64_t dst)
+    {
+        const auto& res = peer.send(http::verb::get, "/ndt/get_graph_data");
+        EXPECT_EQ(res.result_int(), 200u) << res.body();
+        const auto doc = nlohmann::json::parse(res.body(), nullptr, false);
+        EXPECT_FALSE(doc.is_discarded()) << "get_graph_data did not return JSON: " << res.body();
+        if (doc.is_discarded()) return {};
+        for (const auto& e : doc.at("edges"))
+        {
+            if (e.value("src_dpid", 0ull) == src && e.value("dst_dpid", 0ull) == dst)
+            {
+                return e;
+            }
+        }
+        ADD_FAILURE() << "edge " << src << " -> " << dst << " is not in get_graph_data";
+        return {};
+    }
+
+    /// Ryu's /v1.0/topology/links reply for this pair -- unchanged by the declaration, which is
+    /// the whole point: declaring a failure gives the control plane nothing to notice.
+    static const char* kLinkListing()
+    {
+        return R"([{"src":{"dpid":"0000000000000001","port_no":"00000001"},)"
+               R"("dst":{"dpid":"0000000000000005","port_no":"00000001"}},)"
+               R"({"src":{"dpid":"0000000000000005","port_no":"00000001"},)"
+               R"("dst":{"dpid":"0000000000000001","port_no":"00000001"}}])";
+    }
+
+    static constexpr const char* kBody =
+        R"({"src_dpid":1,"src_interface":1,"dst_dpid":5,"dst_interface":1})";
+
+    std::shared_ptr<Graph> m_graph;
+    std::shared_ptr<EventBus> m_bus;
+    std::shared_ptr<PollableMonitor> m_monitor;
+};
+
+} // namespace
+
+TEST_F(DeclaredLinkFailureWireTest, ADeclaredLinkFailureIsStillDownAfterAPollAndSaysWhy)
+{
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+
+    ASSERT_EQ(peer.send(http::verb::post, "/ndt/link_failure_detected", kBody).result_int(), 200u);
+    ASSERT_FALSE(edgeFromGraphData(peer, 1, 5).value("is_up", true))
+        << "the endpoint did not take the link down at all";
+
+    // The reply Ryu goes on serving, because nothing about the fabric changed.
+    m_monitor->pollLinks(kLinkListing());
+
+    const auto fwd = edgeFromGraphData(peer, 1, 5);
+    const auto rev = edgeFromGraphData(peer, 5, 1);
+    EXPECT_FALSE(fwd.value("is_up", true))
+        << "a topology poll resurrected a link an operator declared failed -- the injection ends "
+           "when the control plane's list is next applied rather than when it is withdrawn (B-6)";
+    EXPECT_FALSE(rev.value("is_up", true)) << "the reverse direction came back";
+    EXPECT_EQ(fwd.value("down_reason", ""), "declared")
+        << "the reason must reach the wire: a permanent state nobody can query for is how a "
+           "forgotten injection becomes an unexplained result";
+    EXPECT_EQ(rev.value("down_reason", ""), "declared");
+}
+
+TEST_F(DeclaredLinkFailureWireTest, ARecoveryWithdrawsTheDeclarationAndTheNextPollRaisesTheLink)
+{
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    ASSERT_EQ(peer.send(http::verb::post, "/ndt/link_failure_detected", kBody).result_int(), 200u);
+    m_monitor->pollLinks(kLinkListing());
+    ASSERT_FALSE(edgeFromGraphData(peer, 1, 5).value("is_up", true));
+
+    ASSERT_EQ(peer.send(http::verb::post, "/ndt/link_recovery_detected", kBody).result_int(), 200u);
+
+    const auto afterRecovery = edgeFromGraphData(peer, 1, 5);
+    EXPECT_TRUE(afterRecovery.value("is_up", false)) << "recovery did not bring the link back";
+    EXPECT_EQ(afterRecovery.value("down_reason", ""), "none")
+        << "an edge that is up must not carry a reason for being down";
+
+    // And the poll may lift it again, which is what says the declaration was really spent rather
+    // than merely overwritten.
+    m_monitor->pollLinks(kLinkListing());
+    EXPECT_TRUE(edgeFromGraphData(peer, 1, 5).value("is_up", false));
+}
+
+// --- B-6, the injection endpoints ---------------------------------------------------------------
+
+/**
+ * The physical lab gets the declaration and nothing else -- there is no netem to attach to a
+ * cable. What matters is that the reply SAYS the fabric was not touched: a caller reading only the
+ * status code would otherwise believe the packets had stopped.
+ */
+TEST_F(DeclaredLinkFailureWireTest, InjectOutsideMininetDeclaresAndSaysTheCutWasSkipped)
+{
+    HttpSessionTestPeer peer(m_monitor, m_bus, utils::TESTBED);
+
+    const auto& res = peer.send(http::verb::post, "/ndt/inject_link_failure", kBody);
+
+    ASSERT_EQ(res.result_int(), 200u) << res.body();
+    const auto body = nlohmann::json::parse(res.body(), nullptr, false);
+    ASSERT_FALSE(body.is_discarded()) << res.body();
+    EXPECT_EQ(body.value("tc", ""), "skipped (not MININET)")
+        << "the reply must not imply a cut that did not happen: " << res.body();
+    EXPECT_EQ(body.value("down_reason", ""), "declared");
+
+    // The declaration half still happened, and still survives the poll.
+    m_monitor->pollLinks(kLinkListing());
+    HttpSessionTestPeer reader(m_monitor, m_bus);
+    EXPECT_FALSE(edgeFromGraphData(reader, 1, 5).value("is_up", true));
+    EXPECT_FALSE(edgeFromGraphData(reader, 5, 1).value("is_up", true));
+}
+
+TEST_F(DeclaredLinkFailureWireTest, InjectRecoveryOutsideMininetWithdrawsTheDeclaration)
+{
+    HttpSessionTestPeer peer(m_monitor, m_bus, utils::TESTBED);
+    ASSERT_EQ(peer.send(http::verb::post, "/ndt/inject_link_failure", kBody).result_int(), 200u);
+
+    const auto& res = peer.send(http::verb::post, "/ndt/inject_link_recovery", kBody);
+    ASSERT_EQ(res.result_int(), 200u) << res.body();
+
+    m_monitor->pollLinks(kLinkListing());
+    HttpSessionTestPeer reader(m_monitor, m_bus);
+    const auto fwd = edgeFromGraphData(reader, 1, 5);
+    EXPECT_TRUE(fwd.value("is_up", false)) << "the injection was never withdrawn";
+    EXPECT_EQ(fwd.value("down_reason", ""), "none");
+}
+
+/**
+ * The injection endpoints refuse BEFORE changing anything when the pair is broken, unlike their
+ * notification siblings. An injection that half-happened would leave the graph and the machine's
+ * qdisc tree in a state the caller did not ask for and cannot name.
+ */
+TEST_F(DeclaredLinkFailureWireTest, InjectWithNoSuchEdgeChangesNothing)
+{
+    HttpSessionTestPeer peer(m_monitor, m_bus, utils::TESTBED);
+
+    const auto& res = peer.send(http::verb::post,
+                                "/ndt/inject_link_failure",
+                                R"({"src_dpid":7,"src_interface":1,"dst_dpid":9,)"
+                                R"("dst_interface":1})");
+
+    EXPECT_EQ(res.result_int(), 404u) << res.body();
+    HttpSessionTestPeer reader(m_monitor, m_bus);
+    EXPECT_TRUE(edgeFromGraphData(reader, 1, 5).value("is_up", false))
+        << "a 404 on one edge disturbed another";
+}
+
+TEST_F(DeclaredLinkFailureWireTest, InjectWithAnInvalidPayloadIsRejected)
+{
+    HttpSessionTestPeer peer(m_monitor, m_bus, utils::TESTBED);
+
+    EXPECT_EQ(peer.send(http::verb::post, "/ndt/inject_link_failure", R"({"src_dpid":1})")
+                  .result_int(),
+              400u);
+    EXPECT_EQ(peer.send(http::verb::post, "/ndt/inject_link_recovery", "not json").result_int(),
+              400u);
 }
