@@ -582,6 +582,17 @@ TEST_F(NicknamePersistenceTest, TheDefaultOverlayPathIsOutsideSettingAndNamedAft
     EXPECT_NE(path.find("StaticNetworkTopologyOVS_10Switches_4Hosts"), std::string::npos)
         << "the overlay is not named after the model, so the OVS and P4 topologies -- which "
            "share dpids 1-10 -- would share one overlay: " << path;
+
+    // 🔴 And the exact string, not only its properties. This path is computed in TWO places --
+    // here, and in tools/test_workflow/ndt's check_up_target, which reports how many names an
+    // operator has set. If only one side's naming rule ever changes, `ndt status --check` says
+    // "none set through the API" while names ARE set: misleading, and silent. The literal below
+    // and the one tests/shell/test_ndt_status_check_baseline.sh group 9 writes are the same
+    // string, so a drift in either turns one of the two suites red.
+    EXPECT_EQ(path,
+              ".test_run/nickname_overlay/StaticNetworkTopologyOVS_10Switches_4Hosts.names.json")
+        << "tools/test_workflow/ndt derives this path independently; if they disagree, --check "
+           "reports 'none set through the API' while names are set";
 }
 
 TEST_F(NicknamePersistenceTest, TheOverlayPathFollowsTheActiveTopology)
