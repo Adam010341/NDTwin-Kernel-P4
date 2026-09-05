@@ -1019,8 +1019,15 @@ class DestructiveEndpointTest(unittest.TestCase):
         self.assertTrue(installed, "the batch installs nothing, so it proves nothing")
 
     def test_the_device_rename_writes_back_the_name_it_found(self):
-        # modify_device_name writes to the topology JSON on disk, so a real rename here would
-        # edit a shipped file (and possibly the wrong one).
+        # A real rename here would persist, so the body re-sets the name it found.
+        #
+        # 🔴 The REASON changed on 2026-09-06 and the assertion did not. This comment used to
+        # read "modify_device_name writes to the topology JSON on disk, so a real rename here
+        # would edit a shipped file (and possibly the wrong one)". W10 stopped the kernel
+        # writing setting/*.json: the name now goes to .test_run/nickname_overlay/, which is
+        # gitignored. The tree no longer goes dirty -- and the rename still survives a restart,
+        # so a contract run must still not leave a device called something else. What changed
+        # is that the leftover is now INVISIBLE to `git status` rather than a 1300-line diff.
         #
         # The field is `new_name`, per 2026-01-02_ndt_api.md section 15 and the kernel's own
         # parse. This assertion said `device_name` until 2026-08-17, which is what the check
