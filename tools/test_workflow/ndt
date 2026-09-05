@@ -4187,6 +4187,249 @@ app_stop() {
 # So the pidfile-lost-but-alive state is now one of two ways to be reported here. The other is
 # "nothing names it at all, and these processes still belong to it" -- the process group we
 # recorded, or a writable fd on our own log. Both are reported; both exit 1.
+# --- residue: what an app leaves on the NETWORK after its process is gone -------------------
+#
+# [Co-developed with claude code -- Adam]
+# KNOWN-ISSUES G-12, measured 2026-09-05 (R6, 1/1, OVS). An app that took a lock, installed a
+# rule and was then killed by pid left BOTH behind, and every existing cleanliness verb went
+# green over them: `ndt apps orphans` answered `ok  no untracked app processes` rc 0, and
+# `ndt status --check` answered rc 0. Neither was broken. They look at PROCESSES; nothing in
+# this repository looked at what a process had changed and left.
+#
+# The two residues do not heal alike, and that difference decides what this code does about
+# each of them:
+#   * a LOCK heals. It has a TTL, a later acquire takes it over, and the taker is told
+#     (`reclaimed_expired_lease: true`). It needs reporting, not cleaning.
+#   * a RULE does not. No TTL, no owner, no cleanup path -- it forwards traffic until somebody
+#     notices it. So this reports it and stops there: Adam's decision, 09-05 grill round 5
+#     ("列出該 app 的規則、不自動刪"). Deleting another party's forwarding state is a decision
+#     with consequences on the wire; a reporting verb must not take it.
+#
+# 🔴 HOW WELL CAN THIS ATTRIBUTE ANYTHING? Badly, and the report says so on every run rather
+# than in a comment nobody reads. There is no owner anywhere to attribute WITH:
+#   * flow entries carry `cookie`, and it is 0. src/ndt_core/collection/Classifier.cpp:229 --
+#     "Many hardware switches export cookie=0 for all rules, so cookie cannot be used as
+#     identity" -- and on the P4 plane p4_proxy/proxy_agent/ryu_flow_stats.py:181 writes the
+#     constant 0 into every row it synthesises. Nothing in any install path sets one.
+#   * the lock has no owner ON PURPOSE. LockManager.hpp says it in as many words: the lease id
+#     "is deliberately not an owner field ... the kernel does not and cannot [know who is
+#     calling] without a credential on the wire" (KNOWN-ISSUES B-2②).
+# So the only discriminator available is TIME, and time cannot separate two callers that
+# overlapped. What is printed is therefore "installed while this app was running", labelled
+# SUSPECTED, and it will include rules installed in that window by another app, by Ryu, or by
+# a human with curl. It is still worth printing: it excludes the fabric's own baseline, which
+# is installed at `ndt up` and is the overwhelming majority of the table.
+
+# app_started_at <name> -- unix seconds when this app was started, or nothing.
+#
+# Two sources, most precise first, and NEITHER is invented: a live process is asked how long it
+# has been running; a dead one is dated by the pidfile app_spawn wrote immediately after the
+# fork. When the pidfile is gone too there is no window at all, and app_residue says that
+# instead of defaulting to one -- a default window would attribute the whole flow table.
+app_started_at() {
+    local name="$1" pid et p
+    if pid="$(app_pidfile_pid "$name" 2>/dev/null)" && [[ -n "$pid" ]]; then
+        et="$(ps -o etimes= -p "$pid" 2>/dev/null | tr -d ' ')"
+        if [[ "$et" =~ ^[0-9]+$ ]]; then echo "$(( $(date +%s) - et ))"; return 0; fi
+    fi
+    p="$(app_pidfile "$name")"
+    if [[ -f "$p" ]]; then
+        et="$(stat -c %Y "$p" 2>/dev/null)"
+        [[ "$et" =~ ^[0-9]+$ ]] && { echo "$et"; return 0; }
+    fi
+    return 1
+}
+
+http_get_flow_entries() {
+    curl -sf --max-time 10 http://localhost:8000/ndt/get_switch_openflow_table_entries 2>/dev/null
+}
+
+# lock_probe <type> -- "held <lease> <retry_after_s>" | "free" | "unknown <why>".
+#
+# 🔴 There is no read-only way to ask. The kernel exposes acquire/release/renew and nothing
+# else: `grep -o '/ndt/[a-z_]*' src/ndt_core/http/HttpSession.cpp` lists no lock-status route.
+# So the question is asked the only way it can be -- by acquiring -- with `ttl: 0`, which the
+# API documents as "already expired, not unlimited": the acquire it performs on a FREE lock
+# excludes nobody, because a second caller's acquire succeeds immediately. That is the least
+# invasive probe this kernel offers, and it is still a POST, so it is named as a probe in the
+# output rather than presented as a reading.
+#
+# Its one side effect: on a lock whose holder let the TTL run out without releasing, this
+# reclaims that dead lease, so the NEXT legitimate acquire sees reclaimed_expired_lease false
+# where it would have seen true. An expired lease was already available to anyone; what is lost
+# is a breadcrumb, and it is lost only in the case where the holder had already gone.
+lock_probe() {
+    local t="$1" out code body
+    out="$(curl -s --max-time 5 -w '\n%{http_code}' -X POST -H 'Content-Type: application/json' \
+        -d "{\"type\":\"$t\",\"ttl\":0}" http://localhost:8000/ndt/acquire_lock 2>/dev/null)"
+    [[ -n "$out" ]] || { echo "unknown :8000 gave no answer"; return 0; }
+    code="${out##*$'\n'}"; body="${out%$'\n'*}"
+    case "$code" in
+        423) echo "held $(json_field "$body" held_by_lease) $(json_field "$body" retry_after_s)" ;;
+        200) echo "free" ;;
+        *)   echo "unknown http ${code:-none}" ;;
+    esac
+}
+
+# json_field <json> <key> -- one top-level scalar, or "?" . Never guesses on malformed input.
+json_field() {
+    printf '%s' "$1" | python3 -c '
+import json,sys
+try: d = json.load(sys.stdin)
+except Exception: print("?"); sys.exit(0)
+v = d.get(sys.argv[1]) if isinstance(d, dict) else None
+print("?" if v is None else v)' "$2" 2>/dev/null || echo "?"
+}
+
+# residue_rule_lines <started-epoch> <now-epoch> -- flow entries JSON on stdin, one line per
+# rule that cannot be excluded from this app's window.
+residue_rule_lines() {
+    # 🔴 `3<&0` BEFORE the heredoc, and the JSON is read from fd 3. `python3 - <<'PY'` takes the
+    # script itself on stdin, so a `json.load(sys.stdin)` here reads the end of its own source
+    # and reports the flow table as unreadable -- a clean-looking "no residue" produced by a
+    # plumbing bug, which is the exact failure shape G-12 is about. Redirections apply left to
+    # right, so fd 3 is the caller's pipe and fd 0 is the script.
+    python3 - "$1" "$2" 3<&0 <<'PY'
+import json, os, sys
+# --- BEGIN residue_rules (pure; extracted verbatim by tests/python/test_app_residue_rules.py) ---
+# Imported inside the markers as well as above them: the test execs this region on its own, and
+# a region that only works because of a line outside it is a region the test is not testing.
+import json
+
+
+def _age(sec):
+    sec = int(sec)
+    if sec < 60:
+        return "%ds" % sec
+    if sec < 3600:
+        return "%dm%02ds" % (sec // 60, sec % 60)
+    return "%dh%02dm" % (sec // 3600, (sec % 3600) // 60)
+
+
+def suspect_rules(entries, started, now):
+    """Rules that cannot be excluded from the window [started, now], as printable lines.
+
+    SUSPECTED, never attributed: there is no owner and no usable cookie anywhere in this
+    system (see the block comment above app_started_at in `ndt`), so the only discriminator
+    is when a rule arrived. `duration_sec` is the switch's own answer to that.
+
+    🔴 A rule that does not say how old it is is NOT excluded. "Could not tell" and "not this
+    app's" are different answers, and a residue report that silently drops the first one is
+    the same failure G-12 is about -- an existing verb going green over something it never
+    looked at. Those rules are listed with age UNKNOWN and counted separately.
+    """
+    inside, unknown = [], []
+    for sw in entries or []:
+        dpid = sw.get("dpid")
+        for _key, rows in sorted((sw.get("flows") or {}).items()):
+            for f in rows or []:
+                pri = f.get("priority")
+                match = json.dumps(f.get("match", {}), sort_keys=True)
+                acts = json.dumps(f.get("actions", []))
+                head = "dpid=%s table=%s pri=%s match=%s actions=%s" % (
+                    dpid, f.get("table_id"), pri, match, acts)
+                dur = f.get("duration_sec")
+                if not isinstance(dur, int) or isinstance(dur, bool) or dur < 0:
+                    unknown.append(head + "  age=UNKNOWN (no usable duration_sec -- it can be"
+                                          " placed neither inside nor outside the window)")
+                    continue
+                if now - dur < started:
+                    continue
+                inside.append((dpid, pri, head + "  installed %s ago" % _age(dur)))
+    inside.sort(key=lambda r: (str(r[0]), -(r[1] or 0)))
+    return [r[2] for r in inside] + unknown
+# --- END residue_rules ---
+
+started, now = int(sys.argv[1]), int(sys.argv[2])
+try:
+    entries = json.load(os.fdopen(3))
+except Exception:
+    print("UNREADABLE"); sys.exit(0)
+for line in suspect_rules(entries, started, now):
+    print(line)
+PY
+}
+
+# residue_report <app>... -- print what these apps may have left on the network. NEVER deletes.
+#
+# One kernel fetch and one lock probe for the whole call, not one per app: `ndt apps stop all`
+# would otherwise POST fifteen acquires to answer one question.
+residue_report() {
+    local now started entries lock t line n_rules n_locks=0 a any=0 lease retry
+    now="$(date +%s)"
+
+    say "network residue (nothing below is deleted)"
+    if ! port_open 8000; then
+        warn "the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked."
+        warn "this is not 'the lab is clean'. it is 'nobody asked'. (KNOWN-ISSUES G-12)"
+        return 0
+    fi
+    entries="$(http_get_flow_entries)"
+    if [[ -z "$entries" ]]; then
+        warn "the kernel gave no flow table on :8000 -- rules NOT checked (not 'none found')."
+    fi
+
+    for t in routing_lock graph_lock power_lock; do
+        lock="$(lock_probe "$t")"
+        case "$lock" in
+            held*)
+                # 🔴 NOT `set -- $lock`. That rebinds this function's OWN positional parameters,
+                # which are the list of apps to report on -- so the first held lock replaced
+                # "energy" with "held 4 30" and every app afterwards was reported as having no
+                # window. Caught by tests/shell/test_apps_residue.sh 5G on 2026-09-06, and the
+                # reason that case drives a HELD lock rather than a free one.
+                read -r _ lease retry <<<"$lock"
+                err "  lock  $t HELD -- held_by_lease=${lease:-?}, frees itself in ${retry:-?}s (TTL)"
+                n_locks=$(( n_locks + 1 )) ;;
+            free)     info "  lock  $t free" ;;
+            *)        warn "  lock  $t NOT CHECKED (${lock#unknown })" ;;
+        esac
+    done
+    (( n_locks > 0 )) && info "  a held lock is not attributed to any app: the lease id is not an owner"
+    info "        field (LockManager.hpp), and the kernel has no lock-status endpoint, so the"
+    info "        three lines above come from an acquire probe with ttl 0, which excludes nobody."
+
+    for a in "$@"; do
+        started="$(app_started_at "$a")" || {
+            info "  $a: no pidfile and no live process -- no window, so no rule can be dated"
+            info "      against it. NOT 'this app left nothing'. (G-12)"
+            continue
+        }
+        any=1
+        printf '  %-6s window %s -> now (%s)\n' "$a" \
+            "$(date -d "@$started" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "$started")" \
+            "$(( now - started ))s"
+        if [[ -z "$entries" ]]; then continue; fi
+        n_rules=0
+        while IFS= read -r line; do
+            [[ -z "$line" ]] && continue
+            if [[ "$line" == UNREADABLE ]]; then
+                warn "      the flow table on :8000 was not valid JSON -- rules NOT checked"
+                n_rules=-1; break
+            fi
+            err "      rule  $line"
+            n_rules=$(( n_rules + 1 ))
+        done < <(printf '%s' "$entries" | residue_rule_lines "$started" "$now")
+        if (( n_rules == 0 )); then
+            ok "      no flow entry arrived during that window"
+        elif (( n_rules > 0 )); then
+            err "      $n_rules SUSPECTED rule(s) -- by time only. a rule has no owner and its"
+            err "      cookie is 0 everywhere, so anything installed in that window is listed,"
+            err "      whoever installed it."
+        fi
+    done
+
+    echo
+    info "  NOT deleted, and nothing here deletes them."
+    info "  a lock heals: it expires at its TTL and the next acquire is told it reclaimed it."
+    info "  a rule does not: no TTL, no owner, no cleanup path. to remove one, by hand:"
+    info "    curl -s -X POST -H 'Content-Type: application/json' \\"
+    info "      -d '{\"dpid\": <dpid>, \"priority\": <pri>, \"match\": <match>}' \\"
+    info "      http://localhost:8000/ndt/delete_flow_entry"
+    (( any == 0 )) && info "  (no app had a datable window in this run)"
+    return 0
+}
+
 apps_orphans() {
     local a found=0 pid e blind=""
     for a in $APP_NAMES; do
@@ -4349,6 +4592,14 @@ cmd_apps() {
                     *) n_fail=$(( n_fail + 1 )) ;;
                 esac
             done
+            # G-12 / W16. Printed for EVERY outcome of the loop above, including the "nothing
+            # was running" one -- which is the shape the finding was measured in: the app had
+            # already been killed by pid, `stop` found nothing to stop, and the rule and the
+            # lock it left were still on the network. A residue report that only ran when
+            # something was stopped would miss the only case that needed it.
+            echo
+            # shellcheck disable=SC2086
+            residue_report $targets
             (( n_fail > 0 )) && { err "$n_fail app(s) could not be stopped"; return 1; }
             if (( n_stopped == 0 )); then
                 info "nothing to stop ($n_noop app(s) were already not running)"
@@ -4358,7 +4609,19 @@ cmd_apps() {
             return 0
             ;;
         # The pre-run check. Same scan as `stop`, without stopping anything.
-        orphans) apps_orphans ;;
+        #
+        # G-12 / W16: apps_orphans answers a question about PROCESSES and its exit code still
+        # means exactly that. The residue report is printed BESIDE it, and deliberately does
+        # not change the verdict -- `arm_up.sh` and every other caller reads this rc as "no
+        # untracked processes", and quietly redefining it would break them while fixing
+        # nothing. What the finding is about is that nobody was answering the other question
+        # at all; now somebody is, in the same breath.
+        orphans)
+            apps_orphans; local orc=$?
+            echo
+            # shellcheck disable=SC2086
+            residue_report $APP_NAMES
+            return "$orc" ;;
         # The disk half of findings #6/#48: bound a log that is still being written to.
         trim)
             shift
@@ -4509,6 +4772,9 @@ usage: ndt <command>
                     exits 1 if so, 2 if a channel could not look. run it before a
                     measurement: an untracked TE or Energy writes to the fabric,
                     and a leftover viz JVM cost 09-02 a core for two hours.
+                  stop and orphans also LIST what an app left on the NETWORK --
+                    flow rules and held locks -- and delete none of it. suspected
+                    by time only: a rule has no owner and its cookie is 0. G-12.
                   ndt apps trim [names|all]  -- bound a running app's log
                     (viz wrote 875 MB in 1h54m; the app keeps running)
   ntg [cli|prompt]     which prompt the topology hands control to
