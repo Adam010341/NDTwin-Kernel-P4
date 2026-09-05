@@ -250,6 +250,89 @@ class NoIpSwitchTest : public ::testing::Test
 
     std::size_t vertexCount() const { return boost::num_vertices(*m_graph); }
 
+    // -----------------------------------------------------------------------------------------
+    // FINDINGS #88 builders. [Co-developed with claude code -- Adam]
+    //
+    // #85 only ever needed switch vertices, because the load-time gate
+    // (TopologyAndFlowMonitor.cpp:654-670) covers SWITCH vertices and the #85 sites all sat
+    // behind a vertexType == SWITCH test. #88's two reachable groups are precisely the ones that
+    // gate does NOT cover -- HOST vertices, and edge endpoints -- so this fixture needs to build
+    // both, which it could not before.
+    // -----------------------------------------------------------------------------------------
+
+    /// A SWITCH vertex, returning its descriptor. An empty @p ip leaves the address list empty,
+    /// which is the whole condition under test.
+    Graph::vertex_descriptor addSwitchVertex(const std::string& ip, uint64_t dpid)
+    {
+        const auto v = boost::add_vertex(*m_graph);
+        (*m_graph)[v].vertexType = VertexType::SWITCH;
+        (*m_graph)[v].dpid = dpid;
+        (*m_graph)[v].isUp = true;
+        if (!ip.empty())
+        {
+            (*m_graph)[v].ip.push_back(utils::ipStringToUint32(ip));
+        }
+        return v;
+    }
+
+    /// A HOST vertex. dpid 0 is how the loader marks a non-switch endpoint (see
+    /// findEdgeToHostByAgentIpAndPort's comment on props.dstDpid == 0).
+    Graph::vertex_descriptor addHostVertex(const std::string& ip)
+    {
+        const auto v = boost::add_vertex(*m_graph);
+        (*m_graph)[v].vertexType = VertexType::HOST;
+        (*m_graph)[v].dpid = 0;
+        (*m_graph)[v].isUp = true;
+        if (!ip.empty())
+        {
+            (*m_graph)[v].ip.push_back(utils::ipStringToUint32(ip));
+        }
+        return v;
+    }
+
+    /// One directed edge. An empty @p srcIp / @p dstIp leaves that address list empty -- the
+    /// D-group condition, which no loader check looks at.
+    void addDirectedEdge(Graph::vertex_descriptor from,
+                         Graph::vertex_descriptor to,
+                         const std::string& srcIp,
+                         uint32_t srcPort,
+                         const std::string& dstIp,
+                         uint32_t dstPort,
+                         double utilization = 0.0)
+    {
+        const auto e = boost::add_edge(from, to, *m_graph).first;
+        auto& props = (*m_graph)[e];
+        if (!srcIp.empty())
+        {
+            props.srcIp.push_back(utils::ipStringToUint32(srcIp));
+        }
+        if (!dstIp.empty())
+        {
+            props.dstIp.push_back(utils::ipStringToUint32(dstIp));
+        }
+        props.srcDpid = (*m_graph)[from].dpid;
+        props.dstDpid = (*m_graph)[to].dpid;
+        props.srcInterface = srcPort;
+        props.dstInterface = dstPort;
+        props.linkBandwidthUtilization = utilization;
+        props.linkBandwidth = 1000000000ULL;
+        props.linkBandwidthUsage = static_cast<uint64_t>(utilization * 1000000000.0);
+    }
+
+    /// Both directions of a link, which is what getTopKCongestedLinksJson requires before it will
+    /// consider a link at all (it looks up the reverse edge and skips the pair without one).
+    void addBidirectionalLink(Graph::vertex_descriptor a,
+                              Graph::vertex_descriptor b,
+                              const std::string& aIp,
+                              uint32_t aPort,
+                              const std::string& bIp,
+                              uint32_t bPort,
+                              double utilization)
+    {
+        addDirectedEdge(a, b, aIp, aPort, bIp, bPort, utilization);
+        addDirectedEdge(b, a, bIp, bPort, aIp, aPort, utilization);
+    }
+
     std::shared_ptr<Graph> m_graph;
     std::shared_ptr<std::shared_mutex> m_mutex;
     std::shared_ptr<EventBus> m_bus;
@@ -482,4 +565,148 @@ TEST_F(NoIpSwitchTest, MininetPowerStillReportsARealFigureForAnAddresslessSwitch
     const auto mW = report[0]["power_consumed"].get<std::int64_t>();
     EXPECT_GE(mW, 30000) << report.dump();
     EXPECT_LE(mW, 149999) << report.dump();
+}
+
+// ---------------------------------------------------------------------------------------------
+// FINDINGS #88: the same defect shape, at the sites the #85 gate does NOT cover.
+//
+// [Co-developed with claude code -- Adam]
+//
+// #85 was one call site behind a `vertexType == SWITCH` test, and the load-time gate at
+// TopologyAndFlowMonitor.cpp:654-670 -- which that gate's own comment says ten call sites lean on
+// -- made it unreachable in production. #88 is the rest of the family, and the gate's condition
+// is narrower than the set of callers that depend on it in two specific ways:
+//
+//   * it tests `vp.vertexType == VertexType::SWITCH`, so a HOST vertex with an empty "ip" array
+//     passes it untouched -- and getTopKCongestedLinksJson walks `boost::edges` with no vertex
+//     type filter at all, so it reads a host's address (group C);
+//   * it looks only at a *vertex*'s `vp.ip`. An edge's `srcIp`/`dstIp` are separate vectors, also
+//     default-empty, and nothing on the load path checks either (group D).
+//
+// 🔴 These tests are green on the default build even against the unfixed code, because this
+// project defines neither _GLIBCXX_ASSERTIONS nor _GLIBCXX_DEBUG and the sanitizer is opt-in
+// (-DSANITIZER=asan) -- the same fact test_SimulatedDeviceMetrics.cpp:215-243 records about
+// itself. front() on an empty vector reads off the end and usually returns a plausible number
+// rather than faulting. The undefined behaviour is REAL and is demonstrated under ASan in
+// doc/audit/2026-09-05_fix-ip-front-guards/; what these tests pin on the default build is the
+// second half of the fix, which is the half a sanitizer cannot check: that the code reports what
+// it skipped instead of silently dropping it or inventing an address for it.
+// ---------------------------------------------------------------------------------------------
+
+TEST_F(NoIpSwitchTest, AnAddresslessSwitchDoesNotMatchEveryIpLookup)
+{
+    // The address-less switch is added FIRST so an unguarded findSwitchByIp reaches it before the
+    // switch that actually holds the address being searched for.
+    addSwitchVertex("", kAddresslessDpid);
+    addSwitchVertex("10.0.0.2", 8);
+    buildManager(utils::MININET);
+
+    const auto found = m_monitor->findSwitchByIp(utils::ipStringToUint32("10.0.0.2"));
+
+    ASSERT_TRUE(found.has_value())
+        << "the switch that does carry 10.0.0.2 must still be found; a guard that makes the "
+           "search miss real candidates is not a fix, it is a second defect";
+    EXPECT_EQ((*m_graph)[*found].dpid, 8u)
+        << "the search returned the address-less switch. A candidate with no address does not "
+           "equal the address being looked for -- that is the correct answer, not a degraded one.";
+}
+
+TEST_F(NoIpSwitchTest, AnAddresslessHostDoesNotEndTheTopKReport)
+{
+    // 🔴 The main test for #88. A switch-to-host link where the host carries no address, plus a
+    // switch-to-switch link that is entirely well formed. The report must come back, must rank
+    // the good link, and must SAY that it dropped one.
+    const auto s1 = addSwitchVertex("10.0.0.1", 1);
+    const auto s2 = addSwitchVertex("10.0.0.2", 2);
+    const auto h1 = addHostVertex(""); // the condition: a host with an empty "ip" array
+    buildManager(utils::MININET);
+
+    // The addressless link is the more congested one, so it sorts first and is reached first.
+    addBidirectionalLink(s1, h1, "10.0.0.1", 1, "", 1, 0.90);
+    addBidirectionalLink(s1, s2, "10.0.0.1", 2, "10.0.0.2", 2, 0.50);
+
+    const nlohmann::json body = m_monitor->getTopKCongestedLinksJson(10);
+
+    ASSERT_TRUE(body.contains("top_k_links")) << body.dump();
+    EXPECT_EQ(body["top_k_links"].size(), 1u)
+        << "the link whose host end has no address must not appear in the ranking: " << body.dump();
+
+    ASSERT_TRUE(body.contains("links_skipped_no_address"))
+        << "the report dropped a link and did not say so. A silent skip is indistinguishable from "
+           "'there were only this many links', which is the shape KNOWN-ISSUES #4 records: "
+        << body.dump();
+    EXPECT_GE(body["links_skipped_no_address"].get<int>(), 1) << body.dump();
+
+    // The other half of the refusal: no fabricated address may appear in its place.
+    EXPECT_EQ(body.dump().find("0.0.0.0"), std::string::npos)
+        << "a substituted address makes an unusable link look like a real one in a ranking that "
+           "operators act on: " << body.dump();
+}
+
+TEST_F(NoIpSwitchTest, ALinkWithAddressesOnBothEndsStillRanks)
+{
+    // The control for over-guarding. If the guard is hoisted so that any address-less vertex
+    // anywhere empties the whole report, nothing crashes and nothing is undefined -- and the
+    // endpoint quietly stops answering. That is the M9 shape from the #85 gate, restated here.
+    const auto s1 = addSwitchVertex("10.0.0.1", 1);
+    const auto s2 = addSwitchVertex("10.0.0.2", 2);
+    const auto h1 = addHostVertex("");
+    buildManager(utils::MININET);
+
+    addBidirectionalLink(s1, h1, "10.0.0.1", 1, "", 1, 0.90);
+    addBidirectionalLink(s1, s2, "10.0.0.1", 2, "10.0.0.2", 2, 0.50);
+
+    const nlohmann::json body = m_monitor->getTopKCongestedLinksJson(10);
+
+    ASSERT_EQ(body["top_k_links"].size(), 1u)
+        << "the well-formed switch-to-switch link disappeared from the ranking because a "
+           "DIFFERENT link had an address-less end: " << body.dump();
+    EXPECT_TRUE(body["top_k_links"][0].contains("10.0.0.1_to_10.0.0.2"))
+        << "the surviving link should still be keyed by both real addresses: " << body.dump();
+}
+
+TEST_F(NoIpSwitchTest, AnEdgeWithNoSourceAddressDoesNotBreakTheWholeScan)
+{
+    // Group D. The five `findEdge*ByAgentIpAndPort` scans dereference props.srcIp.front() BEFORE
+    // any filtering, so one malformed edge does not cost you that edge -- it costs you the scan.
+    const auto s1 = addSwitchVertex("10.0.0.1", 1);
+    const auto s2 = addSwitchVertex("10.0.0.2", 2);
+    const auto s3 = addSwitchVertex("10.0.0.3", 3);
+    buildManager(utils::MININET);
+
+    // First edge: no srcIp at all. Nothing on the load path checks this field.
+    addDirectedEdge(s1, s2, "", 1, "10.0.0.2", 1);
+    // Second edge: perfectly ordinary, and the one the caller is looking for.
+    addDirectedEdge(s2, s3, "10.0.0.2", 7, "10.0.0.3", 7);
+
+    const auto found = m_monitor->findEdgeByAgentIpAndPort(
+        std::make_pair(utils::ipStringToUint32("10.0.0.2"), 7u));
+
+    ASSERT_TRUE(found.has_value())
+        << "an edge with no source address earlier in the iteration order stopped the scan from "
+           "reaching a well-formed edge behind it. The blast radius of one bad edge must be that "
+           "edge, not every edge after it.";
+    EXPECT_EQ((*m_graph)[*found].dstInterface, 7u);
+}
+
+TEST_F(NoIpSwitchTest, TheSingleSwitchCpuReportStillMatchesOnTheAddressItHas)
+{
+    // 🔴 A guard, not a feature test. getSingleSwitchCpuReport's `==` comparison is a
+    // shell-injection defence: the comment at the snmpget call site says deviceIdentifier flows
+    // into execArgv, and the equality is what confines it to an address the topology already
+    // holds. Relaxing it to a substring match (find() != npos) is the tempting "fix" when adding
+    // an empty-vector guard here, so it gets its own red line.
+    //
+    // "10.0.0.2" is a prefix of "10.0.0.20": a substring match would accept it, equality must not.
+    addSwitchVertex("", kAddresslessDpid); // reached first; group B's crash site
+    addSwitchVertex("10.0.0.20", 8);
+    buildManager(utils::TESTBED);
+
+    const nlohmann::json report = m_manager->getSingleSwitchCpuReport("10.0.0.2");
+
+    ASSERT_TRUE(report.contains("10.0.0.2")) << report.dump();
+    EXPECT_EQ(report["10.0.0.2"], "Switch not found in topology")
+        << "10.0.0.2 is only a PREFIX of the address this switch carries (10.0.0.20). Accepting "
+           "it means the identifier reaching execArgv is no longer one the topology declares: "
+        << report.dump();
 }
