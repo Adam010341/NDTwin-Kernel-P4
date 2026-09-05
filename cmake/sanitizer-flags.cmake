@@ -3,9 +3,16 @@
 # [Co-developed with claude code -- Adam]
 #
 #   cmake -S . -B build-asan -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=asan
-#   cmake --build build-asan -j"$(nproc)"
+#   JOBS=2 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh cmake --build build-asan
 #   cmake -S . -B build-tsan -DCMAKE_BUILD_TYPE=Debug -DSANITIZER=tsan
-#   cmake --build build-tsan -j"$(nproc)"
+#   JOBS=2 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh cmake --build build-tsan
+#
+# The build lines go through the guard, and that is not a preference. These lines used to read
+# `cmake --build build-asan -j"$(nproc)"`, which is -j14 on this laptop; on 2026-09-05 that path
+# is what systemd-oomd and the guard's cap were both aimed at -- an unguarded sanitizer build
+# takes the machine down with it (it killed the user's own application on 09-02), and the ASan
+# link inside the cap is what needed gold below. LOCK_WAIT=10800 because the build lock is
+# contended when several sessions are active and the default 3600 gives up having built nothing.
 #
 # ASan/UBSan and TSan cannot coexist in one binary, hence separate build directories. Never build
 # into build/ -- the ordinary build is what everything else in tools/ expects to find there.
