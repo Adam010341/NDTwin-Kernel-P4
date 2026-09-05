@@ -1807,6 +1807,14 @@ cmd_down() {
 
 # The teardown assertion, separately callable. Exits non-zero if anything survived, because
 # a leftover is not cosmetic: it makes the next run measure the wrong process.
+#
+# 🔴 IT DELETES NO LOGS, and that is a decision, not an omission (09-05 night round, O-4). This
+# function counts processes, sessions, the manifest and the ports; `--deep` adds a port sweep.
+# Nothing here or there has ever touched .test_run/logs/, and nothing here or there is going to:
+# the generations under it are the only record of what the last run did, and a teardown command
+# that quietly reaped them would be O-4 with a different trigger -- the evidence destroyed by the
+# very command you run when you are finished with a run and about to write it up. Bounding those
+# generations is stack.sh rotate_log's job, at the moment a new one replaces an old one.
 cmd_clean() {
     local rc=0 n p
 

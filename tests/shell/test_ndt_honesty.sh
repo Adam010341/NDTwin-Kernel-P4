@@ -360,6 +360,37 @@ has   "🔴 a teardown that did not verify says so"        "did NOT verify clean
 no_claim
 unset NDT_OWNER
 
+# ==========================================================================================
+section "3G. O-4: teardown asserts, and asserting is not deleting"
+# The other half of the kernel.log question. Bounding the generations belongs to stack.sh's
+# rotate_log, at the moment a new one replaces an old one; `ndt clean` and `ndt down --deep`
+# must leave them alone. This is the state of the code before this change as well as after --
+# the point of pinning it is that "it happens not to delete them" and "it must not delete them"
+# are different facts, and only the second one survives someone tidying up.
+mkdir -p "$FIX/.test_run/logs"
+: > "$FIX/.test_run/logs/kernel.log"
+for s in 20260905-153726 20260905-154246 20260905-155230; do
+    printf 'era %s\n' "$s" > "$FIX/.test_run/logs/kernel.log.$s"
+done
+printf 'old scheme\n' > "$FIX/.test_run/logs/kernel.log.prev"
+CLEAN_OUT="$(bash -c "source '$NDT' >/dev/null 2>&1
+REPO='$FIX'
+MANIFEST=\"\$REPO/manifest.json\"
+bmv2_count() { echo 0; }
+mn_count() { echo 0; }
+topo_session() { return 1; }
+ndt_port_residue() { return 0; }
+ndt_port_label() { echo none; }
+cmd_clean
+echo \"RC=\$?\"" 2>&1)"
+check "the assertion itself still passes on a clean machine" "0" "$(sed -n 's/^RC=//p' <<<"$CLEAN_OUT" | tail -1)"
+check "🔴 every rotated generation is still there"       "3" \
+      "$(ls -1 "$FIX/.test_run/logs/kernel.log".[0-9]* 2>/dev/null | wc -l)"
+check "🔴 and so is the live log"                        "present" \
+      "$( [[ -e "$FIX/.test_run/logs/kernel.log" ]] && echo present || echo gone )"
+check "🔴 and a .prev from the old scheme"               "old scheme" \
+      "$(cat "$FIX/.test_run/logs/kernel.log.prev" 2>/dev/null)"
+
 # --- done ---------------------------------------------------------------------------------
 printf '\nRan %d checks, %d failed\n' "$((PASS+FAIL))" "$FAIL"
 [[ "$FAIL" -eq 0 ]] || exit 1

@@ -379,6 +379,53 @@ proc_start_epoch() {
 # this; the fingerprint can.
 START_BG_IDENTITY="${START_BG_IDENTITY:-}"
 
+# rotate_log <path> -- move it aside under its own start time, and keep the newest N.
+#
+# [Co-developed with claude code -- Adam]
+# 09-05 night round, O-4. Two generations (.prev, .prev2) is a depth, and a depth is only ever
+# right for a fixed number of restarts. The evening this was written, R0's first arm produced
+# the kernel.log that five fix tickets (W1/W4/W5/W6/W7) were judged on; nothing copied it, and
+# within twenty minutes it was the .prev -- one more `ndt up` from being gone. It was rescued by
+# hand at 15:53. Later the same evening the R4 arm wrote 151557 lines / 2.78 MB in eleven
+# minutes, so a single rotation would have buried the whole load test.
+#
+# The second half of that finding is why it kept happening: with no up.target, `ndt status`
+# advised "bring the lab up from this checkout first: ndt up <target>" (I-1), and following that
+# advice is what rotated the log. The instrument recommended the action that destroyed the
+# evidence. I-1 is fixed separately; this makes the destruction bounded rather than immediate.
+#
+# 🔴 STAMPED, not numbered. `.prev`/`.prev2` renames every generation on every restart, so a
+# path written down in a report ("the failure is in kernel.log.prev") means something different
+# an hour later. A start-time suffix is stable for the life of the file: cite it once and the
+# citation stays true. It also makes the pruning order the era order without consulting mtime,
+# which a grep, a copy or an editor can move.
+#
+# NDT_LOG_KEEP overrides the depth. A run that is about to produce evidence can raise it; a
+# machine short of disk can lower it. It cannot be lowered to zero -- the whole point is that
+# one generation was never enough.
+#
+# 🔴 NOTHING ELSE DELETES THESE. `ndt clean` is the teardown ASSERTION (bmv2 count, host/switch
+# count, topo session, manifest, ports) and touches no file under .test_run/logs/; `ndt down
+# --deep` adds only a port sweep. That was already true before this change and is left true on
+# purpose: a teardown command that silently reaped the previous run's evidence would be O-4 with
+# a different trigger. Pruning happens HERE, at rotation, where a new generation is being
+# created to replace it -- and only ever on the stamped generations this function writes. Any
+# pre-existing .prev/.prev2 is left alone rather than swept up, because deleting a file this
+# scheme did not create is not this function's decision to make.
+rotate_log() {
+    local log="$1" keep stamp n=0 old
+    keep="${NDT_LOG_KEEP:-5}"
+    [[ "$keep" =~ ^[0-9]+$ ]] && (( keep >= 1 )) || keep=5
+    stamp="$(date +%Y%m%d-%H%M%S)"
+    # Two starts inside the same second must not overwrite each other's generation.
+    while [[ -e "$log.$stamp" ]]; do n=$(( n + 1 )); stamp="$(date +%Y%m%d-%H%M%S)-$n"; done
+    mv -f "$log" "$log.$stamp" || return 1
+    while IFS= read -r old; do
+        [[ -n "$old" ]] && rm -f "$old"
+    done < <(ls -1 "$log".[0-9]* 2>/dev/null | LC_ALL=C sort -r | tail -n +$(( keep + 1 )))
+    return 0
+}
+
 # start_bg <name> <logfile> <command...>
 start_bg() {
     local name="$1" log="$2"; shift 2
@@ -414,20 +461,18 @@ start_bg() {
         fi
         stop_one "$name"
     fi
-    # Two generations of history: '>' alone erased the previous era's log at every restart,
+    # History, one file per era: '>' alone erased the previous era's log at every restart,
     # which is how the whole P4-era kernel.log vanished during the 2026-08-15 overnight audit
     # (the OVS restart truncated it; the era had to be reconstructed from the proxy's side).
     # Rotating keeps each file single-era and the disk bounded. [Co-developed with claude code -- Adam]
     #
-    # Depth 2 rather than 1, because the second restart is the one that used to drop the era
-    # that explains the first. KNOWN-ISSUES A-2's documented workaround is "restart the kernel";
-    # when the symptom recurs you restart again, and with a single .prev the only surviving
-    # generation is the short restart that fixed nothing -- the era holding the evidence has
-    # been overwritten by the era holding none. Two covers "restart, it recurred, restart
-    # again", which is the sequence A-5 names.
+    # Depth was 2 (.prev/.prev2), chosen for "restart, it recurred, restart again" -- the
+    # sequence KNOWN-ISSUES A-5 names and A-2's workaround produces. That is the right shape
+    # for a debugging loop and the wrong one for a night of experiments: on 2026-09-05 seven
+    # `ndt up`s ran in this checkout inside three hours, and the log five fix tickets were
+    # judged on survived only because someone copied it by hand (O-4). See rotate_log.
     if [[ -s "$log" ]]; then
-        [[ -s "$log.prev" ]] && mv -f "$log.prev" "$log.prev2"
-        mv -f "$log" "$log.prev"
+        rotate_log "$log"
     fi
     # [Co-developed with claude code -- Adam]
     # KNOWN-ISSUES B-5. Launched through supervise.sh so that HOW the component ended is written

@@ -189,6 +189,20 @@ m=$(mutant m12 "$NDT" \
 report "M12: a teardown that did not verify is reported as clean" "$m" \
        "🔴 a teardown that did not verify says so"
 
+# --- O-4: the teardown command reaps the evidence ---------------------------------------------
+
+# The tidy-up that would put O-4 back from the other end: `ndt clean` deleting the rotated
+# generations. It looks like housekeeping and it destroys the record of the run you have just
+# finished -- at exactly the moment you are about to write it up.
+m=$(mutant m13 "$NDT" \
+    'cmd_clean() {
+    local rc=0 n p' \
+    'cmd_clean() {
+    local rc=0 n p
+    rm -f "$REPO"/.test_run/logs/kernel.log.[0-9]*')
+report "M13: 'ndt clean' tidies away the rotated kernel logs" "$m" \
+       "🔴 every rotated generation is still there"
+
 # --- widenings: mutants that stay GREEN where the suite requires RED --------------------------
 
 # N1: a `down` is announced whether or not anything recorded one. It passes every fires-side
