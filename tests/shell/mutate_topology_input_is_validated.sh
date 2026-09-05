@@ -1,11 +1,22 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for FINDINGS #61 and #62 -- a topology file that names a switch it does not
+# Mutation gate for FINDINGS #61, #62 and #89 -- a topology file that names a switch it does not
 # contain, or a port a switch cannot have, must be refused at load, and refused whole.
 #
 # [Co-developed with claude code -- Adam]
 #
 # Covers tests/test_TopologyInputValidation.cpp.
+#
+# 🔴 #89 IS A DIFFERENT CLAIM FROM #61/#62 AND IS MEASURED DIFFERENTLY (M10-M16, added
+# 2026-09-05). #61/#62 were about whether the loader refuses at all. #89 is about WHERE it
+# refuses: three node-side conditions were still throwing from inside the builder loop, on node N,
+# with nodes 0..N-1 already added -- so every one of them was already "refused", and a mutation
+# scored by `threw` would show nothing. M10-M13 are scored by `vertices == 0`. The fourth door,
+# `ecmp_groups[].port_id`, had no check anywhere and is M14-M16.
+#
+# 🔴 #61/#62 WERE MEASURED ON :8000. #89's three doors WERE NOT -- they were read out of the
+# source, and this gate plus test_TopologyInputValidation.cpp is their entire evidence. Anything
+# quoting this file must not upgrade them to field observations.
 #
 # WHAT THE DEFECTS WERE
 #   #61  An edge whose dpid matched no switch node was dropped. One `[warning] Skipping edge:`
@@ -129,7 +140,7 @@ PYCOUNT
 declare -a ANCHOR_FILE ANCHOR_TEXT ANCHOR_NAME
 add_anchor() { ANCHOR_NAME+=("$1"); ANCHOR_FILE+=("$2"); ANCHOR_TEXT+=("$3"); }
 
-add_anchor "validate-call"  "$TFM" '    validateStaticTopologyJson(j, where);'
+add_anchor "validate-call"  "$TFM" '    validateStaticTopologyJson(j, where, m_mode);'
 add_anchor "dpid-known"     "$TFM" '            if (switchDpids.count(dpid) == 0)'
 add_anchor "dpid-refusal"   "$TFM" '                    "\" is " + std::to_string(dpid) +'
 add_anchor "host-addr"      "$TFM" '            if (nodeAddresses.count(addresses.front()) == 0)'
@@ -138,6 +149,14 @@ add_anchor "iface-floor"    "$TFM" '        if (dpid != 0 && ifIndex == 0)'
 add_anchor "max-constant"   "$TFM" 'constexpr std::uint32_t kMaxTopologyInterface = 65535;'
 add_anchor "builder-refuse" "$TFM" '        if (!srcVertexOpt.has_value() || !dstVertexOpt.has_value())'
 add_anchor "gate-comment"   "$TFM" '    // The endpoints, indexed exactly the way the edge loop below resolves them: switches by'
+# FINDINGS #89 / W-TOPO-THREE-DOORS. All five are in validateStaticTopologyJson and none of them
+# is in the builder loop, deliberately: the builder still carries its own copy of the three door-3
+# refusals as a backstop, and a gate that mutated THAT copy would be measuring the backstop.
+add_anchor "door3a-kind"    "$TFM" '            (void)switchKindFromString(nodeJson.at("switch_kind").get<std::string>());'
+add_anchor "door3b-noip"    "$TFM" '        if (vertexType == VertexType::SWITCH && addresses.empty())'
+add_anchor "door3c-mode"    "$TFM" '        if (mode == utils::DeploymentMode::MININET && vertexType == VertexType::SWITCH &&'
+add_anchor "door3c-bridge"  "$TFM" '            !(nodeJson.contains("bridge_name") && nodeJson.at("bridge_name").is_string()))'
+add_anchor "door2-range"    "$TFM" '                if (portId < 1 || portId > static_cast<std::int64_t>(kMaxTopologyInterface))'
 
 echo "=== anchor uniqueness (exact substring count must be 1) ==="
 anchor_ok=1
@@ -225,6 +244,16 @@ _score() {
         else
             printf '  ✅ caught  red: %s\n' "${got[*]}"
         fi
+        # [Co-developed with claude code -- Adam]
+        # 🔴 PRINT THE RED, not just the name of the light. Added 2026-09-05 with #89's
+        # mutations. "M11 caught AnAddresslessSwitchLeavesNoPartiallyLoadedGraph" does not say
+        # WHICH assertion went red, and for door 3 that is the entire distinction being measured:
+        # `threw` is true with and without the fix, and only the `vertices == 0` line separates
+        # them. A gate whose log cannot show that cannot be quoted as evidence for it, and every
+        # reader would have to rebuild the mutant to find out. Capped, because a mutation that
+        # breaks the fixture can print thousands of lines.
+        sed -n '/^\[ RUN      \]/,/^\[  FAILED  \]/p' <<<"$OUT" \
+            | grep -vE '^\[       OK \]|^\[ RUN      \]$' | head -40 | sed 's/^/    | /'
     else
         printf '  🔴 SURVIVED -- these stayed green: %s\n' "${missed[*]}"
         [[ -n "$FAILED" ]] && printf '     (something else went red: %s -- the gate fires, but not\n     for the reason this mutation claims)\n' "$FAILED"
@@ -317,6 +346,12 @@ echo "  ok       $TARGET sha256 $BIN_SHA_BEFORE"
 #     have been added, which is the partial application the fix exists to stop. That split is
 #     exactly what the two #61 tests are for, and only one of them may go red here.
 #
+#     🔴 ITS ANCHOR MOVED ONCE ALREADY, AND NOTHING BUT check_gate_anchors.py SAID SO. #89 gave
+#     validateStaticTopologyJson a third parameter; this anchor still read `(j, where)`, so on
+#     2026-09-05 M1 reported SURVIVED-anchor-not-applied while every test stayed green. That is
+#     the exact failure mode that tool exists for (`mutate_lock_renew_expiry.sh` lost six anchors
+#     the same way). Run it after touching this function's signature, not just this file.
+#
 #     🔴 `if (false)` rather than deleting the call, and the first draft of this gate got it
 #     wrong. Replacing the call with `(void)j;` leaves validateStaticTopologyJson defined and
 #     unreferenced in an anonymous namespace, which is -Wunused-function, which is -Werror here:
@@ -325,17 +360,23 @@ echo "  ok       $TARGET sha256 $BIN_SHA_BEFORE"
 #     leaving the function used, so what is measured is the missing check and not the warning.
 mutate "validation removed: the whole pass is never called" \
     "$TFM" \
-    '    validateStaticTopologyJson(j, where);' \
+    '    validateStaticTopologyJson(j, where, m_mode);' \
     '    if (false)
     {
-        validateStaticTopologyJson(j, where);
+        validateStaticTopologyJson(j, where, m_mode);
     }' \
     TopologyInputValidationTest.AGhostDpidEdgeLeavesNoPartiallyLoadedGraph \
     TopologyInputValidationTest.ASixDigitInterfaceIsRefused \
     TopologyInputValidationTest.TheRefusalNamesTheInterfaceThatWasOutOfRange \
     TopologyInputValidationTest.ADestinationInterfaceIsCheckedToo \
     TopologyInputValidationTest.OneAboveTheLargestInRangeInterfaceIsRefused \
-    TopologyInputValidationTest.AZeroInterfaceOnTheSwitchSideIsRefused
+    TopologyInputValidationTest.AZeroInterfaceOnTheSwitchSideIsRefused \
+    TopologyInputValidationTest.AMalformedSwitchKindLeavesNoPartiallyLoadedGraph \
+    TopologyInputValidationTest.AnAddresslessSwitchLeavesNoPartiallyLoadedGraph \
+    TopologyInputValidationTest.AMissingBridgeNameInMininetLeavesNoPartiallyLoadedGraph \
+    TopologyInputValidationTest.AnOutOfRangeEcmpPortIdIsRefusedAtLoad \
+    TopologyInputValidationTest.AZeroEcmpPortIdIsRefusedAtLoad \
+    TopologyInputValidationTest.ANegativeEcmpPortIdIsRefusedAtLoad
 
 # M2. THE #61 DEFECT VERBATIM: THE ERROR SWALLOWED INTO A WARN AGAIN. Both layers, because the
 #     fix has two -- see the header. The validator logs and moves on, and the builder goes back
@@ -437,6 +478,92 @@ mutate "the ceiling is narrowed to the fleet's observed maximum" \
     TopologyInputValidationTest.TheLargestInRangeInterfaceIsAccepted
 
 # ================================================================================================
+#    FINDINGS #89 / W-TOPO-THREE-DOORS -- the other input paths, added 2026-09-05
+#
+# 🔴 EVERY ONE OF THESE MUTATES ONLY THE VALIDATOR'S COPY, NEVER THE BUILDER'S. The builder still
+# throws on all three door-3 conditions and that is deliberate (two layers, same as M2's), so the
+# mutant here restores "refused, after 0..N-1 nodes are already in the graph" rather than "not
+# refused at all". That is the whole point: the three *LeavesNoPartiallyLoadedGraph cases go red
+# on `vertices == 0` while `threw` stays true, which is what distinguishes this fix from a fix
+# that only made the loader throw. A gate that mutated the builder's copy instead would be
+# measuring the backstop and would report the validator as untested.
+#
+# 🔴 NONE OF THESE MAY DELETE THE `mode` PARAMETER'S ONLY USE. -Werror turns an unused parameter
+# into a compile error, a mutant that does not compile is scored a SURVIVOR here (correctly -- the
+# suite never ran), and the survivor would be an artefact of the gate rather than of the tests. So
+# M12 keeps `mode` in the condition it disables, and M13 changes which mode rather than removing it.
+# ================================================================================================
+
+# M10. Door 3a: switch_kind is no longer validated up front. The builder still calls
+#      switchKindFromString for the value it needs, so the file is still refused -- with every
+#      earlier node already added.
+mutate "door 3a: a malformed switch_kind is refused by the builder again, not by the validator" \
+    "$TFM" \
+    '            (void)switchKindFromString(nodeJson.at("switch_kind").get<std::string>());' \
+    '            (void)0;' \
+    TopologyInputValidationTest.AMalformedSwitchKindLeavesNoPartiallyLoadedGraph
+
+# M11. Door 3b: FINDINGS #85's door back where it was. This is the sharpest case in the file --
+#      the refusal still happens, from TopologyAndFlowMonitor.cpp's builder loop, so a suite
+#      asserting only `threw` stays entirely green on it.
+mutate "door 3b: an addressless switch is refused by the builder again, not by the validator" \
+    "$TFM" \
+    '        if (vertexType == VertexType::SWITCH && addresses.empty())' \
+    '        if (vertexType == VertexType::SWITCH && addresses.empty() && false)' \
+    TopologyInputValidationTest.AnAddresslessSwitchLeavesNoPartiallyLoadedGraph
+
+# M12. Door 3c: the MININET bridge_name check never fires. `mode` stays in the condition so the
+#      mutant still compiles -- see the section header.
+mutate "door 3c: the MININET bridge_name check never fires" \
+    "$TFM" \
+    '            !(nodeJson.contains("bridge_name") && nodeJson.at("bridge_name").is_string()))' \
+    '            false)' \
+    TopologyInputValidationTest.AMissingBridgeNameInMininetLeavesNoPartiallyLoadedGraph
+
+# M13. 🔴 DOOR 3c's FLEET-BREAKING DIRECTION, the M8 of this half of the gate. The check is put on
+#      the wrong mode: TESTBED now demands a bridge_name and MININET no longer checks one. The
+#      five _ipAlias4_ TESTBED files declare no bridge_name on any switch, so all five stop
+#      loading -- a wider outage than the defect. Three cases must see it, and one of them is the
+#      shipped-fleet case.
+mutate "door 3c is applied to the wrong mode (TESTBED demands a bridge_name)" \
+    "$TFM" \
+    '        if (mode == utils::DeploymentMode::MININET && vertexType == VertexType::SWITCH &&' \
+    '        if (mode == utils::DeploymentMode::TESTBED && vertexType == VertexType::SWITCH &&' \
+    TopologyInputValidationTest.AMissingBridgeNameInMininetLeavesNoPartiallyLoadedGraph \
+    TopologyInputValidationTest.AMissingBridgeNameIsNotCheckedInTestbedMode \
+    TopologyInputValidationTest.EveryShippedTopologyStillLoadsWithNothingDropped
+
+# M14. Door 2's ceiling removed. 999999 in an ecmp member is accepted again and reaches the flow
+#      path -- #62's defect, on the field #62 did not cover.
+mutate "door 2: the ecmp port_id ceiling is removed" \
+    "$TFM" \
+    '                if (portId < 1 || portId > static_cast<std::int64_t>(kMaxTopologyInterface))' \
+    '                if (portId < 1)' \
+    TopologyInputValidationTest.AnOutOfRangeEcmpPortIdIsRefusedAtLoad
+
+# M15. Door 2's floor removed entirely. port_id is a signed int read straight out of the file, so
+#      this admits 0 AND every negative. Both cases must see it, which is what separates it from
+#      M16 below.
+mutate "door 2: the ecmp port_id floor is removed (0 and negatives accepted)" \
+    "$TFM" \
+    '                if (portId < 1 || portId > static_cast<std::int64_t>(kMaxTopologyInterface))' \
+    '                if (portId > static_cast<std::int64_t>(kMaxTopologyInterface))' \
+    TopologyInputValidationTest.AZeroEcmpPortIdIsRefusedAtLoad \
+    TopologyInputValidationTest.ANegativeEcmpPortIdIsRefusedAtLoad
+
+# M16. 🔴 OVER-CORRECTION BY FALSE ANALOGY, and the reason M15 is not enough on its own. The
+#      writer knows port 0 is legitimate on the host side of a host EDGE (M8 above is the whole
+#      story) and transplants the exemption onto ecmp_groups, where it does not belong: ecmp
+#      groups appear only on switch nodes and every member names a switch port. Zero is admitted,
+#      negatives are still refused -- so ONLY the zero case can tell M16 from a correct bound.
+mutate "door 2: the host side's port-0 exemption is transplanted onto ecmp members" \
+    "$TFM" \
+    '                if (portId < 1 || portId > static_cast<std::int64_t>(kMaxTopologyInterface))' \
+    '                if ((portId != 0 && portId < 1) ||
+                    portId > static_cast<std::int64_t>(kMaxTopologyInterface))' \
+    TopologyInputValidationTest.AZeroEcmpPortIdIsRefusedAtLoad
+
+# ================================================================================================
 # 6. the widenings -- these MUST survive
 # ================================================================================================
 
@@ -466,6 +593,15 @@ widen "the dpid lookup is written as the negated comparison" \
     "$TFM" \
     '            if (switchDpids.count(dpid) == 0)' \
     '            if (!(switchDpids.count(dpid) > 0))'
+
+# W4. #89's control. The ecmp bound written with the literal instead of the named constant and
+#     `< 1` written as `<= 0` -- identical semantics for a signed value, different text in both
+#     halves of the condition. If this reddens, M14/M15/M16 are pinning how the bound is spelled
+#     rather than where it sits, and "three doors closed" would be a claim about source text.
+widen "the ecmp bound is written as the equivalent literal" \
+    "$TFM" \
+    '                if (portId < 1 || portId > static_cast<std::int64_t>(kMaxTopologyInterface))' \
+    '                if (portId <= 0 || portId > 65535)'
 
 # ================================================================================================
 # 7. restore and verdict
@@ -518,4 +654,9 @@ echo "  FINDINGS #61/#62 gate: neither defect can be put back by any of seven ro
 echo "  the two-layer restoration of the measured 40 -> 39 -- a range check that refuses the host"
 echo "  side's documented port 0 or the fleet's port 1 is caught, and three behaviour-preserving"
 echo "  edits were left alone."
+echo "  FINDINGS #89 gate: none of the three node-side refusals can be pushed back into the builder"
+echo "  loop without a case going red on vertices == 0 while threw stays true, moving the"
+echo "  bridge_name check to the wrong mode is caught by the shipped fleet, the ecmp port_id bound"
+echo "  cannot lose either end, and the host side's port-0 exemption cannot be transplanted onto"
+echo "  ecmp members -- while writing the same bound as a literal stays green."
 exit 0
