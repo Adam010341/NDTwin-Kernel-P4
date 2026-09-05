@@ -346,6 +346,12 @@ echo "  ok       $TARGET sha256 $BIN_SHA_BEFORE"
 #     have been added, which is the partial application the fix exists to stop. That split is
 #     exactly what the two #61 tests are for, and only one of them may go red here.
 #
+#     🔴 ITS ANCHOR MOVED ONCE ALREADY, AND NOTHING BUT check_gate_anchors.py SAID SO. #89 gave
+#     validateStaticTopologyJson a third parameter; this anchor still read `(j, where)`, so on
+#     2026-09-05 M1 reported SURVIVED-anchor-not-applied while every test stayed green. That is
+#     the exact failure mode that tool exists for (`mutate_lock_renew_expiry.sh` lost six anchors
+#     the same way). Run it after touching this function's signature, not just this file.
+#
 #     🔴 `if (false)` rather than deleting the call, and the first draft of this gate got it
 #     wrong. Replacing the call with `(void)j;` leaves validateStaticTopologyJson defined and
 #     unreferenced in an anonymous namespace, which is -Wunused-function, which is -Werror here:
@@ -354,17 +360,23 @@ echo "  ok       $TARGET sha256 $BIN_SHA_BEFORE"
 #     leaving the function used, so what is measured is the missing check and not the warning.
 mutate "validation removed: the whole pass is never called" \
     "$TFM" \
-    '    validateStaticTopologyJson(j, where);' \
+    '    validateStaticTopologyJson(j, where, m_mode);' \
     '    if (false)
     {
-        validateStaticTopologyJson(j, where);
+        validateStaticTopologyJson(j, where, m_mode);
     }' \
     TopologyInputValidationTest.AGhostDpidEdgeLeavesNoPartiallyLoadedGraph \
     TopologyInputValidationTest.ASixDigitInterfaceIsRefused \
     TopologyInputValidationTest.TheRefusalNamesTheInterfaceThatWasOutOfRange \
     TopologyInputValidationTest.ADestinationInterfaceIsCheckedToo \
     TopologyInputValidationTest.OneAboveTheLargestInRangeInterfaceIsRefused \
-    TopologyInputValidationTest.AZeroInterfaceOnTheSwitchSideIsRefused
+    TopologyInputValidationTest.AZeroInterfaceOnTheSwitchSideIsRefused \
+    TopologyInputValidationTest.AMalformedSwitchKindLeavesNoPartiallyLoadedGraph \
+    TopologyInputValidationTest.AnAddresslessSwitchLeavesNoPartiallyLoadedGraph \
+    TopologyInputValidationTest.AMissingBridgeNameInMininetLeavesNoPartiallyLoadedGraph \
+    TopologyInputValidationTest.AnOutOfRangeEcmpPortIdIsRefusedAtLoad \
+    TopologyInputValidationTest.AZeroEcmpPortIdIsRefusedAtLoad \
+    TopologyInputValidationTest.ANegativeEcmpPortIdIsRefusedAtLoad
 
 # M2. THE #61 DEFECT VERBATIM: THE ERROR SWALLOWED INTO A WARN AGAIN. Both layers, because the
 #     fix has two -- see the header. The validator logs and moves on, and the builder goes back
