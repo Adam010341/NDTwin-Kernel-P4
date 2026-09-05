@@ -465,7 +465,7 @@ TEST_F(SwitchKindFixture, MixedTopologyDispatchesPerDpid)
     EXPECT_NE(mgr.p4Strategy(), mgr.ovsStrategy());
 }
 
-// --- A switch with no management address is rejected at load.
+// --- A node with no management address is rejected at load.
 //
 // Ten places call `ip.front()` on a switch's address list with no check, including
 // findSwitchByIp(), which does it for *every* switch vertex while searching -- so one switch with
@@ -473,6 +473,10 @@ TEST_F(SwitchKindFixture, MixedTopologyDispatchesPerDpid)
 // throws on a missing key but happily accepts an empty array, so only the file has to be wrong.
 // Found by a review of 0e84234, which pointed at one of the ten call sites; the load-time check
 // is what makes the invariant all ten already assume actually true.
+//
+// 🔴 2026-09-06, FINDINGS #90: the host half of this used to be exempt, and is no longer. The
+// exemption's stated reason was factual and false -- see AHostWithNoAddressIsRefusedAtLoad below,
+// which is the reversed test, and doc/audit/2026-09-06_fix-host-address-door/.
 
 namespace
 {
@@ -545,15 +549,61 @@ TEST_F(TopologyIpValidationTest, ASwitchWithAnAddressStillLoads)
     EXPECT_NO_THROW(monitor->loadStaticTopologyFromFile(file.path()));
 }
 
-TEST_F(TopologyIpValidationTest, AHostWithNoAddressIsStillAllowed)
+TEST_F(TopologyIpValidationTest, AHostWithNoAddressIsRefusedAtLoad)
 {
-    // The invariant belongs to switches only. Hosts are discovered by Ryu and legitimately have
-    // no address until then -- rejecting them would refuse every topology that lists hosts before
-    // discovery, which is all of them.
+    // 🔴 THIS ASSERTION WAS REVERSED ON 2026-09-06, DELIBERATELY (FINDINGS #90, door 3d). It used
+    // to be AHostWithNoAddressIsStillAllowed and read:
+    //
+    //     "The invariant belongs to switches only. Hosts are discovered by Ryu and legitimately
+    //      have no address until then -- rejecting them would refuse every topology that lists
+    //      hosts before discovery, which is all of them."
+    //
+    // The first half is a design claim; the second is a factual claim about the fleet, and it is
+    // false. All thirteen shipped topology files give every host an address -- eight give one, the
+    // five _ipAlias4_ files give four -- and tools/make_topology.py always emits one. No shipped
+    // topology lists an addressless host, so refusing one refuses no topology anybody has.
+    //
+    // What the old behaviour cost was measured (R0b, 2026-09-05, kernel 862c4bf8): the extra
+    // `"ip": []` host loaded into the shipped OVS model with ZERO diagnostic and was served on
+    // :8000 as `('h9', [])`. A host carries "dpid": 0 and is therefore resolved only by address,
+    // and #88 left five production-reachable host-side `ip[0]` dereferences unguarded
+    // (W2-SUMMARY §2.2), so the node is unnameable and the sites that read it are still unguarded.
+    //
+    // Discovery is not affected: this pass only ever sees the static topology document. A host
+    // Ryu reports at runtime is added by a different path entirely.
     const std::string host = R"({
       "vertex_type": 1,
       "mac": 0,
       "ip": [],
+      "dpid": 0,
+      "device_name": "h1",
+      "nickname": "",
+      "brand_name": "",
+      "device_layer": 0,
+      "ecmp_groups": []
+    })";
+    TempTopology file(switchNodeWithIpField(1, R"(["192.168.123.11"])") + ",\n" + host);
+    auto monitor = freshMonitor();
+    try
+    {
+        monitor->loadStaticTopologyFromFile(file.path());
+        FAIL() << "an addressless host must not load: nothing can resolve a node with dpid 0 and "
+                  "no address, and five production sites read its first address unguarded";
+    }
+    catch (const std::exception& err)
+    {
+        // Named, like the switch case above: the operator has to find one entry in a 138-node file.
+        EXPECT_NE(std::string(err.what()).find("host \"h1\""), std::string::npos) << err.what();
+    }
+}
+
+TEST_F(TopologyIpValidationTest, AHostWithAnAddressStillLoads)
+{
+    // The control for the case above -- the door must refuse the empty array, not the host.
+    const std::string host = R"({
+      "vertex_type": 1,
+      "mac": 0,
+      "ip": ["10.0.0.1"],
       "dpid": 0,
       "device_name": "h1",
       "nickname": "",

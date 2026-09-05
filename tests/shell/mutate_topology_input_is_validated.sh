@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for FINDINGS #61, #62 and #89 -- a topology file that names a switch it does not
-# contain, or a port a switch cannot have, must be refused at load, and refused whole.
+# Mutation gate for FINDINGS #61, #62, #89 and #90 -- a topology file that names a switch it does
+# not contain, a port a switch cannot have, or a node nothing can address, must be refused at
+# load, and refused whole.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -14,9 +15,17 @@
 # scored by `threw` would show nothing. M10-M13 are scored by `vertices == 0`. The fourth door,
 # `ecmp_groups[].port_id`, had no check anywhere and is M14-M16.
 #
+# 🔴 #90 IS A THIRD CLAIM AGAIN (M17-M20, added 2026-09-06): door 3b's condition stopped at
+# `vertexType == SWITCH`, so the same defect on a HOST was accepted. Half of it is scored like
+# #61/#62 (`threw`, because an addressless host really did load) and half like nothing else in
+# this file (the message, because a missing or non-array "ip" was ALREADY refused -- with a raw
+# nlohmann exception where a sentence belongs). See section 5c.
+#
 # 🔴 #61/#62 WERE MEASURED ON :8000. #89's three doors WERE NOT -- they were read out of the
 # source, and this gate plus test_TopologyInputValidation.cpp is their entire evidence. Anything
-# quoting this file must not upgrade them to field observations.
+# quoting this file must not upgrade them to field observations. #90's empty-array half WAS
+# measured on :8000 (R0b, 2026-09-05, kernel 862c4bf8, served as `('h9', [])`); its missing-key
+# and non-array halves were not, and are message claims rather than acceptance claims.
 #
 # WHAT THE DEFECTS WERE
 #   #61  An edge whose dpid matched no switch node was dropped. One `[warning] Skipping edge:`
@@ -157,6 +166,14 @@ add_anchor "door3b-noip"    "$TFM" '        if (vertexType == VertexType::SWITCH
 add_anchor "door3c-mode"    "$TFM" '        if (mode == utils::DeploymentMode::MININET && vertexType == VertexType::SWITCH &&'
 add_anchor "door3c-bridge"  "$TFM" '            !(nodeJson.contains("bridge_name") && nodeJson.at("bridge_name").is_string()))'
 add_anchor "door2-range"    "$TFM" '                if (portId < 1 || portId > static_cast<std::int64_t>(kMaxTopologyInterface))'
+
+# FINDINGS #90 door 3d -- the HOST half of door 3b. Four anchors: the door itself, and each of
+# the three faults it names separately, because "refused" and "refused in a sentence" are two
+# different claims and only the second one is red before this fix for two of the three.
+add_anchor "door3d-host"    "$TFM" '        if (vertexType == VertexType::HOST)'
+add_anchor "door3d-nokey"   "$TFM" '            if (!nodeJson.contains("ip"))'
+add_anchor "door3d-notarr"  "$TFM" '            else if (!nodeJson.at("ip").is_array())'
+add_anchor "door3d-empty"   "$TFM" '            else if (nodeJson.at("ip").empty())'
 
 echo "=== anchor uniqueness (exact substring count must be 1) ==="
 anchor_ok=1
@@ -376,7 +393,12 @@ mutate "validation removed: the whole pass is never called" \
     TopologyInputValidationTest.AMissingBridgeNameInMininetLeavesNoPartiallyLoadedGraph \
     TopologyInputValidationTest.AnOutOfRangeEcmpPortIdIsRefusedAtLoad \
     TopologyInputValidationTest.AZeroEcmpPortIdIsRefusedAtLoad \
-    TopologyInputValidationTest.ANegativeEcmpPortIdIsRefusedAtLoad
+    TopologyInputValidationTest.ANegativeEcmpPortIdIsRefusedAtLoad \
+    TopologyInputValidationTest.AnAddresslessHostLeavesNoPartiallyLoadedGraph \
+    TopologyInputValidationTest.TheAddresslessHostRefusalNamesTheHost \
+    TopologyInputValidationTest.AHostWithNoIpKeyAtAllIsRefusedInPlainLanguage \
+    TopologyInputValidationTest.AHostWhoseIpIsNotAnArrayIsRefusedInPlainLanguage \
+    TopologyInputValidationTest.AnExistingHostLosingItsAddressNowNamesTheHostNotTheEdge
 
 # M2. THE #61 DEFECT VERBATIM: THE ERROR SWALLOWED INTO A WARN AGAIN. Both layers, because the
 #     fix has two -- see the header. The validator logs and moves on, and the builder goes back
@@ -564,6 +586,77 @@ mutate "door 2: the host side's port-0 exemption is transplanted onto ecmp membe
     TopologyInputValidationTest.AZeroEcmpPortIdIsRefusedAtLoad
 
 # ================================================================================================
+# 5c. FINDINGS #90 -- door 3d, the HOST half of door 3b (M17-M20, added 2026-09-06)
+#
+# 🔴 THIS DOOR IS MEASURED DIFFERENTLY AGAIN, AND IN TWO DIFFERENT WAYS AT ONCE.
+#   - The EMPTY ARRAY was measured live: R0b (2026-09-05, kernel 862c4bf8) loaded a host with
+#     `"ip": []` into the shipped OVS model, the kernel accepted it with zero diagnostic, opened
+#     :8000, and served the node as `('h9', [])`. For that one, `threw` is a real red.
+#   - The MISSING KEY and the NON-ARRAY were already refused before this fix, by the shared
+#     `at("ip")` read a few lines below -- inside the validator, so `vertices == 0` too. NOTHING
+#     about the refusal changed for them; what changed is that the operator gets a sentence
+#     instead of `[json.exception.out_of_range.403] key 'ip' not found`. The only assertion that
+#     can move is the one that says the message is not a raw nlohmann exception, and M18/M19 are
+#     the mutations that prove that assertion is load-bearing rather than decorative.
+#
+# 🔴 UNLIKE M10-M12 THERE IS NO BUILDER COPY TO FALL BACK ON. Door 3b's builder twin is
+# switch-only (`vp.vertexType == VertexType::SWITCH && vp.ip.empty()`), so a mutation that
+# disables door 3d removes the refusal outright rather than pushing it into the builder loop.
+# That is why M17 expects `threw` to go red as well, where M11 expects only `vertices`.
+# ================================================================================================
+
+# M17. The door never fires. The measured defect verbatim: an addressless host loads, and so does
+#      a host whose "ip" is missing or a bare string -- those two by falling through to the shared
+#      read, which is where their nlohmann exception comes back.
+#
+#      🔴 THIS MUTATION ALREADY CAUGHT A DEFECTIVE TEST ONCE, ON 2026-09-06, AND THAT IS WHY THE
+#      FIXTURE LOOKS THE WAY IT DOES. The first draft of
+#      AnAddresslessHostLeavesNoPartiallyLoadedGraph emptied an EXISTING host's "ip". That file is
+#      refused with or without door 3d -- the two edges naming that host by address stop resolving
+#      and #61's edge door refuses it -- so the case stayed green here and M17 reported SURVIVED
+#      while the whole suite was green. Only an ADDED host, which no edge points at, reaches the
+#      node side. Do not "simplify" the fixture back.
+mutate "door 3d: the host address check never fires" \
+    "$TFM" \
+    '        if (vertexType == VertexType::HOST)' \
+    '        if (vertexType == VertexType::HOST && false)' \
+    TopologyInputValidationTest.AnAddresslessHostLeavesNoPartiallyLoadedGraph \
+    TopologyInputValidationTest.TheAddresslessHostRefusalNamesTheHost \
+    TopologyInputValidationTest.AHostWithNoIpKeyAtAllIsRefusedInPlainLanguage \
+    TopologyInputValidationTest.AHostWhoseIpIsNotAnArrayIsRefusedInPlainLanguage \
+    TopologyInputValidationTest.AnExistingHostLosingItsAddressNowNamesTheHostNotTheEdge
+
+# M18. Only the missing-key arm is dropped. The very next line is `nodeJson.at("ip").is_array()`,
+#      so the file is STILL refused -- by at() throwing out_of_range from inside the door. Exactly
+#      one case may move, and it moves on the message and on nothing else.
+mutate "door 3d: a missing \"ip\" key falls through to at() and its nlohmann exception" \
+    "$TFM" \
+    '            if (!nodeJson.contains("ip"))' \
+    '            if (false)' \
+    TopologyInputValidationTest.AHostWithNoIpKeyAtAllIsRefusedInPlainLanguage
+
+# M19. Only the wrong-type arm is dropped. A JSON string is not empty, so the door says nothing
+#      and the shared read below throws type_error.302. Same shape as M18, other fault.
+mutate "door 3d: a non-array \"ip\" falls through to the shared read's type_error" \
+    "$TFM" \
+    '            else if (!nodeJson.at("ip").is_array())' \
+    '            else if (false)' \
+    TopologyInputValidationTest.AHostWhoseIpIsNotAnArrayIsRefusedInPlainLanguage
+
+# M20. 🔴 DOOR 3d's FLEET-BREAKING DIRECTION -- the M8/M13 of this door, and the reason
+#      AHostWithMoreThanOneAddressStillLoads exists. "A host needs an address" is read as "a host
+#      has AN address", singular. The five _ipAlias4_ TESTBED files give every host FOUR (that is
+#      what the name means: 160 hosts across five files), so all five stop loading -- a wider
+#      outage than the defect. The addressless cases stay GREEN here, because 0 != 1 as well: only
+#      the two controls can see it.
+mutate "door 3d demands exactly one address (the five _ipAlias4_ files give four)" \
+    "$TFM" \
+    '            else if (nodeJson.at("ip").empty())' \
+    '            else if (nodeJson.at("ip").size() != 1)' \
+    TopologyInputValidationTest.EveryShippedTopologyStillLoadsWithNothingDropped \
+    TopologyInputValidationTest.AHostWithMoreThanOneAddressStillLoads
+
+# ================================================================================================
 # 6. the widenings -- these MUST survive
 # ================================================================================================
 
@@ -602,6 +695,14 @@ widen "the ecmp bound is written as the equivalent literal" \
     "$TFM" \
     '                if (portId < 1 || portId > static_cast<std::int64_t>(kMaxTopologyInterface))' \
     '                if (portId <= 0 || portId > 65535)'
+
+# W5. #90's control. `empty()` written as `size() == 0` -- the same predicate, one character away
+#     from M20's `size() != 1`. If this reddens, M20 is measuring the spelling of the emptiness
+#     test rather than which host counts it refuses.
+widen "the host emptiness test is written as size() == 0" \
+    "$TFM" \
+    '            else if (nodeJson.at("ip").empty())' \
+    '            else if (nodeJson.at("ip").size() == 0)'
 
 # ================================================================================================
 # 7. restore and verdict
@@ -659,4 +760,8 @@ echo "  loop without a case going red on vertices == 0 while threw stays true, m
 echo "  bridge_name check to the wrong mode is caught by the shipped fleet, the ecmp port_id bound"
 echo "  cannot lose either end, and the host side's port-0 exemption cannot be transplanted onto"
 echo "  ecmp members -- while writing the same bound as a literal stays green."
+echo "  FINDINGS #90 gate: door 3d cannot be switched off, neither of its two plain-language arms"
+echo "  can quietly fall back to a raw nlohmann exception, and it cannot narrow to 'exactly one"
+echo "  address' without the five _ipAlias4_ files saying so -- while spelling the emptiness test"
+echo "  a different way stays green."
 exit 0

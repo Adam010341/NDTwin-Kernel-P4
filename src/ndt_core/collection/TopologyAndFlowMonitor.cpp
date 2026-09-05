@@ -172,6 +172,19 @@ constexpr std::uint32_t kMaxTopologyInterface = 65535;
  * is untouched; the builder copy is the backstop, and the tests tell the two apart by asserting
  * num_vertices == 0 rather than merely that something threw.
  *
+ * FINDINGS #90 adds door 3d: the HOST half of door 3b. #89 wrote door 3b as
+ * `vertexType == SWITCH && addresses.empty()`, and R0b's live round then measured what the other
+ * half of that condition costs -- an extra host with `"ip": []` loaded into the shipped OVS model
+ * with no diagnostic at all, and /ndt/get_graph_data served it as `('h9', [])`. Unlike doors 3a-3c
+ * this one has NO copy in the builder loop, because there never was one: the builder's addressless
+ * check is switch-only too. The second layer for door 3d is #88's runtime guards, which is a
+ * different kind of layer -- "does not crash" rather than "refuses" -- and both are wanted, because
+ * #88's own inventory left five production-reachable HOST `ip[0]` dereferences unguarded.
+ *
+ * ⚠️ THE HOST DOOR IS ABOUT THE FILE, NOT ABOUT DISCOVERY. A host learned from Ryu at runtime is
+ * a different object; this pass only ever sees the static topology document, and all thirteen
+ * shipped files give every host an address (eight give one, the five _ipAlias4_ files give four).
+ *
  * @param j      the parsed topology document
  * @param where  set to a description of the entry under examination, so the rethrow in
  *               loadStaticTopologyFromFile names it
@@ -199,6 +212,61 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
         {
             switchDpids.insert(nodeJson.at("dpid").get<std::uint64_t>());
         }
+
+        // ---- #90 door 3d: a HOST with no usable "ip" ----
+        // [Co-developed with claude code -- Adam]
+        // 🔴 Door 3b above is the same sentence for a switch, and stops at `SWITCH` deliberately;
+        // this is the other half, and it is a separate door because the reason is different. A
+        // switch is found by dpid and merely *also* has addresses. A host has `"dpid": 0` and is
+        // therefore resolved ONLY by address -- by the edge loop below, by findVertexByIpNoLock,
+        // and by everything downstream. An addressless host is a node nothing can name.
+        //
+        // Measured, 2026-09-05 (scratch/.../rounds/05-R0b-postmerge2.md, file `a`): one extra host
+        // with `"ip": []` in the shipped OVS 4-host model was accepted with ZERO diagnostic, the
+        // kernel opened :8000, and /ndt/get_graph_data served the node as `('h9', [])`.
+        //
+        // 🔴 THIS IS THE FILE LAYER, NOT THE RUNTIME LAYER, AND BOTH ARE NEEDED. #88 put guards on
+        // sixteen `ip.front()` sites so an addressless node cannot crash the process; its own
+        // inventory (§2.2) then found seven MORE unguarded dereferences written as `ip[0]`, five of
+        // them on the HOST side and production-reachable (IntentTranslator.cpp:665,:702,
+        // LLMAgent.cpp:243, FlowLinkUsageCollector.cpp:2986,:2987), and left them unfixed. So the
+        // invariant those five assume is true only if the file never declares such a host: this
+        // check is what makes it true, and #88's guards stay as the layer that survives a bug here.
+        //
+        // Missing key and wrong type are refused here too, and for one reason: without this the
+        // diagnostic for them is nlohmann's `[json.exception.out_of_range.403] key 'ip' not found`
+        // from the shared read below -- the same "the message is an exception class, not a
+        // sentence" defect R0b recorded against door 3c's `bridge_name` before #89 rewrote it.
+        if (vertexType == VertexType::HOST)
+        {
+            const char* fault = nullptr;
+            if (!nodeJson.contains("ip"))
+            {
+                fault = "declares no \"ip\" key at all";
+            }
+            else if (!nodeJson.at("ip").is_array())
+            {
+                fault = "declares an \"ip\" that is not an array of address strings";
+            }
+            else if (nodeJson.at("ip").empty())
+            {
+                fault = "declares an empty \"ip\" array";
+            }
+            if (fault != nullptr)
+            {
+                const std::string who =
+                    nodeJson.contains("device_name") && nodeJson.at("device_name").is_string()
+                        ? "host \"" + nodeJson.at("device_name").get<std::string>() + "\""
+                        : "the host at node #" + std::to_string(itemIndex - 1);
+                throw std::runtime_error(
+                    who + " " + fault +
+                    "; every host needs at least one address. A host carries \"dpid\": 0, so an "
+                    "address is the only thing that identifies it -- to the link resolution "
+                    "below, and to the top-K, intent and last-hop paths, which read the first one "
+                    "without checking that there is one");
+            }
+        }
+
         const auto addresses =
             utils::ipStringVecToUint32Vec(nodeJson.at("ip").get<std::vector<std::string>>());
         nodeAddresses.insert(addresses.begin(), addresses.end());
@@ -756,6 +824,13 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
         // a graph -- and do not treat them as the guard either. TopologyInputValidationTest's
         // three *LeavesNoPartiallyLoadedGraph cases assert num_vertices == 0, not merely that
         // something threw, and that is what tells the two apart.
+        //
+        // 🔴 FINDINGS #90: the HOST equivalent of this throw is NOT here, and that is not an
+        // oversight either -- it lives only in validateStaticTopologyJson (door 3d). Adding a
+        // second copy here would be a backstop that can only ever fire after nodes 0..N-1 are in
+        // the graph, i.e. the partial application #61 exists to abolish, for a condition that has
+        // no pre-existing builder copy to preserve. #88's runtime guards are door 3d's second
+        // layer instead.
         if (vp.vertexType == VertexType::SWITCH && vp.ip.empty())
         {
             throw std::runtime_error(
