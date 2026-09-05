@@ -129,6 +129,14 @@ add_executable(
   # edited". This owns the property that a rename changes the field it was asked to change and
   # nothing else, for every shipped topology and not only the two it was measured on.
   test_NicknameDoesNotRewriteTheFile.cpp
+
+  # [Co-developed with claude code -- Adam] FINDINGS #88, W14: the seven `ip[0]` sites W2's own
+  # grep found and left alone. `operator[]` is not a milder `front()` -- both are
+  # `*(_M_start + n)`, and a default-constructed std::vector has _M_start == nullptr. Five of the
+  # seven read a HOST, and the load-time gate that keeps `ip` non-empty covers SWITCH vertices
+  # only. Seven contained death tests, one per site, because on an ordinary build the unfixed code
+  # produces no red line -- it takes the binary down mid-suite with no verdict for anything.
+  test_AddresslessNodeReplies.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there
