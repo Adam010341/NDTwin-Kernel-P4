@@ -669,6 +669,52 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   `dispatched install failed` 是**另一種**失敗，兩者不要混為一談。
 - **證據**：`scratch/phase2/DEFECT-INVENTORY.md`
 
+### A-7b 🟡 `get_flow_dispatch_status.succeeded` 回答的問題不是被問的那一個（#54／R6 K-4）
+
+> **與 A-7 的關係**：A-7 是「失敗沒有任何 API 讀得到」，已 RESOLVED——它蓋了這個端點。
+> 這一條是**那個端點自己的誠實度問題**：它蓋好了，而它公布的那個數字的**名字**回答了
+> 一個它答不出來的問題。同一個表面，下一層。
+
+- **狀態**：🟡 **已修（分支，未併）**——`fix/w11-dispatch-status-accepted-counters`（W11，2026-09-06）。
+  🔴 **`trunk` 上照舊成立**；任何人能下載到的 kernel 都還是舊行為。
+- **平面**：兩者（但**修法在 OVS 上只能誠實地回答「不知道」**，見下）
+- **失效方向**：樂觀 ＋ 靜默
+- **會發生什麼**（🟢 2026-09-05 受控前後量測，raw
+  `scratch/overnight-2026-09-05/logs/r0-40-w4.log`／`r0-41-w4-vals.txt`）：
+  - **同一個 match 裝 20 次 ⇒ `succeeded +20`，交換機只多 1 列**（比值 20.00，無上界；
+    不同 match 的對照組比值 1.00）。
+  - **刪一條從來不存在的規則 15 次 ⇒ `succeeded +15`／`failed +0`，交換機列數不變**
+    （`S0=4 S1=24 S2=39 S3=40 R0=0 R1=1 R2=0 R3=0`）。
+  - 🟠 R6 K-4 從**外部 app 的角度**再記一次：一次「什麼都沒刪到」的 delete 讓
+    `succeeded` 從 12 變 13（**console only，沒有 tee 成檔，沒有重跑**）。
+    K-4 加的那一半是：**它是 kernel 在 200 body 裡指定的唯一 read-back，而它是全域計數器、
+    沒有 request id ⇒ app 無法歸屬「我這一次的 POST」。**
+- **機制**：`succeeded` 數的是「南向接受了幾個 job」。那個數字**沒有壞**——
+  它回答的問題（我發出去了嗎）和被問的問題（交換機上有這條規則嗎）不是同一個。
+  🔑 **這條的形狀值得單獨記住**：一個正確的數字配一個錯誤的名字，比一個錯誤的數字更難發現，
+  因為每一次讀它的人都會自己把名字補成一句話。
+- **W11 修了什麼**（三件，全在分支上）：
+  1. **A**：`counters.succeeded`／`failed` → `dispatched_ok`／`dispatch_failed`。
+     **舊鍵移除、不並列**——七個 app repo 對這個端點與這些鍵名 0 命中（2026-09-06 覆查；
+     2026-09-04 另掃過含官網的八個 repo），所以沒有東西要相容；而一個把錯誤宣稱寫在名字裡的鍵，
+     只要還在發就還在宣稱。body 留一版 `renamed_keys` 當麵包屑。
+  2. **B**：新增第二組計數 `switch_outcome{accepted_by_switch, rejected_by_switch, unknown}`，
+     來源是平面自己的回覆（`OpResult::confirmsProgramming`／新增的 `confirmsNotProgrammed`）。
+     🔴 **OVS 上恆 `unknown`，而且會一直是**——OpenFlow 不 ack FLOW_MOD（見 C-4）。
+     那不是儀器的缺口，是這個 fabric 能被問到的極限；body 裡帶 `why_unknown` 一句話，
+     因為**一個永遠停在 unknown 又不說為什麼的欄位，會被讀成「查過了、沒事」**。
+     P4 上兩個方向都是真的：K-4 那種 no-op delete 在 P4 落在 `rejected_by_switch`。
+  3. **request id**：四個 flow 端點的 200 body 回 `request_id`，
+     `get_flow_dispatch_status?request_id=<id>` 回那一次 POST 的兩組計數＋`enqueued`／`complete`。
+- **順手做掉的**：`recent_failures` 環 256 → **2000（＝dispatcher 的 burst）**，
+  2026-09-05 第五輪誠實度第四件的裁決。舊值下一次 2000 筆的爆量可以把自己前四分之三的證據擠掉，
+  只留一個 `recent_failures_evicted`——那正是 A-7 要關掉的形狀，往上一層。
+- **沒有修的**：`POST /ndt/delete_flow_entry` 的回應**一個字都沒動**，仍然是 200
+  （見 `doc/2026-01-02_ndt_api.md` §10）。W11 只讓事後的計數分得出來，**而且只在 P4 上**。
+- **文件**：`doc/2026-01-02_ndt_api.md` §42（分支版，含 since 與 OVS unknown 的理由）、
+  `doc/audit/2026-09-06_fix-dispatch-status-honest/FIX-DISPATCH-STATUS-HONEST.md`。
+  閘門：`tests/shell/mutate_dispatch_status_honest.sh`。
+
 ### A-8 三個測試工具在系統正確運作時變紅
 
 - **狀態**：**OPEN。** ⏳ **待 live 驗證佇列**：修法在 `fb68ef1d`（三態輸出：down+ON＝failure、
@@ -2000,6 +2046,10 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
 - **機制**：B-1 的過濾器擋的是讀取路徑，不是 OVS 的寫入路徑。
 - 🔑 **這一條的形狀值得單獨記住**：一個修法在**它被驗證的那個平面**成立，
   不表示在另一個平面成立；而原本的驗證在結構上不可能發現這件事。
+- 🆕 **W11（2026-09-06，分支未併）把這條的成因變成了一個公開欄位**：
+  `get_flow_dispatch_status.switch_outcome.unknown` 就是「這個平面沒有裁決過」的計數，
+  OVS 上恆等於 `dispatched`。**它不修 C-4，它讓 C-4 在 API 上看得見**——
+  在此之前「這個平面答不出來」只寫在 `kernel.log` 的一行 WARN 與這份文件裡。見 A-7b。
 - **證據**：`.../round1-ovs/22_x5_b1_phantom_window_ovs.log`。
   **含陽性對照**：合法的 port-2 規則有**同樣的**幽靈形狀 ⇒ 那一列是快取，不是合法性判定。
   探測解析度 0.25 s vs 約 1.0 s 的窗 ⇒ 排除「探測太慢」。
@@ -2053,6 +2103,10 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
   可觀測的形狀是「視圖直到下一次輪詢把它清掉為止都還留著那一列」，
   與 C-4 的「刻意扣留」**不是同一個成因**（扣留是主動不給，這裡是被動沒更新）。
   要寫進修法單之前必須有人開檔確認 §5 的 delete 路徑是否真的沒有對應的失效處理。
+- 🆕 **W11（2026-09-06，分支未併）與這條的交界**：W11 沒有動 §5，也沒有動 §10 的回應。
+  它做的是讓**事後的計數**分得出 no-op delete——**只在 P4 上**（`rejected_by_switch`）。
+  OVS 上這條的重試迴圈**原封不動**：§5 仍然停在 9.61 s，§10 仍然回 200，
+  而 `switch_outcome` 誠實地回 `unknown`。**「可觀測」不等於「可判別」，這裡只買到前者。** 見 A-7b。
 - 🔴 **影響面**：
   - **一支社群 app 刪完規則立刻驗，會讀到「沒刪掉」**，於是重刪；
     而 §10 對「什麼都沒刪到」也回 **200**、與真的刪掉逐字相同（見 `doc/2026-01-02_ndt_api.md` §10
