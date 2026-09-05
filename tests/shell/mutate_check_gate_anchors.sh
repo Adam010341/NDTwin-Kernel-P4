@@ -8,14 +8,15 @@
 # the text it mutates. If it goes blind, twenty-nine gates go unwatched and the report still
 # reads clean -- so its own tests have to be shown red before they mean anything.
 #
-# Thirteen mutations, in three families:
+# Fourteen mutations, in three families:
 #   1-4, 9, 13  the four table shapes it learned to read (packed argument, command substitution,
 #               parallel arrays, callback dispatch, delegation). Each blinds one shape.
 #   5-8, 10     the loudness contract: a driver inheriting "ok" it did not earn, an unchecked
 #               delegate read as a checked one, exit 2 downgraded to 0, the stderr line dropped,
 #               and a delegating gate mis-filed as NO-ANCHORS on a healthy tree.
-#   11, 12      the measurement itself: an anchor count pinned to the expected value, and the
-#               comparison that turns a count into MISSING.
+#   11, 12, 14  the measurement itself: an anchor count pinned to the expected value, the
+#               comparison that turns a count into MISSING, and the hit count a call site
+#               DECLARES -- ignoring that one does not miss a check, it invents a DUP.
 #
 # A mutation that makes the wrong test go red is a SURVIVOR, not a kill: the case it targets was
 # never put to the test. So is one that makes the tool crash before the named case runs.
@@ -137,6 +138,17 @@ report "M12: the count is never compared with what the gate expects" "$m12" \
 m13=$(mutant m13 '    return fixed, problems, sorted(dict.fromkeys(delegates))'$'\x1f''    return fixed, problems, []')
 report "M13: a driver gate names none of the gates it runs" "$m13" \
        "test_driver_is_ok_when_every_delegate_is"
+
+# 2026-09-05. `apply_exact <file> <old> <new> <count>` is how a gate says its anchor is
+# deliberately not unique. Blinding _declared_want makes every call site read as want=1 -- and
+# the anchor it is aimed at really does occur twice, so the tool reports DUP against a gate that
+# is not broken. A failure this tool INVENTS is the same sin as one it misses.
+m14=$(mutant m14 '    pos = apos + 2
+    if pos < len(words) and re.fullmatch(r"\d+", words[pos][0]):
+        return int(words[pos][0])
+    return 1'$'\x1f''    return 1')
+report "M14: a declared hit count is ignored (an invented DUP)" "$m14" \
+       "test_a_declared_count_is_read_once_by_both_rules"
 
 echo
 if [[ "$(sha256sum "$CHECKER" | cut -d' ' -f1)" == "$BASE_SHA" ]]; then
