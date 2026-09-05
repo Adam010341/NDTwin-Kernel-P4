@@ -31,6 +31,11 @@
 # 🔴 THE TWINS GET A MUTATION EACH (M1 nickname, M4 device_name). They are near-duplicates, and
 # a single mutation covering both would be answered by a suite that only ever drove one.
 #
+# 🔴 The `ndt` mutations are written as `m=$(ndt_mutant ...)` followed by a call, and not as one
+# nested expression, because that is the shape tests/shell/check_gate_anchors.py can read. Written
+# nested, this gate reported ok(12) for fifteen anchors -- the three `ndt` ones were not checked
+# and nothing said so, which is finding #28 exactly.
+#
 # 🔴 TWO SUBJECTS, TWO HARNESSES. The kernel mutations are applied to the WORKING TREE and the
 # gtest suite is rebuilt for each one; the `ndt` mutations are applied to a COPY (ndt sources
 # ports.sh and sudo_surface.sh from beside itself, so a mutant is a directory) and need no
@@ -365,29 +370,29 @@ echo "mutations -- ndt status --check:"
 # --- M11: 🔴 --check folds the overlay into the model file's sha256 ------------------------------
 # The precise regression W10 exists to prevent: the operator names a switch and the environment
 # check answers "the topology file has been edited".
-ndt_must_die "M11 --check hashes the overlay with the model file" \
-    "$(ndt_mutant m11 "$NDT" \
-        '        now="$(sha256sum "$path" 2>/dev/null | cut -d'"'"' '"'"' -f1)"' \
-        '        now="$(cat "$path" "$overlay" 2>/dev/null | sha256sum | cut -d'"'"' '"'"' -f1)"')" \
+m=$(ndt_mutant m11 "$NDT" \
+    '        now="$(sha256sum "$path" 2>/dev/null | cut -d'"'"' '"'"' -f1)"' \
+    '        now="$(cat "$path" "$overlay" 2>/dev/null | sha256sum | cut -d'"'"' '"'"' -f1)"')
+ndt_must_die "M11 --check hashes the overlay with the model file" "$m" \
     "🔴 renaming two switches leaves --check GREEN"
 
 # --- M12: the row is printed and also graded ----------------------------------------------------
 # Printing a comparison and making one are two acts. This mutant keeps the row exactly as it
 # reads and turns it into a verdict, which is the same red by a different door.
-ndt_must_die "M12 the overlay row becomes part of the verdict" \
-    "$(ndt_mutant m12 "$NDT" \
-        '    _ut_overlay_row "$overlay"' \
-        '    _ut_overlay_row "$overlay"
-    [[ -f "$overlay" ]] && { UP_TARGET_PROBLEMS+=("device names: an overlay exists"); bad=1; }')" \
+m=$(ndt_mutant m12 "$NDT" \
+    '    _ut_overlay_row "$overlay"' \
+    '    _ut_overlay_row "$overlay"
+    [[ -f "$overlay" ]] && { UP_TARGET_PROBLEMS+=("device names: an overlay exists"); bad=1; }')
+ndt_must_die "M12 the overlay row becomes part of the verdict" "$m" \
     "🔴 renaming two switches leaves --check GREEN"
 
 # --- M13: the row stops saying it was left out on purpose ---------------------------------------
 # A silence is not a statement. Without the words, a reader cannot tell "not compared" from
 # "forgot to compare", and nothing fails when the next change folds it in.
-ndt_must_die "M13 the row no longer says it was not compared" \
-    "$(ndt_mutant m13 "$NDT" \
-        '            "not compared -- the model file is the baseline"' \
-        '            ""')" \
+m=$(ndt_mutant m13 "$NDT" \
+    '            "not compared -- the model file is the baseline"' \
+    '            ""')
+ndt_must_die "M13 the row no longer says it was not compared" "$m" \
     "  and the row says it was left out on purpose"
 
 echo
