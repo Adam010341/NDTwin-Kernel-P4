@@ -75,11 +75,45 @@ struct OpResult
      */
     bool confirmsProgramming = false;
 
+    /**
+     * @brief Whether this answer is evidence that no switch holds the rule.
+     *
+     * [Co-developed with claude code -- Adam]
+     * W11 (#54, R6 K-4). The mirror of confirmsProgramming, and the two are deliberately NOT a
+     * single tri-state: they are set on different code paths by different facts, and a bool pair
+     * that can be (false, false) is exactly the point -- "neither" is the answer on the OVS plane
+     * and it has to be representable, because a counter that has to pick one of two buckets will
+     * always pick the wrong one for a plane that adjudicates nothing.
+     *
+     * True requires BOTH halves: the far end answered at all (a request that never left this host,
+     * or one that timed out, has told us nothing about any switch -- the misattribution
+     * OpResult::notSent exists to stop), AND the plane that answered decides the entry before it
+     * replies. On P4 the proxy programs the table and then reports a per-entry refusal, so a
+     * refusal there is a verdict about the switch: the delete found nothing, the priority was not
+     * honourable, the match was unsupported -- in every case the entry is not on the switch and we
+     * know it. On OVS a Ryu rejection means Ryu declined to build the FlowMod, which is a
+     * control-plane fact, not a switch's adjudication, so this stays false there.
+     *
+     * Read only by DispatchOutcomeLog::record, which uses it for the `rejected_by_switch` bucket
+     * of the second counter group. Never read as "the operation failed" -- `ok` answers that, and
+     * a failure with this bit clear has still failed.
+     */
+    bool confirmsNotProgrammed = false;
+
     /// A copy of this result carrying @p confirmed. Chainable at a return statement.
     OpResult withProgrammingConfirmed(bool confirmed) const
     {
         OpResult copy = *this;
         copy.confirmsProgramming = confirmed;
+        return copy;
+    }
+
+    /// A copy of this result carrying @p refused as confirmsNotProgrammed. Chainable.
+    /// [Co-developed with claude code -- Adam] W11.
+    OpResult withProgrammingRefused(bool refused) const
+    {
+        OpResult copy = *this;
+        copy.confirmsNotProgrammed = refused;
         return copy;
     }
 

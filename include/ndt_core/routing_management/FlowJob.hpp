@@ -85,6 +85,32 @@ struct FlowJob {
      * caller that predates tokens. Such entries are never filtered.
      */
     uint64_t token = 0;
+
+    /**
+     * @brief Which POST this job came from, so its outcome can be attributed to that caller.
+     *
+     * [Co-developed with claude code -- Adam]
+     *
+     * W11, from R6 K-4. `get_flow_dispatch_status` is the only programmatic read-back the flow
+     * endpoints name in their own 200 body, and its counters are process-wide totals: a caller
+     * reading them before and after its own POST is measuring every other writer as well. The
+     * manual said so in as many words when the endpoint was first documented (§42, limit 1), and
+     * "read them before and after" is only sound if you are the only writer -- which §27's
+     * advisory lock does not let anyone guarantee.
+     *
+     * **One id per batch, not per entry.** The question a caller asks is "did the request I just
+     * sent land", and the request is the batch. Per-entry ids would be a different endpoint (they
+     * would have to be returned as a list the caller correlates by position, and both in-repo
+     * writers discard the response body entirely), so this is deliberately the coarser identity.
+     *
+     * Distinct from `token`: a token is minted per *install* and exists to link an optimistic
+     * cache row to its confirmation (T-11), so modifies and deletes have none. Every accepted job
+     * of a batch carries the batch's request id, including deletes -- K-4 is a delete.
+     *
+     * 0 means "not from a tokened HTTP batch": a job built in a test, or by a caller predating
+     * W11. Such a job is counted in the global totals only.
+     */
+    uint64_t requestId = 0;
 };
 
 /**

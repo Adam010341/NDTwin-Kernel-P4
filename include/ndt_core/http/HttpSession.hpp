@@ -285,6 +285,29 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      * @param[out] res HTTP response whose body is set to the JSON dispatch status.
      */
     void handleGetFlowDispatchStatus(http::response<http::string_body>& res);
+
+    /**
+     * @brief Answers `get_flow_dispatch_status?request_id=<id>` for one batch instead of the
+     *        process.
+     *
+     * [Co-developed with claude code -- Adam]
+     *
+     * W11, from R6 K-4. The process-wide counters cannot be attributed: a caller reading them
+     * before and after its own POST is also measuring every other writer, and §27's lock is
+     * advisory. `install_flow_entry` and its siblings now return a `request_id`, and this reads
+     * back that one batch's share of both counter groups.
+     *
+     * Separate from the handler so `?request_id=abc` is answered here as a 400 rather than by
+     * buildResponse()'s outermost catch as a 500 -- the exact confusion test_HttpSessionRouting
+     * was written for.
+     *
+     * @param raw The raw query value, already known to be non-empty.
+     * @return Always true: this function has written the response and the caller must not also
+     *         write the process-wide body.
+     */
+    bool respondToDispatchStatusRequestId(http::response<http::string_body>& res,
+                                          const std::string& raw);
+
     /**
      * @brief Returns the latest cached device power report as JSON.
      *

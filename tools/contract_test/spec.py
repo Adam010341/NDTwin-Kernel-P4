@@ -353,12 +353,23 @@ DISPATCH_FAILURE = Obj({
 DISPATCH_STATUS = Obj({
     "counters": Obj({
         "dispatched": Int(min=0),
-        "succeeded": Int(min=0),
-        "failed": Int(min=0),
     }, optional={
         # Added after the endpoint shipped. Optional so the contract still describes a kernel
         # built from an earlier commit rather than reporting a false regression against one.
         "dropped_after_stop": Int(min=0),
+        # [Co-developed with claude code -- Adam]
+        # W11 (#54), 2026-09-06. `succeeded`/`failed` were renamed to `dispatched_ok`/
+        # `dispatch_failed`: the values never changed and were never wrong, the word "succeeded"
+        # was -- it counts requests the far end took, and it was read as rules on a switch (the
+        # same match installed 20 times moved it by +20 for one row). All four spellings are
+        # optional HERE and the pair is required by inv_dispatch_counters_close instead, which is
+        # what lets one schema describe a kernel from either side of the rename. A schema that
+        # required the new names would report every pre-W11 kernel as broken; one that required
+        # the old names would do the same to every kernel after it.
+        "succeeded": Int(min=0),
+        "failed": Int(min=0),
+        "dispatched_ok": Int(min=0),
+        "dispatch_failed": Int(min=0),
     }),
     "recent_failures": List(DISPATCH_FAILURE),
     "recent_failures_capacity": Int(min=1),
@@ -371,6 +382,52 @@ DISPATCH_STATUS = Obj({
         "includes_boot_time_programming": Bool(),
         "includes_intent_translator": Bool(),
     }),
+    # [Co-developed with claude code -- Adam]
+    # W11's B half: the second counter group, which answers about the SWITCH rather than about the
+    # dispatch. `why_unknown` is in the schema and required within the object on purpose -- on
+    # today's OVS plane `unknown` equals `dispatched` and always will, and a permanently-unknown
+    # number with no reason beside it is read as "checked, nothing wrong". The text travelling with
+    # the number is the field, not decoration.
+    "switch_outcome": Obj({
+        "accepted_by_switch": Int(min=0),
+        "rejected_by_switch": Int(min=0),
+        "unknown": Int(min=0),
+        "why_unknown": Str(nonempty=True),
+    }),
+    # W11 / R6 K-4: what `?request_id=<id>` can still answer for.
+    "request_ids_tracked": Int(min=0),
+    "request_ids_capacity": Int(min=1),
+    "request_ids_forgotten": Int(min=0),
+    # The rename breadcrumb. Non-strict Obj: it names old keys, and the set may shrink.
+    "renamed_keys": Obj({}, strict=False),
+})
+
+
+# [Co-developed with claude code -- Adam]
+# W11 / R6 K-4. GET /ndt/get_flow_dispatch_status?request_id=<id>, which answers for one POST
+# instead of for the process. Not registered as a probe of its own -- the runner would have to
+# POST a flow batch to obtain an id, which is a mutation and this endpoint's whole value is that
+# it is safe to read on a live fabric. It is here so a caller reading this file learns the shape.
+DISPATCH_STATUS_FOR_REQUEST = Obj({
+    "request_id": Int(min=1),
+    "enqueued": Int(min=0),
+    "counters": Obj({
+        "dispatched": Int(min=0),
+        "dispatched_ok": Int(min=0),
+        "dispatch_failed": Int(min=0),
+    }),
+    "switch_outcome": Obj({
+        "accepted_by_switch": Int(min=0),
+        "rejected_by_switch": Int(min=0),
+        "unknown": Int(min=0),
+        "why_unknown": Str(nonempty=True),
+    }),
+    # False means jobs from this batch have not been dispatched yet -- the distinction the
+    # process-wide counters cannot draw, and the reason `enqueued` is published next to it.
+    "complete": Bool(),
+}, optional={
+    "dispatcher_running": Bool(),
+    "detail": Str(),
 })
 
 
@@ -849,11 +906,24 @@ def inv_dispatch_counters_close(data, ctx):
     dropped_after_stop is deliberately NOT in the sum: those jobs were refused before any
     southbound attempt, so they are disjoint from all three. Adding it here would make a healthy
     shutdown look like a counting bug.
+
+    W11 (2026-09-06): the two summands were renamed `dispatched_ok`/`dispatch_failed`. This reads
+    either spelling and requires exactly one pair to be present, so the same check bites on a
+    kernel from either side of the rename -- and so that "the key vanished" is a failure here
+    rather than a silently skipped invariant. The pre-W11 names are read first purely to keep the
+    two lines below byte-identical for tests/shell/mutate_a7_dispatch_status.sh, whose mutation 7
+    and negative control both anchor on them; a gate that cannot find its anchor is a gate that
+    silently stops testing.
     """
     c = data.get("counters") or {}
     dispatched, succeeded, failed = c.get("dispatched"), c.get("succeeded"), c.get("failed")
+    if succeeded is None:
+        succeeded = c.get("dispatched_ok")
+    if failed is None:
+        failed = c.get("dispatch_failed")
     if None in (dispatched, succeeded, failed):
-        return ["counters is missing one of dispatched/succeeded/failed"]
+        return ["counters is missing one of dispatched/succeeded/failed "
+                "(post-W11 spelling: dispatched/dispatched_ok/dispatch_failed)"]
 
     out = []
     if dispatched != succeeded + failed:
@@ -875,6 +945,59 @@ def inv_dispatch_counters_close(data, ctx):
     if evicted and listed < capacity:
         out.append(f"recent_failures_evicted is {evicted} while the list holds {listed} of "
                    f"{capacity} -- nothing should have aged out of a list that is not full")
+    return out
+
+
+def inv_switch_outcome_closes(data, ctx):
+    """
+    accepted_by_switch + rejected_by_switch + unknown == dispatched, and unknown is not faked.
+
+    [Co-developed with claude code -- Adam]
+    W11 (#54). The second counter group partitions the same population as `dispatched` -- a
+    SECOND, independent closure over the same jobs, which is why the group is its own object and
+    is not folded into dispatched == dispatched_ok + dispatch_failed. A record() that returned
+    early on some op would break one sum or the other.
+
+    The `why_unknown` check is not politeness. On today's OVS plane `unknown` equals `dispatched`
+    and always will, because OpenFlow does not acknowledge a FLOW_MOD; a field that is permanently
+    at its uninformative value and does not say why gets read as "checked, nothing wrong". That is
+    the instrument-shaped-like-its-own-finding failure this whole endpoint keeps producing, and
+    the text is the part that stops it, so the text is asserted.
+
+    Silent when the group is absent: a pre-W11 kernel has no second group and is not in breach.
+    """
+    sw = data.get("switch_outcome")
+    if sw is None:
+        return []
+
+    out = []
+    accepted, rejected, unknown = (sw.get("accepted_by_switch"), sw.get("rejected_by_switch"),
+                                   sw.get("unknown"))
+    if None in (accepted, rejected, unknown):
+        return ["switch_outcome is missing one of accepted_by_switch/rejected_by_switch/unknown"]
+
+    dispatched = (data.get("counters") or {}).get("dispatched")
+    if dispatched is not None and accepted + rejected + unknown != dispatched:
+        out.append(f"accepted_by_switch ({accepted}) + rejected_by_switch ({rejected}) + unknown "
+                   f"({unknown}) = {accepted + rejected + unknown}, but dispatched is "
+                   f"{dispatched}; the switch-side group is not partitioning the same jobs")
+
+    why = sw.get("why_unknown") or ""
+    if not why.strip():
+        out.append("switch_outcome.unknown is published without why_unknown; a permanently "
+                   "unknown counter that does not say why reads as 'checked, nothing wrong'")
+
+    # The failure this group exists to prevent, stated as an assertion rather than as a comment:
+    # letting dispatched_ok stand in for a switch's acceptance. On a plane that adjudicates
+    # nothing, every dispatch is unknown, so accepted must be 0 -- and the harness cannot know
+    # which plane it is pointed at, so what is checkable is the direction: an acceptance count
+    # can never exceed the successful dispatches it would have to be derived from.
+    dispatched_ok = (data.get("counters") or {}).get("dispatched_ok")
+    if dispatched_ok is None:
+        dispatched_ok = (data.get("counters") or {}).get("succeeded")
+    if dispatched_ok is not None and accepted > dispatched_ok:
+        out.append(f"accepted_by_switch ({accepted}) exceeds dispatched_ok ({dispatched_ok}); a "
+                   f"switch cannot have accepted more entries than were successfully dispatched")
     return out
 
 
@@ -964,10 +1087,14 @@ ENDPOINTS = [
     dict(name="get_flow_dispatch_status", method="GET",
          path="/ndt/get_flow_dispatch_status",
          category=READ, schema=DISPATCH_STATUS,
-         invariants=[inv_dispatch_counters_close, inv_dispatcher_is_running],
+         invariants=[inv_dispatch_counters_close, inv_dispatcher_is_running,
+                     inv_switch_outcome_closes],
          note="A-7: the only API surface on which a failed queued write is visible. "
               "counters cover the four dispatch routes only -- boot-time programming runs in "
-              "a different process and is not counted here"),
+              "a different process and is not counted here. W11 (2026-09-06): counters.succeeded/"
+              "failed are now counters.dispatched_ok/dispatch_failed, and switch_outcome answers "
+              "about the switch rather than the dispatch (all unknown on OVS, by construction). "
+              "?request_id=<id> narrows both groups to one POST -- see DISPATCH_STATUS_FOR_REQUEST"),
 
     dict(name="get_static_topology_json", method="GET", path="/ndt/get_static_topology_json",
          category=READ, schema=Obj({}, strict=False)),
