@@ -301,7 +301,13 @@ deep_sweep() {
 #     .test_run/lab.claim
 #         owner=<free text, required>
 #         expires=<unix seconds, required -- a crashed session must not hold the lab forever>
-#         note=<free text, optional>
+#         note=<free text, optional>       what the lab is being used for RIGHT NOW. `up` and
+#                                          `down` rewrite this themselves (09-05 R7 I-4).
+#         exclusive_cpu=<yes|no>           from NDT_EXCLUSIVE_CPU at claim time.
+#         measuring=<free text, optional>  from NDT_MEASURING at claim time. A DECLARATION that
+#                                          a measurement is running which `ndt check`'s 4 Hz
+#                                          poll would perturb; empty means nothing was declared,
+#                                          which is not the same as nothing running (R4-2).
 #
 # Workspace-local, not /tmp, for the reason components.env already gives about predictable
 # paths in world-writable directories.
@@ -508,7 +514,12 @@ cmd_claim() {
         err "the lab is already claimed by $other"
         return 1
     fi
-    [[ "$mins" =~ ^[0-9]+$ ]] || { err "usage: ndt claim [minutes] [note]"; return 2; }
+    [[ "$mins" =~ ^[0-9]+$ ]] || {
+        err "usage: ndt claim [minutes] [note]"
+        err "  NDT_EXCLUSIVE_CPU=1  no heavy local job may overlap this claim"
+        err "  NDT_MEASURING='...'  a measurement is running that 'ndt check' must not perturb"
+        return 2
+    }
     mkdir -p "$(dirname "$CLAIM")"
     # [Co-developed with claude code -- Adam]
     # exclusive_cpu: the claim protects the fabric and the build, and until 2026-08-28 it
@@ -522,9 +533,22 @@ cmd_claim() {
     # I/O with nothing to tell anyone. Knowing was not a mechanism. So the declaration is only
     # half of this change -- cmd_status reads it unconditionally and --check fails on it. A field
     # nobody reads is the same failure in a new location.
-    printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=%s\n' \
+    #
+    # [Co-developed with claude code -- Adam]
+    # measuring: the same shape one field down, for the same reason, added 2026-09-06 (R4-2).
+    # `ndt check` used to refuse whenever it SAW an iperf3 client -- and it needs traffic to say
+    # anything at all, so the only configuration that produced an answer was the one it labelled
+    # contaminated. The guard is really protecting the sampling-rate matrix, whose poll-off cells
+    # this check's 4 Hz poll would silently refill; and a poll-off cell and the flows `check` was
+    # told to measure against are indistinguishable in `ps`. Only the person running the matrix
+    # knows which it is, so they say so:
+    #     NDT_MEASURING='sampling matrix, poll-off cell 3/8' ndt claim 90 'S-rate matrix'
+    # Empty means "nothing declared", which is NOT "nothing running" -- in_flight still watches
+    # the process table for `status`, `up` and `down`.
+    printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=%s\nmeasuring=%s\n' \
         "$NDT_OWNER" "$(( $(date +%s) + mins * 60 ))" "$note" \
-        "$( [[ -n "${NDT_EXCLUSIVE_CPU:-}" ]] && echo yes || echo no )" > "$CLAIM"
+        "$( [[ -n "${NDT_EXCLUSIVE_CPU:-}" ]] && echo yes || echo no )" \
+        "${NDT_MEASURING:-}" > "$CLAIM"
     # [Co-developed with claude code -- Adam]
     # Claiming invalidates any handoff note. Adam ruled this after the 8/25 sampling session
     # argued it, and their argument is the right one: deletion has to be tied to taking
@@ -556,6 +580,21 @@ cmd_release() {
         return 1
     fi
     rm -f "$CLAIM"; ok "lab released"
+}
+
+# measuring_declared -- what the live claim says it is measuring, or nothing.
+#
+# [Co-developed with claude code -- Adam]
+# A DECLARATION, and deliberately not a detection. in_flight below answers "what is running",
+# which is the right question for a teardown and the wrong one for `ndt check`: R4-2 is the case
+# where the two were the same predicate and needed opposite answers. Empty here means nobody
+# declared anything -- never that nothing is running. An expired claim declares nothing, for the
+# same reason an expired claim holds nothing.
+measuring_declared() {
+    [[ -f "$CLAIM" ]] || return 0
+    local exp; exp="$(claim_field expires)"
+    [[ "$exp" =~ ^[0-9]+$ ]] && (( exp > $(date +%s) )) || return 0
+    claim_field measuring
 }
 
 # --- the note, written by the command that changes the fact -------------------------------
@@ -2467,6 +2506,15 @@ cmd_status() {
         printf '  %-14s %s\n' "" "no claim: the lab is free, this fabric included -- tear it down if you want"
     fi
 
+    # Declared beside observed, the same pairing the exclusive-cpu row above uses and for the
+    # same reason: a declaration nobody checks against reality is a promise, and reality with no
+    # declaration beside it cannot say what it is FOR. This row is what `ndt check` refuses on
+    # (R4-2); the rows below it are what `up` and `down` refuse on. They answer different
+    # questions and are printed as two rows so they cannot be read as one.
+    local declared; declared="$(measuring_declared)"
+    [[ -n "$declared" ]] && printf '  %-14s %s\n' "declared" \
+        "$(printf '%s' "$declared" | cut -c1-64)   (claim measuring=; 'ndt check' refuses while set)"
+
     local busy; busy="$(in_flight)"
     if [[ -n "$busy" ]]; then
         local extra; extra="$(printf '%s\n' "$busy" | wc -l)"
@@ -2714,12 +2762,40 @@ cmd_check() {
     # This check polls /ndt/get_graph_data at 4 Hz, and that HTTP work is served by the very
     # process whose CPU a sampling-rate run is measuring. Running it during a poll-off cell
     # would silently put the poll back in.
-    local busy; busy="$(in_flight)"
-    if [[ -n "$busy" && "${1:-}" != "--force" ]]; then
-        err "refusing: this polls the kernel at 4 Hz and would perturb a running measurement:"
-        printf '%s\n' "$busy" | sed 's/^/        /' >&2
+    # R4-2, 2026-09-05, 100% reproducible on 128 hosts. This used to refuse whenever in_flight
+    # saw an iperf3 CLIENT -- and with no traffic this same command prints "run this while
+    # traffic is flowing". So the only configuration that produced a meaningful ratio was the one
+    # the tool itself labelled "accept the contamination", and --force became the only usable
+    # mode while not being the default. A guard that fires on the precondition of the thing it
+    # guards teaches the habit of forcing past it, which disarms it for the run it exists to
+    # protect -- the same argument the iperf3-server case above was fixed on.
+    #
+    # Two needs were sharing one predicate and pointing opposite ways. The guard is for the
+    # sampling-rate matrix, whose poll-off cells this 4 Hz poll would silently refill; `check`
+    # REQUIRES traffic. They are separated by asking a different question -- not "is anything
+    # sending packets" but "has anyone DECLARED a measurement this would perturb". Only a
+    # declaration can tell a poll-off cell from the flows this check was told to run against:
+    # in `ps` they are the same iperf3.
+    #
+    # 🔴 in_flight is NOT weakened and is NOT bypassed anywhere else. `ndt status` still renders
+    # it, and `up` and `down` still refuse on it: a teardown's job is to stop someone destroying
+    # results, and results exist whether or not anybody declared them. What changed is which
+    # question THIS subcommand asks.
+    local declared; declared="$(measuring_declared)"
+    if [[ -n "$declared" && "${1:-}" != "--force" ]]; then
+        err "refusing: this polls the kernel at 4 Hz and would perturb the measurement the claim declares:"
+        printf '%s\n' "$declared" | sed 's/^/        /' >&2
+        err "declared in .test_run/lab.claim (measuring=), not guessed from the process table."
         err "wait for it, or accept the contamination:  ndt check --force"
         return 1
+    fi
+    local busy; busy="$(in_flight)"
+    if [[ -n "$busy" ]]; then
+        info "traffic is running, which is what this check needs in order to say anything:"
+        printf '%s\n' "$busy" | sed 's/^/        /'
+        info "nothing is declared in the claim (measuring=), so this is not treated as a"
+        info "protected measurement. if it is one, declare it and this check will refuse:"
+        info "  NDT_MEASURING='what it is' ndt claim <mins> '<note>'"
     fi
 
     info "sampling the twin and /proc/net/dev for ${NDT_CHECK_SECS:-8}s"
@@ -2730,6 +2806,40 @@ DUR = float(sys.argv[1])
 HZ = 4.0                      # the twin refreshes usage once a second; sample above that
 URL = "http://localhost:8000/ndt/get_graph_data"
 IFACE = re.compile(r"^s\d+-eth\d+$")
+
+# --- BEGIN verdict_lines (pure; extracted verbatim by tests/shell/test_ndt_honesty.sh) ---
+def verdict_lines(twin_bps, truth_bps):
+    """Everything this check says about the ratio, as lines. No I/O, so it is testable
+    without a kernel, a fabric or traffic -- the rest of this block needs all three.
+
+    R4-5, 2026-09-05: against a ground truth stable to 0.27% over twelve runs, the ratio
+    ranged 0.85-0.97 -- a 13% spread, every one of them LOW -- and printed `ok` all twelve
+    times, because the ok band is 0.5-1.5. Adam kept the band (grill round 4): it is looking
+    for a DOUBLING, and narrowing it would turn a tripwire into a calibration check it was
+    never designed to be. What was missing is that `ok` was being read as "the twin's
+    bandwidth numbers are accurate". So the size of the gap is printed in the same breath as
+    the verdict, and the line says in words what the verdict does not mean.
+    """
+    ratio = twin_bps / truth_bps
+    if ratio > 1.5:
+        verdict = "DOUBLE-COUNTING -- clone replicas stacked"
+    elif ratio < 0.5:
+        verdict = "under-counting"
+    else:
+        verdict = "ok"
+    return [
+        "  ratio                %.2f   %s" % (ratio, verdict),
+        "  ratio=%.3f           (twin %.1f / ground truth %.1f Mbit/s)"
+        % (ratio, twin_bps / 1e6, truth_bps / 1e6),
+        "      twin %s-reports by %.0f%% (%s the +/-50%% double-count band; accuracy is NOT"
+        % ("under" if ratio < 1.0 else "over", abs(1.0 - ratio) * 100.0,
+           "within" if 0.5 <= ratio <= 1.5 else "OUTSIDE"),
+        "      what this check measures -- it is a double-count tripwire, and 'ok' means only",
+        "      that no doubling was seen)",
+        "      ~1.0 expected. ~2.0 is a proxy restarted on a warm fabric stacking clone",
+        "      replicas. Absolute numbers cannot show this -- only the ratio can.",
+    ]
+# --- END verdict_lines ---
 
 # The twin publishes a *rate* (link_bandwidth_usage_bps), never a cumulative byte count, so
 # the comparison has to be rate against rate over the same window: integrate the twin's rate
@@ -2824,16 +2934,8 @@ if truth_bps < 1e6:
     print("  --  under 1 Mbit/s crossing the fabric; the ratio is not meaningful yet.")
     print("      run this while traffic is flowing.")
 else:
-    ratio = twin_bps / truth_bps
-    if ratio > 1.5:
-        verdict = "DOUBLE-COUNTING -- clone replicas stacked"
-    elif ratio < 0.5:
-        verdict = "under-counting"
-    else:
-        verdict = "ok"
-    print("  ratio                %.2f   %s" % (ratio, verdict))
-    print("      ~1.0 expected. ~2.0 is a proxy restarted on a warm fabric stacking clone")
-    print("      replicas. Absolute numbers cannot show this -- only the ratio can.")
+    for line in verdict_lines(twin_bps, truth_bps):
+        print(line)
 PY
 
     echo

@@ -203,6 +203,77 @@ m=$(mutant m13 "$NDT" \
 report "M13: 'ndt clean' tidies away the rotated kernel logs" "$m" \
        "🔴 every rotated generation is still there"
 
+# --- R4-2 / R4-5: the check that would not run, and the verdict that said too little ----------
+
+# R4-2 verbatim: the refusal goes back to the process table, so any iperf3 client blocks the one
+# command that needs traffic in order to say anything.
+m=$(mutant m14 "$NDT" \
+    '    local declared; declared="$(measuring_declared)"
+    if [[ -n "$declared" && "${1:-}" != "--force" ]]; then' \
+    '    local declared; declared="$(in_flight)"
+    if [[ -n "$declared" && "${1:-}" != "--force" ]]; then')
+report "M14: 'ndt check' refuses on observed traffic again" "$m" \
+       "🔴 iperf3 clients with nothing declared: rc 0"
+
+# 🔴 THE OTHER DIRECTION, and the one that would do real damage: no refusal at all. Every case in
+# 4B passes, and the sampling-rate matrix loses the guard that stops this 4 Hz poll refilling a
+# poll-off cell. "Stop refusing so much" has exactly this wrong answer.
+m=$(mutant m15 "$NDT" \
+    '    if [[ -n "$declared" && "${1:-}" != "--force" ]]; then' \
+    '    if false; then')
+report "M15 (widening): 'ndt check' never refuses at all" "$m" \
+       "a declared measurement is refused, rc 1"
+
+m=$(mutant m16 "$NDT" \
+    '        "${NDT_MEASURING:-}" > "$CLAIM"' \
+    '        "" > "$CLAIM"')
+report "M16: the claim stops carrying the declaration" "$m" \
+       "NDT_MEASURING lands in the claim file"
+
+# An expired claim holds nothing, so it declares nothing. Without this, a declaration outlives
+# the lease that authorised it and blocks `ndt check` for ever.
+m=$(mutant m17 "$NDT" \
+    '    local exp; exp="$(claim_field expires)"
+    [[ "$exp" =~ ^[0-9]+$ ]] && (( exp > $(date +%s) )) || return 0
+    claim_field measuring' \
+    '    claim_field measuring')
+report "M17: an expired claim still declares a measurement" "$m" \
+       "🔴 an expired claim declares nothing"
+
+# 🔴 The regression this whole design exists to avoid: `status` reporting only what was declared.
+# I-4 was caught because that row showed 16 iperf3 processes next to a note saying "lab free". A
+# status that renders declarations only would have shown nothing at all.
+m=$(mutant m18 "$NDT" \
+    '    local busy; busy="$(in_flight)"
+    if [[ -n "$busy" ]]; then
+        local extra;' \
+    '    local busy; busy="$(measuring_declared)"
+    if [[ -n "$busy" ]]; then
+        local extra;')
+report "M18: 'ndt status' renders declarations instead of processes" "$m" \
+       "🔴 undeclared traffic is still reported by status"
+
+# R4-5's tempting wrong fix, which Adam ruled against in grill round 4: narrow the band until the
+# 12/12 low readings go red. That turns a double-count tripwire into a calibration check it was
+# never designed to be, and the fix chosen instead was to say how big the gap is.
+m=$(mutant m19 "$NDT" \
+    '    elif ratio < 0.5:' \
+    '    elif ratio < 0.9:')
+report "M19 (wrong fix): the ok band narrowed to catch R4-5" "$m" \
+       "🔴 the band did not move: 0.85 is still ok"
+
+m=$(mutant m20 "$NDT" \
+    '        "  ratio=%.3f           (twin %.1f / ground truth %.1f Mbit/s)"' \
+    '        ""')
+report "M20: the ratio and its two sides are not printed" "$m" \
+       "R4-5's own numbers: the ratio is printed as a value"
+
+m=$(mutant m21 "$NDT" \
+    '        % ("under" if ratio < 1.0 else "over", abs(1.0 - ratio) * 100.0,' \
+    '        % ("over" if ratio < 1.0 else "under", abs(1.0 - ratio) * 100.0,')
+report "M21: under-reporting is reported as over-reporting" "$m" \
+       "🔴 and the size of the gap in words"
+
 # --- widenings: mutants that stay GREEN where the suite requires RED --------------------------
 
 # N1: a `down` is announced whether or not anything recorded one. It passes every fires-side

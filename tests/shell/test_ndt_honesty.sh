@@ -246,9 +246,12 @@ hasnt "  rather than picking one"                        "last kernel.exit ran" 
 # it is defined and never called passes everything except 2C/2D/2E, which drive `up` and `down`
 # for real -- existence is not wiring.
 
+# HANDOFF is redirected as well as CLAIM: cmd_claim renames the handoff note aside, and with the
+# real path still in scope that rename would land in the checkout this suite is testing.
 lib() { bash -c "source '$NDT' >/dev/null 2>&1
 REPO='$FIX'
 CLAIM=\"\$REPO/.test_run/lab.claim\"
+HANDOFF=\"\$REPO/.test_run/lab.handoff\"
 $1" 2>&1; }
 
 claim_file() { echo "$FIX/.test_run/lab.claim"; }
@@ -390,6 +393,148 @@ check "🔴 and so is the live log"                        "present" \
       "$( [[ -e "$FIX/.test_run/logs/kernel.log" ]] && echo present || echo gone )"
 check "🔴 and a .prev from the old scheme"               "old scheme" \
       "$(cat "$FIX/.test_run/logs/kernel.log.prev" 2>/dev/null)"
+
+# ==========================================================================================
+# R4-2 (2026-09-05, 100% reproducible on 128 hosts): `ndt check` prints "run this while traffic
+# is flowing" when idle, and refuses with rc 1 as soon as traffic exists, because it treated any
+# iperf3 CLIENT as a measurement in flight. The only configuration that produced a meaningful
+# ratio was the one the tool itself labelled "accept the contamination".
+#
+# R4-5, the same evening: against a ground truth stable to 0.27%, the ratio ranged 0.85-0.97 --
+# 12/12 low, a 13% spread -- and printed `ok` every time, because the band is 0.5-1.5.
+#
+# 🔴 THE DIRECTION THAT MATTERS: a `check` that never refuses passes 4B and fails 4A, and it
+# would put back the hazard the guard exists for -- a sampling-rate poll-off cell silently
+# refilled by this 4 Hz poll. And in_flight must NOT be weakened: 4D asserts `ndt status` still
+# renders the observed processes, because that row is what caught I-4.
+#
+# python3 is stubbed throughout this group. The real block opens :8000 and polls it at 4 Hz for
+# eight seconds; running that from a test would perturb whatever is on the machine, which is the
+# exact hazard the group is about.
+
+CHECK_STUBS='
+REPO="'"$FIX"'"
+CLAIM="$REPO/.test_run/lab.claim"; HANDOFF="$REPO/.test_run/lab.handoff"
+port_open() { [[ "$1" == 8000 ]]; }
+python3() { cat >/dev/null; echo "PYTHON-WOULD-RUN"; }
+'
+IPERF_LINES='in_flight() { echo "iperf3 -c 10.0.0.33 -p 5511 -t 200 -P 4 -i 0"; echo "iperf3 -c 10.0.0.34 -p 5512 -t 200 -P 4 -i 0"; }'
+NO_IPERF='in_flight() { :; }'
+FX_INFLIGHT="$NO_IPERF"
+run_ndt_check() {   # [--force]
+    bash -c "source '$NDT' >/dev/null 2>&1
+$CHECK_STUBS
+$FX_INFLIGHT
+cmd_check ${1:-}
+echo \"RC=\$?\"" 2>&1
+}
+
+export NDT_OWNER=fixture-owner
+
+section "4A. R4-2: it refuses on a DECLARED measurement -- the guard still guards"
+printf 'owner=fixture-owner\nexpires=%s\nnote=n\nexclusive_cpu=no\nmeasuring=%s\n' \
+    "$(( $(date +%s) + 3600 ))" "sampling matrix, poll-off cell 3/8" > "$(claim_file)"
+FX_INFLIGHT="$IPERF_LINES"
+OUT="$(run_ndt_check)"
+check "a declared measurement is refused, rc 1"          "1" "$(rc_of "$OUT")"
+has   "  and the declaration is quoted back"             "sampling matrix, poll-off cell 3/8" "$OUT"
+has   "  named as a declaration, not as a guess"         "declared in .test_run/lab.claim (measuring=), not guessed from the process table." "$OUT"
+hasnt "🔴 it stopped before sampling anything"           "PYTHON-WOULD-RUN" "$OUT"
+OUT="$(run_ndt_check --force)"
+has   "  --force still gets past it"                     "PYTHON-WOULD-RUN" "$OUT"
+
+section "4B. 🔴 R4-2 itself: traffic alone no longer refuses -- traffic is the precondition"
+printf 'owner=fixture-owner\nexpires=%s\nnote=n\nexclusive_cpu=no\nmeasuring=\n' \
+    "$(( $(date +%s) + 3600 ))" > "$(claim_file)"
+OUT="$(run_ndt_check)"
+check "🔴 iperf3 clients with nothing declared: rc 0"    "0" "$(rc_of "$OUT")"
+has   "🔴 and it actually samples"                       "PYTHON-WOULD-RUN" "$OUT"
+hasnt "  nothing is refused"                             "refusing" "$OUT"
+has   "  the traffic is still shown, as the precondition" "iperf3 -c 10.0.0.33" "$OUT"
+has   "  and it says how to make it a protected measurement" "NDT_MEASURING=" "$OUT"
+
+section "4C. the declaration is written by 'ndt claim', and expires with it"
+no_claim
+OUT="$(lib 'NDT_OWNER=fixture-owner NDT_MEASURING="matrix cell 3/8" cmd_claim 30 "a note" >/dev/null 2>&1; cat "$CLAIM"')"
+has   "NDT_MEASURING lands in the claim file"            "measuring=matrix cell 3/8" "$OUT"
+has   "  beside the note it was given"                   "note=a note" "$OUT"
+OUT="$(lib 'NDT_OWNER=fixture-owner cmd_claim 30 "a note" >/dev/null 2>&1; cat "$CLAIM"')"
+has   "  and is empty when nothing was declared"         "measuring=" "$OUT"
+check "🔴 an expired claim declares nothing"             "" \
+      "$(printf 'owner=fixture-owner\nexpires=1\nnote=n\nexclusive_cpu=no\nmeasuring=still here\n' > "$(claim_file)"; lib 'measuring_declared')"
+check "  and a live one declares what it says"           "still here" \
+      "$(printf 'owner=fixture-owner\nexpires=%s\nnote=n\nexclusive_cpu=no\nmeasuring=still here\n' "$(( $(date +%s) + 3600 ))" > "$(claim_file)"; lib 'measuring_declared')"
+check "🔴 rewriting the note does not drop the declaration" "still here" \
+      "$(lib 'set_claim_note "down at now; claim kept" >/dev/null; measuring_declared')"
+
+section "4D. 🔴 in_flight is not weakened: 'ndt status' still renders the process table"
+mk_graph 4 40
+knob 4
+record ovs 4 "$OVS4"
+kexit ovs
+printf 'owner=fixture-owner\nexpires=%s\nnote=n\nexclusive_cpu=no\nmeasuring=%s\n' \
+    "$(( $(date +%s) + 3600 ))" "sampling matrix, poll-off cell 3/8" > "$(claim_file)"
+STATUS_OUT="$(bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+CLAIM=\"\$REPO/.test_run/lab.claim\"
+claim_line() { echo \"yours -- 60m left\"; }
+$IPERF_LINES
+cmd_status" 2>&1)"
+has   "the declared measurement gets its own row"        "declared" "$STATUS_OUT"
+has   "  naming what it is"                              "sampling matrix, poll-off cell 3/8" "$STATUS_OUT"
+has   "🔴 and the OBSERVED processes are still printed"  "measuring" "$STATUS_OUT"
+has   "🔴 with the process line I-4 was caught by"       "iperf3 -c 10.0.0.33" "$STATUS_OUT"
+printf 'owner=fixture-owner\nexpires=%s\nnote=n\nexclusive_cpu=no\nmeasuring=\n' \
+    "$(( $(date +%s) + 3600 ))" > "$(claim_file)"
+STATUS_OUT="$(bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+CLAIM=\"\$REPO/.test_run/lab.claim\"
+claim_line() { echo \"yours -- 60m left\"; }
+$IPERF_LINES
+cmd_status" 2>&1)"
+has   "🔴 undeclared traffic is still reported by status" "iperf3 -c 10.0.0.33" "$STATUS_OUT"
+hasnt "  and no empty 'declared' row is printed"         "declared       " "$STATUS_OUT"
+
+section "4E. R4-5: the verdict says how big the gap is, and what 'ok' does not mean"
+# verdict_lines is pure and is extracted verbatim from ndt's embedded python block. The rest of
+# that block needs a kernel, a fabric and traffic; this function needs none of them.
+VL="$(python3 - "$NDT" <<'PY'
+import re, sys
+s = open(sys.argv[1]).read()
+m = re.search(r"# --- BEGIN verdict_lines.*?\n(.*?)# --- END verdict_lines ---", s, re.S)
+if not m:
+    print("EXTRACT-FAILED"); sys.exit(0)
+ns = {}
+exec(m.group(1), ns)
+for tw, tr in ((3240.1e6, 3829.7e6), (2.0e6, 1.0e6), (0.6e6, 1.0e6)):
+    for line in ns["verdict_lines"](tw, tr):
+        print(line)
+PY
+)"
+hasnt "verdict_lines was found and ran"                  "EXTRACT-FAILED" "$VL"
+has   "R4-5's own numbers: the ratio is printed as a value" "ratio=0.846" "$VL"
+has   "  with both sides of it"                          "(twin 3240.1 / ground truth 3829.7 Mbit/s)" "$VL"
+has   "🔴 and the size of the gap in words"              "twin under-reports by 15%" "$VL"
+has   "🔴 saying what ok does not mean"                  "accuracy is NOT" "$VL"
+has   "🔴 the band did not move: 0.85 is still ok"       "0.85   ok" "$VL"
+has   "  and 0.6 is still ok too"                        "0.60   ok" "$VL"
+has   "  the +/-50% band is named"                       "within the +/-50% double-count band" "$VL"
+has   "🔴 a doubling is still called out"                "DOUBLE-COUNTING" "$VL"
+has   "  and named as outside the band"                  "OUTSIDE the +/-50% double-count band" "$VL"
+has   "  over-reporting is not called under-reporting"   "twin over-reports by 100%" "$VL"
+
+# 🔴 WIRING, and it is a TEXT check, not a driven one -- naming that rather than hiding it.
+# The call site sits inside a block that needs a live kernel on :8000, a fabric and real traffic;
+# this suite refuses to run it (see the python3 stub above). What is asserted here is that the
+# pure function is the only thing producing those lines. The live path is on the "needs live
+# verification" list, not on this one.
+check "verdict_lines is called exactly once from the block" "1" \
+      "$(grep -c 'for line in verdict_lines(twin_bps, truth_bps):' "$NDT")"
+check "  and the lines it returns exist nowhere else"      "1" \
+      "$(grep -c 'double-count band; accuracy is NOT' "$NDT")"
+
+no_claim
+unset NDT_OWNER FX_INFLIGHT
 
 # --- done ---------------------------------------------------------------------------------
 printf '\nRan %d checks, %d failed\n' "$((PASS+FAIL))" "$FAIL"
