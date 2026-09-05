@@ -22,17 +22,18 @@
 #   arm -- a real cut -- came back 0 of 1.
 #
 # 🔴 TWO DIRECTIONS, AND THE SECOND ONE IS WHY THIS GATE EXISTS AT ALL
-#   1. RESTORING the defect must be caught          (M1, M2, M4, M5)
+#   1. RESTORING the defect must be caught          (M1, M2, M3, M4)
 #      -- discovery lifts isUp over a standing declaration, by any of the routes it could take:
 #         the veto removed, the veto inverted, the withdrawal that never happens, and the push
-#         path going back to the observation writer (which is the trunk shape of this bug).
-#   2. RELAXING past the fix must ALSO be caught    (M3, M6, M7, M8)
+#         path going back to the observation writer (M4, which is the trunk shape of this bug).
+#   2. RELAXING past the fix must ALSO be caught    (M5, M6, M7, M8)
 #      -- a poll that NEVER raises a link satisfies every assertion in direction 1 and is a worse
 #         outage than the defect: updateLinks is the ONLY writer that brings an inter-switch link
 #         back, so `// isUp = true;` would leave the graph dark for every link that was ever down.
-#         M7 is the subtler version -- the derived-liveness pass marking its own edges as declared,
-#         so a switch outage becomes permanent -- and M8 is the one a reader of the fix's summary
-#         sentence reaches for first: "do not lift anything that is down".
+#         M5 is the blunt version (the poll stops writing isUp at all), M7 the subtle one -- the
+#         derived-liveness pass marking its own edges as declared, so a switch outage becomes
+#         permanent -- and M8 is the one a reader of the fix's summary sentence reaches for
+#         first: "do not lift anything that is down".
 #
 # 🔴 THREE MUTATIONS MUST **NOT** BE CAUGHT (W1, W2, W3). A suite that reddens on these is pinning
 # source text rather than behaviour, and every catch above would be worth nothing:

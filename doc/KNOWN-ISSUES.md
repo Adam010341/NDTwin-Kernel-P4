@@ -1321,12 +1321,16 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ### B-6 🔴 用 API 宣告的 link failure 會被 30 秒的拓樸輪詢靜默撤銷（可見壽命上界 30 s）
 
-- **狀態**：**OPEN。** 2026-09-04 夜巡實測（5/5 重現，機制定案）。
-  **Adam 2026-09-05 裁定語意：宣告應該優先，這是缺陷**——不是「輪詢比較準」的設計取捨。
-  修法單 **W8**（`W8-link-failure-declaration-must-win.md`，2026-09-05 開，**只開不修**；
-  三個選項尚未拍板）。🔴 **W8 寫在 09-05 夜巡 session 的 scratch 裡，`scratch/` 不進版控**
-  ⇒ 這份單子不在 repo，引用前先向該 session 要。
-  文件側已落：`doc/2026-01-02_ndt_api.md` §1／§2 已從「事實描述」改寫成「已知缺陷、待修」。
+- **狀態**：**在 trunk 上 OPEN。已修在分支 `fix/w8-declared-link-failure-sticky`（工單 W8），
+  未併入**（分支從 trunk `1536ff17` 開，2026-09-06）。2026-09-04 夜巡實測（5/5 重現，機制定案）。
+  **Adam 2026-09-05 裁定語意：宣告應該優先，這是缺陷**——不是「輪詢比較準」的設計取捨；
+  2026-09-05 第四輪裁**選項 C**（宣告黏住＋公開的 `down_reason:"declared"`）
+  ＋另開 `inject_link_failure/recovery` 端點（MININET 下 kernel 對兩端下 `tc netem`）；
+  **實體機房只有 C**。修法與閘門見本條最後的〈修法（分支）〉段與
+  `doc/audit/2026-09-06_fix-declared-link-failure/FIX-DECLARED-LINK-FAILURE.md`。
+  🔴 **W8 工單寫在 09-05 夜巡 session 的 scratch 裡，`scratch/` 不進版控。**
+  文件側：`doc/2026-01-02_ndt_api.md` §1／§2 已改寫，並新增 §2b／§2c 兩個注入端點。
+  🔴 **本條在變異閘於 trunk 上跑綠之前不得標 RESOLVED**（A-1 的規矩）。
 - **平面**：兩者（缺陷在 kernel 的拓樸輪詢，與資料面無關；實測跑在 OVS 10-switch）
 - **失效方向**：**樂觀 ＋ 靜默**——被宣告成壞掉的東西回報成健康，而且沒有任何 log 記錄這次翻轉
 - **會發生什麼**：`POST /ndt/link_failure_detected` 回 **200**，雙向邊在 0.02 s 內變 `isUp=false`；
@@ -1361,6 +1365,31 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   `scratch/overnight-2026-09-04/FINDINGS-CANDIDATES.md` **OV-4**（3/5、相位猜 ≈9 s，**已被 R2-B 取代**）。
   🔴 **上列 raw 全在 `scratch/`，不在版控**——引用前先確認那個 session 的目錄還在。
   機制行號由 2026-09-05 本次登記時**開檔覆核**於 trunk `4088b237`，不是抄 finding 的偏移量。
+- **修法（分支 `fix/w8-declared-link-failure-sticky`，未併）**：
+  1. `EdgeProperties` 多一個 `declaredDown` 旗標（**第五個旗標，不是把 `downReason` 加值**——
+     `downReason` 由 `reconcileDerivedLiveness` 每個 poll 重寫，宣告放在那裡會被第一次交換機故障吃掉）；
+     `DownReason` 多一個 `Declared`，wire form `"declared"`，由 `effectiveDownReason()` 決定
+     「兩個原因同時成立時公布哪一個」——公布 `declared`，因為只有它需要人去處理。
+  2. 邊的寫入者拆成兩種身分，形狀照 FINDINGS #46 的頂點版：
+     `setEdgeDown/setEdgeUp`＝觀測、`setEdgeDownByDeclaration`＝宣告、`clearEdgeDeclaredDown`＝撤回。
+     `HttpSession::handleLinkFailure` 改叫宣告版，`handleLinkRecovery` 先撤回再抬起。
+  3. `updateLinks` 加否決分支＋**邊沿觸發的 WARN**（`m_linkResurrectionDeclined`）。
+     **只否決 `isUp`，不否決 `isEnabled`**（那是 admin 軸），**只認 `declaredDown`**
+     （衍生 liveness 放下去的邊仍然要被抬起來，否則每次交換機故障都變永久）。
+  4. 新端點 `POST /ndt/inject_link_failure`／`inject_link_recovery`：宣告＋MININET 下對兩端
+     `tc netem loss 100%`。**netem 掛在 htb 底下不是掛 root**（掛 root 會靜默取代 TCLink 的 htb，
+     這是 2026-08-13 那一輪的教訓，規則從 `tools/test_workflow/faults.sh` 搬進 kernel）；
+     非 MININET 回 `"tc":"skipped (not MININET)"`。
+- **閘門**：`tests/shell/mutate_declared_link_failure_survives_poll.sh`（只 mutate
+  `TopologyAndFlowMonitor.cpp`）**8 個變異 0 survived、3 個對照留綠**，還原後檔案 byte-identical、
+  測試 binary sha 不變（2026-09-06 跑，逐字在 `RED-GREEN.md`）。
+  測試：`DeclaredLinkFailureTest` 9 個（跑 shipped 拓樸）、`DeclaredLinkFailureWireTest` 6 個
+  （**走真的 HTTP 端點**：POST → poll → `get_graph_data`）、`NetemLinkFaultTest` 17 個
+  （餵真的 `tc qdisc show` 輸出給假 runner，**不跑 tc**）。
+- 🔴 **修完之後的新失效方向（要一起記住）**：舊的是「注入提早結束」，新的是**「注入不會結束」**——
+  宣告永久成立、活過 Ryu 重新收斂與交換機重啟。`down_reason` 進 wire 就是為了讓被忘記的注入
+  **查得出來**（掃 `/ndt/get_graph_data` 的 `down_reason == "declared"`）。
+  **「注入後必須斷言注入成功」那條紀律兩個方向都要斷言**：窗內成立、窗後解除。
 
 ### B-7 `set_switches_power_state` 對不存在的 IP 回 500，而同一個 IP 的 GET 回 404
 

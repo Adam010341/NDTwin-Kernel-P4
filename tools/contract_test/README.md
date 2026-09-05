@@ -380,7 +380,7 @@ list 的索引會收斂成 `[]`，所以 4 host 和 128 host 產生相同的簽�
 
 ## 已知限制
 
-涵蓋率：**42 個註冊端點中的 33 個**有 contract（用下面的指令可隨時重算）。剩下 9 個是 group／meter 六個、`inform_all_destination_paths`、`link_failure_detected`、`link_recovery_detected`，全部沒有 consumer。
+涵蓋率：**45 個註冊端點中的 33 個**有 contract（用下面的指令可隨時重算；這是 2026-09-06 貼上的實際輸出）。剩下 12 個是 group／meter 六個、`get_sflow_stats`、`inform_all_destination_paths`、`link_failure_detected`、`link_recovery_detected`、`inject_link_failure`、`inject_link_recovery`，全部沒有 consumer。⚠️ **上一版寫「42 中的 33，剩 9 個」，而 trunk `1536ff17` 上實際跑出來是「43 中的 33，剩 10 個」**（🟢 用同一段指令對 trunk 的兩個檔跑過）——這行又一次追不上程式碼，正是下面那段警告說的事。我加的是兩筆（B-6 的 `inject_link_*`），43→45、10→12；剩下的那一筆差額在我之前就在了。
 
 > 這行原本寫「41 個中的 30 個」，是**手寫的數字追不上程式碼**——端點與 contract 都各自增加過而這行沒動。用上面那段指令算出來的才算數；下次改這行請貼實際輸出，不要沿用舊值。
 > 另外 `intent_translator/text` 已**不在**未涵蓋清單上：它有一筆 ERRORPATH contract（`intent_translator_text__incomplete_body`），涵蓋率的指令因此把它算成 covered。**成功路徑仍然刻意沒有 contract**（下一節），兩件事不要混用。

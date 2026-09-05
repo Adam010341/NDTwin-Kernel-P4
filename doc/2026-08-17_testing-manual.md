@@ -680,6 +680,14 @@ bash tools/test_workflow/run_layers.sh compare                  # P4 對 OVS 基
 裁決不動）、`link_failure_detected`／`link_recovery_detected`／`inform_all_destination_paths`
 （proxy 每輪 live 都在打，只是沒契約測試）。
 
+⚠️ **上面那三個數字（41／32／九）在 2026-09-06 已經過期，不要沿用**——用
+`tools/contract_test/README.md` 的〈重算涵蓋率〉那段自己算。當天實測是 **45 個註冊端點、33 個有
+contract、12 個沒有**；其中兩筆是 B-6 修法在分支 `fix/w8-declared-link-failure-sticky` 加的
+`inject_link_failure`／`inject_link_recovery`，寫在 API 手冊的 **§2b／§2c**——**刻意用字母後綴而不是
+§42／§43**，因為插進編號會把整份手冊往後推，每一份引用 §N 的文件同時失效。
+剩下的差額在那次改動之前就在了（trunk `1536ff17` 上算出來是 43／33／10）。
+[Co-developed with claude code -- Adam]
+
 ⚠️ **MUTATE 類檢查要 `--allow-mutations` 才會跑**，所以它們很久沒被執行過——2026-08-17
 第一次跑就抓到兩條**自己壞掉的檢查**（`modify_nickname` 送 `nickname`、`modify_device_name`
 送 `device_name`，文件規定的是 `new_nickname` 與 `new_name`，kernel 一直正確地回 400）。
