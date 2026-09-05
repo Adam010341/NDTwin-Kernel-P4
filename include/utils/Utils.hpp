@@ -117,6 +117,49 @@ ipToString(std::vector<uint32_t> ipVec)
 }
 
 /**
+ * @brief The first address of a possibly-empty list, as a dotted string, or nothing.
+ *
+ * [Co-developed with claude code -- Adam]
+ * FINDINGS #88. `front()` on an empty vector is undefined behaviour, and the invariant that made
+ * it safe -- "every node carries at least one address" -- is enforced in a different subsystem by
+ * a single `if` that covers SWITCH *vertices* only: see TopologyAndFlowMonitor.cpp:654-670, whose
+ * own comment says ten call sites lean on it. It does not cover hosts, and it does not look at an
+ * edge's `srcIp`/`dstIp` at all, so both of those reach `front()` on an empty vector today.
+ *
+ * Returns nullopt rather than "0.0.0.0". A fabricated address is the failure mode this file has
+ * already been burned by twice (FIX-CPU-REPORT-NO-IP.md §5): it converts "we have no address for
+ * this node" into a plausible-looking answer that no caller can tell apart from a real one.
+ *
+ * Semantics are deliberately identical to DeviceConfigurationAndPowerManager::managementIpOf,
+ * which cannot be reused here -- it is a protected static member of that class, so
+ * TopologyAndFlowMonitor (not a derived class) cannot call it.
+ */
+inline std::optional<std::string>
+firstAddressOf(const std::vector<uint32_t>& ips)
+{
+    if (ips.empty())
+    {
+        return std::nullopt;
+    }
+    return ipToString(ips.front());
+}
+
+/**
+ * @brief The first address as a raw uint32, for the comparison sites that never stringify.
+ *
+ * [Co-developed with claude code -- Adam] FINDINGS #88. See firstAddressOf above.
+ */
+inline std::optional<uint32_t>
+firstAddressRaw(const std::vector<uint32_t>& ips)
+{
+    if (ips.empty())
+    {
+        return std::nullopt;
+    }
+    return ips.front();
+}
+
+/**
  * @brief Parse dotted IPv4 string into uint32_t.
  *
  * @param ipStr Dotted IPv4 string (e.g., "10.10.10.12").
