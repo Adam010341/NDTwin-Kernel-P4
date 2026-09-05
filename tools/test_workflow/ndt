@@ -418,6 +418,52 @@ clear_up_target() {
     rm -f "$f" && info "cleared the 'ndt up' target record (${f#$REPO/})"
 }
 
+# --- what ran here BEFORE the record was cleared -------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# 09-05 R7 I-1 (W12). `down` removes up.target, above, and that removal is right. What was
+# wrong is that BOTH readers of the resulting absence rendered it as a claim about HISTORY:
+# `--check` printed "no 'ndt up' has run in this checkout", and `status`'s configuration block
+# fell back to the P4-only host-count knob and named a P4 model file. Measured 3/3 after a
+# `down` on 2026-09-05 (15:46:18, 16:20:04, 17:34:09) on a checkout that had run `ndt up` at
+# least seven times that evening -- every one of them OVS. Both halves were false, and the
+# second half changed the PLANE: R0's own script grepped that line out of `ndt status` and
+# carried the P4 model into an OVS round (R0 instrument error #3).
+#
+# The absence of the record is a fact about NOW ("nothing is being asked for"), which is what
+# the removal is for and what rc 3 already says honestly. What happened BEFORE is a different
+# question, and this checkout still holds an answer to it: supervise.sh writes
+# .test_run/pids/<name>.exit when a component stops, carrying `at=` and the full `command=` --
+# including the --topology argument, which names the plane.
+#
+# 🔴 THIS IS NOT A BASELINE AND IS NEVER USED AS ONE. Nothing below feeds check_up_target's
+# comparison; rc 3 and "COULD NOT CHECK" are untouched. Its only job is to replace an assertion
+# about history with the history itself.
+#
+# 🔴 It can be missing, and then we say so rather than falling back to the old sentence:
+# start_bg removes the .exit file at every start, and stack.sh removes it again after reporting
+# a FATAL ending (stack.sh report_exit, and the scan in its down path). Missing means "this
+# checkout cannot tell", never "nothing ran here" -- that conflation is the whole finding.
+kernel_exit_file() { echo "${NDT_KERNEL_EXIT:-$REPO/.test_run/pids/kernel.exit}"; }
+kernel_exit_field() {
+    local f; f="$(kernel_exit_file)"
+    [[ -f "$f" ]] && sed -n "s/^$1=//p" "$f" | head -1
+}
+
+# last_kernel_plane -- p4 | ovs, from the --topology argument the last kernel was started with.
+# rc 1 when there is no record, or when the recorded command names no model this script can
+# classify: an unclassifiable command must not be turned into a plane, which is the mistake
+# this whole block exists to undo.
+last_kernel_plane() {
+    local cmd; cmd="$(kernel_exit_field command)"
+    [[ -n "$cmd" ]] || return 1
+    case "$cmd" in
+        *StaticNetworkTopologyOVS_*) echo ovs; return 0 ;;
+        *StaticNetworkTopologyP4_*)  echo p4;  return 0 ;;
+    esac
+    return 1
+}
+
 # live_dataplane_kind -- p4 | ovs | none | unknown. The field #8 was missing.
 #
 # bmv2 first, because that answer needs no privilege and is definitive: a `simple_switch_grpc`
@@ -2159,7 +2205,20 @@ check_up_target() {
 
     say "up target"
     if [[ ! -f "$f" ]]; then
-        printf '  %-14s %s\n' "record" "${Y}none -- no 'ndt up' has run in this checkout${N}  (${f#$REPO/})"
+        # 09-05 R7 I-1 (W12). The tense, not the exit code. "no 'ndt up' has run in this
+        # checkout" is a statement about history and is false after every ordinary up->down;
+        # what is true is that there is no baseline RIGHT NOW. rc 3 and the COULD NOT CHECK
+        # block below are unchanged -- they were already the honest part. See kernel_exit_file.
+        local kx_at kx_plane
+        kx_at="$(kernel_exit_field at)"; kx_plane="$(last_kernel_plane)"
+        if [[ -n "$kx_at" ]]; then
+            printf '  %-14s %s\n' "record" "${Y}none -- the last 'ndt up' record was cleared by 'ndt down' at $kx_at; history is in .test_run/pids/*.exit${N}  (${f#$REPO/})"
+            if [[ -n "$kx_plane" ]]; then
+                printf '  %-14s %s\n' "" "that run was $kx_plane, per the --topology argument in .test_run/pids/kernel.exit -- NOT a baseline, just what ran"
+            fi
+        else
+            printf '  %-14s %s\n' "record" "${Y}none -- nothing is being asked for right now, and there is no .test_run/pids/kernel.exit to say what ran before${N}  (${f#$REPO/})"
+        fi
         printf '  %-14s %s\n' "" "there is no baseline, so --check did NOT check. this is not 'checked and matched'."
         printf '  %-14s %s\n' "" "bring the lab up from this checkout first:  ndt up <target>"
         printf '  %-14s %s\n' "" ".test_run/ is per checkout, so another checkout's 'up' is invisible here (finding #79)"
@@ -2373,8 +2432,28 @@ cmd_status() {
         printf '  %-14s %s\n' "topology" "${ut_topo:-?}"
         printf '  %-14s %s\n' "p4 host knob" "$hosts   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')"
     else
-        printf '  %-14s %s\n' "hosts" "$hosts   (p4_proxy/mininet/host_count_override -- P4 only; no 'ndt up' recorded here)"
-        printf '  %-14s %s\n' "topology" "$( [[ -n "$topo" ]] && echo "${topo#$REPO/}" || echo "NONE for $hosts hosts" )   (the P4 model that knob selects, NOT necessarily what is running)"
+        # 09-05 R7 I-1 (W12), the half that changed the PLANE. With no record this branch used
+        # to print the P4 model the P4-only knob selects on the `topology` row, and a reader --
+        # R0's script among them -- took it for the plane that had just been running. The
+        # question "which plane" has no answer here, so the row says so, and what the knob
+        # selects moves to its own row named for what it decides (the next `ndt up p4`), which
+        # is exactly how the has-a-record branch above already labels it.
+        local kx_plane kx_at
+        kx_plane="$(last_kernel_plane)"; kx_at="$(kernel_exit_field at)"
+        printf '  %-14s %s\n' "hosts" "unknown (no up.target) -- nothing here records what the running fabric was asked for"
+        if [[ -n "$kx_plane" ]]; then
+            printf '  %-14s %s\n' "topology" "unknown (no up.target); last kernel.exit ran $kx_plane"
+        elif [[ -n "$kx_at" ]]; then
+            printf '  %-14s %s\n' "topology" "unknown (no up.target); last kernel.exit is from $kx_at and names no model this script can classify"
+        else
+            printf '  %-14s %s\n' "topology" "unknown (no up.target); no kernel.exit either -- this checkout cannot say what ran"
+        fi
+        # 🔴 The knob's MODEL PATH is deliberately not printed here. It was the concrete carrier
+        # of the harm: with no record this row used to hold setting/StaticNetworkTopologyP4_*,
+        # the first setting/*.json in the whole report, and it was read -- by a person and by a
+        # script -- as the plane that had just run. The knob's own number is kept, on a row that
+        # names what it decides, which is what the has-a-record branch above already does.
+        printf '  %-14s %s\n' "p4 host knob" "$hosts   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')"
     fi
     printf '  %-14s %s\n' "bmv2" "$(bmv2_binary)"
     if stale_pipeline; then
