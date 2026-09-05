@@ -39,7 +39,7 @@ W5（OV-1，09-04）把一次改名的 diff 從 **3998 行降到 1 行**，做�
 
 | 位置 | 內容 |
 |---|---|
-| `include/ndt_core/collection/TopologyAndFlowMonitor.hpp:321-352` | 新增 `nicknameOverlayPath()`／`applyNicknameOverlayNoLock()` 兩個宣告與理由 |
+| `include/ndt_core/collection/TopologyAndFlowMonitor.hpp:336`／`:351` | 新增 `nicknameOverlayPath()`／`applyNicknameOverlayNoLock()` 兩個宣告與理由 |
 | `src/ndt_core/collection/TopologyAndFlowMonitor.cpp`（`getGraph()` 之後那一段） | **刪掉** `TopologyFileLayout`／`detectJsonIndent`／`readTopologyFileWithLayout`／`writeTopologyFileWithLayout`（W5 為了寫模型檔而存在，模型檔不寫了就沒有使用者，留著會被 `-Werror -Wunused-function` 擋下）；**新增** `readJsonFile`／`writeJsonFileAtomically`／`overlaySection`／`readNameOverlayForWriting`／`setOverlayName` |
 | 同上 `setVertexDeviceName`／`setVertexNickname` | 改寫 overlay，不碰模型檔 |
 | 同上 `parseStaticTopologyFile` 末行 | `applyNicknameOverlayNoLock();` |
@@ -143,7 +143,7 @@ RC=0
 
 `tests/test_NicknameDoesNotRewriteTheFile.cpp` → **改名並改寫**成 `tests/test_NicknameOverlay.cpp`
 （`git mv`；舊檔的主題「模型檔被重寫得多整齊」已經不存在了）。
-suite 名 `NicknamePersistenceTest` 保留，14 個 case：
+suite 名 `NicknamePersistenceTest` 保留，**16 個 case**（跑過：16/16 綠）：
 
 | 群 | case | 斷言 |
 |---|---|---|
