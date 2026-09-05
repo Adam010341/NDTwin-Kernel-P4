@@ -47,6 +47,7 @@
 // [Co-developed with claude code -- Adam] W11: the dispatch-status endpoint's own collaborator.
 #include "ndt_core/routing_management/Controller.hpp"
 #include "ndt_core/routing_management/FlowRoutingManager.hpp"
+#include "utils/Logger.hpp"
 #include "utils/Utils.hpp"
 
 /**
@@ -799,7 +800,8 @@ class PlaneStub : public FlowRoutingManager
         return m_calls;
     }
 
-    OpResult installAnEntry(uint64_t, int, const nlohmann::json&, const nlohmann::json&, int) override
+    OpResult installAnEntry(uint64_t, int, const nlohmann::json&, const nlohmann::json&,
+                            int) override
     {
         return answer();
     }
@@ -875,7 +877,28 @@ struct DispatchFixture
 
 } // namespace
 
-TEST(DispatchStatusEndpointTest, TheCountersAreNamedForWhatTheyCount)
+/**
+ * @brief Suite fixture, for one reason: the logger.
+ *
+ * [Co-developed with claude code -- Adam]
+ * Logger::instance() is a static shared_ptr that is null until Logger::init runs, and
+ * SPDLOG_LOGGER_* dereferences it. These tests drive Controller's sender from worker threads,
+ * which logs on a failed dispatch, so an ordering assumption about which suite ran first would be
+ * a crash rather than a failure. init() is idempotent -- same argument as the note in
+ * tests/test_SwitchKindDispatch.cpp.
+ */
+class DispatchStatusEndpointTest : public ::testing::Test
+{
+  protected:
+    static void SetUpTestSuite()
+    {
+        LogConfig cfg;
+        cfg.level = spdlog::level::off;
+        Logger::init(cfg);
+    }
+};
+
+TEST_F(DispatchStatusEndpointTest, TheCountersAreNamedForWhatTheyCount)
 {
     // #54's A half, on the wire. `succeeded` is gone: the same match dispatched twice moves this
     // by +2 while a switch gains one row, and the old name asserted the opposite.
@@ -900,7 +923,7 @@ TEST(DispatchStatusEndpointTest, TheCountersAreNamedForWhatTheyCount)
               "counters.dispatched_ok");
 }
 
-TEST(DispatchStatusEndpointTest, AnOvsFabricReportsUnknownAtTheSwitchAndSaysWhy)
+TEST_F(DispatchStatusEndpointTest, AnOvsFabricReportsUnknownAtTheSwitchAndSaysWhy)
 {
     // W11's B half. Ryu's 200 is not evidence about a switch, so the second group says `unknown`
     // -- and says why in the body, because a permanently-unknown number with no explanation next
@@ -929,7 +952,7 @@ TEST(DispatchStatusEndpointTest, AnOvsFabricReportsUnknownAtTheSwitchAndSaysWhy)
               body.at("counters").value("dispatched", 0u));
 }
 
-TEST(DispatchStatusEndpointTest, AConfirmingPlaneReportsAnAcceptanceBySwitch)
+TEST_F(DispatchStatusEndpointTest, AConfirmingPlaneReportsAnAcceptanceBySwitch)
 {
     // The control for the test above: `unknown` is a reading, not a constant.
     DispatchFixture fx;
@@ -943,7 +966,7 @@ TEST(DispatchStatusEndpointTest, AConfirmingPlaneReportsAnAcceptanceBySwitch)
     EXPECT_EQ(body.at("switch_outcome").value("unknown", 99u), 0u);
 }
 
-TEST(DispatchStatusEndpointTest, ARequestIdAnswersForThatBatchAlone)
+TEST_F(DispatchStatusEndpointTest, ARequestIdAnswersForThatBatchAlone)
 {
     // R6 K-4: the counters are process-wide, so a caller cannot attribute them to its own POST.
     // Two batches with different outcomes; each id must see only its own.
@@ -970,7 +993,7 @@ TEST(DispatchStatusEndpointTest, ARequestIdAnswersForThatBatchAlone)
     EXPECT_EQ(second.value("enqueued", 0u), 3u);
 }
 
-TEST(DispatchStatusEndpointTest, AnUnknownRequestIdIsNotAnswered200)
+TEST_F(DispatchStatusEndpointTest, AnUnknownRequestIdIsNotAnswered200)
 {
     // A caller that reads only the status code would take a 200 as "your request is fine" for a
     // request this kernel has never heard of -- the over-claim processFlowBatch already answers
@@ -986,7 +1009,7 @@ TEST(DispatchStatusEndpointTest, AnUnknownRequestIdIsNotAnswered200)
     EXPECT_TRUE(body.contains("request_ids_forgotten"));
 }
 
-TEST(DispatchStatusEndpointTest, ANonNumericRequestIdIsAClientErrorNotAServerError)
+TEST_F(DispatchStatusEndpointTest, ANonNumericRequestIdIsAClientErrorNotAServerError)
 {
     // The reason this file exists, applied to the new parameter: std::stoull would throw
     // std::invalid_argument into buildResponse's std::exception clause and answer 500.
@@ -997,7 +1020,7 @@ TEST(DispatchStatusEndpointTest, ANonNumericRequestIdIsAClientErrorNotAServerErr
     EXPECT_EQ(res.result_int(), 400u) << "body: " << res.body();
 }
 
-TEST(DispatchStatusEndpointTest, TheRouteAcceptsAQueryStringAtAll)
+TEST_F(DispatchStatusEndpointTest, TheRouteAcceptsAQueryStringAtAll)
 {
     // The route was an exact string compare, so any query fell through every branch to the
     // not-found tail: the endpoint could not have grown a parameter without this. Asserted
