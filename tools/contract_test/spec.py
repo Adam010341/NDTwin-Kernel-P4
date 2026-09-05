@@ -213,6 +213,20 @@ IP_LIST = List(Int(min=0, max=UINT32_MAX))
 #              switch that was never given an sFlow record are indistinguishable here
 TELEMETRY_STATES = ("live", "idle", "silent", "unknown")
 
+# [Co-developed with claude code -- Adam]
+# Why a vertex or an edge that is down is down. The distinction a consumer needs is not the string
+# but what it has to DO about it:
+#
+#   none               -- one of the pre-existing writers put it there (a power actuation, the
+#                         liveness poll, /ndt/link_failure_detected on a kernel that predates B-6)
+#   switch-unreachable -- DERIVED: the switch behind it has been unusable for two polls. Clears
+#                         itself when that switch comes back (F-14 / F-16)
+#   declared           -- an operator declared this link failed. Does NOT clear until somebody
+#                         POSTs a recovery. B-6, and branch-only as of 2026-09-06: a kernel built
+#                         from trunk never emits it, which is why this is an `allowed` set on an
+#                         OPTIONAL key rather than a required field
+DOWN_REASONS = ("none", "switch-unreachable", "declared")
+
 FLOW_KEY = Obj({
     "src_ip": Int(min=0, max=UINT32_MAX),
     "dst_ip": Int(min=0, max=UINT32_MAX),
@@ -243,6 +257,14 @@ GRAPH_NODE = Obj({
     # "OFF", "disabled" or a free-form string is a contract change and fails here.
     "admin_state": Str(allowed=("on", "off")),
     "reachable": Bool(),
+    # [Co-developed with claude code -- Adam]
+    # F-14/F-16, and B-6 added the third value. Optional for the same reason the two above are: a
+    # kernel built before the field existed must still pass the structural check. Listing it pins
+    # the vocabulary -- a fourth reason, or a free-form string, is a contract change and fails
+    # here. `declared` is EDGE-ONLY today (only a link can be declared failed), but it is listed
+    # for the node as well rather than kept apart: the two objects have carried the same key with
+    # the same meaning since F-14, and a split vocabulary would be a second thing to keep in step.
+    "down_reason": Str(allowed=DOWN_REASONS),
 })
 
 GRAPH_EDGE = Obj({
@@ -274,6 +296,8 @@ GRAPH_EDGE = Obj({
     "telemetry_status": Str(allowed=TELEMETRY_STATES),
     "last_sample_age_seconds": Num(),
     "agent_last_sample_age_seconds": Num(),
+    # See GRAPH_NODE's entry. [Co-developed with claude code -- Adam]
+    "down_reason": Str(allowed=DOWN_REASONS),
 })
 
 GRAPH_DATA = Obj({"nodes": List(GRAPH_NODE, min_len=1), "edges": List(GRAPH_EDGE)})

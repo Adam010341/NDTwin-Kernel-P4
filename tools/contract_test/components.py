@@ -23,6 +23,14 @@ import os
 KERNEL_ENDPOINTS = {
     "link_failure_detected": "POST",
     "link_recovery_detected": "POST",
+    # [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md B-6, branch
+    # fix/w8-declared-link-failure-sticky. The injection pair: same payload as the two above, but
+    # the caller wants the link to BE down rather than reporting that it is. Listed here because
+    # tests/python/test_l3_dispatch_drift.py checks BOTH directions -- a route the source registers
+    # and this table omits is drift too. No Component below lists them: nothing in the workspace
+    # calls them yet, and inventing a consumer would be the thing this file exists not to do.
+    "inject_link_failure": "POST",
+    "inject_link_recovery": "POST",
     "get_graph_data": "GET",
     "get_detected_flow_data": "GET",
     "get_detected_top_k_flow_data": "GET",
