@@ -1548,6 +1548,44 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ---
 
+### B-10 🔴 替交換機取個名字，`ndt status --check` 就說「有人動了拓樸檔」
+
+- **狀態**：**OPEN（登記於 2026-09-06）。修法在分支 `fix/w10-nickname-overlay` 上，未併 trunk。**
+  照本檔 B-7／B-8 前面那段自己立的慣例（條目照登、狀態維持 OPEN、分支寫在狀態行上），
+  以及 **A-1 的規矩：變異閘在 trunk 上跑綠之前不得改 RESOLVED**。
+  🔴 **「修好了」對外要先問修在哪個 ref**：這是一條沒併進 trunk 的分支，
+  比「repo 裡有」還要遠一步（F-1 立的那條線）。
+- **平面**：**兩者**（跟著 `activeTopologyPath()` 走，不是平面的性質）
+- **失效方向**：**誤導**——紅字本身是真的，但它說的是一件使用者沒做過的事
+- **會發生什麼**：`POST /ndt/modify_nickname`（或 `modify_device_name`）成功之後，
+  `ndt status --check` 回 **rc=1**，紅在第 5 列：
+  ```
+     topology file  sha256 a1446055a12d    != 2266c69cbcd3   CHANGED SINCE up
+     - topology file: … has been edited since the ndt up that loaded it; the kernel pulls once and never retries
+  ```
+  使用者做的是一件完全正常的事（替交換機取名），做完之後「我的環境還可信嗎」這個問句回紅，
+  而紅字說的是「**有人動了拓樸檔**」。**比 09-04 的 3998 行安靜，但誤導性更高。**
+- **機制**：kernel 把新名字寫回 `setting/<model>.json`；`ndt status --check` 第 5 列比的是
+  那個檔的 **sha256**（`tools/test_workflow/ndt` 的 `check_up_target`）。sha256 不數行
+  ⇒ **只要 kernel 還寫那個檔，「只改一行」與「`--check` 綠」就不可能同時成立。**
+- 🔴 **這一條是 W5（OV-1）的下半場，不是 W5 沒修好**。W5（09-04）把 diff 從 3998 行降到 1 行，
+  那一步是對的；09-05 夜巡量出「1 行照樣紅」，**推翻的是 09-04 工單裡「`--check` 會轉綠」那個推論**。
+- **兩個對照組**（09-05 R0，證明這是 `--check` 在正常工作、不是它壞了）：
+  ① 改過去又改回來 ⇒ 檔案 byte-identical、`--check` rc=0
+  ⇒ **紅的原因就是 byte 差異本身**；
+  ② 一個與 nickname 完全無關的寫者（R3 改頻寬）拿到**一字不差的同一句話**。
+- **修法（分支上）**：Adam 2026-09-05 18:1x 裁 overlay ——
+  名字寫到 `setting/` 以外（`.test_run/nickname_overlay/<model>.names.json`）、
+  `--check` **指名但不比**、kernel 載入拓樸的最後一步疊回圖上；**模型檔從此對 kernel 唯讀**。
+  單子 W10，文件 `doc/audit/2026-09-06_fix-nickname-overlay/FIX-NICKNAME-OVERLAY.md`，
+  閘門 `tests/shell/mutate_nickname_overlay.sh`。
+  ⚠️ **`ndt status --check` 沒有在真的 lab 上轉綠過**——分支上的證據是 gtest 與離線 fixture 測試，
+  **live 補一刀還沒做**。
+- **可信度**：紅字與兩個對照組是 09-05 夜巡 R0 的實測（🟠 對本條登記者，我沒複驗）；
+  機制那一段的 file:line 與 09-06 的修法是登記者自己開檔查證與實作的（🟢）。**兩者不要混用。**
+
+---
+
 ## B-x. `/ndt/get_detected_flow_data` 包含已經結束的流（churn 下約 92%）
 
 - **狀態**：🟢 **RESOLVED（2026-09-02，`7d678ed0`）**——端點與 top-k 都加上三態存活性
