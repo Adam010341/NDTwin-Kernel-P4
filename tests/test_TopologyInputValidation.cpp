@@ -233,6 +233,47 @@ firstHostEdgeIndex(const json& doc)
     return 0;
 }
 
+/// Index of the LAST switch node in the file.
+///
+/// [Co-developed with claude code -- Adam]
+/// FINDINGS #89 door 3. Deliberately the last switch and never the first: every door-3 case below
+/// asserts that a refused file leaves `num_vertices == 0`, and a malformed FIRST node would leave
+/// zero vertices even with the refusal still sitting inside the builder loop, where node N throws
+/// with nodes 0..N-1 already added. A first-node case would therefore be green against the defect
+/// it is supposed to be measuring. Only a node with others in front of it can tell "refused" from
+/// "refused, and here is most of the graph anyway".
+std::size_t
+lastSwitchNodeIndex(const json& doc)
+{
+    const auto& nodes = doc.at("nodes");
+    std::size_t found = 0;
+    for (std::size_t i = 0; i < nodes.size(); ++i)
+    {
+        if (static_cast<int>(nodes[i].at("vertex_type").get<int>()) == 0)
+        {
+            found = i;
+        }
+    }
+    return found;
+}
+
+/// Index of the last node carrying a non-empty `ecmp_groups`, for the same reason as above.
+std::size_t
+lastEcmpNodeIndex(const json& doc)
+{
+    const auto& nodes = doc.at("nodes");
+    std::size_t found = 0;
+    for (std::size_t i = 0; i < nodes.size(); ++i)
+    {
+        if (nodes[i].contains("ecmp_groups") && !nodes[i].at("ecmp_groups").empty() &&
+            !nodes[i].at("ecmp_groups")[0].at("members").empty())
+        {
+            found = i;
+        }
+    }
+    return found;
+}
+
 /// Index of the first edge with a switch on both sides.
 std::size_t
 firstSwitchEdgeIndex(const json& doc)
@@ -548,4 +589,272 @@ TEST(TopologyInputValidationTest, TheTwoMininetCapableTopologiesStillLoadInMinin
         EXPECT_EQ(out.vertices, doc.at("nodes").size()) << path;
         EXPECT_EQ(out.edges, doc.at("edges").size()) << path;
     }
+}
+
+// =================================================================================================
+// FINDINGS #89 / W-TOPO-THREE-DOORS -- the other input paths nothing was checking.
+//
+// [Co-developed with claude code -- Adam]
+// #61/#62 established the rule: the whole file is checked before the first add_vertex, so
+// "refused" means the graph was never touched. The rule's COVERAGE was transcribed by hand, and
+// three doors were left open.
+//
+//   door 3  Three refusals still lived inside the builder's node loop, below add_vertex's
+//           position in the iteration: switch_kind, a switch with no address, and a MININET
+//           switch with no bridge_name. Reached on node N they threw with nodes 0..N-1 already
+//           in the graph -- the 39-of-40 shape, one door along. The three
+//           *LeavesNoPartiallyLoadedGraph cases below therefore assert num_vertices == 0 and NOT
+//           merely that something threw: `threw` was already true before this fix, and a suite
+//           that only asserted it would have been green against the whole defect.
+//
+//   door 2  `ecmp_groups[].port_id` -- a switch port index, exactly like an edge's interface
+//           index -- got none of the range checking #62 gave its sibling. It is a signed int
+//           read straight out of the file, and validateStaticTopologyJson never looked at
+//           `ecmp_groups` at all.
+//
+//   door 1  GraphTypes.hpp's from_json(VertexProperties) is a second, unguarded extraction path
+//           that the loader deliberately does not use. Pinned below as a structural assertion,
+//           not changed -- see FromJsonHasNoProductionCallers.
+//
+// 🔴 NONE OF THE THREE WAS OBSERVED LIVE. #61 and #62 above were measured on :8000; these were
+// read out of the source and are demonstrated by these tests and by
+// tests/shell/mutate_topology_input_is_validated.sh. Do not cite them as field observations.
+// =================================================================================================
+
+TEST(TopologyInputValidationTest, AMalformedSwitchKindLeavesNoPartiallyLoadedGraph)
+{
+    // door 3a. No shipped file declares `switch_kind` at all -- the loader falls back to
+    // brand_name -- so the field has to be added to reach its throw.
+    MutatedTopology topo("bad_switch_kind");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastSwitchNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u) << "the case needs a switch with other nodes in front of it";
+    topo.doc()["nodes"][victim]["switch_kind"] = "ovs_typo";
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "an unmappable switch_kind was accepted";
+    EXPECT_EQ(out.vertices, 0u)
+        << "the file was refused only after " << out.vertices
+        << " vertices were already in the graph -- a partial application of a rejected file";
+    EXPECT_EQ(out.edges, 0u);
+}
+
+TEST(TopologyInputValidationTest, AnAddresslessSwitchLeavesNoPartiallyLoadedGraph)
+{
+    // 🔴 door 3b, and the sharpest of the three: before this fix the load DID throw, and threw
+    // from the builder, with every earlier switch already added. `threw` proves nothing here;
+    // `vertices == 0` is the whole claim. FINDINGS #85's door, seen from the loader's side.
+    MutatedTopology topo("addressless_switch");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastSwitchNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u) << "the case needs a switch with other nodes in front of it";
+    topo.doc()["nodes"][victim]["ip"] = json::array();
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "a switch with an empty \"ip\" array was accepted";
+    EXPECT_EQ(out.vertices, 0u)
+        << "the file was refused only after " << out.vertices
+        << " vertices were already in the graph -- a partial application of a rejected file";
+    EXPECT_EQ(out.edges, 0u);
+}
+
+TEST(TopologyInputValidationTest, AMissingBridgeNameInMininetLeavesNoPartiallyLoadedGraph)
+{
+    // door 3c. MININET mode only -- TESTBED never reads the field, and five shipped files that
+    // never declare one must keep loading (EveryShippedTopologyStillLoadsWithNothingDropped).
+    MutatedTopology topo("no_bridge_name");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastSwitchNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u) << "the case needs a switch with other nodes in front of it";
+    topo.doc()["nodes"][victim].erase("bridge_name");
+
+    const LoadOutcome out = loadFile(topo.write(), utils::MININET);
+
+    EXPECT_TRUE(out.threw) << "a MININET switch with no bridge_name was accepted";
+    EXPECT_EQ(out.vertices, 0u)
+        << "the file was refused only after " << out.vertices
+        << " vertices were already in the graph -- a partial application of a rejected file";
+    EXPECT_EQ(out.edges, 0u);
+}
+
+TEST(TopologyInputValidationTest, AMissingBridgeNameIsNotCheckedInTestbedMode)
+{
+    // 🔴 The control that keeps door 3c from becoming the fleet-breaking mistake M8 pins for
+    // ports. The same file that must be refused under MININET must still load under TESTBED,
+    // because five shipped TESTBED files declare no bridge_name on any switch.
+    MutatedTopology topo("no_bridge_name_testbed");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastSwitchNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim].erase("bridge_name");
+
+    const LoadOutcome out = loadFile(topo.write(), utils::TESTBED);
+
+    EXPECT_FALSE(out.threw) << "TESTBED does not read bridge_name and must not refuse it missing: "
+                            << out.message;
+    EXPECT_EQ(out.vertices, 14u);
+}
+
+TEST(TopologyInputValidationTest, AnOutOfRangeEcmpPortIdIsRefusedAtLoad)
+{
+    // door 2, the ceiling. 999999 is the value round 5 fed src_interface; the same number in an
+    // ecmp member was accepted, republished, and reached the flow path.
+    MutatedTopology topo("ecmp_port_huge");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastEcmpNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u) << "the case needs an ecmp-bearing switch with nodes in front of it";
+    topo.doc()["nodes"][victim]["ecmp_groups"][0]["members"][0]["port_id"] = 999999;
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "an ecmp port_id of 999999 was accepted";
+    EXPECT_NE(out.messageSansPath.find("999999"), std::string::npos)
+        << "the refusal does not name the offending value: " << out.messageSansPath;
+    EXPECT_EQ(out.vertices, 0u);
+}
+
+TEST(TopologyInputValidationTest, AZeroEcmpPortIdIsRefusedAtLoad)
+{
+    // door 2, the floor. 🔴 Unlike an edge interface there is no host side here to exempt:
+    // ecmp_groups appear only on switch nodes and every member names a switch port, so 0 is
+    // never legitimate. The gate's M13 is the mutation that grants it the host-side exemption
+    // anyway, and this is the case that must catch it.
+    MutatedTopology topo("ecmp_port_zero");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastEcmpNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim]["ecmp_groups"][0]["members"][0]["port_id"] = 0;
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "an ecmp port_id of 0 was accepted";
+    EXPECT_EQ(out.vertices, 0u);
+}
+
+TEST(TopologyInputValidationTest, ANegativeEcmpPortIdIsRefusedAtLoad)
+{
+    // 🔴 `PortMember::portId` is a SIGNED int (GraphTypes.hpp:186) filled straight from the file,
+    // so -1 was a value the loader would carry into the flow path. This case is what separates
+    // the gate's M15 (the floor deleted, so 0 AND negatives get in) from its M16 (the host side's
+    // port-0 exemption transplanted, so only 0 gets in): without it the two are indistinguishable
+    // and one of them is measuring nothing.
+    MutatedTopology topo("ecmp_port_negative");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastEcmpNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim]["ecmp_groups"][0]["members"][0]["port_id"] = -1;
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "a negative ecmp port_id was accepted";
+    EXPECT_EQ(out.vertices, 0u);
+}
+
+TEST(TopologyInputValidationTest, TheLargestInRangeEcmpPortIdIsAccepted)
+{
+    // The boundary from the other side, so the bound cannot quietly narrow to the fleet's
+    // observed maximum (24, on the two HPE files). Same control M9 provides for the edge bound.
+    MutatedTopology topo("ecmp_port_max");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastEcmpNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim]["ecmp_groups"][0]["members"][0]["port_id"] = 65535;
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_FALSE(out.threw) << "65535 is in range and was refused: " << out.message;
+    EXPECT_EQ(out.vertices, 14u);
+    EXPECT_EQ(out.edges, 40u);
+}
+
+// -------------------------------------------------------------------------------------------------
+// door 1 -- the second extraction path, pinned rather than changed.
+// -------------------------------------------------------------------------------------------------
+
+TEST(TopologyInputValidationTest, FromJsonHasNoProductionCallers)
+{
+    // 🔴 WHAT THIS IS FOR. GraphTypes.hpp defines from_json(json, VertexProperties&) and the
+    // EdgeProperties twin, and the loader does NOT use them: TopologyAndFlowMonitor.cpp:702 and
+    // DeviceConfigurationAndPowerManager.cpp both carry the call commented out above a hand
+    // written field-by-field extraction. So validateStaticTopologyJson guards the hand-written
+    // path and nothing guards from_json -- which is fine only for exactly as long as no
+    // production code calls it. Its only live callers today are tests (test_IsUpSplit.cpp:309
+    // and :339), whose assertions are deliberately left alone by this fix.
+    //
+    // This test is the tripwire on that "only for as long as". The day someone wires from_json
+    // into the kernel, this goes red and door 1 has to be decided rather than inherited.
+    //
+    // Limitation, stated rather than hidden: line comments are stripped, block comments are not,
+    // so a call commented out with a block comment would read as live and this test would be
+    // red for the wrong reason. That direction is the safe one.
+    const std::string dir = settingDir();
+    ASSERT_FALSE(dir.empty()) << "cannot locate the repo from the test's working directory";
+    const std::filesystem::path root =
+        std::filesystem::path(dir).parent_path().empty() ? std::filesystem::path(".")
+                                                         : std::filesystem::path(dir).parent_path();
+
+    std::size_t filesScanned = 0;
+    std::vector<std::string> callers;
+    for (const char* subdir : {"src", "include"})
+    {
+        const std::filesystem::path base = root / subdir;
+        ASSERT_TRUE(std::filesystem::is_directory(base)) << base.string() << " not found";
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(base))
+        {
+            if (!entry.is_regular_file())
+            {
+                continue;
+            }
+            const std::string ext = entry.path().extension().string();
+            if (ext != ".cpp" && ext != ".hpp" && ext != ".h" && ext != ".cc")
+            {
+                continue;
+            }
+            ++filesScanned;
+            std::ifstream in(entry.path());
+            std::string line;
+            std::size_t lineNo = 0;
+            while (std::getline(in, line))
+            {
+                ++lineNo;
+                const auto comment = line.find("//");
+                if (comment != std::string::npos)
+                {
+                    line.erase(comment);
+                }
+                for (const char* call : {"get<VertexProperties>", "get<EdgeProperties>"})
+                {
+                    if (line.find(call) != std::string::npos)
+                    {
+                        callers.push_back(entry.path().string() + ":" + std::to_string(lineNo) +
+                                          " " + call);
+                    }
+                }
+            }
+        }
+    }
+
+    ASSERT_GT(filesScanned, 50u) << "only " << filesScanned
+                                 << " sources scanned -- the search, not the answer, is wrong";
+
+    std::string found;
+    for (const auto& c : callers)
+    {
+        found += "\n    " + c;
+    }
+    EXPECT_TRUE(callers.empty())
+        << "from_json now has " << callers.size()
+        << " production caller(s), so door 1 of FINDINGS #89 is live and the unguarded extraction "
+           "path is reachable from the kernel. Decide it rather than inheriting it:"
+        << found;
 }

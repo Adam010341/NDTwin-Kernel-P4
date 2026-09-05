@@ -158,12 +158,30 @@ constexpr std::uint32_t kMaxTopologyInterface = 65535;
  * and only to that side. A check written as "a port index is >= 1" would refuse five shipped
  * files: a wider outage than the defect it was meant to fix.
  *
+ * FINDINGS #89 / W-TOPO-THREE-DOORS extends this function on the NODE side. #61/#62 made "the
+ * whole file is checked before the first add_vertex" the rule, but the coverage of the rule was
+ * transcribed by hand -- edges were checked here, node addresses were parsed here, and three
+ * refusals were left sitting inside the builder loop below, where they fire on node N with nodes
+ * 0..N-1 already in the graph. That is the 39-of-40 shape this function exists to abolish,
+ * reached through a different door. `ecmp_groups` was the fourth door: not looked at here at all,
+ * so a `port_id` got none of the range checking its edge-interface sibling got from #62.
+ *
+ * 🔴 THE BUILDER'S OWN THROWS ARE NOT REMOVED, DELIBERATELY -- same two-layer reasoning as #61's
+ * edge guard. If this pass and the builder ever disagree the builder must still refuse rather
+ * than add half a graph. What changes is that the refusal now happens here FIRST, so the graph
+ * is untouched; the builder copy is the backstop, and the tests tell the two apart by asserting
+ * num_vertices == 0 rather than merely that something threw.
+ *
  * @param j      the parsed topology document
  * @param where  set to a description of the entry under examination, so the rethrow in
  *               loadStaticTopologyFromFile names it
+ * @param mode   the deployment mode the graph will be built in. 🔴 The one signature change this
+ *               fix needed: `bridge_name` is read by the builder only under MININET, so checking
+ *               it up here is impossible without knowing the mode, and a check that ran in every
+ *               mode would refuse the five _ipAlias4_ TESTBED files, none of which declare one.
  */
 void
-validateStaticTopologyJson(json& j, std::string& where)
+validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mode)
 {
     // The endpoints, indexed exactly the way the edge loop below resolves them: switches by
     // dpid, hosts by the first address on the edge, matched against every address every node
@@ -176,14 +194,78 @@ validateStaticTopologyJson(json& j, std::string& where)
     {
         where = describeTopologyItem(nodeJson, "node", itemIndex++);
 
-        if (static_cast<VertexType>(nodeJson.at("vertex_type").get<int>()) == VertexType::SWITCH)
+        const auto vertexType = static_cast<VertexType>(nodeJson.at("vertex_type").get<int>());
+        if (vertexType == VertexType::SWITCH)
         {
             switchDpids.insert(nodeJson.at("dpid").get<std::uint64_t>());
         }
-        for (std::uint32_t address :
-             utils::ipStringVecToUint32Vec(nodeJson.at("ip").get<std::vector<std::string>>()))
+        const auto addresses =
+            utils::ipStringVecToUint32Vec(nodeJson.at("ip").get<std::vector<std::string>>());
+        nodeAddresses.insert(addresses.begin(), addresses.end());
+
+        // ---- #89 door 3a: a switch_kind no mapping accepts ----
+        // switchKindFromString throws std::invalid_argument on anything unmapped, and the builder
+        // still calls it for the value it needs. Calling it here for its throw alone is what
+        // moves the refusal in front of the first add_vertex.
+        if (nodeJson.contains("switch_kind"))
         {
-            nodeAddresses.insert(address);
+            (void)switchKindFromString(nodeJson.at("switch_kind").get<std::string>());
+        }
+
+        // ---- #89 door 3b: a switch with no management address ----
+        // FINDINGS #85's door, hoisted. Ten sites call ip.front() on a switch unconditionally,
+        // including findSwitchByIp() which does it for every switch while searching, so one
+        // `"ip": []` switch is undefined behaviour for the whole graph's address lookup.
+        if (vertexType == VertexType::SWITCH && addresses.empty())
+        {
+            throw std::runtime_error(
+                "switch dpid " + std::to_string(nodeJson.at("dpid").get<std::uint64_t>()) +
+                " has an empty \"ip\" array; every switch needs at least one management address, "
+                "because address lookup reads the first one unconditionally");
+        }
+
+        // ---- #89 door 3c: MININET, and a switch with no bridge to attach to ----
+        // 🔴 MININET only. The five _ipAlias4_ TESTBED files declare no bridge_name on any switch
+        // and must keep loading; the builder reads the field only on this branch, so the check
+        // has to sit on the same branch or it takes those five files down.
+        if (mode == utils::DeploymentMode::MININET && vertexType == VertexType::SWITCH &&
+            !(nodeJson.contains("bridge_name") && nodeJson.at("bridge_name").is_string()))
+        {
+            throw std::runtime_error(
+                "switch dpid " + std::to_string(nodeJson.at("dpid").get<std::uint64_t>()) +
+                " has no \"bridge_name\" string, and MININET mode attaches every switch to a "
+                "bridge by that name");
+        }
+
+        // ---- #89 door 2: ecmp_groups[].port_id, which had no range check at all ----
+        // Parsed here, through the same from_json the builder's `.value("ecmp_groups", ...)` will
+        // use, so a malformed group is a refusal before the graph is touched rather than a throw
+        // from the middle of the node loop. Then the range: the identical bound #62 put on an
+        // edge's interface index, because it is the identical thing -- a switch port number.
+        // Two of the thirteen shipped files carry no "ecmp_groups" key at all
+        // (StaticNetworkTopology_ipAlias4_10Switches{,_all_1g_cable}.json), which is why this
+        // reads with value() and not at().
+        const auto ecmpGroups = nodeJson.value("ecmp_groups", std::vector<EcmpGroup>{});
+        for (const auto& group : ecmpGroups)
+        {
+            for (const auto& member : group.members)
+            {
+                const auto* port = std::get_if<PortMember>(&member);
+                if (port == nullptr)
+                {
+                    continue;
+                }
+                const auto portId = static_cast<std::int64_t>(port->portId);
+                if (portId < 1 || portId > static_cast<std::int64_t>(kMaxTopologyInterface))
+                {
+                    throw std::runtime_error(
+                        "an \"ecmp_groups\" member names \"port_id\" " + std::to_string(portId) +
+                        ", which is not a switch port index this loader accepts (1.." +
+                        std::to_string(kMaxTopologyInterface) +
+                        "). The same bound already applies to an edge's interface index; this "
+                        "field was reaching the flow path with no check at all");
+                }
+            }
         }
     }
 
@@ -586,7 +668,11 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
     // file that is going to be refused is refused without having partially applied. Placement is
     // the point: the same checks after the builder would still leave the 39-of-40 graph the
     // measurement found. See validateStaticTopologyJson for what it refuses and what it must not.
-    validateStaticTopologyJson(j, where);
+    //
+    // FINDINGS #89 adds the node-side doors and the mode argument: `bridge_name` is only read
+    // under MININET, so the pass cannot check it without being told which mode it is validating
+    // for. That is the whole of the signature change.
+    validateStaticTopologyJson(j, where, m_mode);
 
     // [Co-developed with claude code -- Adam]
     // This was commented out, and it is not an oversight that can be undone by uncommenting: the
@@ -661,6 +747,15 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
         // Rejected here rather than guarding each call site: this makes the invariant those ten
         // sites already assume actually true, and failing at load with the offending dpid beats
         // undefined behaviour later. Same reasoning as the malformed-switch_kind throw above.
+        //
+        // 🔴 FINDINGS #89 door 3: this throw, the switch_kind one above and the bridge_name one
+        // below are all now ALSO made by validateStaticTopologyJson, before the first add_vertex.
+        // These three copies are the backstop, not the check: reached on node N they leave nodes
+        // 0..N-1 in the graph, which is the partial application #61 exists to abolish. Do not
+        // delete them -- if the two passes ever disagree, refusing here still beats building half
+        // a graph -- and do not treat them as the guard either. TopologyInputValidationTest's
+        // three *LeavesNoPartiallyLoadedGraph cases assert num_vertices == 0, not merely that
+        // something threw, and that is what tells the two apart.
         if (vp.vertexType == VertexType::SWITCH && vp.ip.empty())
         {
             throw std::runtime_error(
