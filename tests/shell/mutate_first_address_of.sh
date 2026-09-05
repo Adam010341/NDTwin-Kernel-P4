@@ -331,11 +331,23 @@ mutate_must_die \
 # --- M5: the fabricated address -----------------------------------------------------------------
 # 0.0.0.0 instead of a skip. Nothing crashes, the ranking is full, and one of its rows names a
 # link that does not exist. This is the failure mode FIX-CPU-REPORT-NO-IP.md §5 records twice.
+#
+# 🔴 The anchor MUST swallow the skip block as well, and the first version of this gate did not.
+# Replacing only the two assignments left the `continue` standing above them, so the 0.0.0.0
+# branch was unreachable and the mutant was behaviour-preserving. It was scored SURVIVED on
+# 2026-09-05 16:3x -- the correct conservative verdict for a mutation that changed the file and
+# not the program, and one the `cmp` no-op check cannot catch, because the file really did
+# change. A mutation that cannot reach its own defect proves nothing about the test.
 mutate_must_die \
     "M5 substitutes-0.0.0.0-for-a-missing-address" \
     "NoIpSwitchTest.AnAddresslessHostDoesNotEndTheTopKReport" \
     "$SRC_TAFM" \
-    '        const std::string& ip1_str = *ip1Opt;
+    '        if (!ip1Opt || !ip2Opt)
+        {
+            ++links_skipped_no_address;
+            continue;
+        }
+        const std::string& ip1_str = *ip1Opt;
         const std::string& ip2_str = *ip2Opt;' \
     '        const std::string ip1_str = ip1Opt ? *ip1Opt : std::string("0.0.0.0");
         const std::string ip2_str = ip2Opt ? *ip2Opt : std::string("0.0.0.0");' \
@@ -353,6 +365,13 @@ mutate_must_die \
 # --- M7: the injection defence, widened ---------------------------------------------------------
 # `==` relaxed to a substring match while adding the empty guard. deviceIdentifier flows into
 # execArgv at the snmpget call site; equality is what keeps it to an address the topology holds.
+#
+# 🔴 The sixth argument is not optional here, and the first version of this gate omitted it.
+# assert_unique counts with `grep -c -F`, which is LINE oriented: a two-line anchor is two
+# patterns to grep, and it matched one line each, reported "2 times", and scored the mutation
+# INVALID on 2026-09-05 16:3x. check_gate_anchors.py disagreed and said ok(10), because it counts
+# with str.count() over the whole file, where the two-line anchor occurs exactly once. Both tools
+# are right about their own question; the gate's is the stricter one. Pass a single line.
 mutate_must_die \
     "M7 identifier-comparison-widened-to-substring" \
     "NoIpSwitchTest.TheSingleSwitchCpuReportStillMatchesOnTheAddressItHas" \
@@ -360,7 +379,8 @@ mutate_must_die \
     '        if (vp.vertexType == VertexType::SWITCH && !vp.ip.empty() &&
             utils::ipToString(vp.ip.front()) == deviceIdentifier)' \
     '        if (vp.vertexType == VertexType::SWITCH && !vp.ip.empty() &&
-            utils::ipToString(vp.ip.front()).find(deviceIdentifier) != std::string::npos)'
+            utils::ipToString(vp.ip.front()).find(deviceIdentifier) != std::string::npos)' \
+    '            utils::ipToString(vp.ip.front()) == deviceIdentifier)'
 
 # --- C1-C3: controls. Behaviour-preserving; must stay GREEN. ------------------------------------
 
