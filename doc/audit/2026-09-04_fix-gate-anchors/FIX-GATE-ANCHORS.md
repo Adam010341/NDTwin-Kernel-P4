@@ -160,3 +160,165 @@ c30d130f Wire check_gate_anchors.py into l1_unit_tests.sh as a read-only pre-bui
 ——`.git` 是檔案不是目錄——被 `TheRealGatesAreRead` 自己 skip,不是這次改動造成的)。
 
 [Co-developed with claude code -- Adam]
+
+---
+
+# 2026-09-05 夜巡續:最後兩格,68/68
+
+（worktree `scratch/overnight-2026-09-05/wt-anchors2`,branch `fix/gate-anchors-0905-redirection`,
+從 `fix/gate-anchors-0904` 的 `2109122a` 長出來;未 push、未合進 trunk。）
+
+## 結果(逐字)
+
+開工前(本 worktree HEAD `2109122a`,即 09-04 收工點):
+
+```
+66/68 cells ok  (2 not ok, of which 1 were NOT CHECKED AT ALL)
+```
+
+收工(HEAD `9e4bc025`):
+
+```
+68/68 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+```
+
+exit code 從 2 變 0。整張 68 列的表逐列 diff:**只有兩列變動**
+（`mutate_ports_that_block_restart.sh` MISSING:1 → ok(9)、`mutate_redirection_order.sh`
+UNPARSED → ok(19)),外加 M14 讓 `mutate_check_gate_anchors.sh` 從 ok(13) → ok(14)。
+其餘 65 列逐字元相同。
+
+## 🔴 更正 09-04 的一個記述錯誤
+
+上面 09-04 那段寫「`mutate_redirection_order.sh`(UNPARSED,2 個 `$A2`/`$A2b` 讀不到)」,
+並據此把它當成「18 格讀到、2 格沒讀到」。**實測不是這樣**:那支閘門
+`extract()` 回傳的是 **0 個 anchor + 2 個 problem**。20 個 mutation **一個都沒被檢查**。
+
+原因是另一個:其餘 18 個 mutation 寫成 `"$(printf 'old\x1fnew')"`,而
+`check_gate_anchors.py` **刻意不評估 command substitution**(它自己的話:「what the
+substitution EVALUATES to is not something this tool can know」)。所以那個 `\x1f`
+在它眼裡是四個字面字元 `\`、`x`、`1`、`f`,不是 `PACKED_SEP` 認得的控制字元,整條規則不觸發。
+閘門自己 2026-09-03 寫的註解說 printf 形式「checker 讀得到」——**那句話是錯的**
+(寫下時就錯,或從那之後一直錯);而它正是「A2/B2 為什麼刻意留在變數形式」的理由。
+被錯誤前提保護著的那兩格,跟它想保護的 18 格,狀態其實一樣。
+
+**這也表示 09-04 那句「兩格讀不到」低估了 15 支閘門的實際暴露程度嗎?** 不。其他 66 格的
+數字沒有受影響——`ok(n)` 的 n 是真的數過的 anchor 數。只有這一支的 UNPARSED 被讀成了
+「大部分有檢查」。教訓照舊:**cell 的狀態字串不是它檢查了多少的證據,anchors 的長度才是。**
+
+## 逐格
+
+### (1) `mutate_redirection_order.sh`:UNPARSED → ok(19)(20 個 mutation,m1/m16 anchor 相同去重)
+
+**沒有動共用 env 解析。** 09-04 規劃的那條路(讓 `quoted_assignments` 吃 `split_commands`
+的輸出)是為了讀 `A2='...'; B2='...'` 那兩格用的;但既然真正的洞是那 18 個 `$(printf ...)`,
+而讀懂它要的是**評估 command substitution**——那是這支工具刻意畫的邊界,不是漏洞——
+正確的修法就跟 09-04 對 `mutate_ports_that_block_restart.sh` 做的一樣:**改閘門,不改工具**。
+
+- `mutant()` 從「$3 = old<US>new 打包成一個引數」改成 `$3 = old`、`$4 = new`
+  (`local name="$1" rel="$2" old="$3" new="$4" want="${5:-1}"`,具名角色,checker 既有的
+  role-based 規則就讀得到)。
+- 目標檔從裸字面(`tools/test_workflow/ndt`)改成宣告過的路徑變數(`"$NDT"` 等 8 個,
+  repo-relative)。裸字面 `path_at` 解不出來——這正是 ports 那格 M9 的病因(見下)。
+- 20 個呼叫點的 old/new 改寫成字面 shell 字串(`'"'"'` 內嵌單引號的寫法)。
+
+**驗證(兩層,都做了)**:
+
+1. **逐位元組**:用一個只擷取引數、不寫檔不跑 python 的 stub `mutant()`,分別餵原始 20 行
+   呼叫與改寫後的 20 行,把 `(name, file, old, new, want)` 五元組 base64 後 diff
+   ——**20/20 完全相同**。`tools/`、`tests/` 底下一個位元組都沒動,改的只是這支閘門怎麼
+   「拼」它要傳下去的字串。
+2. **真的跑過閘門**(它不建置:自己的 header 寫「no lab, no build and no listener」):
+
+   ```
+   baseline (must be green before any mutation):
+   Ran 29 checks, 0 failed
+   ... 20 行 caught ...
+   baseline byte-identical: yes (all 8 source files)
+   mutation gate: 20 mutations, 0 survived
+   ```
+
+   **20 個 mutation 全部被抓、0 存活**,baseline 綠、8 個來源檔跑完位元組相同。
+
+順手更正 header 的編號:M2b、M3b–M3d 加進來之後,那兩個 🔴 mutation 早就是 M15/M16,
+header 還寫 M16/M17。
+
+### (2) `mutate_ports_that_block_restart.sh` 的 M9:MISSING:1 → ok(9)
+
+09-04 留下的那格。病因 09-04 已經查對:`mutant()` 的 body 同時 bake 進 `$PORTS` 跟 `$NDT`,
+`default_file_of` 只回第一個;M9 的檔案引數寫成裸字面 `ndt`——沒有目錄部分,也沒有副檔名,
+`is_repo_path` 兩條路(斜線、`_BARE_FILENAME`+git 問存不存在)都不成立,`path_at` 交白卷。
+
+修法跟上面同一條:**9 個呼叫點改成傳宣告過的變數**(`"$PORTS"` / `"$NDT"`),
+`mutant()` 自己用 `${file##*/}` 取 basename 貼到暫存樹。暫存樹的佈局、複製的檔案、
+mutation 文字都沒變。閘門本身從來沒壞(anchor 在 `tools/test_workflow/ndt` 裡確實存在且唯一)。
+
+🔴 **這支閘門今晚沒跑**——它要起真的 listener 佔 port(`test_ports_that_block_restart.sh`),
+不是離線的。只有靜態證明:checker 現在 `ok(9)`,9 個 anchor 各自在自己被指名的檔案裡剛好 1 次。
+
+### (3) checker:`_declared_want()`——一個**它自己發明的** DUP
+
+改閘門之後 M13(唯一一個宣告 `want=2` 的 mutation:`ndtwin-vm.sh` 裡兩個一模一樣的多行
+awk reader 要一起翻回去)冒出來一個新問題,而且是這支工具最忌諱的那種:
+
+`extract()` 有兩條規則會同時打中同一個呼叫點——具名角色那條(i)、跟最下面泛用的
+`<file> <anchor>` 那條。**泛用那條一直讀得懂結尾的整數**(`apply_exact <file> <old> <new> <count>`
+的慣例),**具名角色那條沒有**,把同一行讀成 `want=1`。而 `add()` 的去重鍵是
+`(file, text, kind, want)` ⇒ **一個 mutation 產出兩個 anchor**,一個 want=1 一個 want=2,
+want=1 那份對著一個「本來就宣告自己不唯一」的 anchor 報 **DUP**。
+
+**這不是漏掉一個檢查,是無中生有一個失敗**——跟漏掉是同一種罪。修法:抽出
+`_declared_want(words, apos)`,**兩條規則共用同一個讀法**,慣例只寫一次。
+
+- **對其餘 67 支閘門的影響:實測為零。** 先只改 checker、閘門仍停在舊的 HEAD 跑一次全表,
+  跟 before.log **逐字元無 diff**。(理由也量過:今天全樹沒有任何呼叫點在 anchor 後兩格
+  放裸整數。)
+- **測試**:`tests/python/test_check_gate_anchors.py` 加 3 個 case + 1 個新閘門形狀
+  `GATE_DECLARED_COUNT`(打 `src/zeta.cpp`,那個檔故意有兩行一樣的)。29 → 40(09-04)→ **43**。
+  用 venv 直譯器 `/home/adam/Desktop/NDTwin-Kernel/test_env/bin/python3`(Python 3.12.3):
+  `Ran 43 tests ... OK (skipped=2)`(那 2 個 skip 是 worktree 的 `.git` 是檔案不是目錄,
+  `TheRealGatesAreRead` 自己 skip 的,跟這次無關)。
+- **先看過紅**:把 rule (i) 改回舊寫法當 mutant,兩個新 case 都失敗,cell 讀 `DUP:1`。
+- **常設化**:`mutate_check_gate_anchors.sh` 加 M14(把 `_declared_want` 打瞎成 `return 1`),
+  必須讓 `test_a_declared_count_is_read_once_by_both_rules` 變紅。整支跑過:
+  **14 mutations, 0 survived**,baseline 位元組相同。
+
+### (4) `mutate_a7_dispatch_status.sh` 的 DUP:已經修好了(`c1514d8b`),今晚只補證明
+
+09-04 已經把 anchor 從一行擴成兩行。今晚補上「打到對的那一行」的證據——直接對
+`p4_proxy/proxy_agent/api_routes.py` 跑 `s.replace(a, r, 1)` 看 diff:
+
+- 舊的一行 anchor,檔內出現 **2 次**,第一次命中落在 **`_priority_disclosure()`**
+  (`api_routes.py:306`,下一行是 `return {...}`)——**錯的函式**。
+- 現在的兩行 anchor,檔內出現 **1 次**,命中落在 **`add_flow_entry()`**
+  (`api_routes.py:367`,下一行是 `body = {...}`,再下面是 `if data.get("priority") ...`)
+  ——mutation #4 跟它的 expected test 講的就是這一個。
+
+（兩份 diff 逐行貼在 session 的 scratchpad;閘門本身要 p4 proxy 起來才跑得動,今晚沒跑。）
+
+## 跑過看紅 vs 只有靜態證明
+
+| 閘門 | 今晚 |
+|---|---|
+| `mutate_redirection_order.sh` | **跑過**:20 mutations, 0 survived,baseline 綠且位元組相同 |
+| `mutate_check_gate_anchors.sh` | **跑過**:14 mutations, 0 survived(含新的 M14) |
+| `tests/python/test_check_gate_anchors.py` | **跑過**:43 tests OK(skipped 2);新 case 先看過紅 |
+| `mutate_ports_that_block_restart.sh` | **只有靜態**:checker ok(9)。它要佔 port、不是離線的 |
+| `mutate_a7_dispatch_status.sh` | **只有靜態**:checker ok(10) + 上面那兩份 `s.replace(...,1)` diff |
+
+## 還沒做的
+
+- 09-04 那份「明早需要真的跑一次確認的閘門」清單裡的 1–8 項,今晚只多消掉
+  `mutate_ports_that_block_restart.sh`(第 6 項)的**靜態**部分——它仍然沒被真的執行過。
+  a2/a7/f6/g6 那四支(語意判斷風險最高的)一支都還沒跑。
+- `l1_unit_tests.sh` 的 step 0 現在會過了(exit 0),但整條 L1 lane 今晚沒跑。
+
+## Commit 列表(`2109122a..9e4bc025`,worktree `wt-anchors2`,未 push)
+
+```
+b81229ed Read a declared hit count in one place, so two rules cannot disagree
+13ffc1d4 Unpack mutate_redirection_order.sh's runtime-packed anchors (all twenty)
+9a8efe15 Name mutate_ports_that_block_restart.sh's target through its path variable
+9e4bc025 M14: the checker's own gate now forbids ignoring a declared hit count
+```
+
+[Co-developed with claude code -- Adam]

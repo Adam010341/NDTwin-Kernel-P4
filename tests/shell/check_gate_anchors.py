@@ -592,6 +592,33 @@ def role_position(roles, wanted):
     return None
 
 
+def _declared_want(words, apos):
+    """`<file> <old> <new> <count>`: the hit count a call site declares, or 1.
+
+    Some anchors are deliberately NOT unique and the gate says how many it expects
+    (`apply_exact <file> <old> <new> 3`). The generic `<file> <anchor>` rule at the bottom of
+    extract() has always honoured that trailing integer; the role-named rule above it did not,
+    and read the same call as want=1.
+
+    🔴 That is not a missed check, it is an INVENTED one. Both rules fire on the same call site,
+    and add() keys its dedup on (file, text, kind, want) -- so one mutation produced TWO anchors,
+    want=1 and want=2, and the want=1 copy was reported DUP against a gate whose anchor is
+    exactly as non-unique as it declares. Measured 2026-09-05 on
+    tests/shell/mutate_redirection_order.sh's M13, whose two multi-line awk readers in
+    tools/remote-lab/ndtwin-vm.sh are mutated together on purpose. One convention, read in one
+    place, so the two rules cannot disagree again.
+
+    `words` is the word list the count is counted in and `apos` the anchor's index in it: the
+    count sits two past the anchor, after the replacement.
+
+    [Co-developed with claude code -- Adam]
+    """
+    pos = apos + 2
+    if pos < len(words) and re.fullmatch(r"\d+", words[pos][0]):
+        return int(words[pos][0])
+    return 1
+
+
 def builder_arrays(body):
     """{position: array} from a table builder's `MUT_ANCHOR+=("$3")` statements."""
     out = {}
@@ -991,7 +1018,8 @@ def extract(gate_text, gate_name, gate_path=None, exists=None):
             if arr is None:
                 aw = expand_word(aw, aq, env)
                 if not is_whole_param_ref(aw, aq):
-                    add(path_at(cmd, fpos) or fdefault.get(fn), aw, fn)
+                    add(path_at(cmd, fpos) or fdefault.get(fn), aw, fn,
+                        _declared_want(cmd, apos))
                 continue
             farr = array_ref(*cmd[fpos]) if (fpos is not None and fpos < len(cmd)) else None
             b = next((bn for bn, mp in builders.items() if arr in mp.values()), None)
@@ -1117,11 +1145,9 @@ def extract(gate_text, gate_name, gate_path=None, exists=None):
             # `apply_exact <file> <old> <new> <count>`: some anchors are deliberately
             # NOT unique and the gate says how many it expects. Honour that number --
             # calling a declared count of 3 a duplicate would be this tool inventing a
-            # failure, which is the same sin as missing a real one.
-            want = 1
-            if k + 3 < len(args) and re.fullmatch(r"\d+", args[k + 3][0]):
-                want = int(args[k + 3][0])
-            add(val, nxt, head, want)
+            # failure, which is the same sin as missing a real one. Same reader as the
+            # role-named rule above, so the two cannot disagree about one call site.
+            add(val, nxt, head, _declared_want(args, k + 1))
 
     # An anchor whose file this tool could not pin down is checked against EVERY path the
     # gate declares, and counts as resolved when it appears exactly once across all of them.
