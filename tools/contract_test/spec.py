@@ -1194,11 +1194,28 @@ ENDPOINTS = [
          schema=Any_(),
          note="must not 500 -- an empty result is acceptable, a crash is not"),
 
+    # [Co-developed with claude code -- Adam]
+    # OV-3, 2026-09-04. This accepted all three answers, so it agreed with the kernel whichever
+    # one came back -- and the one that did come back was 200 {"num_of_flows": 0}, which is the
+    # defect: a dpid that names no switch was indistinguishable from a real switch carrying no
+    # traffic. Tightened to 404 alone, the same answer install_flow_entry has always given for
+    # the same dpid. A kernel from before that fix now fails this check, which is the point.
     dict(name="get_num_of_flows__unknown_dpid", method="POST",
          path="/ndt/get_num_of_flows_passing_a_switch",
          body={"dpid": 999999999999},
-         category=ERRORPATH, expect_status=[200, 400, 404],
-         schema=Any_()),
+         category=ERRORPATH, expect_status=[404],
+         schema=Any_(),
+         note="404, not 200-with-zero: 'no such switch' and 'no traffic' must be"
+              " distinguishable. install_flow_entry answers 404 for this dpid."),
+
+    # The twin. It had no error-path case at all, so the same defect on the traffic-load endpoint
+    # was outside the contract's field of view entirely.
+    dict(name="get_total_input_traffic_load__unknown_dpid", method="POST",
+         path="/ndt/get_total_input_traffic_load_passing_a_switch",
+         body={"dpid": 999999999999},
+         category=ERRORPATH, expect_status=[404],
+         schema=Any_(),
+         note="the twin of get_num_of_flows__unknown_dpid; added 2026-09-04 with OV-3"),
 
     dict(name="get_nickname__unknown_dpid", method="GET", path="/ndt/get_nickname",
          query={"dpid": "999999999999"},

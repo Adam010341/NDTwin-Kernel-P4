@@ -121,6 +121,14 @@ add_executable(
   # had observed and served it 0.257 s after the POST. Next to test_PendingEntryFilter.cpp in
   # spirit -- that one owns the rule, this one owns what the two planes are allowed to confirm.
   test_PhantomFilterCoversOvs.cpp
+
+  # [Co-developed with claude code -- Adam] OV-1: one POST /ndt/modify_nickname rewrote all 3998
+  # lines of a topology file the repository tracks, semantically unchanged -- nlohmann::json's
+  # default ObjectType is std::map, so every object came back out in dictionary order -- and
+  # `ndt status --check` then reported the kernel's own rewrite as "the topology file has been
+  # edited". This owns the property that a rename changes the field it was asked to change and
+  # nothing else, for every shipped topology and not only the two it was measured on.
+  test_NicknameDoesNotRewriteTheFile.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

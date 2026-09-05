@@ -634,46 +634,71 @@ HttpRoutingStrategyBase::guardedMod(const json& j,
     // guessing in either direction -- a read-back that could not be performed is not evidence
     // that the delete failed, and inventing a 502 from it would republish the kernel's own
     // reach as a finding about the fabric (the same rule the pre-check follows above).
-    if (op == EntryOp::Delete)
-    {
-        Existence after = Existence::Unknown;
-        for (int attempt = 0; attempt < VERIFY_ATTEMPTS; ++attempt)
-        {
-            if (attempt > 0)
-            {
-                pauseBeforeReVerify();
-            }
-            after = entryExists(kind, dpid, id);
-            if (after != Existence::Present)
-            {
-                break;
-            }
-        }
+    // [Co-developed with claude code -- Adam] FINDINGS #87, and the second half of finding #1.
+    //
+    // The read-back above was written for Delete alone, and install/modify fell straight through
+    // to the switch below: Ryu's 200 became "installed"/"modified" with nothing having asked the
+    // switch anything. Ryu does not barrier a group/meter mod and does not wait for a reply
+    // (ofctl_rest.py answers as soon as it has forwarded), so a switch that REFUSES an install
+    // refuses it asynchronously, correlated to nothing -- byte for byte the delete story that
+    // #1 was filed for, on the other two verbs.
+    //
+    // So the read-back is one block for all three, differing only in what it expects to find.
+    // Delete expects the entry to be gone; Add and Modify expect it to be there.
+    const Existence expected = (op == EntryOp::Delete) ? Existence::Absent : Existence::Present;
 
-        if (after == Existence::Present)
+    Existence after = Existence::Unknown;
+    for (int attempt = 0; attempt < VERIFY_ATTEMPTS; ++attempt)
+    {
+        if (attempt > 0)
         {
-            auto failed =
-                OpResult::failure(502, named + " is still on the switch after the delete was "
-                                               "forwarded and acknowledged; it was NOT deleted")
-                    .withOutcome("still_present");
-            SPDLOG_LOGGER_WARN(Logger::instance(),
-                               "{} did not take effect: {}",
-                               operation,
-                               failed.message);
-            return failed;
+            pauseBeforeReVerify();
         }
-        if (after == Existence::Unknown)
+        after = entryExists(kind, dpid, id);
+        if (after == expected || after == Existence::Unknown)
         {
-            SPDLOG_LOGGER_WARN(Logger::instance(),
-                               "{} was forwarded but {} could not be read back, so whether it "
-                               "was deleted is unknown",
-                               operation,
-                               named);
-            return result.withOutcome("unverified");
+            break;
         }
-        return result.withOutcome("deleted");
     }
 
+    // A read-back that could not be performed is not evidence that the mod failed. Inventing a
+    // 502 from it would republish the kernel's own reach as a finding about the fabric -- the
+    // same rule the pre-check above follows, and the same one the delete path already followed.
+    if (after == Existence::Unknown)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "{} was forwarded but {} could not be read back, so whether it took "
+                           "effect is unknown",
+                           operation,
+                           named);
+        return result.withOutcome("unverified");
+    }
+
+    if (after != expected)
+    {
+        // Delete: still there. Add/Modify: not there -- the switch did not take it.
+        const char* outcome = (op == EntryOp::Delete) ? "still_present" : "absent";
+        const std::string what =
+            (op == EntryOp::Delete)
+                ? named + " is still on the switch after the delete was forwarded and "
+                          "acknowledged; it was NOT deleted"
+                : named + " is not on the switch after the " +
+                      (op == EntryOp::Add ? "install" : "modify") +
+                      " was forwarded and acknowledged; the switch did NOT take it";
+        auto failed = OpResult::failure(502, what).withOutcome(outcome);
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "{} did not take effect: {}",
+                           operation,
+                           failed.message);
+        return failed;
+    }
+
+    // 🔴 Modify's read-back is WEAKER than the other two and the wording says so on purpose.
+    // entryExists answers "is this id on the switch", by matching group_id in
+    // /stats/groupdesc/<dpid> -- it does not compare buckets or bands. So a Present after a
+    // modify proves the entry still exists, NOT that it now holds what was asked for. The
+    // outcome stays the plain "modified" for that reason; anything with "verified" in it would
+    // be a stronger claim than the evidence. Comparing contents is a separate work item.
     switch (op)
     {
     case EntryOp::Add:
@@ -681,7 +706,7 @@ HttpRoutingStrategyBase::guardedMod(const json& j,
     case EntryOp::Modify:
         return result.withOutcome("modified");
     case EntryOp::Delete:
-        break; // handled above, where the read-back decides.
+        return result.withOutcome("deleted");
     }
     return result;
 }

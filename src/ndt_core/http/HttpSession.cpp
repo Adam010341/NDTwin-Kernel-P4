@@ -873,6 +873,28 @@ HttpSession::handleSetSwitchesPowerState(http::response<http::string_body>& res)
         return;
     }
 
+    // [Co-developed with claude code -- Adam]
+    // OV-2, measured 2026-09-04: ?ip=203.0.113.9&action=off answered
+    // 500 {"error":"Failed to change switch power state"} -- an address that names no switch
+    // reported as a fault in this kernel. The GET sibling
+    // (handleGetSwitchesPowerState, just above) has always answered 404 "Unknown switch IP" for
+    // exactly this address, from exactly this lookup; the POST collapsed it into
+    // setSwitchPowerState's bool, where it sat next to four `return false` paths that ARE
+    // server failures -- the relay refusing, the vertex gone, an unrecognised action, an
+    // exception. Checked HERE, before the manager is asked, rather than by widening that bool,
+    // because widening it would relabel those four as 404 and lose the real fault.
+    //
+    // knowsSwitchIp is the GET side's own lookup, per mode, so the two endpoints cannot drift
+    // apart again about what "unknown" means.
+    if (!m_deviceConfigurationAndPowerManager->knowsSwitchIp(ip))
+    {
+        res.result(http::status::not_found);
+        res.body() = json::object({{"error", "Unknown switch IP"}}).dump();
+        SPDLOG_LOGGER_WARN(
+            Logger::instance(), "set_switches_power_state: Unknown switch IP {}", ip);
+        return;
+    }
+
     bool ok = m_deviceConfigurationAndPowerManager->setSwitchPowerState(ip, action);
     if (ok)
     {
@@ -2278,6 +2300,26 @@ HttpSession::handleGetTotalInputTrafficLoadPassingASwitch(http::response<http::s
     if (jsonData.contains("dpid"))
     {
         auto dpid = jsonData.at("dpid").get<uint64_t>();
+        // [Co-developed with claude code -- Adam]
+        // OV-3. See handleGetNumOfFlowsPassingASwitch below for the whole note: without this,
+        // a dpid that names no switch is indistinguishable from a real switch carrying nothing,
+        // because the scan below never looks anything up -- it only compares.
+        if (!m_topologyAndFlowMonitor->getSwitchKind(dpid).has_value())
+        {
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "get_total_input_traffic_load_passing_a_switch: dpid {} is not a "
+                               "switch in the loaded topology",
+                               dpid);
+            res.result(http::status::not_found);
+            res.body() = json{{"status", "error"},
+                              {"error", "unknown dpid"},
+                              {"unknown_dpids", json::array({dpid})},
+                              {"detail", "these dpids are not switches in the loaded topology; "
+                                         "check the dpid, or that the topology file matches the "
+                                         "running network"}}
+                             .dump();
+            return;
+        }
         auto g = m_topologyAndFlowMonitor->getGraph();
         uint64_t totalLoad = 0;
         for (const auto& ed : boost::make_iterator_range(boost::edges(g)))
@@ -2317,6 +2359,34 @@ HttpSession::handleGetNumOfFlowsPassingASwitch(http::response<http::string_body>
     if (jsonData.contains("dpid"))
     {
         auto dpid = jsonData.at("dpid").get<uint64_t>();
+        // [Co-developed with claude code -- Adam]
+        // 🔴 OV-3, measured 2026-09-04: {"dpid":424242} answered 200 {"num_of_flows":0}. There is
+        // no lookup in the scan below that can fail -- the dpid is only ever a comparison operand,
+        // nothing matches it, and the accumulator is returned at its initial value. So a dpid that
+        // names no switch and a real switch with no traffic gave byte-identical answers, and a
+        // caller could not tell "I asked about nothing" from "there is nothing to report".
+        //
+        // getSwitchKind is the validator install_flow_entry already uses for the same question
+        // (see the partitionFlowBatchByKnownDpid call above, which answers 404 with the same
+        // wording for the same dpid), and its own Doxygen says callers must treat nullopt as an
+        // error rather than defaulting. It takes a shared_lock and a hash lookup; it does not
+        // copy the graph.
+        if (!m_topologyAndFlowMonitor->getSwitchKind(dpid).has_value())
+        {
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "get_num_of_flows_passing_a_switch: dpid {} is not a switch in the "
+                               "loaded topology",
+                               dpid);
+            res.result(http::status::not_found);
+            res.body() = json{{"status", "error"},
+                              {"error", "unknown dpid"},
+                              {"unknown_dpids", json::array({dpid})},
+                              {"detail", "these dpids are not switches in the loaded topology; "
+                                         "check the dpid, or that the topology file matches the "
+                                         "running network"}}
+                             .dump();
+            return;
+        }
         auto g = m_topologyAndFlowMonitor->getGraph();
         int numOfFlows = 0;
         for (const auto& ed : boost::make_iterator_range(boost::edges(g)))

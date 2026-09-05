@@ -180,6 +180,28 @@ class DeviceConfigurationAndPowerManager
      */
 
     /**
+     * @brief Is @p ip an address this deployment recognises as one of its switches?
+     *
+     * [Co-developed with claude code -- Adam]
+     * OV-3/OV-2, 2026-09-04. This exists so that the GET and the POST power endpoints answer the
+     * SAME question the same way. `getSwitchesPowerState` already refused an unknown address --
+     * it throws "Unknown switch IP", and HttpSession turns that into 404 -- while
+     * `setSwitchPowerState` folded the same condition into a `false` alongside four genuine
+     * server-side failures, and the POST answered 500. Two handlers each writing their own
+     * version of one lookup is exactly why the two answers drifted apart.
+     *
+     * It asks whichever question the mode makes it: the smart-plug table in TESTBED (the same
+     * `find_if` queryTestbed uses), the graph in every other mode (the same `findSwitchByIp`
+     * queryMininet uses). @return false for an empty address, which is a malformed request
+     * rather than an unknown switch and is refused earlier with 400.
+     *
+     * 🔴 This answers "do I know this address", NOT "can I power it". Those are different
+     * questions with different status codes: a dpid with no power strategy is a known switch
+     * whose power operation fails, and must stay a 500.
+     */
+    bool knowsSwitchIp(const std::string& ip) const;
+
+    /**
      * @brief Toggle power for a switch using the appropriate backend.
      *
      * @param ip     Switch IP address.

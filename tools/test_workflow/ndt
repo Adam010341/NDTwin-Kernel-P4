@@ -3513,7 +3513,52 @@ app_spawn() {
         warn "  so 'ndt apps stop $name' can only reach pids it can name -- a child that"
         warn "  outlives its launcher (a JVM, a maven wrapper) will survive the stop."
     fi
-    ( cd "$dir" && exec setsid nohup "$@" >>"$log" 2>&1 ) &
+    # [Co-developed with claude code -- Adam]
+    # 🔴 W7: some apps read stdin before they do anything. Traffic-engineering-App.py:599 calls
+    # input() from ask_mode() at startup, and it got EOF, so it raised EOFError and the app was
+    # dead inside the `sleep 1` below. Measured 2026-09-04: `ndt apps start te` -> rc 1, with
+    # the traceback in .test_run/logs/app_te.log.
+    #
+    # The EOF is not inherited from `ndt`'s own fd 0, and this is worth being exact about,
+    # because it decides whether the bug has a workaround. `( ... ) &` is an ASYNCHRONOUS
+    # command, and with job control off -- every script, including this one -- bash redirects an
+    # asynchronous command's stdin from /dev/null unless the command itself carries an explicit
+    # redirection. A redirection on the caller does not count. So the app read /dev/null however
+    # `ndt` was invoked: piping into `ndt`, or running it by hand at a terminal and typing the
+    # answer, could never have reached it. Verified 2026-09-04 with readlink /proc/self/fd/0 in
+    # this exact shape.
+    #
+    # The app's repo is read-only for us (Adam, 2026-09-04), and it has no flag, no environment
+    # variable and no config file for a non-interactive run, so feeding stdin here is the only
+    # lever there is.
+    #
+    # The feed is a HERESTRING hung on the same `exec`, deliberately, and not either of the two
+    # shapes that look equivalent:
+    #   * a `bash -c "..."` / `script -c "..."` wrapper buries the program's name INSIDE one argv
+    #     element, and pid_is_app (see :2797) compares argv ELEMENTS -- so `apps status` would
+    #     report not-running for a process that is plainly there, and `apps stop` would take the
+    #     "there was nothing" branch. The comment above pid_is_app forbids relaxing that back to
+    #     a substring test, so the launcher must not create the case that needs it.
+    #   * `printf ... | ( ... ) &` is not broken -- measured 2026-09-04, the whole liveness suite
+    #     stays green under it, and it is kept as a control in that gate so nobody can read this
+    #     comment as evidence it fails. It is not chosen because it makes `$!` correct by a rule
+    #     about pipelines (last element) rather than by the exec chain in front of you, in the
+    #     one function whose design note above is that `$!` must name the program itself. Move
+    #     the pipe INSIDE the subshell, which is the natural next edit, and the subshell can no
+    #     longer exec: it forks, `$!` names a shell wearing ndt's argv, and the pidfile is wrong
+    #     again in exactly the 2026-08-20 way.
+    # A herestring is applied by the subshell BEFORE the exec, so argv, the pid chain and the
+    # pgid==pid==sid check below are all untouched.
+    #
+    # Unset APP_STDIN keeps the old shape byte for byte. An unconditional `<<<"$APP_STDIN"` is
+    # NOT the same thing: an empty herestring is a one-line pipe, so an app that reads a line
+    # would get an empty string where it gets EOF today, and that is a behaviour change made to
+    # apps that never asked for one.
+    if [[ -n "${APP_STDIN:-}" ]]; then
+        ( cd "$dir" && exec setsid nohup "$@" >>"$log" 2>&1 <<<"$APP_STDIN" ) &
+    else
+        ( cd "$dir" && exec setsid nohup "$@" >>"$log" 2>&1 ) &
+    fi
     local pid=$!
     echo "$pid" >"$pid_dir/app_$name.pid"
     sleep 1
@@ -3650,7 +3695,22 @@ app_start() {
             info "first run builds with maven and is slow" ;;
         te)
             [[ -f "$TE_APP_DIR/Traffic-engineering-App.py" ]] || { err "TE app not found"; return 1; }
-            app_spawn te "$TE_APP_DIR" "$TE_PY" Traffic-engineering-App.py ;;
+            # [Co-developed with claude code -- Adam]
+            # 🔴 W7. Two lines, answering the app's two startup prompts (ask_mode(), :595-612):
+            # mode 2 = run periodically, then the interval in seconds.
+            #
+            # Mode 2 and not mode 1: mode 1 starts the enter_listener thread (:623-625) whose
+            # input() at :589 takes the EOF that follows this feed, the thread catches it and
+            # ends, and the app then runs with its Enter trigger permanently dead -- alive,
+            # reported started, and half a feature short. Mode 2 never reads stdin again (the
+            # main loop at :640-696 is sleep and schedule), so this feed is complete and nothing
+            # is left waiting on a third prompt.
+            #
+            # 5 and not some other number because 5 is the app's OWN default (:603
+            # te_interval = 5.0, prompt "[default 5]"): a launcher that fed a different value
+            # would be quietly changing the app's behaviour while looking like it only made it
+            # start.
+            APP_STDIN=$'2\n5\n' app_spawn te "$TE_APP_DIR" "$TE_PY" Traffic-engineering-App.py ;;
         *) err "unknown app: $name (known: $APP_NAMES)"; return 1 ;;
     esac
 }

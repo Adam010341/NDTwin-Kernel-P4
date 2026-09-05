@@ -384,10 +384,19 @@ TEST_F(GroupMeterFixture, ModifyingAGroupThatIsThereGoesThrough)
     EXPECT_TRUE(ryu.issued("/stats/groupentry/modify"));
 }
 
+// [Co-developed with claude code -- Adam] 2026-09-04, FINDINGS #87.
+// 🔴 getReplyAfterPost ADDED to the three install-accept cases below, and this is a change to
+// what they mean, so it is written down rather than done quietly. Before #87 an install was
+// claimed off Ryu's 200, so a fake whose table never changed was enough to express "the install
+// went through". It is not any more, and it never was a switch that ACCEPTED anything -- it was
+// a switch whose table is the same before and after, which is precisely the state #87 exists to
+// refuse. The assertions (ok, "installed", the request was issued) are unchanged; what changed
+// is that the fake now has to say the switch took it.
 TEST_F(GroupMeterFixture, AddingAGroupThatIsNotThereGoesThrough)
 {
     ScriptedRyu ryu;
     ryu.getReply = groupDescReply(1, {5});
+    ryu.getReplyAfterPost = groupDescReply(1, {5, 9}); // the switch took it
 
     const OpResult r = ryu.installAGroupEntry(groupPayload(9));
 
@@ -418,6 +427,7 @@ TEST_F(GroupMeterFixture, TheMeterAcceptPathsGoThrough)
     {
         ScriptedRyu ryu;
         ryu.getReply = meterConfigReply(1, {});
+        ryu.getReplyAfterPost = meterConfigReply(1, {3}); // the switch took it -- see #87 above
         const OpResult r = ryu.installAMeterEntry(meterPayload(3));
         EXPECT_TRUE(r.ok) << r.message;
         EXPECT_EQ(r.outcome, "installed");
@@ -485,6 +495,7 @@ TEST_F(GroupMeterFixture, AGroupIdCanBeInstalledAgainAfterAVerifiedDelete)
     // A fresh strategy against the switch state the delete left behind: 9 is gone.
     ScriptedRyu add;
     add.getReply = groupDescReply(1, {});
+    add.getReplyAfterPost = groupDescReply(1, {9}); // and the re-install lands -- see #87 above
 
     const OpResult reinstalled = add.installAGroupEntry(groupPayload(9));
 
@@ -959,4 +970,168 @@ TEST_F(GroupMeterEndpointTest, TheTwoDifferentNotFoundsAreDistinguishableInTheBo
     const auto& unknownGroup = m_peer->send("/ndt/delete_group_entry", kGroupBody);
     EXPECT_EQ(unknownGroup.result_int(), 404u);
     EXPECT_EQ(json::parse(unknownGroup.body()).value("outcome", ""), "no_such_group");
+}
+
+// --- FINDINGS #87: install and modify are claimed only after the switch is asked ----------------
+//
+// [Co-developed with claude code -- Adam]
+// Finding #1 gave the read-back to Delete and left Add and Modify going straight from Ryu's 200
+// to "installed"/"modified". Ryu does not barrier a group/meter mod and does not wait for the
+// switch's reply, so a refused install is refused asynchronously, correlated to nothing -- the
+// delete story, on the other two verbs.
+//
+// 🔴 REACHABILITY, stated because it differs from the delete half: the delete instance was
+// measured on ovs4 on 2026-09-03. An install or modify that a switch REFUSED has NOT been
+// observed -- FINDINGS-ALL.md:136 says so in as many words. The inference is same-function,
+// same-Ryu-behaviour; the evidence below is this fake switch, not a live one.
+
+// 🔴 The STATUS CODE is asserted at the endpoint layer below, not here, and that is deliberate.
+// tests/shell/mutate_delete_group_entry.sh has a widening (W2) that changes the strategy's 502 to
+// a 503 and requires the suite to stay GREEN -- its point being that the tests are pinned to
+// behaviour and not to an incidental. #87 made both verbs share one OpResult::failure(502, what),
+// so a strategy-level assertion on 502 here would turn that widening red and cost the sibling
+// gate its control. The endpoint test constructs its own OpResult, so it pins the 502 the API
+// documents without touching that.
+
+TEST_F(GroupMeterFixture, AGroupTheSwitchNeverTookIsNotReportedAsInstalled)
+{
+    ScriptedRyu ryu;
+    ryu.getReply = groupDescReply(1, {});          // absent before: the ADD pre-check passes
+    ryu.getReplyAfterPost = groupDescReply(1, {}); // and still absent: the switch did not take it
+
+    const OpResult r = ryu.installAGroupEntry(groupPayload(9));
+
+    EXPECT_FALSE(r.ok) << "a group the switch never took was reported as installed: " << r.message;
+    EXPECT_EQ(r.outcome, "absent");
+    EXPECT_NE(r.message.find("did NOT take it"), std::string::npos) << r.message;
+}
+
+TEST_F(GroupMeterFixture, AMeterTheSwitchNeverTookIsNotReportedAsInstalled)
+{
+    ScriptedRyu ryu;
+    ryu.getReply = meterConfigReply(1, {});
+    ryu.getReplyAfterPost = meterConfigReply(1, {});
+
+    const OpResult r = ryu.installAMeterEntry(meterPayload(3));
+
+    EXPECT_FALSE(r.ok) << "a meter the switch never took was reported as installed: " << r.message;
+    EXPECT_EQ(r.outcome, "absent");
+}
+
+/// The accept twin. Without it, "refuse every install" would score as catching the mutation
+/// above, and the endpoint would be broken in the other direction with a green suite.
+TEST_F(GroupMeterFixture, AGroupTheSwitchDidTakeIsReportedAsInstalled)
+{
+    ScriptedRyu ryu;
+    ryu.getReply = groupDescReply(1, {});
+    ryu.getReplyAfterPost = groupDescReply(1, {9});
+
+    const OpResult r = ryu.installAGroupEntry(groupPayload(9));
+
+    EXPECT_TRUE(r.ok) << "an install the switch did take was refused: " << r.message;
+    EXPECT_EQ(r.outcome, "installed");
+}
+
+/// Unknown must not become failure -- the same rule the pre-check and the delete path follow.
+/// A read-back the kernel could not perform is a fact about the kernel's reach, not about the
+/// switch, and turning it into a 502 publishes one as the other.
+TEST_F(GroupMeterFixture, AModifyThatCannotBeReadBackIsUnverifiedRatherThanFailed)
+{
+    ScriptedRyu ryu;
+    ryu.getReply = groupDescReply(1, {9});  // present before: the MODIFY pre-check passes
+    ryu.getReplyAfterPost = "\n000";        // curl reports 000 when it cannot connect at all
+
+    const OpResult r = ryu.modifyAGroupEntry(groupPayload(9));
+
+    EXPECT_TRUE(r.ok) << "an unanswerable read-back was reported as a failed modify: "
+                      << r.message;
+    EXPECT_EQ(r.outcome, "unverified");
+    EXPECT_GE(r.httpStatus, 200);
+    EXPECT_LT(r.httpStatus, 300);
+}
+
+/// Bounded, and a re-check. Same two halves as TheDeleteReCheckIsRetriedAndBounded, and for the
+/// same reason: one immediate read would call an install still in flight a failure, and
+/// unbounded reads would wedge a dispatcher worker on a switch that really did refuse.
+TEST_F(GroupMeterFixture, TheInstallReadBackIsRetriedAndBounded)
+{
+    ScriptedRyu persistent;
+    persistent.getReply = groupDescReply(1, {});
+    persistent.getReplyAfterPost = groupDescReply(1, {});
+    ASSERT_FALSE(persistent.installAGroupEntry(groupPayload(9)).ok);
+    EXPECT_GT(persistent.pauses, 0) << "the switch was asked only once, so an install still in "
+                                       "flight would be reported as a failure";
+    EXPECT_LE(persistent.pauses, 8) << "the re-check is not bounded";
+
+    ScriptedRyu prompt;
+    prompt.getReply = groupDescReply(1, {});
+    prompt.getReplyAfterPost = groupDescReply(1, {9});
+    ASSERT_TRUE(prompt.installAGroupEntry(groupPayload(9)).ok);
+    EXPECT_EQ(prompt.pauses, 0) << "an install that landed still waited";
+}
+
+/// The read-back is a READ-BACK: it happens after the write, not instead of the pre-check.
+/// Mirror of TheCheckHappensBeforeTheModNotAfterIt, which pins the other end.
+TEST_F(GroupMeterFixture, AnInstallReadBackHappensAfterThePostNotBeforeIt)
+{
+    ScriptedRyu ryu;
+    ryu.getReply = groupDescReply(1, {});
+    ryu.getReplyAfterPost = groupDescReply(1, {9});
+
+    ASSERT_TRUE(ryu.installAGroupEntry(groupPayload(9)).ok);
+
+    const int post = ryu.indexOf("/stats/groupentry/add");
+    ASSERT_GE(post, 0) << "the install was never forwarded";
+    ASSERT_GT(static_cast<int>(ryu.commands.size()), post + 1)
+        << "nothing was asked of the switch after the install was forwarded";
+    EXPECT_NE(ryu.commands.back().find("-X GET"), std::string::npos)
+        << "the last thing this did was not a read: " << ryu.commands.back();
+    EXPECT_NE(ryu.commands.back().find("/stats/groupdesc"), std::string::npos)
+        << ryu.commands.back();
+}
+
+/**
+ * 🔴 The claim must not be stronger than the evidence.
+ *
+ * entryExists answers "is this id on the switch" -- it matches group_id in /stats/groupdesc and
+ * never looks at buckets. So a Present after a modify proves the entry still EXISTS; it does not
+ * prove the switch took the new definition. Here the switch answers with the entry unchanged,
+ * which is exactly the case a content check would catch and this one cannot, and the outcome is
+ * still the plain "modified" -- no "verified", no "contents".
+ *
+ * This test is what stops the next person reading "modify now reads back" as "modify is now
+ * verified". If it is ever deleted, the wording is free to drift into a claim nothing supports.
+ */
+TEST_F(GroupMeterFixture, AModifyIsNotClaimedVerifiedWhenOnlyExistenceWasChecked)
+{
+    ScriptedRyu ryu;
+    ryu.getReply = groupDescReply(1, {9});
+    ryu.getReplyAfterPost = groupDescReply(1, {9}); // same id, same (empty) buckets: unchanged
+
+    const OpResult r = ryu.modifyAGroupEntry(groupPayload(9));
+
+    EXPECT_TRUE(r.ok) << r.message;
+    EXPECT_EQ(r.outcome, "modified");
+    EXPECT_EQ(r.outcome.find("verified"), std::string::npos)
+        << "the outcome claims verification that only an existence check supports: " << r.outcome;
+    EXPECT_EQ(r.message.find("verified"), std::string::npos) << r.message;
+    EXPECT_EQ(r.message.find("contents"), std::string::npos) << r.message;
+}
+
+/// The endpoint layer relays it: a 502 with the outcome that names WHY, not a bare 502.
+TEST_F(GroupMeterEndpointTest, InstallGroupRelaysA502WhenTheSwitchDidNotTakeIt)
+{
+    m_routing->next =
+        OpResult::failure(502, "group 9 on dpid 1 is not on the switch after the install was "
+                               "forwarded and acknowledged; the switch did NOT take it")
+            .withOutcome("absent");
+
+    const auto& res = m_peer->send("/ndt/install_group_entry", kGroupBody);
+
+    EXPECT_EQ(res.result_int(), 502u) << res.body();
+    EXPECT_EQ(m_routing->lastCalled, "install_group");
+    const auto body = json::parse(res.body());
+    EXPECT_EQ(body.value("outcome", ""), "absent");
+    EXPECT_EQ(body.value("controller_status", 0), 502);
+    EXPECT_FALSE(body.value("error", "").empty()) << "the reason must survive to the caller";
 }
