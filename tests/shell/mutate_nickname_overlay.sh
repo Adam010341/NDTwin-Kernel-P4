@@ -77,13 +77,27 @@ INVALID=0
 
 apply() { ANCHOR="$2" REPL="$3" perl -0777 -i -pe 's/\Q$ENV{ANCHOR}\E/$ENV{REPL}/' "$1"; }
 
-# 🔴 The two setters are textually near-identical, so every anchor that names one of them
-# carries the line only that one has. The uniqueness assertion is on that distinguishing line.
+# The two setters are textually near-identical, so every anchor that names one of them carries
+# the line only that one has, and this asserts the whole anchor occurs exactly once before it is
+# applied. A mutation that could land in two places is not the mutation it says it is.
+#
+# 🔴 Counts the anchor as ONE STRING. `grep -c -F -- "$multi_line_anchor"` does not:
+# grep -F reads a pattern containing newlines as SEVERAL patterns and counts lines matching ANY
+# of them. Measured on this gate's first full run (2026-09-06): five multi-line anchors came
+# back 3, 5, 3, 24 and 3 and were all reported INVALID, so five mutations -- including both
+# host-keying ones and the "an unreadable overlay refuses the load" one -- were never applied
+# and the gate exited 1 having measured nothing about them. Each of those anchors occurs exactly
+# once; tests/shell/check_gate_anchors.py, which counts with Python's str.count() on the exact
+# literal, said ok(15) for the same file in the same commit. That disagreement is what exposed
+# it. Counting the same way the anchor checker does keeps the two from disagreeing again, and
+# means a multi-line anchor no longer needs a hand-picked single-line stand-in.
 assert_unique() {
     local n
-    n=$(grep -c -F -- "$2" "$1")
-    if [[ "$n" -ne 1 ]]; then
-        printf '  INVALID  anchor matches %s times in %s (want 1): %s\n' "$n" "$1" "$2"
+    n=$(ANCHOR="$2" python3 -c '
+import os, sys
+print(open(sys.argv[1], encoding="utf-8").read().count(os.environ["ANCHOR"]))' "$1")
+    if [[ "$n" != "1" ]]; then
+        printf '  INVALID  anchor occurs %s times in %s (want 1): %s\n' "${n:-?}" "$1" "${2%%$'\n'*}"
         return 1
     fi
     return 0
