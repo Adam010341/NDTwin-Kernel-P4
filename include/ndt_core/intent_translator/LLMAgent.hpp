@@ -30,6 +30,15 @@ class LLMAgent
         void cleanSession(const std::string &sessionId);
 
     private:
+        // [Co-developed with claude code -- Adam]
+        // FINDINGS #88, W14. Test seam, same shape as IntentTranslator's friend peer next door.
+        // getCurrentTopology walks every vertex and used to read `vprop.ip[0]` on a host with no
+        // address; its only production caller is callOpenAIApi, which makes an HTTP request, so
+        // the graph walk is unreachable from any public entry point a test can use. A friend is
+        // narrower than moving the member to protected -- it grants one named test peer access
+        // instead of every future subclass.
+        friend class AddresslessTopologyPeer;
+
         std::string shellEscapeSingleQuotes(const std::string &str);
         std::string getLastMsgId(const std::string &sessionId) const;
         std::string getCurrentTopology();

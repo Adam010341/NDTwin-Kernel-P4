@@ -64,6 +64,14 @@ class IntentTranslator
         // "returns ok regardless" was exactly a wiring bug, not a rendering one.
         friend class IntentTranslatorTestPeer;
 
+        // [Co-developed with claude code -- Adam]
+        // FINDINGS #88, W14. A second peer rather than a second copy of the first: the friend
+        // above is a class DEFINITION in test_IntentTaskOutcomes.cpp, so a same-named class in a
+        // second test translation unit would be an ODR violation, not a reuse. This one belongs
+        // to tests/test_AddresslessNodeReplies.cpp and reaches performTask (for the two topology
+        // listings) and getSwitchIpByName.
+        friend class AddresslessNodePeer;
+
         json performAgentsNegotiation(const std::string &sessionId);
         std::string performTask(llmResponse::Task* task);
         optional<std::string> getSwitchIpByName(const std::string &switchName);
