@@ -13,7 +13,10 @@ given git rev it reads each gate script, works out which files that gate mutates
 anchor strings it looks for, and counts each anchor in that rev's copy of the file. An
 anchor that occurs zero times cannot be applied; one that occurs more often than the gate
 declares would mutate the wrong site; both are reported. The expected count is 1 unless the
-gate states otherwise (`apply_exact <file> <old> <new> <count>`).
+gate states otherwise (`apply_exact <file> <old> <new> <count>`), or is applying the anchor
+with a bare python `s.replace(old, new)` -- no count argument, Python's own default -- which
+touches every occurrence uniformly and so has no wrong site for a second match to be; such an
+anchor is expected at least once, with no upper bound (`_replace_call_want`).
 
     check_gate_anchors.py 4cbec52d                        # every gate in one rev
     check_gate_anchors.py 4cbec52d fix/a-9-lock-lease      # matrix over revs
@@ -275,8 +278,15 @@ def scalar_assignments(text, gate_dir=None):
     uses and both are knowable without running anything: $HERE is the directory the gate is IN
     (which the caller passes in) and $REPO is the root above it. Nothing else is guessed.
     """
+    # 2026-09-04: `SFT=include/common_types/SFlowType.hpp   # the arithmetic and its guard` (from
+    # tests/shell/mutate_flow_rate_denominator.sh) matched nothing -- `\s*$` requires the rest of
+    # the line to be BLANK, and a trailing inline comment is not blank, so the whole assignment
+    # was invisible and every anchor attributed through it fell through to "no target file". A
+    # comment is only ever preceded by WHITESPACE here (bash's own rule for where `#` starts one;
+    # `X=a#b` has no comment at all, `#` is just part of the word), so the added group requires
+    # that whitespace rather than allowing a bare trailing `#`.
     out = {}
-    for m in re.finditer(r"^\s*([A-Za-z_][A-Za-z0-9_]*)=(\S*)\s*$", text, re.M):
+    for m in re.finditer(r"^\s*([A-Za-z_][A-Za-z0-9_]*)=(\S*)(?:[ \t]+#.*)?\s*$", text, re.M):
         name, val = m.group(1), m.group(2)
         if "$(" in val or "`" in val:
             continue
@@ -459,8 +469,33 @@ def _perl_subst_pattern(prog):
     return ("(?%s)" % flags) + pat if flags else pat
 
 
+
+# 2026-09-04: `mutate_harness_instruments.sh` reported DUP:1 against a target where the anchor is
+# fine -- it occurs twice on purpose (FINDING-02 Defect B's "hidden owner" sentinel collapses to
+# empty at two call sites since L-10 split the pid search out of port_holder). The gate's own
+# `s.replace(old, new)` -- Python's own default, no count argument -- replaces BOTH, uniformly,
+# which is the correct and intended mutation; this tool was inventing a failure by assuming every
+# anchor wants exactly one match. `_replace_call_want` reads the call the way `apply_exact`'s
+# trailing count already is read: a bare two-argument call implies "at least one, no upper bound"
+# (Python's replace() cannot ever hit the wrong site the way a hand-rolled single-replace can, so
+# there is nothing for a second match to get wrong); an explicit third argument is an exact count;
+# anything this cannot confidently parse (a non-literal second argument, an unusual call shape)
+# falls back to 1, the old and only behaviour, rather than guess.
+_REPL_TAIL = re.compile(
+    r'^\s*,\s*(?:"(?:[^"\\]|\\.)*"|\'(?:[^\'\\]|\\.)*\')\s*(?:,\s*(\d+)\s*)?\)')
+
+
+def _replace_call_want(block, end):
+    """want implied by a `.replace(anchor, repl[, count])` call, reading from just past the
+    anchor argument. None means "at least one, no upper bound"; see the note above."""
+    m = _REPL_TAIL.match(block[end:])
+    if not m:
+        return 1
+    return int(m.group(1)) if m.group(1) else None
+
+
 def _py_anchors(block):
-    """Every anchor a python mutation body searches for.
+    """Every anchor a python mutation body searches for, as (label, text, want).
 
     Two spellings are in use across this repo's gates: a named `old=`/`guard=`/`store=`
     literal that is then asserted and replaced, and an inline `s.replace("anchor", ...)`.
@@ -474,14 +509,14 @@ def _py_anchors(block):
         except (ValueError, SyntaxError):
             continue
         if isinstance(val, str):
-            found.append((m.group(1), val))
+            found.append((m.group(1), val, 1))
     for m in re.finditer(r"\.replace\(\s*(\"(?:[^\"\\]|\\.)*\"|'(?:[^'\\]|\\.)*')", block):
         try:
             val = ast.literal_eval(m.group(1))
         except (ValueError, SyntaxError):
             continue
         if isinstance(val, str) and val:
-            found.append(("replace", val))
+            found.append(("replace", val, _replace_call_want(block, m.end())))
     return found
 
 
@@ -499,7 +534,7 @@ def _looks_like_python(s):
 # stays unnamed and the gate stays UNPARSED.
 
 ROLE_ANCHOR = {"anchor", "old", "needle", "pattern", "search", "from", "before"}
-ROLE_FILE = {"file", "src", "path", "target", "source"}
+ROLE_FILE = {"file", "src", "path", "target", "source", "rel"}
 
 
 def function_bodies(text):
@@ -609,10 +644,22 @@ def is_whole_param_ref(word, quote):
     Distinguished from a word that merely contains a `$`: a mixed word like "value=$x" is a
     literal with a substitution in it and has always been counted as one, whereas a word that is
     only a parameter carries no text at all and is one more indirection to follow or to report.
+
+    🔴 2026-09-04: the docstring's own third example, "$1", used to be a lie -- the name part of
+    the pattern required a letter or underscore FIRST, so a bare numbered positional parameter
+    ($1..$9, or ${10}+) never matched and fell through as if it were two characters of literal
+    anchor text. tests/shell/mutate_logger_cli.sh's `widen() { ... apply "$1" "$2" "$3" ...; }`
+    calls `apply` (whose own signature names its 2nd argument `anchor`) with widen's OWN
+    positional parameters, not a named local -- exactly the indirection this function exists to
+    recognise -- and was reported MISSING against the literal string "$2", which occurs nowhere
+    because it is not text. The generic rule further down already had a dead `name.isdigit()`
+    branch for precisely this case that the bug made unreachable, which is the tell that
+    recognising digits here was always the intent.
     """
     if quote == "'":
         return False
-    return re.fullmatch(r"\$\{?[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]*\])?\}?", word.strip()) is not None
+    return re.fullmatch(r"\$\{?(?:[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]*\])?|[0-9]+)\}?",
+                        word.strip()) is not None
 
 
 def expand_word(word, quote, env):
@@ -701,8 +748,8 @@ def extract(gate_text, gate_name, gate_path=None, exists=None):
         head, hq = cmd[0]
 
         if hq == "H":                                    # heredoc body
-            for name, val in _py_anchors(head):
-                anchors.append((pending_py_file, val, LITERAL, "%s (heredoc)" % name, 1))
+            for name, val, want in _py_anchors(head):
+                anchors.append((pending_py_file, val, LITERAL, "%s (heredoc)" % name, want))
             pending_py_file = None
             continue
 
@@ -778,12 +825,118 @@ def extract(gate_text, gate_name, gate_path=None, exists=None):
                 pending_py_file = files[-1]
             continue
 
+    full = split_commands(gate_text)
+
+    # -------------------------------------------------------------- pass 1.5: "case" heredocs
+    # 2026-09-04. `write_case <name> <expect> <<'PAIR'\n<FROM>\n@@@TO@@@\n<TO>\nPAIR` -- all four
+    # of tests/shell/mutate_g6_apps_liveness.sh, mutate_g7_ndtwin_lab_config.sh,
+    # mutate_g9_cleanup_no_pkill_f.sh and mutate_g9_faults_topo_pid.sh store their mutation table
+    # this way: one heredoc per case, split on the literal marker line by a small python applier
+    # read back at RUNTIME (`frm, to = pair.split("@@@TO@@@\n")`). Every one of them was
+    # NO-ANCHORS: pass 1's heredoc handling only looks for python inside a heredoc, via
+    # `_py_anchors`, and there is no python in a write_case heredoc to find -- it is FROM/TO text,
+    # not code.
+    #
+    # The target file is not named at write_case's own call site; it is resolved the same way
+    # default_file_of resolves any other applier's baked-in file, applied to whichever function's
+    # body contains the split marker AS PYTHON SOURCE (whichever function actually consumes
+    # "@@@TO@@@", as opposed to some unrelated function -- run_suite() in these same gates also
+    # bakes in a file of its own, the test SUITE it runs, and guessing "the gate's only baked-in
+    # file" would have pinned every case to the wrong one).
+    CASE_MARKER = "@@@TO@@@"
+    applier = next((n for n, b in funcs.items()
+                    if ('"%s' % CASE_MARKER) in b or ("'%s" % CASE_MARKER) in b), None)
+    case_file = fdefault.get(applier) if applier else None
+    for cmd in full:
+        if not cmd:
+            continue
+        head, hq = cmd[0]
+        # The marker on a line of its OWN, i.e. followed by a real newline byte -- not merely
+        # present, or the applier's own heredoc (`pair.split("@@@TO@@@\n")` is genuine python
+        # source, the marker followed by a literal backslash-n inside a quoted string, matched
+        # here too if this required only substring presence) would be misread as a case of its
+        # own with no FROM text worth anything.
+        if hq != "H" or (CASE_MARKER + "\n") not in head:
+            continue
+        frm = head.split(CASE_MARKER + "\n", 1)[0]
+        if frm:
+            anchors.append((case_file, frm, LITERAL, "write_case heredoc", 1))
+
+    # -------------------------------------------------------------- pass 1.6: "<name>.old/.new"
+    # 2026-09-04. `cat > "$DIR/<name>.old" <<'EOF' ... EOF` / same for `.new` -- tests/shell/
+    # mutate_build_guard.sh and mutate_ndt_up_target.sh (whose own header says its shape is
+    # copied from build_guard's) store their mutation table as a PAIR of files per case, written
+    # by `cat >` and read back at runtime by a small python applier. build_guard's own header
+    # explains why this shape exists at all: an earlier version packed old/new as shell WORDS and
+    # silently lost six mutations to backslash-escaping and a `grep -F` that read a trailing
+    # newline as a second, empty pattern matching every line -- "files have no quoting" is the
+    # point, and also why this text is never a shell argument for pass 2 below to find.
+    CASE_FILE_RE = re.compile(r"^\$\{?[A-Za-z_][A-Za-z0-9_]*\}?/([A-Za-z0-9_.+-]+)\.(old|new)$")
+    case_pairs = {}
+    pending_case = None
+    for cmd in full:
+        if not cmd:
+            continue
+        head, hq = cmd[0]
+        if hq == "H":
+            if pending_case:
+                name, suffix = pending_case
+                case_pairs.setdefault(name, {})[suffix] = head
+            pending_case = None
+            continue
+        pending_case = None
+        if head != "cat" or len(cmd) != 3 or cmd[1] != (">", ""):
+            continue
+        m = CASE_FILE_RE.match(cmd[2][0])
+        if m:
+            pending_case = (m.group(1), m.group(2))
+
+    # Whichever function's body reads BOTH suffixes back (the applier, e.g. mutant()) -- found
+    # the same positive way write_case's applier is, rather than assumed from its name or from
+    # being the gate's only function with a baked-in file (run_suite()-shaped functions exist
+    # here too).
+    case_applier = next((n for n, b in funcs.items() if ".old" in b and ".new" in b), None)
+    case_file = fdefault.get(case_applier) if case_applier else None
+
+    # mutate_build_guard.sh's applier is not this simple: `mutant <name> <rel>` takes its target
+    # FILE per-case too (cmake/ninja/make/_resolve.sh all share one gate), so a single case_file
+    # for the whole gate is wrong for it specifically. Its own baked-in value is a DIRECTORY, not
+    # a file ($GUARD, no extension, so default_file_of above correctly declined it) -- combined
+    # here with whatever relative path sits beside a bare word naming one of these cases, at the
+    # call site of any locally-defined function whose OWN signature names a ROLE_FILE argument
+    # (check() in build_guard: `local label=$1 name=$2 rel=$3 want=$4`, two levels above mutant()
+    # itself, which is why this is not simply another ROLE_FILE pin further down).
+    if case_pairs and case_applier:
+        case_dir = next((paths_env[v] for v in re.findall(r'"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?"',
+                                                           funcs[case_applier])
+                         if paths_env.get(v) and "/" in paths_env[v]
+                         and not re.search(r"\.[A-Za-z0-9]+$", paths_env[v])), None)
+        if case_dir:
+            for cmd in full:
+                if len(cmd) < 2:
+                    continue
+                head, hq = cmd[0]
+                fpos = role_position(sigs.get(head) or {}, ROLE_FILE)
+                if fpos is None or fpos >= len(cmd):
+                    continue
+                names_here = {w for w, q in cmd[1:] if q == "" and w in case_pairs}
+                relw, relq = cmd[fpos]
+                if not names_here or relq != "" or "$" in relw:
+                    continue
+                for nm in names_here:
+                    case_pairs[nm]["_file"] = case_dir.rstrip("/") + "/" + relw
+
+    for name, pair in case_pairs.items():
+        old = pair.get("old")
+        if old:
+            anchors.append((pair.get("_file", case_file), old, LITERAL,
+                            "cat > *.old heredoc", 1))
+
     # ------------------------------------------------------------------- pass 2: the call sites
     # This pass reads the FULL text, function bodies included, because that is where three of the
     # four unreadable gates keep their mutation tables. It runs only rules that need a positively
     # identified file AND a literal anchor; the appliers themselves (perl/sed/python over "$1")
     # stay in pass 1 above, where a positional parameter cannot be mistaken for a string in a file.
-    full = split_commands(gate_text)
     seen = {(f, t, k, n) for f, t, k, _w, n in anchors}
     unread_params = []
 
@@ -931,8 +1084,8 @@ def extract(gate_text, gate_name, gate_path=None, exists=None):
                                       if "/" in d and not re.search(r"\.[A-Za-z0-9]+$", d)]
                 tgt = tuple(dict.fromkeys(same_line)) if len(same_line) > 1 else (
                     same_line[0] if same_line else None)
-                for name, val in got:
-                    add(tgt, val, "%s (%s)" % (name, head))
+                for name, val, want in got:
+                    add(tgt, val, "%s (%s)" % (name, head), want)
         if took_python:
             continue
 
@@ -1201,6 +1354,14 @@ def main():
                 if a.verbose:
                     print("    %-34s %-28s %s x%d  %s" % (os.path.basename(gate), rv.rev,
                                                           kind, c, f))
+                if want is None:
+                    # "at least one, no upper bound" -- see _replace_call_want. A bare
+                    # `s.replace(old, new)` cannot mutate the wrong site the way a single-target
+                    # applier can, so more than one match is not a DUP; zero still is MISSING.
+                    if c >= 1:
+                        continue
+                    missing.append((f, anchor, kind, where, c, 1))
+                    continue
                 if c == want:
                     continue
                 (dup if c > want else missing).append((f, anchor, kind, where, c, want))

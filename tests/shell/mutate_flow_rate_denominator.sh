@@ -27,9 +27,14 @@
 # was permanently lost. This gate rebuilds ~60 objects per mutation; it must never do that in a
 # tree somebody else's kernel is linked from.
 #
-# 🔴 BUILD PARALLELISM. Every build goes through the shared lock and the -j2 PATH shim. A wide
-# build on this laptop trips systemd-oomd and kills the user's applications. Override with
-# BUILD_LOCK= and BUILD_SHIM= only if you know both are unnecessary where you are running.
+# 🔴 BUILD PARALLELISM. Every build goes through tools/build_guard/guarded_build.sh (JOBS=1,
+# LOCK_WAIT=10800) -- the wide -j$(nproc) this laptop's systemd-oomd killed the user's own
+# application over on 2026-09-02. 2026-09-04: this used to point BUILD_LOCK/BUILD_SHIM at a
+# SPECIFIC AGENT SESSION's own scratchpad (a /tmp/claude-1000/.../<session-uuid>/scratchpad path)
+# -- gone the moment that session ended, at which point flock and the PATH shim silently stopped
+# doing anything (a missing lock file is not a locked one; a missing shim directory just is not on
+# PATH) and this gate would have run an unguarded, unlimited-parallelism build without saying so.
+# NO_GUARD=1 is for a machine where the guard is not installed; say so in the log if you use it.
 #
 # Usage: tests/shell/mutate_flow_rate_denominator.sh
 #        BUILD_DIR=out tests/shell/mutate_flow_rate_denominator.sh
@@ -37,9 +42,7 @@ set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
 BUILD_DIR="${BUILD_DIR:-build-flowrate}"
-SCRATCH=/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/1e91440a-4a23-4430-8ebf-59aa2d5f7260/scratchpad
-BUILD_LOCK="${BUILD_LOCK:-$SCRATCH/lock/build.lock}"
-BUILD_SHIM="${BUILD_SHIM:-$SCRATCH/shim}"
+GUARD="${GUARD:-tools/build_guard/guarded_build.sh}"
 
 SFT=include/common_types/SFlowType.hpp                       # the arithmetic and its guard
 FLUC=src/ndt_core/collection/FlowLinkUsageCollector.cpp      # the wiring
@@ -97,8 +100,12 @@ cleanup_on_exit() {
 trap cleanup_on_exit EXIT
 
 build_it() {
-    flock "$BUILD_LOCK" env PATH="$BUILD_SHIM:$PATH" \
+    if [[ "${NO_GUARD:-0}" == "1" || ! -x "$GUARD" ]]; then
         cmake --build "$BUILD_DIR" --target test_routing_strategy >/dev/null 2>&1
+    else
+        LOCK_WAIT="${LOCK_WAIT:-10800}" JOBS=1 "$GUARD" \
+            cmake --build "$BUILD_DIR" --target test_routing_strategy -j1 >/dev/null 2>&1
+    fi
 }
 
 failed_tests() { sed -n "s/^\[  FAILED  \] \($SUITE\.[A-Za-z0-9_]*\).*/\1/p" | sort -u | tr '\n' ' '; }

@@ -58,6 +58,16 @@ TARGETS = {
     "src/delta.cpp": "void d()\n{\n    short delta = 5;\n}\n",
     "epsilon.py": "epsilon_value = 11\n\n\ndef e():\n    return epsilon_value\n",
     "tests/python/test_epsilon.py": "import epsilon\n\n\ndef test_e():\n    assert epsilon.e()\n",
+    # Deliberately holds the SAME line twice: the target for GATE_REPLACE_ALL, whose anchor is
+    # meant to match everywhere. A checker that assumes every anchor wants exactly one match
+    # would read this as DUP:1 against a gate that is not broken -- see 2026-09-04 note there.
+    "src/zeta.cpp": "void z1()\n{\n    int zeta = 1;\n}\n\nvoid z2()\n{\n    int zeta = 1;\n}\n",
+    "src/theta.cpp": "void t()\n{\n    int theta = 1;\n}\n",
+    "src/iota.cpp": "void i()\n{\n    int iota = 1;\n}\n",
+    # Two path components on purpose: default_file_of's own is_repo_path check is satisfied by
+    # a slash alone, and mutate_build_guard.sh's real $GUARD ("tools/build_guard") has one --
+    # a single-component directory here would pass locally but miss what the real gate does.
+    "src/nested/kappa.cpp": "void k()\n{\n    int kappa = 1;\n}\n",
 }
 
 # --- one gate per shape, each written the way the real gate of that shape is written -------------
@@ -149,6 +159,141 @@ apply_it() { echo "$1 $2"; }
 for i in "${!TBL[@]}"; do
     apply_it "$SRC" "${TBL[$i]}"
 done
+"""
+
+# (m) mutate_harness_instruments.sh's shape: a quoted python ARGUMENT (not a heredoc) whose body
+#     is a bare `s.replace(old, new)` -- no count, Python's own default -- so it touches EVERY
+#     occurrence of `old` in the file uniformly. 2026-09-04: the checker used to assume every
+#     anchor wants exactly one match and reported that gate DUP:1 against src/zeta.cpp's
+#     equivalent (FINDING-02 Defect B's hidden-owner sentinel, which collapses at two call sites
+#     on purpose). `_replace_call_want` reads a bare two-argument call as "at least one, no upper
+#     bound" instead.
+GATE_REPLACE_ALL = r"""#!/usr/bin/env bash
+set -uo pipefail
+SRC=src/zeta.cpp
+mutate() { :; }
+mutate "m1" "$SRC" '
+s = s.replace("    int zeta = %(ZETA)s;", "    int zeta = 99;")
+'
+"""
+
+# (n) mutate_logger_cli.sh's widen() shape: a named-role applier (`apply`, argument 2 is
+#     "anchor") called with a DIFFERENT function's raw, unnamed positional parameters ($1 $2 $3
+#     forwarded after a `shift`-loop, never bound to a local). 2026-09-04: "$2" is a parameter
+#     reference exactly like "$anchor" is, and was misread as two characters of literal text --
+#     see is_whole_param_ref.
+GATE_POSITIONAL = r"""#!/usr/bin/env bash
+set -uo pipefail
+SRC=src/delta.cpp
+apply() { local file="$1" anchor="$2" new="$3"; echo "$file $anchor $new"; }
+relay() {
+    local label="$1"; shift
+    while [[ $# -ge 3 ]]; do
+        apply "$1" "$2" "$3"
+        shift 3
+    done
+}
+relay "delta becomes ninety-nine" "$SRC" '    short delta = 5;' '    short delta = 99;'
+"""
+
+# (o) mutate_g6_apps_liveness.sh's shape (also g7/g9/g9-faults): a mutation table of
+#     `write_case <name> <expect> <<'PAIR' <FROM> @@@TO@@@ <TO> PAIR` heredocs, read back and
+#     applied at RUNTIME by a small python applier -- there is no python in a case heredoc
+#     itself, only FROM/TO text, so _py_anchors finds nothing there. run_suite() below bakes in
+#     a file of its OWN ("$OTHER") the same way apply() bakes in "$SRC" -- the gate has to pick
+#     the right one (whichever function's body actually consumes the @@@TO@@@ marker), not just
+#     "the gate's only baked-in file".
+GATE_CASE_HEREDOC = r"""#!/usr/bin/env bash
+set -uo pipefail
+SRC=src/theta.cpp
+OTHER=tests/python/test_epsilon.py
+MUT_DIR=/tmp/mutate-shape-case
+write_case() {
+    mkdir -p "$MUT_DIR/$1"
+    printf '%s' "$2" > "$MUT_DIR/$1/expect"
+    cat > "$MUT_DIR/$1/pair"
+}
+CASES=()
+CASES+=(theta-one)
+write_case theta-one "some check" <<'PAIR'
+    int theta = %(THETA)s;
+@@@TO@@@
+    int theta = 99;
+PAIR
+run_suite() { bash "$OTHER"; }
+apply() {
+    python3 - "$SRC" "$MUT_DIR/$1/pair" <<'PYAPPLY'
+import sys, pathlib
+src, pair = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2]).read_text()
+frm, to = pair.split("@@@TO@@@\n")
+s = src.read_text()
+src.write_text(s.replace(frm, to))
+PYAPPLY
+}
+"""
+
+# (q) mutate_ndt_up_target.sh's shape (its own header says copied from mutate_build_guard.sh's):
+#     `cat > "$DIR/<name>.old" <<'EOF' ... EOF`, likewise `.new` -- a PAIR OF FILES per case,
+#     never a shell word, read back at runtime. No python inside a case heredoc -- just the raw
+#     old/new text -- and the target file is baked into the one applier that reads both back.
+GATE_CASE_FILES = r"""#!/usr/bin/env bash
+set -uo pipefail
+SRC=src/iota.cpp
+A=/tmp/mutate-shape-casefiles
+mkdir -p "$A"
+mutant() {
+    local name="$1"
+    python3 - "$SRC" "$A/$name.old" "$A/$name.new" <<'PY'
+import sys, io
+target, oldf, newf = sys.argv[1], sys.argv[2], sys.argv[3]
+s = io.open(target).read()
+o = io.open(oldf).read()
+n = io.open(newf).read()
+io.open(target, "w").write(s.replace(o, n, 1))
+PY
+}
+cat > "$A/m1.old" <<'EOF'
+    int iota = %(IOTA)s;
+EOF
+cat > "$A/m1.new" <<'EOF'
+    int iota = 99;
+EOF
+"""
+
+# (r) mutate_build_guard.sh's shape specifically: the SAME file-pair table, but the applier's
+#     target file also VARIES per case (`mutant <name> <rel>`), resolved through a SECOND
+#     function (`check`) whose own signature names a ROLE_FILE argument ("rel") sitting beside a
+#     bare word naming the case -- not simply another baked-in single file like GATE_CASE_FILES.
+GATE_CASE_FILES_PERCASE = r"""#!/usr/bin/env bash
+set -uo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$HERE/../.." && pwd)"
+DIR="$REPO/src/nested"
+A=/tmp/mutate-shape-casefiles2
+mkdir -p "$A"
+mutant() {
+    local name="$1" rel="$2"
+    cp -r "$DIR" "$A/$name.shadow" 2>/dev/null || true
+    python3 - "$DIR/$rel" "$A/$name.old" "$A/$name.new" <<'PY'
+import sys, io
+target, oldf, newf = sys.argv[1], sys.argv[2], sys.argv[3]
+s = io.open(target).read()
+o = io.open(oldf).read()
+n = io.open(newf).read()
+io.open(target, "w").write(s.replace(o, n, 1))
+PY
+}
+check() {
+    local label="$1" name="$2" rel="$3" want="$4"
+    mutant "$name" "$rel"
+}
+cat > "$A/k1.old" <<'EOF'
+    int kappa = %(KAPPA)s;
+EOF
+cat > "$A/k1.new" <<'EOF'
+    int kappa = 99;
+EOF
+check "kappa becomes 99" k1 kappa.cpp "some test"
 """
 
 # --- the repo-root shapes (finding #78) ----------------------------------------------------------
@@ -346,7 +491,8 @@ def git(repo, *args):
 class Fixture:
     """A throwaway git repo holding the four target files and one gate per shape."""
 
-    def __init__(self, alpha="1", beta="3", gamma="7", epsilon="11", gates=None):
+    def __init__(self, alpha="1", beta="3", gamma="7", epsilon="11", zeta="1", theta="1",
+                iota="1", kappa="1", gates=None):
         self.dir = tempfile.mkdtemp(prefix="anchorcheck_")
         for rel, body in TARGETS.items():
             full = os.path.join(self.dir, rel)
@@ -356,10 +502,14 @@ class Fixture:
             with open(full, "w") as fh:
                 fh.write(body)
         os.makedirs(os.path.join(self.dir, "tests", "shell"), exist_ok=True)
-        subs = {"ALPHA": alpha, "BETA": beta, "GAMMA": gamma, "EPSILON": epsilon}
+        subs = {"ALPHA": alpha, "BETA": beta, "GAMMA": gamma, "EPSILON": epsilon, "ZETA": zeta,
+               "THETA": theta, "IOTA": iota, "KAPPA": kappa}
         want = gates if gates is not None else ["array", "callback", "packed", "driver"]
         source = {"array": GATE_ARRAY, "callback": GATE_CALLBACK, "packed": GATE_PACKED,
                   "driver": GATE_DRIVER, "unreadable": GATE_UNREADABLE,
+                  "replace_all": GATE_REPLACE_ALL, "positional": GATE_POSITIONAL,
+                  "case_heredoc": GATE_CASE_HEREDOC,
+                  "case_files": GATE_CASE_FILES, "case_files_percase": GATE_CASE_FILES_PERCASE,
                   "root_named": GATE_ROOT_NAMED, "root_short": GATE_ROOT_SHORT,
                   "root_baked": GATE_ROOT_BAKED,
                   "root_union": GATE_ROOT_UNION, "root_generic": GATE_ROOT_GENERIC,
@@ -454,6 +604,28 @@ class ShapesAreChecked(unittest.TestCase):
                         % (f.cell(out, "packed"), out))
         self.assertEqual(1, rc, out + err)
 
+    def test_bare_replace_matches_every_occurrence_and_is_ok(self):
+        """`s.replace(old, new)` -- no count argument -- is Python's own "replace all", and
+        src/zeta.cpp holds the anchor twice on purpose. Before 2026-09-04 this read DUP:1
+        against a gate that is not broken (tests/shell/mutate_harness_instruments.sh)."""
+        f = Fixture(gates=["replace_all"])
+        self.addCleanup(f.close)
+        rc, out, err = f.run()
+        self.assertTrue(f.cell(out, "replace_all").startswith("ok"),
+                        "bare-replace gate: %s\n%s" % (f.cell(out, "replace_all"), out))
+        self.assertEqual(0, rc, out + err)
+
+    def test_bare_replace_drift_is_still_caught(self):
+        """The relaxation is "no upper bound", not "anything goes": zero matches is still
+        MISSING."""
+        f = Fixture(gates=["replace_all"], zeta="2")   # the gate's anchor now matches nothing
+        self.addCleanup(f.close)
+        rc, out, err = f.run()
+        self.assertTrue(f.cell(out, "replace_all").startswith("MISSING"),
+                        "a drifted bare-replace anchor must be MISSING, got %s\n%s"
+                        % (f.cell(out, "replace_all"), out))
+        self.assertEqual(1, rc, out + err)
+
     def test_an_array_reference_is_never_reported_as_a_literal_anchor(self):
         """`${MUT_ANCHOR[$i]}` is an indirection, not text. Reporting it as a literal is what
         made mutate_ryu_rest_topology_bounded.sh read MISSING against an intact file."""
@@ -466,6 +638,128 @@ class ShapesAreChecked(unittest.TestCase):
                 "an unexpanded parameter was recorded as the text to search for: %r" % text)
         self.assertIn("    int alpha = 1;", anchors,
                       "the array's real anchor was not among %r" % (anchors,))
+
+    def test_bare_numbered_parameters_are_whole_param_refs(self):
+        """is_whole_param_ref's own docstring already claimed "$1" as an example; before
+        2026-09-04 the regex disagreed with it -- the name part required a letter or underscore
+        FIRST, so a bare numbered positional parameter never matched."""
+        mod = load_checker()
+        for word in ("$1", "$2", "$9", "${1}", "${10}", "$anchor", "${MUT_ANCHOR[$i]}"):
+            self.assertTrue(mod.is_whole_param_ref(word, '"'),
+                            "%r must be recognised as a parameter reference" % word)
+        for word in ("value=$1", "$1x", "plain text"):
+            self.assertFalse(mod.is_whole_param_ref(word, '"'),
+                             "%r is not WHOLLY a parameter reference" % word)
+
+    def test_a_relayed_positional_parameter_is_not_read_as_literal_anchor_text(self):
+        """tests/shell/mutate_logger_cli.sh's widen() relays its OWN "$1" "$2" "$3" into
+        apply(), whose signature names argument 2 "anchor" -- the same shape as GATE_POSITIONAL
+        below. Before the fix above, "$2" was recorded as two characters of literal text and
+        reported MISSING against every file the gate declares, since nothing spells out "$2"."""
+        anchors, problems, _delegates = load_checker().extract(
+            GATE_POSITIONAL, "mutate_shape_positional.sh",
+            "tests/shell/mutate_shape_positional.sh")
+        self.assertEqual([], problems, problems)
+        texts = [t for _f, t, _k, _w, _n in anchors]
+        self.assertNotIn("$2", texts,
+                         "a relayed positional parameter must never be read as literal anchor "
+                         "text: %r" % (anchors,))
+        self.assertIn("    short delta = 5;", texts,
+                      "the real anchor, reached through relay()'s own literal call site, must "
+                      "still be found: %r" % (anchors,))
+
+    def test_positional_relay_gate_is_ok_end_to_end(self):
+        f = Fixture(gates=["positional"])
+        self.addCleanup(f.close)
+        rc, out, err = f.run()
+        self.assertTrue(f.cell(out, "positional").startswith("ok"),
+                        "positional-relay gate: %s\n%s" % (f.cell(out, "positional"), out))
+        self.assertEqual(0, rc, out + err)
+
+    def test_write_case_heredoc_is_read_and_pinned_to_the_right_file(self):
+        """mutate_g6_apps_liveness.sh (and g7/g9/g9-faults) were all NO-ANCHORS: their mutation
+        table is FROM/TO text in a heredoc, not python, so _py_anchors found nothing. The anchor
+        must also land on src/theta.cpp (apply()'s file) and not on OTHER (run_suite()'s) --
+        both functions bake in a file of their own."""
+        anchors, problems, _delegates = load_checker().extract(
+            GATE_CASE_HEREDOC % {"THETA": "1"}, "mutate_shape_case_heredoc.sh",
+            "tests/shell/mutate_shape_case_heredoc.sh")
+        self.assertEqual([], problems, problems)
+        self.assertEqual(1, len(anchors), anchors)
+        f, text, _kind, _where, want = anchors[0]
+        self.assertEqual("src/theta.cpp", f, anchors)
+        self.assertEqual(1, want, anchors)
+        self.assertEqual("    int theta = 1;\n", text, anchors)
+
+    def test_write_case_heredoc_gate_ok_and_drift_end_to_end(self):
+        f = Fixture(gates=["case_heredoc"])
+        self.addCleanup(f.close)
+        rc, out, err = f.run()
+        self.assertTrue(f.cell(out, "case_heredoc").startswith("ok"),
+                        "case-heredoc gate: %s\n%s" % (f.cell(out, "case_heredoc"), out))
+        self.assertEqual(0, rc, out + err)
+
+        f2 = Fixture(gates=["case_heredoc"], theta="2")   # the gate's FROM text now matches nothing
+        self.addCleanup(f2.close)
+        rc2, out2, err2 = f2.run()
+        self.assertTrue(f2.cell(out2, "case_heredoc").startswith("MISSING"),
+                        "a drifted case-heredoc anchor must be MISSING, got %s\n%s"
+                        % (f2.cell(out2, "case_heredoc"), out2))
+        self.assertEqual(1, rc2, out2 + err2)
+
+    def test_case_file_pair_is_read_and_pinned_to_the_baked_in_file(self):
+        """mutate_ndt_up_target.sh was NO-ANCHORS: `cat > "$A/<name>.old" <<'EOF'` is a heredoc
+        attached to `cat`, not python, and the text never appears as a shell word anywhere for
+        pass 2 to find."""
+        anchors, problems, _delegates = load_checker().extract(
+            GATE_CASE_FILES % {"IOTA": "1"}, "mutate_shape_case_files.sh",
+            "tests/shell/mutate_shape_case_files.sh")
+        self.assertEqual([], problems, problems)
+        self.assertEqual(1, len(anchors), anchors)
+        f, text, _kind, _where, want = anchors[0]
+        self.assertEqual("src/iota.cpp", f, anchors)
+        self.assertEqual(1, want, anchors)
+        self.assertEqual("    int iota = 1;\n", text, anchors)
+
+    def test_case_files_gate_ok_and_drift_end_to_end(self):
+        f = Fixture(gates=["case_files"])
+        self.addCleanup(f.close)
+        rc, out, err = f.run()
+        self.assertTrue(f.cell(out, "case_files").startswith("ok"),
+                        "case-files gate: %s\n%s" % (f.cell(out, "case_files"), out))
+        self.assertEqual(0, rc, out + err)
+
+        f2 = Fixture(gates=["case_files"], iota="2")
+        self.addCleanup(f2.close)
+        rc2, out2, err2 = f2.run()
+        self.assertTrue(f2.cell(out2, "case_files").startswith("MISSING"),
+                        "a drifted case-files anchor must be MISSING, got %s\n%s"
+                        % (f2.cell(out2, "case_files"), out2))
+        self.assertEqual(1, rc2, out2 + err2)
+
+    def test_case_file_pair_with_a_per_case_file_is_pinned_correctly(self):
+        """mutate_build_guard.sh's applier target varies per case (`mutant <name> <rel>`); a
+        single case_file for the whole gate would be wrong. The file must resolve through
+        check()'s own "rel" argument (a ROLE_FILE role) combined with mutant()'s baked-in
+        DIRECTORY, not to whatever declared_paths()'s union happens to contain."""
+        anchors, problems, _delegates = load_checker().extract(
+            GATE_CASE_FILES_PERCASE % {"KAPPA": "1"}, "mutate_shape_case_files_percase.sh",
+            "tests/shell/mutate_shape_case_files_percase.sh")
+        self.assertEqual([], problems, problems)
+        self.assertEqual(1, len(anchors), anchors)
+        f, text, _kind, _where, want = anchors[0]
+        self.assertEqual("src/nested/kappa.cpp", f, anchors)
+        self.assertEqual(1, want, anchors)
+        self.assertEqual("    int kappa = 1;\n", text, anchors)
+
+    def test_case_files_percase_gate_ok_end_to_end(self):
+        f = Fixture(gates=["case_files_percase"])
+        self.addCleanup(f.close)
+        rc, out, err = f.run()
+        self.assertTrue(f.cell(out, "case_files_percase").startswith("ok"),
+                        "case-files-percase gate: %s\n%s" % (f.cell(out, "case_files_percase"),
+                                                              out))
+        self.assertEqual(0, rc, out + err)
 
 
 class DriverInheritsItsDelegatesVerdict(unittest.TestCase):
