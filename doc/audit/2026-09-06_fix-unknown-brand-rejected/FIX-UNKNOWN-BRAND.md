@@ -101,7 +101,7 @@ constexpr std::array<std::string_view, 5> kAcceptedSwitchBrands{
 該用哪一種 port mapping。**⇒ 照工單的條件分支：保留真正混平面的路徑，只拿掉「未知 brand 時」那條建議。**
 
 作法**不是**去改 `validateDataPlaneHomogeneity` 的字串，而是**位置**：
-它在 `parseStaticTopologyFile` 的**最後一行**（`:956`）跑，而 door 3e 在 node 迴圈裡。
+它在 `parseStaticTopologyFile` 的**最後一行**（`:1056`）跑，而 door 3e 在 node 迴圈裡。
 ⇒ 一個打錯的 brand **到不了那一行**，那句建議因此不會對它出現。
 `AnUnknownBrandNameLeavesNoPartiallyLoadedGraph` 斷言的 `vertices == 0` 就是這個順序的釘子；
 `TheUnknownBrandRefusalDoesNotSuggestAllowingMixedDataPlanes` 則釘住新訊息不會把那句話抄回來。
@@ -118,7 +118,7 @@ constexpr std::array<std::string_view, 5> kAcceptedSwitchBrands{
   一個字沒改**——它們測的是函式，不是載入器。
 - **既有測試斷言：一支都沒改。**（分支 1 改過一支，分支 2 沒有。）
 - **既有閘門變異／對照：一字未改**（新增 M21–M24 與 W6）。
-- **`doc/2026-01-02_ndt_api.md`**：§38 加一節列合法值；`:2105` 把 `"HPE 5520"` 更正為
+- **`doc/2026-01-02_ndt_api.md`**：§38 加一節列合法值；`:2106` 把 `"HPE 5520"` 更正為
   `HPE5520`（🔴 **那個空格現在會決定檔案載不載得進來**）。
 
 ## 5. 測試（全部進既有 `tests/test_TopologyInputValidation.cpp`，沒開新檔）
