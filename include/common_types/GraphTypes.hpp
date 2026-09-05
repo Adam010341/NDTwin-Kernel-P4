@@ -43,12 +43,21 @@ enum class VertexType
  * for exactly the same reason.
  *
  * `None` on something that is down means one of the pre-existing writers put it there:
- * a power actuation, the liveness poll, or /ndt/link_failed.
+ * a power actuation or the liveness poll.
+ *
+ * [Co-developed with claude code -- Adam]
+ * doc/KNOWN-ISSUES.md B-6 added the third value. `Declared` is not a derivation: it is the
+ * provenance of an edge an operator POSTed /ndt/link_failure_detected about, and the reason it is
+ * PUBLIC rather than an internal bool is that the declaration is now permanent until someone
+ * withdraws it. A forgotten injection used to disappear by itself within 30 s; it now stays, so
+ * "which edges are down because somebody said so" has to be answerable by reading the graph
+ * rather than by remembering. Same trade `admin_state` makes for the power intent.
  */
 enum class DownReason
 {
-    None,             ///< Not moved down by liveness derivation. The default for everything.
-    SwitchUnreachable ///< Reached only through a switch the twin has repeatedly found unusable.
+    None,              ///< Not moved down by liveness derivation. The default for everything.
+    SwitchUnreachable, ///< Reached only through a switch the twin has repeatedly found unusable.
+    Declared ///< An operator declared this link failed (/ndt/link_failure_detected). B-6.
 };
 
 /** @brief Wire form of DownReason. Hyphenated, matching the rest of the /ndt/ JSON vocabulary.
@@ -62,6 +71,8 @@ downReasonToString(DownReason reason)
         return "none";
     case DownReason::SwitchUnreachable:
         return "switch-unreachable";
+    case DownReason::Declared:
+        return "declared";
     }
     return "none";
 }
@@ -631,8 +642,41 @@ struct EdgeProperties
 
     /** @brief Why `isUp` is false, when the twin derived it rather than being told.
      *  @see DownReason. Owned by TopologyAndFlowMonitor::reconcileDerivedLiveness; setEdgeDown
-     *  (the /ndt/link_failed path) leaves it at None. [Co-developed with claude code -- Adam] */
+     *  (the observation path) leaves it at None. [Co-developed with claude code -- Adam] */
     DownReason downReason = DownReason::None;
+
+    /**
+     * @brief An operator declared this link failed, and discovery may not overrule it.
+     *
+     * [Co-developed with claude code -- Adam]
+     * doc/KNOWN-ISSUES.md **B-6**, and the edge half of FINDINGS #46. A fifth flag rather than a
+     * new meaning for `isUp` or a third value written into `downReason`, for the reasons
+     * `adminPoweredOff` is a fourth one on the vertex:
+     *
+     *   - `isUp`         -- carrying traffic. Written by liveness derivation AND by discovery.
+     *                       An observation.
+     *   - `downReason`   -- why the DERIVATION took it down. Owned by
+     *                       reconcileDerivedLiveness, which rewrites it every poll.
+     *   - `declaredDown` -- an intent that was carried out: /ndt/link_failure_detected said this
+     *                       link is gone. Written ONLY by the push path. Discovery and the
+     *                       derivation must never touch it.
+     *
+     * Why not simply `downReason = Declared`: reconcileDerivedLiveness OWNS that field and
+     * rewrites it on every poll (SwitchUnreachable when a switch at either end is isolating,
+     * None when it is not), so a declaration stored there is erased by the first switch outage
+     * that touches this edge and never comes back. The flag is separate precisely so that
+     * nothing which re-derives liveness can spend it.
+     *
+     * Before this existed, `POST /ndt/link_failure_detected` marked both directions down and the
+     * next `updateLinks` set them straight back to `isUp = true` -- 5 times in 5, 0-30 s later,
+     * with no line in the log and `/ndt/link_recovery_detected` never called (09-04 night round,
+     * r2-20-linkfail-probe.log). The endpoint's 200 was true and its effect was not.
+     *
+     * @warning It is PERMANENT until `/ndt/link_recovery_detected` withdraws it: it survives Ryu
+     *          reconverging and a switch restart, by design. That is why it is visible on the
+     *          wire as `down_reason: "declared"` -- see effectiveDownReason below.
+     */
+    bool declaredDown = false;
 
     uint64_t leftBandwidth = 0;
     uint64_t linkBandwidth = MININET_INTERFACE_SPEED;
@@ -672,12 +716,38 @@ isUsable(const EdgeProperties& e)
     return e.isUp && e.isEnabled && !e.adminDisabled;
 }
 
+/**
+ * @brief The `down_reason` an edge publishes: the declaration wins over the derivation.
+ *
+ * [Co-developed with claude code -- Adam]
+ * doc/KNOWN-ISSUES.md B-6. The two can hold at once -- an edge can be declared down AND sit
+ * behind a switch the twin has isolated -- and a reader gets one string. It is the declaration,
+ * because the two answers differ in what the reader has to DO about them: `switch-unreachable`
+ * clears itself when the switch comes back, `declared` does not clear until somebody POSTs
+ * /ndt/link_recovery_detected. Reporting the self-healing one would hide the standing one behind
+ * a reason that is about to disappear.
+ *
+ * Single point of computation on purpose: `declaredDown` is a flag and `downReason` is a field,
+ * and the moment two call sites decide the precedence for themselves they will differ.
+ */
+inline DownReason
+effectiveDownReason(const EdgeProperties& e)
+{
+    return e.declaredDown ? DownReason::Declared : e.downReason;
+}
+
 inline void
 from_json(const json& j, EdgeProperties& e)
 {
     e.isUp = j.at("is_up").get<bool>();
     e.isEnabled = j.at("is_enabled").get<bool>();
     e.adminDisabled = j.value("admin_disabled", false);
+    // [Co-developed with claude code -- Adam]
+    // `declaredDown` is deliberately NOT read back, for the reason `down_reason` is not: no writer
+    // puts it in a file, the loader starts every edge down anyway, and a declaration restored from
+    // a payload would be an injection nobody in this process ever made. A kernel restart forgets
+    // standing declarations -- which is the honest answer, because the tc netem that may accompany
+    // one lives in the machine's qdisc tree and not in this file. B-6.
     e.leftBandwidth = j.at("left_link_bandwidth_bps").get<uint64_t>();
     e.linkBandwidth = j.at("link_bandwidth_bps").get<uint64_t>();
     // [Co-developed with claude code -- Adam]

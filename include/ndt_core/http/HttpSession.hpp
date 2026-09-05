@@ -175,6 +175,41 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      *       not directly by the switches.
      */
     void handleLinkRecovery(http::response<http::string_body>& res);
+
+    /**
+     * @brief Declares a link failed AND makes it true on the wire, where the twin can.
+     *
+     * [Co-developed with claude code -- Adam]
+     * doc/KNOWN-ISSUES.md B-6. `/ndt/link_failure_detected` is a NOTIFICATION: Ryu saw a link go
+     * down and is telling the twin. This endpoint is the other direction -- the caller wants the
+     * link to BE down, which is what a fault-injection round means by "inject". Same payload, and
+     * it does everything link_failure_detected does; on a MININET deployment it additionally
+     * attaches `netem loss 100%` to both ends' interfaces, under the shaper rather than over it
+     * (see include/utils/NetemLinkFault.hpp, which is faults.sh's rule moved into the kernel).
+     *
+     * On any other deployment the twin has no way to cut a physical link, so the tc half is
+     * skipped and the body SAYS SO rather than implying the fabric was touched -- `"tc":
+     * "skipped (not MININET)"`. A caller that reads only the status code would otherwise believe
+     * the packets stopped.
+     *
+     * Error responses: 400 invalid payload, 404 no such edge, 500 the graph holds one direction
+     * of the pair (the same three this endpoint's notification sibling uses, for the same
+     * reasons). A tc failure is NOT one of them: the declaration succeeded, and the per-interface
+     * report in the body is where the caller reads whether the cut did.
+     */
+    void handleInjectLinkFailure(http::response<http::string_body>& res);
+
+    /**
+     * @brief Withdraws a declaration made by handleInjectLinkFailure and removes the netem.
+     *
+     * [Co-developed with claude code -- Adam]
+     * The inverse of the above, and idempotent on the tc half: removing a netem that is not there
+     * reports `noop` rather than failing, because a caller must be able to get a fabric back to
+     * health without first knowing exactly what was done to it. The attach point is re-read from
+     * the live qdisc tree rather than remembered, so this still works after a kernel restart.
+     */
+    void handleInjectLinkRecovery(http::response<http::string_body>& res);
+
     /**
      * @brief Returns the current topology graph (nodes + edges) as JSON.
      *
