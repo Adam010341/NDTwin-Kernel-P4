@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for FINDINGS #61, #62, #89 and #90 -- a topology file that names a switch it does
-# not contain, a port a switch cannot have, or a node nothing can address, must be refused at
-# load, and refused whole.
+# Mutation gate for FINDINGS #61, #62, #89, #90 and #91 -- a topology file that names a switch it
+# does not contain, a port a switch cannot have, a node nothing can address, or a data plane this
+# build cannot drive, must be refused at load, and refused whole.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -26,6 +26,12 @@
 # quoting this file must not upgrade them to field observations. #90's empty-array half WAS
 # measured on :8000 (R0b, 2026-09-05, kernel 862c4bf8, served as `('h9', [])`); its missing-key
 # and non-array halves were not, and are message claims rather than acceptance claims.
+#
+# 🔴 #91 (M21-M24, added 2026-09-06) IS THE SAME ROUND'S bad file `c`, and it WAS measured:
+# `brand_name = "NOT_A_REAL_KIND"` was accepted, mapped to HARDWARE, and reported only as a
+# data-plane MIXTURE whose suggested remedy would have made the typo permanent. Half of this half
+# is therefore about what the message SAYS, and M24 is the only thing that can redden it. See
+# section 5d.
 #
 # WHAT THE DEFECTS WERE
 #   #61  An edge whose dpid matched no switch node was dropped. One `[warning] Skipping edge:`
@@ -174,6 +180,15 @@ add_anchor "door3d-host"    "$TFM" '        if (vertexType == VertexType::HOST)'
 add_anchor "door3d-nokey"   "$TFM" '            if (!nodeJson.contains("ip"))'
 add_anchor "door3d-notarr"  "$TFM" '            else if (!nodeJson.at("ip").is_array())'
 add_anchor "door3d-empty"   "$TFM" '            else if (nodeJson.at("ip").empty())'
+
+# FINDINGS #91 door 3e -- an unknown switch brand_name.
+add_anchor "door3e-switch"  "$TFM" '        if (vertexType == VertexType::SWITCH)
+        {
+            if (!(nodeJson.contains("brand_name") && nodeJson.at("brand_name").is_string()))'
+add_anchor "door3e-member"  "$TFM" '            if (std::find(kAcceptedSwitchBrands.begin(), kAcceptedSwitchBrands.end(), brandName) ==
+                kAcceptedSwitchBrands.end())'
+add_anchor "door3e-list"    "$TFM" '    "HPE5520",        // testbed hardware, SNMP power + temperature'
+add_anchor "door3e-message" "$TFM" '                    ". An unrecognised brand used to be mapped to \"hardware\" silently, which "'
 
 echo "=== anchor uniqueness (exact substring count must be 1) ==="
 anchor_ok=1
@@ -657,6 +672,75 @@ mutate "door 3d demands exactly one address (the five _ipAlias4_ files give four
     TopologyInputValidationTest.AHostWithMoreThanOneAddressStillLoads
 
 # ================================================================================================
+# 5d. FINDINGS #91 / W15 -- door 3e, a brand_name this build has no data plane for (M21-M24,
+#     added 2026-09-06)
+#
+# 🔴 THE DEFECT WAS NOT SILENCE, IT WAS A REFUSAL THAT DID NOT REFUSE. R0b measured an unknown
+# brand being accepted while the operator was shown an ERROR-level "Topology mixes data planes"
+# line whose suggested remedy -- set AppConfig::ALLOW_MIXED_DATAPLANE -- would have made the typo
+# permanent. So this half of the gate has two directions that are easy to confuse:
+#   - the file must be refused                        (M21)
+#   - and refused for the brand, not for the mixture  (M24 puts the advice back in the message)
+# and one that is more dangerous than either, because it looks like tightening:
+#   - the accepted list narrowed to the virtual kinds (M23) takes five shipped files down.
+#
+# 🔴 NONE OF THESE MAY LEAVE kAcceptedSwitchBrands OR acceptedSwitchBrandList() UNUSED: -Werror
+# turns that into a compile error and a mutant that does not compile is scored a SURVIVOR here.
+# M21 therefore adds `&& false` to the membership test rather than deleting it, and M23 changes an
+# entry rather than removing one (the array's size is declared, so a removal would also leave a
+# value-initialised empty brand behind and measure something else).
+# ================================================================================================
+
+# M21. The membership test can never fire. The measured defect verbatim: an unknown brand is
+#      accepted, becomes HARDWARE, and the only diagnostic is about the mixture it caused.
+mutate "door 3e: an unknown brand_name is accepted again" \
+    "$TFM" \
+    '            if (std::find(kAcceptedSwitchBrands.begin(), kAcceptedSwitchBrands.end(), brandName) ==
+                kAcceptedSwitchBrands.end())' \
+    '            if (std::find(kAcceptedSwitchBrands.begin(), kAcceptedSwitchBrands.end(), brandName) ==
+                kAcceptedSwitchBrands.end() && false)' \
+    TopologyInputValidationTest.AnUnknownBrandNameLeavesNoPartiallyLoadedGraph \
+    TopologyInputValidationTest.TheUnknownBrandRefusalNamesTheBrandAndTheAcceptedOnes \
+    TopologyInputValidationTest.TheUnknownBrandRefusalDoesNotSuggestAllowingMixedDataPlanes
+
+# M22. 🔴 OVER-WIDE: the door is applied to every node type. Every host in every shipped file
+#      carries `"brand_name": ""`, which is not a data plane and is not in the list, so this
+#      refuses all thirteen files -- the M8/M13/M20 shape again, on the vertexType guard.
+mutate "door 3e is applied to hosts as well as switches" \
+    "$TFM" \
+    '        if (vertexType == VertexType::SWITCH)
+        {
+            if (!(nodeJson.contains("brand_name") && nodeJson.at("brand_name").is_string()))' \
+    '        if (true)
+        {
+            if (!(nodeJson.contains("brand_name") && nodeJson.at("brand_name").is_string()))' \
+    TopologyInputValidationTest.AHostBrandNameIsNotChecked \
+    TopologyInputValidationTest.EveryShippedTopologyStillLoadsWithNothingDropped
+
+# M23. 🔴 THE FLEET-BREAKING DIRECTION, and the one that reads as a harmless typo fix. One
+#      hardware model is misspelled in the accepted list. The two _ipAlias4_HPE_ files stop
+#      loading, and -- because DeviceConfigurationAndPowerManager.cpp still branches on the real
+#      spelling -- the tripwire that exists for exactly this drift must see it too.
+mutate "door 3e: a hardware model is misspelled in the accepted list" \
+    "$TFM" \
+    '    "HPE5520",        // testbed hardware, SNMP power + temperature' \
+    '    "HPE9999",        // testbed hardware, SNMP power + temperature' \
+    TopologyInputValidationTest.EveryShippedTopologyStillLoadsWithNothingDropped \
+    TopologyInputValidationTest.EveryBrandTheShippedFleetNamesIsAccepted \
+    TopologyInputValidationTest.TheAcceptedBrandListCoversEveryBrandTheCodeBranchesOn
+
+# M24. 🔴 THE ADVICE COMES BACK. The file is still refused, and the refusal still names the brand
+#      -- but it tells the operator to set ALLOW_MIXED_DATAPLANE, which is what R0b caught the old
+#      message doing and is the half of this fix that is about what the message SAYS. Only one
+#      case can see it.
+mutate "door 3e: the refusal suggests ALLOW_MIXED_DATAPLANE again" \
+    "$TFM" \
+    '                    ". An unrecognised brand used to be mapped to \"hardware\" silently, which "' \
+    '                    ". Fix the topology file, or set AppConfig::ALLOW_MIXED_DATAPLANE to "
+                    "override. An unrecognised brand used to be mapped to \"hardware\", which "' \
+    TopologyInputValidationTest.TheUnknownBrandRefusalDoesNotSuggestAllowingMixedDataPlanes
+
+# ================================================================================================
 # 6. the widenings -- these MUST survive
 # ================================================================================================
 
@@ -703,6 +787,19 @@ widen "the host emptiness test is written as size() == 0" \
     "$TFM" \
     '            else if (nodeJson.at("ip").empty())' \
     '            else if (nodeJson.at("ip").size() == 0)'
+
+# W6. #91's control. The membership test written as none_of with an explicit comparison instead of
+#     find-against-end: identical semantics, a completely different shape. If this reddens,
+#     M21/M23 are pinning how the lookup is spelled rather than which brands it admits.
+widen "the brand membership test is written as none_of" \
+    "$TFM" \
+    '            if (std::find(kAcceptedSwitchBrands.begin(), kAcceptedSwitchBrands.end(), brandName) ==
+                kAcceptedSwitchBrands.end())' \
+    '            if (std::none_of(kAcceptedSwitchBrands.begin(),
+                             kAcceptedSwitchBrands.end(),
+                             [&brandName](std::string_view accepted) {
+                                 return accepted == brandName;
+                             }))'
 
 # ================================================================================================
 # 7. restore and verdict
@@ -764,4 +861,8 @@ echo "  FINDINGS #90 gate: door 3d cannot be switched off, neither of its two pl
 echo "  can quietly fall back to a raw nlohmann exception, and it cannot narrow to 'exactly one"
 echo "  address' without the five _ipAlias4_ files saying so -- while spelling the emptiness test"
 echo "  a different way stays green."
+echo "  FINDINGS #91 gate: an unknown brand_name cannot be admitted again, the refusal cannot"
+echo "  start suggesting ALLOW_MIXED_DATAPLANE, the accepted list cannot be applied to hosts, and"
+echo "  it cannot lose a hardware model without both the shipped fleet and the brand-drift"
+echo "  tripwire saying so -- while writing the membership test as none_of stays green."
 exit 0

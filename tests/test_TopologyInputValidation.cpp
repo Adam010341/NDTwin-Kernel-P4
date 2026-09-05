@@ -1051,6 +1051,295 @@ TEST(TopologyInputValidationTest, AHostWhoseIpIsNotAnArrayIsRefusedInPlainLangua
         << "the refusal is a raw nlohmann exception, not a diagnostic: " << out.messageSansPath;
 }
 
+// =================================================================================================
+// FINDINGS #91 / W15 / door 3e -- a `brand_name` this build has no data plane for.
+//
+// [Co-developed with claude code -- Adam]
+// 🔴 MEASURED, like #90 and unlike #89. R0b (2026-09-05, kernel 862c4bf8, bad file `c`) set one
+// switch of the shipped all-OVS model to `brand_name = "NOT_A_REAL_KIND"`. The file was ACCEPTED
+// (rc=124, i.e. the kernel was still serving when the harness gave up) and the only thing the
+// operator saw was
+//
+//     [error] ... validateDataPlaneHomogeneity] Topology mixes data planes
+//     (ovs=[1,2,3,4,5,6,8,9,10]; hardware=[7]). ... Fix the topology file, or set
+//     AppConfig::ALLOW_MIXED_DATAPLANE to override.
+//
+// R0b's own words: the tone is a refusal and the behaviour is an admission. And the remedy it
+// suggests makes the typo permanent -- ALLOW_MIXED_DATAPLANE turns every misspelled brand into a
+// hardware switch by consent.
+//
+// 🔴 THE MIXED-DATA-PLANE PATH IS NOT REMOVED, AND MUST NOT BE. Mixed fabrics are a supported
+// opt-in with a flag, a manual section and a unit test of their own
+// (setting/AppConfig.hpp.example:15, doc/2026-07-27_p4_bmv2_support_plan.md:213,
+// test_SFlowEmitterRoundtrip.cpp's AMixedTopologyDoesNotUseIdentity). What changes is that a typo
+// can no longer REACH that message: validateDataPlaneHomogeneity runs at the end of the builder,
+// door 3e in the node loop before it. `vertices == 0` below is what pins that ordering, and it is
+// the whole of the "drop the ALLOW_MIXED_DATAPLANE advice" half of this fix.
+// =================================================================================================
+
+TEST(TopologyInputValidationTest, AnUnknownBrandNameLeavesNoPartiallyLoadedGraph)
+{
+    // R0b file `c`, reproduced from the shipped file.
+    MutatedTopology topo("unknown_brand");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastSwitchNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u) << "the case needs a switch with other nodes in front of it";
+    topo.doc()["nodes"][victim]["brand_name"] = "NOT_A_REAL_KIND";
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "an unknown brand_name was accepted and mapped to hardware";
+    EXPECT_EQ(out.vertices, 0u)
+        << "the file was refused only after " << out.vertices
+        << " vertices were already in the graph -- and a graph that reaches "
+           "validateDataPlaneHomogeneity is a graph that gets told to set ALLOW_MIXED_DATAPLANE";
+    EXPECT_EQ(out.edges, 0u);
+}
+
+TEST(TopologyInputValidationTest, TheUnknownBrandRefusalNamesTheBrandAndTheAcceptedOnes)
+{
+    // Two claims, and the second is the one the ticket asked for: the message has to say what IS
+    // accepted, because "unknown" without a list leaves the operator guessing at a spelling.
+    // Searching for the offending value is honest here -- describeTopologyItem's prefix carries
+    // device_name, nickname, ip and the edge dpids, and never brand_name.
+    MutatedTopology topo("unknown_brand_named");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastSwitchNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim]["brand_name"] = "NOT_A_REAL_KIND";
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    ASSERT_TRUE(out.threw);
+    EXPECT_NE(out.messageSansPath.find("NOT_A_REAL_KIND"), std::string::npos)
+        << "the refusal does not name the offending brand: " << out.messageSansPath;
+    for (const char* accepted : {"OVS", "BMv2", "HPE5520", "BrocadeICX6610", "BrocadeICX7250"})
+    {
+        EXPECT_NE(out.messageSansPath.find(accepted), std::string::npos)
+            << "the refusal does not list " << accepted << " as an accepted brand: "
+            << out.messageSansPath;
+    }
+}
+
+TEST(TopologyInputValidationTest, TheUnknownBrandRefusalDoesNotSuggestAllowingMixedDataPlanes)
+{
+    // 🔴 R0b's complaint, pinned. The old diagnostic for this file was the data-plane-mixture
+    // ERROR, whose remedy is `set AppConfig::ALLOW_MIXED_DATAPLANE to override` -- advice that
+    // would silence a TYPO rather than fix it. The refusal that replaces it must not carry the
+    // same advice forward.
+    //
+    // Stated plainly: this assertion cannot go red against the pre-fix tree, because pre-fix
+    // there was no refusal at all. Its evidence is the gate's M24, which puts the advice back into
+    // the new message and must be caught here.
+    MutatedTopology topo("unknown_brand_no_mixed_advice");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastSwitchNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim]["brand_name"] = "NOT_A_REAL_KIND";
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    ASSERT_TRUE(out.threw);
+    EXPECT_EQ(out.messageSansPath.find("ALLOW_MIXED_DATAPLANE"), std::string::npos)
+        << "the refusal for a misspelled brand tells the operator to allow mixed data planes, "
+           "which would make the typo permanent: "
+        << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, ASwitchWithNoBrandNameIsRefusedInPlainLanguage)
+{
+    // Same shape as door 3d's two message cases: already refused -- by the BUILDER's
+    // at("brand_name"), with nodes 0..N-1 in the graph -- and reported as an exception class.
+    // Both halves move here: `vertices == 0` and a sentence.
+    MutatedTopology topo("switch_no_brand");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastSwitchNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim].erase("brand_name");
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "a switch with no brand_name was accepted";
+    EXPECT_EQ(out.vertices, 0u)
+        << "the file was refused only after " << out.vertices << " vertices were in the graph";
+    EXPECT_EQ(out.messageSansPath.find("json.exception"), std::string::npos)
+        << "the refusal is a raw nlohmann exception, not a diagnostic: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, EveryBrandTheShippedFleetNamesIsAccepted)
+{
+    // 🔴 THE FLEET-BREAKING CONTROL, and it derives its expectation from the fleet rather than
+    // repeating the list the fix hard-codes -- otherwise it would be the same claim written
+    // twice. Eight shipped files are OVS, two BMv2, and five TESTBED files carry HPE5520,
+    // BrocadeICX7250 and BrocadeICX6610. A list narrowed to the two virtual kinds would refuse
+    // five of thirteen shipped topologies: the M8/M13 shape, on brands.
+    std::vector<std::string> brands;
+    for (const auto& f : shippedTopologies())
+    {
+        json doc;
+        std::ifstream in(f.path);
+        in >> doc;
+        for (const auto& node : doc.at("nodes"))
+        {
+            if (node.at("vertex_type").get<int>() != 0)
+            {
+                continue;
+            }
+            const auto brand = node.at("brand_name").get<std::string>();
+            if (std::find(brands.begin(), brands.end(), brand) == brands.end())
+            {
+                brands.push_back(brand);
+            }
+        }
+    }
+    std::sort(brands.begin(), brands.end());
+    ASSERT_EQ(brands.size(), 5u)
+        << "the shipped fleet no longer names five distinct switch brands; if a topology file was "
+           "added, kAcceptedSwitchBrands has to learn its brand too";
+
+    for (const auto& brand : brands)
+    {
+        // Every switch, not one: one switch of a different kind is a MIXED topology, which is a
+        // different subject (and a supported one) and would test the homogeneity path instead.
+        MutatedTopology topo("fleet_brand");
+        ASSERT_TRUE(topo.usable());
+        for (auto& node : topo.doc()["nodes"])
+        {
+            if (node.at("vertex_type").get<int>() == 0)
+            {
+                node["brand_name"] = brand;
+            }
+        }
+
+        const LoadOutcome out = loadFile(topo.write());
+
+        EXPECT_FALSE(out.threw) << "a fabric of " << brand << " switches was refused: "
+                                << out.message;
+        EXPECT_EQ(out.vertices, 14u) << brand;
+        EXPECT_EQ(out.edges, 40u) << brand;
+    }
+}
+
+TEST(TopologyInputValidationTest, AHostBrandNameIsNotChecked)
+{
+    // 🔴 The control on the `vertexType == SWITCH` guard. Every host in every shipped file carries
+    // `"brand_name": ""` -- 1144 of them across this repository -- and nothing dispatches on a
+    // host's brand. A check written for "every node" would refuse all thirteen files at once.
+    MutatedTopology topo("host_brand");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastHostNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim]["brand_name"] = "NOT_A_REAL_KIND";
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_FALSE(out.threw) << "a host's brand_name is not a data plane and must not be checked: "
+                            << out.message;
+    EXPECT_EQ(out.vertices, 14u);
+}
+
+TEST(TopologyInputValidationTest, TheAcceptedBrandListCoversEveryBrandTheCodeBranchesOn)
+{
+    // 🔴 WHAT THIS IS FOR. The accepted list lives in TopologyAndFlowMonitor.cpp; the code that
+    // actually behaves differently per brand lives in two other files -- GraphTypes.hpp's
+    // switchKindFromBrandName and DeviceConfigurationAndPowerManager.cpp's HPE5520 branches. Two
+    // copies of one truth is this codebase's most repeated shape (three hand-written field
+    // extractions, two layers of topology validation), and the failure it produces here is
+    // specific: teach the mapping a new brand and forget the list, and the loader refuses a
+    // topology the rest of the kernel could drive perfectly well.
+    //
+    // Textual, like FromJsonHasNoProductionCallers, and with the same kind of limitation stated
+    // rather than hidden: it reads `brandName ==` / `brandName !=` comparisons against a string
+    // literal. A brand reached some other way (a map lookup, a substring test) is invisible to it.
+    const std::string dir = settingDir();
+    ASSERT_FALSE(dir.empty());
+    const std::filesystem::path root =
+        std::filesystem::path(dir).parent_path().empty() ? std::filesystem::path(".")
+                                                         : std::filesystem::path(dir).parent_path();
+
+    // The list, read out of the source so the test cannot drift from it silently.
+    std::vector<std::string> accepted;
+    {
+        std::ifstream in(root / "src/ndt_core/collection/TopologyAndFlowMonitor.cpp");
+        ASSERT_TRUE(in.good()) << "cannot read the validator";
+        std::string line;
+        bool inList = false;
+        while (std::getline(in, line))
+        {
+            if (line.find("kAcceptedSwitchBrands{") != std::string::npos)
+            {
+                inList = true;
+                continue;
+            }
+            if (!inList)
+            {
+                continue;
+            }
+            if (line.find("};") != std::string::npos)
+            {
+                break;
+            }
+            const auto open = line.find('"');
+            if (open == std::string::npos)
+            {
+                continue;
+            }
+            const auto close = line.find('"', open + 1);
+            ASSERT_NE(close, std::string::npos) << line;
+            accepted.push_back(line.substr(open + 1, close - open - 1));
+        }
+    }
+    ASSERT_EQ(accepted.size(), 5u)
+        << "could not read kAcceptedSwitchBrands out of the validator -- the search, not the "
+           "answer, is what failed";
+
+    // Every brand any of these files compares against.
+    std::vector<std::string> branchedOn;
+    for (const char* file : {"include/common_types/GraphTypes.hpp",
+                             "src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp"})
+    {
+        std::ifstream in(root / file);
+        ASSERT_TRUE(in.good()) << file;
+        std::string line;
+        while (std::getline(in, line))
+        {
+            const auto comment = line.find("//");
+            if (comment != std::string::npos)
+            {
+                line.erase(comment);
+            }
+            for (const char* op : {"brandName == \"", "brandName != \""})
+            {
+                for (auto at = line.find(op); at != std::string::npos;
+                     at = line.find(op, at + 1))
+                {
+                    const auto start = at + std::string(op).size();
+                    const auto close = line.find('"', start);
+                    if (close == std::string::npos)
+                    {
+                        continue;
+                    }
+                    branchedOn.push_back(line.substr(start, close - start));
+                }
+            }
+        }
+    }
+    ASSERT_FALSE(branchedOn.empty())
+        << "no brand comparison found in either file -- the search, not the answer, is wrong";
+
+    for (const auto& brand : branchedOn)
+    {
+        EXPECT_NE(std::find(accepted.begin(), accepted.end(), brand), accepted.end())
+            << "the code branches on brand_name \"" << brand
+            << "\" but the loader refuses it: the mapping and the accepted list have drifted";
+    }
+}
+
 TEST(TopologyInputValidationTest, AHostWithMoreThanOneAddressStillLoads)
 {
     // 🔴 The control that keeps door 3d from narrowing to "exactly one address". Five shipped
