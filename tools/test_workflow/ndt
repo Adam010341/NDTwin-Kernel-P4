@@ -2205,6 +2205,32 @@ check_up_target() {
         UP_TARGET_PROBLEMS+=("$1: could not be compared against the 'ndt up' target ($2)")
         bad=1
     }
+    # [Co-developed with claude code -- Adam]
+    # overlay <path> -- NAMED, AND DELIBERATELY NOT COMPARED. Never touches `bad`.
+    #
+    # 🔴 The row exists so that "the overlay is not part of the sha256" is something the reader
+    # can SEE rather than infer from a silence, and so that a change which quietly folds it back
+    # in has something to fail. Until 2026-09-06 the kernel wrote nicknames into the model file
+    # itself, so an operator who did nothing worse than give a switch a friendly name turned row
+    # 5 red -- and the red read "the topology file has been edited since the ndt up that loaded
+    # it", which was true, useless, and indistinguishable from the edit row 5 is FOR (measured
+    # live on OVS 2026-09-05; renaming and renaming back went green again, so the file's bytes
+    # were the whole of it). W10 moved those names to .test_run/nickname_overlay/, outside
+    # setting/, and this check keeps its baseline where it was: the model file `ndt up` loaded.
+    _ut_overlay_row() {
+        local f="$1" n
+        if [[ ! -f "$f" ]]; then
+            printf '  %-14s %s\n' "device names" "none set through the API   (${f#$REPO/})"
+            return 0
+        fi
+        n="$(python3 -c '
+import json,sys
+d=json.load(open(sys.argv[1]))
+print(len(d.get("switches",{})) + len(d.get("hosts",{})))' "$f" 2>/dev/null)"
+        printf '  %-14s %-22s %s\n' "device names" "${n:-?} set through the API" \
+            "not compared -- the model file is the baseline"
+        return 0
+    }
 
     # 1. the data plane. The field whose absence made this check useless on OVS: (hosts, edges)
     #    is (4, 40) for both the P4 and the OVS 4-host model, so without this row a bmv2 fabric
@@ -2236,6 +2262,13 @@ check_up_target() {
     # 5. is the model file still the file that was loaded? An edit under a running kernel is
     #    invisible in every count above, because the kernel pulled once at startup.
     local path="$REPO/$topo" now
+    # [Co-developed with claude code -- Adam]
+    # W10. Where the kernel keeps the names an operator set, derived the same way the kernel
+    # derives it: one overlay per model file, named after that model, under .test_run/. It is
+    # worked out HERE, right beside the sha256 that is about to be taken, because the
+    # relationship between the two is the decision -- this path is reported in row 6 and is not
+    # an input to row 5.
+    local overlay="$REPO/.test_run/nickname_overlay/$(basename "${topo%.json}").names.json"
     if [[ ! -f "$path" ]]; then
         _ut_unreadable "topology file" "$topo is gone"
     elif [[ ! "$sum" =~ ^[0-9a-f]{64}$ ]]; then
@@ -2250,7 +2283,11 @@ check_up_target() {
             bad=1
         fi
     fi
-    unset -f _ut_row _ut_unreadable _ut_differs
+
+    # 6. the names an operator set through the API. Named, never compared -- see _ut_overlay_row.
+    _ut_overlay_row "$overlay"
+
+    unset -f _ut_row _ut_unreadable _ut_differs _ut_overlay_row
     return "$bad"
 }
 
