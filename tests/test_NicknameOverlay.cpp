@@ -46,6 +46,7 @@
  * writes to a file it should not" must not write to that file.
  */
 
+#include <algorithm>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
@@ -101,6 +102,40 @@ readWhole(const std::string& path)
     std::ifstream ifs(path);
     std::ostringstream out;
     out << ifs.rdbuf();
+    return out.str();
+}
+
+/// "same", or one bounded line saying where the two documents first differ.
+///
+/// 🔴 The assertion these serve is byte equality of a whole topology file, and writing that as
+/// EXPECT_EQ(after, before) makes gtest print BOTH documents on failure. Measured 2026-09-06 on
+/// this suite's own mutation gate: one failing case produced an 800 KB message, which buries
+/// every other failure in the run and is not something a human reads. The property is unchanged
+/// -- this returns "same" only when the two strings are equal -- and only the message is bounded.
+std::string
+firstDifference(const std::string& before, const std::string& after)
+{
+    if (before == after)
+    {
+        return "same";
+    }
+    std::size_t at = 0;
+    const std::size_t shared = std::min(before.size(), after.size());
+    while (at < shared && before[at] == after[at])
+    {
+        ++at;
+    }
+    auto window = [at](const std::string& text) -> std::string {
+        const std::size_t from = at > 24 ? at - 24 : 0;
+        if (from >= text.size())
+        {
+            return "<end of file>";
+        }
+        return text.substr(from, 56);
+    };
+    std::ostringstream out;
+    out << "differs at byte " << at << " (was " << before.size() << " bytes, now " << after.size()
+        << ") | before: \"" << window(before) << "\" | after: \"" << window(after) << "\"";
     return out.str();
 }
 
@@ -279,7 +314,7 @@ TEST_F(NicknamePersistenceTest, AModifyNicknameLeavesTheTopologyFileByteIdentica
     // 🔴 The whole file, byte for byte -- not "one line differs". A sha256 is what
     // `ndt status --check` compares, and one byte is one byte to it. This assertion is the
     // one the OV-1-era test could not make.
-    EXPECT_EQ(files.topologyNow(), files.original())
+    EXPECT_EQ(firstDifference(files.original(), files.topologyNow()), "same")
         << "the kernel wrote the model file; W10 is that it must not touch it at all";
 }
 
@@ -293,7 +328,7 @@ TEST_F(NicknamePersistenceTest, AModifyDeviceNameLeavesTheTopologyFileByteIdenti
 
     fabric.monitor->setVertexDeviceName(fabric.aSwitch(), kNewDeviceName);
 
-    EXPECT_EQ(files.topologyNow(), files.original())
+    EXPECT_EQ(firstDifference(files.original(), files.topologyNow()), "same")
         << "modify_device_name is the other writer, and it must not write either";
 }
 
@@ -306,7 +341,7 @@ TEST_F(NicknamePersistenceTest, TheMininetTopologyKeepsItsBytesToo)
 
     fabric.monitor->setVertexNickname(fabric.aSwitch(), kNewNickname);
 
-    EXPECT_EQ(files.topologyNow(), files.original());
+    EXPECT_EQ(firstDifference(files.original(), files.topologyNow()), "same");
 }
 
 TEST_F(NicknamePersistenceTest, EveryShippedTopologySurvivesARenameByteForByte)
@@ -329,7 +364,7 @@ TEST_F(NicknamePersistenceTest, EveryShippedTopologySurvivesARenameByteForByte)
         LoadedFabric fabric(files.topologyPath());
         fabric.monitor->setVertexNickname(fabric.aSwitch(), kNewNickname);
 
-        EXPECT_EQ(files.topologyNow(), files.original())
+        EXPECT_EQ(firstDifference(files.original(), files.topologyNow()), "same")
             << name << " was rewritten by a rename";
         ++examined;
     }
@@ -424,7 +459,7 @@ TEST_F(NicknamePersistenceTest, AFreshLoadPicksTheNicknameBackUp)
     EXPECT_EQ(second.deviceNameOf(*v), kNewDeviceName);
 
     // And the model file is still exactly what shipped, after all of that.
-    EXPECT_EQ(files.topologyNow(), files.original());
+    EXPECT_EQ(firstDifference(files.original(), files.topologyNow()), "same");
 }
 
 TEST_F(NicknamePersistenceTest, AFreshLoadPicksAHostsNicknameBackUpUnderItsMac)
