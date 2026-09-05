@@ -1319,6 +1319,128 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 - **證據**：`doc/audit/2026-09-02_manual-usertest/run-01-sonnet/auditor-verification/` 的 `logs/av*_kernel_*.log`（實測，讀 log）；出處：該目錄的 `README.md`（trunk `01e642e8`；auditor 裁定在該檔 `:39`）。
   ⚠️ **本條未在 Adam 的機器上重現、未定位到具體物件、exit code 未量。**
 
+### B-6 🔴 用 API 宣告的 link failure 會被 30 秒的拓樸輪詢靜默撤銷（可見壽命上界 30 s）
+
+- **狀態**：**OPEN。** 2026-09-04 夜巡實測（5/5 重現，機制定案）。
+  **Adam 2026-09-05 裁定語意：宣告應該優先，這是缺陷**——不是「輪詢比較準」的設計取捨。
+  修法單 **W8**（`W8-link-failure-declaration-must-win.md`，2026-09-05 開，**只開不修**；
+  三個選項尚未拍板）。🔴 **W8 寫在 09-05 夜巡 session 的 scratch 裡，`scratch/` 不進版控**
+  ⇒ 這份單子不在 repo，引用前先向該 session 要。
+  文件側已落：`doc/2026-01-02_ndt_api.md` §1／§2 已從「事實描述」改寫成「已知缺陷、待修」。
+- **平面**：兩者（缺陷在 kernel 的拓樸輪詢，與資料面無關；實測跑在 OVS 10-switch）
+- **失效方向**：**樂觀 ＋ 靜默**——被宣告成壞掉的東西回報成健康，而且沒有任何 log 記錄這次翻轉
+- **會發生什麼**：`POST /ndt/link_failure_detected` 回 **200**，雙向邊在 0.02 s 內變 `isUp=false`；
+  **≤30 s 後那條邊自己變回 `isUp=true`**，而 `/ndt/link_recovery_detected` 從來沒有被呼叫。
+  `kernel.log` 只有 `handleLinkFailure] link failed on 1:1 -> 5:1` 那行，**沒有對應的 recovered 行**
+  ⇒ **宣告被推翻，而唯一的證據是「圖自己變了」。**
+- **機制**：拓樸輪詢對 Ryu `/v1.0/topology/links` 回報的每一條 link **無條件**設 `isUp = true`
+  （`src/ndt_core/collection/TopologyAndFlowMonitor.cpp:1791-1795`，`updateLinks`，函式起點 `:1695`），
+  **整個輪詢沒有任何 `isUp = false` 分支**——它只能把 link 抬起來，不能放下去。
+  週期在 `:3195-3197`：**起動後 90 s 內 5 s 一次，之後 30 s 一次**（`kOnceConverged = 30s`）。
+  🔑 **這段碼自己寫下了它依賴的不變式，而那條不變式只對「真實」故障成立**（`:3146-3150`）：
+  *"a poll can fill in what was missed but cannot resurrect an edge the push path correctly took
+  down"* ——它成立是因為 **Ryu 會把斷掉的 link 從清單裡拿掉**。用 API 宣告的故障沒有斷線背書，
+  Ryu 照樣列出那條 link，於是輪詢把它復活。**不變式沒有錯，是它的前提沒有被寫進條件裡。**
+- **窗口**：宣告後 **0–30 s 均勻分布，上界 30 s**（起動後 90 s 內是 0–5 s）。
+  實測翻回時刻每次緊跟輪詢後 ≈0.6 s；先前一輪量到的 0.457／9.454／18.453 s
+  **是同一個 30 s 輪詢在不同相位被撞到，不是三種行為**。
+- 🔑 **對照組（真斷鏈不受影響——這是把缺陷定位出來的那一組，不是免責條款）**：
+  `tc netem loss 100%` 兩端一起下，Ryu 自己的 watchdog POST 這兩個端點、**而且** Ryu 把該 link
+  從 `/v1.0/topology/links` 拿掉 ⇒ 輪詢沒有東西可以復活。
+  netem 上線後 **13.3 s 可見 DOWN、60 s 後仍 DOWN**；netem 撤掉後 **1.0 s 回 UP**。
+  ⇒ 輪詢只能表達「我同意控制面看到的」，所以它撐住被觀測到的故障、推翻被宣告的故障。
+- 🔴 **影響面**：**任何用 `/ndt/link_failure_detected` 注入故障、然後量超過幾秒的實驗，
+  在後半段的注入條件不成立**——而端點回 200、文件先前沒寫這件事。
+  這一條接到「注入後必須斷言注入成功」那條紀律上：要在**整個**量測窗內從 `/ndt/get_graph_data`
+  重讀邊的狀態，不能只信那個 200。**chaos harness 若走這條路徑注入鏈路故障，同一句話適用。**
+- **繞法**：改用 `tc netem`（真斷）注入；或把量測窗壓進單一輪詢週期內並在窗尾複查邊狀態。
+  ⚠️ **不要用 `ifconfig down`**（專案硬規矩：會弄壞整台交換機）。
+- **證據**：實測，`scratch/overnight-2026-09-04/rounds/03-R2-concurrency.md` §3-2（R2-B）；
+  raw `scratch/overnight-2026-09-04/logs/r2-20-linkfail-probe.log`（宣告臂，5 trial 逐字）與
+  `logs/r2-21-netem-control.log`（netem 對照臂）。同一現象較早的一輪記在
+  `scratch/overnight-2026-09-04/FINDINGS-CANDIDATES.md` **OV-4**（3/5、相位猜 ≈9 s，**已被 R2-B 取代**）。
+  🔴 **上列 raw 全在 `scratch/`，不在版控**——引用前先確認那個 session 的目錄還在。
+  機制行號由 2026-09-05 本次登記時**開檔覆核**於 trunk `4088b237`，不是抄 finding 的偏移量。
+
+### B-7 `set_switches_power_state` 對不存在的 IP 回 500，而同一個 IP 的 GET 回 404
+
+- **狀態**：**在 trunk 上 OPEN。修法在分支 `integrate/2026-09-03-auditor-merge` 的
+  `f8dbad66`（工單 W6），未併入**（查於 2026-09-05，trunk `4088b237`：
+  `git merge-base --is-ancestor f8dbad66 HEAD` 為否）。登記理由見 B-8 之後那一段。
+- **平面**：兩者
+- **失效方向**：**悲觀 ＋ 誤導**——客戶端錯誤被報成伺服器故障
+- **會發生什麼**：`POST /ndt/set_switches_power_state?ip=203.0.113.9&action=off` →
+  **`500 {"error":"Failed to change switch power state"}`**，而 `GET /ndt/get_switches_power_state`
+  對**同一個位址**回 **404**、`action=sideways` 回 **400**。一個位址、兩個端點、兩種判決。
+- **機制**：handler 把下游**所有**失敗原因塌縮成一個 `bool`
+  （`src/ndt_core/http/HttpSession.cpp` 的 `handleSetSwitchesPowerState`），
+  而「這個 IP 不是我認得的交換機」與「繼電器不接受」在那個 bool 裡沒有差別——
+  後者旁邊還有四條**真的是 500** 的 `return false`。GET 那側走例外，
+  拿到 `Unknown switch IP` 就回 404。
+- **W6 之後的行為**（`f8dbad66`，**尚未在 trunk**）：新增
+  `DeviceConfigurationAndPowerManager::knowsSwitchIp`（就是 GET 那側自己的查找，依模式分岔），
+  handler 在問 manager **之前**先問它，未知 IP 回 **`404 {"error":"Unknown switch IP"}`**、
+  與 GET 同一句；**真正的電源失敗仍然是 500**（鑑別力測試 `ARealPowerFailureIsStillA500`）。
+- **證據**：實測 2026-09-04，`scratch/overnight-2026-09-04/FINDINGS-CANDIDATES.md` **OV-2**；
+  raw `scratch/overnight-2026-09-04/logs/ovs128-02b-sweep2.log:62-63`（POST 500）、`:24`（GET 404）。
+  🔴 **raw 在 `scratch/`，不在版控。** 修法側的紀錄在該分支的
+  `doc/audit/2026-09-04_fix-unknown-identifier/FIX-UNKNOWN-IDENTIFIER.md`（**同樣不在 trunk**）。
+
+### B-8 兩個 POST 讀取端點對不存在的 dpid 回 200 與零 —— 「不存在」與「零」不可分辨
+
+- **狀態**：**在 trunk 上 OPEN。修法在分支 `integrate/2026-09-03-auditor-merge` 的
+  `f8dbad66`（工單 W6，與 B-7 同一顆），未併入**（查於 2026-09-05，trunk `4088b237`）。
+- **平面**：兩者
+- **失效方向**：**靜默**——不存在的交換機被報成「有，但沒有流量」
+- **會發生什麼**：`POST /ndt/get_num_of_flows_passing_a_switch` `{"dpid":424242}` →
+  **`200 {"status":"success","num_of_flows":0}`**；
+  `POST /ndt/get_total_input_traffic_load_passing_a_switch` 同型（`..._bps: 0`）。
+  ⇒ **與「一台真的存在但沒有流量的交換機」的回應完全相同。**
+  對照：`/ndt/install_flow_entry` 對**同一個 dpid** 回 404。
+- **機制**：**根本沒有一個查找會失敗**——`dpid` 只被當成邊掃描裡的比較運算元，
+  不存在的 dpid 誰都不匹配，累加器停在初值並被當成答案回出去。
+  這是「算得出來不等於機制」的教科書實例。
+- **W6 之後的行為**（`f8dbad66`，**尚未在 trunk**）：兩個 handler 在掃描之前各加一次
+  `TopologyAndFlowMonitor::getSwitchKind(dpid).has_value()`（`install_flow_entry`
+  對同一個問題早就在用的那支 validator），不成立回 **404**，措辭沿用既有的 unknown-dpid 契約：
+  `{"status":"error","error":"unknown dpid","unknown_dpids":[<dpid>],"detail":"these dpids are not
+  switches in the loaded topology; check the dpid, or that the topology file matches the running
+  network"}`。🔴 **W6 把兩支既有測試的期望值從 200 改成 404**
+  （`TotalInputTrafficLoadWithADpidStillAnswers200`／`NumOfFlowsWithADpidStillAnswers200`，
+  空圖 ＋ `{"dpid":1}`），並新增對照 `AKnownButIdleSwitchStillAnswersZero`
+  （**真的存在但閒置的 dpid 仍然是 200 ＋ 0**）——**零與不存在，這才第一次可分辨**。
+- **證據**：實測 2026-09-04，`scratch/overnight-2026-09-04/FINDINGS-CANDIDATES.md` **OV-3**；
+  raw `scratch/overnight-2026-09-04/logs/ovs128-02b-sweep2.log:38-42`。
+  🔴 **raw 在 `scratch/`，不在版控。**
+
+> ### 為什麼 B-7／B-8 照樣登記，即使修法已經寫好（2026-09-05）
+>
+> 一份叫「已知**未修**缺陷」的清單要不要收一條「已經修好、但修法還在別的分支上」的缺陷？
+> **本文件已經自己答過兩次，兩次都是收**：
+>
+> | 條目 | 狀態行 |
+> |---|---|
+> | **A-13** | 「修法在分支 `fix/b5-kernel-shutdown`，**未併入**」 |
+> | **G-11** | 「OPEN（2026-09-02 live round 實測）。相關修法在 `fix/g6-ndt-apps-liveness`（未併）」 |
+>
+> ⇒ **慣例＝條目照登、狀態維持 OPEN、把分支與 commit 寫在狀態行上。** B-7／B-8 照此辦理。
+>
+> 三條支持的理由，都是本文件自己的規矩：
+> ① **F-1** 已經立過那條線——「翻面的條件是**跑著的那顆 kernel 裡有這個修法**，不是 repo 裡有」。
+> 修法在一條**還沒併進 trunk** 的分支上，比「repo 裡有」還要遠一步。
+> ② **A-1** 寫著「變異測試跑綠之前不得改標 RESOLVED」，並點名 **A-3 是修好之後被掛 OPEN 八天的反例**
+> ——兩個方向的錯都要避免。**現在登記、標 OPEN、指到那顆 commit**，同時避開兩者。
+> ③ 這兩個代號原本只活在一份 scratch 的 `FINDINGS-CANDIDATES.md` 裡；不編號進來，
+> 之後別處引用會另起代號、兩邊對不上（**§C 那兩套撞號的 F-n 就是這樣長出來的**）。
+>
+> 🔴 **W6 併進 trunk 之後要回來改這兩條的狀態行**，並照 A-1 的規矩：
+> 變異閘（`tests/shell/mutate_unknown_identifier_is_not_zero.sh`）在 trunk 上跑綠之前不改 RESOLVED。
+>
+> **本次沒有登記的**：09-04 夜巡 `FINDINGS-CANDIDATES.md` 裡的其他候選
+> （**OV-1**，以及 S-n／T-n／P4-n 各族）——那些不在 Adam 09-05 的裁決範圍內，本次不代為判斷。
+> ⚠️ 該檔的 `OV-n` **只編到 OV-4**（`recon/fixplan.md` §0.1 寫成「OV-1…OV-6」是筆誤，
+> 2026-09-05 開檔查證）。
+
 ---
 
 ## B-x. `/ndt/get_detected_flow_data` 包含已經結束的流（churn 下約 92%）
