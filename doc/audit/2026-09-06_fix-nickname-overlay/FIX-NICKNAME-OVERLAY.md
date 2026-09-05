@@ -99,6 +99,14 @@ W5（OV-1，09-04）把一次改名的 diff 從 **3998 行降到 1 行**，做�
 全 `src/`＋`include/` grep：`m_configurationFileMutex` 只有這兩個 setter 用，
 兩支都用同一個順序，沒有環。
 
+⚠️ **兩個端點對這個 throw 的回應碼不同，而且沒有統一**：`modify_nickname` 有自己的
+local catch ⇒ **400**（`HttpSession.cpp` 的 `handleModifyNickname`）；
+`modify_device_name` 沒有 ⇒ 落到 `buildResponse` 的 `std::exception` catch ⇒ **500**。
+本單刻意不動這件事（那是既有的不一致，不是 W10 引進的），只把**它變得安全**：
+09-04 的 chaos 審查記過「那個 local catch 對 `setVertexNickname` 內部的例外也回 400，
+而那時可能已經改了一半」——現在 throw 一定發生在動圖之前，
+所以無論 400 或 500，**「什麼都沒做」都是真的**。
+
 ### 3-4. `ndt status --check`：指名，但不比
 
 新增的第 6 列 `device names` **永遠不寫 `bad`**。它存在是為了讓
