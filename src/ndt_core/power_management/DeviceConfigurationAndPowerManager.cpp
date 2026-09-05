@@ -407,7 +407,12 @@ DeviceConfigurationAndPowerManager::queryMininet(const std::string& ipParam) con
         {
             if (graph[v].vertexType == VertexType::SWITCH)
             {
-                ips.push_back(utils::ipToString(graph[v].ip.front()));
+                // FINDINGS #88. A switch with no address has nothing to query; asking about
+                // a fabricated one would return someone else's answer.
+                if (const auto ipOpt = utils::firstAddressOf(graph[v].ip))
+                {
+                    ips.push_back(*ipOpt);
+                }
             }
         }
     }
@@ -2346,7 +2351,15 @@ DeviceConfigurationAndPowerManager::getSingleSwitchPowerReport(const std::string
     if (foundVertex)
     {
         const auto& props = graph[*foundVertex];
-        std::string ip_str = utils::ipToString(props.ip.front());
+        // FINDINGS #88. Same answer as "not found" below: this endpoint is keyed by address
+        // and there is no address here to key it by.
+        const auto ipOpt = utils::firstAddressOf(props.ip);
+        if (!ipOpt)
+        {
+            SPDLOG_WARN("Switch {} carries no management address", props.dpid);
+            return nlohmann::json();
+        }
+        const std::string& ip_str = *ipOpt;
 
         uint64_t power_mW = calculate_power_for_switch(props, ip_str);
 
@@ -2374,7 +2387,11 @@ DeviceConfigurationAndPowerManager::getSingleSwitchCpuReport(const std::string& 
     for (auto v : boost::make_iterator_range(vertices(graph)))
     {
         const auto& vp = graph[v];
-        if (vp.vertexType == VertexType::SWITCH &&
+        // FINDINGS #88. The empty check is new; the == is NOT touched. deviceIdentifier
+        // flows into execArgv/snmpget below, and equality against an address the topology
+        // already holds is what confines it. Widening this to a substring match is mutation
+        // M7 in tests/shell/mutate_first_address_of.sh.
+        if (vp.vertexType == VertexType::SWITCH && !vp.ip.empty() &&
             utils::ipToString(vp.ip.front()) == deviceIdentifier)
         {
             // --- FIX 2: Assign the address of the object to the pointer ---

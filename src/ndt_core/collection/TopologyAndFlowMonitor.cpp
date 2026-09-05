@@ -2219,6 +2219,24 @@ TopologyAndFlowMonitor::updateLinkInfo(pair<uint32_t, uint32_t> agentIpAndPort,
     auto edge = edgeOpt.value();
     auto& edgeProps = (*m_graph)[edge];
 
+    // [Co-developed with claude code -- Adam]
+    // FINDINGS #88. EdgeProperties::dstIp is a vector that starts empty, and nothing on the
+    // load path checks it -- validateStaticTopologyJson only looks at an edge end whose dpid
+    // is 0. Without it there is no reverse-edge key to build.
+    //
+    // Through KeyedFailureLog, not a bare WARN, and for the reason the reverse-edge guard
+    // below states at length: this runs once per telemetry sample, so a per-call WARN is how
+    // this process once reached 138,000 log lines a day -- while the condition itself is
+    // structural and permanent, so DEBUG would convert it into permanent silence.
+    if (edgeProps.dstIp.empty())
+    {
+        reverseEdgeFailures().record(
+            utils::ipToString(agentIpAndPort.first) + ":" +
+                std::to_string(agentIpAndPort.second),
+            "this edge carries no destination address, so its reverse edge cannot be keyed; "
+            "per-edge flow bookkeeping for this sample is skipped");
+        return;
+    }
     auto revEdgeAgentIpAndPort = make_pair(edgeProps.dstIp.front(), edgeProps.dstInterface);
     auto revEdgeOpt = findEdgeByAgentIpAndPort(revEdgeAgentIpAndPort);
 
@@ -2529,7 +2547,7 @@ TopologyAndFlowMonitor::findEdgeByAgentIpAndPort(
     {
         auto edge = *edgeIt;
         const auto& props = (*m_graph)[edge];
-        if (props.srcIp.front() == agentIpAndPort.first and
+        if (!props.srcIp.empty() and props.srcIp.front() == agentIpAndPort.first and
             props.srcInterface == agentIpAndPort.second)
         {
             return edge;
@@ -2549,7 +2567,7 @@ TopologyAndFlowMonitor::findEdgeToHostByAgentIpAndPort(
     {
         auto edge = *edgeIt;
         const auto& props = (*m_graph)[edge];
-        if (props.srcIp.front() == agentIpAndPort.first and
+        if (!props.srcIp.empty() and props.srcIp.front() == agentIpAndPort.first and
             props.srcInterface == agentIpAndPort.second)
         {
             // dstDpid == 0 is how the topology loader marks a non-switch endpoint: hosts are
@@ -2575,7 +2593,7 @@ TopologyAndFlowMonitor::findReverseEdgeByAgentIpAndPortNoLock(
     {
         auto edge = *edgeIt;
         const auto& props = (*m_graph)[edge];
-        if (props.srcIp.front() == agentIpAndPort.first and
+        if (!props.srcIp.empty() and props.srcIp.front() == agentIpAndPort.first and
             props.srcInterface == agentIpAndPort.second)
         {
             auto sourceNode = boost::source(edge, *m_graph);
@@ -2626,7 +2644,7 @@ TopologyAndFlowMonitor::findReverseEdgeByAgentIpAndPort(
     {
         auto edge = *edgeIt;
         const auto& props = (*m_graph)[edge];
-        if (props.srcIp.front() == agentIpAndPort.first and
+        if (!props.srcIp.empty() and props.srcIp.front() == agentIpAndPort.first and
             props.srcInterface == agentIpAndPort.second)
         {
             auto sourceNode = boost::source(edge, *m_graph);
@@ -2676,7 +2694,7 @@ TopologyAndFlowMonitor::findEdgeByAgentIpAndPortNoLock(
     {
         auto edge = *edgeIt;
         const auto& props = (*m_graph)[edge];
-        if (props.srcIp.front() == agentIpAndPort.first and
+        if (!props.srcIp.empty() and props.srcIp.front() == agentIpAndPort.first and
             props.srcInterface == agentIpAndPort.second)
         {
             return edge;
@@ -2696,9 +2714,16 @@ TopologyAndFlowMonitor::getAgentKeyFromTheOtherSide(
     {
         auto edge = *edgeIt;
         const auto& props = (*m_graph)[edge];
-        if (props.dstIp.front() == agentIpAndPort.first and
+        if (!props.dstIp.empty() and props.dstIp.front() == agentIpAndPort.first and
             props.dstInterface == agentIpAndPort.second)
         {
+            // FINDINGS #88. The far side asked for is this edge's, but this edge carries no
+            // source address to answer with. nullopt is what "no key" already means to
+            // every caller here; a fabricated one would be used as an agent key.
+            if (props.srcIp.empty())
+            {
+                return nullopt;
+            }
             return make_pair(props.srcIp.front(), props.srcInterface);
         }
     }
@@ -2715,9 +2740,16 @@ TopologyAndFlowMonitor::getAgentKeyFromTheOtherSideNoLock(
     {
         auto edge = *edgeIt;
         const auto& props = (*m_graph)[edge];
-        if (props.dstIp.front() == agentIpAndPort.first and
+        if (!props.dstIp.empty() and props.dstIp.front() == agentIpAndPort.first and
             props.dstInterface == agentIpAndPort.second)
         {
+            // FINDINGS #88. The far side asked for is this edge's, but this edge carries no
+            // source address to answer with. nullopt is what "no key" already means to
+            // every caller here; a fabricated one would be used as an agent key.
+            if (props.srcIp.empty())
+            {
+                return nullopt;
+            }
             return make_pair(props.srcIp.front(), props.srcInterface);
         }
     }
@@ -3529,7 +3561,8 @@ TopologyAndFlowMonitor::findSwitchByIp(uint32_t ip) const
     for (auto [vi, viEnd] = boost::vertices(*m_graph); vi != viEnd; ++vi)
     {
         const auto& vprop = (*m_graph)[*vi];
-        if (vprop.vertexType == VertexType::SWITCH && vprop.ip.front() == ip)
+        if (vprop.vertexType == VertexType::SWITCH && !vprop.ip.empty() &&
+            vprop.ip.front() == ip)
         {
             return *vi;
         }
@@ -3543,7 +3576,8 @@ TopologyAndFlowMonitor::findSwitchByIpNoLock(uint32_t ip) const
     for (auto [vi, viEnd] = boost::vertices(*m_graph); vi != viEnd; ++vi)
     {
         const auto& vprop = (*m_graph)[*vi];
-        if (vprop.vertexType == VertexType::SWITCH && vprop.ip.front() == ip)
+        if (vprop.vertexType == VertexType::SWITCH && !vprop.ip.empty() &&
+            vprop.ip.front() == ip)
         {
             return *vi;
         }
@@ -4324,14 +4358,38 @@ TopologyAndFlowMonitor::getTopKCongestedLinksJson(int k)
     json links_array = json::array();
     size_t links_to_return = std::min(static_cast<size_t>(k), all_links.size());
 
-    for (size_t i = 0; i < links_to_return; ++i)
+    // [Co-developed with claude code -- Adam]
+    // FINDINGS #88. This loop walks boost::edges with NO vertexType filter, so v1/v2 can be
+    // hosts -- and the load-time gate that makes ip.front() safe (see :654) covers SWITCH
+    // vertices only. Worse, the expression bound ipToString's VECTOR overload, which returns
+    // a vector<string> by value: for an address-less vertex .front() was taken on a
+    // temporary that had just been built empty.
+    //
+    // A link we cannot name is skipped and COUNTED. Not reported as 0.0.0.0, which would put
+    // a link that does not exist into a ranking operators act on; and not silently, which
+    // would be indistinguishable from "there were only this many links".
+    //
+    // The loop bound moved from links_to_return to all_links.size() at the same time, and
+    // that is not part of the guard: with the old bound a skipped link would have shortened
+    // the whole ranking, so a request for the top 5 could return 4 while a fifth rankable
+    // link sat unread. The cap is now on what is EMITTED.
+    int links_skipped_no_address = 0;
+
+    for (size_t i = 0; i < all_links.size() && links_array.size() < links_to_return; ++i)
     {
         const auto& link = all_links[i];
         auto v1 = link.v1;
         auto v2 = link.v2;
 
-        std::string ip1_str = utils::ipToString((*m_graph)[v1].ip).front();
-        std::string ip2_str = utils::ipToString((*m_graph)[v2].ip).front();
+        const auto ip1Opt = utils::firstAddressOf((*m_graph)[v1].ip);
+        const auto ip2Opt = utils::firstAddressOf((*m_graph)[v2].ip);
+        if (!ip1Opt || !ip2Opt)
+        {
+            ++links_skipped_no_address;
+            continue;
+        }
+        const std::string& ip1_str = *ip1Opt;
+        const std::string& ip2_str = *ip2Opt;
 
         auto edge1_to_2 = boost::edge(v1, v2, *m_graph).first;
         auto edge2_to_1 = boost::edge(v2, v1, *m_graph).first;
@@ -4339,7 +4397,7 @@ TopologyAndFlowMonitor::getTopKCongestedLinksJson(int k)
         const auto& props2 = (*m_graph)[edge2_to_1];
 
         json link_json;
-        link_json["rank"] = i + 1;
+        link_json["rank"] = links_array.size() + 1;
         link_json["status"] = "up";
 
         // FIX: Removed extra semicolon from the end of the initializer list.
@@ -4360,6 +4418,7 @@ TopologyAndFlowMonitor::getTopKCongestedLinksJson(int k)
     }
 
     result["top_k_links"] = links_array;
+    result["links_skipped_no_address"] = links_skipped_no_address;
     return result;
 }
 
