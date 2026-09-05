@@ -380,6 +380,68 @@ cmd_down >/dev/null 2>&1
 [[ -f \"\$REPO/.test_run/up.target\" ]] && echo still-there || echo gone" 2>/dev/null)"
 check "'ndt down' drops the record"                     "gone" "$OUT"
 
+section "9. 🔴 the nickname overlay is named and NOT compared (W10)"
+# [Co-developed with claude code -- Adam]
+#
+# Measured live on OVS, 2026-09-05: one POST /ndt/modify_nickname, a two-line diff on
+# setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json, and `ndt status --check` rc=1 saying
+# "the topology file has been edited since the ndt up that loaded it". Two controls in the same
+# run showed that was this check WORKING and not failing -- renaming and renaming back left the
+# file byte-identical and the check green, and a writer with nothing to do with nicknames earned
+# the identical sentence. So an operator naming a switch made the one question worth asking
+# ("is my environment still what I brought up?") answer red, about something they had not done.
+#
+# Adam's decision, 2026-09-05 18:1x (W10): the names go to an overlay outside setting/, `--check`
+# does not look at it, and the kernel lays it back on at startup. These cases are the "--check
+# does not look at it" half. The kernel half is tests/test_NicknameOverlay.cpp.
+knob 128
+record ovs 4 "$OVS4"
+healthy_ovs4
+OVERLAY="$FIX/.test_run/nickname_overlay/$(basename "${OVS4%.json}").names.json"
+mkdir -p "$(dirname "$OVERLAY")"
+
+# Before anything is written: the row exists, and it says nothing has been set.
+OUT="$(run_check)"
+has   "the report names the overlay even when empty"    "device names" "$OUT"
+has   "  and says nothing was set through the API"      "none set through the API" "$OUT"
+
+# The overlay the kernel would have written for two renamed switches.
+cat > "$OVERLAY" <<'JSON'
+{
+  "version": 1,
+  "topology": "setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json",
+  "switches": {"1": {"nickname": "core-a"}, "2": {"nickname": "core-b"}},
+  "hosts": {}
+}
+JSON
+OUT="$(run_check)"
+check "🔴 renaming two switches leaves --check GREEN"   "0"    "$(rc_of "$OUT")"
+has   "  the topology row is still ok"                  "topology file  sha256" "$OUT"
+hasnt "  and NOT 'CHANGED SINCE up'"                    "CHANGED SINCE up" "$OUT"
+hasnt "  nor the sentence that misled the operator"     "has been edited since the ndt up that loaded it" "$OUT"
+has   "  the overlay is counted, not hidden"            "2 set through the API" "$OUT"
+has   "  and the row says it was left out on purpose"   "not compared -- the model file is the baseline" "$OUT"
+
+# 🔴 The other direction, in this group and not only in group 5: a `--check` that had simply
+# stopped hashing the model file would satisfy every assertion above. The model file edited
+# under a running kernel must still be red WHILE an overlay exists.
+cp "$FIX/$OVS4" "$FIX/$OVS4.bak"
+python3 -c "
+import json,sys
+p=sys.argv[1]; t=json.load(open(p)); t['edges'].append({'src':0,'dst':9}); json.dump(t,open(p,'w'))" "$FIX/$OVS4"
+OUT="$(run_check)"
+check "🔴 an overlay does not blind the model-file check" "1"  "$(rc_of "$OUT")"
+has   "  the edit is still named"                       "topology file: $OVS4 has been edited since the ndt up that loaded it" "$OUT"
+mv -f "$FIX/$OVS4.bak" "$FIX/$OVS4"
+
+# And an unreadable overlay is a "?" in a row nobody grades, not a red check: the overlay is
+# cosmetic and must never be able to fail the environment.
+printf '%s' '{ not json' > "$OVERLAY"
+OUT="$(run_check)"
+check "an unparseable overlay does not turn --check red" "0"   "$(rc_of "$OUT")"
+has   "  and the row admits it could not count"         "? set through the API" "$OUT"
+rm -f "$OVERLAY"
+
 # --- done ---------------------------------------------------------------------------------
 printf '\nRan %d checks, %d failed\n' "$((PASS+FAIL))" "$FAIL"
 [[ "$FAIL" -eq 0 ]] || exit 1
