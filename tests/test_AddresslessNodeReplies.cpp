@@ -594,6 +594,12 @@ TEST_F(AddresslessNodeTest, ASwitchWithAnAddressStillResolves)
 //
 // These do not use the fixture: PromptLayoutRig chdir()s into a temp directory, and the shipped
 // topology is found relative to the cwd.
+//
+// 🔴 THIS RECORDS A REGIME, AND THE REGIME IS SCHEDULED TO CHANGE. Branch
+// fix/w3-door3b-host-empty-ip is being written in parallel and closes exactly this route at the
+// file level. When the two meet, the middle case below goes red on purpose; the message on that
+// assertion says what to do about it. The runtime guards are not affected either way -- a
+// file-level refusal and a runtime non-crash are two layers, and W3's own ticket says both stay.
 // =================================================================================================
 
 namespace
@@ -748,9 +754,20 @@ TEST(AddresslessHostLoadTest, AHostDeclaringAnEmptyIpArrayIsAcceptedAndReachesTh
     const auto attempt = loadTopology(topology, "host_without_address");
 
     EXPECT_FALSE(attempt.threw)
-        << "🔴 If this now throws, the loader has grown a host-side address check and the "
-           "reachability claim in doc/audit/2026-09-06_fix-index-zero-guards/ needs rewriting -- "
-           "which would be good news, not a broken test: "
+        << "READ THIS BEFORE 'FIXING' THE TEST. A throw here means the loader has grown a "
+           "host-side address check -- almost certainly W3 door 3b, branch "
+           "fix/w3-door3b-host-empty-ip, which is being written in parallel with this one and "
+           "whose whole purpose is to refuse `\"ip\": []` on a host. That is GOOD NEWS and this "
+           "red is the intended signal, not a broken test.\n"
+           "The correct edit is to flip this case to expect the refusal -- assert threw, assert "
+           "the message names the host, assert vertices == 0, exactly like "
+           "TheSameEditOnASwitchIsRefused below -- and to record in "
+           "doc/audit/2026-09-06_fix-index-zero-guards/FIX-INDEX-ZERO-GUARDS.md section 2 that "
+           "file-level door now closes this route. Do NOT delete the case: the runtime guards "
+           "this suite pins stay justified either way (a file-level refusal and a runtime "
+           "non-crash are two layers, and the invariant would once again be one `if` in another "
+           "subsystem), and this is the record of which layer was load-bearing when.\n"
+           "The load reported: "
         << attempt.message;
     EXPECT_EQ(attempt.vertices, baseline.vertices + 1) << "the address-less host became a vertex";
     EXPECT_EQ(attempt.hostsWithoutAnAddress, 1u)
