@@ -2217,10 +2217,18 @@ check_up_target() {
     # live on OVS 2026-09-05; renaming and renaming back went green again, so the file's bytes
     # were the whole of it). W10 moved those names to .test_run/nickname_overlay/, outside
     # setting/, and this check keeps its baseline where it was: the model file `ndt up` loaded.
+    # 🔴 "no overlay file", NOT "none set". Measured live 2026-09-06 07:15: this row said
+    # `none set through the API` three times on a fabric where a nickname HAD been set through
+    # the API and had just survived a down/up -- the kernel was writing to
+    # <checkout>/build/.test_run/ (its cwd is build/) and this read <checkout>/.test_run/.
+    # The kernel side is fixed, and so is the WORDING, because the two failures are different:
+    # one was a path bug, the other is this row claiming to know something it cannot see. A
+    # missing file is a fact about the check, not about the world.
     _ut_overlay_row() {
         local f="$1" n
         if [[ ! -f "$f" ]]; then
-            printf '  %-14s %s\n' "device names" "none set through the API   (${f#$REPO/})"
+            printf '  %-14s %s\n' "device names" "no overlay file at ${f#$REPO/}"
+            printf '  %-14s %s\n' "" "that is where this checkout's kernel writes them; not a claim that none are set"
             return 0
         fi
         n="$(python3 -c '
@@ -2229,6 +2237,7 @@ d=json.load(open(sys.argv[1]))
 print(len(d.get("switches",{})) + len(d.get("hosts",{})))' "$f" 2>/dev/null)"
         printf '  %-14s %-22s %s\n' "device names" "${n:-?} set through the API" \
             "not compared -- the model file is the baseline"
+        printf '  %-14s %s\n' "" "${f#$REPO/}"
         return 0
     }
 

@@ -400,10 +400,18 @@ healthy_ovs4
 OVERLAY="$FIX/.test_run/nickname_overlay/$(basename "${OVS4%.json}").names.json"
 mkdir -p "$(dirname "$OVERLAY")"
 
-# Before anything is written: the row exists, and it says nothing has been set.
+# Before anything is written: the row exists and names the file it looked for.
+#
+# 🔴 It must NOT say "none set". Measured live 2026-09-06 07:15: this row said
+# `none set through the API` three times on an OVS fabric where a nickname HAD been set and
+# had survived a down/up -- the kernel writes from its own cwd (stack.sh starts it in build/)
+# and this row read the checkout root. The kernel's anchor is fixed; the wording is fixed too,
+# because they are two different faults and only one of them was a path.
 OUT="$(run_check)"
-has   "the report names the overlay even when empty"    "device names" "$OUT"
-has   "  and says nothing was set through the API"      "none set through the API" "$OUT"
+has   "the report names the overlay even when absent"   "device names" "$OUT"
+has   "  it says the FILE is missing, not that no name is set" "no overlay file at .test_run/nickname_overlay/" "$OUT"
+hasnt "🔴 it never claims none are set"                 "none set through the API" "$OUT"
+has   "  and says so out loud"                          "not a claim that none are set" "$OUT"
 
 # The overlay the kernel would have written for two renamed switches.
 cat > "$OVERLAY" <<'JSON'
@@ -421,6 +429,8 @@ hasnt "  and NOT 'CHANGED SINCE up'"                    "CHANGED SINCE up" "$OUT
 hasnt "  nor the sentence that misled the operator"     "has been edited since the ndt up that loaded it" "$OUT"
 has   "  the overlay is counted, not hidden"            "2 set through the API" "$OUT"
 has   "  and the row says it was left out on purpose"   "not compared -- the model file is the baseline" "$OUT"
+has   "  and names the file the count came from"        ".test_run/nickname_overlay/StaticNetworkTopologyOVS_10Switches_4Hosts.names.json" "$OUT"
+hasnt "  the 'missing' wording is gone once it exists"  "no overlay file at" "$OUT"
 
 # 🔴 The other direction, in this group and not only in group 5: a `--check` that had simply
 # stopped hashing the model file would satisfy every assertion above. The model file edited
@@ -441,6 +451,12 @@ OUT="$(run_check)"
 check "an unparseable overlay does not turn --check red" "0"   "$(rc_of "$OUT")"
 has   "  and the row admits it could not count"         "? set through the API" "$OUT"
 rm -f "$OVERLAY"
+
+# 🔴 The path this suite writes to is the one the KERNEL derives, and the two are computed in
+# different languages in different files. tests/test_NicknameOverlay.cpp asserts the C++ side
+# against the same literal; if either drifts, one of the two suites goes red. Stated here so
+# the next reader knows the fixture path above is load-bearing and not decorative.
+has   "the row's path is the one the kernel writes"     "nickname_overlay/StaticNetworkTopologyOVS_10Switches_4Hosts.names.json" "$(run_check)"
 
 # --- done ---------------------------------------------------------------------------------
 printf '\nRan %d checks, %d failed\n' "$((PASS+FAIL))" "$FAIL"

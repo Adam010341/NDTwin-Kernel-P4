@@ -3146,6 +3146,11 @@ TopologyAndFlowMonitor::getGraph() const
 /// (read at tools/test_workflow/ndt, cmd_clean, 2026-09-06).
 static constexpr const char* kNameOverlayDir = ".test_run/nickname_overlay";
 
+/// The directory the shipped models live in, and the one nicknameOverlayPath() climbs out of to
+/// find the checkout. Named rather than spelled inline because it is the same directory
+/// `ndt status --check` hashes and the one this overlay exists to stay out of.
+static constexpr const char* kShippedTopologyDirName = "setting";
+
 /// Written so that a later format change is DETECTED rather than misread. A document that
 /// declares a version this build does not know is refused, not guessed at.
 static constexpr int kNameOverlayVersion = 1;
@@ -3276,9 +3281,34 @@ TopologyAndFlowMonitor::nicknameOverlayPath() const
     {
         return custom;
     }
+
+    // 🔴 Anchored to the MODEL FILE's checkout, not to this process's working directory.
+    // Found live on 2026-09-06 07:15, and invisible to every offline test in this repo:
+    // tools/test_workflow/stack.sh starts the kernel with
+    //     bash -c "cd '$KERNEL_DIR/build' && exec ./bin/ndtwin_kernel ..."
+    // so the cwd is <checkout>/build. kNameOverlayDir is a relative path, so the overlay went
+    // to <checkout>/build/.test_run/nickname_overlay/, while `ndt status --check` reads
+    // <checkout>/.test_run/nickname_overlay/ -- and printed "none set through the API" on a
+    // fabric where a nickname HAD been set and had survived a restart. Both halves were
+    // individually honest and together they said something false. The overlay also lived
+    // inside the build directory, where `rm -rf build` takes it.
+    //
+    // The anchor is the model file, because the overlay describes THAT model in THAT checkout:
+    // <checkout>/setting/<model>.json -> <checkout>. Where the model is not in a directory
+    // called "setting" (a hand-passed --topology, a test fixture in /tmp), the overlay sits
+    // beside the model's own directory instead of climbing out of it -- climbing would put it
+    // somewhere unrelated and possibly unwritable, e.g. "/" for /tmp/x.json.
+    //
+    // A RELATIVE model path is left relative on purpose, and it is still right: the kernel
+    // could not have opened the model at all unless its cwd made that relative path resolve,
+    // so the same cwd resolves the overlay to the same checkout. AppConfig ships
+    // "../setting/<model>.json", which under the launch above resolves to <checkout>/setting/
+    // and gives ".." as the root -- i.e. <checkout>/.test_run/, which is where `ndt` looks.
     const std::filesystem::path model(activeTopologyPath());
-    return (std::filesystem::path(kNameOverlayDir) / (model.stem().string() + ".names.json"))
-        .string();
+    const std::filesystem::path dir = model.parent_path();
+    const std::filesystem::path root =
+        dir.filename() == kShippedTopologyDirName ? dir.parent_path() : dir;
+    return (root / kNameOverlayDir / (model.stem().string() + ".names.json")).string();
 }
 
 void

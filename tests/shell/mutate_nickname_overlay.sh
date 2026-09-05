@@ -28,6 +28,13 @@
 #     one host rename becomes all four -- and nothing about switches notices.
 #   * M9 makes an unreadable overlay refuse the load, which trades a cosmetic file for a fabric.
 #
+# 🔴 M14 IS HERE BECAUSE A LIVE RUN FOUND WHAT THIS GATE MISSED (2026-09-06 07:15). Every case
+# in the suite pointed NDTWIN_NICKNAME_OVERLAY at a temp file, so none of them exercised the
+# default path; the two that did ran from the repo root, where the working directory and the
+# checkout are the same directory and the bug cannot show. stack.sh starts the kernel in
+# build/. The mutation and the case it names both move the working directory somewhere the two
+# cannot be confused.
+#
 # 🔴 THE TWINS GET A MUTATION EACH (M1 nickname, M4 device_name). They are near-duplicates, and
 # a single mutation covering both would be answered by a suite that only ever drove one.
 #
@@ -335,10 +342,27 @@ mutate_must_die \
     "M8 all models share one overlay" \
     "NicknamePersistenceTest.TheOverlayPathFollowsTheActiveTopology" \
     "$SRC" \
+    '    return (root / kNameOverlayDir / (model.stem().string() + ".names.json")).string();' \
+    '    return (root / kNameOverlayDir / "names.json").string();'
+
+# --- M14: 🔴 the overlay follows the process's cwd again ----------------------------------------
+# THE DEFECT A LIVE RUN FOUND AND THIS GATE DID NOT, 2026-09-06 07:15. stack.sh starts the
+# kernel with `cd '$KERNEL_DIR/build' && exec ./bin/ndtwin_kernel`, so a relative overlay
+# directory resolves under build/ -- where `ndt status --check` does not look and `rm -rf build`
+# reaches. Every case that pointed NDTWIN_NICKNAME_OVERLAY at a temp file stayed green through
+# it, which is exactly why the mutation names the one case that changes the working directory.
+mutate_must_die \
+    "M14 the overlay follows the process's cwd" \
+    "NicknamePersistenceTest.TheOverlayIsAnchoredToTheCheckoutNotTheProcessWorkingDirectory" \
+    "$SRC" \
+    '    const std::filesystem::path model(activeTopologyPath());
+    const std::filesystem::path dir = model.parent_path();
+    const std::filesystem::path root =
+        dir.filename() == kShippedTopologyDirName ? dir.parent_path() : dir;
+    return (root / kNameOverlayDir / (model.stem().string() + ".names.json")).string();' \
     '    const std::filesystem::path model(activeTopologyPath());
     return (std::filesystem::path(kNameOverlayDir) / (model.stem().string() + ".names.json"))
-        .string();' \
-    '    return (std::filesystem::path(kNameOverlayDir) / "names.json").string();'
+        .string();'
 
 # --- M9: the overlay moves back inside setting/ -------------------------------------------------
 # Which is the directory `ndt status --check` hashes. The whole decision, undone by one string.

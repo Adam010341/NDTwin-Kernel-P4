@@ -173,6 +173,62 @@ class ScopedEnv
     bool m_hadPrevious = false;
 };
 
+/// Clears an environment variable for the life of the object and puts back what was there.
+/// Two cases below have to read the DEFAULT overlay path, which means the override must be
+/// gone -- and it must come back even if an assertion between here and the end fails.
+class ScopedEnvCleared
+{
+  public:
+    explicit ScopedEnvCleared(std::string name) : m_name(std::move(name))
+    {
+        const char* previous = std::getenv(m_name.c_str());
+        m_hadPrevious = previous != nullptr;
+        if (m_hadPrevious)
+        {
+            m_previous = previous;
+        }
+        unsetenv(m_name.c_str());
+    }
+
+    ~ScopedEnvCleared()
+    {
+        if (m_hadPrevious)
+        {
+            setenv(m_name.c_str(), m_previous.c_str(), 1);
+        }
+    }
+
+  private:
+    std::string m_name;
+    std::string m_previous;
+    bool m_hadPrevious = false;
+};
+
+/// chdir for the life of the object, and back on destruction.
+///
+/// 🔴 The working directory is process-global and gtest runs these cases in one process, so a
+/// case that changed it and did not change it back would silently break every later case that
+/// resolves a relative path -- settingDir() among them. That is exactly why this is RAII and
+/// not two calls around a body.
+class ScopedCwd
+{
+  public:
+    explicit ScopedCwd(const std::filesystem::path& to)
+        : m_previous(std::filesystem::current_path())
+    {
+        std::filesystem::current_path(to);
+    }
+
+    ~ScopedCwd()
+    {
+        std::error_code ignored;
+        std::filesystem::current_path(m_previous, ignored);
+    }
+
+  private:
+    std::filesystem::path m_previous;
+};
+
 /// A pid-tagged copy of a shipped topology plus a pid-tagged overlay path beside it, both
 /// pointed at through the environment and both removed on destruction.
 class TempFabricFiles
@@ -281,6 +337,33 @@ struct LoadedFabric
         return (*graph)[v].deviceName;
     }
 };
+
+/// The checkout the shipped models belong to, however this binary was started: settingDir()
+/// answers "setting" from the repo root and "../setting" from build/, and the parent of either
+/// is the checkout. Every expectation about the default overlay path is built from this rather
+/// than hard-coded, because the path is only cwd-INDEPENDENT if the test is too.
+std::filesystem::path
+checkoutRoot()
+{
+    return std::filesystem::path(settingDir()).parent_path();
+}
+
+/// checkoutRoot(), resolved. std::filesystem::absolute() THROWS on an empty path, and
+/// checkoutRoot() is empty whenever this binary runs from the repo root (settingDir() ==
+/// "setting", whose parent is ""), so the two cannot be composed directly.
+std::filesystem::path
+absoluteCheckoutRoot()
+{
+    return std::filesystem::weakly_canonical(std::filesystem::current_path() / checkoutRoot());
+}
+
+/// Where nicknameOverlayPath() must put the overlay for @p shippedName, in @p root.
+std::filesystem::path
+expectedOverlayFor(const std::filesystem::path& root, const std::string& shippedName)
+{
+    return root / ".test_run" / "nickname_overlay" /
+           (std::filesystem::path(shippedName).stem().string() + ".names.json");
+}
 
 constexpr const char* kP4Topology = "StaticNetworkTopologyP4_10Switches_4Hosts.json";
 constexpr const char* kOvsTopology = "StaticNetworkTopologyOVS_10Switches_4Hosts.json";
@@ -593,22 +676,14 @@ TEST_F(NicknamePersistenceTest, TheDefaultOverlayPathIsOutsideSettingAndNamedAft
     // decision: the overlay must not be inside setting/ (that is what `ndt status --check`
     // hashes) and must be per-model (dpids 1-10 exist in both the OVS and the P4 topology, so
     // one shared overlay would put OVS nicknames on a bmv2 fabric). Nothing is written here --
-    // NDTWIN_NICKNAME_OVERLAY is cleared only so the default can be read back.
-    const char* previous = std::getenv("NDTWIN_NICKNAME_OVERLAY");
-    const std::string saved = previous != nullptr ? previous : "";
-    unsetenv("NDTWIN_NICKNAME_OVERLAY");
-
+    // the override is cleared only so the default can be read back.
+    ScopedEnvCleared overlayOff("NDTWIN_NICKNAME_OVERLAY");
     ScopedEnv topo("NDTWIN_TOPO_FILE", std::string(settingDir()) + "/" + kOvsTopology);
     auto graph = std::make_shared<Graph>();
     auto mutex = std::make_shared<std::shared_mutex>();
     auto bus = std::make_shared<EventBus>();
     LoadingMonitor monitor(graph, mutex, bus, utils::TESTBED);
     const std::string path = monitor.nicknameOverlayPath();
-
-    if (!saved.empty())
-    {
-        setenv("NDTWIN_NICKNAME_OVERLAY", saved.c_str(), 1);
-    }
 
     EXPECT_EQ(path.find("setting/"), std::string::npos)
         << "the overlay is inside setting/, which is the directory `ndt status --check` "
@@ -618,16 +693,66 @@ TEST_F(NicknamePersistenceTest, TheDefaultOverlayPathIsOutsideSettingAndNamedAft
         << "the overlay is not named after the model, so the OVS and P4 topologies -- which "
            "share dpids 1-10 -- would share one overlay: " << path;
 
-    // 🔴 And the exact string, not only its properties. This path is computed in TWO places --
+    // 🔴 And the exact path, not only its properties. This path is computed in TWO places --
     // here, and in tools/test_workflow/ndt's check_up_target, which reports how many names an
-    // operator has set. If only one side's naming rule ever changes, `ndt status --check` says
-    // "none set through the API" while names ARE set: misleading, and silent. The literal below
-    // and the one tests/shell/test_ndt_status_check_baseline.sh group 9 writes are the same
-    // string, so a drift in either turns one of the two suites red.
-    EXPECT_EQ(path,
-              ".test_run/nickname_overlay/StaticNetworkTopologyOVS_10Switches_4Hosts.names.json")
+    // operator has set. If only one side's rule ever changes, `ndt status --check` says
+    // "no overlay file" while names ARE set: misleading, and silent. The expectation is built
+    // from checkoutRoot() rather than written out, so it holds whether this binary was started
+    // from the repo root or from build/ -- see the case below for why that matters.
+    EXPECT_EQ(std::filesystem::path(path).lexically_normal(),
+              expectedOverlayFor(checkoutRoot(), kOvsTopology).lexically_normal())
         << "tools/test_workflow/ndt derives this path independently; if they disagree, --check "
-           "reports 'none set through the API' while names are set";
+           "reports no overlay while names are set";
+}
+
+TEST_F(NicknamePersistenceTest, TheOverlayIsAnchoredToTheCheckoutNotTheProcessWorkingDirectory)
+{
+    // 🔴 MEASURED LIVE, 2026-09-06 07:15, and invisible to every other case in this file.
+    //
+    // tools/test_workflow/stack.sh starts the kernel with
+    //     bash -c "cd '$KERNEL_DIR/build' && exec ./bin/ndtwin_kernel --mode mininet ..."
+    // so its working directory is <checkout>/build. The overlay directory is a RELATIVE path,
+    // so a rename landed in <checkout>/build/.test_run/nickname_overlay/ while
+    // `ndt status --check` read <checkout>/.test_run/nickname_overlay/ -- and reported
+    // "none set through the API" on a fabric where a nickname had been set through the API and
+    // had just survived a down/up. Two honest halves, one false sentence. The overlay also sat
+    // inside the build directory, so `rm -rf build` would have taken the operator's names.
+    //
+    // Every other case here points NDTWIN_NICKNAME_OVERLAY at a temp file, which is exactly
+    // what made this unreachable: they never exercise the default path, and the ones that do
+    // ran from the repo root, where cwd and checkout happen to be the same directory. This one
+    // moves the cwd somewhere they cannot be confused.
+    const std::filesystem::path checkout = absoluteCheckoutRoot();
+    const std::filesystem::path model = checkout / "setting" / kOvsTopology;
+    ASSERT_TRUE(std::filesystem::exists(model)) << "no model at " << model;
+    const std::filesystem::path expected = expectedOverlayFor(checkout, kOvsTopology);
+
+    const std::filesystem::path elsewhere =
+        std::filesystem::temp_directory_path() / ("ndt-w10-cwd-" + std::to_string(getpid()));
+    std::error_code ec;
+    std::filesystem::create_directories(elsewhere, ec);
+    ASSERT_FALSE(ec) << "could not make a working directory to run from: " << ec.message();
+
+    std::string path;
+    {
+        ScopedEnvCleared overlayOff("NDTWIN_NICKNAME_OVERLAY");
+        ScopedEnv topo("NDTWIN_TOPO_FILE", model.string());
+        ScopedCwd here(elsewhere);
+        auto graph = std::make_shared<Graph>();
+        auto mutex = std::make_shared<std::shared_mutex>();
+        auto bus = std::make_shared<EventBus>();
+        LoadingMonitor monitor(graph, mutex, bus, utils::TESTBED);
+        path = monitor.nicknameOverlayPath();
+    }
+    std::error_code ignored;
+    std::filesystem::remove_all(elsewhere, ignored);
+
+    EXPECT_EQ(std::filesystem::path(path).lexically_normal(), expected.lexically_normal())
+        << "the overlay follows the process's working directory instead of the model's "
+           "checkout, so a kernel started from build/ writes where nothing reads: " << path;
+    EXPECT_EQ(std::filesystem::path(path).lexically_normal().string().find("/build/"),
+              std::string::npos)
+        << "the overlay is inside the build directory, where `rm -rf build` takes it: " << path;
 }
 
 TEST_F(NicknamePersistenceTest, TheOverlayPathFollowsTheActiveTopology)
@@ -639,10 +764,7 @@ TEST_F(NicknamePersistenceTest, TheOverlayPathFollowsTheActiveTopology)
     auto bus = std::make_shared<EventBus>();
     LoadingMonitor monitor(graph, mutex, bus, utils::TESTBED);
 
-    const char* previous = std::getenv("NDTWIN_NICKNAME_OVERLAY");
-    const std::string saved = previous != nullptr ? previous : "";
-    unsetenv("NDTWIN_NICKNAME_OVERLAY");
-
+    ScopedEnvCleared overlayOff("NDTWIN_NICKNAME_OVERLAY");
     std::string ovs;
     std::string p4;
     {
@@ -652,11 +774,6 @@ TEST_F(NicknamePersistenceTest, TheOverlayPathFollowsTheActiveTopology)
     {
         ScopedEnv topo("NDTWIN_TOPO_FILE", std::string(settingDir()) + "/" + kP4Topology);
         p4 = monitor.nicknameOverlayPath();
-    }
-
-    if (!saved.empty())
-    {
-        setenv("NDTWIN_NICKNAME_OVERLAY", saved.c_str(), 1);
     }
 
     EXPECT_NE(ovs, p4) << "both data planes share one overlay: " << ovs;
