@@ -120,6 +120,25 @@ local catch ⇒ **400**（`HttpSession.cpp` 的 `handleModifyNickname`）；
 沒有 overlay 時印 `none set through the API   (.test_run/...)`；
 overlay 壞掉時印 `? set through the API` —— **裝飾性的檔案不准把環境檢查判紅**。
 
+🟢 **實際輸出**（兩個 nickname 已設，2026-09-06 跑出來的，逐字）：
+
+```
+up target
+  asked for      ovs, 4 hosts   (recorded 2026-09-06 05:44:22 by w10-demo)
+  topology       setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json   (declares 4 hosts / 40 edges)
+  dataplane      ovs                    == ovs   ok
+  fabric hosts   4                      == 4   ok
+  graph hosts    4                      == 4   ok
+  graph edges    40                     == 40   ok
+  topology file  sha256 6cd0d606f4da    == recorded   ok
+  device names   2 set through the API  not compared -- the model file is the baseline
+RC=0
+```
+
+⚠️ **這不是 live**：`REPO` 是 temp dir、每一支探針都是 stub、沒有 kernel 也沒有 fabric ——
+和 `tests/shell/test_ndt_status_check_baseline.sh` §9 用的是同一套 fixture。
+**真的 lab 上還沒跑過**（見 §6）。
+
 ## 4. 測試
 
 `tests/test_NicknameDoesNotRewriteTheFile.cpp` → **改名並改寫**成 `tests/test_NicknameOverlay.cpp`
