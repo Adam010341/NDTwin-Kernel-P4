@@ -230,6 +230,136 @@ OUT="$(run_status)"
 has   "it says the command names no model it can classify" "names no model this script can classify" "$OUT"
 hasnt "  rather than picking one"                        "last kernel.exit ran" "$OUT"
 
+# ==========================================================================================
+# I-4 (W13), measured 2026-09-05 17:21:57 -- one `ndt status`, two rows apart:
+#
+#     note       arm r4p4 finished 17:17; lab free, night claim kept
+#     measuring  iperf3 -c 10.0.0.33 -p 5511 -t 200 -P 4 -i 0    + 7 more process(es)
+#
+# 16 iperf3 processes over a 128-host fabric with ten bridges up, while the note said the
+# machine was free. The note's only writers were the arm_*.sh wrappers around `ndt`, so any
+# `ndt up` that did not go through one of them left the previous wrapper's sentence standing.
+#
+# 🔴 THREE DIRECTIONS. A writer that rewrites the whole claim passes every "the note is right"
+# case and fails 2A/2C (it is I-2 residue #1: correcting a sentence silently extended a lease by
+# three hours). A writer that never refuses passes 2A and fails 2B. A note written only where
+# it is defined and never called passes everything except 2C/2D/2E, which drive `up` and `down`
+# for real -- existence is not wiring.
+
+lib() { bash -c "source '$NDT' >/dev/null 2>&1
+REPO='$FIX'
+CLAIM=\"\$REPO/.test_run/lab.claim\"
+$1" 2>&1; }
+
+claim_file() { echo "$FIX/.test_run/lab.claim"; }
+mk_claim() {  # <owner> <seconds-from-now> <note>
+    printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=yes\n' \
+        "$1" "$(( $(date +%s) + $2 ))" "$3" > "$(claim_file)"
+}
+no_claim() { rm -f "$(claim_file)"; }
+cf() { sed -n "s/^$1=//p" "$(claim_file)" | head -1; }
+
+# The wiring harness, the same shape group 8 of test_ndt_status_check_baseline.sh uses: the two
+# builders are driven far enough to reach the call and no further -- STACK points at nothing, so
+# the step after it fails immediately and no lab is touched.
+up_run() {   # <the up call> -- runs it against the fixture; the claim file is the observation
+    bash -c "source '$NDT' >/dev/null 2>&1
+REPO='$FIX'
+CLAIM=\"\$REPO/.test_run/lab.claim\"
+STACK='$FIX/no-such-stack.sh'
+LAB='$FIX/no-such-lab'
+sudo() { return 1; }
+preflight() { return 0; }
+foreign_claim() { :; }
+in_flight() { :; }
+mn_count() { echo 0; }
+bmv2_count() { echo 10; }
+fabric_host_count() { echo 4; }
+topo_session() { return 0; }
+stale_pipeline() { return 1; }
+guard_no_live_ovs() { return 0; }
+sample_rate() { echo 256; }
+verify_sflow() { return 0; }
+$1 >/dev/null 2>&1" >/dev/null 2>&1
+}
+
+I4_NOTE="arm r4p4 finished 17:17; lab free, night claim kept"
+export NDT_OWNER=fixture-owner
+
+section "2A. I-4: the note can be corrected without moving the lease"
+mk_claim fixture-owner 3600 "$I4_NOTE"
+EXP_BEFORE="$(cf expires)"
+OUT="$(lib 'set_claim_note "hello there"; echo "RC=$?"')"
+check "set_claim_note succeeds on our own live claim"    "RC=0" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "  the note is the new one"                        "hello there" "$(cf note)"
+check "🔴 expires is byte-identical -- not pushed out"   "$EXP_BEFORE" "$(cf expires)"
+check "  owner is untouched"                             "fixture-owner" "$(cf owner)"
+check "  and so is exclusive_cpu"                        "yes" "$(cf exclusive_cpu)"
+
+section "2B. 🔴 a session that does not hold the lab must not narrate it"
+mk_claim someone-else 3600 "$I4_NOTE"
+OUT="$(lib 'set_claim_note "not mine"; echo "RC=$?"')"
+check "someone else's claim is refused"                  "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "  and the note is unchanged"                      "$I4_NOTE" "$(cf note)"
+mk_claim fixture-owner -60 "$I4_NOTE"
+OUT="$(lib 'set_claim_note "expired"; echo "RC=$?"')"
+check "an expired claim is refused"                      "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "  and the note is unchanged"                      "$I4_NOTE" "$(cf note)"
+no_claim
+OUT="$(lib 'set_claim_note "no claim"; echo "RC=$?"')"
+check "no claim at all is refused"                       "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "  and no claim file is invented"                  "gone" "$( [[ -f "$(claim_file)" ]] && echo present || echo gone )"
+
+section "2C. 🔴 the wiring: 'ndt up ovs4' really rewrites the note"
+knob 4
+no_record
+mk_claim fixture-owner 3600 "$I4_NOTE"
+EXP_BEFORE="$(cf expires)"
+up_run 'up_ovs 4'
+has   "the note says the lab is in use"                  "in use: ndt up ovs 4" "$(cf note)"
+has   "  and names who is using it"                      "by fixture-owner" "$(cf note)"
+hasnt "🔴 the 'lab free' sentence is gone"               "lab free" "$(cf note)"
+check "🔴 and the lease did not move"                    "$EXP_BEFORE" "$(cf expires)"
+
+section "2D. and 'ndt up p4' does too -- one builder wired is not both"
+no_record
+mk_claim fixture-owner 3600 "$I4_NOTE"
+up_run 'up_p4'
+has   "the note names the P4 target"                     "in use: ndt up p4 4" "$(cf note)"
+hasnt "  and not the OVS one"                            "ndt up ovs" "$(cf note)"
+
+section "2E. 🔴 and 'ndt down' takes it back -- a stale 'in use' is the same defect, flipped"
+mk_claim fixture-owner 3600 "in use: ndt up ovs 4 at 2026-09-05 17:21:11 by fixture-owner"
+EXP_BEFORE="$(cf expires)"
+OUT="$(bash -c "source '$NDT' >/dev/null 2>&1
+REPO='$FIX'
+CLAIM=\"\$REPO/.test_run/lab.claim\"
+STACK='$FIX/no-such-stack.sh'; LAB='$FIX/no-such-lab'
+sudo() { return 1; }; foreign_claim() { :; }; in_flight() { :; }
+app_probe() { APP_STATE=not-running; }
+cmd_clean() { return 0; }
+cmd_down >/dev/null 2>&1" 2>&1)"
+has   "the note says the lab came down"                  "down at " "$(cf note)"
+has   "  and that the claim was kept, not released"      "claim kept" "$(cf note)"
+hasnt "🔴 it no longer says the lab is in use"           "in use" "$(cf note)"
+check "  the lease still did not move"                   "$EXP_BEFORE" "$(cf expires)"
+
+# 🔴 The direction that matters most on a teardown: "down" and "down, and something survived"
+# are different statements, and the second is the one a reader must not act on as the first.
+mk_claim fixture-owner 3600 "in use: ndt up ovs 4 at 2026-09-05 17:21:11 by fixture-owner"
+bash -c "source '$NDT' >/dev/null 2>&1
+REPO='$FIX'
+CLAIM=\"\$REPO/.test_run/lab.claim\"
+STACK='$FIX/no-such-stack.sh'; LAB='$FIX/no-such-lab'
+sudo() { return 1; }; foreign_claim() { :; }; in_flight() { :; }
+app_probe() { APP_STATE=not-running; }
+cmd_clean() { return 1; }
+cmd_down >/dev/null 2>&1" >/dev/null 2>&1
+has   "🔴 a teardown that did not verify says so"        "did NOT verify clean" "$(cf note)"
+
+no_claim
+unset NDT_OWNER
+
 # --- done ---------------------------------------------------------------------------------
 printf '\nRan %d checks, %d failed\n' "$((PASS+FAIL))" "$FAIL"
 [[ "$FAIL" -eq 0 ]] || exit 1

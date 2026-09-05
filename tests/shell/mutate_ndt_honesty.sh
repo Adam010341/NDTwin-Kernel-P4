@@ -135,6 +135,60 @@ m=$(mutant m5 "$NDT" \
 report "M5: an unclassifiable command becomes a plane" "$m" \
        "  rather than picking one"
 
+# --- I-4: the note outlives the fact it describes ---------------------------------------------
+
+# The repair that caused I-2 residue #1: correcting a sentence through `ndt claim`, which
+# rewrites the whole file and pushes the lease out by another window. The note is then true and
+# the expiry is fiction.
+m=$(mutant m6 "$NDT" \
+    '    tmp="$f.$$.tmp"' \
+    '    cmd_claim 180 "$text" >/dev/null 2>&1; return $?
+    tmp="$f.$$.tmp"')
+report "M6: the note is corrected by re-claiming, moving the lease" "$m" \
+       "🔴 expires is byte-identical -- not pushed out"
+
+m=$(mutant m7 "$NDT" \
+    '    [[ -n "${NDT_OWNER:-}" && "$owner" == "$NDT_OWNER" ]] || return 1' \
+    '    :')
+report "M7: any session may rewrite anyone's note" "$m" \
+       "someone else's claim is refused"
+
+m=$(mutant m8 "$NDT" \
+    '    [[ "$exp" =~ ^[0-9]+$ ]] && (( exp > $(date +%s) )) || return 1' \
+    '    [[ "$exp" =~ ^[0-9]+$ ]] || return 1')
+report "M8: an expired claim is still narrated" "$m" \
+       "an expired claim is refused"
+
+# 🔴 THE WIRING. set_claim_note can exist, be correct, and be called by nothing -- and then the
+# note goes on saying whatever the last arm_*.sh wrapper wrote, which is I-4 exactly.
+m=$(mutant m9 "$NDT" \
+    '    claim_note_up "ovs $ovs_hosts"' \
+    '    :')
+report "M9: ndt up ovs stops writing the note" "$m" \
+       "the note says the lab is in use"
+
+m=$(mutant m10 "$NDT" \
+    '    claim_note_up "p4 $hosts"' \
+    '    :')
+report "M10: ndt up p4 stops writing the note" "$m" \
+       "the note names the P4 target"
+
+m=$(mutant m11 "$NDT" \
+    '    claim_note_down "$down_rc"' \
+    '    :')
+report "M11: ndt down leaves 'in use' standing over an empty lab" "$m" \
+       "🔴 it no longer says the lab is in use"
+
+# The same conflation this repository keeps finding: an unverified outcome reported as a
+# verified one. "down" and "down, and something survived" license opposite actions.
+m=$(mutant m12 "$NDT" \
+    '    if (( rc == 0 )); then
+        set_claim_note "down at $when; claim kept"' \
+    '    if true; then
+        set_claim_note "down at $when; claim kept"')
+report "M12: a teardown that did not verify is reported as clean" "$m" \
+       "🔴 a teardown that did not verify says so"
+
 # --- widenings: mutants that stay GREEN where the suite requires RED --------------------------
 
 # N1: a `down` is announced whether or not anything recorded one. It passes every fires-side

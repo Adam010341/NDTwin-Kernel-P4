@@ -558,6 +558,71 @@ cmd_release() {
     rm -f "$CLAIM"; ok "lab released"
 }
 
+# --- the note, written by the command that changes the fact -------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# 09-05 R7 I-4 (W13). `note` is the field a reader consults to answer "is the lab in use", and
+# until now its only writers were the arm_*.sh wrappers AROUND `ndt`. So any `ndt up` that did
+# not go through one of them left whatever the last wrapper had written. Measured 17:21:57 on
+# 2026-09-05, one `ndt status`, two rows apart:
+#
+#     note       arm r4p4 finished 17:17; lab free, night claim kept
+#     measuring  iperf3 -c 10.0.0.33 -p 5511 -t 200 -P 4 -i 0    + 7 more process(es)
+#
+# -- 16 iperf3 processes over a 128-host fabric with ten bridges up, while the note said the
+# machine was free. That note is what LAB-RULES tells a reader to act on, and the action it
+# licenses is `ndt down --deep`. The finding is doubly worth keeping: this note was itself the
+# FIX for I-2 (a note that named a role which had already gone home), so a repair aimed at
+# staleness turned a sentence that made people WAIT into one that invited them to tear down.
+#
+# 🔴 owner and expires are NOT touched. `ndt claim <mins> <note>` rewrites the whole file, so
+# using it to correct a sentence pushes the lease out by another window -- that is I-2 residue
+# #1, where rewriting the note to tell the truth silently added three hours to a claim. A note
+# is a description; a lease is a promise. This writes only the description.
+#
+# Refuses when there is no claim, when it has expired, or when it belongs to someone else: a
+# session that does not hold the lab must not narrate it.
+set_claim_note() {
+    local text="${1//$'\n'/ }" f="$CLAIM" owner exp tmp
+    [[ -f "$f" ]] || return 1
+    owner="$(claim_field owner)"; exp="$(claim_field expires)"
+    [[ "$exp" =~ ^[0-9]+$ ]] && (( exp > $(date +%s) )) || return 1
+    [[ -n "${NDT_OWNER:-}" && "$owner" == "$NDT_OWNER" ]] || return 1
+    tmp="$f.$$.tmp"
+    { sed '/^note=/d' "$f"; printf 'note=%s\n' "$text"; } > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 1; }
+    mv -f "$tmp" "$f" || { rm -f "$tmp"; return 1; }
+}
+
+# claim_note_up <target> -- `ndt up` says, in the note, that it is using the lab.
+#
+# Written where record_up_target is written -- after every refusal that can be decided without
+# touching the machine, and immediately before the first step that changes it. NOT after the
+# verify block at the end, and that is deliberate in both directions: an `up` that fails half
+# way still leaves Ryu, a topo session and a data plane behind (#3), and that half-built fabric
+# is precisely the state whose note must not still say the lab is free.
+claim_note_up() {
+    local what="$1"
+    set_claim_note "in use: ndt up $what at $(date '+%Y-%m-%d %H:%M:%S') by ${NDT_OWNER:-unset}" \
+        && info "claim note now says the lab is in use (owner and expiry unchanged)"
+    return 0
+}
+
+# claim_note_down <rc> -- and `ndt down` says it is no longer, once the teardown has been
+# asserted rather than merely attempted. A teardown that did not verify clean gets a different
+# sentence: "down" and "down, and something is still running" are not the same statement, and
+# the second one is the one a reader must not act on as if it were the first.
+claim_note_down() {
+    local rc="${1:-0}" when; when="$(date '+%Y-%m-%d %H:%M:%S')"
+    if (( rc == 0 )); then
+        set_claim_note "down at $when; claim kept" \
+            && info "claim note now says the lab is down (owner and expiry unchanged)"
+    else
+        set_claim_note "down at $when did NOT verify clean; claim kept -- read 'running' below, not this note" \
+            && info "claim note now says the teardown did not verify clean"
+    fi
+    return 0
+}
+
 # in_flight -- names the measurement drivers currently running, one per line.
 #
 # Teardown is destructive in a way that is not obvious from the command: `ndt down` on a
@@ -1101,6 +1166,7 @@ up_p4() {
     # What this run was asked for, written down before anything is built, so `status --check`
     # has a baseline that does not depend on reading a P4-only knob back afterwards. (#8, N12)
     record_up_target p4 "$hosts" "$topo"
+    claim_note_up "p4 $hosts"
 
     # -- 1. fabric --
     say "[1/3] bmv2 fabric"
@@ -1398,6 +1464,7 @@ up_ovs() {
     # Same as up_p4: the target is recorded once every pre-lab refusal has passed and just
     # before the first thing that changes the machine. (#8, N12)
     record_up_target ovs "$ovs_hosts" "$ovs_topo"
+    claim_note_up "ovs $ovs_hosts"
 
     say "[1/4] control plane (Ryu)"
     # NDTWIN_RYU_TOPO_FILE is set to the SAME file as TOPO_OVS, and that is the whole point.
@@ -1730,6 +1797,11 @@ cmd_down() {
     # where cmd_clean cannot see what survived -- cleanup also sweeps patterns cmd_clean does
     # not check (the NTG topology, for one), so "clean" and "the sweep worked" are two answers.
     (( clean_rc != 0 )) && down_rc=1
+    # I-4's other half. `up` writes "in use" into the note; without this the sentence would
+    # outlive the fabric it describes, which is the same defect with the sign flipped -- a
+    # reader would wait for a machine that is already free. Written AFTER the assertion above,
+    # so the note reports what was verified rather than what was attempted.
+    claim_note_down "$down_rc"
     return "$down_rc"
 }
 
