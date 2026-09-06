@@ -1548,6 +1548,136 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ---
 
+> ### 🔴 B-11／B-12 之前：這兩條的 FINDINGS 編號**撞號了**（登記於 2026-09-07）
+>
+> 09-05 夜巡把這兩條叫做 **#90／#91**（兩條修法分支的 commit 訊息、兩份 FIX 文件、
+> `W3-3b-SUMMARY.md`／`W15-SUMMARY.md` 都是這個號）。
+> **但 `doc/audit/2026-09-03_night-rounds/FINDINGS-COVERAGE.md:236` 的 `#90`
+> 已經是另一件事**：「四個外部 app 從沒對著活的 kernel 用過」（⭕ UNASSIGNED，09-04 14:0x），
+> 而且 `HANDOFF-2026-09-04.md:43`、`WORK-ITEMS.md:175`、`QUESTIONS-FOR-ADAM.md:130`、
+> `APPS-CHECKLIST-2026-09-04.md:8` 四份文件都在用那個號。**那份表到 #90 為止，沒有 #91。**
+>
+> ⇒ **「#90」現在指兩件不同的事，而 09-05 那一套是後來的。**
+> 這正是本檔 B-7／B-8 那段警告過的失效（「不編號進來，之後別處引用會另起代號、兩邊對不上——
+> §C 那兩套撞號的 F-n 就是這樣長出來的」），這次是反過來：**同一個號被兩件事用。**
+>
+> **本檔的處理**：條目用**本檔自己的代號 `B-11`／`B-12`**，不用 `#n`；
+> 底下每一次提到 `#90`／`#91` 都寫成「**09-05 夜巡的 #90**」。**編號本身要 Adam 裁**
+> （改哪一套、還是兩套並存各自加前綴）——在他裁之前，**不要把這兩條寫成「就是 #90／#91」**。
+>
+> `B-10` 是 **W10 的 nickname overlay**（登記在分支 `fix/w10-nickname-overlay` 上，尚未併進 trunk）
+> ⇒ **本次刻意跳過 B-10，把號留給它。**
+
+---
+
+### B-11 🔴 拓樸檔可以宣告一台**沒有位址**的 host，kernel 收下，並以 `('h9', [])` 對外服務
+
+> 09-05 夜巡的 **#90**（見上面那則撞號說明）。W3 門 3b（碼與閘門裡叫 **door 3d**）。
+
+- **狀態**：**在 trunk 上 OPEN。修法在分支 `fix/w3-door3b-host-empty-ip` 的 `b1471cbe`
+  （分支 tip `72ffd4dd`，工單 W3-3b），未併入**（查於 2026-09-07，trunk `1536ff17`）。
+  照 B-7／B-8 前面那段自己立的慣例（條目照登、狀態維持 **OPEN**、分支與 commit 寫在狀態行上），
+  以及 **A-1 的規矩：變異閘在 trunk 上跑綠之前不得改 RESOLVED**。
+  🔴 **「已經修好了」對外要先問修在哪個 ref**——這是一條沒併進 trunk 的分支。
+- **平面**：兩者（載入器的事，與資料面無關）
+- **失效方向**：**靜默**——整份檔案被完整收下，log 一個字都沒有
+- **會發生什麼**：拓樸檔裡多一台 `"ip": []` 的 host（不必被任何 edge 指到），
+  kernel **完整載入**（`nodes 15`、`edges 40`）、`Server Listening on port 8000`、
+  `Collector Starts Up` 全部照常，`get_graph_data` 把它序列化成 **`"ip":[]`**，
+  `get_static_topology_json` 也照樣回。**沒有任何 `[error]`／`[critical]`。**
+  ⚠️ 打九支唯讀端點**不會讓 kernel 崩**（SIGSEGV 0），解不出路徑的回 404 ＋錯誤訊息
+  ——**所以它不是崩潰缺陷，是「不變式沒有被守住」的缺陷**。
+- **機制**：`validateStaticTopologyJson` 的 node 迴圈裡，空 `ip` 的條件寫成
+  **`vertexType == VertexType::SWITCH && addresses.empty()`** ⇒ **只擋 switch，不擋 host**
+  （碼裡逐字標著 `// ---- #89 door 3b: a switch with no management address ----`，
+  `TopologyAndFlowMonitor.cpp:215`）。而「空 ip ＋被 edge 以位址指名」那條路**結構上走不通**
+  （沒有位址就沒有 edge 指得到它，#61 的 edge 門先擋），所以**可達的形狀只有一種：多一台沒有位址的 host**。
+  〔親自讀過（09-05／09-06 兩個 session 各自開檔）〕
+- **代價**：`ip.front()` 的呼叫點（W2／#88 盤點的那七處，其中五處在 host 側產線走得到）
+  的前提就是「host 至少有一個位址」。**門關上讓檔案層乾淨，但 Ryu 發現路徑加進來的 host 仍可能無位址**
+  ⇒ 那五處對它們**仍然是裸的**（W3-3b SUMMARY §8 第 2 題，Adam 尚未裁）。
+- **分支上的行為**（`b1471cbe`，**尚未在 trunk**）：`vertexType == HOST` 且 `ip` **缺／非陣列／空陣列**
+  ⇒ 在**第一個 `add_vertex` 之前** throw，`num_vertices == 0`，訊息指名該台 host：
+  `host "h9" declares an empty "ip" array; every host needs at least one address…`。
+  🔴 **這條修法反轉了一支既有的綠測試**（`AHostWithNoAddressIsStillAllowed`
+  → `AHostWithNoAddressIsRefusedAtLoad`）：舊註解寫著「拒絕它會拒絕掉每一份列了 host 的拓樸」，
+  而**那是關於出貨檔的事實主張，已被證偽**（十三份出貨檔、每台 host 都有位址；`tools/make_topology.py:130`
+  也一定給一個）。**要不要留這個反轉，Adam 尚未裁**（W3-3b SUMMARY §8 第 1 題）。
+- **證據**：🟢 **live 兩次，同一批六個壞檔、同一種餵法（直呼二進位、`timeout 14`；rc=124＝收下、rc=1＝拒絕）**。
+  - **BEFORE**（trunk `862c4bf8`）：`scratch/overnight-2026-09-05/rounds/05-R0b-postmerge2.md` §2.1 表列 **a**
+    ——「收下 rc=124，零訊息」；同檔 §2.2 是那九支端點的逐字回應。
+    raw `scratch/overnight-2026-09-05/logs/r0b2-w3-r3-topo-a-host-empty-ip.log`、`r0b2-w2-probes.log`。
+  - **AFTER**（分支二進位 `2cab764b69509ef1`）：同目錄 `rounds/07-LIVE-branch-checks.md` **lw3** 表列 a
+    ——**REFUSED rc=1**；raw `logs/lw3-w3-r3-topo-a-host-empty-ip.log`。
+    **陽性對照在同一顆二進位上**：餵出貨的 `StaticNetworkTopologyOVS_10Switches_4Hosts.json` ⇒ rc=124、活過 14 s
+    ⇒ **不是「拒絕一切」**（`logs/lw3-w3-control-good-ovs4.log`）。
+  🔴 **上列 raw 與 round 筆記全在 `scratch/`，不在版控**——引用前先確認那個 session 的目錄還在。
+  ⚠️ **可信度**：上面的 live 數字是 R0b／lw3 兩個角色實測（🟢 對他們）；
+  **本條登記者沒有複驗任何一次 live 重現（🟠 轉述）**，只有「機制」那一段與分支 commit 的內容
+  是登記者自己開檔查證的（🟢）。**兩者不要混用。**
+- **契約測試看不看得到？** **看不到，而且結構上看不到。**
+  `inv_graph_matches_topology` 比的是「圖 vs 它被交到手上的那份拓樸檔」——kernel 忠實地照著壞檔服務時，
+  兩邊依定義一致。2026-09-07 給那支不變量加的 per-node 身分比對
+  （分支 `fix/contract-per-node-identity`）**沒有改變這一點**，並且有一支測試把這件事釘死。
+  ⇒ **關這扇門的只有載入器。**
+
+### B-12 🔴 拓樸檔可以宣告一個 kernel 不認得的 `brand_name`，被靜默對映成 HARDWARE 收下
+
+> 09-05 夜巡的 **#91**（見上面那則撞號說明）。碼與閘門裡叫 **door 3e**。
+
+- **狀態**：**在 trunk 上 OPEN。修法在分支 `fix/w15-unknown-brand-rejected` 的 `008de16d`
+  （分支 tip `8b3ebe49`，工單 W15），未併入**（查於 2026-09-07，trunk `1536ff17`）。
+  🔴 **那條分支的 base 是 `fix/w3-door3b-host-empty-ip` 的 tip `72ffd4dd`，不是 trunk
+  ⇒ 合併順序：先 B-11 那一支，再這一支。**
+  同 B-11：狀態維持 **OPEN**，A-1 的規矩（閘門在 trunk 上跑綠之前不改 RESOLVED）。
+- **平面**：兩者
+- **失效方向**：**語氣拒絕、行為放行**——log 印一行 `[error]`，然後整份檔案照樣載入
+- **會發生什麼**：把某台 switch 的 `brand_name` 打成 `NOT_A_REAL_KIND`，
+  kernel **完整載入**（`nodes 14`、`edges 40`）、開 :8000。
+  `switchKindFromBrandName` 對不認得的字串 **fallback 成 HARDWARE**，
+  於是那台機器走到 `validateDataPlaneHomogeneity`，印出一句**指錯原因**的訊息，
+  建議使用者去設 `ALLOW_MIXED_DATAPLANE`——而使用者真正做的事只是**打錯一個字**。
+- **機制**：兩段各自合理、合起來變成靜默 fallback。
+  ① `include/common_types/GraphTypes.hpp:96-107` 的 `switchKindFromBrandName`
+  對未知 brand **回 HARDWARE**（沒有第三種答案，也不 throw——同一個檔案 `:110-114` 的
+  `switch_kind` 解析器對打錯的值是 throw 的，**兩個欄位的嚴格度不一樣**）；
+  ② `validateDataPlaneHomogeneity` 在 `parseStaticTopologyFile` 的**最後一行**才跑
+  （`src/ndt_core/collection/TopologyAndFlowMonitor.cpp:881`），
+  而且**它的回傳值沒有人接**——那一行逐字就是 `validateDataPlaneHomogeneity(AppConfig::ALLOW_MIXED_DATAPLANE);`，
+  而宣告是 `bool …(bool) const`（`TopologyAndFlowMonitor.hpp:372`）⇒ **它只是印，不是擋**（見下 BUG-17）。
+  〔🟢 上面每一個 file:line 都是本條登記者在 trunk `1536ff17` 上開檔核對的；
+  分支上的行為是核對 commit 內容（🟢），**兩邊都沒有重跑**〕
+- 🔴 **同一個位置還有一條沒修的**（09-05 夜巡記為 **BUG-17**，Adam 已裁「開單，連兩份文件一起改」，
+  **本次不代為登記**）：`validateDataPlaneHomogeneity` 的回傳值被丟棄
+  ⇒ **真正的混平面檔案至今仍然是「印 `[error]` 然後照樣起來」**，
+  而 `doc/2026-07-29_p4_status_and_test_guide.md:76` 寫著「拓撲裡 switch 種類不一致會**直接 fatal**
+  並列出是哪些 dpid」、`doc/2026-07-27_p4_bmv2_support_plan.md:213` 寫著「**直接以致命錯誤中止**」
+  ——**那兩句是假的**（🟢 兩行都是本條登記者開檔逐字核對的；W15 SUMMARY §6 另外點名了一份
+  `architecture.md`，**這棵樹裡沒有那個檔名**，本條不轉述它）。W15 的修法只是讓**打錯的 brand** 到不了那條路。
+- **分支上的行為**（`008de16d`，**尚未在 trunk**）：node 迴圈裡（door 3a 之後、3b 之前）
+  對 `vertexType == SWITCH` 檢查 `brand_name`：缺／非字串／不在清單 ⇒ 在**第一個 `add_vertex` 之前**拒絕，
+  訊息指名該值＋列出全部合法值（`OVS`／`BMv2`／`HPE5520`／`BrocadeICX6610`／`BrocadeICX7250`）＋
+  說明後果＋說新機型要加在哪兩個地方。
+  🔴 **代價（刻意的取捨）**：拿一台這個 codebase 沒有電源／遙測路徑的交換機（Cisco、Arista…）的人，
+  **必須改一行 C++ 才能載入拓樸**。Adam 09-06 已裁 **W15 續單：有明確 `switch_kind` 就豁免**
+  （⚠️ 與該 agent 的建議相反），並要求把「這種機器的電源／遙測預設行為＝沒人管」寫進圖與手冊
+  ——**續單尚未做**，所以現在分支上的門是無條件的。
+  🔴 **合法 brand 清單目前有兩份真相**（`.cpp` 的清單 ＋ `GraphTypes.hpp` 的 mapping ＋ 電源管理器六處字串比較），
+  靠一支絆線測試綁在一起；要不要單一來源 Adam 已裁「(a) 現狀＋絆線；(b) 搬進 `GraphTypes.hpp` 另排」。
+- **證據**：🟢 **live 兩次**，與 B-11 同一批六個壞檔、同一輪。
+  - **BEFORE**（trunk `862c4bf8`）：`rounds/05-R0b-postmerge2.md` §2.1 表列 **c**——「收下 rc=124，訊息指錯原因」；
+    raw `logs/r0b2-w3-r3-topo-c-bad-switch-kind.log`。
+  - **AFTER**（分支二進位 `2cab764b69509ef1`）：`rounds/07-LIVE-branch-checks.md` **lw3** 表列 c
+    ——**REFUSED rc=1**，訊息逐字列出五個合法值；raw `logs/lw3-w3-r3-topo-c-bad-switch-kind.log`。
+    陽性對照同 B-11（`logs/lw3-w3-control-good-ovs4.log`）。
+  🔴 **raw 全在 `scratch/`，不在版控。**
+  ⚠️ **可信度**：live 數字是 R0b／lw3 實測（🟢 對他們）、**本條登記者未複驗（🟠 轉述）**；
+  「機制」與分支內容是登記者開檔查證（🟢）。**不要混用。**
+- **契約測試看不看得到？** 同 B-11：**看不到，結構上看不到**（`GRAPH_NODE["brand_name"] = Str()` 是
+  **輸出**契約，任何字串都合法；而圖與檔一致時 `inv_graph_matches_topology` 沒有話說）。
+
+---
+
 ## B-x. `/ndt/get_detected_flow_data` 包含已經結束的流（churn 下約 92%）
 
 - **狀態**：🟢 **RESOLVED（2026-09-02，`7d678ed0`）**——端點與 top-k 都加上三態存活性
