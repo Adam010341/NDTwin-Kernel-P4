@@ -31,6 +31,8 @@
 #include <memory>
 #include <string>
 
+#include <unistd.h> // getpid, for the per-process temp paths below
+
 #include <gtest/gtest.h>
 #include <spdlog/sinks/ringbuffer_sink.h>
 
@@ -99,8 +101,12 @@ class TempPromptFile
 {
   public:
     TempPromptFile()
+        // [Co-developed with claude code -- Adam] pid in the name: ctest gives every test its
+        // own process, so under -j2 the three tests that use this rig would otherwise write and
+        // delete one shared file. Same defect as the LaunchLayoutRig one measured in W11's round.
         : m_path(std::filesystem::temp_directory_path() /
-                 "ndtwin_test_llm_prompt_apikey_not_logged.txt")
+                 ("ndtwin_test_llm_prompt_apikey_not_logged." + std::to_string(::getpid()) +
+                  ".txt"))
     {
         std::ofstream out(m_path);
         out << "you are a test prompt\n";

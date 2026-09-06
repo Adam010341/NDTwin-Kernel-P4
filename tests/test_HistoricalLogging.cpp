@@ -37,6 +37,8 @@
 #include <shared_mutex>
 #include <string>
 
+#include <unistd.h> // getpid, for the per-process temp paths below
+
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 
@@ -115,7 +117,13 @@ class TempDir
 {
   public:
     explicit TempDir(const std::string& name)
-        : m_path(std::filesystem::temp_directory_path() / name)
+        // [Co-developed with claude code -- Adam] pid in the name. The names below happen to
+        // differ per test, so nothing collides today -- but this constructor calls remove_all,
+        // and the day two tests share a name under `ctest -j2` one process deletes the other's
+        // directory out from under it. That is the failure W11's round measured in
+        // test_IntentTaskOutcomes.cpp; one std::to_string is the whole cost of not repeating it.
+        : m_path(std::filesystem::temp_directory_path() /
+                 (name + "." + std::to_string(::getpid())))
     {
         std::filesystem::remove_all(m_path);
         std::filesystem::create_directories(m_path);

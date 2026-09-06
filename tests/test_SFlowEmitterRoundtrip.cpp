@@ -36,6 +36,8 @@
 #include <optional>
 #include <shared_mutex>
 #include <string>
+
+#include <unistd.h> // getpid, for the per-process temp paths below
 #include <vector>
 
 namespace
@@ -478,8 +480,12 @@ class LateTopologyFixture : public ::testing::Test
                                       {"edges", nlohmann::json::array()},
                                       {"links", nlohmann::json::array()}};
 
+        // [Co-developed with claude code -- Adam] pid as well as the counter -- the counter
+        // restarts at 0 in every process and ctest gives every test its own. See the same note in
+        // test_SwitchKindDispatch.cpp.
         const auto path = std::filesystem::temp_directory_path() /
-                          ("ndt_late_topo_" + std::to_string(++m_counter) + ".json");
+                          ("ndt_late_topo_" + std::to_string(::getpid()) + "_" +
+                           std::to_string(++m_counter) + ".json");
         std::ofstream(path) << topology.dump();
         m_tempFiles.push_back(path);
 
