@@ -130,45 +130,12 @@ describeTopologyItem(const json& item, const char* kind, std::size_t index)
 /// exactly that. This bound catches typos and generator bugs, not mistakes.
 constexpr std::uint32_t kMaxTopologyInterface = 65535;
 
-/// The switch `brand_name` values this build knows how to drive.
-///
-/// [Co-developed with claude code -- Adam]
-/// FINDINGS #91 / W15. `switchKindFromBrandName` (GraphTypes.hpp) maps "BMv2" and "OVS" and
-/// returns HARDWARE for **everything else**, which is a default, not a decision: a typo in a
-/// topology file became a hardware switch silently. Measured 2026-09-05 (R0b, kernel 862c4bf8,
-/// bad file `c`): `brand_name = "NOT_A_REAL_KIND"` on one switch of an all-OVS fabric was
-/// ACCEPTED, and the only thing the operator saw was
-///
-///     [error] ... Topology mixes data planes (ovs=[1,2,3,4,5,6,8,9,10]; hardware=[7]). ...
-///     Fix the topology file, or set AppConfig::ALLOW_MIXED_DATAPLANE to override.
-///
-/// -- an error-level sentence in the voice of a refusal, followed by the kernel opening :8000 and
-/// serving the model. Worse, its advice would make the typo permanent: setting that flag turns
-/// every misspelled brand into a hardware switch by consent.
-///
-/// 🔴 THIS LIST IS THE FLEET, NOT A GUESS, and it must not be narrowed to the two virtual kinds.
-/// Every `brand_name` literal in every JSON file in this repository (2026-09-06): "" (hosts),
-/// "BMv2", "OVS", "HPE5520", "BrocadeICX7250", "BrocadeICX6610" -- nothing else. Five of the
-/// thirteen shipped topologies are TESTBED files whose switches are HPE or Brocade, so a list of
-/// {OVS, BMv2} would refuse all five: a wider outage than the defect.
-///
-/// Each entry is a brand some code actually branches on. OVS and BMv2 select the routing
-/// strategy through SwitchKind; "HPE5520" selects the SNMP power/temperature path in
-/// DeviceConfigurationAndPowerManager.cpp, and the two Brocade models are what its else-branch
-/// ("Brocade / Others (Currently via SSH)") was written for. A brand outside this list gets that
-/// SSH branch by accident rather than by design, which is what makes accepting it a lie rather
-/// than a limitation.
-///
-/// A new switch model belongs here AND in a power/telemetry path; TopologyInputValidationTest's
-/// TheAcceptedBrandListCoversEveryBrandTheCodeBranchesOn is the tripwire for adding it to one and
-/// not the other.
-constexpr std::array<std::string_view, 5> kAcceptedSwitchBrands{
-    "OVS",            // Mininet bridge, driven through Ryu             -> SwitchKind::OVS
-    "BMv2",           // P4 behavioural model, driven through the proxy -> SwitchKind::BMV2
-    "HPE5520",        // testbed hardware, SNMP power + temperature
-    "BrocadeICX6610", // testbed hardware, SSH power
-    "BrocadeICX7250", // testbed hardware, SSH power
-};
+// 🔴 kAcceptedSwitchBrands AND acceptedSwitchBrandList() USED TO LIVE HERE, AND MOVED TO
+// common_types/GraphTypes.hpp ON 2026-09-07 (W15-1(b), Adam's ruling of 2026-09-06). The list and
+// the mapping it has to agree with are one truth, and keeping them in two files cost a textual
+// tripwire to hold together; the header is where switchKindFromBrandName is, so that is where the
+// list belongs. The whole-tree rebuild that costs is the reason #91 did not do it. Everything
+// below still refers to the same two names -- they are simply not defined here any more.
 
 /// Does this node carry an explicit `switch_kind` this build can actually dispatch on?
 ///
@@ -206,22 +173,6 @@ declaresLegalSwitchKind(const json& nodeJson)
         return false;
     }
     return true;
-}
-
-/// The accepted brands as one comma-separated string, for the refusal to print.
-std::string
-acceptedSwitchBrandList()
-{
-    std::string joined;
-    for (const auto brand : kAcceptedSwitchBrands)
-    {
-        if (!joined.empty())
-        {
-            joined += ", ";
-        }
-        joined += brand;
-    }
-    return joined;
 }
 
 /** @brief Refuse a topology document that names things the document does not contain.

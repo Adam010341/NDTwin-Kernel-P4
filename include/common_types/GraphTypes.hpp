@@ -2,6 +2,7 @@
 
 #include "common_types/SFlowType.hpp"
 #include <algorithm> // for transform
+#include <array>     // for kAcceptedSwitchBrands
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/range/iterator_range.hpp>
 #include <cctype>    // for tolower
@@ -9,6 +10,7 @@
 #include <set>
 #include <stdexcept> // for invalid_argument
 #include <string>
+#include <string_view> // for the brand constants
 #include <variant>
 #include <vector>
 
@@ -82,6 +84,80 @@ enum class SwitchKind
     HARDWARE // Physical OpenFlow switch in the testbed (Brocade, HPE, ...)
 };
 
+/// @name The switch `brand_name` values this build knows how to drive.
+///
+/// [Co-developed with claude code -- Adam]
+/// FINDINGS #91 / W15. `switchKindFromBrandName` below maps "BMv2" and "OVS" and returns HARDWARE
+/// for **everything else**, which is a default, not a decision: a typo in a topology file became
+/// a hardware switch silently. Measured 2026-09-05 (R0b, kernel 862c4bf8, bad file `c`):
+/// `brand_name = "NOT_A_REAL_KIND"` on one switch of an all-OVS fabric was ACCEPTED, and the only
+/// thing the operator saw was
+///
+///     [error] ... Topology mixes data planes (ovs=[1,2,3,4,5,6,8,9,10]; hardware=[7]). ...
+///     Fix the topology file, or set AppConfig::ALLOW_MIXED_DATAPLANE to override.
+///
+/// -- an error-level sentence in the voice of a refusal, followed by the kernel opening :8000 and
+/// serving the model. Worse, its advice would make the typo permanent: setting that flag turns
+/// every misspelled brand into a hardware switch by consent.
+///
+/// 🔴 THIS LIST IS THE FLEET, NOT A GUESS, and it must not be narrowed to the two virtual kinds.
+/// Every `brand_name` literal in every JSON file in this repository (2026-09-06): "" (hosts),
+/// "BMv2", "OVS", "HPE5520", "BrocadeICX7250", "BrocadeICX6610" -- nothing else. Five of the
+/// thirteen shipped topologies are TESTBED files whose switches are HPE or Brocade, so a list of
+/// {OVS, BMv2} would refuse all five: a wider outage than the defect.
+///
+/// Each entry is a brand some code actually branches on. OVS and BMv2 select the routing
+/// strategy through SwitchKind; kBrandHPE5520 selects the SNMP power/temperature path in
+/// DeviceConfigurationAndPowerManager.cpp, and the two Brocade models are what its else-branch
+/// ("Brocade / Others (Currently via SSH)") was written for. A brand outside this list gets that
+/// SSH branch by accident rather than by design, which is what makes accepting it a lie rather
+/// than a limitation.
+///
+/// 🔴 HERE, NOT IN THE VALIDATOR, SINCE 2026-09-07 (W15-1(b), Adam's ruling of 2026-09-06). #91
+/// put the list in TopologyAndFlowMonitor.cpp's anonymous namespace for a scheduling reason --
+/// this header is included by 43 translation units, so touching it rebuilds the tree -- and paid
+/// for it with two copies of one truth: a list in the validator, a mapping here, and six string
+/// comparisons in the power manager, held together by a textual tripwire. The five names below
+/// are now the only place a brand is spelled, every comparison names one of them, and the
+/// tripwire's job has changed accordingly (see
+/// TopologyInputValidationTest.TheAcceptedBrandListCoversEveryBrandTheCodeBranchesOn): drift is a
+/// compile error now, so what it looks for is a brand comparison written as a bare literal.
+///
+/// A new switch model belongs here AND in a power/telemetry path -- or, if this build only has to
+/// model it, in a topology file that declares an explicit `switch_kind` (manual section 38).
+/// @{
+inline constexpr std::string_view kBrandOVS = "OVS";
+inline constexpr std::string_view kBrandBMv2 = "BMv2";
+inline constexpr std::string_view kBrandHPE5520 = "HPE5520";
+inline constexpr std::string_view kBrandBrocadeICX6610 = "BrocadeICX6610";
+inline constexpr std::string_view kBrandBrocadeICX7250 = "BrocadeICX7250";
+
+inline constexpr std::array<std::string_view, 5> kAcceptedSwitchBrands{
+    kBrandOVS,            // Mininet bridge, driven through Ryu             -> SwitchKind::OVS
+    kBrandBMv2,           // P4 behavioural model, driven through the proxy -> SwitchKind::BMV2
+    kBrandHPE5520,        // testbed hardware, SNMP power + temperature
+    kBrandBrocadeICX6610, // testbed hardware, SSH power
+    kBrandBrocadeICX7250, // testbed hardware, SSH power
+};
+/// @}
+
+/// The accepted brands as one comma-separated string, for a refusal to print.
+/// [Co-developed with claude code -- Adam]
+inline std::string
+acceptedSwitchBrandList()
+{
+    std::string joined;
+    for (const auto brand : kAcceptedSwitchBrands)
+    {
+        if (!joined.empty())
+        {
+            joined += ", ";
+        }
+        joined += brand;
+    }
+    return joined;
+}
+
 /**
  * @brief Maps a topology JSON "brand_name" to a SwitchKind.
  *
@@ -90,16 +166,22 @@ enum class SwitchKind
  * are treated as HARDWARE, matching the pre-existing behaviour where anything that was
  * not recognised as Mininet-managed fell through to the SNMP/SSH testbed paths.
  *
+ * ⚠️ That fallback is still here and is still a fallback. What stops it from being reached by a
+ * typo is the loader (door 3e), not this function: a topology file naming a brand outside
+ * kAcceptedSwitchBrands is refused unless the node also declares an explicit `switch_kind`.
+ * Anything that builds a graph WITHOUT going through validateStaticTopologyJson gets the old
+ * behaviour, which is why option (c) of W15-1 -- throwing from here -- was left on the table.
+ *
  * [Co-developed with claude code -- Adam]
  */
 inline SwitchKind
 switchKindFromBrandName(const std::string& brandName)
 {
-    if (brandName == "BMv2")
+    if (brandName == kBrandBMv2)
     {
         return SwitchKind::BMV2;
     }
-    if (brandName == "OVS")
+    if (brandName == kBrandOVS)
     {
         return SwitchKind::OVS;
     }
@@ -157,7 +239,7 @@ switchKindFromString(std::string s)
  * for its brand.
  *
  * Each value is the branch it names, not a guess:
- *   "snmp"      brandName == "HPE5520"        -> HPE OIDs (power :1805/:2308, cpu :2120,
+ *   "snmp"      kBrandHPE5520                 -> HPE OIDs (power :1805/:2308, cpu :2120,
  *                                                memory :1342, and temperature :2209, which
  *                                                refuses every other brand in so many words)
  *   "ssh"       the two Brocade models        -> the else-branch those same sites fall into,
@@ -180,15 +262,15 @@ switchKindFromString(std::string s)
 inline const char*
 powerPathForBrandName(const std::string& brandName)
 {
-    if (brandName == "OVS" || brandName == "BMv2")
+    if (brandName == kBrandOVS || brandName == kBrandBMv2)
     {
         return "synthetic";
     }
-    if (brandName == "HPE5520")
+    if (brandName == kBrandHPE5520)
     {
         return "snmp";
     }
-    if (brandName == "BrocadeICX6610" || brandName == "BrocadeICX7250")
+    if (brandName == kBrandBrocadeICX6610 || brandName == kBrandBrocadeICX7250)
     {
         return "ssh";
     }
@@ -203,8 +285,8 @@ powerPathForBrandName(const std::string& brandName)
 inline const char*
 telemetryPathForBrandName(const std::string& brandName)
 {
-    if (brandName == "HPE5520" || brandName == "BrocadeICX6610" ||
-        brandName == "BrocadeICX7250")
+    if (brandName == kBrandHPE5520 || brandName == kBrandBrocadeICX6610 ||
+        brandName == kBrandBrocadeICX7250)
     {
         return "snmp";
     }

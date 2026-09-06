@@ -112,7 +112,14 @@ BIN="$BUILD_DIR/bin/$TARGET"
 FILTER='TopologyInputValidationTest.*'
 
 TFM=src/ndt_core/collection/TopologyAndFlowMonitor.cpp
-FILES=("$TFM")
+# [Co-developed with claude code -- Adam]
+# W15-1(b), 2026-09-07. The accepted brand list moved out of $TFM and into the header, so two
+# more files are now mutable here -- and both are expensive: GraphTypes.hpp is included by 43
+# translation units, so M23 costs a whole-tree rebuild, and it is worth it because that list is
+# the one piece of this fix a well-meaning edit can break for the entire shipped fleet at once.
+GT=include/common_types/GraphTypes.hpp
+DCPM=src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp
+FILES=("$TFM" "$GT" "$DCPM")
 
 MUTATIONS=0
 SURVIVORS=0
@@ -195,7 +202,8 @@ add_anchor "door3e-switch"  "$TFM" '        if (vertexType == VertexType::SWITCH
 add_anchor "door3e-member"  "$TFM" '            if (std::find(kAcceptedSwitchBrands.begin(), kAcceptedSwitchBrands.end(), brandName) ==
                     kAcceptedSwitchBrands.end() &&
                 !declaresLegalSwitchKind(nodeJson))'
-add_anchor "door3e-list"    "$TFM" '    "HPE5520",        // testbed hardware, SNMP power + temperature'
+add_anchor "door3e-list"    "$GT"  'inline constexpr std::string_view kBrandHPE5520 = "HPE5520";'
+add_anchor "brand-branch"   "$DCPM" '    else if (targetSwitch->brandName == kBrandHPE5520)'
 add_anchor "door3e-message" "$TFM" '                    ". An unrecognised brand used to be mapped to \"hardware\" silently, which "'
 
 # W15-2 -- the switch_kind exemption and the mark it costs. Three anchors: the exemption clause
@@ -739,16 +747,26 @@ mutate "door 3e is applied to hosts as well as switches" \
     TopologyInputValidationTest.EveryShippedTopologyStillLoadsWithNothingDropped
 
 # M23. 🔴 THE FLEET-BREAKING DIRECTION, and the one that reads as a harmless typo fix. One
-#      hardware model is misspelled in the accepted list. The two _ipAlias4_HPE_ files stop
-#      loading, and -- because DeviceConfigurationAndPowerManager.cpp still branches on the real
-#      spelling -- the tripwire that exists for exactly this drift must see it too.
-mutate "door 3e: a hardware model is misspelled in the accepted list" \
-    "$TFM" \
-    '    "HPE5520",        // testbed hardware, SNMP power + temperature' \
-    '    "HPE9999",        // testbed hardware, SNMP power + temperature' \
+#      hardware model is misspelled, in the header, where the constant now lives. The two
+#      _ipAlias4_HPE_ files stop loading.
+#
+#      🔴 THE TRIPWIRE IS NO LONGER EXPECTED TO SEE THIS, AND THAT IS THE POINT OF W15-1(b).
+#      Before 2026-09-07 the list and the power manager spelled "HPE5520" separately, so
+#      misspelling one of them was drift and TheAcceptedBrandListCoversEveryBrandTheCodeBranchesOn
+#      caught it. They are the same constant now: changing it changes both, there is nothing to
+#      drift, and the tripwire stays green **correctly**. What speaks instead is the fleet -- the
+#      shipped files still say HPE5520 and stop loading -- which is a stronger witness than a
+#      textual one. M28 below is what the tripwire is for in the new arrangement.
+#
+#      This is the only mutation in this gate that edits a header included by 43 translation
+#      units, so it costs a whole-tree rebuild. Budget for it.
+mutate "door 3e: a hardware model is misspelled where the brand constants live" \
+    "$GT" \
+    'inline constexpr std::string_view kBrandHPE5520 = "HPE5520";' \
+    'inline constexpr std::string_view kBrandHPE5520 = "HPE9999";' \
     TopologyInputValidationTest.EveryShippedTopologyStillLoadsWithNothingDropped \
     TopologyInputValidationTest.EveryBrandTheShippedFleetNamesIsAccepted \
-    TopologyInputValidationTest.TheAcceptedBrandListCoversEveryBrandTheCodeBranchesOn
+    TopologyInputValidationTest.EveryAcceptedBrandCarriesAPowerPathThatIsNotNone
 
 # M24. 🔴 THE ADVICE COMES BACK. The file is still refused, and the refusal still names the brand
 #      -- but it tells the operator to set ALLOW_MIXED_DATAPLANE, which is what R0b caught the old
@@ -821,6 +839,18 @@ mutate "W15-2: an exempted switch is reported as having a power path" \
     TopologyInputValidationTest.TheExemptedSwitchIsMarkedAsHavingNoPowerOrTelemetryPath \
     TopologyInputValidationTest.TheExemptionIsPerNodeAndDoesNotUnmarkItsNeighbours \
     TopologyInputValidationTest.TheStaticTopologyEndpointPublishesTheUnmanagedMark
+
+# M28. 🔴 THE DOOR SINGLE-SOURCING DOES NOT CLOSE, and what the tripwire is for after W15-1(b).
+#      A brand comparison in the power manager is written as a bare string literal again, naming a
+#      model the loader will refuse. It compiles, it works, and it teaches half the kernel about a
+#      switch no topology file may name -- the pre-2026-09-07 shape, reached by hand. Only
+#      TheAcceptedBrandListCoversEveryBrandTheCodeBranchesOn can see it: nothing about loading
+#      changes, so no behavioural case moves.
+mutate "W15-1(b): the power manager branches on a brand literal the loader refuses" \
+    "$DCPM" \
+    '    else if (targetSwitch->brandName == kBrandHPE5520)' \
+    '    else if (targetSwitch->brandName == "CiscoC9300")' \
+    TopologyInputValidationTest.TheAcceptedBrandListCoversEveryBrandTheCodeBranchesOn
 
 # ================================================================================================
 # 6. the widenings -- these MUST survive
@@ -959,6 +989,8 @@ echo "  FINDINGS #90 gate: door 3d cannot be switched off, neither of its two pl
 echo "  can quietly fall back to a raw nlohmann exception, and it cannot narrow to 'exactly one"
 echo "  address' without the five _ipAlias4_ files saying so -- while spelling the emptiness test"
 echo "  a different way stays green."
+echo "  W15-1(b) gate: the brand list cannot lose a hardware model without the shipped fleet saying"
+echo "  so, and a brand comparison cannot go back to a bare literal the loader would refuse."
 echo "  W15-2 gate: the switch_kind exemption cannot be removed, cannot spread to the brand_name"
 echo "  presence check, and cannot admit a switch without marking it power_path/telemetry_path"
 echo "  none -- while writing the exemption as two named booleans and a guard stays green."

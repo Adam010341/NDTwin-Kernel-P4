@@ -1276,33 +1276,80 @@ TEST(TopologyInputValidationTest, AHostBrandNameIsNotChecked)
 
 TEST(TopologyInputValidationTest, TheAcceptedBrandListCoversEveryBrandTheCodeBranchesOn)
 {
-    // 🔴 WHAT THIS IS FOR. The accepted list lives in TopologyAndFlowMonitor.cpp; the code that
-    // actually behaves differently per brand lives in two other files -- GraphTypes.hpp's
-    // switchKindFromBrandName and DeviceConfigurationAndPowerManager.cpp's HPE5520 branches. Two
-    // copies of one truth is this codebase's most repeated shape (three hand-written field
-    // extractions, two layers of topology validation), and the failure it produces here is
-    // specific: teach the mapping a new brand and forget the list, and the loader refuses a
-    // topology the rest of the kernel could drive perfectly well.
+    // 🔴 WHAT THIS IS FOR, AND HOW IT CHANGED ON 2026-09-07. Until W15-1(b) the accepted list
+    // lived in TopologyAndFlowMonitor.cpp while the code that behaves differently per brand lived
+    // in two other files -- GraphTypes.hpp's switchKindFromBrandName and
+    // DeviceConfigurationAndPowerManager.cpp's HPE5520 branches -- so this test's job was to
+    // notice that two copies of one truth had drifted apart. They are one copy now: five named
+    // constants in GraphTypes.hpp, an array built from them, and every comparison naming one.
+    // Drift is a compile error, so what is left to check is the way back INTO two copies:
     //
-    // Textual, like FromJsonHasNoProductionCallers, and with the same kind of limitation stated
-    // rather than hidden: it reads `brandName ==` / `brandName !=` comparisons against a string
-    // literal. A brand reached some other way (a map lookup, a substring test) is invisible to it.
+    //   1. the array must list exactly the five constants, not four of them and a stray literal;
+    //   2. no brand comparison anywhere in those two files may be written as a bare string
+    //      literal the loader would then refuse.
+    //
+    // (2) is the one that matters. Adding `brandName == "CiscoC9300"` to the power manager
+    // compiles, works, and teaches half the kernel about a switch the loader will not admit --
+    // which is the exact shape of the pre-2026-09-07 defect, reachable again through the one door
+    // single-sourcing does not close.
+    //
+    // Textual, like FromJsonHasNoProductionCallers, and with the same limitation stated rather
+    // than hidden: it reads `brandName ==` / `brandName !=` comparisons. A brand reached some
+    // other way (a map lookup, a substring test) is invisible to it, which is why the count of
+    // sites it managed to find is asserted rather than assumed.
     const std::string dir = settingDir();
     ASSERT_FALSE(dir.empty());
     const std::filesystem::path root =
         std::filesystem::path(dir).parent_path().empty() ? std::filesystem::path(".")
                                                          : std::filesystem::path(dir).parent_path();
+    const std::filesystem::path graphTypes = root / "include/common_types/GraphTypes.hpp";
+    const std::filesystem::path powerManager =
+        root / "src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp";
 
-    // The list, read out of the source so the test cannot drift from it silently.
-    std::vector<std::string> accepted;
+    /// Everything on `line` before a `//`, so a comment cannot be read as code.
+    const auto codeOf = [](std::string line) {
+        const auto comment = line.find("//");
+        return comment == std::string::npos ? line : line.substr(0, comment);
+    };
+
+    // 1. The five constants, name -> value, read out of the header.
+    std::vector<std::pair<std::string, std::string>> brands;
     {
-        std::ifstream in(root / "src/ndt_core/collection/TopologyAndFlowMonitor.cpp");
-        ASSERT_TRUE(in.good()) << "cannot read the validator";
+        std::ifstream in(graphTypes);
+        ASSERT_TRUE(in.good()) << "cannot read " << graphTypes;
+        std::string line;
+        while (std::getline(in, line))
+        {
+            const std::string code = codeOf(line);
+            const auto at = code.find("inline constexpr std::string_view kBrand");
+            if (at == std::string::npos)
+            {
+                continue;
+            }
+            const auto nameStart = code.find("kBrand", at);
+            const auto nameEnd = code.find(' ', nameStart);
+            const auto open = code.find('"', nameEnd);
+            const auto close = code.find('"', open + 1);
+            ASSERT_NE(close, std::string::npos) << line;
+            brands.emplace_back(code.substr(nameStart, nameEnd - nameStart),
+                                code.substr(open + 1, close - open - 1));
+        }
+    }
+    ASSERT_EQ(brands.size(), 5u)
+        << "could not read the five kBrand* constants out of GraphTypes.hpp -- the search, not "
+           "the answer, is what failed";
+
+    // 2. The array must list exactly those five names.
+    std::vector<std::string> listed;
+    {
+        std::ifstream in(graphTypes);
+        ASSERT_TRUE(in.good());
         std::string line;
         bool inList = false;
         while (std::getline(in, line))
         {
-            if (line.find("kAcceptedSwitchBrands{") != std::string::npos)
+            const std::string code = codeOf(line);
+            if (code.find("kAcceptedSwitchBrands{") != std::string::npos)
             {
                 inList = true;
                 continue;
@@ -1311,63 +1358,92 @@ TEST(TopologyInputValidationTest, TheAcceptedBrandListCoversEveryBrandTheCodeBra
             {
                 continue;
             }
-            if (line.find("};") != std::string::npos)
+            if (code.find("};") != std::string::npos)
             {
                 break;
             }
-            const auto open = line.find('"');
-            if (open == std::string::npos)
+            const auto at = code.find("kBrand");
+            if (at == std::string::npos)
             {
+                EXPECT_EQ(code.find_first_not_of(" \t"), std::string::npos)
+                    << "kAcceptedSwitchBrands carries an entry that is not one of the named "
+                       "constants, which is a second spelling of a brand: "
+                    << line;
                 continue;
             }
-            const auto close = line.find('"', open + 1);
-            ASSERT_NE(close, std::string::npos) << line;
-            accepted.push_back(line.substr(open + 1, close - open - 1));
+            const auto end = code.find_first_of(",} \t", at);
+            listed.push_back(code.substr(at, end - at));
         }
     }
-    ASSERT_EQ(accepted.size(), 5u)
-        << "could not read kAcceptedSwitchBrands out of the validator -- the search, not the "
-           "answer, is what failed";
-
-    // Every brand any of these files compares against.
-    std::vector<std::string> branchedOn;
-    for (const char* file : {"include/common_types/GraphTypes.hpp",
-                             "src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp"})
+    std::vector<std::string> names;
+    for (const auto& [name, value] : brands)
     {
-        std::ifstream in(root / file);
+        names.push_back(name);
+    }
+    std::sort(names.begin(), names.end());
+    std::sort(listed.begin(), listed.end());
+    EXPECT_EQ(listed, names)
+        << "kAcceptedSwitchBrands and the kBrand* constants have come apart; a constant the array "
+           "does not list is a brand the code can branch on and the loader will refuse";
+
+    // 3. Every brand comparison in the mapping and in the power manager.
+    std::vector<std::string> literalBrands;
+    std::vector<std::string> namedBrands;
+    for (const auto& file : {graphTypes, powerManager})
+    {
+        std::ifstream in(file);
         ASSERT_TRUE(in.good()) << file;
         std::string line;
         while (std::getline(in, line))
         {
-            const auto comment = line.find("//");
-            if (comment != std::string::npos)
+            const std::string code = codeOf(line);
+            for (const char* op : {"brandName == ", "brandName != "})
             {
-                line.erase(comment);
-            }
-            for (const char* op : {"brandName == \"", "brandName != \""})
-            {
-                for (auto at = line.find(op); at != std::string::npos;
-                     at = line.find(op, at + 1))
+                for (auto at = code.find(op); at != std::string::npos;
+                     at = code.find(op, at + 1))
                 {
                     const auto start = at + std::string(op).size();
-                    const auto close = line.find('"', start);
-                    if (close == std::string::npos)
+                    if (code[start] == '"')
                     {
-                        continue;
+                        const auto close = code.find('"', start + 1);
+                        if (close == std::string::npos)
+                        {
+                            continue;
+                        }
+                        literalBrands.push_back(code.substr(start + 1, close - start - 1));
                     }
-                    branchedOn.push_back(line.substr(start, close - start));
+                    else if (code.compare(start, 6, "kBrand") == 0)
+                    {
+                        const auto end = code.find_first_of(")|& \t,;", start);
+                        namedBrands.push_back(code.substr(start, end - start));
+                    }
                 }
             }
         }
     }
-    ASSERT_FALSE(branchedOn.empty())
-        << "no brand comparison found in either file -- the search, not the answer, is wrong";
+    ASSERT_GE(literalBrands.size() + namedBrands.size(), 8u)
+        << "found only " << literalBrands.size() + namedBrands.size()
+        << " brand comparisons in the mapping and the power manager -- the search, not the "
+           "answer, is wrong, and a tripwire that cannot find its sites is not a tripwire";
 
-    for (const auto& brand : branchedOn)
+    for (const auto& brand : literalBrands)
     {
-        EXPECT_NE(std::find(accepted.begin(), accepted.end(), brand), accepted.end())
-            << "the code branches on brand_name \"" << brand
-            << "\" but the loader refuses it: the mapping and the accepted list have drifted";
+        // A literal is not forbidden, but it must name a brand the loader admits. One that does
+        // not is the pre-2026-09-07 defect written by hand.
+        bool known = false;
+        for (const auto& [name, value] : brands)
+        {
+            known = known || value == brand;
+        }
+        EXPECT_TRUE(known) << "the code branches on brand_name \"" << brand
+                           << "\" written as a bare literal, and the loader refuses that brand: "
+                              "the comparison and the accepted list have come apart";
+    }
+    for (const auto& used : namedBrands)
+    {
+        EXPECT_NE(std::find(names.begin(), names.end(), used), names.end())
+            << "a brand comparison names the constant " << used
+            << ", which kAcceptedSwitchBrands does not list";
     }
 }
 

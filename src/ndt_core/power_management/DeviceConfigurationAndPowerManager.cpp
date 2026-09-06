@@ -1339,7 +1339,7 @@ DeviceConfigurationAndPowerManager::fetchMemoryReportInternal()
             // fake. F-1 in doc/KNOWN-ISSUES.md.
             memory = kHealthMetricUnavailable;
         }
-        else if (vp.brandName == "HPE5520")
+        else if (vp.brandName == kBrandHPE5520)
         {
             auto cmd = fmt::format("snmpget -v2c -c public {} 1.3.6.1.4.1.25506.2.6.1.1.1.1.8.212",
                                    ip_str);
@@ -1802,7 +1802,7 @@ DeviceConfigurationAndPowerManager::fetchPowerReportInternal()
             SPDLOG_INFO("Getting power report from DPID {} at IP {}", dpid, ip_str);
 
             // hpe switch
-            if (props.brandName == "HPE5520")
+            if (props.brandName == kBrandHPE5520)
             {
                 auto cmd =
                     fmt::format("snmpwalk -v2c -c public {} 1.3.6.1.4.1.25506.8.35.9.1.1.1.6",
@@ -2117,7 +2117,7 @@ DeviceConfigurationAndPowerManager::fetchCpuReportInternal()
             // header. F-1 in doc/KNOWN-ISSUES.md.
             cpu = kHealthMetricUnavailable;
         }
-        else if (vp.brandName == "HPE5520")
+        else if (vp.brandName == kBrandHPE5520)
         {
             auto cmd = fmt::format("snmpget -v2c -c public {} 1.3.6.1.4.1.25506.2.6.1.1.1.1.6.212",
                                    ip_str);
@@ -2206,7 +2206,7 @@ DeviceConfigurationAndPowerManager::fetchTemperatureReportInternal()
             result[ip_str] = -1;
             continue;
         }
-        else if (vp.brandName != "HPE5520" && m_mode != utils::DeploymentMode::MININET)
+        else if (vp.brandName != kBrandHPE5520 && m_mode != utils::DeploymentMode::MININET)
         {
             result[ip_str] = "The temperature function only supports the HPE 5520.";
             continue;
@@ -2305,7 +2305,7 @@ DeviceConfigurationAndPowerManager::getSingleSwitchPowerReport(const std::string
             const std::string username = "admin";
             SPDLOG_INFO("Getting power report from DPID {} at IP {}", props.dpid, ip_str);
 
-            if (props.brandName == "HPE5520")
+            if (props.brandName == kBrandHPE5520)
             {
                 // HPE switch (SNMP)
                 auto cmd =
@@ -2441,7 +2441,7 @@ DeviceConfigurationAndPowerManager::getSingleSwitchCpuReport(const std::string& 
     //
     // As an argv element the identifier cannot be anything but one argument to snmpget, so the
     // guarantee stops needing to hold.
-    else if (targetSwitch->brandName == "HPE5520")
+    else if (targetSwitch->brandName == kBrandHPE5520)
     {
         const std::string snmp_result =
             utils::execArgv({"snmpget", "-v2c", "-c", "public", deviceIdentifier,
