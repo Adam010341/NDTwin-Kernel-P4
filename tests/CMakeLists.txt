@@ -137,6 +137,15 @@ add_executable(
   # only. Seven contained death tests, one per site, because on an ordinary build the unfixed code
   # produces no red line -- it takes the binary down mid-suite with no verdict for anything.
   test_AddresslessNodeReplies.cpp
+
+  # [Co-developed with claude code -- Adam] FINDINGS #88, W18: the eighth `ip[0]`, which W2's
+  # inventory (sixteen) and W14's rescan-and-fix (seven more) both walked past -- updateHosts
+  # indexes the attachment switch's address list to key the reverse edge. SWITCH-class, so the
+  # load-time gate does cover it and no production route was found; pinned anyway, because that
+  # gate is one `if` in another subsystem and is younger than the call sites leaning on it. One
+  # contained death test plus five in-process tests, which are about WHICH parts of a hosts entry
+  # a guard is allowed to cost: only the reverse edge is keyed by the missing address.
+  test_AddresslessAttachmentSwitch.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there
