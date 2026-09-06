@@ -3,6 +3,7 @@
 #include "../setting/AppConfig.hpp"
 #include "common_types/GraphTypes.hpp" // for Graph
 #include "common_types/SFlowType.hpp"  // for FlowKey, Path
+#include "utils/NetemLinkFault.hpp"    // for netem::TcRunner (the startup residue sweep)
 #include "utils/StopSignal.hpp"        // for StopSignal (FINDINGS #76: a bounded stop)
 #include "utils/Utils.hpp"             // for DeploymentMode
 #include <chrono>                      // for milliseconds
@@ -34,6 +35,24 @@ static constexpr uint64_t MICE_FLOW_UNDER_THRESHOLD = 10000000;
 using json = nlohmann::json;
 
 class EventBus;
+
+/**
+ * @brief What applying one control-plane recovery report to an edge did.
+ *
+ * [Co-developed with claude code -- Adam]
+ * doc/KNOWN-ISSUES.md B-6 (W8b). Returned rather than logged-and-forgotten because the HTTP
+ * handler has to say which of the two happened: a caller that reads `200 link recovery processed`
+ * and finds the edge still down would otherwise be looking at the kernel disagreeing with itself.
+ */
+enum class LinkRecoveryOutcome
+{
+    /// The edge is up. Any declaration it carried paired with a failure report and was withdrawn.
+    Applied,
+
+    /// A declaration is standing that this report does not pair with -- nothing was reported
+    /// broken on this edge -- so it was NOT withdrawn and the edge was NOT marked up.
+    Retained
+};
 
 class TopologyAndFlowMonitor
 {
@@ -239,29 +258,80 @@ class TopologyAndFlowMonitor
      * questions and must be different calls, because only one of them is allowed to survive a
      * topology poll:
      *
-     *   setEdgeDown / setEdgeUp     -- an OBSERVATION. Discovery and the derived-liveness pass.
-     *                                  Leaves `declaredDown` alone in both directions.
-     *   setEdgeDownByDeclaration    -- an INTENT that was carried out: /ndt/link_failure_detected
-     *                                  says this link is gone. `updateLinks` may not overrule it.
-     *   clearEdgeDeclaredDown       -- that intent is spent: /ndt/link_recovery_detected.
+     *   setEdgeDown / setEdgeUp        -- an OBSERVATION. Discovery and the derived-liveness pass.
+     *                                     Leaves `declaredDown` alone in both directions.
+     *   setEdgeDownByDeclaration       -- an INTENT that was carried out: an operator asked for
+     *                                     this link to be down (/ndt/inject_link_failure).
+     *                                     `updateLinks` may not overrule it.
+     *   setEdgeDownByReportedFailure   -- the same intent, PLUS the note that the control plane
+     *                                     said it saw the break (/ndt/link_failure_detected).
+     *   applyReportedLinkRecovery      -- /ndt/link_recovery_detected. Spends that note, and only
+     *                                     then withdraws the declaration.
+     *   clearEdgeDeclaredDown          -- the unconditional withdrawal:
+     *                                     /ndt/inject_link_recovery.
      *
      * Calling setEdgeDown from the push path instead of this is the defect: it is
      * indistinguishable from the control plane's own opinion, so the next `updateLinks` lifts
      * `isUp` straight back -- measured 5 times in 5, within 30 s, on 2026-09-04.
      *
-     * @warning The declaration is PERMANENT until clearEdgeDeclaredDown. That is the deliberate
-     *          other half of B-6: the old failure mode was an injection that ended early and
-     *          silently, and the new one is an injection that never ends. Both directions have to
-     *          be asserted by anything that injects through this path.
+     * @warning The declaration is PERMANENT until it is withdrawn, and since W8b a topology poll
+     *          is no longer the only thing that cannot end it: a bare `EventLinkAdd` rediscovery
+     *          cannot either. That is the deliberate other half of B-6 -- the old failure mode was
+     *          an injection that ended early and silently, and the new one is an injection that
+     *          never ends. Both directions have to be asserted by anything that injects.
      */
     void setEdgeDownByDeclaration(Graph::edge_descriptor e);
 
     /**
-     * @brief Withdraws a standing link-failure declaration for @p e.
+     * @brief Declares @p e failed AND records that the control plane reported the break.
+     *
+     * [Co-developed with claude code -- Adam]
+     * doc/KNOWN-ISSUES.md B-6 (W8b). /ndt/link_failure_detected, and nothing else, calls this:
+     * it is Ryu's notification endpoint, so a call to it is the twin being TOLD a link broke.
+     * /ndt/inject_link_failure calls setEdgeDownByDeclaration instead -- an operator asking for a
+     * link to be down is not the control plane observing that it is.
+     *
+     * The difference is spent by applyReportedLinkRecovery: one report, one withdrawal.
+     */
+    void setEdgeDownByReportedFailure(Graph::edge_descriptor e);
+
+    /**
+     * @brief Applies a control-plane recovery report (/ndt/link_recovery_detected) to @p e.
+     *
+     * [Co-developed with claude code -- Adam]
+     * doc/KNOWN-ISSUES.md B-6 (W8b), and the whole of the rule Adam settled on 2026-09-07 after
+     * the lw8b live arm: **a withdrawal has to pair with a reported break.**
+     *
+     *   - `failureReported` set  -> the report pairs with it. Spend it, withdraw any declaration,
+     *                               mark the edge up. Returns Applied.
+     *   - nothing reported, but a declaration is standing -> this is a bare rediscovery. Leave the
+     *                               declaration AND `isUp` alone. Returns Retained.
+     *   - nothing reported, nothing declared -> mark the edge up (the report is evidence and the
+     *                               next poll may be 30 s away). Returns Applied.
+     *
+     * WHY: measured 2026-09-07 00:08 (lw8b). Killing Ryu and restarting it with the same argv made
+     * `on_link_add` fire for every link LLDP rediscovered, and `intelligent_router.py` POSTs
+     * /ndt/link_recovery_detected from there -- so within one second of the control plane coming
+     * back, every standing declaration in the fabric had been withdrawn (9 of 9 samples over the
+     * next 90 s). Nothing about the fabric had recovered; the controller had merely been restarted.
+     *
+     * @warning This is ONE lock acquisition on purpose. The old shape was
+     *          `clearEdgeDeclaredDown(e); setEdgeUp(e);` from the handler -- two acquisitions with
+     *          a window between them in which the edge published `is_up: false` with no
+     *          declaration, which is the one combination a poll is allowed to lift.
+     */
+    LinkRecoveryOutcome applyReportedLinkRecovery(Graph::edge_descriptor e);
+
+    /**
+     * @brief Withdraws a standing link-failure declaration for @p e, unconditionally.
+     *
+     * The withdrawal /ndt/inject_link_recovery makes: an operator who injected a failure is
+     * entitled to take it back without the control plane's agreement. Also spends any standing
+     * failure report, because the episode is over either way.
      *
      * Deliberately does NOT touch `isUp`: whether the link is carrying traffic again is discovery's
      * call, and discovery has evidence -- this call answers only "is the twin still holding a
-     * declared failure against this edge". /ndt/link_recovery_detected calls setEdgeUp as well,
+     * declared failure against this edge". /ndt/inject_link_recovery calls setEdgeUp as well,
      * because a caller saying "it recovered" is itself evidence and the next poll may be 30 s away.
      * [Co-developed with claude code -- Adam]
      */
@@ -270,6 +340,45 @@ class TopologyAndFlowMonitor
     /// Whether a declared link failure is still standing for @p e.
     /// [Co-developed with claude code -- Adam]
     bool getEdgeDeclaredDown(Graph::edge_descriptor e);
+
+    /// Whether an unspent control-plane failure report is standing for @p e. W8b.
+    /// [Co-developed with claude code -- Adam]
+    bool getEdgeFailureReported(Graph::edge_descriptor e);
+
+    /**
+     * @brief Every `sN-ethM` this twin could have attached netem to: both ends of every
+     *        switch-to-switch link, deduplicated, in graph order.
+     *
+     * [Co-developed with claude code -- Adam]
+     * doc/KNOWN-ISSUES.md B-6 (W8-4). Exactly the set /ndt/inject_link_failure can reach and no
+     * wider: a switch with no `bridge_name` is skipped rather than guessed at, and host-facing
+     * edges are excluded because since W8-7 the link endpoints refuse dpid 0 outright. A wider
+     * sweep would report residue this kernel could not have made and cannot name an owner for.
+     */
+    std::vector<std::string> mininetLinkInterfaces() const;
+
+    /**
+     * @brief Startup sweep: does the machine already carry netem this kernel does not know about?
+     *
+     * [Co-developed with claude code -- Adam]
+     * doc/KNOWN-ISSUES.md B-6 (W8-4), Adam's ruling of 2026-09-06: **WARN, do not clear, and do
+     * not turn it into a declaration.**
+     *
+     * A declaration lives in this process and a netem lives in the machine's qdisc tree, so a
+     * kernel restart separates them: `declaredDown` is deliberately not read back from any file
+     * (see EdgeProperties), which makes a fresh kernel's clean `down_reason` say nothing at all
+     * about whether packets are flowing. This is the one line that stops that from being silent.
+     *
+     * It does NOT clear the netem: removing a fault this process did not create would destroy
+     * whatever experiment did create it, and `tools/test_workflow/faults.sh` is entitled to have
+     * netem on an interface. It does NOT declare the edge down either: inventing a declaration
+     * from a qdisc reading would be the twin manufacturing its own evidence.
+     *
+     * @param run the tc seam; production passes utils::netem::realTcRunner().
+     * @return the interfaces found carrying netem, in sweep order. Empty on a clean fabric, and
+     *         empty on every non-MININET deployment (there is no Mininet interface to read).
+     */
+    std::vector<std::string> warnAboutResidualNetem(const utils::netem::TcRunner& run);
 
     void setVertexDown(Graph::vertex_descriptor v);
     void setVertexUp(Graph::vertex_descriptor v);

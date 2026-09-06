@@ -432,6 +432,50 @@ HttpSession::closeSocket()
     m_socket.shutdown(tcp::socket::shutdown_send, ec);
 }
 
+// [Co-developed with claude code -- Adam]
+// doc/KNOWN-ISSUES.md B-6 (W8-7). The four link-transition endpoints address a link by the two
+// dpids at its ends, and the shared refusal they all owe a caller who names dpid 0.
+namespace
+{
+
+/**
+ * @brief Whether a (src_dpid, dst_dpid) pair names two switches, which is the only thing these
+ *        four endpoints can act on.
+ *
+ * [Co-developed with claude code -- Adam]
+ * doc/KNOWN-ISSUES.md B-6 §7-7, F-16, Adam's ruling of 2026-09-06 ("host edges are not addressed
+ * by this endpoint"). A host vertex carries dpid 0, and findEdgeBySrcAndDstDpid matches on the two
+ * dpids ALONE -- so `{"src_dpid":1,"dst_dpid":0}` resolves to whichever host edge of s1 the graph
+ * happens to iterate first. Three separate things are wrong with letting that through and only the
+ * first is obvious:
+ *
+ *   1. which host edge it lands on is decided by edge insertion order, not by the payload;
+ *   2. updateHosts has no declaration veto (deliberately -- the veto belongs in updateLinks, where
+ *      links live), so the declaration is set and the next host poll lifts `isUp` straight back:
+ *      B-6 all over again, on the one shape of edge the fix does not cover;
+ *   3. an operator who wrote a 0 by mistake gets a 200 and a fault somewhere they did not name.
+ *
+ * Refused at the door rather than vetoed deeper down, because this is an input-validation problem
+ * and not a state-machine one: spraying the veto into updateHosts would be fixing the symptom of a
+ * request the twin should never have accepted.
+ *
+ * @note Ryu never sends this: EventLinkAdd/EventLinkDelete are LLDP switch-to-switch events, and a
+ *       host arrives through EventHostAdd, which does not reach these endpoints at all.
+ */
+bool
+namesTwoSwitches(uint64_t srcDpid, uint64_t dstDpid)
+{
+    return srcDpid != 0 && dstDpid != 0;
+}
+
+/// The body a dpid-0 refusal carries. One string, so all four endpoints answer the same sentence.
+constexpr const char* kHostEdgeRefusal =
+    R"({"error":"src_dpid and dst_dpid must both name a switch: dpid 0 is the host end of a host )"
+    R"(edge, and a host edge is not addressed by this endpoint -- it would resolve to whichever )"
+    R"(host edge of the other switch comes first in the graph"})";
+
+} // namespace
+
 void
 HttpSession::handleLinkFailure(http::response<http::string_body>& res)
 {
@@ -441,6 +485,12 @@ HttpSession::handleLinkFailure(http::response<http::string_body>& res)
     {
         res.result(http::status::bad_request);
         res.body() = R"({"error":"Invalid link-failure payload"})";
+        return;
+    }
+    if (!namesTwoSwitches(data->srcDpid, data->dstDpid))
+    {
+        res.result(http::status::bad_request);
+        res.body() = kHostEdgeRefusal;
         return;
     }
 
@@ -459,11 +509,16 @@ HttpSession::handleLinkFailure(http::response<http::string_body>& res)
         return;
     }
     // [Co-developed with claude code -- Adam]
-    // doc/KNOWN-ISSUES.md B-6. setEdgeDownByDeclaration, not setEdgeDown: this is the push path,
-    // and calling the observation writer from it is the defect -- the graph could not then tell
-    // "an operator told us this link failed" from "the poll's own opinion", so the next
-    // updateLinks lifted it back. See TopologyAndFlowMonitor.hpp for the two-writer split.
-    m_topologyAndFlowMonitor->setEdgeDownByDeclaration(fwdOpt.value());
+    // doc/KNOWN-ISSUES.md B-6. Not setEdgeDown: this is the push path, and calling the observation
+    // writer from it is the defect -- the graph could not then tell "an operator told us this link
+    // failed" from "the poll's own opinion", so the next updateLinks lifted it back. See
+    // TopologyAndFlowMonitor.hpp for the writer split.
+    //
+    // W8b: ...ByReportedFailure, not ...ByDeclaration. THIS endpoint is Ryu's notification, so a
+    // call to it is the control plane saying it SAW the break -- and that note is what the matching
+    // /ndt/link_recovery_detected later pairs with. /ndt/inject_link_failure calls the plain
+    // declaration writer instead, which is what makes an injection immune to a Ryu restart.
+    m_topologyAndFlowMonitor->setEdgeDownByReportedFailure(fwdOpt.value());
     m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
                            .payload = LinkFailureEventData{fwdOpt.value()}});
 
@@ -492,7 +547,7 @@ HttpSession::handleLinkFailure(http::response<http::string_body>& res)
             R"({"error":"reverse edge missing from the topology; the reported direction was marked down, its reverse was not"})";
         return;
     }
-    m_topologyAndFlowMonitor->setEdgeDownByDeclaration(revOpt.value());
+    m_topologyAndFlowMonitor->setEdgeDownByReportedFailure(revOpt.value());
     m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
                            .payload = LinkFailureEventData{revOpt.value()}});
     // [Co-developed with claude code -- Adam]
@@ -522,6 +577,13 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
     uint64_t dstDpid = jsonData["dst_dpid"].get<uint64_t>();
     uint32_t dstInterface = jsonData["dst_interface"].get<uint32_t>();
 
+    if (!namesTwoSwitches(srcDpid, dstDpid))
+    {
+        res.result(http::status::bad_request);
+        res.body() = kHostEdgeRefusal;
+        return;
+    }
+
     SPDLOG_LOGGER_INFO(Logger::instance(),
                        "link recovered on {}:{} -> {}:{}",
                        srcDpid,
@@ -537,14 +599,13 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
         return;
     }
     // [Co-developed with claude code -- Adam]
-    // doc/KNOWN-ISSUES.md B-6. Two calls, in this order, and both are needed:
-    //   clearEdgeDeclaredDown -- withdraws the standing declaration, so a poll may lift this edge
-    //                            again. Without it the declaration is permanent and setEdgeUp
-    //                            below would publish `is_up: true, down_reason: "declared"`.
-    //   setEdgeUp             -- the caller saying "it recovered" is itself evidence, and the next
-    //                            poll may be 30 s away.
-    m_topologyAndFlowMonitor->clearEdgeDeclaredDown(fwdOpt.value());
-    m_topologyAndFlowMonitor->setEdgeUp(fwdOpt.value());
+    // doc/KNOWN-ISSUES.md B-6, and W8b changed which call this is. It used to be
+    // `clearEdgeDeclaredDown(e); setEdgeUp(e);` -- an unconditional withdrawal, which made a Ryu
+    // restart end every standing injection in the fabric (measured, lw8b 2026-09-07 00:08: within
+    // one second of Ryu coming back the kernel logged a recovery POST for every link, and the
+    // declaration was gone in 9 of 9 samples). One call now, and it withdraws only when this
+    // report pairs with a failure the control plane reported. See applyReportedLinkRecovery.
+    const auto fwdOutcome = m_topologyAndFlowMonitor->applyReportedLinkRecovery(fwdOpt.value());
     // TODO: Emit LinkRecoveryDetected event
 
     auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({dstDpid, srcDpid});
@@ -552,23 +613,45 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
     {
         // Same shape and same reasoning as handleLinkFailure above: edges exist in pairs, so a
         // missing reverse is kernel-state inconsistency, and by now the forward direction has
-        // already been set up -- report the half that happened. [Co-developed with claude code -- Adam]
+        // already been acted on -- report the half that happened. [Co-developed with claude code -- Adam]
+        // W8b: "applied" rather than "marked up", because the forward direction may have kept a
+        // declaration this report could not pair with. Saying "marked up" would be this branch
+        // reporting the outcome it assumed rather than the one it got.
         SPDLOG_LOGGER_WARN(Logger::instance(),
                            "link recovery {}:{} -> {}:{}: reverse edge {} -> {} is missing from "
-                           "the topology; forward direction marked up, reverse untouched",
+                           "the topology; forward direction applied ({}), reverse untouched",
                            srcDpid,
                            srcInterface,
                            dstDpid,
                            dstInterface,
                            dstDpid,
-                           srcDpid);
+                           srcDpid,
+                           fwdOutcome == LinkRecoveryOutcome::Retained ? "declaration retained"
+                                                                      : "marked up");
         res.result(http::status::internal_server_error);
         res.body() =
-            R"({"error":"reverse edge missing from the topology; the reported direction was marked up, its reverse was not"})";
+            R"({"error":"reverse edge missing from the topology; the reported direction was applied, its reverse was not"})";
         return;
     }
-    m_topologyAndFlowMonitor->clearEdgeDeclaredDown(revOpt.value());
-    m_topologyAndFlowMonitor->setEdgeUp(revOpt.value());
+    const auto revOutcome = m_topologyAndFlowMonitor->applyReportedLinkRecovery(revOpt.value());
+
+    // [Co-developed with claude code -- Adam]
+    // doc/KNOWN-ISSUES.md B-6 (W8b). Still 200 -- the notification WAS processed, and Ryu's
+    // on_link_add logs "NDT REJECTED this notification ... the kernel's view is now stale" on any
+    // 4xx, which would be false here and would fire once per link on every controller restart.
+    // But 200 with the default body would be the older, worse lie: a caller reading only the
+    // status line would believe a link is back that this kernel deliberately left down. So the
+    // body says so, and names the endpoint that CAN withdraw it.
+    if (fwdOutcome == LinkRecoveryOutcome::Retained || revOutcome == LinkRecoveryOutcome::Retained)
+    {
+        res.body() =
+            R"({"status":"link recovery processed","declaration_retained":true,)"
+            R"("detail":"a link failure is declared for this link and nothing ever reported it )"
+            R"(broken, so this recovery report did not withdraw it and the link is still down. )"
+            R"(That is what an injected failure surviving a control-plane restart looks like. )"
+            R"(Withdraw it with POST /ndt/inject_link_recovery","until":"/ndt/inject_link_recovery"})";
+        return;
+    }
     res.body() = R"({"status":"link recovery processed"})";
 }
 
@@ -610,6 +693,15 @@ HttpSession::handleInjectLinkFailure(http::response<http::string_body>& res)
     {
         res.result(http::status::bad_request);
         res.body() = R"({"error":"Invalid link-failure payload"})";
+        return;
+    }
+    // W8-7. Refused here for the reason the notification endpoint refuses it, and one more: this
+    // endpoint runs tc, so a dpid-0 payload would attach netem to whichever host-facing interface
+    // the arbitrarily-chosen edge named. [Co-developed with claude code -- Adam]
+    if (!namesTwoSwitches(data->srcDpid, data->dstDpid))
+    {
+        res.result(http::status::bad_request);
+        res.body() = kHostEdgeRefusal;
         return;
     }
 
@@ -699,6 +791,16 @@ HttpSession::handleInjectLinkRecovery(http::response<http::string_body>& res)
         res.body() = R"({"error":"Invalid link-failure payload"})";
         return;
     }
+    // W8-7, the fourth door. The ruling named the failure endpoints, and this one is refused with
+    // them because the family's contract is what is being fixed: a payload this endpoint accepts
+    // but its failure sibling refuses is a link nobody could have injected and an interface this
+    // endpoint would still run `tc qdisc del` against. [Co-developed with claude code -- Adam]
+    if (!namesTwoSwitches(data->srcDpid, data->dstDpid))
+    {
+        res.result(http::status::bad_request);
+        res.body() = kHostEdgeRefusal;
+        return;
+    }
 
     auto fwdOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({data->srcDpid, data->dstDpid});
     if (!fwdOpt.has_value())
@@ -721,6 +823,11 @@ HttpSession::handleInjectLinkRecovery(http::response<http::string_body>& res)
         return;
     }
 
+    // [Co-developed with claude code -- Adam]
+    // W8b: the UNCONDITIONAL withdrawal, and the only one left. /ndt/link_recovery_detected now
+    // withdraws a declaration only when it pairs with a reported break; this endpoint is the
+    // operator taking their own injection back, so it needs no agreement from the control plane --
+    // and it is the endpoint the caller is pointed at when the other one declines.
     for (const auto& e : {fwdOpt.value(), revOpt.value()})
     {
         m_topologyAndFlowMonitor->clearEdgeDeclaredDown(e);

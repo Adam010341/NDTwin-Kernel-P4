@@ -3103,6 +3103,68 @@ TopologyAndFlowMonitor::setEdgeDownByDeclaration(Graph::edge_descriptor e)
                        eprop.dstDpid);
 }
 
+/** @brief See the header for why the report is a second flag and not a second meaning for the
+ *         declaration. [Co-developed with claude code -- Adam] */
+void
+TopologyAndFlowMonitor::setEdgeDownByReportedFailure(Graph::edge_descriptor e)
+{
+    {
+        std::unique_lock lock(*m_graphMutex);
+        // The note this call adds, and the only thing that separates it from an injection: the
+        // control plane says it SAW this break, so the recovery report that pairs with it is
+        // entitled to withdraw the declaration. W8b.
+        (*m_graph)[e].failureReported = true;
+    }
+    setEdgeDownByDeclaration(e);
+}
+
+/** @brief See the header. [Co-developed with claude code -- Adam] */
+LinkRecoveryOutcome
+TopologyAndFlowMonitor::applyReportedLinkRecovery(Graph::edge_descriptor e)
+{
+    std::unique_lock lock(*m_graphMutex);
+    auto& eprop = (*m_graph)[e];
+
+    // [Co-developed with claude code -- Adam]
+    // doc/KNOWN-ISSUES.md B-6 (W8b). THE RULE, and it is one condition: a recovery report may only
+    // withdraw a declaration it pairs with. `failureReported` is set by /ndt/link_failure_detected
+    // and by nothing else, so an edge that carries a declaration without one was declared down by
+    // an operator through /ndt/inject_link_failure -- and Ryu rediscovering the link says nothing
+    // about that, because nothing on the fabric had to change for Ryu to list it again.
+    //
+    // Measured 2026-09-07 00:08 (lw8b, OVS 4 hosts): Ryu restarted with the same argv POSTed
+    // /ndt/link_recovery_detected for EVERY link within one second of coming back, and every
+    // standing declaration was gone. Without this branch a control-plane restart silently ends
+    // every injection in the fabric while the netem that accompanies one stays attached -- the
+    // graph then says the link is up and the packets still do not flow.
+    if (!eprop.failureReported && eprop.declaredDown)
+    {
+        // NOT edge-triggered, unlike m_linkResurrectionDeclined next door, and the difference is
+        // the shape of the input: the poll re-states the same list every 30 s for ever, while a
+        // recovery report arrives only when the control plane actually raises EventLinkAdd. Each
+        // one is a distinct event and each one is a withdrawal this kernel refused -- collapsing
+        // them would lose the count of how many times something tried to end this injection.
+        SPDLOG_LOGGER_WARN(
+            Logger::instance(),
+            "the control plane reports link {} -> {} recovered, but nothing ever reported it "
+            "broken and a link failure is declared for it, so the declaration stands and the "
+            "edge is left down. POST /ndt/inject_link_recovery to withdraw it",
+            eprop.srcDpid,
+            eprop.dstDpid);
+        return LinkRecoveryOutcome::Retained;
+    }
+
+    // Spent: one report, one withdrawal. A second bare rediscovery finds nothing to pair with.
+    eprop.failureReported = false;
+    eprop.declaredDown = false;
+    // The episode is over, so the next decline for this edge is a new one and deserves its line.
+    m_linkResurrectionDeclined.erase({eprop.srcDpid, eprop.srcInterface});
+    eprop.isUp = true;
+    /// @see setEdgeUp for why the reason is cleared here.
+    eprop.downReason = DownReason::None;
+    return LinkRecoveryOutcome::Applied;
+}
+
 /** @brief See the header. [Co-developed with claude code -- Adam] */
 void
 TopologyAndFlowMonitor::clearEdgeDeclaredDown(Graph::edge_descriptor e)
@@ -3110,6 +3172,9 @@ TopologyAndFlowMonitor::clearEdgeDeclaredDown(Graph::edge_descriptor e)
     std::unique_lock lock(*m_graphMutex);
     auto& eprop = (*m_graph)[e];
     eprop.declaredDown = false;
+    // Spent as well: an operator taking an injection back ends the episode, so a recovery report
+    // arriving afterwards must not find a report left over to pair with. W8b.
+    eprop.failureReported = false;
     // The episode is over, so the next decline for this edge is a new one and deserves its line.
     m_linkResurrectionDeclined.erase({eprop.srcDpid, eprop.srcInterface});
 }
@@ -3120,6 +3185,110 @@ TopologyAndFlowMonitor::getEdgeDeclaredDown(Graph::edge_descriptor e)
 {
     std::shared_lock lock(*m_graphMutex);
     return (*m_graph)[e].declaredDown;
+}
+
+/** @brief See the header. [Co-developed with claude code -- Adam] */
+bool
+TopologyAndFlowMonitor::getEdgeFailureReported(Graph::edge_descriptor e)
+{
+    std::shared_lock lock(*m_graphMutex);
+    return (*m_graph)[e].failureReported;
+}
+
+/** @brief See the header. [Co-developed with claude code -- Adam] */
+std::vector<std::string>
+TopologyAndFlowMonitor::mininetLinkInterfaces() const
+{
+    std::vector<std::string> ifaces;
+    std::shared_lock lock(*m_graphMutex);
+    for (auto ed : boost::make_iterator_range(boost::edges(*m_graph)))
+    {
+        const auto src = boost::source(ed, *m_graph);
+        const auto dst = boost::target(ed, *m_graph);
+        const auto& sp = (*m_graph)[src];
+        // Both ends must be switches: a host edge has no Mininet switch interface at its far end,
+        // and since W8-7 no link endpoint can address one anyway.
+        if (sp.vertexType != VertexType::SWITCH ||
+            (*m_graph)[dst].vertexType != VertexType::SWITCH || sp.bridgeNameForMininet.empty())
+        {
+            continue;
+        }
+        auto name = utils::netem::mininetInterfaceName(sp.bridgeNameForMininet,
+                                                       (*m_graph)[ed].srcInterface);
+        // Edges are stored per direction, so walking every edge's SOURCE end already visits both
+        // ends of every link. Deduplicated because a `tc qdisc show` per duplicate would be a
+        // second subprocess for an answer already read. Linear scan: this runs once, at startup,
+        // over a few hundred names.
+        if (std::find(ifaces.begin(), ifaces.end(), name) == ifaces.end())
+        {
+            ifaces.push_back(std::move(name));
+        }
+    }
+    return ifaces;
+}
+
+/** @brief See the header. [Co-developed with claude code -- Adam] */
+std::vector<std::string>
+TopologyAndFlowMonitor::warnAboutResidualNetem(const utils::netem::TcRunner& run)
+{
+    std::vector<std::string> found;
+    if (m_mode != utils::MININET)
+    {
+        // Nothing to read: there are no Mininet interfaces on a testbed deployment, and running tc
+        // against the names this graph would produce would be a fault injected on whatever happens
+        // to answer to them.
+        return found;
+    }
+
+    // Read once. The graph is under a shared lock inside that call and the sweep below runs a
+    // subprocess per name, so a second walk would be answering a question already answered against
+    // a graph the poll thread may meanwhile have changed.
+    const auto ifaces = mininetLinkInterfaces();
+    for (const auto& iface : ifaces)
+    {
+        const auto tree = utils::netem::showQdisc(iface, run);
+        if (!tree.succeeded())
+        {
+            // Not a finding and not silence either. A tree that cannot be read is the one case in
+            // which this sweep has no opinion, and saying so is the difference between "clean" and
+            // "not looked at" -- the distinction this whole sweep exists to make.
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "could not read the qdisc tree for {} (tc qdisc show returned {}), "
+                               "so this startup sweep cannot say whether it carries netem",
+                               iface,
+                               tree.status);
+            continue;
+        }
+        if (utils::netem::findExistingNetem(tree.output).safe)
+        {
+            found.push_back(iface);
+        }
+    }
+
+    if (!found.empty())
+    {
+        std::string names;
+        for (const auto& iface : found)
+        {
+            if (!names.empty()) names += ", ";
+            names += iface;
+        }
+        // ONE line, listing the interfaces. Adam's ruling of 2026-09-06: warn, do not clear, do
+        // not turn it into a declaration. A line per interface would be the same sentence ten
+        // times over on a fabric someone left a whole round's faults on.
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "netem is already attached to {} of this fabric's {} link interfaces "
+                           "before this kernel injected anything: {}. Packets on those links are "
+                           "already being dropped or delayed, and NOTHING IN THE GRAPH SAYS SO -- "
+                           "a declared link failure does not survive a kernel restart but the tc "
+                           "qdisc that accompanied it does. Nothing was cleared: check with "
+                           "'tc qdisc show dev <iface>' and remove it, or POST "
+                           "/ndt/inject_link_recovery for the link it belongs to",
+                           found.size(),
+                           ifaces.size(),
+                           names);
+    }
+    return found;
 }
 
 pair<uint64_t, uint32_t>
