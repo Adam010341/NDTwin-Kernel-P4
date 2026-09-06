@@ -31,6 +31,7 @@ intent and touches nothing, and the runner exercises it.
 """
 from __future__ import annotations
 
+import sys
 import time
 from dataclasses import dataclass, field
 from typing import Callable
@@ -513,54 +514,314 @@ def _h23_verify() -> ActionResult:
                         {"paths": n})
 
 
-def _link_netem_apply(iface: str):
-    def f(dry: bool) -> ActionResult:
+# ============================================================================================
+# T-netem: cutting one link WITHOUT destroying the interface's shaping
+#
+# [Co-developed with claude code -- Adam]
+#
+# 🔴 W8-8, 2026-09-07. `tc qdisc add dev X root netem loss 100%` does not stack a layer on a
+# Mininet TCLink interface. It REPLACES htb -- the bandwidth shaping INV-04 and every link-usage
+# reading depend on -- and `tc qdisc del dev X root` then restores the KERNEL DEFAULT rather
+# than htb. Measured, verbatim, on 2026-08-13
+# (doc/audit/2026-08-12_overnight-review/C-live-ovs-runbook.md, P1):
+#
+#     $ tc qdisc show dev s1-eth2
+#     qdisc htb 5: root refcnt 15 r2q 10 default 0x1 direct_packets_stat 0 direct_qlen 1000
+#     $ sudo -n tc qdisc add dev s1-eth2 root netem loss 100%      # no error output at all
+#     $ tc qdisc show dev s1-eth2
+#     qdisc netem 8005: root refcnt 15 limit 1000 loss 100%        # htb 5: and class 5:1 gone
+#     $ sudo -n tc qdisc del dev s1-eth2 root
+#     $ tc qdisc show dev s1-eth2
+#     qdisc noqueue 0: root refcnt 2                               # neither netem nor htb
+#
+# and the sudoers NOPASSWD grant on this machine does not cover putting htb back, so the damage
+# is not repairable through the path this harness has. That cost a whole overnight OVS round.
+#
+# What made it invisible HERE is the same shape §4 of the spec is about: the old verify looked
+# for `"netem" in out and "loss 100%" in out`, which is true of BOTH outcomes -- the safe leaf
+# and the shaper-replacing root -- so the check could not tell the fault from the damage, and
+# the action's note read "reversible; undo removes the qdisc". A destructive action whose own
+# G2 check cannot see the destruction is worse than no action.
+#
+# 🔴 The rule below is NOT invented here. It is a straight port of
+# `tools/test_workflow/faults.sh`'s netem_attach_point / netem_delete_point, the file that came
+# out of that round, and of `include/utils/NetemLinkFault.hpp`'s planAttach / findExistingNetem,
+# which is the same rule inside the kernel. Reimplementing it would make a third place for the
+# answer to be wrong:
+#
+#   * netem already on the interface -> REFUSE. Stacking makes the undo ambiguous, and an
+#     injector that corrupts the next round is worse than one that does nothing.
+#   * root qdisc is htb (a TCLink interface) -> attach at `parent <handle><default>`, UNDER the
+#     shaper, so the shaper survives and the undo can name exactly what was added.
+#   * anything else (unshaped) -> `root` is correct, and is why the P4 runbook's root-netem
+#     recipe is valid on that fabric.
+#
+# and the undo reads the tree AGAIN to find where the netem actually is rather than assuming
+# root: the tree is the state. `del ... root` on a shaped interface is precisely the command
+# that takes htb with it.
+# ============================================================================================
+
+# `tc qdisc show dev X` prints the qdisc lines for one device. Two spellings of the same line
+# occur in this repo's evidence -- with the device named and without --
+#
+#   qdisc htb 5: root refcnt 15 r2q 10 default 0x1 ...          (live capture, 2026-08-13)
+#   qdisc htb 5: dev s1-eth1 root refcnt 2 r2q 10 default 1     (tests/shell/test_faults.sh)
+#
+# so nothing below indexes a fixed column past the handle: `root` and `parent` are found as
+# TOKENS. faults.sh is agnostic the same way (it greps for ` root ` and takes $2/$3).
+_QDISC_KIND = 1
+_QDISC_HANDLE = 2
+
+# The root qdiscs the kernel puts back BY ITSELF once whatever replaced them is deleted. That
+# is the whole difference between the two outcomes of a root netem: on an unshaped interface
+# `del ... root` gave back `qdisc noqueue 0: root refcnt 2` (2026-08-13, verbatim), so the
+# P4 runbook's root-netem recipe is safe there; on a TCLink interface the same delete gave back
+# that same noqueue instead of `htb 5:` with its class, and the NOPASSWD grants on this machine
+# cannot rebuild htb.
+#
+# 🔴 The list is what is SAFE to lose, not what is dangerous, so an unrecognised root qdisc is
+# protected rather than sacrificed. Fail-closed: a shaper this harness has never met is exactly
+# the case where guessing costs somebody an overnight round.
+_KERNEL_DEFAULT_ROOT_QDISCS = ("noqueue", "pfifo_fast", "pfifo", "fq_codel", "fq", "mq")
+
+
+def _qdisc_lines(tree: str) -> list[list[str]]:
+    """Every non-blank line of a `tc qdisc show` reply, split into words."""
+    return [line.split() for line in tree.splitlines() if line.split()]
+
+
+def _root_qdisc(tree: str) -> list[str] | None:
+    """The words of the line describing this interface's ROOT qdisc, or None."""
+    for words in _qdisc_lines(tree):
+        if len(words) > _QDISC_HANDLE and words[0] == "qdisc" and "root" in words[3:]:
+            return words
+    return None
+
+
+def netem_attach_point(tree: str) -> tuple[list[str] | None, str]:
+    """Where netem may be attached on this interface without destroying its shaping.
+
+    Returns (tc argv words, "") or (None, why not). Port of faults.sh's netem_attach_point;
+    `why` is returned rather than logged because this refuses far more often than it fails and
+    a caller cannot tell those two apart from a boolean.
+    """
+    lines = _qdisc_lines(tree)
+    if not lines:
+        return None, "the qdisc tree for this interface is empty or could not be read"
+
+    for words in lines:
+        if len(words) > _QDISC_KIND and words[0] == "qdisc" and words[_QDISC_KIND] == "netem":
+            return None, ("netem is already attached to this interface -- residue from an "
+                          "earlier round. Refusing to stack a second one, because the undo "
+                          "could then not tell them apart. Remove the existing one first")
+
+    root = _root_qdisc(tree)
+    if root is None:
+        return None, "no root qdisc line in the tree for this interface"
+
+    kind, handle = root[_QDISC_KIND], root[_QDISC_HANDLE]
+    if kind == "htb":
+        # TCLink's shaper. netem hangs off the default class, so `del parent H:D` later removes
+        # the netem and leaves htb standing. `default` is printed in hex on some kernels
+        # (`default 0x1`, the 2026-08-13 capture) and in decimal on others; tc parses either,
+        # so the token is concatenated verbatim rather than reformatted -- faults.sh and
+        # NetemLinkFault.hpp both do exactly this and have the live evidence.
+        for i, word in enumerate(root[:-1]):
+            if word == "default":
+                return ["parent", handle + root[i + 1]], ""
+        return None, ("the interface is shaped by htb but its root line names no default "
+                      "class, so there is nowhere to attach netem without replacing the shaper")
+
+    return ["root"], ""
+
+
+def netem_delete_point(tree: str) -> tuple[list[str] | None, str]:
+    """Where the netem on this interface is attached, for the delete that removes it.
+
+    Read from the live tree rather than remembered: `del ... root` on a shaped interface takes
+    htb with it, so "where I put it" is not good enough -- the answer has to come from the
+    interface. Port of faults.sh's netem_delete_point.
+    """
+    for words in _qdisc_lines(tree):
+        if len(words) <= _QDISC_KIND or words[0] != "qdisc" or words[_QDISC_KIND] != "netem":
+            continue
+        if "root" in words[3:]:
+            # 🔴 No trailing `netem` on this form. The NOPASSWD grant is the exact argument
+            # list `qdisc del dev s*-eth* root`; one extra token and the revert dies with
+            # "a password is required", leaving the fault in place. Measured 2026-08-13.
+            return ["root"], ""
+        for i, word in enumerate(words[:-1]):
+            if word == "parent":
+                # Also no trailing `netem`: the grant for this form is
+                # `qdisc del dev s*-eth* parent *`, and NetemLinkFault.hpp's restore -- written
+                # against a `sudo -n -l` read on 2026-09-06 -- omits it. faults.sh appends one;
+                # omitting it is the strict subset, and it deletes the same qdisc either way.
+                return ["parent", words[i + 1]], ""
+        return None, "a netem qdisc is present but its attach point could not be read"
+    return None, "no netem qdisc is attached to this interface"
+
+
+class _LinkNetem:
+    """apply / verify / undo for one interface, sharing what apply read off the live tree.
+
+    A class rather than three independent closures because verify's job is now to compare the
+    tree AFTER the injection with the tree BEFORE it. "netem is present" is true in both the
+    safe outcome and the destructive one, so on its own it cannot tell them apart -- which is
+    exactly how the old version passed while replacing the shaper.
+    """
+
+    def __init__(self, iface: str):
+        self.iface = iface
+        self.before = ""                    # the qdisc tree as apply found it
+        self.attached: list[str] = []       # the tc words the netem was actually added with
+
+    def _show(self) -> tuple[bool, str, str]:
+        """(ok, tree, why not). `tc qdisc show` reads; it needs no sudo and changes nothing."""
+        try:
+            rc, out, err = probes.run(["tc", "qdisc", "show", "dev", self.iface], timeout=5)
+        except probes.Timeout as e:
+            return False, "", str(e)
+        if rc != 0:
+            return False, "", f"tc qdisc show dev {self.iface} exited {rc}: {err.strip()[:120]}"
+        return True, out, ""
+
+    def apply(self, dry: bool) -> ActionResult:
+        ok, tree, why = self._show()
+        if not ok:
+            if dry:
+                # §5.2: a dry run makes no claim about the system, so being unable to read the
+                # tree is not a failure here -- but it is also not a plan, and saying "would run
+                # <command>" without having read the tree is how the old version printed a line
+                # that was false on every shaped interface.
+                return _dry(f"no attach point could be planned for {self.iface}: {why}. On a "
+                            f"live fabric this reads the qdisc tree and attaches under the "
+                            f"shaper", iface=self.iface, planned=None)
+            return ActionResult(False, why, {"iface": self.iface})
+
+        # Recorded BEFORE anything is attached, and unconditionally: it is the only thing
+        # verify can compare against, and a verify with nothing to compare against is back to
+        # "netem is present", which was true of the destructive outcome too.
+        self.before = tree
+
+        where, refused = netem_attach_point(tree)
+        if where is None:
+            detail = (f"refusing to touch {self.iface}: {refused}. Attaching at root here would "
+                      f"replace TCLink's htb and the shaping cannot be restored "
+                      f"(doc/2026-07-29_environment_gotchas.md)")
+            if dry:
+                return _dry(detail, iface=self.iface, planned=None, qdisc_before=tree.strip())
+            return ActionResult(False, detail, {"iface": self.iface, "qdisc_before": tree.strip()})
+
+        argv = ["sudo", "-n", "tc", "qdisc", "add", "dev", self.iface] + where + \
+               ["netem", "loss", "100%"]
         if dry:
-            return _dry(f"would run: tc qdisc add dev {iface} root netem loss 100%",
-                        iface=iface)
+            return _dry(f"would run: {' '.join(argv)}", iface=self.iface,
+                        planned=" ".join(where), qdisc_before=tree.strip())
+
+        try:
+            rc, _, err = probes.run(argv, timeout=5)
+        except probes.Timeout as e:
+            return ActionResult(False, str(e), {"iface": self.iface})
+        if rc != 0:
+            return ActionResult(False, f"tc failed at {' '.join(where)}: {err.strip()[:160]}",
+                                {"iface": self.iface, "attach_point": " ".join(where)})
+        self.attached = where
+        return ActionResult(True, f"netem applied to {self.iface} at {' '.join(where)}",
+                            {"iface": self.iface, "attach_point": " ".join(where),
+                             "qdisc_before": tree.strip()})
+
+    def verify(self) -> ActionResult:
+        """G2, both halves: the fault landed, AND the shaping the fabric depends on survived.
+
+        `tc` returning 0 is a status; the qdisc tree is the state. The second half is the one
+        the 2026-08-13 round needed and did not have: a root qdisc that used to be htb and is
+        now netem is not a successful injection, it is a destroyed interface that happens to
+        drop packets.
+        """
+        ok, tree, why = self._show()
+        if not ok:
+            return ActionResult(False, why, {"iface": self.iface})
+        if not self.before:
+            return ActionResult(False,
+                                f"no pre-injection qdisc tree was recorded for {self.iface}, so "
+                                f"this check cannot tell a netem attached under the shaper from "
+                                f"one that replaced it -- and those are the fault and the damage",
+                                {"iface": self.iface, "qdisc": tree.strip()})
+
+        netem = [w for w in _qdisc_lines(tree)
+                 if len(w) > _QDISC_KIND and w[0] == "qdisc" and w[_QDISC_KIND] == "netem"]
+        landed = bool(netem) and "loss" in tree and "100%" in tree
+
+        was, now = _root_qdisc(self.before), _root_qdisc(tree)
+        was_kind = was[_QDISC_KIND] if was else None
+        now_kind = now[_QDISC_KIND] if now else None
+        evidence = {"iface": self.iface, "qdisc": tree.strip(),
+                    "qdisc_before": self.before.strip(),
+                    "root_qdisc_before": was_kind, "root_qdisc_after": now_kind,
+                    "attach_point": " ".join(self.attached)}
+
+        # 🔴 Judged on the tree, never on what this object INTENDED. Excusing the replacement
+        # whenever `self.attached == ["root"]` would let the one mutation that matters -- the
+        # attach point going back to root on a shaped interface -- excuse itself.
+        if (was_kind is not None and now_kind != was_kind
+                and was_kind not in _KERNEL_DEFAULT_ROOT_QDISCS):
+            return ActionResult(False,
+                                f"the injection REPLACED the root qdisc on {self.iface}: it was "
+                                f"{was_kind} before and is {now_kind} now. {was_kind} is not a "
+                                f"qdisc the kernel puts back, so the shaping is gone and "
+                                f"`del root` restores the kernel default instead "
+                                f"(C-live-ovs-runbook.md P1, 2026-08-13)", evidence)
+        if not landed:
+            return ActionResult(False, f"no netem with 100% loss on {self.iface}: "
+                                       f"{tree.strip()[:120]}", evidence)
+        return ActionResult(True, f"netem loss 100% on {self.iface} at "
+                                  f"{' '.join(self.attached) or 'an unrecorded point'}, root "
+                                  f"qdisc still {now_kind}", evidence)
+
+    def undo(self) -> None:
+        ok, tree, why = self._show()
+        if not ok:
+            print(f"🔴 undo could not read the qdisc tree for {self.iface} ({why}); the netem "
+                  f"may still be in place", file=sys.stderr)
+            return
+        where, refused = netem_delete_point(tree)
+        if where is None:
+            # Not an error when there is simply nothing there; loud when there is something
+            # this cannot name, because the alternative is `del root` -- the command that takes
+            # htb with it.
+            if "no netem qdisc" not in refused:
+                print(f"🔴 undo cannot locate the netem on {self.iface} ({refused}); leaving it "
+                      f"alone rather than deleting the root qdisc", file=sys.stderr)
+            return
         try:
             rc, _, err = probes.run(
-                ["sudo", "tc", "qdisc", "add", "dev", iface, "root", "netem", "loss", "100%"],
-                timeout=5)
-            return ActionResult(rc == 0, f"netem applied to {iface}" if rc == 0 else f"tc failed: {err.strip()}",
-                                {"iface": iface})
+                ["sudo", "-n", "tc", "qdisc", "del", "dev", self.iface] + where, timeout=5)
         except probes.Timeout as e:
-            return ActionResult(False, str(e))
-    return f
-
-
-def _link_netem_verify(iface: str):
-    def f() -> ActionResult:
-        """G2: read the qdisc back. `tc` returning 0 is a status; the qdisc actually being
-        there is the state."""
-        try:
-            rc, out, _ = probes.run(["tc", "qdisc", "show", "dev", iface], timeout=5)
-        except probes.Timeout as e:
-            return ActionResult(False, str(e))
-        landed = "netem" in out and "loss 100%" in out
-        return ActionResult(landed, f"qdisc on {iface}: {out.strip()[:120]}", {"qdisc": out.strip()})
-    return f
-
-
-def _link_netem_undo(iface: str):
-    def f() -> None:
-        try:
-            probes.run(["sudo", "tc", "qdisc", "del", "dev", iface, "root"], timeout=5)
-        except probes.Timeout:
-            pass
-    return f
+            print(f"🔴 undo timed out removing the netem on {self.iface}: {e}", file=sys.stderr)
+            return
+        if rc != 0:
+            print(f"🔴 undo failed to remove the netem on {self.iface} at {' '.join(where)}: "
+                  f"{err.strip()[:160]}", file=sys.stderr)
 
 
 def link_blackhole(iface: str) -> Action:
     """Break one link. `tc netem`, never `ifconfig down` -- the latter takes down the entire
     BMv2 switch rather than the one link, which destroys the testbed instead of perturbing it
-    and makes every subsequent invariant meaningless."""
+    and makes every subsequent invariant meaningless.
+
+    The netem goes UNDER the interface's shaper when it has one, never over it; see the block
+    above for what "over it" costs and why the note below no longer says "reversible" flatly.
+    """
+    netem = _LinkNetem(iface)
     return Action(f"T-netem:{iface}", "INV-02/INV-05",
                   f"100% loss on {iface} via tc netem",
                   destructive=True,
-                  apply=_link_netem_apply(iface), verify=_link_netem_verify(iface),
-                  undo=_link_netem_undo(iface),
-                  note="reversible; undo removes the qdisc")
+                  apply=netem.apply, verify=netem.verify,
+                  undo=netem.undo,
+                  note="the attach point is read from the live qdisc tree: under htb when the "
+                       "interface is shaped, at root only when it is not, and refused outright "
+                       "when a netem is already there. undo removes exactly the netem it finds, "
+                       "so the shaper it was hung under survives")
 
 
 CHAOS_ACTIONS: list[Action] = [
