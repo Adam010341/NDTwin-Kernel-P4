@@ -96,7 +96,10 @@ door 3e 是唯一能拒它的東西；M21 改用它計分。
 
 ## 5. 自己跑過 vs 讀過未執行
 
-- 🟢 **自己跑過**：紅綠（`07-redgreen-bug17.log`）、閘門（`08-gate-ctest-bug17.log`）、`ctest`、
+- 🟢 **自己跑過**：紅綠（`07-redgreen-bug17.log`）、閘門兩輪
+  （`08-gate-ctest-bug17.log` ＝ **2 survived**、`09-gate-ctest-bug17-2.log` ＝
+  `31 mutations, 0 survived`／`8 widenings, 0 wrongly caught`／`GATE EXIT rc=0`）、`ctest`
+  （`100% tests passed ... out of 1110`）、
   十三份出貨拓樸的平面盤點（每一份都是單一 kind，所以這扇門對出貨檔零影響——腳本與結果在 SUMMARY §5）。
 - 🔵 **讀過未執行**：R6 2026-09-05 的 live 重現（引用 `run-06-opus/BUGS.md`，**沒有重跑**）；
   網站 repo 那兩行是**開檔讀過**（`git log` 也讀過），沒有改、沒有建。
