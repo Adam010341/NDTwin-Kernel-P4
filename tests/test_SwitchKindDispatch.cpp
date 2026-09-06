@@ -101,6 +101,7 @@ class TestableMonitor : public TopologyAndFlowMonitor
     }
 
     using TopologyAndFlowMonitor::loadStaticTopologyFromFile;
+    using TopologyAndFlowMonitor::setAllowMixedDataPlane;
 };
 
 /// Exposes the dispatch under test.
@@ -122,8 +123,17 @@ class TestableRoutingManager : public FlowRoutingManager
 
 /// Loads a topology and hands back the monitor. MININET mode, since that is where the
 /// bridge_name field is required and where both data planes are selectable.
+///
+/// [Co-developed with claude code -- Adam]
+/// 🔴 `allowMixed` EXISTS BECAUSE THE LOADER STARTED REFUSING MIXED TOPOLOGIES (BUG-17,
+/// 2026-09-07). Four cases below deliberately build a fabric of two kinds -- the grouping, the two
+/// homogeneity cases and the per-DPID dispatch -- and every one of them is about what the code
+/// does WITH such a graph, not about whether a file may declare one. Before BUG-17 the loader let
+/// them through by dropping validateDataPlaneHomogeneity's verdict; now they have to say out loud
+/// that they are opting in, which is what an operator running a mixed fabric would also have to
+/// do. Nothing about what they assert changed.
 std::shared_ptr<TestableMonitor>
-loadTopology(const std::string& nodesJson, const TempTopology*& outFile)
+loadTopology(const std::string& nodesJson, const TempTopology*& outFile, bool allowMixed = false)
 {
     auto* file = new TempTopology(nodesJson);
     outFile = file;
@@ -131,6 +141,7 @@ loadTopology(const std::string& nodesJson, const TempTopology*& outFile)
                                                      std::make_shared<std::shared_mutex>(),
                                                      std::make_shared<EventBus>(),
                                                      utils::DeploymentMode::MININET);
+    monitor->setAllowMixedDataPlane(allowMixed);
     monitor->loadStaticTopologyFromFile(file->path());
     return monitor;
 }
@@ -163,10 +174,10 @@ class SwitchKindFixture : public ::testing::Test
         m_file = nullptr;
     }
 
-    std::shared_ptr<TestableMonitor> load(const std::string& nodesJson)
+    std::shared_ptr<TestableMonitor> load(const std::string& nodesJson, bool allowMixed = false)
     {
         const TempTopology* f = nullptr;
-        auto m = loadTopology(nodesJson, f);
+        auto m = loadTopology(nodesJson, f, allowMixed);
         m_file = f;
         return m;
     }
@@ -266,7 +277,8 @@ TEST_F(SwitchKindFixture, UnknownDpidHasNoKind)
 TEST_F(SwitchKindFixture, GroupsSwitchesByKind)
 {
     auto monitor = load(switchNode(1, "BMv2") + ",\n" + switchNode(2, "OVS") + ",\n" +
-                        switchNode(3, "BMv2"));
+                            switchNode(3, "BMv2"),
+                        /*allowMixed=*/true);
     const auto groups = monitor->getSwitchKindGroups();
 
     ASSERT_EQ(groups.size(), 2u);
@@ -289,7 +301,7 @@ TEST_F(SwitchKindFixture, HomogeneousTopologyValidates)
 
 TEST_F(SwitchKindFixture, MixedTopologyIsRejectedByDefault)
 {
-    auto monitor = load(switchNode(1, "BMv2") + ",\n" + switchNode(2, "OVS"));
+    auto monitor = load(switchNode(1, "BMv2") + ",\n" + switchNode(2, "OVS"), /*allowMixed=*/true);
     EXPECT_FALSE(monitor->validateDataPlaneHomogeneity(/*allowMixed=*/false));
 }
 
@@ -297,7 +309,7 @@ TEST_F(SwitchKindFixture, MixedTopologyIsAllowedWhenOptedIn)
 {
     // The single switch that unlocks mixed fabrics later: the dispatch is already
     // per-DPID, so enabling them means relaxing this check, not redesigning anything.
-    auto monitor = load(switchNode(1, "BMv2") + ",\n" + switchNode(2, "OVS"));
+    auto monitor = load(switchNode(1, "BMv2") + ",\n" + switchNode(2, "OVS"), /*allowMixed=*/true);
     EXPECT_TRUE(monitor->validateDataPlaneHomogeneity(/*allowMixed=*/true));
 }
 
@@ -456,7 +468,7 @@ TEST_F(SwitchKindFixture, MixedTopologyDispatchesPerDpid)
 {
     // Proves the mechanism is per-DPID, so allowing mixed fabrics is a policy change
     // rather than a redesign.
-    auto monitor = load(switchNode(1, "BMv2") + ",\n" + switchNode(2, "OVS"));
+    auto monitor = load(switchNode(1, "BMv2") + ",\n" + switchNode(2, "OVS"), /*allowMixed=*/true);
     auto bus = std::make_shared<EventBus>();
     TestableRoutingManager mgr(monitor, bus);
 

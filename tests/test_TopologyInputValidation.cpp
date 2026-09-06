@@ -73,6 +73,10 @@ class TestableMonitor : public TopologyAndFlowMonitor
     {
         loadStaticTopologyFromFile(path);
     }
+
+    /// BUG-17. The compile-time AppConfig flag, made settable for the cases that are about what
+    /// happens when an operator HAS opted in. [Co-developed with claude code -- Adam]
+    using TopologyAndFlowMonitor::setAllowMixedDataPlane;
 };
 
 /// The repo's `setting/` directory, wherever the binary was started from.
@@ -149,13 +153,14 @@ without(std::string haystack, const std::string& needle)
 
 /// Loads `path` into a fresh monitor and reports what happened.
 LoadOutcome
-loadFile(const std::string& path, int mode = utils::TESTBED)
+loadFile(const std::string& path, int mode = utils::TESTBED, bool allowMixed = false)
 {
     LoadOutcome out;
     auto graph = std::make_shared<Graph>();
     auto mutex = std::make_shared<std::shared_mutex>();
     auto bus = std::make_shared<EventBus>();
     TestableMonitor monitor{graph, mutex, bus, mode};
+    monitor.setAllowMixedDataPlane(allowMixed);
 
     try
     {
@@ -1128,6 +1133,42 @@ TEST(TopologyInputValidationTest, AnUnknownBrandNameLeavesNoPartiallyLoadedGraph
     EXPECT_EQ(out.edges, 0u);
 }
 
+TEST(TopologyInputValidationTest, AFabricEntirelyOfAnUnknownBrandIsStillRefused)
+{
+    // 🔴 THIS EXISTS BECAUSE TWO DOORS STARTED OVERLAPPING, AND THE GATE SAID SO FIRST.
+    // AnUnknownBrandNameLeavesNoPartiallyLoadedGraph above reproduces R0b's measured file: ONE
+    // switch of a homogeneous fabric given a brand nothing knows. Since BUG-17 that file has two
+    // things wrong with it -- the brand, and the data-plane MIXTURE the brand causes, because an
+    // unrecognised brand maps to HARDWARE and the other nine switches are BMv2 -- and the mixture
+    // is now refused before the first add_vertex too. So switching door 3e off no longer changes
+    // whether that file loads, only which sentence the operator gets, and
+    // mutate_topology_input_is_validated.sh's M21 SURVIVED against it on 2026-09-07.
+    //
+    // Making EVERY switch the unknown brand takes the mixture away -- all ten map to HARDWARE,
+    // one kind -- so door 3e is the only thing left that can refuse the file. This is the case
+    // M21 is scored on now, and it is a stricter one: it fails if door 3e stops refusing, and it
+    // cannot be rescued by any other door.
+    MutatedTopology topo("unknown_brand_whole_fabric");
+    ASSERT_TRUE(topo.usable());
+
+    for (auto& node : topo.doc()["nodes"])
+    {
+        if (node.at("vertex_type").get<int>() == 0)
+        {
+            node["brand_name"] = "NOT_A_REAL_KIND";
+        }
+    }
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "a fabric of switches this build has no data plane for was accepted";
+    EXPECT_EQ(out.vertices, 0u)
+        << "the file was refused only after " << out.vertices << " vertices were in the graph";
+    EXPECT_NE(out.messageSansPath.find("NOT_A_REAL_KIND"), std::string::npos)
+        << "the refusal does not name the brand, so it is not door 3e refusing: "
+        << out.messageSansPath;
+}
+
 TEST(TopologyInputValidationTest, TheUnknownBrandRefusalNamesTheBrandAndTheAcceptedOnes)
 {
     // Two claims, and the second is the one the ticket asked for: the message has to say what IS
@@ -1698,6 +1739,130 @@ TEST(TopologyInputValidationTest, AnUnknownBrandWithAMalformedSwitchKindIsStillR
     EXPECT_TRUE(out.threw) << "an unknown brand was admitted on a switch_kind that names nothing";
     EXPECT_EQ(out.vertices, 0u)
         << "the file was refused only after " << out.vertices << " vertices were in the graph";
+}
+
+// =================================================================================================
+// BUG-17 -- a topology that mixes data planes, refused instead of merely reported
+//
+// [Co-developed with claude code -- Adam]
+// 🔴 MEASURED, AND THE MEASUREMENT IS THE WHOLE POINT. R6 (2026-09-05,
+// doc/audit/2026-09-02_manual-usertest/run-06-opus/BUGS.md, BUG-17) copied the shipped P4 model,
+// changed one switch's brand_name from BMv2 to OVS, and ran the kernel:
+//
+//     validateDataPlaneHomogeneity] Topology mixes data planes (ovs=[1]; bmv2=[2,3,4,5,6,7,8,9,10]).
+//     ... Fix the topology file, or set AppConfig::ALLOW_MIXED_DATAPLANE to override.
+//     LISTEN 0 4096 0.0.0.0:8000 ...   :8000 open -- it did NOT refuse
+//     nodes 14 edges 40   switch brands: ['BMv2', 'OVS']
+//
+// The function returned a bool and the loader called it as a statement. Three shipped pages said
+// the kernel "refuses to load" such a file; the log's tone said so too; nothing did.
+//
+// TWO CLAIMS, AND A THIRD THAT IS EASY TO BREAK WHILE FIXING THEM:
+//   - a genuine mixture is refused, and refused whole (vertices == 0, like doors 2 and 3a-3e)
+//   - the refusal names both planes and their dpids, because "mixed" without the sets leaves an
+//     operator diffing a 138-node file by eye
+//   - and ALLOW_MIXED_DATAPLANE still works, because mixed fabrics are a supported opt-in with a
+//     flag, a manual section and a unit test of their own -- a fix that quietly removed them
+//     would be a bigger regression than the defect
+// =================================================================================================
+
+TEST(TopologyInputValidationTest, AMixedDataPlaneTopologyIsRefusedAtLoad)
+{
+    // R6's file, reproduced: the shipped all-BMv2 model with one switch made OVS.
+    MutatedTopology topo("mixed_dataplane");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastSwitchNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u) << "the case needs a switch with other nodes in front of it";
+    topo.doc()["nodes"][victim]["brand_name"] = "OVS";
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw)
+        << "a topology mixing OVS and BMv2 switches was accepted; the measured consequence was "
+           "an [error] line and :8000 answering with the mixed model";
+    EXPECT_EQ(out.vertices, 0u)
+        << "the file was refused only after " << out.vertices
+        << " vertices were already in the graph -- refusing at the end of the builder would be "
+           "the partial application doors 2 and 3a-3e exist to abolish";
+    EXPECT_EQ(out.edges, 0u);
+}
+
+TEST(TopologyInputValidationTest, TheMixedDataPlaneRefusalNamesBothPlanesAndTheirDpids)
+{
+    // The half of the old ERROR line that was worth keeping. R6 called the message "excellent"
+    // and the behaviour a lie; this pins the message onto the behaviour.
+    MutatedTopology topo("mixed_dataplane_named");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastSwitchNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    const auto victimDpid = topo.doc()["nodes"][victim].at("dpid").get<std::uint64_t>();
+    topo.doc()["nodes"][victim]["brand_name"] = "OVS";
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    ASSERT_TRUE(out.threw);
+    EXPECT_NE(out.messageSansPath.find("ovs=["), std::string::npos)
+        << "the refusal does not name the OVS side: " << out.messageSansPath;
+    EXPECT_NE(out.messageSansPath.find("bmv2=["), std::string::npos)
+        << "the refusal does not name the BMv2 side: " << out.messageSansPath;
+    EXPECT_NE(out.messageSansPath.find(std::to_string(victimDpid)), std::string::npos)
+        << "the refusal does not say which switch is the odd one out: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, AMixedDataPlaneTopologyLoadsWhenTheFlagIsSet)
+{
+    // 🔴 THE CONTROL THAT KEEPS THIS FIX FROM BEING A FEATURE REMOVAL. Mixed fabrics are a
+    // supported opt-in: setting/AppConfig.hpp.example:15, doc/2026-07-27_p4_bmv2_support_plan.md,
+    // and test_SFlowEmitterRoundtrip's AMixedTopologyDoesNotUseIdentity, which exists precisely
+    // because the port mapping has to cope with one. The refusal above must be the default, not
+    // the only behaviour -- and before BUG-17 this claim could not be asserted at all, because
+    // AppConfig::ALLOW_MIXED_DATAPLANE is a constexpr bool.
+    MutatedTopology topo("mixed_dataplane_allowed");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastSwitchNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim]["brand_name"] = "OVS";
+
+    const LoadOutcome out = loadFile(topo.write(), utils::TESTBED, /*allowMixed=*/true);
+
+    EXPECT_FALSE(out.threw) << "the opt-in no longer admits a mixed topology: " << out.message;
+    EXPECT_EQ(out.vertices, 14u);
+    EXPECT_EQ(out.edges, 40u);
+}
+
+TEST(TopologyInputValidationTest, ASwitchlessTopologyIsNotWhatThisRefuses)
+{
+    // 🔴 THE BOUNDARY, AND IT IS A DELIBERATE ONE. validateDataPlaneHomogeneity returns false for
+    // two different things -- a mixture, and a topology with no switches at all -- and BUG-17 only
+    // made the first one refuse. Whether a switchless document should load is a separate policy
+    // question nobody has ruled on; test_SwitchKindDispatch's EmptyTopologyFailsValidation pins
+    // what the FUNCTION says about it, and this pins what the LOADER does. Written as `> 1` and
+    // not `!= 1`, one character apart, which is what the gate's M30 mutates.
+    MutatedTopology topo("switchless");
+    ASSERT_TRUE(topo.usable());
+
+    json hostsOnly = json::array();
+    for (const auto& node : topo.doc().at("nodes"))
+    {
+        if (node.at("vertex_type").get<int>() != 0)
+        {
+            hostsOnly.push_back(node);
+        }
+    }
+    ASSERT_EQ(hostsOnly.size(), 4u) << "the shipped P4 model has four hosts";
+    topo.doc()["nodes"] = hostsOnly;
+    topo.doc()["edges"] = json::array(); // every edge named a switch that is no longer here
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_FALSE(out.threw)
+        << "a topology with no switches was refused; BUG-17 was about a MIXTURE, and widening it "
+           "to cover this is a policy change nobody ruled on: "
+        << out.message;
+    EXPECT_EQ(out.vertices, 4u);
 }
 
 TEST(TopologyInputValidationTest, AHostWithMoreThanOneAddressStillLoads)

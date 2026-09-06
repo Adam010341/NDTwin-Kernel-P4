@@ -175,6 +175,81 @@ declaresLegalSwitchKind(const json& nodeJson)
     return true;
 }
 
+/// "ovs=[1,2]; bmv2=[3]" -- the operator-facing rendering of a data-plane mixture.
+///
+/// [Co-developed with claude code -- Adam]
+/// BUG-17. One function, because the sentence is now printed from two places -- the load-time
+/// refusal below and validateDataPlaneHomogeneity's log line -- and an operator who saw two
+/// different renderings of the same fact would reasonably wonder whether they were the same fact.
+std::string
+describeSwitchKindGroups(const std::map<SwitchKind, std::vector<std::uint64_t>>& groups)
+{
+    std::ostringstream detail;
+    bool first = true;
+    for (const auto& [kind, dpids] : groups)
+    {
+        if (!first)
+        {
+            detail << "; ";
+        }
+        first = false;
+        detail << switchKindToString(kind) << "=[";
+        for (std::size_t i = 0; i < dpids.size(); ++i)
+        {
+            detail << (i ? "," : "") << dpids[i];
+        }
+        detail << "]";
+    }
+    return detail.str();
+}
+
+/// The switch kinds a topology *document* declares, by the same rule the builder uses.
+///
+/// [Co-developed with claude code -- Adam]
+/// BUG-17. 🔴 THE SAME RULE, DELIBERATELY DUPLICATED ONE LINE, AND THAT IS THE WHOLE RISK OF THIS
+/// FUNCTION: an explicit `switch_kind` wins, and `brand_name` decides otherwise (see the builder's
+/// copy in parseStaticTopologyFile). If the two ever disagree, this pass would refuse a file the
+/// builder would have built homogeneously, or -- worse -- admit one it would not. That is what the
+/// second layer at the end of parseStaticTopologyFile is for: it asks the built graph the same
+/// question and still refuses. Both are wanted, for the same reason #61's edge guard is written
+/// twice.
+///
+/// The alternative -- reuse getSwitchKindGroups() -- cannot work here: it reads m_dpidToSwitchKind,
+/// which only the builder fills, so asking it before the first add_vertex asks an empty map.
+///
+/// 🔴 THIS MUST NOT THROW, AND THE GATE IS WHY. Written first as
+/// `contains("switch_kind") ? switchKindFromString(...) : ...`, which is what the builder says --
+/// and switchKindFromString throws on a malformed value, so this became a SECOND door 3a, sitting
+/// after the node loop. mutate_topology_input_is_validated.sh's M10 pushes door 3a's refusal back
+/// into the builder to prove the door is what refuses; with a throwing copy here, M10 SURVIVED,
+/// because this function refused the file instead and the case stayed green. A backstop nobody
+/// asked for had silently become the thing under test. `declaresLegalSwitchKind` makes the read
+/// total: an explicit, legal kind wins, anything else falls back to the brand, and door 3a stays
+/// the only place a malformed `switch_kind` is refused.
+std::map<SwitchKind, std::vector<std::uint64_t>>
+switchKindGroupsFromJson(const json& j)
+{
+    std::map<SwitchKind, std::vector<std::uint64_t>> groups;
+    for (const auto& nodeJson : j["nodes"])
+    {
+        if (static_cast<VertexType>(nodeJson.at("vertex_type").get<int>()) != VertexType::SWITCH)
+        {
+            continue;
+        }
+        const SwitchKind kind =
+            declaresLegalSwitchKind(nodeJson)
+                ? switchKindFromString(nodeJson.at("switch_kind").get<std::string>())
+                : switchKindFromBrandName(nodeJson.at("brand_name").get<std::string>());
+        groups[kind].push_back(nodeJson.at("dpid").get<std::uint64_t>());
+    }
+    for (auto& [kind, dpids] : groups)
+    {
+        (void)kind;
+        std::sort(dpids.begin(), dpids.end());
+    }
+    return groups;
+}
+
 /** @brief Refuse a topology document that names things the document does not contain.
  *
  * @details
@@ -238,9 +313,14 @@ declaresLegalSwitchKind(const json& nodeJson)
  *               fix needed: `bridge_name` is read by the builder only under MININET, so checking
  *               it up here is impossible without knowing the mode, and a check that ran in every
  *               mode would refuse the five _ipAlias4_ TESTBED files, none of which declare one.
+ * @param allowMixed  the second signature change, and BUG-17's (2026-09-07). A mixed data plane
+ *               is a supported opt-in, so the pass that refuses one has to be told whether it is
+ *               refusing. Passed rather than read from AppConfig here for the reason
+ *               setAllowMixedDataPlane exists: a constexpr flag is not something a test can vary,
+ *               and this decision now settles whether a file loads at all.
  */
 void
-validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mode)
+validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mode, bool allowMixed)
 {
     // The endpoints, indexed exactly the way the edge loop below resolves them: switches by
     // dpid, hosts by the first address on the edge, matched against every address every node
@@ -443,6 +523,44 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
         }
     }
 
+    // ---- BUG-17: the file declares more than one data plane ----
+    // [Co-developed with claude code -- Adam]
+    // 🔴 THE DEFECT WAS A DISCARDED RETURN VALUE, AND IT WAS MEASURED. R6 (2026-09-05,
+    // doc/audit/2026-09-02_manual-usertest/run-06-opus/BUGS.md, BUG-17) copied the shipped P4
+    // model, changed one switch's brand_name from BMv2 to OVS, and got an ERROR line naming both
+    // dpid sets -- and then :8000 open and answering with the mixed model, 14 nodes and 40 edges.
+    // `validateDataPlaneHomogeneity` returned a bool and parseStaticTopologyFile called it as a
+    // statement, so "the kernel refuses to load a mixed topology" -- what architecture.md, the
+    // installation manual, doc/2026-07-29_p4_status_and_test_guide.md:76 and AppConfig.hpp all
+    // said -- was true of nothing but the log's tone.
+    //
+    // 🔴 THE CHECK IS HERE, NOT AT THE END OF THE BUILDER, AND THAT IS THE POINT. Refusing where
+    // the old call sits would leave a fully-built graph behind every refusal: the 39-of-40 shape
+    // this whole function exists to abolish, arrived at from the other end. Deciding it from the
+    // document means a mixed file leaves `num_vertices == 0`, exactly like doors 2 and 3a-3e.
+    // The builder's call still runs, and now refuses too -- as the backstop, not as the check.
+    //
+    // ⚠️ ONLY A MIXTURE. validateDataPlaneHomogeneity also returns false for a topology with no
+    // switches at all, and that stays a logged error rather than a refusal: whether a switchless
+    // document is a legal topology is a separate policy question, `EmptyTopologyFailsValidation`
+    // in test_SwitchKindDispatch.cpp pins the function's answer to it, and widening this refusal
+    // to cover it would be a scope change nobody ruled on. M30 is the mutation that says so.
+    if (!allowMixed)
+    {
+        const auto declaredKinds = switchKindGroupsFromJson(j);
+        if (declaredKinds.size() > 1)
+        {
+            where = "the switches taken together";
+            throw std::runtime_error(
+                "this topology mixes data planes (" + describeSwitchKindGroups(declaredKinds) +
+                "). A single run must be all-OVS or all-BMv2: the flow dispatch is per-DPID and "
+                "would cope, but the telemetry and liveness paths assume one kind. Fix the "
+                "topology file, or set AppConfig::ALLOW_MIXED_DATAPLANE to override. Until "
+                "2026-09-07 this was reported and then ignored: the kernel logged the mixture at "
+                "error level and served the model anyway");
+        }
+    }
+
     // One end of one edge. `side` is "src" or "dst" and names the JSON keys, so every message
     // below points at the field the operator has to open the file and edit.
     auto checkEndpoint = [&](const json& edgeJson, const char* side) {
@@ -555,7 +673,14 @@ TopologyAndFlowMonitor::TopologyAndFlowMonitor(std::shared_ptr<Graph> graph,
     : m_graph(std::move(graph)),
       m_graphMutex(std::move(graphMutex)),
       m_eventBus(std::move(eventBus)),
-      m_mode(static_cast<utils::DeploymentMode>(mode))
+      m_mode(static_cast<utils::DeploymentMode>(mode)),
+      // [Co-developed with claude code -- Adam]
+      // BUG-17. Read once, here, instead of at the point of use. AppConfig::ALLOW_MIXED_DATAPLANE
+      // is a `static constexpr bool`, so a test cannot turn it on -- and now that the flag decides
+      // whether a file LOADS rather than only what gets logged, "the flag lets a mixed topology
+      // through" is a claim with no way to assert it. A member is the seam; see
+      // setAllowMixedDataPlane.
+      m_allowMixedDataPlane(AppConfig::ALLOW_MIXED_DATAPLANE)
 {
     // Defaults to Ryu. Re-pointed at the P4 proxy in configureTopologyApiUrls(), which cannot
     // run here: the switch kinds come from the topology file, and that is not loaded yet.
@@ -846,7 +971,7 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
     // FINDINGS #89 adds the node-side doors and the mode argument: `bridge_name` is only read
     // under MININET, so the pass cannot check it without being told which mode it is validating
     // for. That is the whole of the signature change.
-    validateStaticTopologyJson(j, where, m_mode);
+    validateStaticTopologyJson(j, where, m_mode, m_allowMixedDataPlane);
 
     // [Co-developed with claude code -- Adam]
     // This was commented out, and it is not an oversight that can be undone by uncommenting: the
@@ -1071,9 +1196,28 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
     }
 
     // [Co-developed with claude code -- Adam]
-    // Report the data plane, and refuse a mixed topology unless explicitly allowed. Doing
-    // this at load turns a confusing runtime mixture into a clear startup message.
-    validateDataPlaneHomogeneity(AppConfig::ALLOW_MIXED_DATAPLANE);
+    // Report the data plane, and refuse a mixed topology unless explicitly allowed.
+    //
+    // 🔴 BUG-17: THE RETURN VALUE IS NOW USED, AND THIS IS THE SECOND LAYER, NOT THE CHECK.
+    // Until 2026-09-07 this line was `validateDataPlaneHomogeneity(...)` with no `if` around it --
+    // a bool computed, logged and dropped -- so a mixed topology produced an error-level sentence
+    // in the voice of a refusal and then loaded (measured, R6 2026-09-05). The decision moved into
+    // validateStaticTopologyJson, ahead of the first add_vertex, so that a refused file leaves the
+    // graph untouched; by the time control reaches here the file has already been judged from the
+    // document, and this call is asking the BUILT graph the same question. Same two-layer shape as
+    // the builder's copies of doors 3a-3c: unreachable on any file that got this far, kept because
+    // "the two passes disagree" must not be the one path back to a silently accepted mixture.
+    //
+    // ⚠️ Scoped to a real mixture. validateDataPlaneHomogeneity also returns false for a topology
+    // with no switches, which stays a logged error -- see the note in validateStaticTopologyJson.
+    if (!validateDataPlaneHomogeneity(m_allowMixedDataPlane) && getSwitchKindGroups().size() > 1)
+    {
+        throw std::runtime_error(
+            "this topology mixes data planes and was built anyway, which should be impossible: "
+            "validateStaticTopologyJson refuses a mixed document before the first vertex is "
+            "added. Refusing rather than serving it: the two passes disagree, and the one that "
+            "just looked at the finished graph is the one to believe");
+    }
 }
 
 std::optional<Graph::vertex_descriptor>
@@ -2601,22 +2745,11 @@ TopologyAndFlowMonitor::validateDataPlaneHomogeneity(bool allowMixed) const
         return true;
     }
 
-    std::ostringstream detail;
-    bool first = true;
-    for (const auto& [kind, dpids] : groups)
-    {
-        if (!first)
-        {
-            detail << "; ";
-        }
-        first = false;
-        detail << switchKindToString(kind) << "=[";
-        for (size_t i = 0; i < dpids.size(); ++i)
-        {
-            detail << (i ? "," : "") << dpids[i];
-        }
-        detail << "]";
-    }
+    // [Co-developed with claude code -- Adam]
+    // BUG-17: the rendering moved to describeSwitchKindGroups, because the load-time refusal in
+    // validateStaticTopologyJson prints the same fact and two spellings of one sentence is how a
+    // reader ends up wondering whether they are one fact.
+    const std::string detail = describeSwitchKindGroups(groups);
 
     if (allowMixed)
     {
@@ -2624,7 +2757,7 @@ TopologyAndFlowMonitor::validateDataPlaneHomogeneity(bool allowMixed) const
                            "Topology mixes data planes ({}). Proceeding because mixed "
                            "operation was explicitly allowed; telemetry and liveness are "
                            "not validated for this configuration.",
-                           detail.str());
+                           detail);
         return true;
     }
 
@@ -2633,7 +2766,7 @@ TopologyAndFlowMonitor::validateDataPlaneHomogeneity(bool allowMixed) const
                         "all-BMv2: the flow dispatch is per-DPID and would cope, but the "
                         "telemetry and liveness paths assume one kind. Fix the topology "
                         "file, or set AppConfig::ALLOW_MIXED_DATAPLANE to override.",
-                        detail.str());
+                        detail);
     return false;
 }
 

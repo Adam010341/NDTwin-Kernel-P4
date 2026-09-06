@@ -73,7 +73,7 @@
 | **不會再 SIGFPE 崩潰** | `hopsCounter == 0` 的除以零守衛回來了，並且把速率計算抽成 `computeEstimatedRates` 這個可測的接縫 | 單元測試（含 `hopsCounter == 0` 的迴歸測試） |
 | **sFlow parser 不會被打爆** | 加了 `BoundedWords` 邊界檢查。這是 kernel 第二個對外輸入面（任何能送 UDP 到 6343 的東西都碰得到） | ASan 實測：拿掉 `BoundedWords` 就重現 `heap-buffer-overflow` |
 | **typed SwitchKind 派發** | `enum class SwitchKind { OVS, BMV2, HARDWARE }`，取代原本用檔名做大小寫敏感的字串比對。O(1) 查表，不再每個 flow 操作都深拷貝整張 BGL 圖 | 單元測試：BMV2 dpid 給 P4 strategy、OVS dpid 給 OVS、未知 dpid 回錯誤 + WARN、只有 `brand_name` 的舊 JSON 仍能正確分類 |
-| **同質性驗證** | 拓撲裡 switch 種類不一致會直接 fatal 並列出是哪些 dpid，除非 `ALLOW_MIXED_DATAPLANE` | 單元測試（預設失敗、開旗標後通過） |
+| **同質性驗證** | 拓撲裡 switch 種類不一致會**在載入時被拒絕**（在第一個節點進圖之前，kernel 不會開 :8000）並列出是哪些 dpid，除非 `ALLOW_MIXED_DATAPLANE`。⚠️ **2026-09-07 以前這一格是假的**——`validateDataPlaneHomogeneity()` 的回傳值沒有人接，kernel 印完 `[error]` 照樣起來並用混合模型回答（R6 2026-09-05 實測，BUG-17／KNOWN-ISSUES C-5） | 單元測試：混平面檔被拒且 `num_vertices == 0`、開旗標後收下、訊息指名兩個平面各自的 dpid；`validateDataPlaneHomogeneity` 本身預設失敗、開旗標通過。變異閘門 `mutate_topology_input_is_validated.sh` M29–M31 |
 | **南向失敗看得見** | `OpResult { ok, httpStatus, message }`，curl 帶 `-w '%{http_code}' --max-time 5`。200 裡面包 `{"status":"error"}` 也算失敗 | 單元測試：mock 回 404／500／timeout |
 | **P4 誠實宣告自己的極限** | group/meter 回 `501 unsupported`，而不是像以前那樣安靜地轉給 Ryu | 單元測試 |
 | **P4 pipeline 能表達 5-tuple 規則** | `flow_5tuple` ternary 表 + 真正的 priority，前置於 `ipv4_lpm`。LPM 表做不到這件事（LPM 沒有 priority，是比 prefix 長度） | `p4c-bm2-ss` 編譯把關 |

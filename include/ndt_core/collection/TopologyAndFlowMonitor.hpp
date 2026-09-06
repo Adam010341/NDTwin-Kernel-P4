@@ -578,6 +578,27 @@ class TopologyAndFlowMonitor
     void parseStaticTopologyFile(const std::string& path, std::string& where);
 
     /**
+     * @brief Let this monitor load a topology whose switches are not all one data plane.
+     *
+     * [Co-developed with claude code -- Adam]
+     * BUG-17. Defaults to AppConfig::ALLOW_MIXED_DATAPLANE, which is a `static constexpr bool`
+     * and therefore not something a test can vary. That did not matter while the homogeneity
+     * check only logged; it matters now that the check REFUSES, because "a mixed topology is
+     * still accepted when the operator has opted in" became a claim about loading, and a claim
+     * with no way to assert it is a claim nobody is keeping.
+     *
+     * Protected rather than public, and for the same reason as loadStaticTopologyFromFile above:
+     * it is a seam for tests, not an operator control. The supported way to run a mixed fabric is
+     * still the compile-time flag -- there is deliberately no endpoint, no CLI switch and no
+     * setter reachable from outside this class hierarchy, because "mixed" disables assumptions
+     * the telemetry and liveness paths make and must not be flippable at run time.
+     */
+    void setAllowMixedDataPlane(bool allow)
+    {
+        m_allowMixedDataPlane = allow;
+    }
+
+    /**
      * @brief Builds the curl command for one topology endpoint.
      *
      * [Co-developed with claude code -- Adam]
@@ -905,6 +926,10 @@ class TopologyAndFlowMonitor
     std::atomic<double> m_lastRateDivisorSeconds{-1.0};
 
     utils::DeploymentMode m_mode;
+
+    /// @see setAllowMixedDataPlane. Initialised from AppConfig::ALLOW_MIXED_DATAPLANE.
+    /// [Co-developed with claude code -- Adam]
+    bool m_allowMixedDataPlane;
 
     // [Co-developed with claude code -- Adam]
     // dpid -> data plane, built once in loadStaticTopologyFromFile. Has its own mutex so
