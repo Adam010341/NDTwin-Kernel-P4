@@ -245,6 +245,13 @@ Death test: networkTopologyThenExitZero()
 1. **`TopologyAndFlowMonitor.cpp:1729` 沒修。** 見 SUMMARY §5：這是本單 grep 新冒出來的第八處
    （`(*m_graph)[*vertexOpt2].ip[0]`，SWITCH，`updateHosts` 裡），不在工單的七處內，
    也沒有測試。照 W2 的規矩：**沒有證據的守衛不算修好。**
+
+   > 🔴 **2026-09-07 更新（W18 加註）：這一處已經修了。** 分支 `fix/w18-eighth-index-zero`
+   > （base＝本分支 `e62c8d6f`）補上守衛、一支必死測試（`tests/test_AddresslessAttachmentSwitch.cpp`）
+   > 與一個閘門（`tests/shell/mutate_attachment_switch_index_zero.sh`），文件在
+   > `doc/audit/2026-09-07_fix-attachment-switch-index-zero/`。
+   > ⇒ **這一族的正確總數是 24 處（W2 記 16、後來記 23，兩次都少算），現在 24 處全部有守衛。**
+   > W2-SUMMARY §2.2 的「23 處」也已就地加註更正。
 2. **API 手冊沒動。** 這三個回覆都不是 HTTP endpoint——`GET_NETWORK_TOPOLOGY`／`GET_ALL_HOSTS`／
    `getPathBetweenHostsJson` 只從 `IntentTranslator::performTask` 走得到（LLM 面向），
    `doc/2026-01-02_ndt_api.md` 沒有它們的條目。

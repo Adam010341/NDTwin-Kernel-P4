@@ -309,6 +309,18 @@ FULL_SUITE_RC=0
 🔴 **`operator[]` 與 `front()` 的 UB 完全相同**，`[0]` 只是換了個寫法，工單的 grep 口徑漏掉了它。
 ⇒ **無守衛的 ip 解參考實際是 23 處，不是 16 處；產線走得到的那一級從 1 組變成 6 處。**
 
+> 🔴 **2026-09-07 更正（W18 加註，原文保留）：這裡的「23 處」仍然少算一處，正確是 24。**
+> 第八處是 `TopologyAndFlowMonitor.cpp:1729`（`updateHosts` 裡的
+> `findEdgeBySrcAndDstIp((*m_graph)[*vertexOpt2].ip[0], ip)`，SWITCH 級）——
+> 它在**本單自己的 base `f0687b34`** 就已經存在（當時 `:1634`），而且就在本單大改的那個檔案裡；
+> 上表的 grep 口徑（`.ip[0]` 前面接 `vertex`／`vprop`／`graph[...]`）沒有涵蓋
+> `(*m_graph)[*vertexOpt2].ip[0]` 這種寫法。
+> W14 的重掃找到它、依工單只列不修；**W18（分支 `fix/w18-eighth-index-zero`）已修並附閘門**，
+> 見 `doc/audit/2026-09-07_fix-attachment-switch-index-zero/`。24 處到齊之後，
+> `src/`／`include/` 底下沒有無守衛的 ip 首元素解參考。
+> ⇒ **這個教訓比數字本身重要：盤點的口徑是 grep 的 pattern，而 pattern 漏掉的東西不會出現在
+> 「我盤點過了」這句話裡。** 同一份 grep 連續兩張單都漏掉同一行。
+
 **這七處我沒有修**，理由：它們在三個不同的子系統（intent translator、LLM agent、flow collector），
 各自需要自己的 fixture 與必死測試，而**沒看過紅就不算修完**——
 在沒有閘門覆蓋的情況下順手加守衛，會讓「已修」這句話涵蓋到沒有證據的部分，
