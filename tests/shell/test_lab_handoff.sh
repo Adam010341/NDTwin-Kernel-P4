@@ -51,6 +51,17 @@ SANDBOX="$(mktemp -d)"
 trap 'rm -rf "$SANDBOX"' EXIT
 mkdir -p "$SANDBOX/tools/test_workflow" "$SANDBOX/.test_run"
 cp "$NDT_SRC" "$SANDBOX/tools/test_workflow/ndt"
+# 🔴 The three files ndt sources from beside itself. Without them it prints "cannot read
+# .../sudo_surface.sh" and exits 2 before reaching any subcommand, so every case below saw an
+# empty `lab` section and answered "no handoff line" -- 12 of 18 checks RED, and they had been
+# red since sudo_surface.sh was introduced. A suite that goes red for a reason unrelated to its
+# subject says nothing about its subject. Repaired 2026-09-07 while passing through; the ndt
+# change of that day is not what broke it (verified against 19a05ddb: 12 failed there too).
+# [Co-developed with claude code -- Adam]
+for sib in ports.sh sudo_surface.sh components.env; do
+    cp "$(dirname "$NDT_SRC")/$sib" "$SANDBOX/tools/test_workflow/$sib" 2>/dev/null \
+        || { echo "SKIP: $sib is not beside $NDT_SRC"; exit 0; }
+done
 NDT="$SANDBOX/tools/test_workflow/ndt"
 
 lab_section() { bash "$NDT" status 2>/dev/null | sed -n '/^lab/,/^$/p'; }
