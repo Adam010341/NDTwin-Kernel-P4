@@ -129,7 +129,7 @@ FORBID | Failed to bind UDP socket | the sFlow collector port is taken; no telem
 FORBID | Failed to create UDP socket | as above
 FORBID | Exceed 100 hop \(potential loop\) | a forwarding loop in the computed path
 FORBID | logger with name .* already exists | Logger::init called twice; a test suite is probably being skipped silently
-FORBID | Cannot open OpenflowCapacity\.json | missing doc/2026-01-02_OpenflowCapacity.json; get_openflow_capacity returns an empty 200
+FORBID | Cannot open OpenflowCapacity\.json | missing doc/2026-01-02_OpenflowCapacity.json; since W17 (2026-09-07) get_openflow_capacity still answers with the bmv2 plane, but the three vendor blocks are absent from the response
 
 # --- client errors the L2 contract test provokes deliberately ---------------------
 # [Co-developed with claude code -- Adam]

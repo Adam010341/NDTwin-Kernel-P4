@@ -113,6 +113,32 @@ DISPATCH_STATUS_OLDER_KERNEL = {
     "recent_failures_evicted": 0,
 }
 
+# --- doc/2026-01-02_ndt_api.md section 37: GET /ndt/get_openflow_capacity ---------------------
+# [Co-developed with claude code -- Adam] W17. Trimmed to the fields the invariants read; the
+# vendor blocks keep their catalogue numbers and say so, and the bmv2 block carries the three
+# figures that have to close. 512 rather than 1024 on purpose -- see the note at the fixture.
+OPENFLOW_CAPACITY_SAMPLE = {
+    "OVS": {"source": "vendor table",
+            "tables": [{"id": 0, "max_entries": 1000000}]},
+    "BrocadeICX7250": {"source": "vendor table",
+                       "tables": [{"id": 0, "max_entries": 3072}]},
+    "HPE5520": {"source": "vendor table",
+                "tables": [{"id": 0, "max_entries": 65535}]},
+    "bmv2": {
+        "plane": "bmv2",
+        "source": "/home/adam/p4_src/build/ndtwin_switch.json max_size",
+        "source_kind": "argv of a running bmv2 switch (pid 4242)",
+        "flow_entry_table": "MyIngress.ipv4_lpm",
+        "max_entries": 512,
+        "tables": [{"name": "MyIngress.ipv4_lpm", "max_entries": 512},
+                   {"name": "MyIngress.flow_5tuple", "max_entries": 512}],
+        "per_switch": [{"dpid": 1, "max_entries": 512, "in_use": 128, "available": 384},
+                       {"dpid": 2, "max_entries": 512, "in_use": 128, "available": 384}],
+        "note": "max_entries is the compiled pipeline's own max_size ...",
+    },
+}
+
+
 FIXTURES = {
     "get_graph_data": (spec.GRAPH_DATA, GRAPH_DATA_SAMPLE),
     "get_detected_flow_data": (spec.List(spec.FLOW_RECORD), FLOW_DATA_SAMPLE),
@@ -182,7 +208,12 @@ FIXTURES = {
     "modify_nickname": (
         spec.Obj({"status": Str()}, optional={"message": Str()}),
         {"status": "success", "message": "Nickname updated successfully."}),
-    "get_openflow_capacity": (Any_(), {"anything": True}),
+    # [Co-developed with claude code -- Adam] W17. The sample is the shape the kernel emits
+    # now: a vendor block that says it is a vendor block, and a bmv2 block whose ceiling came
+    # from a pipeline artifact. The ceiling here is 512, not the 1024 this repository's own
+    # artifact carries, for the same reason the C++ fixtures avoid 1024 -- a sample that happens
+    # to match the one true answer cannot tell a read from a constant.
+    "get_openflow_capacity": (Any_(), OPENFLOW_CAPACITY_SAMPLE),
     # [Co-developed with claude code -- Adam]
     # Not from doc/2026-01-02_ndt_api.md -- that document predates the endpoint. This is the
     # body HttpSession::handleGetFlowDispatchStatus builds, transcribed field by field from
@@ -317,6 +348,31 @@ _DISPATCH_STOPPED = {
 
 # (name, invariant, data, ctx, expect_failures)
 # Every invariant is checked both ways: silent on good data, loud on bad data.
+# [Co-developed with claude code -- Adam] W17.
+_CAPACITY_UNSOURCED = {
+    "OVS": {"tables": [{"id": 0, "max_entries": 1000000}]},
+}
+
+_CAPACITY_BROKEN_SUM = {
+    "bmv2": {
+        "plane": "bmv2",
+        "source": "/p4/build/ndtwin_switch.json max_size",
+        "max_entries": 512,
+        "per_switch": [{"dpid": 1, "max_entries": 512, "in_use": 128, "available": 512}],
+    },
+}
+
+_CAPACITY_UNPOLLED = {
+    "OVS": {"source": "vendor table", "tables": [{"id": 0, "max_entries": 1000000}]},
+    "bmv2": {
+        "plane": "bmv2",
+        "source": "/p4/build/ndtwin_switch.json max_size",
+        "max_entries": 512,
+        "per_switch": [{"dpid": 1, "max_entries": 512, "in_use": None, "available": None,
+                        "why": "not polled yet"}],
+    },
+}
+
 INVARIANT_CASES = [
     ("graph_matches_topology: accepts matching graph",
      spec.inv_graph_matches_topology, GRAPH_DATA_SAMPLE, _GOOD_CTX, False),
@@ -326,6 +382,18 @@ INVARIANT_CASES = [
     ("graph_matches_topology: catches missing dpid",
      spec.inv_graph_matches_topology, GRAPH_DATA_SAMPLE, FakeCtx(switches=1, hosts=1,
      edges=1, dpids={999}), True),
+
+    # [Co-developed with claude code -- Adam] W17.
+    ("capacity_names_its_source: accepts a fully labelled report",
+     spec.inv_capacity_names_its_source, OPENFLOW_CAPACITY_SAMPLE, _GOOD_CTX, False),
+    ("capacity_names_its_source: catches a block with no provenance",
+     spec.inv_capacity_names_its_source, _CAPACITY_UNSOURCED, _GOOD_CTX, True),
+    ("capacity_available_closes: accepts max - in_use",
+     spec.inv_capacity_available_closes, OPENFLOW_CAPACITY_SAMPLE, _GOOD_CTX, False),
+    ("capacity_available_closes: catches available that does not close",
+     spec.inv_capacity_available_closes, _CAPACITY_BROKEN_SUM, _GOOD_CTX, True),
+    ("capacity_available_closes: an unpolled switch is not a failure",
+     spec.inv_capacity_available_closes, _CAPACITY_UNPOLLED, _GOOD_CTX, False),
 
     ("all_switches_up: accepts healthy graph",
      spec.inv_all_switches_up, GRAPH_DATA_SAMPLE, _GOOD_CTX, False),
