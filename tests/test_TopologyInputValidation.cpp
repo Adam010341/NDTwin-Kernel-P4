@@ -41,6 +41,7 @@
 #include <filesystem>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <shared_mutex>
 #include <string>
 #include <system_error>
@@ -120,6 +121,15 @@ struct LoadOutcome
     std::string messageSansPath;
     std::size_t vertices = 0;
     std::size_t edges = 0;
+    /// The graph the load produced, kept alive so a case can ask what is ON a vertex.
+    ///
+    /// [Co-developed with claude code -- Adam]
+    /// FINDINGS #91 / W15-2. Counting vertices answers "was the file refused, and refused
+    /// whole"; it cannot answer "and what did the twin decide about the switch it accepted",
+    /// which is the entire condition attached to the switch_kind exemption. Held by
+    /// shared_ptr rather than copied: VertexProperties carries a saved sFlow state and an ecmp
+    /// vector, and a copy would be a second answer that could disagree with the first.
+    std::shared_ptr<Graph> graph;
 };
 
 /// Removes every occurrence of `needle` from `haystack`.
@@ -161,7 +171,28 @@ loadFile(const std::string& path, int mode = utils::TESTBED)
     std::shared_lock lock(*mutex);
     out.vertices = boost::num_vertices(*graph);
     out.edges = boost::num_edges(*graph);
+    out.graph = graph;
     return out;
+}
+
+/// The properties of the switch vertex carrying `dpid`, or nullopt if the graph has no such
+/// switch. [Co-developed with claude code -- Adam]
+std::optional<VertexProperties>
+switchWithDpid(const LoadOutcome& out, std::uint64_t dpid)
+{
+    if (!out.graph)
+    {
+        return std::nullopt;
+    }
+    for (auto [vi, viEnd] = boost::vertices(*out.graph); vi != viEnd; ++vi)
+    {
+        const auto& v = (*out.graph)[*vi];
+        if (v.vertexType == VertexType::SWITCH && v.dpid == dpid)
+        {
+            return v;
+        }
+    }
+    return std::nullopt;
 }
 
 /// A temp copy of the shipped P4 topology with one field changed, removed on destruction.
@@ -1338,6 +1369,259 @@ TEST(TopologyInputValidationTest, TheAcceptedBrandListCoversEveryBrandTheCodeBra
             << "the code branches on brand_name \"" << brand
             << "\" but the loader refuses it: the mapping and the accepted list have drifted";
     }
+}
+
+// =================================================================================================
+// W15-2 -- the `switch_kind` exemption, and the mark it costs
+//
+// [Co-developed with claude code -- Adam]
+// 🔴 THIS REVERSES HALF OF #91 ON PURPOSE, AND THE RULING SAID SO. #91 refused every
+// unrecognised `brand_name`; its own §5 wrote down the price ("a Cisco, an Arista -- one line of
+// C++ before the topology loads at all") and asked. Adam ruled on 2026-09-06 (grill §4D round 3):
+// exempt a node that declares an explicit, legal `switch_kind`, AND record in the graph and in
+// the manual that such a machine's power and telemetry are nobody's job.
+//
+// So there are two claims here and they fail differently:
+//   - the file loads                              (threw == false, 14 vertices, 40 edges)
+//   - and the switch is marked unmanaged          (power_path / telemetry_path == "none")
+// A fix that did the first without the second would be #91's silent fallback with extra steps,
+// which is why the mark has cases of its own rather than being asserted as an aside.
+//
+// ⚠️ EVERY CASE BELOW KEEPS THE FABRIC HOMOGENEOUS, AND THAT IS NOT DECORATION. The shipped P4
+// model is all-BMv2; giving ONE switch `"switch_kind": "hardware"` would make it a mixed data
+// plane, which is a different subject with a flag and a manual section of its own -- and which
+// the very next branch (BUG-17) turns into a refusal. A case that mixed planes would then be
+// measuring that instead, and would flip red for a reason that has nothing to do with W15-2.
+// =================================================================================================
+
+TEST(TopologyInputValidationTest, AnUnknownBrandWithAnExplicitSwitchKindIsAccepted)
+{
+    // The operator this ruling is for: a fabric of a model this build has never heard of, said
+    // out loud in the key that exists for saying it. Every switch, so the data plane stays one
+    // kind -- this is what a Cisco lab would actually look like.
+    MutatedTopology topo("unknown_brand_exempt");
+    ASSERT_TRUE(topo.usable());
+
+    for (auto& node : topo.doc()["nodes"])
+    {
+        if (node.at("vertex_type").get<int>() == 0)
+        {
+            node["brand_name"] = "CiscoC9300";
+            node["switch_kind"] = "hardware";
+        }
+    }
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_FALSE(out.threw)
+        << "a switch that declares its data plane explicitly was still refused for its brand: "
+        << out.message;
+    EXPECT_EQ(out.vertices, 14u);
+    EXPECT_EQ(out.edges, 40u);
+}
+
+TEST(TopologyInputValidationTest, TheExemptedSwitchIsMarkedAsHavingNoPowerOrTelemetryPath)
+{
+    // 🔴 THE CONDITION ADAM ATTACHED TO THE EXEMPTION. Loading is only half of it: the graph has
+    // to say that nobody manages this machine, or the exemption reads as support for a switch
+    // this build has no OID, no login and no plug logic for.
+    MutatedTopology topo("unknown_brand_exempt_mark");
+    ASSERT_TRUE(topo.usable());
+
+    for (auto& node : topo.doc()["nodes"])
+    {
+        if (node.at("vertex_type").get<int>() == 0)
+        {
+            node["brand_name"] = "CiscoC9300";
+            node["switch_kind"] = "hardware";
+        }
+    }
+
+    const LoadOutcome out = loadFile(topo.write());
+    ASSERT_FALSE(out.threw) << out.message;
+
+    const auto sw = switchWithDpid(out, 1);
+    ASSERT_TRUE(sw.has_value()) << "dpid 1 is not in the graph";
+    EXPECT_EQ(sw->powerPath, "none")
+        << "a switch admitted only by its switch_kind is reported as having a power path; this "
+           "build has no branch written for brand \"CiscoC9300\"";
+    EXPECT_EQ(sw->telemetryPath, "none")
+        << "a switch admitted only by its switch_kind is reported as having a telemetry path";
+}
+
+TEST(TopologyInputValidationTest, TheExemptionIsPerNodeAndDoesNotUnmarkItsNeighbours)
+{
+    // The mark is a property of one switch's brand, not of the file. One node gets an unknown
+    // brand and `"switch_kind": "p4"` -- which keeps this all-BMv2 model homogeneous -- and the
+    // switches beside it must keep the path their own brand really has.
+    MutatedTopology topo("unknown_brand_exempt_one");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastSwitchNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    const auto victimDpid = topo.doc()["nodes"][victim].at("dpid").get<std::uint64_t>();
+    topo.doc()["nodes"][victim]["brand_name"] = "CiscoC9300";
+    topo.doc()["nodes"][victim]["switch_kind"] = "p4";
+
+    const LoadOutcome out = loadFile(topo.write());
+    ASSERT_FALSE(out.threw) << out.message;
+    ASSERT_EQ(out.vertices, 14u);
+
+    const auto exempted = switchWithDpid(out, victimDpid);
+    ASSERT_TRUE(exempted.has_value());
+    EXPECT_EQ(exempted->powerPath, "none");
+    EXPECT_EQ(exempted->telemetryPath, "none");
+
+    const auto neighbour = switchWithDpid(out, 1);
+    ASSERT_TRUE(neighbour.has_value());
+    ASSERT_EQ(neighbour->brandName, "BMv2") << "the shipped P4 model is all-BMv2";
+    EXPECT_EQ(neighbour->powerPath, "synthetic")
+        << "an untouched BMv2 switch lost its power path when a neighbour was exempted";
+}
+
+TEST(TopologyInputValidationTest, EveryAcceptedBrandCarriesAPowerPathThatIsNotNone)
+{
+    // 🔴 THE CONTROL THAT GIVES "none" ITS MEANING. If an accepted brand were also marked
+    // unmanaged, the mark would say nothing about the exempted switch -- it would just be what
+    // every switch says. The five values are written out here rather than derived from the
+    // fleet, unlike EveryBrandTheShippedFleetNamesIsAccepted: this test's subject IS the
+    // mapping's table, so reading the table back out of the source would make the instrument
+    // produce the answer.
+    for (const char* brand : {"OVS", "BMv2", "HPE5520", "BrocadeICX6610", "BrocadeICX7250"})
+    {
+        MutatedTopology topo("accepted_brand_path");
+        ASSERT_TRUE(topo.usable());
+        for (auto& node : topo.doc()["nodes"])
+        {
+            if (node.at("vertex_type").get<int>() == 0)
+            {
+                node["brand_name"] = brand;
+            }
+        }
+
+        const LoadOutcome out = loadFile(topo.write());
+        ASSERT_FALSE(out.threw) << brand << ": " << out.message;
+
+        const auto sw = switchWithDpid(out, 1);
+        ASSERT_TRUE(sw.has_value()) << brand;
+        EXPECT_NE(sw->powerPath, "none")
+            << "brand " << brand
+            << " is on the accepted list but is reported as having no power path, which makes "
+               "\"none\" useless as the mark of an unsupported switch";
+    }
+}
+
+TEST(TopologyInputValidationTest, TheStaticTopologyEndpointPublishesTheUnmanagedMark)
+{
+    // A mark only the graph knows is a mark no operator can read. Manual section 38 documents
+    // these two keys on /ndt/get_static_topology_json, so the endpoint is asserted, not assumed.
+    MutatedTopology topo("unknown_brand_exempt_served");
+    ASSERT_TRUE(topo.usable());
+    for (auto& node : topo.doc()["nodes"])
+    {
+        if (node.at("vertex_type").get<int>() == 0)
+        {
+            node["brand_name"] = "CiscoC9300";
+            node["switch_kind"] = "hardware";
+        }
+    }
+
+    auto graph = std::make_shared<Graph>();
+    auto mutex = std::make_shared<std::shared_mutex>();
+    auto bus = std::make_shared<EventBus>();
+    TestableMonitor monitor{graph, mutex, bus, utils::TESTBED};
+    ASSERT_NO_THROW(monitor.load(topo.write()));
+
+    const json served = monitor.getStaticTopologyJson();
+    ASSERT_TRUE(served.contains("nodes"));
+
+    std::size_t switchesSeen = 0;
+    for (const auto& node : served.at("nodes"))
+    {
+        if (node.at("vertex_type").get<int>() != 0)
+        {
+            EXPECT_FALSE(node.contains("power_path"))
+                << "a host has no brand, no plug and no OID; publishing a path for one invites "
+                   "the reading that some other host might have a real one";
+            continue;
+        }
+        ++switchesSeen;
+        ASSERT_TRUE(node.contains("power_path")) << node.dump();
+        EXPECT_EQ(node.at("power_path").get<std::string>(), "none");
+        EXPECT_EQ(node.at("telemetry_path").get<std::string>(), "none");
+    }
+    EXPECT_EQ(switchesSeen, 10u) << "the shipped P4 model has ten switches";
+}
+
+TEST(TopologyInputValidationTest, TheUnknownBrandRefusalSaysHowToModelAnUnsupportedSwitch)
+{
+    // The refusal is now also the documentation of the way out: a reader who has a switch this
+    // build cannot drive must be able to learn from the message itself that declaring a
+    // switch_kind admits the file, and what that costs.
+    MutatedTopology topo("unknown_brand_escape_hatch");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastSwitchNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim]["brand_name"] = "NOT_A_REAL_KIND";
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    ASSERT_TRUE(out.threw);
+    EXPECT_NE(out.messageSansPath.find("switch_kind"), std::string::npos)
+        << "the refusal does not mention the one key that would let this file load: "
+        << out.messageSansPath;
+    EXPECT_NE(out.messageSansPath.find("power_path"), std::string::npos)
+        << "the refusal offers the exemption without naming what it costs: "
+        << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, ASwitchWithASwitchKindStillNeedsABrandName)
+{
+    // 🔴 THE EXEMPTION IS ABOUT WHICH BRANDS ARE ACCEPTED, NOT ABOUT WHETHER A BRAND IS NEEDED,
+    // and the two are one `&&` apart. The builder reads `brand_name` with at(), so a switch
+    // without one throws a raw nlohmann exception from a line the operator cannot place -- the
+    // exact defect doors 3c, 3d and 3e were each written to remove. Declaring a switch_kind must
+    // not buy a way past that.
+    MutatedTopology topo("switch_kind_without_brand");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastSwitchNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim].erase("brand_name");
+    topo.doc()["nodes"][victim]["switch_kind"] = "p4";
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "a switch with no brand_name was accepted because it named a kind";
+    EXPECT_EQ(out.vertices, 0u)
+        << "the file was refused only after " << out.vertices << " vertices were in the graph";
+    EXPECT_EQ(out.messageSansPath.find("json.exception"), std::string::npos)
+        << "the refusal is a raw nlohmann exception, not a diagnostic: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, AnUnknownBrandWithAMalformedSwitchKindIsStillRefused)
+{
+    // 🔴 A CONTROL, AND ITS LIMIT IS STATED RATHER THAN HIDDEN. `"switch_kind": "cisco"` is a
+    // second typo, not an escape hatch, and the file must not load. What refuses it, TODAY, is
+    // door 3a -- switchKindFromString throws twenty lines above door 3e -- so this case does not
+    // exercise declaresLegalSwitchKind's own strictness, and no mutation in
+    // mutate_topology_input_is_validated.sh claims that it does. That strictness is written
+    // anyway, because "unreachable because of the order of two checks" is not a property anyone
+    // maintains; see the predicate's comment.
+    MutatedTopology topo("unknown_brand_bad_kind");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastSwitchNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim]["brand_name"] = "CiscoC9300";
+    topo.doc()["nodes"][victim]["switch_kind"] = "cisco";
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "an unknown brand was admitted on a switch_kind that names nothing";
+    EXPECT_EQ(out.vertices, 0u)
+        << "the file was refused only after " << out.vertices << " vertices were in the graph";
 }
 
 TEST(TopologyInputValidationTest, AHostWithMoreThanOneAddressStillLoads)

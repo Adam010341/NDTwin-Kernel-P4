@@ -170,6 +170,44 @@ constexpr std::array<std::string_view, 5> kAcceptedSwitchBrands{
     "BrocadeICX7250", // testbed hardware, SSH power
 };
 
+/// Does this node carry an explicit `switch_kind` this build can actually dispatch on?
+///
+/// [Co-developed with claude code -- Adam]
+/// FINDINGS #91 / W15-2, Adam's ruling of 2026-09-06 (grill §4D round 3, "有明確 `switch_kind`
+/// 就豁免"). #91 refused every unrecognised `brand_name`, and the cost written into its own §5
+/// was that an operator holding a switch this codebase has no power path for -- a Cisco, an
+/// Arista -- had to edit one line of C++ before the kernel would read their topology at all.
+/// The ruling reverses that for the case where the file has said, explicitly and in the key
+/// meant for it, which data plane the switch is to be driven as.
+///
+/// 🔴 THREE THINGS MUST HOLD, AND THE THIRD IS THE ONE THAT IS EASY TO DROP. The key must be
+/// present, it must be a string, and its value must name a kind switchKindFromString accepts.
+/// A `"switch_kind": "cisco"` is not an escape hatch -- it is a second typo, and admitting a file
+/// on the strength of one would be exactly the silent fallback #91 exists to abolish.
+///
+/// ⚠️ Written to stand on its own rather than to rely on door 3a running first. Door 3a does run
+/// first today and throws on a malformed value, so the false returns below are unreachable
+/// through that path -- but "unreachable because of the order of two checks twenty lines apart"
+/// is not a property anyone maintains, and if the doors are ever reordered this predicate must
+/// still refuse to exempt a file it cannot vouch for.
+bool
+declaresLegalSwitchKind(const json& nodeJson)
+{
+    if (!(nodeJson.contains("switch_kind") && nodeJson.at("switch_kind").is_string()))
+    {
+        return false;
+    }
+    try
+    {
+        (void)switchKindFromString(nodeJson.at("switch_kind").get<std::string>());
+    }
+    catch (const std::invalid_argument&)
+    {
+        return false;
+    }
+    return true;
+}
+
 /// The accepted brands as one comma-separated string, for the refusal to print.
 std::string
 acceptedSwitchBrandList()
@@ -364,8 +402,22 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
                     "through is read from it (accepted: " + acceptedSwitchBrandList() + ")");
             }
             const auto brandName = nodeJson.at("brand_name").get<std::string>();
+            // ---- W15-2: the switch_kind exemption ----
+            // [Co-developed with claude code -- Adam]
+            // 🔴 THE ONE THING THIS EXEMPTION MUST NOT BECOME IS THE OLD FALLBACK. #91's defect
+            // was that an unrecognised brand was mapped to HARDWARE **by default**, with nothing
+            // said. What is admitted here is not a default: the file has named a data plane in
+            // the key that exists for naming one, so the twin is doing what it was told rather
+            // than guessing. `declaresLegalSwitchKind` is deliberately strict about what counts
+            // as having been told -- see it.
+            //
+            // The price is recorded rather than waived: powerPathForBrandName /
+            // telemetryPathForBrandName give such a switch "none" for both, the builder writes
+            // them onto the vertex, and /ndt/get_static_topology_json publishes them (manual
+            // section 38). Nobody manages this machine's power or health, and the graph says so.
             if (std::find(kAcceptedSwitchBrands.begin(), kAcceptedSwitchBrands.end(), brandName) ==
-                kAcceptedSwitchBrands.end())
+                    kAcceptedSwitchBrands.end() &&
+                !declaresLegalSwitchKind(nodeJson))
             {
                 throw std::runtime_error(
                     "switch dpid " + std::to_string(nodeJson.at("dpid").get<std::uint64_t>()) +
@@ -376,7 +428,10 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
                     "sent the switch down the SNMP/SSH testbed paths and made an all-OVS fabric "
                     "report itself as a mixed data plane. A new switch model has to be added to "
                     "kAcceptedSwitchBrands and given a power/telemetry path before a topology "
-                    "file may name it");
+                    "file may name it -- or, if this build only has to model the switch rather "
+                    "than power it, add an explicit \"switch_kind\" (ovs, bmv2/p4, or hardware) "
+                    "to this node, which admits it with \"power_path\" and \"telemetry_path\" "
+                    "reported as \"none\"");
             }
         }
 
@@ -893,6 +948,20 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
         {
             vp.switchKind = switchKindFromBrandName(vp.brandName);
         }
+
+        // [Co-developed with claude code -- Adam]
+        // FINDINGS #91 / W15-2. Which power and health path this build has for this brand,
+        // recorded on the vertex so the answer travels with the switch instead of being
+        // re-derived by every reader. For a switch admitted only by the switch_kind exemption
+        // both are "none", which is the whole condition Adam attached to that ruling: the file
+        // may model a machine this build cannot drive, and the graph must say that it cannot.
+        //
+        // Keyed on brand_name, NOT on switchKind, and the two disagree on purpose -- see
+        // powerPathForBrandName. `switch_kind` chooses the routing/actuation strategy; the
+        // brand is what selects a power OID or an SSH login, and an unrecognised brand selects
+        // neither.
+        vp.powerPath = powerPathForBrandName(vp.brandName);
+        vp.telemetryPath = telemetryPathForBrandName(vp.brandName);
 
         vp.deviceLayer = nodeJson.at("device_layer").get<int>();
 
@@ -4247,6 +4316,11 @@ TopologyAndFlowMonitor::getStaticTopologyJson()
                     // would have power-cycled one wrong outlet for all ten switches. The
                     // duplicate {"brand_name", v.brandName} that appeared twice in this
                     // initialiser is also gone; nlohmann just overwrote it, so it was dead.
+                    //
+                    // `power_path` / `telemetry_path` (FINDINGS #91 / W15-2) are on the SWITCH
+                    // branches only, and on both of them: a host has no brand, no plug and no
+                    // OID, so publishing "none" for one would invite the reading that some other
+                    // host might have a path. Manual section 38 documents the vocabulary.
                     result["nodes"].push_back({{"ip", utils::ipToString(v.ip)},
                                                {"dpid", v.dpid},
                                                {"mac", v.mac},
@@ -4255,7 +4329,9 @@ TopologyAndFlowMonitor::getStaticTopologyJson()
                                                {"brand_name", v.brandName},
                                                {"device_layer", v.deviceLayer},
                                                {"smart_plug_ip", v.smartPlugIp},
-                                               {"smart_plug_outlet", v.smartPlugOutlet}});
+                                               {"smart_plug_outlet", v.smartPlugOutlet},
+                                               {"power_path", v.powerPath},
+                                               {"telemetry_path", v.telemetryPath}});
                 }
                 else
                 {
@@ -4268,7 +4344,9 @@ TopologyAndFlowMonitor::getStaticTopologyJson()
                                                {"brand_name", v.brandName},
                                                {"device_layer", v.deviceLayer},
                                                {"smart_plug_ip", v.smartPlugIp},
-                                               {"smart_plug_outlet", v.smartPlugOutlet}});
+                                               {"smart_plug_outlet", v.smartPlugOutlet},
+                                               {"power_path", v.powerPath},
+                                               {"telemetry_path", v.telemetryPath}});
                 }
             }
             else

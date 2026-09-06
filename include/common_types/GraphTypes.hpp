@@ -138,6 +138,80 @@ switchKindFromString(std::string s)
 }
 
 /**
+ * @brief Which power path this build has written for a switch of this `brand_name`.
+ *
+ * [Co-developed with claude code -- Adam]
+ * FINDINGS #91 / W15-2. The topology validator admits a `brand_name` this build has no data
+ * plane for **when the node also declares an explicit, legal `switch_kind`** (Adam's ruling,
+ * 2026-09-06 grill §4D round 3): the alternative was that an operator with a Cisco or an Arista
+ * had to edit one line of C++ before the kernel would read their topology at all. The ruling
+ * came with a condition, and this is it -- such a machine must be marked in the graph as one
+ * whose power and telemetry **nobody manages**, so the exemption cannot be mistaken for support.
+ *
+ * 🔴 WHAT THESE TWO FIELDS MEAN, EXACTLY, BECAUSE A VAGUER READING WOULD BE A LIE. They name the
+ * mechanism the *brand-specific* branches of DeviceConfigurationAndPowerManager.cpp use to READ
+ * this switch's power draw and health. They do **not** describe power on/off actuation, which is
+ * dispatched on SwitchKind and not on the brand at all (getPowerStrategyForDpid: BMV2 -> the P4
+ * proxy, OVS **and HARDWARE** -> OVSPowerStrategy). A switch admitted by the exemption still gets
+ * whatever actuation its declared `switch_kind` selects; what it has none of is a path written
+ * for its brand.
+ *
+ * Each value is the branch it names, not a guess:
+ *   "snmp"      brandName == "HPE5520"        -> HPE OIDs (power :1805/:2308, cpu :2120,
+ *                                                memory :1342, and temperature :2209, which
+ *                                                refuses every other brand in so many words)
+ *   "ssh"       the two Brocade models        -> the else-branch those same sites fall into,
+ *                                                written for "Brocade / Others (Currently via
+ *                                                SSH)" and firing Brocade OIDs
+ *   "synthetic" OVS / BMv2                    -> MININET mode short-circuits power to
+ *                                                syntheticPowerMilliwattsFor(dpid) (:1777,
+ *                                                :2301)
+ *   "none"      anything else                 -> only reachable through the switch_kind
+ *                                                exemption, and the honest answer for it
+ *
+ * ⚠️ `telemetry_path` is "none" for OVS and BMv2 as well, and that is not a mistake or a
+ * softening of the mark: MININET mode returns kHealthMetricUnavailable (-1) for CPU, memory and
+ * temperature alike (KNOWN-ISSUES F-1), so a software switch genuinely has no health telemetry
+ * either. **`power_path == "none"` is the mark that is unique to an exempted switch** -- every
+ * accepted brand has some power path, and only a brand this build does not know has none.
+ *
+ * @param brandName the topology file's `brand_name`, verbatim and case-sensitively.
+ */
+inline const char*
+powerPathForBrandName(const std::string& brandName)
+{
+    if (brandName == "OVS" || brandName == "BMv2")
+    {
+        return "synthetic";
+    }
+    if (brandName == "HPE5520")
+    {
+        return "snmp";
+    }
+    if (brandName == "BrocadeICX6610" || brandName == "BrocadeICX7250")
+    {
+        return "ssh";
+    }
+    return "none";
+}
+
+/**
+ * @brief Which CPU / memory / temperature path this build has written for this `brand_name`.
+ * @see powerPathForBrandName -- same contract, same citations, same "none".
+ * [Co-developed with claude code -- Adam]
+ */
+inline const char*
+telemetryPathForBrandName(const std::string& brandName)
+{
+    if (brandName == "HPE5520" || brandName == "BrocadeICX6610" ||
+        brandName == "BrocadeICX7250")
+    {
+        return "snmp";
+    }
+    return "none";
+}
+
+/**
  * @brief Human-readable name for logs and error messages.
  *
  * [Co-developed with claude code -- Adam]
@@ -372,6 +446,27 @@ struct VertexProperties
     // actuates it. Derived from the topology JSON's optional "switch_kind", falling back
     // to brandName. Typed so a misspelled brand name cannot silently send P4 rules to Ryu.
     SwitchKind switchKind = SwitchKind::HARDWARE;
+
+    /** @brief Which brand-specific power / health path this build has for this switch.
+     *
+     * [Co-developed with claude code -- Adam]
+     * FINDINGS #91 / W15-2. Set by loadStaticTopologyFromFile from powerPathForBrandName /
+     * telemetryPathForBrandName -- one source, so the two words on the wire cannot drift from
+     * the branches they describe. Emitted by /ndt/get_static_topology_json (manual section 38)
+     * on SWITCH nodes only; a host has no data plane, no plug and no OID.
+     *
+     * 🔴 `powerPath == "none"` is the mark of a switch admitted only because it declared a
+     * `switch_kind`: this build has no power or telemetry path written for its brand, and the
+     * generic else-branches it falls into are written for Brocade hardware and will not answer
+     * for it. The exemption is what lets an unknown model be modelled at all; this field is what
+     * stops that from reading as support. See powerPathForBrandName for the full contract.
+     *
+     * Default "none" rather than "": a vertex nobody set is a vertex nothing manages, and the
+     * safe reading of silence here is "no path", never "some path we forgot to name".
+     */
+    std::string powerPath = "none";
+    std::string telemetryPath = "none"; ///< @see powerPath.
+
     int deviceLayer = -1;
 
     /**
