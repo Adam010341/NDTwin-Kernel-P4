@@ -3,6 +3,11 @@
 # 1. define a static lib for all http‑session code
 add_library(NdtCore_HttpLib
   HttpSession.cpp
+  # [Co-developed with claude code -- Adam] W17. A separate translation unit from HttpSession.cpp
+  # on purpose: that one costs ~1.6 GB and ~100 CPU-seconds to compile here, and
+  # tests/shell/mutate_capacity_reads_running_artifact.sh rebuilds what it mutates once per
+  # mutation.
+  OpenflowCapacityReport.cpp
 )
 
 # 2. make sure the compiler can find our public headers

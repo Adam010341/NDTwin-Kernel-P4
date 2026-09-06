@@ -6,6 +6,7 @@
 #include <boost/beast/http.hpp>
 #include <memory>
 #include <nlohmann/json.hpp>
+#include "ndt_core/http/OpenflowCapacityReport.hpp" // [Co-developed with claude code -- Adam]
 #include "ndt_core/routing_management/OpResult.hpp" // [Co-developed with claude code -- Adam]
 // For sflow::FlowLivenessFilter, which readLivenessFilter takes by reference and so needs
 // complete. The FlowLinkUsageCollector forward declaration below stays: this is the types header,
@@ -111,6 +112,15 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     // reason as the second, and it supplies a FlowRoutingManager rather than a LockManager
     // because the six group/meter endpoints are the ones whose reply shape it pins.
     friend class HttpSessionGroupMeterTestPeer;
+
+    // [Co-developed with claude code -- Adam]
+    // Fifth peer, for tests/test_OpenflowCapacityReport.cpp (W17). Separate for the same ODR
+    // reason as the second, and it is the only one that writes a member rather than only reading
+    // the response: get_openflow_capacity reads two files and the process table, so the test has
+    // to be able to point it at a fixture tree. Without that, "does the endpoint report the
+    // running pipeline's ceiling" would be answered differently depending on whether a bmv2
+    // fabric happened to be up on the machine running the suite.
+    friend class HttpSessionCapacityTestPeer;
 
     // Fourth peer, for tests/test_HistoricalLogging.cpp, and separate for the same ODR reason the
     // second one gives. It exists because KNOWN-ISSUES B-3 is a defect in what the *reply* says,
@@ -875,4 +885,9 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     std::shared_ptr<HistoricalDataManager> m_historicalDataManager;
     std::shared_ptr<Controller> m_controller;
     std::shared_ptr<LockManager> m_lockManager;
+
+    // [Co-developed with claude code -- Adam]
+    // Where handleGetOpenflowCapacity reads from. Defaults are the deployment's own paths; only
+    // HttpSessionCapacityTestPeer ever changes them.
+    ofcapacity::CapacitySources m_capacitySources;
 };

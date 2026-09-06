@@ -129,6 +129,12 @@ add_executable(
   # edited". This owns the property that a rename changes the field it was asked to change and
   # nothing else, for every shipped topology and not only the two it was measured on.
   test_NicknameDoesNotRewriteTheFile.cpp
+
+  # [Co-developed with claude code -- Adam] W17: get_openflow_capacity served a vendor catalogue
+  # whose smallest number was 3.4x what the bmv2 fabric under it actually held, and never
+  # mentioned bmv2 at all. This owns the property that the ceiling is READ from the pipeline the
+  # running switch loaded -- so the fixtures say 512 and 2048, never 1024.
+  test_OpenflowCapacityReport.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there
