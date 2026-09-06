@@ -279,7 +279,7 @@ Web-GUI 每秒輪詢、Visualizer 同時輪詢、NSR 同時輪詢、Energy app �
 
 | 不變量 | 現在檢查什麼 | 漏掉什麼 |
 |---|---|---|
-| `inv_graph_matches_topology` | node/edge **數量**、dpid 集合 | edge 的**接線對不對**（數量對但接錯不會被抓） |
+| `inv_graph_matches_topology` | node/edge **數量**、dpid 集合，**＋ per-node 身分**（2026-09-07 加：switch 的 `brand_name`／位址集合、host 依 `mac` 的位址集合） | edge 的**接線對不對**（數量對但接錯不會被抓）；`bridge_name`／`ecmp_groups` 這類 `get_graph_data` 不回的欄位；以及「檔案本身壞掉而 kernel 忠實服務它」——圖與檔一致，這支結構上看不到 |
 | `inv_flow_paths_non_empty` | path 陣列非空 | path 是否連通、是否與 edge 一致、有無迴圈 |
 | `inv_flow_rates_nonzero` | **全部**為 0 才失敗 | 99% 的 flow 速率為 0 會通過 |
 | `inv_topk_bounded` | 數量 ≤ k | 回傳的是否真的是**前 k 大**、是否已排序 |

@@ -53,6 +53,7 @@ import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import spec  # noqa: E402
 from schema import validate  # noqa: E402
 from spec import (  # noqa: E402
     ERRORPATH,
@@ -145,6 +146,32 @@ class Context:
         self.topk = topk
         self.probe_ip = probe_ip
 
+        # [Co-developed with claude code -- Adam] -- W3b-3, 2026-09-07.
+        # Per-node identity, so inv_graph_matches_topology can answer "is this the right
+        # network" and not only "is it the right size". Switches are keyed by dpid; hosts by
+        # mac, because every host carries dpid 0 and device_name is the field a rename moves.
+        # Built here rather than in spec.py so the invariant stays pure and testable, and built
+        # UNCONDITIONALLY: an invariant that silently does less when an expectation is missing
+        # is the shape this suite has already been burned by, so spec.py's fallback is for
+        # hand-built stand-ins only and tests/python/test_contract_spec.py pins that the real
+        # Context never takes it.
+        #
+        # 🔴 Both maps are keyed, and a key that repeats in the FILE silently loses a node --
+        # the last one written wins and the comparison then runs against a node that is not
+        # there. Doing an unreliable comparison quietly is the failure this whole check exists
+        # to remove, so a repeated key means the map is not built at all and the invariant is
+        # told WHY. That is a TOOL-PRECONDITION (a fact about the model handed in), never a
+        # verdict about the kernel.
+        self.expected_switch_identity, self.switch_identity_unavailable = self._identity(
+            switches, "dpid", "switch", lambda s: s["dpid"],
+            lambda s: {"device_name": s.get("device_name", ""),
+                       "brand_name": s.get("brand_name", ""),
+                       "ips": spec.address_set(s)})
+        self.expected_host_identity, self.host_identity_unavailable = self._identity(
+            hosts, "mac", "host", lambda h: h.get("mac"),
+            lambda h: {"device_name": h.get("device_name", ""),
+                       "ips": spec.address_set(h)})
+
         # [Co-developed with claude code -- Adam] -- A-8.
         # /ndt/get_switches_power_state is keyed by IPv4 string, the graph by dpid. This is
         # the join, and it comes from the topology file so it needs no kernel to build.
@@ -181,15 +208,31 @@ class Context:
         self.dst_host_ip = host_ips[-1] if len(host_ips) > 1 else "10.0.0.2"
 
     @staticmethod
+    def _identity(nodes, key_field, kind, key_of, value_of):
+        """(map from key to identity, or (None, why the file cannot supply one)).
+
+        [Co-developed with claude code -- Adam] -- W3b-3.
+        """
+        keys = [key_of(n) for n in nodes]
+        repeated = sorted({k for k in keys if keys.count(k) > 1}, key=repr)
+        if repeated:
+            return None, (f"the topology file gives more than one {kind} the same "
+                          f"{key_field} ({repeated}), so per-{kind} identity cannot be "
+                          f"established from it; the counts and the graph's own duplicate "
+                          f"check still apply")
+        return {key_of(n): value_of(n) for n in nodes}, None
+
+    @staticmethod
     def _first_ip(node) -> str | None:
+        # Topology JSON stores network order, i.e. first octet in the low byte. The decoding
+        # is spec.dotted_ip's, not a second copy of it: inv_graph_matches_topology compares
+        # the two sides with that function, and a Context that normalised addresses even
+        # slightly differently would make the comparison find a difference on every node of a
+        # healthy fabric. [Co-developed with claude code -- Adam]
         ips = node.get("ip") or []
         if not ips:
             return None
-        v = ips[0]
-        if isinstance(v, str):
-            return v
-        # Topology JSON stores network order, i.e. first octet in the low byte.
-        return ".".join(str((v >> (8 * i)) & 0xFF) for i in range(4))
+        return spec.dotted_ip(ips[0])
 
     def describe(self) -> str:
         return (f"{os.path.basename(self.topology_path)}: "

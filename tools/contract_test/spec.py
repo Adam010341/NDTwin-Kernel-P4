@@ -379,6 +379,33 @@ DISPATCH_STATUS = Obj({
 # ctx carries expectations derived from the topology JSON, so nothing is hardcoded
 # to "10 switches" -- point the runner at a different topology and it adapts.
 
+def dotted_ip(value):
+    """One address as a dotted string, whichever of the two encodings it arrived in.
+
+    [Co-developed with claude code -- Adam]
+    A topology file writes `"192.168.123.11"`. The graph writes `in_addr::s_addr` read as a
+    native integer -- NETWORK order, so the first octet is the LOW byte, which is why
+    10.0.0.1 arrives as 16777226 and not as 167772161. Comparing the two sides without this
+    compares a string to an int and finds a difference every single time; reading the wrong
+    end of the integer finds a different network every time. Both failure modes report a
+    healthy fabric as broken, which is the one thing this suite must not do.
+    """
+    if isinstance(value, str):
+        return value
+    if isinstance(value, bool) or not isinstance(value, int):
+        return str(value)
+    return ".".join(str((value >> (8 * i)) & 0xFF) for i in range(4))
+
+
+def address_set(node):
+    """A node's addresses as a set of dotted strings, from either side of the comparison.
+
+    A SET, not a list: `_ipAlias4_*` hosts carry four addresses each and nothing promises the
+    kernel serves them in the file's order. Order is not identity here; membership is.
+    """
+    return frozenset(dotted_ip(v) for v in (node.get("ip") or []))
+
+
 def inv_graph_matches_topology(data, ctx):
     out = []
     nodes = data["nodes"]
@@ -403,6 +430,122 @@ def inv_graph_matches_topology(data, ctx):
     absent = sorted(ctx.expected_dpids - set(seen))
     if absent:
         out.append(f"dpid(s) in the topology file but missing from the graph: {absent}")
+
+    out += _switch_identity(switches, ctx)
+    out += _host_identity(hosts, ctx)
+    return out
+
+
+# [Co-developed with claude code -- Adam] -- W3b-3, since 2026-09-07.
+#
+# 🔴 WHY THE COUNTS ARE NOT ENOUGH, and what the two functions below add.
+#
+# Everything above answers "is this the right SIZE of network". None of it answers "is this the
+# right network". `setting/` ships two models with ten switches, four hosts, forty edges and the
+# same ten dpids (OVS and P4), and `tools/test_workflow/run_layers.sh:135` picks the model by
+# (mode, live host count) rather than by asking the kernel which file it loaded -- so validating
+# a fabric against a model that is not the one it is running is reachable, and came out ALL
+# GREEN. That is KNOWN-ISSUES L-1's family: the twin compared to a DIFFERENT network, and the
+# difference read as a verdict about the product. Here it read as no verdict at all.
+#
+# It is also what four of R0b's five topology-door findings looked like from this invariant:
+# every one of the six deliberately broken files (rounds/05-R0b-postmerge2.md §2.1) differs from
+# the shipped model in ONE field, and four of them keep every count and every dpid identical.
+#
+# What is compared, and what deliberately is not:
+#
+#   switches, keyed by dpid   -- brand_name and the address set are FAILURES. Neither can change
+#                                at runtime; a difference means a different model.
+#   hosts, keyed by mac       -- the address set is a FAILURE. Not by dpid, which is 0 for every
+#                                host (the collision that made probes.switch_flags count 128
+#                                hosts as one switch, test_probes.py); not by device_name, which
+#                                is the field a rename moves.
+#   device_name (both kinds)  -- reported as ACCOUNTED-FOR, never as a failure. `modify_nickname`
+#                                and `modify_device_name` persist a rename -- into the model file
+#                                before W10, into `.test_run/nickname_overlay/` and back over the
+#                                graph at load after it -- so a name that disagrees with the file
+#                                is an expected state of a healthy fabric. Printed rather than
+#                                failed, because an explained deviation nobody sees is
+#                                indistinguishable from no deviation.
+#   bridge_name, ecmp_groups  -- not compared, because `get_graph_data` does not carry them.
+#                                Files d and e of that round differ from the shipped model only
+#                                in those, and stay green here. Saying so is the point: this
+#                                invariant reads the graph, and what the graph does not say it
+#                                cannot check.
+#
+# The two expectation maps come from run_contract_test.Context. A ctx that does not carry them
+# is a hand-built stand-in that has only cardinalities to offer, and gets the cardinality checks
+# alone -- the REAL Context always builds them, which is pinned by
+# tests/python/test_contract_spec.py so that "absent" can never quietly become the production
+# answer.
+
+def _switch_identity(switches, ctx):
+    why = getattr(ctx, "switch_identity_unavailable", None)
+    if why:
+        return [TOOL_PRECONDITION + why]
+    expected = getattr(ctx, "expected_switch_identity", None)
+    if expected is None:
+        return []
+    out = []
+    for s in sorted(switches, key=lambda n: n["dpid"]):
+        want = expected.get(s["dpid"])
+        if want is None:
+            continue                    # already reported above as an unknown dpid
+        got_ips = address_set(s)
+        if got_ips != want["ips"]:
+            out.append(f"switch dpid {s['dpid']} is served with addresses "
+                       f"{sorted(got_ips)}, topology file says {sorted(want['ips'])}")
+        if s.get("brand_name", "") != want["brand_name"]:
+            out.append(f"switch dpid {s['dpid']} is served as brand "
+                       f"{s.get('brand_name', '')!r}, topology file says "
+                       f"{want['brand_name']!r} -- brand_name decides power and telemetry "
+                       f"dispatch, so this is a different machine, not a different label")
+        if s.get("device_name", "") != want["device_name"]:
+            out.append(ACCOUNTED_FOR + f"switch dpid {s['dpid']} is named "
+                       f"{s.get('device_name', '')!r} in the graph and "
+                       f"{want['device_name']!r} in the topology file; a rename through "
+                       f"modify_device_name/modify_nickname persists and does exactly this")
+    return out
+
+
+def _host_identity(hosts, ctx):
+    # 🔴 The duplicate-mac check below runs either way: the precondition says the FILE cannot
+    # identify its hosts, and the check says the GRAPH is serving two hosts under one L2
+    # identity. Those are different facts, and the second is a verdict about the twin -- the
+    # nickname overlay keys hosts by mac, so a collision there is ambiguous by construction.
+    out = []
+    macs = [h.get("mac") for h in hosts]
+    dupes = sorted({m for m in macs if macs.count(m) > 1}, key=repr)
+    if dupes:
+        out.append(f"duplicate host mac(s): {dupes} -- hosts all carry dpid 0, so the mac is "
+                   f"the only thing that tells them apart")
+
+    why = getattr(ctx, "host_identity_unavailable", None)
+    if why:
+        return out + [TOOL_PRECONDITION + why]
+    expected = getattr(ctx, "expected_host_identity", None)
+    if expected is None:
+        return out
+    unknown = sorted(m for m in set(macs) if m not in expected)
+    if unknown:
+        out.append(f"host mac(s) not present in the topology file: {unknown}")
+    absent = sorted(m for m in expected if m not in set(macs))
+    if absent:
+        out.append(f"host mac(s) in the topology file but missing from the graph: {absent}")
+
+    for h in sorted(hosts, key=lambda n: (n.get("mac") is None, n.get("mac"))):
+        want = expected.get(h.get("mac"))
+        if want is None:
+            continue
+        got_ips = address_set(h)
+        if got_ips != want["ips"]:
+            out.append(f"host {want['device_name']!r} (mac {h.get('mac')}) is served with "
+                       f"addresses {sorted(got_ips)}, topology file says "
+                       f"{sorted(want['ips'])}")
+        if h.get("device_name", "") != want["device_name"]:
+            out.append(ACCOUNTED_FOR + f"host mac {h.get('mac')} is named "
+                       f"{h.get('device_name', '')!r} in the graph and "
+                       f"{want['device_name']!r} in the topology file; a rename persists")
     return out
 
 

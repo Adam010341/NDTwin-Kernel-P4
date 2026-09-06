@@ -37,12 +37,23 @@ nothing and is reported as NO TESTS RAN. In this directory "Ran 0" is a hard fai
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import sys
+import tempfile
 import unittest
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(REPO_ROOT, "tools", "contract_test"))
+# NDT_CONTRACT_TOOLS points the import at a COPY of tools/contract_test, so
+# tests/shell/mutate_contract_per_node_identity.sh can mutate spec.py and score this file
+# without writing a byte into a worktree other sessions are reading. Unset in a normal run.
+# The topology models and the captured graph payload are still read from REPO_ROOT: the
+# authority a mutated tool is judged against must not be mutated with it.
+# [Co-developed with claude code -- Adam]
+CONTRACT_TOOLS = os.environ.get("NDT_CONTRACT_TOOLS") or os.path.join(
+    REPO_ROOT, "tools", "contract_test")
+sys.path.insert(0, CONTRACT_TOOLS)
 
 import spec  # noqa: E402
 from run_contract_test import Context  # noqa: E402
@@ -103,12 +114,23 @@ class Ctx:
     See the note there for why.
     """
 
-    def __init__(self, switches=2, hosts=1, edges=2, dpids=(1, 2), topk=5, power_state=None):
+    def __init__(self, switches=2, hosts=1, edges=2, dpids=(1, 2), topk=5, power_state=None,
+                 switch_identity=None, host_identity=None):
         self.expected_switches = switches
         self.expected_hosts = hosts
         self.expected_edges = edges
         self.expected_dpids = set(dpids)
         self.topk = topk
+        # [Co-developed with claude code -- Adam] -- W3b-3.
+        # Per-node identity, absent by default so the cases above still say exactly what they
+        # said: they are about the cardinality half, and a stand-in that started asserting
+        # identity too would change what those reds mean. The REAL Context always supplies
+        # both -- pinned by RealContextSuppliesPerNodeIdentityTest, so this default can never
+        # become the production answer.
+        self.expected_switch_identity = switch_identity
+        self.expected_host_identity = host_identity
+        self.switch_identity_unavailable = None
+        self.host_identity_unavailable = None
         # [Co-developed with claude code -- Adam] -- A-8.
         # Defaults to a POSITIVE reading that nothing is powered off, not to "no reading".
         # The distinction is the whole of A-8: on a fabric where nothing is off, a down
@@ -1321,6 +1343,395 @@ class PowerStateReadingCarriesBothFieldsTest(unittest.TestCase):
                 "mac": 1, "vertex_type": 0, "brand_name": "x", "device_layer": 1}
         self.assertTrue(validate(spec.GRAPH_NODE, {**base, "admin_state": "OFF"}),
                         "a third spelling of the same state is a contract change")
+
+
+# =============================================================================================
+# W3b-3: per-node identity, and the six deliberately broken models
+#
+# [Co-developed with claude code -- Adam]
+#
+# `inv_graph_matches_topology` compared three cardinalities and the dpid SET. That answers "is
+# this the right size of network" and cannot answer "is this the right network" -- and being
+# pointed at the wrong model is reachable, not hypothetical: tools/test_workflow/run_layers.sh
+# picks the topology by (mode, live host count), never by asking the kernel which file it
+# loaded, and `setting/` ships two ten-switch four-host models with the same ten dpids.
+#
+# The fixtures are R0b's six broken topology files (rounds/05-R0b-postmerge2.md 2.1, the same
+# six R3 built), each one field away from setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json.
+# They are REBUILT here rather than committed, and the rebuild is pinned by the sha256 of the
+# artefact that actually went through the kernel -- 138 kB of near-duplicates of a shipped file
+# would be a worse fixture, not a better one, and the sha is a stronger claim than the copy:
+# it says the single mutation below is the WHOLE difference.
+#
+# 🔴 Two pairings, because they answer different questions and only one of them improves:
+#
+#   crossed   -- the kernel serves the shipped model, the runner was handed a broken one.
+#                This is the reachable mistake, and per-node identity is what catches it.
+#   same-file -- the kernel loaded the broken model and serves it faithfully.
+#                Per-node identity does NOT help here and cannot: the invariant compares the
+#                graph to the file, so a faithfully served bad file matches by construction.
+#                That is the loader's job -- doors 3a-3e -- and this test says so out loud so
+#                that "the contract test now looks at per-node identity" is never read as
+#                "the contract test now catches #90 and #91".
+# =============================================================================================
+
+SHIPPED_OVS4 = os.path.join(REPO_ROOT, "setting",
+                            "StaticNetworkTopologyOVS_10Switches_4Hosts.json")
+P4_128_TOPOLOGY = os.path.join(REPO_ROOT, "setting",
+                               "StaticNetworkTopologyP4_10Switches_128Hosts.json")
+#: A REAL captured get_graph_data payload (chaos harness fixture, 2026-08-29), and the shipped
+#: model it was captured from. The known-good output this file's projection is checked against.
+CAPTURED_P4_GRAPH = os.path.join(REPO_ROOT, "doc", "audit", "2026-08-28_chaos-harness",
+                                 "harness", "fixtures", "graph_p4_138nodes.json")
+
+
+
+def read_json(path):
+    """Closed explicitly: L1 runs these files directly, and an unclosed-file ResourceWarning
+    in the output is noise in a lane whose only signal is the last two lines."""
+    with open(path) as fh:
+        return json.load(fh)
+
+
+def _s7(topo):
+    return [n for n in topo["nodes"] if n.get("device_name") == "s7"][0]
+
+
+def _add_addressless_host(topo):
+    """R0b file a. Verbatim, including `mac: 1` -- which h1 already has (see below)."""
+    topo["nodes"].append({"brand_name": "", "device_layer": 3, "device_name": "h9",
+                          "nickname": "h9", "dpid": 0, "ip": [], "mac": 1, "vertex_type": 1,
+                          "bridge_name": "h9"})
+
+
+def _empty_switch_ip(topo):
+    _s7(topo)["ip"] = []
+
+
+def _unknown_brand(topo):
+    _s7(topo)["brand_name"] = "NOT_A_REAL_KIND"
+
+
+def _drop_bridge_name(topo):
+    del _s7(topo)["bridge_name"]
+
+
+def _negative_ecmp_port(topo):
+    _s7(topo)["ecmp_groups"] = [{"members": [{"type": "port", "port_id": -1},
+                                             {"type": "port", "port_id": 999999}]}]
+
+
+def _edge_to_unknown_dpid(topo):
+    topo["edges"].append({"src_dpid": 1, "src_interface": 9,
+                          "src_ip": ["192.168.123.11"], "dst_dpid": 4242,
+                          "dst_interface": 1, "dst_ip": ["192.168.123.99"],
+                          "link_bandwidth_bps": 1000000000})
+
+
+#: letter -> (the R3/R0b filename, its sha256, the one mutation, what R0b measured the kernel do)
+BROKEN_MODELS = {
+    "a": ("r3-topo-a-host-empty-ip.json",
+          "adff4661ccdf59d2cd2b43e25bea1c9e1d25bf565d066fbdc5c837a96ace335a",
+          _add_addressless_host, "accepted (#90)"),
+    "b": ("r3-topo-b-switch-empty-ip.json",
+          "42a33fc305882ce8b1d9fdb79cf383916500d504746b375f2bc92a5092c420a5",
+          _empty_switch_ip, "refused at load (door 3b)"),
+    "c": ("r3-topo-c-bad-switch-kind.json",
+          "ad2bc613501e8cd5f3788c97cd7cdddd1e661630ae24a260a6086f1df458e920",
+          _unknown_brand, "accepted (#91)"),
+    "d": ("r3-topo-d-no-bridge-name.json",
+          "f861b517a7ce2ac555f3bf2277123b95b1500ee29e684198c7c1603048ee3a3a",
+          _drop_bridge_name, "refused at load (door 3c)"),
+    "e": ("r3-topo-e-ecmp-negative-port.json",
+          "e907877123b3aef523e48a00b4989899826590326e407ed827b764fc7d3e5bb7",
+          _negative_ecmp_port, "refused at load"),
+    "f": ("r3-topo-f-edge-to-unknown-dpid.json",
+          "44b51679af93c18e7a7302ef2c5dabc62588362fe250c2a346841ba43b26d172",
+          _edge_to_unknown_dpid, "refused at load (#61)"),
+}
+
+
+def broken_model_bytes(letter):
+    """One of the six, byte for byte. `indent=4` is the shipped file's own serialisation --
+    verified by the sha256 assertions in TheSixBrokenModelsTest."""
+    topo = read_json(SHIPPED_OVS4)
+    BROKEN_MODELS[letter][2](topo)
+    return json.dumps(topo, indent=4).encode()
+
+
+def context_for(topology_bytes):
+    """A REAL run_contract_test.Context over an in-memory model."""
+    with tempfile.NamedTemporaryFile("wb", suffix=".json", delete=False) as fh:
+        fh.write(topology_bytes)
+        path = fh.name
+    try:
+        return Context(path, 5, PROBE_IP)
+    finally:
+        os.unlink(path)
+
+
+def graph_as_served(topology):
+    """The get_graph_data payload a kernel serving this model would produce, as far as
+    inv_graph_matches_topology reads it.
+
+    Checked against a real captured payload rather than believed -- see
+    TheProjectionTest. Addresses become network-order integers because that is what the
+    kernel emits and what the invariant has to normalise back.
+    """
+    def encode(dotted):
+        parts = [int(p) for p in str(dotted).split(".")]
+        return sum(p << (8 * i) for i, p in enumerate(parts))
+
+    nodes = []
+    for n in topology["nodes"]:
+        nodes.append({
+            "device_name": n.get("device_name", ""),
+            "dpid": n.get("dpid", 0),
+            "ip": [encode(v) if isinstance(v, str) else v for v in (n.get("ip") or [])],
+            "is_enabled": True, "is_up": True,
+            "mac": n.get("mac", 0),
+            "vertex_type": n.get("vertex_type", 0),
+            "brand_name": n.get("brand_name", ""),
+            "device_layer": n.get("device_layer", 0),
+        })
+    return {"nodes": nodes, "edges": list(topology.get("edges", []))}
+
+
+class TheSixBrokenModelsTest(unittest.TestCase):
+    """The fixtures are the artefacts R0b fed to the kernel, or they are not evidence."""
+
+    def test_each_broken_model_is_reproduced_byte_for_byte(self):
+        for letter, (name, want_sha, _mut, _measured) in sorted(BROKEN_MODELS.items()):
+            got = hashlib.sha256(broken_model_bytes(letter)).hexdigest()
+            self.assertEqual(got, want_sha,
+                             f"{letter} ({name}) no longer rebuilds to the file R0b ran: the "
+                             f"shipped model or the mutation has moved, and this fixture is "
+                             f"no longer the thing that went through the kernel")
+
+    def test_the_broken_models_differ_from_the_shipped_one_in_exactly_one_place(self):
+        base = read_json(SHIPPED_OVS4)
+        for letter in sorted(BROKEN_MODELS):
+            bad = json.loads(broken_model_bytes(letter).decode())
+            diffs = sum(1 for i, n in enumerate(bad["nodes"])
+                        if i >= len(base["nodes"]) or n != base["nodes"][i])
+            diffs += abs(len(bad["edges"]) - len(base["edges"]))
+            self.assertEqual(diffs, 1, f"{letter} changes more than one thing")
+
+
+class TheProjectionTest(unittest.TestCase):
+    """graph_as_served is an instrument. It is checked against a real capture, not believed."""
+
+    def test_the_projection_reproduces_a_real_captured_payload(self):
+        captured = read_json(CAPTURED_P4_GRAPH)
+        projected = graph_as_served(read_json(P4_128_TOPOLOGY))
+        self.assertEqual(len(projected["nodes"]), len(captured["nodes"]))
+        by_key = {(n["vertex_type"], n["dpid"], n["device_name"]): n for n in captured["nodes"]}
+        self.assertEqual(len(by_key), len(captured["nodes"]), "the capture's keys collide")
+        for n in projected["nodes"]:
+            real = by_key[(n["vertex_type"], n["dpid"], n["device_name"])]
+            for field in ("ip", "mac", "brand_name"):
+                self.assertEqual(n[field], real[field],
+                                 f"projection disagrees with the capture on {field} of "
+                                 f"{n['device_name']}")
+
+    def test_the_captured_payload_and_its_own_model_agree_node_for_node(self):
+        """The control the whole class rests on: a REAL graph against the REAL model it was
+        captured from must be silent, or every red below is just this check being wrong."""
+        captured = read_json(CAPTURED_P4_GRAPH)
+        self.assertEqual(spec.inv_graph_matches_topology(
+            captured, Context(P4_128_TOPOLOGY, 5, PROBE_IP)), [])
+
+
+class RealContextSuppliesPerNodeIdentityTest(unittest.TestCase):
+    """existence != wiring. spec.py falls back to cardinalities when a ctx carries no identity;
+    that fallback is for hand-built stand-ins, and this is what stops it becoming production."""
+
+    def test_the_runner_builds_both_maps_for_every_shipped_model(self):
+        for name in sorted(os.listdir(os.path.join(REPO_ROOT, "setting"))):
+            if not name.startswith("StaticNetworkTopology") or not name.endswith(".json"):
+                continue
+            ctx = Context(os.path.join(REPO_ROOT, "setting", name), 5, PROBE_IP)
+            self.assertIsNone(ctx.switch_identity_unavailable, name)
+            self.assertIsNone(ctx.host_identity_unavailable, name)
+            self.assertEqual(len(ctx.expected_switch_identity), ctx.expected_switches, name)
+            self.assertEqual(len(ctx.expected_host_identity), ctx.expected_hosts, name)
+
+    def test_a_model_whose_hosts_share_a_mac_yields_no_verdict_instead_of_a_wrong_one(self):
+        # File a is exactly this: R3 built h9 by copying h1, mac and all. A keyed map would
+        # have silently dropped one of them and then compared the graph against a host that
+        # is not there.
+        ctx = context_for(broken_model_bytes("a"))
+        self.assertIsNone(ctx.expected_host_identity)
+        self.assertIn("same mac", ctx.host_identity_unavailable)
+        out = spec.inv_graph_matches_topology(
+            graph_as_served(json.loads(broken_model_bytes("a").decode())), ctx)
+        failures, preconditions, _ = spec.partition_messages(out)
+        self.assertTrue(any("same mac" in p for p in preconditions), out)
+
+
+class PerNodeIdentityAgainstTheBrokenModelsTest(unittest.TestCase):
+    """The crossed pairing: a healthy fabric, validated against a model that is not the one it
+    is running."""
+
+    def setUp(self):
+        self.healthy = graph_as_served(read_json(SHIPPED_OVS4))
+
+    def failures_against(self, letter):
+        ctx = context_for(broken_model_bytes(letter))
+        failures, _pre, _acc = spec.partition_messages(
+            spec.inv_graph_matches_topology(self.healthy, ctx))
+        return failures
+
+    def test_the_shipped_model_against_its_own_graph_is_silent(self):
+        # The control. Without it every red below could be this check firing on everything.
+        ctx = Context(SHIPPED_OVS4, 5, PROBE_IP)
+        self.assertEqual(spec.inv_graph_matches_topology(self.healthy, ctx), [])
+
+    def test_a_switch_with_no_address_in_the_model_is_now_named(self):
+        """b. Same 14 nodes, same 40 edges, same ten dpids -- invisible to every count."""
+        out = self.failures_against("b")
+        self.assertTrue(any("dpid 7" in m and "addresses" in m for m in out), out)
+
+    def test_a_switch_with_the_wrong_brand_in_the_model_is_now_named(self):
+        """c. Same shape again; brand_name decides power and telemetry dispatch."""
+        out = self.failures_against("c")
+        self.assertTrue(any("dpid 7" in m and "brand" in m for m in out), out)
+
+    def test_a_field_the_graph_does_not_carry_is_still_invisible_and_that_is_stated(self):
+        """d and e differ only in bridge_name / ecmp_groups, which get_graph_data does not
+        serve. This invariant reads the graph, so it cannot see them -- and a test that
+        claimed otherwise would be the instrument lying about its own reach."""
+        for letter in ("d", "e"):
+            self.assertEqual(self.failures_against(letter), [],
+                             f"{letter} is not reachable from the graph payload")
+
+    def test_the_two_the_counts_already_caught_are_still_caught(self):
+        """a (an extra host) and f (an extra edge) were the only two of the six the old
+        cardinality checks could see. A fix that lost them would be a regression."""
+        self.assertTrue(any("host count" in m for m in self.failures_against("a")))
+        self.assertTrue(any("edge count" in m for m in self.failures_against("f")))
+
+    def test_the_cardinality_only_check_saw_only_those_two(self):
+        """The BEFORE column, computed rather than remembered: with the identity maps taken
+        away, four of the six broken models produce nothing at all."""
+        silent = []
+        for letter in sorted(BROKEN_MODELS):
+            ctx = context_for(broken_model_bytes(letter))
+            ctx.expected_switch_identity = None
+            ctx.expected_host_identity = None
+            ctx.switch_identity_unavailable = None
+            ctx.host_identity_unavailable = None
+            failures, _p, _a = spec.partition_messages(
+                spec.inv_graph_matches_topology(self.healthy, ctx))
+            if not failures:
+                silent.append(letter)
+        self.assertEqual(silent, ["b", "c", "d", "e"],
+                         "the before-picture moved; the claim about what was gained rests "
+                         "on this list")
+
+
+class PerNodeIdentityDoesNotCloseTheLoaderDoorsTest(unittest.TestCase):
+    """The same-file pairing, and the limit it makes explicit.
+
+    #90 and #91 are files the kernel ACCEPTS and then serves faithfully. This invariant
+    compares the graph to the file it was handed, so when they are the same file it matches by
+    construction -- before this change and after it. The doors in
+    validateStaticTopologyJson are what close those, and this test exists so that nobody reads
+    "the contract test now checks per-node identity" as "the contract test now catches them".
+    """
+
+    def test_a_faithfully_served_unknown_brand_is_still_green(self):
+        """c / #91: the kernel took the file, mapped NOT_A_REAL_KIND to hardware, and serves
+        the string back. Graph and file agree, so this invariant has nothing to say."""
+        topo = json.loads(broken_model_bytes("c").decode())
+        ctx = context_for(broken_model_bytes("c"))
+        self.assertEqual(spec.inv_graph_matches_topology(graph_as_served(topo), ctx), [])
+
+    def test_a_faithfully_served_addressless_host_is_still_green(self):
+        """a / #90, with R3's mac collision removed so that the collision is not what makes
+        this test pass. `('h9', [])` is served exactly as the file declares it."""
+        topo = json.loads(broken_model_bytes("a").decode())
+        [h for h in topo["nodes"] if h["device_name"] == "h9"][0]["mac"] = 9
+        ctx = context_for(json.dumps(topo, indent=4).encode())
+        self.assertIsNone(ctx.host_identity_unavailable)
+        self.assertEqual(spec.inv_graph_matches_topology(graph_as_served(topo), ctx), [])
+
+
+class AddressDecodingTest(unittest.TestCase):
+    """The comparison is only as good as this, and getting it backwards finds a different
+    network on every node of a healthy fabric."""
+
+    def test_the_first_octet_is_the_low_byte(self):
+        self.assertEqual(spec.dotted_ip(16777226), "10.0.0.1")
+        self.assertEqual(spec.dotted_ip(192653504), "192.168.123.11")
+
+    def test_a_dotted_string_is_already_dotted(self):
+        self.assertEqual(spec.dotted_ip("10.0.0.1"), "10.0.0.1")
+
+    def test_both_encodings_of_one_address_compare_equal(self):
+        self.assertEqual(spec.address_set({"ip": [16777226]}),
+                         spec.address_set({"ip": ["10.0.0.1"]}))
+
+    def test_the_address_set_is_a_set_because_four_aliases_have_no_promised_order(self):
+        self.assertEqual(spec.address_set({"ip": ["10.0.0.1", "10.0.0.2"]}),
+                         spec.address_set({"ip": ["10.0.0.2", "10.0.0.1"]}))
+
+    def test_a_missing_ip_key_is_the_empty_set_not_a_crash(self):
+        self.assertEqual(spec.address_set({}), frozenset())
+
+
+class RenameIsAccountedForNotFailedTest(unittest.TestCase):
+    """W10 moved renames into .test_run/nickname_overlay/ and lays them back over the graph at
+    load, so a device_name that disagrees with the model file is a normal state of a healthy
+    fabric. Failing on it would turn every rename into a red L2 run."""
+
+    def setUp(self):
+        self.graph = graph_as_served(read_json(SHIPPED_OVS4))
+        self.ctx = Context(SHIPPED_OVS4, 5, PROBE_IP)
+
+    def test_a_renamed_switch_is_reported_and_does_not_fail_the_check(self):
+        for n in self.graph["nodes"]:
+            if n["dpid"] == 7:
+                n["device_name"] = "spine-7"
+        failures, _pre, accounted = spec.partition_messages(
+            spec.inv_graph_matches_topology(self.graph, self.ctx))
+        self.assertEqual(failures, [])
+        self.assertTrue(any("spine-7" in a for a in accounted), accounted)
+
+    def test_a_renamed_switch_that_also_moved_address_still_fails(self):
+        # The rename explains the name and nothing else. A check that let the name excuse the
+        # whole node would be an exemption, not an explanation.
+        for n in self.graph["nodes"]:
+            if n["dpid"] == 7:
+                n["device_name"] = "spine-7"
+                n["ip"] = [1]
+        failures, _pre, _acc = spec.partition_messages(
+            spec.inv_graph_matches_topology(self.graph, self.ctx))
+        self.assertTrue(any("dpid 7" in m and "addresses" in m for m in failures), failures)
+
+    def test_a_renamed_host_is_reported_and_does_not_fail_the_check(self):
+        for n in self.graph["nodes"]:
+            if n["vertex_type"] == 1 and n["mac"] == 2:
+                n["device_name"] = "laptop"
+        failures, _pre, accounted = spec.partition_messages(
+            spec.inv_graph_matches_topology(self.graph, self.ctx))
+        self.assertEqual(failures, [])
+        self.assertTrue(any("laptop" in a for a in accounted), accounted)
+
+
+class GraphSideDuplicateHostMacTest(unittest.TestCase):
+    """A duplicate mac in the GRAPH is a verdict about the twin, not about the model: the
+    nickname overlay keys hosts by mac, so two hosts under one mac are ambiguous by
+    construction."""
+
+    def test_two_hosts_served_under_one_mac_are_named(self):
+        graph = graph_as_served(read_json(SHIPPED_OVS4))
+        for n in graph["nodes"]:
+            if n["vertex_type"] == 1 and n["mac"] == 2:
+                n["mac"] = 1
+        failures, _p, _a = spec.partition_messages(
+            spec.inv_graph_matches_topology(graph, Context(SHIPPED_OVS4, 5, PROBE_IP)))
+        self.assertTrue(any("duplicate host mac" in m for m in failures), failures)
 
 
 if __name__ == "__main__":
