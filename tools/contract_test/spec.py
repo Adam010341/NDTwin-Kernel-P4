@@ -225,6 +225,13 @@ TELEMETRY_STATES = ("live", "idle", "silent", "unknown")
 #                         POSTs a recovery. B-6, and branch-only as of 2026-09-06: a kernel built
 #                         from trunk never emits it, which is why this is an `allowed` set on an
 #                         OPTIONAL key rather than a required field
+#
+# [Co-developed with claude code -- Adam]
+# 2026-09-07, branch fix/w8b-withdrawal-needs-observed-failure: WHICH recovery clears `declared`
+# narrowed, and the vocabulary did not. /ndt/link_recovery_detected now withdraws only a
+# declaration that /ndt/link_failure_detected reported broken; one reached through
+# /ndt/inject_link_failure clears only through /ndt/inject_link_recovery. No fourth value: a
+# reader still has exactly one thing to do about `declared`, which is find out who declared it.
 DOWN_REASONS = ("none", "switch-unreachable", "declared")
 
 FLOW_KEY = Obj({

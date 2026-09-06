@@ -1391,6 +1391,54 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   **查得出來**（掃 `/ndt/get_graph_data` 的 `down_reason == "declared"`）。
   **「注入後必須斷言注入成功」那條紀律兩個方向都要斷言**：窗內成立、窗後解除。
 
+#### B-6 第二輪：**宣告活過輪詢，但活不過控制面重啟**（實測 2026-09-07，分支 `fix/w8b-withdrawal-needs-observed-failure`）
+
+- **狀態**：**在 trunk 上 OPEN**（trunk 連第一輪都沒有）。**在 `fix/w8-declared-link-failure-sticky`
+  上也 OPEN**——第一輪的修法擋得住輪詢、擋不住這個。修在
+  `fix/w8b-withdrawal-needs-observed-failure`（base＝`fix/w8-declared-link-failure-sticky`@`017c060f`），
+  **未併**。🔴 **變異閘在 trunk 上跑綠之前不得標 RESOLVED。**
+- 🟢 **實測（不是推論）**：`scratch/overnight-2026-09-05/logs/live-round2-console.log` 的 lw8b 臂，
+  2026-09-07 00:08，OVS 4 hosts，kernel `37d641fa9fd6fc14`（build 自 `017c060f`）：
+  宣告 s1:1→s5:1（`is_up=False down_reason=declared`）→ 指名 kill Ryu（:8080 於 00:08:47 關，
+  Ryu 不在時邊仍 declared）→ **同 argv 重起**（:8080 於 00:08:54 開）→ kernel.log 00:08:53 起
+  **每條 link 一個 `POST /ndt/link_recovery_detected`** → **t+10 s 起 9/9 樣本 `is_up=True
+  down_reason=none`**。
+- **機制**：Ryu 的 topology 模組在 LLDP **初次發現**每條 link 時就發 `EventLinkAdd`，
+  `intelligent_router.py` 的 `on_link_add` 從那裡 POST `/ndt/link_recovery_detected`
+  ⇒ **控制面重啟在 wire 上與「整個 fabric 同時復原」完全一樣**，而 `handleLinkRecovery`
+  當時是無條件 `clearEdgeDeclaredDown`。
+- 🔴 **危險的那一半是 `inject_link_failure`**：宣告被撤、`tc netem loss 100%` 還在
+  ⇒ **圖說 up，封包不通**。純宣告那一半是「靜默的注入結束」，B-6 的同一科。
+- **Adam 2026-09-07 00:1x 裁 (b)**：**撤回要對得上一次「觀測到的斷」**。
+- **修法**：
+  1. `EdgeProperties` 多第六個旗標 `failureReported`——「控制面說它看到這條 link 斷了」。
+     **只有 `/ndt/link_failure_detected` 寫它**（`setEdgeDownByReportedFailure`）；
+     `/ndt/inject_link_failure` 走 `setEdgeDownByDeclaration`，**不寫**。
+  2. `applyReportedLinkRecovery`（一次上鎖，取代原本 handler 裡的 `clearEdgeDeclaredDown` ＋
+     `setEdgeUp` 兩次上鎖）：有 report ⇒ 花掉它、撤宣告、抬起邊；**沒有 report 但有宣告 ⇒
+     什麼都不做**（`Retained`），回應 200 帶 `declaration_retained: true` 並指向
+     `/ndt/inject_link_recovery`；兩者皆無 ⇒ 照常抬起。**一個 report 只買一次撤回。**
+  3. `clearEdgeDeclaredDown`（＝`/ndt/inject_link_recovery`）維持**無條件**，並一併花掉 report。
+- ⚠️ **這條規則沒有蓋住的殘餘**：用 `/ndt/link_failure_detected` 做的**純宣告**注入，
+  仍然會被同一條 link 的重新發現撤掉——因為那個 POST 本身就是「Ryu 報了這條 link 斷」，
+  kernel 分不出它是不是真的來自 Ryu。裁決的口徑就是這樣（「Ryu 之前也對這條 link 報過
+  `link_failure_detected`」）。**要不被撤，用 `/ndt/inject_link_failure`。**
+- **W8-7（同一張單）**：四個 link 端點收到 `src_dpid == 0 || dst_dpid == 0` ⇒ **400**。
+  host 頂點的 dpid 是 0，而 `findEdgeBySrcAndDstDpid` 只比對兩個 dpid
+  ⇒ `{"dst_dpid":0}` 會挑到「該交換機的第一條 host 邊」（挑哪一條由 edge 順序決定），
+  宣告設上去、`updateHosts` 下一輪又抬回來——**B-6 在唯一沒被 veto 覆蓋的邊形狀上重演**。
+  在門口拒收，不是往 `updateHosts` 撒 veto：**這是輸入驗證問題，不是狀態機問題。**
+- **W8-4（同一張單）**：MININET 下 kernel 啟動時掃一次「每條交換機↔交換機 link 兩端」的
+  `tc qdisc show`，發現 netem ⇒ **一行 WARN 列出介面**（`netem is already attached to ...`）。
+  **不清、不當宣告接回**（`faults.sh` 有權在介面上掛 netem；從 qdisc 讀數造出一個宣告
+  等於讓分身自己當自己的證人）。理由：宣告不進檔案、netem 進 qdisc 樹
+  ⇒ **重啟後乾淨的 `down_reason` 不代表 fabric 乾淨**。
+- **閘門**：`tests/shell/mutate_withdrawal_needs_observed_failure.sh`（mutate
+  `TopologyAndFlowMonitor.cpp` ＋ `HttpSession.cpp`）。逐字結果在
+  `doc/audit/2026-09-07_fix-w8b-withdrawal-pairing/RED-GREEN.md`。
+- **文件**：`doc/2026-01-02_ndt_api.md` §1／§2／§2b／§2c 已改口徑（§2 多一個「配對規則」表與
+  `declaration_retained` 回應）。
+
 ### B-7 `set_switches_power_state` 對不存在的 IP 回 500，而同一個 IP 的 GET 回 404
 
 - **狀態**：**在 trunk 上 OPEN。修法在分支 `integrate/2026-09-03-auditor-merge` 的
