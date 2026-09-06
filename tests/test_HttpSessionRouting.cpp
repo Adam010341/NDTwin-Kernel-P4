@@ -31,6 +31,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
@@ -792,6 +793,18 @@ class DeclaredLinkFailureWireTest : public ::testing::Test
         const auto s5 = addSwitch(5, "s5");
         addEdge(s1, s5, 1, 5);
         addEdge(s5, s1, 5, 1);
+
+        // [Co-developed with claude code -- Adam]
+        // W8-7. A host, and the pair of edges that hang it off s1 on a DIFFERENT port. It is here
+        // so the dpid-0 cases below have something to hit: a host vertex carries dpid 0, and
+        // findEdgeBySrcAndDstDpid matches on the two dpids alone, so without the refusal
+        // `{"src_dpid":1,"dst_dpid":0}` RESOLVES -- to whichever host edge of s1 comes first --
+        // and the endpoint answers 200 having declared a link the caller never named. A fixture
+        // with no host edge would turn the same request into a 404 and the cases would then be
+        // pinning "not found" rather than "refused".
+        const auto h1 = addHost(kHostIp);
+        addEdge(s1, h1, 1, kHostDpid, 2, 1);
+        addEdge(h1, s1, kHostDpid, 1, 1, 2);
     }
 
     Graph::vertex_descriptor addSwitch(uint64_t dpid, const std::string& bridge)
@@ -806,16 +819,31 @@ class DeclaredLinkFailureWireTest : public ::testing::Test
         return boost::add_vertex(vp, *m_graph);
     }
 
+    /// A host vertex: dpid 0, which is the whole point of the W8-7 cases.
+    Graph::vertex_descriptor addHost(uint32_t ip)
+    {
+        VertexProperties vp;
+        vp.vertexType = VertexType::HOST;
+        vp.dpid = kHostDpid;
+        vp.isUp = true;
+        vp.isEnabled = true;
+        vp.deviceName = "h1";
+        vp.ip = {ip};
+        return boost::add_vertex(vp, *m_graph);
+    }
+
     void addEdge(Graph::vertex_descriptor u,
                  Graph::vertex_descriptor v,
                  uint64_t srcDpid,
-                 uint64_t dstDpid)
+                 uint64_t dstDpid,
+                 uint32_t srcPort = 1,
+                 uint32_t dstPort = 1)
     {
         EdgeProperties ep;
         ep.srcDpid = srcDpid;
         ep.dstDpid = dstDpid;
-        ep.srcInterface = 1;
-        ep.dstInterface = 1;
+        ep.srcInterface = srcPort;
+        ep.dstInterface = dstPort;
         ep.isUp = true;
         ep.isEnabled = true;
         boost::add_edge(u, v, ep, *m_graph);
@@ -852,6 +880,22 @@ class DeclaredLinkFailureWireTest : public ::testing::Test
 
     static constexpr const char* kBody =
         R"({"src_dpid":1,"src_interface":1,"dst_dpid":5,"dst_interface":1})";
+
+    /// [Co-developed with claude code -- Adam] W8-7. The degenerate payload: s1 to "the host end",
+    /// which names no particular edge at all. 10.0.0.1 in host order.
+    static constexpr const char* kHostEdgeBody =
+        R"({"src_dpid":1,"src_interface":2,"dst_dpid":0,"dst_interface":1})";
+    static constexpr uint64_t kHostDpid = 0;
+    static constexpr uint32_t kHostIp = 0x0A000001;
+
+    /// Every endpoint that addresses a link by its two dpids. All four refuse dpid 0.
+    static std::vector<std::string> linkEndpoints()
+    {
+        return {"/ndt/link_failure_detected",
+                "/ndt/link_recovery_detected",
+                "/ndt/inject_link_failure",
+                "/ndt/inject_link_recovery"};
+    }
 
     std::shared_ptr<Graph> m_graph;
     std::shared_ptr<EventBus> m_bus;
@@ -974,4 +1018,180 @@ TEST_F(DeclaredLinkFailureWireTest, InjectWithAnInvalidPayloadIsRejected)
               400u);
     EXPECT_EQ(peer.send(http::verb::post, "/ndt/inject_link_recovery", "not json").result_int(),
               400u);
+}
+
+// --- B-6 W8b: a withdrawal has to pair with a reported break -------------------------------------
+// [Co-developed with claude code -- Adam]
+//
+// The wire half of the rule Adam settled on 2026-09-07 after the lw8b live arm. These cases run
+// the endpoints, because the decision is made in HttpSession -- which monitor call each push path
+// takes, and what the reply says when a recovery report is declined. The state-machine half is in
+// tests/test_PollDoesNotResurrect.cpp.
+//
+// Measured 2026-09-07 00:08 (scratch/overnight-2026-09-05/logs/live-round2-console.log, arm lw8b):
+// killing Ryu and restarting it with the same argv made intelligent_router.py's on_link_add POST
+// /ndt/link_recovery_detected for EVERY link within a second of the controller coming back, and
+// the standing declaration was gone in 9 of 9 samples over the next 90 s.
+
+/**
+ * 🔴 THE FINDING, end to end and in the shape the live arm ran it: an injection is standing, the
+ * control plane restarts, and one recovery report per link arrives for links nobody said broke.
+ * The declaration must still be there afterwards, and a poll must still decline the edge.
+ */
+TEST_F(DeclaredLinkFailureWireTest, ARyuRestartDoesNotWithdrawAnInjectedLinkFailure)
+{
+    // TESTBED so no tc runs here; the declaration half is identical in both modes and is the half
+    // under test. On MININET this is the dangerous case: the netem stays attached.
+    HttpSessionTestPeer injector(m_monitor, m_bus, utils::TESTBED);
+    ASSERT_EQ(injector.send(http::verb::post, "/ndt/inject_link_failure", kBody).result_int(), 200u);
+    ASSERT_FALSE(edgeFromGraphData(injector, 1, 5).value("is_up", true));
+
+    // What Ryu POSTs for this link the instant LLDP rediscovers it after a restart.
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    // 🔴 The body is COPIED here, not held by reference. HttpSessionTestPeer::send replaces the
+    // response it owns, so a `const auto&` taken from one send dangles the moment the next one
+    // runs -- and the assertions below deliberately send again (get_graph_data) before checking
+    // what this reply said.
+    std::string recoveryBody;
+    unsigned recoveryStatus = 0;
+    {
+        const auto& res = peer.send(http::verb::post, "/ndt/link_recovery_detected", kBody);
+        recoveryStatus = res.result_int();
+        recoveryBody = res.body();
+    }
+    ASSERT_EQ(recoveryStatus, 200u) << recoveryBody;
+
+    m_monitor->pollLinks(kLinkListing());
+
+    const auto fwd = edgeFromGraphData(peer, 1, 5);
+    const auto rev = edgeFromGraphData(peer, 5, 1);
+    EXPECT_FALSE(fwd.value("is_up", true))
+        << "a bare rediscovery ended an injection: restarting the control plane withdrew a "
+           "declaration nothing ever reported broken, and on MININET the tc netem that "
+           "accompanies /ndt/inject_link_failure would still be attached (B-6, W8b)";
+    EXPECT_FALSE(rev.value("is_up", true)) << "the reverse direction was withdrawn";
+    EXPECT_EQ(fwd.value("down_reason", ""), "declared");
+
+    // 🔴 And the reply must SAY so. A 200 whose body reads "link recovery processed" while the
+    // link is deliberately still down is the kernel disagreeing with itself where only the body
+    // can tell anyone.
+    const auto body = nlohmann::json::parse(recoveryBody, nullptr, false);
+    ASSERT_FALSE(body.is_discarded()) << recoveryBody;
+    EXPECT_TRUE(body.value("declaration_retained", false))
+        << "the recovery was declined and the reply did not say so: " << recoveryBody;
+}
+
+/**
+ * Direction 2, on the wire: the notification pair must still work end to end. /ndt/link_failure_-
+ * detected records the report, and its own /ndt/link_recovery_detected spends it and raises the
+ * link. Losing this makes every real link outage permanent.
+ */
+TEST_F(DeclaredLinkFailureWireTest, AReportedFailureIsStillWithdrawnByItsOwnRecovery)
+{
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    ASSERT_EQ(peer.send(http::verb::post, "/ndt/link_failure_detected", kBody).result_int(), 200u);
+    ASSERT_FALSE(edgeFromGraphData(peer, 1, 5).value("is_up", true));
+
+    const auto& res = peer.send(http::verb::post, "/ndt/link_recovery_detected", kBody);
+    ASSERT_EQ(res.result_int(), 200u) << res.body();
+    const auto body = nlohmann::json::parse(res.body(), nullptr, false);
+    ASSERT_FALSE(body.is_discarded()) << res.body();
+    EXPECT_FALSE(body.value("declaration_retained", false))
+        << "a recovery that pairs with a reported failure reported itself declined: " << res.body();
+
+    const auto fwd = edgeFromGraphData(peer, 1, 5);
+    EXPECT_TRUE(fwd.value("is_up", false))
+        << "the pairing rule swallowed the ordinary case: a failure the control plane reported "
+           "was not withdrawn by the recovery that answers it";
+    EXPECT_EQ(fwd.value("down_reason", ""), "none");
+}
+
+/**
+ * The way out of a retained declaration, which is the endpoint the declined reply names. If this
+ * stopped working an injection that survived a controller restart would survive everything.
+ */
+TEST_F(DeclaredLinkFailureWireTest, InjectRecoveryStillWithdrawsAfterARefusedRediscovery)
+{
+    HttpSessionTestPeer peer(m_monitor, m_bus, utils::TESTBED);
+    ASSERT_EQ(peer.send(http::verb::post, "/ndt/inject_link_failure", kBody).result_int(), 200u);
+    ASSERT_EQ(peer.send(http::verb::post, "/ndt/link_recovery_detected", kBody).result_int(), 200u);
+    ASSERT_FALSE(edgeFromGraphData(peer, 1, 5).value("is_up", true));
+
+    ASSERT_EQ(peer.send(http::verb::post, "/ndt/inject_link_recovery", kBody).result_int(), 200u);
+
+    m_monitor->pollLinks(kLinkListing());
+    const auto fwd = edgeFromGraphData(peer, 1, 5);
+    EXPECT_TRUE(fwd.value("is_up", false))
+        << "the operator's own withdrawal did not end an injection the rediscovery rule had "
+           "deliberately kept alive -- the declaration is then unwithdrawable";
+    EXPECT_EQ(fwd.value("down_reason", ""), "none");
+}
+
+// --- B-6 W8-7: dpid 0 is the host end, and no link endpoint addresses a host edge -----------------
+// [Co-developed with claude code -- Adam]
+//
+// Adam's ruling, 2026-09-06 (grill §4D seventh round, after re-asking): the endpoints must refuse
+// it. A host vertex carries dpid 0 and findEdgeBySrcAndDstDpid matches on the two dpids alone, so
+// `{"src_dpid":1,"dst_dpid":0}` picks whichever host edge of s1 the graph iterates first -- the
+// caller cannot say which one they meant and the kernel does not tell them which one it took. The
+// declaration then lands on an edge updateHosts raises again on its next pass, because the veto
+// added for B-6 lives in updateLinks where links do: B-6 all over again, on the one edge shape the
+// fix does not reach. Refused at the door, because this is an input-validation problem.
+
+TEST_F(DeclaredLinkFailureWireTest, EveryLinkEndpointRefusesAHostEdgeAddressedByDpidZero)
+{
+    for (const auto& endpoint : linkEndpoints())
+    {
+        HttpSessionTestPeer peer(m_monitor, m_bus, utils::TESTBED);
+        const auto& res = peer.send(http::verb::post, endpoint, kHostEdgeBody);
+
+        EXPECT_EQ(res.result_int(), 400u)
+            << endpoint << " accepted a link addressed by dpid 0. Without a refusal it resolves "
+            << "to an arbitrary host edge of the other switch: " << res.body();
+
+        const auto body = nlohmann::json::parse(res.body(), nullptr, false);
+        ASSERT_FALSE(body.is_discarded()) << endpoint << " answered non-JSON: " << res.body();
+        const auto message = body.value("error", std::string{});
+        EXPECT_NE(message.find("dpid"), std::string::npos)
+            << endpoint << " refused without naming the field that was wrong: " << res.body();
+    }
+}
+
+/**
+ * 🔴 The refusal has to be a refusal. `POST /ndt/link_failure_detected {"dst_dpid":0}` used to
+ * answer 200 and mark a host edge down -- the shape doc/KNOWN-ISSUES.md keeps finding, a request
+ * that was rejected on paper and did something anyway. Asserted from /ndt/get_graph_data, which is
+ * the only place a caller could have seen it.
+ */
+TEST_F(DeclaredLinkFailureWireTest, ARefusedHostEdgeRequestLeavesTheHostEdgeAlone)
+{
+    HttpSessionTestPeer peer(m_monitor, m_bus, utils::TESTBED);
+    const auto before = edgeFromGraphData(peer, 1, kHostDpid);
+    ASSERT_TRUE(before.value("is_up", false)) << "the fixture's host edge did not start up";
+
+    for (const auto& endpoint : {"/ndt/link_failure_detected", "/ndt/inject_link_failure"})
+    {
+        ASSERT_EQ(peer.send(http::verb::post, endpoint, kHostEdgeBody).result_int(), 400u);
+        const auto after = edgeFromGraphData(peer, 1, kHostDpid);
+        EXPECT_TRUE(after.value("is_up", false))
+            << endpoint << " refused the request and took the host edge down anyway";
+        EXPECT_EQ(after.value("down_reason", ""), "none")
+            << endpoint << " refused the request and declared the host edge failed anyway";
+    }
+}
+
+/**
+ * Direction 2 for the refusal: it must key on dpid 0 and nothing else. A guard that refused every
+ * payload -- or every one naming a host port -- would pass every case above while making the
+ * endpoints useless, which is the failure mode of an input check written from the error message
+ * outwards.
+ */
+TEST_F(DeclaredLinkFailureWireTest, TheDpidZeroRefusalDoesNotTouchOrdinarySwitchToSwitchLinks)
+{
+    HttpSessionTestPeer peer(m_monitor, m_bus, utils::TESTBED);
+    for (const auto& endpoint : linkEndpoints())
+    {
+        EXPECT_EQ(peer.send(http::verb::post, endpoint, kBody).result_int(), 200u)
+            << endpoint << " refused a link between two switches: " << endpoint;
+    }
 }

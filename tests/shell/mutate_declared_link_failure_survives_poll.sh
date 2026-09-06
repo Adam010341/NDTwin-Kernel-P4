@@ -133,7 +133,12 @@ add_anchor "link-lifts"     "$TFM" '                    else
 add_anchor "link-enables"   "$TFM" '                    eprop.isEnabled = true;'
 add_anchor "declared-down"  "$TFM" '    eprop.isUp = false;
     eprop.declaredDown = true;'
-add_anchor "declared-clear" "$TFM" '    eprop.declaredDown = false;'
+# [Co-developed with claude code -- Adam] W8b split the withdrawal in two: the notification path
+# now goes through applyReportedLinkRecovery (which withdraws only when the report pairs) and this
+# one is what /ndt/inject_link_recovery calls. The anchor carries its comment so that it names THIS
+# site and not the other assignment to the same field.
+add_anchor "declared-clear" "$TFM" '    eprop.declaredDown = false;
+    // Spent as well: an operator taking an injection back ends the episode, so a recovery report'
 add_anchor "derived-down"   "$TFM" '            ep.isUp = false;
             ep.downReason = DownReason::SwitchUnreachable;'
 add_anchor "link-warn-text" "$TFM" '                                "the control plane still lists link (dpid {} port {}), but a link "'
@@ -308,13 +313,20 @@ mutate "the veto is inverted: only a declared link is raised" \
 # M4 in the ticket's numbering: recovery never withdraws the declaration, so an injection is
 #     permanent and unrecoverable -- the mirror image of the defect, and the failure mode this fix
 #     introduces if the withdrawal is ever lost.
+#
+# [Co-developed with claude code -- Adam] W8b moved which endpoint reaches this writer. It is now
+# the one /ndt/inject_link_recovery calls, so the wire case named here is the inject one; the
+# notification endpoint's withdrawal lives in applyReportedLinkRecovery and is gated by
+# tests/shell/mutate_withdrawal_needs_observed_failure.sh.
 mutate "recovery does not withdraw the declaration" \
     "$TFM" \
-    '    eprop.declaredDown = false;' \
-    '    // [mutant] the declaration is never withdrawn' \
+    '    eprop.declaredDown = false;
+    // Spent as well: an operator taking an injection back ends the episode, so a recovery report' \
+    '    // [mutant] the declaration is never withdrawn
+    // Spent as well: an operator taking an injection back ends the episode, so a recovery report' \
     DeclaredLinkFailureTest.ADeclaredRecoveryLetsThePollRaiseTheEdgeAgain \
     DeclaredLinkFailureTest.ALinkThatCameBackInRyuIsRaisedAgainAfterRecovery \
-    DeclaredLinkFailureWireTest.ARecoveryWithdrawsTheDeclarationAndTheNextPollRaisesTheLink
+    DeclaredLinkFailureWireTest.InjectRecoveryOutsideMininetWithdrawsTheDeclaration
 
 # 🔴 THE TRUNK SHAPE OF THIS BUG. The push path records an OBSERVATION instead of a declaration,
 #     which is byte-for-byte what setEdgeDown does and is exactly what HttpSession called before
