@@ -55,13 +55,18 @@ mkdir -p "$FIX/.test_run/pids" "$FIX/.test_run/logs"
 
 # The flow table, in the shape /ndt/get_switch_openflow_table_entries returns (API doc §5).
 # G-12's own rule on s2, plus the baseline `ndt up` installs and which must not drown it.
+#
+# 🔴 duration_nsec is NON-zero here, and that is load-bearing since W16-3. On a real switch
+# OpenFlow's duration is (sec, nsec) since install, so a rule installed under a second ago has
+# sec 0 and nsec != 0; BOTH zero is the signature of the P4 proxy's synthesised rows, which
+# carry no clock at all. mk_entries_p4_zero below writes that shape.
 mk_entries() {   # <app-rule-age-seconds>
     python3 - "$FIX/entries.json" "$1" <<'PY'
 import json, sys
 p, age = sys.argv[1], int(sys.argv[2])
 def row(dur, pri, dpid, acts):
     return {"actions": acts, "byte_count": 0, "cookie": 0, "duration_sec": dur,
-            "duration_nsec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0,
+            "duration_nsec": 91000000, "flags": 0, "hard_timeout": 0, "idle_timeout": 0,
             "length": 96, "match": {"in_port": 1}, "packet_count": 0,
             "priority": pri, "table_id": 0}
 data = [
@@ -72,6 +77,23 @@ data = [
                                 row(9000, 10, 2, ["OUTPUT:1"])]}},
 ]
 json.dump(data, open(p, "w"))
+PY
+}
+
+# W16-3, measured 2026-09-07 (P4 4 hosts, trunk 862c4bf8, logs/w163-*): a route was installed
+# on the P4 plane and the endpoint read twice, +12 s and +32 s later. That entry and every
+# pre-existing one answered duration_sec 0, duration_nsec 0, while packet_count moved. This is
+# that table.
+mk_entries_p4_zero() {
+    python3 - "$FIX/entries.json" <<'PY'
+import json, sys
+def row(pri, acts):
+    return {"actions": acts, "byte_count": 4212, "cookie": 0, "duration_sec": 0,
+            "duration_nsec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0,
+            "length": 96, "match": {"in_port": 1}, "packet_count": 42,
+            "priority": pri, "table_id": 0}
+json.dump([{"dpid": 1, "flows": {"1": [row(10, ["OUTPUT:1"]), row(0, ["CONTROLLER"])]}},
+           {"dpid": 2, "flows": {"2": [row(96, ["OUTPUT:2"])]}}], open(sys.argv[1], "w"))
 PY
 }
 mk_entries 300
@@ -92,6 +114,10 @@ REPO="'"$FIX"'"
 CLAIM="$REPO/.test_run/lab.claim"; HANDOFF="$REPO/.test_run/lab.handoff"
 port_open() { [[ "${FX_KERNEL_UP:-1}" == 1 ]]; }
 http_get_flow_entries() { [[ "${FX_NO_TABLE:-0}" == 1 ]] || cat "$REPO/entries.json"; }
+# W16-3: which plane the table came from. Stubbed rather than read, because the real
+# live_dataplane_kind() shells out to ps and to `sudo -n ovs-vsctl` -- this suite must not
+# depend on what is running on the machine it is run from, and must not need a grant.
+live_dataplane_kind() { echo "${FX_PLANE:-ovs}"; }
 '
 LOCKS_FREE='lock_probe() { echo free; }'
 LOCK_HELD='lock_probe() { case "$1" in graph_lock) echo "held 4 30" ;; *) echo free ;; esac; }'
@@ -129,7 +155,8 @@ has   "🔴 the rule installed during the app's window"    "rule  dpid=2" "$OUT"
 has   "  named by priority"                              "pri=96" "$OUT"
 has   "  and by what it does"                            '"OUTPUT:2"' "$OUT"
 has   "  with its age"                                   "installed 5m00s ago" "$OUT"
-has   "  counted, and labelled SUSPECTED"                "1 SUSPECTED rule(s) -- by time only" "$OUT"
+has   "  counted, dated and undated apart"               "1 rule(s) listed: 1 dated inside the window," "$OUT"
+has   "  and labelled SUSPECTED by time only"            "SUSPECTED by time only" "$OUT"
 hasnt "🔴 the pri-65535 baseline rule is not listed"     "pri=65535" "$OUT"
 hasnt "🔴 nor the pri-0 one"                             "pri=0 " "$OUT"
 has   "  and the report says why it can only suspect"    "cookie is 0 everywhere" "$OUT"
@@ -178,16 +205,113 @@ has   "🔴 and the residue is printed anyway"             "network residue" "$S
 has   "  naming the lock it left"                        "graph_lock HELD" "$STOP_OUT"
 has   "  and the rule it left"                           "pri=96" "$STOP_OUT"
 
-ORPH_OUT="$(bash -c "source '$NDT' >/dev/null 2>&1
+orphans_with() {   # <lock-stub> [extra shell] -> cmd_apps orphans output + RC=
+    bash -c "source '$NDT' >/dev/null 2>&1
 $STUBS
-$LOCK_HELD
-apps_orphans() { ok \"no untracked app processes\"; return 0; }
+$1
+apps_orphans() { ok \"no untracked app processes\"; return ${FX_ORC:-0}; }
+${2:-}
 cmd_apps orphans
-echo \"RC=\$?\"" 2>&1)"
+echo \"RC=\$?\"" 2>&1
+}
+ORPH_OUT="$(orphans_with "$LOCK_HELD")"
 has   "'apps orphans' prints the residue too"            "network residue" "$ORPH_OUT"
 has   "  naming the rule"                                "pri=96" "$ORPH_OUT"
 has   "🔴 orphans' own answer about PROCESSES is unchanged" "no untracked app processes" "$ORPH_OUT"
-check "🔴 and so is its exit code -- callers read it as processes" "0" "$(rc_of "$ORPH_OUT")"
+
+# ==========================================================================================
+section "5I. W16-1: the exit code. Adam reversed the recommendation -- residue must be RED"
+# 🔴 The recommendation (W16-SUMMARY §7 q1) was to leave orphans' rc meaning "processes", so
+# `arm_up.sh` and the other gates kept working. Adam ruled the other way, 09-06 grill §4D round
+# 7, and the reason is G-12 itself: the finding IS "every existing check went green over it".
+# A residue report whose exit code cannot fail is one more check that goes green.
+check "🔴 a held lock and a rule in the window -> rc 4, not 0" "4" "$(rc_of "$ORPH_OUT")"
+has   "  and it says what 4 means"                       "RESIDUE: the processes are gone and the network is not clean" "$ORPH_OUT"
+has   "🔴 and that 4 is not 1 -- nothing is running to stop" "rc 4 is NOT rc 1" "$ORPH_OUT"
+
+mk_entries 9000                       # no rule in the window; locks free
+OUT2="$(orphans_with "$LOCKS_FREE")"
+check "🔴 a clean network -> rc 0 (the codes are not always red)" "0" "$(rc_of "$OUT2")"
+hasnt "  and nothing claims residue"                     "RESIDUE:" "$OUT2"
+
+OUT2="$(orphans_with "$LOCK_HELD")"
+check "🔴 a held lock ALONE is still residue -> rc 4"    "4" "$(rc_of "$OUT2")"
+
+OUT2="$(orphans_with "$LOCK_BLIND")"
+check "🔴 a lock that could not be probed -> rc 5, NOT 0" "5" "$(rc_of "$OUT2")"
+has   "  and 5 says it is not 'clean'"                   "this is not 'the network is clean'" "$OUT2"
+
+OUT2="$(FX_KERNEL_UP=0 orphans_with "$LOCKS_FREE")"
+check "🔴 a kernel that is down -> rc 5, NOT 0"          "5" "$(rc_of "$OUT2")"
+
+# 🔴 The process answer still wins. A live untracked process needs `ndt apps stop`; a leftover
+# rule needs a delete by hand. A caller that cannot tell them apart cannot act on either.
+OUT2="$(FX_ORC=1 orphans_with "$LOCK_HELD")"
+check "🔴 untracked PROCESSES still win the code: rc 1"  "1" "$(rc_of "$OUT2")"
+has   "  and the residue is still named beside it"       "the network is not clean either" "$OUT2"
+mk_entries 300
+
+section "5J. W16-3: the P4 plane has no time axis, so nothing on it can be dated"
+# Measured 2026-09-07: a rule installed on P4 read duration_sec 0 / duration_nsec 0 twelve and
+# thirty-two seconds later, alongside every pre-existing entry. Believing that 0 dates the
+# whole table to "just installed" -- inside every window, however short.
+OUT="$(FX_PLANE=p4 run_residue "$LOCKS_FREE" energy)"
+has   "🔴 it says the plane cannot be windowed"          "CANNOT WINDOW" "$OUT"
+has   "  naming why"                                     "carry NO install time" "$OUT"
+has   "  and what the list below it is"                  "this is the whole flow table, not a residue list" "$OUT"
+has   "🔴 the app's own rule is listed"                  "pri=96" "$OUT"
+has   "🔴 but with age UNKNOWN, not an age"              "age=UNKNOWN (P4 plane" "$OUT"
+hasnt "🔴 and nothing is dated 0 seconds ago"            "installed 0s ago" "$OUT"
+has   "  the baseline rules are listed too, since none can be excluded" "pri=65535" "$OUT"
+has   "  counted apart from dated ones"                  "0 dated inside the window," "$OUT"
+
+OUT2="$(FX_PLANE=p4 orphans_with "$LOCKS_FREE")"
+check "🔴 undatable is rc 5 (NOT CHECKED), never rc 4 (residue)" "5" "$(rc_of "$OUT2")"
+has   "  and it says so in words"                        "NOT CHECKED: the residue question could not be answered" "$OUT2"
+
+section "5K. W16-3: duration 0/0 is the synthetic signature, whatever the plane says it is"
+# The same table read through a path that did not name the plane. `0` here is not "now": a
+# switch that really installed a rule this second reports duration_nsec != 0.
+mk_entries_p4_zero
+OUT="$(FX_PLANE=unknown run_residue "$LOCKS_FREE" energy)"
+has   "🔴 it refuses to window a table with no clock in it" "CANNOT WINDOW" "$OUT"
+has   "  naming the field pair"                          "duration_sec=0 AND duration_nsec=0" "$OUT"
+has   "🔴 every rule is age=UNKNOWN"                     "age=UNKNOWN (duration_sec=0 AND duration_nsec=0" "$OUT"
+hasnt "🔴 and none is dated to right now"                "installed 0s ago" "$OUT"
+mk_entries 300
+# 🔴 The other direction: a REAL sub-second install (sec 0, nsec set) is still dated. Without
+# this case a rule that answered "everything with duration 0 is unknown" would pass 5K.
+python3 - "$FIX/entries.json" <<'PY'
+import json, sys
+json.dump([{"dpid": 5, "flows": {"5": [
+    {"actions": ["OUTPUT:9"], "byte_count": 0, "cookie": 0, "duration_sec": 0,
+     "duration_nsec": 4000000, "flags": 0, "hard_timeout": 0, "idle_timeout": 0,
+     "length": 96, "match": {"in_port": 1}, "packet_count": 0,
+     "priority": 96, "table_id": 0}]}}], open(sys.argv[1], "w"))
+PY
+OUT="$(FX_PLANE=ovs run_residue "$LOCKS_FREE" energy)"
+has   "🔴 sec=0 with nsec set is a real just-installed rule, and is DATED" "installed 0s ago" "$OUT"
+hasnt "  no rule line says UNKNOWN"                      "age=UNKNOWN (" "$OUT"
+has   "  and it is counted as dated"                     "1 rule(s) listed: 1 dated inside the window," "$OUT"
+hasnt "  and the plane is not called blind"              "CANNOT WINDOW" "$OUT"
+mk_entries 300
+
+section "5L. an app with no window: a LOST record counts against the code, an absent one does not"
+# 🔴 Five apps have no pidfile on a machine where nobody started them. Counting that as "could
+# not check" would make `ndt apps orphans` answer 5 on every clean machine, and a gate that can
+# never pass is a gate nobody reads -- which is how G-12's own green checks stopped being read.
+# The log is the discriminator: app_spawn creates it, so a non-empty one is evidence it ran.
+no_pidfile energy
+: > "$FIX/.test_run/logs/app_energy.log"
+OUT="$(run_residue "$LOCKS_FREE" energy)"
+has   "an empty log reads as 'never ran here'"           "no sign it ever ran here" "$OUT"
+check "  and does not make the verb red"                 "0" "$(rc_of "$(orphans_with "$LOCKS_FREE")")"
+echo "something was logged" > "$FIX/.test_run/logs/app_energy.log"
+OUT="$(run_residue "$LOCKS_FREE" energy)"
+has   "🔴 a non-empty log means it RAN and the window is lost" "the window is LOST" "$OUT"
+check "🔴 and that is rc 5 -- not checked, not clean"    "5" "$(rc_of "$(orphans_with "$LOCKS_FREE")")"
+rm -f "$FIX/.test_run/logs/app_energy.log"
+started_ago energy 600
 
 section "5H. lock_probe itself: what the kernel answered, and what it did not"
 # 🔴 Groups 5A-5G stub lock_probe out, so nothing above this line looks at how a 423 is read.

@@ -342,6 +342,60 @@ HANDOFF="$REPO/.test_run/lab.handoff"
 claim_field() { [[ -f "$CLAIM" ]] && sed -n "s/^$1=//p" "$CLAIM" | head -1; }
 handoff_field() { [[ -f "$HANDOFF" ]] && sed -n "s/^$1=//p" "$HANDOFF" | head -1; }
 
+# --- what this checkout looked like when the round started ---------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# 09-05 R7 finding I-3, decided 09-07 (grill §4D round 10). Two "has the machine been put back"
+# instruments were reading the same flawed signal -- git dirtiness -- so they were not each
+# other's backup, they were blind together:
+#
+#   * `p4_proxy/mininet/host_count_override` was working tree 4 / HEAD 128 that night (the
+#     LAB-RULES red line). R4 wrote 128 into it for a 128-host round, which made it EQUAL TO
+#     HEAD, so `git status --porcelain | wc -l` fell 22 -> 21. The machine had moved away from
+#     the baseline and the headline number moved in the direction that reads as "cleaner than
+#     when I started". Any "<= baseline is clean" rule passes.
+#   * `ndt status`'s "N of them can change behaviour" block derives its list from that same
+#     dirtiness, so the block DISAPPEARED -- the alarm written for this exact knob went silent
+#     at the moment the knob held its most dangerous value. The value itself was still printed
+#     in the configuration section; what vanished was the warning.
+#
+# The fix is this file plus knob_row()/tree_vs_round_row() below: the alarm compares the VALUE
+# against what the round started with, and the restoration check compares the SET of dirty
+# paths rather than counting them. A count cannot represent "this one left the set".
+#
+#     .test_run/round.baseline
+#         at=<unix seconds>   by=<NDT_OWNER>   head=<short sha at claim time>
+#         host_count=<the knob's value when the round started>
+#         dirty=<path>        one line per uncommitted path, sorted
+#
+# Written by `ndt claim` -- the act that means "this round starts now". Missing means no round
+# was claimed here, and every reader below says so rather than assuming a default was fine.
+round_baseline_file() { echo "${NDT_ROUND_BASELINE:-$REPO/.test_run/round.baseline}"; }
+round_baseline_field() {
+    local f; f="$(round_baseline_file)"
+    [[ -f "$f" ]] && sed -n "s/^$1=//p" "$f" | head -1
+}
+round_baseline_dirty() {
+    local f; f="$(round_baseline_file)"
+    [[ -f "$f" ]] && sed -n 's/^dirty=//p' "$f" | sort
+}
+
+# record_round_baseline -- snapshot the two things I-3 showed nobody could reconstruct later.
+record_round_baseline() {
+    local f; f="$(round_baseline_file)"
+    mkdir -p "$(dirname "$f")" || return 1
+    {
+        printf 'at=%s\nby=%s\nhead=%s\nhost_count=%s\n' \
+            "$(date +%s)" "${NDT_OWNER:-unset}" \
+            "$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo '?')" \
+            "$(host_count)"
+        # cut -c4-, not `awk '{print $2}'`: porcelain is XY<space><path>, and a path with a
+        # space in it is one field to a reader and two to awk.
+        git -C "$REPO" status --porcelain 2>/dev/null | cut -c4- | sort | sed 's/^/dirty=/'
+    } > "$f" || return 1
+    info "recorded this round's starting point in ${f#$REPO/} -- 'ndt status' compares against it"
+}
+
 # --- what the last `ndt up` was asked for -------------------------------------------------
 #
 # [Co-developed with claude code -- Adam]
@@ -568,6 +622,10 @@ cmd_claim() {
         mv -f "$HANDOFF" "$HANDOFF.prev" 2>/dev/null \
             && echo "  ${D}previous handoff note superseded by this claim (kept as lab.handoff.prev)${N}"
     fi
+    # I-3. The round starts here, so the thing a later "have I put it back" check compares
+    # against is written here -- the knob's value and the SET of dirty paths, neither of which
+    # can be reconstructed afterwards from `git status`. See round_baseline_file above.
+    record_round_baseline || warn "could not record the round baseline; 'ndt status' will say so"
     ok "lab claimed by $NDT_OWNER for ${mins}m${note:+ ($note)}"
 }
 
@@ -790,7 +848,13 @@ bmv2_binary() {
 # of the paired A/B, and exactly what a failed restore of that round or the 09-01 zero cell
 # leaves behind. Prints DISABLED:lo=<n> for it; rate_label() below turns that into words.
 # Test: tests/shell/test_ndt_sample_rate_reads_both_bounds.sh
-sample_rate() {
+#
+# 🔴 THIS IS THE P4 PLANE'S ANSWER AND NOTHING ELSE'S. It used to be the only one, and
+# `ndt status` printed it on the OVS plane too (D-2 / X-2, 2026-09-06, `logs/x1-22-status-
+# blind-to-ovs-rate.log`): with every OVS sflow record set to 64, `ndt status` still said
+# `sample rate 1/256`, read out of a bmv2 build artefact that the OVS fabric never loads.
+# The two numbers had only ever agreed by coincidence. sample_rate() below picks by plane.
+p4_sample_rate() {
     python3 - "$REPO/p4_proxy/p4_src/build/ndtwin_switch.json" <<'PY' 2>/dev/null || echo "unknown"
 import json, sys
 def walk(o):
@@ -809,6 +873,67 @@ def walk(o):
             if r: return r
 print(walk(json.load(open(sys.argv[1]))) or "unknown")
 PY
+}
+
+# ovs_sample_rate -- the rate the RUNNING OVS fabric is configured with, out of OVSDB.
+#
+# [Co-developed with claude code -- Adam]
+# D-2 / X-2. `testbed_topo.py:160` (`sampling=256`) is the ONLY place the OVS plane's rate is
+# set, and it lands in OVSDB's `sflow` table -- one record per bridge, ten of them on the
+# 10-switch fabric. `ovs-vsctl set sflow <uuid> sampling=<N>` changes it under a live fabric
+# with no restart, which is how X1 swept 1/64 -> 1/256 -> 1/1024 in one evening; nothing about
+# that is visible in the P4 build artefact p4_sample_rate() reads.
+#
+# 🔴 TEN RECORDS, ONE QUESTION. The records can disagree -- a sweep that sets nine of them and
+# is interrupted leaves a fabric with no single sampling rate, and every bandwidth number it
+# produces is a mixture. Reporting the first value, or the majority, would hide exactly that.
+# So: one value -> that value; several -> DISAGREE with all of them; none -> the fabric is not
+# sampling at all, which is not the same as "1/<something>"; sudo refused -> UNREADABLE.
+#
+# `ovs-vsctl` is already in this machine's NOPASSWD list and in the sudo table (sudo_surface.sh),
+# and a refusal arrives here as a refusal rather than as an empty list -- finding #7's shape.
+ovs_sample_rate() {
+    local out rc vals n
+    out="$(ndt_sudo_capture ovs-vsctl --bare --columns=sampling list sflow)"; rc=$?
+    if (( rc != 0 )); then echo "UNREADABLE:sudo -n ovs-vsctl would not answer"; return 0; fi
+    # 🔴 tr -d ' \t\r', NOT '[:space:]'. The latter deletes the newlines too, so ten records
+    # saying 64 come back as the single value 64646464646464646464 -- one line, one value, and
+    # the disagreement case can then never fire. Caught by group 1 of the suite on 2026-09-07.
+    vals="$(printf '%s\n' "$out" | tr -d ' \t\r' | grep -E '^[0-9]+$' | sort -un)"
+    n="$(printf '%s' "$vals" | grep -c . || true)"
+    case "$n" in
+        0) echo "OVS-NOSFLOW" ;;
+        1) echo "$vals" ;;
+        *) echo "OVS-DISAGREE:$(printf '%s' "$vals" | tr '\n' ',')" ;;
+    esac
+}
+
+# sample_rate [plane] -- the sampling rate of the plane that is actually running.
+#
+# 🔴 The plane is an ARGUMENT with a default, not a lookup buried inside: `cmd_status` and
+# `cmd_check` each already know which plane they are talking about, and asking twice would let
+# the rate and the rest of the report describe two different fabrics.
+sample_rate() {
+    local plane="${1:-}"
+    [[ -n "$plane" ]] || plane="$(live_dataplane_kind)"
+    case "$plane" in
+        ovs) ovs_sample_rate ;;
+        # p4, and also `none`/`unknown`: with no fabric running there is nothing to read out of
+        # OVSDB, and the compiled pipeline is the only fact there is. rate_source() below makes
+        # the print sites say which of the two it was, so the reader is never left to guess.
+        *)   p4_sample_rate ;;
+    esac
+}
+
+# rate_source <plane> -- where the number beside it came from. Printed EVERY time, including
+# when it is the expected source: X-2 was invisible for months because the line said `1/256`
+# and never said out of what.
+rate_source() {
+    case "$1" in
+        ovs) echo "OVS: ovs-vsctl --columns=sampling list sflow" ;;
+        p4)  echo "P4: p4_proxy/p4_src/build/ndtwin_switch.json" ;;
+        *)   echo "no fabric running -- this is the COMPILED P4 pipeline, not a reading" ;;
+    esac
 }
 
 # Pick the topology model whose host count matches the fabric we are about to build, by
@@ -890,8 +1015,59 @@ source_ahead_of_build() {
 rate_label() {
     case "$1" in
         DISABLED:lo=*) echo "SAMPLING DISABLED (rng lower bound=${1#DISABLED:lo=}: sample_rand==0 can never fire; restore + recompile)" ;;
+        # The three answers the OVS side can give that are not a rate. None of them is printed
+        # as a fraction: a reader skims `1/...` and moves on. [Co-developed with claude code -- Adam]
+        OVS-NOSFLOW)    echo "NO sFlow record on any bridge -- this fabric samples NOTHING" ;;
+        OVS-DISAGREE:*) echo "sFlow records DISAGREE (${1#OVS-DISAGREE:}) -- this fabric has no single sampling rate" ;;
+        UNREADABLE:*)   echo "UNREADABLE (${1#UNREADABLE:}) -- NOT a rate, and not 'the default'" ;;
+        unknown)        echo "unknown (could not be read)" ;;
         *) echo "1/$1" ;;
     esac
+}
+
+# expected_shortfall <rate> -- "<mean ratio> <under-report %> <n runs>" for a rate X1 measured,
+# or rc 1 for one it did not.
+#
+# [Co-developed with claude code -- Adam]
+# D-2, Adam's decision 09-06 (grill §4D round 9): `ndt check` prints the ratio AND what the
+# ratio is expected to be at the sampling rate in force, because `ok` covers 0.5-1.5 and the
+# twin's under-report is a monotone function of the sampling rate, not noise.
+#
+# 🔴 MEASURED, NOT DERIVED. rounds/06-X-experiments.md §X1, 2026-09-06, OVS 40-host fabric,
+# 8x iperf3 -P 4, ground truth from /proc/net/dev stable to <=0.4% across all three cells,
+# `loss_fraction`/`sock_ovfl_total`/`app_drop_total` all 0 in every cell (so this is bias, not
+# telemetry loss). 19/19 runs below truth. raw: logs/x1-11/16/18/20-checkdrift-*.log.
+#
+# 🔴 A RATE THAT IS NOT IN THE TABLE GETS "no reference", NEVER AN INTERPOLATION. The curve
+# saturates (4x slower -> 4x the shortfall from 1/64 to 1/256, then only ~2x to 1/1024), so a
+# number invented between the points would be a claim nobody measured -- and the reader would
+# have no way to tell it from the three that were.
+expected_shortfall() {
+    case "$1" in
+        64)   echo "0.977 2.3 6" ;;
+        256)  echo "0.902 9.8 9" ;;
+        1024) echo "0.753 24.8 4" ;;
+        *)    return 1 ;;
+    esac
+}
+
+# check_rate_lines <rate-token> <plane> -- what `ndt check` says about the rate, as lines.
+# No I/O, so tests/shell/test_ndt_check_sample_rate.sh can drive every branch with no fabric.
+check_rate_lines() {
+    local rate="$1" plane="$2" ref mean pct n
+    printf '  sample rate          %s\n' "$(rate_label "$rate")"
+    printf '      source           %s\n' "$(rate_source "$plane")"
+    if ref="$(expected_shortfall "$rate")"; then
+        read -r mean pct n <<<"$ref"
+        printf '      at 1/%s the twin under-reports by ~%s%% (mean ratio %s over %s runs,\n' \
+            "$rate" "$pct" "$mean" "$n"
+        printf '      X1 2026-09-06). A ratio near %s at this rate is the EXPECTED reading,\n' "$mean"
+        printf '      not a healthy one: 1/64 -> 0.977, 1/256 -> 0.902, 1/1024 -> 0.753.\n'
+    else
+        printf '      no reference measurement for this rate -- the ratio below is not\n'
+        printf '      calibrated against anything. X1 measured 1/64, 1/256 and 1/1024 only,\n'
+        printf '      and the shortfall is not interpolated between them.\n'
+    fi
 }
 
 # --- is the helper this script runs the helper in this tree? ------------------------
@@ -1927,14 +2103,110 @@ git_lines() {
     head="$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo '?')"
     dirty="$(git -C "$REPO" status --porcelain 2>/dev/null | wc -l)"
     printf '  %-14s %s' "code" "$head"
-    if [[ "$dirty" == 0 ]]; then echo "  (clean tree)"; return; fi
-    echo "  +$dirty file(s) with uncommitted changes"
-    behave="$(git -C "$REPO" status --porcelain 2>/dev/null \
-              | awk '{print $2}' | grep -E '^(src|include|p4_proxy|tools|setting)/' | head -4)"
-    if [[ -n "$behave" ]]; then
-        local n; n="$(printf '%s\n' "$behave" | wc -l)"
-        printf '  %-14s %s\n' "" "${Y}$n of them can change behaviour:${N}"
-        printf '%s\n' "$behave" | sed 's/^/                 /'
+    if [[ "$dirty" == 0 ]]; then
+        echo "  (clean tree)"
+    else
+        echo "  +$dirty file(s) with uncommitted changes"
+        behave="$(git -C "$REPO" status --porcelain 2>/dev/null \
+                  | cut -c4- | grep -E '^(src|include|p4_proxy|tools|setting)/' | head -4)"
+        if [[ -n "$behave" ]]; then
+            local n; n="$(printf '%s\n' "$behave" | wc -l)"
+            printf '  %-14s %s\n' "" "${Y}$n of them can change behaviour:${N}"
+            printf '%s\n' "$behave" | sed 's/^/                 /'
+        fi
+    fi
+    # 🔴 I-3. Both of these run whatever git thinks, INCLUDING on a clean tree -- the early
+    # `return` that used to sit above them is the bug: the knob's most dangerous value is the
+    # one that matches HEAD, and a clean tree is exactly where the old code stopped looking.
+    knob_row
+    tree_vs_round_row
+}
+
+# knob_row -- the "can change behaviour" alarm for p4_proxy/mininet/host_count_override,
+# derived from the VALUE and never from git. I-3, Adam's decision 09-07 (grill §4D round 10).
+#
+# [Co-developed with claude code -- Adam]
+# Two comparisons, in this order, because they answer different questions:
+#   1. against the value this round started with (.test_run/round.baseline), when there is one.
+#      That is "have I put it back", and it is the one the 09-05 round needed: the baseline was
+#      4 while HEAD was 128, so "restore" meant writing 4, and `git checkout --` would have
+#      produced 128 (LAB-RULES hard rule 5, in red).
+#   2. against 4 when there is no baseline. Unconditional, per Adam's ruling: with no record of
+#      what the round started with, any value but the default is a fact worth putting on the
+#      screen, because it decides how big the next fabric is.
+# In both cases the row says what git thinks of the file, so the reader is told the thing that
+# made I-3 invisible ("git calls it clean") rather than being left to infer it.
+knob_row() {
+    local rel="p4_proxy/mininet/host_count_override"
+    local now base at gitstate
+    now="$(host_count)"
+    if git -C "$REPO" diff --quiet -- "$rel" 2>/dev/null && \
+       git -C "$REPO" diff --cached --quiet -- "$rel" 2>/dev/null; then
+        gitstate="git calls this file CLEAN (it matches HEAD) -- that is NOT 'restored'"
+    else
+        gitstate="git calls this file modified"
+    fi
+    base="$(round_baseline_field host_count)"
+    if [[ -n "$base" ]]; then
+        at="$(round_baseline_field at)"
+        [[ "$at" =~ ^[0-9]+$ ]] && at="$(date -d "@$at" '+%H:%M:%S' 2>/dev/null || echo "$at")"
+        if [[ "$now" == "$base" ]]; then
+            printf '  %-14s %s\n' "knob baseline" "$now == the value this round started with (at ${at:-?})"
+            return 0
+        fi
+        printf '  %-14s %s\n' "knob baseline" "${R}$now -- this round started at $base (at ${at:-?}): NOT RESTORED${N}"
+        printf '  %-14s %s\n' "" "$gitstate"
+        printf '  %-14s %s\n' "" "it decides the next 'ndt up p4'. restore by WRITING the value:"
+        printf '  %-14s %s\n' "" "  echo $base > $rel      # NOT 'git checkout --', which gives you HEAD"
+        return 0
+    fi
+    if [[ "$now" == 4 ]]; then
+        printf '  %-14s %s\n' "knob baseline" "4 (the default; no round baseline recorded -- 'ndt claim' writes one)"
+        return 0
+    fi
+    printf '  %-14s %s\n' "knob baseline" "${Y}$now != 4, and no round baseline exists to say whether that is deliberate${N}"
+    printf '  %-14s %s\n' "" "$gitstate"
+    printf '  %-14s %s\n' "" "the next 'ndt up p4' builds $now hosts. (I-3)"
+}
+
+# tree_vs_round_row -- what has entered and LEFT the uncommitted set since the round started.
+#
+# 🔴 THE SET, NOT THE COUNT, and both directions by name. On 09-05 the count went 22 -> 21 as
+# the machine left its baseline: a file that stops being dirty is indistinguishable from a
+# file that was tidied up, and the number moves the reassuring way for both. The direction that
+# matters is the one a count cannot express -- `-` below -- so it is listed first and said in
+# words. [Co-developed with claude code -- Adam]
+#
+# 🔴 It does NOT feed --check's problem list. Committing during a round changes this set for
+# entirely good reasons, and a gate that fires on every commit is a gate nobody reads. What
+# fires is knob_row's comparison above, which is about a value somebody has to put back.
+tree_vs_round_row() {
+    local f; f="$(round_baseline_file)"
+    if [[ ! -f "$f" ]]; then
+        printf '  %-14s %s\n' "tree vs round" "no baseline in ${f#$REPO/} -- nothing here can say what this round changed ('ndt claim' records one)"
+        return 0
+    fi
+    local nowfile basefile added removed n_add n_rem
+    nowfile="$(mktemp "${TMPDIR:-/tmp}/ndt-tree-now-XXXXXX")" || return 0
+    basefile="$(mktemp "${TMPDIR:-/tmp}/ndt-tree-base-XXXXXX")" || { rm -f "$nowfile"; return 0; }
+    git -C "$REPO" status --porcelain 2>/dev/null | cut -c4- | sort > "$nowfile"
+    round_baseline_dirty > "$basefile"
+    added="$(comm -13 "$basefile" "$nowfile")"
+    removed="$(comm -23 "$basefile" "$nowfile")"
+    rm -f "$nowfile" "$basefile"
+    n_add="$(printf '%s' "$added" | grep -c . || true)"
+    n_rem="$(printf '%s' "$removed" | grep -c . || true)"
+    if (( n_add == 0 && n_rem == 0 )); then
+        printf '  %-14s %s\n' "tree vs round" "same set of uncommitted files as when the round started"
+        return 0
+    fi
+    printf '  %-14s %s\n' "tree vs round" "$n_rem file(s) LEFT the uncommitted set, $n_add joined it"
+    if (( n_rem > 0 )); then
+        printf '  %-14s %s\n' "" "${Y}left (now matches HEAD -- which is not the same as restored):${N}"
+        printf '%s\n' "$removed" | head -6 | sed 's/^/                 - /'
+    fi
+    if (( n_add > 0 )); then
+        printf '%s\n' "$added" | head -6 | sed 's/^/                 + /'
     fi
 }
 
@@ -2443,7 +2715,12 @@ cmd_status() {
     # the running lab was asked to be comes from the up-target record below.
     hosts="$(host_count)"
     topo="$(topo_for_hosts "$hosts" p4)"
-    rate="$(sample_rate)"
+    # D-2 / X-2: the plane is decided ONCE, here, and the sampling rate is read from it. Until
+    # 09-06 this line was `rate="$(sample_rate)"` and sample_rate could only read the compiled
+    # bmv2 artefact, so on an OVS fabric `status` printed a number belonging to a plane that was
+    # not running. [Co-developed with claude code -- Adam]
+    local plane_now; plane_now="$(live_dataplane_kind)"
+    rate="$(sample_rate "$plane_now")"
     # The recorded target, when there is one -- it is what the "hosts" line should say.
     local ut_plane ut_hosts ut_topo
     ut_plane="$(up_target_field plane)"; ut_hosts="$(up_target_field hosts)"
@@ -2584,15 +2861,28 @@ cmd_status() {
         printf '  %-14s %s\n' "p4 host knob" "$hosts   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')"
     fi
     printf '  %-14s %s\n' "bmv2" "$(bmv2_binary)"
-    if stale_pipeline; then
+    # 🔴 The source is printed on its own row, unconditionally, beside the number. X-2 survived
+    # because the row said `1/256` and never said where 256 came from; on the OVS plane it came
+    # out of a bmv2 build artefact nothing on that fabric loads, and the two agreed by
+    # coincidence. A provenance that only appears when it is surprising is one nobody has a
+    # baseline for. [Co-developed with claude code -- Adam]
+    if [[ "$plane_now" != ovs ]] && stale_pipeline; then
         printf '  %-14s %s   %s\n' "sample rate" "$(rate_label "$rate")" "${Y}<- from the BUILT json; the running switches predate it${N}"
         problems+=("the fabric predates the current build of ndtwin_switch.json")
     else
         printf '  %-14s %s\n' "sample rate" "$(rate_label "$rate")"
     fi
-    # [Co-developed with claude code -- Adam] the two lies `status` could not see before 09-02
-    case "$rate" in DISABLED:lo=*) problems+=("the compiled pipeline samples nothing (rng lower bound above 0) -- restore + recompile") ;; esac
-    if source_ahead_of_build; then
+    printf '  %-14s %s\n' "rate source" "$(rate_source "$plane_now")"
+    # [Co-developed with claude code -- Adam] the two lies `status` could not see before 09-02,
+    # and the three the OVS side can tell (D-2): a fabric with no sflow record samples nothing,
+    # ten records that disagree have no single rate, and a refused ovs-vsctl is not a default.
+    case "$rate" in
+        DISABLED:lo=*)  problems+=("the compiled pipeline samples nothing (rng lower bound above 0) -- restore + recompile") ;;
+        OVS-NOSFLOW)    problems+=("no sFlow record exists on any OVS bridge -- nothing on this fabric is sampled, so every bandwidth number is 0") ;;
+        OVS-DISAGREE:*) problems+=("the OVS sflow records disagree (${rate#OVS-DISAGREE:}) -- this fabric has no single sampling rate") ;;
+        UNREADABLE:*)   problems+=("the sampling rate could not be read (${rate#UNREADABLE:}) -- the bandwidth numbers below have no known rate behind them") ;;
+    esac
+    if [[ "$plane_now" != ovs ]] && source_ahead_of_build; then
         printf '  %-14s %s\n' "pipeline" "${Y}ndtwin_switch.p4 is NEWER than build/ndtwin_switch.json -- restored source, never recompiled${N}"
         problems+=("ndtwin_switch.p4 is newer than its compiled json (restored source, never recompiled)")
     fi
@@ -2678,6 +2968,18 @@ cmd_status() {
         printf '  %-14s %s\n' "untracked" "${R}$orphans -- running, and no pidfile names them${N}"
         printf '  %-14s %s\n' "" "these survive 'ndt down'; stop them with 'ndt apps stop <name>'"
         problems+=("untracked app process(es) with no pidfile: $orphans")
+    fi
+    # W16-2, Adam's decision 09-06 (grill §4D round 7, against the recommendation): --check
+    # prints residue and goes red on it. G-12 was measured with `ndt status --check` answering
+    # rc 0 over a rule and a lock that were still on the network -- the row above this one is
+    # about PROCESSES and was right; nothing asked the other question.
+    #
+    # 🔴 --check ONLY. The scan is a flow-table GET plus three acquire probes, and plain
+    # `ndt status` is read dozens of times an hour by sessions deciding whether to touch the
+    # machine. A gate may pay for a reading; a status page may not.
+    if [[ -n "$check" ]]; then
+        status_residue_row
+        (( ${#STATUS_RESIDUE_PROBLEMS[@]} > 0 )) && problems+=("${STATUS_RESIDUE_PROBLEMS[@]}")
     fi
     echo
 
@@ -2937,6 +3239,16 @@ else:
     for line in verdict_lines(twin_bps, truth_bps):
         print(line)
 PY
+
+    # D-2, Adam's decision 09-06 (grill §4D round 9): the rate the ratio above was produced at,
+    # and what X1 measured the ratio to be at that rate -- printed in the same breath, because
+    # `ok` spans 0.5-1.5 and 0.65 printed `ok` while the twin was a quarter low. Read from the
+    # plane that is running (X-2): on OVS this used to be the bmv2 build artefact's number.
+    # [Co-developed with claude code -- Adam]
+    local cplane crate
+    cplane="$(live_dataplane_kind)"
+    crate="$(sample_rate "$cplane")"
+    check_rate_lines "$crate" "$cplane"
 
     echo
     info 'CPU: /ndt/get_cpu_utilization returns 10 + hash(ip) % 50 in MININET mode -- a'
@@ -4177,6 +4489,11 @@ app_stop() {
 # Exit 1 when it finds some, so a driver script can gate on it:
 #     ndt apps orphans || { echo "clean up first"; exit 1; }
 #
+# 🔴 apps_orphans() itself still answers ONLY about processes: 0 / 1 / 2, unchanged. `cmd_apps
+# orphans` -- the subcommand -- gained 4 and 5 for the NETWORK on 09-07 (W16-1). The split is
+# deliberate: this function is what tests/shell/test_ndt_app_orphans.sh drives directly, and
+# its subject is the process channels.
+#
 # 🔴 FINDING #48. This verb answered `ok no untracked app processes`, rc 0, with two viz JVMs
 # alive and 531 MB resident -- measured twice, 09-02 and 09-03 (round 3, 14_viz_process_chain.
 # log). It could not have said anything else: it asked app_probe, app_probe asks a pidfile and
@@ -4281,15 +4598,16 @@ v = d.get(sys.argv[1]) if isinstance(d, dict) else None
 print("?" if v is None else v)' "$2" 2>/dev/null || echo "?"
 }
 
-# residue_rule_lines <started-epoch> <now-epoch> -- flow entries JSON on stdin, one line per
-# rule that cannot be excluded from this app's window.
+# residue_rule_lines <started-epoch> <now-epoch> <plane> -- flow entries JSON on stdin, one line
+# per rule that cannot be excluded from this app's window. A leading `CANNOTWINDOW <reason>`
+# line means the plane has no time axis at all and everything after it is UNKNOWN.
 residue_rule_lines() {
     # 🔴 `3<&0` BEFORE the heredoc, and the JSON is read from fd 3. `python3 - <<'PY'` takes the
     # script itself on stdin, so a `json.load(sys.stdin)` here reads the end of its own source
     # and reports the flow table as unreadable -- a clean-looking "no residue" produced by a
     # plumbing bug, which is the exact failure shape G-12 is about. Redirections apply left to
     # right, so fd 3 is the caller's pipe and fd 0 is the script.
-    python3 - "$1" "$2" 3<&0 <<'PY'
+    python3 - "$1" "$2" "${3:-unknown}" 3<&0 <<'PY'
 import json, os, sys
 # --- BEGIN residue_rules (pure; extracted verbatim by tests/python/test_app_residue_rules.py) ---
 # Imported inside the markers as well as above them: the test execs this region on its own, and
@@ -4306,7 +4624,54 @@ def _age(sec):
     return "%dh%02dm" % (sec // 3600, (sec % 3600) // 60)
 
 
-def suspect_rules(entries, started, now):
+def _all_rows(entries):
+    """Every flow row in the endpoint's per-switch envelope, flat."""
+    return [f for sw in entries or []
+            for _k, rows in sorted((sw.get("flows") or {}).items())
+            for f in rows or []]
+
+
+def _no_time_axis(f):
+    """duration_sec AND duration_nsec both exactly 0 -- a counter with no clock behind it.
+
+    🔴 Measured 2026-09-07 (W16-3, P4 4 hosts, trunk 862c4bf8, logs/w163-*): a route was
+    installed on the P4 plane and /ndt/get_switch_openflow_table_entries read twice, +12 s and
+    +32 s later. That entry and EVERY pre-existing entry reported duration_sec 0 and
+    duration_nsec 0, while packet_count and byte_count moved. p4_proxy/proxy_agent/
+    ryu_flow_stats.py synthesises these rows and has no install time to put in them.
+
+    A real switch does not produce this pair: OpenFlow's duration is (sec, nsec) since install,
+    so a rule installed under a second ago has duration_sec 0 and a NON-zero nsec, and one
+    installed longer ago has a non-zero sec. Both zero is the synthetic signature -- and read
+    as "0 seconds ago" it dates every rule on the plane to right now, i.e. inside every window.
+    """
+    dur, nsec = f.get("duration_sec"), f.get("duration_nsec")
+    if not isinstance(dur, int) or isinstance(dur, bool) or dur != 0:
+        return False
+    return not (isinstance(nsec, int) and not isinstance(nsec, bool) and nsec > 0)
+
+
+def window_blindspot(entries, plane):
+    """Why NO rule on this plane can be dated -- '' when they can.
+
+    Two ways to be blind, and both are stated rather than worked around:
+      * the plane is P4. Its flow stats are synthesised by the proxy and carry no time axis at
+        all, so the answer does not depend on what happens to be in the table right now.
+      * every row in the table reports duration 0/0. That is the same synthetic signature seen
+        from the data instead of from the plane, and it covers a P4 table read through a path
+        that did not tell us the plane.
+    """
+    if plane == "p4":
+        return ("the P4 plane synthesises flow stats (proxy_agent/ryu_flow_stats.py) and they"
+                " carry NO install time")
+    rows = _all_rows(entries)
+    if rows and all(_no_time_axis(f) for f in rows):
+        return ("every flow entry in this table reports duration_sec=0 AND duration_nsec=0 --"
+                " a counter with no clock behind it")
+    return ""
+
+
+def suspect_rules(entries, started, now, plane="unknown"):
     """Rules that cannot be excluded from the window [started, now], as printable lines.
 
     SUSPECTED, never attributed: there is no owner and no usable cookie anywhere in this
@@ -4317,8 +4682,15 @@ def suspect_rules(entries, started, now):
     app's" are different answers, and a residue report that silently drops the first one is
     the same failure G-12 is about -- an existing verb going green over something it never
     looked at. Those rules are listed with age UNKNOWN and counted separately.
+
+    🔴 AND A ZERO IS NOT AN AGE. W16-3, decided after the 09-07 P4 run above: on the P4 plane
+    duration is 0/0 for every rule, so believing it dates the whole table to "just installed"
+    -- inside every window, however short. That is worse than listing nothing, because a
+    caller cannot tell a table full of genuine residue from a plane that cannot answer. Those
+    rows go to UNKNOWN, and window_blindspot() says once, at the top, that the plane is blind.
     """
     inside, unknown = [], []
+    blind = plane == "p4"
     for sw in entries or []:
         dpid = sw.get("dpid")
         for _key, rows in sorted((sw.get("flows") or {}).items()):
@@ -4333,6 +4705,14 @@ def suspect_rules(entries, started, now):
                     unknown.append(head + "  age=UNKNOWN (no usable duration_sec -- it can be"
                                           " placed neither inside nor outside the window)")
                     continue
+                if blind:
+                    unknown.append(head + "  age=UNKNOWN (P4 plane: synthesised flow stats"
+                                          " carry no install time)")
+                    continue
+                if _no_time_axis(f):
+                    unknown.append(head + "  age=UNKNOWN (duration_sec=0 AND duration_nsec=0:"
+                                          " a synthesised counter, not a rule installed now)")
+                    continue
                 if now - dur < started:
                     continue
                 inside.append((dpid, pri, head + "  installed %s ago" % _age(dur)))
@@ -4341,32 +4721,119 @@ def suspect_rules(entries, started, now):
 # --- END residue_rules ---
 
 started, now = int(sys.argv[1]), int(sys.argv[2])
+plane = sys.argv[3]
 try:
     entries = json.load(os.fdopen(3))
 except Exception:
     print("UNREADABLE"); sys.exit(0)
-for line in suspect_rules(entries, started, now):
+blind = window_blindspot(entries, plane)
+if blind:
+    print("CANNOTWINDOW " + blind)
+for line in suspect_rules(entries, started, now, plane):
     print(line)
 PY
+}
+
+# --- what the residue report FOUND, as counts, so a caller can have an exit code -------------
+#
+# [Co-developed with claude code -- Adam]
+# W16-1/W16-2 (Adam's decision 09-06, grill §4D round 7, AGAINST the recommendation that this
+# stay report-only): residue must turn `ndt apps orphans` and `ndt status --check` red. The
+# counting is separated from the printing for the same reason check_up_target separates _ut_row
+# from _ut_differs: printing a finding and reporting it are two acts, and a gate must be able to
+# delete the second and leave a report that still looks like it is working.
+#
+# Four numbers, not one, because they mean four different things to a caller:
+#   RESIDUE_RULES      rules that were DATED and fell inside an app's window   -> something is there
+#   RESIDUE_LOCKS      locks held right now                                    -> something is there
+#   RESIDUE_UNDATABLE  rules listed with age=UNKNOWN                           -> could not place them
+#   RESIDUE_BLIND      questions that could not be asked at all                -> could not look
+RESIDUE_RULES=0
+RESIDUE_LOCKS=0
+RESIDUE_UNDATABLE=0
+RESIDUE_BLIND=0
+
+# residue_verdict -- the exit code for what residue_report last found.
+#
+#   0  looked at everything, and there is nothing on the network
+#   4  RESIDUE: a rule inside a window, or a held lock. Something is there.
+#   5  NOT CHECKED: the kernel was down, a reading failed, or the plane cannot be windowed.
+#
+# 🔴 4 and 5 are deliberately NOT 1. `ndt apps orphans` has answered 1 for "untracked app
+# PROCESSES are running" since 09-02 and callers read it that way; reusing 1 would mean a
+# script could not tell a live process from a leftover rule, and the two have different
+# remedies (`ndt apps stop <name>` versus a hand-written delete_flow_entry).
+# 🔴 An UNDATABLE rule is 5, not 4. "I found a rule I cannot place" is a failure to check, not
+# a finding -- and on the P4 plane it is EVERY rule (W16-3), so calling it residue would make
+# the verb red on every healthy P4 fabric and teach everyone to ignore it.
+residue_verdict() {
+    (( RESIDUE_RULES > 0 || RESIDUE_LOCKS > 0 )) && return 4
+    (( RESIDUE_UNDATABLE > 0 || RESIDUE_BLIND > 0 )) && return 5
+    return 0
+}
+
+# status_residue_row -- W16-2: the one row `ndt status --check` prints about the network, and
+# the problem entries it raises. Fills STATUS_RESIDUE_PROBLEMS.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 RED ON 4, NOT ON 5, and the row says which it was on every run. Adam's ruling is "有殘留
+# ⇒ rc 非 0" -- residue found, not residue unmeasurable. The difference matters because of
+# W16-3, measured after that ruling: on the P4 plane NO rule can be dated at all, ever, so
+# folding 5 into the verdict would make `ndt status --check` permanently red on every healthy
+# P4 fabric -- and doc/2026-08-17_testing-manual.md:279 makes rc 0 the P4 acceptance criterion.
+# A gate that can never pass is ignored within a day, which is how G-12's own green checks
+# stopped being read. So 5 is printed, in words, saying it is NOT 'the network is clean'.
+STATUS_RESIDUE_PROBLEMS=()
+status_residue_row() {
+    STATUS_RESIDUE_PROBLEMS=()
+    if ! port_open 8000; then
+        printf '  %-14s %s\n' "residue" "${Y}NOT CHECKED -- :8000 is closed, so no rule and no lock was read${N}"
+        printf '  %-14s %s\n' "" "this is not 'the network is clean'. (G-12; the kernel rows above already fail)"
+        return 0
+    fi
+    # shellcheck disable=SC2086
+    residue_report $APP_NAMES >/dev/null 2>&1
+    residue_verdict; local rrc=$?
+    case "$rrc" in
+        4) printf '  %-14s %s\n' "residue" "${R}$RESIDUE_RULES rule(s) inside an app window, $RESIDUE_LOCKS lock(s) HELD${N}"
+           printf '  %-14s %s\n' "" "listed by:  ndt apps orphans      (nothing deletes them)"
+           STATUS_RESIDUE_PROBLEMS+=("the network carries app residue: $RESIDUE_RULES rule(s) installed inside an app's window and $RESIDUE_LOCKS held lock(s) -- 'ndt apps orphans' lists them (G-12)") ;;
+        5) printf '  %-14s %s\n' "residue" "${Y}NOT CHECKED: $RESIDUE_UNDATABLE rule(s) could not be dated, $RESIDUE_BLIND question(s) unanswerable${N}"
+           printf '  %-14s %s\n' "" "this is not 'the network is clean'; it is 'this plane cannot answer'."
+           printf '  %-14s %s\n' "" "on P4 that is permanent (W16-3): its flow stats carry no install time."
+           printf '  %-14s %s\n' "" "the locks WERE checked: $RESIDUE_LOCKS held.  details:  ndt apps orphans" ;;
+        *) printf '  %-14s %s\n' "residue" "none -- 0 rule(s) in any app window, 0 lock(s) held (asked, not assumed)" ;;
+    esac
+    return 0
 }
 
 # residue_report <app>... -- print what these apps may have left on the network. NEVER deletes.
 #
 # One kernel fetch and one lock probe for the whole call, not one per app: `ndt apps stop all`
 # would otherwise POST fifteen acquires to answer one question.
+#
+# Always returns 0: it is a report. The exit code lives in residue_verdict above, which reads
+# the counters this fills in.
 residue_report() {
-    local now started entries lock t line n_rules n_locks=0 a any=0 lease retry
+    local now started entries lock t line n_rules n_unk n_locks=0 a any=0 lease retry
+    local plane blind_said=""
     now="$(date +%s)"
+    RESIDUE_RULES=0; RESIDUE_LOCKS=0; RESIDUE_UNDATABLE=0; RESIDUE_BLIND=0
 
     say "network residue (nothing below is deleted)"
     if ! port_open 8000; then
         warn "the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked."
         warn "this is not 'the lab is clean'. it is 'nobody asked'. (KNOWN-ISSUES G-12)"
+        RESIDUE_BLIND=$(( RESIDUE_BLIND + 1 ))
         return 0
     fi
+    # W16-3: which plane's flow table this is. On P4 the answer decides everything below -- its
+    # stats are synthesised and have no time axis -- so it is read once, here, and passed down.
+    plane="$(live_dataplane_kind)"
     entries="$(http_get_flow_entries)"
     if [[ -z "$entries" ]]; then
         warn "the kernel gave no flow table on :8000 -- rules NOT checked (not 'none found')."
+        RESIDUE_BLIND=$(( RESIDUE_BLIND + 1 ))
     fi
 
     for t in routing_lock graph_lock power_lock; do
@@ -4382,9 +4849,11 @@ residue_report() {
                 err "  lock  $t HELD -- held_by_lease=${lease:-?}, frees itself in ${retry:-?}s (TTL)"
                 n_locks=$(( n_locks + 1 )) ;;
             free)     info "  lock  $t free" ;;
-            *)        warn "  lock  $t NOT CHECKED (${lock#unknown })" ;;
+            *)        warn "  lock  $t NOT CHECKED (${lock#unknown })"
+                      RESIDUE_BLIND=$(( RESIDUE_BLIND + 1 )) ;;
         esac
     done
+    RESIDUE_LOCKS="$n_locks"
     (( n_locks > 0 )) && info "  a held lock is not attributed to any app: the lease id is not an owner"
     info "        field (LockManager.hpp), and the kernel has no lock-status endpoint, so the"
     info "        three lines above come from an acquire probe with ttl 0, which excludes nobody."
@@ -4393,6 +4862,19 @@ residue_report() {
         started="$(app_started_at "$a")" || {
             info "  $a: no pidfile and no live process -- no window, so no rule can be dated"
             info "      against it. NOT 'this app left nothing'. (G-12)"
+            # 🔴 Only a LOST window counts against the exit code, and the log is what tells the
+            # two apart. Five apps have no pidfile on a machine where nobody ever started them,
+            # and counting that as "could not check" would make `ndt apps orphans` answer 5 on
+            # every clean machine -- a gate that can never pass, which is how G-12's own green
+            # checks stopped being read. app_spawn creates the log, so a non-empty log is
+            # evidence the app RAN here and its record has since gone.
+            if [[ -s "$(app_logfile "$a")" ]]; then
+                warn "      and its log is NOT empty, so it did run here: the window is LOST,"
+                warn "      not absent. rules it installed cannot be found by this tool."
+                RESIDUE_BLIND=$(( RESIDUE_BLIND + 1 ))
+            else
+                info "      (its log is empty or absent too -- no sign it ever ran here)"
+            fi
             continue
         }
         any=1
@@ -4400,22 +4882,40 @@ residue_report() {
             "$(date -d "@$started" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "$started")" \
             "$(( now - started ))s"
         if [[ -z "$entries" ]]; then continue; fi
-        n_rules=0
+        n_rules=0; n_unk=0
         while IFS= read -r line; do
             [[ -z "$line" ]] && continue
             if [[ "$line" == UNREADABLE ]]; then
                 warn "      the flow table on :8000 was not valid JSON -- rules NOT checked"
+                RESIDUE_BLIND=$(( RESIDUE_BLIND + 1 ))
                 n_rules=-1; break
             fi
+            # W16-3. Said once per run, before the first rule, because it changes what every
+            # line under it means: with no time axis the list below is the WHOLE table.
+            if [[ "$line" == CANNOTWINDOW\ * ]]; then
+                if [[ -z "$blind_said" ]]; then
+                    warn "      CANNOT WINDOW -- ${line#CANNOTWINDOW }."
+                    warn "      every rule below is age=UNKNOWN and NONE is attributed to an app;"
+                    warn "      this is the whole flow table, not a residue list. (W16-3, measured"
+                    warn "      2026-09-07: a rule installed on P4 still read duration 0/0 32s later)"
+                    blind_said=1
+                fi
+                continue
+            fi
             err "      rule  $line"
+            case "$line" in *age=UNKNOWN*) n_unk=$(( n_unk + 1 )) ;; esac
             n_rules=$(( n_rules + 1 ))
-        done < <(printf '%s' "$entries" | residue_rule_lines "$started" "$now")
+        done < <(printf '%s' "$entries" | residue_rule_lines "$started" "$now" "$plane")
         if (( n_rules == 0 )); then
             ok "      no flow entry arrived during that window"
         elif (( n_rules > 0 )); then
-            err "      $n_rules SUSPECTED rule(s) -- by time only. a rule has no owner and its"
-            err "      cookie is 0 everywhere, so anything installed in that window is listed,"
-            err "      whoever installed it."
+            err "      $n_rules rule(s) listed: $(( n_rules - n_unk )) dated inside the window,"
+            err "      $n_unk with age=UNKNOWN. the dated ones are SUSPECTED by time only -- a"
+            err "      rule has no owner and its cookie is 0 everywhere, so anything installed"
+            err "      in that window is listed, whoever installed it. an UNKNOWN one is not a"
+            err "      finding at all: it is a rule this tool could not place."
+            RESIDUE_RULES=$(( RESIDUE_RULES + n_rules - n_unk ))
+            RESIDUE_UNDATABLE=$(( RESIDUE_UNDATABLE + n_unk ))
         fi
     done
 
@@ -4427,6 +4927,10 @@ residue_report() {
     info "      -d '{\"dpid\": <dpid>, \"priority\": <pri>, \"match\": <match>}' \\"
     info "      http://localhost:8000/ndt/delete_flow_entry"
     (( any == 0 )) && info "  (no app had a datable window in this run)"
+    # The tally the exit code is computed from, printed so a reader can check the code against
+    # what they just saw rather than against this function's source. [Co-developed with claude code -- Adam]
+    info "  tally: $RESIDUE_RULES dated rule(s) in a window, $RESIDUE_LOCKS lock(s) held," \
+         "$RESIDUE_UNDATABLE rule(s) that could not be dated, $RESIDUE_BLIND question(s) not answerable"
     return 0
 }
 
@@ -4610,18 +5114,44 @@ cmd_apps() {
             ;;
         # The pre-run check. Same scan as `stop`, without stopping anything.
         #
-        # G-12 / W16: apps_orphans answers a question about PROCESSES and its exit code still
-        # means exactly that. The residue report is printed BESIDE it, and deliberately does
-        # not change the verdict -- `arm_up.sh` and every other caller reads this rc as "no
-        # untracked processes", and quietly redefining it would break them while fixing
-        # nothing. What the finding is about is that nobody was answering the other question
-        # at all; now somebody is, in the same breath.
+        # G-12 / W16-1. Adam decided this one AGAINST the recommendation (grill §4D round 7,
+        # 09-06): residue must make this verb red. The recommendation had been to leave the
+        # exit code meaning "processes" so `arm_up.sh` and the other gates kept working -- and
+        # Adam's point is the stronger one: G-12 IS "every existing check went green over it",
+        # so a residue report whose exit code cannot fail is one more green check.
+        #
+        # 🔴 THE CODES ARE DISJOINT, and every caller that gates on this has to be updated:
+        #     0  no untracked processes AND nothing on the network
+        #     1  untracked app PROCESSES are running          (unchanged since 09-02)
+        #     2  a liveness channel was blind                 (unchanged)
+        #     4  processes are clean, but the NETWORK carries residue (a rule, or a held lock)
+        #     5  processes are clean, and the residue COULD NOT BE CHECKED (kernel down, a
+        #        reading failed, or the plane cannot be windowed at all -- every P4 fabric)
+        # The process answer wins when it is non-zero: a live process is still changing the
+        # network, and `ndt apps stop <name>` is a different remedy from deleting a flow entry.
+        # Callers in this repo: tests/shell/test_ndt_app_orphans.sh (drives apps_orphans, the
+        # process half, directly) and doc/2026-08-17_testing-manual.md. Out of tree:
+        # scratch/overnight-2026-09-05/arm_down.sh restore check 2/3.
         orphans)
             apps_orphans; local orc=$?
             echo
             # shellcheck disable=SC2086
             residue_report $APP_NAMES
-            return "$orc" ;;
+            residue_verdict; local rrc=$?
+            if (( orc != 0 )); then
+                (( rrc != 0 )) && err "and the network is not clean either (residue rc would be $rrc)"
+                return "$orc"
+            fi
+            case "$rrc" in
+                4) err "RESIDUE: the processes are gone and the network is not clean -- rc 4."
+                   err "  rc 4 is NOT rc 1: nothing is running, so 'ndt apps stop' has nothing"
+                   err "  to do. remove the rule by hand (the command is printed above); a held"
+                   err "  lock frees itself at its TTL." ;;
+                5) warn "NOT CHECKED: the residue question could not be answered -- rc 5."
+                   warn "  this is not 'the network is clean'. see the lines above for which"
+                   warn "  reading failed. (KNOWN-ISSUES G-12)" ;;
+            esac
+            return "$rrc" ;;
         # The disk half of findings #6/#48: bound a log that is still being written to.
         trim)
             shift
@@ -4764,17 +5294,31 @@ usage: ndt <command>
                   exit 0 all compared fields match; 1 one of them does not (the
                   message names it); 3 nothing was compared, because no 'ndt up'
                   has run in THIS checkout. 3 is never "checked and matched".
+                  --check also prints a 'residue' row: rules left inside an app's
+                  window and locks still held. residue FOUND is a problem (rc 1);
+                  residue that could not be checked is printed as NOT CHECKED and
+                  is never printed as clean. (G-12 / W16-2)
   clean         just the teardown assertion (exit 1 if anything survived)
   check         telemetry double-count tripwire
   apps [names]  start readers/apps; no args on a terminal = interactive picker
                   energy sim nsr viz te      ('ndt apps stop [names|all]')
-                  ndt apps orphans  -- is anything of an app's still running?
-                    exits 1 if so, 2 if a channel could not look. run it before a
-                    measurement: an untracked TE or Energy writes to the fabric,
-                    and a leftover viz JVM cost 09-02 a core for two hours.
+                  ndt apps orphans  -- is anything of an app's still running,
+                    and is anything of an app's still on the NETWORK?
+                    exit 0 neither; 1 untracked PROCESSES are running; 2 a
+                    liveness channel could not look; 4 the processes are clean
+                    but a rule or a lock is still there; 5 the processes are
+                    clean and the residue could NOT BE CHECKED (kernel down, a
+                    reading failed, or the plane has no time axis -- every P4
+                    fabric). 4 and 5 are new on 09-07 and are deliberately not 1:
+                    a live process needs 'ndt apps stop', a leftover rule needs a
+                    delete_flow_entry by hand. Every gate that reads this rc has
+                    to be updated. (G-12 / W16-1)
                   stop and orphans also LIST what an app left on the NETWORK --
                     flow rules and held locks -- and delete none of it. suspected
                     by time only: a rule has no owner and its cookie is 0. G-12.
+                    on P4 nothing can be dated at all: its flow stats are
+                    synthesised and report duration 0/0, so every rule is listed
+                    with age=UNKNOWN and none is attributed. (W16-3)
                   ndt apps trim [names|all]  -- bound a running app's log
                     (viz wrote 875 MB in 1h54m; the app keeps running)
   ntg [cli|prompt]     which prompt the topology hands control to

@@ -280,6 +280,21 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
 - **OVS**：`--check` 一定 rc=1。**看它列出來的問題是不是只有「256 link(s) are down」**——
   只有這一條就是正常的；多出任何別的才要查。
 
+🆕 **2026-09-07 起 `--check` 多一列 `residue`**（G-12／W16-2）：它會去問「有沒有 app
+留在網路上的東西」——某個 app 的時間窗內裝的流表規則、還握著的鎖。判準因此多了一條：
+
+| `residue` 那一列說 | 意思 | 對 rc 的影響 |
+|---|---|---|
+| `none` | 問過了，沒有 | 無 |
+| `N rule(s) inside an app window, M lock(s) HELD` | **有殘留** | **算一個 problem ⇒ rc 1** |
+| `NOT CHECKED: ...` | **沒問到**（kernel 沒起來／讀不到流表／這個平面分不了窗） | 不算 problem |
+
+🔴 `NOT CHECKED` **不等於乾淨**。**P4 平面永遠是 `NOT CHECKED`**：它的流表統計是 proxy
+合成的，`duration_sec`／`duration_nsec` 恆 0（2026-09-07 實測），沒有時間軸就分不出窗。
+它不算 problem 的唯一理由就是上面那一行「P4 rc=0 才算過」——一個永遠過不了的閘門
+沒有人會看。**鎖在 P4 上還是查得到的**，所以 P4 上握著的鎖照樣讓 `--check` 變紅。
+細節用 `ndt apps orphans` 看（它會把每一條列出來，一條都不刪）。
+
 ⚠️ 這代表 **OVS 沒有一鍵驗收**。OVS 的驗收就看 `ndt up` 最後那行 `data plane: ... forwards`，
 外加下面那張表。
 
@@ -384,9 +399,22 @@ p4_proxy/p4_src/ndtwin_switch.p4:52:  const bit<16> SAMPLE_RATE = 256;
 `doc/audit/2026-08-20_sampling-rate-and-cpu/matrix.sh`，那是實驗 driver 不是支援介面
 （但它 `sed` 完會 `grep -q` 自證改成功，值得抄）。
 
-`ndt status` 的 `sample rate` 是**讀回來對帳的**，不是設定值：它去解編出來的 JSON 裡
-`random(0, N-1)` 的上界。存在的理由就是 2026-08-20 抓到 source 註解寫 256、
-實際跑的 fabric 是 1024。
+`ndt status` 的 `sample rate` 是**讀回來對帳的**，不是設定值。存在的理由就是 2026-08-20
+抓到 source 註解寫 256、實際跑的 fabric 是 1024。
+
+🆕 **2026-09-07 起它看平面**（D-2／X-2），而且旁邊多一列 `rate source` 寫它從哪裡讀的：
+
+| 平面 | 讀哪裡 |
+|---|---|
+| **P4** | 編出來的 `p4_proxy/p4_src/build/ndtwin_switch.json` 裡 `random(0, N-1)` 的上下界 |
+| **OVS** | `ovs-vsctl --columns=sampling list sflow`（OVSDB，`testbed_topo.py:160` 設的那個） |
+| 沒有 fabric | 上面那個 JSON，而且那一列會明講「這不是任何在跑的東西的讀數」 |
+
+🔴 **為什麼要分**：2026-09-06 實測（`logs/x1-22-status-blind-to-ovs-rate.log`），把十筆
+OVS sflow record 全設成 64 之後 `ndt status` 照樣印 `sample rate 1/256`——它讀的是 bmv2
+的編譯產物，跟 OVS fabric 一點關係都沒有。**兩邊只是碰巧都是 256**，所以幾個月沒人發現。
+OVS 側另外三種答案都不會被印成分數：十筆不一致（`DISAGREE`）、一筆都沒有（**什麼都沒在取樣**）、
+`ovs-vsctl` 被拒（`UNREADABLE`，**不是預設值**）——三種都會讓 `--check` 變紅。
 
 ⚠️ **在 fabric 活著的時候重編，`status` 會說謊**——JSON 換了、switch 沒換。
 `ndt status` 有 `stale_pipeline` 偵測（比對 build JSON 與 manifest 的 mtime）會提醒你，
@@ -597,12 +625,15 @@ lab
 | `note` | 別人留的一句話，說他在做什麼 |
 | `measuring` | 有沒有 `iperf3 -c` 在跑。**不是 nothing 就不要拆** |
 | `code` | 現在這份 checkout 的 commit＋有沒有未提交的改動。**量測數字要跟這個 commit 一起記** |
+| `knob baseline` 🆕 | `p4_proxy/mininet/host_count_override` **現在的值**跟你 `ndt claim` 那一刻的值比。**不看 git 髒不髒**——2026-09-05 那次它被寫成 128（＝HEAD），git 因此說它乾淨，警告整段消失，而 `porcelain` 行數還從 22 掉到 21（I-3）。還原＝**寫回**那個值，不是 `git checkout --` |
+| `tree vs round` 🆕 | 從開工到現在，未提交清單**多了誰、少了誰**（列檔名，不是數量）。**少了誰**才是危險的方向：它代表那個檔現在跟 HEAD 一樣了，而那不等於還原 |
 
 ```
 configuration
-  hosts / topology / bmv2 / sample rate
+  hosts / topology / bmv2 / sample rate / rate source
 ```
-**這四行決定你量到的每一個數字。** 開始之前看一眼；寫報告的時候一起抄下來。
+**這五行決定你量到的每一個數字。** 開始之前看一眼；寫報告的時候一起抄下來。
+（`rate source` 是 2026-09-07 加的，見 §2.5 的 sampling rate 那段。）
 
 ```
 running / network health / kernel graph
