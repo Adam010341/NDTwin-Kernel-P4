@@ -12,6 +12,11 @@
 # 🔴 Guards its own baseline: the mutations are applied to a COPY of ndt in a temp dir and the
 # test is pointed at the copy with NDT_UNDER_TEST. tools/test_workflow/ndt itself is never
 # written -- another session may be executing it right now.
+#
+# 🔴 The copy's directory carries ports.sh, sudo_surface.sh and components.env: ndt sources them
+# from beside itself and exits 2 without them, so a mutant would run no checks at all and be
+# recorded as a survivor. See mutant() below -- that is exactly what happened here until
+# 2026-09-07, and all three mutations were false survivors for it.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
@@ -36,6 +41,18 @@ report() {   # $1 = mutation name, $2 = mutated copy, $3 = case that must fail
 }
 mutant() {   # $1 = name, $2 = python replacing text in the copy; prints the path
     local out="$BK/ndt.$1"; cp "$NDT" "$out"
+    # 🔴 ndt sources three files from beside itself -- ports.sh and sudo_surface.sh at the top
+    # level, components.env inside a function -- and a missing sudo_surface.sh makes it
+    # `exit 2` on the spot. Without these three the test suite could not source the mutant at
+    # all: it ran ZERO checks, so the named case "did not go red", so report() below wrote
+    # SURVIVED. All three mutations of this gate had been survivors on every rev anybody looked
+    # at (ee0b399e, b09d330d, 19a05ddb, trunk 1a284f75) for that reason and no other -- the
+    # code under test was fine and this gate had no discriminating power at all.
+    # mutate_ndt_round_baseline.sh's mutant() already copies them; so does this one now.
+    # [Co-developed with claude code -- Adam]
+    cp "$REPO/tools/test_workflow/ports.sh"        "$BK/ports.sh"
+    cp "$REPO/tools/test_workflow/sudo_surface.sh" "$BK/sudo_surface.sh"
+    cp "$REPO/tools/test_workflow/components.env"  "$BK/components.env"
     python3 - "$out" "$2" <<'PY'
 import sys; p, spec = sys.argv[1], sys.argv[2]; a, b = spec.split("\x1f")
 s = open(p).read(); assert s.count(a) == 1, "anchor not unique: " + a[:60]; open(p, "w").write(s.replace(a, b))
