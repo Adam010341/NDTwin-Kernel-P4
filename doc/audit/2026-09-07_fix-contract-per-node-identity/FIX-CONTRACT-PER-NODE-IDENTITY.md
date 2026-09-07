@@ -97,7 +97,7 @@ W3-3b §8 第 3 題問的是「四扇門對契約測試全綠，要不要看 per
 
 閘門 `tests/shell/mutate_contract_per_node_identity.sh`：W1–W9（拿掉一片 ⇒ 指名的 case 紅）、
 X1–X3（合約允許的放寬 ⇒ 全綠）、U1（惰性編輯 ⇒ SURVIVED）。
-變異寫進 `tools/contract_test/` 的**複本**（`NDT_CONTRACT_TOOLS`），正本一個 byte 都不寫；
+變異寫進 `tools/contract_test/` 的**複本**（`NDT_CONTRACT_DIR`），正本一個 byte 都不寫；
 模型檔與擷取的 payload 仍從真的 repo 讀——**被變異的工具，不可以連判它的權威一起變異**。
 
 ## 6. 沒做的

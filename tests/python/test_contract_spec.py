@@ -45,15 +45,23 @@ import tempfile
 import unittest
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-# NDT_CONTRACT_TOOLS points the import at a COPY of tools/contract_test, so
+# NDT_CONTRACT_DIR points the import at a COPY of tools/contract_test, so
 # tests/shell/mutate_contract_per_node_identity.sh can mutate spec.py and score this file
 # without writing a byte into a worktree other sessions are reading. Unset in a normal run.
 # The topology models and the captured graph payload are still read from REPO_ROOT: the
 # authority a mutated tool is judged against must not be mutated with it.
+#
+# The NAME is not free choice: tests/python/test_l3_dispatch_drift.py already reads
+# NDT_CONTRACT_DIR on trunk for this same mechanism, and fix/e21-link-endpoints-in-contract
+# adds a third reader of it. This branch invented a second spelling for the same thing and it
+# was renamed to this one on 2026-09-07 (Adam's ruling on E-21 §7-2), so that one directory
+# does not end up with two names for one mechanism -- and so that the two branches meet in a
+# conflict about content rather than about spelling. The old name is deliberately not written
+# down anywhere: a dead environment variable in a comment is a grep that lies.
 # [Co-developed with claude code -- Adam]
-CONTRACT_TOOLS = os.environ.get("NDT_CONTRACT_TOOLS") or os.path.join(
+CONTRACT_DIR = os.environ.get("NDT_CONTRACT_DIR") or os.path.join(
     REPO_ROOT, "tools", "contract_test")
-sys.path.insert(0, CONTRACT_TOOLS)
+sys.path.insert(0, CONTRACT_DIR)
 
 import spec  # noqa: E402
 from run_contract_test import Context  # noqa: E402

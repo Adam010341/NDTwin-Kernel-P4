@@ -29,7 +29,7 @@
 # 🔴 An UNAPPLICABLE mutation is scored a SURVIVOR, never a catch.
 #
 # 🔴 Guards its own baseline. Mutations go into a COPY of tools/contract_test/ in a temp dir
-# and the test is pointed at it with NDT_CONTRACT_TOOLS; tools/contract_test/ is never written
+# and the test is pointed at it with NDT_CONTRACT_DIR; tools/contract_test/ is never written
 # -- other sessions are reading this worktree right now. Anchor counts come from the REAL
 # files, so a reworded source reports a missing anchor here and in
 # tests/shell/check_gate_anchors.py. The topology models and the captured graph payload the
@@ -95,7 +95,7 @@ report() {
         printf '  SURVIVED %-58s (never applied)\n' "$label"
         return
     fi
-    out="$(NDT_CONTRACT_TOOLS="$dir" "$PY" "$TEST" -v 2>&1)"; rc=$?
+    out="$(NDT_CONTRACT_DIR="$dir" "$PY" "$TEST" -v 2>&1)"; rc=$?
     if [[ "$rc" -ne 0 ]] && grep -qE "^(FAIL|ERROR): $want\b" <<<"$out"; then
         printf '  caught   %-58s (%s went red)\n' "$label" "$want"
     else
@@ -108,7 +108,7 @@ report() {
 must_survive() {
     local label="$1" dir="$2" out rc
     WIDENINGS=$((WIDENINGS + 1))
-    out="$(NDT_CONTRACT_TOOLS="$dir" "$PY" "$TEST" -v 2>&1)"; rc=$?
+    out="$(NDT_CONTRACT_DIR="$dir" "$PY" "$TEST" -v 2>&1)"; rc=$?
     if [[ "$rc" -eq 0 ]]; then
         printf '  survived %-58s (all green, as required)\n' "$label"
     else
@@ -120,8 +120,8 @@ must_survive() {
 
 echo "baseline (must be green before any mutation):"
 base_dir="$(fresh_copy base)"
-NDT_CONTRACT_TOOLS="$base_dir" "$PY" "$TEST" 2>&1 | tail -2 | sed 's/^/  /'
-if ! NDT_CONTRACT_TOOLS="$base_dir" "$PY" "$TEST" >/dev/null 2>&1; then
+NDT_CONTRACT_DIR="$base_dir" "$PY" "$TEST" 2>&1 | tail -2 | sed 's/^/  /'
+if ! NDT_CONTRACT_DIR="$base_dir" "$PY" "$TEST" >/dev/null 2>&1; then
     echo "  baseline is RED -- fix that first; mutations prove nothing on a red baseline"
     exit 2
 fi
