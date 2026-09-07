@@ -734,6 +734,8 @@ kernel 的序列化器會把 `edges` 排到 `nodes` 前面、鍵序也不同，�
   那不算乾淨**），自己的測試是 `tests/python/test_check_test_tmpdirs.py`、變異閘門是
   `tests/shell/mutate_check_test_tmpdirs.sh`。掃描器只抓**真的會去建立／刪除**的路徑：
   只拿去給 parser 的 argv、斷言用的字串、注入 payload 一律不報（規則與逐條例外寫在腳本開頭）。
+  `l1_unit_tests.sh` 的第 0b 步（緊接在 gate anchors 之後、**建置之前**）會自動跑它，
+  rc 1 與 rc 2 都算紅、但印不同的話——rc 2 是「這支閘門瞎了」，不是「樹是乾淨的」。
 - **Python 一律用 `p4_proxy/venv/bin/python`**（見 §1）。conda 的 `python3` 缺 grpc/networkx。
 - 監看用的 shell 迴圈要用 `pgrep -f "poll_al[l].sh"` 這種 bracket 寫法，否則會匹配到自己、
   永遠不結束（真的掛過 8 小時）。⚠️ bracket **只保護 pattern**——同一行指令裡任何地方

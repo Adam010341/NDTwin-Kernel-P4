@@ -141,3 +141,47 @@ world-writable ⇒ 同一台機器上兩次 run 會互相刪掉對方的證據�
 - 引號裡的 `"$( … )"` 會正確 re-parse，但裡面的指令仍留在同一個 word；**沒有**引號的
   `$( … )` 才會被當指令分析。
 - 由片段組出來的路徑（`"/" + "tmp"`）認不出來。這棵樹沒有這種寫法。
+
+---
+
+## 7. 補一顆：把掃描器接進 `l1_unit_tests.sh`（09-08，裁決 §7-2）
+
+Adam 授權 auditor 代裁、採建議值（`DECISIONS.md` 09-08 00:2x 🔶 段）：**不進 ctest、不改 CMake**，
+改成在 `tools/test_workflow/l1_unit_tests.sh` 照 `check_gate_anchors.py` 的接法加一步。
+
+- **位置**：第 **0b** 步，緊接在 gate anchors 之後、**建置之前**。理由同 anchors——它只讀檔、
+  不建置；一個會讓整套測試在 `-j2` 下不可信的缺陷，應該在花二十分鐘編譯**之前**就被講出來。
+- **三種結果，不是兩種**：
+  - `rc 0` ⇒ 綠，印掃描器自己的最後一行。
+  - `rc 1` ⇒ 紅，逐行印**檔:行**（最多 10 行），進 `FAILURES`。
+  - `rc 2` ⇒ **也是紅**，但訊息不同：「the scanner could not READ some of the tests …
+    This is the gate going blind, **not** a clean tree」，並印出 `NOT CHECKED` 那幾行。
+    這條就是 §4 的整個理由：讀不到的檔跟乾淨的樹**印出來一模一樣**過三次。
+- **為什麼是一個函式而不是三行 inline**：`l1_check_test_tmpdirs <repo> <log>` 定義在
+  `NDTWIN_L1_LIB_ONLY=1` 那條線**上面**（和 `shell_summary`／`l1_lane_verdict` 同一個 seam），
+  所以它可以被單獨 source 出來、對著沙盒樹驅動——**這是唯一能看到那兩條紅、又不弄壞真的那條的方法**。
+  repo 當參數傳，掃描器與它掃的樹才會一起移動。
+
+### 驗法（`06-l1-wiring-redgreen.log`，🟢 我自己跑的）
+
+**沒有跑整支 l1**（它會編譯，本單無建置）。做法：`NDTWIN_L1_LIB_ONLY=1 source` 那支 driver
+——它在第一個副作用**之前** `return 0`——然後直接呼叫這一顆新函式，對三棵 `git archive` 出來的
+沙盒樹各跑一次：
+
+| 樹 | 內容 | scanner rc | 函式印什麼 | 回傳 |
+|---|---|---|---|---|
+| green | 本分支 HEAD 的 `tests/` | 0 | `test temp paths ok  (… 220 file(s) scanned, 0 fixed temp paths)` | 0 |
+| paths | **trunk** 的 `tests/`（六支還沒修＋NOFILE） | 1 | `test temp paths FAILED — a test creates a temp path that is the same in every process` ＋七行檔:行 | 1 |
+| blind | green ＋一個雙引號沒關的 shell 檔 | 2 | `test temp paths NOT CHECKED — … This is the gate going blind, not a clean tree` ＋ `NOT CHECKED:` 那行 | 1 |
+
+⚠️ 寫這支驗證 harness 時踩到一個值得記的坑：第一版把沙盒變數命名成 `G`／`R1`／`R2`，
+而 **`G`／`R`／`Y`／`D`／`N` 是那支 driver 的顏色變數**——`source` 之後 `$G` 變成空字串，
+green 那一格就跑成 `--repo ""`、回 rc 2。**看起來像是被測的東西壞了，其實是儀器壞了。**
+現在 harness 用 `TREE_GREEN`／`TREE_PATHS`／`TREE_BLIND`，並把這件事寫在 log 的檔頭。
+
+### 沒有回歸
+
+- `tests/shell/mutate_l1_shell_scoring.sh`（**擁有這個檔的閘門**）：`14 mutation(s): 14 killed, 0 survived`。
+- `tests/shell/test_l1_shell_scoring.sh`：`Ran 73 checks, 7 failed`——與 base `c3d99d00` 同值（既有紅）。
+- `check_gate_anchors.py HEAD`：改動前後同為 **74/74**，`mutate_l1_shell_scoring.sh` 同為 `ok(14)`。
+  （我改的區段在 `NDTWIN_L1_LIB_ONLY` 那條線**下面**，那支閘門的 14 個 anchor 全部在線上面。）

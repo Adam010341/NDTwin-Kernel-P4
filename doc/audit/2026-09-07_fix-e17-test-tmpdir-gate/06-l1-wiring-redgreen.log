@@ -1,0 +1,49 @@
+### E-17 §8: the three branches of l1_check_test_tmpdirs, run in isolation
+### date: 2026-09-08T00:22:28+08:00
+### method: the lane is NEVER run (it compiles). The driver is SOURCED with
+###         NDTWIN_L1_LIB_ONLY=1 -- which returns before the first side effect -- and the
+###         one function this commit adds is called directly over sandbox trees built with
+###         git archive into mktemp dirs. Nothing is built; the worktree is not written.
+### driver sha256: a3204cb641149c3f51a6f3cc043bb60cf1f07fd73c1ff727080c351b1265a10c
+### 🔴 the sandbox variables are NOT named G/R/Y/D/N: sourcing the driver rebinds those
+###    (they are the colour variables), and a first draft of this harness lost its green
+###    tree to exactly that -- which then read as rc 2, a missing scanner.
+
+### trees:  green  = this branch's tests/ at HEAD
+###         paths  = trunk's tests/ (the six c3d99d00 fixed are still constant there, plus
+###                  the mutate_logger_cli.sh NOFILE this ticket found); the scanner itself
+###                  is copied in from this branch, trunk has none yet
+###         blind  = green + one shell file whose double quote never closes
+
+=== green   (/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ff50d23e-db8b-4a56-9eb2-8b5bd8382c5d/scratchpad/e17l1-vuAu4W) ===
+scanner rc=0
+--- l1_check_test_tmpdirs, verbatim (NO_COLOR) ---
+test temp paths ok  (check_test_tmpdirs: 220 file(s) scanned, 0 fixed temp paths)
+returned 0   <- 0 green, 1 gets counted into the lane's FAILURES
+
+=== paths   (/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ff50d23e-db8b-4a56-9eb2-8b5bd8382c5d/scratchpad/e17l1-eAxVX1) ===
+scanner rc=1
+--- l1_check_test_tmpdirs, verbatim (NO_COLOR) ---
+test temp paths FAILED — a test creates a temp path that is the same in every process (see /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ff50d23e-db8b-4a56-9eb2-8b5bd8382c5d/scratchpad/e17l1-1DrxLQ/paths.log)
+  tests/test_ApiKeyNotLogged.cpp:102: temp_directory_path() joined with a name that is the same in every process (no getpid() / mkstemp / mkdtemp in this statement)
+  tests/test_HistoricalLogging.cpp:118: temp_directory_path() joined with a name that is the same in every process (no getpid() / mkstemp / mkdtemp in this statement)
+  tests/test_IntentTaskOutcomes.cpp:121: temp_directory_path() joined with a name that is the same in every process (no getpid() / mkstemp / mkdtemp in this statement)
+  tests/test_LeftBandwidthCapacity.cpp:78: temp_directory_path() joined with a name that is the same in every process (no getpid() / mkstemp / mkdtemp in this statement)
+  tests/test_SFlowEmitterRoundtrip.cpp:481: temp_directory_path() joined with a name that is the same in every process (no getpid() / mkstemp / mkdtemp in this statement)
+  tests/test_SwitchKindDispatch.cpp:66: temp_directory_path() joined with a name that is the same in every process (no getpid() / mkstemp / mkdtemp in this statement)
+  tests/shell/mutate_logger_cli.sh:87: $NOFILE is a fixed /tmp/ndtwin-logger-cli-gate-should-not-exist.log path, and line 218 creates or deletes it; no $$ / mktemp / getpid in either place
+returned 1   <- 0 green, 1 gets counted into the lane's FAILURES
+
+=== blind   (/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ff50d23e-db8b-4a56-9eb2-8b5bd8382c5d/scratchpad/e17l1-6HlS1H) ===
+scanner rc=2
+--- l1_check_test_tmpdirs, verbatim (NO_COLOR) ---
+test temp paths NOT CHECKED — the scanner could not READ some of the tests (exit 2). This is the gate going blind, not a clean tree (see /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ff50d23e-db8b-4a56-9eb2-8b5bd8382c5d/scratchpad/e17l1-1DrxLQ/blind.log)
+  check_test_tmpdirs: 1 file(s) COULD NOT BE READ and were not checked at all (exit 2); 0 other finding(s).
+  tests/shell/test_zz_unreadable_fixture.sh:1: NOT CHECKED: a "-quoted string opened near line 2 and never closed; everything after it was read as string content
+returned 1   <- 0 green, 1 gets counted into the lane's FAILURES
+
+=== the gate that owns this file, and its suite (both no-build) ===
+
+===== 14 mutation(s): 14 killed, 0 survived =====
+Ran 73 checks, 7 failed
+(73/7 is what the base commit c3d99d00 also prints -- see 05-final-at-tip.log)
