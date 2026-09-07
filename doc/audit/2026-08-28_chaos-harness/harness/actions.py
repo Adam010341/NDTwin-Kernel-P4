@@ -63,6 +63,34 @@ class Action:
     needs_opt_in: str | None = None
 
 
+# 🔴 E-4, 2026-09-07. THE ONE PLACE that decides whether an action may run, and it lives here,
+# beside the field it reads. Until today the field was DECLARED in this file and ENFORCED in a
+# single branch of another one -- `chaos.py`'s positive-control loop -- so setting it on
+# anything else bought nothing. `link_blackhole` is the case that made it matter: destructive,
+# able to take a TCLink interface's shaper with it (W8-8), and reached by no loop that had ever
+# looked at the field. A declaration nobody consults is `existence != wiring` wearing a safety
+# label, and this project has now paid for that shape three times.
+def opt_in_refusal(action: Action, opt_ins: dict[str, bool] | None) -> str | None:
+    """None when this action may run; otherwise the one sentence that says what would allow it.
+
+    Default-deny, and that is the whole shape of it: a caller that hands over no flags at all
+    -- including one that simply forgot the argument -- gets a refusal, never an execution. The
+    other default fails open exactly once, and once is a `tc` command on somebody's live link.
+
+    The sentence is built here rather than at each call site so that a refused control and a
+    refused injection round read identically. Two wordings for one decision is how a reader
+    ends up believing they are two decisions.
+    """
+    flag = action.needs_opt_in
+    if not flag:
+        return None
+    if (opt_ins or {}).get(flag):
+        return None
+    # The flag NAME is not decoration. It is the only thing in the record that tells the reader
+    # how to make the action run, and without it a refusal is indistinguishable from a failure.
+    return f"needs --{flag}; {action.note}"
+
+
 def _dry(msg: str, **ev) -> ActionResult:
     return ActionResult(True, f"DRY RUN, nothing touched: {msg}", ev, dry_run=True)
 
@@ -818,12 +846,26 @@ def link_blackhole(iface: str) -> Action:
                   destructive=True,
                   apply=netem.apply, verify=netem.verify,
                   undo=netem.undo,
+                  # 🔴 E-4, 2026-09-07 (Adam's ruling): gated, and NOT added to CHAOS_ACTIONS.
+                  # Those are two separate questions and they got separate answers -- `--full`
+                  # still does not run this, and now nothing runs it, dry run included, unless
+                  # it is asked for by name. The dry run is inside the gate on purpose: it is
+                  # the only path that reaches this action today, so a gate that waved it
+                  # through would gate nothing at all and would go on reporting that it did.
+                  needs_opt_in="allow-link-blackhole",
                   note="the attach point is read from the live qdisc tree: under htb when the "
                        "interface is shaped, at root only when it is not, and refused outright "
                        "when a netem is already there. undo removes exactly the netem it finds, "
-                       "so the shaper it was hung under survives")
+                       "so the shaper it was hung under survives. It is still 100% packet loss "
+                       "on a live link, and the undo's `parent` form has never been observed "
+                       "to be accepted by this machine's sudoers -- so it runs only when asked "
+                       "for by name")
 
 
+# What `--full` injects, and nothing else. `link_blackhole` is deliberately NOT here: Adam's
+# ruling of 2026-09-07 (DECISIONS.md, grill §4E, E-4) is "not in, and fix the opt-in instead",
+# so `--full` still cannot reach a `tc` command on a live link, and the opt-in above is what
+# guards the one path that can. Adding it here would be a policy change, not a refactor.
 CHAOS_ACTIONS: list[Action] = [
     Action("H5", "INV-06", "acquire_lock with a malformed body", destructive=False,
            apply=_h5_apply, verify=_h5_verify),
@@ -843,3 +885,18 @@ CHAOS_ACTIONS: list[Action] = [
 #       its own design, not a wrapper here.
 #   N-1 NTP step -- needs a wall-clock jump, which hits every other session on this machine.
 #       Single-occupancy window only.
+
+
+def all_actions(iface: str = "s1-eth3") -> list[Action]:
+    """Every action this harness can construct: the controls, the injections, and the blackhole.
+
+    It exists so that a question about the whole surface -- "is every destructive action behind
+    an opt-in?" -- can be asked of ONE list instead of three places. `link_blackhole` is built
+    by a factory and belongs to no list at all, which is precisely why it went ungated: a
+    question asked of `POSITIVE_CONTROLS + CHAOS_ACTIONS` cannot see it.
+
+    🔴 This is NOT the list `--full` runs. That is CHAOS_ACTIONS, and the blackhole is
+    deliberately not in it (E-4). `iface` only names the interface the blackhole would be built
+    for; constructing it touches nothing.
+    """
+    return list(POSITIVE_CONTROLS) + list(CHAOS_ACTIONS) + [link_blackhole(iface)]

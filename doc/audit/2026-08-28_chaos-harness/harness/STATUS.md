@@ -18,6 +18,20 @@ refuses, by design.** Any PASS from an invariant other than INV-06 remains unbac
 
 ---
 
+> **🆕 Annotation, 2026-09-07 (E-4). Added below the line; nothing above or below it is
+> rewritten — this file is the 08-29 snapshot.** Two rows of the table are now *qualified*,
+> not corrected. **§4:** `Action.needs_opt_in` was declared in `actions.py` but enforced only
+> in `gate_g1_controls`'s live path, so the `tc netem` blackhole — destructive, and reachable
+> only through `--dry-run` — carried no opt-in and was asked for none. It is now behind
+> `--allow-link-blackhole`, refused by default **in every mode**, at one shared decision
+> (`actions.opt_in_refusal`) that both entry points ask. **§5.2:** that qualifies "dry run …
+> exercised" — for a gated action the default dry run is now a REFUSED record naming its flag,
+> and `--dry-run --allow-link-blackhole` is what exercises the allow path. `link_blackhole` is
+> still **not** in `CHAOS_ACTIONS` (Adam's ruling, E-4), so "3 of ~50" below stands as written.
+> Detail: [`../../2026-09-07_fix-chaos-blackhole-attach/FIX-CHAOS-BLACKHOLE-ATTACH.md`](../../2026-09-07_fix-chaos-blackhole-attach/FIX-CHAOS-BLACKHOLE-ATTACH.md) §5.
+
+---
+
 ## `04_harness-spec.md`, clause by clause
 
 | clause | state | note |

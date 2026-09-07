@@ -114,3 +114,84 @@ undo **重讀一次樹**才決定刪哪裡，而不是記得自己掛在哪：�
 - **`needs_opt_in` 沒設**：`chaos.py:164` 只在 `--controls` 那條路檢查它，對這個 action 設了也不會生效。
 - **`sudo -n -l` 我讀過（唯讀查詢），但沒有實測 `del … parent H:D` 這個 argv 會不會被 sudoers 收**。
 - **同型盤點沒做**：harness 裡還有沒有別的「檢查條件在兩種結果下都成立」的 verify。**不宣稱不存在。**
+
+---
+
+# 5. E-4 續修 — `needs_opt_in` 對每一個 action 生效（`link_blackhole` 仍不進 `CHAOS_ACTIONS`）
+
+**單號 R3-E4**，分支 `fix/e4-chaos-needs-opt-in-all-actions`，base＝本分支 tip `262e3ccd`。2026-09-07。
+裁決：`scratch/overnight-2026-09-05/DECISIONS.md`「grill §4E」**E-4：不進 `CHAOS_ACTIONS`；另開小單修
+`needs_opt_in`**。缺陷來源＝上面 §4 自己列的第三條（`needs_opt_in` 沒設，因為設了也不會生效）。
+
+## 5.1 缺陷
+
+`actions.py` **宣告**了 `Action.needs_opt_in` 並把它寫成「每個 action 自己的安全閘」；
+`chaos.py:164`（修前）**只在一個迴圈的一個分支裡**讀它——`gate_g1_controls` 的非 dry 路徑。
+
+⇒ 不是 positive control 的 action，設了這個欄位也不會被擋。`link_blackhole` 就是那個案例：
+`destructive=True`、在活的鏈路上打 `tc netem loss 100%`、undo 要靠一條**這台機器從沒被實測收過**的
+`parent` 形式 sudo 授權——而它**一個旗標都沒有**，走得到它的那條路（`--dry-run`）也從不問。
+
+🔴 **這是 `existence != wiring` 的第三次**（#71、#75，現在是它）：
+**一個宣告在 A 檔、只在 B 檔的一個分支被執行的欄位，是安全標籤不是閘。**
+
+## 5.2 修法
+
+- **決定搬進 `actions.py::opt_in_refusal(action, opt_ins)`——一個判定、一句話**
+  （`needs --<flag>; <note>`），就放在它讀的那個欄位旁邊。**default-deny**：`opt_ins=None`
+  （含「呼叫端忘了傳」）一律拒絕。
+- **兩個執行入口都問它**：`gate_g1_controls`（控制組）與 `injection_round`（其他全部）。
+  後者**在 apply 之前、也在任何讀之前**就拒絕 ⇒ 被拒的 round **一個指令都不下**，
+  連 dry run 要用來規劃的 `tc qdisc show` 都不下。
+- `link_blackhole` 給 `needs_opt_in="allow-link-blackhole"`，`chaos.py` 加同名旗標；
+  **`opt_ins` 只建一次**，同一份交給兩個迴圈（上一版是各自建、各自讀，那正是只有一邊有閘的原因）。
+- **`--controls` 那條的行為不變**：NOT-RUN、同一句 detail、`all_ok=False`。
+- 被拒的 round **是一列記錄不是靜默跳過**：`verdict="REFUSED"`＋`detail` 帶旗標名，
+  `--dry-run` 的 `result` 行也點名哪幾個 round 被拒。
+
+檔:行（本分支）：
+
+| 位置 | 東西 |
+|---|---|
+| `harness/actions.py:66-91` | `opt_in_refusal`——唯一的判定與唯一的那句話 |
+| `harness/actions.py:855-862` | `link_blackhole`：`needs_opt_in=`，`note=` 補上「為什麼要 gate」 |
+| `harness/actions.py:865-870` | `CHAOS_ACTIONS` 上方寫死裁決：blackhole 不進來，進來是政策變更不是重構 |
+| `harness/actions.py:890-903` | `all_actions()`——整個 action 面的一份清單（blackhole 由 factory 生、不屬於任何 list，**不屬於任何 list 正是它逃掉的原因**） |
+| `harness/chaos.py:168-180` | 控制組迴圈改問共用判定，**問在 dry 分支之前** |
+| `harness/chaos.py:445-465` | `injection_round` 的 opt-in 閘（apply 之前、讀之前） |
+| `harness/chaos.py:537-555` | `--allow-link-blackhole` 旗標＋**只建一次**的 `opt_ins` |
+| `harness/chaos.py:596-601` | `--dry-run` 的 result 行點名被拒的 round |
+
+🔴 **一個刻意的取捨，寫在這裡免得看起來像偷渡：dry run 也在閘裡。**
+`04` §5.2 說「destructive action 的 allow path 要有 dry run，而且 runner 要跑它」。
+但 blackhole **不在任何清單裡**，`--dry-run` 是唯一走得到它的路——**豁免 dry run 的 opt-in 等於
+什麼都沒擋，而報告還是會印「gated」**。所以預設 `--dry-run` 現在對它是一列 REFUSED，
+`--dry-run --allow-link-blackhole` 把 §5.2 的 allow-path 演練拿回來。
+同一條規則一致地套在 G1-01 上：`--gates`／`--dry-run` 不再預覽它（`--controls` 不受影響——
+那條路本來就不走 dry 分支）。**要改回去是兩行**：`chaos.py` 的 `if refusal:` 改成
+`if refusal and not dry_run:`（action 側）、控制組那行改成 `None if dry_run else …`（control 側）
+——**而這兩行正是本單閘門的 W8 與 W9，改了會紅**（見 SUMMARY §7 第 1 題）。
+
+## 5.3 測試與閘門
+
+- `tests/python/test_chaos_opt_in_all_actions.py`：**27 支**，stdlib、不建置、不碰 fabric、不跑 `tc`
+  （`probes.run` 被換掉並記下每一條 argv——一半的宣稱是關於**沒有送出去**的指令）。
+  五組：判定本身（default-deny、旗標名在句子裡）／`injection_round` 在 apply 前拒絕（含 dry run
+  且一個指令都沒下）／控制組**用完全同一句話**拒絕／blackhole 有閘且不在 `CHAOS_ACTIONS`／
+  **旗標從 `main()` 的 argv 一路到 action**（端到端，`--help` 也對照過每個宣告的旗標都真的存在）。
+- `tests/shell/mutate_chaos_opt_in_all_actions.sh`：W1–W9（把閘的一片拿掉 ⇒ 指名的 case 要紅）、
+  X1–X5（合約允許的改動 ⇒ 整套要綠，含「另一個安全 action 加進 `CHAOS_ACTIONS`」）、
+  U1（惰性編輯 ⇒ 必須 SURVIVED，scorer 自己的對照）。變異寫進 harness 的**複本**
+  （`NDT_CHAOS_HARNESS`），`doc/audit/…/harness/` 一個 byte 都不寫。
+
+看紅逐字在 `scratch/overnight-2026-09-05/fix/R3-E4-SUMMARY.md` §3。
+
+## 5.4 沒做的
+
+- **沒有 live 驗**：本輪不碰 lab，`tc` 一次都沒真的跑過（與 §4 第一條相同）。
+- **沒有把 `link_blackhole` 加進 `CHAOS_ACTIONS`**——裁決就是不加，而且現在有測試釘住它。
+- **其他 `destructive=True` 的 action 沒有自己補閘**：盤點結果是**只有兩個**
+  （`G1-01`／`T-netem`），兩個都已經有旗標 ⇒ 沒有「缺 opt-in 的 destructive action」。
+  真正該問的是反向題（哪些標成 `destructive=False` 但會留下狀態），寫在 SUMMARY §7，**沒有自己改**。
+- **`STATUS.md` 只加註**（E-6）：在最上面的 `---` 之後插一段標明日期的附註，
+  既有句子一個字都沒動。
