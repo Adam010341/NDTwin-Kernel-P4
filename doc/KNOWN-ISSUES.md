@@ -2139,6 +2139,58 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
   所以那支改成直接建一個未載入的 monitor 問同一個函式，另補
   `AnEmptyTopologyFileIsRefusedAtLoad` 管載入那一半。**斷言的內容沒有變，取得受測物的路徑變了。**
 
+### C-5c 🔴 被豁免的交換機只是「記號」：電源管理器照打 Brocade 的 OID／SSH，而外面看不到記號 —— **已修（分支 `fix/e23-e25-exempt-switch-on-wire`，2026-09-07）**
+
+- **狀態**：**已修（新分支，2026-09-07，尚未併入 trunk）。** 裁決＝grill §4E 的 **E-23**
+  （`scratch/overnight-2026-09-05/DECISIONS.md:261` 逐字：「豁免只是記號：**開單，`power_path=none`
+  就短路電源管理器那六處**」）與 **E-25／E-30**（`:269`：「開單：`get_graph_data` 加
+  `power_path`／`telemetry_path`＋進契約＋啟動一行 WARN」）。
+- **來歷**：W15-2（2026-09-06，Adam 裁）讓「未知 `brand_name` ＋明確 `switch_kind`」的交換機被收下，
+  **條件是圖上要標成「電源與遙測沒人管」**。記號寫了（`VertexProperties::powerPath`／`telemetryPath`，
+  值都是 `none`），然後有兩件事同時為真：
+  - **① 行為沒跟上**：`DeviceConfigurationAndPowerManager` 從來沒讀那個記號。TESTBED 下它依 brand
+    分支的**六處**全部落進為 `"Brocade / Others (Currently via SSH)"` 寫的 `else`
+    ⇒ 一台靠 `switch_kind` 被收下的 Cisco 會被打 Brocade 的電力 OID、CPU OID、記憶體 OID
+    與一次 SSH `show power`，**每十秒一輪，永遠**。
+  - **② 記號在程序外看不見**：🟢 **2026-09-07 實測**（round 2 的 lw17c，逐字在
+    `scratch/overnight-2026-09-05/rounds/08-round2.md`）——帶豁免的分支二進位 `85822a97`
+    餵一份 dpid 7 是 `brand_name: "NOT_A_REAL_KIND"` ＋ `switch_kind: "ovs"` 的檔，**ACCEPTED**，
+    而 `/ndt/get_graph_data` 的那個節點只有 `brand_name`／`admin_state`／`is_up`——
+    **沒有 `power_path`、沒有 `telemetry_path`**；log 裡 grep `unmanaged`／`power_path`／`admitted`
+    **0 行**。⇒ 記號只在記憶體裡。
+- **失效方向**：**樂觀**——圖說「我知道我讀不了它」，而 wire 與 log 都沒說，行為則假裝讀得了。
+- 🔑 **兩個端點不是同一段序列化**（本輪查證的關鍵一步）：W15-2 把記號放進
+  `TopologyAndFlowMonitor::getStaticTopologyJson`（＝`/ndt/get_static_topology_json`，手冊 §38）
+  那段**手寫的初始化列**；而 `/ndt/get_graph_data` 是 `HttpSession::handleGetGraphData` 的
+  `result["nodes"].push_back(graph[vd])`，走的是 `GraphTypes.hpp` 的
+  `to_json(nlohmann::json&, const VertexProperties&)`。**兩段各寫各的**，所以記號進了少有人讀的那個端點，
+  沒進四個外部 app 讀的那個。
+- **修法**：
+  - **六處**（`DeviceConfigurationAndPowerManager.cpp`：記憶體／電力／CPU／溫度四個 status 報告
+    ＋兩個 single-switch 端點）在動手前問 `isExemptFromBrandPaths(vp)`，`power_path=="none"` ⇒
+    **不打**，回文件化的 `-1`（`kHealthMetricUnavailable`）；兩個 single-switch 端點另外**純新增**一個
+    `exempt` 鍵說明理由（**不是 500、不是「裝置沒回應」**）。log 一行 INFO，**邊緣觸發**（一台一次，
+    不是每十秒四行）。
+  - **`to_json` 純新增** `power_path`／`telemetry_path`（**只在 switch 節點**）⇒ 上 `/ndt/get_graph_data`。
+  - **載入時一行 WARN**：`N switch(es) exempt from power/telemetry (power_path=none): dpid …`，
+    **零台不印**。
+  - **契約**：`tools/contract_test/spec.py` 的 `GRAPH_NODE` 加兩個 optional 欄位並**釘死值域**
+    （`power_path` 四個值、`telemetry_path` 兩個值——兩邊大小不同不是筆誤）。
+- ⚠️ **MININET 一個字沒改**：合成電力值是 dpid 的函數、從來不是問機器的問題，所以豁免**不碰它**
+  （閘門 M11 就是釘這一格的「過度守衛」變異體）。
+- ⚠️ **`telemetry_path == "none"` 不是豁免的記號**：OVS／BMv2 也是 `none`（F-1：軟體交換機沒有溫度計）。
+  **只有 `power_path == "none"` 是。**
+- 🔴 **baseline（`28b8b13`）怎麼處理**：那個版本**沒有 `switch_kind`**，`brand_name` 只是一個字串，
+  **非 HPE 且非 MININET 一律走 Brocade 的 SSH 分支**——也就是說「這個 build 讀不了這台機器」這件事
+  **從來就存在**，baseline 只是**從不對外承認**。W15b 是第一次承認（但只有自己聽得見），
+  本單讓它上 wire。⇒ **這一單沒有讓 kernel 少收任何一份檔案**，只是讓它說實話。
+  舊消費者不受影響（純新增鍵、既有鍵一個字沒動）。
+- **證據**：🟢 本輪自己跑過：15 支新單元測試（`tests/test_ExemptSwitchIsNotDialled.cpp`）、
+  閘門 `tests/shell/mutate_exempt_switch_is_not_dialled.sh`、全建 0 warning、ctest。
+  🔵 **轉述未重跑**：lw17c 那次 live（上面 ② 的逐字量測）。
+- ⚠️ **併版**：本檔今晚有三支分支各自插條目（R2-PY 的 #90／#91、BUG-17 的 C-5／C-5b、本條），
+  E-27 已裁「**知悉，併時照序留兩份**」。
+
 ## D. 已明確裁定不修（含理由）
 
 | 缺陷 | 裁定 | 理由 |
