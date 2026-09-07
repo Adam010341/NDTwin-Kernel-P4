@@ -84,7 +84,12 @@ FILES=("$LOGCPP" "$MAIN")
 
 # A path the --help positive control must NOT create. Its absence is what proves the kernel exited
 # in its parser rather than reaching Logger::init with a file to open.
-NOFILE=/tmp/ndtwin-logger-cli-gate-should-not-exist.log
+# [Co-developed with claude code -- Adam] $$: the name was a constant in a world-writable
+# directory, and this gate both `rm -f`s it and reads its absence as the verdict. Two runs on one
+# machine could each delete the other's evidence -- one reading a file it did not create as a
+# failure, the other reading its own deleted file as a pass. Found by tests/shell/check_test_tmpdirs.py
+# (E-17), which is the only reason anyone was looking.
+NOFILE=/tmp/ndtwin-logger-cli-gate-should-not-exist.$$.log
 
 MUTATIONS=0
 SURVIVORS=0
