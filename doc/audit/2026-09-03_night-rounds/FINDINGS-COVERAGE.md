@@ -235,6 +235,18 @@
 | 89 | 檢查器知道、kernel 不知道：edge 數不符只有 contract test 看得見（#61／#62 修了載入那扇門，其他三扇沒） | ⭕ UNASSIGNED（09-04 14:0x，Adam 裁記） | N18 Q4；auditor 未親跑 `spec.py:348` | W-TOPO-THREE-DOORS 一起 |
 | 90 | 四個外部 app 從沒對著活的 kernel 用過；`get_switches_power_state` 的 breaking change 只有 grep 證 | ⭕ UNASSIGNED（09-04 14:0x） | auditor 09-04 grep 六個本地 repo | W-APPS-LIVE；今晚開 app 就是第一次 |
 
+> 🔴 **`#90` 撞號了（2026-09-07 登記）。** 上面那一列是**本表的** #90，而**本表到 #90 為止、沒有 #91**。
+> 夜巡另有一組 **#90／#91**，指的是 `doc/KNOWN-ISSUES.md` 的 **B-11**（拓樸檔宣告一台沒有位址的 host，
+> kernel 收下）與 **B-12**（kernel 不認得的 `brand_name` 被靜默對映成 HARDWARE 收下）——那一組號印在
+> `fix/w3-door3b-host-empty-ip`（修法 `b1471cbe`、tip `72ffd4dd`、
+> `doc/audit/2026-09-06_fix-host-address-door/FIX-HOST-ADDRESS-DOOR.md`）與
+> `fix/w15-unknown-brand-rejected`（修法 `008de16d`、tip `8b3ebe49`、
+> `doc/audit/2026-09-06_fix-unknown-brand-rejected/FIX-UNKNOWN-BRAND.md`）的 commit 訊息與 FIX 文件裡。
+> **那兩條不是本列。**（KNOWN-ISSUES 稱那一夜為「09-05 夜巡」，兩顆 commit 自己的日期是 09-06；
+> 同一夜、同一批人。）
+> ⇒ **Adam 2026-09-07 裁（E-1）：留 KNOWN-ISSUES 自己的代號 B-11／B-12、夜巡文件加這一則對照、
+> 已經推出去的 commit 訊息不動。**
+
 ### 2.2 兩支動到同一段碼（合併衝突預警）
 
 下面每一列都是我用 `git merge-tree --write-tree --messages <a> <b>` **實測**的，不是讀檔案清單推論的。
@@ -342,4 +354,29 @@ C++ 分支的共同碰撞點（B-5／D15／telemetry／topology-round），每�
 | `fix/chaos-invariants-method` | #17（第四例） | 否 | 照第三例 `efd2fe10` 的形狀；harness 所有 HTTP 呼叫對照 `components.py` 的完整表 |
 
 前一批仍在跑：`fix/poll-does-not-resurrect`（#46/36/35）、`fix/cloexec-listening-sockets`（#47，現持 lab claim）、`fix/apps-stop-kills-the-group`（#6/48）。
+
+### 🆕 09-07：契約測試的界線——它守不住載入器那扇門（Adam 裁 E-3）
+
+**契約測試比的是「kernel 的圖」對「交到 kernel 手上的那份拓樸檔」。**
+kernel 忠實地照著一份**壞檔**服務時，兩邊**依定義**一致 ⇒ 「檔案本身壞掉」這一整類
+（**#90／#91**＝`doc/KNOWN-ISSUES.md` 的 **B-11**／**B-12**：沒有位址的 host、kernel 不認得的
+`brand_name`；不是本表 `#90` 那一列，見該列底下的撞號說明，本檔 `:236` 之後）**契約測試結構上看不到**。
+
+2026-09-07 給 `inv_graph_matches_topology` 加的 per-node 身分比對
+（分支 `fix/contract-per-node-identity` `0c00c7d2`）**沒有改變這一點**，而且那條分支自己有一個
+測試類別把這件事釘死：per-node 身分擋的是「**被指到錯的模型**」，不是「**模型本身壞掉**」。
+
+⇒ **載入器那扇門由載入器自己的驗證測試守**：`tests/test_TopologyInputValidation.cpp`
+（W3 家族的門，B-11 在碼與閘門裡叫 door 3d、B-12 叫 door 3e），外加「**直接把壞檔餵給二進位**」
+的 live 臂（R0b／lw3 用的形狀：`timeout 14` 直呼 kernel，rc=124＝收下、rc=1＝拒絕）。
+
+🔴 **兩層各守各的門，不可互相代領**：契約測試綠，不代表載入器會拒絕壞檔；
+反過來，載入器把門關上，也不代表有人在驗「這張圖是不是**那一份**模型」。
+**#89 記的是同一組門的另一面**（edge 數不符**只有**契約測試看得見、kernel 自己不知道）——
+兩條合起來才是完整的圖：**兩層看得見的東西不一樣，所以誰都不能代領誰的綠。**
+
+〔🔵 **讀過未執行**：本節引用的分支 sha、測試檔名與 door 代號是本輪開檔／`git` 查證的（🟢），
+但本輪**沒有編譯也沒有執行**任何測試；live 臂的 rc 是引用 R0b／lw3 兩輪的紀錄（🟠 轉述）。〕
+
+[Co-developed with claude code -- Adam]
 

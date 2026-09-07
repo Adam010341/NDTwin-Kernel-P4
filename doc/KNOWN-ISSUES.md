@@ -1573,6 +1573,12 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 ### B-11 🔴 拓樸檔可以宣告一台**沒有位址**的 host，kernel 收下，並以 `('h9', [])` 對外服務
 
 > 09-05 夜巡的 **#90**（見上面那則撞號說明）。W3 門 3b（碼與閘門裡叫 **door 3d**）。
+> 🔴 **本條在 W3-3b 分支的 FIX 文件與 commit 訊息裡被稱為 FINDINGS `#90`**
+> （`fix/w3-door3b-host-empty-ip`：修法 `b1471cbe`、tip `72ffd4dd`、
+> `doc/audit/2026-09-06_fix-host-address-door/FIX-HOST-ADDRESS-DOOR.md`）；
+> **與 `doc/audit/2026-09-03_night-rounds/FINDINGS-COVERAGE.md:236` 的 `#90` 不同號**
+> ——那一條是「四個外部 app 從沒對著活的 kernel 用過」。
+> 〔2026-09-07 依 Adam 裁 E-1 補；那份覆蓋率總帳同日已加上反向對照，commit 訊息不動。〕
 
 - **狀態**：**在 trunk 上 OPEN。修法在分支 `fix/w3-door3b-host-empty-ip` 的 `b1471cbe`
   （分支 tip `72ffd4dd`，工單 W3-3b），未併入**（查於 2026-09-07，trunk `1536ff17`）。
@@ -1624,6 +1630,12 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 ### B-12 🔴 拓樸檔可以宣告一個 kernel 不認得的 `brand_name`，被靜默對映成 HARDWARE 收下
 
 > 09-05 夜巡的 **#91**（見上面那則撞號說明）。碼與閘門裡叫 **door 3e**。
+> 🔴 **本條在 W15 分支的 FIX 文件與 commit 訊息裡被稱為 FINDINGS `#91`**
+> （`fix/w15-unknown-brand-rejected`：修法 `008de16d`、tip `8b3ebe49`、
+> `doc/audit/2026-09-06_fix-unknown-brand-rejected/FIX-UNKNOWN-BRAND.md`）；
+> **`doc/audit/2026-09-03_night-rounds/FINDINGS-COVERAGE.md` 那張表根本沒有 `#91`**（它到 `#90` 為止），
+> 而它的 `#90`（`:236`）是另一件事 ⇒ **兩套號不可互相翻譯。**
+> 〔2026-09-07 依 Adam 裁 E-1 補；那份覆蓋率總帳同日已加上反向對照，commit 訊息不動。〕
 
 - **狀態**：**在 trunk 上 OPEN。修法在分支 `fix/w15-unknown-brand-rejected` 的 `008de16d`
   （分支 tip `8b3ebe49`，工單 W15），未併入**（查於 2026-09-07，trunk `1536ff17`）。
