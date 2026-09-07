@@ -195,3 +195,17 @@ undo **重讀一次樹**才決定刪哪裡，而不是記得自己掛在哪：�
   真正該問的是反向題（哪些標成 `destructive=False` 但會留下狀態），寫在 SUMMARY §7，**沒有自己改**。
 - **`STATUS.md` 只加註**（E-6）：在最上面的 `---` 之後插一段標明日期的附註，
   既有句子一個字都沒動。
+
+## 5.5 §7 六題的裁決（Adam 2026-09-08，經 orchestrator 轉達）
+
+| 題 | 裁決 | 對碼的影響 |
+|---|---|---|
+| §7-1 dry run 也進閘（拿 `04` §5.2 換的） | **維持**——全模式進閘 | 不動；W8 那條變異照舊要紅 |
+| §7-2 G1-01 的 dry 預覽一併被擋 | **維持**——一致，不開特例 | 不動；W9 那條變異照舊要紅 |
+| §7-3 `destructive` 定義要不要重畫 | **不重畫，只登記**：`G1-06`（拿真的 `routing_lock`／`power_lock`）與 `G1-07`（開 `historical_logging`、undo 失敗只印 warning）會留下狀態，仍算 `destructive=False`、**不給旗標**——**是裁決不是疏忽** | 碼零改動；登記在 `harness/STATUS.md` 檔頭第二則附註 |
+| §7-4 「每個 destructive action 都要有 opt-in」寫成測試（政策入碼） | **留著** | `test_every_destructive_action_the_runner_can_build_is_behind_a_flag` 保留 |
+| §7-5 harness 缺陷要不要進 `doc/KNOWN-ISSUES.md` | **不收**——定調：**harness 自己的缺陷留在 FIX 文件＋`STATUS.md`**，KNOWN-ISSUES 只放 kernel／平台行為 | 本目錄與 `STATUS.md` 就是登記處；KNOWN-ISSUES 不動 |
+| §7-6 `262e3ccd` 對 `STATUS.md` 的非純附加 hunk | **併時照收，不補**（E-6 的檢查已做過，結論是接受） | 不回改那兩處原文；本單自己維持純附加 |
+
+⇒ **本輪因此只補了文件、沒有動任何 python**：`STATUS.md` 檔頭加第二則附註（§7-5 的定調＋§7-3 的
+登記），與本節。閘門與測試一律不變。
