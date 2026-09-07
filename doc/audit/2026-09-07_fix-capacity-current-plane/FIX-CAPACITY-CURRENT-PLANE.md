@@ -113,3 +113,40 @@ fixture 的 artifact **從來不寫 1024**，只寫 512 和 2048，而且同一�
 - **`doc/audit/2026-08-28_chaos-harness/harness/probes.py:364` 的註解過期了**（它說
   `get_openflow_capacity` 檔案不見時「回 200 空 body」——現在會回 bmv2 那一塊）。
   那是別一輪的儀器，本單不動，只登記。
+
+---
+
+## 6. 09-07 補一顆：§7 的三題裁完了（E-14／E-15／E-16，純文件）
+
+本節是**本分支的第四顆 commit**，只動文件——**一行碼都沒改、沒有建置、沒有碰 lab**。
+上面 §1–§5 描述的行為**一個字都沒有變**；改的是「回應要怎麼讀」寫在哪裡。
+裁決正本：`scratch/overnight-2026-09-05/DECISIONS.md`「grill §4E」第四輪。
+
+| 題（§7 原編號） | 裁決 | 落在哪 |
+|---|---|---|
+| §7-1 `bmv2` 放頂層、和三個廠牌並排 | **E-14：接受，記 C-6** | `doc/KNOWN-ISSUES.md` C-6 多一則 ⚠️ 警語 |
+| §7-2 沒有交換機在跑時要不要回 build artifact 的數字 | **E-15：回規劃數字，`source_kind` 標籤說明；手冊要求呼叫者先讀那個欄位** | `doc/2026-01-02_ndt_api.md` §37 新增〈Two rules for reading this response〉規則 1 |
+| §7-3 `available` 是下界，而只有 `note` 裡有一句話 | **E-16：接受，寫手冊 §37** | 同上規則 2 ＋ 欄位表新增 `per_switch[].in_use`／`per_switch[].available` 兩列 |
+
+**三件事都是「把已經成立的行為講清楚」，不是新行為**，所以：
+
+🔴 **這一顆沒有閘門可以看紅，而且不該有。** 本 repo 沒有任何測試在執行期讀
+`doc/2026-01-02_ndt_api.md` 或 `doc/KNOWN-ISSUES.md`（`grep -ln` 命中的那些檔案都只是在
+docstring／註解裡**提到**檔名當出處）。§3 那個 12 mutation 的閘門
+（`tests/shell/mutate_capacity_reads_running_artifact.sh`）綁的是 `.cpp` 的行為，
+文件改動對它是不可見的——**要它為文字變紅，等於把手冊字面塞進斷言**，那會把「改寫得更清楚」
+判成回歸。本顆的證據因此是**改前／改後的逐字引文**（在 `R3-DOC-SUMMARY.md` §3）
+與 `git diff --stat`，外加證明**沒有動到錨點**：
+`python3 tests/shell/check_gate_anchors.py HEAD` ⇒ **74/74 cells ok**（改前改後各跑一次，同值）。
+
+**E-14 的警語寫的是碼裡已經有的機制，不是新推論**：`buildCapacityReport` 先把型錄讀進來、
+逐塊蓋上 `source: "vendor table"`，再在**有 bmv2 交換機時**執行 `vendorCatalogue["bmv2"] = …`
+⇒ 型錄檔若自己長出 `bmv2` 鍵就會被覆寫。方向是對的（讀到的數字贏過打字進去的數字），
+**但沒有 log、回應裡也沒有欄位說這件事發生過** ⇒ C-6 登記的就是這個「靜默」。
+〔🟢 本輪開檔查證那兩行；🔵 沒有編譯、沒有執行。〕
+
+**E-15 手冊那張表的兩個 `source_kind` 字串是從 `.cpp` 抄下來的**，不是重寫的措辭；
+`source_disagreement` 也照既有欄位表的說法。**§37 的節號、既有的〈Three things to read
+carefully〉三點編號、§36／§38／§39 的節號全部沒有動**（純新增）。
+
+[Co-developed with claude code -- Adam]
