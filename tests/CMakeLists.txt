@@ -163,6 +163,38 @@ include(GoogleTest)
 gtest_discover_tests(test_routing_strategy)
 
 # [Co-developed with claude code -- Adam]
+# R3-E29: the ThreadSanitizer instrument for updateHosts' unlocked graph read. Its own executable
+# for two reasons, and neither is style:
+#
+#   1. It must be buildable under -DSANITIZER=tsan without dragging in HttpSession.cpp and
+#      LLMAgent.cpp, which cost about 1.6 GB of resident memory each to compile *un*instrumented.
+#      Linking only Collection/EventSystem/Utils keeps a TSan build to the three files in
+#      NdtCore_CollectionLib plus googletest.
+#   2. Each case has to run in its own process, so one verdict cannot contaminate another: TSan
+#      keeps reporting into whatever run is in flight, and a case whose job is to be CLEAN cannot
+#      share a process with one that is allowed to report.
+#
+# Deliberately NOT registered with gtest_discover_tests: this is not a ctest case. It takes
+# minutes, it only means anything under a sanitizer, and its evidence run is written up in
+# doc/audit/2026-09-07_fix-e29-update-hosts-race/FIX-E29.md. It IS built by the ordinary build, so
+# it cannot rot unnoticed -- which also means local_ci.sh's asan/tsan/clang jobs now COMPILE it
+# (one .cpp and one link on top of libraries they already build) without running it. See the file
+# header for how to run it.
+add_executable(test_update_hosts_race test_UpdateHostsRace.cpp)
+target_link_libraries(
+  test_update_hosts_race
+  GTest::gtest_main
+  NdtCore_CollectionLib
+  EventSystemLib
+  UtilsLib
+  ssh
+  OpenSSL::Crypto
+  OpenSSL::SSL
+  Boost::system
+  Boost::url
+)
+
+# [Co-developed with claude code -- Adam]
 # libFuzzer harnesses. Off by default and clang-only: libFuzzer ships with clang, so this needs
 # no install, but it cannot build under GCC. Kept out of the default build because a fuzz target
 # is not a test -- it is a campaign you run deliberately, and its findings become regression
