@@ -1726,7 +1726,42 @@ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
             auto vertexOpt2 = findSwitchByDpid(*attachDpidOpt);
             if (vertexOpt2.has_value())
             {
-                auto edgeRevOpt = findEdgeBySrcAndDstIp((*m_graph)[*vertexOpt2].ip[0], ip);
+                // [Co-developed with claude code -- Adam]
+                // R3-E29, Adam's ruling E-29. The address is COPIED OUT under a shared_lock whose
+                // scope ends before the lookup below. It used to be read straight out of the
+                // graph, and that was the one graph access in this whole function with no lock
+                // held: findSwitchByDpid takes its shared_lock, finds the vertex and RELEASES it
+                // before returning, so the descriptor it hands back was being dereferenced
+                // outside every lock. ThreadSanitizer names this line against a writer that does
+                // hold the write lock -- both stacks, plus the effect it has without any
+                // sanitizer, are in doc/audit/2026-09-07_fix-e29-update-hosts-race/FIX-E29.md.
+                //
+                // Three things force exactly this shape, and none of them is style:
+                //
+                //   - the lock cannot simply be extended across findEdgeBySrcAndDstIp. That
+                //     function takes a shared_lock of its own, m_graphMutex is a plain
+                //     std::shared_mutex and is not recursive, and a second shared_lock on this
+                //     thread deadlocks as soon as a writer is queued behind it -- the same trap
+                //     parseStaticTopologyFile documents at its own write lock, and the reason
+                //     that write lock spent a long time commented out.
+                //   - the *value* has to leave the critical section, not a reference into the
+                //     graph. `const auto& ips = ...` inside the block and a read after it would
+                //     be the same defect with a longer spelling; the vertex property store is
+                //     boost::vecS, so a reference into it is not even stable across an
+                //     add_vertex.
+                //   - it is a read of one uint32_t under a shared lock: concurrent polls and
+                //     readers still proceed together, so this costs an uncontended rwlock
+                //     acquisition per hosts entry that names an attachment dpid.
+                //
+                // What it does NOT fix: `ip[0]` on an empty address list. That one is W18 /
+                // FINDINGS #88 on fix/w18-eighth-index-zero, which rewrites this same line; see
+                // the FIX document for the merged form of the two.
+                uint32_t attachIp = 0;
+                {
+                    std::shared_lock lock(*m_graphMutex);
+                    attachIp = (*m_graph)[*vertexOpt2].ip[0];
+                }
+                auto edgeRevOpt = findEdgeBySrcAndDstIp(attachIp, ip);
                 if (edgeRevOpt.has_value())
                 {
                     unique_lock lock(*m_graphMutex);
