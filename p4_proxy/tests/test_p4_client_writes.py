@@ -62,6 +62,7 @@ try:
 
     from proxy_agent import p4_client as p4_client_module
     from proxy_agent.p4_client import P4RuntimeClient, CounterNotFound
+    from proxy_agent.rule_install_times import RuleInstallTimes
 
     class FakeRpcError(grpc.RpcError):
         """
@@ -207,6 +208,11 @@ def a_client(stub=None, device_id=1):
     client.is_running = False
     client.stream_recv_thread = None
     client.stream_out_q = queue.Queue()
+    # [Co-developed with claude code -- Adam]
+    # Every write path stamps this (KNOWN-ISSUES G-13), so a fixture without it makes each of
+    # them raise AttributeError -- which is the correct failure for a hand-built double that has
+    # stopped standing in for the real object, and is how this line came to be here.
+    client.rule_install_times = RuleInstallTimes()
     return client
 
 

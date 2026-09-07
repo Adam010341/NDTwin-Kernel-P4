@@ -28,6 +28,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from fastapi.responses import JSONResponse  # noqa: E402
 
 from proxy_agent import api_routes  # noqa: E402
+from proxy_agent.rule_install_times import RuleInstallTimes  # noqa: E402
 
 
 class FakeTopology:
@@ -41,6 +42,13 @@ class FailingClient:
 
 
 class HealthyClient:
+    # [Co-developed with claude code -- Adam]
+    # A real client carries its own install-time record and the handler passes it to the
+    # renderer (KNOWN-ISSUES G-13). A double without one answers 503 on the *success* path,
+    # which is how a stand-in that has drifted from the thing it stands in for should fail.
+    def __init__(self):
+        self.rule_install_times = RuleInstallTimes()
+
     def read_table_entries(self):
         return []
 

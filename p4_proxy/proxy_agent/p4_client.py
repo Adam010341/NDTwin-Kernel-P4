@@ -9,6 +9,7 @@ from p4.config.v1 import p4info_pb2
 from google.protobuf import text_format
 
 from proxy_agent import boot_identity
+from proxy_agent.rule_install_times import RuleInstallTimes
 from proxy_agent.sflow_emitter import PKTIN_META_INGRESS_PORT, sample_from_packet_in
 
 
@@ -93,6 +94,17 @@ class P4RuntimeClient:
         #: makes is on the token, because this counter restarts at zero when readopt replaces the
         #: client object.
         self.pipeline_commits = 0
+
+        # --- when this client wrote each rule. [Co-developed with claude code -- Adam]
+        #
+        # KNOWN-ISSUES G-13. A bmv2 table entry has no age, so /stats/flow/<dpid> reported
+        # duration 0/0 for every rule and the P4 plane had no time axis at all -- measured
+        # 2026-09-07 (W16-3). This is the only record of when a rule went on, and the write
+        # methods below stamp it; ryu_flow_stats subtracts. See rule_install_times.py.
+        #
+        # Per client, not per process: readopt_switch replaces this object and pushes a pipeline
+        # that empties the switch, so the replacement's empty record is the true one.
+        self.rule_install_times = RuleInstallTimes()
 
 
         # [Co-developed with claude code -- Adam]
@@ -333,6 +345,14 @@ class P4RuntimeClient:
         # on GET /p4/switch_state, which the kernel already polls once a second.
         self.table_generation = boot_identity.new_table_generation()
         self.pipeline_commits += 1
+        # [Co-developed with claude code -- Adam]
+        # Every entry this record described has just ceased to exist, so every stamp in it is
+        # now describing a rule that is not on the switch. install_initial_routes refills the
+        # bring-up paths straight afterwards and re-stamps what it writes; anything it does not
+        # rewrite must come back as "age unknown", not as the age of the rule the wipe removed.
+        # Alongside table_generation, and after the RPC for the same reason: a refused push
+        # destroyed nothing. KNOWN-ISSUES G-13, A-4c.
+        self.rule_install_times.clear()
 
     # [Co-developed with claude code -- Adam]
     def write_clone_session(self, session_id=SAMPLE_SESSION_ID, egress_port=CPU_PORT):
@@ -724,6 +744,62 @@ class P4RuntimeClient:
                 f"{p4_field} takes {width} byte(s), got {len(raw)} from {value!r}")
         return raw, b"\xff" * width
 
+    # --- the install-time record. KNOWN-ISSUES G-13. [Co-developed with claude code -- Adam]
+    #
+    # bmv2 cannot say how old an entry is, so the write paths below say it instead: each one
+    # stamps `self.rule_install_times` once the switch has ACCEPTED the write, and ryu_flow_stats
+    # turns the stamp into duration_sec/duration_nsec.
+    #
+    # 🔴 The match handed to the record is built in the shape `read_table_entries` returns, and
+    # the key is computed by rule_install_times.entry_key for both. The alternative -- each side
+    # naming an entry its own way -- fails silently and completely: every lookup misses, every
+    # rule reports 0/0, and the result is indistinguishable from the defect being fixed.
+
+    #: The two tables this client writes, by their p4info names -- the same strings
+    #: `read_table_entries` reports through `_table_name`, because the install-time key is the
+    #: table name and a second spelling would be a second key.
+    IPV4_LPM_TABLE = "MyIngress.ipv4_lpm"
+    FIVE_TUPLE_TABLE = "MyIngress.flow_5tuple"
+
+    #: ipv4_lpm is an LPM table: it has no priority concept, so nothing sets `entry.priority` on
+    #: those writes and bmv2 reads them back as 0. Named rather than written as a bare literal at
+    #: four call sites, so the write side and the read side cannot disagree by a typo.
+    LPM_ENTRY_PRIORITY = 0
+
+    @staticmethod
+    def _forward_action(next_hop_mac, port):
+        """
+        The action an installed route carries, in `read_table_entries`' shape.
+
+        Only ever compared for equality, to answer "did this write change the entry" -- see
+        `RuleInstallTimes.record`. Without it, the link watchdog's idempotent
+        `install_initial_routes` would restart every rule's clock on every link transition and no
+        rule could ever look older than the last flap.
+        """
+        return {"name": "MyIngress.ipv4_forward",
+                "params": {"dstAddr": bytes.fromhex(next_hop_mac.replace(":", "")),
+                           "port": port}}
+
+    @staticmethod
+    def _lpm_match(dst_ip, prefix_len):
+        """An ipv4_lpm entry's match, in `read_table_entries`' shape."""
+        return {"hdr.ipv4.dstAddr": {"type": "lpm",
+                                     "value": socket.inet_aton(dst_ip),
+                                     "prefix_len": prefix_len}}
+
+    def _five_tuple_match(self, keys):
+        """
+        A flow_5tuple entry's match, in `read_table_entries`' shape.
+
+        Encoded through `_encode_5tuple_value`, the same function `_build_5tuple_entry` puts on
+        the wire, so the recorded key describes the bytes that were actually written.
+        """
+        out = {}
+        for p4_field in sorted(keys):
+            value, mask = self._encode_5tuple_value(p4_field, keys[p4_field])
+            out[p4_field] = {"type": "ternary", "value": value, "mask": mask}
+        return out
+
     def _build_5tuple_entry(self, entry, keys, priority):
         """Fills a TableEntry for MyIngress.flow_5tuple from {p4_field: value} plus a priority."""
         entry.table_id = self._get_table_id("MyIngress.flow_5tuple")
@@ -768,6 +844,9 @@ class P4RuntimeClient:
 
         try:
             self.stub.Write(req, timeout=RPC_TIMEOUT_S)
+            self.rule_install_times.record(
+                self.device_id, self.FIVE_TUPLE_TABLE, priority, self._five_tuple_match(keys),
+                action=self._forward_action(next_hop_mac, port))
             print(f"[{self.device_id}] Added 5-tuple rule prio={priority} "
                   f"{ {k.split('.')[-1]: v for k, v in keys.items()} } -> port {port}")
             return True
@@ -803,6 +882,9 @@ class P4RuntimeClient:
 
         try:
             self.stub.Write(req, timeout=RPC_TIMEOUT_S)
+            self.rule_install_times.record(
+                self.device_id, self.FIVE_TUPLE_TABLE, priority, self._five_tuple_match(keys),
+                action=self._forward_action(next_hop_mac, port))
             return True
         except grpc.RpcError as e:
             print(f"[{self.device_id}] Failed to modify 5-tuple rule: {e.code()} - {e.details()}")
@@ -828,6 +910,8 @@ class P4RuntimeClient:
 
         try:
             self.stub.Write(req, timeout=RPC_TIMEOUT_S)
+            self.rule_install_times.forget(
+                self.device_id, self.FIVE_TUPLE_TABLE, priority, self._five_tuple_match(keys))
             return True
         except grpc.RpcError as e:
             print(f"[{self.device_id}] Failed to delete 5-tuple rule: {e.code()} - {e.details()}")
@@ -867,6 +951,10 @@ class P4RuntimeClient:
         
         try:
             self.stub.Write(req, timeout=RPC_TIMEOUT_S)
+            self.rule_install_times.record(
+                self.device_id, self.IPV4_LPM_TABLE, self.LPM_ENTRY_PRIORITY,
+                self._lpm_match(dst_ip, prefix_len),
+                action=self._forward_action(next_hop_mac, port))
             print(f"[{self.device_id}] Added route: {dst_ip}/{prefix_len} -> port {port}, mac {next_hop_mac}")
             return True
         except grpc.RpcError as e:
@@ -913,6 +1001,20 @@ class P4RuntimeClient:
                 return True
         return False
 
+    def _forget_route(self, dst_ip, prefix_len):
+        """
+        Drop this route's install stamp, on every path delete_ipv4_route calls success.
+
+        All three of them, not just the clean one: bmv2 reports an already-absent entry as
+        UNKNOWN with empty details rather than NOT_FOUND (live, 2026-08-16), so the read-back
+        branch below is the one that actually fires, and a stamp left behind there would be
+        inherited by the next rule written to the same destination.
+        [Co-developed with claude code -- Adam]
+        """
+        self.rule_install_times.forget(self.device_id, self.IPV4_LPM_TABLE,
+                                       self.LPM_ENTRY_PRIORITY,
+                                       self._lpm_match(dst_ip, prefix_len))
+
     def delete_ipv4_route(self, dst_ip, prefix_len):
         """Deletes a rule from MyIngress.ipv4_lpm"""
         req = p4runtime_pb2.WriteRequest()
@@ -933,6 +1035,7 @@ class P4RuntimeClient:
         
         try:
             self.stub.Write(req, timeout=RPC_TIMEOUT_S)
+            self._forget_route(dst_ip, prefix_len)
             print(f"[{self.device_id}] Deleted route: {dst_ip}/{prefix_len}")
             return True
         except grpc.RpcError as e:
@@ -941,6 +1044,7 @@ class P4RuntimeClient:
             # it counts as success. Anything else is a real failure and must be reported --
             # previously every outcome returned None and route_flow answered "success".
             if e.code() == grpc.StatusCode.NOT_FOUND:
+                self._forget_route(dst_ip, prefix_len)
                 return True
             # [Co-developed with claude code -- Adam]
             # bmv2 never actually says NOT_FOUND: deleting an entry that is not there comes
@@ -956,6 +1060,7 @@ class P4RuntimeClient:
             if e.code() == grpc.StatusCode.UNKNOWN:
                 try:
                     if not self._ipv4_route_present(dst_ip, prefix_len):
+                        self._forget_route(dst_ip, prefix_len)
                         return True
                 except grpc.RpcError:
                     pass
@@ -1000,6 +1105,10 @@ class P4RuntimeClient:
         # HTTPException(400) -- every *successful* modify answered HTTP 400.
         try:
             self.stub.Write(req, timeout=RPC_TIMEOUT_S)
+            self.rule_install_times.record(
+                self.device_id, self.IPV4_LPM_TABLE, self.LPM_ENTRY_PRIORITY,
+                self._lpm_match(dst_ip, prefix_len),
+                action=self._forward_action(next_hop_mac, port))
             print(f"[{self.device_id}] Modified route: {dst_ip}/{prefix_len} -> port {port}, mac {next_hop_mac}")
             return True
         except grpc.RpcError as e:
