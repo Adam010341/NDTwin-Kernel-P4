@@ -107,7 +107,7 @@ $ sed -n '776p' doc/KNOWN-ISSUES.md
 | 預註冊 | `doc/audit/2026-08-27_flow-table-idle-tail/PREREG.md`（commit `59d58fb`） |
 | 原始讀出 | `doc/audit/2026-08-27_1khz-path-recompute/preflight_*`（commit `8c9e841`） |
 | 揭露查核 | `doc/audit/2026-08-27_flow-table-idle-tail/03_spec-disclosure-check.md`（`07408c6`） |
-| 條目 | `doc/KNOWN-ISSUES.md:776-853` |
+| 條目 | KNOWN-ISSUES §B-x |
 
 讀數：churn 工作點 **1.6 條新流/秒**下，`mean expected_alive 4.7` vs `mean api_flows 63.0`
 ⇒ **13.3×** ⇒ 92.5% 已結束；**最低比值 2.25，39 個樣本裡沒有一個低於 1**

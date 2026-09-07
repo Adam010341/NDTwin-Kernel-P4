@@ -80,12 +80,12 @@ Adam 08-31 提問「這兩個改動後天花板有沒有抬高，量了嗎」＝
 🔴 **v0.3 更正（v0.2 的這一句是錯的）**：原文寫「batching（`a3bb761`）與 path recompute 都在
 08-27 落地、已在生產線上跑了一週」。**對 batching 是假的。**
 `p4_proxy/proxy_agent/main.py:82` 的 `NDTWIN_SFLOW_BATCH` 預設 1（＝關閉），
-而全 repo（排除 audit 腳本）**沒有任何地方設定它**——`doc/KNOWN-ISSUES.md:1018` 早已寫著
+而全 repo（排除 audit 腳本）**沒有任何地方設定它**——KNOWN-ISSUES E-2 早已寫著
 「**生產預設 1 ＝ batching 關閉 ⇒ 目前不咬人**」。**碼進了版控，行為從未開啟。**
 ⇒ 本輪的**主要問題是 recompute period**（生產行為真的變了的那一個，且它正好動到佔 46 點的
 那條執行緒）；batching 從「已經變了、要量」降為「**要不要打開**、要決策支援」。
 兩者的證據需求不同，臂的設計因此重開，見 `COST-TABLE.md`。
-（撰稿人 auditor 自陳：反面記載就在 `KNOWN-ISSUES.md:1018`，起草時未查即寫。
+（撰稿人 auditor 自陳：反面記載就在 KNOWN-ISSUES E-2，起草時未查即寫。
 同族＝[[existence-is-not-wiring]]「碼在版控 ≠ 那條路徑在跑」。）
 
 ## 0-bis. 前置條件：本輪的閘門依賴一份外部存檔

@@ -20,7 +20,7 @@
   `sflow = SFlowEmitter(batch_size=int(os.environ.get("NDTWIN_SFLOW_BATCH", "1")))`
   全 repo（排除 audit 腳本與 worktree）**沒有任何地方設定 `NDTWIN_SFLOW_BATCH`**；
   `tools/test_workflow/stack.sh:742-744` 起 proxy 時不帶它。
-  `doc/KNOWN-ISSUES.md:1018` 白紙黑字：「旗標是 `NDTWIN_SFLOW_BATCH`，
+  KNOWN-ISSUES E-2 白紙黑字：「旗標是 `NDTWIN_SFLOW_BATCH`，
   **生產預設 1 ＝ batching 關閉 ⇒ 目前不咬人**」。
 - **後果一**：PREREG §3 表格把 `MP` 標成「＝**現行生產組態**」是錯的。
   真正的生產組態是 **`P`**（batching off、1 Hz）。

@@ -195,7 +195,7 @@
 - Ryu 補丁 `A-2_ryu_rest_topology_bounded.patch`（`patch -p1 --dry-run` 0）：三個 handler 包 `hub.Timeout(3s)` ⇒ **503 空 body**——因為 `execCommand` 是裸 popen 丟棄 exit status，status code 到不了 kernel，body 是唯一通道；帶 body 的 5xx 會被當成有答案餵 `json::parse`，比 wedge 更糟。3s 必須小於 kernel 的 `--max-time 5`。
 - 項 3 決定**不做 all-or-nothing**：三個 writer 全是單調向上（每個 `isEnabled`/`isUp` 寫入都是 `= true`，無 remove），半輪製造不出假 down；丟掉有答案的那半反而把 A-2 的悲觀靜默推更遠。改為可觀測：`classifyPollRound` → Complete/Partial/Silent（初始 NotYetPolled）、`lastPollRoundKind()`、邊沿觸發 WARN token `topology-round-partial`。`""` vs `"[]"` 仍以 `empty()` 判——OVS 開機到 LLDP 完成前都回 `[]`。
 - 項 1 配方比對無漂移；新 WARN 在 iptables 配方下不觸發（三端點全停＝Silent 非 Partial）⇒ §5.3 不必重跑。
-- 待裁：Ryu 補丁如何落地（stock site-packages 檔，重裝會無聲還原；建議 vendor 進 repo、改 `stack.sh:720` 的 app 名）；`lastPollRoundKind()` 要不要上 `/ndt/get_graph_data`；`KNOWN-ISSUES.md:132-133` 同一條舊引用要跟著改。
+- 待裁：Ryu 補丁如何落地（stock site-packages 檔，重裝會無聲還原；建議 vendor 進 repo、改 `stack.sh:720` 的 app 名）；`lastPollRoundKind()` 要不要上 `/ndt/get_graph_data`；KNOWN-ISSUES A-2 機制節的同一條舊引用要跟著改。
 
 ## 🔴 14:4x 真因：systemd-oomd。**14:23 的 app 閃退是我的批次造成的**
 - `journalctl --user`：14:23:41 `app-com.anthropic.Claude-3404.scope: systemd-oomd killed 100 process(es)`，候選榜首就是 Claude app 的 scope（Current Memory Usage 11.0G、Pressure Avg10 68.64%）——`ninja -j6` 跑在 app 的 cgroup 裡，oomd 連 app 一起殺。14:37:19 systemd unit 版同樣 `oom-kill`（65 processes）。兩次都死在 F-6 閘門的 rebuild。
