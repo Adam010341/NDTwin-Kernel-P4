@@ -37,12 +37,21 @@ nothing and is reported as NO TESTS RAN. In this directory "Ran 0" is a hard fai
 
 from __future__ import annotations
 
+import json
 import os
 import sys
+import tempfile
 import unittest
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(REPO_ROOT, "tools", "contract_test"))
+# [Co-developed with claude code -- Adam]
+# NDT_CONTRACT_DIR points the import at a MUTATED COPY of tools/contract_test, so
+# tests/shell/mutate_contract_link_endpoints.sh can score this file without writing a byte into a
+# worktree other sessions are reading. Unset in every normal run. Same mechanism, and for the same
+# reason, as tests/python/test_l3_dispatch_drift.py.
+CONTRACT_DIR = os.environ.get("NDT_CONTRACT_DIR") or os.path.join(REPO_ROOT, "tools",
+                                                                  "contract_test")
+sys.path.insert(0, CONTRACT_DIR)
 
 import spec  # noqa: E402
 from run_contract_test import Context  # noqa: E402
@@ -981,7 +990,13 @@ class DestructiveEndpointTest(unittest.TestCase):
         writes = ("install_flow_entry", "modify_flow_entry", "delete_flow_entry",
                   "set_switches_power_state", "modify_nickname", "modify_device_name",
                   "app_register", "inform_switch_entered", "received_a_simulation_case",
-                  "install_flow_entries_modify_flow_entries_and_delete_flow_entries")
+                  "install_flow_entries_modify_flow_entries_and_delete_flow_entries",
+                  # [Co-developed with claude code -- Adam] -- E-21. The heaviest writes in the
+                  # table: two of them declare a link down until somebody withdraws it, and two
+                  # of them attach netem to a real interface. A read-only run must never reach
+                  # them, so a category slip here is the one that costs a fabric.
+                  "link_failure_detected", "link_recovery_detected",
+                  "inject_link_failure", "inject_link_recovery")
         offenders = [e["name"] for e in spec.ENDPOINTS
                      if e["category"] == spec.READ and e["path"].split("/")[-1] in writes]
         self.assertEqual(offenders, [])
@@ -1321,6 +1336,356 @@ class PowerStateReadingCarriesBothFieldsTest(unittest.TestCase):
                 "mac": 1, "vertex_type": 0, "brand_name": "x", "device_layer": 1}
         self.assertTrue(validate(spec.GRAPH_NODE, {**base, "admin_state": "OFF"}),
                         "a third spelling of the same state is a contract change")
+
+
+# --- E-21: the four link endpoints -------------------------------------------------
+# [Co-developed with claude code -- Adam]
+
+
+#: The declined reply, verbatim from doc/2026-01-02_ndt_api.md §2 and measured on arm lw8b3
+#: (2026-09-07 20:26:47, s1:1 -> s5:1). Repeated here rather than imported from
+#: selftest_fixtures so that a fixture edited to match a broken kernel does not also move the
+#: assertions -- the two files check the same shape from opposite sides on purpose.
+DECLINED_RECOVERY = {
+    "status": "link recovery processed",
+    "declaration_retained": True,
+    "detail": "a link failure is declared for this link and nothing ever reported it broken, so "
+              "this recovery report did not withdraw it and the link is still down. That is what "
+              "an injected failure surviving a control-plane restart looks like. Withdraw it with "
+              "POST /ndt/inject_link_recovery",
+    "until": "/ndt/inject_link_recovery",
+}
+
+#: The 200 an APPLIED recovery gives, and the one an unconditional withdrawal gave for the whole
+#: of lw8b. The two are the same bytes, which is why the body of the declined case is load-bearing.
+APPLIED_RECOVERY = {"status": "link recovery processed"}
+
+LINK_ENDPOINT_PATHS = ("/ndt/link_failure_detected", "/ndt/link_recovery_detected",
+                       "/ndt/inject_link_failure", "/ndt/inject_link_recovery")
+
+#: The mutating sequence, in the order it must run. Named here so a reordering is a test failure
+#: rather than a silently weaker suite -- see the class docstring.
+LINK_SEQUENCE = ["link_failure_detected", "link_recovery_detected", "inject_link_failure",
+                 "link_recovery_detected__declined_after_injection", "inject_link_recovery",
+                 "inject_link_recovery_cleanup"]
+
+
+class LinkEndpointContractTest(unittest.TestCase):
+    """
+    Adam's ruling E-21: the four link endpoints join the contract.
+
+    They had none. `declaration_retained` -- the one field on the wire that says "this kernel
+    deliberately left your link down" -- was documented in §2, emitted by HttpSession.cpp and
+    named by no schema anywhere, so it could have been dropped without a single check going red.
+
+    Two properties are checked here that nothing else can check:
+
+      * the DECLINED reply must be distinguishable from the applied one. On the wire they share
+        a status line (200, deliberately: Ryu's on_link_add logs "NDT REJECTED this notification"
+        on any 4xx) and, before W8b, they shared a body as well. The body is the whole signal;
+        if the check that reads it can pass without it, the contract has re-acquired the defect.
+      * the sequence order. Step 4 is only meaningful because step 3 injected a declaration that
+        no report pairs with -- sort these six by name and step 4 asks a link nobody declared
+        down to decline, which it will not, and the check reports a kernel fault that is really
+        a suite fault. Same failure the lock sequence has.
+    """
+
+    def named(self, name):
+        found = [e for e in spec.ENDPOINTS if e["name"] == name]
+        self.assertEqual(len(found), 1, f"{name} appears {len(found)} times")
+        return found[0]
+
+    def entries_for(self, path):
+        return [e for e in spec.ENDPOINTS if e["path"] == path]
+
+    # --- the family is present at all --------------------------------------------------------
+
+    def test_all_four_link_endpoints_are_in_the_contract(self):
+        # The ruling, stated as a test: before E-21 every one of these had zero entries and the
+        # suite was green.
+        for path in LINK_ENDPOINT_PATHS:
+            self.assertTrue(self.entries_for(path), f"{path} has no contract entry at all")
+
+    def test_every_link_endpoint_is_reached_by_post(self):
+        # components.KERNEL_ENDPOINTS records all four as POST, and the kernel matches on method
+        # and target together: a GET falls through to 404 and looks like a missing endpoint.
+        for path in LINK_ENDPOINT_PATHS:
+            for entry in self.entries_for(path):
+                self.assertEqual(entry["method"], "POST", entry["name"])
+
+    # --- the declined reply, which is what E-21 is about --------------------------------------
+
+    def test_the_declined_recovery_must_report_declaration_retained(self):
+        # THE CHECK THIS TICKET EXISTS FOR. A reply without the field is the lw8b behaviour --
+        # the injection withdrawn by a report nothing paired with -- and it must not pass.
+        self.assertEqual(
+            spec.inv_recovery_was_declined_and_said_so(DECLINED_RECOVERY, None), [])
+        self.assertTrue(
+            spec.inv_recovery_was_declined_and_said_so(APPLIED_RECOVERY, None),
+            "a recovery that withdrew an injected declaration passed the declined check, so "
+            "the field E-21 put in the contract is not actually being read")
+
+    def test_a_declined_reply_that_says_only_true_is_not_enough(self):
+        # `declaration_retained: true` with nothing else leaves the caller holding a link that is
+        # down for a reason they cannot act on. The reply has to name the way out.
+        bare = {"status": "link recovery processed", "declaration_retained": True}
+        self.assertTrue(spec.inv_recovery_was_declined_and_said_so(bare, None))
+
+    def test_the_declined_reply_must_point_at_the_endpoint_that_can_withdraw_it(self):
+        wrong = {**DECLINED_RECOVERY, "until": "/ndt/link_recovery_detected"}
+        problems = spec.inv_recovery_was_declined_and_said_so(wrong, None)
+        self.assertTrue(problems)
+        self.assertIn("inject_link_recovery", problems[0])
+
+    def test_a_truthy_string_is_not_declaration_retained(self):
+        # Bool(), not Any_(): "true" and "yes" are how a field degrades into decoration.
+        self.assertEqual(validate(spec.LINK_RECOVERY_REPORTED, DECLINED_RECOVERY), [])
+        self.assertTrue(validate(spec.LINK_RECOVERY_REPORTED,
+                                 {**DECLINED_RECOVERY, "declaration_retained": "true"}))
+
+    def test_the_paired_withdrawal_must_not_decline(self):
+        # The other direction of the pairing rule, and the one the W8b gate's over-fitting
+        # mutations (M11-M13) attack: a rule that declines everything is just as green.
+        self.assertEqual(spec.inv_recovery_withdrew_the_declaration(APPLIED_RECOVERY, None), [])
+        self.assertTrue(spec.inv_recovery_withdrew_the_declaration(DECLINED_RECOVERY, None))
+
+    def test_the_two_recovery_checks_are_opposites_on_the_same_two_bodies(self):
+        # Stated once, so nobody "fixes" one of them into agreeing with the other. Between them
+        # they say: a report buys exactly one withdrawal, and an injection buys none.
+        for body in (APPLIED_RECOVERY, DECLINED_RECOVERY):
+            applied = not spec.inv_recovery_withdrew_the_declaration(body, None)
+            declined = not spec.inv_recovery_was_declined_and_said_so(body, None)
+            self.assertNotEqual(applied, declined, body)
+
+    # --- the sticky declaration -----------------------------------------------------------
+
+    def test_a_bare_status_from_trunk_is_reported_rather_than_passed(self):
+        # 2026-01-02_ndt_api.md §1 states the trunk answer in as many words. It passes the
+        # STRUCTURAL check -- the keys are optional, as every added field in spec.py is -- and is
+        # reported by the invariant, because a declaration the next poll undoes within 30 s is
+        # indistinguishable from a sticky one if the reply does not say.
+        trunk = {"status": "link failure processed"}
+        self.assertEqual(validate(spec.LINK_FAILURE_REPORTED, trunk), [])
+        self.assertTrue(spec.inv_declared_failure_says_who_can_withdraw_it(trunk, None))
+
+    def test_the_branch_answer_passes_both_halves(self):
+        branch = {"status": "link failure processed", "down_reason": "declared",
+                  "until": "/ndt/link_recovery_detected"}
+        self.assertEqual(validate(spec.LINK_FAILURE_REPORTED, branch), [])
+        self.assertEqual(spec.inv_declared_failure_says_who_can_withdraw_it(branch, None), [])
+
+    def test_a_down_reason_this_family_does_not_have_is_rejected(self):
+        # The vocabulary is pinned for the same reason DOWN_REASONS is: an invented value that
+        # validates is a contract change nobody had to make.
+        self.assertTrue(validate(spec.LINK_FAILURE_REPORTED,
+                                 {"status": "ok", "down_reason": "maintenance"}))
+
+    def test_the_injection_reply_must_name_the_only_endpoint_that_ends_it(self):
+        # W8b on the wire: a link_recovery_detected cannot end an injection, so a reply pointing
+        # a caller there would send them to the endpoint that is about to refuse them.
+        self.assertTrue(validate(
+            spec.LINK_FAILURE_INJECTED,
+            {"status": "link failure injected", "down_reason": "declared",
+             "until": "/ndt/link_recovery_detected", "tc": "skipped (not MININET)"}))
+
+    def test_the_injection_reply_must_carry_a_tc_report(self):
+        # Required here and optional on §1, deliberately: §2b does not exist on trunk (that path
+        # answers 404), so there is no older kernel whose reply would be wrongly failed -- and
+        # `tc` is the only thing separating "the graph changed" from "the packets stopped".
+        without = {"status": "link failure injected", "down_reason": "declared",
+                   "until": "/ndt/inject_link_recovery"}
+        self.assertTrue(validate(spec.LINK_FAILURE_INJECTED, without))
+
+    # --- the tc half ----------------------------------------------------------------------
+
+    def test_the_tc_report_accepts_both_documented_shapes_and_no_third(self):
+        cut = {"status": "link failure injected", "down_reason": "declared",
+               "until": "/ndt/inject_link_recovery",
+               "tc": [{"interface": "s1-eth1", "ok": True, "command": "qdisc add ..."},
+                      {"interface": "s5-eth1", "ok": True, "command": "qdisc add ..."}]}
+        self.assertEqual(validate(spec.LINK_FAILURE_INJECTED, cut), [])
+        self.assertEqual(validate(spec.LINK_FAILURE_INJECTED,
+                                  {**cut, "tc": "skipped (not MININET)"}), [])
+        self.assertTrue(validate(spec.LINK_FAILURE_INJECTED, {**cut, "tc": "skipped"}),
+                        "a free-form excuse in tc lets 'skipped' mean anything")
+
+    def test_one_end_cut_is_a_different_fault_not_a_weaker_one(self):
+        # faults.txt L-2: unidirectional loss kills LLDP one way only and leaves the control
+        # plane's graph permanently asymmetric.
+        both = [{"interface": "s1-eth1", "ok": True, "command": "qdisc add ..."},
+                {"interface": "s5-eth1", "ok": True, "command": "qdisc add ..."}]
+        self.assertEqual(spec.inv_tc_half_is_reported_per_interface({"tc": both}, None), [])
+        self.assertTrue(spec.inv_tc_half_is_reported_per_interface({"tc": both[:1]}, None))
+
+    def test_a_tc_entry_that_did_nothing_must_say_why(self):
+        silent = [{"interface": "s1-eth1", "ok": False},
+                  {"interface": "s5-eth1", "ok": True, "command": "qdisc add ..."}]
+        self.assertTrue(spec.inv_tc_half_is_reported_per_interface({"tc": silent}, None))
+
+    def test_a_refused_entry_is_accounted_for_rather_than_failed(self):
+        # "The physical lab gets C only" (Adam, 2026-09-05), and a machine without the NOPASSWD
+        # tc grants is a lab set up differently, not a kernel that is broken. Printed either way.
+        refused = [{"interface": None, "ok": False,
+                    "refused": "the topology file gives this switch no bridge_name"},
+                   {"interface": "s5-eth1", "ok": True, "command": "qdisc add ..."}]
+        messages = spec.inv_tc_half_is_reported_per_interface({"tc": refused}, None)
+        failures, _pre, accounted = spec.partition_messages(messages)
+        self.assertEqual(failures, [])
+        self.assertTrue(accounted, "the refusal was swallowed instead of being printed")
+
+    def test_the_skipped_half_is_reported_rather_than_silently_passing(self):
+        messages = spec.inv_tc_half_is_reported_per_interface(
+            {"tc": "skipped (not MININET)"}, None)
+        failures, _pre, accounted = spec.partition_messages(messages)
+        self.assertEqual(failures, [])
+        self.assertTrue(accounted)
+
+    def test_an_ok_entry_that_names_no_command_is_reported(self):
+        # A 200 that names no tc is not evidence anything happened on the wire.
+        claimed = [{"interface": "s1-eth1", "ok": True},
+                   {"interface": "s5-eth1", "ok": True, "command": "qdisc add ..."}]
+        self.assertTrue(spec.inv_tc_half_is_reported_per_interface({"tc": claimed}, None))
+
+    def test_the_idempotent_restore_is_a_success_not_a_missing_command(self):
+        # §2c: removing a netem that is not there reports "noop" with ok true, because a caller
+        # must be able to bring a fabric back to health without knowing what was done to it.
+        noop = [{"interface": "s1-eth1", "ok": True, "noop": "no netem qdisc is attached"},
+                {"interface": "s5-eth1", "ok": True, "noop": "no netem qdisc is attached"}]
+        self.assertEqual(spec.inv_tc_half_is_reported_per_interface({"tc": noop}, None), [])
+
+    # --- the payloads, which are the half that can do damage ----------------------------------
+
+    def test_every_link_body_is_a_valid_link_request(self):
+        # The runner validates responses, not requests, so nothing else would catch a body with
+        # three of the four keys -- it would earn an honest 400 and be recorded as the kernel
+        # refusing a valid request. modify_nickname spent months in exactly that state.
+        ctx = real_ctx()
+        for entry in spec.ENDPOINTS:
+            schema = entry.get("request_schema")
+            if schema is None:
+                continue
+            body = entry["body"](ctx) if callable(entry["body"]) else entry["body"]
+            self.assertEqual(validate(schema, body), [], entry["name"])
+
+    def test_the_mutating_sequence_names_one_switch_to_switch_link_of_this_topology(self):
+        # Both ends must be switches: dpid 0 is a host end, all four endpoints refuse it, and a
+        # host edge is raised again by the host poll anyway.
+        ctx = real_ctx()
+        body = spec.link_endpoint_body(ctx)
+        self.assertTrue(body["src_dpid"] and body["dst_dpid"],
+                        "the sequence addresses a host edge by dpid 0")
+        with open(P4_TOPOLOGY) as fh:
+            edges = json.load(fh)["edges"]
+        self.assertIn(
+            (body["src_dpid"], body["src_interface"], body["dst_dpid"], body["dst_interface"]),
+            {(e["src_dpid"], e["src_interface"], e["dst_dpid"], e["dst_interface"])
+             for e in edges},
+            "the sequence names a link this topology does not hold, so every step would 404")
+
+    def test_all_six_steps_act_on_the_same_link(self):
+        # Injecting on one link and withdrawing on another leaves the first one cut, with netem
+        # attached, and the run still green.
+        ctx = real_ctx()
+        bodies = [self.named(n)["body"](ctx) for n in LINK_SEQUENCE]
+        self.assertEqual(len({tuple(sorted(b.items())) for b in bodies}), 1, bodies)
+
+    def test_the_chosen_link_is_deterministic(self):
+        # Two runs must act on the same link, or a report naming s1:1 -> s5:1 does not mean the
+        # same thing twice. min(), for the reason Context.a_dpid uses it.
+        self.assertEqual(spec.switch_to_switch_link(P4_TOPOLOGY),
+                         {"src_dpid": 1, "src_interface": 1, "dst_dpid": 5, "dst_interface": 1})
+
+    def test_a_topology_with_no_switch_to_switch_link_is_refused_not_guessed(self):
+        # Inventing a link would inject a fault on whatever edge happened to match. The fallback
+        # is a payload all four endpoints refuse, so the run fails loudly and changes nothing.
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as fh:
+            json.dump({"nodes": [], "edges": [{"src_dpid": 1, "src_interface": 1,
+                                               "dst_dpid": 0, "dst_interface": 0}]}, fh)
+            path = fh.name
+        try:
+            self.assertIsNone(spec.switch_to_switch_link(path))
+
+            class Bare:
+                topology_path = path
+
+            body = spec.link_endpoint_body(Bare())
+            self.assertEqual(body, spec.NO_LINK_CHOSEN_PAYLOAD)
+        finally:
+            os.unlink(path)
+
+    def test_an_unreadable_topology_does_not_raise_inside_the_runner(self):
+        # A body callable that throws surfaces as the ENDPOINT being broken rather than the spec.
+        self.assertIsNone(spec.switch_to_switch_link("/no/such/topology.json"))
+        self.assertIsNone(spec.switch_to_switch_link(None))
+
+    # --- the error paths --------------------------------------------------------------------
+
+    def test_all_four_endpoints_have_a_dpid_zero_door(self):
+        # W8-7 put four doors in, and the ruling (E-18) kept all four. One missing door is a link
+        # nobody could have injected but that inject_link_recovery would still run tc against.
+        doors = {e["path"] for e in spec.ENDPOINTS
+                 if e["category"] == spec.ERRORPATH
+                 and e.get("body") == spec.HOST_EDGE_PAYLOAD}
+        self.assertEqual(doors, set(LINK_ENDPOINT_PATHS))
+
+    def test_the_dpid_zero_doors_accept_only_400(self):
+        # 404 would be the answer if the door were removed and the lookup ran: the invented host
+        # edge exists, so accepting it as well would make the check agree with either kernel.
+        for entry in spec.ENDPOINTS:
+            if entry.get("body") == spec.HOST_EDGE_PAYLOAD:
+                self.assertEqual(entry["expect_status"], [400], entry["name"])
+
+    def test_the_dpid_zero_payload_really_names_a_host_end(self):
+        self.assertEqual(spec.HOST_EDGE_PAYLOAD["dst_dpid"], 0)
+        self.assertTrue(spec.HOST_EDGE_PAYLOAD["src_dpid"],
+                        "with both ends zero this would be refused for the wrong reason")
+
+    def test_the_unknown_edge_payload_gets_past_the_door_it_is_not_testing(self):
+        # Both dpids non-zero, or the 404 branch is never reached and the check proves the door
+        # twice instead of the lookup once.
+        self.assertTrue(spec.NO_SUCH_LINK_PAYLOAD["src_dpid"])
+        self.assertTrue(spec.NO_SUCH_LINK_PAYLOAD["dst_dpid"])
+        for key in ("src_dpid", "dst_dpid"):
+            self.assertGreater(spec.NO_SUCH_LINK_PAYLOAD[key], 10 ** 9, key)
+
+    def test_the_unknown_edge_checks_require_404_alone(self):
+        names = ("link_failure_detected__unknown_edge", "link_recovery_detected__unknown_edge",
+                 "inject_link_failure__unknown_edge", "inject_link_recovery__unknown_edge")
+        for name in names:
+            self.assertEqual(self.named(name)["expect_status"], [404], name)
+
+    # --- the sequence -----------------------------------------------------------------------
+
+    def test_the_six_steps_run_in_the_order_the_pairing_rule_needs(self):
+        # Step 4 is only meaningful after step 3, and step 3's cut is only undone by steps 5-6.
+        names = [e["name"] for e in spec.endpoints_by_category([spec.MUTATE])]
+        positions = [names.index(n) for n in LINK_SEQUENCE]
+        self.assertEqual(positions, sorted(positions), names)
+
+    def test_the_sequence_ends_with_a_withdrawal_that_needs_no_agreement(self):
+        # /ndt/link_recovery_detected cannot end an injection -- that is the whole of W8b -- so a
+        # sequence ending on it leaves the link declared down and, on MININET, still cut.
+        self.assertEqual(self.named(LINK_SEQUENCE[-1])["path"], "/ndt/inject_link_recovery")
+        self.assertEqual(self.named(LINK_SEQUENCE[-2])["path"], "/ndt/inject_link_recovery")
+
+    def test_the_link_sequence_is_the_last_thing_the_run_does(self):
+        # It cuts a real link for the length of two requests. Anything reading the graph while it
+        # is cut would be reading a network this suite broke.
+        names = [e["name"] for e in spec.ENDPOINTS]
+        self.assertEqual(names[-len(LINK_SEQUENCE):], LINK_SEQUENCE)
+
+    def test_every_step_of_the_sequence_needs_allow_mutations(self):
+        for name in LINK_SEQUENCE:
+            self.assertEqual(self.named(name)["category"], spec.MUTATE, name)
+
+    def test_the_declined_step_is_checked_by_the_invariant_written_for_it(self):
+        # The two recovery entries share a path and a schema; only the invariant tells them
+        # apart, so a copy-paste that gives both the same one silently deletes half the check.
+        self.assertEqual(self.named("link_recovery_detected")["invariants"],
+                         [spec.inv_recovery_withdrew_the_declaration])
+        self.assertEqual(
+            self.named("link_recovery_detected__declined_after_injection")["invariants"],
+            [spec.inv_recovery_was_declined_and_said_so])
 
 
 if __name__ == "__main__":
