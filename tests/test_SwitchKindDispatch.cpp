@@ -316,8 +316,47 @@ TEST_F(SwitchKindFixture, MixedTopologyIsAllowedWhenOptedIn)
 TEST_F(SwitchKindFixture, EmptyTopologyFailsValidation)
 {
     // A graph with no switches cannot control anything, so it is never acceptable.
-    auto monitor = load("");
-    EXPECT_FALSE(monitor->validateDataPlaneHomogeneity(/*allowMixed=*/true));
+    //
+    // [Co-developed with claude code -- Adam]
+    // 🔴 THIS CASE STOPPED BEING REACHABLE THROUGH A FILE ON 2026-09-07 (E-26). It used to read
+    // `auto monitor = load("");` -- a document with an empty "nodes" array -- and the loader now
+    // refuses precisely that, by Adam's ruling, so written that way it would throw out of the
+    // fixture and assert nothing about this function. A freshly constructed monitor holds the
+    // same empty graph the old file produced, and it is that graph the backstop at the end of
+    // parseStaticTopologyFile asks about, so the claim is unchanged and its subject is the same.
+    // The load-time half is AnEmptyTopologyFileIsRefusedAtLoad, below.
+    TestableMonitor monitor(std::make_shared<Graph>(),
+                            std::make_shared<std::shared_mutex>(),
+                            std::make_shared<EventBus>(),
+                            utils::DeploymentMode::MININET);
+    EXPECT_FALSE(monitor.validateDataPlaneHomogeneity(/*allowMixed=*/true));
+}
+
+TEST_F(SwitchKindFixture, AnEmptyTopologyFileIsRefusedAtLoad)
+{
+    // [Co-developed with claude code -- Adam]
+    // E-26, the other half: what the FUNCTION says about a switchless graph (above) and what the
+    // LOADER does with a switchless document are two claims, and until 2026-09-07 only the first
+    // was true -- validateDataPlaneHomogeneity returned false, parseStaticTopologyFile called it
+    // as a statement, and the kernel served a fabric of zero switches. This suite's own fixture
+    // is the reason the case is worth having here as well as in test_TopologyInputValidation:
+    // `load("")` was a supported thing to write in this file for as long as this file has existed.
+    TempTopology file("");
+    TestableMonitor monitor(std::make_shared<Graph>(),
+                            std::make_shared<std::shared_mutex>(),
+                            std::make_shared<EventBus>(),
+                            utils::DeploymentMode::MININET);
+    try
+    {
+        monitor.loadStaticTopologyFromFile(file.path());
+        FAIL() << "a topology file with no switch node loaded; every control this kernel has is "
+                  "addressed by dpid";
+    }
+    catch (const std::exception& err)
+    {
+        EXPECT_NE(std::string(err.what()).find("declares no switch node"), std::string::npos)
+            << err.what();
+    }
 }
 
 // =====================================================================================

@@ -364,6 +364,15 @@ class TopologyAndFlowMonitor
      * confusing runtime mixture into a clear startup error. Enabling mixed topologies
      * later means relaxing this check, not redesigning the dispatch.
      *
+     * 🔴 IT ANSWERS FALSE FOR TWO DIFFERENT GRAPHS, AND SINCE 2026-09-07 BOTH ARE REFUSALS.
+     * A graph with more than one switch kind is BUG-17's case; a graph with NO switches is E-26's
+     * (Adam's ruling, grill Section 4E). Both are decided from the DOCUMENT in
+     * validateStaticTopologyJson, before the first add_vertex, so a file that reaches this
+     * function has already passed both; the call at the end of parseStaticTopologyFile uses this
+     * return value as the second layer. `allowMixed` relaxes only the mixture: a switchless
+     * topology is refused whatever the flag says, because the flag is an opt-in to running two
+     * data planes and not to running none.
+     *
      * @param allowMixed when true, logs the mixture as a warning instead of failing.
      * @return true when the topology is acceptable.
      *

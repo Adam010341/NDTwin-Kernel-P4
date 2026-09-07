@@ -38,16 +38,18 @@
    讓測試可以在不重編 `AppConfig.hpp` 的情況下把它打開——
    「開旗標 ⇒ 收下」這條宣稱**沒有測試就等於沒有**。
 
-## 3. 「沒有交換機」那一支沒有改，而且是刻意的
+## 3. 「沒有交換機」那一支：第一顆刻意沒改，**當天被 Adam 裁回來**（見 §6）
 
 `validateDataPlaneHomogeneity` 對「一台交換機都沒有」也回 false（並印 error）。
-這一單**只讓「一種以上平面」擋下**（`groups.size() > 1`），沒有讓 switch-less 檔案被拒。
-理由：那是另一條政策（一份只有 host 的拓樸該不該載入），
-而 `test_SwitchKindDispatch.cpp` 的 `EmptyTopologyFailsValidation` 正是拿空檔案在測那個函式。
-閘門用一顆變異體（M31：`> 1` 寫成 `!= 1`）＋一支對照測試
-（`ASwitchlessTopologyIsNotWhatThisRefuses`）把這條界線釘住，
-另加一顆對照 widening（W8：`> 1` 寫成 `>= 2` 必須維持綠），
-證明 M31 量的是「拒絕哪些拓樸」而不是「這個條件怎麼拼」。
+**第一顆 commit（`ee049958`）只讓「一種以上平面」擋下**（`groups.size() > 1`），沒有讓
+switch-less 檔案被拒；理由是「那是另一條政策，沒有人裁過」，而 `test_SwitchKindDispatch.cpp` 的
+`EmptyTopologyFailsValidation` 正是拿空檔案在測那個函式。當時的閘門用一顆變異體
+（M31：`> 1` 寫成 `!= 1`）＋一支對照測試（`ASwitchlessTopologyIsNotWhatThisRefuses`）
+把這條界線釘住，另加一顆對照 widening（W8：`> 1` 寫成 `>= 2` 必須維持綠）。
+
+🔴 **2026-09-07 當天，Adam 裁了那條政策，而且與建議相反：零交換機**也**要拒**（E-26）。
+所以本節描述的是「一天之內成立過的狀態」，不是現在的行為——現在的行為在 §6。
+**W8 沒有動**；**M31 反過來了**，對照測試連名字一起翻。
 
 ## 3b. 🔴 第一輪閘門抓到兩顆存活，而兩顆都是「新的門把舊的門遮住了」
 
@@ -103,3 +105,66 @@ door 3e 是唯一能拒它的東西；M21 改用它計分。
   十三份出貨拓樸的平面盤點（每一份都是單一 kind，所以這扇門對出貨檔零影響——腳本與結果在 SUMMARY §5）。
 - 🔵 **讀過未執行**：R6 2026-09-05 的 live 重現（引用 `run-06-opus/BUGS.md`，**沒有重跑**）；
   網站 repo 那兩行是**開檔讀過**（`git log` 也讀過），沒有改、沒有建。
+
+---
+
+## 6. 補一顆（2026-09-07，E-26）：零交換機拓樸也拒
+
+[Co-developed with claude code -- Adam]
+
+**這一節推翻 §3。** §3 留著沒刪，因為它是一天之內成立過的狀態，而且它記著「當時為什麼那樣決定」；
+讀的人要知道**哪一半還算數**：`> 1` 的界線論證作廢，W8 那顆對照 widening 的角色沒變。
+
+### 6.1 裁決
+
+`scratch/overnight-2026-09-05/DECISIONS.md:266`（grill §4E 第七輪），逐字：
+
+> **E-26 零交換機拓撲：拒，在 BUG17 分支補一顆**（⚠️ 與建議相反：建議是不拒另開單）。
+
+建議在 `R2-BUG17-SUMMARY.md` §7 第 3 題與本文件 §3。**Adam 裁的是相反方向**，所以這一顆同時要做兩件事：
+改行為，以及把「當時為什麼相信另一邊」留在原地不塗掉。
+
+### 6.2 修法（機制一句話＋檔:行）
+
+1. **`validateStaticTopologyJson`**（`TopologyAndFlowMonitor.cpp`，node 迴圈之後、edge 迴圈之前）：
+   `switchKindGroupsFromJson(j)` 的結果提到兩扇門之前算一次，然後
+   **`declaredKinds.empty()` ⇒ throw**（新的門），接著才是 BUG-17 的 `!allowMixed && size() > 1`。
+   ⇒ 被拒的檔案 `num_vertices == 0`，與 #61／#89／#90／#91／BUG-17 同一條紀律。
+2. 🔴 **新的門不在 `!allowMixed` 裡面。** `ALLOW_MIXED_DATAPLANE` 是「同時跑兩種平面」的 opt-in，
+   它沒有說「一種都不跑也行」；寫成 `!allowMixed && declaredKinds.empty()` 會編、會過其他每一支測試，
+   而且會讓開了旗標的 build 靜靜回到 09-06 的行為。**M32 就是那顆變異體。**
+3. **builder 尾端的第二層由 `> 1` 改成 `!= 1`**：`validateDataPlaneHomogeneity` 對「零」與「多」
+   都回 false，而現在兩者都是拒絕 ⇒ 第二層一起守，訊息按 `builtKinds.empty()` 分兩句。
+   （開了旗標的混平面到不了這裡：那時函式回 true。）
+4. **訊息**：`declares no switch node` ＋ `Refusing the file rather than starting on it` ＋
+   「2026-09-07 以前這是印完就算了」的那一句；檔名由 `loadStaticTopologyFromFile` 的 rethrow 冠在前面。
+5. **`validateDataPlaneHomogeneity` 的 `groups.empty()` 分支一個字沒改**——那句
+   `Topology contains no switches; nothing can be controlled` 從寫下來就是對的，缺的是有人接它。
+
+### 6.3 測試怎麼翻
+
+| 位置 | 09-06 | 09-07（E-26 之後） |
+|---|---|---|
+| `test_TopologyInputValidation.cpp` | `ASwitchlessTopologyIsNotWhatThisRefuses`：`EXPECT_FALSE(out.threw)`、`vertices == 4` | **`ASwitchlessTopologyIsRefusedAtLoad`**：`EXPECT_TRUE(out.threw)`、`vertices == 0`、`edges == 0` |
+| 同上（新增） | — | **`TheSwitchlessRefusalNamesTheFileAndWhatIsMissing`**：訊息含檔名／`declares no switch node`／`Refusing` |
+| 同上（新增） | — | **`ASwitchlessTopologyIsRefusedEvenWithTheMixedPlaneOptIn`**：`allowMixed=true` 仍拒 |
+| `test_SwitchKindDispatch.cpp` | `EmptyTopologyFailsValidation` 用 `load("")` **經由載入器**取得空圖 | 同名、同斷言，改成**直接建一個沒載入過的 monitor**——載入器現在會拒那個檔，再那樣寫就是丟例外而不是斷言 |
+| 同上（新增） | — | **`AnEmptyTopologyFileIsRefusedAtLoad`**：載入那一半，訊息含 `declares no switch node` |
+| 閘門 §5f | M31＝`> 1` 寫成 `!= 1`（擴張到零交換機）必須紅 | **M31 反向，而且是 `mutate2`**＝兩層一起拿掉（文件層 `empty() && false` ＋ 第二層 `!= 1` 縮回 `> 1`）必須紅——**那才是 `0f79d44f` 的行為** |
+| 閘門 §5f（新增） | — | **M32**＝只拿掉文件層。第二層仍拒，但已經在 builder 尾端、4 個 host 進圖之後 ⇒ 紅在 `vertices == 4`（#61／#89 的「拒絕了，順便把大部分給你」） |
+| 閘門 §5f（新增） | — | **M33**＝把新門塞進 `!allowMixed` 後面必須紅 |
+| 閘門 §6（新增） | — | **W9**＝`empty()` 寫成 `size() == 0` 必須維持綠（形狀同 W5） |
+| 閘門 §6 | W8＝`> 1` 寫成 `>= 2` 維持綠 | **沒有動** |
+
+🔴 **M31 為什麼一定要是 `mutate2`（第一輪閘門教的）**：第一版把 M31 寫成單點
+（只關文件層），閘門**照樣抓到**——但抓到的紅是
+`out.vertices Which is: 4`，因為**第二層還在拒**。也就是說那顆變異體並不是
+「`0f79d44f` 的行為」，把它寫成是就是本檔頭那句「a gate flattering its own subject」。
+E-26 和 #61 一樣是兩層的修法 ⇒ restoration 一定是兩點的（M2 的形狀）。
+單點那顆有它自己的價值，所以留下來當 **M32**：它證明的是**門的位置**
+（在第一個 `add_vertex` 之前），不是門存不存在。
+
+🔴 **對出貨檔零影響，而這一次是數過的**：repo 內 34 份帶 `vertex_type` 的拓樸文件
+（13 份 `setting/` 出貨檔＋21 份 audit 快照／複現檔）**每一份至少 1 台交換機**，最少的是
+`doc/audit/2026-09-03_night-rounds/round3-restart-concurrency/topo/topo_1sw.json` 的 1 台。
+（R2 那一輪只數了平面種類，這一輪多數了 switch 數。）

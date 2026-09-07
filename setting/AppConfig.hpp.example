@@ -13,6 +13,10 @@ namespace AppConfig {
     // assume a single data plane, so this is off by default and the kernel refuses to load
     // a mixed topology.
     static constexpr bool ALLOW_MIXED_DATAPLANE = false;
+    // [Co-developed with claude code -- Adam] E-26, 2026-09-07. The line above is an opt-in to
+    // running TWO data planes, and not to running none: a topology file that declares no switch
+    // at all is refused whatever this is set to. Written below the flag on purpose -- several
+    // comments and audit records cite this file by line number.
     static const std::string TOPOLOGY_FILE_MININET = "../setting/StaticNetworkTopologyMininet_10Switches.json";
     // bmv2 fabric under Mininet; selected by --topology or the interactive prompt.
     static const std::string TOPOLOGY_FILE_MININET_P4 = "../setting/StaticNetworkTopologyP4_10Switches_4Hosts.json";

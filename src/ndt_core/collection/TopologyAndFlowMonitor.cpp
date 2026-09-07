@@ -313,11 +313,19 @@ switchKindGroupsFromJson(const json& j)
  *               fix needed: `bridge_name` is read by the builder only under MININET, so checking
  *               it up here is impossible without knowing the mode, and a check that ran in every
  *               mode would refuse the five _ipAlias4_ TESTBED files, none of which declare one.
+ * E-26 (Adam's ruling, 2026-09-07) adds the other end of BUG-17's question: a document that
+ * declares NO switch is refused here too. BUG-17 shipped one day earlier having deliberately left
+ * that case as a log line -- "a separate policy question nobody has ruled on" -- and the ruling
+ * went the other way, against the recommendation. It is the same door and the same register: the
+ * file names a fabric this kernel cannot drive, so it does not load.
+ *
  * @param allowMixed  the second signature change, and BUG-17's (2026-09-07). A mixed data plane
  *               is a supported opt-in, so the pass that refuses one has to be told whether it is
  *               refusing. Passed rather than read from AppConfig here for the reason
  *               setAllowMixedDataPlane exists: a constexpr flag is not something a test can vary,
- *               and this decision now settles whether a file loads at all.
+ *               and this decision now settles whether a file loads at all. 🔴 It governs the
+ *               MIXTURE only -- E-26's switchless refusal is not behind it, because opting in to
+ *               two data planes is not opting in to none.
  */
 void
 validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mode, bool allowMixed)
@@ -523,7 +531,7 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
         }
     }
 
-    // ---- BUG-17: the file declares more than one data plane ----
+    // ---- BUG-17 + E-26: how many data planes does this file declare? ----
     // [Co-developed with claude code -- Adam]
     // 🔴 THE DEFECT WAS A DISCARDED RETURN VALUE, AND IT WAS MEASURED. R6 (2026-09-05,
     // doc/audit/2026-09-02_manual-usertest/run-06-opus/BUGS.md, BUG-17) copied the shipped P4
@@ -540,14 +548,47 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
     // document means a mixed file leaves `num_vertices == 0`, exactly like doors 2 and 3a-3e.
     // The builder's call still runs, and now refuses too -- as the backstop, not as the check.
     //
-    // ⚠️ ONLY A MIXTURE. validateDataPlaneHomogeneity also returns false for a topology with no
-    // switches at all, and that stays a logged error rather than a refusal: whether a switchless
-    // document is a legal topology is a separate policy question, `EmptyTopologyFailsValidation`
-    // in test_SwitchKindDispatch.cpp pins the function's answer to it, and widening this refusal
-    // to cover it would be a scope change nobody ruled on. M30 is the mutation that says so.
+    // How many data planes does this DOCUMENT declare? Read once, because the two refusals below
+    // are the two ways of answering it wrongly: none, and more than one.
+    const auto declaredKinds = switchKindGroupsFromJson(j);
+
+    // ---- E-26: the file declares no switch at all ----
+    // [Co-developed with claude code -- Adam]
+    // 🔴 THIS REVERSES A DELIBERATE DECISION MADE ONE DAY EARLIER, AND THE REVERSAL IS THE RULING.
+    // BUG-17's first commit refused only a MIXTURE and left "no switches at all" as a logged
+    // error, on the grounds that whether a switchless document may load was a separate policy
+    // question nobody had ruled on. Adam ruled on it on 2026-09-07 (grill Section 4E, E-26,
+    // scratch/overnight-2026-09-05/DECISIONS.md:266): refuse it, through this same door, with the
+    // same register -- against the recommendation, which was to leave it and open a ticket.
+    //
+    // The reason it is refusable at all is that there is no legitimate reading of it. Every
+    // control this kernel has is addressed by dpid: the flow strategies dispatch per DPID, the
+    // power manager walks switches, the telemetry poll is aimed by switch kind, and
+    // validateDataPlaneHomogeneity has said "nothing can be controlled" about this case since it
+    // was written. A kernel that starts on such a file answers /ndt/get_graph_data, /ndt/topology
+    // and every status query about a fabric of zero switches in the same voice it uses for a real
+    // one -- which is the shape of #61 and of BUG-17 itself: a refusal that only ever reached the
+    // log while the process went on serving.
+    //
+    // ⚠️ NOT BEHIND allowMixed, AND THAT IS NOT AN OVERSIGHT. ALLOW_MIXED_DATAPLANE is an opt-in
+    // to running two data planes at once; it says nothing about running none, and a build that set
+    // it must not quietly start accepting switchless files as a side effect. M33 is the mutation
+    // that says so. There is deliberately no override for this one: a switchless topology has no
+    // use to opt in to.
+    if (declaredKinds.empty())
+    {
+        where = "the switches taken together";
+        throw std::runtime_error(
+            "this topology declares no switch node, so there is nothing this kernel could "
+            "control: every flow, power and telemetry path it has is addressed by dpid. Refusing "
+            "the file rather than starting on it. Until 2026-09-07 this was reported and then "
+            "ignored: the kernel logged \"Topology contains no switches\" at error level and then "
+            "served a fabric of zero switches as though that were an observation of the network");
+    }
+
+    // ---- BUG-17: the file declares more than one data plane ----
     if (!allowMixed)
     {
-        const auto declaredKinds = switchKindGroupsFromJson(j);
         if (declaredKinds.size() > 1)
         {
             where = "the switches taken together";
@@ -1196,7 +1237,8 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
     }
 
     // [Co-developed with claude code -- Adam]
-    // Report the data plane, and refuse a mixed topology unless explicitly allowed.
+    // Report the data plane, and refuse a topology that has no single one: none at all, or more
+    // than one without the opt-in.
     //
     // 🔴 BUG-17: THE RETURN VALUE IS NOW USED, AND THIS IS THE SECOND LAYER, NOT THE CHECK.
     // Until 2026-09-07 this line was `validateDataPlaneHomogeneity(...)` with no `if` around it --
@@ -1208,15 +1250,27 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
     // the builder's copies of doors 3a-3c: unreachable on any file that got this far, kept because
     // "the two passes disagree" must not be the one path back to a silently accepted mixture.
     //
-    // ⚠️ Scoped to a real mixture. validateDataPlaneHomogeneity also returns false for a topology
-    // with no switches, which stays a logged error -- see the note in validateStaticTopologyJson.
-    if (!validateDataPlaneHomogeneity(m_allowMixedDataPlane) && getSwitchKindGroups().size() > 1)
+    // ⚠️ EXACTLY ONE DATA PLANE, WHICH IS BOTH DOORS. validateDataPlaneHomogeneity returns false
+    // for two different graphs -- one with no switches at all, and one with more than one kind
+    // when mixing was not opted in -- and since E-26 (2026-09-07) both of them are refusals rather
+    // than log lines, so the backstop covers both. `!= 1` and not `> 1`: the switchless case has
+    // ZERO groups, and the opt-in cannot reach here because the function returns true for a
+    // mixture it was told to allow. See validateStaticTopologyJson for which door each belongs to.
+    const auto builtKinds = getSwitchKindGroups();
+    if (!validateDataPlaneHomogeneity(m_allowMixedDataPlane) && builtKinds.size() != 1)
     {
         throw std::runtime_error(
-            "this topology mixes data planes and was built anyway, which should be impossible: "
-            "validateStaticTopologyJson refuses a mixed document before the first vertex is "
-            "added. Refusing rather than serving it: the two passes disagree, and the one that "
-            "just looked at the finished graph is the one to believe");
+            builtKinds.empty()
+                ? "this topology has no switches and was built anyway, which should be "
+                  "impossible: validateStaticTopologyJson refuses a switchless document before "
+                  "the first vertex is added. Refusing rather than serving it: the two passes "
+                  "disagree, and the one that just looked at the finished graph is the one to "
+                  "believe"
+                : "this topology mixes data planes and was built anyway, which should be "
+                  "impossible: validateStaticTopologyJson refuses a mixed document before the "
+                  "first vertex is added. Refusing rather than serving it: the two passes "
+                  "disagree, and the one that just looked at the finished graph is the one to "
+                  "believe");
     }
 }
 
@@ -2728,6 +2782,13 @@ TopologyAndFlowMonitor::validateDataPlaneHomogeneity(bool allowMixed) const
 {
     const auto groups = getSwitchKindGroups();
 
+    // [Co-developed with claude code -- Adam]
+    // E-26 (2026-09-07): this verdict is no longer only a log line. A switchless DOCUMENT is
+    // refused by validateStaticTopologyJson before the first add_vertex, and the backstop at the
+    // end of parseStaticTopologyFile turns this `false` into a throw, so the only way to reach
+    // this branch in a running kernel is a graph that was never loaded from a file. The sentence
+    // stays because it is still the accurate thing to say about such a graph, and because this
+    // function is also called by tests that ask it directly.
     if (groups.empty())
     {
         SPDLOG_LOGGER_ERROR(Logger::instance(),

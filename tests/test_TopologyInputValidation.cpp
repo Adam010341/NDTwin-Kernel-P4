@@ -1833,17 +1833,51 @@ TEST(TopologyInputValidationTest, AMixedDataPlaneTopologyLoadsWhenTheFlagIsSet)
     EXPECT_EQ(out.edges, 40u);
 }
 
-TEST(TopologyInputValidationTest, ASwitchlessTopologyIsNotWhatThisRefuses)
-{
-    // 🔴 THE BOUNDARY, AND IT IS A DELIBERATE ONE. validateDataPlaneHomogeneity returns false for
-    // two different things -- a mixture, and a topology with no switches at all -- and BUG-17 only
-    // made the first one refuse. Whether a switchless document should load is a separate policy
-    // question nobody has ruled on; test_SwitchKindDispatch's EmptyTopologyFailsValidation pins
-    // what the FUNCTION says about it, and this pins what the LOADER does. Written as `> 1` and
-    // not `!= 1`, one character apart, which is what the gate's M30 mutates.
-    MutatedTopology topo("switchless");
-    ASSERT_TRUE(topo.usable());
+// =================================================================================================
+// E-26 -- a topology that declares no switch at all, refused through the same door
+//
+// [Co-developed with claude code -- Adam]
+// 🔴 THIS ASSERTION WAS REVERSED ON 2026-09-07, ONE DAY AFTER IT WAS WRITTEN, BY RULING. The case
+// below used to be `ASwitchlessTopologyIsNotWhatThisRefuses` and asserted the opposite:
+//
+//     EXPECT_FALSE(out.threw)
+//         << "a topology with no switches was refused; BUG-17 was about a MIXTURE, and widening
+//            it to cover this is a policy change nobody ruled on";
+//
+// That was correct on its own terms -- BUG-17 refused a MIXTURE, and its author declined to widen
+// the refusal to a question nobody had answered -- and the gate's M31 existed to hold the line at
+// exactly one character (`> 1`, not `!= 1`). Adam then answered the question (grill Section 4E,
+// E-26, scratch/overnight-2026-09-05/DECISIONS.md:266), against the recommendation: refuse it.
+//
+// So both the case and its mutation are inverted, deliberately and together. M31 now puts BUG-17's
+// own behaviour back -- at BOTH layers, because E-26 also widened the builder's backstop and one
+// site is not enough to restore it -- and must go RED. M32 removes only the document-level door
+// and is red on `vertices == 4` instead of on `threw`: the backstop still refuses, from the end of
+// the builder, with every host already in the graph. W8 and W9 still prove these cases measure
+// which topologies are refused rather than how the conditions are spelled.
+//
+// WHAT IS CLAIMED
+//   - a document with hosts and no switch is refused, and refused whole (vertices == 0)
+//   - the refusal names the file, says the file "declares no switch node", and says it is
+//     refusing -- the three things the ruling asked the operator to be told
+//   - and it is refused even under ALLOW_MIXED_DATAPLANE, because that flag is an opt-in to
+//     running two data planes and says nothing about running none
+// =================================================================================================
 
+namespace
+{
+
+/// The shipped P4 model with every switch node -- and therefore every edge -- taken out.
+/// Returns how many nodes are left, so each case can assert it kept a real fabric's worth of hosts
+/// rather than silently testing an empty file.
+///
+/// [Co-developed with claude code -- Adam]
+/// Built from the shipped file rather than written by hand so that the ONLY thing wrong with it is
+/// the missing switches: every host keeps its addresses, its vertex_type and its ecmp field, so a
+/// refusal cannot be coming from door 3d or from #61's edge check instead.
+std::size_t
+stripEverySwitch(MutatedTopology& topo)
+{
     json hostsOnly = json::array();
     for (const auto& node : topo.doc().at("nodes"))
     {
@@ -1852,17 +1886,72 @@ TEST(TopologyInputValidationTest, ASwitchlessTopologyIsNotWhatThisRefuses)
             hostsOnly.push_back(node);
         }
     }
-    ASSERT_EQ(hostsOnly.size(), 4u) << "the shipped P4 model has four hosts";
     topo.doc()["nodes"] = hostsOnly;
     topo.doc()["edges"] = json::array(); // every edge named a switch that is no longer here
+    return hostsOnly.size();
+}
+
+} // namespace
+
+TEST(TopologyInputValidationTest, ASwitchlessTopologyIsRefusedAtLoad)
+{
+    MutatedTopology topo("switchless");
+    ASSERT_TRUE(topo.usable());
+    ASSERT_EQ(stripEverySwitch(topo), 4u) << "the shipped P4 model has four hosts";
 
     const LoadOutcome out = loadFile(topo.write());
 
-    EXPECT_FALSE(out.threw)
-        << "a topology with no switches was refused; BUG-17 was about a MIXTURE, and widening it "
-           "to cover this is a policy change nobody ruled on: "
-        << out.message;
-    EXPECT_EQ(out.vertices, 4u);
+    EXPECT_TRUE(out.threw)
+        << "a topology declaring no switch was accepted: every control this kernel has is "
+           "addressed by dpid, so :8000 would answer about a fabric of zero switches as though "
+           "that were an observation";
+    EXPECT_EQ(out.vertices, 0u)
+        << "the file was refused only after " << out.vertices
+        << " host vertices were already in the graph -- E-26 goes through BUG-17's door, which "
+           "sits before the first add_vertex";
+    EXPECT_EQ(out.edges, 0u);
+}
+
+TEST(TopologyInputValidationTest, TheSwitchlessRefusalNamesTheFileAndWhatIsMissing)
+{
+    // 🔴 THE WORDING IS PINNED HERE AND NOWHERE ELSE IN THIS FILE, AND THAT IS THE RULING'S DOING.
+    // Every other refusal below asserts that the offending NUMBER reaches the operator and leaves
+    // the prose free (see W2 in the gate). E-26 named the three things this one has to say -- the
+    // file, "declares no switch node", and that it is refusing -- so those three are asserted, and
+    // nothing else about the sentence is.
+    MutatedTopology topo("switchless_message");
+    ASSERT_TRUE(topo.usable());
+    ASSERT_EQ(stripEverySwitch(topo), 4u);
+
+    const std::string path = topo.write();
+    const LoadOutcome out = loadFile(path);
+
+    ASSERT_TRUE(out.threw);
+    EXPECT_NE(out.message.find(path), std::string::npos)
+        << "the refusal does not name the file it refused: " << out.message;
+    EXPECT_NE(out.messageSansPath.find("declares no switch node"), std::string::npos)
+        << "the refusal does not say what is missing: " << out.messageSansPath;
+    EXPECT_NE(out.messageSansPath.find("Refusing"), std::string::npos)
+        << "the refusal does not say it is refusing -- which is the whole of BUG-17: a sentence "
+           "in the voice of a refusal, over a kernel that went on serving: "
+        << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, ASwitchlessTopologyIsRefusedEvenWithTheMixedPlaneOptIn)
+{
+    // 🔴 THE FLAG IS ABOUT MIXING, NOT ABOUT HAVING NONE, and the two are one `&&` apart in the
+    // source. Writing the switchless door as `!allowMixed && declaredKinds.empty()` compiles,
+    // passes every other case in this file, and silently hands a build with
+    // ALLOW_MIXED_DATAPLANE = true the exact behaviour E-26 removed. M33 is that mutation.
+    MutatedTopology topo("switchless_opted_in");
+    ASSERT_TRUE(topo.usable());
+    ASSERT_EQ(stripEverySwitch(topo), 4u);
+
+    const LoadOutcome out = loadFile(topo.write(), utils::TESTBED, /*allowMixed=*/true);
+
+    EXPECT_TRUE(out.threw)
+        << "the mixed-plane opt-in admitted a topology with no switches at all: " << out.message;
+    EXPECT_EQ(out.vertices, 0u);
 }
 
 TEST(TopologyInputValidationTest, AHostWithMoreThanOneAddressStillLoads)
