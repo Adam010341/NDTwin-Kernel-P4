@@ -1,0 +1,27 @@
+interpreter: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-g13/p4_proxy/venv/bin/python
+baseline (must be green before any mutation):
+Ran 75 tests in 0.008s
+OK
+
+  caught   M1: an accepted route install is not recorded at all             (test_an_accepted_route_install_is_dated went red)
+  caught   M2: the renderer emits 0/0 again, record or no record (the line as it stood) (test_a_rule_this_proxy_installed_reports_how_long_ago went red)
+  caught   M3: a rule nobody recorded is given an age anyway (widening)     (test_a_rule_with_no_record_stays_zero_which_is_what_unknown_looks_like went red)
+  caught   M4: the key drops the match, so one table is one rule            (test_two_rules_in_one_table_at_one_priority_do_not_share_an_age went red)
+  caught   M5: the endpoint stops passing the record (finding #71 again)    (test_a_rule_the_client_installed_comes_back_with_its_age went red)
+  caught   M6: a deleted route keeps its stamp, to be inherited by the next rule (test_an_accepted_delete_takes_the_date_away went red)
+  caught   M7: the 5-tuple branch does not record (nothing else knows)      (test_an_accepted_five_tuple_install_is_dated went red)
+  caught   M8: the write side records a priority the switch never reports   (test_an_accepted_route_install_is_dated went red)
+  caught   M9: the write side spells the table name its own way             (test_an_address_with_a_leading_zero_octet_is_found_after_bmv2_canonicalises_it went red)
+  caught   M10: the 5-tuple record drops the priority the entry is identified by (test_an_accepted_five_tuple_install_is_dated went red)
+  caught   N1 (control): the stamp is written before the switch has accepted anything (test_a_refused_route_install_is_not_dated went red)
+  caught   N2 (control): every idempotent reinstall restarts the clock      (test_an_idempotent_rewrite_does_not_restart_the_clock went red)
+  caught   N3 (control): a rewrite that CHANGES the rule keeps the old rule's age (test_a_rewrite_that_changes_the_entry_does_restart_the_clock went red)
+  caught   N4 (control): the pipeline wipe leaves stamps for rules it destroyed (test_the_pipeline_push_forgets_every_rule_it_destroyed went red)
+  caught   N5 (control): the key keeps wildcards the renderer drops (the two sides drift) (test_a_zero_masked_ternary_field_is_not_part_of_the_entry went red)
+  caught   N6 (control): a negative age reaches an unsigned field           (test_a_negative_age_can_never_reach_the_payload went red)
+  caught   N7 (control): the record itself can report a negative age        (test_a_clock_that_went_backwards_reports_zero_rather_than_a_negative_age went red)
+  caught   N8 (control): the sub-second remainder is thrown away            (test_the_sub_second_remainder_goes_into_duration_nsec went red)
+  caught   N9 (control): the key forgets which switch, so ten switches share one table (test_a_different_switch_is_a_different_entry went red)
+
+baseline byte-identical: yes (4 sources, 2 test files)
+mutation gate: 19 mutations, 0 survived
