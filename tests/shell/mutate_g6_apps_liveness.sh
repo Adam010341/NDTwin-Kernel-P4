@@ -64,11 +64,18 @@ write_case() {   # write_case <name> <expected-red-substring> <<'FROM' ... '==='
 CASES=()
 
 CASES+=(start-reads-request-rc)
+# 2026-09-07: re-anchored, and SHORTENED to one line. 3-51 put a comment block and the pidfile
+# write BETWEEN the two lines this used to span, so the old two-line anchor matched zero times
+# and the gate reported "no verdict" -- the failure mode check_gate_anchors.py exists for.
+# The one line left is the one that carries the meaning: `app_wait_started` is the whole
+# difference between "the lab accepted the request" and "the program is there". Replacing it
+# with the old unconditional `ok` + an early return restores the C26 defect exactly, and leaves
+# everything after it as dead code that still parses (a mutant that does not parse is scored as
+# a broken mutation, not as a catch).
 write_case start-reads-request-rc "start of an app that never came up -> rc 1" <<'PAIR'
             app_wait_started "$name" || return 1
-            ok "$name started (tmux: $name, pid(s) ${APP_LIVE_PIDS[*]})" ;;
 @@@TO@@@
-            ok "$name started (tmux: $name)" ;;
+            ok "$name started (tmux: $name)"; return 0
 PAIR
 
 CASES+=(stop-unconditional-ok)
