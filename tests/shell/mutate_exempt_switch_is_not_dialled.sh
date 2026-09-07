@@ -53,6 +53,15 @@
 #   bash tests/shell/mutate_exempt_switch_is_not_dialled.sh
 #   BUILD_DIR=build-debug bash tests/shell/mutate_exempt_switch_is_not_dialled.sh
 #
+#   # ...or, when another session is competing for the build lock, the form guarded_build.sh's
+#   # own USAGE documents -- ONE lock acquisition for the whole run instead of one per mutation,
+#   # with every inner build still inside the guard's cgroup and behind its PATH shim:
+#   JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh \
+#       env NO_GUARD=1 bash tests/shell/mutate_exempt_switch_is_not_dialled.sh
+#   # NO_GUARD=1 there does NOT mean "unguarded": it stops this script calling the guard a second
+#   # time from inside it, which would block on the lock the outer guard is already holding. Never
+#   # set it without an outer guard.
+#
 # Exit codes:
 #   0  every mutation was caught and all three controls stayed green
 #   1  at least one mutation survived, or one could not be applied/built
@@ -107,7 +116,11 @@ assert_unique() {   # $1 = file, $2 = single-line anchor
 # Every build in this gate goes through the guard: JOBS=1 because HttpSession.cpp and LLMAgent.cpp
 # take ~1.6 GB each and two at once exceed the guard's MemoryHigh, and because an unguarded build
 # on this laptop is what got the user's application killed by systemd-oomd on 2026-09-02.
-# NO_GUARD=1 is for a machine where the guard is not installed; say so in the log if you use it.
+#
+# NO_GUARD=1 has exactly two legitimate uses and neither of them is "the guard is in the way":
+# a machine where the guard is not installed (say so in the log), and the wrapped invocation in
+# the Usage block above, where an OUTER guard is already holding the lock and running this whole
+# script inside its cgroup -- calling the guard again from here would block on that lock forever.
 build() {
     if [[ "${NO_GUARD:-0}" == "1" || ! -x "$GUARD" ]]; then
         cmake --build "$BUILD_DIR" --target "$TARGET" >"$BK/build.log" 2>&1
@@ -245,19 +258,15 @@ mutate_must_die \
     "M1 E-23 site 1: the memory report dials it again" \
     "ExemptSwitchTest.TheMemoryReportDoesNotSnmpTheExemptSwitch" \
     "$SRC" \
-    '        // E-23, site 1 of 6. Before the brand branches, after the address guard: the address
-        // guard reports a defect in the model and its WARN must keep coming from the same report
-        // it always did, while this decides only what to dial once the model is sound.
-        // `memory` is already the sentinel, so the branch has no body -- the point is the
-        // snmpget that does NOT happen below.
-        else if (exemptFromBrandPathsForReport(vp))
+    '        if (m_mode != utils::DeploymentMode::MININET && exemptFromBrandPathsForReport(vp))
         {
-            memory = kHealthMetricUnavailable;
+            result_json[ip_str] = kHealthMetricUnavailable;
+            continue;
         }
 ' \
     '        // MUTANT M1: the exemption is not consulted here any more.
 ' \
-    '        // E-23, site 1 of 6. Before the brand branches, after the address guard: the address'
+    '            result_json[ip_str] = kHealthMetricUnavailable;'
 
 # --- M2: the power report SSHes the exempted switch again --------------------------------------
 # The site Adam's ruling names. `getPowerReportViaSsh` opens an ssh session with a ten-second
@@ -289,15 +298,17 @@ mutate_must_die \
     "M3 E-23 site 3: the CPU report dials it again" \
     "ExemptSwitchTest.TheCpuReportDoesNotSnmpTheExemptSwitch" \
     "$SRC" \
-    '        // E-23, site 3 of 6. See fetchMemoryReportInternal for the placement rule.
-        else if (exemptFromBrandPathsForReport(vp))
+    '        // E-23, site 3 of 6. See fetchMemoryReportInternal for the placement rule and for why
+        // this is an early exit rather than one more branch of the chain below.
+        if (m_mode != utils::DeploymentMode::MININET && exemptFromBrandPathsForReport(vp))
         {
-            cpu = kHealthMetricUnavailable;
+            result[ip_str] = kHealthMetricUnavailable;
+            continue;
         }
 ' \
     '        // MUTANT M3: the exemption is not consulted here any more.
 ' \
-    '        // E-23, site 3 of 6. See fetchMemoryReportInternal for the placement rule.'
+    '        // E-23, site 3 of 6. See fetchMemoryReportInternal for the placement rule and for why'
 
 # --- M4: the temperature report goes back to the HPE sentence ----------------------------------
 # The only one of the six where the fix changes what is SAID and not what is done: this site
@@ -475,24 +486,16 @@ mutate_must_live \
     '           " over SNMP or SSH. It was admitted by its explicit \"switch_kind\"; the generic "'
 
 # --- W3: control, the sentinel written as its literal value ------------------------------------
-# kHealthMetricUnavailable is -1 and the API document has said so since §12/§13 were written. The
-# same value spelled the other way must not change a verdict. Written at site 3 rather than site 1
-# because `else if (exemptFromBrandPathsForReport(vp))` is not unique on its own -- sites 1 and 3
-# are spelled identically -- and only the site banner tells them apart.
+# kHealthMetricUnavailable is -1, and doc/2026-01-02_ndt_api.md §12/§13 have said so since they
+# were written. The same value spelled the other way must not change a verdict.
 mutate_must_live \
-    "W3 control: the CPU sentinel written as -1" \
+    "W3 control: the memory sentinel written as -1" \
     "$SRC" \
-    '        // E-23, site 3 of 6. See fetchMemoryReportInternal for the placement rule.
-        else if (exemptFromBrandPathsForReport(vp))
-        {
-            cpu = kHealthMetricUnavailable;
-        }' \
-    '        // E-23, site 3 of 6. See fetchMemoryReportInternal for the placement rule.
-        else if (exemptFromBrandPathsForReport(vp))
-        {
-            cpu = -1;
-        }' \
-    '        // E-23, site 3 of 6. See fetchMemoryReportInternal for the placement rule.'
+    '            result_json[ip_str] = kHealthMetricUnavailable;
+            continue;' \
+    '            result_json[ip_str] = -1;
+            continue;' \
+    '            result_json[ip_str] = kHealthMetricUnavailable;'
 
 # --- restoration and verdict -------------------------------------------------------------------
 

@@ -86,6 +86,16 @@ round 2 的 **lw17c**（`scratch/overnight-2026-09-05/rounds/08-round2.md`）：
 現在它回 `-1`，跟 CPU／記憶體同型（這也是這個檔案自 down-switch 那個字串改成 `-1` 以來的方向）。
 **Brocade 那句話一個字沒動**——那是閘門的 widening 對照格。
 
+🔴 **第 1、3 處寫成「提前 return」而不是 `else if` 分支，而那不是排版偏好**（第 2、4、5、6 處本來就是）。
+第一版把它們寫成 mode 判定後的 `else if`，body 是 `memory = kHealthMetricUnavailable;`／
+`cpu = kHealthMetricUnavailable;`——**而那兩行（12 空格縮排）正是
+`tests/shell/mutate_f1_mininet_health_metrics.sh` 的 M1／M2／M5 的單行錨**。
+多出第二個同樣的字串，那三顆變異體就會變成「錨匹配 2 次」而**不再被套用到它們原本針對的那個位置**，
+`SimulatedDeviceMetricsTest` 卻照樣全綠——**F-1 的閘門會安靜地停止檢查任何東西**。
+`python3 tests/shell/check_gate_anchors.py HEAD` 在第一版就抓到了（`count : 2 (want 1)`，兩行）。
+改成提前 return 之後那兩個錨恢復唯一，而且這也正是它上面兩道守衛（沒有位址、交換機 down）
+已經在用的形狀。**這一格是那支工具存在的理由的實例，寫進來當證據。**
+
 **放置規則（三條，都寫在碼裡）**：
 
 1. **在 mode 判定之後**，只擋會外呼的那條路。MININET 沒有東西可打 ⇒ 一個字沒改。

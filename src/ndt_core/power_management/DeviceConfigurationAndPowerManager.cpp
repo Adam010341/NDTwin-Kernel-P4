@@ -1399,6 +1399,24 @@ DeviceConfigurationAndPowerManager::fetchMemoryReportInternal()
             continue;
         }
 
+        // [Co-developed with claude code -- Adam]
+        // E-23, site 1 of 6. After the address guard and after the mode test, before the brand
+        // branches: the address guard reports a defect in the model and its WARN must keep coming
+        // from the same report it always did, while this decides only what to dial once the model
+        // is sound -- and MININET has nothing to dial, so it must not reach this.
+        //
+        // Written as an early exit rather than as a branch of the chain below, and that is not
+        // cosmetic: `memory = kHealthMetricUnavailable;` at that indentation is the single-line
+        // anchor of M1/M2/M5 in tests/shell/mutate_f1_mininet_health_metrics.sh, and a second
+        // occurrence of it silently stops those three mutations from being applied to the site
+        // they were written for. check_gate_anchors.py caught exactly that on the first draft.
+        // The early exit is also the shape the two guards above it already use.
+        if (m_mode != utils::DeploymentMode::MININET && exemptFromBrandPathsForReport(vp))
+        {
+            result_json[ip_str] = kHealthMetricUnavailable;
+            continue;
+        }
+
         int memory = -1;
 
         if (m_mode == utils::DeploymentMode::MININET)
@@ -1408,16 +1426,6 @@ DeviceConfigurationAndPowerManager::fetchMemoryReportInternal()
             // same seed, as the CPU report, so the two endpoints answered byte-identical bodies.
             // See kHealthMetricUnavailable in the header for why this is -1 and not a better
             // fake. F-1 in doc/KNOWN-ISSUES.md.
-            memory = kHealthMetricUnavailable;
-        }
-        // [Co-developed with claude code -- Adam]
-        // E-23, site 1 of 6. Before the brand branches, after the address guard: the address
-        // guard reports a defect in the model and its WARN must keep coming from the same report
-        // it always did, while this decides only what to dial once the model is sound.
-        // `memory` is already the sentinel, so the branch has no body -- the point is the
-        // snmpget that does NOT happen below.
-        else if (exemptFromBrandPathsForReport(vp))
-        {
             memory = kHealthMetricUnavailable;
         }
         else if (vp.brandName == kBrandHPE5520)
@@ -2202,6 +2210,15 @@ DeviceConfigurationAndPowerManager::fetchCpuReportInternal()
             continue;
         }
 
+        // [Co-developed with claude code -- Adam]
+        // E-23, site 3 of 6. See fetchMemoryReportInternal for the placement rule and for why
+        // this is an early exit rather than one more branch of the chain below.
+        if (m_mode != utils::DeploymentMode::MININET && exemptFromBrandPathsForReport(vp))
+        {
+            result[ip_str] = kHealthMetricUnavailable;
+            continue;
+        }
+
         int cpu = -1;
 
         if (m_mode == utils::DeploymentMode::MININET)
@@ -2211,12 +2228,6 @@ DeviceConfigurationAndPowerManager::fetchCpuReportInternal()
             // management IP, identical to the memory report's, and drawn from only fifty buckets
             // so two of ten switches usually collided. See kHealthMetricUnavailable in the
             // header. F-1 in doc/KNOWN-ISSUES.md.
-            cpu = kHealthMetricUnavailable;
-        }
-        // [Co-developed with claude code -- Adam]
-        // E-23, site 3 of 6. See fetchMemoryReportInternal for the placement rule.
-        else if (exemptFromBrandPathsForReport(vp))
-        {
             cpu = kHealthMetricUnavailable;
         }
         else if (vp.brandName == kBrandHPE5520)
