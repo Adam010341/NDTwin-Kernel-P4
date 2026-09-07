@@ -236,14 +236,15 @@
 | 90 | 四個外部 app 從沒對著活的 kernel 用過；`get_switches_power_state` 的 breaking change 只有 grep 證 | ⭕ UNASSIGNED（09-04 14:0x） | auditor 09-04 grep 六個本地 repo | W-APPS-LIVE；今晚開 app 就是第一次 |
 
 > 🔴 **`#90` 撞號了（2026-09-07 登記）。** 上面那一列是**本表的** #90，而**本表到 #90 為止、沒有 #91**。
-> 夜巡另有一組 **#90／#91**，指的是 `doc/KNOWN-ISSUES.md` 的 **B-11**（拓樸檔宣告一台沒有位址的 host，
+> **09-05 夜巡**另有一組 **#90／#91**，指的是 `doc/KNOWN-ISSUES.md` 的 **B-11**（拓樸檔宣告一台沒有位址的 host，
 > kernel 收下）與 **B-12**（kernel 不認得的 `brand_name` 被靜默對映成 HARDWARE 收下）——那一組號印在
 > `fix/w3-door3b-host-empty-ip`（修法 `b1471cbe`、tip `72ffd4dd`、
 > `doc/audit/2026-09-06_fix-host-address-door/FIX-HOST-ADDRESS-DOOR.md`）與
 > `fix/w15-unknown-brand-rejected`（修法 `008de16d`、tip `8b3ebe49`、
 > `doc/audit/2026-09-06_fix-unknown-brand-rejected/FIX-UNKNOWN-BRAND.md`）的 commit 訊息與 FIX 文件裡。
-> **那兩條不是本列。**（KNOWN-ISSUES 稱那一夜為「09-05 夜巡」，兩顆 commit 自己的日期是 09-06；
-> 同一夜、同一批人。）
+> **那兩條不是本列。**（那一夜在所有文件裡只有一個名字：**09-05 夜巡**。兩顆修法 commit 落在
+> 09-06 清晨，FIX 目錄也照 commit 日期取名 `2026-09-06_fix-*`——那些是時間戳與檔名，
+> **不是那一夜的第二個名字**。）
 > ⇒ **Adam 2026-09-07 裁（E-1）：留 KNOWN-ISSUES 自己的代號 B-11／B-12、夜巡文件加這一則對照、
 > 已經推出去的 commit 訊息不動。**
 
