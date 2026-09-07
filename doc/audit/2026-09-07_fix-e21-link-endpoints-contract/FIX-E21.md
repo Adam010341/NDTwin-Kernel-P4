@@ -231,21 +231,36 @@ anchor 的唯一性仍然是對**真的檔案**數的，所以改寫措辭會在
 `test_contract_spec.py`：`40`／`43`（`import json`／`import tempfile`）、`46-54`（`NDT_CONTRACT_DIR`）、
 `990-999`（`writes` 清單補四筆）、`1341-1689`（`LinkEndpointContractTest` 與它的常數）。
 
-### 🔴 與 R2-PY（`fix/contract-per-node-identity`, `0c00c7d2`）**必定衝突**的四處
+### 併起來會撞哪裡（🟢 `git merge-tree` 實跑，不是推測）
 
-實測（`git merge-tree`，🟢 跑過，結果在 SUMMARY §6）：`spec.py` 自己**乾淨**——它的兩段插在
-`DISPATCH_STATUS` 與 `inv_graph_matches_topology` 之後，跟本單的三段互不相鄰。會撞的是另外三個檔：
+```
+$ git merge-tree --write-tree --name-only 8a3f71d1 fix/contract-per-node-identity   → rc=0（乾淨）
+$ git merge-tree --write-tree --name-only HEAD     fix/contract-per-node-identity   → rc=1
+  tests/python/test_contract_spec.py
+  Auto-merging tools/contract_test/README.md
+  Auto-merging tools/contract_test/selftest_fixtures.py
+  Auto-merging tools/contract_test/spec.py
 
-| 檔 | 撞在哪 | 為什麼 |
+$ git merge-tree --write-tree --name-only 8a3f71d1 fix/w10-nickname-overlay         → rc=1  tests/CMakeLists.txt
+$ git merge-tree --write-tree --name-only HEAD     fix/w10-nickname-overlay         → rc=1  tests/CMakeLists.txt
+```
+
+⇒ 兩件事被量出來了：
+
+1. **對 W10 本單一個新衝突都沒帶進來。** `tests/CMakeLists.txt` 那個衝突在 base `8a3f71d1`
+   上就已經在了（W8b 與 W10 的 C++ 撞的），與本單無關——本單沒碰任何 CMakeLists。
+2. **對 R2-PY（`fix/contract-per-node-identity`）只有一個檔會撞：`tests/python/test_contract_spec.py`。**
+   `spec.py`／`selftest_fixtures.py`／`README.md` 三個檔 git 自己併得起來
+   （R2-PY 的 `spec.py` 兩段插在 `DISPATCH_STATUS` 與 `inv_graph_matches_topology` 之後，
+   跟本單的三段互不相鄰）。
+
+`test_contract_spec.py` 的三段衝突與解法：
+
+| 行 | 撞什麼 | 解 |
 |---|---|---|
-| `tests/python/test_contract_spec.py` 檔頭 | 兩邊都加 `import json`／`import tempfile`，並且**都把 `sys.path.insert` 換成環境變數覆寫** | 但**變數名不同**：本單用 `NDT_CONTRACT_DIR`（跟 trunk 上已有的 `tests/python/test_l3_dispatch_drift.py` 同名），R2-PY 用 `NDT_CONTRACT_TOOLS`。見 §7-2 |
-| `tests/python/test_contract_spec.py` 檔尾 | 兩邊都在 `PowerStateReadingCarriesBothFieldsTest` 之後 append 一整個大 class | 純 append，兩段都留即可 |
-| `tools/contract_test/selftest_fixtures.py` 檔尾 | 兩邊都往 `INVARIANT_CASES` 尾巴 append | 純 append，兩段都留即可 |
-| `tools/contract_test/README.md` | 兩邊都改涵蓋率那一行 | 兩邊的數字都是各自分支上算的；**併完要重算一次**（〈重算涵蓋率〉那段） |
-
-與 W10（`fix/w10-nickname-overlay`）**不衝突**：它動的是 `modify_nickname`／`modify_device_name`
-兩筆的 note 與 `test_the_device_rename_writes_back_the_name_it_found` 的註解，
-與本單的 `writes` 清單相隔 35 行以上。
+| 40 | R2-PY 多一個 `import hashlib` | 兩邊都留 |
+| 51-70 | 兩邊**都**把 `sys.path.insert` 換成環境變數覆寫，但**變數名不同**：本單 `NDT_CONTRACT_DIR`（與 trunk 上已有的 `tests/python/test_l3_dispatch_drift.py` 同名），R2-PY `NDT_CONTRACT_TOOLS` | **要挑一個**，見 §7-2 |
+| 1368-2105 | 兩邊都在 `PowerStateReadingCarriesBothFieldsTest` 之後 append 一整個大 class | 純 append，兩段都留、順序無所謂 |
 
 ---
 
