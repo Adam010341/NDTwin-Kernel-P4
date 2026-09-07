@@ -268,12 +268,14 @@ P4 側讀不到編譯產物時 `sample_rate` 回 `unknown`，而它**不進 `--c
 | `ndt` `RESIDUE_*` / `residue_verdict` / `status_residue_row` / `residue_report`（計數） | W16-1 / W16-2 |
 | `ndt` `cmd_apps` 的 `orphans)`／`cmd_status`／`cmd_check`／`cmd_claim`／usage heredoc | 接線 |
 
+| `ndt` `note_up_wrote_host_count`（新）/ `set_host_count`（多一行）/ `knob_row`（三分）/ `cmd_release`（拒絕） | E-9b / E-11b（§10） |
+
 測試：`tests/shell/test_apps_residue.sh`（74 檢查）、`tests/python/test_app_residue_rules.py`（36）、
 `tests/shell/test_ndt_status_residue_row.sh`（27，新）、`tests/shell/test_ndt_round_baseline.sh`（34，新
-⇒ **09-07 補一顆後 65**）、`tests/shell/test_ndt_check_sample_rate.sh`（39，新）。
+⇒ **09-07 補一顆後 65 ⇒ 再補一顆後 117**）、`tests/shell/test_ndt_check_sample_rate.sh`（39，新）。
 閘門：`mutate_apps_stop_lists_rules.sh`（26 變異）、`mutate_ndt_round_baseline.sh`（12，新
-⇒ **補一顆後 18**）、`mutate_ndt_check_sample_rate.sh`（12，新）。**三支合計 50 變異、0 存活
-（補一顆後 56、0 存活）。**
+⇒ **補一顆後 18 ⇒ 再補一顆後 26**）、`mutate_ndt_check_sample_rate.sh`（12，新）。
+**三支合計 50 變異、0 存活（補一顆後 56、再補一顆後 64，皆 0 存活）。**
 
 ## 7. `doc/KNOWN-ISSUES.md` 沒有動——替換文字放在這裡
 
@@ -438,3 +440,109 @@ ndt apps orphans  →  rc 0
 | N15 | `release` 不收 `round.baseline` | `🔴 the round baseline is gone` |
 | N16 | 收成 `.old` 而不是 `.prev`（釘住檔名，手冊寫它） | `🔴 and kept as .prev, not deleted` |
 | N17（widening） | `no claim to release` 也收 | `🔴 and leaves the baseline where it is` |
+
+---
+
+## 10. 再補一顆（09-07 18:xx：E-9b／E-11b）
+
+[Co-developed with claude code -- Adam]
+
+裁決原文：`scratch/overnight-2026-09-05/DECISIONS.md`「09-07 18:1x（R3-NDT §7 三題）」。
+動機是 §9 落地當天自己冒出來的張力（R3-NDT SUMMARY §7 第 1／2 題），**不是實跑推翻**：
+§9 的 E-9 把 `NOT RESTORED` 變成 problem，而 `ndt up p4 <n>` 本來就會**寫穿**這個旋鈕
+（`up_p4` → `set_host_count`），於是標準的 P4 輪
+
+```
+ndt claim …          # round.baseline: host_count=128
+ndt up p4 4          # 旋鈕變成 4 —— 是 ndt 自己寫的
+ndt status --check   # 09-07 §9 之後：rc 1，NOT RESTORED，一路紅到寫回為止
+```
+
+**從第二個指令紅到最後一個**，而 `arm_up.sh:45` 每一個 P4 臂都會記到那個非零 rc。
+「一個整輪都紅的閘門沒有人讀」正是 §9 的 E-9 自己引用的理由（W16-2），反過來打自己。
+
+### 10.1 E-9b — 分開「`ndt` 寫的」與「手改的」
+
+- **`note_up_wrote_host_count <n>`**（`ndt`，`record_round_baseline` 下面）：
+  `round.baseline` 存在才寫，把 `up_wrote=<n>`／`up_wrote_at=<epoch>` **覆寫**進去
+  （先 `grep -v` 掉舊的兩行再補新的，經 `mktemp`＋`mv -f`）。
+  🔴 **不累積**：`round_baseline_field` 取 `head -1`，兩行 `up_wrote=` 會讓一個早就被覆寫掉的值
+  繼續赦免旋鈕。🔴 **沒 baseline 就什麼都不寫**——沒有 round 可以被赦免，在這裡建檔等於
+  捏造一個 `ndt claim` 從來沒有開始的 round。
+- **`set_host_count`** 只多一行呼叫它。這是**全檔唯一寫穿旋鈕的地方**，唯一的呼叫者是
+  `up_p4`（帶明確 host count 的那一支）⇒ 一次寫、一次記，沒有第二條路能用 `ndt` 的名義動它。
+  ⚠️ **只記在真的寫了的那條路上**：`cur == n` 的提早 return 沒有改變任何東西，
+  所以它不可能是把一個手改值放進去的人；那一格留紅是**窄**的答案，而窄的答案才會繼續
+  對沒有人宣告過的修改說 NOT RESTORED。任何真實的臂都是先寫（128 → 4），記在那一次上。
+- **`knob_row` 三分**（原本兩分）：
+  | 現值 | 印什麼 | 進 problems？ |
+  |---|---|---|
+  | `== host_count`（開工值） | `<n> == the value this round started with (at HH:MM:SS)` | 否 |
+  | `== up_wrote`（且欄位存在） | 🆕 黃字 `<n>, written by 'ndt up p4 <n>' at HH:MM:SS this round; the round started at <base> -- write <base> back before 'ndt release'`＋寫回指令＋「release 會擋」 | **否** |
+  | 其他（含沒有 `up_wrote` 欄位） | 原本的紅字 `NOT RESTORED`（多一行點名 `ndt up p4` 寫的是多少） | **是 ⇒ rc 1** |
+- `4 (the default)`／`!= 4, and no round baseline exists` 兩句與 `tree_vs_round_row`
+  **一個字都沒有動**（§9 的 N14 widening 仍然釘著）。
+
+### 10.2 E-11b — `ndt release` 不還原就拒絕，`--force` 放行
+
+`cmd_release`，**在 foreign-claim 檢查之後、`rm -f "$CLAIM"` 之前**：
+`round.baseline` 有 `host_count=` 且現值 ≠ 它 ⇒
+
+```
+  XX  refusing: the P4 host knob is 8
+  XX  this round started at 128, and the claim is not released with it moved
+  XX    echo 128 > p4_proxy/mininet/host_count_override      # write it; NOT 'git checkout --'
+  XX  release anyway (it stays at 8):  ndt release --force
+```
+
+**rc 1、claim 不放、baseline 不收**。`--force` ⇒ 照常走完（claim 放掉、baseline 收成 `.prev`），
+但先印紅字 `released with the knob left at 8 (round started at 128) -- '--force'`。
+
+🔴 **`up_wrote` 在這裡不赦免**（§10.1 的中間那格在這裡不成立）：「ndt 寫的」是這個值在
+**round 進行中**可以接受的理由，正好也是它在**收工時**不能接受的理由——下一輪的
+`ndt up p4` 讀的就是這個檔，沒有別的東西讀它。E-9b 把期限從「每一次 status」搬到
+「一次，在最後」，這裡就是那個「一次」。
+
+🔴 **`--force` 現在有兩個意思**（別人的 claim 而人走了／旋鈕沒還原還是要收工）。
+Adam 的用字就是 `--force`，所以照做；「要不要拆成兩個旗標」寫進 SUMMARY §7。
+
+### 10.3 一個副作用：兩處文案被迫改字
+
+`mutate_ndt_round_baseline.sh` 的 N5／N5b 錨在紅字那條 `echo <base> > <rel>      # NOT
+'git checkout --', which gives you HEAD` 上。E-9b 的黃字列與 E-11b 的拒絕訊息本來也要說
+同一句話 ⇒ 錨點會變成 2 hits／3 hits，**而錨點不唯一的變異會被記成 SURVIVED**
+（正是 §3 那三個假存活的機制）。所以兩處改寫成不同的句子：
+黃字是 `# write it back; 'git checkout --' would give you HEAD`，
+release 是 `# write it; NOT 'git checkout --'`。`ndt` 裡就地寫了註解說明理由。
+
+### 10.4 閘門
+
+`tests/shell/test_ndt_round_baseline.sh` 65 → **117 格**（第 13–16 組）：
+13 組直呼 `set_host_count` 驗 `up_wrote` 的寫入／覆寫／沒 baseline 不寫；
+14 組驅動整個 `cmd_status --check` 驗三分與 rc；15／16 組驅動 `cmd_claim`＋`cmd_release`
+驗拒絕、`--force`、以及「`up` 寫的值也買不到一次 release」。
+
+`tests/shell/mutate_ndt_round_baseline.sh` 18 → **26 變異，0 存活**：
+
+| 變異 | 放回去的東西 | 該紅的格 |
+|---|---|---|
+| N18 | `set_host_count` 不記 `up_wrote`（＝中間那格永遠到不了） | `🔴 the baseline records that ndt wrote it` |
+| N19 | `up` 寫的值也進 problems（＝退回 `ee0b399e` 的行為） | `🔴 --check is green (rc 1 for the whole round before E-9b)` |
+| N20（widening） | 只要有 `up_wrote` 欄位，任何值都黃（手改也被赦免） | `🔴 and still a problem` |
+| N21（widening） | 沒有 `up_wrote` 欄位時視同「ndt 寫的」 | `🔴 no note means NOT RESTORED, exactly as before` |
+| N22 | `release` 根本不看旋鈕 | `🔴 release refuses` |
+| N23 | `--force` 也不放行 | `🔴 --force releases anyway` |
+| N24（widening） | 旋鈕 == 開工值也拒絕（`--force` 從此沒有意義） | `release succeeds` |
+| N25（widening） | `up_wrote` 的值在 release 時也放行 | `🔴 but release still refuses` |
+
+逐字的紅在 `scratch/overnight-2026-09-05/fix/R3-NDT2-SUMMARY.md` §3。
+
+### 10.5 沒有動的
+
+- `up_p4` 本身、`host_count()`、`tree_vs_round_row`、`record_round_baseline`、
+  `STATUS_KNOB_PROBLEMS` 的合併點（`cmd_status`）——一個字都沒改。
+- `doc/KNOWN-ISSUES.md` 仍然沒有動（理由同 §7）；I-3 那條的替換文字要再加一句：
+  **「`ndt up p4 <n>` 寫的值只是黃字警告，`ndt release` 才會擋；`--force` 放行並留紅字。」**
+- `scratch/overnight-2026-09-05/LAB-RULES.md` 硬規則 5（旋鈕還原）**不在版控裡**
+  （`git ls-files scratch/` 全空）⇒ 沒有動，留給 orchestrator：那條現在可以指向
+  `ndt release` 的拒絕，而不是只指向 `ndt status`。

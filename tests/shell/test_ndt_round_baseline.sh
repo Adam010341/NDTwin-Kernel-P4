@@ -26,6 +26,14 @@
 # compared against. Both are about what the COMMAND does with this row's answer, so those
 # groups drive cmd_status/cmd_release whole rather than calling one row.
 #
+# Groups 13-16 are the correction Adam made that evening (18:1x, R3-NDT §7-1 and §7-2), once
+# E-9 was read against the standard P4 round: `ndt up p4 4` writes this knob through, so a
+# round claimed at 128 was NOT RESTORED from its own second command onward and every `--check`
+# in it exited 1. E-9b splits the row three ways -- back at the start, holding what `ndt up p4`
+# wrote (a warning), or holding something nobody announced (still red, still a problem) -- and
+# E-11b moves the deadline to `ndt release`, which now refuses while the knob is not back and
+# takes `--force` as the signature for releasing anyway.
+#
 # The value was still printed in the configuration section. What vanished was the WARNING, at
 # the moment the knob held the value that changes the most behaviour. Two guards, one flawed
 # signal: not redundant, blind together. (MEMORY: "the clean version is the one you have to go
@@ -413,6 +421,159 @@ echo \"RC=\$?\"" 2>&1)"
 has   "release with no claim says so"                   "no claim to release" "$OUT"
 check "🔴 and leaves the baseline where it is"          "yes" \
       "$( [[ -f "$BASE_FILE" && ! -f "$BASE_FILE.prev" ]] && echo yes || echo no)"
+
+# ==========================================================================================
+# Groups 13-16: E-9b and E-11b, Adam's decisions of 09-07 18:1x (R3-NDT §7-1 and §7-2), which
+# are about what happens BETWEEN the two things above. E-9 made "the knob is not what the round
+# started with" a --check problem; the next reading of the standard P4 round showed what that
+# costs, because `ndt up p4 4` writes the knob through set_host_count:
+#
+#     ndt claim ...        round.baseline: host_count=128
+#     ndt up p4 4          the knob is now 4 -- written by ndt, on purpose
+#     ndt status --check   rc 1, "NOT RESTORED", for the whole rest of the round
+#
+# arm_up.sh:45 records that rc on every P4 arm. A gate that is red from the first command to
+# the last is the shape E-9 was itself decided against. So: the round baseline also records
+# what `ndt up p4` wrote (up_wrote=), knob_row has three answers instead of two, and the
+# deadline that used to fire on every status call now fires once, in `ndt release`.
+# [Co-developed with claude code -- Adam]
+
+claim_round() {     # -> output + RC=   (a round starts; the knob's value is recorded)
+    bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+NDT_OWNER=fixture-owner
+cmd_claim 5 'a round'
+echo \"RC=\$?\"" 2>&1
+}
+release_round() {   # $1 = '' or --force
+    bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+NDT_OWNER=fixture-owner
+cmd_release ${1:-}
+echo \"RC=\$?\"" 2>&1
+}
+claim_exists() { [[ -f "$FIX/.test_run/lab.claim" ]] && echo yes || echo no; }
+
+section "13. 🔴 E-9b: 'ndt up p4 <n>' leaves a note saying ndt itself moved the knob"
+rm -f "$BASE_FILE" "$BASE_FILE.prev" "$FIX/.test_run/lab.claim"
+knob 128
+printf 'edited before the round\n' > "$FIX/src/Thing.cpp"   # so the baseline has a dirty set
+OUT="$(drive 'record_round_baseline')"
+OUT="$(drive 'set_host_count 4')"
+check "set_host_count succeeds"                         "0" "$(rc_of "$OUT")"
+check "  and the knob really moved"                     "4" "$(cat "$KNOB")"
+has   "🔴 the baseline records that ndt wrote it"       "up_wrote=4" "$(cat "$BASE_FILE")"
+has   "  and when"                                      "up_wrote_at=" "$(cat "$BASE_FILE")"
+has   "🔴 the round's own starting value is untouched"  "host_count=128" "$(cat "$BASE_FILE")"
+has   "  and so is the dirty set it recorded"           "dirty=src/Thing.cpp" "$(cat "$BASE_FILE")"
+git -C "$FIX" checkout -q -- src/Thing.cpp 2>/dev/null
+# 🔴 Rewritten, never appended: round_baseline_field takes `head -1`, so a second up_wrote=
+# line would let a value ndt has since overwritten go on excusing the knob.
+OUT="$(drive 'set_host_count 8')"
+check "🔴 a second 'ndt up' leaves ONE up_wrote line"   "1" "$(grep -c '^up_wrote=' "$BASE_FILE")"
+check "  and one timestamp"                             "1" "$(grep -c '^up_wrote_at=' "$BASE_FILE")"
+has   "  carrying the newest value"                     "up_wrote=8" "$(cat "$BASE_FILE")"
+hasnt "  and not the one it replaced"                   "up_wrote=4" "$(cat "$BASE_FILE")"
+
+# 🔴 No round claimed: nothing to excuse, so nothing is written. Inventing the file here would
+# manufacture a round `ndt claim` never started.
+no_baseline
+knob 128
+OUT="$(drive 'set_host_count 4')"
+check "with no round claimed set_host_count still succeeds" "0" "$(rc_of "$OUT")"
+check "🔴 and it writes no baseline file"               "no" \
+      "$( [[ -f "$BASE_FILE" ]] && echo yes || echo no)"
+check "  (the knob still moved)"                        "4" "$(cat "$KNOB")"
+
+section "14. 🔴 E-9b: what 'ndt up p4' wrote is a WARNING; a hand edit is still a problem"
+rm -f "$BASE_FILE" "$BASE_FILE.prev"
+knob 128
+OUT="$(drive 'record_round_baseline')"     # the round starts at 128
+OUT="$(drive 'set_host_count 4')"          # ...and `ndt up p4 4` writes 4 through
+OUT="$(run_check)"
+has   "🔴 the row names who wrote it"                   "written by 'ndt up p4 4'" "$OUT"
+has   "  and what the round started at"                 "the round started at 128" "$OUT"
+has   "  with the deadline attached"                    "write 128 back before 'ndt release'" "$OUT"
+has   "  and how to do it"                              "echo 128 > p4_proxy/mininet/host_count_override" "$OUT"
+has   "  saying release will enforce it"                "'ndt release' refuses while these differ" "$OUT"
+hasnt "🔴 it is NOT called NOT RESTORED"                "NOT RESTORED" "$OUT"
+hasnt "🔴 and NOT a --check problem"                    "$KNOB_PROBLEM" "$OUT"
+check "🔴 --check is green (rc 1 for the whole round before E-9b)" "0" "$(rc_of "$OUT")"
+
+# The 04:36 case, unchanged: a third value nobody announced.
+knob 8
+OUT="$(run_check)"
+has   "🔴 a hand edit is still NOT RESTORED"            "NOT RESTORED" "$OUT"
+has   "  naming the value ndt did write"                "'ndt up p4' wrote 4 this round" "$OUT"
+has   "🔴 and still a problem"                          "$KNOB_PROBLEM" "$OUT"
+check "🔴 rc 1 (a hand edit after 'ndt up')"            "1" "$(rc_of "$OUT")"
+
+# A baseline with no up_wrote at all -- groups 8-11's state, which must not have moved.
+rm -f "$BASE_FILE"
+knob 128
+OUT="$(drive 'record_round_baseline')"
+knob 8
+check "a fresh baseline carries no up_wrote field"      "0" "$(grep -c '^up_wrote=' "$BASE_FILE")"
+OUT="$(run_check)"
+has   "🔴 no note means NOT RESTORED, exactly as before" "NOT RESTORED" "$OUT"
+has   "🔴 and it is a problem"                          "$KNOB_PROBLEM" "$OUT"
+check "🔴 rc 1 (nothing excuses this value)"            "1" "$(rc_of "$OUT")"
+
+section "15. 🔴 E-11b: 'ndt release' refuses while the knob is not back"
+# The other half of E-9b. One line into cmd_release the baseline becomes .prev, after which
+# nothing in this script can say what the knob started at -- so this is the last moment the
+# question can be asked, and E-9b moved the answer here on purpose.
+rm -f "$BASE_FILE" "$BASE_FILE.prev" "$FIX/.test_run/lab.claim"
+knob 128
+OUT="$(claim_round)"
+check "claim succeeds"                                  "0" "$(rc_of "$OUT")"
+knob 8
+OUT="$(release_round)"
+check "🔴 release refuses"                              "1" "$(rc_of "$OUT")"
+has   "  saying what the knob is now"                   "the P4 host knob is 8" "$OUT"
+has   "  and what the round started at"                 "this round started at 128" "$OUT"
+has   "🔴 and how to put it back"                       "echo 128 > p4_proxy/mininet/host_count_override" "$OUT"
+has   "  warning off the command that gives HEAD"       "NOT 'git checkout --'" "$OUT"
+has   "  and naming the override"                       "ndt release --force" "$OUT"
+check "🔴 the claim is NOT released"                    "yes" "$(claim_exists)"
+check "🔴 and the baseline is NOT retired"              "yes" \
+      "$( [[ -f "$BASE_FILE" && ! -f "$BASE_FILE.prev" ]] && echo yes || echo no)"
+
+OUT="$(release_round --force)"
+check "🔴 --force releases anyway"                      "0" "$(rc_of "$OUT")"
+has   "🔴 in red, saying what it left behind"           "released with the knob left at 8 (round started at 128)" "$OUT"
+check "  the claim is gone"                             "no" "$(claim_exists)"
+check "  and the baseline was still retired to .prev"   "yes" \
+      "$( [[ ! -f "$BASE_FILE" && -f "$BASE_FILE.prev" ]] && echo yes || echo no)"
+
+# The knob back where it started: the release path of groups 11-12, untouched.
+rm -f "$BASE_FILE" "$BASE_FILE.prev"
+knob 4
+OUT="$(claim_round)"
+OUT="$(release_round)"
+check "🔴 with the knob back at the start, release just works" "0" "$(rc_of "$OUT")"
+has   "  and says so"                                   "lab released" "$OUT"
+check "  retiring the baseline as E-11 says"            "yes" \
+      "$( [[ ! -f "$BASE_FILE" && -f "$BASE_FILE.prev" ]] && echo yes || echo no)"
+
+section "16. 🔴 E-11b: 'ndt up p4' buys time, not a release"
+# up_wrote excuses the value DURING the round and is exactly what makes it unacceptable at the
+# end: the next round's `ndt up p4` reads this file and nothing else does.
+rm -f "$BASE_FILE" "$BASE_FILE.prev"
+knob 128
+OUT="$(claim_round)"
+OUT="$(drive 'set_host_count 4')"
+has   "the note is there"                               "up_wrote=4" "$(cat "$BASE_FILE")"
+OUT="$(run_check)"
+check "  --check is green during the round"             "0" "$(rc_of "$OUT")"
+OUT="$(release_round)"
+check "🔴 but release still refuses"                    "1" "$(rc_of "$OUT")"
+has   "  naming the value to write back"                "echo 128 > p4_proxy/mininet/host_count_override" "$OUT"
+check "🔴 and the claim is still held"                  "yes" "$(claim_exists)"
+knob 128
+OUT="$(release_round)"
+check "  writing 128 back releases cleanly"             "0" "$(rc_of "$OUT")"
+check "  and the claim is gone"                         "no" "$(claim_exists)"
 
 # --- done ---------------------------------------------------------------------------------
 # 🔴 `echo`, not printf: tests/shell/test_l1_shell_scoring.sh group C reads the LAST

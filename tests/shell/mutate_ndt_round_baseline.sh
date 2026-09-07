@@ -13,11 +13,19 @@
 # problem so the rc goes red (E-9, measured printing red at rc 0 on the 04:36 live arm), and
 # `ndt release` retires .test_run/round.baseline to .prev (E-11).
 #
+# N18-N25 cover the correction Adam made that evening (18:1x, R3-NDT §7-1/§7-2): `ndt up p4 4`
+# writes the knob through, so E-9 made the standard P4 round red from its own second command
+# to its last. E-9b records what ndt wrote (up_wrote=) and demotes that one value to a warning;
+# E-11b moves the deadline to `ndt release`, which refuses while the knob is not back.
+#
 # 🔴 TWO DIRECTIONS. The mutations marked (widening) stay GREEN where the suite requires RED:
 # one warns whenever the value is not 4, which is on through every legitimate 128-host round;
 # one reports no baseline as a match; one makes the no-baseline value a --check problem, which
 # is red on every 128-host round nobody claimed; one retires the round baseline on a release
-# that held no claim. All four look like a working alarm.
+# that held no claim; one excuses a hand edit because a note exists at all; one reads a missing
+# note as "ndt wrote it"; one refuses every release, so --force stops meaning anything; one
+# lets the value `ndt up` wrote be released without a word. All of them look like a working
+# alarm, and the four E-9b/E-11b ones look like the FIX.
 #
 # 🔴 Guards its own baseline: mutations are applied to COPIES in a temp dir and the suite is
 # pointed at them with NDT_UNDER_TEST. tools/test_workflow/ndt is never written -- another
@@ -243,6 +251,87 @@ m=$(mutant n17 "$NDT" \
     '    if [[ ! -f "$CLAIM" ]]; then local rb0; rb0="$(round_baseline_file)"; [[ -f "$rb0" ]] && mv -f "$rb0" "$rb0.prev"; ok "no claim to release"; return 0; fi')
 report "N17 (widening): 'no claim to release' retires it anyway" "$m" \
        "🔴 and leaves the baseline where it is"
+
+# --- E-9b: what `ndt up p4` wrote is a warning, a hand edit is still a problem ------------------
+#
+# The state these four are about is the standard P4 round, which E-9 turned red end to end:
+# `ndt claim` records host_count=128, `ndt up p4 4` writes 4 through set_host_count, and from
+# that second command onward every `--check` said NOT RESTORED and exited 1 -- on every P4 arm
+# arm_up.sh:45 runs. Adam's decision 09-07 18:1x (R3-NDT §7-1). [Co-developed with claude code -- Adam]
+
+# 🔴 E-9b itself: the write happens and nothing records that ndt was the one who did it, so the
+# middle answer can never be reached and every P4 round is back to being red throughout.
+m=$(mutant n18 "$NDT" \
+    '    note_up_wrote_host_count "$n"' \
+    '    :')
+report "N18: 'ndt up p4' leaves no note that it wrote the knob" "$m" \
+       "🔴 the baseline records that ndt wrote it"
+
+# The other half of the same wire: the note is written and the row ignores it -- exactly the
+# behaviour of ee0b399e, which is the thing being corrected.
+m=$(mutant n19 "$NDT" \
+    "            printf '  %-14s %s\\n' \"\" \"'ndt release' refuses while these differ; 'ndt release --force' releases anyway\"" \
+    "            printf '  %-14s %s\\n' \"\" \"'ndt release' refuses while these differ; 'ndt release --force' releases anyway\"
+            STATUS_KNOB_PROBLEMS+=(\"the P4 host knob is NOT RESTORED: \$rel is \$now, this round started at \$base\")")
+report "N19: the value 'ndt up' wrote is a --check problem again" "$m" \
+       "🔴 --check is green (rc 1 for the whole round before E-9b)"
+
+# (widening) Any value at all gets the warning once a note exists. That excuses the 04:36 case
+# -- somebody's `echo 8 >` after an `ndt up p4 4` -- which is the case E-9 was decided on, and
+# it satisfies every "not a problem" assertion above.
+m=$(mutant n20 "$NDT" \
+    '        if [[ -n "$upw" && "$now" == "$upw" ]]; then' \
+    '        if [[ -n "$upw" ]]; then')
+report "N20 (widening): a hand edit is excused too" "$m" \
+       "🔴 and still a problem"
+
+# (widening) A baseline with NO note is treated as though ndt wrote whatever is there. That is
+# the pre-E-9 world with extra steps: every forgotten restore in a round that never ran
+# `ndt up p4` goes quiet, and groups 8-11 -- the finding itself -- stop proving anything.
+m=$(mutant n21 "$NDT" \
+    '        if [[ -n "$upw" && "$now" == "$upw" ]]; then' \
+    '        if [[ -z "$upw" || "$now" == "$upw" ]]; then')
+report "N21 (widening): no note is read as 'ndt wrote it'" "$m" \
+       "🔴 no note means NOT RESTORED, exactly as before"
+
+# --- E-11b: `ndt release` refuses while the knob is not back ------------------------------------
+#
+# E-9b took the deadline off every status call, so it has to bite somewhere. One line below the
+# check, the baseline becomes .prev and the question stops being answerable at all.
+
+# 🔴 E-11b itself: release stops asking, and the round ends with the knob wherever it was left.
+m=$(mutant n22 "$NDT" \
+    '    if [[ -n "$knob_base" ]]; then' \
+    '    if false; then')
+report "N22: 'ndt release' does not look at the knob" "$m" \
+       "🔴 release refuses"
+
+# The escape hatch, separately. A refusal with no override strands a round that ended with the
+# knob deliberately elsewhere, and the answer to that is a flag you sign, not a check nobody
+# can pass -- the same `--force` the foreign-claim refusal above already takes.
+m=$(mutant n23 "$NDT" \
+    '            if [[ "${1:-}" != "--force" ]]; then' \
+    '            if true; then')
+report "N23: '--force' does not release either" "$m" \
+       "🔴 --force releases anyway"
+
+# (widening) Refuse whenever a baseline exists. Every release now needs --force, so --force
+# stops meaning anything -- and it satisfies every "release refuses" assertion above.
+m=$(mutant n24 "$NDT" \
+    '        if [[ "$knob_now" != "$knob_base" ]]; then' \
+    '        if true; then')
+report "N24 (widening): release refuses even with the knob back" "$m" \
+       "release succeeds"
+
+# (widening) The up_wrote note excuses the value at release time too. That is the one place it
+# must NOT: "ndt wrote it" is why the value is acceptable DURING the round, and precisely why
+# it is not acceptable at the end -- the next round's `ndt up p4` reads this file and nothing
+# else does. With this in, a P4 round can end at 4 with a baseline of 128 and never say so.
+m=$(mutant n25 "$NDT" \
+    '        if [[ "$knob_now" != "$knob_base" ]]; then' \
+    '        if [[ "$knob_now" != "$knob_base" && "$knob_now" != "$(round_baseline_field up_wrote)" ]]; then')
+report "N25 (widening): what 'ndt up' wrote is released without a word" "$m" \
+       "🔴 but release still refuses"
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)

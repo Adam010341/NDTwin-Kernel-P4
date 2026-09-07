@@ -637,9 +637,10 @@ lab
 | `note` | 別人留的一句話，說他在做什麼 |
 | `measuring` | 有沒有 `iperf3 -c` 在跑。**不是 nothing 就不要拆** |
 | `code` | 現在這份 checkout 的 commit＋有沒有未提交的改動。**量測數字要跟這個 commit 一起記** |
-| `knob baseline` 🆕 | `p4_proxy/mininet/host_count_override` **現在的值**跟你 `ndt claim` 那一刻的值比。**不看 git 髒不髒**——2026-09-05 那次它被寫成 128（＝HEAD），git 因此說它乾淨，警告整段消失，而 `porcelain` 行數還從 22 掉到 21（I-3）。還原＝**寫回**那個值，不是 `git checkout --`。🔴 **`--check` 下 `NOT RESTORED` 算 problem ⇒ rc 1**（2026-09-07，E-9；先前它印紅字卻回 rc 0——`rounds/08-round2.md:146` 04:36 實測）。**只有這一句**進 problems：`4 (the default)` 與 `!= 4, and no round baseline exists` 兩句只印不紅（後者分不出「忘了還原」與「本來就要 128 但沒 claim」） |
+| `knob baseline` 🆕 | `p4_proxy/mininet/host_count_override` **現在的值**跟你 `ndt claim` 那一刻的值比。**不看 git 髒不髒**——2026-09-05 那次它被寫成 128（＝HEAD），git 因此說它乾淨，警告整段消失，而 `porcelain` 行數還從 22 掉到 21（I-3）。還原＝**寫回**那個值，不是 `git checkout --`。🔴 **三種答案，看下一列** |
+| `knob baseline` 的三種答案 🆕 | ① **`<n> == the value this round started with`**＝沒動過，綠。<br>② **`<n>, written by 'ndt up p4 <n>' at HH:MM:SS this round`**＝**你自己用 `ndt` 改的**，黃字警告、**不進 problems、`--check` 仍然 rc 0**。因為 `ndt up p4 4` 會把 4 寫穿這個旋鈕（`set_host_count`），所以「claim 在 128 → `up p4 4`」的標準 P4 輪，從第二個指令起整輪都會是紅的——**一個整輪都紅的閘門沒有人讀**。它還是要寫回去，只是那個期限改由 `ndt release` 收（見下面 `ndt release`）。<br>③ **`NOT RESTORED`**＝現值既不是開工值、也不是 `ndt up` 寫的值 ⇒ **有人手改過**，紅字＋problem ⇒ **`--check` rc 1**（2026-09-07，E-9；先前它印紅字卻回 rc 0——`rounds/08-round2.md:146` 04:36 實測）。<br>🔴 **只有 ③ 進 problems**：`4 (the default)` 與 `!= 4, and no round baseline exists` 兩句只印不紅（後者分不出「忘了還原」與「本來就要 128 但沒 claim」）；**沒有 `up_wrote` 欄位時 ② 不存在**，`≠` 開工值一律走 ③ |
 | `tree vs round` 🆕 | 從開工到現在，未提交清單**多了誰、少了誰**（列檔名，不是數量）。**少了誰**才是危險的方向：它代表那個檔現在跟 HEAD 一樣了，而那不等於還原。🔴 **這一列不進 `--check` 的 problems**：一輪中 commit 會合理地改變這個集合，每次 commit 都紅的閘門沒有人讀 |
-| `knob baseline`／`tree vs round` 的來源 | `.test_run/round.baseline`，由 `ndt claim` 寫。**`ndt release` 會把它改名成 `.prev`**（2026-09-07，E-11，照 `lab.handoff` 的前例）⇒ release 之後兩列都會說「沒有 baseline」，**那是正確語意（round 結束了），不是資料掉了**。所以**兩列要在 `release` 之前抄**；事後要查開工狀態看 `.test_run/round.baseline.prev`（沒有任何程式讀它，它是留給人的） |
+| `knob baseline`／`tree vs round` 的來源 | `.test_run/round.baseline`，由 `ndt claim` 寫，欄位是 `at=`／`by=`／`head=`／`host_count=`（開工時旋鈕的值）／每個未提交路徑一行 `dirty=`。🆕 **另有 `up_wrote=<n>`＋`up_wrote_at=<epoch>` 兩欄，由 `ndt up p4 <n>` 事後補寫**（2026-09-07，E-9b）——它是上面第 ② 種答案的唯一依據，**只保留最後一次**（不累積），**沒 claim 就不寫**（沒有 round 可以被赦免）。**`ndt release` 會把整個檔改名成 `.prev`**（2026-09-07，E-11，照 `lab.handoff` 的前例）⇒ release 之後兩列都會說「沒有 baseline」，**那是正確語意（round 結束了），不是資料掉了**；事後要查開工狀態看 `.test_run/round.baseline.prev`（沒有任何程式讀它，它是留給人的） |
 
 ```
 configuration

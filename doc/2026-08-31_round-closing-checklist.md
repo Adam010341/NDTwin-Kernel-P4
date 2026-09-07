@@ -86,8 +86,15 @@ hook 只在你 commit 的那一刻才有機會說話，而**「缺席」不觸�
       **2026-09-07 起 `release` 會把 `.test_run/round.baseline` 改名成 `.prev`**（E-11）：
       round 到此結束，`ndt status` 之後會回「no round baseline recorded」——那是正確語意，
       不是資料掉了。要查這一輪從哪裡開始，看 `.test_run/round.baseline.prev`（沒有任何程式讀它）。
-      🔴 **所以下面兩件事要在 `release` 之前做完**：抄 `knob baseline`／`tree vs round` 兩列、
-      確認旋鈕已經寫回開工那個值。release 之後就沒有東西能替你比了。
+      🔴 **旋鈕不用你記得了：`release` 自己會擋**（2026-09-07 18:1x，E-11b）。
+      `p4_proxy/mininet/host_count_override` 的現值 ≠ 開工值 ⇒ **`release` rc 1、claim 不放、
+      baseline 不收**，並印出寫回的指令（`echo <開工值> > p4_proxy/mininet/host_count_override`，
+      **不是 `git checkout --`**）。要在旋鈕沒還原的情況下結束 ⇒ **`ndt release --force`**，
+      它照樣放 claim、照樣收成 `.prev`，但會印紅字說旋鈕留在哪個值——**那是你的簽名**。
+      ⚠️ **`ndt up p4 <n>` 寫的值不算還原**：它在 round 中只是黃字警告（`--check` 仍然 rc 0，
+      見手冊 `knob baseline` 那三列），但收工時一樣要寫回去。
+      🔴 **`knob baseline`／`tree vs round` 兩列還是建議在 `release` 之前抄**：
+      擋下來的只有旋鈕那一格，兩列的**內容**在 release 之後就沒有東西能替你比了。
 - [ ] `ndt apps orphans` 回 0。**2026-09-07 起它的 rc 不只回答行程了**（G-12／W16-1），
       判準跟著改，五個碼互斥、看到哪一個就做哪一件事：
 
@@ -123,8 +130,15 @@ hook 只在你 commit 的那一刻才有機會說話，而**「缺席」不觸�
       現值、開工值、與「寫回去，不要 `git checkout --`」。
       〔動機是實跑：09-07 04:36 那次它印了紅字 `8 -- this round started at 128: NOT RESTORED`
       **而 rc 是 0**（`rounds/08-round2.md:146`）。〕
-      ⚠️ **只有這一句進 problems。** `tree vs round`（集合差）不進——一輪中 commit 會合理地改變它；
-      `!= 4 而沒有 baseline` 那句也不進——它分不出「忘了還原」和「本來就是 128 但沒 claim」。
+      ⚠️ **2026-09-07 18:1x 補正（E-9b）：`ndt up p4 <n>` 寫的值不算紅。**
+      `up p4 4` 會把 4 寫穿旋鈕，所以「claim 在 128 → `up p4 4`」的標準 P4 輪從第二個指令起
+      **整輪都會是紅的**——那種閘門沒有人讀。現在 `ndt` 會把「自己寫的值」記進
+      `round.baseline` 的 `up_wrote=`，這一格只印**黃字警告**、`--check` 仍然 rc 0；
+      現值**既不是開工值也不是 `up_wrote`**（＝有人手改）才走上面那條紅。
+      **它還是要寫回去** —— 期限改由 `ndt release` 收（見 §5：不還原就 rc 1 拒絕，`--force` 放行）。
+      ⚠️ **只有 `NOT RESTORED` 那一句進 problems。** `tree vs round`（集合差）不進——一輪中
+      commit 會合理地改變它；`!= 4 而沒有 baseline` 那句也不進——它分不出「忘了還原」和
+      「本來就是 128 但沒 claim」；`up_wrote` 那一句也不進（理由同上）。
 - [ ] 本輪結論對帳舊結果：**推翻／更新／可對比哪一個**，三選一寫進報告。
 
 ### 6. 回報義務清償盤點（**常設**，不是特例）

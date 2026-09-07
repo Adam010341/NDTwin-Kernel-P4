@@ -367,6 +367,15 @@ handoff_field() { [[ -f "$HANDOFF" ]] && sed -n "s/^$1=//p" "$HANDOFF" | head -1
 #         at=<unix seconds>   by=<NDT_OWNER>   head=<short sha at claim time>
 #         host_count=<the knob's value when the round started>
 #         dirty=<path>        one line per uncommitted path, sorted
+#         up_wrote=<n>        the value `ndt up p4 <n>` wrote into the knob DURING this round
+#         up_wrote_at=<unix seconds>          when it did
+#
+#     The last two are appended after the fact by set_host_count (E-9b, 09-07) and are the only
+#     fields `ndt claim` does not write. They exist because "the knob is not what the round
+#     started with" has two causes and only one of them is an error: `ndt up p4 4` writes the
+#     knob through, so a P4 round that claims at 128 and then builds 4 hosts is NOT a forgotten
+#     restore -- it is a round in progress. Rewritten in place on every `ndt up p4 <n>`, never
+#     accumulated: only the LAST value ndt itself wrote can excuse the knob's current value.
 #
 #     .test_run/round.baseline.prev
 #         the same file, from the round that has ended. `ndt release` renames it here (E-11,
@@ -400,6 +409,38 @@ record_round_baseline() {
         git -C "$REPO" status --porcelain 2>/dev/null | cut -c4- | sort | sed 's/^/dirty=/'
     } > "$f" || return 1
     info "recorded this round's starting point in ${f#$REPO/} -- 'ndt status' compares against it"
+}
+
+# note_up_wrote_host_count <n> -- record that ndt ITSELF moved the P4 host knob this round.
+#
+# [Co-developed with claude code -- Adam]
+# E-9b, Adam's decision 09-07 (R3-NDT §7-1). E-9 made "the knob is not what the round started
+# with" a --check problem, and the very next arm showed what that costs: the standard P4 round
+# is `ndt claim` (baseline records 128) then `ndt up p4 4`, and up_p4 writes the count straight
+# through this knob. From that moment every `ndt status --check` in the round exits 1 -- so
+# arm_up.sh records a non-zero rc on every P4 arm, and a gate that is red for the whole round
+# is the thing E-9 itself was decided against ("a report whose rc never moves is one more green
+# light" -- W16-2, in reverse).
+#
+# So the round baseline carries a SECOND value: what ndt wrote, and when. knob_row then has
+# three answers instead of two -- back at the start (green), holding what `ndt up p4` put there
+# (a warning, because it still has to go back before the round ends), or holding something
+# neither of those (red, and a --check problem: somebody hand-edited it).
+#
+# 🔴 Only rewritten, never appended to: two `up_wrote=` lines would let round_baseline_field's
+# `head -1` excuse a value ndt has since overwritten. And 🔴 nothing at all is recorded when no
+# round is claimed -- with no baseline there is nothing to excuse, and writing the file here
+# would invent a round `ndt claim` never started.
+note_up_wrote_host_count() {
+    local n="$1" f tmp
+    f="$(round_baseline_file)"
+    [[ -f "$f" ]] || return 0
+    tmp="$(mktemp "$(dirname "$f")/.round-baseline-XXXXXX" 2>/dev/null)" || return 0
+    {
+        grep -v -e '^up_wrote=' -e '^up_wrote_at=' "$f"
+        printf 'up_wrote=%s\nup_wrote_at=%s\n' "$n" "$(date +%s)"
+    } > "$tmp" && mv -f "$tmp" "$f" || rm -f "$tmp"
+    return 0
 }
 
 # --- what the last `ndt up` was asked for -------------------------------------------------
@@ -642,6 +683,37 @@ cmd_release() {
         err "refusing: the claim belongs to $other"
         err "if they are gone:  ndt release --force"
         return 1
+    fi
+    # [Co-developed with claude code -- Adam]
+    # E-11b, Adam's decision 09-07 (R3-NDT §7-2). The round ends HERE, and one line below this
+    # the round baseline becomes .prev -- after which nothing in this script can say what the
+    # knob started at, so "did you put it back" stops being answerable. That is the last moment
+    # it can be asked, and asking it is the whole point of recording the value at claim time.
+    #
+    # It is also the other half of E-9b: knob_row stopped calling `ndt up p4 4` a problem, on
+    # the understanding that the value goes back before the round ends. This is where that
+    # understanding is enforced, once, instead of on every status call in between.
+    #
+    # 🔴 --force releases anyway, and says so in red. Same flag as the foreign-claim override
+    # above and the same meaning: you are signing for it. Refusing without an override would
+    # strand anyone whose round ended with the knob deliberately somewhere else.
+    #
+    # 🔴 The up_wrote value does NOT excuse it here, unlike in knob_row. "ndt wrote it" is what
+    # makes the knob's value acceptable DURING a round; it is exactly what makes it unacceptable
+    # at the end, because the next round's `ndt up p4` reads this file and nothing else does.
+    local knob_base; knob_base="$(round_baseline_field host_count)"
+    if [[ -n "$knob_base" ]]; then
+        local knob_now; knob_now="$(host_count)"
+        if [[ "$knob_now" != "$knob_base" ]]; then
+            if [[ "${1:-}" != "--force" ]]; then
+                err "refusing: the P4 host knob is $knob_now"
+                err "this round started at $knob_base, and the claim is not released with it moved"
+                err "  echo $knob_base > p4_proxy/mininet/host_count_override      # write it; NOT 'git checkout --'"
+                err "release anyway (it stays at $knob_now):  ndt release --force"
+                return 1
+            fi
+            err "released with the knob left at $knob_now (round started at $knob_base) -- '--force'"
+        fi
     fi
     rm -f "$CLAIM"
     # [Co-developed with claude code -- Adam]
@@ -996,6 +1068,16 @@ PY
 # persistent state, so changing it is announced rather than done quietly -- a later run that
 # inherits a count somebody else set is exactly how a measurement ends up describing a
 # different network than its author thought.
+#
+# 🔴 THE ONLY PLACE THAT WRITES THE KNOB THROUGH, and its only caller is up_p4 with an explicit
+# host count on the command line. That is why the "ndt wrote this" note is recorded here and
+# not in up_p4: one write, one record, and nothing can move this file with ndt's authority
+# without leaving the note. (E-9b -- see note_up_wrote_host_count above.)
+#
+# 🔴 Recorded on the WRITE path only. `ndt up p4 4` when the knob already reads 4 changes
+# nothing, so it cannot be what put a hand-edited 4 there; leaving that case red is the narrow
+# answer, and the narrow answer is the one that keeps saying NOT RESTORED about an edit nobody
+# announced. Any real arm writes first (128 -> 4) and the note is on that write.
 set_host_count() {
     local n="$1" f="$REPO/p4_proxy/mininet/host_count_override" cur
     cur="$(host_count)"
@@ -1005,6 +1087,7 @@ set_host_count() {
         return 1
     fi
     printf '%s\n' "$n" > "$f"
+    note_up_wrote_host_count "$n"
     warn "host_count_override: $cur -> $n (persistent; affects every later run)"
 }
 
@@ -2184,10 +2267,22 @@ git_lines() {
 # fact worth printing, not a verdict. tree_vs_round_row stays out too, for the reason written
 # above it: committing during a round changes that set for good reasons. Adam ruled on the
 # NOT RESTORED sentence and this list carries that sentence only.
+#
+# 🔴 THREE ANSWERS, NOT TWO. Adam's decision 09-07 (R3-NDT §7-1, E-9b), the evening after E-9
+# landed: `ndt up p4 4` writes the knob through set_host_count, so the standard P4 round --
+# claim at 128, build 4 hosts -- turned every `--check` in the round red, and arm_up.sh would
+# have recorded a non-zero rc on every P4 arm. Middle answer: the knob holds exactly what
+# `ndt up p4 <n>` wrote this round (round.baseline's up_wrote=), which is a WARNING with a
+# deadline -- it still has to go back -- and NOT a problem. It is `ndt release` that refuses
+# while the two differ (E-11b, cmd_release), so the deadline is enforced once, at the end,
+# instead of firing on every status call in between.
+#
+# A value that is neither the round's starting value nor the last one ndt wrote is a hand edit,
+# and that is the 04:36 case E-9 was decided on: still red, still a problem, still rc 1.
 STATUS_KNOB_PROBLEMS=()
 knob_row() {
     local rel="p4_proxy/mininet/host_count_override"
-    local now base at gitstate
+    local now base at gitstate upw upat
     STATUS_KNOB_PROBLEMS=()
     now="$(host_count)"
     if git -C "$REPO" diff --quiet -- "$rel" 2>/dev/null && \
@@ -2204,7 +2299,25 @@ knob_row() {
             printf '  %-14s %s\n' "knob baseline" "$now == the value this round started with (at ${at:-?})"
             return 0
         fi
+        upw="$(round_baseline_field up_wrote)"
+        if [[ -n "$upw" && "$now" == "$upw" ]]; then
+            upat="$(round_baseline_field up_wrote_at)"
+            [[ "$upat" =~ ^[0-9]+$ ]] && upat="$(date -d "@$upat" '+%H:%M:%S' 2>/dev/null || echo "$upat")"
+            printf '  %-14s %s\n' "knob baseline" "${Y}$now, written by 'ndt up p4 $now' at ${upat:-?} this round; the round started at $base -- write $base back before 'ndt release'${N}"
+            # 🔴 Worded differently from the NOT RESTORED advice below on purpose: the anchors
+            # of mutate_ndt_round_baseline.sh's N5/N5b are that line, and an identical sentence
+            # here would make them ambiguous -- a gate that cannot apply its mutation reports a
+            # SURVIVOR, which is how three cells of another gate lost their power (§3, R3-NDT).
+            printf '  %-14s %s\n' "" "  echo $base > $rel      # write it back; 'git checkout --' would give you HEAD"
+            printf '  %-14s %s\n' "" "'ndt release' refuses while these differ; 'ndt release --force' releases anyway"
+            # 🔴 NOT a --check problem. This is the round doing what it was set up to do, and
+            # the value goes back at the end -- where cmd_release now checks it. E-9b.
+            return 0
+        fi
         printf '  %-14s %s\n' "knob baseline" "${R}$now -- this round started at $base (at ${at:-?}): NOT RESTORED${N}"
+        # Naming the value ndt DID write is what separates the two reds: with up_wrote recorded
+        # and the knob on something else, somebody edited the file by hand after `ndt up`.
+        [[ -n "$upw" ]] && printf '  %-14s %s\n' "" "'ndt up p4' wrote $upw this round; $now is neither that nor the value the round started with"
         printf '  %-14s %s\n' "" "$gitstate"
         printf '  %-14s %s\n' "" "it decides the next 'ndt up p4'. restore by WRITING the value:"
         printf '  %-14s %s\n' "" "  echo $base > $rel      # NOT 'git checkout --', which gives you HEAD"
