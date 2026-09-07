@@ -11,6 +11,10 @@
 #             finds. It does not clear it and does not turn it into a declaration.
 #   E-22      (added 2026-09-07, WAKEUP.md 3-52) /ndt/link_recovery_detected logs its OUTCOME,
 #             after the outcome is known, and the three outcomes are three different sentences.
+#   E-20      (added 2026-09-07) that startup sweep reads the WHOLE root namespace in one bare
+#             `tc qdisc show` and classifies what it finds -- link end, host-facing port, or a
+#             name this topology does not contain -- instead of reading only the switch-to-switch
+#             link ends it could itself have written to.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -38,12 +42,14 @@
 #   carry packets.
 #
 # 🔴 TWO DIRECTIONS, AND THE SECOND ONE IS WHY THIS GATE EXISTS AT ALL
-#   1. RESTORING any of the four defects must be caught      (M1 .. M10, M19, M20)
+#   1. RESTORING any of the five defects must be caught      (M1 .. M10, M19 .. M24)
 #      -- the unconditional withdrawal, the report that is never recorded or never spent, the
 #         notification path calling the injection writer, dpid 0 let through at the helper or at
-#         one call site, the startup sweep that finds nothing or says nothing, and the recovery
-#         log written before the outcome is known or written the same way for all three outcomes.
-#   2. RELAXING PAST the fix must ALSO be caught             (M11 .. M18)
+#         one call site, the startup sweep that finds nothing or says nothing, the recovery
+#         log written before the outcome is known or written the same way for all three outcomes,
+#         and the sweep narrowed back to link ends, blind to unfamiliar interfaces, calling
+#         everything a link, or reading one device at a time again.
+#   2. RELAXING PAST the fix must ALSO be caught             (M11 .. M18, M25)
 #      -- and every one of these is a bigger outage than the defect:
 #         * a recovery report that NEVER withdraws makes every real link outage permanent;
 #         * a pairing rule that also refuses edges nobody declared down stops the endpoint
@@ -54,7 +60,16 @@
 #           outage a licence to withdraw a declaration;
 #         * a dpid guard that refuses everything passes every W8-7 case above;
 #         * a startup sweep that CLEARS what it finds destroys the fault campaign it started
-#           underneath, which is the exact thing Adam ruled against.
+#           underneath, which is the exact thing Adam ruled against;
+#         * a sweep that reports every netem in the root namespace fires on the operator's own
+#           wifi and docker bridge, and a warning that fires on a laptop stops being read.
+#
+# 🔴 WHAT E-20 CHANGED ABOUT AN EXISTING MUTATION. M16 used to be a direction-2 mutation ("the
+# sweep widens to host-facing interfaces") because before E-20 the sweep's SCOPE was
+# mininetLinkInterfaces(). E-20 made that function the sweep's `link` CLASSIFIER instead, so M16
+# now says something else: a classifier that cannot tell a host-facing port from a link end, which
+# makes the warning tell an operator to POST /ndt/inject_link_recovery for a link that does not
+# exist. It kept its number so that RED-GREEN.md and the R2/R3 summaries keep meaning what they say.
 #
 # 🔴 A MUTANT THAT DOES NOT COMPILE IS A SURVIVOR, not a skip: the suite never ran, so it proves
 # nothing. Same for an anchor that has moved, and for a run that hangs.
@@ -77,7 +92,7 @@
 #   JOBS=2              build parallelism
 #   TEST_TIMEOUT=300    seconds allowed per test-binary run
 #
-# Exit: 0 every mutation caught by the test it names, all three widenings survived, tree restored
+# Exit: 0 every mutation caught by the test it names, every widening survived, tree restored
 #       1 at least one mutation survived, or a widening was caught
 #       2 no verdict is possible: baseline red or not building, anchor drift, hang, failed restore
 set -uo pipefail
@@ -151,9 +166,9 @@ add_anchor "inject-report" "$TFM" '    eprop.declaredDown = false;
     eprop.failureReported = false;'
 add_anchor "obs-down"      "$TFM" '    (*m_graph)[e].isUp = false;
     SPDLOG_LOGGER_DEBUG(Logger::instance(), "setEdgeDown {}", (*m_graph)[e].isUp);'
-add_anchor "sweep-mode"    "$TFM" '    std::vector<std::string> found;
+add_anchor "sweep-mode"    "$TFM" '    std::vector<ResidualNetem> found;
     if (m_mode != utils::MININET)'
-add_anchor "sweep-detect"  "$TFM" '        if (utils::netem::findExistingNetem(tree.output).safe)'
+add_anchor "sweep-detect"  "$TFM" '    for (const auto& iface : utils::netem::netemInterfacesInTree(tree.output))'
 add_anchor "sweep-warn"    "$TFM" '    if (!found.empty())'
 # The anchor takes the `dst` binding with it: dropping only the condition would leave `dst`
 # unused, and this build is -Werror, so that mutant would not compile -- and a mutant that does not
@@ -164,17 +179,33 @@ add_anchor "sweep-scope"   "$TFM" '        const auto dst = boost::target(ed, *m
         // and since W8-7 no link endpoint can address one anyway.
         if (sp.vertexType != VertexType::SWITCH ||
             (*m_graph)[dst].vertexType != VertexType::SWITCH || sp.bridgeNameForMininet.empty())'
-add_anchor "sweep-comment" "$TFM" '    // Read once. The graph is under a shared lock inside that call and the sweep below runs a'
-add_anchor "sweep-found"   "$TFM" '        if (utils::netem::findExistingNetem(tree.output).safe)
+add_anchor "sweep-comment" "$TFM" '    // Read once each: both walk the graph under a shared lock, and asking twice would be answering'
+add_anchor "sweep-found"   "$TFM" '        found.push_back(ResidualNetem{iface, kind});'
+add_anchor "unread-warn"   "$TFM" '        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "could not read this machine'"'"'s qdisc tree (tc qdisc show returned {}), "
+                           "so this startup sweep cannot say whether any interface on this fabric "
+                           "already carries netem",
+                           tree.status);
+        return found;'
+# E-20. The whole-machine read, the name filter that keeps the operator's own interfaces out, and
+# the three-way classification. Separate anchors because they are separate defects: reading one
+# device at a time, reporting somebody else's netem, and reporting this fabric's under the wrong
+# heading are three different mornings for whoever reads the line.
+add_anchor "read-shape"    "$TFM" '    const auto tree = utils::netem::showAllQdiscs(run);'
+add_anchor "name-filter"   "$TFM" '        if (!utils::netem::isMininetInterfaceName(iface))
         {
-            found.push_back(iface);
+            continue;
         }'
-add_anchor "unread-warn"   "$TFM" '            SPDLOG_LOGGER_WARN(Logger::instance(),
-                               "could not read the qdisc tree for {} (tc qdisc show returned {}), "
-                               "so this startup sweep cannot say whether it carries netem",
-                               iface,
-                               tree.status);
-            continue;'
+add_anchor "classify"      "$TFM" '        SweptInterface kind = SweptInterface::Unknown;
+        if (isIn(links, iface))
+        {
+            kind = SweptInterface::Link;
+        }
+        else if (isIn(hostFacing, iface))
+        {
+            kind = SweptInterface::HostFacing;
+        }'
+add_anchor "warn-prose"    "$TFM" '            "topology. Packets there are already being dropped or delayed, and NOTHING IN THE "'
 add_anchor "dpid-guard"    "$HS"  '    return srcDpid != 0 && dstDpid != 0;'
 add_anchor "notify-writer" "$HS"  '    m_topologyAndFlowMonitor->setEdgeDownByReportedFailure(fwdOpt.value());'
 add_anchor "inject-door"   "$HS"  'HttpSession::handleInjectLinkFailure(http::response<http::string_body>& res)
@@ -504,22 +535,22 @@ mutate "the startup sweep finds the netem and says nothing" \
 #     silence as M8 reached from the other end.
 mutate "the startup sweep never recognises netem in the tree" \
     "$TFM" \
-    '        if (utils::netem::findExistingNetem(tree.output).safe)' \
-    '        if (false)' \
+    '    for (const auto& iface : utils::netem::netemInterfacesInTree(tree.output))' \
+    '    for (const auto& iface : std::vector<std::string>{})' \
     ResidualNetemSweepTest.ResidualNetemIsNamedInOneWarningAtStartup
 
 # M10. "Could not read" reported as nothing at all, so silence means two different things and a
 #      sweep that never ran is indistinguishable from a clean one.
 mutate "an unreadable qdisc tree is passed over in silence" \
     "$TFM" \
-    '            SPDLOG_LOGGER_WARN(Logger::instance(),
-                               "could not read the qdisc tree for {} (tc qdisc show returned {}), "
-                               "so this startup sweep cannot say whether it carries netem",
-                               iface,
-                               tree.status);
-            continue;' \
-    '            continue;' \
-    ResidualNetemSweepTest.AnUnreadableInterfaceIsReportedAsUnreadNotAsClean
+    '        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "could not read this machine'"'"'s qdisc tree (tc qdisc show returned {}), "
+                           "so this startup sweep cannot say whether any interface on this fabric "
+                           "already carries netem",
+                           tree.status);
+        return found;' \
+    '        return found;' \
+    ResidualNetemSweepTest.AnUnreadableQdiscTreeIsReportedAsUnreadNotAsClean
 
 # ================================================================================================
 #    direction 2: relaxing past the fix. 🔴 These are the reason this gate is not just W8b's.
@@ -576,9 +607,11 @@ mutate "the dpid guard refuses every link, not just dpid 0" \
     '    return false;' \
     DeclaredLinkFailureWireTest.TheDpidZeroRefusalDoesNotTouchOrdinarySwitchToSwitchLinks
 
-# M16. The startup sweep widens to host-facing interfaces, so it reports residue this kernel could
-#      not have made and names no owner for it.
-mutate "the startup sweep reads host-facing interfaces too" \
+# M16. 🆕 REPURPOSED BY E-20 (see the header): the link/host classifier stops telling the two
+#      apart, so a host-facing port is reported as a link end -- and the warning then tells an
+#      operator to POST /ndt/inject_link_recovery for a link that does not exist. Before E-20 this
+#      same edit widened the sweep's SCOPE, which is why it sits in direction 2 with its old number.
+mutate "the classifier calls a host-facing port a link end" \
     "$TFM" \
     '        const auto dst = boost::target(ed, *m_graph);
         const auto& sp = (*m_graph)[src];
@@ -588,31 +621,28 @@ mutate "the startup sweep reads host-facing interfaces too" \
             (*m_graph)[dst].vertexType != VertexType::SWITCH || sp.bridgeNameForMininet.empty())' \
     '        const auto& sp = (*m_graph)[src];
         if (sp.vertexType != VertexType::SWITCH || sp.bridgeNameForMininet.empty())' \
-    ResidualNetemSweepTest.TheSweepCoversBothEndsOfEverySwitchToSwitchLinkAndNothingElse
+    ResidualNetemSweepTest.TheSweepCoversBothEndsOfEverySwitchToSwitchLinkAndNothingElse \
+    ResidualNetemSweepTest.NetemOnAHostFacingPortIsFoundAndSaidToBeHostFacing
 
 # M17. 🔴 THE OVER-CORRECTION ADAM RULED AGAINST BY NAME: the sweep cleans up what it finds. A
 #      kernel that removed netem at startup silently destroys the fault campaign it started
 #      underneath, and tools/test_workflow/faults.sh is entitled to have netem on an interface.
+#      🆕 Since E-20 the sweep also sees host-facing and unfamiliar interfaces, so this mutant
+#      deletes faults that are definitely not this kernel's. It got worse, not better.
 mutate "the startup sweep clears the netem it finds" \
     "$TFM" \
-    '        if (utils::netem::findExistingNetem(tree.output).safe)
-        {
-            found.push_back(iface);
-        }' \
-    '        if (utils::netem::findExistingNetem(tree.output).safe)
-        {
-            utils::netem::restoreInterface(iface, run);
-            found.push_back(iface);
-        }' \
+    '        found.push_back(ResidualNetem{iface, kind});' \
+    '        utils::netem::restoreInterface(iface, run);
+        found.push_back(ResidualNetem{iface, kind});' \
     ResidualNetemSweepTest.TheSweepNeverRunsACommandThatChangesTheTree
 
 # M18. The sweep runs on a testbed deployment, where the names this graph produces belong to
 #      whatever else on the machine happens to answer to them.
 mutate "the startup sweep runs tc on a non-MININET deployment" \
     "$TFM" \
-    '    std::vector<std::string> found;
+    '    std::vector<ResidualNetem> found;
     if (m_mode != utils::MININET)' \
-    '    std::vector<std::string> found;
+    '    std::vector<ResidualNetem> found;
     if (false)' \
     ResidualNetemSweepTest.ATestbedDeploymentRunsNoTcAtAll
 
@@ -716,6 +746,128 @@ mutate "the three outcomes are one sentence again, just logged later" \
     DeclaredLinkFailureWireTest.ARecoveryForAnEdgeTheGraphDoesNotHoldSaysThatInstead
 
 # ================================================================================================
+#   E-20: the startup sweep reads the whole root namespace and says whose each finding is.
+#   Numbered AFTER M20 on purpose, so M1..M20 keep meaning what RED-GREEN.md and the R2/R3
+#   summaries already say they mean. M21..M24 are direction 1, M25 is direction 2.
+# ================================================================================================
+
+# M21. 🔴 E-20 VERBATIM: the sweep goes back to reporting link ends only. This is the shape W8b
+#      shipped, and the reason it had to change is where the fault tools actually attach netem:
+#      testbed_topo.py:92-96 hangs hosts off s1..s4 at ports 3 and up, and the chaos harness's
+#      DEFAULT --iface is s1-eth3 (2026-08-28_chaos-harness/harness/chaos.py:487,544) -- a
+#      host-facing port. For those faults the pre-E-20 sweep said nothing, and silence from this
+#      sweep is read as "the fabric is clean".
+mutate "the sweep reports link ends only, as it did before E-20" \
+    "$TFM" \
+    '        SweptInterface kind = SweptInterface::Unknown;
+        if (isIn(links, iface))
+        {
+            kind = SweptInterface::Link;
+        }
+        else if (isIn(hostFacing, iface))
+        {
+            kind = SweptInterface::HostFacing;
+        }' \
+    '        SweptInterface kind = SweptInterface::Unknown;
+        if (isIn(links, iface))
+        {
+            kind = SweptInterface::Link;
+        }
+        else if (isIn(hostFacing, iface))
+        {
+            continue;
+        }
+        else
+        {
+            continue;
+        }' \
+    ResidualNetemSweepTest.NetemOnAHostFacingPortIsFoundAndSaidToBeHostFacing \
+    ResidualNetemSweepTest.NetemOnAnInterfaceThisTopologyDoesNotNameIsReportedAsUnknown \
+    ResidualNetemSweepTest.TheWarningSeparatesTheThreeKindsAndCountsThem
+
+# M22. The half of E-20 a fix is most likely to leave out: host-facing ports are picked up, and an
+#      `s<N>-eth<M>` the topology does not contain is dropped for having no owner to attribute it
+#      to. That one is the loudest finding of the three -- the fabric running on this machine is
+#      not the fabric in the topology file -- and dropping it throws exactly it away.
+mutate "an interface this topology does not name is dropped instead of reported" \
+    "$TFM" \
+    '        SweptInterface kind = SweptInterface::Unknown;
+        if (isIn(links, iface))
+        {
+            kind = SweptInterface::Link;
+        }
+        else if (isIn(hostFacing, iface))
+        {
+            kind = SweptInterface::HostFacing;
+        }' \
+    '        SweptInterface kind = SweptInterface::Unknown;
+        if (isIn(links, iface))
+        {
+            kind = SweptInterface::Link;
+        }
+        else if (isIn(hostFacing, iface))
+        {
+            kind = SweptInterface::HostFacing;
+        }
+        else
+        {
+            continue;
+        }' \
+    ResidualNetemSweepTest.NetemOnAnInterfaceThisTopologyDoesNotNameIsReportedAsUnknown \
+    ResidualNetemSweepTest.TheWarningSeparatesTheThreeKindsAndCountsThem
+
+# M23. Everything is reported, and everything is called a link. The count is right, the list is
+#      right, and every line of advice attached to it is wrong: /ndt/inject_link_recovery cannot
+#      address a host edge at all (W8-7), so the operator is sent to an endpoint that will refuse.
+mutate "the classification calls every finding a link end" \
+    "$TFM" \
+    '        SweptInterface kind = SweptInterface::Unknown;
+        if (isIn(links, iface))
+        {
+            kind = SweptInterface::Link;
+        }
+        else if (isIn(hostFacing, iface))
+        {
+            kind = SweptInterface::HostFacing;
+        }' \
+    '        SweptInterface kind = SweptInterface::Link;
+        if (isIn(links, iface) || isIn(hostFacing, iface))
+        {
+            kind = SweptInterface::Link;
+        }' \
+    ResidualNetemSweepTest.NetemOnAHostFacingPortIsFoundAndSaidToBeHostFacing \
+    ResidualNetemSweepTest.NetemOnAnInterfaceThisTopologyDoesNotNameIsReportedAsUnknown \
+    ResidualNetemSweepTest.TheWarningSeparatesTheThreeKindsAndCountsThem
+
+# M24. 🔴 THE READ GOES BACK TO THE PER-DEVICE FORM, and this is the mutation the whole ticket
+#      turns on: `tc qdisc show dev X` can only ask about a name the caller already has, so a sweep
+#      built on it cannot see an interface the graph does not name, no matter how it classifies.
+#      It is also the ONLY form the sudoers grant covers, so the pull back to it is real.
+#      Note the fake tc answers any `show` with the same tree, so the findings are IDENTICAL here
+#      -- only a case that reads the argv can tell this apart from the fix.
+mutate "the sweep reads one device at a time again" \
+    "$TFM" \
+    '    const auto tree = utils::netem::showAllQdiscs(run);' \
+    '    const auto tree = utils::netem::showQdisc("s1-eth1", run);' \
+    ResidualNetemSweepTest.TheSweepReadsTheWholeMachineInOneCall
+
+# M25. Direction 2 for E-20: the name filter goes, so every netem in the root namespace is
+#      reported -- the operator's wifi, docker0, every veth a container brought up. A startup
+#      warning that fires on a developer laptop is a startup warning nobody reads, and then the
+#      link-end finding underneath it is lost too.
+mutate "the sweep reports every netem on the machine, not just this fabric's" \
+    "$TFM" \
+    '        if (!utils::netem::isMininetInterfaceName(iface))
+        {
+            continue;
+        }' \
+    '        if (false)
+        {
+            continue;
+        }' \
+    ResidualNetemSweepTest.NetemOutsideThisFabricsInterfaceShapeIsNotReported
+
+# ================================================================================================
 # 6. the widenings -- these MUST survive
 # ================================================================================================
 
@@ -723,8 +875,8 @@ mutate "the three outcomes are one sentence again, just logged later" \
 #     rebuilt" rather than "the behaviour changed".
 widen "a comment, nothing else" \
     "$TFM" \
-    '    // Read once. The graph is under a shared lock inside that call and the sweep below runs a' \
-    '    // Read once. The graph is held under a shared lock in that call and the sweep below runs a'
+    '    // Read once each: both walk the graph under a shared lock, and asking twice would be answering' \
+    '    // Read once each: both hold the graph under a shared lock, and asking twice would answer'
 
 # W2. The refusal's PROSE. The cases assert 400 and that the message names `dpid`; a suite that
 #     reddens on a rewording would make the next person change a test to improve a sentence.
@@ -749,6 +901,32 @@ widen "the declined recovery sentence is reworded (it still says the declaration
                                "/ndt/inject_link_recovery to withdraw it",' \
     '                               "declaration was retained and the link stays down. Use POST "
                                "/ndt/inject_link_recovery to take the injection back",'
+
+# W5. E-20's control for the classification: the same three answers, written as one conditional
+#     expression instead of an if/else chain. M21..M23 must be catching what the sweep DECIDES, not
+#     the shape it decides it in -- otherwise the next person to tidy this loop has to edit a test.
+widen "the classification is written as one conditional expression" \
+    "$TFM" \
+    '        SweptInterface kind = SweptInterface::Unknown;
+        if (isIn(links, iface))
+        {
+            kind = SweptInterface::Link;
+        }
+        else if (isIn(hostFacing, iface))
+        {
+            kind = SweptInterface::HostFacing;
+        }' \
+    '        const SweptInterface kind = isIn(links, iface) ? SweptInterface::Link
+                                    : isIn(hostFacing, iface) ? SweptInterface::HostFacing
+                                                              : SweptInterface::Unknown;'
+
+# W6. E-20's control for the WARNING: its prose is rewritten while the interface list, the three
+#     classification words and the counts stay put. The sweep cases assert `s1-eth9 (host-facing)`
+#     and the count clause; if one of them reddens here it is pinning a paragraph instead.
+widen "the residue warning's prose is rewritten around the same facts" \
+    "$TFM" \
+    '            "topology. Packets there are already being dropped or delayed, and NOTHING IN THE "' \
+    '            "topology. Traffic on them is already being dropped or delayed, and NOTHING IN THE "'
 
 # ================================================================================================
 # 7. restore and verdict
@@ -798,7 +976,9 @@ printf '  %d widenings, %d wrongly caught\n' "$WIDENINGS" "$WIDENINGS_CAUGHT"
 if [[ "$ok" != 1 ]]; then exit 2; fi
 if (( SURVIVORS > 0 || WIDENINGS_CAUGHT > 0 )); then exit 1; fi
 echo "  W8b gate: a withdrawal cannot be unpaired from a reported break by any of five routes,"
-echo "  dpid 0 cannot be let back in at the helper or at one door, the startup sweep cannot go"
-echo "  silent or blind, the recovery log cannot go back in front of its outcome or collapse its"
-echo "  three outcomes into one sentence, and eight ways of over-correcting are caught too."
+echo "  dpid 0 cannot be let back in at the helper or at one door, the recovery log cannot go"
+echo "  back in front of its outcome or collapse its three outcomes into one sentence, and the"
+echo "  startup sweep cannot go silent, go blind, shrink back to link ends, drop an interface"
+echo "  this topology does not name, call everything a link, or read one device at a time --"
+echo "  and nine ways of over-correcting are caught too."
 exit 0

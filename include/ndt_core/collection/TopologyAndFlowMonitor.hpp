@@ -54,6 +54,38 @@ enum class LinkRecoveryOutcome
     Retained
 };
 
+/**
+ * @brief How an interface the startup sweep found netem on relates to the fabric this twin holds.
+ *
+ * [Co-developed with claude code -- Adam]
+ * E-20 (Adam, 2026-09-07). The sweep reports; the reader acts. These three are not severities --
+ * they are three different answers to "whose is this?", and an operator needs the difference:
+ * a Link end is something /ndt/inject_link_recovery can take back, a HostFacing port is something
+ * only the tool that attached it can, and an Unknown name means the fabric on this machine is not
+ * the fabric in the topology file.
+ */
+enum class SweptInterface
+{
+    /// One end of a switch-to-switch link in the graph -- the set /ndt/inject_link_failure writes.
+    Link,
+
+    /// A switch port a HOST hangs off. tools/test_workflow/faults.sh and the chaos harness attach
+    /// netem here, and before E-20 the sweep could not see it at all.
+    HostFacing,
+
+    /// `s<N>-eth<M>`-shaped, and this graph names no such port. Either the fabric running on this
+    /// machine is not the one in the topology file, or a switch's bridge_name is missing.
+    Unknown
+};
+
+/// One interface the startup sweep found carrying netem, and whose it is. E-20.
+/// [Co-developed with claude code -- Adam]
+struct ResidualNetem
+{
+    std::string interface;
+    SweptInterface kind = SweptInterface::Unknown;
+};
+
 class TopologyAndFlowMonitor
 {
   public:
@@ -352,33 +384,70 @@ class TopologyAndFlowMonitor
      * [Co-developed with claude code -- Adam]
      * doc/KNOWN-ISSUES.md B-6 (W8-4). Exactly the set /ndt/inject_link_failure can reach and no
      * wider: a switch with no `bridge_name` is skipped rather than guessed at, and host-facing
-     * edges are excluded because since W8-7 the link endpoints refuse dpid 0 outright. A wider
-     * sweep would report residue this kernel could not have made and cannot name an owner for.
+     * edges are excluded because since W8-7 the link endpoints refuse dpid 0 outright.
+     *
+     * 🆕 E-20 changed what this is FOR, not what it contains. It was the startup sweep's scope;
+     * it is now the sweep's Link classifier, and the sweep reads the whole machine.
      */
     std::vector<std::string> mininetLinkInterfaces() const;
+
+    /**
+     * @brief Every `sN-ethM` a HOST hangs off: the switch-side port of each host attachment.
+     *
+     * [Co-developed with claude code -- Adam]
+     * E-20. Derived from the graph the same way as mininetLinkInterfaces(): the SWITCH end of an
+     * edge whose other end is a HOST. Deduplicated, in graph order, and a switch with no
+     * `bridge_name` is skipped rather than guessed at.
+     *
+     * @note The host's OWN interface (`h<N>-eth0`) is not here and cannot be: it lives in the
+     *       host's network namespace, and this process reads the root namespace. Naming the
+     *       boundary is the point -- see warnAboutResidualNetem.
+     */
+    std::vector<std::string> mininetHostFacingInterfaces() const;
 
     /**
      * @brief Startup sweep: does the machine already carry netem this kernel does not know about?
      *
      * [Co-developed with claude code -- Adam]
      * doc/KNOWN-ISSUES.md B-6 (W8-4), Adam's ruling of 2026-09-06: **WARN, do not clear, and do
-     * not turn it into a declaration.**
+     * not turn it into a declaration.** Widened by E-20 (2026-09-07) from "both ends of every
+     * switch-to-switch link" to **every Mininet interface this machine's root namespace shows**.
      *
      * A declaration lives in this process and a netem lives in the machine's qdisc tree, so a
      * kernel restart separates them: `declaredDown` is deliberately not read back from any file
      * (see EdgeProperties), which makes a fresh kernel's clean `down_reason` say nothing at all
      * about whether packets are flowing. This is the one line that stops that from being silent.
      *
+     * 🔴 WHY THE SCOPE HAD TO GROW (E-20). The old sweep read only the interfaces
+     * /ndt/inject_link_failure can write to, on the reasoning that residue anywhere else has no
+     * owner this kernel can name. But that is not where this repository's faults land:
+     * testbed_topo.py attaches hosts to s1..s4 at ports 3 and up, and the chaos harness's DEFAULT
+     * netem interface is `s1-eth3` (doc/audit/2026-08-28_chaos-harness/harness/chaos.py:487,544)
+     * -- a host-facing port. For exactly those faults the sweep's silence was a false all-clear,
+     * which is the one thing it exists not to be. The answer is not to shrink what is reported but
+     * to say whose it is: an interface is now reported as a link end, as a host-facing port, or as
+     * a name this topology does not contain, and an operator reads the classification.
+     *
+     * 🔴 AND WHAT IT STILL CANNOT SEE. `h<N>-eth0` lives inside the host's network namespace.
+     * Reaching it needs `mnexec -a <pid>`, which is a different privilege and a different failure
+     * mode, so E-20 deliberately stops at the root namespace. **This sweep being quiet does not
+     * mean the fabric is clean; it means the root namespace is.** Stated in the API manual §2b.
+     *
      * It does NOT clear the netem: removing a fault this process did not create would destroy
      * whatever experiment did create it, and `tools/test_workflow/faults.sh` is entitled to have
      * netem on an interface. It does NOT declare the edge down either: inventing a declaration
-     * from a qdisc reading would be the twin manufacturing its own evidence.
+     * from a qdisc reading would be the twin manufacturing its own evidence. Both of those get
+     * WIDER, not narrower, once host-facing and unknown interfaces are in scope: the sweep now
+     * sees residue it could not possibly own.
      *
-     * @param run the tc seam; production passes utils::netem::realTcRunner().
-     * @return the interfaces found carrying netem, in sweep order. Empty on a clean fabric, and
-     *         empty on every non-MININET deployment (there is no Mininet interface to read).
+     * @param run the tc seam; production passes utils::netem::readOnlyTcRunner() -- **not**
+     *        realTcRunner(), because the bare `tc qdisc show` this issues is outside the sudoers
+     *        grant and needs no privilege anyway. See readOnlyTcRunner.
+     * @return what was found and whose it is, in the order the qdisc tree lists it. Empty on a
+     *         clean root namespace, on an unreadable tree (a WARN says which), and on every
+     *         non-MININET deployment (there is no Mininet interface to read).
      */
-    std::vector<std::string> warnAboutResidualNetem(const utils::netem::TcRunner& run);
+    std::vector<ResidualNetem> warnAboutResidualNetem(const utils::netem::TcRunner& run);
 
     void setVertexDown(Graph::vertex_descriptor v);
     void setVertexUp(Graph::vertex_descriptor v);

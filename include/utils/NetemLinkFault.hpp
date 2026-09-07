@@ -47,6 +47,7 @@
  *       password prompt the kernel cannot answer and the caller deserves the clearer error.
  */
 
+#include <algorithm>
 #include <cstdint>
 #include <functional>
 #include <sstream>
@@ -237,6 +238,51 @@ planAttach(const std::string& tree)
 }
 
 /**
+ * @brief Every interface carrying a netem qdisc in a WHOLE-MACHINE `tc qdisc show`, in tree order.
+ *
+ * [Co-developed with claude code -- Adam]
+ * E-20 (Adam, 2026-09-07). @p tree is the output of the bare, no-`dev` form, which prints one line
+ * per qdisc with the interface named in it:
+ *
+ *     qdisc htb 5: dev s1-eth1 root refcnt 2 r2q 10 default 0x1 ...
+ *     qdisc netem 10: dev s1-eth1 parent 5:1 limit 1000 loss 100%
+ *
+ * That extra `dev <name>` is why this cannot reuse findExistingNetem(), which parses the per-device
+ * form where those two words are absent (`w[3]` is `root`/`parent` there and the device name here).
+ *
+ * @note Returns the names verbatim, INCLUDING ones outside the `s<N>-eth<M>` shape: deciding that
+ *       `docker0` is not this fabric's business belongs to the caller that knows what the fabric
+ *       is, not to a parser. Deduplicated, because an interface may carry more than one netem.
+ */
+inline std::vector<std::string>
+netemInterfacesInTree(const std::string& tree)
+{
+    std::vector<std::string> ifaces;
+    for (const auto& line : qdiscLines(tree))
+    {
+        const auto w = splitWords(line);
+        if (w.size() < 5 || w[0] != "qdisc" || w[1] != "netem")
+        {
+            continue;
+        }
+        for (std::size_t i = 2; i + 1 < w.size(); ++i)
+        {
+            if (w[i] != "dev")
+            {
+                continue;
+            }
+            const std::string& name = w[i + 1];
+            if (std::find(ifaces.begin(), ifaces.end(), name) == ifaces.end())
+            {
+                ifaces.push_back(name);
+            }
+            break;
+        }
+    }
+    return ifaces;
+}
+
+/**
  * @brief Where the netem on this interface is attached, for the delete that removes it.
  *
  * Read from the live tree rather than remembered, so a recovery still works after a kernel
@@ -284,11 +330,52 @@ realTcRunner()
     };
 }
 
+/**
+ * @brief The tc the startup sweep runs: the same binary, **without sudo**.
+ *
+ * [Co-developed with claude code -- Adam]
+ * E-20. Reading the qdisc tree needs no privilege at all -- `tools/test_workflow/qdisc_snapshot.sh`
+ * has taken whole-machine snapshots with a bare `tc qdisc show` since 2026-08-13 -- and going
+ * through sudo here would be worse than pointless:
+ *
+ *   🔴 the NOPASSWD grants on this machine cover `tc qdisc show dev s[0-9]*-eth[0-9]*`. The bare,
+ *      no-`dev` form the sweep needs is NOT one of them, so `sudo -n` would refuse it, and a
+ *      refusal with stderr dropped is indistinguishable from "no netem anywhere". That exact
+ *      misread scored a live measurement INVALID on 2026-08-21 while the injector was printing
+ *      "netem verified present" -- see doc/audit/2026-08-21_p4-beacon-sweep/beacon_sweep.sh:89.
+ *
+ * A `tc` that cannot be reached at all surfaces as a non-zero status, which the sweep reports as
+ * "could not read" rather than as a clean fabric. That is the whole point of the distinction:
+ * this runner is allowed to fail, it is not allowed to look clean while failing.
+ *
+ * @warning Read-only by construction is NOT enforced here -- it is enforced by the caller, which
+ *          only ever issues `qdisc show`. Without sudo an add/del would simply fail, but a sweep
+ *          that tried is already the wrong sweep. See TopologyAndFlowMonitor::warnAboutResidualNetem.
+ */
+inline TcRunner
+readOnlyTcRunner()
+{
+    return [](const std::vector<std::string>& args) {
+        std::vector<std::string> argv{"tc"};
+        argv.insert(argv.end(), args.begin(), args.end());
+        const auto out = utils::execArgv(argv);
+        return TcOutcome{out.ran, out.status, out.output};
+    };
+}
+
 /// `tc qdisc show dev <iface>`, as this file's other functions want it.
 inline TcOutcome
 showQdisc(const std::string& iface, const TcRunner& run)
 {
     return run({"qdisc", "show", "dev", iface});
+}
+
+/// `tc qdisc show` for the WHOLE machine: every interface in this network namespace, one call.
+/// The form netemInterfacesInTree() parses. E-20.
+inline TcOutcome
+showAllQdiscs(const TcRunner& run)
+{
+    return run({"qdisc", "show"});
 }
 
 /**

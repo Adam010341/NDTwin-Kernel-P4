@@ -1433,6 +1433,7 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   **不清、不當宣告接回**（`faults.sh` 有權在介面上掛 netem；從 qdisc 讀數造出一個宣告
   等於讓分身自己當自己的證人）。理由：宣告不進檔案、netem 進 qdisc 樹
   ⇒ **重啟後乾淨的 `down_reason` 不代表 fabric 乾淨**。
+  ⚠️ **那個範圍本身就是下一個洞**——見本條末的 E-20。
 - **閘門**：`tests/shell/mutate_withdrawal_needs_observed_failure.sh`（mutate
   `TopologyAndFlowMonitor.cpp` ＋ `HttpSession.cpp`）。逐字結果在
   `doc/audit/2026-09-07_fix-w8b-withdrawal-pairing/RED-GREEN.md`。
@@ -1456,6 +1457,28 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
     拆掉 netem 後 Ryu 補發那兩筆、以及操作者的誤 POST（lw8b2 手動 POST 證實）。句子已改。
   - **閘門**：同一支加 M19（log 搬回判定前）／M20（三句變一句）＋ W4 對照 ⇒ **20 變異、4 對照**；
     gtest 加 3 格（`DeclaredLinkFailureWireTest` 12 → 15）。
+- 🆕 **E-20（2026-09-07 Adam 裁「另開小單擴到全部 Mininet 介面，不動本分支」；分支
+  `fix/e20-startup-sweep-all-interfaces`，base＝W8b tip `8a3f71d1`）**：
+  - **缺陷**：W8-4 的掃描只讀交換機↔交換機兩端的 `sN-ethM`，而故障實際上不掛在那裡。
+    🟢 **樹裡查得到（讀過原始碼，不是推論）**：`testbed_topo.py:92-96` 把 host 接在
+    s1～s4 的 **port 3 起**（s1-eth1／s1-eth2 才是交換機↔交換機），而 chaos harness 的
+    **預設** netem 介面就是 `s1-eth3`（`doc/audit/2026-08-28_chaos-harness/harness/chaos.py:487,544`）
+    ⇒ **預設的混沌注入落在掃描範圍外**；`faults.sh` 的 `--iface` 由操作者指，同樣打得到那裡，
+    甚至打進 host netns 的 `hN-eth0`。對那一類故障，掃描**什麼都不說**，
+    而這支掃描的沉默會被讀成「fabric 乾淨」。
+  - **修法**：一次**裸 `tc qdisc show`**（不帶 `dev`、**不走 sudo**——讀 qdisc 不需要權限，
+    而 NOPASSWD 只授權 `dev s[0-9]*-eth[0-9]*` 那個形式，`sudo -n` 會被拒、
+    而被拒＋stderr 丟掉長得跟「哪裡都沒有 netem」一模一樣，2026-08-21 beacon sweep 就是這樣
+    誤判過一個 rep）；解析出所有帶 netem 的介面，再對照圖分成三類印在同一行 WARN：
+    `(link)`／`(host-facing)`／`(unknown)` ＋ 各類數量。**仍然不清、仍然不宣告 down。**
+  - 🔴 **界線（掃描看不到、手冊 §2b 已寫明）**：① 不是 `sN-ethM` 形狀的介面（`docker0`、
+    wifi、veth）**不報**——會在筆電上狂叫的警告等於沒有警告；② host netns 裡的 `hN-eth0`
+    從 root netns **看不到**（要 `mnexec -a`）。⇒ **這支掃描不出聲＝root netns 乾淨，不等於
+    fabric 乾淨。**
+  - **閘門**：同一支 `mutate_withdrawal_needs_observed_failure.sh` 加 M21（縮回只報 link 端）／
+    M22（unknown 被丟掉）／M23（全部分類成 link）／M24（改回一次一個 `dev` 讀）／
+    M25（連 docker0 一起報）＋ W5／W6 兩個對照 ⇒ **25 變異、6 對照**；
+    M16 被 E-20 改了語意（見該檔檔頭），編號保留。
 
 ### B-7 `set_switches_power_state` 對不存在的 IP 回 500，而同一個 IP 的 GET 回 404
 
