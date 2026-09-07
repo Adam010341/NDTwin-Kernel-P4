@@ -1,24 +1,10 @@
-# Verbatim unittest output for eight of the mutation gate’s mutants, 2026-09-08.
-#
-# Produced by capture_red.sh in this directory, which re-applies the same anchors
-# tests/shell/mutate_p4_rule_install_time.sh uses, to a COPY of p4_proxy under a temp dir --
-# hence the /tmp/ndt-red-*/ paths below. The gate itself prints a one-line verdict per mutant;
-# this file is the assertion text behind eight of them, so the summary can quote rather than
-# paraphrase. Everything below this header is unedited program output.
-#
-# Regenerated after Adam’s 2026-09-08 ruling that a P4 rule’s duration never restarts: N2 and
-# N3 are now both mutations of "the clock restarts", and N3 -- a reroute restarting it -- is
-# the design that ruling rejected.
-#
-# [Co-developed with claude code -- Adam]
-
 ==============================================================
 ### M1 -- an accepted route install is not recorded at all
 ==============================================================
 ERROR: test_an_accepted_route_install_is_dated (tests.test_rule_install_times.TheClientDatesWhatTheSwitchAcceptedTest.test_an_accepted_route_install_is_dated)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/tmp/ndt-red-ZPoR2J/m1/tests/test_rule_install_times.py", line 432, in test_an_accepted_route_install_is_dated
+  File "/tmp/ndt-red-ogafMR/m1/tests/test_rule_install_times.py", line 463, in test_an_accepted_route_install_is_dated
     self.assertAlmostEqual(self.age_of(read_back_lpm()), 12.0)
     ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
   File "/home/adam/miniconda3/lib/python3.13/unittest/case.py", line 938, in assertAlmostEqual
@@ -27,7 +13,7 @@ Traceback (most recent call last):
 TypeError: unsupported operand type(s) for -: 'NoneType' and 'float'
 
 ======================================================================
-Ran 73 tests in 0.004s
+Ran 162 tests in 0.064s
 FAILED (failures=3, errors=2)
 
 ==============================================================
@@ -36,13 +22,13 @@ FAILED (failures=3, errors=2)
 FAIL: test_a_rule_this_proxy_installed_reports_how_long_ago (tests.test_ryu_flow_stats.DurationComesFromTheProxysOwnRecordTest.test_a_rule_this_proxy_installed_reports_how_long_ago)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/tmp/ndt-red-ZPoR2J/m2/tests/../tests/test_ryu_flow_stats.py", line 280, in test_a_rule_this_proxy_installed_reports_how_long_ago
+  File "/tmp/ndt-red-ogafMR/m2/tests/../tests/test_ryu_flow_stats.py", line 280, in test_a_rule_this_proxy_installed_reports_how_long_ago
     self.assertEqual(flow["duration_sec"], 32)
     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
 AssertionError: 0 != 32
 
 ======================================================================
-Ran 73 tests in 0.005s
+Ran 162 tests in 0.063s
 FAILED (failures=6)
 
 ==============================================================
@@ -51,7 +37,7 @@ FAILED (failures=6)
 FAIL: test_a_rule_with_no_record_stays_zero_which_is_what_unknown_looks_like (tests.test_ryu_flow_stats.DurationComesFromTheProxysOwnRecordTest.test_a_rule_with_no_record_stays_zero_which_is_what_unknown_looks_like)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/tmp/ndt-red-ZPoR2J/m3/tests/../tests/test_ryu_flow_stats.py", line 289, in test_a_rule_with_no_record_stays_zero_which_is_what_unknown_looks_like
+  File "/tmp/ndt-red-ogafMR/m3/tests/../tests/test_ryu_flow_stats.py", line 289, in test_a_rule_with_no_record_stays_zero_which_is_what_unknown_looks_like
     self.assertEqual((flow["duration_sec"], flow["duration_nsec"]), (0, 0))
     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 AssertionError: Tuples differ: (1000, 0) != (0, 0)
@@ -66,8 +52,8 @@ First differing element 0:
 + (0, 0)
 
 ======================================================================
-Ran 73 tests in 0.005s
-FAILED (failures=11)
+Ran 162 tests in 0.067s
+FAILED (failures=10)
 
 ==============================================================
 ### M4 -- the key drops the match, so one table is one rule
@@ -75,7 +61,7 @@ FAILED (failures=11)
 FAIL: test_two_rules_in_one_table_at_one_priority_do_not_share_an_age (tests.test_ryu_flow_stats.DurationComesFromTheProxysOwnRecordTest.test_two_rules_in_one_table_at_one_priority_do_not_share_an_age)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/tmp/ndt-red-ZPoR2J/m4/tests/../tests/test_ryu_flow_stats.py", line 339, in test_two_rules_in_one_table_at_one_priority_do_not_share_an_age
+  File "/tmp/ndt-red-ogafMR/m4/tests/../tests/test_ryu_flow_stats.py", line 339, in test_two_rules_in_one_table_at_one_priority_do_not_share_an_age
     self.assertEqual((rendered["10.0.0.7"]["duration_sec"],
     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
                       rendered["10.0.0.7"]["duration_nsec"]), (0, 0))
@@ -93,30 +79,9 @@ First differing element 0:
 ?  ^
 
 
-----------------------------------------------------------------------
-Ran 73 tests in 0.004s
-Ran 73 tests in 0.004s
-
-FAILED (failures=4)
-FAILED (failures=4)
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Added 5-tuple rule prio=101 {'dstAddr': '10.0.0.4', 'protocol': 6} -> port 3
-[1] Added 5-tuple rule prio=101 {'dstAddr': '10.0.0.4'} -> port 3
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Failed to delete route: StatusCode.INTERNAL - fake failure
-[1] Failed to modify route: StatusCode.UNKNOWN - fake failure
-[1] Failed to add route: StatusCode.UNKNOWN - fake failure
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Deleted route: 10.0.0.4/32
-[1] Added 5-tuple rule prio=101 {'srcAddr': '10.0.0.1', 'dstAddr': '10.0.0.4', 'protocol': 6, 'l4_dst_port': 80} -> port 3
-[1] Modified route: 10.0.0.4/32 -> port 9, mac 00:00:00:00:00:04
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Added route: 0.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Modified route: 10.0.0.4/32 -> port 9, mac 00:00:00:00:00:04
-[1] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Setting Forwarding Pipeline Config...
+======================================================================
+Ran 162 tests in 0.066s
+FAILED (failures=5)
 
 ==============================================================
 ### M5 -- the endpoint stops passing the record (finding #71 again)
@@ -124,35 +89,14 @@ FAILED (failures=4)
 FAIL: test_a_rule_the_client_installed_comes_back_with_its_age (tests.test_rule_install_times.TheEndpointReadsTheClientsOwnRecordTest.test_a_rule_the_client_installed_comes_back_with_its_age)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/tmp/ndt-red-ZPoR2J/m5/tests/test_rule_install_times.py", line 614, in test_a_rule_the_client_installed_comes_back_with_its_age
+  File "/tmp/ndt-red-ogafMR/m5/tests/test_rule_install_times.py", line 662, in test_a_rule_the_client_installed_comes_back_with_its_age
     self.assertEqual(body[str(dpid)][0]["duration_sec"], 32)
     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 AssertionError: 0 != 32
 
 ----------------------------------------------------------------------
-Ran 73 tests in 0.004s
-Ran 73 tests in 0.004s
-
+Ran 162 tests in 0.064s
 FAILED (failures=1)
-FAILED (failures=1)
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Added 5-tuple rule prio=101 {'dstAddr': '10.0.0.4', 'protocol': 6} -> port 3
-[1] Added 5-tuple rule prio=101 {'dstAddr': '10.0.0.4'} -> port 3
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Failed to delete route: StatusCode.INTERNAL - fake failure
-[1] Failed to modify route: StatusCode.UNKNOWN - fake failure
-[1] Failed to add route: StatusCode.UNKNOWN - fake failure
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Deleted route: 10.0.0.4/32
-[1] Added 5-tuple rule prio=101 {'srcAddr': '10.0.0.1', 'dstAddr': '10.0.0.4', 'protocol': 6, 'l4_dst_port': 80} -> port 3
-[1] Modified route: 10.0.0.4/32 -> port 9, mac 00:00:00:00:00:04
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Added route: 0.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Modified route: 10.0.0.4/32 -> port 9, mac 00:00:00:00:00:04
-[1] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Setting Forwarding Pipeline Config...
 
 ==============================================================
 ### N1 (control) -- the stamp is written before the switch accepted anything
@@ -160,7 +104,7 @@ FAILED (failures=1)
 FAIL: test_a_refused_route_install_is_not_dated (tests.test_rule_install_times.TheClientDatesWhatTheSwitchAcceptedTest.test_a_refused_route_install_is_not_dated)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/tmp/ndt-red-ZPoR2J/n1/tests/test_rule_install_times.py", line 442, in test_a_refused_route_install_is_not_dated
+  File "/tmp/ndt-red-ogafMR/n1/tests/test_rule_install_times.py", line 473, in test_a_refused_route_install_is_not_dated
     self.assertIsNone(client.rule_install_times.age_seconds(
     ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         1, LPM_TABLE, 0, read_back_lpm()["match"]))
@@ -168,29 +112,8 @@ Traceback (most recent call last):
 AssertionError: 0.0 is not None
 
 ----------------------------------------------------------------------
-Ran 73 tests in 0.004s
-Ran 73 tests in 0.004s
-
+Ran 162 tests in 0.065s
 FAILED (failures=1)
-FAILED (failures=1)
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Added 5-tuple rule prio=101 {'dstAddr': '10.0.0.4', 'protocol': 6} -> port 3
-[1] Added 5-tuple rule prio=101 {'dstAddr': '10.0.0.4'} -> port 3
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Failed to delete route: StatusCode.INTERNAL - fake failure
-[1] Failed to modify route: StatusCode.UNKNOWN - fake failure
-[1] Failed to add route: StatusCode.UNKNOWN - fake failure
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Deleted route: 10.0.0.4/32
-[1] Added 5-tuple rule prio=101 {'srcAddr': '10.0.0.1', 'dstAddr': '10.0.0.4', 'protocol': 6, 'l4_dst_port': 80} -> port 3
-[1] Modified route: 10.0.0.4/32 -> port 9, mac 00:00:00:00:00:04
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Added route: 0.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Modified route: 10.0.0.4/32 -> port 9, mac 00:00:00:00:00:04
-[1] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Setting Forwarding Pipeline Config...
 
 ==============================================================
 ### N2 (control) -- a second write of the same entry restarts the clock
@@ -198,13 +121,13 @@ FAILED (failures=1)
 FAIL: test_an_idempotent_rewrite_does_not_restart_the_clock (tests.test_rule_install_times.RuleInstallTimesTest.test_an_idempotent_rewrite_does_not_restart_the_clock)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/tmp/ndt-red-ZPoR2J/n2/tests/test_rule_install_times.py", line 357, in test_an_idempotent_rewrite_does_not_restart_the_clock
+  File "/tmp/ndt-red-ogafMR/n2/tests/test_rule_install_times.py", line 360, in test_an_idempotent_rewrite_does_not_restart_the_clock
     self.assertAlmostEqual(self.age(), 30.0)
     ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
 AssertionError: 0.0 != 30.0 within 7 places (30.0 difference)
 
 ======================================================================
-Ran 73 tests in 0.005s
+Ran 162 tests in 0.065s
 FAILED (failures=2)
 
 ==============================================================
@@ -213,33 +136,128 @@ FAILED (failures=2)
 FAIL: test_an_app_rerouting_a_destination_does_not_make_the_rule_look_new (tests.test_rule_install_times.TheClientDatesWhatTheSwitchAcceptedTest.test_an_app_rerouting_a_destination_does_not_make_the_rule_look_new)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/tmp/ndt-red-ZPoR2J/n3/tests/test_rule_install_times.py", line 479, in test_an_app_rerouting_a_destination_does_not_make_the_rule_look_new
+  File "/tmp/ndt-red-ogafMR/n3/tests/test_rule_install_times.py", line 510, in test_an_app_rerouting_a_destination_does_not_make_the_rule_look_new
     self.assertAlmostEqual(self.age_of(read_back_lpm()), 600.0)
     ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 AssertionError: 0.0 != 600.0 within 7 places (600.0 difference)
 
 ----------------------------------------------------------------------
-Ran 73 tests in 0.004s
-Ran 73 tests in 0.004s
+Ran 162 tests in 0.064s
+FAILED (failures=1)
 
+==============================================================
+### M11 -- the liveness payload does not carry the counts at all
+==============================================================
+ERROR: test_the_count_is_of_records_not_of_the_rows_on_the_switch (tests.test_switch_state.TheRuleClockOnTheLivenessPayloadTest.test_the_count_is_of_records_not_of_the_rows_on_the_switch)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/ndt-red-ogafMR/m11/tests/../tests/test_switch_state.py", line 237, in test_the_count_is_of_records_not_of_the_rows_on_the_switch
+    self.assertEqual((state["rules_timed"], state["rules_total"]), (1, 9))
+                      ~~~~~^^^^^^^^^^^^^^^
+KeyError: 'rules_timed'
+
+======================================================================
+Ran 162 tests in 0.066s
+FAILED (errors=5)
+
+==============================================================
+### M12 -- rules_timed is taken from the row count, so every table looks fully dated
+==============================================================
+FAIL: test_the_count_is_of_records_not_of_the_rows_on_the_switch (tests.test_switch_state.TheRuleClockOnTheLivenessPayloadTest.test_the_count_is_of_records_not_of_the_rows_on_the_switch)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/ndt-red-ogafMR/m12/tests/../tests/test_switch_state.py", line 237, in test_the_count_is_of_records_not_of_the_rows_on_the_switch
+    self.assertEqual((state["rules_timed"], state["rules_total"]), (1, 9))
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Tuples differ: (9, 9) != (1, 9)
+
+First differing element 0:
+9
+1
+
+- (9, 9)
+?  ^
+
++ (1, 9)
+?  ^
+
+
+----------------------------------------------------------------------
+Ran 162 tests in 0.065s
+FAILED (failures=3)
+
+==============================================================
+### M13 -- reading the table does not count its rows, so there is no denominator
+==============================================================
+ERROR: test_a_table_read_records_how_many_rows_it_returned (tests.test_p4_client_writes.ReadTableEntriesTest.test_a_table_read_records_how_many_rows_it_returned)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/ndt-red-ogafMR/m13/tests/../tests/test_p4_client_writes.py", line 708, in test_a_table_read_records_how_many_rows_it_returned
+    rows, age_s = self.client.last_table_read()
+    ^^^^^^^^^^^
+TypeError: cannot unpack non-iterable NoneType object
+
+======================================================================
+Ran 162 tests in 0.013s
+FAILED (failures=1, errors=3)
+
+==============================================================
+### N10 (control) -- a switch nobody has read is reported as a switch with no rules
+==============================================================
+FAIL: test_a_switch_whose_tables_nobody_has_read_reports_no_total_rather_than_zero (tests.test_switch_state.TheRuleClockOnTheLivenessPayloadTest.test_a_switch_whose_tables_nobody_has_read_reports_no_total_rather_than_zero)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/ndt-red-ogafMR/n10/tests/../tests/test_switch_state.py", line 246, in test_a_switch_whose_tables_nobody_has_read_reports_no_total_rather_than_zero
+    self.assertIsNone(state["rules_total"])
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0 is not None
+
+----------------------------------------------------------------------
+Ran 162 tests in 0.065s
+FAILED (failures=2)
+
+==============================================================
+### N11 (control) -- the reach of the record is read off its newest stamp
+==============================================================
+FAIL: test_the_oldest_stamp_is_reported_not_the_newest (tests.test_rule_install_times.RuleInstallTimesTest.test_the_oldest_stamp_is_reported_not_the_newest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/ndt-red-ogafMR/n11/tests/test_rule_install_times.py", line 417, in test_the_oldest_stamp_is_reported_not_the_newest
+    self.assertAlmostEqual(self.times.oldest_installed_at_epoch(), 1_700_000_000.0)
+    ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 1700000600.0 != 1700000000.0 within 7 places (600.0 difference)
+
+======================================================================
+Ran 162 tests in 0.064s
+FAILED (failures=2)
+
+==============================================================
+### N12 (control) -- the pipeline wipe keeps the row count of the table it destroyed
+==============================================================
+FAIL: test_the_pipeline_push_also_drops_the_row_count_that_record_is_reported_against (tests.test_rule_install_times.TheClientDatesWhatTheSwitchAcceptedTest.test_the_pipeline_push_also_drops_the_row_count_that_record_is_reported_against)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/ndt-red-ogafMR/n12/tests/test_rule_install_times.py", line 611, in test_the_pipeline_push_also_drops_the_row_count_that_record_is_reported_against
+    self.assertIsNone(client.last_table_read())
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: (0, 8.83390021044761e-05) is not None
+
+----------------------------------------------------------------------
+Ran 162 tests in 0.064s
 FAILED (failures=1)
+
+==============================================================
+### N13 (control) -- the row count is served with no age, so a stale one reads as fresh
+==============================================================
+FAIL: test_the_age_of_the_count_advances_with_the_clock (tests.test_p4_client_writes.ReadTableEntriesTest.test_the_age_of_the_count_advances_with_the_clock)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/ndt-red-ogafMR/n13/tests/../tests/test_p4_client_writes.py", line 737, in test_the_age_of_the_count_advances_with_the_clock
+    self.assertGreater(second, first, "the age is frozen, so staleness is invisible")
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 0.0 not greater than 0.0 : the age is frozen, so staleness is invisible
+
+----------------------------------------------------------------------
+Ran 162 tests in 0.065s
 FAILED (failures=1)
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Added 5-tuple rule prio=101 {'dstAddr': '10.0.0.4', 'protocol': 6} -> port 3
-[1] Added 5-tuple rule prio=101 {'dstAddr': '10.0.0.4'} -> port 3
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Failed to delete route: StatusCode.INTERNAL - fake failure
-[1] Failed to modify route: StatusCode.UNKNOWN - fake failure
-[1] Failed to add route: StatusCode.UNKNOWN - fake failure
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Deleted route: 10.0.0.4/32
-[1] Added 5-tuple rule prio=101 {'srcAddr': '10.0.0.1', 'dstAddr': '10.0.0.4', 'protocol': 6, 'l4_dst_port': 80} -> port 3
-[1] Modified route: 10.0.0.4/32 -> port 9, mac 00:00:00:00:00:04
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Added route: 0.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Modified route: 10.0.0.4/32 -> port 9, mac 00:00:00:00:00:04
-[1] Modified route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Added route: 10.0.0.4/32 -> port 3, mac 00:00:00:00:00:04
-[1] Setting Forwarding Pipeline Config...
 

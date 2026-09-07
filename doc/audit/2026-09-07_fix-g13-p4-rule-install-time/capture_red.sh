@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
-# Re-applies five of the gate's mutations one at a time and prints the VERBATIM unittest output
-# for the case that goes red, so the summary can quote it rather than paraphrase the gate's
-# one-line verdict. Read-only against the repo: every mutant is a copy under $BK.
+# Re-applies a selection of the gate's mutations one at a time and prints the VERBATIM unittest
+# output for the case that goes red, so the summary can quote it rather than paraphrase the
+# gate's one-line verdict. Read-only against the repo: every mutant is a copy under $BK.
 set -uo pipefail
 REPO="/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-g13"
 PY="$REPO/p4_proxy/venv/bin/python"
 BK=$(mktemp -d "${TMPDIR:-/tmp}/ndt-red-XXXXXX")
 trap 'rm -rf "$BK"' EXIT
-MODULES="tests.test_rule_install_times tests.test_ryu_flow_stats"
+# The gate's own module list, verbatim. A shorter one here would report a case as green that the
+# gate reports as red, because the case would simply not have been collected.
+MODULES="tests.test_rule_install_times tests.test_ryu_flow_stats tests.test_p4_client_writes \
+tests.test_switch_state.TheRuleClockOnTheLivenessPayloadTest"
 
 apply() {  # $1 label  $2 file (relative to p4_proxy)  $3 old  $4 new
     local d="$BK/$1"; mkdir -p "$d"
@@ -30,6 +33,10 @@ show() {  # $1 label  $2 mutant dir  $3 case name
     ( cd "$2" && PYTHONPATH="$2" PYTHONDONTWRITEBYTECODE=1 "$PY" -m unittest $MODULES 2>&1 ) \
         | awk -v c="$3" '
             /^(FAIL|ERROR): / {p = index($0, c" (") > 0}
+            # The summary ends the traceback. Without this the block stays open and swallows
+            # everything the modules printed to stdout after it -- which is why the earlier
+            # captures carried pages of "[1] Added route:" and each summary line twice.
+            /^Ran / {p = 0}
             p {print}
             /^Ran |^FAILED|^OK/ {print}
           '
@@ -101,3 +108,45 @@ d=$(apply n3 proxy_agent/p4_client.py \
                 self._lpm_match(dst_ip, prefix_len))
             print(f"[{self.device_id}] Modified route:')
 show "N3 (control) -- a reroute restarts the clock (the design Adam ruled out 2026-09-08)" "$d" test_an_app_rerouting_a_destination_does_not_make_the_rule_look_new
+
+# --- 2026-09-08, R3-G13b: the denominator on GET /p4/switch_state ---------------------------
+
+d=$(apply m11 proxy_agent/topology_manager.py \
+'                    "rules_timed": rules_timed,
+                    "rules_total": rules_total,
+                    "rules_total_age_s": rules_total_age_s,' \
+'')
+show "M11 -- the liveness payload does not carry the counts at all" "$d" test_the_count_is_of_records_not_of_the_rows_on_the_switch
+
+d=$(apply m12 proxy_agent/topology_manager.py \
+'                    rules_timed = len(install_times)' \
+'                    rules_timed = rules_total')
+show "M12 -- rules_timed is taken from the row count, so every table looks fully dated" "$d" test_the_count_is_of_records_not_of_the_rows_on_the_switch
+
+d=$(apply m13 proxy_agent/p4_client.py \
+'        self._last_table_read = (len(entries), time.monotonic())
+        return entries' \
+'        return entries')
+show "M13 -- reading the table does not count its rows, so there is no denominator" "$d" test_a_table_read_records_how_many_rows_it_returned
+
+d=$(apply n10 proxy_agent/topology_manager.py \
+'                rules_total, rules_total_age_s = None, None' \
+'                rules_total, rules_total_age_s = 0, 0.0')
+show "N10 (control) -- a switch nobody has read is reported as a switch with no rules" "$d" test_a_switch_whose_tables_nobody_has_read_reports_no_total_rather_than_zero
+
+d=$(apply n11 proxy_agent/rule_install_times.py \
+'            oldest = min(self._at.values(), default=None)' \
+'            oldest = max(self._at.values(), default=None)')
+show "N11 (control) -- the reach of the record is read off its newest stamp" "$d" test_the_oldest_stamp_is_reported_not_the_newest
+
+d=$(apply n12 proxy_agent/p4_client.py \
+'        # "nobody has counted since the wipe", until the next read counts.
+        self._last_table_read = None' \
+'        # "nobody has counted since the wipe", until the next read counts.
+        pass')
+show "N12 (control) -- the pipeline wipe keeps the row count of the table it destroyed" "$d" test_the_pipeline_push_also_drops_the_row_count_that_record_is_reported_against
+
+d=$(apply n13 proxy_agent/p4_client.py \
+'        return rows, max(0.0, time.monotonic() - at)' \
+'        return rows, 0.0')
+show "N13 (control) -- the row count is served with no age, so a stale one reads as fresh" "$d" test_the_age_of_the_count_advances_with_the_clock

@@ -1,6 +1,6 @@
 interpreter: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-g13/p4_proxy/venv/bin/python
 baseline (must be green before any mutation):
-Ran 73 tests in 0.004s
+Ran 162 tests in 0.067s
 OK
 
   caught   M1: an accepted route install is not recorded at all             (test_an_accepted_route_install_is_dated went red)
@@ -22,6 +22,13 @@ OK
   caught   N7 (control): the record itself can report a negative age        (test_a_clock_that_went_backwards_reports_zero_rather_than_a_negative_age went red)
   caught   N8 (control): the sub-second remainder is thrown away            (test_the_sub_second_remainder_goes_into_duration_nsec went red)
   caught   N9 (control): the key forgets which switch, so ten switches share one table (test_a_different_switch_is_a_different_entry went red)
+  caught   M11: the liveness payload does not carry the counts at all       (test_the_count_is_of_records_not_of_the_rows_on_the_switch went red)
+  caught   M12: rules_timed is taken from the row count, so every table looks fully dated (test_the_count_is_of_records_not_of_the_rows_on_the_switch went red)
+  caught   M13: reading the table does not count its rows, so there is no denominator (test_a_table_read_records_how_many_rows_it_returned went red)
+  caught   N10 (control): a switch nobody has read is reported as a switch with no rules (test_a_switch_whose_tables_nobody_has_read_reports_no_total_rather_than_zero went red)
+  caught   N11 (control): the reach of the record is read off its newest stamp (test_the_oldest_stamp_is_reported_not_the_newest went red)
+  caught   N12 (control): the pipeline wipe keeps the row count of the table it destroyed (test_the_pipeline_push_also_drops_the_row_count_that_record_is_reported_against went red)
+  caught   N13 (control): the row count is served with no age, so a stale one reads as fresh (test_the_age_of_the_count_advances_with_the_clock went red)
 
-baseline byte-identical: yes (4 sources, 2 test files)
-mutation gate: 19 mutations, 0 survived
+baseline byte-identical: yes (5 sources, 4 test files)
+mutation gate: 26 mutations, 0 survived

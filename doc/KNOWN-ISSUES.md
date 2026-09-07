@@ -3073,6 +3073,14 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   - **紀錄在記憶體，proxy 重啟就沒了**——但重啟本身會 push pipeline 清空每一張表（**A-4c**）、
     再由 `install_initial_routes` 重灌，所以**沒有規則會帶著錯的年齡活過重啟**。
   - **年齡剛好為 0 的規則跟「不知道」在 payload 上分不開**（都是 0/0）。
+    🏁 **但「這台交換機上有幾條是不知道的」在 `GET /p4/switch_state` 上看得到**（2026-09-08 補）：
+    每台多四個欄位 `rules_timed`（proxy 記得幾條）／`rules_total`（上一次讀表的列數）／
+    `rules_total_age_s`／`oldest_rule_installed_at`（最早那顆戳的 epoch，＝這份紀錄回溯得多遠）。
+    `0 of 40` ＝這台上的規則 proxy 一條都沒裝；`40 of 40` ＝整張表都定得了年。
+    🔴 **四個欄位的 `null` 都不是 `0`**——「沒人數過」與「數出來是零」正是本條要分開的兩件事。
+    ⚠️ `rules_total` 是**上一次讀表**的快取（所以帶 age）：這個端點是 `async def`，
+    在裡面現讀表就是 2026-08-13 那次「一台 SIGSTOP 的 bmv2 拖垮整個 agent 的 event loop」。
+    kernel 自己的 1 Hz `GET /stats/flow/{dpid}` 輪詢負責讓它保鮮。手冊 §3 有欄位表。
   - 🔴 **`duration` 自「這個 proxy 第一次成功寫入該 entry」起算，之後不重算**——冪等重寫
     （link watchdog 每次 link 轉換都會做）與改道（MODIFY 成不同的 out-port）**都不重算**，
     只有 delete／pipeline 清空會結束它。**與 OVS 一致**（OVS 端的 `duration` 是交換機自己的，
@@ -3084,9 +3092,11 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 - **還沒做的**：**`ndt` 側還沒翻面**——`fix/ndt-round2-0907` 的 W16-3 目前把「P4 平面」
   一律標 UNKNOWN，G-13 併進去之後要改成「**0/0 才 UNKNOWN、有年齡就定年**」，
   `_no_time_axis`／`window_blindspot` 那組測試要**翻紅改寫**（不是刪掉）。等 3-51 併後再開單。
-- **證據**：閘門 `tests/shell/mutate_p4_rule_install_time.sh`（19 mutations / 0 survived）、
-  單元測試 `p4_proxy/tests/test_rule_install_times.py`（40）＋
-  `test_ryu_flow_stats.py` 的 `DurationComesFromTheProxysOwnRecordTest`（10）。
+- **證據**：閘門 `tests/shell/mutate_p4_rule_install_time.sh`（**26 mutations / 0 survived**）、
+  單元測試 `p4_proxy/tests/test_rule_install_times.py`（42；09-07 那版寫 40，實際是 38）＋
+  `test_ryu_flow_stats.py` 的 `DurationComesFromTheProxysOwnRecordTest`（10）＋
+  `test_switch_state.py` 的 `TheRuleClockOnTheLivenessPayloadTest`（7）＋
+  `test_p4_client_writes.py` 的 `ReadTableEntriesTest` 四格讀表列數。
   ⚠️ **可信度分級**：🟢 上面的離線閘門與測試**是本輪實跑的**；
   🟠 **反向 live 實驗（裝一條路由、+12 s／+32 s 讀 `duration` 應遞增）由 orchestrator 做，
   本條登記時尚未完成** ⇒ 「P4 現在有時間軸了」在 live 上**還沒有被證實過**。

@@ -35,7 +35,7 @@ bmv2 的 table entry **沒有年齡**——P4Runtime 的 `TableEntry` 有 match�
 | `is_dont_care(spec)` | ternary 的 mask 為 0 ＝ 不在這條 entry 裡。**`ryu_flow_stats._match_to_ryu` 改成呼叫它**，所以「什麼叫 don't care」全 repo 只有一份定義。 |
 | `RuleInstallTimes.record/forget/clear` | 記／清一條／清全部。時鐘可注入（`monotonic=`、`wall=`）。**`record` 對已有紀錄的 entry 是 no-op**，見 §3.3。 |
 | `RuleInstallTimes.age_seconds` | 秒數，**沒有紀錄回 `None`**（不是 `0.0`）。 |
-| `installed_at_epoch` | 牆鐘時間，**由 monotonic 年齡推導**、不另存一份。存兩個時鐘＝兩個會互相打架的答案。 |
+| `oldest_installed_at_epoch()` | 這份紀錄裡**最早**那顆戳的牆鐘時間（沒有紀錄回 `None`），**由 monotonic 推導**、不另存一份。存兩個時鐘＝兩個會互相打架的答案。⚠️ 09-08 之前這裡是逐條的 `installed_at_epoch(dpid, table, priority, match)`，**沒有 reader 也不可能有**，已刪；見 §7。 |
 
 **key 只包含 dpid／table／priority／match**（單子指定的四項）。
 
@@ -129,8 +129,8 @@ test_an_app_rerouting_a_destination_does_not_make_the_rule_look_new`，
 
 ## 5. 閘門看紅（逐字在 SUMMARY §3）
 
-`tests/shell/mutate_p4_rule_install_time.sh`，**19 mutations / 0 survived**，
-兩個方向都測：M1–M10 把缺陷放回去；N1–N9 是「記更多、宣稱更多」的實作
+`tests/shell/mutate_p4_rule_install_time.sh`，**26 mutations / 0 survived**（09-08 從 19 加到 26，
+新的七個在 §7），兩個方向都測：M1–M10 把缺陷放回去；N1–N9 是「記更多、宣稱更多」的實作
 （在交換機接受之前就蓋章、**任何**重寫都重算、**改道就重算**、未紀錄的規則也給年齡、
 pipeline 清空後不清紀錄、key 保留 don't-care 欄位、負數年齡、丟掉 nsec、key 忘記是哪一台交換機）。
 **沒有 N 組的話，這個閘門會替一個「勤勞地記、而數字不能信」的實作背書。**
@@ -147,12 +147,126 @@ pipeline 清空後不清紀錄、key 保留 don't-care 欄位、負數年齡、�
    `test_a_rule_installed_this_instant_is_indistinguishable_from_an_undated_one` 釘住這件事。
 4. **這個修法只讓 proxy 知道「它自己裝的」規則的年齡。** 別的寫入者（另一個 controller、
    上一代 proxy 留下且 push 失敗的）永遠 0/0。這是設計，不是缺口。
-5. **`installed_at_epoch()` 目前的 reader 只有測試。** 它是**推導**出來的（沒有第二份存下來的
-   時鐘會腐爛），但它確實還沒有 production 呼叫點；自然的 reader 是 `/p4/switch_state`
-   加一個 additive key（a4c 對 `boot_id`／`table_generation` 就是這樣做的）——**本輪沒做**，
-   見 SUMMARY §7。
+5. 🏁 **已解（09-08，§7）**：`installed_at_epoch()` 那個沒有 reader 的 accessor 已經**刪掉**，
+   換成有 production reader 的 `oldest_installed_at_epoch()`（`/p4/switch_state` 讀它）。
+   原文如下：「它是**推導**出來的（沒有第二份存下來的時鐘會腐爛），但它確實還沒有 production
+   呼叫點；自然的 reader 是 `/p4/switch_state` 加一個 additive key（a4c 對
+   `boot_id`／`table_generation` 就是這樣做的）——**本輪沒做**，見 SUMMARY §7。」
 6. **5-tuple 那條路徑只有單元測試，沒有 live 驗。** orchestrator 的反向實驗裝的是一條路由（LPM）。
    若 bmv2 讀回 ternary entry 時會**補上寫入端沒指定的 don't-care 欄位**，
    LPM 路徑不受影響、5-tuple 路徑也不受影響（key 會把 mask 為 0 的欄位排除，見 §3.1），
    但**這件事我沒有對真的 bmv2 驗過**。
 7. **`ndt` 側還沒翻面。** 見 SUMMARY §6。
+
+## 7. 補一顆（2026-09-08，R3-G13b）：把分母接到 `GET /p4/switch_state`
+
+**單子**：`scratch/overnight-2026-09-05/fix/TICKETS-0907/R3/R3-G13b.md`。
+來源＝本文件 §6-5 與 R3-G13 SUMMARY §7-2／§7-3；auditor 09-08 00:2x 🔶 代裁採建議、待 Adam 覆核。
+**無建置、無實驗室、全部離線。**
+
+### 7.1 為什麼要這一顆：`0/0` 的三種意思，payload 上只有一種樣子
+
+G-13 落地之後，`GET /stats/flow/{dpid}` 的 `duration 0/0` 可能是①這條規則剛剛才裝好、
+②這條規則不是這一代 proxy 裝的（別的 controller、上一代、pipeline push 失敗那台）、
+③這台交換機根本沒人讀過。**三種在 flow-stats 的 body 上長得一模一樣**，
+而操作者要的正是「這是老規則，還是我查不到」。
+
+回答它需要一個**分母**：這台上有幾條規則、其中幾條我記得。
+`len(client.rule_install_times)` 一直知道前者的一半，但**沒有對外的讀者**。
+放在 `/p4/switch_state` 而不是開新端點，理由跟 `table_generation`（A-4c）一樣——
+kernel 已經每秒 poll 它、而且它是**按名字**讀欄位的，多一個 key 對既有 parse 完全惰性，
+也不會多一個「會被忘記」的輪詢。
+
+### 7.2 四個 additive 欄位（每台交換機）
+
+| key | 值 | 意思 |
+|---|---|---|
+| `rules_timed` | int；沒有 client 時 `null` | 這個 client 手上有幾條 entry 的 install 戳 |
+| `rules_total` | int；沒人讀過表時 `null` | **上一次** `read_table_entries` 回了幾列（含 default action） |
+| `rules_total_age_s` | float；跟著 total 一起 `null` | 距離那次讀表幾秒 |
+| `oldest_rule_installed_at` | epoch 秒；沒有戳時 `null` | 最早那顆戳的牆鐘時間＝這份紀錄**回溯得多遠** |
+
+`0 of 40`＝這台的規則 proxy 一條都沒裝；`40 of 40`＝整張表都定得了年；`0 of null`＝沒人讀過。
+🔴 **四個欄位的 `null` 都不是 `0`。**「沒人數過」與「數出來是零」正是 G-13 要分開的兩件事，
+在分母上把它們合起來，等於用一個看起來很篤定的數字回答一個沒人問過的問題。
+
+### 7.3 🔴 `rules_total` 為什麼是快取而不是現讀（這一節是本顆最重要的設計決定）
+
+`switch_state()` 是 **`async def`**，跑在 event loop 上；`read_table_entries` 是**阻塞的 gRPC
+streaming 讀**。在這個端點裡現讀表 ＝ 把 2026-08-13 那次事故原封不動放回來：
+一台 SIGSTOP 的 bmv2 讓 `/stats/flow/5` 25 s 沒回來、整個 agent 的 event loop 卡在那個 frame、
+kernel 讀不到任何一台的 liveness，圖從 40/40 掉到 32/40
+（`api_routes.get_flow_stats` 的 docstring 記著這件事，以及那支 py-spy dump）。
+**一台交換機的故障放大成整個 fabric 的狀態全失。**
+
+所以列數是**上一次讀表**留下的，而且**一定帶 age**：一個沒有 age 的計數，
+會讓一台一小時沒人 poll 的交換機把一小時前的數字當成現在的事實端出去。
+保鮮靠 kernel 自己的 1 Hz `GET /stats/flow/{dpid}` 輪詢。
+
+計數記在 `read_table_entries` **函式自己裡面**（`p4_client.py`），不是記在呼叫端：
+呼叫端要記得做的事，下一個呼叫端就會忘記——而忘記的症狀是「數字停住了，沒有任何地方說它停住了」。
+這正是 finding #71 的形狀。`set_forwarding_pipeline_config` 清 `rule_install_times` 的同時
+也把它清成 `None`，因為它數的那些列已經不存在了（A-4c）。
+
+### 7.4 `installed_at_epoch()`：不是接上，是**換掉**
+
+單子給的是二選一：給它一個真的讀者，或者拿掉它。**兩邊都做了，而結論是「換掉」**：
+
+- 逐條的 `installed_at_epoch(dpid, table, priority, match)` **不可能有 production reader**。
+  這個平面上唯一的「逐條」payload 是 `ryu_flow_stats` 的 Ryu flow 形狀，
+  而 **Ryu 沒有 epoch 欄位**——在那裡自己發明一個，等於毀掉那個 renderer 存在的理由（假裝成 Ryu）。
+- 聚合的 `oldest_installed_at_epoch()` **有**：`switch_liveness` 讀它，回 `oldest_rule_installed_at`。
+  它回答的是「這份紀錄回溯得多遠」——**幾秒 ⇒ 紀錄本身是新的**（proxy 剛起、或 pipeline 剛重推），
+  那麼比它更老的規則不論在交換機上待多久都會永遠報 0/0。
+  沒有這個數字，「只有幾條有年齡」跟「這份紀錄剛出生」看起來一模一樣。
+- **推導的性質保留**：仍然是從 monotonic 減出來、不存第二份時鐘、一樣夾在 0。
+
+⇒ 「寫了沒人讀」的東西**沒有留下**：舊的刪掉，新的有讀者。
+
+### 7.5 碼（檔:行對本節所在的 commit）
+
+| 位置 | 改動 |
+|---|---|
+| `rule_install_times.py:233`（`oldest_installed_at_epoch`） | 取代逐條的 `installed_at_epoch`。`min(self._at.values(), default=None)` → 牆鐘，夾 0。 |
+| `p4_client.py:4` | `import time`（這個模組先前沒有時鐘）。 |
+| `p4_client.py:116` | `self._last_table_read = None`。**一個 tuple 一次指派**，讀的執行緒不可能看到「這次的列數配上一次的時戳」。 |
+| `p4_client.py:370` | `set_forwarding_pipeline_config` 在 `rule_install_times.clear()` 之後把它清回 `None`。 |
+| `p4_client.py:669` | `read_table_entries` 迴圈**之後**記 `(len(entries), monotonic)`——讀表拋例外（對停住的交換機 deadline）時，上一次的數字與它的 age 原地留著，而不是記下一個交換機從來沒報過的 0。 |
+| `p4_client.py:672`（`last_table_read`） | 回 `(rows, age_s)` 或 `None`。 |
+| `topology_manager.py:1618-1626`（`switch_liveness`） | 四個 local，`client is not None` 才讀；`client.rule_install_times`／`client.last_table_read()` 是**直接屬性／方法**，不走 `getattr(..., None)`。 |
+| `topology_manager.py:1676-1685` | 四個 additive key 進 payload。 |
+
+🔴 **為什麼不用 `getattr(client, "rule_install_times", None)`**：同一個函式裡 `stream_alive` 就是
+直接屬性；而一個「client 哪天不帶這份紀錄了」的預設值，會讓 `rules_timed` 整輪都回 `null`，
+**跟「這個 proxy 什麼都沒裝」長得一模一樣**——正是本條要消滅的那種沉默。
+`client is None`（只有 probe／beacon 證據、`self.switches` 裡沒有它的 dpid）是**真的會發生**的，
+所以那一種用 `if` 明寫，四個欄位一起回 `null`。
+
+### 7.6 測試與閘門
+
+- 新 7 格 `p4_proxy/tests/test_switch_state.py::TheRuleClockOnTheLivenessPayloadTest`；
+  `FakeClient` 補上 `rule_install_times`（**真的 `RuleInstallTimes`，不是替身**，時鐘可注入）
+  與 `last_table_read()`／`note_table_read()`。
+- 新 4 格 `test_p4_client_writes.py::ReadTableEntriesTest`（記列數／從沒讀過回 `None`／
+  空表記 0 不是「不知道」／age 會走）。
+- 新 1 格 `test_rule_install_times.py`（pipeline push 也清列數）＋ 那裡的 epoch 三格改寫成聚合版。
+- 兩個既有 fixture 補 `_last_table_read = None`（`test_p4_client_writes.a_client`、
+  `test_rule_install_times.a_client`）——手工替身跟真物件脫節時**應該**要 AttributeError。
+- 閘門加七個變異：**M11**（payload 根本不帶這幾個欄位）、**M12**（`rules_timed` 直接取 `rules_total`，
+  於是每張表都「全部定得了年」）、**M13**（讀表不數列數）、**N10**（沒人讀過的交換機回 0 而不是 `null`）、
+  **N11**（拿最新那顆戳當回溯深度）、**N12**（pipeline 清空後留著舊表的列數）、
+  **N13**（列數不帶 age，於是過期的讀數看起來是現在的）。
+  閘門的 `MODULES` 加 `tests.test_p4_client_writes` 與
+  `tests.test_switch_state.TheRuleClockOnTheLivenessPayloadTest`（**只取那一個 class**——
+  該檔其餘部分要跑真執行緒、一次約 6 秒，而閘門一個變異付一次），
+  收尾的 byte-identical 檢查加 `topology_manager.py`、`test_p4_client_writes.py`、`test_switch_state.py`。
+
+### 7.7 沒做的
+
+- **live 一次都沒跑**（lab 不是我的）。本顆全部證據是離線的。
+- **契約沒動**：`tools/contract_test/spec.py` 裡**沒有** `/p4/switch_state` 的 schema
+  （grep 過，一個字都沒有），單子明說「沒有就不要為它開新 schema」。
+- **kernel 側沒有讀這四個欄位**。它們是 additive 的，`DeviceConfigurationAndPowerManager`
+  按名字讀 `probe_ok`／`probe_age_s`／`last_lldp_age_s`，多的 key 對它完全惰性。
+  要不要讓 `ndt --check` 去讀 `rules_timed` 來把「這個平面查不了」拆成「這一條查不了」，
+  是 `ndt` 側那張單的事。
