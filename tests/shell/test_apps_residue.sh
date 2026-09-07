@@ -118,6 +118,12 @@ http_get_flow_entries() { [[ "${FX_NO_TABLE:-0}" == 1 ]] || cat "$REPO/entries.j
 # live_dataplane_kind() shells out to ps and to `sudo -n ovs-vsctl` -- this suite must not
 # depend on what is running on the machine it is run from, and must not need a grant.
 live_dataplane_kind() { echo "${FX_PLANE:-ovs}"; }
+# 3-51: the tree `sudo ndtwin-lab` starts sim in, and therefore where sim'"'"'s log is looked for.
+# Stubbed for the same reason live_dataplane_kind is: the real one resolves the MAIN CHECKOUT,
+# whose .test_run/logs/app_sim.log is a real file left by a real run, and a suite whose exit
+# code depends on that is a suite that reports the machine rather than the code. What the
+# resolution rule itself does is tests/shell/test_ndt_helper_apps_window.sh group 1.
+lab_kernel_dir() { echo "$REPO"; }
 '
 LOCKS_FREE='lock_probe() { echo free; }'
 LOCK_HELD='lock_probe() { case "$1" in graph_lock) echo "held 4 30" ;; *) echo free ;; esac; }'
@@ -301,16 +307,35 @@ section "5L. an app with no window: a LOST record counts against the code, an ab
 # not check" would make `ndt apps orphans` answer 5 on every clean machine, and a gate that can
 # never pass is a gate nobody reads -- which is how G-12's own green checks stopped being read.
 # The log is the discriminator: app_spawn creates it, so a non-empty one is evidence it ran.
+#
+# 🔴 te and not energy since 3-51 (2026-09-07). This group needs an app whose log question CAN
+# be answered, and energy is exactly the app whose cannot be: the lab helper starts it with no
+# `script -f` and it has no disk log on any machine. Driving it here asserted that an absent
+# file means "never ran" for an app where the file never exists -- true by construction, and
+# the same sentence live printed about a sim that had run four minutes earlier. energy's own
+# behaviour is group 5M below and tests/shell/test_ndt_helper_apps_window.sh group 7.
+no_pidfile te
 no_pidfile energy
-: > "$FIX/.test_run/logs/app_energy.log"
-OUT="$(run_residue "$LOCKS_FREE" energy)"
+: > "$FIX/.test_run/logs/app_te.log"
+OUT="$(run_residue "$LOCKS_FREE" te)"
 has   "an empty log reads as 'never ran here'"           "no sign it ever ran here" "$OUT"
 check "  and does not make the verb red"                 "0" "$(rc_of "$(orphans_with "$LOCKS_FREE")")"
-echo "something was logged" > "$FIX/.test_run/logs/app_energy.log"
-OUT="$(run_residue "$LOCKS_FREE" energy)"
+echo "something was logged" > "$FIX/.test_run/logs/app_te.log"
+OUT="$(run_residue "$LOCKS_FREE" te)"
 has   "🔴 a non-empty log means it RAN and the window is lost" "the window is LOST" "$OUT"
 check "🔴 and that is rc 5 -- not checked, not clean"    "5" "$(rc_of "$(orphans_with "$LOCKS_FREE")")"
-rm -f "$FIX/.test_run/logs/app_energy.log"
+rm -f "$FIX/.test_run/logs/app_te.log"
+
+section "5M. 3-51: an app nobody can ask is not an app that was asked"
+# 🔴 energy has no disk log anywhere -- `ndtwin-lab energy-start` is a bare tmux session. Until
+# 09-07 the report said "no sign it ever ran here" about it, which is a claim about a channel
+# that does not exist. Adam's E-7 rule: "查不了" may be non-red, "沒去查" may not look like
+# "查了沒事".
+no_pidfile energy
+OUT="$(run_residue "$LOCKS_FREE" energy)"
+has   "🔴 it says the question cannot be asked"          "CANNOT BE ASKED" "$OUT"
+hasnt "🔴 and does not claim it never ran"               "no sign it ever ran here" "$OUT"
+check "  and it is not red on its own"                   "0" "$(rc_of "$(orphans_with "$LOCKS_FREE")")"
 started_ago energy 600
 
 section "5H. lock_probe itself: what the kernel answered, and what it did not"

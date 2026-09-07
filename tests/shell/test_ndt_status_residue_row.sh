@@ -134,6 +134,12 @@ ovs_bridge_count() { echo 10; }
 ovs_daemon_running() { return 0; }
 topo_session() { return 0; }
 live_dataplane_kind() { echo "${FX_PLANE:-ovs}"; }
+# 3-51: where the lab helper starts sim, and therefore where sim'"'"'s log is looked for. Stubbed
+# for the same reason as the rest of this seam: the real one resolves the MAIN CHECKOUT, whose
+# .test_run/logs/app_sim.log is a real file left by a real run, and group 2'"'"'s "a clean fabric
+# is still GREEN" must not depend on what is in another tree. The rule itself is group 1 of
+# tests/shell/test_ndt_helper_apps_window.sh.
+lab_kernel_dir() { echo "$REPO"; }
 port_open() { case "$1" in 8000) [[ "${FX_KERNEL_UP:-1}" == 1 ]] ;; *) return 1 ;; esac; }
 http_get_graph() { cat "$REPO/graph.json"; }
 http_get_flow_entries() { [[ "${FX_NO_TABLE:-0}" == 1 ]] || cat "$REPO/entries.json"; }
