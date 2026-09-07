@@ -79,14 +79,15 @@ write_case start-reads-request-rc "start of an app that never came up -> rc 1" <
 PAIR
 
 CASES+=(stop-unconditional-ok)
+# 2026-09-07 (lw351): re-anchored, and narrowed to the branch itself. The old anchor started at
+# `energy|sim)` and swept the two lines above the `if`, so `local was=$APP_STATE` -- one line,
+# added between them -- matched it to zero. The `if` plus its first statement is what this
+# mutation is about, and the info string is unique in the file, so the pair is still an exact
+# site without depending on what its neighbours look like this week.
 write_case stop-unconditional-ok "stop of a never-started lab app -> rc 2" <<'PAIR'
-        energy|sim)
-            app_probe "$name"
             if [[ "$APP_STATE" == not-running ]]; then
                 info "$name not running (no live process carries its signature)"
 @@@TO@@@
-        energy|sim)
-            app_probe "$name"
             if false; then
                 info "$name not running (no live process carries its signature)"
 PAIR

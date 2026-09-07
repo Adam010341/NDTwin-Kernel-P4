@@ -4543,6 +4543,10 @@ app_stop() {
         # contract on app_stop above.
         energy|sim)
             app_probe "$name"
+            # The state BEFORE anything is stopped, captured here because app_wait_stopped below
+            # re-probes until it gets not-running and leaves that in APP_STATE. See the `(was:)`
+            # line at the end of this branch.
+            local was="$APP_STATE"
             if [[ "$APP_STATE" == not-running ]]; then
                 info "$name not running (no live process carries its signature)"
                 if [[ "$APP_SESSION_WITHOUT_PROCESS" == 1 ]]; then
@@ -4573,7 +4577,13 @@ app_stop() {
             # NOT removed on the not-running path above: a pidfile with no process is G-12's own
             # case -- something killed it by pid, and that mtime is the only record of when it ran.
             rm -f "$(app_pidfile "$name")"
-            ok "$name stopped (was: $APP_STATE)" ;;
+            # 🔴 `$was`, not `$APP_STATE`. app_wait_stopped polls app_probe until it answers
+            # not-running, so by the time this line runs APP_STATE has been overwritten with the
+            # answer this stop just produced -- and `(was: ...)` is a claim about the state
+            # BEFORE it. Measured live 2026-09-07 (lw351, 1/1): `ndt apps stop sim` printed
+            # `ok sim stopped (was: not-running)` about a sim whose own log shows it taking
+            # SIGINT one second later. The transcript said nothing was there; something was.
+            ok "$name stopped (was: $was)" ;;
         nsr|viz|te)
             local p pid rc=0 poisoned=0
             p="$(app_pidfile "$name")"
@@ -5283,7 +5293,8 @@ residue_report() {
 }
 
 apps_orphans() {
-    local a found=0 pid e blind=""
+    local a found=0 pid e blind="" s spid lp known
+    local -a unnamed=()
     for a in $APP_NAMES; do
         app_probe "$a"
         app_survivors "$a"
@@ -5300,10 +5311,47 @@ apps_orphans() {
         # The 09-02 shape: no pidfile, no signature in any argv, and the children are still
         # there. Reported by the channel that found them, because "how do you know" is the
         # question this whole family of failures could not answer.
-        (( ${#APP_SURVIVORS[@]} == 0 )) && continue
+        #
+        # [Co-developed with claude code -- Adam]
+        # 🔴 3-51b, measured live 2026-09-07 (lw351, 1/1). app_survivors answers "which processes
+        # do these channels find", NOT "which of them is nobody tracking" -- and this verb went
+        # straight from the first question to the second word. With a RUNNING sim, tracked by the
+        # pidfile 3-51 had just taught `ndt` to write, it printed:
+        #
+        #     sim: children with no pidfile and no signature
+        #         pid 3729217  (process group 3729217)
+        #
+        # 3729217 was the contents of the pidfile, verified alive by app_probe seconds earlier,
+        # and printed by `apps status` as `running` in the same run. The group channel finds it
+        # because the pidfile is exactly where app_recorded_pgid starts; nothing then compared
+        # it against what the probe had already accounted for. app_stop does that comparison --
+        # its `extra` loop -- and this verb never got one.
+        #
+        # 🔴 The subtraction is APP_LIVE_PIDS and NOT the pidfile's contents. A pidfile naming a
+        # dead or recycled pid must not silence a survivor with that number: APP_LIVE_PIDS holds
+        # only pids /proc has confirmed are this app (pid_is_app), which is the set "tracked"
+        # can honestly mean. FINDING #48 is untouched -- the 09-02 viz JVMs carry no signature,
+        # so they are in no APP_LIVE_PIDS and every one of them still comes out below.
+        unnamed=()
+        for s in ${APP_SURVIVORS[@]+"${APP_SURVIVORS[@]}"}; do
+            spid="${s%% *}"; known=0
+            for lp in ${APP_LIVE_PIDS[@]+"${APP_LIVE_PIDS[@]}"}; do
+                [[ "$lp" == "$spid" ]] && { known=1; break; }
+            done
+            (( known == 0 )) && unnamed+=("$s")
+        done
+        (( ${#unnamed[@]} == 0 )) && continue
         found=$(( found + 1 ))
-        err "$a: children with no pidfile and no signature -- $(app_label "$a")"
-        for e in "${APP_SURVIVORS[@]}"; do
+        # Two headlines, because "no pidfile" is a statement of fact and it was false in lw351.
+        # A tracked app with an extra process nothing names is still worth rc 1 -- `ndt apps
+        # stop` is still the remedy, and it reaches this one through the group -- but the
+        # sentence has to describe what was actually found.
+        if [[ "$APP_STATE" == running ]]; then
+            err "$a: RUNNING as pid(s) ${APP_LIVE_PIDS[*]}, and these belong to it with nothing naming them -- $(app_label "$a")"
+        else
+            err "$a: children with no pidfile and no signature -- $(app_label "$a")"
+        fi
+        for e in "${unnamed[@]}"; do
             # pid in a variable of its own rather than `${e%% *}` inline: this argv line is one
             # of the sites tests/shell/test_redirection_order.sh lifts out of this file and runs
             # against a pid that cannot exist, and that harness binds `pid`.

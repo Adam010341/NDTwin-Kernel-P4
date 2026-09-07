@@ -195,10 +195,12 @@ report "M9: the captured window is never read" "$m" \
 # ...and the other direction: a window with a start and no end, kept forever. Every later
 # `--check` windows from a sim that stopped yesterday to now and calls the fabric's own baseline
 # residue -- a verb that is red forever is read as often as one that is green forever.
+# 2026-09-07 (lw351 follow-up): re-anchored to the one line that does the work. The `(was: ...)`
+# line below it changed in the same commit, and an anchor that spans a neighbour breaks whenever
+# the neighbour is edited -- which is how mutate_g6_apps_liveness.sh lost this same case.
 m=$(mutant m10 "$NDT" \
-    '            rm -f "$(app_pidfile "$name")"
-            ok "$name stopped (was: $APP_STATE)" ;;' \
-    '            ok "$name stopped (was: $APP_STATE)" ;;')
+    '            rm -f "$(app_pidfile "$name")"' \
+    '            :')
 report "M10 (widening): a verified stop leaves the window open forever" "$m" \
        "🔴 and the pidfile is gone afterwards, so the window closes"
 
@@ -256,6 +258,41 @@ m=$(mutant m15 "$NDT" \
     'LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel-worktree')
 report "M15: ndt's default drifts from the helper's" "$m" \
        "🔴 ndt's default KERNEL_DIR is the helper's default"
+
+# --- lw351: three verbs, one app, one answer ---------------------------------------------------
+
+# The measured defect. app_survivors answers "which processes do these channels find"; without
+# the subtraction that becomes "which processes is nobody tracking", and `apps orphans` reported
+# the contents of the pidfile -- verified alive by app_probe in the same run -- as an orphan.
+m=$(mutant m17 "$NDT" \
+    '        unnamed=()
+        for s in ${APP_SURVIVORS[@]+"${APP_SURVIVORS[@]}"}; do
+            spid="${s%% *}"; known=0
+            for lp in ${APP_LIVE_PIDS[@]+"${APP_LIVE_PIDS[@]}"}; do
+                [[ "$lp" == "$spid" ]] && { known=1; break; }
+            done
+            (( known == 0 )) && unnamed+=("$s")
+        done' \
+    '        unnamed=( ${APP_SURVIVORS[@]+"${APP_SURVIVORS[@]}"} )')
+report "M17: orphans reports pids the probe already accounted for" "$m" \
+       "🔴 a tracked, running sim is NOT an orphan -- rc 0"
+
+# (widening) The other direction, and it is FINDING #48 itself: subtract everything and the verb
+# goes green over the 09-02 viz JVMs -- processes no channel names, which is what it exists for.
+m=$(mutant m18 "$NDT" \
+    '            (( known == 0 )) && unnamed+=("$s")' \
+    '            :')
+report "M18 (widening): orphans reports nothing at all" "$m" \
+       "🔴 control: untracked children still exit 1"
+
+# `(was: ...)` is a claim about the state BEFORE the stop, and app_wait_stopped overwrites
+# APP_STATE with the state after it. Live, that printed "was: not-running" about a sim whose own
+# log shows it taking SIGINT a second later.
+m=$(mutant m19 "$NDT" \
+    '            ok "$name stopped (was: $was)" ;;' \
+    '            ok "$name stopped (was: $APP_STATE)" ;;')
+report "M19: the stop reports the state it produced, not the one it found" "$m" \
+       "🔴 it says what the app WAS: running"
 
 # --- the control -------------------------------------------------------------------------------
 # A comment-only edit must NOT turn the suite red. If it does, this gate is measuring "the file

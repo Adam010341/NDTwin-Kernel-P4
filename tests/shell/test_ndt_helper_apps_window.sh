@@ -93,7 +93,27 @@ reap_fixtures() {
     done < "$FIXTURE_REG"
     echo "$left"
 }
-cleanup() { [[ -f "$FIXTURE_REG" ]] && reap_fixtures >/dev/null; rm -rf "$FIX"; return 0; }
+# Group 10's parent is a bash script, not a `sleep`, so reap_fixtures cannot see it -- and it
+# leads a process group of its own. Killed BY THE GROUP, and only after /proc confirms the
+# process is this suite's fixture: a group id is a pid like any other and the number could have
+# been recycled into a stranger. Never by name: no pkill, no pgrep.
+reap_two_layer() {
+    local left=0
+    [[ "${TWO_PARENT:-}" =~ ^[0-9]+$ ]] || { echo 0; return 0; }
+    if [[ "$(tr '\0' ' ' 2>/dev/null < "/proc/$TWO_PARENT/cmdline")" == *"$FIX/twolayer"* ]]; then
+        kill -KILL -"$TWO_PARENT" 2>/dev/null || kill -KILL "$TWO_PARENT" 2>/dev/null
+        sleep 0.3
+    fi
+    [[ -d "/proc/$TWO_PARENT" ]] && left=$((left + 1))
+    [[ "${TWO_CHILD:-}" =~ ^[0-9]+$ && -d "/proc/${TWO_CHILD:-x}" ]] && left=$((left + 1))
+    echo "$left"
+}
+cleanup() {
+    [[ -f "$FIXTURE_REG" ]] && reap_fixtures >/dev/null
+    declare -F reap_two_layer >/dev/null && reap_two_layer >/dev/null
+    rm -rf "$FIX"
+    return 0
+}
 trap cleanup EXIT INT TERM
 
 # Same construction as tests/shell/test_ndt_apps_liveness.sh: the pid really is the process
@@ -134,6 +154,10 @@ live_dataplane_kind() { echo "${FX_PLANE:-ovs}"; }
 lock_probe() { echo free; }
 app_ps_snapshot() { printf "%s\n" "${FX_PS:-}"; }
 lab_session() { [[ " ${FX_SESSIONS:-} " == *" $1 "* ]]; }
+# The :9000 channel, answered by a variable. The real one asks ports.sh what is listening on
+# this machine, and group 10 must not go red because somebody left a sim up. The channels this
+# suite is ABOUT -- the /proc group walk and the log-fd scan -- are left real.
+app_port_pids() { printf "%s\n" "${FX_PORT_PIDS:-}"; }
 sudo() {
     local a sub="" seen=0
     for a in "$@"; do
@@ -146,7 +170,14 @@ sudo() {
         *-start) (( ${FX_LAB_START_RC:-0} != 0 )) && return "${FX_LAB_START_RC:-0}"
                  FX_SESSIONS="${FX_SESSIONS:-} ${sub%-start}"
                  FX_PS="${FX_START_PS:-${FX_PS:-}}" ;;
-        *-stop)  FX_SESSIONS=""; FX_PS="${FX_STOP_PS:-}" ;;
+        # FX_KILL_GROUP: `<name>-stop` kills a tmux SESSION, which takes the process group in
+        # that pane with it. Modelled by really signalling the group, because app_wait_stopped
+        # verifies through the real /proc afterwards -- a stub that only edited FX_PS would
+        # leave the fixture alive and the verification would (correctly) refuse to call it
+        # stopped.
+        *-stop)  FX_SESSIONS=""; FX_PS="${FX_STOP_PS:-}"
+                 [[ -n "${FX_KILL_GROUP:-}" ]] && kill -KILL -"$FX_KILL_GROUP" 2>/dev/null
+                 return 0 ;;
     esac
     return 0
 }
@@ -398,8 +429,117 @@ check "🔴 and the pidfile is gone afterwards, so the window closes" "no" \
 OUT="$(FX_PS="" inner 'residue_report sim')"
 has   "  a later run has no window for it again"         "no window, so no rule can be dated" "$OUT"
 
-section "10. this suite reaps its own fixtures"
+section "10. the shape lw351 found: a helper app is TWO processes, and it is tracked"
+# 🔴 Measured live 2026-09-07 (lw351, 1/1) on the branch that added the pidfile. With sim
+# genuinely running and its pidfile naming a live pid, `apps orphans` answered rc 1:
+#
+#     sim: children with no pidfile and no signature
+#         pid 3729217  (process group 3729217)
+#         script -qfa .../app_sim.log -c ./simulation_platform_manager
+#
+# ...about the pid that was IN the pidfile, and `apps stop sim` then said
+# `ok sim stopped (was: not-running)` about a sim whose own log shows it taking SIGINT a second
+# later. Three verbs, three different answers about one app.
+#
+# 🔴 GROUPS 1-10 COULD NOT HAVE CAUGHT THIS, and the reason is the fixture: they spawn ONE
+# process wearing the app's argv. `sudo ndtwin-lab sim-start` runs `script -qfa <log> -c
+# ./simulation_platform_manager`, so there are TWO -- a group-leader wrapper whose argv carries
+# the signature as a later element, and the program it execs -- and it is the WRAPPER the
+# pidfile names. The survivor channels walk the process group; the group has members; nothing
+# compared them against what the probe had already accounted for. So this group builds the two
+# layers for real: a setsid'd leader (pgid == pid, as the wrapper is) and a child in its group.
+TWO_PARENT=""
+TWO_CHILD=""
+cat > "$FIX/twolayer" <<'FIXTURE'
+#!/usr/bin/env bash
+# NDT-TEST-FIXTURE. $1 = the argv the child wears, $2 = ttl, $3 = where to record the child pid,
+# $4 = the app log to hold open for writing.
+#
+# The parent OWN argv carries $1 as a later element, which is what makes it the wrapper shape:
+# pid_is_app compares argv ELEMENTS, so both layers answer to the signature.
+#
+# fd 9 is opened for append BEFORE the fork, so both layers hold a writable fd on the app log --
+# the channel that found the 09-02 viz JVMs, and the only one left when the pidfile is gone.
+#
+# 🔴 `wait`, not another `sleep`: `wait` is a builtin, so this stays exactly TWO processes. A
+# trailing `sleep` forks a THIRD -- one with no signature, in the same group, holding the same
+# log fd -- which the verb under test correctly reports as unaccounted for, and the case would
+# then be measuring the fixture instead of the code.
+exec 9>>"$4"
+( exec -a "$1" sleep "$2" ) &
+echo "$!" > "$3"
+wait
+FIXTURE
+chmod +x "$FIX/twolayer"
+spawn_two_layer() {
+    local i
+    setsid "$FIX/twolayer" "$SIM_ARGV" "$FIXTURE_TTL" "$FIX/twolayer_child" \
+           "$FIX/.test_run/logs/app_sim.log" >/dev/null 2>&1 &
+    TWO_PARENT=$!
+    # Off the jobs table, for the reason test_ndt_apps_liveness.sh gives: killing it later would
+    # otherwise print bash's own "Killed" line into the middle of a gate's output. Nothing about
+    # the process changes -- it is reaped by pid and by group, never by jobspec.
+    disown "$TWO_PARENT" 2>/dev/null || true
+    echo "$TWO_PARENT" >> "$FIXTURE_REG"
+    for i in 1 2 3 4 5 6 7 8 9 10; do
+        TWO_CHILD="$(cat "$FIX/twolayer_child" 2>/dev/null)"
+        [[ "$TWO_CHILD" =~ ^[0-9]+$ && -d "/proc/$TWO_CHILD" ]] && break
+        sleep 0.2
+    done
+    echo "$TWO_CHILD" >> "$FIXTURE_REG"
+}
+rm -f "$FIX/twolayer_child" "$FIX/.test_run/pids"/app_*.pid
+spawn_two_layer
+TWO_PS="$TWO_PARENT $(tr '\0' ' ' < "/proc/$TWO_PARENT/cmdline" 2>/dev/null)
+$TWO_CHILD $SIM_ARGV"
+check "the fixture really is two processes"              "yes" \
+      "$(if [[ -d "/proc/$TWO_PARENT" && -d "/proc/$TWO_CHILD" && "$TWO_PARENT" != "$TWO_CHILD" ]]; \
+         then echo yes; else echo no; fi)"
+check "  in one process group led by the parent"         "$TWO_PARENT $TWO_PARENT" \
+      "$(awk '{print $5}' "/proc/$TWO_PARENT/stat" 2>/dev/null) $(awk '{print $5}' "/proc/$TWO_CHILD/stat" 2>/dev/null)"
+check "  and BOTH answer to the app's signature"         "yes yes" \
+      "$(FX_PS="$TWO_PS" inner "yn() { if \"\$@\"; then echo yes; else echo no; fi; }
+         echo \"\$(yn pid_is_app $TWO_PARENT sim) \$(yn pid_is_app $TWO_CHILD sim)\"" | tail -1)"
+
+# The pidfile app_start writes names the WRAPPER -- APP_LIVE_PIDS[0], lowest pid first.
+echo "$TWO_PARENT" > "$FIX/.test_run/pids/app_sim.pid"
+check "app_probe calls a two-layer sim running"          "running" \
+      "$(FX_PS="$TWO_PS" FX_SESSIONS="sim" inner 'app_probe sim; echo "$APP_STATE"' | tail -1)"
+# 🔴 The channel has to FIRE, or the case below proves nothing: a dedup that is never asked to
+# subtract anything passes on an empty list.
+check "🔴 the group channel really finds the wrapper"    "yes" \
+      "$(FX_PS="$TWO_PS" FX_SESSIONS="sim" inner \
+          'app_survivors sim; printf "%s\n" "${APP_SURVIVORS[@]}"' | grep -q "^$TWO_PARENT " && echo yes || echo no)"
+
+ORPH="$(FX_PS="$TWO_PS" FX_SESSIONS="sim" inner 'apps_orphans; echo "RC=$?"')"
+check "🔴 a tracked, running sim is NOT an orphan -- rc 0" "0" "$(rc_of "$ORPH")"
+hasnt "🔴 and it is not called 'children with no pidfile'" "sim: children with no pidfile" "$ORPH"
+hasnt "  nor is the pidfile's own pid listed as untracked" "pid $TWO_PARENT  (process group" "$ORPH"
+has   "  the verb still answers about processes"          "no untracked app processes" "$ORPH"
+
+# 🔴 The control, and it is FINDING #48 itself: same two processes, but the launcher's record is
+# gone and the argv scan cannot see them. Nothing then accounts for them, and every one must
+# still come out. A dedup that swallowed this would have traded one silent verb for another.
+rm -f "$FIX/.test_run/pids/app_sim.pid"
+ORPH="$(FX_PS="" FX_SESSIONS="" inner 'apps_orphans; echo "RC=$?"')"
+check "🔴 control: untracked children still exit 1"      "1" "$(rc_of "$ORPH")"
+has   "  and are still called that"                      "sim: children with no pidfile and no signature" "$ORPH"
+has   "  naming the pid the group channel found"         "pid $TWO_PARENT" "$ORPH"
+
+# 🔴 And the third verb. `apps stop` printed `(was: not-running)` about this app while it was
+# running, because app_wait_stopped re-probes and overwrites APP_STATE before the message.
+echo "$TWO_PARENT" > "$FIX/.test_run/pids/app_sim.pid"
+STOP="$(FX_PS="$TWO_PS" FX_SESSIONS="sim" FX_STOP_PS="" FX_KILL_GROUP="$TWO_PARENT" \
+        inner 'app_stop sim; echo "RC=$?"')"
+check "stopping a running two-layer sim -> rc 0"         "0" "$(rc_of "$STOP")"
+has   "🔴 it says what the app WAS: running"             "sim stopped (was: running)" "$STOP"
+hasnt "🔴 not 'was: not-running' about an app it stopped" "was: not-running" "$STOP"
+check "  and both layers are gone"                       "no" \
+      "$(if [[ -d "/proc/$TWO_PARENT" || -d "/proc/$TWO_CHILD" ]]; then echo yes; else echo no; fi)"
+
+section "11. this suite reaps its own fixtures"
 check "no fixture survives this run"                     "0" "$(reap_fixtures)"
+check "  and neither layer of the two-layer one does"    "0" "$(reap_two_layer)"
 
 # --- done -------------------------------------------------------------------------------------
 echo
