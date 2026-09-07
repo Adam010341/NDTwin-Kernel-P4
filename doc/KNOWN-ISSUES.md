@@ -2796,7 +2796,11 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 > （E-27 的口徑：照序留兩份，不要在分支上搶號）。
 
 - **狀態**：🏁 **已修**，在 `fix/ndt-3-51-helper-apps-window`（**未併、未推**）。
-  **缺陷側是 live 實測**（lw16pw，2026-09-07 04:42，1/1）；**修法側是沙盒測試，尚未 live 重驗**。
+  **缺陷側是 live 實測**（lw16pw，2026-09-07 04:42，1/1）；
+  🆕 **修法側 09-07 20:28 live 驗過一輪（lw351）：窗那半成立**（`sim window … (14s)`＋
+  `CANNOT WINDOW`＋40 條 `age=UNKNOWN`，`--check` 的 residue 從 `none … (asked, not assumed)`
+  變成 `NOT CHECKED: 40 rule(s) could not be dated`）；**同一輪抓到行程那半兩個缺陷，已補一顆**
+  ——見下面「lw351 補丁」。
 - **平面**：兩者（缺陷與平面無關；lw16pw 剛好跑在 P4 4 hosts 上）
 - **失效方向**：靜默 ＋ **一個永遠是綠燈的檢查**
 - **會發生什麼**（修之前）：`ndt apps start sim` → 12 秒 → `ndt apps stop sim`，
@@ -2837,9 +2841,26 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
     （那個檔 144805 bytes、root 所有、mtime 09-07 04:42）。報告會印 `(log read: <路徑>)`
     指出是哪個檔，但**這支工具清不掉它**（`apps trim` 走 `app_logfile`，不認得那條路徑）。
     ⇒ 待裁（R3-351 SUMMARY §7-5）。
+- 🆕 **lw351 補丁（同一條，09-07 20:4x）：三個動詞對同一個 app 給了三種答案。**
+  helper 起的 app 是**兩層**行程（`script -qfa <log> -c ./simulation_platform_manager`
+  ＋它 exec 的程式，同一個行程組，**pidfile 記的是 wrapper**）。
+  - `apps orphans` 把 **pidfile 裡那個活著的 pid** 印成
+    `children with no pidfile and no signature`、rc 1。成因：`app_survivors` 回答的是
+    「這些通道找到誰」，而這個動詞直接把那份名單當成「誰都沒在追蹤的」——`app_stop` 有做的相減
+    （它的 `extra` 迴圈）這裡從來沒有。**修法**：印之前先減掉 `APP_LIVE_PIDS`
+    （`/proc` 驗過屬於這個 app 的 pid），剩 0 就不是孤兒；`running` 時標題改成事實。
+    🔴 **減的是 `APP_LIVE_PIDS` 不是 pidfile 內容**，且 **FINDING #48 未放寬**（那兩個 viz JVM
+    不帶簽名、不在 `APP_LIVE_PIDS`，一個都不會少——有對照格釘住）。
+  - `apps stop sim` 印 `ok sim stopped (was: not-running)`，而 helper 的 log 顯示 sim
+    在一秒後才收到 SIGINT。成因：`app_wait_stopped` 會輪詢 `app_probe` 直到 `not-running`，
+    把全域 `APP_STATE` 覆蓋掉，而 `(was: …)` 是對**停之前**的宣稱。**修法**：先存 `local was=`。
+  - 🔴 **為什麼原本 64 格沒抓到**：每一格的 fixture 都是**一個**行程，而行程組通道要有第二個成員
+    才產出東西 ⇒ 缺陷在單元測試裡不存在。新的第 10 群做出真的兩層（`setsid` 的 group leader
+    ＋ exec 出來的子行程＋兩個都持有 app log 的可寫 fd）。
 - **證據**：缺陷 `scratch/overnight-2026-09-05/rounds/08-round2.md:174-200`（lw16pw 逐節）、
-  `WAKEUP.md` §3-51；裁決 `scratch/overnight-2026-09-05/DECISIONS.md`（grill §4E 第二輪 E-8）；
-  修法 `doc/audit/2026-09-07_fix-3-51-helper-apps-window/FIX-3-51.md`。
+  `WAKEUP.md` §3-51；**lw351** `scratch/overnight-2026-09-05/logs/lw351-*.log` 與
+  `rounds/09-round3.md`；裁決 `scratch/overnight-2026-09-05/DECISIONS.md`（grill §4E 第二輪 E-8）；
+  修法 `doc/audit/2026-09-07_fix-3-51-helper-apps-window/FIX-3-51.md`（§7＝lw351 補丁）。
 
 ## 證據索引
 
