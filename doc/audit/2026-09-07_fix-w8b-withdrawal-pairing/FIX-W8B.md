@@ -239,7 +239,7 @@ NoSuchEdge }` 與 `logLinkRecoveryOutcome()`，兩個呼叫點：
 - `doc/KNOWN-ISSUES.md` **B-6 第二輪**：加「補一顆（09-07，E-22）」一段，含上面兩個但書。
 
 `git grep -n 'lw8b'` 的其餘命中都不必改：`FIX-DECLARED-LINK-FAILURE.md:186`、
-`KNOWN-ISSUES.md:1400`、`GraphTypes.hpp:700`、`TopologyAndFlowMonitor.hpp:303,312`、
+KNOWN-ISSUES B-6、`GraphTypes.hpp:700`、`TopologyAndFlowMonitor.hpp:303,312`、
 `TopologyAndFlowMonitor.cpp:3135`、`test_PollDoesNotResurrect.cpp:1113`、
 `test_HttpSessionRouting.cpp:1031`、閘門檔頭——它們講的都是 `lw8b` 那一臂本身
 （純宣告的邊被無條件撤回），**那個敘述本來就是對的**。被高估的只有 §2b 那一句把它借去
