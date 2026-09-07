@@ -16,6 +16,9 @@ registrations, which is why a few appear that 2026-01-02_ndt_api.md does not doc
 
 from __future__ import annotations
 
+import functools
+import json
+
 from schema import (
     Any_,
     Bool,
@@ -233,6 +236,115 @@ TELEMETRY_STATES = ("live", "idle", "silent", "unknown")
 # /ndt/inject_link_failure clears only through /ndt/inject_link_recovery. No fourth value: a
 # reader still has exactly one thing to do about `declared`, which is find out who declared it.
 DOWN_REASONS = ("none", "switch-unreachable", "declared")
+
+# --- the four link endpoints ------------------------------------------------------
+# [Co-developed with claude code -- Adam]
+# Adam's ruling E-21, 2026-09-07: /ndt/link_failure_detected, /ndt/link_recovery_detected,
+# /ndt/inject_link_failure and /ndt/inject_link_recovery join the contract. They had none --
+# `declaration_retained` was documented in doc/2026-01-02_ndt_api.md §2 and named by no schema,
+# so the one field on the wire that says "this kernel deliberately left your link down" could
+# have vanished without a single check going red.
+#
+# 🔴 THIS FAMILY DESCRIBES A BRANCH, NOT trunk, and that is deliberate rather than an oversight.
+# fix/w8-declared-link-failure-sticky added §2b/§2c (a trunk kernel answers 404 to both paths)
+# and fix/w8b-withdrawal-needs-observed-failure added the pairing rule, the dpid-0 refusal and
+# `declaration_retained`. Against trunk these checks fail, the way get_num_of_flows__unknown_dpid
+# fails against a kernel from before OV-3. The alternative -- accepting 404 as well as 200 -- is a
+# contract that agrees with the kernel whichever answer comes back, which is what OV-3 was.
+#
+# Shapes transcribed field by field from src/ndt_core/http/HttpSession.cpp
+# (handleLinkFailure / handleLinkRecovery / handleInjectLinkFailure / handleInjectLinkRecovery)
+# and cross-checked against 2026-01-02_ndt_api.md §1, §2, §2b and §2c.
+
+#: The request body all four endpoints take: one link, named by both of its ends.
+#: §2, §2b and §2c each document it as "identical to §1".
+#:
+#: The runner validates responses, not requests, so this is not applied to the wire by
+#: run_contract_test.py. It is applied to THIS FILE's own bodies by
+#: tests/python/test_contract_spec.py, which is where a link payload can actually be wrong:
+#: an endpoint entry that sent three of the four keys would earn an honest 400 and be recorded
+#: as the kernel refusing a valid request. modify_nickname spent months in exactly that state.
+LINK_REQUEST = Obj({
+    "src_dpid": Int(min=0),
+    "src_interface": Int(min=0),
+    "dst_dpid": Int(min=0),
+    "dst_interface": Int(min=0),
+}, strict=True)
+
+#: A payload naming a HOST edge -- dpid 0 is the host end -- which all four endpoints refuse with
+#: 400 as of fix/w8b-withdrawal-needs-observed-failure (W8-7, four doors). Refused at the door,
+#: before any edge lookup and before any write, so this is safe on a live fabric.
+HOST_EDGE_PAYLOAD = {"src_dpid": 1, "src_interface": 1, "dst_dpid": 0, "dst_interface": 0}
+
+#: Two dpids no shipped topology contains. Both non-zero, so the request gets PAST the dpid-0 door
+#: and reaches the edge lookup -- which is the branch under test here. All four endpoints answer
+#: 404 before changing anything.
+NO_SUCH_LINK_PAYLOAD = {"src_dpid": 999999999998, "src_interface": 1,
+                        "dst_dpid": 999999999999, "dst_interface": 1}
+
+#: What the mutating sequence sends when the topology holds no switch-to-switch link at all: a
+#: payload every one of the four endpoints refuses. Deliberately not a guess -- inventing a link
+#: would inject a fault on whatever edge happened to match.
+NO_LINK_CHOSEN_PAYLOAD = {"src_dpid": 0, "src_interface": 0, "dst_dpid": 0, "dst_interface": 0}
+
+#: One entry of the `tc` array: what the twin did to ONE end of the link (§2b, §2c, and
+#: utils::NetemLinkFault.hpp's cutInterface/restoreInterface, which build these objects).
+#:
+#: `interface` is documented as null when the topology gives the switch no bridge_name, and
+#: schema.py has no Null type, so Any_ is as close as the structural check gets. The rule that
+#: matters -- an entry must never claim a cut it cannot name, and must say why when it did
+#: nothing -- is asserted by inv_tc_half_is_reported_per_interface instead, where the reason can
+#: be printed with it. [Co-developed with claude code -- Adam]
+TC_ATTEMPT = Obj({
+    "interface": Any_(),
+    "ok": Bool(),
+}, optional={
+    "refused": Str(nonempty=True),      # the twin declined: netem already there, bad name, ...
+    "error": Str(nonempty=True),        # tc itself failed, usually sudo -n denied
+    "noop": Str(nonempty=True),         # §2c only: nothing to remove, and that is a success
+    "attached_at": Str(),
+    "detached_at": Str(),
+    "command": Str(nonempty=True),
+    "qdisc_before": Str(),
+    "qdisc_after": Str(),
+})
+
+#: `tc` has exactly two documented shapes and no third. The string is pinned to the literal the
+#: kernel emits: a free-form excuse there would let "skipped" mean anything, and this key is the
+#: only thing that tells a caller the packets were never stopped on a physical testbed.
+TC_REPORT = OneOf(List(TC_ATTEMPT, min_len=1),
+                  Str(allowed=("skipped (not MININET)",)))
+
+#: §1 success. `down_reason`/`until` are OPTIONAL for the reason every other added field in this
+#: file is: a kernel built from trunk answers {"status": "link failure processed"} alone and must
+#: still pass the STRUCTURAL check. That the two keys are missing is a finding, not a schema
+#: error, and it is reported by inv_declared_failure_says_who_can_withdraw_it.
+LINK_FAILURE_REPORTED = Obj({"status": Str(nonempty=True)}, optional={
+    "down_reason": Str(allowed=("declared",)),
+    "until": Str(nonempty=True),
+})
+
+#: §2 success, both outcomes. `declaration_retained` is present ONLY when the pairing rule
+#: declined; listing it here is what stops it being dropped silently, and Bool() rather than
+#: Any_() is what stops it degrading into a truthy string.
+LINK_RECOVERY_REPORTED = Obj({"status": Str(nonempty=True)}, optional={
+    "declaration_retained": Bool(),
+    "detail": Str(nonempty=True),
+    "until": Str(nonempty=True),
+})
+
+#: §2b success. REQUIRED, not optional, unlike §1: this endpoint does not exist on trunk at all,
+#: so there is no older kernel whose reply would be wrongly failed. `until` is pinned to the one
+#: endpoint that can end an injection -- that is the whole of W8b on the wire.
+LINK_FAILURE_INJECTED = Obj({
+    "status": Str(nonempty=True),
+    "down_reason": Str(allowed=("declared",)),
+    "until": Str(allowed=("/ndt/inject_link_recovery",)),
+    "tc": TC_REPORT,
+})
+
+#: §2c success.
+LINK_RECOVERY_INJECTED = Obj({"status": Str(nonempty=True), "tc": TC_REPORT})
 
 FLOW_KEY = Obj({
     "src_ip": Int(min=0, max=UINT32_MAX),
@@ -932,6 +1044,161 @@ def inv_dispatcher_is_running(data, ctx):
     return []
 
 
+def inv_declared_failure_says_who_can_withdraw_it(data, ctx):
+    """
+    §1: a 200 must say the failure was DECLARED, and name what ends it.
+
+    [Co-developed with claude code -- Adam] -- KNOWN-ISSUES B-6, Adam's ruling E-21.
+
+    The two keys are the whole of B-6 on the wire. Without them a caller cannot tell the fixed
+    behaviour (the declaration stands until somebody withdraws it) from the defect (the next
+    topology poll lifts the edge within 30 s, with no recovery call and no line in the log) --
+    both answer 200 and both used to answer the same body. Measured 2026-09-04: 5 of 5 declared
+    failures reverted on their own, uniform on 0..30 s.
+
+    Absence is REPORTED, not passed, and not TOOL-PRECONDITION-FAILED either: the reply under
+    test is the only thing this check reads, so there is no second source it failed to obtain.
+    A kernel built from trunk fails here, which is the same reading as its 404 on §2b.
+    """
+    if "down_reason" not in data or "until" not in data:
+        return [
+            "the reply does not say how long the failure lasts: it carries "
+            f"{sorted(data)} and not down_reason/until. A kernel built from trunk answers "
+            '{"status": "link failure processed"} alone and its declaration is undone by the '
+            "next topology poll within 30 s, silently -- which is indistinguishable from this "
+            "reply. The keys arrive with fix/w8-declared-link-failure-sticky "
+            "(2026-01-02_ndt_api.md §1). Reported rather than passed"
+        ]
+    if data["until"] != "/ndt/link_recovery_detected":
+        return [
+            f"the reply names {data['until']!r} as what withdraws this declaration, not "
+            "/ndt/link_recovery_detected. A caller pointed at the wrong endpoint leaves the "
+            "link declared down for the rest of the run"
+        ]
+    return []
+
+
+def inv_recovery_withdrew_the_declaration(data, ctx):
+    """
+    §2 answering a failure ITS OWN sibling reported: it must not decline.
+
+    [Co-developed with claude code -- Adam] -- W8b's pairing rule, the other direction.
+
+    Its discriminative power comes from WHERE it sits, exactly as acquire_lock_conflict's does:
+    the check immediately before it declared this link through /ndt/link_failure_detected, so a
+    report is standing and this recovery is the one entitled to spend it. `declaration_retained`
+    here means the rule has stopped honouring the reports it was written to honour -- i.e. the
+    recovery endpoint has been narrowed into uselessness, which is the over-fitting direction of
+    the W8b gate (mutations M11-M13). Nothing else in the suite would notice.
+    """
+    if data.get("declaration_retained"):
+        return [
+            "the recovery was DECLINED for a link /ndt/link_failure_detected reported broken "
+            "moments earlier, so the report it was supposed to pair with bought nothing: "
+            f"{data.get('detail', '(no detail given)')!r}. Every real link-down/link-up cycle "
+            "Ryu reports now leaves a declaration standing for ever"
+        ]
+    return []
+
+
+def inv_recovery_was_declined_and_said_so(data, ctx):
+    """
+    §2 answering an INJECTION: it must decline, and the body must say so.
+
+    [Co-developed with claude code -- Adam] -- Adam's ruling E-21; the shape it names.
+
+    The check immediately before this one injected a failure through /ndt/inject_link_failure,
+    which records no report, so nothing pairs with this recovery. Two ways for it to be wrong and
+    this reports both:
+
+      * it withdrew anyway -- the lw8b failure mode (2026-09-07 00:08: a Ryu restart POSTed a
+        recovery for every link within one second and ended 9 of 9 standing declarations). On
+        MININET the netem stays attached while the graph goes back to reporting the link up, so
+        the twin publishes a link that carries no packets;
+      * it declined and answered a bare 200 -- deliberately not a 4xx, because Ryu's on_link_add
+        logs "NDT REJECTED this notification ... the kernel's view is now stale" on any 4xx and
+        that sentence would be false here. The status line therefore carries NO information at
+        all and the body is the entire signal.
+
+    🟢 Measured live, arm lw8b3 2026-09-07 20:26:47:
+        {"status":"link recovery processed","declaration_retained":true,"detail":"...",
+         "until":"/ndt/inject_link_recovery"}   -- and the edge still is_up=false.
+    """
+    if data.get("declaration_retained") is not True:
+        return [
+            "the recovery report was not declined: a failure injected through "
+            "/ndt/inject_link_failure is not paired with by any report, so this 200 either "
+            "withdrew a declaration nothing ever answered for, or withdrew nothing and did not "
+            f"say so. The reply carries {sorted(data)}. Either way a caller reading the status "
+            "line believes a link is back that this kernel deliberately left down, and on "
+            "MININET the tc netem that came with the injection is still attached (B-6, W8b)"
+        ]
+    out = []
+    if not str(data.get("detail", "")).strip():
+        out.append("declaration_retained is true and the reply does not say why, so the one "
+                   "caller who reads past the status line still cannot act on it")
+    if data.get("until") != "/ndt/inject_link_recovery":
+        out.append(
+            f"the declined reply names {data.get('until')!r} as the way out. Only "
+            "/ndt/inject_link_recovery withdraws a retained declaration; anything else sends "
+            "the caller back to the endpoint that just refused them")
+    return out
+
+
+def inv_tc_half_is_reported_per_interface(data, ctx):
+    """
+    §2b/§2c: the twin must say, per interface, what it did to the wire -- or that it did nothing.
+
+    [Co-developed with claude code -- Adam] -- 2026-01-02_ndt_api.md §2b.
+
+    "A 200 here means the twin's graph changed, not that packets stopped." The declaration and
+    the cut are two different acts with two different failure modes, and only this array
+    separates them. An entry that reports ok without naming the tc it ran, or reports failure
+    without a reason, collapses them again.
+
+    Both ends or it is a different fault: unidirectional loss kills LLDP in one direction only
+    and leaves the control plane's graph permanently asymmetric (faults.txt L-2), so a report
+    covering one interface is not a weaker version of this injection, it is another one.
+
+    A skipped or refused half is ACCOUNTED-FOR, not a failure: "the physical lab gets C only"
+    (Adam, 2026-09-05) and a machine without the NOPASSWD tc grants is a lab that is set up
+    differently, not a kernel that is broken. It is printed either way -- an explained deviation
+    nobody sees is indistinguishable from no deviation at all.
+    """
+    tc = data.get("tc")
+    if isinstance(tc, str):
+        return [ACCOUNTED_FOR + f"the tc half did not run: {tc!r}. The declaration stands and "
+                                "nothing on the wire changed, so this run did not exercise the "
+                                "netem path at all"]
+    if not isinstance(tc, list):
+        return ["the reply carries no per-interface tc report, so whether the packets stopped "
+                "cannot be read from it"]
+    if len(tc) != 2:
+        return [f"the tc report covers {len(tc)} interface(s), not the two ends of the link. "
+                "An injection standing for 'this link is gone' has to be symmetric: "
+                "unidirectional loss kills LLDP one way only and leaves the control plane's "
+                "graph permanently asymmetric (faults.txt L-2)"]
+
+    out = []
+    for entry in tc:
+        iface = entry.get("interface")
+        why = entry.get("refused") or entry.get("error") or entry.get("noop")
+        if entry.get("ok") is not True:
+            if why:
+                out.append(ACCOUNTED_FOR + f"{iface!r}: {why}")
+            else:
+                out.append(f"the twin reports it did not touch {iface!r} and does not say why, "
+                           "so a caller cannot tell a refusal from a tc failure")
+            continue
+        if iface is None:
+            out.append("an entry reports ok for an interface it could not name -- the twin "
+                       "must not claim a cut on an interface it never derived from a bridge")
+        elif not entry.get("command") and not entry.get("noop"):
+            out.append(f"{iface}: reported ok without naming the tc it ran, so the 200 is not "
+                       "evidence that anything happened on the wire")
+    return out
+
+
 def inv_power_state_values(data, ctx):
     """
     [Co-developed with claude code -- Adam] -- Q12.
@@ -951,6 +1218,53 @@ def inv_power_state_values(data, ctx):
     if bad:
         return [f"unexpected power state value(s): {bad}"]
     return []
+
+
+# --- the link the mutating link sequence acts on ----------------------------------
+# [Co-developed with claude code -- Adam] -- Adam's ruling E-21.
+
+
+@functools.lru_cache(maxsize=8)
+def switch_to_switch_link(topology_path):
+    """
+    The one link the mutating link-endpoint sequence declares, injects and restores.
+
+    Deterministic -- the lowest (src_dpid, src_interface, dst_dpid, dst_interface) tuple in the
+    file -- for the reason Context.a_dpid uses min(): two runs must act on the same link, or a
+    report naming s1:1 -> s5:1 does not mean the same thing twice.
+
+    BOTH ENDS MUST BE SWITCHES. dpid 0 is a host end, all four endpoints refuse it (§1, W8-7),
+    and a host edge is raised again by the host poll anyway. Returns None when the topology holds
+    no switch-to-switch edge; the caller then sends a payload every endpoint refuses rather than
+    guessing, because a guessed link means a fault injected on an edge nobody chose.
+
+    Cached on the path, which is not only for speed: modify_device_name re-serialises
+    setting/*.json in the same --allow-mutations run, and the five calls of this sequence must
+    all name the link the first one did even if the file underneath is rewritten mid-run.
+    """
+    if not topology_path:
+        return None
+    try:
+        with open(topology_path) as fh:
+            topo = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    links = sorted(
+        (e["src_dpid"], e["src_interface"], e["dst_dpid"], e["dst_interface"])
+        for e in topo.get("edges", [])
+        if e.get("src_dpid") and e.get("dst_dpid")
+    )
+    if not links:
+        return None
+    src_dpid, src_interface, dst_dpid, dst_interface = links[0]
+    return {"src_dpid": src_dpid, "src_interface": src_interface,
+            "dst_dpid": dst_dpid, "dst_interface": dst_interface}
+
+
+def link_endpoint_body(ctx):
+    """The body of every mutating link check. One link, the same one, five times."""
+    link = switch_to_switch_link(getattr(ctx, "topology_path", None))
+    return dict(link) if link else dict(NO_LINK_CHOSEN_PAYLOAD)
 
 
 # --- endpoint table ---------------------------------------------------------------
@@ -1480,6 +1794,173 @@ ENDPOINTS = [
          schema=Any_(),
          note="guards the null-IntentTranslator crash fixed 2026-08-11; deliberately "
               "incomplete so no intent can execute even if the kernel has AI enabled"),
+
+    # ---------- the four link endpoints (Adam's ruling E-21, 2026-09-07) -------------
+    # [Co-developed with claude code -- Adam]
+    #
+    # LAST IN THE TABLE ON PURPOSE. endpoints_by_category preserves declaration order, so by the
+    # time these run every read-only check has already read a fabric nobody has touched. The
+    # mutating half of this block cuts a real link and puts it back; anything observing the graph
+    # while it is cut would be reading a network this suite broke.
+    #
+    # THE SEQUENCE IS THE CHECK, the way the lock sequence is:
+    #
+    #   1  link_failure_detected                 declare it, and record that the control plane
+    #                                            reported the break
+    #   2  link_recovery_detected                spend that report -> WITHDRAWN
+    #   3  inject_link_failure                   declare it again, recording NO report, and cut
+    #                                            the wire with netem on both ends
+    #   4  link_recovery_detected (again)        nothing to pair with -> DECLINED, and the body
+    #                                            must say so. This is the E-21 shape
+    #   5  inject_link_recovery                  the unconditional withdrawal; netem off
+    #   6  inject_link_recovery (again)          idempotent: "noop", ok -- and the belt-and-braces
+    #                                            restore, because the runner runs every check even
+    #                                            after one fails
+    #
+    # Step 4 cannot be reached any other way: `declaration_retained` needs a standing declaration
+    # that no report answers for, and only /ndt/inject_link_failure produces one. Which is why
+    # this block cuts a link at all -- see the FIX document for the risk and the §7 question.
+    #
+    # The error paths above the sequence change nothing: both refusals happen before any edge
+    # lookup and before any write.
+
+    dict(name="link_failure_detected__host_edge_dpid_zero", method="POST",
+         path="/ndt/link_failure_detected", body=HOST_EDGE_PAYLOAD,
+         request_schema=LINK_REQUEST,
+         category=ERRORPATH, expect_status=[400],
+         schema=Any_(),
+         note="W8-7, door 1 of 4. dpid 0 is a host end, and the edge lookup matches on the two "
+              "dpids alone, so this used to resolve to whichever host edge of the other switch "
+              "came first in the graph -- a link the caller never named"),
+
+    dict(name="link_recovery_detected__host_edge_dpid_zero", method="POST",
+         path="/ndt/link_recovery_detected", body=HOST_EDGE_PAYLOAD,
+         request_schema=LINK_REQUEST,
+         category=ERRORPATH, expect_status=[400],
+         schema=Any_(),
+         note="W8-7, door 2 of 4. The ruling named the failure endpoints; this one is refused "
+              "with them because a payload the recovery accepts and its failure sibling refuses "
+              "is a link nobody could have injected"),
+
+    dict(name="inject_link_failure__host_edge_dpid_zero", method="POST",
+         path="/ndt/inject_link_failure", body=HOST_EDGE_PAYLOAD,
+         request_schema=LINK_REQUEST,
+         category=ERRORPATH, expect_status=[400],
+         schema=Any_(),
+         note="W8-7, door 3 of 4, and the one where it matters twice: this endpoint runs tc, so "
+              "a dpid-0 payload would have attached netem to whichever host-facing interface the "
+              "arbitrarily-chosen edge named"),
+
+    dict(name="inject_link_recovery__host_edge_dpid_zero", method="POST",
+         path="/ndt/inject_link_recovery", body=HOST_EDGE_PAYLOAD,
+         request_schema=LINK_REQUEST,
+         category=ERRORPATH, expect_status=[400],
+         schema=Any_(),
+         note="W8-7, door 4 of 4 -- this one would run `tc qdisc del` against the interface it "
+              "resolved to"),
+
+    # A link the graph does not hold. Both dpids are non-zero, so these get past the door above
+    # and exercise the edge lookup itself -- the branch that must answer 404 rather than 200 or a
+    # 500. On §2 it is also the branch that logs `link recovery ignored on ...` (E-22).
+    dict(name="link_failure_detected__unknown_edge", method="POST",
+         path="/ndt/link_failure_detected", body=NO_SUCH_LINK_PAYLOAD,
+         request_schema=LINK_REQUEST,
+         category=ERRORPATH, expect_status=[404],
+         schema=Any_(),
+         note="404, not 200: a fault-injection run that is told 'processed' for a link the "
+              "kernel does not hold will go on measuring a fault that was never applied"),
+
+    dict(name="link_recovery_detected__unknown_edge", method="POST",
+         path="/ndt/link_recovery_detected", body=NO_SUCH_LINK_PAYLOAD,
+         request_schema=LINK_REQUEST,
+         category=ERRORPATH, expect_status=[404],
+         schema=Any_()),
+
+    dict(name="inject_link_failure__unknown_edge", method="POST",
+         path="/ndt/inject_link_failure", body=NO_SUCH_LINK_PAYLOAD,
+         request_schema=LINK_REQUEST,
+         category=ERRORPATH, expect_status=[404],
+         schema=Any_()),
+
+    dict(name="inject_link_recovery__unknown_edge", method="POST",
+         path="/ndt/inject_link_recovery", body=NO_SUCH_LINK_PAYLOAD,
+         request_schema=LINK_REQUEST,
+         category=ERRORPATH, expect_status=[404],
+         schema=Any_()),
+
+    dict(name="link_failure_detected__malformed_json", method="POST",
+         path="/ndt/link_failure_detected", raw_body="{this is not json",
+         category=ERRORPATH, expect_status=[400],
+         schema=Any_()),
+
+    # Its sibling parses the body with an unguarded json::parse, so the 400 here comes from
+    # buildResponse's `catch (const json::exception&)` rather than from a validator. That is the
+    # difference this check exists for: the same malformed body reaches the two endpoints by
+    # different routes, and the other route has answered 500 before (HttpSession.cpp:1865).
+    dict(name="link_recovery_detected__malformed_json", method="POST",
+         path="/ndt/link_recovery_detected", raw_body="{this is not json",
+         category=ERRORPATH, expect_status=[400],
+         schema=Any_()),
+
+    dict(name="link_recovery_detected__missing_fields", method="POST",
+         path="/ndt/link_recovery_detected", body={"src_dpid": 1},
+         category=ERRORPATH, expect_status=[400],
+         schema=Any_(),
+         note="the handler reads four keys out of the object by hand; a missing one must be a "
+              "400 naming them, not a json::exception turned into a 500"),
+
+    # --- the sequence. MUTATE: it declares a link down, cuts it, and puts it back. ---
+    dict(name="link_failure_detected", method="POST", path="/ndt/link_failure_detected",
+         body=link_endpoint_body, request_schema=LINK_REQUEST,
+         category=MUTATE, schema=LINK_FAILURE_REPORTED,
+         invariants=[inv_declared_failure_says_who_can_withdraw_it],
+         note="step 1 of 6. Declares the link failed AND records that the control plane reported "
+              "the break -- the note step 2 pairs with. No netem: this endpoint is Ryu's "
+              "notification, not an injection"),
+
+    dict(name="link_recovery_detected", method="POST", path="/ndt/link_recovery_detected",
+         body=link_endpoint_body, request_schema=LINK_REQUEST,
+         category=MUTATE, schema=LINK_RECOVERY_REPORTED,
+         invariants=[inv_recovery_withdrew_the_declaration],
+         note="step 2 of 6. Spends the report step 1 recorded, so the declaration goes and the "
+              "edge comes back up. Declining HERE would mean the pairing rule has stopped "
+              "honouring the reports it exists to honour"),
+
+    dict(name="inject_link_failure", method="POST", path="/ndt/inject_link_failure",
+         body=link_endpoint_body, request_schema=LINK_REQUEST,
+         category=MUTATE, schema=LINK_FAILURE_INJECTED,
+         invariants=[inv_tc_half_is_reported_per_interface],
+         note="step 3 of 6. 🔴 CUTS A REAL LINK on MININET (netem loss 100%, both ends) and "
+              "leaves it cut for the two requests that follow. Steps 5 and 6 put it back, and "
+              "the runner runs every check even after one fails, so a failure in step 4 does not "
+              "strand the fabric. Records NO report, which is what makes step 4 reachable"),
+
+    dict(name="link_recovery_detected__declined_after_injection", method="POST",
+         path="/ndt/link_recovery_detected",
+         body=link_endpoint_body, request_schema=LINK_REQUEST,
+         category=MUTATE, schema=LINK_RECOVERY_REPORTED,
+         invariants=[inv_recovery_was_declined_and_said_so],
+         note="step 4 of 6, and the reason this block exists (E-21). The injection of step 3 "
+              "paired with nothing, so this recovery must be DECLINED and must say so in the "
+              "body -- the status line is 200 either way, deliberately, because Ryu logs 'NDT "
+              "REJECTED this notification' on any 4xx"),
+
+    dict(name="inject_link_recovery", method="POST", path="/ndt/inject_link_recovery",
+         body=link_endpoint_body, request_schema=LINK_REQUEST,
+         category=MUTATE, schema=LINK_RECOVERY_INJECTED,
+         invariants=[inv_tc_half_is_reported_per_interface],
+         note="step 5 of 6. The unconditional withdrawal, and since W8b the only one: it takes "
+              "back the injection of step 3 and removes the netem"),
+
+    dict(name="inject_link_recovery_cleanup", method="POST", path="/ndt/inject_link_recovery",
+         body=link_endpoint_body, request_schema=LINK_REQUEST,
+         category=MUTATE, schema=LINK_RECOVERY_INJECTED,
+         invariants=[inv_tc_half_is_reported_per_interface],
+         note="step 6 of 6, and it does two jobs at once, like release_lock_cleanup. It proves "
+              "the documented idempotency -- removing a netem that is not there is ok with "
+              "'noop', because a caller must be able to bring a fabric back to health without "
+              "first knowing what was done to it -- and it is the second restore, so the run "
+              "leaves no cut link behind even if step 5's answer was wrong"),
 ]
 
 
