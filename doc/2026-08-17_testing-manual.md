@@ -688,6 +688,17 @@ contract、12 個沒有**；其中兩筆是 B-6 修法在分支 `fix/w8-declared
 剩下的差額在那次改動之前就在了（trunk `1536ff17` 上算出來是 43／33／10）。
 [Co-developed with claude code -- Adam]
 
+⚠️ **2026-09-07 又動了一次，仍然只在分支上**：Adam 裁 **E-21**，四個 link 端點
+（`link_failure_detected`／`link_recovery_detected`／`inject_link_failure`／`inject_link_recovery`）
+進契約 ⇒ 🟢 實測 **45／37／8**，剩下的八個是 group／meter 六個 ＋ `get_sflow_stats` ＋
+`inform_all_destination_paths`。分支 `fix/e21-link-endpoints-in-contract`，**未併入 trunk**。
+🔴 **那十七筆檢查描述的是分支不是 trunk**——`inject_*` 兩條路在 trunk 上回 404、
+`link_failure_detected` 在 trunk 上只回 `{"status": "link failure processed"}`，所以對一顆 trunk
+建出來的 kernel 跑會紅，**那是刻意的讀法不是誤報**。其中六筆是 `MUTATE`：它們會**宣告並真的切斷**
+一條 switch↔switch link（MININET 下 `netem loss 100%`，兩端），序列的最後兩步再把它接回來
+⇒ **不帶 `--allow-mutations` 不會跑到**。
+[Co-developed with claude code -- Adam]
+
 ⚠️ **MUTATE 類檢查要 `--allow-mutations` 才會跑**，所以它們很久沒被執行過——2026-08-17
 第一次跑就抓到兩條**自己壞掉的檢查**（`modify_nickname` 送 `nickname`、`modify_device_name`
 送 `device_name`，文件規定的是 `new_nickname` 與 `new_name`，kernel 一直正確地回 400）。
