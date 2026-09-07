@@ -42,20 +42,23 @@ bmv2 的 table entry **沒有年齡**——P4Runtime 的 `TableEntry` 有 match�
 
 ### 3.2 寫入端：`p4_proxy/proxy_agent/p4_client.py` 六條路徑
 
+（行號對 `71fc9d90` 的 `p4_proxy/proxy_agent/p4_client.py`）
+
 | 方法 | 動作 | 時機 |
 |---|---|---|
-| `insert_ipv4_route` | `record` | `stub.Write` **回來之後**（`:951`） |
-| `modify_ipv4_route` | `record` | 同上（`:1105`） |
-| `delete_ipv4_route` | `forget`（`_forget_route`） | **三條成功路徑都清**（`:1035` 乾淨成功、`:1044` NOT_FOUND、`:1060` UNKNOWN＋讀回來確認不在） |
-| `insert_5tuple_rule` | `record` | `:844` |
-| `modify_5tuple_rule` | `record` | `:882` |
-| `delete_5tuple_rule` | `forget` | `:910` |
-| `set_forwarding_pipeline_config` | `clear()` | RPC 回來之後，緊接 `table_generation`（`:345`） |
+| `insert_ipv4_route` | `record` | `stub.Write` **回來之後**（`:954`） |
+| `modify_ipv4_route` | `record` | 同上（`:1108`） |
+| `delete_ipv4_route` | `forget`（`_forget_route`，定義在 `:1004`） | **三條成功路徑都清**（`:1038` 乾淨成功、`:1047` NOT_FOUND、`:1063` UNKNOWN＋讀回來確認不在） |
+| `insert_5tuple_rule` | `record` | `:847` |
+| `modify_5tuple_rule` | `record` | `:885` |
+| `delete_5tuple_rule` | `forget` | `:913` |
+| `set_forwarding_pipeline_config` | `clear()` | RPC 回來之後，緊接 `table_generation`（`:355`） |
+| `__init__` | 建 `RuleInstallTimes()` | `:107` |
 
 寫入端交給 record 的 match 是**用 `read_table_entries` 的形狀**建的
 （`_lpm_match`／`_five_tuple_match`，後者走 `_encode_5tuple_value`，也就是真的送上線的那些 bytes）。
-表名與 LPM 的 priority 提成 `IPV4_LPM_TABLE`／`FIVE_TUPLE_TABLE`／`LPM_ENTRY_PRIORITY`，
-理由是**兩邊各拼一次字串就是兩個 key**。
+表名與 LPM 的 priority 提成 `IPV4_LPM_TABLE`／`FIVE_TUPLE_TABLE`／`LPM_ENTRY_PRIORITY`
+（`:761`／`:762`／`:767`），理由是**兩邊各拼一次字串就是兩個 key**。
 
 🔴 **`insert_ipv4_route` 的 MODIFY 退路不需要另外記**——退路走的是 `modify_ipv4_route`，它自己會記。
 
@@ -78,11 +81,11 @@ P4 這一側是「自**上一次內容改變**起算」。兩者在「app 改過
 
 ### 3.4 讀取端：`ryu_flow_stats.py` ＋ `api_routes.py`
 
-- `render_flow_stats(dpid, entries, install_times=None)`：逐條查 `age_seconds`，
-  `entry_to_ryu(entry, age_seconds=...)` 換成 `(sec, nsec)`。
-- `_duration_fields`：`None` → `(0, 0)`；負數夾到 0（`duration_sec` 在線上是無號的，
+- `render_flow_stats(dpid, entries, install_times=None)`（`ryu_flow_stats.py:229`）：逐條查
+  `age_seconds`，`entry_to_ryu(entry, age_seconds=...)`（`:173`）換成 `(sec, nsec)`（`:191`、`:219`）。
+- `_duration_fields`（`:152`）：`None` → `(0, 0)`；負數夾到 0（`duration_sec` 在線上是無號的，
   一個負數會變成 42.9 億秒）。
-- `api_routes.get_flow_stats` 傳 **`client.rule_install_times`**，
+- `api_routes.get_flow_stats`（`api_routes.py:562-563`）傳 **`client.rule_install_times`**，
   **直接取屬性、不用 `getattr(..., None)`**：finding #71 的形狀就是「production 忘了傳，
   而每個測試都自己注入」，而這裡忘了傳的後果是**永遠 0/0**——跟缺陷本身長得一模一樣。
 
