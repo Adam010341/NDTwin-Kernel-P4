@@ -230,17 +230,35 @@ class RuleInstallTimes:
             return None
         return max(0.0, self._monotonic() - installed_at)
 
-    def installed_at_epoch(self, dpid, table, priority, match):
+    def oldest_installed_at_epoch(self):
         """
-        Wall-clock time of the install, or None -- for correlating with the rule journal and the
-        kernel log, which are both stamped in epoch seconds.
+        Wall-clock time of the EARLIEST install still held here, or None when nothing is held --
+        for `GET /p4/switch_state`, and for correlating with the rule journal and the kernel log,
+        which are both stamped in epoch seconds.
 
-        Derived from the monotonic age rather than stored alongside it. A second stored clock is
-        a second answer, and the two disagree the moment the system clock is stepped; deriving
-        it means it can never contradict the duration the same entry reports.
+        This is how far back the record reaches, which is the second question an operator has
+        after `rules_timed`. A record whose oldest stamp is seconds old belongs to a proxy that
+        has just started, or to a switch whose pipeline was just re-pushed -- and every rule on
+        that switch older than this instant will report 0/0 forever, however long it sits there.
+        Without it, "few rules are dated" and "this record is brand new" look identical.
+
+        Derived from the monotonic reading rather than stored alongside it, and clamped the same
+        way `age_seconds` is. A second stored clock is a second answer, and the two disagree the
+        moment the system clock is stepped; deriving it means it can never contradict the
+        durations the same entries report.
+
+        [Co-developed with claude code -- Adam]
+        The per-entry form of this (`installed_at_epoch(dpid, table, priority, match)`) existed
+        first and had no production reader, so it was removed rather than left as an accessor
+        nobody calls. It could not acquire one: the only per-entry payload on this plane is
+        `ryu_flow_stats`' Ryu flow shape, Ryu has no epoch field, and inventing one there would
+        break the impersonation that renderer exists for.
         """
-        age = self.age_seconds(dpid, table, priority, match)
-        return None if age is None else self._wall() - age
+        with self._lock:
+            oldest = min(self._at.values(), default=None)
+        if oldest is None:
+            return None
+        return self._wall() - max(0.0, self._monotonic() - oldest)
 
     def __len__(self):
         with self._lock:

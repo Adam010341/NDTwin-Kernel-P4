@@ -189,6 +189,9 @@ def a_client(stub=None, device_id=1, clock=None, json_path=None):
     client.table_generation = None
     client.pipeline_commits = 0
     client.rule_install_times = RuleInstallTimes(monotonic=clock or FakeClock())
+    # The row count of the last table read -- `rules_total` on GET /p4/switch_state, the
+    # denominator the record above is reported against. Same starting value __init__ sets.
+    client._last_table_read = None
     return client
 
 
@@ -396,11 +399,39 @@ class RuleInstallTimesTest(unittest.TestCase):
         self.clock.advance(10)
         self.wall.advance(10)
 
-        self.assertAlmostEqual(
-            self.times.installed_at_epoch(1, LPM_TABLE, 0, self.match), 1_700_000_000.0)
+        self.assertAlmostEqual(self.times.oldest_installed_at_epoch(), 1_700_000_000.0)
 
-    def test_an_unrecorded_entry_has_no_wall_clock_time_either(self):
-        self.assertIsNone(self.times.installed_at_epoch(1, LPM_TABLE, 0, self.match))
+    def test_a_record_holding_nothing_has_no_wall_clock_time_either(self):
+        self.assertIsNone(self.times.oldest_installed_at_epoch())
+
+    def test_the_oldest_stamp_is_reported_not_the_newest(self):
+        # 🔴 The direction that matters. This number answers "how far back does this record
+        # reach", and the newest stamp answers the opposite question -- it would say the record
+        # began a moment ago however long it had actually been keeping rules, and an operator
+        # reading it would conclude every undated rule on the switch predates the proxy.
+        self.times.record(1, LPM_TABLE, 0, self.match)
+        self.clock.advance(600)
+        self.wall.advance(600)
+        self.times.record(1, FIVE_TUPLE_TABLE, 100, self.match)
+
+        self.assertAlmostEqual(self.times.oldest_installed_at_epoch(), 1_700_000_000.0)
+
+    def test_forgetting_the_oldest_entry_moves_the_reach_forward(self):
+        # The stamp is gone with the rule, so the record no longer reaches back to it.
+        self.times.record(1, LPM_TABLE, 0, self.match)
+        self.clock.advance(600)
+        self.wall.advance(600)
+        self.times.record(1, FIVE_TUPLE_TABLE, 100, self.match)
+        self.times.forget(1, LPM_TABLE, 0, self.match)
+
+        self.assertAlmostEqual(self.times.oldest_installed_at_epoch(), 1_700_000_600.0)
+
+    def test_a_clock_that_went_backwards_does_not_date_the_record_in_the_future(self):
+        # Same clamp age_seconds applies, and for a reader that will subtract this from now().
+        self.times.record(1, LPM_TABLE, 0, self.match)
+        self.clock.advance(-5)
+
+        self.assertAlmostEqual(self.times.oldest_installed_at_epoch(), 1_700_000_000.0)
 
 
 # --- the write paths: only what the switch accepted ----------------------------------------
@@ -561,6 +592,23 @@ class TheClientDatesWhatTheSwitchAcceptedTest(unittest.TestCase):
         client.set_forwarding_pipeline_config()
 
         self.assertEqual(len(client.rule_install_times), 0)
+
+    def test_the_pipeline_push_also_drops_the_row_count_that_record_is_reported_against(self):
+        # 🔴 Control, and the half that is easy to leave behind. GET /p4/switch_state serves
+        # `rules_timed` against `rules_total`, so a wipe that empties one and keeps the other
+        # reports "this proxy dated none of the 40 rules on this switch" -- a sentence about
+        # forty rules that no longer exist. None, until something counts again.
+        handle, path = tempfile.mkstemp(suffix=".json")
+        with os.fdopen(handle, "wb") as fh:
+            fh.write(b"{}")
+        self.addCleanup(os.unlink, path)
+        client = a_client(clock=self.clock, json_path=path)
+        client.read_table_entries()
+        self.assertIsNotNone(client.last_table_read())
+
+        client.set_forwarding_pipeline_config()
+
+        self.assertIsNone(client.last_table_read())
 
 
 # --- the wiring: the endpoint reads the client's own record --------------------------------

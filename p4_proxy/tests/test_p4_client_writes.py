@@ -47,6 +47,7 @@ import socket
 import sys
 import tempfile
 import threading
+import time
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
@@ -213,6 +214,10 @@ def a_client(stub=None, device_id=1):
     # them raise AttributeError -- which is the correct failure for a hand-built double that has
     # stopped standing in for the real object, and is how this line came to be here.
     client.rule_install_times = RuleInstallTimes()
+    # The row count of the last table read, which GET /p4/switch_state serves as `rules_total`.
+    # None is what a client that has never read its tables reports, and is the same starting
+    # value __init__ sets.
+    client._last_table_read = None
     return client
 
 
@@ -692,6 +697,45 @@ class ReadTableEntriesTest(unittest.TestCase):
     def test_priority_is_reported_as_sent(self):
         entries = self.read(an_lpm_entry(priority=100))
         self.assertEqual(entries[0]["priority"], 100)
+
+    def test_a_table_read_records_how_many_rows_it_returned(self):
+        # GET /p4/switch_state serves this as `rules_total` -- the denominator for the install
+        # record, so an operator can tell a switch this proxy installed nothing on from a switch
+        # with nothing on it (KNOWN-ISSUES G-13). Recorded by the read itself rather than by its
+        # caller: the flow-stats poll is not the only reader, and a count the next caller forgets
+        # to note would stop moving with nothing anywhere saying so.
+        entries = self.read(an_lpm_entry(), an_lpm_entry(prefix_len=24))
+        rows, age_s = self.client.last_table_read()
+
+        self.assertEqual(rows, len(entries))
+        self.assertGreaterEqual(age_s, 0.0)
+        self.assertLess(age_s, 1.0, "the age is of the read, not of the process")
+
+    def test_a_client_that_has_never_read_its_tables_reports_no_count(self):
+        # None, not 0. "Nobody has counted" and "counted none" are the two answers this record
+        # exists to keep apart, and `0 of 0` reads as a table entirely accounted for.
+        self.assertIsNone(a_client(stub=RecordingStub(read_responses=[])).last_table_read())
+
+    def test_an_empty_table_is_counted_as_zero_rather_than_left_unknown(self):
+        # The other side of it: a read that succeeded and found nothing is knowledge, and must
+        # not be reported as the absence of a reading.
+        self.read()
+
+        self.assertEqual(self.client.last_table_read()[0], 0)
+
+    def test_the_age_of_the_count_advances_with_the_clock(self):
+        # The count travels with an age precisely so a stale one is visible. Pinned at zero, a
+        # switch nobody has polled for an hour would report an hour-old count as freshly taken,
+        # and `rules_timed of rules_total` would be read as a statement about the table now.
+        # Real elapsed time rather than an injected clock: this client has none, and the number
+        # under test is time.monotonic() arithmetic in the accessor itself.
+        self.read(an_lpm_entry())
+        first = self.client.last_table_read()[1]
+        time.sleep(0.05)
+        second = self.client.last_table_read()[1]
+
+        self.assertGreater(second, first, "the age is frozen, so staleness is invisible")
+        self.assertGreaterEqual(second, 0.04)
 
 
 # --- counters and packet-out -------------------------------------------------------

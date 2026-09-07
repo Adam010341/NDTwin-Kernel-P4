@@ -1,6 +1,7 @@
 import logging
 import threading
 import queue
+import time
 import grpc
 import socket
 from p4.v1 import p4runtime_pb2
@@ -105,6 +106,14 @@ class P4RuntimeClient:
         # Per client, not per process: readopt_switch replaces this object and pushes a pipeline
         # that empties the switch, so the replacement's empty record is the true one.
         self.rule_install_times = RuleInstallTimes()
+
+        #: (row count, monotonic reading) of the most recent read_table_entries, or None when
+        #: this client has never read its tables. The denominator for the record above:
+        #: `rules_timed` alone cannot distinguish a switch this proxy installed nothing on from
+        #: a switch with nothing on it. Assigned as ONE tuple so a reader on another thread can
+        #: never see a count paired with somebody else's timestamp. See last_table_read().
+        #: [Co-developed with claude code -- Adam]
+        self._last_table_read = None
 
 
         # [Co-developed with claude code -- Adam]
@@ -353,6 +362,12 @@ class P4RuntimeClient:
         # Alongside table_generation, and after the RPC for the same reason: a refused push
         # destroyed nothing. KNOWN-ISSUES G-13, A-4c.
         self.rule_install_times.clear()
+        # And the row count that record is reported against. The last read counted rows in a
+        # table that no longer exists, so keeping it would pair a freshly emptied `rules_timed`
+        # with the old table's `rules_total` and read as "this proxy dated none of the 40 rules
+        # on this switch" -- a sentence about forty rules that are gone. Back to None, which is
+        # "nobody has counted since the wipe", until the next read counts.
+        self._last_table_read = None
 
     # [Co-developed with claude code -- Adam]
     def write_clone_session(self, session_id=SAMPLE_SESSION_ID, egress_port=CPU_PORT):
@@ -641,7 +656,41 @@ class P4RuntimeClient:
                     "action": action,
                     "counters": counters,
                 })
+        # [Co-developed with claude code -- Adam]
+        # Noted HERE, in the one function that reads the table, rather than at the call site.
+        # GET /p4/switch_state reports this as `rules_total`, the denominator that says whether
+        # "0 of these rules has an age" means the proxy installed none of them or the switch
+        # holds none. An additive line the flow-stats poll had to remember is a line the next
+        # reader forgets, and the count would then stop moving with nothing saying so.
+        #
+        # After the loop, so a read that raised (a deadline against a stopped switch) leaves the
+        # previous count and its age standing rather than recording a zero the switch never
+        # reported -- the same rule the install record follows for a refused write.
+        self._last_table_read = (len(entries), time.monotonic())
         return entries
+
+    def last_table_read(self):
+        """
+        `(rows, seconds since it was read)` for the most recent `read_table_entries`, or None if
+        this client has never read its tables.
+
+        [Co-developed with claude code -- Adam]
+        An age rather than a timestamp, because the caller is `switch_liveness` and everything it
+        reports is an age -- the reader cannot align its monotonic clock with this process's. And
+        an age rather than a bare number because the count is from the LAST read, not from one
+        taken now: `GET /p4/switch_state` is `async def` and this read blocks on a gRPC stream,
+        so counting on demand would put back the 2026-08-13 incident where one SIGSTOPed bmv2
+        took the whole agent's event loop with it (`api_routes.get_flow_stats`' docstring). A
+        count with no age would let a switch nobody has polled for an hour read as current.
+
+        None, not `(0, ...)`: "nobody has counted this switch's rules" is not "this switch has
+        no rules", and the whole of KNOWN-ISSUES G-13 is about not letting those collapse.
+        """
+        seen = self._last_table_read
+        if seen is None:
+            return None
+        rows, at = seen
+        return rows, max(0.0, time.monotonic() - at)
 
     # --- Table Operations ---
     #: The egress counter's name in ndtwin_switch.p4. A parameter rather than a literal so a test

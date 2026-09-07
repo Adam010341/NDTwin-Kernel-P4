@@ -33,6 +33,7 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from proxy_agent import api_routes  # noqa: E402
+from proxy_agent.rule_install_times import RuleInstallTimes  # noqa: E402
 from proxy_agent.topology_manager import (  # noqa: E402
     LIVENESS_PROBE_INTERVAL_S,
     LIVENESS_PROBE_TIMEOUT_S,
@@ -40,10 +41,24 @@ from proxy_agent.topology_manager import (  # noqa: E402
 )
 
 
+class FakeClock:
+    """A clock a test moves by hand, so an age is asserted rather than slept for."""
+
+    def __init__(self, start=0.0):
+        self.now = start
+
+    def __call__(self):
+        return self.now
+
+    def advance(self, seconds):
+        self.now += seconds
+
+
 class FakeClient:
     """Stands in for a P4RuntimeClient. Records probes so a test can count them."""
 
-    def __init__(self, ok=True, detail="ok", grpc_addr="127.0.0.1:50051", raises=False):
+    def __init__(self, ok=True, detail="ok", grpc_addr="127.0.0.1:50051", raises=False,
+                 monotonic=None, wall=None):
         self.ok = ok
         self.detail = detail
         self.grpc_addr = grpc_addr
@@ -51,12 +66,27 @@ class FakeClient:
         self.probe_calls = 0
         self.stream_alive = True
         self.packet_in_callback = None
+        # [Co-developed with claude code -- Adam]
+        # The real RuleInstallTimes, not a stub of one. switch_liveness reports len() of this
+        # and its oldest stamp, and a stub would let those two agree with each other while
+        # disagreeing with the record the flow-stats renderer reads off the same attribute.
+        # Clocks are injectable for the same reason they are on the real thing: so an age is a
+        # thing a test states rather than a thing it waits for.
+        self.rule_install_times = RuleInstallTimes(monotonic=monotonic, wall=wall)
+        self._table_read = None
 
     def probe(self, timeout_s=None):
         self.probe_calls += 1
         if self.raises:
             raise RuntimeError("channel exploded")
         return {"ok": self.ok, "detail": self.detail}
+
+    def note_table_read(self, rows, age_s=0.0):
+        """What a real read_table_entries leaves behind, with the age set instead of waited."""
+        self._table_read = (rows, age_s)
+
+    def last_table_read(self):
+        return self._table_read
 
 
 def lldp(dpid, port=1):
@@ -152,6 +182,114 @@ class ReportedEvidenceTest(unittest.TestCase):
         report = topo.switch_liveness()
         self.assertEqual(report["status"], "success")
         self.assertEqual(report["switches"], {})
+
+
+class TheRuleClockOnTheLivenessPayloadTest(unittest.TestCase):
+    """
+    KNOWN-ISSUES G-13. Whether `duration 0/0` means "old" or "unknown", answered on the payload
+    the kernel already polls.
+
+    [Co-developed with claude code -- Adam]
+    A bmv2 table entry has no age, so the only ages on this plane come from this proxy's own
+    record of writing the rules; a rule it did not write reports 0/0, which `ndt` reads as
+    UNKNOWN. From `/stats/flow/<dpid>` alone that is indistinguishable from a table full of
+    genuinely new rules, and it is the first thing an operator asks once G-13 lands. Only the
+    pair -- how many rules are dated, out of how many rows are there -- answers it.
+
+    It belongs on this endpoint rather than a new one for the same reason `table_generation`
+    does: the kernel already polls it once a second and reads named keys out of each entry, so
+    an added key is inert to the existing parse and there is no second poll to forget.
+    """
+
+    LPM = "MyIngress.ipv4_lpm"
+
+    def a_switch(self, monotonic=None, wall=None):
+        topo = TopologyManager()
+        client = FakeClient(monotonic=monotonic, wall=wall)
+        topo.add_switch(1, client)
+        return topo, client
+
+    def state(self, topo, dpid=1):
+        return topo.switch_liveness()["switches"][str(dpid)]
+
+    def a_route(self, last_octet):
+        """One ipv4_lpm entry's match, in the shape read_table_entries returns."""
+        return {"hdr.ipv4.dstAddr": {"type": "lpm",
+                                     "value": bytes((10, 0, 0, last_octet)),
+                                     "prefix_len": 32}}
+
+    def test_a_switch_reports_how_many_of_its_rules_this_proxy_can_date(self):
+        topo, client = self.a_switch()
+        client.rule_install_times.record(1, self.LPM, 0, self.a_route(4))
+        client.rule_install_times.record(1, self.LPM, 0, self.a_route(5))
+
+        self.assertEqual(self.state(topo)["rules_timed"], 2)
+
+    def test_the_count_is_of_records_not_of_the_rows_on_the_switch(self):
+        # 🔴 The number an operator divides, and the mutation that matters most: reporting the
+        # row count in both places makes every switch read as fully dated -- which is the
+        # reassuring answer, arrived at without consulting the record at all.
+        topo, client = self.a_switch()
+        client.rule_install_times.record(1, self.LPM, 0, self.a_route(4))
+        client.note_table_read(rows=9)
+
+        state = self.state(topo)
+        self.assertEqual((state["rules_timed"], state["rules_total"]), (1, 9))
+
+    def test_a_switch_whose_tables_nobody_has_read_reports_no_total_rather_than_zero(self):
+        # "Nobody has counted" is not "there is nothing there". A 0 here would describe an empty
+        # switch, and `0 of 0` reads as a table that is entirely accounted for -- the same
+        # collapse of unknown into a confident number that G-13 exists to undo.
+        topo, _ = self.a_switch()
+
+        state = self.state(topo)
+        self.assertIsNone(state["rules_total"])
+        self.assertIsNone(state["rules_total_age_s"])
+        self.assertEqual(state["rules_timed"], 0)
+
+    def test_the_total_carries_the_age_of_the_read_it_came_from(self):
+        # The count is from the last read, never from one taken here: read_table_entries blocks
+        # on a gRPC stream and this report answers an `async def` endpoint, which is how one
+        # SIGSTOPed bmv2 took the whole agent down on 2026-08-13. Without the age, a switch
+        # nobody has polled for an hour would serve an hour-old count as though it were current.
+        topo, client = self.a_switch()
+        client.note_table_read(rows=40, age_s=73.5)
+
+        state = self.state(topo)
+        self.assertEqual(state["rules_total"], 40)
+        self.assertAlmostEqual(state["rules_total_age_s"], 73.5)
+
+    def test_the_record_reaches_back_to_its_oldest_stamp_in_epoch_seconds(self):
+        clock, wall = FakeClock(), FakeClock(1_700_000_000.0)
+        topo, client = self.a_switch(monotonic=clock, wall=wall)
+        client.rule_install_times.record(1, self.LPM, 0, self.a_route(4))
+        clock.advance(600)
+        wall.advance(600)
+        client.rule_install_times.record(1, self.LPM, 0, self.a_route(5))
+
+        # Epoch rather than an age, because what it is compared against -- the rule journal, the
+        # kernel log -- is stamped in epoch seconds. Oldest rather than newest, because the
+        # question is how far back the record reaches: a reach of seconds means every older rule
+        # on this switch will report 0/0 forever, however long it sits there.
+        self.assertAlmostEqual(self.state(topo)["oldest_rule_installed_at"], 1_700_000_000.0)
+
+    def test_a_switch_this_proxy_has_installed_nothing_on_has_no_reach(self):
+        topo, _ = self.a_switch()
+
+        self.assertIsNone(self.state(topo)["oldest_rule_installed_at"])
+
+    def test_a_dpid_known_only_from_a_beacon_reports_all_four_as_null(self):
+        # This report lists dpids it has probe or beacon evidence for even when self.switches has
+        # no client for them. Answering 0 there would credit the proxy with a record it does not
+        # have, and raising would 500 the endpoint the kernel polls once a second.
+        topo = TopologyManager()
+        topo._last_lldp_from[7] = time.monotonic()
+
+        state = self.state(topo, dpid=7)
+        self.assertIsNone(state["rules_timed"])
+        self.assertIsNone(state["rules_total"])
+        self.assertIsNone(state["rules_total_age_s"])
+        self.assertIsNone(state["oldest_rule_installed_at"])
 
 
 class PacketInEvidenceTest(unittest.TestCase):

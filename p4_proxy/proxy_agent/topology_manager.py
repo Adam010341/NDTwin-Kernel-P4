@@ -1606,6 +1606,24 @@ class TopologyManager:
             for dpid in dpids:
                 probe = self._last_probe.get(dpid)
                 client = self.switches.get(dpid)
+                # [Co-developed with claude code -- Adam] KNOWN-ISSUES G-13. See the four keys
+                # below. Read off the client as plain attributes, guarded only by "is there a
+                # client at all" -- a dpid can be in this report on probe or beacon evidence
+                # alone, with nothing in self.switches. A getattr default here would let a
+                # client that stopped carrying the record report `rules_timed: null` for the
+                # rest of the run, which reads exactly like a proxy that installed nothing.
+                #
+                # RuleInstallTimes' lock is taken inside _liveness_lock. It is a leaf: nothing
+                # in that module calls back into this one, so there is no order to invert.
+                rules_timed, oldest_installed_at = None, None
+                rules_total, rules_total_age_s = None, None
+                if client is not None:
+                    seen = client.last_table_read()
+                    if seen is not None:
+                        rules_total, rules_total_age_s = seen[0], round(seen[1], 3)
+                    install_times = client.rule_install_times
+                    rules_timed = len(install_times)
+                    oldest_installed_at = install_times.oldest_installed_at_epoch()
                 out[str(dpid)] = {
                     "probe_ok": None if probe is None else probe["ok"],
                     "probe_detail": "" if probe is None else probe["detail"],
@@ -1631,6 +1649,40 @@ class TopologyManager:
                     # the existing parse and no reader has to be updated in lockstep.
                     "table_generation": getattr(client, "table_generation", None),
                     "pipeline_commits": getattr(client, "pipeline_commits", 0),
+                    # [Co-developed with claude code -- Adam]
+                    # KNOWN-ISSUES G-13, and the reason these four are here at all: on this
+                    # plane `duration 0/0` means "this proxy has no record of installing that
+                    # rule", NOT "installed just now" -- and from /stats/flow/<dpid> alone an
+                    # operator cannot tell which. These say which.
+                    #
+                    #   rules_timed  how many entries this client holds an install stamp for
+                    #   rules_total  how many rows its last table read returned
+                    #
+                    # 0 of 40 is a proxy that installed none of them (a fabric brought up by a
+                    # previous generation, or by somebody else); 40 of 40 is a fully dated
+                    # table; 0 of null is a switch nobody has read.
+                    #
+                    # `rules_total` is the count from that LAST read, carrying its own age, and
+                    # is deliberately not a read taken here: read_table_entries blocks on a gRPC
+                    # stream and this report answers an `async def` endpoint, so counting on
+                    # demand would put back the 2026-08-13 incident in which one SIGSTOPed bmv2
+                    # took the entire agent's event loop with it (api_routes.get_flow_stats).
+                    # The kernel's own 1 Hz /stats/flow poll is what keeps it fresh.
+                    #
+                    # null is not 0 in any of the four: "nobody counted" and "counted none" are
+                    # the two answers this whole fix exists to keep apart.
+                    #
+                    # Additive, like table_generation above.
+                    "rules_timed": rules_timed,
+                    "rules_total": rules_total,
+                    "rules_total_age_s": rules_total_age_s,
+                    # Wall-clock epoch of the earliest stamp this client still holds, or null.
+                    # How far back the record reaches: seconds old means the record itself is
+                    # new (a fresh proxy, or a pipeline just re-pushed), so rules older than it
+                    # will report 0/0 however long they sit there. Epoch rather than an age
+                    # because what it gets compared against -- the rule journal, the kernel log
+                    # -- is stamped in epoch seconds.
+                    "oldest_rule_installed_at": oldest_installed_at,
                 }
 
         return {

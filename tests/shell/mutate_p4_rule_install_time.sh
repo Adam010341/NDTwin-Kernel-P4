@@ -41,9 +41,17 @@ TIMES="$REPO/p4_proxy/proxy_agent/rule_install_times.py"
 STATS="$REPO/p4_proxy/proxy_agent/ryu_flow_stats.py"
 CLIENT="$REPO/p4_proxy/proxy_agent/p4_client.py"
 ROUTES="$REPO/p4_proxy/proxy_agent/api_routes.py"
+TOPO="$REPO/p4_proxy/proxy_agent/topology_manager.py"
 TEST_TIMES="$REPO/p4_proxy/tests/test_rule_install_times.py"
 TEST_STATS="$REPO/p4_proxy/tests/test_ryu_flow_stats.py"
-MODULES="tests.test_rule_install_times tests.test_ryu_flow_stats"
+TEST_WRITES="$REPO/p4_proxy/tests/test_p4_client_writes.py"
+TEST_STATE="$REPO/p4_proxy/tests/test_switch_state.py"
+# One class of test_switch_state rather than the module: the rest of that file drives the
+# background prober through real threads and costs about six seconds a run, which this gate pays
+# once per mutation. Naming the class is more precise, not less -- the whole module still runs in
+# the suite. [Co-developed with claude code -- Adam]
+MODULES="tests.test_rule_install_times tests.test_ryu_flow_stats tests.test_p4_client_writes \
+tests.test_switch_state.TheRuleClockOnTheLivenessPayloadTest"
 
 # The interpreter. A git worktree has no venv of its own (p4_proxy/venv/ is gitignored and lives
 # in the main checkout), so the main worktree is consulted before giving up -- asked of git
@@ -71,8 +79,11 @@ BASE_TIMES=$(sha256sum "$TIMES" | cut -d' ' -f1)
 BASE_STATS=$(sha256sum "$STATS" | cut -d' ' -f1)
 BASE_CLIENT=$(sha256sum "$CLIENT" | cut -d' ' -f1)
 BASE_ROUTES=$(sha256sum "$ROUTES" | cut -d' ' -f1)
+BASE_TOPO=$(sha256sum "$TOPO" | cut -d' ' -f1)
 BASE_TEST_TIMES=$(sha256sum "$TEST_TIMES" | cut -d' ' -f1)
 BASE_TEST_STATS=$(sha256sum "$TEST_STATS" | cut -d' ' -f1)
+BASE_TEST_WRITES=$(sha256sum "$TEST_WRITES" | cut -d' ' -f1)
+BASE_TEST_STATE=$(sha256sum "$TEST_STATE" | cut -d' ' -f1)
 
 SURVIVORS=0
 MUTATIONS=0
@@ -288,14 +299,74 @@ m=$(mutant n9 "$TIMES" \
 report "N9 (control): the key forgets which switch, so ten switches share one table" "$m" \
        "test_a_different_switch_is_a_different_entry"
 
+# --- 🔴 the denominator: is 0/0 an old rule, or one this proxy never wrote? -------------------
+#
+# Everything above makes the record correct. It does not make the record READABLE: `duration 0/0`
+# on the wire is the same eleven characters whether the rule predates this proxy or was installed
+# a moment ago, and an operator holding only /stats/flow/<dpid> cannot tell. GET /p4/switch_state
+# answers it with `rules_timed` out of `rules_total`, and every mutation below is a way of
+# serving that pair while saying less than it appears to say -- the field missing, the numerator
+# taken from the denominator, an uncounted switch reported as an empty one, the reach of the
+# record taken from the wrong end of it. None of them is caught by anything above.
+
+m=$(mutant m11 "$TOPO" \
+    '                    "rules_timed": rules_timed,
+                    "rules_total": rules_total,
+                    "rules_total_age_s": rules_total_age_s,' \
+    '')
+report "M11: the liveness payload does not carry the counts at all" "$m" \
+       "test_the_count_is_of_records_not_of_the_rows_on_the_switch"
+
+m=$(mutant m12 "$TOPO" \
+    '                    rules_timed = len(install_times)' \
+    '                    rules_timed = rules_total')
+report "M12: rules_timed is taken from the row count, so every table looks fully dated" "$m" \
+       "test_the_count_is_of_records_not_of_the_rows_on_the_switch"
+
+m=$(mutant m13 "$CLIENT" \
+    '        self._last_table_read = (len(entries), time.monotonic())
+        return entries' \
+    '        return entries')
+report "M13: reading the table does not count its rows, so there is no denominator" "$m" \
+       "test_a_table_read_records_how_many_rows_it_returned"
+
+m=$(mutant n10 "$TOPO" \
+    '                rules_total, rules_total_age_s = None, None' \
+    '                rules_total, rules_total_age_s = 0, 0.0')
+report "N10 (control): a switch nobody has read is reported as a switch with no rules" "$m" \
+       "test_a_switch_whose_tables_nobody_has_read_reports_no_total_rather_than_zero"
+
+m=$(mutant n11 "$TIMES" \
+    '            oldest = min(self._at.values(), default=None)' \
+    '            oldest = max(self._at.values(), default=None)')
+report "N11 (control): the reach of the record is read off its newest stamp" "$m" \
+       "test_the_oldest_stamp_is_reported_not_the_newest"
+
+m=$(mutant n12 "$CLIENT" \
+    '        # "nobody has counted since the wipe", until the next read counts.
+        self._last_table_read = None' \
+    '        # "nobody has counted since the wipe", until the next read counts.
+        pass')
+report "N12 (control): the pipeline wipe keeps the row count of the table it destroyed" "$m" \
+       "test_the_pipeline_push_also_drops_the_row_count_that_record_is_reported_against"
+
+m=$(mutant n13 "$CLIENT" \
+    '        return rows, max(0.0, time.monotonic() - at)' \
+    '        return rows, 0.0')
+report "N13 (control): the row count is served with no age, so a stale one reads as fresh" "$m" \
+       "test_the_age_of_the_count_advances_with_the_clock"
+
 echo
 [[ "$(sha256sum "$TIMES" | cut -d' ' -f1)" == "$BASE_TIMES" ]] || { echo "🔴 baseline CHANGED -- rule_install_times.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$STATS" | cut -d' ' -f1)" == "$BASE_STATS" ]] || { echo "🔴 baseline CHANGED -- ryu_flow_stats.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$CLIENT" | cut -d' ' -f1)" == "$BASE_CLIENT" ]] || { echo "🔴 baseline CHANGED -- p4_client.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$ROUTES" | cut -d' ' -f1)" == "$BASE_ROUTES" ]] || { echo "🔴 baseline CHANGED -- api_routes.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$TOPO" | cut -d' ' -f1)" == "$BASE_TOPO" ]] || { echo "🔴 baseline CHANGED -- topology_manager.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_TIMES" | cut -d' ' -f1)" == "$BASE_TEST_TIMES" ]] || { echo "🔴 baseline CHANGED -- test_rule_install_times.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_STATS" | cut -d' ' -f1)" == "$BASE_TEST_STATS" ]] || { echo "🔴 baseline CHANGED -- test_ryu_flow_stats.py was written during the gate"; exit 3; }
-echo "baseline byte-identical: yes (4 sources, 2 test files)"
+[[ "$(sha256sum "$TEST_WRITES" | cut -d' ' -f1)" == "$BASE_TEST_WRITES" ]] || { echo "🔴 baseline CHANGED -- test_p4_client_writes.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$TEST_STATE" | cut -d' ' -f1)" == "$BASE_TEST_STATE" ]] || { echo "🔴 baseline CHANGED -- test_switch_state.py was written during the gate"; exit 3; }
+echo "baseline byte-identical: yes (5 sources, 4 test files)"
 if [[ "$SURVIVORS" -eq 0 ]]; then
     echo "mutation gate: $MUTATIONS mutations, 0 survived"; exit 0
 else
