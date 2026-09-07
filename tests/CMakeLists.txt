@@ -129,6 +129,14 @@ add_executable(
   # edited". This owns the property that a rename changes the field it was asked to change and
   # nothing else, for every shipped topology and not only the two it was measured on.
   test_NicknameDoesNotRewriteTheFile.cpp
+
+  # [Co-developed with claude code -- Adam] E-2: run_layers.sh chose the model to validate the
+  # fabric against from (data plane, live host count) and never asked the kernel, and setting/
+  # holds more than one model with the same dpids and the same cardinality -- so validating one
+  # fabric against another's model was green by construction. This owns the kernel's side of the
+  # answer: the file, the digest of its BYTES at load, and the fact that neither follows the
+  # file afterwards.
+  test_TopologyLoadedModelReported.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

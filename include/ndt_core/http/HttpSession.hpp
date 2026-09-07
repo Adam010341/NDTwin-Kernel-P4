@@ -118,6 +118,14 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     // that file can prove the state is knowable, but not that the handler bothered to ask.
     friend class HistoricalLoggingEndpointTestPeer;
 
+    // [Co-developed with claude code -- Adam] -- E-2.
+    // Fifth peer, for tests/test_TopologyLoadedModelReported.cpp, separate for the same ODR
+    // reason as the second: each peer is a class DEFINED in its own translation unit, so two
+    // test files cannot share one name. What it pins is that the three topology_* keys reach the
+    // WIRE -- the monitor-level assertions in that file prove the record is knowable, and a
+    // handler that never asked for it would leave every one of them green.
+    friend class HttpSessionLoadedModelTestPeer;
+
     // --- Asynchronous Operation Handlers ---
     void readRequest();
     void onRead(beast::error_code ec, std::size_t bytesTransferred);

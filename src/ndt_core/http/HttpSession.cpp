@@ -552,6 +552,19 @@ HttpSession::handleGetGraphData(http::response<http::string_body>& res)
     // lie than a stale label. Additive top-level key; GRAPH_DATA is a non-strict Obj.
     result["topology_round"] = m_topologyAndFlowMonitor->pollRoundJson();
 
+    // [Co-developed with claude code -- Adam] -- E-2 (DECISIONS.md, grill §4E).
+    // Which model this kernel is serving, so a consumer stops having to infer it. Three
+    // additive top-level keys -- topology_file, topology_sha256, topology_loaded_at -- merged
+    // flat rather than nested, because the one consumer this is for reads them with a shell
+    // JSON query beside the graph it is comparing them against, and a wrapper object would buy
+    // nothing but a level of path.
+    //
+    // Merged rather than assigned, and the monitor returns an EMPTY object when nothing has
+    // loaded: a kernel with no topology serves exactly the keys a pre-E-2 kernel serves, and
+    // "absent" keeps its one meaning -- the kernel did not say. See
+    // TopologyAndFlowMonitor::loadedTopologyJson.
+    result.update(m_topologyAndFlowMonitor->loadedTopologyJson());
+
     auto graph = m_topologyAndFlowMonitor->getGraph();
     for (auto vd : boost::make_iterator_range(boost::vertices(graph)))
     {

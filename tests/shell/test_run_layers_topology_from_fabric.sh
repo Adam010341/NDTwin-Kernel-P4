@@ -77,6 +77,15 @@ TOPO_OVS="$SETTING_DIR/StaticNetworkTopologyMininet_10Switches.json"
 LIVE_HOSTS=0
 fabric_host_count() { echo "$LIVE_HOSTS"; }
 
+# [Co-developed with claude code -- Adam] -- E-2.
+# topo_for_mode now asks the kernel before it derives anything. THIS suite is about the
+# derivation, and it must not depend on whether something happens to be listening on :8000 --
+# a kernel running next door would otherwise answer, and every case below would be measuring
+# that kernel instead of the fixtures. Stubbed to "did not say", which is the branch that
+# reaches the derivation. The kernel branch has its own suite:
+# tests/shell/test_run_layers_asks_kernel.sh.
+kernel_graph_json() { return 1; }
+
 # choose <mode> -- run topo_for_mode and stash stdout / stderr / rc.
 choose() {
     CHOSEN="$(topo_for_mode "$1" 2>"$TMPROOT/err")"; CHOSE_RC=$?
