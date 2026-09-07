@@ -3041,6 +3041,50 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   上面列的兩個 raw 檔涵蓋的是**殺之前的設置**與 **`--check` 的盲點**。
   🟢／🟠 不要混用；要把這條寫進 W16 的驗收條件之前，先重跑一次並存檔。
 
+### G-13 🏁 P4 平面的流表**沒有時間軸** ⇒ 任何殘留都歸不了屬 —— **已修（在分支上，未併）**
+
+> **與 G-12 的分工**：G-12 是「沒有任何工具負責回答『網路上還有誰的殘留』」。
+> **這一條是它在 P4 上的硬天花板**——就算有工具去問，**規則上沒有任何欄位可以回答「你是什麼時候來的」**，
+> 所以 `ndt` 的時間窗判定在 P4 上只能把整張表標 `age=UNKNOWN`。
+
+- **狀態**：**已修**，分支 `fix/g13-p4-rule-install-time`（基底 trunk `1a284f75`），**未併未推**。
+  裁決：`DECISIONS.md:242`（grill §4E 第三輪 E-10，Adam 裁「**從根本修**」，與建議相反）。
+  修法文件 `doc/audit/2026-09-07_fix-g13-p4-rule-install-time/FIX-G13.md`。
+- **平面**：**P4 實測**（OVS 不受影響——OVS 的 `duration` 來自交換機自己）
+- **失效方向**：**靜默 ＋ 會製造假的「都是新的」**——`duration_sec: 0` 不是錯誤碼，
+  它跟「這條剛裝好」長得一模一樣，所以任何按時間窗篩殘留的工具都會把**整張表**當成窗內。
+- **缺陷**：P4Runtime 的 `TableEntry` 沒有年齡欄位（有 match、action、priority、
+  direct counter 的 byte／packet 計數，就是沒有時間），所以
+  `p4_proxy/proxy_agent/ryu_flow_stats.py:177-178` 把 `duration_sec`／`duration_nsec` 寫死 0，
+  kernel 的 `GET /ndt/get_switch_openflow_table_entries` 原封不動端出去。
+- **實測**（W16-3，2026-09-07 01:0x，orchestrator 跑、`DECISIONS.md:211-215`）：
+  P4 4 hosts、trunk `862c4bf8`、raw `scratch/overnight-2026-09-05/logs/w163-*`
+  ——裝一條 10.0.0.3 路由，**+12 s 與 +32 s 兩次**讀該端點，該條與**所有**既有條目
+  `duration_sec:0, duration_nsec:0`，而 `packet_count`／`byte_count` 有值。
+  🔴 **raw 在 `scratch/`，不在版控。**
+- **修法**：**讓寫的那一方記**。proxy 的六條寫入路徑（`insert/modify/delete_ipv4_route`、
+  `insert/modify/delete_5tuple_rule`）在**交換機接受之後**把時間戳記進
+  `p4_proxy/proxy_agent/rule_install_times.py`；`ryu_flow_stats` 相減成 `duration`。
+  寫入端與讀取端**共用同一個 `entry_key(dpid, table, priority, match)`**——各算一種的話
+  每一次查詢都會落空、每一條都回 0/0，**跟缺陷本身完全分不開**。
+- 🔴 **殘餘（`0/0` 的語意變成「不知道」，不是「剛裝的」）**：
+  - **proxy 沒看到它被裝的規則永遠 0/0**：別的 controller 裝的、上一代 proxy 留下而這次
+    pipeline push 失敗的那台交換機上的。**這是誠實，不是缺口。**
+  - **紀錄在記憶體，proxy 重啟就沒了**——但重啟本身會 push pipeline 清空每一張表（**A-4c**）、
+    再由 `install_initial_routes` 重灌，所以**沒有規則會帶著錯的年齡活過重啟**。
+  - **年齡剛好為 0 的規則跟「不知道」在 payload 上分不開**（都是 0/0）。
+  - **P4 的 `duration` 從「內容上一次改變」起算**，OVS 從「ADD」起算（OpenFlow 語意）。
+    冪等重寫（link watchdog 每次 link 轉換都會做）**不會**重算。手冊 §5 已寫。
+- **還沒做的**：**`ndt` 側還沒翻面**——`fix/ndt-round2-0907` 的 W16-3 目前把「P4 平面」
+  一律標 UNKNOWN，G-13 併進去之後要改成「**0/0 才 UNKNOWN、有年齡就定年**」，
+  `_no_time_axis`／`window_blindspot` 那組測試要**翻紅改寫**（不是刪掉）。等 3-51 併後再開單。
+- **證據**：閘門 `tests/shell/mutate_p4_rule_install_time.sh`（19 mutations / 0 survived）、
+  單元測試 `p4_proxy/tests/test_rule_install_times.py`（40）＋
+  `test_ryu_flow_stats.py` 的 `DurationComesFromTheProxysOwnRecordTest`（10）。
+  ⚠️ **可信度分級**：🟢 上面的離線閘門與測試**是本輪實跑的**；
+  🟠 **反向 live 實驗（裝一條路由、+12 s／+32 s 讀 `duration` 應遞增）由 orchestrator 做，
+  本條登記時尚未完成** ⇒ 「P4 現在有時間軸了」在 live 上**還沒有被證實過**。
+
 ## 證據索引
 
 | 輪次 | 位置 | 內容 |
