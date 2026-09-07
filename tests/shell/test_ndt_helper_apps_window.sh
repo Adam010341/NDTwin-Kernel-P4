@@ -537,7 +537,139 @@ hasnt "🔴 not 'was: not-running' about an app it stopped" "was: not-running" "
 check "  and both layers are gone"                       "no" \
       "$(if [[ -d "/proc/$TWO_PARENT" || -d "/proc/$TWO_CHILD" ]]; then echo yes; else echo no; fi)"
 
-section "11. this suite reaps its own fixtures"
+section "11. 3-51c: reading a log, truncating it, and looking into a process are three permissions"
+# 🔴 WHAT THIS GROUP CAN AND CANNOT BUILD -- said here so no reader has to infer it.
+#
+# The shape: `sudo ndtwin-lab sim-start` runs `script -qfa <KERNEL_DIR>/.test_run/logs/
+# app_sim.log` as ROOT, in a directory this user owns. The log is then a root-owned 0644 file
+# that `ndt` can stat, list and read -- and cannot truncate. Three verbs asked one question
+# about it (`app_log_bytes`, a READ) and answered a second (`ndt apps trim`, a WRITE).
+#
+# This suite has no root and must never ask for any, so the OWNERSHIP half is a STAND-IN:
+# `app_log_owner` is replaced FOR ONE PATH. Exactly what that does not reproduce:
+#   * the real file is mode 0644 owned by uid 0; the fixture is mode 0444 owned by us. The
+#     kernel really does refuse the truncate here -- `truncate -s0` on a 0444 file returns the
+#     same EACCES -- but it refuses it for the MODE, not for the owner. So the two halves of
+#     the message come from two different witnesses: "cannot truncate" from the kernel, "owned
+#     by root" from the stub. Neither half is asserted without the other being real somewhere.
+#   * a real root-owned log cannot be chmod'd back by this user; this one can. Nothing here
+#     depends on that, and nothing here leaves it 0444.
+#   * run AS root, `apps trim` would truncate the real file. The code asks `-w`, not uid, which
+#     is why that case needs no fixture: `-w` is true for root by construction.
+# The fd half at the bottom needs NO stand-in at all -- it uses a real root process.
+rm -f "$FIX/.test_run/pids"/app_*.pid
+TE_LOG="$FIX/.test_run/logs/app_te.log"
+rm -f "$TE_LOG" "$TE_LOG.tail"
+printf '%4096s' '' > "$TE_LOG"
+TE_CAP=1024        # NDT_APP_LOG_MAX_BYTES: a 4 kB fixture is then "over the cap"
+# Root owns app_te.log and nothing else, so every other row in `apps status` still comes from
+# the real stat(2) -- a stub that answered 0 for everything would prove nothing about paths.
+ROOT_OWNER_STUB='app_log_owner() { case "$1" in *app_te.log) echo 0 ;; *) command stat -c %u "$1" 2>/dev/null ;; esac; }'
+
+chmod 444 "$TE_LOG"
+OUT="$(NDT_APP_LOG_MAX_BYTES=$TE_CAP inner "$ROOT_OWNER_STUB
+apps_trim te; echo \"RC=\$?\"")"
+check "🔴 trim cannot truncate a root-owned log -> rc 1"  "1" "$(rc_of "$OUT")"
+has   "🔴 trim names the owner and the remedy" \
+      "cannot truncate $TE_LOG: owned by root (helper wrote it); ask the operator to 'sudo truncate -s0 $TE_LOG'" \
+      "$OUT"
+hasnt "🔴 and never reports a truncate it did not do"     "log truncated" "$OUT"
+check "  the log is byte-for-byte untouched"              "4096" "$(stat -c %s "$TE_LOG")"
+# 🔴 The READ and the TRUNCATE, separated. The old order wrote the 1 MB tail first and only
+# then discovered it could not truncate: a file created, a byte count unchanged, and a message
+# that named neither the cause nor the remedy. A .tail here means work that cannot be finished
+# was done anyway.
+check "🔴 and no .tail was written before the refusal"    "no" \
+      "$(if [[ -e "$TE_LOG.tail" ]]; then echo yes; else echo no; fi)"
+
+# 🔴 The other direction: not every refusal is root's doing. A log this user owns and has made
+# read-only must not be reported as somebody else's, or the remedy printed is the wrong one.
+OUT="$(NDT_APP_LOG_MAX_BYTES=$TE_CAP inner 'apps_trim te; echo "RC=$?"')"
+check "a log this user owns but cannot write -> rc 1 too" "1" "$(rc_of "$OUT")"
+hasnt "🔴 but it is NOT blamed on root"                   "owned by root" "$OUT"
+has   "  it says what is actually wrong"                  "not writable by this user (mode 444)" "$OUT"
+
+chmod 644 "$TE_LOG"
+OUT="$(NDT_APP_LOG_MAX_BYTES=$TE_CAP inner "$ROOT_OWNER_STUB
+apps_trim te; echo \"RC=\$?\"")"
+check "🔴 control: a log this user CAN truncate is still trimmed -- rc 0" "0" "$(rc_of "$OUT")"
+has   "  and says so"                                     "te log truncated" "$OUT"
+check "  the log really is empty now"                     "0" "$(stat -c %s "$TE_LOG")"
+check "  and the tail was kept"                           "yes" \
+      "$(if [[ -s "$TE_LOG.tail" ]]; then echo yes; else echo no; fi)"
+
+# `apps status` printed a size and pointed at a verb, without ever asking whether that verb
+# could run. The size came from stat(2), which needs nothing but the directory.
+chmod 644 "$TE_LOG"; printf '%4096s' '' > "$TE_LOG"; chmod 444 "$TE_LOG"
+OUT="$(NDT_APP_LOG_MAX_BYTES=$TE_CAP inner "$ROOT_OWNER_STUB
+apps_status")"
+has   "🔴 apps status says the log is root's"             "log is root's ($TE_LOG); trim needs sudo" "$OUT"
+has   "  while still printing the size it COULD read"     "log 4 kB" "$OUT"
+chmod 644 "$TE_LOG"
+OUT="$(NDT_APP_LOG_MAX_BYTES=$TE_CAP inner "$ROOT_OWNER_STUB
+apps_status")"
+hasnt "🔴 control: a writable log gets no such row"       "trim needs sudo" "$OUT"
+hasnt "  and no refusal of any other kind"                "cannot be trimmed here" "$OUT"
+rm -f "$TE_LOG" "$TE_LOG.tail"
+
+# --- the third channel: /proc/<pid>/fd -------------------------------------------------------
+# 🔴 A REAL WITNESS, not a stand-in. /proc/<pid>/fd is mode 0500 owned by the process's own
+# user, so `find /proc/[0-9]*/fd -lname <log>` cannot descend into anything root started -- and
+# it says so by finding nothing, which is the same output as "nobody holds this log". A live
+# root process on THIS machine is the only fixture that reproduces it and there is no way to
+# manufacture one without root. Nothing below signals, opens or writes anything: the two things
+# read are exactly the two the code under test reads.
+ROOT_UNREADABLE=""
+for _pass in cmdline any; do
+    [[ -n "$ROOT_UNREADABLE" ]] && break
+    for _p in /proc/[0-9]*; do
+        _rp="${_p#/proc/}"
+        [[ "$_rp" =~ ^[0-9]+$ ]] && (( _rp > 1 )) || continue
+        [[ -r "$_p/fd" ]] && continue
+        # A userspace process is preferred over a kernel thread only because a kworker can exit
+        # between this loop and the cases below; either one is a correct fixture.
+        if [[ "$_pass" == cmdline ]]; then
+            [[ -n "$(tr '\0' ' ' 2>/dev/null < "$_p/cmdline")" ]] || continue
+        fi
+        [[ "$(awk '/^Uid:/{print $2; exit}' "$_p/status" 2>/dev/null)" == 0 ]] || continue
+        ROOT_UNREADABLE="$_rp"; break
+    done
+done
+OUR_ARGV="/nonexistent/NDT-TEST-FIXTURE/ordinary_process"
+OURPID="$(spawn_fixture "$OUR_ARGV")"
+check "the control process is ours and alive"             "yes" \
+      "$(if [[ -d "/proc/$OURPID" && -r "/proc/$OURPID/fd" ]]; then echo yes; else echo no; fi)"
+check "🔴 app_fd_readable is true for a process this user owns" "0" \
+      "$(rc_of "$(inner "app_fd_readable $OURPID; echo RC=\$?")")"
+if [[ -n "$ROOT_UNREADABLE" ]]; then
+    check "🔴 and false for a real root process on this machine" "1" \
+          "$(rc_of "$(inner "app_fd_readable $ROOT_UNREADABLE; echo RC=\$?")")"
+    check "  whose uid /proc still tells us, because status is world-readable" "0" \
+          "$(inner "proc_uid $ROOT_UNREADABLE")"
+    OUT="$(inner "APP_SURVIVORS=(\"$ROOT_UNREADABLE listening on :9000\"); app_fd_blindness")"
+    check "🔴 the fd channel reports that it could not look, and names the pid" \
+          "fd channel: CANNOT READ /proc/$ROOT_UNREADABLE/fd (root process) -- not checked" "$OUT"
+    BL="$(FX_PORT_PIDS="$ROOT_UNREADABLE" FX_PS="" inner \
+          'app_survivors sim >/dev/null; echo "BLIND=$APP_SURVIVOR_BLIND"')"
+    has   "🔴 app_survivors keeps it as blindness, not as an empty channel" \
+          "CANNOT READ /proc/$ROOT_UNREADABLE/fd" "$BL"
+    ORPH="$(FX_PORT_PIDS="$ROOT_UNREADABLE" FX_PS="" inner 'apps_orphans; echo "RC=$?"')"
+    check "  'apps orphans' still exits 1 over an untracked process" "1" "$(rc_of "$ORPH")"
+    has   "🔴 and prints the blindness instead of dropping it once it found something" \
+          "CANNOT READ /proc/$ROOT_UNREADABLE/fd" "$ORPH"
+    has   "  saying what that does to the number it just reported" "a floor and not a count" "$ORPH"
+else
+    note "no root process with an unreadable /proc/<pid>/fd on this machine (running as root?)"
+    note "  -- the six fd-channel cases did NOT run. That is 'not checked', not 'checked and fine'."
+fi
+# The control, and it runs either way: a process this user CAN look inside is not blindness.
+OUT="$(inner "APP_SURVIVORS=(\"$OURPID listening on :9000\"); app_fd_blindness; echo \"RC=\$?\"")"
+check "🔴 control: no blindness is invented for a process we can look inside" "1" "$(rc_of "$OUT")"
+hasnt "  and nothing is printed about it"                 "CANNOT READ" "$OUT"
+ORPH="$(FX_PORT_PIDS="$OURPID" FX_PS="" inner 'apps_orphans; echo "RC=$?"')"
+hasnt "🔴 control: 'apps orphans' says nothing about fd blindness there" "CANNOT READ" "$ORPH"
+
+section "12. this suite reaps its own fixtures"
 check "no fixture survives this run"                     "0" "$(reap_fixtures)"
 check "  and neither layer of the two-layer one does"    "0" "$(reap_two_layer)"
 

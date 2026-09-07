@@ -3745,6 +3745,69 @@ app_log_writers() {
     return 0
 }
 
+# proc_uid <pid> -- the real uid of a live process, or nothing.
+#
+# [Co-developed with claude code -- Adam]
+# /proc/<pid>/status is world-readable, and that is the whole point of reading it here: the one
+# thing this user can still learn about a process it may not look inside is WHO OWNS IT. Read
+# with the builtin, and `2>/dev/null` BEFORE the `<` for the reason proc_stat_rest gives.
+proc_uid() {
+    local key uid rest
+    [[ "$1" =~ ^[0-9]+$ ]] || return 1
+    while read -r key uid rest; do
+        [[ "$key" == Uid: ]] || continue
+        [[ "$uid" =~ ^[0-9]+$ ]] || return 1
+        echo "$uid"; return 0
+    done 2>/dev/null < "/proc/$1/status"
+    return 1
+}
+
+# app_fd_readable <pid> -- may this process list that one's open files?
+#
+# A function of its own so the answer has one name and one place. /proc/<pid>/fd is mode 0500
+# owned by the process's own user: false for anything root started when `ndt` runs as a user,
+# and true throughout when `ndt` itself runs as root -- which is why the question is asked of
+# the kernel rather than by comparing uids.
+app_fd_readable() { [[ -r "/proc/$1/fd" ]]; }
+
+# app_fd_blindness -- one sentence naming the processes the log-fd channel could not look
+# inside, rc 1 and nothing when it could look at all of them.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 3-51c (KNOWN-ISSUES G-14). The fd channel is `find /proc/[0-9]*/fd -lname <log>`, and find
+# cannot descend into a directory it may not read. For everything `sudo ndtwin-lab sim-start`
+# starts -- every sim and every energy on a real lab -- the whole channel returns nothing, and
+# nothing is byte-for-byte what it returns when no process holds the log. "I was not allowed to
+# ask" and "I asked and there is nothing" are the two answers this file exists to keep apart,
+# and here they had the same output.
+#
+# 🔴 BOUNDED TO THE PIDS SOME OTHER CHANNEL ALREADY NAMED, and the bound is not decoration.
+# Every root daemon on the machine has an fd directory this user cannot read; reporting them
+# would be a channel that names half the machine (see APP_SURVIVOR_MAX) and would make
+# `ndt apps orphans` answer "blind" on every machine forever -- a verb that is never green is
+# read exactly as often as one that is always green. What is reported is the processes THIS
+# APP's other channels found and this one could not have seen.
+app_fd_blindness() {
+    local e pid uid out=""
+    for e in ${APP_SURVIVORS[@]+"${APP_SURVIVORS[@]}"}; do
+        pid="${e%% *}"
+        [[ "$pid" =~ ^[0-9]+$ ]] || continue
+        # A pid that has since exited is not blindness: there is nothing left to look at.
+        [[ -d "/proc/$pid" ]] || continue
+        app_fd_readable "$pid" && continue
+        uid="$(proc_uid "$pid")" || uid=""
+        if [[ "$uid" == 0 ]]; then
+            out="${out:+$out; }fd channel: CANNOT READ /proc/$pid/fd (root process) -- not checked"
+        elif [[ -n "$uid" ]]; then
+            out="${out:+$out; }fd channel: CANNOT READ /proc/$pid/fd (uid $uid, you are $(id -u)) -- not checked"
+        else
+            out="${out:+$out; }fd channel: CANNOT READ /proc/$pid/fd (owner unknown) -- not checked"
+        fi
+    done
+    [[ -n "$out" ]] || return 1
+    echo "$out"
+}
+
 # app_port_pids <name> -- pids listening on the port this app owns, one per line.
 #
 # Asked only about an app we have just tried to stop, never used to discover an orphan: a
@@ -3847,6 +3910,12 @@ app_survivors() {
             done <<<"$out"
         fi
     fi
+    # 🔴 3-51c. Asked LAST, because the question is about the pids the channels above named:
+    # which of them could the log-fd channel not have seen? See app_fd_blindness. This adds no
+    # survivor and removes none -- it only stops an empty third channel from being read as a
+    # clean one for the apps the lab helper starts as root.
+    out="$(app_fd_blindness)" &&
+        APP_SURVIVOR_BLIND="${APP_SURVIVOR_BLIND:+$APP_SURVIVOR_BLIND; }$out"
     return 0
 }
 
@@ -3968,6 +4037,55 @@ app_log_bytes() {
     local log; log="$(app_logfile "$1")"
     [[ -f "$log" ]] || return 1
     stat -c %s "$log" 2>/dev/null
+}
+
+# app_log_owner <path> -- the uid that owns that file, or nothing.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 3-51c, AND IT IS THE SEAM THE TEST NEEDS. `sudo ndtwin-lab sim-start` runs `script -qfa
+# <KERNEL_DIR>/.test_run/logs/app_sim.log` as ROOT, so on the main checkout that log is a
+# root-owned 0644 file inside a directory this user owns: readable, listable, countable -- and
+# not truncatable. tests/shell/test_ndt_helper_apps_window.sh has no root and must never ask
+# for any, so it replaces THIS function for one path and leaves the writability question to the
+# kernel with a real 0444 file. What the stand-in does not reproduce is written down there.
+app_log_owner() {
+    local u
+    u="$(stat -c %u "$1" 2>/dev/null)" || return 1
+    [[ "$u" =~ ^[0-9]+$ ]] || return 1
+    echo "$u"
+}
+
+# app_log_blocked_reason <path> -- rc 0 and nothing when this process could truncate that log;
+# rc 1 and ONE SENTENCE saying why not, naming the command that would.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 READING A LOG AND TRUNCATING IT ARE DIFFERENT PERMISSIONS, and this repo answered them
+# with one question. `apps status` prints a size it got from stat(2) -- which needs nothing but
+# the directory -- and then points at `ndt apps trim`, which needs write on the file itself. On
+# the main checkout after any helper-started sim those two answers differ, and only the first
+# was ever asked; `apps trim` then found out by having its truncate fail, after it had already
+# written the tail file.
+#
+# The owner is consulted only once writability has been REFUSED, and in that order on purpose:
+# whether the tool can do the job is the kernel's answer, and whose file it is only decides
+# which remedy to print. Run as root, `-w` is true and none of this fires.
+app_log_blocked_reason() {
+    local p="$1" u
+    [[ -e "$p" ]] || return 0
+    if [[ ! -w "$p" ]]; then
+        u="$(app_log_owner "$p")" || u=""
+        if [[ "$u" == 0 ]]; then
+            echo "owned by root (helper wrote it); ask the operator to 'sudo truncate -s0 $p'"
+        elif [[ -n "$u" && "$u" != "$(id -u)" ]]; then
+            echo "owned by uid $u, not by you; ask its owner to 'truncate -s0 $p'"
+        else
+            echo "not writable by this user (mode $(stat -c %a "$p" 2>/dev/null || echo '?'))"
+        fi
+        return 1
+    fi
+    [[ -r "$p" ]] && return 0
+    echo "writable but NOT readable here, so the last 1 MB could not be kept"
+    return 1
 }
 
 # human_bytes <n> -- a size a person can read, for the log column.
@@ -5371,12 +5489,19 @@ apps_orphans() {
         return 0
     fi
     err "$found app(s) are running with nothing tracking them"
+    # [Co-developed with claude code -- Adam]
+    # 🔴 3-51c. Printed HERE too, and it used to be printed only when nothing was found. A
+    # channel that could not look is a fact about the answer, not about the verdict: with one
+    # orphan named and another channel blind, "$found" is a floor and not a count, and a reader
+    # who takes it for a count stops looking at exactly the point where the tool did.
+    [[ -n "$blind" ]] &&
+        warn "and a channel was blind, so this is a floor and not a count: $blind"
     return 1
 }
 
 apps_status() {
     say "apps"
-    local a shown bytes over=0
+    local a shown bytes over=0 log why
     for a in $APP_NAMES; do
         app_probe "$a"
         # The third state gets its own word in the column that used to print "-" for it. "-"
@@ -5403,6 +5528,17 @@ apps_status() {
             else
                 printf '  %-8s %-9s %s\n' "" "" "${D}log $(human_bytes "$bytes")${N}"
             fi
+            # [Co-developed with claude code -- Adam]
+            # 🔴 3-51c. The size above came out of stat(2) -- a READ, which succeeds on a file
+            # this user could never truncate -- and the row above then names `ndt apps trim`
+            # without ever asking whether that verb can do anything here. For every
+            # helper-started sim it cannot: `sudo ndtwin-lab sim-start` wrote the log as root.
+            log="$(app_logfile "$a")"
+            if [[ ! -w "$log" ]] && [[ "$(app_log_owner "$log")" == 0 ]]; then
+                printf '  %-8s %-9s %s\n' "" "" "${Y}log is root's ($log); trim needs sudo${N}"
+            elif ! why="$(app_log_blocked_reason "$log")"; then
+                printf '  %-8s %-9s %s\n' "" "" "${Y}log cannot be trimmed here: $why${N}"
+            fi
         fi
     done
     (( over == 1 )) && info "a log over the cap is a disk problem before it is a logging problem: 875 MB in 1h54m on 09-02"
@@ -5420,7 +5556,7 @@ apps_status() {
 #
 # The tail is kept because the end of a log is the part that explains what the app is doing now.
 apps_trim() {
-    local a bytes log rc=0
+    local a bytes log rc=0 why
     for a in "$@"; do
         case " $APP_NAMES " in *" $a "*) ;; *) err "unknown app: $a (known: $APP_NAMES)"; rc=1; continue ;; esac
         log="$(app_logfile "$a")"
@@ -5428,6 +5564,16 @@ apps_trim() {
         if (( bytes <= APP_LOG_MAX_BYTES )); then
             info "$a log is $(human_bytes "$bytes") -- under $(human_bytes "$APP_LOG_MAX_BYTES"), left alone"
             continue
+        fi
+        # [Co-developed with claude code -- Adam]
+        # 🔴 3-51c. Asked BEFORE the tail is written, and not discovered by the truncate below
+        # failing. The old order kept 1 MB into <log>.tail and only then found out it could not
+        # truncate: a file created, a byte count unchanged, and a message that named the
+        # failure without naming either its cause or the one command that fixes it.
+        if ! why="$(app_log_blocked_reason "$log")"; then
+            err "cannot truncate $log: $why"
+            err "   $a's log is $(human_bytes "$bytes"), over the $(human_bytes "$APP_LOG_MAX_BYTES") cap, and it is NOT trimmed"
+            rc=1; continue
         fi
         tail -c 1048576 "$log" >"$log.tail" 2>/dev/null || { err "$a: could not keep the tail; not truncating"; rc=1; continue; }
         if truncate -s 0 "$log" 2>/dev/null; then

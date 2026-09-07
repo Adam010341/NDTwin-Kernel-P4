@@ -294,6 +294,73 @@ m=$(mutant m19 "$NDT" \
 report "M19: the stop reports the state it produced, not the one it found" "$m" \
        "🔴 it says what the app WAS: running"
 
+# --- 3-51c: read, truncate, and look inside are three permissions -------------------------------
+#
+# Each of these puts back one half of "the tool asked whether it could READ the log and answered
+# whether it could TRUNCATE it", or one half of "the fd channel found nothing" standing in for
+# "the fd channel was not allowed to look".
+
+# The measured shape: `apps trim` on a root-owned log wrote the tail, had its truncate refused,
+# and printed a failure that named neither the owner nor the one command that fixes it.
+m=$(mutant m20 "$NDT" \
+    '        if ! why="$(app_log_blocked_reason "$log")"; then' \
+    '        if false; then')
+report "M20: trim finds out it cannot truncate by trying it" "$m" \
+       "🔴 trim names the owner and the remedy"
+
+# (widening) The opposite, and it is the one that would make `ndt apps trim` useless: refuse
+# every log, including the ordinary ones this user writes and owns. A guard that never lets the
+# work happen is not a safer version of the work.
+m=$(mutant m21 "$NDT" \
+    '    if [[ ! -w "$p" ]]; then' \
+    '    if true; then')
+report "M21 (widening): trim refuses a log it can truncate" "$m" \
+       "🔴 control: a log this user CAN truncate is still trimmed -- rc 0"
+
+# (widening) Every permission problem blamed on root, so the remedy printed is `sudo` for a file
+# whose owner is sitting at the keyboard. "Could not write it" and "somebody else owns it" are
+# two facts and only the second one calls for the operator.
+m=$(mutant m22 "$NDT" \
+    '        if [[ "$u" == 0 ]]; then' \
+    '        if true; then')
+report "M22 (widening): every unwritable log is called root's" "$m" \
+       "🔴 but it is NOT blamed on root"
+
+# `apps status` goes back to printing a size and a verb, with nothing saying the verb cannot run.
+m=$(mutant m23 "$NDT" \
+    '            if [[ ! -w "$log" ]] && [[ "$(app_log_owner "$log")" == 0 ]]; then' \
+    '            if false; then')
+report "M23: the status row stops saying whose log it is" "$m" \
+       "🔴 apps status says the log is root's"
+
+# The third channel's blindness is dropped on the floor, which is exactly the state it was in:
+# `find` returns nothing for a root process's fd directory and nothing is what it returns when
+# no process holds the log.
+m=$(mutant m24 "$NDT" \
+    '    out="$(app_fd_blindness)" &&
+        APP_SURVIVOR_BLIND="${APP_SURVIVOR_BLIND:+$APP_SURVIVOR_BLIND; }$out"' \
+    '    :')
+report "M24: an fd channel that could not look reports as one that found nothing" "$m" \
+       "🔴 app_survivors keeps it as blindness, not as an empty channel"
+
+# (widening) ...and the other direction: call every process unreadable. A verb that reports
+# blindness about processes it can see perfectly well is a verb whose blindness line stops
+# being read, which is how the real one would be missed.
+m=$(mutant m25 "$NDT" \
+    'app_fd_readable() { [[ -r "/proc/$1/fd" ]]; }' \
+    'app_fd_readable() { false; }')
+report "M25 (widening): the fd channel calls every process unreadable" "$m" \
+       "🔴 control: no blindness is invented for a process we can look inside"
+
+# The blindness is kept when the verb found nothing and dropped when it found something -- i.e.
+# it disappears exactly when there is a number on the screen for a reader to take as a count.
+m=$(mutant m26 "$NDT" \
+    '    [[ -n "$blind" ]] &&
+        warn "and a channel was blind, so this is a floor and not a count: $blind"' \
+    '    :')
+report "M26: orphans drops the blindness once it has found something" "$m" \
+       "🔴 and prints the blindness instead of dropping it once it found something"
+
 # --- the control -------------------------------------------------------------------------------
 # A comment-only edit must NOT turn the suite red. If it does, this gate is measuring "the file
 # changed" rather than "the behaviour changed" and every catch above is uninterpretable.
@@ -301,6 +368,13 @@ m=$(mutant m16 "$NDT" \
     '# app_evidence_log <name> -- the file that answers "did this app ever run HERE", or rc 1 when' \
     '# app_evidence_log <name> -- the file that answers "did this app ever run HERE" (x), or rc 1 when')
 control "M16: a comment-only edit" "$m"
+
+# The same control inside the 3-51c block, because that is where the newest cases are: a case
+# that goes red for a reworded comment is reading the file rather than the tool.
+m=$(mutant m27 "$NDT" \
+    '# app_log_blocked_reason <path> -- rc 0 and nothing when this process could truncate that log;' \
+    '# app_log_blocked_reason <path> (x) -- rc 0 and nothing when this process could truncate that log;')
+control "M27: a comment-only edit in the 3-51c block" "$m"
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
