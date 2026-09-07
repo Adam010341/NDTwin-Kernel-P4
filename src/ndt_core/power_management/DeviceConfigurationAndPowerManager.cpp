@@ -1280,6 +1280,77 @@ DeviceConfigurationAndPowerManager::managementIpForReport(const VertexProperties
     return std::nullopt;
 }
 
+// [Co-developed with claude code -- Adam]
+// E-23 (Adam's ruling of 2026-09-07). See the declarations in the header for the whole reasoning.
+std::string
+DeviceConfigurationAndPowerManager::exemptionNoteFor(const VertexProperties& vp)
+{
+    return "exempt: power_path none -- this build has no power or telemetry path written for "
+           "brand_name \"" +
+           vp.brandName + "\", so nothing was asked of switch dpid " + std::to_string(vp.dpid) +
+           " over SNMP or SSH. It was admitted by its explicit \"switch_kind\"; the generic "
+           "branch it would otherwise fall into is written for Brocade hardware and would not "
+           "answer for it. Reporting the unavailable sentinel " +
+           std::to_string(kHealthMetricUnavailable) + " instead of a Brocade reading";
+}
+
+bool
+DeviceConfigurationAndPowerManager::noteSwitchExemptFromBrandPaths(uint64_t dpid)
+{
+    return m_switchesExemptFromBrandPaths.insert(dpid).second;
+}
+
+void
+DeviceConfigurationAndPowerManager::noteSwitchHasBrandPath(uint64_t dpid)
+{
+    m_switchesExemptFromBrandPaths.erase(dpid);
+}
+
+bool
+DeviceConfigurationAndPowerManager::exemptFromBrandPathsForReport(const VertexProperties& vp)
+{
+    if (!isExemptFromBrandPaths(vp))
+    {
+        noteSwitchHasBrandPath(vp.dpid);
+        return false;
+    }
+
+    // Edge-triggered, for the reason the WARN above is: four reports, every ten seconds, for a
+    // brand that is never going to change. INFO and not WARN -- the fabric-level fact was already
+    // announced once, at load, by TopologyAndFlowMonitor::warnAboutSwitchesWithNoBrandPathNoLock.
+    // This line answers a narrower question: which report, on which switch, declined to dial.
+    if (noteSwitchExemptFromBrandPaths(vp.dpid))
+    {
+        SPDLOG_LOGGER_INFO(Logger::instance(),
+                           "{}. Logged once per episode, not once per round",
+                           exemptionNoteFor(vp));
+    }
+    return true;
+}
+
+// [Co-developed with claude code -- Adam]
+// The three transport seams. Production has exactly one implementation each, and each is the free
+// function the six brand-branching sites used to call inline. See the header for why counting
+// calls is the only way to assert that an exempted switch is not dialled.
+std::string
+DeviceConfigurationAndPowerManager::readFromDevice(const std::string& cmd)
+{
+    return utils::execCommand(cmd);
+}
+
+std::string
+DeviceConfigurationAndPowerManager::readFromDeviceArgv(const std::vector<std::string>& argv)
+{
+    return utils::execArgv(argv).output;
+}
+
+std::string
+DeviceConfigurationAndPowerManager::readPowerOverSsh(const std::string& ip,
+                                                     const std::string& username)
+{
+    return getPowerReportViaSsh(ip, username);
+}
+
 json
 DeviceConfigurationAndPowerManager::fetchMemoryReportInternal()
 {
@@ -1339,11 +1410,21 @@ DeviceConfigurationAndPowerManager::fetchMemoryReportInternal()
             // fake. F-1 in doc/KNOWN-ISSUES.md.
             memory = kHealthMetricUnavailable;
         }
+        // [Co-developed with claude code -- Adam]
+        // E-23, site 1 of 6. Before the brand branches, after the address guard: the address
+        // guard reports a defect in the model and its WARN must keep coming from the same report
+        // it always did, while this decides only what to dial once the model is sound.
+        // `memory` is already the sentinel, so the branch has no body -- the point is the
+        // snmpget that does NOT happen below.
+        else if (exemptFromBrandPathsForReport(vp))
+        {
+            memory = kHealthMetricUnavailable;
+        }
         else if (vp.brandName == kBrandHPE5520)
         {
             auto cmd = fmt::format("snmpget -v2c -c public {} 1.3.6.1.4.1.25506.2.6.1.1.1.1.8.212",
                                    ip_str);
-            std::string snmp_result = utils::execCommand(cmd);
+            std::string snmp_result = readFromDevice(cmd);
 
             static const std::regex re(R"(INTEGER:\s*(\d+))");
             std::smatch match;
@@ -1357,7 +1438,7 @@ DeviceConfigurationAndPowerManager::fetchMemoryReportInternal()
             auto cmd =
                 fmt::format("snmpget -v2c -c public {} 1.3.6.1.4.1.1991.1.1.2.1.53.0", ip_str);
 
-            std::string snmp_result = utils::execCommand(cmd);
+            std::string snmp_result = readFromDevice(cmd);
 
             std::smatch match;
             static const std::regex regex(R"(Gauge32:\s*(\d+))");
@@ -1799,6 +1880,21 @@ DeviceConfigurationAndPowerManager::fetchPowerReportInternal()
             }
             const std::string ip_str = *ipOpt;
 
+            // [Co-developed with claude code -- Adam]
+            // E-23, site 2 of 6, and the one the ruling names: the `else` below is the
+            // "Brocade / Others (Currently via SSH)" branch, so an exempted switch was SSHed into
+            // with `show power` every ten seconds. The sentinel, and the same entry shape the
+            // address-less case above emits -- this body is keyed by dpid, so the entry is
+            // well-formed and only the value is unavailable.
+            //
+            // Ahead of the "Getting power report" line on purpose: announcing a read that is not
+            // going to happen is how a log stops being evidence.
+            if (exemptFromBrandPathsForReport(props))
+            {
+                result.push_back({{"dpid", dpid}, {"power_consumed", kHealthMetricUnavailable}});
+                continue;
+            }
+
             SPDLOG_INFO("Getting power report from DPID {} at IP {}", dpid, ip_str);
 
             // hpe switch
@@ -1807,7 +1903,7 @@ DeviceConfigurationAndPowerManager::fetchPowerReportInternal()
                 auto cmd =
                     fmt::format("snmpwalk -v2c -c public {} 1.3.6.1.4.1.25506.8.35.9.1.1.1.6",
                                 ip_str);
-                std::string snmp_result = utils::execCommand(cmd);
+                std::string snmp_result = readFromDevice(cmd);
 
                 static const std::regex re(R"(INTEGER:\s*(\d+))");
                 std::smatch match;
@@ -1820,7 +1916,7 @@ DeviceConfigurationAndPowerManager::fetchPowerReportInternal()
             // brocade
             else
             {
-                std::string raw = getPowerReportViaSsh(ip_str, username);
+                std::string raw = readPowerOverSsh(ip_str, username);
                 power_mW = parsePowerOutput(raw);
                 if (power_mW == 0 && !raw.empty())
                 {
@@ -2117,11 +2213,17 @@ DeviceConfigurationAndPowerManager::fetchCpuReportInternal()
             // header. F-1 in doc/KNOWN-ISSUES.md.
             cpu = kHealthMetricUnavailable;
         }
+        // [Co-developed with claude code -- Adam]
+        // E-23, site 3 of 6. See fetchMemoryReportInternal for the placement rule.
+        else if (exemptFromBrandPathsForReport(vp))
+        {
+            cpu = kHealthMetricUnavailable;
+        }
         else if (vp.brandName == kBrandHPE5520)
         {
             auto cmd = fmt::format("snmpget -v2c -c public {} 1.3.6.1.4.1.25506.2.6.1.1.1.1.6.212",
                                    ip_str);
-            std::string snmp_result = utils::execCommand(cmd);
+            std::string snmp_result = readFromDevice(cmd);
 
             static const std::regex re(R"(INTEGER:\s*(\d+))");
             std::smatch match;
@@ -2135,7 +2237,7 @@ DeviceConfigurationAndPowerManager::fetchCpuReportInternal()
             // SNMP OID for CPU (Brocade ICX 7250)
             auto cmd =
                 fmt::format("snmpget -v2c -c public {} 1.3.6.1.4.1.1991.1.1.2.1.52.0", ip_str);
-            std::string snmp_result = utils::execCommand(cmd);
+            std::string snmp_result = readFromDevice(cmd);
 
             static const std::regex re(R"(Gauge32:\s*(\d+))");
             std::smatch match;
@@ -2206,6 +2308,24 @@ DeviceConfigurationAndPowerManager::fetchTemperatureReportInternal()
             result[ip_str] = -1;
             continue;
         }
+        // [Co-developed with claude code -- Adam]
+        // E-23, site 4 of 6, and the one that is honestly different from the other five: this
+        // site already made no outbound call for a non-HPE switch -- the branch below returns
+        // before the snmpget -- so what E-23 changes here is WHAT IT SAYS, not what it does.
+        //
+        // "The temperature function only supports the HPE 5520." is true of a Brocade and is a
+        // half-truth about an exempted switch: it reads as "we have a path, just not for this
+        // model", when the fact is that this build has no path for the machine at all and never
+        // dialled it. The sentinel is also the type CPU and memory answer with, which is the
+        // direction this file has been moving since the down-switch string became -1.
+        //
+        // Ahead of the HPE test, so an exempted switch takes this branch rather than that one;
+        // a Brocade's answer is not touched (that is the widening control in the gate).
+        else if (m_mode != utils::DeploymentMode::MININET && exemptFromBrandPathsForReport(vp))
+        {
+            result[ip_str] = kHealthMetricUnavailable;
+            continue;
+        }
         else if (vp.brandName != kBrandHPE5520 && m_mode != utils::DeploymentMode::MININET)
         {
             result[ip_str] = "The temperature function only supports the HPE 5520.";
@@ -2226,7 +2346,7 @@ DeviceConfigurationAndPowerManager::fetchTemperatureReportInternal()
         {
             auto cmd = fmt::format("snmpget -v2c -c public {} 1.3.6.1.4.1.25506.2.6.1.1.1.1.12.212",
                                    ip_str);
-            std::string snmp_result = utils::execCommand(cmd);
+            std::string snmp_result = readFromDevice(cmd);
 
             // The regex for parsing an INTEGER response
             static const std::regex re(R"(INTEGER:\s*(\d+))");
@@ -2311,7 +2431,7 @@ DeviceConfigurationAndPowerManager::getSingleSwitchPowerReport(const std::string
                 auto cmd =
                     fmt::format("snmpwalk -v2c -c public {} 1.3.6.1.4.1.25506.8.35.9.1.1.1.6",
                                 ip_str);
-                std::string snmp_result = utils::execCommand(cmd);
+                std::string snmp_result = readFromDevice(cmd);
 
                 static const std::regex re(R"(INTEGER:\s*(\d+))");
                 std::smatch match;
@@ -2325,7 +2445,7 @@ DeviceConfigurationAndPowerManager::getSingleSwitchPowerReport(const std::string
             {
                 // Brocade / Others (Currently via SSH)
                 // TODO: Change to SNMP if OID is known
-                std::string raw = getPowerReportViaSsh(ip_str, username);
+                std::string raw = readPowerOverSsh(ip_str, username);
                 power_mW = parsePowerOutput(raw);
                 if (power_mW == 0 && !raw.empty())
                 {
@@ -2360,6 +2480,31 @@ DeviceConfigurationAndPowerManager::getSingleSwitchPowerReport(const std::string
             return nlohmann::json();
         }
         const std::string& ip_str = *ipOpt;
+
+        // [Co-developed with claude code -- Adam]
+        // E-23, site 5 of 6, and one of the two that answers a caller rather than filling a
+        // cache. The reply is the ordinary shape PLUS an "exempt" key that says why the figure
+        // is the sentinel -- purely additive, so a consumer that has never heard of it still
+        // finds `dpid` and `power_consumed` where they always were. This is not an error and
+        // must not be shaped like one: the reader is the Intent Translator, which turns this
+        // into a sentence for a human, and "the switch could not be reached" would be a lie
+        // about a machine nobody tried to reach.
+        //
+        // TESTBED only, deliberately. In MININET the lambda below never looks at the brand --
+        // the figure is syntheticPowerMilliwattsFor(dpid) -- so short-circuiting there would
+        // take a real (if synthetic) answer away for no gain. Over-guarding is how a fix for
+        // "asks the wrong question" turns into a silent loss of data.
+        //
+        // Logged unconditionally, not edge-triggered: this runs on the request thread, once per
+        // request, and the set the four status reports share is not safe to touch from here.
+        if (m_mode == utils::DeploymentMode::TESTBED && isExemptFromBrandPaths(props))
+        {
+            const std::string note = exemptionNoteFor(props);
+            SPDLOG_LOGGER_INFO(Logger::instance(), "{}", note);
+            return {{"dpid", props.dpid},
+                    {"power_consumed", kHealthMetricUnavailable},
+                    {"exempt", note}};
+        }
 
         uint64_t power_mW = calculate_power_for_switch(props, ip_str);
 
@@ -2426,6 +2571,19 @@ DeviceConfigurationAndPowerManager::getSingleSwitchCpuReport(const std::string& 
         cpu = kHealthMetricUnavailable;
     }
     // [Co-developed with claude code -- Adam]
+    // E-23, site 6 of 6. Same shape and same reasoning as getSingleSwitchPowerReport's: the
+    // ordinary reply plus an additive "exempt" key, on the request thread, logged once per
+    // request. No TESTBED test is needed around it -- unlike the power path, the MININET case is
+    // the branch above and has already returned.
+    else if (isExemptFromBrandPaths(*targetSwitch))
+    {
+        const std::string note = exemptionNoteFor(*targetSwitch);
+        SPDLOG_LOGGER_INFO(Logger::instance(), "{}", note);
+        return {{"dpid", targetSwitch->dpid},
+                {"cpu_usage", kHealthMetricUnavailable},
+                {"exempt", note}};
+    }
+    // [Co-developed with claude code -- Adam]
     // doc/KNOWN-ISSUES.md B-2b sweep. These two are the only shell commands in this file built
     // from one of its own std::string parameters rather than from a re-rendered integer, and the
     // parameter's caller chain starts at an LLM-supplied device name.
@@ -2444,9 +2602,8 @@ DeviceConfigurationAndPowerManager::getSingleSwitchCpuReport(const std::string& 
     else if (targetSwitch->brandName == kBrandHPE5520)
     {
         const std::string snmp_result =
-            utils::execArgv({"snmpget", "-v2c", "-c", "public", deviceIdentifier,
-                             "1.3.6.1.4.1.25506.2.6.1.1.1.1.6.212"})
-                .output;
+            readFromDeviceArgv({"snmpget", "-v2c", "-c", "public", deviceIdentifier,
+                                "1.3.6.1.4.1.25506.2.6.1.1.1.1.6.212"});
         static const std::regex re(R"(INTEGER:\s*(\d+))");
         std::smatch match;
         if (std::regex_search(snmp_result, match, re))
@@ -2457,9 +2614,8 @@ DeviceConfigurationAndPowerManager::getSingleSwitchCpuReport(const std::string& 
     else
     {
         const std::string snmp_result =
-            utils::execArgv({"snmpget", "-v2c", "-c", "public", deviceIdentifier,
-                             "1.3.6.1.4.1.1991.1.1.2.1.52.0"})
-                .output;
+            readFromDeviceArgv({"snmpget", "-v2c", "-c", "public", deviceIdentifier,
+                                "1.3.6.1.4.1.1991.1.1.2.1.52.0"});
         static const std::regex re(R"(Gauge32:\s*(\d+))");
         std::smatch match;
         if (std::regex_search(snmp_result, match, re))

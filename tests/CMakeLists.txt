@@ -129,6 +129,15 @@ add_executable(
   # edited". This owns the property that a rename changes the field it was asked to change and
   # nothing else, for every shipped topology and not only the two it was measured on.
   test_NicknameDoesNotRewriteTheFile.cpp
+
+  # [Co-developed with claude code -- Adam] E-23 / E-25 / E-30 (Adam's rulings of 2026-09-07).
+  # W15-2 admitted a switch this build has no data plane for and marked it "nobody manages this",
+  # and then the power manager went on sending it Brocade's OIDs and an SSH `show power` every
+  # ten seconds while nothing outside the process could see the mark at all. Counts the calls a
+  # marked switch must NOT cause -- which is why DeviceConfigurationAndPowerManager grew three
+  # virtual transport seams -- and pins the mark onto /ndt/get_graph_data and into one line at
+  # load. Nothing here shells out; the three seams are all replaced.
+  test_ExemptSwitchIsNotDialled.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

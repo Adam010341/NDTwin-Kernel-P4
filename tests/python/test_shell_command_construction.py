@@ -84,8 +84,10 @@ CONSTANT, CONFIG, NUMERIC, SEAM, REQUEST = "CONSTANT", "CONFIG", "NUMERIC", "SEA
 SHELL_SITES = {
     ("include/utils/SSHHelper.hpp", 'FILE* pipe = popen(command.c_str(), "r");'): (
         1, NUMERIC,
-        "getPowerReportViaSsh(ip, username): ip is utils::ipToString(uint32) at both callers "
-        "(DeviceConfigurationAndPowerManager.cpp:1309/1728), username is the literal \"admin\". "
+        "getPowerReportViaSsh(ip, username): ip is utils::ipToString(uint32) at both callers, "
+        "username is the literal \"admin\". Since E-23 (2026-09-07) both callers reach it through "
+        "DeviceConfigurationAndPowerManager::readPowerOverSsh, a virtual test seam; the two "
+        "arguments are unchanged, so this classification is re-derived rather than inherited. "
         "Cannot migrate as-is: the command is a shell pipeline, "
         "`(echo ...; sleep 1; echo ...) | ssh ...`, so removing the shell means feeding ssh's "
         "stdin instead -- a redesign, not a substitution.",
@@ -186,11 +188,29 @@ SHELL_SITES = {
         "file; si.plugIdx is an int. The request's own ip= parameter is a lookup key only "
         "(DeviceConfigurationAndPowerManager.cpp:210) and never enters the command.",
     ),
+    # [Co-developed with claude code -- Adam]
+    # E-23, 2026-09-07. This key used to be
+    #     "std::string snmp_result = utils::execCommand(cmd);": (7, NUMERIC, ...)
+    # -- the seven snmpget/snmpwalk sites in the four status reports, the single-switch power
+    # report and the temperature report. All seven now go through readFromDevice, a virtual test
+    # seam introduced so a test can COUNT the calls an exempted switch must not cause. The seven
+    # command strings are byte-for-byte what they were and are still built from
+    # ip_str = utils::ipToString(vp.ip.front()) with a hardcoded community string and OID, so the
+    # NUMERIC classification is RE-DERIVED, not inherited: what changed is which function hands
+    # the string to /bin/sh, and that function is the entry below.
+    #
+    # This is exactly the "a shell site must not be able to leave this list by being renamed"
+    # hazard the header names. The count moved from seven lines to one, so it is written down.
     ("src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp",
-     "std::string snmp_result = utils::execCommand(cmd);"): (
-        7, NUMERIC,
-        "snmpget/snmpwalk with a hardcoded community string and OID; the only variable is "
-        "ip_str = utils::ipToString(vp.ip.front()).",
+     "return utils::execCommand(cmd);"): (
+        1, NUMERIC,
+        "DeviceConfigurationAndPowerManager::readFromDevice, the virtual seam the six "
+        "brand-branching sites read a switch through (E-23). Seven callers, all in this file: "
+        "the memory, CPU and temperature reports, the power report and getSingleSwitchPowerReport. "
+        "Every one builds `snmpget/snmpwalk -v2c -c public <ip> <literal OID>` where <ip> is "
+        "utils::ipToString(uint32) from the graph. Nothing from a request reaches it: the one "
+        "endpoint whose parameter is request-shaped, getSingleSwitchCpuReport's deviceIdentifier, "
+        "goes to readFromDeviceArgv (execArgv, no shell) and not here.",
     ),
     ("src/ndt_core/power_management/OVSPowerStrategy.cpp",
      'FILE* fp = popen(cmd.c_str(), "r");'): (

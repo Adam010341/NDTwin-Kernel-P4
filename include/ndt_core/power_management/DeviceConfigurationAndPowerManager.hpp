@@ -913,6 +913,93 @@ class DeviceConfigurationAndPowerManager
     /// code -- Adam]
     std::set<uint64_t> m_switchesMissingManagementIp;
 
+    // ---------------------------------------------------------------------------------------
+    // E-23: a switch this build has no brand path for is not dialled. [Co-developed with claude
+    // code -- Adam]
+    // ---------------------------------------------------------------------------------------
+
+    /**
+     * @brief The sentence every exemption site says, so all six say the same one.
+     *
+     * @details
+     * E-23 (Adam's ruling of 2026-09-07). W15-2 admitted a switch whose `brand_name` this build
+     * has no data plane for, on condition that the graph mark it as one whose power and telemetry
+     * nobody manages -- and then this file went on dialling it anyway. In TESTBED mode the six
+     * brand-branching sites below all fall into an `else` written for
+     * "Brocade / Others (Currently via SSH)": a Cisco admitted by its `switch_kind` was sent
+     * Brocade's power OID, Brocade's CPU OID, Brocade's memory OID and an SSH `show power`. Every
+     * one of those is a question the machine was never going to answer, asked once every ten
+     * seconds, forever.
+     *
+     * The mark said "nobody manages this". The code did not read the mark. This is the reading.
+     */
+    static std::string exemptionNoteFor(const VertexProperties& vp);
+
+    /**
+     * @brief Edge-trigger for the exemption INFO: true only on the first tick of an episode.
+     *
+     * @details
+     * [Co-developed with claude code -- Adam]
+     * Exactly the shape and exactly the reason of noteSwitchMissingManagementIp above:
+     * statusUpdateWorker re-reads the whole graph every ten seconds and calls four reports in it,
+     * so an un-edge-triggered line here is four lines every ten seconds for as long as the fabric
+     * contains an exempted switch -- which is forever, because a brand does not change. That is
+     * the shape that put 3596 sudo errors into one run and buried everything else in it.
+     *
+     * A dpid is claimed by whichever of the four reports reaches it first (power, CPU, memory,
+     * temperature, in statusUpdateWorker's order), so the log gets one line per episode rather
+     * than four. The episode ends, and the line re-arms, if that dpid is ever seen carrying a
+     * brand path again.
+     *
+     * 🔴 Not thread-safe, and it does not have to be, on the same terms the missing-address set
+     * states: only statusUpdateWorker's thread calls the four reports. The two SINGLE-switch
+     * endpoints are reached from the HTTP/IntentTranslator thread instead, so they deliberately
+     * do NOT touch this set -- they log unconditionally, once per request, which is what every
+     * other request handler does and is not a flood.
+     */
+    bool noteSwitchExemptFromBrandPaths(uint64_t dpid);
+
+    /// Ends the episode for @p dpid, so a later exemption logs again. See above.
+    void noteSwitchHasBrandPath(uint64_t dpid);
+
+    /**
+     * @brief isExemptFromBrandPaths(), plus the edge-triggered INFO. The form the four reports
+     *        call, immediately before they would otherwise dial the switch.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    bool exemptFromBrandPathsForReport(const VertexProperties& vp);
+
+    /// dpids already logged as exempt this episode. [Co-developed with claude code -- Adam]
+    std::set<uint64_t> m_switchesExemptFromBrandPaths;
+
+    // ---------------------------------------------------------------------------------------
+    // The transport the six brand-branching sites read a switch through. Test seams, in the same
+    // sense as the power strategies' executeSystemCommand: production has exactly one
+    // implementation each and it is the free function this file used to call inline.
+    //
+    // They exist because "an exempted switch is not dialled" is a claim about a call that does
+    // NOT happen, and the only way to assert that is to count the calls. Before this, the six
+    // sites called utils::execCommand / utils::execArgv / getPowerReportViaSsh directly, so a
+    // test could only have asserted it by letting a unit test run snmpget and ssh against a
+    // switch that is not there -- which asserts nothing and takes ten seconds a go.
+    //
+    // 🔴 THREE SEAMS, AND A DOUBLE MUST REPLACE ALL THREE. The same warning
+    // OVSPowerStrategy.hpp gives about executeArgvCommand: a test double that overrides
+    // readFromDevice alone still lets getSingleSwitchCpuReport's argv calls and the power
+    // report's SSH call through to the real machine, and the count it reports would be a
+    // comfortable lie. [Co-developed with claude code -- Adam]
+    // ---------------------------------------------------------------------------------------
+
+    /// Runs one shell command against a switch and returns its output. @see utils::execCommand.
+    virtual std::string readFromDevice(const std::string& cmd);
+
+    /// Runs one argv command against a switch and returns its output. @see utils::execArgv.
+    virtual std::string readFromDeviceArgv(const std::vector<std::string>& argv);
+
+    /// Reads one switch's `show power` over SSH. @see getPowerReportViaSsh.
+    virtual std::string readPowerOverSsh(const std::string& ip, const std::string& username);
+
     // [Co-developed with claude code -- Adam]
     // Protected rather than private for the test seam the neighbouring policy helpers use (see
     // PowerProbe in test_SyntheticPower.cpp, LivenessProbe in test_OvsLiveness.cpp): a derived

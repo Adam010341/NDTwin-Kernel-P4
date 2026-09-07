@@ -243,6 +243,30 @@ GRAPH_NODE = Obj({
     # "OFF", "disabled" or a free-form string is a contract change and fails here.
     "admin_state": Str(allowed=("on", "off")),
     "reachable": Bool(),
+    # [Co-developed with claude code -- Adam]
+    # E-25 / E-30, Adam's ruling of 2026-09-07. Which mechanism this build has for reading this
+    # switch's power draw and its CPU/memory/temperature. `power_path == "none"` is the mark of a
+    # switch admitted only because its topology node declared an explicit `switch_kind` -- this
+    # build has no branch written for its brand, so nothing is asked of it over SNMP or SSH and
+    # every health figure it reports is the -1 sentinel.
+    #
+    # OPTIONAL, for two reasons that are not the same reason:
+    #   * a kernel built before 2026-09-07 emits neither, and must still pass the structural check
+    #     -- the same rule left_link_bandwidth_source and telemetry_status are here under;
+    #   * a HOST node never carries them AT ALL, by design. A host has no brand, no plug and no
+    #     OID; publishing "none" for one would invite the reading that some other host might have
+    #     a path. This schema is applied to every node in the list, so "required" would be wrong
+    #     even on a current kernel.
+    #
+    # Listed rather than left to Obj's non-strictness so the VOCABULARY is pinned: a sixth word,
+    # or "None", or a free-form sentence, is a contract change and fails here. The value sets are
+    # deliberately different sizes and that is not a typo -- see GraphTypes.hpp: power has four
+    # mechanisms (synthetic for the Mininet fake, snmp for HPE, ssh for the two Brocades, none),
+    # while health telemetry only ever had snmp, because a software switch has no thermal sensor
+    # to read (KNOWN-ISSUES F-1). `telemetry_path == "none"` therefore does NOT mark an exempted
+    # switch; only `power_path` does.
+    "power_path": Str(allowed=("synthetic", "snmp", "ssh", "none")),
+    "telemetry_path": Str(allowed=("snmp", "none")),
 })
 
 GRAPH_EDGE = Obj({
