@@ -558,6 +558,88 @@ HttpSession::handleLinkFailure(http::response<http::string_body>& res)
         R"({"status":"link failure processed","down_reason":"declared","until":"/ndt/link_recovery_detected"})";
 }
 
+// [Co-developed with claude code -- Adam]
+// WAKEUP.md §3-52, Adam's ruling E-22 (2026-09-07): the recovery log has to carry the OUTCOME.
+namespace
+{
+
+/// How POST /ndt/link_recovery_detected ended, for the log line alone. Not a wire type: the reply
+/// body and the status code are unchanged by any of this.
+enum class RecoveryLogOutcome
+{
+    Withdrawn,  ///< Applied: any declaration standing here is gone and both directions are up.
+    Retained,   ///< Declined by the pairing rule: the declaration stands, the link is still down.
+    NoSuchEdge  ///< The topology holds no such edge: nothing withdrawn, nothing marked up.
+};
+
+/**
+ * @brief Say what this recovery report actually did -- one sentence per outcome, once it is known.
+ *
+ * [Co-developed with claude code -- Adam]
+ * WAKEUP.md §3-52. Until 2026-09-07 this was a single
+ * `SPDLOG_LOGGER_INFO("link recovered on {}:{} -> {}:{}")` printed BEFORE
+ * findEdgeBySrcAndDstDpid and before the pairing rule ran, so all three outcomes logged the same
+ * sentence -- and that sentence asserted the one outcome a reader cares about.
+ *
+ * 🟢 MEASURED, arm `lw8b2` 2026-09-07 (scratch/overnight-2026-09-05/logs/lw8b2-kernel.log): the
+ * manual POST the pairing rule DECLINED logged `link recovered on 1:1 -> 5:1` at 04:33:37.198, and
+ * the two reports Ryu sent a second later, which were APPLIED, logged the identical line at
+ * 04:33:38.131 and .142. Only the reply body told them apart, and the reply body is not what
+ * anyone reads afterwards.
+ *
+ * Not silence by default either: a declined report and an unknown edge each get their own WARN, so
+ * "nothing in the log for this request" keeps meaning "nothing happened".
+ *
+ * @note applyReportedLinkRecovery WARNs on its own when it declines -- per direction, naming the
+ *       two dpids but not the ports, from the monitor rather than the endpoint. That line WAS
+ *       already there at 04:33:37.198 and it did not stop the INFO above it from reading as a
+ *       success; a log whose two lines contradict each other is not a log that says what happened.
+ * @note The reverse-edge-missing branch (500) keeps its own WARN, which already names the outcome
+ *       it got rather than the one it assumed, and does not reach here.
+ */
+void
+logLinkRecoveryOutcome(RecoveryLogOutcome outcome,
+                       uint64_t srcDpid,
+                       uint32_t srcInterface,
+                       uint64_t dstDpid,
+                       uint32_t dstInterface)
+{
+    switch (outcome)
+    {
+        case RecoveryLogOutcome::Withdrawn:
+            SPDLOG_LOGGER_INFO(Logger::instance(),
+                               "link recovered on {}:{} -> {}:{}: any declaration standing on this "
+                               "link was withdrawn and both directions are up",
+                               srcDpid,
+                               srcInterface,
+                               dstDpid,
+                               dstInterface);
+            return;
+        case RecoveryLogOutcome::Retained:
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "link recovery declined on {}:{} -> {}:{}: a link failure is "
+                               "declared here and nothing ever reported this link broken, so the "
+                               "declaration was retained and the link is still down. POST "
+                               "/ndt/inject_link_recovery to withdraw it",
+                               srcDpid,
+                               srcInterface,
+                               dstDpid,
+                               dstInterface);
+            return;
+        case RecoveryLogOutcome::NoSuchEdge:
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "link recovery ignored on {}:{} -> {}:{}: the topology holds no "
+                               "such edge, so nothing was withdrawn and nothing was marked up",
+                               srcDpid,
+                               srcInterface,
+                               dstDpid,
+                               dstInterface);
+            return;
+    }
+}
+
+} // namespace
+
 void
 HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
 {
@@ -584,16 +666,14 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
         return;
     }
 
-    SPDLOG_LOGGER_INFO(Logger::instance(),
-                       "link recovered on {}:{} -> {}:{}",
-                       srcDpid,
-                       srcInterface,
-                       dstDpid,
-                       dstInterface);
-
     auto fwdOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({srcDpid, dstDpid});
     if (!fwdOpt.has_value())
     {
+        logLinkRecoveryOutcome(RecoveryLogOutcome::NoSuchEdge,
+                               srcDpid,
+                               srcInterface,
+                               dstDpid,
+                               dstInterface);
         res.result(http::status::not_found);
         res.body() = R"({"error":"edge not found in topology"})";
         return;
@@ -636,13 +716,22 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
     const auto revOutcome = m_topologyAndFlowMonitor->applyReportedLinkRecovery(revOpt.value());
 
     // [Co-developed with claude code -- Adam]
+    // §3-52. THE OUTCOME IS KNOWN HERE AND NOWHERE EARLIER, so this is where it is logged. One
+    // line per request rather than per direction: a report names a link, and a link whose two
+    // directions ended differently is kernel state gone inconsistent, not something to narrate
+    // twice. Retained wins the tie, because "still down" is the half an operator must act on.
+    const bool retained = fwdOutcome == LinkRecoveryOutcome::Retained ||
+                          revOutcome == LinkRecoveryOutcome::Retained;
+    const auto logged = retained ? RecoveryLogOutcome::Retained : RecoveryLogOutcome::Withdrawn;
+    logLinkRecoveryOutcome(logged, srcDpid, srcInterface, dstDpid, dstInterface);
+
     // doc/KNOWN-ISSUES.md B-6 (W8b). Still 200 -- the notification WAS processed, and Ryu's
     // on_link_add logs "NDT REJECTED this notification ... the kernel's view is now stale" on any
     // 4xx, which would be false here and would fire once per link on every controller restart.
     // But 200 with the default body would be the older, worse lie: a caller reading only the
     // status line would believe a link is back that this kernel deliberately left down. So the
     // body says so, and names the endpoint that CAN withdraw it.
-    if (fwdOutcome == LinkRecoveryOutcome::Retained || revOutcome == LinkRecoveryOutcome::Retained)
+    if (retained)
     {
         res.body() =
             R"({"status":"link recovery processed","declaration_retained":true,)"

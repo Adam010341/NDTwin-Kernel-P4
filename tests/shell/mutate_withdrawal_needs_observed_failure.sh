@@ -9,6 +9,8 @@
 #             end of a host edge, which these endpoints do not address.
 #   W8-4      the kernel sweeps the qdisc tree at startup on MININET and WARNs about netem it
 #             finds. It does not clear it and does not turn it into a declaration.
+#   E-22      (added 2026-09-07, WAKEUP.md 3-52) /ndt/link_recovery_detected logs its OUTCOME,
+#             after the outcome is known, and the three outcomes are three different sentences.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -36,10 +38,11 @@
 #   carry packets.
 #
 # 🔴 TWO DIRECTIONS, AND THE SECOND ONE IS WHY THIS GATE EXISTS AT ALL
-#   1. RESTORING any of the three defects must be caught     (M1 .. M10)
+#   1. RESTORING any of the four defects must be caught      (M1 .. M10, M19, M20)
 #      -- the unconditional withdrawal, the report that is never recorded or never spent, the
 #         notification path calling the injection writer, dpid 0 let through at the helper or at
-#         one call site, the startup sweep that finds nothing or says nothing.
+#         one call site, the startup sweep that finds nothing or says nothing, and the recovery
+#         log written before the outcome is known or written the same way for all three outcomes.
 #   2. RELAXING PAST the fix must ALSO be caught             (M11 .. M18)
 #      -- and every one of these is a bigger outage than the defect:
 #         * a recovery report that NEVER withdraws makes every real link outage permanent;
@@ -194,6 +197,55 @@ add_anchor "inject-door"   "$HS"  'HttpSession::handleInjectLinkFailure(http::re
         return;
     }'
 add_anchor "refusal-text"  "$HS"  '    R"({"error":"src_dpid and dst_dpid must both name a switch: dpid 0 is the host end of a host )"'
+# E-22 / 3-52. Two anchors: WHERE the recovery outcome is logged, and WHETHER the three outcomes
+# get three sentences. They are separate defects -- moving the line without changing the words
+# still leaves a declined report reading as a success -- so they are separate mutations.
+add_anchor "log-placement" "$HS"  '    auto fwdOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({srcDpid, dstDpid});
+    if (!fwdOpt.has_value())
+    {
+        logLinkRecoveryOutcome(RecoveryLogOutcome::NoSuchEdge,
+                               srcDpid,
+                               srcInterface,
+                               dstDpid,
+                               dstInterface);
+        res.result(http::status::not_found);
+        res.body() = R"({"error":"edge not found in topology"})";
+        return;
+    }'
+add_anchor "log-sentences" "$HS"  '    switch (outcome)
+    {
+        case RecoveryLogOutcome::Withdrawn:
+            SPDLOG_LOGGER_INFO(Logger::instance(),
+                               "link recovered on {}:{} -> {}:{}: any declaration standing on this "
+                               "link was withdrawn and both directions are up",
+                               srcDpid,
+                               srcInterface,
+                               dstDpid,
+                               dstInterface);
+            return;
+        case RecoveryLogOutcome::Retained:
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "link recovery declined on {}:{} -> {}:{}: a link failure is "
+                               "declared here and nothing ever reported this link broken, so the "
+                               "declaration was retained and the link is still down. POST "
+                               "/ndt/inject_link_recovery to withdraw it",
+                               srcDpid,
+                               srcInterface,
+                               dstDpid,
+                               dstInterface);
+            return;
+        case RecoveryLogOutcome::NoSuchEdge:
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "link recovery ignored on {}:{} -> {}:{}: the topology holds no "
+                               "such edge, so nothing was withdrawn and nothing was marked up",
+                               srcDpid,
+                               srcInterface,
+                               dstDpid,
+                               dstInterface);
+            return;
+    }'
+add_anchor "log-decline-text" "$HS" '                               "declaration was retained and the link is still down. POST "
+                               "/ndt/inject_link_recovery to withdraw it",'
 
 echo "=== anchor uniqueness (exact substring count must be 1) ==="
 anchor_ok=1
@@ -565,6 +617,105 @@ mutate "the startup sweep runs tc on a non-MININET deployment" \
     ResidualNetemSweepTest.ATestbedDeploymentRunsNoTcAtAll
 
 # ================================================================================================
+#   E-22 / WAKEUP.md 3-52: the recovery log has to carry the outcome. Direction 1, added
+#   2026-09-07 and numbered AFTER M18 on purpose, so M1..M18 keep meaning what RED-GREEN.md and
+#   the R2 summary already say they mean.
+# ================================================================================================
+
+# M19. 🔴 3-52 VERBATIM. The line goes back in front of findEdgeBySrcAndDstDpid and in front of the
+#      pairing rule, which is where it sat until this ticket: a declined report, an applied one and
+#      one naming an edge the graph does not hold all log `link recovered on 1:1 -> 5:1` again.
+#      Measured on arm lw8b2 (2026-09-07): 04:33:37.198 DECLINED and 04:33:38.131 APPLIED are
+#      byte-identical lines. The outcome-carrying line at the bottom is left in place, because that
+#      is the honest version of this defect -- an operator grepping kernel.log for a recovery still
+#      gets a hit for a report the kernel refused.
+mutate "the recovery log moves back in front of the outcome (3-52 verbatim)" \
+    "$HS" \
+    '    auto fwdOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({srcDpid, dstDpid});
+    if (!fwdOpt.has_value())
+    {
+        logLinkRecoveryOutcome(RecoveryLogOutcome::NoSuchEdge,
+                               srcDpid,
+                               srcInterface,
+                               dstDpid,
+                               dstInterface);
+        res.result(http::status::not_found);
+        res.body() = R"({"error":"edge not found in topology"})";
+        return;
+    }' \
+    '    SPDLOG_LOGGER_INFO(Logger::instance(),
+                       "link recovered on {}:{} -> {}:{}",
+                       srcDpid,
+                       srcInterface,
+                       dstDpid,
+                       dstInterface);
+
+    auto fwdOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({srcDpid, dstDpid});
+    if (!fwdOpt.has_value())
+    {
+        res.result(http::status::not_found);
+        res.body() = R"({"error":"edge not found in topology"})";
+        return;
+    }' \
+    DeclaredLinkFailureWireTest.ADeclinedRecoveryIsNotLoggedAsARecovery \
+    DeclaredLinkFailureWireTest.ARecoveryForAnEdgeTheGraphDoesNotHoldSaysThatInstead
+
+# M20. 🔴 The half a fix like this stops at: the call is in the right PLACE and still says the same
+#      thing whatever happened. Moving a line is not the deliverable -- the sentence is. Every
+#      structural property survives here (one call site per outcome, logged after the decision),
+#      so only a case that reads the WORDS can tell this apart from the fix.
+mutate "the three outcomes are one sentence again, just logged later" \
+    "$HS" \
+    '    switch (outcome)
+    {
+        case RecoveryLogOutcome::Withdrawn:
+            SPDLOG_LOGGER_INFO(Logger::instance(),
+                               "link recovered on {}:{} -> {}:{}: any declaration standing on this "
+                               "link was withdrawn and both directions are up",
+                               srcDpid,
+                               srcInterface,
+                               dstDpid,
+                               dstInterface);
+            return;
+        case RecoveryLogOutcome::Retained:
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "link recovery declined on {}:{} -> {}:{}: a link failure is "
+                               "declared here and nothing ever reported this link broken, so the "
+                               "declaration was retained and the link is still down. POST "
+                               "/ndt/inject_link_recovery to withdraw it",
+                               srcDpid,
+                               srcInterface,
+                               dstDpid,
+                               dstInterface);
+            return;
+        case RecoveryLogOutcome::NoSuchEdge:
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "link recovery ignored on {}:{} -> {}:{}: the topology holds no "
+                               "such edge, so nothing was withdrawn and nothing was marked up",
+                               srcDpid,
+                               srcInterface,
+                               dstDpid,
+                               dstInterface);
+            return;
+    }' \
+    '    switch (outcome)
+    {
+        case RecoveryLogOutcome::Withdrawn:
+        case RecoveryLogOutcome::Retained:
+        case RecoveryLogOutcome::NoSuchEdge:
+            SPDLOG_LOGGER_INFO(Logger::instance(),
+                               "link recovered on {}:{} -> {}:{}",
+                               srcDpid,
+                               srcInterface,
+                               dstDpid,
+                               dstInterface);
+            return;
+    }' \
+    DeclaredLinkFailureWireTest.ADeclinedRecoveryIsNotLoggedAsARecovery \
+    DeclaredLinkFailureWireTest.AnAppliedRecoveryLogsThatTheDeclarationWentAway \
+    DeclaredLinkFailureWireTest.ARecoveryForAnEdgeTheGraphDoesNotHoldSaysThatInstead
+
+# ================================================================================================
 # 6. the widenings -- these MUST survive
 # ================================================================================================
 
@@ -588,6 +739,16 @@ widen "the pairing rule is written as an equivalent expression" \
     "$TFM" \
     '    if (!eprop.failureReported && eprop.declaredDown)' \
     '    if (eprop.declaredDown && eprop.failureReported == false)'
+
+# W4. E-22's control. The declined sentence is REWORDED while still saying the outcome. The three
+#     new cases key on the word that carries the outcome; if one of them reddens here it is pinning
+#     a sentence instead, and the next person to improve the wording would have to edit a test.
+widen "the declined recovery sentence is reworded (it still says the declaration was retained)" \
+    "$HS" \
+    '                               "declaration was retained and the link is still down. POST "
+                               "/ndt/inject_link_recovery to withdraw it",' \
+    '                               "declaration was retained and the link stays down. Use POST "
+                               "/ndt/inject_link_recovery to take the injection back",'
 
 # ================================================================================================
 # 7. restore and verdict
@@ -638,5 +799,6 @@ if [[ "$ok" != 1 ]]; then exit 2; fi
 if (( SURVIVORS > 0 || WIDENINGS_CAUGHT > 0 )); then exit 1; fi
 echo "  W8b gate: a withdrawal cannot be unpaired from a reported break by any of five routes,"
 echo "  dpid 0 cannot be let back in at the helper or at one door, the startup sweep cannot go"
-echo "  silent or blind, and eight ways of over-correcting past any of the three are caught too."
+echo "  silent or blind, the recovery log cannot go back in front of its outcome or collapse its"
+echo "  three outcomes into one sentence, and eight ways of over-correcting are caught too."
 exit 0

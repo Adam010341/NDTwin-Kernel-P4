@@ -35,6 +35,7 @@
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
+#include <spdlog/sinks/ringbuffer_sink.h>
 
 #include <shared_mutex>
 
@@ -771,6 +772,61 @@ TEST_F(InformSwitchEnteredTest, TheResultingVertexReportsTheDisagreementRatherTh
 namespace
 {
 
+/**
+ * @brief Captures every record the global logger emits while it is alive, at trace level.
+ *
+ * [Co-developed with claude code -- Adam]
+ * Restores the logger's previous level and sink list on destruction, so the rest of the suite runs
+ * against the `off` level test_LoggerEnvironment installed. Same helper as
+ * tests/test_NetemLinkFault.cpp, tests/test_TopologyPollRound.cpp and
+ * tests/test_ApiKeyNotLogged.cpp; duplicated rather than shared for the reason written there --
+ * hoisting it would create a test-support header several files then have to agree on.
+ */
+class LogCapture
+{
+  public:
+    LogCapture()
+        : m_logger(Logger::instance()),
+          m_savedLevel(m_logger->level()),
+          m_sink(std::make_shared<spdlog::sinks::ringbuffer_sink_mt>(256))
+    {
+        m_logger->sinks().push_back(m_sink);
+        m_logger->set_level(spdlog::level::trace);
+    }
+
+    ~LogCapture()
+    {
+        m_logger->set_level(m_savedLevel);
+        auto& sinks = m_logger->sinks();
+        for (auto it = sinks.begin(); it != sinks.end(); ++it)
+        {
+            if (*it == m_sink)
+            {
+                sinks.erase(it);
+                break;
+            }
+        }
+    }
+
+    LogCapture(const LogCapture&) = delete;
+    LogCapture& operator=(const LogCapture&) = delete;
+
+    std::string text() const
+    {
+        std::string all;
+        for (const auto& line : m_sink->last_formatted())
+        {
+            all += line;
+        }
+        return all;
+    }
+
+  private:
+    std::shared_ptr<spdlog::logger> m_logger;
+    spdlog::level::level_enum m_savedLevel;
+    std::shared_ptr<spdlog::sinks::ringbuffer_sink_mt> m_sink;
+};
+
 /// Exposes the protected discovery writer, so a case can apply one control-plane poll.
 class PollableMonitor : public TopologyAndFlowMonitor
 {
@@ -1125,6 +1181,104 @@ TEST_F(DeclaredLinkFailureWireTest, InjectRecoveryStillWithdrawsAfterARefusedRed
         << "the operator's own withdrawal did not end an injection the rediscovery rule had "
            "deliberately kept alive -- the declaration is then unwithdrawable";
     EXPECT_EQ(fwd.value("down_reason", ""), "none");
+}
+
+// --- 3-52: the log line has to carry the outcome -------------------------------------------------
+// [Co-developed with claude code -- Adam]
+//
+// Adam's ruling E-22, 2026-09-07. handleLinkRecovery logged `link recovered on <s>:<p> -> <d>:<p>`
+// BEFORE it looked the edge up and before the pairing rule ran, so a report that was declined, one
+// that was applied, and one naming an edge the graph does not hold were the SAME sentence in
+// kernel.log -- and that sentence asserted the outcome.
+//
+// 🟢 MEASURED, arm lw8b2 2026-09-07 (scratch/overnight-2026-09-05/logs/lw8b2-kernel.log):
+//     04:33:37.198  DECLINED  link recovered on 1:1 -> 5:1
+//     04:33:38.131  APPLIED   link recovered on 1:1 -> 5:1
+//     04:33:38.142  APPLIED   link recovered on 5:1 -> 1:1
+// The monitor's own WARN did follow the declined one at .198, which is why the fix is "say the
+// outcome" rather than "say something": two adjacent lines that contradict each other still leave
+// a reader to work out which one is the answer.
+//
+// These cases assert on the LOG. The wire is unchanged and is pinned by the cases above: same
+// status codes, same bodies, same graph. A case that reddens here for a reworded sentence would be
+// wrong too, so each one keys on the word that carries the outcome and not on the prose around it.
+
+TEST_F(DeclaredLinkFailureWireTest, ADeclinedRecoveryIsNotLoggedAsARecovery)
+{
+    HttpSessionTestPeer peer(m_monitor, m_bus, utils::TESTBED);
+    ASSERT_EQ(peer.send(http::verb::post, "/ndt/inject_link_failure", kBody).result_int(), 200u);
+
+    std::string logged;
+    {
+        LogCapture log;
+        const auto& res = peer.send(http::verb::post, "/ndt/link_recovery_detected", kBody);
+        ASSERT_EQ(res.result_int(), 200u) << res.body();
+        logged = log.text();
+    }
+
+    EXPECT_EQ(logged.find("link recovered on"), std::string::npos)
+        << "a recovery report the pairing rule DECLINED logged the sentence an applied one logs, "
+           "so kernel.log says the injection ended while the graph still holds it down. Measured "
+           "verbatim on arm lw8b2 at 04:33:37.198 (3-52). Log was:\n"
+        << logged;
+    EXPECT_NE(logged.find("declaration was retained"), std::string::npos)
+        << "the endpoint declined the report and said so only in the reply body, which is not what "
+           "anyone reads afterwards:\n"
+        << logged;
+
+    // The behaviour this ticket must NOT change: a moved log line is all it is.
+    EXPECT_FALSE(edgeFromGraphData(peer, 1, 5).value("is_up", true))
+        << "the declined recovery raised the link after all";
+}
+
+TEST_F(DeclaredLinkFailureWireTest, AnAppliedRecoveryLogsThatTheDeclarationWentAway)
+{
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    ASSERT_EQ(peer.send(http::verb::post, "/ndt/link_failure_detected", kBody).result_int(), 200u);
+
+    std::string logged;
+    {
+        LogCapture log;
+        const auto& res = peer.send(http::verb::post, "/ndt/link_recovery_detected", kBody);
+        ASSERT_EQ(res.result_int(), 200u) << res.body();
+        logged = log.text();
+    }
+
+    EXPECT_NE(logged.find("was withdrawn"), std::string::npos)
+        << "the recovery that DID withdraw a declaration did not say so, so an applied report and "
+           "a declined one are once again told apart only by the reply body:\n"
+        << logged;
+    EXPECT_EQ(logged.find("declaration was retained"), std::string::npos)
+        << "an applied recovery logged the declined sentence:\n"
+        << logged;
+    EXPECT_TRUE(edgeFromGraphData(peer, 1, 5).value("is_up", false))
+        << "the paired recovery did not raise the link";
+}
+
+TEST_F(DeclaredLinkFailureWireTest, ARecoveryForAnEdgeTheGraphDoesNotHoldSaysThatInstead)
+{
+    // The third outcome, and the one the old placement got most obviously wrong: the line was
+    // written before findEdgeBySrcAndDstDpid ran, so a 404 was preceded by "link recovered on".
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    static constexpr const char* kUnknownEdgeBody =
+        R"({"src_dpid":1,"src_interface":1,"dst_dpid":9,"dst_interface":1})";
+
+    std::string logged;
+    {
+        LogCapture log;
+        const auto& res =
+            peer.send(http::verb::post, "/ndt/link_recovery_detected", kUnknownEdgeBody);
+        ASSERT_EQ(res.result_int(), 404u) << res.body();
+        logged = log.text();
+    }
+
+    EXPECT_EQ(logged.find("link recovered on"), std::string::npos)
+        << "a report naming a link this topology does not hold was logged as a recovery:\n"
+        << logged;
+    EXPECT_NE(logged.find("no such edge"), std::string::npos)
+        << "the 404 went out with nothing in the log to say the caller had named a link that is "
+           "not in the graph:\n"
+        << logged;
 }
 
 // --- B-6 W8-7: dpid 0 is the host end, and no link endpoint addresses a host edge -----------------

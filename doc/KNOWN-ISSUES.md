@@ -1438,6 +1438,24 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   `doc/audit/2026-09-07_fix-w8b-withdrawal-pairing/RED-GREEN.md`。
 - **文件**：`doc/2026-01-02_ndt_api.md` §1／§2／§2b／§2c 已改口徑（§2 多一個「配對規則」表與
   `declaration_retained` 回應）。
+- 🆕 **補一顆（2026-09-07，Adam 裁 E-22；發現＝`WAKEUP.md` §3-52，同一分支上多一顆 commit）**：
+  - **log 說錯結果**：`handleLinkRecovery` 把 `link recovered on {}:{} -> {}:{}` 印在
+    `findEdgeBySrcAndDstDpid` 與配對判定**之前** ⇒ 三種結果同一句。🟢 `logs/lw8b2-kernel.log`：
+    04:33:37.198（**被拒**的手動 POST）與 04:33:38.131／.142（**撤回成功**）三行逐字相同。
+    ⚠️ 精確一點：被拒那次**並非全然沉默**，`TopologyAndFlowMonitor.cpp:3147` 的 WARN
+    緊接在後（每方向一行）——缺陷是**同一次請求裡兩行互相矛盾，而宣稱結果的那一行是錯的**。
+    **修法**：三種結果三句話，印在結果已知之後（撤回＝INFO；保留宣告＝WARN；邊不存在＝WARN）。
+    **wire 完全不動**（狀態碼／body／`declaration_retained` 一字未改）。
+  - **手冊 §2b 的量測口徑**：原句拿 lw8b 的重啟 burst 去證明「§2b 的注入撤不掉」。
+    🟢 lw8b 那一臂是用 `/ndt/link_failure_detected` 下的**純宣告**（`live_w8b_ryu_restart.sh:17`）；
+    而 `netem loss 100%` **連 LLDP 一起擋** ⇒ Ryu 重啟後重新發現不了被注入的那條 link
+    （lw8b2 04:32:06 的 **30 筆** recovery **沒有** 1:1↔5:1；`lw8b2-ryu2.log` 對 s1-s5 的
+    `Link added` 要等 04:33:38 拆掉 netem 之後）。⇒ **沒有配對規則、netem 注入一樣活得過控制面重啟**
+    （base 分支 `fix/w8-declared-link-failure-sticky` 上就已經如此；`trunk` 沒有 §2b，不在此比較內）——
+    **那一半是 LLDP 不是配對規則。** 配對規則真正擋的是**打得到注入邊**的 recovery：
+    拆掉 netem 後 Ryu 補發那兩筆、以及操作者的誤 POST（lw8b2 手動 POST 證實）。句子已改。
+  - **閘門**：同一支加 M19（log 搬回判定前）／M20（三句變一句）＋ W4 對照 ⇒ **20 變異、4 對照**；
+    gtest 加 3 格（`DeclaredLinkFailureWireTest` 12 → 15）。
 
 ### B-7 `set_switches_power_state` 對不存在的 IP 回 500，而同一個 IP 的 GET 回 404
 

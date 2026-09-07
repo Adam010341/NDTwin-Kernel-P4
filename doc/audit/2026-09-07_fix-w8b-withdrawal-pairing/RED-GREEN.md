@@ -244,3 +244,109 @@ baseline 那一行也一起記下來，因為它證明我的新案子沒有把�
 `ok       baseline green (29 cases in DeclaredLinkFailureTest.*:DeclaredLinkFailureWireTest.*)`
 （W8 交付時是 9＋6＝15 個；本單把這兩個 suite 加到 17＋12＝**29**，另外新開
 `ResidualNetemSweepTest` 8 個 ⇒ **本單新增 22 個 gtest 案子**。）
+
+---
+
+## §5 補一顆（2026-09-07，E-22 ／ `WAKEUP.md` §3-52）：M19、M20 與新的對照 W4 🟢 跑過
+
+同一支閘門 **18 → 20 變異、3 → 4 對照**，整支重跑（不是補跑那兩顆）：
+
+```
+  ok       baseline green (40 cases in DeclaredLinkFailureTest.*:DeclaredLinkFailureWireTest.*:ResidualNetemSweepTest.*)
+  ok       test_routing_strategy sha256 7af2a08a49d7ce21
+```
+
+（40 ＝ §4 那次的 37 ＋ 本輪新增的 3。）
+
+```
+=== M19. the recovery log moves back in front of the outcome (3-52 verbatim) ===
+  ✅ caught  red: DeclaredLinkFailureWireTest.ADeclinedRecoveryIsNotLoggedAsARecovery DeclaredLinkFailureWireTest.ARecoveryForAnEdgeTheGraphDoesNotHoldSaysThatInstead
+
+=== M20. the three outcomes are one sentence again, just logged later ===
+  ✅ caught  red: DeclaredLinkFailureWireTest.ADeclinedRecoveryIsNotLoggedAsARecovery DeclaredLinkFailureWireTest.AnAppliedRecoveryLogsThatTheDeclarationWentAway DeclaredLinkFailureWireTest.ARecoveryForAnEdgeTheGraphDoesNotHoldSaysThatInstead
+
+=== W4. the declined recovery sentence is reworded (it still says the declaration was retained) (MUST stay green) ===
+  ✅ survived -- behaviour unchanged, so the catches above are about behaviour
+
+=== restore ===
+  all 2 file(s) byte-identical to the pre-run snapshot
+  rebuilt from the restored tree
+  suite green again after restore
+  test binary sha unchanged: 7af2a08a49d7ce21
+
+=== verdict ===
+  20 mutations, 0 survived
+  4 widenings, 0 wrongly caught
+```
+
+### §5.1 M19 的紅，逐字（另跑一次同樣的 anchor 把 gtest 訊息抓下來）
+
+閘門本身只印「哪一格紅了」，所以這兩段是**另外跑一次**同樣的兩個 anchor 抓來的
+（同一支 guard、同一顆 binary、跑完 `restored: BYTE-IDENTICAL` 且 40 個案子全綠；
+腳本在 session scratchpad，**不進版控**）。
+
+```
+/…/tests/test_HttpSessionRouting.cpp:1219: Failure
+Expected equality of these values:
+  logged.find("link recovered on")
+    Which is: 147
+  std::string::npos
+    Which is: 18446744073709551615
+a recovery report the pairing rule DECLINED logged the sentence an applied one logs, so kernel.log says the injection ended while the graph still holds it down. Measured verbatim on arm lw8b2 at 04:33:37.198 (3-52). Log was:
+[…] [info] [HttpSession.cpp:646] Handle Link Recovery
+[…] [info] [HttpSession.cpp:669] link recovered on 1:1 -> 5:1
+[…] [warning] [TopologyAndFlowMonitor.cpp:3147] the control plane reports link 1 -> 5 recovered, but nothing ever reported it broken and a link failure is declared for it, so the declaration stands and the edge is left down. POST /ndt/inject_link_recovery to withdraw it
+[…] [warning] [TopologyAndFlowMonitor.cpp:3147] the control plane reports link 5 -> 1 recovered, …
+[…] [warning] [HttpSession.cpp:619] link recovery declined on 1:1 -> 5:1: a link failure is declared here and nothing ever reported this link broken, so the declaration was retained and the link is still down. POST /ndt/inject_link_recovery to withdraw it
+
+[  FAILED  ] DeclaredLinkFailureWireTest.ADeclinedRecoveryIsNotLoggedAsARecovery (3 ms)
+```
+
+🔴 **這一段紅本身就是 §3-52 的樣子**：mutant 的 log 裡**兩行互相矛盾**——
+`link recovered on 1:1 -> 5:1`（INFO，說撤回了）緊接著三行說「沒撤、宣告還在」。
+缺陷從來不是「什麼都沒說」，是**宣稱結果的那一行說錯了，而且它在最前面**。
+
+同一顆 mutant 的第二格：
+
+```
+/…/tests/test_HttpSessionRouting.cpp:1275: Failure
+Expected equality of these values:
+  logged.find("link recovered on")
+    Which is: 147
+  std::string::npos
+    Which is: 18446744073709551615
+a report naming a link this topology does not hold was logged as a recovery:
+[…] [info] [HttpSession.cpp:669] link recovered on 1:1 -> 9:1
+
+/…/tests/test_HttpSessionRouting.cpp:1278: Failure
+Expected: (logged.find("no such edge")) != (std::string::npos), actual: 18446744073709551615 vs 18446744073709551615
+the 404 went out with nothing in the log to say the caller had named a link that is not in the graph:
+[  FAILED  ] DeclaredLinkFailureWireTest.ARecoveryForAnEdgeTheGraphDoesNotHoldSaysThatInstead (0 ms)
+```
+
+### §5.2 M20 的紅，逐字（位置對、字不對）
+
+```
+/…/tests/test_HttpSessionRouting.cpp:1224: Failure
+Expected: (logged.find("declaration was retained")) != (std::string::npos), actual: 18446744073709551615 vs 18446744073709551615
+the endpoint declined the report and said so only in the reply body, which is not what anyone reads afterwards:
+[…] [info] [HttpSession.cpp:612] link recovered on 1:1 -> 5:1
+
+/…/tests/test_HttpSessionRouting.cpp:1247: Failure
+Expected: (logged.find("was withdrawn")) != (std::string::npos), actual: 18446744073709551615 vs 18446744073709551615
+the recovery that DID withdraw a declaration did not say so, so an applied report and a declined one are once again told apart only by the reply body:
+[…] [info] [HttpSession.cpp:612] link recovered on 1:1 -> 5:1
+
+ 3 FAILED TESTS
+```
+
+⚠️ **M20 是這一顆修法最容易只做一半的地方**：呼叫點搬對了、每種結果各有一個呼叫點、
+也真的印在判定之後——**結構性質全部成立**，只有字沒改。
+所以只有讀「內容」的案子分得出 M20 與修法；讀位置或讀結構的案子在 M20 下全綠。
+
+### §5.3 W4 是這三格的對照
+
+W4 把被拒那句改寫（`the link is still down. POST /ndt/inject_link_recovery to withdraw it`
+→ `the link stays down. Use POST /ndt/inject_link_recovery to take the injection back`），
+保留 `declaration was retained` ⇒ **必須留綠，而且留綠了**。
+沒有它，這三格就可能是在釘一句散文，下一個想把訊息寫好的人得先改測試。
