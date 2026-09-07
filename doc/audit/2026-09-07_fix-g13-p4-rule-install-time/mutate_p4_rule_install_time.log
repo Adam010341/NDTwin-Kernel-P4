@@ -1,6 +1,6 @@
 interpreter: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-g13/p4_proxy/venv/bin/python
 baseline (must be green before any mutation):
-Ran 75 tests in 0.008s
+Ran 73 tests in 0.004s
 OK
 
   caught   M1: an accepted route install is not recorded at all             (test_an_accepted_route_install_is_dated went red)
@@ -14,8 +14,8 @@ OK
   caught   M9: the write side spells the table name its own way             (test_an_address_with_a_leading_zero_octet_is_found_after_bmv2_canonicalises_it went red)
   caught   M10: the 5-tuple record drops the priority the entry is identified by (test_an_accepted_five_tuple_install_is_dated went red)
   caught   N1 (control): the stamp is written before the switch has accepted anything (test_a_refused_route_install_is_not_dated went red)
-  caught   N2 (control): every idempotent reinstall restarts the clock      (test_an_idempotent_rewrite_does_not_restart_the_clock went red)
-  caught   N3 (control): a rewrite that CHANGES the rule keeps the old rule's age (test_a_rewrite_that_changes_the_entry_does_restart_the_clock went red)
+  caught   N2 (control): a second write of the same entry restarts the clock (test_an_idempotent_rewrite_does_not_restart_the_clock went red)
+  caught   N3 (control): a reroute restarts the clock (the design Adam ruled out) (test_an_app_rerouting_a_destination_does_not_make_the_rule_look_new went red)
   caught   N4 (control): the pipeline wipe leaves stamps for rules it destroyed (test_the_pipeline_push_forgets_every_rule_it_destroyed went red)
   caught   N5 (control): the key keeps wildcards the renderer drops (the two sides drift) (test_a_zero_masked_ternary_field_is_not_part_of_the_entry went red)
   caught   N6 (control): a negative age reaches an unsigned field           (test_a_negative_age_can_never_reach_the_payload went red)

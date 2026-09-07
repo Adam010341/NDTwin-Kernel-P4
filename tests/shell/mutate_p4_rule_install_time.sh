@@ -18,6 +18,12 @@
 # anyway. None of those is caught by the M cases, and every one of them ends with a number in
 # `duration_sec` that is confidently wrong rather than honestly absent.
 #
+# 🔴 N2 and N3 are the two halves of "the clock restarts", and BOTH are now mutations. Adam
+# ruled on 2026-09-08 (DECISIONS.md) that a P4 rule's duration is counted from the first write
+# the switch accepted and never restarts -- for agreement with OVS, where duration is the
+# switch's own and OpenFlow counts it from the ADD. An earlier version of this gate required a
+# reroute to restart it; that requirement is now itself the thing that must go red.
+#
 # 🔴 And a third shape, the one specific to this fix: the write side and the read side must
 # compute the SAME key. When they do not -- a table name spelled differently, a priority the
 # switch reports as 0, raw bytes compared against a read-back bmv2 has canonicalised -- every
@@ -129,8 +135,7 @@ echo
 m=$(mutant m1 "$CLIENT" \
     '            self.rule_install_times.record(
                 self.device_id, self.IPV4_LPM_TABLE, self.LPM_ENTRY_PRIORITY,
-                self._lpm_match(dst_ip, prefix_len),
-                action=self._forward_action(next_hop_mac, port))
+                self._lpm_match(dst_ip, prefix_len))
             print(f"[{self.device_id}] Added route: {dst_ip}/{prefix_len} -> port {port}, mac {next_hop_mac}")' \
     '            print(f"[{self.device_id}] Added route: {dst_ip}/{prefix_len} -> port {port}, mac {next_hop_mac}")')
 report "M1: an accepted route install is not recorded at all" "$m" \
@@ -145,12 +150,12 @@ report "M2: the renderer emits 0/0 again, record or no record (the line as it st
        "test_a_rule_this_proxy_installed_reports_how_long_ago"
 
 m=$(mutant m3 "$TIMES" \
-    '        if record is None:
+    '        if installed_at is None:
             return None
-        return max(0.0, self._monotonic() - record[0])' \
-    '        if record is None:
+        return max(0.0, self._monotonic() - installed_at)' \
+    '        if installed_at is None:
             return max(0.0, self._monotonic())
-        return max(0.0, self._monotonic() - record[0])')
+        return max(0.0, self._monotonic() - installed_at)')
 report "M3: a rule nobody recorded is given an age anyway (widening)" "$m" \
        "test_a_rule_with_no_record_stays_zero_which_is_what_unknown_looks_like"
 
@@ -176,8 +181,7 @@ report "M6: a deleted route keeps its stamp, to be inherited by the next rule" "
 
 m=$(mutant m7 "$CLIENT" \
     '            self.rule_install_times.record(
-                self.device_id, self.FIVE_TUPLE_TABLE, priority, self._five_tuple_match(keys),
-                action=self._forward_action(next_hop_mac, port))
+                self.device_id, self.FIVE_TUPLE_TABLE, priority, self._five_tuple_match(keys))
             print(f"[{self.device_id}] Added 5-tuple rule prio={priority} "' \
     '            print(f"[{self.device_id}] Added 5-tuple rule prio={priority} "')
 report "M7: the 5-tuple branch does not record (nothing else knows)" "$m" \
@@ -198,11 +202,9 @@ report "M9: the write side spells the table name its own way" "$m" \
        "test_an_address_with_a_leading_zero_octet_is_found_after_bmv2_canonicalises_it"
 
 m=$(mutant m10 "$CLIENT" \
-    '                self.device_id, self.FIVE_TUPLE_TABLE, priority, self._five_tuple_match(keys),
-                action=self._forward_action(next_hop_mac, port))
+    '                self.device_id, self.FIVE_TUPLE_TABLE, priority, self._five_tuple_match(keys))
             print(f"[{self.device_id}] Added 5-tuple rule prio={priority} "' \
-    '                self.device_id, self.FIVE_TUPLE_TABLE, 0, self._five_tuple_match(keys),
-                action=self._forward_action(next_hop_mac, port))
+    '                self.device_id, self.FIVE_TUPLE_TABLE, 0, self._five_tuple_match(keys))
             print(f"[{self.device_id}] Added 5-tuple rule prio={priority} "')
 report "M10: the 5-tuple record drops the priority the entry is identified by" "$m" \
        "test_an_accepted_five_tuple_install_is_dated"
@@ -215,33 +217,40 @@ m=$(mutant n1 "$CLIENT" \
     '            self.stub.Write(req, timeout=RPC_TIMEOUT_S)
             self.rule_install_times.record(
                 self.device_id, self.IPV4_LPM_TABLE, self.LPM_ENTRY_PRIORITY,
-                self._lpm_match(dst_ip, prefix_len),
-                action=self._forward_action(next_hop_mac, port))
+                self._lpm_match(dst_ip, prefix_len))
             print(f"[{self.device_id}] Added route:' \
     '            self.rule_install_times.record(
                 self.device_id, self.IPV4_LPM_TABLE, self.LPM_ENTRY_PRIORITY,
-                self._lpm_match(dst_ip, prefix_len),
-                action=self._forward_action(next_hop_mac, port))
+                self._lpm_match(dst_ip, prefix_len))
             self.stub.Write(req, timeout=RPC_TIMEOUT_S)
             print(f"[{self.device_id}] Added route:')
 report "N1 (control): the stamp is written before the switch has accepted anything" "$m" \
        "test_a_refused_route_install_is_not_dated"
 
 m=$(mutant n2 "$TIMES" \
-    '            previous = self._at.get(key)
-            if previous is not None and previous[1] == fingerprint:
-                # Rewritten as it already was: idempotent reinstall, not a new rule.
-                return key
-            self._at[key] = (self._monotonic(), fingerprint)' \
-    '            self._at[key] = (self._monotonic(), fingerprint)')
-report "N2 (control): every idempotent reinstall restarts the clock" "$m" \
+    '            if key not in self._at:
+                self._at[key] = self._monotonic()' \
+    '            self._at[key] = self._monotonic()')
+report "N2 (control): a second write of the same entry restarts the clock" "$m" \
        "test_an_idempotent_rewrite_does_not_restart_the_clock"
 
-m=$(mutant n3 "$TIMES" \
-    '            if previous is not None and previous[1] == fingerprint:' \
-    '            if previous is not None:')
-report "N3 (control): a rewrite that CHANGES the rule keeps the old rule's age" "$m" \
-       "test_a_rewrite_that_changes_the_entry_does_restart_the_clock"
+# Adam ruled on 2026-09-08 that duration never restarts, against this gate's earlier N3, which
+# required a reroute to restart it. The mutation is therefore inverted: a modify that forgets
+# first is the implementation Adam ruled out, and it must now go red. It is at the client layer
+# because that is the only layer where a reroute is still a distinguishable call -- record()
+# takes no action argument any more, so the record itself cannot tell one write from another.
+m=$(mutant n3 "$CLIENT" \
+    '            self.rule_install_times.record(
+                self.device_id, self.IPV4_LPM_TABLE, self.LPM_ENTRY_PRIORITY,
+                self._lpm_match(dst_ip, prefix_len))
+            print(f"[{self.device_id}] Modified route:' \
+    '            self._forget_route(dst_ip, prefix_len)
+            self.rule_install_times.record(
+                self.device_id, self.IPV4_LPM_TABLE, self.LPM_ENTRY_PRIORITY,
+                self._lpm_match(dst_ip, prefix_len))
+            print(f"[{self.device_id}] Modified route:')
+report "N3 (control): a reroute restarts the clock (the design Adam ruled out)" "$m" \
+       "test_an_app_rerouting_a_destination_does_not_make_the_rule_look_new"
 
 m=$(mutant n4 "$CLIENT" \
     '        self.rule_install_times.clear()' \
@@ -262,8 +271,8 @@ report "N6 (control): a negative age reaches an unsigned field" "$m" \
        "test_a_negative_age_can_never_reach_the_payload"
 
 m=$(mutant n7 "$TIMES" \
-    '        return max(0.0, self._monotonic() - record[0])' \
-    '        return self._monotonic() - record[0]')
+    '        return max(0.0, self._monotonic() - installed_at)' \
+    '        return self._monotonic() - installed_at')
 report "N7 (control): the record itself can report a negative age" "$m" \
        "test_a_clock_that_went_backwards_reports_zero_rather_than_a_negative_age"
 

@@ -268,8 +268,7 @@ class DurationComesFromTheProxysOwnRecordTest(unittest.TestCase):
         return rf.render_flow_stats(1, entries, install_times=self.times)["1"]
 
     def record(self, entry, dpid=1):
-        self.times.record(dpid, entry["table"], entry["priority"], entry["match"],
-                          action=entry.get("action"))
+        self.times.record(dpid, entry["table"], entry["priority"], entry["match"])
 
     def test_a_rule_this_proxy_installed_reports_how_long_ago(self):
         entry = an_lpm_route()

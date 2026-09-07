@@ -3073,8 +3073,14 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   - **紀錄在記憶體，proxy 重啟就沒了**——但重啟本身會 push pipeline 清空每一張表（**A-4c**）、
     再由 `install_initial_routes` 重灌，所以**沒有規則會帶著錯的年齡活過重啟**。
   - **年齡剛好為 0 的規則跟「不知道」在 payload 上分不開**（都是 0/0）。
-  - **P4 的 `duration` 從「內容上一次改變」起算**，OVS 從「ADD」起算（OpenFlow 語意）。
-    冪等重寫（link watchdog 每次 link 轉換都會做）**不會**重算。手冊 §5 已寫。
+  - 🔴 **`duration` 自「這個 proxy 第一次成功寫入該 entry」起算，之後不重算**——冪等重寫
+    （link watchdog 每次 link 轉換都會做）與改道（MODIFY 成不同的 out-port）**都不重算**，
+    只有 delete／pipeline 清空會結束它。**與 OVS 一致**（OVS 端的 `duration` 是交換機自己的，
+    OpenFlow 從 ADD 起算、MODIFY 不重算）⇒ 兩個平面的這個數字現在可以對比。
+    裁決：Adam 2026-09-08 00:1x（`DECISIONS.md`），**與 R3-G13 SUMMARY §7-1 的建議相反**。
+    🔴 **代價（裁決時知悉）**：一支 app **改道**既有目的地留下的殘留，在按年齡篩的殘留掃描裡
+    **看不見**——**在 OVS 上也一樣看不見**。app **新增**的規則仍然看得見。
+    要抓改道就比 action／out-port，不要比年齡。手冊 §5 已寫。
 - **還沒做的**：**`ndt` 側還沒翻面**——`fix/ndt-round2-0907` 的 W16-3 目前把「P4 平面」
   一律標 UNKNOWN，G-13 併進去之後要改成「**0/0 才 UNKNOWN、有年齡就定年**」，
   `_no_time_axis`／`window_blindspot` 那組測試要**翻紅改寫**（不是刪掉）。等 3-51 併後再開單。

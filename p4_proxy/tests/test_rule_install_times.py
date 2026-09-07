@@ -43,7 +43,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 
 from proxy_agent import ryu_flow_stats  # noqa: E402
 from proxy_agent.rule_install_times import (  # noqa: E402
-    RuleInstallTimes, action_key, entry_key, is_dont_care, normalise_match,
+    RuleInstallTimes, entry_key, is_dont_care, normalise_match,
 )
 
 # The write paths live on P4RuntimeClient, which needs the P4Runtime protobufs. Guarded the way
@@ -309,16 +309,6 @@ class EntryKeyTest(unittest.TestCase):
         self.assertEqual(normalise_match(None), ())
         self.assertEqual(normalise_match({}), ())
 
-    def test_an_action_fingerprint_ignores_parameter_order_and_encoding(self):
-        self.assertEqual(action_key({"name": FORWARD_ACTION,
-                                     "params": {"port": 3, "dstAddr": b"\x00\x04"}}),
-                         action_key({"name": FORWARD_ACTION,
-                                     "params": {"dstAddr": b"\x04", "port": b"\x03"}}))
-
-    def test_an_action_fingerprint_notices_a_different_port(self):
-        self.assertNotEqual(action_key({"name": FORWARD_ACTION, "params": {"port": 3}}),
-                            action_key({"name": FORWARD_ACTION, "params": {"port": 4}}))
-
 
 # --- the record: what it says, and what it refuses to say ----------------------------------
 
@@ -330,7 +320,6 @@ class RuleInstallTimesTest(unittest.TestCase):
         self.times = RuleInstallTimes(monotonic=self.clock, wall=self.wall)
         self.match = {"hdr.ipv4.dstAddr": {"type": "lpm", "value": b"\x0a\x00\x00\x04",
                                            "prefix_len": 32}}
-        self.action = {"name": FORWARD_ACTION, "params": {"port": 3}}
 
     def age(self):
         return self.times.age_seconds(1, LPM_TABLE, 0, self.match)
@@ -341,7 +330,7 @@ class RuleInstallTimesTest(unittest.TestCase):
         self.assertIsNone(self.age())
 
     def test_a_recorded_entry_ages_with_the_clock(self):
-        self.times.record(1, LPM_TABLE, 0, self.match, action=self.action)
+        self.times.record(1, LPM_TABLE, 0, self.match)
         self.clock.advance(12)
         self.assertAlmostEqual(self.age(), 12.0)
         self.clock.advance(20)
@@ -353,25 +342,22 @@ class RuleInstallTimesTest(unittest.TestCase):
         # re-runs it on every link transition, so a fabric flapping a link every few seconds
         # would reset every rule's age every few seconds and no rule could look older than the
         # last flap.
-        self.times.record(1, LPM_TABLE, 0, self.match, action=self.action)
+        #
+        # Since Adam's 2026-09-08 ruling this holds for EVERY second write of an entry, not only
+        # a rewrite that changed nothing: the stamp is the first accepted write and only a delete
+        # ends it, matching OVS, where `duration` is the switch's own and OpenFlow counts it from
+        # the ADD. `record` no longer takes an action, so it has no way to tell the two apart --
+        # the reroute case is at the client layer, where a reroute is a distinguishable call:
+        # TheClientDatesWhatTheSwitchAcceptedTest.
+        # test_an_app_rerouting_a_destination_does_not_make_the_rule_look_new.
+        self.times.record(1, LPM_TABLE, 0, self.match)
         self.clock.advance(30)
-        self.times.record(1, LPM_TABLE, 0, self.match, action=self.action)
+        self.times.record(1, LPM_TABLE, 0, self.match)
 
         self.assertAlmostEqual(self.age(), 30.0)
 
-    def test_a_rewrite_that_changes_the_entry_does_restart_the_clock(self):
-        # The other half: an app that reroutes a bring-up destination has left residue exactly
-        # as surely as one that added a rule, and the question ndt asks is when this switch last
-        # became what it now is.
-        self.times.record(1, LPM_TABLE, 0, self.match, action=self.action)
-        self.clock.advance(30)
-        self.times.record(1, LPM_TABLE, 0, self.match,
-                          action={"name": FORWARD_ACTION, "params": {"port": 9}})
-
-        self.assertAlmostEqual(self.age(), 0.0)
-
     def test_forgetting_an_entry_takes_its_age_with_it(self):
-        self.times.record(1, LPM_TABLE, 0, self.match, action=self.action)
+        self.times.record(1, LPM_TABLE, 0, self.match)
         self.assertTrue(self.times.forget(1, LPM_TABLE, 0, self.match))
         self.assertIsNone(self.age())
 
@@ -379,16 +365,16 @@ class RuleInstallTimesTest(unittest.TestCase):
         self.assertFalse(self.times.forget(1, LPM_TABLE, 0, self.match))
 
     def test_a_reinstall_after_a_delete_is_dated_afresh(self):
-        self.times.record(1, LPM_TABLE, 0, self.match, action=self.action)
+        self.times.record(1, LPM_TABLE, 0, self.match)
         self.clock.advance(60)
         self.times.forget(1, LPM_TABLE, 0, self.match)
-        self.times.record(1, LPM_TABLE, 0, self.match, action=self.action)
+        self.times.record(1, LPM_TABLE, 0, self.match)
 
         self.assertAlmostEqual(self.age(), 0.0)
 
     def test_clearing_forgets_every_entry(self):
-        self.times.record(1, LPM_TABLE, 0, self.match, action=self.action)
-        self.times.record(1, FIVE_TUPLE_TABLE, 100, self.match, action=self.action)
+        self.times.record(1, LPM_TABLE, 0, self.match)
+        self.times.record(1, FIVE_TUPLE_TABLE, 100, self.match)
         self.assertEqual(len(self.times), 2)
 
         self.times.clear()
@@ -398,7 +384,7 @@ class RuleInstallTimesTest(unittest.TestCase):
 
     def test_a_clock_that_went_backwards_reports_zero_rather_than_a_negative_age(self):
         # duration_sec is unsigned on the wire; a negative here arrives as billions of seconds.
-        self.times.record(1, LPM_TABLE, 0, self.match, action=self.action)
+        self.times.record(1, LPM_TABLE, 0, self.match)
         self.clock.advance(-5)
 
         self.assertEqual(self.age(), 0.0)
@@ -406,7 +392,7 @@ class RuleInstallTimesTest(unittest.TestCase):
     def test_the_wall_clock_time_is_derived_from_the_same_age(self):
         # Derived rather than stored: a second clock is a second answer, and the two disagree
         # the moment the system clock is stepped.
-        self.times.record(1, LPM_TABLE, 0, self.match, action=self.action)
+        self.times.record(1, LPM_TABLE, 0, self.match)
         self.clock.advance(10)
         self.wall.advance(10)
 
@@ -466,10 +452,31 @@ class TheClientDatesWhatTheSwitchAcceptedTest(unittest.TestCase):
         self.assertIsNotNone(client.rule_install_times.age_seconds(
             1, LPM_TABLE, 0, read_back_lpm()["match"]))
 
-    def test_an_accepted_modify_dates_the_route_it_rewrote(self):
+    def test_an_accepted_modify_dates_a_route_this_client_had_not_written(self):
+        # A modify is also how an entry this client has never written first reaches the switch --
+        # insert_ipv4_route falls back to MODIFY when bmv2 reports the entry already exists. So
+        # `record` is called on the modify path too; it is only a no-op when a stamp is already
+        # held.
         self.client.modify_ipv4_route("10.0.0.4", 32, "00:00:00:00:00:04", 9)
 
         self.assertIsNotNone(self.age_of(read_back_lpm()))
+
+    def test_an_app_rerouting_a_destination_does_not_make_the_rule_look_new(self):
+        # 🔴 Adam's ruling, 2026-09-08 (DECISIONS.md), AGAINST this agent's recommendation in
+        # R3-G13-SUMMARY §7-1, which had this restarting the clock. The stamp is the FIRST
+        # accepted write of the entry; a reroute -- same destination, different out-port -- is a
+        # MODIFY, and OpenFlow's duration does not restart on a MODIFY. The P4 plane now answers
+        # the same question OVS's own duration answers.
+        #
+        # The accepted cost, asserted here so nobody rediscovers it as a bug: a rule an app
+        # REROUTED reads as old as the fabric, so an age-filtered residue scan will not see it.
+        # It would not see it on OVS either. A rule an app ADDS is still visible -- that is
+        # test_an_accepted_route_install_is_dated -- and so is one it deletes and reinstalls.
+        self.client.insert_ipv4_route("10.0.0.4", 32, "00:00:00:00:00:04", 3)
+        self.clock.advance(600)
+        self.client.modify_ipv4_route("10.0.0.4", 32, "00:00:00:00:00:04", 9)
+
+        self.assertAlmostEqual(self.age_of(read_back_lpm()), 600.0)
 
     def test_an_accepted_delete_takes_the_date_away(self):
         self.client.insert_ipv4_route("10.0.0.4", 32, "00:00:00:00:00:04", 3)
@@ -593,8 +600,7 @@ class TheEndpointReadsTheClientsOwnRecordTest(unittest.TestCase):
         clock = FakeClock()
         times = RuleInstallTimes(monotonic=clock)
         entry = read_back_lpm()
-        times.record(dpid, entry["table"], entry["priority"], entry["match"],
-                     action=entry["action"])
+        times.record(dpid, entry["table"], entry["priority"], entry["match"])
         clock.advance(age)
         api_routes.topology = FakeTopology(
             switches={dpid: FlowStatsClient([entry], times)})

@@ -754,6 +754,12 @@ class P4RuntimeClient:
     # the key is computed by rule_install_times.entry_key for both. The alternative -- each side
     # naming an entry its own way -- fails silently and completely: every lookup misses, every
     # rule reports 0/0, and the result is indistinguishable from the defect being fixed.
+    #
+    # The stamp is the FIRST accepted write of an entry; MODIFY does not restart it (Adam,
+    # 2026-09-08, for agreement with OVS, where `duration` is the switch's own and OpenFlow
+    # counts it from the ADD). So a modify records nothing new for an entry already known -- it
+    # still calls record(), because a modify is also how an entry this client has never written
+    # first reaches the switch.
 
     #: The two tables this client writes, by their p4info names -- the same strings
     #: `read_table_entries` reports through `_table_name`, because the install-time key is the
@@ -765,20 +771,6 @@ class P4RuntimeClient:
     #: those writes and bmv2 reads them back as 0. Named rather than written as a bare literal at
     #: four call sites, so the write side and the read side cannot disagree by a typo.
     LPM_ENTRY_PRIORITY = 0
-
-    @staticmethod
-    def _forward_action(next_hop_mac, port):
-        """
-        The action an installed route carries, in `read_table_entries`' shape.
-
-        Only ever compared for equality, to answer "did this write change the entry" -- see
-        `RuleInstallTimes.record`. Without it, the link watchdog's idempotent
-        `install_initial_routes` would restart every rule's clock on every link transition and no
-        rule could ever look older than the last flap.
-        """
-        return {"name": "MyIngress.ipv4_forward",
-                "params": {"dstAddr": bytes.fromhex(next_hop_mac.replace(":", "")),
-                           "port": port}}
 
     @staticmethod
     def _lpm_match(dst_ip, prefix_len):
@@ -845,8 +837,7 @@ class P4RuntimeClient:
         try:
             self.stub.Write(req, timeout=RPC_TIMEOUT_S)
             self.rule_install_times.record(
-                self.device_id, self.FIVE_TUPLE_TABLE, priority, self._five_tuple_match(keys),
-                action=self._forward_action(next_hop_mac, port))
+                self.device_id, self.FIVE_TUPLE_TABLE, priority, self._five_tuple_match(keys))
             print(f"[{self.device_id}] Added 5-tuple rule prio={priority} "
                   f"{ {k.split('.')[-1]: v for k, v in keys.items()} } -> port {port}")
             return True
@@ -883,8 +874,7 @@ class P4RuntimeClient:
         try:
             self.stub.Write(req, timeout=RPC_TIMEOUT_S)
             self.rule_install_times.record(
-                self.device_id, self.FIVE_TUPLE_TABLE, priority, self._five_tuple_match(keys),
-                action=self._forward_action(next_hop_mac, port))
+                self.device_id, self.FIVE_TUPLE_TABLE, priority, self._five_tuple_match(keys))
             return True
         except grpc.RpcError as e:
             print(f"[{self.device_id}] Failed to modify 5-tuple rule: {e.code()} - {e.details()}")
@@ -953,8 +943,7 @@ class P4RuntimeClient:
             self.stub.Write(req, timeout=RPC_TIMEOUT_S)
             self.rule_install_times.record(
                 self.device_id, self.IPV4_LPM_TABLE, self.LPM_ENTRY_PRIORITY,
-                self._lpm_match(dst_ip, prefix_len),
-                action=self._forward_action(next_hop_mac, port))
+                self._lpm_match(dst_ip, prefix_len))
             print(f"[{self.device_id}] Added route: {dst_ip}/{prefix_len} -> port {port}, mac {next_hop_mac}")
             return True
         except grpc.RpcError as e:
@@ -1107,8 +1096,7 @@ class P4RuntimeClient:
             self.stub.Write(req, timeout=RPC_TIMEOUT_S)
             self.rule_install_times.record(
                 self.device_id, self.IPV4_LPM_TABLE, self.LPM_ENTRY_PRIORITY,
-                self._lpm_match(dst_ip, prefix_len),
-                action=self._forward_action(next_hop_mac, port))
+                self._lpm_match(dst_ip, prefix_len))
             print(f"[{self.device_id}] Modified route: {dst_ip}/{prefix_len} -> port {port}, mac {next_hop_mac}")
             return True
         except grpc.RpcError as e:

@@ -39,8 +39,7 @@ show() {  # $1 label  $2 mutant dir  $3 case name
 d=$(apply m1 proxy_agent/p4_client.py \
 '            self.rule_install_times.record(
                 self.device_id, self.IPV4_LPM_TABLE, self.LPM_ENTRY_PRIORITY,
-                self._lpm_match(dst_ip, prefix_len),
-                action=self._forward_action(next_hop_mac, port))
+                self._lpm_match(dst_ip, prefix_len))
             print(f"[{self.device_id}] Added route: {dst_ip}/{prefix_len} -> port {port}, mac {next_hop_mac}")' \
 '            print(f"[{self.device_id}] Added route: {dst_ip}/{prefix_len} -> port {port}, mac {next_hop_mac}")')
 show "M1 -- an accepted route install is not recorded at all" "$d" test_an_accepted_route_install_is_dated
@@ -53,12 +52,12 @@ d=$(apply m2 proxy_agent/ryu_flow_stats.py \
 show "M2 -- the renderer emits 0/0 again (the line as it stood)" "$d" test_a_rule_this_proxy_installed_reports_how_long_ago
 
 d=$(apply m3 proxy_agent/rule_install_times.py \
-'        if record is None:
+'        if installed_at is None:
             return None
-        return max(0.0, self._monotonic() - record[0])' \
-'        if record is None:
+        return max(0.0, self._monotonic() - installed_at)' \
+'        if installed_at is None:
             return max(0.0, self._monotonic())
-        return max(0.0, self._monotonic() - record[0])')
+        return max(0.0, self._monotonic() - installed_at)')
 show "M3 -- a rule nobody recorded is given an age anyway (widening)" "$d" test_a_rule_with_no_record_stays_zero_which_is_what_unknown_looks_like
 
 d=$(apply m4 proxy_agent/rule_install_times.py \
@@ -76,22 +75,29 @@ d=$(apply n1 proxy_agent/p4_client.py \
 '            self.stub.Write(req, timeout=RPC_TIMEOUT_S)
             self.rule_install_times.record(
                 self.device_id, self.IPV4_LPM_TABLE, self.LPM_ENTRY_PRIORITY,
-                self._lpm_match(dst_ip, prefix_len),
-                action=self._forward_action(next_hop_mac, port))
+                self._lpm_match(dst_ip, prefix_len))
             print(f"[{self.device_id}] Added route:' \
 '            self.rule_install_times.record(
                 self.device_id, self.IPV4_LPM_TABLE, self.LPM_ENTRY_PRIORITY,
-                self._lpm_match(dst_ip, prefix_len),
-                action=self._forward_action(next_hop_mac, port))
+                self._lpm_match(dst_ip, prefix_len))
             self.stub.Write(req, timeout=RPC_TIMEOUT_S)
             print(f"[{self.device_id}] Added route:')
 show "N1 (control) -- the stamp is written before the switch accepted anything" "$d" test_a_refused_route_install_is_not_dated
 
 d=$(apply n2 proxy_agent/rule_install_times.py \
-'            previous = self._at.get(key)
-            if previous is not None and previous[1] == fingerprint:
-                # Rewritten as it already was: idempotent reinstall, not a new rule.
-                return key
-            self._at[key] = (self._monotonic(), fingerprint)' \
-'            self._at[key] = (self._monotonic(), fingerprint)')
-show "N2 (control) -- every idempotent reinstall restarts the clock" "$d" test_an_idempotent_rewrite_does_not_restart_the_clock
+'            if key not in self._at:
+                self._at[key] = self._monotonic()' \
+'            self._at[key] = self._monotonic()')
+show "N2 (control) -- a second write of the same entry restarts the clock" "$d" test_an_idempotent_rewrite_does_not_restart_the_clock
+
+d=$(apply n3 proxy_agent/p4_client.py \
+'            self.rule_install_times.record(
+                self.device_id, self.IPV4_LPM_TABLE, self.LPM_ENTRY_PRIORITY,
+                self._lpm_match(dst_ip, prefix_len))
+            print(f"[{self.device_id}] Modified route:' \
+'            self._forget_route(dst_ip, prefix_len)
+            self.rule_install_times.record(
+                self.device_id, self.IPV4_LPM_TABLE, self.LPM_ENTRY_PRIORITY,
+                self._lpm_match(dst_ip, prefix_len))
+            print(f"[{self.device_id}] Modified route:')
+show "N3 (control) -- a reroute restarts the clock (the design Adam ruled out 2026-09-08)" "$d" test_an_app_rerouting_a_destination_does_not_make_the_rule_look_new

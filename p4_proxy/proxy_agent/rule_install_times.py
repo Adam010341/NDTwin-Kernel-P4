@@ -35,14 +35,25 @@ the flow-stats renderer subtracts.
     Substituting any available timestamp would turn "I do not know" into a confident wrong
     number, and the residue scan reading it cannot tell the two apart.
 
-**An unchanged rewrite does not restart the clock.** `install_initial_routes` is deliberately
-idempotent (`insert_ipv4_route` falls back to MODIFY), and the link watchdog re-runs it on every
-link transition -- so a fabric that flaps a link every few seconds would reset every rule's age
-every few seconds, and no rule would ever look older than the last flap. `record` therefore
-compares an action fingerprint and keeps the earlier stamp when the entry is being rewritten to
-what it already was. A rewrite that *changes* the entry does restart it, and that is the point:
-the question `ndt` asks is "when did this switch last become what it now is", and an app that
-reroutes a bring-up destination has left residue exactly as surely as one that added a rule.
+**The clock starts once and never restarts.** The stamp is the first write of this entry the
+switch accepted; every later write of the same entry -- an idempotent rewrite, or a reroute that
+changes where the packets go -- leaves it alone. Only `forget` (a delete) and `clear` (a pipeline
+wipe) end it, and the next install after one of those is a new rule with a new stamp.
+
+Adam ruled this on 2026-09-08 00:1x (`DECISIONS.md`), against the recommendation in
+`scratch/overnight-2026-09-05/fix/R3-G13-SUMMARY.md` §7-1, and the reason is agreement with the
+other plane: OVS reports the switch's own `duration`, which OpenFlow counts from the ADD and does
+not restart on a MODIFY. A P4 rule now answers the same question as an OVS rule, so a caller
+comparing the two planes is comparing the same quantity.
+
+**The cost, stated plainly, because it is a real one.** An app that reroutes a bring-up
+destination -- MODIFY of an entry that already exists -- leaves that rule reading as old as the
+fabric, so a residue scan filtering by age will not see it. That is invisible on OVS too, and
+identically so. A rule an app *adds* is still visible, and an idempotent rewrite still cannot
+make a rule look new -- which matters here because `install_initial_routes` is deliberately
+idempotent (`insert_ipv4_route` falls back to MODIFY) and the link watchdog re-runs it on every
+link transition, so a fabric flapping a link would otherwise reset every rule's age every few
+seconds and no rule could ever look older than the last flap.
 
 **The record dies with the process, and that is consistent rather than lossy.** A proxy restart
 re-pushes the pipeline to every switch, and a VERIFY_AND_COMMIT
@@ -130,22 +141,6 @@ def entry_key(dpid, table, priority, match):
     return (str(dpid), str(table), int(priority or 0), normalise_match(match))
 
 
-def action_key(action):
-    """
-    A fingerprint of what an entry does, or None when the caller did not say.
-
-    Only ever compared for equality, never stored as identity: this decides whether a write
-    changed the entry or merely rewrote it as it already was. `None` compares equal to `None`,
-    so a caller that does not supply an action gets the conservative answer -- the earlier
-    stamp is kept, and no rule is ever made to look newer than it is on a guess.
-    """
-    if action is None:
-        return None
-    params = ((str(k), _value_key(v)) for k, v in (action.get("params") or {}).items())
-    return (str(action.get("name") or ""),
-            tuple(sorted(params, key=lambda kv: kv[0])))
-
-
 class RuleInstallTimes:
     """
     Install times for the entries one switch accepted from this proxy.
@@ -166,27 +161,28 @@ class RuleInstallTimes:
         # run_in_threadpool) and from the link watchdog thread, so more than one can be in
         # flight, and the flow-stats poll reads while they do.
         self._lock = threading.Lock()
-        #: entry_key -> (monotonic_at_install, action fingerprint)
+        #: entry_key -> monotonic reading at the FIRST accepted write of that entry
         self._at = {}
 
     # --- writing ------------------------------------------------------------------
 
-    def record(self, dpid, table, priority, match, action=None):
+    def record(self, dpid, table, priority, match):
         """
         Note that the switch has just accepted a write of this entry. Returns its key.
 
         Call this only after the write succeeded. A refused write installed nothing, and dating
         a rule that is not on the switch would put an age on somebody else's entry the next time
         the same key appeared -- the same rule `rule_journal.record` follows for the same reason.
+
+        **An entry that already has a stamp keeps it**, whatever this write changed. See the
+        module docstring: OpenFlow's `duration` counts from the ADD and a MODIFY does not restart
+        it, so a P4 rule now answers the same question an OVS rule does. A rule only gets a new
+        stamp after `forget` or `clear` -- that is, after it has actually left the switch.
         """
         key = entry_key(dpid, table, priority, match)
-        fingerprint = action_key(action)
         with self._lock:
-            previous = self._at.get(key)
-            if previous is not None and previous[1] == fingerprint:
-                # Rewritten as it already was: idempotent reinstall, not a new rule.
-                return key
-            self._at[key] = (self._monotonic(), fingerprint)
+            if key not in self._at:
+                self._at[key] = self._monotonic()
         return key
 
     def forget(self, dpid, table, priority, match):
@@ -216,7 +212,8 @@ class RuleInstallTimes:
 
     def age_seconds(self, dpid, table, priority, match):
         """
-        How long ago this entry was installed, or **None** if this proxy did not install it.
+        How long ago this entry was FIRST installed, or **None** if this proxy did not install
+        it. Later writes of the same entry do not move it; see `record`.
 
         None rather than 0.0, and the distinction is the whole point: 0.0 is a rule installed
         just now, None is a rule whose age nobody knows. The renderer maps None to 0/0, which is
@@ -228,10 +225,10 @@ class RuleInstallTimes:
         """
         key = entry_key(dpid, table, priority, match)
         with self._lock:
-            record = self._at.get(key)
-        if record is None:
+            installed_at = self._at.get(key)
+        if installed_at is None:
             return None
-        return max(0.0, self._monotonic() - record[0])
+        return max(0.0, self._monotonic() - installed_at)
 
     def installed_at_epoch(self, dpid, table, priority, match):
         """
