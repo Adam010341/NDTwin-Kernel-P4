@@ -175,8 +175,15 @@ dirty=<path>        每一個未提交路徑一行，排序
 ### 🔴 沒做的：set difference **不**進 `--check` 的 problems
 
 一輪之中 commit 會合理地改變這個集合，一個每次 commit 都響的閘門沒有人會看。
-**會變紅的只有旋鈕的值那一條**（而且它也只是印在 `lab` 區塊，不進 problems——舊的
-"can change behaviour" 區塊也從來不進 problems，這一點沒有改）。
+**會變紅的只有旋鈕的值那一條。**
+
+> ⚠️ **本段已被 09-07 的補一顆更正（E-9）。** 這裡原本寫「（而且它也只是印在 `lab` 區塊，
+> **不進 problems**——舊的 "can change behaviour" 區塊也從來不進 problems，這一點沒有改）」。
+> 那句話**是實作的實情，但它是錯的規格**：04:36 的 live 臂（`rounds/08-round2.md:146`）
+> 讓那一列印出紅字 `8 -- this round started at 128: NOT RESTORED`，而 `--check` 回 **rc 0**。
+> Adam 09-07 裁（grill §4E 第三輪，E-9）：**NOT RESTORED 進 problems ⇒ rc 1**；
+> 「commit 會改集合所以不該紅」的理由**只適用 `tree_vs_round_row`**，那一列維持不進 problems。
+> 詳見底下的〈補一顆（09-07：E-9／E-11／E-10）〉。
 
 ---
 
@@ -262,10 +269,11 @@ P4 側讀不到編譯產物時 `sample_rate` 回 `unknown`，而它**不進 `--c
 | `ndt` `cmd_apps` 的 `orphans)`／`cmd_status`／`cmd_check`／`cmd_claim`／usage heredoc | 接線 |
 
 測試：`tests/shell/test_apps_residue.sh`（74 檢查）、`tests/python/test_app_residue_rules.py`（36）、
-`tests/shell/test_ndt_status_residue_row.sh`（27，新）、`tests/shell/test_ndt_round_baseline.sh`（34，新）、
-`tests/shell/test_ndt_check_sample_rate.sh`（39，新）。
-閘門：`mutate_apps_stop_lists_rules.sh`（26 變異）、`mutate_ndt_round_baseline.sh`（12，新）、
-`mutate_ndt_check_sample_rate.sh`（12，新）。**三支合計 50 變異、0 存活。**
+`tests/shell/test_ndt_status_residue_row.sh`（27，新）、`tests/shell/test_ndt_round_baseline.sh`（34，新
+⇒ **09-07 補一顆後 65**）、`tests/shell/test_ndt_check_sample_rate.sh`（39，新）。
+閘門：`mutate_apps_stop_lists_rules.sh`（26 變異）、`mutate_ndt_round_baseline.sh`（12，新
+⇒ **補一顆後 18**）、`mutate_ndt_check_sample_rate.sh`（12，新）。**三支合計 50 變異、0 存活
+（補一顆後 56、0 存活）。**
 
 ## 7. `doc/KNOWN-ISSUES.md` 沒有動——替換文字放在這裡
 
@@ -293,7 +301,13 @@ P4 側讀不到編譯產物時 `sample_rate` 回 `unknown`，而它**不進 `--c
 > `ndt` 側已擋（W16-3：P4 平面一律 `age=UNKNOWN` 並印「CANNOT WINDOW」）；
 > **proxy 側沒有修**，端點的回應仍然是 0/0。
 
-**新條目 I-3 — 兩個還原檢查用同一個有缺陷的訊號源**：見本文件 §4，狀態「已修（分支）」。
+**新條目 I-3 — 兩個還原檢查用同一個有缺陷的訊號源**：見本文件 §4 與 §9.1，
+狀態「已修（分支）」，並補一句「**`--check` 下 `NOT RESTORED` 算 problem ⇒ rc 1**（E-9，09-07）」。
+
+⚠️ **G-13 已由 Adam 裁成要開的單**（E-10，`DECISIONS.md:242`）：「**從根本修**：proxy 在 install
+時記時間戳給 P4 規則裝入時間」。上面那段文字可以直接當這條 issue 的本文；
+過渡期（G-13 落地前）arm 腳本把 5 記成「殘留未查」、不擋下一臂——那是 Adam 的預設，沒有點名白名單。
+另外，上面「P4 平面分不了窗 ⇒ orphans 5」要照 §9.3 更正：**沒有窗的時候是 0，而 0 不是乾淨**。
 
 **新條目 X-2 — `ndt status` 的取樣率在 OVS 平面讀 P4 的編譯產物**：見本文件 §5(a)，
 狀態「已修（分支）」。**X-1（低報是取樣率的函數）不是缺陷、是量測結果**，不需要登記成 issue；
@@ -305,3 +319,122 @@ P4 側讀不到編譯產物時 `sample_rate` 回 `unknown`，而它**不進 `--c
 `ports.sh`／`sudo_surface.sh`／`components.env` ⇒ `ndt` 在讀到任何子指令之前就 exit 2 ⇒
 **18 格裡 12 格紅**。在 base `19a05ddb` 上一樣紅（親自跑過對照），所以**不是本單造成的**。
 補了三個 `cp` 之後 18/18 綠。一個沒有人見過它綠的測試等於沒有測試。
+
+---
+
+## 9. 補一顆（09-07：E-9／E-11／E-10）
+
+[Co-developed with claude code -- Adam]
+
+**單號 R3-NDT**，接在 `b09d330d` 後面的同一條分支 `fix/ndt-round2-0907`（沒有 rebase、沒有
+merge trunk）。裁決正本：`scratch/overnight-2026-09-05/DECISIONS.md:238`（E-9）、`:240`（E-11）、
+`:242`（E-10）。**動機全部來自 04:3x 那四場 live 臂**，不是重讀原始碼想出來的。
+
+### 9.1 E-9 — `knob baseline` 的 `NOT RESTORED` 進 problems（`--check` ⇒ rc 1）
+
+**實跑的動機**（`rounds/08-round2.md:146`，臂 lw16 步驟 D，04:36，OVS 4 hosts、分支 `b09d330d`）：
+
+```
+claim（round.baseline 記 host_count=128）→ echo 8 > p4_proxy/mininet/host_count_override
+  knob baseline  8 -- this round started at 128 (at 04:36:41): NOT RESTORED     ← 紅字
+  tree vs round  0 file(s) LEFT the uncommitted set, 1 joined it
+$?  →  0                                                                        ← rc 綠
+```
+
+紅字配綠 rc，正是 W16-2 當初被裁「印且 rc 紅」時 Adam 自己的理由要擋的東西
+（「rc 不會紅的報告只是多一盞綠燈」）。而收工 `--check` 正是「還原＝寫回 4」該咬人的地方：
+`p4_proxy/mininet/host_count_override` 決定下一次 `ndt up p4` 蓋幾台，沒有別的東西讀它。
+
+**改法**（照 `STATUS_RESIDUE_PROBLEMS` 的形狀）：
+
+| 位置 | 改動 |
+|---|---|
+| `ndt` `STATUS_KNOB_PROBLEMS=()`（`knob_row` 上方） | 新全域；`knob_row` 開頭重設 |
+| `ndt` `knob_row` 的 NOT RESTORED 分支 | `STATUS_KNOB_PROBLEMS+=(...)`，句子含**現值、開工值、`echo <base> > <path>`、以及「不是 `git checkout --`，那會給你 HEAD」** |
+| `ndt` `cmd_status`（`git_lines` 之後一行） | `(( ${#STATUS_KNOB_PROBLEMS[@]} > 0 )) && problems+=("${STATUS_KNOB_PROBLEMS[@]}")` |
+
+**併在 `cmd_status` 而不是在 `knob_row` 裡直接 `problems+=`**：那一列維持是個印表機，
+「`--check` 對什麼東西回非零」只由一個函式決定。**無條件併**（不像 residue 那樣只在 `--check`）：
+這裡不花任何一次 POST，而 `problems` 本來就只在 `--check` 底下印。
+
+🔴 **範圍只有這一句。** 另外兩支不進 problems：
+- `4 (the default; no round baseline recorded)` — 根本沒有偏離。
+- `!= 4, and no round baseline exists` — **它分不出「忘了還原」和「本來就要跑 128 台但沒 `ndt claim`」**。
+  把它折進來，等於每一場沒 claim 的 128-host round 都紅。變異 **N14（widening）** 釘住這一格。
+- `tree_vs_round_row`（集合差）也不動，理由見 §4：一輪中 commit 會合理地改變那個集合。
+  變異 **N14** 之外另有第 10 組的對照格（改別的檔 ⇒ `--check` 仍綠）。
+
+想擴大範圍要 Adam 再裁一次，寫在 SUMMARY §7。
+
+### 9.2 E-11 — `ndt release` 把 `round.baseline` 收成 `.prev`
+
+R2-NDT 的 SUMMARY §7 #3 刻意把它留成「沒有任何東西刪它」。Adam 09-07 裁：**release 時 rename
+成 `.prev`**，照 `lab.handoff` → `lab.handoff.prev` 的前例（`cmd_claim` 裡那一段）。
+
+**改法**：`cmd_release` 在**真的移除了 claim 之後**（`rm -f "$CLAIM"` 那條路，`--force` 也走它）：
+
+```
+    local rb; rb="$(round_baseline_file)"
+    if [[ -f "$rb" ]]; then
+        mv -f "$rb" "$rb.prev" 2>/dev/null && info "..."
+    fi
+```
+
+**rename 不是刪**：一輪開工時的旋鈕值與髒檔集合，事後**無法**從 `git status` 重建，
+而「那一輪留下了什麼」是收工之後才被問的問題。**沒有任何程式讀 `.prev`**，它是留給人的。
+
+🔴 **`no claim to release` 那條早退路徑不動。** 一個沒握著 claim 的 release 是 no-op，
+它不該把別人還活著的 round 結束掉。變異 **N17（widening）** 把 rename 移到早退之前，
+測試第 12 組最後一格會紅。
+
+**檔案格式註解**（`ndt` 的 `.test_run/round.baseline` 那段）補了 `.prev` 的說明。
+之後 `ndt status` 會回到「no round baseline recorded」——**那是正確語意（round 結束了）**，
+不是資料掉了；手冊與收工清單都寫進去了，並且明講**兩列要在 `release` 之前抄**。
+
+### 9.3 E-10 — 「P4 上 orphans 固定回 5」不成立（文件更正）
+
+R2-NDT 的 SUMMARY §7 #2 這麼寫，並且把它寫進了**已 commit 的手冊**。lw16p 實測推翻
+（`rounds/08-round2.md:157-172`，04:39，乾淨 P4、bmv2 4 hosts）：
+
+```
+ndt apps orphans  →  rc 0
+  0 dated rule(s) in a window, 0 lock(s) held, 0 could not be dated, 0 not answerable
+  (no app had a datable window in this run)
+  residue: none -- ... (asked, not assumed)
+```
+
+**沒有窗就不去定年任何規則** ⇒ UNDATABLE=0 ⇒ 回 0。lw16pw（`:174-193`）在**同一個 checkout**
+起過一次 `sim` 之後才走得到 UNDATABLE／BLIND ⇒ 5。
+
+**正確的說法**（已寫進 `doc/2026-08-31_round-closing-checklist.md` §5 與
+`doc/2026-08-17_testing-manual.md` §2.3）：
+
+- P4 平面上**只要有 app 在這個 checkout 留下窗**就是 5／`NOT CHECKED`（流表統計沒有時間軸）。
+- **沒有任何窗時回 0／`none`，而那個 0 是「沒東西可定年」，不是「乾淨」**——一條規則都沒被問過。
+- 窗來自**這個 checkout** 的 app pidfile／log；別的 checkout 跑過的 app 留下的規則在這裡永遠沒有窗。
+- `|| exit 1` 在 P4 上**只要有 app 跑過**就會失敗（先前寫「永遠失敗」）。
+- `energy`／`sim` 目前因 **3-51** 永遠沒有窗（helper 起的 app 不寫 pidfile），另一張單修。
+- Adam 對 E-10 的處置是**從根本修**：**G-13**——proxy 在 install 規則時記時間戳，
+  讓 P4 的規則定得了年（另開單；過渡期 arm 腳本把 5 記成「殘留未查」，不擋下一臂）。
+
+〔本節全部是**讀 `rounds/08-round2.md` 的實跑紀錄**改寫的；**我沒有上過實驗室**。〕
+
+### 9.4 閘門
+
+`tests/shell/test_ndt_round_baseline.sh` 從 34 格加到 **65 格**（第 8–12 組）。
+第 8–11 組驅動**整個 `cmd_status --check`**（不是單一列）：沙盒是同一個臨時 git repo，
+加上 `.test_run/up.target`＋一張 graph／entries／topology fixture，
+**`git_lines`／`knob_row`／`tree_vs_round_row`／`check_up_target`／exit code 全部真的跑**。
+第 11 組另外釘住「沒有 `up.target` ⇒ rc **3**（COULD NOT CHECK），而旋鈕那句 problem
+仍然出現在 `everything else this report could still check:` 底下」。
+
+`tests/shell/mutate_ndt_round_baseline.sh` 從 12 變異加到 **18**，0 存活：
+
+| 變異 | 放回去的東西 | 該紅的格 |
+|---|---|---|
+| N12 | NOT RESTORED 印紅字但什麼都不 raise（＝04:36 的行為） | `🔴 and it is listed as a problem` |
+| N13 | `cmd_status` 不把 `STATUS_KNOB_PROBLEMS` 併進 `problems` | `🔴 --check exits 1 (it exited 0 over this at 04:36)` |
+| N14（widening） | 沒有 baseline 的那句也進 problems | `🔴 but it is not a problem` |
+| N15 | `release` 不收 `round.baseline` | `🔴 the round baseline is gone` |
+| N16 | 收成 `.old` 而不是 `.prev`（釘住檔名，手冊寫它） | `🔴 and kept as .prev, not deleted` |
+| N17（widening） | `no claim to release` 也收 | `🔴 and leaves the baseline where it is` |

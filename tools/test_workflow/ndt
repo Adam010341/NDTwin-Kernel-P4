@@ -368,6 +368,12 @@ handoff_field() { [[ -f "$HANDOFF" ]] && sed -n "s/^$1=//p" "$HANDOFF" | head -1
 #         host_count=<the knob's value when the round started>
 #         dirty=<path>        one line per uncommitted path, sorted
 #
+#     .test_run/round.baseline.prev
+#         the same file, from the round that has ended. `ndt release` renames it here (E-11,
+#         09-07), on the lab.handoff precedent: the round is over, so it must stop being
+#         compared against, but it is the only record of what that round started from and
+#         nothing can rebuild it later. NOTHING READS IT -- it is there for a human.
+#
 # Written by `ndt claim` -- the act that means "this round starts now". Missing means no round
 # was claimed here, and every reader below says so rather than assuming a default was fine.
 round_baseline_file() { echo "${NDT_ROUND_BASELINE:-$REPO/.test_run/round.baseline}"; }
@@ -637,7 +643,27 @@ cmd_release() {
         err "if they are gone:  ndt release --force"
         return 1
     fi
-    rm -f "$CLAIM"; ok "lab released"
+    rm -f "$CLAIM"
+    # [Co-developed with claude code -- Adam]
+    # The round ends here, so the record of where it started stops being a live comparison and
+    # becomes history. Adam's decision 09-07 (grill §4E round 3, E-11), on the precedent set by
+    # lab.handoff above: RENAMED, never deleted -- the knob value and the dirty set a round
+    # began with cannot be reconstructed afterwards from `git status`, and the question "what
+    # did that round leave behind" is asked after the fact more often than during.
+    #
+    # 🔴 It is the same reason claim renames the handoff note, and the same residual risk in the
+    # same direction: after this, `ndt status` says "no round baseline recorded" rather than
+    # comparing against a round that is over. A missing comparison costs a question; a
+    # comparison against somebody else's round says NOT RESTORED about a value they chose.
+    #
+    # Only on the path that actually removed a claim. `no claim to release` returns above --
+    # a round is not ended by releasing a claim that was never held.
+    local rb; rb="$(round_baseline_file)"
+    if [[ -f "$rb" ]]; then
+        mv -f "$rb" "$rb.prev" 2>/dev/null \
+            && info "this round's starting point is now ${rb#$REPO/}.prev -- 'ndt status' will say no round baseline is recorded"
+    fi
+    ok "lab released"
 }
 
 # measuring_declared -- what the live claim says it is measuring, or nothing.
@@ -2136,9 +2162,33 @@ git_lines() {
 #      screen, because it decides how big the next fabric is.
 # In both cases the row says what git thinks of the file, so the reader is told the thing that
 # made I-3 invisible ("git calls it clean") rather than being left to infer it.
+#
+# 🔴 NOT RESTORED IS A PROBLEM, so `--check` exits 1 on it. Adam's decision 09-07 (grill §4E
+# round 3, E-9), after the 04:36 live arm measured the row doing exactly half its job:
+#
+#     ndt claim ...                        (round baseline recorded: host_count=128)
+#     echo 8 > p4_proxy/mininet/host_count_override
+#     ndt status --check
+#       knob baseline  8 -- this round started at 128 (at 04:36:41): NOT RESTORED   <- printed
+#       tree vs round  0 file(s) LEFT the uncommitted set, 1 joined it
+#     $?                                                                    0       <- rc 0
+#
+# (rounds/08-round2.md:146, step D.) Red text with a green exit code is the shape W16-2 was
+# decided against in the first place -- "a report whose rc never goes red is one more green
+# light" -- and end-of-round `--check` is precisely where "have I put the knob back" has to
+# bite, because the next `ndt up p4` reads this file and nothing else does.
+#
+# 🔴 ONLY THIS BRANCH. The other two knob outcomes stay out of the problem list: `4 (the
+# default)` is not a deviation at all, and `!= 4 with no baseline` cannot distinguish a
+# forgotten restore from a deliberate 128-host round that never ran `ndt claim` -- it is a
+# fact worth printing, not a verdict. tree_vs_round_row stays out too, for the reason written
+# above it: committing during a round changes that set for good reasons. Adam ruled on the
+# NOT RESTORED sentence and this list carries that sentence only.
+STATUS_KNOB_PROBLEMS=()
 knob_row() {
     local rel="p4_proxy/mininet/host_count_override"
     local now base at gitstate
+    STATUS_KNOB_PROBLEMS=()
     now="$(host_count)"
     if git -C "$REPO" diff --quiet -- "$rel" 2>/dev/null && \
        git -C "$REPO" diff --cached --quiet -- "$rel" 2>/dev/null; then
@@ -2158,6 +2208,11 @@ knob_row() {
         printf '  %-14s %s\n' "" "$gitstate"
         printf '  %-14s %s\n' "" "it decides the next 'ndt up p4'. restore by WRITING the value:"
         printf '  %-14s %s\n' "" "  echo $base > $rel      # NOT 'git checkout --', which gives you HEAD"
+        # E-9. The sentence carries all three things the reader needs where problem lines are
+        # the only thing a gate's caller keeps: the value now, the value the round started
+        # with, and that putting it back means WRITING it -- `git checkout --` hands back HEAD,
+        # which on 09-05 was the 128 nobody wanted (LAB-RULES hard rule 5).
+        STATUS_KNOB_PROBLEMS+=("the P4 host knob is NOT RESTORED: $rel is $now, this round started at $base -- write $base back ('echo $base > $rel'), not 'git checkout --', which gives you HEAD. (I-3)")
         return 0
     fi
     if [[ "$now" == 4 ]]; then
@@ -2818,6 +2873,12 @@ cmd_status() {
         printf '  %-14s %s\n' "measuring" "nothing"
     fi
     git_lines
+    # [Co-developed with claude code -- Adam]
+    # E-9, Adam's decision 09-07 (grill §4E round 3). knob_row fills this while git_lines runs;
+    # merging it here rather than inside knob_row keeps the row a printer and this function the
+    # only place that decides what `--check` exits on. Unconditional, unlike the residue merge
+    # below: nothing here costs a POST, and `problems` is only ever printed under --check.
+    (( ${#STATUS_KNOB_PROBLEMS[@]} > 0 )) && problems+=("${STATUS_KNOB_PROBLEMS[@]}")
     # [Co-developed with claude code -- Adam]
     # FINDING #83, beside the `code` line and for the same reason: `code` answers "what is this
     # checkout", and until now nothing answered "and is that the code `ndt up` actually runs".

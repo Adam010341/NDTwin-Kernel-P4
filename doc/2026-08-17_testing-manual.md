@@ -289,11 +289,23 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
 | `N rule(s) inside an app window, M lock(s) HELD` | **有殘留** | **算一個 problem ⇒ rc 1** |
 | `NOT CHECKED: ...` | **沒問到**（kernel 沒起來／讀不到流表／這個平面分不了窗） | 不算 problem |
 
-🔴 `NOT CHECKED` **不等於乾淨**。**P4 平面永遠是 `NOT CHECKED`**：它的流表統計是 proxy
-合成的，`duration_sec`／`duration_nsec` 恆 0（2026-09-07 實測），沒有時間軸就分不出窗。
+🔴 `NOT CHECKED` **不等於乾淨**。**P4 平面上只要有 app 在「這個 checkout」留下窗，
+就是 `NOT CHECKED`**：它的流表統計是 proxy 合成的，`duration_sec`／`duration_nsec` 恆 0
+（2026-09-07 實測），沒有時間軸就分不出窗。
 它不算 problem 的唯一理由就是上面那一行「P4 rc=0 才算過」——一個永遠過不了的閘門
 沒有人會看。**鎖在 P4 上還是查得到的**，所以 P4 上握著的鎖照樣讓 `--check` 變紅。
 細節用 `ndt apps orphans` 看（它會把每一條列出來，一條都不刪）。
+
+⚠️ **09-07 更正（先前這裡寫「P4 平面永遠是 `NOT CHECKED`」，實跑推翻）**：**沒有任何窗的時候
+它印 `none`，`ndt apps orphans` 回 0**——`0 dated rule(s) in a window, 0 lock(s) held,
+0 could not be dated, 0 not answerable`＋`(no app had a datable window in this run)`。
+🔴 **那個 `none`／0 是「沒東西可定年」，不是「網路乾淨」：一條規則都沒被問過。**
+窗來自**這個 checkout** 的 app pidfile／log，所以別的 checkout（例如主 checkout）跑過的 app
+留下的規則，在這裡永遠沒有窗、永遠不會被查。
+〔實跑：`rounds/08-round2.md:157-172` 乾淨 P4 ⇒ 0；`:174-193` 在同一個 checkout 起過一次 app ⇒ 5。〕
+另：`energy` 與 `sim` 因為是 helper（`sudo ndtwin-lab <name>-start`）起的、不寫 pidfile，
+**目前永遠沒有窗**（3-51，另一張單修）。
+Adam 的處置是**從根本修**：G-13——讓 proxy 在裝規則時記時間戳，P4 的規則才定得了年。
 
 ⚠️ 這代表 **OVS 沒有一鍵驗收**。OVS 的驗收就看 `ndt up` 最後那行 `data plane: ... forwards`，
 外加下面那張表。
@@ -625,8 +637,9 @@ lab
 | `note` | 別人留的一句話，說他在做什麼 |
 | `measuring` | 有沒有 `iperf3 -c` 在跑。**不是 nothing 就不要拆** |
 | `code` | 現在這份 checkout 的 commit＋有沒有未提交的改動。**量測數字要跟這個 commit 一起記** |
-| `knob baseline` 🆕 | `p4_proxy/mininet/host_count_override` **現在的值**跟你 `ndt claim` 那一刻的值比。**不看 git 髒不髒**——2026-09-05 那次它被寫成 128（＝HEAD），git 因此說它乾淨，警告整段消失，而 `porcelain` 行數還從 22 掉到 21（I-3）。還原＝**寫回**那個值，不是 `git checkout --` |
-| `tree vs round` 🆕 | 從開工到現在，未提交清單**多了誰、少了誰**（列檔名，不是數量）。**少了誰**才是危險的方向：它代表那個檔現在跟 HEAD 一樣了，而那不等於還原 |
+| `knob baseline` 🆕 | `p4_proxy/mininet/host_count_override` **現在的值**跟你 `ndt claim` 那一刻的值比。**不看 git 髒不髒**——2026-09-05 那次它被寫成 128（＝HEAD），git 因此說它乾淨，警告整段消失，而 `porcelain` 行數還從 22 掉到 21（I-3）。還原＝**寫回**那個值，不是 `git checkout --`。🔴 **`--check` 下 `NOT RESTORED` 算 problem ⇒ rc 1**（2026-09-07，E-9；先前它印紅字卻回 rc 0——`rounds/08-round2.md:146` 04:36 實測）。**只有這一句**進 problems：`4 (the default)` 與 `!= 4, and no round baseline exists` 兩句只印不紅（後者分不出「忘了還原」與「本來就要 128 但沒 claim」） |
+| `tree vs round` 🆕 | 從開工到現在，未提交清單**多了誰、少了誰**（列檔名，不是數量）。**少了誰**才是危險的方向：它代表那個檔現在跟 HEAD 一樣了，而那不等於還原。🔴 **這一列不進 `--check` 的 problems**：一輪中 commit 會合理地改變這個集合，每次 commit 都紅的閘門沒有人讀 |
+| `knob baseline`／`tree vs round` 的來源 | `.test_run/round.baseline`，由 `ndt claim` 寫。**`ndt release` 會把它改名成 `.prev`**（2026-09-07，E-11，照 `lab.handoff` 的前例）⇒ release 之後兩列都會說「沒有 baseline」，**那是正確語意（round 結束了），不是資料掉了**。所以**兩列要在 `release` 之前抄**；事後要查開工狀態看 `.test_run/round.baseline.prev`（沒有任何程式讀它，它是留給人的） |
 
 ```
 configuration

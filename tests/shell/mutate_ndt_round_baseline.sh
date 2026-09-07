@@ -9,9 +9,15 @@
 # `ndt status`'s "can change behaviour" block disappearing at that exact moment -- or one of the
 # wrong answers "warn about the knob" invites, and must turn its NAMED case red.
 #
+# N12-N17 cover the two things decided on 09-07 (grill §4E round 3): NOT RESTORED is a --check
+# problem so the rc goes red (E-9, measured printing red at rc 0 on the 04:36 live arm), and
+# `ndt release` retires .test_run/round.baseline to .prev (E-11).
+#
 # 🔴 TWO DIRECTIONS. The mutations marked (widening) stay GREEN where the suite requires RED:
 # one warns whenever the value is not 4, which is on through every legitimate 128-host round;
-# one reports no baseline as a match. Both look like a working alarm.
+# one reports no baseline as a match; one makes the no-baseline value a --check problem, which
+# is red on every 128-host round nobody claimed; one retires the round baseline on a release
+# that held no claim. All four look like a working alarm.
 #
 # 🔴 Guards its own baseline: mutations are applied to COPIES in a temp dir and the suite is
 # pointed at them with NDT_UNDER_TEST. tools/test_workflow/ndt is never written -- another
@@ -175,6 +181,68 @@ m=$(mutant n11 "$NDT" \
     '    :')
 report "N11: 'ndt claim' stops recording the round" "$m" \
        "🔴 and it wrote the baseline"
+
+# --- E-9: NOT RESTORED is a --check problem, so the rc goes red ---------------------------------
+#
+# The state these four restore is the 04:36 live arm (rounds/08-round2.md:146): the row printed
+# `8 -- this round started at 128: NOT RESTORED` in red and `ndt status --check` returned 0.
+# A report whose exit code never moves is one more green light, which is the thing W16-2 was
+# decided against. [Co-developed with claude code -- Adam]
+
+# 🔴 E-9 itself: the row prints and raises nothing.
+m=$(mutant n12 "$NDT" \
+    '        STATUS_KNOB_PROBLEMS+=("the P4 host knob is NOT RESTORED: $rel is $now, this round started at $base -- write $base back ('\''echo $base > $rel'\''), not '\''git checkout --'\'', which gives you HEAD. (I-3)")' \
+    '        :')
+report "N12: NOT RESTORED prints red and raises nothing" "$m" \
+       "🔴 and it is listed as a problem"
+
+# The other half of the same wire: the row fills the list and cmd_status never reads it. Two
+# places, because a mutation that only deleted one of them would leave the other looking like
+# the whole mechanism.
+m=$(mutant n13 "$NDT" \
+    '    (( ${#STATUS_KNOB_PROBLEMS[@]} > 0 )) && problems+=("${STATUS_KNOB_PROBLEMS[@]}")' \
+    '    :')
+report "N13: cmd_status stops merging the knob problems" "$m" \
+       "🔴 --check exits 1 (it exited 0 over this at 04:36)"
+
+# (widening) The no-baseline value is a problem too. Adam ruled on ONE sentence; this branch
+# cannot tell a forgotten restore from a deliberate 128-host round that never claimed, so
+# folding it in turns --check red on every such round -- and it satisfies every case above.
+m=$(mutant n14 "$NDT" \
+    "    printf '  %-14s %s\\n' \"\" \"the next 'ndt up p4' builds \$now hosts. (I-3)\"" \
+    "    printf '  %-14s %s\\n' \"\" \"the next 'ndt up p4' builds \$now hosts. (I-3)\"
+    STATUS_KNOB_PROBLEMS+=(\"the P4 host knob is NOT RESTORED: \$rel is \$now and no baseline exists\")")
+report "N14 (widening): the no-baseline value is a problem too" "$m" \
+       "🔴 but it is not a problem"
+
+# --- E-11: `ndt release` retires the round baseline ---------------------------------------------
+
+# 🔴 E-11 itself: R2-NDT left the file behind on purpose and nothing removed it, so a round that
+# ended kept being compared against -- `status` would say NOT RESTORED about somebody else's
+# chosen value.
+m=$(mutant n15 "$NDT" \
+    '    if [[ -f "$rb" ]]; then' \
+    '    if false; then')
+report "N15: 'ndt release' leaves the round baseline behind" "$m" \
+       "🔴 the round baseline is gone"
+
+# The NAME, separately. `.prev` is the lab.handoff precedent and it is what the testing manual
+# and the round-closing checklist tell a human to go and read; a rename to anything else is
+# indistinguishable from a delete for everyone who was told where to look.
+m=$(mutant n16 "$NDT" \
+    '        mv -f "$rb" "$rb.prev" 2>/dev/null \' \
+    '        mv -f "$rb" "$rb.old" 2>/dev/null \')
+report "N16: the baseline is retired under a different name" "$m" \
+       "🔴 and kept as .prev, not deleted"
+
+# (widening) The early return retires it too. Releasing a claim you never held is a no-op and
+# says nothing about whose round is running -- retiring there ends somebody else's round from
+# a command that reported doing nothing.
+m=$(mutant n17 "$NDT" \
+    '    if [[ ! -f "$CLAIM" ]]; then ok "no claim to release"; return 0; fi' \
+    '    if [[ ! -f "$CLAIM" ]]; then local rb0; rb0="$(round_baseline_file)"; [[ -f "$rb0" ]] && mv -f "$rb0" "$rb0.prev"; ok "no claim to release"; return 0; fi')
+report "N17 (widening): 'no claim to release' retires it anyway" "$m" \
+       "🔴 and leaves the baseline where it is"
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
