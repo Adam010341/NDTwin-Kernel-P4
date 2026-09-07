@@ -724,6 +724,16 @@ kernel 的序列化器會把 `edges` 排到 `nodes` 前面、鍵序也不同，�
 
 - TSan 一定要 `setarch "$(uname -m)" -R`，否則在 main 之前就 FATAL（`local_ci.sh` 已寫死）。
 - 對未 commit 的檔案做 mutation 之前先 commit——`git checkout --` 洗掉過未提交的修復。
+- 🔴 **測試裡的暫存路徑一定要帶「每個行程都不一樣」的東西**：`::getpid()`／`os.getpid()`／
+  `$$`，或者乾脆讓 `mkdtemp`／`mkstemp`／`mktemp -d` 去挑名字。`ctest` 每一支測試各一個行程，
+  所以**常數路徑**與**行程內計數器**（每個行程都從 0 重來）都會撞——兩個行程同時建、同時
+  `remove_all`，其中一個的 fixture 建構子就會在對方 chdir 在裡面的時候把樹刪掉。
+  症狀是 **`-j1` 全綠、`-j2` 偶爾紅、而且每次紅的不是同一支**，最後都會被當成「重跑一次就好」。
+  2026-09-06（W11 那一輪）真的發生過，`c3d99d00` 一次修掉六個 fixture。
+  閘門：`python3 tests/shell/check_test_tmpdirs.py`（rc 0 乾淨／1 有固定路徑／**2 有檔案讀不到、
+  那不算乾淨**），自己的測試是 `tests/python/test_check_test_tmpdirs.py`、變異閘門是
+  `tests/shell/mutate_check_test_tmpdirs.sh`。掃描器只抓**真的會去建立／刪除**的路徑：
+  只拿去給 parser 的 argv、斷言用的字串、注入 payload 一律不報（規則與逐條例外寫在腳本開頭）。
 - **Python 一律用 `p4_proxy/venv/bin/python`**（見 §1）。conda 的 `python3` 缺 grpc/networkx。
 - 監看用的 shell 迴圈要用 `pgrep -f "poll_al[l].sh"` 這種 bracket 寫法，否則會匹配到自己、
   永遠不結束（真的掛過 8 小時）。⚠️ bracket **只保護 pattern**——同一行指令裡任何地方

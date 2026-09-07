@@ -1,0 +1,48 @@
+### E-17: tests/python/test_check_test_tmpdirs.py, verbose
+### date: 2026-09-07T21:08:41+08:00   python: Python 3.13.13
+test_a_herestring_is_not_a_heredoc (__main__.ItSaysSoWhenItCannotRead.test_a_herestring_is_not_a_heredoc)
+`<<<"$OUT"` read as `<<"` swallowed the remaining 482 lines of mutate_logger_cli.sh and ... ok
+test_an_unreadable_file_exits_2_not_0_and_not_1 (__main__.ItSaysSoWhenItCannotRead.test_an_unreadable_file_exits_2_not_0_and_not_1) ... ok
+test_an_unterminated_quote_is_not_a_clean_file (__main__.ItSaysSoWhenItCannotRead.test_an_unterminated_quote_is_not_a_clean_file) ... ok
+test_quoting_restarts_inside_a_command_substitution (__main__.ItSaysSoWhenItCannotRead.test_quoting_restarts_inside_a_command_substitution)
+`"$( ... )"` is a fresh quoting context, so the commands inside it are commands. ... ok
+test_a_defect_quoted_in_a_c_comment (__main__.NoFalsePositives.test_a_defect_quoted_in_a_c_comment) ... ok
+test_a_heredoc_body_belongs_to_the_file_it_is_written_into (__main__.NoFalsePositives.test_a_heredoc_body_belongs_to_the_file_it_is_written_into) ... ok
+test_a_python_constant_that_is_never_opened (__main__.NoFalsePositives.test_a_python_constant_that_is_never_opened) ... ok
+test_a_triple_quoted_blob_is_data (__main__.NoFalsePositives.test_a_triple_quoted_blob_is_data)
+This very file is the reason: it carries fifteen synthetic sources full of /tmp paths, ... ok
+test_mkdtemp_under_a_fixed_parent_cannot_collide (__main__.NoFalsePositives.test_mkdtemp_under_a_fixed_parent_cannot_collide)
+🔴 The widening control. `/tmp/ndtwin_case_pool` is a constant and mkdtemp is the only ... ok
+test_python_pid (__main__.NoFalsePositives.test_python_pid) ... ok
+test_python_tempfile (__main__.NoFalsePositives.test_python_tempfile) ... ok
+test_shell_dollar_dollar (__main__.NoFalsePositives.test_shell_dollar_dollar) ... ok
+test_shell_mktemp (__main__.NoFalsePositives.test_shell_mktemp) ... ok
+test_shell_words_that_are_data (__main__.NoFalsePositives.test_shell_words_that_are_data) ... ok
+test_the_same_fixture_with_getpid (__main__.NoFalsePositives.test_the_same_fixture_with_getpid) ... ok
+test_tmp_literals_that_are_argv_payloads_and_assertions (__main__.NoFalsePositives.test_tmp_literals_that_are_argv_payloads_and_assertions) ... ok
+test_a_constant_joined_onto_temp_directory_path (__main__.TheDefectIsCaught.test_a_constant_joined_onto_temp_directory_path) ... ok
+test_a_per_process_counter_is_not_per_process (__main__.TheDefectIsCaught.test_a_per_process_counter_is_not_per_process)
+The counter restarts at 0 in every process. Two of the six looked like this, and a ... ok
+test_a_redirect_target_counts_as_creating_the_file (__main__.TheDefectIsCaught.test_a_redirect_target_counts_as_creating_the_file) ... ok
+test_a_tmp_literal_that_is_actually_opened (__main__.TheDefectIsCaught.test_a_tmp_literal_that_is_actually_opened) ... ok
+test_python_constant_reached_through_a_name (__main__.TheDefectIsCaught.test_python_constant_reached_through_a_name) ... ok
+test_python_open_of_a_constant (__main__.TheDefectIsCaught.test_python_open_of_a_constant) ... ok
+test_shell_constant_reached_through_a_name (__main__.TheDefectIsCaught.test_shell_constant_reached_through_a_name)
+mutate_logger_cli.sh's shape: bound on one line, deleted on another. ... ok
+test_shell_mkdir_of_a_constant (__main__.TheDefectIsCaught.test_shell_mkdir_of_a_constant) ... ok
+test_a_clean_tree_exits_0 (__main__.TheExitCodeAndTheSuites.test_a_clean_tree_exits_0) ... ok
+test_a_single_file_argument_is_dispatched_by_extension (__main__.TheExitCodeAndTheSuites.test_a_single_file_argument_is_dispatched_by_extension) ... ok
+test_a_tree_with_a_fixed_path_exits_1_and_names_it (__main__.TheExitCodeAndTheSuites.test_a_tree_with_a_fixed_path_exits_1_and_names_it)
+🔴 M3's case. A gate that finds everything and exits 0 is worse than no gate: the run ... ok
+test_the_cpp_suite_is_scanned_by_the_tree_walk (__main__.TheExitCodeAndTheSuites.test_the_cpp_suite_is_scanned_by_the_tree_walk)
+🔴 M1's case. The defect was measured in tests/*.cpp; a gate that stopped globbing them ... ok
+test_the_reason_says_why_rather_than_just_naming_the_line (__main__.TheExitCodeAndTheSuites.test_the_reason_says_why_rather_than_just_naming_the_line) ... ok
+test_it_actually_looked_at_the_six_fixtures_c3d99d00_fixed (__main__.TheRealTreeIsClean.test_it_actually_looked_at_the_six_fixtures_c3d99d00_fixed)
+A clean run means nothing if the six files were not opened. Each of them still names ... ok
+test_the_repo_scans_clean (__main__.TheRealTreeIsClean.test_the_repo_scans_clean) ... ok
+
+----------------------------------------------------------------------
+Ran 31 tests in 1.041s
+
+OK
+RC=0

@@ -1,0 +1,24 @@
+### E-17: what the scanner says about trunk (1a284f7521ed45f6400db79d8f2556d81c971d2f), i.e. a tree WITHOUT c3d99d00
+### date: 2026-09-07T21:09:10+08:00
+### method: tests/ is materialised from trunk with git archive into a temp dir; the scanner
+###         (this branch's copy) is pointed at it with --repo. Nothing in trunk is touched.
+
+tests/test_ApiKeyNotLogged.cpp:102: temp_directory_path() joined with a name that is the same in every process (no getpid() / mkstemp / mkdtemp in this statement)
+      public: TempPromptFile() : m_path(std::filesystem::temp_directory_path() / "ndtwin_test_llm_prompt_apikey_not_logged.txt") {
+tests/test_HistoricalLogging.cpp:118: temp_directory_path() joined with a name that is the same in every process (no getpid() / mkstemp / mkdtemp in this statement)
+      public: explicit TempDir(const std::string& name) : m_path(std::filesystem::temp_directory_path() / name) {
+tests/test_IntentTaskOutcomes.cpp:121: temp_directory_path() joined with a name that is the same in every process (no getpid() / mkstemp / mkdtemp in this statement)
+      m_root = std::filesystem::temp_directory_path() / "ndtwin_test_intent_task_outcomes";
+tests/test_LeftBandwidthCapacity.cpp:78: temp_directory_path() joined with a name that is the same in every process (no getpid() / mkstemp / mkdtemp in this statement)
+      m_path = std::filesystem::temp_directory_path() / ("ndt_f8_topo_" + std::to_string(++s_counter) + ".json");
+tests/test_SFlowEmitterRoundtrip.cpp:481: temp_directory_path() joined with a name that is the same in every process (no getpid() / mkstemp / mkdtemp in this statement)
+      const auto path = std::filesystem::temp_directory_path() / ("ndt_late_topo_" + std::to_string(++m_counter) + ".json");
+tests/test_SwitchKindDispatch.cpp:66: temp_directory_path() joined with a name that is the same in every process (no getpid() / mkstemp / mkdtemp in this statement)
+      m_path = std::filesystem::temp_directory_path() / ("ndt_topo_test_" + std::to_string(++s_counter) + ".json");
+tests/shell/mutate_logger_cli.sh:87: $NOFILE is a fixed /tmp/ndtwin-logger-cli-gate-should-not-exist.log path, and line 218 creates or deletes it; no $$ / mktemp / getpid in either place
+      rm -f "$NOFILE"
+check_test_tmpdirs: 7 fixed temp path(s) in 7 file(s), out of 218 file(s) scanned.
+      ctest gives every test its own process. A temp path that is the same string in two of them
+      is a race the suite can only be trusted at -j1: put getpid() / os.getpid() / $$ in the name,
+      or let mkdtemp / mkstemp / mktemp -d choose it. See doc/2026-08-17_testing-manual.md.
+rc=1
