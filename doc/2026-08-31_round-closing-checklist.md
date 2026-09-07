@@ -107,13 +107,30 @@ hook 只在你 commit 的那一刻才有機會說話，而**「缺席」不觸�
       **那個 0 是「沒東西可定年」，不是「乾淨」**：一條規則都沒被問過。
       窗來自**這個 checkout** 的 app pidfile／log，別的 checkout 跑過的 app 在這裡永遠沒有窗。
       〔實跑：`rounds/08-round2.md:157-172`（乾淨 P4 ⇒ 0）與 `:174-193`（起過一次 app ⇒ 走 UNDATABLE／BLIND ⇒ 5）〕
-      另：`energy` 與 `sim` 目前因 3-51 **永遠沒有窗**（helper 起的 app 不寫 pidfile），另一張單修。
-      Adam 對這件事的處置是**從根本修**：G-13，proxy 在 install 規則時記時間戳，讓 P4 的規則能定年（另開單）。
+      🆕 **`energy` 與 `sim` 09-07 起有窗了**（3-51／G-14，先前它們因為是 helper 起的、
+      `ndt` 不寫 pidfile 而永遠沒窗）：`ndt apps start` 確認活行程之後會把 pid 寫進
+      `.test_run/pids/app_<name>.pid`，沒有 pidfile 時也會退到活行程的 `ps -o etimes=`。
+      收工要注意兩件事：
+      **(a)** `ndt apps stop` 驗證停掉後**會刪掉那個 pidfile**（窗要關），但**它自己那一次印的
+      殘留報告仍然有窗**——窗是在停之前讀的；
+      **(b)** 🔴 **`energy` 的「在這裡跑過沒」永遠問不到**：helper 不給它留 disk log。
+      報告會印 `CANNOT BE ASKED`、`--check` 的 `residue` 列會多一行
+      「N app(s) could not be asked whether they ran here」。**這不算 problem、rc 不變**，
+      但抄報告時**照抄那一行**——它跟「問過了，沒有」是兩件事。
+      **(c)** 🔴 **上面那句「別的 checkout 跑過的 app 在這裡永遠沒有窗」對 `sim` 要改口**：
+      窗還是只來自這個 checkout，**但「它跑過沒」變成全機器的問題**——helper 的 `KERNEL_DIR`
+      （預設主 checkout）裡 `app_sim.log` 非空、而這裡沒有 sim 的 pidfile ⇒ 判定是
+      「**window is LOST**」⇒ **rc 5**，不是 0。報告會印 `(log read: <路徑>)`，
+      **看到 5 先看那一行指的是哪個檔**；要回到 0 只能清掉那個 log（root 所有，`apps trim` 管不到）。
+      Adam 對「P4 的規則定不了年」的處置是**從根本修**：G-13，proxy 在 install 規則時記時間戳（另開單）。
 
       🔴 **`|| exit 1` 這種寫法，只要 P4 上有 app 跑過就會失敗**（先前寫「永遠失敗」，同上更正）。
       把 orphans 當閘門的腳本要改成看得懂 4 與 5，或至少把 5 記進報告而不是當成通過。
 - [ ] `ndt status --check` 的 `residue` 那一列**抄進報告**（2026-09-07 起有這一列）。
       `none` 才算問過了；`NOT CHECKED` 是沒問到，**不是乾淨**。
+      🆕 **它下面還可能多一行 `N app(s) could not be asked whether they ran here: <名字>`**
+      （3-51／G-14）——那是「這個 app 連問的管道都沒有」（今天只有 `energy`）。
+      **rc 不會因為它變 1**，但它跟 `none` 是兩件事，**兩行都抄**。
 - [ ] `ndt status` 的 `knob baseline` 與 `tree vs round` 兩列**抄進報告**（I-3）。
       `p4_proxy/mininet/host_count_override` 還原＝**寫回**開工那個值，
       **不是 `git checkout --`**（那會給你 HEAD＝128）。`porcelain` 行數不是還原證據：

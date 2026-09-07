@@ -2787,6 +2787,60 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   不要拿三個通道之一當證據。
 - **證據**：`doc/audit/2026-09-02_live-round/ADDENDUM-01-viz-orphan-contamination.md`
 
+### G-14 🏁 `ndt` 的殘留「時間窗」對 helper 起的兩個 app（`energy`／`sim`）天生失明 —— **已修（未併）**
+
+> ⚠️ **編號**：本檔在這條之前最大的 G 是 **G-11**，但 **G-12（殘留報告本身）與 G-13（proxy
+> 給 P4 規則記裝入時間）已經被碼與裁決佔用**（`tools/test_workflow/ndt` 通篇引用 G-12，
+> G-13 是 09-07 grill §4E E-10 開的單），只是**還沒有人在本檔登記**。所以這條取 **G-14**。
+> 🔴 **併的時候要對號**：如果 G-12／G-13 的條目走另一條分支先進來，這條的號碼要跟著調
+> （E-27 的口徑：照序留兩份，不要在分支上搶號）。
+
+- **狀態**：🏁 **已修**，在 `fix/ndt-3-51-helper-apps-window`（**未併、未推**）。
+  **缺陷側是 live 實測**（lw16pw，2026-09-07 04:42，1/1）；**修法側是沙盒測試，尚未 live 重驗**。
+- **平面**：兩者（缺陷與平面無關；lw16pw 剛好跑在 P4 4 hosts 上）
+- **失效方向**：靜默 ＋ **一個永遠是綠燈的檢查**
+- **會發生什麼**（修之前）：`ndt apps start sim` → 12 秒 → `ndt apps stop sim`，
+  殘留報告印 `sim: no pidfile and no live process -- no window, so no rule can be dated`，
+  tally 全 0；`ndt apps orphans` 回 **rc 0**、`(no app had a datable window in this run)`；
+  `ndt status --check` 的 `residue` 列印 `none -- ... (asked, not assumed)`。
+  **一條規則都沒有被問過**，而輸出讀起來像「問過了，網路是乾淨的」。
+- **機制**（四件事同時成立才印得出那一句）：
+  1. `app_start` 對 `energy|sim` 走 `sudo ndtwin-lab <name>-start`（root 在 tmux 起），
+     **從不寫** `.test_run/pids/app_<name>.pid`；其他三個 app 由 `app_spawn` 寫。
+  2. `app_started_at` **只認那個 pidfile**，不問 `app_probe`／`/proc` 掃到的活行程 ⇒
+     一個跑著的 sim 沒有窗。
+  3. 「log 空 ⇒ 沒跑過 ⇒ 不算 blind」這個判別子讀的是 **`$REPO` 的 log**，而 helper 把 sim 的
+     輸出寫到 **`$KERNEL_DIR/.test_run/logs/app_sim.log`**（`ndtwin-lab:98,301`，`KERNEL_DIR`
+     預設主 checkout）⇒ 在 worktree 裡那個檔永遠不存在 ⇒ 永遠回答「沒跑過」。
+     〔04:42 那次的 log 確實落在主 checkout，root 所有、144 KB。〕
+  4. `energy` **連 log 都沒有**（helper 沒給它 `script -f`）⇒ 這個問題在**任何** checkout 都問不到。
+  順帶：`no pidfile and no live process` 那一句**根本沒查活行程**，sim 正在跑時也照印。
+- **修法**（Adam 09-07 grill §4E E-8 裁「改櫃台＝ndt 側」，**不動 helper／不動 sudoers**）：
+  `app_start` 在 `app_wait_started` 驗到活行程後把 `APP_LIVE_PIDS[0]` 寫進 pidfile；
+  `app_started_at` 加第三個來源（活行程的 `ps -o etimes=`，取**最舊**的那個）；
+  「跑過沒」改讀 `app_evidence_log`（sim ⇒ helper 的 `KERNEL_DIR`，**`ndt` 唯讀地照 helper
+  自己的信任規則解析 `/etc/ndtwin-lab.conf`**；energy ⇒ 沒有管道，rc 1）；
+  那一句先查活行程；`apps stop` 驗證停掉後刪 pidfile（窗要關），而**那一次自己印的報告
+  用的是停之前讀到的窗**。
+- 🔴 **修完之後仍然為真的兩件事**（不要當成已解決）：
+  - **`energy` 的「在這裡跑過沒」永遠問不到**。報告印 `CANNOT BE ASKED`，`--check` 多印一行
+    「N app(s) could not be asked whether they ran here」，**但不算 problem、rc 不變**
+    （E-7：查不了可以不紅，但不准長得像查了沒事）。
+  - **`ndt` 裡那份 `KERNEL_DIR` 解析是別人規則的複本**。正本是 `/usr/local/sbin/ndtwin-lab`
+    （與 repo 內 `tools/test_workflow/ndtwin-lab` byte-identical，sha256 `6685d3a9…`，09-07 查）。
+    複本會漂移；擋它的是 `tests/shell/test_ndt_helper_apps_window.sh` 群組 1
+    （直接比對 helper 的原始碼文字），不是人。
+  - 🔴 **修法帶進一個新的「永遠紅」風險**：修法之後，**任何** checkout 只要 helper 的
+    `KERNEL_DIR` 裡 `app_sim.log` 非空、而這裡沒有 sim 的 pidfile ⇒ residue 判定就是
+    「window is LOST」⇒ `orphans`／`--check` 回 **rc 5**。修法前這只在主 checkout 成立
+    （讀碼＋`rounds/08-round2.md` 的判斷），現在是全域，而且**今天就成立**
+    （那個檔 144805 bytes、root 所有、mtime 09-07 04:42）。報告會印 `(log read: <路徑>)`
+    指出是哪個檔，但**這支工具清不掉它**（`apps trim` 走 `app_logfile`，不認得那條路徑）。
+    ⇒ 待裁（R3-351 SUMMARY §7-5）。
+- **證據**：缺陷 `scratch/overnight-2026-09-05/rounds/08-round2.md:174-200`（lw16pw 逐節）、
+  `WAKEUP.md` §3-51；裁決 `scratch/overnight-2026-09-05/DECISIONS.md`（grill §4E 第二輪 E-8）；
+  修法 `doc/audit/2026-09-07_fix-3-51-helper-apps-window/FIX-3-51.md`。
+
 ## 證據索引
 
 | 輪次 | 位置 | 內容 |

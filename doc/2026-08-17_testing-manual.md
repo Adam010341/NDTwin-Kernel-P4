@@ -303,9 +303,31 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
 窗來自**這個 checkout** 的 app pidfile／log，所以別的 checkout（例如主 checkout）跑過的 app
 留下的規則，在這裡永遠沒有窗、永遠不會被查。
 〔實跑：`rounds/08-round2.md:157-172` 乾淨 P4 ⇒ 0；`:174-193` 在同一個 checkout 起過一次 app ⇒ 5。〕
-另：`energy` 與 `sim` 因為是 helper（`sudo ndtwin-lab <name>-start`）起的、不寫 pidfile，
-**目前永遠沒有窗**（3-51，另一張單修）。
-Adam 的處置是**從根本修**：G-13——讓 proxy 在裝規則時記時間戳，P4 的規則才定得了年。
+🆕 **09-07 修好了（3-51／G-14）：`energy` 與 `sim` 現在跟其他三個 app 一樣有窗。**
+先前它們是 helper（`sudo ndtwin-lab <name>-start`）起的、`ndt` 不寫 pidfile ⇒ 永遠沒窗。
+現在 `ndt apps start energy|sim` 起完、**確認活行程之後**把那個 pid 寫進
+`.test_run/pids/app_<name>.pid`；沒有 pidfile 時 `app_started_at` 還會退一步問活行程的
+`ps -o etimes=`。所以：
+
+- **在這個 checkout 用 `ndt apps start` 起的 sim／energy，`orphans`／`--check` 看得到它的窗**；
+- `ndt apps stop` 驗證停掉之後**會把 pidfile 刪掉**（窗才會關；否則每次 `--check` 都會把
+  之後裝的每一條規則算成殘留）。**同一個指令自己印的殘留報告仍然有窗**——窗是在停之前讀的。
+- **「跑過沒」現在看 helper 那棵樹的 log**：`sim` 是
+  `<helper 的 KERNEL_DIR>/.test_run/logs/app_sim.log`（預設主 checkout；
+  `/etc/ndtwin-lab.conf` 可改，`ndt` 唯讀地照 helper 同一套信任規則解析），**不是這個 worktree 的**。
+- 🔴 **`energy` 例外：helper 不給它留任何 disk log**（沒有 `script -f`），所以
+  「它在這裡跑過沒」**沒有任何管道可以問**。報告會明說 `CANNOT BE ASKED`，
+  `--check` 的 `residue` 列會多印一行「N app(s) could not be asked whether they ran here」。
+  **這一條不算 problem、不會讓 rc 變 1**（沒有人能對它做任何事，永遠紅的閘門沒人看），
+  但也**不會被寫成「沒跑過」**——「查不了」跟「查了沒事」在這份輸出裡長得不一樣。
+- 🔴 **上面那句「別的 checkout 跑過的 app 在這裡永遠沒有窗」對 `sim` 要改口**：窗確實還是只來自
+  這個 checkout，**但「它跑過沒」現在是全機器的問題**——helper 的 `KERNEL_DIR` 裡
+  `app_sim.log` 非空、而這裡沒有 sim 的 pidfile ⇒ 判定是「**window is LOST**」⇒ `orphans`／
+  `--check` 的 residue 是 **rc 5（NOT CHECKED）**，不是 0。報告會印 `(log read: <路徑>)`，
+  **看到 5 先看那一行是哪個檔**。要讓它回到 0 只能清掉那個 log（root 所有，`ndt apps trim`
+  管不到它）。
+
+Adam 對「P4 的規則定不了年」的處置是**從根本修**：G-13——讓 proxy 在裝規則時記時間戳。
 
 ⚠️ 這代表 **OVS 沒有一鍵驗收**。OVS 的驗收就看 `ndt up` 最後那行 `data plane: ... forwards`，
 外加下面那張表。
