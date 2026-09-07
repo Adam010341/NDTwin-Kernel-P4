@@ -125,11 +125,23 @@ hook 只在你 commit 的那一刻才有機會說話，而**「缺席」不觸�
       窗還是只來自這個 checkout，**但「它跑過沒」變成全機器的問題**——helper 的 `KERNEL_DIR`
       （預設主 checkout）裡 `app_sim.log` 非空、而這裡沒有 sim 的 pidfile ⇒ 判定是
       「**window is LOST**」⇒ **rc 5**，不是 0。報告會印 `(log read: <路徑>)`，
-      **看到 5 先看那一行指的是哪個檔**；要回到 0 只能清掉那個 log（root 所有，`apps trim` 管不到）。
+      **看到 5 先看那一行指的是哪個檔**；要回到 0 只能清掉那個 log，而**那個檔是 root 的**。
+      🆕 **09-08（3-51c）起 `ndt` 會自己講這件事，但它清不掉**：在**主 checkout** 上
+      `ndt apps trim sim` 會印
+      `cannot truncate <path>: owned by root (helper wrote it); ask the operator to
+      'sudo truncate -s0 <path>'`、rc 1（**不會再留一個沒用的 `<log>.tail`**），
+      `ndt apps status` 那一列會多一句 `log is root's (<path>); trim needs sudo`。
+      **在 worktree 裡 `apps trim` 根本碰不到那條路徑**（它走 `app_logfile`＝這個 checkout 的），
+      所以那裡照樣什麼都不會說——**要清就是照上面那道 `sudo truncate -s0` 自己下**。
       Adam 對「P4 的規則定不了年」的處置是**從根本修**：G-13，proxy 在 install 規則時記時間戳（另開單）。
 
       🔴 **`|| exit 1` 這種寫法，只要 P4 上有 app 跑過就會失敗**（先前寫「永遠失敗」，同上更正）。
       把 orphans 當閘門的腳本要改成看得懂 4 與 5，或至少把 5 記進報告而不是當成通過。
+      🆕 **09-08（3-51c）多一個會回 2 的情形**：`sim` 由 helper 起著跑 `orphans` 時，
+      那個 root wrapper 的 `/proc/<pid>/fd` 這個使用者讀不到 ⇒ 第三通道對它是盲的 ⇒
+      `no untracked app processes found, but a channel was blind: … fd channel: CANNOT READ …`、
+      **rc 2**（以前是 0）。**2 不是「有孤兒」也不是「乾淨」**，照抄那一行進報告。
+      〔這一格**只有單元測試**，還沒 live 驗過。〕
 - [ ] `ndt status --check` 的 `residue` 那一列**抄進報告**（2026-09-07 起有這一列）。
       `none` 才算問過了；`NOT CHECKED` 是沒問到，**不是乾淨**。
       🆕 **它下面還可能多一行 `N app(s) could not be asked whether they ran here: <名字>`**

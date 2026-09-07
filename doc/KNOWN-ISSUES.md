@@ -2857,10 +2857,36 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   - 🔴 **為什麼原本 64 格沒抓到**：每一格的 fixture 都是**一個**行程，而行程組通道要有第二個成員
     才產出東西 ⇒ 缺陷在單元測試裡不存在。新的第 10 群做出真的兩層（`setsid` 的 group leader
     ＋ exec 出來的子行程＋兩個都持有 app log 的可寫 fd）。
+- 🆕 **3-51c（09-08，低優先補丁）：那份 log 是 root 的，而三個動詞把「讀得到」當成「動得了」。**
+  **本段全部是讀碼＋單元測試，沒有 live。**
+  helper 以 root 跑 `script -qfa <KERNEL_DIR>/.test_run/logs/app_sim.log` ⇒ 那個檔是
+  **root 所有的 0644**，放在這個使用者的目錄裡。於是三處：
+  - `apps trim`：`app_log_bytes` 是 `stat(2)`（只要目錄權限）、`truncate -s0` 要檔案的寫權限。
+    舊行為**沒有把失敗說成成功**（印 `truncate failed on <path>`、rc 1），但它是**先寫了
+    1 MB 的 `<log>.tail` 才發現不能 truncate**，而那句話既沒說是誰的檔、也沒給能解的指令。
+    **修法**：寫 tail 之前先問，擋住就印
+    `cannot truncate <path>: owned by root (helper wrote it); ask the operator to
+    'sudo truncate -s0 <path>'`、rc 1、**不留 `.tail`**。
+  - `apps status`：印大小（讀成功了）並指向 `ndt apps trim`，而那個動詞在這裡跑不動。
+    **修法**：多一列（黃）`log is root's (<path>); trim needs sudo`；大小照印。
+  - `app_survivors` 的**第三通道**（`find /proc/[0-9]*/fd -lname <log>`）：root 行程的 `fd/`
+    是 0500，find 進不去 ⇒ **回空**，而「不准問」與「問了、沒有」輸出一模一樣。
+    **修法**：`fd channel: CANNOT READ /proc/<pid>/fd (root process) -- not checked` 併進
+    `APP_SURVIVOR_BLIND`；`apps orphans` 在 `found > 0` 那條路也印它（以前只在 `found == 0` 印）。
+    🔴 **只看別的通道已經指名的 pid**——機器上每個 root daemon 的 `fd/` 都讀不到，全列出來
+    就是「一條通道指名半台機器」，`orphans` 會在每台機器上永遠回 blind。
+  - 🔴 **一個會碰到的 rc 變化**（判準沒變，情形變了）：在**主 checkout** 上 sim 由 helper 起著、
+    行程組通道找到那個 root wrapper ⇒ 被相減成「有人追蹤」（found 0）而 fd 通道對它是盲的
+    ⇒ **`apps orphans` 回 2（以前 0）**。合乎 E-7 口徑，**但沒有 live 驗過這一格**。
+  - 🔴 **「root 所有」在測試裡只能用替身**（不能 sudo）：真的 `chmod 444` 的檔 ＋ 只對一條路徑
+    注入的 `app_log_owner`。**kernel 真的拒絕了 truncate（同一個 EACCES），但拒絕的理由是
+    mode 不是 owner** ⇒ 那句話的兩半來自兩個證人。fd 那半**不需要替身**（在 `/proc` 現找一個
+    真的 root 行程）。細節與逐條差異：`FIX-3-51.md` §8.4。
 - **證據**：缺陷 `scratch/overnight-2026-09-05/rounds/08-round2.md:174-200`（lw16pw 逐節）、
   `WAKEUP.md` §3-51；**lw351** `scratch/overnight-2026-09-05/logs/lw351-*.log` 與
-  `rounds/09-round3.md`；裁決 `scratch/overnight-2026-09-05/DECISIONS.md`（grill §4E 第二輪 E-8）；
-  修法 `doc/audit/2026-09-07_fix-3-51-helper-apps-window/FIX-3-51.md`（§7＝lw351 補丁）。
+  `rounds/09-round3.md`；裁決 `scratch/overnight-2026-09-05/DECISIONS.md`（grill §4E 第二輪 E-8、
+  以及「09-07 20:2x（R3-351 §7 三題）」＝3-51c）；
+  修法 `doc/audit/2026-09-07_fix-3-51-helper-apps-window/FIX-3-51.md`（§7＝lw351 補丁、§8＝3-51c）。
 
 ## 證據索引
 

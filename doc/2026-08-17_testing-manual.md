@@ -324,8 +324,19 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
   這個 checkout，**但「它跑過沒」現在是全機器的問題**——helper 的 `KERNEL_DIR` 裡
   `app_sim.log` 非空、而這裡沒有 sim 的 pidfile ⇒ 判定是「**window is LOST**」⇒ `orphans`／
   `--check` 的 residue 是 **rc 5（NOT CHECKED）**，不是 0。報告會印 `(log read: <路徑>)`，
-  **看到 5 先看那一行是哪個檔**。要讓它回到 0 只能清掉那個 log（root 所有，`ndt apps trim`
-  管不到它）。
+  **看到 5 先看那一行是哪個檔**。要讓它回到 0 只能清掉那個 log，而**那個檔是 root 的**。
+  🆕 **09-08（3-51c）起 `ndt` 自己會講，但它清不掉**：在**主 checkout** 上
+  `ndt apps trim sim` 印 `cannot truncate <path>: owned by root (helper wrote it); ask the
+  operator to 'sudo truncate -s0 <path>'`、rc 1（也不再留一個沒用的 `<log>.tail`），
+  `ndt apps status` 多一句 `log is root's (<path>); trim needs sudo`。
+  **在 worktree 裡 `apps trim` 連那條路徑都碰不到**（它走這個 checkout 的 `app_logfile`），
+  所以那裡什麼都不會說——要清就自己下那道 `sudo truncate -s0`。
+- 🆕 **09-08（3-51c）：`ndt apps orphans` 多一個回 2 的情形，而 2 不是「有孤兒」也不是「乾淨」。**
+  helper 起的 sim 是 root 行程，它的 `/proc/<pid>/fd` 這個使用者讀不到 ⇒ 找「誰持有 app log 的
+  可寫 fd」那條通道對它是**盲的**（以前盲的時候輸出跟「找了、沒有」一模一樣）。現在會印
+  `no untracked app processes found, but a channel was blind: … fd channel: CANNOT READ
+  /proc/<pid>/fd (root process) -- not checked`，rc 2。**照抄那一行進報告。**
+  〔這一格只有單元測試，還沒 live 驗過。〕
 
 Adam 對「P4 的規則定不了年」的處置是**從根本修**：G-13——讓 proxy 在裝規則時記時間戳。
 
