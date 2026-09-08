@@ -2290,6 +2290,44 @@ timeout 與 watchdog 間隔**都是衍生的**，所以改一個常數三個一�
   🔑 **要問的問題**：**這個守衛跑的時候，它要防的事情已經發生了嗎？**
   「bind 失敗處理器」聽起來是對的地方，但在這個框架裡它**結構性地太晚**。
   ⚠️ **本條沒有對應的舊條目**——這個缺陷從來沒有進過本清單，08-30 對帳時才補記形狀。
+- 🆕 **「規則的唯一例外，靠一個沒人保證的前提活著」**（2026-09-08 新增，缺陷代號沿用
+  grill §4E 第七輪的題號 **E-29**，**已修在分支 `fix/e29-update-hosts-race-evidence`，未併**）——
+  🔴 **這一條的口徑要照抄，不要簡寫成「修了一個 race」。**
+  - **形狀**：`TopologyAndFlowMonitor::updateHosts` 的附著交換機分支
+    （base `1a284f75` 的 `TopologyAndFlowMonitor.cpp:1726-1729`）**無鎖讀圖**——
+    `findSwitchByDpid` 在 `return` 之前就放掉 `shared_lock`，交出來的 descriptor 在**所有鎖之外**
+    被解參考。這個類對每一個查找都備了 `NoLock` 雙胞胎，就是為了讓「碰圖一定在鎖裡」成為
+    可檢查的規則；**那是全函式唯一的例外**（同函式 1597／1679／1732 三個 `unique_lock` 都在鎖裡）。
+    不能直接把鎖罩到 `findEdgeBySrcAndDstIp` 外面：它自己會再拿一次 `shared_lock`，
+    而 `m_graphMutex` 不可重入 ⇒ 修法是**在一個提早結束的 scope 裡把位址複製出來**。
+  - 🔑 **證據，以及它證明的到底是什麼**（🟢 全部跑過，TSAN 專用建置）：
+    - **形狀成立**：案例 2（產品碼 `updateHosts` vs **探針寫者**）⇒ TSAN 報 1 筆 data race、
+      **判決是 exit code 66**；修法後同案例乾淨（含 10 倍迭代）；**把鎖拿掉的變異體再度 EXIT=66**
+      ——閘門接在那一行上。⚠️ 其中一次跑 gtest 印 `[  OK  ]` 而 exit 是 66：
+      **這支測試的判決是 exit code，不是 gtest 那一行。**
+    - **鑑別力**：對照 3（同一個寫者、**同一段 bytes**、只換讀者持不持鎖）乾淨，
+      拉到 480 萬次讀、耗時超過報紅的案例 2 仍然乾淨 ⇒ 差別只有鎖。
+    - 🔴 **沒有重現到線上 race**：案例 1（live shape、**沒有探針**、20 000×6、27.7 s）**乾淨**。
+      而**那個寫者是探針，產品碼裡沒有**——全樹唯一寫圖裡 `VertexProperties::ip` 的是
+      `parseStaticTopologyFile:707`，它整段載入持著寫鎖，而且第二次呼叫被自己的守衛擋掉。
+      ⇒ **形狀是真的、liveness 是潛伏的。** 不可以寫成「修了一個線上 race」。
+  - **那為什麼還是修**：① 這是規則的例外，代價是**下一個寫者出現的那天才會被發現**；
+    ② 下一個寫者有路線圖（真正的拓撲 reload；vertex 存的是 `boost::vecS`，`add_vertex` 會搬動
+    整個 vertex 陣列 ⇒ 那時這一行不只是 race，是 use-after-free）；③ 修法是一個 uint32 的複製，
+    成本＝每個帶 attachment dpid 的 hosts entry 多一次**無競爭的** `shared_lock`，推翻＝revert 一顆。
+  - **裁決**：Adam 2026-09-08——`483a03dd`（加鎖）與 `d357746b`（TSAN 儀器）**兩顆都留**。
+  - 🔴 **合併提醒（必讀）**：`fix/w18-eighth-index-zero`（tip `67204ecc`；改這一行的是分支上的
+    `8a3746e3`）動的是**同一行**，處理的是另一個缺陷（FINDINGS #88：`ip` 空陣列時 `ip[0]` 是 UB），
+    而它的版本**仍然是無鎖讀**。⇒ **兩顆都要留，會衝突**；合併形（把 W18 的守衛與 WARN 原封不動
+    搬進 `shared_lock` 的 scope、`continue` 留在 scope 外）**逐字在
+    `doc/audit/2026-09-07_fix-e29-update-hosts-race/FIX-E29.md` §6**。
+  - ⚠️ **這支測試不進 ctest**（獨立目標 `test_update_hosts_race`、沒有 `gtest_discover_tests`、
+    需要 TSAN 建置）⇒ **一般的 ctest 綠不代表這條被守著**；FIX 文件 §5 寫了理由。
+  - **未做**：`updateHosts` 其他「查完再鎖」的 TOCTOU 間隙（那是原子性問題，不是 data race）、
+    `m_switchIpsOfferedAsHosts` 的無鎖 `insert`（今天只有 poll 執行緒呼叫，**單寫者是沒人保證的前提**）。
+  - **文件**：`FIX-E29.md`（§2 證據、§4 紅→綠→紅→綠、§6 合併形、§7 沒做的）；
+    逐字 log 在 `scratch/overnight-2026-09-05/fix/r3-e29-logs/`
+    （🔴 **在 `scratch/`，不在版控**）。[Co-developed with claude code -- Adam]
 
 ---
 

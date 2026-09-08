@@ -149,7 +149,9 @@ reader could see.
 ThreadSanitizer: reported 1 warnings
 ```
 
-⇒ 它不只是「理論上的 race」：`updateHosts` **真的去改了一條它無權碰的邊**。
+⇒ **在探針寫者之下**，它不只是「理論上的 race」：`updateHosts` **真的去改了一條它無權碰的邊**。
+⚠️ 這一句只到探針為止：**它示範的是無鎖讀的形狀，不是重現了一個線上的 race**——
+產品碼裡沒有第二個寫者（§2.6 逐條）。這一段不可以被引用成「修了一個線上 race」。
 
 ### 2.5 儀器有沒有鑑別力（controls decide what you learn）
 
