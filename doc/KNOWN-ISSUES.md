@@ -3027,6 +3027,71 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   上面列的兩個 raw 檔涵蓋的是**殺之前的設置**與 **`--check` 的盲點**。
   🟢／🟠 不要混用；要把這條寫進 W16 的驗收條件之前，先重跑一次並存檔。
 
+### G-16 ⚠️ 豁免只影響「讀」，不影響「下令」：`power_path=none` 的交換機照樣關得掉，關掉之後永遠讀不到它省下的電
+
+> **與 C-5c 的分工**：C-5c 是**記號沒被讀**（電源管理器照打 Brocade 的 OID／SSH），已修。
+> **這一條相反——記號被讀了，但只有四條回報路徑讀它；致動路徑從一開始就不看它，而那是刻意的。**
+
+- **狀態**：**不修，登記（2026-09-08 Adam 裁）。** 不是缺陷是分工：**致動看 `switch_kind`、
+  回報看 `brand_name`**。裁決逐字：「`set_switches_power_state` 對 `power_path=none` 回 200
+  `Success` ⇒ **(a) 維持 200**；手冊 §8 寫『豁免只影響讀、不影響下令』＋真不對稱
+  『關得掉、之後 `get_power_report` 永遠 -1』；登 KNOWN-ISSUES。不改碼、契約不動。」
+  （`scratch/overnight-2026-09-05/DECISIONS.md` 末節「09-08 15:3x」。）
+- **平面**：**離線直呼實測**（TESTBED 未量；MININET 不受影響——合成值是 dpid 的函數）
+- **失效方向**：**樂觀**——呼叫者會以為「200 Success」代表這台機器上真的發生了電力動作，
+  而對一台沒人管電源的交換機，這句話只代表「指令被記錄下來了」。
+- **會發生什麼**：一台靠 `switch_kind: ovs` 被收下、`brand_name` 這個 build 沒有分支的交換機
+  （`power_path: "none"`、`telemetry_path: "none"`）：
+  - `POST /ndt/set_switches_power_state?ip=<它>&action=off` ⇒ **200 `{"<ip>":"Success"}`**，
+    圖上 `admin_state` 變 `"off"`；
+  - 接著 `GET /ndt/get_power_report` 對它 ⇒ **`-1`，而且永遠是 `-1`**（E-23 之後它不再被打 SNMP／SSH）。
+  ⇒ **下得了令、讀不到結果。** 一支節能 app 可以把它關掉，卻永遠看不到自己省下來的電。
+- 🔑 **機制（🔵 讀碼，本條沒有為機制另跑實驗）**：全樹只有一個地方決定「用哪條致動路徑」——
+  `DeviceConfigurationAndPowerManager::getPowerStrategyForDpid`
+  （`src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:70`），
+  而它 `switch (*kind)` **只看 `SwitchKind`**：`BMV2 → m_p4PowerStrategy`、
+  **`OVS` 與 `HARDWARE` → `m_ovsPowerStrategy`**；`brandName`／`powerPath` 在這條路上一個字都沒出現。
+  端點側（`src/ndt_core/http/HttpSession.cpp:189` 路由、`:889` 的 `knowsSwitchIp` 404 門、
+  `:898` 呼叫 `setSwitchPowerState`、`:901` 把 `true` 譯成 `{ip:"Success"}`）同樣沒有讀記號。
+  ⇒ **豁免與否對這條路的答案沒有任何影響。**
+- ⚠️ **離線直呼時那個 `Success` 還有第二層來歷，不要混淆**：機器上沒有 Mininet 時，
+  `OVSPowerStrategy::powerOff` 的 `sudo ovs-vsctl br-exists <bridge>` 回 false ⇒
+  `nothingToTearDown`（FINDINGS #82 分支，`OVSPowerStrategy.cpp:596-606`，碼裡逐字寫著
+  「*this Success came from ovs-vsctl rather than from the graph agreeing with us*」）⇒ 記錄指令 ⇒ 200。
+  **那是「沒有 bridge 可拆」，不是「因為它被豁免」**——兩件事都會給 200，實測的那次兩者同時成立。
+- 🔴 **這不是新的**：`getPowerStrategyForDpid`／`setSwitchPowerState`／`setPowerStateMininet`
+  三個函式體在 W15b（`4bc93d00`）→ 本分支 HEAD **逐位元組相同**；再往前，baseline `28b8b13`
+  **沒有 `switch_kind`**，未知 brand fallback 到 `HARDWARE`，一樣派到 `OVSPowerStrategy`
+  ⇒ **連 baseline 都對這個請求回 200 `Success`**。E-23／E-25 一個字也沒動這條路。
+- **為什麼不改成 4xx**：契約（`tools/contract_test/spec.py:1391` 的 `set_switches_power_state`
+  是 `MapOf(Str(), key_check=is_ipv4_string)`＋`category=MUTATE`）與它隔壁那條的註解
+  （`:1403-1404` 逐字：*a documented state value is never answered with a 4xx: that would mean the
+  parameter contract had moved*）擋在那裡；手冊 §8 目前只文件化 200／400（參數錯）／404（B-7，
+  不存在的 IP）／500（操作失敗）。回 4xx 會讓 ESA 把一台**合法宣告過 `switch_kind`** 的交換機
+  讀成錯誤，等於把 W15-2 允諾給操作者的東西收回去。
+- **繞法（給呼叫者）**：**要判斷一台交換機是不是豁免，讀 `/ndt/get_graph_data`（手冊 §3）
+  那個節點的 `power_path`——`"none"` 就是豁免；不要從 `set_switches_power_state` 的回應判斷，
+  它對豁免與非豁免給的是同一個 200 `Success`。** 省電量請從拓樸推算，不要從 `get_power_report` 讀。
+- **證據**：
+  - 🟢 **跑過**（orchestrator，2026-09-08 04:02，`live_e2325.sh`，離線直呼 h 檔、lab 沒起、無 Mininet；
+    分支 tip `213d6838`、二進位 `ec30119337952cbe`）：dpid 7（`brand_name: "NOT_A_REAL_KIND"`
+    ＋`switch_kind: "ovs"`）在 wire 上 `power_path='none'`／`telemetry_path='none'`；
+    `set_switches_power_state?ip=192.168.123.17&action=off` ⇒ **200 `{"192.168.123.17":"Success"}`**。
+    逐字在 `scratch/overnight-2026-09-05/rounds/09-round3.md` 的 **lwe2325** 節，
+    raw `scratch/overnight-2026-09-05/logs/lwe2325-run.log`／`lwe2325-kernel.out`／`lwe2325-02-graph.json`。
+    🔴 **raw 與 rounds 都在 `scratch/`，不在版控**——引用前先確認那個 session 的目錄還在。
+  - ⚠️ **對照組的限制（實測那次自己聲明的）**：同一次對 dpid 1 的 200 **不能當對照組**——
+    dpid 1 是 BMv2，走的是另一個 strategy（`ndtwin-p4-power`），
+    **兩個 200 來自兩個不同的理由**。要真正分辨「記號有沒有被看」，對照組該是同一份檔案裡
+    `brand_name: "OVS"`（`power_path=synthetic`）的一台，本輪沒跑。
+  - 🔵 **讀碼未執行**：上面的機制、`4bc93d00`→HEAD 的逐位元組比對、baseline `28b8b13` 的 fallback。
+  - ⚠️ **沒測到的**：TESTBED（真交換機＋排插）上的同一個請求；ESA 是否把 body 值拿去跟
+    `"Success"` 比字串（今晚沒開那個 repo）。
+- **文件**：手冊 §8「The exemption affects reads, not commands」；豁免記號本身在 §3 的
+  `power_path`／`telemetry_path` 小節；四條回報路徑的 `-1` 在 §6／§12／§13 與 `/ndt/get_temperature`。
+
+[Co-developed with claude code -- Adam]
+
 ## 證據索引
 
 | 輪次 | 位置 | 內容 |
