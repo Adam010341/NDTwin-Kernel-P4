@@ -2882,6 +2882,23 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
     注入的 `app_log_owner`。**kernel 真的拒絕了 truncate（同一個 EACCES），但拒絕的理由是
     mode 不是 owner** ⇒ 那句話的兩半來自兩個證人。fd 那半**不需要替身**（在 `/proc` 現找一個
     真的 root 行程）。細節與逐條差異：`FIX-3-51.md` §8.4。
+- 🆕 **上面那個 rc 2 已裁：接受、登記（Adam 2026-09-08，零改碼）。** 裁決逐字：
+  「主 checkout 上 helper 起的 sim 讓 `apps orphans` 回 2（以前 0）⇒ **接受、登記**
+  （判準沒變、合 E-7；零改碼）」（`scratch/overnight-2026-09-05/DECISIONS.md` 末節「09-08 15:3x」）。
+  要跟著記住的三件事：
+  - 🔑 **那個 2 不是新的孤兒**——沒有多出任何一個沒人追蹤的行程；2 的意思是
+    「**這一輪有一條通道沒能回答**」。那個 root wrapper 就是 pidfile 記著的 pid，
+    lw351 補丁已經把它從孤兒名單裡減掉。判準本身（`found>0`⇒1、`found==0`＋盲⇒2、否則 0）
+    一個字沒動，變的是**情形**：fd 通道現在會誠實承認自己讀不到 root 的 `/proc/<pid>/fd`。
+  - ⚠️ **把 `orphans` rc 當閘門的呼叫者**：已知的一個是 09-05 夜巡的 `arm_down.sh`
+    （restore check 2/3，`c2` 要 0 才印 `RESTORE-OK`）——**它碰不到這一格**，因為它在
+    `ndt down` 之後才跑，那時沒有 sim 在跑。🔴 那支腳本在 `scratch/`，不在版控。
+    **新寫的閘門要看得懂 0／1／2／4／5，不要把「非 0」一律讀成「有殘留」。**
+  - **要退掉**：`tools/test_workflow/ndt:3914-3918` 那兩行改成只印不記，
+    閘門 `mutate_ndt_helper_apps_window.sh` 的 **M24** 會立刻紅。
+  文件：`doc/2026-08-17_testing-manual.md` §2.3「Known count under a helper-started sim」、
+  `doc/2026-08-31_round-closing-checklist.md` 的 orphans 那格。**仍然沒有 live 驗過這一格。**
+  [Co-developed with claude code -- Adam]
 - **證據**：缺陷 `scratch/overnight-2026-09-05/rounds/08-round2.md:174-200`（lw16pw 逐節）、
   `WAKEUP.md` §3-51；**lw351** `scratch/overnight-2026-09-05/logs/lw351-*.log` 與
   `rounds/09-round3.md`；裁決 `scratch/overnight-2026-09-05/DECISIONS.md`（grill §4E 第二輪 E-8、

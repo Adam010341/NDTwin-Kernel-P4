@@ -142,6 +142,11 @@ hook 只在你 commit 的那一刻才有機會說話，而**「缺席」不觸�
       `no untracked app processes found, but a channel was blind: … fd channel: CANNOT READ …`、
       **rc 2**（以前是 0）。**2 不是「有孤兒」也不是「乾淨」**，照抄那一行進報告。
       〔這一格**只有單元測試**，還沒 live 驗過。〕
+      🆕 **09-08 Adam 裁：接受、登記**（判準沒變、零改碼）。**那個 2 不是新的孤兒**——
+      沒有多出任何一個沒人追蹤的行程，2 的意思是「這一輪有一條通道沒能回答」。
+      本輪的 `arm_down.sh`（restore check 2/3）**碰不到這一格**：它在 `ndt down` 之後才跑，
+      那時沒有 sim 在跑。逐條在 `doc/2026-08-17_testing-manual.md` §2.3
+      「Known count under a helper-started sim」與 KNOWN-ISSUES **G-14**。
 - [ ] `ndt status --check` 的 `residue` 那一列**抄進報告**（2026-09-07 起有這一列）。
       `none` 才算問過了；`NOT CHECKED` 是沒問到，**不是乾淨**。
       🆕 **它下面還可能多一行 `N app(s) could not be asked whether they ran here: <名字>`**

@@ -338,6 +338,34 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
   /proc/<pid>/fd (root process) -- not checked`，rc 2。**照抄那一行進報告。**
   〔這一格只有單元測試，還沒 live 驗過。〕
 
+#### Known count under a helper-started sim（helper 起著 sim 時的已知計數）
+
+🆕 **09-08 Adam 裁：接受、登記。** 零改碼——**判準沒有變，變的是情形**。這一段是給
+「看到 2 想知道自己是不是踩到新東西」的人看的。
+
+- **什麼情境回 2**：在**主 checkout** 上、**`sim` 由 helper 起著還沒停**的時候跑
+  `ndt apps orphans`（`ndt status --check` 的同一條路也一樣）⇒ **rc 2**，以前是 rc 0。
+  worktree 裡不會（那裡沒有這個 sim 的 pidfile，走的是另一格）；sim 沒在跑時也不會。
+- **為什麼**：helper 起的 sim 是**兩層 root 行程**（`script -qfa <log> -c …` ＋它 exec 的程式）。
+  行程組通道找得到那個 root wrapper，但它會被 `APP_LIVE_PIDS` 相減成「有人在追蹤」
+  ⇒ `found == 0`；而第三條通道（誰持有 app log 的可寫 fd）要讀 `/proc/<pid>/fd`，
+  root 行程的那個目錄是 0500 ⇒ 這個使用者**讀不到、也就不能宣稱看過**
+  （`tools/test_workflow/ndt:3790` 的 `app_fd_blindness`，`:3914-3918` 併進 `APP_SURVIVOR_BLIND`）。
+  `found == 0` ＋有一條通道是盲的 ⇒ **依既有判準**回 2（`ndt:5482-5489`；
+  `found > 0` ⇒ 1、乾淨且每條通道都看得成 ⇒ 0）。合 E-7 的口徑：**查不了不准長得像查過了**。
+- 🔑 **那個 2 不是新的孤兒**：機器上**沒有多出任何一個沒人追蹤的行程**。2 的意思是
+  「**這一輪有一條通道沒能回答**」，不是「有殘留」。那個 root wrapper 正是 pidfile 記著的
+  那個 pid——3-51 的 lw351 補丁已經把它從孤兒名單裡減掉了（見 G-14）。
+- ⚠️ **把 `orphans` 的 rc 當閘門的呼叫者**：09-05 夜巡的 `arm_down.sh` 是已知的一個
+  （restore check 2/3，`c2` 要 0 才印 `RESTORE-OK`，非 0 ⇒ `RESTORE-FAIL`）。
+  **它碰不到這一格**：它在 `ndt down` 之後才跑，那時沒有 sim 在跑。
+  🔴 那支腳本在 `scratch/`，**不在版控**。**新寫的閘門一律要看得懂 0／1／2／4／5**——
+  尤其**不要把「非 0」讀成「有殘留」**：2 是「沒問完」、5 是「窗掉了、沒問」。
+- **要退掉這個行為**（如果哪天不要了）：把 `ndt:3914-3918` 那兩行從
+  「併進 `APP_SURVIVOR_BLIND`」改成只印不記，閘門
+  `tests/shell/mutate_ndt_helper_apps_window.sh` 的 M24 會立刻紅。
+- **證據等級**：🔵 **讀碼＋單元測試／閘門，沒有 live 驗過這一格**（3-51c 全單皆然）。
+
 Adam 對「P4 的規則定不了年」的處置是**從根本修**：G-13——讓 proxy 在裝規則時記時間戳。
 
 ⚠️ 這代表 **OVS 沒有一鍵驗收**。OVS 的驗收就看 `ndt up` 最後那行 `data plane: ... forwards`，
