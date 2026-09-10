@@ -1070,6 +1070,13 @@ guard_lab_acts_in_this_tree() {
     err "refusing to build: 'sudo $LAB' does not act in this checkout."
     err "  kernel + proxy would come from  $repo  (host_count_override $(host_count_in "$repo"))"
     err "  the fabric would come from      $lab  (host_count_override $(host_count_in "$lab"))"
+    # 🔴 Whose knob that is, said here rather than left to be inferred. host_count_override is
+    # the P4 plane's and nothing else's -- `ndt status` printed it on the OVS plane for weeks
+    # (D-2 / X-2) and it was read as the OVS sampling/size answer, which it never was. On OVS
+    # the size is decided by WHICH VERB runs, so the two numbers above identify the two trees
+    # and say nothing about what an OVS bring-up would have built.
+    err "  (that knob is the P4 plane's. On the OVS plane the size is the verb -- ovs-topo-start"
+    err "   128, ovs-topo-4host 4 -- so those two numbers name the two trees, not what OVS builds.)"
     err "  and that second path comes from: $src"
     err "  fabric would come from $lab, kernel/proxy from $repo; run ndt from $lab or point the lab at $repo"
     err "  KERNEL_DIR is a built-in constant in the installed helper and is NOT read from the"

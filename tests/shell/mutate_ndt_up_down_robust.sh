@@ -347,6 +347,15 @@ m=$(mutant m22 "$NDT" \
 report "M22: topo-start's 'which tree' line is discarded again" "$m" \
        "🔴 and the helper's 'which tree' line reaches the operator"
 
+# The refusal stops saying whose knob the two numbers are. It is a P4-only knob, and this is
+# also printed on the OVS plane, where the size is the verb -- `ndt status` printed the same
+# knob's neighbour on the OVS plane for weeks (D-2 / X-2) and it was read as an OVS answer.
+m=$(mutant m23 "$NDT" \
+    '    err "  (that knob is the P4 plane'"'"'s. On the OVS plane the size is the verb -- ovs-topo-start"' \
+    '    :')
+report "M23: the refusal stops saying whose knob those numbers are" "$m" \
+       "🔴 and says that knob is the P4 plane's, not what OVS builds"
+
 # --- N*: widenings. The product goes green on everything; the suite has to notice -------------
 
 # N1, the control: preflight never refuses. It passes every "did it go red on the broken

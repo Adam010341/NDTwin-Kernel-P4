@@ -518,6 +518,11 @@ reset_fix
 OUT="$(FX_LAB_KERNEL_DIR="$FIX/other-tree" drive 'up_ovs 4')"
 check "🔴 'ndt up ovs4' is refused for the same reason"    "1"  "$(rc_of_out "$OUT")"
 has   "  naming the lab's tree"                            "$FIX/other-tree" "$OUT"
+# 🔴 The two numbers are host_count_override, which is the P4 plane's knob and nothing else's:
+# `ndt status` printed it on the OVS plane for weeks (D-2 / X-2) and it was read as an answer
+# about OVS. On this plane the size is the verb, so the message has to say so itself.
+has   "🔴 and says that knob is the P4 plane's, not what OVS builds" \
+      "that knob is the P4 plane's" "$OUT"
 STACKLOG="$(cat "$FIX/stack.log")"
 check "  and Ryu is never started"                         ""   "$STACKLOG"
 
