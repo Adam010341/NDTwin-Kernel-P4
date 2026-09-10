@@ -308,6 +308,25 @@ deep_sweep() {
 #                                          a measurement is running which `ndt check`'s 4 Hz
 #                                          poll would perturb; empty means nothing was declared,
 #                                          which is not the same as nothing running (R4-2).
+#                                          `ndt down` refuses over it and `--force` overrides
+#                                          (T2d); a teardown that goes through clears it, since
+#                                          the run it declared is the one just destroyed.
+#
+# 🔴 The five fields are written IN THAT ORDER by every writer in this file (claim_rewrite), and
+# any field a script of your own adds is carried through after them. Do not parse this by line
+# number even so: until 2026-09-11 `note` migrated to the last line every time it was corrected.
+#
+# Two neighbours, both written by this script and neither of them state:
+#
+#     .test_run/lab.claim.lock    flock target for the check-then-write in cmd_claim. Empty,
+#                                 never read, and NOT the claim itself -- flock must open what
+#                                 it locks, and opening the file whose absence means "free"
+#                                 would be the same race one layer down (ROLE-4 T1).
+#     .test_run/lab.claim.prev    the claim an `ndt claim` replaced, one generation, the way
+#                                 lab.handoff.prev and round.baseline.prev already keep theirs.
+#                                 R7 I-2: this was the one state file overwritten with no copy
+#                                 kept, so a claim that changed hands mid-round left no trace
+#                                 anywhere. Nothing reads it; it is for the person asking later.
 #
 # Workspace-local, not /tmp, for the reason components.env already gives about predictable
 # paths in world-writable directories.
@@ -581,6 +600,14 @@ kernel_exit_field() {
     [[ -f "$f" ]] && sed -n "s/^$1=//p" "$f" | head -1
 }
 
+# exit_record_field <component> <field> -- the same reading for any component, not just kernel.
+# supervise.sh writes one .exit per component in the same format; R7 I-3 is a case where the
+# component that had a record was ryu and nothing could read it.
+exit_record_field() {
+    local f="$REPO/.test_run/pids/$1.exit"
+    [[ -f "$f" ]] && sed -n "s/^$2=//p" "$f" | head -1
+}
+
 # last_kernel_plane -- p4 | ovs, from the --topology argument the last kernel was started with.
 # rc 1 when there is no record, or when the recorded command names no model this script can
 # classify: an unclassifiable command must not be turned into a plane, which is the mistake
@@ -637,6 +664,56 @@ foreign_claim() {
     echo "$owner (until $(date -d "@$exp" +%H:%M:%S)${note:+, $note})"
 }
 
+# --- the claim is taken under a lock, and read back after ------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# ROLE-4 T1, measured 2026-09-11 01:53:36 and 01:54:21 (hunt-0911/logs/ROLE-4/03-t1-race-sweep.log
+# at off=0.00s, 04-t1-race-offset0-reps.log rep1). Two owners firing `ndt claim` in the same
+# second BOTH got rc 0 and both were told "ok lab claimed by <themselves>", while the file kept
+# only the last writer. 2 of 16 same-second pairs did it; every pair offset by 50 ms or more
+# refused correctly, which is what makes this a window rather than a missing check. The loser had
+# no channel at all: its own rc 0 was not evidence, and only a later `ndt status` disagreed with
+# it -- so a session could start a round on a lab it did not hold.
+#
+# The window is between foreign_claim's read and the printf that writes the file, so the two have
+# to happen under one lock.
+#
+# 🔴 The lock is a SEPARATE file and never the claim. flock has to open what it locks, and
+# opening the file whose absence means "free" for writing is the same race one layer down.
+#
+# 🔴 The lock is not the whole answer and must not be presented as one. This script's own header
+# says any script may write .test_run/lab.claim directly, and such a writer takes no lock -- so
+# the write is READ BACK below, and a claim that is not ours afterwards is a refusal. The lock
+# serialises the sessions that use this tool; the readback covers the ones that do not.
+with_claim_lock() {   # with_claim_lock <fn> [args...] -- run it with the claim file locked
+    local lk="$CLAIM.lock" w="${NDT_CLAIM_LOCK_WAIT:-10}"
+    mkdir -p "$(dirname "$lk")" 2>/dev/null
+    if ! command -v flock >/dev/null 2>&1; then
+        # Said out loud, never silently skipped: without flock this is the old check-then-write,
+        # and a caller who is not told that cannot know what its rc 0 is worth.
+        warn "flock is not on PATH -- the claim is written WITHOUT a lock, so two same-second"
+        warn "  claims can both report success. 'ndt status' is then the only witness."
+        "$@"
+        return $?
+    fi
+    # A subshell, not an fd juggled in this shell: every side effect in here is a file write or
+    # a line of output, both of which cross the boundary, and the lock is released by the
+    # subshell exiting no matter which branch it took.
+    (
+        flock -w "$w" 9 || {
+            err "gave up waiting ${w}s for $lk -- another 'ndt claim' is holding it."
+            err "  nothing was written. 'ndt status' says who holds the lab."
+            exit 1
+        }
+        "$@"
+    ) 9>>"$lk"
+}
+
+# claim_readback_owner -- who the claim file says holds the lab, read after we wrote it.
+# Its own function so the readback is a reading and not an assumption, and so a gate can remove
+# it. See with_claim_lock for why the readback exists at all.
+claim_readback_owner() { claim_field owner; }
+
 cmd_claim() {
     local mins="${1:-30}" note="${2:-}"
     if [[ -z "${NDT_OWNER:-}" ]]; then
@@ -644,18 +721,51 @@ cmd_claim() {
         err "  export NDT_OWNER='my-session-name'"
         return 2
     fi
-    local other; other="$(foreign_claim)"
-    if [[ -n "$other" ]]; then
-        err "the lab is already claimed by $other"
-        return 1
-    fi
+    # Decided before the lock, and before any reading of the claim: a usage error is a statement
+    # about this command line alone. It must not wait on another session's lock, and its rc must
+    # not depend on who happens to hold the lab.
     [[ "$mins" =~ ^[0-9]+$ ]] || {
         err "usage: ndt claim [minutes] [note]"
         err "  NDT_EXCLUSIVE_CPU=1  no heavy local job may overlap this claim"
         err "  NDT_MEASURING='...'  a measurement is running that 'ndt check' must not perturb"
         return 2
     }
+    # 🔴 Read here AND inside the lock, and the two readings answer different questions: "was it
+    # already taken when I decided to ask" and "is it taken now that I may write". Free before
+    # and held inside is a race this session LOST, and saying so is the whole of T1 -- "already
+    # claimed" sends the reader off to wait for a lease, and "somebody beat you to it by
+    # milliseconds" sends them to find out who is on the machine.
+    local before; before="$(foreign_claim)"
     mkdir -p "$(dirname "$CLAIM")"
+    with_claim_lock claim_take "$mins" "$note" "$before"
+}
+
+claim_take() {   # claim_take <mins> <note> <the pre-lock foreign_claim reading> -- under the lock
+    local mins="$1" note="$2" before="$3"
+    local other; other="$(foreign_claim)"
+    if [[ -n "$other" ]]; then
+        if [[ -z "$before" ]]; then
+            err "beaten to it: the lab was free when this command looked and is now claimed by"
+            err "  $other"
+            err "  nothing here is yours and nothing was written. Do NOT start a run."
+            err "  (measured 09-11 01:54, ROLE-4 T1: before this refusal existed both sessions"
+            err "  were told they had it, and only the file knew which one did.)"
+        else
+            err "the lab is already claimed by $other"
+        fi
+        return 1
+    fi
+    # [Co-developed with claude code -- Adam]
+    # R7 I-3/I-2. lab.claim was the ONE state file this script overwrote with no copy kept, next
+    # to lab.handoff.prev and round.baseline.prev which both keep one. I-2 was exactly that hole:
+    # an unexpired claim overwritten, `expires=` pulled 23 minutes forward, and no interface able
+    # to say it had ever happened. Copied rather than renamed -- unlike those two, because a
+    # failed write below must not be able to leave the lab with no claim at all. One generation,
+    # for the reason those two give.
+    if [[ -f "$CLAIM" ]]; then
+        cp -f "$CLAIM" "$CLAIM.prev" 2>/dev/null \
+            || warn "could not keep a copy of the claim being replaced (${CLAIM#$REPO/}.prev)"
+    fi
     # [Co-developed with claude code -- Adam]
     # exclusive_cpu: the claim protects the fabric and the build, and until 2026-08-28 it
     # protected nothing else. On that day a sibling session ran a 4-vCPU compile inside another
@@ -707,6 +817,18 @@ cmd_claim() {
     # against is written here -- the knob's value and the SET of dirty paths, neither of which
     # can be reconstructed afterwards from `git status`. See round_baseline_file above.
     record_round_baseline || warn "could not record the round baseline; 'ndt status' will say so"
+    # 🔴 The readback, and the reason it is not redundant with the lock: see with_claim_lock. A
+    # direct writer -- which this script's header invites -- holds no lock, so the last word on
+    # whether this claim took belongs to the file and not to this function's own arithmetic.
+    # "I wrote it" and "it says me" are different statements, and only the second one is what the
+    # caller is about to act on.
+    local back; back="$(claim_readback_owner)"
+    if [[ "$back" != "$NDT_OWNER" ]]; then
+        err "this claim did NOT take: the file now says owner=${back:-<empty>}, not $NDT_OWNER."
+        err "  something wrote ${CLAIM#$REPO/} directly while this command was writing it."
+        err "  do NOT start a run. The replaced claim, if there was one, is in ${CLAIM#$REPO/}.prev"
+        return 1
+    fi
     ok "lab claimed by $NDT_OWNER for ${mins}m${note:+ ($note)}"
 }
 
@@ -812,14 +934,78 @@ measuring_declared() {
 # Refuses when there is no claim, when it has expired, or when it belongs to someone else: a
 # session that does not hold the lab must not narrate it.
 set_claim_note() {
-    local text="${1//$'\n'/ }" f="$CLAIM" owner exp tmp
+    local text="${1//$'\n'/ }" f="$CLAIM" owner exp
     [[ -f "$f" ]] || return 1
     owner="$(claim_field owner)"; exp="$(claim_field expires)"
     [[ "$exp" =~ ^[0-9]+$ ]] && (( exp > $(date +%s) )) || return 1
     [[ -n "${NDT_OWNER:-}" && "$owner" == "$NDT_OWNER" ]] || return 1
+    claim_rewrite note "$text"
+}
+
+# claim_rewrite <field> <value> -- rewrite the claim with one field changed, IN THE ORDER THE
+# HEADER DOCUMENTS.
+#
+# [Co-developed with claude code -- Adam]
+# ROLE-4 T5, 2026-09-11 (17-claim-timeline.txt). The old writer was `sed '/^note=/d'` followed by
+# an appended `note=` line, so every correction moved `note` to the END of the file: the field
+# order was a function of how many times the note had been rewritten. Nothing in this repo parses
+# the claim by line number, and that is exactly why it has to be fixed here rather than defended
+# by convention -- a reader diffing two claims, or a human reading two of them side by side, is
+# comparing the field order too.
+#
+# 🔴 Unknown fields are CARRIED THROUGH, after the five. The header invites scripts to write this
+# file themselves, so a rewrite that knew only the five it recognises would silently delete
+# whatever another writer had put there -- a data loss dressed as a tidy-up. They go last because
+# the five documented ones are the ones a human scans for.
+claim_rewrite() {
+    local field="$1" value="${2//$'\n'/ }" f="$CLAIM" tmp
+    local owner exp note ecpu meas
+    [[ -f "$f" ]] || return 1
+    owner="$(claim_field owner)"; exp="$(claim_field expires)"; note="$(claim_field note)"
+    ecpu="$(claim_field exclusive_cpu)"; meas="$(claim_field measuring)"
+    case "$field" in
+        note)      note="$value" ;;
+        measuring) meas="$value" ;;
+        *) return 1 ;;
+    esac
     tmp="$f.$$.tmp"
-    { sed '/^note=/d' "$f"; printf 'note=%s\n' "$text"; } > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 1; }
+    {
+        printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=%s\nmeasuring=%s\n' \
+            "$owner" "$exp" "$note" "$ecpu" "$meas"
+        # `|| true` because grep -v exits 1 when nothing is left over, which is the ORDINARY case
+        # -- a claim written by this tool has exactly the five fields. Without it the compound's
+        # status is grep's, and every note rewrite on an ordinary claim reports failure while
+        # having worked. That is how this was found: 17 cells red across three suites.
+        grep -v -e '^owner=' -e '^expires=' -e '^note=' -e '^exclusive_cpu=' -e '^measuring=' "$f" || true
+    } > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 1; }
     mv -f "$tmp" "$f" || { rm -f "$tmp"; return 1; }
+}
+
+# claim_note_unwritten -- why the note still says what it said, when that matters.
+#
+# [Co-developed with claude code -- Adam]
+# ROLE-4 T5, measured 2026-09-11 01:55:07 against 01:59:53 (logs/ROLE-4/06-up-ovs4.log,
+# 17-claim-timeline.txt). The same `ndt up ovs 4` twice: run by the owner it rewrote the note to
+# "in use: ..."; run with NDT_OWNER UNSET it changed nothing and SAID nothing -- set_claim_note
+# returns 1 for a claim that is not yours and claim_note_up discarded that (`return 0`, no warn).
+# So a fabric was built while the note went on describing the previous round, which is I-4 again
+# in the one arm where nobody would notice: the operator who forgot NDT_OWNER is also the
+# operator who is not watching the claim.
+#
+# 🔴 SILENT WHEN THERE IS NO LIVE CLAIM, and that is not laziness. With no claim, or an expired
+# one, there is nothing to narrate and nobody is being misled -- warning there would put a line
+# on every teardown of an unreserved lab, which is how a warning stops being read. The case worth
+# a warning is precisely the one that bit: a claim IS live, it is not ours, and the sentence a
+# reader will act on is now stale.
+claim_note_unwritten() {
+    [[ -f "$CLAIM" ]] || return 0
+    local exp; exp="$(claim_field expires)"
+    [[ "$exp" =~ ^[0-9]+$ ]] && (( exp > $(date +%s) )) || return 0
+    warn "the claim note was NOT updated, and still says:"
+    warn "    $(claim_field note)"
+    warn "  the live claim belongs to $(claim_field owner) and NDT_OWNER is ${NDT_OWNER:-unset}."
+    warn "  a session that does not hold the lab may not narrate it -- so the sentence above is"
+    warn "  now describing something else. Set the same NDT_OWNER, or read 'ndt status'."
 }
 
 # claim_note_up <target> -- `ndt up` says, in the note, that it is using the lab.
@@ -831,8 +1017,11 @@ set_claim_note() {
 # is precisely the state whose note must not still say the lab is free.
 claim_note_up() {
     local what="$1"
-    set_claim_note "in use: ndt up $what at $(date '+%Y-%m-%d %H:%M:%S') by ${NDT_OWNER:-unset}" \
-        && info "claim note now says the lab is in use (owner and expiry unchanged)"
+    if set_claim_note "in use: ndt up $what at $(date '+%Y-%m-%d %H:%M:%S') by ${NDT_OWNER:-unset}"; then
+        info "claim note now says the lab is in use (owner and expiry unchanged)"
+    else
+        claim_note_unwritten
+    fi
     return 0
 }
 
@@ -841,13 +1030,31 @@ claim_note_up() {
 # sentence: "down" and "down, and something is still running" are not the same statement, and
 # the second one is the one a reader must not act on as if it were the first.
 claim_note_down() {
-    local rc="${1:-0}" when; when="$(date '+%Y-%m-%d %H:%M:%S')"
+    local rc="${1:-0}" when cleared="" ok=0
+    when="$(date '+%Y-%m-%d %H:%M:%S')"
+    # ROLE-4 T5, 01:57:54 verbatim: `measuring=ROLE-4 reader nsr, do not tear down` was still in
+    # the claim AFTER the `ndt down` that had killed that reader -- the declaration outlived the
+    # teardown that falsified it, and the next reader of the claim would have believed it. The
+    # field is a statement about a measurement that is running; once this command has torn the
+    # fabric down, it is not. Recorded in the note rather than merely dropped, so the clearing
+    # has a witness: the note is written by this down, at this time, by this owner.
+    if [[ -n "$(measuring_declared)" ]]; then
+        cleared="$(printf '%s' "$(claim_field measuring)" | cut -c1-64)"
+    fi
     if (( rc == 0 )); then
-        set_claim_note "down at $when; claim kept" \
-            && info "claim note now says the lab is down (owner and expiry unchanged)"
+        set_claim_note "down at $when; claim kept${cleared:+; cleared measuring=$cleared}" && ok=1
+        (( ok )) && info "claim note now says the lab is down (owner and expiry unchanged)"
     else
-        set_claim_note "down at $when did NOT verify clean; claim kept -- read 'running' below, not this note" \
-            && info "claim note now says the teardown did not verify clean"
+        set_claim_note "down at $when did NOT verify clean; claim kept -- read 'running' below, not this note${cleared:+; cleared measuring=$cleared}" && ok=1
+        (( ok )) && info "claim note now says the teardown did not verify clean"
+    fi
+    if (( ok )); then
+        if [[ -n "$cleared" ]]; then
+            claim_rewrite measuring "" \
+                && info "cleared the claim's measuring= declaration -- this teardown ended what it declared"
+        fi
+    else
+        claim_note_unwritten
     fi
     return 0
 }
@@ -2423,7 +2630,7 @@ guard_no_teardown_in_flight() {
 }
 
 cmd_down() {
-    local force="" deep="" arg busy held down_rc=0
+    local force="" deep="" arg busy held down_rc=0 declared holder detail
     for arg in "$@"; do
         case "$arg" in
             --force) force=--force ;;
@@ -2434,19 +2641,67 @@ cmd_down() {
     done
     held="$(foreign_claim)"
     if [[ -n "$held" && "$force" != "--force" ]]; then
+        holder="$(claim_field owner)"
+        # What is left of the description once the owner's name is taken out of it, which is the
+        # part that must never reach the command line below.
+        detail="${held#"$holder"}"; detail="${detail# }"
         err "refusing to tear down: the lab is claimed by $held"
         err "their kernel's pid is in the shared .test_run/pids/, so this would kill it."
+        # ROLE-4 T2, 01:56:53: the claim said `measuring=ROLE-4 reader nsr, do not tear down` and
+        # this refusal never mentioned it. `ndt status` had a row for it; the message that stops
+        # somebody from tearing the lab down did not, so the one sentence the holder wrote FOR
+        # this moment was the one sentence not shown at it.
+        declared="$(measuring_declared)"
+        if [[ -n "$declared" ]]; then
+            err "and they DECLARED what is running, which is what this would destroy:"
+            err "    measuring=$declared"
+        fi
         # NDT_OWNER first, deliberately. If the claim is your own -- and it usually is, because
         # NDT_OWNER has to be set on every command, not just `claim` -- then --force is the
         # wrong answer twice over: it does not record that you own the lab, and following it
         # when the claim really is someone else's tears down their work.
         # [Co-developed with claude code -- Adam]
+        #
+        # 🔴 ROLE-4 T2, 01:56:53 verbatim. This line used to be `NDT_OWNER=$held ndt down`, and
+        # $held is a DESCRIPTION -- "overnight-0905 (until 02:36:24, ROLE-4 T2/T3: reader
+        # running)". Pasted, bash reads `(until ...)` as a subshell and the command dies on a
+        # syntax error. A line printed under "set the same owner and retry" has exactly one job.
+        # So: the bare owner, %q-quoted (owner is free text and a name with a space in it breaks
+        # this the same way one with a paren does), and the description on its own line where it
+        # cannot get into the command.
         err "if that claim is YOURS, set the same owner and retry:"
-        err "    NDT_OWNER=$held ndt down"
+        err "$(printf '    NDT_OWNER=%q ndt down' "$holder")"
+        err "      that claim: $detail"
         err "if it is someone else's, wait for it to lapse. Only override it if you know they"
         err "have finished:  ndt down --force"
         return 1
     fi
+    # [Co-developed with claude code -- Adam]
+    # T2d, measured 2026-09-11 01:57:27-01:57:54 (logs/ROLE-4/10-t3-down-by-owner.log). The claim
+    # said `measuring=ROLE-4 reader nsr, do not tear down`. The OWNER's own `ndt down` tore the
+    # fabric out, printed `clean`, exited 0, killed the declared reader, and never mentioned the
+    # field. `measuring=` protected nothing: cmd_down read foreign_claim and in_flight, and
+    # in_flight knows four drivers (iperf3 client, matrix.sh, measure.sh, cpu_probe.py) -- so the
+    # one channel a session has for "you cannot see what I am measuring" was read by `ndt check`
+    # and by nothing else. The field was added FOR the case ps cannot answer (R4-2); a teardown
+    # is the command whose mistake costs the most, and it was the command not reading it.
+    #
+    # 🔴 --force is the override and --deep is NOT one. --deep is what an operator reaches for
+    # when a teardown did not reach clean, i.e. exactly when a declared measurement is most
+    # likely to still be running; a guard that any second flag turns off is not a guard. Same
+    # single override as the foreign claim above and as in_flight below, and the same meaning:
+    # you are signing for it.
+    declared="$(measuring_declared)"
+    if [[ -n "$declared" && "$force" != "--force" ]]; then
+        err "refusing to tear down: this claim DECLARES a measurement in progress."
+        err "    measuring=$declared"
+        err "it was declared in ${CLAIM#$REPO/}, not guessed from the process table, so nothing"
+        err "here can see whether it is still running -- only you can. Tearing the fabric out"
+        err "from under it loses the run (measured 09-11 01:57: it did, silently, rc 0)."
+        err "when that run is over:  ndt claim <mins> to redeclare, or  ndt down --force"
+        return 1
+    fi
+    [[ -n "$declared" ]] && warn "--force: tearing down over a declared measurement -- $declared"
     busy="$(in_flight)"
     if [[ -n "$busy" && "$force" != "--force" ]]; then
         err "refusing to tear down: a measurement is running."
@@ -2604,6 +2859,80 @@ cmd_clean() {
 }
 
 # --- status helpers ----------------------------------------------------------------
+
+# stack_pidfile_row -- what .test_run/pids/ claims is running, tested against /proc.
+# Fills STACK_PIDFILE_PROBLEMS with one entry per file that cannot be believed.
+#
+# [Co-developed with claude code -- Adam]
+# R7 I-3, measured 2026-09-11 02:52:03 and again at 02:52:27 -- 57 s and 81 s after the event, so
+# not a race. One directory, two files, opposite stories:
+#
+#     ryu.pid        20717    /proc/20717 does not exist
+#     ryu.child.pid  20722    /proc/20722 does not exist
+#     ryu.exit       at=2026-09-11T02:51:06  status=143  reason=terminated by SIGTERM (15)
+#
+# Ten OVS bridges were up with no control-plane process at all, and `ndt status` printed the
+# ports correctly, printed `fabric hosts 4 == 4 ok`, said not one word about the two dead
+# pidfiles, and exited 0. A reader who checks the exit code, or reads the `up target` block, was
+# told that round was fine.
+#
+# 🔴 IT IS NOT A COSMETIC GAP. .test_run/pids/ is the shared registry `ndt down` acts on, and
+# port_owner_local above reads every file in it to decide whether a listener is "ours" -- so a
+# recycled pid number sitting in a stale pidfile is the fuse under both. The hardened predicate
+# was already in this file for the app pidfiles (pid_is_app, whose comment names root/EPERM and
+# pid reuse as the two holes in `kill -0`) and had never been pointed at the stack's own.
+#
+# 🔴 THE OTHER DIRECTION: a live stack is the ordinary state of this directory, so "alive" is
+# printed plainly and adds no problem. A row that reddened a healthy lab would be read for a
+# week and then skipped, and this row's whole value is that it is read on the day it is odd.
+#
+# 🔴 app_*.pid is SKIPPED, and that is not an omission: the apps block has its own probe with
+# three states and an identity test this row cannot make (the argv signature). Two instruments
+# over one file would eventually disagree in public.
+STACK_PIDFILE_PROBLEMS=()
+stack_pidfile_row() {
+    STACK_PIDFILE_PROBLEMS=()
+    local f base name pid ev_at ev_st line
+    local -a bad=() live=()
+    for f in "$REPO"/.test_run/pids/*.pid; do
+        [[ -f "$f" ]] || continue
+        base="$(basename "$f")"
+        [[ "$base" == app_* ]] && continue
+        # ryu.child.pid and ryu.pid are two files about one component, so both read the one
+        # .exit record: `<name>.child.pid` -> name `ryu`.
+        name="${base%.pid}"; name="${name%.child}"
+        pid="$(cat "$f" 2>/dev/null)"
+        if [[ ! "$pid" =~ ^[0-9]+$ ]] || (( pid < 2 )); then
+            bad+=("$base: unusable -- it holds '${pid:-<empty>}', which is not a pid. 'ndt down' reads these files.")
+            continue
+        fi
+        if pid_alive "$pid"; then
+            live+=("$base=$pid alive")
+            continue
+        fi
+        ev_at="$(exit_record_field "$name" at)"; ev_st="$(exit_record_field "$name" status)"
+        if [[ -n "$ev_at" || -n "$ev_st" ]]; then
+            bad+=("$base: stale pidfile (pid $pid gone; $name.exit says status=${ev_st:-?} at ${ev_at:-?} -- $(exit_record_field "$name" reason))")
+        else
+            bad+=("$base: stale pidfile (pid $pid gone; there is no $name.exit to say how it ended)")
+        fi
+    done
+    if (( ${#bad[@]} == 0 && ${#live[@]} == 0 )); then
+        printf '  %-14s %s\n' "pidfiles" "none recorded"
+        return 0
+    fi
+    if (( ${#bad[@]} == 0 )); then
+        printf '  %-14s %s\n' "pidfiles" "$(IFS=', '; echo "${live[*]}")"
+        return 0
+    fi
+    printf '  %-14s %s\n' "pidfiles" "${R}${bad[0]}${N}"
+    for line in "${bad[@]:1}"; do printf '  %-14s %s\n' "" "${R}$line${N}"; done
+    (( ${#live[@]} > 0 )) && printf '  %-14s %s\n' "" "$(IFS=', '; echo "${live[*]}")"
+    printf '  %-14s %s\n' "" "a dead number here is what 'ndt down' signals and what"
+    printf '  %-14s %s\n' "" "port_owner_local calls 'ours' -- delete it or run 'ndt down'"
+    for line in "${bad[@]}"; do STACK_PIDFILE_PROBLEMS+=(".test_run/pids/$line"); done
+    return 0
+}
 
 # claim_line -- one line describing who holds the lab, in the form that answers "can I touch
 # this right now". Relative time first: an absolute "until 17:11:52" makes the reader do
@@ -3548,6 +3877,12 @@ cmd_status() {
     local running
     running="$(ps -eo args= 2>/dev/null | grep -o '/[^ ]*simple_switch_grpc' | sort -u | head -1)"
     [[ -n "$running" ]] && printf '  %-14s %s\n' "binary" "$running"
+    # R7 I-3. Printed unconditionally rather than under --check, for the same reason the
+    # exclusive_cpu row is: the ports above are read from the machine and these files are read
+    # from disk, and "the ports are shut" plus "the registry still names two live processes" is
+    # the pair that was in front of R7 while nothing put them side by side.
+    stack_pidfile_row
+    (( ${#STACK_PIDFILE_PROBLEMS[@]} > 0 )) && problems+=("${STACK_PIDFILE_PROBLEMS[@]}")
     echo
 
     # -- network health: fetch the graph once and reuse it --
@@ -3613,7 +3948,20 @@ cmd_status() {
     case "$appson" in *energy*|*te*) problems+=("an app that changes the network is running: $appson") ;; esac
     if [[ -n "$orphans" ]]; then
         printf '  %-14s %s\n' "untracked" "${R}$orphans -- running, and no pidfile names them${N}"
-        printf '  %-14s %s\n' "" "these survive 'ndt down'; stop them with 'ndt apps stop <name>'"
+        # [Co-developed with claude code -- Adam]
+        # ROLE-4 T3, 2026-09-11 01:56:27-01:57:54. This line used to read "these survive 'ndt
+        # down'", and the `ndt down` in that same round printed `nsr is running untracked (pid
+        # 2666802 2666801) -- stopping it by pid` and killed both of them (`ps` counted 0
+        # afterwards, 10-t3-down-by-owner.log). cmd_down's [0/3] gate is app_probe, not
+        # app_running, and that was a deliberate change -- G-6, because the app whose pidfile has
+        # gone is the one that most needs stopping. So this sentence was describing the code as it
+        # had been before the fix that made it wrong, and the fix and the sentence were in the
+        # same file. What is still true is the part that matters when you are NOT tearing down:
+        # nothing else on this machine will ever stop them, and until something does they go on
+        # polling the kernel API.
+        printf '  %-14s %s\n' "" "'ndt down' does stop these -- it scans for them rather than"
+        printf '  %-14s %s\n' "" "trusting the pidfile (G-6). Nothing else will, and until then"
+        printf '  %-14s %s\n' "" "they keep polling the kernel: 'ndt apps stop <name>'"
         problems+=("untracked app process(es) with no pidfile: $orphans")
     fi
     # W16-2, Adam's decision 09-06 (grill §4D round 7, against the recommendation): --check
@@ -3950,6 +4298,21 @@ app_sig() {
         sim)    echo "simulation_platform_manager" ;;
     esac
 }
+
+# pid_alive <pid> -- does a process with this number exist right now?
+#
+# [Co-developed with claude code -- Adam]
+# The existence half of pid_is_app below, factored out so the stack's own *.pid files can use the
+# same predicate the app pidfiles already do (R7 I-3). NOT `kill -0`, for the two reasons
+# pid_is_app's header gives at length and which this project has been bitten by in both
+# directions: a live root-owned process answers EPERM and reads as dead, and a recycled number
+# answers success and reads as alive.
+#
+# 🔴 EXISTENCE ONLY, and the difference matters where it is used. pid_is_app adds an identity
+# test (the argv signature) and can therefore say "that is not the app any more"; the stack's
+# *.pid files have no equivalent signature available, so a caller using this one may say
+# "the number is gone" and must not say "the process is the one we started".
+pid_alive() { [[ "$1" =~ ^[0-9]+$ ]] && (( $1 > 1 )) && [[ -d "/proc/$1" ]]; }
 
 # pid_is_app <pid> <name> -- does this pid exist AND is it that app?
 #
@@ -6470,6 +6833,15 @@ usage: ndt <command>
   .test_run/pids/ is shared, so 'down' kills whoever is registered there.
   Declare yourself before a long run -- any script can just write .test_run/lab.claim:
       owner=<name>   expires=<unix seconds>   note=<optional>
+
+  WHAT A CLAIM DOES NOT COVER, measured 2026-09-11 (ROLE-4 T4):
+    a claim only blocks the 'ndt' verbs. It is not the northbound API and it is not
+    a lock. A loop calling /ndt/install_flow_entry and /ndt/delete_flow_entry every
+    2 s kept getting http 200 through its own claim's expiry, and kept getting 200
+    after another owner had taken the claim; it stopped only when that owner's
+    'ndt down' killed the kernel. There is no signal at all when a claim lapses or
+    changes hands -- not to the API caller, not to the previous holder. Re-read
+    'ndt status'; nothing will tell you.
 
   On P4, 'ndt up' derives the kernel's topology model from
   p4_proxy/mininet/host_count_override, so model and fabric cannot disagree

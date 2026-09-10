@@ -101,4 +101,40 @@ fi
 # the run before last" is exactly the kind of thing that gets erased before anyone looks.
 printf '%s\tstatus=%s\tchild=%s\t%s\n' "$(date -Is)" "$RC" "$CHILD" "$REASON" >>"$PREFIX.exit.log"
 
+# [Co-developed with claude code -- Adam]
+# R7 I-3, measured 2026-09-11 02:52:03 and again 02:52:27 -- 57 s and 81 s after the event, so
+# not a race. .test_run/pids/ was contradicting itself:
+#
+#     ryu.pid        20717    /proc/20717 does not exist
+#     ryu.child.pid  20722    /proc/20722 does not exist
+#     ryu.exit       at=2026-09-11T02:51:06  status=143  reason=terminated by SIGTERM (15)
+#
+# The exit RECORD was written and the live pidfiles were left behind. stop_one removes them, so
+# this is the state after a component that was NOT stopped through stop_one -- an interrupted
+# bring-up, a kill from outside -- which is exactly when the registry is least explicable. And
+# .test_run/pids/ is not documentation: `stack.sh down` signals what is registered there, and
+# ndt's port_owner_local reads every file in it to decide whether a listener is "ours". A dead
+# number sitting in it is the pid-reuse fuse under both.
+#
+# 🔴 AFTER .exit is written, never before. When the pidfile is gone, the record is where a reader
+# is sent; removing the pidfile first and then failing to write the record would be strictly
+# worse than the defect.
+#
+# 🔴 .child.pid ONLY, and <prefix>.pid deliberately LEFT -- which is not the tidier answer and is
+# the one the tests forced. Removing <prefix>.pid too was tried here first and
+# tests/shell/test_supervise_exit_status.sh went red on `stop_one reports the abort` with an EMPTY
+# message: stop_one opens with `[[ -f "$pidfile" ]] || return 0`, and report_exit is called after
+# that gate. So a component that died on its own -- the exact case B-5 exists to make observable --
+# would have had its ending read by nobody, because the file whose absence proves it was dead is
+# also the file that makes anyone look. A stale <prefix>.pid is now DISCLOSED instead: `ndt
+# status`'s pidfiles row names it, quotes this record, and makes it a --check problem (see
+# stack_pidfile_row in tools/test_workflow/ndt). Whether stop_one should learn to report an .exit
+# it finds with no pidfile beside it is a design question, not something to change as a side
+# effect of this -- it is in FIX-NDT-3-SUMMARY section 7 for Adam.
+#
+# .child.pid is safe to remove and nothing reads it after this point: this script is its only
+# writer, the pid it names has just been waited on, and the number itself survives in this run's
+# .exit as `child_pid=` and in .exit.log as `child=`.
+rm -f "$PREFIX.child.pid"
+
 exit "$RC"

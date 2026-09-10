@@ -773,6 +773,23 @@ NDT_OWNER=<你的名字> ndt release
 🔴 **claim 只擋 `ndt` 的動詞，擋不住裸指令。** 直接跑 `./bin/ndtwin_kernel` 或
 `ndtwin-lab topo-start` 一樣會撞進去。**它是約定不是鎖。**
 
+🔴 **也擋不住北向 API，而且過期／被搶不會有任何訊號**（2026-09-11 實測，ROLE-4 T4）。
+一個每 2 秒打 `/ndt/install_flow_entry`＋`/ndt/delete_flow_entry` 的迴圈：**自己的 claim 過期那一秒
+是 http 200，別人搶到 claim 之後還是 200**，一直到搶到的人跑 `ndt down` 把 kernel SIGTERM 掉才變 `000`
+（`kernel.exit` 的 `at=` 與那一格同秒）。⇒ **寫入端唯一看得到的訊號是「連不上」**，
+而且**沒有任何一端會被通知 claim 換手了**——包括原本的持有者。要知道就自己重讀 `ndt status`。
+（要不要讓 API 讀 claim 是設計題，尚未裁；現況先寫在這裡。）
+
+🔴 **`measuring=` 現在會擋 `ndt down`**（2026-09-11，T2d）。claim 裡 `measuring=` 非空時
+`ndt down` 拒絕並把那行唸出來；**`--force` 是唯一的覆寫，`--deep` 不是**。
+真的過完了就 `ndt down --force`（它會把 `measuring=` 清掉並寫進 `note`）或重新 `ndt claim` 改宣告。
+在這之前：那個宣告**保護不了任何東西**——01:57 實測 owner 自己 `ndt down` 照拆、rc 0、一個字都沒提。
+
+🔴 **`ndt claim` 現在有鎖**（`.test_run/lab.claim.lock`）。同秒兩個人搶，輸的那個會收到
+`beaten to it: ...` 與 **rc 1**；在這之前**兩個都會收到 rc 0 與「ok lab claimed by 你」**，
+而檔案只留最後寫的那個（01:53–01:54 實測 2/16）。**被覆寫掉的那份留在 `.test_run/lab.claim.prev`**。
+⚠️ 鎖只管走 `ndt claim` 的人；直接寫檔的腳本不吃鎖，所以 `ndt claim` 寫完會**回讀**確認 owner 是自己。
+
 ### 🔴 要獨佔 CPU 的量測：`NDT_EXCLUSIVE_CPU=1`（2026-08-28 新增）
 
 ```bash

@@ -181,11 +181,16 @@ report "M11: ndt down leaves 'in use' standing over an empty lab" "$m" \
 
 # The same conflation this repository keeps finding: an unverified outcome reported as a
 # verified one. "down" and "down, and something survived" license opposite actions.
+#
+# 🔴 REPOINTED 2026-09-11: this anchor was `set_claim_note "down at $when; claim kept"`, and the
+# T5 commit appended the cleared-measuring suffix to that line. check_gate_anchors.py HEAD read
+# MISSING:1 for it -- which is what the checker is for, and which the gate itself would have
+# reported as a SURVIVOR because an applier that cannot apply is a hole and never a skip.
 m=$(mutant m12 "$NDT" \
     '    if (( rc == 0 )); then
-        set_claim_note "down at $when; claim kept"' \
+        set_claim_note "down at $when; claim kept${cleared:+; cleared measuring=$cleared}" && ok=1' \
     '    if true; then
-        set_claim_note "down at $when; claim kept"')
+        set_claim_note "down at $when; claim kept${cleared:+; cleared measuring=$cleared}" && ok=1')
 report "M12: a teardown that did not verify is reported as clean" "$m" \
        "🔴 a teardown that did not verify says so"
 
@@ -391,6 +396,182 @@ m=$(mutant m30 "$NDT" \
     '                    The codes are disjoint: the PROCESS answer')
 report "M30: help calls the orphans rc table disjoint again (F4)" "$m" \
        "  🔴 the rc table says it is not disjoint"
+
+
+# --- T1: the claim was a check-then-write two sessions could both win (ROLE-4) ----------------
+
+# The lock is not taken at all, which is 2026-09-11 01:53 exactly: check, then write, with a
+# window in between that two same-second claims both got through.
+m=$(mutant mc1 "$NDT" \
+    '        flock -w "$w" 9 || {' \
+    '        true || {')
+report 'MC1: the claim is written without taking the lock' "$m" \
+       '🔴 it gives up rather than writing'
+
+
+# 🔴 The lock WITHOUT the second reading, which is the shape a fix that only reaches for flock
+# arrives in: the critical section is serialised and then decides on a value read before it.
+m=$(mutant mc2 "$NDT" \
+    'claim_take() {   # claim_take <mins> <note> <the pre-lock foreign_claim reading> -- under the lock
+    local mins="$1" note="$2" before="$3"
+    local other; other="$(foreign_claim)"' \
+    'claim_take() {   # claim_take <mins> <note> <the pre-lock foreign_claim reading> -- under the lock
+    local mins="$1" note="$2" before="$3"
+    local other=""')
+report 'MC2: the reading inside the lock is not taken -- only the one before it' "$m" \
+       '🔴 the loser is refused'
+
+
+# 🔴 The other direction. "Say it was a race" satisfies MC2's cell and tells everyone refused by
+# an hour-old claim to go looking for a session that is not there.
+m=$(mutant mc3 "$NDT" \
+    '        if [[ -z "$before" ]]; then' \
+    '        if true; then')
+report 'MC3 (widening): every refusal says somebody just beat you to it' "$m" \
+       '🔴 not '"'"'beaten to it'"'"' -- that points the reader at the wrong minute'
+
+
+# R7 I-2: lab.claim was the one state file overwritten with nothing kept, so a claim that changed
+# hands mid-round left no trace in any interface.
+m=$(mutant mc4 "$NDT" \
+    '    if [[ -f "$CLAIM" ]]; then
+        cp -f "$CLAIM" "$CLAIM.prev" 2>/dev/null \' \
+    '    if false; then
+        cp -f "$CLAIM" "$CLAIM.prev" 2>/dev/null \')
+report 'MC4: the claim being replaced is overwritten with no copy kept (R7 I-2)' "$m" \
+       '🔴 and the claim it replaced is still readable'
+
+
+# The readback goes and the lock stays. Every cell about the lock passes; the writer this tool's
+# own header invites -- a script writing .test_run/lab.claim directly, holding no lock -- is back
+# to overwriting a claim whose owner is then told it holds the lab.
+m=$(mutant mc5 "$NDT" \
+    '    if [[ "$back" != "$NDT_OWNER" ]]; then' \
+    '    if false; then')
+report 'MC5: the write is not read back, so a direct writer wins silently' "$m" \
+       'a claim that is not ours after the write is refused'
+
+
+# --- T2 / T2d: measuring= enforced, and a rescue command that can be pasted ------------------
+
+# 2026-09-11 01:57:27 verbatim: claim says `measuring=ROLE-4 reader nsr, do not tear down`, the
+# owner's own `ndt down` tears the fabric out, prints clean, exits 0, kills the declared reader
+# and never mentions the field.
+m=$(mutant mc6 "$NDT" \
+    '    if [[ -n "$declared" && "$force" != "--force" ]]; then
+        err "refusing to tear down: this claim DECLARES a measurement in progress."' \
+    '    if false; then
+        err "refusing to tear down: this claim DECLARES a measurement in progress."')
+report 'MC6: the teardown stops reading measuring= (T2d verbatim)' "$m" \
+       'a declared measurement refuses the teardown'
+
+
+# 🔴 A guard any second flag switches off. --deep is what an operator reaches for when a teardown
+# did not reach clean -- which is when a declared measurement is most likely to still be there.
+m=$(mutant mc7 "$NDT" \
+    '    if [[ -n "$declared" && "$force" != "--force" ]]; then
+        err "refusing to tear down: this claim DECLARES a measurement in progress."
+        err "    measuring=$declared"' \
+    '    if [[ -n "$declared" && "$force" != "--force" && -z "$deep" ]]; then
+        err "refusing to tear down: this claim DECLARES a measurement in progress."
+        err "    measuring=$declared"')
+report 'MC7 (widening): --deep turns the guard off as well as --force' "$m" \
+       '🔴 --deep does not override a declaration'
+
+
+# 01:56:53 verbatim: `NDT_OWNER=overnight-0905 (until 02:36:24, ROLE-4 T2/T3: reader running) ndt
+# down`, printed under "set the same owner and retry", which bash reads as a subshell.
+m=$(mutant mc8 "$NDT" \
+    '        err "$(printf '"'"'    NDT_OWNER=%q ndt down'"'"' "$holder")"' \
+    '        err "    NDT_OWNER=$held ndt down"')
+report 'MC8: the rescue line interpolates the description again (T2 verbatim)' "$m" \
+       '🔴 that line parses as shell -- it is printed to be pasted'
+
+
+# `ndt status` had a row for measuring= and the message that stops somebody tearing the lab down
+# did not -- so the one sentence the holder wrote FOR this moment was missing at it.
+m=$(mutant mc9 "$NDT" \
+    '        declared="$(measuring_declared)"
+        if [[ -n "$declared" ]]; then
+            err "and they DECLARED what is running, which is what this would destroy:"' \
+    '        declared="$(measuring_declared)"
+        if false; then
+            err "and they DECLARED what is running, which is what this would destroy:"')
+report 'MC9: the foreign refusal stops quoting what they declared' "$m" \
+       '🔴 and the foreign refusal quotes the declaration'
+
+
+# --- T5: the note that failed silently, the declaration that outlived its teardown -----------
+
+# 01:55:07 against 01:59:53: the same `ndt up ovs 4`, and with NDT_OWNER unset it built a fabric
+# while the note went on describing the previous round, silently.
+m=$(mutant mc10 "$NDT" \
+    'claim_note_unwritten() {
+    [[ -f "$CLAIM" ]] || return 0' \
+    'claim_note_unwritten() {
+    return 0
+    [[ -f "$CLAIM" ]] || return 0')
+report 'MC10: the failed note write is swallowed again (T5 verbatim)' "$m" \
+       '🔴 a live claim we do not hold: warned, not swallowed'
+
+
+# 🔴 "Stop swallowing failures" with no thought about which failures: a line on every teardown of
+# an unreserved lab, which is how a warning stops being read before the one that matters.
+m=$(mutant mc11 "$NDT" \
+    'claim_note_unwritten() {
+    [[ -f "$CLAIM" ]] || return 0
+    local exp; exp="$(claim_field expires)"
+    [[ "$exp" =~ ^[0-9]+$ ]] && (( exp > $(date +%s) )) || return 0' \
+    'claim_note_unwritten() {
+    local exp; exp="$(claim_field expires)"')
+report 'MC11 (widening): it warns even when there is no claim to narrate' "$m" \
+       '🔴 no claim at all: silent, there is nothing to narrate'
+
+
+# 01:57:54 verbatim: `measuring=ROLE-4 reader nsr, do not tear down` still in the claim after the
+# down that killed that reader -- the declaration outlived the teardown that disproved it.
+m=$(mutant mc12 "$NDT" \
+    '            claim_rewrite measuring "" \' \
+    '            true \')
+report 'MC12: the teardown leaves the declaration it just falsified' "$m" \
+       '🔴 measuring= is empty afterwards'
+
+m=$(mutant mc13 "$NDT" \
+    '        printf '"'"'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=%s\nmeasuring=%s\n'"'"' \
+            "$owner" "$exp" "$note" "$ecpu" "$meas"' \
+    '        sed '"'"'/^note=/d'"'"' "$f"; printf '"'"'note=%s\n'"'"' "$note"')
+report 'MC13: the note is appended again, so it migrates to the last line' "$m" \
+       '🔴 and note did not migrate to the last line'
+
+
+# 🔴 The data loss dressed as a tidy-up: this file's own header invites scripts to write it, so a
+# rewrite that knows only its five fields deletes whatever else is in there.
+m=$(mutant mc14 "$NDT" \
+    '        grep -v -e '"'"'^owner='"'"' -e '"'"'^expires='"'"' -e '"'"'^note='"'"' -e '"'"'^exclusive_cpu='"'"' -e '"'"'^measuring='"'"' "$f" || true' \
+    '        true')
+report 'MC14: a field another script wrote is dropped by the rewrite' "$m" \
+       '  a field another script wrote is carried through'
+
+
+# --- T3 / T4: two sentences that described the tool wrongly ----------------------------------
+
+# The sentence and the code that disproves it were in the same file: cmd_down's [0/3] gate is
+# app_probe, so an untracked app is exactly the one it stops (G-6), measured 01:57:54.
+m=$(mutant mc15 "$NDT" \
+    '        printf '"'"'  %-14s %s\n'"'"' "" "'"'"'ndt down'"'"' does stop these -- it scans for them rather than"' \
+    '        printf '"'"'  %-14s %s\n'"'"' "" "these survive '"'"'ndt down'"'"'; stop them with '"'"'ndt apps stop <name>'"'"'"')
+report 'MC15: status says untracked apps survive a teardown again (T3)' "$m" \
+       '🔴 the sentence that round'"'"'s teardown disproved is gone'
+
+
+# T4 is NOT fixed -- whether the API should read the claim is Adam's decision -- so the help
+# saying so is the whole of the deliverable, and a paragraph with no test is what F12 was.
+m=$(mutant mc16 "$NDT" \
+    '    a claim only blocks the '"'"'ndt'"'"' verbs. It is not the northbound API and it is not' \
+    '    a claim is how sessions keep out of each other'"'"'s way.')
+report 'MC16: the help stops saying what a claim does not cover (T4)' "$m" \
+       '  the help scopes the claim to this tool'"'"'s own verbs'
+
 
 
 echo

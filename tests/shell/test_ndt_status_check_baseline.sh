@@ -487,6 +487,110 @@ has   "the row's path is the one the kernel writes"     "nickname_overlay/Static
 
 
 # ==========================================================================================
+section "10. 🔴 R7 I-3: .test_run/pids/ contradicting itself, and no interface saying so"
+# ==========================================================================================
+# Measured 2026-09-11 02:52:03 and again 02:52:27 (hunt-0911/R7-reconciler.md round 14) --
+# 57 s and 81 s after the event, so not a millisecond race. One directory, two files, opposite
+# stories:
+#
+#     ryu.pid        20717     /proc/20717 does not exist
+#     ryu.child.pid  20722     /proc/20722 does not exist
+#     ryu.exit       at=2026-09-11T02:51:06  status=143  reason=terminated by SIGTERM (15)
+#
+# Ten OVS bridges were up with no control-plane process at all (ps found no ndtwin_kernel, no
+# ryu-manager, no simple_switch_g), and `ndt status` printed the ports correctly, printed
+# `fabric hosts 4 == 4 ok`, said NOTHING about the two dead pidfiles, and exited 0.
+#
+# 🔴 WHY THIS IS NOT COSMETIC. .test_run/pids/ is the shared registry `ndt down` acts on, and
+# port_owner_local reads every file in it to decide whether a listener is "ours" -- so a
+# recycled pid number sitting in a stale pidfile is the fuse for both. The hardened predicate
+# already exists in this file (pid_is_app: `[[ -d /proc/$pid ]]`, whose own comment names
+# root/EPERM and pid reuse as the two holes in `kill -0`) and had never been pointed at the
+# stack's own *.pid files.
+#
+# 🔴 THE OTHER DIRECTION, pinned in 10C: "a pidfile is stale" must not become "any pidfile is
+# suspicious". A live stack is the ordinary state of this directory, and a row that goes red on
+# it would be read for a week and then ignored.
+mkdir -p "$FIX/.test_run/pids"
+pidf()   { printf '%s\n' "$2" > "$FIX/.test_run/pids/$1.pid"; }
+pidf_c() { printf '%s\n' "$2" > "$FIX/.test_run/pids/$1.child.pid"; }
+exitf()  { printf 'status=%s\nsignal=%s\nat=%s\nreason=%s\n' "$2" "$3" "$4" "$5" \
+                 > "$FIX/.test_run/pids/$1.exit"; }
+no_pids() { rm -f "$FIX/.test_run/pids/"*; }
+
+# A pid that certainly does not exist: allocate one, let it exit, and check. Not a large
+# constant -- pid_max is 4194304 on this kernel and a literal would be a pid on another.
+dead_pid() {
+    local p
+    ( exit 0 ) & p=$!
+    wait "$p" 2>/dev/null
+    [[ -d "/proc/$p" ]] && { echo "0"; return 1; }
+    echo "$p"
+}
+
+section "10A. 🔴 a *.pid naming a pid that is gone is disclosed, and it is a --check problem"
+healthy_ovs4
+record ovs 4 "$OVS4"
+no_pids
+DEAD="$(dead_pid)"
+pidf   ryu "$DEAD"
+pidf_c ryu "$DEAD"
+exitf  ryu 143 15 "2026-09-11T02:51:06+08:00" "terminated by SIGTERM (15)"
+OUT="$(run_check)"
+has   "🔴 the row names the file and calls it stale"     "ryu.pid: stale pidfile" "$OUT"
+has   "  and says the pid is gone"                       "pid $DEAD gone" "$OUT"
+has   "🔴 quoting the .exit that already knew"           "ryu.exit says" "$OUT"
+has   "  with what it said"                              "status=143" "$OUT"
+has   "  and when"                                       "2026-09-11T02:51:06" "$OUT"
+has   "🔴 the child pidfile is not skipped"              "ryu.child.pid: stale pidfile" "$OUT"
+check "🔴 and --check goes red on it -- R7 measured rc 0" "1" "$(rc_of "$OUT")"
+has   "  it is listed as a problem, not only printed"    "stale pidfile" "$OUT"
+has   "  saying why a dead number in there is dangerous" "pid" "$OUT"
+
+section "10B. 🔴 a stale pidfile with no .exit beside it is still disclosed"
+# The .exit is corroboration, never the trigger. A pidfile whose component was SIGKILLed, or
+# whose supervisor died with it, leaves no .exit at all -- and that is the case where the
+# registry is least explicable, so it cannot be the case that goes quiet.
+no_pids
+DEAD="$(dead_pid)"
+pidf kernel "$DEAD"
+OUT="$(run_check)"
+has   "the row still names it"                           "kernel.pid: stale pidfile" "$OUT"
+has   "🔴 and says the record is missing rather than inventing one" "no kernel.exit" "$OUT"
+check "  still red"                                      "1" "$(rc_of "$OUT")"
+
+section "10C. 🔴 the other direction: a live stack is not called stale"
+no_pids
+pidf kernel "$$"
+pidf_c kernel "$$"
+OUT="$(run_check)"
+hasnt "a pidfile naming a live pid is NOT stale"         "stale pidfile" "$OUT"
+has   "  it is reported as tracked and alive"            "kernel.pid=$$ alive" "$OUT"
+check "🔴 and --check stays green"                       "0" "$(rc_of "$OUT")"
+no_pids
+OUT="$(run_check)"
+has   "an empty registry says so in its own words"       "none recorded" "$OUT"
+check "  and is green"                                   "0" "$(rc_of "$OUT")"
+
+section "10D. app_*.pid belongs to the apps rows, and is not read twice"
+# The apps block above has its own probe (app_probe), its own three states and its own
+# untracked case. Two instruments over one file would disagree in public, and the apps one
+# knows something this row cannot: the process signature.
+no_pids
+DEAD="$(dead_pid)"
+printf '%s\n' "$DEAD" > "$FIX/.test_run/pids/app_nsr.pid"
+OUT="$(run_check)"
+hasnt "🔴 an app pidfile is not claimed by this row"     "app_nsr.pid: stale pidfile" "$OUT"
+check "  and --check is not reddened by it here"         "0" "$(rc_of "$OUT")"
+# A pidfile that cannot be read as a number is a third state and not silently a fourth.
+no_pids
+printf 'not-a-pid\n' > "$FIX/.test_run/pids/ryu.pid"
+OUT="$(run_check)"
+has   "🔴 an unusable pidfile is named as unusable"      "ryu.pid: unusable" "$OUT"
+check "  and is red -- 'ndt down' reads these"           "1" "$(rc_of "$OUT")"
+no_pids
+
+# ==========================================================================================
 section "F9. this suite reads its OWN tree, and not the main checkout"
 # ==========================================================================================
 # F-OFFLINE-1 §1.13. Two of the four `--check` suites had no lab_kernel_dir stub, so
