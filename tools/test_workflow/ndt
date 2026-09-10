@@ -2537,7 +2537,7 @@ guard_no_teardown_in_flight() {
 }
 
 cmd_down() {
-    local force="" deep="" arg busy held down_rc=0
+    local force="" deep="" arg busy held down_rc=0 declared holder detail
     for arg in "$@"; do
         case "$arg" in
             --force) force=--force ;;
@@ -2548,19 +2548,67 @@ cmd_down() {
     done
     held="$(foreign_claim)"
     if [[ -n "$held" && "$force" != "--force" ]]; then
+        holder="$(claim_field owner)"
+        # What is left of the description once the owner's name is taken out of it, which is the
+        # part that must never reach the command line below.
+        detail="${held#"$holder"}"; detail="${detail# }"
         err "refusing to tear down: the lab is claimed by $held"
         err "their kernel's pid is in the shared .test_run/pids/, so this would kill it."
+        # ROLE-4 T2, 01:56:53: the claim said `measuring=ROLE-4 reader nsr, do not tear down` and
+        # this refusal never mentioned it. `ndt status` had a row for it; the message that stops
+        # somebody from tearing the lab down did not, so the one sentence the holder wrote FOR
+        # this moment was the one sentence not shown at it.
+        declared="$(measuring_declared)"
+        if [[ -n "$declared" ]]; then
+            err "and they DECLARED what is running, which is what this would destroy:"
+            err "    measuring=$declared"
+        fi
         # NDT_OWNER first, deliberately. If the claim is your own -- and it usually is, because
         # NDT_OWNER has to be set on every command, not just `claim` -- then --force is the
         # wrong answer twice over: it does not record that you own the lab, and following it
         # when the claim really is someone else's tears down their work.
         # [Co-developed with claude code -- Adam]
+        #
+        # 🔴 ROLE-4 T2, 01:56:53 verbatim. This line used to be `NDT_OWNER=$held ndt down`, and
+        # $held is a DESCRIPTION -- "overnight-0905 (until 02:36:24, ROLE-4 T2/T3: reader
+        # running)". Pasted, bash reads `(until ...)` as a subshell and the command dies on a
+        # syntax error. A line printed under "set the same owner and retry" has exactly one job.
+        # So: the bare owner, %q-quoted (owner is free text and a name with a space in it breaks
+        # this the same way one with a paren does), and the description on its own line where it
+        # cannot get into the command.
         err "if that claim is YOURS, set the same owner and retry:"
-        err "    NDT_OWNER=$held ndt down"
+        err "$(printf '    NDT_OWNER=%q ndt down' "$holder")"
+        err "      that claim: $detail"
         err "if it is someone else's, wait for it to lapse. Only override it if you know they"
         err "have finished:  ndt down --force"
         return 1
     fi
+    # [Co-developed with claude code -- Adam]
+    # T2d, measured 2026-09-11 01:57:27-01:57:54 (logs/ROLE-4/10-t3-down-by-owner.log). The claim
+    # said `measuring=ROLE-4 reader nsr, do not tear down`. The OWNER's own `ndt down` tore the
+    # fabric out, printed `clean`, exited 0, killed the declared reader, and never mentioned the
+    # field. `measuring=` protected nothing: cmd_down read foreign_claim and in_flight, and
+    # in_flight knows four drivers (iperf3 client, matrix.sh, measure.sh, cpu_probe.py) -- so the
+    # one channel a session has for "you cannot see what I am measuring" was read by `ndt check`
+    # and by nothing else. The field was added FOR the case ps cannot answer (R4-2); a teardown
+    # is the command whose mistake costs the most, and it was the command not reading it.
+    #
+    # 🔴 --force is the override and --deep is NOT one. --deep is what an operator reaches for
+    # when a teardown did not reach clean, i.e. exactly when a declared measurement is most
+    # likely to still be running; a guard that any second flag turns off is not a guard. Same
+    # single override as the foreign claim above and as in_flight below, and the same meaning:
+    # you are signing for it.
+    declared="$(measuring_declared)"
+    if [[ -n "$declared" && "$force" != "--force" ]]; then
+        err "refusing to tear down: this claim DECLARES a measurement in progress."
+        err "    measuring=$declared"
+        err "it was declared in ${CLAIM#$REPO/}, not guessed from the process table, so nothing"
+        err "here can see whether it is still running -- only you can. Tearing the fabric out"
+        err "from under it loses the run (measured 09-11 01:57: it did, silently, rc 0)."
+        err "when that run is over:  ndt claim <mins> to redeclare, or  ndt down --force"
+        return 1
+    fi
+    [[ -n "$declared" ]] && warn "--force: tearing down over a declared measurement -- $declared"
     busy="$(in_flight)"
     if [[ -n "$busy" && "$force" != "--force" ]]; then
         err "refusing to tear down: a measurement is running."

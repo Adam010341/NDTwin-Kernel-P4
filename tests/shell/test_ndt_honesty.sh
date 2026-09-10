@@ -829,6 +829,112 @@ WINNER="$(cf owner)"
 check "  and that one is the owner the file names"       "1" \
       "$(grep -cF "lab claimed by $WINNER" "$FIX/race.${WINNER#racer-}" 2>/dev/null)"
 
+# ==========================================================================================
+# 7. T2 / T2d: measuring= was a declaration nothing enforced, and the refusal printed a
+#    command that could not be pasted
+# ==========================================================================================
+# 🔴 T2d, measured 2026-09-11 01:57:27-01:57:54 (logs/ROLE-4/10-t3-down-by-owner.log). The claim
+# said `measuring=ROLE-4 reader nsr, do not tear down`. The owner's own `ndt down` tore the
+# fabric out, printed `clean`, exited 0, killed the declared reader, and never mentioned the
+# field -- which then OUTLIVED the teardown that had killed the thing it described. cmd_down read
+# foreign_claim and in_flight (iperf3 client, matrix.sh, measure.sh, cpu_probe.py) and nothing
+# else, so the one channel a session has for "you cannot see what I am measuring" was read by
+# `ndt check` alone.
+#
+# 🔴 T2, measured 01:56:53 (08-t2-foreign-down.log). The refusal was right and its rescue line
+# could not be used:
+#     NDT_OWNER=overnight-0905 (until 02:36:24, ROLE-4 T2/T3: reader running) ndt down
+# `$held` is a DESCRIPTION, and bash reads `(until ...)` as a subshell. The same message never
+# quoted the measuring= the claim declared, so the operator being refused could not see why.
+#
+# 🔴 THE DIRECTION THAT MATTERS: --force is the override and --deep is not one. A guard that
+# any second flag turns off protects nothing, and `--deep` is the flag an operator reaches for
+# when a teardown did not reach clean -- i.e. exactly when a declared measurement is most likely
+# to still be running.
+
+mk_claim_m() {  # <owner> <seconds-from-now> <note> <measuring>
+    printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=no\nmeasuring=%s\n' \
+        "$1" "$(( $(date +%s) + $2 ))" "$3" "$4" > "$(claim_file)"
+}
+
+# down_run [args] -- cmd_down against the fixture with the CLAIM READING REAL. The 2E runner
+# above stubs foreign_claim out, which is right for the note and wrong here: who holds the lab
+# and what they declared are what these cases are about.
+#
+# 🔴 Two things in here are load-bearing and were both wrong in the first draft of this block,
+# each producing a rc 1 that looked like the refusal under test:
+#   * NDT_OWNER is SET. Without it every claim is foreign (the safe default), so 7A's refusal
+#     came from the foreign-claim guard and the declaration was never reached -- a green cell
+#     over an unexercised branch.
+#   * sudo returns 0. The real cmd_down reads the sweep's rc (FINDING #21), so a sudo stub that
+#     refuses makes down_rc 1 on every path and "the teardown runs" can never be observed.
+down_run() {
+    bash -c "source '$NDT' >/dev/null 2>&1
+REPO='$FIX'
+CLAIM=\"\$REPO/.test_run/lab.claim\"
+STACK='$FIX/no-such-stack.sh'; LAB='$FIX/no-such-lab'
+export NDT_OWNER=fixture-owner
+sudo() { return 0; }
+in_flight() { :; }
+app_probe() { APP_STATE=not-running; }
+cmd_clean() { return 0; }
+wait_reaped() { return 0; }
+clear_up_target() { :; }
+mark_teardown_start() { :; }
+mark_teardown_end() { :; }
+deep_sweep() { echo 'the deep sweep ran'; }
+cmd_down $1
+echo \"RC=\$?\"" 2>&1
+}
+
+section "7A. 🔴 T2d: the owner's own teardown honours the declaration"
+mk_claim_m fixture-owner 3600 "T2d round" "ROLE-4 reader nsr, do not tear down"
+OUT="$(down_run '')"
+check "a declared measurement refuses the teardown"      "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+has   "  and the refusal reads the declaration back"     "ROLE-4 reader nsr, do not tear down" "$OUT"
+has   "  naming the field it came from"                  "measuring=" "$OUT"
+hasnt "🔴 and the teardown never started"                "[1/3]" "$OUT"
+check "  the declaration is still there to be read"      "ROLE-4 reader nsr, do not tear down" "$(cf measuring)"
+
+section "7B. 🔴 --deep is not an override; --force is"
+OUT="$(down_run '--deep')"
+check "🔴 --deep does not override a declaration"        "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+hasnt "  and no deep sweep ran"                          "the deep sweep ran" "$OUT"
+mk_claim_m fixture-owner 3600 "T2d round" "ROLE-4 reader nsr, do not tear down"
+OUT="$(down_run '--force')"
+check "--force tears down anyway"                        "RC=0" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+has   "  and says what it went through"                  "declared" "$OUT"
+
+section "7C. an empty declaration declares nothing, and an expired claim declares nothing"
+mk_claim_m fixture-owner 3600 "control" ""
+OUT="$(down_run '')"
+check "🔴 nothing declared: the teardown runs"           "RC=0" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+hasnt "  and no declaration is discussed"                "measuring=" "$OUT"
+mk_claim_m fixture-owner -60 "expired" "a run that is over"
+OUT="$(down_run '')"
+check "🔴 an expired claim holds nothing, so it declares nothing" "RC=0" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+
+section "7D. 🔴 T2: the rescue command the refusal prints has to parse"
+mk_claim_m other-session 3600 "their round" "their matrix, cell 3/8"
+OUT="$(down_run '')"
+check "a foreign claim refuses the teardown"             "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+RESCUE="$(grep -F 'NDT_OWNER=' <<<"$OUT" | head -1 | sed 's/^[[:space:]]*XX[[:space:]]*//;s/^[[:space:]]*//')"
+check "🔴 that line parses as shell -- it is printed to be pasted" "0" \
+      "$(bash -n -c "$RESCUE" 2>/dev/null; echo $?)"
+check "  it is the command and only the command"         "NDT_OWNER=other-session ndt down" "$RESCUE"
+check "🔴 no NDT_OWNER= line carries the description"    "0" \
+      "$(grep -F 'NDT_OWNER=' <<<"$OUT" | grep -cF '(until')"
+has   "  which is printed on its own line instead"       "until " "$OUT"
+has   "🔴 and the foreign refusal quotes the declaration" "their matrix, cell 3/8" "$OUT"
+
+# 🔴 The direction a smaller fix would miss: deleting the "(until ...)" from that line leaves it
+# unpasteable for any owner name with a space in it, and owner is free text by design.
+mk_claim_m 'weird (owner) name' 3600 "their round" ""
+OUT="$(down_run '')"
+RESCUE="$(grep -F 'NDT_OWNER=' <<<"$OUT" | head -1 | sed 's/^[[:space:]]*XX[[:space:]]*//;s/^[[:space:]]*//')"
+check "🔴 an owner name with spaces and parens still parses" "0" \
+      "$(bash -n -c "$RESCUE" 2>/dev/null; echo $?)"
+
 
 # --- done ---------------------------------------------------------------------------------
 printf '\nRan %d checks, %d failed\n' "$((PASS+FAIL))" "$FAIL"

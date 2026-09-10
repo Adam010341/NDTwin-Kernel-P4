@@ -447,6 +447,55 @@ report 'MC5: the write is not read back, so a direct writer wins silently' "$m" 
        'a claim that is not ours after the write is refused'
 
 
+# --- T2 / T2d: measuring= enforced, and a rescue command that can be pasted ------------------
+
+# 2026-09-11 01:57:27 verbatim: claim says `measuring=ROLE-4 reader nsr, do not tear down`, the
+# owner's own `ndt down` tears the fabric out, prints clean, exits 0, kills the declared reader
+# and never mentions the field.
+m=$(mutant mc6 "$NDT" \
+    '    if [[ -n "$declared" && "$force" != "--force" ]]; then
+        err "refusing to tear down: this claim DECLARES a measurement in progress."' \
+    '    if false; then
+        err "refusing to tear down: this claim DECLARES a measurement in progress."')
+report 'MC6: the teardown stops reading measuring= (T2d verbatim)' "$m" \
+       'a declared measurement refuses the teardown'
+
+
+# 🔴 A guard any second flag switches off. --deep is what an operator reaches for when a teardown
+# did not reach clean -- which is when a declared measurement is most likely to still be there.
+m=$(mutant mc7 "$NDT" \
+    '    if [[ -n "$declared" && "$force" != "--force" ]]; then
+        err "refusing to tear down: this claim DECLARES a measurement in progress."
+        err "    measuring=$declared"' \
+    '    if [[ -n "$declared" && "$force" != "--force" && -z "$deep" ]]; then
+        err "refusing to tear down: this claim DECLARES a measurement in progress."
+        err "    measuring=$declared"')
+report 'MC7 (widening): --deep turns the guard off as well as --force' "$m" \
+       '🔴 --deep does not override a declaration'
+
+
+# 01:56:53 verbatim: `NDT_OWNER=overnight-0905 (until 02:36:24, ROLE-4 T2/T3: reader running) ndt
+# down`, printed under "set the same owner and retry", which bash reads as a subshell.
+m=$(mutant mc8 "$NDT" \
+    '        err "$(printf '"'"'    NDT_OWNER=%q ndt down'"'"' "$holder")"' \
+    '        err "    NDT_OWNER=$held ndt down"')
+report 'MC8: the rescue line interpolates the description again (T2 verbatim)' "$m" \
+       '🔴 that line parses as shell -- it is printed to be pasted'
+
+
+# `ndt status` had a row for measuring= and the message that stops somebody tearing the lab down
+# did not -- so the one sentence the holder wrote FOR this moment was missing at it.
+m=$(mutant mc9 "$NDT" \
+    '        declared="$(measuring_declared)"
+        if [[ -n "$declared" ]]; then
+            err "and they DECLARED what is running, which is what this would destroy:"' \
+    '        declared="$(measuring_declared)"
+        if false; then
+            err "and they DECLARED what is running, which is what this would destroy:"')
+report 'MC9: the foreign refusal stops quoting what they declared' "$m" \
+       '🔴 and the foreign refusal quotes the declaration'
+
+
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
