@@ -370,4 +370,6 @@ Death test: networkTopologyThenExitZero()
   **這是同一支閘門的縱向比較，不是橫向相減。**
 * **baseline 的死測試斷言 7 → 6。** 那條斷言（`--gtest_list_tests` 數 `DoesNotKillTheProcess`）
   是這支閘門拒絕「少一格卻不說」的機制；D3 刪掉之後不改它＝閘門自己 rc 2。
-* `check_gate_anchors.py` 的格數不變（本支閘門是**一格**，只是它自己的 anchor 從 13 條變 10 條）。
+* `check_gate_anchors.py` 的格數不變：**`94/94 cells ok`**（本支閘門是**一格**，
+  只是它自己的 anchor 數從 `ok(13)` 變 `ok(11)`——M3／M10／C3 拿掉之後，
+  剩下的 anchor 有一部分本來就被兩顆變異共用）。
