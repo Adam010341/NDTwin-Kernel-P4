@@ -294,6 +294,68 @@ m=$(mutant m17 "$NDT" \
 report "M17: a mismatched helper refuses the bring-up" "$m" \
        "🔴 preflight WARNS and does not refuse"
 
+# --- R5: the tree `sudo ndtwin-lab` acts in ---------------------------------------------------
+
+# The defect itself, put back: nothing compares $REPO with the lab's KERNEL_DIR, so `ndt up`
+# from a worktree builds the fabric out of one tree and the kernel and proxy out of another.
+# 🔴 Named on a case that DISCRIMINATES. "the bring-up is refused" stays green under this
+# mutation for the wrong reason -- the fixture's fabric never reaches ten switches either way,
+# so the exit code is 1 regardless. What only the comparison can produce is a refusal that
+# touched nothing at all.
+m=$(mutant m18 "$NDT" \
+    '    guard_lab_acts_in_this_tree || bad=1' \
+    '    :')
+report "M18: nothing compares this checkout with the lab's tree" "$m" \
+       "🔴 nothing on the machine was touched"
+
+# The comparison is made on the strings instead of on the trees. It passes every case that has
+# two genuinely different paths, and then refuses a correctly configured run whenever the two
+# name the same tree by different names -- a guard against a silent wrong answer turned into a
+# bring-up that cannot be made to work.
+m=$(mutant m19 "$NDT" \
+    '    lab="$(realpath "$lab" 2>/dev/null || printf '"'"'%s'"'"' "$lab")"' \
+    '    :')
+report "M19: the two trees are compared as strings, not as paths" "$m" \
+       "🔴 the same tree through a symlink is not a refusal"
+
+# 🔴 The other direction, and the one that would make this whole guard unusable: it refuses
+# everything. Every "did it refuse the mismatch" case above stays green, because a check that
+# cannot pass cannot pass on the wrong fixture either.
+m=$(mutant m20 "$NDT" \
+    '    [[ "$repo" == "$lab" ]] && return 0' \
+    '    [[ "$repo" == "$lab" ]] && { :; }')
+report "M20: the guard refuses even when the trees are the same" "$m" \
+       "🔴 the same tree is not a refusal"
+
+# The refusal reports this checkout's host_count_override for both trees. It still prints two
+# paths and two numbers -- and the two numbers are the same one, so the reader is told the
+# fabric would be built at a size it would not be built at. FINDING-01's shape inside the
+# message written to prevent it.
+m=$(mutant m21 "$NDT" \
+    'the fabric would come from      $lab  (host_count_override $(host_count_in "$lab"))' \
+    'the fabric would come from      $lab  (host_count_override $(host_count_in "$repo"))')
+report "M21: both host counts are read from this tree" "$m" \
+       "  the lab's tree, with ITS host count"
+
+# `ndt:1673` restored: the one line ndtwin-lab prints to say which tree it acted in goes back
+# to /dev/null. The guard above only fires when the trees DIFFER, so with this gone there is
+# no output at all naming the tree a successful bring-up actually used.
+m=$(mutant m22 "$NDT" \
+    '        tsout="$(sudo -n "$LAB" topo-start 2>&1)"; tsrc=$?
+        [[ -n "$tsout" ]] && printf '"'"'%s\n'"'"' "$tsout" | sed '"'"'s/^/      /'"'"'' \
+    '        tsout="$(sudo -n "$LAB" topo-start 2>&1)"; tsrc=$?')
+report "M22: topo-start's 'which tree' line is discarded again" "$m" \
+       "🔴 and the helper's 'which tree' line reaches the operator"
+
+# The refusal stops saying whose knob the two numbers are. It is a P4-only knob, and this is
+# also printed on the OVS plane, where the size is the verb -- `ndt status` printed the same
+# knob's neighbour on the OVS plane for weeks (D-2 / X-2) and it was read as an OVS answer.
+m=$(mutant m23 "$NDT" \
+    '    err "  (that knob is the P4 plane'"'"'s. On the OVS plane the size is the verb -- ovs-topo-start"' \
+    '    :')
+report "M23: the refusal stops saying whose knob those numbers are" "$m" \
+       "🔴 and says that knob is the P4 plane's, not what OVS builds"
+
 # --- N*: widenings. The product goes green on everything; the suite has to notice -------------
 
 # N1, the control: preflight never refuses. It passes every "did it go red on the broken
@@ -340,6 +402,19 @@ m=$(mutant n4 "$NDT" \
 report "N4 (widening, green): the helpers always agree" "$m" \
        "a differing helper is reported"
 
+# N5: the tree comparison always agrees. It is present, it is called from preflight, and it can
+# only say "same tree" -- existence is not wiring, and a guard that cannot refuse is the state
+# trunk was in with the reading already sitting there unused (lab_kernel_dir, one caller, a log
+# path).
+m=$(mutant n5 "$NDT" \
+    'guard_lab_acts_in_this_tree() {
+    local repo lab src both' \
+    'guard_lab_acts_in_this_tree() {
+    return 0
+    local repo lab src both')
+report "N5 (widening, green): the tree comparison always agrees" "$m" \
+       "🔴 nothing on the machine was touched"
+
 # --- W*: behaviour-preserving. The suite must stay GREEN --------------------------------------
 
 # W1: the same condition in the other test syntax. Nothing observable moves.
@@ -370,6 +445,22 @@ m=$(mutant w4 "$NDT" \
     '    if [[ -z "$inst" ]]; then printf "%s\n" "not-installed ? ${repo:-?}"; return; fi')
 report_green "W4 (behaviour-preserving): echo written as printf" "$m" \
        "identical bytes on stdout"
+
+# W5: the tree comparison's early return written as an if. Same condition, same answer, and the
+# suite must not be reading the shape of it.
+m=$(mutant w5 "$NDT" \
+    '    [[ "$repo" == "$lab" ]] && return 0' \
+    '    if [[ "$repo" == "$lab" ]]; then return 0; fi')
+report_green "W5 (behaviour-preserving): the tree comparison written as an if" "$m" \
+       "the same condition, spelled differently"
+
+# W6: the refusal's first line reworded. Nothing asserts on it -- what the cases read is the two
+# paths, the two host counts and the sentence with both ways out.
+m=$(mutant w6 "$NDT" \
+    '    err "refusing to build: '"'"'sudo $LAB'"'"' does not act in this checkout."' \
+    '    err "refusing to build: '"'"'sudo $LAB'"'"' acts in a different tree than this one."')
+report_green "W6 (behaviour-preserving): the refusal's opening line reworded" "$m" \
+       "the wording of the first line is not the behaviour under test"
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)

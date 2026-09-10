@@ -1024,10 +1024,81 @@ lab_kernel_dir() {
     printf '%s' "$LAB_DEFAULT_KERNEL_DIR"
 }
 
+# --- does `sudo ndtwin-lab` act in THIS checkout? ----------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# R5-P4-128, measured 2026-09-10. `ndt` derives $REPO from its own location; $LAB is a
+# root-owned COPY whose KERNEL_DIR is a BUILT-IN CONSTANT (ndtwin-lab:98) and is deliberately
+# not readable from the environment -- root executes the bridge script, so letting the caller
+# choose the tree is the escalation that helper's header refuses to allow. Run `ndt` from a
+# worktree and the two are DIFFERENT TREES, and one `ndt up` then builds one stack out of two
+# checkouts: the fabric (ntg_bmv2_topo.py, testbed_topo.py, setting/*.json, the compiled
+# pipeline) from the lab's tree, the kernel and the proxy from this one.
+#
+# What that cost (R5-P4-128-SUMMARY §2-§3): `ndt up p4 128` from wt-merge-0910 built a 4-host
+# fabric -- the MAIN checkout's host_count_override -- under a 128-host kernel and proxy.
+# Fabric up, proxy converged, 16256 destination paths, every structural check green, and the
+# whole of the output about it was one line at [3/3]: "model/fabric mismatch: the FABRIC has 4
+# host namespaces", which names a number and not the second tree. `h1 cannot reach 10.0.0.2`
+# followed from it (h2 sits on s1 port 4 in the 128-host layout, s2 port 3 in the 4-host one)
+# and reads like a data-plane defect.
+#
+# 🔴 REFUSED, and refused HERE. The three places that could have said it all stayed quiet:
+# ndtwin-lab DOES print "topo session started from $KERNEL_DIR" for exactly this reason and
+# `ndt` threw it away with >/dev/null; lab_kernel_dir() has existed all along with a single
+# caller, a log path; and `ndt status`'s helper line compares the two files' CONTENT, which
+# says nothing about which tree the installed copy acts in and prints `ok` in a worktree.
+#
+# 🔴 This is wiring, not a new mechanism: lab_kernel_dir() already implements the helper's own
+# trust rules and is already tested (tests/shell/test_ndtwin_lab_config.sh). The FINDING-01
+# check at [3/3] stays exactly where it is -- it catches every OTHER way the model and the
+# fabric can disagree; this catches the one that has a second tree in it and can be known
+# before anything is built.
+guard_lab_acts_in_this_tree() {
+    local repo lab src both
+    repo="$(realpath "$REPO" 2>/dev/null || printf '%s' "$REPO")"
+    # Both of lab_kernel_dir's answers out of ONE call. It prints the path and sets
+    # LAB_KERNEL_DIR_SOURCE, and a command substitution is a subshell: `lab="$(lab_kernel_dir)"`
+    # alone left the source string EMPTY in this shell, which is how this refusal first printed
+    # a line that named nowhere. Two calls would work as well; asking the rule twice is how two
+    # answers start being able to disagree.
+    both="$(lab_kernel_dir; printf '\t%s' "$LAB_KERNEL_DIR_SOURCE")"
+    lab="${both%%$'\t'*}"; src="${both#*$'\t'}"
+    lab="$(realpath "$lab" 2>/dev/null || printf '%s' "$lab")"
+    [[ "$repo" == "$lab" ]] && return 0
+
+    err "refusing to build: 'sudo $LAB' does not act in this checkout."
+    err "  kernel + proxy would come from  $repo  (host_count_override $(host_count_in "$repo"))"
+    err "  the fabric would come from      $lab  (host_count_override $(host_count_in "$lab"))"
+    # 🔴 Whose knob that is, said here rather than left to be inferred. host_count_override is
+    # the P4 plane's and nothing else's -- `ndt status` printed it on the OVS plane for weeks
+    # (D-2 / X-2) and it was read as the OVS sampling/size answer, which it never was. On OVS
+    # the size is decided by WHICH VERB runs, so the two numbers above identify the two trees
+    # and say nothing about what an OVS bring-up would have built.
+    err "  (that knob is the P4 plane's. On the OVS plane the size is the verb -- ovs-topo-start"
+    err "   128, ovs-topo-4host 4 -- so those two numbers name the two trees, not what OVS builds.)"
+    err "  and that second path comes from: $src"
+    err "  fabric would come from $lab, kernel/proxy from $repo; run ndt from $lab or point the lab at $repo"
+    err "  KERNEL_DIR is a built-in constant in the installed helper and is NOT read from the"
+    err "  environment (ndtwin-lab's header says why: root runs the bridge script). The"
+    err "  supported way to move it is the install-time config file, and it is root's"
+    err "  decision, not this script's -- ndtwin-lab's own header gives the command:"
+    err "    sudo install -o root -g root -m 644 /dev/stdin $LAB_CONF <<'EOF'"
+    err "    KERNEL_DIR=$repo"
+    err "    EOF"
+    err "  It names ONE tree, so two worktrees cannot both be live at the same time."
+    err "  Refused before anything is built: on 09-10 this ran a whole fabric, proxy, kernel"
+    err "  and 16256-path convergence first, and then said only that the host count differed."
+    return 1
+}
+
 # --- the state that decides every number ------------------------------------------
 
-host_count() {
-    local f="$REPO/p4_proxy/mininet/host_count_override" line
+# host_count_in <tree> -- the override that tree carries, so a report can name BOTH trees'
+# values when they are not the same tree (guard_lab_acts_in_this_tree). host_count() below is
+# this question asked about $REPO, which is the only tree every other reader here has.
+host_count_in() {
+    local f="$1/p4_proxy/mininet/host_count_override" line
     [[ -f "$f" ]] || { echo 4; return; }
     while read -r line; do
         line="${line%%$'\r'}"; line="${line#"${line%%[![:space:]]*}"}"
@@ -1036,6 +1107,8 @@ host_count() {
     done < "$f"
     echo 4
 }
+
+host_count() { host_count_in "$REPO"; }
 
 bmv2_binary() {
     local f="$REPO/p4_proxy/mininet/bmv2_binary_override" line
@@ -1375,6 +1448,13 @@ lab_version_problem() {
 
 preflight() {
     local mode="$1" bad=0
+    # [Co-developed with claude code -- Adam]
+    # FIRST, and for both planes: is the tree `sudo ndtwin-lab` acts in this checkout? Asked
+    # here because preflight is the one thing both up_p4 and up_ovs run before anything on the
+    # machine has changed, and because the answer does not depend on the plane -- ovs-topo-start
+    # and ovs-topo-4host derive their topology from the same KERNEL_DIR that topo-start does
+    # (ndtwin-lab's ovs_topo_script). See guard_lab_acts_in_this_tree.
+    guard_lab_acts_in_this_tree || bad=1
     [[ -x "$REPO/build/bin/ndtwin_kernel" ]] || { err "kernel binary missing: build/bin/ndtwin_kernel"; bad=1; }
     if [[ "$mode" == "p4" ]]; then
         [[ -x "$REPO/p4_proxy/venv/bin/python" ]] || { err "proxy venv missing: p4_proxy/venv/bin/python"; bad=1; }
@@ -1670,10 +1750,24 @@ up_p4() {
         # Recorded before the call, not after: a topo-start that fails part way through has
         # still changed the machine, and topo-stop/cleanup are idempotent. See rollback_up.
         up_started fabric
-        sudo -n "$LAB" topo-start >/dev/null || {
+        # [Co-developed with claude code -- Adam]
+        # The output is PRINTED, not discarded. topo-start's one line is "topo session started
+        # from <KERNEL_DIR>", and ndtwin-lab prints it deliberately -- its comment there says
+        # "Which tree, every time. FINDING-01 ran the main tree's 128-host topology against a
+        # 4-host model for a whole round without a line of output that could have caught it."
+        # This call site's `>/dev/null` then silenced exactly that line, so on 09-10 the same
+        # two-tree run happened again with nothing on screen naming either tree (R5-P4-128).
+        # Kept on stdout rather than routed to a log: the reader who needs it is the operator
+        # watching the bring-up, and the guard above only fires when the trees differ -- this
+        # line is what says which tree was used when they do NOT.
+        local tsout tsrc
+        tsout="$(sudo -n "$LAB" topo-start 2>&1)"; tsrc=$?
+        [[ -n "$tsout" ]] && printf '%s\n' "$tsout" | sed 's/^/      /'
+        if (( tsrc != 0 )); then
             err "topo-start failed"
             rollback_up "topo-start failed; this run had already begun changing the machine"
-            return 1; }
+            return 1
+        fi
         info "waiting for $SWITCHES switches and the manifest"
         local i
         for i in $(seq 1 180); do

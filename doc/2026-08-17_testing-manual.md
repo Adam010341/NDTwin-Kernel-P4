@@ -129,6 +129,20 @@ XX  :8000 still listening -- this stack did not start it
 **兩種 fabric 不能同時開**（`s1..s10` 介面名會撞）。`ndt up` 會自己擋下來，
 但先 `ndt down` 比較快。
 
+⚠️ **`ndt up` 只能在 helper 的那棵樹裡跑；從 worktree 跑會被拒絕。**
+`sudo ndtwin-lab` 的 `KERNEL_DIR` 是**寫死的常數**（＝主 checkout，而且刻意不吃環境變數：
+root 執行那支 `.py`），`ndt` 的 `$REPO` 卻是它自己所在的樹 ⇒ 從 worktree 跑一次 `up`
+就是**fabric 用主 checkout、kernel 與 proxy 用 worktree**，兩棵樹、兩個 `host_count_override`。
+09-10 實測：`ndt up p4 128` 從 worktree 起了一個 **4 台**的 fabric（主 checkout 的旋鈕）配
+**128 台**的 kernel／proxy，fabric、proxy、16256 條路徑全部走完、結構檢查全綠，
+只有 `[3/3]` 一行 `model/fabric mismatch` ——而那行講的是數字，一個字都沒提到第二棵樹。
+現在 `preflight` **在動任何東西之前**比 `$REPO` 與 helper 的 `KERNEL_DIR`：不同就 **rc 1、
+什麼都不起**，訊息裡有兩個路徑、兩棵樹各自的 `host_count_override`，和兩條出路——
+去那棵樹跑，或由 root 用 `/etc/ndtwin-lab.conf` 把 lab 指過來（**它只認一棵樹**，
+所以兩個 worktree 不可能同時 live）。
+同時 `ndt up` 不再把 `topo-start` 印的 `topo session started from <KERNEL_DIR>` 丟進
+`/dev/null`：**兩棵樹相同時，那一行就是「這次用了哪棵樹」的唯一證據**。
+
 #### P4／bmv2　（實測 33.6 秒 @128 hosts，`52cba51`）
 
 ```bash
