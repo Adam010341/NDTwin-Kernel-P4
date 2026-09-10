@@ -549,7 +549,18 @@ def get_flow_stats(dpid: int):
             content={"error": f"switch {dpid} is not connected to the proxy"},
         )
     try:
-        return ryu_flow_stats.render_flow_stats(dpid, client.read_table_entries())
+        # [Co-developed with claude code -- Adam]
+        # The client's OWN install record, not a fresh one and not a module global: it is the
+        # object the write paths on this same client stamped, and the switch it describes is the
+        # switch these entries were just read from. KNOWN-ISSUES G-13.
+        #
+        # Read as a plain attribute rather than through getattr(..., None): an optional argument
+        # production forgets to pass is the exact shape of finding #71, where the rule journal
+        # had 33 green tests and no caller because every one of them injected the journal itself.
+        # If a client cannot answer this, the endpoint must fail loudly here rather than serve
+        # duration 0/0 forever and let the silence read as "P4 has no clock".
+        return ryu_flow_stats.render_flow_stats(dpid, client.read_table_entries(),
+                                                install_times=client.rule_install_times)
     except Exception as e:
         # [Co-developed with claude code -- Adam]
         # The gRPC status name, not the Python class name. A deadline against a stopped switch

@@ -25,11 +25,18 @@ or is documented as one in doc/2026-07-27_p4_bmv2_support_plan.md:
   - **Match keys must use Ryu's names** (`nw_dst`, `dl_type`, `in_port`, ...). The Classifier
     accepts a fixed set; anything else is dropped without comment, which shows up as rules that
     match nothing rather than as an error.
+  - **`duration` is the proxy's own record, or nothing.** A bmv2 table entry has no age, so
+    these two fields were hardcoded zeroes and every P4 rule looked equally new -- measured
+    2026-09-07, W16-3. `rule_install_times` supplies the install stamp; an entry it has no
+    record of keeps 0/0, which is what `ndt` already reads as "age unknown". See
+    KNOWN-ISSUES G-13 and that module's docstring.
 """
 
 from __future__ import annotations
 
 from typing import Any, Optional
+
+from proxy_agent import rule_install_times
 
 # Ryu/OpenFlow constant for IPv4, and the value the Classifier expects in dl_type.
 ETH_TYPE_IPV4 = 0x0800
@@ -93,7 +100,11 @@ def _match_to_ryu(match: dict) -> dict:
             continue
 
         kind = spec.get("type")
-        if kind == "ternary" and _int(spec.get("mask", b"")) == 0:
+        # Asked of rule_install_times so that the fields this renderer treats as absent are
+        # exactly the fields the install-time key treats as absent. Two spellings of "don't
+        # care" would mean a rule whose duration is recorded under a key its own flow stats
+        # never look up. [Co-developed with claude code -- Adam]
+        if rule_install_times.is_dont_care(spec):
             continue
 
         if ryu_name in ("nw_dst", "nw_src"):
@@ -138,12 +149,36 @@ def _actions_to_ryu(action: Optional[dict]) -> list:
     return []
 
 
-def entry_to_ryu(entry: dict) -> Optional[dict]:
+def _duration_fields(age_seconds: Optional[float]) -> tuple:
+    """
+    `(duration_sec, duration_nsec)` for an age in seconds, or `(0, 0)` for an unknown one.
+
+    Split the way OpenFlow splits it: whole seconds and the remainder in nanoseconds, both
+    non-negative. `None` -- no install record -- is 0/0, the same pair the endpoint has always
+    emitted for a rule nobody can date, so a reader that already treats 0/0 as unknown needs no
+    new case. [Co-developed with claude code -- Adam]
+    """
+    if age_seconds is None:
+        return 0, 0
+    age = max(0.0, float(age_seconds))
+    seconds = int(age)
+    nanos = int(round((age - seconds) * 1_000_000_000))
+    if nanos >= 1_000_000_000:
+        # Rounding the remainder can carry; 1_000_000_000 is not a legal nsec value.
+        seconds += 1
+        nanos -= 1_000_000_000
+    return seconds, nanos
+
+
+def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None) -> Optional[dict]:
     """
     One P4 table entry as a Ryu flow-stats entry, or None if it should not be reported.
 
     Default actions are skipped: they carry no match fields, so the Classifier would read one as
     a rule that matches every packet at whatever priority it has.
+
+    `age_seconds` is how long ago this proxy installed the entry, or None when it has no record
+    of installing it -- see `render_flow_stats`, which is where that is looked up.
     """
     if entry.get("is_default"):
         return None
@@ -152,6 +187,8 @@ def entry_to_ryu(entry: dict) -> Optional[dict]:
     if not match:
         # No usable match. Reporting it would be a match-everything rule, as above.
         return None
+
+    duration_sec, duration_nsec = _duration_fields(age_seconds)
 
     return {
         # bmv2 has one ingress table block; the kernel only needs a stable key here.
@@ -174,8 +211,13 @@ def entry_to_ryu(entry: dict) -> Optional[dict]:
         # rather than papered over.
         "byte_count": int((entry.get("counters") or {}).get("bytes") or 0),
         "packet_count": int((entry.get("counters") or {}).get("packets") or 0),
-        "duration_sec": 0,
-        "duration_nsec": 0,
+        # These were hardcoded zeroes too, and for a harder reason than the counters: bmv2 has
+        # no per-entry age to read at all (KNOWN-ISSUES G-13). The number below therefore comes
+        # from the proxy's own record of writing the rule, and stays 0/0 for a rule it did not
+        # write -- which is the answer `ndt` already reads as UNKNOWN, not a claim that the rule
+        # is new. [Co-developed with claude code -- Adam]
+        "duration_sec": duration_sec,
+        "duration_nsec": duration_nsec,
         "idle_timeout": 0,
         "hard_timeout": 0,
         "cookie": 0,
@@ -184,16 +226,27 @@ def entry_to_ryu(entry: dict) -> Optional[dict]:
     }
 
 
-def render_flow_stats(dpid: int, entries) -> dict:
+def render_flow_stats(dpid: int, entries, install_times=None) -> dict:
     """
     A whole switch's tables in Ryu's `/stats/flow/<dpid>` shape.
 
     The dpid key is a **string**, as Ryu emits and as the kernel's own
     get_switch_openflow_table_entries reproduces.
+
+    `install_times` is the `rule_install_times.RuleInstallTimes` of the client these entries were
+    read from -- the only thing on the P4 plane that knows when a rule was installed. Omit it and
+    every rule reports `duration 0/0`, which is exactly what this endpoint did before G-13; that
+    default exists so the translation stays testable as a pure function, and
+    `api_routes.get_flow_stats` passes the real one. The lookup is by
+    `rule_install_times.entry_key`, the same key the write paths record under.
     """
     flows = []
     for entry in entries or []:
-        converted = entry_to_ryu(entry)
+        age = None
+        if install_times is not None:
+            age = install_times.age_seconds(dpid, entry.get("table"), entry.get("priority"),
+                                            entry.get("match"))
+        converted = entry_to_ryu(entry, age_seconds=age)
         if converted is not None:
             flows.append(converted)
     return {str(dpid): flows}

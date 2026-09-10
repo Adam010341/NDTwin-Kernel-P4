@@ -17,6 +17,21 @@ import unittest
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 from proxy_agent import ryu_flow_stats as rf  # noqa: E402
+from proxy_agent.rule_install_times import RuleInstallTimes  # noqa: E402
+
+
+class FakeClock:
+    """A clock a test drives by hand. No sleeping, and the age is never a function of load."""
+
+    def __init__(self, now=1_000.0):
+        self.now = now
+
+    def __call__(self):
+        return self.now
+
+    def advance(self, seconds):
+        self.now += seconds
+        return self.now
 
 
 def an_lpm_route(dst=b"\x0a\x00\x00\x04", prefix=32, port=6, priority=0, default=False):
@@ -225,6 +240,140 @@ class CounterPassthroughTest(unittest.TestCase):
         entry["counters"] = None
         flow = self.flows([entry])[0]
         self.assertEqual((flow["byte_count"], flow["packet_count"]), (0, 0))
+
+
+class DurationComesFromTheProxysOwnRecordTest(unittest.TestCase):
+    """
+    `duration_sec`/`duration_nsec` must be the rule's age, or 0/0 meaning "unknown".
+
+    KNOWN-ISSUES G-13. bmv2 has no per-entry age, so these two fields were hardcoded zeroes and
+    every rule on the P4 plane looked equally new. Measured 2026-09-07 (W16-3): one route
+    installed, read back at +12 s and +32 s, `duration_sec: 0, duration_nsec: 0` both times --
+    including for every rule that was already on the switch -- while `packet_count` moved. `ndt`
+    could therefore not tell a rule an app left behind from a bring-up route, and marked the
+    whole table UNKNOWN.
+
+    The install record is the switch-independent half of the fix; these cases are the renderer's
+    half. The two are joined by `rule_install_times.entry_key`, which is why the leading-zero and
+    don't-care cases below are here rather than only in the key's own suite: they are the shapes
+    in which the join silently comes apart, and when it does every rule reports 0/0 again --
+    indistinguishable from the defect.
+    """
+
+    def setUp(self):
+        self.clock = FakeClock()
+        self.times = RuleInstallTimes(monotonic=self.clock, wall=FakeClock(1_700_000_000.0))
+
+    def flows(self, entries):
+        return rf.render_flow_stats(1, entries, install_times=self.times)["1"]
+
+    def record(self, entry, dpid=1):
+        self.times.record(dpid, entry["table"], entry["priority"], entry["match"])
+
+    def test_a_rule_this_proxy_installed_reports_how_long_ago(self):
+        entry = an_lpm_route()
+        self.record(entry)
+        self.clock.advance(32)
+
+        flow = self.flows([entry])[0]
+
+        self.assertEqual(flow["duration_sec"], 32)
+
+    def test_a_rule_with_no_record_stays_zero_which_is_what_unknown_looks_like(self):
+        # The rule was on the switch before this proxy generation, or another controller wrote
+        # it. 0/0 is what `ndt` already reads as "age unknown"; substituting the proxy's own
+        # start time, or the poll time, would turn "I do not know" into a confident wrong number
+        # that a residue scan cannot tell from a real one.
+        flow = self.flows([an_lpm_route()])[0]
+
+        self.assertEqual((flow["duration_sec"], flow["duration_nsec"]), (0, 0))
+
+    def test_with_no_record_at_all_every_rule_reports_zero(self):
+        # The pure-function default, and exactly what this endpoint did before G-13. It exists
+        # so the translation stays testable without a registry; api_routes passes the real one.
+        flow = rf.render_flow_stats(1, [an_lpm_route()])["1"][0]
+
+        self.assertEqual((flow["duration_sec"], flow["duration_nsec"]), (0, 0))
+
+    def test_the_sub_second_remainder_goes_into_duration_nsec(self):
+        entry = an_lpm_route()
+        self.record(entry)
+        self.clock.advance(2.25)
+
+        flow = self.flows([entry])[0]
+
+        self.assertEqual((flow["duration_sec"], flow["duration_nsec"]), (2, 250_000_000))
+
+    def test_a_rule_installed_this_instant_is_indistinguishable_from_an_undated_one(self):
+        # Worth stating rather than hiding: an age of exactly zero renders 0/0, the same pair as
+        # "no record". The payload shape has no third value, and inventing one nanosecond to
+        # separate them would be a lie about the clock. A reader that must tell them apart has
+        # to ask the proxy, not this endpoint.
+        entry = an_lpm_route()
+        self.record(entry)
+
+        flow = self.flows([entry])[0]
+
+        self.assertEqual((flow["duration_sec"], flow["duration_nsec"]), (0, 0))
+
+    def test_a_negative_age_can_never_reach_the_payload(self):
+        # duration_sec is unsigned on the wire, so a negative number here does not arrive as a
+        # small negative -- it arrives as roughly 4.29 billion seconds of uptime.
+        flow = rf.entry_to_ryu(an_lpm_route(), age_seconds=-3.0)
+
+        self.assertEqual((flow["duration_sec"], flow["duration_nsec"]), (0, 0))
+
+    def test_two_rules_in_one_table_at_one_priority_do_not_share_an_age(self):
+        # The key that carried the stamp has to include the match. Without it every ipv4_lpm
+        # entry on the switch collapses onto one record, and installing a single route would
+        # date every route on that switch -- the residue scan would then attribute the entire
+        # table to whichever app wrote last.
+        installed = an_lpm_route(dst=b"\x0a\x00\x00\x04")
+        untouched = an_lpm_route(dst=b"\x0a\x00\x00\x07")
+        self.record(installed)
+        self.clock.advance(12)
+
+        rendered = {f["match"]["nw_dst"]: f for f in self.flows([installed, untouched])}
+
+        self.assertEqual(rendered["10.0.0.4"]["duration_sec"], 12)
+        self.assertEqual((rendered["10.0.0.7"]["duration_sec"],
+                          rendered["10.0.0.7"]["duration_nsec"]), (0, 0))
+
+    def test_bmv2_stripping_leading_zero_bytes_does_not_lose_the_rule_its_age(self):
+        # P4Runtime canonical form strips leading zero bytes, so a value written as four bytes
+        # can be read back as three. A key that compared raw bytes would miss on every such
+        # entry and report 0/0 -- and 0/0 is precisely the defect, so nothing would look wrong.
+        # `_ipv4_route_present` already had to learn this about the same field.
+        written = an_lpm_route(dst=b"\x00\x00\x00\x04")
+        self.record(written)
+        self.clock.advance(7)
+
+        read_back = an_lpm_route(dst=b"\x04")
+
+        self.assertEqual(self.flows([read_back])[0]["duration_sec"], 7)
+
+    def test_a_field_the_switch_echoes_as_dont_care_does_not_lose_the_rule_its_age(self):
+        # A ternary field masked to zero matches everything, which is the same as not being in
+        # the entry -- the renderer already drops it. If the key kept it, an entry read back
+        # with a wildcard field the write never mentioned would key differently from the write.
+        written = a_ternary_rule(priority=100)
+        self.record(written)
+        self.clock.advance(5)
+
+        read_back = a_ternary_rule(priority=100)
+        read_back["match"]["meta.l4_dst_port"] = {"type": "ternary", "value": b"\x00\x00",
+                                                  "mask": b"\x00\x00"}
+
+        self.assertEqual(self.flows([read_back])[0]["duration_sec"], 5)
+
+    def test_a_rule_on_another_switch_does_not_borrow_this_ones_age(self):
+        entry = an_lpm_route()
+        self.record(entry, dpid=2)
+        self.clock.advance(20)
+
+        flow = self.flows([entry])[0]
+
+        self.assertEqual((flow["duration_sec"], flow["duration_nsec"]), (0, 0))
 
 
 if __name__ == "__main__":
