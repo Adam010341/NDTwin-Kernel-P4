@@ -1,0 +1,307 @@
+#!/usr/bin/env bash
+#
+# Does the reader of `ndt apps orphans` read the TALLY, or does it read the exit code?
+#
+# [Co-developed with claude code -- Adam]
+#
+# `tools/test_workflow/orphans_verdict.sh` exists because the exit code moved twice inside one
+# merge window while the fabric under it did not change (measured live on `integrate-0910`,
+# 2026-09-10, R4-LIVE §4-A7 and §4-A9):
+#
+#     clean OVS4 fabric      rc 0  ->  rc 5     the tally gained `1 question(s) not answerable`
+#     P4 4 with a sim up     rc 5  ->  rc 2     /proc/<pid>/fd of a root process is unreadable
+#
+# `ndt`'s rc table is the spec and is not touched; tests/shell/test_ndt_app_orphans.sh and
+# tests/shell/test_apps_residue.sh pin it. This suite pins the READER, and its four load-bearing
+# cases are the ones Adam named on 2026-09-10:
+#
+#     GREEN    a clean report                      -> CLEAN
+#     RED 1    the process half says one is running -> NOT CLEAN
+#     RED 2    the tally says 1 dated rule          -> NOT CLEAN
+#     CONTROL  1 question(s) not answerable, rc 5,  -> CLEAN, with a NOTE
+#              everything else clean
+#
+# The CONTROL case is the reason the helper exists, so its fixture is not synthetic: it is the
+# verbatim report from the live run that found the shift (`logs/lv-a7-a-orphans.log`, OVS4 on
+# `integrate-0910`, 2026-09-10 16:1x). That run's own probe called it a FAIL. It was not one.
+#
+# 🔴 The discriminating case is RC_IS_NOT_CONSULTED below: the same report body is fed with rc 0
+# and with rc 5 and must produce the same verdict, and the RED 2 body is fed with rc 0 and must
+# still be NOT CLEAN. A reader that quietly went back to reading the rc passes every other case
+# here and fails those.
+#
+# Offline. Nothing is started, no port is opened, no lab is touched: every fixture is a text
+# report on disk.
+#
+# Env:  ORPHANS_VERDICT_UNDER_TEST=<path>   (point it at a copy to see this suite go red)
+# Run:  bash tests/shell/test_orphans_verdict.sh
+set -uo pipefail
+
+export NO_COLOR=1
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+V="${ORPHANS_VERDICT_UNDER_TEST:-$HERE/../../tools/test_workflow/orphans_verdict.sh}"
+[[ -r "$V" ]] || { echo "no orphans_verdict.sh at $V"; exit 2; }
+
+PASS=0; FAIL=0
+t_ok()  { PASS=$((PASS+1)); printf '  ok       %s\n' "$1"; }
+t_bad() { FAIL=$((FAIL+1)); printf '  FAILED   %s\n             %s\n' "$1" "$2"; }
+check() { [[ "$2" == "$3" ]] && t_ok "$1" || t_bad "$1" "expected: [$2]  actual: [$3]"; }
+has()   { grep -qF -- "$2" <<<"$3" && t_ok "$1" || t_bad "$1" "no match for '$2'"; }
+hasnt() { grep -qF -- "$2" <<<"$3" && t_bad "$1" "unexpected '$2' in the output" || t_ok "$1"; }
+section() { printf '\n%s\n' "$1"; }
+
+FIX="$(mktemp -d "${TMPDIR:-/tmp}/ndt-orphverdict-$$-XXXXXX")"
+trap 'rm -rf "$FIX"' EXIT
+
+# verdict <fixture-file> [rc]  -> the helper's stdout with a trailing "RC=<n>" line
+verdict() { local out rc; out="$(bash "$V" "$@" 2>&1)"; rc=$?; printf '%s\nRC=%s\n' "$out" "$rc"; }
+rc_of()   { sed -n 's/^RC=//p' <<<"$1"; }
+
+# --- fixtures -------------------------------------------------------------------------------
+# The shapes `ndt` actually prints. The process half comes from apps_orphans (ndt:5572-5658), the
+# network half from residue_report's tally line (ndt:5561).
+mk() { cat > "$FIX/$1"; }   # mk <name> <<'EOF' ... EOF
+
+mk clean <<'EOF'
+  ok  no untracked app processes
+
+network residue (nothing below is deleted)
+    lock  routing_lock free
+    lock  graph_lock free
+    lock  power_lock free
+    sim    window 2026-09-10 16:48:24 -> now (22s)
+  ok        no flow entry arrived during that window
+
+    NOT deleted, and nothing here deletes them.
+    tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 0 question(s) not answerable
+EOF
+
+mk running <<'EOF'
+  XX  te: RUNNING as pid(s) 1185971, and these belong to it with nothing naming them -- te
+  XX      pid 1185972  (process group 1185971)
+  XX    stop it with:  ndt apps stop te
+  XX  1 app(s) are running with nothing tracking them
+
+network residue (nothing below is deleted)
+    lock  routing_lock free
+    lock  graph_lock free
+    lock  power_lock free
+    NOT deleted, and nothing here deletes them.
+    tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 0 question(s) not answerable
+EOF
+
+mk one_rule <<'EOF'
+  ok  no untracked app processes
+
+network residue (nothing below is deleted)
+    lock  routing_lock free
+    lock  graph_lock free
+    lock  power_lock free
+    sim    window 2026-09-10 16:48:24 -> now (22s)
+  XX      rule  dpid=1 table=0 pri=97 match={"dl_type": 2048, "nw_dst": "10.0.0.77"} actions=["OUTPUT:1"]  installed 14s ago
+  XX      1 rule(s) listed: 1 dated inside the window, 0 with age=UNKNOWN.
+    NOT deleted, and nothing here deletes them.
+    tally: 1 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 0 question(s) not answerable
+EOF
+
+mk one_lock <<'EOF'
+  ok  no untracked app processes
+
+network residue (nothing below is deleted)
+  XX    lock  routing_lock HELD -- held_by_lease=4, frees itself in 30s (TTL)
+    lock  graph_lock free
+    lock  power_lock free
+    NOT deleted, and nothing here deletes them.
+    tally: 0 dated rule(s) in a window, 1 lock(s) held, 0 rule(s) that could not be dated, 0 question(s) not answerable
+EOF
+
+# `ndt` rc 2: found nothing, but could not look everywhere. E-7 -- still not a pass.
+mk blind_channel <<'EOF'
+  !!  no untracked app processes found, but a channel was blind: sim: fd channel: CANNOT READ /proc/884317/fd (root process) -- not checked
+
+network residue (nothing below is deleted)
+    lock  routing_lock free
+    lock  graph_lock free
+    lock  power_lock free
+    NOT deleted, and nothing here deletes them.
+    tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 0 question(s) not answerable
+EOF
+
+# Every P4 fabric, every run: the flow stats carry no clock, so no rule can be placed (W16-3).
+mk p4_undated <<'EOF'
+  ok  no untracked app processes
+
+network residue (nothing below is deleted)
+    lock  routing_lock free
+    lock  graph_lock free
+    lock  power_lock free
+    sim    window 2026-09-10 16:35:02 -> now (31s)
+  !!      CANNOT WINDOW -- this plane's flow stats carry no time axis.
+  XX      40 rule(s) listed: 0 dated inside the window, 40 with age=UNKNOWN.
+    NOT deleted, and nothing here deletes them.
+    tally: 0 dated rule(s) in a window, 0 lock(s) held, 40 rule(s) that could not be dated, 0 question(s) not answerable
+EOF
+
+# 🔴 THE CONTROL. Verbatim from the live run that found the rc shift: OVS4 on `integrate-0910`,
+# 2026-09-10, `scratch/overnight-2026-09-05/logs/lv-a7-a-orphans.log`. `ndt` answered rc 5 and the
+# night's probe recorded a FAIL for it. Nothing was running and nothing was on the network.
+mk live_a7 <<'EOF'
+  ok  no untracked app processes
+
+network residue (nothing below is deleted)
+    lock  routing_lock free
+    lock  graph_lock free
+    lock  power_lock free
+          field (LockManager.hpp), and the kernel has no lock-status endpoint, so the
+          three lines above come from an acquire probe with ttl 0, which excludes nobody.
+    energy: no pidfile and no live process -- no window, so no rule can be dated
+        against it. NOT 'this app left nothing'. (G-12)
+  !!        and whether it ran here CANNOT BE ASKED: the helper keeps no log for energy
+  !!        ('/usr/local/sbin/ndtwin-lab energy-start' gives it no 'script -f', so its output only ever
+  !!        exists in a tmux pane). That is 'nobody could ask', not 'it never ran'.
+    sim: no pidfile and no live process -- no window, so no rule can be dated
+        against it. NOT 'this app left nothing'. (G-12)
+  !!        and its log is NOT empty, so it did run here: the window is LOST,
+  !!        not absent. rules it installed cannot be found by this tool.
+        (log read: /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/app_sim.log)
+    nsr: no pidfile and no live process -- no window, so no rule can be dated
+        against it. NOT 'this app left nothing'. (G-12)
+        (its log is empty or absent too -- no sign it ever ran here)
+
+    NOT deleted, and nothing here deletes them.
+    (no app had a datable window in this run)
+    tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 1 question(s) not answerable
+    and 1 app(s) could not be asked whether they ran here at all: energy (no log channel exists for them -- see above)
+  !!  NOT CHECKED: the residue question could not be answered -- rc 5.
+  !!    this is not 'the network is clean'. see the lines above for which
+  !!    reading failed. (KNOWN-ISSUES G-12)
+EOF
+
+# Half a report: the residue half never ran. Must not be read as a pass.
+mk no_tally <<'EOF'
+  ok  no untracked app processes
+
+network residue (nothing below is deleted)
+  !!  the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked.
+EOF
+
+# What a caller who forgot `2>&1` collects when an orphan IS running: err() writes to fd 2.
+mk no_process_half <<'EOF'
+network residue (nothing below is deleted)
+    lock  routing_lock free
+    tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 0 question(s) not answerable
+EOF
+
+# The same clean report, captured with `ndt`'s colours on.
+printf '\033[32m  ok\033[0m  no untracked app processes\n\033[2m  tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 0 question(s) not answerable\033[0m\n' > "$FIX/coloured"
+
+# =================================================================================================
+section "GREEN -- a clean fabric"
+# =================================================================================================
+OUT="$(verdict "$FIX/clean" 0)"
+check "  rc 0"                                            "0"  "$(rc_of "$OUT")"
+has   "  VERDICT: CLEAN"                                  "VERDICT: CLEAN" "$OUT"
+has   "  processes=clean"                                 "processes=clean" "$OUT"
+has   "  network=0/0/0"                                   "network=0/0/0" "$OUT"
+has   "  not_answerable=0"                                "not_answerable=0" "$OUT"
+hasnt "  and nothing to NOTE"                             "NOTE" "$OUT"
+
+# =================================================================================================
+section "RED 1 -- the process half says an untracked process is running"
+# =================================================================================================
+OUT="$(verdict "$FIX/running" 1)"
+check "  rc 1"                                            "1"  "$(rc_of "$OUT")"
+has   "  processes=running"                               "processes=running" "$OUT"
+has   "  VERDICT: NOT CLEAN"                              "VERDICT: NOT CLEAN" "$OUT"
+has   "  and names the remedy"                            "ndt apps stop <name>" "$OUT"
+
+# =================================================================================================
+section "RED 2 -- the tally says a dated rule sits in a window"
+# =================================================================================================
+OUT="$(verdict "$FIX/one_rule" 4)"
+check "  rc 1"                                            "1"  "$(rc_of "$OUT")"
+has   "  network=1/0/0"                                   "network=1/0/0" "$OUT"
+has   "  VERDICT: NOT CLEAN"                              "VERDICT: NOT CLEAN" "$OUT"
+has   "  and says which"                                  "1 dated rule(s) in a window" "$OUT"
+
+# =================================================================================================
+section "🔴 CONTROL -- 1 question(s) not answerable, rc 5, everything else clean"
+# =================================================================================================
+OUT="$(verdict "$FIX/live_a7" 5)"
+check "  🔴 rc 0 -- the case this reader exists for"      "0"  "$(rc_of "$OUT")"
+has   "  VERDICT: CLEAN"                                  "VERDICT: CLEAN" "$OUT"
+has   "  processes=clean"                                 "processes=clean" "$OUT"
+has   "  network=0/0/0"                                   "network=0/0/0" "$OUT"
+has   "  not_answerable=1"                                "not_answerable=1" "$OUT"
+has   "  the NOTE is printed, not swallowed"              "NOTE: 1 question(s) not answerable" "$OUT"
+has   "  and says it is a NOTE and not a FAIL"            "A NOTE and not a FAIL" "$OUT"
+has   "  ndt's own rc is recorded"                        "ndt_rc=5 (recorded, NOT used for the verdict)" "$OUT"
+has   "  the tool's own sentence is quoted"               "the window is LOST" "$OUT"
+has   "  and so is the app nobody can ask about"          "could not be asked whether they ran here at all: energy" "$OUT"
+
+# =================================================================================================
+section "🔴 RC_IS_NOT_CONSULTED -- the discriminating control"
+# =================================================================================================
+A="$(verdict "$FIX/live_a7" 5)"; B="$(verdict "$FIX/live_a7" 0)"
+check "  the same report with rc 5 and rc 0 gives the same verdict" \
+      "$(grep -F 'VERDICT:' <<<"$A")" "$(grep -F 'VERDICT:' <<<"$B")"
+OUT="$(verdict "$FIX/one_rule" 0)"
+check "  🔴 a dated rule is NOT CLEAN even when ndt returned 0" "1" "$(rc_of "$OUT")"
+OUT="$(verdict "$FIX/clean")"
+check "  and no rc at all is fine -- the report is the input"    "0" "$(rc_of "$OUT")"
+hasnt "  with no ndt_rc line to invent"                          "ndt_rc=" "$OUT"
+
+# =================================================================================================
+section "A held lock is residue -- rc 4's other half"
+# =================================================================================================
+OUT="$(verdict "$FIX/one_lock" 4)"
+check "  rc 1"                                            "1"  "$(rc_of "$OUT")"
+has   "  network=0/1/0"                                   "network=0/1/0" "$OUT"
+has   "  and says a lock heals at its TTL"                "a lock frees itself at its TTL" "$OUT"
+
+# =================================================================================================
+section "A blind liveness channel is NOT a pass (E-7)"
+# =================================================================================================
+OUT="$(verdict "$FIX/blind_channel" 2)"
+check "  rc 1"                                            "1"  "$(rc_of "$OUT")"
+has   "  processes=unknown"                               "processes=unknown" "$OUT"
+has   "  and the verdict says which of the two it was"    "a liveness channel was blind" "$OUT"
+hasnt "  🔴 and it is not reported as a running orphan"   "processes=running" "$OUT"
+
+# =================================================================================================
+section "Undated rules are a NOTE -- every P4 fabric, every run (W16-3)"
+# =================================================================================================
+OUT="$(verdict "$FIX/p4_undated" 5)"
+check "  🔴 rc 0 -- a P4 fabric must be able to pass"     "0"  "$(rc_of "$OUT")"
+has   "  network=0/0/40"                                  "network=0/0/40" "$OUT"
+has   "  and the 40 are noted"                            "NOTE: 40 rule(s) could not be dated" "$OUT"
+has   "  with ndt's sentence for why"                     "CANNOT WINDOW" "$OUT"
+
+# =================================================================================================
+section "An unreadable report is UNUSABLE, never CLEAN"
+# =================================================================================================
+OUT="$(verdict "$FIX/no_tally" 5)"
+check "  no tally line -> rc 2"                           "2"  "$(rc_of "$OUT")"
+has   "  and says so"                                     "VERDICT: UNUSABLE" "$OUT"
+hasnt "  🔴 and never says CLEAN"                         "VERDICT: CLEAN" "$OUT"
+OUT="$(verdict "$FIX/no_process_half" 0)"
+check "  no process half -> rc 2"                         "2"  "$(rc_of "$OUT")"
+has   "  and names the cause (stderr was not captured)"   "did the caller capture stderr?" "$OUT"
+OUT="$(verdict "$FIX/does-not-exist" 0)"
+check "  a missing file -> rc 2"                          "2"  "$(rc_of "$OUT")"
+OUT="$(printf '' | verdict - )"
+check "  an empty report -> rc 2"                         "2"  "$(rc_of "$OUT")"
+
+# =================================================================================================
+section "Plumbing: stdin, and a report captured with colours on"
+# =================================================================================================
+OUT="$(bash "$V" - 0 < "$FIX/clean" 2>&1; echo "RC=$?")"
+check "  '-' reads the report from stdin"                 "0"  "$(rc_of "$OUT")"
+has   "  and answers the same"                            "VERDICT: CLEAN" "$OUT"
+OUT="$(verdict "$FIX/coloured" 0)"
+check "  SGR sequences do not hide the tally"             "0"  "$(rc_of "$OUT")"
+has   "  network=0/0/0"                                   "network=0/0/0" "$OUT"
+
+printf '\n%s\n' "-----------------------------------------------------------"
+printf '%d passed, %d failed\n' "$PASS" "$FAIL"
+[[ "$FAIL" -eq 0 ]]

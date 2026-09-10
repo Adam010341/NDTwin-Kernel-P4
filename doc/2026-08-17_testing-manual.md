@@ -361,6 +361,12 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
   **它碰不到這一格**：它在 `ndt down` 之後才跑，那時沒有 sim 在跑。
   🔴 那支腳本在 `scratch/`，**不在版控**。**新寫的閘門一律要看得懂 0／1／2／4／5**——
   尤其**不要把「非 0」讀成「有殘留」**：2 是「沒問完」、5 是「窗掉了、沒問」。
+  🆕 **09-10 Adam 裁：讀 tally 行，不要讀 rc。** rc 在一個合併視窗裡對同一個狀態位移了兩次
+  （乾淨 OVS4 `0 → 5`、P4 起著 sim `5 → 2`，R4-LIVE §4-A7／§4-A9）。**閘門不要自己 parse**：
+  `bash tools/test_workflow/orphans_verdict.sh <orphans 的完整輸出> [rc]`
+  給你 `processes=` ／ `network=<窗內規則>/<鎖>/<定不了年的>` ／ `not_answerable=`，
+  乾淨＝`processes=clean` 且前兩個數字是 0；**`not_answerable`＞0 與「定不了年」＞0 是 NOTE 不是 FAIL**。
+  沒有 tally 行 ⇒ 它回 rc 2 `UNUSABLE`，**不准當成過**。規格：`tests/shell/test_orphans_verdict.sh`。
 - **要退掉這個行為**（如果哪天不要了）：把 `ndt:3914-3918` 那兩行從
   「併進 `APP_SURVIVOR_BLIND`」改成只印不記，閘門
   `tests/shell/mutate_ndt_helper_apps_window.sh` 的 M24 會立刻紅。
