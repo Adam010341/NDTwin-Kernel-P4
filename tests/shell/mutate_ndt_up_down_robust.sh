@@ -530,6 +530,65 @@ m=$(mutant w6 "$NDT" \
 report_green "W6 (behaviour-preserving): the refusal's opening line reworded" "$m" \
        "the wording of the first line is not the behaviour under test"
 
+# --- H3: a bring-up that overlaps a teardown (ROLE-2, 2026-09-11) -----------------------------
+
+# M30 restores H3: nothing records that a teardown is running, so the only reading a P4
+# bring-up can take is the ports -- which look identical coming up and going down.
+m=$(mutant m30 "$NDT" \
+    '    mark_teardown_start
+
+    say "ndt down"' \
+    '    say "ndt down"')
+report "M30: the teardown records nothing again (H3)" "$m" \
+       "  🔴 'ndt down' removes its own marker when it finishes"
+
+# M31: the marker is written and nobody refuses on it -- a guard wired to nothing, which is
+# what every "the mechanism exists" check would have signed off (F8's lesson, one file over).
+m=$(mutant m31 "$NDT" \
+    '    guard_no_teardown_in_flight || bad=1' \
+    '    :')
+report "M31: the guard is not called from preflight" "$m" \
+       "  🔴 P4 preflight refuses while a teardown runs"
+
+# M32: the marker is never removed, so one teardown makes the lab permanently unstartable.
+m=$(mutant m32 "$NDT" \
+    '    mark_teardown_end
+    return "$down_rc"' \
+    '    return "$down_rc"')
+report "M32: the teardown never removes its marker" "$m" \
+       "  🔴 'ndt down' removes its own marker when it finishes"
+
+# M33: STALENESS DROPPED -- the file's existence is the whole test. A `down` killed mid-run
+# then blocks every later bring-up, which is worse than the overlap this fixes.
+m=$(mutant m33 "$NDT" \
+    '    if [[ ! "$pid" =~ ^[0-9]+$ ]] || ! kill -0 "$pid" 2>/dev/null; then' \
+    '    if false; then')
+report "M33: a stale marker refuses forever" "$m" \
+       "  🔴 a marker whose pid is gone does NOT refuse"
+
+# M34 (widening): every marker is stale, so the guard can never fire. It passes every "does it
+# clear a dead marker" cell and none of the refusal cells.
+m=$(mutant m34 "$NDT" \
+    '    [[ -f "$f" ]] || return 1
+    pid="$(sed -n '"'"'s/^pid=//p'"'"' "$f" | head -1)"' \
+    '    [[ -f "$f" ]] || return 1
+    return 1
+    pid="$(sed -n '"'"'s/^pid=//p'"'"' "$f" | head -1)"')
+report "M34 (widening): no teardown is ever in flight" "$m" \
+       "  🔴 P4 preflight refuses while a teardown runs"
+
+# M35: the marker is written before the refusals, so a `down` that refused to run claims to be
+# running one -- and then blocks a bring-up that should have been allowed.
+m=$(mutant m35 "$NDT" \
+    '    held="$(foreign_claim)"
+    if [[ -n "$held" && "$force" != "--force" ]]; then' \
+    '    mark_teardown_start
+    held="$(foreign_claim)"
+    if [[ -n "$held" && "$force" != "--force" ]]; then')
+report "M35: a refused teardown still claims to be running" "$m" \
+       "  🔴 a refused 'ndt down' writes no marker"
+
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then

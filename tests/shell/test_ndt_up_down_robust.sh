@@ -671,5 +671,83 @@ topo_for_hosts 4 p4" 2>/dev/null)"
 check "  🔴 and the warning does not land in the model path" "$FIX/setting/unreadable.json" "$OUT"
 
 # ==========================================================================================
+section "9. H3: a bring-up that overlaps a teardown is refused, on BOTH planes"
+# ==========================================================================================
+# Measured live by ROLE-2, 2026-09-11 (ROLE-2-CYCLES-REPORT §4, cycle-13): a second `ndt up p4`
+# 13 s after a backgrounded `ndt down` printed `ok already up: 10 switches, 4 hosts, reusing`,
+# then PASSED `ok model matches fabric` with the fabric mid-SIGTERM, and the teardown went on to
+# name that run's own kernel and proxy as residue and advise `ndt down --deep`. On OVS the same
+# overlap was refused one second in, by mn_count. The difference is not care: bmv2 is root-owned
+# and its ports look identical coming up and going down, so on P4 there was nothing to read. The
+# teardown now records that it is running, and preflight refuses on the record.
+reset_fix
+DM="$FIX/.test_run/down.inflight"
+
+# A live teardown: this test's own shell is the pid, so it is certainly alive.
+printf 'pid=%s\nat=2026-09-11T01:26:11+0800\nby=role-2\n' "$$" > "$DM"
+OUT="$(drive 'preflight p4')"
+check "  🔴 P4 preflight refuses while a teardown runs"  "1" "$(rc_of_out "$OUT")"
+has   "  and says what it is refusing"                   "an 'ndt down' from this checkout is still running" "$OUT"
+has   "  naming the pid that is doing it"                "pid $$" "$OUT"
+has   "  and when it started"                            "2026-09-11T01:26:11+0800" "$OUT"
+has   "  🔴 and what the overlap actually does"          "REUSES the fabric" "$OUT"
+has   "  quoting what [1/3] said on 09-11"               "already up: 10 switches, reusing" "$OUT"
+has   "  and the remedy"                                 "wait for it to finish" "$OUT"
+OUT="$(drive 'preflight ovs')"
+check "  and OVS preflight refuses too"                  "1" "$(rc_of_out "$OUT")"
+# The whole bring-up, not just the predicate: nothing may be built.
+reset_fix; printf 'pid=%s\nat=2026-09-11T01:26:11+0800\n' "$$" > "$DM"
+OUT="$(drive 'up_p4 4')"
+check "  🔴 'ndt up p4 4' is refused"                    "1" "$(rc_of_out "$OUT")"
+check "  🔴 and no topo-start ran"                       "absent" \
+      "$(grep -qF topo-start "$FIX/sudo.log" && echo present || echo absent)"
+
+# 🔴 THE STALE MARKER, which is the failure this must not create: a `down` that was killed
+# leaves the file behind, and a marker that outlived its process must not make the lab
+# unstartable. Pid 2 is init's kthreadd on Linux, so instead of guessing a dead pid the fixture
+# uses one that certainly is not an `ndt down`: a pid that has exited. `$!` of a finished
+# background job is the cheapest one that is certainly gone.
+reset_fix
+(exit 0) & DEADPID=$!; wait "$DEADPID" 2>/dev/null
+printf 'pid=%s\nat=2026-09-10T23:59:31+0800\n' "$DEADPID" > "$DM"
+OUT="$(drive 'preflight p4')"
+check "  🔴 a marker whose pid is gone does NOT refuse"  "0" "$(rc_of_out "$OUT")"
+has   "  it says it removed it"                          "removing a stale teardown marker" "$OUT"
+has   "  naming the pid and when"                        "2026-09-10T23:59:31+0800" "$OUT"
+check "  🔴 and the file is gone, so it cannot block again" "absent" \
+      "$([[ -f "$DM" ]] && echo present || echo absent)"
+# A marker with no pid field at all -- a truncated write -- is stale, not a refusal.
+reset_fix; printf 'at=2026-09-10T23:59:31+0800\n' > "$DM"
+OUT="$(drive 'preflight p4')"
+check "  a marker with no pid is stale too"              "0" "$(rc_of_out "$OUT")"
+
+# 🔴 THE CONTROLS. "Refuse when the marker file exists" and "always refuse" both satisfy the
+# cells above; so would a guard wired to nothing.
+reset_fix
+OUT="$(drive 'preflight p4')"
+check "  🔴 no marker: preflight passes, as before"      "0" "$(rc_of_out "$OUT")"
+hasnt "  and says nothing about a teardown"              "still running" "$OUT"
+OUT="$(drive 'preflight ovs')"
+check "  and so does OVS"                                "0" "$(rc_of_out "$OUT")"
+
+# The teardown is what writes it, and the teardown is what takes it away. `cmd_down` is driven
+# with a fake stack and helper, as in group 4.
+reset_fix
+OUT="$(drive 'cmd_down; echo "MARKER=$([[ -f "$(down_marker)" ]] && echo present || echo absent)"')"
+has   "  🔴 'ndt down' removes its own marker when it finishes" "MARKER=absent" "$OUT"
+check "  and left none on disk"                          "absent" \
+      "$([[ -f "$DM" ]] && echo present || echo absent)"
+# 🔴 And it is written while the teardown is RUNNING, not merely created and deleted: the marker
+# is read from inside the teardown, at the moment cmd_clean runs.
+reset_fix
+OUT="$(drive 'cmd_clean() { teardown_in_flight >/dev/null && echo "MARKER-LIVE-DURING-DOWN"; return 0; }
+cmd_down')"
+has   "  🔴 and it is present DURING the teardown, not just around it" "MARKER-LIVE-DURING-DOWN" "$OUT"
+# A `down` that REFUSES never claims to be tearing down.
+reset_fix
+OUT="$(drive 'foreign_claim() { echo other-owner; }; cmd_down; echo "MARKER=$([[ -f "$(down_marker)" ]] && echo present || echo absent)"')"
+has   "  🔴 a refused 'ndt down' writes no marker"       "MARKER=absent" "$OUT"
+
+# ==========================================================================================
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]

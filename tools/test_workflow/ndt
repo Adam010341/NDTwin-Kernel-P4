@@ -1526,6 +1526,11 @@ preflight() {
     # and ovs-topo-4host derive their topology from the same KERNEL_DIR that topo-start does
     # (ndtwin-lab's ovs_topo_script). See guard_lab_acts_in_this_tree.
     guard_lab_acts_in_this_tree || bad=1
+    # H3, and next to the tree guard for the same reason: both are facts that make the whole
+    # bring-up wrong, both are knowable before anything is read from the machine, and both are
+    # plane-independent -- the P4 plane is the one that cannot see the teardown, and the OVS
+    # plane's own refusal (mn_count, in up_ovs) fires later and names a symptom.
+    guard_no_teardown_in_flight || bad=1
     [[ -x "$REPO/build/bin/ndtwin_kernel" ]] || { err "kernel binary missing: build/bin/ndtwin_kernel"; bad=1; }
     if [[ "$mode" == "p4" ]]; then
         [[ -x "$REPO/p4_proxy/venv/bin/python" ]] || { err "proxy venv missing: p4_proxy/venv/bin/python"; bad=1; }
@@ -2313,6 +2318,83 @@ wait_reaped() {
     return 1
 }
 
+# --- a teardown that is still running ---------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 H3, measured live by ROLE-2 on 2026-09-11 (ROLE-2-CYCLES-REPORT §4, cycle-13). A second
+# `ndt up p4` thirteen seconds after a backgrounded `ndt down`:
+#
+#   * preflight saw :30051-30060 and :9091-9100 still held by the DYING fabric and answered
+#     `unknown` rather than refusing -- correctly, on its own terms: bmv2 runs as root, so a
+#     live P4 fabric always looks like that (the reuse path depends on it);
+#   * [1/3] printed `ok already up: 10 switches, 4 hosts, reusing` -- it reused a fabric that
+#     was being torn down;
+#   * [3/3] then PASSED `ok model matches fabric: 4 hosts (kernel graph, topology file and 4
+#     host namespaces all agree)`, with the next line in the log a bare `Terminated`;
+#   * it ended `h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding`, which is the
+#     wrong diagnosis: the fabric was not failing to forward, it no longer existed;
+#   * the background `down` then reported the SECOND up's brand-new kernel and proxy as
+#     residue -- `residue: ndtwin_kernel pid 1916426 holding :8000` -- and advised
+#     `ndt down --deep`, which would have killed what the operator had just started;
+#   * and its clear_up_target removed the second up's baseline, so `--check` fell from rc 1
+#     (which could still state facts) to rc 3, "COULD NOT CHECK", exactly when a live half
+#     stack most needed describing.
+#
+# On the OVS plane the same overlap is refused cleanly one second in, because mn_count() sees
+# the Mininet still standing: `a Mininet is already running (15 host/switch processes)`. The
+# P4 plane has no such reading -- bmv2 is root-owned and its ports look identical whether the
+# fabric is coming up, up, or going down -- so the missing fact was never observable from the
+# machine. It has to be RECORDED, by the only process that knows: the teardown itself.
+#
+# 🔴 A marker, not a lock. It says "pid N is tearing down, since T", and a bring-up refuses on
+# it. What it must never do is outlive the teardown -- a crashed `down` that made every later
+# `up` impossible would be worse than the overlap -- so the reader verifies the pid is alive
+# and removes the marker itself when it is not.
+down_marker() { echo "${NDT_DOWN_MARKER:-$REPO/.test_run/down.inflight}"; }
+
+# teardown_in_flight -- "<pid> <at>" while an `ndt down` from this checkout is running; rc 1
+# otherwise. A marker whose pid is gone is STALE: it is removed here, out loud, and reported as
+# no teardown. Same checkout and same user, so `kill -0` is the whole test.
+teardown_in_flight() {
+    local f pid at
+    f="$(down_marker)"
+    [[ -f "$f" ]] || return 1
+    pid="$(sed -n 's/^pid=//p' "$f" | head -1)"
+    at="$(sed -n 's/^at=//p' "$f" | head -1)"
+    if [[ ! "$pid" =~ ^[0-9]+$ ]] || ! kill -0 "$pid" 2>/dev/null; then
+        warn "removing a stale teardown marker: pid ${pid:-?} (recorded ${at:-?}) is gone." >&2
+        warn "  a crashed 'ndt down' must not make every later bring-up impossible. (${f#$REPO/})" >&2
+        rm -f "$f"
+        return 1
+    fi
+    printf '%s %s\n' "$pid" "${at:-?}"
+    return 0
+}
+
+mark_teardown_start() {
+    local f; f="$(down_marker)"
+    mkdir -p "$(dirname "$f")" 2>/dev/null || return 0
+    printf 'pid=%s\nat=%s\nby=%s\n' "$$" "$(date '+%Y-%m-%dT%H:%M:%S%z')" "${NDT_OWNER:-unset}" > "$f"
+}
+mark_teardown_end() { rm -f "$(down_marker)"; }
+
+# guard_no_teardown_in_flight -- the refusal. Called from preflight, which is the one thing both
+# planes run before the machine is touched.
+guard_no_teardown_in_flight() {
+    local tif; tif="$(teardown_in_flight)" || return 0
+    err "refusing to build: an 'ndt down' from this checkout is still running."
+    err "  pid ${tif%% *}, started ${tif#* }   ($(down_marker | sed "s|^$REPO/||"))"
+    err "  a bring-up that overlaps a teardown does not fail cleanly -- it REUSES the fabric"
+    err "  being destroyed. Measured 09-11: [1/3] said 'already up: 10 switches, reusing',"
+    err "  [3/3] passed 'model matches fabric', and the fabric was mid-SIGTERM. The teardown"
+    err "  then reported this run's own kernel and proxy as residue and advised 'ndt down"
+    err "  --deep', which would have killed them."
+    err "  wait for it to finish, then bring up. On OVS this was already refused by"
+    err "  mn_count (a Mininet is already running); bmv2 is root-owned and its ports look the"
+    err "  same coming up and going down, so on P4 nothing could see it. (H3)"
+    return 1
+}
+
 cmd_down() {
     local force="" deep="" arg busy held down_rc=0
     for arg in "$@"; do
@@ -2347,6 +2429,13 @@ cmd_down() {
         return 1
     fi
     [[ -n "$busy" ]] && warn "--force: tearing down with a measurement in flight"
+
+    # H3. From here on this process is destroying the lab, and a concurrent `ndt up` has no
+    # other way to know: every reading it could take -- held ports, a live fabric, a topo
+    # session -- looks exactly like a stack that is up. Written AFTER the refusals above, so a
+    # `down` that refused to run never claims to be running one, and removed at the single
+    # exit below.
+    mark_teardown_start
 
     say "ndt down"
 
@@ -2434,6 +2523,9 @@ cmd_down() {
     # reader would wait for a machine that is already free. Written AFTER the assertion above,
     # so the note reports what was verified rather than what was attempted.
     claim_note_down "$down_rc"
+    # H3. One exit path, so one removal. A `down` killed before it gets here leaves the marker
+    # behind, which is why teardown_in_flight checks the pid rather than trusting the file.
+    mark_teardown_end
     return "$down_rc"
 }
 
