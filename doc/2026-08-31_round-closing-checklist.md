@@ -101,6 +101,14 @@ hook 只在你 commit 的那一刻才有機會說話，而**「缺席」不觸�
       `bash tools/test_workflow/orphans_verdict.sh <完整輸出> [rc]`**，它回
       `processes=` ／ `network=<窗內規則>/<鎖>/<定不了年的>` ／ `not_answerable=`，
       乾淨＝`processes=clean` 且前兩個數字是 0，**`not_answerable`＞0 與「定不了年」＞0 是 NOTE 不是 FAIL**）。
+      🔴 **這一格要在 `ndt down` 之前問，網路那半才有答案。** `ndt down` 關掉 `:8000` ⇒
+      殘留報告在印 tally 之前就 return ⇒ down 之後這一格**永遠只有行程那半**。
+      🆕 **09-11 起 helper 認得這件事**：報告裡有 `ndt` 自己那句
+      `the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked.` ⇒ 它印
+      `network=n/a`、`not_answerable=n/a`、`NOTE: network half not checkable: kernel down`，
+      **VERDICT 由行程那半決定**（乾淨 ⇒ rc 0，`VERDICT: CLEAN -- the process half only; …`）。
+      **那不是「網路乾淨」**，是「沒問到」——要那半的答案，把這一格移到 down 之前。
+      沒有那句話而沒有 tally ⇒ 照舊 rc 2 `UNUSABLE`，**不准當成過**。
       **2026-09-07 起它的 rc 不只回答行程了**（G-12／W16-1），
       判準跟著改，五個碼互斥、看到哪一個就做哪一件事：
 
