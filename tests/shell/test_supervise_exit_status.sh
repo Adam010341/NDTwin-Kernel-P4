@@ -28,7 +28,11 @@ set -uo pipefail
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 STACK="$REPO/tools/test_workflow/stack.sh"
-SUPERVISE_SH="$REPO/tools/test_workflow/supervise.sh"
+# The mutation gate (tests/shell/mutate_supervise_pidfile_cleanup.sh) points this at a COPY.
+# The start_bg/stop_one groups below go through stack.sh, which finds supervise.sh beside
+# itself and is therefore always the tree's own -- so a mutant is exercised by the groups that
+# call this variable directly, which is where the pidfile cleanup lives.
+SUPERVISE_SH="${SUPERVISE_UNDER_TEST:-$REPO/tools/test_workflow/supervise.sh}"
 CHECK_LOGS="$REPO/tools/contract_test/check_logs.py"
 
 PASS=0
@@ -90,11 +94,19 @@ case "$(field "$TMP/aborted.exit" reason)" in
 esac
 
 # --- the pid that did the work, and the history ----------------------------------------------
+# 🔴 Read from .exit, not from .child.pid. Both numbers still have to be on disk, each
+# labelled -- that is B-5's claim -- but since 2026-09-11 (R7 I-3) supervise.sh removes
+# .child.pid on its way out, because after the wait it names a pid that is gone and
+# .test_run/pids/ is the registry a teardown signals. The number is not lost: it is child_pid=
+# here and child= in .exit.log. Asserting on the transient file would have made this cell an
+# argument for keeping a dead number in the registry.
 check "the child pid is recorded" "yes" \
-    "$([[ -s "$TMP/aborted.child.pid" ]] && echo yes || echo no)"
+    "$([[ -n "$(field "$TMP/aborted.exit" child_pid)" ]] && echo yes || echo no)"
 check "the child pid is not the supervisor's" "different" \
-    "$([[ "$(cat "$TMP/aborted.child.pid")" == "$(field "$TMP/aborted.exit" supervisor_pid)" ]] \
+    "$([[ "$(field "$TMP/aborted.exit" child_pid)" == "$(field "$TMP/aborted.exit" supervisor_pid)" ]] \
         && echo same || echo different)"
+check "🔴 and the transient pidfile is not left naming it" "gone" \
+    "$([[ -f "$TMP/aborted.child.pid" ]] && echo present || echo gone)"
 # .exit is overwritten by the next run; .exit.log is the part that survives it.
 bash "$SUPERVISE_SH" "$TMP/aborted" bash -c 'exit 0' >/dev/null 2>&1
 check "the latest .exit is the latest run" "0" "$(field "$TMP/aborted.exit" status)"
@@ -140,6 +152,72 @@ case "$out" in
     *"did not stop cleanly"*) check "a normal stop is not called a crash" "yes" "no: $out" ;;
     *) check "a normal stop is not called a crash" "yes" "yes" ;;
 esac
+
+# --- the pidfiles it leaves behind (R7 I-3) ---------------------------------------------------
+#
+# 🔴 Measured 2026-09-11 02:52:03 and again 02:52:27 (hunt-0911/R7-reconciler.md round 14), 57 s
+# and 81 s after the event. One directory, two files, opposite stories:
+#
+#     ryu.pid        20717    /proc/20717 does not exist
+#     ryu.child.pid  20722    /proc/20722 does not exist
+#     ryu.exit       at=2026-09-11T02:51:06  status=143  reason=terminated by SIGTERM (15)
+#
+# The exit RECORD was written and the live pidfiles were not removed. stop_one removes them, so
+# this only happens when the component was not stopped through stop_one -- an interrupted
+# bring-up, an outside kill -- which is precisely when the registry is least explicable.
+# .test_run/pids/ is what `ndt down` signals and what ndt's port_owner_local reads to decide a
+# listener is "ours", so a dead number left in it is the pid-reuse fuse under both.
+#
+# 🔴 AND <prefix>.pid IS LEFT ALONE, which is the half that matters and is pinned twice below.
+# Removing it as well was tried and this suite went red on `stop_one reports the abort` with an
+# empty message: stop_one opens `[[ -f "$pidfile" ]] || return 0`, and report_exit -- the whole
+# of B-5's observability -- is behind that gate. The file whose absence proves the component is
+# dead is also the file that makes anyone look. A stale <prefix>.pid is DISCLOSED by `ndt
+# status` instead (stack_pidfile_row), and whether stop_one should report an orphaned .exit is
+# in FIX-NDT-3-SUMMARY section 7.
+echo
+echo "supervise.sh removes the child pidfile it can prove is dead, and only that one (R7 I-3)"
+
+rm -f "$TMP/mine".*
+bash -c 'echo $$ > "$1.pid"; exec bash "$2" "$1" bash -c "exit 143"' _ "$TMP/mine" "$SUPERVISE_SH" >/dev/null 2>&1
+check "🔴 the child pidfile is gone once the ending is recorded" "gone" \
+    "$([[ -f "$TMP/mine.child.pid" ]] && echo present || echo gone)"
+check "🔴 and <prefix>.pid is NOT removed -- stop_one needs it to report the ending" "present" \
+    "$([[ -f "$TMP/mine.pid" ]] && echo present || echo gone)"
+check "  the ending itself was still recorded" "143" "$(field "$TMP/mine.exit" status)"
+check "  the child pid is still readable, from the record" "1" \
+    "$([[ -n "$(field "$TMP/mine.exit" child_pid)" ]] && echo 1 || echo 0)"
+check "  and the history line too" "1" "$(grep -c 'status=143' "$TMP/mine.exit.log" 2>/dev/null)"
+
+# 🔴 The ordering, asserted rather than assumed: the record is what a reader is sent to when a
+# pidfile has gone, so a version that reaped the pidfile and then failed to write .exit would be
+# strictly worse than the defect.
+rm -f "$TMP/order".*
+bash -c 'echo $$ > "$1.pid"; exec bash "$2" "$1" bash -c "exit 0"' _ "$TMP/order" "$SUPERVISE_SH" >/dev/null 2>&1
+check "🔴 .exit exists in the state .child.pid does not" "yes" \
+    "$([[ -f "$TMP/order.exit" && ! -f "$TMP/order.child.pid" ]] && echo yes || echo no)"
+
+# 🔴 The control that stops "remove the pidfile" from widening into "remove any pidfile": while
+# the child is RUNNING, .child.pid must be there -- it is the only place the worker's pid is
+# readable before the ending is recorded, and stack.sh:946 reads /proc/<that pid>/comm.
+#
+# 🔴 Driven through $SUPERVISE_SH and not through start_bg, which is what this cell was written
+# with first: start_bg finds supervise.sh BESIDE stack.sh, so a mutant is never the file it runs
+# and this cell could not see one. mutate_supervise_pidfile_cleanup.sh M3 reported SURVIVED and
+# that is what it was telling us -- the case was asserting a true thing about the wrong file.
+rm -f "$TMP/alive2".*
+bash "$SUPERVISE_SH" "$TMP/alive2" bash -c 'exec sleep 300' >/dev/null 2>&1 &
+SUPPID=$!
+for _ in $(seq 1 60); do [[ -s "$TMP/alive2.child.pid" ]] && break; sleep 0.1; done
+check "🔴 a RUNNING component still has its child pidfile" "present" \
+    "$([[ -s "$TMP/alive2.child.pid" ]] && echo present || echo gone)"
+ALIVE2_CHILD="$(cat "$TMP/alive2.child.pid" 2>/dev/null)"
+# By recorded pid, never by pattern. supervise.sh forwards TERM to the child it is waiting on.
+kill -TERM "$SUPPID" 2>/dev/null
+wait "$SUPPID" 2>/dev/null
+[[ -n "$ALIVE2_CHILD" ]] && kill -TERM "$ALIVE2_CHILD" 2>/dev/null
+check "  and it is gone once that run has ended" "gone" \
+    "$([[ -f "$TMP/alive2.child.pid" ]] && echo present || echo gone)"
 
 # --- which endings fail the command ------------------------------------------------------------
 #
