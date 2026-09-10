@@ -2239,5 +2239,105 @@ class ModelUnderTestTest(unittest.TestCase):
         self.assertTrue(any("64 lowercase hex" in m for m in out), out)
 
 
+class SelftestFixturesMatchTheEndpointTable(unittest.TestCase):
+    """
+    Every --self-test fixture, against the schema the contract test actually validates with.
+
+    [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G2/G13, 2026-09-11.
+
+    17 of the 31 fixtures hold a private copy of a schema instead of spec.py's object. Several
+    of those copies are deliberate and say why. What was missing was anyone comparing them: on
+    2026-09-11 `install_flow_entry`'s copy described `{"status": ...}` while its endpoint has
+    required `accepted` since 2026-09-06, so --self-test was reporting "ok install_flow_entry"
+    for a body the live run would have failed on structure. A self-test whose stated purpose is
+    "prove the schemas accept what the kernel documents" cannot do that against a schema the
+    kernel's contract does not use.
+
+    This is the cross-application the offline round found missing (G3's third leg): the two
+    halves of the tool -- endpoint table and fixture map -- were only ever run against
+    themselves. It is a cheap check and it is the only one that can see a copy drift.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import selftest_fixtures  # noqa: PLC0415 -- same sys.path dance as spec, see above
+        cls.fx = selftest_fixtures
+        cls.by_name = {ep["name"]: ep for ep in spec.ENDPOINTS}
+
+    def test_every_fixture_names_an_endpoint_or_says_why_it_cannot(self):
+        unresolved = []
+        for name in self.fx.FIXTURES:
+            endpoint, which = self.fx.fixture_target(name)
+            if endpoint is None:
+                # (None, reason) is only allowed for a DECLARED exception. A key that simply
+                # fails to resolve is the typo this test exists to catch.
+                if name not in self.fx.FIXTURE_TARGET_OVERRIDES:
+                    unresolved.append(which)
+            elif endpoint not in self.by_name:
+                unresolved.append(f"{name!r} resolves to {endpoint!r}, not in ENDPOINTS")
+        self.assertEqual(unresolved, [], "\n".join(unresolved))
+
+    def test_every_fixture_sample_validates_against_its_endpoints_schema(self):
+        problems = []
+        for name, (_own_schema, sample) in self.fx.FIXTURES.items():
+            endpoint, which = self.fx.fixture_target(name)
+            if endpoint is None:
+                continue  # reported by the test above; not this test's finding
+            schema = self.by_name[endpoint].get(which)
+            if schema is None:
+                problems.append(f"{name!r}: endpoint {endpoint!r} has no {which}")
+                continue
+            errs = validate(schema, sample)
+            if errs:
+                problems.append(f"{name!r} vs {endpoint}.{which}: {errs}")
+        self.assertEqual(problems, [], "\n".join(problems))
+
+    def test_a_private_copy_that_has_drifted_is_caught(self):
+        # The positive control, so a green run above is not "the loop examined nothing".
+        # STATUS_OK is what install_flow_entry's fixture used to carry, and it is exactly one
+        # required field short of the endpoint's schema.
+        endpoint = self.by_name["install_flow_entry"]
+        self.assertTrue(validate(endpoint["schema"], {"status": "Flow installed"}),
+                        "the endpoint schema no longer requires anything beyond `status`, so "
+                        "this control cannot fail and the check above proves nothing")
+
+    def test_the_naming_convention_resolves_the_variant_fixtures(self):
+        # G13 counted 9 fixtures as belonging to no endpoint. They are variants; this pins the
+        # convention that says so, because a convention nothing asserts is a guess.
+        self.assertEqual(
+            self.fx.fixture_target("inject_link_failure (MININET)"),
+            ("inject_link_failure", "schema"))
+        self.assertEqual(
+            self.fx.fixture_target("link_failure_detected (kernel from trunk, "
+                                   "no down_reason/until)"),
+            ("link_failure_detected", "schema"))
+        # A query suffix is NOT stripped, and this probe is a name the override table does not
+        # carry, so it is the convention being asserted and not the exception. The one query
+        # fixture in the file answers with three required fields the unparameterised endpoint's
+        # reply does not have: stripping the suffix validates a sample against the wrong schema
+        # and prints `ok`.
+        self.assertIsNone(self.fx.fixture_target("get_graph_data?since=1")[0])
+
+    def test_the_declared_exceptions_resolve_where_they_say_they_do(self):
+        # Not "the table exists" -- the values. Every one of these was wrong before, in a way
+        # no test could see: a fixture attributed to the wrong endpoint validates against a
+        # schema that happens to fit, and the mis-attribution only surfaces when an invariant
+        # is applied (which is what G3 adds).
+        self.assertEqual(
+            self.fx.fixture_target("link_recovery_detected (declined: declaration_retained)"),
+            ("link_recovery_detected__declined_after_injection", "schema"),
+            "the DECLINED reply is step 4's, not step 2's")
+        self.assertEqual(
+            self.fx.fixture_target("link request body (all four endpoints take the same one)"),
+            ("link_failure_detected", "request_schema"),
+            "a request body must be checked against request_schema, not against a response")
+        endpoint, why = self.fx.fixture_target("get_flow_dispatch_status?request_id=<id>")
+        self.assertIsNone(endpoint)
+        self.assertIn("mutation", why, "a declared exception has to say why it is one")
+        endpoint, why = self.fx.fixture_target("no_such_endpoint (invented)")
+        self.assertIsNone(endpoint)
+        self.assertIn("not in spec.ENDPOINTS", why)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

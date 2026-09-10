@@ -276,6 +276,19 @@ OPENFLOW_CAPACITY_SAMPLE = {
 }
 
 
+def _endpoint_schema(endpoint_name):
+    """spec.py's own schema object for `endpoint_name`, so no copy of it can drift.
+
+    [Co-developed with claude code -- Adam] -- G2. Several entries below hold a private copy
+    deliberately (an older kernel's shape, a narrower sample); this is for the ones that have
+    no reason to.
+    """
+    for endpoint in spec.ENDPOINTS:
+        if endpoint["name"] == endpoint_name:
+            return endpoint["schema"]
+    raise KeyError(f"no endpoint named {endpoint_name!r} in spec.ENDPOINTS")
+
+
 FIXTURES = {
     "get_graph_data": (spec.GRAPH_DATA, GRAPH_DATA_SAMPLE),
     "get_detected_flow_data": (spec.List(spec.FLOW_RECORD), FLOW_DATA_SAMPLE),
@@ -341,7 +354,21 @@ FIXTURES = {
     "release_lock": (
         spec.Obj({"status": Str()}, optional={"type": Str()}),
         {"status": "released", "type": "routing_lock"}),
-    "install_flow_entry": (spec.STATUS_OK, {"status": "Flow installed"}),
+    # [Co-developed with claude code -- Adam]
+    # F-OFFLINE-1 G2, 2026-09-11. This was `(spec.STATUS_OK, {"status": "Flow installed"})` --
+    # a private copy of the schema, one required field short of the endpoint's, and a sample no
+    # kernel has emitted since the dispatcher became asynchronous. --self-test printed
+    # "ok install_flow_entry" for a body the live run rejects on structure, which is the one
+    # thing a self-test whose purpose is "the schemas accept what the kernel documents" must not
+    # do. Now the endpoint's own schema object and doc/2026-01-02_ndt_api.md 9's success body,
+    # verbatim, so `queued` also exercises inv_flow_write_is_honest_about_being_queued.
+    # Pinned by tests/python/test_contract_spec.py::SelftestFixturesMatchTheEndpointTable.
+    "install_flow_entry": (
+        _endpoint_schema("install_flow_entry"),
+        {"status": "queued", "accepted": 1,
+         "detail": "entries accepted for programming; per-entry outcomes are reported in the "
+                   "kernel log and, since they are not in this response, are readable "
+                   "afterwards from GET /ndt/get_flow_dispatch_status"}),
     "modify_nickname": (
         spec.Obj({"status": Str()}, optional={"message": Str()}),
         {"status": "success", "message": "Nickname updated successfully."}),
@@ -390,6 +417,72 @@ FIXTURES = {
         {"src_dpid": 106225808402492, "src_interface": 23,
          "dst_dpid": 106225808387660, "dst_interface": 23}),
 }
+
+# [Co-developed with claude code -- Adam]
+# F-OFFLINE-1 G2/G13, 2026-09-11. Which endpoint each fixture above is an example FOR.
+#
+# 17 of the 31 fixtures carry a private copy of the schema rather than spec.py's object, and one
+# of the 17 had drifted: `install_flow_entry` described `{"status": ...}` alone while the endpoint
+# has required `accepted` since 2026-09-06, so the self-test was proving a schema nothing runs.
+# A copy is not the defect -- several are deliberate, and the reasons are written above each one
+# -- but a copy nobody compares is, so tests/python/test_contract_spec.py cross-checks every
+# sample here against the schema the contract test actually validates with. This function is the
+# join that check needs.
+#
+# 🔴 The join used to be guessable and that is why nothing checked it. Reading the key as an
+# endpoint name resolves 22 of 31; the other 9 look like fixtures for endpoints that do not
+# exist, which is how the offline round came to count them that way. They are variants -- one
+# endpoint, several kernels or several outcomes -- and the convention below is the whole of it:
+#
+#   <endpoint name>                     the endpoint's documented success body
+#   <endpoint name> (<note>)            the same endpoint, another kernel or another outcome
+#
+# with the three exceptions listed. A query-string suffix is deliberately NOT part of the
+# convention: the one fixture that carries one answers with a DIFFERENT shape from its base
+# endpoint, so stripping it would apply the wrong schema and call that a pass. Guessing is
+# confined to the convention; every case the convention gets wrong is written down here rather
+# than left to be rediscovered by counting.
+#
+# A value of (None, reason) means "this shape has no endpoint, and here is why" -- a declared
+# exception, not an unresolved name.
+FIXTURE_TARGET_OVERRIDES = {
+    # Step 4 of the link sequence, not step 2: the DECLINED reply belongs to the endpoint that
+    # answers an injection nothing paired with. Resolving it by name attributes it to step 2,
+    # whose invariant then reports a correctly declined recovery as a failure.
+    "link_recovery_detected (declined: declaration_retained)":
+        ("link_recovery_detected__declined_after_injection", "schema"),
+    # The only fixture here that is a REQUEST rather than a response. All four link endpoints
+    # take it; the first one is named so the cross-check has a `request_schema` to reach.
+    "link request body (all four endpoints take the same one)":
+        ("link_failure_detected", "request_schema"),
+    # No endpoint by design, and the design is upstream of this file: obtaining a request_id
+    # means POSTing a flow batch, which is a mutation, and this endpoint's value is that it is
+    # safe to read on a live fabric (see DISPATCH_STATUS_FOR_REQUEST in spec.py). The shape is
+    # carried here so a reader learns it; it must not be validated against the unparameterised
+    # endpoint, whose reply has three required fields this one does not.
+    "get_flow_dispatch_status?request_id=<id>":
+        (None, "the parameterised form is not registered as a probe: reading it needs a "
+               "request_id, and getting one is a mutation"),
+}
+
+
+def fixture_target(fixture_name):
+    """
+    (endpoint name, "schema" | "request_schema") for a key of FIXTURES, or (None, why).
+
+    [Co-developed with claude code -- Adam] -- G2/G13.
+    """
+    if fixture_name in FIXTURE_TARGET_OVERRIDES:
+        return FIXTURE_TARGET_OVERRIDES[fixture_name]
+    base = fixture_name
+    if base.endswith(")") and "(" in base:
+        base = base[:base.rindex("(")]
+    base = base.strip()
+    if any(ep["name"] == base for ep in spec.ENDPOINTS):
+        return base, "schema"
+    return None, (f"{fixture_name!r} does not name an endpoint: it reads as {base!r}, which is "
+                  f"not in spec.ENDPOINTS. Rename it to '<endpoint> (<note>)' or add it to "
+                  f"FIXTURE_TARGET_OVERRIDES with the reason")
 
 
 class FakeCtx:
