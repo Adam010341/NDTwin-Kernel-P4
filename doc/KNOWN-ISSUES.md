@@ -2431,6 +2431,70 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
   **本條登記者沒有複驗任何一次 live 重現（🟠 轉述）**，只有上面對 `r6-91-kernel.log` 的兩次 grep
   是登記者自己跑的（🟢）。**兩者不要混用。**
 
+### C-5 🔴 混合資料平面：訊息的語氣是拒絕，行為是收下 —— **已修（分支）**
+
+- **狀態**：**已修（分支 `fix/bug17-mixed-dataplane-refused`，2026-09-07，尚未併入 trunk）。**
+  在此之前：`TopologyAndFlowMonitor::validateDataPlaneHomogeneity()` 回傳 `bool`，
+  而 `parseStaticTopologyFile()` 的最後一行是**裸呼叫**——回傳值沒有任何人接。
+  「拒絕」因此只是一行 `[error]`，kernel 照樣開 :8000 並用混合模型回答。
+- **平面**：OVS＋BMv2 混合（R6 2026-09-05 在 mininet 模式下實測）
+- **失效方向**：**樂觀**——三份文件說會拒絕、log 的語氣是拒絕，而 :8000 開著
+- **會發生什麼**（R6 實測，逐字；`doc/audit/2026-09-02_manual-usertest/run-06-opus/BUGS.md` BUG-17）：
+  把 `setting/StaticNetworkTopologyP4_10Switches_4Hosts.json` 複製到 `/tmp` 並把一台的
+  `brand_name` 由 `BMv2` 改成 `OVS`，然後
+  `sudo ./bin/ndtwin_kernel --mode mininet --topology /tmp/MixedTopology.json --no-ai`：
+  ```
+  validateDataPlaneHomogeneity] Topology mixes data planes (ovs=[1]; bmv2=[2,3,4,5,6,7,8,9,10]).
+  A single run must be all-OVS or all-BMv2: ... Fix the topology file, or set
+  AppConfig::ALLOW_MIXED_DATAPLANE to override.
+  ...
+  LISTEN 0 4096 0.0.0.0:8000 0.0.0.0:*
+    :8000 open -- it did NOT refuse
+   nodes 14 edges 40
+   switch brands: ['BMv2', 'OVS']
+  ```
+- 🔑 **三份文件各說各話，而只有最弱的那一份是真的**（R6 的原始發現）：
+  ① 網站 `architecture.md`：「The kernel **refuses to load** a mixed topology」——**假**
+  （2026-09-06 已在網站 repo 更正成「loads the topology anyway」，見〈影響面〉）；
+  ② 安裝手冊 §6：「**logs an error naming the mixture when it loads** such a topology」——真；
+  ③ 安裝手冊 Step 6.4 註解：「setting it true **only suppresses the startup error**」——真。
+  repo 內另有兩處與 ① 同一邊：`doc/2026-07-29_p4_status_and_test_guide.md:76`（「直接 fatal」）
+  與 `setting/AppConfig.hpp:12-15` 的註解（「the kernel refuses to load a mixed topology」）。
+- **修法**：同質性判定移進 `validateStaticTopologyJson`（**第一個 `add_vertex` 之前**，
+  所以被拒絕的檔案留下 `num_vertices == 0`，與 #61／#89／#90／#91 五扇門同一條紀律），
+  回傳值真的擋下；`parseStaticTopologyFile` 尾端那一呼叫保留為第二層守衛。
+  `ALLOW_MIXED_DATAPLANE` 這條支援路徑一個字沒動。
+- 🔴 **對外的影響面（跨 repo，這一單改不到）**：網站 repo `NDTwin-Website` 的
+  `content/en/docs/architecture.md:89-93` 在 2026-09-06 被更正成描述**舊行為**
+  （「logs an error naming the mixture and then loads the topology anyway ...
+  calls `validateDataPlaneHomogeneity()` and discards its result」）——
+  **這一單一併入就會讓那一段反過來變成假的**。它不在本 repo 裡；替換文字見
+  `scratch/overnight-2026-09-05/fix/R2-BUG17-SUMMARY.md` §6。
+- **證據**：R6 實測（🟠 **本條登記者沒有重跑那次 live**，只開檔核對過回傳值確實沒人接：
+  `src/ndt_core/collection/TopologyAndFlowMonitor.cpp` `parseStaticTopologyFile` 尾行 🟢）。
+
+### C-5b 同一個回傳值的另一半：**一台交換機都沒有的拓樸也被收下** —— **已修（同分支，2026-09-07 E-26）**
+
+- **狀態**：**已修（同一個分支，補一顆 commit）。** BUG-17 的第一顆刻意只擋「一種以上平面」，
+  把「一台交換機都沒有」留成 log——理由寫在當時的 FIX 文件 §3（「那是另一條政策，沒有人裁過」）。
+  **Adam 2026-09-07 裁了，而且與建議相反**（grill §4E 的 **E-26**，`scratch/overnight-2026-09-05/DECISIONS.md:266`
+  逐字：「零交換機拓撲：**拒**，在 BUG17 分支補一顆（⚠️ 與建議相反：建議是不拒另開單）」）。
+- **失效方向**：**樂觀**——`validateDataPlaneHomogeneity()` 從寫下來的那天起就對這個情況印
+  `Topology contains no switches; nothing can be controlled`，而那句話與混平面那句一樣**沒有人接回傳值**
+  ⇒ kernel 照樣開 :8000，對一個零交換機的 fabric 用它回答真 fabric 的同一種語氣。
+- **修法**：判定移到與混平面**同一扇門**（`validateStaticTopologyJson`，第一個 `add_vertex` 之前）
+  ⇒ 被拒絕的檔案 `num_vertices == 0`；`parseStaticTopologyFile` 尾端的第二層由 `> 1` 改成 `!= 1`，
+  兩種情況一起守。
+- 🔴 **沒有 override**：`ALLOW_MIXED_DATAPLANE` 是「同時跑兩種平面」的 opt-in，**不含「一種都不跑」**，
+  所以零交換機的門**不在那個旗標後面**（閘門 M33 就是釘這一格的變異體）。
+- **對出貨檔的影響：零。** 🟢 本輪自己跑過的盤點：repo 內 34 份帶 `vertex_type` 的拓樸文件
+  （13 份 `setting/` 出貨檔＋21 份 audit 快照／複現檔）**每一份都至少有 1 台交換機**
+  （最少的是 `round3-restart-concurrency/topo/topo_1sw.json` 的 1 台）。
+- ⚠️ **測試面有一格被翻面**：`test_SwitchKindDispatch.cpp` 的 `EmptyTopologyFailsValidation`
+  以前是 `load("")`（空的 `nodes` 陣列）**經由載入器**取得那張空圖；載入器現在會拒它，
+  所以那支改成直接建一個未載入的 monitor 問同一個函式，另補
+  `AnEmptyTopologyFileIsRefusedAtLoad` 管載入那一半。**斷言的內容沒有變，取得受測物的路徑變了。**
+
 ## D. 已明確裁定不修（含理由）
 
 | 缺陷 | 裁定 | 理由 |

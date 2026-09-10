@@ -27,6 +27,13 @@
 # measured on :8000 (R0b, 2026-09-05, kernel 862c4bf8, served as `('h9', [])`); its missing-key
 # and non-array halves were not, and are message claims rather than acceptance claims.
 #
+# 🔴 E-26 (M31-M33, 2026-09-07) REVERSES A DECISION THIS GATE MADE THE SAME DAY. BUG-17 refused a
+# data-plane MIXTURE and deliberately left "no switches at all" loading, with M31 as the mutation
+# pinning that boundary. Adam ruled the other way hours later (grill Section 4E, E-26, against the
+# recommendation), so M31 now mutates in the opposite direction and its case was renamed. Anyone
+# quoting an M31 result must check which side of 2026-09-07 it came from. E-26 is a two-layer fix
+# like #61's, so its restoration is a mutate2 -- see section 5f.
+#
 # 🔴 W15-2 (M25-M27, added 2026-09-07) REVERSES HALF OF #91 BY RULING, so this gate now measures
 # a door that is deliberately narrower than it was yesterday: an unrecognised brand is admitted
 # when the node declares an explicit, legal `switch_kind`, and the switch is marked
@@ -169,7 +176,7 @@ PYCOUNT
 declare -a ANCHOR_FILE ANCHOR_TEXT ANCHOR_NAME
 add_anchor() { ANCHOR_NAME+=("$1"); ANCHOR_FILE+=("$2"); ANCHOR_TEXT+=("$3"); }
 
-add_anchor "validate-call"  "$TFM" '    validateStaticTopologyJson(j, where, m_mode);'
+add_anchor "validate-call"  "$TFM" '    validateStaticTopologyJson(j, where, m_mode, m_allowMixedDataPlane);'
 add_anchor "dpid-known"     "$TFM" '            if (switchDpids.count(dpid) == 0)'
 add_anchor "dpid-refusal"   "$TFM" '                    "\" is " + std::to_string(dpid) +'
 add_anchor "host-addr"      "$TFM" '            if (nodeAddresses.count(addresses.front()) == 0)'
@@ -215,6 +222,19 @@ add_anchor "w15b-exempt"    "$TFM" '                !declaresLegalSwitchKind(nod
 add_anchor "w15b-presence"  "$TFM" '            if (!(nodeJson.contains("brand_name") && nodeJson.at("brand_name").is_string()))'
 add_anchor "w15b-predicate" "$TFM" '    if (!(nodeJson.contains("switch_kind") && nodeJson.at("switch_kind").is_string()))'
 add_anchor "w15b-mark"      "$TFM" '        vp.powerPath = powerPathForBrandName(vp.brandName);'
+
+# BUG-17 -- the data-plane mixture, decided from the document and refused before the first
+# add_vertex. Three anchors: the guard that reads the flag, the `> 1` that says what counts as a
+# mixture, and the second layer at the end of the builder whose return value used to be dropped.
+add_anchor "bug17-guard"    "$TFM" '    if (!allowMixed)
+    {
+        if (declaredKinds.size() > 1)'
+add_anchor "bug17-size"     "$TFM" '        if (declaredKinds.size() > 1)'
+add_anchor "bug17-second"   "$TFM" '    if (!validateDataPlaneHomogeneity(m_allowMixedDataPlane) && builtKinds.size() != 1)'
+# E-26 (2026-09-07) -- the OTHER end of the same question: a document declaring no switch at all.
+# One anchor, and it deliberately sits OUTSIDE the `!allowMixed` guard above: the mixed-plane
+# opt-in must not carry this refusal with it. M32 mutates it back inside.
+add_anchor "e26-switchless" "$TFM" '    if (declaredKinds.empty())'
 
 echo "=== anchor uniqueness (exact substring count must be 1) ==="
 anchor_ok=1
@@ -418,10 +438,10 @@ echo "  ok       $TARGET sha256 $BIN_SHA_BEFORE"
 #     leaving the function used, so what is measured is the missing check and not the warning.
 mutate "validation removed: the whole pass is never called" \
     "$TFM" \
-    '    validateStaticTopologyJson(j, where, m_mode);' \
+    '    validateStaticTopologyJson(j, where, m_mode, m_allowMixedDataPlane);' \
     '    if (false)
     {
-        validateStaticTopologyJson(j, where, m_mode);
+        validateStaticTopologyJson(j, where, m_mode, m_allowMixedDataPlane);
     }' \
     TopologyInputValidationTest.AGhostDpidEdgeLeavesNoPartiallyLoadedGraph \
     TopologyInputValidationTest.ASixDigitInterfaceIsRefused \
@@ -728,9 +748,22 @@ mutate "door 3e: an unknown brand_name is accepted again" \
     '            if (std::find(kAcceptedSwitchBrands.begin(), kAcceptedSwitchBrands.end(), brandName) ==
                     kAcceptedSwitchBrands.end() &&
                 !declaresLegalSwitchKind(nodeJson) && false)' \
-    TopologyInputValidationTest.AnUnknownBrandNameLeavesNoPartiallyLoadedGraph \
+    TopologyInputValidationTest.AFabricEntirelyOfAnUnknownBrandIsStillRefused \
     TopologyInputValidationTest.TheUnknownBrandRefusalNamesTheBrandAndTheAcceptedOnes \
     TopologyInputValidationTest.TheUnknownBrandRefusalDoesNotSuggestAllowingMixedDataPlanes
+
+# 🔴 M21 USED TO NAME AnUnknownBrandNameLeavesNoPartiallyLoadedGraph, AND SINCE BUG-17 IT CANNOT.
+# That case is R0b's measured file: ONE switch of an all-BMv2 fabric given an unknown brand. An
+# unknown brand maps to HARDWARE, so that file is ALSO a data-plane mixture -- and since
+# 2026-09-07 a mixture is refused in the same pass, before the first add_vertex. With door 3e
+# switched off the file is therefore still refused, still with vertices == 0, and that case stays
+# green: M21 SURVIVED against it on the first run of this gate after BUG-17.
+#
+# The replacement makes every switch the unknown brand, which removes the mixture (all ten map to
+# HARDWARE) and leaves door 3e as the only thing that can refuse the file. The two message cases
+# stay: with door 3e off, R0b's file is refused by the MIXTURE door, whose sentence names neither
+# the brand nor the accepted list and does suggest ALLOW_MIXED_DATAPLANE -- so they still go red,
+# and they are now what pins WHICH door refused.
 
 # M22. 🔴 OVER-WIDE: the door is applied to every node type. Every host in every shipped file
 #      carries `"brand_name": ""`, which is not a data plane and is not in the list, so this
@@ -853,6 +886,106 @@ mutate "W15-1(b): the power manager branches on a brand literal the loader refus
     TopologyInputValidationTest.TheAcceptedBrandListCoversEveryBrandTheCodeBranchesOn
 
 # ================================================================================================
+# 5f. BUG-17 + E-26 -- how many data planes a topology file may declare (M29-M33, added 2026-09-07)
+#
+# 🔴 THE DEFECT WAS A DISCARDED RETURN VALUE, AND IT WAS MEASURED ON :8000. R6 (2026-09-05,
+# run-06-opus/BUGS.md) built a mixed model, got an ERROR line naming both dpid sets, and then
+# `nodes 14 edges 40` off a live :8000. validateDataPlaneHomogeneity returned a bool;
+# parseStaticTopologyFile called it as a statement. Three shipped pages said the kernel "refuses
+# to load" such a file.
+#
+# 🔴 M31 WAS INVERTED ON 2026-09-07, HOURS AFTER IT WAS WRITTEN, BY RULING -- AND THE INVERSION IS
+# THE POINT OF READING THIS SECTION CAREFULLY. BUG-17 refused a MIXTURE and deliberately left "no
+# switches at all" as a log line, on the stated grounds that widening the refusal to cover it would
+# be a policy change nobody had ruled on; M31 was the mutation holding that line (`> 1` written as
+# `!= 1` had to go RED). Adam then ruled the other way (grill Section 4E, E-26,
+# scratch/overnight-2026-09-05/DECISIONS.md:266, explicitly against the recommendation): a
+# switchless topology is refused too, through the same door. So M31 now mutates in the opposite
+# direction -- it takes E-26's door out and leaves BUG-17's `> 1` exactly as it shipped -- and the
+# case it names was renamed and reversed with it. W8 did not move: it still proves these cases
+# measure WHICH topologies are refused rather than how the condition is spelled.
+#
+# Five directions:
+#   - the mixture verdict is dropped again      (M29) -- the defect verbatim
+#   - the opt-in stops working                  (M30) -- a supported feature removed while "fixing"
+#                                                        it, a bigger regression than the bug
+#   - the switchless refusal is dropped at BOTH
+#     layers                                    (M31) -- E-26 undone; 0f79d44f verbatim, and it
+#                                                        takes two sites, like M2
+#   - ... at the document layer only            (M32) -- the backstop still refuses, but from the
+#                                                        end of the builder with four hosts already
+#                                                        in the graph: refused, and also here is
+#                                                        most of it
+#   - the switchless refusal hides behind the
+#     mixed-plane opt-in                        (M33) -- one `&&`, and a build with
+#                                                        ALLOW_MIXED_DATAPLANE = true silently gets
+#                                                        the pre-E-26 behaviour back
+# ================================================================================================
+
+# M29. The document-level verdict is computed and thrown away, exactly as the builder-level one
+#      used to be. The file loads; nothing else changes.
+mutate "BUG-17: the mixture verdict is discarded again" \
+    "$TFM" \
+    '        if (declaredKinds.size() > 1)' \
+    '        if (declaredKinds.size() > 1 && false)' \
+    TopologyInputValidationTest.AMixedDataPlaneTopologyIsRefusedAtLoad \
+    TopologyInputValidationTest.TheMixedDataPlaneRefusalNamesBothPlanesAndTheirDpids
+
+# M30. 🔴 THE OPT-IN IS IGNORED: a mixed topology is refused even when the operator asked for one.
+#      Mixed fabrics have a flag, a manual section and a test of their own; refusing them
+#      unconditionally would remove a feature under cover of fixing a bug.
+mutate "BUG-17: ALLOW_MIXED_DATAPLANE no longer admits a mixed topology" \
+    "$TFM" \
+    '    if (!allowMixed)
+    {
+        if (declaredKinds.size() > 1)' \
+    '    if (true)
+    {
+        if (declaredKinds.size() > 1)' \
+    TopologyInputValidationTest.AMixedDataPlaneTopologyLoadsWhenTheFlagIsSet
+
+# M31. 🔴 E-26 UNDONE AT BOTH LAYERS, WHICH IS EXACTLY BUG-17 AS IT SHIPPED THE DAY BEFORE, AND IT
+#      TAKES TWO SITES -- the M2 situation again. E-26 refuses a switchless document in
+#      validateStaticTopologyJson AND widened the builder's backstop from `> 1` to `!= 1`. Removing
+#      only the first leaves the second still refusing (that is M32, below), so a one-site edit
+#      cannot restore `fix/bug17-mixed-dataplane-refused`@0f79d44f and reporting it as though it
+#      could would be the gate flattering its own subject. With both edits the mutant IS 0f79d44f:
+#      a document with hosts and no switch loads, and :8000 answers about a fabric of zero
+#      switches. The red is on `threw`.
+mutate2 "E-26 at both layers: a switchless topology loads again -- 0f79d44f verbatim" \
+    "$TFM" \
+    '    if (declaredKinds.empty())' \
+    '    if (declaredKinds.empty() && false)' \
+    '    if (!validateDataPlaneHomogeneity(m_allowMixedDataPlane) && builtKinds.size() != 1)' \
+    '    if (!validateDataPlaneHomogeneity(m_allowMixedDataPlane) && builtKinds.size() > 1)' \
+    TopologyInputValidationTest.ASwitchlessTopologyIsRefusedAtLoad \
+    TopologyInputValidationTest.TheSwitchlessRefusalNamesTheFileAndWhatIsMissing
+
+# M32. 🔴 THE FIRST LAYER ALONE, AND THE RED IS A DIFFERENT SENTENCE FROM M31's. Only the
+#      document-level door is removed; the builder's backstop still refuses -- but it refuses from
+#      the end of the builder, with all four hosts already in the graph. `vertices == 4` while
+#      `threw` stays true is the #61/#89 shape exactly: refused, and also here is most of it. This
+#      is what makes "E-26 goes through BUG-17's door, before the first add_vertex" a measured
+#      claim rather than a description of where the source happens to sit.
+mutate "E-26: the document-level door is removed, leaving only the builder's backstop" \
+    "$TFM" \
+    '    if (declaredKinds.empty())' \
+    '    if (declaredKinds.empty() && false)' \
+    TopologyInputValidationTest.ASwitchlessTopologyIsRefusedAtLoad \
+    TopologyInputValidationTest.TheSwitchlessRefusalNamesTheFileAndWhatIsMissing
+
+# M33. 🔴 THE SWITCHLESS DOOR PUT BEHIND THE MIXED-PLANE OPT-IN. One `&&`, it compiles, and every
+#      other case in this file stays green -- including M31's and M32's, because the flag is false
+#      by default. What it changes is a build with ALLOW_MIXED_DATAPLANE = true, which would
+#      silently go back to loading switchless files: the flag is an opt-in to running two data
+#      planes, and it must not carry "and none" along with it. Only the opted-in case can see this.
+mutate "E-26: the switchless refusal is gated on the mixed-plane opt-in" \
+    "$TFM" \
+    '    if (declaredKinds.empty())' \
+    '    if (!allowMixed && declaredKinds.empty())' \
+    TopologyInputValidationTest.ASwitchlessTopologyIsRefusedEvenWithTheMixedPlaneOptIn
+
+# ================================================================================================
 # 6. the widenings -- these MUST survive
 # ================================================================================================
 
@@ -929,6 +1062,24 @@ widen "the exemption is written as a separate guard rather than a conjunct" \
             const bool toldExplicitly = declaresLegalSwitchKind(nodeJson);
             if (!brandIsAccepted && !toldExplicitly)'
 
+# W8. BUG-17's control. `> 1` written as `>= 2` -- the identical predicate for a size_t. If this
+#     reddens, M29 is pinning how the mixture test is spelled rather than which topologies it
+#     refuses.
+widen "the mixture test is written as size() >= 2" \
+    "$TFM" \
+    '        if (declaredKinds.size() > 1)' \
+    '        if (declaredKinds.size() >= 2)'
+
+# W9. E-26's control, and the same shape as W5. `empty()` written as `size() == 0`: the identical
+#     predicate, and one character from `size() == 1`. If this reddens, M31-M33 are pinning how
+#     the switchless tests are spelled rather than which topologies they refuse -- which matters more
+#     here than usual, because this door and its case were both written the other way round
+#     yesterday and the next person to read them needs to know the gate is measuring behaviour.
+widen "the switchless test is written as size() == 0" \
+    "$TFM" \
+    '    if (declaredKinds.empty())' \
+    '    if (declaredKinds.size() == 0)'
+
 # ================================================================================================
 # 7. restore and verdict
 # ================================================================================================
@@ -989,6 +1140,12 @@ echo "  FINDINGS #90 gate: door 3d cannot be switched off, neither of its two pl
 echo "  can quietly fall back to a raw nlohmann exception, and it cannot narrow to 'exactly one"
 echo "  address' without the five _ipAlias4_ files saying so -- while spelling the emptiness test"
 echo "  a different way stays green."
+echo "  BUG-17 + E-26 gate: a mixed data plane cannot be reported-and-loaded again, the opt-in"
+echo "  cannot stop working, and the switchless refusal cannot be dropped at both layers (which is"
+echo "  BUG-17 as it shipped on 2026-09-06, before E-26 reversed it), cannot be dropped at the"
+echo "  document layer alone without a case going red on vertices == 4 while threw stays true, and"
+echo "  cannot be hidden behind the mixed-plane opt-in -- while writing the mixture test as"
+echo "  size() >= 2 and the switchless test as size() == 0 both stay green."
 echo "  W15-1(b) gate: the brand list cannot lose a hardware model without the shipped fleet saying"
 echo "  so, and a brand comparison cannot go back to a bare literal the loader would refuse."
 echo "  W15-2 gate: the switch_kind exemption cannot be removed, cannot spread to the brand_name"

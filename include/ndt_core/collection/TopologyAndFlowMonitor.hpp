@@ -616,6 +616,15 @@ class TopologyAndFlowMonitor
      * confusing runtime mixture into a clear startup error. Enabling mixed topologies
      * later means relaxing this check, not redesigning the dispatch.
      *
+     * 🔴 IT ANSWERS FALSE FOR TWO DIFFERENT GRAPHS, AND SINCE 2026-09-07 BOTH ARE REFUSALS.
+     * A graph with more than one switch kind is BUG-17's case; a graph with NO switches is E-26's
+     * (Adam's ruling, grill Section 4E). Both are decided from the DOCUMENT in
+     * validateStaticTopologyJson, before the first add_vertex, so a file that reaches this
+     * function has already passed both; the call at the end of parseStaticTopologyFile uses this
+     * return value as the second layer. `allowMixed` relaxes only the mixture: a switchless
+     * topology is refused whatever the flag says, because the flag is an opt-in to running two
+     * data planes and not to running none.
+     *
      * @param allowMixed when true, logs the mixture as a warning instead of failing.
      * @return true when the topology is acceptable.
      *
@@ -828,6 +837,27 @@ class TopologyAndFlowMonitor
      * [Co-developed with claude code -- Adam]
      */
     void parseStaticTopologyFile(const std::string& path, std::string& where);
+
+    /**
+     * @brief Let this monitor load a topology whose switches are not all one data plane.
+     *
+     * [Co-developed with claude code -- Adam]
+     * BUG-17. Defaults to AppConfig::ALLOW_MIXED_DATAPLANE, which is a `static constexpr bool`
+     * and therefore not something a test can vary. That did not matter while the homogeneity
+     * check only logged; it matters now that the check REFUSES, because "a mixed topology is
+     * still accepted when the operator has opted in" became a claim about loading, and a claim
+     * with no way to assert it is a claim nobody is keeping.
+     *
+     * Protected rather than public, and for the same reason as loadStaticTopologyFromFile above:
+     * it is a seam for tests, not an operator control. The supported way to run a mixed fabric is
+     * still the compile-time flag -- there is deliberately no endpoint, no CLI switch and no
+     * setter reachable from outside this class hierarchy, because "mixed" disables assumptions
+     * the telemetry and liveness paths make and must not be flippable at run time.
+     */
+    void setAllowMixedDataPlane(bool allow)
+    {
+        m_allowMixedDataPlane = allow;
+    }
 
     /**
      * @brief Builds the curl command for one topology endpoint.
@@ -1169,6 +1199,10 @@ class TopologyAndFlowMonitor
     std::atomic<double> m_lastRateDivisorSeconds{-1.0};
 
     utils::DeploymentMode m_mode;
+
+    /// @see setAllowMixedDataPlane. Initialised from AppConfig::ALLOW_MIXED_DATAPLANE.
+    /// [Co-developed with claude code -- Adam]
+    bool m_allowMixedDataPlane;
 
     // [Co-developed with claude code -- Adam]
     // dpid -> data plane, built once in loadStaticTopologyFromFile. Has its own mutex so
