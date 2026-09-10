@@ -2560,15 +2560,35 @@ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
                                 .insert({(*m_graph)[srcVertex].dpid, srcPort})
                                 .second)
                         {
+                            // [Co-developed with claude code -- Adam]
+                            // 🔴 doc/KNOWN-ISSUES.md B-16, third half. The tail of this sentence
+                            // used to be `POST /ndt/link_recovery_detected to clear this` for
+                            // BOTH kinds of declaration, and since W8b that is wrong for one of
+                            // them: a declaration nothing ever reported broken -- an injection --
+                            // makes that endpoint DECLINE, retain the declaration and log "link
+                            // recovery declined". This is the only sentence about a standing
+                            // declaration that a successor who did not restart the kernel ever
+                            // sees (E-20's advice is printed once, at startup, from
+                            // src/main.cpp), so it was sending him to the endpoint that would
+                            // refuse him. `failureReported` is right here in the edge this poll
+                            // is declining to raise, so the poll can tell the two apart.
                             SPDLOG_LOGGER_WARN(
                                 Logger::instance(),
                                 "the control plane still lists link (dpid {} port {}), but a link "
                                 "failure was declared for it, so this poll is not marking it up. A "
                                 "declaration has no effect on the fabric, so the control plane will "
-                                "go on listing this link for ever. POST "
-                                "/ndt/link_recovery_detected to clear this",
+                                "go on listing this link for ever. {}",
                                 srcDpidStr,
-                                srcPortStr);
+                                srcPortStr,
+                                eprop.failureReported
+                                    ? "POST /ndt/link_recovery_detected to clear this"
+                                    : "Nothing ever reported this link broken, so it was injected "
+                                      "and /ndt/link_recovery_detected will DECLINE to clear it "
+                                      "(W8b): POST /ndt/inject_link_recovery to withdraw the "
+                                      "declaration. On MININET that also removes the netem -- but "
+                                      "only one this kernel attached; a netem it did not attach is "
+                                      "refused with 409 and has to be removed by whoever left it "
+                                      "(B-16)");
                         }
                     }
                     else
@@ -4007,7 +4027,10 @@ TopologyAndFlowMonitor::warnAboutResidualNetem(const utils::netem::TcRunner& run
             "topology. Packets there are already being dropped or delayed, and NOTHING IN THE "
             "GRAPH SAYS SO -- a declared link failure does not survive a kernel restart but the tc "
             "qdisc that accompanied it does. Nothing was cleared: check with 'tc qdisc show dev "
-            "<iface>' and remove it, or POST /ndt/inject_link_recovery for a link end. A "
+            "<iface>' and REMOVE IT YOURSELF -- this kernel has just started, so it attached none "
+            "of these and /ndt/inject_link_recovery answers 409 for a netem it did not attach "
+            "(B-16, and until 2026-09-11 this sentence sent you to an endpoint that would have "
+            "deleted somebody else's fault and reported success). A "
             "host-facing port belongs to whatever attached it (tools/test_workflow/faults.sh, the "
             "chaos harness); an interface this topology does not name means the fabric running "
             "here is not the one in the topology file. This sweep reads the root namespace only, "

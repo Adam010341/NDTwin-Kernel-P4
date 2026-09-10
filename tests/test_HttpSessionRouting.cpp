@@ -153,10 +153,31 @@ class HttpSessionTestPeer
     {
     }
 
+    /**
+     * @brief Points the session's tc seam and provenance ledger at ones the test owns. B-16.
+     *
+     * [Co-developed with claude code -- Adam]
+     * doc/KNOWN-ISSUES.md B-16. This is what makes the MININET half of /ndt/inject_link_failure
+     * and /ndt/inject_link_recovery reachable from ctest at all: before it, both handlers built
+     * `utils::netem::realTcRunner()` inline and every case here had to use utils::TESTBED, where
+     * the handler answers `"tc": "skipped (not MININET)"` and returns.
+     *
+     * The ledger is the test's own rather than the process one so that no case can leave a
+     * recorded netem behind for the next -- an ownership check is exactly the kind of thing that
+     * passes for the wrong reason when state leaks between cases.
+     */
+    void useTcSeam(utils::netem::TcRunner runner, utils::netem::InjectedNetemLedger* ledger)
+    {
+        m_session->m_tcRunner = std::move(runner);
+        m_session->m_injectedNetem = ledger;
+        m_seamInstalled = true;
+    }
+
     /// Routes one request and returns the response. No socket I/O happens.
     const http::response<http::string_body>&
     send(http::verb method, const std::string& target, const std::string& body = "")
     {
+        refuseRealTc();
         m_session->m_req = {};
         m_session->m_req.version(11);
         m_session->m_req.method(method);
@@ -169,10 +190,38 @@ class HttpSessionTestPeer
     }
 
   private:
+    /**
+     * @brief Makes a case that reaches tc without asking for a fake fail loudly instead. B-16.
+     *
+     * [Co-developed with claude code -- Adam]
+     * Every constructor above builds a MININET session unless told otherwise, and on MININET the
+     * two inject endpoints really do run `sudo -n tc`. No case in this file has ever hit that --
+     * they all use utils::TESTBED for the inject endpoints, and say so in a comment -- but that is
+     * a convention, and the next person to write `HttpSessionTestPeer peer(m_monitor, m_bus)` and
+     * POST an injection would run tc against whatever `s1-eth1` is on the machine running ctest.
+     * A test suite is not allowed to touch this machine's qdisc tree; that is the rule
+     * tests/shell/mutate_declared_link_failure_survives_poll.sh states in its own header.
+     *
+     * Installed on every send() rather than in the constructors because there are four of those
+     * and one send(), and skipped once useTcSeam has put a real fake in place.
+     */
+    void refuseRealTc()
+    {
+        if (m_seamInstalled) return;
+        m_session->m_tcRunner = [](const std::vector<std::string>& args) {
+            ADD_FAILURE() << "an endpoint ran tc against the machine running the tests: "
+                          << utils::describeArgv(args)
+                          << "\nUse HttpSessionTestPeer::useTcSeam to supply a fake, or build the "
+                             "peer with utils::TESTBED if the tc half is not the subject.";
+            return utils::netem::TcOutcome{false, -1, ""};
+        };
+    }
+
     // Declared before m_session: the socket is constructed from it.
     boost::asio::io_context m_ioc;
     std::shared_ptr<HttpSession> m_session;
     std::shared_ptr<http::response<http::string_body>> m_response;
+    bool m_seamInstalled = false;
 };
 
 namespace
@@ -1654,4 +1703,370 @@ TEST_F(DeclaredLinkFailureWireTest, TheDpidZeroRefusalDoesNotTouchOrdinarySwitch
         EXPECT_EQ(peer.send(http::verb::post, endpoint, kBody).result_int(), 200u)
             << endpoint << " refused a link between two switches: " << endpoint;
     }
+}
+
+// =================================================================================================
+// B-16 on the wire: /ndt/inject_link_recovery detaches only what this kernel attached, and
+//                   /ndt/inject_link_failure cuts both ends or neither
+//
+// [Co-developed with claude code -- Adam]
+//
+// 🔴 MEASURED, ROLE-1 2026-09-11 00:52-01:02 CST, OVS 4-host fabric, kernel
+// `sha256 356803db69af3b1b…` (scratch/overnight-2026-09-05/hunt-0911/ROLE-1-A1-REPORT.md, 3 of 3
+// reproductions plus a 2-of-2 for the second finding). The reply the third round got, verbatim:
+//
+//     {"status":"link recovery injected","tc":[
+//      {"command":"qdisc del dev s1-eth1 root","detached_at":"root","interface":"s1-eth1",
+//       "ok":true,"qdisc_before":"qdisc netem 8021: root refcnt 15 limit 1000 loss 100%\n", …}]}
+//
+// The edge was `is_up:True / down_reason:"none"` before that request: this kernel had never
+// declared it down and had never injected anything on it. `netem 8021:` was the previous
+// operator's. Nothing in the reply or in kernel.log said whose it was.
+//
+// These cases are the wire half of that. They are in DeclaredLinkFailureWireTest so that both
+// B-6 gates cover them, and they are the FIRST cases in this repository to reach the MININET
+// branch of the two inject handlers: until B-16 gave HttpSession a tc seam, `realTcRunner()` was
+// written inline in both handlers and `grep -rn realTcRunner tests/` found nothing (A2).
+// =================================================================================================
+
+namespace
+{
+
+/// A model of the machine's per-device qdisc trees. Duplicated from tests/test_NetemLinkFault.cpp
+/// rather than shared, for the reason LogCapture is duplicated three times in this suite: hoisting
+/// it would create a test-support header several files then have to agree on, and this copy answers
+/// a different question (what the ENDPOINT did) from the copy there (what the helper did).
+class FakeWireFabric
+{
+  public:
+    std::vector<std::vector<std::string>> calls;
+
+    std::string treeOf(const std::string& dev) const
+    {
+        for (std::size_t i = 0; i < m_devs.size(); ++i)
+        {
+            if (m_devs[i] == dev) return m_trees[i];
+        }
+        return kUnshaped;
+    }
+
+    void put(const std::string& dev, const std::string& tree)
+    {
+        for (std::size_t i = 0; i < m_devs.size(); ++i)
+        {
+            if (m_devs[i] == dev)
+            {
+                m_trees[i] = tree;
+                return;
+            }
+        }
+        m_devs.push_back(dev);
+        m_trees.push_back(tree);
+    }
+
+    /// Somebody else's netem: at the root, with a handle this kernel never recorded. This is the
+    /// state ROLE-1 created with a bare `sudo tc qdisc add dev s1-eth1 root netem loss 100%`.
+    std::string attachSomebodyElsesNetem(const std::string& dev)
+    {
+        const std::string handle = nextHandle();
+        put(dev, "qdisc netem " + handle + " root refcnt 2 limit 1000 loss 100%\n");
+        return handle;
+    }
+
+    std::string handleOn(const std::string& dev) const
+    {
+        return utils::netem::netemHandleInTree(treeOf(dev));
+    }
+
+    bool hasNetem(const std::string& dev) const { return !handleOn(dev).empty(); }
+
+    bool ranAnyWrite() const
+    {
+        for (const auto& c : calls)
+        {
+            if (c.size() >= 2 && (c[1] == "add" || c[1] == "del")) return true;
+        }
+        return false;
+    }
+
+    int writesOn(const std::string& dev) const
+    {
+        int n = 0;
+        for (const auto& c : calls)
+        {
+            if (c.size() >= 4 && (c[1] == "add" || c[1] == "del") && c[3] == dev) ++n;
+        }
+        return n;
+    }
+
+    /// Every argv, rendered, for an assertion message.
+    std::string argvLog() const
+    {
+        std::string out;
+        for (const auto& c : calls)
+        {
+            out += "  " + utils::describeArgv(c) + "\n";
+        }
+        return out;
+    }
+
+    utils::netem::TcRunner runner()
+    {
+        return [this](const std::vector<std::string>& args) {
+            calls.push_back(args);
+            if (args.size() >= 2 && args[1] == "show")
+            {
+                const std::string dev = args.size() >= 4 ? args[3] : std::string();
+                return utils::netem::TcOutcome{true, 0, treeOf(dev)};
+            }
+            if (args.size() >= 4 && args[1] == "add")
+            {
+                put(args[3],
+                    "qdisc netem " + nextHandle() + " root refcnt 2 limit 1000 loss 100%\n");
+                return utils::netem::TcOutcome{true, 0, ""};
+            }
+            if (args.size() >= 4 && args[1] == "del")
+            {
+                put(args[3], kUnshaped);
+                return utils::netem::TcOutcome{true, 0, ""};
+            }
+            return utils::netem::TcOutcome{true, 0, ""};
+        };
+    }
+
+    static constexpr const char* kUnshaped = "qdisc noqueue 0: root refcnt 2\n";
+
+  private:
+    std::string nextHandle() { return "800" + std::to_string(m_handles++) + ":"; }
+
+    std::vector<std::string> m_devs;
+    std::vector<std::string> m_trees;
+    int m_handles = 1;
+};
+
+} // namespace
+
+/**
+ * 🔴 THE FINDING, VERBATIM (ROLE-1 round 3, the isolating control: no declaration, no injection,
+ * one netem that belongs to somebody else). 409 and nothing run, because the alternative measured
+ * on 2026-09-11 was 200 `ok:true` over a deleted `tc qdisc` that this kernel had no claim to.
+ */
+TEST_F(DeclaredLinkFailureWireTest, AnUndeclaredLinkWhoseNetemIsSomebodyElsesIsRefusedWith409)
+{
+    FakeWireFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    const std::string theirs = fabric.attachSomebodyElsesNetem("s1-eth1");
+
+    HttpSessionTestPeer peer(m_monitor, m_bus); // MININET: the tc half is the subject here
+    peer.useTcSeam(fabric.runner(), &ledger);
+    ASSERT_TRUE(edgeFromGraphData(peer, 1, 5).value("is_up", false))
+        << "the fixture link is already down, so this case would not be the undeclared one";
+
+    const auto& res = peer.send(http::verb::post, "/ndt/inject_link_recovery", kBody);
+
+    EXPECT_EQ(res.result_int(), 409u)
+        << "a recovery for a link nobody declared down, carrying a netem this kernel did not "
+           "attach, was accepted. That is the 2026-09-11 finding: the previous operator's fault "
+           "is deleted and the reply says ok. Body: " << res.body();
+    EXPECT_FALSE(fabric.ranAnyWrite())
+        << "the refusal ran a command that changes the qdisc tree:\n" << fabric.argvLog();
+    EXPECT_EQ(fabric.handleOn("s1-eth1"), theirs)
+        << "somebody else's netem is gone from the interface";
+    EXPECT_TRUE(edgeFromGraphData(peer, 1, 5).value("is_up", false))
+        << "the refused request still wrote to the graph";
+}
+
+/// A refusal a caller cannot act on is a refusal that gets retried. The body names the interface,
+/// says the netem is not this kernel's, and says what to do instead.
+TEST_F(DeclaredLinkFailureWireTest, TheRefusalNamesTheInterfaceAndSaysWhoseNetemItIsNot)
+{
+    FakeWireFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    fabric.attachSomebodyElsesNetem("s5-eth1");
+
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    peer.useTcSeam(fabric.runner(), &ledger);
+    const auto& res = peer.send(http::verb::post, "/ndt/inject_link_recovery", kBody);
+    ASSERT_EQ(res.result_int(), 409u) << res.body();
+
+    const auto body = nlohmann::json::parse(res.body(), nullptr, false);
+    ASSERT_FALSE(body.is_discarded()) << res.body();
+    const std::string error = body.value("error", std::string());
+    EXPECT_NE(error.find("s5-eth1"), std::string::npos)
+        << "the refusal does not say which interface is in the way: " << res.body();
+    EXPECT_NE(error.find("did not attach"), std::string::npos)
+        << "the refusal does not say the netem is not this kernel's, which is the whole reason it "
+           "refused: " << res.body();
+}
+
+/// The behaviour B-16 must NOT break: an operator taking back their OWN injection. Both ends were
+/// cut by this kernel, so both come off, and the declaration goes with them.
+TEST_F(DeclaredLinkFailureWireTest, AnInjectionThisKernelMadeIsWithdrawnAndItsNetemRemoved)
+{
+    FakeWireFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    peer.useTcSeam(fabric.runner(), &ledger);
+
+    const auto& injected = peer.send(http::verb::post, "/ndt/inject_link_failure", kBody);
+    ASSERT_EQ(injected.result_int(), 200u) << injected.body();
+    ASSERT_TRUE(fabric.hasNetem("s1-eth1")) << injected.body();
+    ASSERT_TRUE(fabric.hasNetem("s5-eth1")) << injected.body();
+    ASSERT_FALSE(edgeFromGraphData(peer, 1, 5).value("is_up", true)) << "the injection did not "
+        "declare the link down, so the recovery below would not be withdrawing anything";
+
+    // Snapshotted, not held by reference: send() replaces the peer's response object, so the
+    // edgeFromGraphData() below would leave a reference to it dangling. (It did, and the case
+    // segfaulted rather than failing -- which is why the assertions read copies.)
+    unsigned status = 0;
+    std::string reply;
+    {
+        const auto& res = peer.send(http::verb::post, "/ndt/inject_link_recovery", kBody);
+        status = res.result_int();
+        reply = res.body();
+    }
+
+    EXPECT_EQ(status, 200u) << reply;
+    EXPECT_FALSE(fabric.hasNetem("s1-eth1")) << "this kernel would not remove its own netem: "
+                                             << reply;
+    EXPECT_FALSE(fabric.hasNetem("s5-eth1")) << reply;
+    EXPECT_TRUE(edgeFromGraphData(peer, 1, 5).value("is_up", false))
+        << "the declaration was not withdrawn";
+    // The SECOND request above is the idempotent repeat, so its status line is the one asserted
+    // here only because both must read `link recovery injected`; the dedicated idempotency case
+    // is ASecondInjectRecoveryIsStillAnIdempotentNoop.
+    const auto body = nlohmann::json::parse(reply, nullptr, false);
+    ASSERT_FALSE(body.is_discarded()) << reply;
+    EXPECT_EQ(body.value("status", std::string()), "link recovery injected")
+        << "the happy path's status line changed, which is a contract change (spec.py's fifth "
+           "link step validates this reply): " << reply;
+}
+
+/**
+ * The contract's sixth link step, pinned in-process. `inject_link_recovery` runs TWICE in
+ * tools/contract_test/spec.py -- the second one proves the documented idempotency and doubles as
+ * the belt-and-braces restore -- and by then nothing is declared and no netem is left. A 409 for
+ * "not declared" would have broken that sequence, which is why the refusal needs a foreign netem
+ * to be PRESENT and not merely a missing declaration.
+ */
+TEST_F(DeclaredLinkFailureWireTest, ASecondInjectRecoveryIsStillAnIdempotentNoop)
+{
+    FakeWireFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    peer.useTcSeam(fabric.runner(), &ledger);
+    ASSERT_EQ(peer.send(http::verb::post, "/ndt/inject_link_failure", kBody).result_int(), 200u);
+    ASSERT_EQ(peer.send(http::verb::post, "/ndt/inject_link_recovery", kBody).result_int(), 200u);
+
+    const auto& res = peer.send(http::verb::post, "/ndt/inject_link_recovery", kBody);
+
+    ASSERT_EQ(res.result_int(), 200u)
+        << "the second recovery was refused, so a caller cannot bring a fabric back to health "
+           "without first knowing exactly what was done to it -- and the contract's step 6 fails: "
+        << res.body();
+    const auto body = nlohmann::json::parse(res.body(), nullptr, false);
+    ASSERT_FALSE(body.is_discarded()) << res.body();
+    ASSERT_TRUE(body.contains("tc")) << res.body();
+    ASSERT_EQ(body.at("tc").size(), 2u) << res.body();
+    for (const auto& end : body.at("tc"))
+    {
+        EXPECT_TRUE(end.value("ok", false)) << res.body();
+        EXPECT_FALSE(end.value("noop", std::string()).empty())
+            << "removing a netem that is not there must say `noop`: " << res.body();
+    }
+}
+
+/**
+ * 🔴 The third state, and the one the ticket's ruling names: the link IS declared -- this kernel
+ * injected it -- and somebody has since replaced the netem. The declaration is the caller's to
+ * withdraw and the qdisc is not this kernel's to delete, so it does both halves and says which.
+ */
+TEST_F(DeclaredLinkFailureWireTest, ANetemSwappedUnderAStandingDeclarationIsLeftStandingAndSaidSo)
+{
+    FakeWireFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    peer.useTcSeam(fabric.runner(), &ledger);
+    ASSERT_EQ(peer.send(http::verb::post, "/ndt/inject_link_failure", kBody).result_int(), 200u);
+
+    const std::string mine = fabric.handleOn("s1-eth1");
+    const std::string theirs = fabric.attachSomebodyElsesNetem("s1-eth1");
+    ASSERT_NE(mine, theirs) << "the fixture did not swap the qdisc";
+
+    // Snapshotted for the reason the case above says: edgeFromGraphData() sends again.
+    unsigned status = 0;
+    std::string reply;
+    {
+        const auto& res = peer.send(http::verb::post, "/ndt/inject_link_recovery", kBody);
+        status = res.result_int();
+        reply = res.body();
+    }
+
+    EXPECT_EQ(status, 200u)
+        << "the declaration is this caller's own and must still be withdrawable: " << reply;
+    EXPECT_TRUE(edgeFromGraphData(peer, 1, 5).value("is_up", false))
+        << "the declaration was retained even though the caller was entitled to withdraw it";
+    EXPECT_EQ(fabric.handleOn("s1-eth1"), theirs)
+        << "the netem somebody swapped in was deleted anyway:\n" << fabric.argvLog();
+    const auto body = nlohmann::json::parse(reply, nullptr, false);
+    ASSERT_FALSE(body.is_discarded()) << reply;
+    EXPECT_NE(body.value("status", std::string()), "link recovery injected")
+        << "the reply claims the recovery was injected while a netem it did not remove is still "
+           "dropping every packet on that interface: " << reply;
+    ASSERT_TRUE(body.contains("netem_left_standing")) << reply;
+    EXPECT_EQ(body.at("netem_left_standing").size(), 1u) << reply;
+    EXPECT_EQ(body.at("netem_left_standing")[0], "s1-eth1") << reply;
+}
+
+/**
+ * 🔴 THE SECOND FINDING ON THE WIRE (A1 ②, 2 of 2). s1-eth1 already carries somebody else's netem,
+ * so it is refused -- and before B-16 the loop went on and really attached `netem loss 100%` to
+ * s5-eth1, then answered 200 `"status":"link failure injected"` with both directions declared.
+ */
+TEST_F(DeclaredLinkFailureWireTest, AnInjectionRefusedAtOneEndAttachesNothingAtTheOther)
+{
+    FakeWireFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    const std::string theirs = fabric.attachSomebodyElsesNetem("s1-eth1");
+
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    peer.useTcSeam(fabric.runner(), &ledger);
+    const auto& res = peer.send(http::verb::post, "/ndt/inject_link_failure", kBody);
+
+    EXPECT_FALSE(fabric.hasNetem("s5-eth1"))
+        << "one end was refused and the other end was cut anyway -- a unidirectional fault the "
+           "caller did not ask for (faults.txt L-2), reported as `injected`:\n"
+        << fabric.argvLog();
+    EXPECT_EQ(fabric.writesOn("s5-eth1"), 0) << fabric.argvLog();
+    EXPECT_EQ(fabric.handleOn("s1-eth1"), theirs) << "the refused end was touched anyway";
+    EXPECT_EQ(res.result_int(), 200u)
+        << "the declaration half succeeded, so this stays 200 and the body carries the outcome -- "
+           "see the status assertion in the next case. Body: " << res.body();
+}
+
+/// The half of the same fix that is about what the caller is TOLD: `injected` is a claim about the
+/// wire, and nothing was attached.
+TEST_F(DeclaredLinkFailureWireTest, AHalfDoneInjectionNeverAnswersInjected)
+{
+    FakeWireFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    fabric.attachSomebodyElsesNetem("s1-eth1");
+
+    HttpSessionTestPeer peer(m_monitor, m_bus);
+    peer.useTcSeam(fabric.runner(), &ledger);
+    const auto& res = peer.send(http::verb::post, "/ndt/inject_link_failure", kBody);
+    ASSERT_EQ(res.result_int(), 200u) << res.body();
+
+    const auto body = nlohmann::json::parse(res.body(), nullptr, false);
+    ASSERT_FALSE(body.is_discarded()) << res.body();
+    EXPECT_NE(body.value("status", std::string()), "link failure injected")
+        << "nothing was attached to either end and the reply's top line still says the failure "
+           "was injected. Measured verbatim on 2026-09-11: " << res.body();
+    EXPECT_EQ(body.value("down_reason", std::string()), "declared")
+        << "the declaration half did happen and the body must still say so: " << res.body();
+    EXPECT_EQ(body.value("until", std::string()), "/ndt/inject_link_recovery") << res.body();
+    ASSERT_TRUE(body.contains("tc")) << res.body();
+    ASSERT_EQ(body.at("tc").size(), 2u) << res.body();
+    EXPECT_FALSE(body.at("tc")[0].value("refused", std::string()).empty())
+        << "the refused end does not say why: " << res.body();
 }

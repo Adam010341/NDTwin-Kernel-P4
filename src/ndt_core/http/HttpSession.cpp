@@ -55,7 +55,11 @@ HttpSession::HttpSession(
       m_intentTranslator(std::move(intentTranslator)),
       m_historicalDataManager(std::move(historicalDataManager)),
       m_controller(std::move(ctrl)),
-      m_lockManager(std::move(lockManager))
+      m_lockManager(std::move(lockManager)),
+      // [Co-developed with claude code -- Adam] B-16. The deployment's own tc and the one ledger
+      // the kernel writes to; a test peer repoints both. See the members' docblock.
+      m_tcRunner(utils::netem::realTcRunner()),
+      m_injectedNetem(&utils::netem::processInjectedNetemLedger())
 {
 }
 
@@ -853,25 +857,41 @@ HttpSession::handleInjectLinkFailure(http::response<http::string_body>& res)
     const std::string srcIface = mininetIfaceFor(graph, data->srcDpid, data->srcInterface);
     const std::string dstIface = mininetIfaceFor(graph, data->dstDpid, data->dstInterface);
 
-    const auto runner = utils::netem::realTcRunner();
-    json tc = json::array();
-    for (const std::string& iface : {srcIface, dstIface})
+    // [Co-developed with claude code -- Adam]
+    // doc/KNOWN-ISSUES.md B-16, second finding (ROLE-1 2026-09-11, 2 of 2). This was a loop that
+    // called cutInterface once per end and CARRIED ON past a refusal: with somebody else's netem
+    // already on s1-eth1, that end was refused, `netem loss 100%` really went onto s5-eth1, and
+    // the reply was 200 `"status":"link failure injected"` with both directions declared. Loss on
+    // BOTH ends is the whole point -- faults.txt L-2 records why one end is its own fault type:
+    // unidirectional loss kills LLDP in one direction only and leaves the control plane's graph
+    // permanently asymmetric -- so "both or neither" is what cutLinkEnds enforces, rollback
+    // included.
+    const auto cut = utils::netem::cutLinkEnds({srcIface, dstIface},
+                                               "100%",
+                                               *m_injectedNetem,
+                                               m_tcRunner);
+    body["tc"] = cut.at("tc");
+    if (!cut.value("attached", false))
     {
-        if (iface.empty())
-        {
-            tc.push_back({{"interface", nullptr},
-                          {"ok", false},
-                          {"refused", "the topology file gives this switch no bridge_name, so the "
-                                      "twin cannot name its interface"}});
-            continue;
-        }
-        // Loss on BOTH ends, not one. faults.txt L-2 records why one end is its own fault type:
-        // unidirectional loss kills LLDP in one direction only and leaves the control plane's
-        // graph permanently asymmetric. An injection meant to stand for "this link is gone" has
-        // to be symmetric or it is a different, subtler fault.
-        tc.push_back(utils::netem::cutInterface(iface, "100%", runner));
+        // 🔴 The status line is a claim about the WIRE, and nothing is on the wire. The
+        // declaration stands -- it is the half this endpoint could carry out, exactly as on a
+        // non-MININET deployment where the body says `skipped (not MININET)` -- and the caller is
+        // told which half happened rather than being left to infer it from a per-interface array.
+        body["status"] = "link failure declared; nothing was attached";
+        body["wire"] = "no netem was attached to either end: " +
+                       cut.value("why", std::string("the cut was refused")) +
+                       ". The declaration stands and the twin reports this link down, but packets "
+                       "are still flowing. Withdraw it with POST /ndt/inject_link_recovery";
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "inject link failure {}:{} -> {}:{}: declared down, but NOTHING was "
+                           "attached to either end ({}). The graph says this link is down and the "
+                           "fabric still carries packets on it",
+                           data->srcDpid,
+                           data->srcInterface,
+                           data->dstDpid,
+                           data->dstInterface,
+                           cut.value("why", std::string("the cut was refused")));
     }
-    body["tc"] = tc;
     res.body() = body.dump();
 }
 
@@ -919,6 +939,74 @@ HttpSession::handleInjectLinkRecovery(http::response<http::string_body>& res)
     }
 
     // [Co-developed with claude code -- Adam]
+    // 🔴 doc/KNOWN-ISSUES.md B-16 (ROLE-1 2026-09-11, 3 of 3). THE WIRE IS READ BEFORE ANYTHING
+    // IS WRITTEN, and that ordering is the fix rather than a tidiness. What this endpoint used to
+    // do, in this order, was: withdraw the declaration unconditionally, then `tc qdisc del`
+    // whatever netem the tree happened to show. For a link nobody had declared down, carrying
+    // somebody else's `netem loss 100%`, that deleted their fault and answered 200 `ok:true`.
+    //
+    // A refusal cannot be decided after the withdrawal has already happened, so the two reads
+    // happen here -- and they are reads: `tc qdisc show` only, nothing that changes a tree.
+    std::vector<std::string> ifaces;
+    std::vector<utils::netem::NetemSighting> sighted;
+    if (m_mode == utils::DeploymentMode::MININET)
+    {
+        const auto graph = m_topologyAndFlowMonitor->getGraph();
+        ifaces = {mininetIfaceFor(graph, data->srcDpid, data->srcInterface),
+                  mininetIfaceFor(graph, data->dstDpid, data->dstInterface)};
+        std::vector<std::string> foreign;
+        bool anyOurs = false;
+        for (const std::string& iface : ifaces)
+        {
+            sighted.push_back(
+                utils::netem::inspectNetem(iface, *m_injectedNetem, m_tcRunner));
+            if (sighted.back().provenance == utils::netem::NetemProvenance::Ours) anyOurs = true;
+            if (sighted.back().provenance == utils::netem::NetemProvenance::Foreign)
+            {
+                foreign.push_back(iface);
+            }
+        }
+
+        // 🔴 THE REFUSAL. Three conditions, and every one of them is load-bearing:
+        //   - nothing is declared here, so there is no injection of ANYBODY's to take back;
+        //   - this kernel attached nothing here, so it has no claim on what is attached;
+        //   - and something IS attached, which is why this is a conflict and not a no-op.
+        // Without the third, a plain repeat of a completed recovery would be refused, and the
+        // documented idempotency -- and the contract's sixth link step, which POSTs this endpoint
+        // a second time -- would be gone. See tools/contract_test/spec.py's link sequence.
+        const bool declared =
+            m_topologyAndFlowMonitor->getEdgeDeclaredDown(fwdOpt.value()) ||
+            m_topologyAndFlowMonitor->getEdgeDeclaredDown(revOpt.value());
+        if (!declared && !anyOurs && !foreign.empty())
+        {
+            json refusal;
+            refusal["error"] =
+                "not declared by this kernel; a netem is present on " +
+                utils::describeArgv(foreign) +
+                " that this kernel did not attach -- remove it yourself, or find out whose "
+                "experiment it belongs to first. Nothing was changed: no declaration was "
+                "withdrawn and no qdisc was deleted";
+            refusal["netem_not_ours"] = foreign;
+            refusal["why"] = sighted.front().provenance ==
+                                     utils::netem::NetemProvenance::Foreign
+                                 ? sighted.front().why
+                                 : sighted.back().why;
+            res.result(http::status::conflict);
+            res.body() = refusal.dump();
+            SPDLOG_LOGGER_WARN(Logger::instance(),
+                               "inject link recovery {}:{} -> {}:{} REFUSED (409): no failure is "
+                               "declared on this link and netem on {} was not attached by this "
+                               "kernel, so removing it would destroy whatever experiment did "
+                               "attach it. Nothing was withdrawn and no qdisc was deleted",
+                               data->srcDpid,
+                               data->srcInterface,
+                               data->dstDpid,
+                               data->dstInterface,
+                               utils::describeArgv(foreign));
+            return;
+        }
+    }
+
     // W8b: the UNCONDITIONAL withdrawal, and the only one left. /ndt/link_recovery_detected now
     // withdraws a declaration only when it pairs with a reported break; this endpoint is the
     // operator taking their own injection back, so it needs no agreement from the control plane --
@@ -938,24 +1026,52 @@ HttpSession::handleInjectLinkRecovery(http::response<http::string_body>& res)
         return;
     }
 
-    const auto graph = m_topologyAndFlowMonitor->getGraph();
-    const std::string srcIface = mininetIfaceFor(graph, data->srcDpid, data->srcInterface);
-    const std::string dstIface = mininetIfaceFor(graph, data->dstDpid, data->dstInterface);
-
-    const auto runner = utils::netem::realTcRunner();
+    // [Co-developed with claude code -- Adam] B-16. Per end, and the sighting read above is what
+    // decides: `Ours` comes off, `Foreign` is left exactly where it is, nothing at all is the
+    // documented `noop`. The declaration was the caller's to withdraw either way -- it is this
+    // kernel's own state -- and the qdisc was not.
     json tc = json::array();
-    for (const std::string& iface : {srcIface, dstIface})
+    std::vector<std::string> leftStanding;
+    for (std::size_t i = 0; i < ifaces.size(); ++i)
     {
-        if (iface.empty())
+        if (ifaces[i].empty())
         {
             tc.push_back({{"interface", nullptr},
                           {"ok", false},
                           {"refused", "the topology file gives this switch no bridge_name"}});
             continue;
         }
-        tc.push_back(utils::netem::restoreInterface(iface, runner));
+        tc.push_back(utils::netem::restoreSightedNetem(ifaces[i],
+                                                       sighted[i],
+                                                       *m_injectedNetem,
+                                                       m_tcRunner));
+        if (sighted[i].provenance == utils::netem::NetemProvenance::Foreign)
+        {
+            leftStanding.push_back(ifaces[i]);
+        }
     }
     body["tc"] = tc;
+
+    if (!leftStanding.empty())
+    {
+        // The declaration went and the fabric did not, so the status line may not say the
+        // recovery was injected: a caller reading only that line would believe packets are
+        // flowing again on an interface that is still dropping every one of them.
+        body["status"] = "declaration withdrawn; a netem this kernel did not attach was left "
+                         "standing";
+        body["netem_left_standing"] = leftStanding;
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "inject link recovery {}:{} -> {}:{}: the declaration was withdrawn, "
+                           "but netem on {} was not attached by this kernel and was LEFT IN "
+                           "PLACE. The graph now reports this link up and the fabric is still "
+                           "dropping packets on it -- remove that qdisc by hand, or ask whoever "
+                           "attached it",
+                           data->srcDpid,
+                           data->srcInterface,
+                           data->dstDpid,
+                           data->dstInterface,
+                           utils::describeArgv(leftStanding));
+    }
     res.body() = body.dump();
 }
 

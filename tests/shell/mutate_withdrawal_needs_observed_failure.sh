@@ -104,10 +104,16 @@ TEST_TIMEOUT="${TEST_TIMEOUT:-300}"
 TARGET=test_routing_strategy
 BIN="$BUILD_DIR/bin/$TARGET"
 FILTER='DeclaredLinkFailureTest.*:DeclaredLinkFailureWireTest.*:ResidualNetemSweepTest.*'
+# [Co-developed with claude code -- Adam] B-16 (2026-09-11) added two suites over the netem
+# helpers themselves: provenance, and both-ends-or-neither. They are in the same binary.
+FILTER="$FILTER:InjectedNetemProvenanceTest.*:AllOrNothingCutTest.*"
 
 TFM=src/ndt_core/collection/TopologyAndFlowMonitor.cpp
 HS=src/ndt_core/http/HttpSession.cpp
-FILES=("$TFM" "$HS")
+# [Co-developed with claude code -- Adam] B-16. The provenance rule and the all-or-nothing
+# rule live in the header, so it is snapshotted and restored like the other two.
+NLF=include/utils/NetemLinkFault.hpp
+FILES=("$TFM" "$HS" "$NLF")
 
 MUTATIONS=0
 SURVIVORS=0
@@ -868,6 +874,133 @@ mutate "the sweep reports every netem on the machine, not just this fabric's" \
     ResidualNetemSweepTest.NetemOutsideThisFabricsInterfaceShapeIsNotReported
 
 # ================================================================================================
+#   doc/KNOWN-ISSUES.md B-16 (2026-09-11, branch fix/link-recovery-only-detaches-its-own-netem).
+#   MEASURED BY ROLE-1 ON A LIVE OVS FABRIC, 3 reproductions of 3 plus 2 of 2 for the second half
+#   (scratch/overnight-2026-09-05/hunt-0911/ROLE-1-A1-REPORT.md):
+#
+#     POST /ndt/inject_link_recovery, link never declared down, `netem 8021:` on s1-eth1 left by
+#     somebody else  ->  `qdisc del dev s1-eth1 root`, 200 {"ok":true,"detached_at":"root"}
+#     POST /ndt/inject_link_failure with a netem already on s1-eth1  ->  that end refused, s5-eth1
+#     really cut, 200 {"status":"link failure injected"}
+#
+#   Numbered after M25 so M1..M25 keep meaning what RED-GREEN.md and the R2/R3 summaries say.
+#   🔴 THE READ IS NOT THE PERMISSION. findExistingNetem answers "is there a netem here, and
+#   where"; whose it is cannot be read off the tree at all, because a netem carries no owner. Every
+#   mutation below is a way of going back to treating one answer as the other.
+# ================================================================================================
+
+# M26. 🔴 THE FINDING VERBATIM, and the mutation the ticket named: the 409 never fires, so a
+#      recovery for a link nobody declared down deletes whatever netem is on it and says ok.
+# 🔴 `if (false)` would leave `const bool declared` unread, and -Werror makes a mutant that does
+#      not compile a SURVIVOR here (it was, on the first run of these additions). The condition is
+#      falsified with every binding still read instead.
+mutate "the 409 never fires: any netem is this kernel's to detach (= the 2026-09-11 finding)" \
+    "$HS" \
+    '        if (!declared && !anyOurs && !foreign.empty())' \
+    '        if (!declared && !anyOurs && !foreign.empty() && false)' \
+    DeclaredLinkFailureWireTest.AnUndeclaredLinkWhoseNetemIsSomebodyElsesIsRefusedWith409 \
+    DeclaredLinkFailureWireTest.TheRefusalNamesTheInterfaceAndSaysWhoseNetemItIsNot
+
+# M27. The refusal is kept at the door and thrown away per end: the handler goes back to the
+#      restore that deletes whoever's netem is there. Catches a fix that reads as a status-code
+#      change -- the 409 still fires for the undeclared case, and a netem swapped under a standing
+#      declaration is destroyed exactly as before.
+mutate "the per-end restore ignores provenance again" \
+    "$HS" \
+    '        tc.push_back(utils::netem::restoreSightedNetem(ifaces[i],
+                                                       sighted[i],
+                                                       *m_injectedNetem,
+                                                       m_tcRunner));' \
+    '        tc.push_back(utils::netem::restoreInterface(ifaces[i], m_tcRunner));' \
+    DeclaredLinkFailureWireTest.ANetemSwappedUnderAStandingDeclarationIsLeftStandingAndSaidSo
+
+# M28. 🔴 OWNERSHIP KEYED ON THE INTERFACE INSTEAD OF THE HANDLE -- the version of this fix that
+#      looks right and is not. Somebody removes this kernel's netem and puts their own on the same
+#      interface; the ledger still has the name, so the kernel claims theirs. The handle is the
+#      only thing on a qdisc that identifies it.
+mutate "provenance is keyed on the interface name, not the tc handle" \
+    "$NLF" \
+    '    if (recorded && recorded->handle == seen.handle && seen.at.safe)' \
+    '    if (recorded && seen.at.safe)' \
+    InjectedNetemProvenanceTest.ANetemSwappedForOursIsNotOursAnyMore \
+    DeclaredLinkFailureWireTest.ANetemSwappedUnderAStandingDeclarationIsLeftStandingAndSaidSo
+
+# M29. 🔴 THE SECOND FINDING VERBATIM: the trunk loop is back. cutInterface per end, carrying on
+#      past a refusal, no ledger entry and no rollback -- so one end already carrying somebody
+#      else's netem leaves the OTHER end really cut, and the reply says `link failure injected`.
+mutate "the per-end cut loop is back (= the trunk shape of the second finding)" \
+    "$HS" \
+    '    const auto cut = utils::netem::cutLinkEnds({srcIface, dstIface},
+                                               "100%",
+                                               *m_injectedNetem,
+                                               m_tcRunner);
+    body["tc"] = cut.at("tc");' \
+    '    json tc0 = json::array();
+    for (const std::string& iface : {srcIface, dstIface})
+    {
+        if (iface.empty()) continue;
+        tc0.push_back(utils::netem::cutInterface(iface, "100%", m_tcRunner));
+    }
+    const auto cut = json{{"attached", true}, {"tc", tc0}};
+    body["tc"] = cut.at("tc");' \
+    DeclaredLinkFailureWireTest.AnInjectionRefusedAtOneEndAttachesNothingAtTheOther \
+    DeclaredLinkFailureWireTest.AHalfDoneInjectionNeverAnswersInjected
+
+# M30. The wire half is honest and the SENTENCE is not: nothing was attached to either end and the
+#      status line still says the failure was injected. Only a case that reads the words can see
+#      this -- every qdisc assertion in M29's pair stays green.
+mutate "the status line claims an injection that did not reach the wire" \
+    "$HS" \
+    '        body["status"] = "link failure declared; nothing was attached";' \
+    '        // [mutant] the status line is left saying the failure was injected' \
+    DeclaredLinkFailureWireTest.AHalfDoneInjectionNeverAnswersInjected
+
+# M31. The rollback is skipped, so an attach whose sibling failed stays on the fabric: half a fault
+#      nobody asked for, and a ledger entry claiming a qdisc the caller was told was not attached.
+mutate "an attach whose sibling failed is not rolled back" \
+    "$NLF" \
+    '    for (const auto& iface : attached)' \
+    '    for (const auto& iface : std::vector<std::string>())' \
+    AllOrNothingCutTest.ASecondAttachThatFailsRollsBackTheFirst
+
+# M32. 🔴 The poll's advice goes back to naming /ndt/link_recovery_detected for BOTH kinds of
+#      declaration. That endpoint declines an injected one (W8b), so the only sentence a successor
+#      who did not restart the kernel ever sees sends him to the endpoint that will refuse him.
+mutate "the poll's advice names the notification endpoint for an injected declaration too" \
+    "$TFM" \
+    '                                eprop.failureReported
+                                    ? "POST /ndt/link_recovery_detected to clear this"' \
+    '                                true
+                                    ? "POST /ndt/link_recovery_detected to clear this"' \
+    DeclaredLinkFailureTest.ThePollPointsAnInjectedDeclarationAtTheInjectionEndpoint
+
+# ================================================================================================
+#   B-16, direction 2: relaxing PAST the fix. Both of these pass every case above.
+# ================================================================================================
+
+# M33. 🔴 THE OVER-CORRECTION, and it is the bigger outage: the refusal stops asking whether the
+#      link is declared or whether the netem is ours, so it fires whenever one is present. The
+#      operator can no longer take back their OWN injection, and the documented idempotency goes
+#      with it -- tools/contract_test/spec.py's sixth link step POSTs this endpoint a second time.
+mutate "the refusal fires for any netem, including this kernel's own" \
+    "$HS" \
+    '        if (!declared && !anyOurs && !foreign.empty())' \
+    '        if (declared || anyOurs || !foreign.empty())' \
+    DeclaredLinkFailureWireTest.AnInjectionThisKernelMadeIsWithdrawnAndItsNetemRemoved \
+    DeclaredLinkFailureWireTest.ASecondInjectRecoveryIsStillAnIdempotentNoop
+
+# M34. The mirror of M32: everything is sent to /ndt/inject_link_recovery. It would work, and it
+#      would spend a failure report the control plane is entitled to pair with -- and the advice is
+#      then wrong on exactly the axis this fix is about.
+mutate "the poll's advice names the injection endpoint for a reported break too" \
+    "$TFM" \
+    '                                eprop.failureReported
+                                    ? "POST /ndt/link_recovery_detected to clear this"' \
+    '                                false
+                                    ? "POST /ndt/link_recovery_detected to clear this"' \
+    DeclaredLinkFailureTest.ThePollStillPointsAReportedFailureAtTheNotificationEndpoint
+
+# ================================================================================================
 # 6. the widenings -- these MUST survive
 # ================================================================================================
 
@@ -927,6 +1060,19 @@ widen "the residue warning's prose is rewritten around the same facts" \
     "$TFM" \
     '            "topology. Packets there are already being dropped or delayed, and NOTHING IN THE "' \
     '            "topology. Traffic on them is already being dropped or delayed, and NOTHING IN THE "'
+
+# W7. B-16's control: the 409's PROSE is rewritten while it still names the interface and still
+#     says the netem is not this kernel's. The two refusal cases key on those two facts; if either
+#     reddens here it is pinning a paragraph, and the next person to improve the sentence would
+#     have to edit a test.
+widen "the refusal is reworded (it still names the interface and whose the netem is not)" \
+    "$HS" \
+    '                " that this kernel did not attach -- remove it yourself, or find out whose "
+                "experiment it belongs to first. Nothing was changed: no declaration was "
+                "withdrawn and no qdisc was deleted";' \
+    '                " that this kernel did not attach. Remove it yourself once you know whose "
+                "experiment it is; nothing here was changed, no declaration was withdrawn and "
+                "no qdisc was deleted";'
 
 # ================================================================================================
 # 7. restore and verdict

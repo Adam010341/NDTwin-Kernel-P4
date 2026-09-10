@@ -2057,6 +2057,83 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   而 `findVertexByIpNoLock` 只會回第一個 ⇒ 之後每一個以位址找節點的路徑都指到 h1。
 - **證據**：`scratch/overnight-2026-09-05/hunt-0911/ROLE-3-STUDENT-REPORT.md` ③（`b5-loose.json` 那一列）。
   ⚠️ 登記者未複驗（🟠 轉述）；二進位同 B-13。
+### B-16 🔴 `POST /ndt/inject_link_recovery` 會拆掉不是它掛的 netem，回 200 `ok:true`，一個字都不提來歷
+
+> 09-11 ROLE-1 實測 **3/3**（`scratch/overnight-2026-09-05/hunt-0911/ROLE-1-A1-REPORT.md`，
+> raw 在同目錄 `logs/ROLE-1/` 25 檔）。修於本分支 `fix/link-recovery-only-detaches-its-own-netem`。
+> 這一條**帶兩個附件**：同一個 handler 家族的 `inject_link_failure` 半成功回 200（2/2），
+> 以及 E-20 的建議句只在 kernel 啟動時印（只讀證據）。
+>
+> 🔴 **這一條原本開成 `B-13`，09-11 07:5x 改號成 `B-16`。** 開單的時候（09-11 02:xx，自 trunk
+> `153b5ca1`）B 系列到 **B-12** 為止，所以取了 B-13；**同一夜 KI-FOLLOWUP 把 B-13／B-14／B-15
+> 併進了 trunk（`62c52424`）** ⇒ 撞號。依 orchestrator 09-11 07:5x 的指示改成本分支的 `B-16`
+> （B 系列在 `62c52424` 之後的下一個空號），全分支 **43 處／11 檔**一次改完，條目內容一字未動。
+> 🔴 **`0b928fe6` 與 `bbc30e6e` 兩個 commit 的訊息裡仍然寫著 `B-13`，那兩行改不了**
+> ——所以 merge 訊息要寫「**B-13 → B-16**」，否則翻 commit 的人會找不到這個代號。
+
+- **狀態**：修法在分支 `fix/link-recovery-only-detaches-its-own-netem`（09-11 夜，工單 FIX-A1），
+  **trunk 上 OPEN**。照 A-1 的規矩：閘門在 trunk 上跑綠之前不改 RESOLVED。
+  **live 驗證是另一輪**（本輪只有 gtest／變異閘門，沒有上 lab）。
+- **平面**：MININET（tc／netem 那半）；宣告那半兩個平面都有
+- **失效方向**：**靜默破壞別人的實驗，而回應斬釘截鐵說成功**——沒有 log、沒有欄位、沒有狀態碼說「這不是我掛的」
+- **會發生什麼**（ROLE-1 三輪，第三輪是最乾淨的一刀）：
+  上一個人（chaos／`faults.sh`／手動 `tc`）在 `s1-eth1` 留了一顆 `netem loss 100%`，
+  接班人對**這個 kernel 從來沒有宣告過**（`is_up:True`／`down_reason:"none"`）的那條 link
+  POST `inject_link_recovery` ⇒ kernel 跑 `qdisc del dev s1-eth1 root`，
+  回 **200** `{"status":"link recovery injected","ok":true,"detached_at":"root"}`，
+  `qdisc_before` 那顆 `netem 8021:` 的 handle 對得上上一個人掛的那顆。
+  **別人的黑洞就這樣消失了**，而 `kernel.log` 對 `netem`／來歷／owner 的 grep 是零命中。
+- **機制**（🟢 登記者在 trunk `153b5ca1` 開檔讀的）：
+  ① `src/ndt_core/http/HttpSession.cpp:928-929` 無條件 `clearEdgeDeclaredDown(e)`＋`setEdgeUp(e)`
+  （W8b 刻意留的那個「操作員收回自己的注入」路徑），接著 `:956` 對兩端呼叫
+  `utils::netem::restoreInterface(iface, runner)`；
+  ② `include/utils/NetemLinkFault.hpp` 的 `findExistingNetem` 只認 `qdisc netem` 這個 **kind**，
+  不看參數、也沒有來歷可看——**netem 上面沒有 owner 這種東西**。
+  該檔的設計註解寫「Restore reads the tree again … **The tree is the state**」，
+  那句對「**拆在哪裡**」是對的（2026-08-13 掉一整輪 OVS 的教訓），
+  對「**該不該拆**」不成立：兩個問題被同一次 tree 讀取回答了。
+  ⇒ **這個端點什麼都沒有檢查**：沒檢查有沒有宣告，也沒檢查那顆 netem 是誰掛的。
+- 🔴 **附件 ②（同一輪 2/2，`inject_link_failure` 半成功回 200）**：
+  一端已有別人的 netem 時，`planAttach` 對該端回 `refused`（`NetemLinkFault.hpp:185`），
+  但 `HttpSession.cpp:866-873` 的迴圈**繼續掛另一端**（`s5-eth1` 真的掛上了 `ok:true`），
+  頂層 `status` 仍逐字寫 **`"link failure injected"`**、HTTP 200、兩端的宣告都已經下去。
+  同一個 handler 為「reverse edge 缺失」特地寫了一道「半成功會留下沒人能命名的狀態」的防線
+  （`:806-826`）——**那道防線只守圖，不守 per-interface refusal**。
+  若上一個人掛的是 `delay` 而不是 `loss`，這一下就造出 `faults.txt` L-2 特地警告的**非對稱鏈路故障**，
+  對外報告「injected」。
+- 🔴 **附件 ③（只讀證據，沒跑）**：E-20 那句「…remove it, or POST `/ndt/inject_link_recovery`
+  for a link end」只有**一個** call site，`src/main.cpp:398`（kernel 啟動時的 sweep）
+  ⇒ **不重啟 kernel 的接班人永遠看不到它**。他看得到的是 poll 每輪的另一句
+  （`TopologyAndFlowMonitor.cpp:2568-2569`，指向 `/ndt/link_recovery_detected`）——
+  而 W8b 之後，那個端點對「注入出來的宣告」是 **decline**，不是 clear。
+  **同一個狀態、兩句建議、兩個端點，其中一句對接班人是錯的。**
+- **修法後的行為**（本分支；四條，每條都有先紅後綠的 gtest，逐字在
+  `scratch/overnight-2026-09-05/fix/FIX-A1-SUMMARY.md`）：
+  1. **來歷帳本**：`include/utils/InjectedNetemLedger.hpp`——kernel 每次自己 `cutInterface` 成功就記下
+     `dev`＋tc **handle**＋時間；handle 才是身分（同一個 dev 被換過一顆就不是我的了）。
+     **刻意不跨 kernel 重啟**（process memory，和它配對的 `declaredDown` 一樣），
+     所以剛起來的 kernel 什麼都不敢拆——那是誠實的答案。
+  2. **`inject_link_recovery` 只拆自己掛的**：沒有宣告、又沒有一顆本 kernel 掛的 netem，
+     而現場有一顆別人的 ⇒ **409**，`tc` 一個 add／del 都不跑，body 指名該 interface 與「自己拆」；
+     已宣告＋是自己的 ⇒ 照舊拆；**已宣告但不是自己的 ⇒ 撤宣告、不拆、body 明說留在那裡**。
+     「沒宣告也沒有任何 netem」仍然是 **200 noop**（契約序列第 6 步的冪等性靠它）。
+  3. **`inject_link_failure` 全有全無**：先問兩端再掛，一端不能掛就兩端都不掛；
+     第二端掛失敗就把第一端拆回去；沒有全掛成功時 `status` **不寫 `injected`**。
+  4. **建議句按狀態分岔**：`updateLinks` 那句改成看 `failureReported`——控制平面報過的斷線指
+     `/ndt/link_recovery_detected`（原句不動），**沒人報過的（＝注入）指 `/ndt/inject_link_recovery`**
+     並說明前者會 decline；E-20 啟動 sweep 那句改成「自己拆」（它找到的東西按定義都不是這個
+     kernel 掛的，指向一個現在會回 409 的端點會是新的假話）。
+- **證據**：
+  - 🟠 **live 那半是 ROLE-1 的（09-11 00:52–01:02、OVS 4-host、kernel binary
+    `sha256 356803db…`），本條登記者沒有複驗**——3/3 與 2/2 都是轉述。
+  - 🟢 **機制**每一個 `file:line` 是登記者在 trunk `153b5ca1` 開檔核對的。
+  - 🟢 **修法後的行為**是本分支跑過的 gtest（`test_routing_strategy`，先紅逐字進 SUMMARY）＋
+    兩支變異閘門整支重跑。**live 沒跑**。
+  🔴 **raw 全在 `scratch/`，不在版控。**
+- **契約測試看不看得到？** **看不到，結構上看不到。** `TC_ATTEMPT` 允許 `refused`／`noop`／`ok`，
+  所以 `ok:true`＋`detached_at:"root"` 是完全合法的回應形狀；而契約 runner 沒有辦法在跑之前
+  「替別人掛一顆 netem」，所以那六步序列連製造不出這個前提。
+  （本分支沒有動 `tools/contract_test/spec.py`——要不要把 409 寫進契約見 SUMMARY §7。）
 
 ---
 

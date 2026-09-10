@@ -1018,3 +1018,404 @@ TEST(NetemLinkFaultTest, TheFakesPerDeviceViewIsTheFormRestoreInterfaceCanRead)
                          << view;
     EXPECT_EQ(at.tcArgs, (std::vector<std::string>{"parent", "5:1"}));
 }
+
+// =================================================================================================
+// B-16: whose netem is it, and both ends or neither
+//
+// [Co-developed with claude code -- Adam]
+//
+// ROLE-1 measured this on a live OVS fabric on 2026-09-11, 3 reproductions of 3
+// (scratch/overnight-2026-09-05/hunt-0911/ROLE-1-A1-REPORT.md): a POST to
+// /ndt/inject_link_recovery for a link this kernel had never declared down ran
+// `qdisc del dev s1-eth1 root` on somebody else's `netem loss 100%` and answered 200 with
+// `"ok":true,"detached_at":"root"`. findExistingNetem answers "is there a netem here", which is
+// the right question for WHERE to delete and not an answer at all to WHETHER to -- and a netem
+// carries no owner, so the tree cannot be asked. The ledger is the only witness.
+//
+// The fake below is a small state machine rather than a script, because these cases are about a
+// SEQUENCE -- attach, then somebody swaps it, then recover -- and a scripted `show` cannot express
+// "the tree changed because of the command you just ran".
+// =================================================================================================
+
+namespace
+{
+
+/// A model of one machine's per-device qdisc trees: `add` and `del` change what `show` answers.
+///
+/// Handles are handed out as `8001:`, `8002:`, ... -- decimal-looking where tc prints hex, which
+/// costs nothing because no code in this repository parses the number; what the provenance check
+/// compares is the STRING. Nine of them is more than any case here needs.
+class FakeFabric
+{
+  public:
+    /// Every argv this fake was given, in order. `show` included.
+    std::vector<std::vector<std::string>> calls;
+
+    /// Which `add` fails, 1-based; 0 means none. The rollback case is the reason this exists: an
+    /// attach that fails at the SECOND end is the only way to reach it.
+    int failAddNumber = 0;
+
+    /// Makes every command fail, which is what `sudo -n` being refused looks like.
+    bool refuseEverything = false;
+
+    /// What `tc qdisc show dev <dev>` answers. Unknown devices are unshaped, like a fresh bridge.
+    std::string treeOf(const std::string& dev) const
+    {
+        for (std::size_t i = 0; i < m_devs.size(); ++i)
+        {
+            if (m_devs[i] == dev) return m_trees[i];
+        }
+        return kUnshaped;
+    }
+
+    void put(const std::string& dev, const std::string& tree)
+    {
+        for (std::size_t i = 0; i < m_devs.size(); ++i)
+        {
+            if (m_devs[i] == dev)
+            {
+                m_trees[i] = tree;
+                return;
+            }
+        }
+        m_devs.push_back(dev);
+        m_trees.push_back(tree);
+    }
+
+    /// Somebody else's netem, attached the way faults.sh or the chaos harness attaches one: at the
+    /// root of an unshaped interface, with a handle this kernel never recorded.
+    std::string attachSomebodyElsesNetem(const std::string& dev)
+    {
+        const std::string handle = nextHandle();
+        put(dev, "qdisc netem " + handle + " root refcnt 2 limit 1000 loss 100%\n");
+        return handle;
+    }
+
+    /// The handle currently on @p dev, or "" -- what a test compares against the ledger.
+    std::string handleOn(const std::string& dev) const
+    {
+        return utils::netem::netemHandleInTree(treeOf(dev));
+    }
+
+    bool hasNetem(const std::string& dev) const { return !handleOn(dev).empty(); }
+
+    /// Whether any command that CHANGES a tree was issued. `show` does not count.
+    bool ranAnyWrite() const
+    {
+        for (const auto& c : calls)
+        {
+            if (c.size() >= 2 && (c[1] == "add" || c[1] == "del")) return true;
+        }
+        return false;
+    }
+
+    /// How many `add`/`del` commands named @p dev.
+    int writesOn(const std::string& dev) const
+    {
+        int n = 0;
+        for (const auto& c : calls)
+        {
+            if (c.size() >= 4 && (c[1] == "add" || c[1] == "del") && c[3] == dev) ++n;
+        }
+        return n;
+    }
+
+    utils::netem::TcRunner runner()
+    {
+        return [this](const std::vector<std::string>& args) {
+            calls.push_back(args);
+            if (refuseEverything)
+            {
+                return utils::netem::TcOutcome{true, 1, ""};
+            }
+            if (args.size() >= 2 && args[1] == "show")
+            {
+                const std::string dev = args.size() >= 4 ? args[3] : std::string();
+                return utils::netem::TcOutcome{true, 0, treeOf(dev)};
+            }
+            if (args.size() >= 4 && args[1] == "add")
+            {
+                ++m_adds;
+                if (m_adds == failAddNumber)
+                {
+                    return utils::netem::TcOutcome{true, 2, ""};
+                }
+                const std::string dev = args[3];
+                const std::string handle = nextHandle();
+                if (args.size() >= 5 && args[4] == "parent")
+                {
+                    // Under the shaper: the netem is a new line, the htb root stays.
+                    put(dev,
+                        treeOf(dev) + "qdisc netem " + handle + " parent " + args[5] +
+                            " limit 1000 loss 100%\n");
+                }
+                else
+                {
+                    // At the root: netem REPLACES what was there, which is the whole of B-6's
+                    // second half and why planAttach exists.
+                    put(dev, "qdisc netem " + handle + " root refcnt 2 limit 1000 loss 100%\n");
+                }
+                return utils::netem::TcOutcome{true, 0, ""};
+            }
+            if (args.size() >= 4 && args[1] == "del")
+            {
+                const std::string dev = args[3];
+                if (args.size() >= 5 && args[4] == "parent")
+                {
+                    std::string kept;
+                    for (const auto& line : utils::netem::qdiscLines(treeOf(dev)))
+                    {
+                        const auto w = utils::netem::splitWords(line);
+                        if (w.size() >= 2 && w[0] == "qdisc" && w[1] == "netem") continue;
+                        kept += line + "\n";
+                    }
+                    put(dev, kept);
+                }
+                else
+                {
+                    put(dev, kUnshaped);
+                }
+                return utils::netem::TcOutcome{true, 0, ""};
+            }
+            return utils::netem::TcOutcome{true, 0, ""};
+        };
+    }
+
+    static constexpr const char* kUnshaped = "qdisc noqueue 0: root refcnt 2\n";
+
+  private:
+    std::string nextHandle() { return "800" + std::to_string(m_handles++) + ":"; }
+
+    std::vector<std::string> m_devs;
+    std::vector<std::string> m_trees;
+    int m_adds = 0;
+    int m_handles = 1;
+};
+
+} // namespace
+
+// --- whose netem is it -------------------------------------------------------------------------
+
+/**
+ * 🔴 THE FINDING (A1, 3 of 3 on a live fabric). Nothing recorded this netem, so it is not this
+ * kernel's to remove -- and before B-16 the same tree read that says WHERE it is was taken as
+ * permission to delete it.
+ */
+TEST(InjectedNetemProvenanceTest, ANetemNothingRecordedIsForeign)
+{
+    FakeFabric fabric;
+    fabric.attachSomebodyElsesNetem("s1-eth1");
+    utils::netem::InjectedNetemLedger ledger;
+
+    const auto seen = utils::netem::inspectNetem("s1-eth1", ledger, fabric.runner());
+
+    EXPECT_EQ(seen.provenance, utils::netem::NetemProvenance::Foreign)
+        << "a netem this kernel never attached was claimed as its own. On the fabric that is "
+           "somebody's chaos blackhole and this kernel is one `tc qdisc del` from destroying "
+           "their round (B-16). why=" << seen.why;
+    EXPECT_FALSE(fabric.ranAnyWrite()) << "reading provenance changed the tree";
+}
+
+/// The other half of the same question, and the one that makes the fix a distinction rather than
+/// a refusal: what this kernel wrote down IS its own, and the recovery still works.
+TEST(InjectedNetemProvenanceTest, TheHandleThisKernelWroteDownIsWhatMakesItOurs)
+{
+    FakeFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    const auto cut = utils::netem::cutLinkEnds({"s1-eth1"}, "100%", ledger, fabric.runner());
+    ASSERT_TRUE(cut.value("attached", false)) << cut.dump();
+
+    const auto seen = utils::netem::inspectNetem("s1-eth1", ledger, fabric.runner());
+
+    EXPECT_EQ(seen.provenance, utils::netem::NetemProvenance::Ours)
+        << "the kernel could not recognise the netem it had just attached itself, so an operator "
+           "cannot take their own injection back. why=" << seen.why;
+    EXPECT_EQ(seen.handle, fabric.handleOn("s1-eth1"));
+}
+
+/**
+ * 🔴 WHY THE HANDLE AND NOT THE INTERFACE. Somebody removed this kernel's netem and put their own
+ * on the same interface. An ownership check keyed on the NAME would say "mine" and delete theirs.
+ */
+TEST(InjectedNetemProvenanceTest, ANetemSwappedForOursIsNotOursAnyMore)
+{
+    FakeFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    ASSERT_TRUE(utils::netem::cutLinkEnds({"s1-eth1"}, "100%", ledger, fabric.runner())
+                    .value("attached", false));
+    const std::string mine = fabric.handleOn("s1-eth1");
+    fabric.attachSomebodyElsesNetem("s1-eth1");
+    ASSERT_NE(fabric.handleOn("s1-eth1"), mine) << "the fixture did not actually swap the qdisc";
+
+    const auto seen = utils::netem::inspectNetem("s1-eth1", ledger, fabric.runner());
+
+    EXPECT_EQ(seen.provenance, utils::netem::NetemProvenance::Foreign)
+        << "the interface is the same and the qdisc is not, and this kernel claimed it anyway: "
+        << seen.why;
+}
+
+/// An attach whose after-tree could not be read leaves no handle, and a kernel that cannot name
+/// what it attached cannot prove the thing sitting there now is it.
+TEST(InjectedNetemProvenanceTest, AnEntryWithNoHandleCannotBeClaimed)
+{
+    FakeFabric fabric;
+    fabric.attachSomebodyElsesNetem("s1-eth1");
+    utils::netem::InjectedNetemLedger ledger;
+    ledger.record("s1-eth1", "", "root");
+
+    EXPECT_FALSE(ledger.find("s1-eth1").has_value())
+        << "a handle-less entry was handed out as proof of ownership";
+    EXPECT_EQ(utils::netem::inspectNetem("s1-eth1", ledger, fabric.runner()).provenance,
+              utils::netem::NetemProvenance::Foreign);
+}
+
+/// Nothing attached is still `ok` with `noop`, which is what makes the recovery idempotent -- the
+/// property the contract's sixth link step exists to check.
+TEST(InjectedNetemProvenanceTest, ACleanInterfaceIsStillTheIdempotentNoop)
+{
+    FakeFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    const auto seen = utils::netem::inspectNetem("s1-eth1", ledger, fabric.runner());
+    ASSERT_EQ(seen.provenance, utils::netem::NetemProvenance::None);
+
+    const auto report =
+        utils::netem::restoreSightedNetem("s1-eth1", seen, ledger, fabric.runner());
+
+    EXPECT_TRUE(report.value("ok", false)) << report.dump();
+    EXPECT_FALSE(report.value("noop", std::string()).empty()) << report.dump();
+    EXPECT_FALSE(fabric.ranAnyWrite());
+}
+
+/**
+ * 🔴 THE FINDING'S BEHAVIOUR HALF. Refusing to delete is only a refusal if no command runs: a
+ * report that says `refused` after having deleted the qdisc is the defect with better prose.
+ */
+TEST(InjectedNetemProvenanceTest, RestoringAForeignNetemRunsNoCommandAtAll)
+{
+    FakeFabric fabric;
+    const std::string theirs = fabric.attachSomebodyElsesNetem("s1-eth1");
+    utils::netem::InjectedNetemLedger ledger;
+    const auto seen = utils::netem::inspectNetem("s1-eth1", ledger, fabric.runner());
+
+    const auto report =
+        utils::netem::restoreSightedNetem("s1-eth1", seen, ledger, fabric.runner());
+
+    EXPECT_FALSE(report.value("ok", true)) << report.dump();
+    EXPECT_NE(report.value("refused", std::string()).find("did not attach"), std::string::npos)
+        << "the refusal does not say the one thing the caller needs to know -- that this netem is "
+           "not this kernel's: " << report.dump();
+    EXPECT_FALSE(fabric.ranAnyWrite())
+        << "somebody else's netem was deleted by a call that reported a refusal: "
+        << utils::describeArgv(fabric.calls.back());
+    EXPECT_EQ(fabric.handleOn("s1-eth1"), theirs) << "their qdisc is gone";
+}
+
+/// Ours goes, and the ledger stops claiming it: an entry that outlives its qdisc would claim the
+/// next netem to land on that interface.
+TEST(InjectedNetemProvenanceTest, RestoringOurOwnNetemDeletesItAndForgetsIt)
+{
+    FakeFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+    ASSERT_TRUE(utils::netem::cutLinkEnds({"s1-eth1"}, "100%", ledger, fabric.runner())
+                    .value("attached", false));
+    const auto seen = utils::netem::inspectNetem("s1-eth1", ledger, fabric.runner());
+    ASSERT_EQ(seen.provenance, utils::netem::NetemProvenance::Ours);
+
+    const auto report =
+        utils::netem::restoreSightedNetem("s1-eth1", seen, ledger, fabric.runner());
+
+    EXPECT_TRUE(report.value("ok", false)) << report.dump();
+    EXPECT_EQ(report.value("detached_at", std::string()), "root") << report.dump();
+    EXPECT_FALSE(fabric.hasNetem("s1-eth1")) << "the kernel's own netem is still attached";
+    EXPECT_FALSE(ledger.find("s1-eth1").has_value())
+        << "the ledger still claims a qdisc that has been deleted, so the next netem on this "
+           "interface would be detached as though this kernel had attached it";
+}
+
+// --- both ends or neither ----------------------------------------------------------------------
+
+/// The ordinary case, and the one the contract's third link step runs: a clean link, cut at both
+/// ends, both ends written down.
+TEST(AllOrNothingCutTest, BothEndsCutAreBothRecorded)
+{
+    FakeFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+
+    const auto cut =
+        utils::netem::cutLinkEnds({"s1-eth1", "s5-eth1"}, "100%", ledger, fabric.runner());
+
+    EXPECT_TRUE(cut.value("attached", false)) << cut.dump();
+    EXPECT_TRUE(fabric.hasNetem("s1-eth1")) << cut.dump();
+    EXPECT_TRUE(fabric.hasNetem("s5-eth1")) << cut.dump();
+    EXPECT_EQ(ledger.size(), 2u) << "the kernel cut two ends and wrote down " << ledger.size();
+    ASSERT_EQ(cut.at("tc").size(), 2u) << cut.dump();
+    EXPECT_TRUE(cut.at("tc")[0].value("ok", false)) << cut.dump();
+    EXPECT_TRUE(cut.at("tc")[1].value("ok", false)) << cut.dump();
+}
+
+/**
+ * 🔴 THE SECOND FINDING (A1 ②, 2 of 2 on a live fabric). One end already carried somebody else's
+ * netem, so that end was refused -- and the loop went on and cut the OTHER end, leaving a
+ * one-directional fault that the reply called `link failure injected`. faults.txt L-2 is about
+ * exactly that asymmetry: it kills LLDP one way and leaves the control plane's graph permanently
+ * lopsided. Both ends or neither.
+ */
+TEST(AllOrNothingCutTest, AnEndAlreadyCarryingSomebodyElsesNetemStopsTheWholeCut)
+{
+    FakeFabric fabric;
+    const std::string theirs = fabric.attachSomebodyElsesNetem("s1-eth1");
+    utils::netem::InjectedNetemLedger ledger;
+
+    const auto cut =
+        utils::netem::cutLinkEnds({"s1-eth1", "s5-eth1"}, "100%", ledger, fabric.runner());
+
+    EXPECT_FALSE(cut.value("attached", true)) << cut.dump();
+    EXPECT_EQ(fabric.writesOn("s5-eth1"), 0)
+        << "the far end was cut although the near end had been refused, which is the asymmetric "
+           "fault L-2 warns about: " << cut.dump();
+    EXPECT_FALSE(fabric.hasNetem("s5-eth1")) << cut.dump();
+    EXPECT_EQ(fabric.handleOn("s1-eth1"), theirs) << "the refused end was touched anyway";
+    EXPECT_EQ(ledger.size(), 0u) << "nothing was attached and something was written down";
+}
+
+/**
+ * 🔴 The rollback, which is the half a two-phase check cannot cover: both ends PLANNED fine and
+ * the second `tc qdisc add` failed anyway (a race, a permission, an interface that went away).
+ * Nothing here can prevent that; what it can do is not leave half a fault behind.
+ */
+TEST(AllOrNothingCutTest, ASecondAttachThatFailsRollsBackTheFirst)
+{
+    FakeFabric fabric;
+    fabric.failAddNumber = 2;
+    utils::netem::InjectedNetemLedger ledger;
+
+    const auto cut =
+        utils::netem::cutLinkEnds({"s1-eth1", "s5-eth1"}, "100%", ledger, fabric.runner());
+
+    EXPECT_FALSE(cut.value("attached", true)) << cut.dump();
+    EXPECT_FALSE(fabric.hasNetem("s1-eth1"))
+        << "the first end is still cut after the second one failed: " << cut.dump();
+    EXPECT_FALSE(fabric.hasNetem("s5-eth1")) << cut.dump();
+    EXPECT_EQ(ledger.size(), 0u)
+        << "the ledger still claims a netem that was rolled back, so a later recovery would "
+           "detach whatever is on that interface next";
+    EXPECT_GE(fabric.writesOn("s1-eth1"), 2)
+        << "no `del` was issued for the end that had been attached: " << cut.dump();
+}
+
+/// An end the graph cannot name is not a cut this endpoint may make, and it stops the other end
+/// for the same reason a refusal does.
+TEST(AllOrNothingCutTest, AnEndTheGraphCannotNameStopsTheCutToo)
+{
+    FakeFabric fabric;
+    utils::netem::InjectedNetemLedger ledger;
+
+    const auto cut = utils::netem::cutLinkEnds({"", "s5-eth1"}, "100%", ledger, fabric.runner());
+
+    EXPECT_FALSE(cut.value("attached", true)) << cut.dump();
+    EXPECT_FALSE(fabric.ranAnyWrite()) << utils::describeArgv(fabric.calls.back());
+    ASSERT_EQ(cut.at("tc").size(), 2u) << cut.dump();
+    EXPECT_FALSE(cut.at("tc")[0].value("ok", true)) << cut.dump();
+    EXPECT_FALSE(cut.at("tc")[1].value("ok", true))
+        << "the named end reported success while nothing was attached: " << cut.dump();
+}

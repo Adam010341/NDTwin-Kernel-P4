@@ -239,3 +239,47 @@ the sweep reported netem on an interface that is not this fabric's shape. A warn
 
 Both runs restored the tree byte-identically and rebuilt the same test binary
 (`6aaa1d790e260949`); the sweep suite is 14 cases and green after restore.
+
+---
+
+## 7. 2026-09-11 — the advice at the end of this warning had to change (B-16)
+
+[Co-developed with claude code -- Adam]
+
+The sentence this sweep ends with used to be
+
+```
+Nothing was cleared: check with 'tc qdisc show dev <iface>' and remove it, or POST
+/ndt/inject_link_recovery for a link end.
+```
+
+**The second half of that is now wrong, and branch `fix/link-recovery-only-detaches-its-own-netem`
+is what made it wrong on purpose.** ROLE-1 measured on 2026-09-11 (3 reproductions of 3,
+`scratch/overnight-2026-09-05/hunt-0911/ROLE-1-A1-REPORT.md`) that `/ndt/inject_link_recovery`
+detached a netem this kernel had never attached, on a link it had never declared down, and
+answered `200 {"ok":true,"detached_at":"root"}`. doc/KNOWN-ISSUES.md B-16 registers it; the fix
+makes that endpoint answer **409** for a netem this kernel did not attach, and touch no qdisc.
+
+🔴 **Every interface this sweep reports is, by construction, one this kernel did not attach**: it
+runs once, from `src/main.cpp`, before the kernel has injected anything, and the provenance ledger
+(`include/utils/InjectedNetemLedger.hpp`) is process memory that starts empty. So the old advice
+pointed an operator at the one endpoint that is now guaranteed to refuse him — and, before the fix,
+at an endpoint that would have deleted somebody else's fault and reported success. The sweep now
+says **remove it yourself**, and says why the endpoint will not do it.
+
+### What did NOT change
+
+- the read (one bare `tc qdisc show`, no `dev`, no sudo — §2.1), the classification (§2.2), and
+  the three counts in the line. The four E-20 mutations in
+  `tests/shell/mutate_withdrawal_needs_observed_failure.sh` (M21–M25) and the
+  `ResidualNetemSweepTest` cases are untouched and still green; the `warn-prose` anchor and W6's
+  widening both sit on the paragraph ABOVE the advice, so neither moved.
+- the ruling itself: **warn, do not clear, do not turn it into a declaration** (Adam, 2026-09-06).
+  B-16 strengthens it — the sweep now cannot even point at something that would clear it.
+
+### What is still not covered, unchanged from §3
+
+`h<N>-eth0` lives in the host's own network namespace, so a quiet sweep still means "the root
+namespace is clean", not "the fabric is". B-16 adds one sentence to that boundary: a netem inside a
+host namespace is not in the ledger either, so it is `Foreign` by default and no endpoint of this
+kernel will remove it.

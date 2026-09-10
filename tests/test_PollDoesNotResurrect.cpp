@@ -1311,3 +1311,151 @@ TEST_F(DeclaredLinkFailureTest, AReportedFailureStillSurvivesATopologyPoll)
     EXPECT_FALSE(edgeIsUp(rev()));
     EXPECT_EQ(edgeDownReason(fwd()), "declared");
 }
+
+// =================================================================================================
+// B-16, third half: the poll's advice has to name the endpoint that can actually clear THIS
+//                   declaration
+//
+// [Co-developed with claude code -- Adam]
+//
+// 🔴 THE FINDING (ROLE-1, 2026-09-11, read from a live kernel.log). A successor who does not
+// restart the kernel sees exactly one sentence about a standing declaration, and it is this poll's:
+//
+//     TopologyAndFlowMonitor.cpp:2563 updateLinks] the control plane still lists link (dpid
+//     0000000000000005 port 00000001), but a link failure was declared for it, so this poll is not
+//     marking it up. … POST /ndt/link_recovery_detected to clear this
+//
+// For a declaration that came from /ndt/inject_link_failure that advice is WRONG since W8b:
+// /ndt/link_recovery_detected pairs a recovery report with a reported break, finds none, and
+// DECLINES -- it logs "link recovery declined … the declaration was retained". The sentence that
+// names the endpoint which does work (/ndt/inject_link_recovery) is E-20's, and E-20's is printed
+// at ONE call site, src/main.cpp:398, at kernel startup. So the successor is told to use the
+// endpoint that will refuse him, and never shown the one that will not.
+//
+// One state, two sentences, two endpoints. The fix is to make this sentence -- the one that is
+// printed every poll and therefore the one that is read -- name the right endpoint for the
+// declaration actually standing, which the poll can tell apart because `failureReported` is right
+// there in the edge it is refusing to raise.
+//
+// The two cases below are a discriminating pair on purpose: each asserts the endpoint its own
+// state needs AND (for the reported one) the absence of the other. One case alone would pass on a
+// sentence that listed both endpoints and left the reader to guess.
+// =================================================================================================
+
+#include <spdlog/sinks/ringbuffer_sink.h>
+
+namespace
+{
+
+/**
+ * @brief Captures every record the global logger emits while it is alive, at trace level.
+ *
+ * Same helper as tests/test_NetemLinkFault.cpp, tests/test_HttpSessionRouting.cpp and
+ * tests/test_TopologyPollRound.cpp; duplicated rather than shared for the reason written there.
+ * This file installs `spdlog::level::off` in SetUpTestSuite, so without something like this the
+ * poll's WARN goes nowhere and a case about its wording could not exist.
+ */
+class PollLogCapture
+{
+  public:
+    PollLogCapture()
+        : m_logger(Logger::instance()),
+          m_savedLevel(m_logger->level()),
+          m_sink(std::make_shared<spdlog::sinks::ringbuffer_sink_mt>(256))
+    {
+        m_logger->sinks().push_back(m_sink);
+        m_logger->set_level(spdlog::level::trace);
+    }
+
+    ~PollLogCapture()
+    {
+        m_logger->set_level(m_savedLevel);
+        auto& sinks = m_logger->sinks();
+        for (auto it = sinks.begin(); it != sinks.end(); ++it)
+        {
+            if (*it == m_sink)
+            {
+                sinks.erase(it);
+                break;
+            }
+        }
+    }
+
+    PollLogCapture(const PollLogCapture&) = delete;
+    PollLogCapture& operator=(const PollLogCapture&) = delete;
+
+    std::string text() const
+    {
+        std::string all;
+        for (const auto& line : m_sink->last_formatted())
+        {
+            all += line;
+        }
+        return all;
+    }
+
+  private:
+    std::shared_ptr<spdlog::logger> m_logger;
+    spdlog::level::level_enum m_savedLevel;
+    std::shared_ptr<spdlog::sinks::ringbuffer_sink_mt> m_sink;
+};
+
+} // namespace
+
+/**
+ * 🔴 THE FINDING. Nothing reported this link broken -- it was injected -- so the endpoint the poll
+ * used to name would decline. The successor has to be told the other one.
+ */
+TEST_F(DeclaredLinkFailureTest, ThePollPointsAnInjectedDeclarationAtTheInjectionEndpoint)
+{
+    m_monitor->setEdgeDownByDeclaration(fwd());
+    m_monitor->setEdgeDownByDeclaration(rev());
+
+    std::string logged;
+    {
+        PollLogCapture log;
+        m_monitor->pollLinks(bothDirections());
+        logged = log.text();
+    }
+
+    ASSERT_NE(logged.find("not marking it up"), std::string::npos)
+        << "the poll did not print the declined-resurrection line at all, so this case is not "
+           "reading what it thinks it is reading:\n"
+        << logged;
+    EXPECT_NE(logged.find("/ndt/inject_link_recovery"), std::string::npos)
+        << "the only sentence a successor who did not restart the kernel ever sees points at "
+           "/ndt/link_recovery_detected, which since W8b DECLINES a declaration nothing reported "
+           "broken. He is told to use the endpoint that will refuse him (B-16, measured "
+           "2026-09-11). Log was:\n"
+        << logged;
+}
+
+/**
+ * The other side of the pair, and the behaviour that must not change: a break the CONTROL PLANE
+ * reported is cleared by the control plane's own recovery report, and that is the endpoint to
+ * name. A fix that pointed everything at /ndt/inject_link_recovery would be just as wrong, and
+ * every assertion in the case above would still pass.
+ */
+TEST_F(DeclaredLinkFailureTest, ThePollStillPointsAReportedFailureAtTheNotificationEndpoint)
+{
+    m_monitor->setEdgeDownByReportedFailure(fwd());
+    m_monitor->setEdgeDownByReportedFailure(rev());
+
+    std::string logged;
+    {
+        PollLogCapture log;
+        m_monitor->pollLinks(bothDirections());
+        logged = log.text();
+    }
+
+    ASSERT_NE(logged.find("not marking it up"), std::string::npos) << logged;
+    EXPECT_NE(logged.find("/ndt/link_recovery_detected"), std::string::npos)
+        << "a failure the control plane reported is withdrawn by its own recovery report, and the "
+           "poll stopped saying so:\n"
+        << logged;
+    EXPECT_EQ(logged.find("/ndt/inject_link_recovery"), std::string::npos)
+        << "the poll sent an operator to the injection withdrawal for a break Ryu reported. That "
+           "endpoint would work, and it would also spend a report the control plane is entitled "
+           "to pair with -- and the advice would be wrong on the one axis this fix is about:\n"
+        << logged;
+}

@@ -8,6 +8,7 @@
 #include <nlohmann/json.hpp>
 #include "ndt_core/http/OpenflowCapacityReport.hpp" // [Co-developed with claude code -- Adam]
 #include "ndt_core/routing_management/OpResult.hpp" // [Co-developed with claude code -- Adam]
+#include "utils/NetemLinkFault.hpp" // [Co-developed with claude code -- Adam] B-16: the tc seam
 // For sflow::FlowLivenessFilter, which readLivenessFilter takes by reference and so needs
 // complete. The FlowLinkUsageCollector forward declaration below stays: this is the types header,
 // not the collector. [Co-developed with claude code -- Adam]
@@ -956,4 +957,26 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     // Where handleGetOpenflowCapacity reads from. Defaults are the deployment's own paths; only
     // HttpSessionCapacityTestPeer ever changes them.
     ofcapacity::CapacitySources m_capacitySources;
+
+    /**
+     * @brief The tc seam, and the record of which netem this kernel attached. B-16.
+     *
+     * [Co-developed with claude code -- Adam]
+     * Same shape as m_capacitySources above: the defaults are the deployment's own -- the real
+     * `sudo -n tc` runner and the one process-wide ledger -- and only a test peer repoints them.
+     *
+     * 🔴 WHY THIS HAD TO EXIST BEFORE THE FIX COULD. `/ndt/inject_link_failure` and
+     * `/ndt/inject_link_recovery` wrote `const auto runner = utils::netem::realTcRunner();` INLINE
+     * (HttpSession.cpp:856 and :945 on trunk 153b5ca1), and `grep -rn realTcRunner tests/` found
+     * nothing at all: every wire test builds its peer with utils::TESTBED, so the handler returned
+     * at `"tc": "skipped (not MININET)"` and the whole tc branch was unreachable from ctest by
+     * construction. A1 was therefore answerable only on a live fabric -- which is how it went
+     * unnoticed until 2026-09-11 -- and the fix for it would have been just as untestable.
+     *
+     * The ledger is a POINTER to shared state rather than a member value on purpose: a session is
+     * created per connection, so the injection and the recovery that takes it back are always two
+     * different sessions. See utils::netem::processInjectedNetemLedger.
+     */
+    utils::netem::TcRunner m_tcRunner;
+    utils::netem::InjectedNetemLedger* m_injectedNetem;
 };
