@@ -95,7 +95,7 @@ here it *replaces* the destination's only entry"）——**前提寫對了，後
 
 ### 2.4 與 KNOWN-ISSUES 的對帳
 
-KNOWN-ISSUES `doc/KNOWN-ISSUES.md:282-306` 的機制敘述：
+KNOWN-ISSUES A-4d 的機制敘述：
 > `ipv4_lpm` 每個 prefix 只有一筆，所以 install **覆寫**了控制面的路由，delete 又把它撤掉
 
 **✅ 正確，而且是四個候選因裡的 (b)。** 對帳結果：
@@ -350,7 +350,7 @@ ping -c 20 10.0.0.1                                                 # 期望：0
 | **install 走 5-tuple、delete 只送 `nw_dst`** ⇒ 刪到它從沒裝過的 LPM 控制面路由（§2.3） | `topology_manager.py:869` vs `:936` | 不同缺陷。**副作用上被這次修法降級了**：現在那個 delete 變成「把 LPM 還原成控制面路由」（實質 no-op），黑洞消失——但 5-tuple 規則**仍然留著**，呼叫端以為刪掉了。**這仍是一個要單獨處理的缺陷，我只是拿掉了它最嚴重的後果。** |
 | `FlowRoutingManager.hpp:70-84` doxygen 用 OpenFlow 語意描述 delete（"may remove multiple entries"），在 P4 下語意相反 | C++ header | 改註解無法用測試守住，且我判斷不該在這個 commit 擴大 diff |
 | `IntentTranslator.cpp:733` 的 `BLOCK_HOST` 送**空 actions**，`route_flow` 因 `out_port is None` 回 False ⇒ **P4 模式下封鎖主機根本不生效** | `IntentTranslator.cpp:733` ＋ `topology_manager.py:884-887` | 讀碼時撞到的，不在 A-4d 範圍。**未實測。** |
-| KNOWN-ISSUES A-4d 的行號第二次漂掉 | `doc/KNOWN-ISSUES.md:295-299` | 我沒改 doc——那是 auditor／Adam 的檔，且我不確定該由誰維護 |
+| KNOWN-ISSUES A-4d 的行號第二次漂掉 | KNOWN-ISSUES A-4d 條目 | 我沒改 doc——那是 auditor／Adam 的檔，且我不確定該由誰維護 |
 
 ## 7. 給 Adam 的裁決題（每題附後果）
 

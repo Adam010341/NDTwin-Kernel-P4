@@ -84,7 +84,7 @@ rebase 基準 1d57602f  Register the contamination gate's lifetime fix as landed
 
 **三份的 `pkill` 行號完全一致**：`:45`、`:46`、`:99`。
 
-🔴 **文件引用是舊的**：`doc/KNOWN-ISSUES.md:1614` 與 `:1638` 都寫
+🔴 **文件引用是舊的**：KNOWN-ISSUES〈`measure.sh` 內含 `pkill -f`〉的兩處都寫
 `measure.sh:45-46,96`，**實際收尾那行在 `:99`**（差 3 行）。
 另外交辦給的 KNOWN-ISSUES 行號也要修正——實際標題行是：
 
@@ -146,7 +146,7 @@ pids=$(ps -eo pid=,comm= | awk '$2=="iperf3"{printf "%s ", $1}')
 `awk` 被 SIGTERM ⇒ 輸出空 ⇒ `pids` 空 ⇒ `:436` 的 `[[ -n "${pids// /}" ]]` 為假
 ⇒ **`return 0` ＝「沒有外來 iperf3，可以繼續」**。
 **守衛被殺掉時說的是「乾淨」。** （同 index/02 的「行程存活檢查會用兩種方式說謊」與
-「兩個守衛在最需要它們的時候失效」`KNOWN-ISSUES:1684` 同族。）
+「兩個守衛在最需要它們的時候失效」＝KNOWN-ISSUES 同名條目，同族。）
 ⚠️ 在**單一 session** 的正常流程裡守衛與 kill 不同時跑（`run_e.sh:135` 先跑完才到 `:137`）；
 這條在**兩個 session 併發**時才可達——而兩個 session 併發正是這整題的前提。
 
@@ -346,7 +346,7 @@ Adam 今日裁定（binding）：**凍結殺法**（`:45`／`:46`／`:99` 三行
   `sudo` 也可能開新 session ⇒ **「是不是我的」對本輪自己起的 server 無法回答**
   ⇒ 這個斷言有**誤拒方向**，會在自己漏了一支 server 的第二格把整格打掉。
   ⇒ **交辦裡寫的 (b) 原型（`pgrep` by exact comm + parent pid）在這支腳本上不可行。**
-- 行號位移：`:45` → `:55` 左右，**KNOWN-ISSUES:1614／:1638、TBD-DRAFT:146、
+- 行號位移：`:45` → `:55` 左右，**KNOWN-ISSUES〈`measure.sh` 內含 `pkill -f`〉兩處、TBD-DRAFT:146、
   FINDINGS、HANDOFF 全部的 `measure.sh:45-46,96` 引用一次作廢**
   （那些引用**現在就已經是錯的**——`:96` vs 實際 `:99`——但這會讓錯得更多）。
 
@@ -527,7 +527,7 @@ repo 未被觸碰）。`.py` 另過 `python3 -m py_compile`，`.sh` 另過 `bash
 把 refuse-only 斷言直接插進凍結檔（交辦裡的選項 (b)）。
 兩行 kill **一個位元組沒動**，但：
 🔴 **`:45`／`:46`／`:99` 位移到 `:69`／`:70`／`:123`**，md5 改變，
-`KNOWN-ISSUES:1614`、`:1638`、`TBD-DRAFT:146`、FINDINGS、HANDOFF 的引用一次全部作廢，
+KNOWN-ISSUES〈`measure.sh` 內含 `pkill -f`〉兩處、`TBD-DRAFT:146`、FINDINGS、HANDOFF 的引用一次全部作廢，
 而且 08-20／08-25 的存檔格不再由逐位元組相同的儀器產生。
 **`measure_guarded.sh` 用零位元組達成同樣的拒絕。** 附上只是為了讓 §6 Q1 有東西可比。
 
@@ -588,7 +588,7 @@ repo 未被觸碰）。`.py` 另過 `python3 -m py_compile`，`.sh` 另過 `bash
    它已隨 `94e3c4b6` 提交，但**不在交辦允許的閱讀清單內，我也不執行測試**。
    ⇒ 我**不能**宣稱我的 `cpu_gate.py` diff 不會弄紅它。回傳 dict 多四個 key 是唯一的風險面。
 2. 🔴 **`mnexec -a` 到底 setns 了哪些 namespace，我沒有讀 `mnexec.c`。**
-   我引用的是 `measure.sh:42-44` **自己的註解**與 `KNOWN-ISSUES:1617` 的既有判定
+   我引用的是 `measure.sh:42-44` **自己的註解**與 KNOWN-ISSUES〈`measure.sh` 內含 `pkill -f`〉的既有判定
    （「作用域是整台機器」）。⚠️ 這是**轉述，不是我親自驗證的**。
    即使 `-a` 有加入 pid namespace，mininet host 共用的就是 root pid ns，結論不變——
    但那一步推論也是讀來的，不是我測的。

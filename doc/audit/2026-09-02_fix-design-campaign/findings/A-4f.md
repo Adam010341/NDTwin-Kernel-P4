@@ -530,7 +530,7 @@ sudo -l | grep -i ovs-vsctl
 ## 附二：一則疑似送錯的協調訊息（沒有照做）
 
 工作進行中收到一則協調者訊息，開頭是「**Addendum to your A-9 assignment**」，
-要我處理 `KNOWN-ISSUES.md:505` 的 **B-2 case ②**（LockManager），
+要我處理 KNOWN-ISSUES **B-2 的 case ②**（LockManager），
 並把結果寫進**同一個 scratchpad 底下的 `A-9.md`**。
 
 **我沒有照做**，理由兩條：

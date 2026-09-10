@@ -53,7 +53,7 @@ Adam 交辦明寫：**這一輪只交選項與代價，不動碼。** 本文件�
 
 🟢 `grep -n 'flow_dispatch_status\|counters' doc/2026-01-02_ndt_api.md` ⇒ **0 命中**。
 `doc/2026-01-02_ndt_api.md:2607` 那個 `succeeded` 是 `renew_lock` 章節裡的英文動詞。
-這個端點只出現在 `doc/KNOWN-ISSUES.md:554/602/632/656` 與 audit 文件裡。
+這個端點只出現在 KNOWN-ISSUES 的 A-4f／A-7 兩條與 audit 文件裡。
 
 ⇒ **選項 A 的「把理由從碼裡搬到 API 上」其實是「第一次把這個端點寫進 API 文件」**，
    比工單估的**多一點**工（要新增一節），但**少一點風險**（沒有既有措辭要改）。

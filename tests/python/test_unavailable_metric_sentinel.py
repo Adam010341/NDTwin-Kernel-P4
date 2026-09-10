@@ -5,7 +5,7 @@ contract test.
 
 [Co-developed with claude code -- Adam]
 
-F-1 (doc/KNOWN-ISSUES.md:886) is that `get_cpu_utilization` and `get_memory_utilization` return
+F-1 (doc/KNOWN-ISSUES.md, entry F-1) is that `get_cpu_utilization` and `get_memory_utilization` return
 byte-identical bodies under MININET, because both compute `10 + hash(ip) % 50` from the same
 seed, and `get_temperature` is `25 + hash(ip) % 25` from the same seed again. The fix is to stop
 inventing a figure and report the sentinel the file, the API document and the Web-GUI already

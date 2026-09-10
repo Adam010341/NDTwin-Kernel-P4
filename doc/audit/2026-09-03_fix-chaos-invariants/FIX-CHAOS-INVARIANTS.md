@@ -49,7 +49,7 @@ INV-01 的延遲檢查**從來沒有量到過一次 power-on**——它對只收
 （「快得可疑的成功」），`instrument-must-not-mimic-its-own-finding`。
 
 **對帳（不是我第一個發現的，兩份既有文件已各自記過同一個機制）**：
-`doc/KNOWN-ISSUES.md:516` 記「`invariants.py:78-90 inv01_powercycle_latency`
+KNOWN-ISSUES A-4f 記「`invariants.py:78-90 inv01_powercycle_latency`
 **其實構不到電源碼**」；`doc/audit/2026-09-02_fix-design-campaign/findings/A-4f.md:410`
 在檢查另一件事時獨立判定「它送 **GET** 且帶 `dpid=`，兩者都不成立 ⇒ 請求從沒到過電源碼」。
 兩份都停在「診斷」，沒有修，也沒有把它連到 `actions.py:_c01_undo` 的第五例。

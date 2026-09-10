@@ -2,7 +2,7 @@
 
 **觸發**＝auditor 08-31：E 輪的腳本 agent 推翻了他 prereg 的一條前提——
 `NDTWIN_SFLOW_BATCH` **從來沒被設過**（`main.py:82` 預設關閉、全 repo 無設定處、
-`KNOWN-ISSUES.md:1018` 早有記載）⇒ **碼進了版控 ≠ 那條路徑在跑**。
+KNOWN-ISSUES E-2 早有記載）⇒ **碼進了版控 ≠ 那條路徑在跑**。
 他要我對已凍結的 PREREG-B 做同族掃描。
 🔴 **本檔只回報，不修改凍結後的 prereg**（處置由 auditor 裁）。
 

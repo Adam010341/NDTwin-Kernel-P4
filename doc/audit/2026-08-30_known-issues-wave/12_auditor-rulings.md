@@ -175,7 +175,7 @@
 ## 15. ⑥ api doc §39 收卷＋兩裁（23:0x）
 
 - **⑥ 交付**（未 commit、窗規遵守）：`doc/2026-01-02_ndt_api.md` §39 兩 shape→三 shape、每個補 `recording` 欄；**被原文漏掉的那個 shape 正是本 lab 唯一會拿到的**（MININET 下 `HistoricalDataManager::start()` 直接 return、兩套 stack 都是 MININET）；明寫「`recording` 才是可判斷欄、`status` 不是」；`at line 1661` 改錨點字串引用。
-- 裁一：**KNOWN-ISSUES:444（B-3）過期**——ledger 分支今晚已重寫 B-3（揭露已修/本體未修/兩分支同 200）；mainDev 的增量（指認 `recording` 為判別欄）於**三方合併時**對 ledger 版查核、缺則疊上。合併時另按 §9.1 疊 F-13 措辭、§8 疊 B-2c。
+- 裁一：**KNOWN-ISSUES B-3 過期**——ledger 分支今晚已重寫 B-3（揭露已修/本體未修/兩分支同 200）；mainDev 的增量（指認 `recording` 為判別欄）於**三方合併時**對 ledger 版查核、缺則疊上。合併時另按 §9.1 疊 F-13 措辭、§8 疊 B-2c。
 - 裁二：**contract_test 對 `recording` 零斷言（spec.py:787/794 連 optional 都沒有）＝「路由有登記、形狀零斷言」第二實例**——裁做：`required={"recording": Bool()}`，**排窗後**、對活 kernel 驗過才算數，併入 mainDev 窗開後的 claimed session 批次（fabric 一次起：T-11 力紅力綠 → A-7 P5/P6 → contract_test 含新斷言；跑前對開機手冊四部報告確認 TR-4 是否已蓋）。claim note 需寫「functional acceptance only; concurrent builds tolerated」以便 auditor 同窗跑兩修復包 build＋變異。
 - mainDev 下一件＝③T-15 設計票（純寫），兩個今晚輸入：FINDING-07（收了編不進去的 priority）＝capabilities 活例；`recording`/`status` 對＝能力揭露含部署模式行為差。之後 ④T-14。
 

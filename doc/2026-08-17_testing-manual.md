@@ -906,6 +906,26 @@ kernel 的序列化器會把 `edges` 排到 `nodes` 前面、鍵序也不同，�
   （`echo` 標籤、變數預設值）出現同一個裸字串，一樣會匹配到自己。最穩的是把量測指令
   **寫進 script 檔**，script 的 argv 天然免疫。
 
+### 5.1 引 `doc/KNOWN-ISSUES.md` 用條目代號，不要用行號
+
+[Co-developed with claude code -- Adam]
+
+**寫 `KNOWN-ISSUES B-11`，不要寫 `KNOWN-ISSUES.md:<行號>`。** 那份清單天天被插新條目，
+插一條就把它下面每一行都推走；2026-09-07 全 repo 62 個行號引用裡有 **58 個指到別的條目**，
+其中四個**在寫下的當天就已經指錯**。代號在條目被重新編號之前都是對的。
+
+- 閘門＝`tests/python/test_known_issues_references.py`（L1 用 glob 自動收，不必登記 ctest）。
+  它掃 `doc/ tests/ tools/ src/ include/ p4_proxy/` 與根目錄 `*.md`，
+  對每一個 `KNOWN-ISSUES.md:<n>` 形式的引用，查同一行（找不到再查同一段）最近的代號，
+  並斷言第 n 行真的落在該代號的區段裡。沒有代號可對就紅，訊息寫「改成條目代號」。
+- **它不禁止行號**——留行號當附註可以，但**代號要在同一行**，而且行號會被驗。
+  最省事的是不留行號。
+- `*.log`／`*.diff`／`*.patch` **不掃也不改**：那是逐字紀錄，改了就是竄改。
+- 跑法：`p4_proxy/venv/bin/python -m unittest discover -s tests/python -p test_known_issues_references.py`；
+  變異閘門 `bash tests/shell/mutate_known_issues_references.sh`（9 變異全紅＋1 對照格存活）。
+- 沒有代號可引的條目（`### 縮短 LLDP beacon 間隔…` 那十七個標題）先用
+  `KNOWN-ISSUES §G` 這種「章＋標題引號」的寫法；**不要自己替它們補代號**。
+
 ---
 
 ## 6. 其餘七份測試文件現在的地位

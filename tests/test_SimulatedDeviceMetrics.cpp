@@ -3,7 +3,7 @@
  *
  * [Co-developed with claude code -- Adam]
  *
- * F-1, doc/KNOWN-ISSUES.md:886. Mininet and bmv2 have no CPU register, no memory gauge and no
+ * F-1, doc/KNOWN-ISSUES.md, entry F-1. Mininet and bmv2 have no CPU register, no memory gauge and no
  * thermal sensor, so all three figures were made up:
  *
  *     fetchMemoryReportInternal    memory = 10 + hash(ip) % 50

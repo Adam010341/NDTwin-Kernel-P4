@@ -14,7 +14,7 @@ by port. Pass A and pass B are **not** contiguous — see §6.
 > ⇒ `a40e04ce93b0e2263f715780cc146a46bedaca680641ed224c8f51ddc985dad7`。
 > 拿 git 去解析它會得到 `Not a valid object name`，**那是預期的，不是缺陷**。
 >
-> **真正的缺口在別處且早已在案**：`doc/KNOWN-ISSUES.md:1679`——這顆的 provenance 是
+> **真正的缺口在別處且早已在案**：KNOWN-ISSUES〈生產線在跑的那顆 kernel 的重建配方〉——這顆的 provenance 是
 > **事後補寫的，只記得下 `commit=UNKNOWN`** ⇒ 「**哪一顆在跑**」答得出來（sha 對得到），
 > 「**怎麼再造一顆一樣的**」答不出來。
 >

@@ -612,7 +612,7 @@ B-2 已經有先例（「①已修、②原封不動，兩條要分開讀」）�
 
 ### 這對 F-5 重裁與「要不要解鎖併發控制」的意義
 
-- KNOWN-ISSUES:964 的 F-5 行寫著「**重裁材料齊備**」，理由是 ①TR-3 已證「窗是時鐘不是負載」
+- KNOWN-ISSUES §D 的 F-5 那列寫著「**重裁材料齊備**」，理由是 ①TR-3 已證「窗是時鐘不是負載」
   ②T-11-A 已把幻影移出視圖。**①不受本輪影響。②要打折**：只在 P4 成立。
 - 而 F-5 當年「不修」的理由是**發作率低**（30 分鐘 0 次），那個理由已被 F-5 自己
   以「10 秒取樣格對 2–3 秒窗沒有靈敏度」推翻一半。
@@ -640,4 +640,4 @@ B-2 已經有先例（「①已修、②原封不動，兩條要分開讀」）�
   - `include/ndt_core/routing_management/PendingEntryFilter.hpp`、`DispatchOutcomeLog.hpp`、`OpResult.hpp`
   - `tests/test_PendingEntryFilter.cpp`（8 個 TEST，`:23-26` 的 include 是關鍵）
 - 讀過的證據：`doc/audit/2026-08-31_live-acceptance-batch/{forcered_port999,green_baseline,p5_port999}.log`、`probe.py`；
-  `doc/audit/2026-08-30_a7-dispatch-visibility/T-11_programmed-only-table-view.md`；`doc/KNOWN-ISSUES.md:453-504, 964`
+  `doc/audit/2026-08-30_a7-dispatch-visibility/T-11_programmed-only-table-view.md`；KNOWN-ISSUES B-1 與 §D 的 F-5 那列

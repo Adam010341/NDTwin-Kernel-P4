@@ -161,7 +161,7 @@ that anything was actually stopped, because it is not.
 ## 13. `mn -c` still kills the shell that calls it — the `setsid` rule has NOT been relaxed
 
 A branch tonight removed the four `pkill -f` calls from `ndtwin-lab`'s cleanup. **That is not the
-same thing** as the hazard recorded at `doc/KNOWN-ISSUES.md:2164`: that one lives inside `mn -c`
+same thing** as the hazard recorded in KNOWN-ISSUES §G: that one lives inside `mn -c`
 itself (an internal `pkill -9 -f` at line 1488), it was deliberately left untouched, and it can
 still kill the shell that invoked it. So:
 

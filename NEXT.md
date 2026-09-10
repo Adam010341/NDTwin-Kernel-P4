@@ -229,9 +229,9 @@ auditor 已要求該 session 用現有證據判定那個 Ryu 是否活到重試�
 
 - G-9 分支的 `RATIONALE.md` 附錄二有完整的呼叫端盤點（產品碼兩處、audit 腳本六處以上，
   後者全是 `setsid $LAB cleanup ... || true`，明示忽略）。
-- 🔴 **不要順手修 `mn -c` 那一半。** `doc/KNOWN-ISSUES.md:2164`
+- 🔴 **不要順手修 `mn -c` 那一半。** KNOWN-ISSUES §G
   「`ndtwin-lab cleanup` 可能殺掉呼叫它的 shell」講的是 `mn -c` **內部**的 `pkill -9 -f`
-  （KNOWN-ISSUES:1488），G-9 **沒有碰它** ⇒ 那條沒有解除，
+  （KNOWN-ISSUES §G 同一則），G-9 **沒有碰它** ⇒ 那條沒有解除，
   **所有腳本的 `setsid` 紀律仍然必要**。兩件事長得像，容易被讀成一起修好了。
 - 測試要能分辨「cleanup 回 0」與「cleanup 回 1」兩條路徑。
   `ndt` 可以被 `source`（檔尾有 sourced-guard），把 `sudo` 換成 shell function 就能驅動 `up_p4`。

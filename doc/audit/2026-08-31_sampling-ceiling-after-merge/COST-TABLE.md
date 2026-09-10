@@ -3,7 +3,7 @@
 [Co-developed with claude code -- Adam]
 
 **為什麼有這張表**：v0.3 更正推翻了 §0 的前提——**生產的 batching 從未開啟**
-（`NDTWIN_SFLOW_BATCH` 預設 1，全 repo 無人設定，`KNOWN-ISSUES.md:1018` 早有反面記載）。
+（`NDTWIN_SFLOW_BATCH` 預設 1，全 repo 無人設定，KNOWN-ISSUES E-2 早有反面記載）。
 2×2 是為了拆開「兩個都已落地的改動」的糾纏而設計的，那個糾纏**不存在**。
 臂的設計因此重開，這張表是各方案的代價與**答不出什麼**。
 

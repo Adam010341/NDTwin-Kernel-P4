@@ -277,8 +277,8 @@ auditor 2026-09-03 要求：**一個從不失敗的東西開始會失敗，它�
 
 ### 🔴 這支分支**沒有**修的那一半
 
-`doc/KNOWN-ISSUES.md:2164`：「**`ndtwin-lab cleanup` 可能殺掉呼叫它的 shell**（內部跑 `mn -c`）。單獨一行跑。」
-那是 `mn -c` **自己內部**的 `pkill -9 -f`（KNOWN-ISSUES 1488），**不是** cleanup 的那四行。
+KNOWN-ISSUES §G：「**`ndtwin-lab cleanup` 可能殺掉呼叫它的 shell**（內部跑 `mn -c`）。單獨一行跑。」
+那是 `mn -c` **自己內部**的 `pkill -9 -f`（KNOWN-ISSUES §G 同一則），**不是** cleanup 的那四行。
 我把 `mn -c` 原樣留著，所以：
 
 - 上面那些腳本的 `setsid` 紀律**仍然必要**；
