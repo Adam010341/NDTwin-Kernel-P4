@@ -6,7 +6,10 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# Covers tests/test_TopologyInputValidation.cpp.
+# Covers tests/test_TopologyInputValidation.cpp, and -- from 2026-09-11 -- one case of
+# AddresslessHostLoadTest in tests/test_AddresslessNodeReplies.cpp, which is in the same test
+# binary. M17 names it; section 4 asserts its suite green at baseline because $FILTER does not
+# select it. See the M17 header for why it was added.
 #
 # 🔴 #89 IS A DIFFERENT CLAIM FROM #61/#62 AND IS MEASURED DIFFERENTLY (M10-M16, added
 # 2026-09-05). #61/#62 were about whether the loader refuses at all. #89 is about WHERE it
@@ -19,7 +22,8 @@
 # `vertexType == SWITCH`, so the same defect on a HOST was accepted. Half of it is scored like
 # #61/#62 (`threw`, because an addressless host really did load) and half like nothing else in
 # this file (the message, because a missing or non-array "ip" was ALREADY refused -- with a raw
-# nlohmann exception where a sentence belongs). See section 5c.
+# nlohmann exception where a sentence belongs). See section 5c. Since 2026-09-11 M17 also scores
+# the case that FLIPPED when this door arrived, which lives in another suite -- see M17.
 #
 # 🔴 #61/#62 WERE MEASURED ON :8000. #89's three doors WERE NOT -- they were read out of the
 # source, and this gate plus test_TopologyInputValidation.cpp is their entire evidence. Anything
@@ -117,6 +121,13 @@ TEST_TIMEOUT="${TEST_TIMEOUT:-300}"
 TARGET=test_routing_strategy
 BIN="$BUILD_DIR/bin/$TARGET"
 FILTER='TopologyInputValidationTest.*'
+# [Co-developed with claude code -- Adam]
+# 2026-09-11. M17 also names AddresslessHostLoadTest.AHostDeclaringAnEmptyIpArrayIsRefusedAtLoad,
+# which $FILTER does not select. _score builds its gtest filter out of the expect-red list, so
+# naming the case is enough to RUN it -- but not enough to make the result mean anything: a case
+# already red before the mutation would be scored as 'caught'. Hence the second baseline
+# assertion in section 4, over this filter.
+FILTER_FLIPPED='AddresslessHostLoadTest.*'
 
 TFM=src/ndt_core/collection/TopologyAndFlowMonitor.cpp
 # [Co-developed with claude code -- Adam]
@@ -413,6 +424,23 @@ case "$STATUS" in
   *)    echo "🔴 THE BASELINE IS ALREADY RED: $FAILED $DIED_IN" >&2
         echo "   Every 'expect red' below would be meaningless. Stopping." >&2; exit 2 ;;
 esac
+
+# [Co-developed with claude code -- Adam]
+# 2026-09-11. The suite M17's sixth expected-red case lives in, asserted separately because
+# $FILTER does not select it. All three of AddresslessHostLoadTest's cases are covered on purpose:
+# M17 disables the HOST arm of door 3d only, so TheSameEditOnASwitchIsRefused (door 3b, SWITCH)
+# and TheShippedTopologyLoads must stay GREEN through the mutation -- three cases in one suite,
+# exactly one of them moving, which is what stops M17's new light from being an "everything is
+# red" reading. Nothing is added to the post-restore check: the run ends by asserting the test
+# binary's sha is the one this baseline was taken with, which covers both suites at once.
+run_tests "$FILTER_FLIPPED"
+case "$STATUS" in
+  pass) echo "  ok       baseline green ($(grep -c '^\[       OK \]' <<<"$OUT") cases in $FILTER_FLIPPED)" ;;
+  hang) echo "🔴 BASELINE HUNG (>${TEST_TIMEOUT}s) in $FILTER_FLIPPED. The gate cannot proceed." >&2; exit 2 ;;
+  *)    echo "🔴 THE BASELINE IS ALREADY RED IN $FILTER_FLIPPED: $FAILED $DIED_IN" >&2
+        echo "   M17 would then report 'caught' for a light that was red before it ran. Stopping." >&2
+        exit 2 ;;
+esac
 echo "  ok       $TARGET sha256 $BIN_SHA_BEFORE"
 
 # ================================================================================================
@@ -678,6 +706,23 @@ mutate "door 2: the host side's port-0 exemption is transplanted onto ecmp membe
 #      and #61's edge door refuses it -- so the case stayed green here and M17 reported SURVIVED
 #      while the whole suite was green. Only an ADDED host, which no edge points at, reaches the
 #      node side. Do not "simplify" the fixture back.
+#
+#      🔴 THE SIXTH CASE IS IN ANOTHER SUITE, AND UNTIL 2026-09-11 THIS GATE NEVER RAN IT.
+#      AddresslessHostLoadTest.AHostDeclaringAnEmptyIpArrayIsRefusedAtLoad was FLIPPED when
+#      fix/w3-door3b-host-empty-ip was merged on 2026-09-10: it had asserted the OPPOSITE
+#      ("...IsAcceptedAndReachesTheGraph"), because before this door an unattached address-less
+#      host really did reach the graph and was served as `('h9', [])` on :8000.
+#      doc/audit/2026-09-06_fix-index-zero-guards/FIX-INDEX-ZERO-GUARDS.md section 2.1.1 records
+#      the flip AND records that tests/shell/ then held no gate and no anchor naming that test --
+#      grep, zero hits, re-confirmed zero on 2026-09-11 before this line was added. R4-CPPGATES-2
+#      section 2.3b had to apply THIS MUTATION BY HAND to see the case red once. A test whose only
+#      red was a hand run is not wired (tests/shell/README.md, "Before you call a new gate wired"),
+#      so the name is now on the list below and the verdict is this gate's.
+#
+#      It is one more expected-red on M17 rather than a mutation of its own because the edit is
+#      the same text at the same site: _score builds its gtest filter from this list, so naming
+#      the case is what makes it RUN. A separate M-number would rebuild the same mutant twice and
+#      report the same edit as two independent results.
 mutate "door 3d: the host address check never fires" \
     "$TFM" \
     '        if (vertexType == VertexType::HOST)' \
@@ -686,7 +731,8 @@ mutate "door 3d: the host address check never fires" \
     TopologyInputValidationTest.TheAddresslessHostRefusalNamesTheHost \
     TopologyInputValidationTest.AHostWithNoIpKeyAtAllIsRefusedInPlainLanguage \
     TopologyInputValidationTest.AHostWhoseIpIsNotAnArrayIsRefusedInPlainLanguage \
-    TopologyInputValidationTest.AnExistingHostLosingItsAddressNowNamesTheHostNotTheEdge
+    TopologyInputValidationTest.AnExistingHostLosingItsAddressNowNamesTheHostNotTheEdge \
+    AddresslessHostLoadTest.AHostDeclaringAnEmptyIpArrayIsRefusedAtLoad
 
 # M18. Only the missing-key arm is dropped. The very next line is `nodeJson.at("ip").is_array()`,
 #      so the file is STILL refused -- by at() throwing out_of_range from inside the door. Exactly
@@ -1139,7 +1185,10 @@ echo "  ecmp members -- while writing the same bound as a literal stays green."
 echo "  FINDINGS #90 gate: door 3d cannot be switched off, neither of its two plain-language arms"
 echo "  can quietly fall back to a raw nlohmann exception, and it cannot narrow to 'exactly one"
 echo "  address' without the five _ipAlias4_ files saying so -- while spelling the emptiness test"
-echo "  a different way stays green."
+echo "  a different way stays green. Since 2026-09-11 M17 also reddens the case that flipped when"
+echo "  fix/w3-door3b-host-empty-ip was merged -- AddresslessHostLoadTest"
+echo "  .AHostDeclaringAnEmptyIpArrayIsRefusedAtLoad, which no gate named before that date -- while"
+echo "  its two siblings in that suite stay green through the same edit."
 echo "  BUG-17 + E-26 gate: a mixed data plane cannot be reported-and-loaded again, the opt-in"
 echo "  cannot stop working, and the switchless refusal cannot be dropped at both layers (which is"
 echo "  BUG-17 as it shipped on 2026-09-06, before E-26 reversed it), cannot be dropped at the"
