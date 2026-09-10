@@ -19,6 +19,12 @@ A new tool's first live run mostly finds defects in the tool. So:
      to test and the allow path is not. A guard tested only by watching it refuse has never
      had its dangerous branch executed -- and the moment a guard fails is exactly the moment
      the thing it guards happens.
+     🔴 Qualified 2026-09-07 (E-4), and the qualification is the honest half: an action behind
+     `needs_opt_in` is refused in EVERY mode including this one, so the default `--dry-run` no
+     longer exercises its allow path. Pass the action's flag to get that back
+     (`--dry-run --allow-link-blackhole`). The trade was deliberate: for an action no list
+     reaches, the dry run is the only path there is, so an opt-in that exempted dry runs would
+     be a gate on nothing -- and this file would still print the word "gated".
   3. Verdicts come from state, never from an HTTP status.
 
 [Co-developed with claude code -- Adam]
@@ -157,14 +163,23 @@ def gate_g1_controls(dry_run: bool, iface: str | None = None,
     all_ok = True
     opt_ins = opt_ins or {}
     for ctl in A.POSITIVE_CONTROLS:
+        # 🔴 E-4, 2026-09-07. ONE decision for every action, asked from `A.opt_in_refusal` and
+        # phrased there, so this row and a refused injection round carry the identical sentence.
+        # The check used to be written out inline here, and here ONLY -- which is how a
+        # destructive chaos action could carry `needs_opt_in` and still run.
+        #
+        # Asked BEFORE the dry branch, not after it: the previous order let a dry run preview a
+        # gated action without its flag. `--controls` (dry_run=False) reads exactly as it did
+        # -- NOT-RUN, same detail, all_ok False -- so the ruling's "keep that path" holds.
+        refusal = A.opt_in_refusal(ctl, opt_ins)
+        if refusal:
+            rows.append({"control": ctl.id, "targets": ctl.targets, "verdict": "NOT-RUN",
+                         "detail": refusal})
+            all_ok = False
+            continue
         if dry_run:
             rows.append({"control": ctl.id, "targets": ctl.targets, "verdict": "DRY-RUN",
                          "detail": ctl.apply(True).detail})
-            continue
-        if ctl.needs_opt_in and not opt_ins.get(ctl.needs_opt_in):
-            rows.append({"control": ctl.id, "targets": ctl.targets, "verdict": "NOT-RUN",
-                         "detail": f"needs --{ctl.needs_opt_in}; {ctl.note}"})
-            all_ok = False
             continue
 
         # 🔴 Baseline BEFORE the fault. This was wrong in the first cut of this rewrite -- the
@@ -422,7 +437,28 @@ def null_round(iface: str | None, pair: tuple[str, str] | None,
 
 def injection_round(action: A.Action, dry_run: bool, iface: str | None,
                     pair: tuple[str, str] | None, dpid: str | None = None,
-                    slow: bool = False, power_ip: str | None = None) -> dict:
+                    slow: bool = False, power_ip: str | None = None,
+                    opt_ins: dict[str, bool] | None = None) -> dict:
+    # 🔴 E-4: the same gate the controls ask, asked at the other entry point -- before anything
+    # is applied and before anything is READ. A refused round runs no command at all, not even
+    # the `tc qdisc show` a dry run would plan with. It belongs at the entry rather than inside
+    # each action for the reason the field was ineffective in the first place: an action that
+    # has to remember to consult its own gate is a gate the next action will not have.
+    #
+    # `opt_ins=None` refuses, so a caller who forgets the argument gets a refusal rather than an
+    # injection. Note this covers the DRY run too: for an action that no list reaches (the
+    # blackhole), the dry run is the only path there is, so exempting it would leave the flag
+    # guarding nothing while the report claimed a gate.
+    refusal = A.opt_in_refusal(action, opt_ins)
+    if refusal:
+        return {"round": action.id, "refused": True, "dry_run": dry_run,
+                "targets": action.targets, "verdict": "REFUSED",
+                "verdict_detail": "no invariant was evaluated", "detail": refusal,
+                "why": ("this action is behind an opt-in flag that was not given, so nothing "
+                        "was applied and nothing was read. It is REPORTED rather than dropped "
+                        "from the list: an action missing from a report reads exactly like one "
+                        "that ran and found nothing")}
+
     ctx = build_context()
     ctx.round_name = action.id
     gate = CpuGate()
@@ -498,10 +534,25 @@ def main() -> int:
     ap.add_argument("--allow-poweroff", action="store_true",
                     help="permit G1-01, which really powers a switch down and whose restore "
                          "path has never been exercised against a switch that was actually off")
+    ap.add_argument("--allow-link-blackhole", action="store_true",
+                    help="permit T-netem, which drops 100%% of the traffic on one link. The DRY "
+                         "RUN is behind this flag too: it is the only path that reaches this "
+                         "action (it is not in CHAOS_ACTIONS, and stays out by ruling), so a "
+                         "gate that let the dry run through would gate nothing. The netem hangs "
+                         "under the interface's shaper, never over it -- over it replaces "
+                         "TCLink's htb, which this machine's sudo grants cannot put back")
     ap.add_argument("--out", help="write the JSON report here")
     args = ap.parse_args()
     if not any([args.gates, args.dry_run, args.null, args.controls, args.full]):
         args.dry_run = True
+
+    # 🔴 ONE dict, built once, handed to BOTH loops. A per-loop dict is how the controls came
+    # to be gated and the injection rounds not: the gate was wherever someone remembered to
+    # write it. A flag an action names but nobody puts in here reads as "not given" and the
+    # action is refused -- wrong in the safe direction, and loudly, since the refusal names the
+    # flag that does not arrive.
+    opt_ins = {"allow-poweroff": args.allow_poweroff,
+               "allow-link-blackhole": args.allow_link_blackhole}
 
     pair = tuple(args.pair.split(",", 1)) if args.pair else None
     report: dict = {"started": time.strftime("%FT%T%z"), "mode": (
@@ -525,7 +576,7 @@ def main() -> int:
               file=sys.stderr)
 
     g1_ok, g1_rows = gate_g1_controls(dry_run=not injecting, iface=args.iface,
-                                      opt_ins={"allow-poweroff": args.allow_poweroff})
+                                      opt_ins=opt_ins)
     report["G1_positive_controls"] = {"all_fired": g1_ok, "rows": g1_rows}
     # Only --full refuses on G1. --controls is the run that ESTABLISHES G1, so refusing on it
     # would make the gate unsatisfiable: the only way to earn it is to perform it.
@@ -540,9 +591,14 @@ def main() -> int:
         report["result"] = "gates only"
     elif args.dry_run:
         report["rounds"] = [injection_round(a, True, args.iface, pair, args.dpid, args.slow,
-                                            args.power_ip)
+                                            args.power_ip, opt_ins)
                             for a in A.CHAOS_ACTIONS + [A.link_blackhole(args.iface or "s1-eth3")]]
-        report["result"] = "dry run complete; every destructive allow path printed its intent and touched nothing"
+        refused = [r["round"] for r in report["rounds"] if r.get("refused")]
+        report["result"] = (
+            "dry run complete; every destructive allow path that was opted in printed its "
+            f"intent and touched nothing. REFUSED for want of an opt-in flag, and therefore "
+            f"NOT exercised even as a dry run: {refused or 'none'} -- each refused round names "
+            f"the flag that would allow it")
     elif args.null:
         report["rounds"] = [null_round(args.iface, pair, args.dpid, args.slow, args.power_ip)]
         report["result"] = "null round complete"
@@ -557,7 +613,7 @@ def main() -> int:
         floor = rounds[0]["false_positive_floor"]
         for a in A.CHAOS_ACTIONS:
             rounds.append(injection_round(a, False, args.iface, pair, args.dpid, args.slow,
-                                          args.power_ip))
+                                          args.power_ip, opt_ins))
         report["rounds"] = rounds
         report["false_positive_floor"] = floor
         n_incon = sum(1 for r in rounds for f in r.get("findings", [])

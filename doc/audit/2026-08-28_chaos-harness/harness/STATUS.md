@@ -18,6 +18,36 @@ refuses, by design.** Any PASS from an invariant other than INV-06 remains unbac
 
 ---
 
+> **🆕 Annotation, 2026-09-07 (E-4). Added below the line; nothing above or below it is
+> rewritten — this file is the 08-29 snapshot.** Two rows of the table are now *qualified*,
+> not corrected. **§4:** `Action.needs_opt_in` was declared in `actions.py` but enforced only
+> in `gate_g1_controls`'s live path, so the `tc netem` blackhole — destructive, and reachable
+> only through `--dry-run` — carried no opt-in and was asked for none. It is now behind
+> `--allow-link-blackhole`, refused by default **in every mode**, at one shared decision
+> (`actions.opt_in_refusal`) that both entry points ask. **§5.2:** that qualifies "dry run …
+> exercised" — for a gated action the default dry run is now a REFUSED record naming its flag,
+> and `--dry-run --allow-link-blackhole` is what exercises the allow path. `link_blackhole` is
+> still **not** in `CHAOS_ACTIONS` (Adam's ruling, E-4), so "3 of ~50" below stands as written.
+> Detail: [`../../2026-09-07_fix-chaos-blackhole-attach/FIX-CHAOS-BLACKHOLE-ATTACH.md`](../../2026-09-07_fix-chaos-blackhole-attach/FIX-CHAOS-BLACKHOLE-ATTACH.md) §5.
+
+> **🆕 Annotation, 2026-09-08 (Adam's rulings on the R3-E4 §7 questions). Added; nothing
+> above or below it is rewritten.**
+>
+> **Where a defect in this harness gets registered:** in THIS file and in the per-fix
+> `FIX-…md` documents — **not** in `doc/KNOWN-ISSUES.md`. That register carries kernel and
+> platform behaviour; a defect in the instrument stays with the instrument, so a reader of
+> KNOWN-ISSUES is never told that a harness bug is a system bug (§7-5).
+>
+> **`destructive` keeps the meaning it has — registered, deliberately not widened (§7-3).** Two
+> positive controls leave state behind and are nevertheless `destructive=False` with **no** opt-in
+> flag, and that is a ruling rather than an oversight: `G1-06` takes the REAL lock (`routing_lock`
+> / `power_lock` — this API has no private one), and `G1-07` switches `historical_logging` on,
+> whose undo only prints a warning when it fails, so a later round can run carrying a setting that
+> control changed. Both are written down here so the next reader meets a decision instead of a
+> silence.
+
+---
+
 ## `04_harness-spec.md`, clause by clause
 
 | clause | state | note |

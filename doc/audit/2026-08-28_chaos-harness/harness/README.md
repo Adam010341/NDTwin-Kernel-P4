@@ -24,6 +24,7 @@ we have stepped in.* Divergences from the oracle are marked 🔧 in the source, 
 python3 test_probes.py                          # parser self-test; offline, no fabric needed
 python3 chaos.py --gates                        # G1/G2/G3 pre-flight only
 python3 chaos.py --dry-run  --iface s1-eth3     # default; prints intent, touches nothing
+python3 chaos.py --dry-run  --iface s1-eth3 --allow-link-blackhole   # ... incl. the tc netem one
 python3 chaos.py --null     --iface s1-eth3 --pair 10.0.0.2,10.0.0.1 --dpid 1 --slow
 python3 chaos.py --controls --owner "<your session>" --iface s1-eth3
 python3 chaos.py --full     --owner "<your session>" --iface s1-eth3 --pair 10.0.0.2,10.0.0.1
@@ -38,6 +39,20 @@ It applies real faults, so it is gated exactly like `--full`. `--null` is read-o
 `--full` refuses unless `--owner` matches the live claim **and** the claim declares
 `exclusive_cpu=yes`. Injection without that perturbs whoever else is measuring, invisibly to
 them — that is the mechanism that voided a six-arm block on 2026-08-28.
+
+**Per-action opt-ins (2026-09-07, E-4).** Two actions name a flag of their own and are REFUSED
+without it, in **every** mode including `--dry-run` — the refusal is a row in the report saying
+which flag would allow it, never a silent skip:
+
+| flag | action | why it is gated |
+| :--- | :--- | :--- |
+| `--allow-poweroff` | G1-01 | really powers a switch down; its undo has never met a switch that was actually off |
+| `--allow-link-blackhole` | T-netem | `tc netem loss 100%` on a live link; the undo's `parent` form has never been observed to be accepted by this machine's sudoers |
+
+The flags are per action on purpose: a blanket `--force` is granted once and then covers
+everything added afterwards. `link_blackhole` is **not** in `CHAOS_ACTIONS` and stays out
+(Adam's ruling), so `--full` does not reach it — the dry run does, which is why the dry run is
+inside the gate: an opt-in that exempted the only path to an action would gate nothing.
 
 ## The three things that make this more than a checklist
 
@@ -61,7 +76,9 @@ violations than the floor has found nothing.
 **3. Both gate branches have been run.** The allow-path dry run was exercised 2026-08-29 (it
 only reads). The refuse path was exercised three ways against a live foreign claim. That matters
 because a guard tested only by watching it refuse has never executed its dangerous branch — and
-the moment a guard fails is the moment the thing it guards happens.
+the moment a guard fails is the moment the thing it guards happens. 🔴 **2026-09-07:** for the
+two actions behind an opt-in this now reads "*with its flag*" — their allow path is reached by
+`--dry-run --allow-…`, and the default `--dry-run` records a refusal instead.
 
 ## 🔴 Not delivered — read this before trusting a green run
 
