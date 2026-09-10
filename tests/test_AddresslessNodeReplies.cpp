@@ -142,7 +142,8 @@ class PromptLayoutRig
     PromptLayoutRig()
     {
         m_previousCwd = std::filesystem::current_path();
-        m_root = std::filesystem::temp_directory_path() / "ndtwin_test_addressless_node_replies";
+        m_root = std::filesystem::temp_directory_path() /
+                 ("ndtwin_test_addressless_node_replies_" + std::to_string(::getpid()));
         std::filesystem::remove_all(m_root);
 
         const auto promptDir = m_root / "src" / "ndt_core" / "intent_translator";
