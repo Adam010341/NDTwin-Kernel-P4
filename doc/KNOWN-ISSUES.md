@@ -675,8 +675,10 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 > 這一條是**那個端點自己的誠實度問題**：它蓋好了，而它公布的那個數字的**名字**回答了
 > 一個它答不出來的問題。同一個表面，下一層。
 
-- **狀態**：🟡 **已修（分支，未併）**——`fix/w11-dispatch-status-accepted-counters`（W11，2026-09-06）。
-  🔴 **`trunk` 上照舊成立**；任何人能下載到的 kernel 都還是舊行為。
+- **狀態**：✅ **已併入 trunk**——`fix/w11-dispatch-status-accepted-counters`（W11，2026-09-06），
+  **merge `31ae5d13`，2026-09-10**；閘門 `mutate_dispatch_status_honest.sh` 在合併樹
+  `16 mutations, 0 survived (+2 declared-uncovered, listed above)`（`fix/R4-CPPGATES-1-SUMMARY.md`）。
+  🔴 **公開 ref 上照舊成立**（09-10 這批**未推任何 remote**）；任何人能下載到的 kernel 都還是舊行為。
 - **平面**：兩者（但**修法在 OVS 上只能誠實地回答「不知道」**，見下）
 - **失效方向**：樂觀 ＋ 靜默
 - **會發生什麼**（🟢 2026-09-05 受控前後量測，raw
@@ -1367,8 +1369,11 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ### B-6 🔴 用 API 宣告的 link failure 會被 30 秒的拓樸輪詢靜默撤銷（可見壽命上界 30 s）
 
-- **狀態**：**在 trunk 上 OPEN。已修在分支 `fix/w8-declared-link-failure-sticky`（工單 W8），
-  未併入**（分支從 trunk `1536ff17` 開，2026-09-06）。2026-09-04 夜巡實測（5/5 重現，機制定案）。
+- **狀態**：✅ **已併入 trunk**——修法在分支 `fix/w8-declared-link-failure-sticky`（工單 W8），
+  **merge `8b51caf4`，2026-09-10**（分支從 trunk `1536ff17` 開，2026-09-06）；閘門
+  `mutate_declared_link_failure_survives_poll.sh` 在合併樹 `8 mutations, 0 survived`／
+  `3 widenings, 0 wrongly caught`（`fix/R4-CPPGATES-2-SUMMARY.md`）。
+  2026-09-04 夜巡實測（5/5 重現，機制定案）。
   **Adam 2026-09-05 裁定語意：宣告應該優先，這是缺陷**——不是「輪詢比較準」的設計取捨；
   2026-09-05 第四輪裁**選項 C**（宣告黏住＋公開的 `down_reason:"declared"`）
   ＋另開 `inject_link_failure/recovery` 端點（MININET 下 kernel 對兩端下 `tc netem`）；
@@ -1411,7 +1416,7 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   `scratch/overnight-2026-09-04/FINDINGS-CANDIDATES.md` **OV-4**（3/5、相位猜 ≈9 s，**已被 R2-B 取代**）。
   🔴 **上列 raw 全在 `scratch/`，不在版控**——引用前先確認那個 session 的目錄還在。
   機制行號由 2026-09-05 本次登記時**開檔覆核**於 trunk `4088b237`，不是抄 finding 的偏移量。
-- **修法（分支 `fix/w8-declared-link-failure-sticky`，未併）**：
+- **修法（分支 `fix/w8-declared-link-failure-sticky`，已併入 trunk：merge `8b51caf4`，2026-09-10）**：
   1. `EdgeProperties` 多一個 `declaredDown` 旗標（**第五個旗標，不是把 `downReason` 加值**——
      `downReason` 由 `reconcileDerivedLiveness` 每個 poll 重寫，宣告放在那裡會被第一次交換機故障吃掉）；
      `DownReason` 多一個 `Declared`，wire form `"declared"`，由 `effectiveDownReason()` 決定
@@ -1439,10 +1444,12 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 #### B-6 第二輪：**宣告活過輪詢，但活不過控制面重啟**（實測 2026-09-07，分支 `fix/w8b-withdrawal-needs-observed-failure`）
 
-- **狀態**：**在 trunk 上 OPEN**（trunk 連第一輪都沒有）。**在 `fix/w8-declared-link-failure-sticky`
-  上也 OPEN**——第一輪的修法擋得住輪詢、擋不住這個。修在
+- **狀態**：✅ **兩輪都已併入 trunk**（2026-09-10；在此之前 trunk 連第一輪都沒有）。
+  第一輪的修法擋得住輪詢、擋不住這個；修在
   `fix/w8b-withdrawal-needs-observed-failure`（base＝`fix/w8-declared-link-failure-sticky`@`017c060f`），
-  **未併**。🔴 **變異閘在 trunk 上跑綠之前不得標 RESOLVED。**
+  **merge `fe2b03b8`，2026-09-10**；閘門 `mutate_withdrawal_needs_observed_failure.sh` 在合併樹
+  `25 mutations, 0 survived`／`6 widenings, 0 wrongly caught`（`fix/R4-CPPGATES-2-SUMMARY.md`）。
+  🔴 **變異閘在 trunk 上跑綠之前不得標 RESOLVED。**
 - 🟢 **實測（不是推論）**：`scratch/overnight-2026-09-05/logs/live-round2-console.log` 的 lw8b 臂，
   2026-09-07 00:08，OVS 4 hosts，kernel `37d641fa9fd6fc14`（build 自 `017c060f`）：
   宣告 s1:1→s5:1（`is_up=False down_reason=declared`）→ 指名 kill Ryu（:8080 於 00:08:47 關，
@@ -1730,11 +1737,13 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ### B-10 🔴 替交換機取個名字，`ndt status --check` 就說「有人動了拓樸檔」
 
-- **狀態**：**OPEN（登記於 2026-09-06）。修法在分支 `fix/w10-nickname-overlay` 上，未併 trunk。**
+- **狀態**：**OPEN（登記於 2026-09-06）。修法在分支 `fix/w10-nickname-overlay` 上，
+  ✅ 已併入 trunk**（merge `0584f1b5`，2026-09-10；閘門 `mutate_nickname_overlay.sh` 在合併樹
+  `16 mutations, 0 survived`，`fix/R4-CPPGATES-1-SUMMARY.md`）。
   照本檔 B-7／B-8 前面那段自己立的慣例（條目照登、狀態維持 OPEN、分支寫在狀態行上），
   以及 **A-1 的規矩：變異閘在 trunk 上跑綠之前不得改 RESOLVED**。
-  🔴 **「修好了」對外要先問修在哪個 ref**：這是一條沒併進 trunk 的分支，
-  比「repo 裡有」還要遠一步（F-1 立的那條線）。
+  🔴 **「修好了」對外要先問修在哪個 ref**：trunk 併進來了，而 **09-10 這批未推任何 remote**
+  ⇒ 使用者拿得到的仍是舊行為（F-1 立的那條線）。
 - **平面**：**兩者**（跟著 `activeTopologyPath()` 走，不是平面的性質）
 - **失效方向**：**誤導**——紅字本身是真的，但它說的是一件使用者沒做過的事
 - **會發生什麼**：`POST /ndt/modify_nickname`（或 `modify_device_name`）成功之後，
@@ -1783,7 +1792,8 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 > 底下每一次提到 `#90`／`#91` 都寫成「**09-05 夜巡的 #90**」。**編號本身要 Adam 裁**
 > （改哪一套、還是兩套並存各自加前綴）——在他裁之前，**不要把這兩條寫成「就是 #90／#91」**。
 >
-> `B-10` 是 **W10 的 nickname overlay**（登記在分支 `fix/w10-nickname-overlay` 上，尚未併進 trunk）
+> `B-10` 是 **W10 的 nickname overlay**（登記在分支 `fix/w10-nickname-overlay` 上，當時尚未併進 trunk；
+> 2026-09-10 已併，merge `0584f1b5`）
 > ⇒ **本次刻意跳過 B-10，把號留給它。**
 
 ---
@@ -1798,11 +1808,14 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 > ——那一條是「四個外部 app 從沒對著活的 kernel 用過」。
 > 〔2026-09-07 依 Adam 裁 E-1 補；那份覆蓋率總帳同日已加上反向對照，commit 訊息不動。〕
 
-- **狀態**：**在 trunk 上 OPEN。修法在分支 `fix/w3-door3b-host-empty-ip` 的 `b1471cbe`
-  （分支 tip `72ffd4dd`，工單 W3-3b），未併入**（查於 2026-09-07，trunk `1536ff17`）。
+- **狀態**：**修法在分支 `fix/w3-door3b-host-empty-ip` 的 `b1471cbe`
+  （分支 tip `72ffd4dd`，工單 W3-3b），✅ 已併入 trunk**（merge `8cdf299e`，2026-09-10；閘門
+  `mutate_topology_input_is_validated.sh` 在合併樹 `33 mutations, 0 survived`／
+  `9 widenings, 0 wrongly caught`，`fix/R4-CPPGATES-2-SUMMARY.md`）。
+  在此之前的口徑是「在 trunk 上 OPEN」（查於 2026-09-07，trunk `1536ff17`）。
   照 B-7／B-8 前面那段自己立的慣例（條目照登、狀態維持 **OPEN**、分支與 commit 寫在狀態行上），
   以及 **A-1 的規矩：變異閘在 trunk 上跑綠之前不得改 RESOLVED**。
-  🔴 **「已經修好了」對外要先問修在哪個 ref**——這是一條沒併進 trunk 的分支。
+  🔴 **「已經修好了」對外要先問修在哪個 ref**——trunk 有了，而 **09-10 這批未推任何 remote**。
 - **平面**：兩者（載入器的事，與資料面無關）
 - **失效方向**：**靜默**——整份檔案被完整收下，log 一個字都沒有
 - **會發生什麼**：拓樸檔裡多一台 `"ip": []` 的 host（不必被任何 edge 指到），
@@ -1820,7 +1833,7 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 - **代價**：`ip.front()` 的呼叫點（W2／#88 盤點的那七處，其中五處在 host 側產線走得到）
   的前提就是「host 至少有一個位址」。**門關上讓檔案層乾淨，但 Ryu 發現路徑加進來的 host 仍可能無位址**
   ⇒ 那五處對它們**仍然是裸的**（W3-3b SUMMARY §8 第 2 題，Adam 尚未裁）。
-- **分支上的行為**（`b1471cbe`，**尚未在 trunk**）：`vertexType == HOST` 且 `ip` **缺／非陣列／空陣列**
+- **修法後的行為**（`b1471cbe`，**2026-09-10 起在 trunk 上**）：`vertexType == HOST` 且 `ip` **缺／非陣列／空陣列**
   ⇒ 在**第一個 `add_vertex` 之前** throw，`num_vertices == 0`，訊息指名該台 host：
   `host "h9" declares an empty "ip" array; every host needs at least one address…`。
   🔴 **這條修法反轉了一支既有的綠測試**（`AHostWithNoAddressIsStillAllowed`
@@ -1855,8 +1868,11 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 > 而它的 `#90`（`:236`）是另一件事 ⇒ **兩套號不可互相翻譯。**
 > 〔2026-09-07 依 Adam 裁 E-1 補；那份覆蓋率總帳同日已加上反向對照，commit 訊息不動。〕
 
-- **狀態**：**在 trunk 上 OPEN。修法在分支 `fix/w15-unknown-brand-rejected` 的 `008de16d`
-  （分支 tip `8b3ebe49`，工單 W15），未併入**（查於 2026-09-07，trunk `1536ff17`）。
+- **狀態**：**修法在分支 `fix/w15-unknown-brand-rejected` 的 `008de16d`
+  （分支 tip `8b3ebe49`，工單 W15），✅ 已併入 trunk**（merge `e80bd013`，2026-09-10；閘門
+  `mutate_topology_input_is_validated.sh` 在合併樹 `33 mutations, 0 survived`／
+  `9 widenings, 0 wrongly caught`，`fix/R4-CPPGATES-2-SUMMARY.md`）。
+  在此之前的口徑是「在 trunk 上 OPEN」（查於 2026-09-07，trunk `1536ff17`）。
   🔴 **那條分支的 base 是 `fix/w3-door3b-host-empty-ip` 的 tip `72ffd4dd`，不是 trunk
   ⇒ 合併順序：先 B-11 那一支，再這一支。**
   同 B-11：狀態維持 **OPEN**，A-1 的規矩（閘門在 trunk 上跑綠之前不改 RESOLVED）。
@@ -1884,7 +1900,7 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   並列出是哪些 dpid」、`doc/2026-07-27_p4_bmv2_support_plan.md:213` 寫著「**直接以致命錯誤中止**」
   ——**那兩句是假的**（🟢 兩行都是本條登記者開檔逐字核對的；W15 SUMMARY §6 另外點名了一份
   `architecture.md`，**這棵樹裡沒有那個檔名**，本條不轉述它）。W15 的修法只是讓**打錯的 brand** 到不了那條路。
-- **分支上的行為**（`008de16d`，**尚未在 trunk**）：node 迴圈裡（door 3a 之後、3b 之前）
+- **修法後的行為**（`008de16d`，**2026-09-10 起在 trunk 上**）：node 迴圈裡（door 3a 之後、3b 之前）
   對 `vertexType == SWITCH` 檢查 `brand_name`：缺／非字串／不在清單 ⇒ 在**第一個 `add_vertex` 之前**拒絕，
   訊息指名該值＋列出全部合法值（`OVS`／`BMv2`／`HPE5520`／`BrocadeICX6610`／`BrocadeICX7250`）＋
   說明後果＋說新機型要加在哪兩個地方。
@@ -2360,7 +2376,7 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
 - **機制**：B-1 的過濾器擋的是讀取路徑，不是 OVS 的寫入路徑。
 - 🔑 **這一條的形狀值得單獨記住**：一個修法在**它被驗證的那個平面**成立，
   不表示在另一個平面成立；而原本的驗證在結構上不可能發現這件事。
-- 🆕 **W11（2026-09-06，分支未併）把這條的成因變成了一個公開欄位**：
+- 🆕 **W11（2026-09-06；分支 2026-09-10 已併入 trunk，merge `31ae5d13`）把這條的成因變成了一個公開欄位**：
   `get_flow_dispatch_status.switch_outcome.unknown` 就是「這個平面沒有裁決過」的計數，
   OVS 上恆等於 `dispatched`。**它不修 C-4，它讓 C-4 在 API 上看得見**——
   在此之前「這個平面答不出來」只寫在 `kernel.log` 的一行 WARN 與這份文件裡。見 A-7b。
@@ -2417,7 +2433,7 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
   可觀測的形狀是「視圖直到下一次輪詢把它清掉為止都還留著那一列」，
   與 C-4 的「刻意扣留」**不是同一個成因**（扣留是主動不給，這裡是被動沒更新）。
   要寫進修法單之前必須有人開檔確認 §5 的 delete 路徑是否真的沒有對應的失效處理。
-- 🆕 **W11（2026-09-06，分支未併）與這條的交界**：W11 沒有動 §5，也沒有動 §10 的回應。
+- 🆕 **W11（2026-09-06；分支 2026-09-10 已併入 trunk，merge `31ae5d13`）與這條的交界**：W11 沒有動 §5，也沒有動 §10 的回應。
   它做的是讓**事後的計數**分得出 no-op delete——**只在 P4 上**（`rejected_by_switch`）。
   OVS 上這條的重試迴圈**原封不動**：§5 仍然停在 9.61 s，§10 仍然回 200，
   而 `switch_outcome` 誠實地回 `unknown`。**「可觀測」不等於「可判別」，這裡只買到前者。** 見 A-7b。
@@ -2445,7 +2461,9 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
 
 ### C-5 🔴 混合資料平面：訊息的語氣是拒絕，行為是收下 —— **已修（分支）**
 
-- **狀態**：**已修（分支 `fix/bug17-mixed-dataplane-refused`，2026-09-07，尚未併入 trunk）。**
+- **狀態**：✅ **已併入 trunk**（分支 `fix/bug17-mixed-dataplane-refused`，2026-09-07；
+  merge `714d314a`，2026-09-10；閘門 `mutate_topology_input_is_validated.sh` 在合併樹
+  `33 mutations, 0 survived`／`9 widenings, 0 wrongly caught`，`fix/R4-CPPGATES-2-SUMMARY.md`）。
   在此之前：`TopologyAndFlowMonitor::validateDataPlaneHomogeneity()` 回傳 `bool`，
   而 `parseStaticTopologyFile()` 的最後一行是**裸呼叫**——回傳值沒有任何人接。
   「拒絕」因此只是一行 `[error]`，kernel 照樣開 :8000 並用混合模型回答。
@@ -2509,7 +2527,10 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
 
 ### C-5c 🔴 被豁免的交換機只是「記號」：電源管理器照打 Brocade 的 OID／SSH，而外面看不到記號 —— **已修（分支 `fix/e23-e25-exempt-switch-on-wire`，2026-09-07）**
 
-- **狀態**：**已修（新分支，2026-09-07，尚未併入 trunk）。** 裁決＝grill §4E 的 **E-23**
+- **狀態**：✅ **已併入 trunk**（分支 `fix/e23-e25-exempt-switch-on-wire`，2026-09-07；
+  merge `7a0bc99f`，2026-09-10；閘門 `mutate_exempt_switch_is_not_dialled.sh` 在合併樹
+  `16 mutations, 0 survived`，`fix/R4-CPPGATES-2-SUMMARY.md` §2.8——🟠 該支是讀 log 不是親跑）。
+  裁決＝grill §4E 的 **E-23**
   （`scratch/overnight-2026-09-05/DECISIONS.md:261` 逐字：「豁免只是記號：**開單，`power_path=none`
   就短路電源管理器那六處**」）與 **E-25／E-30**（`:269`：「開單：`get_graph_data` 加
   `power_path`／`telemetry_path`＋進契約＋啟動一行 WARN」）。
@@ -2707,7 +2728,12 @@ timeout 與 watchdog 間隔**都是衍生的**，所以改一個常數三個一�
   「bind 失敗處理器」聽起來是對的地方，但在這個框架裡它**結構性地太晚**。
   ⚠️ **本條沒有對應的舊條目**——這個缺陷從來沒有進過本清單，08-30 對帳時才補記形狀。
 - 🆕 **「規則的唯一例外，靠一個沒人保證的前提活著」**（2026-09-08 新增，缺陷代號沿用
-  grill §4E 第七輪的題號 **E-29**，**已修在分支 `fix/e29-update-hosts-race-evidence`，未併**）——
+  grill §4E 第七輪的題號 **E-29**，修法在 `fix/e29-update-hosts-race-evidence`，
+  **已併入 trunk（merge `93610931`，2026-09-10）；閘門未在合併樹重跑**——修法所在檔
+  （`TopologyAndFlowMonitor.cpp`）的常設閘門 `mutate_optimistic_topology_reporting.sh`
+  沒有跑（TEST-LIST B6「要不要併前補跑全程」Adam 未裁），合併樹上只跑了 E-29 的 TSAN
+  **正向**四格（exit 0 ×4，`fix/R4-CPPGATES-2-SUMMARY.md` §2.7），反向鑑別力那半邊沒跑
+  ⇒ **不寫 RESOLVED**）——
   🔴 **這一條的口徑要照抄，不要簡寫成「修了一個 race」。**
   - **形狀**：`TopologyAndFlowMonitor::updateHosts` 的附著交換機分支
     （base `1a284f75` 的 `TopologyAndFlowMonitor.cpp:1726-1729`）**無鎖讀圖**——
@@ -3497,13 +3523,15 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 
 ---
 
-### G-13 🏁 P4 平面的流表**沒有時間軸** ⇒ 任何殘留都歸不了屬 —— **已修（在分支上，未併）**
+### G-13 🏁 P4 平面的流表**沒有時間軸** ⇒ 任何殘留都歸不了屬 —— **已修（已併入 trunk，2026-09-10）**
 
 > **與 G-12 的分工**：G-12 是「沒有任何工具負責回答『網路上還有誰的殘留』」。
 > **這一條是它在 P4 上的硬天花板**——就算有工具去問，**規則上沒有任何欄位可以回答「你是什麼時候來的」**，
 > 所以 `ndt` 的時間窗判定在 P4 上只能把整張表標 `age=UNKNOWN`。
 
-- **狀態**：**已修**，分支 `fix/g13-p4-rule-install-time`（基底 trunk `1a284f75`），**未併未推**。
+- **狀態**：✅ **已修並已併入 trunk**——分支 `fix/g13-p4-rule-install-time`（基底 trunk `1a284f75`），
+  merge `fa2c37d6`，2026-09-10；閘門 `mutate_p4_rule_install_time.sh` 在合併樹
+  `mutation gate: 26 mutations, 0 survived`（`fix/R4-PYGATES-SUMMARY.md`）。**未推任何 remote。**
   裁決：`DECISIONS.md:242`（grill §4E 第三輪 E-10，Adam 裁「**從根本修**」，與建議相反）。
   修法文件 `doc/audit/2026-09-07_fix-g13-p4-rule-install-time/FIX-G13.md`。
 - **平面**：**P4 實測**（OVS 不受影響——OVS 的 `duration` 來自交換機自己）
@@ -3559,7 +3587,7 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 
 ---
 
-### G-14 🏁 `ndt` 的殘留「時間窗」對 helper 起的兩個 app（`energy`／`sim`）天生失明 —— **已修（未併）**
+### G-14 🏁 `ndt` 的殘留「時間窗」對 helper 起的兩個 app（`energy`／`sim`）天生失明 —— **已修（已併入 trunk，2026-09-10）**
 
 > ⚠️ **編號**：本檔在這條之前最大的 G 是 **G-11**，但 **G-12（殘留報告本身）與 G-13（proxy
 > 給 P4 規則記裝入時間）已經被碼與裁決佔用**（`tools/test_workflow/ndt` 通篇引用 G-12，
@@ -3567,7 +3595,9 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 > 🔴 **併的時候要對號**：如果 G-12／G-13 的條目走另一條分支先進來，這條的號碼要跟著調
 > （E-27 的口徑：照序留兩份，不要在分支上搶號）。
 
-- **狀態**：🏁 **已修**，在 `fix/ndt-3-51-helper-apps-window`（**未併、未推**）。
+- **狀態**：🏁 ✅ **已修並已併入 trunk**——`fix/ndt-3-51-helper-apps-window`，merge `4e969110`，
+  2026-09-10；閘門 `mutate_ndt_helper_apps_window.sh` 在合併樹
+  `mutation gate: 27 mutations, 0 survived`（`fix/R4-PYGATES-SUMMARY.md`）。**未推任何 remote。**
   **缺陷側是 live 實測**（lw16pw，2026-09-07 04:42，1/1）；
   🆕 **修法側 09-07 20:28 live 驗過一輪（lw351）：窗那半成立**（`sim window … (14s)`＋
   `CANNOT WINDOW`＋40 條 `age=UNKNOWN`，`--check` 的 residue 從 `none … (asked, not assumed)`
@@ -3684,7 +3714,9 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 > ⚠️ **編號**：09-07 round 3 同夜有別的分支占用 **G-13**（P4 規則裝入時間戳，E-10）與
 > **G-14**；三邊各自插條目，合併時照序留三份、不要重排。這一條是 **G-15**。
 
-- **狀態**：🏁 **已修（2026-09-07，分支 `fix/e2-kernel-reports-loaded-model`，未併未推）。**
+- **狀態**：🏁 ✅ **已修（2026-09-07，分支 `fix/e2-kernel-reports-loaded-model`）並已併入 trunk**
+  （merge `33403c1d`，2026-09-10；閘門 `mutate_kernel_reports_loaded_model.sh` 在合併樹
+  `mutation gate: 8 mutations, 0 survived`，`fix/R4-CPPGATES-2-SUMMARY.md`）。**未推任何 remote。**
   裁決 `scratch/overnight-2026-09-05/DECISIONS.md`「grill §4E」**E-2**：
   「**開單，kernel 回報載入的模型路徑＋sha**，腳本改成問 kernel」。
   來源 `scratch/overnight-2026-09-05/fix/R2-PY-SUMMARY.md` §7 第 3 條。
