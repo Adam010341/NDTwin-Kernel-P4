@@ -384,12 +384,19 @@ report "M25: the host counts are compared and the verdict dropped" "$m" \
 
 # M26: F8's failure mode, which this fix reproduced once already. TOPO_REFUSAL is read back
 # from a command substitution, so the refusal prints its fallback and names no numbers.
+#
+# 🔴 REPOINTED TWICE, and the second time is the lesson. This anchor used to start at the
+# `both="$(...)"` line; the H4-newline fix put a ten-line comment between that line and the two
+# below it, so the anchor went to 0 hits and this gate reported SURVIVED -- correctly, because an
+# applier that cannot apply is a hole and never a skip. check_gate_anchors.py had said ok(45)
+# minutes before, counting against a HEAD that did not yet carry the fix. The anchor is now the
+# two lines that unpack the reading, which are adjacent and stay adjacent; the packed read above
+# is left to run and have its result discarded, and the plain substitution below is what puts
+# F8's shape back.
 m=$(mutant m26 "$NDT" \
-    '    both="$(topo_for_hosts "$hosts" p4; printf '"'"'\t%s\t%s'"'"' "$?" "$TOPO_REFUSAL")"
-    topo="${both%%$'"'"'\t'"'"'*}"; rest="${both#*$'"'"'\t'"'"'}"
+    '    topo="${both%%$'"'"'\t'"'"'*}"; topo="${topo%%$'"'"'\n'"'"'*}"; rest="${both#*$'"'"'\t'"'"'}"
     trc="${rest%%$'"'"'\t'"'"'*}"; TOPO_REFUSAL="${rest#*$'"'"'\t'"'"'}"' \
-    '    topo="$(topo_for_hosts "$hosts" p4)"; trc=$?
-    both=""; rest=""')
+    '    topo="$(topo_for_hosts "$hosts" p4)"; trc=$?')
 # 🔴 Also repointed after running the gate: "the reason names both counts" reads TOPO_REFUSAL
 # in the TEST's own shell, where no substitution ate it, so it cannot see this at all. The cell
 # that can is the one reading up_p4's printed refusal.
@@ -613,6 +620,33 @@ m=$(mutant m37 "$NDT" \
     '    rate="$(sample_rate ovs)"')
 report "M37: up_p4 asks for the OVS plane's rate" "$m" \
        "  🔴 and OVS's 'samples NOTHING' never appears there"
+
+
+# --- H4 regression: the stray newline inside the packed reading (section 11) -------------------
+
+# M38 puts the regression back on the P4 site, verbatim as 76b5d434 shipped it. It is the mutation
+# that asks section 11 to prove it has power, because the eight cells section 8 already had did
+# not: they test topo_for_hosts directly, and topo_for_hosts was never wrong.
+m=$(mutant m38 "$NDT" \
+    '    topo="${both%%$'"'"'\t'"'"'*}"; topo="${topo%%$'"'"'\n'"'"'*}"; rest="${both#*$'"'"'\t'"'"'}"' \
+    '    topo="${both%%$'"'"'\t'"'"'*}"; rest="${both#*$'"'"'\t'"'"'}"')
+report "M38: the P4 path keeps the newline from the middle of the packed string" "$m" \
+       "🔴 the path verify_p4 is handed passes [[ -f ]]"
+
+# M39: the same on the OVS site. Two copies of three lines, so one plane fixed is not both --
+# the same reason M9 and M10 exist separately in mutate_ndt_honesty.sh.
+m=$(mutant m39 "$NDT" \
+    '    ovs_topo="${ovs_both%%$'"'"'\t'"'"'*}"; ovs_topo="${ovs_topo%%$'"'"'\n'"'"'*}"; ovs_rest="${ovs_both#*$'"'"'\t'"'"'}"' \
+    '    ovs_topo="${ovs_both%%$'"'"'\t'"'"'*}"; ovs_rest="${ovs_both#*$'"'"'\t'"'"'}"')
+report "M39: the OVS path keeps it too" "$m" \
+       "🔴 with a real sha, on the OVS plane as well"
+
+# 🔴 The widening direction -- strip the newline by dropping the packing, so TOPO_REFUSAL dies
+# in the subshell again -- is M26 above, whose anchor this fix moved and which was REPOINTED here
+# rather than left drifting. It reported SURVIVED on the first run of this gate after the fix,
+# which is what an anchor that will not apply looks like: check_gate_anchors.py had said ok(45)
+# minutes earlier, because it was counting against a HEAD that did not yet carry the fix.
+
 
 
 echo

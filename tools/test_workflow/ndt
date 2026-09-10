@@ -1739,7 +1739,16 @@ up_p4() {
     # tests/shell/test_ndt_up_down_robust.sh rather than by a reader.
     local trc both rest
     both="$(topo_for_hosts "$hosts" p4; printf '\t%s\t%s' "$?" "$TOPO_REFUSAL")"
-    topo="${both%%$'\t'*}"; rest="${both#*$'\t'}"
+    # 🔴 `%%$'\n'*`, and it is not cosmetic. topo_for_hosts prints the path with `echo`, and a
+    # command substitution strips only TRAILING newlines -- here the tab and the rc follow it, so
+    # the newline is in the middle of the captured string and survives. Without this line `topo`
+    # was "<path>\n": every [[ -f "$topo" ]] false, sha256sum and topo_model_counts failing
+    # silently into `topology_sha256=unavailable` and an empty `model_hosts=`, and the kernel
+    # started with a --topology it could not open. Measured live by ROLE-6 on 2026-09-11, both
+    # planes: `Cannot open topology file` / `No port has been opened`, rc 1 after ~318 s with
+    # `rollback INCOMPLETE`. The packing itself is right -- see the note above about F8 -- and
+    # this is the unpacking of its first field, which is a path and therefore one line.
+    topo="${both%%$'\t'*}"; topo="${topo%%$'\n'*}"; rest="${both#*$'\t'}"
     trc="${rest%%$'\t'*}"; TOPO_REFUSAL="${rest#*$'\t'}"
     binary="$(bmv2_binary)"
     # 🔴 F1 (F-OFFLINE-1 §1.14). `sample_rate` with no argument asks live_dataplane_kind, so
@@ -2078,7 +2087,9 @@ up_ovs() {
     # substitution dies with the subshell.
     local ovs_topo ovs_trc ovs_both ovs_rest
     ovs_both="$(topo_for_hosts "$ovs_hosts" ovs; printf '\t%s\t%s' "$?" "$TOPO_REFUSAL")"
-    ovs_topo="${ovs_both%%$'\t'*}"; ovs_rest="${ovs_both#*$'\t'}"
+    # The same stray newline as up_p4's -- see the long note at that site. Two sites, because
+    # these are two copies of the same three lines; one plane fixed is not both.
+    ovs_topo="${ovs_both%%$'\t'*}"; ovs_topo="${ovs_topo%%$'\n'*}"; ovs_rest="${ovs_both#*$'\t'}"
     ovs_trc="${ovs_rest%%$'\t'*}"; TOPO_REFUSAL="${ovs_rest#*$'\t'}"
     if (( ovs_trc == 3 )); then
         err "refusing to build: ${TOPO_REFUSAL:-NDT_TOPO does not match the host count}"
