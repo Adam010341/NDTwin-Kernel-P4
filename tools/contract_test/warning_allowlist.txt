@@ -53,6 +53,29 @@ WARNING | acceptor_\.close\(\) error | benign during shutdown when the acceptor 
 # appears on a TESTBED kernel, the pattern is too loose and should be tightened, not widened.
 WARNING | ^HistoricalDataManager not started: MININET | MININET does not run the recorder; stated once at startup so the absence of historical rows is visible without reading the source
 # [Co-developed with claude code -- Adam]
+# E-25, 2026-09-11 (F-OFFLINE-1 G6). src/ndt_core/collection/TopologyAndFlowMonitor.cpp:1354,
+# warnAboutSwitchesWithNoBrandPathNoLock, reached from :1297 on every load. Same reasoning as the
+# B-3 entry above: it fires once per startup, it states a permanent designed condition, and the
+# line is the point -- a switch admitted only because its topology node declares an explicit
+# "switch_kind" reports -1 for power, CPU, memory and temperature, and nothing is asked of it over
+# SNMP or SSH. run_layers.sh:482 checks lines 1..LOG_MARK, i.e. the startup segment, so without
+# this entry a correctly configured fabric failed the L2 log gate at every start.
+#
+# 🔴 Deliberately NOT widened to the other two startup WARNs measured beside it, and neither of
+# them is allowlisted anywhere in this file:
+#   * :3940 "could not read this machine's qdisc tree" -- the residue sweep reads the tree with
+#     utils::netem::readOnlyTcRunner(), a bare `tc qdisc show` with no sudo, whose header
+#     (include/utils/NetemLinkFault.hpp) says verbatim "this runner is allowed to fail, it is not
+#     allowed to look clean while failing". A plain WARNING entry is that failure exactly: the
+#     sweep would have made no claim and the gate would be green. If it ever fires routinely the
+#     fix is a rule kind that exits 3, the WHEN-POWERED-OFF precedent below, not a permission.
+#   * :4003 "netem is already attached to N of this fabric's interfaces" -- E-20's finding, about
+#     the fabric a measurement is about to run on. Silencing it makes every run on a fabric
+#     somebody left faults on look clean.
+# Both halves are pinned by tests/python/test_check_logs_startup_warnings.py: widening the pattern
+# below far enough to catch either of them turns that file red.
+WARNING | ^[0-9]+ switch\(es\) exempt from power/telemetry \(power_path=none\): | E-25: a switch admitted on an explicit "switch_kind" has no power/telemetry path in this build, so its health figures are the -1 sentinel and nothing is asked of it over SNMP or SSH. Said once per startup, per manual section 38 -- a designed configuration, not a fault
+# [Co-developed with claude code -- Adam]
 # W10, 2026-09-06. The kernel keeps the names set through modify_nickname/modify_device_name in
 # an overlay outside setting/, one per model file, and lays it back over the graph at load. An
 # entry naming a device this model does not have is ORDINARY: rename a switch under

@@ -240,6 +240,27 @@ TELEMETRY_STATES = ("live", "idle", "silent", "unknown")
 # reader still has exactly one thing to do about `declared`, which is find out who declared it.
 DOWN_REASONS = ("none", "switch-unreachable", "declared")
 
+# [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G12, 2026-09-11.
+# The one value a declaration endpoint's reply can carry. Named rather than typed out again in
+# LINK_FAILURE_REPORTED and LINK_FAILURE_INJECTED below, and asserted to be part of the
+# vocabulary above -- because this word is now written down in seven places and nothing
+# compared them:
+#
+#   this file      DOWN_REASONS, DECLARED, and the two link-reply schemas   (4)
+#   the kernel     downReasonToString (common_types/GraphTypes.hpp, the enum's wire form),
+#                  HttpSession.cpp:564 (a raw-string reply) and :836 (a json object)  (3)
+#
+# A fourth reason added to the enum would give the two hardcoded C++ replies nothing to say
+# about it and would fail the structural check here, in the two schemas that never mention
+# DOWN_REASONS at all. tests/python/test_contract_spec.py compares all seven; that comparison
+# is the only thing that makes one vocabulary out of them.
+#
+# 🔴 `"declared"` also appears in C++ as a BandwidthSource (GraphTypes.hpp:846) -- a DIFFERENT
+# vocabulary that happens to reuse the word. A grep for the string conflates them; the check
+# reads the down_reason sites only.
+DECLARED = "declared"
+assert DECLARED in DOWN_REASONS, "the declaration value must be part of the down_reason vocabulary"
+
 # --- the four link endpoints ------------------------------------------------------
 # [Co-developed with claude code -- Adam]
 # Adam's ruling E-21, 2026-09-07: /ndt/link_failure_detected, /ndt/link_recovery_detected,
@@ -323,7 +344,7 @@ TC_REPORT = OneOf(List(TC_ATTEMPT, min_len=1),
 #: still pass the STRUCTURAL check. That the two keys are missing is a finding, not a schema
 #: error, and it is reported by inv_declared_failure_says_who_can_withdraw_it.
 LINK_FAILURE_REPORTED = Obj({"status": Str(nonempty=True)}, optional={
-    "down_reason": Str(allowed=("declared",)),
+    "down_reason": Str(allowed=(DECLARED,)),
     "until": Str(nonempty=True),
 })
 
@@ -341,7 +362,7 @@ LINK_RECOVERY_REPORTED = Obj({"status": Str(nonempty=True)}, optional={
 #: endpoint that can end an injection -- that is the whole of W8b on the wire.
 LINK_FAILURE_INJECTED = Obj({
     "status": Str(nonempty=True),
-    "down_reason": Str(allowed=("declared",)),
+    "down_reason": Str(allowed=(DECLARED,)),
     "until": Str(allowed=("/ndt/inject_link_recovery",)),
     "tc": TC_REPORT,
 })
@@ -971,8 +992,26 @@ def inv_edges_enabled(data, ctx):
     def incident_to_off(e):
         return e["src_dpid"] in power.off_dpids or e["dst_dpid"] in power.off_dpids
 
-    unexplained = [e for e in down if not incident_to_off(e)]
+    # [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G5, 2026-09-11. W8/W8b.
+    # The second explanation, and the graph states it outright. `declared` means an operator
+    # (or this very suite's step 1) said the link failed, and W8's rule is that it does not
+    # clear until somebody POSTs the matching recovery -- so the edge being down is the kernel
+    # obeying, not the fabric breaking. Reported as a fault it was a false alarm on every
+    # fabric with a standing declaration, including the contract test's own mutating sequence.
+    #
+    # Read off `down_reason` and nothing else: absence of the key is NOT a declaration (a
+    # kernel built before F-14 sends no reason at all, and treating silence as intent would
+    # excuse every genuinely broken link on it), and no other value counts. `declared` is
+    # edge-only today; a node carrying it would be caught by inv_all_switches_up, not here.
+    #
+    # AFTER incident_to_off, so an edge with both explanations lands in one bucket only: the
+    # printed counts are what a reader adds up against the number of down edges.
+    def declared_down(e):
+        return str(e.get("down_reason", "")) == "declared"
+
     explained = [e for e in down if incident_to_off(e)]
+    declared = [e for e in down if not incident_to_off(e) and declared_down(e)]
+    unexplained = [e for e in down if not incident_to_off(e) and not declared_down(e)]
 
     out = []
     if unexplained:
@@ -984,6 +1023,15 @@ def inv_edges_enabled(data, ctx):
             ACCOUNTED_FOR
             + f"{len(explained)} edge(s) are down/disabled because they are incident to a "
               f"switch /ndt/get_switches_power_state reports OFF"
+        )
+    if declared:
+        names = [name(e) for e in declared]
+        shown = ", ".join(names[:5]) + (f" (+{len(names) - 5} more)" if len(names) > 5 else "")
+        out.append(
+            ACCOUNTED_FOR
+            + f"{len(names)} edge(s) are down because down_reason says an operator declared "
+              f"them failed, which does not clear until a recovery is POSTed (W8/W8b): "
+              f"{shown}"
         )
     return out
 
@@ -1558,6 +1606,28 @@ def inv_recovery_was_declined_and_said_so(data, ctx):
          "until":"/ndt/inject_link_recovery"}   -- and the edge still is_up=false.
     """
     if data.get("declaration_retained") is not True:
+        # [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G10, A-8, 2026-09-11.
+        # Before this is an accusation, the run has to know its own premise held. This check's
+        # entire meaning comes from the step before it having injected a failure, and there was
+        # no branch for that step not having happened: on a kernel that predates
+        # /ndt/inject_link_failure -- every trunk build, as LINK_FAILURE_INJECTED's comment
+        # records -- step 3 answers 404, nothing is declared, and step 4's reply is exactly the
+        # bare 200 below. The check then blamed the kernel for withdrawing something that was
+        # never declared, which is the A-8 shape: a tool's unmet precondition wearing the
+        # system's red. Gated ONLY here, on the accusing path -- a reply that did decline is
+        # checked in full whatever the run knows, because there is nothing to misattribute.
+        landed = getattr(ctx, "link_failure_injected", None)
+        if landed is not True:
+            why = ("this run did not record whether it landed" if landed is None
+                   else "that step did not succeed in this run")
+            return [
+                TOOL_PRECONDITION
+                + "the recovery report was not declined, and the injection it is supposed to "
+                  f"be refusing to pair with cannot be confirmed: {why}. There may have been "
+                  "no standing declaration to retain -- a kernel that predates "
+                  "/ndt/inject_link_failure answers 404 there and gives exactly this reply "
+                  "here -- so this check makes no claim about the kernel"
+            ]
         return [
             "the recovery report was not declined: a failure injected through "
             "/ndt/inject_link_failure is not paired with by any report, so this 200 either "
@@ -1698,6 +1768,32 @@ def link_endpoint_body(ctx):
     """The body of every mutating link check. One link, the same one, five times."""
     link = switch_to_switch_link(getattr(ctx, "topology_path", None))
     return dict(link) if link else dict(NO_LINK_CHOSEN_PAYLOAD)
+
+
+def link_step_precondition(ctx):
+    """
+    None when the sequence has a link to act on; otherwise why it has not.
+
+    [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G11, A-8, 2026-09-11.
+
+    The fallback above refuses to guess a link, which is right: a guessed link means a fault
+    injected on an edge nobody chose. What it did NOT do was say whose problem that is. None
+    of the six steps declared an expect_status, so [200] applied, the four zeros earned the
+    honest 404 that W8-7's dpid-0 doors exist to give them, and the run recorded
+
+        HTTP status 404, expected 200
+
+    against the kernel. A topology with no switch-to-switch edge is a fact about the model
+    handed to this tool. Reported here as a precondition (exit 3, no verdict) and the request
+    is not sent at all -- there is nothing to learn from a refusal you provoked on purpose,
+    and on a live fabric there is no reason to make the kernel log one.
+    """
+    if switch_to_switch_link(getattr(ctx, "topology_path", None)) is not None:
+        return None
+    return (f"no switch-to-switch link could be chosen from "
+            f"{getattr(ctx, 'topology_path', None)!r}: every edge in it has a host end "
+            f"(dpid 0), which all four link endpoints refuse by design. This step has "
+            f"nothing to act on, so it makes no claim about the kernel and sends nothing")
 
 
 # --- endpoint table ---------------------------------------------------------------
@@ -1883,13 +1979,22 @@ ENDPOINTS = [
     # `source` on every block and, on a bmv2 topology, a `bmv2` block whose max_entries is read
     # from the pipeline artifact a running simple_switch has loaded.
     #
-    # The schema stays Any_(): the response is a map keyed by switch family, so a kernel with a
-    # different fabric legitimately answers with different keys, and a schema that enumerated
-    # them would report a correct kernel as a regression. The two invariants carry the weight
-    # instead -- what must hold is that every number names its provenance and that the three
+    # The KEYS stay unenumerated: the response is a map keyed by switch family, so a kernel with
+    # a different fabric legitimately answers with different ones, and a schema that listed them
+    # would report a correct kernel as a regression. The two invariants carry the rest of the
+    # weight -- what must hold is that every number names its provenance and that the three
     # per-switch figures close.
+    #
+    # 🔴 It was Any_() until 2026-09-11, which is not the same thing (F-OFFLINE-1 G3). Any_()
+    # accepts a list, a string and a number as readily as a map: measured against the other 28
+    # fixtures in the suite it rejected NONE of them, so the structural check for the one
+    # endpoint whose figures had been 3.4x wrong decided nothing at all. MapOf(Any_()) says the
+    # one thing the response shape actually promises -- an object, keyed by whatever families
+    # this fabric has -- and leaves the values open. inv_capacity_names_its_source keeps its own
+    # "did not answer with an object" branch for direct callers (l3_component_check.py); in the
+    # runner the structural check now answers first.
     dict(name="get_openflow_capacity", method="GET", path="/ndt/get_openflow_capacity",
-         category=READ, schema=Any_(),
+         category=READ, schema=MapOf(Any_()),
          invariants=[inv_capacity_names_its_source, inv_capacity_available_closes],
          note="documented in 2026-01-02_ndt_api.md section 37; reads "
               "doc/2026-01-02_OpenflowCapacity.json plus, on a bmv2 topology, the pipeline JSON "
@@ -2371,6 +2476,7 @@ ENDPOINTS = [
     # --- the sequence. MUTATE: it declares a link down, cuts it, and puts it back. ---
     dict(name="link_failure_detected", method="POST", path="/ndt/link_failure_detected",
          body=link_endpoint_body, request_schema=LINK_REQUEST,
+         precondition=link_step_precondition,
          category=MUTATE, schema=LINK_FAILURE_REPORTED,
          invariants=[inv_declared_failure_says_who_can_withdraw_it],
          note="step 1 of 6. Declares the link failed AND records that the control plane reported "
@@ -2379,6 +2485,7 @@ ENDPOINTS = [
 
     dict(name="link_recovery_detected", method="POST", path="/ndt/link_recovery_detected",
          body=link_endpoint_body, request_schema=LINK_REQUEST,
+         precondition=link_step_precondition,
          category=MUTATE, schema=LINK_RECOVERY_REPORTED,
          invariants=[inv_recovery_withdrew_the_declaration],
          note="step 2 of 6. Spends the report step 1 recorded, so the declaration goes and the "
@@ -2387,6 +2494,12 @@ ENDPOINTS = [
 
     dict(name="inject_link_failure", method="POST", path="/ndt/inject_link_failure",
          body=link_endpoint_body, request_schema=LINK_REQUEST,
+         precondition=link_step_precondition,
+         # [Co-developed with claude code -- Adam] -- G10. Step 4's premise IS this step, and
+         # step 4 had no way to know whether it held. The runner writes the outcome onto ctx
+         # under this name; inv_recovery_was_declined_and_said_so reads it and reports
+         # TOOL-PRECONDITION-FAILED rather than accusing the kernel when it did not land.
+         records="link_failure_injected",
          category=MUTATE, schema=LINK_FAILURE_INJECTED,
          invariants=[inv_tc_half_is_reported_per_interface],
          note="step 3 of 6. 🔴 CUTS A REAL LINK on MININET (netem loss 100%, both ends) and "
@@ -2397,6 +2510,7 @@ ENDPOINTS = [
     dict(name="link_recovery_detected__declined_after_injection", method="POST",
          path="/ndt/link_recovery_detected",
          body=link_endpoint_body, request_schema=LINK_REQUEST,
+         precondition=link_step_precondition,
          category=MUTATE, schema=LINK_RECOVERY_REPORTED,
          invariants=[inv_recovery_was_declined_and_said_so],
          note="step 4 of 6, and the reason this block exists (E-21). The injection of step 3 "
@@ -2406,6 +2520,7 @@ ENDPOINTS = [
 
     dict(name="inject_link_recovery", method="POST", path="/ndt/inject_link_recovery",
          body=link_endpoint_body, request_schema=LINK_REQUEST,
+         precondition=link_step_precondition,
          category=MUTATE, schema=LINK_RECOVERY_INJECTED,
          invariants=[inv_tc_half_is_reported_per_interface],
          note="step 5 of 6. The unconditional withdrawal, and since W8b the only one: it takes "
@@ -2413,6 +2528,7 @@ ENDPOINTS = [
 
     dict(name="inject_link_recovery_cleanup", method="POST", path="/ndt/inject_link_recovery",
          body=link_endpoint_body, request_schema=LINK_REQUEST,
+         precondition=link_step_precondition,
          category=MUTATE, schema=LINK_RECOVERY_INJECTED,
          invariants=[inv_tc_half_is_reported_per_interface],
          note="step 6 of 6, and it does two jobs at once, like release_lock_cleanup. It proves "

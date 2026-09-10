@@ -276,6 +276,19 @@ OPENFLOW_CAPACITY_SAMPLE = {
 }
 
 
+def _endpoint_schema(endpoint_name):
+    """spec.py's own schema object for `endpoint_name`, so no copy of it can drift.
+
+    [Co-developed with claude code -- Adam] -- G2. Several entries below hold a private copy
+    deliberately (an older kernel's shape, a narrower sample); this is for the ones that have
+    no reason to.
+    """
+    for endpoint in spec.ENDPOINTS:
+        if endpoint["name"] == endpoint_name:
+            return endpoint["schema"]
+    raise KeyError(f"no endpoint named {endpoint_name!r} in spec.ENDPOINTS")
+
+
 FIXTURES = {
     "get_graph_data": (spec.GRAPH_DATA, GRAPH_DATA_SAMPLE),
     "get_detected_flow_data": (spec.List(spec.FLOW_RECORD), FLOW_DATA_SAMPLE),
@@ -341,7 +354,21 @@ FIXTURES = {
     "release_lock": (
         spec.Obj({"status": Str()}, optional={"type": Str()}),
         {"status": "released", "type": "routing_lock"}),
-    "install_flow_entry": (spec.STATUS_OK, {"status": "Flow installed"}),
+    # [Co-developed with claude code -- Adam]
+    # F-OFFLINE-1 G2, 2026-09-11. This was `(spec.STATUS_OK, {"status": "Flow installed"})` --
+    # a private copy of the schema, one required field short of the endpoint's, and a sample no
+    # kernel has emitted since the dispatcher became asynchronous. --self-test printed
+    # "ok install_flow_entry" for a body the live run rejects on structure, which is the one
+    # thing a self-test whose purpose is "the schemas accept what the kernel documents" must not
+    # do. Now the endpoint's own schema object and doc/2026-01-02_ndt_api.md 9's success body,
+    # verbatim, so `queued` also exercises inv_flow_write_is_honest_about_being_queued.
+    # Pinned by tests/python/test_contract_spec.py::SelftestFixturesMatchTheEndpointTable.
+    "install_flow_entry": (
+        _endpoint_schema("install_flow_entry"),
+        {"status": "queued", "accepted": 1,
+         "detail": "entries accepted for programming; per-entry outcomes are reported in the "
+                   "kernel log and, since they are not in this response, are readable "
+                   "afterwards from GET /ndt/get_flow_dispatch_status"}),
     "modify_nickname": (
         spec.Obj({"status": Str()}, optional={"message": Str()}),
         {"status": "success", "message": "Nickname updated successfully."}),
@@ -350,7 +377,10 @@ FIXTURES = {
     # from a pipeline artifact. The ceiling here is 512, not the 1024 this repository's own
     # artifact carries, for the same reason the C++ fixtures avoid 1024 -- a sample that happens
     # to match the one true answer cannot tell a read from a constant.
-    "get_openflow_capacity": (Any_(), OPENFLOW_CAPACITY_SAMPLE),
+    # The copy here was Any_() too, so this line proved nothing about anything (G3): a fixture
+    # whose schema accepts every value cannot fail. The endpoint's own object instead.
+    "get_openflow_capacity": (
+        _endpoint_schema("get_openflow_capacity"), OPENFLOW_CAPACITY_SAMPLE),
     # [Co-developed with claude code -- Adam]
     # Not from doc/2026-01-02_ndt_api.md -- that document predates the endpoint. This is the
     # body HttpSession::handleGetFlowDispatchStatus builds, transcribed field by field from
@@ -391,12 +421,139 @@ FIXTURES = {
          "dst_dpid": 106225808387660, "dst_interface": 23}),
 }
 
+# [Co-developed with claude code -- Adam]
+# F-OFFLINE-1 G2/G13, 2026-09-11. Which endpoint each fixture above is an example FOR.
+#
+# 17 of the 31 fixtures carry a private copy of the schema rather than spec.py's object, and one
+# of the 17 had drifted: `install_flow_entry` described `{"status": ...}` alone while the endpoint
+# has required `accepted` since 2026-09-06, so the self-test was proving a schema nothing runs.
+# A copy is not the defect -- several are deliberate, and the reasons are written above each one
+# -- but a copy nobody compares is, so tests/python/test_contract_spec.py cross-checks every
+# sample here against the schema the contract test actually validates with. This function is the
+# join that check needs.
+#
+# 🔴 The join used to be guessable and that is why nothing checked it. Reading the key as an
+# endpoint name resolves 22 of 31; the other 9 look like fixtures for endpoints that do not
+# exist, which is how the offline round came to count them that way. They are variants -- one
+# endpoint, several kernels or several outcomes -- and the convention below is the whole of it:
+#
+#   <endpoint name>                     the endpoint's documented success body
+#   <endpoint name> (<note>)            the same endpoint, another kernel or another outcome
+#
+# with the three exceptions listed. A query-string suffix is deliberately NOT part of the
+# convention: the one fixture that carries one answers with a DIFFERENT shape from its base
+# endpoint, so stripping it would apply the wrong schema and call that a pass. Guessing is
+# confined to the convention; every case the convention gets wrong is written down here rather
+# than left to be rediscovered by counting.
+#
+# A value of (None, reason) means "this shape has no endpoint, and here is why" -- a declared
+# exception, not an unresolved name.
+FIXTURE_TARGET_OVERRIDES = {
+    # Step 4 of the link sequence, not step 2: the DECLINED reply belongs to the endpoint that
+    # answers an injection nothing paired with. Resolving it by name attributes it to step 2,
+    # whose invariant then reports a correctly declined recovery as a failure.
+    "link_recovery_detected (declined: declaration_retained)":
+        ("link_recovery_detected__declined_after_injection", "schema"),
+    # The only fixture here that is a REQUEST rather than a response. All four link endpoints
+    # take it; the first one is named so the cross-check has a `request_schema` to reach.
+    "link request body (all four endpoints take the same one)":
+        ("link_failure_detected", "request_schema"),
+    # No endpoint by design, and the design is upstream of this file: obtaining a request_id
+    # means POSTing a flow batch, which is a mutation, and this endpoint's value is that it is
+    # safe to read on a live fabric (see DISPATCH_STATUS_FOR_REQUEST in spec.py). The shape is
+    # carried here so a reader learns it; it must not be validated against the unparameterised
+    # endpoint, whose reply has three required fields this one does not.
+    "get_flow_dispatch_status?request_id=<id>":
+        (None, "the parameterised form is not registered as a probe: reading it needs a "
+               "request_id, and getting one is a mutation"),
+}
+
+
+# [Co-developed with claude code -- Adam]
+# F-OFFLINE-1 G3, 2026-09-11. --self-test now runs each endpoint's registered invariants
+# against that endpoint's own fixture. Two pairs report, and both are the invariant working:
+# the fixture is a PRE-FIX kernel's reply, kept on purpose so one schema has to describe a
+# deployed kernel as well as a freshly built one. Each is declared here, with the reason.
+#
+# 🔴 An entry that stops reporting is a FAILURE, not a tidy-up. That is the allowlist's
+# lesson: an exception nobody rechecks outlives its reason, and the next reader takes it for a
+# statement about today. If a fixture is updated to a current kernel's reply, its line here
+# goes with it in the same commit.
+FIXTURE_INVARIANT_EXCEPTIONS = {
+    ("get_graph_data", "inv_no_silent_telemetry"):
+        "doc/2026-01-02_ndt_api.md 3's example predates A-4f, so its one edge carries no "
+        "telemetry_status. The invariant reporting that is the whole of A-4f: on this kernel a "
+        "link that stopped being sampled reads 0 bps and cannot be told from an idle one",
+    ("link_failure_detected (kernel from trunk, no down_reason/until)",
+     "inv_declared_failure_says_who_can_withdraw_it"):
+        "the fixture IS the trunk kernel's reply -- {\"status\": ...} and nothing else -- and "
+        "the finding that it does not say who can withdraw the declaration is B-6/W8b. The "
+        "structural check passes it because down_reason and until are optional there; this is "
+        "where it is reported",
+}
+
+
+# [Co-developed with claude code -- Adam]
+# F-OFFLINE-1 G13, 2026-09-11. The 15 READ/MUTATE endpoints no fixture describes, named.
+#
+# The gap itself is not closed here -- most of these need a documented example this repository
+# does not have, and inventing one would put a shape nobody has observed into the file whose
+# whole purpose is to hold shapes somebody has. What IS closed is the gap growing in silence:
+# tests/python/test_contract_spec.py asserts this list is EXACTLY the uncovered set, so a new
+# endpoint arrives with either a fixture or a line here, and a fixture written for one of these
+# fails until its line goes.
+#
+# Two kinds, and the difference matters when someone works through them:
+#   * a sequence step whose reply shape is a sibling's -- cheap, and low value on its own;
+#   * an endpoint whose reply nothing in this suite has ever described -- the real gap.
+ENDPOINTS_WITHOUT_A_RESPONSE_FIXTURE = {
+    # Same shape as a step that does have one.
+    "renew_lock": "the acquire_lock shape; the lock sequence's third step",
+    "acquire_lock_after_release": "the acquire_lock shape, re-acquired",
+    "release_lock_cleanup": "the release_lock shape, second time",
+    "inject_link_recovery_cleanup": "the inject_link_recovery shape, second time (idempotency)",
+    # No described reply anywhere in this suite. 🔴 These are the gap.
+    "get_static_topology_json": "schema is Obj({}, strict=False) -- nothing is described, so a "
+                                "fixture would be the first statement of the shape",
+    "modify_flow_entry": "no documented success body in doc/2026-01-02_ndt_api.md",
+    "delete_flow_entry": "as above",
+    "batch_flow_entries": "as above; the unknown-dpid contract after section 8 describes the "
+                          "partial case in prose only",
+    "batch_flow_entries__mixed_known_and_unknown_dpid": "as above, the partial case",
+    "inform_switch_entered": "as above",
+    "app_register": "as above",
+    "modify_device_name": "as above; it rewrites setting/*.json, so a captured reply needs a "
+                          "mutating run",
+    "set_switches_power_state": "as above; a captured reply needs a run that cuts power",
+    "historical_logging_enable": "B-3 changed the reply shape and no example was recorded",
+    "historical_logging_disable": "as above",
+}
+
+
+def fixture_target(fixture_name):
+    """
+    (endpoint name, "schema" | "request_schema") for a key of FIXTURES, or (None, why).
+
+    [Co-developed with claude code -- Adam] -- G2/G13.
+    """
+    if fixture_name in FIXTURE_TARGET_OVERRIDES:
+        return FIXTURE_TARGET_OVERRIDES[fixture_name]
+    base = fixture_name
+    if base.endswith(")") and "(" in base:
+        base = base[:base.rindex("(")]
+    base = base.strip()
+    if any(ep["name"] == base for ep in spec.ENDPOINTS):
+        return base, "schema"
+    return None, (f"{fixture_name!r} does not name an endpoint: it reads as {base!r}, which is "
+                  f"not in spec.ENDPOINTS. Rename it to '<endpoint> (<note>)' or add it to "
+                  f"FIXTURE_TARGET_OVERRIDES with the reason")
+
 
 class FakeCtx:
     """Stands in for the topology-derived Context during self-test."""
 
     def __init__(self, switches=2, hosts=1, edges=1, dpids=None, topk=5, power_state=None,
-                 switch_identity=None, host_identity=None):
+                 switch_identity=None, host_identity=None, link_failure_injected=None):
         self.expected_switches = switches
         self.expected_hosts = hosts
         self.expected_edges = edges
@@ -415,10 +572,29 @@ class FakeCtx:
         # fabric is a real failure. Leaving this unset would make them assert the
         # precondition path instead, which is a different claim wearing the same red.
         self.power_state = power_state if power_state is not None else PowerState.all_on()
+        # [Co-developed with claude code -- Adam] -- G10. Whether the mutating sequence's
+        # /ndt/inject_link_failure landed. Default None = "this run has not got there yet", the
+        # same value the real Context starts at, and NOT True: a stand-in that claims the
+        # premise held by default is a stand-in that cannot assert the precondition path.
+        self.link_failure_injected = link_failure_injected
 
 
 # A graph matching FakeCtx exactly, used as the "good" case.
 _GOOD_CTX = FakeCtx(switches=1, hosts=1, edges=1, dpids={106225808380928})
+
+# [Co-developed with claude code -- Adam] -- G10.
+# The same ctx, having recorded step 3's injection as landed. The two lw8b cases below need it:
+# without the premise, "the recovery was not declined" is not a finding about the kernel, and
+# _GOOD_CTX must keep saying nothing about the injection so the precondition path stays
+# assertable.
+_CTX_INJECTION_LANDED = FakeCtx(switches=1, hosts=1, edges=1, dpids={106225808380928},
+                                link_failure_injected=True)
+
+# [Co-developed with claude code -- Adam] -- G3.
+# The ctx --self-test's cross-application stage hands to every endpoint's invariants. Public
+# because run_contract_test.py reads it; it is the graph sample's ctx, so a pair passing there
+# is not evidence the invariant works -- see the stage's docstring.
+SELFTEST_CTX = _GOOD_CTX
 
 # [Co-developed with claude code -- Adam] -- W3b-3.
 # The identity GRAPH_DATA_SAMPLE really carries, derived from the sample itself rather than
@@ -471,6 +647,15 @@ _GRAPH_SWITCH_DOWN = {
 _GRAPH_EDGE_DOWN = {
     "nodes": GRAPH_DATA_SAMPLE["nodes"],
     "edges": [{**GRAPH_DATA_SAMPLE["edges"][0], "is_up": False}],
+}
+
+# [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G5, W8/W8b.
+# The same edge, down for the one reason the graph states outright: an operator declared it
+# failed. Structurally identical to the graph above -- `down_reason` is the only difference --
+# which is exactly why inv_edges_enabled reported it as a fault until 2026-09-11.
+_GRAPH_EDGE_DECLARED_DOWN = {
+    "nodes": GRAPH_DATA_SAMPLE["nodes"],
+    "edges": [{**GRAPH_DATA_SAMPLE["edges"][0], "is_up": False, "down_reason": "declared"}],
 }
 
 # [Co-developed with claude code -- Adam] -- A-8.
@@ -661,6 +846,13 @@ INVARIANT_CASES = [
      spec.inv_edges_enabled, _GRAPH_EDGE_DOWN, _GOOD_CTX, True),
     ("edges_enabled: a down edge incident to a powered-off switch is not a failure",
      spec.inv_edges_enabled, _GRAPH_EDGE_DOWN, _CTX_EDGE_SRC_OFF, False),
+    # [Co-developed with claude code -- Adam] -- G5. An operator declaration is intent, not a
+    # fault: W8's whole point is that `declared` does not clear until somebody POSTs a recovery,
+    # so a run that reports it as a broken link raises a false alarm on every fabric where a
+    # link failure was declared on purpose. The power-state ctx says nothing is off, so the
+    # ONLY thing standing between this case and the one above it is `down_reason`.
+    ("edges_enabled: an edge an operator declared down is not a failure",
+     spec.inv_edges_enabled, _GRAPH_EDGE_DECLARED_DOWN, _GOOD_CTX, False),
 
     ("link_bandwidth_sane: accepts usage below capacity",
      spec.inv_link_bandwidth_sane, GRAPH_DATA_SAMPLE, _GOOD_CTX, False),
@@ -798,7 +990,14 @@ INVARIANT_CASES = [
     # reply is the same bare 200 a legitimate withdrawal gives.
     ("recovery_was_declined_and_said_so: catches an injection withdrawn anyway",
      spec.inv_recovery_was_declined_and_said_so,
-     LINK_RECOVERY_APPLIED_SAMPLE, _GOOD_CTX, True),
+     LINK_RECOVERY_APPLIED_SAMPLE, _CTX_INJECTION_LANDED, True),
+    # [Co-developed with claude code -- Adam] -- G10. The same body, with the premise NOT
+    # established: no verdict. On a kernel that predates /ndt/inject_link_failure this is the
+    # only reply step 4 can get, and blaming it for withdrawing an undeclared failure is the
+    # A-8 shape.
+    ("recovery_was_declined_and_said_so: a run that cannot confirm the injection says nothing",
+     spec.inv_recovery_was_declined_and_said_so,
+     LINK_RECOVERY_APPLIED_SAMPLE, _GOOD_CTX, False),
     ("recovery_was_declined_and_said_so: catches a decline that names no way out",
      spec.inv_recovery_was_declined_and_said_so,
      {"status": "link recovery processed", "declaration_retained": True,

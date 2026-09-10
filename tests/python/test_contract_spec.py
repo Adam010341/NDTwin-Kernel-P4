@@ -40,6 +40,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -587,6 +588,82 @@ class PoweredDownEdgesTest(unittest.TestCase):
         self.assertEqual(len(out), 1, out)
         self.assertTrue(out[0].startswith(TOOL_PRECONDITION), out)
         self.assertNotIn("edge(s) down/disabled", out[0])
+
+
+class DeclaredDownEdgesTest(unittest.TestCase):
+    """
+    F-OFFLINE-1 G5: `down_reason: "declared"` is an operator's intent, not a fault.
+
+    [Co-developed with claude code -- Adam]
+
+    W8's whole point is that a declaration does not clear until somebody POSTs a recovery, and
+    since W8b which recovery is narrowed further. A run that reports the resulting down edge as
+    a broken link raises a false alarm on every fabric where a failure was declared on purpose
+    -- including, at the time this was written, the contract test's OWN mutating sequence, whose
+    step 1 declares a link down and whose step 3 injects one.
+
+    Same shape as the A-8 power case above and the same three answers, which is the point: the
+    difference between "down and nobody knows why" and "down because you said so" has to be
+    visible in the output, not decided by whoever reads it.
+    """
+
+    @staticmethod
+    def declared(src=1, dst=2):
+        return {**edge(src, dst, is_up=False), "down_reason": "declared"}
+
+    def test_a_declared_edge_is_accounted_for_not_failed(self):
+        out = spec.inv_edges_enabled({"edges": [self.declared()]}, Ctx())
+        self.assertEqual([m for m in out if not m.startswith(ACCOUNTED_FOR)], [], out)
+        self.assertTrue(any(m.startswith(ACCOUNTED_FOR) and "declared" in m for m in out), out)
+
+    def test_it_is_still_printed_and_still_counted(self):
+        # An explained deviation nobody sees is indistinguishable from no deviation at all.
+        out = spec.inv_edges_enabled(
+            {"edges": [self.declared(1, 2), self.declared(3, 4)]}, Ctx())
+        self.assertTrue(any(m.startswith(ACCOUNTED_FOR) and "2 edge(s)" in m for m in out), out)
+
+    def test_a_down_edge_with_any_other_reason_is_still_a_failure(self):
+        for reason in ("none", "switch-unreachable"):
+            data = {"edges": [{**edge(1, 2, is_up=False), "down_reason": reason}]}
+            failures = [m for m in spec.inv_edges_enabled(data, Ctx())
+                        if not m.startswith(ACCOUNTED_FOR)]
+            self.assertEqual(len(failures), 1, f"{reason}: {failures}")
+            self.assertIn("1 edge(s) down/disabled", failures[0])
+
+    def test_a_down_edge_that_names_no_reason_is_still_a_failure(self):
+        # The pre-F-14 kernel. Absence of the key is not a declaration, and reading it as one
+        # would silence every genuinely broken link on every kernel built before 2026-09-06.
+        failures = [m for m in spec.inv_edges_enabled({"edges": [edge(1, 2, is_up=False)]},
+                                                      Ctx())
+                    if not m.startswith(ACCOUNTED_FOR)]
+        self.assertEqual(len(failures), 1, failures)
+
+    def test_the_unexplained_count_excludes_the_declared_ones(self):
+        data = {"edges": [self.declared(1, 2), self.declared(3, 4),
+                          edge(5, 6, is_up=False)]}
+        failures = [m for m in spec.inv_edges_enabled(data, Ctx())
+                    if not m.startswith(ACCOUNTED_FOR)]
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("1 edge(s) down/disabled", failures[0])
+        self.assertIn("5:1->6:1", failures[0])
+
+    def test_a_declared_edge_that_is_also_incident_to_an_off_switch_is_counted_once(self):
+        # Two explanations, one edge. It must not appear in both buckets: the sum of the
+        # printed counts is what a reader adds up against the number of down edges.
+        data = {"edges": [self.declared(1, 5)]}
+        out = spec.inv_edges_enabled(data, Ctx(power_state=PowerState({5})))
+        self.assertEqual([m for m in out if not m.startswith(ACCOUNTED_FOR)], [], out)
+        counted = sum(int(m.split()[1]) for m in out if m.startswith(ACCOUNTED_FOR))
+        self.assertEqual(counted, 1, out)
+
+    def test_an_unreadable_power_state_still_blocks_the_verdict(self):
+        # The declaration is readable and the power state is not, so this run cannot tell a
+        # declared edge from one incident to a switch it cannot see. No verdict, as before:
+        # a new ACCOUNTED-FOR bucket must not become a way past the A-8 precondition.
+        out = spec.inv_edges_enabled({"edges": [self.declared()]},
+                                     Ctx(power_state=PowerState.unknown("timed out")))
+        self.assertEqual(len(out), 1, out)
+        self.assertTrue(out[0].startswith(TOOL_PRECONDITION), out)
 
 
 class PowerStateReadingTest(unittest.TestCase):
@@ -2237,6 +2314,531 @@ class ModelUnderTestTest(unittest.TestCase):
         out = spec.inv_kernel_serves_the_model_under_test(
             self._body(topology_file=ctx.topology_path, topology_sha256="DEADBEEF"), ctx)
         self.assertTrue(any("64 lowercase hex" in m for m in out), out)
+
+
+class SelftestFixturesMatchTheEndpointTable(unittest.TestCase):
+    """
+    Every --self-test fixture, against the schema the contract test actually validates with.
+
+    [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G2/G13, 2026-09-11.
+
+    17 of the 31 fixtures hold a private copy of a schema instead of spec.py's object. Several
+    of those copies are deliberate and say why. What was missing was anyone comparing them: on
+    2026-09-11 `install_flow_entry`'s copy described `{"status": ...}` while its endpoint has
+    required `accepted` since 2026-09-06, so --self-test was reporting "ok install_flow_entry"
+    for a body the live run would have failed on structure. A self-test whose stated purpose is
+    "prove the schemas accept what the kernel documents" cannot do that against a schema the
+    kernel's contract does not use.
+
+    This is the cross-application the offline round found missing (G3's third leg): the two
+    halves of the tool -- endpoint table and fixture map -- were only ever run against
+    themselves. It is a cheap check and it is the only one that can see a copy drift.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import selftest_fixtures  # noqa: PLC0415 -- same sys.path dance as spec, see above
+        cls.fx = selftest_fixtures
+        cls.by_name = {ep["name"]: ep for ep in spec.ENDPOINTS}
+
+    def test_every_fixture_names_an_endpoint_or_says_why_it_cannot(self):
+        unresolved = []
+        for name in self.fx.FIXTURES:
+            endpoint, which = self.fx.fixture_target(name)
+            if endpoint is None:
+                # (None, reason) is only allowed for a DECLARED exception. A key that simply
+                # fails to resolve is the typo this test exists to catch.
+                if name not in self.fx.FIXTURE_TARGET_OVERRIDES:
+                    unresolved.append(which)
+            elif endpoint not in self.by_name:
+                unresolved.append(f"{name!r} resolves to {endpoint!r}, not in ENDPOINTS")
+        self.assertEqual(unresolved, [], "\n".join(unresolved))
+
+    def test_every_fixture_sample_validates_against_its_endpoints_schema(self):
+        problems = []
+        for name, (_own_schema, sample) in self.fx.FIXTURES.items():
+            endpoint, which = self.fx.fixture_target(name)
+            if endpoint is None:
+                continue  # reported by the test above; not this test's finding
+            schema = self.by_name[endpoint].get(which)
+            if schema is None:
+                problems.append(f"{name!r}: endpoint {endpoint!r} has no {which}")
+                continue
+            errs = validate(schema, sample)
+            if errs:
+                problems.append(f"{name!r} vs {endpoint}.{which}: {errs}")
+        self.assertEqual(problems, [], "\n".join(problems))
+
+    def test_a_private_copy_that_has_drifted_is_caught(self):
+        # The positive control, so a green run above is not "the loop examined nothing".
+        # STATUS_OK is what install_flow_entry's fixture used to carry, and it is exactly one
+        # required field short of the endpoint's schema.
+        endpoint = self.by_name["install_flow_entry"]
+        self.assertTrue(validate(endpoint["schema"], {"status": "Flow installed"}),
+                        "the endpoint schema no longer requires anything beyond `status`, so "
+                        "this control cannot fail and the check above proves nothing")
+
+    def test_the_naming_convention_resolves_the_variant_fixtures(self):
+        # G13 counted 9 fixtures as belonging to no endpoint. They are variants; this pins the
+        # convention that says so, because a convention nothing asserts is a guess.
+        self.assertEqual(
+            self.fx.fixture_target("inject_link_failure (MININET)"),
+            ("inject_link_failure", "schema"))
+        self.assertEqual(
+            self.fx.fixture_target("link_failure_detected (kernel from trunk, "
+                                   "no down_reason/until)"),
+            ("link_failure_detected", "schema"))
+        # A query suffix is NOT stripped, and this probe is a name the override table does not
+        # carry, so it is the convention being asserted and not the exception. The one query
+        # fixture in the file answers with three required fields the unparameterised endpoint's
+        # reply does not have: stripping the suffix validates a sample against the wrong schema
+        # and prints `ok`.
+        self.assertIsNone(self.fx.fixture_target("get_graph_data?since=1")[0])
+
+    def test_the_endpoints_with_no_fixture_are_exactly_the_ones_declared(self):
+        # G13. The gap is not closed -- most of these need a documented example this repository
+        # does not have -- but it stops growing in silence. Asserted as EQUALITY in both
+        # directions: a new endpoint arrives with a fixture or a line, and a fixture written
+        # for one of these fails until its line goes with it.
+        covered = set()
+        for name in self.fx.FIXTURES:
+            endpoint, which = self.fx.fixture_target(name)
+            if endpoint and which == "schema":
+                covered.add(endpoint)
+        uncovered = {ep["name"] for ep in spec.ENDPOINTS
+                     if ep["category"] in (spec.READ, spec.MUTATE)
+                     and ep["name"] not in covered}
+        declared = set(self.fx.ENDPOINTS_WITHOUT_A_RESPONSE_FIXTURE)
+        self.assertEqual(
+            uncovered, declared,
+            f"no longer described: {sorted(uncovered - declared)}; "
+            f"now described, so remove the line: {sorted(declared - uncovered)}")
+
+    def test_every_declared_gap_says_why(self):
+        for name, why in self.fx.ENDPOINTS_WITHOUT_A_RESPONSE_FIXTURE.items():
+            self.assertTrue(why.strip(), name)
+
+    def test_the_declared_exceptions_resolve_where_they_say_they_do(self):
+        # Not "the table exists" -- the values. Every one of these was wrong before, in a way
+        # no test could see: a fixture attributed to the wrong endpoint validates against a
+        # schema that happens to fit, and the mis-attribution only surfaces when an invariant
+        # is applied (which is what G3 adds).
+        self.assertEqual(
+            self.fx.fixture_target("link_recovery_detected (declined: declaration_retained)"),
+            ("link_recovery_detected__declined_after_injection", "schema"),
+            "the DECLINED reply is step 4's, not step 2's")
+        self.assertEqual(
+            self.fx.fixture_target("link request body (all four endpoints take the same one)"),
+            ("link_failure_detected", "request_schema"),
+            "a request body must be checked against request_schema, not against a response")
+        endpoint, why = self.fx.fixture_target("get_flow_dispatch_status?request_id=<id>")
+        self.assertIsNone(endpoint)
+        self.assertGreater(len(why), 20, "a declared exception has to say why it is one")
+        endpoint, why = self.fx.fixture_target("no_such_endpoint (invented)")
+        self.assertIsNone(endpoint)
+        self.assertIn("no_such_endpoint", why, "the message has to name what did not resolve")
+
+
+class DownReasonVocabularyTest(unittest.TestCase):
+    """
+    One down_reason vocabulary, written down in seven places, compared here.
+
+    [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G12, 2026-09-11.
+
+    The offline round counted five declaration sites. There are seven:
+
+        spec.py   DOWN_REASONS, DECLARED, LINK_FAILURE_REPORTED, LINK_FAILURE_INJECTED
+        kernel    downReasonToString (the enum's wire form, common_types/GraphTypes.hpp),
+                  HttpSession.cpp:564 (a raw-string reply) and :836 (a json object)
+
+    Nothing compared them. This is not a defect today -- the seven agree -- and the guard is
+    the point: a fourth reason added to the C++ enum would pass every existing check while
+    the two link-reply schemas, which never mention DOWN_REASONS, refused it, and the two
+    hardcoded replies said nothing about it. The mutation gate is where this file's red lives.
+
+    🔴 `"declared"` is also a BandwidthSource spelling in the same header, a different
+    vocabulary reusing the word. Grepping the string conflates the two; the scan below reads
+    down_reason sites only, and only under src/ and include/ -- tests/ deliberately holds
+    `body.value("down_reason", "")` reads whose default is not a vocabulary word.
+    """
+
+    #: `"down_reason": "x"` or `{"down_reason", "x"}`. A site that calls downReasonToString()
+    #: instead of naming a value does not match, which is the point: those cannot drift.
+    HARDCODED = re.compile(r'"down_reason"\s*[:,]\s*"([^"]*)"')
+
+    PRODUCTION_DIRS = ("src", "include")
+
+    def _cpp_sources(self):
+        for directory in self.PRODUCTION_DIRS:
+            for root, _dirs, files in os.walk(os.path.join(REPO_ROOT, directory)):
+                for name in files:
+                    if name.endswith((".cpp", ".hpp", ".h", ".cc")):
+                        yield os.path.join(root, name)
+
+    def test_the_kernels_wire_form_covers_exactly_this_vocabulary(self):
+        header = os.path.join(REPO_ROOT, "include", "common_types", "GraphTypes.hpp")
+        with open(header, encoding="utf-8") as fh:
+            source = fh.read()
+        start = source.index("downReasonToString(DownReason reason)")
+        body = source[start:source.index("\n}\n", start)]
+        returned = set(re.findall(r'return\s+"([^"]*)"', body))
+        self.assertEqual(returned, set(spec.DOWN_REASONS),
+                         "the kernel's DownReason wire form and spec.DOWN_REASONS have drifted")
+
+    def test_every_enum_member_has_a_wire_spelling(self):
+        # The switch has a trailing `return "none"`, so a member added without a case label
+        # would silently serialise as "none" rather than failing to compile.
+        header = os.path.join(REPO_ROOT, "include", "common_types", "GraphTypes.hpp")
+        with open(header, encoding="utf-8") as fh:
+            source = fh.read()
+        block = source[source.index("enum class DownReason"):]
+        block = block[:block.index("};")]
+        members = re.findall(r"^\s+([A-Z]\w*)", block, re.M)
+        self.assertEqual(len(members), len(spec.DOWN_REASONS),
+                         f"DownReason has {members}, spec.DOWN_REASONS has "
+                         f"{list(spec.DOWN_REASONS)}")
+        for member in members:
+            self.assertIn(f"case DownReason::{member}:", source,
+                          f"{member} has no case label, so it serialises as the fallback")
+
+    def test_every_hardcoded_kernel_value_is_a_vocabulary_word(self):
+        sites = []
+        for path in self._cpp_sources():
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                for lineno, line in enumerate(fh, 1):
+                    for match in self.HARDCODED.finditer(line):
+                        sites.append((os.path.relpath(path, REPO_ROOT), lineno,
+                                      match.group(1)))
+        self.assertTrue(sites, "the scan found no hardcoded down_reason at all -- it has "
+                               "stopped looking where the kernel writes one")
+        for path, lineno, value in sites:
+            self.assertIn(value, spec.DOWN_REASONS, f"{path}:{lineno} writes {value!r}")
+
+    def test_the_declaration_value_is_named_once_and_belongs_to_the_vocabulary(self):
+        self.assertIn(spec.DECLARED, spec.DOWN_REASONS)
+        for schema, label in ((spec.LINK_FAILURE_REPORTED, "LINK_FAILURE_REPORTED"),
+                              (spec.LINK_FAILURE_INJECTED, "LINK_FAILURE_INJECTED")):
+            field = (schema.optional or {}).get("down_reason") or schema.fields["down_reason"]
+            self.assertEqual(tuple(field.allowed), (spec.DECLARED,), label)
+
+    def test_a_reply_naming_another_vocabulary_word_is_still_refused(self):
+        # The two link replies are narrower than the graph on purpose: a declaration endpoint
+        # reporting "switch-unreachable" is not a wider vocabulary, it is a different event.
+        self.assertTrue(validate(spec.LINK_FAILURE_REPORTED,
+                                 {"status": "ok", "down_reason": "switch-unreachable"}))
+        # The graph's own edge object takes the wider vocabulary, on the same body.
+        graph_edge = {**edge(1, 2), "src_ip": [16777226], "dst_ip": [33554442],
+                      "flow_set": []}
+        self.assertEqual(
+            validate(spec.GRAPH_EDGE, {**graph_edge, "down_reason": "switch-unreachable"}), [])
+        self.assertTrue(
+            validate(spec.GRAPH_EDGE, {**graph_edge, "down_reason": "flapping"}),
+            "a word outside the vocabulary is a contract change, not a wider one")
+
+
+class DeclinedRecoveryPremiseTest(unittest.TestCase):
+    """
+    F-OFFLINE-1 G10: the declined check accuses the kernel of something it may not have done.
+
+    [Co-developed with claude code -- Adam] -- KNOWN-ISSUES A-8, E-21, 2026-09-11.
+
+    inv_recovery_was_declined_and_said_so is step 4 of the mutating sequence and its whole
+    premise is step 3: "the check immediately before this one injected a failure through
+    /ndt/inject_link_failure, which records no report, so nothing pairs with this recovery."
+    The function had no branch for the premise being false. Applied to a bare
+    {"status": "link recovery processed"} it returned, in one sentence, an accusation that the
+    kernel "either withdrew a declaration nothing ever answered for, or withdrew nothing and
+    did not say so".
+
+    On a kernel that predates /ndt/inject_link_failure -- which spec.py's own comment records
+    as every trunk build -- step 3 answers 404, nothing is declared, and step 4's reply is
+    then exactly that bare 200. The check blamed the kernel for withdrawing something that
+    was never declared.
+
+    Fixed at the invariant rather than only at the endpoint table: l3_component_check.py and
+    these tests reach the function directly, and a guard that only exists in the runner is a
+    guard the next caller does not get.
+    """
+
+    class Landed:
+        """A run that recorded step 3's injection as having succeeded."""
+
+        link_failure_injected = True
+
+    class DidNotLand:
+        link_failure_injected = False
+
+    BARE = {"status": "link recovery processed"}
+
+    def test_a_run_that_did_not_record_the_injection_makes_no_claim(self):
+        out = spec.inv_recovery_was_declined_and_said_so(self.BARE, None)
+        self.assertEqual(len(out), 1, out)
+        self.assertTrue(out[0].startswith(TOOL_PRECONDITION), out)
+
+    def test_a_run_whose_injection_failed_makes_no_claim_either(self):
+        out = spec.inv_recovery_was_declined_and_said_so(self.BARE, self.DidNotLand())
+        self.assertEqual(len(out), 1, out)
+        self.assertTrue(out[0].startswith(TOOL_PRECONDITION), out)
+
+    def test_with_the_premise_established_it_is_still_an_accusation(self):
+        # The control, and the one that matters: this is the lw8b failure mode and gating it
+        # must not be a way to stop reporting it.
+        out = spec.inv_recovery_was_declined_and_said_so(self.BARE, self.Landed())
+        self.assertEqual(len(out), 1, out)
+        # The prefix, not the prose: an unprefixed message is a verdict about the kernel, and
+        # tests/shell/mutate_contract_link_endpoints.sh's W2 rewords this very sentence to
+        # prove nothing here is pinned to its wording.
+        self.assertFalse(out[0].startswith(TOOL_PRECONDITION), out)
+        self.assertFalse(out[0].startswith(ACCOUNTED_FOR), out)
+
+    def test_a_correctly_declined_reply_is_unaffected_by_any_of_this(self):
+        # The premise only gates the accusation. A reply that DID decline is checked in full
+        # whatever the run knows, because there is nothing to misattribute.
+        for ctx in (None, self.Landed(), self.DidNotLand()):
+            self.assertEqual(
+                spec.inv_recovery_was_declined_and_said_so(DECLINED_RECOVERY, ctx), [], ctx)
+            self.assertTrue(
+                spec.inv_recovery_was_declined_and_said_so(
+                    {**DECLINED_RECOVERY, "until": "/ndt/link_recovery_detected"}, ctx))
+
+    def test_the_injection_step_is_the_one_that_records_it(self):
+        # Existence is not wiring. The state has to be written by the step whose outcome it
+        # describes, or the branch above is dead and the check is silently off.
+        injection = next(ep for ep in spec.ENDPOINTS if ep["name"] == "inject_link_failure")
+        self.assertEqual(injection.get("records"), "link_failure_injected")
+        declined = next(ep for ep in spec.ENDPOINTS
+                        if ep["name"] == "link_recovery_detected__declined_after_injection")
+        self.assertIsNone(declined.get("records"),
+                          "the step that reads the state must not also write it")
+
+    def test_the_runner_writes_what_the_step_declares(self):
+        import run_contract_test as runner
+        endpoint = next(ep for ep in spec.ENDPOINTS if ep["name"] == "inject_link_failure")
+        ctx = Context(P4_TOPOLOGY, 5, PROBE_IP)
+        self.assertIsNone(getattr(ctx, "link_failure_injected", None),
+                          "unknown until the step runs, not True")
+
+        def fake_request(base_url, ep, _ctx, timeout):
+            return (200, {"status": "link failure injected", "down_reason": "declared",
+                          "until": "/ndt/inject_link_recovery",
+                          "tc": "skipped (not MININET)"}, None)
+
+        real = runner.request
+        runner.request = fake_request
+        try:
+            # check_endpoint alone, with nothing else called: the recording has to be part
+            # of running the step, or a caller that runs one check by hand gets a ctx that
+            # never learns anything -- and "the loop forgot to call the recorder" is then a
+            # mutation no test can see.
+            runner.check_endpoint("http://127.0.0.1:0", endpoint, ctx,
+                                  LinkStepPreconditionTest.Args())
+            self.assertTrue(ctx.link_failure_injected)
+
+            runner.request = lambda *a, **k: (404, {"status": "error"}, None)
+            runner.check_endpoint("http://127.0.0.1:0", endpoint, ctx,
+                                  LinkStepPreconditionTest.Args())
+            self.assertFalse(ctx.link_failure_injected)
+        finally:
+            runner.request = real
+
+
+class LinkStepPreconditionTest(unittest.TestCase):
+    """
+    F-OFFLINE-1 G11: a step that could not choose a link must make no claim about the kernel.
+
+    [Co-developed with claude code -- Adam] -- KNOWN-ISSUES A-8, 2026-09-11.
+
+    switch_to_switch_link() returns None when the topology holds no switch-to-switch edge, and
+    link_endpoint_body() then sends NO_LINK_CHOSEN_PAYLOAD -- four zeros, which all four link
+    endpoints refuse by design (W8-7's dpid-0 doors). None of the six MUTATE steps declared an
+    expect_status, so the default [200] applied and that correct refusal was recorded as
+
+        HTTP status 404, expected 200
+
+    against the kernel. The intent behind the fallback was right -- refuse rather than guess a
+    link, because a guessed link means a fault injected on an edge nobody chose -- and the
+    reporting was the A-8 shape: a tool that cannot establish its own precondition failing in
+    a way that looks like the system failing.
+
+    Loud either way. Louder, in fact: the request is not sent at all.
+    """
+
+    class Args:
+        timeout = 1
+        with_traffic = False
+
+    HOST_EDGE_ONLY = {"nodes": [{"dpid": 1, "vertex_type": 0, "device_name": "s1",
+                                 "ip": ["10.0.0.1"], "mac": 1},
+                                {"dpid": 0, "vertex_type": 1, "device_name": "h1",
+                                 "ip": ["10.0.0.2"], "mac": 2}],
+                      "edges": [{"src_dpid": 1, "src_interface": 1,
+                                 "dst_dpid": 0, "dst_interface": 0}]}
+
+    LINK_STEPS = ("link_failure_detected", "link_recovery_detected", "inject_link_failure",
+                  "link_recovery_detected__declined_after_injection", "inject_link_recovery",
+                  "inject_link_recovery_cleanup")
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.no_link = os.path.join(self.tmp.name, "no_switch_link.json")
+        with open(self.no_link, "w", encoding="utf-8") as fh:
+            json.dump(self.HOST_EDGE_ONLY, fh)
+        spec.switch_to_switch_link.cache_clear()
+        self.addCleanup(spec.switch_to_switch_link.cache_clear)
+
+    def _run(self, endpoint_name, topology, reply=(404, {"status": "error"}, None)):
+        """check_endpoint with the network stubbed. Returns (Result, requests sent)."""
+        import run_contract_test as runner
+        endpoint = next(ep for ep in spec.ENDPOINTS if ep["name"] == endpoint_name)
+        ctx = Context(topology, 5, PROBE_IP)
+        sent = []
+
+        def fake_request(base_url, ep, _ctx, timeout):
+            sent.append(ep["name"])
+            return reply
+
+        real = runner.request
+        runner.request = fake_request
+        try:
+            return runner.check_endpoint("http://127.0.0.1:0", endpoint, ctx, self.Args()), sent
+        finally:
+            runner.request = real
+
+    def test_every_link_step_makes_no_claim_when_no_link_could_be_chosen(self):
+        for name in self.LINK_STEPS:
+            res, sent = self._run(name, self.no_link)
+            self.assertEqual(res.failures, [], f"{name} blamed the kernel: {res.failures}")
+            self.assertEqual(len(res.preconditions), 1, f"{name}: {res.preconditions}")
+            self.assertTrue(res.preconditions[0].startswith(TOOL_PRECONDITION), name)
+            self.assertEqual(sent, [], f"{name} sent a request it knew would be refused")
+
+    def test_the_precondition_names_the_topology_it_could_not_use(self):
+        res, _sent = self._run("inject_link_failure", self.no_link)
+        self.assertIn("no_switch_link.json", res.preconditions[0])
+
+    def test_a_topology_with_a_switch_link_still_runs_the_step(self):
+        # The control. A precondition that is never satisfied is a check that has been deleted.
+        res, sent = self._run("inject_link_failure", P4_TOPOLOGY,
+                              reply=(200, {"status": "link failure injected",
+                                           "down_reason": "declared",
+                                           "until": "/ndt/inject_link_recovery",
+                                           "tc": "skipped (not MININET)"}, None))
+        self.assertEqual(res.preconditions, [], res.preconditions)
+        self.assertEqual(sent, ["inject_link_failure"])
+        self.assertTrue(res.ok, res.failures)
+
+    def test_a_real_refusal_on_a_real_link_is_still_a_failure(self):
+        # The other control, and the one that matters: the precondition must not become a way
+        # for a 404 on a link this topology DOES hold to stop counting.
+        res, sent = self._run("inject_link_failure", P4_TOPOLOGY)
+        self.assertEqual(res.preconditions, [])
+        self.assertEqual(sent, ["inject_link_failure"])
+        self.assertTrue(any("404" in f for f in res.failures), res.failures)
+
+
+class CrossApplicationStagesTest(unittest.TestCase):
+    """
+    --self-test's two cross-application stages, on stand-in fixture maps.
+
+    [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G3, 2026-09-11.
+
+    The stages are what found G3, so they need their own positive controls: a stage that
+    cannot go red is the shape it exists to remove. Each test hands the stage a fixture map
+    built here rather than the shipped one, so the shipped one going green (or not) is a
+    separate question from whether the stage works.
+    """
+
+    class Pal:
+        def red(self, s):
+            return s
+
+        green = dim = yellow = red
+
+    class Fx:
+        """The three attributes the stages read off selftest_fixtures."""
+
+        def __init__(self, fixtures, exceptions=None, targets=None):
+            self.FIXTURES = fixtures
+            self.FIXTURE_INVARIANT_EXCEPTIONS = exceptions or {}
+            self._targets = targets or {}
+            self.SELFTEST_CTX = Ctx()
+
+        def fixture_target(self, name):
+            return self._targets.get(name, (name, "schema"))
+
+    # The stages print as they go, which is their job in the runner and noise here: an L1 log
+    # that carries a deliberately-red stand-in run reads as a real failure to whoever greps it.
+    def _schemas(self, fx):
+        import contextlib
+        import io
+        import run_contract_test as runner
+        with contextlib.redirect_stdout(io.StringIO()):
+            return runner._cross_apply_schemas(self.Pal(), fx)
+
+    def _invariants(self, fx):
+        import contextlib
+        import io
+        import run_contract_test as runner
+        with contextlib.redirect_stdout(io.StringIO()):
+            return runner._cross_apply_invariants(self.Pal(), fx)
+
+    def test_a_schema_that_accepts_every_foreign_body_is_reported(self):
+        fx = self.Fx({"get_graph_data": (spec.GRAPH_DATA, {"nodes": [], "edges": []}),
+                      "get_openflow_capacity": (spec.Any_(), {"OVS": {}})})
+        _passed, failed = self._schemas(fx)
+        self.assertGreaterEqual(failed, 1, "Any_() rejects nothing and must be reported")
+
+    def test_the_shipped_capacity_schema_is_not_that(self):
+        # The G3 fix itself, asserted here and not only through the runner's output.
+        capacity = next(ep for ep in spec.ENDPOINTS if ep["name"] == "get_openflow_capacity")
+        self.assertTrue(validate(capacity["schema"], [{"OVS": {}}]),
+                        "a list is not a map keyed by switch family")
+        self.assertTrue(validate(capacity["schema"], "no capacity for you"))
+        self.assertEqual(validate(capacity["schema"], {"OVS": {}, "bmv2": {}}), [],
+                         "the keys stay unenumerated: a different fabric has different ones")
+
+    #: One endpoint, one registered invariant (inv_avg_link_usage_range), so the four tests
+    #: below isolate the stage's decision instead of the graph endpoint's six invariants.
+    HEALTHY = {"status": "success", "avg_link_usage": 0.12}
+    OUT_OF_RANGE = {"status": "success", "avg_link_usage": 500}
+
+    def _one_endpoint(self, sample, exceptions=None):
+        return self.Fx({"get_average_link_usage": (spec.Any_(), sample)},
+                       exceptions=exceptions)
+
+    def test_a_fixture_that_contradicts_its_endpoints_invariant_is_reported(self):
+        _passed, failed = self._invariants(self._one_endpoint(self.OUT_OF_RANGE))
+        self.assertEqual(failed, 1)
+
+    def test_a_declared_exception_turns_that_red_into_a_pass(self):
+        fx = self._one_endpoint(
+            self.OUT_OF_RANGE,
+            exceptions={("get_average_link_usage", "inv_avg_link_usage_range"):
+                        "on purpose, for this test"})
+        _passed, failed = self._invariants(fx)
+        self.assertEqual(failed, 0, "a declared exception is not a failure")
+
+    def test_an_exception_that_no_longer_fires_is_a_failure(self):
+        # The allowlist's lesson. An excuse nobody rechecks outlives its reason.
+        fx = self._one_endpoint(
+            self.HEALTHY,
+            exceptions={("get_average_link_usage", "inv_avg_link_usage_range"):
+                        "stale: nothing reports now"})
+        _passed, failed = self._invariants(fx)
+        self.assertEqual(failed, 1)
+
+    def test_an_exception_naming_a_pair_that_does_not_exist_is_a_failure(self):
+        fx = self._one_endpoint(self.HEALTHY,
+                                exceptions={("renamed_fixture", "inv_gone"):
+                                            "points at nothing"})
+        _passed, failed = self._invariants(fx)
+        self.assertEqual(failed, 1)
+
+    def test_an_invariant_that_raises_is_a_failure_and_not_a_pass(self):
+        # A tool bug must never read as the kernel being fine.
+        _passed, failed = self._invariants(self._one_endpoint({"status": "success"}))
+        self.assertEqual(failed, 1)
 
 
 if __name__ == "__main__":
