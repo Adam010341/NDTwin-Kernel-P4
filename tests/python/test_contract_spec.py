@@ -589,6 +589,82 @@ class PoweredDownEdgesTest(unittest.TestCase):
         self.assertNotIn("edge(s) down/disabled", out[0])
 
 
+class DeclaredDownEdgesTest(unittest.TestCase):
+    """
+    F-OFFLINE-1 G5: `down_reason: "declared"` is an operator's intent, not a fault.
+
+    [Co-developed with claude code -- Adam]
+
+    W8's whole point is that a declaration does not clear until somebody POSTs a recovery, and
+    since W8b which recovery is narrowed further. A run that reports the resulting down edge as
+    a broken link raises a false alarm on every fabric where a failure was declared on purpose
+    -- including, at the time this was written, the contract test's OWN mutating sequence, whose
+    step 1 declares a link down and whose step 3 injects one.
+
+    Same shape as the A-8 power case above and the same three answers, which is the point: the
+    difference between "down and nobody knows why" and "down because you said so" has to be
+    visible in the output, not decided by whoever reads it.
+    """
+
+    @staticmethod
+    def declared(src=1, dst=2):
+        return {**edge(src, dst, is_up=False), "down_reason": "declared"}
+
+    def test_a_declared_edge_is_accounted_for_not_failed(self):
+        out = spec.inv_edges_enabled({"edges": [self.declared()]}, Ctx())
+        self.assertEqual([m for m in out if not m.startswith(ACCOUNTED_FOR)], [], out)
+        self.assertTrue(any(m.startswith(ACCOUNTED_FOR) and "declared" in m for m in out), out)
+
+    def test_it_is_still_printed_and_still_counted(self):
+        # An explained deviation nobody sees is indistinguishable from no deviation at all.
+        out = spec.inv_edges_enabled(
+            {"edges": [self.declared(1, 2), self.declared(3, 4)]}, Ctx())
+        self.assertTrue(any(m.startswith(ACCOUNTED_FOR) and "2 edge(s)" in m for m in out), out)
+
+    def test_a_down_edge_with_any_other_reason_is_still_a_failure(self):
+        for reason in ("none", "switch-unreachable"):
+            data = {"edges": [{**edge(1, 2, is_up=False), "down_reason": reason}]}
+            failures = [m for m in spec.inv_edges_enabled(data, Ctx())
+                        if not m.startswith(ACCOUNTED_FOR)]
+            self.assertEqual(len(failures), 1, f"{reason}: {failures}")
+            self.assertIn("1 edge(s) down/disabled", failures[0])
+
+    def test_a_down_edge_that_names_no_reason_is_still_a_failure(self):
+        # The pre-F-14 kernel. Absence of the key is not a declaration, and reading it as one
+        # would silence every genuinely broken link on every kernel built before 2026-09-06.
+        failures = [m for m in spec.inv_edges_enabled({"edges": [edge(1, 2, is_up=False)]},
+                                                      Ctx())
+                    if not m.startswith(ACCOUNTED_FOR)]
+        self.assertEqual(len(failures), 1, failures)
+
+    def test_the_unexplained_count_excludes_the_declared_ones(self):
+        data = {"edges": [self.declared(1, 2), self.declared(3, 4),
+                          edge(5, 6, is_up=False)]}
+        failures = [m for m in spec.inv_edges_enabled(data, Ctx())
+                    if not m.startswith(ACCOUNTED_FOR)]
+        self.assertEqual(len(failures), 1, failures)
+        self.assertIn("1 edge(s) down/disabled", failures[0])
+        self.assertIn("5:1->6:1", failures[0])
+
+    def test_a_declared_edge_that_is_also_incident_to_an_off_switch_is_counted_once(self):
+        # Two explanations, one edge. It must not appear in both buckets: the sum of the
+        # printed counts is what a reader adds up against the number of down edges.
+        data = {"edges": [self.declared(1, 5)]}
+        out = spec.inv_edges_enabled(data, Ctx(power_state=PowerState({5})))
+        self.assertEqual([m for m in out if not m.startswith(ACCOUNTED_FOR)], [], out)
+        counted = sum(int(m.split()[1]) for m in out if m.startswith(ACCOUNTED_FOR))
+        self.assertEqual(counted, 1, out)
+
+    def test_an_unreadable_power_state_still_blocks_the_verdict(self):
+        # The declaration is readable and the power state is not, so this run cannot tell a
+        # declared edge from one incident to a switch it cannot see. No verdict, as before:
+        # a new ACCOUNTED-FOR bucket must not become a way past the A-8 precondition.
+        out = spec.inv_edges_enabled({"edges": [self.declared()]},
+                                     Ctx(power_state=PowerState.unknown("timed out")))
+        self.assertEqual(len(out), 1, out)
+        self.assertTrue(out[0].startswith(TOOL_PRECONDITION), out)
+
+
 class PowerStateReadingTest(unittest.TestCase):
     """
     classify_power_state: every way the reading can be untrustworthy must return unknown.

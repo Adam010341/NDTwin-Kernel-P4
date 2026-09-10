@@ -566,6 +566,15 @@ _GRAPH_EDGE_DOWN = {
     "edges": [{**GRAPH_DATA_SAMPLE["edges"][0], "is_up": False}],
 }
 
+# [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G5, W8/W8b.
+# The same edge, down for the one reason the graph states outright: an operator declared it
+# failed. Structurally identical to the graph above -- `down_reason` is the only difference --
+# which is exactly why inv_edges_enabled reported it as a fault until 2026-09-11.
+_GRAPH_EDGE_DECLARED_DOWN = {
+    "nodes": GRAPH_DATA_SAMPLE["nodes"],
+    "edges": [{**GRAPH_DATA_SAMPLE["edges"][0], "is_up": False, "down_reason": "declared"}],
+}
+
 # [Co-developed with claude code -- Adam] -- A-8.
 # The same two graphs, read against a run that knows why they look that way. _GOOD_CTX asserts
 # nothing is powered off, so above they are genuine failures; here the reading explains them.
@@ -754,6 +763,13 @@ INVARIANT_CASES = [
      spec.inv_edges_enabled, _GRAPH_EDGE_DOWN, _GOOD_CTX, True),
     ("edges_enabled: a down edge incident to a powered-off switch is not a failure",
      spec.inv_edges_enabled, _GRAPH_EDGE_DOWN, _CTX_EDGE_SRC_OFF, False),
+    # [Co-developed with claude code -- Adam] -- G5. An operator declaration is intent, not a
+    # fault: W8's whole point is that `declared` does not clear until somebody POSTs a recovery,
+    # so a run that reports it as a broken link raises a false alarm on every fabric where a
+    # link failure was declared on purpose. The power-state ctx says nothing is off, so the
+    # ONLY thing standing between this case and the one above it is `down_reason`.
+    ("edges_enabled: an edge an operator declared down is not a failure",
+     spec.inv_edges_enabled, _GRAPH_EDGE_DECLARED_DOWN, _GOOD_CTX, False),
 
     ("link_bandwidth_sane: accepts usage below capacity",
      spec.inv_link_bandwidth_sane, GRAPH_DATA_SAMPLE, _GOOD_CTX, False),

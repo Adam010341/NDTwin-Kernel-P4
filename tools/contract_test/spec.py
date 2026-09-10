@@ -971,8 +971,26 @@ def inv_edges_enabled(data, ctx):
     def incident_to_off(e):
         return e["src_dpid"] in power.off_dpids or e["dst_dpid"] in power.off_dpids
 
-    unexplained = [e for e in down if not incident_to_off(e)]
+    # [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G5, 2026-09-11. W8/W8b.
+    # The second explanation, and the graph states it outright. `declared` means an operator
+    # (or this very suite's step 1) said the link failed, and W8's rule is that it does not
+    # clear until somebody POSTs the matching recovery -- so the edge being down is the kernel
+    # obeying, not the fabric breaking. Reported as a fault it was a false alarm on every
+    # fabric with a standing declaration, including the contract test's own mutating sequence.
+    #
+    # Read off `down_reason` and nothing else: absence of the key is NOT a declaration (a
+    # kernel built before F-14 sends no reason at all, and treating silence as intent would
+    # excuse every genuinely broken link on it), and no other value counts. `declared` is
+    # edge-only today; a node carrying it would be caught by inv_all_switches_up, not here.
+    #
+    # AFTER incident_to_off, so an edge with both explanations lands in one bucket only: the
+    # printed counts are what a reader adds up against the number of down edges.
+    def declared_down(e):
+        return str(e.get("down_reason", "")) == "declared"
+
     explained = [e for e in down if incident_to_off(e)]
+    declared = [e for e in down if not incident_to_off(e) and declared_down(e)]
+    unexplained = [e for e in down if not incident_to_off(e) and not declared_down(e)]
 
     out = []
     if unexplained:
@@ -984,6 +1002,15 @@ def inv_edges_enabled(data, ctx):
             ACCOUNTED_FOR
             + f"{len(explained)} edge(s) are down/disabled because they are incident to a "
               f"switch /ndt/get_switches_power_state reports OFF"
+        )
+    if declared:
+        names = [name(e) for e in declared]
+        shown = ", ".join(names[:5]) + (f" (+{len(names) - 5} more)" if len(names) > 5 else "")
+        out.append(
+            ACCOUNTED_FOR
+            + f"{len(names)} edge(s) are down because down_reason says an operator declared "
+              f"them failed, which does not clear until a recovery is POSTed (W8/W8b): "
+              f"{shown}"
         )
     return out
 
