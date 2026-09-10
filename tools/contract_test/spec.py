@@ -1158,6 +1158,51 @@ def inv_power_covers_switches(data, ctx):
     return []
 
 
+# [Co-developed with claude code -- Adam] W17.
+def inv_capacity_names_its_source(data, ctx):
+    """
+    Every capacity block must say where its number came from.
+
+    The endpoint mixes two kinds of number that look identical in JSON and are not
+    interchangeable: a vendor catalogue nobody measured on this deployment, and the ceiling read
+    out of the pipeline a running bmv2 switch has loaded. Before 2026-09-07 it served only the
+    first kind, unlabelled, and its smallest figure was 3.4x what the fabric underneath actually
+    held. An unlabelled number is the defect, so the label is what this checks.
+    """
+    if not isinstance(data, dict):
+        return ["get_openflow_capacity did not answer with an object"]
+    unsourced = sorted(k for k, v in data.items()
+                       if isinstance(v, dict) and not v.get("source")
+                       and not v.get("why"))
+    if unsourced:
+        return [f"capacity block(s) with neither a `source` nor a `why`: {', '.join(unsourced)}"]
+    return []
+
+
+# [Co-developed with claude code -- Adam] W17.
+def inv_capacity_available_closes(data, ctx):
+    """
+    available == max_entries - in_use, per switch, wherever all three are known.
+
+    Deliberately silent when any of the three is null: "this switch has not been polled yet" is a
+    fact the endpoint is allowed to report, and turning an honest null into a failure here would
+    push the next person to substitute a number for it -- which is the thing being defended
+    against.
+    """
+    plane = data.get("bmv2") if isinstance(data, dict) else None
+    if not isinstance(plane, dict):
+        return []
+    problems = []
+    for row in plane.get("per_switch") or []:
+        ceiling, used, avail = row.get("max_entries"), row.get("in_use"), row.get("available")
+        if ceiling is None or used is None or avail is None:
+            continue
+        if avail != ceiling - used:
+            problems.append(f"dpid {row.get('dpid')}: available {avail} != "
+                            f"{ceiling} - {used}")
+    return problems
+
+
 def inv_util_map_covers_switches(data, ctx):
     """CPU/memory maps are keyed by switch IP, so we check count rather than dpid."""
     if len(data) < ctx.expected_switches:
@@ -1730,9 +1775,22 @@ ENDPOINTS = [
          category=READ,
          schema=MapOf(OneOf(Num(), Str()), key_check=is_ipv4_string, key_desc="IPv4 address")),
 
+    # [Co-developed with claude code -- Adam] W17: this used to serve
+    # doc/2026-01-02_OpenflowCapacity.json verbatim and never mentioned bmv2. It now carries a
+    # `source` on every block and, on a bmv2 topology, a `bmv2` block whose max_entries is read
+    # from the pipeline artifact a running simple_switch has loaded.
+    #
+    # The schema stays Any_(): the response is a map keyed by switch family, so a kernel with a
+    # different fabric legitimately answers with different keys, and a schema that enumerated
+    # them would report a correct kernel as a regression. The two invariants carry the weight
+    # instead -- what must hold is that every number names its provenance and that the three
+    # per-switch figures close.
     dict(name="get_openflow_capacity", method="GET", path="/ndt/get_openflow_capacity",
          category=READ, schema=Any_(),
-         note="undocumented in 2026-01-02_ndt_api.md; reads doc/2026-01-02_OpenflowCapacity.json"),
+         invariants=[inv_capacity_names_its_source, inv_capacity_available_closes],
+         note="documented in 2026-01-02_ndt_api.md section 37; reads "
+              "doc/2026-01-02_OpenflowCapacity.json plus, on a bmv2 topology, the pipeline JSON "
+              "a running simple_switch has loaded"),
 
     dict(name="get_nickname", method="GET", path="/ndt/get_nickname",
          query=lambda ctx: {"dpid": str(ctx.a_dpid)},

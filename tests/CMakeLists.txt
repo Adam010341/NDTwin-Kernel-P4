@@ -165,6 +165,12 @@ add_executable(
   # virtual transport seams -- and pins the mark onto /ndt/get_graph_data and into one line at
   # load. Nothing here shells out; the three seams are all replaced.
   test_ExemptSwitchIsNotDialled.cpp
+
+  # [Co-developed with claude code -- Adam] W17: get_openflow_capacity served a vendor catalogue
+  # whose smallest number was 3.4x what the bmv2 fabric under it actually held, and never
+  # mentioned bmv2 at all. This owns the property that the ceiling is READ from the pipeline the
+  # running switch loaded -- so the fixtures say 512 and 2048, never 1024.
+  test_OpenflowCapacityReport.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

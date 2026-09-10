@@ -25,6 +25,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 #include <string_view>
+#include <vector> // [Co-developed with claude code -- Adam] used here already, never included
 
 using json = nlohmann::json;
 
@@ -2745,24 +2746,56 @@ HttpSession::handleGetPathSwitchCount(http::response<http::string_body>& res)
     res.body() = responseJson.dump();
 }
 
+// [Co-developed with claude code -- Adam]
+// W17. This used to dump doc/2026-01-02_OpenflowCapacity.json verbatim: OVS 1000000,
+// BrocadeICX7250 3072, HPE5520 65535, and not one word about bmv2 -- while the fabric under it
+// holds 1024 entries per switch in MyIngress.ipv4_lpm and hands the caller 896 of them once the
+// fabric's own host routes are counted (measured 2026-09-06). The smallest catalogue number was
+// 3.4x the truth, and past the real ceiling the write path answers HTTP 200 with
+// {"status":"error"} (KNOWN-ISSUES C-6), so planning against the catalogue ends in a wall with
+// no usable error at it.
+//
+// The numbers and their provenance are assembled in ofcapacity:: -- see
+// include/ndt_core/http/OpenflowCapacityReport.hpp for why each one is shaped the way it is.
+// What stays here is what only this class can supply: which switches are bmv2, and the same
+// table view /ndt/get_switch_openflow_table_entries serves, so that `in_use` and the rows a
+// caller can list are one number rather than two that drift.
 void
 HttpSession::handleGetOpenflowCapacity(http::response<http::string_body>& res)
 {
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Get Openflow Capacity");
-    std::ifstream file("../doc/2026-01-02_OpenflowCapacity.json");
-    if (!file.is_open())
+
+    std::vector<uint64_t> bmv2Dpids;
+    if (m_topologyAndFlowMonitor)
     {
-        SPDLOG_LOGGER_ERROR(Logger::instance(), "Cannot open 2026-01-02_OpenflowCapacity.json");
-        return;
+        const auto groups = m_topologyAndFlowMonitor->getSwitchKindGroups();
+        const auto bmv2 = groups.find(SwitchKind::BMV2);
+        if (bmv2 != groups.end())
+        {
+            bmv2Dpids = bmv2->second;
+        }
     }
 
-    SPDLOG_LOGGER_INFO(Logger::instance(), "Load 2026-01-02_OpenflowCapacity.json");
+    json tableView = json::array();
+    if (m_deviceConfigurationAndPowerManager)
+    {
+        tableView = m_deviceConfigurationAndPowerManager->getOpenFlowTables();
+    }
 
-    json j;
-    file >> j;
+    ofcapacity::ReadOutcome outcome;
+    const json report =
+        ofcapacity::readCapacityReport(m_capacitySources, bmv2Dpids, tableView, &outcome);
+
+    // The message is unchanged on purpose: tools/contract_test/warning_allowlist.txt FORBIDs this
+    // exact line, and a missing catalogue is still a fault worth failing a run over. What changed
+    // is that it is no longer fatal to the whole response -- the bmv2 plane is still served.
+    if (!outcome.vendorCatalogueRead)
+    {
+        SPDLOG_LOGGER_ERROR(Logger::instance(), "Cannot open 2026-01-02_OpenflowCapacity.json");
+    }
 
     res.result(http::status::ok);
-    res.body() = j.dump();
+    res.body() = report.dump();
 }
 
 void

@@ -2559,6 +2559,68 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
 - ⚠️ **併版**：本檔今晚有三支分支各自插條目（R2-PY 的 #90／#91、BUG-17 的 C-5／C-5b、本條），
   E-27 已裁「**知悉，併時照序留兩份**」。
 
+### C-6 🔴 bmv2 的表滿（每台 1024 筆）從 `install_flow_entry` 傳回來是 **HTTP 200**，訊息只有 `Failed to add route`
+
+> 🔴 **編號**：本條原本要登記成 C-5，改成 C-6——**09-07 同一夜另一個 agent
+> （`fix/bug17-mixed-dataplane-refused`）也在登記 C-5**（混合資料平面：訊息是拒絕、行為是收下）。
+> 那是**未提交的觀測**（我在共用 scratchpad 看到它的草稿），不是已併入 trunk 的事實；
+> 兩張單都還在分支上，**併入順序若相反，這裡的編號要再對一次**。
+>
+> **與 C-2 的關係**：C-2 是「沒做事卻回 200」這一族的共同根（回應以 `status::ok` 建構）。
+> 這一條是那一族在 **P4 平面的容量端**的實例，而且是**最會讓人踩到的一個**：
+> 它不是偶發錯誤，是**每一台交換機灌到第 897 筆之後的每一筆**。
+
+- **狀態**：**OPEN，本輪只登記。** W17（`fix/w17-capacity-current-plane`）修的是**問得到還剩多少**
+  （`get_openflow_capacity`），**沒有動這個回應碼**——那在 P4 proxy 側，是另一張單。
+- **平面**：**P4／bmv2 實測**（10 台 fabric、128 host）。OVS 未量。
+- **失效方向**：**樂觀 ＋ 幾乎靜默**——寫入失敗，HTTP 說成功，body 裡才有一句沒有原因的錯誤。
+- **會發生什麼**（2026-09-06 §X2 實測）：
+  - 每台 `MyIngress.ipv4_lpm` 上限 **1024** 筆；fabric 自己的 host route 佔每台一條 `/32`
+    （128 台規模＝128 條）⇒ 使用者實得 **896**。
+  - **兩條完全不同的路徑撞到同一個 896**：每 50 ms 灌一筆連灌 15 分鐘（第 897 筆是第一筆失敗），
+    以及一次送 2000 筆（`succeeded +896`／`failed +1104`）⇒ 是**表滿**，不是速率限制、不是佇列深度。
+  - 之後每一筆都失敗，而 `POST /ndt/install_flow_entry` 一路回 **HTTP 200**，body 是
+    `{"status":"error","message":"Failed to add route"}`（`api_routes.py:347`）。
+- 🔑 **這一點要對 proxy 公平**：proxy 手上本來就沒有理由可講。bmv2 回的是
+  `StatusCode.UNKNOWN`、**details 全空**（21 筆全同一形狀，`logs/x2-13-proxy-log-truth.log`），
+  `p4_client.py:891` 只是把它印掉。**「表滿」這件事是 bmv2 丟掉的，不是 proxy 藏起來的。**
+- 🔴 **影響面**：
+  - 呼叫端只看 status code ⇒ 讀成「都灌進去了」，而**第 897 筆之後一條都沒進去**；
+  - 這一條疊在 A-7／C-4 上：計數要另外去 `get_flow_dispatch_status` 問，而視圖（§5）**本來就落後**
+    ⇒ 「我灌了 2000 筆、查表只有 1024」在三個端點之間看起來像三種不同的故障；
+  - 照型錄（`get_openflow_capacity` 舊版的 3072）規劃的人會**在 896 撞牆**，而牆是無聲的。
+- **繞法（W17 之後）**：灌之前先問 `GET /ndt/get_openflow_capacity` 的 `bmv2.per_switch[].available`
+  （＝`max_entries − in_use`，`max_entries` 讀的是**正在跑那顆 binary 載入的** pipeline 的
+  `max_size`）。⚠️ `available` 是**下界**：`in_use` 是那台交換機全部表的列數，理由見
+  `doc/2026-01-02_ndt_api.md` §37。
+- ⚠️ **繞法本身帶進來的一個新形狀**（2026-09-07 Adam 裁 **E-14**：`bmv2` 放頂層可以，但**要記在這裡**）：
+  W17 把 `bmv2` 這個鍵**放在回應的頂層、和三個廠牌鍵（`OVS`／`HPE5520`／`BrocadeICX7250`）並排**，
+  因為對「這台交換機裝得下多少」的呼叫端而言，它就是一個交換機家族，而手冊與網站鏡像記的也是
+  「頂層以廠牌為鍵」的形狀。**代價**：容量型錄檔（`doc/2026-01-02_OpenflowCapacity.json`）
+  哪天長出一個自己的 `bmv2` 鍵，會在組回應時**被覆寫掉**
+  （`src/ndt_core/http/OpenflowCapacityReport.cpp` 的 `buildCapacityReport`：型錄先讀進來、
+  有 bmv2 交換機時才 `vendorCatalogue["bmv2"] = …`）。
+  **方向是對的**——從正在跑的 pipeline 讀到的數字，本來就該贏過有人打字進型錄的數字——
+  **但它會靜默**：沒有 log、回應裡也沒有欄位說「你型錄裡那一塊被蓋掉了」。
+  ⇒ 現在只登記，不改行為；改型錄檔的人要知道這件事。
+  〔🟢 本輪自己開檔查證 `buildCapacityReport` 的那兩行；🔵 **沒有編譯、沒有跑**任何端點。〕
+- **修法方向**（未裁）：三個獨立的動作，可以分開做——
+  ① proxy 對「寫入被拒」回 **4xx/5xx** 而不是 200（C-2 家族的一般解）；
+  ② proxy 在收到 `UNKNOWN` 且 details 為空時，**自己讀一次表列數**，把「表滿」講出來
+  （它讀得到：`read_table_entries` 是現成的）；
+  ③ kernel 側在 dispatch 前用 W17 的 `available` 先擋，並回一個講得出原因的 4xx。
+- **證據**：`scratch/overnight-2026-09-05/rounds/06-X-experiments.md` §X2（🟢 該輪自己跑的），
+  raw 在同一輪的 `logs/`：`x2-11-slow-install.log`（單筆慢灌，第 897 筆首敗）、
+  `x2-14-batches.log`／`x2-15-settled.log`（批次 100／500／2000）、
+  `x2-13-proxy-log-truth.log`（21 筆 `UNKNOWN` details 全空）、
+  `x2-10-bmv2-table-truth.log`（`simple_switch_CLI` 這條路走不通：venv 缺 `thrift`）。
+  🔴 raw 在 `scratch/`，**不在版控**——引用前先確認那個目錄還在。
+  ⚠️ **可信度分級**：上面的數字與逐字輸出是 **§X2 實測（🟢 對該輪）**；
+  **本條登記者沒有複驗任何一次 live 重現（🟠 轉述）**，登記者自己跑過的只有
+  `p4_proxy/proxy_agent/api_routes.py:347` 與 `p4_client.py:891` 的開檔確認（🟢）。**不要混用。**
+- **對帳**：09-05 R4-3 的「`succeeded` 停在 900」是**同一件事**——900 ＝ 896 ＋ 量測前基準 3，
+  §X2 已結案為「上限是 1024，不是 900」。
+
 ## D. 已明確裁定不修（含理由）
 
 | 缺陷 | 裁定 | 理由 |
