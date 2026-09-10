@@ -135,6 +135,7 @@ chmod +x "$FIX/stack.sh"
 reset_fix() {
     rm -f "$FIX/rc."* "$FIX/out."* "$FIX/sudo.log" "$FIX/stack.log" \
           "$FIX/stack_ovs_dies_early" "$FIX/stack_ovs_no_prompt" \
+          "$FIX/topo_p4.seen" "$FIX/topo_ovs.seen" \
           "$FIX/bmv2.seq" "$FIX/mn.seq" "$FIX/.test_run/up.target"
     echo '{"switches":[]}' > "$FIX/manifest.json"
     rm -f "$FIX/.test_run/pids/"*
@@ -786,6 +787,99 @@ OUT="$(drive 'sample_rate() { case "${1:-}" in p4) echo 256 ;; *) echo OVS-NOSFL
 live_dataplane_kind() { echo ovs; }
 up_p4')"
 hasnt "  🔴 nor in the reuse refusal"                    "samples NOTHING" "$OUT"
+
+# ==========================================================================================
+section "11. H4 REGRESSION: the tab-packed reading left a newline in the middle of the path"
+# ==========================================================================================
+# 🔴 Introduced by H4's own fix (76b5d434, on trunk) and proved live and offline by ROLE-6 on
+# 2026-09-11 (ROLE-6-SUCCESSOR2-REPORT §1). H4 replaced `topo="$(topo_for_hosts ...)"` with a
+# packed reading that carries three answers out of one subshell:
+#
+#     both="$(topo_for_hosts "$hosts" p4; printf '\t%s\t%s' "$?" "$TOPO_REFUSAL")"
+#     topo="${both%%$'\t'*}"
+#
+# A command substitution strips TRAILING newlines, and topo_for_hosts' newline is no longer
+# trailing -- the tab and the rc follow it. So `topo` came out as "<path>\n": every `[[ -f
+# "$topo" ]]` false, sha256sum and topo_model_counts silent failures, `topology_sha256=
+# unavailable` and an empty `model_hosts=` written into up.target, and the kernel started with a
+# --topology argument it could not open. Live result on both planes: `Cannot open topology file`
+# / `No port has been opened`, `ndt up p4 4` and `ndt up ovs 4` ending rc 1 after ~318 s with
+# `rollback INCOMPLETE`. Two sites, ndt:1948 (p4) and ndt:2287 (ovs).
+#
+# 🔴 WHY THE 171 CELLS ABOVE DID NOT CATCH IT, which is the part worth keeping. Section 8 tests
+# topo_for_hosts DIRECTLY -- its stdout, its rc, its refusal string -- and it was never wrong.
+# The one cell that drives the whole bring-up (`up_p4 4` with a 128-host NDT_TOPO) takes the
+# rc-3 branch, where `topo` is printed in no message and opened by nothing. So the SPLIT had no
+# cell at all: every reader of the packed string was tested except the one that reads the field
+# the rest of the bring-up depends on. Existence is not wiring, one level down -- the value
+# crossed the boundary and nothing read it back.
+#
+# Asserted through the RECORD rather than by re-splitting the string here: a test that repeats
+# the production expression proves the expression agrees with itself. up.target is where the
+# resolved path lands, it is written by the function every plane passes through, and its
+# topology_sha256 is a reading OF THE FILE -- so it is 64 hex characters when the path names a
+# file and "unavailable" when it does not.
+reset_fix
+OUT="$(drive 'up_p4 4')"
+UT="$FIX/.test_run/up.target"
+utf() { sed -n "s/^$1=//p" "$UT" 2>/dev/null | head -1; }
+check "  the p4 bring-up wrote a target record"            "present" \
+      "$([[ -f "$UT" ]] && echo present || echo absent)"
+# read_whole <file> -- the file's content INCLUDING a trailing newline. `$(cat f)` and
+# `$(< f)` both strip trailing newlines, so either of them would repair the defect on the way
+# to the assertion and report green over it.
+# read_whole <file> -> RAW: the file's bytes INCLUDING a trailing newline, in the variable RAW.
+# 🔴 NOT `printf '%s' "$v"` out of a function called in `$(...)`: a command substitution strips
+# trailing newlines from its own output, so the first draft of this helper deleted the very byte
+# section 11 exists to detect and reported green over M38. Measured 2026-09-11 03:2x -- the gate
+# caught it, the suite did not. The value is therefore assigned, never substituted.
+read_whole() { RAW=""; IFS= read -rd '' RAW < "$1" 2>/dev/null || true; }
+check "  the record is the nine lines record_up_target writes" "9" "$(wc -l < "$UT")"
+check "  with no empty line in it"                         "0" \
+      "$(grep -c '^$' "$UT" 2>/dev/null)"
+check "🔴 and the line after the path is the sha, not a blank" "topology_sha256" \
+      "$(grep -A1 '^topology=' "$UT" | tail -1 | cut -d= -f1)"
+check "🔴 topology_sha256 is a reading of that file, not 'unavailable'" "64" \
+      "$(utf topology_sha256 | tr -d '\n' | grep -oE '^[0-9a-f]{64}$' | wc -c | awk '{print $1-1}')"
+check "  and the model's hosts were counted"               "4" "$(utf model_hosts)"
+has   "  the bring-up printed the model on the topology line" "topology     setting/StaticNetworkTopologyP4_10Switches_4Hosts.json" "$OUT"
+
+# The OVS site is a SEPARATE copy of the same two lines (ndt:2287). One plane fixed is not both
+# -- the same shape as M9/M10 in mutate_ndt_honesty.sh.
+reset_fix
+OUT="$(drive 'up_ovs 4')"
+check "  the ovs bring-up wrote a target record"           "present" \
+      "$([[ -f "$UT" ]] && echo present || echo absent)"
+check "  and the record is nine lines on this plane as well" "9" "$(wc -l < "$UT")"
+check "🔴 with a real sha, on the OVS plane as well"       "64" \
+      "$(utf topology_sha256 | tr -d '\n' | grep -oE '^[0-9a-f]{64}$' | wc -c | awk '{print $1-1}')"
+check "  and its hosts counted"                            "4" "$(utf model_hosts)"
+
+# 🔴 [[ -f ]] on the value itself, taken at the production call that receives it: up_p4 ends
+# with `verify_p4 "$topo"` (ndt:2065). The stub records its $1 with no newline of its own, so the
+# file's byte count IS the value's length -- every line-based reading (`sed -n 's/^topology=//p'`,
+# `$(cat f)`, `$(< f)`) strips a trailing newline and would repair the defect on the way to the
+# assertion. That is why the obvious `-f "$FIX/$(utf topology)"` cell has NO discriminating power
+# here and is not in this block.
+# The bmv2 sequence section 2 uses: no orphan on the reading that looks for one, ten switches
+# on every reading after, which is what carries up_p4 past [1/3] and as far as verify_p4.
+reset_fix; echo "0 10" > "$FIX/bmv2.seq"
+T4P="$FIX/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json"
+drive 'verify_p4() { printf "%s" "$1" > "'"$FIX"'/verify.seen"; return 0; }
+up_p4 4' >/dev/null 2>&1
+read_whole "$FIX/verify.seen"
+check "🔴 the path verify_p4 is handed passes [[ -f ]]"    "yes" \
+      "$([[ -n "$RAW" && -f "$RAW" ]] && echo yes || echo no)"
+check "🔴 and it is the model path byte for byte"          "$(printf '%s' "$T4P" | wc -c)" \
+      "$(wc -c < "$FIX/verify.seen" 2>/dev/null || echo missing)"
+
+# 🔴 The three answers H4 packed into one call must still arrive. A fix that strips the newline
+# by dropping the packing would take the refusal text with it, which is F8 all over again.
+reset_fix
+mk_topo StaticNetworkTopologyP4_10Switches_128Hosts.json 128 288
+OUT="$(NDT_TOPO="$FIX/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json" drive 'up_p4 4')"
+check "  the rc-3 refusal still fires"                     "1" "$(rc_of_out "$OUT")"
+has   "  and still carries the reason out of the subshell" "4 host(s) asked for on the p4 plane, 128 declared" "$OUT"
 
 # ==========================================================================================
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
