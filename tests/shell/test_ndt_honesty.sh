@@ -564,6 +564,44 @@ no_claim
 unset NDT_OWNER FX_INFLIGHT
 
 # ==========================================================================================
+section "1G. F10: the DEFAULT round's model is a Mininet_* file, and it reads as ovs"
+# ==========================================================================================
+# F-OFFLINE-1 §1.15, with a positive control. `ndt up` with no arguments is `up_ovs 128`
+# (resolve_up_target), setting/ has no OVS 128-host model -- OVS has 4/8/16/32/64 -- and
+# topo_for_hosts's OVS glob includes StaticNetworkTopologyMininet_*.json, so the model the
+# DEFAULT round loads is setting/StaticNetworkTopologyMininet_10Switches.json, which declares
+# 128 hosts. last_kernel_plane matched only OVS_* and P4_*, so after `ndt up; ndt down` the
+# most common round on this machine could not be classified: `--check` printed `names no model
+# this script can classify`, byte-identical to a physical-mode run, while the same report's
+# `rate source` row said OVS.
+MINI="$FIX/setting/StaticNetworkTopologyMininet_10Switches.json"
+mk_topo StaticNetworkTopologyMininet_10Switches.json 128 288
+_lkp() {   # <topology argument> -> "<plane> rc=<n>"
+    bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+kernel_exit_field() { [[ \"\$1\" == command ]] && echo \"bash -c cd build && exec ./bin/ndtwin_kernel --mode mininet --topology '$1' --no-ai\"; }
+out=\"\$(last_kernel_plane)\"; echo \"[\$out] rc=\$?\"" 2>&1
+}
+check "  🔴 a Mininet_* model reads as ovs"              "[ovs] rc=0" "$(_lkp "$MINI")"
+# The positive control from the report: an OVS_* model was already classified, so this cell
+# cannot pass merely because everything answers ovs.
+check "  the OVS_* control still reads as ovs"          "[ovs] rc=0" \
+      "$(_lkp "$FIX/setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json")"
+check "  🔴 and P4 is NOT swallowed by the new pattern" "[p4] rc=0" \
+      "$(_lkp "$FIX/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json")"
+# 🔴 The direction this must not go: a command naming no model at all is still unclassifiable.
+# That is 1F's property and the reason the whole block exists -- "I could not tell" and "it was
+# ovs" are different answers.
+check "  🔴 a physical-mode command is still rc 1"      "[] rc=1" "$(bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+kernel_exit_field() { [[ \"\$1\" == command ]] && echo 'bash -c cd build && exec ./bin/ndtwin_kernel --mode physical --no-ai'; }
+out=\"\$(last_kernel_plane)\"; echo \"[\$out] rc=\$?\"" 2>&1)"
+check "  and no record at all is still rc 1"            "[] rc=1" "$(bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+kernel_exit_field() { :; }
+out=\"\$(last_kernel_plane)\"; echo \"[\$out] rc=\$?\"" 2>&1)"
+
+# ==========================================================================================
 # 5. `ndt help` -- the prose is an output too, and nothing was reading it
 # ==========================================================================================
 # 🔴 F-OFFLINE-1 §1.12 / §1.24, measured 2026-09-11: two claims that the code had already
@@ -621,6 +659,38 @@ has   "  OVS is excluded, because it has no such knob"   "OVS has no such knob" 
 check "  the refusal the help points at is called from 'ndt up'" "1" \
       "$(grep -c 'guard_lab_acts_in_this_tree || bad=1' "$NDT")"
 
+
+section "5C. F2/F4: the help's two rc tables stop saying things the code does not do"
+# F-OFFLINE-1 §1.16. Both sentences were true of a state the tool is rarely in and false of the
+# state a round ENDS in, and neither had a test.
+#
+# F2: `residue FOUND is a problem (rc 1)`. cmd_status --check folds residue and knob problems
+# into `problems` (ndt:3313-3316, :3153) but returns 3 when there is no up.target (ndt:2991),
+# printing them under "everything else this report could still check". `ndt down` clears the
+# baseline (clear_up_target), so utrc==3 is exactly the end-of-round state -- when a rule is
+# most likely to be on the wire with no process left to attribute it to.
+has   "  🔴 rc 1 is scoped to 'while there is a baseline'" "it is rc 1 ONLY while there is a" "$HELP"
+has   "  and says what happens without one"              "the whole report is rc 3" "$HELP"
+has   "  naming where they are printed instead"          "everything else this" "$HELP"
+has   "  and that 'ndt down' puts you there"             "clears the baseline" "$HELP"
+has   "  with what to read instead"                      "Read the residue ROW, not the" "$HELP"
+#
+# F4: the `apps orphans` table calls itself disjoint. The PROCESS answer wins whenever it is
+# non-zero (cmd_apps orphans: `if (( orc != 0 )); then ... return "$orc"`), and rc 2 is the
+# ordinary answer here because /proc/<pid>/fd of a root process cannot be read and every app the
+# lab helper starts is root -- so the documented rc 4 is unreachable in the state it describes.
+has   "  🔴 the rc table says it is not disjoint"        "THE CODES ARE NOT DISJOINT IN PRACTICE" "$HELP"
+has   "  naming which answer wins"                       "PROCESS answer" "$HELP"
+has   "  and why 2 is the ordinary answer here"          "cannot be read and every app the" "$HELP"
+has   "  🔴 and that 4 can be true and unreachable"      "true and unreachable at the same time" "$HELP"
+has   "  with the sentence the tool prints when it is"   "residue rc" "$HELP"
+has   "  and the reader to use instead"                  "orphans_verdict.sh" "$HELP"
+# 🔴 The claims are checked against the code, not just against themselves: both sentences
+# describe control flow, and a text-only assertion would go on passing if the flow changed.
+check "  the no-baseline branch still returns 3" "1" \
+      "$(grep -c 'there is no baseline, so --check did NOT check' "$NDT")"
+check "  and the process answer still wins in cmd_apps orphans" "1" \
+      "$(grep -c 'if (( orc != 0 )); then' "$NDT")"
 
 # ==========================================================================================
 section "F9. this suite reads its OWN tree, and not the main checkout"

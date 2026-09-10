@@ -749,5 +749,44 @@ OUT="$(drive 'foreign_claim() { echo other-owner; }; cmd_down; echo "MARKER=$([[
 has   "  🔴 a refused 'ndt down' writes no marker"       "MARKER=absent" "$OUT"
 
 # ==========================================================================================
+section "10. F1: 'ndt up p4' asks for the P4 plane's rate, not for whatever plane is live"
+# ==========================================================================================
+# F-OFFLINE-1 §1.14. `up_p4` read `rate="$(sample_rate)"` with NO argument, so sample_rate asked
+# live_dataplane_kind -- and on a machine where an OVS fabric had been left up that answers
+# `ovs`, so the number came out of OVSDB and was printed under the label "(compiled into
+# ndtwin_switch.json)". The worst form is not a wrong fraction: it is
+# `NO sFlow record on any bridge -- this fabric samples NOTHING` printed as the compiled P4
+# pipeline's rate, with the reuse refusal below it asserting that ten bmv2 switches are not
+# running it. up_p4 is BUILDING the P4 plane; the plane is not something to look up here.
+#
+# 🔴 The ARGUMENT is what is observed, not the number. This suite's STUBS answer
+# `sample_rate() { echo 256; }`, so an assertion on "1/256" passes whether the call site names
+# the plane or not -- it would be a test of the stub. The stub here reports what it was asked.
+reset_fix; echo "0 10" > "$FIX/bmv2.seq"
+OUT="$(drive 'sample_rate() { echo "ASKED[${1:-NOTHING}]"; }
+live_dataplane_kind() { echo ovs; }
+up_p4')"
+has   "  🔴 the plane is passed, not looked up"          "ASKED[p4]" "$OUT"
+hasnt "  🔴 and it is not asked with no argument"        "ASKED[NOTHING]" "$OUT"
+
+# Then the consequence, with a fixture that answers by plane the way sample_rate does: ask for
+# p4 and you get the compiled rate; ask for anything else and you get OVS's answer. No
+# production logic is copied -- the mapping is the fixture.
+reset_fix; echo "0 10" > "$FIX/bmv2.seq"
+OUT="$(drive 'sample_rate() { case "${1:-}" in p4) echo 256 ;; *) echo OVS-NOSFLOW ;; esac; }
+live_dataplane_kind() { echo ovs; }
+up_p4')"
+has   "  so the line under the P4 label is the P4 rate" "sample rate  1/256     (compiled into ndtwin_switch.json)" "$OUT"
+hasnt "  🔴 and OVS's 'samples NOTHING' never appears there" "samples NOTHING" "$OUT"
+
+# 🔴 The reuse refusal quotes the same $rate, so it inherited the same defect. bmv2 already up,
+# so up_p4 takes the reuse path.
+reset_fix; echo "10" > "$FIX/bmv2.seq"
+OUT="$(drive 'sample_rate() { case "${1:-}" in p4) echo 256 ;; *) echo OVS-NOSFLOW ;; esac; }
+live_dataplane_kind() { echo ovs; }
+up_p4')"
+hasnt "  🔴 nor in the reuse refusal"                    "samples NOTHING" "$OUT"
+
+# ==========================================================================================
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]

@@ -590,6 +590,16 @@ last_kernel_plane() {
     [[ -n "$cmd" ]] || return 1
     case "$cmd" in
         *StaticNetworkTopologyOVS_*) echo ovs; return 0 ;;
+        # 🔴 F10 (F-OFFLINE-1 §1.15). The DEFAULT round could not be classified. `ndt up` is
+        # `up_ovs 128` (resolve_up_target), setting/ has no OVS 128-host model, and
+        # topo_for_hosts's OVS glob is `StaticNetworkTopologyOVS_*.json
+        # StaticNetworkTopologyMininet_*.json` -- so the model the default round loads is
+        # setting/StaticNetworkTopologyMininet_10Switches.json, which declares 128 hosts and
+        # matched neither pattern here. After `ndt up; ndt down` this returned rc 1 and
+        # check_up_target printed `names no model this script can classify` -- byte-identical to
+        # what a physical-mode run prints -- while the same report's `rate source` row said OVS.
+        # Mininet_* is in the OVS family by the same glob that picks it, so it is read as ovs.
+        *StaticNetworkTopologyMininet_*) echo ovs; return 0 ;;
         *StaticNetworkTopologyP4_*)  echo p4;  return 0 ;;
     esac
     return 1
@@ -1732,7 +1742,13 @@ up_p4() {
     topo="${both%%$'\t'*}"; rest="${both#*$'\t'}"
     trc="${rest%%$'\t'*}"; TOPO_REFUSAL="${rest#*$'\t'}"
     binary="$(bmv2_binary)"
-    rate="$(sample_rate)"
+    # 🔴 F1 (F-OFFLINE-1 §1.14). `sample_rate` with no argument asks live_dataplane_kind, so
+    # on a machine where an OVS fabric was left up this printed OVS's sampling rate -- or
+    # `NO sFlow record on any bridge -- this fabric samples NOTHING` -- under the label
+    # "(compiled into ndtwin_switch.json)", and the reuse refusal below then asserted that ten
+    # bmv2 switches were not running a number that came out of OVSDB. This function is BUILDING
+    # the P4 plane; the plane is not something to look up here.
+    rate="$(sample_rate p4)"
 
     # H4. rc 3 is "you named a real model, of a different network" -- a separate answer from
     # "there is no model with this host count", and it needs a separate message: the file the
@@ -6390,9 +6406,16 @@ usage: ndt <command>
                   .test_run/pids/kernel.exit is there the report says what the
                   last run was.
                   --check also prints a 'residue' row: rules left inside an app's
-                  window and locks still held. residue FOUND is a problem (rc 1);
-                  residue that could not be checked is printed as NOT CHECKED and
-                  is never printed as clean. (G-12 / W16-2)
+                  window and locks still held. residue that could not be checked is
+                  printed as NOT CHECKED and never as clean. (G-12 / W16-2)
+                  residue FOUND is a problem, and it is rc 1 ONLY while there is a
+                  baseline: with no up.target the whole report is rc 3, and the
+                  residue and knob problems are printed under "everything else this
+                  report could still check" rather than raising the code. `ndt down`
+                  clears the baseline, so that is the state at the END of every
+                  round -- exactly when a rule is most likely to be left on the wire
+                  with no process to attribute it to. Read the residue ROW, not the
+                  exit code, when the record row says none. (F2, 2026-09-11)
   clean         just the teardown assertion (exit 1 if anything survived)
   check         telemetry double-count tripwire
   apps [names]  start readers/apps; no args on a terminal = interactive picker
@@ -6408,6 +6431,15 @@ usage: ndt <command>
                     a live process needs 'ndt apps stop', a leftover rule needs a
                     delete_flow_entry by hand. Every gate that reads this rc has
                     to be updated. (G-12 / W16-1)
+                    🔴 THE CODES ARE NOT DISJOINT IN PRACTICE: the PROCESS answer
+                    wins whenever it is non-zero, so 2 outranks both 4 and 5 -- and
+                    2 is the ordinary answer on this machine, because /proc/<pid>/fd
+                    of a root process cannot be read and every app the lab helper
+                    starts is root. So "4: a rule or a lock is still there" can be
+                    true and unreachable at the same time. The stderr says so when
+                    it happens ("and the network is not clean either (residue rc
+                    would be 4)"), and the fix for a gate is to read the report:
+                    tools/test_workflow/orphans_verdict.sh. (F4, 2026-09-11)
                   stop and orphans also LIST what an app left on the NETWORK --
                     flow rules and held locks -- and delete none of it. suspected
                     by time only: a rule has no owner and its cookie is 0. G-12.

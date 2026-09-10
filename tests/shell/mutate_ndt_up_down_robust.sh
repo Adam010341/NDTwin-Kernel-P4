@@ -596,6 +596,25 @@ report "M35: a refused teardown still claims to be running" "$m" \
        "  🔴 a refused 'ndt down' writes no marker"
 
 
+# --- F1: the plane the rate is read for (F-OFFLINE-1 §1.14) -----------------------------------
+
+# M36 restores F1: `sample_rate` is asked with no argument, so it looks the plane up -- and on a
+# machine with an OVS fabric left up that prints OVSDB's number, or "samples NOTHING", under
+# "(compiled into ndtwin_switch.json)".
+m=$(mutant m36 "$NDT" \
+    '    rate="$(sample_rate p4)"' \
+    '    rate="$(sample_rate)"')
+report "M36: up_p4 looks the plane up instead of naming it (F1)" "$m" \
+       "  🔴 the plane is passed, not looked up"
+
+# M37: the plane is named, and named wrong. "It passes an argument" is not the property.
+m=$(mutant m37 "$NDT" \
+    '    rate="$(sample_rate p4)"' \
+    '    rate="$(sample_rate ovs)"')
+report "M37: up_p4 asks for the OVS plane's rate" "$m" \
+       "  🔴 and OVS's 'samples NOTHING' never appears there"
+
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then

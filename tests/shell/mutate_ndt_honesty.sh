@@ -349,6 +349,50 @@ report "M26: sim's evidence log is hard-coded to the main checkout (F9)" "$m" \
        "  🔴 sim's evidence log is inside the fixture"
 
 
+# --- F10: the default round's model (F-OFFLINE-1 §1.15) ---------------------------------------
+
+# M27 restores F10: last_kernel_plane matches only OVS_* and P4_*, so the model the DEFAULT
+# round loads -- StaticNetworkTopologyMininet_10Switches.json, 128 hosts -- is unclassifiable,
+# and `ndt up; ndt down` cannot say what plane just ran.
+m=$(mutant m27 "$NDT" \
+    '        *StaticNetworkTopologyMininet_*) echo ovs; return 0 ;;' \
+    '        ' )
+report "M27: the default round's Mininet_* model is unclassifiable again (F10)" "$m" \
+       "  🔴 a Mininet_* model reads as ovs"
+
+# M28 (widening): everything is ovs. It satisfies both Mininet_* cells and destroys 1D/1F --
+# "I could not tell" and "it was ovs" are different answers, which is what this block is for.
+m=$(mutant m28 "$NDT" \
+    '        *StaticNetworkTopologyMininet_*) echo ovs; return 0 ;;
+        *StaticNetworkTopologyP4_*)  echo p4;  return 0 ;;
+    esac
+    return 1' \
+    '        *StaticNetworkTopologyMininet_*) echo ovs; return 0 ;;
+        *StaticNetworkTopologyP4_*)  echo p4;  return 0 ;;
+    esac
+    echo ovs; return 0')
+report "M28 (widening): every command is read as ovs" "$m" \
+       "  🔴 a physical-mode command is still rc 1"
+
+# --- F2 / F4: the help's rc tables (F-OFFLINE-1 §1.16) ----------------------------------------
+
+# M29 restores F2: the help says residue found is rc 1, full stop -- false in the state every
+# round ENDS in, because `ndt down` clears the baseline and the whole report is then rc 3.
+m=$(mutant m29 "$NDT" \
+    '                  residue FOUND is a problem, and it is rc 1 ONLY while there is a' \
+    '                  residue FOUND is a problem (rc 1). and it is rc 1 whenever there is a')
+report "M29: help says residue found is always rc 1 (F2)" "$m" \
+       "  🔴 rc 1 is scoped to 'while there is a baseline'"
+
+# M30 restores F4: the `apps orphans` table presents itself as disjoint, so a gate reads rc 2
+# as "no residue" -- and rc 2 is the ordinary answer on this machine.
+m=$(mutant m30 "$NDT" \
+    '                    🔴 THE CODES ARE NOT DISJOINT IN PRACTICE: the PROCESS answer' \
+    '                    The codes are disjoint: the PROCESS answer')
+report "M30: help calls the orphans rc table disjoint again (F4)" "$m" \
+       "  🔴 the rc table says it is not disjoint"
+
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then
