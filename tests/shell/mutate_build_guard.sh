@@ -12,6 +12,12 @@
 # from what their authors wrote. So mutations 8 and 9 are WIDENINGS: code that caps MORE. A
 # gate with only 1..7 would pass both of them.
 #
+# M11..M14 are the 2026-09-11 re-entrancy (see tools/build_guard/guarded_build.sh, and
+# tests/shell/test_guarded_build_reentrant.sh, which this gate runs alongside test_build_guard.sh
+# because that is where re-entrancy is observed). M12 is the widening on THAT side: a guard that
+# stopped locking the moment it saw any nesting would pass a one-sided "nesting must not
+# deadlock" gate while letting an inner build on a DIFFERENT lock run beside someone else's.
+#
 # 🔴 A mutation that will not apply, a non-unique anchor, a compile/syntax error, or the WRONG
 # check going red all count as SURVIVOR -- never as skipped. On a shared tree the tempting
 # reading of "it did not run" is "it passed".
@@ -26,12 +32,11 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 GUARD="$REPO/tools/build_guard"
 TEST="$REPO/tests/shell/test_build_guard.sh"
-[[ -d "$GUARD" && -x "$TEST" ]] || { echo "refused: guard or test missing"; exit 2; }
+REENT="$REPO/tests/shell/test_guarded_build_reentrant.sh"
+[[ -d "$GUARD" && -x "$TEST" && -x "$REENT" ]] || { echo "refused: guard or test missing"; exit 2; }
 
 BK="$(mktemp -d)"; trap 'rm -rf "$BK"' EXIT
 BASE_SUM="$(cd "$GUARD" && find . -type f | sort | xargs sha256sum | sha256sum | cut -d' ' -f1)"
-
-run_against() { GUARD_UNDER_TEST="$1" timeout 300 bash "$TEST" 2>&1; }
 
 # mutant <name> <relative file>   -- anchors come from A/<name>.old and A/<name>.new
 #
@@ -60,11 +65,21 @@ print(target.rsplit('/', 2)[0])
 PY
 }
 
-run_against() { GUARD_UNDER_TEST="$1" timeout 300 bash "$TEST" 2>&1; }
+# Both suites, against ONE guard copy. Either one red is red, and a timeout in either one is a
+# timeout -- the caller distinguishes 124 from 1, because "unbounded" is not "failed".
+run_against() {
+    local g="$1" o1 o2 r1 r2
+    o1="$(GUARD_UNDER_TEST="$g" timeout 300 bash "$TEST" 2>&1)";  r1=$?
+    o2="$(GUARD_UNDER_TEST="$g" timeout 300 bash "$REENT" 2>&1)"; r2=$?
+    printf '%s\n%s\n' "$o1" "$o2"
+    [[ $r1 -eq 124 || $r2 -eq 124 ]] && return 124
+    [[ $r1 -eq 0 && $r2 -eq 0 ]] && return 0
+    return 1
+}
 
-echo "baseline (must be green before any mutation):"
+echo "baseline (both suites must be green before any mutation):"
 base_out="$(run_against "$GUARD")"; base_rc=$?
-echo "$base_out" | tail -1 | sed 's/^/  /'
+echo "$base_out" | grep -E '^Ran [0-9]+ checks' | sed 's/^/  /'
 if [[ $base_rc -ne 0 ]]; then echo "refused: baseline is not green"; exit 2; fi
 echo
 
@@ -196,6 +211,51 @@ cat > "$A/m10.new" <<'EOF'
 if true; then
 EOF
 check "M10 (widening): make forces -j onto a deliberately serial build" m10 shims/make "🔴 a serial make is left serial"
+
+# ---- re-entrancy (2026-09-11) ------------------------------------------------------------
+cat > "$A/m11.old" <<'EOF'
+[[ ":$HELD:" == *":$LOCK:"* ]] && reentrant=1
+EOF
+cat > "$A/m11.new" <<'EOF'
+:
+EOF
+check "M11: the guard forgets it already holds the lock" m11 guarded_build.sh "nested same-lock guard exits 0"
+
+# 🔴 M12 is the WIDENING, and it is the one that would have been missed. Removing the
+# re-entrancy check (M11) makes the nested case deadlock again and every nesting test goes red.
+# Widening it to "any nesting at all" makes every one of those tests PASS -- while an inner
+# build on a lock somebody else holds runs straight past guard 2, which is the parallel build
+# the lock exists to prevent. Only case (d) of the re-entrancy suite says a word.
+cat > "$A/m12.old" <<'EOF'
+[[ ":$HELD:" == *":$LOCK:"* ]] && reentrant=1
+EOF
+cat > "$A/m12.new" <<'EOF'
+[[ -n "$HELD" ]] && reentrant=1
+EOF
+check "M12 (widening): ANY nesting counts as holding the lock" m12 guarded_build.sh "an inner guard on a lock SOMEONE ELSE holds still gives up (rc 2)"
+
+# M13 keeps the re-entrancy decision and only takes away half of what it buys: a second cgroup
+# scope per nesting level. The log line is left in place on purpose, so the case that reads the
+# log stays green and the only red is the one that counts scopes.
+cat > "$A/m13.old" <<'EOF'
+    "${cmd[@]}"
+    rc=$?
+    echo "guarded_build: exit $rc" >&2
+EOF
+cat > "$A/m13.new" <<'EOF'
+    run_it
+    rc=$?
+    echo "guarded_build: exit $rc" >&2
+EOF
+check "M13: the nested layer opens a second scope anyway" m13 guarded_build.sh "🔴 systemd-run was called ONCE, by the outer layer"
+
+cat > "$A/m14.old" <<'EOF'
+[[ "$LOCK" != *:* ]] || { echo "guarded_build: LOCK must not contain ':', got '$LOCK'" >&2; exit 2; }
+EOF
+cat > "$A/m14.new" <<'EOF'
+:
+EOF
+check "M14: a ':' in the lock path splits the held list silently" m14 guarded_build.sh "LOCK containing ':' is rc 2"
 
 echo
 NOW_SUM="$(cd "$GUARD" && find . -type f | sort | xargs sha256sum | sha256sum | cut -d' ' -f1)"
