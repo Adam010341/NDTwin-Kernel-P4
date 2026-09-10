@@ -122,13 +122,16 @@ add_executable(
   # spirit -- that one owns the rule, this one owns what the two planes are allowed to confirm.
   test_PhantomFilterCoversOvs.cpp
 
-  # [Co-developed with claude code -- Adam] OV-1: one POST /ndt/modify_nickname rewrote all 3998
-  # lines of a topology file the repository tracks, semantically unchanged -- nlohmann::json's
-  # default ObjectType is std::map, so every object came back out in dictionary order -- and
-  # `ndt status --check` then reported the kernel's own rewrite as "the topology file has been
-  # edited". This owns the property that a rename changes the field it was asked to change and
-  # nothing else, for every shipped topology and not only the two it was measured on.
-  test_NicknameDoesNotRewriteTheFile.cpp
+  # [Co-developed with claude code -- Adam] W10, and OV-1 before it. One POST
+  # /ndt/modify_nickname rewrote all 3998 lines of a topology file the repository tracks
+  # (2026-09-04); OV-1 got that down to one line, and one line still moved the file's sha256,
+  # so `ndt status --check` still reported the kernel's own write as "the topology file has
+  # been edited" (measured live 2026-09-05). W10 stops the kernel writing model files at all
+  # and keeps the operator's names in an overlay outside setting/. This owns both halves: the
+  # model file is byte-identical after a rename, for every shipped topology, and the name
+  # comes back on the next load. Renamed from test_NicknameDoesNotRewriteTheFile.cpp, whose
+  # subject -- how tidily the model file is rewritten -- no longer exists.
+  test_NicknameOverlay.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

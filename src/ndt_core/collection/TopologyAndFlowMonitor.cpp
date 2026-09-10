@@ -5,6 +5,7 @@
 #include <array>
 #include <chrono>
 #include <cstdio>
+#include <cstdlib>
 #include <exception>
 #include <filesystem>
 #include <fstream>
@@ -879,6 +880,17 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
     // Report the data plane, and refuse a mixed topology unless explicitly allowed. Doing
     // this at load turns a confusing runtime mixture into a clear startup message.
     validateDataPlaneHomogeneity(AppConfig::ALLOW_MIXED_DATAPLANE);
+
+    // [Co-developed with claude code -- Adam]
+    // W10. The names an operator set, laid back over the graph -- LAST, and inside this
+    // function rather than in loadStaticTopology() above it, for two reasons. Last, because a
+    // topology that is about to be refused (a mixed data plane, a node this file's validator
+    // rejects) must never have an overlay applied to it. Here, because "the topology is
+    // loaded" and "the topology is loaded with the operator's names on it" have to be the
+    // same event: get_nickname and get_graph_data read VertexProperties straight out of the
+    // graph, so anything that can observe the graph between those two points observes the
+    // shipped names and is wrong. The graph write lock taken above is still held.
+    applyNicknameOverlayNoLock();
 }
 
 std::optional<Graph::vertex_descriptor>
@@ -3083,228 +3095,392 @@ TopologyAndFlowMonitor::getGraph() const
 }
 
 // [Co-developed with claude code -- Adam]
-// OV-1, 2026-09-04. The two functions below are the only writers of the topology file in this
-// process, and both used to read it into an `nlohmann::json`, change one string, and write the
-// whole document back. nlohmann::json's default ObjectType is std::map, so EVERY object came
-// back out in dictionary order: one POST /ndt/modify_nickname produced a 3998-insertion,
-// 3998-deletion diff on a file the repository tracks, with the JSON semantically unchanged
-// (measured twice on 2026-09-04, once per data plane -- it follows activeTopologyPath(), not a
-// plane). The consequence that made it urgent is `ndt status --check`, which compares the
-// topology file's sha256 against the one the `ndt up` loaded (tools/test_workflow/ndt:2239-2255)
-// and so reported the kernel's own rewrite as "the topology file has been edited".
+// W10, 2026-09-06. THE KERNEL DOES NOT WRITE THE MODEL FILE. Not "writes it tidily" -- does
+// not write it. The names an operator sets go to an overlay outside setting/, and the overlay
+// is laid back over the graph at load. The two functions below are what used to write it, and
+// the history matters because it is the reason a smaller fix is not available:
 //
-// ordered_json preserves the order the document was read in. That alone is not enough: the
-// shipped files are not all indented the same way and not all end in a newline, so a writer with
-// a fixed `setw(2) << ... << std::endl` reformats every line of a 4-space file -- trading a
-// re-ordering diff for a re-indentation diff, and leaving the sha256 just as changed.
+//   OV-1, 2026-09-04. Both setters read setting/<model>.json into an `nlohmann::json`, changed
+//   one string, and wrote the whole document back. nlohmann::json's default ObjectType is
+//   std::map, so every object came back out in dictionary order and one POST
+//   /ndt/modify_nickname produced a 3998-insertion / 3998-deletion diff on a file the
+//   repository tracks, with the JSON semantically unchanged (measured twice that night, once
+//   per data plane -- it follows activeTopologyPath(), not a plane). That was fixed by
+//   preserving the document's order, its indent and its trailing newline: the diff became one
+//   line.
 //
-// Measured, on the thirteen shipped setting/StaticNetworkTopology*.json (see the FIX doc):
-//   * order only, setw(2):          5 of 13 round-trip byte-identically
-//   * order + indent + newline:     9 of 13, INCLUDING every file the two data planes use
-//     (both OV-1 incident files, all five OVS ones, both P4 ones)
-//   * the remaining four are the legacy `_ipAlias4_*` testbed files, which contain hand-left
-//     BLANK LINES inside arrays. No JSON serialiser preserves those, so those four would still
-//     be reformatted once if a rename happened while one of them was the active topology. That
-//     is stated rather than hidden: this fix is complete for the files in use and not for those.
-struct TopologyFileLayout
-{
-    nlohmann::ordered_json json;
-    /// Spaces per level, as the file on disk uses them.
-    int indent = 2;
-    bool endsWithNewline = true;
-};
+//   One line is still one line. `ndt status --check` compares the model file's sha256 against
+//   the one the `ndt up` that loaded it recorded (tools/test_workflow/ndt:2239-2255), and a
+//   sha256 does not count lines. Measured 2026-09-05 on a live OVS fabric: one nickname change,
+//   a two-line diff, and `ndt status --check` rc=1 -- "the topology file has been edited since
+//   the ndt up that loaded it". Two controls in the same run pinned that this was the check
+//   WORKING: renaming and renaming back left the file byte-identical and the check green, and
+//   an unrelated writer earned the identical sentence. So "the rename touches one line" and
+//   "--check stays green" were never both reachable while this process wrote that file at all.
+//
+// Adam's decision, 2026-09-05 18:1x: an overlay outside setting/, `--check` does not look at
+// it, the kernel lays it on at startup, and the model files are from now on read-only to this
+// process. That also ends the older complaint underneath OV-1 -- the kernel dirtying a tracked
+// file in a worktree several sessions share.
+//
+// 🔴 What the overlay is keyed by, and why it is NOT the flat {"<dpid>": "<nickname>"} map the
+// ticket suggested. EVERY host node in EVERY shipped topology carries "dpid": 0 (checked
+// 2026-09-06 across setting/StaticNetworkTopology*.json), and hosts are reachable here:
+// modify_nickname takes identifier.type "mac" and "name" as well as "dpid". A flat dpid map
+// collapses all four hosts of an ovs4 fabric onto the key "0", so renaming one host would
+// rename every host at the next start. The overlay therefore keys the way these two setters
+// already match vertices -- switches by dpid, hosts by mac -- in two separate sections.
+//
+// 🔴 And why one overlay PER MODEL FILE rather than one for the checkout: dpids 1-10 exist in
+// both the OVS and the P4 topology. That exact collision is what the comment above
+// activeTopologyPath() records as having written a P4 run's rename into the OVS topology. A
+// single shared overlay would rebuild it one layer up.
 
-/// One level of indentation, read off the document rather than assumed.
-static int
-detectJsonIndent(const std::string& text)
-{
-    std::size_t at = 0;
-    while (at < text.size())
-    {
-        const std::size_t eol = text.find('\n', at);
-        if (eol == std::string::npos)
-        {
-            break;
-        }
-        std::size_t spaces = 0;
-        while (at + spaces < eol && text[at + spaces] == ' ')
-        {
-            ++spaces;
-        }
-        if (spaces > 0)
-        {
-            return static_cast<int>(spaces);
-        }
-        at = eol + 1;
-    }
-    return 2;
-}
+/// The overlay's directory, relative to the working directory the kernel was started in --
+/// the same place `ndt` keeps up.target, lab.claim and the pid ledger. Three reasons it is
+/// here rather than beside the model: .gitignore already ignores `.test_run/` (line 21), so a
+/// rename can never dirty the repository again, which is the whole point of W10; it is
+/// per-checkout, exactly like the `ndt up` baseline the names are only meaningful against;
+/// and `ndt clean` asserts about processes, the tmux session, the switch manifest and ports,
+/// and does not enumerate .test_run/ at all, so a file that persists here is not debris to it
+/// (read at tools/test_workflow/ndt, cmd_clean, 2026-09-06).
+static constexpr const char* kNameOverlayDir = ".test_run/nickname_overlay";
 
-static TopologyFileLayout
-readTopologyFileWithLayout(const std::string& path)
+/// The directory the shipped models live in, and the one nicknameOverlayPath() climbs out of to
+/// find the checkout. Named rather than spelled inline because it is the same directory
+/// `ndt status --check` hashes and the one this overlay exists to stay out of.
+static constexpr const char* kShippedTopologyDirName = "setting";
+
+/// Written so that a later format change is DETECTED rather than misread. A document that
+/// declares a version this build does not know is refused, not guessed at.
+static constexpr int kNameOverlayVersion = 1;
+static constexpr const char* kOverlayVersionKey = "version";
+static constexpr const char* kOverlayTopologyKey = "topology";
+static constexpr const char* kOverlaySwitchesKey = "switches";
+static constexpr const char* kOverlayHostsKey = "hosts";
+static constexpr const char* kOverlayNicknameKey = "nickname";
+static constexpr const char* kOverlayDeviceNameKey = "device_name";
+
+/// Reads a JSON document, with the path in every failure message. nlohmann's own parse errors
+/// name a byte offset and nothing else, which is not enough to find the file in a tree that
+/// has one overlay per model.
+static nlohmann::json
+readJsonFile(const std::string& path)
 {
-    std::ifstream ifs;
-    ifs.open(path);
+    std::ifstream ifs(path);
     if (!ifs.is_open())
     {
-        throw std::runtime_error("Cannot open topology file");
+        throw std::runtime_error("cannot open \"" + path + "\"");
     }
     std::ostringstream text;
     text << ifs.rdbuf();
-    const std::string raw = text.str();
-
-    TopologyFileLayout out;
-    out.indent = detectJsonIndent(raw);
-    out.endsWithNewline = !raw.empty() && raw.back() == '\n';
-    out.json = nlohmann::ordered_json::parse(raw);
-    return out;
+    return nlohmann::json::parse(text.str());
 }
 
-/// Writes to a temp file and renames, so a reader never sees a half-written topology.
+/// Writes to a temp file beside the target and renames, so no reader -- including the next
+/// start of this kernel -- ever sees a half-written overlay. Same construction the topology
+/// writer used before W10 removed it; the hazard is the same and the file is now smaller, not
+/// safer.
 static void
-writeTopologyFileWithLayout(const std::string& path, const TopologyFileLayout& doc)
+writeJsonFileAtomically(const std::string& path, const nlohmann::json& doc)
 {
+    const std::filesystem::path target(path);
+    if (target.has_parent_path() && !target.parent_path().empty())
+    {
+        std::error_code ec;
+        std::filesystem::create_directories(target.parent_path(), ec);
+        if (ec)
+        {
+            throw std::runtime_error("cannot create \"" + target.parent_path().string() +
+                                     "\": " + ec.message());
+        }
+    }
+
     const std::string tmp = path + ".tmp";
     {
         std::ofstream ofs(tmp);
         if (!ofs.is_open())
         {
-            throw std::runtime_error("Cannot open temp file");
+            throw std::runtime_error("cannot open \"" + tmp + "\" to write the overlay");
         }
-        ofs << std::setw(doc.indent) << doc.json;
-        if (doc.endsWithNewline)
-        {
-            ofs << "\n";
-        }
+        ofs << std::setw(2) << doc << "\n";
     }
     std::filesystem::rename(tmp, path);
+}
+
+/// One section of the overlay, or an empty object. Never throws on a malformed section: a
+/// hosts table that is somehow a string must not stop the switches from being applied.
+static nlohmann::json
+overlaySection(const nlohmann::json& doc, const char* key)
+{
+    if (doc.is_object() && doc.contains(key) && doc.at(key).is_object())
+    {
+        return doc.at(key);
+    }
+    return nlohmann::json::object();
+}
+
+/// The overlay as a document that is about to be MODIFIED, or a throw.
+///
+/// 🔴 Refusing is deliberate, and so is where it happens. Both setters call this BEFORE they
+/// touch the graph, so an unreadable overlay makes the whole rename a no-op and the 400 the
+/// endpoint then answers is true. The alternatives were both worse: starting from an empty
+/// document silently drops every other device's name the next time anyone renames anything,
+/// and warning-then-carrying-on leaves the caller told "success" about a name that will not
+/// survive a restart. This repo has a documented habit of the third shape -- a request that was
+/// refused and did something anyway -- and this is the ordering that avoids adding to it.
+static nlohmann::json
+readNameOverlayForWriting(const std::string& path, const std::string& topologyPath)
+{
+    std::error_code ec;
+    if (!std::filesystem::exists(path, ec) || ec)
+    {
+        nlohmann::json fresh = nlohmann::json::object();
+        fresh[kOverlayVersionKey] = kNameOverlayVersion;
+        fresh[kOverlayTopologyKey] = topologyPath;
+        fresh[kOverlaySwitchesKey] = nlohmann::json::object();
+        fresh[kOverlayHostsKey] = nlohmann::json::object();
+        return fresh;
+    }
+
+    nlohmann::json doc = readJsonFile(path);
+    if (!doc.is_object())
+    {
+        throw std::runtime_error("the nickname overlay \"" + path +
+                                 "\" is not a JSON object; refusing to overwrite it");
+    }
+    if (doc.contains(kOverlayVersionKey) &&
+        doc.at(kOverlayVersionKey) != nlohmann::json(kNameOverlayVersion))
+    {
+        throw std::runtime_error("the nickname overlay \"" + path + "\" declares version " +
+                                 doc.at(kOverlayVersionKey).dump() + "; this build writes " +
+                                 std::to_string(kNameOverlayVersion) +
+                                 " and will not overwrite a format it does not understand");
+    }
+    doc[kOverlayVersionKey] = kNameOverlayVersion;
+    doc[kOverlayTopologyKey] = topologyPath;
+    if (!doc.contains(kOverlaySwitchesKey) || !doc.at(kOverlaySwitchesKey).is_object())
+    {
+        doc[kOverlaySwitchesKey] = nlohmann::json::object();
+    }
+    if (!doc.contains(kOverlayHostsKey) || !doc.at(kOverlayHostsKey).is_object())
+    {
+        doc[kOverlayHostsKey] = nlohmann::json::object();
+    }
+    return doc;
+}
+
+std::string
+TopologyAndFlowMonitor::nicknameOverlayPath() const
+{
+    // Same rule as activeTopologyPath()'s override, for the same reason: getenv returns a
+    // valid pointer to "" for `NDTWIN_NICKNAME_OVERLAY=`, and an empty path would have this
+    // process rename a stray ".tmp" over nothing.
+    const char* custom = std::getenv("NDTWIN_NICKNAME_OVERLAY");
+    if (custom != nullptr && custom[0] != '\0')
+    {
+        return custom;
+    }
+
+    // 🔴 Anchored to the MODEL FILE's checkout, not to this process's working directory.
+    // Found live on 2026-09-06 07:15, and invisible to every offline test in this repo:
+    // tools/test_workflow/stack.sh starts the kernel with
+    //     bash -c "cd '$KERNEL_DIR/build' && exec ./bin/ndtwin_kernel ..."
+    // so the cwd is <checkout>/build. kNameOverlayDir is a relative path, so the overlay went
+    // to <checkout>/build/.test_run/nickname_overlay/, while `ndt status --check` reads
+    // <checkout>/.test_run/nickname_overlay/ -- and printed "none set through the API" on a
+    // fabric where a nickname HAD been set and had survived a restart. Both halves were
+    // individually honest and together they said something false. The overlay also lived
+    // inside the build directory, where `rm -rf build` takes it.
+    //
+    // The anchor is the model file, because the overlay describes THAT model in THAT checkout:
+    // <checkout>/setting/<model>.json -> <checkout>. Where the model is not in a directory
+    // called "setting" (a hand-passed --topology, a test fixture in /tmp), the overlay sits
+    // beside the model's own directory instead of climbing out of it -- climbing would put it
+    // somewhere unrelated and possibly unwritable, e.g. "/" for /tmp/x.json.
+    //
+    // A RELATIVE model path is left relative on purpose, and it is still right: the kernel
+    // could not have opened the model at all unless its cwd made that relative path resolve,
+    // so the same cwd resolves the overlay to the same checkout. AppConfig ships
+    // "../setting/<model>.json", which under the launch above resolves to <checkout>/setting/
+    // and gives ".." as the root -- i.e. <checkout>/.test_run/, which is where `ndt` looks.
+    const std::filesystem::path model(activeTopologyPath());
+    const std::filesystem::path dir = model.parent_path();
+    const std::filesystem::path root =
+        dir.filename() == kShippedTopologyDirName ? dir.parent_path() : dir;
+    return (root / kNameOverlayDir / (model.stem().string() + ".names.json")).string();
+}
+
+void
+TopologyAndFlowMonitor::applyNicknameOverlayNoLock()
+{
+    const std::string path = nicknameOverlayPath();
+
+    std::error_code ec;
+    if (!std::filesystem::exists(path, ec) || ec)
+    {
+        // Nothing has ever been renamed against this model. The normal case, and silent:
+        // every start of a fresh checkout would otherwise log a line about a missing file.
+        return;
+    }
+
+    nlohmann::json doc;
+    try
+    {
+        doc = readJsonFile(path);
+    }
+    catch (const std::exception& err)
+    {
+        // 🔴 A cosmetic file must not stop a kernel from starting. This is the opposite
+        // decision from readNameOverlayForWriting above, and deliberately so: there, refusing
+        // protects names that already exist; here, refusing would cost the fabric.
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "the nickname overlay \"{}\" could not be read ({}); starting with "
+                           "the names \"{}\" carries. Nothing in the model has been lost -- "
+                           "delete the overlay to stop this warning",
+                           path,
+                           err.what(),
+                           activeTopologyPath());
+        return;
+    }
+
+    const nlohmann::json switches = overlaySection(doc, kOverlaySwitchesKey);
+    const nlohmann::json hosts = overlaySection(doc, kOverlayHostsKey);
+
+    // Everything the overlay names, minus everything the graph turned out to have. What is
+    // left is reported one line per entry -- see the loop at the bottom.
+    std::unordered_set<std::string> unmatchedSwitches;
+    std::unordered_set<std::string> unmatchedHosts;
+    for (auto it = switches.begin(); it != switches.end(); ++it)
+    {
+        unmatchedSwitches.insert(it.key());
+    }
+    for (auto it = hosts.begin(); it != hosts.end(); ++it)
+    {
+        unmatchedHosts.insert(it.key());
+    }
+
+    // One pass over the vertices rather than one lookup per overlay entry: the overlay is
+    // keyed exactly the way the two setters match, so the graph can be walked once.
+    std::size_t applied = 0;
+    for (auto [v_it, v_end] = boost::vertices(*m_graph); v_it != v_end; ++v_it)
+    {
+        auto& vp = (*m_graph)[*v_it];
+        const bool isSwitch = vp.vertexType == VertexType::SWITCH;
+        const std::string key = std::to_string(isSwitch ? vp.dpid : vp.mac);
+        const nlohmann::json& table = isSwitch ? switches : hosts;
+
+        const auto entry = table.find(key);
+        if (entry == table.end() || !entry->is_object())
+        {
+            continue;
+        }
+        if (entry->contains(kOverlayNicknameKey) && entry->at(kOverlayNicknameKey).is_string())
+        {
+            vp.nickName = entry->at(kOverlayNicknameKey).get<std::string>();
+            ++applied;
+        }
+        if (entry->contains(kOverlayDeviceNameKey) &&
+            entry->at(kOverlayDeviceNameKey).is_string())
+        {
+            vp.deviceName = entry->at(kOverlayDeviceNameKey).get<std::string>();
+            ++applied;
+        }
+        (isSwitch ? unmatchedSwitches : unmatchedHosts).erase(key);
+    }
+
+    // 🔴 One WARN per entry that matched nothing, and no throw. An overlay written against a
+    // 128-host model and read back under a 4-host one is an ordinary thing to do, and the
+    // entries that do apply must still apply. Naming each one is what keeps this from being
+    // the silent-drop shape: a name that did not take effect says so.
+    for (const auto& dpid : unmatchedSwitches)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "the nickname overlay \"{}\" names switch dpid {}, which is not in "
+                           "\"{}\"; that entry was ignored",
+                           path,
+                           dpid,
+                           activeTopologyPath());
+    }
+    for (const auto& mac : unmatchedHosts)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "the nickname overlay \"{}\" names host mac {}, which is not in "
+                           "\"{}\"; that entry was ignored",
+                           path,
+                           mac,
+                           activeTopologyPath());
+    }
+    if (applied > 0)
+    {
+        SPDLOG_LOGGER_INFO(Logger::instance(),
+                           "applied {} name(s) from the nickname overlay \"{}\" over \"{}\"",
+                           applied,
+                           path,
+                           activeTopologyPath());
+    }
+}
+
+/// The shared half of the two setters below: put one name into the overlay document.
+static void
+setOverlayName(nlohmann::json& overlay,
+               bool isSwitch,
+               uint64_t key,
+               const char* field,
+               const std::string& value)
+{
+    overlay[isSwitch ? kOverlaySwitchesKey : kOverlayHostsKey][std::to_string(key)][field] =
+        value;
 }
 
 void
 TopologyAndFlowMonitor::setVertexDeviceName(Graph::vertex_descriptor v, std::string name)
 {
+    // 🔴 Lock order, stated because it is the reverse of what this function used to do: the
+    // overlay mutex is taken FIRST and held across the graph update, so that the read of the
+    // overlay happens before anything is mutated (see readNameOverlayForWriting). No path in
+    // this class takes m_configurationFileMutex while holding m_graphMutex -- these two
+    // setters are its only users, and they both take it in this order -- so there is no cycle.
+    std::lock_guard guard(m_configurationFileMutex);
+    const std::string overlayPath = nicknameOverlayPath();
+    nlohmann::json overlay = readNameOverlayForWriting(overlayPath, activeTopologyPath());
+
+    bool isSwitch = false;
+    uint64_t key = 0;
     {
         std::unique_lock lock(*m_graphMutex);
-        (*m_graph)[v].deviceName = name;
+        auto& vp = (*m_graph)[v];
+        vp.deviceName = name;
+        isSwitch = vp.vertexType == VertexType::SWITCH;
+        key = isSwitch ? vp.dpid : vp.mac;
     }
 
-    // Also modify configuration file
-    {
-        std::lock_guard guard(m_configurationFileMutex);
-        // [Co-developed with claude code -- Adam]
-        // activeTopologyPath() honours NDTWIN_TOPO_FILE; the mode branch this replaces
-        // always read the OVS file in Mininet mode, even when running the P4 fabric.
-        TopologyFileLayout doc = readTopologyFileWithLayout(activeTopologyPath());
-        auto& j = doc.json;
-
-        bool updated = false;
-        // TODO: Read Lock? (But these information wouldn't change in reality)
-        auto vertexType = (*m_graph)[v].vertexType == VertexType::SWITCH ? 0 : 1;
-        auto vertexDpid = (*m_graph)[v].dpid;
-        auto vertexMac = (*m_graph)[v].mac;
-
-        for (auto& node : j["nodes"])
-        {
-            int vt = node.value("vertex_type", -1);
-            if (vt != vertexType)
-            {
-                continue;
-            }
-
-            if (vertexType == 0)
-            {
-                if (node.value("dpid", (uint64_t)0) == vertexDpid)
-                {
-                    node["device_name"] = name;
-                    updated = true;
-                    break;
-                }
-            }
-            else
-            {
-                if (node.value("mac", (uint64_t)0) == vertexMac)
-                {
-                    node["device_name"] = name;
-                    updated = true;
-                    break;
-                }
-            }
-        }
-
-        if (!updated)
-        {
-            throw std::runtime_error("No matching node in JSON");
-        }
-
-        // [Co-developed with claude code -- Adam]
-        writeTopologyFileWithLayout(activeTopologyPath(), doc);
-    }
+    setOverlayName(overlay, isSwitch, key, kOverlayDeviceNameKey, name);
+    writeJsonFileAtomically(overlayPath, overlay);
 }
 
 void
 TopologyAndFlowMonitor::setVertexNickname(Graph::vertex_descriptor v, std::string nickname)
 {
-    // 1. Update the nickname for the device in the live, in-memory graph.
-    // This is protected by a mutex for thread safety.
+    // The twin of setVertexDeviceName, and still written out rather than folded into it: they
+    // are two endpoints and two fields, and a gate that mutates one must not be answered by a
+    // test that only ever exercised the other.
+    std::lock_guard guard(m_configurationFileMutex);
+    const std::string overlayPath = nicknameOverlayPath();
+    nlohmann::json overlay = readNameOverlayForWriting(overlayPath, activeTopologyPath());
+
+    bool isSwitch = false;
+    uint64_t key = 0;
     {
         std::unique_lock lock(*m_graphMutex);
-        (*m_graph)[v].nickName = nickname;
+        auto& vp = (*m_graph)[v];
+        vp.nickName = nickname;
+        isSwitch = vp.vertexType == VertexType::SWITCH;
+        key = isSwitch ? vp.dpid : vp.mac;
     }
 
-    // 2. Update the nickname in the persistent JSON configuration file.
-    {
-        std::lock_guard guard(m_configurationFileMutex);
-        // [Co-developed with claude code -- Adam]
-        // activeTopologyPath() honours NDTWIN_TOPO_FILE; the mode branch this replaces
-        // always read the OVS file in Mininet mode, even when running the P4 fabric.
-        // OV-1: the layout of the file on disk travels with the document -- see the note above
-        // readTopologyFileWithLayout for why order alone is not enough.
-        TopologyFileLayout doc = readTopologyFileWithLayout(activeTopologyPath());
-        auto& j = doc.json;
-
-        bool updated = false;
-        auto vertexType = (*m_graph)[v].vertexType == VertexType::SWITCH ? 0 : 1;
-        auto vertexDpid = (*m_graph)[v].dpid;
-        auto vertexMac = (*m_graph)[v].mac;
-
-        // Find the matching device in the JSON data structure.
-        for (auto& node : j["nodes"])
-        {
-            int vt = node.value("vertex_type", -1);
-            if (vt != vertexType)
-            {
-                continue;
-            }
-
-            if (vertexType == 0) // It's a switch
-            {
-                if (node.value("dpid", (uint64_t)0) == vertexDpid)
-                {
-                    node["nickname"] = nickname; // Update the nickname field
-                    updated = true;
-                    break;
-                }
-            }
-            else // It's a host
-            {
-                if (node.value("mac", (uint64_t)0) == vertexMac)
-                {
-                    node["nickname"] = nickname; // Update the nickname field
-                    updated = true;
-                    break;
-                }
-            }
-        }
-
-        if (!updated)
-        {
-            throw std::runtime_error("No matching node in JSON");
-        }
-
-        // Safely write the modified JSON data back to the file.
-        // [Co-developed with claude code -- Adam]
-        writeTopologyFileWithLayout(activeTopologyPath(), doc);
-    }
+    setOverlayName(overlay, isSwitch, key, kOverlayNicknameKey, nickname);
+    writeJsonFileAtomically(overlayPath, overlay);
 }
 
 /** @brief Keeps the graph in step with the control plane, instead of snapshotting it once.

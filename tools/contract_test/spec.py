@@ -1326,6 +1326,10 @@ ENDPOINTS = [
     # not found", so this check had never passed -- MUTATE only runs under
     # --allow-mutations, which is rare enough that nobody saw it. Writes the current
     # nickname back, for the reason modify_device_name below does.
+    #
+    # 2026-09-06 (W10): this no longer edits setting/*.json -- the name lands in
+    # .test_run/nickname_overlay/<model>.names.json, which is gitignored. It still persists
+    # across restarts, so re-setting the CURRENT nickname is still the right body.
     dict(name="modify_nickname", method="POST", path="/ndt/modify_nickname",
          body=lambda ctx: {"identifier": {"type": "dpid", "value": ctx.a_dpid},
                            "new_nickname": ctx.original_nickname},
@@ -1353,16 +1357,17 @@ ENDPOINTS = [
                            "new_name": ctx.original_device_name},
          category=MUTATE,
          schema=Obj({"status": Str(nonempty=True)}, optional={"message": Str()}),
-         note="Web-GUI depends on this. Writes the name back to the topology JSON, so "
-              "the body deliberately re-sets the CURRENT name: a rename here would edit "
-              "the topology file on disk (and, per issue 12 of the P4 plan, possibly "
-              "the wrong one). EXPECT A DIRTY TREE ANYWAY: even writing the same name "
-              "back re-serialises the whole file, and the kernel's writer emits edges "
-              "before nodes with its own key order, so setting/*.json comes out as a "
-              "~1300-line diff whose content is byte-for-byte equivalent (verified by "
-              "parsing both sides, 2026-08-17). git checkout it after a mutation run. "
-              "Nobody had seen this because the check was sending the wrong field and "
-              "the kernel never got as far as writing"),
+         note="Web-GUI depends on this. The body deliberately re-sets the CURRENT name: a "
+              "rename here persists, and a contract run must not leave a device called "
+              "something else. UPDATED 2026-09-06 (W10): the kernel no longer writes "
+              "setting/*.json at all -- the name goes to .test_run/nickname_overlay/ and is "
+              "laid back over the graph at load -- so the tree no longer goes dirty and "
+              "`ndt status --check` no longer reports a rename as an edited topology file. "
+              "The note this replaces said 'EXPECT A DIRTY TREE ANYWAY: even writing the "
+              "same name back re-serialises the whole file ... git checkout it after a "
+              "mutation run', which was true from 2026-08-17 until W10 and is not any more. "
+              "🔴 What DOES survive a mutation run now is the overlay file: it is gitignored, "
+              "so it is invisible to `git status`, and the next kernel start will apply it"),
 
     dict(name="set_switches_power_state", method="POST",
          path="/ndt/set_switches_power_state",

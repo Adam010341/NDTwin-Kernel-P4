@@ -53,6 +53,20 @@ WARNING | acceptor_\.close\(\) error | benign during shutdown when the acceptor 
 # appears on a TESTBED kernel, the pattern is too loose and should be tightened, not widened.
 WARNING | ^HistoricalDataManager not started: MININET | MININET does not run the recorder; stated once at startup so the absence of historical rows is visible without reading the source
 # [Co-developed with claude code -- Adam]
+# W10, 2026-09-06. The kernel keeps the names set through modify_nickname/modify_device_name in
+# an overlay outside setting/, one per model file, and lays it back over the graph at load. An
+# entry naming a device this model does not have is ORDINARY: rename a switch under
+# `ndt up ovs128`, then bring up ovs4, and the overlay written for the 128-host model meets the
+# 4-host one. The load applies what matches and says, one line per entry, what it did not --
+# which is the alternative to a silent drop, not a fault.
+#
+# 🔴 Two things are deliberately NOT allowlisted beside these. "could not be read" (a corrupt or
+# unparseable overlay) stays a failure: that one means a file is damaged, and a run that trips it
+# should go red. And nothing here covers the write path -- a rename that cannot persist is
+# refused with a 400, not warned about.
+WARNING | nickname overlay ".*" names switch dpid .*, which is not in | an overlay written for one model file, read under another: the entries that match are applied and the ones that do not are named rather than dropped silently
+WARNING | nickname overlay ".*" names host mac .*, which is not in | as above, for the host section
+# [Co-developed with claude code -- Adam]
 # REMOVED, and the reasoning that put it here was wrong. `switch not found dpid N` was
 # allowlisted on the strength of one measurement in a healthy environment -- 50 occurrences over
 # 105 ms at startup -- with the note that "a version of this that does NOT stop would be a real

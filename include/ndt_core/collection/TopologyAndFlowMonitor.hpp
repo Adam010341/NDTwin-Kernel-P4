@@ -319,6 +319,38 @@ class TopologyAndFlowMonitor
     std::string activeTopologyPath() const;
 
     /**
+     * @brief Where the names the API set are kept -- NEVER inside setting/.
+     *
+     * W10, 2026-09-06. The kernel no longer writes the model file at all; a rename lands
+     * here instead and is laid back over the graph the next time the topology loads. The
+     * path is derived from activeTopologyPath(), one overlay per model, because dpids 1-10
+     * exist in BOTH the OVS and the P4 topology -- a single shared overlay would put OVS
+     * nicknames onto a bmv2 fabric, which is the same collision the comment above
+     * activeTopologyPath() records as having corrupted a topology file once already.
+     *
+     * NDTWIN_NICKNAME_OVERLAY overrides it outright (tests, and anyone running the kernel
+     * from a directory that has no .test_run/). An empty value counts as unset.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    std::string nicknameOverlayPath() const;
+
+    /**
+     * @brief Lays the overlay's names over the graph. The caller holds the graph WRITE lock.
+     *
+     * Called as the last act of the static load, so `get_nickname` and `get_graph_data`
+     * -- both of which read VertexProperties straight out of the graph -- answer with the
+     * name the operator set rather than the one the shipped model file carries.
+     *
+     * Never throws: a missing overlay is the normal case, and an unreadable one is a
+     * warning, because a kernel that refuses to start over a cosmetic file is worse than
+     * one that starts with the shipped names.
+     *
+     * [Co-developed with claude code -- Adam]
+     */
+    void applyNicknameOverlayNoLock();
+
+    /**
      * @brief Groups the loaded switches by data plane, for validation and logging.
      *
      * [Co-developed with claude code -- Adam]
