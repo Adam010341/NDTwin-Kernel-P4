@@ -196,7 +196,7 @@ Adam 今晚給的授權是:**可以跑實驗、可以改設定檔,但每一輪�
 `ndt down` 跑完**不等於**還原了。三個都要過:
 
 - `ndt clean` — exit 0(它就是那條 teardown assertion)
-- `ndt apps orphans` — exit 0(沒有 pidfile 不認識的 app 在寫 fabric)
+- `ndt apps orphans` — **看輸出、不看 exit code**(09-10 更正:合併樹上 rc 5「processes clean、residue could NOT be checked」在乾淨 OVS4 是**常態**——sim 的 window is LOST;P4 起著 sim 會回 rc 2——root 行程的 `/proc/<pid>/fd` 讀不到,351c;兩個都不是「有 orphan」)。判「還原了」要三件同時成立:processes 那半沒有 untracked process 在跑、tally 的 `dated rule(s) in a window` 為 0、`lock(s) held` 為 0;`question(s) not answerable`／`could not be dated` 只是 NOTE。**`fix/orphans-rc-read-tally` 併進 trunk 之後直接用 `tools/test_workflow/orphans_verdict.sh`(印 `VERDICT: CLEAN` 才算過)**;併進去之前用上面三件手判。
 - `ndt status --check` — exit 0,而且跟第 2 步的基線對得上
 
 任何一條沒過:
