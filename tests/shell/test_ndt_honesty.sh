@@ -711,6 +711,125 @@ hasnt "  🔴 and no reading of it names the main checkout" "/home/adam/Desktop/
 check "  energy still has no evidence log (rc 1)"        "1" \
       "$(_f9 'app_evidence_log energy >/dev/null 2>&1; echo $?')"
 
+# ==========================================================================================
+# 6. T1: the claim is a check-then-write, and two sessions could both win it
+# ==========================================================================================
+# 🔴 ROLE-4, measured 2026-09-11 01:53:36 and 01:54:21 (hunt-0911/logs/ROLE-4/03-t1-race-sweep.log
+# off=0.00s, 04-t1-race-offset0-reps.log rep1). Two owners firing `ndt claim` in the same second
+# BOTH got rc 0 and both were told "ok lab claimed by <themselves>"; the file kept only the last
+# writer. 2 of 16 same-second pairs; every pair offset by 50 ms or more refused correctly, so this
+# is a window and not a missing check. The loser had no channel at all -- its own rc 0 was not
+# evidence, and only a later `ndt status` disagreed with it.
+#
+# 🔴 THREE DIRECTIONS. A lock alone leaves 6F false for the writer this tool's own header
+# invites ("any script may write .test_run/lab.claim"): that writer takes no lock, so the write
+# is also read back. A refusal that says the same thing either way (6D) sends the loser of a
+# millisecond race to "wait for it to lapse" about a claim one second old. And an overwrite that
+# keeps no copy (6B) is R7 I-2 -- lab.claim was the one state file with no .prev, so a claim that
+# changed hands mid-round left no trace in any interface.
+
+cprev() { sed -n "s/^$1=//p" "$(claim_file).prev" 2>/dev/null | head -1; }
+
+# claim_run <extra-stubs> <call> -- the claim harness with room for one more stub. Same seam as
+# lib() above; separate because these cases are about what cmd_claim READS, and the reading is
+# what the stub replaces.
+claim_run() {
+    bash -c "source '$NDT' >/dev/null 2>&1
+REPO='$FIX'
+CLAIM=\"\$REPO/.test_run/lab.claim\"
+HANDOFF=\"\$REPO/.test_run/lab.handoff\"
+$1
+$2
+echo \"RC=\$?\"" 2>&1
+}
+
+rm -f "$(claim_file).prev" "$(claim_file).lock"
+
+section "6A. a free lab: the claim is taken, and the five fields are in the documented order"
+no_claim
+rm -f "$(claim_file).prev"
+OUT="$(claim_run '' 'NDT_OWNER=fixture-owner NDT_MEASURING="cell 3/8" cmd_claim 5 "T1 A"')"
+check "claim on a free lab succeeds"                     "RC=0" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "  and the file says we hold it"                   "fixture-owner" "$(cf owner)"
+check "  the header's field order, in the header's order" "owner expires note exclusive_cpu measuring" \
+      "$(sed 's/=.*//' "$(claim_file)" | tr '\n' ' ' | sed 's/ $//')"
+check "  nothing was kept aside -- there was nothing to keep" "gone" \
+      "$( [[ -f "$(claim_file).prev" ]] && echo present || echo gone )"
+
+section "6B. 🔴 R7 I-2: the claim an overwrite replaces is kept as .prev"
+mk_claim old-owner -60 "the round that ended"
+OLD_EXP="$(cf expires)"
+rm -f "$(claim_file).prev"
+OUT="$(claim_run '' 'NDT_OWNER=fixture-owner cmd_claim 5 "T1 B"')"
+check "an expired claim is claimable"                    "RC=0" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "🔴 and the claim it replaced is still readable"   "old-owner" "$(cprev owner)"
+check "  with the expires nothing else can reconstruct"  "$OLD_EXP" "$(cprev expires)"
+check "  and its note"                                   "the round that ended" "$(cprev note)"
+
+section "6C. 🔴 the loser of the race: free before the lock, held inside it"
+# The window ROLE-4 measured, made deterministic. foreign_claim answers "free" the first time
+# and "taken" the second; the two readings are the subject -- one before the lock, one inside it.
+no_claim
+rm -f "$FIX/fc.n"
+RACE_STUB='
+foreign_claim() {
+    local n=0; [[ -f "'"$FIX"'/fc.n" ]] && n="$(cat "'"$FIX"'/fc.n")"
+    echo $(( n + 1 )) > "'"$FIX"'/fc.n"
+    (( n == 0 )) && return 0
+    echo "other-session (until 03:00:00, their round)"
+}'
+OUT="$(claim_run "$RACE_STUB" 'NDT_OWNER=fixture-owner cmd_claim 5 "T1 C"')"
+check "🔴 the loser is refused"                          "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+has   "  told it was beaten, not that the lab was busy"  "beaten to it" "$OUT"
+has   "  and who took it"                                "other-session" "$OUT"
+check "🔴 and it did not write over them"                "gone" \
+      "$( [[ -f "$(claim_file)" ]] && echo present || echo gone )"
+check "  the reading was taken twice, not once"          "2" "$(cat "$FIX/fc.n" 2>/dev/null)"
+
+section "6D. the ordinary refusal keeps the ordinary sentence"
+mk_claim someone-else 3600 "their round"
+OUT="$(claim_run '' 'NDT_OWNER=fixture-owner cmd_claim 5 "T1 D"')"
+check "a live foreign claim refuses"                     "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+has   "  and says it is already claimed"                 "already claimed by someone-else" "$OUT"
+hasnt "🔴 not 'beaten to it' -- that points the reader at the wrong minute" "beaten to it" "$OUT"
+
+section "6E. 🔴 the lock is real: nothing is written while another writer holds it"
+no_claim
+rm -f "$FIX/lock.taken"
+( flock -x 9 && : > "$FIX/lock.taken" && sleep 5 ) 9>>"$(claim_file).lock" &
+LOCK_HOLDER=$!
+for _ in $(seq 1 100); do [[ -f "$FIX/lock.taken" ]] && break; sleep 0.05; done
+OUT="$(claim_run '' 'NDT_CLAIM_LOCK_WAIT=1 NDT_OWNER=fixture-owner cmd_claim 5 "T1 E"')"
+check "🔴 it gives up rather than writing"               "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "  and wrote nothing"                              "gone" \
+      "$( [[ -f "$(claim_file)" ]] && echo present || echo gone )"
+has   "  naming what it waited for"                      "lab.claim.lock" "$OUT"
+kill "$LOCK_HOLDER" 2>/dev/null; wait "$LOCK_HOLDER" 2>/dev/null
+
+section "6F. 🔴 the readback: the lock only reaches sessions that use this tool"
+no_claim
+OUT="$(claim_run 'claim_readback_owner() { echo direct-writer; }' \
+      'NDT_OWNER=fixture-owner cmd_claim 5 "T1 F"')"
+check "a claim that is not ours after the write is refused" "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+has   "  and says whose it is now"                       "direct-writer" "$OUT"
+hasnt "🔴 and does not report success"                   "lab claimed by fixture-owner" "$OUT"
+
+section "6G. three real claims in one instant: exactly one is told it won"
+# The end-to-end shape of ROLE-4's sweep, with no stub in it. It is 2/16 red before the lock and
+# deterministic after it, so it is the confirmation and 6C/6E/6F are the discriminating cells.
+no_claim
+rm -f "$FIX"/race.*
+for i in 1 2 3; do
+    ( claim_run '' "NDT_OWNER=racer-$i cmd_claim 5 'T1 G'" > "$FIX/race.$i" 2>&1 ) &
+done
+wait
+check "🔴 exactly one of the three is told it holds the lab" "1" \
+      "$(grep -lF "lab claimed by racer-" "$FIX"/race.* 2>/dev/null | wc -l)"
+WINNER="$(cf owner)"
+check "  and that one is the owner the file names"       "1" \
+      "$(grep -cF "lab claimed by $WINNER" "$FIX/race.${WINNER#racer-}" 2>/dev/null)"
+
+
 # --- done ---------------------------------------------------------------------------------
 printf '\nRan %d checks, %d failed\n' "$((PASS+FAIL))" "$FAIL"
 [[ "$FAIL" -eq 0 ]] || exit 1

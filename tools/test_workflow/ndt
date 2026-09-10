@@ -308,6 +308,25 @@ deep_sweep() {
 #                                          a measurement is running which `ndt check`'s 4 Hz
 #                                          poll would perturb; empty means nothing was declared,
 #                                          which is not the same as nothing running (R4-2).
+#                                          `ndt down` refuses over it and `--force` overrides
+#                                          (T2d); a teardown that goes through clears it, since
+#                                          the run it declared is the one just destroyed.
+#
+# 🔴 The five fields are written IN THAT ORDER by every writer in this file (claim_rewrite), and
+# any field a script of your own adds is carried through after them. Do not parse this by line
+# number even so: until 2026-09-11 `note` migrated to the last line every time it was corrected.
+#
+# Two neighbours, both written by this script and neither of them state:
+#
+#     .test_run/lab.claim.lock    flock target for the check-then-write in cmd_claim. Empty,
+#                                 never read, and NOT the claim itself -- flock must open what
+#                                 it locks, and opening the file whose absence means "free"
+#                                 would be the same race one layer down (ROLE-4 T1).
+#     .test_run/lab.claim.prev    the claim an `ndt claim` replaced, one generation, the way
+#                                 lab.handoff.prev and round.baseline.prev already keep theirs.
+#                                 R7 I-2: this was the one state file overwritten with no copy
+#                                 kept, so a claim that changed hands mid-round left no trace
+#                                 anywhere. Nothing reads it; it is for the person asking later.
 #
 # Workspace-local, not /tmp, for the reason components.env already gives about predictable
 # paths in world-writable directories.
@@ -637,6 +656,56 @@ foreign_claim() {
     echo "$owner (until $(date -d "@$exp" +%H:%M:%S)${note:+, $note})"
 }
 
+# --- the claim is taken under a lock, and read back after ------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# ROLE-4 T1, measured 2026-09-11 01:53:36 and 01:54:21 (hunt-0911/logs/ROLE-4/03-t1-race-sweep.log
+# at off=0.00s, 04-t1-race-offset0-reps.log rep1). Two owners firing `ndt claim` in the same
+# second BOTH got rc 0 and both were told "ok lab claimed by <themselves>", while the file kept
+# only the last writer. 2 of 16 same-second pairs did it; every pair offset by 50 ms or more
+# refused correctly, which is what makes this a window rather than a missing check. The loser had
+# no channel at all: its own rc 0 was not evidence, and only a later `ndt status` disagreed with
+# it -- so a session could start a round on a lab it did not hold.
+#
+# The window is between foreign_claim's read and the printf that writes the file, so the two have
+# to happen under one lock.
+#
+# 🔴 The lock is a SEPARATE file and never the claim. flock has to open what it locks, and
+# opening the file whose absence means "free" for writing is the same race one layer down.
+#
+# 🔴 The lock is not the whole answer and must not be presented as one. This script's own header
+# says any script may write .test_run/lab.claim directly, and such a writer takes no lock -- so
+# the write is READ BACK below, and a claim that is not ours afterwards is a refusal. The lock
+# serialises the sessions that use this tool; the readback covers the ones that do not.
+with_claim_lock() {   # with_claim_lock <fn> [args...] -- run it with the claim file locked
+    local lk="$CLAIM.lock" w="${NDT_CLAIM_LOCK_WAIT:-10}"
+    mkdir -p "$(dirname "$lk")" 2>/dev/null
+    if ! command -v flock >/dev/null 2>&1; then
+        # Said out loud, never silently skipped: without flock this is the old check-then-write,
+        # and a caller who is not told that cannot know what its rc 0 is worth.
+        warn "flock is not on PATH -- the claim is written WITHOUT a lock, so two same-second"
+        warn "  claims can both report success. 'ndt status' is then the only witness."
+        "$@"
+        return $?
+    fi
+    # A subshell, not an fd juggled in this shell: every side effect in here is a file write or
+    # a line of output, both of which cross the boundary, and the lock is released by the
+    # subshell exiting no matter which branch it took.
+    (
+        flock -w "$w" 9 || {
+            err "gave up waiting ${w}s for $lk -- another 'ndt claim' is holding it."
+            err "  nothing was written. 'ndt status' says who holds the lab."
+            exit 1
+        }
+        "$@"
+    ) 9>>"$lk"
+}
+
+# claim_readback_owner -- who the claim file says holds the lab, read after we wrote it.
+# Its own function so the readback is a reading and not an assumption, and so a gate can remove
+# it. See with_claim_lock for why the readback exists at all.
+claim_readback_owner() { claim_field owner; }
+
 cmd_claim() {
     local mins="${1:-30}" note="${2:-}"
     if [[ -z "${NDT_OWNER:-}" ]]; then
@@ -644,18 +713,51 @@ cmd_claim() {
         err "  export NDT_OWNER='my-session-name'"
         return 2
     fi
-    local other; other="$(foreign_claim)"
-    if [[ -n "$other" ]]; then
-        err "the lab is already claimed by $other"
-        return 1
-    fi
+    # Decided before the lock, and before any reading of the claim: a usage error is a statement
+    # about this command line alone. It must not wait on another session's lock, and its rc must
+    # not depend on who happens to hold the lab.
     [[ "$mins" =~ ^[0-9]+$ ]] || {
         err "usage: ndt claim [minutes] [note]"
         err "  NDT_EXCLUSIVE_CPU=1  no heavy local job may overlap this claim"
         err "  NDT_MEASURING='...'  a measurement is running that 'ndt check' must not perturb"
         return 2
     }
+    # 🔴 Read here AND inside the lock, and the two readings answer different questions: "was it
+    # already taken when I decided to ask" and "is it taken now that I may write". Free before
+    # and held inside is a race this session LOST, and saying so is the whole of T1 -- "already
+    # claimed" sends the reader off to wait for a lease, and "somebody beat you to it by
+    # milliseconds" sends them to find out who is on the machine.
+    local before; before="$(foreign_claim)"
     mkdir -p "$(dirname "$CLAIM")"
+    with_claim_lock claim_take "$mins" "$note" "$before"
+}
+
+claim_take() {   # claim_take <mins> <note> <the pre-lock foreign_claim reading> -- under the lock
+    local mins="$1" note="$2" before="$3"
+    local other; other="$(foreign_claim)"
+    if [[ -n "$other" ]]; then
+        if [[ -z "$before" ]]; then
+            err "beaten to it: the lab was free when this command looked and is now claimed by"
+            err "  $other"
+            err "  nothing here is yours and nothing was written. Do NOT start a run."
+            err "  (measured 09-11 01:54, ROLE-4 T1: before this refusal existed both sessions"
+            err "  were told they had it, and only the file knew which one did.)"
+        else
+            err "the lab is already claimed by $other"
+        fi
+        return 1
+    fi
+    # [Co-developed with claude code -- Adam]
+    # R7 I-3/I-2. lab.claim was the ONE state file this script overwrote with no copy kept, next
+    # to lab.handoff.prev and round.baseline.prev which both keep one. I-2 was exactly that hole:
+    # an unexpired claim overwritten, `expires=` pulled 23 minutes forward, and no interface able
+    # to say it had ever happened. Copied rather than renamed -- unlike those two, because a
+    # failed write below must not be able to leave the lab with no claim at all. One generation,
+    # for the reason those two give.
+    if [[ -f "$CLAIM" ]]; then
+        cp -f "$CLAIM" "$CLAIM.prev" 2>/dev/null \
+            || warn "could not keep a copy of the claim being replaced (${CLAIM#$REPO/}.prev)"
+    fi
     # [Co-developed with claude code -- Adam]
     # exclusive_cpu: the claim protects the fabric and the build, and until 2026-08-28 it
     # protected nothing else. On that day a sibling session ran a 4-vCPU compile inside another
@@ -707,6 +809,18 @@ cmd_claim() {
     # against is written here -- the knob's value and the SET of dirty paths, neither of which
     # can be reconstructed afterwards from `git status`. See round_baseline_file above.
     record_round_baseline || warn "could not record the round baseline; 'ndt status' will say so"
+    # 🔴 The readback, and the reason it is not redundant with the lock: see with_claim_lock. A
+    # direct writer -- which this script's header invites -- holds no lock, so the last word on
+    # whether this claim took belongs to the file and not to this function's own arithmetic.
+    # "I wrote it" and "it says me" are different statements, and only the second one is what the
+    # caller is about to act on.
+    local back; back="$(claim_readback_owner)"
+    if [[ "$back" != "$NDT_OWNER" ]]; then
+        err "this claim did NOT take: the file now says owner=${back:-<empty>}, not $NDT_OWNER."
+        err "  something wrote ${CLAIM#$REPO/} directly while this command was writing it."
+        err "  do NOT start a run. The replaced claim, if there was one, is in ${CLAIM#$REPO/}.prev"
+        return 1
+    fi
     ok "lab claimed by $NDT_OWNER for ${mins}m${note:+ ($note)}"
 }
 

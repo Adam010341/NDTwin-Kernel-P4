@@ -393,6 +393,61 @@ report "M30: help calls the orphans rc table disjoint again (F4)" "$m" \
        "  🔴 the rc table says it is not disjoint"
 
 
+# --- T1: the claim was a check-then-write two sessions could both win (ROLE-4) ----------------
+
+# The lock is not taken at all, which is 2026-09-11 01:53 exactly: check, then write, with a
+# window in between that two same-second claims both got through.
+m=$(mutant mc1 "$NDT" \
+    '        flock -w "$w" 9 || {' \
+    '        true || {')
+report 'MC1: the claim is written without taking the lock' "$m" \
+       '🔴 it gives up rather than writing'
+
+
+# 🔴 The lock WITHOUT the second reading, which is the shape a fix that only reaches for flock
+# arrives in: the critical section is serialised and then decides on a value read before it.
+m=$(mutant mc2 "$NDT" \
+    'claim_take() {   # claim_take <mins> <note> <the pre-lock foreign_claim reading> -- under the lock
+    local mins="$1" note="$2" before="$3"
+    local other; other="$(foreign_claim)"' \
+    'claim_take() {   # claim_take <mins> <note> <the pre-lock foreign_claim reading> -- under the lock
+    local mins="$1" note="$2" before="$3"
+    local other=""')
+report 'MC2: the reading inside the lock is not taken -- only the one before it' "$m" \
+       '🔴 the loser is refused'
+
+
+# 🔴 The other direction. "Say it was a race" satisfies MC2's cell and tells everyone refused by
+# an hour-old claim to go looking for a session that is not there.
+m=$(mutant mc3 "$NDT" \
+    '        if [[ -z "$before" ]]; then' \
+    '        if true; then')
+report 'MC3 (widening): every refusal says somebody just beat you to it' "$m" \
+       '🔴 not '"'"'beaten to it'"'"' -- that points the reader at the wrong minute'
+
+
+# R7 I-2: lab.claim was the one state file overwritten with nothing kept, so a claim that changed
+# hands mid-round left no trace in any interface.
+m=$(mutant mc4 "$NDT" \
+    '    if [[ -f "$CLAIM" ]]; then
+        cp -f "$CLAIM" "$CLAIM.prev" 2>/dev/null \' \
+    '    if false; then
+        cp -f "$CLAIM" "$CLAIM.prev" 2>/dev/null \')
+report 'MC4: the claim being replaced is overwritten with no copy kept (R7 I-2)' "$m" \
+       '🔴 and the claim it replaced is still readable'
+
+
+# The readback goes and the lock stays. Every cell about the lock passes; the writer this tool's
+# own header invites -- a script writing .test_run/lab.claim directly, holding no lock -- is back
+# to overwriting a claim whose owner is then told it holds the lab.
+m=$(mutant mc5 "$NDT" \
+    '    if [[ "$back" != "$NDT_OWNER" ]]; then' \
+    '    if false; then')
+report 'MC5: the write is not read back, so a direct writer wins silently' "$m" \
+       'a claim that is not ours after the write is refused'
+
+
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then
