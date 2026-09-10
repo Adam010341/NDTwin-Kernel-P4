@@ -168,6 +168,10 @@
 #     3  NOT CHECKED (the kernel was UP and the network half was asked, and not one of its
 #                  questions came back -- zeros that mean "nobody got an answer", not "nothing is
 #                  there". Added 2026-09-11 for F-OFFLINE-1 §1.11; also never a pass)
+#
+# The report also carries a third field from 2026-09-11: `stack=whole-up|whole-down|HALF|
+# not-reported`, read from the `stack:` line `ndt apps orphans` prints. HALF is rc 1 -- see the
+# H2 note beside STACK below. `not-reported` is every older `ndt` and changes nothing.
 
 set -uo pipefail
 
@@ -254,6 +258,31 @@ else
     read -r N_RULES N_LOCKS N_UNDATED N_UNANSWERABLE <<<"$TALLY"
 fi
 
+# --- the stack half: a reading this file used to have no access to ------------------------------
+# 🔴 H2, measured live by ROLE-2 on 2026-09-11 (ROLE-2-CYCLES-REPORT §4). This reader printed
+# CLEAN three times over a machine whose stack was half up:
+#
+#   cycle-07  10 bmv2 + 14 mininet processes + a live proxy, kernel down   -> CLEAN
+#   cycle-12  10 OVS bridges + 15 mininet processes + a topo session       -> CLEAN
+#   cycle-13  a kernel serving a 14-node graph on :8000 with 0 bmv2, 0 mininet, no topo
+#             session                                                      -> CLEAN
+#
+# and every one of those verdicts was correct about what it had been given. `ndt apps orphans`
+# answered about APP processes and about the NETWORK; nothing in its report mentioned the
+# kernel, the fabric or the proxy, so this file could not have known. It is not knowable from
+# this side either -- so `ndt apps orphans` now prints a `stack:` line (stack_state), and this
+# reads its verdict word the way it reads the tally's numbers.
+#
+# 🔴 HALF is the two halves DISAGREEING -- a control plane with no data plane, or a data plane
+# with no control plane -- and NOT "something is up". `apps orphans` is asked before a teardown
+# as well as after it, on a healthy fabric, where whole-up is the right answer and stays CLEAN.
+#
+# 🔴 A report with NO stack line is UNKNOWN and changes nothing. Every older `ndt`, and every
+# fixture written before 2026-09-11, is in that state, so this cannot turn an old report into a
+# failure -- the same rule the kernel-down mode follows: a half nobody reported is named, never
+# inferred.
+STACK="$(sed -n 's/.*stack: .*verdict=\([A-Za-z-]*\).*/\1/p' <<<"$REPORT" | tail -1)"
+
 # --- did the network half answer ANYTHING? -------------------------------------------------------
 # 🔴 F-OFFLINE-1 §1.11. The tally cannot answer this on its own: `0 lock(s) held` is the same
 # number whether three probes said `free` or three said `NOT CHECKED (http 500)`, and only the
@@ -285,6 +314,13 @@ if (( KERNEL_DOWN )); then
 else
     echo "network=$N_RULES/$N_LOCKS/$N_UNDATED"
     echo "not_answerable=$N_UNANSWERABLE"
+fi
+if [[ -n "$STACK" ]]; then
+    echo "stack=$STACK"
+else
+    # Named, not counted as clean: an `ndt apps orphans` from before 2026-09-11 answered nothing
+    # about the stack, and "no answer" must not read as "nothing was up". (E-7)
+    echo "stack=not-reported"
 fi
 [[ -n "$NDT_RC" ]] && echo "ndt_rc=$NDT_RC (recorded, NOT used for the verdict)"
 
@@ -321,6 +357,9 @@ case "$PROCESSES" in
     running) REASONS+=("untracked app processes are running -- 'ndt apps stop <name>'") ;;
     unknown) REASONS+=("a liveness channel was blind, so the process half was NOT answered (E-7: a check that could not look must not look like a clean check)") ;;
 esac
+# 🔴 H2. A stack the report itself calls HALF is a finding, and the remedy is `ndt down` --
+# different from every other reason here, which is why it says so rather than being folded in.
+[[ "$STACK" == HALF ]] && REASONS+=("the stack is HALF up -- one of the kernel and the data plane is there and the other is not; 'ndt apps orphans' does not answer about the stack and said CLEAN over exactly this on 09-11 (H2). remedy: 'ndt down'")
 (( N_RULES > 0 )) && REASONS+=("$N_RULES dated rule(s) in a window -- remove by hand, nothing here deletes them")
 (( N_LOCKS > 0 )) && REASONS+=("$N_LOCKS lock(s) held -- a lock frees itself at its TTL")
 

@@ -5856,6 +5856,88 @@ residue_report() {
     return 0
 }
 
+# stack_state -- what of the STACK is up, for the one report that never looked. Report only:
+# it returns 0 always and changes no exit code.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 H2, measured live by ROLE-2 on 2026-09-11 (ROLE-2-CYCLES-REPORT §4). `ndt apps orphans`
+# answers two questions -- are any APP processes untracked, and is anything of an app's still on
+# the NETWORK -- and every round's restore check reads its verdict as "the lab is clean". It is
+# not the same statement, and three measurements say what the gap costs:
+#
+#   cycle-07  10 bmv2 + 14 mininet processes + a live proxy, kernel down.  CLEAN.
+#   cycle-12  10 OVS bridges + 15 mininet processes + a topo session.      CLEAN.
+#   cycle-13  kernel serving a 14-node graph on :8000, 0 bmv2, 0 mininet, no topo session,
+#             proxy alive on :8081.                                        CLEAN.
+#
+# All three verdicts were correct about what they measured. None of them measured the stack.
+#
+# 🔴 FACTS, and the classification beside them, in ONE line the reader can parse -- the same
+# shape as residue_report's `tally:` line and for the same reason: a reader should be able to
+# check the word against the numbers rather than against this function's source.
+#
+#   stack: kernel=up|down dataplane=p4|mininet|none bmv2=<n> mininet=<n> proxy=up|down
+#          verdict=whole-up|whole-down|HALF
+#
+# 🔴 Only readings that need no privilege: two port probes and two process counts. Adding
+# `sudo -n ovs-vsctl` or `sudo -n tmux` here would make `ndt apps orphans` -- a read-only
+# question anyone can ask -- depend on a grant, and a refused sudo would arrive as a missing
+# half, which is the shape this line exists to make visible.
+#
+# 🔴 HALF means the two halves DISAGREE: a control plane with no data plane, or a data plane
+# with no control plane. Not "something is up" -- `apps orphans` is asked BEFORE the down as
+# well, on a healthy fabric, where whole-up is the right answer and must stay CLEAN.
+#
+# 🔴 The one false positive this can produce is a kernel started with `--mode physical`, which
+# has no bmv2 and no Mininet by design. `ndt up` cannot build one (resolve_up_target has no
+# physical target) so it cannot arise from this tool, and the physical testbed is out of service;
+# it is named in the printed line rather than guessed at, and FIX-NDT-2 SUMMARY §7 carries it.
+stack_state() {
+    local kernel proxy nb nm dp verdict
+    kernel=down; port_open 8000 && kernel=up
+    proxy=down;  port_open 8081 && proxy=up
+    nb="$(bmv2_count)"; nm="$(mn_count)"
+    [[ "$nb" =~ ^[0-9]+$ ]] || nb=0
+    [[ "$nm" =~ ^[0-9]+$ ]] || nm=0
+    if   (( nb > 0 )); then dp=p4
+    elif (( nm > 0 )); then dp=mininet
+    else                    dp=none
+    fi
+    if [[ "$kernel" == up && "$dp" == none ]]; then verdict=HALF
+    elif [[ "$kernel" == down && "$dp" != none ]]; then verdict=HALF
+    elif [[ "$kernel" == up ]]; then verdict=whole-up
+    else verdict=whole-down
+    fi
+    printf 'stack: kernel=%s dataplane=%s bmv2=%s mininet=%s proxy=%s verdict=%s\n' \
+        "$kernel" "$dp" "$nb" "$nm" "$proxy" "$verdict"
+    return 0
+}
+
+# stack_report -- stack_state, printed, with the sentence a HALF answer needs. Report only.
+stack_report() {
+    local line v
+    line="$(stack_state)"
+    v="${line##*verdict=}"
+    info "  $line"
+    case "$v" in
+        HALF)
+            warn "  HALF A STACK. the two halves disagree: one of the kernel and the data plane"
+            warn "  is there and the other is not. this verb answers about APP processes and"
+            warn "  about the NETWORK; it does not answer about the stack, and on 09-11 it said"
+            warn "  CLEAN three times over a machine in this state (H2). a kernel with no"
+            warn "  fabric serves a graph of a network that is not there; a fabric with no"
+            warn "  kernel forwards with nothing recording it. take it down:  ndt down"
+            warn "  (a kernel started with --mode physical reads like this too and is not a"
+            warn "  finding -- 'ndt up' cannot build one.)" ;;
+        whole-up)
+            info "  the stack is up. that is not residue -- 'apps orphans' is asked before a"
+            info "  teardown as well as after it." ;;
+        whole-down)
+            info "  no kernel and no data plane: nothing of the stack is up." ;;
+    esac
+    return 0
+}
+
 apps_orphans() {
     local a found=0 pid e blind="" s spid lp known
     local -a unnamed=()
@@ -6133,6 +6215,14 @@ cmd_apps() {
         # scratch/overnight-2026-09-05/arm_down.sh restore check 2/3.
         orphans)
             apps_orphans; local orc=$?
+            echo
+            # H2. Printed HERE, in the command, and not inside apps_orphans or residue_report:
+            # those two are the process half and the network half, they are driven directly by
+            # tests/shell/test_ndt_app_orphans.sh and tests/shell/test_apps_residue.sh, and
+            # neither of their answers changes. This is a third reading, and the rc below is
+            # untouched by it -- `ndt`'s 0/1/2/4/5 table is the spec (`ndt help`).
+            say "stack"
+            stack_report
             echo
             # shellcheck disable=SC2086
             residue_report $APP_NAMES

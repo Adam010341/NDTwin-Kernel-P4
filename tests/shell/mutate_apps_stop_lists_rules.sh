@@ -352,6 +352,42 @@ m=$(mutant m26 "$NDT" \
 report "M26: the plane's blindness is never announced" "$m" \
        "🔴 it says the plane cannot be windowed"
 
+# --- H2: what of the STACK is up (ROLE-2, 2026-09-11) -----------------------------------------
+
+# M20 restores H2: `apps orphans` says nothing about the kernel, the fabric or the proxy, so a
+# reader of its report calls a half-up stack clean -- which is what happened three times on
+# 09-11 (a kernel serving a graph of a fabric that was gone; a fabric with no kernel).
+m=$(mutant m27 "$NDT" \
+    '            say "stack"
+            stack_report' \
+    '            :')
+report "M27: 'apps orphans' says nothing about the stack (H2)" "$m" \
+       "🔴 the stack line is printed"
+
+# M21: the halves are read and never compared, so the line is facts with no verdict word -- and
+# the reader that parses `verdict=` gets nothing.
+m=$(mutant m28 "$NDT" \
+    '    if [[ "$kernel" == up && "$dp" == none ]]; then verdict=HALF' \
+    '    if false; then verdict=HALF')
+report "M28: a control plane with no data plane is not HALF" "$m" \
+       "🔴 and the verdict word a reader can parse"
+
+# M22: the other half of the disagreement -- a fabric with no kernel.
+m=$(mutant m29 "$NDT" \
+    '    elif [[ "$kernel" == down && "$dp" != none ]]; then verdict=HALF' \
+    '    elif false; then verdict=HALF')
+report "M29: a data plane with no kernel is not HALF" "$m" \
+       "🔴 a fabric with no kernel is HALF too"
+
+# M23 (widening): everything that is up is HALF. Every cell above passes; the CONTROL is what
+# catches it, and without that control this line would make every mid-round check a failure.
+m=$(mutant m30 "$NDT" \
+    '    elif [[ "$kernel" == up ]]; then verdict=whole-up' \
+    '    elif [[ "$kernel" == up ]]; then verdict=HALF')
+report "M30 (widening): a healthy fabric is called HALF" "$m" \
+       "🔴 a healthy P4 fabric is whole-up, not HALF"
+
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then

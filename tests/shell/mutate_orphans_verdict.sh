@@ -156,6 +156,30 @@ report "one dated rule in a window stops being residue" "  🔴 a dated rule is 
 perl -0pi -e 's/   && \{ grep -qF -- .the kernel is not up \(:8000 closed\) -- rules and locks CANNOT be checked. <<<"\$REPORT" \\/   \&\& { true \|\| grep -qF -- "the kernel is not up" <<<"$REPORT" \\/' "$V"
 report "kernel-down inferred from a missing tally" "  🔴 rc 2 -- a real one-line report from an older ndt"
 
+# 9. 🔴 H2: the stack half stops being a reason. Measured live 2026-09-11: three CLEANs over a
+#    machine whose stack was half up -- a kernel serving a graph of a fabric that was not there,
+#    and a fabric with no kernel recording it.
+# 🔴 \$STACK is escaped in the REPLACEMENT: perl interpolates $VAR there, so an unescaped one
+# is substituted with the empty string and the mutant becomes `[[ "" == NEVER ]]` -- still false,
+# so still "caught", but for a reason that has nothing to do with the mutation described.
+perl -0pi -e 's/\[\[ "\$STACK" == HALF \]\] && REASONS\+=/[[ "\$STACK" == NEVER ]] \&\& REASONS+=/' "$V"
+report "a HALF stack stops being a reason" "  🔴 rc 1 -- a kernel with no fabric is not clean"
+
+# 10. The stack line is never read, so every report is `not-reported` -- the state this file was
+#     in before 09-11, dressed up as a field.
+perl -0pi -e 's/\.\*stack: \.\*verdict=/.*stackXX: .*verdict=/' "$V"
+report "the stack line is not parsed at all" "  the field is reported"
+
+# 11. 🔴 THE OTHER DIRECTION: anything up is a reason. That fails every mid-round check --
+#     `apps orphans` is asked at the START of a round, on a live fabric, by arm_up.sh.
+perl -0pi -e 's/\[\[ "\$STACK" == HALF \]\] && REASONS\+=/[[ -n "\$STACK" \&\& "\$STACK" != whole-down \&\& "\$STACK" != not-reported ]] \&\& REASONS+=/' "$V"
+report "a healthy live fabric is called residue" "  🔴 rc 0 -- a healthy fabric is not residue"
+
+# 12. A missing stack line is read as whole-down -- 89 reports on disk have no stack line, and
+#     counting them as "nothing was up" is E-7's exact prohibition.
+perl -0pi -e 's/    echo "stack=not-reported"/    echo "stack=whole-down"/' "$V"
+report "an unreported stack half is counted as clean" "  🔴 and the missing half is NAMED"
+
 restore
 echo
 if ! cmp -s "$BK/orphans_verdict.sh" "$V"; then
