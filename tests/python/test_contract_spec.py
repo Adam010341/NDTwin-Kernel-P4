@@ -2415,6 +2415,101 @@ class SelftestFixturesMatchTheEndpointTable(unittest.TestCase):
         self.assertIn("not in spec.ENDPOINTS", why)
 
 
+class LinkStepPreconditionTest(unittest.TestCase):
+    """
+    F-OFFLINE-1 G11: a step that could not choose a link must make no claim about the kernel.
+
+    [Co-developed with claude code -- Adam] -- KNOWN-ISSUES A-8, 2026-09-11.
+
+    switch_to_switch_link() returns None when the topology holds no switch-to-switch edge, and
+    link_endpoint_body() then sends NO_LINK_CHOSEN_PAYLOAD -- four zeros, which all four link
+    endpoints refuse by design (W8-7's dpid-0 doors). None of the six MUTATE steps declared an
+    expect_status, so the default [200] applied and that correct refusal was recorded as
+
+        HTTP status 404, expected 200
+
+    against the kernel. The intent behind the fallback was right -- refuse rather than guess a
+    link, because a guessed link means a fault injected on an edge nobody chose -- and the
+    reporting was the A-8 shape: a tool that cannot establish its own precondition failing in
+    a way that looks like the system failing.
+
+    Loud either way. Louder, in fact: the request is not sent at all.
+    """
+
+    class Args:
+        timeout = 1
+        with_traffic = False
+
+    HOST_EDGE_ONLY = {"nodes": [{"dpid": 1, "vertex_type": 0, "device_name": "s1",
+                                 "ip": ["10.0.0.1"], "mac": 1},
+                                {"dpid": 0, "vertex_type": 1, "device_name": "h1",
+                                 "ip": ["10.0.0.2"], "mac": 2}],
+                      "edges": [{"src_dpid": 1, "src_interface": 1,
+                                 "dst_dpid": 0, "dst_interface": 0}]}
+
+    LINK_STEPS = ("link_failure_detected", "link_recovery_detected", "inject_link_failure",
+                  "link_recovery_detected__declined_after_injection", "inject_link_recovery",
+                  "inject_link_recovery_cleanup")
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.no_link = os.path.join(self.tmp.name, "no_switch_link.json")
+        with open(self.no_link, "w", encoding="utf-8") as fh:
+            json.dump(self.HOST_EDGE_ONLY, fh)
+        spec.switch_to_switch_link.cache_clear()
+        self.addCleanup(spec.switch_to_switch_link.cache_clear)
+
+    def _run(self, endpoint_name, topology, reply=(404, {"status": "error"}, None)):
+        """check_endpoint with the network stubbed. Returns (Result, requests sent)."""
+        import run_contract_test as runner
+        endpoint = next(ep for ep in spec.ENDPOINTS if ep["name"] == endpoint_name)
+        ctx = Context(topology, 5, PROBE_IP)
+        sent = []
+
+        def fake_request(base_url, ep, _ctx, timeout):
+            sent.append(ep["name"])
+            return reply
+
+        real = runner.request
+        runner.request = fake_request
+        try:
+            return runner.check_endpoint("http://127.0.0.1:0", endpoint, ctx, self.Args()), sent
+        finally:
+            runner.request = real
+
+    def test_every_link_step_makes_no_claim_when_no_link_could_be_chosen(self):
+        for name in self.LINK_STEPS:
+            res, sent = self._run(name, self.no_link)
+            self.assertEqual(res.failures, [], f"{name} blamed the kernel: {res.failures}")
+            self.assertEqual(len(res.preconditions), 1, f"{name}: {res.preconditions}")
+            self.assertTrue(res.preconditions[0].startswith(TOOL_PRECONDITION), name)
+            self.assertEqual(sent, [], f"{name} sent a request it knew would be refused")
+
+    def test_the_precondition_names_the_topology_it_could_not_use(self):
+        res, _sent = self._run("inject_link_failure", self.no_link)
+        self.assertIn("no_switch_link.json", res.preconditions[0])
+
+    def test_a_topology_with_a_switch_link_still_runs_the_step(self):
+        # The control. A precondition that is never satisfied is a check that has been deleted.
+        res, sent = self._run("inject_link_failure", P4_TOPOLOGY,
+                              reply=(200, {"status": "link failure injected",
+                                           "down_reason": "declared",
+                                           "until": "/ndt/inject_link_recovery",
+                                           "tc": "skipped (not MININET)"}, None))
+        self.assertEqual(res.preconditions, [], res.preconditions)
+        self.assertEqual(sent, ["inject_link_failure"])
+        self.assertTrue(res.ok, res.failures)
+
+    def test_a_real_refusal_on_a_real_link_is_still_a_failure(self):
+        # The other control, and the one that matters: the precondition must not become a way
+        # for a 404 on a link this topology DOES hold to stop counting.
+        res, sent = self._run("inject_link_failure", P4_TOPOLOGY)
+        self.assertEqual(res.preconditions, [])
+        self.assertEqual(sent, ["inject_link_failure"])
+        self.assertTrue(any("404" in f for f in res.failures), res.failures)
+
+
 class CrossApplicationStagesTest(unittest.TestCase):
     """
     --self-test's two cross-application stages, on stand-in fixture maps.

@@ -313,6 +313,18 @@ def request(base_url, ep, ctx, timeout) -> tuple[int, object, str | None]:
 
 
 def check_endpoint(base_url, ep, ctx, args) -> Result:
+    # [Co-developed with claude code -- Adam] -- A-8, F-OFFLINE-1 G11/G10, 2026-09-11.
+    # An endpoint may declare what this run has to know before its answer means anything.
+    # Checked BEFORE the request, and the request is then not sent: a step whose precondition
+    # is unmet has nothing to learn from the reply, and provoking a refusal on a live fabric
+    # only adds a line to the kernel log that reads like a fault. Reported as a precondition,
+    # never as a verdict -- the whole of A-8 is that a tool must not fail in a way that looks
+    # like the system failing.
+    unmet = resolve(ep.get("precondition"), ctx)
+    if unmet:
+        return Result(ep["name"], False, [], None, note=ep.get("note"),
+                      preconditions=[spec.TOOL_PRECONDITION + unmet])
+
     status, data, transport_err = request(base_url, ep, ctx, args.timeout)
     name = ep["name"]
     gap = ep.get("known_gap")

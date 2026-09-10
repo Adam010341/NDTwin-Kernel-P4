@@ -1727,6 +1727,32 @@ def link_endpoint_body(ctx):
     return dict(link) if link else dict(NO_LINK_CHOSEN_PAYLOAD)
 
 
+def link_step_precondition(ctx):
+    """
+    None when the sequence has a link to act on; otherwise why it has not.
+
+    [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G11, A-8, 2026-09-11.
+
+    The fallback above refuses to guess a link, which is right: a guessed link means a fault
+    injected on an edge nobody chose. What it did NOT do was say whose problem that is. None
+    of the six steps declared an expect_status, so [200] applied, the four zeros earned the
+    honest 404 that W8-7's dpid-0 doors exist to give them, and the run recorded
+
+        HTTP status 404, expected 200
+
+    against the kernel. A topology with no switch-to-switch edge is a fact about the model
+    handed to this tool. Reported here as a precondition (exit 3, no verdict) and the request
+    is not sent at all -- there is nothing to learn from a refusal you provoked on purpose,
+    and on a live fabric there is no reason to make the kernel log one.
+    """
+    if switch_to_switch_link(getattr(ctx, "topology_path", None)) is not None:
+        return None
+    return (f"no switch-to-switch link could be chosen from "
+            f"{getattr(ctx, 'topology_path', None)!r}: every edge in it has a host end "
+            f"(dpid 0), which all four link endpoints refuse by design. This step has "
+            f"nothing to act on, so it makes no claim about the kernel and sends nothing")
+
+
 # --- endpoint table ---------------------------------------------------------------
 # query/body may be callables taking ctx, for values derived from the topology.
 
@@ -2407,6 +2433,7 @@ ENDPOINTS = [
     # --- the sequence. MUTATE: it declares a link down, cuts it, and puts it back. ---
     dict(name="link_failure_detected", method="POST", path="/ndt/link_failure_detected",
          body=link_endpoint_body, request_schema=LINK_REQUEST,
+         precondition=link_step_precondition,
          category=MUTATE, schema=LINK_FAILURE_REPORTED,
          invariants=[inv_declared_failure_says_who_can_withdraw_it],
          note="step 1 of 6. Declares the link failed AND records that the control plane reported "
@@ -2415,6 +2442,7 @@ ENDPOINTS = [
 
     dict(name="link_recovery_detected", method="POST", path="/ndt/link_recovery_detected",
          body=link_endpoint_body, request_schema=LINK_REQUEST,
+         precondition=link_step_precondition,
          category=MUTATE, schema=LINK_RECOVERY_REPORTED,
          invariants=[inv_recovery_withdrew_the_declaration],
          note="step 2 of 6. Spends the report step 1 recorded, so the declaration goes and the "
@@ -2423,6 +2451,7 @@ ENDPOINTS = [
 
     dict(name="inject_link_failure", method="POST", path="/ndt/inject_link_failure",
          body=link_endpoint_body, request_schema=LINK_REQUEST,
+         precondition=link_step_precondition,
          category=MUTATE, schema=LINK_FAILURE_INJECTED,
          invariants=[inv_tc_half_is_reported_per_interface],
          note="step 3 of 6. 🔴 CUTS A REAL LINK on MININET (netem loss 100%, both ends) and "
@@ -2433,6 +2462,7 @@ ENDPOINTS = [
     dict(name="link_recovery_detected__declined_after_injection", method="POST",
          path="/ndt/link_recovery_detected",
          body=link_endpoint_body, request_schema=LINK_REQUEST,
+         precondition=link_step_precondition,
          category=MUTATE, schema=LINK_RECOVERY_REPORTED,
          invariants=[inv_recovery_was_declined_and_said_so],
          note="step 4 of 6, and the reason this block exists (E-21). The injection of step 3 "
@@ -2442,6 +2472,7 @@ ENDPOINTS = [
 
     dict(name="inject_link_recovery", method="POST", path="/ndt/inject_link_recovery",
          body=link_endpoint_body, request_schema=LINK_REQUEST,
+         precondition=link_step_precondition,
          category=MUTATE, schema=LINK_RECOVERY_INJECTED,
          invariants=[inv_tc_half_is_reported_per_interface],
          note="step 5 of 6. The unconditional withdrawal, and since W8b the only one: it takes "
@@ -2449,6 +2480,7 @@ ENDPOINTS = [
 
     dict(name="inject_link_recovery_cleanup", method="POST", path="/ndt/inject_link_recovery",
          body=link_endpoint_body, request_schema=LINK_REQUEST,
+         precondition=link_step_precondition,
          category=MUTATE, schema=LINK_RECOVERY_INJECTED,
          invariants=[inv_tc_half_is_reported_per_interface],
          note="step 6 of 6, and it does two jobs at once, like release_lock_cleanup. It proves "
