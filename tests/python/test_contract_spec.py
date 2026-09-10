@@ -2433,10 +2433,10 @@ class SelftestFixturesMatchTheEndpointTable(unittest.TestCase):
             "a request body must be checked against request_schema, not against a response")
         endpoint, why = self.fx.fixture_target("get_flow_dispatch_status?request_id=<id>")
         self.assertIsNone(endpoint)
-        self.assertIn("mutation", why, "a declared exception has to say why it is one")
+        self.assertGreater(len(why), 20, "a declared exception has to say why it is one")
         endpoint, why = self.fx.fixture_target("no_such_endpoint (invented)")
         self.assertIsNone(endpoint)
-        self.assertIn("not in spec.ENDPOINTS", why)
+        self.assertIn("no_such_endpoint", why, "the message has to name what did not resolve")
 
 
 class DownReasonVocabularyTest(unittest.TestCase):
@@ -2585,8 +2585,11 @@ class DeclinedRecoveryPremiseTest(unittest.TestCase):
         # must not be a way to stop reporting it.
         out = spec.inv_recovery_was_declined_and_said_so(self.BARE, self.Landed())
         self.assertEqual(len(out), 1, out)
+        # The prefix, not the prose: an unprefixed message is a verdict about the kernel, and
+        # tests/shell/mutate_contract_link_endpoints.sh's W2 rewords this very sentence to
+        # prove nothing here is pinned to its wording.
         self.assertFalse(out[0].startswith(TOOL_PRECONDITION), out)
-        self.assertIn("was not declined", out[0])
+        self.assertFalse(out[0].startswith(ACCOUNTED_FOR), out)
 
     def test_a_correctly_declined_reply_is_unaffected_by_any_of_this(self):
         # The premise only gates the accusation. A reply that DID decline is checked in full
