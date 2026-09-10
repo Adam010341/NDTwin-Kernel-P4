@@ -322,10 +322,12 @@ report "N2 (widening, green): the rollback prints and does nothing" "$m" \
 
 # N3: `ndt down` always exits 0. The report above it is unchanged, so only an exit code tells
 # the two apart -- and the exit code is what every caller reads.
+# Anchor moved 2026-09-06 (W13): claim_note_down now sits between the two lines this used to
+# span. The mutation is unchanged -- it still replaces cmd_down's only return with a constant 0.
 m=$(mutant n3 "$NDT" \
-    '    (( clean_rc != 0 )) && down_rc=1
+    '    claim_note_down "$down_rc"
     return "$down_rc"' \
-    '    (( clean_rc != 0 )) && down_rc=1
+    '    claim_note_down "$down_rc"
     return 0')
 report "N3 (widening, green): 'ndt down' always exits 0" "$m" \
        "🔴 a process that never leaves is still RED"

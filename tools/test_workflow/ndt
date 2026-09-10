@@ -301,7 +301,13 @@ deep_sweep() {
 #     .test_run/lab.claim
 #         owner=<free text, required>
 #         expires=<unix seconds, required -- a crashed session must not hold the lab forever>
-#         note=<free text, optional>
+#         note=<free text, optional>       what the lab is being used for RIGHT NOW. `up` and
+#                                          `down` rewrite this themselves (09-05 R7 I-4).
+#         exclusive_cpu=<yes|no>           from NDT_EXCLUSIVE_CPU at claim time.
+#         measuring=<free text, optional>  from NDT_MEASURING at claim time. A DECLARATION that
+#                                          a measurement is running which `ndt check`'s 4 Hz
+#                                          poll would perturb; empty means nothing was declared,
+#                                          which is not the same as nothing running (R4-2).
 #
 # Workspace-local, not /tmp, for the reason components.env already gives about predictable
 # paths in world-writable directories.
@@ -418,6 +424,52 @@ clear_up_target() {
     rm -f "$f" && info "cleared the 'ndt up' target record (${f#$REPO/})"
 }
 
+# --- what ran here BEFORE the record was cleared -------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# 09-05 R7 I-1 (W12). `down` removes up.target, above, and that removal is right. What was
+# wrong is that BOTH readers of the resulting absence rendered it as a claim about HISTORY:
+# `--check` printed "no 'ndt up' has run in this checkout", and `status`'s configuration block
+# fell back to the P4-only host-count knob and named a P4 model file. Measured 3/3 after a
+# `down` on 2026-09-05 (15:46:18, 16:20:04, 17:34:09) on a checkout that had run `ndt up` at
+# least seven times that evening -- every one of them OVS. Both halves were false, and the
+# second half changed the PLANE: R0's own script grepped that line out of `ndt status` and
+# carried the P4 model into an OVS round (R0 instrument error #3).
+#
+# The absence of the record is a fact about NOW ("nothing is being asked for"), which is what
+# the removal is for and what rc 3 already says honestly. What happened BEFORE is a different
+# question, and this checkout still holds an answer to it: supervise.sh writes
+# .test_run/pids/<name>.exit when a component stops, carrying `at=` and the full `command=` --
+# including the --topology argument, which names the plane.
+#
+# 🔴 THIS IS NOT A BASELINE AND IS NEVER USED AS ONE. Nothing below feeds check_up_target's
+# comparison; rc 3 and "COULD NOT CHECK" are untouched. Its only job is to replace an assertion
+# about history with the history itself.
+#
+# 🔴 It can be missing, and then we say so rather than falling back to the old sentence:
+# start_bg removes the .exit file at every start, and stack.sh removes it again after reporting
+# a FATAL ending (stack.sh report_exit, and the scan in its down path). Missing means "this
+# checkout cannot tell", never "nothing ran here" -- that conflation is the whole finding.
+kernel_exit_file() { echo "${NDT_KERNEL_EXIT:-$REPO/.test_run/pids/kernel.exit}"; }
+kernel_exit_field() {
+    local f; f="$(kernel_exit_file)"
+    [[ -f "$f" ]] && sed -n "s/^$1=//p" "$f" | head -1
+}
+
+# last_kernel_plane -- p4 | ovs, from the --topology argument the last kernel was started with.
+# rc 1 when there is no record, or when the recorded command names no model this script can
+# classify: an unclassifiable command must not be turned into a plane, which is the mistake
+# this whole block exists to undo.
+last_kernel_plane() {
+    local cmd; cmd="$(kernel_exit_field command)"
+    [[ -n "$cmd" ]] || return 1
+    case "$cmd" in
+        *StaticNetworkTopologyOVS_*) echo ovs; return 0 ;;
+        *StaticNetworkTopologyP4_*)  echo p4;  return 0 ;;
+    esac
+    return 1
+}
+
 # live_dataplane_kind -- p4 | ovs | none | unknown. The field #8 was missing.
 #
 # bmv2 first, because that answer needs no privilege and is definitive: a `simple_switch_grpc`
@@ -462,7 +514,12 @@ cmd_claim() {
         err "the lab is already claimed by $other"
         return 1
     fi
-    [[ "$mins" =~ ^[0-9]+$ ]] || { err "usage: ndt claim [minutes] [note]"; return 2; }
+    [[ "$mins" =~ ^[0-9]+$ ]] || {
+        err "usage: ndt claim [minutes] [note]"
+        err "  NDT_EXCLUSIVE_CPU=1  no heavy local job may overlap this claim"
+        err "  NDT_MEASURING='...'  a measurement is running that 'ndt check' must not perturb"
+        return 2
+    }
     mkdir -p "$(dirname "$CLAIM")"
     # [Co-developed with claude code -- Adam]
     # exclusive_cpu: the claim protects the fabric and the build, and until 2026-08-28 it
@@ -476,9 +533,22 @@ cmd_claim() {
     # I/O with nothing to tell anyone. Knowing was not a mechanism. So the declaration is only
     # half of this change -- cmd_status reads it unconditionally and --check fails on it. A field
     # nobody reads is the same failure in a new location.
-    printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=%s\n' \
+    #
+    # [Co-developed with claude code -- Adam]
+    # measuring: the same shape one field down, for the same reason, added 2026-09-06 (R4-2).
+    # `ndt check` used to refuse whenever it SAW an iperf3 client -- and it needs traffic to say
+    # anything at all, so the only configuration that produced an answer was the one it labelled
+    # contaminated. The guard is really protecting the sampling-rate matrix, whose poll-off cells
+    # this check's 4 Hz poll would silently refill; and a poll-off cell and the flows `check` was
+    # told to measure against are indistinguishable in `ps`. Only the person running the matrix
+    # knows which it is, so they say so:
+    #     NDT_MEASURING='sampling matrix, poll-off cell 3/8' ndt claim 90 'S-rate matrix'
+    # Empty means "nothing declared", which is NOT "nothing running" -- in_flight still watches
+    # the process table for `status`, `up` and `down`.
+    printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=%s\nmeasuring=%s\n' \
         "$NDT_OWNER" "$(( $(date +%s) + mins * 60 ))" "$note" \
-        "$( [[ -n "${NDT_EXCLUSIVE_CPU:-}" ]] && echo yes || echo no )" > "$CLAIM"
+        "$( [[ -n "${NDT_EXCLUSIVE_CPU:-}" ]] && echo yes || echo no )" \
+        "${NDT_MEASURING:-}" > "$CLAIM"
     # [Co-developed with claude code -- Adam]
     # Claiming invalidates any handoff note. Adam ruled this after the 8/25 sampling session
     # argued it, and their argument is the right one: deletion has to be tied to taking
@@ -510,6 +580,86 @@ cmd_release() {
         return 1
     fi
     rm -f "$CLAIM"; ok "lab released"
+}
+
+# measuring_declared -- what the live claim says it is measuring, or nothing.
+#
+# [Co-developed with claude code -- Adam]
+# A DECLARATION, and deliberately not a detection. in_flight below answers "what is running",
+# which is the right question for a teardown and the wrong one for `ndt check`: R4-2 is the case
+# where the two were the same predicate and needed opposite answers. Empty here means nobody
+# declared anything -- never that nothing is running. An expired claim declares nothing, for the
+# same reason an expired claim holds nothing.
+measuring_declared() {
+    [[ -f "$CLAIM" ]] || return 0
+    local exp; exp="$(claim_field expires)"
+    [[ "$exp" =~ ^[0-9]+$ ]] && (( exp > $(date +%s) )) || return 0
+    claim_field measuring
+}
+
+# --- the note, written by the command that changes the fact -------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# 09-05 R7 I-4 (W13). `note` is the field a reader consults to answer "is the lab in use", and
+# until now its only writers were the arm_*.sh wrappers AROUND `ndt`. So any `ndt up` that did
+# not go through one of them left whatever the last wrapper had written. Measured 17:21:57 on
+# 2026-09-05, one `ndt status`, two rows apart:
+#
+#     note       arm r4p4 finished 17:17; lab free, night claim kept
+#     measuring  iperf3 -c 10.0.0.33 -p 5511 -t 200 -P 4 -i 0    + 7 more process(es)
+#
+# -- 16 iperf3 processes over a 128-host fabric with ten bridges up, while the note said the
+# machine was free. That note is what LAB-RULES tells a reader to act on, and the action it
+# licenses is `ndt down --deep`. The finding is doubly worth keeping: this note was itself the
+# FIX for I-2 (a note that named a role which had already gone home), so a repair aimed at
+# staleness turned a sentence that made people WAIT into one that invited them to tear down.
+#
+# 🔴 owner and expires are NOT touched. `ndt claim <mins> <note>` rewrites the whole file, so
+# using it to correct a sentence pushes the lease out by another window -- that is I-2 residue
+# #1, where rewriting the note to tell the truth silently added three hours to a claim. A note
+# is a description; a lease is a promise. This writes only the description.
+#
+# Refuses when there is no claim, when it has expired, or when it belongs to someone else: a
+# session that does not hold the lab must not narrate it.
+set_claim_note() {
+    local text="${1//$'\n'/ }" f="$CLAIM" owner exp tmp
+    [[ -f "$f" ]] || return 1
+    owner="$(claim_field owner)"; exp="$(claim_field expires)"
+    [[ "$exp" =~ ^[0-9]+$ ]] && (( exp > $(date +%s) )) || return 1
+    [[ -n "${NDT_OWNER:-}" && "$owner" == "$NDT_OWNER" ]] || return 1
+    tmp="$f.$$.tmp"
+    { sed '/^note=/d' "$f"; printf 'note=%s\n' "$text"; } > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 1; }
+    mv -f "$tmp" "$f" || { rm -f "$tmp"; return 1; }
+}
+
+# claim_note_up <target> -- `ndt up` says, in the note, that it is using the lab.
+#
+# Written where record_up_target is written -- after every refusal that can be decided without
+# touching the machine, and immediately before the first step that changes it. NOT after the
+# verify block at the end, and that is deliberate in both directions: an `up` that fails half
+# way still leaves Ryu, a topo session and a data plane behind (#3), and that half-built fabric
+# is precisely the state whose note must not still say the lab is free.
+claim_note_up() {
+    local what="$1"
+    set_claim_note "in use: ndt up $what at $(date '+%Y-%m-%d %H:%M:%S') by ${NDT_OWNER:-unset}" \
+        && info "claim note now says the lab is in use (owner and expiry unchanged)"
+    return 0
+}
+
+# claim_note_down <rc> -- and `ndt down` says it is no longer, once the teardown has been
+# asserted rather than merely attempted. A teardown that did not verify clean gets a different
+# sentence: "down" and "down, and something is still running" are not the same statement, and
+# the second one is the one a reader must not act on as if it were the first.
+claim_note_down() {
+    local rc="${1:-0}" when; when="$(date '+%Y-%m-%d %H:%M:%S')"
+    if (( rc == 0 )); then
+        set_claim_note "down at $when; claim kept" \
+            && info "claim note now says the lab is down (owner and expiry unchanged)"
+    else
+        set_claim_note "down at $when did NOT verify clean; claim kept -- read 'running' below, not this note" \
+            && info "claim note now says the teardown did not verify clean"
+    fi
+    return 0
 }
 
 # in_flight -- names the measurement drivers currently running, one per line.
@@ -1055,6 +1205,7 @@ up_p4() {
     # What this run was asked for, written down before anything is built, so `status --check`
     # has a baseline that does not depend on reading a P4-only knob back afterwards. (#8, N12)
     record_up_target p4 "$hosts" "$topo"
+    claim_note_up "p4 $hosts"
 
     # -- 1. fabric --
     say "[1/3] bmv2 fabric"
@@ -1352,6 +1503,7 @@ up_ovs() {
     # Same as up_p4: the target is recorded once every pre-lab refusal has passed and just
     # before the first thing that changes the machine. (#8, N12)
     record_up_target ovs "$ovs_hosts" "$ovs_topo"
+    claim_note_up "ovs $ovs_hosts"
 
     say "[1/4] control plane (Ryu)"
     # NDTWIN_RYU_TOPO_FILE is set to the SAME file as TOPO_OVS, and that is the whole point.
@@ -1684,11 +1836,24 @@ cmd_down() {
     # where cmd_clean cannot see what survived -- cleanup also sweeps patterns cmd_clean does
     # not check (the NTG topology, for one), so "clean" and "the sweep worked" are two answers.
     (( clean_rc != 0 )) && down_rc=1
+    # I-4's other half. `up` writes "in use" into the note; without this the sentence would
+    # outlive the fabric it describes, which is the same defect with the sign flipped -- a
+    # reader would wait for a machine that is already free. Written AFTER the assertion above,
+    # so the note reports what was verified rather than what was attempted.
+    claim_note_down "$down_rc"
     return "$down_rc"
 }
 
 # The teardown assertion, separately callable. Exits non-zero if anything survived, because
 # a leftover is not cosmetic: it makes the next run measure the wrong process.
+#
+# 🔴 IT DELETES NO LOGS, and that is a decision, not an omission (09-05 night round, O-4). This
+# function counts processes, sessions, the manifest and the ports; `--deep` adds a port sweep.
+# Nothing here or there has ever touched .test_run/logs/, and nothing here or there is going to:
+# the generations under it are the only record of what the last run did, and a teardown command
+# that quietly reaped them would be O-4 with a different trigger -- the evidence destroyed by the
+# very command you run when you are finished with a run and about to write it up. Bounding those
+# generations is stack.sh rotate_log's job, at the moment a new one replaces an old one.
 cmd_clean() {
     local rc=0 n p
 
@@ -2159,7 +2324,20 @@ check_up_target() {
 
     say "up target"
     if [[ ! -f "$f" ]]; then
-        printf '  %-14s %s\n' "record" "${Y}none -- no 'ndt up' has run in this checkout${N}  (${f#$REPO/})"
+        # 09-05 R7 I-1 (W12). The tense, not the exit code. "no 'ndt up' has run in this
+        # checkout" is a statement about history and is false after every ordinary up->down;
+        # what is true is that there is no baseline RIGHT NOW. rc 3 and the COULD NOT CHECK
+        # block below are unchanged -- they were already the honest part. See kernel_exit_file.
+        local kx_at kx_plane
+        kx_at="$(kernel_exit_field at)"; kx_plane="$(last_kernel_plane)"
+        if [[ -n "$kx_at" ]]; then
+            printf '  %-14s %s\n' "record" "${Y}none -- the last 'ndt up' record was cleared by 'ndt down' at $kx_at; history is in .test_run/pids/*.exit${N}  (${f#$REPO/})"
+            if [[ -n "$kx_plane" ]]; then
+                printf '  %-14s %s\n' "" "that run was $kx_plane, per the --topology argument in .test_run/pids/kernel.exit -- NOT a baseline, just what ran"
+            fi
+        else
+            printf '  %-14s %s\n' "record" "${Y}none -- nothing is being asked for right now, and there is no .test_run/pids/kernel.exit to say what ran before${N}  (${f#$REPO/})"
+        fi
         printf '  %-14s %s\n' "" "there is no baseline, so --check did NOT check. this is not 'checked and matched'."
         printf '  %-14s %s\n' "" "bring the lab up from this checkout first:  ndt up <target>"
         printf '  %-14s %s\n' "" ".test_run/ is per checkout, so another checkout's 'up' is invisible here (finding #79)"
@@ -2374,6 +2552,15 @@ cmd_status() {
         printf '  %-14s %s\n' "" "no claim: the lab is free, this fabric included -- tear it down if you want"
     fi
 
+    # Declared beside observed, the same pairing the exclusive-cpu row above uses and for the
+    # same reason: a declaration nobody checks against reality is a promise, and reality with no
+    # declaration beside it cannot say what it is FOR. This row is what `ndt check` refuses on
+    # (R4-2); the rows below it are what `up` and `down` refuse on. They answer different
+    # questions and are printed as two rows so they cannot be read as one.
+    local declared; declared="$(measuring_declared)"
+    [[ -n "$declared" ]] && printf '  %-14s %s\n' "declared" \
+        "$(printf '%s' "$declared" | cut -c1-64)   (claim measuring=; 'ndt check' refuses while set)"
+
     local busy; busy="$(in_flight)"
     if [[ -n "$busy" ]]; then
         local extra; extra="$(printf '%s\n' "$busy" | wc -l)"
@@ -2419,8 +2606,28 @@ cmd_status() {
         printf '  %-14s %s\n' "topology" "${ut_topo:-?}"
         printf '  %-14s %s\n' "p4 host knob" "$hosts   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')"
     else
-        printf '  %-14s %s\n' "hosts" "$hosts   (p4_proxy/mininet/host_count_override -- P4 only; no 'ndt up' recorded here)"
-        printf '  %-14s %s\n' "topology" "$( [[ -n "$topo" ]] && echo "${topo#$REPO/}" || echo "NONE for $hosts hosts" )   (the P4 model that knob selects, NOT necessarily what is running)"
+        # 09-05 R7 I-1 (W12), the half that changed the PLANE. With no record this branch used
+        # to print the P4 model the P4-only knob selects on the `topology` row, and a reader --
+        # R0's script among them -- took it for the plane that had just been running. The
+        # question "which plane" has no answer here, so the row says so, and what the knob
+        # selects moves to its own row named for what it decides (the next `ndt up p4`), which
+        # is exactly how the has-a-record branch above already labels it.
+        local kx_plane kx_at
+        kx_plane="$(last_kernel_plane)"; kx_at="$(kernel_exit_field at)"
+        printf '  %-14s %s\n' "hosts" "unknown (no up.target) -- nothing here records what the running fabric was asked for"
+        if [[ -n "$kx_plane" ]]; then
+            printf '  %-14s %s\n' "topology" "unknown (no up.target); last kernel.exit ran $kx_plane"
+        elif [[ -n "$kx_at" ]]; then
+            printf '  %-14s %s\n' "topology" "unknown (no up.target); last kernel.exit is from $kx_at and names no model this script can classify"
+        else
+            printf '  %-14s %s\n' "topology" "unknown (no up.target); no kernel.exit either -- this checkout cannot say what ran"
+        fi
+        # 🔴 The knob's MODEL PATH is deliberately not printed here. It was the concrete carrier
+        # of the harm: with no record this row used to hold setting/StaticNetworkTopologyP4_*,
+        # the first setting/*.json in the whole report, and it was read -- by a person and by a
+        # script -- as the plane that had just run. The knob's own number is kept, on a row that
+        # names what it decides, which is what the has-a-record branch above already does.
+        printf '  %-14s %s\n' "p4 host knob" "$hosts   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')"
     fi
     printf '  %-14s %s\n' "bmv2" "$(bmv2_binary)"
     if stale_pipeline; then
@@ -2601,12 +2808,40 @@ cmd_check() {
     # This check polls /ndt/get_graph_data at 4 Hz, and that HTTP work is served by the very
     # process whose CPU a sampling-rate run is measuring. Running it during a poll-off cell
     # would silently put the poll back in.
-    local busy; busy="$(in_flight)"
-    if [[ -n "$busy" && "${1:-}" != "--force" ]]; then
-        err "refusing: this polls the kernel at 4 Hz and would perturb a running measurement:"
-        printf '%s\n' "$busy" | sed 's/^/        /' >&2
+    # R4-2, 2026-09-05, 100% reproducible on 128 hosts. This used to refuse whenever in_flight
+    # saw an iperf3 CLIENT -- and with no traffic this same command prints "run this while
+    # traffic is flowing". So the only configuration that produced a meaningful ratio was the one
+    # the tool itself labelled "accept the contamination", and --force became the only usable
+    # mode while not being the default. A guard that fires on the precondition of the thing it
+    # guards teaches the habit of forcing past it, which disarms it for the run it exists to
+    # protect -- the same argument the iperf3-server case above was fixed on.
+    #
+    # Two needs were sharing one predicate and pointing opposite ways. The guard is for the
+    # sampling-rate matrix, whose poll-off cells this 4 Hz poll would silently refill; `check`
+    # REQUIRES traffic. They are separated by asking a different question -- not "is anything
+    # sending packets" but "has anyone DECLARED a measurement this would perturb". Only a
+    # declaration can tell a poll-off cell from the flows this check was told to run against:
+    # in `ps` they are the same iperf3.
+    #
+    # 🔴 in_flight is NOT weakened and is NOT bypassed anywhere else. `ndt status` still renders
+    # it, and `up` and `down` still refuse on it: a teardown's job is to stop someone destroying
+    # results, and results exist whether or not anybody declared them. What changed is which
+    # question THIS subcommand asks.
+    local declared; declared="$(measuring_declared)"
+    if [[ -n "$declared" && "${1:-}" != "--force" ]]; then
+        err "refusing: this polls the kernel at 4 Hz and would perturb the measurement the claim declares:"
+        printf '%s\n' "$declared" | sed 's/^/        /' >&2
+        err "declared in .test_run/lab.claim (measuring=), not guessed from the process table."
         err "wait for it, or accept the contamination:  ndt check --force"
         return 1
+    fi
+    local busy; busy="$(in_flight)"
+    if [[ -n "$busy" ]]; then
+        info "traffic is running, which is what this check needs in order to say anything:"
+        printf '%s\n' "$busy" | sed 's/^/        /'
+        info "nothing is declared in the claim (measuring=), so this is not treated as a"
+        info "protected measurement. if it is one, declare it and this check will refuse:"
+        info "  NDT_MEASURING='what it is' ndt claim <mins> '<note>'"
     fi
 
     info "sampling the twin and /proc/net/dev for ${NDT_CHECK_SECS:-8}s"
@@ -2617,6 +2852,40 @@ DUR = float(sys.argv[1])
 HZ = 4.0                      # the twin refreshes usage once a second; sample above that
 URL = "http://localhost:8000/ndt/get_graph_data"
 IFACE = re.compile(r"^s\d+-eth\d+$")
+
+# --- BEGIN verdict_lines (pure; extracted verbatim by tests/shell/test_ndt_honesty.sh) ---
+def verdict_lines(twin_bps, truth_bps):
+    """Everything this check says about the ratio, as lines. No I/O, so it is testable
+    without a kernel, a fabric or traffic -- the rest of this block needs all three.
+
+    R4-5, 2026-09-05: against a ground truth stable to 0.27% over twelve runs, the ratio
+    ranged 0.85-0.97 -- a 13% spread, every one of them LOW -- and printed `ok` all twelve
+    times, because the ok band is 0.5-1.5. Adam kept the band (grill round 4): it is looking
+    for a DOUBLING, and narrowing it would turn a tripwire into a calibration check it was
+    never designed to be. What was missing is that `ok` was being read as "the twin's
+    bandwidth numbers are accurate". So the size of the gap is printed in the same breath as
+    the verdict, and the line says in words what the verdict does not mean.
+    """
+    ratio = twin_bps / truth_bps
+    if ratio > 1.5:
+        verdict = "DOUBLE-COUNTING -- clone replicas stacked"
+    elif ratio < 0.5:
+        verdict = "under-counting"
+    else:
+        verdict = "ok"
+    return [
+        "  ratio                %.2f   %s" % (ratio, verdict),
+        "  ratio=%.3f           (twin %.1f / ground truth %.1f Mbit/s)"
+        % (ratio, twin_bps / 1e6, truth_bps / 1e6),
+        "      twin %s-reports by %.0f%% (%s the +/-50%% double-count band; accuracy is NOT"
+        % ("under" if ratio < 1.0 else "over", abs(1.0 - ratio) * 100.0,
+           "within" if 0.5 <= ratio <= 1.5 else "OUTSIDE"),
+        "      what this check measures -- it is a double-count tripwire, and 'ok' means only",
+        "      that no doubling was seen)",
+        "      ~1.0 expected. ~2.0 is a proxy restarted on a warm fabric stacking clone",
+        "      replicas. Absolute numbers cannot show this -- only the ratio can.",
+    ]
+# --- END verdict_lines ---
 
 # The twin publishes a *rate* (link_bandwidth_usage_bps), never a cumulative byte count, so
 # the comparison has to be rate against rate over the same window: integrate the twin's rate
@@ -2711,16 +2980,8 @@ if truth_bps < 1e6:
     print("  --  under 1 Mbit/s crossing the fabric; the ratio is not meaningful yet.")
     print("      run this while traffic is flowing.")
 else:
-    ratio = twin_bps / truth_bps
-    if ratio > 1.5:
-        verdict = "DOUBLE-COUNTING -- clone replicas stacked"
-    elif ratio < 0.5:
-        verdict = "under-counting"
-    else:
-        verdict = "ok"
-    print("  ratio                %.2f   %s" % (ratio, verdict))
-    print("      ~1.0 expected. ~2.0 is a proxy restarted on a warm fabric stacking clone")
-    print("      replicas. Absolute numbers cannot show this -- only the ratio can.")
+    for line in verdict_lines(twin_bps, truth_bps):
+        print(line)
 PY
 
     echo
