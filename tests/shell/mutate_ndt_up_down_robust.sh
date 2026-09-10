@@ -454,10 +454,14 @@ report "N2 (widening, green): the rollback prints and does nothing" "$m" \
 # the two apart -- and the exit code is what every caller reads.
 # Anchor moved 2026-09-06 (W13): claim_note_down now sits between the two lines this used to
 # span. The mutation is unchanged -- it still replaces cmd_down's only return with a constant 0.
+# 🔴 Re-anchored 2026-09-11: H3 inserted `mark_teardown_end` between these two lines, and this
+# anchor -- which spanned both -- silently stopped matching. The mutant then carried an
+# UNMUTATED ndt, the suite was green, and the gate reported N3 as a survivor. That is
+# tests/shell/README.md §1's case, and the reason the gate's verdict is the one we ship.
 m=$(mutant n3 "$NDT" \
-    '    claim_note_down "$down_rc"
+    '    mark_teardown_end
     return "$down_rc"' \
-    '    claim_note_down "$down_rc"
+    '    mark_teardown_end
     return 0')
 report "N3 (widening, green): 'ndt down' always exits 0" "$m" \
        "🔴 a process that never leaves is still RED"
@@ -539,8 +543,11 @@ m=$(mutant m30 "$NDT" \
 
     say "ndt down"' \
     '    say "ndt down"')
+# 🔴 Named case chosen after running the gate: "the marker is absent when `down` finishes" is
+# satisfied by a `down` that never wrote one, so it cannot see this mutation at all. Only the
+# cell that reads the marker from INSIDE the teardown can.
 report "M30: the teardown records nothing again (H3)" "$m" \
-       "  🔴 'ndt down' removes its own marker when it finishes"
+       "  🔴 and it is present DURING the teardown, not just around it"
 
 # M31: the marker is written and nobody refuses on it -- a guard wired to nothing, which is
 # what every "the mechanism exists" check would have signed off (F8's lesson, one file over).
