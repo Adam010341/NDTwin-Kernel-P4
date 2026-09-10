@@ -274,6 +274,58 @@ lastEcmpNodeIndex(const json& doc)
     return found;
 }
 
+/// Index of the LAST host node in the file.
+///
+/// [Co-developed with claude code -- Adam]
+/// FINDINGS #90 door 3d. Same reason as lastSwitchNodeIndex: the cases below assert
+/// `num_vertices == 0`, and a malformed FIRST node leaves zero vertices whether the refusal came
+/// before the builder or from inside it. In the shipped P4 4-host file the hosts come after all
+/// ten switches, so the last host has thirteen nodes in front of it.
+std::size_t
+lastHostNodeIndex(const json& doc)
+{
+    const auto& nodes = doc.at("nodes");
+    std::size_t found = 0;
+    for (std::size_t i = 0; i < nodes.size(); ++i)
+    {
+        if (static_cast<int>(nodes[i].at("vertex_type").get<int>()) == 1)
+        {
+            found = i;
+        }
+    }
+    return found;
+}
+
+/// Appends R0b's bad file `a`: one EXTRA host, `"ip": []`, that no edge names.
+///
+/// [Co-developed with claude code -- Adam]
+/// 🔴 EMPTYING AN EXISTING HOST'S "ip" DOES NOT REPRODUCE THE DEFECT, AND THE FIRST DRAFT OF THESE
+/// TESTS DID EXACTLY THAT AND WAS GREEN AGAINST IT. Every host in every shipped file is named by
+/// two edges through its address, so taking the address away makes those edges resolve to nothing
+/// and #61's edge door refuses the file -- for the EDGE, not for the host. Measured 2026-09-06
+/// against trunk 1536ff17 with door 3d absent, verbatim:
+///
+///     "src_dpid" is 0, so this end is resolved by address, and no node in this file carries
+///     10.0.0.4. Refusing the file: ...
+///
+/// The gate said the same thing from the other side: M17 (door 3d never fires) SURVIVED, because
+/// that case stayed green with the door switched off. R0b's file `a` ADDED a host instead, and
+/// that is the only shape that reaches the node side at all: a host nothing points at. R0b §2
+/// had already written down why -- "沒有位址就沒有 edge 指得到它".
+///
+/// The clone keeps every field the builder reads with at(); only the identity and the address
+/// change.
+void
+appendAddresslessHost(json& doc, const std::string& name)
+{
+    json host = doc.at("nodes")[lastHostNodeIndex(doc)];
+    host["device_name"] = name;
+    host["nickname"] = name;
+    host["ip"] = json::array();
+    host["mac"] = 9999;
+    doc["nodes"].push_back(host);
+}
+
 /// Index of the first edge with a switch on both sides.
 std::size_t
 firstSwitchEdgeIndex(const json& doc)
@@ -857,4 +909,167 @@ TEST(TopologyInputValidationTest, FromJsonHasNoProductionCallers)
         << " production caller(s), so door 1 of FINDINGS #89 is live and the unguarded extraction "
            "path is reachable from the kernel. Decide it rather than inheriting it:"
         << found;
+}
+
+// =================================================================================================
+// FINDINGS #90 / door 3d -- the HOST half of door 3b.
+//
+// [Co-developed with claude code -- Adam]
+// 🔴 THIS ONE WAS MEASURED, unlike #89's three doors. R0b (2026-09-05,
+// scratch/overnight-2026-09-05/rounds/05-R0b-postmerge2.md, bad file `a`, kernel 862c4bf8) added
+// one host with `"ip": []` to the shipped OVS 4-host model and ran it: the kernel ACCEPTED the
+// file with **zero** diagnostic -- 50 log lines, one `Server Listening on port 8000` -- and
+// /ndt/get_graph_data served the node as `('h9', [])`. The same round's file `b`, a switch with
+// the same defect, was refused with a full sentence: door 3b stops at `vertexType == SWITCH`.
+//
+// WHY THE FILE LAYER, WHEN #88 ALREADY GUARDED THE RUNTIME
+// #88 put guards on sixteen `ip.front()` sites so an addressless node cannot take the process
+// down. Its own inventory (W2-SUMMARY §2.2) then found seven more dereferences written `ip[0]`,
+// **five of them on the host side and production-reachable** -- IntentTranslator.cpp:665,:702,
+// LLMAgent.cpp:243, FlowLinkUsageCollector.cpp:2986,:2987 -- and did not fix them. The invariant
+// those five assume holds only if no file ever declares such a host. That is this door.
+//
+// 🔴 AN EXISTING GREEN TEST ASSERTED THE OPPOSITE AND WAS DELIBERATELY REVERSED:
+// test_SwitchKindDispatch.cpp's TopologyIpValidationTest.AHostWithNoAddressIsStillAllowed. Its
+// stated reason -- "rejecting them would refuse every topology that lists hosts before discovery,
+// which is all of them" -- is measurably false of the fleet: all thirteen shipped files give every
+// host an address (eight give one, the five _ipAlias4_ files give four), and tools/make_topology.py
+// always emits one. See doc/audit/2026-09-06_fix-host-address-door/FIX-HOST-ADDRESS-DOOR.md.
+// =================================================================================================
+
+TEST(TopologyInputValidationTest, AnAddresslessHostLeavesNoPartiallyLoadedGraph)
+{
+    // R0b file `a`, reproduced: one EXTRA host with `"ip": []` that no edge names. See
+    // appendAddresslessHost for why emptying an existing host instead measures nothing.
+    MutatedTopology topo("addressless_host");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t before = topo.doc().at("nodes").size();
+    appendAddresslessHost(topo.doc(), "h9");
+    ASSERT_EQ(topo.doc().at("nodes").size(), before + 1)
+        << "the case needs the addressless host to be an addition, and behind every other node";
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "a host with an empty \"ip\" array was accepted; the measured "
+                              "consequence was a node served as ('h9', []) on :8000";
+    EXPECT_EQ(out.vertices, 0u)
+        << "the file was refused only after " << out.vertices
+        << " vertices were already in the graph -- a partial application of a rejected file";
+    EXPECT_EQ(out.edges, 0u);
+}
+
+TEST(TopologyInputValidationTest, TheAddresslessHostRefusalNamesTheHost)
+{
+    // 🔴 The search is for `host "h9"`, WITH the noun, not for `h9` on its own -- and that is the
+    // whole point. The rethrow prefixes every message with describeTopologyItem's
+    // `node #14 "h9" ip=[]`, so a search for the bare name would be satisfied by the prefix and
+    // would pass with the diagnostic naming nothing. Same trap `without()` exists for at the top
+    // of this file: the instrument must not be able to produce the answer.
+    MutatedTopology topo("addressless_host_named");
+    ASSERT_TRUE(topo.usable());
+
+    appendAddresslessHost(topo.doc(), "h9");
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    ASSERT_TRUE(out.threw);
+    EXPECT_NE(out.messageSansPath.find("host \"h9\""), std::string::npos)
+        << "the refusal does not name the offending host: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, AnExistingHostLosingItsAddressNowNamesTheHostNotTheEdge)
+{
+    // 🔴 THE OTHER SHAPE, AND WHY IT IS A DIAGNOSTIC CLAIM RATHER THAN AN ACCEPTANCE ONE.
+    // Emptying an EXISTING host's "ip" was already refused before door 3d -- but by #61's EDGE
+    // door, two doors downstream, because the two edges that name that host by address stopped
+    // resolving. The operator was told `"src_dpid" is 0, ... no node in this file carries
+    // 10.0.0.4`: a true sentence about the wrong entry. The node they have to edit is the host.
+    //
+    // Door 3d runs in the node loop, which finishes before the edge loop starts, so the same file
+    // is now refused one door earlier and the message names the host. Both assertions matter: the
+    // second is what stops this from passing on the old edge-door message.
+    MutatedTopology topo("host_address_removed");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastHostNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    const std::string name = topo.doc()["nodes"][victim].at("device_name").get<std::string>();
+    topo.doc()["nodes"][victim]["ip"] = json::array();
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    ASSERT_TRUE(out.threw);
+    EXPECT_NE(out.messageSansPath.find("host \"" + name + "\""), std::string::npos)
+        << "the refusal still points at the edge rather than at the host: " << out.messageSansPath;
+    EXPECT_EQ(out.messageSansPath.find("no node in this file carries"), std::string::npos)
+        << "the edge door got there first, so the file is refused for the link and not for the "
+           "node the operator has to edit: "
+        << out.messageSansPath;
+    EXPECT_EQ(out.vertices, 0u);
+}
+
+TEST(TopologyInputValidationTest, AHostWithNoIpKeyAtAllIsRefusedInPlainLanguage)
+{
+    // 🔴 WHAT IS RED HERE BEFORE THE FIX IS ONLY THE LAST ASSERTION. The shared
+    // `at("ip")` read is inside the validator too, so a missing key already threw, already before
+    // the first add_vertex -- `threw` and `vertices` were green against this defect. What the
+    // operator got was `[json.exception.out_of_range.403] key 'ip' not found`: an exception class
+    // where a sentence belongs. R0b recorded exactly that complaint against door 3c's
+    // `bridge_name` before #89 rewrote it, and the same rewrite is owed here.
+    MutatedTopology topo("host_no_ip_key");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastHostNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim].erase("ip");
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "a host with no \"ip\" key was accepted";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.messageSansPath.find("json.exception"), std::string::npos)
+        << "the refusal is a raw nlohmann exception, not a diagnostic: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, AHostWhoseIpIsNotAnArrayIsRefusedInPlainLanguage)
+{
+    // The other shape of the same operator mistake: `"ip": "10.0.0.4"` instead of
+    // `"ip": ["10.0.0.4"]`. nlohmann answers that with type_error.302; same rewrite.
+    MutatedTopology topo("host_ip_not_array");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastHostNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim]["ip"] = "10.0.0.4";
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "a host whose \"ip\" is a bare string was accepted";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.messageSansPath.find("json.exception"), std::string::npos)
+        << "the refusal is a raw nlohmann exception, not a diagnostic: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, AHostWithMoreThanOneAddressStillLoads)
+{
+    // 🔴 The control that keeps door 3d from narrowing to "exactly one address". Five shipped
+    // TESTBED files give every host FOUR (they are the _ipAlias4_ files, and that is what the
+    // name means), so a check written `size() != 1` would refuse 160 hosts across five files --
+    // the fleet-breaking shape M8 pins for ports and M13 for bridge_name.
+    MutatedTopology topo("host_two_addresses");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastHostNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    auto addresses = topo.doc()["nodes"][victim].at("ip");
+    ASSERT_EQ(addresses.size(), 1u) << "the P4 4-host model gives each host one address";
+    addresses.push_back("10.9.9.9");
+    topo.doc()["nodes"][victim]["ip"] = addresses;
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_FALSE(out.threw) << "a host with two addresses was refused: " << out.message;
+    EXPECT_EQ(out.vertices, 14u);
+    EXPECT_EQ(out.edges, 40u);
 }

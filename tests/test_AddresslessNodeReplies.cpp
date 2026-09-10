@@ -722,7 +722,7 @@ TEST(AddresslessHostLoadTest, TheShippedTopologyLoads)
                                                      "address";
 }
 
-TEST(AddresslessHostLoadTest, AHostDeclaringAnEmptyIpArrayIsAcceptedAndReachesTheGraph)
+TEST(AddresslessHostLoadTest, AHostDeclaringAnEmptyIpArrayIsRefusedAtLoad)
 {
     auto topology = shippedTopology();
     ASSERT_FALSE(topology.is_null()) << "setting/ not found from this working directory";
@@ -733,8 +733,9 @@ TEST(AddresslessHostLoadTest, AHostDeclaringAnEmptyIpArrayIsAcceptedAndReachesTh
     // A new host node, cloned from a shipped one so every key the loader reads is present, with
     // its address list emptied. No edge names it, because an edge endpoint with dpid 0 is resolved
     // by address and validateStaticTopologyJson refuses one whose address no node holds -- that
-    // rule is about the EDGE's own "src_ip"/"dst_ip", and it is why blanking an attached host's
-    // address is refused while declaring an unattached one is not.
+    // rule is about the EDGE's own "src_ip"/"dst_ip". Until W3 door 3b it was the only door, so an
+    // unattached address-less host was accepted; since the 2026-09-10 merge of
+    // fix/w3-door3b-host-empty-ip the node loop refuses it too, which is what this case pins now.
     nlohmann::json host;
     for (const auto& node : topology["nodes"])
     {
@@ -753,25 +754,22 @@ TEST(AddresslessHostLoadTest, AHostDeclaringAnEmptyIpArrayIsAcceptedAndReachesTh
 
     const auto attempt = loadTopology(topology, "host_without_address");
 
-    EXPECT_FALSE(attempt.threw)
-        << "READ THIS BEFORE 'FIXING' THE TEST. A throw here means the loader has grown a "
-           "host-side address check -- almost certainly W3 door 3b, branch "
-           "fix/w3-door3b-host-empty-ip, which is being written in parallel with this one and "
-           "whose whole purpose is to refuse `\"ip\": []` on a host. That is GOOD NEWS and this "
-           "red is the intended signal, not a broken test.\n"
-           "The correct edit is to flip this case to expect the refusal -- assert threw, assert "
-           "the message names the host, assert vertices == 0, exactly like "
-           "TheSameEditOnASwitchIsRefused below -- and to record in "
-           "doc/audit/2026-09-06_fix-index-zero-guards/FIX-INDEX-ZERO-GUARDS.md section 2 that "
-           "file-level door now closes this route. Do NOT delete the case: the runtime guards "
-           "this suite pins stay justified either way (a file-level refusal and a runtime "
-           "non-crash are two layers, and the invariant would once again be one `if` in another "
-           "subsystem), and this is the record of which layer was load-bearing when.\n"
+    // Flipped at the 2026-09-10 merge of fix/w3-door3b-host-empty-ip (W3 door 3b; "door 3d" in the
+    // code and its gate), exactly as this case's own failure message asked for: the file-level
+    // door now refuses a host that declares an empty "ip" array before any vertex is applied. The
+    // case is kept, not deleted -- the five runtime guards this suite pins are the second layer,
+    // and this is the record of which layer was load-bearing when. Recorded in
+    // doc/audit/2026-09-06_fix-index-zero-guards/FIX-INDEX-ZERO-GUARDS.md section 2.1.1.
+    EXPECT_TRUE(attempt.threw)
+        << "W3 door 3b is in this tree (merged 2026-09-10) and refuses a host with no address at "
+           "load; a host that reached the graph here means the file-level door has been reopened. "
            "The load reported: "
         << attempt.message;
-    EXPECT_EQ(attempt.vertices, baseline.vertices + 1) << "the address-less host became a vertex";
-    EXPECT_EQ(attempt.hostsWithoutAnAddress, 1u)
-        << "this vertex is what every one of the five reachable sites then reads ip[0] on";
+    EXPECT_NE(attempt.message.find("h_no_address"), std::string::npos)
+        << "the refusal has to name the host it is about: " << attempt.message;
+    EXPECT_NE(attempt.message.find("declares an empty \"ip\" array"), std::string::npos)
+        << attempt.message;
+    EXPECT_EQ(attempt.vertices, 0u) << "refused without leaving a partial graph (#61)";
 }
 
 TEST(AddresslessHostLoadTest, TheSameEditOnASwitchIsRefused)
@@ -792,8 +790,9 @@ TEST(AddresslessHostLoadTest, TheSameEditOnASwitchIsRefused)
 
     const auto attempt = loadTopology(topology, "switch_without_address");
 
-    EXPECT_TRUE(attempt.threw) << "a switch with no address is refused; a host with none is not, "
-                                  "and that asymmetry is the whole reachability argument";
+    EXPECT_TRUE(attempt.threw) << "a switch with no address is refused at load; until W3 door 3b "
+                                  "(merged 2026-09-10) a host with none was not, and that asymmetry "
+                                  "was the whole reachability argument";
     EXPECT_NE(attempt.message.find("empty \"ip\" array"), std::string::npos) << attempt.message;
     EXPECT_EQ(attempt.vertices, 0u) << "refused without leaving a partial graph (#61)";
 }

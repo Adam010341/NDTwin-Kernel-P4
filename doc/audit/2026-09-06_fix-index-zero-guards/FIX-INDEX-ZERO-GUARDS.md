@@ -86,13 +86,14 @@ W2 的反向證據管的是 **edge 的 `src_ip`／`dst_ip`**：拿掉一個「�
 
 1. `TheShippedTopologyLoads` — 未改動的 `setting/StaticNetworkTopologyP4_10Switches_4Hosts.json`
    載得起來（前提；不成立的話下面兩支什麼都證不了）。
-2. `AHostDeclaringAnEmptyIpArrayIsAcceptedAndReachesTheGraph` — 同一份檔案**加一個** `"ip": []`
-   的 host 節點（沒有 edge 指名它），**載入不 throw**，而且那個 vertex 進了圖。
+2. `AHostDeclaringAnEmptyIpArrayIsRefusedAtLoad`（**原名 `…IsAcceptedAndReachesTheGraph`，2026-09-10 併
+   W3-3b 時翻面，見 §2.1.1**）— 同一份檔案**加一個** `"ip": []` 的 host 節點（沒有 edge 指名它）：
+   寫單時**載入不 throw、那個 vertex 進了圖**；翻面後斷言 throw、訊息指名該 host、`num_vertices == 0`。
 3. `TheSameEditOnASwitchIsRefused` — **同一個編輯**做在 SWITCH 上**被拒**，訊息含
    `empty "ip" array`，而且 `num_vertices == 0`（#61 的「拒絕不留半張圖」）。
 
 第 3 支是控制組：它讓第 2 支不是「我寫 JSON 的方式造成的假象」。
-**兩者的不對稱就是整個可達性論證。**
+**兩者的不對稱就是整個可達性論證**——在 W3-3b 之前的樹上；09-10 起兩支都拒（§2.1.1）。
 
 ⚠️ 這三支是**載入器**的性質，不是本次守衛的性質。如果哪天載入器長出 host 側的位址檢查，
 第 2 支會紅——那是**正確的訊號**（可達性前提變了，這份文件要改寫），不是壞掉的測試。
@@ -114,6 +115,13 @@ W2 的反向證據管的是 **edge 的 `src_ip`／`dst_ip`**：拿掉一個「�
 
 本單的**七處守衛不受影響**：門 3b 關的是檔案這條路，`updateHosts`（Ryu 那條）是另一個
 host vertex 的寫者，而「每個節點都有位址」這個不變量會再一次變成**另一個子系統裡的一個 `if`**。
+
+🏁 **2026-09-10 併時已做**（`integrate-0910`，做整合的 session）：`AHostDeclaringAnEmptyIpArrayIsAcceptedAndReachesTheGraph`
+改名 `AHostDeclaringAnEmptyIpArrayIsRefusedAtLoad`，斷言 throw、訊息含 `h_no_address` 與 `declares an empty "ip" array`、
+`num_vertices == 0`；`TheSameEditOnASwitchIsRefused` 的失敗訊息同步改口（host 也拒了，不對稱只存在於 W3-3b 之前的樹）。
+**案例沒有刪。** `tests/shell/` 沒有任何閘門或錨點引用這個測試名（grep 0 命中）。
+⚠️ 翻面那支在合併樹上「紅／綠」都還沒跑——併後的全建＋ctest 與 `mutate_topology_input_is_validated.sh`
+（門 3d 被拿掉時它必須紅）跑完才算；逐字在 `scratch/overnight-2026-09-05/rounds/10-merge-0910.md` 步 14。
 
 ### 2.2 那兩處 SWITCH 為什麼還是改了
 
