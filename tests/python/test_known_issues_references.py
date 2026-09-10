@@ -136,8 +136,39 @@ CODE_RE = re.compile(r"\b([A-Z]-\d+[a-z]?)\b")
 #: sites on `1a284f75` dropped the suffix), and a scanner that reads only the longer spelling
 #: documents its own bypass. Widening of the ticket's regex; FIX-KIREF.md §5.
 #: 🔴 No literal example here, on purpose: this file is inside the scanned tree, and the first
-#: run of this scanner reported THIS comment as a finding about itself.
-CITATION_RE = re.compile(r"KNOWN-ISSUES(?:\.md)? ?: ?(\d+)(?: ?[-–] ?(\d+))?")
+#: run of this scanner reported THIS comment as a finding about itself. `<N>` below stands for
+#: the digits.
+#:
+#: 🔴 B12 (2026-09-11). This used to be `... ?: ?(\d+)` -- one colon, spelled one way, with
+#: at most one space each side, and the document name hyphenated one way.
+#: hunt-0911/F-B0-B12-REPORT.md §3.1 rows (5)b..(5)e put four re-spellings of ONE citation through
+#: it and got `violations=0` out of every one: the name with an UNDERSCORE, a GitHub blob anchor
+#: `#L<N>`, the English word `line <N>`, and extra spaces around the colon. A citation is a claim
+#: about a line of that document whatever punctuation carries it, and the claim is what rots.
+#:
+#: The Chinese form is in for the same reason: this repo's documents are written in Chinese, and
+#: doc/audit/2026-09-02_fix-design-campaign/findings/NDT-HARNESS.md:52 has been citing two line
+#: numbers as `第<N>／<N>行` since 09-02. They went stale exactly the way the other 62 did -- the
+#: lines it names are now inside an entry about netem scanning.
+#:
+#: 🔴 `行<N>` -- the marker BEFORE the number -- is deliberately NOT a line citation, and the
+#: lookahead is what keeps them apart. §L of the document numbers its ROWS `| **02** |`,
+#: `| **05** |`, and doc/audit/2026-09-02_fix-design-campaign/LEDGER.md:69's `行 02/05` means those
+#: rows: a correct entry citation. Reading it as "lines 2 and 5" would report a citation that is
+#: right, and the only way to get the tree green again would be to delete something true.
+_KI_DOC = r"KNOWN[-_]ISSUES(?:\.md)?"
+#: What may join the two numbers of a range, or two line numbers cited together.
+_KI_JOIN = r"[-–—]|\#?L|／|/|、"
+_KI_LINE_SEP = (
+    r"[ \t]*[:：][ \t]*"                      # a colon, ASCII or fullwidth, any spacing
+    r"|\#L"                                       # a GitHub blob anchor
+    r"|[ \t]*,?[ \t]*[Ll]ines?[ \t]*"            # the English word
+    # the Chinese form. The lookahead requires the marker AFTER the digits, which is what
+    # separates a line citation from a row label -- see the note above.
+    r"|[ \t]*第?[ \t]*(?=\d+(?:[ \t]*(?:" + _KI_JOIN + r")[ \t]*\d+)*[ \t]*行)"
+)
+CITATION_RE = re.compile(_KI_DOC + r"(?:" + _KI_LINE_SEP + r")(\d+)"
+                         r"(?:[ \t]*(?:" + _KI_JOIN + r")[ \t]*(\d+))?")
 
 #: A `### ` / `## ` heading. The negative lookahead matters: without it `^## ` also matches
 #: `### A-1` (with the third `#` swallowed into the title) and every level-3 heading would be
@@ -357,7 +388,11 @@ def scan_tree(root):
         except OSError:
             continue
         scanned += 1
-        if "KNOWN-ISSUES" not in text:
+        # 🔴 A fast path is still a rule. This used to test for the hyphenated name, so the
+        # underscore spelling B12 row (5)b found was skipped BEFORE CITATION_RE ever saw it --
+        # a second spelling test, hidden behind an optimisation, and the widened regex alone
+        # would not have fixed it. The prefix both spellings share is the only safe filter.
+        if "KNOWN" not in text:
             continue
         citations += len(CITATION_RE.findall(text))
         violations.extend(check_text(rel, text, spans, ki_lines))
@@ -409,6 +444,37 @@ def cite(n, m=None, with_md=True):
     tests/ is inside the scanned tree and a literal here would be a finding about itself."""
     return "%s%s:%d%s" % ("KNOWN-ISSUES", ".md" if with_md else "", n,
                           "-%d" % m if m else "")
+
+
+SPELLINGS = ("underscore", "blob-anchor", "the-word-line", "roomy-colon",
+             "fullwidth-colon", "chinese")
+
+
+def cite_as(spelling, n, m=None):
+    """The same citation of line `n`, in one of the spellings B12 found this scanner blind to.
+
+    Assembled out of pieces for the reason cite() gives: tests/ is inside the scanned tree, so
+    a literal citation written here would be a finding this file produces about itself.
+    """
+    doc = "KNOWN" + ("_" if spelling == "underscore" else "-") + "ISSUES" + ".md"
+    span = "" if m is None else "-%d" % m
+    if spelling == "underscore":
+        return "%s:%d%s" % (doc, n, span)
+    if spelling == "blob-anchor":
+        return "%s#L%d%s" % (doc, n, "#L%d" % m if m else "")
+    if spelling == "the-word-line":
+        return "%s line %d%s" % (doc, n, span)
+    if spelling == "roomy-colon":
+        return "%s  :  %d%s" % (doc, n, span)
+    if spelling == "fullwidth-colon":
+        return "%s\uff1a%d%s" % (doc, n, span)
+    if spelling == "chinese":
+        inner = "%d" % n if m is None else "%d\uff0f%d" % (n, m)
+        return "KNOWN" + "-" + "ISSUES \u7b2c %s \u884c" % inner
+    if spelling == "chinese-row":
+        inner = "%02d" % n if m is None else "%02d/%02d" % (n, m)
+        return "KNOWN" + "-" + "ISSUES \u884c %s" % inner
+    raise AssertionError("no such spelling: %r" % (spelling,))
 
 
 class TreeFixture(object):
@@ -558,6 +624,91 @@ class WhatIsAViolation(unittest.TestCase):
         self.assertEqual(WRONG_ENTRY, v[0].kind,
                          "20 of the 62 sites on 1a284f75 wrote it without `.md`; a scanner "
                          "blind to that spelling ships its own bypass")
+
+
+class TheSpellingOfTheCitationIsNotThePoint(unittest.TestCase):
+    """B12: the same claim about the same line, written the ways this tree actually writes it.
+
+    🔴 Every case below came back `violations=0` on trunk c81dabbb -- see
+    logs/gates-0910/b12-test_known_issues_references.BEFORE.log, which runs this class against
+    the old one-colon regex. Not one of them differs from
+    WhatIsAViolation.test_a_line_in_another_entry_is_reported in what it CLAIMS; they differ in
+    the punctuation that carries the claim. A citation rots because the document moved under it,
+    and the document does not know which separator was used.
+    """
+
+    def test_each_spelling_of_a_wrong_line_is_reported(self):
+        for spelling in SPELLINGS:
+            with self.subTest(spelling=spelling):
+                t = TreeFixture(self, {"doc/x.md": "\u898b KNOWN-ISSUES A-1\uff08`%s`\uff09\u3002\n"
+                                                   % cite_as(spelling, 11)})
+                v = t.scan()
+                self.assertEqual(1, len(v), report(v))
+                self.assertEqual(WRONG_ENTRY, v[0].kind)
+                self.assertEqual("A-1", v[0].claimed)
+                self.assertIn("A-4c", v[0].actual)
+
+    def test_two_line_numbers_cited_together_are_both_checked(self):
+        """NDT-HARNESS.md:52's shape: two lines joined by a fullwidth solidus. The near end is
+        inside the entry claimed and the far end is not, so a scanner that read only the first
+        number would call this correct."""
+        t = TreeFixture(self, {"doc/x.md": "A-1\uff08`%s`\uff09\n" % cite_as("chinese", 7, 11)})
+        v = t.scan()
+        self.assertEqual(1, len(v), report(v))
+        self.assertEqual(WRONG_ENTRY, v[0].kind)
+
+    def test_a_citation_with_no_code_is_reported_in_every_spelling_too(self):
+        for spelling in SPELLINGS:
+            with self.subTest(spelling=spelling):
+                t = TreeFixture(self, {"doc/x.md": "\u7d30\u7bc0\u898b `%s`\u3002\n"
+                                                   % cite_as(spelling, 11)})
+                v = t.scan()
+                self.assertEqual(1, len(v), report(v))
+                self.assertEqual(NO_CODE, v[0].kind)
+                self.assertIn(FIX_ADVICE, str(v[0]))
+
+
+class TheWideningStillHoldsItsFire(unittest.TestCase):
+    """🔴 The other direction, one control per spelling admitted above.
+
+    A scanner that reported a CORRECT citation would satisfy every case in the class above and
+    turn the ruling into a ban on line numbers, which is not what was ruled -- and the only way
+    to get the tree green again would be to delete something true.
+    """
+
+    def test_a_correct_citation_in_each_spelling_is_left_alone(self):
+        for spelling in SPELLINGS:
+            with self.subTest(spelling=spelling):
+                t = TreeFixture(self, {"doc/x.md": "\u898b KNOWN-ISSUES A-4c\uff08`%s`\uff09\u3002\n"
+                                                   % cite_as(spelling, 11)})
+                self.assertEqual([], t.scan(), report(t.scan()))
+
+    def test_a_row_label_is_not_a_line_number(self):
+        """🔴 The case that pays for the Chinese spelling. §L of the document numbers its ROWS
+        `| **02** |` and `| **05** |`, and
+        doc/audit/2026-09-02_fix-design-campaign/LEDGER.md:69 cites them as `行 02/05` -- the
+        marker BEFORE the number, which in this repo means the row and not the line. Reading it
+        as "lines 2 and 5" reports a correct entry citation as a violation."""
+        t = TreeFixture(self, {"doc/x.md": "NDT-HARNESS\uff1a%s \u5df2\u904e\u671f\u3002\n"
+                                           % cite_as("chinese-row", 2, 5)})
+        self.assertEqual([], t.scan(), report(t.scan()))
+
+    def test_a_bare_entry_code_is_still_invisible(self):
+        """The ruling's whole point: `KNOWN-ISSUES B-11` with no line number is the CORRECT
+        citation, and this scanner must have nothing to say about it."""
+        t = TreeFixture(self, {"doc/x.md": "\u898b KNOWN-ISSUES A-4c\u3002\n"})
+        self.assertEqual([], t.scan(), report(t.scan()))
+
+    def test_another_document_with_a_line_number_is_not_this_document(self):
+        t = TreeFixture(self, {"doc/x.md": "\u898b `OTHER-ISSUES.md:11`\u3002\n"})
+        self.assertEqual([], t.scan(), report(t.scan()))
+
+    def test_a_chapter_number_is_not_a_line_number(self):
+        """`\u7b2c N \u7ae0` is a chapter, `\u7b2c N \u884c` is a line. The lookahead reads the marker that
+        follows the digits, so the two do not collapse into each other."""
+        t = TreeFixture(self, {"doc/x.md":
+                               "\u898b KNOWN" + "-" + "ISSUES \u7b2c 11 \u7ae0\u3002\n"})
+        self.assertEqual([], t.scan(), report(t.scan()))
 
 
 # --- which files are read -----------------------------------------------------------------
