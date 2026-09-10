@@ -131,60 +131,49 @@ describeTopologyItem(const json& item, const char* kind, std::size_t index)
 /// exactly that. This bound catches typos and generator bugs, not mistakes.
 constexpr std::uint32_t kMaxTopologyInterface = 65535;
 
-/// The switch `brand_name` values this build knows how to drive.
+// 🔴 kAcceptedSwitchBrands AND acceptedSwitchBrandList() USED TO LIVE HERE, AND MOVED TO
+// common_types/GraphTypes.hpp ON 2026-09-07 (W15-1(b), Adam's ruling of 2026-09-06). The list and
+// the mapping it has to agree with are one truth, and keeping them in two files cost a textual
+// tripwire to hold together; the header is where switchKindFromBrandName is, so that is where the
+// list belongs. The whole-tree rebuild that costs is the reason #91 did not do it. Everything
+// below still refers to the same two names -- they are simply not defined here any more.
+
+/// Does this node carry an explicit `switch_kind` this build can actually dispatch on?
 ///
 /// [Co-developed with claude code -- Adam]
-/// FINDINGS #91 / W15. `switchKindFromBrandName` (GraphTypes.hpp) maps "BMv2" and "OVS" and
-/// returns HARDWARE for **everything else**, which is a default, not a decision: a typo in a
-/// topology file became a hardware switch silently. Measured 2026-09-05 (R0b, kernel 862c4bf8,
-/// bad file `c`): `brand_name = "NOT_A_REAL_KIND"` on one switch of an all-OVS fabric was
-/// ACCEPTED, and the only thing the operator saw was
+/// FINDINGS #91 / W15-2, Adam's ruling of 2026-09-06 (grill §4D round 3, "有明確 `switch_kind`
+/// 就豁免"). #91 refused every unrecognised `brand_name`, and the cost written into its own §5
+/// was that an operator holding a switch this codebase has no power path for -- a Cisco, an
+/// Arista -- had to edit one line of C++ before the kernel would read their topology at all.
+/// The ruling reverses that for the case where the file has said, explicitly and in the key
+/// meant for it, which data plane the switch is to be driven as.
 ///
-///     [error] ... Topology mixes data planes (ovs=[1,2,3,4,5,6,8,9,10]; hardware=[7]). ...
-///     Fix the topology file, or set AppConfig::ALLOW_MIXED_DATAPLANE to override.
+/// 🔴 THREE THINGS MUST HOLD, AND THE THIRD IS THE ONE THAT IS EASY TO DROP. The key must be
+/// present, it must be a string, and its value must name a kind switchKindFromString accepts.
+/// A `"switch_kind": "cisco"` is not an escape hatch -- it is a second typo, and admitting a file
+/// on the strength of one would be exactly the silent fallback #91 exists to abolish.
 ///
-/// -- an error-level sentence in the voice of a refusal, followed by the kernel opening :8000 and
-/// serving the model. Worse, its advice would make the typo permanent: setting that flag turns
-/// every misspelled brand into a hardware switch by consent.
-///
-/// 🔴 THIS LIST IS THE FLEET, NOT A GUESS, and it must not be narrowed to the two virtual kinds.
-/// Every `brand_name` literal in every JSON file in this repository (2026-09-06): "" (hosts),
-/// "BMv2", "OVS", "HPE5520", "BrocadeICX7250", "BrocadeICX6610" -- nothing else. Five of the
-/// thirteen shipped topologies are TESTBED files whose switches are HPE or Brocade, so a list of
-/// {OVS, BMv2} would refuse all five: a wider outage than the defect.
-///
-/// Each entry is a brand some code actually branches on. OVS and BMv2 select the routing
-/// strategy through SwitchKind; "HPE5520" selects the SNMP power/temperature path in
-/// DeviceConfigurationAndPowerManager.cpp, and the two Brocade models are what its else-branch
-/// ("Brocade / Others (Currently via SSH)") was written for. A brand outside this list gets that
-/// SSH branch by accident rather than by design, which is what makes accepting it a lie rather
-/// than a limitation.
-///
-/// A new switch model belongs here AND in a power/telemetry path; TopologyInputValidationTest's
-/// TheAcceptedBrandListCoversEveryBrandTheCodeBranchesOn is the tripwire for adding it to one and
-/// not the other.
-constexpr std::array<std::string_view, 5> kAcceptedSwitchBrands{
-    "OVS",            // Mininet bridge, driven through Ryu             -> SwitchKind::OVS
-    "BMv2",           // P4 behavioural model, driven through the proxy -> SwitchKind::BMV2
-    "HPE5520",        // testbed hardware, SNMP power + temperature
-    "BrocadeICX6610", // testbed hardware, SSH power
-    "BrocadeICX7250", // testbed hardware, SSH power
-};
-
-/// The accepted brands as one comma-separated string, for the refusal to print.
-std::string
-acceptedSwitchBrandList()
+/// ⚠️ Written to stand on its own rather than to rely on door 3a running first. Door 3a does run
+/// first today and throws on a malformed value, so the false returns below are unreachable
+/// through that path -- but "unreachable because of the order of two checks twenty lines apart"
+/// is not a property anyone maintains, and if the doors are ever reordered this predicate must
+/// still refuse to exempt a file it cannot vouch for.
+bool
+declaresLegalSwitchKind(const json& nodeJson)
 {
-    std::string joined;
-    for (const auto brand : kAcceptedSwitchBrands)
+    if (!(nodeJson.contains("switch_kind") && nodeJson.at("switch_kind").is_string()))
     {
-        if (!joined.empty())
-        {
-            joined += ", ";
-        }
-        joined += brand;
+        return false;
     }
-    return joined;
+    try
+    {
+        (void)switchKindFromString(nodeJson.at("switch_kind").get<std::string>());
+    }
+    catch (const std::invalid_argument&)
+    {
+        return false;
+    }
+    return true;
 }
 
 /** @brief Refuse a topology document that names things the document does not contain.
@@ -365,8 +354,22 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
                     "through is read from it (accepted: " + acceptedSwitchBrandList() + ")");
             }
             const auto brandName = nodeJson.at("brand_name").get<std::string>();
+            // ---- W15-2: the switch_kind exemption ----
+            // [Co-developed with claude code -- Adam]
+            // 🔴 THE ONE THING THIS EXEMPTION MUST NOT BECOME IS THE OLD FALLBACK. #91's defect
+            // was that an unrecognised brand was mapped to HARDWARE **by default**, with nothing
+            // said. What is admitted here is not a default: the file has named a data plane in
+            // the key that exists for naming one, so the twin is doing what it was told rather
+            // than guessing. `declaresLegalSwitchKind` is deliberately strict about what counts
+            // as having been told -- see it.
+            //
+            // The price is recorded rather than waived: powerPathForBrandName /
+            // telemetryPathForBrandName give such a switch "none" for both, the builder writes
+            // them onto the vertex, and /ndt/get_static_topology_json publishes them (manual
+            // section 38). Nobody manages this machine's power or health, and the graph says so.
             if (std::find(kAcceptedSwitchBrands.begin(), kAcceptedSwitchBrands.end(), brandName) ==
-                kAcceptedSwitchBrands.end())
+                    kAcceptedSwitchBrands.end() &&
+                !declaresLegalSwitchKind(nodeJson))
             {
                 throw std::runtime_error(
                     "switch dpid " + std::to_string(nodeJson.at("dpid").get<std::uint64_t>()) +
@@ -377,7 +380,10 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
                     "sent the switch down the SNMP/SSH testbed paths and made an all-OVS fabric "
                     "report itself as a mixed data plane. A new switch model has to be added to "
                     "kAcceptedSwitchBrands and given a power/telemetry path before a topology "
-                    "file may name it");
+                    "file may name it -- or, if this build only has to model the switch rather "
+                    "than power it, add an explicit \"switch_kind\" (ovs, bmv2/p4, or hardware) "
+                    "to this node, which admits it with \"power_path\" and \"telemetry_path\" "
+                    "reported as \"none\"");
             }
         }
 
@@ -894,6 +900,20 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
         {
             vp.switchKind = switchKindFromBrandName(vp.brandName);
         }
+
+        // [Co-developed with claude code -- Adam]
+        // FINDINGS #91 / W15-2. Which power and health path this build has for this brand,
+        // recorded on the vertex so the answer travels with the switch instead of being
+        // re-derived by every reader. For a switch admitted only by the switch_kind exemption
+        // both are "none", which is the whole condition Adam attached to that ruling: the file
+        // may model a machine this build cannot drive, and the graph must say that it cannot.
+        //
+        // Keyed on brand_name, NOT on switchKind, and the two disagree on purpose -- see
+        // powerPathForBrandName. `switch_kind` chooses the routing/actuation strategy; the
+        // brand is what selects a power OID or an SSH login, and an unrecognised brand selects
+        // neither.
+        vp.powerPath = powerPathForBrandName(vp.brandName);
+        vp.telemetryPath = telemetryPathForBrandName(vp.brandName);
 
         vp.deviceLayer = nodeJson.at("device_layer").get<int>();
 
@@ -4820,6 +4840,11 @@ TopologyAndFlowMonitor::getStaticTopologyJson()
                     // would have power-cycled one wrong outlet for all ten switches. The
                     // duplicate {"brand_name", v.brandName} that appeared twice in this
                     // initialiser is also gone; nlohmann just overwrote it, so it was dead.
+                    //
+                    // `power_path` / `telemetry_path` (FINDINGS #91 / W15-2) are on the SWITCH
+                    // branches only, and on both of them: a host has no brand, no plug and no
+                    // OID, so publishing "none" for one would invite the reading that some other
+                    // host might have a path. Manual section 38 documents the vocabulary.
                     result["nodes"].push_back({{"ip", utils::ipToString(v.ip)},
                                                {"dpid", v.dpid},
                                                {"mac", v.mac},
@@ -4828,7 +4853,9 @@ TopologyAndFlowMonitor::getStaticTopologyJson()
                                                {"brand_name", v.brandName},
                                                {"device_layer", v.deviceLayer},
                                                {"smart_plug_ip", v.smartPlugIp},
-                                               {"smart_plug_outlet", v.smartPlugOutlet}});
+                                               {"smart_plug_outlet", v.smartPlugOutlet},
+                                               {"power_path", v.powerPath},
+                                               {"telemetry_path", v.telemetryPath}});
                 }
                 else
                 {
@@ -4841,7 +4868,9 @@ TopologyAndFlowMonitor::getStaticTopologyJson()
                                                {"brand_name", v.brandName},
                                                {"device_layer", v.deviceLayer},
                                                {"smart_plug_ip", v.smartPlugIp},
-                                               {"smart_plug_outlet", v.smartPlugOutlet}});
+                                               {"smart_plug_outlet", v.smartPlugOutlet},
+                                               {"power_path", v.powerPath},
+                                               {"telemetry_path", v.telemetryPath}});
                 }
             }
             else
