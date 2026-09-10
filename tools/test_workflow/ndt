@@ -5895,10 +5895,14 @@ residue_report() {
 #   stack: kernel=up|down dataplane=p4|mininet|none bmv2=<n> mininet=<n> proxy=up|down
 #          verdict=whole-up|whole-down|HALF
 #
-# 🔴 Only readings that need no privilege: two port probes and two process counts. Adding
-# `sudo -n ovs-vsctl` or `sudo -n tmux` here would make `ndt apps orphans` -- a read-only
-# question anyone can ask -- depend on a grant, and a refused sudo would arrive as a missing
-# half, which is the shape this line exists to make visible.
+# 🔴 Only readings that need no privilege: two port probes and two process counts. Reaching for
+# ovs_bridge_count or topo_session here -- both of which go through sudo -- would make
+# `ndt apps orphans`, a read-only question anyone can ask, depend on a grant, and a refused
+# privileged call would arrive as a missing half, which is the shape this line exists to make
+# visible. (Spelled as function names on purpose: tests/shell/test_ndt_sudo_surface.sh extracts
+# every `sudo -n <cmd>` in this file INCLUDING the ones in comments, because a command a comment
+# teaches needs a grant as much as one the code runs -- so naming them literally here would
+# demand rows for commands this function does not call.)
 #
 # 🔴 HALF means the two halves DISAGREE: a control plane with no data plane, or a data plane
 # with no control plane. Not "something is up" -- `apps orphans` is asked BEFORE the down as
@@ -6411,7 +6415,7 @@ usage: ndt <command>
                   residue FOUND is a problem, and it is rc 1 ONLY while there is a
                   baseline: with no up.target the whole report is rc 3, and the
                   residue and knob problems are printed under "everything else this
-                  report could still check" rather than raising the code. `ndt down`
+                  report could still check" rather than raising the code. 'ndt down'
                   clears the baseline, so that is the state at the END of every
                   round -- exactly when a rule is most likely to be left on the wire
                   with no process to attribute it to. Read the residue ROW, not the
