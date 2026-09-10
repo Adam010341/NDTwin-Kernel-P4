@@ -21,7 +21,7 @@
  *         learned as a host by both control planes.
  *
  * Expected behaviour is derived from:
- *   1. doc/KNOWN-ISSUES.md §C rows F-4 (:881), F-14 (:883), F-16 (:884) and the §D ruling (:965)
+ *   1. doc/KNOWN-ISSUES.md §C rows F-4, F-14 and F-16, and the §D ruling on F-4 (by code)
  *   2. include/common_types/GraphTypes.hpp -- the three availability flags, DownReason, and the
  *      rule that hosts are the vertices carrying no datapath id
  *   3. include/ndt_core/collection/TopologyAndFlowMonitor.hpp -- reconcileDerivedLiveness's

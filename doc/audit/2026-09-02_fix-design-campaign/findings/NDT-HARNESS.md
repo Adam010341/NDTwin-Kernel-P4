@@ -377,7 +377,7 @@ commit 用**逐檔列出的 pathspec**（不是目錄），新檔先 `git add -N
 2. **`25_apps_energy.sh:227` 之後加一行呼叫**——兩行 `info` 保留當細節，gate 是新的那一行。
 3. **`tests/shell/test_harness_instruments.sh`**（34 條，6 組）。
 4. **`tests/shell/mutate_harness_instruments.sh`**（12 個突變）。
-5. **`doc/KNOWN-ISSUES.md` 第 1520／1523 行**：row 02 改 🟢、row 05 改 🟢＋寫出 09-02 找到的那一半。
+5. **`doc/KNOWN-ISSUES.md` 的 G-2 row 02／row 05**（寫下時寫的是「第 1520／1523 行」，而那兩個行號已經漂進別的條目）：row 02 改 🟢、row 05 改 🟢＋寫出 09-02 找到的那一半。
    **只動這兩行的「現況」欄**，row 04（別人的）與其餘各列一個字都沒碰。
 
 ---
