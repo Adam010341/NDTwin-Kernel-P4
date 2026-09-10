@@ -1,0 +1,40 @@
+### E-17 final pass at the committed tip
+### date: 2026-09-07T21:12:49+08:00
+### HEAD: 2f181481cf9b91d08575aa24505758b3056b85e0
+### git status --porcelain:
+###   ?? doc/audit/2026-09-07_fix-e17-test-tmpdir-gate/05-final-at-tip.log
+###   ?? p4_proxy/venv
+
+=== 1. the scanner on this branch ===
+check_test_tmpdirs: 220 file(s) scanned, 0 fixed temp paths
+rc=0
+
+=== 2. its own tests, /usr/bin/python3, the way l1_unit_tests.sh runs them (-v, from repo root) ===
+----------------------------------------------------------------------
+Ran 31 tests in 1.028s
+
+OK
+skips: 0
+
+=== 3. its own tests, p4_proxy/venv/bin/python ===
+----------------------------------------------------------------------
+Ran 31 tests in 0.782s
+
+OK
+venv python: Python 3.13.13
+
+=== 4. mutation gate ===
+
+baseline byte-identical: yes (check_test_tmpdirs.py was never written)
+GATE-SUMMARY mutations=11 survived=0
+mutation gate: 11 mutations, 0 survived
+
+=== 5. check_gate_anchors.py HEAD ===
+
+74/74 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+rc=0
+mutate_check_test_tmpdirs.sh                   ok(11)        
+mutate_logger_cli.sh                           ok(12)        
+
+=== 6. test_l1_shell_scoring.sh: 7 red at HEAD AND 7 red at the base c3d99d00 (pre-existing) ===
+Ran 73 checks, 7 failed

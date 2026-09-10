@@ -1,0 +1,21 @@
+### E-17: the mutation gate for the gate
+### date: 2026-09-07T21:08:27+08:00
+baseline (must be green before any mutation):
+OK
+
+  caught   M1: tests/*.cpp is no longer one of the suites               (test_the_cpp_suite_is_scanned_by_the_tree_walk went red)
+  caught   M2: only /tmp/ is a temp root, not temp_directory_path()     (test_a_constant_joined_onto_temp_directory_path went red)
+  caught   M3: findings are printed and the run still exits 0           (test_a_tree_with_a_fixed_path_exits_1_and_names_it went red)
+  caught   M9: a shell name is not followed from where it was chosen    (test_shell_constant_reached_through_a_name went red)
+  caught   M4 (widening): mkdtemp no longer makes a path safe           (test_mkdtemp_under_a_fixed_parent_cannot_collide went red)
+  caught   M10 (widening): every argument of every command is a write   (test_shell_words_that_are_data went red)
+  caught   M11 (widening): a triple-quoted blob is read as this file's own paths (test_a_triple_quoted_blob_is_data went red)
+  caught   M5: the <<< guard is back, so a herestring reads as a heredoc (test_a_herestring_is_not_a_heredoc went red)
+  caught   M6: quoting does not restart inside "$( ... )"               (test_quoting_restarts_inside_a_command_substitution went red)
+  caught   M7: a file left mid-string is reported as clean              (test_an_unterminated_quote_is_not_a_clean_file went red)
+  caught   M8 (widening): C++ comments are read as code                 (test_a_defect_quoted_in_a_c_comment went red)
+
+baseline byte-identical: yes (check_test_tmpdirs.py was never written)
+GATE-SUMMARY mutations=11 survived=0
+mutation gate: 11 mutations, 0 survived
+GATE_RC=0

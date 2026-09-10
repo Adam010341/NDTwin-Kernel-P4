@@ -1,0 +1,49 @@
+### E-17 red/green: check_test_tmpdirs.py against c3d99d00's six hunks
+### date: 2026-09-07T21:08:10+08:00   worktree HEAD: c3d99d002d57ff7c742c22a0b187909892a1cbd8
+### scanner sha256: 92e0c193da7d567a99989814a5712cebcd95b6ee01a2e5be2ffb8f3d3f180a41
+### method: the tests/ tree is COPIED to a temp dir; each hunk is reverted in the COPY only
+###         (git show c3d99d00^:<file>), never in the worktree.
+
+=== GREEN: the branch as it stands ===
+check_test_tmpdirs: 220 file(s) scanned, 0 fixed temp paths
+rc=0
+
+=== RED: tests/test_IntentTaskOutcomes.cpp reverted to c3d99d00^ in the copy ===
+tests/test_IntentTaskOutcomes.cpp:121: temp_directory_path() joined with a name that is the same in every process (no getpid() / mkstemp / mkdtemp in this statement)
+      m_root = std::filesystem::temp_directory_path() / "ndtwin_test_intent_task_outcomes";
+check_test_tmpdirs: 1 fixed temp path(s) in 1 file(s), out of 220 file(s) scanned.
+rc=1
+
+=== RED: tests/test_ApiKeyNotLogged.cpp reverted to c3d99d00^ in the copy ===
+tests/test_ApiKeyNotLogged.cpp:102: temp_directory_path() joined with a name that is the same in every process (no getpid() / mkstemp / mkdtemp in this statement)
+      public: TempPromptFile() : m_path(std::filesystem::temp_directory_path() / "ndtwin_test_llm_prompt_apikey_not_logged.txt") {
+check_test_tmpdirs: 1 fixed temp path(s) in 1 file(s), out of 220 file(s) scanned.
+rc=1
+
+=== RED: tests/test_HistoricalLogging.cpp reverted to c3d99d00^ in the copy ===
+tests/test_HistoricalLogging.cpp:118: temp_directory_path() joined with a name that is the same in every process (no getpid() / mkstemp / mkdtemp in this statement)
+      public: explicit TempDir(const std::string& name) : m_path(std::filesystem::temp_directory_path() / name) {
+check_test_tmpdirs: 1 fixed temp path(s) in 1 file(s), out of 220 file(s) scanned.
+rc=1
+
+=== RED: tests/test_SwitchKindDispatch.cpp reverted to c3d99d00^ in the copy ===
+tests/test_SwitchKindDispatch.cpp:66: temp_directory_path() joined with a name that is the same in every process (no getpid() / mkstemp / mkdtemp in this statement)
+      m_path = std::filesystem::temp_directory_path() / ("ndt_topo_test_" + std::to_string(++s_counter) + ".json");
+check_test_tmpdirs: 1 fixed temp path(s) in 1 file(s), out of 220 file(s) scanned.
+rc=1
+
+=== RED: tests/test_LeftBandwidthCapacity.cpp reverted to c3d99d00^ in the copy ===
+tests/test_LeftBandwidthCapacity.cpp:78: temp_directory_path() joined with a name that is the same in every process (no getpid() / mkstemp / mkdtemp in this statement)
+      m_path = std::filesystem::temp_directory_path() / ("ndt_f8_topo_" + std::to_string(++s_counter) + ".json");
+check_test_tmpdirs: 1 fixed temp path(s) in 1 file(s), out of 220 file(s) scanned.
+rc=1
+
+=== RED: tests/test_SFlowEmitterRoundtrip.cpp reverted to c3d99d00^ in the copy ===
+tests/test_SFlowEmitterRoundtrip.cpp:481: temp_directory_path() joined with a name that is the same in every process (no getpid() / mkstemp / mkdtemp in this statement)
+      const auto path = std::filesystem::temp_directory_path() / ("ndt_late_topo_" + std::to_string(++m_counter) + ".json");
+check_test_tmpdirs: 1 fixed temp path(s) in 1 file(s), out of 220 file(s) scanned.
+rc=1
+
+=== GREEN again: the copy restored ===
+check_test_tmpdirs: 220 file(s) scanned, 0 fixed temp paths
+rc=0

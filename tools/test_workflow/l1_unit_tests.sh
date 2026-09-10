@@ -137,8 +137,53 @@ l1_lane_verdict() {
     fi
 }
 
-# Everything below this line runs the lane. The suite that tests the two functions above stops
-# here; nothing before it builds, writes or connects to anything.
+# l1_check_test_tmpdirs <repo> <log> -- run that repo's temp-path scanner and report it.
+# Echoes the lane's line(s); returns 0 when the tree is clean, 1 otherwise.
+#
+# [Co-developed with claude code -- Adam]
+# 2026-09-08, decision E-17. tests/shell/check_test_tmpdirs.py asks whether any test CREATES a
+# temp path whose name is the same string in every process. ctest gives every test its own
+# process, so a constant path -- or a counter that restarts at 0 in each of them -- is a race
+# that is green at -j1, red at -j2 only sometimes, and red in a DIFFERENT test each time, which
+# is how it gets filed as "just re-run it". Measured 2026-09-06 (W11's round); c3d99d00 fixed six
+# fixtures by hand and this is what stops the seventh. It reads files and builds nothing, so it
+# belongs beside the anchor check rather than behind the build.
+#
+# 🔴 THREE outcomes, not two, and that is the whole reason this is a function rather than three
+# lines inline. rc 2 means the scanner could not READ some file -- a string that never closed, a
+# heredoc with no terminator -- and a file nobody could read is not a file with nothing in it.
+# Three parser bugs while that tool was being written each made whole REAL files scan green and
+# print exactly what a clean tree prints. So rc 2 is red, like rc 1, but it must not say the same
+# thing: one means "a test names a path it shares", the other means "this gate went blind".
+# KNOWN-ISSUES L-3 is the same lesson from check_gate_anchors.py's side.
+#
+# Takes the repo as an argument so the scanner and the tree it scans move together: that is what
+# lets this function be driven over a sandbox tree, which is the only way anyone sees its two red
+# branches without breaking the real one.
+l1_check_test_tmpdirs() {
+    local repo="$1" log="$2" rc
+    python3 "$repo/tests/shell/check_test_tmpdirs.py" --repo "$repo" >"$log" 2>&1
+    rc=$?
+    case "$rc" in
+    0)  echo "${G}test temp paths ok${N}  ${D}($(tail -1 "$log"))${N}"
+        return 0
+        ;;
+    1)  echo "${R}test temp paths FAILED${N} — a test creates a temp path that is the same in" \
+             "every process (see $log)"
+        grep -E '^[^ ].*:[0-9]+: ' "$log" | head -10 | sed 's/^/  /'
+        return 1
+        ;;
+    *)  echo "${R}test temp paths NOT CHECKED${N} — the scanner could not READ some of the" \
+             "tests (exit $rc). This is the gate going blind, ${R}not${N} a clean tree" \
+             "(see $log)"
+        grep -E 'NOT CHECKED|COULD NOT BE READ' "$log" | head -5 | sed 's/^/  /'
+        return 1
+        ;;
+    esac
+}
+
+# Everything below this line runs the lane. The suite that tests the scoring functions above
+# stops here; nothing before it builds, writes or connects to anything.
 [[ -n "${NDTWIN_L1_LIB_ONLY:-}" ]] && return 0
 
 DO_BUILD=1
@@ -169,6 +214,15 @@ else
     grep -E "^[0-9]+/[0-9]+ cells ok|NOT CHECKED AT ALL" "$GATE_ANCHORS_LOG" | head -5 | sed 's/^/  /'
     FAILURES=$((FAILURES + 1))
 fi
+
+# --- 0b. test temp paths (read-only, no build, runs even under --no-build) ------
+# [Co-developed with claude code -- Adam]
+# Decision E-17. Reasoning, and why exit 2 is its own kind of red, in l1_check_test_tmpdirs above.
+# Same placement argument as the anchor check: nothing here builds, so a defect that makes the
+# whole suite untrustworthy at -j2 is reported before the lane spends twenty minutes compiling.
+step "test temp paths (read-only, no build)"
+TMPDIRS_LOG="$LOG_DIR/l1_test_tmpdirs.log"
+l1_check_test_tmpdirs "$KERNEL_DIR" "$TMPDIRS_LOG" || FAILURES=$((FAILURES + 1))
 
 if [[ $DO_BUILD -eq 1 ]]; then
     step "building"
