@@ -1833,6 +1833,14 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 - **代價**：`ip.front()` 的呼叫點（W2／#88 盤點的那七處，其中五處在 host 側產線走得到）
   的前提就是「host 至少有一個位址」。**門關上讓檔案層乾淨，但 Ryu 發現路徑加進來的 host 仍可能無位址**
   ⇒ 那五處對它們**仍然是裸的**（W3-3b SUMMARY §8 第 2 題，Adam 尚未裁）。
+  🔴 **2026-09-11 加註（W14 側，只加不改上面那句）**：上一句的「Ryu 發現路徑」前提**已被查證推翻**
+  ——`updateHosts` 一次 `add_vertex` 都沒有、`TopologyAndFlowMonitor.cpp:2138` 也先跳過沒有 `ipv4` 的
+  host（`fix/R5-A4-NTG-SUMMARY.md` §1）⇒ 門 3d 之後那幾處是**live 不可達的第二層守衛**，
+  Adam 09-10 23:3x 裁「**以死測試＋閘門為準**」：證據＝`AddresslessNodeTest` 那批 ctest ＋
+  `mutate_index_zero_guards.sh`（合併樹 `16 mutations, 0 survived`，`fix/R4-CPPGATES-1-SUMMARY.md` 閘門 2）。
+  **五處已變四處**：D3（`LLMAgent::getCurrentTopology`）自 `d6f7c014`（2025-12-15）起無呼叫端，
+  09-10 23:4x 裁刪，已在 `fix/d3-dead-code-w14-doc` 上連同 M3／M10／C3 三格變異刪除
+  （`doc/audit/2026-09-06_fix-index-zero-guards/FIX-INDEX-ZERO-GUARDS.md` §7）。
 - **修法後的行為**（`b1471cbe`，**2026-09-10 起在 trunk 上**）：`vertexType == HOST` 且 `ip` **缺／非陣列／空陣列**
   ⇒ 在**第一個 `add_vertex` 之前** throw，`num_vertices == 0`，訊息指名該台 host：
   `host "h9" declares an empty "ip" array; every host needs at least one address…`。
