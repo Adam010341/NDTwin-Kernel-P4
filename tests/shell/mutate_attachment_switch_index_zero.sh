@@ -265,12 +265,25 @@ ROUND_FILTER="$DEATH_FILTER"
 echo "mutations:"
 
 # --- M1: the attachment switch's address list, indexed --------------------------------------------
-# Byte for byte what trunk 1536ff17 has at TopologyAndFlowMonitor.cpp:1729.
+# 🔴 RE-ANCHORED for the merged form (integrate-0910, 2026-09-10; TopologyAndFlowMonitor.cpp:2352-2368).
+# fix/e29-update-hosts-race-evidence and fix/w18-eighth-index-zero changed the same line and Adam kept
+# both (FIX-E29.md section 6), so the site is no longer trunk's one-liner: the address is copied out of
+# the graph under a shared_lock, and W18's guard sits outside that scope. The old anchor was trunk's
+# `const auto attachIpOpt = utils::firstAddressRaw(...)` on one unlocked line and matched 0 times here.
+#
+# The mutant therefore restores the SUBSCRIPT AND KEEPS THE LOCK -- it is E-29's own shape at 483a03dd,
+# before W18 was merged onto it. Dropping the lock as well would put two defects in one mutant and this
+# gate would no longer be able to say which of them the death test caught; W18's `ip[0]` is the only one
+# this gate is for. The E-29 race has its own evidence and is not a mutation here.
 mutate_must_die \
     "M1 attachment-switch-subscript-restored" \
     "AddresslessAttachmentSwitchTest.AnAddresslessAttachmentSwitchDoesNotKillTheProcess" \
     "$SRC_TAFM" \
-    '                const auto attachIpOpt = utils::firstAddressRaw((*m_graph)[*vertexOpt2].ip);
+    '                std::optional<uint32_t> attachIpOpt;
+                {
+                    std::shared_lock lock(*m_graphMutex);
+                    attachIpOpt = utils::firstAddressRaw((*m_graph)[*vertexOpt2].ip);
+                }
                 if (!attachIpOpt.has_value())
                 {
                     SPDLOG_LOGGER_WARN(Logger::instance(),
@@ -283,7 +296,12 @@ mutate_must_die \
                     continue;
                 }
                 auto edgeRevOpt = findEdgeBySrcAndDstIp(*attachIpOpt, ip);' \
-    '                auto edgeRevOpt = findEdgeBySrcAndDstIp((*m_graph)[*vertexOpt2].ip[0], ip);' \
+    '                uint32_t attachIp = 0;
+                {
+                    std::shared_lock lock(*m_graphMutex);
+                    attachIp = (*m_graph)[*vertexOpt2].ip[0];
+                }
+                auto edgeRevOpt = findEdgeBySrcAndDstIp(attachIp, ip);' \
     '                auto edgeRevOpt = findEdgeBySrcAndDstIp(*attachIpOpt, ip);'
 
 echo
@@ -402,22 +420,27 @@ mutate_must_die \
 # rejected here for the reason W14's C1 gives: it produces identical object code, so it would only
 # prove the harness rebuilds, not that it can tell a behaviour change from a behaviour-preserving
 # one.
+#
+# 🔴 RE-ANCHORED for the merged form (see M1): the call is now an ASSIGNMENT to an optional declared
+# outside the locked scope, indented 20, not a `const auto` declaration indented 16. Both controls edit
+# only the line inside the scope, so the lock and W18's guard are left exactly as the merged fix has
+# them -- a control that moved either would not be behaviour-preserving.
 mutate_must_live \
     "C1 helper-spelled-out-at-the-call-site" \
     "$SRC_TAFM" \
-    '                const auto attachIpOpt = utils::firstAddressRaw((*m_graph)[*vertexOpt2].ip);' \
-    '                const auto attachIpOpt =
-                    (*m_graph)[*vertexOpt2].ip.empty()
-                        ? std::optional<uint32_t>{}
-                        : std::optional<uint32_t>{(*m_graph)[*vertexOpt2].ip.front()};'
+    '                    attachIpOpt = utils::firstAddressRaw((*m_graph)[*vertexOpt2].ip);' \
+    '                    attachIpOpt =
+                        (*m_graph)[*vertexOpt2].ip.empty()
+                            ? std::optional<uint32_t>{}
+                            : std::optional<uint32_t>{(*m_graph)[*vertexOpt2].ip.front()};'
 
 # C2 reads the vertex once into a named reference instead of twice through the property map.
 mutate_must_live \
     "C2 attachment-properties-hoisted-to-a-reference" \
     "$SRC_TAFM" \
-    '                const auto attachIpOpt = utils::firstAddressRaw((*m_graph)[*vertexOpt2].ip);' \
-    '                const auto& attachSwitchProps = (*m_graph)[*vertexOpt2];
-                const auto attachIpOpt = utils::firstAddressRaw(attachSwitchProps.ip);'
+    '                    attachIpOpt = utils::firstAddressRaw((*m_graph)[*vertexOpt2].ip);' \
+    '                    const auto& attachSwitchProps = (*m_graph)[*vertexOpt2];
+                    attachIpOpt = utils::firstAddressRaw(attachSwitchProps.ip);'
 
 # 🔴 C3 rewords the warning and keeps its two arguments. This is the control for
 # TheWarningNamesTheHostAndTheSwitchAndNotTheTopologyFile: that test must pin the identifiers an
