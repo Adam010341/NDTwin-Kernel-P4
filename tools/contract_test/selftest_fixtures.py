@@ -516,7 +516,7 @@ class FakeCtx:
     """Stands in for the topology-derived Context during self-test."""
 
     def __init__(self, switches=2, hosts=1, edges=1, dpids=None, topk=5, power_state=None,
-                 switch_identity=None, host_identity=None):
+                 switch_identity=None, host_identity=None, link_failure_injected=None):
         self.expected_switches = switches
         self.expected_hosts = hosts
         self.expected_edges = edges
@@ -535,10 +535,23 @@ class FakeCtx:
         # fabric is a real failure. Leaving this unset would make them assert the
         # precondition path instead, which is a different claim wearing the same red.
         self.power_state = power_state if power_state is not None else PowerState.all_on()
+        # [Co-developed with claude code -- Adam] -- G10. Whether the mutating sequence's
+        # /ndt/inject_link_failure landed. Default None = "this run has not got there yet", the
+        # same value the real Context starts at, and NOT True: a stand-in that claims the
+        # premise held by default is a stand-in that cannot assert the precondition path.
+        self.link_failure_injected = link_failure_injected
 
 
 # A graph matching FakeCtx exactly, used as the "good" case.
 _GOOD_CTX = FakeCtx(switches=1, hosts=1, edges=1, dpids={106225808380928})
+
+# [Co-developed with claude code -- Adam] -- G10.
+# The same ctx, having recorded step 3's injection as landed. The two lw8b cases below need it:
+# without the premise, "the recovery was not declined" is not a finding about the kernel, and
+# _GOOD_CTX must keep saying nothing about the injection so the precondition path stays
+# assertable.
+_CTX_INJECTION_LANDED = FakeCtx(switches=1, hosts=1, edges=1, dpids={106225808380928},
+                                link_failure_injected=True)
 
 # [Co-developed with claude code -- Adam] -- G3.
 # The ctx --self-test's cross-application stage hands to every endpoint's invariants. Public
@@ -940,7 +953,14 @@ INVARIANT_CASES = [
     # reply is the same bare 200 a legitimate withdrawal gives.
     ("recovery_was_declined_and_said_so: catches an injection withdrawn anyway",
      spec.inv_recovery_was_declined_and_said_so,
-     LINK_RECOVERY_APPLIED_SAMPLE, _GOOD_CTX, True),
+     LINK_RECOVERY_APPLIED_SAMPLE, _CTX_INJECTION_LANDED, True),
+    # [Co-developed with claude code -- Adam] -- G10. The same body, with the premise NOT
+    # established: no verdict. On a kernel that predates /ndt/inject_link_failure this is the
+    # only reply step 4 can get, and blaming it for withdrawing an undeclared failure is the
+    # A-8 shape.
+    ("recovery_was_declined_and_said_so: a run that cannot confirm the injection says nothing",
+     spec.inv_recovery_was_declined_and_said_so,
+     LINK_RECOVERY_APPLIED_SAMPLE, _GOOD_CTX, False),
     ("recovery_was_declined_and_said_so: catches a decline that names no way out",
      spec.inv_recovery_was_declined_and_said_so,
      {"status": "link recovery processed", "declaration_retained": True,

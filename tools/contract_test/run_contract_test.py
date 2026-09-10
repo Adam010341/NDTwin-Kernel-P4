@@ -187,6 +187,12 @@ class Context:
         # TOOL-PRECONDITION-FAILED on a degraded fabric, not a wrong answer.
         self.power_state = PowerState.unknown("the runner has not read it yet")
 
+        # [Co-developed with claude code -- Adam] -- G10. Whether the mutating sequence's
+        # /ndt/inject_link_failure landed, written by record_step_outcome when that step runs.
+        # None means "this run has not got there yet", and it is deliberately not False: a
+        # later step must be able to tell "it did not happen" from "nobody has looked".
+        self.link_failure_injected = None
+
         # A switch dpid to use for per-switch queries. min() keeps runs reproducible.
         self.a_dpid = min(self.expected_dpids) if self.expected_dpids else 1
 
@@ -273,6 +279,24 @@ def resolve(value, ctx):
     return value(ctx) if callable(value) else value
 
 
+def record_step_outcome(ep, res, ctx) -> None:
+    """
+    Write a step's outcome onto ctx, for the later step whose premise it is.
+
+    [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G10, 2026-09-11.
+
+    The mutating link sequence is six steps and step 4 means nothing unless step 3 landed.
+    Declarative (`records=` on the endpoint) rather than a name matched in this loop, so the
+    dependency is written where the sequence is, next to the note that explains it.
+
+    A step whose precondition was unmet records False, not nothing: "we did not run it" and
+    "it failed" are the same thing to a later step that needed it to have happened.
+    """
+    field = ep.get("records")
+    if field:
+        setattr(ctx, field, bool(res.ok))
+
+
 def request(base_url, ep, ctx, timeout) -> tuple[int, object, str | None]:
     """Returns (status, parsed_json_or_None, transport_error)."""
     url = base_url.rstrip("/") + ep["path"]
@@ -313,6 +337,21 @@ def request(base_url, ep, ctx, timeout) -> tuple[int, object, str | None]:
 
 
 def check_endpoint(base_url, ep, ctx, args) -> Result:
+    """
+    One endpoint, checked -- and its outcome recorded for any later step that needs it.
+
+    [Co-developed with claude code -- Adam] -- G10. The recording lives HERE and not in main's
+    loop on purpose: a caller that runs one check by hand (l3_component_check.py, the tests)
+    would otherwise get a ctx that never learns anything, and the mutation "the loop stops
+    calling the recorder" survived every test written against the function. The step that
+    produces the outcome is the step that writes it down.
+    """
+    res = _check_one(base_url, ep, ctx, args)
+    record_step_outcome(ep, res, ctx)
+    return res
+
+
+def _check_one(base_url, ep, ctx, args) -> Result:
     # [Co-developed with claude code -- Adam] -- A-8, F-OFFLINE-1 G11/G10, 2026-09-11.
     # An endpoint may declare what this run has to know before its answer means anything.
     # Checked BEFORE the request, and the request is then not sent: a step whose precondition

@@ -1585,6 +1585,28 @@ def inv_recovery_was_declined_and_said_so(data, ctx):
          "until":"/ndt/inject_link_recovery"}   -- and the edge still is_up=false.
     """
     if data.get("declaration_retained") is not True:
+        # [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G10, A-8, 2026-09-11.
+        # Before this is an accusation, the run has to know its own premise held. This check's
+        # entire meaning comes from the step before it having injected a failure, and there was
+        # no branch for that step not having happened: on a kernel that predates
+        # /ndt/inject_link_failure -- every trunk build, as LINK_FAILURE_INJECTED's comment
+        # records -- step 3 answers 404, nothing is declared, and step 4's reply is exactly the
+        # bare 200 below. The check then blamed the kernel for withdrawing something that was
+        # never declared, which is the A-8 shape: a tool's unmet precondition wearing the
+        # system's red. Gated ONLY here, on the accusing path -- a reply that did decline is
+        # checked in full whatever the run knows, because there is nothing to misattribute.
+        landed = getattr(ctx, "link_failure_injected", None)
+        if landed is not True:
+            why = ("this run did not record whether it landed" if landed is None
+                   else "that step did not succeed in this run")
+            return [
+                TOOL_PRECONDITION
+                + "the recovery report was not declined, and the injection it is supposed to "
+                  f"be refusing to pair with cannot be confirmed: {why}. There may have been "
+                  "no standing declaration to retain -- a kernel that predates "
+                  "/ndt/inject_link_failure answers 404 there and gives exactly this reply "
+                  "here -- so this check makes no claim about the kernel"
+            ]
         return [
             "the recovery report was not declined: a failure injected through "
             "/ndt/inject_link_failure is not paired with by any report, so this 200 either "
@@ -2452,6 +2474,11 @@ ENDPOINTS = [
     dict(name="inject_link_failure", method="POST", path="/ndt/inject_link_failure",
          body=link_endpoint_body, request_schema=LINK_REQUEST,
          precondition=link_step_precondition,
+         # [Co-developed with claude code -- Adam] -- G10. Step 4's premise IS this step, and
+         # step 4 had no way to know whether it held. The runner writes the outcome onto ctx
+         # under this name; inv_recovery_was_declined_and_said_so reads it and reports
+         # TOOL-PRECONDITION-FAILED rather than accusing the kernel when it did not land.
+         records="link_failure_injected",
          category=MUTATE, schema=LINK_FAILURE_INJECTED,
          invariants=[inv_tc_half_is_reported_per_interface],
          note="step 3 of 6. 🔴 CUTS A REAL LINK on MININET (netem loss 100%, both ends) and "

@@ -2415,6 +2415,109 @@ class SelftestFixturesMatchTheEndpointTable(unittest.TestCase):
         self.assertIn("not in spec.ENDPOINTS", why)
 
 
+class DeclinedRecoveryPremiseTest(unittest.TestCase):
+    """
+    F-OFFLINE-1 G10: the declined check accuses the kernel of something it may not have done.
+
+    [Co-developed with claude code -- Adam] -- KNOWN-ISSUES A-8, E-21, 2026-09-11.
+
+    inv_recovery_was_declined_and_said_so is step 4 of the mutating sequence and its whole
+    premise is step 3: "the check immediately before this one injected a failure through
+    /ndt/inject_link_failure, which records no report, so nothing pairs with this recovery."
+    The function had no branch for the premise being false. Applied to a bare
+    {"status": "link recovery processed"} it returned, in one sentence, an accusation that the
+    kernel "either withdrew a declaration nothing ever answered for, or withdrew nothing and
+    did not say so".
+
+    On a kernel that predates /ndt/inject_link_failure -- which spec.py's own comment records
+    as every trunk build -- step 3 answers 404, nothing is declared, and step 4's reply is
+    then exactly that bare 200. The check blamed the kernel for withdrawing something that
+    was never declared.
+
+    Fixed at the invariant rather than only at the endpoint table: l3_component_check.py and
+    these tests reach the function directly, and a guard that only exists in the runner is a
+    guard the next caller does not get.
+    """
+
+    class Landed:
+        """A run that recorded step 3's injection as having succeeded."""
+
+        link_failure_injected = True
+
+    class DidNotLand:
+        link_failure_injected = False
+
+    BARE = {"status": "link recovery processed"}
+
+    def test_a_run_that_did_not_record_the_injection_makes_no_claim(self):
+        out = spec.inv_recovery_was_declined_and_said_so(self.BARE, None)
+        self.assertEqual(len(out), 1, out)
+        self.assertTrue(out[0].startswith(TOOL_PRECONDITION), out)
+
+    def test_a_run_whose_injection_failed_makes_no_claim_either(self):
+        out = spec.inv_recovery_was_declined_and_said_so(self.BARE, self.DidNotLand())
+        self.assertEqual(len(out), 1, out)
+        self.assertTrue(out[0].startswith(TOOL_PRECONDITION), out)
+
+    def test_with_the_premise_established_it_is_still_an_accusation(self):
+        # The control, and the one that matters: this is the lw8b failure mode and gating it
+        # must not be a way to stop reporting it.
+        out = spec.inv_recovery_was_declined_and_said_so(self.BARE, self.Landed())
+        self.assertEqual(len(out), 1, out)
+        self.assertFalse(out[0].startswith(TOOL_PRECONDITION), out)
+        self.assertIn("was not declined", out[0])
+
+    def test_a_correctly_declined_reply_is_unaffected_by_any_of_this(self):
+        # The premise only gates the accusation. A reply that DID decline is checked in full
+        # whatever the run knows, because there is nothing to misattribute.
+        for ctx in (None, self.Landed(), self.DidNotLand()):
+            self.assertEqual(
+                spec.inv_recovery_was_declined_and_said_so(DECLINED_RECOVERY, ctx), [], ctx)
+            self.assertTrue(
+                spec.inv_recovery_was_declined_and_said_so(
+                    {**DECLINED_RECOVERY, "until": "/ndt/link_recovery_detected"}, ctx))
+
+    def test_the_injection_step_is_the_one_that_records_it(self):
+        # Existence is not wiring. The state has to be written by the step whose outcome it
+        # describes, or the branch above is dead and the check is silently off.
+        injection = next(ep for ep in spec.ENDPOINTS if ep["name"] == "inject_link_failure")
+        self.assertEqual(injection.get("records"), "link_failure_injected")
+        declined = next(ep for ep in spec.ENDPOINTS
+                        if ep["name"] == "link_recovery_detected__declined_after_injection")
+        self.assertIsNone(declined.get("records"),
+                          "the step that reads the state must not also write it")
+
+    def test_the_runner_writes_what_the_step_declares(self):
+        import run_contract_test as runner
+        endpoint = next(ep for ep in spec.ENDPOINTS if ep["name"] == "inject_link_failure")
+        ctx = Context(P4_TOPOLOGY, 5, PROBE_IP)
+        self.assertIsNone(getattr(ctx, "link_failure_injected", None),
+                          "unknown until the step runs, not True")
+
+        def fake_request(base_url, ep, _ctx, timeout):
+            return (200, {"status": "link failure injected", "down_reason": "declared",
+                          "until": "/ndt/inject_link_recovery",
+                          "tc": "skipped (not MININET)"}, None)
+
+        real = runner.request
+        runner.request = fake_request
+        try:
+            # check_endpoint alone, with nothing else called: the recording has to be part
+            # of running the step, or a caller that runs one check by hand gets a ctx that
+            # never learns anything -- and "the loop forgot to call the recorder" is then a
+            # mutation no test can see.
+            runner.check_endpoint("http://127.0.0.1:0", endpoint, ctx,
+                                  LinkStepPreconditionTest.Args())
+            self.assertTrue(ctx.link_failure_injected)
+
+            runner.request = lambda *a, **k: (404, {"status": "error"}, None)
+            runner.check_endpoint("http://127.0.0.1:0", endpoint, ctx,
+                                  LinkStepPreconditionTest.Args())
+            self.assertFalse(ctx.link_failure_injected)
+        finally:
+            runner.request = real
+
+
 class LinkStepPreconditionTest(unittest.TestCase):
     """
     F-OFFLINE-1 G11: a step that could not choose a link must make no claim about the kernel.
