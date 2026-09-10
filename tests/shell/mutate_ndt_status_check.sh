@@ -233,6 +233,82 @@ report "M10: sim's evidence log is hard-coded to the main checkout (F9)" "$m" \
        "  🔴 sim's evidence log is inside the fixture"
 
 
+# --- R7 I-3: .test_run/pids/ contradicting itself, and no interface saying so -----------------
+#
+# Measured 2026-09-11 02:52:03 and again 02:52:27 (R7-reconciler.md round 14): ryu.pid=20717 and
+# ryu.child.pid=20722 both naming pids that /proc did not have, ryu.exit in the same directory
+# already recording status=143 SIGTERM, ten OVS bridges up with no control-plane process, and
+# `ndt status` printing `fabric hosts 4 == 4 ok` and exiting 0 with not a word about any of it.
+m=$(mutant mi1 "$NDT" \
+    '    stack_pidfile_row
+    (( ${#STACK_PIDFILE_PROBLEMS[@]} > 0 )) && problems+=("${STACK_PIDFILE_PROBLEMS[@]}")' \
+    '    :')
+report 'MI1: the row is defined and nothing calls it (existence is not wiring)' "$m" \
+       '🔴 the row names the file and calls it stale'
+
+
+# 🔴 The half-fix that reads like a fix. R7's whole complaint was an rc 0 over a self-contradicting
+# registry: a row nobody's exit code depends on is read by the people already reading the output.
+m=$(mutant mi2 "$NDT" \
+    '    (( ${#STACK_PIDFILE_PROBLEMS[@]} > 0 )) && problems+=("${STACK_PIDFILE_PROBLEMS[@]}")' \
+    '    :')
+report 'MI2: it is printed but is not a --check problem -- rc stays 0, as R7 measured' "$m" \
+       '🔴 and --check goes red on it -- R7 measured rc 0'
+
+
+# The `kill -0` shaped hole, one layer up: a pid that looks like a pid is treated as alive. This is
+# what pid_is_app's own header names as the second of the two directions kill -0 fails in.
+m=$(mutant mi3 "$NDT" \
+    'pid_alive() { [[ "$1" =~ ^[0-9]+$ ]] && (( $1 > 1 )) && [[ -d "/proc/$1" ]]; }' \
+    'pid_alive() { [[ "$1" =~ ^[0-9]+$ ]] && (( $1 > 1 )); }')
+report 'MI3: liveness is not asked of /proc -- a number is taken for a process' "$m" \
+       '🔴 the row names the file and calls it stale'
+
+
+# 🔴 The other direction, and the one that would get this row ignored: a live stack is the ordinary
+# state of .test_run/pids/, so a row that reddens it is read for a week and then skipped.
+m=$(mutant mi4 "$NDT" \
+    '        if pid_alive "$pid"; then
+            live+=("$base=$pid alive")' \
+    '        if false; then
+            live+=("$base=$pid alive")')
+report 'MI4 (widening): every pidfile is stale, including a running stack'"'"'s' "$m" \
+       'a pidfile naming a live pid is NOT stale'
+
+
+# Two instruments over one file. The apps block has three states and an identity test this row
+# cannot make (the argv signature), so the two would eventually disagree in public.
+m=$(mutant mi5 "$NDT" \
+    '        [[ "$base" == app_* ]] && continue' \
+    '        :')
+report 'MI5: the app pidfiles are claimed by this row as well as by the apps block' "$m" \
+       '🔴 an app pidfile is not claimed by this row'
+
+
+# The contradiction is the finding, not the stale file on its own: the evidence for how that pid
+# ended was already on disk, one filename over, and nothing put the two side by side.
+m=$(mutant mi6 "$NDT" \
+    '        if [[ -n "$ev_at" || -n "$ev_st" ]]; then
+            bad+=("$base: stale pidfile (pid $pid gone; $name.exit says status=${ev_st:-?} at ${ev_at:-?} -- $(exit_record_field "$name" reason))")' \
+    '        if false; then
+            bad+=("$base: stale pidfile (pid $pid gone; $name.exit says status=${ev_st:-?} at ${ev_at:-?} -- $(exit_record_field "$name" reason))")')
+report 'MI6: the .exit record that already knew is not quoted' "$m" \
+       '🔴 quoting the .exit that already knew'
+
+
+# stack.sh's stop_one refuses on this and says so; `ndt status` would have said nothing, and "I
+# could not read it" is a third answer, not silently the same as "there is nothing there".
+m=$(mutant mi7 "$NDT" \
+    '        if [[ ! "$pid" =~ ^[0-9]+$ ]] || (( pid < 2 )); then
+            bad+=("$base: unusable -- it holds '"'"'${pid:-<empty>}'"'"', which is not a pid. '"'"'ndt down'"'"' reads these files.")
+            continue' \
+    '        if [[ ! "$pid" =~ ^[0-9]+$ ]] || (( pid < 2 )); then
+            continue')
+report 'MI7: a pidfile that is not a pid at all is passed over in silence' "$m" \
+       '🔴 an unusable pidfile is named as unusable'
+
+
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then

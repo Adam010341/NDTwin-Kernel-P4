@@ -600,6 +600,14 @@ kernel_exit_field() {
     [[ -f "$f" ]] && sed -n "s/^$1=//p" "$f" | head -1
 }
 
+# exit_record_field <component> <field> -- the same reading for any component, not just kernel.
+# supervise.sh writes one .exit per component in the same format; R7 I-3 is a case where the
+# component that had a record was ryu and nothing could read it.
+exit_record_field() {
+    local f="$REPO/.test_run/pids/$1.exit"
+    [[ -f "$f" ]] && sed -n "s/^$2=//p" "$f" | head -1
+}
+
 # last_kernel_plane -- p4 | ovs, from the --topology argument the last kernel was started with.
 # rc 1 when there is no record, or when the recorded command names no model this script can
 # classify: an unclassifiable command must not be turned into a plane, which is the mistake
@@ -2852,6 +2860,80 @@ cmd_clean() {
 
 # --- status helpers ----------------------------------------------------------------
 
+# stack_pidfile_row -- what .test_run/pids/ claims is running, tested against /proc.
+# Fills STACK_PIDFILE_PROBLEMS with one entry per file that cannot be believed.
+#
+# [Co-developed with claude code -- Adam]
+# R7 I-3, measured 2026-09-11 02:52:03 and again at 02:52:27 -- 57 s and 81 s after the event, so
+# not a race. One directory, two files, opposite stories:
+#
+#     ryu.pid        20717    /proc/20717 does not exist
+#     ryu.child.pid  20722    /proc/20722 does not exist
+#     ryu.exit       at=2026-09-11T02:51:06  status=143  reason=terminated by SIGTERM (15)
+#
+# Ten OVS bridges were up with no control-plane process at all, and `ndt status` printed the
+# ports correctly, printed `fabric hosts 4 == 4 ok`, said not one word about the two dead
+# pidfiles, and exited 0. A reader who checks the exit code, or reads the `up target` block, was
+# told that round was fine.
+#
+# 🔴 IT IS NOT A COSMETIC GAP. .test_run/pids/ is the shared registry `ndt down` acts on, and
+# port_owner_local above reads every file in it to decide whether a listener is "ours" -- so a
+# recycled pid number sitting in a stale pidfile is the fuse under both. The hardened predicate
+# was already in this file for the app pidfiles (pid_is_app, whose comment names root/EPERM and
+# pid reuse as the two holes in `kill -0`) and had never been pointed at the stack's own.
+#
+# 🔴 THE OTHER DIRECTION: a live stack is the ordinary state of this directory, so "alive" is
+# printed plainly and adds no problem. A row that reddened a healthy lab would be read for a
+# week and then skipped, and this row's whole value is that it is read on the day it is odd.
+#
+# 🔴 app_*.pid is SKIPPED, and that is not an omission: the apps block has its own probe with
+# three states and an identity test this row cannot make (the argv signature). Two instruments
+# over one file would eventually disagree in public.
+STACK_PIDFILE_PROBLEMS=()
+stack_pidfile_row() {
+    STACK_PIDFILE_PROBLEMS=()
+    local f base name pid ev_at ev_st line
+    local -a bad=() live=()
+    for f in "$REPO"/.test_run/pids/*.pid; do
+        [[ -f "$f" ]] || continue
+        base="$(basename "$f")"
+        [[ "$base" == app_* ]] && continue
+        # ryu.child.pid and ryu.pid are two files about one component, so both read the one
+        # .exit record: `<name>.child.pid` -> name `ryu`.
+        name="${base%.pid}"; name="${name%.child}"
+        pid="$(cat "$f" 2>/dev/null)"
+        if [[ ! "$pid" =~ ^[0-9]+$ ]] || (( pid < 2 )); then
+            bad+=("$base: unusable -- it holds '${pid:-<empty>}', which is not a pid. 'ndt down' reads these files.")
+            continue
+        fi
+        if pid_alive "$pid"; then
+            live+=("$base=$pid alive")
+            continue
+        fi
+        ev_at="$(exit_record_field "$name" at)"; ev_st="$(exit_record_field "$name" status)"
+        if [[ -n "$ev_at" || -n "$ev_st" ]]; then
+            bad+=("$base: stale pidfile (pid $pid gone; $name.exit says status=${ev_st:-?} at ${ev_at:-?} -- $(exit_record_field "$name" reason))")
+        else
+            bad+=("$base: stale pidfile (pid $pid gone; there is no $name.exit to say how it ended)")
+        fi
+    done
+    if (( ${#bad[@]} == 0 && ${#live[@]} == 0 )); then
+        printf '  %-14s %s\n' "pidfiles" "none recorded"
+        return 0
+    fi
+    if (( ${#bad[@]} == 0 )); then
+        printf '  %-14s %s\n' "pidfiles" "$(IFS=', '; echo "${live[*]}")"
+        return 0
+    fi
+    printf '  %-14s %s\n' "pidfiles" "${R}${bad[0]}${N}"
+    for line in "${bad[@]:1}"; do printf '  %-14s %s\n' "" "${R}$line${N}"; done
+    (( ${#live[@]} > 0 )) && printf '  %-14s %s\n' "" "$(IFS=', '; echo "${live[*]}")"
+    printf '  %-14s %s\n' "" "a dead number here is what 'ndt down' signals and what"
+    printf '  %-14s %s\n' "" "port_owner_local calls 'ours' -- delete it or run 'ndt down'"
+    for line in "${bad[@]}"; do STACK_PIDFILE_PROBLEMS+=(".test_run/pids/$line"); done
+    return 0
+}
+
 # claim_line -- one line describing who holds the lab, in the form that answers "can I touch
 # this right now". Relative time first: an absolute "until 17:11:52" makes the reader do
 # arithmetic against the wall clock, which is the moment they get it wrong. The four states
@@ -3795,6 +3877,12 @@ cmd_status() {
     local running
     running="$(ps -eo args= 2>/dev/null | grep -o '/[^ ]*simple_switch_grpc' | sort -u | head -1)"
     [[ -n "$running" ]] && printf '  %-14s %s\n' "binary" "$running"
+    # R7 I-3. Printed unconditionally rather than under --check, for the same reason the
+    # exclusive_cpu row is: the ports above are read from the machine and these files are read
+    # from disk, and "the ports are shut" plus "the registry still names two live processes" is
+    # the pair that was in front of R7 while nothing put them side by side.
+    stack_pidfile_row
+    (( ${#STACK_PIDFILE_PROBLEMS[@]} > 0 )) && problems+=("${STACK_PIDFILE_PROBLEMS[@]}")
     echo
 
     # -- network health: fetch the graph once and reuse it --
@@ -4210,6 +4298,21 @@ app_sig() {
         sim)    echo "simulation_platform_manager" ;;
     esac
 }
+
+# pid_alive <pid> -- does a process with this number exist right now?
+#
+# [Co-developed with claude code -- Adam]
+# The existence half of pid_is_app below, factored out so the stack's own *.pid files can use the
+# same predicate the app pidfiles already do (R7 I-3). NOT `kill -0`, for the two reasons
+# pid_is_app's header gives at length and which this project has been bitten by in both
+# directions: a live root-owned process answers EPERM and reads as dead, and a recycled number
+# answers success and reads as alive.
+#
+# 🔴 EXISTENCE ONLY, and the difference matters where it is used. pid_is_app adds an identity
+# test (the argv signature) and can therefore say "that is not the app any more"; the stack's
+# *.pid files have no equivalent signature available, so a caller using this one may say
+# "the number is gone" and must not say "the process is the one we started".
+pid_alive() { [[ "$1" =~ ^[0-9]+$ ]] && (( $1 > 1 )) && [[ -d "/proc/$1" ]]; }
 
 # pid_is_app <pid> <name> -- does this pid exist AND is it that app?
 #
