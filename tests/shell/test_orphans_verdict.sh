@@ -21,6 +21,20 @@
 #     CONTROL  1 question(s) not answerable, rc 5,  -> CLEAN, with a NOTE
 #              everything else clean
 #
+# and, added 2026-09-11 (R5-ORPHANS-RC-2), the three cells for a report taken AFTER `ndt down`:
+#
+#     KERNEL DOWN, clean processes    -> CLEAN, with `NOTE: network half not checkable: kernel down`
+#     KERNEL DOWN, a process running  -> NOT CLEAN (the half that COULD be read still decides)
+#     no tally and no kernel-down     -> UNUSABLE (that is a report nobody can read)
+#
+# `ndt down` closes :8000, so residue_report (ndt:5415) returns before it prints a tally. Measured
+# on the merge tree, 2026-09-10 23:59 (`logs/lv-p4128-94-orphans.log`, R5-P4-128 §5 / §7-2): every
+# other instrument said the machine was clean and this reader said UNUSABLE, because "no tally" and
+# "the kernel that owns the tally is switched off" were the same answer here. They are not the same
+# answer: one is a report nobody can read, the other is `ndt` saying in words which half it could
+# not read. The verdict now comes from the half that WAS read, and the other half is named as
+# missing -- never silently counted as zero.
+#
 # The CONTROL case is the reason the helper exists, so its fixture is not synthetic: it is the
 # verbatim report from the live run that found the shift (`logs/lv-a7-a-orphans.log`, OVS4 on
 # `integrate-0910`, 2026-09-10 16:1x). That run's own probe called it a FAIL. It was not one.
@@ -177,12 +191,74 @@ network residue (nothing below is deleted)
   !!    reading failed. (KNOWN-ISSUES G-12)
 EOF
 
-# Half a report: the residue half never ran. Must not be read as a pass.
-mk no_tally <<'EOF'
+# 🔴 KERNEL DOWN. Verbatim from `scratch/overnight-2026-09-05/logs/lv-p4128-94-orphans.log` --
+# restore check 2/3 of the `lv-p4128` round, taken seconds after `ndt down` on 2026-09-10 23:59.
+# `ndt` returned 5. Every other instrument in that round said the machine was clean (`ndt clean`
+# rc 0, `procs:` empty, `mininet nodes left: 0`, `ovs bridges:` empty, `listeners:` empty,
+# `tc qdisc` diff 0) and this reader answered `UNUSABLE -- no 'tally:' line`.
+#
+# There is no tally because residue_report (ndt:5415) returns before printing one when :8000 is
+# closed, which is exactly what `ndt down` does. The two `!!` lines are `ndt` naming the half it
+# could not read, and they are the difference between this and the `no_tally` fixture below.
+mk kernel_down <<'EOF'
   ok  no untracked app processes
 
 network residue (nothing below is deleted)
   !!  the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked.
+  !!  this is not 'the lab is clean'. it is 'nobody asked'. (KNOWN-ISSUES G-12)
+  !!  NOT CHECKED: the residue question could not be answered -- rc 5.
+  !!    this is not 'the network is clean'. see the lines above for which
+  !!    reading failed. (KNOWN-ISSUES G-12)
+EOF
+
+# A COMPOSITE, and the only fixture in this file that is: the network half is the verbatim
+# `lv-p4128` kernel-down half above, the process half is the verbatim `running` half from the
+# fixture higher up (apps_orphans, ndt:5627/5650). No live round has produced both at once --
+# it needs an untracked app still up after `ndt down` -- and that is precisely the case a
+# kernel-down NOTE must not swallow: the half that could be read found something.
+mk kernel_down_running <<'EOF'
+  XX  te: RUNNING as pid(s) 1185971, and these belong to it with nothing naming them -- te
+  XX      pid 1185972  (process group 1185971)
+  XX    stop it with:  ndt apps stop te
+  XX  1 app(s) are running with nothing tracking them
+
+network residue (nothing below is deleted)
+  !!  the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked.
+  !!  this is not 'the lab is clean'. it is 'nobody asked'. (KNOWN-ISSUES G-12)
+  !!  NOT CHECKED: the residue question could not be answered -- rc 5.
+  !!    this is not 'the network is clean'. see the lines above for which
+  !!    reading failed. (KNOWN-ISSUES G-12)
+EOF
+
+# Half a report: the residue half started and stopped, and NOTHING says why. No tally, and no
+# sentence from `ndt` naming a half it could not read. Must not be read as a pass.
+#
+# 🔴 Until 2026-09-11 this fixture held the kernel-down text now in `kernel_down` above, so the
+# one cell in this file that pinned "an unreadable report is UNUSABLE" was pinned by a report that
+# `ndt` had in fact explained. The negative control has to be the case with no explanation in it,
+# or the two cannot be told apart -- which is the bug R5-ORPHANS-RC-2 fixes.
+mk no_tally <<'EOF'
+  ok  no untracked app processes
+
+network residue (nothing below is deleted)
+    lock  routing_lock free
+    lock  graph_lock free
+EOF
+
+# The same negative control, real rather than cut by hand, and the SECOND cause of a missing
+# tally: an older `ndt` whose `orphans` had no network half at all. Verbatim
+# `scratch/overnight-2026-09-05/logs/lv-a7-94-orphans.log`. One line, whole, complete -- and it
+# answers nothing about the network. An older `ndt` is not a checked network.
+#
+# 🔴 68 of the 89 `logs/*orphans*.log` reports in that scratch directory have no tally and no
+# kernel-down sentence, and all 68 are BYTE-IDENTICAL to this one line -- among them 8 named
+# `*-04-orphans.log`, taken at the START of a round with the kernel UP, and the rest `*-94-`,
+# taken after the down. The same text, from both sides of a kernel. That is the reason the
+# kernel-down mode keys on `ndt`'s sentence and not on the absence of a tally: the absence of a
+# tally cannot tell those two apart, so a reader that inferred "kernel down" from it would be
+# calling a kernel-up report clean on no evidence at all.
+mk no_residue_half <<'EOF'
+  ok  no untracked app processes
 EOF
 
 # What a caller who forgot `2>&1` collects when an orphan IS running: err() writes to fd 2.
@@ -276,6 +352,61 @@ check "  🔴 rc 0 -- a P4 fabric must be able to pass"     "0"  "$(rc_of "$OUT"
 has   "  network=0/0/40"                                  "network=0/0/40" "$OUT"
 has   "  and the 40 are noted"                            "NOTE: 40 rule(s) could not be dated" "$OUT"
 has   "  with ndt's sentence for why"                     "CANNOT WINDOW" "$OUT"
+
+# =================================================================================================
+section "🔴 KERNEL DOWN 1/3 -- after 'ndt down' the network half cannot be checked, and says so"
+# =================================================================================================
+OUT="$(verdict "$FIX/kernel_down" 5)"
+check "  🔴 rc 0 -- the process half was read and it was clean" "0" "$(rc_of "$OUT")"
+has   "  VERDICT: CLEAN"                                  "VERDICT: CLEAN" "$OUT"
+has   "  processes=clean"                                 "processes=clean" "$OUT"
+has   "  🔴 the NOTE this cell exists for"                "NOTE: network half not checkable: kernel down" "$OUT"
+has   "  network=n/a -- named as missing"                 "network=n/a" "$OUT"
+has   "  not_answerable=n/a -- likewise"                  "not_answerable=n/a" "$OUT"
+hasnt "  🔴 and NOT counted as zero"                      "network=0/0/0" "$OUT"
+hasnt "  🔴 nor is not_answerable"                        "not_answerable=0" "$OUT"
+has   "  ndt's own sentence is quoted"                    "the kernel is not up (:8000 closed)" "$OUT"
+has   "  and so is its 'nobody asked'"                    "NOT CHECKED: the residue question could not be answered" "$OUT"
+has   "  ndt's rc is recorded, not consulted"             "ndt_rc=5 (recorded, NOT used for the verdict)" "$OUT"
+hasnt "  🔴 and it is not UNUSABLE"                       "VERDICT: UNUSABLE" "$OUT"
+# 🔴 The field is slash-separated and `n/a` contains a slash, so a caller that splits it the way
+# the round probes do (`IFS=/ read -r RULES LOCKS UNDATED`) gets `n` and `a`, not `0` and `0`.
+# Those probes compare as STRINGS on purpose (R5-PROBES-INPLACE §3-B), so this fails safe -- but
+# only because of that choice, which is why it is pinned here rather than left to be rediscovered.
+NETF="$(sed -n 's/^network=//p' <<<"$OUT")"
+IFS=/ read -r KD_RULES KD_LOCKS KD_UNDATED <<<"$NETF"
+check "  🔴 split as the probes split it, neither half reads as 0" \
+      "not-0/not-0" "$([[ "$KD_RULES" == 0 ]] && printf 0 || printf not-0)/$([[ "${KD_LOCKS:-}" == 0 ]] && printf 0 || printf not-0)"
+
+# =================================================================================================
+section "🔴 KERNEL DOWN 2/3 -- the half that COULD be read still decides"
+# =================================================================================================
+OUT="$(verdict "$FIX/kernel_down_running" 1)"
+check "  🔴 rc 1 -- a kernel-down NOTE does not excuse a running orphan" "1" "$(rc_of "$OUT")"
+has   "  processes=running"                               "processes=running" "$OUT"
+has   "  VERDICT: NOT CLEAN"                              "VERDICT: NOT CLEAN" "$OUT"
+has   "  and names the remedy"                            "ndt apps stop <name>" "$OUT"
+has   "  the kernel-down NOTE is still printed"           "NOTE: network half not checkable: kernel down" "$OUT"
+hasnt "  🔴 and never says CLEAN"                         "VERDICT: CLEAN" "$OUT"
+
+# =================================================================================================
+section "🔴 KERNEL DOWN 3/3 -- the OTHER two causes of a missing tally are still UNUSABLE"
+# =================================================================================================
+# Cause 1: the residue half ran and stopped part-way, saying nothing about why.
+OUT="$(verdict "$FIX/no_tally" 5)"
+check "  🔴 rc 2 -- nothing in the report says why the tally is missing" "2" "$(rc_of "$OUT")"
+has   "  and says so"                                     "VERDICT: UNUSABLE" "$OUT"
+hasnt "  🔴 and never says CLEAN"                         "VERDICT: CLEAN" "$OUT"
+hasnt "  🔴 and does not invent a kernel-down NOTE"       "kernel down" "$OUT"
+# Cause 2: an older `ndt` whose `orphans` printed no network half at all. 68 real reports have
+# this exact one line, 8 of them taken with the kernel UP (`logs/*-04-orphans.log`) -- so the
+# absence of a tally is NOT evidence of a down, and must not be read as one.
+OUT="$(verdict "$FIX/no_residue_half" 0)"
+check "  🔴 rc 2 -- a real one-line report from an older ndt"           "2" "$(rc_of "$OUT")"
+has   "  processes=clean is still reported"               "processes=clean" "$OUT"
+hasnt "  🔴 but the verdict is not CLEAN"                 "VERDICT: CLEAN" "$OUT"
+hasnt "  🔴 and a kernel-down NOTE is not invented from a missing tally" "kernel down" "$OUT"
+has   "  and it names what is missing"                    "no 'tally:' line in the report" "$OUT"
 
 # =================================================================================================
 section "An unreadable report is UNUSABLE, never CLEAN"
