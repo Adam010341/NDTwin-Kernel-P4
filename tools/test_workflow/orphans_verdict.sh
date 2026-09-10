@@ -37,7 +37,8 @@
 #     network=<dated rule(s) in a window>/<lock(s) held>/<rule(s) that could not be dated>
 #     not_answerable=<n>
 #
-# CLEAN  ==  processes=clean  AND  dated-in-window == 0  AND  locks == 0.
+# CLEAN  ==  processes=clean  AND  dated-in-window == 0  AND  locks == 0
+#            AND the network half answered SOMETHING (see NOT CHECKED below).
 #
 # 🔴 `not_answerable > 0` and `could not be dated > 0` are a **NOTE, not a FAIL**. That is the
 # whole point of this file. They mean "nobody could ask" -- a kernel that was down, a window that
@@ -45,6 +46,50 @@
 # of residue, and a gate that fails on them is a gate that can never pass on a P4 fabric or on any
 # machine where an app once ran and its pidfile is gone. They are printed loudly instead, with the
 # tool's own sentence quoted, so a report that says CLEAN cannot be read as "everything was asked".
+#
+# =================================================================================================
+# NOT CHECKED (rc 3) -- SOME of the network half unanswered is a NOTE; ALL of it is not
+# =================================================================================================
+# 🔴 The NOTE rule above has a floor, and until 2026-09-11 it did not. Measured offline that day
+# (F-OFFLINE-1 §1.11, fixture from ndt:5442 + ndt:5561): a report with the kernel UP, a tally
+# PRESENT, and all three lock probes answering `NOT CHECKED (http 500)` reads
+#
+#     network=0/0/0   not_answerable=3   ->  VERDICT: CLEAN   rc 0
+#
+# because every counter the tally carries is zero -- and they are zero *because nothing was asked
+# successfully*, not because the answers came back empty. `ndt` itself answers 5 for that same
+# observation (residue_verdict, ndt:5349). Two instruments, one report, 0 against 5.
+#
+# `0 lock(s) held` after three failed probes is not a measurement of zero. So the CLEAN rule now
+# requires one positive answer from the network half, and the verdict when there is none is a new
+# token:
+#
+#     some questions unanswered, at least one answered  ->  CLEAN, with the NOTEs (unchanged)
+#     the kernel was up, and NOT ONE came back          ->  NOT CHECKED (rc 3)
+#
+# 🔴 An answer means the network half got a reply about a lock or about a window, in `ndt`'s own
+# words: `lock <t> free`, `lock <t> HELD`, `no flow entry arrived during that window`, or a
+# `rule(s) listed:` summary. The three lock probes run on EVERY report regardless of whether any
+# app has a datable window (ndt:5533-5548), so a healthy kernel always produces at least one --
+# which is why the CONTROL case of tests/shell/test_orphans_verdict.sh (a live OVS4 report whose
+# only unanswered question is one app's lost window, three locks free) is still CLEAN. Partial
+# blindness is the normal state of this lab and stays a NOTE.
+#
+# 🔴 Why NOT CHECKED is rc 3 and not 1 or 2. rc 1 means "something IS there" and names a remedy
+# that deletes it; nothing was found here, so answering 1 would send an operator hunting a rule
+# that may not exist. rc 2 means "this report cannot be read"; this one reads perfectly, and its
+# numbers are exactly what it claims -- calling it unparseable would be a lie about the report.
+# The remedy differs from both: ask again with a kernel that answers. What matters for every
+# caller is that it is NOT 0 and does NOT print the token `CLEAN`.
+#
+# 🔴 And why the kernel-DOWN case keeps its `CLEAN -- the process half only` (Adam 2026-09-10)
+# while this one does not, when neither read a lock. `ndt down` closing :8000 is a state the
+# operator created on purpose, as the last step of the round whose restore this gate checks; the
+# network half is not merely unanswered, it is gone, and the only honest remedy -- "ask BEFORE the
+# down" -- is about the next round, not this report. A kernel that is UP and returns http 500 to
+# an acquire probe is a malfunction, the question is still askable this second, and it is the one
+# case where "nobody asked" cannot be assumed benign. That asymmetry is deliberate and is pinned
+# by two cells of tests/shell/test_orphans_verdict.sh, one on each side of it.
 #
 # 🔴 `processes=unknown` IS a FAIL, and deliberately so: it is `ndt`'s rc 2, "a channel could not
 # look", and Adam's E-7 ruling is that a check which could not look must not look like a check that
@@ -120,6 +165,9 @@
 #     1  NOT CLEAN (an untracked process, a blind process channel, a dated rule, or a held lock)
 #     2  UNUSABLE  (no report, or a report this cannot parse and that does not say why -- never to
 #                  be read as a pass)
+#     3  NOT CHECKED (the kernel was UP and the network half was asked, and not one of its
+#                  questions came back -- zeros that mean "nobody got an answer", not "nothing is
+#                  there". Added 2026-09-11 for F-OFFLINE-1 §1.11; also never a pass)
 
 set -uo pipefail
 
@@ -206,6 +254,30 @@ else
     read -r N_RULES N_LOCKS N_UNDATED N_UNANSWERABLE <<<"$TALLY"
 fi
 
+# --- did the network half answer ANYTHING? -------------------------------------------------------
+# 🔴 F-OFFLINE-1 §1.11. The tally cannot answer this on its own: `0 lock(s) held` is the same
+# number whether three probes said `free` or three said `NOT CHECKED (http 500)`, and only the
+# first of those is a measurement. So the positive answers are read from the report text, in
+# `ndt`'s own words, and matched as whole shapes rather than as bare words:
+#
+#   ndt:5545  info "  lock  $t free"                          a lock WAS read, and it is free
+#   ndt:5543  err  "  lock  $t HELD -- held_by_lease=..."      a lock WAS read, and it is held
+#   ndt:5632  ok   "      no flow entry arrived during window" the flow table WAS read for a window
+#   ndt:5634  err  "      $n rule(s) listed: ..."              likewise, and it had entries
+#
+# `lock <t> free` is anchored at end-of-line on purpose: `NOT CHECKED (${lock#unknown })`
+# (ndt:5550) carries the probe's own error text, and an unanchored ` free` would match a kernel
+# that returned, say, `500 no free lease slot` -- the exact failure this discriminator exists to
+# catch. Anchoring is safe because `info` appends nothing after "$*" (ndt:100) and the SGR strip
+# above has already removed the colour reset.
+NETWORK_ANSWERED=0
+if grep -qE -- 'lock[[:space:]]+[A-Za-z_]+ free[[:space:]]*$' <<<"$REPORT" \
+   || grep -qF -- 'HELD -- held_by_lease=' <<<"$REPORT" \
+   || grep -qF -- 'no flow entry arrived during that window' <<<"$REPORT" \
+   || grep -qF -- 'rule(s) listed:' <<<"$REPORT"; then
+    NETWORK_ANSWERED=1
+fi
+
 echo "processes=$PROCESSES"
 if (( KERNEL_DOWN )); then
     echo "network=n/a"
@@ -259,11 +331,28 @@ if (( ${#REASONS[@]} == 0 )); then
     # `tail -1` is THIS line. "CLEAN" with no qualifier, for a network half nobody read, is the
     # exact shape E-7 forbids. The token `CLEAN` is unchanged, so both the rc and a
     # `grep -F 'VERDICT: CLEAN'` gate (.claude/skills/overnight-hunt/SKILL.md:199) still match.
+    # That is Adam's 2026-09-10 ruling and it is NOT changed by the NOT CHECKED branch below.
     if (( KERNEL_DOWN )); then
         echo "VERDICT: CLEAN -- the process half only; the network half was NOT checked (kernel down)"
-    else
-        echo "VERDICT: CLEAN"
+        exit 0
     fi
+    # 🔴 F-OFFLINE-1 §1.11. Kernel UP, tally present, and not one of the network half's questions
+    # came back. The three zeros in `network=0/0/0` are then not findings-of-nothing; they are the
+    # initial values of counters nothing ever incremented, and the token `CLEAN` over them is the
+    # one thing this file exists to prevent. `grep -F 'VERDICT: CLEAN'` gates DO NOT match this
+    # line, deliberately -- that is the whole fix.
+    if (( N_UNANSWERABLE > 0 && NETWORK_ANSWERED == 0 )); then
+        echo "VERDICT: NOT CHECKED -- the process half is clean, and the network half answered"
+        echo "         NOTHING: all $N_UNANSWERABLE of its question(s) came back unanswerable and not one"
+        echo "         lock or window was read, with the kernel UP (there is a tally, so :8000 was"
+        echo "         open). network=0/0/0 here is 'nobody got an answer', NOT 'nothing is there'."
+        echo "         Not CLEAN and not NOT CLEAN: nothing was found because nothing could be"
+        echo "         asked. Fix what is answering the probes (the NOTE-WHY lines above say what"
+        echo "         it was -- http 500 on the lock endpoint means the kernel is up but sick) and"
+        echo "         ask again; 'ndt apps orphans' is re-runnable and costs nothing."
+        exit 3
+    fi
+    echo "VERDICT: CLEAN"
     exit 0
 fi
 

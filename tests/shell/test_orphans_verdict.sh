@@ -27,6 +27,24 @@
 #     KERNEL DOWN, a process running  -> NOT CLEAN (the half that COULD be read still decides)
 #     no tally and no kernel-down     -> UNUSABLE (that is a report nobody can read)
 #
+# and, added 2026-09-11 (FIX-NDT-2, from F-OFFLINE-1 §1.11), the floor under the NOTE rule:
+#
+#     kernel UP, a tally, ALL THREE lock probes `NOT CHECKED (http 500)`  -> NOT CHECKED (rc 3)
+#     the same, but one probe answered                                    -> CLEAN, with the NOTE
+#     the same, but the failure text ends in the word "free"              -> NOT CHECKED (rc 3)
+#
+# That first cell used to read `VERDICT: CLEAN` rc 0 -- measured 2026-09-11 -- while `ndt` itself
+# answered 5 for the same report (residue_verdict, ndt:5349). `network=0/0/0` there is three
+# counters nothing ever incremented, not three findings of nothing: `0 lock(s) held` after three
+# failed probes is not a measurement. Partial blindness IS the normal state of this lab (the
+# CONTROL below is exactly that) and stays a NOTE; total blindness with a live kernel is not.
+#
+# 🔴 ALL-BLIND 4/4 pins the asymmetry that makes both rulings true at once: after `ndt down`
+# nothing read a lock either, and that report is still `CLEAN -- the process half only` (Adam
+# 2026-09-10). The operator closed :8000 on purpose as the last step of the round; a kernel that
+# is UP and returns http 500 to an acquire probe is a malfunction, and the question is askable
+# again this second. Delete either cell and the other stops meaning anything.
+#
 # `ndt down` closes :8000, so residue_report (ndt:5415) returns before it prints a tally. Measured
 # on the merge tree, 2026-09-10 23:59 (`logs/lv-p4128-94-orphans.log`, R5-P4-128 §5 / §7-2): every
 # other instrument said the machine was clean and this reader said UNUSABLE, because "no tally" and
@@ -261,6 +279,86 @@ mk no_residue_half <<'EOF'
   ok  no untracked app processes
 EOF
 
+# 🔴 ALL-BLIND. Kernel UP -- there IS a tally, which residue_report only reaches after :8000
+# answered `port_open` (ndt:5415) -- and every one of the three lock probes came back
+# `NOT CHECKED (http 500)` (ndt:5550). Built from `ndt`'s own two print sites for
+# F-OFFLINE-1 §1.11, which measured this exact report reading `VERDICT: CLEAN` rc 0 while `ndt`
+# itself answered 5 for it (residue_verdict, ndt:5349).
+#
+# 🔴 The three zeros in its tally are the initial values of counters (ndt:5405-5409) that nothing
+# ever incremented, because nothing was ever successfully asked. `0 lock(s) held` after three
+# failed probes is not a measurement of zero, and this is the cell that says so.
+mk all_blind <<'EOF'
+  ok  no untracked app processes
+
+network residue (nothing below is deleted)
+  !!    lock  routing_lock NOT CHECKED (http 500)
+  !!    lock  graph_lock NOT CHECKED (http 500)
+  !!    lock  power_lock NOT CHECKED (http 500)
+          field (LockManager.hpp), and the kernel has no lock-status endpoint, so the
+          three lines above come from an acquire probe with ttl 0, which excludes nobody.
+    energy: no pidfile and no live process -- no window, so no rule can be dated
+        against it. NOT 'this app left nothing'. (G-12)
+        (its log is empty or absent too -- no sign it ever ran here)
+
+    NOT deleted, and nothing here deletes them.
+    (no app had a datable window in this run)
+    tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 3 question(s) not answerable
+  !!  NOT CHECKED: the residue question could not be answered -- rc 5.
+  !!    this is not 'the network is clean'. see the lines above for which
+  !!    reading failed. (KNOWN-ISSUES G-12)
+EOF
+
+# The other side of the floor: ONE of the three probes answered. Partial blindness is the normal
+# state of this lab -- it is what the CONTROL fixture above is -- and it stays CLEAN with a NOTE.
+mk partial_blind <<'EOF'
+  ok  no untracked app processes
+
+network residue (nothing below is deleted)
+    lock  routing_lock free
+  !!    lock  graph_lock NOT CHECKED (http 500)
+  !!    lock  power_lock NOT CHECKED (http 500)
+    NOT deleted, and nothing here deletes them.
+    (no app had a datable window in this run)
+    tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 2 question(s) not answerable
+EOF
+
+# 🔴 THE ANCHORING CONTROL for the all-blind discriminator. The probe's failure text is
+# `NOT CHECKED (${lock#unknown })` (ndt:5550) -- whatever the kernel said, verbatim -- so it can
+# end in any word at all, including the word this reader looks for. A discriminator that searched
+# for a bare ` free` instead of the whole `lock <name> free` line at end-of-line would read this
+# report, in which NOTHING was answered, as answered. Same tally as all_blind; same verdict
+# required.
+mk all_blind_says_free <<'EOF'
+  ok  no untracked app processes
+
+network residue (nothing below is deleted)
+  !!    lock  routing_lock NOT CHECKED (http 500 -- no lease was free
+  !!    lock  graph_lock NOT CHECKED (http 500 -- no lease was free
+  !!    lock  power_lock NOT CHECKED (http 500 -- no lease was free
+    NOT deleted, and nothing here deletes them.
+    tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 3 question(s) not answerable
+EOF
+
+# All three locks blind, but an app HAD a datable window and the flow table WAS read for it
+# (ndt:5632). Under the 2026-09-11 rule -- "one positive answer is enough" -- that is partial
+# blindness and stays CLEAN with a NOTE. Pinned rather than left implicit because it is the
+# weakest cell on the CLEAN side of the floor: `0 lock(s) held` in it still rests on three failed
+# probes. Whether the lock half should have to answer on its own is FIX-NDT-2 SUMMARY §7-1, for
+# Adam; until he rules, this is the behaviour and this cell is what would have to change.
+mk locks_blind_window_read <<'EOF'
+  ok  no untracked app processes
+
+network residue (nothing below is deleted)
+  !!    lock  routing_lock NOT CHECKED (http 500)
+  !!    lock  graph_lock NOT CHECKED (http 500)
+  !!    lock  power_lock NOT CHECKED (http 500)
+    sim    window 2026-09-10 16:48:24 -> now (22s)
+  ok        no flow entry arrived during that window
+    NOT deleted, and nothing here deletes them.
+    tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 3 question(s) not answerable
+EOF
+
 # What a caller who forgot `2>&1` collects when an orphan IS running: err() writes to fd 2.
 mk no_process_half <<'EOF'
 network residue (nothing below is deleted)
@@ -407,6 +505,72 @@ has   "  processes=clean is still reported"               "processes=clean" "$OU
 hasnt "  🔴 but the verdict is not CLEAN"                 "VERDICT: CLEAN" "$OUT"
 hasnt "  🔴 and a kernel-down NOTE is not invented from a missing tally" "kernel down" "$OUT"
 has   "  and it names what is missing"                    "no 'tally:' line in the report" "$OUT"
+
+# =================================================================================================
+section "🔴 ALL-BLIND 1/4 -- kernel UP, a tally, and not one network question answered"
+# =================================================================================================
+# F-OFFLINE-1 §1.11, measured 2026-09-11: this report read `VERDICT: CLEAN` rc 0 while `ndt`
+# answered 5 for the same observation. The tally's zeros were never measured.
+OUT="$(verdict "$FIX/all_blind" 5)"
+check "  🔴 rc 3 -- zeros nobody could measure are not a clean network" "3" "$(rc_of "$OUT")"
+has   "  VERDICT: NOT CHECKED"                            "VERDICT: NOT CHECKED" "$OUT"
+hasnt "  🔴 and NOT the token CLEAN -- a grep gate must not pass it" "VERDICT: CLEAN" "$OUT"
+hasnt "  🔴 nor NOT CLEAN -- nothing was found, so nothing is to be deleted" "VERDICT: NOT CLEAN" "$OUT"
+has   "  processes=clean is still reported"               "processes=clean" "$OUT"
+has   "  and it says what the zeros mean"                 "'nobody got an answer', NOT 'nothing is there'" "$OUT"
+has   "  and names the remedy: ask again"                 "ask again" "$OUT"
+has   "  ndt's own sentence is quoted"                    "lock  routing_lock NOT CHECKED (http 500)" "$OUT"
+has   "  ndt's rc is recorded, not consulted"             "ndt_rc=5 (recorded, NOT used for the verdict)" "$OUT"
+
+# =================================================================================================
+section "🔴 ALL-BLIND 2/4 -- one answer out of three is still CLEAN, with the NOTE"
+# =================================================================================================
+OUT="$(verdict "$FIX/partial_blind" 5)"
+check "  🔴 rc 0 -- partial blindness is this lab's normal state" "0" "$(rc_of "$OUT")"
+has   "  VERDICT: CLEAN"                                  "VERDICT: CLEAN" "$OUT"
+has   "  with the NOTE, not swallowed"                    "NOTE: 2 question(s) not answerable" "$OUT"
+hasnt "  🔴 and never NOT CHECKED"                        "VERDICT: NOT CHECKED" "$OUT"
+# The CONTROL fixture is the live form of the same rule: three locks free, one lost window.
+OUT="$(verdict "$FIX/live_a7" 5)"
+check "  🔴 the live CONTROL is untouched by the floor"   "0" "$(rc_of "$OUT")"
+hasnt "  and still not NOT CHECKED"                       "VERDICT: NOT CHECKED" "$OUT"
+# So is a fabric where everything answered and every answer was empty.
+OUT="$(verdict "$FIX/clean" 0)"
+check "  and a wholly answered clean fabric is still rc 0" "0" "$(rc_of "$OUT")"
+hasnt "  with no floor NOTE invented for it"              "VERDICT: NOT CHECKED" "$OUT"
+# not_answerable=0 is the tool saying every question came back. The floor must not fire there.
+OUT="$(verdict "$FIX/p4_undated" 5)"
+check "  🔴 and a P4 fabric (40 undated, 0 unanswerable) can still pass" "0" "$(rc_of "$OUT")"
+
+# =================================================================================================
+section "🔴 ALL-BLIND 3/4 -- the discriminator reads the LINE, not the word 'free'"
+# =================================================================================================
+# `NOT CHECKED (${lock#unknown })` carries the kernel's own error text (ndt:5550), so the failure
+# line can end in any word, this one included. Nothing in this report was answered.
+OUT="$(verdict "$FIX/all_blind_says_free" 5)"
+check "  🔴 rc 3 -- an error message containing 'free' is not a lock that was read" "3" "$(rc_of "$OUT")"
+has   "  VERDICT: NOT CHECKED"                            "VERDICT: NOT CHECKED" "$OUT"
+hasnt "  🔴 and never CLEAN"                              "VERDICT: CLEAN" "$OUT"
+
+# =================================================================================================
+section "🔴 ALL-BLIND 4/4 -- the asymmetry with kernel-down is deliberate"
+# =================================================================================================
+# Neither report read a lock. One is CLEAN and one is NOT CHECKED, and the difference is whether
+# the kernel was there to answer: `ndt down` closing :8000 is a state the operator created as the
+# last step of the round, and Adam ruled on 2026-09-10 that the process half still answers for it.
+# An http 500 from a kernel that is UP is a malfunction, and the question is askable this second.
+A="$(verdict "$FIX/kernel_down" 5)"; B="$(verdict "$FIX/all_blind" 5)"
+check "  🔴 kernel down  -> rc 0"                         "0" "$(rc_of "$A")"
+has   "  🔴 and Adam's 09-10 wording is unchanged"        "CLEAN -- the process half only" "$A"
+check "  🔴 kernel up, all probes blind -> rc 3"          "3" "$(rc_of "$B")"
+check "  🔴 the two verdicts are not the same line"       "differ" \
+      "$([[ "$(grep -F 'VERDICT:' <<<"$A")" == "$(grep -F 'VERDICT:' <<<"$B")" ]] && printf same || printf differ)"
+# A window that WAS read is an answer, so this stays CLEAN under the 2026-09-11 rule. See the
+# fixture's own header and FIX-NDT-2 SUMMARY §7-1: this is the cell that changes if Adam rules
+# that the lock half must answer on its own.
+OUT="$(verdict "$FIX/locks_blind_window_read" 5)"
+check "  one window read, three locks blind -> rc 0 (§7-1 is open)" "0" "$(rc_of "$OUT")"
+has   "  with the NOTE"                                   "NOTE: 3 question(s) not answerable" "$OUT"
 
 # =================================================================================================
 section "An unreadable report is UNUSABLE, never CLEAN"

@@ -391,6 +391,20 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
   （殘留那半中途死掉、舊版 `ndt` 的 `orphans` 根本沒有網路那半），而**舊版那個一行形報告
   kernel 開著關著長得一模一樣**（`logs/*-04-orphans.log` 8 份是開著的）⇒ 光看「沒有 tally」
   分不出來，所以判準是**那句話**不是那個缺口。**網路那半要有答案就在 `ndt down` 之前問。**
+  🆕 **09-11 另加一個 rc：3 `NOT CHECKED`。** 上面那句「前兩個數字是 0 就算乾淨」有一個地板，
+  09-11 才補上（F-OFFLINE-1 §1.11 離線實測）：**kernel 開著、tally 有印、而三個 lock probe
+  全部回 `NOT CHECKED (http 500)`** 的報告，helper 原本印 `VERDICT: CLEAN` rc 0，
+  而 `ndt` 自己對同一份觀測回 5（`residue_verdict`，`ndt:5349`）。那三個 0 **不是量到 0**，
+  是計數器（`ndt:5405-5409`）從來沒被加過——`0 lock(s) held` 在三個 probe 都失敗之後不是測量值。
+  ⇒ 現在的判準是：**網路那半至少要有一個正面答覆**（`lock <t> free`／`lock <t> HELD`／
+  `no flow entry arrived during that window`／`rule(s) listed:` 之一）才可能 CLEAN；
+  **kernel 開著而一個都沒有 ⇒ rc 3、印 `VERDICT: NOT CHECKED`**（不是 CLEAN 也不是 NOT CLEAN：
+  什麼都沒找到是因為什麼都沒問到，補救是把 probe 修好再問一次）。
+  **部分問到照舊是 CLEAN＋NOTE**——這個 lab 平常就是部分盲（一個 app 的窗掉了那種）。
+  🔴 **kernel-down 那格不受影響**：`ndt down` 之後照舊 `VERDICT: CLEAN -- the process half only`
+  （Adam 09-10 裁）。差別是「操作者自己關的 :8000」與「kernel 在、但回 http 500」——
+  後者是故障、而且現在就還能再問一次。⇒ **`grep -F 'VERDICT: CLEAN'` 的閘門在 all-blind 那格
+  現在不會 match**（這正是修法的目的）；rc 也從 0 變 3，把 rc 當 0/非 0 讀的呼叫者會直接 FAIL。
 - **要退掉這個行為**（如果哪天不要了）：把 `ndt:3914-3918` 那兩行從
   「併進 `APP_SURVIVOR_BLIND`」改成只印不記，閘門
   `tests/shell/mutate_ndt_helper_apps_window.sh` 的 M24 會立刻紅。
