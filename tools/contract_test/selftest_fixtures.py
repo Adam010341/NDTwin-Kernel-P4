@@ -76,8 +76,30 @@ POWER_REPORT_SAMPLE = [
 # The counters are kept small and self-consistent rather than reproducing the live 262/1/261
 # from the A-7 round: at capacity 256 that run had evicted 5 and was holding a full ring, so an
 # honest transcription would need 256 records in this file. The shape is what the schema checks.
+#
+# [Co-developed with claude code -- Adam]
+# W11 (#54), 2026-09-06: `succeeded`/`failed` are now `dispatched_ok`/`dispatch_failed`, and
+# switch_outcome is the second group. The three switch-side numbers are not filled in at random --
+# they are what THIS body's own failure records imply, so the fixture stays readable as one story:
+# one dispatch succeeded on a plane that confirms nothing (unknown), one failed with the P4
+# proxy's 200-plus-error-body, which is a switch-side refusal (rejected), and one failed with
+# controller_status 0, which is nothing answering at all and therefore says nothing about a
+# switch (unknown). 0 + 1 + 2 == dispatched.
 DISPATCH_STATUS_SAMPLE = {
-    "counters": {"dispatched": 3, "succeeded": 1, "failed": 2, "dropped_after_stop": 0},
+    "counters": {"dispatched": 3, "dispatched_ok": 1, "dispatch_failed": 2,
+                 "dropped_after_stop": 0},
+    "switch_outcome": {
+        "accepted_by_switch": 0,
+        "rejected_by_switch": 1,
+        "unknown": 2,
+        "why_unknown": "a count of jobs whose plane's reply is not evidence about any switch. "
+                       "On the OVS/OpenFlow plane that is every job",
+    },
+    "renamed_keys": {"succeeded": "counters.dispatched_ok",
+                     "failed": "counters.dispatch_failed"},
+    "request_ids_tracked": 2,
+    "request_ids_capacity": 256,
+    "request_ids_forgotten": 0,
     "dispatcher_running": True,
     "recent_failures": [
         {"seq": 2, "at_unix_ms": 1756600000000, "op": "install", "dpid": 1,
@@ -111,6 +133,43 @@ DISPATCH_STATUS_OLDER_KERNEL = {
     "recent_failures": [],
     "recent_failures_capacity": 256,
     "recent_failures_evicted": 0,
+}
+
+# [Co-developed with claude code -- Adam]
+# W11. A kernel from between the A-7 follow-up and the 2026-09-06 rename: the follow-up fields are
+# there, the counters still carry the old names, and there is no switch_outcome. The schema and
+# inv_dispatch_counters_close must both still bite on it -- a contract that only understands the
+# newest kernel cannot be pointed at the one that is deployed.
+DISPATCH_STATUS_PRE_W11 = {
+    "counters": {"dispatched": 3, "succeeded": 1, "failed": 2, "dropped_after_stop": 0},
+    "dispatcher_running": True,
+    "recent_failures": [],
+    "recent_failures_capacity": 256,
+    "recent_failures_evicted": 0,
+    "counters_cover": {
+        "dispatch_routes": ["/ndt/install_flow_entry"],
+        "includes_boot_time_programming": False,
+        "includes_intent_translator": False,
+    },
+}
+
+# [Co-developed with claude code -- Adam]
+# W11 / R6 K-4: GET /ndt/get_flow_dispatch_status?request_id=<id>. `complete` is False here on
+# purpose -- 2 of the 3 jobs have come back -- because that is the state the process-wide body
+# cannot express and the one a caller polling for its own result is actually in.
+DISPATCH_STATUS_FOR_REQUEST_SAMPLE = {
+    "request_id": 41,
+    "enqueued": 3,
+    "counters": {"dispatched": 2, "dispatched_ok": 2, "dispatch_failed": 0},
+    "switch_outcome": {
+        "accepted_by_switch": 0,
+        "rejected_by_switch": 0,
+        "unknown": 2,
+        "why_unknown": "OpenFlow does not acknowledge a FLOW_MOD",
+    },
+    "complete": False,
+    "dispatcher_running": True,
+    "detail": "counters for this request only",
 }
 
 FIXTURES = {
@@ -196,6 +255,12 @@ FIXTURES = {
     "get_flow_dispatch_status": (spec.DISPATCH_STATUS, DISPATCH_STATUS_SAMPLE),
     "get_flow_dispatch_status (kernel without the A-7 follow-up fields)": (
         spec.DISPATCH_STATUS, DISPATCH_STATUS_OLDER_KERNEL),
+    # [Co-developed with claude code -- Adam] W11: both sides of the 2026-09-06 rename, because
+    # one schema has to describe a deployed kernel as well as a freshly built one.
+    "get_flow_dispatch_status (kernel from before the W11 rename)": (
+        spec.DISPATCH_STATUS, DISPATCH_STATUS_PRE_W11),
+    "get_flow_dispatch_status?request_id=<id>": (
+        spec.DISPATCH_STATUS_FOR_REQUEST, DISPATCH_STATUS_FOR_REQUEST_SAMPLE),
 }
 
 
@@ -306,6 +371,33 @@ _DISPATCH_EVICTED_WHILE_NOT_FULL = {**DISPATCH_STATUS_SAMPLE, "recent_failures_e
 _DISPATCH_CLEAN_SHUTDOWN_DROP = {
     **DISPATCH_STATUS_SAMPLE,
     "counters": {"dispatched": 3, "succeeded": 1, "failed": 2, "dropped_after_stop": 4},
+}
+
+# --- W11 (#54): the switch-side group ----------------------------------------------------------
+# [Co-developed with claude code -- Adam]
+
+#: The group stops partitioning the same jobs -- one dispatch is in no bucket at all, which is
+#: what a record() that returned early on some op would produce.
+_SWITCH_OUTCOME_OPEN = {
+    **DISPATCH_STATUS_SAMPLE,
+    "switch_outcome": {**DISPATCH_STATUS_SAMPLE["switch_outcome"], "unknown": 1},
+}
+
+#: The failure this group exists to prevent: dispatched_ok stood in for a switch's acceptance, so
+#: an OVS fabric reports every dispatch as confirmed. Caught by direction rather than by knowing
+#: which plane it is -- an acceptance count above the successful dispatches is impossible either way.
+_SWITCH_OUTCOME_BORROWED_FROM_DISPATCH = {
+    **DISPATCH_STATUS_SAMPLE,
+    "switch_outcome": {**DISPATCH_STATUS_SAMPLE["switch_outcome"],
+                       "accepted_by_switch": 3, "unknown": 0, "rejected_by_switch": 0},
+}
+
+#: The number without its reason. On OVS `unknown` equals `dispatched` for good and always will,
+#: so a body that publishes the count and drops the explanation hands the reader a permanent
+#: "nothing to see here".
+_SWITCH_OUTCOME_UNEXPLAINED = {
+    **DISPATCH_STATUS_SAMPLE,
+    "switch_outcome": {**DISPATCH_STATUS_SAMPLE["switch_outcome"], "why_unknown": "   "},
 }
 
 #: The state A-7 is about: the queue is dead, install_flow_entry still answers 200 "queued".
@@ -437,4 +529,17 @@ INVARIANT_CASES = [
      spec.inv_dispatcher_is_running, _DISPATCH_STOPPED, _GOOD_CTX, True),
     ("dispatcher_is_running: says nothing about a kernel that lacks the field",
      spec.inv_dispatcher_is_running, DISPATCH_STATUS_OLDER_KERNEL, _GOOD_CTX, False),
+
+    # --- W11 (#54): the switch-side group -----------------------------------------------------
+    # [Co-developed with claude code -- Adam]
+    ("switch_outcome_closes: accepts a group that partitions the dispatches",
+     spec.inv_switch_outcome_closes, DISPATCH_STATUS_SAMPLE, _GOOD_CTX, False),
+    ("switch_outcome_closes: catches a dispatch in no bucket",
+     spec.inv_switch_outcome_closes, _SWITCH_OUTCOME_OPEN, _GOOD_CTX, True),
+    ("switch_outcome_closes: catches acceptance borrowed from dispatched_ok",
+     spec.inv_switch_outcome_closes, _SWITCH_OUTCOME_BORROWED_FROM_DISPATCH, _GOOD_CTX, True),
+    ("switch_outcome_closes: catches an unknown count with no reason beside it",
+     spec.inv_switch_outcome_closes, _SWITCH_OUTCOME_UNEXPLAINED, _GOOD_CTX, True),
+    ("switch_outcome_closes: says nothing about a kernel that predates the group",
+     spec.inv_switch_outcome_closes, DISPATCH_STATUS_PRE_W11, _GOOD_CTX, False),
 ]

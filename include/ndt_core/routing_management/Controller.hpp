@@ -59,6 +59,24 @@ class Controller
         return outcomes_;
     }
 
+    /**
+     * @brief Register an HTTP batch's request id before its jobs are enqueued.
+     *
+     * [Co-developed with claude code -- Adam]
+     *
+     * W11. The one write to the outcome log that does not come from the sender callback, and it
+     * is deliberately a named method rather than a mutable accessor: handing out a non-const
+     * DispatchOutcomeLog& would let any caller move any counter, and the "one writer for the
+     * outcomes" property above is worth more than the two lines it saves. This adds an id and a
+     * job count; it cannot touch an outcome.
+     *
+     * Called from the HTTP thread, which is the only place a request id exists.
+     */
+    void noteRequestEnqueued(uint64_t requestId, uint64_t jobs)
+    {
+        outcomes_.noteRequestEnqueued(requestId, jobs);
+    }
+
   private:
     // Declare m_flowRoutingManager BEFORE dispatcher_ so it's constructed first
     std::shared_ptr<FlowRoutingManager> m_flowRoutingManager;

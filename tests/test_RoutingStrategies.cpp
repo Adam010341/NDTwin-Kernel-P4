@@ -476,3 +476,83 @@ TEST_F(RoutingStrategyFixture, StrategiesNameThemselvesForLogs)
     EXPECT_STREQ(OpenFlowRoutingStrategy("x").describe(), "Ryu controller");
     EXPECT_STREQ(P4RoutingStrategy("x").describe(), "P4 proxy agent");
 }
+
+// =====================================================================================
+// W11 (#54): the refusal half of the plane's verdict
+//
+// [Co-developed with claude code -- Adam]
+//
+// C-4 made a plane's *acceptance* carry whether it is evidence of programming
+// (OpResult::confirmsProgramming). W11 needs the other direction, because a refusal is the only
+// switch-side answer the OVS plane never gives and the P4 plane routinely does: R6 K-4's delete
+// of a match no switch held returns {"status":"error"} from the proxy, and that is the kernel
+// knowing the switch does not hold the rule -- a fact `get_flow_dispatch_status` had no bucket
+// for and reported as a success.
+//
+// These test the CARRIER: that post() attaches the bit on the paths where the far end answered
+// and withholds it on the paths where it did not. What the bit is then used for is
+// tests/test_DispatchOutcomeLog.cpp's; the two halves are separable and both have to hold.
+// =====================================================================================
+
+TEST_F(RoutingStrategyFixture, AProxyRefusalIsAVerdictAboutTheSwitch)
+{
+    // The proxy programs the table before replying and reports a per-entry refusal in the body,
+    // so "no" from it means the entry is not there.
+    RecordingP4 s("localhost:8081");
+    s.cannedReply = "{\"status\":\"error\",\"message\":\"Failed to delete route\"}\n200";
+
+    const OpResult r = s.deleteAnEntry(1, sampleMatch(), -1);
+
+    EXPECT_FALSE(r.ok);
+    EXPECT_TRUE(r.confirmsNotProgrammed)
+        << "R6 K-4: this is the one plane that can tell the caller its delete removed nothing";
+    EXPECT_FALSE(r.confirmsProgramming) << "the two bits are mutually exclusive by construction";
+}
+
+TEST_F(RoutingStrategyFixture, AProxyErrorStatusIsAlsoAVerdictAboutTheSwitch)
+{
+    // The 501 the proxy raises for a priority ipv4_lpm cannot honour, and the 400 for an
+    // unsupported match. Both are raised BEFORE the write, so the entry is definitively absent.
+    RecordingP4 s("localhost:8081");
+    s.cannedReply = "{\"detail\":{\"error\":\"priority not honourable on this table\"}}\n501";
+
+    const OpResult r = s.deleteAnEntry(1, sampleMatch(), 999);
+
+    EXPECT_FALSE(r.ok);
+    EXPECT_EQ(r.httpStatus, 501);
+    EXPECT_TRUE(r.confirmsNotProgrammed);
+}
+
+TEST_F(RoutingStrategyFixture, ARyuRejectionIsNotAVerdictAboutTheSwitch)
+{
+    // The control that stops the bit from becoming "the operation failed". Ryu declining to build
+    // a FlowMod is a control-plane fact; nothing on the OVS plane adjudicates, in either
+    // direction, which is why the switch-side counter reads `unknown` there and not `rejected`.
+    RecordingOpenFlow s("localhost:8080");
+    s.cannedReply = "{\"error\":\"bad dpid\"}\n400";
+
+    const OpResult r = s.installAnEntry(1, 1, sampleMatch(), sampleActions(), 0);
+
+    EXPECT_FALSE(r.ok) << "it did fail";
+    EXPECT_FALSE(r.confirmsNotProgrammed)
+        << "attributing this to a switch would name a component that was never consulted -- the "
+           "misattribution OpResult::notSent exists to stop, pointed at the new counter";
+}
+
+TEST_F(RoutingStrategyFixture, AnUnansweredRequestIsNoVerdictOnEitherPlane)
+{
+    // Nothing answered, so there is nothing to adjudicate -- on the plane that otherwise would.
+    RecordingP4 s("localhost:8081");
+    s.cannedReply = "\n000";
+    const OpResult unreachable = s.installAnEntry(1, 1, sampleMatch(), sampleActions(), 0);
+    EXPECT_TRUE(unreachable.noResponse());
+    EXPECT_FALSE(unreachable.confirmsNotProgrammed);
+
+    // And the case where the request never left this host at all.
+    s.cannedRan = false;
+    s.cannedStatus = 127 << 8;
+    const OpResult notSent = s.installAnEntry(1, 1, sampleMatch(), sampleActions(), 0);
+    EXPECT_FALSE(notSent.ok);
+    EXPECT_FALSE(notSent.confirmsNotProgrammed)
+        << "curl never ran; blaming the switch here is the B-2b defect in a new field";
+}

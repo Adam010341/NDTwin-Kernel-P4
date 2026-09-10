@@ -239,3 +239,294 @@ TEST(DispatchOutcomeLogTest, ZeroCapacityStillKeepsOneRatherThanDividingByZero)
     EXPECT_EQ(log.recentFailures().size(), 1u);
     EXPECT_EQ(log.failed(), 1u);
 }
+
+// ---------------------------------------------------------------------------------------------
+// W11 (#54, R6 K-4): the second counter group, and per-request attribution.
+//
+// [Co-developed with claude code -- Adam]
+//
+// The counters above answer "did the far end take my request". Everything below is about the
+// question that was being asked of them instead -- "is the rule on the switch" -- and about the
+// question no global counter can answer: "was it MY request".
+//
+// The two planes are represented by the two OpResult bits rather than by a strategy object,
+// because that is exactly what record() sees. A test that constructed a P4RoutingStrategy would
+// be testing the strategy's answer as well, and the mutation this file has to catch is one that
+// mis-reads an answer, not one that produces a wrong answer.
+// ---------------------------------------------------------------------------------------------
+
+namespace
+{
+
+/// What the P4 proxy's reply looks like by the time record() sees it: it programmed the entry
+/// before answering, so its 200 is an adjudication.
+OpResult
+p4Accepted()
+{
+    return OpResult::success().withProgrammingConfirmed(true);
+}
+
+/// The P4 proxy's per-entry refusal -- `{"status":"error"}` in a 200 body, or a 501 for a
+/// priority it cannot honour. It looked, and the entry is not there.
+OpResult
+p4Refused(int status = 200, const char* why = "proxy reported an error in a 200 response")
+{
+    return OpResult::failure(status, why).withProgrammingRefused(true);
+}
+
+/// Ryu's answer to a flow-mod. `ok`, and evidence of nothing: OpenFlow does not acknowledge a
+/// FLOW_MOD, so this 200 is emitted before any switch has adjudicated (KNOWN-ISSUES C-4).
+OpResult
+ovsAccepted()
+{
+    return OpResult::success();
+}
+
+FlowJob
+jobForRequest(uint64_t requestId, uint64_t dpid = 1, FlowOp op = FlowOp::Install)
+{
+    FlowJob job = jobFor(dpid);
+    job.op = op;
+    job.requestId = requestId;
+    return job;
+}
+
+} // namespace
+
+TEST(DispatchOutcomeLogTest, TheSameMatchDispatchedTwentyTimesCountsTwentyDispatches)
+{
+    // #54 pinned as a specification rather than left as a surprise. Measured 2026-09-05: this is
+    // +20 while the switch gains one row. The number is correct and the old NAME was not, so the
+    // assertion here is that dispatch counting is unchanged -- the fix is that nothing now calls
+    // this "succeeded", and that the switch-side group answers separately.
+    DispatchOutcomeLog log(8);
+    for (int i = 0; i < 20; ++i)
+    {
+        log.record(jobFor(1, 100, "10.0.0.7"), p4Accepted());
+    }
+
+    EXPECT_EQ(log.dispatched(), 20u);
+    EXPECT_EQ(log.dispatchedOk(), 20u);
+    EXPECT_EQ(log.dispatchFailed(), 0u);
+}
+
+TEST(DispatchOutcomeLogTest, AnOvsDispatchIsUnknownAtTheSwitchAndNotAnAcceptance)
+{
+    // The B half. Ryu's 200 is not evidence about any switch, so the honest bucket is `unknown`.
+    // The tempting shortcut -- let dispatched_ok stand in for accepted_by_switch -- would report
+    // a healthy OVS fabric as a confirmed one, which is the claim this whole ticket removes.
+    DispatchOutcomeLog log(8);
+    for (int i = 0; i < 5; ++i)
+    {
+        log.record(jobFor(1), ovsAccepted());
+    }
+
+    EXPECT_EQ(log.dispatchedOk(), 5u) << "the dispatch itself did succeed";
+    EXPECT_EQ(log.acceptedBySwitch(), 0u)
+        << "an OVS acceptance is not a switch's acceptance; if this is ever non-zero on the OVS "
+           "plane, something has started reading dispatch as programming again";
+    EXPECT_EQ(log.rejectedBySwitch(), 0u);
+    EXPECT_EQ(log.switchOutcomeUnknown(), 5u);
+}
+
+TEST(DispatchOutcomeLogTest, AConfirmedP4DispatchIsAnAcceptanceBySwitch)
+{
+    // The control for the test above: the bucket is not simply pinned at unknown. Without this,
+    // a mutation that hard-codes Unknown would pass everything else in this file.
+    DispatchOutcomeLog log(8);
+    log.record(jobFor(1), p4Accepted());
+
+    EXPECT_EQ(log.acceptedBySwitch(), 1u);
+    EXPECT_EQ(log.switchOutcomeUnknown(), 0u);
+    EXPECT_EQ(log.rejectedBySwitch(), 0u);
+}
+
+TEST(DispatchOutcomeLogTest, ANoOpDeleteIsNotAnAcceptanceBySwitch)
+{
+    // R6 K-4: a delete of a match that never existed anywhere. On the P4 plane the proxy answers
+    // {"status":"error"} because unroute_flow found nothing, so the kernel knows the switch does
+    // not hold it -- that is rejected_by_switch, and it must NOT be an acceptance. On the OVS
+    // plane Ryu answers 200 and the kernel knows nothing, which is `unknown`. The one thing
+    // neither may be is accepted_by_switch, and that is what K-4 saw reported as `succeeded`.
+    DispatchOutcomeLog log(8);
+    log.record(jobForRequest(0, 1, FlowOp::Delete), p4Refused());
+    log.record(jobForRequest(0, 2, FlowOp::Delete), ovsAccepted());
+
+    EXPECT_EQ(log.acceptedBySwitch(), 0u)
+        << "a delete that removed nothing has not been accepted by any switch";
+    EXPECT_EQ(log.rejectedBySwitch(), 1u) << "the P4 plane looked and said no";
+    EXPECT_EQ(log.switchOutcomeUnknown(), 1u) << "the OVS plane did not look";
+}
+
+TEST(DispatchOutcomeLogTest, TheSwitchSideGroupClosesAgainstDispatched)
+{
+    // The cheapest proof that no path increments one bucket without the others, and the reason
+    // the second group is published as its own object: it partitions the SAME population as
+    // `dispatched`, while dispatched == dispatched_ok + dispatch_failed partitions it a second,
+    // independent way. A record() that returned early on some op would break one sum or the other.
+    DispatchOutcomeLog log(64);
+    log.record(jobFor(1), p4Accepted());
+    log.record(jobFor(1), p4Refused(501, "priority not honourable on this table"));
+    log.record(jobFor(1), ovsAccepted());
+    log.record(jobFor(1), OpResult::unreachable("no response from Ryu"));
+    log.record(jobFor(1), OpResult::notSent("this kernel could not run curl"));
+
+    EXPECT_EQ(log.dispatched(), 5u);
+    EXPECT_EQ(log.dispatchedOk() + log.dispatchFailed(), log.dispatched());
+    EXPECT_EQ(log.acceptedBySwitch() + log.rejectedBySwitch() + log.switchOutcomeUnknown(),
+              log.dispatched());
+
+    // And the two ways of partitioning are genuinely different, which is the whole point: three
+    // of these five dispatches tell us nothing about a switch, and only one of those three failed.
+    EXPECT_EQ(log.switchOutcomeUnknown(), 3u);
+    EXPECT_EQ(log.dispatchFailed(), 3u);
+    EXPECT_EQ(log.acceptedBySwitch(), 1u);
+    EXPECT_EQ(log.rejectedBySwitch(), 1u);
+}
+
+TEST(DispatchOutcomeLogTest, AnUnansweredRequestBlamesNoSwitch)
+{
+    // The B-2b lesson, applied to the new counters. A request that never left this host, or one
+    // nothing answered, has told us nothing about a switch -- counting it as rejected_by_switch
+    // would accuse a component the kernel never reached, in a field an operator acts on.
+    DispatchOutcomeLog log(8);
+    log.record(jobFor(1), OpResult::notSent("curl is not installed"));
+    log.record(jobFor(1), OpResult::unreachable("no response from the P4 proxy within 5s"));
+
+    EXPECT_EQ(log.dispatchFailed(), 2u);
+    EXPECT_EQ(log.rejectedBySwitch(), 0u);
+    EXPECT_EQ(log.switchOutcomeUnknown(), 2u);
+}
+
+TEST(DispatchOutcomeLogTest, TheTwoSwitchSideBitsAreNeverBothSet)
+{
+    // classifySwitchOutcome has to break a tie it should never be handed. The bits are set on
+    // different code paths -- one on post()'s success return, one on its two refusal returns --
+    // so a result carrying both means those paths have been merged. Asserted rather than assumed,
+    // because the classification silently prefers "accepted" and that is the optimistic direction.
+    OpResult impossible = OpResult::success().withProgrammingConfirmed(true);
+    EXPECT_FALSE(impossible.confirmsNotProgrammed);
+
+    OpResult refusal = OpResult::failure(400, "refused").withProgrammingRefused(true);
+    EXPECT_FALSE(refusal.confirmsProgramming);
+
+    EXPECT_EQ(DispatchOutcomeLog::classifySwitchOutcome(impossible),
+              DispatchOutcomeLog::SwitchOutcome::AcceptedBySwitch);
+    EXPECT_EQ(DispatchOutcomeLog::classifySwitchOutcome(refusal),
+              DispatchOutcomeLog::SwitchOutcome::RejectedBySwitch);
+    EXPECT_EQ(DispatchOutcomeLog::classifySwitchOutcome(OpResult::success()),
+              DispatchOutcomeLog::SwitchOutcome::Unknown);
+}
+
+TEST(DispatchOutcomeLogTest, TwoRequestsDoNotPolluteEachOther)
+{
+    // R6 K-4's core complaint: the counters are global, so "did my POST land" cannot be asked.
+    // Two batches, interleaved the way two worker threads would interleave them, and each id
+    // answers for its own jobs only.
+    DispatchOutcomeLog log(64);
+    log.noteRequestEnqueued(11, 2);
+    log.noteRequestEnqueued(22, 3);
+
+    log.record(jobForRequest(11), p4Accepted());
+    log.record(jobForRequest(22), p4Refused());
+    log.record(jobForRequest(11), p4Accepted());
+    log.record(jobForRequest(22), ovsAccepted());
+    log.record(jobForRequest(22), p4Refused());
+
+    const auto first = log.tallyFor(11);
+    ASSERT_TRUE(first.has_value());
+    EXPECT_EQ(first->enqueued, 2u);
+    EXPECT_EQ(first->dispatched, 2u);
+    EXPECT_EQ(first->dispatchedOk, 2u);
+    EXPECT_EQ(first->dispatchFailed, 0u);
+    EXPECT_EQ(first->acceptedBySwitch, 2u);
+    EXPECT_EQ(first->rejectedBySwitch, 0u);
+
+    const auto second = log.tallyFor(22);
+    ASSERT_TRUE(second.has_value());
+    EXPECT_EQ(second->enqueued, 3u);
+    EXPECT_EQ(second->dispatched, 3u);
+    EXPECT_EQ(second->dispatchedOk, 1u);
+    EXPECT_EQ(second->dispatchFailed, 2u);
+    EXPECT_EQ(second->rejectedBySwitch, 2u);
+    EXPECT_EQ(second->switchOutcomeUnknown, 1u);
+
+    // The globals still see everything -- the per-request tallies are an extra view, not a
+    // replacement, and a caller comparing the two must find them consistent.
+    EXPECT_EQ(log.dispatched(), 5u);
+    EXPECT_EQ(first->dispatched + second->dispatched, log.dispatched());
+}
+
+TEST(DispatchOutcomeLogTest, ARequestStillDrainingSaysSoRatherThanLookingFinished)
+{
+    // `enqueued` is what makes an in-flight batch readable. Without it, a caller polling one
+    // second after its POST sees "2 dispatched, all ok" for a batch of five and stops watching.
+    DispatchOutcomeLog log(64);
+    log.noteRequestEnqueued(7, 5);
+    log.record(jobForRequest(7), ovsAccepted());
+    log.record(jobForRequest(7), ovsAccepted());
+
+    const auto tally = log.tallyFor(7);
+    ASSERT_TRUE(tally.has_value());
+    EXPECT_EQ(tally->enqueued, 5u);
+    EXPECT_EQ(tally->dispatched, 2u);
+    EXPECT_LT(tally->dispatched, tally->enqueued);
+}
+
+TEST(DispatchOutcomeLogTest, AnUnregisteredRequestIsNotInvented)
+{
+    // The distinction registration exists to draw. An outcome for an id nobody registered must
+    // not create a tally: if it did, "unknown request" would also mean "known but not yet
+    // drained", and those two lead to opposite actions -- fix your id, or wait.
+    DispatchOutcomeLog log(64);
+    log.record(jobForRequest(99), p4Accepted());
+
+    EXPECT_FALSE(log.tallyFor(99).has_value());
+    EXPECT_FALSE(log.tallyFor(0).has_value()) << "0 means 'not from an HTTP batch'";
+    EXPECT_EQ(log.dispatched(), 1u) << "still counted globally";
+}
+
+TEST(DispatchOutcomeLogTest, ReRegisteringAnIdDoesNotResetItsCounts)
+{
+    // Ids are minted by one atomic and cannot repeat within a process, so this is defence
+    // against a future caller, not against today's. It matters because the failure would be
+    // silent: a reset tally reads exactly like a request that has not been dispatched yet.
+    DispatchOutcomeLog log(64);
+    log.noteRequestEnqueued(5, 1);
+    log.record(jobForRequest(5), p4Accepted());
+    log.noteRequestEnqueued(5, 99);
+
+    const auto tally = log.tallyFor(5);
+    ASSERT_TRUE(tally.has_value());
+    EXPECT_EQ(tally->enqueued, 1u);
+    EXPECT_EQ(tally->dispatched, 1u);
+}
+
+TEST(DispatchOutcomeLogTest, TheOldestRequestAgesOutAndTheLogSaysHowMany)
+{
+    // Same argument as recent_failures_evicted, one level up: a per-request answer that silently
+    // ages out reads exactly like a request that never existed, and only one of those is a reason
+    // for the caller to distrust its own id.
+    DispatchOutcomeLog log(64);
+    const uint64_t overflow = DispatchOutcomeLog::kRequestBudget + 10;
+    for (uint64_t id = 1; id <= overflow; ++id)
+    {
+        log.noteRequestEnqueued(id, 1);
+    }
+
+    EXPECT_EQ(log.requestsTracked(), DispatchOutcomeLog::kRequestBudget);
+    EXPECT_EQ(log.requestsForgotten(), 10u);
+    EXPECT_FALSE(log.tallyFor(1).has_value()) << "the oldest went first";
+    EXPECT_TRUE(log.tallyFor(overflow).has_value()) << "the newest is still there";
+}
+
+TEST(DispatchOutcomeLogTest, TheFailureRingIsAsLargeAsADispatcherBurst)
+{
+    // 2026-09-05 ruling (fifth grill round, honesty item 4). At the old 256 a single 2000-entry
+    // burst could evict the evidence of its own first three quarters, leaving the operator with
+    // an eviction count in place of the failures -- the shape A-7 exists to close.
+    EXPECT_EQ(DispatchOutcomeLog::kDefaultCapacity, 2000u)
+        << "FlowDispatcher's burstSize default is 2000; these two numbers are meant to match";
+    DispatchOutcomeLog log;
+    EXPECT_EQ(log.capacity(), DispatchOutcomeLog::kDefaultCapacity);
+}

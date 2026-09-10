@@ -29,8 +29,12 @@
  * getGraph() and so cannot be reached this way at all.
  */
 
+#include <chrono>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
+#include <vector>
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
@@ -40,6 +44,10 @@
 #include "event_system/EventBus.hpp"
 #include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
 #include "ndt_core/http/HttpSession.hpp"
+// [Co-developed with claude code -- Adam] W11: the dispatch-status endpoint's own collaborator.
+#include "ndt_core/routing_management/Controller.hpp"
+#include "ndt_core/routing_management/FlowRoutingManager.hpp"
+#include "utils/Logger.hpp"
 #include "utils/Utils.hpp"
 
 /**
@@ -90,6 +98,32 @@ class HttpSessionTestPeer
                                                  nullptr,          // IntentTranslator
                                                  nullptr,          // HistoricalDataManager
                                                  nullptr,          // Controller
+                                                 nullptr))         // LockManager
+    {
+    }
+
+    /**
+     * Controller variant, for GET /ndt/get_flow_dispatch_status.
+     * [Co-developed with claude code -- Adam] W11.
+     *
+     * That handler reads only the controller, so everything else can stay null and the response
+     * body -- the thing W11 changes -- becomes reachable from a unit test for the first time. The
+     * A-7 gate declared this endpoint's body uncovered because no suite exercised HttpSession's
+     * handlers in-process; the null-dependency peer above could only witness refusals.
+     */
+    explicit HttpSessionTestPeer(std::shared_ptr<Controller> controller)
+        : m_session(std::make_shared<HttpSession>(tcp::socket(m_ioc),
+                                                 nullptr,          // TopologyAndFlowMonitor
+                                                 nullptr,          // EventBus
+                                                 utils::MININET,
+                                                 nullptr,          // FlowLinkUsageCollector
+                                                 nullptr,          // FlowRoutingManager
+                                                 nullptr,          // DeviceConfig...PowerManager
+                                                 nullptr,          // ApplicationManager
+                                                 nullptr,          // SimulationRequestManager
+                                                 nullptr,          // IntentTranslator
+                                                 nullptr,          // HistoricalDataManager
+                                                 std::move(controller),
                                                  nullptr))         // LockManager
     {
     }
@@ -726,4 +760,277 @@ TEST_F(InformSwitchEnteredTest, TheResultingVertexReportsTheDisagreementRatherTh
     EXPECT_EQ(j.value("admin_state", ""), "off");
     EXPECT_TRUE(j.value("reachable", false));
     EXPECT_TRUE(j.value("is_up", false)) << "the alias must track reachable";
+}
+
+// --- W11: GET /ndt/get_flow_dispatch_status ----------------------------------------------------
+//
+// [Co-developed with claude code -- Adam]
+//
+// #54 and R6 K-4. Two changes to this endpoint's body and one to its route, and all three are
+// only observable from a response: the counters were renamed (`succeeded` -> `dispatched_ok`),
+// a second group was added that answers about the switch rather than about the dispatch, and the
+// route now accepts `?request_id=`, which the exact-string compare it used to have could not.
+//
+// The A-7 gate records this endpoint's body as declared-uncovered -- "no suite here exercises
+// HttpSession's handlers in-process". That was true while every peer in this file was built with
+// null dependencies; the handler needs only a Controller, so it is reachable now. Nothing below
+// asserts on `dispatcher_running`, deliberately: that field is what the A-7 gate's mutation 9
+// removes, and a test of it here would make that mutation redden something other than the test it
+// names, which the gate scores as a survivor.
+
+namespace
+{
+
+/// A manager whose answer the test chooses, so both planes' replies can be produced without a
+/// controller, a proxy, or a network. The three dispatch methods are all Controller's sender calls.
+class PlaneStub : public FlowRoutingManager
+{
+  public:
+    PlaneStub() : FlowRoutingManager(nullptr, nullptr, nullptr) {}
+
+    void answerWith(const OpResult& result)
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_result = result;
+    }
+
+    uint64_t calls() const
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_calls;
+    }
+
+    OpResult installAnEntry(uint64_t, int, const nlohmann::json&, const nlohmann::json&,
+                            int) override
+    {
+        return answer();
+    }
+    OpResult modifyAnEntry(uint64_t, int, const nlohmann::json&, const nlohmann::json&) override
+    {
+        return answer();
+    }
+    OpResult deleteAnEntry(uint64_t, const nlohmann::json&, int) override { return answer(); }
+
+  private:
+    OpResult answer()
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        ++m_calls;
+        return m_result;
+    }
+
+    mutable std::mutex m_mutex;
+    uint64_t m_calls = 0;
+    OpResult m_result = OpResult::success();
+};
+
+FlowJob
+dispatchJob(uint64_t requestId, uint64_t dpid = 1)
+{
+    FlowJob job;
+    job.dpid = dpid;
+    job.op = FlowOp::Install;
+    job.priority = 100;
+    job.match = nlohmann::json{{"eth_type", 2048}, {"ipv4_dst", "10.0.0.9"}};
+    job.actions = nlohmann::json::array();
+    job.requestId = requestId;
+    return job;
+}
+
+/// Polls until the sender has been called @p n times, so the assertions run on a drained queue.
+bool
+waitForCalls(const PlaneStub& stub, uint64_t n)
+{
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (std::chrono::steady_clock::now() < deadline)
+    {
+        if (stub.calls() >= n)
+        {
+            return true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    return false;
+}
+
+/// Controller plus the stub it dispatches through, kept alive together.
+struct DispatchFixture
+{
+    std::shared_ptr<PlaneStub> stub = std::make_shared<PlaneStub>();
+    std::shared_ptr<Controller> controller = std::make_shared<Controller>(stub);
+
+    /// Registers one request, dispatches @p n jobs for it, and returns once they have drained.
+    bool run(uint64_t requestId, uint64_t n, const OpResult& answer)
+    {
+        const uint64_t before = stub->calls();
+        stub->answerWith(answer);
+        controller->noteRequestEnqueued(requestId, n);
+        std::vector<FlowJob> jobs;
+        for (uint64_t i = 0; i < n; ++i)
+        {
+            jobs.push_back(dispatchJob(requestId));
+        }
+        controller->dispatcher().enqueue(std::move(jobs));
+        return waitForCalls(*stub, before + n);
+    }
+};
+
+} // namespace
+
+/**
+ * @brief Suite fixture, for one reason: the logger.
+ *
+ * [Co-developed with claude code -- Adam]
+ * Logger::instance() is a static shared_ptr that is null until Logger::init runs, and
+ * SPDLOG_LOGGER_* dereferences it. These tests drive Controller's sender from worker threads,
+ * which logs on a failed dispatch, so an ordering assumption about which suite ran first would be
+ * a crash rather than a failure. init() is idempotent -- same argument as the note in
+ * tests/test_SwitchKindDispatch.cpp.
+ */
+class DispatchStatusEndpointTest : public ::testing::Test
+{
+  protected:
+    static void SetUpTestSuite()
+    {
+        LogConfig cfg;
+        cfg.level = spdlog::level::off;
+        Logger::init(cfg);
+    }
+};
+
+TEST_F(DispatchStatusEndpointTest, TheCountersAreNamedForWhatTheyCount)
+{
+    // #54's A half, on the wire. `succeeded` is gone: the same match dispatched twice moves this
+    // by +2 while a switch gains one row, and the old name asserted the opposite.
+    DispatchFixture fx;
+    ASSERT_TRUE(fx.run(1, 2, OpResult::success()));
+
+    HttpSessionTestPeer peer(fx.controller);
+    const auto& res = peer.send(http::verb::get, "/ndt/get_flow_dispatch_status");
+    ASSERT_EQ(res.result_int(), 200u) << "body: " << res.body();
+
+    const auto body = nlohmann::json::parse(res.body());
+    const auto& counters = body.at("counters");
+    EXPECT_EQ(counters.value("dispatched", 0u), 2u);
+    EXPECT_EQ(counters.value("dispatched_ok", 0u), 2u);
+    EXPECT_EQ(counters.value("dispatch_failed", 1u), 0u);
+    EXPECT_FALSE(counters.contains("succeeded"))
+        << "the old name states a claim this counter cannot make; emitting it keeps the claim "
+           "alive for every caller that reads it";
+    EXPECT_FALSE(counters.contains("failed"));
+    // The breadcrumb, so a script that just started reading null can find out where its key went.
+    EXPECT_EQ(body.at("renamed_keys").value("succeeded", std::string{}),
+              "counters.dispatched_ok");
+}
+
+TEST_F(DispatchStatusEndpointTest, AnOvsFabricReportsUnknownAtTheSwitchAndSaysWhy)
+{
+    // W11's B half. Ryu's 200 is not evidence about a switch, so the second group says `unknown`
+    // -- and says why in the body, because a permanently-unknown number with no explanation next
+    // to it is read as "checked, nothing wrong".
+    DispatchFixture fx;
+    ASSERT_TRUE(fx.run(1, 3, OpResult::success()));
+
+    HttpSessionTestPeer peer(fx.controller);
+    const auto& res = peer.send(http::verb::get, "/ndt/get_flow_dispatch_status");
+    ASSERT_EQ(res.result_int(), 200u) << "body: " << res.body();
+
+    const auto body = nlohmann::json::parse(res.body());
+    const auto& sw = body.at("switch_outcome");
+    EXPECT_EQ(sw.value("unknown", 0u), 3u);
+    EXPECT_EQ(sw.value("accepted_by_switch", 99u), 0u)
+        << "dispatch is not programming; if this ever equals dispatched_ok on OVS, the second "
+           "group has been wired to the first";
+    EXPECT_EQ(sw.value("rejected_by_switch", 99u), 0u);
+    EXPECT_NE(sw.value("why_unknown", std::string{}).find("does not acknowledge a FLOW_MOD"),
+              std::string::npos)
+        << "the reason has to travel with the number: " << sw.dump();
+
+    // Both groups partition the same population, and the second is not part of the first.
+    EXPECT_EQ(sw.value("accepted_by_switch", 0u) + sw.value("rejected_by_switch", 0u) +
+                  sw.value("unknown", 0u),
+              body.at("counters").value("dispatched", 0u));
+}
+
+TEST_F(DispatchStatusEndpointTest, AConfirmingPlaneReportsAnAcceptanceBySwitch)
+{
+    // The control for the test above: `unknown` is a reading, not a constant.
+    DispatchFixture fx;
+    ASSERT_TRUE(fx.run(1, 1, OpResult::success().withProgrammingConfirmed(true)));
+
+    HttpSessionTestPeer peer(fx.controller);
+    const auto body = nlohmann::json::parse(
+        peer.send(http::verb::get, "/ndt/get_flow_dispatch_status").body());
+
+    EXPECT_EQ(body.at("switch_outcome").value("accepted_by_switch", 0u), 1u);
+    EXPECT_EQ(body.at("switch_outcome").value("unknown", 99u), 0u);
+}
+
+TEST_F(DispatchStatusEndpointTest, ARequestIdAnswersForThatBatchAlone)
+{
+    // R6 K-4: the counters are process-wide, so a caller cannot attribute them to its own POST.
+    // Two batches with different outcomes; each id must see only its own.
+    DispatchFixture fx;
+    ASSERT_TRUE(fx.run(41, 2, OpResult::success()));
+    ASSERT_TRUE(fx.run(42, 3, OpResult::failure(400, "refused")));
+
+    HttpSessionTestPeer peer(fx.controller);
+    const auto& first = peer.send(http::verb::get, "/ndt/get_flow_dispatch_status?request_id=41");
+    ASSERT_EQ(first.result_int(), 200u) << "body: " << first.body();
+    const auto firstBody = nlohmann::json::parse(first.body());
+    EXPECT_EQ(firstBody.value("request_id", 0u), 41u);
+    EXPECT_EQ(firstBody.at("counters").value("dispatched", 0u), 2u);
+    EXPECT_EQ(firstBody.at("counters").value("dispatch_failed", 9u), 0u);
+    EXPECT_TRUE(firstBody.value("complete", false));
+
+    HttpSessionTestPeer peer2(fx.controller);
+    const auto second = nlohmann::json::parse(
+        peer2.send(http::verb::get, "/ndt/get_flow_dispatch_status?request_id=42").body());
+    EXPECT_EQ(second.at("counters").value("dispatched", 0u), 3u);
+    EXPECT_EQ(second.at("counters").value("dispatch_failed", 0u), 3u)
+        << "the first batch's successes must not leak into the second batch's answer";
+    EXPECT_EQ(second.at("counters").value("dispatched_ok", 9u), 0u);
+    EXPECT_EQ(second.value("enqueued", 0u), 3u);
+}
+
+TEST_F(DispatchStatusEndpointTest, AnUnknownRequestIdIsNotAnswered200)
+{
+    // A caller that reads only the status code would take a 200 as "your request is fine" for a
+    // request this kernel has never heard of -- the over-claim processFlowBatch already answers
+    // 404 for when no entry is applicable.
+    DispatchFixture fx;
+    HttpSessionTestPeer peer(fx.controller);
+    const auto& res = peer.send(http::verb::get, "/ndt/get_flow_dispatch_status?request_id=777");
+
+    EXPECT_EQ(res.result_int(), 404u) << "body: " << res.body();
+    const auto body = nlohmann::json::parse(res.body());
+    EXPECT_EQ(body.value("error", std::string{}), "unknown request_id");
+    // Which of the two reasons is possible, because they lead to different actions.
+    EXPECT_TRUE(body.contains("request_ids_forgotten"));
+}
+
+TEST_F(DispatchStatusEndpointTest, ANonNumericRequestIdIsAClientErrorNotAServerError)
+{
+    // The reason this file exists, applied to the new parameter: std::stoull would throw
+    // std::invalid_argument into buildResponse's std::exception clause and answer 500.
+    DispatchFixture fx;
+    HttpSessionTestPeer peer(fx.controller);
+    const auto& res = peer.send(http::verb::get, "/ndt/get_flow_dispatch_status?request_id=abc");
+
+    EXPECT_EQ(res.result_int(), 400u) << "body: " << res.body();
+}
+
+TEST_F(DispatchStatusEndpointTest, TheRouteAcceptsAQueryStringAtAll)
+{
+    // The route was an exact string compare, so any query fell through every branch to the
+    // not-found tail: the endpoint could not have grown a parameter without this. Asserted
+    // through a parameter the handler rejects, so only the ROUTING is under test -- a 404 here
+    // would mean the request never reached the handler.
+    DispatchFixture fx;
+    HttpSessionTestPeer peer(fx.controller);
+    const auto& res = peer.send(http::verb::get, "/ndt/get_flow_dispatch_status?request_id=");
+
+    EXPECT_NE(res.result_int(), 404u) << "body: " << res.body();
+    EXPECT_EQ(res.result_int(), 200u) << "an empty value is an absent one; queryParam cannot tell "
+                                         "them apart, so this is the process-wide answer";
 }

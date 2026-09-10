@@ -174,7 +174,12 @@ HttpSession::buildResponse()
         {
             handleGetSwitchOpenflowEntries(*response);
         }
-        else if (method == http::verb::get && target == "/ndt/get_flow_dispatch_status")
+        // [Co-developed with claude code -- Adam]
+        // W11: was an exact compare, so `?request_id=12` fell through every branch and answered
+        // 404 -- the same defect utils::pathIs was extracted for on get_detected_flow_data. No
+        // route can collide: no other target begins with this path.
+        else if (method == http::verb::get &&
+                 utils::pathIs(target, "/ndt/get_flow_dispatch_status"))
         {
             handleGetFlowDispatchStatus(*response);
         }
@@ -739,6 +744,119 @@ HttpSession::handleGetSwitchOpenflowEntries(http::response<http::string_body>& r
 }
 
 // [Co-developed with claude code -- Adam]
+// W11. The sentence that has to appear next to every `unknown`, in the body rather than only in
+// the manual. A permanently-unknown field that does not say why it is unknown is read as "checked,
+// nothing wrong" -- it is an instrument shaped like its own finding, and this endpoint already
+// shipped one number (`succeeded`) that was read as an answer to a question it never asked.
+static const char* const kWhySwitchOutcomeUnknown =
+    "a count of jobs whose plane's reply is not evidence about any switch. On the OVS/OpenFlow "
+    "plane that is every job and always will be until a barrier read-back exists: OpenFlow does "
+    "not acknowledge a FLOW_MOD, so Ryu's 200 is emitted before any switch has adjudicated "
+    "anything (doc/KNOWN-ISSUES.md C-4). On the P4 plane the proxy programs the entry before "
+    "replying, so its answer lands in accepted_by_switch or rejected_by_switch. This bucket is "
+    "NOT derived from counters.dispatched_ok and must not be read as one: a dispatch that "
+    "succeeded is still unknown at the switch here";
+
+// [Co-developed with claude code -- Adam]
+// W11. Both bodies emit the same two groups, so they are built once. Sharing them is not tidiness:
+// the whole point of the per-request answer is that a caller can compare it with the global one,
+// and two spellings of the same counters is how those two stop meaning the same thing.
+static json
+dispatchCountersJson(uint64_t dispatched, uint64_t dispatchedOk, uint64_t dispatchFailed)
+{
+    return json{{"dispatched", dispatched},
+                // Renamed from `succeeded` on 2026-09-06 (W11, #54). It counts requests this
+                // kernel handed over and the far end did not refuse -- never rules on a switch.
+                {"dispatched_ok", dispatchedOk},
+                {"dispatch_failed", dispatchFailed}};
+}
+
+static json
+switchOutcomeJson(uint64_t accepted, uint64_t rejected, uint64_t unknown)
+{
+    return json{{"accepted_by_switch", accepted},
+                {"rejected_by_switch", rejected},
+                {"unknown", unknown},
+                {"why_unknown", kWhySwitchOutcomeUnknown}};
+}
+
+// [Co-developed with claude code -- Adam]
+// W11 / R6 K-4. `?request_id=<id>` answers for one POST instead of for the process. Split out of
+// the handler below so the two answers cannot drift into different key names, and so the parse
+// failure is answered here rather than by the outermost catch -- `?request_id=abc` through
+// std::stoull is a 500, which is the defect test_HttpSessionRouting exists for.
+//
+// Returns true when it has answered and the caller must not also write the global body.
+bool
+HttpSession::respondToDispatchStatusRequestId(http::response<http::string_body>& res,
+                                              const std::string& raw)
+{
+    const auto requestId = utils::tryParseUint64(raw);
+    if (!requestId || *requestId == 0)
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "get_flow_dispatch_status: request_id '{}' is not a positive integer",
+                           raw);
+        res.result(http::status::bad_request);
+        res.body() = json{{"status", "error"},
+                          {"error", "invalid request_id"},
+                          {"request_id", raw},
+                          {"detail", "request_id must be the positive integer returned in the "
+                                     "200 body of the flow-entry endpoint you are asking about"}}
+                         .dump();
+        return true;
+    }
+
+    const auto& outcomes = m_controller->dispatchOutcomes();
+    const auto tally = outcomes.tallyFor(*requestId);
+    if (!tally)
+    {
+        // 404, not 200 with a "known": false flag. A caller that reads only the status code would
+        // take that 200 as "your request is fine" for a request this kernel has no record of --
+        // the same over-claim processFlowBatch answers 404 for when no entry is applicable.
+        // forgotten says which of the two reasons is possible, because they lead to different
+        // actions: a typo is the caller's to fix, an eviction is a reason to ask sooner.
+        res.result(http::status::not_found);
+        res.body() =
+            json{{"status", "error"},
+                 {"error", "unknown request_id"},
+                 {"request_id", *requestId},
+                 {"request_ids_forgotten", outcomes.requestsForgotten()},
+                 {"request_ids_capacity", outcomes.requestCapacity()},
+                 {"detail", "this kernel has no record of that request. Either it was never "
+                            "issued by this kernel, or it has aged out: only the most recent "
+                            "request_ids_capacity requests keep a tally, and "
+                            "request_ids_forgotten says how many have been dropped. Request ids "
+                            "are not stable across a kernel restart"}}
+                .dump();
+        return true;
+    }
+
+    json body{
+        {"request_id", *requestId},
+        // What was handed to the dispatcher, so `dispatched < enqueued` is readable as "still
+        // draining" rather than as entries that vanished. The global counters cannot say this.
+        {"enqueued", tally->enqueued},
+        {"counters",
+         dispatchCountersJson(tally->dispatched, tally->dispatchedOk, tally->dispatchFailed)},
+        {"switch_outcome",
+         switchOutcomeJson(tally->acceptedBySwitch,
+                           tally->rejectedBySwitch,
+                           tally->switchOutcomeUnknown)},
+        {"complete", tally->dispatched >= tally->enqueued},
+        {"detail", "counters for this request only. complete=false means jobs from this batch "
+                   "are still queued -- or, if dispatcher_running is false, that they were "
+                   "dropped before any southbound attempt and are counted in the process-wide "
+                   "counters.dropped_after_stop instead"}};
+    // Written as an assignment rather than in the initialiser above so the process-wide body's
+    // `{"dispatcher_running", ...}` line stays the only occurrence of that literal: the A-7
+    // mutation gate anchors on it and a second copy would make its mutation ambiguous.
+    body["dispatcher_running"] = m_controller->dispatcher().running();
+    res.body() = body.dump();
+    return true;
+}
+
+// [Co-developed with claude code -- Adam]
 // Answers KNOWN-ISSUES A-7. install_flow_entry replies `queued` and says per-entry outcomes go to
 // the kernel log; this is where a program can read what the log was told.
 //
@@ -754,6 +872,13 @@ void
 HttpSession::handleGetFlowDispatchStatus(http::response<http::string_body>& res)
 {
     SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Get Flow Dispatch Status");
+
+    // [Co-developed with claude code -- Adam] W11 / R6 K-4.
+    if (const std::string raw = utils::queryParam(m_req.target(), "request_id"); !raw.empty())
+    {
+        respondToDispatchStatusRequestId(res, raw);
+        return;
+    }
 
     const auto& outcomes = m_controller->dispatchOutcomes();
 
@@ -774,15 +899,53 @@ HttpSession::handleGetFlowDispatchStatus(http::response<http::string_body>& res)
                                 {"message", rec.message}});
     }
 
+    // [Co-developed with claude code -- Adam]
+    // W11 (#54). `succeeded`/`failed` are GONE from this body, renamed to `dispatched_ok`/
+    // `dispatch_failed`. The values are unchanged and always were correct; the names were not.
+    // Measured 2026-09-05: the same match installed 20 times moved `succeeded` by +20 while the
+    // switch gained one row, and 15 deletes of a match that had never existed moved it by another
+    // +15 with nothing changing anywhere. A reader who saw "succeeded: 35" was not misreading a
+    // subtle number, they were reading the word.
+    //
+    // Removed rather than kept alongside the new spelling: a key whose name states the wrong
+    // claim goes on stating it for as long as it is emitted, and a caller that reads the old one
+    // gets the old belief. Zero consumers, checked rather than assumed: the endpoint name and
+    // every one of these key names have 0 hits across the seven sibling app repos
+    // (2026-09-06, and 2026-09-04 over eight repos including the website), and the endpoint's
+    // only in-repo consumer is tools/contract_test, which now accepts either spelling so it still
+    // describes a kernel built before this change. `renamed_keys` below is the breadcrumb for
+    // anything that was missed.
+    json counters = dispatchCountersJson(outcomes.dispatched(),
+                                         outcomes.dispatchedOk(),
+                                         outcomes.dispatchFailed());
+    // Enqueued after the dispatcher stopped, so never handed to the southbound at all.
+    // A different failure from the ones above and counted separately: those were attempted
+    // and refused, these were never attempted.
+    counters["dropped_after_stop"] = m_controller->dispatcher().droppedAfterStop();
+
     json body{
-        {"counters",
-         {{"dispatched", outcomes.dispatched()},
-          {"succeeded", outcomes.succeeded()},
-          {"failed", outcomes.failed()},
-          // Enqueued after the dispatcher stopped, so never handed to the southbound at all.
-          // A different failure from the ones above and counted separately: those were attempted
-          // and refused, these were never attempted.
-          {"dropped_after_stop", m_controller->dispatcher().droppedAfterStop()}}},
+        {"counters", std::move(counters)},
+        // [Co-developed with claude code -- Adam]
+        // W11's B half: the second group, answering "what is known about the switch" rather than
+        // "what is known about the dispatch". It partitions the same jobs -- accepted_by_switch +
+        // rejected_by_switch + unknown == counters.dispatched -- and is deliberately NOT folded
+        // into counters, whose own closure (dispatched == dispatched_ok + dispatch_failed) is the
+        // cheapest proof that no path increments one counter without the others. Two groups over
+        // one population, each closing on its own.
+        {"switch_outcome",
+         switchOutcomeJson(outcomes.acceptedBySwitch(),
+                           outcomes.rejectedBySwitch(),
+                           outcomes.switchOutcomeUnknown())},
+        // The breadcrumb for a caller whose script just started reading `null` where a number
+        // used to be. One revision's worth: it can go once the manual's §42 has been the only
+        // description of this endpoint for longer than anyone's deployment lag.
+        {"renamed_keys",
+         {{"succeeded", "counters.dispatched_ok"}, {"failed", "counters.dispatch_failed"}}},
+        // W11 / R6 K-4. What GET ...?request_id=<id> can still answer for, so a caller can tell
+        // "my id is a typo" from "I asked too late".
+        {"request_ids_tracked", outcomes.requestsTracked()},
+        {"request_ids_capacity", outcomes.requestCapacity()},
+        {"request_ids_forgotten", outcomes.requestsForgotten()},
         // [Co-developed with claude code -- Adam]
         // What makes the zero above readable. dropped_after_stop can only leave 0 once stop()
         // has run, so on a healthy kernel it is 0 and on a kernel whose dispatcher has just
@@ -1335,6 +1498,28 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
                            acceptedJobs.size());
     }
 
+    // [Co-developed with claude code -- Adam]
+    // W11, from R6 K-4. One id per batch, stamped on every accepted job and returned in the 200
+    // body, so the caller can ask `get_flow_dispatch_status?request_id=<id>` about its own POST
+    // instead of about the process. Without it the only read-back this body names is a set of
+    // global totals that a concurrent writer moves as well -- measured 2026-09-05: a delete that
+    // matched nothing moved `succeeded` from 12 to 13, and nothing in the body said whose delete.
+    //
+    // Minted here rather than in the dispatcher because this is where the batch exists as one
+    // thing; after enqueue it is N independent jobs across N worker threads.
+    //
+    // Registered BEFORE enqueue. The reverse order has a real window: a worker can drain and
+    // record an outcome before the HTTP thread gets back, and an outcome for an unregistered id
+    // is dropped (see DispatchOutcomeLog::noteRequestOutcome_), so the caller would be told its
+    // own entries were never dispatched.
+    static std::atomic<uint64_t> s_nextRequestId{1};
+    const uint64_t requestId = s_nextRequestId.fetch_add(1, std::memory_order_relaxed);
+    for (auto& job : acceptedJobs)
+    {
+        job.requestId = requestId;
+    }
+    m_controller->noteRequestEnqueued(requestId, acceptedJobs.size());
+
     // Enqueue once; dispatcher drains per-DPID on worker threads
     const size_t accepted = acceptedJobs.size();
     m_controller->dispatcher().enqueue(std::move(acceptedJobs));
@@ -1375,11 +1560,21 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
     // would keep the answer undiscoverable to exactly the caller who needs it. Safe to reword:
     // the two in-repo consumers log this body and neither parses it (auditor cross-repo check,
     // 2026-08-30) -- `status` and `accepted` are unchanged for anything that does.
+    //
+    // [Co-developed with claude code -- Adam]
+    // W11: `request_id` added, and `detail` now names the query rather than the bare endpoint.
+    // Additive for `status` and `accepted`; the two in-repo writers log this body and neither
+    // parses it (Energy-Saving-App src/app/http.cpp:162, Traffic-engineering-App.py:344 -- both
+    // discard the response), re-checked 2026-09-06 across all seven sibling repos.
     json body{{"status", "queued"},
               {"accepted", accepted},
+              {"request_id", requestId},
               {"detail", "entries accepted for programming; per-entry outcomes are reported in "
                          "the kernel log and, since they are not in this response, are readable "
-                         "afterwards from GET /ndt/get_flow_dispatch_status"}};
+                         "afterwards from GET /ndt/get_flow_dispatch_status?request_id=" +
+                             std::to_string(requestId) +
+                             ", which answers for this batch alone. That endpoint's process-wide "
+                             "counters cannot be attributed to one caller"}};
 
     // [Co-developed with claude code -- Adam]
     // Only present when something was actually dropped, so a caller can treat their absence as
@@ -1389,9 +1584,15 @@ HttpSession::processFlowBatch(const json& j, http::response<http::string_body>& 
     {
         body["rejected"] = rejectedEntries;
         body["rejected_dpids"] = unknownDpids;
+        // [Co-developed with claude code -- Adam] W11: request_id covers only the entries that
+        // were accepted. The dropped ones were never jobs, so they appear in no counter -- said
+        // here, because "enqueued" in the request-scoped answer would otherwise look short.
         body["detail"] = "some entries were dropped because their dpid is not a switch in the "
-                         "loaded topology; the rest were accepted for programming, and per-entry "
-                         "outcomes are reported in the kernel log, not in this response";
+                         "loaded topology; the rest were accepted for programming, and their "
+                         "per-entry outcomes are readable from GET "
+                         "/ndt/get_flow_dispatch_status?request_id=" +
+                         std::to_string(requestId) +
+                         ". The dropped entries never became jobs and are in no counter there";
     }
 
     res.body() = body.dump();

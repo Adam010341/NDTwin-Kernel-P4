@@ -173,10 +173,18 @@ HttpRoutingStrategyBase::post(const std::string& path, const json& body, const c
 
     if (status < 200 || status >= 300)
     {
+        // [Co-developed with claude code -- Adam] W11.
+        // withProgrammingRefused, and only from here down: above this line the far end either was
+        // never asked (notSent) or never answered (unreachable), and neither says anything about
+        // a switch. Here it answered, and on a plane that adjudicates before replying its "no" is
+        // a verdict about the switch rather than about the request's journey. Set at the same
+        // depth as the confirmation on the success path, from the same predicate, so the two
+        // directions cannot come to disagree about which plane this is.
         auto result = OpResult::failure(
-            status,
-            std::string(describe()) + " returned HTTP " + std::to_string(status) +
-                (responseBody.empty() ? "" : ": " + briefly(responseBody)));
+                          status,
+                          std::string(describe()) + " returned HTTP " + std::to_string(status) +
+                              (responseBody.empty() ? "" : ": " + briefly(responseBody)))
+                          .withProgrammingRefused(successConfirmsProgramming());
         SPDLOG_LOGGER_WARN(Logger::instance(),
                            "{} failed: {}",
                            operation,
@@ -195,10 +203,16 @@ HttpRoutingStrategyBase::post(const std::string& path, const json& body, const c
                 parsed["status"].is_string() &&
                 parsed["status"].get<std::string>() == "error")
             {
+                // [Co-developed with claude code -- Adam] W11. The P4 proxy's per-entry refusal:
+                // it programs (or fails to find) the entry and then says so in a 200 body, which
+                // is the most switch-side verdict this kernel ever receives. R6 K-4's no-op
+                // delete arrives here on the P4 plane.
                 auto result = OpResult::failure(
-                    status,
-                    std::string(describe()) + " reported an error in a " +
-                        std::to_string(status) + " response: " + briefly(responseBody));
+                                  status,
+                                  std::string(describe()) + " reported an error in a " +
+                                      std::to_string(status) + " response: " +
+                                      briefly(responseBody))
+                                  .withProgrammingRefused(successConfirmsProgramming());
                 SPDLOG_LOGGER_WARN(Logger::instance(),
                                    "{} failed: {}",
                                    operation,
