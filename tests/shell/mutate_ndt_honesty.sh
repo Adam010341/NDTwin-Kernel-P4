@@ -548,6 +548,26 @@ report 'MC14: a field another script wrote is dropped by the rewrite' "$m" \
        '  a field another script wrote is carried through'
 
 
+# --- T3 / T4: two sentences that described the tool wrongly ----------------------------------
+
+# The sentence and the code that disproves it were in the same file: cmd_down's [0/3] gate is
+# app_probe, so an untracked app is exactly the one it stops (G-6), measured 01:57:54.
+m=$(mutant mc15 "$NDT" \
+    '        printf '"'"'  %-14s %s\n'"'"' "" "'"'"'ndt down'"'"' does stop these -- it scans for them rather than"' \
+    '        printf '"'"'  %-14s %s\n'"'"' "" "these survive '"'"'ndt down'"'"'; stop them with '"'"'ndt apps stop <name>'"'"'"')
+report 'MC15: status says untracked apps survive a teardown again (T3)' "$m" \
+       '🔴 the sentence that round'"'"'s teardown disproved is gone'
+
+
+# T4 is NOT fixed -- whether the API should read the claim is Adam's decision -- so the help
+# saying so is the whole of the deliverable, and a paragraph with no test is what F12 was.
+m=$(mutant mc16 "$NDT" \
+    '    a claim only blocks the '"'"'ndt'"'"' verbs. It is not the northbound API and it is not' \
+    '    a claim is how sessions keep out of each other'"'"'s way.')
+report 'MC16: the help stops saying what a claim does not cover (T4)' "$m" \
+       '  the help scopes the claim to this tool'"'"'s own verbs'
+
+
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)

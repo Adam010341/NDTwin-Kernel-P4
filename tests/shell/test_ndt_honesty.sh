@@ -991,6 +991,52 @@ check "  a field another script wrote is carried through" "kept by another write
 no_claim
 rm -f "$(claim_file).prev" "$(claim_file).lock" "$FIX/fc.n" "$FIX"/race.*
 
+# ==========================================================================================
+# 9. T3 / T4: two sentences that describe the tool wrongly
+# ==========================================================================================
+
+section "9A. T3: 'these survive ndt down' was disproved by the same round's ndt down"
+# ROLE-4 01:56:27-01:57:54. Two `ndt apps nsr` in the same second left two processes and two
+# pidfiles naming different ones; `ndt status` printed "these survive 'ndt down'", and the
+# `ndt down` in that SAME round printed "nsr is running untracked (pid 2666802 2666801) --
+# stopping it by pid" and killed both (`ps` counted 0 afterwards, 10-t3-down-by-owner.log).
+# cmd_down's [0/3] gate is app_probe, not app_running, so an untracked app is precisely the one
+# it does stop -- and that was a deliberate change (G-6).
+status_untracked() {
+    bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+app_probe() { APP_STATE=pidfile-lost-but-alive; APP_LIVE_PIDS=(2666802 2666801); }
+cmd_status
+echo \"RC=\$?\"" 2>&1
+}
+OUT="$(status_untracked)"
+has   "the untracked row is still printed"               "no pidfile names them" "$OUT"
+hasnt "🔴 the sentence that round's teardown disproved is gone" "these survive 'ndt down'" "$OUT"
+has   "🔴 and it says what a teardown really does to them" "'ndt down' does stop these" "$OUT"
+has   "  with the reason it can"                         "scans" "$OUT"
+has   "  and why to stop them now anyway"                "keep polling" "$OUT"
+# 🔴 The sentence is checked against the code, not only against itself: a text-only assertion
+# would go on passing if cmd_down went back to the pidfile.
+check "  cmd_down still stops an untracked app by pid"   "1" \
+      "$(grep -c 'warn "\$a is running untracked' "$NDT")"
+
+section "9B. T4: the help says what a claim does NOT cover"
+# 🔴 NOT FIXED, and now said rather than implied. ROLE-4 T4, measured 02:01:16-02:02:45
+# (14-t4-expiry.log, 14b-write-loop.log): a loop calling install_flow_entry and
+# delete_flow_entry every 2 s got http 200 through its own claim's expiry (claim_left=-1s) and
+# through another owner taking the claim (owner=intruder-0911, claim_left=-3s), and stopped only
+# when that owner's `ndt down` SIGTERMed the kernel. The only signal that writer ever received
+# was curl printing 000. Whether the northbound API should read the claim is Adam's decision;
+# what the help must not do is leave a reader believing it already does.
+has   "  the help scopes the claim to this tool's own verbs" "claim only blocks the 'ndt'" "$HELP"
+has   "  and names the API as outside it"                "not the northbound API" "$HELP"
+has   "🔴 and says expiry and loss are silent"           "no signal" "$HELP"
+# The manual carries the same fact. Asserted here rather than nowhere; note that the mutation
+# gate copies only ndt, so this cell is not mutation-protected and the SUMMARY says so.
+MANUAL="$HERE/../../doc/2026-08-17_testing-manual.md"
+check "  the manual is readable from here"               "yes" \
+      "$( [[ -r "$MANUAL" ]] && echo yes || echo no )"
+has   "🔴 and the manual's claim section says it too"    "ROLE-4 T4" "$(cat "$MANUAL" 2>/dev/null)"
 
 # --- done ---------------------------------------------------------------------------------
 printf '\nRan %d checks, %d failed\n' "$((PASS+FAIL))" "$FAIL"
