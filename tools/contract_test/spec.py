@@ -240,6 +240,27 @@ TELEMETRY_STATES = ("live", "idle", "silent", "unknown")
 # reader still has exactly one thing to do about `declared`, which is find out who declared it.
 DOWN_REASONS = ("none", "switch-unreachable", "declared")
 
+# [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G12, 2026-09-11.
+# The one value a declaration endpoint's reply can carry. Named rather than typed out again in
+# LINK_FAILURE_REPORTED and LINK_FAILURE_INJECTED below, and asserted to be part of the
+# vocabulary above -- because this word is now written down in seven places and nothing
+# compared them:
+#
+#   this file      DOWN_REASONS, DECLARED, and the two link-reply schemas   (4)
+#   the kernel     downReasonToString (common_types/GraphTypes.hpp, the enum's wire form),
+#                  HttpSession.cpp:564 (a raw-string reply) and :836 (a json object)  (3)
+#
+# A fourth reason added to the enum would give the two hardcoded C++ replies nothing to say
+# about it and would fail the structural check here, in the two schemas that never mention
+# DOWN_REASONS at all. tests/python/test_contract_spec.py compares all seven; that comparison
+# is the only thing that makes one vocabulary out of them.
+#
+# 🔴 `"declared"` also appears in C++ as a BandwidthSource (GraphTypes.hpp:846) -- a DIFFERENT
+# vocabulary that happens to reuse the word. A grep for the string conflates them; the check
+# reads the down_reason sites only.
+DECLARED = "declared"
+assert DECLARED in DOWN_REASONS, "the declaration value must be part of the down_reason vocabulary"
+
 # --- the four link endpoints ------------------------------------------------------
 # [Co-developed with claude code -- Adam]
 # Adam's ruling E-21, 2026-09-07: /ndt/link_failure_detected, /ndt/link_recovery_detected,
@@ -323,7 +344,7 @@ TC_REPORT = OneOf(List(TC_ATTEMPT, min_len=1),
 #: still pass the STRUCTURAL check. That the two keys are missing is a finding, not a schema
 #: error, and it is reported by inv_declared_failure_says_who_can_withdraw_it.
 LINK_FAILURE_REPORTED = Obj({"status": Str(nonempty=True)}, optional={
-    "down_reason": Str(allowed=("declared",)),
+    "down_reason": Str(allowed=(DECLARED,)),
     "until": Str(nonempty=True),
 })
 
@@ -341,7 +362,7 @@ LINK_RECOVERY_REPORTED = Obj({"status": Str(nonempty=True)}, optional={
 #: endpoint that can end an injection -- that is the whole of W8b on the wire.
 LINK_FAILURE_INJECTED = Obj({
     "status": Str(nonempty=True),
-    "down_reason": Str(allowed=("declared",)),
+    "down_reason": Str(allowed=(DECLARED,)),
     "until": Str(allowed=("/ndt/inject_link_recovery",)),
     "tc": TC_REPORT,
 })

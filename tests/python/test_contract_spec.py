@@ -40,6 +40,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -2413,6 +2414,103 @@ class SelftestFixturesMatchTheEndpointTable(unittest.TestCase):
         endpoint, why = self.fx.fixture_target("no_such_endpoint (invented)")
         self.assertIsNone(endpoint)
         self.assertIn("not in spec.ENDPOINTS", why)
+
+
+class DownReasonVocabularyTest(unittest.TestCase):
+    """
+    One down_reason vocabulary, written down in seven places, compared here.
+
+    [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G12, 2026-09-11.
+
+    The offline round counted five declaration sites. There are seven:
+
+        spec.py   DOWN_REASONS, DECLARED, LINK_FAILURE_REPORTED, LINK_FAILURE_INJECTED
+        kernel    downReasonToString (the enum's wire form, common_types/GraphTypes.hpp),
+                  HttpSession.cpp:564 (a raw-string reply) and :836 (a json object)
+
+    Nothing compared them. This is not a defect today -- the seven agree -- and the guard is
+    the point: a fourth reason added to the C++ enum would pass every existing check while
+    the two link-reply schemas, which never mention DOWN_REASONS, refused it, and the two
+    hardcoded replies said nothing about it. The mutation gate is where this file's red lives.
+
+    🔴 `"declared"` is also a BandwidthSource spelling in the same header, a different
+    vocabulary reusing the word. Grepping the string conflates the two; the scan below reads
+    down_reason sites only, and only under src/ and include/ -- tests/ deliberately holds
+    `body.value("down_reason", "")` reads whose default is not a vocabulary word.
+    """
+
+    #: `"down_reason": "x"` or `{"down_reason", "x"}`. A site that calls downReasonToString()
+    #: instead of naming a value does not match, which is the point: those cannot drift.
+    HARDCODED = re.compile(r'"down_reason"\s*[:,]\s*"([^"]*)"')
+
+    PRODUCTION_DIRS = ("src", "include")
+
+    def _cpp_sources(self):
+        for directory in self.PRODUCTION_DIRS:
+            for root, _dirs, files in os.walk(os.path.join(REPO_ROOT, directory)):
+                for name in files:
+                    if name.endswith((".cpp", ".hpp", ".h", ".cc")):
+                        yield os.path.join(root, name)
+
+    def test_the_kernels_wire_form_covers_exactly_this_vocabulary(self):
+        header = os.path.join(REPO_ROOT, "include", "common_types", "GraphTypes.hpp")
+        with open(header, encoding="utf-8") as fh:
+            source = fh.read()
+        start = source.index("downReasonToString(DownReason reason)")
+        body = source[start:source.index("\n}\n", start)]
+        returned = set(re.findall(r'return\s+"([^"]*)"', body))
+        self.assertEqual(returned, set(spec.DOWN_REASONS),
+                         "the kernel's DownReason wire form and spec.DOWN_REASONS have drifted")
+
+    def test_every_enum_member_has_a_wire_spelling(self):
+        # The switch has a trailing `return "none"`, so a member added without a case label
+        # would silently serialise as "none" rather than failing to compile.
+        header = os.path.join(REPO_ROOT, "include", "common_types", "GraphTypes.hpp")
+        with open(header, encoding="utf-8") as fh:
+            source = fh.read()
+        block = source[source.index("enum class DownReason"):]
+        block = block[:block.index("};")]
+        members = re.findall(r"^\s+([A-Z]\w*)", block, re.M)
+        self.assertEqual(len(members), len(spec.DOWN_REASONS),
+                         f"DownReason has {members}, spec.DOWN_REASONS has "
+                         f"{list(spec.DOWN_REASONS)}")
+        for member in members:
+            self.assertIn(f"case DownReason::{member}:", source,
+                          f"{member} has no case label, so it serialises as the fallback")
+
+    def test_every_hardcoded_kernel_value_is_a_vocabulary_word(self):
+        sites = []
+        for path in self._cpp_sources():
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                for lineno, line in enumerate(fh, 1):
+                    for match in self.HARDCODED.finditer(line):
+                        sites.append((os.path.relpath(path, REPO_ROOT), lineno,
+                                      match.group(1)))
+        self.assertTrue(sites, "the scan found no hardcoded down_reason at all -- it has "
+                               "stopped looking where the kernel writes one")
+        for path, lineno, value in sites:
+            self.assertIn(value, spec.DOWN_REASONS, f"{path}:{lineno} writes {value!r}")
+
+    def test_the_declaration_value_is_named_once_and_belongs_to_the_vocabulary(self):
+        self.assertIn(spec.DECLARED, spec.DOWN_REASONS)
+        for schema, label in ((spec.LINK_FAILURE_REPORTED, "LINK_FAILURE_REPORTED"),
+                              (spec.LINK_FAILURE_INJECTED, "LINK_FAILURE_INJECTED")):
+            field = (schema.optional or {}).get("down_reason") or schema.fields["down_reason"]
+            self.assertEqual(tuple(field.allowed), (spec.DECLARED,), label)
+
+    def test_a_reply_naming_another_vocabulary_word_is_still_refused(self):
+        # The two link replies are narrower than the graph on purpose: a declaration endpoint
+        # reporting "switch-unreachable" is not a wider vocabulary, it is a different event.
+        self.assertTrue(validate(spec.LINK_FAILURE_REPORTED,
+                                 {"status": "ok", "down_reason": "switch-unreachable"}))
+        # The graph's own edge object takes the wider vocabulary, on the same body.
+        graph_edge = {**edge(1, 2), "src_ip": [16777226], "dst_ip": [33554442],
+                      "flow_set": []}
+        self.assertEqual(
+            validate(spec.GRAPH_EDGE, {**graph_edge, "down_reason": "switch-unreachable"}), [])
+        self.assertTrue(
+            validate(spec.GRAPH_EDGE, {**graph_edge, "down_reason": "flapping"}),
+            "a word outside the vocabulary is a contract change, not a wider one")
 
 
 class DeclinedRecoveryPremiseTest(unittest.TestCase):
