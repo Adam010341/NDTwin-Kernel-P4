@@ -6098,8 +6098,14 @@ usage: ndt <command>
                   for, recorded in .test_run/up.target -- data plane kind, host
                   count, kernel graph, and the model file's sha256.
                   exit 0 all compared fields match; 1 one of them does not (the
-                  message names it); 3 nothing was compared, because no 'ndt up'
-                  has run in THIS checkout. 3 is never "checked and matched".
+                  message names it); 3 nothing was compared, because there is
+                  no baseline RIGHT NOW -- .test_run/up.target is absent (every
+                  ordinary up->down clears it) or unreadable.
+                  3 is never "checked and matched", and it is NOT "no 'ndt up'
+                  has ever run here": that sentence was taken out of the output
+                  on 09-05 (W12/I-1) as false after every teardown, and when
+                  .test_run/pids/kernel.exit is there the report says what the
+                  last run was.
                   --check also prints a 'residue' row: rules left inside an app's
                   window and locks still held. residue FOUND is a problem (rc 1);
                   residue that could not be checked is printed as NOT CHECKED and
@@ -6135,9 +6141,15 @@ usage: ndt <command>
   Declare yourself before a long run -- any script can just write .test_run/lab.claim:
       owner=<name>   expires=<unix seconds>   note=<optional>
 
-  ndt up derives the kernel's topology model from host_count_override, so the
-  4-host-model-against-a-128-host-fabric mistake cannot be made by forgetting an
-  environment variable.
+  On P4, 'ndt up' derives the kernel's topology model from
+  p4_proxy/mininet/host_count_override, so model and fabric cannot disagree
+  because an environment variable was forgotten -- and since 09-10 the
+  two-checkout form of that mistake is refused before anything is built ('sudo
+  ndtwin-lab' acts in ONE tree, and 'ndt up' checks it is this one).
+  It does NOT make the 4-host-model-against-a-128-host-fabric mistake
+  impossible: inside one tree the host count is whatever that file says, 'ndt up
+  p4 N' rewrites it, and on 09-05 setting it built exactly that pair (R3-3).
+  OVS has no such knob -- there the size is the verb.
 
 repo: $REPO
 EOF

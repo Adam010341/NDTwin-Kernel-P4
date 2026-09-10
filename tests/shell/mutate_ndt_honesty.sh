@@ -296,6 +296,46 @@ m=$(mutant n2 "$NDT" \
 report "N2 (control, never checks): every lab has no baseline" "$m" \
        "  and --check checks: rc 0, not 3"
 
+# --- F12 / B10: the help text, which nothing was reading (F-OFFLINE-1 §1.12, §1.24) ----------
+
+# F12 verbatim. Until 2026-09-11 the help defined rc 3 with the very sentence W12 had removed
+# from the output as false, and 78 green cells in this suite said nothing, because not one of
+# them looked at `ndt help`. This mutation puts it back.
+m=$(mutant m22 "$NDT" \
+    'message names it); 3 nothing was compared, because there is
+                  no baseline RIGHT NOW' \
+    'message names it); 3 nothing was compared, because no '\''ndt up'\''
+                  has run in THIS checkout')
+report "M22: help defines rc 3 by history again (F12)" "$m" \
+       "  🔴 the sentence W12 removed from the output is gone from the help too"
+
+# The half of F12 that a "delete the offending words" fix would leave broken: rc 3 has TWO
+# return sites (no record, ndt:2991; a record nobody can read, ndt:3001) and the help has to
+# name both. This mutation keeps the tense honest and drops the second cause.
+m=$(mutant m23 "$NDT" \
+    'ordinary up->down clears it) or unreadable.' \
+    'ordinary up->down clears it).')
+report "M23: help names only one of rc 3's two causes" "$m" \
+       "  🔴 and 'unreadable' as the other -- rc 3 has two return sites"
+
+# B10. The blanket claim comes back -- the one the overnight-hunt skill sent a whole round to
+# falsify, which is true only of the failure mode it names and reads as "this cannot happen".
+m=$(mutant m24 "$NDT" \
+    'It does NOT make the 4-host-model-against-a-128-host-fabric mistake
+  impossible: inside one tree the host count is whatever that file says' \
+    'The 4-host-model-against-a-128-host-fabric mistake cannot be made by forgetting an
+  environment variable: inside one tree the host count is whatever that file says')
+report "M24: the blanket host_count_override claim comes back (B10)" "$m" \
+       "  🔴 the blanket 'cannot be made' claim is gone"
+
+# The other direction on B10: the scope is right and the counter-example is dropped, so the
+# help says what the knob does not do without saying that it has already been done.
+m=$(mutant m25 "$NDT" \
+    "and on 09-05 setting it built exactly that pair (R3-3)." \
+    "and nobody has ever done so.")
+report "M25: B10 loses its 09-05 counter-example" "$m" \
+       "  with the 09-05 counter-example"
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then

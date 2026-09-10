@@ -543,6 +543,64 @@ check "  and the lines it returns exist nowhere else"      "1" \
 no_claim
 unset NDT_OWNER FX_INFLIGHT
 
+# ==========================================================================================
+# 5. `ndt help` -- the prose is an output too, and nothing was reading it
+# ==========================================================================================
+# 🔴 F-OFFLINE-1 §1.12 / §1.24, measured 2026-09-11: two claims that the code had already
+# stopped making, and one of them the code's own comment calls false, were still being printed
+# by `ndt help` -- with no test anywhere in the tree looking at that output. `grep -rn` over
+# tests/ found the sentences only in four 09-02 manual-test transcripts. A suite that drives
+# `--check` until every row is honest and never reads the paragraph that tells an operator what
+# `--check`'s exit codes mean is checking half the statement.
+#
+# The dispatch is executed, not sourced: help lives in the `*)` arm of the case block at the
+# bottom of the file (ndt:6075), below the source seam. It is the one command that touches
+# nothing -- a heredoc and `exit 2` -- so it is safe to run here, where the lab must not be.
+run_help() { bash "$NDT" help 2>&1; }
+HELP="$(run_help)"
+
+section "5A. F12: help no longer claims what check_up_target deliberately stopped claiming"
+check "  ndt help runs offline and exits 2"              "2" \
+      "$(bash "$NDT" help >/dev/null 2>&1; echo $?)"
+has   "  and it is the help"                             "usage: ndt <command>" "$HELP"
+# check_up_target:2974-2977 removed this sentence from the OUTPUT and says why in its own
+# comment: "is a statement about history and is false after every ordinary up->down". The help
+# went on printing it, in capitals, as the definition of rc 3.
+hasnt "  🔴 the sentence W12 removed from the output is gone from the help too" \
+      "has run in THIS checkout" "$HELP"
+check "  🔴 and from the file in that spelling -- the help was its last home" "0" \
+      "$(grep -c 'has run in THIS checkout' "$NDT")"
+has   "  rc 3 is explained by the baseline, not by history" "no baseline RIGHT NOW" "$HELP"
+has   "  and it names 'absent' as one cause"             "is absent" "$HELP"
+has   "  🔴 and 'unreadable' as the other -- rc 3 has two return sites" "or unreadable" "$HELP"
+has   "  and says an ordinary up->down clears it"        "ordinary up->down clears it" "$HELP"
+has   "  3 is still never 'checked and matched'"          'never "checked and matched"' "$HELP"
+has   "  and it says what 3 is NOT"                      "it is NOT \"no 'ndt up'" "$HELP"
+# The claim the corrected sentence makes about the report has to be true of the report. 1A
+# above drives exactly this: with a kernel.exit present, the record row names the last run.
+has   "  and points at the file the report reads instead" ".test_run/pids/kernel.exit" "$HELP"
+
+section "5B. B10: help scopes the host_count_override claim to what the code enforces"
+# The 09-05 round (R3-3) recorded this sentence as REFUTED. It was not: read literally it only
+# ever claimed that FORGETTING an environment variable cannot cause the mistake, and R3-3's own
+# note says what it did -- "設一個環境變數就做到了". What was false is the impression the
+# sentence leaves, so what changes is its SCOPE, and the help now carries both halves.
+hasnt "  🔴 the blanket 'cannot be made' claim is gone"  "mistake cannot be made by forgetting an" "$HELP"
+has   "  the claim that survives is scoped to P4"        "On P4, 'ndt up' derives" "$HELP"
+has   "  and to the failure mode it really covers"       "because an environment variable was forgotten" "$HELP"
+has   "  🔴 the two-checkout form is named as refused"   "refused before anything is built" "$HELP"
+has   "  and by what"                                    "acts in ONE tree" "$HELP"
+has   "  🔴 and what the knob does NOT prevent is said"  "does NOT make the" "$HELP"
+has   "  with the 09-05 counter-example"                 "setting it built exactly that pair (R3-3)" "$HELP"
+has   "  and 'ndt up p4 N' named as the other writer"    "p4 N' rewrites it" "$HELP"
+has   "  OVS is excluded, because it has no such knob"   "OVS has no such knob" "$HELP"
+# 🔴 WIRING, a text check and named as one: the refusal the help now points at is a real
+# function called before up_p4/up_ovs build anything (ndt:1457). Its behaviour belongs to
+# tests/shell/test_ndt_up_down_robust.sh; what is asserted here is only that the help is not
+# pointing at a mechanism nobody calls -- which is what F8 turned out to be, one file over.
+check "  the refusal the help points at is called from 'ndt up'" "1" \
+      "$(grep -c 'guard_lab_acts_in_this_tree || bad=1' "$NDT")"
+
 # --- done ---------------------------------------------------------------------------------
 printf '\nRan %d checks, %d failed\n' "$((PASS+FAIL))" "$FAIL"
 [[ "$FAIL" -eq 0 ]] || exit 1
