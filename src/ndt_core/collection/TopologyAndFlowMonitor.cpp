@@ -21,6 +21,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <unordered_set>
 #include <vector>
 
@@ -129,6 +130,62 @@ describeTopologyItem(const json& item, const char* kind, std::size_t index)
 /// still passes, and the 2026-08-17 failure that make_topology.py's validate() exists for was
 /// exactly that. This bound catches typos and generator bugs, not mistakes.
 constexpr std::uint32_t kMaxTopologyInterface = 65535;
+
+/// The switch `brand_name` values this build knows how to drive.
+///
+/// [Co-developed with claude code -- Adam]
+/// FINDINGS #91 / W15. `switchKindFromBrandName` (GraphTypes.hpp) maps "BMv2" and "OVS" and
+/// returns HARDWARE for **everything else**, which is a default, not a decision: a typo in a
+/// topology file became a hardware switch silently. Measured 2026-09-05 (R0b, kernel 862c4bf8,
+/// bad file `c`): `brand_name = "NOT_A_REAL_KIND"` on one switch of an all-OVS fabric was
+/// ACCEPTED, and the only thing the operator saw was
+///
+///     [error] ... Topology mixes data planes (ovs=[1,2,3,4,5,6,8,9,10]; hardware=[7]). ...
+///     Fix the topology file, or set AppConfig::ALLOW_MIXED_DATAPLANE to override.
+///
+/// -- an error-level sentence in the voice of a refusal, followed by the kernel opening :8000 and
+/// serving the model. Worse, its advice would make the typo permanent: setting that flag turns
+/// every misspelled brand into a hardware switch by consent.
+///
+/// 🔴 THIS LIST IS THE FLEET, NOT A GUESS, and it must not be narrowed to the two virtual kinds.
+/// Every `brand_name` literal in every JSON file in this repository (2026-09-06): "" (hosts),
+/// "BMv2", "OVS", "HPE5520", "BrocadeICX7250", "BrocadeICX6610" -- nothing else. Five of the
+/// thirteen shipped topologies are TESTBED files whose switches are HPE or Brocade, so a list of
+/// {OVS, BMv2} would refuse all five: a wider outage than the defect.
+///
+/// Each entry is a brand some code actually branches on. OVS and BMv2 select the routing
+/// strategy through SwitchKind; "HPE5520" selects the SNMP power/temperature path in
+/// DeviceConfigurationAndPowerManager.cpp, and the two Brocade models are what its else-branch
+/// ("Brocade / Others (Currently via SSH)") was written for. A brand outside this list gets that
+/// SSH branch by accident rather than by design, which is what makes accepting it a lie rather
+/// than a limitation.
+///
+/// A new switch model belongs here AND in a power/telemetry path; TopologyInputValidationTest's
+/// TheAcceptedBrandListCoversEveryBrandTheCodeBranchesOn is the tripwire for adding it to one and
+/// not the other.
+constexpr std::array<std::string_view, 5> kAcceptedSwitchBrands{
+    "OVS",            // Mininet bridge, driven through Ryu             -> SwitchKind::OVS
+    "BMv2",           // P4 behavioural model, driven through the proxy -> SwitchKind::BMV2
+    "HPE5520",        // testbed hardware, SNMP power + temperature
+    "BrocadeICX6610", // testbed hardware, SSH power
+    "BrocadeICX7250", // testbed hardware, SSH power
+};
+
+/// The accepted brands as one comma-separated string, for the refusal to print.
+std::string
+acceptedSwitchBrandList()
+{
+    std::string joined;
+    for (const auto brand : kAcceptedSwitchBrands)
+    {
+        if (!joined.empty())
+        {
+            joined += ", ";
+        }
+        joined += brand;
+    }
+    return joined;
+}
 
 /** @brief Refuse a topology document that names things the document does not contain.
  *
@@ -279,6 +336,49 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
         if (nodeJson.contains("switch_kind"))
         {
             (void)switchKindFromString(nodeJson.at("switch_kind").get<std::string>());
+        }
+
+        // ---- #91 door 3e: a brand_name nothing in this build drives ----
+        // [Co-developed with claude code -- Adam]
+        // The sibling of door 3a, and the reason it was not enough: `switch_kind` throws on an
+        // unmapped value, but no shipped file declares `switch_kind` at all -- every one of the
+        // thirteen selects its data plane through `brand_name`, which had no check whatever.
+        //
+        // 🔴 THE OLD BEHAVIOUR WAS NOT "ACCEPTED SILENTLY", IT WAS WORSE: the file loaded, the
+        // switch became HARDWARE, and the operator was handed a data-plane-mixture error whose
+        // suggested remedy (AppConfig::ALLOW_MIXED_DATAPLANE) makes the typo permanent. That
+        // message is not removed -- mixed fabrics are a supported opt-in and it belongs to them
+        // -- it is now unreachable for this cause, because the file is refused in the node loop
+        // and validateDataPlaneHomogeneity runs at the end of the builder. `vertices == 0` in
+        // AnUnknownBrandNameLeavesNoPartiallyLoadedGraph is what pins that ordering.
+        //
+        // Two faults, one door: a missing or non-string `brand_name` is refused here rather than
+        // by the builder's at() further down, which throws with nodes 0..N-1 already in the graph
+        // and reports it as a nlohmann exception class. Same reasoning as doors 3c and 3d.
+        if (vertexType == VertexType::SWITCH)
+        {
+            if (!(nodeJson.contains("brand_name") && nodeJson.at("brand_name").is_string()))
+            {
+                throw std::runtime_error(
+                    "switch dpid " + std::to_string(nodeJson.at("dpid").get<std::uint64_t>()) +
+                    " has no \"brand_name\" string, and the data plane a switch is driven "
+                    "through is read from it (accepted: " + acceptedSwitchBrandList() + ")");
+            }
+            const auto brandName = nodeJson.at("brand_name").get<std::string>();
+            if (std::find(kAcceptedSwitchBrands.begin(), kAcceptedSwitchBrands.end(), brandName) ==
+                kAcceptedSwitchBrands.end())
+            {
+                throw std::runtime_error(
+                    "switch dpid " + std::to_string(nodeJson.at("dpid").get<std::uint64_t>()) +
+                    " has \"brand_name\" \"" + brandName +
+                    "\", which this build has no data plane for. Accepted: " +
+                    acceptedSwitchBrandList() +
+                    ". An unrecognised brand used to be mapped to \"hardware\" silently, which "
+                    "sent the switch down the SNMP/SSH testbed paths and made an all-OVS fabric "
+                    "report itself as a mixed data plane. A new switch model has to be added to "
+                    "kAcceptedSwitchBrands and given a power/telemetry path before a topology "
+                    "file may name it");
+            }
         }
 
         // ---- #89 door 3b: a switch with no management address ----

@@ -153,7 +153,7 @@ read the first one without checking that there is one
 | 5（`_ipAlias4_*` TESTBED） | **4** | **0** |
 | **13** | — | **0** |
 
-`tools/make_topology.py:126` 產生器也是每台 host 一定給 `["10.0.0.<i>"]`。
+`tools/make_topology.py:130` 產生器也是每台 host 一定給 `["10.0.0.<i>"]`。
 ⇒ **沒有任何一份出貨拓樸列了沒有位址的 host，所以拒絕它拒絕不到任何人手上的檔案。**
 而「Ryu 之後才發現」那條路走的是另一段碼（`updateHosts`），
 `validateStaticTopologyJson` 從頭到尾只看**靜態檔**，動不到它。
