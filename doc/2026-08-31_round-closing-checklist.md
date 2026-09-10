@@ -95,7 +95,13 @@ hook 只在你 commit 的那一刻才有機會說話，而**「缺席」不觸�
       見手冊 `knob baseline` 那三列），但收工時一樣要寫回去。
       🔴 **`knob baseline`／`tree vs round` 兩列還是建議在 `release` 之前抄**：
       擋下來的只有旋鈕那一格，兩列的**內容**在 release 之後就沒有東西能替你比了。
-- [ ] `ndt apps orphans` 回 0。**2026-09-07 起它的 rc 不只回答行程了**（G-12／W16-1），
+- [ ] `ndt apps orphans` **的 tally 行乾淨**（🆕 **09-10 Adam 裁：讀 tally 行，不要讀 rc**——
+      rc 在一個合併視窗裡對同一個狀態位移了兩次：乾淨 OVS4 `0 → 5`、P4 起著 sim `5 → 2`，
+      R4-LIVE §4-A7／§4-A9。人可以照下面那張表；**腳本一律走
+      `bash tools/test_workflow/orphans_verdict.sh <完整輸出> [rc]`**，它回
+      `processes=` ／ `network=<窗內規則>/<鎖>/<定不了年的>` ／ `not_answerable=`，
+      乾淨＝`processes=clean` 且前兩個數字是 0，**`not_answerable`＞0 與「定不了年」＞0 是 NOTE 不是 FAIL**）。
+      **2026-09-07 起它的 rc 不只回答行程了**（G-12／W16-1），
       判準跟著改，五個碼互斥、看到哪一個就做哪一件事：
 
       | rc | 意思 | 你要做的 |
