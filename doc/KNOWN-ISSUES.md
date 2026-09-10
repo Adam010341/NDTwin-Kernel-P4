@@ -855,7 +855,19 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ### A-13 🔴 kernel 關機時 abort，而文件描述的那條乾淨關機路徑**從來沒有被執行過**
 
-- **狀態**：修法在分支 `fix/b5-kernel-shutdown`，**未併入**（2026-09-02 B-5）。
+- **狀態**：修法在分支 `fix/b5-kernel-shutdown`（tip `e9f1326e`，2026-09-02 B-5），
+  ✅ **已併入 trunk**——`0e11c229` 併進 `integrate/2026-09-03-auditor-merge`（2026-09-03 15:23），
+  該整合分支再經 `cdc8dad9` 進 trunk（2026-09-05 15:27）；
+  2026-09-11 覆核 `git merge-base --is-ancestor e9f1326e trunk` 為真。
+  〔在此之前這一行寫的是「**未併入**」——那句在 2026-09-02 寫下時為真，之後沒有人回來改。〕
+  **兩半的現況不同**：第一半（`stop()` 只 join 兩條 thread）**在 trunk 上已修**——
+  `src/ndt_core/power_management/DeviceConfigurationAndPowerManager.cpp:221`／`:226`／`:245`
+  三個 `joinable()`＋`join()` 都在（2026-09-11 開檔覆核）；**第二半照舊 OPEN**——
+  `src/main.cpp:344` 只有 `std::signal(SIGINT, handleSigint)`，全檔沒有 SIGTERM 的註冊（同日 grep 覆核）。
+  🔴 **不標 RESOLVED**：`tests/shell/mutate_b5_power_manager_shutdown.sh` 在樹上，
+  但 **09-10 那批 28 支閘門的重跑沒有它**（那批的名冊只收 09-10 併的 29 支分支，
+  b5 不在其中；重跑 log 目錄裡也沒有這支的變異 log，只有錨點檢查的格子）
+  ⇒ A-1 的條件未驗。〔名冊與 log 在 09-05 夜巡 session 的 `scratch/`，**不在版控**。〕
 - **平面**：兩者
 - **失效方向**：崩潰 ＋ 靜默（沒有人看得出來）
 - **會發生什麼**：SIGINT 之下 **7/7 次 exit 134**（`std::terminate`）；修法後 7/7 exit 0。
@@ -1381,7 +1393,18 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   `doc/audit/2026-09-06_fix-declared-link-failure/FIX-DECLARED-LINK-FAILURE.md`。
   🔴 **W8 工單寫在 09-05 夜巡 session 的 scratch 裡，`scratch/` 不進版控。**
   文件側：`doc/2026-01-02_ndt_api.md` §1／§2 已改寫，並新增 §2b／§2c 兩個注入端點。
-  🔴 **本條在變異閘於 trunk 上跑綠之前不得標 RESOLVED**（A-1 的規矩）。
+  🟢 **RESOLVED（2026-09-11）——A-1 的條件已驗**：閘門
+  `tests/shell/mutate_declared_link_failure_survives_poll.sh` 於 2026-09-10 17:10–17:15 在
+  合併樹 `integrate-0910`（`36a8affc`）上 **rc 0**，逐字 `8 mutations, 0 survived` ／
+  `3 widenings, 0 wrongly caught`（`fix/R4-CPPGATES-2-SUMMARY.md` 閘門 1；
+  log `logs/gates-0910/mutate_declared_link_failure_survives_poll.log:65-66`）。
+  **那次綠跑的 bytes 就是 trunk 的 bytes**：`36a8affc` 是 trunk 的祖先，而它被變異的檔
+  （`src/ndt_core/collection/TopologyAndFlowMonitor.cpp`）與閘門腳本本身在 `36a8affc`
+  與 trunk 上的 blob sha **相同**（2026-09-11 以 `git rev-parse <ref>:<path>` 兩邊對過）。
+  ⚠️ **RESOLVED 不等於使用者拿得到**：09-10 這批**未推任何 remote**（F-1 立的那條線
+  ——翻面的條件是「跑著的那顆 kernel 裡有這個修法」）⇒ 對外宣稱「已修」之前要先問修在哪個 ref。
+  ⚠️ **標題的 🔴 沒有動**：依 A-4e 的前例（標題與狀態行一致性的修正是 Adam 自己做的），
+  這一次只動狀態行。
 - **平面**：兩者（缺陷在 kernel 的拓樸輪詢，與資料面無關；實測跑在 OVS 10-switch）
 - **失效方向**：**樂觀 ＋ 靜默**——被宣告成壞掉的東西回報成健康，而且沒有任何 log 記錄這次翻轉
 - **會發生什麼**：`POST /ndt/link_failure_detected` 回 **200**，雙向邊在 0.02 s 內變 `isUp=false`；
@@ -1449,7 +1472,16 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   `fix/w8b-withdrawal-needs-observed-failure`（base＝`fix/w8-declared-link-failure-sticky`@`017c060f`），
   **merge `fe2b03b8`，2026-09-10**；閘門 `mutate_withdrawal_needs_observed_failure.sh` 在合併樹
   `25 mutations, 0 survived`／`6 widenings, 0 wrongly caught`（`fix/R4-CPPGATES-2-SUMMARY.md`）。
-  🔴 **變異閘在 trunk 上跑綠之前不得標 RESOLVED。**
+  🟢 **RESOLVED（2026-09-11）——A-1 的條件已驗**：閘門
+  `tests/shell/mutate_withdrawal_needs_observed_failure.sh` 於 2026-09-10 17:15–17:33 在
+  合併樹 `integrate-0910`（`36a8affc`）上 **rc 0**，逐字 `25 mutations, 0 survived` ／
+  `6 widenings, 0 wrongly caught`（`fix/R4-CPPGATES-2-SUMMARY.md` 閘門 2；
+  log `logs/gates-0910/mutate_withdrawal_needs_observed_failure.log:158-159`）。
+  bytes 的同一性與 B-6 第一輪同一個檢查（同一個檔、同一次比對）。
+  ⚠️ **RESOLVED 不等於使用者拿得到**：09-10 這批**未推任何 remote**（F-1 立的那條線
+  ——翻面的條件是「跑著的那顆 kernel 裡有這個修法」）⇒ 對外宣稱「已修」之前要先問修在哪個 ref。
+  ⚠️ **標題的 🔴 沒有動**：依 A-4e 的前例（標題與狀態行一致性的修正是 Adam 自己做的），
+  這一次只動狀態行。
 - 🟢 **實測（不是推論）**：`scratch/overnight-2026-09-05/logs/live-round2-console.log` 的 lw8b 臂，
   2026-09-07 00:08，OVS 4 hosts，kernel `37d641fa9fd6fc14`（build 自 `017c060f`）：
   宣告 s1:1→s5:1（`is_up=False down_reason=declared`）→ 指名 kill Ryu（:8080 於 00:08:47 關，
@@ -1541,19 +1573,29 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
     三筆畸形／缺欄位（400），以及一段**六步的 MUTATE 序列**（宣告 → 配對撤回 → 注入 → **被拒**
     → 撤回注入 → 冪等收尾），因為 `declaration_retained` 只有「注入的宣告 ＋ 沒有配對的 report」
     這一種狀態產得出來。契約涵蓋率 33/45 → **37/45**。
-  - 🔴 **這四筆描述的是分支不是 trunk**：`inject_*` 在 trunk 上回 404、`link_failure_detected`
-    在 trunk 上只回 `{"status": "link failure processed"}` ⇒ 對 trunk 跑會紅。那是刻意的讀法
-    （同 `get_num_of_flows__unknown_dpid` 對 OV-3 之前的 kernel）。
+  - 🔴 **這四筆在 2026-09-07 寫下時描述的是分支不是 trunk**：當時 `inject_*` 在 trunk 上回 404、
+    `link_failure_detected` 在 trunk 上只回 `{"status": "link failure processed"}` ⇒ 對 trunk 跑會紅。
+    那是刻意的讀法（同 `get_num_of_flows__unknown_dpid` 對 OV-3 之前的 kernel）。
+    🏁 **2026-09-11 更正：這個預測已經反過來了。** W8（merge `8b51caf4`）與 W8b（merge `fe2b03b8`）
+    2026-09-10 併入 trunk 之後，trunk 上 `src/ndt_core/http/HttpSession.cpp:162`／`:166` 就是
+    `/ndt/inject_link_failure`／`/ndt/inject_link_recovery` 的路由，
+    而 `declaration_retained` 也在同一個檔的回覆裡（`:743`、`:837`）
+    ⇒ **那四筆現在對 trunk 成立，會紅的反而是沒有這兩顆 merge 的 ref。**
   - **閘門**：`tests/shell/mutate_contract_link_endpoints.sh`（**15 變異、4 對照**，兩條 lane：
     `test_contract_spec.py` 與 `run_contract_test.py --self-test`；不需要建置也不需要 kernel）。
-  - ⚠️ **B-6 的狀態不變，仍然是 trunk OPEN、分支上 OPEN**：本輪只加了斷言，一行 kernel 碼都沒改
-    （A-1：變異閘在 trunk 上跑綠之前不標 RESOLVED）。
+  - ⚠️ **E-21 這一輪只加了斷言，一行 kernel 碼都沒改**——所以它自己不改變 B-6 的狀態。
+    🏁 **B-6 的狀態已於 2026-09-11 改標 RESOLVED**（見本條目最上面的狀態行）：
+    依據是 A-1 的條件（變異閘在 trunk 的 bytes 上跑綠），**不是**本輪加的這些斷言。
 
 ### B-7 `set_switches_power_state` 對不存在的 IP 回 500，而同一個 IP 的 GET 回 404
 
-- **狀態**：**在 trunk 上 OPEN。修法在分支 `integrate/2026-09-03-auditor-merge` 的
-  `f8dbad66`（工單 W6），未併入**（查於 2026-09-05，trunk `4088b237`：
-  `git merge-base --is-ancestor f8dbad66 HEAD` 為否）。登記理由見 B-8 之後那一段。
+- **狀態**：**在 trunk 上 OPEN**（不標 RESOLVED 的理由在下面）。修法 `f8dbad66`（工單 W6，
+  分支 `integrate/2026-09-03-auditor-merge`），✅ **已併入 trunk**——merge `cdc8dad9`，
+  2026-09-05 15:27；2026-09-11 覆核 `git merge-base --is-ancestor f8dbad66 trunk` 為真。
+  〔「未併入」那句是 2026-09-05 查於 trunk `4088b237` 的觀測——**那顆 merge 之前**，當時為真。〕
+  🔴 **不標 RESOLVED**：本條自己指名的閘門 `tests/shell/mutate_unknown_identifier_is_not_zero.sh`
+  **沒有在 09-10 的合併樹重跑**（W6 不在那 29 支裡，重跑 log 目錄裡沒有它的變異 log）
+  ⇒ A-1 的條件未驗。登記理由見 B-8 之後那一段。
 - **平面**：兩者
 - **失效方向**：**悲觀 ＋ 誤導**——客戶端錯誤被報成伺服器故障
 - **會發生什麼**：`POST /ndt/set_switches_power_state?ip=203.0.113.9&action=off` →
@@ -1564,7 +1606,7 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   而「這個 IP 不是我認得的交換機」與「繼電器不接受」在那個 bool 裡沒有差別——
   後者旁邊還有四條**真的是 500** 的 `return false`。GET 那側走例外，
   拿到 `Unknown switch IP` 就回 404。
-- **W6 之後的行為**（`f8dbad66`，**尚未在 trunk**）：新增
+- **W6 之後的行為**（`f8dbad66`，**2026-09-05 起在 trunk 上**）：新增
   `DeviceConfigurationAndPowerManager::knowsSwitchIp`（就是 GET 那側自己的查找，依模式分岔），
   handler 在問 manager **之前**先問它，未知 IP 回 **`404 {"error":"Unknown switch IP"}`**、
   與 GET 同一句；**真正的電源失敗仍然是 500**（鑑別力測試 `ARealPowerFailureIsStillA500`）。
@@ -1575,8 +1617,11 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ### B-8 兩個 POST 讀取端點對不存在的 dpid 回 200 與零 —— 「不存在」與「零」不可分辨
 
-- **狀態**：**在 trunk 上 OPEN。修法在分支 `integrate/2026-09-03-auditor-merge` 的
-  `f8dbad66`（工單 W6，與 B-7 同一顆），未併入**（查於 2026-09-05，trunk `4088b237`）。
+- **狀態**：**在 trunk 上 OPEN**（同 B-7，不標 RESOLVED 的理由在 B-8 之後那一段）。
+  修法 `f8dbad66`（工單 W6，與 B-7 同一顆），✅ **已併入 trunk**——merge `cdc8dad9`，
+  2026-09-05 15:27；2026-09-11 覆核為真。
+  〔「未併入」是 2026-09-05 查於 trunk `4088b237` 的觀測，當時為真。〕
+  🔴 閘門 `mutate_unknown_identifier_is_not_zero.sh` **未在 09-10 的合併樹重跑** ⇒ A-1 的條件未驗。
 - **平面**：兩者
 - **失效方向**：**靜默**——不存在的交換機被報成「有，但沒有流量」
 - **會發生什麼**：`POST /ndt/get_num_of_flows_passing_a_switch` `{"dpid":424242}` →
@@ -1587,7 +1632,7 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 - **機制**：**根本沒有一個查找會失敗**——`dpid` 只被當成邊掃描裡的比較運算元，
   不存在的 dpid 誰都不匹配，累加器停在初值並被當成答案回出去。
   這是「算得出來不等於機制」的教科書實例。
-- **W6 之後的行為**（`f8dbad66`，**尚未在 trunk**）：兩個 handler 在掃描之前各加一次
+- **W6 之後的行為**（`f8dbad66`，**2026-09-05 起在 trunk 上**）：兩個 handler 在掃描之前各加一次
   `TopologyAndFlowMonitor::getSwitchKind(dpid).has_value()`（`install_flow_entry`
   對同一個問題早就在用的那支 validator），不成立回 **404**，措辭沿用既有的 unknown-dpid 契約：
   `{"status":"error","error":"unknown dpid","unknown_dpids":[<dpid>],"detail":"these dpids are not
@@ -1610,6 +1655,11 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 > | **A-13** | 「修法在分支 `fix/b5-kernel-shutdown`，**未併入**」 |
 > | **G-11** | 「OPEN（2026-09-02 live round 實測）。相關修法在 `fix/g6-ndt-apps-liveness`（未併）」 |
 >
+> ⚠️ **上表這兩則引述是 2026-09-05 當時的原文，刻意保留原字。**
+> 兩條的狀態行都已於 2026-09-11 改口——那兩支分支其實早在 2026-09-03 就併進整合分支、
+> 2026-09-05 隨 `cdc8dad9` 進了 trunk，「未併」是沒有人回來改的舊觀測（見 A-13 與 G-11）。
+> **引述記錄的是這個慣例的來源，不是今天的狀態**；改引述而不改被引的原文只會製造一個假的引用。
+>
 > ⇒ **慣例＝條目照登、狀態維持 OPEN、把分支與 commit 寫在狀態行上。** B-7／B-8 照此辦理。
 >
 > 三條支持的理由，都是本文件自己的規矩：
@@ -1620,8 +1670,13 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 > ③ 這兩個代號原本只活在一份 scratch 的 `FINDINGS-CANDIDATES.md` 裡；不編號進來，
 > 之後別處引用會另起代號、兩邊對不上（**§C 那兩套撞號的 F-n 就是這樣長出來的**）。
 >
-> 🔴 **W6 併進 trunk 之後要回來改這兩條的狀態行**，並照 A-1 的規矩：
-> 變異閘（`tests/shell/mutate_unknown_identifier_is_not_zero.sh`）在 trunk 上跑綠之前不改 RESOLVED。
+> 🏁 **2026-09-11：回來改了。** W6（`f8dbad66`）自 `cdc8dad9`（2026-09-05 15:27）起就在 trunk 上，
+> 兩條的「未併入」已改口（各自的狀態行寫了 merge sha 與覆核方式）。
+> **RESOLVED 沒有翻**——照 A-1 的規矩，變異閘
+> （`tests/shell/mutate_unknown_identifier_is_not_zero.sh`）在 trunk 上跑綠之前不改，
+> 而 09-10 那批 28 支閘門重跑的名冊裡**沒有這一支**（那批只收 09-10 併的 29 支分支）
+> ⇒ 條件仍未驗。**要翻的人要做的事**：在 trunk 上跑那支閘門，把 `N mutations, 0 survived`
+> 那一行連 log 路徑寫進這兩條的狀態行。
 >
 > **本次沒有登記的**：09-04 夜巡 `FINDINGS-CANDIDATES.md` 裡的其他候選
 > （**OV-1**，以及 S-n／T-n／P4-n 各族）——那些不在 Adam 09-05 的裁決範圍內，本次不代為判斷。
@@ -1737,11 +1792,15 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ### B-10 🔴 替交換機取個名字，`ndt status --check` 就說「有人動了拓樸檔」
 
-- **狀態**：**OPEN（登記於 2026-09-06）。修法在分支 `fix/w10-nickname-overlay` 上，
-  ✅ 已併入 trunk**（merge `0584f1b5`，2026-09-10；閘門 `mutate_nickname_overlay.sh` 在合併樹
-  `16 mutations, 0 survived`，`fix/R4-CPPGATES-1-SUMMARY.md`）。
-  照本檔 B-7／B-8 前面那段自己立的慣例（條目照登、狀態維持 OPEN、分支寫在狀態行上），
-  以及 **A-1 的規矩：變異閘在 trunk 上跑綠之前不得改 RESOLVED**。
+- **狀態**：🟢 **RESOLVED（2026-09-11）**（條目登記於 2026-09-06，當時是 OPEN）。
+  修法在分支 `fix/w10-nickname-overlay` 上，✅ **已併入 trunk**（merge `0584f1b5`，2026-09-10）。
+  **A-1 的條件已驗**：閘門 `mutate_nickname_overlay.sh` 於 2026-09-10 15:30 在合併樹
+  （`wt-merge-0910`，分支 `integrate-0910`）上 rc 0、逐字 `16 mutations, 0 survived`
+  （`fix/R4-CPPGATES-1-SUMMARY.md` 閘門 3；log `logs/gates-0910/mutate_nickname_overlay.log:36`）。
+  **那次跑的 bytes 就是 trunk 的 bytes，而且這一支有直接證據**：該 log 的 baseline 行逐字記著
+  `src/ndt_core/collection/TopologyAndFlowMonitor.cpp  sha256 89a14afd48dba338`，
+  而 trunk 上同一個檔今天的 `sha256sum` 前 32 位就是 `89a14afd48dba3389ccab941da276ffc`（2026-09-11 覆核）。
+  〔在此之前這裡寫的是「維持 OPEN，照 B-7／B-8 的慣例與 A-1 的規矩」——那是條件還沒驗的口徑。〕
   🔴 **「修好了」對外要先問修在哪個 ref**：trunk 併進來了，而 **09-10 這批未推任何 remote**
   ⇒ 使用者拿得到的仍是舊行為（F-1 立的那條線）。
 - **平面**：**兩者**（跟著 `activeTopologyPath()` 走，不是平面的性質）
@@ -1813,9 +1872,15 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   `mutate_topology_input_is_validated.sh` 在合併樹 `33 mutations, 0 survived`／
   `9 widenings, 0 wrongly caught`，`fix/R4-CPPGATES-2-SUMMARY.md`）。
   在此之前的口徑是「在 trunk 上 OPEN」（查於 2026-09-07，trunk `1536ff17`）。
-  照 B-7／B-8 前面那段自己立的慣例（條目照登、狀態維持 **OPEN**、分支與 commit 寫在狀態行上），
-  以及 **A-1 的規矩：變異閘在 trunk 上跑綠之前不得改 RESOLVED**。
-  🔴 **「已經修好了」對外要先問修在哪個 ref**——trunk 有了，而 **09-10 這批未推任何 remote**。
+  🟢 **狀態自 2026-09-11 起是 RESOLVED——A-1 的條件已驗**：那支閘門的 33 個變異
+  於 2026-09-10 17:33–18:14 在合併樹 `integrate-0910`（`36a8affc`）上 **rc 0**
+  （逐字 `33 mutations, 0 survived` ／ `9 widenings, 0 wrongly caught`，
+  log `logs/gates-0910/mutate_topology_input_is_validated.log:961-962`），
+  而**那次綠跑的 bytes 就是 trunk 的 bytes**（`36a8affc` 是 trunk 的祖先，
+  `TopologyAndFlowMonitor.cpp` 與該閘門腳本兩邊的 blob sha 相同，2026-09-11 對過）。
+  〔在此之前這裡寫的是「照 B-7／B-8 的慣例維持 **OPEN**、A-1 的規矩」——那是條件還沒驗的口徑。〕
+  🔴 **「已經修好了」對外要先問修在哪個 ref**——trunk 有了，而 **09-10 這批未推任何 remote**
+  ⇒ 使用者拿得到的仍是舊行為。⚠️ 標題的 🔴 沒有動（同 B-6 的但書）。
 - **平面**：兩者（載入器的事，與資料面無關）
 - **失效方向**：**靜默**——整份檔案被完整收下，log 一個字都沒有
 - **會發生什麼**：拓樸檔裡多一台 `"ip": []` 的 host（不必被任何 edge 指到），
@@ -1883,7 +1948,13 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   在此之前的口徑是「在 trunk 上 OPEN」（查於 2026-09-07，trunk `1536ff17`）。
   🔴 **那條分支的 base 是 `fix/w3-door3b-host-empty-ip` 的 tip `72ffd4dd`，不是 trunk
   ⇒ 合併順序：先 B-11 那一支，再這一支。**
-  同 B-11：狀態維持 **OPEN**，A-1 的規矩（閘門在 trunk 上跑綠之前不改 RESOLVED）。
+  🟢 **狀態自 2026-09-11 起是 RESOLVED**：與 B-11 同一支閘門、**同一次跑**
+  （`mutate_topology_input_is_validated.sh`，2026-09-10 17:33–18:14 在合併樹 `36a8affc` 上 rc 0，
+  `33 mutations, 0 survived` ／ `9 widenings, 0 wrongly caught`，
+  log `logs/gates-0910/mutate_topology_input_is_validated.log:961-962`），
+  bytes 同一性的檢查也是同一個 ⇒ A-1 的條件已驗。
+  〔原文：「同 B-11：狀態維持 **OPEN**，A-1 的規矩」。〕
+  🔴 **未推任何 remote**，對外宣稱前先問 ref。⚠️ 標題的 🔴 沒有動（同 B-6 的但書）。
 - **平面**：兩者
 - **失效方向**：**語氣拒絕、行為放行**——log 印一行 `[error]`，然後整份檔案照樣載入
 - **會發生什麼**：把某台 switch 的 `brand_name` 打成 `NOT_A_REAL_KIND`，
@@ -1929,6 +2000,63 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   「機制」與分支內容是登記者開檔查證（🟢）。**不要混用。**
 - **契約測試看不看得到？** 同 B-11：**看不到，結構上看不到**（`GRAPH_NODE["brand_name"] = Str()` 是
   **輸出**契約，任何字串都合法；而圖與檔一致時 `inv_graph_matches_topology` 沒有話說）。
+
+---
+
+### B-13 🔴 `link_bandwidth_bps: 0` 一扇門都不擋 ⇒ 被取樣到的邊的利用率變 `null`
+
+- **狀態**：**OPEN**（2026-09-11 ROLE-3 實測，2 次獨立重現）。**今晚沒修**——三扇門一起的修法方向
+  寫在 `scratch/overnight-2026-09-05/hunt-0911/FIX-DOORS-2.md`（**在 `scratch/`，不在版控**）。
+- **平面**：兩者（載入器與遙測算式的事，與哪個資料面無關；實測跑在 OVS 4-host）
+- **失效方向**：**靜默**——一個不可能的頻寬被收下，算出來的欄位以 `null` 出去，而沒有人說壞掉
+- **會發生什麼**：拓樸檔某條邊寫 `"link_bandwidth_bps": 0`，kernel **完整載入**，
+  `ndt up ovs 4` 的四項 verify 全 ok（`kernel graph matches the model file: 4 hosts, 40 edges`）。
+  打過流量之後 `get_graph_data` 的 `link_bandwidth_utilization_percent` 對**每一條被取樣到的邊**
+  回 **`null`**（NaN 被 nlohmann 序列化成 null），而 `get_average_link_usage` 仍回
+  `{"avg_link_usage":0.0,"status":"success"}`——**平均值沒有被汙染，也沒有說任何一條邊壞了**。
+  `-1` 更難看：`get<uint64_t>()` 把它變成 `18446744073709551615`（一條 18.4 Eb/s 的鏈路）。
+- **機制**：十扇輸入門沒有一扇看這一欄；除法在
+  `src/ndt_core/collection/TopologyAndFlowMonitor.cpp:3019`。**缺這個 key 或寫成字串 `"0"` 會被拒**，
+  但訊息是 nlohmann 的例外字串（門 3c／3d 當初就是為了消掉這種訊息，而這一欄沒有門）。
+- **證據**：`scratch/overnight-2026-09-05/hunt-0911/ROLE-3-STUDENT-REPORT.md` ②／③
+  ——h1→h2 之後 8 條 null、再打 h3→h4 之後 16 條 null（同一顆 kernel、第二對 host、獨立重現）。
+  量測用的二進位 `build/bin/ndtwin_kernel` sha256 `356803db69af3b1b…`（該報告 ⑤ 自己指認，
+  mtime 2026-09-10 22:58，**比當時的 HEAD 早**、沒有重編）。
+  ⚠️ **可信度**：live 數字是 ROLE-3 實測（🟢 對它）、**本條登記者未複驗（🟠 轉述）**；
+  機制那兩行是登記者開檔查證（🟢）。**不要混用。**
+
+### B-14 🔴 `vertex_type` 的範圍外值：檔案面全收、API 面 400 —— 同一個欄位兩種嚴格度
+
+- **狀態**：**OPEN**（2026-09-11 ROLE-3 實測，`2`／`-1`／`99` 各一次、同一結論）。
+  今晚沒修，見 `hunt-0911/FIX-DOORS-2.md`（`scratch/`，不在版控）。
+- **平面**：兩者（載入器）
+- **失效方向**：**靜默**——一個既不是 switch 也不是 host 的節點進了圖，並被原值 republish
+- **會發生什麼**：拓樸檔多一個 `"vertex_type": 2` 的節點（**不必被任何邊指到**）⇒ kernel 收下、
+  **零診斷**（kernel.log 只有無關的 NFS stale-folder warning）、node 數 14→15，
+  `get_graph_data` 與 `get_static_topology_json` 都把 `"vertex_type":2` 原值吐回去。
+  對照組打 API：`POST /ndt/modify_device_name {"vertex_type":2,…}` → **400**
+  `{"error":"Invalid vertex_type. Must be 0 (switch) or 1 (host)."}`
+  （`src/ndt_core/http/HttpSession.cpp:2185-2188`）。
+- **機制**：門 3b／3c／3d／3e 四扇都寫死在 `vertexType == SWITCH`／`== HOST` 的分支上，
+  而讀入處是 `static_cast<VertexType>(…get<int>())`（`TopologyAndFlowMonitor.cpp:346`）
+  **沒有範圍檢查** ⇒ 第三個值把四扇門一起跳過；序列化走 HOST 那條 8 欄分支。
+- **證據**：`scratch/overnight-2026-09-05/hunt-0911/ROLE-3-STUDENT-REPORT.md` ③（三個值的逐字輸出）。
+  raw 在 `scratch/`，不在版控。⚠️ 登記者未複驗（🟠 轉述）；二進位同 B-13。
+
+### B-15 🔴 寬鬆寫法的位址（`["10.1"]`）讓兩台 host 共用一個位址，而查找只回第一個
+
+- **狀態**：**OPEN**（2026-09-11 ROLE-3 實測 1 次）。今晚沒修，見 `hunt-0911/FIX-DOORS-2.md`。
+- **平面**：兩者（載入器）
+- **失效方向**：**靜默**——零 warning、零 error，而圖裡兩個節點是同一個位址
+- **會發生什麼**：把 h2 的 `ip` 打成 `["10.1"]`（連帶它那條 host edge 的兩端）⇒ 收下，
+  `get_graph_data` 裡 h1 與 h2 **都是** `"ip":[16777226]`（對照組的 h2 是 `[33554442]`），
+  `get_static_topology_json` 把兩台都印成 `"ip":["10.0.0.1"]`，
+  host edges 裡 `dst_ip:[16777226]` 出現兩次。
+- **機制**：`inet_aton("10.1")` ＝ `10.0.0.1` ⇒ 兩台在圖裡是同一個 key；
+  「這一端指到的位址沒有節點持有」那扇門（#61）**過關了**，因為兩者在 `inet_aton` 之後同值。
+  而 `findVertexByIpNoLock` 只會回第一個 ⇒ 之後每一個以位址找節點的路徑都指到 h1。
+- **證據**：`scratch/overnight-2026-09-05/hunt-0911/ROLE-3-STUDENT-REPORT.md` ③（`b5-loose.json` 那一列）。
+  ⚠️ 登記者未複驗（🟠 轉述）；二進位同 B-13。
 
 ---
 
@@ -2649,6 +2777,27 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
   `p4_proxy/proxy_agent/api_routes.py:347` 與 `p4_client.py:891` 的開檔確認（🟢）。**不要混用。**
 - **對帳**：09-05 R4-3 的「`succeeded` 停在 900」是**同一件事**——900 ＝ 896 ＋ 量測前基準 3，
   §X2 已結案為「上限是 1024，不是 900」。
+
+### C-7 🔴 P4 上帶 priority 的 `delete_flow_entry` 全數失敗，而每一個呼叫端都拿到 `200 queued`
+
+- **狀態**：**OPEN**（2026-09-11 ROLE-5 規模輪實測：12 分鐘、4312 次 POST、**100% HTTP 200**，
+  同時 `rejected_by_switch=2152`＝那一輪**所有** delete 全滅）。
+- **平面**：**只有 P4**（proxy 實際回 **HTTP 501** `priority not honourable on this table` ／
+  `outcome: unsupported_on_p4`；OVS 那側本輪沒測）
+- **失效方向**：**樂觀 ＋ 靜默**——`queued` 之後沒有任何同步管道說它沒裝成
+- **會發生什麼**：規則迴圈（實測 ~50 calls/s）跑 12 分鐘：`dispatched=4363` 裡
+  `rejected_by_switch=2152`，而呼叫端**每一次**看到的都是 `200 {"status":"queued"}`。
+  唯一救得回來的是 `GET /ndt/get_flow_dispatch_status`（per-`request_id` 查得到 `complete=true`）。
+  副作用：`in_use` 單調成長 4 → 106 → **220**（`available` 1020 → 918 → 804、`max_entries` 1024，
+  三次取樣都自洽）⇒ **這一輪完全沒有觸發 idle timeout 驅逐**，因為沒有一次 delete 生效。
+- **與 C-4／C-4b 的分工**：那兩條講「刪掉之後表列還看得到」（讀回延遲；同一輪 t=300 s 時
+  `installed_visible 4/5`、`deleted_still_visible 3/5`）；**本條講的是根本沒刪成**，
+  而兩者的狀態碼一樣是 200。C-6 講的是**表滿**也回 200——同一族的第三個出口。
+- **證據**：`scratch/overnight-2026-09-05/hunt-0911/ROLE-5-TRAFFIC-REPORT.md` §6（S3）；
+  raw `hunt-0911/logs/ROLE-5/16-S3-failures.log`／`21-S3-readback.log`。
+  🔴 **全在 `scratch/`，不在版控。**
+  ⚠️ **可信度**：數字是 ROLE-5 實測（🟢 對它）、**本條登記者未複驗（🟠 轉述）**；
+  該報告自己指認了二進位與 4 台（不是 64／128）的規模邊界。
 
 ## D. 已明確裁定不修（含理由）
 
@@ -3464,7 +3613,18 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 
 ### G-11 🔴 `ndt apps stop` 只殺 bash wrapper —— 三個存活通道一起說謊，而且會汙染別人的數字
 
-- **狀態**：OPEN（2026-09-02 live round 實測）。相關修法在 `fix/g6-ndt-apps-liveness`（未併）。
+- **狀態**：**OPEN**（2026-09-02 live round 實測）。相關修法在 `fix/g6-ndt-apps-liveness`
+  （tip `e83ef1d1`），✅ **已併入 trunk**——`c42cc07d` 併進 `integrate/2026-09-03-auditor-merge`
+  （2026-09-03 15:09），該整合分支再經 `cdc8dad9` 進 trunk（2026-09-05 15:27）；
+  2026-09-11 覆核 `git merge-base --is-ancestor e83ef1d1 trunk` 為真。
+  〔原文是「（未併）」——2026-09-02 寫下時為真。〕
+  該修法的閘門 `tests/shell/mutate_g6_apps_liveness.sh` **在 09-10 的合併樹上跑過、rc 0**
+  （2026-09-10 15:00；逐字 `VERDICT: every mutation was caught by the check named for it;
+  the control survived`，5 個變異全 caught ＋ `control-comment-only SURVIVED (control, as
+  required)`；該閘門不印 `N mutations` 那一行）。
+  🔴 **狀態仍是 OPEN**：那支閘門守的是「起不來的 app 不能被報成 started」，
+  而**本條目的缺陷是三個存活通道對 wrapper 底下的 JVM 說謊**——那件事沒有被 live 複驗過
+  ⇒ 依 A-1 不標 RESOLVED。〔閘門 log 在 09-05 夜巡 session 的 `scratch/`，不在版控。〕
 - **平面**：兩者
 - **失效方向**：靜默 ＋ **會製造假的測試結果**
 - **會發生什麼**：`ndt apps stop` 之後，viz 的 **JVM 活了 1 小時 54 分、111% CPU、875 MB log**，
@@ -3837,6 +3997,296 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 
 [Co-developed with claude code -- Adam]
 
+### G-17 ⚠️ `warning_allowlist.txt:133` 的條目在碼裡沒有呼叫點（一行只能靠讀者判斷的雜訊）
+
+- **狀態**：**OPEN，只列不刪**（2026-09-11 FIX-CONTRACT-1 證實；修法＝刪那一行，Adam 硬規矩是只列不刪）。
+- **原文（`fix/FIX-CONTRACT-1-SUMMARY.md` §6 逐字）**：
+  > `WARNING | P4 BMv2 Power ON from Kernel is currently a stub` 自稱是「a promise to remove it」，
+  > 而 `grep -rn 'currently a stub'` 與 `grep -rn 'P4 BMv2 Power'` 在 `src/`、`include/`、`p4_proxy/`
+  > 都是零命中：那個訊息已經不存在了。`doc/audit/2026-08-30_live-full-stack-round/harness/90_restore.sh:29`
+  > 在 08-30 就寫下「is still there and is now stale too」，沒有登記。`check_logs.py` 會回報
+  > 「從未比對到」的條目，所以它不會造成假綠——它造成的是一個 183 行檔案裡多一行要讀者判斷的雜訊。
+- **為什麼是儀器問題不是缺陷**：它不會讓 log 閘門假綠，但**每一個讀 allowlist 的人都要重新判斷一次**
+  這一行還算不算數。
+
+### G-18 🔴 `warning_allowlist.txt:169` 的 FORBID 永遠比對不到它指名的那句話 —— 一個不會亮的紅燈
+
+- **狀態**：**OPEN、未修**（2026-09-11 FIX-CONTRACT-1 實跑證實 `re.search` 回 `None`）。
+  一行修法（`Cannot open .*OpenflowCapacity\.json`）**沒有做**：那會讓目前綠的 run 在缺檔時變紅，
+  屬閘門口徑改動，等 Adam 裁（該單 §7-2）。
+- **原文（`fix/FIX-CONTRACT-1-SUMMARY.md` §6 逐字）**：
+  > 條目是 `FORBID | Cannot open OpenflowCapacity\.json`；kernel 印的是
+  > `src/ndt_core/http/HttpSession.cpp:2807` 的 `"Cannot open 2026-01-02_OpenflowCapacity.json"`。
+  > 正規式要求 `Cannot open` 後面**緊跟** `OpenflowCapacity.json`，而實際文字中間夾了 `2026-01-02_`
+  > ⇒ `re.search` 回 `None`（實跑）。**這是一個永遠不會亮的紅燈**：W17 之後
+  > `get_openflow_capacity` 在缺檔時仍然用 bmv2 plane 回答，三個 vendor block 悄悄消失，而這條
+  > FORBID 本來就是為了讓那件事變紅的。
+- **與 C-6／W17 的關係**：C-6 那條的修法（`fix/w17-capacity-current-plane`，merge `5272d7e2`）
+  讓 capacity 回報跑著的 plane；缺檔的那條路徑**還是靜默的**，而唯一該叫的守衛不會叫。
+
+### G-19 ⚠️ 契約自檢有 15 個 READ/MUTATE 端點沒有回覆 fixture（缺口沒補，但不會再安靜長大）
+
+- **狀態**：**OPEN（缺口）；「不會安靜長大」的部分已修並已併入 trunk**
+  （`fix/contract-layer-offline-findings`，2026-09-11；清單被雙向斷言相等）。
+- **原文（`fix/FIX-CONTRACT-1-SUMMARY.md` §6 逐字）**：
+  > 逐名在 `tools/contract_test/selftest_fixtures.py` 的 `ENDPOINTS_WITHOUT_A_RESPONSE_FIXTURE`。
+  > 4 個是回覆形狀與兄弟步驟相同的序列步驟；**11 個是這個套件從來沒描述過它的回覆**
+  > （`get_static_topology_json` 的 schema 是 `Obj({}, strict=False)`——什麼都沒描述；
+  > `modify_flow_entry`／`delete_flow_entry`／兩個 batch／`inform_switch_entered`／`app_register`／
+  > `modify_device_name`／`set_switches_power_state`／兩個 `historical_logging_*`）。
+  > 缺口本身**沒有補**（多數需要一份 repo 裡不存在的 documented example，編一個等於把沒人觀察過的形狀
+  > 放進專門存已觀察形狀的檔）。
+- 🔑 **`delete_flow_entry` 正是 C-7 那條缺陷所在的端點**——契約層對它的回覆一句話都沒說過。
+
+### G-20 ⚠️ `down_reason` 這個詞彙表寫在七個地方（今天一致，加第四個值就不一致）
+
+- **狀態**：**不是現行缺陷**（七處今天一致）；漂移檢查已加並已併入 trunk
+  （`tests/python/test_contract_spec.py::DownReasonVocabularyTest`，2026-09-11）。
+- **原文（`fix/FIX-CONTRACT-1-SUMMARY.md` §6 逐字）**：
+  > `spec.py` 的 `DOWN_REASONS`／`DECLARED`／`LINK_FAILURE_REPORTED`／`LINK_FAILURE_INJECTED`（4）＋
+  > kernel 的 `downReasonToString`（`include/common_types/GraphTypes.hpp` 的 enum wire form）／
+  > `src/ndt_core/http/HttpSession.cpp:564`（raw string 回覆）／`:836`（json 物件）（3）。
+  > 風險是往 enum 加第四個值會通過所有現有檢查，而兩份自己拼字的 schema 會拒收它、
+  > 兩個寫死的回覆對它一句話都不說。含「每個 enum member 都要有 case label」——
+  > 那個 switch 尾巴有 `return "none"`，少一個 case 會靜靜序列化成 fallback。
+  > ⚠️ `"declared"` 在同一個 header 裡也是 `BandwidthSource` 的拼法（`GraphTypes.hpp:846`），
+  > **是另一套詞彙表借用同一個字**；grep 這個字串會把兩套混在一起。
+
+### G-21 🏁 `orphans_verdict.sh` 把一個完全問不到的網路半邊判成 CLEAN —— **已修（已併入 trunk）**
+
+- **狀態**：🏁 **已修並已併入 trunk**（`ded00d06`，2026-09-11；2026-09-11 覆核
+  `git merge-base --is-ancestor ded00d06 trunk` 為真）。**只有 offline 證據。**
+- **原文（`fix/FIX-NDT-2-SUMMARY.md` §6 逐字）**：
+  > A report with the kernel UP, a tally PRESENT, and all three lock probes answering
+  > `NOT CHECKED (http 500)` read `VERDICT: CLEAN` rc 0, while `ndt` answered 5 for the same
+  > observation (residue_verdict, ndt:5349). The tally's three zeros were counters nothing had
+  > incremented: `0 lock(s) held` after three failed probes is not a measurement. CLEAN now also
+  > requires one positive answer from the network half; with none it is `VERDICT: NOT CHECKED`
+  > rc 3. Partial blindness stays a NOTE (Adam 2026-09-10) and the kernel-down verdict keeps its
+  > `CLEAN -- the process half only`. Gate: tests/shell/mutate_orphans_verdict.sh (new).
+- 🔴 **Adam 還沒裁的那一格**（該單 §7-1）：三個 lock probe 全瞎、但某個 app 的窗答了 ⇒ 現在算
+  「部分問到」⇒ CLEAN＋NOTE，而 `0 lock(s) held` 那個 0 仍然是三次失敗 probe 換來的。
+
+### G-22 🏁 兩套 `--check` suite 讀主 checkout 裡一個 148 KB 的 root 檔 —— **已修（已併入 trunk）**
+
+- **狀態**：🏁 **已修並已併入 trunk**（`79010ade`，2026-09-11，只動測試檔；覆核為真）。
+- **原文（`fix/FIX-NDT-2-SUMMARY.md` §6 逐字）**：
+  > test_ndt_honesty.sh and test_ndt_status_check_baseline.sh had no `lab_kernel_dir` stub, so
+  > `app_evidence_log sim` resolved to /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/app_sim.log
+  > (148717 bytes, uid 0). Both suites were green only because Adam's E-7 ruling makes residue
+  > rc 5 not red; a `sudo truncate` of that file would have changed their output.
+
+### G-23 🏁 `NDT_TOPO` 收下一份**別的網路**的模型 —— **已修（已併入 trunk）**
+
+- **狀態**：🏁 **已修並已併入 trunk**（`76b5d434`，2026-09-11；覆核為真）。**缺陷本身是 live 量到的。**
+- **原文（`fix/FIX-NDT-2-SUMMARY.md` §6 逐字）**：
+  > `NDT_TOPO=<128-host model> ndt up p4 4` built the 4-host fabric, wrote hosts=4 and
+  > model_hosts=128 into one up.target, and hung in [2/3] past 300 s with the kernel never started
+  > (ROLE-2, 2026-09-11 01:20). Refused now in topo_for_hosts (new rc 3) and in record_up_target.
+
+### G-24 🏁 `up` 與還在跑的 `down` 重疊時，重用正在被拆掉的 fabric —— **已修（已併入 trunk）**
+
+- **狀態**：🏁 **已修並已併入 trunk**（`019b125d`，2026-09-11；覆核為真）。**缺陷是 live 量到的。**
+- **原文（`fix/FIX-NDT-2-SUMMARY.md` §6 逐字）**：
+  > On P4 a second `ndt up` 13 s after a backgrounded `ndt down` printed `already up ... reusing`,
+  > passed `model matches fabric` with the fabric mid-SIGTERM, and the teardown then named the new
+  > kernel and proxy as residue and advised `--deep`. OVS refused the same overlap via mn_count;
+  > bmv2's root-owned ports look identical coming up and going down, so P4 could not see it.
+  > `cmd_down` records .test_run/down.inflight; preflight refuses on it; a marker whose pid is gone
+  > is removed rather than allowed to block.
+
+### G-25 🏁 `apps orphans` 與它的讀者把**半套**的 stack 判成 CLEAN —— **已修（已併入 trunk）**
+
+- **狀態**：🏁 **已修並已併入 trunk**（`6d081d13`，2026-09-11；覆核為真）。**缺陷是 live 量到的（3 次）。**
+- **原文（`fix/FIX-NDT-2-SUMMARY.md` §6 逐字）**：
+  > Three times on 2026-09-11 `orphans_verdict.sh` printed CLEAN over a half-up stack: 10 bmv2 +
+  > 14 mininet with the kernel down; 15 mininet + a topo session; a kernel serving a 14-node graph
+  > with 0 bmv2 and 0 mininet. Every verdict was correct about what it measured -- `ndt apps
+  > orphans` never reported the kernel, the fabric or the proxy. It now prints a `stack:` line
+  > (report only, rc unchanged) and the reader makes `verdict=HALF` NOT CLEAN. A report with no
+  > stack line is `not-reported` and changes nothing.
+- **與 G-12 的關係**：G-12 問的是「這台 lab 乾淨嗎」沒有指令答得出來；本條是**答得出來的那個指令
+  只看了一半的機器**。
+
+### G-26 🏁 六句在關鍵處為假的敘述（`ndt` 的 help 與兩個 rc 表）—— **已修（已併入 trunk）**
+
+- **狀態**：🏁 **已修並已併入 trunk**（`ca9af4f1`＋`3259d296`，2026-09-11；兩顆都覆核為真）。
+- **原文（`fix/FIX-NDT-2-SUMMARY.md` §6 逐字）**：
+  > F1: `ndt up p4` printed the LIVE plane's sampling rate under the compiled-P4 label.
+  > F2: help said residue found is rc 1; with no up.target the whole report is rc 3, which is the
+  >     state every round ends in.
+  > F4: the `apps orphans` rc table presented itself as disjoint; rc 2 outranks 4 and 5 and is the
+  >     ordinary answer on this machine, so the documented rc 4 is unreachable.
+  > F10: `last_kernel_plane` could not classify the DEFAULT round, whose model is
+  >      StaticNetworkTopologyMininet_10Switches.json.
+  > F12: help defined rc 3 with the sentence check_up_target had removed as false.
+  > B10: the host_count_override claim was scoped, NOT withdrawn -- read literally it was never
+  >      refuted (see FIX-NDT-2 SUMMARY §1).
+- ⚠️ **上面那個 `B10` 是 FIX-NDT-2 自己的編號（`ndt` 裡的一句宣稱），不是本檔的 B-10。**
+
+### G-27 🔴 `ndt down` 之後，沒有任何後來的行程能替一條規則定年 —— **仍然 OPEN**
+
+- **狀態**：**OPEN**（2026-09-11 FIX-NDT-2 判「不修，要裁」；修法是一筆新的持久化紀錄，該單 §7-2）。
+- **原文（`fix/FIX-NDT-2-SUMMARY.md` §6 逐字）**：
+  > `cmd_apps stop` captures each app's window before the loop; `cmd_down` does not, and could not
+  > help if it did: RESIDUE_WINDOW is a shell variable and dies with the process. Every residue
+  > report taken after a teardown therefore reads "the window is LOST". The fix is an on-disk
+  > window record written where the pidfile is deleted -- a new persistent record, so it needs a
+  > ruling.
+- **與 G-13／G-14 的關係**：G-13 是「P4 的表沒有時間軸」（已修）、G-14 是「窗對 helper 起的 app 天生失明」
+  （已修）；本條是**窗這個概念在 `ndt down` 之後根本不存在**。
+
+### G-28 🔴 `ndt claim` 沒有原子性：同一秒兩個 owner 都拿到 rc 0 與「ok lab claimed by 自己」
+
+- **狀態**：**OPEN**（2026-09-11 ROLE-4 實測 **2/16** 同秒發射命中；偏移 ≥50 ms 全部正確拒絕 0/9；
+  控制組「claim 未過期時 intruder 被擋 rc 1」1/1）。
+  🔴 **修法歸 `fix/ndt-claim-semantics-0911`（FIX-NDT-3），而 2026-09-11 03:2x 覆核時
+  那條分支上唯一的 commit 是 `89676ae3`（H4 的拓樸路徑夾了換行），claim 語意這半還沒有 commit；
+  分支本身也還沒併（`git merge-base --is-ancestor 89676ae3 trunk` 為否）**
+  ⇒ 本條與 G-29／G-30／G-31 在 trunk 上都還是原樣。
+- **失效方向**：**靜默**——輸家除了再打一次 `ndt status` 之外沒有任何管道知道自己不是 owner
+- **機制**：check-then-write，兩步之間有窗口；claim 檔沒有鎖。
+  修法方向（ROLE-4 建議）：`O_EXCL` 建 `lab.claim.lock`／`flock`，或寫完回讀確認 owner 是自己。
+- **為什麼算「會製造假的測試結果」**：兩個 session 同時認為自己持有 lab ⇒ 兩邊的量測互相汙染，
+  而 `measuring=` 那一欄也擋不住（見 G-29）。
+- **證據**：`scratch/overnight-2026-09-05/hunt-0911/ROLE-4-CONCURRENT-REPORT.md` ②（T1）＋
+  `logs/ROLE-4/03-t1-race-sweep.log`／`04-t1-race-offset0-reps.log`。`scratch/`，不在版控。
+  ⚠️ 登記者未複驗（🟠 轉述）。
+
+### G-29 🔴 claim 裡的 `measuring=` 完全不保護 fabric：owner 自己 `ndt down` 就把宣告中的量測拆掉
+
+- **狀態**：**OPEN**（2026-09-11 ROLE-4 實測 1/1）。同 G-28，修法在 FIX-NDT-3 的分支上、未併。
+- **會發生什麼**：claim 寫著 `measuring=ROLE-4 reader nsr, do not tear down`，
+  `ndt down` **照拆、不提一個字、rc 0 印 `clean`**，把宣告中的 reader 一起殺掉。
+- **機制**：`cmd_down` 只讀 `foreign_claim` 與 `in_flight()`（iperf3 client／`matrix.sh`／
+  `measure.sh`／`cpu_probe.py`），**從來不讀 `measuring=`**。
+  另外 `ndt down` 只改 `note=`、**`measuring=` 留著** ⇒ 被殺掉的 reader 的宣告活過了殺它的那個 down。
+- **證據**：同 G-28 的報告 ②（T2d）＋`logs/ROLE-4/10-t3-down-by-owner.log`、
+  `17-claim-timeline.txt`（每一步的 claim 內容）。⚠️ 登記者未複驗（🟠 轉述）。
+
+### G-30 ⚠️ `ndt down` 的拒絕訊息印出一條貼上去會炸的指令
+
+- **狀態**：**OPEN**（2026-09-11 ROLE-4 實測 2/2 拒絕，兩次的訊息同形）。修法在 FIX-NDT-3 的分支上、未併。
+- **會發生什麼**：拒絕訊息建議
+  `NDT_OWNER=<owner (until HH:MM:SS, note)> ndt down`——`$held` 是**描述**不是 owner 名，
+  貼上去會被 shell 當成 subshell 語法而炸掉。同一段訊息也應該把 `measuring=` 唸出來（見 G-29）。
+- **證據**：同 G-28 的報告 ②（T2）＋`logs/ROLE-4/08-t2-foreign-down.log`。⚠️ 🟠 轉述。
+
+### G-31 🔴 claim 的「in use」note 在最需要它的兩種情況下靜默失效
+
+- **狀態**：**OPEN**（2026-09-11 ROLE-4 實測，兩臂各 1/1）。修法在 FIX-NDT-3 的分支上、未併。
+- **會發生什麼**：`ndt up` 寫 note 的條件是「**你已經是 owner**」。01:59:53 由 owner 跑 ⇒
+  note 變 `in use: ndt up ovs 4 at … by overnight-0905`；01:55:07 **同一支指令在 `NDT_OWNER` 未設**下跑
+  ⇒ **note 一個字都沒改**（還是上一輪的句子）。
+- **機制**：`set_claim_note` 要求 `NDT_OWNER == owner` 才寫，而 `claim_note_up` 把失敗吞掉
+  （`return 0`、不 warn）。另外 `note=` 會被搬到檔案最後一行 ⇒ **欄位順序不穩，不要用行號解析 claim 檔**。
+- **為什麼要記**：claim 的 `note=` 是別的 session 唯一讀得到的「這台 lab 在忙」訊號，
+  而它在「沒設 `NDT_OWNER`」與「別的 owner 起 fabric」這兩種最需要它的情況下不會更新。
+  claim 那一欄本身也要重查（`measuring nothing` 是點取樣、`until X` 是上界，兩個都不是租約）。
+- **證據**：同 G-28 的報告 ②（T5）＋`logs/ROLE-4/06-up-ovs4.log`（含該角色自己寫的 CORRECTION）、
+  `17-claim-timeline.txt`。⚠️ 🟠 轉述。
+
+### G-32 🔴 北向 API 完全不看 claim —— **開放設計題（不是已裁的缺陷）**
+
+- **狀態**：**OPEN，設計題**（2026-09-11 ROLE-4 實測 1/1；**要 Adam 裁該不該讓 API 認 claim**）。
+- **會發生什麼**：A 每 2 秒 `install_flow_entry`＋`delete_flow_entry`，
+  **claim 過期那一秒（`claim_left=-1s`）是 http 200，B 搶到 claim 之後（`owner=intruder-0911`,
+  `claim_left=-3s`）還是 200**；A 一直到 B 的 `ndt down` 把 kernel SIGTERM 掉才變 `000`，
+  而唯一的訊號就是 curl 連不上。B 的 `ndt up ovs 4` 被擋，**但擋它的是 port residue 不是 claim**。
+- **為什麼登記成設計題**：claim 是 lab 層的協定、API 是產品層的介面，
+  「產品要不要認實驗室協定」沒有被裁過——把它寫成缺陷會替 Adam 做那個決定。
+- **證據**：同 G-28 的報告 ②（T4）＋`logs/ROLE-4/14-t4-expiry.log`／`14b-write-loop.log`。⚠️ 🟠 轉述。
+
+### G-33 🔴 `ndt check` 的 tripwire 把一次連結故障讀成 `DOUBLE-COUNTING`，而 rc 不帶判定
+
+- **狀態**：**OPEN**（2026-09-11 ROLE-5 實測；三層陽性對照，其中兩層推翻了工單的假設）。
+- **失效方向**：**誤導 ＋ 不可觀測**——判定字串裡有一個具體機制，而現場沒有那個機制
+- **會發生什麼**：`tc netem loss 100% dev s1-eth2`（注入有斷言：該介面隨後 2 秒只走 0.48 MB，
+  較先前 85 MB/2s 少 99.4%）⇒ `twin 438.5 Mbit/s` vs `/proc/net/dev 273.7 Mbit/s`、
+  `ratio 1.60` ⇒ 印 **`DOUBLE-COUNTING -- clone replicas stacked`**、**`check rc=0`**。
+  🔴 **現場沒有任何 clone replica 疊加，只是一條連結被弄斷**：twin 的遙測落後於真值，
+  tripwire 把「落後」判成「疊加」。
+- **兩個附帶的零鑑別力**：①沒有流量時它**不印 ratio、不印判定、rc=0**
+  （「under 1 Mbit/s… run this while traffic is flowing」）——一個沒配 iperf3 的規則頻率研究，
+  20 分鐘會收到 20 分鐘的這個；②`cmd_check` 以 `info` 結尾 ⇒ 綠是 rc 0、印 `DOUBLE-COUNTING`
+  也是 **rc 0** ⇒ **「它沒紅」對腳本不可觀測**，要拿它當閘門只能 grep 那一行字串。
+- **對照**：同一條規則裝 50 次（工單建議的陽性對照）ratio **完全沒動** ⇒ tripwire 看不到規則重複。
+- **證據**：`scratch/overnight-2026-09-05/hunt-0911/ROLE-5-TRAFFIC-REPORT.md` §5（L1／L2／L3）；
+  raw `logs/ROLE-5/12-posctrl-L1-arithmetic.log`／`18-posctrl-L2-live.log`／`14-posctrl-L3-dup-installs.log`。
+  ⚠️ 🟠 轉述；`scratch/`，不在版控。
+
+### G-34 🔴 `.test_run/pids/` 自己互相矛盾（死 pidfile ＋ 同一元件的收工紀錄），而沒有任何介面說得出來
+
+- **狀態**：**OPEN**（2026-09-11 R7 對帳實測，相隔 24 秒兩次量測都在 ⇒ 不是毫秒級競態）。
+  **FIX-NDT-3 正在修。**
+- **會發生什麼**：`ryu.pid`＝20717、`ryu.child.pid`＝20722（mtime 02:49）**兩個 pid 都不存在**，
+  而隔壁 `ryu.exit`（mtime 02:51）逐字寫著 `at=2026-09-11T02:51:06`／`status=143`／
+  `reason=terminated by SIGTERM (15)`。同一刻 10 座 OVS bridge 還活著、四個控制 port 全關、
+  `ps` 掃不到任何控制面行程，而 claim 的 note 說 `in use: ndt up ovs 4`。
+  `ndt status`（rc **0**）整份輸出**沒有一個字**提到那兩個死 pidfile，並印 `fabric hosts 4 == 4 ok`。
+- **機制**：**收工紀錄寫了，活著的 pidfile 沒被刪。** 專案自己已經有硬化過的存活判準
+  （`[[ -d /proc/$pid ]]`，`ndt` 的 H-17 段，註解點名 root/EPERM 與 pid 重用兩個坑），
+  **但它沒有被用在 stack 的 `*.pid` 上、也沒有在 `status` 時跑**。
+  一個指向死 pid 的 pidfile 是 **pid 重用**的引信，而 `ndt down` 就是照那個目錄動手的。
+- **證據**：`scratch/overnight-2026-09-05/hunt-0911/R7-reconciler.md` I-3（含 `ls -la`、
+  `/proc` 檢查、`ryu.exit` 逐字）。⚠️ 🟠 轉述；`scratch/`，不在版控。
+  ⚠️ **歸屬**：那一輪的角色本來就是從殘骸開始，所以殘骸是誰留的 R7 明說不猜；
+  **本條的成立與誰造成它無關**——`pids/` 在自我矛盾而沒有介面說得出來。
+
+### G-35 🔴 兩支語料檢查在**乾淨的 trunk 上就紅**，改前改後一樣紅
+
+- **狀態**：**OPEN**（2026-09-11 R5-NDT-KERNELDIR §6 實測；三選一的處置在該 SUMMARY §7-2，等 Adam 裁）。
+- **會發生什麼**：`tests/shell/test_l1_shell_scoring.sh` rc 1、逐字 `Ran 82 checks, 11 failed`
+  （group C「最後一個 `echo` 要是 summary」對 11 支用 `printf` 或尾 echo 是 fixture 的 suite 永遠紅，
+  含 E-17 §7-4 已知的 7 支）；`tests/shell/test_gate_exit_code_not_tee.sh` rc 1、`5 passed, 2 failed`
+  （**新的**，之前沒有任何單記過）。
+- **怎麼確定不是改動造成的**：那一單的 agent 用 `git archive HEAD~1` 造一棵純 trunk 樹對照，
+  **數字逐字相同**。
+- **為什麼算陷阱**：一支「本來就紅」的檢查會讓下一個人把自己的紅當成環境雜訊。
+  ⚠️ 🟠 轉述（本條登記者沒有自己跑那兩支）。
+
+### G-36 ⚠️ `ndt down` 之後的 `ndt status --check` 結構上永遠是「沒查」，不是「查過且相符」
+
+- **狀態**：**OPEN**（2026-09-11 ROLE-1 基線實測；要不要讓 `--check` 在沒有 `up.target` 時改查
+  「什麼都不該在跑」，等 Adam 裁）。
+- **會發生什麼**：閒置 lab 上 `ndt status --check` rc **3**，逐字
+  `check: COULD NOT CHECK -- no 'ndt up' target recorded in this checkout`。
+  `ndt down` 會清掉 `up.target` ⇒ 還原三件套的第三件（「`--check` rc 0 且對上基線」）
+  **在 down 之後拿不到**。
+- **繞法（今晚的還原輪已改用這個口徑）**：對照「down 後的 `--check` 輸出與 down 前閒置基線
+  **逐字相同**（rc 3 ＋ 同一問題清單）」，不要對照 exit 0。
+- **同族**：`ndt apps orphans` 在 kernel down 之後拿不到 rules／locks 那半（G-12 的另一面）。
+
+### G-37 🔴 `mutate_cpu_report_no_ip.sh` 在 trunk 上拿不到綠，而錨點檢查對它說 `ok(12)`
+
+- **狀態**：**OPEN**（2026-09-11 F-B0-B12 §1-2..4 實跑證實；修法要跑整支 C++ 閘門，今晚沒做）。
+- **會發生什麼**：那支閘門的控制組 C2（`control-empty-check-rewritten`）是 5 行 anchor，
+  走沒有第 6 個 uniq 參數的 `mutate_must_live` ⇒ `assert_unique` 用 `grep -c -F` 算出 549、
+  `str.count` 算出 1 ⇒ 記 **INVALID**、收尾判紅。**那一顆控制組從來沒有被真的施加過**
+  （三個控制實際只剩兩個）。
+- 🔴 **而 `check_gate_anchors.py --gates mutate_cpu_report_no_ip.sh` 回 `ok(12)` rc 0**（它用 `body.count`）
+  ——`doc/audit/2026-09-04_fix-cpu-report-no-ip/FIX-CPU-REPORT-NO-IP.md:209` 正拿那個 `ok(12)`
+  當證據，**引的是另一個問題的答案**。
+- **範圍**：09-10 那批 28 支閘門不受影響（只有 3 支用 `grep -c -F`，且沒有多行被斷言）。
+  修法：給那一顆傳 uniq 參數（`mutate_f1_mininet_health_metrics.sh:184` 同形但沒被咬）＋文件改口。
+
+### G-38 🔴 產品碼裡有兩個活的 `sudo pkill -f simple_switch_grpc`
+
+- **狀態**：**OPEN**（2026-09-11 F-OFFLINE-1 §1.23 grep 證實）。
+  **修法會改產品行為，要 Adam 裁**；掃描器側的守衛（禁 `pkill -f`）可以先讓這兩處紅。
+- **在哪裡**：`p4_proxy/mininet/ntg_bmv2_topo.py:98`、`p4_proxy/mininet/p4_testbed_topo.py:658`。
+- **為什麼要記**：Adam 的硬規矩「永不 `pkill -f`」在碼裡**沒有守衛**，而這兩處正是它會殺到
+  **別人的 bmv2** 的地方（bmv2 orphan 活過 `mn -c` 的另一面）。G-9 記的是 `ndtwin-lab cleanup`
+  裡的四個 `pkill -f`；本條是**產品碼裡的兩個**。
+  ⚠️ 偵察原本只指到 `tools/test_workflow/run_layers.sh:398`——那是以名「查」不是「殺」，
+  **真的那兩個是這一輪才找到的**。
+
+> 🔗 **A1（`POST /ndt/inject_link_recovery` 把不是自己掛的 netem 也拆掉，2026-09-11 live 3/3）
+> 不在這裡登記**——那一條由 `fix/link-recovery-only-detaches-its-own-netem` 自己登記（09-11 授權）。
+> 本次收條目時（2026-09-11 03:0x）該分支還沒併進 trunk；若它比本次晚併，這一行就是它的入口。
+> 同一輪順手撞到的第二個（`inject_link_failure` 在一端已有別人的 netem 時**半成功而回 200
+> `link failure injected`**）在 `hunt-0911/ROLE-1-A1-REPORT.md` ②，**建議另開單**。
+
 ## 證據索引
 
 | 輪次 | 位置 | 內容 |
@@ -3861,6 +4311,49 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   **是取樣理論的地板，不是缺陷**——`196 × √(1/c)`，已跨 430× 窗長與 10× 負載實測驗證。
   見 `doc/audit/2026-08-18_live-full-stack-round/sflow-accuracy-2026-08-18.md`。
   GUI 上看得到擺盪是真的，但那是**儀器的解析度**，修不掉。
+
+### 樹裡引用得到、而本檔沒有條目的代號（2026-09-11 建，E1）
+
+**為什麼要有這張表**：`KNOWN-ISSUES <代號>` 是 09-07 裁定要的引用形，而
+`hunt-0911/F-OFFLINE-1-REPORT.md` §1.1 拿 KIREF 自己的解析器問了四個被這樣引用的代號
+（`T-11`／`L-3`／`L-5`／`I-3`），**四個都回 `None`**——文件裡沒有這些條目，而閘門 30 支全綠。
+⇒ **這一次選「登記」不選「改引用」**：那 28 個引用點裡有 7 個在產品碼與 header 裡
+（`src/main.cpp`、`include/…/FlowJob.hpp` 等），改它們是產品碼改動、要另外的授權；
+而這些代號**本來就有明確的出處**，缺的只是本檔沒有把它們指出來。
+表建好之後 KIREF 多了一格常設檢查
+  （`test_every_bare_code_citation_names_a_code_this_document_defines`，先紅 **28 筆**、後綠）
+  ＋五個單元案例與兩顆變異（`mutate_known_issues_references.sh` 的 M13／M14）。
+
+| 代號 | 它其實是什麼 | 這個主題在本檔的歸屬 | 狀態 |
+|---|---|---|---|
+| **T-9** | 工單號，`doc/2026-08-30_manual-verification-report.md` 的工單表 | 整機 harness／`ndt` 的儀器缺陷 ⇒ **G-2** | 分支 `ndt-harness-t9-t10-instruments` @ `b4059384`，見 G-2 |
+| **T-10** | 同上（該表 `:95`：「整機 harness 五項缺陷（時鐘、port 檢查、還原鏈等）」） | **G-2** | 已開、待修（該表自己的字） |
+| **T-11** | 同上（該表 `:96`：「kernel：排隊未編程請求被當流表列服務（FINDING-03）」） | **B-1**（幽靈規則）——本檔在 B-1 底下就寫著「T-11 這個編號不在 FINDING-03 檔內，引用時要引工單表那一行」 | T-11-A 已落地（`91e7743`，08-31 live 雙向驗證），見 B-1 的 🟢 那一列 |
+| **L-1** | 09-02 live round 的儀器缺陷編號（修法 commit `09e72e7b`：`run_layers.sh` 從跑著的 fabric 推導模型） | 「把跟另一個網路比出來的差異當成產品的判決」——**A-8** 那一族 | 🏁 已修（`09e72e7b`，2026-09-03），閘門 `mutate_run_layers_topology_from_fabric.sh` |
+| **L-3** | 同一輪（修法 `16419664`：`check_gate_anchors.py` 讀得到它原本跳過的四支閘門） | 「掃描器讀不到卻看起來像通過」——**G-5** 那一族 | 🏁 已修（`16419664`，2026-09-03），閘門 `mutate_check_gate_anchors.sh` |
+| **L-5** | 同一輪（修法 `70665602`：dispatch drift 掃描認得 `utils::pathIs` 的註冊寫法） | 儀器誤報 ⇒ **A-8** 那一族 | 🏁 已修（`70665602`，2026-09-03），閘門 `mutate_l3_dispatch_drift.sh` |
+| **I-3** | **09-05 夜巡 R7 對帳的不一致編號**：`host_count_override` 寫成 128（＝HEAD）之後 git 視為乾淨 ⇒ `ndt status` 的「can change behaviour」警報整段消失 | `ndt` 的儀器缺陷 ⇒ **G-2** 那一族 | 🏁 已修（`b09d330d`，2026-09-07，W16-1/2/3＋I-3＋D-2 那一顆），覆核在 trunk |
+
+🔴 **`I-3` 這個代號被兩輪 R7 各自用過**：上表那一個是 **09-05** 的；**09-11** 那一輪的 I-3
+是「`.test_run/pids/` 自我矛盾而沒有介面說得出來」，本檔登記為 **G-34**。
+⇒ **引用 `I-3` 一定要說是哪一輪的**；這正是本檔 §C 兩套撞號的 `F-n` 教過的同一件事。
+
+⚠️ **這張表不是條目**：它不描述任何缺陷，只回答「這個代號是誰、主題歸誰」。
+`A-4b`／`A-4g` 不在表上——它們是 A-4 底下**真的有 `####` 小標**的子條，KIREF 的裸代號檢查
+本來就認得（行號索引則刻意把它們的行歸給父條 A-4）。
+
+### KIREF（引用掃描器）自己的邊界（2026-09-11 補，E3）
+
+- **它驗 span 成員，不驗意思**：一個引用只要「行號落在它宣稱的那個條目裡」就算過，
+  所以**只動本檔散文的 commit 對它是隱形的**（`7c3d8068` 只動 `doc/KNOWN-ISSUES.md`、
+  一個代號都沒搬，KIREF 那時 30 支照樣全綠；加了裸代號那半之後是 44 支）。
+- **沒有任何閘門把本檔的散文當變異目標**：7 支 `mutate_*.sh` 提到本檔，全部只是註解出處；
+  `mutate_known_issues_references.sh` 變異的是**掃描器**不是文件。
+  ⇒ **本檔內容的正確性沒有機械防護**，只有 A-1 的規矩與逐條的證據路徑。
+- **這條是已知邊界，不是缺陷單**（2026-09-11 判定：修它等於要一份「條目該長什麼樣」的規格，
+  那超出 KIREF 的職責）。
+- 🔴 **它讀不到的檔類**：`*.log`／`*.diff`／`*.patch`（逐字紀錄，改了就是偽造）與 `scratch/`
+  ⇒ **本檔大量證據路徑指向 `scratch/`，而那些路徑沒有任何掃描器在守**。
 
 ### 2026-08-30 對帳這一輪自己的邊界
 

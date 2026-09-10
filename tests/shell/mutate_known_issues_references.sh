@@ -23,6 +23,9 @@
 # opposite -- a comment-only edit, which must leave every case green. A gate with no surviving
 # control cannot tell "the suite is sensitive" from "the suite is stuck red".
 #
+# M13-M14 are the bare-code half (2026-09-11, E1): `<the document> <CODE>` with no line number
+# is the form the ruling asks for, and until that night nothing checked that the code existed.
+#
 # M1 is applied to the DATA, not the scanner: a copy of the tree gets its stale citation back
 # (`FINDINGS.md` cited a line that is inside B-12 while talking about the `commit=UNKNOWN` gap
 # in the bmv2 provenance) and the repository case has to notice. M2-M9 are applied to the
@@ -198,7 +201,10 @@ report "M9: a code anywhere in the file counts as claimed" "$m" "$REPO" \
 # reads a ROW label as a line number reports a citation that is correct, and the only way to get
 # the tree green again is to delete something true.
 
-m=$(mutant m10 '        if "KNOWN" not in text:'$'\x1f''        if "KNOWN-ISSUES" not in text:')
+# 2026-09-11: repointed, mutation unchanged. The fast path moved into mentions_the_document()
+# when the bare-code half needed the same filter -- two scanners spelling one filter separately
+# is two filters. It now covers both halves.
+m=$(mutant m10 '    return "KNOWN" in text'$'\x1f''    return "KNOWN-ISSUES" in text')
 report "M10: the fast path tests for one spelling of the name" "$m" "$REPO" \
        "test_a_citation_with_no_code_is_reported_in_every_spelling_too"
 
@@ -209,6 +215,21 @@ report "M11: one colon, one space each side, and nothing else" "$m" "$REPO" \
 m=$(mutant m12 '    r"|[ \t]*第?[ \t]*(?=\d+(?:[ \t]*(?:" + _KI_JOIN + r")[ \t]*\d+)*[ \t]*行)"'$'\x1f''    r"|[ \t]*[第行][ \t]*"')
 report "M12 (widening): a 行 row label is read as a line number" "$m" "$REPO" \
        "test_a_row_label_is_not_a_line_number"
+
+# --- M13-M14: the BARE-CODE half (E1, 2026-09-11) ------------------------------------------
+# hunt-0911/F-OFFLINE-1-REPORT.md §1.1 ran this scanner's own parser over four codes the repo
+# cites as `<the document> <CODE>` -- T-11, L-3, L-5, I-3 -- and got None out of every one while
+# all 30 cases were green. M13 is the miss direction. M14 is the widening one and costs more:
+# a code anywhere on the line would make another document's code this document's, so a correct
+# citation would be reported and the only way back to green is to delete something true.
+
+m=$(mutant m13 '            cm = CODE_RE.search(window)'$'\x1f''            cm = None')
+report "M13: a bare code is never even found" "$m" "$REPO" \
+       "test_a_bare_code_with_no_entry_is_reported"
+
+m=$(mutant m14 '            window = line[m.end():m.end() + BARE_CODE_WINDOW]'$'\x1f''            window = line[m.end():]')
+report "M14 (widening): any code on the line is claimed" "$m" "$REPO" \
+       "test_a_code_beyond_the_window_is_not_claimed_by_this_document"
 
 # --- C1: the control -----------------------------------------------------------------------
 # A comment-only edit. If this goes red the suite is pinned to the shape of its own source and

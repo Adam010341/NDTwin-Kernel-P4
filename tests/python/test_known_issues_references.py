@@ -41,9 +41,17 @@ A citation with no code anywhere near it, or one whose line lands in a DIFFERENT
 violation and the message says 改成條目代號.
 
 🔴 It does NOT enforce that a citation carries a line number, and it must not: the whole point
-of the ruling is that `KNOWN-ISSUES B-11` alone is the correct citation, and a bare code is
-invisible to this scanner by construction. What the scanner guards is the other direction --
-if you DO write a line number, it has to be true, and it has to say which entry it means.
+of the ruling is that `KNOWN-ISSUES B-11` alone is the correct citation. What the scanner
+guards is the other direction -- if you DO write a line number, it has to be true, and it has
+to say which entry it means.
+
+🔴 The bare-code half (2026-09-11, E1). A code with no line number was invisible to this file
+until hunt-0911/F-OFFLINE-1-REPORT.md §1.1 ran THIS file's parser over four codes the repo
+cites that way -- `T-11`, `L-3`, `L-5` and `I-3` -- and got None out of every one, with all 30
+cases green. So the ruling's own preferred form had nothing checking it, in a document whose
+codes get renamed and whose citations outlive the rounds that coined them. The second half
+therefore checks the one thing that form can get wrong: the document must DEFINE the code it
+names. It still says nothing about the absence of a line number.
 
 ## What it deliberately does not read
 
@@ -170,6 +178,25 @@ _KI_LINE_SEP = (
 CITATION_RE = re.compile(_KI_DOC + r"(?:" + _KI_LINE_SEP + r")(\d+)"
                          r"(?:[ \t]*(?:" + _KI_JOIN + r")[ \t]*(\d+))?")
 
+#: The document's name on its own, for the bare-code half below.
+DOC_NAME_RE = re.compile(_KI_DOC)
+
+#: How far after the document's name a code may sit and still be read as a citation BY this
+#: document. 40 characters is about one clause.
+#:
+#: 🔴 The bound is the whole design of this half. A code ANYWHERE on the line would read
+#: `<the document> ... 而 FINDINGS-COVERAGE.md 的 A-9` as this document's A-9 -- reporting
+#: something correct, which this file treats as the worse error (see M4's note in the gate).
+#: The name is written as a placeholder here for the reason cite() gives: this file is inside
+#: the scanned tree, and a literal name-plus-code here would be a citation of its own.
+BARE_CODE_WINDOW = 40
+
+#: A `#### `..`###### ` sub-heading. `A-4b` and `A-4g` are sub-entries of A-4: the line-number
+#: index deliberately gives their LINES to A-4 (the narrowest span that is an entry), but the
+#: document does define the codes, and a citation that names one is not naming air. Used only
+#: by the bare-code half -- `parse_entries` is untouched, so no span or line verdict moves.
+SUB_HEADING_RE = re.compile(r"^#{4,6} +(.*)$")
+
 #: A `### ` / `## ` heading. The negative lookahead matters: without it `^## ` also matches
 #: `### A-1` (with the third `#` swallowed into the title) and every level-3 heading would be
 #: indexed twice, once with a span that runs to the next level-2 heading.
@@ -189,10 +216,16 @@ NO_CODE = "NO-CODE"
 WRONG_ENTRY = "WRONG-ENTRY"
 UNRESOLVABLE_CODE = "UNRESOLVABLE-CODE"
 OUT_OF_RANGE = "OUT-OF-RANGE"
+UNDEFINED_CODE = "UNDEFINED-CODE"
 
 #: The sentence the ruling asks for. Kept in one place so the gate can mutate it and the tests
 #: can assert on it without two spellings drifting apart.
 FIX_ADVICE = "改成條目代號"
+
+#: The other advice: a bare code IS the ruled form, so the fix is never "drop the citation".
+#: Either the document is missing an entry it is being cited for, or the citation names the
+#: wrong code.
+FIX_ADVICE_UNDEFINED = "登記那個代號，或改引到真的條目"
 
 
 class Violation(object):
@@ -207,9 +240,10 @@ class Violation(object):
         self.actual = actual      # entry the cited line really falls in, or a note
 
     def __str__(self):
+        advice = FIX_ADVICE_UNDEFINED if self.kind == UNDEFINED_CODE else FIX_ADVICE
         return "%s:%d  %-28s claims %-8s %-18s %s -- %s" % (
             self.path, self.line, self.raw, self.claimed or "(none)", self.kind,
-            self.actual, FIX_ADVICE)
+            self.actual, advice)
 
     __repr__ = __str__
 
@@ -339,6 +373,86 @@ def check_text(rel_path, text, spans, ki_lines):
     return out
 
 
+def mentions_the_document(text):
+    """Whether a file is worth reading at all: the prefix BOTH spellings of the name share.
+
+    🔴 A fast path is still a rule, and this one shipped a bypass. It used to be written inline
+    in scan_tree() as a test for the hyphenated name, so the underscore spelling B12 row (5)b
+    found was skipped BEFORE CITATION_RE ever saw it -- a second spelling test, hidden behind an
+    optimisation, which the widened regex alone would not have fixed. It now lives in one place
+    and both halves of the scan go through it (2026-09-11): a filter two scanners spell
+    separately is two filters.
+    """
+    return "KNOWN" in text
+
+
+def defined_codes(text):
+    """Every code this document DEFINES: the entry index plus the `####` sub-entries."""
+    codes = set(parse_entries(text))
+    for line in text.splitlines():
+        m = SUB_HEADING_RE.match(line)
+        if m:
+            cm = CODE_RE.search(m.group(1))
+            if cm:
+                codes.add(cm.group(1))
+    return codes
+
+
+def bare_code_citations(text):
+    """(line_no, raw, code) for every citation of the shape <this document> <CODE>.
+
+    Only the first code inside the window counts, and the window is bounded on purpose --
+    see BARE_CODE_WINDOW. A citation that also carries a line number is handled by
+    check_text(); it lands here too when it names a code, and the two halves ask different
+    questions about it (does the line land in the entry / does the entry exist).
+    """
+    out = []
+    for idx, line in enumerate(text.splitlines(), 1):
+        for m in DOC_NAME_RE.finditer(line):
+            window = line[m.end():m.end() + BARE_CODE_WINDOW]
+            cm = CODE_RE.search(window)
+            if cm is None:
+                continue
+            out.append((idx, (m.group(0) + window[:cm.end()]).strip(), cm.group(1)))
+    return out
+
+
+def scan_tree_bare_codes(root):
+    """(violations, files_read) -- the bare-code half of the scan.
+
+    A second walk rather than a second return value from scan_tree(): that function's
+    (violations, stats) contract is asserted by a dozen cases and mutated by nine of the
+    gate's mutations, and widening it to carry this would put every one of them at risk for
+    no gain. The walk is the same iter_files() and costs a fraction of a second.
+    """
+    ki_path = os.path.join(root, KI_REL)
+    if not os.path.isfile(ki_path):
+        raise IOError("%s is not in %s -- nothing to check citations against" % (KI_REL, root))
+    with open(ki_path, encoding="utf-8", errors="replace") as fh:
+        codes = defined_codes(fh.read())
+
+    violations, scanned = [], 0
+    for rel in iter_files(root):
+        path = os.path.join(root, rel)
+        if os.path.islink(path) or not os.path.isfile(path):
+            continue
+        try:
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+        except OSError:
+            continue
+        scanned += 1
+        if not mentions_the_document(text):
+            continue
+        for line_no, raw, code in bare_code_citations(text):
+            if code in codes:
+                continue
+            violations.append(Violation(
+                rel, line_no, raw, code, UNDEFINED_CODE,
+                "%s is neither an entry nor a sub-entry of %s" % (code, KI_NAME)))
+    return violations, scanned
+
+
 def is_text_file(name):
     suffix = os.path.splitext(name)[1].lower()
     if suffix in VERBATIM_SUFFIXES:
@@ -388,11 +502,9 @@ def scan_tree(root):
         except OSError:
             continue
         scanned += 1
-        # 🔴 A fast path is still a rule. This used to test for the hyphenated name, so the
-        # underscore spelling B12 row (5)b found was skipped BEFORE CITATION_RE ever saw it --
-        # a second spelling test, hidden behind an optimisation, and the widened regex alone
-        # would not have fixed it. The prefix both spellings share is the only safe filter.
-        if "KNOWN" not in text:
+        # 🔴 A fast path is still a rule -- see mentions_the_document() for the bypass this
+        # line used to be, and for why both halves of the scan now share one filter.
+        if not mentions_the_document(text):
             continue
         citations += len(CITATION_RE.findall(text))
         violations.extend(check_text(rel, text, spans, ki_lines))
@@ -446,6 +558,13 @@ def cite(n, m=None, with_md=True):
                           "-%d" % m if m else "")
 
 
+def bare(code, with_md=False):
+    """A bare-code citation. Assembled for the same reason cite() is: a literal here would be
+    a finding this file produces about itself, and for THIS shape that is not hypothetical --
+    the fixture below cites a code that deliberately does not exist."""
+    return "%s%s %s" % ("KNOWN-ISSUES", ".md" if with_md else "", code)
+
+
 SPELLINGS = ("underscore", "blob-anchor", "the-word-line", "roomy-colon",
              "fullwidth-colon", "chinese")
 
@@ -495,6 +614,9 @@ class TreeFixture(object):
 
     def scan(self):
         return scan_tree(self.root)[0]
+
+    def scan_bare(self):
+        return scan_tree_bare_codes(self.root)[0]
 
     def _cleanup(self):
         shutil.rmtree(self.root, ignore_errors=True)
@@ -589,7 +711,8 @@ class WhatIsAViolation(unittest.TestCase):
         self.assertIn("A-4c", v[0].actual)
 
     def test_a_code_with_no_entry_at_all_is_not_silently_accepted(self):
-        t = TreeFixture(self, {"doc/x.md": "見 KNOWN-ISSUES Z-3（`%s`）\n" % cite(11)})
+        t = TreeFixture(self, {"doc/x.md":
+                               "見 %s（`%s`）\n" % (bare("Z-3"), cite(11))})
         v = t.scan()
         self.assertEqual(1, len(v), report(v))
         self.assertEqual(UNRESOLVABLE_CODE, v[0].kind)
@@ -695,7 +818,11 @@ class TheWideningStillHoldsItsFire(unittest.TestCase):
 
     def test_a_bare_entry_code_is_still_invisible(self):
         """The ruling's whole point: `KNOWN-ISSUES B-11` with no line number is the CORRECT
-        citation, and this scanner must have nothing to say about it."""
+        citation, and the line-number half must have nothing to say about it.
+
+        The bare-code half added on 2026-09-11 asks only whether the code EXISTS, which A-4c
+        does -- it never asks for a line number back.
+        """
         t = TreeFixture(self, {"doc/x.md": "\u898b KNOWN-ISSUES A-4c\u3002\n"})
         self.assertEqual([], t.scan(), report(t.scan()))
 
@@ -709,6 +836,61 @@ class TheWideningStillHoldsItsFire(unittest.TestCase):
         t = TreeFixture(self, {"doc/x.md":
                                "\u898b KNOWN" + "-" + "ISSUES \u7b2c 11 \u7ae0\u3002\n"})
         self.assertEqual([], t.scan(), report(t.scan()))
+
+
+# --- a bare code has to name something ----------------------------------------------------
+
+class ABareCodeMustNameSomethingThisDocumentDefines(unittest.TestCase):
+    """2026-09-11, E1 (hunt-0911/F-OFFLINE-1-REPORT.md §1.1).
+
+    The shape the ruling asks for is the document's name followed by a bare code, and until
+    this class existed nothing asked whether the code was in the document. T-11 was not: it is
+    a TICKET number from doc/2026-08-30_manual-verification-report.md, cited in that shape from
+    six product files. (The name and the code are kept apart in this sentence on purpose --
+    tests/ is inside the scanned tree.)
+    """
+
+    def test_a_bare_code_with_no_entry_is_reported(self):
+        t = TreeFixture(self, {"doc/x.md": "見 %s。\n" % bare("Z-3")})
+        v = t.scan_bare()
+        self.assertEqual(1, len(v), report(v))
+        self.assertEqual(UNDEFINED_CODE, v[0].kind)
+        self.assertEqual("Z-3", v[0].claimed)
+        self.assertIn(FIX_ADVICE_UNDEFINED, str(v[0]))
+
+    def test_a_bare_code_that_is_an_entry_is_left_alone(self):
+        t = TreeFixture(self, {"doc/x.md": "見 %s。\n" % bare("A-4c", with_md=True)})
+        self.assertEqual([], t.scan_bare(), report(t.scan_bare()))
+
+    def test_a_sub_entry_code_counts_as_defined(self):
+        """`#### A-4b` is A-4's sub-entry. entry_of() gives its lines to A-4 -- deliberately,
+        the narrowest ENTRY owns them -- but two runbooks cite `A-4b` by code, and the document
+        does define it."""
+        t = TreeFixture(self, {"doc/x.md": "見 %s。\n" % bare("A-1b")})
+        t.write(KI_REL, FAKE_KI + "\n#### A-1b 子條\n\n内容。\n")
+        self.assertEqual([], t.scan_bare(), report(t.scan_bare()))
+
+    def test_a_code_beyond_the_window_is_not_claimed_by_this_document(self):
+        """The widening direction. Another document's code, far enough away on the same line,
+        is not a citation by this one -- and the case measures the distance rather than
+        trusting the sentence to be long enough."""
+        line = ("見 %s 的說明（這份文件很長，本句刻意不引任何行號），"
+                "另見另一份 OTHER-FILE.md 的 %s") % (KI_NAME, "Z-3")
+        gap = line.index("Z-3") - (line.index("KNOWN") + len(KI_NAME))
+        self.assertGreater(gap, BARE_CODE_WINDOW,
+                           "the fixture has to put Z-3 outside the window to be about the "
+                           "window; it is %d characters away" % gap)
+        t = TreeFixture(self, {"doc/x.md": line + "\n"})
+        self.assertEqual([], t.scan_bare(), report(t.scan_bare()))
+
+    def test_the_line_number_half_is_unchanged_by_this_one(self):
+        """Both halves see the same citation when it carries a code AND a line number, and they
+        must keep asking their own question: this one lands in the right entry (clean for the
+        line-number half) while naming a code that exists (clean for this half)."""
+        t = TreeFixture(self, {"doc/x.md": "%s 的第二條（`%s`）\n"
+                                           % (bare("A-4c", with_md=True), cite(11))})
+        self.assertEqual([], t.scan(), report(t.scan()))
+        self.assertEqual([], t.scan_bare(), report(t.scan_bare()))
 
 
 # --- which files are read -----------------------------------------------------------------
@@ -780,6 +962,16 @@ class TheRepositoryAsItStands(unittest.TestCase):
             "%d citation(s) of %s cannot be trusted. %s -- 見 doc/audit/"
             "2026-09-07_fix-known-issues-references/FIX-KIREF.md：\n%s"
             % (len(violations), KI_NAME, FIX_ADVICE, report(violations)))
+
+    def test_every_bare_code_citation_names_a_code_this_document_defines(self):
+        violations, files = scan_tree_bare_codes(REPO)
+        self.assertGreaterEqual(files, 800,
+                                "only %d file(s) read -- the walk is not reaching the tree"
+                                % files)
+        self.assertEqual(
+            0, len(violations),
+            "%d bare-code citation(s) name a code %s does not define. %s:\n%s"
+            % (len(violations), KI_NAME, FIX_ADVICE_UNDEFINED, report(violations)))
 
     def test_the_scan_actually_read_the_repository(self):
         """A green scan of nothing is the failure mode this whole family of gates exists to
