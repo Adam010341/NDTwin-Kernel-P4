@@ -181,11 +181,16 @@ report "M11: ndt down leaves 'in use' standing over an empty lab" "$m" \
 
 # The same conflation this repository keeps finding: an unverified outcome reported as a
 # verified one. "down" and "down, and something survived" license opposite actions.
+#
+# 🔴 REPOINTED 2026-09-11: this anchor was `set_claim_note "down at $when; claim kept"`, and the
+# T5 commit appended the cleared-measuring suffix to that line. check_gate_anchors.py HEAD read
+# MISSING:1 for it -- which is what the checker is for, and which the gate itself would have
+# reported as a SURVIVOR because an applier that cannot apply is a hole and never a skip.
 m=$(mutant m12 "$NDT" \
     '    if (( rc == 0 )); then
-        set_claim_note "down at $when; claim kept"' \
+        set_claim_note "down at $when; claim kept${cleared:+; cleared measuring=$cleared}" && ok=1' \
     '    if true; then
-        set_claim_note "down at $when; claim kept"')
+        set_claim_note "down at $when; claim kept${cleared:+; cleared measuring=$cleared}" && ok=1')
 report "M12: a teardown that did not verify is reported as clean" "$m" \
        "🔴 a teardown that did not verify says so"
 
