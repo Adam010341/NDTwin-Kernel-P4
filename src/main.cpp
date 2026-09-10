@@ -389,7 +389,13 @@ main(int argc, char* argv[])
     // recorded "up" will not go back and read. Non-MININET deployments return an empty list
     // without running anything; the method owns that decision so that the seam a test drives is
     // the same one production uses.
-    topologyAndFlowMonitor->warnAboutResidualNetem(utils::netem::realTcRunner());
+    //
+    // 🆕 E-20 (2026-09-07): readOnlyTcRunner, NOT realTcRunner. The sweep now issues one bare
+    // `tc qdisc show` for the whole root namespace, which needs no privilege -- and which the
+    // sudoers grant on this machine does NOT cover (it grants the `dev s<N>-eth<M>` form only).
+    // Through sudo it would be refused, and a refusal with stderr dropped reads exactly like a
+    // clean fabric. See utils::netem::readOnlyTcRunner.
+    topologyAndFlowMonitor->warnAboutResidualNetem(utils::netem::readOnlyTcRunner());
 
     deviceConfigurationAndPowerManager =
         std::make_shared<DeviceConfigurationAndPowerManager>(topologyAndFlowMonitor, mode, GW_IP, classifier);

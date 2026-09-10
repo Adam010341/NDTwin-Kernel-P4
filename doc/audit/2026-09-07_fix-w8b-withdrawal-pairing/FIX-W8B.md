@@ -132,6 +132,13 @@ host 走 `EventHostAdd`，根本不到這兩個端點。
 - **在哪裡叫**：`main.cpp`，`loadStaticTopology()` 成功之後、**任何 socket 被綁之前**。
   在 port 開了以後才印的訊息，健康檢查已經記完「up」了不會回頭讀。
 
+> 🆕 **本節寫的是這個分支的行為，而它已經被下一張單改掉了。**
+> 本單 SUMMARY §7-4 自陳的洞（`faults.sh`／chaos harness 掛在 host 面 port 的 netem 掃不到）
+> 由 Adam 裁成 **E-20**：另開分支 `fix/e20-startup-sweep-all-interfaces`（base＝本分支 tip
+> `8a3f71d1`）把掃描改成**一次裸 `tc qdisc show`（不帶 `dev`、不走 sudo）＋三分類**
+> （`link`／`host-facing`／`unknown`）。**不清、不宣告 down 兩條都沒變。**
+> 併序 W8 → W8b → E-20；細節見 `doc/audit/2026-09-07_fix-e20-startup-sweep-all-interfaces/FIX-E20.md`。
+
 ---
 
 ## 5. 沒做的與為什麼
@@ -142,6 +149,9 @@ host 走 `EventHostAdd`，根本不到這兩個端點。
    `updateLinks`，但不是真的 Ryu）。最小 live 配方寫在 SUMMARY §7。
 2. **啟動掃 qdisc 沒有在真機上跑過**——`realTcRunner()` 這條路徑（真的 `sudo -n tc qdisc show`）
    只有讀碼。假 runner 覆蓋了掃描範圍、偵測、不寫入、不宣告、讀不到、非 MININET 六種行為。
+   🆕 **E-20 順手修掉了這條裡藏的一個真缺陷**：`sudo -n tc qdisc show`（本單用的形式）
+   確實在授權裡，但 E-20 需要的**裸形式（不帶 `dev`）不在**——而 `sudo -n` 被拒 ＋ stderr 丟掉
+   長得跟「哪裡都沒有 netem」一模一樣。E-20 改走**不帶 sudo** 的讀（讀 qdisc 本來就不需要權限）。
 3. **沒有把純宣告那一半也擋掉**（見 §2 末）。那要一個 kernel 現在沒有的鑑別力
    （「這個 POST 真的來自 Ryu 嗎」），而裁決的口徑不是那個。
 4. **沒有動 `updateHosts`**——W8-7 是輸入驗證，不是狀態機（Adam 裁的方向）。

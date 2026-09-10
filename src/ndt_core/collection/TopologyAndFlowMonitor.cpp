@@ -3273,9 +3273,60 @@ TopologyAndFlowMonitor::mininetLinkInterfaces() const
 
 /** @brief See the header. [Co-developed with claude code -- Adam] */
 std::vector<std::string>
+TopologyAndFlowMonitor::mininetHostFacingInterfaces() const
+{
+    std::vector<std::string> ifaces;
+    std::shared_lock lock(*m_graphMutex);
+    for (auto ed : boost::make_iterator_range(boost::edges(*m_graph)))
+    {
+        const auto src = boost::source(ed, *m_graph);
+        const auto dst = boost::target(ed, *m_graph);
+        const auto& sp = (*m_graph)[src];
+        // The SWITCH end of a host attachment. The host's own end is `h<N>-eth0` inside the host's
+        // network namespace, which this process cannot see at all -- see the header.
+        if (sp.vertexType != VertexType::SWITCH ||
+            (*m_graph)[dst].vertexType != VertexType::HOST || sp.bridgeNameForMininet.empty())
+        {
+            continue;
+        }
+        auto name = utils::netem::mininetInterfaceName(sp.bridgeNameForMininet,
+                                                       (*m_graph)[ed].srcInterface);
+        if (std::find(ifaces.begin(), ifaces.end(), name) == ifaces.end())
+        {
+            ifaces.push_back(std::move(name));
+        }
+    }
+    return ifaces;
+}
+
+namespace
+{
+
+/// The word the startup sweep prints next to an interface. E-20: the classification is the
+/// deliverable, so it is one function and the three strings are not repeated anywhere.
+/// [Co-developed with claude code -- Adam]
+const char*
+describeSweptInterface(SweptInterface kind)
+{
+    switch (kind)
+    {
+        case SweptInterface::Link:
+            return "link";
+        case SweptInterface::HostFacing:
+            return "host-facing";
+        case SweptInterface::Unknown:
+            return "unknown";
+    }
+    return "unknown";
+}
+
+} // namespace
+
+/** @brief See the header. [Co-developed with claude code -- Adam] */
+std::vector<ResidualNetem>
 TopologyAndFlowMonitor::warnAboutResidualNetem(const utils::netem::TcRunner& run)
 {
-    std::vector<std::string> found;
+    std::vector<ResidualNetem> found;
     if (m_mode != utils::MININET)
     {
         // Nothing to read: there are no Mininet interfaces on a testbed deployment, and running tc
@@ -3284,53 +3335,97 @@ TopologyAndFlowMonitor::warnAboutResidualNetem(const utils::netem::TcRunner& run
         return found;
     }
 
-    // Read once. The graph is under a shared lock inside that call and the sweep below runs a
-    // subprocess per name, so a second walk would be answering a question already answered against
-    // a graph the poll thread may meanwhile have changed.
-    const auto ifaces = mininetLinkInterfaces();
-    for (const auto& iface : ifaces)
+    // ONE read of the whole root namespace, not one per interface (E-20). Three reasons, and the
+    // first is the ticket: a per-interface loop can only ask about names the graph already knows,
+    // so residue on anything else -- a host-facing port, a switch this topology file does not
+    // describe -- was invisible by construction. The other two: one subprocess instead of one per
+    // link, and a single instant of the machine's state rather than a smear across N of them.
+    const auto tree = utils::netem::showAllQdiscs(run);
+    if (!tree.succeeded())
     {
-        const auto tree = utils::netem::showQdisc(iface, run);
-        if (!tree.succeeded())
+        // Not a finding and not silence either. A tree that cannot be read is the one case in
+        // which this sweep has no opinion, and saying so is the difference between "clean" and
+        // "not looked at" -- the distinction this whole sweep exists to make.
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "could not read this machine's qdisc tree (tc qdisc show returned {}), "
+                           "so this startup sweep cannot say whether any interface on this fabric "
+                           "already carries netem",
+                           tree.status);
+        return found;
+    }
+
+    // Read once each: both walk the graph under a shared lock, and asking twice would be answering
+    // against a graph the poll thread may meanwhile have changed.
+    const auto links = mininetLinkInterfaces();
+    const auto hostFacing = mininetHostFacingInterfaces();
+    const auto isIn = [](const std::vector<std::string>& set, const std::string& name) {
+        return std::find(set.begin(), set.end(), name) != set.end();
+    };
+
+    for (const auto& iface : utils::netem::netemInterfacesInTree(tree.output))
+    {
+        // The machine's root namespace also carries `lo`, `docker0`, veths and the operator's
+        // wifi. netem on those is somebody else's business, and reporting it would make this line
+        // noise on a laptop -- which is how a warning stops being read. E-20 widened the sweep to
+        // this fabric's WHOLE shape, not to the whole machine.
+        if (!utils::netem::isMininetInterfaceName(iface))
         {
-            // Not a finding and not silence either. A tree that cannot be read is the one case in
-            // which this sweep has no opinion, and saying so is the difference between "clean" and
-            // "not looked at" -- the distinction this whole sweep exists to make.
-            SPDLOG_LOGGER_WARN(Logger::instance(),
-                               "could not read the qdisc tree for {} (tc qdisc show returned {}), "
-                               "so this startup sweep cannot say whether it carries netem",
-                               iface,
-                               tree.status);
             continue;
         }
-        if (utils::netem::findExistingNetem(tree.output).safe)
+        SweptInterface kind = SweptInterface::Unknown;
+        if (isIn(links, iface))
         {
-            found.push_back(iface);
+            kind = SweptInterface::Link;
         }
+        else if (isIn(hostFacing, iface))
+        {
+            kind = SweptInterface::HostFacing;
+        }
+        found.push_back(ResidualNetem{iface, kind});
     }
 
     if (!found.empty())
     {
         std::string names;
-        for (const auto& iface : found)
+        std::size_t linkCount = 0;
+        std::size_t hostCount = 0;
+        std::size_t unknownCount = 0;
+        for (const auto& hit : found)
         {
             if (!names.empty()) names += ", ";
-            names += iface;
+            names += hit.interface;
+            names += " (";
+            names += describeSweptInterface(hit.kind);
+            names += ")";
+            switch (hit.kind)
+            {
+                case SweptInterface::Link: ++linkCount; break;
+                case SweptInterface::HostFacing: ++hostCount; break;
+                case SweptInterface::Unknown: ++unknownCount; break;
+            }
         }
-        // ONE line, listing the interfaces. Adam's ruling of 2026-09-06: warn, do not clear, do
-        // not turn it into a declaration. A line per interface would be the same sentence ten
-        // times over on a fabric someone left a whole round's faults on.
-        SPDLOG_LOGGER_WARN(Logger::instance(),
-                           "netem is already attached to {} of this fabric's {} link interfaces "
-                           "before this kernel injected anything: {}. Packets on those links are "
-                           "already being dropped or delayed, and NOTHING IN THE GRAPH SAYS SO -- "
-                           "a declared link failure does not survive a kernel restart but the tc "
-                           "qdisc that accompanied it does. Nothing was cleared: check with "
-                           "'tc qdisc show dev <iface>' and remove it, or POST "
-                           "/ndt/inject_link_recovery for the link it belongs to",
-                           found.size(),
-                           ifaces.size(),
-                           names);
+        // ONE line, listing the interfaces and whose each one is. Adam's ruling of 2026-09-06:
+        // warn, do not clear, do not turn it into a declaration -- and E-20's: report host-facing
+        // and unfamiliar interfaces too, saying which is which rather than dropping them.
+        // A line per interface would be the same sentence ten times over on a fabric someone left
+        // a whole round's faults on.
+        SPDLOG_LOGGER_WARN(
+            Logger::instance(),
+            "netem is already attached to {} of this fabric's interfaces before this kernel "
+            "injected anything: {} -- {} link end(s), {} host-facing port(s), {} not named by this "
+            "topology. Packets there are already being dropped or delayed, and NOTHING IN THE "
+            "GRAPH SAYS SO -- a declared link failure does not survive a kernel restart but the tc "
+            "qdisc that accompanied it does. Nothing was cleared: check with 'tc qdisc show dev "
+            "<iface>' and remove it, or POST /ndt/inject_link_recovery for a link end. A "
+            "host-facing port belongs to whatever attached it (tools/test_workflow/faults.sh, the "
+            "chaos harness); an interface this topology does not name means the fabric running "
+            "here is not the one in the topology file. This sweep reads the root namespace only, "
+            "so netem inside a host's own namespace (h<N>-eth0) is NOT covered by it",
+            found.size(),
+            names,
+            linkCount,
+            hostCount,
+            unknownCount);
     }
     return found;
 }
