@@ -29,11 +29,22 @@ something there. A path that is only handed to a parser or compared against cann
 this tree is full of those; a gate that flagged them would be turned off in a week. So a finding
 needs all three of:
 
-  (1) a TEMP ROOT      -- `temp_directory_path()`, a `/tmp/...` or `/var/tmp/...` literal, or
-                          `$TMPDIR` / `tempfile.gettempdir()`;
+  (1) a TEMP ROOT      -- `temp_directory_path()`, a `/tmp/...` or `/var/tmp/...` literal, a bare
+                          `/tmp` with a name joined onto it, `tmpnam`/`tempnam`, or the
+                          environment's temp directory under any of its names -- shell
+                          `$TMPDIR` `$TMP` `$TEMP` `$TEMPDIR`, Python `os.environ["TMPDIR"]` /
+                          `os.getenv("TMPDIR")` / `tempfile.gettempdir()`;
   (2) MATERIALISATION  -- in the same statement (C++/Python) or the same command (shell), an
                           operation that makes or destroys a filesystem entry;
   (3) NO PER-PROCESS MARKER anywhere in that statement/command -- see PER_PROCESS_MARKERS.
+
+🔴 Each of (1) and (3) is about a PROPERTY, and each of them was once a test on a SPELLING. B12
+(2026-09-11, hunt-0911/F-B0-B12-REPORT.md §3.1) put five re-spellings of the same fixed temp path
+through this scanner and got `0 fixed temp paths`, rc 0, out of every one: a variable merely NAMED
+`mkdtemp_root`, `std::tmpnam`, `os.environ["TMPDIR"]`, `os.path.join("/tmp", name)`, and `$TMP`.
+None of them differs from a reported case in the property; they differ in how it is written. Every
+widening that closed one is paired here with the control that keeps it from becoming a nuisance,
+because a gate people switch off reports nothing at all.
 
 Worked examples of (2), all real lines in this tree that this gate deliberately does NOT report:
 
@@ -75,11 +86,22 @@ KNOWN LIMITS (documented rather than papered over -- a lint, not a proof)
    clean file. Two of the three parser bugs found while writing this gate (a `<<<` herestring read
    as a heredoc; `"$( [[ "$x" ]] )"` read as an unterminated string) had made whole files scan
    green, which is the failure mode this exit code exists for.
- * Variables are followed one hop, within one file: `NAME=<fixed temp path>` is reported when
-   `$NAME` later reaches something that writes. An indirection through a function's argument, or
-   across files, is not followed.
- * A path assembled from pieces that are individually not temp roots (`root = "/" + "tmp"`) is
-   not recognised. Nothing in this tree does that.
+ * Variables are followed one hop, within one file, in all three languages: `NAME=<fixed temp
+   path>` is reported when `$NAME` later reaches something that writes. An indirection through a
+   function's argument, or across files, is not followed. (Until 2026-09-11 this said "all three"
+   and meant two: scan_cpp did not do it, which is F-OFFLINE-1-REPORT.md §1.17 D2.)
+ * A path assembled from pieces that are individually not temp roots (`os.path.join("/" + "tmp",
+   name)`) is not recognised, and stays a limit on purpose. Recognising it means constant-folding
+   arbitrary expressions, and the spelling after `"/" + "tmp"` is `"/tm" + "p"`, then `os.sep +
+   "tmp"`, then `chr(47) + "tmp"` -- one pattern per spelling and none of them the property, which
+   is the trap B12 is about. A lint does not stop an author taking the path apart to get past it.
+   Nothing in this tree does it; test_check_test_tmpdirs.py pins the decision.
+ * SCOPE is every test in the tree: `tests/` and `p4_proxy/tests/` recursively, plus the `test_*`
+   files under tools/. Harness and driver code is NOT scanned even when it lives in a directory
+   with "test" in the name -- tools/test_workflow/build_bmv2_fast.sh's `BUILD=/tmp/bmv2-fast-src`
+   is a build cache that exists to be found again by the next run, and the rule here is about
+   files ctest gives a process of their own. A path named on the command line is always scanned,
+   whatever directory it is in.
 """
 import os
 import re
@@ -108,6 +130,21 @@ PER_PROCESS_MARKERS = (
     "$BASHPID",           # shell: this subshell's pid, which $$ is not
 )
 
+# 🔴 Which of the markers above are IDENTIFIERS, i.e. must appear as a name of their own rather
+# than as a run of letters inside a longer one. B12 (2026-09-11): the marker test was a plain
+# substring test, so a variable CALLED `mkdtemp_root` disarmed the rule for every statement it
+# appeared in -- `mkdtemp_root = "/tmp/ndt-kiref-fixture"` plus `os.makedirs(mkdtemp_root)` scanned
+# clean, and nothing per-process ran anywhere in that file. A name is not a call.
+#
+# `XXXXXX`, `$$` and `$BASHPID` are deliberately NOT in here: they are not identifiers, and a
+# seven-X template `XXXXXXX` would fail an identifier-boundary test on both sides.
+_MARKER_IS_AN_IDENTIFIER = frozenset((
+    "getpid", "mkdtemp", "mkstemp", "mkostemp", "NamedTemporaryFile", "TemporaryDirectory",
+    "TemporaryFile", "mktemp",
+))
+
+_IDENTIFIER_BYTE = re.compile(r"[A-Za-z0-9_]")
+
 
 # 🔴 A file this scanner could not read is NOT a file with no findings. check_gate_anchors.py
 # learned this the expensive way (KNOWN-ISSUES L-3): four gates it could not parse were reported
@@ -117,8 +154,25 @@ NOT_CHECKED = "NOT CHECKED: "
 
 
 def has_per_process_marker(text):
-    """Does anything in `text` make the name differ per process?"""
-    return any(marker in text for marker in PER_PROCESS_MARKERS)
+    """Does anything in `text` make the name differ per process?
+
+    An identifier marker has to be a name of its own: `tempfile.mkdtemp(...)` disarms the rule and
+    `mkdtemp_root = "/tmp/fixed"` does not. See _MARKER_IS_AN_IDENTIFIER.
+    """
+    for marker in PER_PROCESS_MARKERS:
+        if marker not in text:
+            continue
+        if marker not in _MARKER_IS_AN_IDENTIFIER:
+            return True
+        at = text.find(marker)
+        while at != -1:
+            before = text[at - 1:at]
+            after = text[at + len(marker):at + len(marker) + 1]
+            if not _IDENTIFIER_BYTE.match(before or " ") \
+                    and not _IDENTIFIER_BYTE.match(after or " "):
+                return True
+            at = text.find(marker, at + 1)
+    return False
 
 
 # --- what counts as a temp root ------------------------------------------------------------------
@@ -129,6 +183,28 @@ LITERAL_TEMP_ROOT = re.compile(r"/(?:var/)?tmp/[^\s\"'`)\];,]+")
 # 🔴 The C++ half of rule (1). mutate_check_test_tmpdirs.sh M2 drops the temp_directory_path
 # alternative, leaving a gate that only knows the spelling C++ fixtures do not use.
 CPP_TEMP_ROOT = re.compile(r"(?:\btemp_directory_path\s*\(\s*\))|(?:/(?:var/)?tmp/)")
+
+# 🔴 The calls that hand back a temp NAME without creating anything at it. B12 (2026-09-11) row
+# (2)e: `char* p = std::tmpnam(nullptr); std::fopen(p, "w");` had no /tmp literal and no
+# temp_directory_path(), so the scanner saw no temp root at all and the file read clean. tmpnam(3)
+# and tempnam(3) never reserve the name they return, so between the name and the create any other
+# process may take it -- which is the same hazard by a different mechanism, and why both man pages
+# say never to use them. There is no per-process marker that rescues these: the answer is
+# mkstemp/mkdtemp, or tmpfile() (which creates and unlinks in one step and is NOT listed here).
+CPP_NAME_WITHOUT_RESERVING = re.compile(r"\b(?:std::)?(?:tmpnam|tempnam)\s*\(")
+
+# A C++ name bound to a fixed temp path, so that a create through it one statement later is still
+# attributable to the line that chose it. F-OFFLINE-1-REPORT.md §1.17 D2: the module docstring has
+# promised "variables are followed one hop, within one file" since the gate was written, and
+# scan_python and scan_shell did it -- scan_cpp did not, so
+# `const std::string root = "/tmp/x"; std::filesystem::create_directories(root);` scanned clean
+# next to a positive control on the same-statement spelling that was caught.
+#
+# The binding is recognised by the ASSIGNMENT, not by the declared type: `const std::string root =`
+# and `auto root =` and `m_root =` are one shape, and a gate that listed the types would be back to
+# guarding spellings. `(?!=)` keeps `path == "/tmp/x"` out, and a comparison operator immediately
+# before the `=` (`!=`, `<=`, `+=`) fails the `\s*` on its own.
+CPP_NAME_BOUND_TO_A_PATH = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)\s*=(?!=)")
 
 # C++ operations that make or destroy a filesystem entry. Deliberately only the C++ API: the word
 # "touch" appears in this tree only inside shell payloads a test asserts are never executed.
@@ -239,12 +315,80 @@ def _cpp_statement(text, pos):
     return text[start:end + 1]
 
 
+def _cpp_statements(text):
+    """[(statement text, first line number)] -- the same split _cpp_statement makes, walked."""
+    out = []
+    start, line = 0, 1
+
+    def add(stmt, at):
+        body = stmt.lstrip()
+        if body:
+            out.append((stmt, at + stmt[:len(stmt) - len(body)].count("\n")))
+
+    for i, ch in enumerate(text):
+        if ch in ";{}":
+            stmt = text[start:i + 1]
+            add(stmt, line)
+            line += stmt.count("\n")
+            start = i + 1
+    add(text[start:], line)
+    return out
+
+
 def scan_cpp(text, path):
     """Findings in one C++ test translation unit."""
     findings = []
     code, unreadable = strip_cpp_comments(text)
     if unreadable:
         return [(path, 1, NOT_CHECKED + unreadable, "")]
+
+    # tmpnam(3) / tempnam(3): a name nothing holds. No marker rescues these, so this loop asks
+    # nothing about the rest of the statement.
+    for m in CPP_NAME_WITHOUT_RESERVING.finditer(code):
+        stmt = _cpp_statement(code, m.start())
+        findings.append((path, code.count("\n", 0, m.start()) + 1,
+                         "%s hands back a temp path without creating anything at it, so the name "
+                         "is never reserved and the create that follows is the race; use mkstemp "
+                         "/ mkdtemp, or tmpfile() if the file need not have a name"
+                         % m.group(0).rstrip("( "),
+                         _one_line(stmt)))
+
+    # D2 (F-OFFLINE-1-REPORT.md §1.17): a name bound to a fixed temp path here, materialised
+    # through that name in a LATER statement. `fixed_names[name] = (line, shown)`.
+    fixed_names = {}
+    for m in CPP_TEMP_ROOT.finditer(code):
+        if not m.group(0).startswith("/"):
+            continue        # temp_directory_path() is reported by the loop below either way
+        stmt = _cpp_statement(code, m.start())
+        if has_per_process_marker(stmt):
+            continue
+        if any(tok in stmt for tok in CPP_MATERIALISERS):
+            continue                     # reported by the same-statement rule below
+        bound = CPP_NAME_BOUND_TO_A_PATH.search(stmt)
+        if not bound:
+            continue
+        hit = LITERAL_TEMP_ROOT.search(code, m.start())
+        fixed_names.setdefault(bound.group(1),
+                               (code.count("\n", 0, m.start()) + 1,
+                                hit.group(0) if hit else m.group(0)))
+    if fixed_names:
+        for stmt, stmt_line in _cpp_statements(code):
+            if not any(tok in stmt for tok in CPP_MATERIALISERS):
+                continue
+            if has_per_process_marker(stmt):
+                continue
+            for name in set(re.findall(r"\b[A-Za-z_][A-Za-z0-9_]*\b", stmt)):
+                if name not in fixed_names:
+                    continue
+                where, shown = fixed_names.pop(name)
+                if where == stmt_line:
+                    continue
+                findings.append((path, where,
+                                 "%s is a fixed %s path, and line %d creates or deletes it; no "
+                                 "::getpid() / mkstemp / mkdtemp anywhere in between"
+                                 % (name, shown, stmt_line),
+                                 _one_line(stmt)))
+
     for m in CPP_TEMP_ROOT.finditer(code):
         stmt = _cpp_statement(code, m.start())
         if has_per_process_marker(stmt):
@@ -267,12 +411,45 @@ def scan_cpp(text, path):
             why = ("temp_directory_path() joined with a name that is the same in every process "
                    "(no getpid() / mkstemp / mkdtemp in this statement)")
         findings.append((path, line, why, _one_line(stmt)))
-    return findings
+    return sorted(findings, key=lambda f: f[1])
 
 
 # =================================================================================================
 # Python
 # =================================================================================================
+# The temp directory named some way other than by a `/tmp/...` literal. `tempfile.gettempdir()`
+# was here from the start; B12 (2026-09-11) added the two spellings rows (2)f and the bare-root
+# half of (2)g escaped through.
+#
+#   (2)f  os.environ["TMPDIR"] / os.environ.get("TMPDIR") / os.getenv("TMPDIR") -- ONE string for
+#         the whole ctest run, so `$TMPDIR/name` is as fixed as `/tmp/name`. scan_shell had known
+#         this since the gate was written; scan_python did not. Only the four conventional names
+#         count: widening this to "any environment variable" would report every fixture that reads
+#         a directory out of the environment, which is most of them.
+#   bare  a `/tmp` or `/var/tmp` literal with a NAME JOINED ONTO IT in the same statement --
+#         `os.path.join("/tmp", "ndt-fixture")`, `Path("/tmp") / "ndt-fixture"`.
+#         LITERAL_TEMP_ROOT deliberately requires something after `/tmp/` (the bare directory
+#         names nothing), so the join argument was never part of the match and the statement had
+#         no root at all. The join is what turns the bare directory into a name, which is the same
+#         reasoning the C++ half already applied to temp_directory_path().
+PY_TEMP_ENV = re.compile(r"(?:os\s*\.\s*environ\s*(?:\[|\.\s*get\s*\()|os\s*\.\s*getenv\s*\()\s*"
+                         r"[\"'](TMPDIR|TEMPDIR|TEMP|TMP)[\"']")
+PY_BARE_TEMP_ROOT = re.compile(r"[\"']/(?:var/)?tmp/?[\"']")
+PY_JOINS_A_NAME_ON = re.compile(r"os\s*\.\s*path\s*\.\s*join|\bPath\s*\(|os\s*\.\s*sep|\s\+\s|\s/\s")
+
+
+def _py_other_roots(code, line):
+    """[(line, shown)] for the temp roots that are not a `/tmp/...` string literal."""
+    if "gettempdir" in code:
+        return [(line, "tempfile.gettempdir()")]
+    env = PY_TEMP_ENV.search(code)
+    if env:
+        return [(line, "$" + env.group(1))]
+    if PY_BARE_TEMP_ROOT.search(code) and PY_JOINS_A_NAME_ON.search(code):
+        return [(line, PY_BARE_TEMP_ROOT.search(code).group(0).strip("\"'"))]
+    return []
+
+
 def scan_python(text, path):
     """Findings in one Python test.
 
@@ -323,13 +500,12 @@ def scan_python(text, path):
     fixed_vars = {}
     for line, code, names, roots in statements:
         m = re.match(r"^([A-Za-z_][A-Za-z0-9_]*) = (.*)$", code)
-        if m and roots and not has_per_process_marker(code):
-            fixed_vars[m.group(1)] = (line, roots[0][1])
+        if m and (roots or _py_other_roots(code, line)) and not has_per_process_marker(code):
+            fixed_vars[m.group(1)] = (line, (roots or _py_other_roots(code, line))[0][1])
 
     for line, code, names, roots in statements:
         materialises = any(tok in code.replace(" ", "") for tok in PY_MATERIALISERS)
-        if "gettempdir" in code and not roots:
-            roots = [(line, "tempfile.gettempdir()")]
+        roots = roots or _py_other_roots(code, line)
         if roots and materialises and not has_per_process_marker(code):
             findings.append((path, roots[0][0],
                              "a fixed %s path that this statement creates or deletes, with no "
@@ -546,6 +722,40 @@ def _sh_unquote(word):
 _SH_ASSIGN = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$", re.S)
 _SH_VAR_USE = re.compile(r"\$\{?([A-Za-z_][A-Za-z0-9_]*)")
 
+# The environment's temp directory, under any of the four names the same directory goes by. B12
+# (2026-09-11) row (2)h: the test was the substring `"$TMPDIR" in value`, so `$TMP/ndt-fixture` and
+# `${TEMP}/ndt-fixture` -- the same directory, the same fixed path -- walked past.
+#
+# 🔴 The name has to END where the reference ends. `$TMPROOT` and `$TMPFILE` begin with the letters
+# TMP and are ordinary local names, usually holding something mktemp chose; reading `$TMPROOT/` as
+# `$TMP` + `ROOT/` would report a path the kernel picked. Hence the `}` and the negative lookahead,
+# and hence TMPDIR before TMP in the alternation.
+_SH_TEMP_ENV_NAMES = r"TMPDIR|TEMPDIR|TEMP|TMP"
+SH_TEMP_ENV_REF = re.compile(r"\$(?:\{(" + _SH_TEMP_ENV_NAMES + r")(?::[-=+?][^}]*)?\}"
+                             r"|(" + _SH_TEMP_ENV_NAMES + r")(?![A-Za-z0-9_]))")
+SH_TEMP_ENV_ROOT = re.compile(SH_TEMP_ENV_REF.pattern + r"/\S")
+
+
+def _sh_env_temp_root(text, locally_bound, with_a_name_on_it):
+    """The environment's temp directory referenced in `text`, or None.
+
+    🔴 A LOCAL ASSIGNMENT SHADOWS THE ENVIRONMENT, and this rule is why the widening above is not
+    a nuisance. tests/shell/test_build_guard.sh:22-23 is
+
+        TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+        FAKE="$TMP/fake"; mkdir -p "$FAKE"
+
+    -- where `$TMP` is a directory the kernel chose, named after the shell's own convention, and
+    reporting it would be a false alarm on the very API this gate steers people towards. If the
+    file binds the name itself, `$TMP` is that binding and not the environment; whatever it was
+    bound to is judged on its own by the assignment rules.
+    """
+    for m in (SH_TEMP_ENV_ROOT if with_a_name_on_it else SH_TEMP_ENV_REF).finditer(text):
+        name = m.group(1) or m.group(2)
+        if name not in locally_bound:
+            return m.group(0)
+    return None
+
 
 def scan_shell(text, path):
     """Findings in one shell test or mutation gate."""
@@ -558,6 +768,11 @@ def scan_shell(text, path):
     # Pass 1: bare assignments only. `KERNEL_DIR=/tmp/attacker bash -c ...` is an environment
     # prefix for one child command, not a name this file goes on to use, so a command that has a
     # command word is not a definition here.
+    # Pass 0: every name this file binds anywhere, however it binds it. Only used to tell the
+    # environment's $TMP from a local one -- see _sh_env_temp_root.
+    locally_bound = {m.group(1) for _, words, _ in commands for _, w in words
+                     if (m := _SH_ASSIGN.match(w))}
+
     fixed_vars, safe_vars = {}, set()
     for line, words, _ in commands:
         lead = [w for _, w in words]
@@ -572,8 +787,8 @@ def scan_shell(text, path):
             name, value = m.group(1), m.group(2)
             if has_per_process_marker(value):
                 safe_vars.add(name)
-            elif LITERAL_TEMP_ROOT.search(_sh_unquote(value)) or "$TMPDIR" in value \
-                    or "{TMPDIR" in value:
+            elif LITERAL_TEMP_ROOT.search(_sh_unquote(value)) \
+                    or _sh_env_temp_root(value, locally_bound, False):
                 fixed_vars[name] = (wline, _sh_unquote(value))
 
     # Pass 2: the places a command writes -- its arguments if it is one of SH_MATERIALISERS, and
@@ -615,7 +830,7 @@ def scan_shell(text, path):
                        "mktemp / getpid anywhere in the command" % hit.group(0),
                        _one_line(whole))
                 continue
-            if "TMPDIR" in bare and re.search(r"\$\{?TMPDIR[^}]*\}?/\S", bare):
+            if _sh_env_temp_root(bare, locally_bound, True):
                 report(tline, bare,
                        "%s is the same path in every process and this command creates or deletes "
                        "it; no $$ / mktemp / getpid anywhere in the command" % bare,
@@ -642,8 +857,32 @@ SUITES = (
     ("tests/shell", "*.sh", scan_shell),
 )
 
-_BY_EXTENSION = {".cpp": scan_cpp, ".cc": scan_cpp, ".h": scan_cpp, ".hpp": scan_cpp,
+_BY_EXTENSION = {".c": scan_cpp, ".cpp": scan_cpp, ".cc": scan_cpp, ".h": scan_cpp,
+                 ".hpp": scan_cpp,
                  ".py": scan_python, ".sh": scan_shell, ".bash": scan_shell}
+
+# 🔴 D1 (F-OFFLINE-1-REPORT.md §1.17). Every SUITES row was one NON-RECURSIVE glob, so the tree
+# walk saw 261 files and the following were never opened at all -- while the scanner handled each
+# of them perfectly well when a path was named on the command line:
+#
+#   tests/fuzz/  tests/manual/  tests/shell/*.py (both checkers)  p4_proxy/tests/  and every
+#   .cc / .h / .hpp / .c under tests/
+#
+# The three rows stay (M1 still removes the C++ one), but each is now walked recursively, and the
+# test suites that live outside tests/ are walked too.
+#
+# 🔴 What is NOT in scope, and why the line is here rather than at "every .sh under tools/":
+# the rule is about A TEST, because the reason it exists is that ctest gives every test its own
+# process. tools/test_workflow/ and tools/contract_test/ are mostly harness and driver code, whose
+# fixed /tmp paths are deliberate shared state -- tools/test_workflow/build_bmv2_fast.sh:42's
+# `BUILD=/tmp/bmv2-fast-src` is a build CACHE that exists to be found again by the next run, and a
+# gate that called it a hazard would be a nuisance on its first day. So under tools/ only the
+# files that are themselves tests are scanned, recognised by this tree's own naming convention.
+EXTRA_TEST_TREES = (
+    ("p4_proxy/tests", None),
+    ("tools/test_workflow", "test_"),
+    ("tools/contract_test", "test_"),
+)
 
 
 def _one_line(text):
@@ -658,14 +897,49 @@ def scan_file(path, scanner=None, rel=None):
         return scanner(fh.read(), rel if rel is not None else path)
 
 
+def _walk(root, keep):
+    """Every file under `root`, recursively, that `keep(basename)` says yes to."""
+    out = []
+    for here, dirnames, filenames in os.walk(root):
+        dirnames[:] = sorted(d for d in dirnames if d not in ("__pycache__", ".git", "venv"))
+        out += [os.path.join(here, name) for name in filenames if keep(name)]
+    return sorted(out)
+
+
 def scan_tree(repo):
     """Every file in every suite, in a stable order."""
-    import glob
-    findings, scanned = [], 0
+    import fnmatch
+    findings, scanned, seen = [], 0, set()
+
+    def take(path, scanner):
+        nonlocal scanned
+        if path in seen:
+            return
+        seen.add(path)
+        scanned += 1
+        findings.extend(scan_file(path, scanner, rel=os.path.relpath(path, repo)))
+
     for directory, pattern, scanner in SUITES:
-        for path in sorted(glob.glob(os.path.join(repo, directory, pattern))):
-            scanned += 1
-            findings += scan_file(path, scanner, rel=os.path.relpath(path, repo))
+        for path in _walk(os.path.join(repo, directory),
+                          lambda name, pattern=pattern: fnmatch.fnmatch(name, pattern)):
+            take(path, scanner)
+    # 🔴 SUITES stays the ONE place that decides which languages' tests are in scope, so M1 --
+    # "tests/*.cpp is no longer one of the suites" -- still takes every C++ file in the tree out of
+    # scope rather than being routed around by the sweeps below.
+    in_scope = {scanner for _, _, scanner in SUITES}
+
+    def readable(name, prefix=None):
+        return (_BY_EXTENSION.get(os.path.splitext(name)[1]) in in_scope
+                and (prefix is None or name.startswith(prefix)))
+
+    for directory, prefix in EXTRA_TEST_TREES:
+        for path in _walk(os.path.join(repo, directory),
+                          lambda name, prefix=prefix: readable(name, prefix)):
+            take(path, None)
+    # Everything else under tests/ this scanner can read: .cc / .h / .hpp / .c, and the .py
+    # checkers that live in tests/shell. Dispatched by extension, like a named argument is.
+    for path in _walk(os.path.join(repo, "tests"), readable):
+        take(path, None)
     return findings, scanned
 
 

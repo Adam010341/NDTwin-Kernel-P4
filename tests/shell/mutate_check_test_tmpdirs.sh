@@ -9,13 +9,15 @@
 # it says when it is blind -- three separate parser bugs found while writing it made whole real
 # files scan green -- so its own tests have to be shown red before a clean run means anything.
 #
-# Eleven mutations, in three families:
+# Twenty-one mutations, in four families:
 #   M1-M3, M9   the gate goes BLIND: it stops globbing tests/*.cpp, stops knowing the C++
 #               spelling, reports findings and still exits 0, or stops following a name from the
 #               line that chose it to the line that deletes it.
 #   M4, M10-M11 the gate goes LOUD, which is the other way it gets switched off: mkdtemp reported
 #               as a hazard, every /tmp word reported whether or not anything writes to it, and a
 #               triple-quoted blob of foreign source read as this file's own paths.
+#   M12-M21     B12 + D1/D2: one re-spelling of the same fixed temp path per mutation, one scope
+#               narrowing, and the C++ one-hop rule the docstring had always promised.
 #   M5-M8       the three parser bugs, pinned: a `<<<` herestring read as a heredoc, `"$( ... )"`
 #               read as an unterminated string, an unreadable file reported as a clean one, and
 #               C++ comments read as code.
@@ -134,6 +136,54 @@ report "M7: a file left mid-string is reported as clean" "$m7" \
 m8=$(mutant m8 '    code, unreadable = strip_cpp_comments(text)'$'\x1f''    code, unreadable = text, None')
 report "M8 (widening): C++ comments are read as code" "$m8" \
        "test_a_defect_quoted_in_a_c_comment"
+
+# --- family 4: the spellings, and the scope (B12 + D1/D2, 2026-09-11) ----------------------------
+# hunt-0911/F-B0-B12-REPORT.md §3.1 put five re-spellings of one fixed temp path through this tool
+# and got `0 fixed temp paths`, rc 0, out of every one; F-OFFLINE-1-REPORT.md §1.17 added a scope
+# that was three non-recursive globs and a KNOWN LIMIT scan_cpp did not honour. Each mutation below
+# puts one of those back, so that "the gate guards the property" is a thing that has been measured
+# rather than a thing the docstring says. Half of them are widenings: undoing a spelling test is
+# cheap, and turning the gate into "no /tmp in tests" gets it switched off instead.
+
+m12=$(mutant m12 '        if marker not in _MARKER_IS_AN_IDENTIFIER:'$'\x1f''        if True:')
+report "M12: a per-process marker is a substring again (mkdtemp_root)" "$m12" \
+       "test_a_variable_merely_NAMED_mkdtemp_does_not_make_a_path_safe"
+
+m13=$(mutant m13 'CPP_NAME_WITHOUT_RESERVING = re.compile(r"\b(?:std::)?(?:tmpnam|tempnam)\s*\(")'$'\x1f''CPP_NAME_WITHOUT_RESERVING = re.compile(r"(?!x)x")')
+report "M13: tmpnam/tempnam are not temp roots" "$m13" \
+       "test_cpp_tmpnam_names_a_file_it_does_not_reserve"
+
+m14=$(mutant m14 '    env = PY_TEMP_ENV.search(code)'$'\x1f''    env = None')
+report "M14: Python does not read \$TMPDIR out of the environment" "$m14" \
+       "test_python_reads_TMPDIR_out_of_the_environment"
+
+m15=$(mutant m15 '    if PY_BARE_TEMP_ROOT.search(code) and PY_JOINS_A_NAME_ON.search(code):'$'\x1f''    if False:')
+report "M15: a name joined onto a bare /tmp is not a root" "$m15" \
+       "test_a_name_joined_onto_a_bare_tmp"
+
+m16=$(mutant m16 '_SH_TEMP_ENV_NAMES = r"TMPDIR|TEMPDIR|TEMP|TMP"'$'\x1f''_SH_TEMP_ENV_NAMES = r"TMPDIR"')
+report "M16: only \$TMPDIR is the environment's temp dir, not \$TMP" "$m16" \
+       "test_shell_TMP_is_the_same_variable_as_TMPDIR"
+
+m17=$(mutant m17 '        if name not in locally_bound:'$'\x1f''        if True:')
+report "M17 (widening): a local TMP= no longer shadows the environment" "$m17" \
+       "test_a_local_TMP_shadows_the_environments_TMP"
+
+m18=$(mutant m18 '    for here, dirnames, filenames in os.walk(root):'$'\x1f''    for here, dirnames, filenames in list(os.walk(root))[:1]:')
+report "M18: the tree walk stops at the top of each suite again" "$m18" \
+       "test_a_subdirectory_of_tests_is_walked"
+
+m19=$(mutant m19 '                and (prefix is None or name.startswith(prefix)))'$'\x1f''                and (prefix is None or True))')
+report "M19 (widening): every script under tools/ is treated as a test" "$m19" \
+       "test_a_driver_under_tools_is_not_a_test_and_stays_out_of_scope"
+
+m20=$(mutant m20 '        bound = CPP_NAME_BOUND_TO_A_PATH.search(stmt)'$'\x1f''        bound = None')
+report "M20: a C++ name is not followed from where it was chosen" "$m20" \
+       "test_a_cpp_name_bound_to_a_fixed_path_and_created_one_line_later"
+
+m21=$(mutant m21 'CPP_NAME_BOUND_TO_A_PATH = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)\s*=(?!=)")'$'\x1f''CPP_NAME_BOUND_TO_A_PATH = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)\s*=")')
+report "M21 (widening): a C++ == comparison is read as a binding" "$m21" \
+       "test_a_cpp_name_compared_against_is_not_a_binding"
 
 echo
 if [[ "$(sha256sum "$CHECKER" | cut -d' ' -f1)" == "$BASE_SHA" ]]; then

@@ -4,7 +4,8 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# M1-M14 (eighteen mutations: M2b and M3b-M3d are sites later merges added) put the defect back
+# M1-M14 (twenty mutations: M2b and M3b-M3d are sites later merges added; M13b and M14b are
+# the (4)b/(4)d re-spellings of the source) put the defect back
 # one site at a time: every one of the lines the fix touched gets its silencer moved back behind
 # the input redirection, and must turn its named case red. A site whose mutation survives is a
 # site the test does not actually cover.
@@ -252,6 +253,23 @@ m=$(mutant m14 "$NDT" \
     'bash "$STACK" up ovs > "$out" 2>&1 < "$fifo"' \
     'bash "$STACK" up ovs < "$fifo" > "$out" 2>&1')
 report "M14: ndt up-ovs capture -- order reverted (fifo failure escapes the log)" "$m" \
+       "static guard: the 3 multi-line sites keep 2> ahead of < (3 lines read)"
+
+# 🔴 B12 (2026-09-11). The same two sites reverted with the source written ANOTHER WAY. Until
+# today the static guard matched `<` only when its source was DOUBLE-QUOTED
+# (test_redirection_order.sh:276, `\<[[:space:]]*\"[^\"]*\"...`), so both of these SURVIVED --
+# an unquoted path and a ${braced} one are how half this tree writes a path, and the defect is the
+# ORDER, which does not care. F-B0-B12-REPORT.md §3.1 rows (4)b and (4)d.
+m=$(mutant m13b "$VM" \
+    'tr '"'"'\0'"'"' '"'"'\n'"'"' 2>/dev/null < "/proc/$1/cmdline" | awk' \
+    'tr '"'"'\0'"'"' '"'"'\n'"'"' < /proc/$1/cmdline 2>/dev/null | awk' 2)
+report "M13b: same revert, source UNQUOTED ((4)b)" "$m" \
+       "static guard: the 3 multi-line sites keep 2> ahead of < (3 lines read)"
+
+m=$(mutant m14b "$NDT" \
+    'bash "$STACK" up ovs > "$out" 2>&1 < "$fifo"' \
+    'bash "$STACK" up ovs < ${fifo} 2>&1 > "$out"')
+report "M14b: same revert, source written \${fifo} ((4)d)" "$m" \
        "static guard: the 3 multi-line sites keep 2> ahead of < (3 lines read)"
 
 # --- 🔴 the two ways of being green that are worse than the bug ----------------------------------

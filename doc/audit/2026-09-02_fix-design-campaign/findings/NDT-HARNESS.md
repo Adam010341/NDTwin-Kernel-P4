@@ -49,7 +49,7 @@ Base 正確。
 `git merge-base --is-ancestor cd440488 HEAD` → **rc=0**。
 `cd440488`（"T-10/FINDING-02: the convergence table measured the harness, and a blind port probe"）
 **是 base 的祖先**，也就是說 row 02 的兩個缺陷、row 05 的兩個缺陷，**碼層面都已經在 base 裡修好了**，
-而 KNOWN-ISSUES 第 1520／1523 行仍寫「已開工單」。
+而 KNOWN-ISSUES G-2 的 row 02／row 05 當時仍寫「已開工單」。
 
 ⚠️ 注意有一對**同內容但不同 hash** 的 commit（`e2098033` / `cd440488`、`842cab2e` / `a824b230`），
 只有後者在 HEAD 的祖先鏈上（`e2098033` → rc=1）。這是 rebase／cherry-pick 留下的雙胞胎，

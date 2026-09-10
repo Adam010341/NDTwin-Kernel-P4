@@ -255,6 +255,97 @@ for row in "${FAMILY[@]}"; do
     check "$name is silent" "" "$(stderr_of "$prelude; $snip")"
 done
 
+# ================================================================================================
+echo "6. the ordering rule does not depend on how the source is written"
+# ================================================================================================
+# 🔴 B12 (2026-09-11). The static guard below matched with
+#
+#     [[ "$src" =~ \<[[:space:]]*\"[^\"]*\"[^\|]*(2\>|\&\>) ]]
+#
+# -- a `<` whose source is DOUBLE-QUOTED. hunt-0911/F-B0-B12-REPORT.md §3.1 rows (4)b..(4)d put
+# three inputs through that expression and got "passed" out of every one: the same read with the
+# path unquoted, single-quoted, and written `${CMDLINE}`. The defect is the ORDER -- `<` opens the
+# file while fd 2 is still the inherited stderr -- and the order does not care how the path is
+# spelled. Two of the three escapes are how this tree usually writes a path.
+#
+# What the widened expression is, and what it deliberately is not:
+#   the source     double-quoted, single-quoted, or a bare word ($CMDLINE, ${CMDLINE},
+#                  /proc/$1/cmdline). A source starting with `<`, `&` or `(` is none of those,
+#                  which is how `<<<` herestrings, `<<` heredocs, `<&3` fd duplication and
+#                  `< <(cmd)` process substitution stay out.
+#   the gap        what may sit between the source and the stderr redirection and still be the
+#                  SAME simple command: words, quotes, paths, and another redirection -- ndt's
+#                  fixed site is `> "$out" 2>&1 < "$fifo"` and its mutant moves the `<` to the
+#                  front, so `>` has to be allowed through. `]]`, `))` and `&&` are not, because
+#                  `(( i < n )) && x 2>/dev/null` is a comparison and a separate command, not a
+#                  redirection pair.
+#   the operator      a redirection operator stands at a word boundary, so the `2>` has to be
+#                     preceded by whitespace. Without that requirement `bit<32>` in a P4 source
+#                     line reads as "source `3`, then `2>`" and
+#                     tests/shell/test_e_restore_asserts_compiled_artifact.sh:65 -- a printf of a
+#                     P4 constant -- comes back flagged.
+#   /dev/null         reading it CANNOT fail, so there is no message for the wrong order to leak.
+#                     `cmd </dev/null 2>&1` is the single largest shape in this tree and every
+#                     one of them is a false alarm; blanked out before matching rather than
+#                     excluded inside the expression, so the rest of the line is still examined.
+RO_SRC="(\"[^\"]*\"|'[^']*'|[^[:space:];|&<>()]+)"
+RO_GAP="[-A-Za-z0-9_./\$\"'{}=>[:space:]]*"
+RO_BAD="(^|[^0-9&<>])[0-9]?<[[:space:]]*${RO_SRC}${RO_GAP}[[:space:]](2>|&>)"
+
+# flags <line> -- "yes" when that line reads a path before it silences stderr.
+flags() {
+    local line="$1"
+    line="${line//< \/dev\/null/ }"
+    line="${line//<\/dev\/null/ }"
+    line="${line//< \"\/dev\/null\"/ }"
+    line="${line//<\"\/dev\/null\"/ }"
+    [[ "$line" =~ $RO_BAD ]] && echo yes || echo no
+}
+
+check "(4)a source double-quoted (the one it caught)"  yes \
+    "$(flags 'read -r a b < "/proc/$1/cmdline" 2>/dev/null')"
+check "(4)b source unquoted"                           yes \
+    "$(flags 'read -r a b < /proc/$1/cmdline 2>/dev/null')"
+check "(4)c source single-quoted"                      yes \
+    "$(flags "read -r a b < '/proc/\$1/cmdline' 2>/dev/null")"
+check "(4)d source written \${CMDLINE}"                yes \
+    "$(flags 'read -r a b < ${CMDLINE} 2>/dev/null')"
+check "&> counts as silencing stderr too"              yes \
+    "$(flags 'read -r a b < $CMDLINE &>/dev/null')"
+check "an explicit fd 0 is still an open"               yes \
+    "$(flags 'read -r a b 0< "$CMDLINE" 2>/dev/null')"
+check "another redirection in between is still one command" yes \
+    "$(flags 'bash "$STACK" up ovs < "$fifo" > "$out" 2>&1')"
+
+# 🔴 The other side. Every one of these differs from a case above in exactly the property, and a
+# guard that reported them would be reporting correct code -- which is how a static guard gets
+# deleted rather than fixed.
+check "the fixed order is not flagged"                 no \
+    "$(flags 'read -r a b 2>/dev/null < "/proc/$1/cmdline"')"
+check "  nor ndt's fixed up-ovs capture"               no \
+    "$(flags 'bash "$STACK" up ovs > "$out" 2>&1 < "$fifo"')"
+check "  nor the two-line awk readers as they stand"   no \
+    "$(flags "    tr '\\0' '\\n' 2>/dev/null < \"/proc/\$1/cmdline\" | awk '")"
+check "a <<< herestring opens no file"                 no \
+    "$(flags 'FAILED=$(sed -n "s/x/y/p" <<<"$OUT" 2>/dev/null)')"
+check "a << heredoc opens no file"                     no \
+    "$(flags "cat <<'EOF' 2>/dev/null")"
+check "<&3 duplicates an fd, it does not open a path"  no \
+    "$(flags 'exec 3<&0 2>/dev/null')"
+check "< <(cmd) is process substitution"               no \
+    "$(flags 'read -r LPORT < <(get_port) 2>/dev/null')"
+check "reading /dev/null cannot fail"                  no \
+    "$(flags 'cmd_up ovs </dev/null 2>&1')"
+check "  nor can it with a space or quotes"            no \
+    "$(flags 'cmd_up ovs < "/dev/null" 2>&1')"
+check "a bit width is not a redirection"               no \
+    "$(flags "printf 'const bit<32> SAMPLE_TRUNC_BYTES = 128;\\n' > \"\$P4SRC\"")"
+check "a numeric comparison is not a redirection"      no \
+    "$(flags '(( i < n )) && warn "still going" 2>/dev/null')"
+check "  nor a string comparison"                      no \
+    "$(flags '[[ "$a" < "$b" ]] && warn "order" 2>/dev/null')"
+
+echo
 # The two `tr ... | awk '` sites in ndtwin-vm.sh and ndt:894 are multi-line commands: 209/263
 # open an awk program that continues below, and 894 would start the stack. They get a static
 # ordering guard instead -- weaker than the cases above, and named as such.
@@ -272,8 +363,9 @@ while IFS=$'\t' read -r rel anchor want; do
     [[ "$n" == "$want" ]] || echo "             $rel: anchor '$anchor' matches $n lines (want $want)"
     while IFS= read -r src; do
         static_seen=$((static_seen+1))
-        # an input redirection from a path, textually ahead of a stderr redirection, on one line
-        [[ "$src" =~ \<[[:space:]]*\"[^\"]*\"[^\|]*(2\>|\&\>) ]] && { static_bad=$((static_bad+1)); echo "             $rel: $src"; }
+        # an input redirection from a path, textually ahead of a stderr redirection, on one
+        # line -- however the path is written; see section 5 for what that means and what it excludes
+        [[ "$src" =~ $RO_BAD ]] && { static_bad=$((static_bad+1)); echo "             $rel: $src"; }
     done < <(grep -F -- "$anchor" "$f")
 done <<'EOF'
 tools/remote-lab/ndtwin-vm.sh	"/proc/$1/cmdline"	2

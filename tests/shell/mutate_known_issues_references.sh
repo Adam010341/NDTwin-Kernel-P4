@@ -167,7 +167,10 @@ m=$(mutant m4 '                if not any(s <= want <= e for s, e in spans[code]
 report "M4 (widening): a correct citation is reported too" "$m" "$REPO" \
        "test_a_correct_reference_is_not_a_violation"
 
-m=$(mutant m5 'CITATION_RE = re.compile(r"KNOWN-ISSUES(?:\.md)? ?: ?(\d+)(?: ?[-–] ?(\d+))?")'$'\x1f''CITATION_RE = re.compile(r"KNOWN-ISSUES\.md ?: ?(\d+)(?: ?[-–] ?(\d+))?")')
+# 2026-09-11: the same mutation, repointed. B12 split the one-line CITATION_RE into _KI_DOC plus
+# a separator alternation, so this anchor moved -- the mutation is unchanged: `.md` becomes
+# mandatory and the 20 sites that write it without the suffix go unread.
+m=$(mutant m5 '_KI_DOC = r"KNOWN[-_]ISSUES(?:\.md)?"'$'\x1f''_KI_DOC = r"KNOWN[-_]ISSUES\.md"')
 report "M5: the .md-less spelling is a bypass again" "$m" "$REPO" \
        "test_the_md_less_spelling_is_read_too"
 
@@ -187,6 +190,25 @@ report "M8: the walk visits nothing and the scan is green" "$m" "$REPO" \
 m=$(mutant m9 '    start, end = paragraph_bounds(lines, idx)'$'\x1f''    start, end = 0, len(lines) - 1')
 report "M9: a code anywhere in the file counts as claimed" "$m" "$REPO" \
        "test_a_code_in_a_different_paragraph_does_not_count"
+
+# --- M10-M12: the SPELLING of the citation (B12, 2026-09-11) -------------------------------
+# hunt-0911/F-B0-B12-REPORT.md §3.1 rows (5)b..(5)e put four re-spellings of one citation through
+# the old regex and got `violations=0` out of every one. Two of these put a spelling test back;
+# the third is the widening direction, which costs the same as a miss here -- a scanner that
+# reads a ROW label as a line number reports a citation that is correct, and the only way to get
+# the tree green again is to delete something true.
+
+m=$(mutant m10 '        if "KNOWN" not in text:'$'\x1f''        if "KNOWN-ISSUES" not in text:')
+report "M10: the fast path tests for one spelling of the name" "$m" "$REPO" \
+       "test_a_citation_with_no_code_is_reported_in_every_spelling_too"
+
+m=$(mutant m11 'CITATION_RE = re.compile(_KI_DOC + r"(?:" + _KI_LINE_SEP + r")(\d+)"'$'\x1f''CITATION_RE = re.compile(_KI_DOC + r"(?:" + r" ?: ?" + r")(\d+)"')
+report "M11: one colon, one space each side, and nothing else" "$m" "$REPO" \
+       "test_each_spelling_of_a_wrong_line_is_reported"
+
+m=$(mutant m12 '    r"|[ \t]*第?[ \t]*(?=\d+(?:[ \t]*(?:" + _KI_JOIN + r")[ \t]*\d+)*[ \t]*行)"'$'\x1f''    r"|[ \t]*[第行][ \t]*"')
+report "M12 (widening): a 行 row label is read as a line number" "$m" "$REPO" \
+       "test_a_row_label_is_not_a_line_number"
 
 # --- C1: the control -----------------------------------------------------------------------
 # A comment-only edit. If this goes red the suite is pinned to the shape of its own source and
