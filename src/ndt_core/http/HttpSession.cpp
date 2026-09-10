@@ -56,7 +56,7 @@ HttpSession::HttpSession(
       m_historicalDataManager(std::move(historicalDataManager)),
       m_controller(std::move(ctrl)),
       m_lockManager(std::move(lockManager)),
-      // [Co-developed with claude code -- Adam] B-13. The deployment's own tc and the one ledger
+      // [Co-developed with claude code -- Adam] B-16. The deployment's own tc and the one ledger
       // the kernel writes to; a test peer repoints both. See the members' docblock.
       m_tcRunner(utils::netem::realTcRunner()),
       m_injectedNetem(&utils::netem::processInjectedNetemLedger())
@@ -858,7 +858,7 @@ HttpSession::handleInjectLinkFailure(http::response<http::string_body>& res)
     const std::string dstIface = mininetIfaceFor(graph, data->dstDpid, data->dstInterface);
 
     // [Co-developed with claude code -- Adam]
-    // doc/KNOWN-ISSUES.md B-13, second finding (ROLE-1 2026-09-11, 2 of 2). This was a loop that
+    // doc/KNOWN-ISSUES.md B-16, second finding (ROLE-1 2026-09-11, 2 of 2). This was a loop that
     // called cutInterface once per end and CARRIED ON past a refusal: with somebody else's netem
     // already on s1-eth1, that end was refused, `netem loss 100%` really went onto s5-eth1, and
     // the reply was 200 `"status":"link failure injected"` with both directions declared. Loss on
@@ -939,7 +939,7 @@ HttpSession::handleInjectLinkRecovery(http::response<http::string_body>& res)
     }
 
     // [Co-developed with claude code -- Adam]
-    // 🔴 doc/KNOWN-ISSUES.md B-13 (ROLE-1 2026-09-11, 3 of 3). THE WIRE IS READ BEFORE ANYTHING
+    // 🔴 doc/KNOWN-ISSUES.md B-16 (ROLE-1 2026-09-11, 3 of 3). THE WIRE IS READ BEFORE ANYTHING
     // IS WRITTEN, and that ordering is the fix rather than a tidiness. What this endpoint used to
     // do, in this order, was: withdraw the declaration unconditionally, then `tc qdisc del`
     // whatever netem the tree happened to show. For a link nobody had declared down, carrying
@@ -1026,7 +1026,7 @@ HttpSession::handleInjectLinkRecovery(http::response<http::string_body>& res)
         return;
     }
 
-    // [Co-developed with claude code -- Adam] B-13. Per end, and the sighting read above is what
+    // [Co-developed with claude code -- Adam] B-16. Per end, and the sighting read above is what
     // decides: `Ours` comes off, `Foreign` is left exactly where it is, nothing at all is the
     // documented `noop`. The declaration was the caller's to withdraw either way -- it is this
     // kernel's own state -- and the qdisc was not.

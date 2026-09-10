@@ -2561,7 +2561,7 @@ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
                                 .second)
                         {
                             // [Co-developed with claude code -- Adam]
-                            // 🔴 doc/KNOWN-ISSUES.md B-13, third half. The tail of this sentence
+                            // 🔴 doc/KNOWN-ISSUES.md B-16, third half. The tail of this sentence
                             // used to be `POST /ndt/link_recovery_detected to clear this` for
                             // BOTH kinds of declaration, and since W8b that is wrong for one of
                             // them: a declaration nothing ever reported broken -- an injection --
@@ -2588,7 +2588,7 @@ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
                                       "declaration. On MININET that also removes the netem -- but "
                                       "only one this kernel attached; a netem it did not attach is "
                                       "refused with 409 and has to be removed by whoever left it "
-                                      "(B-13)");
+                                      "(B-16)");
                         }
                     }
                     else
@@ -4029,7 +4029,7 @@ TopologyAndFlowMonitor::warnAboutResidualNetem(const utils::netem::TcRunner& run
             "qdisc that accompanied it does. Nothing was cleared: check with 'tc qdisc show dev "
             "<iface>' and REMOVE IT YOURSELF -- this kernel has just started, so it attached none "
             "of these and /ndt/inject_link_recovery answers 409 for a netem it did not attach "
-            "(B-13, and until 2026-09-11 this sentence sent you to an endpoint that would have "
+            "(B-16, and until 2026-09-11 this sentence sent you to an endpoint that would have "
             "deleted somebody else's fault and reported success). A "
             "host-facing port belongs to whatever attached it (tools/test_workflow/faults.sh, the "
             "chaos harness); an interface this topology does not name means the fabric running "

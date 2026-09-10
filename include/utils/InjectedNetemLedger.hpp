@@ -6,7 +6,7 @@
  *
  * [Co-developed with claude code -- Adam]
  *
- * doc/KNOWN-ISSUES.md B-13. Measured on a live OVS fabric on 2026-09-11 (ROLE-1, 3 of 3
+ * doc/KNOWN-ISSUES.md B-16. Measured on a live OVS fabric on 2026-09-11 (ROLE-1, 3 of 3
  * reproductions, scratch/overnight-2026-09-05/hunt-0911/ROLE-1-A1-REPORT.md): a successor POSTed
  * /ndt/inject_link_recovery for a link this kernel had never declared down, and the kernel ran
  * `tc qdisc del dev s1-eth1 root` on somebody else's `netem loss 100%` and answered
@@ -29,7 +29,7 @@
  * either), so a kernel that has just started owns nothing and will refuse to detach anything --
  * which is the honest answer, because it genuinely cannot tell its own residue from a colleague's.
  * The startup sweep (TopologyAndFlowMonitor::warnAboutResidualNetem, E-20) is what tells an
- * operator that residue is there, and since B-13 it says to remove it by hand rather than pointing
+ * operator that residue is there, and since B-16 it says to remove it by hand rather than pointing
  * at an endpoint that will now refuse. Whether the ledger should be persisted to
  * `.test_run/`, so a restarted kernel could still take its own injection back, is a question for
  * Adam and is recorded in scratch/overnight-2026-09-05/fix/FIX-A1-SUMMARY.md §7.

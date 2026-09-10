@@ -8,7 +8,7 @@
 #include <nlohmann/json.hpp>
 #include "ndt_core/http/OpenflowCapacityReport.hpp" // [Co-developed with claude code -- Adam]
 #include "ndt_core/routing_management/OpResult.hpp" // [Co-developed with claude code -- Adam]
-#include "utils/NetemLinkFault.hpp" // [Co-developed with claude code -- Adam] B-13: the tc seam
+#include "utils/NetemLinkFault.hpp" // [Co-developed with claude code -- Adam] B-16: the tc seam
 // For sflow::FlowLivenessFilter, which readLivenessFilter takes by reference and so needs
 // complete. The FlowLinkUsageCollector forward declaration below stays: this is the types header,
 // not the collector. [Co-developed with claude code -- Adam]
@@ -959,7 +959,7 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
     ofcapacity::CapacitySources m_capacitySources;
 
     /**
-     * @brief The tc seam, and the record of which netem this kernel attached. B-13.
+     * @brief The tc seam, and the record of which netem this kernel attached. B-16.
      *
      * [Co-developed with claude code -- Adam]
      * Same shape as m_capacitySources above: the defaults are the deployment's own -- the real

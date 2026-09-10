@@ -1020,7 +1020,7 @@ TEST(NetemLinkFaultTest, TheFakesPerDeviceViewIsTheFormRestoreInterfaceCanRead)
 }
 
 // =================================================================================================
-// B-13: whose netem is it, and both ends or neither
+// B-16: whose netem is it, and both ends or neither
 //
 // [Co-developed with claude code -- Adam]
 //
@@ -1198,7 +1198,7 @@ class FakeFabric
 
 /**
  * 🔴 THE FINDING (A1, 3 of 3 on a live fabric). Nothing recorded this netem, so it is not this
- * kernel's to remove -- and before B-13 the same tree read that says WHERE it is was taken as
+ * kernel's to remove -- and before B-16 the same tree read that says WHERE it is was taken as
  * permission to delete it.
  */
 TEST(InjectedNetemProvenanceTest, ANetemNothingRecordedIsForeign)
@@ -1212,7 +1212,7 @@ TEST(InjectedNetemProvenanceTest, ANetemNothingRecordedIsForeign)
     EXPECT_EQ(seen.provenance, utils::netem::NetemProvenance::Foreign)
         << "a netem this kernel never attached was claimed as its own. On the fabric that is "
            "somebody's chaos blackhole and this kernel is one `tc qdisc del` from destroying "
-           "their round (B-13). why=" << seen.why;
+           "their round (B-16). why=" << seen.why;
     EXPECT_FALSE(fabric.ranAnyWrite()) << "reading provenance changed the tree";
 }
 

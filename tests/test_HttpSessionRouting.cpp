@@ -154,10 +154,10 @@ class HttpSessionTestPeer
     }
 
     /**
-     * @brief Points the session's tc seam and provenance ledger at ones the test owns. B-13.
+     * @brief Points the session's tc seam and provenance ledger at ones the test owns. B-16.
      *
      * [Co-developed with claude code -- Adam]
-     * doc/KNOWN-ISSUES.md B-13. This is what makes the MININET half of /ndt/inject_link_failure
+     * doc/KNOWN-ISSUES.md B-16. This is what makes the MININET half of /ndt/inject_link_failure
      * and /ndt/inject_link_recovery reachable from ctest at all: before it, both handlers built
      * `utils::netem::realTcRunner()` inline and every case here had to use utils::TESTBED, where
      * the handler answers `"tc": "skipped (not MININET)"` and returns.
@@ -191,7 +191,7 @@ class HttpSessionTestPeer
 
   private:
     /**
-     * @brief Makes a case that reaches tc without asking for a fake fail loudly instead. B-13.
+     * @brief Makes a case that reaches tc without asking for a fake fail loudly instead. B-16.
      *
      * [Co-developed with claude code -- Adam]
      * Every constructor above builds a MININET session unless told otherwise, and on MININET the
@@ -1706,7 +1706,7 @@ TEST_F(DeclaredLinkFailureWireTest, TheDpidZeroRefusalDoesNotTouchOrdinarySwitch
 }
 
 // =================================================================================================
-// B-13 on the wire: /ndt/inject_link_recovery detaches only what this kernel attached, and
+// B-16 on the wire: /ndt/inject_link_recovery detaches only what this kernel attached, and
 //                   /ndt/inject_link_failure cuts both ends or neither
 //
 // [Co-developed with claude code -- Adam]
@@ -1725,7 +1725,7 @@ TEST_F(DeclaredLinkFailureWireTest, TheDpidZeroRefusalDoesNotTouchOrdinarySwitch
 //
 // These cases are the wire half of that. They are in DeclaredLinkFailureWireTest so that both
 // B-6 gates cover them, and they are the FIRST cases in this repository to reach the MININET
-// branch of the two inject handlers: until B-13 gave HttpSession a tc seam, `realTcRunner()` was
+// branch of the two inject handlers: until B-16 gave HttpSession a tc seam, `realTcRunner()` was
 // written inline in both handlers and `grep -rn realTcRunner tests/` found nothing (A2).
 // =================================================================================================
 
@@ -1899,7 +1899,7 @@ TEST_F(DeclaredLinkFailureWireTest, TheRefusalNamesTheInterfaceAndSaysWhoseNetem
            "refused: " << res.body();
 }
 
-/// The behaviour B-13 must NOT break: an operator taking back their OWN injection. Both ends were
+/// The behaviour B-16 must NOT break: an operator taking back their OWN injection. Both ends were
 /// cut by this kernel, so both come off, and the declaration goes with them.
 TEST_F(DeclaredLinkFailureWireTest, AnInjectionThisKernelMadeIsWithdrawnAndItsNetemRemoved)
 {
@@ -2020,7 +2020,7 @@ TEST_F(DeclaredLinkFailureWireTest, ANetemSwappedUnderAStandingDeclarationIsLeft
 
 /**
  * 🔴 THE SECOND FINDING ON THE WIRE (A1 ②, 2 of 2). s1-eth1 already carries somebody else's netem,
- * so it is refused -- and before B-13 the loop went on and really attached `netem loss 100%` to
+ * so it is refused -- and before B-16 the loop went on and really attached `netem loss 100%` to
  * s5-eth1, then answered 200 `"status":"link failure injected"` with both directions declared.
  */
 TEST_F(DeclaredLinkFailureWireTest, AnInjectionRefusedAtOneEndAttachesNothingAtTheOther)

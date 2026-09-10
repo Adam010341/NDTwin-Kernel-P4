@@ -323,7 +323,7 @@ findExistingNetem(const std::string& tree)
  * @brief The tc handle of the netem on this interface, e.g. `801d:`, or empty when there is none.
  *
  * [Co-developed with claude code -- Adam]
- * doc/KNOWN-ISSUES.md B-13. The handle is the only thing on a qdisc that can identify it: `netem
+ * doc/KNOWN-ISSUES.md B-16. The handle is the only thing on a qdisc that can identify it: `netem
  * loss 100%` attached by faults.sh, by the chaos harness and by this kernel are the same three
  * words, and tc records no owner. So provenance is "the kernel wrote down a handle and this is
  * still that handle" -- see utils::netem::InjectedNetemLedger.
@@ -411,7 +411,7 @@ showAllQdiscs(const TcRunner& run)
  * @brief Whether the netem on an interface is one THIS kernel attached.
  *
  * [Co-developed with claude code -- Adam]
- * doc/KNOWN-ISSUES.md B-13. `findExistingNetem` answers "is there a netem here, and where", which
+ * doc/KNOWN-ISSUES.md B-16. `findExistingNetem` answers "is there a netem here, and where", which
  * is what a delete needs to know and is not the question `/ndt/inject_link_recovery` was asking.
  * Measured 2026-09-11 (ROLE-1, 3 of 3): the same tree read was taken as permission, and the
  * endpoint deleted the previous operator's `netem loss 100%` and answered 200 `ok:true`.
@@ -424,7 +424,7 @@ enum class NetemProvenance
     Unreadable  ///< The tree could not be read, or the name is not one tc may be run against.
 };
 
-/// One read of one interface's qdisc tree, and everything it established. B-13.
+/// One read of one interface's qdisc tree, and everything it established. B-16.
 struct NetemSighting
 {
     NetemProvenance provenance = NetemProvenance::Unreadable;
@@ -446,7 +446,7 @@ struct NetemSighting
 };
 
 /**
- * @brief Reads @p iface once and says whether the netem on it is this kernel's. B-13.
+ * @brief Reads @p iface once and says whether the netem on it is this kernel's. B-16.
  *
  * ONE read, and the caller passes the result to whatever it then decides to do -- rather than each
  * step re-reading. Two reads would leave a window in which the qdisc that gets deleted is not the
@@ -636,7 +636,7 @@ restoreInterface(const std::string& iface, const TcRunner& run)
         return report;
     }
 
-    // [Co-developed with claude code -- Adam] B-13. The delete itself moved into
+    // [Co-developed with claude code -- Adam] B-16. The delete itself moved into
     // detachSightedNetem so the ownership-checked path shares it. Same commands, same report,
     // same assertion -- and this function still deletes WHOSEVER netem is there, which is why
     // nothing in the kernel calls it any more. See restoreSightedNetem.
@@ -652,7 +652,7 @@ restoreInterface(const std::string& iface, const TcRunner& run)
  * @brief The recovery's per-end action: remove the netem if it is this kernel's, and only then.
  *
  * [Co-developed with claude code -- Adam]
- * doc/KNOWN-ISSUES.md B-13, and the whole of the fix on one interface. @p seen must come from
+ * doc/KNOWN-ISSUES.md B-16, and the whole of the fix on one interface. @p seen must come from
  * inspectNetem against the same @p ledger, so that the qdisc whose provenance was checked is the
  * qdisc this deletes.
  *
@@ -712,7 +712,7 @@ restoreSightedNetem(const std::string& iface,
  * @brief Cuts EVERY end of a link with `netem loss 100%`, or none of them.
  *
  * [Co-developed with claude code -- Adam]
- * doc/KNOWN-ISSUES.md B-13, second finding (ROLE-1 2026-09-11, 2 of 2). The loop this replaces
+ * doc/KNOWN-ISSUES.md B-16, second finding (ROLE-1 2026-09-11, 2 of 2). The loop this replaces
  * called cutInterface once per end and kept going: one end already carried somebody else's netem
  * and was refused, the other end was really cut, and the reply said `link failure injected`. Both
  * ends were `loss 100%` that time so the effect was still symmetric; had the standing netem been

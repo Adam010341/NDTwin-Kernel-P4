@@ -104,13 +104,13 @@ TEST_TIMEOUT="${TEST_TIMEOUT:-300}"
 TARGET=test_routing_strategy
 BIN="$BUILD_DIR/bin/$TARGET"
 FILTER='DeclaredLinkFailureTest.*:DeclaredLinkFailureWireTest.*:ResidualNetemSweepTest.*'
-# [Co-developed with claude code -- Adam] B-13 (2026-09-11) added two suites over the netem
+# [Co-developed with claude code -- Adam] B-16 (2026-09-11) added two suites over the netem
 # helpers themselves: provenance, and both-ends-or-neither. They are in the same binary.
 FILTER="$FILTER:InjectedNetemProvenanceTest.*:AllOrNothingCutTest.*"
 
 TFM=src/ndt_core/collection/TopologyAndFlowMonitor.cpp
 HS=src/ndt_core/http/HttpSession.cpp
-# [Co-developed with claude code -- Adam] B-13. The provenance rule and the all-or-nothing
+# [Co-developed with claude code -- Adam] B-16. The provenance rule and the all-or-nothing
 # rule live in the header, so it is snapshotted and restored like the other two.
 NLF=include/utils/NetemLinkFault.hpp
 FILES=("$TFM" "$HS" "$NLF")
@@ -874,7 +874,7 @@ mutate "the sweep reports every netem on the machine, not just this fabric's" \
     ResidualNetemSweepTest.NetemOutsideThisFabricsInterfaceShapeIsNotReported
 
 # ================================================================================================
-#   doc/KNOWN-ISSUES.md B-13 (2026-09-11, branch fix/link-recovery-only-detaches-its-own-netem).
+#   doc/KNOWN-ISSUES.md B-16 (2026-09-11, branch fix/link-recovery-only-detaches-its-own-netem).
 #   MEASURED BY ROLE-1 ON A LIVE OVS FABRIC, 3 reproductions of 3 plus 2 of 2 for the second half
 #   (scratch/overnight-2026-09-05/hunt-0911/ROLE-1-A1-REPORT.md):
 #
@@ -975,7 +975,7 @@ mutate "the poll's advice names the notification endpoint for an injected declar
     DeclaredLinkFailureTest.ThePollPointsAnInjectedDeclarationAtTheInjectionEndpoint
 
 # ================================================================================================
-#   B-13, direction 2: relaxing PAST the fix. Both of these pass every case above.
+#   B-16, direction 2: relaxing PAST the fix. Both of these pass every case above.
 # ================================================================================================
 
 # M33. 🔴 THE OVER-CORRECTION, and it is the bigger outage: the refusal stops asking whether the
@@ -1061,7 +1061,7 @@ widen "the residue warning's prose is rewritten around the same facts" \
     '            "topology. Packets there are already being dropped or delayed, and NOTHING IN THE "' \
     '            "topology. Traffic on them is already being dropped or delayed, and NOTHING IN THE "'
 
-# W7. B-13's control: the 409's PROSE is rewritten while it still names the interface and still
+# W7. B-16's control: the 409's PROSE is rewritten while it still names the interface and still
 #     says the netem is not this kernel's. The two refusal cases key on those two facts; if either
 #     reddens here it is pinning a paragraph, and the next person to improve the sentence would
 #     have to edit a test.

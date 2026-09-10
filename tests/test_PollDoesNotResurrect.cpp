@@ -1313,7 +1313,7 @@ TEST_F(DeclaredLinkFailureTest, AReportedFailureStillSurvivesATopologyPoll)
 }
 
 // =================================================================================================
-// B-13, third half: the poll's advice has to name the endpoint that can actually clear THIS
+// B-16, third half: the poll's advice has to name the endpoint that can actually clear THIS
 //                   declaration
 //
 // [Co-developed with claude code -- Adam]
@@ -1425,7 +1425,7 @@ TEST_F(DeclaredLinkFailureTest, ThePollPointsAnInjectedDeclarationAtTheInjection
     EXPECT_NE(logged.find("/ndt/inject_link_recovery"), std::string::npos)
         << "the only sentence a successor who did not restart the kernel ever sees points at "
            "/ndt/link_recovery_detected, which since W8b DECLINES a declaration nothing reported "
-           "broken. He is told to use the endpoint that will refuse him (B-13, measured "
+           "broken. He is told to use the endpoint that will refuse him (B-16, measured "
            "2026-09-11). Log was:\n"
         << logged;
 }
