@@ -114,6 +114,13 @@ report "run_f5.sh's copy of derive_log drifts from lib_e.sh's" "case 6"
 perl -0pi -e 's/    plan\|selftest\|restore\) LOG="\$\(derive_log "\$LOG_BASE" \$LOG_SUFFIX_DRY "\$1"\)" ;;/    plan|selftest|restore) LOG="\$\{LOG%.log\}.\$1.log" ;;/' "$F5"
 report "run_f5.sh appends the mode suffix to the inherited LOG" "case 7"
 
+# 5b. 🔴 B12 (2026-09-11). The SAME defect, respelled with bash's other strip operator.
+# Until today case 7 was `grep -c 'LOG="${LOG%.log}'` over four hard-coded paths, so this
+# mutation SURVIVED while mutation 5 was caught -- one extra `%` and the guard went quiet.
+# F-B0-B12-REPORT.md §3.1 row (6)b.
+perl -0pi -e 's/    plan\|selftest\|restore\) LOG="\$\(derive_log "\$LOG_BASE" \$LOG_SUFFIX_DRY "\$1"\)" ;;/    plan|selftest|restore) LOG="\$\{LOG%%.log\}.\$1.log" ;;/' "$F5"
+report "the same append respelled \${LOG%%.log} ((6)b)" "case 7"
+
 # 6. round.env stops exporting the anchor.
 perl -0pi -e 's/^export LOG_BASE=/LOG_BASE=/m' "$FENV"
 report "F5 round.env stops exporting LOG_BASE" "case 8"

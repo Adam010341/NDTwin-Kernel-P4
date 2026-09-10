@@ -17,6 +17,7 @@
 
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$HERE/../.." && pwd)"
 E="$HERE/../../doc/audit/2026-08-31_sampling-ceiling-after-merge"
 F="$HERE/../../doc/audit/2026-08-31_f5-fine-grid-round"
 
@@ -72,20 +73,116 @@ check "case 6  lib_e.sh and run_f5.sh carry the same derive_log" identical \
 # documentation and reported 2. A guard that cannot tell "the defect is present" from "the defect
 # is explained" would go red on every file that documents its own history -- and would go green if
 # someone re-introduced the append inside a heredoc. Code lines only.
+# 🔴 B12 (2026-09-11). This used to be
+#
+#     grep -c 'LOG="\${LOG%\.log}'
+#
+# over FOUR hard-coded paths. hunt-0911/F-B0-B12-REPORT.md §3.1 rows (6)b and (6)c put the same
+# append through that pipeline spelled `${LOG%%.log}` (bash's other strip operator, same result
+# here) and `${LOG%".log"}` (the suffix quoted, which bash allows) and got 0 out of both. What
+# was guarded was one string; what has to be guarded is "this line builds the new log name out of
+# the inherited LOG". Two more spellings do the same damage and were never in the report:
+# `LOG="$LOG.dryrun.log"` appends with no strip at all, and `LOG=${LOG%.log}.x` drops the quotes.
+#
+# The rule, in two alternatives:
+#   ${LOG%...} / ${LOG#...}   the extension stripped off the INHERITED name -- any number of
+#                             % or #, suffix quoted or not;
+#   $LOG. / ${LOG}. / $LOG/   the inherited name with something appended straight onto it.
+# `LOG="$LOG_BASE"` and `LOG="$(derive_log "$LOG_BASE" ...)"` are what the fix looks like, and
+# neither is matched: the name must END at LOG (`$LOG_BASE` continues), and `${LOG:-$d}` has no
+# strip and nothing appended. The value stops at the first `;`, `&` or `|`, because
+# `LOG=$HOME/x.log; W=$(launch "$LOG")` is one assignment followed by a different command.
+#
+# 🔴 The assignment is anchored to a COMMAND POSITION, not to the start of a line, and that is
+# not a detail: mutation 5 of tests/shell/mutate_log_suffix_idempotent.sh puts the defect back as
+#     plan|selftest|restore) LOG="${LOG%.log}.$1.log" ;;
+# -- an assignment after a `case` pattern. An `^[[:space:]]*LOG=` rule let that mutation SURVIVE
+# while every synthetic case above stayed green, which is exactly the shape this file's own
+# header warns about. The same character class is what keeps `MYLOG=` and `child_old=` out: the
+# name has to BEGIN where the match begins.
+INHERITED_LOG_RE='(^|[;&|(){}[:space:]])(export[[:space:]]+|local[[:space:]]+|readonly[[:space:]]+|declare[[:space:]]+(-[A-Za-z]+[[:space:]]+)?)?LOG=[^;&|]*(\$\{LOG[%#]|\$\{?LOG\}?[./])'
+
 count_appends() {
     local f n total=0
     for f in "$@"; do
-        n=$(sed 's/#.*//' "$f" | grep -c 'LOG="\${LOG%\.log}')
+        [[ -f "$f" ]] || continue
+        n=$(sed 's/#.*//' "$f" | grep -cE "$INHERITED_LOG_RE")
         total=$((total + n))
     done
     printf '%s\n' "$total"
 }
+
+# counts_one <line> -- what the rule says about a single line. The (6)b/(6)c cases and their
+# controls go through this, so a spelling that walks past is visible as a 0 next to a 1.
+counts_one() { printf '%s\n' "$1" | sed 's/#.*//' | grep -cE "$INHERITED_LOG_RE" || true; }
+
+# 🔴 The case lines are ASSEMBLED, never written out. This file is inside the surface case 7
+# scans (every tracked shell script, this one included), so a literal assignment to LOG in
+# command position here would be a finding this file produces about itself -- and the first run
+# after the surface was widened was exactly that: two of the cases below, reported. Same
+# discipline as cite() in tests/python/test_known_issues_references.py, and the same reason: an
+# instrument that has to be excluded from its own scan has a scope nobody can check.
+NAME="LO""G"
+assign() { printf '%s=%s' "$NAME" "$1"; }
+
+echo "case 7 the rule is 'built from the inherited LOG', not one spelling of it"
+check "case 7a  \${LOG%.log} (the one it caught)" 1 "$(counts_one "$(assign '"${LOG%.log}.x.log"')")"
+check "case 7b  (6)b the other strip operator"   1 "$(counts_one "$(assign '"${LOG%%.log}.x.log"')")"
+check "case 7c  (6)c the suffix quoted"          1 "$(counts_one "$(assign '"${LOG%".log"}.x.log"')")"
+check "case 7d  no quotes on the assignment"     1 "$(counts_one "$(assign '${LOG%.log}.x.log')")"
+check "case 7e  appended with no strip at all"   1 "$(counts_one "export $(assign '"$LOG.dryrun.log"')")"
+check "case 7f  braced and appended"             1 "$(counts_one "$(assign '"${LOG}.dryrun.log"')")"
+check "case 7o  after a case pattern is still an assignment" 1 \
+      "$(counts_one "    plan|selftest|restore) $(assign '"${LOG%.log}.$1.log"') ;;")"
+
+# 🔴 The other side. Each of these is what the FIX looks like, and a guard that reported them
+# would have to be switched off before the round scripts could be written at all.
+check "case 7g  the base, not the inherited name" 0 "$(counts_one "$(assign '"$LOG_BASE"')")"
+check "case 7h  deriving from the base is the fix" 0 \
+      "$(counts_one "$(assign '"$(derive_log "$LOG_BASE" $LOG_SUFFIX_DRY)"')")"
+check "case 7i  a default is not an append"      0 "$(counts_one "$(assign '"${LOG:-$fallback}"')")"
+check "case 7j  another variable is not it"      0 "$(counts_one 'child_old="${parent%.log}.dryrun.log"')"
+check "case 7p  a name that merely ends in it"   0 "$(counts_one "MY$(assign '"${LOG%.log}.x.log"')")"
+check "case 7k  a comment is not code"           0 \
+      "$(counts_one "# $(assign '"${LOG%.log}.x.log"') -- what it used to do")"
+check "case 7l  and the stripper still sees code" 1 \
+      "$(counts_one "$(assign '"${LOG%.log}.x.log"')   # trailing comment")"
+
+# 🔴 And the SURFACE, which was four paths written out by hand. THE CLASS, written down: every
+# path `git ls-files` reports whose name ends `.sh` or `.bash`, plus every tracked extensionless
+# file whose first line is an sh/bash shebang (tools/test_workflow/ndt and ndtwin-lab are the
+# two). That is "every shell script this repo tracks" -- the convention is a repo-wide one, and a
+# fifth round script added next month is exactly the file a four-name list cannot see.
+#
+# The floor is asserted for the reason every scan in this tree asserts one: a derivation that
+# returns nothing scans nothing and reports 0 appends, which is indistinguishable from clean.
+shell_scripts() {
+    local f
+    while IFS= read -r -d '' f; do
+        case "$f" in
+            *.sh|*.bash) printf '%s\n' "$REPO_ROOT/$f"; continue ;;
+            *.*)         continue ;;
+        esac
+        [[ -f "$REPO_ROOT/$f" ]] || continue
+        case "$(head -1 "$REPO_ROOT/$f" 2>/dev/null)" in
+            '#!'*sh|'#!'*sh[[:space:]]*) printf '%s\n' "$REPO_ROOT/$f" ;;
+        esac
+    done < <(git -C "$REPO_ROOT" ls-files -z)
+}
+mapfile -t SCRIPTS < <(shell_scripts)
+check "case 7m  the scan found the shell scripts" yes \
+      "$( (( ${#SCRIPTS[@]} >= 150 )) && echo yes || echo "no (${#SCRIPTS[@]} found)" )"
+# 🔴 Seven, not four. Widening the surface found THREE MORE COPIES of the round scripts --
+# doc/audit/2026-09-02_fix-design-campaign/findings/IPERF3-CONFLICT.patches/committed/{lib_e,
+# run_e,gates_e}.sh -- which the four-name list never read. Case 6 above exists because "the two
+# rounds carry separate copies of derive_log and copies drift"; there were five copies, and two
+# of them were outside every check in this file. The assertion is a FLOOR and the count is
+# printed, so a new copy appearing is visible rather than silently unscanned.
+found_copies="$(printf '%s\n' "${SCRIPTS[@]}" | grep -cE '/(lib_e|run_e|gates_e|run_f5)\.sh$')"
+check "case 7n  the four the ticket named are in it (of $found_copies copies found)" yes \
+      "$( (( found_copies >= 4 )) && echo yes || echo "no ($found_copies)" )"
 check "case 7  no script appends a suffix to the inherited LOG" 0 \
-      "$(count_appends "$E/lib_e.sh" "$E/run_e.sh" "$E/gates_e.sh" "$F/run_f5.sh")"
-# and the stripper must not simply blank everything
-check "case 7b the comment stripper still sees real code" 1 \
-      "$(printf 'LOG="${LOG%%.log}.x.log"   # trailing comment\n# LOG="${LOG%%.log}.y.log"\n' \
-         | sed 's/#.*//' | grep -c 'LOG="\${LOG%\.log}')"
+      "$(count_appends "${SCRIPTS[@]}")"
 
 # --- round.env exports the immutable anchor in both rounds ---------------------------------------
 for r in "$E" "$F"; do
