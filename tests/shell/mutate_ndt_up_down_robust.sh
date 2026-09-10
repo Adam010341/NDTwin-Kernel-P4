@@ -356,6 +356,74 @@ m=$(mutant m23 "$NDT" \
 report "M23: the refusal stops saying whose knob those numbers are" "$m" \
        "🔴 and says that knob is the P4 plane's, not what OVS builds"
 
+# --- H4: the model and the fabric are different networks (ROLE-2, 2026-09-11) -----------------
+
+# M24 restores H4 verbatim: the NDT_TOPO escape hatch checks only that the file EXISTS. That is
+# the code ROLE-2 ran `NDT_TOPO=<128-host model> ndt up p4 4` against -- fabric built, kernel
+# never started, [2/3] hung past 300 s.
+m=$(mutant m24 "$NDT" \
+    '        local mh; mh="$(topo_model_counts "$NDT_TOPO")"; mh="${mh%% *}"' \
+    '        local mh=""; echo "$NDT_TOPO"; return 0
+        mh="$(topo_model_counts "$NDT_TOPO")"; mh="${mh%% *}"')
+report "M24: NDT_TOPO is honoured on existence alone again (H4)" "$m" \
+       "  🔴 rc 3 -- a real file, for the wrong network"
+
+# M25: the comparison happens and the answer is thrown away -- the shape a "checked it, carried
+# on" fix has. The refusal is what has to survive, not the arithmetic.
+m=$(mutant m25 "$NDT" \
+    '        if (( mh != want )); then
+            TOPO_REFUSAL=' \
+    '        if false; then
+            TOPO_REFUSAL=')
+# 🔴 Named case chosen after running the gate: with only THIS guard gone, record_up_target
+# still refuses and `up_p4` still returns 1, so "the bring-up is refused" stays green -- two
+# guards mean one can be removed without the property breaking. What only this site can produce
+# is the rc-3 message, so that is what must go red.
+report "M25: the host counts are compared and the verdict dropped" "$m" \
+       "  naming a model of a different network"
+
+# M26: F8's failure mode, which this fix reproduced once already. TOPO_REFUSAL is read back
+# from a command substitution, so the refusal prints its fallback and names no numbers.
+m=$(mutant m26 "$NDT" \
+    '    both="$(topo_for_hosts "$hosts" p4; printf '"'"'\t%s\t%s'"'"' "$?" "$TOPO_REFUSAL")"
+    topo="${both%%$'"'"'\t'"'"'*}"; rest="${both#*$'"'"'\t'"'"'}"
+    trc="${rest%%$'"'"'\t'"'"'*}"; TOPO_REFUSAL="${rest#*$'"'"'\t'"'"'}"' \
+    '    topo="$(topo_for_hosts "$hosts" p4)"; trc=$?
+    both=""; rest=""')
+# 🔴 Also repointed after running the gate: "the reason names both counts" reads TOPO_REFUSAL
+# in the TEST's own shell, where no substitution ate it, so it cannot see this at all. The cell
+# that can is the one reading up_p4's printed refusal.
+report "M26: the refusal's reason dies in a subshell (F8's shape)" "$m" \
+       "  🔴 and the refusal names both counts, not a fallback"
+
+# M27: the second guard alone. record_up_target goes back to writing hosts and model_hosts side
+# by side without comparing them -- the sharpest point of ROLE-2 §4.
+m=$(mutant m27 "$NDT" \
+    '    if [[ "$mh" =~ ^[0-9]+$ && "$hosts" =~ ^[0-9]+$ ]] && (( mh != hosts )); then' \
+    '    if false; then')
+report "M27: record_up_target writes both numbers and compares neither" "$m" \
+       "  🔴 record_up_target refuses hosts=4 against model_hosts=128"
+
+# M28: the other direction, and the one that would remove the documented escape hatch: any
+# NDT_TOPO is refused. Every cell above stays red-worthy; the CONTROLS are what catch it.
+m=$(mutant m28 "$NDT" \
+    '        if (( mh != want )); then' \
+    '        if true; then')
+report "M28 (widening): every NDT_TOPO is refused" "$m" \
+       "  🔴 a MATCHING NDT_TOPO is still honoured"
+
+# M29: an uncountable model is refused instead of warned about. NDT_TOPO exists for models that
+# do not follow the conventions, and "I could not count them" is not a mismatch.
+m=$(mutant m29 "$NDT" \
+    '            echo "$NDT_TOPO"; return 0
+        fi
+        if (( mh != want )); then' \
+    '            return 1
+        fi
+        if (( mh != want )); then')
+report "M29: an uncountable NDT_TOPO is refused rather than warned about" "$m" \
+       "  an uncountable model is not refused"
+
 # --- N*: widenings. The product goes green on everything; the suite has to notice -------------
 
 # N1, the control: preflight never refuses. It passes every "did it go red on the broken
@@ -386,10 +454,14 @@ report "N2 (widening, green): the rollback prints and does nothing" "$m" \
 # the two apart -- and the exit code is what every caller reads.
 # Anchor moved 2026-09-06 (W13): claim_note_down now sits between the two lines this used to
 # span. The mutation is unchanged -- it still replaces cmd_down's only return with a constant 0.
+# 🔴 Re-anchored 2026-09-11: H3 inserted `mark_teardown_end` between these two lines, and this
+# anchor -- which spanned both -- silently stopped matching. The mutant then carried an
+# UNMUTATED ndt, the suite was green, and the gate reported N3 as a survivor. That is
+# tests/shell/README.md §1's case, and the reason the gate's verdict is the one we ship.
 m=$(mutant n3 "$NDT" \
-    '    claim_note_down "$down_rc"
+    '    mark_teardown_end
     return "$down_rc"' \
-    '    claim_note_down "$down_rc"
+    '    mark_teardown_end
     return 0')
 report "N3 (widening, green): 'ndt down' always exits 0" "$m" \
        "🔴 a process that never leaves is still RED"
@@ -461,6 +533,87 @@ m=$(mutant w6 "$NDT" \
     '    err "refusing to build: '"'"'sudo $LAB'"'"' acts in a different tree than this one."')
 report_green "W6 (behaviour-preserving): the refusal's opening line reworded" "$m" \
        "the wording of the first line is not the behaviour under test"
+
+# --- H3: a bring-up that overlaps a teardown (ROLE-2, 2026-09-11) -----------------------------
+
+# M30 restores H3: nothing records that a teardown is running, so the only reading a P4
+# bring-up can take is the ports -- which look identical coming up and going down.
+m=$(mutant m30 "$NDT" \
+    '    mark_teardown_start
+
+    say "ndt down"' \
+    '    say "ndt down"')
+# 🔴 Named case chosen after running the gate: "the marker is absent when `down` finishes" is
+# satisfied by a `down` that never wrote one, so it cannot see this mutation at all. Only the
+# cell that reads the marker from INSIDE the teardown can.
+report "M30: the teardown records nothing again (H3)" "$m" \
+       "  🔴 and it is present DURING the teardown, not just around it"
+
+# M31: the marker is written and nobody refuses on it -- a guard wired to nothing, which is
+# what every "the mechanism exists" check would have signed off (F8's lesson, one file over).
+m=$(mutant m31 "$NDT" \
+    '    guard_no_teardown_in_flight || bad=1' \
+    '    :')
+report "M31: the guard is not called from preflight" "$m" \
+       "  🔴 P4 preflight refuses while a teardown runs"
+
+# M32: the marker is never removed, so one teardown makes the lab permanently unstartable.
+m=$(mutant m32 "$NDT" \
+    '    mark_teardown_end
+    return "$down_rc"' \
+    '    return "$down_rc"')
+report "M32: the teardown never removes its marker" "$m" \
+       "  🔴 'ndt down' removes its own marker when it finishes"
+
+# M33: STALENESS DROPPED -- the file's existence is the whole test. A `down` killed mid-run
+# then blocks every later bring-up, which is worse than the overlap this fixes.
+m=$(mutant m33 "$NDT" \
+    '    if [[ ! "$pid" =~ ^[0-9]+$ ]] || ! kill -0 "$pid" 2>/dev/null; then' \
+    '    if false; then')
+report "M33: a stale marker refuses forever" "$m" \
+       "  🔴 a marker whose pid is gone does NOT refuse"
+
+# M34 (widening): every marker is stale, so the guard can never fire. It passes every "does it
+# clear a dead marker" cell and none of the refusal cells.
+m=$(mutant m34 "$NDT" \
+    '    [[ -f "$f" ]] || return 1
+    pid="$(sed -n '"'"'s/^pid=//p'"'"' "$f" | head -1)"' \
+    '    [[ -f "$f" ]] || return 1
+    return 1
+    pid="$(sed -n '"'"'s/^pid=//p'"'"' "$f" | head -1)"')
+report "M34 (widening): no teardown is ever in flight" "$m" \
+       "  🔴 P4 preflight refuses while a teardown runs"
+
+# M35: the marker is written before the refusals, so a `down` that refused to run claims to be
+# running one -- and then blocks a bring-up that should have been allowed.
+m=$(mutant m35 "$NDT" \
+    '    held="$(foreign_claim)"
+    if [[ -n "$held" && "$force" != "--force" ]]; then' \
+    '    mark_teardown_start
+    held="$(foreign_claim)"
+    if [[ -n "$held" && "$force" != "--force" ]]; then')
+report "M35: a refused teardown still claims to be running" "$m" \
+       "  🔴 a refused 'ndt down' writes no marker"
+
+
+# --- F1: the plane the rate is read for (F-OFFLINE-1 §1.14) -----------------------------------
+
+# M36 restores F1: `sample_rate` is asked with no argument, so it looks the plane up -- and on a
+# machine with an OVS fabric left up that prints OVSDB's number, or "samples NOTHING", under
+# "(compiled into ndtwin_switch.json)".
+m=$(mutant m36 "$NDT" \
+    '    rate="$(sample_rate p4)"' \
+    '    rate="$(sample_rate)"')
+report "M36: up_p4 looks the plane up instead of naming it (F1)" "$m" \
+       "  🔴 the plane is passed, not looked up"
+
+# M37: the plane is named, and named wrong. "It passes an argument" is not the property.
+m=$(mutant m37 "$NDT" \
+    '    rate="$(sample_rate p4)"' \
+    '    rate="$(sample_rate ovs)"')
+report "M37: up_p4 asks for the OVS plane's rate" "$m" \
+       "  🔴 and OVS's 'samples NOTHING' never appears there"
+
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)

@@ -296,6 +296,103 @@ m=$(mutant n2 "$NDT" \
 report "N2 (control, never checks): every lab has no baseline" "$m" \
        "  and --check checks: rc 0, not 3"
 
+# --- F12 / B10: the help text, which nothing was reading (F-OFFLINE-1 §1.12, §1.24) ----------
+
+# F12 verbatim. Until 2026-09-11 the help defined rc 3 with the very sentence W12 had removed
+# from the output as false, and 78 green cells in this suite said nothing, because not one of
+# them looked at `ndt help`. This mutation puts it back.
+m=$(mutant m22 "$NDT" \
+    'message names it); 3 nothing was compared, because there is
+                  no baseline RIGHT NOW' \
+    'message names it); 3 nothing was compared, because no '\''ndt up'\''
+                  has run in THIS checkout')
+report "M22: help defines rc 3 by history again (F12)" "$m" \
+       "  🔴 the sentence W12 removed from the output is gone from the help too"
+
+# The half of F12 that a "delete the offending words" fix would leave broken: rc 3 has TWO
+# return sites (no record, ndt:2991; a record nobody can read, ndt:3001) and the help has to
+# name both. This mutation keeps the tense honest and drops the second cause.
+m=$(mutant m23 "$NDT" \
+    'ordinary up->down clears it) or unreadable.' \
+    'ordinary up->down clears it).')
+report "M23: help names only one of rc 3's two causes" "$m" \
+       "  🔴 and 'unreadable' as the other -- rc 3 has two return sites"
+
+# B10. The blanket claim comes back -- the one the overnight-hunt skill sent a whole round to
+# falsify, which is true only of the failure mode it names and reads as "this cannot happen".
+m=$(mutant m24 "$NDT" \
+    'It does NOT make the 4-host-model-against-a-128-host-fabric mistake
+  impossible: inside one tree the host count is whatever that file says' \
+    'The 4-host-model-against-a-128-host-fabric mistake cannot be made by forgetting an
+  environment variable: inside one tree the host count is whatever that file says')
+report "M24: the blanket host_count_override claim comes back (B10)" "$m" \
+       "  🔴 the blanket 'cannot be made' claim is gone"
+
+# The other direction on B10: the scope is right and the counter-example is dropped, so the
+# help says what the knob does not do without saying that it has already been done.
+m=$(mutant m25 "$NDT" \
+    "and on 09-05 setting it built exactly that pair (R3-3)." \
+    "and nobody has ever done so.")
+report "M25: B10 loses its 09-05 counter-example" "$m" \
+       "  with the 09-05 counter-example"
+
+# --- F9: the suite reads its own tree (F-OFFLINE-1 §1.13) -------------------------------------
+
+# The sim evidence log stops being derived from the tree the LAB acts in and is hard-coded to
+# the main checkout, which is what this suite was reading until 2026-09-11 -- a 148717-byte
+# root-owned file. The F9 cells exist to make that a red rather than a hidden input, and this
+# is the mutation that asks them to prove it.
+m=$(mutant m26 "$NDT" \
+    '        sim)    printf '"'"'%s/.test_run/logs/app_sim.log'"'"' "$(lab_kernel_dir)" ;;' \
+    '        sim)    printf '"'"'%s/.test_run/logs/app_sim.log'"'"' /home/adam/Desktop/NDTwin-Kernel ;;')
+report "M26: sim's evidence log is hard-coded to the main checkout (F9)" "$m" \
+       "  🔴 sim's evidence log is inside the fixture"
+
+
+# --- F10: the default round's model (F-OFFLINE-1 §1.15) ---------------------------------------
+
+# M27 restores F10: last_kernel_plane matches only OVS_* and P4_*, so the model the DEFAULT
+# round loads -- StaticNetworkTopologyMininet_10Switches.json, 128 hosts -- is unclassifiable,
+# and `ndt up; ndt down` cannot say what plane just ran.
+m=$(mutant m27 "$NDT" \
+    '        *StaticNetworkTopologyMininet_*) echo ovs; return 0 ;;' \
+    '        ' )
+report "M27: the default round's Mininet_* model is unclassifiable again (F10)" "$m" \
+       "  🔴 a Mininet_* model reads as ovs"
+
+# M28 (widening): everything is ovs. It satisfies both Mininet_* cells and destroys 1D/1F --
+# "I could not tell" and "it was ovs" are different answers, which is what this block is for.
+m=$(mutant m28 "$NDT" \
+    '        *StaticNetworkTopologyMininet_*) echo ovs; return 0 ;;
+        *StaticNetworkTopologyP4_*)  echo p4;  return 0 ;;
+    esac
+    return 1' \
+    '        *StaticNetworkTopologyMininet_*) echo ovs; return 0 ;;
+        *StaticNetworkTopologyP4_*)  echo p4;  return 0 ;;
+    esac
+    echo ovs; return 0')
+report "M28 (widening): every command is read as ovs" "$m" \
+       "  🔴 a physical-mode command is still rc 1"
+
+# --- F2 / F4: the help's rc tables (F-OFFLINE-1 §1.16) ----------------------------------------
+
+# M29 restores F2: the help says residue found is rc 1, full stop -- false in the state every
+# round ENDS in, because `ndt down` clears the baseline and the whole report is then rc 3.
+m=$(mutant m29 "$NDT" \
+    '                  residue FOUND is a problem, and it is rc 1 ONLY while there is a' \
+    '                  residue FOUND is a problem (rc 1). and it is rc 1 whenever there is a')
+report "M29: help says residue found is always rc 1 (F2)" "$m" \
+       "  🔴 rc 1 is scoped to 'while there is a baseline'"
+
+# M30 restores F4: the `apps orphans` table presents itself as disjoint, so a gate reads rc 2
+# as "no residue" -- and rc 2 is the ordinary answer on this machine.
+m=$(mutant m30 "$NDT" \
+    '                    🔴 THE CODES ARE NOT DISJOINT IN PRACTICE: the PROCESS answer' \
+    '                    The codes are disjoint: the PROCESS answer')
+report "M30: help calls the orphans rc table disjoint again (F4)" "$m" \
+       "  🔴 the rc table says it is not disjoint"
+
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then

@@ -579,5 +579,214 @@ has   "  and what the helper said is not swallowed"        "topo session already
 has   "  alongside ndt's own line"                         "topo-start failed" "$OUT"
 
 # ==========================================================================================
+section "8. H4: a model of a DIFFERENT network is refused before anything is built"
+# ==========================================================================================
+# Measured live by ROLE-2, 2026-09-11 01:20 (ROLE-2-CYCLES-REPORT §4, cycle-07):
+# `NDT_TOPO=setting/StaticNetworkTopologyP4_10Switches_128Hosts.json ndt up p4 4` was not
+# refused. It printed `hosts 4` and the 128-host model on adjacent lines, built the 4-host
+# fabric, wrote `hosts=4` and `model_hosts=128` into the same up.target, and hung in [2/3] for
+# over 300 s with :8000 never opening -- the kernel was never started at all, and the proxy's
+# log said `switch-entered was never acknowledged for [1..10] after 30 retries`.
+#
+# The escape hatch checked only that the file existed (`[[ -f "$NDT_TOPO" ]]`). Two guards now:
+# topo_for_hosts, which is where the hatch is, and record_up_target, which is the one place
+# every plane and every model path passes through and the function that was writing both
+# numbers side by side without comparing them.
+reset_fix
+mk_topo StaticNetworkTopologyP4_10Switches_128Hosts.json 128 288
+T128="$FIX/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json"
+T4="$FIX/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json"
+
+OUT="$(NDT_TOPO="$T128" drive 'topo_for_hosts 4 p4; echo "TRC=$? REFUSAL=[$TOPO_REFUSAL]"')"
+has   "  🔴 rc 3 -- a real file, for the wrong network"    "TRC=3" "$OUT"
+has   "  and the reason names both counts"                 "4 host(s) asked for on the p4 plane, 128 declared" "$OUT"
+has   "  and the file"                                     "$T128" "$OUT"
+hasnt "  🔴 and the model path is NOT printed for a caller to use" "REFUSAL=[]" "$OUT"
+
+# 🔴 The whole bring-up, from the argv ROLE-2 typed. The refusal is above the claim check, the
+# in-flight check and preflight, so nothing on the machine has been read yet, let alone changed.
+reset_fix
+OUT="$(NDT_TOPO="$T128" drive 'up_p4 4')"
+check "  🔴 'ndt up p4 4' with a 128-host NDT_TOPO is refused" "1" "$(rc_of_out "$OUT")"
+has   "  and says what it is refusing"                     "refusing to build" "$OUT"
+has   "  naming a model of a different network"            "names a model of a different network" "$OUT"
+# The numbers reach the OPERATOR, not only TOPO_REFUSAL. They travel out of a command
+# substitution to get here, and F8 is what happens when a fix forgets that: `topo="$(...)"`
+# left the reason empty in up_p4's shell and this line printed its fallback, naming nothing.
+has   "  🔴 and the refusal names both counts, not a fallback" \
+      "4 host(s) asked for on the p4 plane, 128 declared" "$OUT"
+has   "  and where the fabric's number comes from"         "host_count_override" "$OUT"
+has   "  and how to make the two agree"                    "ndt up p4 <n>" "$OUT"
+check "  🔴 and NOTHING was built: no topo-start, no cleanup" "" "$(cat "$FIX/sudo.log")"
+check "  🔴 and no baseline was written"                   "absent" \
+      "$([[ -f "$FIX/.test_run/up.target" ]] && echo present || echo absent)"
+
+# record_up_target is the second guard, and the general one: it refuses the same pair even when
+# it is handed to it directly, which is the shape any later escape hatch would arrive in.
+reset_fix
+OUT="$(drive "record_up_target p4 4 '$T128'")"
+check "  🔴 record_up_target refuses hosts=4 against model_hosts=128" "1" "$(rc_of_out "$OUT")"
+has   "  and says they are different networks"             "different networks" "$OUT"
+has   "  quoting the two fields it would have written"     "hosts=4, model_hosts=128" "$OUT"
+check "  🔴 and writes no file"                            "absent" \
+      "$([[ -f "$FIX/.test_run/up.target" ]] && echo present || echo absent)"
+
+# 🔴 THE CONTROLS. "Refuse whenever NDT_TOPO is set" would satisfy every check above and remove
+# the escape hatch the manual documents (doc/2026-08-17_testing-manual.md:832).
+reset_fix
+OUT="$(NDT_TOPO="$T4" drive 'topo_for_hosts 4 p4; echo "TRC=$?"')"
+has   "  🔴 a MATCHING NDT_TOPO is still honoured"         "TRC=0" "$OUT"
+has   "  and its path is what comes back"                  "$T4" "$OUT"
+OUT="$(drive 'topo_for_hosts 4 p4; echo "TRC=$?"')"
+has   "  🔴 and with no NDT_TOPO the glob still answers"   "TRC=0" "$OUT"
+has   "  with the 4-host model"                            "StaticNetworkTopologyP4_10Switches_4Hosts.json" "$OUT"
+# The glob branch answers "no such model" with rc 0 and an EMPTY line, and both callers test
+# the string. Left exactly as it was -- what must not happen is that answer becoming rc 3, which
+# would send an operator looking for an NDT_TOPO they never set.
+OUT="$(drive 'topo_for_hosts 7 p4; echo "TRC=$?"')"
+has   "  a size no model has is rc 0 with nothing, as before" "TRC=0" "$OUT"
+hasnt "  🔴 and never rc 3 -- there is no NDT_TOPO to blame"  "TRC=3" "$OUT"
+hasnt "  and no model is named"                            "StaticNetworkTopology" "$OUT"
+OUT="$(NDT_TOPO="$FIX/setting/does-not-exist.json" drive 'topo_for_hosts 4 p4; echo "TRC=$?"')"
+has   "  a missing NDT_TOPO file is still rc 1, not 3"     "TRC=1" "$OUT"
+reset_fix
+OUT="$(drive "record_up_target p4 4 '$T4'")"
+check "  🔴 and a matching pair is still recorded"         "0" "$(rc_of_out "$OUT")"
+check "  the baseline is there"                            "present" \
+      "$([[ -f "$FIX/.test_run/up.target" ]] && echo present || echo absent)"
+
+# 🔴 A model whose hosts cannot be counted is WARNED about and then built: NDT_TOPO exists for
+# models that do not follow the conventions, and "I could not count them" is not evidence of a
+# mismatch. What it must not do is look like a comparison that passed (E-7).
+reset_fix
+printf 'not json at all\n' > "$FIX/setting/unreadable.json"
+OUT="$(NDT_TOPO="$FIX/setting/unreadable.json" drive 'topo_for_hosts 4 p4; echo "TRC=$?"')"
+has   "  an uncountable model is not refused"              "TRC=0" "$OUT"
+has   "  🔴 but the missing comparison is said out loud"   "was NOT compared against it" "$OUT"
+# 🔴 warn() writes to STDOUT (ndt:102) and this function's stdout IS the model path, so a
+# warning printed the ordinary way becomes part of the filename. This is that cell.
+OUT="$(NDT_TOPO="$FIX/setting/unreadable.json" bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+topo_for_hosts 4 p4" 2>/dev/null)"
+check "  🔴 and the warning does not land in the model path" "$FIX/setting/unreadable.json" "$OUT"
+
+# ==========================================================================================
+section "9. H3: a bring-up that overlaps a teardown is refused, on BOTH planes"
+# ==========================================================================================
+# Measured live by ROLE-2, 2026-09-11 (ROLE-2-CYCLES-REPORT §4, cycle-13): a second `ndt up p4`
+# 13 s after a backgrounded `ndt down` printed `ok already up: 10 switches, 4 hosts, reusing`,
+# then PASSED `ok model matches fabric` with the fabric mid-SIGTERM, and the teardown went on to
+# name that run's own kernel and proxy as residue and advise `ndt down --deep`. On OVS the same
+# overlap was refused one second in, by mn_count. The difference is not care: bmv2 is root-owned
+# and its ports look identical coming up and going down, so on P4 there was nothing to read. The
+# teardown now records that it is running, and preflight refuses on the record.
+reset_fix
+DM="$FIX/.test_run/down.inflight"
+
+# A live teardown: this test's own shell is the pid, so it is certainly alive.
+printf 'pid=%s\nat=2026-09-11T01:26:11+0800\nby=role-2\n' "$$" > "$DM"
+OUT="$(drive 'preflight p4')"
+check "  🔴 P4 preflight refuses while a teardown runs"  "1" "$(rc_of_out "$OUT")"
+has   "  and says what it is refusing"                   "an 'ndt down' from this checkout is still running" "$OUT"
+has   "  naming the pid that is doing it"                "pid $$" "$OUT"
+has   "  and when it started"                            "2026-09-11T01:26:11+0800" "$OUT"
+has   "  🔴 and what the overlap actually does"          "REUSES the fabric" "$OUT"
+has   "  quoting what [1/3] said on 09-11"               "already up: 10 switches, reusing" "$OUT"
+has   "  and the remedy"                                 "wait for it to finish" "$OUT"
+OUT="$(drive 'preflight ovs')"
+check "  and OVS preflight refuses too"                  "1" "$(rc_of_out "$OUT")"
+# The whole bring-up, not just the predicate: nothing may be built.
+reset_fix; printf 'pid=%s\nat=2026-09-11T01:26:11+0800\n' "$$" > "$DM"
+OUT="$(drive 'up_p4 4')"
+check "  🔴 'ndt up p4 4' is refused"                    "1" "$(rc_of_out "$OUT")"
+check "  🔴 and no topo-start ran"                       "absent" \
+      "$(grep -qF topo-start "$FIX/sudo.log" && echo present || echo absent)"
+
+# 🔴 THE STALE MARKER, which is the failure this must not create: a `down` that was killed
+# leaves the file behind, and a marker that outlived its process must not make the lab
+# unstartable. Pid 2 is init's kthreadd on Linux, so instead of guessing a dead pid the fixture
+# uses one that certainly is not an `ndt down`: a pid that has exited. `$!` of a finished
+# background job is the cheapest one that is certainly gone.
+reset_fix
+(exit 0) & DEADPID=$!; wait "$DEADPID" 2>/dev/null
+printf 'pid=%s\nat=2026-09-10T23:59:31+0800\n' "$DEADPID" > "$DM"
+OUT="$(drive 'preflight p4')"
+check "  🔴 a marker whose pid is gone does NOT refuse"  "0" "$(rc_of_out "$OUT")"
+has   "  it says it removed it"                          "removing a stale teardown marker" "$OUT"
+has   "  naming the pid and when"                        "2026-09-10T23:59:31+0800" "$OUT"
+check "  🔴 and the file is gone, so it cannot block again" "absent" \
+      "$([[ -f "$DM" ]] && echo present || echo absent)"
+# A marker with no pid field at all -- a truncated write -- is stale, not a refusal.
+reset_fix; printf 'at=2026-09-10T23:59:31+0800\n' > "$DM"
+OUT="$(drive 'preflight p4')"
+check "  a marker with no pid is stale too"              "0" "$(rc_of_out "$OUT")"
+
+# 🔴 THE CONTROLS. "Refuse when the marker file exists" and "always refuse" both satisfy the
+# cells above; so would a guard wired to nothing.
+reset_fix
+OUT="$(drive 'preflight p4')"
+check "  🔴 no marker: preflight passes, as before"      "0" "$(rc_of_out "$OUT")"
+hasnt "  and says nothing about a teardown"              "still running" "$OUT"
+OUT="$(drive 'preflight ovs')"
+check "  and so does OVS"                                "0" "$(rc_of_out "$OUT")"
+
+# The teardown is what writes it, and the teardown is what takes it away. `cmd_down` is driven
+# with a fake stack and helper, as in group 4.
+reset_fix
+OUT="$(drive 'cmd_down; echo "MARKER=$([[ -f "$(down_marker)" ]] && echo present || echo absent)"')"
+has   "  🔴 'ndt down' removes its own marker when it finishes" "MARKER=absent" "$OUT"
+check "  and left none on disk"                          "absent" \
+      "$([[ -f "$DM" ]] && echo present || echo absent)"
+# 🔴 And it is written while the teardown is RUNNING, not merely created and deleted: the marker
+# is read from inside the teardown, at the moment cmd_clean runs.
+reset_fix
+OUT="$(drive 'cmd_clean() { teardown_in_flight >/dev/null && echo "MARKER-LIVE-DURING-DOWN"; return 0; }
+cmd_down')"
+has   "  🔴 and it is present DURING the teardown, not just around it" "MARKER-LIVE-DURING-DOWN" "$OUT"
+# A `down` that REFUSES never claims to be tearing down.
+reset_fix
+OUT="$(drive 'foreign_claim() { echo other-owner; }; cmd_down; echo "MARKER=$([[ -f "$(down_marker)" ]] && echo present || echo absent)"')"
+has   "  🔴 a refused 'ndt down' writes no marker"       "MARKER=absent" "$OUT"
+
+# ==========================================================================================
+section "10. F1: 'ndt up p4' asks for the P4 plane's rate, not for whatever plane is live"
+# ==========================================================================================
+# F-OFFLINE-1 §1.14. `up_p4` read `rate="$(sample_rate)"` with NO argument, so sample_rate asked
+# live_dataplane_kind -- and on a machine where an OVS fabric had been left up that answers
+# `ovs`, so the number came out of OVSDB and was printed under the label "(compiled into
+# ndtwin_switch.json)". The worst form is not a wrong fraction: it is
+# `NO sFlow record on any bridge -- this fabric samples NOTHING` printed as the compiled P4
+# pipeline's rate, with the reuse refusal below it asserting that ten bmv2 switches are not
+# running it. up_p4 is BUILDING the P4 plane; the plane is not something to look up here.
+#
+# 🔴 The ARGUMENT is what is observed, not the number. This suite's STUBS answer
+# `sample_rate() { echo 256; }`, so an assertion on "1/256" passes whether the call site names
+# the plane or not -- it would be a test of the stub. The stub here reports what it was asked.
+reset_fix; echo "0 10" > "$FIX/bmv2.seq"
+OUT="$(drive 'sample_rate() { echo "ASKED[${1:-NOTHING}]"; }
+live_dataplane_kind() { echo ovs; }
+up_p4')"
+has   "  🔴 the plane is passed, not looked up"          "ASKED[p4]" "$OUT"
+hasnt "  🔴 and it is not asked with no argument"        "ASKED[NOTHING]" "$OUT"
+
+# Then the consequence, with a fixture that answers by plane the way sample_rate does: ask for
+# p4 and you get the compiled rate; ask for anything else and you get OVS's answer. No
+# production logic is copied -- the mapping is the fixture.
+reset_fix; echo "0 10" > "$FIX/bmv2.seq"
+OUT="$(drive 'sample_rate() { case "${1:-}" in p4) echo 256 ;; *) echo OVS-NOSFLOW ;; esac; }
+live_dataplane_kind() { echo ovs; }
+up_p4')"
+has   "  so the line under the P4 label is the P4 rate" "sample rate  1/256     (compiled into ndtwin_switch.json)" "$OUT"
+hasnt "  🔴 and OVS's 'samples NOTHING' never appears there" "samples NOTHING" "$OUT"
+
+# 🔴 The reuse refusal quotes the same $rate, so it inherited the same defect. bmv2 already up,
+# so up_p4 takes the reuse path.
+reset_fix; echo "10" > "$FIX/bmv2.seq"
+OUT="$(drive 'sample_rate() { case "${1:-}" in p4) echo 256 ;; *) echo OVS-NOSFLOW ;; esac; }
+live_dataplane_kind() { echo ovs; }
+up_p4')"
+hasnt "  🔴 nor in the reuse refusal"                    "samples NOTHING" "$OUT"
+
+# ==========================================================================================
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]

@@ -509,6 +509,30 @@ record_up_target() {
     mkdir -p "$(dirname "$f")" || return 1
     sum="$(sha256sum "$topo" 2>/dev/null | cut -d' ' -f1)"
     counts="$(topo_model_counts "$topo")"
+    # [Co-developed with claude code -- Adam]
+    # 🔴 H4's sharpest point (ROLE-2, 2026-09-11): this function wrote `hosts=4` and
+    # `model_hosts=128` into the SAME nine-line file and never compared them, and `ndt up` went
+    # on building. Everything downstream then had both numbers and no verdict: `status --check`
+    # compares the live lab against `hosts`, the kernel loads `topology`, and a factor of 32
+    # between them sat in the baseline as data. Compared HERE as well as in topo_for_hosts,
+    # because this is the last point before [1/3] and the only one every plane and every model
+    # path passes through -- a later NDT_TOPO-shaped escape hatch cannot get past it.
+    #
+    # Refuses only on a definite mismatch, and nothing is built or written when it does. An
+    # unreadable model gives `counts` empty, which is recorded as `unavailable` below and is a
+    # missing comparison, not a passed one.
+    local mh="${counts%% *}"
+    if [[ "$mh" =~ ^[0-9]+$ && "$hosts" =~ ^[0-9]+$ ]] && (( mh != hosts )); then
+        err "refusing to build: the model and the fabric are different networks."
+        err "  asked for          $hosts host(s)   ($plane plane)"
+        err "  the model declares $mh host(s)   ${topo#$REPO/}"
+        err "  these are the two numbers this record would have carried side by side"
+        err "  (hosts=$hosts, model_hosts=$mh in ${f#$REPO/}) with nothing comparing them."
+        err "  ROLE-2 measured what that costs on 09-11: the fabric built, the kernel never"
+        err "  started, and [2/3] hung past 300s while the proxy retried switch-entered."
+        err "  either ask for $mh hosts, or point NDT_TOPO at the model for $hosts."
+        return 1
+    fi
     printf 'plane=%s\nhosts=%s\ntopology=%s\ntopology_sha256=%s\nmodel_hosts=%s\nmodel_edges=%s\nat=%s\nby=%s\nbuilder=%s\n' \
         "$plane" "$hosts" "${topo#$REPO/}" "${sum:-unavailable}" \
         "${counts%% *}" "${counts##* }" "$(date +%s)" "${NDT_OWNER:-unset}" "up_$plane" > "$f" || return 1
@@ -566,6 +590,16 @@ last_kernel_plane() {
     [[ -n "$cmd" ]] || return 1
     case "$cmd" in
         *StaticNetworkTopologyOVS_*) echo ovs; return 0 ;;
+        # 🔴 F10 (F-OFFLINE-1 §1.15). The DEFAULT round could not be classified. `ndt up` is
+        # `up_ovs 128` (resolve_up_target), setting/ has no OVS 128-host model, and
+        # topo_for_hosts's OVS glob is `StaticNetworkTopologyOVS_*.json
+        # StaticNetworkTopologyMininet_*.json` -- so the model the default round loads is
+        # setting/StaticNetworkTopologyMininet_10Switches.json, which declares 128 hosts and
+        # matched neither pattern here. After `ndt up; ndt down` this returned rc 1 and
+        # check_up_target printed `names no model this script can classify` -- byte-identical to
+        # what a physical-mode run prints -- while the same report's `rate source` row said OVS.
+        # Mininet_* is in the OVS family by the same glob that picks it, so it is read as ovs.
+        *StaticNetworkTopologyMininet_*) echo ovs; return 0 ;;
         *StaticNetworkTopologyP4_*)  echo p4;  return 0 ;;
     esac
     return 1
@@ -1226,11 +1260,58 @@ rate_source() {
 # mistake this exists to prevent, so the family is part of the query, not an afterthought.
 #
 # NDT_TOPO short-circuits the whole thing, for a model that does not follow the naming.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 H4, measured live by ROLE-2 on 2026-09-11 01:20 (ROLE-2-CYCLES-REPORT §4, cycle-07):
+# `NDT_TOPO=setting/StaticNetworkTopologyP4_10Switches_128Hosts.json ndt up p4 4` was NOT
+# refused. It printed the two numbers on adjacent lines --
+#     hosts        4        (p4_proxy/mininet/host_count_override)
+#     topology     setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+# -- built the 4-host fabric, wrote `hosts=4` and `model_hosts=128` into the same nine-line
+# up.target, and then hung in [2/3] for over 300 s with :8000 never opening and nothing new in
+# kernel.log: the kernel was never started, and the proxy's own log said
+# `switch-entered was never acknowledged for [1..10] after 30 retries`. The short-circuit
+# checked only that the file EXISTS. It now checks the one thing the glob branch below checks --
+# that the model describes the network being built.
+#
+#   rc 0  the model to load, on stdout -- or, from the glob branch, rc 0 with stdout EMPTY when
+#         no model in setting/ declares that host count. Both callers test the string and not
+#         the code, and that is left exactly as it was.
+#   rc 1  NDT_TOPO names a path that is not a file
+#   rc 3  NDT_TOPO names a real file for a DIFFERENT network. TOPO_REFUSAL says which numbers.
+#
+# 🔴 Silent, with the reason in TOPO_REFUSAL rather than printed here, because cmd_status calls
+# this too (ndt:3138, for the P4 knob row) and a refusal belongs in a bring-up, not in a report.
+# Only the `up` builders print it.
+#
+# 🔴 Refuses only on a DEFINITE mismatch -- both counts read, and different. A model whose hosts
+# this script cannot count is warned about and then built, because NDT_TOPO exists for models
+# that do not follow the conventions and "I could not count them" is not evidence of a mismatch.
+# The warning is there so that a comparison which did not happen cannot look like one that
+# passed (E-7).
+TOPO_REFUSAL=""
 topo_for_hosts() {
     local want="$1" mode="${2:-p4}"
+    TOPO_REFUSAL=""
     if [[ -n "${NDT_TOPO:-}" ]]; then
-        [[ -f "$NDT_TOPO" ]] && { echo "$NDT_TOPO"; return 0; }
-        return 1
+        [[ -f "$NDT_TOPO" ]] || return 1
+        # The same counting rule record_up_target writes model_hosts with, called rather than
+        # reimplemented: two copies of "how many hosts does this file declare" is how the two
+        # numbers in up.target start being able to disagree about the same file.
+        local mh; mh="$(topo_model_counts "$NDT_TOPO")"; mh="${mh%% *}"
+        if [[ ! "$mh" =~ ^[0-9]+$ ]]; then
+            # 🔴 >&2 on both, and not because stderr is tidier: warn() writes to STDOUT
+            # (ndt:102) and this function's stdout IS the model path -- `topo="$(topo_for_hosts
+            # ...)"`. A warning printed the ordinary way would become part of the filename.
+            warn "NDT_TOPO=$NDT_TOPO -- this script could not count the hosts it declares," >&2
+            warn "  so '$want host(s) asked for' was NOT compared against it. (H4)" >&2
+            echo "$NDT_TOPO"; return 0
+        fi
+        if (( mh != want )); then
+            TOPO_REFUSAL="NDT_TOPO names a model of a different network: $want host(s) asked for on the $mode plane, $mh declared by $NDT_TOPO"
+            return 3
+        fi
+        echo "$NDT_TOPO"; return 0
     fi
     local pats="StaticNetworkTopologyP4_*.json"
     [[ "$mode" != p4 ]] && pats="StaticNetworkTopologyOVS_*.json StaticNetworkTopologyMininet_*.json"
@@ -1455,6 +1536,11 @@ preflight() {
     # and ovs-topo-4host derive their topology from the same KERNEL_DIR that topo-start does
     # (ndtwin-lab's ovs_topo_script). See guard_lab_acts_in_this_tree.
     guard_lab_acts_in_this_tree || bad=1
+    # H3, and next to the tree guard for the same reason: both are facts that make the whole
+    # bring-up wrong, both are knowable before anything is read from the machine, and both are
+    # plane-independent -- the P4 plane is the one that cannot see the teardown, and the OVS
+    # plane's own refusal (mn_count, in up_ovs) fires later and names a symptom.
+    guard_no_teardown_in_flight || bad=1
     [[ -x "$REPO/build/bin/ndtwin_kernel" ]] || { err "kernel binary missing: build/bin/ndtwin_kernel"; bad=1; }
     if [[ "$mode" == "p4" ]]; then
         [[ -x "$REPO/p4_proxy/venv/bin/python" ]] || { err "proxy venv missing: p4_proxy/venv/bin/python"; bad=1; }
@@ -1645,10 +1731,35 @@ up_p4() {
         set_host_count "$1" || return 1
     fi
     hosts="$(host_count)"
-    topo="$(topo_for_hosts "$hosts" p4)"
+    # 🔴 The path, the rc AND the reason out of ONE call, and not because three lines would be
+    # untidy: a command substitution is a subshell, so `topo="$(topo_for_hosts ...)"` alone left
+    # TOPO_REFUSAL empty in this shell and this refusal printed its fallback sentence, naming no
+    # numbers. That is F8's failure mode exactly (LAB_KERNEL_DIR_SOURCE, ndt:1065), reproduced
+    # here within a day of it being fixed there, and caught by section 8 of
+    # tests/shell/test_ndt_up_down_robust.sh rather than by a reader.
+    local trc both rest
+    both="$(topo_for_hosts "$hosts" p4; printf '\t%s\t%s' "$?" "$TOPO_REFUSAL")"
+    topo="${both%%$'\t'*}"; rest="${both#*$'\t'}"
+    trc="${rest%%$'\t'*}"; TOPO_REFUSAL="${rest#*$'\t'}"
     binary="$(bmv2_binary)"
-    rate="$(sample_rate)"
+    # 🔴 F1 (F-OFFLINE-1 §1.14). `sample_rate` with no argument asks live_dataplane_kind, so
+    # on a machine where an OVS fabric was left up this printed OVS's sampling rate -- or
+    # `NO sFlow record on any bridge -- this fabric samples NOTHING` -- under the label
+    # "(compiled into ndtwin_switch.json)", and the reuse refusal below then asserted that ten
+    # bmv2 switches were not running a number that came out of OVSDB. This function is BUILDING
+    # the P4 plane; the plane is not something to look up here.
+    rate="$(sample_rate p4)"
 
+    # H4. rc 3 is "you named a real model, of a different network" -- a separate answer from
+    # "there is no model with this host count", and it needs a separate message: the file the
+    # operator named is right there, and telling them to derive one would be wrong.
+    if (( trc == 3 )); then
+        err "refusing to build: ${TOPO_REFUSAL:-NDT_TOPO does not match the host count}"
+        err "  the fabric is built from p4_proxy/mininet/host_count_override ($hosts), and the"
+        err "  kernel would load the model NDT_TOPO names. Two networks, one bring-up."
+        err "  either drop NDT_TOPO, or set the knob to the model's count:  ndt up p4 <n>"
+        return 1
+    fi
     if [[ -z "$topo" ]]; then
         err "no P4 topology model in setting/ has $hosts hosts."
         err "the kernel would load a model of a different network. derive one first:"
@@ -1682,7 +1793,7 @@ up_p4() {
 
     # What this run was asked for, written down before anything is built, so `status --check`
     # has a baseline that does not depend on reading a P4-only knob back afterwards. (#8, N12)
-    record_up_target p4 "$hosts" "$topo"
+    record_up_target p4 "$hosts" "$topo" || return 1
     claim_note_up "p4 $hosts"
 
     # -- 1. fabric --
@@ -1963,7 +2074,18 @@ up_ovs() {
         err "  use:  ndt up ovs   (128)   |   ndt up ovs4   (4)   |   ndt up p4 $ovs_hosts"
         return 2
     fi
-    local ovs_topo; ovs_topo="$(topo_for_hosts "$ovs_hosts" ovs)"
+    # One call, three answers -- see the note in up_p4: TOPO_REFUSAL set inside a command
+    # substitution dies with the subshell.
+    local ovs_topo ovs_trc ovs_both ovs_rest
+    ovs_both="$(topo_for_hosts "$ovs_hosts" ovs; printf '\t%s\t%s' "$?" "$TOPO_REFUSAL")"
+    ovs_topo="${ovs_both%%$'\t'*}"; ovs_rest="${ovs_both#*$'\t'}"
+    ovs_trc="${ovs_rest%%$'\t'*}"; TOPO_REFUSAL="${ovs_rest#*$'\t'}"
+    if (( ovs_trc == 3 )); then
+        err "refusing to build: ${TOPO_REFUSAL:-NDT_TOPO does not match the host count}"
+        err "  on OVS the size is the VERB -- ovs-topo-start builds 128, ovs-topo-4host builds"
+        err "  4 -- so nothing here can make the fabric follow the model NDT_TOPO names. (H4)"
+        return 1
+    fi
     if [[ -z "$ovs_topo" ]]; then
         err "no OVS topology model in setting/ has $ovs_hosts hosts"
         return 1
@@ -1994,7 +2116,7 @@ up_ovs() {
 
     # Same as up_p4: the target is recorded once every pre-lab refusal has passed and just
     # before the first thing that changes the machine. (#8, N12)
-    record_up_target ovs "$ovs_hosts" "$ovs_topo"
+    record_up_target ovs "$ovs_hosts" "$ovs_topo" || { rm -f "$fifo" "$out"; return 1; }
     claim_note_up "ovs $ovs_hosts"
 
     say "[1/4] control plane (Ryu)"
@@ -2212,6 +2334,83 @@ wait_reaped() {
     return 1
 }
 
+# --- a teardown that is still running ---------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 H3, measured live by ROLE-2 on 2026-09-11 (ROLE-2-CYCLES-REPORT §4, cycle-13). A second
+# `ndt up p4` thirteen seconds after a backgrounded `ndt down`:
+#
+#   * preflight saw :30051-30060 and :9091-9100 still held by the DYING fabric and answered
+#     `unknown` rather than refusing -- correctly, on its own terms: bmv2 runs as root, so a
+#     live P4 fabric always looks like that (the reuse path depends on it);
+#   * [1/3] printed `ok already up: 10 switches, 4 hosts, reusing` -- it reused a fabric that
+#     was being torn down;
+#   * [3/3] then PASSED `ok model matches fabric: 4 hosts (kernel graph, topology file and 4
+#     host namespaces all agree)`, with the next line in the log a bare `Terminated`;
+#   * it ended `h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding`, which is the
+#     wrong diagnosis: the fabric was not failing to forward, it no longer existed;
+#   * the background `down` then reported the SECOND up's brand-new kernel and proxy as
+#     residue -- `residue: ndtwin_kernel pid 1916426 holding :8000` -- and advised
+#     `ndt down --deep`, which would have killed what the operator had just started;
+#   * and its clear_up_target removed the second up's baseline, so `--check` fell from rc 1
+#     (which could still state facts) to rc 3, "COULD NOT CHECK", exactly when a live half
+#     stack most needed describing.
+#
+# On the OVS plane the same overlap is refused cleanly one second in, because mn_count() sees
+# the Mininet still standing: `a Mininet is already running (15 host/switch processes)`. The
+# P4 plane has no such reading -- bmv2 is root-owned and its ports look identical whether the
+# fabric is coming up, up, or going down -- so the missing fact was never observable from the
+# machine. It has to be RECORDED, by the only process that knows: the teardown itself.
+#
+# 🔴 A marker, not a lock. It says "pid N is tearing down, since T", and a bring-up refuses on
+# it. What it must never do is outlive the teardown -- a crashed `down` that made every later
+# `up` impossible would be worse than the overlap -- so the reader verifies the pid is alive
+# and removes the marker itself when it is not.
+down_marker() { echo "${NDT_DOWN_MARKER:-$REPO/.test_run/down.inflight}"; }
+
+# teardown_in_flight -- "<pid> <at>" while an `ndt down` from this checkout is running; rc 1
+# otherwise. A marker whose pid is gone is STALE: it is removed here, out loud, and reported as
+# no teardown. Same checkout and same user, so `kill -0` is the whole test.
+teardown_in_flight() {
+    local f pid at
+    f="$(down_marker)"
+    [[ -f "$f" ]] || return 1
+    pid="$(sed -n 's/^pid=//p' "$f" | head -1)"
+    at="$(sed -n 's/^at=//p' "$f" | head -1)"
+    if [[ ! "$pid" =~ ^[0-9]+$ ]] || ! kill -0 "$pid" 2>/dev/null; then
+        warn "removing a stale teardown marker: pid ${pid:-?} (recorded ${at:-?}) is gone." >&2
+        warn "  a crashed 'ndt down' must not make every later bring-up impossible. (${f#$REPO/})" >&2
+        rm -f "$f"
+        return 1
+    fi
+    printf '%s %s\n' "$pid" "${at:-?}"
+    return 0
+}
+
+mark_teardown_start() {
+    local f; f="$(down_marker)"
+    mkdir -p "$(dirname "$f")" 2>/dev/null || return 0
+    printf 'pid=%s\nat=%s\nby=%s\n' "$$" "$(date '+%Y-%m-%dT%H:%M:%S%z')" "${NDT_OWNER:-unset}" > "$f"
+}
+mark_teardown_end() { rm -f "$(down_marker)"; }
+
+# guard_no_teardown_in_flight -- the refusal. Called from preflight, which is the one thing both
+# planes run before the machine is touched.
+guard_no_teardown_in_flight() {
+    local tif; tif="$(teardown_in_flight)" || return 0
+    err "refusing to build: an 'ndt down' from this checkout is still running."
+    err "  pid ${tif%% *}, started ${tif#* }   ($(down_marker | sed "s|^$REPO/||"))"
+    err "  a bring-up that overlaps a teardown does not fail cleanly -- it REUSES the fabric"
+    err "  being destroyed. Measured 09-11: [1/3] said 'already up: 10 switches, reusing',"
+    err "  [3/3] passed 'model matches fabric', and the fabric was mid-SIGTERM. The teardown"
+    err "  then reported this run's own kernel and proxy as residue and advised 'ndt down"
+    err "  --deep', which would have killed them."
+    err "  wait for it to finish, then bring up. On OVS this was already refused by"
+    err "  mn_count (a Mininet is already running); bmv2 is root-owned and its ports look the"
+    err "  same coming up and going down, so on P4 nothing could see it. (H3)"
+    return 1
+}
+
 cmd_down() {
     local force="" deep="" arg busy held down_rc=0
     for arg in "$@"; do
@@ -2246,6 +2445,13 @@ cmd_down() {
         return 1
     fi
     [[ -n "$busy" ]] && warn "--force: tearing down with a measurement in flight"
+
+    # H3. From here on this process is destroying the lab, and a concurrent `ndt up` has no
+    # other way to know: every reading it could take -- held ports, a live fabric, a topo
+    # session -- looks exactly like a stack that is up. Written AFTER the refusals above, so a
+    # `down` that refused to run never claims to be running one, and removed at the single
+    # exit below.
+    mark_teardown_start
 
     say "ndt down"
 
@@ -2333,6 +2539,9 @@ cmd_down() {
     # reader would wait for a machine that is already free. Written AFTER the assertion above,
     # so the note reports what was verified rather than what was attempted.
     claim_note_down "$down_rc"
+    # H3. One exit path, so one removal. A `down` killed before it gets here leaves the marker
+    # behind, which is why teardown_in_flight checks the pid rather than trusting the file.
+    mark_teardown_end
     return "$down_rc"
 }
 
@@ -5663,6 +5872,92 @@ residue_report() {
     return 0
 }
 
+# stack_state -- what of the STACK is up, for the one report that never looked. Report only:
+# it returns 0 always and changes no exit code.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 H2, measured live by ROLE-2 on 2026-09-11 (ROLE-2-CYCLES-REPORT §4). `ndt apps orphans`
+# answers two questions -- are any APP processes untracked, and is anything of an app's still on
+# the NETWORK -- and every round's restore check reads its verdict as "the lab is clean". It is
+# not the same statement, and three measurements say what the gap costs:
+#
+#   cycle-07  10 bmv2 + 14 mininet processes + a live proxy, kernel down.  CLEAN.
+#   cycle-12  10 OVS bridges + 15 mininet processes + a topo session.      CLEAN.
+#   cycle-13  kernel serving a 14-node graph on :8000, 0 bmv2, 0 mininet, no topo session,
+#             proxy alive on :8081.                                        CLEAN.
+#
+# All three verdicts were correct about what they measured. None of them measured the stack.
+#
+# 🔴 FACTS, and the classification beside them, in ONE line the reader can parse -- the same
+# shape as residue_report's `tally:` line and for the same reason: a reader should be able to
+# check the word against the numbers rather than against this function's source.
+#
+#   stack: kernel=up|down dataplane=p4|mininet|none bmv2=<n> mininet=<n> proxy=up|down
+#          verdict=whole-up|whole-down|HALF
+#
+# 🔴 Only readings that need no privilege: two port probes and two process counts. Reaching for
+# ovs_bridge_count or topo_session here -- both of which go through sudo -- would make
+# `ndt apps orphans`, a read-only question anyone can ask, depend on a grant, and a refused
+# privileged call would arrive as a missing half, which is the shape this line exists to make
+# visible. (Spelled as function names on purpose: tests/shell/test_ndt_sudo_surface.sh extracts
+# every `sudo -n <cmd>` in this file INCLUDING the ones in comments, because a command a comment
+# teaches needs a grant as much as one the code runs -- so naming them literally here would
+# demand rows for commands this function does not call.)
+#
+# 🔴 HALF means the two halves DISAGREE: a control plane with no data plane, or a data plane
+# with no control plane. Not "something is up" -- `apps orphans` is asked BEFORE the down as
+# well, on a healthy fabric, where whole-up is the right answer and must stay CLEAN.
+#
+# 🔴 The one false positive this can produce is a kernel started with `--mode physical`, which
+# has no bmv2 and no Mininet by design. `ndt up` cannot build one (resolve_up_target has no
+# physical target) so it cannot arise from this tool, and the physical testbed is out of service;
+# it is named in the printed line rather than guessed at, and FIX-NDT-2 SUMMARY §7 carries it.
+stack_state() {
+    local kernel proxy nb nm dp verdict
+    kernel=down; port_open 8000 && kernel=up
+    proxy=down;  port_open 8081 && proxy=up
+    nb="$(bmv2_count)"; nm="$(mn_count)"
+    [[ "$nb" =~ ^[0-9]+$ ]] || nb=0
+    [[ "$nm" =~ ^[0-9]+$ ]] || nm=0
+    if   (( nb > 0 )); then dp=p4
+    elif (( nm > 0 )); then dp=mininet
+    else                    dp=none
+    fi
+    if [[ "$kernel" == up && "$dp" == none ]]; then verdict=HALF
+    elif [[ "$kernel" == down && "$dp" != none ]]; then verdict=HALF
+    elif [[ "$kernel" == up ]]; then verdict=whole-up
+    else verdict=whole-down
+    fi
+    printf 'stack: kernel=%s dataplane=%s bmv2=%s mininet=%s proxy=%s verdict=%s\n' \
+        "$kernel" "$dp" "$nb" "$nm" "$proxy" "$verdict"
+    return 0
+}
+
+# stack_report -- stack_state, printed, with the sentence a HALF answer needs. Report only.
+stack_report() {
+    local line v
+    line="$(stack_state)"
+    v="${line##*verdict=}"
+    info "  $line"
+    case "$v" in
+        HALF)
+            warn "  HALF A STACK. the two halves disagree: one of the kernel and the data plane"
+            warn "  is there and the other is not. this verb answers about APP processes and"
+            warn "  about the NETWORK; it does not answer about the stack, and on 09-11 it said"
+            warn "  CLEAN three times over a machine in this state (H2). a kernel with no"
+            warn "  fabric serves a graph of a network that is not there; a fabric with no"
+            warn "  kernel forwards with nothing recording it. take it down:  ndt down"
+            warn "  (a kernel started with --mode physical reads like this too and is not a"
+            warn "  finding -- 'ndt up' cannot build one.)" ;;
+        whole-up)
+            info "  the stack is up. that is not residue -- 'apps orphans' is asked before a"
+            info "  teardown as well as after it." ;;
+        whole-down)
+            info "  no kernel and no data plane: nothing of the stack is up." ;;
+    esac
+    return 0
+}
+
 apps_orphans() {
     local a found=0 pid e blind="" s spid lp known
     local -a unnamed=()
@@ -5941,6 +6236,14 @@ cmd_apps() {
         orphans)
             apps_orphans; local orc=$?
             echo
+            # H2. Printed HERE, in the command, and not inside apps_orphans or residue_report:
+            # those two are the process half and the network half, they are driven directly by
+            # tests/shell/test_ndt_app_orphans.sh and tests/shell/test_apps_residue.sh, and
+            # neither of their answers changes. This is a third reading, and the rc below is
+            # untouched by it -- `ndt`'s 0/1/2/4/5 table is the spec (`ndt help`).
+            say "stack"
+            stack_report
+            echo
             # shellcheck disable=SC2086
             residue_report $APP_NAMES
             residue_verdict; local rrc=$?
@@ -6098,12 +6401,25 @@ usage: ndt <command>
                   for, recorded in .test_run/up.target -- data plane kind, host
                   count, kernel graph, and the model file's sha256.
                   exit 0 all compared fields match; 1 one of them does not (the
-                  message names it); 3 nothing was compared, because no 'ndt up'
-                  has run in THIS checkout. 3 is never "checked and matched".
+                  message names it); 3 nothing was compared, because there is
+                  no baseline RIGHT NOW -- .test_run/up.target is absent (every
+                  ordinary up->down clears it) or unreadable.
+                  3 is never "checked and matched", and it is NOT "no 'ndt up'
+                  has ever run here": that sentence was taken out of the output
+                  on 09-05 (W12/I-1) as false after every teardown, and when
+                  .test_run/pids/kernel.exit is there the report says what the
+                  last run was.
                   --check also prints a 'residue' row: rules left inside an app's
-                  window and locks still held. residue FOUND is a problem (rc 1);
-                  residue that could not be checked is printed as NOT CHECKED and
-                  is never printed as clean. (G-12 / W16-2)
+                  window and locks still held. residue that could not be checked is
+                  printed as NOT CHECKED and never as clean. (G-12 / W16-2)
+                  residue FOUND is a problem, and it is rc 1 ONLY while there is a
+                  baseline: with no up.target the whole report is rc 3, and the
+                  residue and knob problems are printed under "everything else this
+                  report could still check" rather than raising the code. 'ndt down'
+                  clears the baseline, so that is the state at the END of every
+                  round -- exactly when a rule is most likely to be left on the wire
+                  with no process to attribute it to. Read the residue ROW, not the
+                  exit code, when the record row says none. (F2, 2026-09-11)
   clean         just the teardown assertion (exit 1 if anything survived)
   check         telemetry double-count tripwire
   apps [names]  start readers/apps; no args on a terminal = interactive picker
@@ -6119,6 +6435,15 @@ usage: ndt <command>
                     a live process needs 'ndt apps stop', a leftover rule needs a
                     delete_flow_entry by hand. Every gate that reads this rc has
                     to be updated. (G-12 / W16-1)
+                    🔴 THE CODES ARE NOT DISJOINT IN PRACTICE: the PROCESS answer
+                    wins whenever it is non-zero, so 2 outranks both 4 and 5 -- and
+                    2 is the ordinary answer on this machine, because /proc/<pid>/fd
+                    of a root process cannot be read and every app the lab helper
+                    starts is root. So "4: a rule or a lock is still there" can be
+                    true and unreachable at the same time. The stderr says so when
+                    it happens ("and the network is not clean either (residue rc
+                    would be 4)"), and the fix for a gate is to read the report:
+                    tools/test_workflow/orphans_verdict.sh. (F4, 2026-09-11)
                   stop and orphans also LIST what an app left on the NETWORK --
                     flow rules and held locks -- and delete none of it. suspected
                     by time only: a rule has no owner and its cookie is 0. G-12.
@@ -6135,9 +6460,15 @@ usage: ndt <command>
   Declare yourself before a long run -- any script can just write .test_run/lab.claim:
       owner=<name>   expires=<unix seconds>   note=<optional>
 
-  ndt up derives the kernel's topology model from host_count_override, so the
-  4-host-model-against-a-128-host-fabric mistake cannot be made by forgetting an
-  environment variable.
+  On P4, 'ndt up' derives the kernel's topology model from
+  p4_proxy/mininet/host_count_override, so model and fabric cannot disagree
+  because an environment variable was forgotten -- and since 09-10 the
+  two-checkout form of that mistake is refused before anything is built ('sudo
+  ndtwin-lab' acts in ONE tree, and 'ndt up' checks it is this one).
+  It does NOT make the 4-host-model-against-a-128-host-fabric mistake
+  impossible: inside one tree the host count is whatever that file says, 'ndt up
+  p4 N' rewrites it, and on 09-05 setting it built exactly that pair (R3-3).
+  OVS has no such knob -- there the size is the verb.
 
 repo: $REPO
 EOF

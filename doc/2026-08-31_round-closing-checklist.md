@@ -109,6 +109,12 @@ hook 只在你 commit 的那一刻才有機會說話，而**「缺席」不觸�
       **VERDICT 由行程那半決定**（乾淨 ⇒ rc 0，`VERDICT: CLEAN -- the process half only; …`）。
       **那不是「網路乾淨」**，是「沒問到」——要那半的答案，把這一格移到 down 之前。
       沒有那句話而沒有 tally ⇒ 照舊 rc 2 `UNUSABLE`，**不准當成過**。
+      🆕 **09-11 加一個地板：helper 的 rc 3 `NOT CHECKED`。** 「前兩個數字是 0」只有在
+      **網路那半至少答了一句**時才算乾淨（`lock <t> free`／`HELD`／
+      `no flow entry arrived during that window`／`rule(s) listed:`）。**kernel 開著、tally 有印、
+      三個 lock probe 全 `NOT CHECKED (http 500)` ⇒ rc 3、印 `VERDICT: NOT CHECKED`**，
+      不准當成過（F-OFFLINE-1 §1.11：那格原本印 CLEAN rc 0，而 `ndt` 自己回 5）。
+      **部分盲照舊 CLEAN＋NOTE；kernel-down 那格照舊 `CLEAN -- the process half only`。**
       **2026-09-07 起它的 rc 不只回答行程了**（G-12／W16-1），
       判準跟著改，五個碼互斥、看到哪一個就做哪一件事：
 

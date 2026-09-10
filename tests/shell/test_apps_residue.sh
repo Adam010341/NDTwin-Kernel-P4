@@ -124,6 +124,13 @@ live_dataplane_kind() { echo "${FX_PLANE:-ovs}"; }
 # code depends on that is a suite that reports the machine rather than the code. What the
 # resolution rule itself does is tests/shell/test_ndt_helper_apps_window.sh group 1.
 lab_kernel_dir() { echo "$REPO"; }
+# H2 (2026-09-11): `cmd_apps orphans` now also prints a `stack:` line, and stack_state reads
+# two ports and two process counts. Answered from the fixture for the same reason
+# live_dataplane_kind is -- the real bmv2_count and mn_count shell out to ps, and a suite whose
+# output depends on what is running on this machine is a suite that reports the machine.
+bmv2_count() { echo "${FX_BMV2:-0}"; }
+mn_count() { echo "${FX_MN:-0}"; }
+port_open() { case "$1" in 8081) [[ "${FX_PROXY_UP:-0}" == 1 ]] ;; *) [[ "${FX_KERNEL_UP:-1}" == 1 ]] ;; esac; }
 '
 LOCKS_FREE='lock_probe() { echo free; }'
 LOCK_HELD='lock_probe() { case "$1" in graph_lock) echo "held 4 30" ;; *) echo free ;; esac; }'
@@ -359,6 +366,72 @@ check "🔴 no answer at all is not a free lock"            "unknown :8000 gave 
       "$(bash -c "source '$NDT' >/dev/null 2>&1
 curl() { :; }
 lock_probe graph_lock" 2>&1)"
+
+# ==========================================================================================
+section "H2. 'apps orphans' says what of the STACK is up -- the reading it never had"
+# ==========================================================================================
+# Measured live by ROLE-2, 2026-09-11 (ROLE-2-CYCLES-REPORT §4): orphans_verdict.sh printed
+# CLEAN three times over a machine whose stack was half up -- 10 bmv2 + 14 mininet with the
+# kernel down (cycle-07), 15 mininet + a topo session (cycle-12), and a kernel serving a
+# 14-node graph with 0 bmv2 and 0 mininet (cycle-13). Every verdict was correct about what it
+# had been given: nothing in this report mentioned the kernel, the fabric or the proxy.
+#
+# Report only. ndt's 0/1/2/4/5 rc table is the spec (ndt help) and is NOT touched by this
+# group -- the rc assertions below are the proof of that.
+
+# cycle-13: a control plane with nothing under it.
+OUT="$(FX_KERNEL_UP=1 FX_BMV2=0 FX_MN=0 FX_PROXY_UP=1 orphans_with "$LOCKS_FREE")"
+has   "🔴 the stack line is printed"                     "stack: kernel=up dataplane=none" "$OUT"
+has   "  with the counts beside the word"                "bmv2=0 mininet=0" "$OUT"
+has   "  and the proxy"                                  "proxy=up" "$OUT"
+has   "🔴 and the verdict word a reader can parse"       "verdict=HALF" "$OUT"
+has   "  with the sentence that says what it means"      "HALF A STACK" "$OUT"
+has   "  and the remedy"                                 "take it down:  ndt down" "$OUT"
+has   "  and the physical-mode caveat, not guessed at"   "--mode physical" "$OUT"
+
+# cycle-07: a data plane with nothing recording it.
+OUT="$(FX_KERNEL_UP=0 FX_BMV2=10 FX_MN=14 orphans_with "$LOCKS_FREE")"
+has   "🔴 a fabric with no kernel is HALF too"           "verdict=HALF" "$OUT"
+has   "  and the plane is named from the count"          "dataplane=p4" "$OUT"
+has   "  with both counts"                               "bmv2=10 mininet=14" "$OUT"
+# cycle-12: mininet processes, no bmv2 -- the OVS shape of the same state.
+OUT="$(FX_KERNEL_UP=0 FX_BMV2=0 FX_MN=15 orphans_with "$LOCKS_FREE")"
+has   "  and an OVS fabric reads as mininet"             "dataplane=mininet bmv2=0 mininet=15" "$OUT"
+has   "  still HALF"                                     "verdict=HALF" "$OUT"
+
+# 🔴 THE CONTROLS. "Anything up is a finding" would satisfy every cell above and make every
+# mid-round 'apps orphans' a failure -- arm_up.sh asks this verb at the START of a round.
+OUT="$(FX_KERNEL_UP=1 FX_BMV2=10 FX_MN=14 orphans_with "$LOCKS_FREE")"
+has   "🔴 a healthy P4 fabric is whole-up, not HALF"     "verdict=whole-up" "$OUT"
+hasnt "  and no HALF sentence is printed"                "HALF A STACK" "$OUT"
+has   "  it says why that is not residue"                "not residue" "$OUT"
+OUT="$(FX_KERNEL_UP=1 FX_BMV2=0 FX_MN=14 orphans_with "$LOCKS_FREE")"
+has   "  a healthy OVS fabric too"                       "verdict=whole-up" "$OUT"
+OUT="$(FX_KERNEL_UP=0 FX_BMV2=0 FX_MN=0 orphans_with "$LOCKS_FREE")"
+has   "🔴 and a finished round is whole-down"            "verdict=whole-down" "$OUT"
+hasnt "  with no HALF sentence"                          "HALF A STACK" "$OUT"
+has   "  and it says what that means"                    "nothing of the stack is up" "$OUT"
+
+# 🔴 The rc table is the spec (ndt help), so the stack word must not move it. Asserted as a
+# PAIR over the same residue state: the only difference between the two runs is what the stack
+# looks like, so an rc that changed would be the stack line leaking into the exit code. An
+# absolute expectation here would have been a test of this suite's entries.json instead.
+check "🔴 HALF and whole-up give the same rc (kernel up, locks free)" \
+      "$(rc_of "$(FX_KERNEL_UP=1 FX_BMV2=10 FX_MN=14 orphans_with "$LOCKS_FREE")")" \
+      "$(rc_of "$(FX_KERNEL_UP=1 FX_BMV2=0  FX_MN=0  orphans_with "$LOCKS_FREE")")"
+check "🔴 and with a HELD lock, which is the rc 4 case" \
+      "$(rc_of "$(FX_KERNEL_UP=1 FX_BMV2=10 FX_MN=14 orphans_with "$LOCK_HELD")")" \
+      "$(rc_of "$(FX_KERNEL_UP=1 FX_BMV2=0  FX_MN=0  orphans_with "$LOCK_HELD")")"
+check "🔴 a HALF stack with a held lock is still 4, not a new code" "4" \
+      "$(rc_of "$(FX_KERNEL_UP=1 FX_BMV2=0 FX_MN=0 orphans_with "$LOCK_HELD")")"
+# And the kernel-down pair, where the residue half answers 5 on its own account.
+check "🔴 HALF and whole-down give the same rc (kernel down)" \
+      "$(rc_of "$(FX_KERNEL_UP=0 FX_BMV2=10 FX_MN=14 orphans_with "$LOCKS_FREE")")" \
+      "$(rc_of "$(FX_KERNEL_UP=0 FX_BMV2=0  FX_MN=0  orphans_with "$LOCKS_FREE")")"
+
+# A count that cannot be read is 0 rather than a word inside an arithmetic test -- ps can fail.
+OUT="$(FX_KERNEL_UP=1 orphans_with "$LOCKS_FREE" 'bmv2_count() { echo "cannot tell"; }')"
+has   "an unreadable bmv2 count does not break the line" "bmv2=0" "$OUT"
 
 # --- done ---------------------------------------------------------------------------------
 printf '\nRan %d checks, %d failed\n' "$((PASS+FAIL))" "$FAIL"

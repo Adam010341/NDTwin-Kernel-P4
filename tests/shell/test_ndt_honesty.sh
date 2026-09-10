@@ -162,6 +162,18 @@ lock_probe() { echo free; }
 netem_count() { echo 0; }
 ndt_sudo_report() { return 0; }
 ndt_sudo_rows() { echo one-row; }
+# 🔴 F9 (F-OFFLINE-1 §1.13, measured 2026-09-11). WITHOUT this line every `--check` group in
+# this file read a file in the MAIN checkout: app_evidence_log sim is
+# `$(lab_kernel_dir)/.test_run/logs/app_sim.log` (ndt:3938) and lab_kernel_dir’s built-in
+# default is LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel (ndt:940, ndtwin-lab:98) --
+# a 148717-byte root-owned log on this machine (uid 0, mtime 2026-09-10 16:48). Non-empty means
+# "the app ran here and its window is LOST", so every group scored a RESIDUE_BLIND and the
+# residue row said NOT CHECKED rather than "none". It stayed GREEN only because Adam’s E-7
+# ruling makes residue rc 5 not red -- the suite’s exit codes were being held up by a ruling
+# about a different question, and a `sudo truncate` of that file would have changed what this
+# suite prints. 3-51 added exactly this stub to test_apps_residue.sh:126 and
+# test_ndt_status_residue_row.sh:142 and did not reach the other two suites.
+lab_kernel_dir() { echo "$REPO"; }
 app_probe() { APP_STATE=not-running; }
 lab_version_verdict() { echo "same fixture-sha fixture-sha"; }
 '
@@ -172,6 +184,14 @@ cmd_status ${1:-}
 echo \"RC=\$?\"" 2>&1
 }
 rc_of() { sed -n 's/^RC=//p' <<<"$1" | tail -1; }
+# _f9 <shell-code> -- the STUBS shell, for the F9 group at the bottom. Same seam as the runner
+# above; separate only because the runner appends its own command.
+_f9() {
+    bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+$1" 2>&1
+}
+
 
 mk_graph 4 40
 knob 4
@@ -542,6 +562,154 @@ check "  and the lines it returns exist nowhere else"      "1" \
 
 no_claim
 unset NDT_OWNER FX_INFLIGHT
+
+# ==========================================================================================
+section "1G. F10: the DEFAULT round's model is a Mininet_* file, and it reads as ovs"
+# ==========================================================================================
+# F-OFFLINE-1 §1.15, with a positive control. `ndt up` with no arguments is `up_ovs 128`
+# (resolve_up_target), setting/ has no OVS 128-host model -- OVS has 4/8/16/32/64 -- and
+# topo_for_hosts's OVS glob includes StaticNetworkTopologyMininet_*.json, so the model the
+# DEFAULT round loads is setting/StaticNetworkTopologyMininet_10Switches.json, which declares
+# 128 hosts. last_kernel_plane matched only OVS_* and P4_*, so after `ndt up; ndt down` the
+# most common round on this machine could not be classified: `--check` printed `names no model
+# this script can classify`, byte-identical to a physical-mode run, while the same report's
+# `rate source` row said OVS.
+MINI="$FIX/setting/StaticNetworkTopologyMininet_10Switches.json"
+mk_topo StaticNetworkTopologyMininet_10Switches.json 128 288
+_lkp() {   # <topology argument> -> "<plane> rc=<n>"
+    bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+kernel_exit_field() { [[ \"\$1\" == command ]] && echo \"bash -c cd build && exec ./bin/ndtwin_kernel --mode mininet --topology '$1' --no-ai\"; }
+out=\"\$(last_kernel_plane)\"; echo \"[\$out] rc=\$?\"" 2>&1
+}
+check "  🔴 a Mininet_* model reads as ovs"              "[ovs] rc=0" "$(_lkp "$MINI")"
+# The positive control from the report: an OVS_* model was already classified, so this cell
+# cannot pass merely because everything answers ovs.
+check "  the OVS_* control still reads as ovs"          "[ovs] rc=0" \
+      "$(_lkp "$FIX/setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json")"
+check "  🔴 and P4 is NOT swallowed by the new pattern" "[p4] rc=0" \
+      "$(_lkp "$FIX/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json")"
+# 🔴 The direction this must not go: a command naming no model at all is still unclassifiable.
+# That is 1F's property and the reason the whole block exists -- "I could not tell" and "it was
+# ovs" are different answers.
+check "  🔴 a physical-mode command is still rc 1"      "[] rc=1" "$(bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+kernel_exit_field() { [[ \"\$1\" == command ]] && echo 'bash -c cd build && exec ./bin/ndtwin_kernel --mode physical --no-ai'; }
+out=\"\$(last_kernel_plane)\"; echo \"[\$out] rc=\$?\"" 2>&1)"
+check "  and no record at all is still rc 1"            "[] rc=1" "$(bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+kernel_exit_field() { :; }
+out=\"\$(last_kernel_plane)\"; echo \"[\$out] rc=\$?\"" 2>&1)"
+
+# ==========================================================================================
+# 5. `ndt help` -- the prose is an output too, and nothing was reading it
+# ==========================================================================================
+# 🔴 F-OFFLINE-1 §1.12 / §1.24, measured 2026-09-11: two claims that the code had already
+# stopped making, and one of them the code's own comment calls false, were still being printed
+# by `ndt help` -- with no test anywhere in the tree looking at that output. `grep -rn` over
+# tests/ found the sentences only in four 09-02 manual-test transcripts. A suite that drives
+# `--check` until every row is honest and never reads the paragraph that tells an operator what
+# `--check`'s exit codes mean is checking half the statement.
+#
+# The dispatch is executed, not sourced: help lives in the `*)` arm of the case block at the
+# bottom of the file (ndt:6075), below the source seam. It is the one command that touches
+# nothing -- a heredoc and `exit 2` -- so it is safe to run here, where the lab must not be.
+run_help() { bash "$NDT" help 2>&1; }
+HELP="$(run_help)"
+
+section "5A. F12: help no longer claims what check_up_target deliberately stopped claiming"
+check "  ndt help runs offline and exits 2"              "2" \
+      "$(bash "$NDT" help >/dev/null 2>&1; echo $?)"
+has   "  and it is the help"                             "usage: ndt <command>" "$HELP"
+# check_up_target:2974-2977 removed this sentence from the OUTPUT and says why in its own
+# comment: "is a statement about history and is false after every ordinary up->down". The help
+# went on printing it, in capitals, as the definition of rc 3.
+hasnt "  🔴 the sentence W12 removed from the output is gone from the help too" \
+      "has run in THIS checkout" "$HELP"
+check "  🔴 and from the file in that spelling -- the help was its last home" "0" \
+      "$(grep -c 'has run in THIS checkout' "$NDT")"
+has   "  rc 3 is explained by the baseline, not by history" "no baseline RIGHT NOW" "$HELP"
+has   "  and it names 'absent' as one cause"             "is absent" "$HELP"
+has   "  🔴 and 'unreadable' as the other -- rc 3 has two return sites" "or unreadable" "$HELP"
+has   "  and says an ordinary up->down clears it"        "ordinary up->down clears it" "$HELP"
+has   "  3 is still never 'checked and matched'"          'never "checked and matched"' "$HELP"
+has   "  and it says what 3 is NOT"                      "it is NOT \"no 'ndt up'" "$HELP"
+# The claim the corrected sentence makes about the report has to be true of the report. 1A
+# above drives exactly this: with a kernel.exit present, the record row names the last run.
+has   "  and points at the file the report reads instead" ".test_run/pids/kernel.exit" "$HELP"
+
+section "5B. B10: help scopes the host_count_override claim to what the code enforces"
+# The 09-05 round (R3-3) recorded this sentence as REFUTED. It was not: read literally it only
+# ever claimed that FORGETTING an environment variable cannot cause the mistake, and R3-3's own
+# note says what it did -- "設一個環境變數就做到了". What was false is the impression the
+# sentence leaves, so what changes is its SCOPE, and the help now carries both halves.
+hasnt "  🔴 the blanket 'cannot be made' claim is gone"  "mistake cannot be made by forgetting an" "$HELP"
+has   "  the claim that survives is scoped to P4"        "On P4, 'ndt up' derives" "$HELP"
+has   "  and to the failure mode it really covers"       "because an environment variable was forgotten" "$HELP"
+has   "  🔴 the two-checkout form is named as refused"   "refused before anything is built" "$HELP"
+has   "  and by what"                                    "acts in ONE tree" "$HELP"
+has   "  🔴 and what the knob does NOT prevent is said"  "does NOT make the" "$HELP"
+has   "  with the 09-05 counter-example"                 "setting it built exactly that pair (R3-3)" "$HELP"
+has   "  and 'ndt up p4 N' named as the other writer"    "p4 N' rewrites it" "$HELP"
+has   "  OVS is excluded, because it has no such knob"   "OVS has no such knob" "$HELP"
+# 🔴 WIRING, a text check and named as one: the refusal the help now points at is a real
+# function called before up_p4/up_ovs build anything (ndt:1457). Its behaviour belongs to
+# tests/shell/test_ndt_up_down_robust.sh; what is asserted here is only that the help is not
+# pointing at a mechanism nobody calls -- which is what F8 turned out to be, one file over.
+check "  the refusal the help points at is called from 'ndt up'" "1" \
+      "$(grep -c 'guard_lab_acts_in_this_tree || bad=1' "$NDT")"
+
+
+section "5C. F2/F4: the help's two rc tables stop saying things the code does not do"
+# F-OFFLINE-1 §1.16. Both sentences were true of a state the tool is rarely in and false of the
+# state a round ENDS in, and neither had a test.
+#
+# F2: `residue FOUND is a problem (rc 1)`. cmd_status --check folds residue and knob problems
+# into `problems` (ndt:3313-3316, :3153) but returns 3 when there is no up.target (ndt:2991),
+# printing them under "everything else this report could still check". `ndt down` clears the
+# baseline (clear_up_target), so utrc==3 is exactly the end-of-round state -- when a rule is
+# most likely to be on the wire with no process left to attribute it to.
+has   "  🔴 rc 1 is scoped to 'while there is a baseline'" "it is rc 1 ONLY while there is a" "$HELP"
+has   "  and says what happens without one"              "the whole report is rc 3" "$HELP"
+has   "  naming where they are printed instead"          "everything else this" "$HELP"
+has   "  and that 'ndt down' puts you there"             "clears the baseline" "$HELP"
+has   "  with what to read instead"                      "Read the residue ROW, not the" "$HELP"
+#
+# F4: the `apps orphans` table calls itself disjoint. The PROCESS answer wins whenever it is
+# non-zero (cmd_apps orphans: `if (( orc != 0 )); then ... return "$orc"`), and rc 2 is the
+# ordinary answer here because /proc/<pid>/fd of a root process cannot be read and every app the
+# lab helper starts is root -- so the documented rc 4 is unreachable in the state it describes.
+has   "  🔴 the rc table says it is not disjoint"        "THE CODES ARE NOT DISJOINT IN PRACTICE" "$HELP"
+has   "  naming which answer wins"                       "PROCESS answer" "$HELP"
+has   "  and why 2 is the ordinary answer here"          "cannot be read and every app the" "$HELP"
+has   "  🔴 and that 4 can be true and unreachable"      "true and unreachable at the same time" "$HELP"
+has   "  with the sentence the tool prints when it is"   "residue rc" "$HELP"
+has   "  and the reader to use instead"                  "orphans_verdict.sh" "$HELP"
+# 🔴 The claims are checked against the code, not just against themselves: both sentences
+# describe control flow, and a text-only assertion would go on passing if the flow changed.
+check "  the no-baseline branch still returns 3" "1" \
+      "$(grep -c 'there is no baseline, so --check did NOT check' "$NDT")"
+check "  and the process answer still wins in cmd_apps orphans" "1" \
+      "$(grep -c 'if (( orc != 0 )); then' "$NDT")"
+
+# ==========================================================================================
+section "F9. this suite reads its OWN tree, and not the main checkout"
+# ==========================================================================================
+# F-OFFLINE-1 §1.13. Two of the four `--check` suites had no lab_kernel_dir stub, so
+# app_evidence_log answered with a path in /home/adam/Desktop/NDTwin-Kernel -- a 148717-byte
+# root-owned file this suite cannot write, cannot trim and does not own. Asserted on the PATH
+# rather than on what the path happened to contain: "the residue row said none" would depend on
+# whether somebody had truncated that file, which is the hidden input the stub removes.
+check "  lab_kernel_dir answers the fixture tree"        "$FIX" "$(_f9 'lab_kernel_dir')"
+check "  🔴 sim's evidence log is inside the fixture"    "$FIX/.test_run/logs/app_sim.log" \
+      "$(_f9 'app_evidence_log sim')"
+check "  and so is an ordinary app's log"                "$FIX/.test_run/logs/app_nsr.log" \
+      "$(_f9 'app_logfile nsr')"
+hasnt "  🔴 and no reading of it names the main checkout" "/home/adam/Desktop/NDTwin-Kernel/.test_run" \
+      "$(_f9 'app_evidence_log sim; echo; app_logfile nsr; echo; lab_kernel_dir')"
+# energy has no channel at all, and that has to stay a different answer from "a path".
+check "  energy still has no evidence log (rc 1)"        "1" \
+      "$(_f9 'app_evidence_log energy >/dev/null 2>&1; echo $?')"
 
 # --- done ---------------------------------------------------------------------------------
 printf '\nRan %d checks, %d failed\n' "$((PASS+FAIL))" "$FAIL"
