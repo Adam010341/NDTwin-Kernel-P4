@@ -55,6 +55,8 @@
 #include <shared_mutex>
 #include <string>
 
+#include <unistd.h> // getpid, for the per-process temp paths below
+
 #include <gtest/gtest.h>
 #include <boost/graph/adjacency_list.hpp>
 
@@ -75,8 +77,12 @@ class CapacityTopologyFile
   public:
     explicit CapacityTopologyFile(const std::string& body)
     {
+        // [Co-developed with claude code -- Adam] pid as well as the counter -- the counter
+        // restarts at 0 in every process and ctest gives every test its own. See the same note in
+        // test_SwitchKindDispatch.cpp.
         m_path = std::filesystem::temp_directory_path() /
-                 ("ndt_f8_topo_" + std::to_string(++s_counter) + ".json");
+                 ("ndt_f8_topo_" + std::to_string(::getpid()) + "_" +
+                  std::to_string(++s_counter) + ".json");
         std::ofstream ofs(m_path);
         ofs << body;
     }

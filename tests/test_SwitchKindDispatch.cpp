@@ -26,6 +26,8 @@
 #include <shared_mutex>
 #include <string>
 
+#include <unistd.h> // getpid, for the per-process temp paths below
+
 namespace
 {
 
@@ -63,8 +65,12 @@ class TempTopology
   public:
     explicit TempTopology(const std::string& nodesJson)
     {
+        // [Co-developed with claude code -- Adam] pid as well as the counter: the counter
+        // restarts at 0 in every process, and ctest gives every test its own -- so under -j2 two
+        // processes both wrote ndt_topo_test_1.json and each could load the other's topology.
         m_path = std::filesystem::temp_directory_path() /
-                 ("ndt_topo_test_" + std::to_string(++s_counter) + ".json");
+                 ("ndt_topo_test_" + std::to_string(::getpid()) + "_" +
+                  std::to_string(++s_counter) + ".json");
         std::ofstream ofs(m_path);
         ofs << "{\n  \"nodes\": [\n" << nodesJson << "\n  ],\n  \"edges\": []\n}\n";
     }

@@ -33,12 +33,16 @@
  * switchSmartPlugTable returns false for any IP, before any I/O.
  */
 
+#include <atomic>
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <memory>
 #include <shared_mutex>
 #include <string>
+
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
@@ -111,14 +115,32 @@ class ScriptedFlowRoutingManager : public FlowRoutingManager
  * IntentTranslator's LLMAgents read their prompts from under "../src/ndt_core/intent_translator",
  * so the rig creates <tmp>/src/ndt_core/intent_translator/ with both files and chdir()s to
  * <tmp>/run. Restores the previous cwd and OPENAI_API_KEY on destruction.
+ *
+ * [Co-developed with claude code -- Adam]
+ * The root used to be the constant `<tmp>/ndtwin_test_intent_task_outcomes`, shared by all nine
+ * tests in this file. `ctest` gives every test its own process, so under `-j2` two of them build
+ * and tear down that one directory at the same time -- and the constructor's `remove_all` runs
+ * while the other process is chdir'ed inside it. Measured 2026-09-06 (W11's round,
+ * `w11-logs/05-ctest.log`, `CTEST_RC=8`): tests 818 and 819 failed with
+ *   C++ exception with description "filesystem error: cannot remove: Directory not empty
+ *   [/tmp/ndtwin_test_intent_task_outcomes]" thrown in the test fixture's constructor.
+ * while `-j1` was 100% green -- i.e. the suite could only be trusted at one job.
+ *
+ * Now pid + a process-local counter, so no two live rigs can ever name the same directory: not
+ * two processes, and not two rigs inside one process. `remove_all` is kept for the crashed-run
+ * leftover of a recycled pid, and now only ever touches this rig's own path.
+ * Regression test: TwoRigsInDifferentProcessesDoNotShareADirectory, at the bottom of this file.
  */
 class LaunchLayoutRig
 {
   public:
     LaunchLayoutRig()
     {
+        static std::atomic<unsigned> s_counter{0};
         m_previousCwd = std::filesystem::current_path();
-        m_root = std::filesystem::temp_directory_path() / "ndtwin_test_intent_task_outcomes";
+        m_root = std::filesystem::temp_directory_path() /
+                 ("ndtwin_test_intent_task_outcomes." + std::to_string(::getpid()) + "." +
+                  std::to_string(s_counter.fetch_add(1)));
         std::filesystem::remove_all(m_root);
 
         const auto promptDir = m_root / "src" / "ndt_core" / "intent_translator";
@@ -156,6 +178,10 @@ class LaunchLayoutRig
             ::unsetenv("OPENAI_API_KEY");
         }
     }
+
+    /// The layout this rig owns. Exposed only so the isolation regression test below can assert
+    /// that two live rigs never name the same one. [Co-developed with claude code -- Adam]
+    const std::filesystem::path& root() const { return m_root; }
 
   private:
     std::filesystem::path m_previousCwd;
@@ -422,4 +448,96 @@ TEST_F(IntentTaskOutcomesTest, ADeviceNameContainingAQuoteCannotInjectKeysIntoAD
         << "the name must survive as one string value: " << reply.dump();
     EXPECT_FALSE(reply.contains("injected"))
         << "the device name added a key to this kernel's own reply: " << reply.dump();
+}
+
+// =====================================================================================
+// Test isolation: the rig's own directory
+// =====================================================================================
+
+/**
+ * Two LaunchLayoutRigs alive in two processes must not share a directory.
+ *
+ * [Co-developed with claude code -- Adam]
+ *
+ * This is the defect itself, not a proxy for it. `ctest` runs every test in its own process, so
+ * under `-j2` two of this file's nine tests build their launch layout simultaneously; with the
+ * old constant path the second constructor's `remove_all` deleted the first one's tree while the
+ * first process was chdir'ed inside it, and the constructor threw "cannot remove: Directory not
+ * empty". An in-process test could not see that -- only one rig is ever alive at a time in a
+ * single test -- so this one forks.
+ *
+ * WHICH LINE MAKES THIS RED: restore the constant root in LaunchLayoutRig's constructor
+ * (`m_root = std::filesystem::temp_directory_path() / "ndtwin_test_intent_task_outcomes";`).
+ * Both processes then name the same directory: the first expectation fails on the equal paths,
+ * and the second fails because the parent's `remove_all` has deleted the child's marker.
+ *
+ * The child blocks on a pipe until the parent has finished looking, so "both rigs were alive at
+ * the same time" is a fact of the test rather than a hope about scheduling. It never runs a gtest
+ * assertion and leaves via `_exit`, so it cannot report a second set of results.
+ */
+TEST(LaunchLayoutIsolationTest, TwoRigsInDifferentProcessesDoNotShareADirectory)
+{
+    int rootPipe[2];
+    int ctrlPipe[2];
+    ASSERT_EQ(::pipe(rootPipe), 0);
+    ASSERT_EQ(::pipe(ctrlPipe), 0);
+
+    const pid_t child = ::fork();
+    ASSERT_NE(child, -1);
+
+    if (child == 0)
+    {
+        ::close(rootPipe[0]);
+        ::close(ctrlPipe[1]);
+        {
+            LaunchLayoutRig rig;
+            const std::string root = rig.root().string() + "\n";
+            std::ofstream(rig.root() / "marker") << "child was here\n";
+            const ssize_t written = ::write(rootPipe[1], root.data(), root.size());
+            (void)written;
+            // Hold the layout open until the parent has built its own and inspected both.
+            char go = 0;
+            const ssize_t got = ::read(ctrlPipe[0], &go, 1);
+            (void)got;
+        }
+        ::_exit(0);
+    }
+
+    ::close(rootPipe[1]);
+    ::close(ctrlPipe[0]);
+
+    std::string childRootText;
+    char c = 0;
+    while (::read(rootPipe[0], &c, 1) == 1 && c != '\n')
+    {
+        childRootText.push_back(c);
+    }
+    ::close(rootPipe[0]);
+    ASSERT_FALSE(childRootText.empty()) << "the child never reported a layout root";
+    const std::filesystem::path childRoot(childRootText);
+
+    {
+        LaunchLayoutRig mine;
+
+        EXPECT_NE(mine.root(), childRoot)
+            << "two live rigs named the same directory: " << mine.root();
+        EXPECT_TRUE(std::filesystem::exists(childRoot / "marker"))
+            << "building this rig destroyed the other process's layout at " << childRoot;
+        EXPECT_TRUE(std::filesystem::exists(mine.root() / "src" / "ndt_core" /
+                                            "intent_translator" / "answer_agent_prompt.txt"))
+            << "this rig's own prompt files are missing from " << mine.root();
+    }
+
+    const char go = 1;
+    const ssize_t written = ::write(ctrlPipe[1], &go, 1);
+    (void)written;
+    ::close(ctrlPipe[1]);
+
+    int status = 0;
+    ASSERT_EQ(::waitpid(child, &status, 0), child);
+    EXPECT_TRUE(WIFEXITED(status) && WEXITSTATUS(status) == 0)
+        << "the child process did not exit cleanly; status " << status;
+
+    std::error_code ec;
+    std::filesystem::remove_all(childRoot, ec);
 }
