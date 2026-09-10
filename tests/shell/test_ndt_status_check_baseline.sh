@@ -153,6 +153,18 @@ lock_probe() { echo free; }
 netem_count() { echo 0; }
 ndt_sudo_report() { return 0; }
 ndt_sudo_rows() { echo one-row; }
+# 🔴 F9 (F-OFFLINE-1 §1.13, measured 2026-09-11). WITHOUT this line every `--check` group in
+# this file read a file in the MAIN checkout: app_evidence_log sim is
+# `$(lab_kernel_dir)/.test_run/logs/app_sim.log` (ndt:3938) and lab_kernel_dir’s built-in
+# default is LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel (ndt:940, ndtwin-lab:98) --
+# a 148717-byte root-owned log on this machine (uid 0, mtime 2026-09-10 16:48). Non-empty means
+# "the app ran here and its window is LOST", so every group scored a RESIDUE_BLIND and the
+# residue row said NOT CHECKED rather than "none". It stayed GREEN only because Adam’s E-7
+# ruling makes residue rc 5 not red -- the suite’s exit codes were being held up by a ruling
+# about a different question, and a `sudo truncate` of that file would have changed what this
+# suite prints. 3-51 added exactly this stub to test_apps_residue.sh:126 and
+# test_ndt_status_residue_row.sh:142 and did not reach the other two suites.
+lab_kernel_dir() { echo "$REPO"; }
 app_probe() { APP_STATE=not-running; }
 # Finding #83 added a second thing `--check` compares: the installed /usr/local/sbin/ndtwin-lab
 # against tools/test_workflow/ndtwin-lab. On this machine those really do differ, so without
@@ -169,6 +181,14 @@ cmd_status --check
 echo \"RC=\$?\"" 2>&1
 }
 rc_of() { sed -n 's/^RC=//p' <<<"$1" | tail -1; }
+# _f9 <shell-code> -- the STUBS shell, for the F9 group at the bottom. Same seam as the runner
+# above; separate only because the runner appends its own command.
+_f9() {
+    bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+$1" 2>&1
+}
+
 # A healthy 4-host OVS fabric: ten bridges, no bmv2, four host namespaces, kernel graph 4/40.
 healthy_ovs4() {
     export FX_BMV2=0 FX_BRIDGES=10 FX_FABRIC_HOSTS=4 FX_MN=14
@@ -464,6 +484,26 @@ rm -f "$OVERLAY"
 # against the same literal; if either drifts, one of the two suites goes red. Stated here so
 # the next reader knows the fixture path above is load-bearing and not decorative.
 has   "the row's path is the one the kernel writes"     "nickname_overlay/StaticNetworkTopologyOVS_10Switches_4Hosts.names.json" "$(run_check)"
+
+
+# ==========================================================================================
+section "F9. this suite reads its OWN tree, and not the main checkout"
+# ==========================================================================================
+# F-OFFLINE-1 §1.13. Two of the four `--check` suites had no lab_kernel_dir stub, so
+# app_evidence_log answered with a path in /home/adam/Desktop/NDTwin-Kernel -- a 148717-byte
+# root-owned file this suite cannot write, cannot trim and does not own. Asserted on the PATH
+# rather than on what the path happened to contain: "the residue row said none" would depend on
+# whether somebody had truncated that file, which is the hidden input the stub removes.
+check "  lab_kernel_dir answers the fixture tree"        "$FIX" "$(_f9 'lab_kernel_dir')"
+check "  🔴 sim's evidence log is inside the fixture"    "$FIX/.test_run/logs/app_sim.log" \
+      "$(_f9 'app_evidence_log sim')"
+check "  and so is an ordinary app's log"                "$FIX/.test_run/logs/app_nsr.log" \
+      "$(_f9 'app_logfile nsr')"
+hasnt "  🔴 and no reading of it names the main checkout" "/home/adam/Desktop/NDTwin-Kernel/.test_run" \
+      "$(_f9 'app_evidence_log sim; echo; app_logfile nsr; echo; lab_kernel_dir')"
+# energy has no channel at all, and that has to stay a different answer from "a path".
+check "  energy still has no evidence log (rc 1)"        "1" \
+      "$(_f9 'app_evidence_log energy >/dev/null 2>&1; echo $?')"
 
 # --- done ---------------------------------------------------------------------------------
 printf '\nRan %d checks, %d failed\n' "$((PASS+FAIL))" "$FAIL"

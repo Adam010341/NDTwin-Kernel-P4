@@ -336,6 +336,19 @@ m=$(mutant m25 "$NDT" \
 report "M25: B10 loses its 09-05 counter-example" "$m" \
        "  with the 09-05 counter-example"
 
+# --- F9: the suite reads its own tree (F-OFFLINE-1 §1.13) -------------------------------------
+
+# The sim evidence log stops being derived from the tree the LAB acts in and is hard-coded to
+# the main checkout, which is what this suite was reading until 2026-09-11 -- a 148717-byte
+# root-owned file. The F9 cells exist to make that a red rather than a hidden input, and this
+# is the mutation that asks them to prove it.
+m=$(mutant m26 "$NDT" \
+    '        sim)    printf '"'"'%s/.test_run/logs/app_sim.log'"'"' "$(lab_kernel_dir)" ;;' \
+    '        sim)    printf '"'"'%s/.test_run/logs/app_sim.log'"'"' /home/adam/Desktop/NDTwin-Kernel ;;')
+report "M26: sim's evidence log is hard-coded to the main checkout (F9)" "$m" \
+       "  🔴 sim's evidence log is inside the fixture"
+
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then
