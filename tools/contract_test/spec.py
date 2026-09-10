@@ -1931,9 +1931,33 @@ ENDPOINTS = [
          schema=Obj({"status": Str(), "total_input_traffic_load_bps": Num(min=0)})),
 
     # ---------- read-only: device health ----------
+    # [Co-developed with claude code -- Adam]
+    # R5, Adam's ruling of 2026-09-10. `power_path` on the report's own entries, the same key
+    # with the same four-word vocabulary GRAPH_NODE pins above -- measured 2026-09-10 on a live
+    # OVS fabric, an exempted switch answered a figure here that no consumer could tell from a
+    # measured one (R4-LIVE-SUMMARY.md §7-1). OPTIONAL for the first of the two reasons
+    # GRAPH_NODE gives: a kernel built before 2026-09-10 emits no such key and must still pass
+    # the structural check. The second reason does not apply -- every entry in this list is a
+    # switch, so on a current kernel the key is on all of them.
+    # 🔴 min=-1, not 0, for the same reason get_cpu_utilization was relaxed below -- and this
+    # endpoint was left behind when that one was fixed. -1 is `kHealthMetricUnavailable`, and
+    # fetchPowerReportInternal has emitted it on the TESTBED branch since E-23 (2026-09-07) for a
+    # switch whose `power_path` is "none", and since FINDINGS #85 for one carrying no management
+    # address. The API document says so in section 6's Note. `Num(min=0)` therefore rejected a
+    # row a correct kernel emits -- found 2026-09-10 (F-OFFLINE-1) by validating that exact row
+    # offline, which answered `[0].power_consumed: expected >= 0, got -1`.
+    #
+    # Nothing was red before that: the contract runner is pointed at a MININET kernel, where
+    # every figure is the synthetic one and no row is ever negative. So this would have failed
+    # the first time it ran against a testbed with an exempted switch in the fabric, which is the
+    # deployment E-23 exists for. Pinned by tests/python/test_unavailable_metric_sentinel.py's
+    # PowerReportSchemaAcceptsTheSentinelTest, which also keeps -2 rejected: -1 is the sentinel,
+    # not a licence for arbitrary negatives.
     dict(name="get_power_report", method="GET", path="/ndt/get_power_report",
          category=READ,
-         schema=List(Obj({"dpid": Int(min=0), "power_consumed": Num(min=0)})),
+         schema=List(Obj({"dpid": Int(min=0), "power_consumed": Num(min=-1)},
+                         optional={"power_path": Str(allowed=("synthetic", "snmp", "ssh",
+                                                              "none"))})),
          invariants=[inv_power_covers_switches]),
 
     dict(name="get_switches_power_state", method="GET", path="/ndt/get_switches_power_state",

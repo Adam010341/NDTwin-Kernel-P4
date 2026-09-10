@@ -144,5 +144,72 @@ class SelfTestFixtureMatchesTheShippedSchemaTest(unittest.TestCase):
                          list(fixture_sample("get_temperature").values()))
 
 
+class PowerReportSchemaAcceptsTheSentinelTest(unittest.TestCase):
+    """
+    The fourth endpoint that reports the same sentinel, and the one whose schema still refused it.
+
+    [Co-developed with claude code -- Adam]
+
+    R5 / F-OFFLINE-1 (2026-09-10). `/ndt/get_power_report` is not in HEALTH_ENDPOINTS above and
+    cannot be: those three are maps keyed by switch IP, and this one is a LIST of
+    `{dpid, power_consumed, power_path}` objects. So it needs its own case -- and it needed one,
+    because the two halves were green apart and red together:
+
+      * the C++ has emitted `power_consumed: -1` on the TESTBED branch since E-23 (2026-09-07)
+        for a switch whose `power_path` is "none" and, since FINDINGS #85, for one with no
+        management address -- `kHealthMetricUnavailable`, the same -1 the three endpoints above
+        report and the API document names for this endpoint too (section 6's "Note");
+      * `spec.py`'s entry for it said `Num(min=0)`, so `validate()` on exactly that row answered
+        `[0].power_consumed: expected >= 0, got -1`.
+
+    Nothing was red, because the contract runner is pointed at a MININET kernel, where every
+    figure is the synthetic one and no row is ever negative. The schema would have failed the
+    first time anybody ran it against a testbed with an exempted or address-less switch in the
+    fabric -- which is the deployment E-23 exists for.
+
+    🔴 WHY THE FIXTURE SAMPLE IS NOT GIVEN A -1 ROW, unlike the three endpoints above. Their
+    samples ARE the API document's examples and the document shows -1 for them. Section 6's
+    example is a captured MININET response, and MININET never reports -1 here (the document says
+    so in the same paragraph). Adding a sentinel row would make the fixture stop being the
+    documented example, which is the one property --self-test relies on. The schema copy is
+    pinned instead, by the second case below.
+    """
+
+    #: The row the C++ emits in TESTBED for an exempted switch:
+    #: DeviceConfigurationAndPowerManager.cpp, fetchPowerReportInternal's exempt exit. dpid 7 and
+    #: brand "none" are the same pairing tests/test_ExemptSwitchIsNotDialled.cpp uses.
+    TESTBED_EXEMPT_ROW = [{"dpid": 7, "power_consumed": UNAVAILABLE, "power_path": "none"},
+                          {"dpid": 8, "power_consumed": 92465, "power_path": "ssh"}]
+
+    def test_the_shipped_schema_accepts_the_sentinel_this_endpoint_reports(self):
+        self.assertEqual(
+            validate(spec_schema("get_power_report"), self.TESTBED_EXEMPT_ROW), [],
+            "spec.py rejects the row the kernel emits for an exempted switch in TESTBED, so "
+            "the contract test would fail on a correct kernel")
+
+    def test_the_self_test_copy_accepts_it_too(self):
+        # The drift this whole file exists for: selftest_fixtures.py keeps its own copy of this
+        # schema, and a copy narrower than the shipped one reports green while being unable to
+        # see what production emits.
+        self.assertEqual(
+            validate(fixture_schema("get_power_report"), self.TESTBED_EXEMPT_ROW), [],
+            "the self-test's copy of the power-report schema rejects -1, which spec.py accepts")
+
+    def test_it_still_rejects_a_value_below_the_sentinel(self):
+        # -1 is the sentinel, not a licence for arbitrary negatives -- the same control the three
+        # endpoints above carry.
+        below = [dict(self.TESTBED_EXEMPT_ROW[0], power_consumed=-2)]
+        self.assertTrue(validate(spec_schema("get_power_report"), below))
+
+    def test_a_report_of_sentinels_still_satisfies_the_coverage_invariant(self):
+        # inv_power_covers_switches reads dpids, not values, so replacing readings with the
+        # sentinel must not make the contract test think a switch went missing.
+        class Ctx:
+            expected_dpids = {7, 8}
+
+        self.assertEqual(
+            spec.inv_power_covers_switches(self.TESTBED_EXEMPT_ROW, Ctx()), [])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

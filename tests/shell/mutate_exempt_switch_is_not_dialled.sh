@@ -19,6 +19,9 @@
 #           applied at five of them is a fix that still SSHes a Cisco every ten seconds.
 #   M7, M8  The two keys are dropped from to_json, i.e. /ndt/get_graph_data goes back to the shape
 #           round-2's lw17c measured: the mark exists, and nobody outside can see it.
+#   M14     The same defect one endpoint further on (R5, 2026-09-10): /ndt/get_power_report goes
+#           back to publishing a bare {dpid, power_consumed}, which is the shape the live fabric
+#           was measured in -- an exempted switch's 44487 indistinguishable from a real reading.
 #   M9, M13 The startup line: not printed at all, and printed when there is nothing to print.
 #           Both directions, because "warn about everything" is how a warning stops being read.
 #   M10-M12 THE WIDENINGS THAT MUST BE CAUGHT. Not controls -- these are mutations that make the
@@ -285,7 +288,7 @@ mutate_must_die \
             // going to happen is how a log stops being evidence.
             if (exemptFromBrandPathsForReport(props))
             {
-                result.push_back({{"dpid", dpid}, {"power_consumed", kHealthMetricUnavailable}});
+                result.push_back(entryFor(props, kHealthMetricUnavailable));
                 continue;
             }
 ' \
@@ -470,6 +473,24 @@ mutate_must_die \
     "$SRC" \
     '    if (noteSwitchExemptFromBrandPaths(vp.dpid))' \
     '    if (noteSwitchExemptFromBrandPaths(vp.dpid), true)'
+
+# --- M14: the power report goes back to publishing an unqualified number -----------------------
+# R5, Adam's ruling of 2026-09-10, and the state the live fabric was measured in: the entries
+# carry `dpid` and `power_consumed` and nothing else, so an exempted switch's figure is
+# indistinguishable from a measured one inside this body. Measured 2026-09-10 on a live four-host
+# OVS fabric (fix/R4-LIVE-SUMMARY.md §7-1): dpid 7, `power_path` "none", answered 44487; the real
+# OVS at dpid 1 answered 92465. Ten switches, ten plausible figures, one endpoint away from the
+# mark that qualifies them.
+#
+# Only the key is dropped -- no number moves -- because that is exactly what the fix added, and
+# because M11 above pins the value half in the other direction: an exempted switch in MININET
+# must keep its synthetic figure.
+mutate_must_die \
+    "M14 R5: get_power_report drops power_path" \
+    "ExemptSwitchTest.ThePowerReportSaysWhichPathEachFigureCameFrom" \
+    "$SRC" \
+    '        return json{{"dpid", p.dpid}, {"power_consumed", milliwatts}, {"power_path", p.powerPath}};' \
+    '        return json{{"dpid", p.dpid}, {"power_consumed", milliwatts}};'
 
 # --- W2: control, the exemption sentence reworded ----------------------------------------------
 # The suite asserts that the note contains "power_path none" and names the brand, and asserts

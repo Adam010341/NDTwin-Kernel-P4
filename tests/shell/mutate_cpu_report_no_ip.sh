@@ -270,8 +270,7 @@ mutate_must_die \
     '            const auto ipOpt = managementIpForReport(props);
             if (!ipOpt)
             {
-                result.push_back(
-                    {{"dpid", dpid}, {"power_consumed", kHealthMetricUnavailable}});
+                result.push_back(entryFor(props, kHealthMetricUnavailable));
                 continue;
             }
             const std::string ip_str = *ipOpt;' \
@@ -340,14 +339,28 @@ mutate_must_die \
 # Worse here than anywhere else: 0 mW is already this endpoint's answer for a switch that is
 # powered OFF, and a switch reported at 0 mW is exactly what the Energy-Saving application is
 # looking for. "Cannot read it" and "it is off" must not be the same number.
+#
+# 🔴 RE-ANCHORED 2026-09-10 (R5). The four exits of fetchPowerReportInternal now build their entry
+# through one `entryFor` lambda, so that they all carry `power_path` -- which means the sentinel
+# line this mutation used to name verbatim is now the same text at the exempt exit two branches
+# below it. The anchor therefore carries the `if (!ipOpt)` block around it, and the uniqueness
+# assertion names the `managementIpForReport` line that introduces it; a single-line anchor here
+# would silently mutate whichever of the two perl reached first.
 mutate_must_die \
     "M7 power-sentinel-becomes-zero" \
     "NoIpSwitchTest.TestbedPowerReportsTheSentinelForAnAddresslessSwitch" \
     "$SRC" \
-    '                result.push_back(
-                    {{"dpid", dpid}, {"power_consumed", kHealthMetricUnavailable}});' \
-    '                result.push_back({{"dpid", dpid}, {"power_consumed", 0}});' \
-    '                    {{"dpid", dpid}, {"power_consumed", kHealthMetricUnavailable}});'
+    '            if (!ipOpt)
+            {
+                result.push_back(entryFor(props, kHealthMetricUnavailable));
+                continue;
+            }' \
+    '            if (!ipOpt)
+            {
+                result.push_back(entryFor(props, 0));
+                continue;
+            }' \
+    '            const auto ipOpt = managementIpForReport(props);'
 
 # --- M8: the episode never ends ----------------------------------------------------------------
 # Drop the recovery half of the edge trigger. The first episode still warns exactly once, so
@@ -381,7 +394,7 @@ mutate_must_die \
         }' \
     '        if (!managementIpForReport(props))
         {
-            result.push_back({{"dpid", dpid}, {"power_consumed", kHealthMetricUnavailable}});
+            result.push_back(entryFor(props, kHealthMetricUnavailable));
             continue;
         }
         if (m_mode == utils::DeploymentMode::MININET)

@@ -44,6 +44,13 @@
  *   C. The two marks reach /ndt/get_graph_data, on switch nodes and not on hosts, and the load
  *      that admits an exempted switch says so once in the log.
  *
+ *   D. R5 (Adam's ruling of 2026-09-10). `power_path` reaches /ndt/get_power_report as well, on
+ *      every entry the report can emit. E-25 marked the switch on the topology endpoint and left
+ *      the number it qualifies on another one: measured 2026-09-10 on a live OVS fabric, the
+ *      exempted dpid 7 answered `power_consumed: 44487` there and the real OVS at dpid 1
+ *      answered 92465, with nothing in that body to tell them apart. Section 10 holds these
+ *      cases and the reasoning for asserting a key rather than a changed value.
+ *
  * 🔴 WHY THE COUNTING DOUBLE MUST REPLACE ALL THREE SEAMS. The same warning OVSPowerStrategy.hpp
  * gives about executeArgvCommand. A double that overrode readFromDevice alone would still let
  * getSingleSwitchCpuReport's argv calls and the power report's SSH call through to the real
@@ -86,6 +93,11 @@ constexpr const char* kUnknownBrand = "CiscoC9300";
 /// dpids. 7 is exempt; 8 is a Brocade, i.e. the control that must keep being dialled.
 constexpr std::uint64_t kExemptDpid = 7;
 constexpr std::uint64_t kBrocadeDpid = 8;
+
+/// [Co-developed with claude code -- Adam] (R5.) An OVS bridge, i.e. the control for the MININET
+/// cases: same mode, same synthetic figure, `power_path` "synthetic" rather than "none". 6 and
+/// not 1 so it cannot be confused with the live fabric's dpid 1 in a failure message.
+constexpr std::uint64_t kOvsDpid = 6;
 
 /**
  * @brief The manager with its three transport seams replaced by counters.
@@ -262,8 +274,12 @@ class ExemptSwitchTest : public ::testing::Test
      * against a build whose loader had stopped setting the field at all, which is the mark's
      * whole point of failure. The load-time half is pinned separately, over a real file, by
      * TheLoadedExemptSwitchIsMarkedAndAnnounced below.
+     *
+     * @return the vertex descriptor, so a case can say "and this one is down" or "and this one
+     *         has no address" without a second copy of the derivation above. (R5.)
      */
-    void addSwitch(const std::string& ip, std::uint64_t dpid, const std::string& brand)
+    boost::graph_traits<Graph>::vertex_descriptor
+    addSwitch(const std::string& ip, std::uint64_t dpid, const std::string& brand)
     {
         const auto v = boost::add_vertex(*m_graph);
         (*m_graph)[v].vertexType = VertexType::SWITCH;
@@ -273,6 +289,22 @@ class ExemptSwitchTest : public ::testing::Test
         (*m_graph)[v].powerPath = powerPathForBrandName(brand);
         (*m_graph)[v].telemetryPath = telemetryPathForBrandName(brand);
         (*m_graph)[v].ip.push_back(utils::ipStringToUint32(ip));
+        return v;
+    }
+
+    /// The one entry of @p report whose "dpid" is @p dpid. Fails the case rather than throwing:
+    /// a missing entry is a different defect from a wrong value and must not read as a crash.
+    static json entryForDpid(const json& report, std::uint64_t dpid)
+    {
+        for (const auto& entry : report)
+        {
+            if (entry.value("dpid", std::uint64_t{0}) == dpid)
+            {
+                return entry;
+            }
+        }
+        ADD_FAILURE() << "no entry for dpid " << dpid << " in " << report.dump();
+        return json::object();
     }
 
     /// The exempted switch and, beside it, a Brocade that must keep being dialled. Both up, both
@@ -294,6 +326,8 @@ class ExemptSwitchTest : public ::testing::Test
 
     static constexpr const char* kExemptIp = "192.168.123.17";
     static constexpr const char* kBrocadeIp = "192.168.123.18";
+    /// [Co-developed with claude code -- Adam] (R5.) @see kOvsDpid.
+    static constexpr const char* kOvsIp = "192.168.123.16";
 
     std::shared_ptr<Graph> m_graph;
     std::shared_ptr<std::shared_mutex> m_mutex;
@@ -734,4 +768,135 @@ TEST_F(ExemptSwitchTest, AFleetWithNoExemptSwitchSaysNothingAtAll)
     EXPECT_EQ(log.count("exempt from power/telemetry"), 0u)
         << "a fleet this build can drive end to end was warned about anyway:\n"
         << log.text();
+}
+
+// -------------------------------------------------------------------------------------------
+// 10. R5: /ndt/get_power_report says which path each figure came from.
+// -------------------------------------------------------------------------------------------
+//
+// [Co-developed with claude code -- Adam]
+//
+// WHAT WAS MEASURED. 2026-09-10, live four-host OVS fabric, kernel binary 433f48a6223c7ef7,
+// the exempted topology loaded through NDT_TOPO
+// (scratch/overnight-2026-09-05/fix/R4-LIVE-SUMMARY.md §4-A15 and §7-1): /ndt/get_power_report
+// answered `power_consumed: 44487` for dpid 7 -- whose `power_path` is "none" -- and `92465`
+// for the real OVS at dpid 1. Ten switches, ten different plausible figures, and nothing in the
+// body to say which of them came from a path this build has. The mark E-25 put on
+// /ndt/get_graph_data's nodes was one endpoint away from the number it qualifies, and a consumer
+// had to fetch a second endpoint and join on `dpid` to find it.
+//
+// 🔴 WHY THESE CASES ASSERT A KEY AND NOT A CHANGED VALUE. Section 7 above is the reason: E-23
+// ruled that MININET keeps the synthetic figure for an exempted switch, because that figure is
+// syntheticPowerMilliwattsFor(dpid) and was never a question asked of the machine, and M11 of
+// this suite's gate pins the widening that would take it away. So "44487 must not appear" is
+// not available here without reversing that ruling; what was actually missing is the field, and
+// E-25's own serialiser says how to add one -- "purely additive: no existing key changes type,
+// spelling or value" (GraphTypes.hpp, to_json). Same key, same four-word vocabulary, read from
+// the same vertex field, so the two endpoints cannot disagree.
+//
+// The four exits are asserted separately (case 3) because the mark is emitted in one place
+// precisely so it cannot be on three of them: a key that appears and disappears is worse for a
+// consumer than no key, and the loop's exits are powered-off, no-address, exempt and read.
+
+TEST_F(ExemptSwitchTest, ThePowerReportSaysWhichPathEachFigureCameFrom)
+{
+    // MININET, because that is the mode the defect was measured in and the mode where the number
+    // alone carries no information at all: every figure here is synthetic.
+    buildManager(utils::MININET);
+    addSwitch(kExemptIp, kExemptDpid, kUnknownBrand);
+    addSwitch(kOvsIp, kOvsDpid, std::string(kBrandOVS));
+
+    const json report = m_manager->fetchPowerReportInternal();
+    ASSERT_EQ(report.size(), 2u) << report.dump();
+
+    const json exempt = entryForDpid(report, kExemptDpid);
+    const json ovs = entryForDpid(report, kOvsDpid);
+
+    ASSERT_TRUE(exempt.contains("power_path"))
+        << "the exempted switch's figure is unqualified, which is what was measured on the live "
+           "fabric: a reader of this endpoint cannot tell it from a measured one: "
+        << report.dump();
+    EXPECT_EQ(exempt.at("power_path"), "none")
+        << "not the vocabulary /ndt/get_graph_data publishes for the same vertex: "
+        << report.dump();
+    ASSERT_TRUE(ovs.contains("power_path")) << report.dump();
+    EXPECT_EQ(ovs.at("power_path"), "synthetic") << report.dump();
+
+    // 🔴 The zero-discrimination point, and the reason the key is the fix. Both figures are in
+    // the synthetic band and both are perfectly plausible; the ONLY thing in this body that
+    // tells the exempted machine from the one this build has a path for is the key above. If
+    // this pair ever stops holding, the two switches differ in some other way and the case above
+    // is no longer asserting what it claims to.
+    const auto exemptMw = exempt.at("power_consumed").get<std::int64_t>();
+    const auto ovsMw = ovs.at("power_consumed").get<std::int64_t>();
+    EXPECT_GE(exemptMw, 30000) << report.dump();
+    EXPECT_LE(exemptMw, 149999) << report.dump();
+    EXPECT_GE(ovsMw, 30000) << report.dump();
+    EXPECT_LE(ovsMw, 149999) << report.dump();
+    EXPECT_NE(exempt.at("power_path"), ovs.at("power_path"))
+        << "the two entries are indistinguishable, so this suite is pinning nothing: "
+        << report.dump();
+}
+
+TEST_F(ExemptSwitchTest, TheTestbedPowerReportSaysWhetherItsMinusOneIsUnaskedOrUnanswered)
+{
+    // doc/2026-01-02_ndt_api.md §6 has said since E-23 that "a -1 from a switch whose power_path
+    // is snmp or ssh is a device that did not answer; a -1 from one whose power_path is none is a
+    // device nobody asked" -- and until R5 this body carried neither path, so the sentence was
+    // only checkable by fetching /ndt/get_graph_data too. The exempted switch and an addressed
+    // Brocade whose SSH reply is empty are the two halves of it.
+    buildManager(utils::TESTBED);
+    addTheExemptSwitchAndItsControl();
+
+    const json report = m_manager->fetchPowerReportInternal();
+    ASSERT_EQ(report.size(), 2u) << report.dump();
+
+    const json exempt = entryForDpid(report, kExemptDpid);
+    const json brocade = entryForDpid(report, kBrocadeDpid);
+
+    EXPECT_EQ(exempt.at("power_consumed"), DialCountingManager::kHealthMetricUnavailable)
+        << report.dump();
+    EXPECT_EQ(exempt.at("power_path"), "none")
+        << "the -1 is unqualified, so it reads as a switch that failed to answer: "
+        << report.dump();
+
+    // The control. It WAS dialled -- the counting double returns an empty reply, which is what a
+    // machine that does not answer produces -- and its entry says a path exists for it.
+    EXPECT_EQ(m_manager->dialledMentioning(kBrocadeIp), 1u) << m_manager->dialledLog();
+    EXPECT_EQ(brocade.at("power_path"), "ssh")
+        << "the non-exempt switch is marked as though nobody managed it either, i.e. the mark is "
+           "wider than the exemption: "
+        << report.dump();
+}
+
+TEST_F(ExemptSwitchTest, EveryExitOfThePowerReportCarriesThePath)
+{
+    // All four ways an entry can be produced, in one body, because the failure this guards is a
+    // key present on some entries and absent from others -- a consumer that reads
+    // `entry["power_path"]` then throws on the one switch the key was added for.
+    buildManager(utils::TESTBED);
+    addTheExemptSwitchAndItsControl();                                        // exempt + read
+    const auto down = addSwitch("192.168.123.19", 9, std::string(kBrandBrocadeICX7250));
+    (*m_graph)[down].isUp = false;                                            // powered off
+    const auto noIp = addSwitch("192.168.123.20", 10, std::string(kBrandBrocadeICX7250));
+    (*m_graph)[noIp].ip.clear();                                              // no address
+
+    const json report = m_manager->fetchPowerReportInternal();
+    ASSERT_EQ(report.size(), 4u) << report.dump();
+
+    for (const auto& entry : report)
+    {
+        EXPECT_TRUE(entry.contains("power_path"))
+            << "one exit of the loop emits an entry with no path on it: " << entry.dump()
+            << " in " << report.dump();
+    }
+    // The two values each exit reports are unchanged by R5; asserted here so a future edit
+    // cannot buy the key by moving a number.
+    EXPECT_EQ(entryForDpid(report, 9).at("power_consumed"), 0)
+        << "0 is this endpoint's answer for a switch that is powered off: " << report.dump();
+    EXPECT_EQ(entryForDpid(report, 10).at("power_consumed"),
+              DialCountingManager::kHealthMetricUnavailable)
+        << report.dump();
+    EXPECT_EQ(entryForDpid(report, 9).at("power_path"), "ssh") << report.dump();
+    EXPECT_EQ(entryForDpid(report, 10).at("power_path"), "ssh") << report.dump();
 }
