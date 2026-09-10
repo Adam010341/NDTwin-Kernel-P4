@@ -209,7 +209,26 @@ IntentTranslator::getSwitchIpByName(const std::string &switchName)
         SPDLOG_LOGGER_WARN(Logger::instance(), "Vertex {} is not a switch", switchName);
         return std::nullopt;
     }
-    return utils::ipToString(vertex.ip[0]);
+    // [Co-developed with claude code -- Adam]
+    // FINDINGS #88, W14. `vertex.ip[0]` is the SAME undefined behaviour as `ip.front()`, only
+    // spelled differently: libstdc++'s operator[] is `*(_M_start + n)`, and a default-constructed
+    // std::vector has _M_start == nullptr, so the subscript binds a reference to a null pointer.
+    // VertexProperties::ip starts empty and there is no invariant in this file that says it does
+    // not stay that way -- the load-time gate that enforces "every node carries an address" lives
+    // in a different subsystem and covers SWITCH vertices only (TopologyAndFlowMonitor.cpp:216).
+    //
+    // The return type was already optional<std::string>, so the honest answer needs no new shape:
+    // a switch whose address the topology does not carry is a switch this function cannot name.
+    // Not "0.0.0.0" -- see utils::firstAddressOf for why a fabricated address is the worse bug.
+    auto ipOpt = utils::firstAddressOf(vertex.ip);
+    if (!ipOpt.has_value())
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "Switch {} carries no IP address in the topology",
+                           switchName);
+        return std::nullopt;
+    }
+    return ipOpt;
 }
 
 // [Co-developed with claude code -- Adam]
@@ -649,12 +668,29 @@ IntentTranslator::performTask(llmResponse::Task* task)
             for (auto [vi, viEnd] = boost::vertices(graph); vi != viEnd; ++vi)
             {
                 const auto& vprop = (graph)[*vi];
+                // [Co-developed with claude code -- Adam]
+                // FINDINGS #88, W14. Both branches read `vprop.ip[0]` with no emptiness check;
+                // see getSwitchIpByName above for why the subscript is the same undefined
+                // behaviour as front(). The HOST branch is the reachable one: this loop filters
+                // on vertexType and nothing else, and the invariant that keeps `ip` non-empty is
+                // enforced for SWITCH vertices only.
+                //
+                // JSON null, not "0.0.0.0" and not a dropped node. The reply is a topology
+                // listing, so a node that exists must still appear -- dropping it would answer a
+                // different question -- and `null` is the one value no consumer can mistake for
+                // an address it could dial. The key stays present so a reader indexing ["ip"]
+                // still finds it.
+                //
+                // Computed once for both branches on purpose: the shape of this defect is one
+                // branch guarded and the branch next to it not.
+                const auto ipOpt = utils::firstAddressOf(vprop.ip);
+                const json ipJson = ipOpt.has_value() ? json(*ipOpt) : json(nullptr);
                 if (vprop.vertexType == VertexType::SWITCH)
                 {
                     topoJson["switches"].push_back({
                         {"name", vprop.deviceName},
                         {"dpid", vprop.dpid},
-                        {"ip", utils::ipToString(vprop.ip[0])},
+                        {"ip", ipJson},
                         {"status", (vprop.isUp ? "UP" : "DOWN")}
                     });
                 }
@@ -662,7 +698,7 @@ IntentTranslator::performTask(llmResponse::Task* task)
                 {
                     topoJson["hosts"].push_back({
                         {"name", vprop.deviceName},
-                        {"ip", utils::ipToString(vprop.ip[0])},
+                        {"ip", ipJson},
                         {"mac", vprop.mac}
                     });
                 }
@@ -697,9 +733,16 @@ IntentTranslator::performTask(llmResponse::Task* task)
             {
                 const auto& vprop = (graph)[*vi];
                 if (vprop.vertexType == VertexType::HOST) {
+                    // [Co-developed with claude code -- Adam]
+                    // FINDINGS #88, W14. Same site, same reason, as the HOST branch of
+                    // GET_NETWORK_TOPOLOGY above: `vprop.ip[0]` on a host whose address list is
+                    // empty is a null-pointer dereference, and this loop reaches every HOST in
+                    // the graph. `null` rather than a fabricated address, and the host still
+                    // appears -- "which hosts are there" is the question being asked.
+                    const auto ipOpt = utils::firstAddressOf(vprop.ip);
                     hostsJson.push_back({
                         {"name", vprop.deviceName},
-                        {"ip", utils::ipToString(vprop.ip[0])},
+                        {"ip", ipOpt.has_value() ? json(*ipOpt) : json(nullptr)},
                         {"mac", vprop.mac}
                     });
                 }

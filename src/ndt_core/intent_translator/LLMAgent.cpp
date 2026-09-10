@@ -240,7 +240,18 @@ LLMAgent::getCurrentTopology()
             );
             switchCnt++;
         } else if (vprop.vertexType == VertexType::HOST) {
-            std::string ip = utils::ipToString(vprop.ip[0]);
+            // [Co-developed with claude code -- Adam]
+            // FINDINGS #88, W14. `vprop.ip[0]` on a host that carries no address is a
+            // null-pointer dereference -- operator[] is `*(_M_start + n)` and a
+            // default-constructed std::vector has _M_start == nullptr -- and this loop reaches
+            // every HOST in the graph, so one address-less host faulted the whole prompt.
+            //
+            // The substitute is prose, not an address, and that choice matters more here than at
+            // the JSON sites: this string is the *system prompt* an LLM then reasons over and
+            // proposes flow rules against. "h3(0.0.0.0)" would be a fabricated fact fed to a
+            // component whose whole job is to act on it.
+            const auto ipOpt = utils::firstAddressOf(vprop.ip);
+            std::string ip = ipOpt.has_value() ? *ipOpt : std::string("no IP address on record");
             hostDescription  += (vprop.deviceName + "(" + ip + "), ");
             hostCnt++;
         }

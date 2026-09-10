@@ -132,6 +132,14 @@ add_executable(
   # comes back on the next load. Renamed from test_NicknameDoesNotRewriteTheFile.cpp, whose
   # subject -- how tidily the model file is rewritten -- no longer exists.
   test_NicknameOverlay.cpp
+
+  # [Co-developed with claude code -- Adam] FINDINGS #88, W14: the seven `ip[0]` sites W2's own
+  # grep found and left alone. `operator[]` is not a milder `front()` -- both are
+  # `*(_M_start + n)`, and a default-constructed std::vector has _M_start == nullptr. Five of the
+  # seven read a HOST, and the load-time gate that keeps `ip` non-empty covers SWITCH vertices
+  # only. Seven contained death tests, one per site, because on an ordinary build the unfixed code
+  # produces no red line -- it takes the binary down mid-suite with no verdict for anything.
+  test_AddresslessNodeReplies.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

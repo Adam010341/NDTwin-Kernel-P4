@@ -2983,8 +2983,36 @@ FlowLinkUsageCollector::getPathBetweenHostsJson(const std::string& srcHostName,
 
     // 3. Get the IP addresses
     auto graph = m_topologyAndFlowMonitor->getGraph();
-    uint32_t srcIp = graph[*srcHostOpt].ip[0];
-    uint32_t dstIp = graph[*dstHostOpt].ip[0];
+    // [Co-developed with claude code -- Adam]
+    // FINDINGS #88, W14. Both subscripts were unguarded, and `VertexProperties::ip` is a
+    // std::vector that starts empty: libstdc++'s operator[] is `*(_M_start + n)` and a
+    // default-constructed vector has _M_start == nullptr, so `ip[0]` on a host with no address
+    // binds a reference to a null pointer -- the same undefined behaviour as `.front()`, spelled
+    // differently. findVertexByDeviceName filters on name, not on whether the host has an
+    // address, so nothing upstream of here excludes that host.
+    //
+    // The refusal is shaped like the "host not found" branch above rather than like a path
+    // result, because that is what it is: a path is keyed by (srcIp, dstIp), and a host with no
+    // address cannot be either end of that key. Answering "no path found" instead would report
+    // a property of the network for what is a property of the topology record.
+    const auto srcIpOpt = utils::firstAddressRaw(graph[*srcHostOpt].ip);
+    const auto dstIpOpt = utils::firstAddressRaw(graph[*dstHostOpt].ip);
+    if (!srcIpOpt.has_value() || !dstIpOpt.has_value())
+    {
+        json errorJson;
+        errorJson["error"] = "One or both hosts carry no IP address in the topology.";
+        if (!srcIpOpt.has_value())
+        {
+            errorJson["hosts_without_address"].push_back(srcHostName);
+        }
+        if (!dstIpOpt.has_value())
+        {
+            errorJson["hosts_without_address"].push_back(dstHostName);
+        }
+        return errorJson;
+    }
+    uint32_t srcIp = *srcIpOpt;
+    uint32_t dstIp = *dstIpOpt;
 
     // 4. Retrieve the path map from this collector
     auto allPaths = this->getAllPaths();
