@@ -3133,6 +3133,126 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   上面列的兩個 raw 檔涵蓋的是**殺之前的設置**與 **`--check` 的盲點**。
   🟢／🟠 不要混用；要把這條寫進 W16 的驗收條件之前，先重跑一次並存檔。
 
+---
+
+### G-14 🏁 `ndt` 的殘留「時間窗」對 helper 起的兩個 app（`energy`／`sim`）天生失明 —— **已修（未併）**
+
+> ⚠️ **編號**：本檔在這條之前最大的 G 是 **G-11**，但 **G-12（殘留報告本身）與 G-13（proxy
+> 給 P4 規則記裝入時間）已經被碼與裁決佔用**（`tools/test_workflow/ndt` 通篇引用 G-12，
+> G-13 是 09-07 grill §4E E-10 開的單），只是**還沒有人在本檔登記**。所以這條取 **G-14**。
+> 🔴 **併的時候要對號**：如果 G-12／G-13 的條目走另一條分支先進來，這條的號碼要跟著調
+> （E-27 的口徑：照序留兩份，不要在分支上搶號）。
+
+- **狀態**：🏁 **已修**，在 `fix/ndt-3-51-helper-apps-window`（**未併、未推**）。
+  **缺陷側是 live 實測**（lw16pw，2026-09-07 04:42，1/1）；
+  🆕 **修法側 09-07 20:28 live 驗過一輪（lw351）：窗那半成立**（`sim window … (14s)`＋
+  `CANNOT WINDOW`＋40 條 `age=UNKNOWN`，`--check` 的 residue 從 `none … (asked, not assumed)`
+  變成 `NOT CHECKED: 40 rule(s) could not be dated`）；**同一輪抓到行程那半兩個缺陷，已補一顆**
+  ——見下面「lw351 補丁」。
+- **平面**：兩者（缺陷與平面無關；lw16pw 剛好跑在 P4 4 hosts 上）
+- **失效方向**：靜默 ＋ **一個永遠是綠燈的檢查**
+- **會發生什麼**（修之前）：`ndt apps start sim` → 12 秒 → `ndt apps stop sim`，
+  殘留報告印 `sim: no pidfile and no live process -- no window, so no rule can be dated`，
+  tally 全 0；`ndt apps orphans` 回 **rc 0**、`(no app had a datable window in this run)`；
+  `ndt status --check` 的 `residue` 列印 `none -- ... (asked, not assumed)`。
+  **一條規則都沒有被問過**，而輸出讀起來像「問過了，網路是乾淨的」。
+- **機制**（四件事同時成立才印得出那一句）：
+  1. `app_start` 對 `energy|sim` 走 `sudo ndtwin-lab <name>-start`（root 在 tmux 起），
+     **從不寫** `.test_run/pids/app_<name>.pid`；其他三個 app 由 `app_spawn` 寫。
+  2. `app_started_at` **只認那個 pidfile**，不問 `app_probe`／`/proc` 掃到的活行程 ⇒
+     一個跑著的 sim 沒有窗。
+  3. 「log 空 ⇒ 沒跑過 ⇒ 不算 blind」這個判別子讀的是 **`$REPO` 的 log**，而 helper 把 sim 的
+     輸出寫到 **`$KERNEL_DIR/.test_run/logs/app_sim.log`**（`ndtwin-lab:98,301`，`KERNEL_DIR`
+     預設主 checkout）⇒ 在 worktree 裡那個檔永遠不存在 ⇒ 永遠回答「沒跑過」。
+     〔04:42 那次的 log 確實落在主 checkout，root 所有、144 KB。〕
+  4. `energy` **連 log 都沒有**（helper 沒給它 `script -f`）⇒ 這個問題在**任何** checkout 都問不到。
+  順帶：`no pidfile and no live process` 那一句**根本沒查活行程**，sim 正在跑時也照印。
+- **修法**（Adam 09-07 grill §4E E-8 裁「改櫃台＝ndt 側」，**不動 helper／不動 sudoers**）：
+  `app_start` 在 `app_wait_started` 驗到活行程後把 `APP_LIVE_PIDS[0]` 寫進 pidfile；
+  `app_started_at` 加第三個來源（活行程的 `ps -o etimes=`，取**最舊**的那個）；
+  「跑過沒」改讀 `app_evidence_log`（sim ⇒ helper 的 `KERNEL_DIR`，**`ndt` 唯讀地照 helper
+  自己的信任規則解析 `/etc/ndtwin-lab.conf`**；energy ⇒ 沒有管道，rc 1）；
+  那一句先查活行程；`apps stop` 驗證停掉後刪 pidfile（窗要關），而**那一次自己印的報告
+  用的是停之前讀到的窗**。
+- 🔴 **修完之後仍然為真的兩件事**（不要當成已解決）：
+  - **`energy` 的「在這裡跑過沒」永遠問不到**。報告印 `CANNOT BE ASKED`，`--check` 多印一行
+    「N app(s) could not be asked whether they ran here」，**但不算 problem、rc 不變**
+    （E-7：查不了可以不紅，但不准長得像查了沒事）。
+  - **`ndt` 裡那份 `KERNEL_DIR` 解析是別人規則的複本**。正本是 `/usr/local/sbin/ndtwin-lab`
+    （與 repo 內 `tools/test_workflow/ndtwin-lab` byte-identical，sha256 `6685d3a9…`，09-07 查）。
+    複本會漂移；擋它的是 `tests/shell/test_ndt_helper_apps_window.sh` 群組 1
+    （直接比對 helper 的原始碼文字），不是人。
+  - 🔴 **修法帶進一個新的「永遠紅」風險**：修法之後，**任何** checkout 只要 helper 的
+    `KERNEL_DIR` 裡 `app_sim.log` 非空、而這裡沒有 sim 的 pidfile ⇒ residue 判定就是
+    「window is LOST」⇒ `orphans`／`--check` 回 **rc 5**。修法前這只在主 checkout 成立
+    （讀碼＋`rounds/08-round2.md` 的判斷），現在是全域，而且**今天就成立**
+    （那個檔 144805 bytes、root 所有、mtime 09-07 04:42）。報告會印 `(log read: <路徑>)`
+    指出是哪個檔，但**這支工具清不掉它**（`apps trim` 走 `app_logfile`，不認得那條路徑）。
+    ⇒ 待裁（R3-351 SUMMARY §7-5）。
+- 🆕 **lw351 補丁（同一條，09-07 20:4x）：三個動詞對同一個 app 給了三種答案。**
+  helper 起的 app 是**兩層**行程（`script -qfa <log> -c ./simulation_platform_manager`
+  ＋它 exec 的程式，同一個行程組，**pidfile 記的是 wrapper**）。
+  - `apps orphans` 把 **pidfile 裡那個活著的 pid** 印成
+    `children with no pidfile and no signature`、rc 1。成因：`app_survivors` 回答的是
+    「這些通道找到誰」，而這個動詞直接把那份名單當成「誰都沒在追蹤的」——`app_stop` 有做的相減
+    （它的 `extra` 迴圈）這裡從來沒有。**修法**：印之前先減掉 `APP_LIVE_PIDS`
+    （`/proc` 驗過屬於這個 app 的 pid），剩 0 就不是孤兒；`running` 時標題改成事實。
+    🔴 **減的是 `APP_LIVE_PIDS` 不是 pidfile 內容**，且 **FINDING #48 未放寬**（那兩個 viz JVM
+    不帶簽名、不在 `APP_LIVE_PIDS`，一個都不會少——有對照格釘住）。
+  - `apps stop sim` 印 `ok sim stopped (was: not-running)`，而 helper 的 log 顯示 sim
+    在一秒後才收到 SIGINT。成因：`app_wait_stopped` 會輪詢 `app_probe` 直到 `not-running`，
+    把全域 `APP_STATE` 覆蓋掉，而 `(was: …)` 是對**停之前**的宣稱。**修法**：先存 `local was=`。
+  - 🔴 **為什麼原本 64 格沒抓到**：每一格的 fixture 都是**一個**行程，而行程組通道要有第二個成員
+    才產出東西 ⇒ 缺陷在單元測試裡不存在。新的第 10 群做出真的兩層（`setsid` 的 group leader
+    ＋ exec 出來的子行程＋兩個都持有 app log 的可寫 fd）。
+- 🆕 **3-51c（09-08，低優先補丁）：那份 log 是 root 的，而三個動詞把「讀得到」當成「動得了」。**
+  **本段全部是讀碼＋單元測試，沒有 live。**
+  helper 以 root 跑 `script -qfa <KERNEL_DIR>/.test_run/logs/app_sim.log` ⇒ 那個檔是
+  **root 所有的 0644**，放在這個使用者的目錄裡。於是三處：
+  - `apps trim`：`app_log_bytes` 是 `stat(2)`（只要目錄權限）、`truncate -s0` 要檔案的寫權限。
+    舊行為**沒有把失敗說成成功**（印 `truncate failed on <path>`、rc 1），但它是**先寫了
+    1 MB 的 `<log>.tail` 才發現不能 truncate**，而那句話既沒說是誰的檔、也沒給能解的指令。
+    **修法**：寫 tail 之前先問，擋住就印
+    `cannot truncate <path>: owned by root (helper wrote it); ask the operator to
+    'sudo truncate -s0 <path>'`、rc 1、**不留 `.tail`**。
+  - `apps status`：印大小（讀成功了）並指向 `ndt apps trim`，而那個動詞在這裡跑不動。
+    **修法**：多一列（黃）`log is root's (<path>); trim needs sudo`；大小照印。
+  - `app_survivors` 的**第三通道**（`find /proc/[0-9]*/fd -lname <log>`）：root 行程的 `fd/`
+    是 0500，find 進不去 ⇒ **回空**，而「不准問」與「問了、沒有」輸出一模一樣。
+    **修法**：`fd channel: CANNOT READ /proc/<pid>/fd (root process) -- not checked` 併進
+    `APP_SURVIVOR_BLIND`；`apps orphans` 在 `found > 0` 那條路也印它（以前只在 `found == 0` 印）。
+    🔴 **只看別的通道已經指名的 pid**——機器上每個 root daemon 的 `fd/` 都讀不到，全列出來
+    就是「一條通道指名半台機器」，`orphans` 會在每台機器上永遠回 blind。
+  - 🔴 **一個會碰到的 rc 變化**（判準沒變，情形變了）：在**主 checkout** 上 sim 由 helper 起著、
+    行程組通道找到那個 root wrapper ⇒ 被相減成「有人追蹤」（found 0）而 fd 通道對它是盲的
+    ⇒ **`apps orphans` 回 2（以前 0）**。合乎 E-7 口徑，**但沒有 live 驗過這一格**。
+  - 🔴 **「root 所有」在測試裡只能用替身**（不能 sudo）：真的 `chmod 444` 的檔 ＋ 只對一條路徑
+    注入的 `app_log_owner`。**kernel 真的拒絕了 truncate（同一個 EACCES），但拒絕的理由是
+    mode 不是 owner** ⇒ 那句話的兩半來自兩個證人。fd 那半**不需要替身**（在 `/proc` 現找一個
+    真的 root 行程）。細節與逐條差異：`FIX-3-51.md` §8.4。
+- 🆕 **上面那個 rc 2 已裁：接受、登記（Adam 2026-09-08，零改碼）。** 裁決逐字：
+  「主 checkout 上 helper 起的 sim 讓 `apps orphans` 回 2（以前 0）⇒ **接受、登記**
+  （判準沒變、合 E-7；零改碼）」（`scratch/overnight-2026-09-05/DECISIONS.md` 末節「09-08 15:3x」）。
+  要跟著記住的三件事：
+  - 🔑 **那個 2 不是新的孤兒**——沒有多出任何一個沒人追蹤的行程；2 的意思是
+    「**這一輪有一條通道沒能回答**」。那個 root wrapper 就是 pidfile 記著的 pid，
+    lw351 補丁已經把它從孤兒名單裡減掉。判準本身（`found>0`⇒1、`found==0`＋盲⇒2、否則 0）
+    一個字沒動，變的是**情形**：fd 通道現在會誠實承認自己讀不到 root 的 `/proc/<pid>/fd`。
+  - ⚠️ **把 `orphans` rc 當閘門的呼叫者**：已知的一個是 09-05 夜巡的 `arm_down.sh`
+    （restore check 2/3，`c2` 要 0 才印 `RESTORE-OK`）——**它碰不到這一格**，因為它在
+    `ndt down` 之後才跑，那時沒有 sim 在跑。🔴 那支腳本在 `scratch/`，不在版控。
+    **新寫的閘門要看得懂 0／1／2／4／5，不要把「非 0」一律讀成「有殘留」。**
+  - **要退掉**：`tools/test_workflow/ndt:3914-3918` 那兩行改成只印不記，
+    閘門 `mutate_ndt_helper_apps_window.sh` 的 **M24** 會立刻紅。
+  文件：`doc/2026-08-17_testing-manual.md` §2.3「Known count under a helper-started sim」、
+  `doc/2026-08-31_round-closing-checklist.md` 的 orphans 那格。**仍然沒有 live 驗過這一格。**
+  [Co-developed with claude code -- Adam]
+- **證據**：缺陷 `scratch/overnight-2026-09-05/rounds/08-round2.md:174-200`（lw16pw 逐節）、
+  `WAKEUP.md` §3-51；**lw351** `scratch/overnight-2026-09-05/logs/lw351-*.log` 與
+  `rounds/09-round3.md`；裁決 `scratch/overnight-2026-09-05/DECISIONS.md`（grill §4E 第二輪 E-8、
+  以及「09-07 20:2x（R3-351 §7 三題）」＝3-51c）；
+  修法 `doc/audit/2026-09-07_fix-3-51-helper-apps-window/FIX-3-51.md`（§7＝lw351 補丁、§8＝3-51c）。
+
 ## 證據索引
 
 | 輪次 | 位置 | 內容 |

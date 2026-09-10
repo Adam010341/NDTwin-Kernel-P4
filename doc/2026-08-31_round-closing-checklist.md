@@ -102,6 +102,10 @@ hook 只在你 commit 的那一刻才有機會說話，而**「缺席」不觸�
       |---|---|---|
       | 0 | 行程乾淨，網路上也沒東西 | 過 |
       | 1 | 有沒人追蹤的 app **行程**還在跑 | `ndt apps stop <name>` |
+      &nbsp;&nbsp;🆕 **09-07（lw351）起「沒人追蹤」是真的**：先前它把 **pidfile 裡那個活著的 pid**
+      也算成孤兒（helper 起的 app 是 `script … -c ./sim` ＋子行程兩層，pidfile 記 wrapper），
+      所以一個**正常跑著的** sim 就會讓這個動詞回 1。現在印之前會先減掉 `/proc` 驗過屬於它的 pid。
+      **09-02 那種「pidfile 沒了、JVM 還在」照舊回 1**（那些行程不帶簽名，減不到）。
       | 2 | 某一條存活通道**看不到** | 查那一條，別當成 0 |
       | 4 | 行程都走了，**網路上還有東西**（窗內的流表規則／還握著的鎖） | 規則照它印的 `delete_flow_entry` 手動刪；鎖等 TTL 自己過 |
       | 5 | 行程都走了，**殘留查不了**（kernel 沒起來／讀不到流表／這個平面分不了窗） | **不是「乾淨」**。見下面 P4 那條 |
@@ -114,13 +118,47 @@ hook 只在你 commit 的那一刻才有機會說話，而**「缺席」不觸�
       **那個 0 是「沒東西可定年」，不是「乾淨」**：一條規則都沒被問過。
       窗來自**這個 checkout** 的 app pidfile／log，別的 checkout 跑過的 app 在這裡永遠沒有窗。
       〔實跑：`rounds/08-round2.md:157-172`（乾淨 P4 ⇒ 0）與 `:174-193`（起過一次 app ⇒ 走 UNDATABLE／BLIND ⇒ 5）〕
-      另：`energy` 與 `sim` 目前因 3-51 **永遠沒有窗**（helper 起的 app 不寫 pidfile），另一張單修。
-      Adam 對這件事的處置是**從根本修**：G-13，proxy 在 install 規則時記時間戳，讓 P4 的規則能定年（另開單）。
+      🆕 **`energy` 與 `sim` 09-07 起有窗了**（3-51／G-14，先前它們因為是 helper 起的、
+      `ndt` 不寫 pidfile 而永遠沒窗）：`ndt apps start` 確認活行程之後會把 pid 寫進
+      `.test_run/pids/app_<name>.pid`，沒有 pidfile 時也會退到活行程的 `ps -o etimes=`。
+      收工要注意兩件事：
+      **(a)** `ndt apps stop` 驗證停掉後**會刪掉那個 pidfile**（窗要關），但**它自己那一次印的
+      殘留報告仍然有窗**——窗是在停之前讀的；
+      **(b)** 🔴 **`energy` 的「在這裡跑過沒」永遠問不到**：helper 不給它留 disk log。
+      報告會印 `CANNOT BE ASKED`、`--check` 的 `residue` 列會多一行
+      「N app(s) could not be asked whether they ran here」。**這不算 problem、rc 不變**，
+      但抄報告時**照抄那一行**——它跟「問過了，沒有」是兩件事。
+      **(c)** 🔴 **上面那句「別的 checkout 跑過的 app 在這裡永遠沒有窗」對 `sim` 要改口**：
+      窗還是只來自這個 checkout，**但「它跑過沒」變成全機器的問題**——helper 的 `KERNEL_DIR`
+      （預設主 checkout）裡 `app_sim.log` 非空、而這裡沒有 sim 的 pidfile ⇒ 判定是
+      「**window is LOST**」⇒ **rc 5**，不是 0。報告會印 `(log read: <路徑>)`，
+      **看到 5 先看那一行指的是哪個檔**；要回到 0 只能清掉那個 log，而**那個檔是 root 的**。
+      🆕 **09-08（3-51c）起 `ndt` 會自己講這件事，但它清不掉**：在**主 checkout** 上
+      `ndt apps trim sim` 會印
+      `cannot truncate <path>: owned by root (helper wrote it); ask the operator to
+      'sudo truncate -s0 <path>'`、rc 1（**不會再留一個沒用的 `<log>.tail`**），
+      `ndt apps status` 那一列會多一句 `log is root's (<path>); trim needs sudo`。
+      **在 worktree 裡 `apps trim` 根本碰不到那條路徑**（它走 `app_logfile`＝這個 checkout 的），
+      所以那裡照樣什麼都不會說——**要清就是照上面那道 `sudo truncate -s0` 自己下**。
+      Adam 對「P4 的規則定不了年」的處置是**從根本修**：G-13，proxy 在 install 規則時記時間戳（另開單）。
 
       🔴 **`|| exit 1` 這種寫法，只要 P4 上有 app 跑過就會失敗**（先前寫「永遠失敗」，同上更正）。
       把 orphans 當閘門的腳本要改成看得懂 4 與 5，或至少把 5 記進報告而不是當成通過。
+      🆕 **09-08（3-51c）多一個會回 2 的情形**：`sim` 由 helper 起著跑 `orphans` 時，
+      那個 root wrapper 的 `/proc/<pid>/fd` 這個使用者讀不到 ⇒ 第三通道對它是盲的 ⇒
+      `no untracked app processes found, but a channel was blind: … fd channel: CANNOT READ …`、
+      **rc 2**（以前是 0）。**2 不是「有孤兒」也不是「乾淨」**，照抄那一行進報告。
+      〔這一格**只有單元測試**，還沒 live 驗過。〕
+      🆕 **09-08 Adam 裁：接受、登記**（判準沒變、零改碼）。**那個 2 不是新的孤兒**——
+      沒有多出任何一個沒人追蹤的行程，2 的意思是「這一輪有一條通道沒能回答」。
+      本輪的 `arm_down.sh`（restore check 2/3）**碰不到這一格**：它在 `ndt down` 之後才跑，
+      那時沒有 sim 在跑。逐條在 `doc/2026-08-17_testing-manual.md` §2.3
+      「Known count under a helper-started sim」與 KNOWN-ISSUES **G-14**。
 - [ ] `ndt status --check` 的 `residue` 那一列**抄進報告**（2026-09-07 起有這一列）。
       `none` 才算問過了；`NOT CHECKED` 是沒問到，**不是乾淨**。
+      🆕 **它下面還可能多一行 `N app(s) could not be asked whether they ran here: <名字>`**
+      （3-51／G-14）——那是「這個 app 連問的管道都沒有」（今天只有 `energy`）。
+      **rc 不會因為它變 1**，但它跟 `none` 是兩件事，**兩行都抄**。
 - [ ] `ndt status` 的 `knob baseline` 與 `tree vs round` 兩列**抄進報告**（I-3）。
       `p4_proxy/mininet/host_count_override` 還原＝**寫回**開工那個值，
       **不是 `git checkout --`**（那會給你 HEAD＝128）。`porcelain` 行數不是還原證據：

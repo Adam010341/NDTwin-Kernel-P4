@@ -303,9 +303,70 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
 窗來自**這個 checkout** 的 app pidfile／log，所以別的 checkout（例如主 checkout）跑過的 app
 留下的規則，在這裡永遠沒有窗、永遠不會被查。
 〔實跑：`rounds/08-round2.md:157-172` 乾淨 P4 ⇒ 0；`:174-193` 在同一個 checkout 起過一次 app ⇒ 5。〕
-另：`energy` 與 `sim` 因為是 helper（`sudo ndtwin-lab <name>-start`）起的、不寫 pidfile，
-**目前永遠沒有窗**（3-51，另一張單修）。
-Adam 的處置是**從根本修**：G-13——讓 proxy 在裝規則時記時間戳，P4 的規則才定得了年。
+🆕 **09-07 修好了（3-51／G-14）：`energy` 與 `sim` 現在跟其他三個 app 一樣有窗。**
+先前它們是 helper（`sudo ndtwin-lab <name>-start`）起的、`ndt` 不寫 pidfile ⇒ 永遠沒窗。
+現在 `ndt apps start energy|sim` 起完、**確認活行程之後**把那個 pid 寫進
+`.test_run/pids/app_<name>.pid`；沒有 pidfile 時 `app_started_at` 還會退一步問活行程的
+`ps -o etimes=`。所以：
+
+- **在這個 checkout 用 `ndt apps start` 起的 sim／energy，`orphans`／`--check` 看得到它的窗**；
+- `ndt apps stop` 驗證停掉之後**會把 pidfile 刪掉**（窗才會關；否則每次 `--check` 都會把
+  之後裝的每一條規則算成殘留）。**同一個指令自己印的殘留報告仍然有窗**——窗是在停之前讀的。
+- **「跑過沒」現在看 helper 那棵樹的 log**：`sim` 是
+  `<helper 的 KERNEL_DIR>/.test_run/logs/app_sim.log`（預設主 checkout；
+  `/etc/ndtwin-lab.conf` 可改，`ndt` 唯讀地照 helper 同一套信任規則解析），**不是這個 worktree 的**。
+- 🔴 **`energy` 例外：helper 不給它留任何 disk log**（沒有 `script -f`），所以
+  「它在這裡跑過沒」**沒有任何管道可以問**。報告會明說 `CANNOT BE ASKED`，
+  `--check` 的 `residue` 列會多印一行「N app(s) could not be asked whether they ran here」。
+  **這一條不算 problem、不會讓 rc 變 1**（沒有人能對它做任何事，永遠紅的閘門沒人看），
+  但也**不會被寫成「沒跑過」**——「查不了」跟「查了沒事」在這份輸出裡長得不一樣。
+- 🔴 **上面那句「別的 checkout 跑過的 app 在這裡永遠沒有窗」對 `sim` 要改口**：窗確實還是只來自
+  這個 checkout，**但「它跑過沒」現在是全機器的問題**——helper 的 `KERNEL_DIR` 裡
+  `app_sim.log` 非空、而這裡沒有 sim 的 pidfile ⇒ 判定是「**window is LOST**」⇒ `orphans`／
+  `--check` 的 residue 是 **rc 5（NOT CHECKED）**，不是 0。報告會印 `(log read: <路徑>)`，
+  **看到 5 先看那一行是哪個檔**。要讓它回到 0 只能清掉那個 log，而**那個檔是 root 的**。
+  🆕 **09-08（3-51c）起 `ndt` 自己會講，但它清不掉**：在**主 checkout** 上
+  `ndt apps trim sim` 印 `cannot truncate <path>: owned by root (helper wrote it); ask the
+  operator to 'sudo truncate -s0 <path>'`、rc 1（也不再留一個沒用的 `<log>.tail`），
+  `ndt apps status` 多一句 `log is root's (<path>); trim needs sudo`。
+  **在 worktree 裡 `apps trim` 連那條路徑都碰不到**（它走這個 checkout 的 `app_logfile`），
+  所以那裡什麼都不會說——要清就自己下那道 `sudo truncate -s0`。
+- 🆕 **09-08（3-51c）：`ndt apps orphans` 多一個回 2 的情形，而 2 不是「有孤兒」也不是「乾淨」。**
+  helper 起的 sim 是 root 行程，它的 `/proc/<pid>/fd` 這個使用者讀不到 ⇒ 找「誰持有 app log 的
+  可寫 fd」那條通道對它是**盲的**（以前盲的時候輸出跟「找了、沒有」一模一樣）。現在會印
+  `no untracked app processes found, but a channel was blind: … fd channel: CANNOT READ
+  /proc/<pid>/fd (root process) -- not checked`，rc 2。**照抄那一行進報告。**
+  〔這一格只有單元測試，還沒 live 驗過。〕
+
+#### Known count under a helper-started sim（helper 起著 sim 時的已知計數）
+
+🆕 **09-08 Adam 裁：接受、登記。** 零改碼——**判準沒有變，變的是情形**。這一段是給
+「看到 2 想知道自己是不是踩到新東西」的人看的。
+
+- **什麼情境回 2**：在**主 checkout** 上、**`sim` 由 helper 起著還沒停**的時候跑
+  `ndt apps orphans`（`ndt status --check` 的同一條路也一樣）⇒ **rc 2**，以前是 rc 0。
+  worktree 裡不會（那裡沒有這個 sim 的 pidfile，走的是另一格）；sim 沒在跑時也不會。
+- **為什麼**：helper 起的 sim 是**兩層 root 行程**（`script -qfa <log> -c …` ＋它 exec 的程式）。
+  行程組通道找得到那個 root wrapper，但它會被 `APP_LIVE_PIDS` 相減成「有人在追蹤」
+  ⇒ `found == 0`；而第三條通道（誰持有 app log 的可寫 fd）要讀 `/proc/<pid>/fd`，
+  root 行程的那個目錄是 0500 ⇒ 這個使用者**讀不到、也就不能宣稱看過**
+  （`tools/test_workflow/ndt:3790` 的 `app_fd_blindness`，`:3914-3918` 併進 `APP_SURVIVOR_BLIND`）。
+  `found == 0` ＋有一條通道是盲的 ⇒ **依既有判準**回 2（`ndt:5482-5489`；
+  `found > 0` ⇒ 1、乾淨且每條通道都看得成 ⇒ 0）。合 E-7 的口徑：**查不了不准長得像查過了**。
+- 🔑 **那個 2 不是新的孤兒**：機器上**沒有多出任何一個沒人追蹤的行程**。2 的意思是
+  「**這一輪有一條通道沒能回答**」，不是「有殘留」。那個 root wrapper 正是 pidfile 記著的
+  那個 pid——3-51 的 lw351 補丁已經把它從孤兒名單裡減掉了（見 G-14）。
+- ⚠️ **把 `orphans` 的 rc 當閘門的呼叫者**：09-05 夜巡的 `arm_down.sh` 是已知的一個
+  （restore check 2/3，`c2` 要 0 才印 `RESTORE-OK`，非 0 ⇒ `RESTORE-FAIL`）。
+  **它碰不到這一格**：它在 `ndt down` 之後才跑，那時沒有 sim 在跑。
+  🔴 那支腳本在 `scratch/`，**不在版控**。**新寫的閘門一律要看得懂 0／1／2／4／5**——
+  尤其**不要把「非 0」讀成「有殘留」**：2 是「沒問完」、5 是「窗掉了、沒問」。
+- **要退掉這個行為**（如果哪天不要了）：把 `ndt:3914-3918` 那兩行從
+  「併進 `APP_SURVIVOR_BLIND`」改成只印不記，閘門
+  `tests/shell/mutate_ndt_helper_apps_window.sh` 的 M24 會立刻紅。
+- **證據等級**：🔵 **讀碼＋單元測試／閘門，沒有 live 驗過這一格**（3-51c 全單皆然）。
+
+Adam 對「P4 的規則定不了年」的處置是**從根本修**：G-13——讓 proxy 在裝規則時記時間戳。
 
 ⚠️ 這代表 **OVS 沒有一鍵驗收**。OVS 的驗收就看 `ndt up` 最後那行 `data plane: ... forwards`，
 外加下面那張表。

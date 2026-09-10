@@ -416,6 +416,12 @@ ndt apps orphans  →  rc 0
 - 窗來自**這個 checkout** 的 app pidfile／log；別的 checkout 跑過的 app 留下的規則在這裡永遠沒有窗。
 - `|| exit 1` 在 P4 上**只要有 app 跑過**就會失敗（先前寫「永遠失敗」）。
 - `energy`／`sim` 目前因 **3-51** 永遠沒有窗（helper 起的 app 不寫 pidfile），另一張單修。
+  🆕 **附註（09-07 19:xx，R3-351 加，原文不動）：那張單做完了**——
+  `fix/ndt-3-51-helper-apps-window`（未併）已讓這兩個 app 有窗（`app_start` 驗到活行程後寫
+  pidfile、`app_started_at` 退到活行程的 `etimes`、「跑過沒」改讀 helper `KERNEL_DIR` 的 log）。
+  **`energy` 仍有一個殘留限制**：helper 不給它 disk log ⇒「在這裡跑過沒」永遠問不到，
+  報告印 `CANNOT BE ASKED`，不算 problem。見 `doc/audit/2026-09-07_fix-3-51-helper-apps-window/FIX-3-51.md`
+  與 `KNOWN-ISSUES` **G-14**。上面那一行是本單交件當時（09-07 17:51）的事實，保留不改。
 - Adam 對 E-10 的處置是**從根本修**：**G-13**——proxy 在 install 規則時記時間戳，
   讓 P4 的規則定得了年（另開單；過渡期 arm 腳本把 5 記成「殘留未查」，不擋下一臂）。
 

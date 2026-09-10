@@ -118,8 +118,11 @@ m=$(mutant m4 "$NDT" \
 report "M4: any fd on the log counts, not only a writable one" "$m" \
        "a reader of the log is NOT a writer"
 
+# 2026-09-07 (lw351): re-anchored. apps_orphans now SUBTRACTS the pids app_probe already
+# accounted for before it reports anything, so the list this guard measures is `unnamed`, not
+# the raw channel output. Same guard, same meaning, same mutation.
 m=$(mutant m5 "$NDT" \
-    '        (( ${#APP_SURVIVORS[@]} == 0 )) && continue' \
+    '        (( ${#unnamed[@]} == 0 )) && continue' \
     '        continue')
 report "M5: apps orphans stops consulting the new channels" "$m" \
        "🔴 apps orphans exits 1 (it answered 0 on 09-02)"
@@ -188,8 +191,9 @@ m=$(mutant n4 "$NDT" \
 report "N4 (control): the verifier never says clean, so no stop ever succeeds" "$m" \
        "stop returns 0"
 
+# 2026-09-07 (lw351): re-anchored with M5, and for the same reason.
 m=$(mutant n5 "$NDT" \
-    '        (( ${#APP_SURVIVORS[@]} == 0 )) && continue
+    '        (( ${#unnamed[@]} == 0 )) && continue
         found=$(( found + 1 ))' \
     '        found=$(( found + 1 ))')
 report "N5 (control): every app is reported as an orphan, always" "$m" \

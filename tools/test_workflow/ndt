@@ -911,6 +911,119 @@ lab_session() {
 
 topo_session() { lab_session topo; }
 
+# --- which tree the ROOT helper runs in, resolved READ-ONLY ------------------------
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 3-51, measured live 2026-09-07 (lw16pw). `ndt` writes its app logs under its OWN $REPO.
+# The lab helper does not: `sudo ndtwin-lab sim-start` runs as root and sends sim's output to
+# $KERNEL_DIR/.test_run/logs/app_sim.log, where KERNEL_DIR is the helper's, not ours. In a
+# worktree the two differ, and residue_report read the ONE THAT IS ALWAYS EMPTY -- so "its log
+# is empty, no sign it ever ran here" was printed about a sim whose log had been written four
+# minutes earlier, in the other tree. A discriminator that looks in the wrong place does not
+# fail loudly; it agrees with you.
+#
+# 🔴 THIS IS A READ-ONLY COPY OF SOMEBODY ELSE'S RULE, and that is the whole hazard. The
+# authority is /usr/local/sbin/ndtwin-lab (root-owned; byte-identical to this repo's
+# tools/test_workflow/ndtwin-lab, sha256 6685d3a90fd94884..., checked 2026-09-07). Adam's
+# ruling on 3-51 (DECISIONS.md, grill §4E round 2, E-8) was "改櫃台" -- fix the counter, not
+# the helper -- so nothing here touches that file, asks it anything, or needs a sudo grant.
+# The price is that a copy can drift, which is why:
+#   * the default and the config path below are pinned by tests/shell/test_ndt_helper_apps_window.sh
+#     against the helper's own source text, so a change there turns this red rather than silent;
+#   * every REFUSAL the helper makes is made here too. A config `ndt` trusted and the helper
+#     refused would point this at a tree root is not running -- FINDING-01 inverted, and just
+#     as quiet.
+#
+# What is NOT copied: NTG_PY/ENERGY_DIR/SIM_DIR (nothing here needs them) and the helper's
+# loud refusal message (it acts on that config; this only reads a log path from it).
+LAB_CONF=/etc/ndtwin-lab.conf
+LAB_DEFAULT_KERNEL_DIR=/home/adam/Desktop/NDTwin-Kernel
+
+# lab_conf_path_trusted <path> -- root-owned and not group- or other-writable.
+#
+# Three predicates in two functions, and the SPLIT is the helper's, kept for the helper's
+# reason: there is no directory a non-root user can write to that is also root-owned, so
+# "adam-owned file in a trusted directory" cannot be built as a fixture -- and a single
+# function would leave every file-level check untestable off a root shell.
+lab_conf_path_trusted() {
+    local p="$1" owner perms
+    owner="$(stat -c '%u' "$p" 2>/dev/null)"
+    perms="$(stat -c '%a' "$p" 2>/dev/null)"
+    [[ "$owner" == 0 ]] || return 1
+    [[ "$perms" =~ ^[0-7]+$ ]] || return 1
+    (( (0$perms & 0022) != 0 )) && return 1
+    return 0
+}
+
+# lab_conf_trusted <conf> -- may this file choose the tree?
+#
+# 🔴 THE DIRECTORY IS JUDGED FIRST, and copying that ordering is the point rather than a
+# detail: write permission on the directory is permission to REPLACE the file, after which
+# every check on the file passes on an attacker-supplied one.
+lab_conf_trusted() {
+    local conf="$1"
+    lab_conf_path_trusted "$(dirname "$conf")" || return 1
+    # A symlink is refused rather than followed: stat would describe the LINK, so checking it
+    # says nothing about what would be read.
+    [[ -L "$conf" ]] && return 1
+    [[ -f "$conf" ]] || return 1
+    lab_conf_path_trusted "$conf" || return 1
+    return 0
+}
+
+# lab_conf_kernel_dir <conf> -- the KERNEL_DIR this file sets, or nothing.
+#
+# 🔴 ALL OR NOTHING, because the helper is: lab_config_parse assigns as it reads and restores
+# every default if any later line is bad, so a file whose third line is a typo sets NOTHING.
+# Reading only the KERNEL_DIR line and ignoring the rest would make `ndt` believe a config the
+# helper threw away.
+lab_conf_kernel_dir() {
+    local conf="$1" line key val found=""
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line%%$'\r'}"
+        line="${line#"${line%%[![:space:]]*}"}"
+        line="${line%"${line##*[![:space:]]}"}"
+        [[ -z "$line" || "$line" == \#* ]] && continue
+        [[ "$line" == *=* ]] || return 1
+        key="${line%%=*}"; val="${line#*=}"
+        key="${key%"${key##*[![:space:]]}"}"
+        val="${val#"${val%%[![:space:]]*}"}"
+        case "$key" in
+            KERNEL_DIR|NTG_PY|ENERGY_DIR|SIM_DIR) ;;
+            *) return 1 ;;
+        esac
+        [[ "$val" == /* ]] || return 1
+        case "$val" in *..*) return 1 ;; esac
+        [[ "$key" == KERNEL_DIR ]] && found="$val"
+    done < "$conf"
+    [[ -n "$found" ]] || return 1
+    # The helper's own two post-conditions. It refuses the whole file when either fails, so a
+    # KERNEL_DIR that names a tree with no bridge script in it is not in force there either.
+    [[ -d "$found" ]] || return 1
+    [[ -f "$found/p4_proxy/mininet/ntg_bmv2_topo.py" ]] || return 1
+    printf '%s' "$found"
+}
+
+# lab_kernel_dir -- the tree `sudo ndtwin-lab` acts in. Also sets LAB_KERNEL_DIR_SOURCE, so a
+# report can say WHERE it looked without the reader having to know this rule.
+LAB_KERNEL_DIR_SOURCE=""
+lab_kernel_dir() {
+    local d
+    LAB_KERNEL_DIR_SOURCE="built-in default (no $LAB_CONF)"
+    if [[ -e "$LAB_CONF" || -L "$LAB_CONF" ]]; then
+        if lab_conf_trusted "$LAB_CONF" && d="$(lab_conf_kernel_dir "$LAB_CONF")" && [[ -n "$d" ]]; then
+            LAB_KERNEL_DIR_SOURCE="$LAB_CONF"
+            printf '%s' "$d"
+            return 0
+        fi
+        # Refused, exactly as the helper refuses it: the defaults stay in force. Said in the
+        # source string rather than swallowed, because "it quietly used a different tree than
+        # you configured" is FINDING-01.
+        LAB_KERNEL_DIR_SOURCE="built-in default ($LAB_CONF was REFUSED)"
+    fi
+    printf '%s' "$LAB_DEFAULT_KERNEL_DIR"
+}
+
 # --- the state that decides every number ------------------------------------------
 
 host_count() {
@@ -3603,6 +3716,35 @@ app_pidfile() { echo "$REPO/.test_run/pids/app_$1.pid"; }
 app_logfile()  { echo "$REPO/.test_run/logs/app_$1.log"; }
 app_pgidfile() { echo "$REPO/.test_run/pids/app_$1.pgid"; }
 
+# app_evidence_log <name> -- the file that answers "did this app ever run HERE", or rc 1 when
+# nothing can answer it. NOT the file we write to: the file whoever STARTED it writes to.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 3-51. Three apps and three different answers, and collapsing them into app_logfile is what
+# made the residue report confident about a question it had asked in the wrong place:
+#
+#   nsr viz te   app_spawn opens $REPO/.test_run/logs/app_<name>.log itself, so ours IS the file.
+#   sim          `sudo ndtwin-lab sim-start` runs `script -qfa $KERNEL_DIR/.test_run/logs/
+#                app_sim.log` as ROOT, in the helper's tree. Measured 04:42 on 2026-09-07: the
+#                log landed in the main checkout while `ndt` in wt-ndt read its own empty one
+#                and reported "no sign it ever ran here".
+#   energy       `tmux new-session -d -s energy -c $ENERGY_DIR ./energy_saving_app` -- no
+#                `script`, no redirection, no disk log at all. Its output exists only in a tmux
+#                pane. There is NOTHING to read, and rc 1 says so; the caller must print that
+#                it could not ask, and must not print "no sign it ever ran here" (Adam, E-8:
+#                「不能寫成「沒跑過」」).
+#
+# 🔴 Deliberately NOT app_logfile's job. app_logfile is also what apps_trim TRUNCATES and what
+# app_survivors hunts fd holders on; pointing either of those at another tree would have this
+# tool truncating a root-owned file in a checkout it was not run from.
+app_evidence_log() {
+    case "$1" in
+        energy) return 1 ;;
+        sim)    printf '%s/.test_run/logs/app_sim.log' "$(lab_kernel_dir)" ;;
+        *)      app_logfile "$1" ;;
+    esac
+}
+
 # app_port <name> -- the TCP port this app owns, or nothing.
 #
 # Read out of the ports.sh table instead of written here a second time. :9000 appeared zero
@@ -3762,6 +3904,69 @@ app_log_writers() {
     return 0
 }
 
+# proc_uid <pid> -- the real uid of a live process, or nothing.
+#
+# [Co-developed with claude code -- Adam]
+# /proc/<pid>/status is world-readable, and that is the whole point of reading it here: the one
+# thing this user can still learn about a process it may not look inside is WHO OWNS IT. Read
+# with the builtin, and `2>/dev/null` BEFORE the `<` for the reason proc_stat_rest gives.
+proc_uid() {
+    local key uid rest
+    [[ "$1" =~ ^[0-9]+$ ]] || return 1
+    while read -r key uid rest; do
+        [[ "$key" == Uid: ]] || continue
+        [[ "$uid" =~ ^[0-9]+$ ]] || return 1
+        echo "$uid"; return 0
+    done 2>/dev/null < "/proc/$1/status"
+    return 1
+}
+
+# app_fd_readable <pid> -- may this process list that one's open files?
+#
+# A function of its own so the answer has one name and one place. /proc/<pid>/fd is mode 0500
+# owned by the process's own user: false for anything root started when `ndt` runs as a user,
+# and true throughout when `ndt` itself runs as root -- which is why the question is asked of
+# the kernel rather than by comparing uids.
+app_fd_readable() { [[ -r "/proc/$1/fd" ]]; }
+
+# app_fd_blindness -- one sentence naming the processes the log-fd channel could not look
+# inside, rc 1 and nothing when it could look at all of them.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 3-51c (KNOWN-ISSUES G-14). The fd channel is `find /proc/[0-9]*/fd -lname <log>`, and find
+# cannot descend into a directory it may not read. For everything `sudo ndtwin-lab sim-start`
+# starts -- every sim and every energy on a real lab -- the whole channel returns nothing, and
+# nothing is byte-for-byte what it returns when no process holds the log. "I was not allowed to
+# ask" and "I asked and there is nothing" are the two answers this file exists to keep apart,
+# and here they had the same output.
+#
+# 🔴 BOUNDED TO THE PIDS SOME OTHER CHANNEL ALREADY NAMED, and the bound is not decoration.
+# Every root daemon on the machine has an fd directory this user cannot read; reporting them
+# would be a channel that names half the machine (see APP_SURVIVOR_MAX) and would make
+# `ndt apps orphans` answer "blind" on every machine forever -- a verb that is never green is
+# read exactly as often as one that is always green. What is reported is the processes THIS
+# APP's other channels found and this one could not have seen.
+app_fd_blindness() {
+    local e pid uid out=""
+    for e in ${APP_SURVIVORS[@]+"${APP_SURVIVORS[@]}"}; do
+        pid="${e%% *}"
+        [[ "$pid" =~ ^[0-9]+$ ]] || continue
+        # A pid that has since exited is not blindness: there is nothing left to look at.
+        [[ -d "/proc/$pid" ]] || continue
+        app_fd_readable "$pid" && continue
+        uid="$(proc_uid "$pid")" || uid=""
+        if [[ "$uid" == 0 ]]; then
+            out="${out:+$out; }fd channel: CANNOT READ /proc/$pid/fd (root process) -- not checked"
+        elif [[ -n "$uid" ]]; then
+            out="${out:+$out; }fd channel: CANNOT READ /proc/$pid/fd (uid $uid, you are $(id -u)) -- not checked"
+        else
+            out="${out:+$out; }fd channel: CANNOT READ /proc/$pid/fd (owner unknown) -- not checked"
+        fi
+    done
+    [[ -n "$out" ]] || return 1
+    echo "$out"
+}
+
 # app_port_pids <name> -- pids listening on the port this app owns, one per line.
 #
 # Asked only about an app we have just tried to stop, never used to discover an orphan: a
@@ -3864,6 +4069,12 @@ app_survivors() {
             done <<<"$out"
         fi
     fi
+    # 🔴 3-51c. Asked LAST, because the question is about the pids the channels above named:
+    # which of them could the log-fd channel not have seen? See app_fd_blindness. This adds no
+    # survivor and removes none -- it only stops an empty third channel from being read as a
+    # clean one for the apps the lab helper starts as root.
+    out="$(app_fd_blindness)" &&
+        APP_SURVIVOR_BLIND="${APP_SURVIVOR_BLIND:+$APP_SURVIVOR_BLIND; }$out"
     return 0
 }
 
@@ -3985,6 +4196,55 @@ app_log_bytes() {
     local log; log="$(app_logfile "$1")"
     [[ -f "$log" ]] || return 1
     stat -c %s "$log" 2>/dev/null
+}
+
+# app_log_owner <path> -- the uid that owns that file, or nothing.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 3-51c, AND IT IS THE SEAM THE TEST NEEDS. `sudo ndtwin-lab sim-start` runs `script -qfa
+# <KERNEL_DIR>/.test_run/logs/app_sim.log` as ROOT, so on the main checkout that log is a
+# root-owned 0644 file inside a directory this user owns: readable, listable, countable -- and
+# not truncatable. tests/shell/test_ndt_helper_apps_window.sh has no root and must never ask
+# for any, so it replaces THIS function for one path and leaves the writability question to the
+# kernel with a real 0444 file. What the stand-in does not reproduce is written down there.
+app_log_owner() {
+    local u
+    u="$(stat -c %u "$1" 2>/dev/null)" || return 1
+    [[ "$u" =~ ^[0-9]+$ ]] || return 1
+    echo "$u"
+}
+
+# app_log_blocked_reason <path> -- rc 0 and nothing when this process could truncate that log;
+# rc 1 and ONE SENTENCE saying why not, naming the command that would.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 READING A LOG AND TRUNCATING IT ARE DIFFERENT PERMISSIONS, and this repo answered them
+# with one question. `apps status` prints a size it got from stat(2) -- which needs nothing but
+# the directory -- and then points at `ndt apps trim`, which needs write on the file itself. On
+# the main checkout after any helper-started sim those two answers differ, and only the first
+# was ever asked; `apps trim` then found out by having its truncate fail, after it had already
+# written the tail file.
+#
+# The owner is consulted only once writability has been REFUSED, and in that order on purpose:
+# whether the tool can do the job is the kernel's answer, and whose file it is only decides
+# which remedy to print. Run as root, `-w` is true and none of this fires.
+app_log_blocked_reason() {
+    local p="$1" u
+    [[ -e "$p" ]] || return 0
+    if [[ ! -w "$p" ]]; then
+        u="$(app_log_owner "$p")" || u=""
+        if [[ "$u" == 0 ]]; then
+            echo "owned by root (helper wrote it); ask the operator to 'sudo truncate -s0 $p'"
+        elif [[ -n "$u" && "$u" != "$(id -u)" ]]; then
+            echo "owned by uid $u, not by you; ask its owner to 'truncate -s0 $p'"
+        else
+            echo "not writable by this user (mode $(stat -c %a "$p" 2>/dev/null || echo '?'))"
+        fi
+        return 1
+    fi
+    [[ -r "$p" ]] && return 0
+    echo "writable but NOT readable here, so the last 1 MB could not be kept"
+    return 1
 }
 
 # human_bytes <n> -- a size a person can read, for the log column.
@@ -4475,6 +4735,24 @@ app_start() {
                 return 1
             fi
             app_wait_started "$name" || return 1
+            # [Co-developed with claude code -- Adam]
+            # 🔴 3-51, Adam's ruling E-8 point 1 (09-07): the pid app_wait_started just VERIFIED
+            # is written to the same pidfile, in the same format, that app_spawn writes for the
+            # other three. Without this line these two apps had no pidfile ever, so
+            # app_started_at could not date them, so `apps stop`/`apps orphans` reported "no
+            # window" for a sim that had been running for twelve seconds and the residue rules
+            # were never asked about (lw16pw, 2026-09-07, 1/1).
+            #
+            # APP_LIVE_PIDS[0] and not the whole list: app_scan_pids walks `ps -eo pid=` in pid
+            # order and sim matches TWICE on a logging run (`script -qfa ... -c
+            # ./simulation_platform_manager` and the binary it execs), so [0] is the outer,
+            # earlier process -- the one whose etimes is the window's left edge. A file with two
+            # pids in it would be read as garbage by app_pidfile_pid's `^[0-9]+$`.
+            #
+            # 🔴 It is written AFTER the wait, never before: a pidfile written on the strength
+            # of the lab's rc would name a process that is already gone, which is the C26 defect
+            # (`ok sim started`) moved from the message into a file.
+            echo "${APP_LIVE_PIDS[0]}" >"$pid_dir/app_$name.pid"
             ok "$name started (tmux: $name, pid(s) ${APP_LIVE_PIDS[*]})" ;;
         nsr)
             [[ -f "$NSR_DIR/network_state_recorder.py" ]] || { err "NSR not found at $NSR_DIR"; return 1; }
@@ -4542,6 +4820,10 @@ app_stop() {
         # contract on app_stop above.
         energy|sim)
             app_probe "$name"
+            # The state BEFORE anything is stopped, captured here because app_wait_stopped below
+            # re-probes until it gets not-running and leaves that in APP_STATE. See the `(was:)`
+            # line at the end of this branch.
+            local was="$APP_STATE"
             if [[ "$APP_STATE" == not-running ]]; then
                 info "$name not running (no live process carries its signature)"
                 if [[ "$APP_SESSION_WITHOUT_PROCESS" == 1 ]]; then
@@ -4557,7 +4839,28 @@ app_stop() {
             fi
             sudo -n "$LAB" "$name-stop" >/dev/null 2>&1 || true
             app_wait_stopped "$name" || return 1
-            ok "$name stopped (was: $APP_STATE)" ;;
+            # [Co-developed with claude code -- Adam]
+            # 🔴 3-51. The pidfile app_start now writes is removed HERE, on a VERIFIED stop, for
+            # the same reason the nsr|viz|te branch removes its own: app_started_at dates a dead
+            # app by the pidfile's mtime, and the window that opens has a start and no end. Left
+            # behind, it would window from a sim that stopped yesterday to now and report the
+            # fabric's own baseline as SUSPECTED residue on every later `ndt status --check`. A
+            # verb that is red forever gets read exactly as often as one that is green forever.
+            #
+            # The window this stop's OWN residue report needs is not taken from here -- cmd_apps
+            # stop reads it before it stops anything (RESIDUE_WINDOW), because the app has to be
+            # dated while its record still exists.
+            #
+            # NOT removed on the not-running path above: a pidfile with no process is G-12's own
+            # case -- something killed it by pid, and that mtime is the only record of when it ran.
+            rm -f "$(app_pidfile "$name")"
+            # 🔴 `$was`, not `$APP_STATE`. app_wait_stopped polls app_probe until it answers
+            # not-running, so by the time this line runs APP_STATE has been overwritten with the
+            # answer this stop just produced -- and `(was: ...)` is a claim about the state
+            # BEFORE it. Measured live 2026-09-07 (lw351, 1/1): `ndt apps stop sim` printed
+            # `ok sim stopped (was: not-running)` about a sim whose own log shows it taking
+            # SIGINT one second later. The transcript said nothing was there; something was.
+            ok "$name stopped (was: $was)" ;;
         nsr|viz|te)
             local p pid rc=0 poisoned=0
             p="$(app_pidfile "$name")"
@@ -4759,12 +5062,31 @@ app_stop() {
 
 # app_started_at <name> -- unix seconds when this app was started, or nothing.
 #
-# Two sources, most precise first, and NEITHER is invented: a live process is asked how long it
-# has been running; a dead one is dated by the pidfile app_spawn wrote immediately after the
-# fork. When the pidfile is gone too there is no window at all, and app_residue says that
-# instead of defaulting to one -- a default window would attribute the whole flow table.
+# THREE sources, most precise first, and none is invented: the pidfile's live process is asked
+# how long it has been running; a dead one is dated by the pidfile app_spawn wrote immediately
+# after the fork; and a live process NO pidfile names is asked the same question the first
+# source asks. When none of the three answers there is no window at all, and residue_report says
+# that instead of defaulting to one -- a default window would attribute the whole flow table.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 3-51, Adam's ruling E-8 point 2 (09-07). The third source is the fix. Until it existed this
+# function was "what does the pidfile say", and a running app with no pidfile -- which every
+# energy and sim was, and which any app started outside `ndt` still is -- had no window however
+# plainly it was running. lw16pw measured that on a sim that had been up for twelve seconds.
+#
+# 🔴 The pids come from app_scan_pids, which is where app_probe's own APP_LIVE_PIDS come from,
+# and NOT from app_probe itself: app_probe additionally asks lab_session, which is
+# `sudo -n ndtwin-lab status`. Calling it here would put a sudo call inside `ndt status --check`
+# and inside every residue report -- a new entry on the surface tools/test_workflow/sudo_surface.sh
+# exists to keep small, bought for an answer ("is the lab's tmux session there") that says
+# nothing about when a process started.
+#
+# 🔴 The OLDEST of them, not the first. sim matches twice (the `script` wrapper and the binary
+# it execs) and a child is younger than its parent; taking the first would open the window
+# after the app had already installed rules, and a window that starts too late reports "no flow
+# entry arrived during that window" -- a clean answer, arrived at by looking at the wrong hour.
 app_started_at() {
-    local name="$1" pid et p
+    local name="$1" pid et p best=""
     if pid="$(app_pidfile_pid "$name" 2>/dev/null)" && [[ -n "$pid" ]]; then
         et="$(ps -o etimes= -p "$pid" 2>/dev/null | tr -d ' ')"
         if [[ "$et" =~ ^[0-9]+$ ]]; then echo "$(( $(date +%s) - et ))"; return 0; fi
@@ -4774,6 +5096,13 @@ app_started_at() {
         et="$(stat -c %Y "$p" 2>/dev/null)"
         [[ "$et" =~ ^[0-9]+$ ]] && { echo "$et"; return 0; }
     fi
+    while read -r pid; do
+        [[ "$pid" =~ ^[0-9]+$ ]] || continue
+        et="$(ps -o etimes= -p "$pid" 2>/dev/null | tr -d ' ')"
+        [[ "$et" =~ ^[0-9]+$ ]] || continue
+        if [[ -z "$best" ]] || (( et > best )); then best="$et"; fi
+    done < <(app_scan_pids "$name")
+    [[ -n "$best" ]] && { echo "$(( $(date +%s) - best ))"; return 0; }
     return 1
 }
 
@@ -4968,10 +5297,35 @@ PY
 #   RESIDUE_LOCKS      locks held right now                                    -> something is there
 #   RESIDUE_UNDATABLE  rules listed with age=UNKNOWN                           -> could not place them
 #   RESIDUE_BLIND      questions that could not be asked at all                -> could not look
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 3-51 adds a FIFTH, and it is deliberately not one of the four above:
+#   RESIDUE_UNKNOWABLE apps whose "did it ever run here" cannot be asked at all
+# The difference from RESIDUE_BLIND is the difference Adam drew on E-7 ("查不了可以不紅，沒去查
+# 不准長得像查了沒事"): BLIND is a question this tool COULD have answered and did not get an
+# answer to, and it is red. UNKNOWABLE is a question that has no channel to ask on this machine
+# -- energy has no disk log because the lab helper never gives it one -- and making that red
+# would put `ndt status --check` permanently in the red on every machine, for a fact about the
+# helper that no operator can act on. It is NOT red; it is PRINTED, so the row cannot be read as
+# "everything was asked and everything was clean".
 RESIDUE_RULES=0
 RESIDUE_LOCKS=0
 RESIDUE_UNDATABLE=0
 RESIDUE_BLIND=0
+RESIDUE_UNKNOWABLE=0
+RESIDUE_UNKNOWABLE_APPS=""
+
+# RESIDUE_WINDOW[<app>] -- a window START read before something destroyed the record it came
+# from. Filled only by `cmd_apps stop`; empty for every other caller.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 3-51. `ndt apps stop <app>` verifies the app is gone, removes its pidfile, and THEN prints
+# the residue report -- so the report ran after the command had deleted the only thing that
+# could date the app, and printed "no pidfile and no live process -- no window" about the app it
+# had just stopped. That is the one moment residue matters most: the rules are on the wire and
+# the process that installed them is gone. Reading the window before the loop is the only order
+# in which both are true.
+declare -A RESIDUE_WINDOW=()
 
 # residue_verdict -- the exit code for what residue_report last found.
 #
@@ -4986,6 +5340,10 @@ RESIDUE_BLIND=0
 # 🔴 An UNDATABLE rule is 5, not 4. "I found a rule I cannot place" is a failure to check, not
 # a finding -- and on the P4 plane it is EVERY rule (W16-3), so calling it residue would make
 # the verb red on every healthy P4 fabric and teach everyone to ignore it.
+# 🔴 RESIDUE_UNKNOWABLE is NOT here, and that is Adam's E-7 ruling rather than an oversight: a
+# question with no channel to ask it on cannot be answered by anyone at any time, so folding it
+# in would make every verb red on every machine forever. What it must not do is disappear --
+# see the row in status_residue_row and the tally line in residue_report.
 residue_verdict() {
     (( RESIDUE_RULES > 0 || RESIDUE_LOCKS > 0 )) && return 4
     (( RESIDUE_UNDATABLE > 0 || RESIDUE_BLIND > 0 )) && return 5
@@ -5024,6 +5382,16 @@ status_residue_row() {
            printf '  %-14s %s\n' "" "the locks WERE checked: $RESIDUE_LOCKS held.  details:  ndt apps orphans" ;;
         *) printf '  %-14s %s\n' "residue" "none -- 0 rule(s) in any app window, 0 lock(s) held (asked, not assumed)" ;;
     esac
+    # [Co-developed with claude code -- Adam]
+    # 🔴 3-51 / Adam's E-7 ruling: "查不了可以不紅，沒去查不准長得像查了沒事". This row is the
+    # whole of what `--check` says about the network, and until 09-07 it printed
+    # "none ... (asked, not assumed)" on a lab where energy and sim had never been asked anything
+    # at all -- there was no channel to ask them on and nothing said so. Not red (nobody can act
+    # on it, and a permanently red gate is an ignored gate), never invisible.
+    if (( RESIDUE_UNKNOWABLE > 0 )); then
+        printf '  %-14s %s\n' "" "${Y}$RESIDUE_UNKNOWABLE app(s) could not be asked whether they ran here: $RESIDUE_UNKNOWABLE_APPS${N}"
+        printf '  %-14s %s\n' "" "the lab helper keeps no log for them, so 'nothing found' above excludes them."
+    fi
     return 0
 }
 
@@ -5036,9 +5404,11 @@ status_residue_row() {
 # the counters this fills in.
 residue_report() {
     local now started entries lock t line n_rules n_unk n_locks=0 a any=0 lease retry
-    local plane blind_said=""
+    local plane blind_said="" elog rpid
+    local -a live=()
     now="$(date +%s)"
     RESIDUE_RULES=0; RESIDUE_LOCKS=0; RESIDUE_UNDATABLE=0; RESIDUE_BLIND=0
+    RESIDUE_UNKNOWABLE=0; RESIDUE_UNKNOWABLE_APPS=""
 
     say "network residue (nothing below is deleted)"
     if ! port_open 8000; then
@@ -5079,7 +5449,32 @@ residue_report() {
     info "        three lines above come from an acquire probe with ttl 0, which excludes nobody."
 
     for a in "$@"; do
-        started="$(app_started_at "$a")" || {
+        # [Co-developed with claude code -- Adam]
+        # 3-51. A window captured by cmd_apps stop BEFORE it stopped this app wins over anything
+        # readable now: a verified stop removes the pidfile, so by the time this report runs the
+        # only record of when the app ran has been deleted by the command that is printing the
+        # report. Empty for every other caller, which is why `apps orphans` and `--check` still
+        # answer from the machine's own state.
+        started="${RESIDUE_WINDOW[$a]:-}"
+        [[ -n "$started" ]] || started="$(app_started_at "$a")" || started=""
+        if [[ -z "$started" ]]; then
+            # 🔴 3-51, Adam's ruling E-8 point 4. This branch used to open with "no pidfile and
+            # no live process" WITHOUT ever looking for a live process -- it was reached solely
+            # by app_started_at returning 1, and app_started_at only read the pidfile. It
+            # printed that sentence about a sim that was running in tmux at the time (lw16pw).
+            # app_started_at now asks the scan too, so reaching this line usually does mean
+            # nothing is running; "usually" is not a thing to print, so it is checked.
+            live=()
+            while read -r rpid; do
+                [[ "$rpid" =~ ^[0-9]+$ ]] && live+=("$rpid")
+            done < <(app_scan_pids "$a")
+            if (( ${#live[@]} > 0 )); then
+                warn "  $a: running as pid(s) ${live[*]} but no pidfile, and its start time"
+                warn "      could not be read -- no window, so no rule can be dated against it."
+                warn "      NOT 'this app left nothing'. (G-12)"
+                RESIDUE_BLIND=$(( RESIDUE_BLIND + 1 ))
+                continue
+            fi
             info "  $a: no pidfile and no live process -- no window, so no rule can be dated"
             info "      against it. NOT 'this app left nothing'. (G-12)"
             # 🔴 Only a LOST window counts against the exit code, and the log is what tells the
@@ -5088,15 +5483,29 @@ residue_report() {
             # every clean machine -- a gate that can never pass, which is how G-12's own green
             # checks stopped being read. app_spawn creates the log, so a non-empty log is
             # evidence the app RAN here and its record has since gone.
-            if [[ -s "$(app_logfile "$a")" ]]; then
+            #
+            # 🔴 3-51, ruling E-8 point 3: WHICH log. Not ours -- the one whoever started it
+            # writes to, which for sim is the helper's KERNEL_DIR and for energy does not
+            # exist. Reading $REPO's copy made this discriminator answer "never ran here" for
+            # every helper-started app in every worktree.
+            elog="$(app_evidence_log "$a")" || elog=""
+            if [[ -z "$elog" ]]; then
+                warn "      and whether it ran here CANNOT BE ASKED: the helper keeps no log for $a"
+                warn "      ('$LAB $a-start' gives it no 'script -f', so its output only ever"
+                warn "      exists in a tmux pane). That is 'nobody could ask', not 'it never ran'."
+                RESIDUE_UNKNOWABLE=$(( RESIDUE_UNKNOWABLE + 1 ))
+                RESIDUE_UNKNOWABLE_APPS="${RESIDUE_UNKNOWABLE_APPS:+$RESIDUE_UNKNOWABLE_APPS }$a"
+            elif [[ -s "$elog" ]]; then
                 warn "      and its log is NOT empty, so it did run here: the window is LOST,"
                 warn "      not absent. rules it installed cannot be found by this tool."
                 RESIDUE_BLIND=$(( RESIDUE_BLIND + 1 ))
+                info "      (log read: $elog)"
             else
                 info "      (its log is empty or absent too -- no sign it ever ran here)"
+                info "      (log read: $elog)"
             fi
             continue
-        }
+        fi
         any=1
         printf '  %-6s window %s -> now (%s)\n' "$a" \
             "$(date -d "@$started" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "$started")" \
@@ -5151,11 +5560,18 @@ residue_report() {
     # what they just saw rather than against this function's source. [Co-developed with claude code -- Adam]
     info "  tally: $RESIDUE_RULES dated rule(s) in a window, $RESIDUE_LOCKS lock(s) held," \
          "$RESIDUE_UNDATABLE rule(s) that could not be dated, $RESIDUE_BLIND question(s) not answerable"
+    # [Co-developed with claude code -- Adam]
+    # 3-51. Printed on its own line and outside the tally above, because it is outside the exit
+    # code: this is the count of apps nobody can ask, not of things that went wrong.
+    (( RESIDUE_UNKNOWABLE > 0 )) &&
+        info "  and $RESIDUE_UNKNOWABLE app(s) could not be asked whether they ran here at all:" \
+             "$RESIDUE_UNKNOWABLE_APPS (no log channel exists for them -- see above)"
     return 0
 }
 
 apps_orphans() {
-    local a found=0 pid e blind=""
+    local a found=0 pid e blind="" s spid lp known
+    local -a unnamed=()
     for a in $APP_NAMES; do
         app_probe "$a"
         app_survivors "$a"
@@ -5172,10 +5588,47 @@ apps_orphans() {
         # The 09-02 shape: no pidfile, no signature in any argv, and the children are still
         # there. Reported by the channel that found them, because "how do you know" is the
         # question this whole family of failures could not answer.
-        (( ${#APP_SURVIVORS[@]} == 0 )) && continue
+        #
+        # [Co-developed with claude code -- Adam]
+        # 🔴 3-51b, measured live 2026-09-07 (lw351, 1/1). app_survivors answers "which processes
+        # do these channels find", NOT "which of them is nobody tracking" -- and this verb went
+        # straight from the first question to the second word. With a RUNNING sim, tracked by the
+        # pidfile 3-51 had just taught `ndt` to write, it printed:
+        #
+        #     sim: children with no pidfile and no signature
+        #         pid 3729217  (process group 3729217)
+        #
+        # 3729217 was the contents of the pidfile, verified alive by app_probe seconds earlier,
+        # and printed by `apps status` as `running` in the same run. The group channel finds it
+        # because the pidfile is exactly where app_recorded_pgid starts; nothing then compared
+        # it against what the probe had already accounted for. app_stop does that comparison --
+        # its `extra` loop -- and this verb never got one.
+        #
+        # 🔴 The subtraction is APP_LIVE_PIDS and NOT the pidfile's contents. A pidfile naming a
+        # dead or recycled pid must not silence a survivor with that number: APP_LIVE_PIDS holds
+        # only pids /proc has confirmed are this app (pid_is_app), which is the set "tracked"
+        # can honestly mean. FINDING #48 is untouched -- the 09-02 viz JVMs carry no signature,
+        # so they are in no APP_LIVE_PIDS and every one of them still comes out below.
+        unnamed=()
+        for s in ${APP_SURVIVORS[@]+"${APP_SURVIVORS[@]}"}; do
+            spid="${s%% *}"; known=0
+            for lp in ${APP_LIVE_PIDS[@]+"${APP_LIVE_PIDS[@]}"}; do
+                [[ "$lp" == "$spid" ]] && { known=1; break; }
+            done
+            (( known == 0 )) && unnamed+=("$s")
+        done
+        (( ${#unnamed[@]} == 0 )) && continue
         found=$(( found + 1 ))
-        err "$a: children with no pidfile and no signature -- $(app_label "$a")"
-        for e in "${APP_SURVIVORS[@]}"; do
+        # Two headlines, because "no pidfile" is a statement of fact and it was false in lw351.
+        # A tracked app with an extra process nothing names is still worth rc 1 -- `ndt apps
+        # stop` is still the remedy, and it reaches this one through the group -- but the
+        # sentence has to describe what was actually found.
+        if [[ "$APP_STATE" == running ]]; then
+            err "$a: RUNNING as pid(s) ${APP_LIVE_PIDS[*]}, and these belong to it with nothing naming them -- $(app_label "$a")"
+        else
+            err "$a: children with no pidfile and no signature -- $(app_label "$a")"
+        fi
+        for e in "${unnamed[@]}"; do
             # pid in a variable of its own rather than `${e%% *}` inline: this argv line is one
             # of the sites tests/shell/test_redirection_order.sh lifts out of this file and runs
             # against a pid that cannot exist, and that harness binds `pid`.
@@ -5195,12 +5648,19 @@ apps_orphans() {
         return 0
     fi
     err "$found app(s) are running with nothing tracking them"
+    # [Co-developed with claude code -- Adam]
+    # 🔴 3-51c. Printed HERE too, and it used to be printed only when nothing was found. A
+    # channel that could not look is a fact about the answer, not about the verdict: with one
+    # orphan named and another channel blind, "$found" is a floor and not a count, and a reader
+    # who takes it for a count stops looking at exactly the point where the tool did.
+    [[ -n "$blind" ]] &&
+        warn "and a channel was blind, so this is a floor and not a count: $blind"
     return 1
 }
 
 apps_status() {
     say "apps"
-    local a shown bytes over=0
+    local a shown bytes over=0 log why
     for a in $APP_NAMES; do
         app_probe "$a"
         # The third state gets its own word in the column that used to print "-" for it. "-"
@@ -5227,6 +5687,17 @@ apps_status() {
             else
                 printf '  %-8s %-9s %s\n' "" "" "${D}log $(human_bytes "$bytes")${N}"
             fi
+            # [Co-developed with claude code -- Adam]
+            # 🔴 3-51c. The size above came out of stat(2) -- a READ, which succeeds on a file
+            # this user could never truncate -- and the row above then names `ndt apps trim`
+            # without ever asking whether that verb can do anything here. For every
+            # helper-started sim it cannot: `sudo ndtwin-lab sim-start` wrote the log as root.
+            log="$(app_logfile "$a")"
+            if [[ ! -w "$log" ]] && [[ "$(app_log_owner "$log")" == 0 ]]; then
+                printf '  %-8s %-9s %s\n' "" "" "${Y}log is root's ($log); trim needs sudo${N}"
+            elif ! why="$(app_log_blocked_reason "$log")"; then
+                printf '  %-8s %-9s %s\n' "" "" "${Y}log cannot be trimmed here: $why${N}"
+            fi
         fi
     done
     (( over == 1 )) && info "a log over the cap is a disk problem before it is a logging problem: 875 MB in 1h54m on 09-02"
@@ -5244,7 +5715,7 @@ apps_status() {
 #
 # The tail is kept because the end of a log is the part that explains what the app is doing now.
 apps_trim() {
-    local a bytes log rc=0
+    local a bytes log rc=0 why
     for a in "$@"; do
         case " $APP_NAMES " in *" $a "*) ;; *) err "unknown app: $a (known: $APP_NAMES)"; rc=1; continue ;; esac
         log="$(app_logfile "$a")"
@@ -5252,6 +5723,16 @@ apps_trim() {
         if (( bytes <= APP_LOG_MAX_BYTES )); then
             info "$a log is $(human_bytes "$bytes") -- under $(human_bytes "$APP_LOG_MAX_BYTES"), left alone"
             continue
+        fi
+        # [Co-developed with claude code -- Adam]
+        # 🔴 3-51c. Asked BEFORE the tail is written, and not discovered by the truncate below
+        # failing. The old order kept 1 MB into <log>.tail and only then found out it could not
+        # truncate: a file created, a byte count unchanged, and a message that named the
+        # failure without naming either its cause or the one command that fixes it.
+        if ! why="$(app_log_blocked_reason "$log")"; then
+            err "cannot truncate $log: $why"
+            err "   $a's log is $(human_bytes "$bytes"), over the $(human_bytes "$APP_LOG_MAX_BYTES") cap, and it is NOT trimmed"
+            rc=1; continue
         fi
         tail -c 1048576 "$log" >"$log.tail" 2>/dev/null || { err "$a: could not keep the tail; not truncating"; rc=1; continue; }
         if truncate -s 0 "$log" 2>/dev/null; then
@@ -5307,7 +5788,18 @@ cmd_apps() {
             # `ndt apps stop all` on an idle machine therefore exits 2 rather than 0. That is the
             # point: D1 (2026-09-02) recorded APPS_STOP_ALL_RC=0 from a teardown that stopped
             # three of five and reported the same code it would have reported for zero of five.
-            local a arc n_fail=0 n_noop=0 n_stopped=0
+            local a arc awin n_fail=0 n_noop=0 n_stopped=0
+            # [Co-developed with claude code -- Adam]
+            # 🔴 3-51. Every target is dated BEFORE the loop, because app_stop destroys the
+            # record it is dated by: a verified stop removes the pidfile (both branches do, for
+            # the reason written at each), and app_started_at's live-process source dies with
+            # the process. Without this the residue report below always printed "no window" for
+            # exactly the apps this command had just stopped -- and that is the moment the
+            # rules it left are on the wire with nothing running to own them.
+            RESIDUE_WINDOW=()
+            for a in $targets; do
+                awin="$(app_started_at "$a")" && [[ -n "$awin" ]] && RESIDUE_WINDOW["$a"]="$awin"
+            done
             for a in $targets; do
                 app_stop "$a"; arc=$?
                 case "$arc" in
