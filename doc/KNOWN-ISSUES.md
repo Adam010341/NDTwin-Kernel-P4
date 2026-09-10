@@ -1525,6 +1525,22 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
     M22（unknown 被丟掉）／M23（全部分類成 link）／M24（改回一次一個 `dev` 讀）／
     M25（連 docker0 一起報）＋ W5／W6 兩個對照 ⇒ **25 變異、6 對照**；
     M16 被 E-20 改了語意（見該檔檔頭），編號保留。
+- 🆕 **四個 link 端點進 L2 契約（2026-09-07，Adam 裁 E-21；分支
+  `fix/e21-link-endpoints-in-contract`，接在上面那顆之後）**：
+  - **為什麼**：`declaration_retained` 是 wire 上**唯一**說得出「kernel 刻意讓這條 link 保持 down」的
+    欄位（狀態碼兩種結果都是 200，刻意的——Ryu 的 `on_link_add` 對任何 4xx 會記一句在這裡是假的話），
+    而它**沒有被任何 schema 指名過** ⇒ 掉了不會有任何檢查變紅。
+  - **加了什麼**：`tools/contract_test/spec.py` 十七筆——四扇 dpid-0 門（400）、四筆邊不存在（404）、
+    三筆畸形／缺欄位（400），以及一段**六步的 MUTATE 序列**（宣告 → 配對撤回 → 注入 → **被拒**
+    → 撤回注入 → 冪等收尾），因為 `declaration_retained` 只有「注入的宣告 ＋ 沒有配對的 report」
+    這一種狀態產得出來。契約涵蓋率 33/45 → **37/45**。
+  - 🔴 **這四筆描述的是分支不是 trunk**：`inject_*` 在 trunk 上回 404、`link_failure_detected`
+    在 trunk 上只回 `{"status": "link failure processed"}` ⇒ 對 trunk 跑會紅。那是刻意的讀法
+    （同 `get_num_of_flows__unknown_dpid` 對 OV-3 之前的 kernel）。
+  - **閘門**：`tests/shell/mutate_contract_link_endpoints.sh`（**15 變異、4 對照**，兩條 lane：
+    `test_contract_spec.py` 與 `run_contract_test.py --self-test`；不需要建置也不需要 kernel）。
+  - ⚠️ **B-6 的狀態不變，仍然是 trunk OPEN、分支上 OPEN**：本輪只加了斷言，一行 kernel 碼都沒改
+    （A-1：變異閘在 trunk 上跑綠之前不標 RESOLVED）。
 
 ### B-7 `set_switches_power_state` 對不存在的 IP 回 500，而同一個 IP 的 GET 回 404
 

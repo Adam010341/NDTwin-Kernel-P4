@@ -172,6 +172,84 @@ DISPATCH_STATUS_FOR_REQUEST_SAMPLE = {
     "detail": "counters for this request only",
 }
 
+# --- doc/2026-01-02_ndt_api.md §1, §2, §2b, §2c: the four link endpoints ----------------------
+# [Co-developed with claude code -- Adam] -- Adam's ruling E-21, 2026-09-07.
+# Every one of these is the documented example, copied. Where the document writes "..." for a
+# value it does not spell out (qdisc_before/qdisc_after), a plausible string of the right type is
+# used and nothing else is invented; where it does not print an example at all (§2c's tc entries)
+# the shape is transcribed from utils::NetemLinkFault.hpp's restoreInterface, which builds them,
+# and the fixture name says so.
+
+#: §1 success on fix/w8-declared-link-failure-sticky and later.
+LINK_FAILURE_REPORTED_SAMPLE = {
+    "status": "link failure processed",
+    "down_reason": "declared",
+    "until": "/ndt/link_recovery_detected",
+}
+
+#: The same endpoint on trunk. The document states this in as many words: "A kernel built from
+#: trunk answers {"status": "link failure processed"} alone." It must pass the STRUCTURAL check --
+#: the two keys are optional -- and be caught by the invariant, which is the split this pair pins.
+LINK_FAILURE_REPORTED_TRUNK = {"status": "link failure processed"}
+
+#: §2 success, the paired withdrawal.
+LINK_RECOVERY_APPLIED_SAMPLE = {"status": "link recovery processed"}
+
+#: §2 declining an injected declaration -- the shape E-21 is about. Copied from the document's
+#: "Success, but nothing was withdrawn" block, and measured on the wire in arm lw8b3
+#: (2026-09-07 20:26:47, s1:1 -> s5:1, edge still is_up=false afterwards).
+LINK_RECOVERY_DECLINED_SAMPLE = {
+    "status": "link recovery processed",
+    "declaration_retained": True,
+    "detail": "a link failure is declared for this link and nothing ever reported it broken, so "
+              "this recovery report did not withdraw it and the link is still down. That is what "
+              "an injected failure surviving a control-plane restart looks like. Withdraw it with "
+              "POST /ndt/inject_link_recovery",
+    "until": "/ndt/inject_link_recovery",
+}
+
+#: §2b success on MININET.
+LINK_FAILURE_INJECTED_SAMPLE = {
+    "status": "link failure injected",
+    "down_reason": "declared",
+    "until": "/ndt/inject_link_recovery",
+    "tc": [
+        {"interface": "s1-eth1", "ok": True, "attached_at": "parent 5:0x1",
+         "command": "qdisc add dev s1-eth1 parent 5:0x1 netem loss 100%",
+         "qdisc_before": "qdisc htb 5: root refcnt 2",
+         "qdisc_after": "qdisc netem 10: parent 5:1 limit 1000 loss 100%"},
+        {"interface": "s5-eth1", "ok": True, "attached_at": "root",
+         "command": "qdisc add dev s5-eth1 root netem loss 100%",
+         "qdisc_before": "qdisc noqueue 0: root refcnt 2",
+         "qdisc_after": "qdisc netem 8001: root refcnt 2 limit 1000 loss 100%"},
+    ],
+}
+
+#: §2b on anything that is not MININET. There is no way for the twin to cut a physical cable and
+#: a reply that did not say so would let a caller believe the packets had stopped.
+LINK_FAILURE_INJECTED_NOT_MININET = {
+    "status": "link failure injected",
+    "down_reason": "declared",
+    "until": "/ndt/inject_link_recovery",
+    "tc": "skipped (not MININET)",
+}
+
+#: §2c. The document prints `{"status":"link recovery injected","tc":[ ... ]}` and describes the
+#: entries in prose; the two shown here are the two restoreInterface() actually builds -- one that
+#: removed a netem, one that found none and reports the documented idempotent "noop".
+LINK_RECOVERY_INJECTED_SAMPLE = {
+    "status": "link recovery injected",
+    "tc": [
+        {"interface": "s1-eth1", "ok": True, "detached_at": "parent 5:1",
+         "command": "qdisc del dev s1-eth1 parent 5:1",
+         "qdisc_before": "qdisc netem 10: parent 5:1 limit 1000 loss 100%",
+         "qdisc_after": "qdisc htb 5: root refcnt 2"},
+        {"interface": "s5-eth1", "ok": True,
+         "noop": "no netem qdisc is attached to this interface",
+         "qdisc_before": "qdisc noqueue 0: root refcnt 2"},
+    ],
+}
+
 FIXTURES = {
     "get_graph_data": (spec.GRAPH_DATA, GRAPH_DATA_SAMPLE),
     "get_detected_flow_data": (spec.List(spec.FLOW_RECORD), FLOW_DATA_SAMPLE),
@@ -261,6 +339,25 @@ FIXTURES = {
         spec.DISPATCH_STATUS, DISPATCH_STATUS_PRE_W11),
     "get_flow_dispatch_status?request_id=<id>": (
         spec.DISPATCH_STATUS_FOR_REQUEST, DISPATCH_STATUS_FOR_REQUEST_SAMPLE),
+
+    # --- E-21: the four link endpoints -------------------------------------------------------
+    "link_failure_detected": (spec.LINK_FAILURE_REPORTED, LINK_FAILURE_REPORTED_SAMPLE),
+    "link_failure_detected (kernel from trunk, no down_reason/until)": (
+        spec.LINK_FAILURE_REPORTED, LINK_FAILURE_REPORTED_TRUNK),
+    "link_recovery_detected (withdrawn)": (
+        spec.LINK_RECOVERY_REPORTED, LINK_RECOVERY_APPLIED_SAMPLE),
+    "link_recovery_detected (declined: declaration_retained)": (
+        spec.LINK_RECOVERY_REPORTED, LINK_RECOVERY_DECLINED_SAMPLE),
+    "inject_link_failure (MININET)": (
+        spec.LINK_FAILURE_INJECTED, LINK_FAILURE_INJECTED_SAMPLE),
+    "inject_link_failure (tc skipped, not MININET)": (
+        spec.LINK_FAILURE_INJECTED, LINK_FAILURE_INJECTED_NOT_MININET),
+    "inject_link_recovery": (
+        spec.LINK_RECOVERY_INJECTED, LINK_RECOVERY_INJECTED_SAMPLE),
+    "link request body (all four endpoints take the same one)": (
+        spec.LINK_REQUEST,
+        {"src_dpid": 106225808402492, "src_interface": 23,
+         "dst_dpid": 106225808387660, "dst_interface": 23}),
 }
 
 
@@ -542,4 +639,65 @@ INVARIANT_CASES = [
      spec.inv_switch_outcome_closes, _SWITCH_OUTCOME_UNEXPLAINED, _GOOD_CTX, True),
     ("switch_outcome_closes: says nothing about a kernel that predates the group",
      spec.inv_switch_outcome_closes, DISPATCH_STATUS_PRE_W11, _GOOD_CTX, False),
+
+    # --- E-21: the four link endpoints ---------------------------------------------------------
+    # [Co-developed with claude code -- Adam]
+    # Each invariant both ways, and the "bad" side of each one is a body a real kernel has
+    # actually produced: the trunk answer to §1, and the unconditional withdrawal measured on arm
+    # lw8b (2026-09-07 00:08, 9 of 9 samples).
+    ("declared_failure_says_who_can_withdraw_it: accepts the branch's answer",
+     spec.inv_declared_failure_says_who_can_withdraw_it,
+     LINK_FAILURE_REPORTED_SAMPLE, _GOOD_CTX, False),
+    ("declared_failure_says_who_can_withdraw_it: reports trunk's bare status",
+     spec.inv_declared_failure_says_who_can_withdraw_it,
+     LINK_FAILURE_REPORTED_TRUNK, _GOOD_CTX, True),
+    ("declared_failure_says_who_can_withdraw_it: catches the wrong withdrawal endpoint",
+     spec.inv_declared_failure_says_who_can_withdraw_it,
+     {**LINK_FAILURE_REPORTED_SAMPLE, "until": "/ndt/inject_link_recovery"}, _GOOD_CTX, True),
+
+    ("recovery_withdrew_the_declaration: accepts the paired withdrawal",
+     spec.inv_recovery_withdrew_the_declaration,
+     LINK_RECOVERY_APPLIED_SAMPLE, _GOOD_CTX, False),
+    ("recovery_withdrew_the_declaration: catches a report the rule refused to spend",
+     spec.inv_recovery_withdrew_the_declaration,
+     LINK_RECOVERY_DECLINED_SAMPLE, _GOOD_CTX, True),
+
+    ("recovery_was_declined_and_said_so: accepts the declined reply (the E-21 shape)",
+     spec.inv_recovery_was_declined_and_said_so,
+     LINK_RECOVERY_DECLINED_SAMPLE, _GOOD_CTX, False),
+    # The lw8b failure mode: the injection was withdrawn by a report nothing paired with, and the
+    # reply is the same bare 200 a legitimate withdrawal gives.
+    ("recovery_was_declined_and_said_so: catches an injection withdrawn anyway",
+     spec.inv_recovery_was_declined_and_said_so,
+     LINK_RECOVERY_APPLIED_SAMPLE, _GOOD_CTX, True),
+    ("recovery_was_declined_and_said_so: catches a decline that names no way out",
+     spec.inv_recovery_was_declined_and_said_so,
+     {"status": "link recovery processed", "declaration_retained": True,
+      "detail": "..."}, _GOOD_CTX, True),
+
+    ("tc_half_is_reported_per_interface: accepts both ends cut and named",
+     spec.inv_tc_half_is_reported_per_interface,
+     LINK_FAILURE_INJECTED_SAMPLE, _GOOD_CTX, False),
+    ("tc_half_is_reported_per_interface: accepts the idempotent restore",
+     spec.inv_tc_half_is_reported_per_interface,
+     LINK_RECOVERY_INJECTED_SAMPLE, _GOOD_CTX, False),
+    ("tc_half_is_reported_per_interface: a skipped half is accounted for, not failed",
+     spec.inv_tc_half_is_reported_per_interface,
+     LINK_FAILURE_INJECTED_NOT_MININET, _GOOD_CTX, False),
+    ("tc_half_is_reported_per_interface: catches one end cut instead of two",
+     spec.inv_tc_half_is_reported_per_interface,
+     {**LINK_FAILURE_INJECTED_SAMPLE, "tc": LINK_FAILURE_INJECTED_SAMPLE["tc"][:1]},
+     _GOOD_CTX, True),
+    ("tc_half_is_reported_per_interface: catches a failure that does not say why",
+     spec.inv_tc_half_is_reported_per_interface,
+     {**LINK_FAILURE_INJECTED_SAMPLE,
+      "tc": [{"interface": "s1-eth1", "ok": False},
+             LINK_FAILURE_INJECTED_SAMPLE["tc"][1]]},
+     _GOOD_CTX, True),
+    ("tc_half_is_reported_per_interface: catches an ok that names no command",
+     spec.inv_tc_half_is_reported_per_interface,
+     {**LINK_FAILURE_INJECTED_SAMPLE,
+      "tc": [{"interface": "s1-eth1", "ok": True},
+             LINK_FAILURE_INJECTED_SAMPLE["tc"][1]]},
+     _GOOD_CTX, True),
 ]
