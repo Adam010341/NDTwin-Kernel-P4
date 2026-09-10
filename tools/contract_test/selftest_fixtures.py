@@ -377,7 +377,10 @@ FIXTURES = {
     # from a pipeline artifact. The ceiling here is 512, not the 1024 this repository's own
     # artifact carries, for the same reason the C++ fixtures avoid 1024 -- a sample that happens
     # to match the one true answer cannot tell a read from a constant.
-    "get_openflow_capacity": (Any_(), OPENFLOW_CAPACITY_SAMPLE),
+    # The copy here was Any_() too, so this line proved nothing about anything (G3): a fixture
+    # whose schema accepts every value cannot fail. The endpoint's own object instead.
+    "get_openflow_capacity": (
+        _endpoint_schema("get_openflow_capacity"), OPENFLOW_CAPACITY_SAMPLE),
     # [Co-developed with claude code -- Adam]
     # Not from doc/2026-01-02_ndt_api.md -- that document predates the endpoint. This is the
     # body HttpSession::handleGetFlowDispatchStatus builds, transcribed field by field from
@@ -466,6 +469,30 @@ FIXTURE_TARGET_OVERRIDES = {
 }
 
 
+# [Co-developed with claude code -- Adam]
+# F-OFFLINE-1 G3, 2026-09-11. --self-test now runs each endpoint's registered invariants
+# against that endpoint's own fixture. Two pairs report, and both are the invariant working:
+# the fixture is a PRE-FIX kernel's reply, kept on purpose so one schema has to describe a
+# deployed kernel as well as a freshly built one. Each is declared here, with the reason.
+#
+# 🔴 An entry that stops reporting is a FAILURE, not a tidy-up. That is the allowlist's
+# lesson: an exception nobody rechecks outlives its reason, and the next reader takes it for a
+# statement about today. If a fixture is updated to a current kernel's reply, its line here
+# goes with it in the same commit.
+FIXTURE_INVARIANT_EXCEPTIONS = {
+    ("get_graph_data", "inv_no_silent_telemetry"):
+        "doc/2026-01-02_ndt_api.md 3's example predates A-4f, so its one edge carries no "
+        "telemetry_status. The invariant reporting that is the whole of A-4f: on this kernel a "
+        "link that stopped being sampled reads 0 bps and cannot be told from an idle one",
+    ("link_failure_detected (kernel from trunk, no down_reason/until)",
+     "inv_declared_failure_says_who_can_withdraw_it"):
+        "the fixture IS the trunk kernel's reply -- {\"status\": ...} and nothing else -- and "
+        "the finding that it does not say who can withdraw the declaration is B-6/W8b. The "
+        "structural check passes it because down_reason and until are optional there; this is "
+        "where it is reported",
+}
+
+
 def fixture_target(fixture_name):
     """
     (endpoint name, "schema" | "request_schema") for a key of FIXTURES, or (None, why).
@@ -512,6 +539,12 @@ class FakeCtx:
 
 # A graph matching FakeCtx exactly, used as the "good" case.
 _GOOD_CTX = FakeCtx(switches=1, hosts=1, edges=1, dpids={106225808380928})
+
+# [Co-developed with claude code -- Adam] -- G3.
+# The ctx --self-test's cross-application stage hands to every endpoint's invariants. Public
+# because run_contract_test.py reads it; it is the graph sample's ctx, so a pair passing there
+# is not evidence the invariant works -- see the stage's docstring.
+SELFTEST_CTX = _GOOD_CTX
 
 # [Co-developed with claude code -- Adam] -- W3b-3.
 # The identity GRAPH_DATA_SAMPLE really carries, derived from the sample itself rather than

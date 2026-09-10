@@ -401,12 +401,144 @@ def check_endpoint(base_url, ep, ctx, args) -> Result:
     return finish(not failures, failures)
 
 
+def _cross_apply_schemas(pal: Palette, fx) -> tuple[int, int]:
+    """
+    Negative controls: a schema that accepts every OTHER endpoint's body checks nothing.
+
+    [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G3, 2026-09-11.
+
+    Until this stage existed, every schema in the suite was only ever run against the one
+    fixture written for it, so "ok" meant "this schema accepts this body" and never "this
+    schema would have noticed a different one". `get_openflow_capacity` was Any_() and
+    accepted all 29 foreign samples: its structural check was decorative, and the endpoint
+    whose figures had been 3.4x wrong was the one running without one.
+
+    The bar is deliberately ONE rejection, not all of them. Several schemas here are
+    legitimately loose -- acquire_lock requires `status` and nothing else, because that is
+    what the endpoint promises -- and demanding they reject a body that happens to carry a
+    `status` field would be demanding a contract the kernel does not have.
+    """
+    print("\n  Negative controls: each schema against the other endpoints' bodies:")
+    passed = failed = 0
+    by_name = {ep["name"]: ep for ep in spec_endpoints_with_fixtures(fx)}
+    samples = {}
+    for fixture_name, (_schema, sample) in fx.FIXTURES.items():
+        endpoint, which = fx.fixture_target(fixture_name)
+        if endpoint in by_name and which == "schema":
+            samples.setdefault(endpoint, []).append(sample)
+
+    for name, endpoint in sorted(by_name.items()):
+        foreign = [s for other, group in samples.items() if other != name for s in group]
+        if not foreign:
+            continue
+        rejected = sum(1 for sample in foreign if validate(endpoint["schema"], sample))
+        if rejected:
+            passed += 1
+            print(f"  {pal.green('ok')}    {name} rejects "
+                  f"{pal.dim(f'{rejected}/{len(foreign)} foreign bodies')}")
+        else:
+            failed += 1
+            print(f"  {pal.red('FAIL')}  {name}: its schema accepts all {len(foreign)} of the "
+                  f"other endpoints' bodies, so the structural check for it decides nothing")
+    return passed, failed
+
+
+def spec_endpoints_with_fixtures(fx):
+    """The READ/MUTATE endpoints a fixture exists for. [Co-developed with claude code -- Adam]"""
+    named = set()
+    for fixture_name in fx.FIXTURES:
+        endpoint, which = fx.fixture_target(fixture_name)
+        if endpoint and which == "schema":
+            named.add(endpoint)
+    return [ep for ep in spec.ENDPOINTS
+            if ep["name"] in named and ep["category"] in (spec.READ, spec.MUTATE)]
+
+
+def _cross_apply_invariants(pal: Palette, fx) -> tuple[int, int]:
+    """
+    Every endpoint's registered invariants, against that endpoint's own fixture.
+
+    [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G3, 2026-09-11.
+
+    The suite held both halves and never ran them against each other: fixtures were checked
+    against schemas, invariants against their own hand-built cases. So a fixture could
+    contradict an invariant registered on the very endpoint it describes and nothing said so
+    -- get_graph_data's documented example does, and did, unnoticed.
+
+    A contradiction detector, not a coverage claim: the ctx is one FakeCtx shaped for the
+    graph sample, so a pair passing here is not evidence that the invariant works. Only the
+    reds mean something, and each one must either be fixed or declared in
+    fx.FIXTURE_INVARIANT_EXCEPTIONS with the reason. TOOL-PRECONDITION-FAILED and
+    ACCOUNTED-FOR are not contradictions and are printed as what they are.
+
+    A declared exception that STOPS firing is also a failure. That is the rule the warning
+    allowlist learned the hard way: an exception nobody rechecks outlives its reason, and the
+    next reader takes it for a statement about today.
+    """
+    print("\n  Cross-application: each endpoint's invariants against its own fixture:")
+    passed = failed = 0
+    by_name = {ep["name"]: ep for ep in spec.ENDPOINTS}
+    seen = set()
+    for fixture_name, (_schema, sample) in fx.FIXTURES.items():
+        endpoint, which = fx.fixture_target(fixture_name)
+        if endpoint is None or which != "schema":
+            continue
+        for inv in by_name[endpoint].get("invariants") or []:
+            key = (fixture_name, inv.__name__)
+            seen.add(key)
+            excuse = fx.FIXTURE_INVARIANT_EXCEPTIONS.get(key)
+            try:
+                messages = inv(sample, fx.SELFTEST_CTX)
+            except Exception as exc:  # an invariant blowing up is a tool bug, never a pass
+                failed += 1
+                print(f"  {pal.red('FAIL')}  {fixture_name} / {inv.__name__} raised "
+                      f"{type(exc).__name__}: {exc}")
+                continue
+            real, pre, acc = partition_messages(messages)
+            if real and excuse:
+                passed += 1
+                print(f"  {pal.green('ok')}    {fixture_name} / {inv.__name__} "
+                      f"{pal.dim('reports, as declared: ' + excuse)}")
+            elif real:
+                failed += 1
+                print(f"  {pal.red('FAIL')}  {fixture_name} contradicts {inv.__name__}, which "
+                      f"is registered on {endpoint}: {real[0]}")
+            elif excuse:
+                failed += 1
+                print(f"  {pal.red('FAIL')}  {fixture_name} / {inv.__name__} no longer "
+                      f"reports anything, so its exception is stale: {excuse}")
+            else:
+                passed += 1
+                detail = ""
+                if pre:
+                    detail = "no verdict: " + pre[0][:60]
+                elif acc:
+                    detail = "accounted for: " + acc[0][:60]
+                print(f"  {pal.green('ok')}    {fixture_name} / {inv.__name__} "
+                      f"{pal.dim(detail)}")
+
+    # An exception whose (fixture, invariant) pair no longer exists at all -- one of the two
+    # was renamed or removed -- is separate from one that exists and stopped reporting, and it
+    # has to be said separately: the first is a dead reference, the second is an outlived
+    # reason, and only the second means somebody's fix landed.
+    for key, excuse in fx.FIXTURE_INVARIANT_EXCEPTIONS.items():
+        if key not in seen:
+            failed += 1
+            print(f"  {pal.red('FAIL')}  the exception for {key} names no pair in this suite "
+                  f"(renamed fixture or invariant?): {excuse}")
+    return passed, failed
+
+
 def run_self_test(pal: Palette) -> int:
     """
     Validate the schemas against the examples in doc/2026-01-02_ndt_api.md.
 
     This is what makes the suite trustworthy without a running kernel: if a schema
     rejects the documented example, the schema is wrong.
+
+    Three stages, and the two added on 2026-09-11 exist because the first one alone could not
+    see G2 or G3: a fixture was only ever met by the schema written for it, so neither a copy
+    that had drifted nor a schema that decides nothing changed a single character of output.
     """
     import selftest_fixtures as fx
 
@@ -445,6 +577,12 @@ def run_self_test(pal: Palette) -> int:
             failed += 1
             print(f"  {pal.red('FAIL')}  {name}: "
                   f"expected {'failures' if expect_failures else 'no failures'}, got {got}")
+
+    # [Co-developed with claude code -- Adam] -- G3. The two halves, against each other.
+    stage_passed, stage_failed = _cross_apply_schemas(pal, fx)
+    passed, failed = passed + stage_passed, failed + stage_failed
+    stage_passed, stage_failed = _cross_apply_invariants(pal, fx)
+    passed, failed = passed + stage_passed, failed + stage_failed
 
     print(f"\n{'=' * 70}")
     if failed:

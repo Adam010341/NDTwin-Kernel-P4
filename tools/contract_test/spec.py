@@ -1910,13 +1910,22 @@ ENDPOINTS = [
     # `source` on every block and, on a bmv2 topology, a `bmv2` block whose max_entries is read
     # from the pipeline artifact a running simple_switch has loaded.
     #
-    # The schema stays Any_(): the response is a map keyed by switch family, so a kernel with a
-    # different fabric legitimately answers with different keys, and a schema that enumerated
-    # them would report a correct kernel as a regression. The two invariants carry the weight
-    # instead -- what must hold is that every number names its provenance and that the three
+    # The KEYS stay unenumerated: the response is a map keyed by switch family, so a kernel with
+    # a different fabric legitimately answers with different ones, and a schema that listed them
+    # would report a correct kernel as a regression. The two invariants carry the rest of the
+    # weight -- what must hold is that every number names its provenance and that the three
     # per-switch figures close.
+    #
+    # 🔴 It was Any_() until 2026-09-11, which is not the same thing (F-OFFLINE-1 G3). Any_()
+    # accepts a list, a string and a number as readily as a map: measured against the other 28
+    # fixtures in the suite it rejected NONE of them, so the structural check for the one
+    # endpoint whose figures had been 3.4x wrong decided nothing at all. MapOf(Any_()) says the
+    # one thing the response shape actually promises -- an object, keyed by whatever families
+    # this fabric has -- and leaves the values open. inv_capacity_names_its_source keeps its own
+    # "did not answer with an object" branch for direct callers (l3_component_check.py); in the
+    # runner the structural check now answers first.
     dict(name="get_openflow_capacity", method="GET", path="/ndt/get_openflow_capacity",
-         category=READ, schema=Any_(),
+         category=READ, schema=MapOf(Any_()),
          invariants=[inv_capacity_names_its_source, inv_capacity_available_closes],
          note="documented in 2026-01-02_ndt_api.md section 37; reads "
               "doc/2026-01-02_OpenflowCapacity.json plus, on a bmv2 topology, the pipeline JSON "

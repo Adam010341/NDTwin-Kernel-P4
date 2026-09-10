@@ -2415,5 +2415,109 @@ class SelftestFixturesMatchTheEndpointTable(unittest.TestCase):
         self.assertIn("not in spec.ENDPOINTS", why)
 
 
+class CrossApplicationStagesTest(unittest.TestCase):
+    """
+    --self-test's two cross-application stages, on stand-in fixture maps.
+
+    [Co-developed with claude code -- Adam] -- F-OFFLINE-1 G3, 2026-09-11.
+
+    The stages are what found G3, so they need their own positive controls: a stage that
+    cannot go red is the shape it exists to remove. Each test hands the stage a fixture map
+    built here rather than the shipped one, so the shipped one going green (or not) is a
+    separate question from whether the stage works.
+    """
+
+    class Pal:
+        def red(self, s):
+            return s
+
+        green = dim = yellow = red
+
+    class Fx:
+        """The three attributes the stages read off selftest_fixtures."""
+
+        def __init__(self, fixtures, exceptions=None, targets=None):
+            self.FIXTURES = fixtures
+            self.FIXTURE_INVARIANT_EXCEPTIONS = exceptions or {}
+            self._targets = targets or {}
+            self.SELFTEST_CTX = Ctx()
+
+        def fixture_target(self, name):
+            return self._targets.get(name, (name, "schema"))
+
+    # The stages print as they go, which is their job in the runner and noise here: an L1 log
+    # that carries a deliberately-red stand-in run reads as a real failure to whoever greps it.
+    def _schemas(self, fx):
+        import contextlib
+        import io
+        import run_contract_test as runner
+        with contextlib.redirect_stdout(io.StringIO()):
+            return runner._cross_apply_schemas(self.Pal(), fx)
+
+    def _invariants(self, fx):
+        import contextlib
+        import io
+        import run_contract_test as runner
+        with contextlib.redirect_stdout(io.StringIO()):
+            return runner._cross_apply_invariants(self.Pal(), fx)
+
+    def test_a_schema_that_accepts_every_foreign_body_is_reported(self):
+        fx = self.Fx({"get_graph_data": (spec.GRAPH_DATA, {"nodes": [], "edges": []}),
+                      "get_openflow_capacity": (spec.Any_(), {"OVS": {}})})
+        _passed, failed = self._schemas(fx)
+        self.assertGreaterEqual(failed, 1, "Any_() rejects nothing and must be reported")
+
+    def test_the_shipped_capacity_schema_is_not_that(self):
+        # The G3 fix itself, asserted here and not only through the runner's output.
+        capacity = next(ep for ep in spec.ENDPOINTS if ep["name"] == "get_openflow_capacity")
+        self.assertTrue(validate(capacity["schema"], [{"OVS": {}}]),
+                        "a list is not a map keyed by switch family")
+        self.assertTrue(validate(capacity["schema"], "no capacity for you"))
+        self.assertEqual(validate(capacity["schema"], {"OVS": {}, "bmv2": {}}), [],
+                         "the keys stay unenumerated: a different fabric has different ones")
+
+    #: One endpoint, one registered invariant (inv_avg_link_usage_range), so the four tests
+    #: below isolate the stage's decision instead of the graph endpoint's six invariants.
+    HEALTHY = {"status": "success", "avg_link_usage": 0.12}
+    OUT_OF_RANGE = {"status": "success", "avg_link_usage": 500}
+
+    def _one_endpoint(self, sample, exceptions=None):
+        return self.Fx({"get_average_link_usage": (spec.Any_(), sample)},
+                       exceptions=exceptions)
+
+    def test_a_fixture_that_contradicts_its_endpoints_invariant_is_reported(self):
+        _passed, failed = self._invariants(self._one_endpoint(self.OUT_OF_RANGE))
+        self.assertEqual(failed, 1)
+
+    def test_a_declared_exception_turns_that_red_into_a_pass(self):
+        fx = self._one_endpoint(
+            self.OUT_OF_RANGE,
+            exceptions={("get_average_link_usage", "inv_avg_link_usage_range"):
+                        "on purpose, for this test"})
+        _passed, failed = self._invariants(fx)
+        self.assertEqual(failed, 0, "a declared exception is not a failure")
+
+    def test_an_exception_that_no_longer_fires_is_a_failure(self):
+        # The allowlist's lesson. An excuse nobody rechecks outlives its reason.
+        fx = self._one_endpoint(
+            self.HEALTHY,
+            exceptions={("get_average_link_usage", "inv_avg_link_usage_range"):
+                        "stale: nothing reports now"})
+        _passed, failed = self._invariants(fx)
+        self.assertEqual(failed, 1)
+
+    def test_an_exception_naming_a_pair_that_does_not_exist_is_a_failure(self):
+        fx = self._one_endpoint(self.HEALTHY,
+                                exceptions={("renamed_fixture", "inv_gone"):
+                                            "points at nothing"})
+        _passed, failed = self._invariants(fx)
+        self.assertEqual(failed, 1)
+
+    def test_an_invariant_that_raises_is_a_failure_and_not_a_pass(self):
+        # A tool bug must never read as the kernel being fine.
+        _passed, failed = self._invariants(self._one_endpoint({"status": "success"}))
+        self.assertEqual(failed, 1)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
