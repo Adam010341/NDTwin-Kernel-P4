@@ -149,6 +149,13 @@ add_executable(
   # contained death test plus five in-process tests, which are about WHICH parts of a hosts entry
   # a guard is allowed to cost: only the reverse edge is keyed by the missing address.
   test_AddresslessAttachmentSwitch.cpp
+
+  # [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md B-6, second half: where a netem
+  # may be attached so that cutting a link does not silently replace TCLink's htb -- the rule
+  # tools/test_workflow/faults.sh bought with the lost 2026-08-13 overnight round, moved into the
+  # kernel for POST /ndt/inject_link_failure. Pure functions over real `tc qdisc show` output; no
+  # test here runs tc.
+  test_NetemLinkFault.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

@@ -1929,8 +1929,62 @@ TopologyAndFlowMonitor::updateLinks(const string& topologyData)
 
                 if (edgeOpt.has_value())
                 {
-                    (*m_graph)[edgeOpt.value()].isUp = true;
-                    (*m_graph)[edgeOpt.value()].isEnabled = true;
+                    auto& eprop = (*m_graph)[edgeOpt.value()];
+
+                    // [Co-developed with claude code -- Adam]
+                    // doc/KNOWN-ISSUES.md B-6, and the only line of this fix that changes what the
+                    // twin reports. This was an unconditional `isUp = true` with no else branch
+                    // anywhere in the function, so the only thing a topology poll could ever say
+                    // about a link was "up" -- a one-way ratchet, exactly as updateSwitches was
+                    // before FINDINGS #46.
+                    //
+                    // Being listed by Ryu is not evidence that a link is carrying traffic. The
+                    // comment further down this file writes the invariant this loop depends on --
+                    // "a poll can fill in what was missed but cannot resurrect an edge the push
+                    // path correctly took down" -- and its premise is that Ryu DROPS a failed link
+                    // from /v1.0/topology/links. That premise holds for a link that really broke,
+                    // and does not hold for a DECLARED one: nothing about the fabric changed, so
+                    // Ryu keeps listing it and the poll kept lifting it. Measured 2026-09-04: 5
+                    // declarations, 5 resurrections, 0-30 s later, /ndt/link_recovery_detected
+                    // never called and no log line anywhere.
+                    //
+                    // The narrowest rule that closes it, and it is the vertex rule with "power-off"
+                    // replaced by "declaration": discovery is still allowed to lift `isUp` -- it
+                    // must be, since on a healthy fabric it is the only writer that brings a link
+                    // back -- but it may not overrule a failure the twin was explicitly told about.
+                    // Only `declaredDown` vetoes: an edge the derivation took down
+                    // (downReason == SwitchUnreachable) MUST still be raised here, because that is
+                    // how it comes back when its switch does.
+                    if (eprop.declaredDown)
+                    {
+                        // Edge-triggered: see m_linkResurrectionDeclined. This says the twin is
+                        // holding a state the control plane disagrees with, and which of the two it
+                        // is believing -- the sentence nobody could read before, because the
+                        // overwrite was silent.
+                        if (m_linkResurrectionDeclined
+                                .insert({(*m_graph)[srcVertex].dpid, srcPort})
+                                .second)
+                        {
+                            SPDLOG_LOGGER_WARN(
+                                Logger::instance(),
+                                "the control plane still lists link (dpid {} port {}), but a link "
+                                "failure was declared for it, so this poll is not marking it up. A "
+                                "declaration has no effect on the fabric, so the control plane will "
+                                "go on listing this link for ever. POST "
+                                "/ndt/link_recovery_detected to clear this",
+                                srcDpidStr,
+                                srcPortStr);
+                        }
+                    }
+                    else
+                    {
+                        eprop.isUp = true;
+                    }
+
+                    // Not vetoed: `isEnabled` is the administrative axis, not the liveness one, and
+                    // a declared-down link is still one the control plane can drive. Blocking it
+                    // here would turn /ndt/link_failure_detected into a covert DisableSwitch.
+                    eprop.isEnabled = true;
                 }
                 else
                 {
@@ -3074,6 +3128,44 @@ TopologyAndFlowMonitor::setEdgeDisableNoLock(Graph::edge_descriptor e)
     (*m_graph)[e].isEnabled = false;
 }
 
+/** @brief See the header for why this is a separate call from setEdgeDown.
+ *  [Co-developed with claude code -- Adam] */
+void
+TopologyAndFlowMonitor::setEdgeDownByDeclaration(Graph::edge_descriptor e)
+{
+    std::unique_lock lock(*m_graphMutex);
+    auto& eprop = (*m_graph)[e];
+    eprop.isUp = false;
+    eprop.declaredDown = true;
+    // isEnabled is NOT touched: that is the administrative axis (setEdgeEnable/setEdgeDisable own
+    // it), and a declared-failed link is still a link the control plane is allowed to drive.
+    // Folding the two would make /ndt/link_failure_detected a covert DisableSwitch.
+    SPDLOG_LOGGER_INFO(Logger::instance(),
+                       "edge {} -> {} declared down; a topology poll will not lift it until "
+                       "/ndt/link_recovery_detected withdraws the declaration",
+                       eprop.srcDpid,
+                       eprop.dstDpid);
+}
+
+/** @brief See the header. [Co-developed with claude code -- Adam] */
+void
+TopologyAndFlowMonitor::clearEdgeDeclaredDown(Graph::edge_descriptor e)
+{
+    std::unique_lock lock(*m_graphMutex);
+    auto& eprop = (*m_graph)[e];
+    eprop.declaredDown = false;
+    // The episode is over, so the next decline for this edge is a new one and deserves its line.
+    m_linkResurrectionDeclined.erase({eprop.srcDpid, eprop.srcInterface});
+}
+
+/** @brief See the header. [Co-developed with claude code -- Adam] */
+bool
+TopologyAndFlowMonitor::getEdgeDeclaredDown(Graph::edge_descriptor e)
+{
+    std::shared_lock lock(*m_graphMutex);
+    return (*m_graph)[e].declaredDown;
+}
+
 pair<uint64_t, uint32_t>
 TopologyAndFlowMonitor::getEdgeStats(Graph::edge_descriptor e) const
 {
@@ -3543,6 +3635,15 @@ TopologyAndFlowMonitor::setVertexNickname(Graph::vertex_descriptor v, std::strin
  * restore it on recovery (-> 32 within 8 s), and that `updateLinks` only ever sets `isUp = true`.
  * So a poll can fill in what was missed but cannot resurrect an edge the push path correctly took
  * down.
+ *
+ * [Co-developed with claude code -- Adam]
+ * 🔴 doc/KNOWN-ISSUES.md B-6. The paragraph above is not wrong, but its premise was never checked
+ * by the code, and there is a whole class of edge-down for which it does not hold: a link failure
+ * that was DECLARED through /ndt/link_failure_detected rather than observed. Nothing about the
+ * fabric changed, so Ryu goes on listing that link and the poll lifted it straight back -- 5 times
+ * in 5 on 2026-09-04, within 30 s, silently. `updateLinks` now checks the premise instead of
+ * assuming it: it declines for an edge carrying `declaredDown` and lifts everything else, so the
+ * sentence above is now true of declarations too, by construction rather than by luck.
  *
  * Fast at first, then slow, and time-boxed rather than gated on a convergence test: a genuinely
  * absent host would keep a convergence gate in fast mode forever.

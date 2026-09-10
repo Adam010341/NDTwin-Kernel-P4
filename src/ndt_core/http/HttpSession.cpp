@@ -16,6 +16,8 @@
 #include "ndt_core/routing_management/FlowJob.hpp"
 #include "ndt_core/routing_management/FlowRoutingManager.hpp"
 #include "utils/Logger.hpp"
+// [Co-developed with claude code -- Adam] B-6: the netem half of /ndt/inject_link_failure.
+#include "utils/NetemLinkFault.hpp"
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -150,6 +152,19 @@ HttpSession::buildResponse()
         else if (method == http::verb::post && target == "/ndt/link_recovery_detected")
         {
             handleLinkRecovery(*response);
+        }
+        // [Co-developed with claude code -- Adam]
+        // doc/KNOWN-ISSUES.md B-6. Separate routes from the two above, not a parameter on them:
+        // the notification ("Ryu saw this fail") and the injection ("make this fail") are
+        // different acts with different authority, and only one of them may run tc. Folding them
+        // into one endpoint would mean a controller's routine notification could cut a link.
+        else if (method == http::verb::post && target == "/ndt/inject_link_failure")
+        {
+            handleInjectLinkFailure(*response);
+        }
+        else if (method == http::verb::post && target == "/ndt/inject_link_recovery")
+        {
+            handleInjectLinkRecovery(*response);
         }
         else if (method == http::verb::get && target == "/ndt/get_graph_data")
         {
@@ -448,7 +463,12 @@ HttpSession::handleLinkFailure(http::response<http::string_body>& res)
         res.body() = R"({"error":"edge not found in topology"})";
         return;
     }
-    m_topologyAndFlowMonitor->setEdgeDown(fwdOpt.value());
+    // [Co-developed with claude code -- Adam]
+    // doc/KNOWN-ISSUES.md B-6. setEdgeDownByDeclaration, not setEdgeDown: this is the push path,
+    // and calling the observation writer from it is the defect -- the graph could not then tell
+    // "an operator told us this link failed" from "the poll's own opinion", so the next
+    // updateLinks lifted it back. See TopologyAndFlowMonitor.hpp for the two-writer split.
+    m_topologyAndFlowMonitor->setEdgeDownByDeclaration(fwdOpt.value());
     m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
                            .payload = LinkFailureEventData{fwdOpt.value()}});
 
@@ -477,10 +497,15 @@ HttpSession::handleLinkFailure(http::response<http::string_body>& res)
             R"({"error":"reverse edge missing from the topology; the reported direction was marked down, its reverse was not"})";
         return;
     }
-    m_topologyAndFlowMonitor->setEdgeDown(revOpt.value());
+    m_topologyAndFlowMonitor->setEdgeDownByDeclaration(revOpt.value());
     m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
                            .payload = LinkFailureEventData{revOpt.value()}});
-    res.body() = R"({"status":"link failure processed"})";
+    // [Co-developed with claude code -- Adam]
+    // B-6. The body now says how long this lasts, because the answer changed and the old one was
+    // never written down: the declaration stands until /ndt/link_recovery_detected withdraws it,
+    // rather than until the next topology poll silently undoes it.
+    res.body() =
+        R"({"status":"link failure processed","down_reason":"declared","until":"/ndt/link_recovery_detected"})";
 }
 
 void
@@ -516,6 +541,14 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
         res.body() = R"({"error":"edge not found in topology"})";
         return;
     }
+    // [Co-developed with claude code -- Adam]
+    // doc/KNOWN-ISSUES.md B-6. Two calls, in this order, and both are needed:
+    //   clearEdgeDeclaredDown -- withdraws the standing declaration, so a poll may lift this edge
+    //                            again. Without it the declaration is permanent and setEdgeUp
+    //                            below would publish `is_up: true, down_reason: "declared"`.
+    //   setEdgeUp             -- the caller saying "it recovered" is itself evidence, and the next
+    //                            poll may be 30 s away.
+    m_topologyAndFlowMonitor->clearEdgeDeclaredDown(fwdOpt.value());
     m_topologyAndFlowMonitor->setEdgeUp(fwdOpt.value());
     // TODO: Emit LinkRecoveryDetected event
 
@@ -539,8 +572,194 @@ HttpSession::handleLinkRecovery(http::response<http::string_body>& res)
             R"({"error":"reverse edge missing from the topology; the reported direction was marked up, its reverse was not"})";
         return;
     }
+    m_topologyAndFlowMonitor->clearEdgeDeclaredDown(revOpt.value());
     m_topologyAndFlowMonitor->setEdgeUp(revOpt.value());
     res.body() = R"({"status":"link recovery processed"})";
+}
+
+// [Co-developed with claude code -- Adam]
+// doc/KNOWN-ISSUES.md B-6. The two inject endpoints. Shared helpers first.
+namespace
+{
+
+/// The Mininet interface for one end of a link, or empty when the graph cannot name it.
+///
+/// The bridge name comes from the topology file's `bridge_name`, which is what Mininet was told to
+/// call the switch, so `<bridge>-eth<port>` is the interface it created. Returning empty rather
+/// than guessing: a switch with no bridge_name is a topology this deployment mode was never
+/// configured for, and inventing "s7-eth3" from a dpid would be a fault injected on whatever
+/// interface happens to have that name.
+std::string
+mininetIfaceFor(const Graph& graph, uint64_t dpid, uint32_t port)
+{
+    for (auto v : boost::make_iterator_range(boost::vertices(graph)))
+    {
+        const auto& vp = graph[v];
+        if (vp.vertexType == VertexType::SWITCH && vp.dpid == dpid &&
+            !vp.bridgeNameForMininet.empty())
+        {
+            return utils::netem::mininetInterfaceName(vp.bridgeNameForMininet, port);
+        }
+    }
+    return {};
+}
+
+} // namespace
+
+void
+HttpSession::handleInjectLinkFailure(http::response<http::string_body>& res)
+{
+    SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Inject Link Failure");
+    auto data = parseLinkFailedEventPayload(m_req.body());
+    if (!data)
+    {
+        res.result(http::status::bad_request);
+        res.body() = R"({"error":"Invalid link-failure payload"})";
+        return;
+    }
+
+    auto fwdOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({data->srcDpid, data->dstDpid});
+    if (!fwdOpt.has_value())
+    {
+        res.result(http::status::not_found);
+        res.body() = R"({"error":"edge not found in topology"})";
+        return;
+    }
+    auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({data->dstDpid, data->srcDpid});
+    if (!revOpt.has_value())
+    {
+        // Same reasoning as handleLinkFailure: edges exist in pairs, so a missing reverse is the
+        // kernel's own state gone inconsistent. Refused BEFORE anything is changed here, unlike
+        // the notification path -- an injection that half-happened would leave both the graph and
+        // the machine's qdisc tree in a state the caller did not ask for and cannot name.
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "inject link failure {} -> {}: reverse edge is missing from the "
+                           "topology; nothing was injected",
+                           data->srcDpid,
+                           data->dstDpid);
+        res.result(http::status::internal_server_error);
+        res.body() =
+            R"({"error":"reverse edge missing from the topology; nothing was injected"})";
+        return;
+    }
+
+    m_topologyAndFlowMonitor->setEdgeDownByDeclaration(fwdOpt.value());
+    m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
+                           .payload = LinkFailureEventData{fwdOpt.value()}});
+    m_topologyAndFlowMonitor->setEdgeDownByDeclaration(revOpt.value());
+    m_eventBus->emit(Event{.type = EventType::LinkFailureDetected,
+                           .payload = LinkFailureEventData{revOpt.value()}});
+
+    json body{{"status", "link failure injected"},
+              {"down_reason", "declared"},
+              {"until", "/ndt/inject_link_recovery"}};
+
+    if (m_mode != utils::DeploymentMode::MININET)
+    {
+        // The declaration stands either way; what is skipped is the half the twin has no means to
+        // perform. Adam's ruling of 2026-09-05: "the physical lab gets C only."
+        body["tc"] = "skipped (not MININET)";
+        res.body() = body.dump();
+        SPDLOG_LOGGER_INFO(Logger::instance(),
+                           "link {} -> {} declared down; tc skipped (not MININET)",
+                           data->srcDpid,
+                           data->dstDpid);
+        return;
+    }
+
+    const auto graph = m_topologyAndFlowMonitor->getGraph();
+    const std::string srcIface = mininetIfaceFor(graph, data->srcDpid, data->srcInterface);
+    const std::string dstIface = mininetIfaceFor(graph, data->dstDpid, data->dstInterface);
+
+    const auto runner = utils::netem::realTcRunner();
+    json tc = json::array();
+    for (const std::string& iface : {srcIface, dstIface})
+    {
+        if (iface.empty())
+        {
+            tc.push_back({{"interface", nullptr},
+                          {"ok", false},
+                          {"refused", "the topology file gives this switch no bridge_name, so the "
+                                      "twin cannot name its interface"}});
+            continue;
+        }
+        // Loss on BOTH ends, not one. faults.txt L-2 records why one end is its own fault type:
+        // unidirectional loss kills LLDP in one direction only and leaves the control plane's
+        // graph permanently asymmetric. An injection meant to stand for "this link is gone" has
+        // to be symmetric or it is a different, subtler fault.
+        tc.push_back(utils::netem::cutInterface(iface, "100%", runner));
+    }
+    body["tc"] = tc;
+    res.body() = body.dump();
+}
+
+void
+HttpSession::handleInjectLinkRecovery(http::response<http::string_body>& res)
+{
+    SPDLOG_LOGGER_INFO(Logger::instance(), "Handle Inject Link Recovery");
+    auto data = parseLinkFailedEventPayload(m_req.body());
+    if (!data)
+    {
+        res.result(http::status::bad_request);
+        res.body() = R"({"error":"Invalid link-failure payload"})";
+        return;
+    }
+
+    auto fwdOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({data->srcDpid, data->dstDpid});
+    if (!fwdOpt.has_value())
+    {
+        res.result(http::status::not_found);
+        res.body() = R"({"error":"edge not found in topology"})";
+        return;
+    }
+    auto revOpt = m_topologyAndFlowMonitor->findEdgeBySrcAndDstDpid({data->dstDpid, data->srcDpid});
+    if (!revOpt.has_value())
+    {
+        SPDLOG_LOGGER_WARN(Logger::instance(),
+                           "inject link recovery {} -> {}: reverse edge is missing from the "
+                           "topology; nothing was withdrawn",
+                           data->srcDpid,
+                           data->dstDpid);
+        res.result(http::status::internal_server_error);
+        res.body() =
+            R"({"error":"reverse edge missing from the topology; nothing was withdrawn"})";
+        return;
+    }
+
+    for (const auto& e : {fwdOpt.value(), revOpt.value()})
+    {
+        m_topologyAndFlowMonitor->clearEdgeDeclaredDown(e);
+        m_topologyAndFlowMonitor->setEdgeUp(e);
+    }
+
+    json body{{"status", "link recovery injected"}};
+
+    if (m_mode != utils::DeploymentMode::MININET)
+    {
+        body["tc"] = "skipped (not MININET)";
+        res.body() = body.dump();
+        return;
+    }
+
+    const auto graph = m_topologyAndFlowMonitor->getGraph();
+    const std::string srcIface = mininetIfaceFor(graph, data->srcDpid, data->srcInterface);
+    const std::string dstIface = mininetIfaceFor(graph, data->dstDpid, data->dstInterface);
+
+    const auto runner = utils::netem::realTcRunner();
+    json tc = json::array();
+    for (const std::string& iface : {srcIface, dstIface})
+    {
+        if (iface.empty())
+        {
+            tc.push_back({{"interface", nullptr},
+                          {"ok", false},
+                          {"refused", "the topology file gives this switch no bridge_name"}});
+            continue;
+        }
+        tc.push_back(utils::netem::restoreInterface(iface, runner));
+    }
+    body["tc"] = tc;
+    res.body() = body.dump();
 }
 
 void
@@ -637,7 +856,13 @@ HttpSession::handleGetGraphData(http::response<http::string_body>& res)
              // twin's own inference that the switch behind this edge is gone
              // ("switch-unreachable"). Added key, same additive shape as admin_disabled; the
              // node objects carry the same key via to_json.
-             {"down_reason", downReasonToString(e.downReason)}});
+             //
+             // [Co-developed with claude code -- Adam]
+             // B-6 added a third value, `declared`, and effectiveDownReason decides which of the
+             // two an edge that is both publishes -- see GraphTypes.hpp. Scanning for
+             // `down_reason == "declared"` is how a forgotten injection is found now that a
+             // declaration no longer expires by itself.
+             {"down_reason", downReasonToString(effectiveDownReason(e))}});
     }
     res.body() = result.dump();
     SPDLOG_LOGGER_INFO(Logger::instance(), "get_graph_data success");

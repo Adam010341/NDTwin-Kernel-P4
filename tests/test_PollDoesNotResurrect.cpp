@@ -64,8 +64,12 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+// [Co-developed with claude code -- Adam] B-6: the link half loads the shipped topology, which the
+// switch half above does not need.
+#include <filesystem>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <shared_mutex>
 #include <stdexcept>
 #include <string>
@@ -75,6 +79,7 @@
 
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
+#include <boost/graph/adjacency_list.hpp>
 
 #include "common_types/GraphTypes.hpp"
 #include "event_system/EventBus.hpp"
@@ -678,4 +683,420 @@ TEST_F(PollDoesNotResurrectTest, TheEmittedVertexShapeCarriesAdminStateAndReacha
                                         "as an alias rather than removing it";
     EXPECT_EQ(j.value("is_up", true), j.value("reachable", false))
         << "the alias drifted from the field it aliases";
+}
+
+// =================================================================================================
+// doc/KNOWN-ISSUES.md B-6 -- the EDGE half of the same defect.
+//
+// [Co-developed with claude code -- Adam]
+//
+// WHAT THE DEFECT WAS
+//
+// TopologyAndFlowMonitor::updateLinks applied Ryu's link list with
+//
+//     (*m_graph)[edgeOpt.value()].isUp = true;
+//
+// and, exactly like updateSwitches above it, no else branch anywhere in the function. So a poll
+// could only ever say "up" about a link. That was believed to be safe, and the belief is written
+// down in this file's own run() header: Ryu DROPS a failed link from /v1.0/topology/links, "so a
+// poll can fill in what was missed but cannot resurrect an edge the push path correctly took
+// down". True for a link that really broke. False for one that was only DECLARED broken through
+// POST /ndt/link_failure_detected: nothing about the fabric changed, so Ryu keeps listing it.
+//
+// Measured 2026-09-04 (night round R2-B, logs/r2-20-linkfail-probe.log): the endpoint answered 200
+// and both directions read is_up=false within 0.02 s; 5 trials out of 5 flipped back to is_up=true
+// within 30 s, each one ~0.6 s after a topology poll, with /ndt/link_recovery_detected never
+// called and no line in kernel.log. The netem control arm (a real cut) stayed down 0 of 1.
+//
+// WHAT THESE ASSERT -- 🔴 BOTH DIRECTIONS, for the reason spelled out at the top of this file:
+//
+//   1. a poll must NOT lift a link with a standing declaration, however many polls arrive;
+//   2. a poll MUST still lift every link nobody declared down -- including one the derived
+//      liveness pass took down when its switch went away. updateLinks is the ONLY writer that
+//      brings a link back, so an implementation that stops writing `isUp = true` passes every
+//      assertion in direction 1 and is a worse outage than the defect.
+//
+// plus the seam that makes (1) possible -- the observation writers must not be able to set or
+// clear the declaration -- and the administrative axis, which the veto must leave alone.
+// =================================================================================================
+
+namespace
+{
+
+/// s1:1 <-> s5:1 in the shipped 10-switch Mininet topology. A real pair from a real file, so the
+/// case cannot pass against a graph shape the kernel never loads.
+constexpr uint64_t kLinkS1 = 1;
+constexpr uint64_t kLinkS5 = 5;
+constexpr uint32_t kLinkPort = 1;
+
+/// Exposes the protected loader and the protected discovery/derivation writers for the link half.
+class LinkTestableMonitor : public TopologyAndFlowMonitor
+{
+  public:
+    using TopologyAndFlowMonitor::TopologyAndFlowMonitor;
+
+    void load(const std::string& path) { loadStaticTopologyFromFile(path); }
+    void pollLinks(const std::string& json) { updateLinks(json); }
+    void reconcile() { reconcileDerivedLiveness(); }
+    static constexpr unsigned missesBeforeIsolating() { return kMissesBeforeIsolating; }
+};
+
+class DeclaredLinkFailureTest : public ::testing::Test
+{
+  protected:
+    static void SetUpTestSuite()
+    {
+        LogConfig cfg;
+        cfg.level = spdlog::level::off;
+        Logger::init(cfg);
+    }
+
+    void SetUp() override
+    {
+        m_graph = std::make_shared<Graph>();
+        m_mutex = std::make_shared<std::shared_mutex>();
+        m_monitor = std::make_shared<LinkTestableMonitor>(
+            m_graph, m_mutex, std::make_shared<EventBus>(), utils::MININET);
+
+        // The shipped topology, not a hand-written one: updateLinks resolves an edge by
+        // (dpid, port) out of the STATIC file, so a fixture that invented the pairing would be
+        // testing its own arithmetic. Nothing is written to it -- this is a read.
+        static const char* kCandidates[] = {
+            "setting/StaticNetworkTopologyMininet_10Switches.json",
+            "../setting/StaticNetworkTopologyMininet_10Switches.json",
+            "../../setting/StaticNetworkTopologyMininet_10Switches.json",
+        };
+        bool loaded = false;
+        for (const char* candidate : kCandidates)
+        {
+            if (std::filesystem::exists(candidate))
+            {
+                m_monitor->load(candidate);
+                loaded = true;
+                break;
+            }
+        }
+        ASSERT_TRUE(loaded) << "could not find StaticNetworkTopologyMininet_10Switches.json from "
+                            << std::filesystem::current_path().string();
+        {
+            std::shared_lock lock(*m_mutex);
+            ASSERT_EQ(boost::num_edges(*m_graph), 288u) << "wrong topology loaded";
+        }
+        converge();
+    }
+
+    /// The state a converged fabric is in. The loader starts everything down, so without this
+    /// every assertion about "the poll lifted it" would be about an edge that was never up and
+    /// every assertion about "it stayed down" would be vacuous.
+    void converge()
+    {
+        std::unique_lock lock(*m_mutex);
+        for (auto v : boost::make_iterator_range(boost::vertices(*m_graph)))
+        {
+            (*m_graph)[v].isUp = true;
+            (*m_graph)[v].isEnabled = true;
+            (*m_graph)[v].downReason = DownReason::None;
+        }
+        for (auto e : boost::make_iterator_range(boost::edges(*m_graph)))
+        {
+            (*m_graph)[e].isUp = true;
+            (*m_graph)[e].isEnabled = true;
+            (*m_graph)[e].downReason = DownReason::None;
+        }
+    }
+
+    /// The forward edge s1:1 -> s5. Throws rather than returning a default descriptor, for the
+    /// reason sw() above does: a default descriptor indexed into a graph is undefined behaviour,
+    /// and a broken fixture must fail its case rather than take the process down.
+    Graph::edge_descriptor fwd() { return edgeOrThrow(kLinkS1, kLinkS5); }
+    Graph::edge_descriptor rev() { return edgeOrThrow(kLinkS5, kLinkS1); }
+
+    Graph::edge_descriptor edgeOrThrow(uint64_t src, uint64_t dst)
+    {
+        const auto eOpt = m_monitor->findEdgeBySrcAndDstDpid({src, dst});
+        if (!eOpt.has_value())
+        {
+            throw std::runtime_error("the fixture topology has no edge " + std::to_string(src) +
+                                     " -> " + std::to_string(dst));
+        }
+        return *eOpt;
+    }
+
+    bool edgeIsUp(Graph::edge_descriptor e)
+    {
+        std::shared_lock lock(*m_mutex);
+        return (*m_graph)[e].isUp;
+    }
+
+    bool edgeIsEnabled(Graph::edge_descriptor e)
+    {
+        std::shared_lock lock(*m_mutex);
+        return (*m_graph)[e].isEnabled;
+    }
+
+    /// What /ndt/get_graph_data publishes for this edge. The precedence rule, not the raw field.
+    std::string edgeDownReason(Graph::edge_descriptor e)
+    {
+        std::shared_lock lock(*m_mutex);
+        return downReasonToString(effectiveDownReason((*m_graph)[e]));
+    }
+
+    /// Ryu's /v1.0/topology/links shape: dpids as 16-digit hex, ports as 8-digit hex. Both
+    /// directions of the s1 <-> s5 link, which is what the real reply carries -- and the whole
+    /// point of the case is that this reply is IDENTICAL before and after a declaration, because
+    /// declaring a failure changes nothing on the fabric for Ryu to notice.
+    static std::string linkListing()
+    {
+        return endpointPair(kLinkS1, kLinkPort, kLinkS5, kLinkPort) + "," +
+               endpointPair(kLinkS5, kLinkPort, kLinkS1, kLinkPort);
+    }
+
+    static std::string bothDirections() { return "[" + linkListing() + "]"; }
+
+    static std::string endpointPair(uint64_t srcDpid,
+                                    uint32_t srcPort,
+                                    uint64_t dstDpid,
+                                    uint32_t dstPort)
+    {
+        char s[64];
+        std::snprintf(s,
+                      sizeof(s),
+                      R"({"src":{"dpid":"%016lx","port_no":"%08x"},)",
+                      static_cast<unsigned long>(srcDpid),
+                      srcPort);
+        char d[64];
+        std::snprintf(d,
+                      sizeof(d),
+                      R"("dst":{"dpid":"%016lx","port_no":"%08x"}})",
+                      static_cast<unsigned long>(dstDpid),
+                      dstPort);
+        return std::string(s) + d;
+    }
+
+    std::shared_ptr<Graph> m_graph;
+    std::shared_ptr<std::shared_mutex> m_mutex;
+    std::shared_ptr<LinkTestableMonitor> m_monitor;
+};
+
+} // namespace
+
+// --- direction 1: the finding -- a declaration must survive the poll -----------------------------
+
+/**
+ * 🔴 THE FINDING. The declaration is made, and the poll that arrives next still lists the link,
+ * because a declaration has no LLDP consequence and Ryu has nothing to notice. That poll used to
+ * put is_up back to true, 5 times in 5, within 30 s.
+ */
+TEST_F(DeclaredLinkFailureTest, ADeclaredLinkFailureSurvivesATopologyPoll)
+{
+    m_monitor->setEdgeDownByDeclaration(fwd());
+    m_monitor->setEdgeDownByDeclaration(rev());
+    ASSERT_FALSE(edgeIsUp(fwd())) << "the declaration did not take the link down at all";
+    ASSERT_FALSE(edgeIsUp(rev())) << "the declaration did not take the reverse direction down";
+
+    // The reply Ryu really keeps serving, applied exactly as the poll thread applies it.
+    m_monitor->pollLinks(bothDirections());
+
+    EXPECT_FALSE(edgeIsUp(fwd()))
+        << "a topology poll lifted a link an operator declared failed; the injection ends when the "
+           "control plane's list is next applied rather than when it is withdrawn (B-6)";
+    EXPECT_FALSE(edgeIsUp(rev()))
+        << "the reverse direction was resurrected by the poll, so the link is half up and no "
+           "caller asked for that";
+    EXPECT_EQ(edgeDownReason(fwd()), "declared")
+        << "an edge that is down because somebody said so must say so: that is the whole "
+           "difference between this fix and an internal flag";
+}
+
+/**
+ * The permanence half. One declined poll could be a phase accident; the defect was that the poll
+ * ran every 30 s for ever and each one undid the injection again. Ten polls stands for "for ever":
+ * nothing in updateLinks counts, so a rule that holds ten times holds indefinitely.
+ */
+TEST_F(DeclaredLinkFailureTest, EveryLaterPollDeclinesTheDeclaredLinkToo)
+{
+    m_monitor->setEdgeDownByDeclaration(fwd());
+
+    for (int poll = 0; poll < 10; ++poll)
+    {
+        m_monitor->pollLinks(bothDirections());
+        ASSERT_FALSE(edgeIsUp(fwd()))
+            << "poll " << poll << " lifted the declared link; a measurement window longer than "
+            << "one polling interval cannot rely on the injection holding";
+    }
+    EXPECT_EQ(edgeDownReason(fwd()), "declared");
+}
+
+// --- direction 2: the poll must still be a writer ------------------------------------------------
+
+/**
+ * 🔴 THE OVER-CORRECTION, and the reason this suite is not just the finding. A poll that never
+ * writes `isUp = true` satisfies every assertion above and is a bigger outage than the defect:
+ * updateLinks is the ONLY writer that brings an inter-switch link back, so `// isUp = true;` would
+ * leave the graph dark for every link that was ever down.
+ */
+TEST_F(DeclaredLinkFailureTest, APollStillRaisesALinkNobodyDeclaredDown)
+{
+    // Down by observation, not by declaration -- the state a real link failure leaves behind, and
+    // the state the loader starts every edge in.
+    m_monitor->setEdgeDown(fwd());
+    ASSERT_FALSE(edgeIsUp(fwd()));
+
+    m_monitor->pollLinks(bothDirections());
+
+    EXPECT_TRUE(edgeIsUp(fwd()))
+        << "discovery stopped lifting a link nobody declared down; Ryu listing a link is real "
+           "evidence and this is the only writer that acts on it";
+    EXPECT_EQ(edgeDownReason(fwd()), "none");
+}
+
+/**
+ * The recovery path end to end: Ryu drops a genuinely failed link and lists it again when it comes
+ * back, and the twin must follow. Distinct from the case above because it starts from a
+ * DECLARATION that was then withdrawn -- the sequence a fault-injection round actually runs.
+ */
+TEST_F(DeclaredLinkFailureTest, ALinkThatCameBackInRyuIsRaisedAgainAfterRecovery)
+{
+    m_monitor->setEdgeDownByDeclaration(fwd());
+    m_monitor->pollLinks(bothDirections());
+    ASSERT_FALSE(edgeIsUp(fwd())) << "pre-condition: the declaration must be holding";
+
+    m_monitor->clearEdgeDeclaredDown(fwd());
+    m_monitor->pollLinks(bothDirections());
+
+    EXPECT_TRUE(edgeIsUp(fwd()))
+        << "the declaration was withdrawn and the control plane still lists the link, so the next "
+           "poll must bring it back -- otherwise a withdrawn injection is unrecoverable";
+    EXPECT_EQ(edgeDownReason(fwd()), "none");
+}
+
+/**
+ * The withdrawal itself, asserted on the flag rather than through a poll: recovery must SPEND the
+ * declaration. A recovery handler that raises `isUp` but leaves the declaration standing publishes
+ * `is_up: true, down_reason: "declared"` and the next poll declines an edge nobody is holding.
+ */
+TEST_F(DeclaredLinkFailureTest, ADeclaredRecoveryLetsThePollRaiseTheEdgeAgain)
+{
+    m_monitor->setEdgeDownByDeclaration(fwd());
+    ASSERT_TRUE(m_monitor->getEdgeDeclaredDown(fwd()));
+
+    m_monitor->clearEdgeDeclaredDown(fwd());
+
+    EXPECT_FALSE(m_monitor->getEdgeDeclaredDown(fwd()))
+        << "the declaration outlived its withdrawal; nothing else clears it, so this edge would "
+           "be suppressed for the rest of the process";
+    m_monitor->pollLinks(bothDirections());
+    EXPECT_TRUE(edgeIsUp(fwd()));
+}
+
+// --- the axes the veto must not touch ------------------------------------------------------------
+
+/**
+ * `isEnabled` is the ADMINISTRATIVE axis -- "the control plane can drive this" -- and it is
+ * written unconditionally by discovery for everything it reports. A veto that also blocks it turns
+ * /ndt/link_failure_detected into a covert DisableSwitch: the link would stop being routable
+ * rather than stop being up, and nothing in the API says that.
+ */
+TEST_F(DeclaredLinkFailureTest, ADeclaredDownEdgeIsStillAdministrativelyEnabled)
+{
+    // The descriptor is resolved BEFORE the lock is taken: findEdgeBySrcAndDstDpid takes a
+    // shared_lock on the same mutex, and std::shared_mutex is not recursive -- calling fwd()
+    // inside the block below throws "Resource deadlock avoided" rather than blocking, which is
+    // how this was found. [Co-developed with claude code -- Adam]
+    const auto e = fwd();
+    {
+        std::unique_lock lock(*m_mutex);
+        (*m_graph)[e].isEnabled = false; // as the loader leaves it
+    }
+    m_monitor->setEdgeDownByDeclaration(fwd());
+
+    m_monitor->pollLinks(bothDirections());
+
+    EXPECT_TRUE(edgeIsEnabled(fwd()))
+        << "the liveness veto swallowed the administrative axis as well; a declared link failure "
+           "is not an out-of-service order";
+    EXPECT_FALSE(edgeIsUp(fwd())) << "and it must still be down";
+}
+
+/**
+ * 🔴 The derived half must NOT be sticky. reconcileDerivedLiveness takes an edge down when a switch
+ * at either end has been unusable for kMissesBeforeIsolating polls, and that state is supposed to
+ * end by itself when the switch comes back. A veto keyed on "is this edge down for any reason"
+ * rather than on the declaration would make every switch outage permanent -- the twin would never
+ * report a recovered fabric again.
+ */
+TEST_F(DeclaredLinkFailureTest, ADerivedDownEdgeIsStillRaisedWhenTheSwitchComesBack)
+{
+    const auto s5 = m_monitor->findSwitchByDpid(kLinkS5);
+    ASSERT_TRUE(s5.has_value());
+
+    m_monitor->setVertexDown(*s5);
+    for (unsigned i = 0; i < LinkTestableMonitor::missesBeforeIsolating(); ++i)
+    {
+        m_monitor->reconcile();
+    }
+    ASSERT_FALSE(edgeIsUp(fwd())) << "pre-condition: the derivation must have isolated s5's links";
+    ASSERT_EQ(edgeDownReason(fwd()), "switch-unreachable")
+        << "pre-condition: this edge must be down by DERIVATION, not by declaration";
+
+    // The switch comes back, and the control plane lists its links again.
+    m_monitor->setVertexUp(*s5);
+    m_monitor->reconcile();
+    m_monitor->pollLinks(bothDirections());
+
+    EXPECT_TRUE(edgeIsUp(fwd()))
+        << "an edge the derivation took down never came back; the veto is reading something other "
+           "than the declaration and every switch outage is now permanent";
+    EXPECT_EQ(edgeDownReason(fwd()), "none");
+}
+
+/**
+ * The seam that makes the veto possible, pointed the other way: the OBSERVATION writers must not
+ * be able to set or clear a declaration. setEdgeDown from the push path is the defect (it is
+ * indistinguishable from the poll's own opinion), and setEdgeUp from the liveness side must not
+ * spend a declaration nobody withdrew.
+ */
+TEST_F(DeclaredLinkFailureTest, ObservationWritersNeitherSetNorClearTheDeclaration)
+{
+    m_monitor->setEdgeDown(fwd());
+    EXPECT_FALSE(m_monitor->getEdgeDeclaredDown(fwd()))
+        << "an observation created a declaration; the poll would then decline an edge no operator "
+           "ever declared";
+
+    m_monitor->setEdgeDownByDeclaration(fwd());
+    m_monitor->setEdgeUp(fwd());
+    EXPECT_TRUE(m_monitor->getEdgeDeclaredDown(fwd()))
+        << "an observation withdrew a standing declaration; only /ndt/link_recovery_detected may";
+}
+
+/**
+ * Both reasons can hold at once -- a declared link whose switch then dies -- and a reader gets one
+ * string. It must be the declaration: `switch-unreachable` clears itself when the switch returns,
+ * `declared` does not clear until somebody withdraws it, so publishing the self-healing one hides
+ * the standing one behind a reason that is about to disappear.
+ */
+TEST_F(DeclaredLinkFailureTest, ADeclaredEdgeBehindADeadSwitchStillReadsDeclared)
+{
+    const auto s5 = m_monitor->findSwitchByDpid(kLinkS5);
+    ASSERT_TRUE(s5.has_value());
+
+    m_monitor->setEdgeDownByDeclaration(fwd());
+    m_monitor->setVertexDown(*s5);
+    for (unsigned i = 0; i < LinkTestableMonitor::missesBeforeIsolating(); ++i)
+    {
+        m_monitor->reconcile();
+    }
+
+    EXPECT_EQ(edgeDownReason(fwd()), "declared")
+        << "the derivation's reason masked the standing declaration; a sweep for forgotten "
+           "injections would miss this edge exactly while it is hardest to notice";
+
+    // And the declaration outlives the switch outage it was masked by.
+    m_monitor->setVertexUp(*s5);
+    m_monitor->reconcile();
+    m_monitor->pollLinks(bothDirections());
+    EXPECT_FALSE(edgeIsUp(fwd()))
+        << "the declaration was spent by a switch outage; a state field the derivation rewrites "
+           "every poll cannot hold an intent";
+    EXPECT_EQ(edgeDownReason(fwd()), "declared");
 }

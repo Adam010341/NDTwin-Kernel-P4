@@ -229,6 +229,48 @@ class TopologyAndFlowMonitor
     void setEdgeEnableNoLock(Graph::edge_descriptor e);
     void setEdgeDisable(Graph::edge_descriptor e);
     void setEdgeDisableNoLock(Graph::edge_descriptor e);
+
+    /**
+     * @brief Records that a link failure was DECLARED for @p e, and takes it down.
+     *
+     * [Co-developed with claude code -- Adam]
+     * doc/KNOWN-ISSUES.md B-6 -- the edge version of the vertex split documented below, arrived at
+     * the same way and for the same reason. The two writers of edge liveness answer different
+     * questions and must be different calls, because only one of them is allowed to survive a
+     * topology poll:
+     *
+     *   setEdgeDown / setEdgeUp     -- an OBSERVATION. Discovery and the derived-liveness pass.
+     *                                  Leaves `declaredDown` alone in both directions.
+     *   setEdgeDownByDeclaration    -- an INTENT that was carried out: /ndt/link_failure_detected
+     *                                  says this link is gone. `updateLinks` may not overrule it.
+     *   clearEdgeDeclaredDown       -- that intent is spent: /ndt/link_recovery_detected.
+     *
+     * Calling setEdgeDown from the push path instead of this is the defect: it is
+     * indistinguishable from the control plane's own opinion, so the next `updateLinks` lifts
+     * `isUp` straight back -- measured 5 times in 5, within 30 s, on 2026-09-04.
+     *
+     * @warning The declaration is PERMANENT until clearEdgeDeclaredDown. That is the deliberate
+     *          other half of B-6: the old failure mode was an injection that ended early and
+     *          silently, and the new one is an injection that never ends. Both directions have to
+     *          be asserted by anything that injects through this path.
+     */
+    void setEdgeDownByDeclaration(Graph::edge_descriptor e);
+
+    /**
+     * @brief Withdraws a standing link-failure declaration for @p e.
+     *
+     * Deliberately does NOT touch `isUp`: whether the link is carrying traffic again is discovery's
+     * call, and discovery has evidence -- this call answers only "is the twin still holding a
+     * declared failure against this edge". /ndt/link_recovery_detected calls setEdgeUp as well,
+     * because a caller saying "it recovered" is itself evidence and the next poll may be 30 s away.
+     * [Co-developed with claude code -- Adam]
+     */
+    void clearEdgeDeclaredDown(Graph::edge_descriptor e);
+
+    /// Whether a declared link failure is still standing for @p e.
+    /// [Co-developed with claude code -- Adam]
+    bool getEdgeDeclaredDown(Graph::edge_descriptor e);
+
     void setVertexDown(Graph::vertex_descriptor v);
     void setVertexUp(Graph::vertex_descriptor v);
     bool getVertexIsUp(Graph::vertex_descriptor v);
@@ -884,6 +926,18 @@ class TopologyAndFlowMonitor
     /// (updateSwitches already holds it, and clearVertexAdminPowerOff takes it), which is what
     /// lets the poll thread and an HTTP power thread both touch it.
     std::set<uint64_t> m_resurrectionDeclined;
+
+    /// (dpid, port) pairs for which updateLinks has already declined to lift `isUp` over a standing
+    /// link-failure declaration, so the WARN is written once per episode rather than once per poll.
+    ///
+    /// [Co-developed with claude code -- Adam]
+    /// doc/KNOWN-ISSUES.md B-6, and the same edge-triggering as m_resurrectionDeclined above --
+    /// with a sharper reason for it here. Ryu goes on listing a link that was declared failed for
+    /// ever, because a declaration has no LLDP consequence: nothing about the fabric changed, only
+    /// what the twin was told. So a line per decline is a line per declared edge every 30 s, with
+    /// no end. Cleared by clearEdgeDeclaredDown, which is the episode ending.
+    /// Written under *m_graphMutex (updateLinks already holds it; the two clear sites take it).
+    std::set<std::pair<uint64_t, uint32_t>> m_linkResurrectionDeclined;
 
     /// Switch management addresses this run has already seen offered as hosts, so the warning is
     /// written once and not once every 5 to 30 seconds forever.
