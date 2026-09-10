@@ -280,6 +280,33 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
 - **OVS**：`--check` 一定 rc=1。**看它列出來的問題是不是只有「256 link(s) are down」**——
   只有這一條就是正常的；多出任何別的才要查。
 
+🆕 **2026-09-07 起 `--check` 多一列 `residue`**（G-12／W16-2）：它會去問「有沒有 app
+留在網路上的東西」——某個 app 的時間窗內裝的流表規則、還握著的鎖。判準因此多了一條：
+
+| `residue` 那一列說 | 意思 | 對 rc 的影響 |
+|---|---|---|
+| `none` | 問過了，沒有 | 無 |
+| `N rule(s) inside an app window, M lock(s) HELD` | **有殘留** | **算一個 problem ⇒ rc 1** |
+| `NOT CHECKED: ...` | **沒問到**（kernel 沒起來／讀不到流表／這個平面分不了窗） | 不算 problem |
+
+🔴 `NOT CHECKED` **不等於乾淨**。**P4 平面上只要有 app 在「這個 checkout」留下窗，
+就是 `NOT CHECKED`**：它的流表統計是 proxy 合成的，`duration_sec`／`duration_nsec` 恆 0
+（2026-09-07 實測），沒有時間軸就分不出窗。
+它不算 problem 的唯一理由就是上面那一行「P4 rc=0 才算過」——一個永遠過不了的閘門
+沒有人會看。**鎖在 P4 上還是查得到的**，所以 P4 上握著的鎖照樣讓 `--check` 變紅。
+細節用 `ndt apps orphans` 看（它會把每一條列出來，一條都不刪）。
+
+⚠️ **09-07 更正（先前這裡寫「P4 平面永遠是 `NOT CHECKED`」，實跑推翻）**：**沒有任何窗的時候
+它印 `none`，`ndt apps orphans` 回 0**——`0 dated rule(s) in a window, 0 lock(s) held,
+0 could not be dated, 0 not answerable`＋`(no app had a datable window in this run)`。
+🔴 **那個 `none`／0 是「沒東西可定年」，不是「網路乾淨」：一條規則都沒被問過。**
+窗來自**這個 checkout** 的 app pidfile／log，所以別的 checkout（例如主 checkout）跑過的 app
+留下的規則，在這裡永遠沒有窗、永遠不會被查。
+〔實跑：`rounds/08-round2.md:157-172` 乾淨 P4 ⇒ 0；`:174-193` 在同一個 checkout 起過一次 app ⇒ 5。〕
+另：`energy` 與 `sim` 因為是 helper（`sudo ndtwin-lab <name>-start`）起的、不寫 pidfile，
+**目前永遠沒有窗**（3-51，另一張單修）。
+Adam 的處置是**從根本修**：G-13——讓 proxy 在裝規則時記時間戳，P4 的規則才定得了年。
+
 ⚠️ 這代表 **OVS 沒有一鍵驗收**。OVS 的驗收就看 `ndt up` 最後那行 `data plane: ... forwards`，
 外加下面那張表。
 
@@ -384,9 +411,22 @@ p4_proxy/p4_src/ndtwin_switch.p4:52:  const bit<16> SAMPLE_RATE = 256;
 `doc/audit/2026-08-20_sampling-rate-and-cpu/matrix.sh`，那是實驗 driver 不是支援介面
 （但它 `sed` 完會 `grep -q` 自證改成功，值得抄）。
 
-`ndt status` 的 `sample rate` 是**讀回來對帳的**，不是設定值：它去解編出來的 JSON 裡
-`random(0, N-1)` 的上界。存在的理由就是 2026-08-20 抓到 source 註解寫 256、
-實際跑的 fabric 是 1024。
+`ndt status` 的 `sample rate` 是**讀回來對帳的**，不是設定值。存在的理由就是 2026-08-20
+抓到 source 註解寫 256、實際跑的 fabric 是 1024。
+
+🆕 **2026-09-07 起它看平面**（D-2／X-2），而且旁邊多一列 `rate source` 寫它從哪裡讀的：
+
+| 平面 | 讀哪裡 |
+|---|---|
+| **P4** | 編出來的 `p4_proxy/p4_src/build/ndtwin_switch.json` 裡 `random(0, N-1)` 的上下界 |
+| **OVS** | `ovs-vsctl --columns=sampling list sflow`（OVSDB，`testbed_topo.py:160` 設的那個） |
+| 沒有 fabric | 上面那個 JSON，而且那一列會明講「這不是任何在跑的東西的讀數」 |
+
+🔴 **為什麼要分**：2026-09-06 實測（`logs/x1-22-status-blind-to-ovs-rate.log`），把十筆
+OVS sflow record 全設成 64 之後 `ndt status` 照樣印 `sample rate 1/256`——它讀的是 bmv2
+的編譯產物，跟 OVS fabric 一點關係都沒有。**兩邊只是碰巧都是 256**，所以幾個月沒人發現。
+OVS 側另外三種答案都不會被印成分數：十筆不一致（`DISAGREE`）、一筆都沒有（**什麼都沒在取樣**）、
+`ovs-vsctl` 被拒（`UNREADABLE`，**不是預設值**）——三種都會讓 `--check` 變紅。
 
 ⚠️ **在 fabric 活著的時候重編，`status` 會說謊**——JSON 換了、switch 沒換。
 `ndt status` 有 `stale_pipeline` 偵測（比對 build JSON 與 manifest 的 mtime）會提醒你，
@@ -597,12 +637,17 @@ lab
 | `note` | 別人留的一句話，說他在做什麼 |
 | `measuring` | 有沒有 `iperf3 -c` 在跑。**不是 nothing 就不要拆** |
 | `code` | 現在這份 checkout 的 commit＋有沒有未提交的改動。**量測數字要跟這個 commit 一起記** |
+| `knob baseline` 🆕 | `p4_proxy/mininet/host_count_override` **現在的值**跟你 `ndt claim` 那一刻的值比。**不看 git 髒不髒**——2026-09-05 那次它被寫成 128（＝HEAD），git 因此說它乾淨，警告整段消失，而 `porcelain` 行數還從 22 掉到 21（I-3）。還原＝**寫回**那個值，不是 `git checkout --`。🔴 **三種答案，看下一列** |
+| `knob baseline` 的三種答案 🆕 | ① **`<n> == the value this round started with`**＝沒動過，綠。<br>② **`<n>, written by 'ndt up p4 <n>' at HH:MM:SS this round`**＝**你自己用 `ndt` 改的**，黃字警告、**不進 problems、`--check` 仍然 rc 0**。因為 `ndt up p4 4` 會把 4 寫穿這個旋鈕（`set_host_count`），所以「claim 在 128 → `up p4 4`」的標準 P4 輪，從第二個指令起整輪都會是紅的——**一個整輪都紅的閘門沒有人讀**。它還是要寫回去，只是那個期限改由 `ndt release` 收（見下面 `ndt release`）。<br>③ **`NOT RESTORED`**＝現值既不是開工值、也不是 `ndt up` 寫的值 ⇒ **有人手改過**，紅字＋problem ⇒ **`--check` rc 1**（2026-09-07，E-9；先前它印紅字卻回 rc 0——`rounds/08-round2.md:146` 04:36 實測）。<br>🔴 **只有 ③ 進 problems**：`4 (the default)` 與 `!= 4, and no round baseline exists` 兩句只印不紅（後者分不出「忘了還原」與「本來就要 128 但沒 claim」）；**沒有 `up_wrote` 欄位時 ② 不存在**，`≠` 開工值一律走 ③ |
+| `tree vs round` 🆕 | 從開工到現在，未提交清單**多了誰、少了誰**（列檔名，不是數量）。**少了誰**才是危險的方向：它代表那個檔現在跟 HEAD 一樣了，而那不等於還原。🔴 **這一列不進 `--check` 的 problems**：一輪中 commit 會合理地改變這個集合，每次 commit 都紅的閘門沒有人讀 |
+| `knob baseline`／`tree vs round` 的來源 | `.test_run/round.baseline`，由 `ndt claim` 寫，欄位是 `at=`／`by=`／`head=`／`host_count=`（開工時旋鈕的值）／每個未提交路徑一行 `dirty=`。🆕 **另有 `up_wrote=<n>`＋`up_wrote_at=<epoch>` 兩欄，由 `ndt up p4 <n>` 事後補寫**（2026-09-07，E-9b）——它是上面第 ② 種答案的唯一依據，**只保留最後一次**（不累積），**沒 claim 就不寫**（沒有 round 可以被赦免）。**`ndt release` 會把整個檔改名成 `.prev`**（2026-09-07，E-11，照 `lab.handoff` 的前例）⇒ release 之後兩列都會說「沒有 baseline」，**那是正確語意（round 結束了），不是資料掉了**；事後要查開工狀態看 `.test_run/round.baseline.prev`（沒有任何程式讀它，它是留給人的） |
 
 ```
 configuration
-  hosts / topology / bmv2 / sample rate
+  hosts / topology / bmv2 / sample rate / rate source
 ```
-**這四行決定你量到的每一個數字。** 開始之前看一眼；寫報告的時候一起抄下來。
+**這五行決定你量到的每一個數字。** 開始之前看一眼；寫報告的時候一起抄下來。
+（`rate source` 是 2026-09-07 加的，見 §2.5 的 sampling rate 那段。）
 
 ```
 running / network health / kernel graph

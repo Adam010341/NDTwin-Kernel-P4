@@ -83,7 +83,62 @@ hook 只在你 commit 的那一刻才有機會說話，而**「缺席」不觸�
 ### 5. 收乾淨
 
 - [ ] `ndt release`，並在 `.test_run/lab.handoff` 寫清楚 fabric 留不留、為什麼。
-- [ ] `ndt apps orphans` 回 0（沒有沒人追蹤的 app 還在改網路）。
+      **2026-09-07 起 `release` 會把 `.test_run/round.baseline` 改名成 `.prev`**（E-11）：
+      round 到此結束，`ndt status` 之後會回「no round baseline recorded」——那是正確語意，
+      不是資料掉了。要查這一輪從哪裡開始，看 `.test_run/round.baseline.prev`（沒有任何程式讀它）。
+      🔴 **旋鈕不用你記得了：`release` 自己會擋**（2026-09-07 18:1x，E-11b）。
+      `p4_proxy/mininet/host_count_override` 的現值 ≠ 開工值 ⇒ **`release` rc 1、claim 不放、
+      baseline 不收**，並印出寫回的指令（`echo <開工值> > p4_proxy/mininet/host_count_override`，
+      **不是 `git checkout --`**）。要在旋鈕沒還原的情況下結束 ⇒ **`ndt release --force`**，
+      它照樣放 claim、照樣收成 `.prev`，但會印紅字說旋鈕留在哪個值——**那是你的簽名**。
+      ⚠️ **`ndt up p4 <n>` 寫的值不算還原**：它在 round 中只是黃字警告（`--check` 仍然 rc 0，
+      見手冊 `knob baseline` 那三列），但收工時一樣要寫回去。
+      🔴 **`knob baseline`／`tree vs round` 兩列還是建議在 `release` 之前抄**：
+      擋下來的只有旋鈕那一格，兩列的**內容**在 release 之後就沒有東西能替你比了。
+- [ ] `ndt apps orphans` 回 0。**2026-09-07 起它的 rc 不只回答行程了**（G-12／W16-1），
+      判準跟著改，五個碼互斥、看到哪一個就做哪一件事：
+
+      | rc | 意思 | 你要做的 |
+      |---|---|---|
+      | 0 | 行程乾淨，網路上也沒東西 | 過 |
+      | 1 | 有沒人追蹤的 app **行程**還在跑 | `ndt apps stop <name>` |
+      | 2 | 某一條存活通道**看不到** | 查那一條，別當成 0 |
+      | 4 | 行程都走了，**網路上還有東西**（窗內的流表規則／還握著的鎖） | 規則照它印的 `delete_flow_entry` 手動刪；鎖等 TTL 自己過 |
+      | 5 | 行程都走了，**殘留查不了**（kernel 沒起來／讀不到流表／這個平面分不了窗） | **不是「乾淨」**。見下面 P4 那條 |
+
+      🔴 **P4 平面上，只要有 app 在「這個 checkout」留下窗，就是 5。** 流表統計沒有時間軸
+      （`duration` 恆 0/0），規則分不了窗 ⇒ 全部記成「查不了」。
+      ⚠️ **09-07 更正**（先前這裡寫「P4 平面永遠是 5」，實跑推翻）：
+      **沒有任何窗的時候它回 0**——`0 dated rule(s) in a window, 0 lock(s) held,
+      0 could not be dated, 0 not answerable`＋`(no app had a datable window in this run)`。
+      **那個 0 是「沒東西可定年」，不是「乾淨」**：一條規則都沒被問過。
+      窗來自**這個 checkout** 的 app pidfile／log，別的 checkout 跑過的 app 在這裡永遠沒有窗。
+      〔實跑：`rounds/08-round2.md:157-172`（乾淨 P4 ⇒ 0）與 `:174-193`（起過一次 app ⇒ 走 UNDATABLE／BLIND ⇒ 5）〕
+      另：`energy` 與 `sim` 目前因 3-51 **永遠沒有窗**（helper 起的 app 不寫 pidfile），另一張單修。
+      Adam 對這件事的處置是**從根本修**：G-13，proxy 在 install 規則時記時間戳，讓 P4 的規則能定年（另開單）。
+
+      🔴 **`|| exit 1` 這種寫法，只要 P4 上有 app 跑過就會失敗**（先前寫「永遠失敗」，同上更正）。
+      把 orphans 當閘門的腳本要改成看得懂 4 與 5，或至少把 5 記進報告而不是當成通過。
+- [ ] `ndt status --check` 的 `residue` 那一列**抄進報告**（2026-09-07 起有這一列）。
+      `none` 才算問過了；`NOT CHECKED` 是沒問到，**不是乾淨**。
+- [ ] `ndt status` 的 `knob baseline` 與 `tree vs round` 兩列**抄進報告**（I-3）。
+      `p4_proxy/mininet/host_count_override` 還原＝**寫回**開工那個值，
+      **不是 `git checkout --`**（那會給你 HEAD＝128）。`porcelain` 行數不是還原證據：
+      2026-09-05 那次它從 22 掉到 21，而機器正好離開了基準。
+      🔴 **2026-09-07 起 `NOT RESTORED` 是 `--check` 的 problem，rc 1**（E-9）：
+      有 `round.baseline` 且現值 ≠ 開工值 ⇒ `ndt status --check` 會紅，problem 那行寫著
+      現值、開工值、與「寫回去，不要 `git checkout --`」。
+      〔動機是實跑：09-07 04:36 那次它印了紅字 `8 -- this round started at 128: NOT RESTORED`
+      **而 rc 是 0**（`rounds/08-round2.md:146`）。〕
+      ⚠️ **2026-09-07 18:1x 補正（E-9b）：`ndt up p4 <n>` 寫的值不算紅。**
+      `up p4 4` 會把 4 寫穿旋鈕，所以「claim 在 128 → `up p4 4`」的標準 P4 輪從第二個指令起
+      **整輪都會是紅的**——那種閘門沒有人讀。現在 `ndt` 會把「自己寫的值」記進
+      `round.baseline` 的 `up_wrote=`，這一格只印**黃字警告**、`--check` 仍然 rc 0；
+      現值**既不是開工值也不是 `up_wrote`**（＝有人手改）才走上面那條紅。
+      **它還是要寫回去** —— 期限改由 `ndt release` 收（見 §5：不還原就 rc 1 拒絕，`--force` 放行）。
+      ⚠️ **只有 `NOT RESTORED` 那一句進 problems。** `tree vs round`（集合差）不進——一輪中
+      commit 會合理地改變它；`!= 4 而沒有 baseline` 那句也不進——它分不出「忘了還原」和
+      「本來就是 128 但沒 claim」；`up_wrote` 那一句也不進（理由同上）。
 - [ ] 本輪結論對帳舊結果：**推翻／更新／可對比哪一個**，三選一寫進報告。
 
 ### 6. 回報義務清償盤點（**常設**，不是特例）

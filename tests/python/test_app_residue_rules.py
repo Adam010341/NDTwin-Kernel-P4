@@ -48,8 +48,8 @@ MARKERS = re.compile(
     r"# --- BEGIN residue_rules.*?\n(.*?)# --- END residue_rules ---", re.S)
 
 
-def load_suspect_rules():
-    """The function under test, lifted out of `ndt` by its own markers.
+def load_region():
+    """Everything between the markers, lifted out of `ndt`.
 
     Extraction rather than import because the code lives inside a heredoc in a bash script:
     the alternative is a second copy of it here, and a second copy is the thing that goes
@@ -63,9 +63,14 @@ def load_suspect_rules():
             "the residue_rules markers are not in %s -- the gate cannot see the subject" % NDT)
     ns = {}
     exec(compile(m.group(1), "<residue_rules from ndt>", "exec"), ns)
-    if "suspect_rules" not in ns:
-        raise AssertionError("suspect_rules is not defined inside the markers")
-    return ns["suspect_rules"]
+    for want in ("suspect_rules", "window_blindspot"):
+        if want not in ns:
+            raise AssertionError("%s is not defined inside the markers" % want)
+    return ns
+
+
+def load_suspect_rules():
+    return load_region()["suspect_rules"]
 
 
 NOW = 1_757_000_000          # the wall clock the fake kernel answers were taken at
@@ -243,6 +248,105 @@ class SuspectRules(unittest.TestCase):
                       self.run_it(entries(flow(7200)), started=NOW - 86400)[0])
 
 
+class ThePlaneWithNoClock(unittest.TestCase):
+    """W16-3: on P4 the flow stats are synthesised and every rule reports duration 0/0.
+
+    🔴 MEASURED, 2026-09-07 (DECISIONS 09-07 01:0x; P4 4 hosts, trunk 862c4bf8, logs/w163-*).
+    A route to 10.0.0.3 was installed and /ndt/get_switch_openflow_table_entries read at +12 s
+    and +32 s. That entry AND every pre-existing entry answered duration_sec 0, duration_nsec
+    0, while packet_count and byte_count moved. p4_proxy/proxy_agent/ryu_flow_stats.py has no
+    install time to put in the rows it synthesises.
+
+    Read as an age, that 0 means "installed just now", which places EVERY rule on the plane
+    inside EVERY window -- the widening failure M3 exists for, arriving through the data
+    instead of through the code. Adam's decision: age=UNKNOWN, list them all, say why.
+    """
+
+    def setUp(self):
+        ns = load_region()
+        self.suspect_rules = ns["suspect_rules"]
+        self.window_blindspot = ns["window_blindspot"]
+
+    def p4row(self, **kw):
+        dpid, row = flow(0, **kw)
+        row["duration_nsec"] = 0
+        return (dpid, row)
+
+    # --- the plane says so ------------------------------------------------------------------
+
+    def test_on_p4_every_rule_is_unknown_however_old_it_claims_to_be(self):
+        out = self.suspect_rules(entries(flow(300), flow(9000, dpid=1)),
+                                 APP_STARTED, NOW, "p4")
+        self.assertEqual(2, len(out), out)
+        for line in out:
+            self.assertIn("age=UNKNOWN (P4 plane", line)
+
+    def test_on_p4_the_baseline_is_listed_too_because_nothing_can_be_excluded(self):
+        """🔴 The one place "list everything" is right -- and it has to SAY that is why."""
+        out = self.suspect_rules(entries(flow(300, priority=96),
+                                         flow(9000, priority=65535, dpid=1)),
+                                 APP_STARTED, NOW, "p4")
+        self.assertEqual(2, len(out), out)
+        self.assertTrue(any("pri=65535" in l for l in out), out)
+
+    def test_p4_is_named_as_blind_before_any_rule_is_read(self):
+        why = self.window_blindspot(entries(flow(300)), "p4")
+        self.assertIn("synthesise", why)
+        self.assertIn("carry NO install time", why)
+
+    def test_p4_is_blind_even_with_an_empty_table(self):
+        """The plane's answer must not depend on what happens to be installed right now."""
+        self.assertNotEqual("", self.window_blindspot([], "p4"))
+
+    # --- or the data says so ----------------------------------------------------------------
+
+    def test_duration_zero_and_nsec_zero_is_unknown_not_zero_seconds_ago(self):
+        out = self.suspect_rules(entries(self.p4row()), APP_STARTED, NOW, "ovs")
+        self.assertEqual(1, len(out), out)
+        self.assertIn("age=UNKNOWN", out[0])
+        self.assertIn("duration_sec=0 AND duration_nsec=0", out[0])
+        self.assertNotIn("installed 0s ago", out[0])
+
+    def test_a_table_that_is_entirely_0_0_is_reported_blind_whatever_the_plane(self):
+        why = self.window_blindspot(entries(self.p4row(), self.p4row(dpid=1)), "unknown")
+        self.assertIn("duration_sec=0 AND duration_nsec=0", why)
+
+    # --- 🔴 and the other direction, without which "call everything unknown" would pass -----
+
+    def test_a_genuinely_sub_second_rule_is_still_dated(self):
+        """sec 0 with nsec set is a rule installed this second. A real switch reports that."""
+        dpid, row = flow(0)
+        row["duration_nsec"] = 4_000_000
+        out = self.suspect_rules(entries((dpid, row)), APP_STARTED, NOW, "ovs")
+        self.assertEqual(1, len(out), out)
+        self.assertIn("installed 0s ago", out[0])
+        self.assertNotIn("age=UNKNOWN", out[0])
+
+    def test_an_ovs_table_with_real_durations_is_not_reported_blind(self):
+        self.assertEqual("", self.window_blindspot(entries(flow(300), flow(9000)), "ovs"))
+
+    def test_an_empty_table_is_not_reported_blind_on_ovs(self):
+        """No rows is "nothing installed", not "no clock". Saying blind here would make every
+        idle OVS fabric look unmeasurable."""
+        self.assertEqual("", self.window_blindspot([], "ovs"))
+        self.assertEqual("", self.window_blindspot(None, "ovs"))
+
+    def test_one_dated_row_among_zeros_is_enough_to_keep_the_table_readable(self):
+        why = self.window_blindspot(entries(self.p4row(), flow(300, dpid=1)), "ovs")
+        self.assertEqual("", why)
+
+    def test_the_window_still_excludes_old_rules_on_a_readable_plane(self):
+        """🔴 The plane argument must not switch the whole selector off."""
+        out = self.suspect_rules(entries(flow(9000)), APP_STARTED, NOW, "ovs")
+        self.assertEqual([], out)
+
+
+def body_of(text, opener):
+    """One shell function's body, from its `name() {` to the first line that is just `}`."""
+    start = text.index(opener)
+    return text[start:text.index("\n}\n", start)]
+
+
 class TheSubjectIsTheShippedCode(unittest.TestCase):
     """🔴 Extraction is only worth anything if it is extracting the code that RUNS."""
 
@@ -252,15 +356,53 @@ class TheSubjectIsTheShippedCode(unittest.TestCase):
     def test_ndt_calls_it_exactly_once(self):
         with open(NDT) as fh:
             text = fh.read()
-        self.assertEqual(1, text.count("for line in suspect_rules(entries, started, now):"),
-                         "suspect_rules is defined but the block does not call it")
+        self.assertEqual(
+            1, text.count("for line in suspect_rules(entries, started, now, plane):"),
+            "suspect_rules is defined but the block does not call it with the plane")
 
-    def test_the_two_call_sites_that_report_residue_are_wired(self):
-        """`stop` and `orphans` both. One wired and one not is the shape G-12 was found in."""
+    def test_the_plane_reaches_the_selector_from_the_shell(self):
+        """🔴 W16-3 is only fixed if the plane the shell read is the plane python is given.
+
+        A `plane` parameter that defaults to "unknown" and is never passed would leave every
+        case in ThePlaneWithNoClock green and the shipped tool blind, which is the shape of
+        every "the fix is in the file but nothing calls it" defect in this repository.
+        """
+        with open(NDT) as fh:
+            text = fh.read()
+        report = body_of(text, "residue_report() {")
+        self.assertEqual(1, report.count('residue_rule_lines "$started" "$now" "$plane"'))
+        self.assertEqual(1, report.count('plane="$(live_dataplane_kind)"'))
+        self.assertEqual(1, text.count('plane = sys.argv[3]'))
+
+    def test_the_blindspot_is_announced_by_the_shell_too(self):
+        with open(NDT) as fh:
+            text = fh.read()
+        self.assertEqual(1, text.count('print("CANNOTWINDOW " + blind)'))
+        self.assertIn('CANNOTWINDOW\\ *', text)
+
+    def test_the_three_call_sites_that_report_residue_are_wired(self):
+        """`stop`, `orphans` and (since 09-07) `status --check`. One wired and one not is the
+        shape G-12 was found in."""
         with open(NDT) as fh:
             text = fh.read()
         self.assertEqual(1, text.count("residue_report $targets"))
-        self.assertEqual(1, text.count("residue_report $APP_NAMES"))
+        self.assertEqual(1, body_of(text, "cmd_apps() {").count("residue_report $APP_NAMES"))
+        self.assertEqual(1, body_of(text, "status_residue_row() {")
+                         .count("residue_report $APP_NAMES"))
+
+    def test_the_exit_code_is_wired_to_both_verbs_that_can_carry_one(self):
+        """W16-1/W16-2. Adam ruled residue must make these red; a report nobody can fail is
+        one more green check, which is what G-12 is a finding about."""
+        with open(NDT) as fh:
+            text = fh.read()
+        self.assertEqual(1, body_of(text, "cmd_apps() {").count("residue_verdict; local rrc=$?"),
+                         "`ndt apps orphans` does not take its exit code from the residue")
+        self.assertEqual(1, body_of(text, "status_residue_row() {")
+                         .count("residue_verdict; local rrc=$?"),
+                         "the --check row does not take its verdict from the residue")
+        self.assertEqual(1, text.count("status_residue_row"
+                                       "\n        (( ${#STATUS_RESIDUE_PROBLEMS[@]} > 0 ))"),
+                         "`ndt status --check` does not feed the residue into its problems")
 
     def test_nothing_in_the_residue_path_deletes_anything(self):
         """Adam's decision, 09-05 grill round 5: list it, do not delete it.
@@ -272,21 +414,26 @@ class TheSubjectIsTheShippedCode(unittest.TestCase):
         slips past it. That is not hypothetical: the mutation gate's M9 survived exactly that
         version of this test. A line that is not an output statement may not name a mutating
         verb at all.
+
+        🔴 BOTH functions that walk the residue, since 09-07: `status_residue_row` drives the
+        same scan for `ndt status --check`, and a checker that stopped at residue_report would
+        leave the newer caller unguarded.
         """
         with open(NDT) as fh:
             text = fh.read()
-        start = text.index("residue_report() {")
-        end = text.index("\n}\n", start)
-        body = text[start:end]
         prints = ("info ", "warn ", "err ", "ok ", "say ", "printf ", "echo", "#")
-        for raw in body.splitlines():
-            line = raw.strip()
-            if not line or line.startswith(prints):
-                continue
-            for verb in ("curl", "delete_", "release_lock", "rm ", "ovs-ofctl del", "wget"):
-                self.assertNotIn(
-                    verb, line,
-                    "residue_report must report, never remove -- this line acts: %r" % raw)
+        for fn in ("residue_report() {", "status_residue_row() {"):
+            start = text.index(fn)
+            end = text.index("\n}\n", start)
+            body = text[start:end]
+            for raw in body.splitlines():
+                line = raw.strip()
+                if not line or line.startswith(prints):
+                    continue
+                for verb in ("curl", "delete_", "release_lock", "rm ", "ovs-ofctl del", "wget"):
+                    self.assertNotIn(
+                        verb, line,
+                        "%s must report, never remove -- this line acts: %r" % (fn, raw))
 
 
 if __name__ == "__main__":

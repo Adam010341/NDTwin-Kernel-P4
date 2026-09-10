@@ -42,6 +42,7 @@ REPO="$(cd "$HERE/../.." && pwd)"
 NDT="$REPO/tools/test_workflow/ndt"
 SH_TEST="$HERE/test_apps_residue.sh"
 PY_TEST="$REPO/tests/python/test_app_residue_rules.py"
+ROW_TEST="$HERE/test_ndt_status_residue_row.sh"
 BK=$(mktemp -d "${TMPDIR:-/tmp}/apps-residue-mutate-XXXXXX")
 trap 'rm -rf "$BK"' EXIT
 BASE_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
@@ -49,14 +50,16 @@ BASE_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 SURVIVORS=0
 MUTATIONS=0
 
-run_sh() { NDT_UNDER_TEST="$1/ndt" timeout 600 bash "$SH_TEST" 2>&1; }
-run_py() { NDT_UNDER_TEST="$1/ndt" timeout 600 python3 "$PY_TEST" 2>&1; }
+run_sh()  { NDT_UNDER_TEST="$1/ndt" timeout 600 bash "$SH_TEST" 2>&1; }
+run_py()  { NDT_UNDER_TEST="$1/ndt" timeout 600 python3 "$PY_TEST" 2>&1; }
+run_row() { NDT_UNDER_TEST="$1/ndt" timeout 600 bash "$ROW_TEST" 2>&1; }
 
-report() {   # $1 = mutation name, $2 = mutant dir, $3 = case that must fail, $4 = sh|py
+report() {   # $1 = mutation name, $2 = mutant dir, $3 = case that must fail, $4 = sh|py|row
     local out rc pat
     MUTATIONS=$((MUTATIONS+1))
-    if [[ "${4:-sh}" == py ]]; then out=$(run_py "$2"); rc=$?; pat="$3"
-    else                            out=$(run_sh "$2"); rc=$?; pat="FAILED   $3"; fi
+    if   [[ "${4:-sh}" == py  ]]; then out=$(run_py "$2");  rc=$?; pat="$3"
+    elif [[ "${4:-sh}" == row ]]; then out=$(run_row "$2"); rc=$?; pat="FAILED   $3"
+    else                               out=$(run_sh "$2");  rc=$?; pat="FAILED   $3"; fi
     if [[ "$rc" -ne 0 ]] && grep -qF "$pat" <<<"$out"; then
         printf '  caught   %-56s (%s went red)\n' "$1" "$3"
     else
@@ -86,16 +89,18 @@ PY
     echo "$d"
 }
 
-echo "baseline (both suites must be green before any mutation):"
+echo "baseline (all three suites must be green before any mutation):"
 base="$BK/base"; mkdir -p "$base"
 cp "$NDT" "$base/ndt"; chmod +x "$base/ndt"
 cp "$REPO/tools/test_workflow/ports.sh" "$base/ports.sh"
 cp "$REPO/tools/test_workflow/sudo_surface.sh" "$base/sudo_surface.sh"
 cp "$REPO/tools/test_workflow/components.env" "$base/components.env"
-run_sh "$base" | tail -1
-run_py "$base" | tail -1
-run_sh "$base" >/dev/null 2>&1 || { echo "  shell baseline is RED -- mutations prove nothing"; exit 2; }
-run_py "$base" >/dev/null 2>&1 || { echo "  python baseline is RED -- mutations prove nothing"; exit 2; }
+run_sh  "$base" | tail -1
+run_py  "$base" | tail -1
+run_row "$base" | tail -1
+run_sh  "$base" >/dev/null 2>&1 || { echo "  shell baseline is RED -- mutations prove nothing"; exit 2; }
+run_py  "$base" >/dev/null 2>&1 || { echo "  python baseline is RED -- mutations prove nothing"; exit 2; }
+run_row "$base" >/dev/null 2>&1 || { echo "  --check-row baseline is RED -- mutations prove nothing"; exit 2; }
 echo
 
 # --- the wiring: G-12 is a report nobody runs -------------------------------------------------
@@ -208,8 +213,8 @@ report "M11: a kernel that is down is reported as nothing to report" "$m" \
 # a perfectly clean-looking report: `python3 - <<'\''PY'\''` puts the SCRIPT on stdin, so reading
 # the flow table from sys.stdin reads the end of its own source and answers "unreadable".
 m=$(mutant m12 "$NDT" \
-    '    python3 - "$1" "$2" 3<&0 <<'\''PY'\''' \
-    '    python3 - "$1" "$2" <<'\''PY'\''')
+    '    python3 - "$1" "$2" "${3:-unknown}" 3<&0 <<'\''PY'\''' \
+    '    python3 - "$1" "$2" "${3:-unknown}" <<'\''PY'\''')
 report "M12: the flow table is read from the heredoc, not the pipe" "$m" \
        "🔴 the rule installed during the app's window"
 
@@ -220,6 +225,132 @@ m=$(mutant m13 "$NDT" \
     '                set -- $lock; lease="${2:-}"; retry="${3:-}"')
 report "M13: the lock loop rebinds the app list" "$m" \
        "  and the rule it left"
+
+# --- W16-1: the exit code Adam ruled into existence on 09-06 -----------------------------------
+#
+# 🔴 The recommendation had been to leave `orphans`' rc meaning "processes" so the gates that
+# read it kept working. Adam ruled the other way, and these are the edits that would quietly
+# put the old behaviour back -- each of them looks like a tidy-up in a diff.
+
+m=$(mutant m14 "$NDT" \
+    '            residue_verdict; local rrc=$?' \
+    '            local rrc=0')
+report "M14: 'apps orphans' stops taking its code from the residue" "$m" \
+       "🔴 a held lock and a rule in the window -> rc 4, not 0"
+
+# (widening) Everything is residue, so the verb is red on every P4 fabric and on every machine
+# where an app was never started. It satisfies every "goes red" case and destroys the gate.
+m=$(mutant m15 "$NDT" \
+    '    (( RESIDUE_UNDATABLE > 0 || RESIDUE_BLIND > 0 )) && return 5' \
+    '    (( RESIDUE_UNDATABLE > 0 || RESIDUE_BLIND > 0 )) && return 4')
+report "M15 (widening): 'could not check' is reported as residue" "$m" \
+       "🔴 undatable is rc 5 (NOT CHECKED), never rc 4 (residue)"
+
+# The opposite widening: nothing is ever a blind spot, so a machine whose window records are
+# gone reports a clean network it never looked at -- G-12's own shape.
+m=$(mutant m16 "$NDT" \
+    '                warn "      not absent. rules it installed cannot be found by this tool."
+                RESIDUE_BLIND=$(( RESIDUE_BLIND + 1 ))' \
+    '                warn "      not absent. rules it installed cannot be found by this tool."')
+report "M16: a lost window is not counted against the code" "$m" \
+       "🔴 and that is rc 5 -- not checked, not clean"
+
+# ...and the other direction: an app that was never started counts as a blind spot, so the verb
+# answers 5 on every clean machine. A gate that can never pass is ignored within a day.
+m=$(mutant m17 "$NDT" \
+    '                info "      (its log is empty or absent too -- no sign it ever ran here)"' \
+    '                info "      (its log is empty or absent too -- no sign it ever ran here)"
+                RESIDUE_BLIND=$(( RESIDUE_BLIND + 1 ))')
+report "M17 (widening): never-started apps count as unchecked" "$m" \
+       "🔴 a clean network -> rc 0 (the codes are not always red)"
+
+# --- W16-2: the same question asked by `ndt status --check` ------------------------------------
+
+m=$(mutant m18 "$NDT" \
+    '    if [[ -n "$check" ]]; then
+        status_residue_row
+        (( ${#STATUS_RESIDUE_PROBLEMS[@]} > 0 )) && problems+=("${STATUS_RESIDUE_PROBLEMS[@]}")
+    fi' \
+    '    :')
+report "M18: '--check' stops looking at the network" "$m" \
+       "🔴 --check prints a residue row" row
+
+# The residue is printed but not counted -- exactly the state G-12 was measured in, where every
+# verb printed something and rc was 0.
+m=$(mutant m19 "$NDT" \
+    '           STATUS_RESIDUE_PROBLEMS+=("the network carries app residue:' \
+    '           : ("the network carries app residue:')
+report "M19: --check prints residue and still exits 0" "$m" \
+       "🔴 and --check exits 1 (it exited 0 over this on 09-05)" row
+
+# (widening) --check is red on "could not check" too. Permanently red on every healthy P4
+# fabric, where doc/2026-08-17_testing-manual.md:279 makes rc 0 the acceptance criterion.
+m=$(mutant m20 "$NDT" \
+    '           printf '\''  %-14s %s\n'\'' "" "the locks WERE checked: $RESIDUE_LOCKS held.  details:  ndt apps orphans" ;;' \
+    '           STATUS_RESIDUE_PROBLEMS+=("the residue could not be checked") ;;')
+report "M20 (widening): --check goes red on 'could not check'" "$m" \
+       "🔴 but a healthy P4 fabric still passes: rc 0" row
+
+# (widening) The scan moves into plain `ndt status`: a flow-table GET and three acquire POSTs on
+# a page sessions read dozens of times an hour, and three lock probes each one of which is a
+# write to the kernel.
+m=$(mutant m21 "$NDT" \
+    '    if [[ -n "$check" ]]; then
+        status_residue_row' \
+    '    if true; then
+        status_residue_row')
+report "M21 (widening): plain 'ndt status' pays for the scan" "$m" \
+       "🔴 and the flow table is not fetched at all" row
+
+# --- W16-3: the plane with no clock ------------------------------------------------------------
+#
+# 🔴 Measured 2026-09-07 (DECISIONS 09-07 01:0x). Every P4 flow entry answers duration 0/0.
+# Read as an age that is "installed just now", which places the WHOLE TABLE inside every window.
+
+m=$(mutant m22 "$NDT" \
+    '                if blind:
+                    unknown.append(head + "  age=UNKNOWN (P4 plane: synthesised flow stats"
+                                          " carry no install time)")
+                    continue
+                if _no_time_axis(f):
+                    unknown.append(head + "  age=UNKNOWN (duration_sec=0 AND duration_nsec=0:"
+                                          " a synthesised counter, not a rule installed now)")
+                    continue' \
+    '                if False:
+                    continue')
+report "M22: a duration of 0 is read as '0 seconds ago'" "$m" \
+       "test_on_p4_every_rule_is_unknown_however_old_it_claims_to_be" py
+
+# Only the data-driven half: a table that says 0/0 through a path that never named the plane.
+m=$(mutant m23 "$NDT" \
+    '    dur, nsec = f.get("duration_sec"), f.get("duration_nsec")' \
+    '    return False
+    dur, nsec = f.get("duration_sec"), f.get("duration_nsec")')
+report "M23: 0/0 is believed when the plane is not named" "$m" \
+       "test_duration_zero_and_nsec_zero_is_unknown_not_zero_seconds_ago" py
+
+# (widening) duration_nsec is ignored, so a genuine sub-second install becomes UNKNOWN too and
+# every OVS table with one fresh rule in it is reported as unwindowable.
+m=$(mutant m24 "$NDT" \
+    '    return not (isinstance(nsec, int) and not isinstance(nsec, bool) and nsec > 0)' \
+    '    return True')
+report "M24 (widening): a real just-installed rule is called undatable" "$m" \
+       "test_a_genuinely_sub_second_rule_is_still_dated" py
+
+# The plane is read but never handed over -- the "the fix is in the file and nothing calls it"
+# shape. Every python case stays green; only the shipped tool is blind.
+m=$(mutant m25 "$NDT" \
+    '        done < <(printf '\''%s'\'' "$entries" | residue_rule_lines "$started" "$now" "$plane")' \
+    '        done < <(printf '\''%s'\'' "$entries" | residue_rule_lines "$started" "$now")')
+report "M25: the plane never reaches the selector" "$m" \
+       "🔴 but with age UNKNOWN, not an age"
+
+# The blindness is not announced: the reader sees a list of UNKNOWN rules and no reason.
+m=$(mutant m26 "$NDT" \
+    '    print("CANNOTWINDOW " + blind)' \
+    '    pass')
+report "M26: the plane's blindness is never announced" "$m" \
+       "🔴 it says the plane cannot be windowed"
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)

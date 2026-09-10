@@ -152,6 +152,13 @@ ovs_daemon_running() { [[ "${FX_BRIDGES:-10}" -gt 0 ]]; }
 topo_session() { return 0; }
 port_open() { case "$1" in 8000) [[ -s "$REPO/graph.json" ]] ;; *) return 1 ;; esac; }
 http_get_graph() { [[ -s "$REPO/graph.json" ]] && cat "$REPO/graph.json"; }
+# 09-07: `cmd_status --check` now runs a residue scan (W16-2). Answered from the fixture so
+# this suite never reaches :8000 -- with these unstubbed the result would depend on whether a
+# kernel happens to be listening on the machine the suite is run from, which is the kind of
+# hidden input that makes a green run mean nothing. Both answer "nothing there", so the exit
+# codes below stay about the up-target baseline, which is what this suite is for.
+http_get_flow_entries() { echo "[]"; }
+lock_probe() { echo free; }
 netem_count() { echo 0; }
 ndt_sudo_report() { return 0; }
 ndt_sudo_rows() { echo one-row; }
