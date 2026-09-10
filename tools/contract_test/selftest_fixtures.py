@@ -493,6 +493,43 @@ FIXTURE_INVARIANT_EXCEPTIONS = {
 }
 
 
+# [Co-developed with claude code -- Adam]
+# F-OFFLINE-1 G13, 2026-09-11. The 15 READ/MUTATE endpoints no fixture describes, named.
+#
+# The gap itself is not closed here -- most of these need a documented example this repository
+# does not have, and inventing one would put a shape nobody has observed into the file whose
+# whole purpose is to hold shapes somebody has. What IS closed is the gap growing in silence:
+# tests/python/test_contract_spec.py asserts this list is EXACTLY the uncovered set, so a new
+# endpoint arrives with either a fixture or a line here, and a fixture written for one of these
+# fails until its line goes.
+#
+# Two kinds, and the difference matters when someone works through them:
+#   * a sequence step whose reply shape is a sibling's -- cheap, and low value on its own;
+#   * an endpoint whose reply nothing in this suite has ever described -- the real gap.
+ENDPOINTS_WITHOUT_A_RESPONSE_FIXTURE = {
+    # Same shape as a step that does have one.
+    "renew_lock": "the acquire_lock shape; the lock sequence's third step",
+    "acquire_lock_after_release": "the acquire_lock shape, re-acquired",
+    "release_lock_cleanup": "the release_lock shape, second time",
+    "inject_link_recovery_cleanup": "the inject_link_recovery shape, second time (idempotency)",
+    # No described reply anywhere in this suite. 🔴 These are the gap.
+    "get_static_topology_json": "schema is Obj({}, strict=False) -- nothing is described, so a "
+                                "fixture would be the first statement of the shape",
+    "modify_flow_entry": "no documented success body in doc/2026-01-02_ndt_api.md",
+    "delete_flow_entry": "as above",
+    "batch_flow_entries": "as above; the unknown-dpid contract after section 8 describes the "
+                          "partial case in prose only",
+    "batch_flow_entries__mixed_known_and_unknown_dpid": "as above, the partial case",
+    "inform_switch_entered": "as above",
+    "app_register": "as above",
+    "modify_device_name": "as above; it rewrites setting/*.json, so a captured reply needs a "
+                          "mutating run",
+    "set_switches_power_state": "as above; a captured reply needs a run that cuts power",
+    "historical_logging_enable": "B-3 changed the reply shape and no example was recorded",
+    "historical_logging_disable": "as above",
+}
+
+
 def fixture_target(fixture_name):
     """
     (endpoint name, "schema" | "request_schema") for a key of FIXTURES, or (None, why).

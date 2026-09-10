@@ -2395,6 +2395,29 @@ class SelftestFixturesMatchTheEndpointTable(unittest.TestCase):
         # and prints `ok`.
         self.assertIsNone(self.fx.fixture_target("get_graph_data?since=1")[0])
 
+    def test_the_endpoints_with_no_fixture_are_exactly_the_ones_declared(self):
+        # G13. The gap is not closed -- most of these need a documented example this repository
+        # does not have -- but it stops growing in silence. Asserted as EQUALITY in both
+        # directions: a new endpoint arrives with a fixture or a line, and a fixture written
+        # for one of these fails until its line goes with it.
+        covered = set()
+        for name in self.fx.FIXTURES:
+            endpoint, which = self.fx.fixture_target(name)
+            if endpoint and which == "schema":
+                covered.add(endpoint)
+        uncovered = {ep["name"] for ep in spec.ENDPOINTS
+                     if ep["category"] in (spec.READ, spec.MUTATE)
+                     and ep["name"] not in covered}
+        declared = set(self.fx.ENDPOINTS_WITHOUT_A_RESPONSE_FIXTURE)
+        self.assertEqual(
+            uncovered, declared,
+            f"no longer described: {sorted(uncovered - declared)}; "
+            f"now described, so remove the line: {sorted(declared - uncovered)}")
+
+    def test_every_declared_gap_says_why(self):
+        for name, why in self.fx.ENDPOINTS_WITHOUT_A_RESPONSE_FIXTURE.items():
+            self.assertTrue(why.strip(), name)
+
     def test_the_declared_exceptions_resolve_where_they_say_they_do(self):
         # Not "the table exists" -- the values. Every one of these was wrong before, in a way
         # no test could see: a fixture attributed to the wrong endpoint validates against a
