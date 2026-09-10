@@ -100,7 +100,15 @@ LLMAgent::callOpenAIApi(
     if (lastMsgId.empty())
     {
         SPDLOG_LOGGER_INFO(Logger::instance(), "First message in session {}, sending topology.", sessionId);
-        //instructions += this->getCurrentTopology(); // Append topology only for the first message
+        // [Co-developed with claude code -- Adam]
+        // Nothing is appended here, and `instructions` stays the bare system prompt. The line
+        // that would have appended the topology -- `instructions += this->getCurrentTopology();`
+        // -- was commented out in d6f7c014 (2025-12-15), which left getCurrentTopology with no
+        // caller at all; the member was deleted as dead code on 2026-09-11. See
+        // doc/audit/2026-09-06_fix-index-zero-guards/FIX-INDEX-ZERO-GUARDS.md section 7.
+        // 🔴 The log line above still says "sending topology" and that is false. It is left
+        // exactly as found: the 2026-09-10 decision authorised deleting the dead member, not
+        // rewording this line. AUDIT_A_hallucinations.md:56 recorded the same log line in July.
     }
 
     payload["model"] = this->m_model;
@@ -220,64 +228,6 @@ LLMAgent::getSessionMsgs(const std::string &sessionId)
         return {};
     }
     return it->second;
-}
-
-std::string
-LLMAgent::getCurrentTopology()
-{
-    std::string switchDescription, hostDescription, edgeDescription;
-    int switchCnt = 0, hostCnt = 0, edgeCnt = 0;
-
-    Graph graph = this->m_topologyAndFlowMonitor->getGraph();
-
-    for (auto [vi, viEnd] = boost::vertices(graph); vi != viEnd; ++vi)
-    {
-        const auto& vprop = (graph)[*vi];
-        if (vprop.vertexType == VertexType::SWITCH) {
-            switchDescription += (vprop.deviceName + 
-                "(administratively " + (vprop.isEnabled ? "up" : "down") + 
-                ", powered " + (vprop.isUp ? "on" : "off") + "), "
-            );
-            switchCnt++;
-        } else if (vprop.vertexType == VertexType::HOST) {
-            // [Co-developed with claude code -- Adam]
-            // FINDINGS #88, W14. `vprop.ip[0]` on a host that carries no address is a
-            // null-pointer dereference -- operator[] is `*(_M_start + n)` and a
-            // default-constructed std::vector has _M_start == nullptr -- and this loop reaches
-            // every HOST in the graph, so one address-less host faulted the whole prompt.
-            //
-            // The substitute is prose, not an address, and that choice matters more here than at
-            // the JSON sites: this string is the *system prompt* an LLM then reasons over and
-            // proposes flow rules against. "h3(0.0.0.0)" would be a fabricated fact fed to a
-            // component whose whole job is to act on it.
-            const auto ipOpt = utils::firstAddressOf(vprop.ip);
-            std::string ip = ipOpt.has_value() ? *ipOpt : std::string("no IP address on record");
-            hostDescription  += (vprop.deviceName + "(" + ip + "), ");
-            hostCnt++;
-        }
-    }
-
-    for (auto [ei, eiEnd] = boost::edges(graph); ei != eiEnd; ++ei)
-    {
-        const auto& eprop = (graph)[*ei];
-        auto e = *ei;
-        auto srcVd = boost::source(e, graph); auto src = graph[srcVd];
-        auto targetVd = boost::target(e, graph); auto target = graph[targetVd];
-        edgeDescription += (
-            "(" + 
-            (src.vertexType == VertexType::HOST ? src.deviceName : (src.deviceName + " port " + std::to_string(eprop.srcInterface))) + 
-            ", " +
-            (target.vertexType == VertexType::HOST ? target.deviceName : (target.deviceName + " port " + std::to_string(eprop.dstInterface))) +
-            "), "
-        );
-        edgeCnt++;
-    }
-
-    switchDescription = "There are " + std::to_string(switchCnt) + " Openflow switches: " + switchDescription;
-    hostDescription = "There are " + std::to_string(hostCnt) + " hosts: " + hostDescription;
-    edgeDescription = "There are " + std::to_string(edgeCnt) + " links:\n " + edgeDescription;
-
-    return "# Topology\n\n" + switchDescription + "\n" + hostDescription + "\n" + edgeDescription;
 }
 
 std::string

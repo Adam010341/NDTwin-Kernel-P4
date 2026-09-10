@@ -264,3 +264,110 @@ Death test: networkTopologyThenExitZero()
    `getPathBetweenHostsJson` 只從 `IntentTranslator::performTask` 走得到（LLM 面向），
    `doc/2026-01-02_ndt_api.md` 沒有它們的條目。
 3. **`answer_agent_prompt.txt` 沒動。** 它只描述**請求**形狀，不描述回覆形狀。
+
+---
+
+## 7. 2026-09-11 追加：併入 trunk 之後的證據標準，以及第五處被刪了
+
+**這一節是追加的，上面六節一個字都沒改。** §1–§6 記的是 2026-09-06 當天的真相
+（base＝trunk `1536ff17`，那時 W3 門 3d 還沒併）。09-10 之後前提變了，變法要寫在旁邊而不是蓋掉。
+
+分支 `fix/d3-dead-code-w14-doc`（自 trunk `78f0f65a`），工單
+`scratch/overnight-2026-09-05/fix/TICKETS-0910/R5-D3-W14.md`（併入 `R5-W14-DOC.md` 的文件那半）。
+
+[Co-developed with claude code -- Adam]
+
+### 7.1 Adam 的兩句裁決（逐字）
+
+* 09-10 23:3x：「**以死測試＋閘門為準，文件註明『第一因已被 door 3d 擋、D3 是死碼』**」。
+* 09-10 23:4x：「**刪 D3 死碼**」（連同 W14 那處守衛與測試）。
+
+⇒ 本節做的就是這兩句：把七處改成**六處**（其中 HOST 級由五處變**四處**），
+並把「這些守衛的證據是什麼」寫成一張可查的表。
+
+### 7.2 為什麼 live 到不了：三點
+
+`R5-A4-NTG-SUMMARY.md` §1（唯讀查證，沒動 lab）三個獨立的卡點：
+
+1. **檔案層先拒。** W3 門 3d（`TopologyAndFlowMonitor.cpp:352-400`，2026-09-10 併入 trunk）
+   在**任何 `add_vertex` 之前**就拒收 `"ip": []` 的 host，訊息指名該台
+   （`:389` `declares an empty "ip" array`）。§2.1.1 預告的那件事發生了。
+2. **執行期沒有第二條路。** host vertex 的另一個候選寫者 `updateHosts` 兩重：
+   `:2138` `if (!host.contains("ipv4") || host["ipv4"].empty()) continue;`，
+   而且**整支函式一次 `add_vertex` 都沒有**——它只更新既有頂點。
+   ⇒ §2.0 的「只有一個寫者」結論成立，而那個寫者現在關著。
+3. **LLM 那條路本來就叫不出來。** 門是手冊 §41 `POST /ndt/intent_translator/text`，
+   要 `--ai`；而 `stack.sh:953` 把 `--no-ai` 寫死（端點回 503），`OPENAI_API_KEY` 也沒有設定。
+   `ndt ntg` **不是**那條路（它只改姊妹 repo 的一行 `mode:`）。
+
+⇒ 這六處守衛是**沒有第一因的第二層**。要「走到門口被擋」得先開回門 3d 或改產品碼——
+**兩件都不做**，所以 `TEST-LIST-0910.md` A4 那一格從「要一次 live」改成「不要 live，
+以死測試＋閘門為準」。**這不是下修**：死測試是 containment（§4），它給的紅線比 live 的一次不崩更強。
+
+### 7.3 六處的現況表（分支 `fix/d3-dead-code-w14-doc`）
+
+「第一因」＝有沒有一條路能造出讓這個表達式讀到空 `ip` 的圖。
+證據欄的 ctest 名就是 `gtest_discover_tests` 註冊出來的名字（`tests/CMakeLists.txt:213`）。
+
+| # | 檔案:行（本分支） | 型別 | 第一因 | 證據：ctest | 證據：閘門 |
+|---|---|---|---|---|---|
+| 1 | `IntentTranslator.cpp:223` `getSwitchIpByName` | SWITCH | **無**（載入器兩道 SWITCH 門，§2） | `AddresslessNodeTest.ResolvingAnAddresslessSwitchByNameDoesNotKillTheProcess`＋`ASwitchWithAnAddressStillResolves` | M6、M12 |
+| 2 | `IntentTranslator.cpp:686` `GET_NETWORK_TOPOLOGY`／`switches[]` | SWITCH | **無**（同上） | `TheTopologyReplyOverAnAddresslessSwitchDoesNotKillTheProcess` | M7 |
+| 3 | `IntentTranslator.cpp:686` `GET_NETWORK_TOPOLOGY`／`hosts[]`（**共用同一次 `ipJson`**） | HOST | **無**（門 3d 之後） | `TheTopologyReplyOverAnAddresslessHostDoesNotKillTheProcess`、`TheTopologyReplyGivesTheAddresslessNodesNullAndNotAnAddress`、`TheTopologyReplyStillNamesEveryHostAndSwitch`、`TheTopologyReplyStillCarriesTheAddressesItDoesHave` | M1、M8 |
+| 4 | `IntentTranslator.cpp:742` `GET_ALL_HOSTS` | HOST | **無**（門 3d 之後） | `TheHostListingOverAnAddresslessHostDoesNotKillTheProcess`、`TheHostListingKeepsTheAddresslessHostWithANullAddress` | M2、M9、C1 |
+| ~~5~~ | ~~`LLMAgent.cpp` `getCurrentTopology`~~ | ~~HOST~~ | **不存在——函式已刪**（§7.4） | — | ~~M3、M10、C3~~ |
+| 6 | `FlowLinkUsageCollector.cpp:2998` `getPathBetweenHostsJson`，src | HOST | **無**（門 3d 之後） | `APathQueryFromAnAddresslessHostDoesNotKillTheProcess`、`APathQueryFromAnAddresslessHostIsRefusedAndSaysWhich` | M4、M11 |
+| 7 | `FlowLinkUsageCollector.cpp:2999` 同函式，dst | HOST | **無**（門 3d 之後） | `APathQueryToAnAddresslessHostDoesNotKillTheProcess`、`APathQueryToAnAddresslessHostIsRefusedAndSaysWhich` | M5、M13、C2 |
+
+門 3d 自己的那一層由同一支 suite 的最後三支測試釘住
+（`AddresslessHostLoadTest.TheShippedTopologyLoads`／`AHostDeclaringAnEmptyIpArrayIsRefusedAtLoad`／
+`TheSameEditOnASwitchIsRefused`）＋`mutate_topology_input_is_validated.sh`。
+**那一層才是承重的**；本單這六處是它後面的第二層。
+
+### 7.4 D3＝`LLMAgent::getCurrentTopology`：不是「走不到」，是**沒有呼叫端**
+
+§1.1 的第 5 處與 §3.3 標它「走得到」。**那個判斷在這棵樹上是錯的，而錯法跟可達性無關**：
+
+* 唯一的生產呼叫端 `LLMAgent.cpp:103`（**刪之前的行號**，trunk `78f0f65a`）
+  `//instructions += this->getCurrentTopology(); // Append topology only for the first message`
+  **自 `d6f7c014`（2025-12-15）起就是註解**。
+* 全 repo `git grep -n getCurrentTopology` 之後沒有第二個呼叫端
+  （宣告、定義、那行註解、W14 的測試 peer、閘門 M3／M10／C3、幾份文件的清單，就這些）。
+* `doc/audit/2026-07-29_codebase-review/AUDIT_A_hallucinations.md:56` 2026-07-29 就寫過
+  「`getCurrentTopology()`／`getCurrentFlowEntries()`（~90 行）現在是死碼，被一行假的 log 養著」。
+
+⇒ §3.3「這個 string 是 LLM 拿去提 flow rule 的 system prompt」在這棵樹上**不成立**：
+沒有任何 prompt 拿得到它。`tests/test_AddresslessNodeReplies.cpp:405` 那句
+「builds the system prompt for every LLM call」同樣不成立，兩半都不成立。
+
+**09-11 刪掉的東西**（照 Adam 09-10 23:4x）：
+
+| 刪的 | 位置 |
+|---|---|
+| 宣告 | `include/ndt_core/intent_translator/LLMAgent.hpp` `std::string getCurrentTopology();` |
+| 測試 seam | 同檔 `friend class AddresslessTopologyPeer;`＋它的註解 |
+| 定義（含 W14 那處守衛，~58 行） | `src/ndt_core/intent_translator/LLMAgent.cpp` |
+| 註解掉的呼叫 | `LLMAgent.cpp:103` |
+| 死測試 | `AddresslessNodeTest.TheAgentPromptOverAnAddresslessHostDoesNotKillTheProcess` |
+| 回答測試 | `AddresslessNodeTest.ThePromptDescribesTheAddresslessHostWithoutGivingItAnAddress` |
+| 測試 peer 與夾具成員 | `AddresslessTopologyPeer`、`m_agent`、`m_agentPeer`、`agentPromptThenExitZero()`、`PromptLayoutRig::promptPath()` |
+| 閘門變異 | `mutate_index_zero_guards.sh` 的 **M3**（還原 subscript）、**M10**（在 prompt 裡捏 `0.0.0.0`）、**C3**（兩步寫替代值）；`SRC_LLM` 也從 `FILES` 拿掉 |
+
+🔴 **沒刪的、刻意留成可見的**：`LLMAgent.cpp:102` 那行
+`SPDLOG_LOGGER_INFO(..., "First message in session {}, sending topology.", sessionId)`
+**還在，而它說的是假話**——沒有任何拓樸被送出去。裁決授權的是刪死碼，不是改這行的字，
+所以只在旁邊加了註解說明。**要不要改這行的措辭，請 Adam 裁**（`AUDIT_A_hallucinations.md:56`
+七月就記過同一行）。同理 `getCurrentFlowEntries` **也是死碼**（兩個呼叫端
+`LLMAgent.cpp:90` 與 `:115` 都是註解，本分支行號），本單沒有動它——**工單只裁了 D3**。
+
+### 7.5 閘門與測試的數字怎麼對帳
+
+* **標號不重排。** M4 之後全部保留原編號，M3／M10／C3 是「退役」不是「回收」
+  ⇒ 舊 log 裡的 `M4 caught` 還是同一個編輯。
+* **總行從 `16 mutations` 變 `13 mutations`。** 對帳基準：
+  同一支閘門在合併樹 `36a8affc` 上是 `16 mutations, 0 survived, 0 invalid`
+  （`fix/R4-CPPGATES-1-SUMMARY.md` 閘門 2）；差的 3 格就是 M3／M10／C3。
+  **這是同一支閘門的縱向比較，不是橫向相減。**
+* **baseline 的死測試斷言 7 → 6。** 那條斷言（`--gtest_list_tests` 數 `DoesNotKillTheProcess`）
+  是這支閘門拒絕「少一格卻不說」的機制；D3 刪掉之後不改它＝閘門自己 rc 2。
+* `check_gate_anchors.py` 的格數不變（本支閘門是**一格**，只是它自己的 anchor 從 13 條變 10 條）。

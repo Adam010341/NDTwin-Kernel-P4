@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
 #
-# Mutation gate for FINDINGS #88 / W14: the seven `ip[0]` sites in the intent, agent and flow
-# subsystems -- `operator[]` on a std::vector that starts empty.
+# Mutation gate for FINDINGS #88 / W14: the `ip[0]` sites in the intent and flow subsystems --
+# `operator[]` on a std::vector that starts empty.
 #
 # [Co-developed with claude code -- Adam]
+#
+# 🔴 SIX SITES, NOT THE SEVEN THIS GATE SHIPPED WITH. On 2026-09-11 the fifth site,
+# LLMAgent::getCurrentTopology, was deleted as dead code -- its only caller has been commented out
+# since d6f7c014 (2025-12-15) -- and mutations M3, M10 and C3, which were the three that mutated
+# LLMAgent.cpp, were removed with it. The surviving mutations keep their original labels so that
+# "M4 caught" still means the same edit it meant in the 2026-09-06 and 2026-09-10 runs; the totals
+# moved from `16 mutations` to `13 mutations`. See
+# doc/audit/2026-09-06_fix-index-zero-guards/FIX-INDEX-ZERO-GUARDS.md section 7.
 #
 # Structure, mechanics and wording are lifted from mutate_first_address_of.sh, which gates the
 # other sixteen sites of the same finding. Copied rather than shared for the reason that gate
@@ -18,7 +26,7 @@
 # exactly that.
 #
 # The suite this gate drives answers that with containment instead of with a sanitizer. Each of
-# the seven sites has a death test -- the child performs the operation and exits 0, so restoring
+# the six sites has a death test -- the child performs the operation and exits 0, so restoring
 # the subscript makes the CHILD die and the parent prints
 #
 #     [  FAILED  ] AddresslessNodeTest.<name>
@@ -26,14 +34,14 @@
 # a named, ordinary red line on the ordinary build. That is strictly better evidence than "the
 # sanitizer said something and the run exited non-zero", and it costs no second build tree.
 #
-#   GROUP 1  M1-M7, one per site: the guard is removed and trunk's `ip[0]` put back, byte for
-#            byte. Run under a death-test-only filter (see ROUND_FILTER below).
-#   GROUP 2  M8-M13: the guard stays and the OUTPUT lies -- a fabricated 0.0.0.0, a node dropped
-#            from a listing whose question is "which nodes are there", a refusal that does not say
-#            which host it is about, and two over-guards that refuse everything. None of these
-#            crash, and no sanitizer would ever see them. They are the point of this gate: a guard
-#            that stops the fault and loses the disclosure has moved the defect, not fixed it.
-#   C1-C3    controls: behaviour-preserving edits that must stay GREEN. Without them "N/N caught"
+#   GROUP 1  M1, M2, M4-M7, one per site: the guard is removed and trunk's `ip[0]` put back, byte
+#            for byte. Run under a death-test-only filter (see ROUND_FILTER below).
+#   GROUP 2  M8, M9, M11-M13: the guard stays and the OUTPUT lies -- a fabricated 0.0.0.0, a node
+#            dropped from a listing whose question is "which nodes are there", a refusal that does
+#            not say which host it is about, and two over-guards that refuse everything. None of
+#            these crash, and no sanitizer would ever see them. They are the point of this gate: a
+#            guard that stops the fault and loses the disclosure has moved the defect, not fixed it.
+#   C1-C2    controls: behaviour-preserving edits that must stay GREEN. Without them "N/N caught"
 #            would also be produced by a harness that reports red for any edit at all.
 #
 # 🔴 WHY GROUP 1 RUNS A NARROWER FILTER
@@ -47,8 +55,8 @@
 #
 # 🔴 Mutates only .cpp files. include/utils/Utils.hpp holds firstAddressOf/firstAddressRaw and is
 # included by ~70 translation units, so mutating it would rebuild the whole tree once per mutant.
-# The helpers' own behaviour is pinned by M8 and M10, which mutate the CALL SITE to do what a
-# broken helper would do.
+# The helpers' own behaviour is pinned by M8, which mutates the CALL SITE to do what a broken
+# helper would do. M10 was the second such mutant and went with the 2026-09-11 deletion.
 #
 # 🔴 Guards its own baseline: snapshot before the first mutation, EXIT trap restores on any exit,
 # and the run asserts byte-identity at the end. Baseline is the WORKING TREE, not HEAD, so this
@@ -66,7 +74,7 @@
 #   BUILD_DIR=build bash tests/shell/mutate_index_zero_guards.sh
 #
 # Exit codes:
-#   0  every mutation was caught and all three controls stayed green
+#   0  every mutation was caught and both controls stayed green
 #   1  a mutation survived, or one could not be applied/built
 #   2  the baseline is not green -- the compile or the fix is the problem, not a mutation
 set -uo pipefail
@@ -75,9 +83,10 @@ REPO="$(cd "$HERE/../.." && pwd)"
 cd "$REPO"
 
 SRC_IT=src/ndt_core/intent_translator/IntentTranslator.cpp
-SRC_LLM=src/ndt_core/intent_translator/LLMAgent.cpp
 SRC_FLUC=src/ndt_core/collection/FlowLinkUsageCollector.cpp
-FILES=("$SRC_IT" "$SRC_LLM" "$SRC_FLUC")
+# src/ndt_core/intent_translator/LLMAgent.cpp was the third file here, for M3/M10/C3. It is not
+# snapshotted any more because nothing mutates it: see the note at the top of this file.
+FILES=("$SRC_IT" "$SRC_FLUC")
 
 BUILD_DIR="${BUILD_DIR:-build}"
 TARGET="${TARGET:-test_routing_strategy}"
@@ -167,12 +176,13 @@ baseline_must_be_green() {
         exit 2
     fi
     # A death test that never forks is a test that cannot go red the way this gate needs. Assert
-    # the suite really has all seven before trusting any "caught" below.
+    # the suite really has all six before trusting any "caught" below. Was seven until the
+    # 2026-09-11 deletion of the getCurrentTopology site.
     local deaths
     deaths=$(stdbuf -oL "$CUR_DIR/bin/$TARGET" --gtest_list_tests --gtest_filter="$DEATH_FILTER" \
              2>/dev/null | grep -c 'DoesNotKillTheProcess')
-    if [[ "$deaths" -ne 7 ]]; then
-        echo "  REFUSE: expected 7 death tests matching $DEATH_FILTER, found $deaths."
+    if [[ "$deaths" -ne 6 ]]; then
+        echo "  REFUSE: expected 6 death tests matching $DEATH_FILTER, found $deaths."
         echo "          One site would then have no contained red line and this gate would not say so."
         exit 2
     fi
@@ -265,7 +275,7 @@ mutate_must_live() {
 }
 
 # ================================================================================================
-# GROUP 1 -- the seven sites, one mutant each: trunk's subscript put back.
+# GROUP 1 -- the six sites, one mutant each: trunk's subscript put back.
 # ================================================================================================
 
 echo "=== GROUP 1: the defect restored, one site at a time (filter: $DEATH_FILTER) ==="
@@ -306,16 +316,11 @@ mutate_must_die \
                         {"ip", utils::ipToString(vprop.ip[0])},' \
     '                    hostsJson.push_back({'
 
-# --- M3: LLMAgent::getCurrentTopology -----------------------------------------------------------
-# On the request path, not a reporting path: this string is the system prompt for every LLM call.
-mutate_must_die \
-    "M3 agent-prompt-subscript-restored" \
-    "AddresslessNodeTest.TheAgentPromptOverAnAddresslessHostDoesNotKillTheProcess" \
-    "$SRC_LLM" \
-    '            const auto ipOpt = utils::firstAddressOf(vprop.ip);
-            std::string ip = ipOpt.has_value() ? *ipOpt : std::string("no IP address on record");' \
-    '            std::string ip = utils::ipToString(vprop.ip[0]);' \
-    '            std::string ip = ipOpt.has_value() ? *ipOpt : std::string("no IP address on record");'
+# --- M3: REMOVED 2026-09-11 ---------------------------------------------------------------------
+# M3 restored the subscript in LLMAgent::getCurrentTopology and required
+# TheAgentPromptOverAnAddresslessHostDoesNotKillTheProcess to go red. The member had no caller and
+# was deleted; there is no expression left to mutate. The label is retired rather than reused, so
+# an "M3 caught" line in an older log still means the edit it meant then.
 
 # --- M4: getPathBetweenHostsJson, SOURCE end only -----------------------------------------------
 # The destination guard is left standing on purpose. The two subscripts are separate expressions
@@ -460,14 +465,10 @@ mutate_must_die \
                     hostsJson.push_back({' \
     '                    hostsJson.push_back({'
 
-# --- M10: the fabricated address, in the prompt -------------------------------------------------
-# Worse here than at the JSON sites: this string is what an LLM then proposes flow rules against.
-mutate_must_die \
-    "M10 fabricates-an-address-in-the-agent-prompt" \
-    "AddresslessNodeTest.ThePromptDescribesTheAddresslessHostWithoutGivingItAnAddress" \
-    "$SRC_LLM" \
-    '            std::string ip = ipOpt.has_value() ? *ipOpt : std::string("no IP address on record");' \
-    '            std::string ip = ipOpt.has_value() ? *ipOpt : std::string("0.0.0.0");'
+# --- M10: REMOVED 2026-09-11 --------------------------------------------------------------------
+# M10 put "0.0.0.0" into the agent prompt in place of the prose substitute, and required
+# ThePromptDescribesTheAddresslessHostWithoutGivingItAnAddress to go red. Deleted with the member.
+# M8 keeps the same failure mode under test at the JSON sites.
 
 # --- M11: the refusal that does not say which ---------------------------------------------------
 # Indistinguishable, to the caller, from "these two hosts have no route between them".
@@ -505,7 +506,7 @@ mutate_must_die \
     '    if (!srcIpOpt.has_value() || !dstIpOpt.has_value())' \
     '    if (!srcIpOpt.has_value() || !dstIpOpt.has_value() || srcIpOpt.has_value())'
 
-# --- C1-C3: controls. Behaviour-preserving; must stay GREEN. ------------------------------------
+# --- C1-C2: controls. Behaviour-preserving; must stay GREEN. ------------------------------------
 
 # C1 spells the helper out at the call site. Same answer by construction -- an empty list yields a
 # disengaged optional either way. A comment-only edit was rejected here: it produces identical
@@ -525,15 +526,8 @@ mutate_must_live \
     '    if (!srcIpOpt.has_value() || !dstIpOpt.has_value())' \
     '    if (!(srcIpOpt.has_value() && dstIpOpt.has_value()))'
 
-mutate_must_live \
-    "C3 prompt-substitute-built-in-two-steps" \
-    "$SRC_LLM" \
-    '            std::string ip = ipOpt.has_value() ? *ipOpt : std::string("no IP address on record");' \
-    '            std::string ip = "no IP address on record";
-            if (ipOpt.has_value())
-            {
-                ip = *ipOpt;
-            }'
+# C3 REMOVED 2026-09-11: it rewrote the prompt substitute in two steps, in the function that was
+# deleted. C1 and C2 still cover both remaining files, which is what the control is for.
 
 # --- summary ------------------------------------------------------------------------------------
 

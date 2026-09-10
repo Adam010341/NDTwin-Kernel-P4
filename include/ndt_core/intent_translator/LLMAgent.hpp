@@ -31,17 +31,13 @@ class LLMAgent
 
     private:
         // [Co-developed with claude code -- Adam]
-        // FINDINGS #88, W14. Test seam, same shape as IntentTranslator's friend peer next door.
-        // getCurrentTopology walks every vertex and used to read `vprop.ip[0]` on a host with no
-        // address; its only production caller is callOpenAIApi, which makes an HTTP request, so
-        // the graph walk is unreachable from any public entry point a test can use. A friend is
-        // narrower than moving the member to protected -- it grants one named test peer access
-        // instead of every future subclass.
-        friend class AddresslessTopologyPeer;
-
+        // FINDINGS #88, W14 site 5 (D3) lived here: `std::string getCurrentTopology();`, plus a
+        // `friend class AddresslessTopologyPeer;` test seam for it. Both were deleted on
+        // 2026-09-11 because the member was dead code -- its only caller, in callOpenAIApi, has
+        // been commented out since d6f7c014 (2025-12-15). See
+        // doc/audit/2026-09-06_fix-index-zero-guards/FIX-INDEX-ZERO-GUARDS.md section 7.
         std::string shellEscapeSingleQuotes(const std::string &str);
         std::string getLastMsgId(const std::string &sessionId) const;
-        std::string getCurrentTopology();
         std::string getCurrentFlowEntries();
 
         std::string m_systemPromptFilePath;

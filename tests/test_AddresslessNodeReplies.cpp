@@ -10,9 +10,21 @@
  *     IntentTranslator.cpp   GET_NETWORK_TOPOLOGY, switches[]  SWITCH
  *     IntentTranslator.cpp   GET_NETWORK_TOPOLOGY, hosts[]     HOST
  *     IntentTranslator.cpp   GET_ALL_HOSTS                     HOST
- *     LLMAgent.cpp           getCurrentTopology                HOST
+ *     LLMAgent.cpp           getCurrentTopology                HOST   <- deleted, see below
  *     FlowLinkUsageCollector.cpp  getPathBetweenHostsJson, src HOST
  *     FlowLinkUsageCollector.cpp  getPathBetweenHostsJson, dst HOST
+ *
+ * SIX SITES REMAIN IN THIS FILE. THE FIFTH IS GONE, AND NOT BECAUSE IT WAS FIXED
+ *
+ * `LLMAgent::getCurrentTopology` had no caller at all. The one production call site,
+ * `instructions += this->getCurrentTopology();` in LLMAgent::callOpenAIApi, has been commented
+ * out since d6f7c014 (2025-12-15); nothing else in the tree named the member. On 2026-09-11 the
+ * declaration, the definition, its `ip[0]` guard, its `friend class AddresslessTopologyPeer;`
+ * seam and the two tests that pinned it (one death test, one answer test) were deleted as dead
+ * code, and mutations M3, M10 and C3 were removed from the gate with them. The rows above are
+ * left as W2 wrote them because they are the record of what the finding covered; this suite now
+ * drives six sites, not seven. Reasoning and the decision that authorised it:
+ * doc/audit/2026-09-06_fix-index-zero-guards/FIX-INDEX-ZERO-GUARDS.md section 7.
  *
  * `operator[]` is not a milder `front()`. libstdc++ defines both as `*(_M_start + n)`, and a
  * default-constructed std::vector has `_M_start == nullptr`, so `ip[0]` on a node with no address
@@ -31,7 +43,18 @@
  * guard that covers six of seven identical expressions in one file is the state this finding
  * started from.
  *
- * WHY THE FIRST SEVEN TESTS FORK
+ * WHAT THE SIX GUARDS ARE, AS OF 2026-09-10
+ *
+ * They are a SECOND layer, and the first cause behind them is closed. W3 door 3d
+ * (TopologyAndFlowMonitor.cpp, merged into trunk on 2026-09-10) refuses a topology file that
+ * declares a host with an empty "ip" array before any vertex is applied, and the only other
+ * writer of host vertices, `updateHosts`, calls no `add_vertex` at all and skips hosts with no
+ * `ipv4`. So no live route reaches these six expressions on this tree, and the tests below and
+ * the mutation gate -- not a live run -- are the evidence that they hold. Adam's decision of
+ * 2026-09-10 is exactly that: the dead tests plus the gate are the standard here. The last three
+ * tests in this file pin the file-level door itself, which is the layer that IS load-bearing.
+ *
+ * WHY THE FIRST SIX TESTS FORK
  *
  * The failure is a null dereference, so on an ordinary build the unfixed code does not produce a
  * red line -- it takes the whole binary down, mid-suite, with no `[  FAILED  ]` for anything and
@@ -39,15 +62,15 @@
  * proved it: its M2 mutant was scored SURVIVED on 2026-09-04 because the fault landed in an
  * in-process test and killed the process before gtest could return a verdict (W2-SUMMARY §4.2).
  *
- * So each of the seven sites gets a death test, declared before every in-process test in this
- * file, and the assertion is `ExitedWithCode(0)`: the child performs the operation and exits
+ * So each of the six remaining sites gets a death test, declared before every in-process test in
+ * this file, and the assertion is `ExitedWithCode(0)`: the child performs the operation and exits
  * cleanly. On the unfixed code the child dies of SIGSEGV and the parent prints a named red line.
  * That containment is the whole point -- it converts "the run died" into "this test failed".
  *
  * The in-process tests that follow assert what the guarded code ANSWERS, which is the other half
  * and not the same half. A guard that stops the crash by emitting "0.0.0.0", or by dropping the
  * node from a listing whose question is "which nodes are there", has moved the defect rather than
- * fixed it. Those are mutations M8-M11 in tests/shell/mutate_index_zero_guards.sh.
+ * fixed it. Those are mutations M8, M9 and M11 in tests/shell/mutate_index_zero_guards.sh.
  */
 
 #include <cstdlib>
@@ -70,7 +93,6 @@
 #include "ndt_core/collection/FlowLinkUsageCollector.hpp"
 #include "ndt_core/collection/TopologyAndFlowMonitor.hpp"
 #include "ndt_core/intent_translator/IntentTranslator.hpp"
-#include "ndt_core/intent_translator/LLMAgent.hpp"
 #include "ndt_core/intent_translator/LLMResponseTypes.hpp"
 #include "ndt_core/power_management/DeviceConfigurationAndPowerManager.hpp"
 #include "utils/Logger.hpp"
@@ -103,22 +125,9 @@ class AddresslessNodePeer
     std::shared_ptr<IntentTranslator> m_translator;
 };
 
-/**
- * @brief Calls LLMAgent's private getCurrentTopology.
- *
- * Its only production caller is callOpenAIApi, which issues an HTTP request, so the graph walk is
- * unreachable from any public entry point a test can drive without a network.
- */
-class AddresslessTopologyPeer
-{
-  public:
-    explicit AddresslessTopologyPeer(LLMAgent& agent) : m_agent(agent) {}
-
-    std::string topology() { return m_agent.getCurrentTopology(); }
-
-  private:
-    LLMAgent& m_agent;
-};
+// A second global-scope peer, AddresslessTopologyPeer, stood here and reached LLMAgent's private
+// getCurrentTopology through a friend declaration. Both are gone as of 2026-09-11: the member had
+// no caller (see the file header), so it was deleted rather than pinned.
 
 namespace
 {
@@ -185,8 +194,10 @@ class PromptLayoutRig
     PromptLayoutRig(const PromptLayoutRig&) = delete;
     PromptLayoutRig& operator=(const PromptLayoutRig&) = delete;
 
-    /// The path an LLMAgent built by this test should be handed, relative to the rig's cwd.
-    static const char* promptPath() { return "../src/ndt_core/intent_translator/answer_agent_prompt.txt"; }
+    // A `promptPath()` accessor stood here, for the one LLMAgent this fixture used to build
+    // itself. Removed 2026-09-11 with getCurrentTopology: the rig is still needed, because
+    // IntentTranslator's constructor builds two agents of its own, but nothing outside the rig
+    // names a prompt file any more.
 
   private:
     std::filesystem::path m_previousCwd;
@@ -213,7 +224,7 @@ class PathQueryCollector : public sflow::FlowLinkUsageCollector
 };
 
 /**
- * @brief One graph, shared by all seven sites, holding both shapes of the defect.
+ * @brief One graph, shared by all six sites, holding both shapes of the defect.
  *
  * The graph is deliberately not minimal. Every site walks every vertex, so a graph with only the
  * address-less node in it could not tell "the guard skipped the node it cannot name" apart from
@@ -241,7 +252,7 @@ class AddresslessNodeTest : public ::testing::Test
         addHost("h3", "10.0.0.13", 0x0013u);
 
         // TESTBED with an empty smart-plug table, as in test_IntentTaskOutcomes.cpp: no I/O, and
-        // nothing in these seven sites touches it.
+        // nothing in these six sites touches it.
         m_power = std::make_shared<DeviceConfigurationAndPowerManager>(m_monitor,
                                                                        utils::TESTBED,
                                                                        "localhost",
@@ -252,10 +263,6 @@ class AddresslessNodeTest : public ::testing::Test
         m_translator = std::make_shared<IntentTranslator>(m_power, m_monitor, nullptr, nullptr,
                                                           "gpt-5-nano");
         m_peer = std::make_unique<AddresslessNodePeer>(m_translator);
-
-        m_agent = std::make_unique<LLMAgent>(PromptLayoutRig::promptPath(), m_monitor, m_power,
-                                             "gpt-5-nano");
-        m_agentPeer = std::make_unique<AddresslessTopologyPeer>(*m_agent);
 
         m_collector = std::make_unique<PathQueryCollector>(
             m_monitor, m_bus, std::make_shared<ndtClassifier::Classifier>());
@@ -314,7 +321,7 @@ class AddresslessNodeTest : public ::testing::Test
         return nlohmann::json(nullptr);
     }
 
-    // --- the seven operations, each ending in exit(0) -------------------------------------------
+    // --- the six operations, each ending in exit(0) ---------------------------------------------
     //
     // Written as members rather than inline in the macro because EXPECT_EXIT is a macro and a
     // braced list inside one is split on its commas -- the same trap test_LoggerCliArgs.cpp
@@ -331,12 +338,6 @@ class AddresslessNodeTest : public ::testing::Test
     {
         llmResponse::GetAllHostsTask task;
         (void)m_peer->perform(&task);
-        std::exit(0);
-    }
-
-    void agentPromptThenExitZero()
-    {
-        (void)m_agentPeer->topology();
         std::exit(0);
     }
 
@@ -358,8 +359,8 @@ class AddresslessNodeTest : public ::testing::Test
         std::exit(0);
     }
 
-    // Constructed first and destroyed last: the translator's two LLMAgents and this suite's own
-    // are built inside SetUp and need the layout to already exist.
+    // Constructed first and destroyed last: the translator's two LLMAgents are built inside SetUp
+    // and need the layout to already exist.
     PromptLayoutRig m_rig;
 
     std::shared_ptr<Graph> m_graph;
@@ -369,17 +370,19 @@ class AddresslessNodeTest : public ::testing::Test
     std::shared_ptr<DeviceConfigurationAndPowerManager> m_power;
     std::shared_ptr<IntentTranslator> m_translator;
     std::unique_ptr<AddresslessNodePeer> m_peer;
-    std::unique_ptr<LLMAgent> m_agent;
-    std::unique_ptr<AddresslessTopologyPeer> m_agentPeer;
     std::unique_ptr<PathQueryCollector> m_collector;
 };
 
 } // namespace
 
 // =================================================================================================
-// The seven sites, one contained death test each. Declared before every in-process test in this
-// file: gtest runs a suite's tests in declaration order, and on the unfixed code the in-process
-// tests below take the binary down before it can print anything.
+// The six remaining sites, one contained death test each. Declared before every in-process test in
+// this file: gtest runs a suite's tests in declaration order, and on the unfixed code the
+// in-process tests below take the binary down before it can print anything.
+//
+// mutate_index_zero_guards.sh asserts this count from --gtest_list_tests before it trusts a single
+// "caught", so it says six too. A seventh death test stood here for LLMAgent::getCurrentTopology
+// until 2026-09-11; see the file header.
 // =================================================================================================
 
 /// IntentTranslator.cpp, GET_NETWORK_TOPOLOGY, hosts[] -- HOST, reachable.
@@ -398,13 +401,12 @@ TEST_F(AddresslessNodeTest, TheHostListingOverAnAddresslessHostDoesNotKillThePro
         << "GET_ALL_HOSTS read vprop.ip[0] on every HOST in the graph.";
 }
 
-/// LLMAgent.cpp, getCurrentTopology -- HOST, reachable.
-TEST_F(AddresslessNodeTest, TheAgentPromptOverAnAddresslessHostDoesNotKillTheProcess)
-{
-    EXPECT_EXIT(agentPromptThenExitZero(), ::testing::ExitedWithCode(0), "")
-        << "getCurrentTopology builds the system prompt for every LLM call, so this one faulted "
-           "on the request path rather than on a reporting path.";
-}
+// LLMAgent.cpp, getCurrentTopology -- HOST. The death test for it stood here and was deleted on
+// 2026-09-11 together with the member it drove. Its message read "getCurrentTopology builds the
+// system prompt for every LLM call, so this one faulted on the request path rather than on a
+// reporting path" -- and on this tree that sentence was false in both halves: the call that would
+// have built the prompt from the topology has been commented out since d6f7c014 (2025-12-15), so
+// nothing called the member at all. R5-A4-NTG-SUMMARY.md section 1 is where that was established.
 
 /// FlowLinkUsageCollector.cpp, getPathBetweenHostsJson, source end -- HOST, reachable.
 TEST_F(AddresslessNodeTest, APathQueryFromAnAddresslessHostDoesNotKillTheProcess)
@@ -431,8 +433,8 @@ TEST_F(AddresslessNodeTest, ResolvingAnAddresslessSwitchByNameDoesNotKillTheProc
            "that did not exist five weeks ago.";
 }
 
-// The seventh site, GET_NETWORK_TOPOLOGY's switches[] branch, shares its walk with the first death
-// test above: one address-less SWITCH and one address-less HOST are both in the graph, so
+// The last of the six, GET_NETWORK_TOPOLOGY's switches[] branch, shares its walk with the first
+// death test above: one address-less SWITCH and one address-less HOST are both in the graph, so
 // networkTopologyThenExitZero() crosses both expressions in one pass. It is named separately
 // because the mutation gate restores the two subscripts independently.
 TEST_F(AddresslessNodeTest, TheTopologyReplyOverAnAddresslessSwitchDoesNotKillTheProcess)
@@ -513,22 +515,10 @@ TEST_F(AddresslessNodeTest, TheHostListingKeepsTheAddresslessHostWithANullAddres
     EXPECT_EQ(named(reply, "h3").value("ip", ""), "10.0.0.13") << reply.dump();
 }
 
-TEST_F(AddresslessNodeTest, ThePromptDescribesTheAddresslessHostWithoutGivingItAnAddress)
-{
-    const std::string prompt = m_agentPeer->topology();
-
-    EXPECT_NE(prompt.find("h2"), std::string::npos)
-        << "the host is still part of the topology being described: " << prompt;
-    EXPECT_EQ(prompt.find("0.0.0.0"), std::string::npos)
-        << "this string IS the system prompt an LLM then proposes flow rules against, so a "
-           "fabricated address here is a fabricated fact acted on: "
-        << prompt;
-
-    // Control: the hosts that have addresses still carry them into the prompt, and the count line
-    // still counts every host.
-    EXPECT_NE(prompt.find("10.0.0.11"), std::string::npos) << prompt;
-    EXPECT_NE(prompt.find("There are 3 hosts"), std::string::npos) << prompt;
-}
+// ThePromptDescribesTheAddresslessHostWithoutGivingItAnAddress stood here: the answer half for
+// getCurrentTopology, asserting the substitute was prose and not "0.0.0.0". Deleted 2026-09-11
+// with the member. Gate mutations M10 (fabricate an address in the prompt) and C3 (build the
+// substitute in two steps) went with it.
 
 TEST_F(AddresslessNodeTest, APathQueryFromAnAddresslessHostIsRefusedAndSaysWhich)
 {
@@ -758,8 +748,9 @@ TEST(AddresslessHostLoadTest, AHostDeclaringAnEmptyIpArrayIsRefusedAtLoad)
     // Flipped at the 2026-09-10 merge of fix/w3-door3b-host-empty-ip (W3 door 3b; "door 3d" in the
     // code and its gate), exactly as this case's own failure message asked for: the file-level
     // door now refuses a host that declares an empty "ip" array before any vertex is applied. The
-    // case is kept, not deleted -- the five runtime guards this suite pins are the second layer,
-    // and this is the record of which layer was load-bearing when. Recorded in
+    // case is kept, not deleted -- the four HOST-side runtime guards this suite still pins are the
+    // second layer (the fifth, LLMAgent::getCurrentTopology, was deleted with its dead member on
+    // 2026-09-11), and this is the record of which layer was load-bearing when. Recorded in
     // doc/audit/2026-09-06_fix-index-zero-guards/FIX-INDEX-ZERO-GUARDS.md section 2.1.1.
     EXPECT_TRUE(attempt.threw)
         << "W3 door 3b is in this tree (merged 2026-09-10) and refuses a host with no address at "
