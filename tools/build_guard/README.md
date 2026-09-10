@@ -19,12 +19,14 @@ JOBS=3 MEM_HIGH=4G MEM_MAX=6G tools/build_guard/guarded_build.sh ninja -C build
 `JOBS` (default 2) · `MEM_HIGH` (default 3G) · `MEM_MAX` (default 4G) · `LOCK` (default `/tmp/ndtwin-build.lock`) ·
 `LOCK_WAIT` (default 3600) · `TIMEOUT` · `NO_CGROUP=1` to skip guard 3.
 
+`NDTWIN_GUARD_HELD` is set *by* the guard, not for it — see [Re-entrancy](#2026-09-11--re-entrancy-nesting-the-guard-in-itself-is-no-longer-a-deadlock).
+
 ## Three guards, each for a different failure
 
 | | guard | what it stops |
 |---|---|---|
 | 1 | PATH shims for `cmake`, `ninja`, `make` | the hardcoded `-j14` in the call site you did not edit |
-| 2 | `flock` | two capped builds, which still add up |
+| 2 | `flock` | two capped builds, which still add up — but **not** a build nested inside another build of its own, see [Re-entrancy](#2026-09-11--re-entrancy-nesting-the-guard-in-itself-is-no-longer-a-deadlock) |
 | 3 | a cgroup with an explicit `MemoryMax` | oomd picking its own victim — **this is the one that protects the user's application**, and the only one that survives a build step that ignores `-j` entirely |
 
 Guard 3 is the important one. A vendored script, a recursive make, or a link step that wants
@@ -51,10 +53,16 @@ Guard 3 is the important one. A vendored script, a recursive make, or a link ste
 
 - `tests/shell/test_build_guard.sh` — 37 checks, no build and no compiler: a fake
   `cmake`/`ninja`/`make` on PATH prints its own argv and the test reads what the shim forwarded.
-- `tests/shell/mutate_build_guard.sh` — 10 mutations, 0 survived. Seven are "the cap must
-  happen"; **M9 and M10 are widenings** — a guard that capped *everything* would satisfy a
-  one-sided gate while changing what `cmake -S . -B build` and a deliberately serial
-  `make install` do.
+- `tests/shell/test_guarded_build_reentrant.sh` — 15 checks, no build and no compiler and no
+  real cgroup scope: nesting is a guard whose payload is another guard, and "did it open a
+  second scope" is read off a fake `systemd-run` that logs its argv. Every case uses a lock
+  under its own `mktemp` dir, never `/tmp/ndtwin-build.lock`.
+- `tests/shell/mutate_build_guard.sh` — 14 mutations, 0 survived; it runs both suites above
+  against a mutated copy of this directory. Seven are "the cap must happen"; **M9, M10 and M12
+  are widenings** — a guard that capped *everything* would satisfy a one-sided gate while
+  changing what `cmake -S . -B build` and a deliberately serial `make install` do, and a guard
+  that stopped locking at the first sign of nesting would satisfy a one-sided re-entrancy gate
+  while letting a nested build on someone else's lock run beside it.
 - End-to-end, on a real three-line CMake project: a caller writing `-j$(nproc)` reached ninja
   as `-j2`; a configure was forwarded untouched; `MEM_MAX=200M` produced `memory.max` =
   209715200 in the build's own cgroup.
@@ -77,3 +85,48 @@ there is what oomd measures, and oomd kills the child with the most reclaim acti
 whose pages were being squeezed out. `MemoryHigh` (now 3G by default) makes the build's cgroup
 throttle and reclaim itself first, so the pressure and the pgscan are attributed to the build scope
 and it becomes oomd's victim instead. `MemoryMax` comes down to 4G. Both stay overridable.
+
+## 2026-09-11 — re-entrancy: nesting the guard in itself is no longer a deadlock
+
+Most mutation gates in `tests/shell` call this guard themselves, once per build. Wrapping such a
+gate in an outer guard — which is how you cap a gate script that hardcodes `-j$(nproc)` in a
+place the shims cannot reach until they are on `PATH` — used to deadlock, because both layers
+wanted the same `flock`:
+
+- **2026-09-04**: `guarded_build.sh ./tests/shell/mutate_cpu_report_no_ip.sh` held
+  `/tmp/ndtwin-build.lock` for **3 hours** and then reported a failed baseline build.
+- **2026-09-10**: nine minutes on the first gate of a round, `flock -w 10800 9` sitting at the
+  bottom of the scope; the same shape turns **every mutation into `INVALID (mutant does not
+  compile, rc=2)`**, which is the instrument failing and reads exactly like the code passing.
+  (`scratch/overnight-2026-09-05/fix/R4-CPPGATES-1-SUMMARY.md` §4.0.)
+
+The guard now exports **`NDTWIN_GUARD_HELD`** — a `:`-separated list of the locks held above it —
+after `flock` succeeds. A call whose `$LOCK` is already in that list takes **no second flock and
+opens no second scope**: it applies guard 1 (the `PATH` shims, with its own `JOBS`) and runs the
+command, inside the cgroup its caller already created, whose `MemoryHigh` every descendant
+inherits. So the memory cap and the parallelism cap both still hold at every depth, and the
+lock is still held once, by the outermost layer, for the whole nested round.
+
+Three things this deliberately does **not** do:
+
+- **A different `$LOCK` is still taken.** Guard 2 exists so two builds do not run at once;
+  only the lock we ourselves hold is safe to skip. Nesting is not a licence to stop locking.
+- **Held locks are a list, not the last one.** Keep only the most recent and lock A → lock B →
+  lock A is the 09-04 deadlock again, one level deeper. A `:` in a lock path is therefore
+  refused rather than silently splitting the list in two.
+- **`NDTWIN_GUARD_HELD` is not an input.** Setting it by hand tells the guard it holds a lock it
+  does not, which produces precisely the unserialised parallel build guard 2 exists to prevent.
+
+**What it assumes, stated so nobody has to rediscover it:** the variable is only true while the
+ancestor that exported it is alive, because that ancestor is the process holding fd 9. Normally
+that is guaranteed — kill the outer guard and its descendants are in the scope it created and go
+with it. The one gap is an outer guard `SIGKILL`ed with `NO_CGROUP=1` (no scope to take the
+children down) whose orphaned descendant then invokes the guard again: it would inherit a claim
+to a lock nobody holds and skip a `flock` that was real. Nothing in the tree does that, and the
+guard does **not** detect it.
+
+⇒ The `LOCK=/tmp/ndtwin-build-outer.lock … guarded_build.sh env -u LOCK <gate>` convention that
+09-10 used to work around this is **no longer needed**: `guarded_build.sh <gate>` is enough, and
+one lock is held for the round instead of two.
+
+[Co-developed with claude code -- Adam]

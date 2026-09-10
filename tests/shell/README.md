@@ -64,7 +64,18 @@ Without the control you cannot tell a regression you caused from a version effec
 (Measured in the W2+W3 pre-merge check, 2026-09-05 17:2x; the run log is that night's scratch,
 `scratch/overnight-2026-09-05/fix/VERIFY-W2W3.md` §4, which is outside version control.)
 
-### 3. Guard or bare — read the gate first, and never nest
+### 3. Guard or bare — read the gate first
+
+> 🔴 **2026-09-11: the guard is now re-entrant, so "never nest" below is history, not a rule.**
+> `guarded_build.sh` remembers the locks its own process tree holds (`NDTWIN_GUARD_HELD`) and a
+> nested call on the same lock takes no second `flock` and opens no second cgroup scope. Both
+> shapes in the table are therefore safe, and the
+> `LOCK=/tmp/ndtwin-build-outer.lock … env -u LOCK <gate>` workaround of 09-10 is no longer
+> needed. What has **not** changed: a nested call on a *different* lock still queues for it, and
+> §4 below — an outer wrap holds the lock for the whole round and starves other sessions —
+> is unaffected, because re-entrancy is about deadlock, not about how long the lock is held.
+> See `tools/build_guard/README.md` §2026-09-11 and `tests/shell/test_guarded_build_reentrant.sh`.
+> The rest of this section is kept as the record of what the deadlock looked like.
 
 Every build on this laptop goes through `tools/build_guard/guarded_build.sh`, which takes
 `/tmp/ndtwin-build.lock` via `flock`. Some gates call the guard themselves, once per build; the
@@ -84,7 +95,9 @@ grep -n 'guarded_build\|"\$GUARD"' tests/shell/<gate>.sh
 Read the hits. An executable `"$GUARD" ...` line means it self-guards; hits only inside the header
 comment (a `Usage:` line saying to wrap it) mean it does not.
 
-🔴 **Never both.** On 2026-09-04 `guarded_build.sh ./tests/shell/mutate_cpu_report_no_ip.sh` — a
+🔴 **Never both** — the rule until 2026-09-11; see the note at the top of this section for what
+replaced it, and read the rest of this paragraph as the record of why.
+On 2026-09-04 `guarded_build.sh ./tests/shell/mutate_cpu_report_no_ip.sh` — a
 self-guarding gate wrapped in an outer guard — held the build lock for **3 hours**: the outer guard
 took the lock, the script's inner guard waited on the same lock, and the tree sat there until the
 inner `flock -w 10800` gave up at 17:57 with
