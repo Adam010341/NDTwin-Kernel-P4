@@ -1938,6 +1938,14 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 > raw 在同目錄 `logs/ROLE-1/` 25 檔）。修於本分支 `fix/link-recovery-only-detaches-its-own-netem`。
 > 這一條**帶兩個附件**：同一個 handler 家族的 `inject_link_failure` 半成功回 200（2/2），
 > 以及 E-20 的建議句只在 kernel 啟動時印（只讀證據）。
+>
+> 🔴 **代號撞號，併入前要改號。** 開這一條的時候（09-11 02:xx，自 trunk `153b5ca1`）B 系列到 **B-12** 為止，
+> 所以取了 B-13。**同一夜 KI-FOLLOWUP 已把 B-13／B-14／B-15 併進 trunk（`62c52424`）** ⇒ 本條併入時
+> **應改成 `B-16`**（除非合併者另行重排）。改號要連碼一起改：`git grep -c 'B-13' HEAD -- include src tests doc`
+> 在本分支 `0b928fe6` 上是 **35 處／10 檔**（`NetemLinkFault.hpp` 7、`test_HttpSessionRouting.cpp` 7、
+> `HttpSession.cpp` 4、`FIX-E20.md` 4、`TopologyAndFlowMonitor.cpp` 3、`test_NetemLinkFault.cpp` 3、
+> `HttpSession.hpp` 2、`InjectedNetemLedger.hpp` 2、`test_PollDoesNotResurrect.cpp` 2、本檔 1）。
+> **`0b928fe6` 的 commit 訊息裡也寫著 B-13，那一行改不了**——所以併入時要在 merge 訊息裡寫「B-13 → B-16」。
 
 - **狀態**：修法在分支 `fix/link-recovery-only-detaches-its-own-netem`（09-11 夜，工單 FIX-A1），
   **trunk 上 OPEN**。照 A-1 的規矩：閘門在 trunk 上跑綠之前不改 RESOLVED。
