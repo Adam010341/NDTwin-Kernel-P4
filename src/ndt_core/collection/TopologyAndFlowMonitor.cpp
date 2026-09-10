@@ -1738,7 +1738,39 @@ TopologyAndFlowMonitor::updateHosts(const string& topologyData)
             auto vertexOpt2 = findSwitchByDpid(*attachDpidOpt);
             if (vertexOpt2.has_value())
             {
-                auto edgeRevOpt = findEdgeBySrcAndDstIp((*m_graph)[*vertexOpt2].ip[0], ip);
+                // [Co-developed with claude code -- Adam]
+                // FINDINGS #88, W18: the eighth `ip[0]`, and the one both W2's inventory and W14's
+                // fix walked past. It is the same undefined behaviour as the sixteen `.front()`
+                // sites, only spelled differently -- libstdc++ defines both as `*(_M_start + n)`
+                // and a default-constructed std::vector has `_M_start == nullptr`, so this bound a
+                // reference to a null pointer and read through it.
+                //
+                // Refused rather than substituted, and refused HERE rather than at the top of the
+                // entry. The missing value keys exactly one lookup -- findEdgeBySrcAndDstIp takes
+                // (switch address, host address) -- so the reverse edge is the only thing that
+                // cannot be resolved without it. The MAC-keyed vertex update further up and the
+                // host-side edge above are not keyed by it and are deliberately left standing; an
+                // entry dropped whole would cost this host its liveness for a field that has
+                // nothing to do with liveness.
+                //
+                // Not a fabricated 0.0.0.0, and the reason is sharper than the usual one: a
+                // substitute address would resolve to nothing and hand the caller the "Rev Edge
+                // ... not found in static network topology file" line below, which tells an
+                // operator to go and edit a file that cannot express this. An address the switch
+                // does not have is not an edge key any file could have written.
+                const auto attachIpOpt = utils::firstAddressRaw((*m_graph)[*vertexOpt2].ip);
+                if (!attachIpOpt.has_value())
+                {
+                    SPDLOG_LOGGER_WARN(Logger::instance(),
+                                       "host {} attaches to switch dpid {}, which carries no IP "
+                                       "address in this topology; the reverse edge is keyed by "
+                                       "that address, so it cannot be looked up and is left as it "
+                                       "was",
+                                       macStr,
+                                       *attachDpidOpt);
+                    continue;
+                }
+                auto edgeRevOpt = findEdgeBySrcAndDstIp(*attachIpOpt, ip);
                 if (edgeRevOpt.has_value())
                 {
                     unique_lock lock(*m_graphMutex);
