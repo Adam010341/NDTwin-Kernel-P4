@@ -2559,6 +2559,46 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
 - ⚠️ **併版**：本檔今晚有三支分支各自插條目（R2-PY 的 #90／#91、BUG-17 的 C-5／C-5b、本條），
   E-27 已裁「**知悉，併時照序留兩份**」。
 
+### C-5d 🔴 記號進了 `get_graph_data`，卻沒進它要修飾的那個數字：`get_power_report` 的豁免機在報表上長得跟量到的一樣 —— **已修（分支 `fix/power-report-exempt-switch`，2026-09-10，未併）**
+
+- **狀態**：**已修（新分支，2026-09-10，尚未併入 trunk）。** 裁決＝Adam 09-10 17:0x（表單逐字：
+  「**開單今晚修：與 `get_graph_data` 同口徑**」），工單
+  `scratch/overnight-2026-09-05/fix/TICKETS-0910/R5-POWER-REPORT.md`。
+- **這是 C-5c 的下一扇門**：C-5c 修的是①六處不再打豁免機、②記號上 `get_graph_data` 的 wire。
+  **它沒有修「記號要跟著那個數字走」**——而功耗數字是在另一個端點回的。
+- 🔵 **實測（2026-09-10，R4-LIVE 量的，本條登記者沒有重跑）**：合併樹二進位 `433f48a6223c7ef7`、活的四 host OVS fabric、
+  用 `NDT_TOPO` 載豁免拓撲，`GET /ndt/get_power_report` 讀三次（第一次全 0，之後穩定）：
+  **dpid 7（`power_path='none'`）回 `power_consumed=44487`；真 OVS 的 dpid 1 回 92465，十台各不相同。**
+  逐字在 `scratch/overnight-2026-09-05/fix/R4-LIVE-SUMMARY.md` §4-A15 與 §7-1。
+  ⚠️ **`W:410` 記的「永遠 -1」在合併樹上沒有重現**——那是 TESTBED 模式的行為（C-5c 的 -1），
+  MININET 下每一台都有合成值。
+- **失效方向**：**樂觀**——圖上寫著「這台我沒有功耗路徑」，功耗報表卻給一個 30–150 W 之間、
+  完全像量到的數字，而**同一個 body 裡沒有任何欄位能把它跟量到的分開**——呼叫端要嘛不知道要問，
+  要嘛得再打一個端點、用 `dpid` 自己 join。
+- **修法（純新增，一個欄位，值一個都沒動）**：`fetchPowerReportInternal` 的四個出口
+  （關機／沒有管理位址／豁免／讀到）改由同一個 `entryFor` lambda 產生，每一筆都帶
+  **`power_path`**——**欄位名、值域、來源欄位與 `get_graph_data` 完全相同**
+  （`GraphTypes.hpp` 的 `to_json`：`j["power_path"] = v.powerPath`）⇒ 兩個端點不可能各說一套。
+  契約 `tools/contract_test/spec.py` 的 `get_power_report` 加同一個 optional 欄位並釘死四個值。
+- 🔴 **為什麼是加欄位、不是把 44487 改掉**：口徑是既有的兩條裁決決定的，不是這一單發明的。
+  ① `to_json` 自己寫著 **"purely additive: no existing key changes type, spelling or value"**；
+  ② **C-5c 已裁「MININET 一個字沒改」**——合成值是 dpid 的函數、從來不是問機器的問題，
+  `tests/test_ExemptSwitchIsNotDialled.cpp` §7 有**兩支加寬測試**、閘門有 **M11** 在釘這一格。
+  要讓豁免機在 MININET 回 -1／`null`，等於推翻 E-23 那一半，**那是新裁決，不是這一單能做的**
+  ⇒ 已寫進 R5 SUMMARY §7 請 Adam 裁。**TESTBED 那一半本來就已經是 -1**（C-5c），
+  這一單讓那個 -1 也說得出自己是「沒人問」而不是「問了沒回」。
+- ⚠️ **`power_path` 在這裡也只講廠牌路徑、不講這個數字的來源**：MININET 下**每一台**的值都是
+  `syntheticPowerMilliwattsFor(dpid)`，不管 `power_path` 寫什麼 ⇒ 30 000–149 999 mW 這個帶
+  **不構成「有讀到裝置」的證據**。這個但書在 `get_graph_data` 上本來就存在，手冊 §6 現在寫明了。
+- **相容性**：純新增鍵，既有鍵一個字沒動；`Obj` 預設 `strict=False`，舊 kernel 沒有這個鍵照樣過契約
+  （optional，理由與 `GRAPH_NODE` 的第一條相同）。
+- **證據**：🟢 本輪自己跑過：3 支新單元測試（`tests/test_ExemptSwitchIsNotDialled.cpp` §10）、
+  閘門 `tests/shell/mutate_exempt_switch_is_not_dialled.sh`（新增變異 **M14**＝把 `power_path`
+  從 `entryFor` 拿掉）、`tests/shell/mutate_cpu_report_no_ip.sh`（兩個錨點因這一單漂了，已補錨）、
+  全建、ctest 全套（逐字數字在 `scratch/overnight-2026-09-05/fix/R5-POWER-REPORT-SUMMARY.md`）。
+  🔵 **轉述未重跑**：上面那次 live。**本單沒有起 lab，所以修好之後的 wire 沒有 live 證據**——
+  釘它的是死測試與閘門變異，不是一次 HTTP 回應。
+
 ### C-6 🔴 bmv2 的表滿（每台 1024 筆）從 `install_flow_entry` 傳回來是 **HTTP 200**，訊息只有 `Failed to add route`
 
 > 🔴 **編號**：本條原本要登記成 C-5，改成 C-6——**09-07 同一夜另一個 agent

@@ -1845,6 +1845,40 @@ DeviceConfigurationAndPowerManager::fetchPowerReportInternal()
 {
     nlohmann::json result = nlohmann::json::array();
 
+    // [Co-developed with claude code -- Adam]
+    // R5 (Adam's ruling of 2026-09-10): /ndt/get_power_report answers in the same vocabulary
+    // /ndt/get_graph_data does. Measured on a live OVS fabric, 2026-09-10
+    // (scratch/overnight-2026-09-05/fix/R4-LIVE-SUMMARY.md §4-A15 and §7-1): the switch at
+    // dpid 7, whose `power_path` is "none" because it was admitted by the `switch_kind`
+    // exemption, answered `power_consumed: 44487` while the real OVS at dpid 1 answered 92465 --
+    // ten switches, ten different figures, and nothing in the body saying which of them came
+    // from a path this build actually has. E-25 put the mark on get_graph_data's nodes; this
+    // report is the next door of the same honesty gap.
+    //
+    // 🔴 THE MARK, NOT THE VALUE -- AND THAT IS THIS FAMILY'S OWN CALIBRE, NOT A SOFTENING.
+    // Two rulings fix it. E-25's serialiser (GraphTypes.hpp,
+    // to_json(nlohmann::json&, const VertexProperties&)) is "purely
+    // additive: no existing key changes type, spelling or value", and E-23 deliberately left
+    // the MININET figure alone, because that figure is syntheticPowerMilliwattsFor(dpid) -- a
+    // function of the dpid, never a question asked of the machine -- which
+    // tests/test_ExemptSwitchIsNotDialled.cpp pins with two widening tests (§7 of that file).
+    // So what was missing here is the field, spelled and valued exactly as get_graph_data
+    // spells and values it, and no number moves: the exempted switch keeps whatever its mode
+    // legitimately produces (-1 in TESTBED, from the E-23 guard below; the synthetic figure in
+    // MININET) and now says which.
+    //
+    // `power_path` alone and not the pair: `telemetry_path` is "none" for OVS and BMv2 as well
+    // (KNOWN-ISSUES F-1), so it cannot tell an exempted switch from a software one, and it
+    // answers about CPU/memory/temperature rather than about this report. GraphTypes.hpp's
+    // isExemptFromBrandPaths says the same thing in its own comment.
+    //
+    // Built in ONE place because this loop has four exits -- powered off, no management address,
+    // exempt, and read -- and a mark carried by three of them is a key that appears and
+    // disappears from a consumer's parse, which is worse than no key at all.
+    const auto entryFor = [](const VertexProperties& p, std::int64_t milliwatts) {
+        return json{{"dpid", p.dpid}, {"power_consumed", milliwatts}, {"power_path", p.powerPath}};
+    };
+
     auto graph = m_topologyAndFlowMonitor->getGraph();
     for (auto v : boost::make_iterator_range(vertices(graph)))
     {
@@ -1857,7 +1891,7 @@ DeviceConfigurationAndPowerManager::fetchPowerReportInternal()
         }
         else if (!props.isUp)
         {
-            result.push_back({{"dpid", dpid}, {"power_consumed", 0}});
+            result.push_back(entryFor(props, 0));
             continue;
         }
 
@@ -1882,8 +1916,7 @@ DeviceConfigurationAndPowerManager::fetchPowerReportInternal()
             const auto ipOpt = managementIpForReport(props);
             if (!ipOpt)
             {
-                result.push_back(
-                    {{"dpid", dpid}, {"power_consumed", kHealthMetricUnavailable}});
+                result.push_back(entryFor(props, kHealthMetricUnavailable));
                 continue;
             }
             const std::string ip_str = *ipOpt;
@@ -1899,7 +1932,7 @@ DeviceConfigurationAndPowerManager::fetchPowerReportInternal()
             // going to happen is how a log stops being evidence.
             if (exemptFromBrandPathsForReport(props))
             {
-                result.push_back({{"dpid", dpid}, {"power_consumed", kHealthMetricUnavailable}});
+                result.push_back(entryFor(props, kHealthMetricUnavailable));
                 continue;
             }
 
@@ -1939,7 +1972,7 @@ DeviceConfigurationAndPowerManager::fetchPowerReportInternal()
             }
         }
 
-        result.push_back({{"dpid", dpid}, {"power_consumed", power_mW}});
+        result.push_back(entryFor(props, static_cast<std::int64_t>(power_mW)));
     }
 
     return result;

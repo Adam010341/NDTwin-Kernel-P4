@@ -1835,9 +1835,19 @@ ENDPOINTS = [
          schema=Obj({"status": Str(), "total_input_traffic_load_bps": Num(min=0)})),
 
     # ---------- read-only: device health ----------
+    # [Co-developed with claude code -- Adam]
+    # R5, Adam's ruling of 2026-09-10. `power_path` on the report's own entries, the same key
+    # with the same four-word vocabulary GRAPH_NODE pins above -- measured 2026-09-10 on a live
+    # OVS fabric, an exempted switch answered a figure here that no consumer could tell from a
+    # measured one (R4-LIVE-SUMMARY.md §7-1). OPTIONAL for the first of the two reasons
+    # GRAPH_NODE gives: a kernel built before 2026-09-10 emits no such key and must still pass
+    # the structural check. The second reason does not apply -- every entry in this list is a
+    # switch, so on a current kernel the key is on all of them.
     dict(name="get_power_report", method="GET", path="/ndt/get_power_report",
          category=READ,
-         schema=List(Obj({"dpid": Int(min=0), "power_consumed": Num(min=0)})),
+         schema=List(Obj({"dpid": Int(min=0), "power_consumed": Num(min=0)},
+                         optional={"power_path": Str(allowed=("synthetic", "snmp", "ssh",
+                                                              "none"))})),
          invariants=[inv_power_covers_switches]),
 
     dict(name="get_switches_power_state", method="GET", path="/ndt/get_switches_power_state",

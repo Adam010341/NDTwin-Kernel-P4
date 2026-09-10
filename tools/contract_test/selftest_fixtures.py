@@ -67,9 +67,14 @@ OF_TABLES_SAMPLE = [
           "packet_count": 0, "priority": 10, "table_id": 0}]}},
 ]
 
+# [Co-developed with claude code -- Adam]
+# R5, 2026-09-10: `power_path` is on every entry now, so the sample carries it -- this file's
+# schema is its OWN copy of spec.py's, and tests/python/test_unavailable_metric_sentinel.py
+# exists because the two copies had drifted once already. Two different values on purpose: a
+# sample where every entry says the same word would pass a schema that only accepted that word.
 POWER_REPORT_SAMPLE = [
-    {"dpid": 106225808391692, "power_consumed": 851157966},
-    {"dpid": 106225808380928, "power_consumed": 851152638},
+    {"dpid": 106225808391692, "power_consumed": 851157966, "power_path": "ssh"},
+    {"dpid": 106225808380928, "power_consumed": 851152638, "power_path": "none"},
 ]
 
 # --- GET /ndt/get_flow_dispatch_status (KNOWN-ISSUES A-7) -------------------------------------
@@ -282,7 +287,9 @@ FIXTURES = {
     "get_detected_top_k_flow_data": (spec.List(spec.FLOW_RECORD), FLOW_DATA_SAMPLE),
     "get_switch_openflow_table_entries": (spec.OF_TABLES, OF_TABLES_SAMPLE),
     "get_power_report": (
-        spec.List(spec.Obj({"dpid": spec.Int(min=0), "power_consumed": Num()})),
+        spec.List(spec.Obj({"dpid": spec.Int(min=0), "power_consumed": Num()},
+                           optional={"power_path": spec.Str(
+                               allowed=("synthetic", "snmp", "ssh", "none"))})),
         POWER_REPORT_SAMPLE),
     # [Co-developed with claude code -- Adam] -- Q12, Adam's ruling (a) of 2026-09-03.
     # The sample is the NEW shape, because --self-test's job is "prove the schemas accept what
