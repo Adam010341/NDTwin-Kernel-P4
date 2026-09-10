@@ -155,6 +155,13 @@ LAB="'"$FIX"'/installed-ndtwin-lab"
 STACK="'"$FIX"'/stack.sh"
 MANIFEST="'"$FIX"'/manifest.json"
 CLAIM="$REPO/.test_run/lab.claim"; HANDOFF="$REPO/.test_run/lab.handoff"
+# The two readings lab_kernel_dir() is built on, both redirected into the fixture so the tree
+# comparison in preflight is answered here and never by this machine (#R5: /etc/ndtwin-lab.conf
+# and a built-in constant naming the main checkout). lab_kernel_dir itself is NOT stubbed -- it
+# is half of what section 6 is about. By default the lab acts in THIS fixture tree, which is
+# the state every other section assumes; FX_LAB_KERNEL_DIR is how section 6 moves it away.
+LAB_CONF="'"$FIX"'/etc/ndtwin-lab.conf"
+LAB_DEFAULT_KERNEL_DIR="${FX_LAB_KERNEL_DIR:-'"$FIX"'}"
 # `sudo` and `sleep` are shell functions here, which shadow the commands for every caller in
 # this shell -- including the ones inside ndt. No production seam, and no root.
 sudo() {
@@ -475,6 +482,96 @@ OUT="$(drive 'preflight ovs')"
 check "🔴 preflight WARNS and does not refuse"             "0"  "$(rc_of_out "$OUT")"
 has   "  the operator is told before the run"              "helper" "$OUT"
 has   "  and told what to do"                              "sudo install -o root -g root -m 755" "$OUT"
+
+section "6. R5: 'ndt up' from a tree the lab does not act in is refused, and says why"
+# The measured shape (R5-P4-128-SUMMARY §2-§3, 2026-09-10): `ndt up p4 128` from a worktree
+# built a 4-host fabric out of the MAIN checkout -- ndtwin-lab's KERNEL_DIR is a built-in
+# constant -- under a 128-host kernel and proxy from the worktree. One `up`, two trees, two
+# host counts; every structural check green; the only thing said about it was one line at
+# [3/3] naming a host count and neither tree.
+#
+# The fixture is the two trees, with the two host counts of that night: this checkout says 4,
+# the tree the lab acts in says 128.
+mkdir -p "$FIX/other-tree/p4_proxy/mininet"
+echo 128 > "$FIX/other-tree/p4_proxy/mininet/host_count_override"
+ln -sfn "$FIX" "$FIX/self-link"
+
+reset_fix; echo 4 > "$FIX/p4_proxy/mininet/host_count_override"
+OUT="$(FX_LAB_KERNEL_DIR="$FIX/other-tree" drive 'up_p4')"
+check "🔴 'ndt up p4' from a tree the lab does not act in is refused" "1" "$(rc_of_out "$OUT")"
+has   "  this checkout's path, with ITS host count"        "$FIX  (host_count_override 4)" "$OUT"
+has   "  the lab's tree, with ITS host count"              "$FIX/other-tree  (host_count_override 128)" "$OUT"
+has   "  and where that second path came from"             "built-in default" "$OUT"
+has   "🔴 the sentence that says which half comes from where, and both ways out" \
+      "fabric would come from $FIX/other-tree, kernel/proxy from $FIX; run ndt from $FIX/other-tree or point the lab at $FIX" "$OUT"
+has   "  and how root would move the lab's tree"           "sudo install -o root -g root -m 644 /dev/stdin $FIX/etc/ndtwin-lab.conf" "$OUT"
+SUDO="$(cat "$FIX/sudo.log")"; STACKLOG="$(cat "$FIX/stack.log")"
+check "🔴 nothing on the machine was touched"              ""   "$SUDO"
+check "  no fabric was started"                            ""   "$STACKLOG"
+check "  and no up.target was recorded"                    "no" "$( [[ -f "$FIX/.test_run/up.target" ]] && echo yes || echo no )"
+hasnt "  it is a refusal, not a rollback"                  "rollback" "$OUT"
+
+# The OVS plane goes through the same helper: ovs-topo-start and ovs-topo-4host derive their
+# topology from the same KERNEL_DIR (ndtwin-lab's ovs_topo_script), so the refusal cannot be
+# P4-only. Ryu is the first thing up_ovs starts, and it must not be started here.
+reset_fix
+OUT="$(FX_LAB_KERNEL_DIR="$FIX/other-tree" drive 'up_ovs 4')"
+check "🔴 'ndt up ovs4' is refused for the same reason"    "1"  "$(rc_of_out "$OUT")"
+has   "  naming the lab's tree"                            "$FIX/other-tree" "$OUT"
+STACKLOG="$(cat "$FIX/stack.log")"
+check "  and Ryu is never started"                         ""   "$STACKLOG"
+
+# Callable on its own, the way guard_no_live_ovs is: the whole decision, including "they are
+# the same tree", is one function a test can ask directly.
+reset_fix
+OUT="$(FX_LAB_KERNEL_DIR="$FIX/other-tree" drive 'guard_lab_acts_in_this_tree')"
+check "the guard answers on its own"                       "1"  "$(rc_of_out "$OUT")"
+
+# 🔴 The other direction. Without these three the guard could refuse everything and every
+# case above would still pass -- which is the N* widening this suite exists to catch.
+reset_fix
+OUT="$(drive 'guard_lab_acts_in_this_tree')"
+check "🔴 the same tree is not a refusal"                  "0"  "$(rc_of_out "$OUT")"
+hasnt "  and says nothing"                                 "does not act in this checkout" "$OUT"
+
+reset_fix; echo "0 10" > "$FIX/bmv2.seq"
+OUT="$(drive 'up_p4')"
+check "🔴 and 'ndt up p4' still comes up in that tree"     "0"  "$(rc_of_out "$OUT")"
+SUDO="$(cat "$FIX/sudo.log")"
+has   "  the fabric really was built"                      "topo-start" "$SUDO"
+
+# 🔴 It compares TREES, not strings: the same tree named through a symlink, and the same tree
+# with a trailing slash, are the same tree. A string comparison passes every case above and
+# then refuses every correctly-configured run on a machine where /etc/ndtwin-lab.conf writes
+# the path in any other form -- which is how a guard against a silent wrong answer becomes a
+# bring-up that cannot be made to work at all.
+reset_fix
+OUT="$(FX_LAB_KERNEL_DIR="$FIX/self-link" drive 'guard_lab_acts_in_this_tree')"
+check "🔴 the same tree through a symlink is not a refusal" "0" "$(rc_of_out "$OUT")"
+reset_fix
+OUT="$(FX_LAB_KERNEL_DIR="$FIX/" drive 'guard_lab_acts_in_this_tree')"
+check "🔴 the same tree with a trailing slash is not a refusal" "0" "$(rc_of_out "$OUT")"
+
+section "7. R5: topo-start's output is printed, not discarded"
+# ndtwin-lab prints "topo session started from <KERNEL_DIR>" on purpose -- its comment there
+# says FINDING-01 ran two trees for a whole round with no line of output that could have
+# caught it. `ndt` then sent that line to /dev/null (ndt:1673 on trunk), so on 09-10 the same
+# two-tree run produced nothing on screen naming either tree. The guard above only fires when
+# the trees DIFFER; this line is what names the tree when they do not.
+reset_fix; echo "0 10" > "$FIX/bmv2.seq"
+out_for topo-start "topo session started from $FIX (attach: sudo tmux -L ndtwinlab attach -t topo)"
+OUT="$(drive 'up_p4')"
+check "a bring-up that starts a fabric is still green"     "0"  "$(rc_of_out "$OUT")"
+has   "🔴 and the helper's 'which tree' line reaches the operator" \
+      "topo session started from $FIX" "$OUT"
+
+# The failure path keeps it too: what the helper said is the only evidence of why it refused.
+reset_fix; rc_for topo-start 1; out_for topo-start "topo session already running (topo-stop first)"
+echo "0 10" > "$FIX/bmv2.seq"
+OUT="$(drive 'up_p4')"
+check "a failed topo-start is still red"                   "1"  "$(rc_of_out "$OUT")"
+has   "  and what the helper said is not swallowed"        "topo session already running" "$OUT"
+has   "  alongside ndt's own line"                         "topo-start failed" "$OUT"
 
 # ==========================================================================================
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
