@@ -672,11 +672,48 @@ struct EdgeProperties
      * with no line in the log and `/ndt/link_recovery_detected` never called (09-04 night round,
      * r2-20-linkfail-probe.log). The endpoint's 200 was true and its effect was not.
      *
-     * @warning It is PERMANENT until `/ndt/link_recovery_detected` withdraws it: it survives Ryu
-     *          reconverging and a switch restart, by design. That is why it is visible on the
-     *          wire as `down_reason: "declared"` -- see effectiveDownReason below.
+     * @warning It is PERMANENT until it is withdrawn -- and, since W8b, only two things withdraw
+     *          it: `/ndt/inject_link_recovery`, or a `/ndt/link_recovery_detected` that PAIRS with
+     *          a `failureReported` below. It survives Ryu reconverging and a switch restart, by
+     *          design. That is why it is visible on the wire as `down_reason: "declared"` -- see
+     *          effectiveDownReason below.
      */
     bool declaredDown = false;
+
+    /**
+     * @brief The control plane reported a failure on this edge, and no recovery report has spent
+     *        it yet. The thing a `/ndt/link_recovery_detected` has to pair with.
+     *
+     * [Co-developed with claude code -- Adam]
+     * doc/KNOWN-ISSUES.md **B-6**, second round (W8b). A SIXTH flag, and the reason it is not a
+     * reuse of `declaredDown` is that the two answer different questions:
+     *
+     *   - `declaredDown`    -- "the twin is holding this link down because it was told to."
+     *                          Set by BOTH /ndt/link_failure_detected and /ndt/inject_link_failure.
+     *   - `failureReported` -- "the control plane said it saw this link break." Set ONLY by
+     *                          /ndt/link_failure_detected, which is Ryu's notification endpoint.
+     *                          An injection made through /ndt/inject_link_failure sets the
+     *                          declaration and NOT this: nobody observed anything, an operator
+     *                          asked for it.
+     *
+     * WHY IT EXISTS -- measured, 2026-09-07 00:08 (scratch .../logs/live-round2-console.log, arm
+     * lw8b, OVS 4 hosts): a link failure was declared, Ryu was killed and restarted with the same
+     * argv, and within one second of Ryu coming back the kernel logged a
+     * `POST /ndt/link_recovery_detected` for EVERY link in the fabric -- Ryu's topology module
+     * raises `EventLinkAdd` when LLDP first discovers a link, and `intelligent_router.py`'s
+     * `on_link_add` notifies the twin from there. The standing declaration was gone in 9 of 9
+     * samples over the following 90 s. A declaration that outlives a topology poll but not a
+     * control-plane restart is still an injection that ends when something unrelated happens.
+     *
+     * So a recovery report may only withdraw a declaration it can PAIR with: one failure report,
+     * one withdrawal. A bare rediscovery -- a recovery report for an edge nothing ever reported
+     * broken -- marks the edge up and leaves any declaration standing.
+     *
+     * @note Cleared by the recovery that spends it and by `/ndt/inject_link_recovery`; never
+     *       written by discovery or by the derived-liveness pass, for the reason `declaredDown`
+     *       is not.
+     */
+    bool failureReported = false;
 
     uint64_t leftBandwidth = 0;
     uint64_t linkBandwidth = MININET_INTERFACE_SPEED;
@@ -743,11 +780,13 @@ from_json(const json& j, EdgeProperties& e)
     e.isEnabled = j.at("is_enabled").get<bool>();
     e.adminDisabled = j.value("admin_disabled", false);
     // [Co-developed with claude code -- Adam]
-    // `declaredDown` is deliberately NOT read back, for the reason `down_reason` is not: no writer
-    // puts it in a file, the loader starts every edge down anyway, and a declaration restored from
-    // a payload would be an injection nobody in this process ever made. A kernel restart forgets
-    // standing declarations -- which is the honest answer, because the tc netem that may accompany
-    // one lives in the machine's qdisc tree and not in this file. B-6.
+    // `declaredDown` and `failureReported` are deliberately NOT read back, for the reason
+    // `down_reason` is not: no writer puts them in a file, the loader starts every edge down
+    // anyway, and a declaration restored from a payload would be an injection nobody in this
+    // process ever made. A kernel restart forgets standing declarations -- which is the honest
+    // answer, because the tc netem that may accompany one lives in the machine's qdisc tree and
+    // not in this file. That asymmetry is why the kernel now sweeps the qdisc tree at startup and
+    // says what it finds; see TopologyAndFlowMonitor::warnAboutResidualNetem. B-6.
     e.leftBandwidth = j.at("left_link_bandwidth_bps").get<uint64_t>();
     e.linkBandwidth = j.at("link_bandwidth_bps").get<uint64_t>();
     // [Co-developed with claude code -- Adam]

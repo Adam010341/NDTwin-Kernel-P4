@@ -1100,3 +1100,214 @@ TEST_F(DeclaredLinkFailureTest, ADeclaredEdgeBehindADeadSwitchStillReadsDeclared
            "every poll cannot hold an intent";
     EXPECT_EQ(edgeDownReason(fwd()), "declared");
 }
+
+// =================================================================================================
+// doc/KNOWN-ISSUES.md B-6, SECOND ROUND (W8b): a withdrawal has to pair with a reported break.
+//
+// [Co-developed with claude code -- Adam]
+//
+// WHAT THE REMAINING DEFECT WAS
+//
+// The fix above makes a declaration survive a topology poll. It did not make one survive the
+// CONTROL PLANE RESTARTING, and that turned out to be a door of the same size. Measured live on
+// 2026-09-07 00:08 (arm lw8b, OVS 4 hosts, branch fix/w8-declared-link-failure-sticky @ 017c060f,
+// kernel 37d641fa9fd6fc14; console log scratch/overnight-2026-09-05/logs/live-round2-console.log):
+//
+//   00:08:44  declare s1:1 -> s5:1 down    -> is_up=False down_reason=declared
+//   00:08:47  Ryu killed by pid            -> still is_up=False down_reason=declared
+//   00:08:54  Ryu restarted, same argv     -> ryu.log "Link added: ..." for every link
+//   00:08:53+ kernel.log                   -> one POST /ndt/link_recovery_detected per link
+//   00:09:04  t+10 s .. t+90 s             -> is_up=True down_reason=none, 9 of 9 samples
+//
+// Ryu's topology module raises EventLinkAdd when LLDP FIRST discovers a link, so a restart looks
+// exactly like a fabric-wide recovery, and intelligent_router.py's on_link_add notifies the twin
+// from there. handleLinkRecovery then called clearEdgeDeclaredDown unconditionally.
+//
+// Adam's ruling, 2026-09-07 00:1x, option (b): a recovery report may only withdraw a declaration
+// it PAIRS with -- one that /ndt/link_failure_detected reported broken. A bare rediscovery is not
+// a repair.
+//
+// WHAT THESE ASSERT -- 🔴 BOTH DIRECTIONS again, because the failure mode of over-fixing this is
+// worse than the defect:
+//
+//   1. a declaration nothing reported broken survives a recovery report, and the edge stays down;
+//   2. a declaration that WAS reported broken is still withdrawn by its own recovery, one report
+//      per withdrawal -- and a recovery for an edge nobody declared down still raises it. Lose
+//      that and /ndt/link_recovery_detected stops working at all, which is a link that never
+//      comes back rather than one that comes back too early.
+// =================================================================================================
+
+/**
+ * 🔴 THE FINDING. An injected failure (declared, never reported broken by anyone) meets the
+ * fabric-wide recovery burst a Ryu restart produces. It must not be withdrawn -- and this is the
+ * dangerous half, because /ndt/inject_link_failure leaves a `tc netem loss 100%` on both
+ * interfaces: withdrawing the declaration publishes a link that is up and does not carry packets.
+ */
+TEST_F(DeclaredLinkFailureTest, ARediscoveryDoesNotWithdrawADeclarationNothingReportedBroken)
+{
+    m_monitor->setEdgeDownByDeclaration(fwd());
+    ASSERT_TRUE(m_monitor->getEdgeDeclaredDown(fwd()));
+    ASSERT_FALSE(m_monitor->getEdgeFailureReported(fwd()))
+        << "an injection recorded a control-plane failure report; there was nothing to report";
+
+    // What Ryu's on_link_add produces for this link the moment LLDP rediscovers it.
+    EXPECT_EQ(m_monitor->applyReportedLinkRecovery(fwd()), LinkRecoveryOutcome::Retained);
+
+    EXPECT_TRUE(m_monitor->getEdgeDeclaredDown(fwd()))
+        << "a bare rediscovery withdrew a declaration nothing ever reported broken; a control "
+           "plane restart therefore ends every standing injection in the fabric, and for an "
+           "injection made through /ndt/inject_link_failure the netem stays attached (B-6, W8b)";
+    EXPECT_FALSE(edgeIsUp(fwd()))
+        << "the edge was marked up while its declaration still stands, which publishes "
+           "is_up: true with down_reason: declared";
+    EXPECT_EQ(edgeDownReason(fwd()), "declared");
+
+    // ... and the poll that follows still declines it, which is what makes the survival permanent
+    // rather than one-poll-long.
+    m_monitor->pollLinks(bothDirections());
+    EXPECT_FALSE(edgeIsUp(fwd()));
+    EXPECT_EQ(edgeDownReason(fwd()), "declared");
+}
+
+/**
+ * Direction 2. The pairing must still work: a failure the control plane REPORTED is withdrawn by
+ * the recovery report that answers it. Losing this makes /ndt/link_recovery_detected useless and
+ * every real link outage permanent.
+ */
+TEST_F(DeclaredLinkFailureTest, AReportedFailureIsWithdrawnByItsMatchingRecovery)
+{
+    m_monitor->setEdgeDownByReportedFailure(fwd());
+    ASSERT_TRUE(m_monitor->getEdgeDeclaredDown(fwd()));
+    ASSERT_TRUE(m_monitor->getEdgeFailureReported(fwd()))
+        << "the notification path did not record that the break was reported, so nothing can "
+           "ever pair with it and the declaration is unwithdrawable";
+    ASSERT_FALSE(edgeIsUp(fwd()));
+
+    EXPECT_EQ(m_monitor->applyReportedLinkRecovery(fwd()), LinkRecoveryOutcome::Applied);
+    EXPECT_FALSE(m_monitor->getEdgeDeclaredDown(fwd()))
+        << "a recovery that pairs with a reported failure did not withdraw the declaration";
+    EXPECT_TRUE(edgeIsUp(fwd())) << "the paired recovery did not bring the link back";
+    EXPECT_EQ(edgeDownReason(fwd()), "none");
+
+    // And a later poll may raise it, which is what says the declaration was spent and not merely
+    // overwritten.
+    m_monitor->pollLinks(bothDirections());
+    EXPECT_TRUE(edgeIsUp(fwd()));
+}
+
+/**
+ * ONE report, ONE withdrawal. The report is spent by the recovery that pairs with it, so a second
+ * recovery report -- the next Ryu restart -- has nothing left to pair with and cannot reach a
+ * declaration made after it.
+ */
+TEST_F(DeclaredLinkFailureTest, ARecoveryReportIsSpentAndDoesNotWithdrawTheNextDeclaration)
+{
+    m_monitor->setEdgeDownByReportedFailure(fwd());
+    ASSERT_EQ(m_monitor->applyReportedLinkRecovery(fwd()), LinkRecoveryOutcome::Applied);
+    ASSERT_FALSE(m_monitor->getEdgeFailureReported(fwd()));
+
+    // A fresh injection, then the next fabric-wide rediscovery.
+    m_monitor->setEdgeDownByDeclaration(fwd());
+    EXPECT_EQ(m_monitor->applyReportedLinkRecovery(fwd()), LinkRecoveryOutcome::Retained)
+        << "a failure report was spent twice: one report has to buy exactly one withdrawal, or a "
+           "single real outage licenses every later rediscovery to end an injection";
+    EXPECT_TRUE(m_monitor->getEdgeDeclaredDown(fwd()));
+    EXPECT_FALSE(edgeIsUp(fwd()));
+}
+
+/**
+ * Direction 2, the blunt over-correction: a recovery report for an edge NOBODY declared down must
+ * still mark it up. Ryu POSTs one of these per link on every restart, and they are the only thing
+ * besides the 30 s poll that raises an edge between polls -- an implementation that refuses them
+ * all satisfies every assertion above and leaves the graph dark.
+ */
+TEST_F(DeclaredLinkFailureTest, ARecoveryStillRaisesAnEdgeNobodyDeclaredDown)
+{
+    m_monitor->setEdgeDown(fwd()); // an observation, not a declaration
+    ASSERT_FALSE(edgeIsUp(fwd()));
+    ASSERT_FALSE(m_monitor->getEdgeDeclaredDown(fwd()));
+
+    EXPECT_EQ(m_monitor->applyReportedLinkRecovery(fwd()), LinkRecoveryOutcome::Applied);
+    EXPECT_TRUE(edgeIsUp(fwd()))
+        << "a recovery report stopped raising an edge that carried no declaration at all; the "
+           "pairing rule swallowed the endpoint's ordinary job";
+    EXPECT_EQ(edgeDownReason(fwd()), "none");
+}
+
+/**
+ * The operator's own withdrawal answers to nobody: /ndt/inject_link_recovery ends an injection
+ * whether or not the control plane ever agreed a link was broken. It is the endpoint the refused
+ * recovery above points the caller at, so if it stopped working a retained declaration would have
+ * no way out at all.
+ */
+TEST_F(DeclaredLinkFailureTest, TheInjectionWithdrawalNeedsNoReportToPairWith)
+{
+    m_monitor->setEdgeDownByDeclaration(fwd());
+    ASSERT_TRUE(m_monitor->getEdgeDeclaredDown(fwd()));
+
+    m_monitor->clearEdgeDeclaredDown(fwd());
+    EXPECT_FALSE(m_monitor->getEdgeDeclaredDown(fwd()))
+        << "the unconditional withdrawal stopped being unconditional; an injected failure that "
+           "nothing reported broken would then be unwithdrawable";
+
+    m_monitor->pollLinks(bothDirections());
+    EXPECT_TRUE(edgeIsUp(fwd()));
+}
+
+/**
+ * The withdrawal spends the report as well. Otherwise `inject_link_failure` on an edge Ryu had
+ * once reported broken, followed by `inject_link_recovery`, would leave a report behind for the
+ * NEXT rediscovery to spend on the next injection.
+ */
+TEST_F(DeclaredLinkFailureTest, TheInjectionWithdrawalAlsoSpendsAStandingReport)
+{
+    m_monitor->setEdgeDownByReportedFailure(fwd());
+    m_monitor->clearEdgeDeclaredDown(fwd());
+    EXPECT_FALSE(m_monitor->getEdgeFailureReported(fwd()))
+        << "a failure report outlived the episode it belonged to";
+
+    m_monitor->setEdgeDownByDeclaration(fwd());
+    EXPECT_EQ(m_monitor->applyReportedLinkRecovery(fwd()), LinkRecoveryOutcome::Retained);
+}
+
+/**
+ * The seam again, for the second flag: discovery and the derived-liveness pass must not be able to
+ * manufacture a failure report. If they could, every edge the twin took down by itself would license
+ * the next rediscovery to withdraw a declaration.
+ */
+TEST_F(DeclaredLinkFailureTest, ObservationWritersNeitherSetNorClearTheFailureReport)
+{
+    m_monitor->setEdgeDown(fwd());
+    EXPECT_FALSE(m_monitor->getEdgeFailureReported(fwd()))
+        << "an observation manufactured a control-plane failure report";
+
+    m_monitor->setEdgeDownByReportedFailure(fwd());
+    m_monitor->setEdgeUp(fwd());
+    EXPECT_TRUE(m_monitor->getEdgeFailureReported(fwd()))
+        << "an observation spent a failure report; only a recovery report or "
+           "/ndt/inject_link_recovery may";
+
+    m_monitor->pollLinks(bothDirections());
+    EXPECT_TRUE(m_monitor->getEdgeFailureReported(fwd()))
+        << "a topology poll spent a failure report";
+}
+
+/**
+ * Direction 2 for the notification path: recording the report must not cost the stickiness the
+ * first half of B-6 bought. A failure reported by the control plane is still declared, and a poll
+ * still declines it.
+ */
+TEST_F(DeclaredLinkFailureTest, AReportedFailureStillSurvivesATopologyPoll)
+{
+    m_monitor->setEdgeDownByReportedFailure(fwd());
+    m_monitor->setEdgeDownByReportedFailure(rev());
+    ASSERT_FALSE(edgeIsUp(fwd()));
+
+    m_monitor->pollLinks(bothDirections());
+
+    EXPECT_FALSE(edgeIsUp(fwd()))
+        << "recording the report cost the declaration its stickiness -- B-6's first half undone "
+           "by its second";
+    EXPECT_FALSE(edgeIsUp(rev()));
+    EXPECT_EQ(edgeDownReason(fwd()), "declared");
+}

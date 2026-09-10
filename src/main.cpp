@@ -378,6 +378,19 @@ main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
+    // [Co-developed with claude code -- Adam]
+    // doc/KNOWN-ISSUES.md B-6 (W8-4), Adam's ruling of 2026-09-06: sweep the qdisc tree once at
+    // startup and WARN about netem that is already there. Not a gate -- a kernel is entitled to
+    // start on a fabric someone is deliberately running faults on -- so the return value is
+    // ignored here on purpose and the process carries on either way.
+    //
+    // Here because it needs the loaded topology (there are no interface names before it) and
+    // because a message printed after the port is open is a message the health check that already
+    // recorded "up" will not go back and read. Non-MININET deployments return an empty list
+    // without running anything; the method owns that decision so that the seam a test drives is
+    // the same one production uses.
+    topologyAndFlowMonitor->warnAboutResidualNetem(utils::netem::realTcRunner());
+
     deviceConfigurationAndPowerManager =
         std::make_shared<DeviceConfigurationAndPowerManager>(topologyAndFlowMonitor, mode, GW_IP, classifier);
 

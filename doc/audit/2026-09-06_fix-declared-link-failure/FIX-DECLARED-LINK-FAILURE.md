@@ -182,6 +182,16 @@ repo 這一側：`tools/contract_test/spec.py` 原本**根本沒有列 `down_rea
 🔴 **本單沒有 live 驗**。lab 不是我的，`ndt status` 開工時 `measuring nothing`／`claim none`，
 我沒有 claim、沒有 `ndt up`。§2 的「修法後」欄全部是離線證據。
 
+> 🆕 **2026-09-07 後續（W8b，分支 `fix/w8b-withdrawal-needs-observed-failure`）**：
+> §7-2／§7-4／§7-7 三題被 Adam 裁完並修掉，**而 §7-2 先被 live 證實了**——lw8b 臂
+> （09-07 00:08，OVS4，kernel `37d641fa9fd6fc14` 建自本分支 `017c060f`）重啟 Ryu，
+> **本分支的宣告在 10 秒內被撤，9/9**。詳見
+> `doc/audit/2026-09-07_fix-w8b-withdrawal-pairing/FIX-W8B.md`。
+> **本單的閘門在那張單裡被改過兩處**：`declared-clear` 的 anchor 加了下一行註解才唯一
+> （W8b 之後 `eprop.declaredDown = false;` 出現兩次），而 M3 的期望紅名單裡的 wire 案子
+> 換成 `InjectRecoveryOutsideMininetWithdrawsTheDeclaration`——`clearEdgeDeclaredDown`
+> 現在只有 `/ndt/inject_link_recovery` 走得到。
+
 ---
 
 ## 6. 回退方式
