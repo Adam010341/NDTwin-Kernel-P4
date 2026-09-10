@@ -509,6 +509,30 @@ record_up_target() {
     mkdir -p "$(dirname "$f")" || return 1
     sum="$(sha256sum "$topo" 2>/dev/null | cut -d' ' -f1)"
     counts="$(topo_model_counts "$topo")"
+    # [Co-developed with claude code -- Adam]
+    # 🔴 H4's sharpest point (ROLE-2, 2026-09-11): this function wrote `hosts=4` and
+    # `model_hosts=128` into the SAME nine-line file and never compared them, and `ndt up` went
+    # on building. Everything downstream then had both numbers and no verdict: `status --check`
+    # compares the live lab against `hosts`, the kernel loads `topology`, and a factor of 32
+    # between them sat in the baseline as data. Compared HERE as well as in topo_for_hosts,
+    # because this is the last point before [1/3] and the only one every plane and every model
+    # path passes through -- a later NDT_TOPO-shaped escape hatch cannot get past it.
+    #
+    # Refuses only on a definite mismatch, and nothing is built or written when it does. An
+    # unreadable model gives `counts` empty, which is recorded as `unavailable` below and is a
+    # missing comparison, not a passed one.
+    local mh="${counts%% *}"
+    if [[ "$mh" =~ ^[0-9]+$ && "$hosts" =~ ^[0-9]+$ ]] && (( mh != hosts )); then
+        err "refusing to build: the model and the fabric are different networks."
+        err "  asked for          $hosts host(s)   ($plane plane)"
+        err "  the model declares $mh host(s)   ${topo#$REPO/}"
+        err "  these are the two numbers this record would have carried side by side"
+        err "  (hosts=$hosts, model_hosts=$mh in ${f#$REPO/}) with nothing comparing them."
+        err "  ROLE-2 measured what that costs on 09-11: the fabric built, the kernel never"
+        err "  started, and [2/3] hung past 300s while the proxy retried switch-entered."
+        err "  either ask for $mh hosts, or point NDT_TOPO at the model for $hosts."
+        return 1
+    fi
     printf 'plane=%s\nhosts=%s\ntopology=%s\ntopology_sha256=%s\nmodel_hosts=%s\nmodel_edges=%s\nat=%s\nby=%s\nbuilder=%s\n' \
         "$plane" "$hosts" "${topo#$REPO/}" "${sum:-unavailable}" \
         "${counts%% *}" "${counts##* }" "$(date +%s)" "${NDT_OWNER:-unset}" "up_$plane" > "$f" || return 1
@@ -1226,11 +1250,58 @@ rate_source() {
 # mistake this exists to prevent, so the family is part of the query, not an afterthought.
 #
 # NDT_TOPO short-circuits the whole thing, for a model that does not follow the naming.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 H4, measured live by ROLE-2 on 2026-09-11 01:20 (ROLE-2-CYCLES-REPORT §4, cycle-07):
+# `NDT_TOPO=setting/StaticNetworkTopologyP4_10Switches_128Hosts.json ndt up p4 4` was NOT
+# refused. It printed the two numbers on adjacent lines --
+#     hosts        4        (p4_proxy/mininet/host_count_override)
+#     topology     setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+# -- built the 4-host fabric, wrote `hosts=4` and `model_hosts=128` into the same nine-line
+# up.target, and then hung in [2/3] for over 300 s with :8000 never opening and nothing new in
+# kernel.log: the kernel was never started, and the proxy's own log said
+# `switch-entered was never acknowledged for [1..10] after 30 retries`. The short-circuit
+# checked only that the file EXISTS. It now checks the one thing the glob branch below checks --
+# that the model describes the network being built.
+#
+#   rc 0  the model to load, on stdout -- or, from the glob branch, rc 0 with stdout EMPTY when
+#         no model in setting/ declares that host count. Both callers test the string and not
+#         the code, and that is left exactly as it was.
+#   rc 1  NDT_TOPO names a path that is not a file
+#   rc 3  NDT_TOPO names a real file for a DIFFERENT network. TOPO_REFUSAL says which numbers.
+#
+# 🔴 Silent, with the reason in TOPO_REFUSAL rather than printed here, because cmd_status calls
+# this too (ndt:3138, for the P4 knob row) and a refusal belongs in a bring-up, not in a report.
+# Only the `up` builders print it.
+#
+# 🔴 Refuses only on a DEFINITE mismatch -- both counts read, and different. A model whose hosts
+# this script cannot count is warned about and then built, because NDT_TOPO exists for models
+# that do not follow the conventions and "I could not count them" is not evidence of a mismatch.
+# The warning is there so that a comparison which did not happen cannot look like one that
+# passed (E-7).
+TOPO_REFUSAL=""
 topo_for_hosts() {
     local want="$1" mode="${2:-p4}"
+    TOPO_REFUSAL=""
     if [[ -n "${NDT_TOPO:-}" ]]; then
-        [[ -f "$NDT_TOPO" ]] && { echo "$NDT_TOPO"; return 0; }
-        return 1
+        [[ -f "$NDT_TOPO" ]] || return 1
+        # The same counting rule record_up_target writes model_hosts with, called rather than
+        # reimplemented: two copies of "how many hosts does this file declare" is how the two
+        # numbers in up.target start being able to disagree about the same file.
+        local mh; mh="$(topo_model_counts "$NDT_TOPO")"; mh="${mh%% *}"
+        if [[ ! "$mh" =~ ^[0-9]+$ ]]; then
+            # 🔴 >&2 on both, and not because stderr is tidier: warn() writes to STDOUT
+            # (ndt:102) and this function's stdout IS the model path -- `topo="$(topo_for_hosts
+            # ...)"`. A warning printed the ordinary way would become part of the filename.
+            warn "NDT_TOPO=$NDT_TOPO -- this script could not count the hosts it declares," >&2
+            warn "  so '$want host(s) asked for' was NOT compared against it. (H4)" >&2
+            echo "$NDT_TOPO"; return 0
+        fi
+        if (( mh != want )); then
+            TOPO_REFUSAL="NDT_TOPO names a model of a different network: $want host(s) asked for on the $mode plane, $mh declared by $NDT_TOPO"
+            return 3
+        fi
+        echo "$NDT_TOPO"; return 0
     fi
     local pats="StaticNetworkTopologyP4_*.json"
     [[ "$mode" != p4 ]] && pats="StaticNetworkTopologyOVS_*.json StaticNetworkTopologyMininet_*.json"
@@ -1645,10 +1716,29 @@ up_p4() {
         set_host_count "$1" || return 1
     fi
     hosts="$(host_count)"
-    topo="$(topo_for_hosts "$hosts" p4)"
+    # 🔴 The path, the rc AND the reason out of ONE call, and not because three lines would be
+    # untidy: a command substitution is a subshell, so `topo="$(topo_for_hosts ...)"` alone left
+    # TOPO_REFUSAL empty in this shell and this refusal printed its fallback sentence, naming no
+    # numbers. That is F8's failure mode exactly (LAB_KERNEL_DIR_SOURCE, ndt:1065), reproduced
+    # here within a day of it being fixed there, and caught by section 8 of
+    # tests/shell/test_ndt_up_down_robust.sh rather than by a reader.
+    local trc both rest
+    both="$(topo_for_hosts "$hosts" p4; printf '\t%s\t%s' "$?" "$TOPO_REFUSAL")"
+    topo="${both%%$'\t'*}"; rest="${both#*$'\t'}"
+    trc="${rest%%$'\t'*}"; TOPO_REFUSAL="${rest#*$'\t'}"
     binary="$(bmv2_binary)"
     rate="$(sample_rate)"
 
+    # H4. rc 3 is "you named a real model, of a different network" -- a separate answer from
+    # "there is no model with this host count", and it needs a separate message: the file the
+    # operator named is right there, and telling them to derive one would be wrong.
+    if (( trc == 3 )); then
+        err "refusing to build: ${TOPO_REFUSAL:-NDT_TOPO does not match the host count}"
+        err "  the fabric is built from p4_proxy/mininet/host_count_override ($hosts), and the"
+        err "  kernel would load the model NDT_TOPO names. Two networks, one bring-up."
+        err "  either drop NDT_TOPO, or set the knob to the model's count:  ndt up p4 <n>"
+        return 1
+    fi
     if [[ -z "$topo" ]]; then
         err "no P4 topology model in setting/ has $hosts hosts."
         err "the kernel would load a model of a different network. derive one first:"
@@ -1682,7 +1772,7 @@ up_p4() {
 
     # What this run was asked for, written down before anything is built, so `status --check`
     # has a baseline that does not depend on reading a P4-only knob back afterwards. (#8, N12)
-    record_up_target p4 "$hosts" "$topo"
+    record_up_target p4 "$hosts" "$topo" || return 1
     claim_note_up "p4 $hosts"
 
     # -- 1. fabric --
@@ -1963,7 +2053,18 @@ up_ovs() {
         err "  use:  ndt up ovs   (128)   |   ndt up ovs4   (4)   |   ndt up p4 $ovs_hosts"
         return 2
     fi
-    local ovs_topo; ovs_topo="$(topo_for_hosts "$ovs_hosts" ovs)"
+    # One call, three answers -- see the note in up_p4: TOPO_REFUSAL set inside a command
+    # substitution dies with the subshell.
+    local ovs_topo ovs_trc ovs_both ovs_rest
+    ovs_both="$(topo_for_hosts "$ovs_hosts" ovs; printf '\t%s\t%s' "$?" "$TOPO_REFUSAL")"
+    ovs_topo="${ovs_both%%$'\t'*}"; ovs_rest="${ovs_both#*$'\t'}"
+    ovs_trc="${ovs_rest%%$'\t'*}"; TOPO_REFUSAL="${ovs_rest#*$'\t'}"
+    if (( ovs_trc == 3 )); then
+        err "refusing to build: ${TOPO_REFUSAL:-NDT_TOPO does not match the host count}"
+        err "  on OVS the size is the VERB -- ovs-topo-start builds 128, ovs-topo-4host builds"
+        err "  4 -- so nothing here can make the fabric follow the model NDT_TOPO names. (H4)"
+        return 1
+    fi
     if [[ -z "$ovs_topo" ]]; then
         err "no OVS topology model in setting/ has $ovs_hosts hosts"
         return 1
@@ -1994,7 +2095,7 @@ up_ovs() {
 
     # Same as up_p4: the target is recorded once every pre-lab refusal has passed and just
     # before the first thing that changes the machine. (#8, N12)
-    record_up_target ovs "$ovs_hosts" "$ovs_topo"
+    record_up_target ovs "$ovs_hosts" "$ovs_topo" || { rm -f "$fifo" "$out"; return 1; }
     claim_note_up "ovs $ovs_hosts"
 
     say "[1/4] control plane (Ryu)"

@@ -356,6 +356,74 @@ m=$(mutant m23 "$NDT" \
 report "M23: the refusal stops saying whose knob those numbers are" "$m" \
        "🔴 and says that knob is the P4 plane's, not what OVS builds"
 
+# --- H4: the model and the fabric are different networks (ROLE-2, 2026-09-11) -----------------
+
+# M24 restores H4 verbatim: the NDT_TOPO escape hatch checks only that the file EXISTS. That is
+# the code ROLE-2 ran `NDT_TOPO=<128-host model> ndt up p4 4` against -- fabric built, kernel
+# never started, [2/3] hung past 300 s.
+m=$(mutant m24 "$NDT" \
+    '        local mh; mh="$(topo_model_counts "$NDT_TOPO")"; mh="${mh%% *}"' \
+    '        local mh=""; echo "$NDT_TOPO"; return 0
+        mh="$(topo_model_counts "$NDT_TOPO")"; mh="${mh%% *}"')
+report "M24: NDT_TOPO is honoured on existence alone again (H4)" "$m" \
+       "  🔴 rc 3 -- a real file, for the wrong network"
+
+# M25: the comparison happens and the answer is thrown away -- the shape a "checked it, carried
+# on" fix has. The refusal is what has to survive, not the arithmetic.
+m=$(mutant m25 "$NDT" \
+    '        if (( mh != want )); then
+            TOPO_REFUSAL=' \
+    '        if false; then
+            TOPO_REFUSAL=')
+# 🔴 Named case chosen after running the gate: with only THIS guard gone, record_up_target
+# still refuses and `up_p4` still returns 1, so "the bring-up is refused" stays green -- two
+# guards mean one can be removed without the property breaking. What only this site can produce
+# is the rc-3 message, so that is what must go red.
+report "M25: the host counts are compared and the verdict dropped" "$m" \
+       "  naming a model of a different network"
+
+# M26: F8's failure mode, which this fix reproduced once already. TOPO_REFUSAL is read back
+# from a command substitution, so the refusal prints its fallback and names no numbers.
+m=$(mutant m26 "$NDT" \
+    '    both="$(topo_for_hosts "$hosts" p4; printf '"'"'\t%s\t%s'"'"' "$?" "$TOPO_REFUSAL")"
+    topo="${both%%$'"'"'\t'"'"'*}"; rest="${both#*$'"'"'\t'"'"'}"
+    trc="${rest%%$'"'"'\t'"'"'*}"; TOPO_REFUSAL="${rest#*$'"'"'\t'"'"'}"' \
+    '    topo="$(topo_for_hosts "$hosts" p4)"; trc=$?
+    both=""; rest=""')
+# 🔴 Also repointed after running the gate: "the reason names both counts" reads TOPO_REFUSAL
+# in the TEST's own shell, where no substitution ate it, so it cannot see this at all. The cell
+# that can is the one reading up_p4's printed refusal.
+report "M26: the refusal's reason dies in a subshell (F8's shape)" "$m" \
+       "  🔴 and the refusal names both counts, not a fallback"
+
+# M27: the second guard alone. record_up_target goes back to writing hosts and model_hosts side
+# by side without comparing them -- the sharpest point of ROLE-2 §4.
+m=$(mutant m27 "$NDT" \
+    '    if [[ "$mh" =~ ^[0-9]+$ && "$hosts" =~ ^[0-9]+$ ]] && (( mh != hosts )); then' \
+    '    if false; then')
+report "M27: record_up_target writes both numbers and compares neither" "$m" \
+       "  🔴 record_up_target refuses hosts=4 against model_hosts=128"
+
+# M28: the other direction, and the one that would remove the documented escape hatch: any
+# NDT_TOPO is refused. Every cell above stays red-worthy; the CONTROLS are what catch it.
+m=$(mutant m28 "$NDT" \
+    '        if (( mh != want )); then' \
+    '        if true; then')
+report "M28 (widening): every NDT_TOPO is refused" "$m" \
+       "  🔴 a MATCHING NDT_TOPO is still honoured"
+
+# M29: an uncountable model is refused instead of warned about. NDT_TOPO exists for models that
+# do not follow the conventions, and "I could not count them" is not a mismatch.
+m=$(mutant m29 "$NDT" \
+    '            echo "$NDT_TOPO"; return 0
+        fi
+        if (( mh != want )); then' \
+    '            return 1
+        fi
+        if (( mh != want )); then')
+report "M29: an uncountable NDT_TOPO is refused rather than warned about" "$m" \
+       "  an uncountable model is not refused"
+
 # --- N*: widenings. The product goes green on everything; the suite has to notice -------------
 
 # N1, the control: preflight never refuses. It passes every "did it go red on the broken

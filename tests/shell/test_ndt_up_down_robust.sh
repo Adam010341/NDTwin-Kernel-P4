@@ -579,5 +579,97 @@ has   "  and what the helper said is not swallowed"        "topo session already
 has   "  alongside ndt's own line"                         "topo-start failed" "$OUT"
 
 # ==========================================================================================
+section "8. H4: a model of a DIFFERENT network is refused before anything is built"
+# ==========================================================================================
+# Measured live by ROLE-2, 2026-09-11 01:20 (ROLE-2-CYCLES-REPORT §4, cycle-07):
+# `NDT_TOPO=setting/StaticNetworkTopologyP4_10Switches_128Hosts.json ndt up p4 4` was not
+# refused. It printed `hosts 4` and the 128-host model on adjacent lines, built the 4-host
+# fabric, wrote `hosts=4` and `model_hosts=128` into the same up.target, and hung in [2/3] for
+# over 300 s with :8000 never opening -- the kernel was never started at all, and the proxy's
+# log said `switch-entered was never acknowledged for [1..10] after 30 retries`.
+#
+# The escape hatch checked only that the file existed (`[[ -f "$NDT_TOPO" ]]`). Two guards now:
+# topo_for_hosts, which is where the hatch is, and record_up_target, which is the one place
+# every plane and every model path passes through and the function that was writing both
+# numbers side by side without comparing them.
+reset_fix
+mk_topo StaticNetworkTopologyP4_10Switches_128Hosts.json 128 288
+T128="$FIX/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json"
+T4="$FIX/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json"
+
+OUT="$(NDT_TOPO="$T128" drive 'topo_for_hosts 4 p4; echo "TRC=$? REFUSAL=[$TOPO_REFUSAL]"')"
+has   "  🔴 rc 3 -- a real file, for the wrong network"    "TRC=3" "$OUT"
+has   "  and the reason names both counts"                 "4 host(s) asked for on the p4 plane, 128 declared" "$OUT"
+has   "  and the file"                                     "$T128" "$OUT"
+hasnt "  🔴 and the model path is NOT printed for a caller to use" "REFUSAL=[]" "$OUT"
+
+# 🔴 The whole bring-up, from the argv ROLE-2 typed. The refusal is above the claim check, the
+# in-flight check and preflight, so nothing on the machine has been read yet, let alone changed.
+reset_fix
+OUT="$(NDT_TOPO="$T128" drive 'up_p4 4')"
+check "  🔴 'ndt up p4 4' with a 128-host NDT_TOPO is refused" "1" "$(rc_of_out "$OUT")"
+has   "  and says what it is refusing"                     "refusing to build" "$OUT"
+has   "  naming a model of a different network"            "names a model of a different network" "$OUT"
+# The numbers reach the OPERATOR, not only TOPO_REFUSAL. They travel out of a command
+# substitution to get here, and F8 is what happens when a fix forgets that: `topo="$(...)"`
+# left the reason empty in up_p4's shell and this line printed its fallback, naming nothing.
+has   "  🔴 and the refusal names both counts, not a fallback" \
+      "4 host(s) asked for on the p4 plane, 128 declared" "$OUT"
+has   "  and where the fabric's number comes from"         "host_count_override" "$OUT"
+has   "  and how to make the two agree"                    "ndt up p4 <n>" "$OUT"
+check "  🔴 and NOTHING was built: no topo-start, no cleanup" "" "$(cat "$FIX/sudo.log")"
+check "  🔴 and no baseline was written"                   "absent" \
+      "$([[ -f "$FIX/.test_run/up.target" ]] && echo present || echo absent)"
+
+# record_up_target is the second guard, and the general one: it refuses the same pair even when
+# it is handed to it directly, which is the shape any later escape hatch would arrive in.
+reset_fix
+OUT="$(drive "record_up_target p4 4 '$T128'")"
+check "  🔴 record_up_target refuses hosts=4 against model_hosts=128" "1" "$(rc_of_out "$OUT")"
+has   "  and says they are different networks"             "different networks" "$OUT"
+has   "  quoting the two fields it would have written"     "hosts=4, model_hosts=128" "$OUT"
+check "  🔴 and writes no file"                            "absent" \
+      "$([[ -f "$FIX/.test_run/up.target" ]] && echo present || echo absent)"
+
+# 🔴 THE CONTROLS. "Refuse whenever NDT_TOPO is set" would satisfy every check above and remove
+# the escape hatch the manual documents (doc/2026-08-17_testing-manual.md:832).
+reset_fix
+OUT="$(NDT_TOPO="$T4" drive 'topo_for_hosts 4 p4; echo "TRC=$?"')"
+has   "  🔴 a MATCHING NDT_TOPO is still honoured"         "TRC=0" "$OUT"
+has   "  and its path is what comes back"                  "$T4" "$OUT"
+OUT="$(drive 'topo_for_hosts 4 p4; echo "TRC=$?"')"
+has   "  🔴 and with no NDT_TOPO the glob still answers"   "TRC=0" "$OUT"
+has   "  with the 4-host model"                            "StaticNetworkTopologyP4_10Switches_4Hosts.json" "$OUT"
+# The glob branch answers "no such model" with rc 0 and an EMPTY line, and both callers test
+# the string. Left exactly as it was -- what must not happen is that answer becoming rc 3, which
+# would send an operator looking for an NDT_TOPO they never set.
+OUT="$(drive 'topo_for_hosts 7 p4; echo "TRC=$?"')"
+has   "  a size no model has is rc 0 with nothing, as before" "TRC=0" "$OUT"
+hasnt "  🔴 and never rc 3 -- there is no NDT_TOPO to blame"  "TRC=3" "$OUT"
+hasnt "  and no model is named"                            "StaticNetworkTopology" "$OUT"
+OUT="$(NDT_TOPO="$FIX/setting/does-not-exist.json" drive 'topo_for_hosts 4 p4; echo "TRC=$?"')"
+has   "  a missing NDT_TOPO file is still rc 1, not 3"     "TRC=1" "$OUT"
+reset_fix
+OUT="$(drive "record_up_target p4 4 '$T4'")"
+check "  🔴 and a matching pair is still recorded"         "0" "$(rc_of_out "$OUT")"
+check "  the baseline is there"                            "present" \
+      "$([[ -f "$FIX/.test_run/up.target" ]] && echo present || echo absent)"
+
+# 🔴 A model whose hosts cannot be counted is WARNED about and then built: NDT_TOPO exists for
+# models that do not follow the conventions, and "I could not count them" is not evidence of a
+# mismatch. What it must not do is look like a comparison that passed (E-7).
+reset_fix
+printf 'not json at all\n' > "$FIX/setting/unreadable.json"
+OUT="$(NDT_TOPO="$FIX/setting/unreadable.json" drive 'topo_for_hosts 4 p4; echo "TRC=$?"')"
+has   "  an uncountable model is not refused"              "TRC=0" "$OUT"
+has   "  🔴 but the missing comparison is said out loud"   "was NOT compared against it" "$OUT"
+# 🔴 warn() writes to STDOUT (ndt:102) and this function's stdout IS the model path, so a
+# warning printed the ordinary way becomes part of the filename. This is that cell.
+OUT="$(NDT_TOPO="$FIX/setting/unreadable.json" bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+topo_for_hosts 4 p4" 2>/dev/null)"
+check "  🔴 and the warning does not land in the model path" "$FIX/setting/unreadable.json" "$OUT"
+
+# ==========================================================================================
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]
