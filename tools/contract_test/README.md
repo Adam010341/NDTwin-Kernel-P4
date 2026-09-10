@@ -403,7 +403,7 @@ registered: 45 covered: 37
 - **`intent_translator/text` 的成功路徑刻意沒有 contract** — 需要 OpenAI token、每次呼叫要花錢、回應由模型決定，contract 會既不穩定又昂貴。錯誤路徑有（不需要 token），Web-GUI 對成功路徑的依賴只靠 L3 的存在性檢查。這是決定，不是疏漏。
 - **模擬相關端點只驗錯誤路徑。** `received_a_simulation_case` / `simulation_completed` 的成功路徑需要 Simulation-Platform-Manager 在跑，會讓檢查不穩定；但它們的輸入驗證（畸形 JSON 不能回 500）是可以驗的，也已經在驗。
 - **group / meter 端點沒有 contract**（六個，無 consumer）。值得注意的是它們在 P4 模式下會**無條件走 OVS strategy** — `FlowRoutingManager` 的 group/meter 方法直接用 `m_ovsStrategy`，完全不看 dpid，所以對 bmv2 下的 group/meter 規則會被送到 Ryu。這是 kernel 的缺陷（P4 計畫 Phase 3 會修），現在沒有任何測試會抓到。
-- **不變量的嚴格度有上限。** `inv_graph_matches_topology` 只比對 node/edge **數量**與 dpid 集合，不驗 edge 的接線是否正確（數量對但接錯不會被抓）。`inv_flow_paths_non_empty` 只驗 path 非空，不驗它是否連通、是否與 edge 一致。`inv_topk_bounded` 只驗數量 ≤ k，不驗真的是前 k 大。
+- **不變量的嚴格度有上限。** `inv_graph_matches_topology` 比對三個基數、dpid 集合，**以及 per-node 身分**（switch 依 dpid 比 `brand_name` 與位址集合；host 依 `mac` 比位址集合；`device_name` 只報 ACCOUNTED-FOR 不算失敗，因為改名本來就會持久化）——2026-09-07 加的，見 `doc/audit/2026-09-07_fix-contract-per-node-identity/`。🔴 **仍然不驗 edge 的接線是否正確**（數量對但接錯不會被抓），也**看不到 `get_graph_data` 沒有回的欄位**（`bridge_name`／`ecmp_groups`）。而「拓樸檔本身是壞的、kernel 忠實地照它服務」這一類**這支不變量結構上抓不到**（圖與檔一致就是一致），那是載入器那五扇門的工作。`inv_flow_paths_non_empty` 只驗 path 非空，不驗它是否連通、是否與 edge 一致。`inv_topk_bounded` 只驗數量 ≤ k，不驗真的是前 k 大。
 - **HTTP 協定層沒驗**：CORS / `OPTIONS`（Web-GUI 直接依賴）、keep-alive、request body 大小上限、`k` 參數的邊界值。
 - **併發沒驗**。kernel 的 HTTP server 是**單執行緒**（`main.cpp` 的 `net::io_context ioc{1}`），任何慢的 handler（SNMP、SSH、對 Ryu 的同步 curl）會阻塞所有其他請求。而 L2/L3 是序列發請求的，永遠碰不到這個情境。
 - **sFlow UDP 輸入面完全沒被碰過**。kernel 有兩個外部輸入面（`/ndt/*` HTTP 和 :6343 sFlow UDP），這裡只涵蓋前者。

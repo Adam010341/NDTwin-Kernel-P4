@@ -364,12 +364,20 @@ FIXTURES = {
 class FakeCtx:
     """Stands in for the topology-derived Context during self-test."""
 
-    def __init__(self, switches=2, hosts=1, edges=1, dpids=None, topk=5, power_state=None):
+    def __init__(self, switches=2, hosts=1, edges=1, dpids=None, topk=5, power_state=None,
+                 switch_identity=None, host_identity=None):
         self.expected_switches = switches
         self.expected_hosts = hosts
         self.expected_edges = edges
         self.expected_dpids = dpids if dpids is not None else {106225808380928}
         self.topk = topk
+        # [Co-developed with claude code -- Adam] -- W3b-3.
+        # Per-node identity, defaulting to None = "this stand-in has only cardinalities". The
+        # real Context (run_contract_test.py) always builds both, so None is never the
+        # production answer -- pinned in tests/python/test_contract_spec.py. Cases that want
+        # the identity checks pass GOOD_IDENTITY below, or a deliberately wrong version of it.
+        self.expected_switch_identity = switch_identity
+        self.expected_host_identity = host_identity
         # [Co-developed with claude code -- Adam] -- A-8.
         # A *positive* reading that nothing is powered off, so the switch/edge cases below
         # still assert what they were written to assert: a down switch on a fully powered-on
@@ -380,6 +388,45 @@ class FakeCtx:
 
 # A graph matching FakeCtx exactly, used as the "good" case.
 _GOOD_CTX = FakeCtx(switches=1, hosts=1, edges=1, dpids={106225808380928})
+
+# [Co-developed with claude code -- Adam] -- W3b-3.
+# The identity GRAPH_DATA_SAMPLE really carries, derived from the sample itself rather than
+# transcribed: a hand-typed copy would be a second chance to get the address decoding wrong,
+# and the decoding is the part of this comparison that is easy to get wrong (network order --
+# the FIRST octet is the LOW byte).
+_GOOD_SWITCH_IDENTITY = {
+    n["dpid"]: {"device_name": n["device_name"], "brand_name": n["brand_name"],
+                "ips": spec.address_set(n)}
+    for n in GRAPH_DATA_SAMPLE["nodes"] if n["vertex_type"] == 0}
+_GOOD_HOST_IDENTITY = {
+    n["mac"]: {"device_name": n["device_name"], "ips": spec.address_set(n)}
+    for n in GRAPH_DATA_SAMPLE["nodes"] if n["vertex_type"] == 1}
+_IDENTITY_CTX = FakeCtx(switches=1, hosts=1, edges=1, dpids={106225808380928},
+                        switch_identity=_GOOD_SWITCH_IDENTITY,
+                        host_identity=_GOOD_HOST_IDENTITY)
+#: The one field that decides power and telemetry dispatch, changed and nothing else.
+_WRONG_BRAND_CTX = FakeCtx(
+    switches=1, hosts=1, edges=1, dpids={106225808380928},
+    switch_identity={d: {**v, "brand_name": "BMv2"}
+                     for d, v in _GOOD_SWITCH_IDENTITY.items()},
+    host_identity=_GOOD_HOST_IDENTITY)
+#: One switch address changed. Same count, same dpid: invisible to everything above.
+_WRONG_SWITCH_IP_CTX = FakeCtx(
+    switches=1, hosts=1, edges=1, dpids={106225808380928},
+    switch_identity={d: {**v, "ips": frozenset({"10.10.10.99"})}
+                     for d, v in _GOOD_SWITCH_IDENTITY.items()},
+    host_identity=_GOOD_HOST_IDENTITY)
+#: The host is a different host: right count, right dpid (0, like every host), wrong mac.
+_WRONG_HOST_MAC_CTX = FakeCtx(
+    switches=1, hosts=1, edges=1, dpids={106225808380928},
+    switch_identity=_GOOD_SWITCH_IDENTITY,
+    host_identity={12345: {"device_name": "h9", "ips": frozenset({"10.0.0.9"})}})
+#: A rename, which persists by design -- reported, never failed.
+_RENAMED_CTX = FakeCtx(
+    switches=1, hosts=1, edges=1, dpids={106225808380928},
+    switch_identity={d: {**v, "device_name": "core-4"}
+                     for d, v in _GOOD_SWITCH_IDENTITY.items()},
+    host_identity=_GOOD_HOST_IDENTITY)
 
 # Same graph but with the switch marked down / not enabled.
 _GRAPH_SWITCH_DOWN = {
@@ -515,6 +562,20 @@ INVARIANT_CASES = [
     ("graph_matches_topology: catches missing dpid",
      spec.inv_graph_matches_topology, GRAPH_DATA_SAMPLE, FakeCtx(switches=1, hosts=1,
      edges=1, dpids={999}), True),
+
+    # [Co-developed with claude code -- Adam] -- W3b-3. Per-node identity. Every ctx below has
+    # the SAME counts and the SAME dpid as the good one, so anything these catch is something
+    # the cardinality checks above cannot see.
+    ("graph_matches_topology: a graph that matches node for node reports nothing",
+     spec.inv_graph_matches_topology, GRAPH_DATA_SAMPLE, _IDENTITY_CTX, False),
+    ("graph_matches_topology: catches a switch served under the wrong brand",
+     spec.inv_graph_matches_topology, GRAPH_DATA_SAMPLE, _WRONG_BRAND_CTX, True),
+    ("graph_matches_topology: catches a switch served with the wrong address",
+     spec.inv_graph_matches_topology, GRAPH_DATA_SAMPLE, _WRONG_SWITCH_IP_CTX, True),
+    ("graph_matches_topology: catches a different host behind the right host count",
+     spec.inv_graph_matches_topology, GRAPH_DATA_SAMPLE, _WRONG_HOST_MAC_CTX, True),
+    ("graph_matches_topology: a renamed device is accounted for, not failed",
+     spec.inv_graph_matches_topology, GRAPH_DATA_SAMPLE, _RENAMED_CTX, False),
 
     ("all_switches_up: accepts healthy graph",
      spec.inv_all_switches_up, GRAPH_DATA_SAMPLE, _GOOD_CTX, False),
