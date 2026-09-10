@@ -935,6 +935,62 @@ RESCUE="$(grep -F 'NDT_OWNER=' <<<"$OUT" | head -1 | sed 's/^[[:space:]]*XX[[:sp
 check "🔴 an owner name with spaces and parens still parses" "0" \
       "$(bash -n -c "$RESCUE" 2>/dev/null; echo $?)"
 
+# ==========================================================================================
+# 8. T5: the note that failed silently, the declaration that outlived its teardown, and the
+#    field that moved to the end of the file
+# ==========================================================================================
+# 🔴 T5, measured 2026-09-11 01:55:07 against 01:59:53 (logs/ROLE-4/06-up-ovs4.log,
+# 17-claim-timeline.txt). The same `ndt up ovs 4`, twice: run by the owner it rewrote the note
+# to "in use: ..."; run with NDT_OWNER UNSET it changed nothing and said nothing, because
+# set_claim_note returns 1 for a claim that is not yours and claim_note_up threw that away
+# (`return 0`, no warn). So the note went on describing the previous round while a fabric was
+# being built -- I-4 again, in the two arms where the note matters most.
+
+section "8A. 🔴 an 'ndt up' that could not write the note says so"
+mk_claim fixture-owner 3600 "$I4_NOTE"
+OUT="$(claim_run '' 'NDT_OWNER=fixture-owner claim_note_up "ovs 4"')"
+hasnt "our own live claim: written, and nothing is warned" "NOT updated" "$OUT"
+mk_claim other-session 3600 "$I4_NOTE"
+OUT="$(claim_run '' 'NDT_OWNER=fixture-owner claim_note_up "ovs 4"')"
+has   "🔴 a live claim we do not hold: warned, not swallowed" "NOT updated" "$OUT"
+has   "  quoting the sentence that is still standing"    "$I4_NOTE" "$OUT"
+has   "  and naming who holds the lab"                   "other-session" "$OUT"
+check "  the note itself is unchanged"                   "$I4_NOTE" "$(cf note)"
+OUT="$(claim_run '' 'unset NDT_OWNER; claim_note_up "ovs 4"')"
+has   "🔴 NDT_OWNER unset -- the 01:55 arm -- is warned too" "NOT updated" "$OUT"
+no_claim
+OUT="$(claim_run '' 'NDT_OWNER=fixture-owner claim_note_up "ovs 4"')"
+hasnt "🔴 no claim at all: silent, there is nothing to narrate" "NOT updated" "$OUT"
+mk_claim fixture-owner -60 "$I4_NOTE"
+OUT="$(claim_run '' 'NDT_OWNER=fixture-owner claim_note_up "ovs 4"')"
+hasnt "  and an expired claim holds nothing, so it says nothing" "NOT updated" "$OUT"
+
+section "8B. 🔴 the teardown clears the declaration it tore down"
+mk_claim_m fixture-owner 3600 "in use: ndt up ovs 4" "ROLE-4 reader nsr"
+OUT="$(down_run '--force')"
+check "the forced teardown succeeds"                     "RC=0" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "🔴 measuring= is empty afterwards"                "" "$(cf measuring)"
+has   "  and the note records that this down cleared it" "cleared measuring" "$(cf note)"
+has   "  while still saying the lab came down"           "down at " "$(cf note)"
+has   "  and that the claim was kept"                    "claim kept" "$(cf note)"
+
+section "8C. 🔴 the field order is fixed, whoever writes"
+mk_claim_m fixture-owner 3600 "first note" "a run"
+claim_run '' 'NDT_OWNER=fixture-owner set_claim_note "second note"' >/dev/null 2>&1
+check "the note was rewritten"                           "second note" "$(cf note)"
+check "🔴 and note did not migrate to the last line"     "owner expires note exclusive_cpu measuring" \
+      "$(sed 's/=.*//' "$(claim_file)" | tr '\n' ' ' | sed 's/ $//')"
+check "  the declaration survived the rewrite"           "a run" "$(cf measuring)"
+check "  and so did exclusive_cpu"                       "no" "$(cf exclusive_cpu)"
+# 🔴 A rewrite that knows only five fields DROPS what another script wrote -- and this tool's
+# own header invites that writer ("any script may write the file directly").
+printf 'x_extra=kept by another writer\n' >> "$(claim_file)"
+claim_run '' 'NDT_OWNER=fixture-owner set_claim_note "third note"' >/dev/null 2>&1
+check "  a field another script wrote is carried through" "kept by another writer" "$(cf x_extra)"
+
+no_claim
+rm -f "$(claim_file).prev" "$(claim_file).lock" "$FIX/fc.n" "$FIX"/race.*
+
 
 # --- done ---------------------------------------------------------------------------------
 printf '\nRan %d checks, %d failed\n' "$((PASS+FAIL))" "$FAIL"

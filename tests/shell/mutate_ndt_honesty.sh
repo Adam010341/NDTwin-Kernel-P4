@@ -496,6 +496,58 @@ report 'MC9: the foreign refusal stops quoting what they declared' "$m" \
        '🔴 and the foreign refusal quotes the declaration'
 
 
+# --- T5: the note that failed silently, the declaration that outlived its teardown -----------
+
+# 01:55:07 against 01:59:53: the same `ndt up ovs 4`, and with NDT_OWNER unset it built a fabric
+# while the note went on describing the previous round, silently.
+m=$(mutant mc10 "$NDT" \
+    'claim_note_unwritten() {
+    [[ -f "$CLAIM" ]] || return 0' \
+    'claim_note_unwritten() {
+    return 0
+    [[ -f "$CLAIM" ]] || return 0')
+report 'MC10: the failed note write is swallowed again (T5 verbatim)' "$m" \
+       '🔴 a live claim we do not hold: warned, not swallowed'
+
+
+# 🔴 "Stop swallowing failures" with no thought about which failures: a line on every teardown of
+# an unreserved lab, which is how a warning stops being read before the one that matters.
+m=$(mutant mc11 "$NDT" \
+    'claim_note_unwritten() {
+    [[ -f "$CLAIM" ]] || return 0
+    local exp; exp="$(claim_field expires)"
+    [[ "$exp" =~ ^[0-9]+$ ]] && (( exp > $(date +%s) )) || return 0' \
+    'claim_note_unwritten() {
+    local exp; exp="$(claim_field expires)"')
+report 'MC11 (widening): it warns even when there is no claim to narrate' "$m" \
+       '🔴 no claim at all: silent, there is nothing to narrate'
+
+
+# 01:57:54 verbatim: `measuring=ROLE-4 reader nsr, do not tear down` still in the claim after the
+# down that killed that reader -- the declaration outlived the teardown that disproved it.
+m=$(mutant mc12 "$NDT" \
+    '            claim_rewrite measuring "" \' \
+    '            true \')
+report 'MC12: the teardown leaves the declaration it just falsified' "$m" \
+       '🔴 measuring= is empty afterwards'
+
+m=$(mutant mc13 "$NDT" \
+    '        printf '"'"'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=%s\nmeasuring=%s\n'"'"' \
+            "$owner" "$exp" "$note" "$ecpu" "$meas"' \
+    '        sed '"'"'/^note=/d'"'"' "$f"; printf '"'"'note=%s\n'"'"' "$note"')
+report 'MC13: the note is appended again, so it migrates to the last line' "$m" \
+       '🔴 and note did not migrate to the last line'
+
+
+# 🔴 The data loss dressed as a tidy-up: this file's own header invites scripts to write it, so a
+# rewrite that knows only its five fields deletes whatever else is in there.
+m=$(mutant mc14 "$NDT" \
+    '        grep -v -e '"'"'^owner='"'"' -e '"'"'^expires='"'"' -e '"'"'^note='"'"' -e '"'"'^exclusive_cpu='"'"' -e '"'"'^measuring='"'"' "$f" || true' \
+    '        true')
+report 'MC14: a field another script wrote is dropped by the rewrite' "$m" \
+       '  a field another script wrote is carried through'
+
+
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)

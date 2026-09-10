@@ -926,14 +926,78 @@ measuring_declared() {
 # Refuses when there is no claim, when it has expired, or when it belongs to someone else: a
 # session that does not hold the lab must not narrate it.
 set_claim_note() {
-    local text="${1//$'\n'/ }" f="$CLAIM" owner exp tmp
+    local text="${1//$'\n'/ }" f="$CLAIM" owner exp
     [[ -f "$f" ]] || return 1
     owner="$(claim_field owner)"; exp="$(claim_field expires)"
     [[ "$exp" =~ ^[0-9]+$ ]] && (( exp > $(date +%s) )) || return 1
     [[ -n "${NDT_OWNER:-}" && "$owner" == "$NDT_OWNER" ]] || return 1
+    claim_rewrite note "$text"
+}
+
+# claim_rewrite <field> <value> -- rewrite the claim with one field changed, IN THE ORDER THE
+# HEADER DOCUMENTS.
+#
+# [Co-developed with claude code -- Adam]
+# ROLE-4 T5, 2026-09-11 (17-claim-timeline.txt). The old writer was `sed '/^note=/d'` followed by
+# an appended `note=` line, so every correction moved `note` to the END of the file: the field
+# order was a function of how many times the note had been rewritten. Nothing in this repo parses
+# the claim by line number, and that is exactly why it has to be fixed here rather than defended
+# by convention -- a reader diffing two claims, or a human reading two of them side by side, is
+# comparing the field order too.
+#
+# 🔴 Unknown fields are CARRIED THROUGH, after the five. The header invites scripts to write this
+# file themselves, so a rewrite that knew only the five it recognises would silently delete
+# whatever another writer had put there -- a data loss dressed as a tidy-up. They go last because
+# the five documented ones are the ones a human scans for.
+claim_rewrite() {
+    local field="$1" value="${2//$'\n'/ }" f="$CLAIM" tmp
+    local owner exp note ecpu meas
+    [[ -f "$f" ]] || return 1
+    owner="$(claim_field owner)"; exp="$(claim_field expires)"; note="$(claim_field note)"
+    ecpu="$(claim_field exclusive_cpu)"; meas="$(claim_field measuring)"
+    case "$field" in
+        note)      note="$value" ;;
+        measuring) meas="$value" ;;
+        *) return 1 ;;
+    esac
     tmp="$f.$$.tmp"
-    { sed '/^note=/d' "$f"; printf 'note=%s\n' "$text"; } > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 1; }
+    {
+        printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=%s\nmeasuring=%s\n' \
+            "$owner" "$exp" "$note" "$ecpu" "$meas"
+        # `|| true` because grep -v exits 1 when nothing is left over, which is the ORDINARY case
+        # -- a claim written by this tool has exactly the five fields. Without it the compound's
+        # status is grep's, and every note rewrite on an ordinary claim reports failure while
+        # having worked. That is how this was found: 17 cells red across three suites.
+        grep -v -e '^owner=' -e '^expires=' -e '^note=' -e '^exclusive_cpu=' -e '^measuring=' "$f" || true
+    } > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 1; }
     mv -f "$tmp" "$f" || { rm -f "$tmp"; return 1; }
+}
+
+# claim_note_unwritten -- why the note still says what it said, when that matters.
+#
+# [Co-developed with claude code -- Adam]
+# ROLE-4 T5, measured 2026-09-11 01:55:07 against 01:59:53 (logs/ROLE-4/06-up-ovs4.log,
+# 17-claim-timeline.txt). The same `ndt up ovs 4` twice: run by the owner it rewrote the note to
+# "in use: ..."; run with NDT_OWNER UNSET it changed nothing and SAID nothing -- set_claim_note
+# returns 1 for a claim that is not yours and claim_note_up discarded that (`return 0`, no warn).
+# So a fabric was built while the note went on describing the previous round, which is I-4 again
+# in the one arm where nobody would notice: the operator who forgot NDT_OWNER is also the
+# operator who is not watching the claim.
+#
+# 🔴 SILENT WHEN THERE IS NO LIVE CLAIM, and that is not laziness. With no claim, or an expired
+# one, there is nothing to narrate and nobody is being misled -- warning there would put a line
+# on every teardown of an unreserved lab, which is how a warning stops being read. The case worth
+# a warning is precisely the one that bit: a claim IS live, it is not ours, and the sentence a
+# reader will act on is now stale.
+claim_note_unwritten() {
+    [[ -f "$CLAIM" ]] || return 0
+    local exp; exp="$(claim_field expires)"
+    [[ "$exp" =~ ^[0-9]+$ ]] && (( exp > $(date +%s) )) || return 0
+    warn "the claim note was NOT updated, and still says:"
+    warn "    $(claim_field note)"
+    warn "  the live claim belongs to $(claim_field owner) and NDT_OWNER is ${NDT_OWNER:-unset}."
+    warn "  a session that does not hold the lab may not narrate it -- so the sentence above is"
+    warn "  now describing something else. Set the same NDT_OWNER, or read 'ndt status'."
 }
 
 # claim_note_up <target> -- `ndt up` says, in the note, that it is using the lab.
@@ -945,8 +1009,11 @@ set_claim_note() {
 # is precisely the state whose note must not still say the lab is free.
 claim_note_up() {
     local what="$1"
-    set_claim_note "in use: ndt up $what at $(date '+%Y-%m-%d %H:%M:%S') by ${NDT_OWNER:-unset}" \
-        && info "claim note now says the lab is in use (owner and expiry unchanged)"
+    if set_claim_note "in use: ndt up $what at $(date '+%Y-%m-%d %H:%M:%S') by ${NDT_OWNER:-unset}"; then
+        info "claim note now says the lab is in use (owner and expiry unchanged)"
+    else
+        claim_note_unwritten
+    fi
     return 0
 }
 
@@ -955,13 +1022,31 @@ claim_note_up() {
 # sentence: "down" and "down, and something is still running" are not the same statement, and
 # the second one is the one a reader must not act on as if it were the first.
 claim_note_down() {
-    local rc="${1:-0}" when; when="$(date '+%Y-%m-%d %H:%M:%S')"
+    local rc="${1:-0}" when cleared="" ok=0
+    when="$(date '+%Y-%m-%d %H:%M:%S')"
+    # ROLE-4 T5, 01:57:54 verbatim: `measuring=ROLE-4 reader nsr, do not tear down` was still in
+    # the claim AFTER the `ndt down` that had killed that reader -- the declaration outlived the
+    # teardown that falsified it, and the next reader of the claim would have believed it. The
+    # field is a statement about a measurement that is running; once this command has torn the
+    # fabric down, it is not. Recorded in the note rather than merely dropped, so the clearing
+    # has a witness: the note is written by this down, at this time, by this owner.
+    if [[ -n "$(measuring_declared)" ]]; then
+        cleared="$(printf '%s' "$(claim_field measuring)" | cut -c1-64)"
+    fi
     if (( rc == 0 )); then
-        set_claim_note "down at $when; claim kept" \
-            && info "claim note now says the lab is down (owner and expiry unchanged)"
+        set_claim_note "down at $when; claim kept${cleared:+; cleared measuring=$cleared}" && ok=1
+        (( ok )) && info "claim note now says the lab is down (owner and expiry unchanged)"
     else
-        set_claim_note "down at $when did NOT verify clean; claim kept -- read 'running' below, not this note" \
-            && info "claim note now says the teardown did not verify clean"
+        set_claim_note "down at $when did NOT verify clean; claim kept -- read 'running' below, not this note${cleared:+; cleared measuring=$cleared}" && ok=1
+        (( ok )) && info "claim note now says the teardown did not verify clean"
+    fi
+    if (( ok )); then
+        if [[ -n "$cleared" ]]; then
+            claim_rewrite measuring "" \
+                && info "cleared the claim's measuring= declaration -- this teardown ended what it declared"
+        fi
+    else
+        claim_note_unwritten
     fi
     return 0
 }
