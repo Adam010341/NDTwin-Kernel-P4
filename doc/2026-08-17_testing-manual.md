@@ -367,6 +367,16 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
   給你 `processes=` ／ `network=<窗內規則>/<鎖>/<定不了年的>` ／ `not_answerable=`，
   乾淨＝`processes=clean` 且前兩個數字是 0；**`not_answerable`＞0 與「定不了年」＞0 是 NOTE 不是 FAIL**。
   沒有 tally 行 ⇒ 它回 rc 2 `UNUSABLE`，**不准當成過**。規格：`tests/shell/test_orphans_verdict.sh`。
+  🆕 **09-11 例外只有一個：`ndt down` 之後。** `ndt down` 關掉 `:8000`，`residue_report`
+  （`ndt:5415`）就會印 `the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked.`
+  然後**在印 tally 之前 return**——所以收工那一道問到的報告本來就沒有 tally 行。
+  報告裡有那句 ⇒ helper 進 **kernel-down 模式**：印 `network=n/a`、`not_answerable=n/a`、
+  `NOTE: network half not checkable: kernel down`（底下引 `ndt` 自己那兩句），
+  **VERDICT 由行程那半決定**（它讀 pidfile／`/proc`／argv，不讀 `:8000`，down 之後仍然是答案；
+  有 untracked 行程照樣 NOT CLEAN）。**沒有那句 ⇒ 照舊 UNUSABLE**：沒有 tally 還有另外兩個成因
+  （殘留那半中途死掉、舊版 `ndt` 的 `orphans` 根本沒有網路那半），而**舊版那個一行形報告
+  kernel 開著關著長得一模一樣**（`logs/*-04-orphans.log` 8 份是開著的）⇒ 光看「沒有 tally」
+  分不出來，所以判準是**那句話**不是那個缺口。**網路那半要有答案就在 `ndt down` 之前問。**
 - **要退掉這個行為**（如果哪天不要了）：把 `ndt:3914-3918` 那兩行從
   「併進 `APP_SURVIVOR_BLIND`」改成只印不記，閘門
   `tests/shell/mutate_ndt_helper_apps_window.sh` 的 M24 會立刻紅。

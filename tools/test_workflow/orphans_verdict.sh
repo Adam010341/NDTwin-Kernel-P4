@@ -54,6 +54,47 @@
 # 🔴 A report with no tally line at all is UNUSABLE (rc 2), never CLEAN. Half a report read as a
 # pass is the failure mode this file exists to remove, not one to reintroduce.
 #
+# =================================================================================================
+# KERNEL-DOWN MODE -- the one case where a missing tally is not an unreadable report
+# =================================================================================================
+# `ndt down` closes :8000. residue_report's first act is to ask :8000 for the flow table, and when
+# the port is closed it says so and returns BEFORE printing a tally (ndt:5415):
+#
+#     !!  the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked.
+#     !!  this is not 'the lab is clean'. it is 'nobody asked'. (KNOWN-ISSUES G-12)
+#
+# So every report taken after `ndt down` -- which is where a round's restore check is taken -- had
+# no tally, and this reader answered UNUSABLE on a machine that six other instruments had just
+# called clean. Measured on the merge tree, 2026-09-10 23:59:
+# `scratch/overnight-2026-09-05/logs/lv-p4128-94-orphans.log`, written up in R5-P4-128 §5 and
+# raised as §7-2: "as an end-of-round restore gate this helper is structurally always UNUSABLE".
+# Adam took option (b) of that item: give the reader a legal kernel-down exit.
+#
+# 🔴 What makes it legal is that `ndt` SAID SO. The rule is not "a missing tally is fine after a
+# down"; it is "a missing tally is readable only when the report names the reason":
+#
+#     no tally + a kernel-down sentence from `ndt`  ->  network=n/a, verdict from the process half
+#     no tally + nothing saying why                 ->  UNUSABLE, exactly as before
+#
+# The second line is the whole safety of the first. A report cut off mid-run, a report from an
+# older `ndt` whose `orphans` had no network half at all (every `*-94-orphans.log` before 09-10 is
+# one line long), a report whose residue half died -- none of those explain themselves, and none of
+# them may pass. tests/shell/test_orphans_verdict.sh pins both lines, with the kernel-down fixture
+# copied verbatim from that live log and the negative control taken verbatim from
+# `logs/lv-a7-94-orphans.log`.
+#
+# 🔴 The missing half is named, never counted as zero: the fields print `network=n/a` and
+# `not_answerable=n/a` rather than `0/0/0` and `0`, and `NOTE: network half not checkable: kernel
+# down` is printed above the verdict with `ndt`'s own two sentences quoted under it. E-7 forbids a
+# check that could not look from looking like a check that looked; what it does not forbid is
+# reporting the half that DID look. The process half does not read :8000 -- it reads pidfiles,
+# /proc and argv -- so after a down it is still a real answer, and it is the answer the verdict
+# comes from. A running orphan after `ndt down` is NOT CLEAN, kernel or no kernel.
+#
+# 🔴 A tally, if one is present, always wins: the kernel-down branch is only reachable when there
+# is no tally to read. A report carrying both (no `ndt` path produces one today) is read from its
+# tally, so this can never become a way to skip numbers that were printed.
+#
 # The exit code `ndt` itself returned may be passed in as the second argument. It is ECHOED for the
 # record and never consulted. Two runs of this helper over the same report text must agree whatever
 # rc is handed to them -- tests/shell/test_orphans_verdict.sh pins exactly that.
@@ -74,9 +115,11 @@
 # and `ndtwin-lab`, and a caller that relies on the execute bit breaks on a fresh clone.
 #
 # `-` reads the report from stdin. Exit codes of THIS script:
-#     0  CLEAN     (possibly with NOTEs -- read them, they are in the output)
+#     0  CLEAN     (possibly with NOTEs -- read them, they are in the output. After an `ndt down`
+#                  this means "the process half is clean and the network half was not checkable")
 #     1  NOT CLEAN (an untracked process, a blind process channel, a dated rule, or a held lock)
-#     2  UNUSABLE  (no report, or a report this cannot parse -- never to be read as a pass)
+#     2  UNUSABLE  (no report, or a report this cannot parse and that does not say why -- never to
+#                  be read as a pass)
 
 set -uo pipefail
 
@@ -133,19 +176,53 @@ fi
 # than against ndt's source. That is what this reads.
 TALLY="$(sed -n 's/.*tally: \([0-9][0-9]*\) dated rule(s) in a window, \([0-9][0-9]*\) lock(s) held, \([0-9][0-9]*\) rule(s) that could not be dated, \([0-9][0-9]*\) question(s) not answerable.*/\1 \2 \3 \4/p' <<<"$REPORT" | tail -1)"
 
-if [[ -z "$TALLY" ]]; then
+# --- kernel-down mode: a missing tally that the report itself explains ----------------------------
+# Only consulted when there is no tally, so a printed number is never skipped in favour of a
+# sentence. Both matches are `ndt` saying, in its own words, that :8000 was closed and therefore
+# no rule and no lock was read: residue_report (ndt:5415) is the one that produces this report
+# shape, status_residue_row (ndt:5368) is the same statement from `ndt status --check`.
+KERNEL_DOWN=0
+if [[ -z "$TALLY" ]] \
+   && { grep -qF -- 'the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked' <<<"$REPORT" \
+        || grep -qF -- "NOT CHECKED -- :8000 is closed, so no rule and no lock was read" <<<"$REPORT"; }; then
+    KERNEL_DOWN=1
+fi
+
+if [[ -z "$TALLY" ]] && (( KERNEL_DOWN == 0 )); then
     echo "processes=$PROCESSES"
-    echo "VERDICT: UNUSABLE -- no 'tally:' line in the report. This is NOT 'the network is clean':"
-    echo "         the residue report did not run, or did not finish. Do not pass on it."
+    echo "VERDICT: UNUSABLE -- no 'tally:' line in the report, and nothing in it says why. This is"
+    echo "         NOT 'the network is clean': the residue report did not run, or did not finish."
+    echo "         (A report that DOES name the reason -- ':8000 closed' after 'ndt down' -- is read"
+    echo "         instead: network=n/a and the verdict comes from the process half.)"
+    echo "         Do not pass on it."
     exit 2
 fi
 
-read -r N_RULES N_LOCKS N_UNDATED N_UNANSWERABLE <<<"$TALLY"
+if (( KERNEL_DOWN )); then
+    # Zeroed so the verdict arithmetic below has numbers to read. They are NOT printed as fields:
+    # the network half was not measured, and a measurement of zero is a different claim.
+    N_RULES=0; N_LOCKS=0; N_UNDATED=0; N_UNANSWERABLE=0
+else
+    read -r N_RULES N_LOCKS N_UNDATED N_UNANSWERABLE <<<"$TALLY"
+fi
 
 echo "processes=$PROCESSES"
-echo "network=$N_RULES/$N_LOCKS/$N_UNDATED"
-echo "not_answerable=$N_UNANSWERABLE"
+if (( KERNEL_DOWN )); then
+    echo "network=n/a"
+    echo "not_answerable=n/a"
+else
+    echo "network=$N_RULES/$N_LOCKS/$N_UNDATED"
+    echo "not_answerable=$N_UNANSWERABLE"
+fi
 [[ -n "$NDT_RC" ]] && echo "ndt_rc=$NDT_RC (recorded, NOT used for the verdict)"
+
+if (( KERNEL_DOWN )); then
+    echo "NOTE: network half not checkable: kernel down"
+    echo "      :8000 was closed when this report was taken (an 'ndt down' has run), so NO rule and"
+    echo "      NO lock was read. The verdict below comes from the process half ALONE -- it reads"
+    echo "      pidfiles, /proc and argv, not the kernel, so it is still an answer. Ask 'orphans'"
+    echo "      BEFORE the down if you need the network half of a round answered."
+fi
 
 # --- the NOTEs: the things that are honest about not knowing, and are not failures ---------------
 if (( N_UNANSWERABLE > 0 )); then
@@ -176,7 +253,17 @@ esac
 (( N_LOCKS > 0 )) && REASONS+=("$N_LOCKS lock(s) held -- a lock frees itself at its TTL")
 
 if (( ${#REASONS[@]} == 0 )); then
-    echo "VERDICT: CLEAN"
+    # 🔴 The kernel-down verdict is QUALIFIED on its own line rather than left as a bare
+    # `VERDICT: CLEAN`, because the NOTE above is not guaranteed to reach the reader: the
+    # print-only call sites are told to show `orphans_verdict.sh <log> <rc> | tail -1`, and
+    # `tail -1` is THIS line. "CLEAN" with no qualifier, for a network half nobody read, is the
+    # exact shape E-7 forbids. The token `CLEAN` is unchanged, so both the rc and a
+    # `grep -F 'VERDICT: CLEAN'` gate (.claude/skills/overnight-hunt/SKILL.md:199) still match.
+    if (( KERNEL_DOWN )); then
+        echo "VERDICT: CLEAN -- the process half only; the network half was NOT checked (kernel down)"
+    else
+        echo "VERDICT: CLEAN"
+    fi
     exit 0
 fi
 
