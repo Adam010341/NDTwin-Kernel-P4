@@ -2153,5 +2153,91 @@ class GraphSideDuplicateHostMacTest(unittest.TestCase):
         self.assertTrue(any("duplicate host mac" in m for m in failures), failures)
 
 
+class ModelUnderTestTest(unittest.TestCase):
+    """
+    E-2: the kernel now says which model it loaded, and the contract asserts it is the one this
+    run was pointed at.
+
+    [Co-developed with claude code -- Adam]
+    The three directions that matter are the same three the invariant documents: a matching
+    kernel is silent, a MISSING field is a precondition rather than a pass or a failure, and a
+    kernel serving a different file fails. The middle one is the widening -- treating "the
+    kernel did not say" as either verdict is how a pre-E-2 kernel would be reported broken, or
+    how a real mismatch would be reported fine.
+    """
+
+    def _ctx(self):
+        return real_ctx()
+
+    def _body(self, **extra):
+        return {"nodes": [node(1)], "edges": [], **extra}
+
+    def test_the_three_keys_are_optional_so_a_pre_e2_kernel_still_validates(self):
+        base = {"nodes": [{"device_name": "s1", "dpid": 1, "ip": [], "is_enabled": True,
+                           "is_up": True, "mac": 1, "vertex_type": 0, "brand_name": "x",
+                           "device_layer": 1}], "edges": []}
+        self.assertEqual(validate(spec.GRAPH_DATA, base), [],
+                         "baseline 28b8b13 serves none of the three and must still validate")
+        digest = "a" * 64
+        self.assertEqual(validate(spec.GRAPH_DATA,
+                                  {**base, "topology_file": "/x.json",
+                                   "topology_sha256": digest,
+                                   "topology_loaded_at": 1757000000}), [])
+
+    def test_the_three_keys_are_type_checked_when_present(self):
+        base = {"nodes": [{"device_name": "s1", "dpid": 1, "ip": [], "is_enabled": True,
+                           "is_up": True, "mac": 1, "vertex_type": 0, "brand_name": "x",
+                           "device_layer": 1}], "edges": []}
+        self.assertTrue(validate(spec.GRAPH_DATA, {**base, "topology_file": ""}),
+                        "an empty path is not an answer and must not validate")
+        self.assertTrue(validate(spec.GRAPH_DATA, {**base, "topology_loaded_at": "yesterday"}),
+                        "the timestamp is epoch seconds, not text")
+
+    def test_a_kernel_serving_the_model_under_test_reports_nothing(self):
+        ctx = self._ctx()
+        with open(ctx.topology_path, "rb") as fh:
+            digest = hashlib.sha256(fh.read()).hexdigest()
+        out = spec.inv_kernel_serves_the_model_under_test(
+            self._body(topology_file=ctx.topology_path, topology_sha256=digest), ctx)
+        self.assertEqual(out, [])
+
+    def test_a_relative_and_an_absolute_name_for_one_file_are_not_a_mismatch(self):
+        ctx = self._ctx()
+        relative = os.path.relpath(ctx.topology_path, os.getcwd())
+        out = spec.inv_kernel_serves_the_model_under_test(
+            self._body(topology_file=os.path.join(os.getcwd(), relative)), ctx)
+        self.assertEqual(out, [], "two spellings of one file are not two files")
+
+    def test_a_kernel_serving_a_different_model_fails(self):
+        ctx = self._ctx()
+        other = os.path.join(REPO_ROOT, "setting", "StaticNetworkTopologyMininet_10Switches.json")
+        out = spec.inv_kernel_serves_the_model_under_test(
+            self._body(topology_file=other), ctx)
+        self.assertTrue(out, "the whole point: a wrong model is green in every other check")
+        self.assertFalse(any(m.startswith(TOOL_PRECONDITION) for m in out),
+                         "this is a finding, not an inability to check")
+        self.assertIn(other, out[0])
+
+    def test_a_kernel_that_does_not_say_is_a_precondition_not_a_verdict(self):
+        out = spec.inv_kernel_serves_the_model_under_test(self._body(), self._ctx())
+        self.assertEqual(len(out), 1)
+        self.assertTrue(out[0].startswith(TOOL_PRECONDITION),
+                        "a pre-E-2 kernel is not broken, and it is not confirmed either")
+
+    def test_a_file_edited_since_the_load_fails(self):
+        ctx = self._ctx()
+        out = spec.inv_kernel_serves_the_model_under_test(
+            self._body(topology_file=ctx.topology_path, topology_sha256="0" * 64), ctx)
+        self.assertTrue(out)
+        self.assertFalse(any(m.startswith(TOOL_PRECONDITION) for m in out))
+        self.assertIn("edited since the kernel loaded it", out[0])
+
+    def test_a_digest_that_is_not_sha256_hex_is_a_contract_change(self):
+        ctx = self._ctx()
+        out = spec.inv_kernel_serves_the_model_under_test(
+            self._body(topology_file=ctx.topology_path, topology_sha256="DEADBEEF"), ctx)
+        self.assertTrue(any("64 lowercase hex" in m for m in out), out)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

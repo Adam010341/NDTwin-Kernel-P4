@@ -780,6 +780,45 @@ bash tools/test_workflow/run_layers.sh compare                  # P4 對 OVS 基
 `--mutations` 才會去打寫入端點。工具本身在 `tools/contract_test/`，那裡的 README 解釋
 為什麼「7 個元件與 kernel 之間唯一的介面就是 `/ndt/*`」使得在一處驗契約等於驗了全部地基。
 
+<a id="run-layers-asks-the-kernel"></a>
+### 3a. `run_layers.sh` 拿哪一份模型來驗（2026-09-07 起改成**問 kernel**）
+
+**先問 kernel，問不到才推導。** 順序是固定的三層：
+
+1. `NDT_TOPO=<path>` — 手動指定，蓋過下面兩層（不變，仍是逃生門）。
+2. **kernel 說的**：`GET /ndt/get_graph_data` 的 `topology_file`。腳本會拿本機那個檔的
+   `sha256sum` 跟 kernel 回的 `topology_sha256` 對，**一致才用**。
+3. kernel 沒回這個欄位（不通、或是 E-2 之前的 kernel）⇒ 退回原本的推導
+   （由活著的 host 數在 `setting/` 找同基數的模型），並**印一行說它在猜（`guessing`）**。
+
+🔴 **為什麼要改**：第 3 層是猜。`setting/` 裡不只一份模型是「10 switch／4 host／40 edge／
+同十個 dpid」，所以拿 A 的 fabric 對 B 的模型驗**本來就會全綠**——每一條 per-node 身分
+檢查都通過，因為數字本來就一樣。儀器不知道自己在測什麼（`fix/R2-PY-SUMMARY.md` §7-3、
+`doc/KNOWN-ISSUES.md` **G-15**）。
+
+**兩種 rc 3（拒絕，不是失敗）**，兩種都會印該怎麼辦：
+
+| 情況 | 訊息 |
+|---|---|
+| kernel 說的檔**載入後被改過**（sha 不合） | `... has been edited since the kernel loaded it`，並列出兩個 digest。twin 在服務舊內容、下面的層會讀新內容，差異會被當成產品缺陷 |
+| kernel 說的檔**本機讀不到** | `... cannot read that file`。這一輪無法確認 twin 在描述哪個網路 |
+
+⚠️ **舊 kernel 不是壞掉。** `28b8b13` 與所有 E-2 之前的 kernel 都不送這三個欄位；
+**缺欄位＝「kernel 沒說」**，不是「沒有東西要檢查」。腳本照樣跑（退回推導），
+契約套件則回 `TOOL-PRECONDITION-FAILED` 而不是綠也不是紅
+（`tools/contract_test/spec.py` 的 `inv_kernel_serves_the_model_under_test`）。
+**把「沒說」當成拒絕跑，是這個閘門的 M6 對照格在擋的加寬。**
+
+⚠️ **`NDT_TOPO` 指到一個 kernel 沒載入的檔 ⇒ L2 契約會紅**，訊息是
+「the kernel loaded X, and this run is validating it against Y」。**這是它該做的**：
+把 twin 拿去跟另一份模型比，每一條計數與 dpid 檢查都會通過（數字一樣），
+唯一會說話的就是這一條。要對比另一份模型，請自己讀那條訊息，不要把它當成雜訊關掉。
+
+自動化測試：`tests/shell/test_run_layers_asks_kernel.sh`（10 格）、
+`tests/test_TopologyLoadedModelReported.cpp`（kernel 那半）、
+`tests/python/test_contract_spec.py` 的 `ModelUnderTestTest`、
+閘門 `tests/shell/mutate_kernel_reports_loaded_model.sh`。
+
 **規格對照**：`doc/2026-01-02_ndt_api.md` 記載全部 **41** 個端點（§1–§41，與 dispatcher
 逐條相符）；其中 **32** 個有機器檢查（2026-08-17 補上 `historical_logging` 三條與
 `intent_translator/text` 的錯誤路徑一條）。剩下九條沒有：group／meter 各三（Tier 2，

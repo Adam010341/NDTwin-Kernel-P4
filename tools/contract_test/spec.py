@@ -17,7 +17,10 @@ registrations, which is why a few appear that 2026-01-02_ndt_api.md does not doc
 from __future__ import annotations
 
 import functools
+import hashlib
 import json
+import os
+import re
 
 from schema import (
     Any_,
@@ -442,7 +445,27 @@ GRAPH_EDGE = Obj({
     "down_reason": Str(allowed=DOWN_REASONS),
 })
 
-GRAPH_DATA = Obj({"nodes": List(GRAPH_NODE, min_len=1), "edges": List(GRAPH_EDGE)})
+GRAPH_DATA = Obj({"nodes": List(GRAPH_NODE, min_len=1), "edges": List(GRAPH_EDGE)}, optional={
+    # [Co-developed with claude code -- Adam] -- E-2 (DECISIONS.md, grill §4E), KNOWN-ISSUES G-15.
+    # Which model the kernel loaded, so a consumer stops having to infer it. `run_layers.sh` used
+    # to derive the model from (data plane, live host count) and `setting/` holds more than one
+    # model with the same dpids and the same cardinality, so validating one fabric against
+    # another's model was green by construction.
+    #
+    # OPTIONAL, and that is the whole of the baseline story: a kernel built before this change
+    # (`28b8b13`) serves none of the three, and a consumer that meets that must read it as "the
+    # kernel did not say" rather than as licence to guess. Making them required would turn this
+    # suite into a version check and would fail every pre-E-2 kernel on a healthy fabric -- the
+    # same mistake, in the same file, that the liveness triple below is optional to avoid.
+    #
+    # Listing them pins the TYPES. The rest of the shape -- that the digest is 64 lowercase hex,
+    # that it is the digest of the file the run was pointed at, and that the file has not been
+    # edited since -- is inv_kernel_serves_the_model_under_test below, because those are claims
+    # about values agreeing with each other and with the disk, not about JSON structure.
+    "topology_file": Str(nonempty=True),
+    "topology_sha256": Str(nonempty=True),
+    "topology_loaded_at": Int(min=1),
+})
 
 PATH_HOP = Obj({"node": Int(min=0), "interface": Int(min=0)})
 
@@ -1048,6 +1071,82 @@ def inv_no_silent_telemetry(data, ctx):
     return out[:10]
 
 
+_SHA256_HEX = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _digest_of_file(path):
+    """sha256 of a file, lowercase hex, or None when it cannot be read."""
+    try:
+        with open(path, "rb") as fh:
+            return hashlib.sha256(fh.read()).hexdigest()
+    except OSError:
+        return None
+
+
+def inv_kernel_serves_the_model_under_test(data, ctx):
+    """
+    The kernel must be serving the model this run is validating it against.
+
+    [Co-developed with claude code -- Adam] -- E-2 (DECISIONS.md, grill §4E), KNOWN-ISSUES G-15.
+
+    🔴 This is the check R2-PY §7-3 said could not exist, and it could not until the kernel
+    reported what it had loaded. `inv_graph_matches_topology` compares the graph against the
+    file it was HANDED, so when the runner is pointed at the wrong model the two agree by
+    definition -- and `setting/` holds more than one model with the same ten dpids and the same
+    10/4/40 cardinality, so "the wrong model" is not a hypothetical: it is one `--topology`
+    argument away and it is green.
+
+    Three answers, and the third is the point:
+
+      * the kernel names the same file this run was pointed at, and its digest still matches
+        what is on disk                                          -> nothing to report
+      * the kernel does not say (built before E-2, `28b8b13`)     -> TOOL-PRECONDITION-FAILED
+      * the kernel names a DIFFERENT file, or the same file with a different digest -> FAIL
+
+    The second answer is a separate verdict rather than a pass for the same reason the whole
+    TOOL_PRECONDITION prefix exists: a check that cannot run must not be serialised the same way
+    as a check that ran and found nothing (A-8, and the memory note about an instrument that
+    mimics its own finding). A pre-E-2 kernel is not broken; this run simply cannot tell.
+    """
+    said = data.get("topology_file")
+    if not isinstance(said, str) or not said:
+        return [TOOL_PRECONDITION +
+                "this kernel does not report which topology it loaded (no `topology_file` on "
+                "get_graph_data), so nothing here can confirm the graph is being compared "
+                "against the model the kernel is actually serving. Baseline 28b8b13 and every "
+                "kernel before E-2 answers this way"]
+
+    out = []
+    digest = data.get("topology_sha256")
+    if isinstance(digest, str) and not _SHA256_HEX.match(digest):
+        out.append(f"`topology_sha256` is {digest!r}, which is not 64 lowercase hex digits -- "
+                   f"the field exists so a caller can compare it against `sha256sum`, and any "
+                   f"other encoding silently never matches")
+
+    # realpath both sides: the kernel absolutises what it was given, and the runner is routinely
+    # pointed at a relative path from a different working directory. Comparing the spellings
+    # would report a mismatch for two names of one file.
+    if os.path.realpath(said) != os.path.realpath(ctx.topology_path):
+        out.append(f"the kernel loaded {said}, and this run is validating it against "
+                   f"{ctx.topology_path}. Every count and dpid check below compares the graph "
+                   f"with the file it was handed, so a wrong model is green by construction "
+                   f"(fix/R2-PY-SUMMARY.md §7-3)")
+        return out
+
+    if isinstance(digest, str) and _SHA256_HEX.match(digest):
+        on_disk = _digest_of_file(said)
+        if on_disk is None:
+            out.append(TOOL_PRECONDITION +
+                       f"the kernel loaded {said} and this host cannot read it, so whether the "
+                       f"file has changed since the load is unknown")
+        elif on_disk != digest:
+            out.append(f"{said} has been edited since the kernel loaded it: the kernel is "
+                       f"serving sha256 {digest} and the file on disk is now {on_disk}. The "
+                       f"twin is describing the old contents and every check here reads the new "
+                       f"ones, so a difference between them is not a product defect")
+    return out
+
+
 def inv_flows_present(data, ctx):
     """Only meaningful with traffic running; gated by --with-traffic."""
     if not data:
@@ -1608,7 +1707,11 @@ ENDPOINTS = [
     # ---------- read-only: topology and telemetry ----------
     dict(name="get_graph_data", method="GET", path="/ndt/get_graph_data",
          category=READ, schema=GRAPH_DATA,
-         invariants=[inv_graph_matches_topology, inv_all_switches_up,
+         # [Co-developed with claude code -- Adam] -- E-2. First in the list on purpose: every
+         # check after it compares the graph against the file this run was handed, and if the
+         # kernel is serving a different file none of them means what it says.
+         invariants=[inv_kernel_serves_the_model_under_test,
+                     inv_graph_matches_topology, inv_all_switches_up,
                      inv_edges_enabled, inv_link_bandwidth_sane,
                      inv_no_silent_telemetry],
          note="used by all 7 tools/apps -- if this breaks, everything breaks"),

@@ -3641,6 +3641,59 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 
 ---
 
+### G-15 🏁 `run_layers.sh` 用 (mode, 活 host 數) **猜**模型、從不問 kernel ⇒ 對錯模型驗**本來全綠** —— **已修**
+
+> ⚠️ **編號**：09-07 round 3 同夜有別的分支占用 **G-13**（P4 規則裝入時間戳，E-10）與
+> **G-14**；三邊各自插條目，合併時照序留三份、不要重排。這一條是 **G-15**。
+
+- **狀態**：🏁 **已修（2026-09-07，分支 `fix/e2-kernel-reports-loaded-model`，未併未推）。**
+  裁決 `scratch/overnight-2026-09-05/DECISIONS.md`「grill §4E」**E-2**：
+  「**開單，kernel 回報載入的模型路徑＋sha**，腳本改成問 kernel」。
+  來源 `scratch/overnight-2026-09-05/fix/R2-PY-SUMMARY.md` §7 第 3 條。
+- **平面**：**與平面無關**（是測試選檔的邏輯，OVS／P4 都中）
+- **失效方向**：🔴 **靜默 ＋ 綠得理直氣壯**——不是漏報也不是誤報，是**整套契約檢查在對一個
+  不存在的網路做比對，而每一條都通過**。
+- **機制**（三件事湊起來）：
+  1. `topo_for_mode()` 由「資料平面 ＋ 活著的 host 數」在 `setting/` 找模型；
+  2. `setting/` 裡**不只一份**模型是「10 switch／4 host／40 edge／同十個 dpid」；
+  3. 契約檢查（`inv_graph_matches_topology`）比的是「圖 vs **它被交到手上的**那份檔」。
+  ⇒ 拿 A 建的 fabric 對 B 的模型驗，**每一條 per-node 身分檢查都通過，因為數字本來就一樣**。
+  🔑 **儀器不知道自己在測什麼**，而它沒有任何管道可以知道——**kernel 從來沒說過它開了哪個檔**。
+  🟢 **跑過（09-07 逐檔 parse `setting/`）：兩對**完全同形——
+  `P4_10Switches_4Hosts` ／ `OVS_10Switches_4Hosts`（10/4/40）與
+  `P4_10Switches_128Hosts` ／ `Mininet_10Switches`（10/128/288），dpid 都是 1..10。
+  ⚠️ 推導唯一的防線是**檔名前綴**（家族分流）——那是命名慣例、不是關於跑著的系統的事實；
+  而且 **kernel 可以用 `--topology` 開任何一個檔**（不在 `setting/`、不照命名），
+  **推導永遠構不到那種檔**。
+- **與 L-1 的分工**：L-1 修的是「模型跟著跑著的 fabric 走，而不是跟著 `components.env` 的預設」；
+  它讓推導**更準**，但推導仍然是推導。**這一條修的是「不要推導，去問」。**
+- 🏁 **落地的形狀**：
+  - kernel：`GET /ndt/get_graph_data` **頂層純新增**三個欄位 `topology_file`（絕對路徑）、
+    `topology_sha256`（**載入那一刻檔案 bytes 的 sha256**，64 位小寫十六進位、與 `sha256sum` 同）、
+    `topology_loaded_at`（epoch 秒）。**在載入器讀檔時算一次、存起來，不在每次請求重讀檔**
+    ——重讀會報告「磁碟現在是什麼」，而那正是消費者要拿來比對的量。
+  - `tools/test_workflow/run_layers.sh`：**先問 kernel**（`NDT_TOPO` 仍蓋過一切），
+    比對 sha；不合 ⇒ **rc 3 拒絕**並印出兩個 digest；kernel 沒回 ⇒ 退回推導**並印 `guessing`**。
+  - 契約：`GRAPH_DATA` 三個 optional 欄位 ＋ 新的 invariant
+    `inv_kernel_serves_the_model_under_test`——**kernel 說的檔 ≠ 這一輪被指到的檔 ⇒ 紅**。
+    這就是 R2-PY §7-3 說「關不掉」的那道門，在 kernel 肯說之前確實關不掉。
+- 🔴 **baseline 的語意（每個新欄位都要交代的那一條）**：`28b8b13` 與所有 E-2 之前的 kernel
+  **三個欄位一個都不送**。**缺欄位＝「kernel 沒說」，不是「沒有東西要檢查」，更不是「沒問題」。**
+  消費者不准因此改去猜：`run_layers.sh` 退回推導**並明說在猜**，契約套件回
+  `TOOL-PRECONDITION-FAILED`（既不是綠也不是紅）。**把「沒說」當成拒絕跑是加寬**，
+  由閘門的 M6 對照格擋著；**沒載入任何拓樸的 kernel 也一個欄位都不送**（同一個形狀、同一個意思），
+  由 M8 對照格擋著。
+- **測試**：`tests/test_TopologyLoadedModelReported.cpp`（7 格，含測試自己的 hasher 對
+  FIPS 180-4 的 "abc" 向量）、`tests/shell/test_run_layers_asks_kernel.sh`（10 格）、
+  `tests/python/test_contract_spec.py`（+8 格，總數 141 → 149）。
+  閘門 `tests/shell/mutate_kernel_reports_loaded_model.sh`，**8 個變異零存活**（含兩個加寬對照格）。
+- **修法文件**：`doc/audit/2026-09-07_fix-e2-kernel-reports-loaded-model/FIX-E2.md`。
+- ⚠️ **live 未驗**：本分支的證據全部來自單元／整合測試與閘門；
+  「arm 這顆二進位、對活 fabric 打 `curl … | jq .topology_file` 再跑一次 `run_layers.sh`」
+  由 orchestrator 做，**尚未進行**。
+
+---
+
 ### G-16 ⚠️ 豁免只影響「讀」，不影響「下令」：`power_path=none` 的交換機照樣關得掉，關掉之後永遠讀不到它省下的電
 
 > **與 C-5c 的分工**：C-5c 是**記號沒被讀**（電源管理器照打 Brocade 的 OID／SSH），已修。

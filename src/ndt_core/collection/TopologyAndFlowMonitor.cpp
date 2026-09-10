@@ -12,6 +12,7 @@
 #include <functional>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -992,7 +993,7 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
         }
     }
 
-    std::ifstream file(path);
+    std::ifstream file(path, std::ios::binary);
     if (!file.is_open())
     {
         SPDLOG_LOGGER_ERROR(Logger::instance(), "Cannot open topology file:  {}", path);
@@ -1001,8 +1002,17 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
 
     SPDLOG_LOGGER_INFO(Logger::instance(), "Load Static Topology File");
 
-    json j;
-    file >> j;
+    // [Co-developed with claude code -- Adam] -- E-2.
+    // Read once into a string and parse THAT, rather than streaming straight into the parser,
+    // so the bytes that become the graph and the bytes that are hashed are the same bytes. A
+    // second open to hash the file would be a second read of a file that can change between the
+    // two, which is the very race this record exists to make visible. Binary mode for the same
+    // reason: `sha256sum` hashes what is on disk, and so must this.
+    const std::string bytes((std::istreambuf_iterator<char>(file)),
+                            std::istreambuf_iterator<char>());
+    noteLoadedTopology(path, bytes);
+
+    json j = json::parse(bytes);
 
     // [Co-developed with claude code -- Adam]
     // FINDINGS #61/#62. The whole file is checked here, before the first add_vertex below, so a
@@ -1882,6 +1892,95 @@ TopologyAndFlowMonitor::pollRoundJson() const
     return json{{"kind", kindToken},
                 {"complete", m_lastPollRoundKind == PollRoundKind::Complete},
                 {"endpoints", endpoints}};
+}
+
+/** @brief sha256 of a byte string as lowercase hex -- byte for byte what `sha256sum` prints.
+ *
+ * [Co-developed with claude code -- Adam] -- E-2.
+ * The hex form is the contract, not an implementation detail: the consumer this exists for is a
+ * shell script comparing against `sha256sum <file> | cut -d' ' -f1`, and a digest served in any
+ * other encoding would have to be converted by every reader. `hashDstIp` above uses the same
+ * OpenSSL one-shot and keeps only the first eight bytes, which is a hash table key and not this.
+ */
+std::string
+TopologyAndFlowMonitor::sha256Hex(const std::string& bytes)
+{
+    unsigned char digest[SHA256_DIGEST_LENGTH];
+    SHA256(reinterpret_cast<const unsigned char*>(bytes.data()), bytes.size(), digest);
+
+    static constexpr char kHex[] = "0123456789abcdef";
+    std::string out;
+    out.reserve(sizeof(digest) * 2);
+    for (unsigned char b : digest)
+    {
+        out.push_back(kHex[b >> 4]);
+        out.push_back(kHex[b & 0x0F]);
+    }
+    return out;
+}
+
+/** @brief Records the topology file that was just read, for loadedTopologyJson().
+ *
+ * [Co-developed with claude code -- Adam] -- E-2.
+ * Called from parseStaticTopologyFile with the bytes it is about to parse, and from nowhere
+ * else. The path is absolutised here rather than at the endpoint: `--topology setting/x.json`
+ * and a kernel started from a different working directory name the same file, and a consumer
+ * comparing paths cannot resolve a relative one against a working directory it cannot see.
+ * `weakly_canonical` rather than `canonical` because it does not require the file to exist --
+ * it has just been read, but a symlink that resolves at load and not at report time must not
+ * turn this into a throw on the load path.
+ *
+ * Recorded BEFORE the parse and BEFORE validateStaticTopologyJson: the honest statement is
+ * "these are the bytes I read", and a file that fails either check ends the process (see
+ * loadStaticTopology), so no consumer can ever see a record for a load that did not finish.
+ */
+void
+TopologyAndFlowMonitor::noteLoadedTopology(const std::string& path, const std::string& bytes)
+{
+    std::string absolute = path;
+    std::error_code ec;
+    const std::filesystem::path resolved = std::filesystem::weakly_canonical(path, ec);
+    if (!ec)
+    {
+        absolute = resolved.string();
+    }
+
+    const std::string digest = sha256Hex(bytes);
+    const auto now = std::chrono::duration_cast<std::chrono::seconds>(
+                         std::chrono::system_clock::now().time_since_epoch())
+                         .count();
+
+    std::lock_guard<std::mutex> lock(m_loadedTopologyMutex);
+    m_loadedTopology.path = absolute;
+    m_loadedTopology.sha256 = digest;
+    m_loadedTopology.loadedAt = static_cast<std::int64_t>(now);
+    m_loadedTopology.recorded = true;
+
+    SPDLOG_LOGGER_INFO(Logger::instance(),
+                       "topology loaded: {} sha256={}",
+                       m_loadedTopology.path,
+                       m_loadedTopology.sha256);
+}
+
+/** @brief What this kernel loaded, in the shape /ndt/get_graph_data serves it.
+ *
+ * [Co-developed with claude code -- Adam] -- E-2.
+ * An empty object when nothing has been recorded, so the three keys are simply absent from the
+ * response -- the same thing a pre-E-2 kernel serves. That is deliberate: "absent" already has
+ * to mean "the kernel did not say" for the baseline, and inventing a null or an empty string
+ * here would give the same condition a second spelling that consumers would have to learn.
+ */
+json
+TopologyAndFlowMonitor::loadedTopologyJson() const
+{
+    std::lock_guard<std::mutex> lock(m_loadedTopologyMutex);
+    if (!m_loadedTopology.recorded)
+    {
+        return json::object();
+    }
+    return json{{"topology_file", m_loadedTopology.path},
+                {"topology_sha256", m_loadedTopology.sha256},
+                {"topology_loaded_at", m_loadedTopology.loadedAt}};
 }
 
 void

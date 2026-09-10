@@ -128,12 +128,129 @@ for pat in pats:
 PY
 }
 
+# --- ask the kernel, rather than deriving behind its back --------------------------------
+#
+# [Co-developed with claude code -- Adam] -- KNOWN-ISSUES G-15, DECISIONS.md grill §4E E-2.
+#
+# Everything above derives the model from the fabric. That is a better guess than the configured
+# default was, and it is still a guess: it reads the number of host namespaces and looks for a
+# model of that size. `setting/` holds more than one model with the same ten dpids and the same
+# 10 switch / 4 host / 40 edge cardinality, so a fabric built from model A validated against
+# model B is green **by construction** -- every per-node identity check passes because the
+# numbers agree. The suite could not know what it was testing (fix/R2-PY-SUMMARY.md §7-3).
+#
+# The kernel knows. It opened one file, and since E-2 it reports which, together with the sha256
+# of the bytes it read. So: ask first, derive only when it does not answer.
+#
+# 🔴 The digest is the point, not the path. A model edited after the kernel loaded it is the
+# accident this exists to catch, and the path is identical on both sides of that edit.
+
+# kernel_graph_json -- the raw /ndt/get_graph_data body, or nothing. Its own function so the
+# tests can substitute a canned body: tests/shell/test_run_layers_asks_kernel.sh overrides it,
+# and tests/shell/test_run_layers_topology_from_fabric.sh stubs it out entirely, which is what
+# keeps the derivation suite independent of whether anything is listening on :8000.
+kernel_graph_json() {
+    curl -sf --max-time 3 "$NDT_URL/ndt/get_graph_data" 2>/dev/null
+}
+
+# kernel_loaded_model -- reads the body on stdin, prints "<path><TAB><sha256>" when the kernel
+# named a file, and nothing otherwise. The body arrives on stdin rather than in an argument or
+# an environment variable because a 128-host graph is comfortably larger than one exec argument
+# may be (MAX_ARG_STRLEN, 128 KiB), and that limit fails as E2BIG on the big fabrics -- which is
+# exactly where a mismatched model matters most.
+kernel_loaded_model() {
+    python3 -c '
+import json, sys
+try:
+    body = json.load(sys.stdin)
+except Exception:
+    raise SystemExit(0)
+if not isinstance(body, dict):
+    raise SystemExit(0)
+path = body.get("topology_file")
+sha = body.get("topology_sha256")
+if not isinstance(path, str) or not path:
+    raise SystemExit(0)
+print(path + "\t" + (sha if isinstance(sha, str) else ""))
+' 2>/dev/null
+}
+
+# kernel_model_is_confirmed <path> <sha the kernel reported> <sha of that file now>
+#   rc 0  this run may test against <path>
+#   rc 1  it may not, and the reason is on stderr
+#
+# Its own function so the refusal reads as one question -- "may I use the file the kernel
+# named?" -- and so the caller's exit code is decided in one place.
+kernel_model_is_confirmed() {
+    local path="$1" sha="$2" local_sha="$3"
+
+    if [[ -z "$local_sha" ]]; then
+        echo "${R}the kernel loaded $path, and this host cannot read that file.${N}" >&2
+        echo "nothing here can confirm which network the twin is describing, and deriving a" >&2
+        echo "model instead would test the fabric against a file the kernel is not serving." >&2
+        echo "name one explicitly if that is really what you want:" >&2
+        echo "  NDT_TOPO=/path/to/model $0 ..." >&2
+        return 1
+    fi
+
+    if [[ -n "$sha" && "$sha" != "$local_sha" ]]; then
+        echo "${R}$path has been edited since the kernel loaded it.${N}" >&2
+        echo "  kernel loaded: $sha" >&2
+        echo "  on disk now:   $local_sha" >&2
+        echo "the twin is serving the OLD contents and the layers below would read the NEW ones," >&2
+        echo "so every difference between them would be reported as a product defect." >&2
+        echo "restart the kernel on the current file, or put the file back." >&2
+        return 1
+    fi
+
+    return 0
+}
+
+# topo_from_kernel -- the model the KERNEL says it loaded. Path on stdout, notes on stderr.
+#   rc 0  the kernel named a file, and the bytes on disk still hash to what it loaded
+#   rc 1  the kernel did not say -- unreachable, or built before E-2. The caller derives, and
+#         must say that it is deriving
+#   rc 3  the kernel named a file this run cannot confirm it is still serving -- refuse
+#
+# 🔴 A kernel built before E-2 (baseline 28b8b13) serves none of the three keys. Missing means
+# "the kernel did not say", never "there is nothing to check": the caller falls back to the
+# derivation and prints that it is guessing. Aborting instead would take every pre-E-2 kernel
+# out of the harness, which is the widening this gate's M6 exists to catch.
+topo_from_kernel() {
+    local said path sha local_sha
+    said="$(kernel_graph_json | kernel_loaded_model)"
+    if [[ -z "$said" ]]; then
+        echo "${Y}topology: the kernel did not say which model it loaded (unreachable, or built" >&2
+        echo "before E-2), so the model below is DERIVED from the running fabric -- guessing.${N}" >&2
+        return 1
+    fi
+
+    path="${said%%$'\t'*}"
+    sha="${said#*$'\t'}"
+    local_sha="$(sha256sum "$path" 2>/dev/null | cut -d' ' -f1)"
+
+    kernel_model_is_confirmed "$path" "$sha" "$local_sha" || return 3
+
+    if [[ -z "$sha" ]]; then
+        # A path with no digest beside it. Still better than deriving -- it is the file the
+        # kernel named -- but the one question the digest answers is now unanswerable, and a
+        # reader must not have to infer that from the absence of a line.
+        echo "${Y}topology: the kernel named $path but reported no topology_sha256, so this run" >&2
+        echo "cannot tell whether that file has been edited since it was loaded.${N}" >&2
+    else
+        echo "${D}topology: ${path#$KERNEL_DIR/} (the kernel says so; sha256 matches)${N}" >&2
+    fi
+    echo "$path"
+    return 0
+}
+
 # topo_for_mode <mode> -- the model to test against. Path on stdout, notes on stderr.
 #   rc 0  a model was chosen
 #   rc 2  not a data plane this script knows (usage error)
-#   rc 3  a fabric is running and no model in $SETTING_DIR describes it -- refuse
+#   rc 3  a fabric is running and no model in $SETTING_DIR describes it, or the kernel's own
+#         model cannot be confirmed -- refuse
 topo_for_mode() {
-    local mode="$1" configured live derived
+    local mode="$1" configured live derived from_kernel krc
     case "$mode" in
         p4)  configured="$TOPO_P4" ;;
         ovs) configured="$TOPO_OVS" ;;
@@ -147,6 +264,15 @@ topo_for_mode() {
         echo "$NDT_TOPO"
         return 0
     fi
+
+    # [Co-developed with claude code -- Adam] -- E-2. The kernel first; the derivation below is
+    # the fallback for a kernel that cannot answer, not the primary answer.
+    from_kernel="$(topo_from_kernel)"; krc=$?
+    if [[ "$krc" -eq 0 ]]; then
+        echo "$from_kernel"
+        return 0
+    fi
+    [[ "$krc" -eq 3 ]] && return 3
 
     live="$(fabric_host_count)"
     if [[ "${live:-0}" -le 0 ]]; then

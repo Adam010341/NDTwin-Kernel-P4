@@ -816,6 +816,35 @@ class TopologyAndFlowMonitor
      */
     json pollRoundJson() const;
 
+    /**
+     * @brief The model this kernel actually loaded: its path, the sha256 of its bytes at the
+     *        moment they were read, and when that was. Empty object when nothing has loaded.
+     *
+     * [Co-developed with claude code -- Adam] -- E-2 (DECISIONS.md, grill §4E).
+     * `tools/test_workflow/run_layers.sh` chose the model to validate the graph against from
+     * (data plane, live host count) and never asked the kernel which file it had opened.
+     * `setting/` holds two models with the same ten dpids and the same 10/4/40 cardinality
+     * (StaticNetworkTopologyP4_10Switches_4Hosts.json and the OVS family's 4-host file), so
+     * validating fabric A against model B was green **by construction** -- the per-node identity
+     * checks pass because the numbers agree, and no check anywhere could see that the twin was
+     * describing a different network. The instrument could not know what it was testing.
+     *
+     * Three fields rather than one, and the sha is of the FILE'S BYTES rather than of its path:
+     * a path answers "which file", a hash answers "which contents", and the failure this exists
+     * to catch -- a model edited while the kernel holds the old one in memory -- moves only the
+     * second. `topology_loaded_at` is what lets a reader date the answer.
+     *
+     * 🔴 Recorded at load and never recomputed. Re-reading the file per request would report
+     * whatever is on disk NOW, which is precisely the thing a consumer must be able to compare
+     * against; the kernel's job here is to say what it is serving, not what the disk says.
+     *
+     * 🔴 Absence is meaningful. A kernel built before this change (baseline `28b8b13`) serves
+     * none of the three keys, and a consumer that meets that must read it as "the kernel did not
+     * say" -- not as a licence to guess. Additive top-level keys on a non-strict object, the same
+     * additive rule as `topology_round` above.
+     */
+    json loadedTopologyJson() const;
+
   protected:
     /**
      * @brief Loads nodes and edges from a topology JSON.
@@ -1099,6 +1128,29 @@ class TopologyAndFlowMonitor
     std::atomic<bool> m_staticTopologyLoadAttempted{false};
     /// The verdict of that one attempt, for any later caller.
     std::atomic<bool> m_staticTopologyLoadOk{false};
+
+    /// What loadedTopologyJson() serves. See that declaration for why each field is here.
+    /// [Co-developed with claude code -- Adam] -- E-2.
+    struct LoadedTopologyRecord
+    {
+        std::string path;          ///< absolute, resolved once at load time
+        std::string sha256;        ///< of the file's bytes as read, lowercase hex
+        std::int64_t loadedAt{0};  ///< epoch seconds
+        bool recorded{false};      ///< false means nothing has been read -- not "empty file"
+    };
+    LoadedTopologyRecord m_loadedTopology;
+    /// Written by whichever thread runs the load, read by loadedTopologyJson() on an HTTP
+    /// thread. Same reason m_pollRoundMutex exists, and a separate mutex for the same reason:
+    /// this record has nothing to do with a poll round and must not wait on one.
+    mutable std::mutex m_loadedTopologyMutex;
+
+    /// Records the file just read, for loadedTopologyJson(). Takes the BYTES rather than the
+    /// path so the hash cannot drift from what was parsed. [Co-developed with claude code -- Adam]
+    void noteLoadedTopology(const std::string& path, const std::string& bytes);
+
+    /// sha256 of a byte string, lowercase hex -- the same digest `sha256sum` prints, so a shell
+    /// caller can compare the two directly. [Co-developed with claude code -- Adam]
+    static std::string sha256Hex(const std::string& bytes);
 
     uint64_t hashDstIp(const std::string& str);
 

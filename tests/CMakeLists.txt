@@ -171,6 +171,14 @@ add_executable(
   # mentioned bmv2 at all. This owns the property that the ceiling is READ from the pipeline the
   # running switch loaded -- so the fixtures say 512 and 2048, never 1024.
   test_OpenflowCapacityReport.cpp
+
+  # [Co-developed with claude code -- Adam] E-2: run_layers.sh chose the model to validate the
+  # fabric against from (data plane, live host count) and never asked the kernel, and setting/
+  # holds more than one model with the same dpids and the same cardinality -- so validating one
+  # fabric against another's model was green by construction. This owns the kernel's side of the
+  # answer: the file, the digest of its BYTES at load, and the fact that neither follows the
+  # file afterwards.
+  test_TopologyLoadedModelReported.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there
