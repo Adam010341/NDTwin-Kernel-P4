@@ -1695,5 +1695,53 @@ class LinkEndpointContractTest(unittest.TestCase):
             [spec.inv_recovery_was_declined_and_said_so])
 
 
+class GraphNodePowerPathTest(unittest.TestCase):
+    """E-25 / E-30: the exemption mark on the wire. [Co-developed with claude code -- Adam]
+
+    The schema is the sixth side of this change -- kernel, graph serialiser, power manager, the
+    startup WARN, the manual, and this. It is the only one of the six that an external consumer
+    is checked against, so a value the kernel invents and nobody listed here would pass the
+    contract run in silence.
+    """
+
+    BASE = {"device_name": "s1", "dpid": 1, "ip": [], "is_enabled": True, "is_up": True,
+            "mac": 1, "vertex_type": 0, "brand_name": "x", "device_layer": 1}
+
+    def test_a_node_carrying_both_marks_conforms(self):
+        for power, telemetry in (("synthetic", "none"), ("snmp", "snmp"), ("ssh", "snmp"),
+                                 ("none", "none")):
+            with self.subTest(power_path=power, telemetry_path=telemetry):
+                self.assertEqual(
+                    validate(spec.GRAPH_NODE,
+                             {**self.BASE, "power_path": power, "telemetry_path": telemetry}),
+                    [],
+                    "a pair GraphTypes.hpp actually emits was rejected by the schema")
+
+    def test_a_node_carrying_neither_mark_still_conforms(self):
+        # Both are optional and both must stay optional: a kernel built before 2026-09-07 emits
+        # neither, and a HOST node never carries them at all.
+        self.assertEqual(validate(spec.GRAPH_NODE, self.BASE), [],
+                         "the pre-E-25 node shape stopped validating")
+
+    def test_the_schema_pins_the_power_path_vocabulary(self):
+        # An unlisted word is a contract change, not a detail: `power_path == "none"` is what a
+        # consumer reads to know this build cannot drive the switch, and a fifth spelling would
+        # be read as "some path we have not heard of" rather than as "no path".
+        self.assertTrue(validate(spec.GRAPH_NODE, {**self.BASE, "power_path": "None"}),
+                        "a second spelling of none was accepted")
+        self.assertTrue(validate(spec.GRAPH_NODE, {**self.BASE, "power_path": "telnet"}),
+                        "an invented mechanism was accepted")
+
+    def test_the_telemetry_vocabulary_is_the_smaller_one_and_not_a_copy(self):
+        # Deliberately narrower than power_path's: telemetryPathForBrandName can only ever answer
+        # "snmp" or "none". "synthetic" is a power-only mechanism (the Mininet fake), and
+        # accepting it here would let a kernel claim health telemetry that KNOWN-ISSUES F-1 says
+        # does not exist for a software switch.
+        self.assertTrue(validate(spec.GRAPH_NODE, {**self.BASE, "telemetry_path": "synthetic"}),
+                        "telemetry_path accepted a power-only mechanism")
+        self.assertTrue(validate(spec.GRAPH_NODE, {**self.BASE, "telemetry_path": "ssh"}),
+                        "telemetry_path accepted a power-only mechanism")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

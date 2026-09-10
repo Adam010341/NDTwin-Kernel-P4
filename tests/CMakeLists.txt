@@ -156,6 +156,15 @@ add_executable(
   # kernel for POST /ndt/inject_link_failure. Pure functions over real `tc qdisc show` output; no
   # test here runs tc.
   test_NetemLinkFault.cpp
+
+  # [Co-developed with claude code -- Adam] E-23 / E-25 / E-30 (Adam's rulings of 2026-09-07).
+  # W15-2 admitted a switch this build has no data plane for and marked it "nobody manages this",
+  # and then the power manager went on sending it Brocade's OIDs and an SSH `show power` every
+  # ten seconds while nothing outside the process could see the mark at all. Counts the calls a
+  # marked switch must NOT cause -- which is why DeviceConfigurationAndPowerManager grew three
+  # virtual transport seams -- and pins the mark onto /ndt/get_graph_data and into one line at
+  # load. Nothing here shells out; the three seams are all replaced.
+  test_ExemptSwitchIsNotDialled.cpp
 )
 # [Co-developed with claude code -- Adam]
 # NdtCore_RoutingManagementLib declares no target_link_libraries of its own, so there

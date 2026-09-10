@@ -152,6 +152,19 @@ inline constexpr std::array<std::string_view, 5> kAcceptedSwitchBrands{
 };
 /// @}
 
+/**
+ * @brief The value `power_path` and `telemetry_path` take when this build has no branch
+ *        written for a switch's brand.
+ *
+ * [Co-developed with claude code -- Adam]
+ * E-23 / E-25 (Adam's rulings of 2026-09-07). Named rather than spelled out at each site
+ * because it is now load-bearing in four places -- the two path functions below write it, the
+ * power manager short-circuits on it, the loader counts it for one startup WARN, and
+ * `tools/contract_test/spec.py` lists it in the node schema's vocabulary. A fifth spelling of
+ * this word in any one of them is a silent hole, not a compile error.
+ */
+inline constexpr std::string_view kPathNone = "none";
+
 /// The accepted brands as one comma-separated string, for a refusal to print.
 /// [Co-developed with claude code -- Adam]
 inline std::string
@@ -285,7 +298,7 @@ powerPathForBrandName(const std::string& brandName)
     {
         return "ssh";
     }
-    return "none";
+    return kPathNone.data();
 }
 
 /**
@@ -301,7 +314,7 @@ telemetryPathForBrandName(const std::string& brandName)
     {
         return "snmp";
     }
-    return "none";
+    return kPathNone.data();
 }
 
 /**
@@ -620,6 +633,30 @@ isUsable(const VertexProperties& v)
     return v.isUp && v.isEnabled && !v.adminDisabled;
 }
 
+/**
+ * @brief Is this a switch whose brand this build has no power or telemetry path for?
+ *
+ * [Co-developed with claude code -- Adam]
+ * E-23 (Adam's ruling of 2026-09-07). `power_path == "none"` is the ONE mark that is unique to a
+ * switch admitted by the `switch_kind` exemption -- `telemetry_path` is "none" for OVS and BMv2
+ * as well, because a software switch genuinely has no CPU or thermal telemetry (KNOWN-ISSUES
+ * F-1), so it cannot carry this question. See powerPathForBrandName for the full contract.
+ *
+ * One predicate rather than five copies of `v.powerPath == "none"`, because it is now asked at
+ * six sites in DeviceConfigurationAndPowerManager.cpp and once more by the loader's startup
+ * count, and a site that asked it a slightly different way would dial a machine nobody wrote a
+ * branch for -- which is the whole defect E-23 names.
+ *
+ * The `vertexType` half is not decoration: `powerPath` defaults to "none" on every vertex, so a
+ * HOST -- which has no brand, no plug and no OID and is skipped by every caller anyway -- would
+ * otherwise answer yes to a question that is only meaningful about a switch.
+ */
+inline bool
+isExemptFromBrandPaths(const VertexProperties& v)
+{
+    return v.vertexType == VertexType::SWITCH && v.powerPath == kPathNone;
+}
+
 inline void
 from_json(const nlohmann::json& j, PortMember& m)
 {
@@ -739,6 +776,35 @@ to_json(nlohmann::json& j, const VertexProperties& v)
                        {"brand_name", v.brandName},
                        {"device_layer", v.deviceLayer},
                        {"ecmp_groups", v.ecmpGroups}};
+
+    // [Co-developed with claude code -- Adam]
+    // E-25 / E-30 (Adam's ruling of 2026-09-07). The two marks, on the wire at last.
+    //
+    // 🔴 WHY THIS IS HERE AND NOT ONLY IN getStaticTopologyJson. W15-2 wrote the marks onto the
+    // vertex and published them from TopologyAndFlowMonitor::getStaticTopologyJson, i.e. from
+    // /ndt/get_static_topology_json. That is a DIFFERENT serialiser from this one:
+    // /ndt/get_graph_data builds its nodes with `result["nodes"].push_back(graph[vd])`
+    // (HttpSession.cpp), which is this function -- so an exempted switch was marked in the
+    // endpoint hardly anybody reads and unmarked in the one four external apps do. Measured
+    // 2026-09-07 (round-2 log lw17c): a kernel carrying the exemption served that node with
+    // brand_name, admin_state and is_up and no power_path at all. The mark existed only in
+    // memory.
+    //
+    // SWITCH nodes only, and on purpose -- the same rule getStaticTopologyJson already follows.
+    // A host has no brand, no plug and no OID; publishing "none" for one would invite the reading
+    // that some OTHER host might have a path.
+    //
+    // Purely additive: no existing key changes type, spelling or value, so a consumer that has
+    // never heard of these two keeps parsing exactly what it parsed yesterday. The baseline this
+    // is measured against is 28b8b13, which had no `switch_kind` at all -- there, brand_name was
+    // just a string, anything that was neither HPE nor MININET went down the Brocade SSH branch,
+    // and NOTHING on the wire ever admitted that this build could not read the machine. W15-2 was
+    // the first build to admit it; this is the first one that says so out loud.
+    if (v.vertexType == VertexType::SWITCH)
+    {
+        j["power_path"] = v.powerPath;
+        j["telemetry_path"] = v.telemetryPath;
+    }
 }
 
 /**

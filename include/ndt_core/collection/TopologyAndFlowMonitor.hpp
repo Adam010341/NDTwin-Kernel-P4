@@ -839,6 +839,20 @@ class TopologyAndFlowMonitor
     void parseStaticTopologyFile(const std::string& path, std::string& where);
 
     /**
+     * @brief One startup WARN naming every switch this build has no power/telemetry path for.
+     *
+     * [Co-developed with claude code -- Adam]
+     * E-25 / E-30 (Adam's ruling of 2026-09-07). The `switch_kind` exemption is granted silently
+     * at load time; this is the line that says it happened. Prints nothing when no switch is
+     * exempt. The full reasoning, including why this is WARN rather than INFO and why it is not
+     * made redundant by `power_path` on the wire, is at the definition.
+     *
+     * 🔴 NoLock: parseStaticTopologyFile holds a unique_lock on m_graphMutex, which is not
+     * recursive, so this must not take one. A caller that does not already hold the lock must.
+     */
+    void warnAboutSwitchesWithNoBrandPathNoLock() const;
+
+    /**
      * @brief Let this monitor load a topology whose switches are not all one data plane.
      *
      * [Co-developed with claude code -- Adam]

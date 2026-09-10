@@ -1284,6 +1284,72 @@ TopologyAndFlowMonitor::parseStaticTopologyFile(const std::string& path, std::st
     // graph, so anything that can observe the graph between those two points observes the
     // shipped names and is wrong. The graph write lock taken above is still held.
     applyNicknameOverlayNoLock();
+    warnAboutSwitchesWithNoBrandPathNoLock();
+}
+
+// [Co-developed with claude code -- Adam]
+// E-25 / E-30 (Adam's ruling of 2026-09-07). One line, at startup, naming every switch this
+// build has no power or telemetry path for.
+//
+// 🔴 WHY A LINE AT ALL, WHEN THE GRAPH ALREADY CARRIES THE MARK. Because the two answer different
+// questions. `power_path` on /ndt/get_graph_data answers "what is this switch?" for a program
+// that thought to ask; this line answers "what did I just agree to run?" for an operator who did
+// not. The exemption is granted at load time, silently, to a file that names a brand nobody wrote
+// a branch for -- and until 2026-09-07 the ONLY evidence it had happened was a field in a
+// serialiser nobody was reading (measured, round-2 log lw17c: no WARN, no key, nothing).
+//
+// WARN and not INFO: this is a machine in the model that the twin cannot read power or health
+// from. It is a supported configuration -- Adam's ruling of 2026-09-06 made it one -- and it is
+// still a fabric with a hole in it, which is a warning-shaped fact.
+//
+// Zero exempt switches prints nothing. A line that appears on every start is a line nobody reads;
+// this file has the log-flood scars to prove it (see m_resurrectionDeclined, and the
+// edge-triggered WARN in DeviceConfigurationAndPowerManager).
+//
+// Called from parseStaticTopologyFile's tail, AFTER the two-layer data-plane check, so a refused
+// file never prints it: a topology that is not going to be served must not be summarised as
+// though it were.
+//
+// 🔴 NoLock, and the suffix is load-bearing. parseStaticTopologyFile holds a unique_lock on
+// m_graphMutex for its whole body and that mutex is NOT recursive -- a shared_lock taken here
+// would deadlock the kernel at startup, which is the exact bug the comment above that
+// unique_lock records having already happened once through findVertexByIp. Any future caller
+// that does not already hold the lock must take one itself.
+void
+TopologyAndFlowMonitor::warnAboutSwitchesWithNoBrandPathNoLock() const
+{
+    std::string dpids;
+    std::size_t exempt = 0;
+
+    for (auto vd : boost::make_iterator_range(boost::vertices(*m_graph)))
+    {
+        const auto& v = (*m_graph)[vd];
+        if (!isExemptFromBrandPaths(v))
+        {
+            continue;
+        }
+        ++exempt;
+        if (!dpids.empty())
+        {
+            dpids += ", ";
+        }
+        dpids += "dpid " + std::to_string(v.dpid) + " (brand_name \"" + v.brandName + "\")";
+    }
+
+    if (exempt == 0)
+    {
+        return;
+    }
+
+    SPDLOG_LOGGER_WARN(Logger::instance(),
+                       "{} switch(es) exempt from power/telemetry (power_path=none): {}. This "
+                       "build has no power or telemetry path written for those brands, so their "
+                       "power draw, CPU, memory and temperature are reported as unavailable and "
+                       "nothing is asked of them over SNMP or SSH. They were admitted because "
+                       "the topology file declares an explicit \"switch_kind\" for them; see "
+                       "manual section 38.",
+                       exempt,
+                       dpids);
 }
 
 std::optional<Graph::vertex_descriptor>
