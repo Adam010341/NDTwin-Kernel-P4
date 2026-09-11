@@ -333,7 +333,11 @@ echo "(c) the pre-fix tool: does it really fail the cell it is the red of?"
 # Only the cells whose `observe` touches no lab. A pre-fix `ndt` driving a real bring-up would
 # build or hang a fabric, so those are named below as NOT ATTEMPTED rather than skipped quietly.
 pre_tree() {   # <rev> -> a temp NDT_ROOT carrying that rev's ndt and the files it sources
-    local rev="$1" d="$BK/tree-${rev//[^A-Za-z0-9]/_}" sib
+    # `d` on its own line, for the reason check_cell's header gives at length. Here it happened
+    # to be harmless -- the caller's own `rev` holds the same value it passes -- and a latent
+    # version of a bug this gate has already been bitten by is not worth keeping.
+    local rev="$1" sib
+    local d="$BK/tree-${rev//[^A-Za-z0-9]/_}"
     mkdir -p "$d/tools/test_workflow"
     git -C "$REPO" show "$rev:tools/test_workflow/ndt" > "$d/tools/test_workflow/ndt" 2>/dev/null || return 1
     chmod +x "$d/tools/test_workflow/ndt"

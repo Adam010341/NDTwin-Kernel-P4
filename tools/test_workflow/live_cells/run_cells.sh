@@ -113,7 +113,14 @@ mkdir -p "$OUT" || { echo "run_cells.sh: cannot create $OUT" >&2; exit 2; }
 
 # --- the restore ---------------------------------------------------------------------------------
 restore() {   # <label> -> 0 clean, 1 not
-    local lab="$1" rdir="$OUT/_restore-$lab" orc vrc
+    # 🔴 `rdir` on its own line. `local lab="$1" rdir="$OUT/_restore-$lab"` is wrong for a reason
+    # worth keeping: every word of a builtin's command line is expanded BEFORE the builtin runs,
+    # so `$lab` there is the CALLER's -- which under `set -u` is an unbound-variable abort in the
+    # middle of a restore, i.e. the lab left as the cell left it. Found 2026-09-11 by driving this
+    # runner against a recording fake `ndt`; the same shape had just been caught in
+    # tests/shell/mutate_live_cells.sh by its controls.
+    local lab="$1" orc vrc
+    local rdir="$OUT/_restore-$lab"
     mkdir -p "$rdir"
     # BEFORE the down: the network half is only answerable while :8000 is open.
     timeout 180 bash "$NDT" apps orphans > "$rdir/1-orphans-predown.txt" 2>&1; orc=$?

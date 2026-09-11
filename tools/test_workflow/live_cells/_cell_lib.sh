@@ -151,7 +151,17 @@ cell_main() {
                  cell_observe "$1" ;;
         judge)   [[ -n "${1:-}" ]] || { echo "usage: $name judge <rawdir>" >&2; return 2; }
                  [[ -d "$1" ]] || { echo "no such raw directory: $1" >&2; return 2; }
-                 cell_judge "$1"
+                 # 🔴 A SKIPPED cell asserts nothing. Running the judge over a raw directory
+                 # `observe` declined to fill prints a screenful of `no such raw file` that reads
+                 # exactly like a red cell, and a reader scanning a round's output cannot tell the
+                 # two apart -- which is the "I could not look" / "I looked and it was wrong"
+                 # confusion this project keeps paying for. The reason `observe` gave is printed
+                 # instead, and it is the only thing printed.
+                 if [[ -f "$1/SKIP" ]]; then
+                     printf 'SKIP: %s\n' "$(cat "$1/SKIP")"
+                 else
+                     cell_judge "$1"
+                 fi
                  cell_verdict "$name" "$tag" "$1" ;;
         *)       echo "usage: $(basename "$0") {observe|judge|meta} [rawdir]" >&2; return 2 ;;
     esac
