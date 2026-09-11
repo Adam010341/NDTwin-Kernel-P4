@@ -860,6 +860,56 @@ m=$(mutant w9 "$NDT" \
 report_green "W9 (behaviour-preserving): the rollback's put-back reason reworded" "$m" \
        "the reason is prose; the file and the value are what is asserted"
 
+# --- ROLE-9 / ROLE-11 F6: the claim note and the verdict (section 19) --------------------------
+
+# M59 is the defect itself: the note is written from the rc again. It survives every cell whose
+# rc and verdict agree, which is why section 19 carries the one where they do not.
+m=$(mutant m59 "$NDT" \
+    '    claim_note_down "$down_rc" "$CLEAN_UNVERIFIED"' \
+    '    claim_note_down "$down_rc" "$( (( down_rc == 0 )) || printf "the teardown" )"')
+report "M59: the claim note is written from the rc again (ROLE-11 F6)" "$m" \
+       "🔴 a clean machine is not written down as unverified"
+
+# M60: one half stops being recorded. The note then says a teardown that could not finish its
+# sweep verified clean -- the direction that licenses the next round to start.
+m=$(mutant m60 "$NDT" \
+    '        not_verified "the [3/3] sweep"' \
+    '        :')
+report "M60: a sweep that did not finish is written down as clean" "$m" \
+       "🔴 and the note names the sweep"
+
+# M61 (widening): nothing is ever recorded, so every teardown's note says verified clean. The
+# function keeps its name and its call sites and has no way to fail.
+m=$(mutant m61 "$NDT" \
+    'not_verified() { CLEAN_UNVERIFIED="${CLEAN_UNVERIFIED:+$CLEAN_UNVERIFIED, }$1"; }' \
+    'not_verified() { :; }')
+report "M61 (widening): every teardown verified clean" "$m" \
+       "🔴 and its note says it did not verify clean"
+
+# M62: the halves collapse into one name. The note goes on saying "did NOT verify clean", so a
+# gate that only read that phrase would stay green while sending the reader to the wrong half.
+m=$(mutant m62 "$NDT" \
+    'not_verified "the residue check"' \
+    'not_verified "the [3/3] sweep"')
+report "M62: the residue check is reported as the sweep" "$m" \
+       "  naming the half that could not verify"
+
+# M63: the note stops carrying the non-zero it ended on. "Verified clean" over a round that
+# exited 1 with no second half is the same conflation the other way round.
+m=$(mutant m63 "$NDT" \
+    '        (( rc != 0 )) && also="; this teardown still exits $rc, for something other than residue"' \
+    '        :')
+report "M63: a non-zero ending disappears from the note" "$m" \
+       "  while the non-zero it did end on is not hidden"
+
+# W10 (behaviour-preserving): the info line ndt prints about the note is reworded. Section 19
+# asserts the FILE, so the suite must stay green.
+m=$(mutant w10 "$NDT" \
+    'info "claim note now says the lab is down and verified clean (owner and expiry unchanged)"' \
+    'info "the claim note now records a verified-clean teardown (owner and expiry unchanged)"')
+report_green "W10 (behaviour-preserving): the note's on-screen announcement reworded" "$m" \
+       "section 19 reads .test_run/lab.claim, not the screen"
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then

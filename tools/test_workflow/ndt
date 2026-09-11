@@ -1068,12 +1068,36 @@ claim_note_up() {
     return 0
 }
 
-# claim_note_down <rc> -- and `ndt down` says it is no longer, once the teardown has been
-# asserted rather than merely attempted. A teardown that did not verify clean gets a different
-# sentence: "down" and "down, and something is still running" are not the same statement, and
-# the second one is the one a reader must not act on as if it were the first.
+# not_verified <half> -- one half of `verify clean` that could not be verified, added to the
+# list the claim note is written from. A LIST and not a flag: "the residue check" and "the
+# [3/3] sweep" send a reader to different places, and cleanup sweeps patterns cmd_clean does
+# not look at, so collapsing them would be the note naming the wrong half.
+CLEAN_UNVERIFIED=""
+not_verified() { CLEAN_UNVERIFIED="${CLEAN_UNVERIFIED:+$CLEAN_UNVERIFIED, }$1"; }
+
+# claim_note_down <rc> <what 'verify clean' could not verify> -- and `ndt down` says the lab is
+# no longer in use, once the teardown has been asserted rather than merely attempted. A teardown
+# that did not verify clean gets a different sentence: "down" and "down, and something is still
+# running" are not the same statement, and the second one is the one a reader must not act on as
+# if it were the first.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 ROLE-9 / ROLE-11 F6, 2026-09-12. The second argument is the whole of this function's
+# change, and the first is now only reported. This used to be `claim_note_down "$down_rc"`, and
+# `ndt down`'s rc has three sources of which only some are about residue: a component that ended
+# on a FATAL SIGNAL is delivered once out of a .exit record and can be LAST ROUND'S ending. So a
+# teardown whose `verify clean` was five `ok` lines and the word `clean` wrote
+# `did NOT verify clean` into .test_run/lab.claim -- measured at 04:16:03, with the log four
+# steps above it saying the opposite -- and that sentence is a FILE: ROLE-9's own baseline
+# arrived carrying the 02:26 version of it from the session before. The note describes the
+# MACHINE, so it follows what was verified. The rc is the command's and is reported, not
+# reinterpreted.
+#
+# 🔴 Not the rc renamed: two teardowns with the same rc get different sentences here, and two
+# with different rcs get the same one. That is the property, and cells 1-3 of
+# tests/shell/test_ndt_up_down_robust.sh section 19 are the four corners of it.
 claim_note_down() {
-    local rc="${1:-0}" when cleared="" ok=0
+    local rc="${1:-0}" unverified="${2:-}" when cleared="" ok=0
     when="$(date '+%Y-%m-%d %H:%M:%S')"
     # ROLE-4 T5, 01:57:54 verbatim: `measuring=ROLE-4 reader nsr, do not tear down` was still in
     # the claim AFTER the `ndt down` that had killed that reader -- the declaration outlived the
@@ -1084,12 +1108,17 @@ claim_note_down() {
     if [[ -n "$(measuring_declared)" ]]; then
         cleared="$(printf '%s' "$(claim_field measuring)" | cut -c1-64)"
     fi
-    if (( rc == 0 )); then
-        set_claim_note "down at $when; claim kept${cleared:+; cleared measuring=$cleared}" && ok=1
-        (( ok )) && info "claim note now says the lab is down (owner and expiry unchanged)"
+    if [[ -z "$unverified" ]]; then
+        # 🔴 The rc is carried INTO the sentence rather than deciding it. A reader who finds a
+        # note saying the machine is clean and a round that ended non-zero is owed the second
+        # half; what they must not be told is that the machine was not checked.
+        local also=""
+        (( rc != 0 )) && also="; this teardown still exits $rc, for something other than residue"
+        set_claim_note "down at $when; verified clean${also}; claim kept${cleared:+; cleared measuring=$cleared}" && ok=1
+        (( ok )) && info "claim note now says the lab is down and verified clean (owner and expiry unchanged)"
     else
-        set_claim_note "down at $when did NOT verify clean; claim kept -- read 'running' below, not this note${cleared:+; cleared measuring=$cleared}" && ok=1
-        (( ok )) && info "claim note now says the teardown did not verify clean"
+        set_claim_note "down at $when did NOT verify clean -- $unverified; claim kept -- read 'running' below, not this note${cleared:+; cleared measuring=$cleared}" && ok=1
+        (( ok )) && info "claim note now says the teardown did not verify clean: $unverified"
     fi
     if (( ok )); then
         if [[ -n "$cleared" ]]; then
@@ -2979,6 +3008,11 @@ guard_no_teardown_in_flight() {
 
 cmd_down() {
     local force="" deep="" arg busy held down_rc=0 declared holder detail
+    # 🔴 ROLE-9 / ROLE-11 F6: what `verify clean` could NOT verify, named half by half. Empty
+    # means it verified everything, which is a different statement from `down_rc == 0` -- see
+    # claim_note_down. The stack.sh half is deliberately not in here: "a component ended on a
+    # fatal signal in an earlier round" is a true non-zero about a machine that is clean.
+    CLEAN_UNVERIFIED=""
     for arg in "$@"; do
         case "$arg" in
             --force) force=--force ;;
@@ -3166,6 +3200,7 @@ cmd_down() {
     if (( sweep_rc != 0 )); then
         err "cleanup exited $sweep_rc -- the sweep did not finish; what survived is named above"
         down_rc=1
+        not_verified "the [3/3] sweep"
     fi
 
     # Last, and only when asked: anything still holding the ports was not started by this
@@ -3190,7 +3225,7 @@ cmd_down() {
     # Both halves count. A sweep that could not finish is a failed teardown even in the case
     # where cmd_clean cannot see what survived -- cleanup also sweeps patterns cmd_clean does
     # not check (the NTG topology, for one), so "clean" and "the sweep worked" are two answers.
-    (( clean_rc != 0 )) && down_rc=1
+    (( clean_rc != 0 )) && { down_rc=1; not_verified "the residue check"; }
     # 🔴 ROLE-12: the SECOND reading of the ports [1/3] complained about, and the one the rc
     # follows. Taken by port number with the same probe cmd_clean's residue uses, rather than
     # inherited from clean_rc -- `cmd_clean` is red about a held port for its own reasons, so a
@@ -3209,11 +3244,13 @@ cmd_down() {
             err "cannot re-read :$dblind after the sweep -- no row in ports.sh declares it, so"
             err "  whether [3/3] closed it is unknown, and unknown is not a pass."
             down_rc=1
+            not_verified "port(s) no row in ports.sh could re-read: $dblind"
         fi
         if [[ -n "$dstill" ]]; then
             err "the port(s) [1/3] named are STILL held after [3/3]: $dstill"
             err "  that is this teardown failing, and not the order of its own steps."
             down_rc=1
+            not_verified "port(s) still held after the sweep: $dstill"
         elif [[ -z "$dblind" ]]; then
             ok "the $dn port(s) [1/3] called 'still listening' were closed by [3/3]: $ports_deferred"
             info "  so stack.sh's exit $src was a reading from the MIDDLE of this teardown, not"
@@ -3224,7 +3261,7 @@ cmd_down() {
     # outlive the fabric it describes, which is the same defect with the sign flipped -- a
     # reader would wait for a machine that is already free. Written AFTER the assertion above,
     # so the note reports what was verified rather than what was attempted.
-    claim_note_down "$down_rc"
+    claim_note_down "$down_rc" "$CLEAN_UNVERIFIED"
     # H3. One exit path, so one removal. A `down` killed before it gets here leaves the marker
     # behind, which is why teardown_in_flight checks the pid rather than trusting the file.
     mark_teardown_end

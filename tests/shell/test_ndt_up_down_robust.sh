@@ -1437,5 +1437,106 @@ hasnt "  and is not refused as another network"            "a model of a differe
 check "  the knob was written to the size that was built"  "128" "$(cat "$KNOBF")"
 
 # ==========================================================================================
+section "19. ROLE-9 / ROLE-11 F6: the claim note carries the verdict 'verify clean' reached"
+# ==========================================================================================
+# ROLE-9, 2026-09-12 04:16:03, .test_run/lab.claim verbatim after the tenth round's teardown:
+#
+#     note=down at 2026-09-12 04:16:03 did NOT verify clean; claim kept -- read 'running'
+#          below, not this note
+#
+# and in the same teardown's log, four steps above it, `verify clean`'s five lines were all
+# `ok` and the last word was `clean`. The note took `$down_rc`, and on a live P4 fabric that rc
+# was 1 for a reading taken in the MIDDLE of the teardown (G-43). ROLE-11 F6 saw the same pair.
+#
+# 🔴 THE HALF THAT SURVIVED G-43'S FIX. `ndt down`'s rc has three sources and only some of them
+# are about residue: a component that ended on a FATAL SIGNAL is reported once out of a .exit
+# record and can be LAST ROUND'S ending (00-COMMON, 09-12). That is a true non-zero over a
+# machine `verify clean` found spotless -- and the note said "did NOT verify clean" about it.
+# The note is a sentence about the MACHINE, so it follows what was verified; the rc is the
+# command's, and stays what it was.
+#
+# 🔴 AND IT IS NOT THE RC RENAMED. Two teardowns with the same rc get different sentences
+# (cells 2 and 3 below, both rc 1) and two with different rcs get the same one (cells 1 and 2,
+# rc 0 and rc 1). A note copied from the rc cannot do both.
+#
+# 🔴 THE NOTE OUTLIVES THE ROUND. ROLE-9's own baseline carried the 02:26 version of this
+# sentence from the session before it, and the note's own tail -- "read 'running' below, not
+# this note" -- is the tool admitting the sentence is not to be trusted. That is why this is
+# pinned on the FILE and not on the screen.
+NOTE_OWNER=ndt7-owner
+IN_USE="in use: ndt up p4 4 at 2026-09-12 04:07:04 by $NOTE_OWNER"
+mk_claim_note() {   # <note>
+    printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=\nmeasuring=\n' \
+        "$NOTE_OWNER" "$(( $(date +%s) + 3600 ))" "$1" > "$FIX/.test_run/lab.claim"
+}
+cnote() { sed -n 's/^note=//p' "$FIX/.test_run/lab.claim" 2>/dev/null | head -1; }
+
+# -- 1. the live-P4 shape G-43 fixed: rc 0, everything verified.
+reset_fix; rm -f "$DM"; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"
+mk_claim_note "$IN_USE"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'cmd_down')"
+check "  a live-P4 teardown that ended clean is green" "0" "$(rc_of_out "$OUT")"
+has   "  and 'verify clean' really ran"                "ports closed" "$OUT"
+has   "🔴 the note says the machine was verified clean" "verified clean" "$(cnote)"
+hasnt "🔴 and does not say the opposite"               "did NOT verify clean" "$(cnote)"
+has   "  the claim is still kept, not released"        "claim kept" "$(cnote)"
+hasnt "  and the 'in use' sentence is gone"            "in use" "$(cnote)"
+
+# -- 2. 🔴 THE FINDING. rc 1 from an ending that happened in an EARLIER round, over a machine
+# `verify clean` found spotless. This is the pair ROLE-11 F6 read off the screen and the claim.
+reset_fix; rm -f "$DM"; rc_for stack_down 1
+out_for stack_down "  🔴 kernel did not stop cleanly: killed by SIGKILL"
+mk_claim_note "$IN_USE"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'cmd_down')"
+check "  the teardown is red for that ending"          "1" "$(rc_of_out "$OUT")"
+has   "  and says whose ending it is"                  "ENDING FROM AN EARLIER ROUND" "$OUT"
+has   "🔴 the note STILL says the machine verified clean" "verified clean" "$(cnote)"
+hasnt "🔴 a clean machine is not written down as unverified" "did NOT verify clean" "$(cnote)"
+has   "  while the non-zero it did end on is not hidden" "exits 1" "$(cnote)"
+
+# -- 3. residue really found: the other sentence, and which half found it.
+reset_fix; rm -f "$DM"
+mk_claim_note "$IN_USE"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'cmd_clean() { err "bmv2 switches: 10 still running"; return 1; }
+cmd_down')"
+check "  a teardown that left residue is red"          "1" "$(rc_of_out "$OUT")"
+has   "🔴 and its note says it did not verify clean"   "did NOT verify clean" "$(cnote)"
+has   "  naming the half that could not verify"        "the residue check" "$(cnote)"
+has   "  with the sentence that says not to act on it" "read 'running' below, not this note" "$(cnote)"
+
+# -- 4. the sweep is the other half, and it is NOT the residue check: cleanup sweeps patterns
+# cmd_clean does not look at, so a reader told "the residue check" would look in the wrong place.
+reset_fix; rm -f "$DM"; rc_for cleanup 1; out_for cleanup "STILL RUNNING bmv2 pid 4242"
+mk_claim_note "$IN_USE"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'cmd_down')"
+check "  a sweep that did not finish is red"           "1" "$(rc_of_out "$OUT")"
+has   "🔴 and the note names the sweep"                "the [3/3] sweep" "$(cnote)"
+hasnt "  not the half that was green"                  "the residue check" "$(cnote)"
+
+# -- 5. and the deferred ports, re-read after [3/3] and still held: a third half, named.
+reset_fix; rm -f "$DM"; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"
+mk_claim_note "$IN_USE"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'FX_HELD="30051: 9091:"
+cmd_clean() { ok "ports closed: the fixture asserts nothing survived"; return 0; }
+cmd_down')"
+check "  ports still held after the sweep are red"     "1" "$(rc_of_out "$OUT")"
+has   "🔴 and the note names the port re-reading"      "port(s) still held" "$(cnote)"
+
+# -- 6. the control that keeps the note a description and not a lease: a claim that is not ours
+# is still not narrated, and no claim is still not invented.
+reset_fix; rm -f "$DM"
+printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=\nmeasuring=\n' \
+    somebody-else "$(( $(date +%s) + 3600 ))" "$IN_USE" > "$FIX/.test_run/lab.claim"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'cmd_down')"
+check "  a teardown over somebody else's claim is green" "0" "$(rc_of_out "$OUT")"
+check "🔴 and their note is untouched"                 "$IN_USE" "$(cnote)"
+has   "  while saying out loud that it was not updated" "the claim note was NOT updated" "$OUT"
+reset_fix; rm -f "$DM" "$FIX/.test_run/lab.claim"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'cmd_down')"
+check "  with no claim at all the teardown is green"   "0" "$(rc_of_out "$OUT")"
+check "🔴 and no claim file is invented to narrate"    "gone" \
+      "$( [[ -f "$FIX/.test_run/lab.claim" ]] && echo present || echo gone )"
+
+# ==========================================================================================
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]

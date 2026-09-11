@@ -174,7 +174,7 @@ report "M10: ndt up p4 stops writing the note" "$m" \
        "the note names the P4 target"
 
 m=$(mutant m11 "$NDT" \
-    '    claim_note_down "$down_rc"' \
+    '    claim_note_down "$down_rc" "$CLEAN_UNVERIFIED"' \
     '    :')
 report "M11: ndt down leaves 'in use' standing over an empty lab" "$m" \
        "🔴 it no longer says the lab is in use"
@@ -186,11 +186,13 @@ report "M11: ndt down leaves 'in use' standing over an empty lab" "$m" \
 # T5 commit appended the cleared-measuring suffix to that line. check_gate_anchors.py HEAD read
 # MISSING:1 for it -- which is what the checker is for, and which the gate itself would have
 # reported as a SURVIVOR because an applier that cannot apply is a hole and never a skip.
+# 🔴 REPOINTED AGAIN 2026-09-12 (FIX-NDT-7 item 3): the branch now turns on what `verify clean`
+# could not verify rather than on the rc, and its sentence gained the half that failed. The
+# mutation is the same one -- take the "did not verify" branch away -- said against the new
+# condition.
 m=$(mutant m12 "$NDT" \
-    '    if (( rc == 0 )); then
-        set_claim_note "down at $when; claim kept${cleared:+; cleared measuring=$cleared}" && ok=1' \
-    '    if true; then
-        set_claim_note "down at $when; claim kept${cleared:+; cleared measuring=$cleared}" && ok=1')
+    '    if [[ -z "$unverified" ]]; then' \
+    '    if true; then')
 report "M12: a teardown that did not verify is reported as clean" "$m" \
        "🔴 a teardown that did not verify says so"
 
