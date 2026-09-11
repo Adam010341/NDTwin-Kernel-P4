@@ -103,7 +103,22 @@ ndt clean           # 只驗不動手；exit 1 = 還有東西活著
 | `[3/3] sweep` | `mn -c`，收殘留的 veth／namespace |
 
 `ndt clean` 檢查五件事：bmv2 行程數、host/switch 行程數、topo tmux session、
-switch manifest、以及 **:8000 / :8080 / :8081 三個 port**。全部過才印綠色 `clean`。
+switch manifest、以及 **9 條 port 規則、展開共 27 個 port**。全部過才印綠色 `clean`，
+那一行逐字長這樣：
+
+```
+ok  ports closed: 8000/8080/8081/6653/6633/6343/30051-30060/9091-9100/9000
+```
+
+**不是只有 :8000／:8080／:8081 三個**（本節先前只寫那三個）：另外六條規則是 Ryu 的 OpenFlow
+listener `:6653`／`:6633`、kernel 的 sFlow collector `:6343`（UDP）、bmv2 每台一個的 gRPC
+`:30051-30060` 與 Thrift `:9091-9100`（各 10 個）、以及 sim app 的 `:9000`。
+正本是 `tools/test_workflow/ports.sh` 的 `NDT_PORT_TABLE`，`clean` 與 `--deep` 讀同一張表。
+⇒ **不乾淨的時候輸出不是五行**：每個被佔的 port 各三行（residue／owner／後果），
+09-12 那次活著的 fabric 上共 **74 行 `XX`**。
+<!-- 來源：ROLE-11 F7，log hunt-0911/logs/ROLE-11/92-clean.log（ok 那行逐字）與 18-clean-live.log
+     （74 行 XX）＝🟠 轉述；9 條規則／27 個 port 的展開＝本單親自讀 tools/test_workflow/ports.sh
+     的 NDT_PORT_TABLE 數出來的（6 個單埠＋10＋10＋1）。 -->
 
 🔴 **已知（工具的措辭，FIX-NDT-6 在修）：在你自己**活著的** fabric 上跑 `ndt clean`，
 它會把你這一輪的行程列成 residue，並在清單末尾建議 `ndt down --deep`。**不要照做。**
@@ -119,8 +134,17 @@ session 的殘骸還佔著 :8000，`down` 會**報告它、然後放著不動**�
 XX  :8000 still listening -- this stack did not start it
 ```
 
-這是刻意的：`--deep` 會殺掉佔住那三個 port 的任何行程，而那可能是別人正在用的東西。
-確定機器是你的，才加 `--deep`。
+這是刻意的：`--deep` 會殺掉佔住**那 27 個 port**（＝上面 `clean` 檢查的同一張表）的任何行程，
+而那可能是別人正在用的東西。確定機器是你的，才加 `--deep`。
+
+⚠️ **`ndt help` 的 `down` 段落仍寫「`--deep` also kills whatever still holds
+:8000/:8080/:8081」，那是三個 port 時代的話**：`deep_sweep` 與 `cmd_clean` 現在讀
+`ports.sh` 的同一張表（九條規則），所以 `--deep` 也會掃 bmv2 的 20 個 port。
+以這裡為準，`ndt help` 的那句待修。
+<!-- 來源：本單親自讀 tools/test_workflow/ndt 的 deep_sweep（`while IFS='|' read ... NDT_PORT_TABLE`，
+     註解自陳「the sweep now covers nine specs instead of three」）與 ports.sh；
+     `ndt help` 的原句出自本單自己跑的 logs/gates-0910/ndt-help-spelling.doc1-0912-r1.log。
+     工具側的措辭未改（不在本單範圍），已列進 SUMMARY §7。 -->
 
 🔴 **已知：那句「this stack did not start it」會蓋到這個 stack 自己登記的行程。**
 09-12 實測：`ndt up p4 4` 起完約 30 秒跑 `ndt clean`，輸出 **74 行 `XX`**，頭兩筆是
