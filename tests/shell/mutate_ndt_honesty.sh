@@ -281,58 +281,65 @@ report "M21: under-reporting is reported as over-reporting" "$m" \
 
 # --- #17: the tripwire named a mechanism it had not observed, and its rc said nothing ---------
 #
+# 🔴 NUMBERED FROM M40, and the gap is deliberate: this gate already had an M22-M28 (F12/B10/
+# F9/F10, from FIX-NDT-2) and the first draft of this block reused those labels. Both sets ran
+# and both were caught -- the mutant directory is created immediately before each run, so no
+# verdict was wrong -- but the LOG then carried two different "M22" lines, and a log you cannot
+# read back is not evidence. Found by grepping this gate's own output for duplicate labels
+# (2026-09-11, FIX-NDT-4).
+#
 # ROLE-5 2026-09-11 (logs/ROLE-5/18-posctrl-L2-live.log): one netem link failure read 1.60 and
 # the tripwire called it `clone replicas stacked`, with `check rc=0`. Each mutation below puts
 # back one half of that.
 
-m=$(mutant m22 "$NDT" \
+m=$(mutant m40 "$NDT" \
     '        verdict = "DOUBLE-COUNTING -- twin is %.2fx ground truth" % ratio' \
     '        verdict = "DOUBLE-COUNTING -- clone replicas stacked"')
-report "M22: the verdict names a mechanism it did not observe" "$m" \
+report "M40: the verdict names a mechanism it did not observe" "$m" \
        "🔴 but it does NOT name clone replicas as the finding"
 
-m=$(mutant m23 "$NDT" \
+m=$(mutant m41 "$NDT" \
     '    ] + (cause_lines(ratio, shape) if ratio > 1.5 else [])' \
     '    ]')
-report "M23: the two causes are never printed at all" "$m" \
+report "M41: the two causes are never printed at all" "$m" \
        "🔴 it names the twin lagging the truth as a cause"
 
-m=$(mutant m24 "$NDT" \
+m=$(mutant m42 "$NDT" \
     '    shape = window_shape(subs)' \
     '    shape = None')
-report "M24: the window shape never reaches the verdict" "$m" \
+report "M42: the window shape never reaches the verdict" "$m" \
        "🔴 and the window shape really reaches it"
 
 # (widening) Every ratio over the band is called a lag, including the constant factor over a
 # steady truth that this tripwire exists for. A verdict that only ever says "two things could
 # have done this" is not a tripwire.
-m=$(mutant m25 "$NDT" \
+m=$(mutant m43 "$NDT" \
     '    if hot == subs and steady:' \
     '    if False:')
-report "M25 (widening): a constant factor is called a transient too" "$m" \
+report "M43 (widening): a constant factor is called a transient too" "$m" \
        "🔴 a constant factor over a steady truth IS the stack shape"
 
 # (widening) The other direction on the same decision: everything is called the stack shape,
 # so ROLE-5's link failure is reported as replicas again with an evidence line under it.
-m=$(mutant m26 "$NDT" \
+m=$(mutant m44 "$NDT" \
     '    steady = hi <= lo * 1.25' \
     '    steady = True
     hot = subs')
-report "M26 (widening): every window is called steady and hot" "$m" \
+report "M44 (widening): every window is called steady and hot" "$m" \
        "🔴 with the evidence that separates them"
 
-m=$(mutant m27 "$NDT" \
+m=$(mutant m45 "$NDT" \
     '    if twin_bps / truth_bps > 1.5:
         sys.exit(4)' \
     '    pass')
-report "M27: the block stops carrying the verdict out" "$m" \
+report "M45: the block stops carrying the verdict out" "$m" \
        "🔴 the block exits 4 when the ratio is over the band"
 
-m=$(mutant m28 "$NDT" \
+m=$(mutant m46 "$NDT" \
     '        err "ndt check: rc $vrc -- read the ratio block above; this is not '"'"'the check failed to run'"'"'"
         return "$vrc"' \
     '        :')
-report "M28: the command swallows the rc the block produced" "$m" \
+report "M46: the command swallows the rc the block produced" "$m" \
        "🔴 a DOUBLE-COUNTING verdict reaches the caller as rc 4"
 
 # --- widenings: mutants that stay GREEN where the suite requires RED --------------------------

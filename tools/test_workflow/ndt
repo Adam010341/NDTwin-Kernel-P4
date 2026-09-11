@@ -7124,6 +7124,17 @@ usage: ndt <command>
                   exit code, when the record row says none. (F2, 2026-09-11)
   clean         just the teardown assertion (exit 1 if anything survived)
   check         telemetry double-count tripwire
+                  exit 0 the ratio is inside the +/-50% band, or there was too
+                  little traffic to compute one at all; 1 the kernel is not up, a
+                  DECLARED measurement was refused, or the twin could not be read;
+                  4 DOUBLE-COUNTING was printed. 🔴 READ THE CAUSE LINES under it:
+                  over the band is NOT the same statement as 'clone replicas'.
+                  One netem link failure read 1.60 with no replicas anywhere on
+                  the fabric, and the verdict used to name them (ROLE-5,
+                  2026-09-11). rc 4 is new on 09-11; 'under-counting' (ratio
+                  under 0.5) is still 0, because 1/1024 sampling under-reports by
+                  24.8% on a healthy fabric and a red on that side would fire on
+                  the EXPECTED reading. (#17)
   apps [names]  start readers/apps; no args on a terminal = interactive picker
                   energy sim nsr viz te      ('ndt apps stop [names|all]')
                   ndt apps orphans  -- is anything of an app's still running,
