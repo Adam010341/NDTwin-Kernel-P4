@@ -845,6 +845,12 @@ section "5F. ROLE-12: the 'down' rc table says a port held at [1/3] is not by it
 # steps later. An operator told only "exit 1" reads that as a teardown that failed. The rc now
 # follows a re-read taken after the sweep, and the table has to say so, or the next reader
 # reconciles a 0 against seven nights of 1s with nothing to explain the change.
+# 🔴 THE HEADLINE, added 03:30 because the gate asked for it: MD1 rewrote this line into its
+# opposite ("A port still held anywhere in the teardown is a failed teardown") and every cell
+# below stayed green -- the paragraph's own claim was the one sentence nothing read. A table
+# whose heading contradicts the body it heads is worse than a table with no paragraph.
+has   "  🔴 the paragraph says its claim in its own heading" \
+      "A PORT HELD AT [1/3] IS NOT BY ITSELF A FAILED TEARDOWN" "$HELP"
 has   "  🔴 the table names the ordering that produces it" "[1/3] runs before" "$HELP"
 has   "  and that it is the live fabric accusing itself"   "the fabric this teardown is about to remove" "$HELP"
 has   "  with the measurement behind it"                   "7 of 7" "$HELP"
