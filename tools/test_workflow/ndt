@@ -1987,6 +1987,22 @@ stack_down_deferrable_ports() {
     return 0
 }
 
+# ndt_port_table_size [plane] -- "<N> rule(s), <M> port(s)", ranges expanded. Written for the
+# help text, and written as a function for the reason the help needed it: that line said
+# `--deep also kills whatever still holds :8000/:8080/:8081` while deep_sweep had been reading
+# the whole table for weeks -- 24 ports short, in the one sentence an operator reads before
+# running the verb that kills processes this stack did not start (ROLE-11 F7, 2026-09-12). A
+# number typed beside the table is the same artefact one row later; this one cannot drift.
+ndt_port_table_size() {
+    local plane="${1:-all}" spec rest p rows=0 n=0
+    while IFS='|' read -r spec rest; do
+        [[ -z "$spec" ]] && continue
+        rows=$(( rows + 1 ))
+        for p in $(ndt_port_expand "$spec"); do n=$(( n + 1 )); done
+    done < <(ndt_port_rows "$plane")
+    printf '%s rule(s), %s port(s)' "$rows" "$n"
+}
+
 # ndt_port_proto <port> -- the proto ports.sh declares for it; rc 1 when no row does. The
 # caller treats "no row" as could-not-re-read rather than as closed: stack.sh only ever names
 # ports from this table, so an unknown one means the two files have drifted, and a drift that
@@ -7390,9 +7406,19 @@ usage: ndt <command>
                 parameter. For any other size, name the plane: 'ndt up p4 N'.
                 NDT_TOPO=<file> forces a specific kernel model.
   down [--deep] take it all down and prove the machine is clean
-                  --deep also kills whatever still holds :8000/:8080/:8081, including
-                  processes this stack did not start. Off by default: without it, a
-                  stray is reported and left alone rather than killed.
+                  --deep also kills whatever still holds ANY port in ports.sh's table
+                  -- $(ndt_port_table_size all) --, including processes this stack did
+                  not start. Off by default: without it, a stray is reported and left
+                  alone rather than killed.
+                  the ports --deep sweeps, from the table:
+                    $(ndt_port_label all)
+                  🔴 this line used to name only the three ports that were easy to
+                  name, while deep_sweep had been reading the whole table since
+                  ports.sh existed -- 24 ports short, in the sentence an operator
+                  reads before running the one verb here that kills processes this
+                  stack did not start. The size and the list above are computed from
+                  the table, so they cannot go stale again; the manual's copy was
+                  corrected the same day. (ROLE-11 F7 / FIX-DOC-1, 2026-09-12)
                   exit 0 the teardown finished and the machine verified clean; 1 any
                   of: stack.sh's half exited non-zero, the sweep did not finish, or
                   the assertion found something still running. All four steps run

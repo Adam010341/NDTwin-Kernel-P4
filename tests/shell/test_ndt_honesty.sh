@@ -880,6 +880,29 @@ check "  the refusal the help describes is in cmd_clean" "1" \
 check "  🔴 and it is scoped to another process's marker" "1" \
       "$(grep -c 'if tif="$(teardown_in_flight)" && \[\[ "${tif%% \*}" != "$\$" \]\]; then' "$NDT")"
 
+section "5H. ROLE-11 F7 / FIX-DOC-1: the help's --deep line quotes ports.sh's table, not three ports"
+# The help said `--deep also kills whatever still holds :8000/:8080/:8081`. deep_sweep has read
+# ports.sh's table since the table existed -- nine rules, 27 ports once the two per-device
+# ranges are expanded -- so the sentence understated by 24 the set of processes that verb can
+# kill, in the one place an operator is told what --deep does before running it. The manual was
+# corrected on 09-12 (FIX-DOC-1 F7, commit c395da50); this is the copy inside the tool.
+#
+# 🔴 The number is GENERATED from the table, not typed next to it. A number typed here is the
+# same artefact one edit later: ROLE-11 counted 25 by hand on the machine and the table says 27.
+hasnt "  🔴 --deep no longer names three ports"       ":8000/:8080/:8081" "$HELP"
+has   "  it names the table instead"                  "ANY port in ports.sh's table" "$HELP"
+has   "  🔴 with the size read out of the table"      "9 rule(s), 27 port(s)" "$HELP"
+has   "  and the specs themselves, ranges and all"    "30051-30060/9091-9100" "$HELP"
+has   "  saying what it used to claim"                "used to name only the three ports" "$HELP"
+has   "  attributed"                                  "ROLE-11 F7" "$HELP"
+# 🔴 Against the code, and this is the cell that matters: the two numbers above are printed by
+# a function reading NDT_PORT_TABLE. Typing `27` back into the prose passes every cell above
+# and puts the defect back the day somebody adds a row.
+check "  the size in the help is computed, not typed" "1" \
+      "$(grep -c 'ndt_port_table_size all' "$NDT")"
+check "  and so is the list of specs"                 "1" \
+      "$(grep -c 'the ports --deep sweeps, from the table' "$NDT")"
+
 # ==========================================================================================
 section "F9. this suite reads its OWN tree, and not the main checkout"
 # ==========================================================================================

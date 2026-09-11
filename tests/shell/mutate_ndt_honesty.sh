@@ -639,6 +639,36 @@ report 'MC16: the help stops saying what a claim does not cover (T4)' "$m" \
        '  the help scopes the claim to this tool'"'"'s own verbs'
 
 
+# --- 09-12: the three paragraphs ROLE-11 and ROLE-12 put into the rc tables --------------------
+
+# MD1: the `down` table stops saying that a port held at [1/3] is not by itself a failure. The
+# rc changed under the operator on 09-12 (7 of 7 live P4 teardowns were red, then green); a
+# table that does not carry the reason is how the next reader reconciles the two by guessing.
+m=$(mutant md1 "$NDT" \
+    '                  🔴 A PORT HELD AT [1/3] IS NOT BY ITSELF A FAILED TEARDOWN.' \
+    '                  A port still held anywhere in the teardown is a failed teardown.')
+report 'MD1: the down table drops the port-at-[1/3] paragraph (ROLE-12)' "$m" \
+       '  🔴 the table names the ordering that produces it'
+
+# MD2: the `clean` table stops documenting the refusal. A guard nobody is told about is read as
+# a malfunction the first time it fires, and this one fires on the command the manual sends a
+# first-time reader to.
+m=$(mutant md2 "$NDT" \
+    '                  🔴 it REFUSES while an '"'"'ndt down'"'"' from this checkout is running,' \
+    '                  it is safe to run at any time,')
+report 'MD2: the clean table drops the refusal (ROLE-12 cell 3)' "$m" \
+       '  🔴 the refusal is documented at all'
+
+# MD3: the --deep line's size is TYPED beside the table instead of read out of it. Every text
+# cell about that sentence still passes; it goes stale again the day a row is added, which is
+# exactly how it came to say three while deep_sweep swept 27.
+m=$(mutant md3 "$NDT" \
+    '                  -- $(ndt_port_table_size all) --, including processes this stack did' \
+    '                  -- 9 rule(s), 27 port(s) --, including processes this stack did')
+report 'MD3: the --deep size is typed rather than computed (ROLE-11 F7)' "$m" \
+       '  the size in the help is computed, not typed'
+
+
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
