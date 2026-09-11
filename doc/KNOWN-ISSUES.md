@@ -4627,6 +4627,97 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 - **證據**：`scratch/overnight-2026-09-05/hunt-0911/ROLE-8-A1-LIVE-REPORT.md` §7-②；
   `scratch/overnight-2026-09-05/SMALL-ISSUES-0910.md` #57。⚠️ 🟠 轉述；`scratch/`，不在版控。
 
+> 🔴 **G-42–G-46 的共同狀態**：五條都 **fixed on `fix/ndt-6-0912` (`1dab7721`)，
+> merge pending at 04:35（2026-09-12）**；併入與否見 `hunt-0911/00-LEDGER.md`。
+> **在那顆 merge 落地之前，trunk 上的行為仍然是每一條「量到什麼」寫的那樣。**
+
+### G-42 🏁 H3 的 teardown marker 沒有所有權：第二個 `ndt down` 會偷走它，先結束的會刪掉還在跑的那個的
+
+- **狀態**：**FIXED** on `fix/ndt-6-0912` (`019b9153`)，**merge pending at 04:35（2026-09-12）**；
+  **缺陷是實測的**（ROLE-12 cell 2b，2026-09-12 02:07:18–02:07:32，marker 每 0.2 s 取樣）。
+- **量到什麼**：`mark_teardown_start` 無條件寫 `pid=$$`、`mark_teardown_end` 無條件 `rm -f`。
+  02:07:18.107 D1 寫 marker（15 筆取樣）；02:07:22.115 D2 覆寫成自己的 pid（55 筆），**而 D1 還活著**
+  ⇒ 那 11 秒裡每一個被拒的 `ndt up` 都印**錯的 pid**；02:07:32.687 D1 先結束、`rm -f` 掉的是 **D2 的** marker，
+  D2 仍在跑；02:07:32.691 `ndt up p4 4` **沒有被拒**、rc 0、走到 `[3/3]` 含 `data plane: h1 -> 10.0.0.2 forwards`。
+  ⇒ **H3 的守衛被它存在的理由（重疊）本身關掉。**
+- **誠實的那一半**：那一輪**沒有**釀成 09-11 cycle-13 的災情（時序錯開幾秒）。可宣稱的是**守衛不見了**，
+  不是「已證明會毀掉」。
+- **修法**：活著的別人的 marker ⇒ 拒絕（`cmd_down` return 1），逐字印對方 pid 與開始時間；
+  pid 死了 ⇒ 接手並說明；`mark_teardown_end` 只刪 `pid==$$` 的，刪不得時出聲。
+  三個拒絕（`up`／`down`／`clean`）共用 `teardown_in_flight_refusal` 的前兩行。
+- **釘在**：`tests/shell/test_ndt_up_down_robust.sh` §14（21 格）；
+  `mutate_ndt_up_down_robust.sh` M40／M41／M42、W7。
+- **證據**：`scratch/overnight-2026-09-05/hunt-0911/ROLE-12-LIVE-TEARDOWN-OVERLAP-REPORT.md` 置頂①
+  與 `logs/ROLE-12/c2b-*`。⚠️ 🟠 轉述；`scratch/`，不在版控。
+
+### G-43 🏁 活著的 P4 fabric 的 `ndt down` 必定 rc 1，而它自己的 `verify clean` 四段之後就打臉它
+
+- **狀態**：**FIXED** on `fix/ndt-6-0912` (`fcb8b35e`)，**merge pending at 04:35（2026-09-12）**；
+  **缺陷是實測的**（ROLE-12，2026-09-12，7/7；ROLE-9 同夜 10/10 逐字重現）。
+- **量到什麼**：`stack.sh down` 是 `ndt down` 的 `[1/3]`、bmv2 sweep 是 `[3/3]`
+  ⇒ 活著的 P4 fabric 上，port 斷言必然在 fabric 還在的時候跑，必然點名**這一輪自己即將拆掉的** 20 個 port
+  （`:30051-30060`／`:9091-9100`）並 `stack.sh down exited 1`；同一份 log 四段之後印
+  `ok ports closed: …30051-30060/9091-9100…`。**7 份 live P4 全部如此**（含一份完全無重疊、rc 前景捕捉），
+  2 份 live OVS 與 1 份已 down 的 lab **全部 0**。這是 A1-b 接上的 rc 把**中途**的判斷當結局。
+- **修法**：「只剩不是它起的 port 還開著」這一種**延後到 `verify clean` 之後按 port 號重讀**，rc 跟著第二次讀數；
+  另兩種來源（這個 stack 起的東西停不掉、致命結局）不變。分類**釘在 `stack.sh` 的 return site**
+  （leftovers 那一支 `return 1` 正上方那一行），不是字詞表；**認不出來的非 0 一律維持紅**。
+- ⚠️ **`00-COMMON-0911-DAY.md` 09-12 02:15 追加的那個「第三種可續行來源」讀法，在這個 commit 之後
+  不再需要**：`ndt down` 自己會給 rc 0。那節可以改寫，但**改它是 orchestrator 的事**，FIX-NDT-6 沒動。
+- **釘在**：`test_ndt_up_down_robust.sh` §15（22 格，含 `cmd_clean` 被 stub 成綠的那一格——
+  只有真的第二次讀 port 才過得了；以及四格**對著 `stack.sh` 的碼**驗那四句話各只有一處）；
+  `test_ndt_honesty.sh` §5F；`mutate_ndt_up_down_robust.sh` M43–M47、W8；`mutate_ndt_honesty.sh` MD1。
+- **證據**：ROLE-12 報告置頂②與 `logs/ROLE-12/c6-03-down-p4-solo.log`（無重疊、rc 捕捉）。⚠️ 🟠 轉述。
+  🔴 **它的下游（那句 rc 被寫進 claim note、活到下一個 session）另記為 G-49，仍然 OPEN。**
+
+### G-44 🏁 `ndt clean` 對進行中的 teardown 零守衛，還把那份 fabric 列成 residue 並建議 `--deep`
+
+- **狀態**：**FIXED** on `fix/ndt-6-0912` (`7dad4199`)，**merge pending at 04:35（2026-09-12）**；
+  **缺陷是實測的**（ROLE-12 cell 3，2026-09-12 02:08:24.569）。
+- **量到什麼**：marker 在、D1 活著、正在拆 10 台 P4：`ndt clean` **未被拒**、rc 1、印 `not clean`，
+  把操作者**自己正在被拆的** fabric 整份列成 residue（10 bmv2、14 host/switch、topo session、manifest、
+  `ndtwin_kernel pid 2460143 holding :8000`、`python pid 2459746 holding :8081`、`:6343`、20 個 bmv2 port），
+  末行 `this stack did not start it; to kill it too:  ndt down --deep`。
+  那正是 H3 的拒絕訊息裡寫「照著做會殺掉操作者自己那一份」的同一句建議——
+  **H3 的守衛住在 `preflight`，而 `preflight` 只有 `ndt up` 走。**
+- **修法**：`cmd_clean` 開頭對**別人的**活 marker 拒絕（rc 1），與 `up` 同一句型、同一函式。
+  🔴 **只擋別人的**：`cmd_down` 的 `verify clean` 就是 `cmd_clean`，跑在它自己的 marker 底下。
+- **釘在**：`test_ndt_up_down_robust.sh` §16（17 格，含「`ndt down` 不會拒絕自己」）；
+  `test_ndt_honesty.sh` §5G；`mutate_ndt_up_down_robust.sh` M48／M49；`mutate_ndt_honesty.sh` MD2。
+- ⚠️ **rc 用 1，沒有給拒絕自己的 rc**——`fix/FIX-NDT-6-SUMMARY.md` §7-2（要 Adam 裁）。
+
+### G-45 🏁 `ndt clean` 對自己剛起的 fabric 說「this stack did not start it」並指向 `--deep`
+
+- **狀態**：**FIXED** on `fix/ndt-6-0912` (`bbf1e9c5`)，**merge pending at 04:35（2026-09-12）**；
+  **缺陷是實測的**（ROLE-11 F5，2026-09-12 02:25:14）。
+- **量到什麼**：手冊 §2.1 教人 fabric 起來後用 `ndt clean` 驗；讀者 30 秒前才用 `ndt up p4 4` 起的 fabric，
+  `ndt clean` 印 74 行 `XX` 並以 `this stack did not start it; to kill it too:  ndt down --deep` 收尾，
+  而那份清單的前幾筆正是 `.test_run/pids/` 登記的（`ndtwin_kernel pid 2511227` 於 `:8000`、
+  `python pid 2510886` 於 `:8081`；同一輪 `ndt status` 的 pidfiles 欄逐字 `…2511227 alive,…2510886 alive`）。
+  手冊摺疊區寫「確定機器是你的，才加 `--deep`」，而工具剛告訴他不是。
+  **那是那一輪唯一一條「照做會壞」的指令。**
+- **修法**：`cmd_clean` 對每個被佔的 port 問兩個**紀錄**——`.test_run/pids/`（`port_owner_local`）
+  與 switch manifest（答 P4 平面：bmv2 是 root 的，pid 從構造上看不見）。
+  答得出來 ⇒ `the fabric this stack started is still up. Take it down with:  ndt down`，逐個印出是哪個紀錄答的；
+  答不出來 ⇒ 原句與 `--deep` **原封不動**（那是 `ports.sh` 存在的理由）。
+- **釘在**：`test_ndt_up_down_robust.sh` §17（16 格，含「沒有 manifest 的 bmv2 port 仍是陌生人」
+  與「不在登記檔裡的持有者仍拿到原句」兩格控制組）；`mutate_ndt_up_down_robust.sh` M50／M51／M52。
+- ⚠️ manifest 判準的邊界見 `fix/FIX-NDT-6-SUMMARY.md` §7-4（孤兒 manifest 會被說成「我們的」）。
+- **證據**：`hunt-0911/logs/ROLE-11/18-clean-live.log`（該單親自讀過）、`16-check-p4.log`（🟠 轉述自報告）。
+
+### G-46 🏁 `ndt help` 的 `--deep` 說它掃三個 port，`deep_sweep` 掃的是整張表（9 條規則、27 個 port）
+
+- **狀態**：**FIXED** on `fix/ndt-6-0912` (`7e0b1423`)，**merge pending at 04:35（2026-09-12）**。
+  手冊那半 FIX-DOC-1 已改（`c395da50`，✅ 已併入 trunk，merge `01082389`）。
+  〔`fix/FIX-DOC-1-SUMMARY.md` §6 把同一件事寫成待編號的 `G-4x-b`；依工單**取本條**、丟掉那個號。〕
+- **量到什麼**：`ndt help` 的 `down` 段寫 `--deep also kills whatever still holds :8000/:8080/:8081`，
+  而 `deep_sweep` 自 `ports.sh` 存在起就走整張表 ⇒ **少講 24 個 port**，
+  而且是在「操作者按下那個會殺掉別人行程的動詞之前讀到的唯一一句話」裡。
+- **修法**：新 `ndt_port_table_size`；help 印 `ANY port in ports.sh's table -- 9 rule(s), 27 port(s) --`
+  ＋ `$(ndt_port_label all)` 的 spec 清單。**數字是算的不是打的**（兩格對著碼驗）。
+- **對帳**：ROLE-11 F7 手數 **25**、FIX-DOC-1 與 FIX-NDT-6 照 `NDT_PORT_TABLE` 展開都是 **27**
+  （6 個單埠 ＋ 30051-30060 ＋ 9091-9100 ＋ 9000）。**表是來源**，而現在 help 是從表印的。
+
 ### G-50 ⚠️ 修法在自己的訊息裡引用它修掉的缺陷，於是「缺陷字串不該出現」的斷言在修好的樹上紅
 
 - **狀態**：**OPEN**（instrument class, not a product defect）。2026-09-11 CELLS-1 live 兩次
