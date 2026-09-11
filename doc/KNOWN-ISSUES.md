@@ -1379,7 +1379,7 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 - **證據**：`doc/audit/2026-09-02_manual-usertest/run-01-sonnet/auditor-verification/` 的 `logs/av*_kernel_*.log`（實測，讀 log）；出處：該目錄的 `README.md`（trunk `01e642e8`；auditor 裁定在該檔 `:39`）。
   ⚠️ **本條未在 Adam 的機器上重現、未定位到具體物件、exit code 未量。**
 
-### B-6 🔴 用 API 宣告的 link failure 會被 30 秒的拓樸輪詢靜默撤銷（可見壽命上界 30 s）
+### B-6 🟢 用 API 宣告的 link failure 會被 30 秒的拓樸輪詢靜默撤銷（可見壽命上界 30 s）
 
 - **狀態**：✅ **已併入 trunk**——修法在分支 `fix/w8-declared-link-failure-sticky`（工單 W8），
   **merge `8b51caf4`，2026-09-10**（分支從 trunk `1536ff17` 開，2026-09-06）；閘門
@@ -1403,8 +1403,10 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   與 trunk 上的 blob sha **相同**（2026-09-11 以 `git rev-parse <ref>:<path>` 兩邊對過）。
   ⚠️ **RESOLVED 不等於使用者拿得到**：09-10 這批**未推任何 remote**（F-1 立的那條線
   ——翻面的條件是「跑著的那顆 kernel 裡有這個修法」）⇒ 對外宣稱「已修」之前要先問修在哪個 ref。
-  ⚠️ **標題的 🔴 沒有動**：依 A-4e 的前例（標題與狀態行一致性的修正是 Adam 自己做的），
-  這一次只動狀態行。
+  🔄 **標題的 🔴 已於 2026-09-12 改成 🟢**（KI-FOLLOWUP-2，依 orchestrator 代裁 **B21**；
+  翻盤成本＝revert 一顆 commit）。**這是一致性修正，不是新的狀態判定**——狀態自 2026-09-11
+  起就是 RESOLVED，而標題與狀態行原本互相打臉（同 A-4 2026-09-02 的前例）。
+  〔在此之前這裡寫的是「⚠️ **標題的 🔴 沒有動**：依 A-4e 的前例…這一次只動狀態行」。〕
 - **平面**：兩者（缺陷在 kernel 的拓樸輪詢，與資料面無關；實測跑在 OVS 10-switch）
 - **失效方向**：**樂觀 ＋ 靜默**——被宣告成壞掉的東西回報成健康，而且沒有任何 log 記錄這次翻轉
 - **會發生什麼**：`POST /ndt/link_failure_detected` 回 **200**，雙向邊在 0.02 s 內變 `isUp=false`；
@@ -1465,7 +1467,7 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   **查得出來**（掃 `/ndt/get_graph_data` 的 `down_reason == "declared"`）。
   **「注入後必須斷言注入成功」那條紀律兩個方向都要斷言**：窗內成立、窗後解除。
 
-#### B-6 第二輪：**宣告活過輪詢，但活不過控制面重啟**（實測 2026-09-07，分支 `fix/w8b-withdrawal-needs-observed-failure`）
+#### B-6 第二輪 🟢：**宣告活過輪詢，但活不過控制面重啟**（實測 2026-09-07，分支 `fix/w8b-withdrawal-needs-observed-failure`）
 
 - **狀態**：✅ **兩輪都已併入 trunk**（2026-09-10；在此之前 trunk 連第一輪都沒有）。
   第一輪的修法擋得住輪詢、擋不住這個；修在
@@ -1480,8 +1482,10 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   bytes 的同一性與 B-6 第一輪同一個檢查（同一個檔、同一次比對）。
   ⚠️ **RESOLVED 不等於使用者拿得到**：09-10 這批**未推任何 remote**（F-1 立的那條線
   ——翻面的條件是「跑著的那顆 kernel 裡有這個修法」）⇒ 對外宣稱「已修」之前要先問修在哪個 ref。
-  ⚠️ **標題的 🔴 沒有動**：依 A-4e 的前例（標題與狀態行一致性的修正是 Adam 自己做的），
-  這一次只動狀態行。
+  🔄 **標題的 🔴 已於 2026-09-12 改成 🟢**（KI-FOLLOWUP-2，依 orchestrator 代裁 **B21**；
+  翻盤成本＝revert 一顆 commit）。**這是一致性修正，不是新的狀態判定**——狀態自 2026-09-11
+  起就是 RESOLVED，而標題與狀態行原本互相打臉（同 A-4 2026-09-02 的前例）。
+  〔在此之前這裡寫的是「⚠️ **標題的 🔴 沒有動**：依 A-4e 的前例…這一次只動狀態行」。〕
 - 🟢 **實測（不是推論）**：`scratch/overnight-2026-09-05/logs/live-round2-console.log` 的 lw8b 臂，
   2026-09-07 00:08，OVS 4 hosts，kernel `37d641fa9fd6fc14`（build 自 `017c060f`）：
   宣告 s1:1→s5:1（`is_up=False down_reason=declared`）→ 指名 kill Ryu（:8080 於 00:08:47 關，
@@ -1790,7 +1794,7 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ---
 
-### B-10 🔴 替交換機取個名字，`ndt status --check` 就說「有人動了拓樸檔」
+### B-10 🟢 替交換機取個名字，`ndt status --check` 就說「有人動了拓樸檔」
 
 - **狀態**：🟢 **RESOLVED（2026-09-11）**（條目登記於 2026-09-06，當時是 OPEN）。
   修法在分支 `fix/w10-nickname-overlay` 上，✅ **已併入 trunk**（merge `0584f1b5`，2026-09-10）。
@@ -1857,7 +1861,7 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ---
 
-### B-11 🔴 拓樸檔可以宣告一台**沒有位址**的 host，kernel 收下，並以 `('h9', [])` 對外服務
+### B-11 🟢 拓樸檔可以宣告一台**沒有位址**的 host，kernel 收下，並以 `('h9', [])` 對外服務
 
 > 09-05 夜巡的 **#90**（見上面那則撞號說明）。W3 門 3b（碼與閘門裡叫 **door 3d**）。
 > 🔴 **本條在 W3-3b 分支的 FIX 文件與 commit 訊息裡被稱為 FINDINGS `#90`**
@@ -1880,7 +1884,8 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   `TopologyAndFlowMonitor.cpp` 與該閘門腳本兩邊的 blob sha 相同，2026-09-11 對過）。
   〔在此之前這裡寫的是「照 B-7／B-8 的慣例維持 **OPEN**、A-1 的規矩」——那是條件還沒驗的口徑。〕
   🔴 **「已經修好了」對外要先問修在哪個 ref**——trunk 有了，而 **09-10 這批未推任何 remote**
-  ⇒ 使用者拿得到的仍是舊行為。⚠️ 標題的 🔴 沒有動（同 B-6 的但書）。
+  ⇒ 使用者拿得到的仍是舊行為。🔄 標題的 🔴 已於 2026-09-12 改成 🟢（KI-FOLLOWUP-2，依代裁 **B21**；同 B-6）——
+  一致性修正，不是新的狀態判定。
 - **平面**：兩者（載入器的事，與資料面無關）
 - **失效方向**：**靜默**——整份檔案被完整收下，log 一個字都沒有
 - **會發生什麼**：拓樸檔裡多一台 `"ip": []` 的 host（不必被任何 edge 指到），
@@ -1931,7 +1936,7 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   （分支 `fix/contract-per-node-identity`）**沒有改變這一點**，並且有一支測試把這件事釘死。
   ⇒ **關這扇門的只有載入器。**
 
-### B-12 🔴 拓樸檔可以宣告一個 kernel 不認得的 `brand_name`，被靜默對映成 HARDWARE 收下
+### B-12 🟢 拓樸檔可以宣告一個 kernel 不認得的 `brand_name`，被靜默對映成 HARDWARE 收下
 
 > 09-05 夜巡的 **#91**（見上面那則撞號說明）。碼與閘門裡叫 **door 3e**。
 > 🔴 **本條在 W15 分支的 FIX 文件與 commit 訊息裡被稱為 FINDINGS `#91`**
@@ -1954,7 +1959,8 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   log `logs/gates-0910/mutate_topology_input_is_validated.log:961-962`），
   bytes 同一性的檢查也是同一個 ⇒ A-1 的條件已驗。
   〔原文：「同 B-11：狀態維持 **OPEN**，A-1 的規矩」。〕
-  🔴 **未推任何 remote**，對外宣稱前先問 ref。⚠️ 標題的 🔴 沒有動（同 B-6 的但書）。
+  🔴 **未推任何 remote**，對外宣稱前先問 ref。🔄 標題的 🔴 已於 2026-09-12 改成 🟢（KI-FOLLOWUP-2，依代裁 **B21**；同 B-6）——
+  一致性修正，不是新的狀態判定。
 - **平面**：兩者
 - **失效方向**：**語氣拒絕、行為放行**——log 印一行 `[error]`，然後整份檔案照樣載入
 - **會發生什麼**：把某台 switch 的 `brand_name` 打成 `NOT_A_REAL_KIND`，
