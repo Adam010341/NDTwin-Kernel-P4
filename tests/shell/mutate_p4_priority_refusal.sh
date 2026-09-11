@@ -222,6 +222,31 @@ each_mutation() {
         '    _refuse_unhonourable_priority(data, match, "install")
     # 400 with the offending field names, rather than servicing a narrowed version of the rule' \
         'test_an_install_is_still_disclosed_rather_than_refused'
+
+    # ---- half three: the refusal has to be READABLE where it is read ------------------
+    # 🔴 2026-09-11, hunt-0911/ROLE-5-TRAFFIC-REPORT.md §S3. On a live fabric 2152 of 2152
+    # deletes were refused here and every caller got HTTP 200 `queued`, because the kernel
+    # answers before the southbound request is made. The single place the refusal surfaces is
+    # get_flow_dispatch_status' recent_failures[].message, and what lands there is
+    # briefly(body, 200) -- HttpRoutingStrategyBase.cpp:62-79. The captured record cut
+    # mid-word at "data plan", 640 bytes short of what to do instead.
+
+    # The field is gone: the body still explains the refusal, in prose that stops at byte 200.
+    "$m" "8. the remedy field is dropped, so the window carries only the diagnosis" "$API" \
+        '            "remedy": "omit priority, or match the full five-tuple",
+' \
+        '' \
+        'test_the_remedy_is_inside_the_window_the_kernel_keeps'
+
+    # 🔴 The sharper one, and the reason the test measures BYTES rather than asserting the key
+    # exists. The field is still there and every reader of the proxy's own response sees it --
+    # but an `error` string grown to be more helpful pushes it past the kernel's cut, and the
+    # failure record goes back to carrying the diagnosis and nothing actionable. Nothing about
+    # this edit looks like a regression.
+    "$m" "9. a longer error string pushes the remedy out of the kernel window" "$API" \
+        '            "error": "priority not honourable on this table",' \
+        '            "error": "priority not honourable on this table, because ipv4_lpm is a longest-prefix-match table whose only tiebreak is the prefix length and which has no priority column at all, so the value cannot select an entry",' \
+        'test_the_remedy_is_inside_the_window_the_kernel_keeps'
 }
 
 # --- run ------------------------------------------------------------------------------------

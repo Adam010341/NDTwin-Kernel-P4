@@ -444,5 +444,95 @@ class APriorityThatNamesAnEntryIsRefusedNotObeyedTest(unittest.TestCase):
         self.assertNotIn("priority_honoured", out)
 
 
+class TheRefusalReachesTheOnePlaceACallerCanReadItTest(unittest.TestCase):
+    """
+    The 501 body is not read where it is written. It is read 200 bytes at a time.
+
+    [Co-developed with claude code -- Adam]
+    hunt-0911/ROLE-5-TRAFFIC-REPORT.md §S3, measured 2026-09-11 on a live 10-switch fabric:
+    4312 POSTs to the kernel's northbound, 100% HTTP 200 `queued`, and 2152 of 2152 deletes
+    refused here with this 501. The caller saw a 200 for every one of them. The only place the
+    refusal surfaces is get_flow_dispatch_status' `recent_failures[].message`, and what lands
+    there is not this body -- it is `briefly(body, 200)` from
+    src/ndt_core/routing_management/HttpRoutingStrategyBase.cpp:62-79, the same string the
+    kernel logs. The captured record cuts mid-word:
+
+        "message": "P4 proxy agent returned HTTP 501: {\\"detail\\":{\\"error\\":\\"priority not
+        honourable on this table\\",\\"outcome\\":\\"unsupported_on_p4\\",\\"table\\":
+        \\"ipv4_lpm\\",\\"requested_priority\\":99,\\"message\\":\\"this delete names priority
+        99, and on a P4/bmv2 data plan..."
+
+    So the diagnosis reached every reader and the instruction reached none: "omit the priority
+    and take the non-strict route" is ~640 bytes into an 838-byte body.
+
+    These assertions are made against FastAPI's own serializer, not against a hand-counted
+    string, because the number that matters is a byte count of what actually goes on the wire
+    -- and `separators`, key order and `ensure_ascii` all move it. A test that modelled the
+    serializer would be pinning the model.
+    """
+
+    #: HttpRoutingStrategyBase.cpp:62 -- `briefly(const std::string&, size_t limit = 200)`.
+    KERNEL_MESSAGE_WINDOW = 200
+
+    def setUp(self):
+        self.recorder = RecordingTopology(verdict=True)
+        api_routes.topology = self.recorder
+
+    def tearDown(self):
+        api_routes.topology = None
+
+    def window(self, verb, priority=99):
+        """The leading bytes of the real response, which is all the kernel keeps."""
+        from fastapi.responses import JSONResponse
+        raw = json.dumps({"dpid": 1, "priority": priority,
+                          "match": {"dl_type": 2048, "nw_dst": "10.9.0.2"},
+                          "actions": [{"type": "OUTPUT", "port": 2}]}).encode()
+        handler = {"delete": api_routes.delete_flow_entry,
+                   "modify": api_routes.modify_flow_entry}[verb]
+        with self.assertRaises(HTTPException) as caught:
+            call(handler, raw)
+        body = JSONResponse(status_code=caught.exception.status_code,
+                            content={"detail": caught.exception.detail}).body.decode()
+        return body[:self.KERNEL_MESSAGE_WINDOW], body
+
+    def test_the_remedy_is_inside_the_window_the_kernel_keeps(self):
+        for verb in ("delete", "modify"):
+            with self.subTest(verb=verb):
+                window, _ = self.window(verb)
+                self.assertIn("remedy", window,
+                              "the only actionable sentence must be readable in "
+                              "recent_failures[].message, not 640 bytes past its cut")
+                self.assertIn("five-tuple", window,
+                              "and it has to name the thing to do, not merely announce that a "
+                              "remedy exists")
+
+    def test_the_outcome_and_the_requested_priority_are_still_inside_it(self):
+        # Adding a field ahead of them must not push the two machine-readable ones out. This is
+        # the regression the placement risks, and it is the pair a program branches on.
+        window, _ = self.window("delete", priority=99)
+        self.assertIn("unsupported_on_p4", window)
+        self.assertIn("requested_priority", window)
+
+    def test_the_full_explanation_is_still_there_for_whoever_reads_the_body(self):
+        # The prose is not shortened to fit. A caller reading the proxy's own response gets the
+        # whole derivation; the window carries the instruction. Two audiences, one body.
+        _, body = self.window("delete")
+        self.assertGreater(len(body), self.KERNEL_MESSAGE_WINDOW)
+        self.assertIn("non-strict route", body)
+        self.assertIn("flow_5tuple", body)
+
+    def test_the_remedy_names_both_ways_out_and_neither_is_the_priority(self):
+        # The two things a caller can actually do, per DECISION-P4-PRIORITY.md §2: drop the
+        # priority (the non-strict route, which is what every kernel-made delete already does),
+        # or write a match that compiles to the ternary table, where priority is honoured.
+        # There is deliberately no third option, because option B -- routing destination-only
+        # rules into flow_5tuple -- is not implemented and is Adam's call.
+        remedy = self.window("delete")[1]
+        import json as _json
+        detail = _json.loads(remedy)["detail"]
+        self.assertIn("omit priority", detail["remedy"])
+        self.assertIn("five-tuple", detail["remedy"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -262,6 +262,17 @@ def _refuse_unhonourable_priority(data, match, verb):
     it as failed+1 with the reason in get_flow_dispatch_status's `recent_failures` instead of
     counting it in `succeeded`.
 
+    🔴 `remedy` exists because of WHERE that reason is read, not because the message was unclear.
+    HttpRoutingStrategyBase.cpp:62-79 puts the response body through `briefly(body, 200)` before
+    it becomes OpResult::failure's message, and that string is the whole of what a caller can
+    get back: it is `recent_failures[].message` in get_flow_dispatch_status and it is the
+    kernel's log line. Measured 2026-09-11 (hunt-0911/ROLE-5, 4312 POSTs, 2152 of 2152 deletes
+    refused): this body is 838 bytes, the cut landed mid-word at "data plan", and so every
+    reader of the failure record saw the diagnosis and not one of them saw what to do instead.
+    `remedy` is placed ahead of `table` so that the one sentence a caller can act on is inside
+    the 200-byte window -- p4_proxy/tests/test_flowentry_endpoints.py asserts that against
+    FastAPI's own serializer rather than against a hand-counted string.
+
     Raises HTTPException(501) or returns None.
     """
     priority = _named_priority(data)
@@ -272,6 +283,7 @@ def _refuse_unhonourable_priority(data, match, verb):
         detail={
             "error": "priority not honourable on this table",
             "outcome": "unsupported_on_p4",
+            "remedy": "omit priority, or match the full five-tuple",
             "table": "ipv4_lpm",
             "requested_priority": priority,
             "message": (

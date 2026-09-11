@@ -524,6 +524,11 @@ def load_testbed_module():
     """
     Import p4_testbed_topo.py with mininet stubbed out. The stubs are bare types: nothing
     from mininet participates in write_manifest, the module merely imports it at top level.
+
+    P4_TESTBED_TOPO_UNDER_TEST names a different copy to load, which is how
+    tests/shell/mutate_startup_clears_by_pid.sh puts each mutation into a temp-dir copy instead
+    of writing the file in this shared worktree. Same seam and same reason as
+    check_test_tmpdirs.py's CHECK_TMPDIRS_UNDER_TEST. [Co-developed with claude code -- Adam]
     """
     stubs = {
         "mininet": {},
@@ -541,8 +546,8 @@ def load_testbed_module():
             for attr, value in attrs.items():
                 setattr(mod, attr, value)
             sys.modules[name] = mod
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                        "..", "mininet", "p4_testbed_topo.py")
+    path = os.environ.get("P4_TESTBED_TOPO_UNDER_TEST") or os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "mininet", "p4_testbed_topo.py")
     spec = importlib.util.spec_from_file_location("p4_testbed_topo_under_test", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -762,6 +767,171 @@ class ProcessIsASwitchTest(unittest.TestCase):
 
     def test_a_vanished_pid_is_not_a_switch(self):
         self.assertFalse(self.mod.process_is_a_switch(9999, proc_root=self.root))
+
+
+# --- the startup reset ----------------------------------------------------------------------
+
+
+class ClearSwitchesFromAPreviousRunTest(unittest.TestCase):
+    """
+    Startup's reset. Until 2026-09-11 both topologies ran
+    `os.system('sudo pkill -f simple_switch_grpc > /dev/null 2>&1')` as root on every bring-up
+    -- the form CLAUDE.md's engineering discipline forbids by name, for the reason KNOWN-ISSUES
+    G-9 and G-inst-2 each paid for once: `-f` matches the whole command line, so it takes any
+    process whose argv mentions the string, and Mininet switches share the root PID namespace.
+
+    Expected behaviour is taken from what the fix has to preserve and what it has to stop, not
+    from reading the new function:
+
+      * the pids are the manifest's, checked against /proc before they are signalled -- the
+        machinery reap_manifest_switches and process_is_a_switch already provide, and which
+        teardown has used since the A-4 bookkeeping fix;
+      * a port that is still held by something the manifest does not name is REPORTED, with the
+        way to find its owner BY THE PORT. That is the one thing a name match could do that a
+        pid cannot, and dropping it silently would be the third way this rule gets lost;
+      * the manifest is NOT deleted. reap_manifest_switches' own docstring is about that
+        mistake: the file is the only handle left on a switch we failed to stop.
+
+    Nothing here signals a real pid: the reap and the port probe are both injected.
+    [Co-developed with claude code -- Adam]
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mod = load_testbed_module()
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp(prefix="ndtwin_clear.")
+        self.addCleanup(__import__("shutil").rmtree, self.dir, ignore_errors=True)
+        self.path = os.path.join(self.dir, "switches.json")
+        with open(self.path, "w") as fh:
+            json.dump({"s1": {"pid": 111}}, fh)
+        self.said = []
+        self.probed = []
+        self.slept = []
+        self.asked_about = []
+        self._real_sleep = self.mod.time.sleep
+        self.mod.time.sleep = lambda seconds: self.slept.append(seconds)
+        self.addCleanup(self._restore_sleep)
+
+    def _restore_sleep(self):
+        self.mod.time.sleep = self._real_sleep
+
+    def clear(self, reaped=(), open_ports=(), ports=(53201, 53202), **kw):
+        def reap(path):
+            self.asked_about.append(path)
+            return list(reaped)
+
+        def port_is_open(port):
+            self.probed.append(port)
+            return port in open_ports
+
+        return self.mod.clear_switches_from_a_previous_run(
+            manifest_path=self.path, ports=ports, reap=reap, port_is_open=port_is_open,
+            report=self.said.append, **kw)
+
+    def report(self):
+        return "\n".join(self.said)
+
+    def test_the_pids_come_from_the_manifest(self):
+        self.clear(reaped=["s1"])
+        self.assertEqual(self.asked_about, [self.path],
+                         "the reap must be asked about the manifest, which is the only place "
+                         "a pid this run may signal comes from")
+
+    def test_what_was_reaped_is_reported_by_name(self):
+        self.clear(reaped=["s3", "s7"])
+        self.assertIn("s3", self.report())
+        self.assertIn("s7", self.report())
+
+    def test_a_reap_that_stopped_nothing_says_nothing_about_reaping(self):
+        self.clear(reaped=[])
+        self.assertNotIn("Reaped", self.report(),
+                         "an empty reap reported as a reap is a line an operator learns to "
+                         "ignore, and this one has to be readable when it is not empty")
+
+    def test_the_manifest_file_is_not_deleted(self):
+        self.clear(reaped=["s1"])
+        self.assertTrue(os.path.exists(self.path),
+                        "the manifest is the only thing that can still address a switch the "
+                        "reap failed to stop; removing it here is the A-4 defect, at startup")
+
+    def test_every_wanted_port_is_probed(self):
+        self.clear(ports=(1, 2, 3, 4))
+        self.assertEqual(self.probed, [1, 2, 3, 4],
+                         "probing only the first port answers about one switch out of ten")
+
+    def test_a_port_still_held_is_reported_with_its_number(self):
+        self.clear(ports=(53201, 53202), open_ports=(53202,))
+        warning = [line for line in self.said if line.startswith("WARNING:")]
+        self.assertEqual(len(warning), 1, "exactly one warning line, and it is the one an "
+                                          "operator will read")
+        # 🔴 The warning ITSELF, not the paragraph. The first version of this assertion was
+        # `assertIn("53202", self.report())` and mutate_startup_clears_by_pid.sh's MS5 -- which
+        # replaces the port list with the words "some of them" -- SURVIVED it, because the
+        # how-to-look line further down happens to carry the same number.
+        self.assertIn("53202", warning[0])
+        self.assertNotIn("53201", warning[0],
+                         "a port nothing holds must not be named as held")
+
+    def test_the_report_says_how_to_find_the_owner_by_its_port(self):
+        self.clear(ports=(53205,), open_ports=(53205,))
+        self.assertIn("sport = :53205", self.report(),
+                      "a warning that does not say how to look leaves the operator with the "
+                      "name match as the only thing they know how to do")
+
+    def test_a_held_port_is_not_signalled(self):
+        # There is no seam here to signal through, and that IS the assertion: the function is
+        # handed a reap (manifest pids) and a read-only probe, and nothing else. A port whose
+        # owner is unknown produces a sentence, not a kill.
+        reaped, held = self.clear(ports=(53201,), open_ports=(53201,))
+        self.assertEqual(held, [53201])
+        self.assertEqual(reaped, [])
+
+    def test_free_ports_produce_no_warning(self):
+        self.clear(ports=(53201, 53202), open_ports=())
+        self.assertNotIn("WARNING", self.report(),
+                         "a clean start must be quiet, or the warning that matters is noise")
+
+    def test_it_returns_both_halves_of_what_happened(self):
+        reaped, held = self.clear(reaped=["s1", "s2"], ports=(9, 10), open_ports=(10,))
+        self.assertEqual((reaped, held), (["s1", "s2"], [10]))
+
+    def test_the_settle_runs_once_when_something_was_reaped(self):
+        self.clear(reaped=["s1"], settle_s=0.5)
+        self.assertEqual(self.slept, [0.5],
+                         "a port is released when the process exits, so probing without a "
+                         "settle reads a switch on its way out as a stranger")
+
+    def test_nothing_is_slept_through_when_nothing_was_reaped(self):
+        self.clear(reaped=[], settle_s=0.5)
+        self.assertEqual(self.slept, [])
+
+
+class GrpcPortIsOpenTest(unittest.TestCase):
+    """The probe itself, against a real socket on an ephemeral port -- it is the one part of
+    the reset that cannot be injected away without testing nothing."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mod = load_testbed_module()
+
+    def test_a_listening_port_reads_as_open(self):
+        import socket as _socket
+        server = _socket.socket()
+        self.addCleanup(server.close)
+        server.bind(("127.0.0.1", 0))
+        server.listen(1)
+        port = server.getsockname()[1]
+        self.assertTrue(self.mod.grpc_port_is_open(port))
+
+    def test_a_port_nothing_holds_reads_as_free(self):
+        import socket as _socket
+        probe = _socket.socket()
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+        probe.close()                       # nothing is listening there now
+        self.assertFalse(self.mod.grpc_port_is_open(port))
 
 
 if __name__ == "__main__":

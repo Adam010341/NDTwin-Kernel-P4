@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""No shell script in this tree may find or signal a process BY NAME, or teach anyone to.
+"""No script in this tree may find or signal a process BY NAME, or teach anyone to.
 
 [Co-developed with claude code -- Adam]
 
@@ -14,7 +14,7 @@ G-inst-2 are the two times it was learned the expensive way:
     session's `pkill -f iperf3` killed the guard, and a guard that cannot look returned "no
     foreign load".
 
-    python3 tests/shell/check_process_by_name.py            # every shell script in scope
+    python3 tests/shell/check_process_by_name.py            # every script in scope
     python3 tests/shell/check_process_by_name.py FILE...    # just these files
     python3 tests/shell/check_process_by_name.py --repo DIR # another checkout / a synthetic tree
 
@@ -42,6 +42,40 @@ carries and whoever prints it. A site is either
               than the code does.
 
 =================================================================================================
+AND PYTHON, because the two live violations in this tree are python (2026-09-11, FIX-PROXY-1)
+=================================================================================================
+`p4_proxy/mininet/ntg_bmv2_topo.py` and `p4_proxy/mininet/p4_testbed_topo.py` each ran
+
+    os.system('sudo pkill -f simple_switch_grpc > /dev/null 2>&1')
+
+at startup -- the frontal violation of CLAUDE.md's red line, in the one language this checker
+could not read. It was recorded as a KNOWN LIMIT here the day this file was written, which is
+exactly how a limit becomes a hole: the shell half went green every night while the thing the
+rule exists to prevent ran as root on every topology bring-up.
+
+A shell parser cannot be pointed at python, and not because of syntax. The two languages put the
+hazard in OPPOSITE constructs:
+
+  * in shell, a single-quoted string is DATA -- a mutation gate's literal anchor;
+  * in python, a single-quoted string is the only place the hazard can BE, because spawning a
+    process means handing its name to os.system / subprocess / Node.cmd as a string.
+
+So python is read with `ast`, and the two kinds are decided by WHERE the literal sits:
+
+  RUNS     -- the string literal is an argument to a call that spawns a process (os.system,
+              os.popen, os.exec*/spawn*, anything on `subprocess`, Popen/check_output/..., and
+              Mininet's `.cmd`/`.sendCmd`, which is how every topology in this tree runs things).
+              Reached through list/tuple literals, f-strings and `+` concatenation, so
+              `subprocess.run(["pkill", "-f", name])` -- which contains no shell at all and no
+              space before `-f` -- is the same site as the os.system one-liner.
+  TEACHES  -- any other string literal. Same meaning and the same known limit as the shell half.
+
+DATA in python is a comment (ast never sees one) and a string that stands alone as a STATEMENT:
+module, class and function docstrings, and the triple-quoted blocks this tree uses as block
+comments. That is the whole carve-out, and it is a property -- "this string is prose, not an
+argument and not a message" -- rather than a list of files.
+
+=================================================================================================
 WHAT IS DATA, NOT CODE -- and why this file needs a registry
 =================================================================================================
 This tree teaches the rule by quoting the thing it forbids, so a scanner that reported every
@@ -66,17 +100,22 @@ red and a registered site that has been fixed is also red -- the registry cannot
 excuse.
 
 KNOWN LIMITS (documented rather than papered over -- a lint, not a proof)
- * Shell only, and only files git tracks. `p4_proxy/mininet/ntg_bmv2_topo.py:98` and
-   `p4_proxy/mininet/p4_testbed_topo.py:658` both run `os.system('sudo pkill -f
-   simple_switch_grpc ...')` and are NOT in scope here; so is `tools/test_workflow/ndt`, which
-   has no .sh extension and looks up simple_switch_grpc with `ps -eo args= | grep -o` twice.
-   Those are recorded in the ticket's SUMMARY for a decision, not silently covered.
- * A double-quoted string that is data rather than advice reads as TEACHES. There is no static
-   way to tell "printed to a human" from "assigned to a variable that is never printed", and
-   guessing from the command word is what let `warn` through in the first place.
- * A file this scanner cannot read is reported as NOT CHECKED and the run exits 2, never as a
-   clean file. check_gate_anchors.py learned that one (KNOWN-ISSUES L-3).
+ * Shell and python, by file extension, within the globs below. `tools/test_workflow/ndt` has
+   no extension and looks simple_switch_grpc up with `ps -eo args= | grep -o` twice; it is
+   REGISTERED rather than scanned, because reading it means deciding what language an
+   extensionless file is, and guessing that is its own defect.
+ * Neither half follows a variable. `cmd = "pkill -f x"` then `os.system(cmd)` is seen as
+   TEACHES, not RUNS -- reported either way, which is the property that matters, but the kind
+   is wrong. Same for `" ".join(argv)` where argv was built elsewhere.
+ * A double-quoted (python: any non-statement) string that is data rather than advice reads as
+   TEACHES. There is no static way to tell "printed to a human" from "assigned to a variable
+   that is never printed", and guessing from the command word is what let `warn` through in the
+   first place.
+ * A file this scanner cannot read -- an unterminated shell quote, a python SyntaxError -- is
+   reported as NOT CHECKED and the run exits 2, never as a clean file. check_gate_anchors.py
+   learned that one (KNOWN-ISSUES L-3).
 """
+import ast
 import os
 import re
 import sys
@@ -94,6 +133,26 @@ NOT_CHECKED = "NOT CHECKED: "
 # 🔴 The scan surface, derived rather than hard-coded -- the old check read one path.
 SUITE_GLOBS = ("tools/test_workflow/*.sh", "tests/shell/*.sh")
 
+# 🔴 The python surface. Live code and the suites that test it -- the same line the shell half
+# draws. `doc/audit/**` is a dated record of what was measured on a day, and rewriting one to
+# please a lint would be falsifying evidence; the one exception is the chaos harness, which
+# lives under doc/audit for historical reasons but is LIVE TOOLING -- tests/python/test_chaos_*
+# and tests/shell/mutate_chaos_* are its suites and its mutation gates, and this tree runs them.
+# `p4_proxy/reference/` is vendored third-party source, not ours to hold to our rules.
+PY_GLOBS = (
+    "p4_proxy/mininet/*.py",
+    "p4_proxy/proxy_agent/*.py",
+    "p4_proxy/tests/*.py",
+    "tools/*.py",
+    "tools/contract_test/*.py",
+    "tools/ryu_apps/*.py",
+    "tools/test_workflow/*.py",
+    "tools/twin_audit/*.py",
+    "tests/python/*.py",
+    "tests/shell/*.py",
+    "doc/audit/2026-08-28_chaos-harness/harness/*.py",
+)
+
 # 🔴 The files whose SUBJECT is this rule, and which therefore quote it in their own labels,
 # section headers and fixtures. An instrument that reported these would be reporting itself.
 ABOUT_THE_RULE = frozenset((
@@ -101,6 +160,8 @@ ABOUT_THE_RULE = frozenset((
     "tests/shell/mutate_g9_faults_topo_pid.sh",  # its mutation gate: the pre-fix advice string
     "tests/shell/test_iperf3_guard.sh",          # G-inst-2's suite: PATH shims named pgrep/pkill
     "tests/shell/mutate_iperf3_guard.sh",        # and its gate, whose M6 IS `pgrep -f iperf3`
+    "tests/shell/check_process_by_name.py",      # this file: BY_NAME below IS the list of names
+    "tests/shell/mutate_check_process_by_name.sh",  # its gate, whose mutants are this file
 ))
 
 # 🔴 Every site the widened scan finds in code that is not about the rule, as
@@ -117,10 +178,39 @@ ABOUT_THE_RULE = frozenset((
 #                   exactly G-inst-2.
 #   stack.sh (TEACHES) `err "    pgrep -ax ndtwin_kernel"` -- printed at the operator as the way
 #                   to look, which is G-9's half of the same defect, in a different file.
+#
+# 🔴 2026-09-11, FIX-PROXY-1. Widening the surface to python found five more, and the first two
+# are the frontal violation CLAUDE.md names -- `os.system('sudo pkill -f simple_switch_grpc')`,
+# as root, on every topology bring-up, in the two files that own the bmv2 fabric:
+#
+#   p4_proxy/mininet/{p4_testbed_topo,ntg_bmv2_topo}.py -- FIXED, and therefore NOT in the list
+#                   below. They were registered for exactly one commit so that the widening and
+#                   the fix stayed separable; the fix replaced both with
+#                   clear_switches_from_a_previous_run, which reaps the manifest's pids and
+#                   reports a port it cannot address instead of matching a name. The registry's
+#                   other direction is what made removing them here mandatory rather than
+#                   optional: `2 stale`, rc 1, until they came out.
+#
+#   probes.py (RUNS)      `run(["pgrep", "-cf", "simple_switch_g[r]pc"])` -- the chaos harness
+#                   counts live bmv2 processes by name. It only ever READS, and the bracket trick
+#                   keeps its own argv off its own list, but "how many switches are up" is the
+#                   question the manifest (p4_testbed_topo.MANIFEST_PATH) answers by pid.
+#   probes.py (TEACHES) / antioracle.py / test_probes.py -- the same names in messages and in a
+#                   shim, i.e. the advice half, in live tooling that happens to live under
+#                   doc/audit for historical reasons.
+#   tests/python/test_chaos_opt_in_all_actions.py -- `if words[0] == "pgrep":` in FakeShell. It
+#                   is a stub, not a call; it is here because a stub that answers `pgrep` is
+#                   evidence that something real still asks, and taking it out of the registry
+#                   should require someone to look at probes.py first.
 REGISTERED = frozenset((
     ("tools/test_workflow/run_layers.sh", "RUNS", "pgrep"),
     ("tools/test_workflow/stack.sh", "RUNS", "ps"),
     ("tools/test_workflow/stack.sh", "TEACHES", "pgrep"),
+    ("doc/audit/2026-08-28_chaos-harness/harness/probes.py", "RUNS", "pgrep"),
+    ("doc/audit/2026-08-28_chaos-harness/harness/probes.py", "TEACHES", "pgrep"),
+    ("doc/audit/2026-08-28_chaos-harness/harness/antioracle.py", "TEACHES", "pkill"),
+    ("doc/audit/2026-08-28_chaos-harness/harness/test_probes.py", "TEACHES", "pgrep"),
+    ("tests/python/test_chaos_opt_in_all_actions.py", "TEACHES", "pgrep"),
 ))
 
 
@@ -243,11 +333,132 @@ def sites(text, path):
     return found
 
 
+# =================================================================================================
+# python
+# =================================================================================================
+# 🔴 The calls that hand a string to the operating system to run. Matched on the LAST name only
+# (`os.system`, `subprocess.run`, `self.cmd`), because the module it came in through is a
+# spelling: `from subprocess import run` and `import subprocess` are the same site.
+#
+# `cmd`/`sendCmd`/`cmdPrint` are Mininet's Node methods. They are how every topology in this tree
+# runs anything inside a namespace, and leaving them out would mean the checker could read
+# p4_testbed_topo.py and still not see what it does.
+PY_SPAWNER_METHODS = frozenset((
+    "system", "popen", "Popen", "run", "call", "check_call", "check_output",
+    "getoutput", "getstatusoutput", "cmd", "sendCmd", "cmdPrint", "pexec",
+    "execv", "execve", "execvp", "execvpe", "execl", "execle", "execlp", "execlpe",
+    "spawnv", "spawnve", "spawnvp", "spawnl", "spawnle", "spawnlp",
+))
+
+# A bare name is read the same way, `run` and `call` included. The tempting caution -- "too many
+# things are called run, leave it out" -- picks the QUIETER error, and this checker's whole
+# subject is what quiet costs: `doc/audit/2026-08-28_chaos-harness/harness/probes.py:461` is
+# `run(["pgrep", "-cf", ...])` through that module's own subprocess wrapper, and leaving `run`
+# off this list filed a live pgrep call under TEACHES. Both kinds are reported either way, so an
+# over-broad name makes the verdict louder, never emptier.
+PY_SPAWNER_NAMES = PY_SPAWNER_METHODS - frozenset(("cmd", "sendCmd", "cmdPrint"))
+
+
+def _spawns(func):
+    """Whether this call node's callee runs a process."""
+    if isinstance(func, ast.Attribute):
+        return func.attr in PY_SPAWNER_METHODS
+    if isinstance(func, ast.Name):
+        return func.id in PY_SPAWNER_NAMES
+    return False
+
+
+def _string_pieces(node):
+    """Every string literal reachable from an argument WITHOUT leaving literal syntax.
+
+    A list, a tuple, an f-string and `a + b` are all still the argument the author wrote, so
+    `subprocess.run(["pkill", "-f", name])` reaches the same place `os.system("pkill -f " + name)`
+    does. A bare Name does not: this checker does not follow variables, and says so in KNOWN
+    LIMITS rather than pretending the one-hop case is the whole of it.
+    """
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, str):
+            yield node
+    elif isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+        for element in node.elts:
+            yield from _string_pieces(element)
+    elif isinstance(node, ast.Starred):
+        yield from _string_pieces(node.value)
+    elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        yield from _string_pieces(node.left)
+        yield from _string_pieces(node.right)
+    elif isinstance(node, ast.JoinedStr):
+        for part in node.values:
+            yield from _string_pieces(part)
+
+
+def _context(text, match):
+    """The matched part of a literal, collapsed onto one line and trimmed around the hit."""
+    flat = " ".join(text.split())
+    needle = " ".join(match.group(0).split())
+    at = flat.find(needle)
+    start = max(0, at - 45) if at >= 0 else 0
+    out = flat[start:start + 110]
+    return ("..." + out) if start else out
+
+
+def python_sites(text, path):
+    """[(path, line, kind, tool, context)] for one python file.
+
+    [Co-developed with claude code -- Adam]
+    Same verdict shape as `sites`, different notion of what is data. See the module docstring:
+    in python the hazard lives INSIDE a string literal, so "single-quoted means data" -- the
+    shell half's central carve-out -- would make this blind to every real site.
+    """
+    try:
+        tree = ast.parse(text)
+    except (SyntaxError, ValueError) as err:
+        return [(path, 1, NOT_CHECKED, "-", "this file is not parseable python: %s" % err)]
+
+    # Prose: a string that is a statement all by itself. Docstrings are the common case; this
+    # tree also uses triple-quoted blocks mid-function as block comments, and those are prose by
+    # the same argument -- nobody runs them and nobody is told to copy them.
+    prose = {id(node.value) for node in ast.walk(tree)
+             if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant)
+             and isinstance(node.value.value, str)}
+
+    executed = set()
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Call) and _spawns(node.func)):
+            continue
+        for arg in list(node.args) + [kw.value for kw in node.keywords]:
+            for literal in _string_pieces(arg):
+                executed.add(id(literal))
+
+    found = []
+    for node in ast.walk(tree):
+        if not (isinstance(node, ast.Constant) and isinstance(node.value, str)):
+            continue
+        if id(node) in prose:
+            continue
+        kind = "RUNS" if id(node) in executed else "TEACHES"
+        hit = BY_NAME.search(node.value)
+        if hit is None and kind == "RUNS":
+            hit = PS_BY_NAME.search(node.value)
+            tool = "ps" if hit else None
+        else:
+            tool = hit.group(1) if hit else None
+        if tool:
+            found.append((path, node.lineno, kind, tool, _context(node.value, hit)))
+    return sorted(found, key=lambda f: (f[1], f[2]))
+
+
+# By extension, because that is what says which grammar a file is in. Anything else -- including
+# `tools/test_workflow/ndt`, which has no extension -- is read as shell, the way this checker
+# always did, and is out of the derived surface either way.
+_ANALYSER_BY_EXTENSION = {".py": python_sites}
+
+
 def scan_tree(repo):
-    """Every shell script in scope, minus the files whose subject is this rule."""
+    """Every script in scope, minus the files whose subject is this rule."""
     import glob
     found, scanned = [], 0
-    for pattern in SUITE_GLOBS:
+    for pattern in SUITE_GLOBS + PY_GLOBS:
         for path in sorted(glob.glob(os.path.join(repo, pattern))):
             rel = os.path.relpath(path, repo)
             if rel in ABOUT_THE_RULE:
@@ -258,8 +469,9 @@ def scan_tree(repo):
 
 
 def scan_file(path, rel=None):
+    analyse = _ANALYSER_BY_EXTENSION.get(os.path.splitext(path)[1], sites)
     with open(path, "r", encoding="utf-8", errors="replace") as fh:
-        return sites(fh.read(), rel if rel is not None else path)
+        return analyse(fh.read(), rel if rel is not None else path)
 
 
 def main(argv):
