@@ -74,7 +74,7 @@ rc（沒有動詞的 `ndt` 也一樣）。**放進 `set -e` 腳本的那一行�
 ```bash
 ndt status          # 有人在用嗎？現在是什麼狀態？
 ndt down            # 清空
-ndt up              # 開 OVS 128 台（**預設平面是 OVS**，等同 ndt up ovs）／ P4 要指名：ndt up p4 …
+ndt up              # 開 OVS 128 台（預設平面是 OVS，等同 ndt up ovs）／ P4 要指名 ndt up p4 …
 ndt down            # 收
 ```
 
