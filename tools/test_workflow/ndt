@@ -3091,6 +3091,36 @@ cmd_down() {
 cmd_clean() {
     local rc=0 n p
 
+    # [Co-developed with claude code -- Adam]
+    # 🔴 ROLE-12 cell 3, measured 2026-09-12 02:08:24.569: with the marker present and a `down`
+    # tearing ten P4 switches out, `ndt clean` was not refused. It exited 1, said `not clean`,
+    # and listed the operator's OWN fabric -- the one being destroyed -- as residue: 10 bmv2, 14
+    # host/switch processes, the topo session, the manifest, `ndtwin_kernel pid 2460143 holding
+    # :8000`, `python pid 2459746 holding :8081`, :6343 and the twenty bmv2 ports; last line,
+    # `this stack did not start it; to kill it too:  ndt down --deep`.
+    #
+    # That is the advice H3's own refusal quotes as the thing that would have killed the
+    # operator's processes, reached through a different door: H3's guard lives in `preflight`,
+    # and `preflight` is walked by `ndt up` and by nothing else. This command is an ASSERTION
+    # about a machine that is holding still; during a teardown it is holding still for nobody.
+    #
+    # 🔴 Only somebody ELSE's teardown. `cmd_down` calls this function as its own `verify clean`,
+    # under the marker it wrote itself -- a guard that read the file rather than its owner would
+    # turn the last step of every round into a refusal. Same ownership test as
+    # mark_teardown_end, and the same opening two lines as the bring-up refusal.
+    local tif
+    if tif="$(teardown_in_flight)" && [[ "${tif%% *}" != "$$" ]]; then
+        teardown_in_flight_refusal "judge this lab" "$tif"
+        err "  every process that teardown is in the middle of killing would be listed here as"
+        err "  residue, under advice to run 'ndt down --deep' -- which would kill the operator's"
+        err "  own teardown. Measured 09-12 02:08:24: it listed 10 bmv2, 14 host/switch"
+        err "  processes, the topo session, the manifest and 23 ports, all of them that"
+        err "  teardown's. Nothing here is wrong about what it measured; it is measuring a"
+        err "  machine that is being changed under it. (ROLE-12 cell 3)"
+        err "  wait for it to finish, then run 'ndt clean'."
+        return 1
+    fi
+
     n="$(bmv2_count)"
     if [[ "$n" -eq 0 ]]; then ok "bmv2 switches: 0"; else err "bmv2 switches: $n still running"; rc=1; fi
 
@@ -7375,6 +7405,16 @@ usage: ndt <command>
                   with no process to attribute it to. Read the residue ROW, not the
                   exit code, when the record row says none. (F2, 2026-09-11)
   clean         just the teardown assertion (exit 1 if anything survived)
+                  🔴 it REFUSES while an 'ndt down' from this checkout is running,
+                  and that refusal is also rc 1. Every process that teardown is in the
+                  middle of killing would otherwise be listed here as residue, under
+                  advice to run 'ndt down --deep' -- the one verb in this tool that
+                  kills processes this stack did not start, which here would be
+                  the operator's own teardown. Measured 2026-09-12 02:08:24: it
+                  listed 10 bmv2, 14 host/switch processes, the topo session, the
+                  manifest and 23 ports, every one of them that teardown's. The block
+                  names the pid to wait for. A marker whose pid is gone is
+                  removed and does not refuse. (ROLE-12 cell 3)
   check         telemetry double-count tripwire
                   exit 0 the ratio is inside the +/-50% band, or there was too
                   little traffic to compute one at all; 1 the kernel is not up, a

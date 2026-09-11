@@ -1162,5 +1162,63 @@ check "  and report_exit's fatal-ending line"             "1" \
       "$(grep -cF 'did not stop cleanly:' "$STACK_REAL")"
 
 # ==========================================================================================
+section "16. ROLE-12 cell 3: 'ndt clean' refuses while a teardown is in flight"
+# ==========================================================================================
+# 02:08:24.569 on 2026-09-12, with the marker present and D1 alive and tearing down ten P4
+# switches: `ndt clean` was NOT refused. It exited 1, printed `not clean`, and listed the
+# operator's own fabric -- the one being destroyed -- as residue: 10 bmv2, 14 host/switch
+# processes, the topo session, the manifest, `ndtwin_kernel pid 2460143 holding :8000`,
+# `python pid 2459746 holding :8081`, :6343 and the twenty bmv2 ports. Last line:
+# `this stack did not start it; to kill it too:  ndt down --deep`.
+#
+# That is the sentence H3's own refusal quotes as the thing that would have killed the
+# operator's processes, arriving through a different door: H3's guard lives in `preflight`, and
+# `preflight` is walked by `ndt up` and by nothing else.
+reset_fix; rm -f "$DM"
+printf 'pid=%s\nat=2026-09-12T02:08:17+0800\nby=role-12-D1\n' "$$" > "$DM"
+# 🔴 The two held ports are the fixture half that makes the two `hasnt` cells below mean
+# something: without residue there is no `--deep` line to suppress, and the cells would pass
+# against a product with no guard at all. 2460143/2459746 are ROLE-12's own numbers.
+OUT="$(drive 'FX_BMV2=10 FX_MN=14 FX_TOPO_SESSION=1 FX_HELD="8000:2460143 8081:2459746" cmd_clean')"
+check "🔴 'ndt clean' is refused while a teardown is running" "1" "$(rc_of_out "$OUT")"
+has   "  naming what it is refusing on"   "an 'ndt down' from this checkout is still running" "$OUT"
+has   "  with the pid to wait for"        "pid $$" "$OUT"
+has   "  and when that teardown started"  "2026-09-12T02:08:17+0800" "$OUT"
+has   "  and the remedy"                  "wait for it" "$OUT"
+# 🔴 The needle is cmd_clean's ADVICE LINE, not the words `ndt down --deep`. The refusal names
+# that verb while explaining what it would have done, and a bare `--deep` needle matches the
+# refusal's own prose -- ROLE-12's cell 5 lost an hour to exactly this shape, a grep that found
+# the message it was asserting about quoted inside the message it was asserting on.
+hasnt "🔴 and it does NOT advise --deep over that teardown's own fabric" \
+      "to kill it too:  ndt down --deep" "$OUT"
+hasnt "  nor call the fabric being destroyed residue"  "bmv2 switches: 10 still running" "$OUT"
+has   "  it says what that advice would have killed"   "would kill the operator's" "$OUT"
+
+# 🔴 THE CONTROLS. "Refuse whenever the marker file exists" and "always refuse" both satisfy
+# every cell above, and the first of them would refuse the last step of every teardown.
+reset_fix; rm -f "$DM"
+OUT="$(drive 'FX_BMV2=10 cmd_clean')"
+check "🔴 with no teardown in flight it judges as before" "1" "$(rc_of_out "$OUT")"
+has   "  naming what survived"            "bmv2 switches: 10 still running" "$OUT"
+hasnt "  and refuses nothing"             "refusing to judge" "$OUT"
+
+reset_fix; rm -f "$DM"
+(exit 0) & DEADPID2=$!; wait "$DEADPID2" 2>/dev/null
+printf 'pid=%s\nat=2026-09-11T23:59:31+0800\n' "$DEADPID2" > "$DM"
+OUT="$(drive 'FX_BMV2=10 cmd_clean')"
+check "🔴 a marker whose pid is gone does not refuse the assertion" "1" "$(rc_of_out "$OUT")"
+has   "  it judged the machine instead"   "bmv2 switches: 10 still running" "$OUT"
+has   "  and said it removed the stale marker" "removing a stale teardown marker" "$OUT"
+
+# 🔴 The one this must not break: `ndt down`'s own `verify clean` runs under the marker this
+# very process wrote. A guard that read the FILE rather than its owner would turn the last step
+# of every round into a refusal.
+reset_fix; rm -f "$DM"
+OUT="$(drive 'cmd_down')"
+check "🔴 'ndt down' is not refused by its own marker at verify clean" "0" "$(rc_of_out "$OUT")"
+hasnt "  it did not refuse itself"        "refusing to judge" "$OUT"
+has   "  and its verify clean really ran" "ports closed" "$OUT"
+
+# ==========================================================================================
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]

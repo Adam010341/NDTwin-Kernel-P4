@@ -859,6 +859,27 @@ check "  the re-read the table describes is really taken"  "1" \
 check "  🔴 and it is pinned to stack.sh's return site, not to a word list" "1" \
       "$(grep -c '^STACK_DOWN_RETURNED_ON_PORTS=' "$NDT")"
 
+section "5G. ROLE-12 cell 3: the help says 'clean' refuses while a teardown is running"
+# `ndt clean` is the command the manual tells a first-time reader to run to verify a lab, and
+# on 2026-09-12 02:08:24 it answered a live teardown by listing that teardown's own fabric as
+# residue and advising `ndt down --deep`. The refusal is new behaviour on a documented command,
+# so the documented rc table is where it has to appear -- a guard nobody is told about is read
+# as a malfunction the first time it fires.
+has   "  🔴 the refusal is documented at all"        "it REFUSES while an 'ndt down'" "$HELP"
+has   "  and that it is rc 1, not a quiet skip"      "that refusal is also rc 1" "$HELP"
+has   "  naming what it would otherwise have listed" "middle of killing" "$HELP"
+has   "  🔴 and whose processes the old advice would have taken" "the operator's own" "$HELP"
+has   "  with the pid to wait for named in the block" "names the pid to wait for" "$HELP"
+has   "  and a stale marker not refusing"            "removed and does not" "$HELP"
+has   "  attributed, so it can be revisited"         "ROLE-12 cell 3" "$HELP"
+# 🔴 Against the code: the refusal is in cmd_clean, it goes through the one shared opening the
+# bring-up refusal uses, and it is scoped to somebody ELSE's teardown -- `ndt down` calls
+# cmd_clean as its own verify step, under its own marker.
+check "  the refusal the help describes is in cmd_clean" "1" \
+      "$(grep -c 'teardown_in_flight_refusal "judge this lab"' "$NDT")"
+check "  🔴 and it is scoped to another process's marker" "1" \
+      "$(grep -c 'if tif="$(teardown_in_flight)" && \[\[ "${tif%% \*}" != "$\$" \]\]; then' "$NDT")"
+
 # ==========================================================================================
 section "F9. this suite reads its OWN tree, and not the main checkout"
 # ==========================================================================================

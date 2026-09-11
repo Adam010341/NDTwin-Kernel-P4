@@ -693,6 +693,27 @@ report_green "W8 (behaviour-preserving): the deferral note reworded" "$m" \
        "the note above the re-read is not the behaviour under test"
 
 
+# --- ROLE-12 cell 3: `ndt clean` during a teardown --------------------------------------------
+
+# M48 restores cell 3: `ndt clean` walks straight into a live teardown and reports the fabric
+# being destroyed as residue, ending on the one piece of advice that would kill the operator's
+# own processes. The named case is the refusal's TEXT, not its rc -- cmd_clean is already rc 1
+# about a dirty machine, so the rc alone cannot see this mutation at all.
+m=$(mutant m48 "$NDT" \
+    '    if tif="$(teardown_in_flight)" && [[ "${tif%% *}" != "$$" ]]; then' \
+    '    if false; then')
+report "M48: 'ndt clean' has no guard against a live teardown again (ROLE-12)" "$m" \
+       "  naming what it is refusing on"
+
+# M49 (widening): the guard reads the FILE instead of its owner, so it also refuses `ndt down`'s
+# own `verify clean` -- the last step of every round -- while passing every refusal cell above.
+m=$(mutant m49 "$NDT" \
+    '    if tif="$(teardown_in_flight)" && [[ "${tif%% *}" != "$$" ]]; then' \
+    '    if tif="$(teardown_in_flight)"; then')
+report "M49 (widening): the clean guard refuses its own teardown too" "$m" \
+       "🔴 'ndt down' is not refused by its own marker at verify clean"
+
+
 # --- F1: the plane the rate is read for (F-OFFLINE-1 §1.14) -----------------------------------
 
 # M36 restores F1: `sample_rate` is asked with no argument, so it looks the plane up -- and on a
