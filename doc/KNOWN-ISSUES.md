@@ -4724,6 +4724,62 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 - **對帳**：ROLE-11 F7 手數 **25**、FIX-DOC-1 與 FIX-NDT-6 照 `NDT_PORT_TABLE` 展開都是 **27**
   （6 個單埠 ＋ 30051-30060 ＋ 9091-9100 ＋ 9000）。**表是來源**，而現在 help 是從表印的。
 
+> 🔴 **G-47–G-49 的共同狀態**：三條都是 2026-09-12 ROLE-9（P4 4↔128 十輪）實測的**新**缺陷，
+> 三條都 **OPEN，fix in flight on `fix/ndt-7-0912`**（工單 `hunt-0911/FIX-NDT-7.md`，04:25 開單）。
+> 本文件收條目時（2026-09-12 04:4x）**該單尚未交件**，所以**沒有任何一條有修法側的證據**
+> ——底下寫的全是缺陷側的量測。 (numbered by KI-FOLLOWUP-2)
+
+### G-47 🔴 被拒絕的 `ndt up p4 <n>` 仍然永久改掉 `host_count_override`，而拒絕訊息引用的是它自己剛寫的值
+
+- **狀態**：**OPEN**（2026-09-12 ROLE-9 實測，n=2 兩個方向各一次）。
+  **fix in flight on `fix/ndt-7-0912`**（①）。
+- **量到什麼**：H4 的拒絕本身**是對的**（0.1 秒、`^[1/3]` 零次、一台都沒起）。問題是它**先寫 knob 再檢查**，
+  拒絕之後**不寫回去**，而那個檔是使用者未提交的工作樹檔案。
+  - 格 4b（`c4b-metrics.log`，04:14:52，lab down）：起始 knob `4`，
+    `NDT_TOPO=<4-host model> ndt up p4 128` ⇒ rc 1／0.1 s、沒建東西、**knob 變成 `128`**。
+  - 格 4c（`c4c-metrics.log`，04:17:57）：起始 knob `128`，`NDT_TOPO=<128-host model> ndt up p4 4`
+    ⇒ rc 1、沒建東西、**knob 變成 `4`**。
+- 🔴 **拒絕訊息引用了只因為這次拒絕才成立的狀態**：4b 的逐字第三行是
+  `XX    the fabric is built from p4_proxy/mininet/host_count_override (128), and the` ——
+  那個 `128` 是這條被拒絕的指令自己在 0.1 秒前寫進去的，操作者進來時那個檔是 `4`。4c 是鏡像。
+  ⇒ 這是「被拒絕的請求仍然做了事」的又一個實例，而且它動到的是**別人的未提交檔案**。
+- **在哪裡**：`tools/test_workflow/ndt` 的 `set_host_count`（報告指 `ndt:1599-1608`，印 `!!` 那句），
+  它在 `up_p4` 的拓樸檢查**之前**跑。
+- **證據**：`scratch/overnight-2026-09-05/hunt-0911/ROLE-9-P4-128-CYCLES-REPORT.md` ①
+  與 `logs/ROLE-9/c4b-*`／`c4c-*`。⚠️ 🟠 轉述；`scratch/`，不在版控。
+
+### G-48 🔴 `up_refuses_a_model_of_another_network` 的 knob 斷言在主 checkout 上恆綠、在乾淨 clone 上會紅——兩棵樹相反的結論
+
+- **狀態**：**OPEN**（2026-09-12 ROLE-9 實測；**儀器缺陷**，不是產品缺陷）。
+  **fix in flight on `fix/ndt-7-0912`**（②）。
+- **量到什麼**：`tools/test_workflow/live_cells/up_refuses_a_model_of_another_network.sh` 最後一條斷言
+  `a_eq h4_knob_unchanged "$(cat knob.before)" "$(cat knob.after)"`，而它跑的指令是
+  `NDT_TOPO=<128-host model> ndt up p4 **4**`。
+  - **在主 checkout**：工作樹的 knob 就是 `4` ⇒ 寫入是 `4 → 4`、**no-op** ⇒ 這條斷言在這台機器上**恆綠**，
+    它量不到 G-47。
+  - **在 knob ≠ 4 的樹上**：**HEAD 提交的值是 `128`**（`git diff` 是 `-128 / +4`，4 是本地覆寫）
+    ⇒ 任何**新 worktree／新 clone** 開出來 knob 就是 128，這條斷言會**紅**。格 4c 逐字重現了那一幕。
+- 🔑 **為什麼要記**：**那個差別不在 cell 裡，在別人的未提交檔案裡。** 一格回歸測試的判決取決於
+  它跑在誰的樹上，而兩邊都不會說是為什麼。（「儀器不能長得像自己的發現」的反面：儀器長得像「沒事」。）
+- **證據**：同 G-47 的報告 ②。⚠️ 🟠 轉述。
+
+### G-49 🔴 `ndt down` 的中途 rc 被寫成「did NOT verify clean」存進 `lab.claim` 的 note，活過本輪傳給下一個 session
+
+- **狀態**：**OPEN**（2026-09-12 ROLE-9 實測 10/10 輪）。**fix in flight on `fix/ndt-7-0912`**（③）。
+  🔴 **這是 G-43 的下游**：rc 本身由 FIX-NDT-6 ② 修（`fix/ndt-6-0912`，merge pending），
+  **但那句話已經落到磁碟上的部分沒有被修**。
+- **量到什麼**：第 10 輪結束後（04:16:03）`.test_run/lab.claim` 逐字
+  `note=down at 2026-09-12 04:16:03 did NOT verify clean; claim kept -- read 'running' below, not this note`，
+  而**同一次 down 的 log 裡 `verify clean` 底下五條全是 `ok`、最後印 `clean`**。
+  ROLE-9 自己的基線也帶著同一句的 02:26 版本（`00-baseline-check.log` 的 `prev claim` 段）
+  ⇒ **這句話已經在跨 session 傳遞了**。
+  對照組（`96-restore-down.log`，lab 已經 down 時再 down 一次）：rc 0、`is still listening` 0 行，
+  note 被改寫成 `the lab is down (owner and expiry unchanged)`
+  ⇒ 差別只在「fabric 是不是活的」，不在 teardown 做得好不好。
+- 🔑 **為什麼要記**：它不只汙染一次 rc，它把一句假話**存到磁碟上**交給下一個讀 `ndt status` 的人；
+  而 note 自己那句 `read 'running' below, not this note` 等於是承認它自己不可信。
+- **證據**：同 G-47 的報告 ③ 與 `logs/ROLE-9/r10-*`／`96-restore-down.log`。⚠️ 🟠 轉述。
+
 ### G-50 ⚠️ 修法在自己的訊息裡引用它修掉的缺陷，於是「缺陷字串不該出現」的斷言在修好的樹上紅
 
 - **狀態**：**OPEN**（instrument class, not a product defect）。2026-09-11 CELLS-1 live 兩次
