@@ -67,9 +67,19 @@ switch，所以收集到的是 454）、`tests/python` **238**、`tests/shell/te
 ```bash
 ndt status          # 有人在用嗎？現在是什麼狀態？
 ndt down            # 清空
-ndt up              # 開 P4（預設）／ ndt up ovs 開 OVS
+ndt up              # 開 OVS 128 台（**預設平面是 OVS**，等同 ndt up ovs）／ P4 要指名：ndt up p4 …
 ndt down            # 收
 ```
+
+🔴 **裸 `ndt up`、`ndt up 4`、`ndt up 128` 三個都是 OVS。** 預設平面 2026-09-03 由 P4 改成
+OVS（Adam），本節先前寫「`ndt up` 開 P4（預設）」是改之前的話。要 P4 一律指名 `ndt up p4 …`，
+見 §2.2。
+<!-- 來源：F1（ROLE-11 F1 的同一形狀，本單自查擴大）。① 親自讀過：tools/test_workflow/ndt
+     的 resolve_up_target（`${1:-ovs}`／`4) up_ovs 4`）與其上方註解「THE DEFAULT PLANE IS OVS
+     (Adam, 2026-09-03) ... It was p4 until then」；② 親自跑過：`ndt help` 逐字
+     `ndt up  Ryu + OVS, 128 hosts  (the default plane is OVS)`，log
+     scratch/overnight-2026-09-05/logs/gates-0910/ndt-help-spelling.doc1-0912-r1.log。
+     裸 `ndt up` 本輪沒有人 live 跑過——這一句的證據是 help 與碼，不是 live。 -->
 
 **多人共用的機器，第一步永遠是 `ndt status`。** 它第一行就告訴你實驗室現在屬於誰。
 不必去問別的 session。
@@ -146,10 +156,17 @@ root 執行那支 `.py`），`ndt` 的 `$REPO` 卻是它自己所在的樹 ⇒ �
 #### P4／bmv2　（實測 33.6 秒 @128 hosts，`52cba51`）
 
 ```bash
-ndt up              # 用現在的 host 數（見 ndt status 的 hosts 欄）
-ndt up 4            # 4 hosts
+ndt up p4           # 用現在的 host 數（見 ndt status 的 `p4 host knob` 欄）
 ndt up p4 128       # 128 hosts
 ```
+
+🔴 **P4 一定要指名 `p4`。** 本節先前把 `ndt up`／`ndt up 4` 列在這個標題底下，**那兩個都是 OVS**
+（預設平面 2026-09-03 改成 OVS）：09-12 實跑 `ndt up 4`，工具第一行就回 `ndt up ovs4`、載
+`StaticNetworkTopologyOVS_10Switches_4Hosts.json`、走 OVS 的 `[1/4] control plane (Ryu)`。
+兩個平面的驗收判準是相反的（§2.3），所以拿錯平面的人下一步連紅綠都讀反。
+<!-- 來源：ROLE-11 F1，log hunt-0911/logs/ROLE-11/04-ndt-up-4.log（🟠 轉述：ROLE-11 的實跑輸出）。
+     指令拼法另由本單在主 checkout 以 `ndt help` 親自核對，log
+     scratch/overnight-2026-09-05/logs/gates-0910/ndt-help-spelling.doc1-0912-r1.log。 -->
 
 三步：`[1/3] bmv2 fabric` → `[2/3] proxy + kernel` → `[3/3] verify`。
 
@@ -158,6 +175,9 @@ ndt up p4 128       # 128 hosts
 ```bash
 ndt up ovs          # 128 hosts（NTG 自帶的 testbed_topo.py）
 ndt up ovs4         # 4 hosts（P4 測試床的佈局搬到 OVS 上）
+ndt up              # ＝ ndt up ovs（128）
+ndt up 128          # ＝ ndt up ovs
+ndt up 4            # ＝ ndt up ovs4　🔴 它不是 P4
 ```
 
 四步：`[1/4] control plane (Ryu)` → `[2/4] data plane (OVS fabric)` →
@@ -442,9 +462,16 @@ Adam 對「P4 的規則定不了年」的處置是**從根本修**：G-13——�
 日常用法就是**不要自己碰**——講 host 數就好，其餘 `ndt` 自己對齊：
 
 ```bash
-ndt up 4            # 改 host_count_override -> 4，並挑 4 台的模型
+ndt up p4 4         # 改 host_count_override -> 4，並挑 4 台的模型
 ndt up p4 128       # 改回 128
 ```
+
+⚠️ **只有 `ndt up p4 <n>` 會寫那個旋鈕。** `ndt up 4`／`ndt up ovs4` 是 OVS，
+`ndt help` 逐字：`OVS has no such knob -- there the size is the verb`；09-12 實跑 `ndt up 4`
+之後 `ndt status --check` 仍印 `knob baseline  4 == the value this round started with`，
+一個字都沒寫進去。
+<!-- 來源：ROLE-11 F1，log hunt-0911/logs/ROLE-11/04-ndt-up-4.log、05-check-after-up.log:14
+     （🟠 轉述：ROLE-11 的實跑輸出）；`ndt help` 那句由本單親自核對（ndt-help-spelling.doc1-0912-r1.log）。 -->
 
 `host_count` 必須是 4 的倍數且 ≥ 4（hosts 分散在 s1–s4）。改動會印黃字警告，因為
 `host_count_override` 是**持久狀態**——下一輪繼承別人設的數字，就是量測描述錯網路的起點。
@@ -479,7 +506,7 @@ kernel 的模型、沒設這個，於是 `ndt up ovs4` 蓋了 4 台的 fabric、
 
 | 改什麼 | 怎麼改 | 什麼時候生效 |
 |---|---|---|
-| host 數 | `ndt up 4` / `ndt up p4 128` | 下次開機 |
+| host 數 | `ndt up p4 4` / `ndt up p4 128`（**只有指名 `p4` 的形式會寫旋鈕**，見 §2.4） | 下次開機 |
 | bmv2 stock ↔ fast | 註解／取消註解 `p4_proxy/mininet/bmv2_binary_override` 那一行 | 下次開機 |
 | **取樣率** | 改 `.p4` 裡的 const **＋重編 pipeline** | **要重編＋重起 fabric** |
 
