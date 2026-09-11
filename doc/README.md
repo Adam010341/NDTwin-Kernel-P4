@@ -34,7 +34,7 @@ repo 外的一組連結。所以這份索引取代分區——標記地位，不
 
 | 檔案 | 地位 | 內容 |
 |---|---|---|
-| [2026-01-02_ndt_api.md](2026-01-02_ndt_api.md) | **現役** | API 規格，41 端點（§1–§41）。其中 30 個有機器檢查（`tools/contract_test/`） |
+| [2026-01-02_ndt_api.md](2026-01-02_ndt_api.md) | **現役** | API 規格，41 端點（§1–§41）。其中 30 個有機器檢查（`tools/contract_test/`）。⚠️ **裡面的「這個在分支上、不在 `trunk`」但書會過期**：分支併進 trunk 時沒有人回來撤它。09-12 實測 §2b／§2c 的「trunk 回 404 / branch-only」在 `d7aa176e` 已假（端點 09-10 併入，實際回 200）——那兩處已改；**同檔還有 8 處同形狀的但書指向已經在 trunk 上的分支（`w8`／`w8b`／`w11`），尚未逐條重查**。引用任何一條之前，先對你手上的 kernel 打一次 |
 | [2026-07-27_p4_bmv2_support_plan.md](2026-07-27_p4_bmv2_support_plan.md) | **現役** | P4/bmv2 支援的 Phase 0–8 規格與進度 |
 | [2026-08-11_phase7_power_mechanism_design.md](2026-08-11_phase7_power_mechanism_design.md) | **現役** | Phase 7 電源機制的三個設計決定與 live 驗收結果。機制已完成 |
 | [2026-07-29_environment_gotchas.md](2026-07-29_environment_gotchas.md) | **現役** | 這台機器的環境陷阱（sudo、pgrep 數錯、殘留清理）。踩到怪事先翻它 |
