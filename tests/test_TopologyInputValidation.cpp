@@ -1976,3 +1976,568 @@ TEST(TopologyInputValidationTest, AHostWithMoreThanOneAddressStillLoads)
     EXPECT_EQ(out.vertices, 14u);
     EXPECT_EQ(out.edges, 40u);
 }
+
+// =================================================================================================
+// B-13 / door 4 -- `link_bandwidth_bps`: the one edge field ten doors never looked at, and the
+// divisor the utilization figure is computed with.
+//
+// [Co-developed with claude code -- Adam]
+// 🔴 MEASURED ON :8000, TWICE, ON THE SAME KERNEL (2026-09-11, ROLE-3, binary sha256
+// 356803db69af3b1b..., scratch/overnight-2026-09-05/hunt-0911/ROLE-3-STUDENT-REPORT.md sections 2
+// and 3). A copy of the shipped OVS 4-host model with `link_bandwidth_bps: 0` on every edge was
+// accepted whole: `ndt up ovs 4` reported all four of its verifications ok, including "kernel
+// graph matches the model file: 4 hosts, 40 edges". After 2000 pings h1 -> h2, eight of the forty
+// edges came back from /ndt/get_graph_data with `"link_bandwidth_utilization_percent": null` --
+// TopologyAndFlowMonitor.cpp computes it as `(1.0 - leftIn / linkBandwidth) * 100`, 0/0 is NaN,
+// and nlohmann serialises NaN as null. 2000 more pings h3 -> h4 turned it into sixteen. Meanwhile
+// /ndt/get_average_link_usage went on answering `{"avg_link_usage":0.0,"status":"success"}`: the
+// average is immune because its accumulator skips edges whose `linkBandwidthUsage` is 0, and an
+// edge whose capacity is 0 has usage 0 -- immune by arithmetic accident, not because anything
+// noticed. Nothing anywhere said an edge was broken.
+//
+// `-1` is the same door and worse: the field is read with `get<uint64_t>()`, so the file's -1 was
+// served back as `"link_bandwidth_bps": 18446744073709551615` -- an 18.4 exabit/s link, declared
+// by nobody.
+//
+// 🔴 WHY 0 IS REFUSED RATHER THAN ADMITTED AS "UNKNOWN". Nothing in this repo reads 0 that way:
+// the unknown convention elsewhere is -1 (DeviceConfigurationAndPowerManager's three report
+// functions), which this field cannot express because it is unsigned, and the manual's only
+// account of the field is doc/2026-01-02_ndt_api.md:668 -- "the figure is the topology file's
+// link_bandwidth_bps" -- with no third state. Admitting 0 would mean inventing one and teaching
+// leftBandwidth, leftBandwidthFromFlowSample, BandwidthSource and the utilization arithmetic
+// about it. All thirteen shipped files declare 1 or 10 Gbit/s and nothing else, so the door costs
+// the fleet nothing. See doc/audit/2026-09-05_fix-topology-three-doors/FIX-TOPOLOGY-THREE-DOORS.md
+// section 11 for the alternative that was not taken.
+//
+// 🔴 WHAT THIS DOOR DOES NOT COVER, AND IT IS THE SAME DEFECT FROM THE OTHER SIDE: linkBandwidth
+// is also written at runtime from an sFlow counter sample (`edgeProps.linkBandwidth =
+// interfaceSpeed` in updateLinkInfo), where 0 is the standard SNMP/sFlow value for "speed unknown
+// or not applicable" and there is no check at all. A file can no longer declare 0; a switch can
+// still report it. That is a runtime door, not a file door, and it is not this fix.
+// =================================================================================================
+
+namespace
+{
+
+/// Index of the LAST edge in the file.
+///
+/// [Co-developed with claude code -- Adam]
+/// Deliberately the last and never the first, for the reason lastSwitchNodeIndex gives one loop
+/// up: the cases below assert `vertices == 0` and `edges == 0`, and the builder's own `at()` on
+/// this field throws from the middle of its edge loop -- on edge N with 14 vertices and N-1 edges
+/// already in the graph. Mutating edge #0 would leave `edges == 0` either way and the case would
+/// be green against the very thing it is measuring.
+std::size_t
+lastEdgeIndex(const json& doc)
+{
+    const auto& edges = doc.at("edges");
+    return edges.empty() ? 0 : edges.size() - 1;
+}
+
+/// Appends one EXTRA node, cloned from the last host, that no edge in the file names.
+///
+/// [Co-developed with claude code -- Adam]
+/// Same construction and the same reason as appendAddresslessHost: a node an edge points at
+/// cannot be used to measure a NODE-side door, because taking its identity away makes those edges
+/// resolve to nothing and #61's edge door refuses the file first -- for the edge, not for the
+/// node. A node nothing points at is the only shape that reaches the node loop's doors alone.
+json&
+appendUnreferencedNode(json& doc, const std::string& name, json ip)
+{
+    json node = doc.at("nodes")[lastHostNodeIndex(doc)];
+    node["device_name"] = name;
+    node["nickname"] = name;
+    node["ip"] = std::move(ip);
+    node["mac"] = 9001;
+    doc["nodes"].push_back(node);
+    return doc["nodes"].back();
+}
+
+} // namespace
+
+TEST(TopologyInputValidationTest, AZeroLinkBandwidthIsRefusedAtLoad)
+{
+    // ROLE-3's b2-zero.json, reproduced on the P4 model: one edge declaring a link of zero bits
+    // per second. Accepted before this door, and then divided by.
+    MutatedTopology topo("bandwidth_zero");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastEdgeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["edges"][victim]["link_bandwidth_bps"] = 0;
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw)
+        << "an edge declaring 0 bit/s was accepted; the measured consequence was "
+           "link_bandwidth_utilization_percent: null on every sampled edge, with "
+           "get_average_link_usage still answering status: success";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.edges, 0u);
+}
+
+TEST(TopologyInputValidationTest, TheZeroBandwidthRefusalNamesTheFieldAndIsNotAnExceptionClass)
+{
+    MutatedTopology topo("bandwidth_zero_message");
+    ASSERT_TRUE(topo.usable());
+    topo.doc()["edges"][lastEdgeIndex(topo.doc())]["link_bandwidth_bps"] = 0;
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    ASSERT_TRUE(out.threw);
+    EXPECT_NE(out.messageSansPath.find("link_bandwidth_bps"), std::string::npos)
+        << "the refusal does not name the field the operator has to edit: " << out.messageSansPath;
+    EXPECT_EQ(out.messageSansPath.find("json.exception"), std::string::npos)
+        << "the refusal is a raw nlohmann exception, not a diagnostic: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, ANegativeLinkBandwidthIsRefusedAtLoad)
+{
+    // 🔴 THE VALUE THE OPERATOR TYPED MUST REACH THEM, AND BEFORE THIS DOOR IT COULD NOT: the
+    // field is read with get<uint64_t>(), so ROLE-3 measured -1 being served back as
+    // 18446744073709551615. A refusal that quoted the unsigned reading would be telling the
+    // operator about a number that is not in their file.
+    MutatedTopology topo("bandwidth_negative");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastEdgeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["edges"][victim]["link_bandwidth_bps"] = -1;
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "an edge declaring -1 bit/s was accepted, and get_graph_data then "
+                              "reported it as an 18.4 exabit/s link";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_NE(out.messageSansPath.find("-1"), std::string::npos)
+        << "the refusal does not quote the value the file actually contains: "
+        << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, AMissingLinkBandwidthIsRefusedInPlainLanguage)
+{
+    // 🔴 WHAT IS RED HERE BEFORE THIS DOOR IS `vertices == 0` AND THE MESSAGE, NOT `threw`. The
+    // builder reads this field with at(), so a missing key already threw -- from the middle of the
+    // edge loop, with 14 vertices and 39 edges already in the graph, and reported as
+    // `[json.exception.out_of_range.403] key 'link_bandwidth_bps' not found`. That is the
+    // 39-of-40 shape validateStaticTopologyJson exists to abolish, reached through the one field
+    // it did not check, and ROLE-3 measured the message verbatim.
+    MutatedTopology topo("bandwidth_missing");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastEdgeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["edges"][victim].erase("link_bandwidth_bps");
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "an edge with no link_bandwidth_bps key was accepted";
+    EXPECT_EQ(out.vertices, 0u)
+        << "the file was refused only after " << out.vertices << " vertices and " << out.edges
+        << " edges were already in the graph -- refused by the builder, not by the door";
+    EXPECT_EQ(out.edges, 0u);
+    EXPECT_EQ(out.messageSansPath.find("json.exception"), std::string::npos)
+        << "the refusal is a raw nlohmann exception, not a diagnostic: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, ALinkBandwidthWrittenAsAStringIsRefusedInPlainLanguage)
+{
+    // The other half of the same operator mistake, and ROLE-3 measured this message too:
+    // `[json.exception.type_error.302] type must be number, but is string`.
+    MutatedTopology topo("bandwidth_string");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastEdgeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["edges"][victim]["link_bandwidth_bps"] = "0";
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "an edge whose link_bandwidth_bps is a string was accepted";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.edges, 0u);
+    EXPECT_EQ(out.messageSansPath.find("json.exception"), std::string::npos)
+        << "the refusal is a raw nlohmann exception, not a diagnostic: " << out.messageSansPath;
+    // 🔴 THE FAULT HAS TO BE THE ONE THE OPERATOR MADE, and this door has two arms that both
+    // reject a string: the type arm, and -- if the type arm is gone -- the "cannot be negative"
+    // arm, because a string is not an unsigned number either. Both refuse the file and both avoid
+    // an exception class, so without this line the type arm has no discriminating case and a
+    // mutation removing it would be scored as caught by nothing. Telling an operator who typed
+    // "0" that a capacity cannot be negative is a true sentence about the wrong mistake.
+    EXPECT_NE(out.messageSansPath.find("not an integer"), std::string::npos)
+        << "the refusal does not say the value is the wrong type: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, TheSmallestPositiveLinkBandwidthIsAccepted)
+{
+    // 🔴 THE OVER-CORRECTION CONTROL, and the M8 of this door. "A real link is at least a
+    // megabit" is the rule a reader reaches for once 0 is refused, and it is not the rule: this
+    // loader models whatever the file describes, and a shaped or emulated link of a few bit/s is
+    // a topology, not a typo. The door is `> 0` and nothing more, and this case is what says so.
+    MutatedTopology topo("bandwidth_one_bit");
+    ASSERT_TRUE(topo.usable());
+
+    topo.doc()["edges"][lastEdgeIndex(topo.doc())]["link_bandwidth_bps"] = 1;
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_FALSE(out.threw) << "an edge declaring 1 bit/s was refused: " << out.message;
+    EXPECT_EQ(out.vertices, 14u);
+    EXPECT_EQ(out.edges, 40u);
+}
+
+// =================================================================================================
+// B-14 / door 5 -- `vertex_type`, the field with two entrances and, until now, one door.
+//
+// [Co-developed with claude code -- Adam]
+// 🔴 MEASURED (2026-09-11, ROLE-3, three values, same conclusion each time). A node with
+// `"vertex_type": 2` -- and the variants -1 and 99 -- added to the shipped OVS 4-host model and
+// named by no edge was accepted with ZERO diagnostic, took the node count from 14 to 15, and was
+// republished VERBATIM by both /ndt/get_graph_data and /ndt/get_static_topology_json, the latter
+// down the HOST serialisation branch.
+//
+// The reason it is silent is structural and is the shape S2 of the night's recon names: doors
+// 3b, 3c, 3d and 3e are each written as `vertexType == SWITCH` or `vertexType == HOST`, so a
+// third value does not fail them -- it is not examined by any of them. One unchecked
+// `static_cast<VertexType>(nodeJson.at("vertex_type").get<int>())` disables four doors at once.
+//
+// 🔴 THE CONTROL GROUP IS IN THIS REPO, AT THE OTHER ENTRANCE TO THE SAME FIELD.
+// HttpSession::handleModifyDeviceName answers `POST /ndt/modify_device_name {"vertex_type":2,...}`
+// with 400 and `{"error":"Invalid vertex_type. Must be 0 (switch) or 1 (host)."}` -- ROLE-3 ran
+// it. Same field, same kernel, two entrances, one door. So this door says the API's sentence
+// word for word rather than inventing a second vocabulary for the same mistake, and
+// TheVertexTypeRefusalUsesTheSameSentenceAsTheApi is what keeps the two from drifting apart.
+// =================================================================================================
+
+TEST(TopologyInputValidationTest, AVertexTypeOutsideTheEnumIsRefusedAtLoad)
+{
+    // All three values ROLE-3 measured, because they fail differently one layer down: 2 and 99 are
+    // above the enum, -1 is below it, and a door written `> 1` would admit -1 while passing the
+    // other two.
+    const int kMeasured[] = {2, -1, 99};
+    for (std::size_t i = 0; i < 3; ++i)
+    {
+        SCOPED_TRACE("vertex_type " + std::to_string(kMeasured[i]));
+
+        MutatedTopology topo("vertex_type_" + std::to_string(i));
+        ASSERT_TRUE(topo.usable());
+
+        const std::size_t before = topo.doc().at("nodes").size();
+        json& added = appendUnreferencedNode(topo.doc(), "router-x", json::array({"10.0.0.9"}));
+        added["vertex_type"] = kMeasured[i];
+        ASSERT_EQ(topo.doc().at("nodes").size(), before + 1);
+
+        const LoadOutcome out = loadFile(topo.write());
+
+        EXPECT_TRUE(out.threw)
+            << "a node that is neither a switch nor a host was accepted with no diagnostic; the "
+               "measured consequence was 15 nodes served on :8000 and the value republished "
+               "verbatim by get_graph_data and get_static_topology_json";
+        EXPECT_EQ(out.vertices, 0u);
+        EXPECT_EQ(out.edges, 0u);
+    }
+}
+
+TEST(TopologyInputValidationTest, TheVertexTypeRefusalUsesTheSameSentenceAsTheApi)
+{
+    // 🔴 THE WORDING IS PINNED HERE DELIBERATELY, against this file's usual rule that only the
+    // offending NUMBER is asserted. The claim being made is not "there is a diagnostic" but "the
+    // two entrances to this field answer the same mistake with the same sentence", and the only
+    // way to measure that is to quote HttpSession.cpp's string.
+    MutatedTopology topo("vertex_type_message");
+    ASSERT_TRUE(topo.usable());
+    appendUnreferencedNode(topo.doc(), "router-x", json::array({"10.0.0.9"}))["vertex_type"] = 2;
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    ASSERT_TRUE(out.threw);
+    EXPECT_NE(out.messageSansPath.find("Invalid vertex_type. Must be 0 (switch) or 1 (host)."),
+              std::string::npos)
+        << "the file entrance and the API entrance refuse the same value in different words: "
+        << out.messageSansPath;
+    EXPECT_NE(out.messageSansPath.find("2"), std::string::npos)
+        << "the refusal does not quote the value the file contains: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, AMissingVertexTypeIsRefusedInPlainLanguage)
+{
+    // Already refused before this door -- by `at("vertex_type")` in the validator itself, so
+    // `threw` and `vertices == 0` were both green against it. What was red is the sentence:
+    // `[json.exception.out_of_range.403] key 'vertex_type' not found`, the same complaint R0b
+    // recorded against door 3c's bridge_name.
+    MutatedTopology topo("vertex_type_missing");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastHostNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim].erase("vertex_type");
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "a node with no vertex_type key was accepted";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.messageSansPath.find("json.exception"), std::string::npos)
+        << "the refusal is a raw nlohmann exception, not a diagnostic: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, AVertexTypeWrittenAsAStringIsRefusedInPlainLanguage)
+{
+    MutatedTopology topo("vertex_type_string");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastHostNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim]["vertex_type"] = "1";
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "a node whose vertex_type is a string was accepted";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.messageSansPath.find("json.exception"), std::string::npos)
+        << "the refusal is a raw nlohmann exception, not a diagnostic: " << out.messageSansPath;
+}
+
+// =================================================================================================
+// Door 7 -- the shared `ip` read, in plain language for the nodes door 3d does not cover.
+//
+// [Co-developed with claude code -- Adam]
+// Door 3d (#90) rewrote "missing key" and "not an array" into sentences for HOSTS, because the
+// alternative was `[json.exception.out_of_range.403] key 'ip' not found` from the shared read
+// below it. The shared read is shared: a SWITCH with no `ip` key reached exactly that exception,
+// and still did after #90 -- door 3b covers the empty array for switches and nothing covers the
+// other two faults. Same defect, same sentence owed, one branch away.
+//
+// 🔴 IT SITS AFTER DOOR 3d AND SKIPS HOSTS, DELIBERATELY. Written as a check for every node type
+// it would run FIRST for hosts too and make door 3d's own two arms unreachable -- the gate's M18
+// and M19 would then survive with the tests still green, which is a door being measured by
+// another door standing in front of it.
+// =================================================================================================
+
+TEST(TopologyInputValidationTest, ASwitchWithNoIpKeyAtAllIsRefusedInPlainLanguage)
+{
+    MutatedTopology topo("switch_no_ip_key");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastSwitchNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim].erase("ip");
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "a switch with no \"ip\" key was accepted";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.messageSansPath.find("json.exception"), std::string::npos)
+        << "the refusal is a raw nlohmann exception, not a diagnostic: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, AHostWithNoIpKeyIsStillNamedAsAHost)
+{
+    // 🔴 THE ORDER OF THE TWO DOORS IS THE CLAIM HERE, AND NOTHING ELSE MEASURES IT. Door 7 says
+    // the same two things about a missing or non-array "ip" as door 3d, so writing it for every
+    // node type -- one `!=` away -- would refuse the same files with the same register and leave
+    // every other case in this file green, while making door 3d's two arms unreachable: the
+    // gate's M18 and M19 would go from caught to survived, and a reader would have to run the
+    // gate to find out. What door 3d adds is the noun: a host is refused AS a host, with the
+    // sentence about "dpid": 0 being the reason an address is the only thing that identifies it.
+    MutatedTopology topo("host_no_ip_key_noun");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastHostNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    const std::string name = topo.doc()["nodes"][victim].at("device_name").get<std::string>();
+    topo.doc()["nodes"][victim].erase("ip");
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    ASSERT_TRUE(out.threw);
+    EXPECT_NE(out.messageSansPath.find("host \"" + name + "\""), std::string::npos)
+        << "a host with no \"ip\" is refused, but not as a host -- door 7 got there first: "
+        << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, ASwitchWhoseIpIsNotAnArrayIsRefusedInPlainLanguage)
+{
+    MutatedTopology topo("switch_ip_not_array");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastSwitchNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim]["ip"] = "192.168.123.20";
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "a switch whose \"ip\" is a bare string was accepted";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.messageSansPath.find("json.exception"), std::string::npos)
+        << "the refusal is a raw nlohmann exception, not a diagnostic: " << out.messageSansPath;
+}
+
+// =================================================================================================
+// B-15 / door 6 -- two nodes, one address; and the spelling that makes them look like two.
+//
+// [Co-developed with claude code -- Adam]
+// 🔴 MEASURED (2026-09-11, ROLE-3, b5-loose.json). h2's `ip` written `["10.1"]` instead of
+// `["10.0.0.2"]`: inet_aton reads "10.1" as 10.0.0.1, which is h1's address. The file loaded with
+// ZERO warnings and ZERO errors; /ndt/get_graph_data reported h1 and h2 with the SAME address
+// (`"ip":[16777226]` for both), /ndt/get_static_topology_json printed both as `["10.0.0.1"]`, and
+// the host edge that should name h2 named h1. #61's edge door -- "no node in this file carries
+// that address" -- passed, because after inet_aton the two spellings ARE the same key.
+//
+// Downstream, findVertexByIpNoLock returns the first node holding the address and there is no
+// field anywhere that can say a second one claimed it. Every address-resolved path -- top-K,
+// intent, last-hop attribution, the host edges themselves -- silently attributes h2's traffic to
+// h1.
+//
+// TWO ARMS, AND THE SECOND IS WHY THE FIRST IS NOT ENOUGH:
+//   6a  an address that is not written as a dotted quad is refused. inet_aton accepts "10.1",
+//       "167772161" and "0x0a000001" for the same address, and the twin republishes whichever
+//       form it reconstructs -- so the file and /ndt/get_static_topology_json disagree about what
+//       the operator wrote, and two spellings of one address stop looking like a collision to a
+//       human reading the file. The repo has already ruled this way once for the same reason:
+//       utils::tryParseUint64 was introduced over std::stoull because "a mistyped dpid must be
+//       refused, not silently redirected to a different switch" (HttpSession.cpp).
+//   6b  no two nodes may hold the same address AFTER parsing. 6a makes the loose spelling
+//       impossible; it does nothing about the same dotted quad typed twice, which is the plain
+//       copy-paste mistake and is just as unresolvable.
+//
+// All thirteen shipped files were checked before this door was written: zero non-canonical
+// spellings and zero duplicate addresses across nodes, node side and edge side, including the
+// five _ipAlias4_ files that give every switch four addresses.
+// =================================================================================================
+
+TEST(TopologyInputValidationTest, ASecondNodeClaimingAnExistingAddressIsRefused)
+{
+    // 6b with no help from 6a: the SAME dotted quad, typed twice. An added node nothing points
+    // at, for the reason appendUnreferencedNode states.
+    MutatedTopology topo("duplicate_address");
+    ASSERT_TRUE(topo.usable());
+
+    const std::string taken =
+        topo.doc()["nodes"][lastHostNodeIndex(topo.doc())].at("ip")[0].get<std::string>();
+    ASSERT_EQ(taken, "10.0.0.4");
+    appendUnreferencedNode(topo.doc(), "h4-copy", json::array({taken}));
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw)
+        << "two nodes declaring the same address were accepted; findVertexByIpNoLock then returns "
+           "whichever came first and nothing in the graph can say the other one exists";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.edges, 0u);
+}
+
+TEST(TopologyInputValidationTest, TheDuplicateAddressRefusalNamesBothNodes)
+{
+    // One name is not enough: the operator has to find two entries in a file of up to 138 nodes,
+    // and which one is wrong is their decision, not the loader's.
+    MutatedTopology topo("duplicate_address_message");
+    ASSERT_TRUE(topo.usable());
+
+    const std::string taken =
+        topo.doc()["nodes"][lastHostNodeIndex(topo.doc())].at("ip")[0].get<std::string>();
+    const std::string owner =
+        topo.doc()["nodes"][lastHostNodeIndex(topo.doc())].at("device_name").get<std::string>();
+    appendUnreferencedNode(topo.doc(), "h4-copy", json::array({taken}));
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    ASSERT_TRUE(out.threw);
+    EXPECT_NE(out.messageSansPath.find("\"" + owner + "\""), std::string::npos)
+        << "the refusal does not name the node that already held the address: "
+        << out.messageSansPath;
+    EXPECT_NE(out.messageSansPath.find("\"h4-copy\""), std::string::npos)
+        << "the refusal does not name the node that claimed it again: " << out.messageSansPath;
+    EXPECT_NE(out.messageSansPath.find(taken), std::string::npos)
+        << "the refusal does not name the address: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, ANodeAddressThatIsNotADottedQuadIsRefused)
+{
+    // 6a on its own: "10.9" is 10.0.0.9, which NO node in the shipped P4 model holds, so nothing
+    // collides and only the spelling door can refuse this file.
+    MutatedTopology topo("loose_address");
+    ASSERT_TRUE(topo.usable());
+
+    appendUnreferencedNode(topo.doc(), "h-loose", json::array({"10.9"}));
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw)
+        << "a node address that is not a dotted quad was accepted and silently rewritten; the "
+           "file and /ndt/get_static_topology_json then disagree about what it says";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.edges, 0u);
+}
+
+TEST(TopologyInputValidationTest, TheLooseAddressRefusalNamesBothSpellings)
+{
+    // Both, because either one alone is useless: the operator needs to find "10.9" in the file,
+    // and needs to be told that the twin read it as 10.0.0.9 rather than as 10.9.0.0 or an error.
+    MutatedTopology topo("loose_address_message");
+    ASSERT_TRUE(topo.usable());
+
+    appendUnreferencedNode(topo.doc(), "h-loose", json::array({"10.9"}));
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    ASSERT_TRUE(out.threw);
+    EXPECT_NE(out.messageSansPath.find("10.9"), std::string::npos)
+        << "the refusal does not quote what the file says: " << out.messageSansPath;
+    EXPECT_NE(out.messageSansPath.find("10.0.0.9"), std::string::npos)
+        << "the refusal does not say what the twin read it as: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, TheMeasuredLooseFormCollisionIsRefused)
+{
+    // ROLE-3's b5-loose.json verbatim: an EXISTING host's address rewritten in the loose form of
+    // ANOTHER host's address, its edges rewritten to match so that #61's edge door stays quiet.
+    // This is the file that loaded with zero diagnostics and served two hosts at one address.
+    MutatedTopology topo("loose_collision");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastHostNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    const std::string was = topo.doc()["nodes"][victim].at("ip")[0].get<std::string>();
+    topo.doc()["nodes"][victim]["ip"] = json::array({"10.1"});
+    for (auto& edgeJson : topo.doc()["edges"])
+    {
+        for (const char* key : {"src_ip", "dst_ip"})
+        {
+            if (edgeJson.contains(key) && edgeJson.at(key).size() == 1 &&
+                edgeJson.at(key)[0] == was)
+            {
+                edgeJson[key] = json::array({"10.1"});
+            }
+        }
+    }
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw)
+        << "the measured file was accepted: two hosts at one address, zero warnings, and the "
+           "host edge naming the wrong node";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.edges, 0u);
+}
+
+TEST(TopologyInputValidationTest, AnEdgeAddressThatIsNotADottedQuadIsRefused)
+{
+    // 🔴 THE NODE SIDE IS NOT THE WHOLE DOCUMENT, and checking only it would be this repo's
+    // recurring shape once more: a guard whose population is smaller than its consumer's. The
+    // builder parses every edge's src_ip and dst_ip through the same inet_aton, and the
+    // validator reads an edge's addresses only on the end whose dpid is 0 -- so a switch-side
+    // address could be spelled any way at all and no door would look at it.
+    MutatedTopology topo("loose_edge_address");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = firstSwitchEdgeIndex(topo.doc());
+    const std::string was = topo.doc()["edges"][victim].at("src_ip")[0].get<std::string>();
+    ASSERT_EQ(was, "192.168.123.11");
+    topo.doc()["edges"][victim]["src_ip"] = json::array({"192.168.31499"});
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "an edge address that is not a dotted quad was accepted";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.edges, 0u);
+}

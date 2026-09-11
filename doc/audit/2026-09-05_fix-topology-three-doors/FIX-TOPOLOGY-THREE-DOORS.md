@@ -330,3 +330,73 @@ M1 的 anchor 還寫著 `(j, where)` ⇒ 16:01 那一輪 M1 判 `SURVIVED (ancho
 - **`inv_graph_matches_topology` 沒有收緊**：它現在對這四扇門一律回綠（§1）。
   要不要讓契約測試也看 per-edge 身分與 `ecmp_groups`，是另一張單——
   這一輪只把「它看不見」這件事寫清楚。
+
+## 11. FIX-DOORS-2（2026-09-11）：又四扇門，而這一輪的證據是 live
+
+[Co-developed with claude code -- Adam]
+
+§2 的門清單是**列舉**不是導出（09-11 夜巡 recon B §1 S2 把這件事寫成一個復發形狀），
+而 ROLE-3 那天早上在 :8000 上把縫隙**跑出來了**。這一節記四扇新門、一個裁決、一個沒關的門。
+
+### 11.1 四扇門
+
+| 門 | 守什麼 | 位置 | 條目 |
+|---|---|---|---|
+| 4 | `link_bandwidth_bps` 必須存在、是整數、非負、且 **> 0** | `checkDeclaredLinkBandwidth`，驗證器 edge 迴圈開頭 | B-13 |
+| 5 | `vertex_type` 只收 0／1，**在 `static_cast` 之前** | 節點迴圈第一件事 | B-14 |
+| 6 | 6a 位址必須寫成點分四段；6b 全檔不得有兩個節點持同一個（parse 後的）位址 | 節點迴圈共用讀取處＋`checkEndpoint` 開頭 | B-15 |
+| 7 | 非 HOST 節點的 `ip` 缺鍵／非陣列，改用門 3d 那種句子 | 門 3d 之後 | — |
+
+### 11.2 「0 是不是合法的未知」——這一輪的裁決是**不是**（要 Adam 複核，見 SUMMARY §7）
+
+三個理由，都可查：
+1. **這個 repo 的未知慣例是 `-1`**（DCAPM 三個回報函式），而這一欄是 `uint64_t`，表達不了；
+   ROLE-3 實測 `-1` 被 `get<uint64_t>()` 靜靜變成 `18446744073709551615`。
+2. **手冊只有一種讀法**：`doc/2026-01-02_ndt_api.md` 的 `left_link_bandwidth_source`＝`declared`
+   那一列寫「the figure is the topology file's `link_bandwidth_bps`」，沒有第三種狀態。
+   要允許 0 就得同時教會 `leftBandwidth`／`leftBandwidthFromFlowSample`／`BandwidthSource`
+   與利用率算式「未知」是什麼——那是一張新單，不是一扇門。
+3. **十三份出貨檔只有 1 Gbit/s 與 10 Gbit/s**（逐檔對帳過，含五份 `_ipAlias4_`）⇒ 這扇門對艦隊零成本。
+
+⚠️ **另一半沒做**：`link_bandwidth` 也會被 **sFlow counter sample** 寫入
+（`updateLinkInfo` 的 `edgeProps.linkBandwidth = interfaceSpeed`），而 `ifSpeed = 0`
+是 SNMP／sFlow 對「速度未知」的標準值，**那條路徑零檢查、而且就在同一個除法旁邊**。
+⇒ **檔案不能再宣告 0，交換機還是可以回報 0。** 那是 runtime 門，不是這張單。
+（這正是 recon B §1 S7「除數沒有人守」那一條，這一輪只關了它的檔案這一半。）
+
+### 11.3 `get_average_link_usage` 為什麼對 `null` 免疫（ROLE-3 §6.3 沒追，這裡追完）
+
+`TopologyAndFlowMonitor::getAvgLinkUsage` 的累加條件是
+`linkBandwidthUsage != 0 && 兩端都不是 HOST`。而容量 0 的邊，
+`linkBandwidthUsage = leftIn > linkBandwidth ? 0 : linkBandwidth - leftIn` 兩條路都給 **0**
+⇒ **那些邊被 `!= 0` 跳過**，`noneZeroEdgeNum` 停在 0，函式回 `0`。
+⇒ **它不是「把 NaN 當 0 吃掉」，是整批邊根本沒進累加器。**
+🔴 **免疫來自算術巧合，不是來自任何人注意到**——而 `0` 同時是
+「沒有量到」與「量到 0」的答案（B-8 那個形狀），所以
+`{"avg_link_usage":0.0,"status":"success"}` 與「四十條邊全壞」在回應上不可分辨。
+**這一輪沒有改它**（門 4 讓檔案面到不了這個狀態；sFlow 面到得了，見 11.2）。
+
+### 11.4 寬鬆位址：拒絕，不是 warning＋正規化寫回
+
+`inet_aton` 對 `"10.1"`／`"167772161"`／`"0x0a000001"` 都回 10.0.0.1。選拒絕，因為：
+- **repo 已經為同一個理由裁過一次**：`utils::tryParseUint64` 之所以取代 `std::stoull`，
+  逐字理由是「a mistyped dpid must be refused, not silently redirected to a different switch」。
+- **正規化寫回＝載入器改寫使用者的文件語意**，而這整支函式的立場是「拒絕，不修補」
+  （#61 的註解自己寫：refused 要意味著圖沒被碰過，而不是「refused, and also here is most of it」）。
+- 十三份出貨檔（節點與邊兩側）**零非標準拼法**。
+⇒ 但這是**政策**不是事實，SUMMARY §7 列給 Adam 覆蓋。
+
+### 11.5 門 7 為什麼在門 3d 之後、而且跳過 HOST
+
+門 7 與門 3d 講同樣兩件事（缺鍵／非陣列），差別只有**名詞**。
+若把門 7 寫成「每一種節點」，它會**先跑**，門 3d 的兩條臂就再也到不了
+⇒ 閘門的 **M18／M19 會從 caught 變成 survived**，而所有測試照樣綠。
+所以新增 `AHostWithNoIpKeyIsStillNamedAsAHost`（斷言訊息裡有 `host "<name>"`）＋ **M48**
+把「順序」變成可量測的宣稱，而不是一句描述。
+
+### 11.6 閘門
+
+`mutate_topology_input_is_validated.sh` 由 33 顆變異 ＋ 9 個 widening 加到
+**48 顆變異 ＋ 12 個 widening**（M34–M48、W10–W12），13 個新 anchor。
+其中 **M45 是 `mutate2`**：ROLE-3 的 `b5-loose.json` 被 6a 與 6b **各自**攔得住，
+所以任何單點編輯都復原不了那個檔——照 M2／M31 的前例，一顆變異改兩處並且明說它改了兩處。

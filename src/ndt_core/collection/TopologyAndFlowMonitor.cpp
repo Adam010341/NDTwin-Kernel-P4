@@ -23,6 +23,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -252,6 +253,137 @@ switchKindGroupsFromJson(const json& j)
     return groups;
 }
 
+/** @brief Refuse an edge whose declared capacity is not a capacity.
+ *
+ * [Co-developed with claude code -- Adam]
+ * B-13. `link_bandwidth_bps` is the one field of an edge no door looked at, and it is the
+ * divisor: updateLinkInfoLeftLinkBandwidth computes
+ * `(1.0 - leftIn / edgeProps.linkBandwidth) * 100`. Measured 2026-09-11 (ROLE-3, two independent
+ * repeats on one kernel): a copy of the shipped OVS 4-host model with 0 on every edge loaded
+ * whole -- `ndt up ovs 4` reported all four verifications ok, including "kernel graph matches the
+ * model file: 4 hosts, 40 edges" -- and after real traffic 8, then 16, of the 40 edges came back
+ * from /ndt/get_graph_data with `"link_bandwidth_utilization_percent": null`, NaN serialised.
+ * /ndt/get_average_link_usage went on answering `status: success` throughout: its accumulator
+ * skips edges whose usage is 0, and an edge of zero capacity has usage 0, so the average is
+ * immune by arithmetic accident rather than because anything noticed.
+ *
+ * 🔴 0 IS REFUSED RATHER THAN ADMITTED AS "UNKNOWN". Nothing in this repo reads it that way: the
+ * unknown convention elsewhere is -1, which this unsigned field cannot express, and the manual's
+ * only account of the field (doc/2026-01-02_ndt_api.md, the "declared" source) has no third
+ * state. Admitting 0 would mean inventing one and teaching leftBandwidth,
+ * leftBandwidthFromFlowSample, BandwidthSource and the utilization arithmetic about it. All
+ * thirteen shipped files declare 1 or 10 Gbit/s and nothing else.
+ *
+ * 🔴 WHAT THIS DOES NOT COVER: linkBandwidth is also written from an sFlow counter sample
+ * (`edgeProps.linkBandwidth = interfaceSpeed`, updateLinkInfo), where 0 is the standard
+ * SNMP/sFlow value for "speed unknown" and there is no check at all. A file can no longer declare
+ * 0; a switch can still report it. That is a runtime door and it is not this one.
+ *
+ * Missing key and wrong type are refused here rather than by the builder's at(), for door 3c and
+ * 3d's reason: without it the operator is handed
+ * `[json.exception.out_of_range.403] key 'link_bandwidth_bps' not found` from the middle of the
+ * builder's edge loop, with fourteen vertices and thirty-nine edges already in the graph.
+ */
+void
+checkDeclaredLinkBandwidth(const json& edgeJson)
+{
+    if (!edgeJson.contains("link_bandwidth_bps"))
+    {
+        throw std::runtime_error(
+            "this link declares no \"link_bandwidth_bps\", and every edge needs one: it is the "
+            "capacity the twin reports and the divisor it computes "
+            "\"link_bandwidth_utilization_percent\" with");
+    }
+    const auto& declared = edgeJson.at("link_bandwidth_bps");
+    if (!declared.is_number_integer())
+    {
+        throw std::runtime_error(
+            "this link declares \"link_bandwidth_bps\" " + declared.dump() +
+            ", which is not an integer number of bits per second");
+    }
+    if (!declared.is_number_unsigned())
+    {
+        throw std::runtime_error(
+            "this link declares \"link_bandwidth_bps\" " + declared.dump() +
+            ", and a capacity cannot be negative. Read as unsigned -- which is how the builder "
+            "reads it -- that value became 18446744073709551615, an 18.4 exabit/s link nobody "
+            "declared, and it was served that way");
+    }
+    if (declared.get<std::uint64_t>() == 0)
+    {
+        throw std::runtime_error(
+            "this link declares \"link_bandwidth_bps\" 0. A link of zero capacity is not a link "
+            "this twin can model: it is the divisor of "
+            "\"link_bandwidth_utilization_percent\", so every sampled edge reports that field as "
+            "null (NaN), while \"avg_link_usage\" goes on answering status success because its "
+            "accumulator skips edges of zero usage. There is no \"unknown\" reading of this "
+            "field -- if the capacity is not known, the file should not claim one");
+    }
+}
+
+/** @brief How a refusal names the node it is refusing.
+ *
+ * [Co-developed with claude code -- Adam]
+ * The shape door 3d builds inline for hosts, hoisted: B-13/B-14/B-15's doors need to name a node
+ * whose `vertex_type` is not yet known to be 0 or 1 -- which is door 5's entire subject -- so
+ * "host" and "switch" are not available as nouns yet. Reads `device_name` defensively for the
+ * reason describeTopologyItem gives at length: this runs while reporting a failure that one of
+ * these fields may itself have caused.
+ */
+std::string
+nodeInWords(const json& nodeJson, std::size_t index)
+{
+    if (nodeJson.is_object() && nodeJson.contains("device_name") &&
+        nodeJson.at("device_name").is_string())
+    {
+        return "node \"" + nodeJson.at("device_name").get<std::string>() + "\"";
+    }
+    return "the node at #" + std::to_string(index);
+}
+
+/** @brief Refuse an address the file does not spell the way the twin will read it back.
+ *
+ * [Co-developed with claude code -- Adam]
+ * B-15, arm 6a. inet_aton accepts "10.1", "167772161" and "0x0a000001" for 10.0.0.1, and the
+ * graph stores the parsed uint32 -- so /ndt/get_static_topology_json republishes a dotted quad
+ * the operator never wrote, and two spellings of one address stop looking like a collision to
+ * anyone reading the file. Measured 2026-09-11 (ROLE-3): `"ip": ["10.1"]` on one host of the
+ * shipped OVS model put two hosts on 10.0.0.1 with zero warnings, and #61's "no node in this
+ * file carries that address" door passed, because after inet_aton the two spellings ARE one key.
+ *
+ * The same ruling has been made in this repo before, for the same reason: utils::tryParseUint64
+ * exists over std::stoull because a mistyped dpid must be refused rather than silently
+ * redirected to a different switch.
+ *
+ * An address that does not parse at all is NOT this function's business -- ipStringVecToUint32Vec
+ * already throws `Invalid IP address: ...` for it, and duplicating that here would give one fault
+ * two diagnostics.
+ */
+void
+requireCanonicalAddress(const std::string& text, const std::string& whose)
+{
+    std::vector<std::uint32_t> parsed;
+    try
+    {
+        parsed = utils::ipStringVecToUint32Vec({text});
+    }
+    catch (const std::invalid_argument&)
+    {
+        return;
+    }
+    const std::string canonical = utils::ipToString(parsed.front());
+    if (canonical == text)
+    {
+        return;
+    }
+    throw std::runtime_error(
+        whose + " is written \"" + text + "\", which this loader reads as " + canonical +
+        " and stores, so the graph and every /ndt/ reply would report an address the file does "
+        "not contain. Write it as " + canonical +
+        ": inet_aton also accepts shorthand and decimal and hexadecimal forms, and two spellings "
+        "of one address are how two nodes came to share one");
+}
+
 /** @brief Refuse a topology document that names things the document does not contain.
  *
  * @details
@@ -337,13 +469,62 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
     // carries -- findVertexByIpNoLock searches the whole vector, so this must too.
     std::unordered_set<std::uint64_t> switchDpids;
     std::unordered_set<std::uint32_t> nodeAddresses;
+    // B-15 door 6b. A second index over the same addresses, because nodeAddresses is a set and a
+    // set is exactly what cannot tell one claim from two. Maps the parsed address to the node that
+    // claimed it first, so the refusal can name both. [Co-developed with claude code -- Adam]
+    std::unordered_map<std::uint32_t, std::string> addressOwner;
 
     std::size_t itemIndex = 0;
     for (const auto& nodeJson : j["nodes"])
     {
         where = describeTopologyItem(nodeJson, "node", itemIndex++);
 
-        const auto vertexType = static_cast<VertexType>(nodeJson.at("vertex_type").get<int>());
+        // ---- B-14 door 5: "vertex_type" is 0 or 1, and there is no third value ----
+        // [Co-developed with claude code -- Adam]
+        // 🔴 BEFORE THE static_cast, AND THAT IS THE WHOLE DOOR. VertexType has two enumerators
+        // (GraphTypes.hpp), and every door below is written as `vertexType == SWITCH` or
+        // `vertexType == HOST` -- so a third value does not FAIL doors 3b, 3c, 3d and 3e, it is
+        // not examined by any of them. One unchecked cast switches four doors off at once.
+        //
+        // Measured 2026-09-11 (ROLE-3, values 2, -1 and 99, one run each): a node named by no
+        // edge was accepted with ZERO diagnostic, took the shipped OVS 4-host model from 14 nodes
+        // to 15, and was republished verbatim by /ndt/get_graph_data and by
+        // /ndt/get_static_topology_json -- the latter down the HOST branch of the serialiser,
+        // because that branch is the `else`.
+        //
+        // 🔴 THE SENTENCE IS HttpSession'S, WORD FOR WORD, AND THAT IS DELIBERATE. The same field
+        // has a second entrance: handleModifyDeviceName answers the same mistake with 400 and
+        // `Invalid vertex_type. Must be 0 (switch) or 1 (host).` (HttpSession.cpp). Two entrances
+        // to one field, and until now one door. Inventing a second vocabulary here would leave
+        // the operator matching two diagnostics to one mistake, so the API's sentence is quoted
+        // rather than paraphrased, and a test pins that it still is.
+        if (!nodeJson.contains("vertex_type"))
+        {
+            throw std::runtime_error(
+                nodeInWords(nodeJson, itemIndex - 1) +
+                " declares no \"vertex_type\" key. Invalid vertex_type. Must be 0 (switch) or 1 "
+                "(host).");
+        }
+        if (!nodeJson.at("vertex_type").is_number_integer())
+        {
+            throw std::runtime_error(
+                nodeInWords(nodeJson, itemIndex - 1) + " declares \"vertex_type\" " +
+                nodeJson.at("vertex_type").dump() +
+                ", which is not an integer. Invalid vertex_type. Must be 0 (switch) or 1 (host).");
+        }
+        const int declaredVertexType = nodeJson.at("vertex_type").get<int>();
+        if (declaredVertexType != static_cast<int>(VertexType::SWITCH) &&
+            declaredVertexType != static_cast<int>(VertexType::HOST))
+        {
+            throw std::runtime_error(
+                nodeInWords(nodeJson, itemIndex - 1) + " declares \"vertex_type\" " +
+                std::to_string(declaredVertexType) +
+                ". Invalid vertex_type. Must be 0 (switch) or 1 (host). A node that is neither "
+                "used to load with no diagnostic at all: every check below asks whether it is a "
+                "switch or whether it is a host, so a third value is examined by none of them, "
+                "and the graph then served it as though it had been understood");
+        }
+        const auto vertexType = static_cast<VertexType>(declaredVertexType);
         if (vertexType == VertexType::SWITCH)
         {
             switchDpids.insert(nodeJson.at("dpid").get<std::uint64_t>());
@@ -403,9 +584,85 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
             }
         }
 
-        const auto addresses =
-            utils::ipStringVecToUint32Vec(nodeJson.at("ip").get<std::vector<std::string>>());
+        // ---- door 7: the shared "ip" read, in plain language for every other node type ----
+        // [Co-developed with claude code -- Adam]
+        // Door 3d rewrote "missing key" and "not an array" into sentences for HOSTS, because the
+        // alternative was `[json.exception.out_of_range.403] key 'ip' not found` from the read
+        // just below. The read is shared: a SWITCH with no "ip" key got exactly that exception,
+        // and still did after #90 -- door 3b covers a switch's EMPTY array and nothing covered
+        // the other two faults. Same defect, same sentence owed, one branch away.
+        //
+        // 🔴 AFTER DOOR 3d, AND SKIPPING HOSTS, DELIBERATELY -- AND IT IS THE POSITION, NOT THE
+        // CONDITION, THAT DOES THE WORK. Corrected 2026-09-11 after the gate's r2 round measured
+        // what the previous wording asserted: widening this `!=` to every node type changes
+        // nothing at all, because door 3d is forty-nine lines above and has already thrown for a
+        // host by the time control arrives here. The old comment said such a widening "would run
+        // FIRST for hosts"; it would not, and M48 was written from that sentence, so it could
+        // never go red -- an equivalent mutant that cost a full gate round to diagnose.
+        //
+        // What DOES silence door 3d is MOVING this block in front of it. Then door 3d's two arms
+        // become unreachable, the gate's M18 and M19 survive with every test still green, and a
+        // host is refused as a "node" instead of as a host -- losing the `"dpid": 0, so an
+        // address is the only thing that identifies it` reason door 3d exists to give. M48 is now
+        // that move, and because a move is an insertion plus a deletion it is a mutate2.
+        //
+        // 🔴 WRITTEN WITH TWO NAMED BOOLEANS RATHER THAN DOOR 3d's `else if` CHAIN, AND THAT IS
+        // NOT A STYLE CHOICE. Spelled the natural way this block is line-for-line identical to
+        // door 3d's, and `mutate_topology_input_is_validated.sh` finds M18's and M19's sites by
+        // exact text: two matches, and the gate refuses to render a verdict at all
+        // (check_gate_anchors.py said so before this was committed). A second site that looks the
+        // same is a second site the gate cannot tell from the first.
+        if (vertexType != VertexType::HOST)
+        {
+            const bool declaresIpKey = nodeJson.contains("ip");
+            const bool ipKeyIsArray = declaresIpKey && nodeJson.at("ip").is_array();
+            if (!ipKeyIsArray)
+            {
+                throw std::runtime_error(
+                    nodeInWords(nodeJson, itemIndex - 1) +
+                    (declaresIpKey
+                         ? " declares an \"ip\" that is not an array of address strings"
+                         : " declares no \"ip\" key at all") +
+                    "; every node's addresses are read from that key, and a switch is found "
+                    "through them by every path that does not already have its dpid");
+            }
+        }
+
+        const auto addressText = nodeJson.at("ip").get<std::vector<std::string>>();
+        const auto addresses = utils::ipStringVecToUint32Vec(addressText);
         nodeAddresses.insert(addresses.begin(), addresses.end());
+
+        // ---- B-15 door 6: one address, one node, one spelling ----
+        // [Co-developed with claude code -- Adam]
+        // 6b is the arm 6a cannot cover: the same dotted quad typed twice. `nodeAddresses` is a
+        // set and has been since #61, so a second claim on an address was not merely unrefused,
+        // it was unrepresentable -- and findVertexByIpNoLock returns whichever node came first
+        // with nothing anywhere able to say a second one exists. Every address-resolved path
+        // downstream (the edge loop below, top-K, intent, last-hop attribution) then attributes
+        // one node's traffic to another.
+        //
+        // Keyed on the PARSED address rather than on the string, which is the entire defect: the
+        // two nodes ROLE-3 measured shared 10.0.0.1 while their `ip` strings differed.
+        for (std::size_t addressIndex = 0; addressIndex < addresses.size(); ++addressIndex)
+        {
+            requireCanonicalAddress(addressText[addressIndex],
+                                    nodeInWords(nodeJson, itemIndex - 1) + " address #" +
+                                        std::to_string(addressIndex));
+
+            const auto claimed = addressOwner.emplace(addresses[addressIndex],
+                                                      nodeInWords(nodeJson, itemIndex - 1));
+            if (!claimed.second)
+            {
+                throw std::runtime_error(
+                    "the address " + utils::ipToString(addresses[addressIndex]) +
+                    " is declared by both " + claimed.first->second + " and " +
+                    nodeInWords(nodeJson, itemIndex - 1) +
+                    ". An address is how a host is identified and how a switch is found by the "
+                    "paths that do not have its dpid, and the lookup returns whichever node comes "
+                    "first -- so one of these two is unreachable and nothing in the graph can say "
+                    "which");
+            }
+        }
 
         // ---- #89 door 3a: a switch_kind no mapping accepts ----
         // switchKindFromString throws std::invalid_argument on anything unmapped, and the builder
@@ -611,6 +868,29 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
         const std::string ipKey = std::string(side) + "_ip";
         const std::string interfaceKey = std::string(side) + "_interface";
 
+        // ---- B-15 door 6a, on the edge side ----
+        // [Co-developed with claude code -- Adam]
+        // 🔴 THE NODE LOOP IS NOT THE WHOLE DOCUMENT. The builder parses every edge's src_ip and
+        // dst_ip through the same inet_aton, while this pass reads an edge's addresses only on
+        // the end whose dpid is 0 -- so without this, a switch-side address could be spelled any
+        // way at all and no door would look at it. That asymmetry, a guard whose population is
+        // smaller than its consumer's, is the shape this file has now been extended for five
+        // times.
+        if (edgeJson.contains(ipKey) && edgeJson.at(ipKey).is_array())
+        {
+            std::size_t addressIndex = 0;
+            for (const auto& addressJson : edgeJson.at(ipKey))
+            {
+                if (addressJson.is_string())
+                {
+                    requireCanonicalAddress(addressJson.get<std::string>(),
+                                            "\"" + ipKey + "\" address #" +
+                                                std::to_string(addressIndex));
+                }
+                ++addressIndex;
+            }
+        }
+
         const auto dpid = edgeJson.at(dpidKey).get<std::uint64_t>();
         const auto ifIndex = edgeJson.at(interfaceKey).get<std::uint32_t>();
 
@@ -674,6 +954,7 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
     for (const auto& edgeJson : j["edges"])
     {
         where = describeTopologyItem(edgeJson, "edge", itemIndex++);
+        checkDeclaredLinkBandwidth(edgeJson);
         checkEndpoint(edgeJson, "src");
         checkEndpoint(edgeJson, "dst");
     }
