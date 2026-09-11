@@ -344,7 +344,14 @@ print('hosts', len(ho), 'up', sum(1 for n in ho if n['is_up']))
 print('edges', len(ed), 'up', sum(1 for e in ed if e['is_up']))"
 ```
 
-✅ 預期：
+✅ 預期（**數字跟 fabric 尺寸走；本 runbook 其餘各節的數字都是 128 台那一欄**）：
+
+| fabric | switches | hosts | edges |
+|---|---|---|---|
+| `ndt up ovs`（128 台，本 runbook 的預設） | `10 up 10 enabled 10` | `128 up 128` | `288 up 288` |
+| `ndt up ovs4`／`ndt up 4`（4 台） | `10 up 10 enabled 10` | `4 up 4` | `40 up 40` |
+
+128 台那一欄逐字：
 
 ```
 switches 10 up 10 enabled 10
@@ -352,6 +359,18 @@ hosts 128 up 128
 edges 288 up 288
 hosts with ipv4: 128
 ```
+
+4 台那一欄逐字（09-12 實測）：
+
+```
+switches 10 up 10 enabled 10
+hosts 4 up 4
+edges 40 up 40
+```
+
+<!-- 來源：ROLE-11 F4，log hunt-0911/logs/ROLE-11/06-graph-4a.log（🟠 轉述：照本節指令逐字跑在
+     `ndt up 4`＝ovs4 之上；同一輪 `ndt status --check` 印 links 40 total, 0 down）。
+     128 台那一欄是 2026-08-11 的原值，未在 09-12 重測。 -->
 
 🔴 **【2026-08-11 實測】本節原本的兩段 ⚠️ 是錯的，已刪除。** 原文主張「hosts `up` 的數字不是 128」「edges `up` 的數字不是 288」，理由是 `testbed_topo.py:219-226` 設了 static ARP，Ryu 學不到 host IP。**實測全滿：128/128 host up、288/288 edge up、128 個 host 都有 IP。** Ryu 自己也是滿的：
 

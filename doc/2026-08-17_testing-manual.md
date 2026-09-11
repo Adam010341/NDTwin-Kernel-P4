@@ -274,9 +274,17 @@ check: 1 problem(s)
 | switch ↔ **host**（`dst_dpid=0`，例如 `dpid 1:3 → 10.0.0.1`） | **256** | `False` | `False` |
 | switch ↔ switch（例如 `dpid 1:1 → dpid 5`） | 32 | `True` | `True` |
 
-128 hosts × 2 = 256。**OVS 平面從來不把 host 邊標成 up**，而 P4 平面會
+128 hosts × 2 = 256。**OVS 平面在 128 台上從來不把 host 邊標成 up**，而 P4 平面會
 （同一天的 P4 輪：`288 total, 0 down`）。實測到 4 分鐘都沒動（`32 up / 256 down / 0 hosts up`
 每 15 秒取樣一次），所以不是「還沒收斂」。
+
+🔴 **上面那個「從來不」只在 128 台成立。** 09-12 的 `ndt up ovs4` 實測
+`links 40 total, 0 down`，而那份模型裡有 **8 條** host 邊 ⇒ 4 台的 OVS 輪裡 host 邊是 up 的。
+**兩個量測的尺寸不同，機制（Ryu 的 `ipv4` 空不空）在 4 台上沒有重新量過**，
+所以不要拿下面那段解釋去推 4 台會怎樣，也不要拿 4 台的結果去推翻 128 台的紀錄。
+<!-- 來源：ROLE-11 F4，log hunt-0911/logs/ROLE-11/05-check-after-up.log（🟠 轉述）；
+     8 條 host 邊＝本單親自讀 setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json 數出來的。
+     為什麼 4 台會 up、128 台不會，尚未查 ⇒ 已列進 FIX-DOC-1 SUMMARY §7。 -->
 
 <details><summary>為什麼——不是設計決定，是資料對不上</summary>
 
@@ -317,11 +325,22 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
 中間有東西變了或條件不同，沒查清楚之前不要引用任何一邊當機制。
 </details>
 
-所以：
+所以（**判準跟尺寸走，不是只跟平面走**）：
 
-- **P4**：`ndt status --check` 回 rc=0 才算過。
-- **OVS**：`--check` 一定 rc=1。**看它列出來的問題是不是只有「256 link(s) are down」**——
+- **P4**：`ndt status --check` 回 rc=0 才算過。（09-12 `ndt up p4 4` 實測 rc **0**、`check: ok`。）
+- **OVS 128 台**：`--check` 一定 rc=1。**看它列出來的問題是不是只有「256 link(s) are down」**——
   只有這一條就是正常的；多出任何別的才要查。
+- 🆕 **OVS 4 台（`ndt up ovs4`／`ndt up 4`）：一條 link 都不該 down。** 09-12 實測
+  `links          40 total, 0 down, 0 admin-disabled`（模型宣告 40 條邊，其中 8 條是 host 邊）
+  ⇒ 上一行那句「只有 256 link(s) are down 才正常」在這個尺寸上**一條都不適用**。
+  那一輪 rc 確實是 1，但唯一的 problem 是
+  `the network carries app residue: 60 rule(s) installed inside an app's window`，
+  而那 60 條在該輪第一個 `ndt up` **之前**就在了、來源未追 ⇒ **不是 ovs4 的性質**。
+  本輪沒有在乾淨機器上觀測過 ovs4 的 `--check`，所以**不宣稱**它會回 rc 0：
+  ovs4 的 `--check` 要自己看 problems 那幾行，不要拿 128 台那條規則套。
+<!-- 來源：ROLE-11 F4，log hunt-0911/logs/ROLE-11/05-check-after-up.log（ovs4，🟠 轉述）、
+     16-check-p4.log（p4 4，rc 0）。40 條邊裡 8 條是 host 邊＝本單親自讀
+     setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json 數出來的（dpid 0 兩端共 8 筆）。 -->
 
 🆕 **2026-09-07 起 `--check` 多一列 `residue`**（G-12／W16-2）：它會去問「有沒有 app
 留在網路上的東西」——某個 app 的時間窗內裝的流表規則、還握著的鎖。判準因此多了一條：
