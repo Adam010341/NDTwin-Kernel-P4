@@ -640,6 +640,59 @@ report_green "W7 (behaviour-preserving): the second-teardown explanation reworde
        "the wording under the refusal is not the behaviour under test"
 
 
+# --- ROLE-12 (2026-09-12): the teardown rc is its ending, not a reading from the middle -------
+
+# M43 restores the 7-of-7: nothing is deferred, so a live P4 teardown is red because [1/3] ran
+# before the sweep that closes the very ports it is complaining about.
+m=$(mutant m43 "$NDT" \
+    '        ports_deferred="$(stack_down_deferrable_ports "$out")"' \
+    '        ports_deferred=""')
+report "M43: a mid-teardown port reading is the verdict again (ROLE-12)" "$m" \
+       "🔴 ports [1/3] found open and [3/3] closed are not a failed teardown"
+
+# M44 (widening): the ports are deferred and never re-read, so the half is simply forgiven --
+# which passes every "a live P4 down is green" cell and no longer notices a real leftover. This
+# is the mutation the stubbed-green cmd_clean cell exists for: with clean_rc inherited instead,
+# this mutant would look identical to the fix.
+m=$(mutant m44 "$NDT" \
+    '            ndt_port_open "$dp" "$dproto" && dstill="${dstill:+$dstill }$dp"' \
+    '            :')
+report "M44 (widening): the deferred ports are never re-read" "$m" \
+       "🔴 a port STILL held after [3/3] keeps the teardown red"
+
+# M45: the fatal-ending exclusion dropped. A crash is delivered ONCE, out of a .exit record
+# report_exit then deletes, so an rc that swallowed it would lose it for good.
+m=$(mutant m45 "$NDT" \
+    '    grep -qF -- "$STACK_DOWN_FATAL_ENDING" <<<"$out" && return 0' \
+    '    :')
+report "M45: a fatal ending is deferred along with the ports" "$m" \
+       "🔴 a fatal ending alongside the ports keeps the teardown red"
+
+# M46: the other exclusion dropped -- a port held by a process this stack STARTED is stop_one
+# failing, and no sweep of the data plane addresses it.
+m=$(mutant m46 "$NDT" \
+    '    grep -qF -- "$STACK_DOWN_OUR_PORT"     <<<"$out" && return 0' \
+    '    :')
+report "M46: 'stop_one could not stop it' is deferred too" "$m" \
+       "🔴 a port this stack STARTED still holds keeps the teardown red"
+
+# M47: the RETURN-SITE pin dropped, so the reader is back to a vocabulary -- any mention of a
+# still-listening port defers, wherever in stack.sh's output it came from.
+m=$(mutant m47 "$NDT" \
+    '    grep -qF -- "$STACK_DOWN_RETURNED_ON_PORTS" <<<"$out" || return 0' \
+    '    :')
+report "M47: the classification stops being pinned to a return site" "$m" \
+       "🔴 ports named outside that branch defer nothing"
+
+# W8 (behaviour-preserving): the explanation printed with the deferral reworded. The cells read
+# the deferral and the re-read, not this sentence.
+m=$(mutant w8 "$NDT" \
+    '            warn "  [1/3] runs BEFORE the data-plane sweep in [3/3], so on a live P4 fabric this"' \
+    '            warn "  [1/3] happens ahead of the data-plane sweep in [3/3], so on a live P4 fabric this"')
+report_green "W8 (behaviour-preserving): the deferral note reworded" "$m" \
+       "the note above the re-read is not the behaviour under test"
+
+
 # --- F1: the plane the rate is read for (F-OFFLINE-1 §1.14) -----------------------------------
 
 # M36 restores F1: `sample_rate` is asked with no argument, so it looks the plane up -- and on a

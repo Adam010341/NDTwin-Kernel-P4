@@ -145,8 +145,18 @@ restore() {   # <label> -> 0 clean, 1 not
     # the grid would stop and blame the cell that inherited it. The down rc is RECORDED and
     # printed either way; what decides "is the lab restored" is the sweep and the orphan verdict,
     # the two readings that describe the machine as it is NOW rather than how something ended.
-    # The port-still-held and could-not-stop-it halves of that rc are not lost by this: `ndt
-    # clean` walks the whole port table and is read below.
+    #
+    # 🔴 2026-09-12, ROLE-12 then FIX-NDT-6. The sentence that used to stand here -- "the
+    # port-still-held and could-not-stop-it halves of that rc are not lost by this" -- was true
+    # of two halves and silent about a third that did not exist yet in writing: `stack.sh down`
+    # runs in `ndt down`'s step [1/3], BEFORE the bmv2 sweep in [3/3], so over a live P4 fabric
+    # it named the 20 ports of the fabric that teardown was about to remove and exited 1, 7
+    # times out of 7. `ndt down` now re-reads those ports after its own sweep and the rc follows
+    # the second reading, so a live P4 restore is rc 0 again. What still arrives here as
+    # non-zero is the two halves a sweep cannot undo -- a port held by something the stack
+    # STARTED, and a component that ended on a fatal signal -- plus any source this reader
+    # cannot account for. All of them are recorded and printed; "is the lab restored" is still
+    # decided by `ndt clean`, which walks the whole port table, and by the orphan verdict.
     local downnote=""
     (( drc != 0 )) && downnote="  🔴 ndt down rc=$drc (recorded; see $rdir/3-down.log)"
     if (( crc != 0 )) || ! grep -q '^VERDICT: CLEAN' "$rdir/6-verdict-postclean.txt"; then

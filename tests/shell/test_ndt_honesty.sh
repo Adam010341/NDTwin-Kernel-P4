@@ -837,6 +837,28 @@ check "  the floor the help names is the floor the code uses" "1" \
 check "  🔴 and that branch still reaches no sys.exit"   "1" \
       "$(grep -c 'sys.exit(4)' "$NDT")"
 
+section "5F. ROLE-12: the 'down' rc table says a port held at [1/3] is not by itself a failure"
+# The other side of the rc A1-b connected. ROLE-12 measured it 7 times out of 7 on 2026-09-12:
+# every `ndt down` over a LIVE P4 fabric exits 1 because stack.sh's port assertion runs in step
+# [1/3], before the bmv2 sweep in [3/3], and therefore names the twenty ports of the fabric this
+# very teardown is about to remove -- while the same log prints `ok ports closed: ...` four
+# steps later. An operator told only "exit 1" reads that as a teardown that failed. The rc now
+# follows a re-read taken after the sweep, and the table has to say so, or the next reader
+# reconciles a 0 against seven nights of 1s with nothing to explain the change.
+has   "  🔴 the table names the ordering that produces it" "[1/3] runs before" "$HELP"
+has   "  and that it is the live fabric accusing itself"   "the fabric this teardown is about to remove" "$HELP"
+has   "  with the measurement behind it"                   "7 of 7" "$HELP"
+has   "  🔴 and that those ports are RE-READ after the sweep" "re-read after 'verify clean'" "$HELP"
+has   "  naming both outcomes of that second reading"      "still held -> rc 1" "$HELP"
+has   "  🔴 and that the other two halves are unchanged"   "are red whatever the sweep does" "$HELP"
+has   "  attributed, so it can be revisited"               "ROLE-12" "$HELP"
+# 🔴 Against the code. A text-only cell here would go on passing after the re-read had been
+# deleted, which is the exact state the table would then be lying about.
+check "  the re-read the table describes is really taken"  "1" \
+      "$(grep -c "were closed by \[3/3\]" "$NDT")"
+check "  🔴 and it is pinned to stack.sh's return site, not to a word list" "1" \
+      "$(grep -c '^STACK_DOWN_RETURNED_ON_PORTS=' "$NDT")"
+
 # ==========================================================================================
 section "F9. this suite reads its OWN tree, and not the main checkout"
 # ==========================================================================================

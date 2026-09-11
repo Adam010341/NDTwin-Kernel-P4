@@ -1947,6 +1947,61 @@ stack_down_lines() {
     return 0
 }
 
+# --- what a non-zero `stack.sh down` was ABOUT --------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 ROLE-12, 2026-09-12. SEVEN out of seven `ndt down`s over a LIVE P4 fabric exited 1, one of
+# them with no concurrency at all and its rc captured in the foreground; two live OVS teardowns
+# and one already-down lab exited 0. The shape is the ORDER OF THE STEPS, not the plane:
+# `stack.sh down` is this command's step [1/3] and the bmv2 sweep is [3/3], so on a live P4
+# fabric the port assertion necessarily runs while the fabric is still standing and necessarily
+# names the twenty ports (:30051-30060, :9091-9100) of the fabric THIS teardown is about to
+# remove -- and the same log then prints `ok ports closed: ...30051-30060/9091-9100...` four
+# steps later. A1-b wired that reading to the exit code; the exit code is meant to be the ENDING.
+#
+# 🔴 The fix that would be worse is "the P4 plane does not check ports": that replaces a reading
+# with an assumption, and an orphan holding :30051 is precisely what the reading exists for. So
+# the ports are RE-READ after `verify clean` and the rc follows the SECOND reading.
+#
+# 🔴 And the classification is pinned to a RETURN SITE, not to a vocabulary -- an allowlist over
+# another file's prose is the defect A1-a had just removed one screen up. stack.sh's cmd_down
+# leaves non-zero from two places; the advice block named below is printed immediately before
+# the first of them and nowhere else, so its presence says WHICH `return` produced the status.
+# A fatal ending, a port held by something this stack started, a source written after this
+# reader -- none of them match, and a status this reader cannot account for stays a failure.
+# The direction of that default is the whole design: unaccounted-for is red.
+STACK_DOWN_RETURNED_ON_PORTS="find and stop it, or the next 'up' will report on it:"
+STACK_DOWN_FOREIGN_PORT="is still listening, held by"
+STACK_DOWN_OUR_PORT="is still held by a process this script started"
+STACK_DOWN_FATAL_ENDING="did not stop cleanly:"
+
+# stack_down_deferrable_ports <text> -- the ports a non-zero `stack.sh down` is ENTIRELY about,
+# lowest first, space-separated. Empty whenever anything else could also explain that status.
+stack_down_deferrable_ports() {
+    local out="$1"
+    grep -qF -- "$STACK_DOWN_RETURNED_ON_PORTS" <<<"$out" || return 0
+    grep -qF -- "$STACK_DOWN_OUR_PORT"     <<<"$out" && return 0
+    grep -qF -- "$STACK_DOWN_FATAL_ENDING" <<<"$out" && return 0
+    grep -F -- "$STACK_DOWN_FOREIGN_PORT"  <<<"$out" \
+        | sed -n 's/.*:\([0-9][0-9]*\) is still listening.*/\1/p' | sort -un | tr '\n' ' '
+    return 0
+}
+
+# ndt_port_proto <port> -- the proto ports.sh declares for it; rc 1 when no row does. The
+# caller treats "no row" as could-not-re-read rather than as closed: stack.sh only ever names
+# ports from this table, so an unknown one means the two files have drifted, and a drift that
+# silently turned into a pass is the failure this whole reader is about.
+ndt_port_proto() {
+    local port="$1" spec proto rest p
+    while IFS='|' read -r spec proto rest; do
+        [[ -z "$spec" ]] && continue
+        for p in $(ndt_port_expand "$spec"); do
+            [[ "$p" == "$port" ]] && { echo "$proto"; return 0; }
+        done
+    done < <(ndt_port_rows all)
+    return 1
+}
+
 # rollback_up <why> -- undo the recorded stages, newest first, then say what is left.
 rollback_up() {
     local why="$1" i stage rc=0 out src crc left=0
@@ -2914,15 +2969,29 @@ cmd_down() {
     #
     # Recorded, not returned: the remaining steps are exactly the ones a failed first step makes
     # more important, and down_rc is the single verdict this function ends on.
-    local out src
+    local out src ports_deferred=""
     out="$(NO_COLOR=1 bash "$STACK" down 2>&1)"; src=$?
     stack_down_lines "$out"
     if (( src != 0 )); then
-        err "stack.sh down exited $src -- the kernel/proxy/Ryu half did not end cleanly;"
-        err "  what it found is printed above. A component that died of a fatal signal is"
-        err "  reported from its .exit record, so this can be an ENDING FROM AN EARLIER ROUND,"
-        err "  reported once. The teardown continues; this is carried to the exit code."
-        down_rc=1
+        # 🔴 ROLE-12, 2026-09-12. See stack_down_deferrable_ports: when the ONLY thing behind
+        # that status is ports held by processes stack.sh did not start, the verdict on them is
+        # taken after [3/3] has had its turn, because [1/3] runs before the sweep and on a live
+        # P4 fabric it can only be naming the fabric this teardown is about to remove.
+        ports_deferred="$(stack_down_deferrable_ports "$out")"
+        if [[ -n "$ports_deferred" ]]; then
+            warn "stack.sh down exited $src, and the only thing behind that status is port(s)"
+            warn "  still listening at [1/3], held by processes it did not start:"
+            warn "    $ports_deferred"
+            warn "  [1/3] runs BEFORE the data-plane sweep in [3/3], so on a live P4 fabric this"
+            warn "  is the fabric this teardown is about to remove, accusing itself. The verdict"
+            warn "  on these ports is taken AFTER 'verify clean' below, not here. (ROLE-12)"
+        else
+            err "stack.sh down exited $src -- the kernel/proxy/Ryu half did not end cleanly;"
+            err "  what it found is printed above. A component that died of a fatal signal is"
+            err "  reported from its .exit record, so this can be an ENDING FROM AN EARLIER ROUND,"
+            err "  reported once. The teardown continues; this is carried to the exit code."
+            down_rc=1
+        fi
     fi
 
     say "[2/3] topology session"
@@ -2969,6 +3038,35 @@ cmd_down() {
     # where cmd_clean cannot see what survived -- cleanup also sweeps patterns cmd_clean does
     # not check (the NTG topology, for one), so "clean" and "the sweep worked" are two answers.
     (( clean_rc != 0 )) && down_rc=1
+    # 🔴 ROLE-12: the SECOND reading of the ports [1/3] complained about, and the one the rc
+    # follows. Taken by port number with the same probe cmd_clean's residue uses, rather than
+    # inherited from clean_rc -- `cmd_clean` is red about a held port for its own reasons, so a
+    # reader that leaned on its rc would look identical here while deciding nothing.
+    if [[ -n "$ports_deferred" ]]; then
+        local dp dproto dstill="" dblind="" dn=0
+        for dp in $ports_deferred; do
+            dn=$(( dn + 1 ))
+            if ! dproto="$(ndt_port_proto "$dp")"; then
+                dblind="${dblind:+$dblind }$dp"
+                continue
+            fi
+            ndt_port_open "$dp" "$dproto" && dstill="${dstill:+$dstill }$dp"
+        done
+        if [[ -n "$dblind" ]]; then
+            err "cannot re-read :$dblind after the sweep -- no row in ports.sh declares it, so"
+            err "  whether [3/3] closed it is unknown, and unknown is not a pass."
+            down_rc=1
+        fi
+        if [[ -n "$dstill" ]]; then
+            err "the port(s) [1/3] named are STILL held after [3/3]: $dstill"
+            err "  that is this teardown failing, and not the order of its own steps."
+            down_rc=1
+        elif [[ -z "$dblind" ]]; then
+            ok "the $dn port(s) [1/3] called 'still listening' were closed by [3/3]: $ports_deferred"
+            info "  so stack.sh's exit $src was a reading from the MIDDLE of this teardown, not"
+            info "  its ending, and it is not carried to the exit code. (ROLE-12, 2026-09-12)"
+        fi
+    fi
     # I-4's other half. `up` writes "in use" into the note; without this the sentence would
     # outlive the fabric it describes, which is the same defect with the sign flipped -- a
     # reader would wait for a machine that is already free. Written AFTER the assertion above,
@@ -7237,6 +7335,19 @@ usage: ndt <command>
                   told" are not the same statement: read the [1/3] block, which names
                   the component, before you go looking for a fabric that is gone.
                   (A1, 2026-09-12)
+                  🔴 A PORT HELD AT [1/3] IS NOT BY ITSELF A FAILED TEARDOWN.
+                  [1/3] runs before the data-plane sweep in [3/3], so over a LIVE P4
+                  fabric stack.sh's port assertion can only be naming the 20 bmv2
+                  ports (30051-30060, 9091-9100) of
+                  the fabric this teardown is about to remove
+                  -- measured 7 of 7 on 2026-09-12, against 0 of 2 live OVS
+                  teardowns and 0 of 1 on an already-down lab. Those ports are
+                  re-read after 'verify clean', by number, and the rc follows the
+                  SECOND reading: closed by [3/3] -> not a failure, and the block
+                  above says which ports and that it re-read them; still held -> rc 1,
+                  naming them. The other two halves of that status -- a port held by
+                  something this stack STARTED, and a component that ended on a fatal
+                  signal -- are red whatever the sweep does. (ROLE-12, 2026-09-12)
   status [--check]     what is running, who has the lab, and the state that
                 decides every number. --check also exits non-zero on anything
                 that would make a measurement untrustworthy.

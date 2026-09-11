@@ -1052,5 +1052,115 @@ hasnt "  and says nothing about another teardown" "is still running" "$OUT"
 hasnt "  nor about taking one over"               "taking over the teardown marker" "$OUT"
 
 # ==========================================================================================
+section '15. ROLE-12: the rc of a teardown is its ENDING, not a reading from the middle of it'
+# ==========================================================================================
+# Measured by ROLE-12, 2026-09-12: SEVEN out of seven `ndt down`s over a live P4 fabric exited
+# 1, including one with no concurrency at all (c6-03-down-p4-solo.log, rc captured in the
+# foreground). Two live OVS teardowns and one already-down lab: rc 0, and not one of these
+# lines. The shape is the order of the steps, not the plane: `stack.sh down` is step [1/3] and
+# the bmv2 sweep is [3/3], so on a live P4 fabric the port assertion necessarily runs while the
+# fabric is still there and necessarily names the 20 ports (:30051-30060, :9091-9100) of the
+# fabric THIS teardown is about to remove -- and the same log then prints
+# `ok ports closed: ...30051-30060/9091-9100...` four steps later.
+#
+# 🔴 The fix that would be worse: "P4 does not check ports". That swaps a reading for an
+# assumption, and an orphan on :30051 is exactly what the reading is for. So the ports are
+# RE-READ after `verify clean` and the rc follows the SECOND reading.
+STACK_DOWN_LIVE_P4="  -> an orphan holding one makes the next fabric fail to bind
+  :30051 is still listening, held by a process this user cannot see (probably root-owned)
+    This script did not start it. The next 'up' would find the port open and
+    measure the wrong process, so this is reported rather than ignored.
+  :9091 is still listening, held by a process this user cannot see (probably root-owned)
+    This script did not start it. The next 'up' would find the port open and
+    measure the wrong process, so this is reported rather than ignored.
+  find and stop it, or the next 'up' will report on it:
+    ss -ltnp   # tcp rows;  ss -lunp   # the udp one (:6343) -- see ports.sh"
+
+reset_fix; rm -f "$DM"; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"
+OUT="$(drive 'cmd_down')"
+check "🔴 ports [1/3] found open and [3/3] closed are not a failed teardown" "0" "$(rc_of_out "$OUT")"
+has   "  what [1/3] said is still printed in full" ":30051 is still listening" "$OUT"
+has   "  and the status it produced is still named" "stack.sh down exited 1" "$OUT"
+has   "  🔴 with the verdict on those ports deferred" "taken AFTER 'verify clean'" "$OUT"
+has   "  🔴 then re-read, by number, and reported closed" "were closed by [3/3]: 9091 30051" "$OUT"
+has   "  and 'verify clean' really ran"            "ports closed" "$OUT"
+
+# 🔴 THE OTHER DIRECTION, isolated from the assertion's own rc. `cmd_clean` would go red about
+# a held port by itself, so a reader that merely inherited clean_rc would pass this cell while
+# doing nothing. Here the assertion is stubbed GREEN and the ports are still held: only a
+# second reading of the ports themselves can tell those two apart.
+reset_fix; rm -f "$DM"; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"
+OUT="$(drive 'FX_HELD="30051: 9091:"
+cmd_clean() { ok "ports closed: the fixture asserts nothing survived"; return 0; }
+cmd_down')"
+check "🔴 a port STILL held after [3/3] keeps the teardown red" "1" "$(rc_of_out "$OUT")"
+has   "  naming which ones"                       "STILL held after [3/3]: 9091 30051" "$OUT"
+# ...and the control for that stub: with the ports closed the same drive is green, so the cell
+# above is about the ports and not about the stub.
+reset_fix; rm -f "$DM"; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"
+OUT="$(drive 'cmd_clean() { ok "ports closed: the fixture asserts nothing survived"; return 0; }
+cmd_down')"
+check "  and green when they are not"             "0" "$(rc_of_out "$OUT")"
+
+# 🔴 A fatal ending in the same breath is NOT deferrable. It is delivered once, out of a .exit
+# record report_exit then removes, so an rc that swallowed it would lose it for good.
+reset_fix; rm -f "$DM"; rc_for stack_down 1
+out_for stack_down "  🔴 kernel did not stop cleanly: killed by SIGKILL
+  :30051 is still listening, held by a process this user cannot see (probably root-owned)
+  find and stop it, or the next 'up' will report on it:"
+OUT="$(drive 'cmd_down')"
+check "🔴 a fatal ending alongside the ports keeps the teardown red" "1" "$(rc_of_out "$OUT")"
+has   "  and is still reported as the ending it is" "ENDING FROM AN EARLIER ROUND" "$OUT"
+
+# ...and so is a port held by a process this stack STARTED: that is stop_one failing, and no
+# sweep of the data plane addresses it.
+#
+# 🔴 MIXED ON PURPOSE, and the gate is why: with :8000 alone there is no port to defer, so the
+# cell passed whether or not the exclusion existed and M46 survived. The state that separates
+# them is the real one -- a live P4 fabric's twenty foreign ports AND one the teardown could
+# not stop -- where forgiving the first half would forgive the whole status.
+reset_fix; rm -f "$DM"; rc_for stack_down 1
+out_for stack_down "  :30051 is still listening, held by a process this user cannot see (probably root-owned)
+  :8000 is still held by a process this script started (ndtwin_kernel pid 4242) -- stop_one did
+    not manage to stop it
+  find and stop it, or the next 'up' will report on it:"
+OUT="$(drive 'cmd_down')"
+check "🔴 a port this stack STARTED still holds keeps the teardown red" "1" "$(rc_of_out "$OUT")"
+hasnt "  and nothing is deferred out of that status"  "taken AFTER 'verify clean'" "$OUT"
+
+# 🔴 Pinned to a RETURN SITE, not to a vocabulary: `still listening` with no advice block under
+# it did not come from the branch that returns on ports, so nothing is deferred.
+reset_fix; rm -f "$DM"; rc_for stack_down 1
+out_for stack_down "  :30051 is still listening, held by a process this user cannot see (probably root-owned)"
+OUT="$(drive 'cmd_down')"
+check "🔴 ports named outside that branch defer nothing"  "1" "$(rc_of_out "$OUT")"
+
+# ...and a non-zero this reader cannot account for at all stays exactly what it was.
+reset_fix; rm -f "$DM"; rc_for stack_down 1
+out_for stack_down "  the teardown failed for a reason invented after this reader was written"
+OUT="$(drive 'cmd_down')"
+check "🔴 an unaccounted-for non-zero is still red"       "1" "$(rc_of_out "$OUT")"
+
+# The OVS / already-down control: a clean stack half defers nothing and says nothing.
+reset_fix; rm -f "$DM"; rc_for stack_down 0
+OUT="$(drive 'cmd_down')"
+check "🔴 a clean stack.sh half is still green"           "0" "$(rc_of_out "$OUT")"
+hasnt "  and nothing is deferred"                         "taken AFTER 'verify clean'" "$OUT"
+
+# 🔴 Against the CODE, from this tree and never from a mutant copy: the four sentences this
+# reader is pinned to are the ones stack.sh really prints, each exactly once. A text-only
+# assertion here would keep passing after stack.sh had been reworded, and the fix would then be
+# silently back to "every live P4 teardown is red".
+STACK_REAL="$HERE/../../tools/test_workflow/stack.sh"
+check "  the return-site line is stack.sh's own, and unique" "1" \
+      "$(grep -cF "find and stop it, or the next 'up' will report on it:" "$STACK_REAL")"
+check "  so is the foreign-holder line"                   "1" \
+      "$(grep -cF 'is still listening, held by' "$STACK_REAL")"
+check "  and the one for a holder this stack started"     "1" \
+      "$(grep -cF 'is still held by a process this script started' "$STACK_REAL")"
+check "  and report_exit's fatal-ending line"             "1" \
+      "$(grep -cF 'did not stop cleanly:' "$STACK_REAL")"
+
+# ==========================================================================================
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]
