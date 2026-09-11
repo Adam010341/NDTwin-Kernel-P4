@@ -213,8 +213,8 @@ report "M11: a kernel that is down is reported as nothing to report" "$m" \
 # a perfectly clean-looking report: `python3 - <<'\''PY'\''` puts the SCRIPT on stdin, so reading
 # the flow table from sys.stdin reads the end of its own source and answers "unreadable".
 m=$(mutant m12 "$NDT" \
-    '    python3 - "$1" "$2" "${3:-unknown}" 3<&0 <<'\''PY'\''' \
-    '    python3 - "$1" "$2" "${3:-unknown}" <<'\''PY'\''')
+    '    python3 - "$1" "$2" "${3:-unknown}" "${4:-}" 3<&0 <<'\''PY'\''' \
+    '    python3 - "$1" "$2" "${3:-unknown}" "${4:-}" <<'\''PY'\''')
 report "M12: the flow table is read from the heredoc, not the pipe" "$m" \
        "🔴 the rule installed during the app's window"
 
