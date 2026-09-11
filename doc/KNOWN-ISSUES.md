@@ -4450,6 +4450,15 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   本條記的「沒有流量時不印 ratio、不印判定、rc 0」那個附帶**沒有改**：仍然是
   `under 1 Mbit/s ... run this while traffic is flowing`＋rc 0。
   新變異 M22–M28（含兩顆 widening）；`test_ndt_honesty.sh` 4F／4G，餵的是 ROLE-5 存的那份輸出的數字。
+- 🏁 **09-12（FIX-NDT-5 / A7，Adam 裁；merge `d7aa176e`）**：**兩個附帶的零鑑別力裡的①（沒有流量）
+  維持 rc 0**，理由是給它一個非 0（例如 3）會讓**每一個沒配流量產生器的 lab** 在每次 `ndt check`
+  都拿到非 0——那是同一個缺陷把號誌反過來掛。改的是**口徑**：`ndt help` 的 `check` rc 表現在寫著
+  「rc 0 ALSO MEANS "nothing was compared"」、「That 0 is NOT the fabric being healthy」、
+  以及要讀 ratio 區塊而不是讀 exit code。釘在 `tests/shell/test_ndt_honesty.sh` §5E（6 格文字
+  ＋2 格對著碼：`^if truth_bps < 1e6:` 與 `sys.exit(4)`）。
+  ⚠️ **②（`cmd_check` 以 `info` 結尾、印 `DOUBLE-COUNTING` 也是 rc 0）在 09-11 已由 FIX-NDT-4
+  修成 rc 4**；本條開頭那句「rc 不帶判定」講的是 09-11 當時的碼。
+  🔴 **本體（tripwire 把 LAG 讀成 clone replicas 疊加）仍然 OPEN**，這一次沒有動它。
 
 ### G-34 🔴 `.test_run/pids/` 自己互相矛盾（死 pidfile ＋ 同一元件的收工紀錄），而沒有任何介面說得出來
 
@@ -4572,6 +4581,26 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   `os.path.basename(cmdline[0])`（外加 comm 與 gRPC port）。把那個判準搬過來即可；
   要一併決定 teardown 要不要也比 port（helper 有比，topo 沒有）。
 - **證據**：`fix/FIX-PROXY-2-SUMMARY.md` §6 逐字。
+
+### G-41 ⚠️ sudoers 的 `tc` 白名單旁邊有一條 NOPASSWD `mnexec`，於是白名單不成其為邊界
+
+- **狀態**：**OPEN**（2026-09-11 ROLE-8 實測兩格；2026-09-12 FIX-NDT-5 寫進
+  `tools/test_workflow/README.md`，merge `d7aa176e`）。**這是安全觀察，不是產品缺陷**——`ndt` 自己沒有拿
+  `mnexec` 繞過任何東西（它只有 `dataplane_ok` 兩處呼叫，`ndt:3394`／`ndt:3403`，
+  而且在 `sudo_surface.sh:88` 的表裡宣告著）。
+   (numbered by KI-FOLLOWUP-2；`fix/FIX-NDT-5-SUMMARY.md` §6 自己建議的 `G-39` 與 FIX-PROXY-2 撞號)
+- **會發生什麼**：sudoers 給的 `tc` NOPASSWD 白名單只涵蓋 netem 形
+  （`tc qdisc add|del|show … netem`），`htb`／`class`／`tc qdisc replace` 都不在裡面；
+  而**旁邊那條 NOPASSWD `mnexec`** 是「以 root 在某個行程的 namespace 裡執行任意命令」。
+  ⇒ 白名單擋掉的每一種 `tc` 形式都可以原封不動從 `mnexec` 走一次。
+  ROLE-8 的格 3（掛 `htb root`）與格 4b（`tc qdisc replace`）就是這樣做到的，
+  兩格都沒有用到白名單裡的任何一條規則。
+- 🔑 **為什麼要記**：把那份白名單讀成「這個帳號在 lab 上能做什麼」的**上界**是錯的——
+  它是「常用動作不必打密碼」的方便設施。實際的上界是 `mnexec` 那一條，而它等於 root。
+- **處置（要 Adam 裁）**：要嘛把 `mnexec` 收窄成具體子命令，要嘛承認這個帳號在 lab 上就是 root、
+  照 root 稽核。**不要兩條都留著，又拿白名單當防護在講。**
+- **證據**：`scratch/overnight-2026-09-05/hunt-0911/ROLE-8-A1-LIVE-REPORT.md` §7-②；
+  `scratch/overnight-2026-09-05/SMALL-ISSUES-0910.md` #57。⚠️ 🟠 轉述；`scratch/`，不在版控。
 
 ### G-50 ⚠️ 修法在自己的訊息裡引用它修掉的缺陷，於是「缺陷字串不該出現」的斷言在修好的樹上紅
 
