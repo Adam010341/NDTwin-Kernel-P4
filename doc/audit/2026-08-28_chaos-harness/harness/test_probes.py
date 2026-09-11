@@ -26,7 +26,10 @@ from __future__ import annotations
 
 import copy
 import json
+import os
+import shutil
 import sys
+import tempfile
 
 import probes
 
@@ -109,38 +112,82 @@ def main(path: str) -> int:
           "so INV-01 still has resolving power; it did not become a constant PASS")
 
     # ---- 5. provenance: the LOUD branches must actually be reachable ---------------------
-    # A mismatch warning nobody has watched fire is the same as no warning. Both branches are
-    # driven here by faking pgrep's output, because the real fabric cannot be put into a
-    # mixed-build state just to test a print statement.
-    real_run = probes.run
+    # A mismatch warning nobody has watched fire is the same as no warning. The fabric is faked
+    # at live_switch_argv, because the real one cannot be put into a mixed-build state just to
+    # test a print statement. 2026-09-12: this used to fake `pgrep -af`'s stdout; the probe no
+    # longer runs pgrep, so what is faked is now the manifest reading itself (section 6 drives
+    # that for real, against a temp manifest and a temp /proc).
+    real_run, real_live = probes.run, probes.live_switch_argv
 
     def fake_run(argv, timeout=5.0, env=None):
-        if argv[0] == "pgrep":
-            return 0, fake_run.pgrep_out, ""
         if argv[0] == "sha256sum":
             return 0, f"deadbeef  {argv[1]}", ""
         return real_run(argv, timeout, env)
 
     probes.run = fake_run
+    probes.live_switch_argv = lambda proc_root="/proc": fake_fabric
     try:
-        fake_run.pgrep_out = "111 /usr/local/bin/simple_switch_grpc -i 1@s1-eth1\n"
+        fake_fabric = {111: ["/usr/local/bin/simple_switch_grpc", "-i", "1@s1-eth1"]}
         p = probes.bmv2_provenance()
         check("override mismatch is reported",
               "OVERRIDE_MISMATCH" in p, p.get("OVERRIDE_MISMATCH", "NOT REPORTED")[:70])
 
-        fake_run.pgrep_out = ("111 /usr/local/bin/simple_switch_grpc -i 1@s1-eth1\n"
-                              "112 /usr/local/bmv2-fast/bin/simple_switch_grpc -i 1@s2-eth1\n")
+        fake_fabric = {111: ["/usr/local/bin/simple_switch_grpc", "-i", "1@s1-eth1"],
+                       112: ["/usr/local/bmv2-fast/bin/simple_switch_grpc", "-i", "1@s2-eth1"]}
         p = probes.bmv2_provenance()
         check("mixed-build fabric is reported",
               "MIXED_BUILD" in p, f"{len(p.get('running', {}))} distinct binaries seen")
 
-        fake_run.pgrep_out = "111 /usr/local/bmv2-fast/bin/simple_switch_grpc -i 1@s1-eth1\n"
+        fake_fabric = {111: ["/usr/local/bmv2-fast/bin/simple_switch_grpc", "-i", "1@s1-eth1"]}
         p = probes.bmv2_provenance()
         check("and it stays QUIET when the fabric is consistent",
               "MIXED_BUILD" not in p and "OVERRIDE_MISMATCH" not in p,
               "otherwise the warning is a constant and says nothing")
     finally:
-        probes.run = real_run
+        probes.run, probes.live_switch_argv = real_run, real_live
+
+    # ---- 6. the fabric is read from the manifest by pid, not matched by name -------------
+    # 2026-09-12, FIX-PROXY-2 A11. Driven against a real manifest file and a real (temp)
+    # /proc, because the whole content of this change is WHICH processes count, and a test
+    # that stubs the reading tests nothing about that.
+    #
+    # The three cases are the three the old `pgrep -cf` could not tell apart: a pid that is
+    # still the switch, a pid that has been recycled into something else, and no registry at
+    # all -- which must not be the number 0. [Co-developed with claude code -- Adam]
+    tmp = tempfile.mkdtemp(prefix="ndtwin_probe_manifest.")
+    try:
+        proc = os.path.join(tmp, "proc")
+        for pid, cmd in ((111, b"/usr/local/bmv2-fast/bin/simple_switch_grpc\0-i\0" + b"1@s1-eth1\0"),
+                         (112, b"/usr/local/bmv2-fast/bin/simple_switch_grpc\0-i\0" + b"1@s2-eth1\0"),
+                         (113, b"/usr/bin/less\0/tmp/s3-simple_switch_grpc.log\0")):
+            os.makedirs(os.path.join(proc, str(pid)))
+            with open(os.path.join(proc, str(pid), "cmdline"), "wb") as fh:
+                fh.write(cmd)
+        path = os.path.join(tmp, "switches.json")
+        with open(path, "w") as fh:
+            json.dump({"s1": {"pid": 111}, "s2": {"pid": 112}, "s3": {"pid": 113},
+                       "s4": {"pid": 99991}}, fh)
+        os.environ["NDTWIN_P4_MANIFEST"] = path
+
+        live = probes.live_switch_argv(proc_root=proc)
+        check("only the manifest pids that are STILL switches are live",
+              sorted(live) == [111, 112], f"live pids: {sorted(live)}")
+        check("a pid recycled into a log reader is not a switch",
+              113 not in live,
+              "the case a full-command-line name match counted as a switch, because a log "
+              "path mentions the binary (KNOWN-ISSUES G-9); argv[0]'s basename is the test")
+        check("a manifest pid that is gone is simply not live", 99991 not in live, "")
+
+        os.environ["NDTWIN_P4_MANIFEST"] = os.path.join(tmp, "there-is-no-manifest.json")
+        try:
+            n = probes.bmv2_process_count()
+            check("no manifest must not read as an empty fabric", False,
+                  f"returned {n} instead of refusing to answer")
+        except probes.ManifestUnreadable as e:
+            check("no manifest must not read as an empty fabric", True, str(e)[:60])
+    finally:
+        os.environ.pop("NDTWIN_P4_MANIFEST", None)
+        shutil.rmtree(tmp, ignore_errors=True)
 
     print()
     if FAILURES:

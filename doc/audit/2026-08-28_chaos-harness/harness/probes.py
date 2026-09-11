@@ -441,27 +441,106 @@ def api_post(path: str, payload: dict, base: str = KERNEL) -> Any | None:
 # --------------------------------------------------------------------------------------------
 # Independent ground truth -- none of this is written by the kernel
 # --------------------------------------------------------------------------------------------
-def bmv2_process_count() -> int:
-    """Count live BMv2 switches.
+#: Where p4_proxy/mininet/p4_testbed_topo.py's write_manifest records name -> {pid, grpc_port,
+#: device_id, thrift_port, log_file, argv} for every switch it verified. Carried as a constant
+#: rather than imported: that module imports mininet at top level, and a harness that cannot be
+#: read on a machine without mininet is a harness nobody runs. tools/p4_power_helper.py carries
+#: the same constant for the same reason, and the env override exists for the same tests.
+MANIFEST_PATH = "/tmp/ndtwin_p4_switches.json"
 
-    🔴 THE MUST-FIX FROM `03`. The oracle originally specified `pgrep -a simple_switch_grpc`.
-    `-a` only changes output format; without `-f`, pgrep matches against `comm`, which the
-    kernel truncates to 15 characters. "simple_switch_grpc" is 18. So that command matches
-    ZERO processes with eleven switches running -- and it is the independent path of INV-01,
-    the most important invariant, so it would have produced a 100% false-positive rate that
-    looks exactly like "the system is broken".
+#: Compared against os.path.basename(argv[0]) -- the identity check tools/p4_power_helper.py
+#: already uses on the same binary (`base = os.path.basename(cmdline[0])`). NOT a substring of
+#: the whole command line: `less /tmp/s3_simple_switch_grpc.log` mentions the name and is not a
+#: switch, which is the same false positive `pgrep -f` produced and is caught by test_probes.py
+#: section 6. And NOT /proc/<pid>/comm, which the kernel truncates to 15 characters while this
+#: name is 18 -- the trap that made the original oracle match zero processes.
+SWITCH_BINARY_NAME = "simple_switch_grpc"
 
-    The bracket in 'simple_switch_g[r]pc' stops the pattern matching this harness's own
-    command line. Do NOT "improve" this to `pgrep -xf`: -x with -f demands the WHOLE command
-    line be equal, which is false for any process with arguments.
 
-    `pgrep -c` prints 0 AND exits 1 when there are no matches, so `|| echo 0` in a shell
-    version silently turns a real check into a constant. Handled here by reading rc explicitly.
+def manifest_path() -> str:
+    return os.environ.get("NDTWIN_P4_MANIFEST", MANIFEST_PATH)
+
+
+class ManifestUnreadable(RuntimeError):
+    """There is no switch registry to read, so "how many are up" has no answer here.
+
+    🔴 Deliberately NOT the answer 0. A missing manifest and a fabric with every switch dead
+    produce the same number and mean opposite things, and the number is the independent half of
+    INV-01 -- the one that decides whether the twin is lying about power state. Returning 0
+    would publish "the entire fabric is down" every time this harness is run somewhere the
+    fabric was not started from. RuntimeError is what invariants.inv01_power_state_agreement
+    already catches into SKIPPED, which is the verdict "cannot tell" belongs in.
     """
-    rc, out, _ = run(["pgrep", "-cf", "simple_switch_g[r]pc"])
-    if rc not in (0, 1):
-        raise RuntimeError(f"pgrep failed unexpectedly rc={rc}")
-    return int(out.strip() or 0)
+
+
+def _manifest_entries() -> dict:
+    path = manifest_path()
+    try:
+        with open(path) as fh:
+            loaded = json.load(fh)
+    except OSError as e:
+        raise ManifestUnreadable(f"no switch manifest at {path}: {e}") from e
+    except ValueError as e:
+        raise ManifestUnreadable(f"the switch manifest at {path} is not JSON: {e}") from e
+    if not isinstance(loaded, dict):
+        raise ManifestUnreadable(f"the switch manifest at {path} is not an object")
+    return loaded
+
+
+def live_switch_argv(proc_root: str = "/proc") -> dict[int, list[str]]:
+    """{pid: argv} for every switch in the manifest that is STILL that switch.
+
+    🔴 2026-09-12. This replaced `pgrep -cf simple_switch_g[r]pc` and `pgrep -af ...`, which
+    were the two places left in this repo that answered "which processes are the fabric" by
+    matching a string against argv. The manifest has answered it by pid since Phase 7, and
+    tools/p4_power_helper.py's header had already written the rule down for this same binary:
+    "Processes are only ever addressed by PID taken from the manifest ... No pkill, no killall,
+    no name matching -- in any code path."
+
+    Why it matters even for a READ. A name match is a different question wearing the same
+    words: `-f` matches any process whose command line merely mentions the string, so a sibling
+    session's fabric, a `tail -f` on a switch log and an editor with the file open all counted
+    as switches -- and INV-01 divides by this number. The bracket trick that used to live here
+    kept the harness's own argv off its own list, which is narrower than it sounds: it made the
+    instrument invisible to itself while every other passer-by stayed visible.
+
+    What is given up, stated rather than discovered later: a bmv2 started by hand, outside the
+    topology, is not in the manifest and is not counted. That is the intended reading. INV-01
+    asks whether the twin's picture of THIS fabric matches the processes of THIS fabric, and a
+    stranger's switch was never evidence about either.
+
+    The old note about pgrep's flags is kept because the trap outlives the call: `pgrep -a`
+    without `-f` matches `comm`, which the kernel truncates to 15 characters, and
+    "simple_switch_grpc" is 18 -- the spec in `03` specified exactly that and would have
+    matched zero processes with eleven switches running.
+
+    /proc/<pid>/cmdline is re-read for every pid, never trusted from the file: Linux recycles
+    pids, and a manifest minutes old is a record of what a number WAS.
+    """
+    live: dict[int, list[str]] = {}
+    for _name, entry in sorted(_manifest_entries().items()):
+        pid = entry.get("pid") if isinstance(entry, dict) else None
+        if not isinstance(pid, int):
+            continue
+        try:
+            with open(os.path.join(proc_root, str(pid), "cmdline"), "rb") as fh:
+                raw = fh.read()
+        except OSError:
+            continue                      # gone, or not ours to look at: nothing live here
+        argv = [a.decode("utf-8", "replace") for a in raw.split(b"\0") if a]
+        if not argv or os.path.basename(argv[0]) != SWITCH_BINARY_NAME:
+            continue                      # the number was recycled into something else
+        live[pid] = argv
+    return live
+
+
+def bmv2_process_count() -> int:
+    """Count live BMv2 switches, by pid out of the manifest. See live_switch_argv.
+
+    Raises ManifestUnreadable (a RuntimeError) rather than answering 0 when there is no
+    registry to read -- the caller that matters, INV-01, already turns that into SKIPPED.
+    """
+    return len(live_switch_argv())
 
 
 # --------------------------------------------------------------------------------------------
@@ -536,24 +615,25 @@ def bmv2_provenance() -> dict:
     with a sha256 of the resolved path. Same compromise ticket ① settled on, for the same
     reason. argv can be spoofed by whoever spawned the process; the sha256 pins the file that
     path currently names, which is not the same as pinning what the running process mapped.
+
+    2026-09-12: the argv now comes from /proc/<pid>/cmdline for the pids the manifest names,
+    not from `pgrep -af`. Same compromise, one level better sourced -- the pid is taken from
+    the registry the topology wrote rather than from a pattern match, so the fabric being
+    described is the one that was started, and a stranger's bmv2 can no longer add a binary to
+    the MIXED_BUILD verdict. See live_switch_argv.
     """
     out: dict = {"method": "argv[0] + sha256 of that path (NOT /proc/pid/exe -- unreadable "
                            "as this uid); the sha pins the file the path names now, not the "
-                           "image the live process mapped"}
+                           "image the live process mapped; pids from the switch manifest"}
     try:
-        rc, txt, _ = run(["pgrep", "-af", "simple_switch_g[r]pc"])
-        if rc not in (0, 1):
-            out["error"] = f"pgrep rc={rc}"
-            return out
-    except Timeout as e:
+        live = live_switch_argv()
+    except ManifestUnreadable as e:
         out["error"] = str(e)
         return out
 
     paths: dict[str, int] = {}
-    for line in txt.splitlines():
-        parts = line.split()
-        if len(parts) >= 2:
-            paths[parts[1]] = paths.get(parts[1], 0) + 1
+    for _pid, argv in live.items():
+        paths[argv[0]] = paths.get(argv[0], 0) + 1
     out["running"] = paths
     # More than one distinct binary across the fabric is a mixed-build fabric: every number
     # measured on it belongs to two populations at once. Loud, not a footnote.

@@ -217,13 +217,17 @@ ABOUT_THE_RULE = frozenset((
 #                   is a stub, not a call; it is here because a stub that answers `pgrep` is
 #                   evidence that something real still asks, and taking it out of the registry
 #                   should require someone to look at probes.py first.
-REGISTERED = frozenset((
-    ("doc/audit/2026-08-28_chaos-harness/harness/probes.py", "RUNS", "pgrep"),
-    ("doc/audit/2026-08-28_chaos-harness/harness/probes.py", "TEACHES", "pgrep"),
-    ("doc/audit/2026-08-28_chaos-harness/harness/antioracle.py", "TEACHES", "pkill"),
-    ("doc/audit/2026-08-28_chaos-harness/harness/test_probes.py", "TEACHES", "pgrep"),
-    ("tests/python/test_chaos_opt_in_all_actions.py", "TEACHES", "pgrep"),
-))
+#
+# 🔴 2026-09-12, FIX-PROXY-2 A11 (Adam's ruling on FIX-PROXY-1 §7-2, option (i)): all five are
+# FIXED and therefore NOT in the set below, which is empty again. The chaos harness asks the
+# manifest (p4_testbed_topo.MANIFEST_PATH -> pid -> /proc/<pid>/cmdline) for both "how many
+# switches are up" and "which binary are they running", so the count and the provenance probe
+# no longer shell out at all; test_probes.py fakes the manifest instead of faking pgrep's
+# output; the FakeShell in test_chaos_opt_in_all_actions.py no longer answers a command nothing
+# runs; and AO-13 names the trap by what it does rather than by the literal, with the
+# KNOWN-ISSUES id that carries the exact command. The harness did NOT move out of doc/audit --
+# that was option (iii) and Adam did not pick it.
+REGISTERED = frozenset()
 
 
 def _regions(text):

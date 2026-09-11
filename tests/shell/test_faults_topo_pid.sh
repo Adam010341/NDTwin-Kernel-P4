@@ -377,8 +377,23 @@ check "  and it looked at more than one file"    yes \
     "$(case "$scan_out" in *" file(s) scanned"*) echo yes ;; *) echo no ;; esac)"
 # 🔴 And at more than one LANGUAGE. Without this the surface can quietly go back to shell-only
 # and every check above still passes, because they all name their own fixture file.
+#
+# 🔴 2026-09-12, FIX-PROXY-2 A11. This used to read the REAL repo's scan output and require a
+# `.py:` site in it -- that is, it proved "python is in the surface" by requiring that a python
+# VIOLATION still exist. The last one was fixed the same day and this check went red on a clean
+# tree: an instrument that needs the defect to survive in order to report that it is looking.
+# It now plants its own python fixture in a temp repo and asks about THAT, so the answer stays
+# available when the answer about this tree is "no sites at all". M1 of
+# mutate_check_process_by_name.sh (the surface goes back to shell-only) still catches it,
+# because a shell-only surface does not read the planted file either.
+pysurface="$TMPROOT/pysurface"
+mkdir -p "$pysurface/tests/python"
+printf 'import os\nos.system("pkill -f planted-by-the-suite")\n' \
+    > "$pysurface/tests/python/planted.py"
+pysurface_out="$(cd "$pysurface" && python3 "$BY_NAME" --repo "$pysurface" 2>&1)"
 check "  and python is in the surface"           yes \
-    "$(printf '%s\n' "$scan_out" | grep -qE '^[^ ]+\.py:[0-9]+: ' && echo yes || echo no)"
+    "$(printf '%s\n' "$pysurface_out" | grep -qE '^tests/python/planted\.py:[0-9]+: ' \
+       && echo yes || echo no)"
 printf '%s\n' "$scan_out" | sed 's/^/           | /'
 
 echo "the suite reaps its own fixtures"
