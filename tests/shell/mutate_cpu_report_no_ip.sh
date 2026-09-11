@@ -81,14 +81,44 @@ apply() {   # $1 = file, $2 = exact anchor, $3 = replacement
     ANCHOR="$2" REPL="$3" perl -0777 -i -pe 's/\Q$ENV{ANCHOR}\E/$ENV{REPL}/' "$1"
 }
 
+# [Co-developed with claude code -- Adam]
+# 🔴 `grep -c -F` IS THE WRONG TOOL FOR A MULTI-LINE ANCHOR, and it fails in the direction that
+# hides the problem: grep splits an -F pattern on newlines and treats the pieces as alternatives,
+# then counts LINES matching any of them.
+#
+# Measured on trunk 6c4000eb, 2026-09-11 (scratch/overnight-2026-09-05/hunt-0911/
+# F-B0-B12-REPORT.md §1-2 and §2.2): C2's five-line anchor counted **549** that way -- 2 for
+# `    if (vp.ip.empty())`, 267 for `    {`, 11 for `        return std::nullopt;`, 268 for
+# `    }`, 1 for the last line -- so `-ne 1` made C2 INVALID, the control was NEVER APPLIED, and
+# `:467` requires INVALID==0, which means this gate could not reach green on trunk at all. The
+# exact substring count for that anchor is 1. Eleven of the twelve anchors here reached
+# assert_unique through the single-line `uniq` parameter and were never affected; C2 goes through
+# mutate_must_live, which has no such parameter, and was the one that was bitten.
+#
+# Nor does "use the anchor's first line" rescue that one: its first line occurs twice on its own,
+# and the only line unique by itself is the last.
+#
+# So the count comes from python, the exact-substring way tests/shell/mutate_bx_flow_liveness.sh
+# :105-114 has counted it since 2026-09-08. The grep number is printed beside it on a failure, as
+# a cross-check on the anchor's FIRST LINE ONLY -- which is the question grep can actually answer.
+count_exact() {   # $1 = file, $2 = anchor, one line or many
+    python3 - "$1" "$2" <<'PYCOUNT'
+import sys, pathlib
+sys.stdout.write(str(pathlib.Path(sys.argv[1]).read_text().count(sys.argv[2])))
+PYCOUNT
+}
+
 # An anchor that matches twice would mutate two places at once and the result would not say which
-# one the test caught. Checked on a SINGLE line, which is why every anchor below is one line or is
-# introduced by a line unique on its own.
-assert_unique() {   # $1 = file, $2 = single-line anchor
-    local n
-    n=$(grep -c -F -- "$2" "$1")
+# one the test caught. Counted as an EXACT SUBSTRING, so a multi-line anchor is one anchor and the
+# single-line `uniq` parameter below is a convenience for the message rather than a requirement.
+assert_unique() {   # $1 = file, $2 = anchor
+    local n first g
+    n=$(count_exact "$1" "$2")
     if [[ "$n" -ne 1 ]]; then
-        printf '  INVALID  anchor matches %s times in %s (want 1): %s\n' "$n" "$1" "$2"
+        first=${2%%$'\n'*}
+        g=$(grep -c -F -- "$first" "$1" || true)
+        printf '  INVALID  anchor matches %s times in %s (want 1; grep on its first line: %s): %s\n' \
+            "$n" "$1" "$g" "$first"
         return 1
     fi
     return 0
@@ -145,7 +175,10 @@ echo
 # --- reporting ---------------------------------------------------------------------------------
 
 # $1 = mutation name, $2 = the test that MUST go red, $3 = file, $4 = anchor, $5 = replacement
-# ($4 may be multi-line; $6, when given, is the single line whose uniqueness is asserted.)
+# ($4 may be multi-line. $6, when given, is asserted unique INSTEAD of $4 -- it predates the exact
+# substring count above, when a multi-line anchor needed a single line to stand in for it, and is
+# no longer load-bearing. Every call below still passes it and every one still holds; a NEW
+# mutation does not need it.)
 mutate_must_die() {
     local name="$1" must_fail="$2" file="$3" anchor="$4" repl="$5" uniq="${6:-$4}"
     local rc
