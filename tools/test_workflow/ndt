@@ -4393,6 +4393,51 @@ app_pidfile() { echo "$REPO/.test_run/pids/app_$1.pid"; }
 app_logfile()  { echo "$REPO/.test_run/logs/app_$1.log"; }
 app_pgidfile() { echo "$REPO/.test_run/pids/app_$1.pgid"; }
 
+# --- the window a stop leaves behind, on disk ---------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 F3 (FIX-NDT-2 SUMMARY §7-2, Adam's ruling 09-11). RESIDUE_WINDOW is a shell variable and
+# dies with the process that filled it, so `cmd_apps stop` could date the app it had just
+# stopped and NOBODY AFTER IT could: every residue report taken after a teardown -- the `ndt
+# apps orphans` or `ndt status --check` an operator runs when `ndt down` is finished, which is
+# exactly when the rules are on the wire with nothing running to own them -- read "the window is
+# LOST". The window is therefore written where the pidfile is deleted, which is the last moment
+# anything can still date the app.
+#
+# 🔴 IT CARRIES AN END. A start with no end would window from an app that stopped yesterday to
+# now and report the fabric's own baseline as residue on every later --check -- M10's defect
+# with the sign flipped, and a verb that is red forever is read exactly as often as one that is
+# green forever. A rule installed after the app stopped is not that app's rule.
+#
+# 🔴 WHO CLEANS IT: app_start, for the app it is starting. One file per app, overwritten by the
+# next stop, removed by the next start -- so the set is bounded by $APP_NAMES and never grows.
+# Nothing else deletes it, deliberately: this file IS the record a later process reads, and a
+# teardown that reaped it would be O-4 in a new place.
+app_windowfile() { echo "$REPO/.test_run/apps/$1.window"; }
+
+# app_window_record <name> <start-epoch> -- the closed window [start, now], or rc 1.
+app_window_record() {
+    local name="$1" start="$2" f
+    [[ "$start" =~ ^[0-9]+$ ]] || return 1
+    f="$(app_windowfile "$name")"
+    mkdir -p "$(dirname "$f")" 2>/dev/null || return 1
+    printf 'start=%s\nend=%s\nby=%s\n' "$start" "$(date +%s)" "${NDT_OWNER:-unset}" >"$f" 2>/dev/null
+}
+
+# app_window_read <name> -- "<start> <end>" from that record, or rc 1. Both fields are required:
+# a record with no end is a window with no bound, and this function is the only thing that
+# decides whether the file may be believed.
+app_window_read() {
+    local f s e
+    f="$(app_windowfile "$1")"
+    [[ -f "$f" && ! -L "$f" ]] || return 1
+    s="$(sed -n 's/^start=//p' "$f" 2>/dev/null | head -1)"
+    e="$(sed -n 's/^end=//p' "$f" 2>/dev/null | head -1)"
+    [[ "$s" =~ ^[0-9]+$ && "$e" =~ ^[0-9]+$ ]] || return 1
+    (( e >= s )) || return 1
+    echo "$s $e"
+}
+
 # app_evidence_log <name> -- the file that answers "did this app ever run HERE", or rc 1 when
 # nothing can answer it. NOT the file we write to: the file whoever STARTED it writes to.
 #
@@ -5396,6 +5441,10 @@ app_start() {
     source "$HERE/components.env"
     local pid_dir="$REPO/.test_run/pids" log_dir="$REPO/.test_run/logs"
     mkdir -p "$pid_dir" "$log_dir"
+    # F3. The closed window its own last stop left is superseded HERE, by the start: that record
+    # answers for an app that is not running, and this app is about to be. Leaving it would put a
+    # yesterday-shaped window beside a live process, and the reader would have two answers.
+    rm -f "$(app_windowfile "$name")"
     case "$name" in
         # [Co-developed with claude code -- Adam]
         # G-6. Was: `sudo -n "$LAB" <name>-start >/dev/null && ok "<name> started (tmux: <name>)"`.
@@ -5486,6 +5535,13 @@ app_start() {
 # no way to ask the question at all.
 app_stop() {
     local name="$1"
+    # [Co-developed with claude code -- Adam]
+    # F3. Read BEFORE either branch stops anything, for the same reason cmd_apps stop reads it
+    # before its loop -- a verified stop deletes the pidfile and the live process is gone, so
+    # this is the last moment the app can be dated at all. Unlike RESIDUE_WINDOW this one is
+    # written to disk (app_window_record, below the two removals), because the process that
+    # holds a shell variable is not the process that asks the question.
+    local wstart; wstart="$(app_started_at "$name")" || wstart=""
     case "$name" in
         # [Co-developed with claude code -- Adam]
         # G-6. Was: `sudo -n "$LAB" <name>-stop >/dev/null 2>&1; ok "<name> stopped"`. Note the
@@ -5530,6 +5586,10 @@ app_stop() {
             #
             # NOT removed on the not-running path above: a pidfile with no process is G-12's own
             # case -- something killed it by pid, and that mtime is the only record of when it ran.
+            #
+            # F3: the window this stop is about to destroy, written down first. `|| true` because
+            # a window that could not be read (an app nothing could date) is not a failed stop.
+            app_window_record "$name" "$wstart" || true
             rm -f "$(app_pidfile "$name")"
             # 🔴 `$was`, not `$APP_STATE`. app_wait_stopped polls app_probe until it answers
             # not-running, so by the time this line runs APP_STATE has been overwritten with the
@@ -5660,6 +5720,10 @@ app_stop() {
             done
             if (( rc == 0 )); then
                 app_verify_stopped "$name"; local vrc=$?
+                # F3, the same record as the energy|sim branch above and for the same reason:
+                # written on a VERIFIED stop only, because an unverified one has not established
+                # that the window is closed. See app_windowfile.
+                (( vrc == 0 || vrc == 2 )) && { app_window_record "$name" "$wstart" || true; }
                 case "$vrc" in
                     0) [[ "$poisoned" == 0 ]] && rm -f "$p"
                        rm -f "$(app_pgidfile "$name")"
@@ -5824,16 +5888,22 @@ v = d.get(sys.argv[1]) if isinstance(d, dict) else None
 print("?" if v is None else v)' "$2" 2>/dev/null || echo "?"
 }
 
-# residue_rule_lines <started-epoch> <now-epoch> <plane> -- flow entries JSON on stdin, one line
-# per rule that cannot be excluded from this app's window. A leading `CANNOTWINDOW <reason>`
-# line means the plane has no time axis at all and everything after it is UNKNOWN.
+# residue_rule_lines <started-epoch> <now-epoch> <plane> [<window-end-epoch>] -- flow entries
+# JSON on stdin, one line per rule that cannot be excluded from this app's window. A leading
+# `CANNOTWINDOW <reason>` line means the plane has no time axis at all and everything after it is
+# UNKNOWN.
+#
+# [Co-developed with claude code -- Adam]
+# F3. The fourth argument is the window's RIGHT edge and is empty for a live app, whose window
+# runs to now. It exists because a window read from disk (app_window_read) belongs to an app that
+# has already stopped, and a rule installed after it stopped is somebody else's.
 residue_rule_lines() {
     # 🔴 `3<&0` BEFORE the heredoc, and the JSON is read from fd 3. `python3 - <<'PY'` takes the
     # script itself on stdin, so a `json.load(sys.stdin)` here reads the end of its own source
     # and reports the flow table as unreadable -- a clean-looking "no residue" produced by a
     # plumbing bug, which is the exact failure shape G-12 is about. Redirections apply left to
     # right, so fd 3 is the caller's pipe and fd 0 is the script.
-    python3 - "$1" "$2" "${3:-unknown}" 3<&0 <<'PY'
+    python3 - "$1" "$2" "${3:-unknown}" "${4:-}" 3<&0 <<'PY'
 import json, os, sys
 # --- BEGIN residue_rules (pure; extracted verbatim by tests/python/test_app_residue_rules.py) ---
 # Imported inside the markers as well as above them: the test execs this region on its own, and
@@ -5897,8 +5967,8 @@ def window_blindspot(entries, plane):
     return ""
 
 
-def suspect_rules(entries, started, now, plane="unknown"):
-    """Rules that cannot be excluded from the window [started, now], as printable lines.
+def suspect_rules(entries, started, now, plane="unknown", until=None):
+    """Rules that cannot be excluded from the window [started, until or now], as printable lines.
 
     SUSPECTED, never attributed: there is no owner and no usable cookie anywhere in this
     system (see the block comment above app_started_at in `ndt`), so the only discriminator
@@ -5917,6 +5987,13 @@ def suspect_rules(entries, started, now, plane="unknown"):
     """
     inside, unknown = [], []
     blind = plane == "p4"
+    # 🔴 F3. `until` closes the window on the right. It is None for every app that is still
+    # running -- their window really does run to now -- and a timestamp for a window read back
+    # from a stop's own record, where a rule installed after the app stopped is NOT that app's
+    # residue. Without the bound, a record kept on disk would attribute the whole of the
+    # fabric's later traffic to an app that stopped yesterday, which is a verb that is red
+    # forever, i.e. one nobody reads.
+    stop = now if until is None else int(until)
     for sw in entries or []:
         dpid = sw.get("dpid")
         for _key, rows in sorted((sw.get("flows") or {}).items()):
@@ -5941,6 +6018,8 @@ def suspect_rules(entries, started, now, plane="unknown"):
                     continue
                 if now - dur < started:
                     continue
+                if now - dur > stop:
+                    continue
                 inside.append((dpid, pri, head + "  installed %s ago" % _age(dur)))
     inside.sort(key=lambda r: (str(r[0]), -(r[1] or 0)))
     return [r[2] for r in inside] + unknown
@@ -5948,6 +6027,8 @@ def suspect_rules(entries, started, now, plane="unknown"):
 
 started, now = int(sys.argv[1]), int(sys.argv[2])
 plane = sys.argv[3]
+# Empty means the window is open: this app is running, so it runs to `now`.
+until = int(sys.argv[4]) if len(sys.argv) > 4 and sys.argv[4] else None
 try:
     entries = json.load(os.fdopen(3))
 except Exception:
@@ -5955,7 +6036,7 @@ except Exception:
 blind = window_blindspot(entries, plane)
 if blind:
     print("CANNOTWINDOW " + blind)
-for line in suspect_rules(entries, started, now, plane):
+for line in suspect_rules(entries, started, now, plane, until):
     print(line)
 PY
 }
@@ -6081,6 +6162,7 @@ status_residue_row() {
 # the counters this fills in.
 residue_report() {
     local now started entries lock t line n_rules n_unk n_locks=0 a any=0 lease retry
+    local wend wrec
     local plane blind_said="" elog rpid
     local -a live=()
     now="$(date +%s)"
@@ -6134,6 +6216,18 @@ residue_report() {
         # answer from the machine's own state.
         started="${RESIDUE_WINDOW[$a]:-}"
         [[ -n "$started" ]] || started="$(app_started_at "$a")" || started=""
+        # [Co-developed with claude code -- Adam]
+        # F3. The fourth source, and the only one that survives the process that read it: the
+        # record a verified stop left on disk. Asked LAST, after the pidfile and the live
+        # process, because those two describe an app that is running NOW and this one describes
+        # one that has stopped -- and asked at all, which is the whole of F3: before this, every
+        # report taken after a teardown answered "the window is LOST" about the apps whose rules
+        # were on the wire at that moment. wend is the window's right edge; empty means "open",
+        # i.e. up to now.
+        wend=""
+        if [[ -z "$started" ]] && wrec="$(app_window_read "$a")"; then
+            started="${wrec%% *}"; wend="${wrec##* }"
+        fi
         if [[ -z "$started" ]]; then
             # 🔴 3-51, Adam's ruling E-8 point 4. This branch used to open with "no pidfile and
             # no live process" WITHOUT ever looking for a live process -- it was reached solely
@@ -6184,9 +6278,20 @@ residue_report() {
             continue
         fi
         any=1
-        printf '  %-6s window %s -> now (%s)\n' "$a" \
-            "$(date -d "@$started" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "$started")" \
-            "$(( now - started ))s"
+        if [[ -n "$wend" ]]; then
+            # F3. A CLOSED window, and the line says so and says where it came from: a reader
+            # who sees a window for an app that is not running has to be able to tell a record
+            # from a live reading, and the record is the only one of the two that another
+            # process wrote.
+            printf '  %-6s window %s -> %s (window closed %ss ago; from %s)\n' "$a" \
+                "$(date -d "@$started" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "$started")" \
+                "$(date -d "@$wend" '+%H:%M:%S' 2>/dev/null || echo "$wend")" \
+                "$(( now - wend ))" "$(app_windowfile "$a")"
+        else
+            printf '  %-6s window %s -> now (%s)\n' "$a" \
+                "$(date -d "@$started" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "$started")" \
+                "$(( now - started ))s"
+        fi
         if [[ -z "$entries" ]]; then continue; fi
         n_rules=0; n_unk=0
         while IFS= read -r line; do
@@ -6211,7 +6316,7 @@ residue_report() {
             err "      rule  $line"
             case "$line" in *age=UNKNOWN*) n_unk=$(( n_unk + 1 )) ;; esac
             n_rules=$(( n_rules + 1 ))
-        done < <(printf '%s' "$entries" | residue_rule_lines "$started" "$now" "$plane")
+        done < <(printf '%s' "$entries" | residue_rule_lines "$started" "$now" "$plane" "$wend")
         if (( n_rules == 0 )); then
             ok "      no flow entry arrived during that window"
         elif (( n_rules > 0 )); then

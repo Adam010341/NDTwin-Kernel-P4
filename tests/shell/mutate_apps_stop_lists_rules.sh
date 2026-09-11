@@ -340,7 +340,7 @@ report "M24 (widening): a real just-installed rule is called undatable" "$m" \
 # The plane is read but never handed over -- the "the fix is in the file and nothing calls it"
 # shape. Every python case stays green; only the shipped tool is blind.
 m=$(mutant m25 "$NDT" \
-    '        done < <(printf '\''%s'\'' "$entries" | residue_rule_lines "$started" "$now" "$plane")' \
+    '        done < <(printf '\''%s'\'' "$entries" | residue_rule_lines "$started" "$now" "$plane" "$wend")' \
     '        done < <(printf '\''%s'\'' "$entries" | residue_rule_lines "$started" "$now")')
 report "M25: the plane never reaches the selector" "$m" \
        "🔴 but with age UNKNOWN, not an age"

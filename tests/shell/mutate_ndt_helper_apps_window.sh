@@ -183,14 +183,19 @@ report "M7: 'no live process' is printed without looking for one" "$m" \
 m=$(mutant m8 "$NDT" \
     '                awin="$(app_started_at "$a")" && [[ -n "$awin" ]] && RESIDUE_WINDOW["$a"]="$awin"' \
     '                :')
+# 🔴 RE-ANCHORED 2026-09-11 (FIX-NDT-4, F3). The case this used to name is now ALSO answered by
+# the window F3 writes to disk, so both these mutations went green over it -- the gate saying, in
+# its own way, that the two mechanisms had merged. The case they name now is the one only the
+# pre-loop capture can answer: a stop that found nothing running discards the pidfile and writes
+# no record, because a record is what a VERIFIED stop leaves. See section 9B of the suite.
 report "M8: the stop reports after it has deleted the window" "$m" \
-       "🔴 and the residue report has a window for it"
+       "🔴 and the residue report still has a window for it"
 
 m=$(mutant m9 "$NDT" \
     '        started="${RESIDUE_WINDOW[$a]:-}"' \
     '        started=""')
 report "M9: the captured window is never read" "$m" \
-       "🔴 and the residue report has a window for it"
+       "🔴 and the residue report still has a window for it"
 
 # ...and the other direction: a window with a start and no end, kept forever. Every later
 # `--check` windows from a sim that stopped yesterday to now and calls the fabric's own baseline
@@ -360,6 +365,49 @@ m=$(mutant m26 "$NDT" \
     '    :')
 report "M26: orphans drops the blindness once it has found something" "$m" \
        "🔴 and prints the blindness instead of dropping it once it found something"
+
+# --- F3: the window a stop leaves on disk, and its right edge ----------------------------------
+#
+# Each of these puts back one half of "the stop could date the app it had just stopped, and
+# nothing after it could" (FIX-NDT-2 SUMMARY §7-2), or one half of the fix's own hazard: a
+# recorded window with no end attributes every rule installed since to an app that has stopped.
+
+m=$(mutant m28 "$NDT" \
+    '            app_window_record "$name" "$wstart" || true' \
+    '            :')
+report "M28: the stop deletes the pidfile and records no window" "$m" \
+       "🔴 the stop left a window record on disk"
+
+m=$(mutant m29 "$NDT" \
+    '        if [[ -z "$started" ]] && wrec="$(app_window_read "$a")"; then' \
+    '        if false; then')
+report "M29: the recorded window is never read back" "$m" \
+       "🔴 a later process still has a window for sim"
+
+# (widening) The record is read and its END is thrown away, so every later --check windows from
+# an app that stopped yesterday to now and calls the fabric's own baseline residue. That is M10
+# with a file behind it -- a verb that is red forever is read as often as one that is green
+# forever.
+m=$(mutant m30 "$NDT" \
+    '                if now - dur > stop:' \
+    '                if False:')
+report "M30 (widening): the closed window has no right edge" "$m" \
+       "🔴 a rule installed AFTER it closed is NOT this app's"
+
+# ...and the same widening one layer up, in the shell: the bound is computed and not passed.
+m=$(mutant m31 "$NDT" \
+    '            started="${wrec%% *}"; wend="${wrec##* }"' \
+    '            started="${wrec%% *}"; wend=""')
+report "M31 (widening): the window end never leaves the reader" "$m" \
+       "🔴 and reports it as closed, not open to now"
+
+# Nobody clears it, so a running app has a closed window from its own previous life sitting
+# beside it -- two answers to "when did this app run", which is the shape 3-51 is about.
+m=$(mutant m32 "$NDT" \
+    '    rm -f "$(app_windowfile "$name")"' \
+    '    :')
+report "M32: a start does not supersede the last stop's window" "$m" \
+       "🔴 and it cleared the window its last stop left"
 
 # --- the control -------------------------------------------------------------------------------
 # A comment-only edit must NOT turn the suite red. If it does, this gate is measuring "the file
