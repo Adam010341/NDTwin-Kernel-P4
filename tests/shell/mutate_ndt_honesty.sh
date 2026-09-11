@@ -663,7 +663,7 @@ report 'MD2: the clean table drops the refusal (ROLE-12 cell 3)' "$m" \
 # cell about that sentence still passes; it goes stale again the day a row is added, which is
 # exactly how it came to say three while deep_sweep swept 27.
 m=$(mutant md3 "$NDT" \
-    '                  -- $(ndt_port_table_size all) --, including processes this stack did' \
+    '                  -- $NDT_DEEP_SIZE --, including processes this stack did' \
     '                  -- 9 rule(s), 27 port(s) --, including processes this stack did')
 report 'MD3: the --deep size is typed rather than computed (ROLE-11 F7)' "$m" \
        '  the size in the help is computed, not typed'

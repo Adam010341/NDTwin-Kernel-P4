@@ -7391,6 +7391,15 @@ case "${1:-}" in
     apps)    shift; cmd_apps "$@" ;;
     ntg)     cmd_ntg "${2:-}" ;;
     *)
+        # 🔴 Computed HERE, above the heredoc, and never inside it. `cat <<EOF` is UNQUOTED, and
+        # tests/shell/test_ndt_up_target.sh's "the usage text must not EXECUTE anything" section
+        # exists because three backticks written into this very text on 2026-09-03 brought a
+        # fabric up and left it orphaned under systemd --user. That cell bans `$( )` in the
+        # usage body as the same class of thing, and it is right: the substitution below runs in
+        # ordinary code, where it is read, reviewed and gated like any other line, and what the
+        # heredoc does is expand a variable. (ROLE-11 F7, 2026-09-12 -- caught by that gate.)
+        NDT_DEEP_SIZE="$(ndt_port_table_size all)"
+        NDT_DEEP_PORTS="$(ndt_port_label all)"
         cat <<EOF
 usage: ndt <command>
 
@@ -7407,11 +7416,11 @@ usage: ndt <command>
                 NDT_TOPO=<file> forces a specific kernel model.
   down [--deep] take it all down and prove the machine is clean
                   --deep also kills whatever still holds ANY port in ports.sh's table
-                  -- $(ndt_port_table_size all) --, including processes this stack did
+                  -- $NDT_DEEP_SIZE --, including processes this stack did
                   not start. Off by default: without it, a stray is reported and left
                   alone rather than killed.
                   the ports --deep sweeps, from the table:
-                    $(ndt_port_label all)
+                    $NDT_DEEP_PORTS
                   🔴 this line used to name only the three ports that were easy to
                   name, while deep_sweep had been reading the whole table since
                   ports.sh existed -- 24 ports short, in the sentence an operator
