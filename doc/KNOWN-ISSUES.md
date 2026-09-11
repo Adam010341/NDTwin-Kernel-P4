@@ -4528,6 +4528,50 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   裡的四個 `pkill -f`；本條是**產品碼裡的兩個**。
   ⚠️ 偵察原本只指到 `tools/test_workflow/run_layers.sh:398`——那是以名「查」不是「殺」，
   **真的那兩個是這一輪才找到的**。
+- 🏁 **已修（2026-09-11，FIX-PROXY-1 ①-a，`b0f2f015`），✅ 已併入 trunk（merge `526ad7c5`）**：
+  兩支拓撲都改走 `clear_switches_from_a_previous_run()`——**按 manifest 的 pid** 收
+  （`reap_manifest_switches` 先重讀 `/proc/<pid>/cmdline`），認不出來的**報告而不猜名字殺**。
+  掃描面同時從 152 檔擴到 267 檔（`check_process_by_name.py` 加 python）。
+  ⚠️ **這一行不是任何 SUMMARY 的 §6 原文**——是 KI-FOLLOWUP-2 2026-09-12 依 `fix/FIX-PROXY-1-SUMMARY.md`
+  🔴1 與 00-LEDGER 13:44 那一列加的交叉引用，因為 **G-40 是它的後繼**，而本條停在 OPEN 會讓兩條互相矛盾。
+  🔴 **殺法換了，認法沒換**：`process_is_a_switch` 仍然用整條 cmdline 的 substring 認交換機 ⇒ **G-40**。
+
+### G-39 🔴 P4 startup 的中止訊息跟著 tmux pane 一起死，`ndt up p4` 只看得到「fabric 沒起來」
+
+- **狀態**：**OPEN**（2026-09-12 FIX-PROXY-2 實測；merge `892fdbdc`，2026-09-12）。
+  中止本身已修（隨該 merge 生效）；
+  **訊息送不到人手上這半沒修，修法要動 `ndtwin-lab`／`ndt`，留給 Adam 裁。**
+- **在哪裡**：`tools/test_workflow/ndtwin-lab:578-581`（`topo-start` ＝ `tmux new-session -d`）、
+  `tools/test_workflow/ndt:2134-2153`（`topo-start` 的 rc ＋ 180 s 等待）。
+- **事實**（`logs/gates-0910/a8-ndt-up-reads-nonzero.proxy2-0912-r1.log`，用**它自己的** tmux socket
+  `-L ndtwin-proxy2-probe` 重現，沒碰 lab 的 `-L ndtwinlab`）：腳本 `exit 1` ⇒
+  `new-session rc=0`、`has-session rc=1`、`capture-pane rc=1`。
+  ⇒ `topo-start` 回 **0**，ndt 不會走 `topo-start failed` 那條，而是等滿 180 s 後印
+  `fabric did not come up: 0/10 switches, manifest missing` ＋ `look at the pane: sudo -n <LAB> topo-out 40`
+  ——**那個 pane 已經不在了**。
+- **為什麼要記**：改之前同一個情境 ndt 會印 `9/10`，那一行至少說得出「少一台」。
+  中止對**手跑**路徑（手冊、128 tutorial）是純賺，對 `ndt up p4` 路徑是**資訊變少**。
+- **候選修法**：(i) `topo-start` 的 session 設 `remain-on-exit on`（一行，pane 留著給 `topo-out` 讀）；
+  (ii) 中止時另外把那三行落成一個檔（要照 `write_manifest` 的 tempfile+`os.replace` 寫，
+  `/tmp` 是 sticky、root 直接 `open(w)` 會被別人先佔名字）；(iii) 照現狀。
+- **證據**：`fix/FIX-PROXY-2-SUMMARY.md` §6 逐字。⚠️ raw 在 `scratch/`，不在版控。
+
+### G-40 🔴 `process_is_a_switch` 用整條 `/proc/<pid>/cmdline` 的 substring 認交換機，而它是 SIGKILL 前的唯一防線
+
+- **狀態**：**OPEN**（2026-09-12 FIX-PROXY-2 §7-2，**登記未修**：產品碼，不在該單範圍）。
+- **在哪裡**：`p4_proxy/mininet/p4_testbed_topo.py:542-556`（判斷在 `:554`）
+  （`return b"simple_switch_grpc" in fh.read()`），被 `reap_manifest_switches` 用在
+  SIGTERM／SIGKILL 之前，teardown 與 startup 兩條路都走它。
+- **為什麼要記**：那正是 `pgrep -f` 的洞。一個被回收的 pid 只要 argv 裡**提到**這個字串
+  （`less /tmp/s3_simple_switch_grpc.log`、`tail -f`、開著這個檔的編輯器）就會被判定成交換機。
+  2026-09-12 在 chaos harness 的同一種寫法上**實測命中**（`test_probes.py` 第 6 節，
+  `logs/gates-0910/test_probes.proxy2-0912-r1-A11-BEFORE-substring.log`）。
+  範圍比 `pkill -f` 窄——pid 只能來自 manifest——但**後果一樣是 root 送 SIGKILL 給一個不相干的行程**。
+  ⇒ **G-38 是它的前身**：那兩個 `pkill -f` 已經換成按 pid 收，而**認 pid 的那個判準沒有換**。
+- **修法**：`tools/p4_power_helper.py:194` 對同一顆 binary 早就在比
+  `os.path.basename(cmdline[0])`（外加 comm 與 gRPC port）。把那個判準搬過來即可；
+  要一併決定 teardown 要不要也比 port（helper 有比，topo 沒有）。
+- **證據**：`fix/FIX-PROXY-2-SUMMARY.md` §6 逐字。
 
 ### G-50 ⚠️ 修法在自己的訊息裡引用它修掉的缺陷，於是「缺陷字串不該出現」的斷言在修好的樹上紅
 
