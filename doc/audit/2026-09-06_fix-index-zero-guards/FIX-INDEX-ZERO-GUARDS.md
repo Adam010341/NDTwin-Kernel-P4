@@ -360,6 +360,23 @@ Death test: networkTopologyThenExitZero()
 七月就記過同一行）。同理 `getCurrentFlowEntries` **也是死碼**（兩個呼叫端
 `LLMAgent.cpp:90` 與 `:115` 都是註解，本分支行號），本單沒有動它——**工單只裁了 D3**。
 
+
+🏁 **2026-09-11（晚一點的同一天）補記：上面那兩件「請 Adam 裁」都裁了，兩件都做了。**
+Adam 09-11 12:xx 裁「三個都做」（`scratch/overnight-2026-09-05/hunt-0911/FIX-CPP-SMALL-1.md` ②）：
+
+1. **`LLMAgent.cpp:102` 那行 log 的措辭改了。** 原文
+   `"First message in session {}, sending topology."` → 現在說
+   `"First message in session {}; the instructions are the bare system prompt and no topology is attached."`
+   改的是**措辭**，不是分支：那個 `if (lastMsgId.empty())` 仍然是真的（這是本 session 的第一則訊息，
+   所以下面的 payload 不帶 `previous_response_id`），值得一行 INFO；假的只有「sending topology」。
+   本節上面三條證據原封不動保留，因為它們就是改這行的依據。
+2. **`getCurrentFlowEntries` 也刪了**（宣告、定義 ~40 行、兩個註解掉的呼叫端）。
+   它沒有 W14 守衛、沒有測試、沒有變異覆蓋，`mutate_index_zero_guards.sh` 的 `FILES` 自 09-11 早上起
+   就不再含 `LLMAgent.cpp` ⇒ **本支閘門的錨沒有漂，`ok(11)` 不變**（對帳見
+   `scratch/overnight-2026-09-05/fix/FIX-CPP-SMALL-1-SUMMARY.md` §2）。
+   刪它的代價登記在那份 SUMMARY §7：`m_deviceConfigManager` 現在只被建構子寫、沒有人讀。
+3. `doc/audit/2026-09-04_fix-cpu-report-no-ip/FIX-CPU-REPORT-NO-IP.md:187` 已**就地加註**（加，不改原文）。
+
 ### 7.5 閘門與測試的數字怎麼對帳
 
 * **標號不重排。** M4 之後全部保留原編號，M3／M10／C3 是「退役」不是「回收」

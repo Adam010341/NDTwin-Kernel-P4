@@ -87,9 +87,6 @@ LLMAgent::callOpenAIApi(
     SPDLOG_LOGGER_DEBUG(Logger::instance(), "callOpenAIApi: sessionId: {}", sessionId);
     std::string lastMsgId = this->getLastMsgId(sessionId);
 
-    // std::string currentFlowEntries = this->getCurrentFlowEntries();
-    // SPDLOG_LOGGER_DEBUG(Logger::instance(), "flow entries:\n{}\n", currentFlowEntries);
-
     std::ifstream in(m_systemPromptFilePath);
     std::string systemPrompt((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     json payload;
@@ -99,20 +96,31 @@ LLMAgent::callOpenAIApi(
     // dont send topo every session
     if (lastMsgId.empty())
     {
-        SPDLOG_LOGGER_INFO(Logger::instance(), "First message in session {}, sending topology.", sessionId);
         // [Co-developed with claude code -- Adam]
-        // Nothing is appended here, and `instructions` stays the bare system prompt. The line
-        // that would have appended the topology -- `instructions += this->getCurrentTopology();`
-        // -- was commented out in d6f7c014 (2025-12-15), which left getCurrentTopology with no
-        // caller at all; the member was deleted as dead code on 2026-09-11. See
-        // doc/audit/2026-09-06_fix-index-zero-guards/FIX-INDEX-ZERO-GUARDS.md section 7.
-        // 🔴 The log line above still says "sending topology" and that is false. It is left
-        // exactly as found: the 2026-09-10 decision authorised deleting the dead member, not
-        // rewording this line. AUDIT_A_hallucinations.md:56 recorded the same log line in July.
+        // 🔴 THIS LINE USED TO SAY "sending topology" AND NO TOPOLOGY WAS EVER SENT.
+        // doc/audit/2026-07-29_codebase-review/AUDIT_A_hallucinations.md:48-56 recorded it on
+        // 2026-07-29 -- "The only line that would send topology is commented out; `instructions`
+        // stays the bare system prompt" -- and it was still saying it on 2026-09-11, when the
+        // member it named was deleted as dead code. Corrected on Adam's ruling of 2026-09-11.
+        //
+        // The three facts behind the wording, all of them still true of the line below:
+        //   1. `instructions += this->getCurrentTopology();` has been a comment since d6f7c014
+        //      (2025-12-15), so nothing appends a topology here;
+        //   2. a whole-repo grep found no second caller, which is why the member was deleted;
+        //   3. `instructions` is the bare contents of m_systemPromptFilePath, read above.
+        // What IS true, and worth an INFO, is the branch itself: this is the first message of a
+        // session, which is why no `previous_response_id` goes on the payload below.
+        SPDLOG_LOGGER_INFO(Logger::instance(),
+                           "First message in session {}; the instructions are the bare system "
+                           "prompt and no topology is attached.",
+                           sessionId);
     }
 
     payload["model"] = this->m_model;
-    payload["instructions"] = instructions; //+ this->getCurrentFlowEntries();
+    // [Co-developed with claude code -- Adam] 2026-09-11: the tail of this line was
+    // `//+ this->getCurrentFlowEntries();`, a comment since d6f7c014 (2025-12-15) and the second
+    // of that member's two dead call sites. The member was deleted with it.
+    payload["instructions"] = instructions;
     payload["input"]  = inputText;
     // payload["reasoning"]["effort"] = "minimal";
     if (!lastMsgId.empty())
@@ -230,49 +238,22 @@ LLMAgent::getSessionMsgs(const std::string &sessionId)
     return it->second;
 }
 
-std::string
-LLMAgent::getCurrentFlowEntries()
-{
-    json openflowTable = this->m_deviceConfigManager->getOpenFlowTables();
-    
-    std::string openflowTableStr;
-    for (auto& switchTable: openflowTable)
-    {
-        openflowTableStr += ("dpid:" + std::to_string(switchTable["dpid"].get<int>()) + "\n");
-        for (auto& entry: switchTable["flows"][std::to_string(switchTable["dpid"].get<int>())])
-        {
-            std::string action;
-            if (entry["actions"].empty())
-            {
-                action = "DROP";
-            }
-            else
-            {
-                action = entry["actions"][0].get<std::string>();
-            }
-
-            json match = entry["match"];
-            if (match.contains("dl_type"))
-            {
-                match.erase("dl_type");
-            }
-
-            std::string entryStr = fmt::format(
-                "{} {} {}\n",
-                match.dump(),
-                action,
-                entry["priority"].get<int>() == 10 ? "" : std::to_string(entry["priority"].get<int>())
-            );
-
-            openflowTableStr += entryStr;
-        }
-    }
-
-    return "# Current Flow Entries\n\n"
-           "Below are the openflow flow entry installed in each switch currently, \n"
-           "if the priority is not specified, it is 10 by default.\n"
-           "#legend: match action[:port] [priority]\n" + openflowTableStr + "\n";
-}
+// [Co-developed with claude code -- Adam]
+// LLMAgent::getCurrentFlowEntries stood here, ~40 lines of it, and was deleted on 2026-09-11.
+//
+// Both of its call sites were comments and had been since d6f7c014 (2025-12-15): the local
+// `currentFlowEntries` in callOpenAIApi and the `//+ this->getCurrentFlowEntries();` tail on the
+// `payload["instructions"]` line. It had no test, no mutation and no second caller anywhere in
+// the repository. doc/audit/2026-07-29_codebase-review/AUDIT_A_hallucinations.md:56 named it with
+// getCurrentTopology in July -- the pair were "dead code kept alive by the false log line" -- and
+// that log line was corrected in the same change, so nothing is keeping this one alive either.
+//
+// What it did, for anyone bringing it back: it asked DeviceConfigurationAndPowerManager for
+// getOpenFlowTables() and flattened them into a "# Current Flow Entries" markdown block for the
+// LLM prompt, one `dpid:<n>` heading per switch and one `<match> <action> [priority]` line per
+// entry, omitting priority when it was 10. Note that the reader it fed is the same one
+// tests/python/test_t11_filter_is_wired.py:357 names: getOpenFlowTables() is the single read exit
+// that applies stripUnprogrammedEntries, so a revived version gets B-1's phantom filter for free.
 
 void
 LLMAgent::cleanSession(const std::string &sessionId)
