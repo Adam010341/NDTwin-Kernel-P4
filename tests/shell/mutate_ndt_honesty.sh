@@ -279,6 +279,62 @@ m=$(mutant m21 "$NDT" \
 report "M21: under-reporting is reported as over-reporting" "$m" \
        "🔴 and the size of the gap in words"
 
+# --- #17: the tripwire named a mechanism it had not observed, and its rc said nothing ---------
+#
+# ROLE-5 2026-09-11 (logs/ROLE-5/18-posctrl-L2-live.log): one netem link failure read 1.60 and
+# the tripwire called it `clone replicas stacked`, with `check rc=0`. Each mutation below puts
+# back one half of that.
+
+m=$(mutant m22 "$NDT" \
+    '        verdict = "DOUBLE-COUNTING -- twin is %.2fx ground truth" % ratio' \
+    '        verdict = "DOUBLE-COUNTING -- clone replicas stacked"')
+report "M22: the verdict names a mechanism it did not observe" "$m" \
+       "🔴 but it does NOT name clone replicas as the finding"
+
+m=$(mutant m23 "$NDT" \
+    '    ] + (cause_lines(ratio, shape) if ratio > 1.5 else [])' \
+    '    ]')
+report "M23: the two causes are never printed at all" "$m" \
+       "🔴 it names the twin lagging the truth as a cause"
+
+m=$(mutant m24 "$NDT" \
+    '    shape = window_shape(subs)' \
+    '    shape = None')
+report "M24: the window shape never reaches the verdict" "$m" \
+       "🔴 and the window shape really reaches it"
+
+# (widening) Every ratio over the band is called a lag, including the constant factor over a
+# steady truth that this tripwire exists for. A verdict that only ever says "two things could
+# have done this" is not a tripwire.
+m=$(mutant m25 "$NDT" \
+    '    if hot == subs and steady:' \
+    '    if False:')
+report "M25 (widening): a constant factor is called a transient too" "$m" \
+       "🔴 a constant factor over a steady truth IS the stack shape"
+
+# (widening) The other direction on the same decision: everything is called the stack shape,
+# so ROLE-5's link failure is reported as replicas again with an evidence line under it.
+m=$(mutant m26 "$NDT" \
+    '    steady = hi <= lo * 1.25' \
+    '    steady = True
+    hot = subs')
+report "M26 (widening): every window is called steady and hot" "$m" \
+       "🔴 with the evidence that separates them"
+
+m=$(mutant m27 "$NDT" \
+    '    if twin_bps / truth_bps > 1.5:
+        sys.exit(4)' \
+    '    pass')
+report "M27: the block stops carrying the verdict out" "$m" \
+       "🔴 the block exits 4 when the ratio is over the band"
+
+m=$(mutant m28 "$NDT" \
+    '        err "ndt check: rc $vrc -- read the ratio block above; this is not '"'"'the check failed to run'"'"'"
+        return "$vrc"' \
+    '        :')
+report "M28: the command swallows the rc the block produced" "$m" \
+       "🔴 a DOUBLE-COUNTING verdict reaches the caller as rc 4"
+
 # --- widenings: mutants that stay GREEN where the suite requires RED --------------------------
 
 # N1: a `down` is announced whether or not anything recorded one. It passes every fires-side
@@ -536,9 +592,12 @@ m=$(mutant mc12 "$NDT" \
 report 'MC12: the teardown leaves the declaration it just falsified' "$m" \
        '🔴 measuring= is empty afterwards'
 
+# 🔴 RE-ANCHORED 2026-09-11 (FIX-NDT-4 #20): the five fields now have ONE writer, claim_write,
+# because lab.claim and lab.claim.prev were coming out of two printfs in different orders
+# (R7-reconciler.md section 3b). The mutation is the same defect -- the note appended, so it
+# migrates to the last line every time it is corrected -- applied at the one call site left.
 m=$(mutant mc13 "$NDT" \
-    '        printf '"'"'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=%s\nmeasuring=%s\n'"'"' \
-            "$owner" "$exp" "$note" "$ecpu" "$meas"' \
+    '        claim_write "$owner" "$exp" "$note" "$ecpu" "$meas"' \
     '        sed '"'"'/^note=/d'"'"' "$f"; printf '"'"'note=%s\n'"'"' "$note"')
 report 'MC13: the note is appended again, so it migrates to the last line' "$m" \
        '🔴 and note did not migrate to the last line'

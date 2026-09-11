@@ -4194,7 +4194,70 @@ URL = "http://localhost:8000/ndt/get_graph_data"
 IFACE = re.compile(r"^s\d+-eth\d+$")
 
 # --- BEGIN verdict_lines (pure; extracted verbatim by tests/shell/test_ndt_honesty.sh) ---
-def verdict_lines(twin_bps, truth_bps):
+def cause_lines(ratio, shape):
+    """Why a ratio above the band is not, on its own, a stack of clone replicas.
+
+    🔴 ROLE-5, 2026-09-11 (ROLE-5-TRAFFIC-REPORT.md section 5 L2,
+    hunt-0911/logs/ROLE-5/18-posctrl-L2-live.log). ONE `tc netem loss 100%` on s1-eth2, two
+    seconds into the eight-second window, injection asserted twice -- and this check printed
+
+        twin  (integrated)   438.5 Mbit/s
+        /proc/net/dev        273.7 Mbit/s
+        ratio                1.60   DOUBLE-COUNTING -- clone replicas stacked
+
+    with ZERO clone replicas on the fabric. The twin publishes its last sampled rate; the
+    ground truth had just collapsed under it; the tripwire read a LAG as a STACK and wrote a
+    mechanism it had not observed into the verdict string. The same round's L3 control
+    installed one rule fifty times and the ratio did not move at all, so rule duplication is
+    not this tripwire's positive control either -- rules have no input channel to this number.
+
+    🔴 THE DISCRIMINATOR IS SHAPE, NOT SIZE, and it is the one signal the window already
+    contains. Stacking multiplies every sample by the same factor: every sub-window is over
+    the band and the ground truth underneath is steady. A lag is a transient: some sub-windows
+    are over it, and the ground truth moved. When the sub-windows cannot say which -- too few
+    of them, or no ground truth to compare -- BOTH causes are printed and neither is called
+    the finding. That is Adam's E-7 rule applied to an attribution rather than to a reading:
+    "查不了可以不紅，沒去查不准長得像查了沒事".
+    """
+    lag = "twin telemetry lagging a ground truth that moved inside the window"
+    stack = "clone replicas stacked (a proxy restarted on a warm fabric)"
+    hot = (shape or {}).get("hot")
+    subs = (shape or {}).get("subs") or 0
+    lo = (shape or {}).get("truth_lo") or 0.0
+    hi = (shape or {}).get("truth_hi") or 0.0
+    if not shape or subs < 3 or hot is None or lo <= 0:
+        return [
+            "      this window cannot say WHICH of two causes it is, so both are named:",
+            "        * " + stack + ",",
+            "        * " + lag + ".",
+            "      (too few sub-windows carried traffic to compare their shape. ROLE-5",
+            "      2026-09-11 measured the second one reading 1.60 with no replicas at all.)",
+        ]
+    steady = hi <= lo * 1.25
+    swing = "ground truth held within %.0f%% (%.0f-%.0f Mbit/s)" % (
+        (hi / lo - 1.0) * 100.0, lo, hi) if steady else \
+        "ground truth moved %.0fx inside the window (%.0f-%.0f Mbit/s)" % (hi / lo, lo, hi)
+    if hot == subs and steady:
+        return [
+            "      every one of the %d sub-windows is over the band," % subs,
+            "      and %s" % swing,
+            "      -- a CONSTANT factor over a steady truth, which is the shape of",
+            "        * " + stack + ".",
+            "      the other cause, " + lag + ",",
+            "      produces some hot sub-windows and not all of them.",
+        ]
+    return [
+        "      %d of the %d sub-windows are over the band," % (hot, subs),
+        "      and %s" % swing,
+        "      -- a transient, not a constant factor, so the leading cause is",
+        "        * " + lag + ",",
+        "      and NOT",
+        "        * " + stack + ".",
+        "      (ROLE-5 2026-09-11: one netem link failure read 1.60 this way, no replicas.)",
+    ]
+
+
+def verdict_lines(twin_bps, truth_bps, shape=None):
     """Everything this check says about the ratio, as lines. No I/O, so it is testable
     without a kernel, a fabric or traffic -- the rest of this block needs all three.
 
@@ -4205,10 +4268,14 @@ def verdict_lines(twin_bps, truth_bps):
     never designed to be. What was missing is that `ok` was being read as "the twin's
     bandwidth numbers are accurate". So the size of the gap is printed in the same breath as
     the verdict, and the line says in words what the verdict does not mean.
+
+    `shape` is the per-sub-window evidence (see cause_lines) and is None for a caller that has
+    none: the verdict is then still DOUBLE-COUNTING, and the causes are named side by side
+    rather than one of them being presented as the finding.
     """
     ratio = twin_bps / truth_bps
     if ratio > 1.5:
-        verdict = "DOUBLE-COUNTING -- clone replicas stacked"
+        verdict = "DOUBLE-COUNTING -- twin is %.2fx ground truth" % ratio
     elif ratio < 0.5:
         verdict = "under-counting"
     else:
@@ -4224,7 +4291,30 @@ def verdict_lines(twin_bps, truth_bps):
         "      that no doubling was seen)",
         "      ~1.0 expected. ~2.0 is a proxy restarted on a warm fabric stacking clone",
         "      replicas. Absolute numbers cannot show this -- only the ratio can.",
-    ]
+    ] + (cause_lines(ratio, shape) if ratio > 1.5 else [])
+
+
+def window_shape(subs):
+    """The per-sub-window evidence cause_lines reads, from [(twin_bits, truth_bits, dt)].
+
+    A sub-window counts only when its ground truth carried something (1 Mbit/s, the same floor
+    the whole-window verdict uses): LLDP and ARP keep every link faintly busy, and a ratio
+    computed over an idle sub-window is noise with a denominator. Returns None when fewer than
+    three qualify, which is "could not compare" and is printed as such.
+    """
+    rates, hot = [], 0
+    for twin_bits, truth_bits, dt in subs or []:
+        if dt <= 0:
+            continue
+        truth_bps = truth_bits / dt
+        if truth_bps < 1e6:
+            continue
+        rates.append(truth_bps / 1e6)
+        if twin_bits / dt > 1.5 * truth_bps:
+            hot += 1
+    if len(rates) < 3:
+        return None
+    return {"hot": hot, "subs": len(rates), "truth_lo": min(rates), "truth_hi": max(rates)}
 # --- END verdict_lines ---
 
 # The twin publishes a *rate* (link_bandwidth_usage_bps), never a cumulative byte count, so
@@ -4273,7 +4363,14 @@ FULL = {f"s{e['src_dpid']}-eth{e['src_interface']}": e.get("link_bandwidth_usage
 
 t0 = time.time()
 integral = 0.0                # bit-seconds accumulated from the twin's reported rate
-prev_t, prev_v = None, None
+prev_t, prev_v, prev_nd = None, None, None
+# 🔴 #17. Ground truth is now read at every sample as well, not only at the two ends. The
+# whole-window numbers below are unchanged -- they still come from nd1 - nd0 -- and these are
+# for the SHAPE of the window: whether the ratio is a constant factor (which is what stacked
+# clone replicas produce) or a transient over a ground truth that moved (which is what ROLE-5's
+# one netem link failure produced, reading 1.60 with no replicas). Reading /proc/net/dev is a
+# file read on the same machine; it costs nothing next to the HTTP poll it sits beside.
+subs = []                     # [(twin_bits, truth_bits, dt)] per sample interval
 end = t0 + DUR
 while time.time() < end:
     t = time.time()
@@ -4282,16 +4379,23 @@ while time.time() < end:
     except Exception:
         time.sleep(1.0 / HZ); continue
     v = sum(r[k] for k in KEYS if k in r)
+    nd = netdev()
     if prev_t is not None:
         integral += prev_v * (t - prev_t)        # value x dt, not one-sample-per-change
-    prev_t, prev_v = t, v
+        subs.append((prev_v * (t - prev_t),
+                     sum(nd.get(k, 0) - prev_nd.get(k, 0) for k in KEYS) * 8,
+                     t - prev_t))
+    prev_t, prev_v, prev_nd = t, v, nd
     slp = 1.0 / HZ - (time.time() - t)
     if slp > 0:
         time.sleep(slp)
 t1 = time.time()
+nd1 = netdev()
 if prev_t is not None:
     integral += prev_v * (t1 - prev_t)
-nd1 = netdev()
+    subs.append((prev_v * (t1 - prev_t),
+                 sum(nd1.get(k, 0) - prev_nd.get(k, 0) for k in KEYS) * 8,
+                 t1 - prev_t))
 
 keys = KEYS & set(nd1)
 truth_bits = sum(nd1[k] - nd0[k] for k in keys) * 8
@@ -4320,10 +4424,27 @@ if truth_bps < 1e6:
     print("  --  under 1 Mbit/s crossing the fabric; the ratio is not meaningful yet.")
     print("      run this while traffic is flowing.")
 else:
-    for line in verdict_lines(twin_bps, truth_bps):
+    shape = window_shape(subs)
+    for line in verdict_lines(twin_bps, truth_bps, shape):
         print(line)
+    # 🔴 #17, the second half: the VERDICT REACHES THE EXIT CODE. ROLE-5 measured
+    # `check rc=0` under a printed DOUBLE-COUNTING (logs/ROLE-5/18-posctrl-L2-live.log), so
+    # "it did not go red" was not observable to any script -- and this command's whole output
+    # is one screen of prose that a driver cannot read. 4 rather than 1, for the reason
+    # residue_verdict uses 4 and 5: rc 1 on this command already means "the kernel is not up"
+    # and "refused because a measurement is declared", and a caller has to be able to tell
+    # "there is nothing to check" from "the check found something".
+    if twin_bps / truth_bps > 1.5:
+        sys.exit(4)
 PY
 
+    # 🔴 #17, the second half (Adam's ruling 09-11). ROLE-5 measured `check rc=0` under a
+    # printed `DOUBLE-COUNTING` (ROLE-5-TRAFFIC-REPORT.md section 6, S1 附帶 2): this function
+    # ended on `info`, so a script could not observe the one finding the command exists to
+    # produce. The python block exits 4 when it printed DOUBLE-COUNTING and 1 when it could not
+    # read the twin at all; both are kept and returned BELOW, after the rate lines and the CPU
+    # note, because those are the context a reader needs for the number that just went red.
+    local vrc=$?
     # D-2, Adam's decision 09-06 (grill §4D round 9): the rate the ratio above was produced at,
     # and what X1 measured the ratio to be at that rate -- printed in the same breath, because
     # `ok` spans 0.5-1.5 and 0.65 printed `ok` while the twin was a quarter low. Read from the
@@ -4338,6 +4459,19 @@ PY
     info 'CPU: /ndt/get_cpu_utilization returns 10 + hash(ip) % 50 in MININET mode -- a'
     info '     constant unrelated to load, which the Web-GUI displays as if it were real.'
     info '     measure with:  python3 tools/test_workflow/cpu_probe.py <secs> <hz> <out.jsonl>'
+    # 🔴 The rc table for this command, now that it has one:
+    #   0  the ratio is inside the band, or there was too little traffic to compute one
+    #   1  the kernel is not up, a declared measurement was refused, or the twin could not be read
+    #   4  DOUBLE-COUNTING was printed -- the ratio is over the band. See the cause lines it
+    #      printed with it: over the band is NOT the same statement as "clone replicas".
+    # `under-counting` (ratio < 0.5) is deliberately still 0: R4-5 measured twelve consecutive
+    # LOW readings on a healthy fabric and the systematic shortfall at 1/1024 is 24.8%, so a red
+    # on the low side would fire on the expected reading. That asymmetry is in §7 of this round's
+    # SUMMARY for Adam, not decided here.
+    if (( vrc != 0 )); then
+        err "ndt check: rc $vrc -- read the ratio block above; this is not 'the check failed to run'"
+        return "$vrc"
+    fi
 }
 
 # --- apps -------------------------------------------------------------------------

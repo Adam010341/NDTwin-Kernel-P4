@@ -556,9 +556,117 @@ has   "  over-reporting is not called under-reporting"   "twin over-reports by 1
 # pure function is the only thing producing those lines. The live path is on the "needs live
 # verification" list, not on this one.
 check "verdict_lines is called exactly once from the block" "1" \
-      "$(grep -c 'for line in verdict_lines(twin_bps, truth_bps):' "$NDT")"
+      "$(grep -c 'for line in verdict_lines(twin_bps, truth_bps, shape):' "$NDT")"
+check "🔴 and the window shape really reaches it"          "1" \
+      "$(grep -c 'shape = window_shape(subs)' "$NDT")"
 check "  and the lines it returns exist nowhere else"      "1" \
       "$(grep -c 'double-count band; accuracy is NOT' "$NDT")"
+
+section "4F. 🔴 #17: a ratio over the band is not self-evidently a stack of clone replicas"
+# ROLE-5, 2026-09-11 (ROLE-5-TRAFFIC-REPORT.md section 5 L2; logs/ROLE-5/18-posctrl-L2-live.log).
+# ONE `tc netem loss 100%` on s1-eth2, injected two seconds into the eight-second window, with
+# the injection asserted twice (the qdisc read back, and the interface moved 0.48 MB in the next
+# 2s against 85 MB/2s before) -- and the tripwire printed, verbatim:
+#
+#     twin  (integrated)   438.5 Mbit/s
+#     /proc/net/dev        273.7 Mbit/s
+#     ratio                1.60   DOUBLE-COUNTING -- clone replicas stacked
+#     check rc=0
+#
+# There were no clone replicas. The twin publishes its last sampled rate, the ground truth
+# collapsed under it, and the tripwire read a LAG as a STACK -- with the mechanism written into
+# the verdict string. The same round's L3 control installed one rule fifty times (all HTTP 200,
+# accepted_by_switch=1) and the ratio did not move at all, so "install the same rule twice" is
+# not this tripwire's positive control either.
+#
+# Fed here with ROLE-5's own numbers, through the same extraction 4E uses.
+VL2="$(python3 - "$NDT" <<'VLPY'
+import re, sys
+s = open(sys.argv[1]).read()
+m = re.search(r"# --- BEGIN verdict_lines.*?\n(.*?)# --- END verdict_lines ---", s, re.S)
+if not m:
+    print("EXTRACT-FAILED"); sys.exit(0)
+ns = {}
+exec(m.group(1), ns)
+# ROLE-5 L2, the link failure: 3 of 8 sub-windows hot, ground truth fell 1346 -> 82 Mbit/s
+print("== LAG ==")
+for line in ns["verdict_lines"](438.5e6, 273.7e6,
+                                {"hot": 3, "subs": 8, "truth_lo": 82.0, "truth_hi": 1346.1}):
+    print(line)
+# the shape the tripwire was built for: a constant factor over a steady ground truth
+print("== STACK ==")
+for line in ns["verdict_lines"](2.0e6, 1.0e6,
+                                {"hot": 8, "subs": 8, "truth_lo": 1300.0, "truth_hi": 1346.1}):
+    print(line)
+print("== NO SHAPE ==")
+for line in ns["verdict_lines"](2.0e6, 1.0e6):
+    print(line)
+print("== OK ==")
+for line in ns["verdict_lines"](1.0e6, 1.0e6,
+                                {"hot": 0, "subs": 8, "truth_lo": 1300.0, "truth_hi": 1346.1}):
+    print(line)
+VLPY
+)"
+hasnt "verdict_lines still extracts and runs"             "EXTRACT-FAILED" "$VL2"
+LAGBLK="$(sed -n '/^== LAG ==/,/^== STACK ==/p' <<<"$VL2")"
+STKBLK="$(sed -n '/^== STACK ==/,/^== NO SHAPE ==/p' <<<"$VL2")"
+NOSHAPE="$(sed -n '/^== NO SHAPE ==/,/^== OK ==/p' <<<"$VL2")"
+OKBLK="$(sed -n '/^== OK ==/,$p' <<<"$VL2")"
+has   "🔴 ROLE-5's 1.60 is still over the band"          "1.60   DOUBLE-COUNTING" "$LAGBLK"
+hasnt "🔴 but it does NOT name clone replicas as the finding" \
+      "DOUBLE-COUNTING -- clone replicas stacked" "$LAGBLK"
+has   "🔴 it names the twin lagging the truth as a cause" "lagging" "$LAGBLK"
+has   "  and stacking as the other one"                   "clone replicas" "$LAGBLK"
+has   "🔴 with the evidence that separates them"          "3 of the 8 sub-windows" "$LAGBLK"
+has   "  the ground truth range inside the window"        "1346" "$LAGBLK"
+has   "  and where that reading came from"                "ROLE-5" "$LAGBLK"
+# The other direction: the shape the tripwire was built for must still be CALLED that. A verdict
+# that only ever says "two things could have done this" is not a tripwire.
+has   "🔴 a constant factor over a steady truth IS the stack shape" "every" "$STKBLK"
+has   "  and it says so"                                  "clone replicas" "$STKBLK"
+hasnt "  and does not call the lag the leading cause"     "the leading cause is" "$STKBLK"
+has   "  while still saying what the lag would have looked like" \
+      "produces some hot sub-windows and not all of them" "$STKBLK"
+# And with no sub-window evidence at all, neither cause is named as the finding.
+has   "🔴 no shape: the two causes are printed side by side" "lagging" "$NOSHAPE"
+has   "  saying the window could not tell them apart"     "cannot" "$NOSHAPE"
+# The band itself did not move, and a healthy ratio says nothing about either cause.
+has   "control: 1.00 is still ok"                         "1.00   ok" "$OKBLK"
+hasnt "  and prints no cause discussion"                  "lagging" "$OKBLK"
+
+section "4G. 🔴 #17: the verdict reaches the exit code"
+# ROLE-5-TRAFFIC-REPORT.md section 6, S1 附帶 2: `cmd_check` ended on `info`, so it exited 0
+# whatever it printed -- measured live at 02:22:24 with `DOUBLE-COUNTING` on the screen and
+# `check rc=0` in the same log. "It did not go red" was not observable to any script, and this
+# command's output is a screen of prose no driver can read.
+#
+# 🔴 The python block is the thing that decides, and it needs a kernel, a fabric and traffic;
+# what is driven here is the PROPAGATION, with the block replaced by a stub that exits with the
+# code the real one would. Named as a seam rather than presented as a live reading -- the live
+# path is on the "needs live verification" list.
+check_run() {   # <rc the block exits with> -> output + RC=
+    bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+port_open() { [[ \"\$1\" == 8000 ]]; }
+in_flight() { :; }
+measuring_declared() { :; }
+sample_rate() { echo 256; }
+rate_source() { echo 'fixture'; }
+python3() { return $1; }
+cmd_check
+echo \"RC=\$?\"" 2>&1
+}
+OUT="$(check_run 4)"
+check "🔴 a DOUBLE-COUNTING verdict reaches the caller as rc 4" "4" "$(rc_of "$OUT")"
+has   "  and the rc says where to read the finding"      "read the ratio block above" "$OUT"
+has   "  while the rate context still prints under it"   "sample rate" "$OUT"
+hasnt "🔴 it is not reported as the check failing to run" "nothing to check" "$OUT"
+check "  an ok verdict is still rc 0"                    "0" "$(rc_of "$(check_run 0)")"
+check "  and 'could not read the twin' is rc 1"          "1" "$(rc_of "$(check_run 1)")"
+# The source half of the same statement: the block exits 4 on the verdict it printed. A text
+# check, said out loud, because the condition lives inside a python heredoc that needs the lab.
+check "🔴 the block exits 4 when the ratio is over the band" "1" \
+      "$(grep -c 'sys.exit(4)' "$NDT")"
 
 no_claim
 unset NDT_OWNER FX_INFLIGHT
