@@ -27,7 +27,7 @@ the one `sudo ndtwin-lab` acts for.
 | name | tag | requires | source: night / role / raw log | fix | expected verdict | `old/` fixture |
 |---|---|---|---|---|---|---|
 | `up_target_names_a_readable_model` | ndt | ovs4 | 09-11 ROLE-6 §①, live both planes. `hunt-0911/logs/ROLE-6/51a-up-p4-A.log` (rc 1, 318 s), `20-up-ovs4.log` | `ce2ae2f9` → trunk `5e7a91c8` | `ndt up ovs 4` reaches rc 0, prints no `cannot read expected counts from`, and `.test_run/up.target` carries a 64-hex `topology_sha256`, a counted `model_hosts` and a one-line `topology` path | captured log; **no `up.target` kept** -- see its PROVENANCE.md |
-| `up_refuses_a_model_of_another_network` | ndt | idle | 09-11 ROLE-2 cycle 07, live. `logs/ROLE-2/cycle-07-up.log` (rc 124 after 300 s, ten switches built) | `76b5d434` (merged `954ab467`) | `NDT_TOPO=<128-host model> ndt up p4 4` refuses in 0 s naming both counts, builds nothing, records no target, and leaves `host_count_override` byte-identical | captured log |
+| `up_refuses_a_model_of_another_network` | ndt | idle | 09-11 ROLE-2 cycle 07, live. `logs/ROLE-2/cycle-07-up.log` (rc 124 after 300 s, ten switches built); the knob half is 09-12 ROLE-9 §2 and cells 4b/4c (`logs/ROLE-9/c4b-metrics.log`, `c4c-metrics.log`) | `76b5d434` (merged `954ab467`); knob half `fix/ndt-7-0912` | the cell **parks `host_count_override` at 128 itself**, then `NDT_TOPO=<128-host model> ndt up p4 4` refuses in 0 s naming both counts, builds nothing, records no target, and leaves the knob byte-identical **to the 128 the cell set** -- and the cell puts the tree's own bytes back and records that it did | captured log; two ids added 09-12 -- one evidence, one fixture gap, see its PROVENANCE.md |
 | `up_refuses_while_a_down_is_in_flight` | ndt | idle | 09-11 ROLE-2 cycle 13, live. `logs/ROLE-2/cycle-13-up-B.log` (`already up: … reusing`, `model matches fabric` on a dying fabric) | `019b125d` (merged `cb5ab923`) | a bring-up overlapping an `ndt down` is refused rc 1 in 0 s, the refusal quotes `.test_run/down.inflight`, and the marker is gone afterwards | captured log; the marker is `(absent)` because the marker IS the fix |
 | `half_stack_is_not_clean` | ndt | ovs4 | 09-11 ROLE-2 cycle 07, live. `logs/ROLE-2/cycle-07-probe-afterup.log` (`VERDICT: CLEAN` over 10 bmv2 + 14 mininet and no kernel) | `6d081d13` (merged `954ab467`) | whole stack → `VERDICT: CLEAN` / `verdict=whole-up`; kernel stopped by its own pidfile → `VERDICT: NOT CLEAN`, `the stack is HALF up`, rc 1, `verdict=HALF` in the report | captured log, **thin** (one `VERDICT:` line) -- see its PROVENANCE.md |
 | `recovery_refuses_foreign_netem` | kernel | ovs4 | 09-11 ROLE-1, live 3/3. `logs/ROLE-1/07-inject-recovery.log`, `08-tc-after-recovery.log`, premise in `04-tc-netem-on.log` | `0b928fe6` (merged `6c4000eb`; KNOWN-ISSUES B-16) | `POST /ndt/inject_link_recovery` on an undeclared link carrying a foreign netem → **409**, `netem_not_ours`, `Nothing was changed`, and the qdisc still on the wire | captured log |
@@ -58,6 +58,14 @@ fixture gap.
 Said here rather than left to be discovered, because a grid that is read as "the fixes are
 verified" is worse than no grid.
 
+0. 🔴 **`h4_knob_unchanged` has no fixture that reddens it either, and the reason is not the
+   one above.** ROLE-9's cells 4b/4c ARE runs where a refused `ndt up p4 <n>` left the knob
+   rewritten (`340a` -> `3132380a` and the mirror), which is exactly what that assertion is
+   for -- but `old/` for this cell is ROLE-2's cycle 07, where the knob was 4 both times. What
+   `old/` can redden is the PREMISE (`h4_knob_could_show_a_rewrite`), and it does. The write
+   itself is mutated where the subject lives: `tests/shell/test_ndt_up_down_robust.sh` §18 and
+   `mutate_ndt_up_down_robust.sh` M53-M58. A cell whose `old/` is ROLE-9 4b would close this;
+   it is proposed in `FIX-NDT-7-SUMMARY.md` §7 and not written.
 1. **Control assertions have no fixture that reddens them.** Every cell carries assertions for
    the wrong-fix direction -- `f10_p4_is_not_swallowed`, `f10_physical_is_still_unknown`,
    `h2_whole_stack_is_clean`, `a1r_far_end_untouched`, `a1f_declaration_still_stands`. They pass
