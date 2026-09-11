@@ -837,6 +837,78 @@ check "  the floor the help names is the floor the code uses" "1" \
 check "  🔴 and that branch still reaches no sys.exit"   "1" \
       "$(grep -c 'sys.exit(4)' "$NDT")"
 
+section "5F. ROLE-12: the 'down' rc table says a port held at [1/3] is not by itself a failure"
+# The other side of the rc A1-b connected. ROLE-12 measured it 7 times out of 7 on 2026-09-12:
+# every `ndt down` over a LIVE P4 fabric exits 1 because stack.sh's port assertion runs in step
+# [1/3], before the bmv2 sweep in [3/3], and therefore names the twenty ports of the fabric this
+# very teardown is about to remove -- while the same log prints `ok ports closed: ...` four
+# steps later. An operator told only "exit 1" reads that as a teardown that failed. The rc now
+# follows a re-read taken after the sweep, and the table has to say so, or the next reader
+# reconciles a 0 against seven nights of 1s with nothing to explain the change.
+# 🔴 THE HEADLINE, added 03:30 because the gate asked for it: MD1 rewrote this line into its
+# opposite ("A port still held anywhere in the teardown is a failed teardown") and every cell
+# below stayed green -- the paragraph's own claim was the one sentence nothing read. A table
+# whose heading contradicts the body it heads is worse than a table with no paragraph.
+has   "  🔴 the paragraph says its claim in its own heading" \
+      "A PORT HELD AT [1/3] IS NOT BY ITSELF A FAILED TEARDOWN" "$HELP"
+has   "  🔴 the table names the ordering that produces it" "[1/3] runs before" "$HELP"
+has   "  and that it is the live fabric accusing itself"   "the fabric this teardown is about to remove" "$HELP"
+has   "  with the measurement behind it"                   "7 of 7" "$HELP"
+has   "  🔴 and that those ports are RE-READ after the sweep" "re-read after 'verify clean'" "$HELP"
+has   "  naming both outcomes of that second reading"      "still held -> rc 1" "$HELP"
+has   "  🔴 and that the other two halves are unchanged"   "are red whatever the sweep does" "$HELP"
+has   "  attributed, so it can be revisited"               "ROLE-12" "$HELP"
+# 🔴 Against the code. A text-only cell here would go on passing after the re-read had been
+# deleted, which is the exact state the table would then be lying about.
+check "  the re-read the table describes is really taken"  "1" \
+      "$(grep -c "were closed by \[3/3\]" "$NDT")"
+check "  🔴 and it is pinned to stack.sh's return site, not to a word list" "1" \
+      "$(grep -c '^STACK_DOWN_RETURNED_ON_PORTS=' "$NDT")"
+
+section "5G. ROLE-12 cell 3: the help says 'clean' refuses while a teardown is running"
+# `ndt clean` is the command the manual tells a first-time reader to run to verify a lab, and
+# on 2026-09-12 02:08:24 it answered a live teardown by listing that teardown's own fabric as
+# residue and advising `ndt down --deep`. The refusal is new behaviour on a documented command,
+# so the documented rc table is where it has to appear -- a guard nobody is told about is read
+# as a malfunction the first time it fires.
+has   "  🔴 the refusal is documented at all"        "it REFUSES while an 'ndt down'" "$HELP"
+has   "  and that it is rc 1, not a quiet skip"      "that refusal is also rc 1" "$HELP"
+has   "  naming what it would otherwise have listed" "middle of killing" "$HELP"
+has   "  🔴 and whose processes the old advice would have taken" "the operator's own" "$HELP"
+has   "  with the pid to wait for named in the block" "names the pid to wait for" "$HELP"
+has   "  and a stale marker not refusing"            "removed and does not" "$HELP"
+has   "  attributed, so it can be revisited"         "ROLE-12 cell 3" "$HELP"
+# 🔴 Against the code: the refusal is in cmd_clean, it goes through the one shared opening the
+# bring-up refusal uses, and it is scoped to somebody ELSE's teardown -- `ndt down` calls
+# cmd_clean as its own verify step, under its own marker.
+check "  the refusal the help describes is in cmd_clean" "1" \
+      "$(grep -c 'teardown_in_flight_refusal "judge this lab"' "$NDT")"
+check "  🔴 and it is scoped to another process's marker" "1" \
+      "$(grep -c 'if tif="$(teardown_in_flight)" && \[\[ "${tif%% \*}" != "$\$" \]\]; then' "$NDT")"
+
+section "5H. ROLE-11 F7 / FIX-DOC-1: the help's --deep line quotes ports.sh's table, not three ports"
+# The help said `--deep also kills whatever still holds :8000/:8080/:8081`. deep_sweep has read
+# ports.sh's table since the table existed -- nine rules, 27 ports once the two per-device
+# ranges are expanded -- so the sentence understated by 24 the set of processes that verb can
+# kill, in the one place an operator is told what --deep does before running it. The manual was
+# corrected on 09-12 (FIX-DOC-1 F7, commit c395da50); this is the copy inside the tool.
+#
+# 🔴 The number is GENERATED from the table, not typed next to it. A number typed here is the
+# same artefact one edit later: ROLE-11 counted 25 by hand on the machine and the table says 27.
+hasnt "  🔴 --deep no longer names three ports"       ":8000/:8080/:8081" "$HELP"
+has   "  it names the table instead"                  "ANY port in ports.sh's table" "$HELP"
+has   "  🔴 with the size read out of the table"      "9 rule(s), 27 port(s)" "$HELP"
+has   "  and the specs themselves, ranges and all"    "30051-30060/9091-9100" "$HELP"
+has   "  saying what it used to claim"                "used to name only the three ports" "$HELP"
+has   "  attributed"                                  "ROLE-11 F7" "$HELP"
+# 🔴 Against the code, and this is the cell that matters: the two numbers above are printed by
+# a function reading NDT_PORT_TABLE. Typing `27` back into the prose passes every cell above
+# and puts the defect back the day somebody adds a row.
+check "  the size in the help is computed, not typed" "1" \
+      "$(grep -c 'ndt_port_table_size all' "$NDT")"
+check "  and so is the list of specs"                 "1" \
+      "$(grep -c 'the ports --deep sweeps, from the table' "$NDT")"
+
 # ==========================================================================================
 section "F9. this suite reads its OWN tree, and not the main checkout"
 # ==========================================================================================

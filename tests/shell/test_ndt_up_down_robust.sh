@@ -975,5 +975,316 @@ check "🔴 a clean stack.sh half is still green"            "0" "$(rc_of_out "$
 hasnt "  with nothing said about it"                       "stack.sh down exited" "$OUT"
 
 # ==========================================================================================
+section '14. ROLE-12: the teardown marker has an OWNER'
+# ==========================================================================================
+# Measured live by ROLE-12, 2026-09-12 02:07:18-02:07:32 (hunt-0911/logs/ROLE-12/c2b-*, marker
+# sampled every 0.2 s). The H3 marker had no owner: mark_teardown_start wrote `pid=$$`
+# unconditionally and mark_teardown_end was an unconditional `rm -f`.
+#
+#   02:07:18.107  D1 writes the marker, pid=2455882.          15 samples say so.
+#   02:07:22.115  D2 (a second `ndt down`, same owner) OVERWRITES it with its own pid, while
+#                 D1 is still alive. 55 samples say so -- so for 11 s every bring-up that was
+#                 refused printed the pid of the teardown that was NOT the one it collided with.
+#   02:07:32.687  D1 finishes first and `rm -f`s the marker. The marker was D2's, and D2 is
+#                 still running.
+#   02:07:32.691  `ndt up p4 4` -- NOT refused, rc 0, reached [3/3] with `data plane forwards`.
+#
+# i.e. H3's guard is switched off by an overlap, which is the one thing it exists for. Two
+# rules, one missing word: a marker held by a LIVE process is not yours to overwrite, and a
+# marker that does not name your pid is not yours to remove.
+reset_fix; rm -f "$DM"
+
+# A live teardown that is not this one: the test's own shell, which is certainly alive.
+printf 'pid=%s\nat=2026-09-12T02:07:18+0800\nby=role-12-D1\n' "$$" > "$DM"
+OUT="$(drive 'cmd_down')"
+check "🔴 a second 'ndt down' is refused while one is still running" "1" "$(rc_of_out "$OUT")"
+has   "  naming what it is refusing on"       "an 'ndt down' from this checkout is still running" "$OUT"
+has   "  with the pid that is doing it"       "pid $$" "$OUT"
+has   "  and when that one started"           "2026-09-12T02:07:18+0800" "$OUT"
+has   "  and the remedy"                      "wait for it to finish" "$OUT"
+check "🔴 and the first teardown's marker is untouched" "$$" "$(sed -n 's/^pid=//p' "$DM")"
+# The refusal is decided before the machine is touched, like every other one in cmd_down.
+check "  🔴 so no stack.sh teardown ran"      "absent" \
+      "$(grep -qF down "$FIX/stack.log" && echo present || echo absent)"
+check "  and no sweep ran"                    "absent" \
+      "$(grep -qF cleanup "$FIX/sudo.log" && echo present || echo absent)"
+
+# 🔴 The consequence the 02:07:22 sample is about: a bring-up during the overlap must name the
+# teardown that is really running, not the one that arrived second and overwrote the record.
+OUT="$(drive 'preflight p4')"
+has   "🔴 a bring-up refused during the overlap names the FIRST teardown" "pid $$" "$OUT"
+has   "  and its start time, not the second one's" "2026-09-12T02:07:18+0800" "$OUT"
+
+# 🔴 THE FAILURE THIS MUST NOT CREATE, again: a `down` that was killed leaves the file behind,
+# and a marker that outlived its process must not make the lab permanently un-teardownable
+# either. Same rule as the bring-up guard, and it has to say whose marker it took.
+reset_fix; rm -f "$DM"
+(exit 0) & DEADPID=$!; wait "$DEADPID" 2>/dev/null
+printf 'pid=%s\nat=2026-09-11T23:59:31+0800\nby=killed-round\n' "$DEADPID" > "$DM"
+OUT="$(drive 'cmd_down')"
+check "🔴 a marker whose pid is gone does NOT refuse the teardown" "0" "$(rc_of_out "$OUT")"
+has   "  and it says whose marker it took over"  "taking over the teardown marker left by pid $DEADPID" "$OUT"
+has   "  naming when that one was recorded"      "2026-09-11T23:59:31+0800" "$OUT"
+check "  and the marker is gone when it finishes" "absent" \
+      "$([[ -f "$DM" ]] && echo present || echo absent)"
+
+# 🔴 mark_teardown_end is asserted DIRECTLY, because the refusal above means a second `down`
+# never reaches it -- and the second line of a guard is exactly the one that must not depend on
+# the first line holding. It was this `rm -f` that removed the marker of a LIVE teardown.
+reset_fix; rm -f "$DM"
+printf 'pid=%s\nat=2026-09-12T02:07:18+0800\nby=role-12-D1\n' "$$" > "$DM"
+OUT="$(drive 'mark_teardown_end')"
+check "🔴 mark_teardown_end does not remove a marker that is not its own" "present" \
+      "$([[ -f "$DM" ]] && echo present || echo absent)"
+has   "  and says why it left it"             "leaving the teardown marker in place" "$OUT"
+has   "  naming the pid recorded in it"       "pid $$" "$OUT"
+# ...and the control: it does remove the one it wrote, or one teardown makes the lab unstartable.
+reset_fix; rm -f "$DM"
+OUT="$(drive 'mark_teardown_start >/dev/null; mark_teardown_end
+echo "MARKER=$([[ -f "$(down_marker)" ]] && echo present || echo absent)"')"
+has   "  🔴 and it does remove the one it wrote" "MARKER=absent" "$OUT"
+
+# The no-marker control: nothing about ownership may change an ordinary teardown.
+reset_fix; rm -f "$DM"
+OUT="$(drive 'cmd_down')"
+check "🔴 with no marker at all, the teardown runs as before" "0" "$(rc_of_out "$OUT")"
+hasnt "  and says nothing about another teardown" "is still running" "$OUT"
+hasnt "  nor about taking one over"               "taking over the teardown marker" "$OUT"
+
+# ==========================================================================================
+section '15. ROLE-12: the rc of a teardown is its ENDING, not a reading from the middle of it'
+# ==========================================================================================
+# Measured by ROLE-12, 2026-09-12: SEVEN out of seven `ndt down`s over a live P4 fabric exited
+# 1, including one with no concurrency at all (c6-03-down-p4-solo.log, rc captured in the
+# foreground). Two live OVS teardowns and one already-down lab: rc 0, and not one of these
+# lines. The shape is the order of the steps, not the plane: `stack.sh down` is step [1/3] and
+# the bmv2 sweep is [3/3], so on a live P4 fabric the port assertion necessarily runs while the
+# fabric is still there and necessarily names the 20 ports (:30051-30060, :9091-9100) of the
+# fabric THIS teardown is about to remove -- and the same log then prints
+# `ok ports closed: ...30051-30060/9091-9100...` four steps later.
+#
+# 🔴 The fix that would be worse: "P4 does not check ports". That swaps a reading for an
+# assumption, and an orphan on :30051 is exactly what the reading is for. So the ports are
+# RE-READ after `verify clean` and the rc follows the SECOND reading.
+STACK_DOWN_LIVE_P4="  -> an orphan holding one makes the next fabric fail to bind
+  :30051 is still listening, held by a process this user cannot see (probably root-owned)
+    This script did not start it. The next 'up' would find the port open and
+    measure the wrong process, so this is reported rather than ignored.
+  :9091 is still listening, held by a process this user cannot see (probably root-owned)
+    This script did not start it. The next 'up' would find the port open and
+    measure the wrong process, so this is reported rather than ignored.
+  find and stop it, or the next 'up' will report on it:
+    ss -ltnp   # tcp rows;  ss -lunp   # the udp one (:6343) -- see ports.sh"
+
+reset_fix; rm -f "$DM"; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"
+OUT="$(drive 'cmd_down')"
+check "🔴 ports [1/3] found open and [3/3] closed are not a failed teardown" "0" "$(rc_of_out "$OUT")"
+has   "  what [1/3] said is still printed in full" ":30051 is still listening" "$OUT"
+has   "  and the status it produced is still named" "stack.sh down exited 1" "$OUT"
+has   "  🔴 with the verdict on those ports deferred" "taken AFTER 'verify clean'" "$OUT"
+has   "  🔴 then re-read, by number, and reported closed" "were closed by [3/3]: 9091 30051" "$OUT"
+has   "  and 'verify clean' really ran"            "ports closed" "$OUT"
+
+# 🔴 THE OTHER DIRECTION, isolated from the assertion's own rc. `cmd_clean` would go red about
+# a held port by itself, so a reader that merely inherited clean_rc would pass this cell while
+# doing nothing. Here the assertion is stubbed GREEN and the ports are still held: only a
+# second reading of the ports themselves can tell those two apart.
+reset_fix; rm -f "$DM"; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"
+OUT="$(drive 'FX_HELD="30051: 9091:"
+cmd_clean() { ok "ports closed: the fixture asserts nothing survived"; return 0; }
+cmd_down')"
+check "🔴 a port STILL held after [3/3] keeps the teardown red" "1" "$(rc_of_out "$OUT")"
+has   "  naming which ones"                       "STILL held after [3/3]: 9091 30051" "$OUT"
+# ...and the control for that stub: with the ports closed the same drive is green, so the cell
+# above is about the ports and not about the stub.
+reset_fix; rm -f "$DM"; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"
+OUT="$(drive 'cmd_clean() { ok "ports closed: the fixture asserts nothing survived"; return 0; }
+cmd_down')"
+check "  and green when they are not"             "0" "$(rc_of_out "$OUT")"
+
+# 🔴 A fatal ending in the same breath is NOT deferrable. It is delivered once, out of a .exit
+# record report_exit then removes, so an rc that swallowed it would lose it for good.
+reset_fix; rm -f "$DM"; rc_for stack_down 1
+out_for stack_down "  🔴 kernel did not stop cleanly: killed by SIGKILL
+  :30051 is still listening, held by a process this user cannot see (probably root-owned)
+  find and stop it, or the next 'up' will report on it:"
+OUT="$(drive 'cmd_down')"
+check "🔴 a fatal ending alongside the ports keeps the teardown red" "1" "$(rc_of_out "$OUT")"
+has   "  and is still reported as the ending it is" "ENDING FROM AN EARLIER ROUND" "$OUT"
+
+# ...and so is a port held by a process this stack STARTED: that is stop_one failing, and no
+# sweep of the data plane addresses it.
+#
+# 🔴 MIXED ON PURPOSE, and the gate is why: with :8000 alone there is no port to defer, so the
+# cell passed whether or not the exclusion existed and M46 survived. The state that separates
+# them is the real one -- a live P4 fabric's twenty foreign ports AND one the teardown could
+# not stop -- where forgiving the first half would forgive the whole status.
+reset_fix; rm -f "$DM"; rc_for stack_down 1
+out_for stack_down "  :30051 is still listening, held by a process this user cannot see (probably root-owned)
+  :8000 is still held by a process this script started (ndtwin_kernel pid 4242) -- stop_one did
+    not manage to stop it
+  find and stop it, or the next 'up' will report on it:"
+OUT="$(drive 'cmd_down')"
+check "🔴 a port this stack STARTED still holds keeps the teardown red" "1" "$(rc_of_out "$OUT")"
+hasnt "  and nothing is deferred out of that status"  "taken AFTER 'verify clean'" "$OUT"
+
+# 🔴 Pinned to a RETURN SITE, not to a vocabulary: `still listening` with no advice block under
+# it did not come from the branch that returns on ports, so nothing is deferred.
+reset_fix; rm -f "$DM"; rc_for stack_down 1
+out_for stack_down "  :30051 is still listening, held by a process this user cannot see (probably root-owned)"
+OUT="$(drive 'cmd_down')"
+check "🔴 ports named outside that branch defer nothing"  "1" "$(rc_of_out "$OUT")"
+
+# ...and a non-zero this reader cannot account for at all stays exactly what it was.
+reset_fix; rm -f "$DM"; rc_for stack_down 1
+out_for stack_down "  the teardown failed for a reason invented after this reader was written"
+OUT="$(drive 'cmd_down')"
+check "🔴 an unaccounted-for non-zero is still red"       "1" "$(rc_of_out "$OUT")"
+
+# The OVS / already-down control: a clean stack half defers nothing and says nothing.
+reset_fix; rm -f "$DM"; rc_for stack_down 0
+OUT="$(drive 'cmd_down')"
+check "🔴 a clean stack.sh half is still green"           "0" "$(rc_of_out "$OUT")"
+hasnt "  and nothing is deferred"                         "taken AFTER 'verify clean'" "$OUT"
+
+# 🔴 Against the CODE, from this tree and never from a mutant copy: the four sentences this
+# reader is pinned to are the ones stack.sh really prints, each exactly once. A text-only
+# assertion here would keep passing after stack.sh had been reworded, and the fix would then be
+# silently back to "every live P4 teardown is red".
+STACK_REAL="$HERE/../../tools/test_workflow/stack.sh"
+check "  the return-site line is stack.sh's own, and unique" "1" \
+      "$(grep -cF "find and stop it, or the next 'up' will report on it:" "$STACK_REAL")"
+check "  so is the foreign-holder line"                   "1" \
+      "$(grep -cF 'is still listening, held by' "$STACK_REAL")"
+check "  and the one for a holder this stack started"     "1" \
+      "$(grep -cF 'is still held by a process this script started' "$STACK_REAL")"
+check "  and report_exit's fatal-ending line"             "1" \
+      "$(grep -cF 'did not stop cleanly:' "$STACK_REAL")"
+
+# ==========================================================================================
+section "16. ROLE-12 cell 3: 'ndt clean' refuses while a teardown is in flight"
+# ==========================================================================================
+# 02:08:24.569 on 2026-09-12, with the marker present and D1 alive and tearing down ten P4
+# switches: `ndt clean` was NOT refused. It exited 1, printed `not clean`, and listed the
+# operator's own fabric -- the one being destroyed -- as residue: 10 bmv2, 14 host/switch
+# processes, the topo session, the manifest, `ndtwin_kernel pid 2460143 holding :8000`,
+# `python pid 2459746 holding :8081`, :6343 and the twenty bmv2 ports. Last line:
+# `this stack did not start it; to kill it too:  ndt down --deep`.
+#
+# That is the sentence H3's own refusal quotes as the thing that would have killed the
+# operator's processes, arriving through a different door: H3's guard lives in `preflight`, and
+# `preflight` is walked by `ndt up` and by nothing else.
+reset_fix; rm -f "$DM"
+printf 'pid=%s\nat=2026-09-12T02:08:17+0800\nby=role-12-D1\n' "$$" > "$DM"
+# 🔴 The two held ports are the fixture half that makes the two `hasnt` cells below mean
+# something: without residue there is no `--deep` line to suppress, and the cells would pass
+# against a product with no guard at all. 2460143/2459746 are ROLE-12's own numbers.
+OUT="$(drive 'FX_BMV2=10 FX_MN=14 FX_TOPO_SESSION=1 FX_HELD="8000:2460143 8081:2459746" cmd_clean')"
+check "🔴 'ndt clean' is refused while a teardown is running" "1" "$(rc_of_out "$OUT")"
+has   "  naming what it is refusing on"   "an 'ndt down' from this checkout is still running" "$OUT"
+has   "  with the pid to wait for"        "pid $$" "$OUT"
+has   "  and when that teardown started"  "2026-09-12T02:08:17+0800" "$OUT"
+has   "  and the remedy"                  "wait for it" "$OUT"
+# 🔴 The needle is cmd_clean's ADVICE LINE, not the words `ndt down --deep`. The refusal names
+# that verb while explaining what it would have done, and a bare `--deep` needle matches the
+# refusal's own prose -- ROLE-12's cell 5 lost an hour to exactly this shape, a grep that found
+# the message it was asserting about quoted inside the message it was asserting on.
+hasnt "🔴 and it does NOT advise --deep over that teardown's own fabric" \
+      "to kill it too:  ndt down --deep" "$OUT"
+hasnt "  nor call the fabric being destroyed residue"  "bmv2 switches: 10 still running" "$OUT"
+has   "  it says what that advice would have killed"   "would kill the operator's" "$OUT"
+
+# 🔴 THE CONTROLS. "Refuse whenever the marker file exists" and "always refuse" both satisfy
+# every cell above, and the first of them would refuse the last step of every teardown.
+reset_fix; rm -f "$DM"
+OUT="$(drive 'FX_BMV2=10 cmd_clean')"
+check "🔴 with no teardown in flight it judges as before" "1" "$(rc_of_out "$OUT")"
+has   "  naming what survived"            "bmv2 switches: 10 still running" "$OUT"
+hasnt "  and refuses nothing"             "refusing to judge" "$OUT"
+
+reset_fix; rm -f "$DM"
+(exit 0) & DEADPID2=$!; wait "$DEADPID2" 2>/dev/null
+printf 'pid=%s\nat=2026-09-11T23:59:31+0800\n' "$DEADPID2" > "$DM"
+OUT="$(drive 'FX_BMV2=10 cmd_clean')"
+check "🔴 a marker whose pid is gone does not refuse the assertion" "1" "$(rc_of_out "$OUT")"
+has   "  it judged the machine instead"   "bmv2 switches: 10 still running" "$OUT"
+has   "  and said it removed the stale marker" "removing a stale teardown marker" "$OUT"
+
+# 🔴 The one this must not break: `ndt down`'s own `verify clean` runs under the marker this
+# very process wrote. A guard that read the FILE rather than its owner would turn the last step
+# of every round into a refusal.
+reset_fix; rm -f "$DM"
+OUT="$(drive 'cmd_down')"
+check "🔴 'ndt down' is not refused by its own marker at verify clean" "0" "$(rc_of_out "$OUT")"
+hasnt "  it did not refuse itself"        "refusing to judge" "$OUT"
+has   "  and its verify clean really ran" "ports closed" "$OUT"
+
+# ==========================================================================================
+section "17. ROLE-11 F5: 'ndt clean' does not call this stack's own fabric somebody else's"
+# ==========================================================================================
+# Measured 2026-09-12 02:25:14 (ROLE-11 F5, hunt-0911/logs/ROLE-11/18-clean-live.log), thirty
+# seconds after the reader had brought that fabric up himself with `ndt up p4 4`, following the
+# manual's own instruction to verify it with `ndt clean`. Seventy-four XX lines, closing on
+# `this stack did not start it; to kill it too:  ndt down --deep` -- and the first two entries
+# of the list that line was summarising were `ndtwin_kernel pid 2511227 holding :8000` and
+# `python pid 2510886 holding :8081`, while the same round's `ndt status` pidfiles row read
+# `kernel.child.pid=2511227 alive, p4_proxy.child.pid=2510886 alive`.
+#
+# The manual's fold-out says to use --deep only when the machine is certainly yours. The tool
+# had just told him it was not. It was the only line in that round that would have broken
+# something if followed.
+#
+# 🔴 The population is DERIVED -- from .test_run/pids/ and from the switch manifest -- and not
+# a hand-written list of ports, because a hand-written list is the shape ports.sh exists to
+# replace.
+reset_fix; rm -f "$DM"
+ledger kernel 2511227
+ledger p4_proxy 2510886
+OUT="$(drive 'FX_HELD="8000:2511227 8081:2510886"; cmd_clean')"
+check "  it is still not clean"                 "1" "$(rc_of_out "$OUT")"
+has   "  and the residue is still listed by port and holder" "holding :8000" "$OUT"
+hasnt "🔴 a pid in .test_run/pids/ is not 'this stack did not start it'" \
+      "to kill it too:  ndt down --deep" "$OUT"
+has   "🔴 it says the fabric this stack started is still up" \
+      "the fabric this stack started is still up" "$OUT"
+has   "  naming the pid it read out of the registry"  "pid 2511227" "$OUT"
+has   "  and the verb that takes it down"             "Take it down with:  ndt down" "$OUT"
+
+# 🔴 bmv2's twenty ports are root-owned, so this user cannot see their pids BY CONSTRUCTION
+# (ports.sh's own note) and the pidfile test cannot answer for them. The switch manifest this
+# stack wrote is the record that can, and it was present in that very log:
+# `switch manifest still present: /tmp/ndtwin_p4_switches.json`.
+reset_fix; rm -f "$DM"
+OUT="$(drive 'FX_HELD="30051: 9091:"; cmd_clean')"
+check "  it is not clean"                       "1" "$(rc_of_out "$OUT")"
+hasnt "🔴 a bmv2 port under this stack's own manifest is not a stranger either" \
+      "to kill it too:  ndt down --deep" "$OUT"
+has   "  and it names the record that answered" "the switch manifest this stack wrote" "$OUT"
+
+# 🔴 THE CONTROL, and it is the whole point: a holder that really is NOT this stack's still gets
+# the old sentence and the --deep remedy. "Never say it" would be the same defect with the sign
+# flipped -- ports.sh's table exists because a stray :8000 makes the next round measure the
+# wrong kernel.
+reset_fix; rm -f "$DM"
+OUT="$(drive 'FX_HELD="8000:999111"; cmd_clean')"
+check "  it is not clean"                       "1" "$(rc_of_out "$OUT")"
+has   "🔴 a holder that is NOT in the registry still gets the old sentence" \
+      "to kill it too:  ndt down --deep" "$OUT"
+hasnt "  and is not claimed as this stack's"    "the fabric this stack started is still up" "$OUT"
+
+# ...and the manifest is the RECORD, not the plane: a bmv2 port with no manifest is a stranger.
+reset_fix; rm -f "$DM"; rm -f "$FIX/manifest.json"
+OUT="$(drive 'FX_HELD="30051:"; cmd_clean')"
+has   "🔴 with no manifest, a bmv2 port is a stranger again" \
+      "to kill it too:  ndt down --deep" "$OUT"
+
+# Both kinds in one report: two ports, two different sentences, neither swallowing the other.
+reset_fix; rm -f "$DM"; ledger kernel 2511227
+OUT="$(drive 'FX_HELD="8000:2511227 8080:999111"; cmd_clean')"
+has   "  this stack's own port is named as its own" "the fabric this stack started is still up" "$OUT"
+has   "  and the stranger still gets --deep"        "to kill it too:  ndt down --deep" "$OUT"
+has   "  which names the port it is about"          "held by nothing this stack registered: :8080" "$OUT"
+
+# ==========================================================================================
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]

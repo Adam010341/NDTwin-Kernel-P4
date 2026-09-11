@@ -546,7 +546,7 @@ report_green "W6 (behaviour-preserving): the refusal's opening line reworded" "$
 # M30 restores H3: nothing records that a teardown is running, so the only reading a P4
 # bring-up can take is the ports -- which look identical coming up and going down.
 m=$(mutant m30 "$NDT" \
-    '    mark_teardown_start
+    '    mark_teardown_start || return 1
 
     say "ndt down"' \
     '    say "ndt down"')
@@ -601,6 +601,146 @@ m=$(mutant m35 "$NDT" \
     if [[ -n "$held" && "$force" != "--force" ]]; then')
 report "M35: a refused teardown still claims to be running" "$m" \
        "  🔴 a refused 'ndt down' writes no marker"
+
+
+# --- ROLE-12 (2026-09-12): the marker has an owner --------------------------------------------
+
+# M40 restores ROLE-12's first half: mark_teardown_start writes `pid=$$` over whatever is there.
+# A second `ndt down` then takes the record of the first one, and for as long as the first is
+# alive every refusal a bring-up gets names the wrong process.
+m=$(mutant m40 "$NDT" \
+    '        if [[ "${tif%% *}" != "$$" ]]; then' \
+    '        if false; then')
+report "M40: the teardown marker is overwritten again (ROLE-12)" "$m" \
+       "🔴 a second 'ndt down' is refused while one is still running"
+
+# M41 restores the other half, and it is the half that actually removed the guard: an
+# unconditional `rm -f`, so the teardown that finishes first deletes the marker of the one still
+# running (02:07:32.687, with the next `ndt up p4 4` unrefused four milliseconds later).
+m=$(mutant m41 "$NDT" \
+    '    if [[ "$pid" == "$$" ]]; then rm -f "$f"; return 0; fi' \
+    '    rm -f "$f"; return 0')
+report "M41: mark_teardown_end removes anybody's marker (ROLE-12)" "$m" \
+       "🔴 mark_teardown_end does not remove a marker that is not its own"
+
+# M42: the refusal is printed and not acted on -- F8's shape, a third time. The operator sees
+# the whole message and the teardown runs anyway.
+m=$(mutant m42 "$NDT" \
+    '    mark_teardown_start || return 1' \
+    '    mark_teardown_start || true')
+report "M42: the second teardown's refusal is not carried to the rc" "$m" \
+       "  🔴 so no stack.sh teardown ran"
+
+# W7 (behaviour-preserving): the explanation under that refusal reworded. Nothing asserts on it,
+# and a suite that went red here would be reading the sentence rather than the refusal.
+m=$(mutant w7 "$NDT" \
+    '            err "  two teardowns of one lab do not take turns. The second would overwrite this"' \
+    '            err "  one lab does not take two teardowns at once. The second would overwrite this"')
+report_green "W7 (behaviour-preserving): the second-teardown explanation reworded" "$m" \
+       "the wording under the refusal is not the behaviour under test"
+
+
+# --- ROLE-12 (2026-09-12): the teardown rc is its ending, not a reading from the middle -------
+
+# M43 restores the 7-of-7: nothing is deferred, so a live P4 teardown is red because [1/3] ran
+# before the sweep that closes the very ports it is complaining about.
+m=$(mutant m43 "$NDT" \
+    '        ports_deferred="$(stack_down_deferrable_ports "$out")"' \
+    '        ports_deferred=""')
+report "M43: a mid-teardown port reading is the verdict again (ROLE-12)" "$m" \
+       "🔴 ports [1/3] found open and [3/3] closed are not a failed teardown"
+
+# M44 (widening): the ports are deferred and never re-read, so the half is simply forgiven --
+# which passes every "a live P4 down is green" cell and no longer notices a real leftover. This
+# is the mutation the stubbed-green cmd_clean cell exists for: with clean_rc inherited instead,
+# this mutant would look identical to the fix.
+m=$(mutant m44 "$NDT" \
+    '            ndt_port_open "$dp" "$dproto" && dstill="${dstill:+$dstill }$dp"' \
+    '            :')
+report "M44 (widening): the deferred ports are never re-read" "$m" \
+       "🔴 a port STILL held after [3/3] keeps the teardown red"
+
+# M45: the fatal-ending exclusion dropped. A crash is delivered ONCE, out of a .exit record
+# report_exit then deletes, so an rc that swallowed it would lose it for good.
+m=$(mutant m45 "$NDT" \
+    '    grep -qF -- "$STACK_DOWN_FATAL_ENDING" <<<"$out" && return 0' \
+    '    :')
+report "M45: a fatal ending is deferred along with the ports" "$m" \
+       "🔴 a fatal ending alongside the ports keeps the teardown red"
+
+# M46: the other exclusion dropped -- a port held by a process this stack STARTED is stop_one
+# failing, and no sweep of the data plane addresses it.
+m=$(mutant m46 "$NDT" \
+    '    grep -qF -- "$STACK_DOWN_OUR_PORT"     <<<"$out" && return 0' \
+    '    :')
+report "M46: 'stop_one could not stop it' is deferred too" "$m" \
+       "🔴 a port this stack STARTED still holds keeps the teardown red"
+
+# M47: the RETURN-SITE pin dropped, so the reader is back to a vocabulary -- any mention of a
+# still-listening port defers, wherever in stack.sh's output it came from.
+m=$(mutant m47 "$NDT" \
+    '    grep -qF -- "$STACK_DOWN_RETURNED_ON_PORTS" <<<"$out" || return 0' \
+    '    :')
+report "M47: the classification stops being pinned to a return site" "$m" \
+       "🔴 ports named outside that branch defer nothing"
+
+# W8 (behaviour-preserving): the explanation printed with the deferral reworded. The cells read
+# the deferral and the re-read, not this sentence.
+m=$(mutant w8 "$NDT" \
+    '            warn "  [1/3] runs BEFORE the data-plane sweep in [3/3], so on a live P4 fabric this"' \
+    '            warn "  [1/3] happens ahead of the data-plane sweep in [3/3], so on a live P4 fabric this"')
+report_green "W8 (behaviour-preserving): the deferral note reworded" "$m" \
+       "the note above the re-read is not the behaviour under test"
+
+
+# --- ROLE-12 cell 3: `ndt clean` during a teardown --------------------------------------------
+
+# M48 restores cell 3: `ndt clean` walks straight into a live teardown and reports the fabric
+# being destroyed as residue, ending on the one piece of advice that would kill the operator's
+# own processes. The named case is the refusal's TEXT, not its rc -- cmd_clean is already rc 1
+# about a dirty machine, so the rc alone cannot see this mutation at all.
+m=$(mutant m48 "$NDT" \
+    '    if tif="$(teardown_in_flight)" && [[ "${tif%% *}" != "$$" ]]; then' \
+    '    if false; then')
+report "M48: 'ndt clean' has no guard against a live teardown again (ROLE-12)" "$m" \
+       "  naming what it is refusing on"
+
+# M49 (widening): the guard reads the FILE instead of its owner, so it also refuses `ndt down`'s
+# own `verify clean` -- the last step of every round -- while passing every refusal cell above.
+m=$(mutant m49 "$NDT" \
+    '    if tif="$(teardown_in_flight)" && [[ "${tif%% *}" != "$$" ]]; then' \
+    '    if tif="$(teardown_in_flight)"; then')
+report "M49 (widening): the clean guard refuses its own teardown too" "$m" \
+       "🔴 'ndt down' is not refused by its own marker at verify clean"
+
+
+# --- ROLE-11 F5: whose processes `ndt clean` is looking at ------------------------------------
+
+# M50 restores F5's pidfile half: the registry is not consulted, so the kernel and proxy this
+# stack started and recorded are summarised as "this stack did not start it".
+m=$(mutant m50 "$NDT" \
+    '                if [[ "$(port_owner_local "$cport" "$cproto")" == ours ]]; then' \
+    '                if false; then')
+report "M50: 'ndt clean' stops reading .test_run/pids/ (ROLE-11 F5)" "$m" \
+       "🔴 a pid in .test_run/pids/ is not 'this stack did not start it'"
+
+# M51 restores the other half: bmv2 is root-owned, so the pidfile test CANNOT answer for its
+# twenty ports -- drop the manifest arm and the fabric's own ports are strangers again, which
+# is most of the 74 lines ROLE-11 was shown.
+m=$(mutant m51 "$NDT" \
+    '                elif [[ "$cplane" == p4 && -e "$MANIFEST" ]]; then' \
+    '                elif false; then')
+report "M51: the switch manifest stops answering for bmv2's ports" "$m" \
+       "🔴 a bmv2 port under this stack's own manifest is not a stranger either"
+
+# M52 (widening): everything is ours, so the sentence is never printed at all. That passes
+# every F5 cell and takes away the report that a stray :8000 makes the next round measure the
+# wrong kernel -- the defect ports.sh exists for, with the sign flipped.
+m=$(mutant m52 "$NDT" \
+    '                    strangers+=("$cport")' \
+    '                    mine+=(":$cport")')
+report "M52 (widening): every holder is called this stack's own" "$m" \
+       "🔴 a holder that is NOT in the registry still gets the old sentence"
 
 
 # --- F1: the plane the rate is read for (F-OFFLINE-1 §1.14) -----------------------------------
