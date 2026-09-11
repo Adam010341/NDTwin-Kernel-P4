@@ -596,21 +596,24 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
         // would run FIRST for hosts as well and make door 3d's own two arms unreachable: the
         // gate's M18 and M19 would then survive with every test still green, which is one door
         // being measured through another standing in front of it.
+        //
+        // 🔴 WRITTEN WITH TWO NAMED BOOLEANS RATHER THAN DOOR 3d's `else if` CHAIN, AND THAT IS
+        // NOT A STYLE CHOICE. Spelled the natural way this block is line-for-line identical to
+        // door 3d's, and `mutate_topology_input_is_validated.sh` finds M18's and M19's sites by
+        // exact text: two matches, and the gate refuses to render a verdict at all
+        // (check_gate_anchors.py said so before this was committed). A second site that looks the
+        // same is a second site the gate cannot tell from the first.
         if (vertexType != VertexType::HOST)
         {
-            const char* fault = nullptr;
-            if (!nodeJson.contains("ip"))
-            {
-                fault = "declares no \"ip\" key at all";
-            }
-            else if (!nodeJson.at("ip").is_array())
-            {
-                fault = "declares an \"ip\" that is not an array of address strings";
-            }
-            if (fault != nullptr)
+            const bool declaresIpKey = nodeJson.contains("ip");
+            const bool ipKeyIsArray = declaresIpKey && nodeJson.at("ip").is_array();
+            if (!ipKeyIsArray)
             {
                 throw std::runtime_error(
-                    nodeInWords(nodeJson, itemIndex - 1) + " " + fault +
+                    nodeInWords(nodeJson, itemIndex - 1) +
+                    (declaresIpKey
+                         ? " declares an \"ip\" that is not an array of address strings"
+                         : " declares no \"ip\" key at all") +
                     "; every node's addresses are read from that key, and a switch is found "
                     "through them by every path that does not already have its dpid");
             }
