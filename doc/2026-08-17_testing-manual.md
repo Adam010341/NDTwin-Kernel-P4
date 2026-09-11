@@ -105,6 +105,11 @@ ndt clean           # 只驗不動手；exit 1 = 還有東西活著
 `ndt clean` 檢查五件事：bmv2 行程數、host/switch 行程數、topo tmux session、
 switch manifest、以及 **:8000 / :8080 / :8081 三個 port**。全部過才印綠色 `clean`。
 
+🔴 **已知（工具的措辭，FIX-NDT-6 在修）：在你自己**活著的** fabric 上跑 `ndt clean`，
+它會把你這一輪的行程列成 residue，並在清單末尾建議 `ndt down --deep`。**不要照做。**
+fabric 活著時 `ndt clean` 回 rc 1 是正常的（就是上面那句「exit 1 = 還有東西活著」），
+要收請用 `ndt down`；`--deep` 是會殺別人行程的動詞。細節與逐字輸出見下面的摺疊區。
+
 <details><summary>什麼時候需要 <code>ndt down --deep</code></summary>
 
 `ndt down` **預設不碰不是它起的東西**。所以如果有人手動跑了一顆 kernel、或上一個
@@ -116,6 +121,25 @@ XX  :8000 still listening -- this stack did not start it
 
 這是刻意的：`--deep` 會殺掉佔住那三個 port 的任何行程，而那可能是別人正在用的東西。
 確定機器是你的，才加 `--deep`。
+
+🔴 **已知：那句「this stack did not start it」會蓋到這個 stack 自己登記的行程。**
+09-12 實測：`ndt up p4 4` 起完約 30 秒跑 `ndt clean`，輸出 **74 行 `XX`**，頭兩筆是
+
+```
+XX  residue: ndtwin_kernel pid 2511227 holding :8000 (tcp)
+XX  residue: python pid 2510886 holding :8081 (tcp)
+```
+
+而同一分鐘的 `ndt status --check` 逐字印
+`kernel.child.pid=2511227 alive,kernel.pid=2511223 alive,p4_proxy.child.pid=2510886 alive,…`
+——這兩個 pid 正是 `.test_run/pids/` 登記在案的。清單**末尾**那一行總結
+`XX     this stack did not start it; to kill it too:  ndt down --deep`
+因此涵蓋了自己人。**第一次用的人照著加 `--deep`，殺掉的是自己剛起的 fabric。**
+工具的修正在 **FIX-NDT-6**；在它落地之前，判斷「這是不是我的」請看 `ndt status` 的
+`pidfiles` 欄，不要看 `clean` 的這句話。
+<!-- 來源：ROLE-11 F5，log hunt-0911/logs/ROLE-11/18-clean-live.log（74 行 XX、末行的 --deep 建議）
+     與 16-check-p4.log（pidfiles 欄）。🟠 轉述（ROLE-11 log）。工具未改：FIX-NDT-6 ③ 在修
+     `clean` 的守衛與措辭。 -->
 
 `--deep` 自己也有兩道保險：不對 pid < 2 動手、不殺 `ndt` 自己；而如果 port 的持有者
 查不出 pid（例如在別的 netns 裡），它會明說 `--deep cannot address it` 而不是假裝成功。
