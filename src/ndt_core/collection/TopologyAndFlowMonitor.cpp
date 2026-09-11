@@ -23,6 +23,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -340,6 +341,49 @@ nodeInWords(const json& nodeJson, std::size_t index)
     return "the node at #" + std::to_string(index);
 }
 
+/** @brief Refuse an address the file does not spell the way the twin will read it back.
+ *
+ * [Co-developed with claude code -- Adam]
+ * B-15, arm 6a. inet_aton accepts "10.1", "167772161" and "0x0a000001" for 10.0.0.1, and the
+ * graph stores the parsed uint32 -- so /ndt/get_static_topology_json republishes a dotted quad
+ * the operator never wrote, and two spellings of one address stop looking like a collision to
+ * anyone reading the file. Measured 2026-09-11 (ROLE-3): `"ip": ["10.1"]` on one host of the
+ * shipped OVS model put two hosts on 10.0.0.1 with zero warnings, and #61's "no node in this
+ * file carries that address" door passed, because after inet_aton the two spellings ARE one key.
+ *
+ * The same ruling has been made in this repo before, for the same reason: utils::tryParseUint64
+ * exists over std::stoull because a mistyped dpid must be refused rather than silently
+ * redirected to a different switch.
+ *
+ * An address that does not parse at all is NOT this function's business -- ipStringVecToUint32Vec
+ * already throws `Invalid IP address: ...` for it, and duplicating that here would give one fault
+ * two diagnostics.
+ */
+void
+requireCanonicalAddress(const std::string& text, const std::string& whose)
+{
+    std::vector<std::uint32_t> parsed;
+    try
+    {
+        parsed = utils::ipStringVecToUint32Vec({text});
+    }
+    catch (const std::invalid_argument&)
+    {
+        return;
+    }
+    const std::string canonical = utils::ipToString(parsed.front());
+    if (canonical == text)
+    {
+        return;
+    }
+    throw std::runtime_error(
+        whose + " is written \"" + text + "\", which this loader reads as " + canonical +
+        " and stores, so the graph and every /ndt/ reply would report an address the file does "
+        "not contain. Write it as " + canonical +
+        ": inet_aton also accepts shorthand and decimal and hexadecimal forms, and two spellings "
+        "of one address are how two nodes came to share one");
+}
+
 /** @brief Refuse a topology document that names things the document does not contain.
  *
  * @details
@@ -425,6 +469,10 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
     // carries -- findVertexByIpNoLock searches the whole vector, so this must too.
     std::unordered_set<std::uint64_t> switchDpids;
     std::unordered_set<std::uint32_t> nodeAddresses;
+    // B-15 door 6b. A second index over the same addresses, because nodeAddresses is a set and a
+    // set is exactly what cannot tell one claim from two. Maps the parsed address to the node that
+    // claimed it first, so the refusal can name both. [Co-developed with claude code -- Adam]
+    std::unordered_map<std::uint32_t, std::string> addressOwner;
 
     std::size_t itemIndex = 0;
     for (const auto& nodeJson : j["nodes"])
@@ -568,9 +616,41 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
             }
         }
 
-        const auto addresses =
-            utils::ipStringVecToUint32Vec(nodeJson.at("ip").get<std::vector<std::string>>());
+        const auto addressText = nodeJson.at("ip").get<std::vector<std::string>>();
+        const auto addresses = utils::ipStringVecToUint32Vec(addressText);
         nodeAddresses.insert(addresses.begin(), addresses.end());
+
+        // ---- B-15 door 6: one address, one node, one spelling ----
+        // [Co-developed with claude code -- Adam]
+        // 6b is the arm 6a cannot cover: the same dotted quad typed twice. `nodeAddresses` is a
+        // set and has been since #61, so a second claim on an address was not merely unrefused,
+        // it was unrepresentable -- and findVertexByIpNoLock returns whichever node came first
+        // with nothing anywhere able to say a second one exists. Every address-resolved path
+        // downstream (the edge loop below, top-K, intent, last-hop attribution) then attributes
+        // one node's traffic to another.
+        //
+        // Keyed on the PARSED address rather than on the string, which is the entire defect: the
+        // two nodes ROLE-3 measured shared 10.0.0.1 while their `ip` strings differed.
+        for (std::size_t addressIndex = 0; addressIndex < addresses.size(); ++addressIndex)
+        {
+            requireCanonicalAddress(addressText[addressIndex],
+                                    nodeInWords(nodeJson, itemIndex - 1) + " address #" +
+                                        std::to_string(addressIndex));
+
+            const auto claimed = addressOwner.emplace(addresses[addressIndex],
+                                                      nodeInWords(nodeJson, itemIndex - 1));
+            if (!claimed.second)
+            {
+                throw std::runtime_error(
+                    "the address " + utils::ipToString(addresses[addressIndex]) +
+                    " is declared by both " + claimed.first->second + " and " +
+                    nodeInWords(nodeJson, itemIndex - 1) +
+                    ". An address is how a host is identified and how a switch is found by the "
+                    "paths that do not have its dpid, and the lookup returns whichever node comes "
+                    "first -- so one of these two is unreachable and nothing in the graph can say "
+                    "which");
+            }
+        }
 
         // ---- #89 door 3a: a switch_kind no mapping accepts ----
         // switchKindFromString throws std::invalid_argument on anything unmapped, and the builder
@@ -775,6 +855,29 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
         const std::string dpidKey = std::string(side) + "_dpid";
         const std::string ipKey = std::string(side) + "_ip";
         const std::string interfaceKey = std::string(side) + "_interface";
+
+        // ---- B-15 door 6a, on the edge side ----
+        // [Co-developed with claude code -- Adam]
+        // 🔴 THE NODE LOOP IS NOT THE WHOLE DOCUMENT. The builder parses every edge's src_ip and
+        // dst_ip through the same inet_aton, while this pass reads an edge's addresses only on
+        // the end whose dpid is 0 -- so without this, a switch-side address could be spelled any
+        // way at all and no door would look at it. That asymmetry, a guard whose population is
+        // smaller than its consumer's, is the shape this file has now been extended for five
+        // times.
+        if (edgeJson.contains(ipKey) && edgeJson.at(ipKey).is_array())
+        {
+            std::size_t addressIndex = 0;
+            for (const auto& addressJson : edgeJson.at(ipKey))
+            {
+                if (addressJson.is_string())
+                {
+                    requireCanonicalAddress(addressJson.get<std::string>(),
+                                            "\"" + ipKey + "\" address #" +
+                                                std::to_string(addressIndex));
+                }
+                ++addressIndex;
+            }
+        }
 
         const auto dpid = edgeJson.at(dpidKey).get<std::uint64_t>();
         const auto ifIndex = edgeJson.at(interfaceKey).get<std::uint32_t>();

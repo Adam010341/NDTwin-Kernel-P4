@@ -2371,3 +2371,173 @@ TEST(TopologyInputValidationTest, ASwitchWhoseIpIsNotAnArrayIsRefusedInPlainLang
     EXPECT_EQ(out.messageSansPath.find("json.exception"), std::string::npos)
         << "the refusal is a raw nlohmann exception, not a diagnostic: " << out.messageSansPath;
 }
+
+// =================================================================================================
+// B-15 / door 6 -- two nodes, one address; and the spelling that makes them look like two.
+//
+// [Co-developed with claude code -- Adam]
+// 🔴 MEASURED (2026-09-11, ROLE-3, b5-loose.json). h2's `ip` written `["10.1"]` instead of
+// `["10.0.0.2"]`: inet_aton reads "10.1" as 10.0.0.1, which is h1's address. The file loaded with
+// ZERO warnings and ZERO errors; /ndt/get_graph_data reported h1 and h2 with the SAME address
+// (`"ip":[16777226]` for both), /ndt/get_static_topology_json printed both as `["10.0.0.1"]`, and
+// the host edge that should name h2 named h1. #61's edge door -- "no node in this file carries
+// that address" -- passed, because after inet_aton the two spellings ARE the same key.
+//
+// Downstream, findVertexByIpNoLock returns the first node holding the address and there is no
+// field anywhere that can say a second one claimed it. Every address-resolved path -- top-K,
+// intent, last-hop attribution, the host edges themselves -- silently attributes h2's traffic to
+// h1.
+//
+// TWO ARMS, AND THE SECOND IS WHY THE FIRST IS NOT ENOUGH:
+//   6a  an address that is not written as a dotted quad is refused. inet_aton accepts "10.1",
+//       "167772161" and "0x0a000001" for the same address, and the twin republishes whichever
+//       form it reconstructs -- so the file and /ndt/get_static_topology_json disagree about what
+//       the operator wrote, and two spellings of one address stop looking like a collision to a
+//       human reading the file. The repo has already ruled this way once for the same reason:
+//       utils::tryParseUint64 was introduced over std::stoull because "a mistyped dpid must be
+//       refused, not silently redirected to a different switch" (HttpSession.cpp).
+//   6b  no two nodes may hold the same address AFTER parsing. 6a makes the loose spelling
+//       impossible; it does nothing about the same dotted quad typed twice, which is the plain
+//       copy-paste mistake and is just as unresolvable.
+//
+// All thirteen shipped files were checked before this door was written: zero non-canonical
+// spellings and zero duplicate addresses across nodes, node side and edge side, including the
+// five _ipAlias4_ files that give every switch four addresses.
+// =================================================================================================
+
+TEST(TopologyInputValidationTest, ASecondNodeClaimingAnExistingAddressIsRefused)
+{
+    // 6b with no help from 6a: the SAME dotted quad, typed twice. An added node nothing points
+    // at, for the reason appendUnreferencedNode states.
+    MutatedTopology topo("duplicate_address");
+    ASSERT_TRUE(topo.usable());
+
+    const std::string taken =
+        topo.doc()["nodes"][lastHostNodeIndex(topo.doc())].at("ip")[0].get<std::string>();
+    ASSERT_EQ(taken, "10.0.0.4");
+    appendUnreferencedNode(topo.doc(), "h4-copy", json::array({taken}));
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw)
+        << "two nodes declaring the same address were accepted; findVertexByIpNoLock then returns "
+           "whichever came first and nothing in the graph can say the other one exists";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.edges, 0u);
+}
+
+TEST(TopologyInputValidationTest, TheDuplicateAddressRefusalNamesBothNodes)
+{
+    // One name is not enough: the operator has to find two entries in a file of up to 138 nodes,
+    // and which one is wrong is their decision, not the loader's.
+    MutatedTopology topo("duplicate_address_message");
+    ASSERT_TRUE(topo.usable());
+
+    const std::string taken =
+        topo.doc()["nodes"][lastHostNodeIndex(topo.doc())].at("ip")[0].get<std::string>();
+    const std::string owner =
+        topo.doc()["nodes"][lastHostNodeIndex(topo.doc())].at("device_name").get<std::string>();
+    appendUnreferencedNode(topo.doc(), "h4-copy", json::array({taken}));
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    ASSERT_TRUE(out.threw);
+    EXPECT_NE(out.messageSansPath.find("\"" + owner + "\""), std::string::npos)
+        << "the refusal does not name the node that already held the address: "
+        << out.messageSansPath;
+    EXPECT_NE(out.messageSansPath.find("\"h4-copy\""), std::string::npos)
+        << "the refusal does not name the node that claimed it again: " << out.messageSansPath;
+    EXPECT_NE(out.messageSansPath.find(taken), std::string::npos)
+        << "the refusal does not name the address: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, ANodeAddressThatIsNotADottedQuadIsRefused)
+{
+    // 6a on its own: "10.9" is 10.0.0.9, which NO node in the shipped P4 model holds, so nothing
+    // collides and only the spelling door can refuse this file.
+    MutatedTopology topo("loose_address");
+    ASSERT_TRUE(topo.usable());
+
+    appendUnreferencedNode(topo.doc(), "h-loose", json::array({"10.9"}));
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw)
+        << "a node address that is not a dotted quad was accepted and silently rewritten; the "
+           "file and /ndt/get_static_topology_json then disagree about what it says";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.edges, 0u);
+}
+
+TEST(TopologyInputValidationTest, TheLooseAddressRefusalNamesBothSpellings)
+{
+    // Both, because either one alone is useless: the operator needs to find "10.9" in the file,
+    // and needs to be told that the twin read it as 10.0.0.9 rather than as 10.9.0.0 or an error.
+    MutatedTopology topo("loose_address_message");
+    ASSERT_TRUE(topo.usable());
+
+    appendUnreferencedNode(topo.doc(), "h-loose", json::array({"10.9"}));
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    ASSERT_TRUE(out.threw);
+    EXPECT_NE(out.messageSansPath.find("10.9"), std::string::npos)
+        << "the refusal does not quote what the file says: " << out.messageSansPath;
+    EXPECT_NE(out.messageSansPath.find("10.0.0.9"), std::string::npos)
+        << "the refusal does not say what the twin read it as: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, TheMeasuredLooseFormCollisionIsRefused)
+{
+    // ROLE-3's b5-loose.json verbatim: an EXISTING host's address rewritten in the loose form of
+    // ANOTHER host's address, its edges rewritten to match so that #61's edge door stays quiet.
+    // This is the file that loaded with zero diagnostics and served two hosts at one address.
+    MutatedTopology topo("loose_collision");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastHostNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    const std::string was = topo.doc()["nodes"][victim].at("ip")[0].get<std::string>();
+    topo.doc()["nodes"][victim]["ip"] = json::array({"10.1"});
+    for (auto& edgeJson : topo.doc()["edges"])
+    {
+        for (const char* key : {"src_ip", "dst_ip"})
+        {
+            if (edgeJson.contains(key) && edgeJson.at(key).size() == 1 &&
+                edgeJson.at(key)[0] == was)
+            {
+                edgeJson[key] = json::array({"10.1"});
+            }
+        }
+    }
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw)
+        << "the measured file was accepted: two hosts at one address, zero warnings, and the "
+           "host edge naming the wrong node";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.edges, 0u);
+}
+
+TEST(TopologyInputValidationTest, AnEdgeAddressThatIsNotADottedQuadIsRefused)
+{
+    // 🔴 THE NODE SIDE IS NOT THE WHOLE DOCUMENT, and checking only it would be this repo's
+    // recurring shape once more: a guard whose population is smaller than its consumer's. The
+    // builder parses every edge's src_ip and dst_ip through the same inet_aton, and the
+    // validator reads an edge's addresses only on the end whose dpid is 0 -- so a switch-side
+    // address could be spelled any way at all and no door would look at it.
+    MutatedTopology topo("loose_edge_address");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = firstSwitchEdgeIndex(topo.doc());
+    const std::string was = topo.doc()["edges"][victim].at("src_ip")[0].get<std::string>();
+    ASSERT_EQ(was, "192.168.123.11");
+    topo.doc()["edges"][victim]["src_ip"] = json::array({"192.168.31499"});
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "an edge address that is not a dotted quad was accepted";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.edges, 0u);
+}
