@@ -18,6 +18,10 @@
 #include "utils/Logger.hpp"
 // [Co-developed with claude code -- Adam] B-6: the netem half of /ndt/inject_link_failure.
 #include "utils/NetemLinkFault.hpp"
+#include <cstdint> // [Co-developed with claude code -- Adam] G-32: the expiry is int64
+#include <cstdlib> // [Co-developed with claude code -- Adam] G-32: NDT_LAB_CLAIM_FILE
+#include <ctime>   // [Co-developed with claude code -- Adam] G-32: the claim's expiry
+#include <mutex>   // [Co-developed with claude code -- Adam] G-32: the change ledger
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -120,6 +124,175 @@ HttpSession::handleRequest()
 // explicitly, but nothing could observe the fix: putting std::stoi back left the entire suite
 // green, because a test that calls a validation helper directly never sees which catch clause
 // would have run. Driving the real router is the only way that distinction is visible.
+// --- G-32, option C: the lab claim is REPORTED, never enforced -------------------------------
+//
+// [Co-developed with claude code -- Adam]
+//
+// doc/KNOWN-ISSUES.md G-32. Measured 2026-09-11 02:01:16-02:02:45 (ROLE-4 T4, written up in
+// scratch/overnight-2026-09-05/fix/FIX-NDT-3-SUMMARY.md section 7-1): a loop firing
+// install_flow_entry and delete_flow_entry every two seconds got 200 through the second in which
+// its OWN claim expired, and went on getting 200 after a different owner took the claim, until
+// that owner tore the kernel down and the writes started answering 000. Neither end was told the
+// lab had changed hands, and the writes had already landed by the time anything was observable.
+//
+// 🔴 NOTHING IN HERE MAY REFUSE A REQUEST. Adam's ruling of 2026-09-11 picked option C of the
+// three that write-up put up: not option A (409 on a foreign claim), whose cost 2 is that every
+// existing client -- tools/contract_test, tools/test_workflow/run_layers.sh, the four-round
+// tester's manual commands, Energy-Saving-App, TE-App -- would have to start carrying an
+// identity, and every client that does not would be cut off at once, in the week the manual is
+// telling testers to clone and run it. And not option B (say nothing) either. So: one file read
+// and one key on the reply, plus one log line at the moment the answer changes.
+//
+// WHY AN ENVIRONMENT VARIABLE AND NOT A PATH THE KERNEL WORKS OUT. The kernel is started with
+// `cd "$KERNEL_DIR/build"` (tools/test_workflow/stack.sh), so a relative guess would look one
+// directory below the workspace, and `--mode physical` has no claim file at all. The variable
+// says "here is the claim for this lab"; its absence says "this deployment has no claim file",
+// which is a legitimate answer and not an error.
+//
+// The claim's own format is tools/test_workflow/ndt's, documented in that script's
+// "--- lab claim ---" header: one `key=value` per line, five known keys, and -- verbatim -- "Any
+// script may write the file directly; nothing has to call this tool". So this parser tolerates
+// unknown keys, blank lines, comments and missing fields instead of refusing the file, and does
+// NOT parse by line number: that header also records that `note` migrated to the last line every
+// time it was corrected.
+namespace
+{
+
+constexpr const char* kLabClaimEnvVar = "NDT_LAB_CLAIM_FILE";
+constexpr const char* kLabClaimStateNone = "none";
+constexpr const char* kLabClaimStateActive = "active";
+constexpr const char* kLabClaimStateExpired = "expired";
+
+struct LabClaimFields
+{
+    bool fileRead = false;
+    bool expiresParsed = false;
+    std::int64_t expiresAt = 0;
+    std::string owner;
+    std::string note;
+};
+
+LabClaimFields
+readLabClaimFile(const std::string& path)
+{
+    LabClaimFields fields;
+    std::ifstream in(path);
+    if (!in)
+    {
+        // Absent, unreadable, or a directory. All three are "no claim is visible from here", and
+        // none of them is this endpoint's business to complain about.
+        return fields;
+    }
+    fields.fileRead = true;
+
+    std::string line;
+    while (std::getline(in, line))
+    {
+        if (!line.empty() && line.back() == '\r')
+        {
+            line.pop_back();
+        }
+        const auto eq = line.find('=');
+        if (eq == std::string::npos)
+        {
+            continue;
+        }
+        const std::string key = line.substr(0, eq);
+        // To the end of the line, deliberately: `note` is free text and does contain `=`.
+        const std::string value = line.substr(eq + 1);
+
+        if (key == "owner")
+        {
+            fields.owner = value;
+        }
+        else if (key == "note")
+        {
+            fields.note = value;
+        }
+        else if (key == "expires")
+        {
+            // Hand-rolled rather than std::stoll: this runs on the request thread for every
+            // write, and stoll throws on "" and on "soon" -- both of which a file written by
+            // hand can contain. An unparseable expiry is reported as an expiry that could not be
+            // read (expires_at stays 0), never as an exception out of a write endpoint.
+            if (!value.empty() &&
+                value.find_first_not_of("0123456789") == std::string::npos &&
+                value.size() <= 18)
+            {
+                std::int64_t parsed = 0;
+                for (const char c : value)
+                {
+                    parsed = parsed * 10 + (c - '0');
+                }
+                fields.expiresAt = parsed;
+                fields.expiresParsed = true;
+            }
+        }
+    }
+    return fields;
+}
+
+// Process-wide, because "the claim changed hands" is a statement about this kernel's history and
+// an HttpSession lives for one connection. Same shape as utils::netem's injected-netem ledger
+// next door, and for the same reason.
+struct LabClaimLedger
+{
+    std::mutex mu;
+    bool seen = false;
+    std::string state;
+    std::string owner;
+    std::int64_t expiresAt = 0;
+};
+
+LabClaimLedger&
+labClaimLedger()
+{
+    static LabClaimLedger ledger;
+    return ledger;
+}
+
+// The twelve northbound writes that reach the data plane, and only those. Read endpoints are
+// deliberately NOT marked: the claim answers "may I be writing to this lab", and putting it on
+// every GET would make it noise on the bodies where it means nothing. The comparison is `==`,
+// the same one the router uses for all twelve, so a target this function marks is a target the
+// router would actually have routed.
+//
+// modify_device_name, modify_nickname and set_switches_power_state are left out on purpose and
+// that is a judgement, written down in this ticket's SUMMARY section 4: they write the kernel's
+// own configuration, not the fabric, and G-32 is about two owners programming one fabric.
+bool
+isLabClaimBearingWrite(http::verb method, std::string_view target)
+{
+    if (method != http::verb::post)
+    {
+        return false;
+    }
+    static constexpr std::string_view kWrites[] = {
+        "/ndt/install_flow_entry",
+        "/ndt/delete_flow_entry",
+        "/ndt/modify_flow_entry",
+        "/ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries",
+        "/ndt/install_group_entry",
+        "/ndt/delete_group_entry",
+        "/ndt/modify_group_entry",
+        "/ndt/install_meter_entry",
+        "/ndt/delete_meter_entry",
+        "/ndt/modify_meter_entry",
+        "/ndt/inject_link_failure",
+        "/ndt/inject_link_recovery",
+    };
+    for (const std::string_view write : kWrites)
+    {
+        if (target == write)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+} // namespace
+
 std::shared_ptr<http::response<http::string_body>>
 HttpSession::buildResponse()
 {
@@ -386,7 +559,144 @@ HttpSession::buildResponse()
         SPDLOG_LOGGER_ERROR(Logger::instance(), "Unknown exception in request handler.");
     }
 
+    // [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md G-32, option C. The single
+    // exit, so the mark reaches the refusals and the catch clauses above as well as the 200s.
+    attachLabClaimIfWrite(*response);
     return response;
+}
+
+// [Co-developed with claude code -- Adam] G-32 option C. See the anonymous namespace above the
+// routing table for what was measured and why this reports rather than refuses.
+json
+HttpSession::labClaimJson()
+{
+    const char* const path = std::getenv(kLabClaimEnvVar);
+    std::string state = kLabClaimStateNone;
+    std::string owner;
+    std::string note;
+    std::int64_t expiresAt = 0;
+
+    if (path != nullptr && *path != '\0')
+    {
+        const LabClaimFields fields = readLabClaimFile(path);
+        if (fields.fileRead)
+        {
+            owner = fields.owner;
+            note = fields.note;
+            expiresAt = fields.expiresParsed ? fields.expiresAt : 0;
+            const auto now = static_cast<std::int64_t>(std::time(nullptr));
+            // A claim that cannot say when it ends is not a live claim. ndt's own foreign_claim
+            // treats a malformed `expires=` as stale for exactly this reason, and `expires_at`
+            // is left at 0 so a reader can tell "ran out at <t>" from "never said when".
+            state = (fields.expiresParsed && fields.expiresAt > now) ? kLabClaimStateActive
+                                                                     : kLabClaimStateExpired;
+        }
+    }
+
+    noteLabClaimChange(state, owner, expiresAt);
+
+    // All four keys on every reply, always. A key that appears and disappears is worse for a
+    // consumer than no key -- the same reasoning fetchPowerReportInternal's `entryFor` is built
+    // around one door down.
+    return json{{"state", state},
+                {"owner", owner},
+                {"expires_at", expiresAt},
+                {"note", note}};
+}
+
+// [Co-developed with claude code -- Adam] G-32 option C, the half that survives the request.
+//
+// ONE LINE PER CHANGE, NOT PER REQUEST: the writes that went unnoticed on 2026-09-11 were two
+// seconds apart, and a line each would have been 900 lines an hour of the same sentence.
+//
+// The comparison includes `state` and not only owner/expires, and that is not tidiness: EXPIRY
+// moves nothing in the file. The owner and the expiry are byte-identical either side of the
+// second the claim runs out, so a ledger that watched only those two fields -- which is what
+// "owner or expires differs" means literally -- would never report the failure mode that was
+// measured first.
+//
+// 🔴 The FIRST reading is deliberately silent. There is no previous reading to have differed
+// from, and a line on the first write of every kernel would fire on every `--mode physical` run
+// and every deployment with no claim file at all, which is the noise the allowlist exists to
+// keep out. Who holds the claim right now is what `ndt status` answers; this answers "did it
+// change under me", and that question needs two readings.
+void
+HttpSession::noteLabClaimChange(const std::string& state,
+                                const std::string& owner,
+                                std::int64_t expiresAt)
+{
+    LabClaimLedger& ledger = labClaimLedger();
+
+    std::string was;
+    {
+        std::lock_guard<std::mutex> lock(ledger.mu);
+        if (ledger.seen && ledger.state == state && ledger.owner == owner &&
+            ledger.expiresAt == expiresAt)
+        {
+            return;
+        }
+        const bool first = !ledger.seen;
+        was = "state=" + ledger.state + " owner='" + ledger.owner + "' expires=" +
+              std::to_string(ledger.expiresAt);
+        ledger.seen = true;
+        ledger.state = state;
+        ledger.owner = owner;
+        ledger.expiresAt = expiresAt;
+        if (first)
+        {
+            return;
+        }
+    }
+
+    SPDLOG_LOGGER_WARN(Logger::instance(),
+                       "lab claim changed under a write endpoint: was {}, now state={} owner='{}' "
+                       "expires={}. Nothing was refused -- see doc/KNOWN-ISSUES.md G-32; the "
+                       "reply carries the same answer in its lab_claim object",
+                       was,
+                       state,
+                       owner,
+                       expiresAt);
+}
+
+// [Co-developed with claude code -- Adam] G-32 option C.
+//
+// ONE SEAM FOR ALL TWELVE, and at the common exit rather than in each handler, because the key
+// has to be on the refusals too: a 400 from a malformed body and a 502 from a controller that
+// never answered are exactly the replies whose reader is trying to work out what just happened
+// to the fabric. Attaching it inside the handlers would have meant twelve call sites and would
+// still have missed buildResponse's own catch clauses.
+//
+// Re-parse and re-dump rather than string-splice: every body these endpoints produce is a
+// nlohmann::json object dumped with sorted keys (or a single-key literal), so a round trip is
+// byte-identical apart from the key added. A body this function cannot read as an object is left
+// exactly as it was -- a reply it cannot parse is a reply it must not rewrite.
+void
+HttpSession::attachLabClaimIfWrite(http::response<http::string_body>& res)
+{
+    if (!isLabClaimBearingWrite(m_req.method(), std::string_view(m_req.target())))
+    {
+        return;
+    }
+    json body = json::parse(res.body(), nullptr, false);
+    if (body.is_discarded() || !body.is_object())
+    {
+        return;
+    }
+    body["lab_claim"] = labClaimJson();
+    res.body() = body.dump();
+}
+
+// [Co-developed with claude code -- Adam] Test seam, G-32 option C. The ledger is process-wide by
+// design, so a case that asserts "a change is logged once" has to be able to start from nothing.
+void
+HttpSession::resetLabClaimLedgerForTests()
+{
+    LabClaimLedger& ledger = labClaimLedger();
+    std::lock_guard<std::mutex> lock(ledger.mu);
+    ledger.seen = false;
+    ledger.state.clear();
+    ledger.owner.clear();
+    ledger.expiresAt = 0;
 }
 
 void

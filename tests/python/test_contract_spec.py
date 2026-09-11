@@ -2841,5 +2841,100 @@ class CrossApplicationStagesTest(unittest.TestCase):
         self.assertEqual(failed, 1)
 
 
+class LabClaimOnWriteRepliesTest(unittest.TestCase):
+    """G-32 option C: the claim on a write reply. [Co-developed with claude code -- Adam]
+
+    The schema is the only one of this change's five sides an EXTERNAL consumer is checked
+    against -- the others are the kernel, tools/test_workflow/stack.sh, the warning allowlist and
+    the C++ suite -- so a state the kernel invents and nobody listed here would go through a
+    contract run in silence. The same argument GraphNodePowerPathTest makes for power_path.
+    """
+
+    GOOD = {"state": "active", "owner": "ROLE-4", "expires_at": 1757000000, "note": "round A"}
+
+    def test_the_three_states_the_kernel_can_emit_conform(self):
+        for state in ("none", "active", "expired"):
+            with self.subTest(state=state):
+                self.assertEqual(validate(spec.LAB_CLAIM, {**self.GOOD, "state": state}), [],
+                                 "a state HttpSession actually emits was rejected")
+
+    def test_an_empty_owner_and_note_conform(self):
+        # What `state: none` looks like: there is no claim, so there is nobody to name and
+        # nothing to say. nonempty=True on either field would fail every unclaimed lab.
+        self.assertEqual(
+            validate(spec.LAB_CLAIM,
+                     {"state": "none", "owner": "", "expires_at": 0, "note": ""}),
+            [],
+            "the no-claim shape stopped validating")
+
+    def test_the_schema_pins_the_state_vocabulary(self):
+        # An unlisted word is a contract change, not a detail. "none" is what a caller reads to
+        # know its write landed in a lab nobody had claimed; a fourth spelling reads as "some
+        # state we have not heard of", which is the one thing this key must never mean.
+        self.assertTrue(validate(spec.LAB_CLAIM, {**self.GOOD, "state": "held"}),
+                        "an invented state was accepted")
+        self.assertTrue(validate(spec.LAB_CLAIM, {**self.GOOD, "state": "None"}),
+                        "a second spelling of none was accepted")
+
+    def test_all_four_keys_are_required(self):
+        # Required rather than optional INSIDE the object, unlike the object itself on the reply:
+        # the kernel builds all four in one place precisely so it cannot emit three, and a
+        # consumer that reads claim["state"] must not have to check for it first.
+        for missing in ("state", "owner", "expires_at", "note"):
+            with self.subTest(missing=missing):
+                body = {k: v for k, v in self.GOOD.items() if k != missing}
+                self.assertTrue(validate(spec.LAB_CLAIM, body),
+                                f"a claim object missing {missing} was accepted")
+
+    def test_every_write_endpoint_declares_the_key_optional(self):
+        by_name = {e["name"]: e for e in spec.ENDPOINTS}
+        for name in spec.LAB_CLAIM_BEARING_ENDPOINTS:
+            with self.subTest(endpoint=name):
+                self.assertIn(name, by_name, "the endpoint table no longer has this entry")
+                schema = by_name[name]["schema"]
+                optional = getattr(schema, "optional", {})
+                self.assertIn(
+                    "lab_claim", optional,
+                    f"{name} is marked by the kernel and unknown to its schema, so a malformed "
+                    "lab_claim on this endpoint would pass the contract run")
+                self.assertIs(optional["lab_claim"], spec.LAB_CLAIM,
+                              f"{name} carries a second copy of the claim schema; two copies "
+                              "drift, which is the lesson of F-1")
+
+    def test_optional_means_a_pre_g32_kernel_still_conforms(self):
+        # A kernel built before 2026-09-11 emits no lab_claim at all, and so does one started by
+        # hand or with --mode physical, where NDT_LAB_CLAIM_FILE is unset. Neither is a failure.
+        by_name = {e["name"]: e for e in spec.ENDPOINTS}
+        reply = {"status": "queued", "accepted": 1}
+        self.assertEqual(validate(by_name["install_flow_entry"]["schema"], reply), [],
+                         "the pre-G-32 reply shape stopped validating")
+
+    def test_a_malformed_claim_on_a_real_endpoint_is_caught(self):
+        # The point of wiring the schema in at all: without it, Obj's non-strict default lets any
+        # shape of lab_claim through, which is what this assertion would find.
+        by_name = {e["name"]: e for e in spec.ENDPOINTS}
+        schema = by_name["install_flow_entry"]["schema"]
+        self.assertEqual(
+            validate(schema, {"status": "queued", "accepted": 1, "lab_claim": self.GOOD}), [],
+            "a well-formed claim was rejected on the endpoint that emits it")
+        self.assertTrue(
+            validate(schema, {"status": "queued", "accepted": 1,
+                              "lab_claim": {**self.GOOD, "state": "held"}}),
+            "an invented state went through on the endpoint that emits it")
+
+    def test_the_controller_notification_is_not_marked(self):
+        # 🔴 The control, and what makes the list above mean something: B-6 keeps
+        # /ndt/link_failure_detected a separate route from /ndt/inject_link_failure because "the
+        # notification and the injection are different acts with different authority". The claim
+        # answers "should I be programming this fabric"; on Ryu's notification it would be noise,
+        # and a build that marked everything would satisfy every assertion above.
+        by_name = {e["name"]: e for e in spec.ENDPOINTS}
+        for name in ("link_failure_detected", "link_recovery_detected"):
+            with self.subTest(endpoint=name):
+                optional = getattr(by_name[name]["schema"], "optional", {})
+                self.assertNotIn("lab_claim", optional,
+                                 f"{name} declares the claim, so the marking is not selective")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

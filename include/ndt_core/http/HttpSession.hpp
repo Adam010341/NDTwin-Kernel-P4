@@ -157,6 +157,23 @@ class HttpSession : public std::enable_shared_from_this<HttpSession>
      */
     std::shared_ptr<http::response<http::string_body>> buildResponse();
 
+    // [Co-developed with claude code -- Adam] doc/KNOWN-ISSUES.md G-32, Adam's ruling of
+    // 2026-09-11 (option C). The northbound writes report what the lab claim says and log the
+    // moment it changes; they do NOT refuse anything. The measurement, the format of the file
+    // and the reason the path comes from NDT_LAB_CLAIM_FILE are all in the anonymous namespace
+    // above the routing table in HttpSession.cpp.
+    //
+    // Static, because the claim belongs to the lab rather than to a connection, and the change
+    // ledger has to outlive the session that read it.
+    static json labClaimJson();
+    static void noteLabClaimChange(const std::string& state,
+                                   const std::string& owner,
+                                   std::int64_t expiresAt);
+    /// Test seam for the process-wide change ledger; see the definition.
+    static void resetLabClaimLedgerForTests();
+    /// Adds `lab_claim` to a write endpoint's reply, at the one exit every reply leaves through.
+    void attachLabClaimIfWrite(http::response<http::string_body>& res);
+
     // Each API endpoint gets its own handler function for clarity.
     /**
      * @brief Handles a link-failure notification sent by the Ryu controller.

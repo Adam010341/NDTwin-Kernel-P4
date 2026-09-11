@@ -30,10 +30,17 @@
  */
 
 #include <chrono>
+// [Co-developed with claude code -- Adam] G-32: a claim file under a temp dir,
+// setenv/unsetenv, and the clock the expiry is compared against.
+#include <cstdlib>
+#include <ctime>
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
+#include <unistd.h>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -172,6 +179,11 @@ class HttpSessionTestPeer
         m_session->m_injectedNetem = ledger;
         m_seamInstalled = true;
     }
+
+    /// [Co-developed with claude code -- Adam] G-32 option C. The claim-change ledger is
+    /// process-wide by design, so a case asserting "one line per change" has to be able to
+    /// start from nothing.
+    static void resetLabClaimLedger() { HttpSession::resetLabClaimLedgerForTests(); }
 
     /// Routes one request and returns the response. No socket I/O happens.
     const http::response<http::string_body>&
@@ -2069,4 +2081,298 @@ TEST_F(DeclaredLinkFailureWireTest, AHalfDoneInjectionNeverAnswersInjected)
     ASSERT_EQ(body.at("tc").size(), 2u) << res.body();
     EXPECT_FALSE(body.at("tc")[0].value("refused", std::string()).empty())
         << "the refused end does not say why: " << res.body();
+}
+
+// --- G-32 option C: the lab claim on a write reply -------------------------------------------
+//
+// [Co-developed with claude code -- Adam]
+//
+// WHAT WAS MEASURED. 2026-09-11 02:01:16-02:02:45 (ROLE-4 T4, written up in
+// scratch/overnight-2026-09-05/fix/FIX-NDT-3-SUMMARY.md section 7-1): a loop firing
+// install_flow_entry and delete_flow_entry every two seconds got 200 through the second its own
+// claim expired, and went on getting 200 after a different owner claimed the lab -- until that
+// owner tore the kernel down and the writes turned into 000, with `kernel.exit`'s `at=` in the
+// same second as the first of them. Neither the writer nor the new owner was told anything, and
+// the writes had already reached the fabric by the time anything was observable.
+//
+// Adam's ruling of 2026-09-11 was option C of the three that write-up put up: the kernel does
+// not refuse, it reports. So these cases assert a KEY and a LOG LINE -- and one of them asserts
+// that the reply is still the reply it was, because option A (409 on a foreign claim) is the
+// thing this fix deliberately is not, and a suite that only checked for the key would stay green
+// if somebody turned the report into a refusal later.
+//
+// Driven through the null-collaborator peer with an unparseable body on purpose: the mark is
+// attached at buildResponse's single exit, so the refusal path is the cheapest place to see it,
+// and it is also the path a caller most needs it on -- "did my write land, and whose lab did it
+// land in". The SUCCESS path of the same mechanism is asserted in
+// tests/test_GroupMeterExistence.cpp, which has a real FlowRoutingManager behind it.
+
+/// Counts the captured log lines containing `needle`; LogCapture::text() concatenates records
+/// that each end in a newline.
+static std::size_t
+countLogLines(const std::string& text, const std::string& needle)
+{
+    std::size_t found = 0;
+    std::size_t at = 0;
+    while ((at = text.find(needle, at)) != std::string::npos)
+    {
+        ++found;
+        at += needle.size();
+    }
+    return found;
+}
+
+class LabClaimOnWriteRepliesTest : public ::testing::Test
+{
+  protected:
+    void SetUp() override
+    {
+        m_dir = std::filesystem::temp_directory_path() /
+                ("ndt-labclaim-" + std::to_string(static_cast<long>(::getpid())) + "-" +
+                 std::to_string(++s_counter));
+        std::filesystem::create_directories(m_dir);
+        m_claim = (m_dir / "lab.claim").string();
+        ::unsetenv("NDT_LAB_CLAIM_FILE");
+        HttpSessionTestPeer::resetLabClaimLedger();
+    }
+
+    void TearDown() override
+    {
+        ::unsetenv("NDT_LAB_CLAIM_FILE");
+        HttpSessionTestPeer::resetLabClaimLedger();
+        std::error_code ec;
+        std::filesystem::remove_all(m_dir, ec);
+    }
+
+    /// tools/test_workflow/ndt's own five fields, in the order claim_rewrite writes them.
+    void writeClaim(const std::string& owner, std::int64_t expires, const std::string& note) const
+    {
+        std::ofstream out(m_claim, std::ios::trunc);
+        out << "owner=" << owner << "\n"
+            << "expires=" << expires << "\n"
+            << "note=" << note << "\n"
+            << "exclusive_cpu=no\n"
+            << "measuring=\n";
+    }
+
+    static std::int64_t now() { return static_cast<std::int64_t>(std::time(nullptr)); }
+
+    /// One write request through a session with no collaborators at all.
+    static nlohmann::json writeReply(HttpSessionTestPeer& peer, const char* target)
+    {
+        const auto& res = peer.send(http::verb::post, target, kUnparseableBody);
+        EXPECT_EQ(res.result_int(), 400u)
+            << target << ": the status code moved, so something other than a key was added: "
+            << res.body();
+        auto body = nlohmann::json::parse(res.body(), nullptr, false);
+        EXPECT_FALSE(body.is_discarded()) << target << ": " << res.body();
+        return body;
+    }
+
+    std::filesystem::path m_dir;
+    std::string m_claim;
+    static int s_counter;
+};
+
+int LabClaimOnWriteRepliesTest::s_counter = 0;
+
+TEST_F(LabClaimOnWriteRepliesTest, EveryWriteEndpointCarriesTheClaimAndTheNotificationDoesNot)
+{
+    // The whole family in one case, because the failure this guards is the key landing on some of
+    // it and not the rest -- a consumer that reads reply["lab_claim"]["state"] and throws on the
+    // one endpoint nobody remembered.
+    const char* writes[] = {
+        "/ndt/install_flow_entry",
+        "/ndt/delete_flow_entry",
+        "/ndt/modify_flow_entry",
+        "/ndt/install_flow_entries_modify_flow_entries_and_delete_flow_entries",
+        "/ndt/install_group_entry",
+        "/ndt/delete_group_entry",
+        "/ndt/modify_group_entry",
+        "/ndt/install_meter_entry",
+        "/ndt/delete_meter_entry",
+        "/ndt/modify_meter_entry",
+        "/ndt/inject_link_failure",
+        "/ndt/inject_link_recovery",
+    };
+
+    writeClaim("ROLE-4-reader", now() + 600, "an experiment is running");
+    ::setenv("NDT_LAB_CLAIM_FILE", m_claim.c_str(), 1);
+
+    HttpSessionTestPeer peer;
+    for (const char* target : writes)
+    {
+        const auto body = writeReply(peer, target);
+        ASSERT_TRUE(body.contains("lab_claim"))
+            << target << " answers a write with no word about who holds the lab: " << body.dump();
+        const auto& claim = body.at("lab_claim");
+        EXPECT_EQ(claim.value("state", std::string()), "active") << target << ": " << body.dump();
+        EXPECT_EQ(claim.value("owner", std::string()), "ROLE-4-reader")
+            << target << ": " << body.dump();
+        EXPECT_EQ(claim.value("note", std::string()), "an experiment is running")
+            << target << ": " << body.dump();
+        EXPECT_EQ(claim.value("expires_at", std::int64_t{0}) > now(), true)
+            << target << ": " << body.dump();
+    }
+
+    // 🔴 The control, and the thing that gives the loop above its discrimination: a build that
+    // stamped `lab_claim` on every reply would satisfy every assertion above and fail here.
+    // /ndt/link_failure_detected is the right control rather than any convenient GET: it is
+    // inject_link_failure's neighbour, deliberately a separate route (B-6, "the notification and
+    // the injection are different acts with different authority"), and it is Ryu telling the twin
+    // what it saw rather than anybody programming the fabric.
+    const auto& notification =
+        peer.send(http::verb::post, "/ndt/link_failure_detected", kUnparseableBody);
+    const auto notificationBody = nlohmann::json::parse(notification.body(), nullptr, false);
+    ASSERT_FALSE(notificationBody.is_discarded()) << notification.body();
+    EXPECT_FALSE(notificationBody.contains("lab_claim"))
+        << "a controller notification carries the claim, so the marking is not selective and the "
+           "key means nothing: "
+        << notification.body();
+}
+
+TEST_F(LabClaimOnWriteRepliesTest, NoClaimFileIsStateNoneAndNotAnError)
+{
+    // `--mode physical` has no claim file, and neither does a checkout nobody has run `ndt claim`
+    // in. Both are answers, not faults: a write endpoint that started answering 500 because a
+    // bookkeeping file was absent would be a new way to break a lab nobody had claimed.
+    HttpSessionTestPeer peer;
+
+    const auto unset = writeReply(peer, "/ndt/install_flow_entry");
+    ASSERT_TRUE(unset.contains("lab_claim")) << unset.dump();
+    EXPECT_EQ(unset.at("lab_claim").value("state", std::string()), "none") << unset.dump();
+    EXPECT_EQ(unset.at("lab_claim").value("owner", std::string()), "") << unset.dump();
+    EXPECT_EQ(unset.at("lab_claim").value("note", std::string()), "") << unset.dump();
+    EXPECT_EQ(unset.at("lab_claim").value("expires_at", std::int64_t{-1}), 0) << unset.dump();
+
+    // Set, but pointing at nothing -- the shape a workspace has before its first claim, and the
+    // shape `ndt release` leaves behind.
+    const std::string missing = (m_dir / "not-here.claim").string();
+    ::setenv("NDT_LAB_CLAIM_FILE", missing.c_str(), 1);
+    const auto absent = writeReply(peer, "/ndt/install_flow_entry");
+    ASSERT_TRUE(absent.contains("lab_claim")) << absent.dump();
+    EXPECT_EQ(absent.at("lab_claim").value("state", std::string()), "none") << absent.dump();
+}
+
+TEST_F(LabClaimOnWriteRepliesTest, AClaimThatHasRunOutIsExpiredAndStillNamesItsOwner)
+{
+    // The first half of what was measured: the writer's OWN claim lapsed and it went on writing.
+    // The owner is still reported, because "whose claim just ran out" is the question being asked.
+    const std::int64_t lapsedAt = now() - 60;
+    writeClaim("ROLE-4-writer", lapsedAt, "finished at 02:01");
+    ::setenv("NDT_LAB_CLAIM_FILE", m_claim.c_str(), 1);
+
+    HttpSessionTestPeer peer;
+    const auto body = writeReply(peer, "/ndt/install_flow_entry");
+    ASSERT_TRUE(body.contains("lab_claim")) << body.dump();
+    EXPECT_EQ(body.at("lab_claim").value("state", std::string()), "expired") << body.dump();
+    EXPECT_EQ(body.at("lab_claim").value("owner", std::string()), "ROLE-4-writer") << body.dump();
+    EXPECT_EQ(body.at("lab_claim").value("expires_at", std::int64_t{0}), lapsedAt)
+        << "the expiry is not reported, so a caller cannot tell how long ago it lapsed: "
+        << body.dump();
+}
+
+TEST_F(LabClaimOnWriteRepliesTest, AClaimWithNoReadableExpiryIsNotReportedAsActive)
+{
+    // ndt's own header says any script may write this file directly, so a claim with no
+    // `expires=` at all, or one that says "soon", is reachable rather than hypothetical.
+    // foreign_claim treats a malformed expiry as stale; so does this, and `expires_at` stays 0 so
+    // a reader can tell "lapsed at <t>" from "never said when".
+    {
+        std::ofstream out(m_claim, std::ios::trunc);
+        out << "owner=somebody\n"
+               "expires=soon\n"
+               "note=hand written\n";
+    }
+    ::setenv("NDT_LAB_CLAIM_FILE", m_claim.c_str(), 1);
+
+    HttpSessionTestPeer peer;
+    const auto body = writeReply(peer, "/ndt/install_flow_entry");
+    ASSERT_TRUE(body.contains("lab_claim")) << body.dump();
+    EXPECT_EQ(body.at("lab_claim").value("state", std::string()), "expired")
+        << "an unreadable expiry was taken for a live claim: " << body.dump();
+    EXPECT_EQ(body.at("lab_claim").value("expires_at", std::int64_t{-1}), 0) << body.dump();
+    EXPECT_EQ(body.at("lab_claim").value("owner", std::string()), "somebody") << body.dump();
+}
+
+TEST_F(LabClaimOnWriteRepliesTest, ANoteContainingAnEqualsSignSurvivesTheParse)
+{
+    // `ndt down` writes notes of the form `down at 02:03; claim kept; cleared measuring=iperf3
+    // -c 10.0.0.33 -t 200`, so splitting on the FIRST `=` only is not a detail: a parser that
+    // split on every `=` would truncate exactly the note that says what was running.
+    writeClaim("owner-a", now() + 300, "cleared measuring=iperf3 -c 10.0.0.33 -t 200");
+    ::setenv("NDT_LAB_CLAIM_FILE", m_claim.c_str(), 1);
+
+    HttpSessionTestPeer peer;
+    const auto body = writeReply(peer, "/ndt/install_flow_entry");
+    EXPECT_EQ(body.at("lab_claim").value("note", std::string()),
+              "cleared measuring=iperf3 -c 10.0.0.33 -t 200")
+        << body.dump();
+}
+
+TEST_F(LabClaimOnWriteRepliesTest, TheClaimChangingHandsIsLoggedOncePerChangeAndRefusesNothing)
+{
+    // The second half of what was measured, and the half option C exists for: another owner took
+    // the claim while the writes were in flight, and nothing anywhere said so.
+    writeClaim("owner-a", now() + 600, "round A");
+    ::setenv("NDT_LAB_CLAIM_FILE", m_claim.c_str(), 1);
+
+    HttpSessionTestPeer peer;
+    LogCapture log;
+
+    // First reading. Deliberately silent: there is no previous reading for it to have differed
+    // from, and a line here would fire on the first write of every kernel that has a claim file.
+    writeReply(peer, "/ndt/install_flow_entry");
+    EXPECT_EQ(countLogLines(log.text(), "lab claim changed"), 0u)
+        << "the first reading logged a change it had nothing to compare against:\n"
+        << log.text();
+
+    // Same claim, second write: still nothing. One line per CHANGE, not per request -- the writes
+    // that went unnoticed were two seconds apart, and a line each would be 1800 an hour of the
+    // same sentence, which is the noise the allowlist exists to keep out of a log.
+    writeReply(peer, "/ndt/delete_flow_entry");
+    EXPECT_EQ(countLogLines(log.text(), "lab claim changed"), 0u)
+        << "an unchanged claim produced a line, so this is one WARN per write:\n"
+        << log.text();
+
+    // It changes hands.
+    writeClaim("owner-b", now() + 900, "round B");
+    const auto afterHandover = writeReply(peer, "/ndt/install_flow_entry");
+    EXPECT_EQ(countLogLines(log.text(), "lab claim changed"), 1u)
+        << "the lab changed hands under a write endpoint and the kernel's log does not say so:\n"
+        << log.text();
+    EXPECT_NE(log.text().find("owner-a"), std::string::npos)
+        << "the line does not say who held it before, so it cannot be reconciled with anything:\n"
+        << log.text();
+    EXPECT_NE(log.text().find("owner-b"), std::string::npos)
+        << "the line does not say who holds it now:\n" << log.text();
+
+    // 🔴 And the request went through. This is option C and not option A: an edit that turned the
+    // report into a refusal would fail here, which is why it is asserted rather than assumed.
+    EXPECT_EQ(afterHandover.at("lab_claim").value("owner", std::string()), "owner-b")
+        << afterHandover.dump();
+    EXPECT_EQ(afterHandover.value("error", std::string()), "JSON parsing error")
+        << "the reply is no longer the one this endpoint gives for a malformed body, so something "
+           "other than a key was added: "
+        << afterHandover.dump();
+
+    // Expiry, which moves NOTHING in the file: the same owner, the same `expires=`, and only the
+    // clock crossing it. A ledger watching owner and expires alone -- which is what "owner or
+    // expires differs" means literally -- would never report the failure mode measured first.
+    writeClaim("owner-c", now() + 2, "round C, two seconds long");
+    const auto stillActive = writeReply(peer, "/ndt/install_flow_entry");
+    EXPECT_EQ(stillActive.at("lab_claim").value("state", std::string()), "active")
+        << stillActive.dump();
+    EXPECT_EQ(countLogLines(log.text(), "lab claim changed"), 2u) << log.text();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(2400));
+
+    const auto lapsed = writeReply(peer, "/ndt/install_flow_entry");
+    EXPECT_EQ(lapsed.at("lab_claim").value("state", std::string()), "expired")
+        << "the claim did not lapse, so the sleep above was too short and this case is not "
+           "measuring what it says: "
+        << lapsed.dump();
+    EXPECT_EQ(countLogLines(log.text(), "lab claim changed"), 3u)
+        << "the claim lapsed without one byte of the file changing, and nothing was logged:\n"
+        << log.text();
 }
