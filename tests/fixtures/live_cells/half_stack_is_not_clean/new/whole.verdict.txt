@@ -1,0 +1,14 @@
+processes=clean
+network=0/0/0
+not_answerable=3
+stack=whole-up
+ndt_rc=5 (recorded, NOT used for the verdict)
+NOTE: 3 question(s) not answerable -- 'nobody asked', NOT 'the network is
+      clean'. A NOTE and not a FAIL (Adam 2026-09-10).
+NOTE: and 1 app(s) could not be asked whether they ran here at all: energy (no log channel exists for them -- see above)
+NOTE-WHY: !!        and whether it ran here CANNOT BE ASKED: the helper keeps no log for energy
+NOTE-WHY: !!        and its log is NOT empty, so it did run here: the window is LOST,
+NOTE-WHY: !!        and its log is NOT empty, so it did run here: the window is LOST,
+NOTE-WHY: !!        and its log is NOT empty, so it did run here: the window is LOST,
+NOTE-WHY: !!  NOT CHECKED: the residue question could not be answered -- rc 5.
+VERDICT: CLEAN

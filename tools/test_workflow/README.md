@@ -26,6 +26,7 @@ L2 / L3 / L4 的 Python 工具在 [../contract_test/](../contract_test/)。
 | `l1_unit_tests.sh` | L1 | kernel 單元測試（**兩種方式**都跑）＋ P4 proxy 的 Python 測試 |
 | `stack.sh` | — | 按正確順序啟動／關閉，並等待拓撲收斂 |
 | `run_layers.sh` | 全部 | 頂層驅動，把各層組合起來 |
+| `live_cells/` | — | 回歸格：夜巡「live 紅過、已修好」的發現，每個變成一個可重跑的格（見下） |
 
 ---
 
@@ -221,6 +222,45 @@ Mininet 需要 root，而且會停在自己的 CLI，沒辦法乾淨地背景化
 ```
 
 `compare` 會把 P4 跟 OVS 的差異分成三類：允許的 P4 限制（寫在 allowlist）、數值容忍範圍內、**其他就是 bug**。
+
+---
+
+## live_cells：回歸格
+
+`l1_unit_tests.sh` 與 `tests/shell/` 問的是「這段碼對不對」。`live_cells/` 問的是另一個問題：
+**上一晚在真實驗室上紅過、後來修好的那條缺陷，今天還是好的嗎。**
+
+一個**格**（cell）＝一個可重現的動作序列＋一個預期判定。進入規則是「**live 紅過、已修好** ⇒ 進來，
+而且永不退出」，所以這個目錄只會長大；夜巡報的那個數字是「紅了幾格」。
+
+每個格都是兩個子命令，而這個切法就是整個設計：
+
+| | |
+|---|---|
+| `observe <rawdir>` | 驅動實驗室（或工具），只寫 raw，不做任何判定 |
+| `judge <rawdir>` | 那個目錄的**純函數**：不碰實驗室、不碰網路、不看時鐘、不讀 git |
+
+`judge` 是純函數這件事是刻意的：它因此可以被指向**昨晚的 log**，於是「這個格真的會紅」這件事
+不必重建昨晚的 binary 就證得出來。`tests/fixtures/live_cells/<格>/old/` 就是那份紅。
+
+```bash
+live_cells/run_cells.sh --list                    # 有哪些格、各自的 tag 與前提
+live_cells/run_cells.sh --requires none           # 完全不碰實驗室的那些
+NDT_ROOT=/home/adam/Desktop/NDTwin-Kernel live_cells/run_cells.sh --tag ndt
+```
+
+- 最後一行 `CELLS: <pass>/<total> pass, <fail> FAIL, <skip> SKIP`，有 FAIL 就非 0 離開。
+- 每個格印一行 `CELL: PASS|FAIL|SKIP <name> tag=… kernel=<sha16> ndt=<blob sha> at=…`，
+  那兩個識別碼是 `observe` 寫進 raw 的 `ids.txt`，**跟著 raw 走**（所以老 fixture 指認的是昨晚
+  那支，不是今天這支）。
+- 格與格之間 `run_cells.sh` 自己還原：`orphans_verdict.sh`（**down 之前**）→ `ndt down` →
+  `ndt clean` → `orphans_verdict.sh`。還原沒過就停，不會把上一格的殘骸算進下一格。
+- `NDT_ROOT` 指定驅動哪一個 checkout 的 `ndt`。格是儀器，受測的樹是 `NDT_ROOT` 那棵——這台機器上
+  只有主 checkout 的 `ndt` 是 `sudo ndtwin-lab` 會代為動作的那一支。
+- raw 進 `$NDT_ROOT/.test_run/live_cells/<date>/<格>/`。
+
+名冊、每格的來源與修法 commit、以及**這些格涵蓋不到什麼**，都在 `live_cells/CELLS.md`。
+閘門是 `tests/shell/mutate_live_cells.sh`（judge 的關鍵斷言各兩顆變異：delete 與 widen）。
 
 ---
 

@@ -65,6 +65,37 @@ Adam 要去睡了,實驗室整晚歸你。今晚的產出不是「做了很多�
 
 ---
 
+## 第 0 輪:回歸格(偵察 agent 在讀碼的同時跑,不要等)
+
+**上一晚「紅過、已修好」的發現都在 `tools/test_workflow/live_cells/` 裡變成了格**(cell＝一個
+可重現的動作序列＋一個預期判定)。進入規則是**紅過就永不退出**,所以這個目錄只會長大,而
+「紅了幾格」就是唯一該單調的數字。
+
+派偵察 agent 之後**立刻**跑它,不要等他們回話——它們是並行的,而且這一輪要花的是實驗室的時間:
+
+```bash
+# 完全不碰實驗室的那些,先跑(別人還握著 claim 也能跑)
+tools/test_workflow/live_cells/run_cells.sh --requires none
+# 要實驗室的那些,claim 之後
+NDT_ROOT=/home/adam/Desktop/NDTwin-Kernel tools/test_workflow/live_cells/run_cells.sh
+```
+
+最後一行是 `CELLS: <pass>/<total> pass, <fail> FAIL, <skip> SKIP`,格與格之間它自己還原
+(orphans → down → clean → orphans;還原沒過它就停,不會把上一格的殘骸算進下一格)。
+
+- **翻紅＝🔴 置頂 + 當晚必修 + 寫進 WAKEUP.md 第一段。** 一格紅代表「一個已經修好的缺陷回來了」,
+  那比今晚新找到的任何東西都優先——它會讓今晚其他每一個觀測都變得不可信。
+- **SKIP 不是 PASS。** 格自己說了為什麼(前提沒建起來、fabric 沒起來),照它說的讀。
+- **PASS 不代表那條修法被驗過**:格只驗它自己那一句。`CELLS.md` 的「What these cells do NOT
+  cover」列著缺口,派測試計畫之前讀它一次。
+- 併入任何動到 `ndt`／kernel／proxy 的修法之後,**再跑一次相關子集**(`--tag ndt`／`kernel`／
+  `proxy`)。這一晚自己的修法也算。
+- 今晚新找到又修好的缺陷,天亮前**加一格**:`CELLS.md` 一列、`tests/fixtures/live_cells/<name>/old/`
+  放今晚的原始 log、`tests/shell/mutate_live_cells.sh` 加兩顆變異(delete 與 widen)。
+  沒有 `old/` 的紅就沒有格——**這跟第一步的 mutation gate 是同一條規矩。**
+
+---
+
 ## 第二步:先叫外部 agent 偵察,再動實驗室
 
 **順序不能顛倒。** 你剛剛花了幾小時修 bug,你的 context 現在被「我剛修過的地方」佔滿——你想得到的測試會全部繞著你剛碰過的檔案打轉。外部 agent 唯一的價值就在於**它沒有你的先入之見**,所以它必須在你派測試計畫之前先講話。
@@ -193,11 +224,24 @@ NDTwin 的具體面:一個趕論文的人想用 NDTwin 做一個它不是為此�
 
 Adam 今晚給的授權是:**可以跑實驗、可以改設定檔,但每一輪必須能還原、而且要驗證還原成功。**
 
-`ndt down` 跑完**不等於**還原了。三個都要過:
+`ndt down` 跑完**不等於**還原了。三個都要過——而且有一步在 `ndt down` **之前**:
 
+- 🆕 **`ndt down` 之前先跑一次 `orphans_verdict.sh`**(09-11 裁)。網路那半只有 `:8000` 開著的時候
+  問得到:`ndt down` 關掉 kernel 之後,那半就永遠只剩 `NOT CHECKED (kernel down)`,於是「這一輪
+  有沒有留下規則或鎖」這個問題**在每一輪都只能在事後被回答成「沒人問」**。
+  ```bash
+  NDT_OWNER=... tools/test_workflow/ndt apps orphans > predown.txt 2>&1; orc=$?
+  bash tools/test_workflow/orphans_verdict.sh predown.txt "$orc"
+  ```
+  `run_cells.sh` 的還原已經是這個順序,照著抄。
 - `ndt clean` — exit 0(它就是那條 teardown assertion)
 - `ndt apps orphans` — **看輸出、不看 exit code**(09-10 更正:合併樹上 rc 5「processes clean、residue could NOT be checked」在乾淨 OVS4 是**常態**——sim 的 window is LOST;P4 起著 sim 會回 rc 2——root 行程的 `/proc/<pid>/fd` 讀不到,351c;兩個都不是「有 orphan」)。判「還原了」要三件同時成立:processes 那半沒有 untracked process 在跑、tally 的 `dated rule(s) in a window` 為 0、`lock(s) held` 為 0;`question(s) not answerable`／`could not be dated` 只是 NOTE。**`fix/orphans-rc-read-tally` 併進 trunk 之後直接用 `tools/test_workflow/orphans_verdict.sh`(印 `VERDICT: CLEAN` 才算過)**;併進去之前用上面三件手判。🆕 **09-11 加一個地板**:上面「三件同時成立」只有在**網路那半至少答了一句**時才算過(`lock <t> free`／`HELD`／`no flow entry arrived during that window`／`rule(s) listed:`)。**kernel 開著、tally 有印、而三個 lock probe 全 `NOT CHECKED (http 500)` ⇒ helper 印 `VERDICT: NOT CHECKED`、rc 3**——那三個 0 是計數器沒被加過,不是量到 0(F-OFFLINE-1 §1.11;`ndt` 自己對同一份觀測回 5)。**`grep -F 'VERDICT: CLEAN'` 在那格現在不會 match ⇒ 照舊「沒過就不准派下一位」**,補救是修好 probe 再問一次。部分盲照舊 CLEAN＋NOTE;`ndt down` 之後照舊 `CLEAN -- the process half only`(Adam 09-10)。
-- `ndt status --check` — exit 0,而且跟第 2 步的基線對得上
+- `ndt status --check` — 🆕 **不是「exit 0」**(09-11 裁,SMALL-ISSUES 42)。`ndt down` 清掉
+  `up.target`,所以收工那一刻 `--check` 的正常答案是 **rc 3＝「沒查」**(沒有基線可比),
+  閒置的實驗室也是 rc 3。要求 exit 0 會讓這一件永遠不過、於是永遠被忽略。
+  正確的判準是:**`down` 之後的 `--check` 輸出跟閒置基線逐字相同**——所以第 2 步那份基線
+  (`ndt status --check` 的全文,含 rc)要存檔,收工時 `diff` 它。逐字差異只該剩下必然的那幾行
+  (claim 剩餘時間、note、`up.target` 被清掉的時間戳);多出任何一行都是這一輪留下的東西。
 
 任何一條沒過:
 
@@ -243,6 +287,9 @@ task list(`TaskCreate`/`TaskUpdate`)隨進度更新——**那是 Adam 唯一看
 
 1. **實驗室現在的狀態**(放第一,因為這是他起床可能要立刻處理的):claim 釋放了沒、有沒有東西還在跑、機器乾不乾淨
 2. **修完了什麼**——每一項後面附「哪個測試看過紅」
+2b. 🆕 **回歸集的結果,一行**:`CELLS: <pass>/<total> pass, <fail> FAIL, <skip> SKIP`,後面接
+   **紅格數對上一次是多少**(上升＝有修法回歸了,那要升到第 1 段;下降＝有格被修回來了,寫是哪一格)。
+   翻紅的格名逐字列出來。這一行是他唯一能一眼看出「昨天修好的東西今天還好不好」的地方。
 3. **找到的 bug,照「能不能重現」排序,不是照嚴重度**。重現不了的放最後並註明試了幾次——一個穩定重現的小 bug 對他的價值遠高於一個看過一次的大 bug
 4. **累積的問題一次問完**,用互動表單:建議放第一、寫後果、末留自由輸入
 

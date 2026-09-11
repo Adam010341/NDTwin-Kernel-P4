@@ -1,0 +1,4 @@
+kernel=unknown
+ndt=bf539b577ca6af1311d6f767d430fb8b0fd2c6ca
+ndt_root=(pre-fix 3259d296^ copy)
+at=(replayed 2026-09-11)

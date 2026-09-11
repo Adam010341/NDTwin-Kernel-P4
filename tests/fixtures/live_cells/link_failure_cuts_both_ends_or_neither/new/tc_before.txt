@@ -1,0 +1,1 @@
+qdisc netem 8032: root refcnt 15 limit 1000 loss 100%

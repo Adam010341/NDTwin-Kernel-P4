@@ -1,0 +1,4 @@
+kernel=unknown
+ndt=ee2f3b36668f8968f41a98711caae151471084b5
+ndt_root=/home/adam/Desktop/NDTwin-Kernel
+at=2026-09-11T01:21:14+08:00

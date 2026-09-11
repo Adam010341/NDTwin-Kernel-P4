@@ -1,0 +1,1 @@
+machine netem count after cleanup: 0

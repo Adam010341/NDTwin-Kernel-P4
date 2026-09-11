@@ -1,0 +1,78 @@
+=== 51a first 'ndt up p4 4' (the A of the H3-P4 overlap)  start 2026-09-11 02:55:10 +0800
+ndt up p4
+  hosts        4        (p4_proxy/mininet/host_count_override)
+  topology     setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+
+  bmv2         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate  1/256     (compiled into ndtwin_switch.json)
+
+  recorded this target in .test_run/up.target -- 'ndt status --check' compares against it
+  claim note now says the lab is in use (owner and expiry unchanged)
+[1/3] bmv2 fabric
+      topo session started from /home/adam/Desktop/NDTwin-Kernel (attach: sudo tmux -L ndtwinlab attach -t topo)
+  waiting for 10 switches and the manifest
+  ok  10 switches up after 4s, manifest written
+  ok  running binary: /usr/local/bmv2-fast/bin/simple_switch_grpc
+[2/3] proxy + kernel
+  stack.sh prompt is answered immediately: the fabric is already up
+  XX  stack.sh up p4 exited 1
+      [1/3] data plane (bmv2 Mininet, needs sudo)
+        bmv2 must be listening before the proxy starts: the proxy is a gRPC client,
+        and it exits if it cannot reach the switches.
+        Mininet is interactive (it drops into a CLI) and needs root.
+        Start it in a separate terminal:
+      
+            sudo python3 /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/p4_testbed_topo.py
+      
+      [2/3] control plane (P4 proxy agent)
+        started p4_proxy (pid 69906) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+        waiting for P4 proxy agent on :8081 . up
+        cannot read expected counts from /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+      ; falling back to a fixed wait
+        waiting for link discovery to converge (300s)
+      [3/3] kernel
+        started kernel (pid 129221) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+        waiting for kernel API on :8000 . died
+        kernel exited while starting; :8000 may be held by something else
+        check /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log, then:  ss -ltnp | grep :8000
+        kernel did not open :8000; see /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+
+rollback
+  !!  stack.sh could not bring the proxy/kernel up over this fabric
+  this bring-up started: fabric stack -- taking them back down
+  stopping what stack.sh started (kernel, proxy, Ryu)
+        stopped p4_proxy
+        :30051 is still listening, held by a process this user cannot see (probably root-owned)
+        :30052 is still listening, held by a process this user cannot see (probably root-owned)
+        :30053 is still listening, held by a process this user cannot see (probably root-owned)
+        :30054 is still listening, held by a process this user cannot see (probably root-owned)
+        :30055 is still listening, held by a process this user cannot see (probably root-owned)
+        :30056 is still listening, held by a process this user cannot see (probably root-owned)
+        :30057 is still listening, held by a process this user cannot see (probably root-owned)
+        :30058 is still listening, held by a process this user cannot see (probably root-owned)
+        :30059 is still listening, held by a process this user cannot see (probably root-owned)
+        :30060 is still listening, held by a process this user cannot see (probably root-owned)
+        :9091 is still listening, held by a process this user cannot see (probably root-owned)
+        :9092 is still listening, held by a process this user cannot see (probably root-owned)
+        :9093 is still listening, held by a process this user cannot see (probably root-owned)
+        :9094 is still listening, held by a process this user cannot see (probably root-owned)
+        :9095 is still listening, held by a process this user cannot see (probably root-owned)
+        :9096 is still listening, held by a process this user cannot see (probably root-owned)
+        :9097 is still listening, held by a process this user cannot see (probably root-owned)
+        :9098 is still listening, held by a process this user cannot see (probably root-owned)
+        :9099 is still listening, held by a process this user cannot see (probably root-owned)
+        :9100 is still listening, held by a process this user cannot see (probably root-owned)
+  XX  stack.sh down exited 1
+  stopping the topology session
+      topo stopped
+  sweeping the data plane
+        none           ntg_bmv2_topo
+        none           p4_testbed_topo
+        none           OVS testbed_topo
+        none           NTG testbed_topo
+        none           simple_switch_grpc
+      cleanup done
+  XX  rollback INCOMPLETE -- see above. finish it by hand:  ndt down --deep
+  kept .test_run/up.target: this run asked for a fabric, so 'ndt status --check' still
+  has a baseline to judge the leftovers against. 'ndt down' is what clears it.
+=== up-A rc=1 secs=318 end 2026-09-11 03:00:28 +0800

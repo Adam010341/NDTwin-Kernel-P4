@@ -1,0 +1,130 @@
+ndt up p4
+  hosts        4        (p4_proxy/mininet/host_count_override)
+  topology     setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+  bmv2         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate  1/256     (compiled into ndtwin_switch.json)
+
+  !!  ports already held before bring-up (yours if a stack is up; otherwise the next
+  !!  run measures them). stack.sh refuses at wait_for_port if they are not ours:
+  residue: a process this user cannot see (probably root-owned) holding :30051 (tcp)
+           -> owner: bmv2 simple_switch_grpc, one port per device (grpc_ports.py GRPC_PORT_BASE + N)
+           -> if something else holds it: an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+  residue: a process this user cannot see (probably root-owned) holding :30052 (tcp)
+           -> owner: bmv2 simple_switch_grpc, one port per device (grpc_ports.py GRPC_PORT_BASE + N)
+           -> if something else holds it: an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+  residue: a process this user cannot see (probably root-owned) holding :30053 (tcp)
+           -> owner: bmv2 simple_switch_grpc, one port per device (grpc_ports.py GRPC_PORT_BASE + N)
+           -> if something else holds it: an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+  residue: a process this user cannot see (probably root-owned) holding :30054 (tcp)
+           -> owner: bmv2 simple_switch_grpc, one port per device (grpc_ports.py GRPC_PORT_BASE + N)
+           -> if something else holds it: an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+  residue: a process this user cannot see (probably root-owned) holding :30055 (tcp)
+           -> owner: bmv2 simple_switch_grpc, one port per device (grpc_ports.py GRPC_PORT_BASE + N)
+           -> if something else holds it: an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+  residue: a process this user cannot see (probably root-owned) holding :30056 (tcp)
+           -> owner: bmv2 simple_switch_grpc, one port per device (grpc_ports.py GRPC_PORT_BASE + N)
+           -> if something else holds it: an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+  residue: a process this user cannot see (probably root-owned) holding :30057 (tcp)
+           -> owner: bmv2 simple_switch_grpc, one port per device (grpc_ports.py GRPC_PORT_BASE + N)
+           -> if something else holds it: an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+  residue: a process this user cannot see (probably root-owned) holding :30058 (tcp)
+           -> owner: bmv2 simple_switch_grpc, one port per device (grpc_ports.py GRPC_PORT_BASE + N)
+           -> if something else holds it: an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+  residue: a process this user cannot see (probably root-owned) holding :30059 (tcp)
+           -> owner: bmv2 simple_switch_grpc, one port per device (grpc_ports.py GRPC_PORT_BASE + N)
+           -> if something else holds it: an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+  residue: a process this user cannot see (probably root-owned) holding :30060 (tcp)
+           -> owner: bmv2 simple_switch_grpc, one port per device (grpc_ports.py GRPC_PORT_BASE + N)
+           -> if something else holds it: an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+  residue: a process this user cannot see (probably root-owned) holding :9091 (tcp)
+           -> owner: bmv2 Thrift, one port per device (grpc_ports.py THRIFT_PORT_BASE + N)
+           -> if something else holds it: the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+  residue: a process this user cannot see (probably root-owned) holding :9092 (tcp)
+           -> owner: bmv2 Thrift, one port per device (grpc_ports.py THRIFT_PORT_BASE + N)
+           -> if something else holds it: the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+  residue: a process this user cannot see (probably root-owned) holding :9093 (tcp)
+           -> owner: bmv2 Thrift, one port per device (grpc_ports.py THRIFT_PORT_BASE + N)
+           -> if something else holds it: the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+  residue: a process this user cannot see (probably root-owned) holding :9094 (tcp)
+           -> owner: bmv2 Thrift, one port per device (grpc_ports.py THRIFT_PORT_BASE + N)
+           -> if something else holds it: the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+  residue: a process this user cannot see (probably root-owned) holding :9095 (tcp)
+           -> owner: bmv2 Thrift, one port per device (grpc_ports.py THRIFT_PORT_BASE + N)
+           -> if something else holds it: the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+  residue: a process this user cannot see (probably root-owned) holding :9096 (tcp)
+           -> owner: bmv2 Thrift, one port per device (grpc_ports.py THRIFT_PORT_BASE + N)
+           -> if something else holds it: the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+  residue: a process this user cannot see (probably root-owned) holding :9097 (tcp)
+           -> owner: bmv2 Thrift, one port per device (grpc_ports.py THRIFT_PORT_BASE + N)
+           -> if something else holds it: the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+  residue: a process this user cannot see (probably root-owned) holding :9098 (tcp)
+           -> owner: bmv2 Thrift, one port per device (grpc_ports.py THRIFT_PORT_BASE + N)
+           -> if something else holds it: the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+  residue: a process this user cannot see (probably root-owned) holding :9099 (tcp)
+           -> owner: bmv2 Thrift, one port per device (grpc_ports.py THRIFT_PORT_BASE + N)
+           -> if something else holds it: the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+  residue: a process this user cannot see (probably root-owned) holding :9100 (tcp)
+           -> owner: bmv2 Thrift, one port per device (grpc_ports.py THRIFT_PORT_BASE + N)
+           -> if something else holds it: the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+    :30051 (tcp) is held by a process this user cannot see (root-owned, or no ss).
+       not refused: bmv2 runs as root, so a live P4 fabric always looks like this.
+    :30052 (tcp) is held by a process this user cannot see (root-owned, or no ss).
+       not refused: bmv2 runs as root, so a live P4 fabric always looks like this.
+    :30053 (tcp) is held by a process this user cannot see (root-owned, or no ss).
+       not refused: bmv2 runs as root, so a live P4 fabric always looks like this.
+    :30054 (tcp) is held by a process this user cannot see (root-owned, or no ss).
+       not refused: bmv2 runs as root, so a live P4 fabric always looks like this.
+    :30055 (tcp) is held by a process this user cannot see (root-owned, or no ss).
+       not refused: bmv2 runs as root, so a live P4 fabric always looks like this.
+    :30056 (tcp) is held by a process this user cannot see (root-owned, or no ss).
+       not refused: bmv2 runs as root, so a live P4 fabric always looks like this.
+    :30057 (tcp) is held by a process this user cannot see (root-owned, or no ss).
+       not refused: bmv2 runs as root, so a live P4 fabric always looks like this.
+    :30058 (tcp) is held by a process this user cannot see (root-owned, or no ss).
+       not refused: bmv2 runs as root, so a live P4 fabric always looks like this.
+    :30059 (tcp) is held by a process this user cannot see (root-owned, or no ss).
+       not refused: bmv2 runs as root, so a live P4 fabric always looks like this.
+    :30060 (tcp) is held by a process this user cannot see (root-owned, or no ss).
+       not refused: bmv2 runs as root, so a live P4 fabric always looks like this.
+    :9091 (tcp) is held by a process this user cannot see (root-owned, or no ss).
+       not refused: bmv2 runs as root, so a live P4 fabric always looks like this.
+    :9092 (tcp) is held by a process this user cannot see (root-owned, or no ss).
+       not refused: bmv2 runs as root, so a live P4 fabric always looks like this.
+    :9093 (tcp) is held by a process this user cannot see (root-owned, or no ss).
+       not refused: bmv2 runs as root, so a live P4 fabric always looks like this.
+    :9094 (tcp) is held by a process this user cannot see (root-owned, or no ss).
+       not refused: bmv2 runs as root, so a live P4 fabric always looks like this.
+    :9095 (tcp) is held by a process this user cannot see (root-owned, or no ss).
+       not refused: bmv2 runs as root, so a live P4 fabric always looks like this.
+    :9096 (tcp) is held by a process this user cannot see (root-owned, or no ss).
+       not refused: bmv2 runs as root, so a live P4 fabric always looks like this.
+    :9097 (tcp) is held by a process this user cannot see (root-owned, or no ss).
+       not refused: bmv2 runs as root, so a live P4 fabric always looks like this.
+    :9098 (tcp) is held by a process this user cannot see (root-owned, or no ss).
+       not refused: bmv2 runs as root, so a live P4 fabric always looks like this.
+    :9099 (tcp) is held by a process this user cannot see (root-owned, or no ss).
+       not refused: bmv2 runs as root, so a live P4 fabric always looks like this.
+    :9100 (tcp) is held by a process this user cannot see (root-owned, or no ss).
+       not refused: bmv2 runs as root, so a live P4 fabric always looks like this.
+  recorded this target in .test_run/up.target -- 'ndt status --check' compares against it
+  claim note now says the lab is in use (owner and expiry unchanged)
+[1/3] bmv2 fabric
+  ok  already up: 10 switches, 4 hosts, reusing
+  ok  running binary: /usr/local/bmv2-fast/bin/simple_switch_grpc
+[2/3] proxy + kernel
+  stack.sh prompt is answered immediately: the fabric is already up
+        started p4_proxy (pid 1915753) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+        waiting for P4 proxy agent on :8081 . up
+        waiting for link discovery: want 12 destination paths
+          paths=0              paths=12                                                        converged after 5s
+        started kernel (pid 1916421) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+        waiting for kernel API on :8000 . up
+[3/3] verify
+  ok  proxy: 12/12 destination paths (stable)
+  ok  kernel: 10 switches, 10 up, 40 edges, 4 hosts
+  ok  model matches fabric: 4 hosts (kernel graph, topology file and 4 host namespaces all agree)
+Terminated
+  XX  data plane: h1 cannot reach 10.0.0.2 -- fabric is up but not forwarding
+  XX     the proxy reports its paths installed; that is not the same as bmv2 forwarding them
+
+up, but not verified -- do not measure on this
