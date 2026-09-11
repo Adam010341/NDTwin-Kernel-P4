@@ -4657,6 +4657,32 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 - **證據**：`test_ndt_honesty.sh` 6I／6J（9 格先紅）；`fix/FIX-NDT-4-SUMMARY.md` §6 逐字。
   ⚠️ 🟠 轉述；raw 在 `scratch/`，不在版控。
 
+### G-52 🔴 分支併進 trunk 之後，規格裡「這個只在分支上」的但書沒有人撤
+
+- **狀態**：**OPEN**（2026-09-12 FIX-DOC-1 §6；該單只修了 §2b／§2c 兩處，merge `01082389`，
+  其餘 8 處沒動）。 (numbered by KI-FOLLOWUP-2；該單自己標的是待編號的 `G-4x-a`)
+- **形狀**：`doc/2026-01-02_ndt_api.md` 用「branch `fix/…`, **not on `trunk`**」標註新端點與新欄位。
+  分支併進 trunk 時，改的是碼，**沒有任何東西要求回來撤這句話**——於是規格繼續告訴讀者
+  「你手上的 kernel 沒有這個端點」。
+- **證據（2026-09-12）**：§2b 逐字「a kernel built from `trunk` answers `404` to this path」；
+  trunk `d7aa176e`（binary sha256 前 16 `73c831b30bb49843`）實測 **HTTP 200**，
+  `tc[]` 兩筆 `ok:true`，`s1-eth1`／`s5-eth1` 各一條 `netem loss 100%`，圖 `edges up: 38/40`；
+  `inject_link_recovery` 同樣 200、netem 歸 0、40/40（`hunt-0911/logs/ROLE-11/08`、`11`、`12`、`17`）。
+  端點所在分支 `fix/w8-declared-link-failure-sticky` 於 **2026-09-10 由 `8b51caf4` 併入**，
+  `fix/w8b-…` 由 `fe2b03b8` 併入，兩者都是 `d7aa176e` 的祖先。
+- **母體**：同一檔另有 **8 處**同形狀的句子，分別指 `w8`／`w8b`／`w11` 三個**都已在 trunk 上**的分支
+  （base `d7aa176e` 的行號：`:6`、`:8`、`:78`、`:131`、`:214`、`:896`、`:1773`、`:5001`）。
+  `fix/r2-w17-logs` 是唯一真的還沒併的。
+- **失效方向：悲觀**。讀者斷定端點不存在 ⇒ 去 checkout 一個已經不存在必要的分支，
+  或看到 200 反而懷疑自己手上的 binary 不是 trunk。ROLE-11 的評語值得抄一句：
+  **它是整份手冊語氣最篤定的一句，也是唯一一句被實測推翻的。**
+- **修法**：(i) 一次 sweep，把八處逐條對 `git merge-base --is-ancestor <merge> trunk` 重判；
+  (ii) 長期解＝**但書帶合併條件**（「until `<merge sha>` lands」），或把「分支獨有」寫成
+  contract test 的一格（回歸格 3：trunk 建出來的 kernel 對 `inject_link_failure` **不得**回 404），
+  它同時是這種但書的到期偵測器。
+- 〔FIX-DOC-1 §6 的第二條 `G-4x-b`（`ndt help` 的 `--deep` 仍寫三個 port）**不在這裡開號**：
+  那與 FIX-NDT-6 §6 的 **G-46** 是同一件事，依工單取 G-46。〕
+
 > 🔗 **A1（`POST /ndt/inject_link_recovery` 把不是自己掛的 netem 也拆掉，2026-09-11 live 3/3）
 > 不在這裡登記**——那一條由 `fix/link-recovery-only-detaches-its-own-netem` 自己登記（09-11 授權）。
 > 本次收條目時（2026-09-11 03:0x）該分支還沒併進 trunk；若它比本次晚併，這一行就是它的入口。
