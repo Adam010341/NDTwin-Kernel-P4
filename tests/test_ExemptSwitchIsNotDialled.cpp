@@ -900,3 +900,126 @@ TEST_F(ExemptSwitchTest, EveryExitOfThePowerReportCarriesThePath)
     EXPECT_EQ(entryForDpid(report, 9).at("power_path"), "ssh") << report.dump();
     EXPECT_EQ(entryForDpid(report, 10).at("power_path"), "ssh") << report.dump();
 }
+
+// -------------------------------------------------------------------------------------------
+// 11. getSingleSwitchPowerReport says which path its figure came from, like the report next door.
+// -------------------------------------------------------------------------------------------
+//
+// [Co-developed with claude code -- Adam]
+//
+// WHY THIS EXISTS. Section 10 put the mark on fetchPowerReportInternal, and
+// scratch/overnight-2026-09-05/fix/R5-POWER-REPORT-SUMMARY.md registered what it had not
+// touched, verbatim: "🔴 getSingleSwitchPowerReport 沒有跟著加. 它已經有 E-23 的 exempt 鍵
+// (TESTBED), 但 MININET 下同樣回一個沒有記號的合成值." Adam's ruling of 2026-09-10 -- the one
+// section 10 quotes -- was that this family answers in get_graph_data's vocabulary, and this is
+// the second of the two power exits that answers a CALLER rather than filling a cache: its reader
+// is the Intent Translator (src/ndt_core/intent_translator/IntentTranslator.cpp:494), which turns
+// the figure into a sentence for a human.
+//
+// 🔴 THE MARK, NOT THE VALUE, for the reason section 10 gives at length: E-23 deliberately left
+// the MININET figure alone because syntheticPowerMilliwattsFor(dpid) is a function of the dpid
+// and was never a question asked of the machine, and M11 of this suite's gate pins the widening
+// that would take it away. Every number here is unchanged, and
+// MininetStillGivesTheExemptSwitchTheSameSyntheticFigureThroughBothPaths (section 7) is the case
+// that says so; these three add the key and the agreement between the two copies.
+//
+// 🔴 The two "no figure at all" exits are deliberately NOT marked: a switch this endpoint cannot
+// find, and one carrying no management address, both answer `{}` (FINDINGS #88 -- "this endpoint
+// is keyed by address and there is no address here to key it by"). There is no power_consumed on
+// those replies for a power_path to qualify, and inventing a body for them would be a contract
+// change rather than a mark.
+
+TEST_F(ExemptSwitchTest, TheSingleSwitchPowerReportSaysWhichPathItsFigureCameFrom)
+{
+    // MININET, the mode where the number alone carries no information whatsoever: both figures
+    // below are synthetic and both are plausible.
+    buildManager(utils::MININET);
+    addSwitch(kExemptIp, kExemptDpid, kUnknownBrand);
+    addSwitch(kOvsIp, kOvsDpid, std::string(kBrandOVS));
+
+    const json exempt = m_manager->getSingleSwitchPowerReport(kExemptIp);
+    const json ovs = m_manager->getSingleSwitchPowerReport(kOvsIp);
+
+    ASSERT_TRUE(exempt.contains("power_path"))
+        << "the Intent Translator is handed an unqualified figure for a switch this build has no "
+           "power path for, and turns it into a sentence for a human: "
+        << exempt.dump();
+    EXPECT_EQ(exempt.at("power_path"), "none")
+        << "not the vocabulary /ndt/get_graph_data and /ndt/get_power_report publish for the same "
+           "vertex: "
+        << exempt.dump();
+    ASSERT_TRUE(ovs.contains("power_path")) << ovs.dump();
+    EXPECT_EQ(ovs.at("power_path"), "synthetic") << ovs.dump();
+
+    // 🔴 The zero-discrimination point, the same one section 10 makes: both figures sit in the
+    // synthetic band, so the key above is the ONLY thing in either reply that tells the exempted
+    // machine from the one this build can drive. If this stops holding, the two replies differ by
+    // something else and the assertions above are no longer asserting what they claim to.
+    const auto exemptMw = exempt.at("power_consumed").get<std::int64_t>();
+    const auto ovsMw = ovs.at("power_consumed").get<std::int64_t>();
+    EXPECT_GE(exemptMw, 30000) << exempt.dump();
+    EXPECT_LE(exemptMw, 149999) << exempt.dump();
+    EXPECT_GE(ovsMw, 30000) << ovs.dump();
+    EXPECT_LE(ovsMw, 149999) << ovs.dump();
+    EXPECT_NE(exempt.at("power_path"), ovs.at("power_path"))
+        << "the two replies are indistinguishable, so this case is pinning nothing: "
+        << exempt.dump() << " / " << ovs.dump();
+}
+
+TEST_F(ExemptSwitchTest, TheTestbedSingleSwitchReplySaysWhetherItsMinusOneIsUnaskedOrUnanswered)
+{
+    // The sentence doc/2026-01-02_ndt_api.md §6 has carried since E-23 -- "a -1 from a switch
+    // whose power_path is snmp or ssh is a device that did not answer; a -1 from one whose
+    // power_path is none is a device nobody asked" -- was not checkable on THIS reply, because
+    // it carried `exempt` prose and no path. The prose stays: it is what the Intent Translator
+    // turns into a sentence, and E-23's own comment says this "is not an error and must not be
+    // shaped like one".
+    buildManager(utils::TESTBED);
+    addTheExemptSwitchAndItsControl();
+
+    const json exempt = m_manager->getSingleSwitchPowerReport(kExemptIp);
+
+    EXPECT_EQ(m_manager->dialled.size(), 0u) << m_manager->dialledLog();
+    EXPECT_EQ(exempt.at("power_consumed"), DialCountingManager::kHealthMetricUnavailable)
+        << exempt.dump();
+    EXPECT_EQ(exempt.at("power_path"), "none")
+        << "the -1 is unqualified, so it reads as a switch that failed to answer: "
+        << exempt.dump();
+    ASSERT_TRUE(exempt.contains("exempt"))
+        << "E-23's reason went away with this change; the key was supposed to be additive: "
+        << exempt.dump();
+
+    // The control. It WAS dialled -- the counting double answers with an empty reply, which is
+    // what a machine that does not answer produces -- and its reply says a path exists for it.
+    const json brocade = m_manager->getSingleSwitchPowerReport(kBrocadeIp);
+    EXPECT_EQ(m_manager->dialledMentioning(kBrocadeIp), 1u) << m_manager->dialledLog();
+    EXPECT_EQ(brocade.at("power_path"), "ssh")
+        << "the non-exempt switch is marked as though nobody managed it either, i.e. the mark is "
+           "wider than the exemption: "
+        << brocade.dump();
+    EXPECT_FALSE(brocade.contains("exempt")) << brocade.dump();
+}
+
+TEST_F(ExemptSwitchTest, BothPowerCopiesAgreeAboutThePathAsWellAsTheFigure)
+{
+    // The two copies of the synthetic figure are the reason this file's header names them
+    // together, and section 7 already pins that the NUMBERS agree. A mark added to one copy and
+    // not the other is the same defect one level up: the report would say "none" and the
+    // Translator's own lookup would say nothing at all, about the same vertex, in the same round.
+    buildManager(utils::MININET);
+    addSwitch(kExemptIp, kExemptDpid, kUnknownBrand);
+    addSwitch(kOvsIp, kOvsDpid, std::string(kBrandOVS));
+
+    const json report = m_manager->fetchPowerReportInternal();
+    for (const auto& ip : {kExemptIp, kOvsIp})
+    {
+        const json single = m_manager->getSingleSwitchPowerReport(ip);
+        const json fromReport = entryForDpid(report, single.at("dpid").get<std::uint64_t>());
+        EXPECT_EQ(single.at("power_path"), fromReport.at("power_path"))
+            << "the two power exits disagree about the same vertex's path: " << single.dump()
+            << " vs " << fromReport.dump();
+        EXPECT_EQ(single.at("power_consumed"), fromReport.at("power_consumed"))
+            << "and about the figure, which R5 did not touch: " << single.dump() << " vs "
+            << fromReport.dump();
+    }
+}

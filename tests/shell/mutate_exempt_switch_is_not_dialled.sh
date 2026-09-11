@@ -333,6 +333,24 @@ mutate_must_die \
     '        else if (m_mode != utils::DeploymentMode::MININET && exemptFromBrandPathsForReport(vp))'
 
 # --- M5: the single-switch power report dials again --------------------------------------------
+#
+# 🔴 RE-ANCHORED 2026-09-11 (FIX-CPP-SMALL-1 item 3), the same way R5 re-anchored M7 of
+# mutate_cpu_report_no_ip.sh on 2026-09-10 and for the same reason: the code this mutation removes
+# moved under it. getSingleSwitchPowerReport's two exits that carry a figure now build it through
+# one entryFor lambda so that both carry power_path, so the three-line `return {{"dpid", ...}}`
+# this anchor used to name verbatim no longer exists; the branch is the same branch and the
+# mutation is the same mutation.
+#
+# 🔴 HOW IT WAS FOUND, because the shape is worth keeping: the first run after item 3
+# (logs/gates-0910/mutate_exempt_switch_is_not_dialled.cpp1-0911-r1.log) reported
+# `INVALID  M5 ... (anchor did not apply; file unchanged)` -- NOT an anchor-count failure, because
+# the single-line $6 this call passes (the `if (m_mode ...)` line) was still there and still
+# unique. An anchor whose uniqueness line survives a rewrite of its body is exactly the case
+# assert_unique cannot see, and `cmp -s` after the edit is what caught it.
+#
+# 🔴 AND THE ANCHOR CARRIES NO APOSTROPHE, which is why the branch it names carries none either:
+# this is a single-quoted shell argument, so one ' inside it ends the argument and bash reports
+# the damage as a syntax error somewhere else entirely. That happened once while re-cutting it.
 mutate_must_die \
     "M5 E-23 site 5: single power dials it again" \
     "ExemptSwitchTest.TheSingleSwitchPowerReportSaysExemptRatherThanFailing" \
@@ -341,9 +359,18 @@ mutate_must_die \
         {
             const std::string note = exemptionNoteFor(props);
             SPDLOG_LOGGER_INFO(Logger::instance(), "{}", note);
-            return {{"dpid", props.dpid},
-                    {"power_consumed", kHealthMetricUnavailable},
-                    {"exempt", note}};
+            nlohmann::json reply = entryFor(kHealthMetricUnavailable);
+            // The E-23 prose is kept as a separate key: it is what the Intent Translator turns
+            // into a sentence for a human, and the comment above says this "is not an error and
+            // must not be shaped like one". `power_path` is the machine-readable half of the
+            // same fact, spelled the way every other endpoint spells it.
+            //
+            // 🔴 NO APOSTROPHE ANYWHERE IN THIS BRANCH, deliberately: mutate_exempt_switch_is_
+            // not_dialled.sh M5 carries this whole block as a single-quoted shell anchor, and
+            // a single quote inside one ends the argument. The gate said so on 2026-09-11 as a
+            // bash syntax error at an unrelated line, which is how that failure reads.
+            reply["exempt"] = note;
+            return reply;
         }
 ' \
     '        // MUTANT M5: the exemption is not consulted here any more.
@@ -517,6 +544,27 @@ mutate_must_live \
     '            result_json[ip_str] = -1;
             continue;' \
     '            result_json[ip_str] = kHealthMetricUnavailable;'
+
+# --- M15: the OTHER copy of the figure goes back to an unqualified number ----------------------
+# FIX-CPP-SMALL-1 item 3, 2026-09-11. R5 marked fetchPowerReportInternal (M14 above) and
+# registered what it had not touched, verbatim: "🔴 getSingleSwitchPowerReport 沒有跟著加"
+# (fix/R5-POWER-REPORT-SUMMARY.md 🔴3). That is the copy the Intent Translator reads
+# (IntentTranslator.cpp:494), and it has no HTTP route of its own, so nothing on the wire was
+# going to notice.
+#
+# 🔴 M14 CANNOT SEE THIS ONE: the two exits live in different functions, each with its own
+# entryFor lambda, and that is the whole reason the pair needs two mutations rather than one.
+# Only the key is dropped -- no number moves -- for the same reason M14 gives.
+mutate_must_die \
+    "M15 R5: getSingleSwitchPowerReport drops power_path" \
+    "ExemptSwitchTest.TheSingleSwitchPowerReportSaysWhichPathItsFigureCameFrom" \
+    "$SRC" \
+    '            return nlohmann::json{{"dpid", props.dpid},
+                                  {"power_consumed", milliwatts},
+                                  {"power_path", props.powerPath}};' \
+    '            return nlohmann::json{{"dpid", props.dpid},
+                                  {"power_consumed", milliwatts}};' \
+    '                                  {"power_path", props.powerPath}};'
 
 # --- restoration and verdict -------------------------------------------------------------------
 
