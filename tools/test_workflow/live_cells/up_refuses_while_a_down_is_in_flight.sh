@@ -79,9 +79,21 @@ cell_judge() {
     a_has   h3_refusal_names_the_teardown \
             "refusing to build: an 'ndt down' from this checkout is still running" "$d/up.log"
     a_has   h3_refusal_quotes_the_marker            '.test_run/down.inflight'       "$d/up.log"
-    # The pre-fix sentence, on the plane where it was printed.
-    a_hasnt h3_did_not_reuse_the_fabric             'already up:'                   "$d/up.log"
-    a_hasnt h3_did_not_verify_a_dying_fabric        'model matches fabric'          "$d/up.log"
+    # The pre-fix sentences, on the plane where they were printed.
+    #
+    # 🔴 THE `ok  ` PREFIX IS THE DISCRIMINATOR, and it cost this cell its first live run.
+    # `guard_no_teardown_in_flight`'s refusal QUOTES both of these strings back at the operator as
+    # its own explanation of what the overlap used to do:
+    #     XX    being destroyed. Measured 09-11: [1/3] said 'already up: 10 switches, reusing',
+    #     XX    [3/3] passed 'model matches fabric', and the fabric was mid-SIGTERM. The teardown
+    # So `a_hasnt 'already up:'` fired on the FIXED ndt -- a red cell over a correct refusal,
+    # measured live 2026-09-11 13:28:55. The old fixture was no help: there the strings really
+    # were the stage banners, so the assertions looked load-bearing and the gate agreed. What
+    # separates the two is the `ok  ` that only a passing stage prints; the quotes live on `XX `
+    # lines. A needle that appears inside the very message whose presence is being asserted
+    # elsewhere in the same judge is not a needle.
+    a_hasnt h3_did_not_reuse_the_fabric             'ok  already up:'               "$d/up.log"
+    a_hasnt h3_did_not_verify_a_dying_fabric        'ok  model matches fabric:'     "$d/up.log"
     a_eq    h3_up_rc_is_1                    "1"    "$(cat "$d/up.rc" 2>/dev/null)"
     secs="$(cat "$d/up.secs" 2>/dev/null)"
     if [[ "$secs" =~ ^[0-9]+$ ]] && (( secs <= 30 )); then

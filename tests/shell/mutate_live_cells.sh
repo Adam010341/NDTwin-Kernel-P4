@@ -130,13 +130,23 @@ mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replac
     rm -rf "$d"; mkdir -p "$d"
     cp "$CELLDIR"/*.sh "$d/"
     chmod +x "$d"/*.sh
-    python3 - "$d/$(basename "$file")" "$old" "$new" <<'PY'
+    # 🔴 AN ANCHOR THAT WILL NOT APPLY IS A SURVIVOR, AND IT SAYS SO. The mutant directory is
+    # returned either way -- an unmutated copy discriminates, so `report` scores it SURVIVED,
+    # which is the honest verdict (tests/shell/README.md §1: `SURVIVED (anchor could not be
+    # applied)` is what a hole in the tests looks like). What was missing until 2026-09-11 13:4x
+    # was the REASON: narrowing two needles in the cells left these two anchors stale, the gate
+    # said `2 survived` with no explanation, and "the assertion is not load-bearing" is a very
+    # different diagnosis from "the gate can no longer find the line".
+    if ! python3 - "$d/$(basename "$file")" "$old" "$new" > "$d/.apply.err" 2>&1 <<'PY'
 import sys
 p, a, b = sys.argv[1], sys.argv[2], sys.argv[3]
 s = open(p).read()
 assert s.count(a) == 1, "anchor not unique (%d hits): %s" % (s.count(a), a[:70])
 open(p, "w").write(s.replace(a, b))
 PY
+    then
+        printf 'ANCHOR-NOT-APPLIED %s\n' "$label" > "$d/.unapplied"
+    fi
     echo "$d"
 }
 
@@ -145,8 +155,13 @@ report() {   # $1 = label, $2 = mutant dir, $3 = the cell whose fixture check mu
     MUTATIONS=$((MUTATIONS+1))
     if check_cell "$2" "$3"; then
         SURVIVORS=$((SURVIVORS+1))
-        printf '  SURVIVED %-62s (%s still discriminates -- that assertion is not load-bearing)\n' "$1" "$3"
-        VERBOSE_CHECK=1 check_cell "$2" "$3" | sed 's/^/           /'
+        if [[ -f "$2/.unapplied" ]]; then
+            printf '  SURVIVED %-62s (anchor could not be applied -- the gate cannot find that line any more)\n' "$1"
+            sed 's/^/           /' "$2/.apply.err"
+        else
+            printf '  SURVIVED %-62s (%s still discriminates -- that assertion is not load-bearing)\n' "$1" "$3"
+            VERBOSE_CHECK=1 check_cell "$2" "$3" | sed 's/^/           /'
+        fi
     else
         printf '  caught   %-62s (%s stopped telling old/ from new/)\n' "$1" "$3"
     fi
@@ -271,7 +286,7 @@ report "M11 (widen)  H4: building the fabric first becomes acceptable" "$m" up_r
 
 # --- up_refuses_while_a_down_is_in_flight ---
 m=$(mutant m11 "$CELL_URWADIIF" \
-    '    a_hasnt h3_did_not_reuse_the_fabric             '"'"'already up:'"'"'                   "$d/up.log"' \
+    '    a_hasnt h3_did_not_reuse_the_fabric             '"'"'ok  already up:'"'"'               "$d/up.log"' \
     '    :')
 report "M12 (delete) H3: 'reusing' the fabric being destroyed" "$m" up_refuses_while_a_down_is_in_flight
 m=$(mutant m12 "$CELL_URWADIIF" \
@@ -305,7 +320,7 @@ m=$(mutant m17 "$CELL_LFCBEON" \
     '    :')
 report "M18 (delete) A1: the far end's qdisc is not read" "$m" link_failure_cuts_both_ends_or_neither
 m=$(mutant m18 "$CELL_LFCBEON" \
-    "    a_hasnt a1f_does_not_claim_injected       'link failure injected'                  \"\$d/failure.body\"" \
+    "    a_hasnt a1f_does_not_claim_injected       '\"status\":\"link failure injected\"'       \"\$d/failure.body\"" \
     '    _a_ok   a1f_does_not_claim_injected "(widening: the status line may claim a cut that did not happen)"')
 report "M19 (widen)  A1: 'link failure injected' over nothing attached" "$m" link_failure_cuts_both_ends_or_neither
 
@@ -397,6 +412,8 @@ if [[ "$BASE_SHA" != "$NOW_SHA" ]]; then
 fi
 
 echo
-printf '%s mutations, %s survived;  %s controls, %s wrongly caught;  %s fixture checks, %s failed, %s pending (no new/ yet)\n' \
+printf '%s mutations, %s survived;  %s controls, %s wrongly caught;  %s fixture checks, %s failed, %s pending (a cell with no new/ fixture)\n' \
     "$MUTATIONS" "$SURVIVORS" "$CONTROLS" "$CONTROL_BAD" "$CHECKS" "$CHECKFAIL" "$PENDING"
+# (the trailing label is a definition of `pending`, not a claim: it reads `0 pending` once every
+#  cell has a new/ fixture, and saying "no new/ yet" there would be false)
 (( SURVIVORS == 0 && CHECKFAIL == 0 && CONTROL_BAD == 0 ))

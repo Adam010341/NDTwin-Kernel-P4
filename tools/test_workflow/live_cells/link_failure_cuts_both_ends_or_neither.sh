@@ -82,7 +82,16 @@ cell_judge() {
     # 🔴 THE KEY ASSERTION, on the wire: with one end refused, the other end is NOT cut.
     a_hasnt a1f_far_end_was_not_cut           'netem'   "$d/tc_after_far.txt"
     # ... and the status line does not claim a cut that did not happen.
-    a_hasnt a1f_does_not_claim_injected       'link failure injected'                  "$d/failure.body"
+    #
+    # 🔴 THE FIELD, not the phrase, and this cost the cell its first live run. The fixed reply
+    # EXPLAINS the old defect in its own prose: the far end's refusal reads "... and a link
+    # failure injected at one end only is a different, subtler fault (faults.txt L-2) ...", so
+    # `a_hasnt 'link failure injected'` fired on a body whose status field was already the right
+    # one. Measured live 2026-09-11 13:30:32. The old fixture could not have shown it -- there the
+    # phrase really was the status -- which makes this the second instance in one afternoon of the
+    # same shape: a good fix quotes the defect it fixed, so an ABSENCE needle has to be scoped to
+    # the field it is about. (The first was h3_did_not_reuse_the_fabric.)
+    a_hasnt a1f_does_not_claim_injected       '"status":"link failure injected"'       "$d/failure.body"
     a_has   a1f_says_nothing_was_attached     'link failure declared; nothing was attached' "$d/failure.body"
     # The reply says which half happened, rather than leaving it to be inferred from an array.
     a_has   a1f_names_the_half_that_happened  'no netem was attached to either end'     "$d/failure.body"
