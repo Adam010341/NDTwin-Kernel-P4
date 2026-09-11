@@ -261,6 +261,49 @@ DOWN_REASONS = ("none", "switch-unreachable", "declared")
 DECLARED = "declared"
 assert DECLARED in DOWN_REASONS, "the declaration value must be part of the down_reason vocabulary"
 
+# [Co-developed with claude code -- Adam]
+# doc/KNOWN-ISSUES.md G-32, Adam's ruling of 2026-09-11 (option C). Every northbound write that
+# reaches the data plane now carries what the kernel could see of the lab claim when it answered.
+#
+# 🔴 OPTIONAL, and it has to stay optional: a kernel built before 2026-09-11 emits none of this,
+# and tools/test_workflow/stack.sh is the only launcher that sets NDT_LAB_CLAIM_FILE -- a kernel
+# started by hand, or with `--mode physical`, has no claim file to read. What the schema pins is
+# the VOCABULARY, because "none" is the word a caller reads to know its write went into a lab
+# nobody had claimed, and a fourth spelling would read as "some state we have not heard of".
+#
+# `expires_at` is 0, never absent, when the claim's own `expires=` could not be read -- so a
+# caller can tell "lapsed at <t>" from "never said when". `owner` and `note` are free text out of
+# a file any script may write, so neither is nonempty=True.
+LAB_CLAIM = Obj({
+    "state": Str(allowed=("none", "active", "expired")),
+    "owner": Str(),
+    "expires_at": Int(min=0),
+    "note": Str(),
+})
+
+#: The entries in THIS table that the kernel marks. The kernel marks twelve TARGETS
+#: (HttpSession.cpp's kWrites); eight of them have an entry here -- there is no group or meter
+#: entry in this table at all, and the error-path entries (install_flow_entry__unknown_dpid and
+#: its siblings) reuse the refusal schemas, where Obj's non-strict default already accepts the
+#: key. Kept beside the schema because the failure this guards is the key landing on some of the
+#: family and not the rest, and only a list can be checked against the kernel's own list.
+LAB_CLAIM_BEARING_ENDPOINTS = (
+    "install_flow_entry",
+    "modify_flow_entry",
+    "delete_flow_entry",
+    "batch_flow_entries",
+    "batch_flow_entries__mixed_known_and_unknown_dpid",
+    "inject_link_failure",
+    "inject_link_recovery",
+    "inject_link_recovery_cleanup",
+)
+
+#: Shared by the three single-entry flow writes, whose reply shapes are identical. Three copies of
+#: one optional set is three places for it to drift apart -- the F-1 lesson -- and sharing it also
+#: means a gate can take `lab_claim` away from all three in one edit, which is what
+#: tests/shell/mutate_lab_claim_on_writes.sh's M10 does.
+FLOW_WRITE_OPTIONAL = {"detail": Str(), "lab_claim": LAB_CLAIM}
+
 # --- the four link endpoints ------------------------------------------------------
 # [Co-developed with claude code -- Adam]
 # Adam's ruling E-21, 2026-09-07: /ndt/link_failure_detected, /ndt/link_recovery_detected,
@@ -365,10 +408,11 @@ LINK_FAILURE_INJECTED = Obj({
     "down_reason": Str(allowed=(DECLARED,)),
     "until": Str(allowed=("/ndt/inject_link_recovery",)),
     "tc": TC_REPORT,
-})
+}, optional={"lab_claim": LAB_CLAIM})
 
 #: §2c success.
-LINK_RECOVERY_INJECTED = Obj({"status": Str(nonempty=True), "tc": TC_REPORT})
+LINK_RECOVERY_INJECTED = Obj({"status": Str(nonempty=True), "tc": TC_REPORT},
+                             optional={"lab_claim": LAB_CLAIM})
 
 FLOW_KEY = Obj({
     "src_ip": Int(min=0, max=UINT32_MAX),
@@ -2168,7 +2212,7 @@ ENDPOINTS = [
              "match": {"eth_type": 2048, "ipv4_dst": ctx.probe_ip},
              "actions": [{"type": "OUTPUT", "port": 1}]},
          category=MUTATE, schema=Obj({"status": Str(nonempty=True), "accepted": Int(min=0)},
-                     optional={"detail": Str()}),
+                     optional=FLOW_WRITE_OPTIONAL),
          invariants=[inv_flow_write_is_honest_about_being_queued]),
 
     dict(name="modify_flow_entry", method="POST", path="/ndt/modify_flow_entry",
@@ -2177,7 +2221,7 @@ ENDPOINTS = [
              "match": {"eth_type": 2048, "ipv4_dst": ctx.probe_ip},
              "actions": [{"type": "OUTPUT", "port": 2}]},
          category=MUTATE, schema=Obj({"status": Str(nonempty=True), "accepted": Int(min=0)},
-                     optional={"detail": Str()}),
+                     optional=FLOW_WRITE_OPTIONAL),
          invariants=[inv_flow_write_is_honest_about_being_queued]),
 
     dict(name="delete_flow_entry", method="POST", path="/ndt/delete_flow_entry",
@@ -2185,7 +2229,7 @@ ENDPOINTS = [
              "dpid": ctx.a_dpid,
              "match": {"eth_type": 2048, "ipv4_dst": ctx.probe_ip}},
          category=MUTATE, schema=Obj({"status": Str(nonempty=True), "accepted": Int(min=0)},
-                     optional={"detail": Str()}),
+                     optional=FLOW_WRITE_OPTIONAL),
          invariants=[inv_flow_write_is_honest_about_being_queued]),
 
     dict(name="batch_flow_entries", method="POST",
@@ -2201,7 +2245,8 @@ ENDPOINTS = [
                  "match": {"eth_type": 2048, "ipv4_dst": ctx.probe_ip}}]},
          category=MUTATE, schema=Obj({"status": Str(nonempty=True), "accepted": Int(min=0)},
                      optional={"detail": Str(), "rejected": Int(min=0),
-                               "rejected_dpids": List(Int(min=0))}),
+                               "rejected_dpids": List(Int(min=0)),
+                               "lab_claim": LAB_CLAIM}),
          invariants=[inv_flow_write_is_honest_about_being_queued]),
 
     # [Co-developed with claude code -- Adam]
@@ -2228,7 +2273,7 @@ ENDPOINTS = [
          category=MUTATE, expect_status=[200],
          schema=Obj({"status": Str(nonempty=True), "accepted": Int(min=1),
                      "rejected": Int(min=1), "rejected_dpids": List(Int(min=0), min_len=1)},
-                    optional={"detail": Str()}),
+                    optional={"detail": Str(), "lab_claim": LAB_CLAIM}),
          note="the good entry must still be accepted, and the bad dpid must be named in"
               " rejected_dpids -- naming it is what makes a 200 checkable"),
 

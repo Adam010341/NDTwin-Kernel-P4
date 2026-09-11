@@ -215,3 +215,22 @@ WARNING | ^Rejecting simulation case: body is not valid JSON | 400 path; L2's re
 WARNING | ^Rejecting simulation case: missing required field | 400 path; L2's received_a_simulation_case__missing_fields
 WARNING | ^Rejecting simulation result: app_id .* is not a valid id | 400 path; L2's simulation_completed__malformed
 WARNING | ^intent_translator requested but the translator is disabled | 503 path; L2's intent_translator_text__incomplete_body. stack.sh always starts the kernel --no-ai, so the guard added 2026-08-11 answers every call this way -- the warning is the guard working, not a fault
+
+# ============================================================================
+# The lab claim changing hands under a northbound write
+# ----------------------------------------------------------------------------
+# [Co-developed with claude code -- Adam]
+#
+# doc/KNOWN-ISSUES.md G-32, Adam's ruling of 2026-09-11 (option C). Measured 2026-09-11
+# 02:01:16-02:02:45 (ROLE-4 T4): a loop writing flow entries every two seconds went
+# through the second its own claim expired AND through another owner taking the claim,
+# 200 both times, and only found out when that owner tore the kernel down. The kernel
+# now says so once per change. It still refuses nothing -- the refusal is option A and
+# was declined, because it would cut off every client that does not carry an identity.
+#
+# WARNING rather than INFO deliberately: the whole value of option C is that the
+# handover is findable afterwards, and `ndt status` reads the kernel log. One line per
+# CHANGE, never per request, so a run in which nobody touches the claim produces none of
+# these and this entry sits unused -- expected, the same way the A-9 lease entries do.
+# ============================================================================
+WARNING | ^lab claim changed under a write endpoint: | G-32 option C, 2026-09-11: the file named by NDT_LAB_CLAIM_FILE changed owner, changed expiry, or lapsed while this kernel was serving northbound writes. Nothing was refused; the reply carries the same answer in its lab_claim object

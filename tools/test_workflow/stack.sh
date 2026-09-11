@@ -1036,7 +1036,7 @@ cmd_up() {
     # kernel that is already running -- start_bg's own rule, and the reason it is worth naming
     # here rather than being discovered as a surprise.
     start_bg kernel "$LOG_DIR/kernel.log" \
-        bash -c "cd '$KERNEL_DIR/build' && exec ./bin/ndtwin_kernel --mode mininet --topology '$topo' --no-ai"
+        bash -c "export NDT_LAB_CLAIM_FILE='$KERNEL_DIR/.test_run/lab.claim'; cd '$KERNEL_DIR/build' && exec ./bin/ndtwin_kernel --mode mininet --topology '$topo' --no-ai"
     wait_for_port 8000 "kernel API" 40 kernel || {
         err "  kernel did not open :8000; see $LOG_DIR/kernel.log"; return 1; }
 

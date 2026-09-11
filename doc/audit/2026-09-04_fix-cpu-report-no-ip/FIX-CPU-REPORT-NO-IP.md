@@ -186,6 +186,23 @@ not with undefined behaviour later"）**，是別的 session 為 F-61/62 做的�
 | `IntentTranslator.cpp:212 / 657 / 665 / 702 / 738` | `getSwitchIpByName`／`performTask` |
 | `LLMAgent.cpp:243` | `getCurrentTopology` |
 
+
+🔴 **2026-09-11 就地加註（只加，上面那張表一個字都沒改）**：表裡最後一列的
+`LLMAgent.cpp:243` `getCurrentTopology` **已經不存在了**——它於 2026-09-11 連同宣告、
+`friend class AddresslessTopologyPeer` 測試 seam、兩支測試與 `mutate_index_zero_guards.sh`
+的 M3／M10／C3 三格變異一起刪除。理由不是「走不到」而是**沒有呼叫端**：唯一那一處
+`instructions += this->getCurrentTopology();` 自 `d6f7c014`（2025-12-15）起就是註解，
+全 repo grep 沒有第二個呼叫者。逐項證據在
+`doc/audit/2026-09-06_fix-index-zero-guards/FIX-INDEX-ZERO-GUARDS.md` §7.4，
+裁決與數字對帳在 `scratch/overnight-2026-09-05/fix/R5-D3-W14-SUMMARY.md`。
+
+同一天（晚一點）**`LLMAgent::getCurrentFlowEntries` 也刪了**（它不在上表裡，它不碰 `ip`）：
+兩個呼叫端 `LLMAgent.cpp:90` 與 `payload["instructions"]` 那一行的尾巴都是註解，同樣自
+`d6f7c014` 起；`AUDIT_A_hallucinations.md:56` 七月就把這兩支一起記成「被一行假的 log 養著的死碼」，
+而那行 log 同一次改對了。見 `scratch/overnight-2026-09-05/fix/FIX-CPP-SMALL-1-SUMMARY.md` §2。
+
+⇒ **這張表是 2026-09-04 那一天的盤點紀錄，不是現況清單。** 要現況請直接 grep。
+
 🔴 其中 **`findSwitchByIp` / `findSwitchByIpNoLock` 最值得單獨開一張**：
 載入端那段註解自己就點名它——它在**搜尋時對每一個** switch vertex 做 `ip.front()`，
 所以一台 `"ip": []` 的 switch 不是只弄壞自己，是**弄壞整張圖的 IP 查詢**。

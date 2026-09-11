@@ -2526,6 +2526,30 @@ DeviceConfigurationAndPowerManager::getSingleSwitchPowerReport(const std::string
         const std::string& ip_str = *ipOpt;
 
         // [Co-developed with claude code -- Adam]
+        // R5, and Adam's ruling of 2026-09-10 that this family answers in the vocabulary
+        // /ndt/get_graph_data publishes. fetchPowerReportInternal got that mark on 2026-09-11;
+        // this is the OTHER copy of the figure -- the one that answers a caller instead of
+        // filling a cache -- and scratch/overnight-2026-09-05/fix/R5-POWER-REPORT-SUMMARY.md
+        // registered it as not done, verbatim: "getSingleSwitchPowerReport 沒有跟著加".
+        //
+        // Built in ONE place for the reason the report's entryFor gives next door: both of the
+        // exits below that carry a figure must carry the mark, because a key on one of them and
+        // not the other is worse for the reader -- the Intent Translator -- than no key at all.
+        // The two "no figure at all" exits (no address here, not found below) answer `{}` and
+        // are deliberately left alone: there is no power_consumed on them for a path to qualify.
+        //
+        // 🔴 NO NUMBER MOVES. E-23 left the MININET figure alone on purpose, because
+        // syntheticPowerMilliwattsFor(dpid) is a function of the dpid and was never a question
+        // asked of the machine, and M11 of this function's gate pins the widening that would
+        // take it away. `power_consumed` is the value it always was; section 11 of
+        // tests/test_ExemptSwitchIsNotDialled.cpp is where that is asserted against the report.
+        const auto entryFor = [&props](std::int64_t milliwatts) {
+            return nlohmann::json{{"dpid", props.dpid},
+                                  {"power_consumed", milliwatts},
+                                  {"power_path", props.powerPath}};
+        };
+
+        // [Co-developed with claude code -- Adam]
         // E-23, site 5 of 6, and one of the two that answers a caller rather than filling a
         // cache. The reply is the ordinary shape PLUS an "exempt" key that says why the figure
         // is the sentinel -- purely additive, so a consumer that has never heard of it still
@@ -2545,14 +2569,23 @@ DeviceConfigurationAndPowerManager::getSingleSwitchPowerReport(const std::string
         {
             const std::string note = exemptionNoteFor(props);
             SPDLOG_LOGGER_INFO(Logger::instance(), "{}", note);
-            return {{"dpid", props.dpid},
-                    {"power_consumed", kHealthMetricUnavailable},
-                    {"exempt", note}};
+            nlohmann::json reply = entryFor(kHealthMetricUnavailable);
+            // The E-23 prose is kept as a separate key: it is what the Intent Translator turns
+            // into a sentence for a human, and the comment above says this "is not an error and
+            // must not be shaped like one". `power_path` is the machine-readable half of the
+            // same fact, spelled the way every other endpoint spells it.
+            //
+            // 🔴 NO APOSTROPHE ANYWHERE IN THIS BRANCH, deliberately: mutate_exempt_switch_is_
+            // not_dialled.sh M5 carries this whole block as a single-quoted shell anchor, and
+            // a single quote inside one ends the argument. The gate said so on 2026-09-11 as a
+            // bash syntax error at an unrelated line, which is how that failure reads.
+            reply["exempt"] = note;
+            return reply;
         }
 
         uint64_t power_mW = calculate_power_for_switch(props, ip_str);
 
-        return {{"dpid", props.dpid}, {"power_consumed", power_mW}};
+        return entryFor(static_cast<std::int64_t>(power_mW));
     }
 
     // If the device was not found, return an empty object.

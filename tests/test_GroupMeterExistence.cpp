@@ -907,7 +907,33 @@ TEST_F(GroupMeterEndpointTest, EachEndpointKeepsItsOwnSuccessSentenceAndCarriesT
         const auto body = json::parse(res.body());
         EXPECT_EQ(body.value("status", ""), c.sentence) << c.target;
         EXPECT_EQ(body.value("outcome", ""), c.outcome) << c.target;
-        EXPECT_EQ(body.size(), 2u) << c.target << " gained or lost a field: " << res.body();
+        // [Co-developed with claude code -- Adam]
+        // 2 -> 3 on 2026-09-11, deliberately, and this is the write-up the count exists to
+        // force: doc/KNOWN-ISSUES.md G-32 option C puts `lab_claim` on every northbound write's
+        // reply, these six included. The count stays an assertion rather than being relaxed --
+        // its job is to make any change to this reply a decision somebody had to write down --
+        // which is the same trade LockEndpointTest.ReleasingAHeldLockSucceeds recorded when
+        // B-2② added `lease` to /ndt/release_lock. Adding a field is non-breaking for consumers:
+        // tools/contract_test/schema.py's Obj is non-strict by default and says why.
+        //
+        // The state is not pinned to a word here, only to the vocabulary: this suite sets no
+        // NDT_LAB_CLAIM_FILE, so the answer is "none" as things stand, but pinning that would
+        // make this case fail for a reason that has nothing to do with group and meter entries
+        // if another suite in this binary ever leaves the variable set.
+        ASSERT_TRUE(body.contains("lab_claim"))
+            << c.target << " is a write to the fabric and its reply says nothing about who holds "
+                           "the lab: "
+            << res.body();
+        const auto& claim = body.at("lab_claim");
+        for (const char* key : {"state", "owner", "expires_at", "note"})
+        {
+            EXPECT_TRUE(claim.contains(key))
+                << c.target << ": the claim object is missing " << key << ": " << res.body();
+        }
+        const std::string state = claim.value("state", std::string());
+        EXPECT_TRUE(state == "none" || state == "active" || state == "expired")
+            << c.target << ": unknown claim state '" << state << "': " << res.body();
+        EXPECT_EQ(body.size(), 3u) << c.target << " gained or lost a field: " << res.body();
     }
 }
 
@@ -929,6 +955,15 @@ TEST_F(GroupMeterEndpointTest, AnUnverifiedSuccessSaysSoRatherThanClaimingItWasD
  * A layer with nothing to add must not grow a key. /ndt/ is a cross-repo contract and an extra
  * field is as much a break as a renamed one for a client that counts them -- the assertion that
  * stops `outcome` from being emitted as "" everywhere.
+ *
+ * [Co-developed with claude code -- Adam]
+ * 3 -> 4 on 2026-09-11, and the name stays as it is because it names what the test is FOR. The
+ * fourth key is `lab_claim` (doc/KNOWN-ISSUES.md G-32 option C), and THIS reply is the one that
+ * makes the case for putting it on refusals as well as on 200s: a 502 from a controller that
+ * never answered is exactly the moment a caller is trying to work out what just happened to the
+ * fabric, and "whose lab was I writing to" is half of that answer. The count stays an assertion
+ * rather than being relaxed -- its job is to make any change to this reply a decision somebody
+ * had to write down.
  */
 TEST_F(GroupMeterEndpointTest, AResultWithNoOutcomeStillAnswersTheOriginalThreeFieldFailureBody)
 {
@@ -939,7 +974,11 @@ TEST_F(GroupMeterEndpointTest, AResultWithNoOutcomeStillAnswersTheOriginalThreeF
     EXPECT_EQ(res.result_int(), 502u) << res.body();
     const auto body = json::parse(res.body());
     EXPECT_FALSE(body.contains("outcome")) << "an empty outcome was emitted anyway: " << res.body();
-    EXPECT_EQ(body.size(), 3u) << res.body();
+    ASSERT_TRUE(body.contains("lab_claim"))
+        << "a refusal from a write endpoint says nothing about who holds the lab, which is where "
+           "the claim is worth the most: "
+        << res.body();
+    EXPECT_EQ(body.size(), 4u) << res.body();
 }
 
 /// The P4 refusal keeps its 501 and gains a name for it. Pins that F-13's fix did not
