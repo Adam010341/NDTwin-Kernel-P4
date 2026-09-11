@@ -49,9 +49,9 @@ from mininet.log import setLogLevel
 
 import grpc_ports
 from p4_testbed_topo import (MANIFEST_PATH, MultiSwitchTopo, _host_count_override,
-                             disable_host_offloads, partial_fabric_verdict,
-                             reap_manifest_switches, resolve_bmv2_launcher, verify_switches,
-                             write_manifest)
+                             clear_switches_from_a_previous_run, disable_host_offloads,
+                             partial_fabric_verdict, reap_manifest_switches,
+                             resolve_bmv2_launcher, verify_switches, write_manifest)
 
 
 def fail(msg: str) -> None:
@@ -83,9 +83,9 @@ def main() -> None:
 
     # And the gRPC port block, against this machine's ephemeral range rather than against the
     # number that was safe when it was chosen. See grpc_ports.py and F-15.
+    wanted_ports = grpc_ports.grpc_port_block(range(1, 11))
     try:
-        warning = grpc_ports.assert_port_block_is_safe(
-            grpc_ports.grpc_port_block(range(1, 11)))
+        warning = grpc_ports.assert_port_block_is_safe(wanted_ports)
     except grpc_ports.PortBlockError as e:
         fail(str(e))
     if warning:
@@ -94,8 +94,14 @@ def main() -> None:
 
     # Reset exactly the way p4_testbed_topo.main does: mn -c does not touch bmv2, and an
     # orphaned switch holding its gRPC port kills this run's twin with "Address already in use".
+    #
+    # "Exactly the way" is now one shared function rather than two copies of a line, which is
+    # the reason this file mattered: ndtwin-lab starts THIS script, not p4_testbed_topo.py, so
+    # the copy that actually ran on every bring-up was the one here. Both copies were
+    # `os.system('sudo pkill -f simple_switch_grpc > /dev/null 2>&1')`; see
+    # clear_switches_from_a_previous_run for what replaced it and why.
     os.system('sudo mn -c > /dev/null 2>&1')
-    os.system('sudo pkill -f simple_switch_grpc > /dev/null 2>&1')
+    clear_switches_from_a_previous_run(ports=wanted_ports)
     time.sleep(0.5)
 
     net = Mininet(topo=MultiSwitchTopo(), controller=None, autoSetMacs=True)

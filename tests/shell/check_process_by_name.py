@@ -183,10 +183,13 @@ ABOUT_THE_RULE = frozenset((
 # are the frontal violation CLAUDE.md names -- `os.system('sudo pkill -f simple_switch_grpc')`,
 # as root, on every topology bring-up, in the two files that own the bmv2 fabric:
 #
-#   p4_proxy/mininet/{p4_testbed_topo,ntg_bmv2_topo}.py -- FIXED in this branch's next commit.
-#                   They are listed here for exactly one commit, so that this file's widening
-#                   and the fix are separable and each is green on its own. The verdict compares
-#                   both directions, so the fix CANNOT land without taking them back out.
+#   p4_proxy/mininet/{p4_testbed_topo,ntg_bmv2_topo}.py -- FIXED, and therefore NOT in the list
+#                   below. They were registered for exactly one commit so that the widening and
+#                   the fix stayed separable; the fix replaced both with
+#                   clear_switches_from_a_previous_run, which reaps the manifest's pids and
+#                   reports a port it cannot address instead of matching a name. The registry's
+#                   other direction is what made removing them here mandatory rather than
+#                   optional: `2 stale`, rc 1, until they came out.
 #
 #   probes.py (RUNS)      `run(["pgrep", "-cf", "simple_switch_g[r]pc"])` -- the chaos harness
 #                   counts live bmv2 processes by name. It only ever READS, and the bracket trick
@@ -203,8 +206,6 @@ REGISTERED = frozenset((
     ("tools/test_workflow/run_layers.sh", "RUNS", "pgrep"),
     ("tools/test_workflow/stack.sh", "RUNS", "ps"),
     ("tools/test_workflow/stack.sh", "TEACHES", "pgrep"),
-    ("p4_proxy/mininet/ntg_bmv2_topo.py", "RUNS", "pkill"),
-    ("p4_proxy/mininet/p4_testbed_topo.py", "RUNS", "pkill"),
     ("doc/audit/2026-08-28_chaos-harness/harness/probes.py", "RUNS", "pgrep"),
     ("doc/audit/2026-08-28_chaos-harness/harness/probes.py", "TEACHES", "pgrep"),
     ("doc/audit/2026-08-28_chaos-harness/harness/antioracle.py", "TEACHES", "pkill"),

@@ -575,9 +575,15 @@ def reap_manifest_switches(path=MANIFEST_PATH, is_switch=process_is_a_switch,
     registry is now acted on before it is destroyed.
 
     Not a demo-blocker, and this is worth stating plainly because it was briefly claimed as
-    one: startup already runs `pkill -f simple_switch_grpc` (see main), so a leftover switch
-    never blocks the next run. This is hygiene -- ten idle bmv2 processes should not outlive
-    the topology that owned them.
+    one: startup clears leftover switches too (clear_switches_from_a_previous_run, called from
+    main), so a leftover switch listed in the manifest never blocks the next run. This is
+    hygiene -- ten idle bmv2 processes should not outlive the topology that owned them.
+
+    2026-09-11: that sentence used to read "startup already runs `pkill -f simple_switch_grpc`",
+    and it was true. It is not any more, and the difference matters to a reader of this
+    docstring: startup now reaps the SAME registry this function does, so a switch missing from
+    the manifest is no longer swept up by a name match at the next bring-up. It is reported
+    instead -- which is why leaving the manifest in place on the paths below is load-bearing.
 
     Never raises. Teardown must go on to remove the manifest whatever happens here.
     """
@@ -618,6 +624,86 @@ def reap_manifest_switches(path=MANIFEST_PATH, is_switch=process_is_a_switch,
     return [name for name, _ in doomed]
 
 
+def grpc_port_is_open(port, host="127.0.0.1", timeout=0.3):
+    """Whether anything is accepting TCP on this port right now. Same probe as
+    BMv2Switch.grpc_is_listening, asked about a port rather than about a switch object."""
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def clear_switches_from_a_previous_run(manifest_path=MANIFEST_PATH, ports=(), reap=None,
+                                      port_is_open=None, settle_s=0.5, report=print):
+    """
+    Stop the switches an earlier run left behind -- BY PID -- and report what could not be.
+
+    [Co-developed with claude code -- Adam]
+    This was `os.system('sudo pkill -f simple_switch_grpc > /dev/null 2>&1')`, here and in
+    ntg_bmv2_topo.py, as root, on every bring-up. CLAUDE.md's engineering discipline names that
+    exact form as forbidden and KNOWN-ISSUES G-9 and G-inst-2 are the two times the reason was
+    learned the expensive way: `-f` matches the whole command line, so it takes any process
+    whose argv merely mentions the string -- a sibling session's fabric, a tail of a log path,
+    an editor with the file open -- and Mininet switches share the root PID namespace, so there
+    is no blast wall between the ten. tools/p4_power_helper.py's header had already written the
+    rule down for this same binary: "Processes are only ever addressed by PID taken from the
+    manifest ... No pkill, no killall, no name matching -- in any code path." This was the code
+    path that did it anyway.
+
+    The pid was never missing information. write_manifest has recorded name -> pid for every
+    verified switch since Phase 7; reap_manifest_switches signals exactly those pids and
+    re-reads /proc/<pid>/cmdline first, so a recycled number is never signalled; and teardown
+    has called it since the A-4 bookkeeping fix. Startup was simply not using any of it.
+
+    What a name match did that a pid cannot: reach a switch with no manifest entry -- a manifest
+    deleted by hand, or a run that predates it. That case is neither dropped nor guessed at. The
+    gRPC ports this run needs are probed, and a port still held is REPORTED, together with the
+    way to find its owner BY THAT PORT. The alternative is to choose a process by a substring of
+    its argv and send it SIGTERM as root, which is the defect rather than the fallback.
+
+    🔴 The manifest is deliberately NOT deleted here. reap_manifest_switches' own docstring is
+    about that exact mistake: the file is the only thing that can still address a switch we
+    failed to stop, so removing it after a refused kill would destroy the last handle on a
+    process nothing owns. write_manifest replaces the whole file later in this run anyway, and
+    stale entries are inert because process_is_a_switch re-checks every pid.
+
+    Reports and continues rather than aborting: BMv2Switch.failure_reason already reads the
+    switch's own log and says "gRPC port N was already in use -- most likely a leftover
+    simple_switch_grpc from an earlier run", and partial_fabric_verdict already turns that into
+    a non-zero verdict. What this adds is saying so BEFORE the bind fails, not a second policy
+    for what to do about it.
+
+    Returns (reaped_names, ports_still_held). Never raises.
+    """
+    reap = reap or reap_manifest_switches
+    port_is_open = port_is_open or grpc_port_is_open
+
+    reaped = reap(manifest_path)
+    if reaped:
+        report("Reaped %d switch(es) from an earlier run by pid, out of %s: %s"
+               % (len(reaped), manifest_path, ", ".join(reaped)))
+        # One settle for the whole set: a port is released when the process exits, and the
+        # probe below would otherwise read a switch that is still on its way out as a
+        # stranger holding the port.
+        if settle_s:
+            time.sleep(settle_s)
+
+    held = [port for port in ports if port_is_open(port)]
+    if held:
+        report("")
+        report("WARNING: %d gRPC port(s) this run needs are still in use, and nothing in %s "
+               "names their owner: %s"
+               % (len(held), manifest_path, ", ".join(str(p) for p in held)))
+        report("  This script will not choose a process to signal by matching its name, so it "
+               "is leaving them alone. Find the owner by the port it is holding:")
+        report("    sudo ss -ltnp \"sport = :%d\"" % held[0])
+        report("  The switches on those ports will fail to bind, and each one will be named "
+               "with its own log path in the verification report below.")
+        report("")
+    return reaped, held
+
+
 def main():
     setLogLevel('info')
     
@@ -640,9 +726,9 @@ def main():
     # The block is checked against the *running kernel's* ephemeral range rather than against
     # the number that was safe when it was chosen -- ip_local_port_range is a sysctl, and the
     # demo machine is not necessarily this one. See grpc_ports.py and F-15.
+    wanted_ports = grpc_ports.grpc_port_block(range(1, 11))
     try:
-        warning = grpc_ports.assert_port_block_is_safe(
-            grpc_ports.grpc_port_block(range(1, 11)))
+        warning = grpc_ports.assert_port_block_is_safe(wanted_ports)
     except grpc_ports.PortBlockError as e:
         print(f"Error: {e}")
         sys.exit(1)
@@ -655,7 +741,12 @@ def main():
     # gRPC port and the matching switch in this run dies with "Address already in use". That
     # is a real failure we hit. Two Mininet topologies cannot coexist here anyway, and mn -c
     # above is already a full reset, so clearing these is consistent with what it does.
-    os.system('sudo pkill -f simple_switch_grpc > /dev/null 2>&1')
+    #
+    # By pid out of the manifest, and a report for anything that leaves. This line used to be
+    # `os.system('sudo pkill -f simple_switch_grpc > /dev/null 2>&1')` -- see
+    # clear_switches_from_a_previous_run for why that was the wrong instrument and why the pid
+    # was available the whole time.
+    clear_switches_from_a_previous_run(ports=wanted_ports)
     time.sleep(0.5)  # let the ports actually be released before anything tries to bind
 
     topo = MultiSwitchTopo()
