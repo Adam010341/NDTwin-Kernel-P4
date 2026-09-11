@@ -100,4 +100,4 @@ usage: ndt <command>
   p4 N' rewrites it, and on 09-05 setting it built exactly that pair (R3-3).
   OVS has no such knob -- there the size is the verb.
 
-repo: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-cells1-0911
+repo: /home/adam/Desktop/NDTwin-Kernel

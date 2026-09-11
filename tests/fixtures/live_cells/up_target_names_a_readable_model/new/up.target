@@ -1,0 +1,9 @@
+plane=ovs
+hosts=4
+topology=setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json
+topology_sha256=2266c69cbcd3d0ac5272b62925709c70b8fffca8669faee1e4113e50ed58b285
+model_hosts=4
+model_edges=40
+at=1789104845
+by=overnight-0905
+builder=up_ovs

@@ -1,0 +1,13 @@
+ndt up ovs4
+  hosts        4
+  topology     setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json
+  XX  refusing to build: an 'ndt down' from this checkout is still running.
+  XX    pid 4193548, started 2026-09-11T13:33:58+0800   (.test_run/down.inflight)
+  XX    a bring-up that overlaps a teardown does not fail cleanly -- it REUSES the fabric
+  XX    being destroyed. Measured 09-11: [1/3] said 'already up: 10 switches, reusing',
+  XX    [3/3] passed 'model matches fabric', and the fabric was mid-SIGTERM. The teardown
+  XX    then reported this run's own kernel and proxy as residue and advised 'ndt down
+  XX    --deep', which would have killed them.
+  XX    wait for it to finish, then bring up. On OVS this was already refused by
+  XX    mn_count (a Mininet is already running); bmv2 is root-owned and its ports look the
+  XX    same coming up and going down, so on P4 nothing could see it. (H3)

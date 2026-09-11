@@ -1,0 +1,19 @@
+  ok  no untracked app processes
+
+stack
+    stack: kernel=down dataplane=mininet bmv2=0 mininet=15 proxy=down verdict=HALF
+  !!    HALF A STACK. the two halves disagree: one of the kernel and the data plane
+  !!    is there and the other is not. this verb answers about APP processes and
+  !!    about the NETWORK; it does not answer about the stack, and on 09-11 it said
+  !!    CLEAN three times over a machine in this state (H2). a kernel with no
+  !!    fabric serves a graph of a network that is not there; a fabric with no
+  !!    kernel forwards with nothing recording it. take it down:  ndt down
+  !!    (a kernel started with --mode physical reads like this too and is not a
+  !!    finding -- 'ndt up' cannot build one.)
+
+network residue (nothing below is deleted)
+  !!  the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked.
+  !!  this is not 'the lab is clean'. it is 'nobody asked'. (KNOWN-ISSUES G-12)
+  !!  NOT CHECKED: the residue question could not be answered -- rc 5.
+  !!    this is not 'the network is clean'. see the lines above for which
+  !!    reading failed. (KNOWN-ISSUES G-12)

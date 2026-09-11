@@ -1,0 +1,2 @@
+del s1-eth1 rc=0
+qdisc noqueue 0: root refcnt 2 

@@ -1,0 +1,13 @@
+processes=clean
+network=n/a
+not_answerable=n/a
+stack=HALF
+ndt_rc=5 (recorded, NOT used for the verdict)
+NOTE: network half not checkable: kernel down
+      :8000 was closed when this report was taken (an 'ndt down' has run), so NO rule and
+      NO lock was read. The verdict below comes from the process half ALONE -- it reads
+      pidfiles, /proc and argv, not the kernel, so it is still an answer. Ask 'orphans'
+      BEFORE the down if you need the network half of a round answered.
+NOTE-WHY: !!  the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked.
+NOTE-WHY: !!  NOT CHECKED: the residue question could not be answered -- rc 5.
+VERDICT: NOT CLEAN -- the stack is HALF up -- one of the kernel and the data plane is there and the other is not; 'ndt apps orphans' does not answer about the stack and said CLEAN over exactly this on 09-11 (H2). remedy: 'ndt down'

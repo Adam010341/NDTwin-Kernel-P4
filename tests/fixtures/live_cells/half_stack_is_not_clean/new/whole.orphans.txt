@@ -1,0 +1,50 @@
+  ok  no untracked app processes
+
+stack
+    stack: kernel=up dataplane=mininet bmv2=0 mininet=15 proxy=down verdict=whole-up
+    the stack is up. that is not residue -- 'apps orphans' is asked before a
+    teardown as well as after it.
+
+network residue (nothing below is deleted)
+    lock  routing_lock free
+    lock  graph_lock free
+    lock  power_lock free
+          field (LockManager.hpp), and the kernel has no lock-status endpoint, so the
+          three lines above come from an acquire probe with ttl 0, which excludes nobody.
+    energy: no pidfile and no live process -- no window, so no rule can be dated
+        against it. NOT 'this app left nothing'. (G-12)
+  !!        and whether it ran here CANNOT BE ASKED: the helper keeps no log for energy
+  !!        ('/usr/local/sbin/ndtwin-lab energy-start' gives it no 'script -f', so its output only ever
+  !!        exists in a tmux pane). That is 'nobody could ask', not 'it never ran'.
+    sim: no pidfile and no live process -- no window, so no rule can be dated
+        against it. NOT 'this app left nothing'. (G-12)
+  !!        and its log is NOT empty, so it did run here: the window is LOST,
+  !!        not absent. rules it installed cannot be found by this tool.
+        (log read: /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/app_sim.log)
+    nsr: no pidfile and no live process -- no window, so no rule can be dated
+        against it. NOT 'this app left nothing'. (G-12)
+        (its log is empty or absent too -- no sign it ever ran here)
+        (log read: /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/app_nsr.log)
+    viz: no pidfile and no live process -- no window, so no rule can be dated
+        against it. NOT 'this app left nothing'. (G-12)
+  !!        and its log is NOT empty, so it did run here: the window is LOST,
+  !!        not absent. rules it installed cannot be found by this tool.
+        (log read: /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/app_viz.log)
+    te: no pidfile and no live process -- no window, so no rule can be dated
+        against it. NOT 'this app left nothing'. (G-12)
+  !!        and its log is NOT empty, so it did run here: the window is LOST,
+  !!        not absent. rules it installed cannot be found by this tool.
+        (log read: /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/app_te.log)
+
+    NOT deleted, and nothing here deletes them.
+    a lock heals: it expires at its TTL and the next acquire is told it reclaimed it.
+    a rule does not: no TTL, no owner, no cleanup path. to remove one, by hand:
+      curl -s -X POST -H 'Content-Type: application/json' \
+        -d '{"dpid": <dpid>, "priority": <pri>, "match": <match>}' \
+        http://localhost:8000/ndt/delete_flow_entry
+    (no app had a datable window in this run)
+    tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 3 question(s) not answerable
+    and 1 app(s) could not be asked whether they ran here at all: energy (no log channel exists for them -- see above)
+  !!  NOT CHECKED: the residue question could not be answered -- rc 5.
+  !!    this is not 'the network is clean'. see the lines above for which
+  !!    reading failed. (KNOWN-ISSUES G-12)
