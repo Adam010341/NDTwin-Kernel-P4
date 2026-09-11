@@ -2916,6 +2916,44 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
   ⚠️ **可信度**：數字是 ROLE-5 實測（🟢 對它）、**本條登記者未複驗（🟠 轉述）**；
   該報告自己指認了二進位與 4 台（不是 64／128）的規模邊界。
 
+### C-8 🔴 `last_sample_age_seconds` 在一個「秒」欄位裡回 −1.0 哨兵值
+
+- **狀態**：**OPEN，只登記不修**（2026-09-11 ROLE-5 實測；FIX-PROXY-1 工單交代只登記，
+  merge `526ad7c5`，2026-09-11）。 (numbered by KI-FOLLOWUP-2)
+- **觀測**（2026-09-11，ROLE-5，10 台 bmv2、4 hosts、720 s 負載；
+  `scratch/overnight-2026-09-05/hunt-0911/logs/ROLE-5/20-S2-utilization.log` 13 筆全部）：
+  `/ndt/get_graph_data` 每一條 inter-switch edge 的 `last_sample_age_seconds`，**每一次取樣的 min 都是 −1.0**
+  ——包括流量正在跑、8 條 edge 是 `live` 的那幾筆（`sample_age[min=-1.0 max=0.057 n=32]`）。
+- **碼上的來源**（讀過未執行）：`src/ndt_core/collection/FlowLinkUsageCollector.cpp:1874`
+  `out.lastSampleAgeSeconds = portAt > 0 ? (nowMillis - portAt) / 1000.0 : -1.0;`，
+  預設值在 `include/ndt_core/collection/FlowLinkUsageCollector.hpp:299`。
+  **契約沒有攔它**：`tools/contract_test/spec.py:463` 把 `last_sample_age_seconds` 宣告為
+  `Num()`，沒有下界 ⇒ −1.0 是結構上合法的。
+- **為什麼是缺陷而不是慣例**：同一個欄位在同一個回應裡有兩種單位——真的年齡用秒，
+  「沒有樣本」用 −1。任何對它做算術（平均、找 max、畫圖、比門檻）的消費端都會把
+  「從來沒量過」算成「未來 1 秒前量的」。`telemetry_status` 已經有 `unknown` 這個狀態可以承載這件事。
+- **還沒答的**：哪些 edge 拿到 −1.0（ROLE-5 只留了 min／max，沒留 per-edge），
+  以及 `agent_last_sample_age_seconds` 是不是同一個形狀。
+- **證據**：`fix/FIX-PROXY-1-SUMMARY.md` §6 逐字。⚠️ 🟠 轉述；raw 在 `scratch/`，不在版控。
+
+### C-9 🔴 遙測停更時 `usage_bps` 回 0 而不是回「不知道」，只有 `telemetry_status` 分得出來
+
+- **狀態**：**OPEN，只登記不修**（2026-09-11 ROLE-5 實測；同 C-8 一批，merge `526ad7c5`）。
+   (numbered by KI-FOLLOWUP-2)
+- **觀測**（同一份 raw，t=600 s 起）：流量停掉之後，32 條 inter-switch edge 有 **28 條轉成
+  `telemetry_status=silent`**（另 4 條 `unknown`），`last_sample_age_seconds` 一路長到 **172.506 s**，
+  而 `link_bandwidth_usage_bps` 與 `link_bandwidth_utilization_percent`
+  **三筆取樣全部 `max=0`**（t=600／660／end）。
+  成因在那一輪是合法的（負載真的停了），登記的是**回報形狀**：
+- **為什麼是缺陷**：`usage_bps = 0` 同時表示「這條鏈路現在沒有流量」與「這條鏈路已經 172 秒沒有樣本」。
+  只讀 usage 的消費端（畫圖、找 top-k、算利用率門檻）分不出這兩件事，而**前者是資訊、後者是故障**。
+  `telemetry_status` 與 `last_sample_age_seconds` 分得出來，但它們是**另外兩個欄位**
+  ⇒ 這是 S2 那一族「量測自己壞掉而不報錯」的形狀，只是這一次成因無辜。
+- **建議的判準**（不是 FIX-PROXY-1 的修法）：`silent` 的 edge 的 usage 應該是**缺欄位或 null**，
+  不是 0；或者反過來，把「usage 的有效性」明確綁到 `telemetry_status` 上，
+  讓契約測試可以斷言「`silent` ⇒ 不得出現數值 usage」。
+- **證據**：`fix/FIX-PROXY-1-SUMMARY.md` §6 逐字。⚠️ 🟠 轉述；raw 在 `scratch/`，不在版控。
+
 ## D. 已明確裁定不修（含理由）
 
 | 缺陷 | 裁定 | 理由 |
