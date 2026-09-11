@@ -697,6 +697,21 @@ ndt clean           # 證明真的乾淨了；exit 1 = 沒有
 
 `ndt down` 約 13 秒。細節見 §2.1（清空和收尾是同一件事）。
 
+🔴 **已知（工具，FIX-NDT-6 在修）：收一個活著的 P4 fabric 時，同一份輸出會同時說兩件相反的話。**
+09-12 實測（`ndt up p4 4` 之後）：`verify clean` 底下五行全 `ok`（含
+`ok  ports closed: 8000/8080/8081/6653/6633/6343/30051-30060/9091-9100/9000`）、印綠色 `clean`，
+**緊接著一行** `claim note now says the teardown did not verify clean`，`RC=1`。
+那句話還會**活過這次指令**——之後 `ndt status` 的 `note` 欄逐字：
+`down at 2026-09-12 02:26:12 did NOT verify clean; claim kept -- read 'running' below, not this note`，
+接班的人第一眼看到的就是它。
+
+**這種 rc 1 怎麼判**（同一輪實測的做法）：`ndt clean` 回 **rc 0** 且印 `clean`、
+`ndt apps orphans` 給 `VERDICT: CLEAN`、`ndt status --check` 與你開工時的基線一致
+——三件都過就是已還原，rc 1 照記錄、不照它下結論。三件有任何一件沒過，那才是真的沒收乾淨。
+<!-- 來源：ROLE-11 F6，log hunt-0911/logs/ROLE-11/91-down.log（末六行）、99-final-check.log（note 欄）、
+     92-clean.log（rc 0）、93-orphans-after.log（VERDICT: CLEAN）。🟠 轉述（ROLE-11 log）。
+     工具未改：FIX-NDT-6 ②（rc 看結局不看中途）與 R11-4。 -->
+
 <details><summary>收到一半被 Ctrl-C 會怎樣（2026-08-21 實測）</summary>
 
 SIGINT 打在 `[2/3]` 的結果**比預期好**：`ndt` 被 signal 2 殺掉、kernel 與 proxy 已經停了、
