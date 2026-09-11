@@ -157,8 +157,17 @@ root 執行那支 `.py`），`ndt` 的 `$REPO` 卻是它自己所在的樹 ⇒ �
 
 ```bash
 ndt up p4           # 用現在的 host 數（見 ndt status 的 `p4 host knob` 欄）
+ndt up p4 4         # 4 hosts（會把 host_count_override 改寫成 4）
 ndt up p4 128       # 128 hosts
 ```
+
+📌 **4 台 P4 的唯一寫法就是 `ndt up p4 4`。** 09-12 之前本手冊沒有任何一行給得出它
+（`ndt up 4` 是 OVS），照手冊做的人做不出 4 台的 P4 twin。實跑 14 秒、rc 0，
+`[3/3]` 印 `model matches fabric: 4 hosts`。
+<!-- 來源：ROLE-11 F2（缺步驟）與其繞法，log hunt-0911/logs/ROLE-11/15-up-p4-4.log
+     （🟠 轉述：ROLE-11 的實跑輸出）。拼法出自 `ndt help` 的
+     `ndt up p4 4       p4 at 4 hosts   (rewrites host_count_override)`，本單親自核對
+     （logs/gates-0910/ndt-help-spelling.doc1-0912-r1.log）。 -->
 
 🔴 **P4 一定要指名 `p4`。** 本節先前把 `ndt up`／`ndt up 4` 列在這個標題底下，**那兩個都是 OVS**
 （預設平面 2026-09-03 改成 OVS）：09-12 實跑 `ndt up 4`，工具第一行就回 `ndt up ovs4`、載
@@ -731,10 +740,15 @@ sudo -n /usr/local/sbin/ndtwin-lab ovs-topo-start    # 另一個終端
 | `ndt status` | 0.3–0.7 秒 | |
 | `ndt up p4 128` | **33.6 秒** | bmv2 10 台 18 秒、路徑收斂 4 秒 |
 | `ndt up ovs`（128） | **24.1 秒** | Ryu settle 10 秒、收斂 20 秒 |
-| `ndt up ovs4` | 10–15 秒 | 未在本輪重測 |
+| `ndt up ovs4`（＝`ndt up 4`） | 10–15 秒 | 09-12 單次實測 **8 秒**（`d7aa176e`） |
+| `ndt up p4 4` | **14 秒** | 09-12 單次實測（`d7aa176e`）；bmv2 10 台 4 秒、路徑收斂 5 秒 |
 | `ndt down` | **13.3–13.8 秒** | 空的實驗室只要 1.6 秒 |
 | `ndt clean` | 0.1 秒 | |
 | kernel 開 :8000 | 第一次 poll 就開 | 修好之前是 167 秒＋回報失敗 |
+
+<!-- 來源：`ndt up p4 4` 與 `ndt up 4`(ovs4) 兩列的 09-12 數字＝ROLE-11 F2／F1，
+     log hunt-0911/logs/ROLE-11/15-up-p4-4.log（ELAPSED=14s）與 04-ndt-up-4.log（ELAPSED=8s），
+     🟠 轉述（ROLE-11 log）、各一次取樣不是分布。 -->
 
 <details><summary>OVS 開機為什麼從 73 秒降到 25 秒（2026-08-21）</summary>
 
