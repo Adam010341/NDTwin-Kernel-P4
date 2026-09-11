@@ -82,7 +82,7 @@
 | `sudo python3 testbed_topo.py` | 需要互動式 root，`sudo -n python3` 會要密碼 |
 | `sudo mn -c` | 同上 |
 | `mininet> exit` | 在你的互動 CLI 裡 |
-| `sudo -n ifconfig <iface> down/up` | NOPASSWD 有放行，但需要 root |
+| `sudo -n ifconfig <iface> down/up` | NOPASSWD 有放行，但需要 root。🔴 **放行不等於可以用**：斷鏈路走 §6 的 API，不要用這個 |
 | `mn`、`ip`、`ovs-ofctl`、kill root process | NOPASSWD 不含這些 |
 
 | 我可以代跑 | 方式 |
@@ -331,6 +331,16 @@ converged after Xs
 
 以下全部在 terminal A 跑 `curl`。kernel 聽在 `localhost:8000`，Ryu 聽在 `localhost:8080`。
 
+📌 **本 runbook 的 `python3` 片段與入口手冊的規定**：入口手冊
+`doc/2026-08-17_testing-manual.md` §1 寫「**Python 一律用 `p4_proxy/venv/bin/python`**」
+（conda 的 `python3` 缺 grpc/networkx，壞掉的套件在它底下看起來是綠的），而本 runbook 各節
+一路用裸 `python3`。**兩份都是現役文件，衝突以入口手冊為準。**
+09-12 照本節逐字用裸 `python3` 跑 §4a 是通的，但**那次沒事的理由跟手冊給的理由無關**——
+這些片段只 import stdlib 的 `json`／`sys`。任何一段一旦碰到 `grpc`／`networkx`／`requests`，
+裸 `python3` 就會在那裡壞。⇒ **打 `p4_proxy/venv/bin/python` 最省事**，它跑 stdlib 片段一樣通。
+<!-- 來源：ROLE-11 F13，log hunt-0911/logs/ROLE-11/06-graph-4a.log（🟠 轉述：裸 python3、RC=0）。
+     入口手冊那句在 §1（另 §5 重述）；「衝突以入口手冊為準」是該手冊 §6 自己的規定。 -->
+
 ### 4a. 圖（graph）
 
 ```bash
@@ -344,14 +354,37 @@ print('hosts', len(ho), 'up', sum(1 for n in ho if n['is_up']))
 print('edges', len(ed), 'up', sum(1 for e in ed if e['is_up']))"
 ```
 
-✅ 預期：
+✅ 預期（**數字跟 fabric 尺寸走；本 runbook 其餘各節的數字都是 128 台那一欄**）：
+
+| fabric | switches | hosts | edges |
+|---|---|---|---|
+| `ndt up ovs`（128 台，本 runbook 的預設） | `10 up 10 enabled 10` | `128 up 128` | `288 up 288` |
+| `ndt up ovs4`／`ndt up 4`（4 台） | `10 up 10 enabled 10` | `4 up 4` | `40 up 40` |
+
+128 台那一欄逐字：
 
 ```
 switches 10 up 10 enabled 10
 hosts 128 up 128
 edges 288 up 288
-hosts with ipv4: 128
 ```
+
+⚠️ **這裡先前多列了第四行 `hosts with ipv4: 128`，上面那段指令不會印它**（它只 `print` 三次）。
+要那個數字得跑下面 ✅ 段落裡的 Ryu 查詢（`/v1.0/topology/hosts`），它印的是 `128 128` 兩個數字
+一行，不是 `hosts with ipv4: 128`。09-12 照本節逐字跑，輸出就是三行。
+<!-- 來源：ROLE-11 F10，log hunt-0911/logs/ROLE-11/06-graph-4a.log（🟠 轉述：三行，RC=0）。 -->
+
+4 台那一欄逐字（09-12 實測）：
+
+```
+switches 10 up 10 enabled 10
+hosts 4 up 4
+edges 40 up 40
+```
+
+<!-- 來源：ROLE-11 F4，log hunt-0911/logs/ROLE-11/06-graph-4a.log（🟠 轉述：照本節指令逐字跑在
+     `ndt up 4`＝ovs4 之上；同一輪 `ndt status --check` 印 links 40 total, 0 down）。
+     128 台那一欄是 2026-08-11 的原值，未在 09-12 重測。 -->
 
 🔴 **【2026-08-11 實測】本節原本的兩段 ⚠️ 是錯的，已刪除。** 原文主張「hosts `up` 的數字不是 128」「edges `up` 的數字不是 288」，理由是 `testbed_topo.py:219-226` 設了 static ARP，Ryu 學不到 host IP。**實測全滿：128/128 host up、288/288 edge up、128 個 host 都有 IP。** Ryu 自己也是滿的：
 
@@ -954,7 +987,40 @@ h2  -> h98   50M    path h2  -> s1 -> s5 -> s10 -> s8 -> s4 -> h98
 
 ## 6. Link failure → 維持 down → 恢復
 
-### ⚠️ 重大陷阱：`ifconfig <iface> down` 在 OVS 和 bmv2 上的行為不同
+### 🔴 斷鏈路的指令：走 API，不要用 `ifconfig down`
+
+**本節先前唯一的斷鏈方法是 `sudo -n ifconfig <iface> down`，那個動詞在本專案是禁止的**
+（CLAUDE.md 工程紀律：「斷鏈路用 `tc netem` 不用 `ifconfig down`」；入口手冊
+`doc/2026-08-17_testing-manual.md` §2.10 的黑名單；`doc/2026-07-29_environment_gotchas.md`）。
+現在的作法是**打 kernel 的注入端點**，它自己會在鏈路**兩端**掛 `netem loss 100%`：
+
+```bash
+# 斷：body 就是 API 規格 §2b 的範例（s1:1 ↔ s5:1）
+curl -sS -w "\nHTTP=%{http_code}\n" -X POST localhost:8000/ndt/inject_link_failure \
+  -H "Content-Type: application/json" \
+  -d '{"src_dpid":1,"src_interface":1,"dst_dpid":5,"dst_interface":1}'
+
+# 恢復：同一個 body
+curl -sS -w "\nHTTP=%{http_code}\n" -X POST localhost:8000/ndt/inject_link_recovery \
+  -H "Content-Type: application/json" \
+  -d '{"src_dpid":1,"src_interface":1,"dst_dpid":5,"dst_interface":1}'
+```
+
+要手動做同一件事就是 `tc netem loss 100%`，**兩端都要下**；不要用 `ifconfig down`，
+也不要用 Mininet CLI 的 `link s1 s5 down`（它底層就是對兩端 `ifconfig down`，見下一段）。
+
+⚠️ **兩條路徑的偵測機制不同，本節 §6b–§6h 的 08-11 數字是 `ifconfig` 那條量的。**
+`ifconfig down` 會讓 OVS 立刻送 OpenFlow port-status（§6b 的 31 ms 就是這樣來的）；
+`netem loss 100%` 不動 port 狀態、只丟封包，連 LLDP 一起丟（API 規格 §2b），
+圖上的 down 是**宣告**造成的（`down_reason: "declared"`）。09-12 實測注入後
+`edges up: 38 / 40`、`down edges: [(1,1,5,1),(5,1,1,1)]`，恢復後回到 `40 / 40`、`netem` 歸 0；
+**但 §6b 那幾行 Ryu 的 `Link deleted` 與那個毫秒數，沒有人在 API 路徑上重測過。**
+<!-- 來源：ROLE-11 F8／F3，log hunt-0911/logs/ROLE-11/08-inject-failure.log、09-graph-after-failure.log、
+     11-inject-recovery.log、12-graph-after-recovery.log、17-p4-inject-recover.log（🟠 轉述：ROLE-11
+     在 ovs4 與 p4 4 兩個平面各跑一次，HTTP 200、tc 兩端）。ROLE-11 拒絕照本節原文執行 ifconfig，
+     理由就是這條硬規矩。LLDP 那半句出自 doc/2026-01-02_ndt_api.md §2b 的 lw8b2 量測，本單未複驗。 -->
+
+### ⚠️ 舊紀錄：`ifconfig <iface> down` 在 OVS 和 bmv2 上的行為不同
 
 在 bmv2 上用 `ifconfig <iface> down` 模擬斷線，會癱瘓整台 switch 的 packet-in 路徑（見 P4 runbook §6）。**在 OVS kernel datapath 上，這個 side effect 不存在**——OVS 的 packet-in 走的是 kernel datapath，不是 P4Runtime gRPC stream。把一條 veth 介面 down 掉只會斷那一條鏈路。
 
@@ -964,9 +1030,14 @@ h2  -> h98   50M    path h2  -> s1 -> s5 -> s10 -> s8 -> s4 -> h98
 
 ✅ **【2026-08-11 實測】「OVS 上 `ifconfig down` 只斷該鏈路」已驗證為真。** 實驗設計：讓流量走 `h1 → s1 → s6 → ...`，然後斷掉 s1 的**另一條**鏈路 `s1-eth1`（s1:1↔s5:1，不在流量路徑上）。若 `ifconfig down` 會癱瘓整台 switch，穿過 s1 的流量必然中斷。**實測流量完全沒有中斷**（rate 持續 9–15 Mbps），只有被斷的那兩個方向從圖上消失。
 
-這和 bmv2 的行為形成明確對照——bmv2 上同樣的操作會讓整台 switch 的所有入向靜默（P4 runbook §6）。**所以 OVS 模式不需要 P4 側那套 tc netem 的替代方案。**
+這和 bmv2 的行為形成明確對照——bmv2 上同樣的操作會讓整台 switch 的所有入向靜默（P4 runbook §6）。
 
-### 6a. 斷線（terminal A —— Adam 可代跑，`ifconfig` 在 NOPASSWD 清單裡）
+🔴 **本段末句原本是「所以 OVS 模式不需要 P4 側那套 tc netem 的替代方案」，那句已撤。**
+上面的實測仍然成立（OVS 上 `ifconfig down` 不會癱瘓整台 switch），但「量到它安全」不等於
+「可以用它」：專案的硬規矩是斷鏈路一律 netem，而**一份現役 runbook 教一個黑名單動詞，
+第一次用的人沒有理由知道要聽哪一份**。要斷鏈路走本節開頭的 API。
+
+### 6a. 斷線（terminal A）
 
 🔴 **【2026-08-11 實測】斷哪一條要看流量實際走哪裡，不能照抄。**
 
@@ -986,14 +1057,31 @@ for f in json.load(sys.stdin): print([h['node'] for h in f['path']], [h['interfa
 
 | 斷哪條 | 測什麼 |
 |---|---|
-| **路徑外**（本例 `s1-eth1`） | 偵測鏈路是否完整；且流量沒斷 = 證明 `ifconfig down` 不會癱瘓整台 switch |
-| **路徑上**（本例 `s1-eth2`） | §6h 的繞路：流量會不會被救回來 |
+| **路徑外**（本例 `s1-eth1`＝邊 `1:1 ↔ 5:1`） | 偵測鏈路是否完整；且流量沒斷 |
+| **路徑上**（本例 `s1-eth2`＝邊 `1:2 ↔ 6:1`） | §6h 的繞路：流量會不會被救回來 |
+
+介面名對到哪一條邊，看 `ndt status` 或 `get_graph_data` 的 `src_dpid:src_interface`——
+`s<N>-eth<M>` 就是 `dpid N` 的 `interface M`。注入端點吃的是邊，不是介面名：
 
 ```bash
-sudo -n ifconfig s1-eth1 down   # 路徑外
-# ... 觀察、恢復 ...
-sudo -n ifconfig s1-eth2 down   # 路徑上
+# 路徑外：s1-eth1 -> 1:1 ↔ 5:1
+curl -sS -w "\nHTTP=%{http_code}\n" -X POST localhost:8000/ndt/inject_link_failure \
+  -H "Content-Type: application/json" \
+  -d '{"src_dpid":1,"src_interface":1,"dst_dpid":5,"dst_interface":1}'
+# ... 觀察、用 inject_link_recovery 恢復（§6g）...
+
+# 路徑上：s1-eth2 -> 1:2 ↔ 6:1
+curl -sS -w "\nHTTP=%{http_code}\n" -X POST localhost:8000/ndt/inject_link_failure \
+  -H "Content-Type: application/json" \
+  -d '{"src_dpid":1,"src_interface":2,"dst_dpid":6,"dst_interface":1}'
 ```
+
+✅ **09-12 實測（路徑外那一條，ovs4）**：`HTTP=200`，回應的 `tc[]` 兩筆都 `ok:true`
+（`s1-eth1`、`s5-eth1` 各掛一條 `netem loss 100%`），`tc qdisc show` 看得到兩條。
+🔴 **`200` 只保證圖變了，不保證封包停了——要讀回應裡的 `tc[]` 陣列**（API 規格 §2b）。
+<!-- 來源：ROLE-11 F8／F3，log hunt-0911/logs/ROLE-11/08-inject-failure.log（🟠 轉述）。
+     「路徑上」那條的 payload 是本單依 07-edges.log 的邊表推出來的介面↔邊對應（`1 2 -> 6 1`），
+     **沒有人跑過它**；跑過的只有路徑外那一條。 -->
 
 ⚠️ **每次只斷一條，斷完恢復再斷下一條。** 同時斷兩條會分不出哪個現象是哪條造成的。
 
@@ -1119,10 +1207,19 @@ grep -nE "recomputing all-pair routes|route reinstall done" .test_run/logs/ryu.l
 ### 6g. 恢復
 
 ```bash
-sudo -n ifconfig s1-eth1 up
+curl -sS -w "\nHTTP=%{http_code}\n" -X POST localhost:8000/ndt/inject_link_recovery \
+  -H "Content-Type: application/json" \
+  -d '{"src_dpid":1,"src_interface":1,"dst_dpid":5,"dst_interface":1}'
 ```
 
-**【2026-08-11 實測】edges up 在 3 秒內回到 288**（`ifconfig up` 於 11:06:04.032，11:06:07 已是 288）。第二次實測同樣是 3 秒。
+✅ **09-12 實測（ovs4）**：`HTTP=200`，`tc[]` 兩筆 `qdisc del` 都 `ok:true`，
+`tc qdisc show | grep -c netem` 回 **0**，圖回到 `edges up: 40 / 40`、`down edges: []`。
+**收工前一定要確認 netem 歸 0**——`ndt clean` 不看 netem（入口手冊 §2.1），
+留下的 netem 會變成下一輪某個沒人描述的網路。
+<!-- 來源：ROLE-11 F8／F3，log hunt-0911/logs/ROLE-11/11-inject-recovery.log、
+     12-graph-after-recovery.log（🟠 轉述）。 -->
+
+**【2026-08-11 實測，`ifconfig up` 那條路徑】edges up 在 3 秒內回到 288**（`ifconfig up` 於 11:06:04.032，11:06:07 已是 288）。第二次實測同樣是 3 秒。**這個 3 秒沒有在 API 路徑上重測過。**
 
 等待若干秒後：
 

@@ -62,17 +62,43 @@ switch，所以收集到的是 454）、`tests/python` **238**、`tests/shell/te
 所以任何目錄下都能打。底層的 `ndtwin-lab` + `stack.sh` 仍然可用（見 §2.9 的摺疊區），
 但**不要混用**——`ndt` 記帳、裸指令不記帳，混用就是 §2.10 的第一條。
 
+⚠️ **`ndt help` 把完整 usage 印出來之後 `exit 2`。** 它不是失敗，是「你沒給我一個動詞」的
+rc（沒有動詞的 `ndt` 也一樣）。**放進 `set -e` 腳本的那一行會讓整支腳本停在那裡**，
+要印用法請自己接 `|| true`。手冊其餘各節的指令都回它們自己的 rc，只有這一個是這樣。
+<!-- 來源：ROLE-11 F11，log hunt-0911/logs/ROLE-11/01-ndt-help.log（末行 RC=2）；
+     本單在主 checkout 自己再跑過一次，同樣 RC=2
+     （logs/gates-0910/ndt-help-spelling.doc1-0912-r1.log）＝🟢 親自跑過。 -->
+
 ### 2.0 三十秒版
 
 ```bash
 ndt status          # 有人在用嗎？現在是什麼狀態？
 ndt down            # 清空
-ndt up              # 開 P4（預設）／ ndt up ovs 開 OVS
+ndt up              # 開 OVS 128 台（預設平面是 OVS，等同 ndt up ovs）／ P4 要指名 ndt up p4 …
 ndt down            # 收
 ```
 
-**多人共用的機器，第一步永遠是 `ndt status`。** 它第一行就告訴你實驗室現在屬於誰。
+🔴 **裸 `ndt up`、`ndt up 4`、`ndt up 128` 三個都是 OVS。** 預設平面 2026-09-03 由 P4 改成
+OVS（Adam），本節先前寫「`ndt up` 開 P4（預設）」是改之前的話。要 P4 一律指名 `ndt up p4 …`，
+見 §2.2。
+<!-- 來源：F1（ROLE-11 F1 的同一形狀，本單自查擴大）。① 親自讀過：tools/test_workflow/ndt
+     的 resolve_up_target（`${1:-ovs}`／`4) up_ovs 4`）與其上方註解「THE DEFAULT PLANE IS OVS
+     (Adam, 2026-09-03) ... It was p4 until then」；② 親自跑過：`ndt help` 逐字
+     `ndt up  Ryu + OVS, 128 hosts  (the default plane is OVS)`，log
+     scratch/overnight-2026-09-05/logs/gates-0910/ndt-help-spelling.doc1-0912-r1.log。
+     裸 `ndt up` 本輪沒有人 live 跑過——這一句的證據是 help 與碼，不是 live。 -->
+
+**多人共用的機器，第一步永遠是 `ndt status`。** 擁有者在 `lab` 區塊的 **`claim` 那一行**
+（輸出的第二行；第一行是區塊標題 `lab`），長這樣：
+
+```
+lab
+  claim          yours -- 68m left (until 03:27:18)
+```
+
 不必去問別的 session。
+<!-- 來源：ROLE-11 F12，log hunt-0911/logs/ROLE-11/02-ndt-status.log（🟠 轉述）。
+     先前這裡寫「它第一行就告訴你實驗室現在屬於誰」，而第一行是區塊標題。 -->
 
 ---
 
@@ -93,7 +119,27 @@ ndt clean           # 只驗不動手；exit 1 = 還有東西活著
 | `[3/3] sweep` | `mn -c`，收殘留的 veth／namespace |
 
 `ndt clean` 檢查五件事：bmv2 行程數、host/switch 行程數、topo tmux session、
-switch manifest、以及 **:8000 / :8080 / :8081 三個 port**。全部過才印綠色 `clean`。
+switch manifest、以及 **9 條 port 規則、展開共 27 個 port**。全部過才印綠色 `clean`，
+那一行逐字長這樣：
+
+```
+ok  ports closed: 8000/8080/8081/6653/6633/6343/30051-30060/9091-9100/9000
+```
+
+**不是只有 :8000／:8080／:8081 三個**（本節先前只寫那三個）：另外六條規則是 Ryu 的 OpenFlow
+listener `:6653`／`:6633`、kernel 的 sFlow collector `:6343`（UDP）、bmv2 每台一個的 gRPC
+`:30051-30060` 與 Thrift `:9091-9100`（各 10 個）、以及 sim app 的 `:9000`。
+正本是 `tools/test_workflow/ports.sh` 的 `NDT_PORT_TABLE`，`clean` 與 `--deep` 讀同一張表。
+⇒ **不乾淨的時候輸出不是五行**：每個被佔的 port 各三行（residue／owner／後果），
+09-12 那次活著的 fabric 上共 **74 行 `XX`**。
+<!-- 來源：ROLE-11 F7，log hunt-0911/logs/ROLE-11/92-clean.log（ok 那行逐字）與 18-clean-live.log
+     （74 行 XX）＝🟠 轉述；9 條規則／27 個 port 的展開＝本單親自讀 tools/test_workflow/ports.sh
+     的 NDT_PORT_TABLE 數出來的（6 個單埠＋10＋10＋1）。 -->
+
+🔴 **已知（工具的措辭，FIX-NDT-6 在修）：在你自己**活著的** fabric 上跑 `ndt clean`，
+它會把你這一輪的行程列成 residue，並在清單末尾建議 `ndt down --deep`。**不要照做。**
+fabric 活著時 `ndt clean` 回 rc 1 是正常的（就是上面那句「exit 1 = 還有東西活著」），
+要收請用 `ndt down`；`--deep` 是會殺別人行程的動詞。細節與逐字輸出見下面的摺疊區。
 
 <details><summary>什麼時候需要 <code>ndt down --deep</code></summary>
 
@@ -104,8 +150,36 @@ session 的殘骸還佔著 :8000，`down` 會**報告它、然後放著不動**�
 XX  :8000 still listening -- this stack did not start it
 ```
 
-這是刻意的：`--deep` 會殺掉佔住那三個 port 的任何行程，而那可能是別人正在用的東西。
-確定機器是你的，才加 `--deep`。
+這是刻意的：`--deep` 會殺掉佔住**那 27 個 port**（＝上面 `clean` 檢查的同一張表）的任何行程，
+而那可能是別人正在用的東西。確定機器是你的，才加 `--deep`。
+
+⚠️ **`ndt help` 的 `down` 段落仍寫「`--deep` also kills whatever still holds
+:8000/:8080/:8081」，那是三個 port 時代的話**：`deep_sweep` 與 `cmd_clean` 現在讀
+`ports.sh` 的同一張表（九條規則），所以 `--deep` 也會掃 bmv2 的 20 個 port。
+以這裡為準，`ndt help` 的那句待修。
+<!-- 來源：本單親自讀 tools/test_workflow/ndt 的 deep_sweep（`while IFS='|' read ... NDT_PORT_TABLE`，
+     註解自陳「the sweep now covers nine specs instead of three」）與 ports.sh；
+     `ndt help` 的原句出自本單自己跑的 logs/gates-0910/ndt-help-spelling.doc1-0912-r1.log。
+     工具側的措辭未改（不在本單範圍），已列進 SUMMARY §7。 -->
+
+🔴 **已知：那句「this stack did not start it」會蓋到這個 stack 自己登記的行程。**
+09-12 實測：`ndt up p4 4` 起完約 30 秒跑 `ndt clean`，輸出 **74 行 `XX`**，頭兩筆是
+
+```
+XX  residue: ndtwin_kernel pid 2511227 holding :8000 (tcp)
+XX  residue: python pid 2510886 holding :8081 (tcp)
+```
+
+而同一分鐘的 `ndt status --check` 逐字印
+`kernel.child.pid=2511227 alive,kernel.pid=2511223 alive,p4_proxy.child.pid=2510886 alive,…`
+——這兩個 pid 正是 `.test_run/pids/` 登記在案的。清單**末尾**那一行總結
+`XX     this stack did not start it; to kill it too:  ndt down --deep`
+因此涵蓋了自己人。**第一次用的人照著加 `--deep`，殺掉的是自己剛起的 fabric。**
+工具的修正在 **FIX-NDT-6**；在它落地之前，判斷「這是不是我的」請看 `ndt status` 的
+`pidfiles` 欄，不要看 `clean` 的這句話。
+<!-- 來源：ROLE-11 F5，log hunt-0911/logs/ROLE-11/18-clean-live.log（74 行 XX、末行的 --deep 建議）
+     與 16-check-p4.log（pidfiles 欄）。🟠 轉述（ROLE-11 log）。工具未改：FIX-NDT-6 ③ 在修
+     `clean` 的守衛與措辭。 -->
 
 `--deep` 自己也有兩道保險：不對 pid < 2 動手、不殺 `ndt` 自己；而如果 port 的持有者
 查不出 pid（例如在別的 netns 裡），它會明說 `--deep cannot address it` 而不是假裝成功。
@@ -146,10 +220,26 @@ root 執行那支 `.py`），`ndt` 的 `$REPO` 卻是它自己所在的樹 ⇒ �
 #### P4／bmv2　（實測 33.6 秒 @128 hosts，`52cba51`）
 
 ```bash
-ndt up              # 用現在的 host 數（見 ndt status 的 hosts 欄）
-ndt up 4            # 4 hosts
+ndt up p4           # 用現在的 host 數（見 ndt status 的 `p4 host knob` 欄）
+ndt up p4 4         # 4 hosts（會把 host_count_override 改寫成 4）
 ndt up p4 128       # 128 hosts
 ```
+
+📌 **4 台 P4 的唯一寫法就是 `ndt up p4 4`。** 09-12 之前本手冊沒有任何一行給得出它
+（`ndt up 4` 是 OVS），照手冊做的人做不出 4 台的 P4 twin。實跑 14 秒、rc 0，
+`[3/3]` 印 `model matches fabric: 4 hosts`。
+<!-- 來源：ROLE-11 F2（缺步驟）與其繞法，log hunt-0911/logs/ROLE-11/15-up-p4-4.log
+     （🟠 轉述：ROLE-11 的實跑輸出）。拼法出自 `ndt help` 的
+     `ndt up p4 4       p4 at 4 hosts   (rewrites host_count_override)`，本單親自核對
+     （logs/gates-0910/ndt-help-spelling.doc1-0912-r1.log）。 -->
+
+🔴 **P4 一定要指名 `p4`。** 本節先前把 `ndt up`／`ndt up 4` 列在這個標題底下，**那兩個都是 OVS**
+（預設平面 2026-09-03 改成 OVS）：09-12 實跑 `ndt up 4`，工具第一行就回 `ndt up ovs4`、載
+`StaticNetworkTopologyOVS_10Switches_4Hosts.json`、走 OVS 的 `[1/4] control plane (Ryu)`。
+兩個平面的驗收判準是相反的（§2.3），所以拿錯平面的人下一步連紅綠都讀反。
+<!-- 來源：ROLE-11 F1，log hunt-0911/logs/ROLE-11/04-ndt-up-4.log（🟠 轉述：ROLE-11 的實跑輸出）。
+     指令拼法另由本單在主 checkout 以 `ndt help` 親自核對，log
+     scratch/overnight-2026-09-05/logs/gates-0910/ndt-help-spelling.doc1-0912-r1.log。 -->
 
 三步：`[1/3] bmv2 fabric` → `[2/3] proxy + kernel` → `[3/3] verify`。
 
@@ -158,6 +248,9 @@ ndt up p4 128       # 128 hosts
 ```bash
 ndt up ovs          # 128 hosts（NTG 自帶的 testbed_topo.py）
 ndt up ovs4         # 4 hosts（P4 測試床的佈局搬到 OVS 上）
+ndt up              # ＝ ndt up ovs（128）
+ndt up 128          # ＝ ndt up ovs
+ndt up 4            # ＝ ndt up ovs4　🔴 它不是 P4
 ```
 
 四步：`[1/4] control plane (Ryu)` → `[2/4] data plane (OVS fabric)` →
@@ -245,9 +338,17 @@ check: 1 problem(s)
 | switch ↔ **host**（`dst_dpid=0`，例如 `dpid 1:3 → 10.0.0.1`） | **256** | `False` | `False` |
 | switch ↔ switch（例如 `dpid 1:1 → dpid 5`） | 32 | `True` | `True` |
 
-128 hosts × 2 = 256。**OVS 平面從來不把 host 邊標成 up**，而 P4 平面會
+128 hosts × 2 = 256。**OVS 平面在 128 台上從來不把 host 邊標成 up**，而 P4 平面會
 （同一天的 P4 輪：`288 total, 0 down`）。實測到 4 分鐘都沒動（`32 up / 256 down / 0 hosts up`
 每 15 秒取樣一次），所以不是「還沒收斂」。
+
+🔴 **上面那個「從來不」只在 128 台成立。** 09-12 的 `ndt up ovs4` 實測
+`links 40 total, 0 down`，而那份模型裡有 **8 條** host 邊 ⇒ 4 台的 OVS 輪裡 host 邊是 up 的。
+**兩個量測的尺寸不同，機制（Ryu 的 `ipv4` 空不空）在 4 台上沒有重新量過**，
+所以不要拿下面那段解釋去推 4 台會怎樣，也不要拿 4 台的結果去推翻 128 台的紀錄。
+<!-- 來源：ROLE-11 F4，log hunt-0911/logs/ROLE-11/05-check-after-up.log（🟠 轉述）；
+     8 條 host 邊＝本單親自讀 setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json 數出來的。
+     為什麼 4 台會 up、128 台不會，尚未查 ⇒ 已列進 FIX-DOC-1 SUMMARY §7。 -->
 
 <details><summary>為什麼——不是設計決定，是資料對不上</summary>
 
@@ -288,11 +389,22 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
 中間有東西變了或條件不同，沒查清楚之前不要引用任何一邊當機制。
 </details>
 
-所以：
+所以（**判準跟尺寸走，不是只跟平面走**）：
 
-- **P4**：`ndt status --check` 回 rc=0 才算過。
-- **OVS**：`--check` 一定 rc=1。**看它列出來的問題是不是只有「256 link(s) are down」**——
+- **P4**：`ndt status --check` 回 rc=0 才算過。（09-12 `ndt up p4 4` 實測 rc **0**、`check: ok`。）
+- **OVS 128 台**：`--check` 一定 rc=1。**看它列出來的問題是不是只有「256 link(s) are down」**——
   只有這一條就是正常的；多出任何別的才要查。
+- 🆕 **OVS 4 台（`ndt up ovs4`／`ndt up 4`）：一條 link 都不該 down。** 09-12 實測
+  `links          40 total, 0 down, 0 admin-disabled`（模型宣告 40 條邊，其中 8 條是 host 邊）
+  ⇒ 上一行那句「只有 256 link(s) are down 才正常」在這個尺寸上**一條都不適用**。
+  那一輪 rc 確實是 1，但唯一的 problem 是
+  `the network carries app residue: 60 rule(s) installed inside an app's window`，
+  而那 60 條在該輪第一個 `ndt up` **之前**就在了、來源未追 ⇒ **不是 ovs4 的性質**。
+  本輪沒有在乾淨機器上觀測過 ovs4 的 `--check`，所以**不宣稱**它會回 rc 0：
+  ovs4 的 `--check` 要自己看 problems 那幾行，不要拿 128 台那條規則套。
+<!-- 來源：ROLE-11 F4，log hunt-0911/logs/ROLE-11/05-check-after-up.log（ovs4，🟠 轉述）、
+     16-check-p4.log（p4 4，rc 0）。40 條邊裡 8 條是 host 邊＝本單親自讀
+     setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json 數出來的（dpid 0 兩端共 8 筆）。 -->
 
 🆕 **2026-09-07 起 `--check` 多一列 `residue`**（G-12／W16-2）：它會去問「有沒有 app
 留在網路上的東西」——某個 app 的時間窗內裝的流表規則、還握著的鎖。判準因此多了一條：
@@ -442,9 +554,16 @@ Adam 對「P4 的規則定不了年」的處置是**從根本修**：G-13——�
 日常用法就是**不要自己碰**——講 host 數就好，其餘 `ndt` 自己對齊：
 
 ```bash
-ndt up 4            # 改 host_count_override -> 4，並挑 4 台的模型
+ndt up p4 4         # 改 host_count_override -> 4，並挑 4 台的模型
 ndt up p4 128       # 改回 128
 ```
+
+⚠️ **只有 `ndt up p4 <n>` 會寫那個旋鈕。** `ndt up 4`／`ndt up ovs4` 是 OVS，
+`ndt help` 逐字：`OVS has no such knob -- there the size is the verb`；09-12 實跑 `ndt up 4`
+之後 `ndt status --check` 仍印 `knob baseline  4 == the value this round started with`，
+一個字都沒寫進去。
+<!-- 來源：ROLE-11 F1，log hunt-0911/logs/ROLE-11/04-ndt-up-4.log、05-check-after-up.log:14
+     （🟠 轉述：ROLE-11 的實跑輸出）；`ndt help` 那句由本單親自核對（ndt-help-spelling.doc1-0912-r1.log）。 -->
 
 `host_count` 必須是 4 的倍數且 ≥ 4（hosts 分散在 s1–s4）。改動會印黃字警告，因為
 `host_count_override` 是**持久狀態**——下一輪繼承別人設的數字，就是量測描述錯網路的起點。
@@ -479,7 +598,7 @@ kernel 的模型、沒設這個，於是 `ndt up ovs4` 蓋了 4 台的 fabric、
 
 | 改什麼 | 怎麼改 | 什麼時候生效 |
 |---|---|---|
-| host 數 | `ndt up 4` / `ndt up p4 128` | 下次開機 |
+| host 數 | `ndt up p4 4` / `ndt up p4 128`（**只有指名 `p4` 的形式會寫旋鈕**，見 §2.4） | 下次開機 |
 | bmv2 stock ↔ fast | 註解／取消註解 `p4_proxy/mininet/bmv2_binary_override` 那一行 | 下次開機 |
 | **取樣率** | 改 `.p4` 裡的 const **＋重編 pipeline** | **要重編＋重起 fabric** |
 
@@ -618,6 +737,21 @@ ndt clean           # 證明真的乾淨了；exit 1 = 沒有
 
 `ndt down` 約 13 秒。細節見 §2.1（清空和收尾是同一件事）。
 
+🔴 **已知（工具，FIX-NDT-6 在修）：收一個活著的 P4 fabric 時，同一份輸出會同時說兩件相反的話。**
+09-12 實測（`ndt up p4 4` 之後）：`verify clean` 底下五行全 `ok`（含
+`ok  ports closed: 8000/8080/8081/6653/6633/6343/30051-30060/9091-9100/9000`）、印綠色 `clean`，
+**緊接著一行** `claim note now says the teardown did not verify clean`，`RC=1`。
+那句話還會**活過這次指令**——之後 `ndt status` 的 `note` 欄逐字：
+`down at 2026-09-12 02:26:12 did NOT verify clean; claim kept -- read 'running' below, not this note`，
+接班的人第一眼看到的就是它。
+
+**這種 rc 1 怎麼判**（同一輪實測的做法）：`ndt clean` 回 **rc 0** 且印 `clean`、
+`ndt apps orphans` 給 `VERDICT: CLEAN`、`ndt status --check` 與你開工時的基線一致
+——三件都過就是已還原，rc 1 照記錄、不照它下結論。三件有任何一件沒過，那才是真的沒收乾淨。
+<!-- 來源：ROLE-11 F6，log hunt-0911/logs/ROLE-11/91-down.log（末六行）、99-final-check.log（note 欄）、
+     92-clean.log（rc 0）、93-orphans-after.log（VERDICT: CLEAN）。🟠 轉述（ROLE-11 log）。
+     工具未改：FIX-NDT-6 ②（rc 看結局不看中途）與 R11-4。 -->
+
 <details><summary>收到一半被 Ctrl-C 會怎樣（2026-08-21 實測）</summary>
 
 SIGINT 打在 `[2/3]` 的結果**比預期好**：`ndt` 被 signal 2 殺掉、kernel 與 proxy 已經停了、
@@ -704,10 +838,15 @@ sudo -n /usr/local/sbin/ndtwin-lab ovs-topo-start    # 另一個終端
 | `ndt status` | 0.3–0.7 秒 | |
 | `ndt up p4 128` | **33.6 秒** | bmv2 10 台 18 秒、路徑收斂 4 秒 |
 | `ndt up ovs`（128） | **24.1 秒** | Ryu settle 10 秒、收斂 20 秒 |
-| `ndt up ovs4` | 10–15 秒 | 未在本輪重測 |
+| `ndt up ovs4`（＝`ndt up 4`） | 10–15 秒 | 09-12 單次實測 **8 秒**（`d7aa176e`） |
+| `ndt up p4 4` | **14 秒** | 09-12 單次實測（`d7aa176e`）；bmv2 10 台 4 秒、路徑收斂 5 秒 |
 | `ndt down` | **13.3–13.8 秒** | 空的實驗室只要 1.6 秒 |
 | `ndt clean` | 0.1 秒 | |
 | kernel 開 :8000 | 第一次 poll 就開 | 修好之前是 167 秒＋回報失敗 |
+
+<!-- 來源：`ndt up p4 4` 與 `ndt up 4`(ovs4) 兩列的 09-12 數字＝ROLE-11 F2／F1，
+     log hunt-0911/logs/ROLE-11/15-up-p4-4.log（ELAPSED=14s）與 04-ndt-up-4.log（ELAPSED=8s），
+     🟠 轉述（ROLE-11 log）、各一次取樣不是分布。 -->
 
 <details><summary>OVS 開機為什麼從 73 秒降到 25 秒（2026-08-21）</summary>
 
