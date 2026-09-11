@@ -131,7 +131,11 @@ check "  and says why"                           yes "$(case "$err_out" in *"mor
 # is still this file, so this is the one spelling that survives the source.
 SUITE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SUITE_DIR/../.." && pwd)"
-BY_NAME="$SUITE_DIR/check_process_by_name.py"
+# 🔴 The checker under test, overridable by path. tests/shell/mutate_check_process_by_name.sh
+# applies each mutation to a COPY in a temp dir and points this suite at it -- this worktree is
+# shared and another session may be running the real file right now. Same seam, same reason, as
+# check_test_tmpdirs.py's CHECK_TMPDIRS_UNDER_TEST.
+BY_NAME="${CHECK_PROCESS_BY_NAME_UNDER_TEST:-$SUITE_DIR/check_process_by_name.py}"
 [[ -f "$BY_NAME" ]] || { echo "  FAILED   no checker at $BY_NAME"; exit 2; }
 
 # by_name <RUNS|TEACHES> <text> -- how many sites of that kind the checker finds in that script.
@@ -143,6 +147,16 @@ by_name() {
     printf '%s' "$2" > "$f"
     # Only the SITE lines: the verdict lines carry the kind word too, and counting those turned
     # every "1" below into a "2".
+    python3 "$BY_NAME" "$f" 2>/dev/null | grep -cE "^.+:[0-9]+: +$1( |$)" || true
+}
+
+# by_name_py <RUNS|TEACHES> <text> -- the same question put to a PYTHON file.
+# 🔴 A separate helper because the file has to end in .py: the checker dispatches on the
+# extension, and the failure this whole section exists for is that pointing a shell parser at
+# python does not crash and does not report -- it parses a different language and says nothing.
+by_name_py() {
+    local f="$TMPROOT/by_name_case.py"
+    printf '%s' "$2" > "$f"
     python3 "$BY_NAME" "$f" 2>/dev/null | grep -cE "^.+:[0-9]+: +$1( |$)" || true
 }
 
@@ -205,6 +219,81 @@ check "ps read for a pid is not by name"         0 "$(by_name RUNS '#!/usr/bin/e
 ps -o etimes= -p "$pid"
 ')"
 
+# 🔴 2026-09-11, FIX-PROXY-1. The limit this checker wrote down on day one -- "shell only" --
+# was not a limit, it was where the two LIVE violations were: both mininet topologies ran
+# `os.system('sudo pkill -f simple_switch_grpc')` as root on every bring-up while the shell half
+# went green every night. In python the hazard is INSIDE a string literal, so the shell half's
+# central carve-out (single-quoted means data) would make this blind to all five cases below.
+echo "python: a name-based lookup is a spawner's argument, however it is spelled"
+check "os.system with the shell one-liner"       1 "$(by_name_py RUNS 'import os
+os.system("sudo pkill -f simple_switch_grpc > /dev/null 2>&1")
+')"
+check "an argv list, with no shell at all"       1 "$(by_name_py RUNS 'import subprocess
+subprocess.run(["pkill", "-f", "simple_switch_grpc"])
+')"
+check "check_output, shell=True"                 1 "$(by_name_py RUNS 'import subprocess
+out = subprocess.check_output("pgrep -f ndtwin_kernel", shell=True)
+')"
+check "an f-string handed to os.system"          1 "$(by_name_py RUNS 'import os
+def stop(name):
+    os.system(f"pkill -f {name}")
+')"
+check "an f-string through a Mininet node"       1 "$(by_name_py RUNS 'def stop(net, name):
+    net.get("s1").cmd(f"killall {name}")
+')"
+check "python: ps read for a name"               1 "$(by_name_py RUNS 'import os
+os.system("ps -eo args= | grep -o simple_switch_grpc")
+')"
+
+echo "python: and so is the advice"
+check "printed at the operator"                  1 "$(by_name_py TEACHES 'print("if it is stuck, try pgrep -f ndtwin_kernel")
+')"
+check "raised as the way to clean up"            1 "$(by_name_py TEACHES 'raise RuntimeError("clean it up with pkill -f simple_switch_grpc")
+')"
+
+echo "python: quoting the forbidden form is not doing it"
+check "a python comment is not executable"       0 "$(by_name_py RUNS 'import os
+# never pkill -f anything; signal the pid the manifest recorded
+os.system("sudo mn -c")
+')"
+check "  nor a python string it prints"          0 "$(by_name_py TEACHES 'import os
+# never pkill -f anything; signal the pid the manifest recorded
+os.system("sudo mn -c")
+')"
+check "a docstring is prose"                     0 "$(by_name_py TEACHES '"""Teardown must never pkill -f simple_switch_grpc; see CLAUDE.md."""
+import os
+')"
+check "a string used as a block comment"         0 "$(by_name_py TEACHES 'import os
+def stop(pid):
+    """Stop one switch."""
+    "the version before this one ran pkill -f simple_switch_grpc here"
+    os.kill(pid, 15)
+')"
+check "signalling a pid is not by name"          0 "$(by_name_py RUNS 'import subprocess
+subprocess.run(["kill", "-TERM", str(pid)])
+')"
+# 🔴 The control that says this is not a grep over the bytes of the file: the tool name appears
+# five times as an IDENTIFIER, which nothing executes and nobody is told to copy.
+check "a variable merely NAMED after it"         0 "$(by_name_py RUNS 'pkill_is_forbidden = True
+if pkill_is_forbidden:
+    pass
+')"
+check "  and it is not advice either"            0 "$(by_name_py TEACHES 'pkill_is_forbidden = True
+if pkill_is_forbidden:
+    pass
+')"
+
+# 🔴 L-3: a file the checker cannot read must be reported as UNREAD and exit 2, never counted as
+# a clean file. A python SyntaxError is this half'"'"'s unterminated quote.
+printf '%s' 'import os
+def broken(
+os.system("sudo pkill -f simple_switch_grpc")
+' > "$TMPROOT/broken_case.py"
+unread_out="$(python3 "$BY_NAME" "$TMPROOT/broken_case.py" 2>&1)"; unread_rc=$?
+check "unparseable python is NOT CHECKED"        2 "$unread_rc"
+check "  and it says so rather than nothing"     yes \
+    "$(case "$unread_out" in *"NOT CHECKED"*) echo yes ;; *) echo no ;; esac)"
+
 echo "the advice strings no longer teach pgrep -f"
 check "no pgrep -f on an executable line"        0 \
     "$(python3 "$BY_NAME" "$FAULTS" 2>/dev/null | grep -c 'RUNS' || true)"
@@ -217,10 +306,14 @@ check "no pgrep -f inside anything it prints"    0 \
 # widened this -- and the verdict compares found against registered IN BOTH DIRECTIONS, so a new
 # site is red and a registered site someone has fixed is red too.
 echo "the whole scan surface, not one hard-coded path"
-scan_out="$(cd "$REPO_ROOT" && python3 tests/shell/check_process_by_name.py 2>&1)"; scan_rc=$?
+scan_out="$(cd "$REPO_ROOT" && python3 "$BY_NAME" --repo "$REPO_ROOT" 2>&1)"; scan_rc=$?
 check "no unregistered name-based site"          0 "$scan_rc"
 check "  and it looked at more than one file"    yes \
     "$(case "$scan_out" in *" file(s) scanned"*) echo yes ;; *) echo no ;; esac)"
+# 🔴 And at more than one LANGUAGE. Without this the surface can quietly go back to shell-only
+# and every check above still passes, because they all name their own fixture file.
+check "  and python is in the surface"           yes \
+    "$(printf '%s\n' "$scan_out" | grep -qE '^[^ ]+\.py:[0-9]+: ' && echo yes || echo no)"
 printf '%s\n' "$scan_out" | sed 's/^/           | /'
 
 echo "the suite reaps its own fixtures"
