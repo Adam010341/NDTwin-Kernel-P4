@@ -58,6 +58,23 @@ BASE_SHA="$(cat "$CELLDIR"/*.sh | sha256sum | cut -d' ' -f1)"
 
 MUTATIONS=0; SURVIVORS=0; CHECKS=0; CHECKFAIL=0; PENDING=0
 
+# 🔴 One variable per cell file, and each is passed to `mutant` WHOLE.
+# tests/shell/check_gate_anchors.py resolves a scalar assignment and a bare "$VAR", but a
+# mixed word like "$CELLDIR/x.sh" is not a path it can follow -- it falls back to the
+# function's default file, which is the DIRECTORY, and every anchor is then counted in a path
+# instead of in a file. First draft did that and the checker said MISSING:20 over 20 anchors
+# that all resolve. Measured 2026-09-11 13:4x.
+CELL_OBPNC="$CELLDIR/orphans_blind_probes_not_checked.sh"
+CELL_HDDC="$CELLDIR/help_drops_deleted_claims.sh"
+CELL_DRPIC="$CELLDIR/default_round_plane_is_classified.sh"
+CELL_UTNARM="$CELLDIR/up_target_names_a_readable_model.sh"
+CELL_URAMOAN="$CELLDIR/up_refuses_a_model_of_another_network.sh"
+CELL_URWADIIF="$CELLDIR/up_refuses_while_a_down_is_in_flight.sh"
+CELL_HSINC="$CELLDIR/half_stack_is_not_clean.sh"
+CELL_RRFN="$CELLDIR/recovery_refuses_foreign_netem.sh"
+CELL_LFCBEON="$CELLDIR/link_failure_cuts_both_ends_or_neither.sh"
+
+
 # --- (a) the fixture check, which is also the oracle every mutation is measured against --------
 # fails_of <celldir> <cell> <rawdir> -> the failing assert ids, one per line, sorted
 fails_of() {
@@ -191,31 +208,31 @@ echo "(b) mutations: is the key assertion the thing that catches the old evidenc
 # carrying the finding. The widening form is the one that stays red and stops discriminating.
 
 # --- orphans_blind_probes_not_checked ---
-m=$(mutant m1 "$CELLDIR/orphans_blind_probes_not_checked.sh" \
+m=$(mutant m1 "$CELL_OBPNC" \
     '    a_eq    f5_verdict_rc_is_3           "3"  "$(cat "$d/verdict.rc" 2>/dev/null)"' \
     '    :')
 report "M1  (delete) F5: the rc 3 that replaced 0 is not read" "$m" orphans_blind_probes_not_checked
-m=$(mutant m2 "$CELLDIR/orphans_blind_probes_not_checked.sh" \
+m=$(mutant m2 "$CELL_OBPNC" \
     '    a_hasnt f5_does_not_say_clean             "VERDICT: CLEAN"             "$d/verdict.txt"' \
     '    _a_ok   f5_does_not_say_clean "(widening: the token every restore gate greps is not checked)"')
 report "M2  (widen)  F5: the CLEAN token is reported but never tested" "$m" orphans_blind_probes_not_checked
 
 # --- help_drops_deleted_claims ---
-m=$(mutant m3 "$CELLDIR/help_drops_deleted_claims.sh" \
+m=$(mutant m3 "$CELL_HDDC" \
     "    a_hasnt help_drops_this_checkout_claim        'has run in THIS checkout. 3 is never'      \"\$d/help.txt\"" \
     '    :')
 report "M4  (delete) F12: the deleted sentence is not looked for" "$m" help_drops_deleted_claims
-m=$(mutant m4 "$CELLDIR/help_drops_deleted_claims.sh" \
+m=$(mutant m4 "$CELL_HDDC" \
     "    a_has   help_keeps_the_scoped_knob_claim      'It does NOT make the 4-host-model-against-a-128-host-fabric' \"\$d/help.txt\"" \
     '    _a_ok   help_keeps_the_scoped_knob_claim "(widening: deleting the sentence would pass)"')
 report "M5  (widen)  B10: 'say nothing' becomes a passing answer" "$m" help_drops_deleted_claims
 
 # --- default_round_plane_is_classified ---
-m=$(mutant m5 "$CELLDIR/default_round_plane_is_classified.sh" \
+m=$(mutant m5 "$CELL_DRPIC" \
     "    a_has  f10_mininet_model_reads_as_ovs   'mininet128: out=ovs rc=0'   \"\$d/planes.txt\"" \
     '    :')
 report "M6  (delete) F10: the default round's own model is not read" "$m" default_round_plane_is_classified
-m=$(mutant m6 "$CELLDIR/default_round_plane_is_classified.sh" \
+m=$(mutant m6 "$CELL_DRPIC" \
     "    a_has  f10_mininet_model_reads_as_ovs   'mininet128: out=ovs rc=0'   \"\$d/planes.txt\"" \
     '    _a_ok  f10_mininet_model_reads_as_ovs "(widening: the id is still reported and never fails)"')
 report "M7  (widen)  F10: the reading is reported but never tested" "$m" default_round_plane_is_classified
@@ -228,80 +245,80 @@ report "M7  (widen)  F10: the reading is reported but never tested" "$m" default
 # do NOT cover lists them in one place.
 
 # --- up_target_names_a_readable_model ---
-m=$(mutant m7 "$CELLDIR/up_target_names_a_readable_model.sh" \
+m=$(mutant m7 "$CELL_UTNARM" \
     '    a_hasnt h4nl_model_counts_were_readable            "cannot read expected counts from"  "$d/up.log"' \
     '    :')
 report "M8  (delete) H4-regression: ndt's own 'cannot read' sentence" "$m" up_target_names_a_readable_model
-m=$(mutant m8 "$CELLDIR/up_target_names_a_readable_model.sh" \
+m=$(mutant m8 "$CELL_UTNARM" \
     '    a_eq    h4nl_up_rc_is_0                     "0"    "$(cat "$d/up.rc" 2>/dev/null)"' \
     '    _a_ok   h4nl_up_rc_is_0 "(widening: any rc is accepted)"')
 report "M9  (widen)  H4-regression: a bring-up that cannot finish passes" "$m" up_target_names_a_readable_model
 
 # --- up_refuses_a_model_of_another_network ---
-m=$(mutant m9 "$CELLDIR/up_refuses_a_model_of_another_network.sh" \
+m=$(mutant m9 "$CELL_URAMOAN" \
     "    a_has   h4_refusal_names_both_counts          '128 declared by'             \"\$d/up.log\"" \
     '    :')
 report "M10 (delete) H4: the two host counts stop being compared" "$m" up_refuses_a_model_of_another_network
-m=$(mutant m9b "$CELLDIR/up_refuses_a_model_of_another_network.sh" \
+m=$(mutant m9b "$CELL_URAMOAN" \
     "    a_has   h4_refusal_names_two_networks \\
             'refusing to build: NDT_TOPO names a model of a different network'  \"\$d/up.log\"" \
     '    _a_ok   h4_refusal_names_two_networks "(widening: any refusal counts, whatever it says)"')
 report "M10b (widen) H4: any refusal counts, whatever refused it" "$m" up_refuses_a_model_of_another_network
-m=$(mutant m10 "$CELLDIR/up_refuses_a_model_of_another_network.sh" \
+m=$(mutant m10 "$CELL_URAMOAN" \
     '    a_hasnt h4_nothing_was_built                  '"'"'[1/3] bmv2 fabric'"'"'           "$d/up.log"' \
     '    _a_ok   h4_nothing_was_built "(widening: a refusal that built ten switches first passes)"')
 report "M11 (widen)  H4: building the fabric first becomes acceptable" "$m" up_refuses_a_model_of_another_network
 
 # --- up_refuses_while_a_down_is_in_flight ---
-m=$(mutant m11 "$CELLDIR/up_refuses_while_a_down_is_in_flight.sh" \
+m=$(mutant m11 "$CELL_URWADIIF" \
     '    a_hasnt h3_did_not_reuse_the_fabric             '"'"'already up:'"'"'                   "$d/up.log"' \
     '    :')
 report "M12 (delete) H3: 'reusing' the fabric being destroyed" "$m" up_refuses_while_a_down_is_in_flight
-m=$(mutant m12 "$CELLDIR/up_refuses_while_a_down_is_in_flight.sh" \
+m=$(mutant m12 "$CELL_URWADIIF" \
     "    a_has   h3_refusal_quotes_the_marker            '.test_run/down.inflight'       \"\$d/up.log\"" \
     '    _a_ok   h3_refusal_quotes_the_marker "(widening: the marker need not be named)"')
 report "M13 (widen)  H3: the marker stops having to be named" "$m" up_refuses_while_a_down_is_in_flight
 
 # --- half_stack_is_not_clean ---
-m=$(mutant m13 "$CELLDIR/half_stack_is_not_clean.sh" \
+m=$(mutant m13 "$CELL_HSINC" \
     "    a_hasnt h2_half_stack_is_not_clean    'VERDICT: CLEAN'            \"\$d/half.verdict.txt\"" \
     '    :')
 report "M14 (delete) H2: the CLEAN token on a half stack" "$m" half_stack_is_not_clean
-m=$(mutant m14 "$CELLDIR/half_stack_is_not_clean.sh" \
+m=$(mutant m14 "$CELL_HSINC" \
     "    a_has   h2_half_stack_names_the_half  'the stack is HALF up'      \"\$d/half.verdict.txt\"" \
     '    _a_ok   h2_half_stack_names_the_half "(widening: a verdict that names no half passes)"')
 report "M15 (widen)  H2: which half is up stops being said" "$m" half_stack_is_not_clean
 
 # --- recovery_refuses_foreign_netem ---
-m=$(mutant m15 "$CELLDIR/recovery_refuses_foreign_netem.sh" \
+m=$(mutant m15 "$CELL_RRFN" \
     '    a_has   a1r_foreign_netem_survived       '"'"'netem'"'"'                      "$d/tc_after.txt"' \
     '    :')
 report "M16 (delete) A1: the WIRE reading, which the 200 could not satisfy" "$m" recovery_refuses_foreign_netem
-m=$(mutant m16 "$CELLDIR/recovery_refuses_foreign_netem.sh" \
+m=$(mutant m16 "$CELL_RRFN" \
     '    a_eq    a1r_http_is_409           "409"  "$(cat "$d/recovery.code" 2>/dev/null)"' \
     '    _a_ok   a1r_http_is_409 "(widening: 200 is accepted again)"')
 report "M17 (widen)  A1: 200 becomes an acceptable answer" "$m" recovery_refuses_foreign_netem
 
 # --- link_failure_cuts_both_ends_or_neither ---
-m=$(mutant m17 "$CELLDIR/link_failure_cuts_both_ends_or_neither.sh" \
+m=$(mutant m17 "$CELL_LFCBEON" \
     "    a_hasnt a1f_far_end_was_not_cut           'netem'   \"\$d/tc_after_far.txt\"" \
     '    :')
 report "M18 (delete) A1: the far end's qdisc is not read" "$m" link_failure_cuts_both_ends_or_neither
-m=$(mutant m18 "$CELLDIR/link_failure_cuts_both_ends_or_neither.sh" \
+m=$(mutant m18 "$CELL_LFCBEON" \
     "    a_hasnt a1f_does_not_claim_injected       'link failure injected'                  \"\$d/failure.body\"" \
     '    _a_ok   a1f_does_not_claim_injected "(widening: the status line may claim a cut that did not happen)"')
 report "M19 (widen)  A1: 'link failure injected' over nothing attached" "$m" link_failure_cuts_both_ends_or_neither
 
 echo
 # --- controls: behaviour-preserving edits that must NOT be caught ------------------------------
-m=$(mutant c1 "$CELLDIR/orphans_blind_probes_not_checked.sh" \
+m=$(mutant c1 "$CELL_OBPNC" \
     '    # 🔴 THE KEY ASSERTION. rc 3 is the whole finding: 0 was the answer that made three failed' \
     '    # A COMMENT THIS CONTROL REWROTE. Nothing about the judge changed, so nothing may.')
 control "C1 a comment is rewritten" "$m" orphans_blind_probes_not_checked
 # C2 reorders two assertions. fails_of sorts the ids, so a judge that reports the same set in a
 # different order is the same judge -- and a gate that called this a catch would be scoring the
 # diff, not the property.
-m=$(mutant c2 "$CELLDIR/default_round_plane_is_classified.sh" \
+m=$(mutant c2 "$CELL_DRPIC" \
     "    a_has  f10_ovs_model_still_reads_as_ovs 'ovs4:       out=ovs rc=0'   \"\$d/planes.txt\"
     # ... and the direction a blanket answer would swallow.
     a_has  f10_p4_is_not_swallowed          'p44:        out=p4 rc=0'    \"\$d/planes.txt\"" \
