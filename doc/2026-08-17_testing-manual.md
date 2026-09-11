@@ -88,8 +88,17 @@ OVS（Adam），本節先前寫「`ndt up` 開 P4（預設）」是改之前的�
      scratch/overnight-2026-09-05/logs/gates-0910/ndt-help-spelling.doc1-0912-r1.log。
      裸 `ndt up` 本輪沒有人 live 跑過——這一句的證據是 help 與碼，不是 live。 -->
 
-**多人共用的機器，第一步永遠是 `ndt status`。** 它第一行就告訴你實驗室現在屬於誰。
+**多人共用的機器，第一步永遠是 `ndt status`。** 擁有者在 `lab` 區塊的 **`claim` 那一行**
+（輸出的第二行；第一行是區塊標題 `lab`），長這樣：
+
+```
+lab
+  claim          yours -- 68m left (until 03:27:18)
+```
+
 不必去問別的 session。
+<!-- 來源：ROLE-11 F12，log hunt-0911/logs/ROLE-11/02-ndt-status.log（🟠 轉述）。
+     先前這裡寫「它第一行就告訴你實驗室現在屬於誰」，而第一行是區塊標題。 -->
 
 ---
 
