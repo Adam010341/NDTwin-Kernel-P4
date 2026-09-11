@@ -2005,8 +2005,21 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ### B-13 🔴 `link_bandwidth_bps: 0` 一扇門都不擋 ⇒ 被取樣到的邊的利用率變 `null`
 
-- **狀態**：**OPEN**（2026-09-11 ROLE-3 實測，2 次獨立重現）。**今晚沒修**——三扇門一起的修法方向
-  寫在 `scratch/overnight-2026-09-05/hunt-0911/FIX-DOORS-2.md`（**在 `scratch/`，不在版控**）。
+- **狀態**：🟢 **已修（2026-09-11，`fix/topology-doors-bandwidth-vertex-type-duplicate-ip`，
+  commit `92ec4983`；✅ 已併入 trunk，merge `389d4d1d`，2026-09-11）**——`link_bandwidth_bps`
+  現在有門 4：缺欄／非整數／負數／`0` 各一句明確訊息，全部在 `add_vertex` 之前（`vertices == 0`）。
+  **`0` 裁成不合法**（不是「未知」；理由與替代方案在
+  `doc/audit/2026-09-05_fix-topology-three-doors/FIX-TOPOLOGY-THREE-DOORS.md` §11.2，要 Adam 複核；
+  Adam 2026-09-11 晚間表單 A3 已裁**維持拒絕**）。
+  ⚠️ **只關了檔案這一半**：`linkBandwidth` 的第二個寫入者是 sFlow counter sample
+  （`updateLinkInfo` 的 `edgeProps.linkBandwidth = interfaceSpeed`），`ifSpeed = 0` 是
+  SNMP／sFlow 對「速度未知」的標準值、那條路徑零檢查 ⇒ **交換機還是可以讓利用率變 `null`**
+  ——那一半登記為 **B-17**，仍然 OPEN。
+  變異閘 M34–M38＋W10；ctest 1326/1326。**改後沒有 live 驗證**（另一輪）。
+  ✅ 底下三條寫的「變異閘 M…＋W…」都對得上一支 rc=0 的閘門：最終判決是 r3
+  （`48 mutations, 0 survived`／`12 widenings, 0 wrongly caught`）。r2 曾經 rc=1，卡在 M48 一顆
+  **等價變異**（不是門漏了）；已於 `9e3c73f1` 改寫成搬家變異並重跑。
+  M34–M46 與 W10–W12 在 r2、r3 都是全 caught／全綠。
 - **平面**：兩者（載入器與遙測算式的事，與哪個資料面無關；實測跑在 OVS 4-host）
 - **失效方向**：**靜默**——一個不可能的頻寬被收下，算出來的欄位以 `null` 出去，而沒有人說壞掉
 - **會發生什麼**：拓樸檔某條邊寫 `"link_bandwidth_bps": 0`，kernel **完整載入**，
@@ -2027,8 +2040,11 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ### B-14 🔴 `vertex_type` 的範圍外值：檔案面全收、API 面 400 —— 同一個欄位兩種嚴格度
 
-- **狀態**：**OPEN**（2026-09-11 ROLE-3 實測，`2`／`-1`／`99` 各一次、同一結論）。
-  今晚沒修，見 `hunt-0911/FIX-DOORS-2.md`（`scratch/`，不在版控）。
+- **狀態**：🟢 **已修（2026-09-11，同分支，commit `ef2cadfc`；✅ 已併入 trunk，merge `389d4d1d`）**
+  ——門 5 在 `static_cast` 之前檢查 `vertex_type` 存在／是整數／只有 0 或 1，
+  **訊息逐字採用 `HttpSession.cpp` 那一句** `Invalid vertex_type. Must be 0 (switch) or 1 (host).`
+  （同一欄兩個入口、同一句話）。
+  變異閘 M39–M42＋W11（M41 專門盯那句話會不會漂）。**改後沒有 live 驗證。**
 - **平面**：兩者（載入器）
 - **失效方向**：**靜默**——一個既不是 switch 也不是 host 的節點進了圖，並被原值 republish
 - **會發生什麼**：拓樸檔多一個 `"vertex_type": 2` 的節點（**不必被任何邊指到**）⇒ kernel 收下、
@@ -2045,7 +2061,16 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ### B-15 🔴 寬鬆寫法的位址（`["10.1"]`）讓兩台 host 共用一個位址，而查找只回第一個
 
-- **狀態**：**OPEN**（2026-09-11 ROLE-3 實測 1 次）。今晚沒修，見 `hunt-0911/FIX-DOORS-2.md`。
+- **狀態**：🟢 **已修（2026-09-11，同分支，commit `3a169e69`；✅ 已併入 trunk，merge `389d4d1d`）**
+  ——門 6 兩條臂：6a 位址必須寫成點分四段（節點側與**邊側**都檢查；`"10.1"`／`"167772161"`／
+  `"0x0a000001"` 一律拒，訊息同時給檔案裡的拼法與 loader 讀到的正規形），
+  6b 全檔不得有兩個節點持同一個 parse 後的位址（訊息**同時點名兩個節點**）。
+  ROLE-3 那個檔被兩條臂各自攔得住 ⇒ 閘門用 `mutate2`（M45）。
+  🔴 **這扇門在 repo 自己的測試語料裡抓到一個既有缺陷**：`test_SFlowEmitterRoundtrip.cpp` 的
+  `LateTopologyFixture` 給它產生的每一台交換機寫死同一個 `192.168.123.11`（`f787478b` 修；只動輸入）。
+  ⚠️ **「寬鬆拼法拒絕」是政策選擇**（替代方案：warning＋正規化寫回）；
+  Adam 2026-09-11 晚間表單 A4 已裁**維持拒絕**。
+  變異閘 M43–M46＋W12。**改後沒有 live 驗證。**
 - **平面**：兩者（載入器）
 - **失效方向**：**靜默**——零 warning、零 error，而圖裡兩個節點是同一個位址
 - **會發生什麼**：把 h2 的 `ip` 打成 `["10.1"]`（連帶它那條 host edge 的兩端）⇒ 收下，
@@ -2134,6 +2159,22 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
   所以 `ok:true`＋`detached_at:"root"` 是完全合法的回應形狀；而契約 runner 沒有辦法在跑之前
   「替別人掛一顆 netem」，所以那六步序列連製造不出這個前提。
   （本分支沒有動 `tools/contract_test/spec.py`——要不要把 409 寫進契約見 SUMMARY §7。）
+
+### B-17 🔴 sFlow counter sample 的 `ifSpeed = 0` 會讓利用率變 `null`，而檔案面的門關不到它
+
+- **狀態**：**OPEN**（2026-09-11 讀碼，🔵；B-13 修的時候盤到的另一半，**沒有實測**）。
+  開條目是 orchestrator 2026-09-12 代裁 **B1**（`hunt-0911/DECISIONS-0911-EVENING-B-RULINGS.md`；
+  翻盤成本＝刪一條 KI）。
+- **平面**：兩者（遙測算式）
+- **失效方向**：**靜默**——與 B-13 完全相同的可觀察後果，但來源是交換機而不是檔案
+- **會發生什麼**：`updateLinkInfo` 直接 `edgeProps.linkBandwidth = interfaceSpeed`，
+  並在同一個函式裡 `(1.0 - (double)leftOut / interfaceSpeed) * 100`。
+  `ifSpeed = 0` 是 SNMP／sFlow 對「速度未知或不適用」的標準值，`grep "interfaceSpeed == 0"` 零命中。
+- **機制**：B-13 的門在 `validateStaticTopologyJson`（檔案），這條路徑在 counter-sample 消費端（線上）。
+  ⇒ **同一個除數、兩個母體、一扇門。**（recon B §1 S7「除數沒有人守」的另一半。）
+- **要怎麼驗**：需要一個 `ifSpeed = 0` 的 counter sample（`FlowLinkUsageCollector` 的 sampleType 2 分支）
+  ——單元測試就夠，不必上 lab。
+- **證據**：`fix/FIX-DOORS-2-SUMMARY.md` §6／§7.3 逐字（讀碼，非實測）。
 
 ---
 
