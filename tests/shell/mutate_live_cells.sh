@@ -279,6 +279,21 @@ m=$(mutant m9b "$CELL_URAMOAN" \
             'refusing to build: NDT_TOPO names a model of a different network'  \"\$d/up.log\"" \
     '    _a_ok   h4_refusal_names_two_networks "(widening: any refusal counts, whatever it says)"')
 report "M10b (widen) H4: any refusal counts, whatever refused it" "$m" up_refuses_a_model_of_another_network
+# 🔴 ROLE-9 §2, 2026-09-12: the premise assertion. This cell reached opposite conclusions on
+# two checkouts of the same commit until it started parking the knob itself -- and old/ is the
+# run that had no discriminating power, so this is the one id here whose red IS that finding.
+m=$(mutant m9c "$CELL_URAMOAN" \
+    '    if [[ -n "$before" && "$before" != "$H4_COUNT" ]]; then
+        _a_ok  h4_knob_could_show_a_rewrite "knob [$before], command asks for $H4_COUNT -- a write-through would show"
+    else
+        _a_bad h4_knob_could_show_a_rewrite "knob [${before:-<not recorded>}] against a command asking for $H4_COUNT: writing it through is a no-op, so knob.before == knob.after discriminates nothing"
+    fi' \
+    '    :')
+report "M10c (delete) ROLE-9: the cell stops checking its own premise" "$m" up_refuses_a_model_of_another_network
+m=$(mutant m9d "$CELL_URAMOAN" \
+    '        _a_bad h4_knob_could_show_a_rewrite "knob [${before:-<not recorded>}] against a command asking for $H4_COUNT: writing it through is a no-op, so knob.before == knob.after discriminates nothing"' \
+    '        _a_ok  h4_knob_could_show_a_rewrite "(widening: a knob already equal to the count is accepted as a premise)"')
+report "M10d (widen) ROLE-9: a no-op write-through counts as a premise" "$m" up_refuses_a_model_of_another_network
 m=$(mutant m10 "$CELL_URAMOAN" \
     '    a_hasnt h4_nothing_was_built                  '"'"'[1/3] bmv2 fabric'"'"'           "$d/up.log"' \
     '    _a_ok   h4_nothing_was_built "(widening: a refusal that built ten switches first passes)"')

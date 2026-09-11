@@ -18,10 +18,21 @@
 # also ended non-zero -- 124, from a timeout, after building a fabric. The three things that
 # tell the two apart are the refusal SENTENCE, the TIME, and that nothing was built.
 #
-# 🔴 The knob is read before and after and required to be unchanged. `ndt up p4 <n>` rewrites
-# p4_proxy/mininet/host_count_override permanently and BEFORE the topology check (WAKEUP §7.3
-# item 30), and that file is somebody else's uncommitted change on this machine. A cell that
-# left it altered would be a cell that damaged the tree it was checking.
+# 🔴 THE KNOB, AND THE PREMISE THIS CELL MAKES ITSELF. `ndt up p4 <n>` rewrites
+# p4_proxy/mininet/host_count_override permanently, and that file is somebody else's
+# uncommitted change on this machine -- a cell that left it altered would be a cell that
+# damaged the tree it was checking. So it is read before, compared after, and put back BYTE FOR
+# BYTE at the end.
+#
+# 🔴 And the value it is set to is the cell's own, not the tree's. ROLE-9 measured this cell
+# reaching opposite conclusions on two checkouts of the same commit (2026-09-12, report §2):
+# the command passes 4, Adam's working tree happens to hold 4, so the write-through is a NO-OP
+# and `h4_knob_unchanged` is green whatever `ndt` does -- while on any fresh clone or worktree,
+# where HEAD's 128 is what is on disk, the same assertion went red for the defect ROLE-9's
+# cells 4b/4c had just found. An assertion whose power comes from a file nobody committed is
+# not an assertion. This cell now writes 128 into the knob itself, so that the count it asks
+# for and the value on disk differ in EVERY tree, and h4_knob_could_show_a_rewrite is the
+# assertion that says the premise was really established.
 #
 # Needs no fabric: the refusal happens in up_p4 before anything is started. requires=idle all
 # the same, because `ndt up` is not a question to ask while a round is running.
@@ -32,6 +43,10 @@ NDT_ROOT="${NDT_ROOT:-$REPO_ROOT}"
 source "$HERE/_cell_lib.sh"
 
 MODEL_128=setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+# The count on the command line, and the value the knob is parked at, in ONE place each: the
+# judge compares them, so two literals that happened to agree today is the failure mode.
+H4_COUNT=4
+H4_KNOB_PREMISE=128
 
 cell_observe() {
     local d="$1" knob="$NDT_ROOT/p4_proxy/mininet/host_count_override" t0 t1
@@ -40,17 +55,29 @@ cell_observe() {
         cell_skip "$d" "no $MODEL_128 in this tree -- the cell needs a real model of another network"
         return 0
     fi
+    # The tree's OWN bytes, kept so this cell can put them back exactly. Not "the value": the
+    # file may carry a comment line (host_count_in skips those), and rewriting an annotated
+    # file into a bare number is not a restore.
+    cp "$knob" "$d/knob.entry" 2>/dev/null || printf '(absent)\n' > "$d/knob.entry"
+    # 🔴 THE PREMISE. Park the knob at a value the command does NOT ask for, so that a
+    # write-through is visible in this tree and in every other one.
+    printf '%s\n' "$H4_KNOB_PREMISE" > "$knob"
     cp "$knob" "$d/knob.before" 2>/dev/null || printf '(absent)\n' > "$d/knob.before"
     t0=$(date +%s)
     # 🔴 timeout 120, not 420: the pre-fix behaviour here is "build a fabric and hang", and a
     # cell that waited 300 s for that would be paying the defect's own price every night.
     NDT_OWNER="${NDT_OWNER:-overnight-0905}" NDT_TOPO="$NDT_ROOT/$MODEL_128" \
-        timeout 120 bash "$NDT_ROOT/tools/test_workflow/ndt" up p4 4 > "$d/up.log" 2>&1
+        timeout 120 bash "$NDT_ROOT/tools/test_workflow/ndt" up p4 "$H4_COUNT" > "$d/up.log" 2>&1
     printf '%s\n' "$?" > "$d/up.rc"
     t1=$(date +%s); printf '%s\n' "$((t1-t0))" > "$d/up.secs"
     cp "$knob" "$d/knob.after" 2>/dev/null || printf '(absent)\n' > "$d/knob.after"
     cp "$NDT_ROOT/.test_run/up.target" "$d/up.target" 2>/dev/null \
         || printf '(absent)\n' > "$d/up.target"
+    # 🔴 Put the tree back, and RECORD what it holds afterwards so the judge can check that the
+    # cell did. A cell that restores and does not say so is a cell nobody can audit.
+    if [[ "$(cat "$d/knob.entry")" == "(absent)" ]]; then rm -f "$knob"
+    else cp "$d/knob.entry" "$knob"; fi
+    cp "$knob" "$d/knob.restored" 2>/dev/null || printf '(absent)\n' > "$d/knob.restored"
 }
 
 cell_judge() {
@@ -73,8 +100,28 @@ cell_judge() {
     else
         _a_bad h4_refusal_is_immediate "took [${secs:-unknown}]s -- a refusal happens before the machine is touched"
     fi
+    # 🔴 THE PREMISE, asserted before the thing it is the premise of. Without this the pair
+    # below is green on any tree whose knob already reads H4_COUNT, which is how this cell was
+    # green on the machine where ROLE-9 measured the defect with two cells of its own.
+    local before after entry restored
+    before="$(cat "$d/knob.before" 2>/dev/null)"
+    after="$(cat "$d/knob.after" 2>/dev/null)"
+    if [[ -n "$before" && "$before" != "$H4_COUNT" ]]; then
+        _a_ok  h4_knob_could_show_a_rewrite "knob [$before], command asks for $H4_COUNT -- a write-through would show"
+    else
+        _a_bad h4_knob_could_show_a_rewrite "knob [${before:-<not recorded>}] against a command asking for $H4_COUNT: writing it through is a no-op, so knob.before == knob.after discriminates nothing"
+    fi
     # 🔴 The knob this command rewrites, unchanged.
     a_eq    h4_knob_unchanged  "$(cat "$d/knob.before" 2>/dev/null)"  "$(cat "$d/knob.after" 2>/dev/null)"
+    # 🔴 ...and the tree this cell borrowed is given back. Byte for byte: entry against
+    # restored, not "it reads 4 again".
+    entry="$(cat "$d/knob.entry" 2>/dev/null)"
+    restored="$(cat "$d/knob.restored" 2>/dev/null)"
+    if [[ -z "$restored" ]]; then
+        _a_bad h4_knob_put_back "no knob.restored in this raw -- whether the cell gave the tree back is not recorded"
+    else
+        a_eq h4_knob_put_back "$entry" "$restored"
+    fi
 }
 
 cell_main up_refuses_a_model_of_another_network ndt idle "$@"

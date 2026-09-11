@@ -1286,5 +1286,257 @@ has   "  and the stranger still gets --deep"        "to kill it too:  ndt down -
 has   "  which names the port it is about"          "held by nothing this stack registered: :8080" "$OUT"
 
 # ==========================================================================================
+section "18. ROLE-9: a REFUSED 'ndt up p4 <n>' leaves the P4 host knob exactly as it found it"
+# ==========================================================================================
+# Measured by ROLE-9 on 2026-09-12, twice and in both directions (cell 4b at 04:14:52 and cell
+# 4c at 04:17:57; hunt-0911/logs/ROLE-9/c4b-up.log, c4c-up.log). `ndt up p4 <n>` wrote <n> into
+# p4_proxy/mininet/host_count_override BEFORE the H4 topology check, was refused 0.1 s later
+# having started nothing at all (`[1/3]` zero times, bmv2 0 -> 0), and never put the file back.
+# 4b verbatim, knob 4 on the way in:
+#
+#     !!  host_count_override: 4 -> 128 (persistent; affects every later run)
+#     XX  refusing to build: NDT_TOPO names a model of a different network: 128 host(s) asked
+#     XX    the fabric is built from p4_proxy/mininet/host_count_override (128), and the
+#
+# 🔴 THE THIRD LINE IS THE FINDING. The refusal told the operator the fabric is built from a
+# knob reading 128 -- a value this refused command had written 0.1 s earlier. The operator's
+# tree said 4. A refusal that quotes a state only the refusal itself created cannot be acted
+# on, and on this machine that file is somebody else's uncommitted change: `ndt status` is the
+# only thing that noticed, and it only speaks at `ndt release`.
+#
+# 🔴 BYTES, not the number. host_count_in skips comment lines and leading whitespace, so a
+# file can read 4 and not be the four bytes `4\n` -- which makes "write 4 back" a rewrite and
+# not a restore. Every cell below compares the file with od, and the first one gives it a
+# comment line that only a byte-for-byte restore can keep.
+#
+# 🔴 THE DIRECTION THAT WOULD BE WORSE: checking the knob's CURRENT value instead of the count
+# on the command line. `NDT_TOPO=<4-host model> ndt up p4 128` with the knob at 4 would then
+# compare 4 against a 4-host model, agree, and build -- the H4 defect back, reached by way of
+# its own fix. The last cell of this section is that control.
+KNOBF="$FIX/p4_proxy/mininet/host_count_override"
+knob_hex()  { od -An -tx1 -v < "$KNOBF" 2>/dev/null | tr -d ' \n'; }
+knob_put()  { printf '%s' "$1" > "$KNOBF"; }
+
+# -- 4b, verbatim: knob 4, `ndt up p4 128`, NDT_TOPO naming a 4-host model.
+reset_fix; rm -f "$DM"
+knob_put '# Adam: 4 for tonight. NOT committed -- see LAB-RULES hard rule 5.
+4
+'
+KNOB_BEFORE="$(knob_hex)"
+OUT="$(NDT_TOPO="$T4" drive 'up_p4 128')"
+check "🔴 the H4 refusal is still a refusal"               "1" "$(rc_of_out "$OUT")"
+check "🔴 and the knob is byte-for-byte what this run found it" \
+      "$KNOB_BEFORE" "$(knob_hex)"
+check "  including the comment a value-only restore would have dropped" "2" \
+      "$(wc -l < "$KNOBF")"
+check "🔴 and nothing was built"                           "" "$(cat "$FIX/sudo.log")"
+has   "  the refusal names the value the operator arrived with" \
+      "UNCHANGED at 4" "$OUT"
+hasnt "🔴 and no write was announced, because none happened" \
+      "host_count_override: 4 -> 128" "$OUT"
+# The count on the command line is still what was refused: this is not "the knob wins".
+has   "  while the size this run asked for is still named" "128 host(s) asked for on the p4 plane" "$OUT"
+
+# -- 4c, the mirror: knob 128, `ndt up p4 4`, NDT_TOPO naming the 128-host model.
+reset_fix; rm -f "$DM"
+knob_put '128
+'
+KNOB_BEFORE="$(knob_hex)"
+OUT="$(NDT_TOPO="$T128" drive 'up_p4 4')"
+check "🔴 the mirror direction is refused as well"         "1" "$(rc_of_out "$OUT")"
+check "🔴 and its knob is untouched too"                   "$KNOB_BEFORE" "$(knob_hex)"
+has   "  quoting ITS entry value, not the 4 it was asked for" "UNCHANGED at 128" "$OUT"
+
+# -- the other refusal decided from the same reading: no model of that size exists at all.
+reset_fix; rm -f "$DM"
+knob_put '4
+'
+KNOB_BEFORE="$(knob_hex)"
+OUT="$(drive 'up_p4 12')"
+check "  a size no model has is still refused"             "1" "$(rc_of_out "$OUT")"
+has   "  by the message that names the deriver"            "no P4 topology model in setting/ has 12 hosts" "$OUT"
+check "🔴 and that refusal leaves the knob alone as well"  "$KNOB_BEFORE" "$(knob_hex)"
+
+# -- a claim somebody else holds. This refusal is three checks further down than H4, so it is
+# the one that says whether the knob write really moved BELOW all of them and not just below
+# the topology test.
+reset_fix; rm -f "$DM"
+knob_put '4
+'
+KNOB_BEFORE="$(knob_hex)"
+OUT="$(drive 'foreign_claim() { echo "someone-else -- 40m left"; }
+up_p4 128')"
+check "  a foreign claim still refuses the bring-up"       "1" "$(rc_of_out "$OUT")"
+check "🔴 and the knob is still the operator's"            "$KNOB_BEFORE" "$(knob_hex)"
+
+# -- and preflight, which is the last refusal before the machine changes.
+reset_fix; rm -f "$DM"
+knob_put '4
+'
+KNOB_BEFORE="$(knob_hex)"
+OUT="$(FX_LAB_KERNEL_DIR="$FIX/other-tree" drive 'up_p4 128')"
+check "  a lab that acts in another tree still refuses"    "1" "$(rc_of_out "$OUT")"
+check "🔴 and that refusal moved nothing either"           "$KNOB_BEFORE" "$(knob_hex)"
+
+# -- 🔴 A BRING-UP THAT DID CHANGE THE MACHINE AND WAS TAKEN BACK DOWN. rollback_up says "the
+# machine is back to what it was before this 'ndt up'", and the knob is part of the machine:
+# it is the one file `ndt up p4 <n>` writes that outlives the run.
+#
+# 🔴 The knob here carries a COMMENT, and that is the whole reason this cell is the one with
+# an annotated file: this is the only path in the section where the knob is really written and
+# really put back, so it is the only place where "write $KNOB_ENTRY back" and "restore the
+# bytes" can be told apart. host_count_in reads 4 out of both.
+reset_fix; rm -f "$DM"; echo "0 10" > "$FIX/bmv2.seq"
+knob_put '# Adam: 4 for tonight, not committed
+4
+'
+KNOB_BEFORE="$(knob_hex)"
+rc_for topo-start 1
+OUT="$(drive 'up_p4 128')"
+check "  a bring-up whose fabric never started is red"     "1" "$(rc_of_out "$OUT")"
+has   "  and it rolled back"                               "rollback" "$OUT"
+check "🔴 and the rollback put the knob back too"          "$KNOB_BEFORE" "$(knob_hex)"
+check "  bytes, so the comment survived the round trip"    "2" "$(wc -l < "$KNOBF")"
+has   "  and the put-back is announced, not silent"        "host_count_override put back to 4" "$OUT"
+
+# -- 🔴 THE WRITE STILL HAPPENS. Everything above is satisfied by an `ndt up p4 <n>` that never
+# writes the knob at all -- and then the fabric is built at whatever the last round left, which
+# is the defect E-9 is about. This is the success path, and the knob has to carry the count.
+reset_fix; rm -f "$DM"; echo "0 10" > "$FIX/bmv2.seq"
+mk_topo StaticNetworkTopologyP4_10Switches_8Hosts.json 8 56
+knob_put '4
+'
+OUT="$(drive 'up_p4 8')"
+check "🔴 a bring-up that was NOT refused is green"        "0" "$(rc_of_out "$OUT")"
+check "🔴 and the knob carries the count it was given"     "8" "$(cat "$KNOBF")"
+has   "  and the write is still announced as persistent"   "host_count_override: 4 -> 8 (persistent" "$OUT"
+has   "  the fabric really was built"                      "topo-start" "$(cat "$FIX/sudo.log")"
+
+# -- ...and a bring-up whose VERIFY failed keeps it: the fabric is up at that size, and a knob
+# that no longer described it would send the next `ndt up p4` to a different network. This is
+# the one non-zero path that must NOT put the knob back.
+reset_fix; rm -f "$DM"; echo "0 10" > "$FIX/bmv2.seq"
+knob_put '4
+'
+OUT="$(drive 'FX_VERIFY_RC=1
+up_p4 8')"
+check "  a bring-up that came up and failed verify is red" "1" "$(rc_of_out "$OUT")"
+check "🔴 and the knob still describes the fabric that IS up" "8" "$(cat "$KNOBF")"
+hasnt "  nothing was rolled back"                          "rollback" "$OUT"
+
+# -- 🔴 THE CONTROL for the whole section: the refusal is still decided from the COUNT ON THE
+# COMMAND LINE. Knob 4, `ndt up p4 128`, NDT_TOPO naming the 128-host model: the model and the
+# request agree, so this must be built -- a fix that compared NDT_TOPO against the knob's
+# current value would refuse it and put H4's own defect back the other way round.
+reset_fix; rm -f "$DM"; echo "0 10" > "$FIX/bmv2.seq"
+knob_put '4
+'
+OUT="$(NDT_TOPO="$T128" drive 'up_p4 128')"
+check "🔴 a model that matches the COUNT ASKED FOR is still built" "0" "$(rc_of_out "$OUT")"
+hasnt "  and is not refused as another network"            "a model of a different network" "$OUT"
+check "  the knob was written to the size that was built"  "128" "$(cat "$KNOBF")"
+
+# ==========================================================================================
+section "19. ROLE-9 / ROLE-11 F6: the claim note carries the verdict 'verify clean' reached"
+# ==========================================================================================
+# ROLE-9, 2026-09-12 04:16:03, .test_run/lab.claim verbatim after the tenth round's teardown:
+#
+#     note=down at 2026-09-12 04:16:03 did NOT verify clean; claim kept -- read 'running'
+#          below, not this note
+#
+# and in the same teardown's log, four steps above it, `verify clean`'s five lines were all
+# `ok` and the last word was `clean`. The note took `$down_rc`, and on a live P4 fabric that rc
+# was 1 for a reading taken in the MIDDLE of the teardown (G-43). ROLE-11 F6 saw the same pair.
+#
+# 🔴 THE HALF THAT SURVIVED G-43'S FIX. `ndt down`'s rc has three sources and only some of them
+# are about residue: a component that ended on a FATAL SIGNAL is reported once out of a .exit
+# record and can be LAST ROUND'S ending (00-COMMON, 09-12). That is a true non-zero over a
+# machine `verify clean` found spotless -- and the note said "did NOT verify clean" about it.
+# The note is a sentence about the MACHINE, so it follows what was verified; the rc is the
+# command's, and stays what it was.
+#
+# 🔴 AND IT IS NOT THE RC RENAMED. Two teardowns with the same rc get different sentences
+# (cells 2 and 3 below, both rc 1) and two with different rcs get the same one (cells 1 and 2,
+# rc 0 and rc 1). A note copied from the rc cannot do both.
+#
+# 🔴 THE NOTE OUTLIVES THE ROUND. ROLE-9's own baseline carried the 02:26 version of this
+# sentence from the session before it, and the note's own tail -- "read 'running' below, not
+# this note" -- is the tool admitting the sentence is not to be trusted. That is why this is
+# pinned on the FILE and not on the screen.
+NOTE_OWNER=ndt7-owner
+IN_USE="in use: ndt up p4 4 at 2026-09-12 04:07:04 by $NOTE_OWNER"
+mk_claim_note() {   # <note>
+    printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=\nmeasuring=\n' \
+        "$NOTE_OWNER" "$(( $(date +%s) + 3600 ))" "$1" > "$FIX/.test_run/lab.claim"
+}
+cnote() { sed -n 's/^note=//p' "$FIX/.test_run/lab.claim" 2>/dev/null | head -1; }
+
+# -- 1. the live-P4 shape G-43 fixed: rc 0, everything verified.
+reset_fix; rm -f "$DM"; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"
+mk_claim_note "$IN_USE"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'cmd_down')"
+check "  a live-P4 teardown that ended clean is green" "0" "$(rc_of_out "$OUT")"
+has   "  and 'verify clean' really ran"                "ports closed" "$OUT"
+has   "🔴 the note says the machine was verified clean" "verified clean" "$(cnote)"
+hasnt "🔴 and does not say the opposite"               "did NOT verify clean" "$(cnote)"
+has   "  the claim is still kept, not released"        "claim kept" "$(cnote)"
+hasnt "  and the 'in use' sentence is gone"            "in use" "$(cnote)"
+
+# -- 2. 🔴 THE FINDING. rc 1 from an ending that happened in an EARLIER round, over a machine
+# `verify clean` found spotless. This is the pair ROLE-11 F6 read off the screen and the claim.
+reset_fix; rm -f "$DM"; rc_for stack_down 1
+out_for stack_down "  🔴 kernel did not stop cleanly: killed by SIGKILL"
+mk_claim_note "$IN_USE"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'cmd_down')"
+check "  the teardown is red for that ending"          "1" "$(rc_of_out "$OUT")"
+has   "  and says whose ending it is"                  "ENDING FROM AN EARLIER ROUND" "$OUT"
+has   "🔴 the note STILL says the machine verified clean" "verified clean" "$(cnote)"
+hasnt "🔴 a clean machine is not written down as unverified" "did NOT verify clean" "$(cnote)"
+has   "  while the non-zero it did end on is not hidden" "exits 1" "$(cnote)"
+
+# -- 3. residue really found: the other sentence, and which half found it.
+reset_fix; rm -f "$DM"
+mk_claim_note "$IN_USE"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'cmd_clean() { err "bmv2 switches: 10 still running"; return 1; }
+cmd_down')"
+check "  a teardown that left residue is red"          "1" "$(rc_of_out "$OUT")"
+has   "🔴 and its note says it did not verify clean"   "did NOT verify clean" "$(cnote)"
+has   "  naming the half that could not verify"        "the residue check" "$(cnote)"
+has   "  with the sentence that says not to act on it" "read 'running' below, not this note" "$(cnote)"
+
+# -- 4. the sweep is the other half, and it is NOT the residue check: cleanup sweeps patterns
+# cmd_clean does not look at, so a reader told "the residue check" would look in the wrong place.
+reset_fix; rm -f "$DM"; rc_for cleanup 1; out_for cleanup "STILL RUNNING bmv2 pid 4242"
+mk_claim_note "$IN_USE"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'cmd_down')"
+check "  a sweep that did not finish is red"           "1" "$(rc_of_out "$OUT")"
+has   "🔴 and the note names the sweep"                "the [3/3] sweep" "$(cnote)"
+hasnt "  not the half that was green"                  "the residue check" "$(cnote)"
+
+# -- 5. and the deferred ports, re-read after [3/3] and still held: a third half, named.
+reset_fix; rm -f "$DM"; rc_for stack_down 1; out_for stack_down "$STACK_DOWN_LIVE_P4"
+mk_claim_note "$IN_USE"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'FX_HELD="30051: 9091:"
+cmd_clean() { ok "ports closed: the fixture asserts nothing survived"; return 0; }
+cmd_down')"
+check "  ports still held after the sweep are red"     "1" "$(rc_of_out "$OUT")"
+has   "🔴 and the note names the port re-reading"      "port(s) still held" "$(cnote)"
+
+# -- 6. the control that keeps the note a description and not a lease: a claim that is not ours
+# is still not narrated, and no claim is still not invented.
+reset_fix; rm -f "$DM"
+printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=\nmeasuring=\n' \
+    somebody-else "$(( $(date +%s) + 3600 ))" "$IN_USE" > "$FIX/.test_run/lab.claim"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'cmd_down')"
+check "  a teardown over somebody else's claim is green" "0" "$(rc_of_out "$OUT")"
+check "🔴 and their note is untouched"                 "$IN_USE" "$(cnote)"
+has   "  while saying out loud that it was not updated" "the claim note was NOT updated" "$OUT"
+reset_fix; rm -f "$DM" "$FIX/.test_run/lab.claim"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'cmd_down')"
+check "  with no claim at all the teardown is green"   "0" "$(rc_of_out "$OUT")"
+check "🔴 and no claim file is invented to narrate"    "gone" \
+      "$( [[ -f "$FIX/.test_run/lab.claim" ]] && echo present || echo gone )"
+
+# ==========================================================================================
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]

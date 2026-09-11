@@ -1,4 +1,6 @@
-  XX  refusing to build: NDT_TOPO names a model of a different network: 4 host(s) asked for on the p4 plane, 128 declared by /home/adam/Desktop/NDTwin-Kernel/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
-  XX    the fabric is built from p4_proxy/mininet/host_count_override (4), and the
-  XX    kernel would load the model NDT_TOPO names. Two networks, one bring-up.
+  XX  refusing to build: NDT_TOPO names a model of a different network: 4 host(s) asked for on the p4 plane, 128 declared by /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt7-0912/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json
+  XX    this run asked for a fabric of 4 host(s), and the kernel would load the
+  XX    model NDT_TOPO names. Two networks, one bring-up.
+  XX    p4_proxy/mininet/host_count_override is UNCHANGED at 128: the knob is
+  XX    written after this check, never before it, so this refusal moved nothing.
   XX    either drop NDT_TOPO, or set the knob to the model's count:  ndt up p4 <n>

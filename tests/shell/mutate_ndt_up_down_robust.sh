@@ -789,6 +789,127 @@ report "M39: the OVS path keeps it too" "$m" \
 
 
 
+# --- ROLE-9: a refused `ndt up p4 <n>` and the P4 host knob (section 18) -----------------------
+
+# M53 is the defect itself, in the shape ROLE-9 measured: the count is written through before
+# anything has been checked. The later write is then a no-op, so this mutation changes WHEN and
+# nothing else -- which is the whole finding.
+m=$(mutant m53 "$NDT" \
+    '    KNOB_SAVED=""
+    hosts="$(host_count)"
+    KNOB_ENTRY="$hosts"' \
+    '    KNOB_SAVED=""
+    hosts="$(host_count)"
+    KNOB_ENTRY="$hosts"
+    [[ -n "${1:-}" ]] && { set_host_count "$1" >/dev/null 2>&1; hosts="$(host_count)"; }')
+report "M53: the knob is written before the refusals again (ROLE-9)" "$m" \
+       "🔴 and the knob is byte-for-byte what this run found it"
+
+# M54: the refusal goes back to quoting the knob rather than the count it was given. With M53
+# not applied the file really is unchanged, so this is the SENTENCE half on its own -- the half
+# a reader acts on.
+m=$(mutant m54 "$NDT" \
+    '        err "  p4_proxy/mininet/host_count_override is UNCHANGED at $KNOB_ENTRY: the knob is"' \
+    '        err "  the fabric is built from p4_proxy/mininet/host_count_override ($hosts), and the"')
+report "M54: the refusal quotes the knob instead of what the operator arrived with" "$m" \
+       "  the refusal names the value the operator arrived with"
+
+# M55: the rollback stops putting it back. This is the path where the knob really was written,
+# so it is the only one where a missing restore can be seen at all.
+m=$(mutant m55 "$NDT" \
+    '    knob_restore "this bring-up was rolled back"' \
+    '    :')
+report "M55: a rolled-back bring-up keeps the count it wrote" "$m" \
+       "🔴 and the rollback put the knob back too"
+
+# M56 (widening): the restore restores the VALUE. Every cell that reads a bare `4\n` stays green
+# -- which is why section 18's rollback cell is the one with a comment line in the file.
+m=$(mutant m56 "$NDT" \
+    '    if ! cp -p "$KNOB_SAVED" "$f" 2>/dev/null; then' \
+    '    if ! printf '"'"'%s\n'"'"' "$KNOB_ENTRY" > "$f"; then')
+report "M56 (widening): the knob is rewritten from the value, not the bytes" "$m" \
+       "  bytes, so the comment survived the round trip"
+
+# M57 (widening): knob_restore never does anything. It keeps its name, its call sites and its
+# rc, and it is the shape this project keeps re-finding -- a step that reports success without
+# having a way to fail.
+m=$(mutant m57 "$NDT" \
+    '    [[ -n "$KNOB_SAVED" ]] || return 0
+    if [[ "$KNOB_SAVED" == "(absent)" ]]; then' \
+    '    return 0
+    if [[ "$KNOB_SAVED" == "(absent)" ]]; then')
+report "M57 (widening): the restore is a no-op that still returns 0" "$m" \
+       "🔴 and the rollback put the knob back too"
+
+# M58: the size on the command line stops deciding, and the knob decides instead. That is the
+# wrong fix for ROLE-9 -- it removes the write from the refusal path by removing the request
+# from the check -- and it puts H4 itself back: `ndt up p4 128` with the knob at 4 would compare
+# a 4-host NDT_TOPO against 4, agree, and build a fabric of a different network.
+m=$(mutant m58 "$NDT" \
+    '        knob_wanted="$1"
+        hosts="$1"' \
+    '        knob_wanted="$1"')
+report "M58: the refusal is decided from the knob, not from what was asked for" "$m" \
+       "🔴 and nothing was built"
+
+# W9 (behaviour-preserving): the put-back reason is reworded. Section 18 asserts the sentence
+# that names the file and the value, not this clause, so the suite must stay green.
+m=$(mutant w9 "$NDT" \
+    'knob_restore "this bring-up was rolled back"' \
+    'knob_restore "the bring-up did not stand"')
+report_green "W9 (behaviour-preserving): the rollback's put-back reason reworded" "$m" \
+       "the reason is prose; the file and the value are what is asserted"
+
+# --- ROLE-9 / ROLE-11 F6: the claim note and the verdict (section 19) --------------------------
+
+# M59 is the defect itself: the note is written from the rc again. It survives every cell whose
+# rc and verdict agree, which is why section 19 carries the one where they do not.
+m=$(mutant m59 "$NDT" \
+    '    claim_note_down "$down_rc" "$CLEAN_UNVERIFIED"' \
+    '    claim_note_down "$down_rc" "$( (( down_rc == 0 )) || printf "the teardown" )"')
+report "M59: the claim note is written from the rc again (ROLE-11 F6)" "$m" \
+       "🔴 a clean machine is not written down as unverified"
+
+# M60: one half stops being recorded. The note then says a teardown that could not finish its
+# sweep verified clean -- the direction that licenses the next round to start.
+m=$(mutant m60 "$NDT" \
+    '        not_verified "the [3/3] sweep"' \
+    '        :')
+report "M60: a sweep that did not finish is written down as clean" "$m" \
+       "🔴 and the note names the sweep"
+
+# M61 (widening): nothing is ever recorded, so every teardown's note says verified clean. The
+# function keeps its name and its call sites and has no way to fail.
+m=$(mutant m61 "$NDT" \
+    'not_verified() { CLEAN_UNVERIFIED="${CLEAN_UNVERIFIED:+$CLEAN_UNVERIFIED, }$1"; }' \
+    'not_verified() { :; }')
+report "M61 (widening): every teardown verified clean" "$m" \
+       "🔴 and its note says it did not verify clean"
+
+# M62: the halves collapse into one name. The note goes on saying "did NOT verify clean", so a
+# gate that only read that phrase would stay green while sending the reader to the wrong half.
+m=$(mutant m62 "$NDT" \
+    'not_verified "the residue check"' \
+    'not_verified "the [3/3] sweep"')
+report "M62: the residue check is reported as the sweep" "$m" \
+       "  naming the half that could not verify"
+
+# M63: the note stops carrying the non-zero it ended on. "Verified clean" over a round that
+# exited 1 with no second half is the same conflation the other way round.
+m=$(mutant m63 "$NDT" \
+    '        (( rc != 0 )) && also="; this teardown still exits $rc, for something other than residue"' \
+    '        :')
+report "M63: a non-zero ending disappears from the note" "$m" \
+       "  while the non-zero it did end on is not hidden"
+
+# W10 (behaviour-preserving): the info line ndt prints about the note is reworded. Section 19
+# asserts the FILE, so the suite must stay green.
+m=$(mutant w10 "$NDT" \
+    'info "claim note now says the lab is down and verified clean (owner and expiry unchanged)"' \
+    'info "the claim note now records a verified-clean teardown (owner and expiry unchanged)"')
+report_green "W10 (behaviour-preserving): the note's on-screen announcement reworded" "$m" \
+       "section 19 reads .test_run/lab.claim, not the screen"
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then
