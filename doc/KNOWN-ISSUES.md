@@ -4644,13 +4644,13 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 - **證據**：`scratch/overnight-2026-09-05/hunt-0911/ROLE-8-A1-LIVE-REPORT.md` §7-②；
   `scratch/overnight-2026-09-05/SMALL-ISSUES-0910.md` #57。⚠️ 🟠 轉述；`scratch/`，不在版控。
 
-> 🔴 **G-42–G-46 的共同狀態**：五條都 **fixed on `fix/ndt-6-0912` (`1dab7721`)，
-> merge pending at 04:35（2026-09-12）**；併入與否見 `hunt-0911/00-LEDGER.md`。
-> **在那顆 merge 落地之前，trunk 上的行為仍然是每一條「量到什麼」寫的那樣。**
+> 🏁 **G-42–G-46 的共同狀態**：五條都 **fixed on `fix/ndt-6-0912` (`1dab7721`)，
+> merged 2026-09-12 05:56 as `1656bdba`**（帳本 `hunt-0911/00-LEDGER.md`）。
+> 〔本文件 04:35 收條目時這裡寫的是「merge pending」，那是當時的事實。〕
 
 ### G-42 🏁 H3 的 teardown marker 沒有所有權：第二個 `ndt down` 會偷走它，先結束的會刪掉還在跑的那個的
 
-- **狀態**：**FIXED** on `fix/ndt-6-0912` (`019b9153`)，**merge pending at 04:35（2026-09-12）**；
+- **狀態**：**FIXED** on `fix/ndt-6-0912` (`019b9153`)，**merged 2026-09-12 05:56 as `1656bdba`**；
   **缺陷是實測的**（ROLE-12 cell 2b，2026-09-12 02:07:18–02:07:32，marker 每 0.2 s 取樣）。
 - **量到什麼**：`mark_teardown_start` 無條件寫 `pid=$$`、`mark_teardown_end` 無條件 `rm -f`。
   02:07:18.107 D1 寫 marker（15 筆取樣）；02:07:22.115 D2 覆寫成自己的 pid（55 筆），**而 D1 還活著**
@@ -4669,7 +4669,7 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 
 ### G-43 🏁 活著的 P4 fabric 的 `ndt down` 必定 rc 1，而它自己的 `verify clean` 四段之後就打臉它
 
-- **狀態**：**FIXED** on `fix/ndt-6-0912` (`fcb8b35e`)，**merge pending at 04:35（2026-09-12）**；
+- **狀態**：**FIXED** on `fix/ndt-6-0912` (`fcb8b35e`)，**merged 2026-09-12 05:56 as `1656bdba`**；
   **缺陷是實測的**（ROLE-12，2026-09-12，7/7；ROLE-9 同夜 10/10 逐字重現）。
 - **量到什麼**：`stack.sh down` 是 `ndt down` 的 `[1/3]`、bmv2 sweep 是 `[3/3]`
   ⇒ 活著的 P4 fabric 上，port 斷言必然在 fabric 還在的時候跑，必然點名**這一輪自己即將拆掉的** 20 個 port
@@ -4685,11 +4685,12 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   只有真的第二次讀 port 才過得了；以及四格**對著 `stack.sh` 的碼**驗那四句話各只有一處）；
   `test_ndt_honesty.sh` §5F；`mutate_ndt_up_down_robust.sh` M43–M47、W8；`mutate_ndt_honesty.sh` MD1。
 - **證據**：ROLE-12 報告置頂②與 `logs/ROLE-12/c6-03-down-p4-solo.log`（無重疊、rc 捕捉）。⚠️ 🟠 轉述。
-  🔴 **它的下游（那句 rc 被寫進 claim note、活到下一個 session）另記為 G-49，仍然 OPEN。**
+  🏁 **它的下游（那句 rc 被寫進 claim note、活到下一個 session）另記為 G-49，已於同日由
+  FIX-NDT-7 修掉**（merge `aab7581e`，05:56）。
 
 ### G-44 🏁 `ndt clean` 對進行中的 teardown 零守衛，還把那份 fabric 列成 residue 並建議 `--deep`
 
-- **狀態**：**FIXED** on `fix/ndt-6-0912` (`7dad4199`)，**merge pending at 04:35（2026-09-12）**；
+- **狀態**：**FIXED** on `fix/ndt-6-0912` (`7dad4199`)，**merged 2026-09-12 05:56 as `1656bdba`**；
   **缺陷是實測的**（ROLE-12 cell 3，2026-09-12 02:08:24.569）。
 - **量到什麼**：marker 在、D1 活著、正在拆 10 台 P4：`ndt clean` **未被拒**、rc 1、印 `not clean`，
   把操作者**自己正在被拆的** fabric 整份列成 residue（10 bmv2、14 host/switch、topo session、manifest、
@@ -4705,7 +4706,7 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 
 ### G-45 🏁 `ndt clean` 對自己剛起的 fabric 說「this stack did not start it」並指向 `--deep`
 
-- **狀態**：**FIXED** on `fix/ndt-6-0912` (`bbf1e9c5`)，**merge pending at 04:35（2026-09-12）**；
+- **狀態**：**FIXED** on `fix/ndt-6-0912` (`bbf1e9c5`)，**merged 2026-09-12 05:56 as `1656bdba`**；
   **缺陷是實測的**（ROLE-11 F5，2026-09-12 02:25:14）。
 - **量到什麼**：手冊 §2.1 教人 fabric 起來後用 `ndt clean` 驗；讀者 30 秒前才用 `ndt up p4 4` 起的 fabric，
   `ndt clean` 印 74 行 `XX` 並以 `this stack did not start it; to kill it too:  ndt down --deep` 收尾，
@@ -4724,7 +4725,7 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 
 ### G-46 🏁 `ndt help` 的 `--deep` 說它掃三個 port，`deep_sweep` 掃的是整張表（9 條規則、27 個 port）
 
-- **狀態**：**FIXED** on `fix/ndt-6-0912` (`7e0b1423`)，**merge pending at 04:35（2026-09-12）**。
+- **狀態**：**FIXED** on `fix/ndt-6-0912` (`7e0b1423`)，**merged 2026-09-12 05:56 as `1656bdba`**。
   手冊那半 FIX-DOC-1 已改（`c395da50`，✅ 已併入 trunk，merge `01082389`）。
   〔`fix/FIX-DOC-1-SUMMARY.md` §6 把同一件事寫成待編號的 `G-4x-b`；依工單**取本條**、丟掉那個號。〕
 - **量到什麼**：`ndt help` 的 `down` 段寫 `--deep also kills whatever still holds :8000/:8080/:8081`，
@@ -4735,15 +4736,17 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 - **對帳**：ROLE-11 F7 手數 **25**、FIX-DOC-1 與 FIX-NDT-6 照 `NDT_PORT_TABLE` 展開都是 **27**
   （6 個單埠 ＋ 30051-30060 ＋ 9091-9100 ＋ 9000）。**表是來源**，而現在 help 是從表印的。
 
-> 🔴 **G-47–G-49 的共同狀態**：三條都是 2026-09-12 ROLE-9（P4 4↔128 十輪）實測的**新**缺陷，
-> 三條都 **OPEN，fix in flight on `fix/ndt-7-0912`**（工單 `hunt-0911/FIX-NDT-7.md`，04:25 開單）。
-> 本文件收條目時（2026-09-12 04:4x）**該單尚未交件**，所以**沒有任何一條有修法側的證據**
-> ——底下寫的全是缺陷側的量測。 (numbered by KI-FOLLOWUP-2)
+> 🏁 **G-47–G-49 的共同狀態**：三條都是 2026-09-12 ROLE-9（P4 4↔128 十輪）實測的**新**缺陷，
+> 三條都由 FIX-NDT-7 修掉，**merged 2026-09-12 05:56 as `aab7581e`**（`fix/ndt-7-0912` `e91be1fd`）。
+> 每一條的「量到什麼」是**缺陷側**的量測（ROLE-9 實測，🟠 轉述），
+> 末尾的〈狀態更新〉段是 `fix/FIX-NDT-7-SUMMARY.md` §6 的**修法側**原文，兩者不可混用。
+> 〔本文件 04:4x 收條目時三條都是 OPEN／fix in flight，該單那時尚未交件。〕 (numbered by KI-FOLLOWUP-2)
 
-### G-47 🔴 被拒絕的 `ndt up p4 <n>` 仍然永久改掉 `host_count_override`，而拒絕訊息引用的是它自己剛寫的值
+### G-47 🏁 被拒絕的 `ndt up p4 <n>` 仍然永久改掉 `host_count_override`，而拒絕訊息引用的是它自己剛寫的值
 
-- **狀態**：**OPEN**（2026-09-12 ROLE-9 實測，n=2 兩個方向各一次）。
-  **fix in flight on `fix/ndt-7-0912`**（①）。
+- **狀態**：🟢 **已修（2026-09-12 FIX-NDT-7 ①，`b90a5726`），✅ 已併入 trunk
+  （merge `aab7581e`，2026-09-12 05:56）**。缺陷是 2026-09-12 ROLE-9 實測的，n=2 兩個方向各一次。
+  修法側逐字見本條末尾的〈狀態更新〉。
 - **量到什麼**：H4 的拒絕本身**是對的**（0.1 秒、`^[1/3]` 零次、一台都沒起）。問題是它**先寫 knob 再檢查**，
   拒絕之後**不寫回去**，而那個檔是使用者未提交的工作樹檔案。
   - 格 4b（`c4b-metrics.log`，04:14:52，lab down）：起始 knob `4`，
@@ -4758,11 +4761,26 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   它在 `up_p4` 的拓樸檢查**之前**跑。
 - **證據**：`scratch/overnight-2026-09-05/hunt-0911/ROLE-9-P4-128-CYCLES-REPORT.md` ①
   與 `logs/ROLE-9/c4b-*`／`c4c-*`。⚠️ 🟠 轉述；`scratch/`，不在版控。
+- 🏁 **狀態更新（2026-09-12，FIX-NDT-7 ①）——`fix/FIX-NDT-7-SUMMARY.md` §6 逐字：**
+  - **狀態**：**FIXED** on `fix/ndt-7-0912` (`b90a5726`)，**已併入 trunk**（merge `aab7581e`，2026-09-12 05:56）。
+  - **修法**：`up_p4` 的 `set_host_count` 呼叫搬到 `preflight` 與 `record_up_target`（H4 的第二道守衛）
+    **之後**；`hosts` 取命令列的數字而非 knob 現值（否則 H4 會從自己的修法繞回來）；
+    `knob_snapshot`／`knob_restore` 掛在 `[1/3]` 的三個 `return 1` 與 `rollback_up` 最前面，
+    以 `cp` 的**逐 byte 副本**還原（`.test_run/host_count_override.pre-up`）並**讀回來 `cmp` 斷言**。
+    H4 拒絕句改成引用**進來時**的值（`host_count_override is UNCHANGED at <n>`）。
+    **verify 失敗那條不還原**：fabric 真的起來了，knob 必須描述它。
+  - **哪個閘門看過紅**：`tests/shell/test_ndt_up_down_robust.sh` §18（32 格，含兩格控制組）——
+    改前 `302 passed, 10 failed`，逐字紅存
+    `scratch/overnight-2026-09-05/logs/gates-0910/test_ndt_up_down_robust.ndt7-0912-r1-RED-item1.log`；
+    改後 `314 passed, 0 failed`。變異 `mutate_ndt_up_down_robust.sh` M53–M58 ＋ 行為保持的 W9。
+  - ⚠️ 🟠 缺陷本身是 ROLE-9 實測的，該單是**轉述**（`hunt-0911/logs/ROLE-9/c4b-metrics.log`、`c4c-metrics.log`，
+    `scratch/` 不在版控）；該單新增的紅是**離線 fixture 上重現的**，不是 live。
 
-### G-48 🔴 `up_refuses_a_model_of_another_network` 的 knob 斷言在主 checkout 上恆綠、在乾淨 clone 上會紅——兩棵樹相反的結論
+### G-48 🏁 `up_refuses_a_model_of_another_network` 的 knob 斷言在主 checkout 上恆綠、在乾淨 clone 上會紅——兩棵樹相反的結論
 
-- **狀態**：**OPEN**（2026-09-12 ROLE-9 實測；**儀器缺陷**，不是產品缺陷）。
-  **fix in flight on `fix/ndt-7-0912`**（②）。
+- **狀態**：🟢 **已修（2026-09-12 FIX-NDT-7 ②，`fae6e03d`），✅ 已併入 trunk
+  （merge `aab7581e`，2026-09-12 05:56）**。缺陷是 2026-09-12 ROLE-9 實測的；
+  **儀器缺陷**，不是產品缺陷。修法側逐字見本條末尾的〈狀態更新〉。
 - **量到什麼**：`tools/test_workflow/live_cells/up_refuses_a_model_of_another_network.sh` 最後一條斷言
   `a_eq h4_knob_unchanged "$(cat knob.before)" "$(cat knob.after)"`，而它跑的指令是
   `NDT_TOPO=<128-host model> ndt up p4 **4**`。
@@ -4773,12 +4791,30 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 - 🔑 **為什麼要記**：**那個差別不在 cell 裡，在別人的未提交檔案裡。** 一格回歸測試的判決取決於
   它跑在誰的樹上，而兩邊都不會說是為什麼。（「儀器不能長得像自己的發現」的反面：儀器長得像「沒事」。）
 - **證據**：同 G-47 的報告 ②。⚠️ 🟠 轉述。
+- 🏁 **狀態更新（2026-09-12，FIX-NDT-7 ②）——`fix/FIX-NDT-7-SUMMARY.md` §6 逐字：**
+  - **狀態**：**FIXED** on `fix/ndt-7-0912` (`fae6e03d`)，**已併入 trunk**（merge `aab7581e`，2026-09-12 05:56）。
+  - **修法**：`tools/test_workflow/live_cells/up_refuses_a_model_of_another_network.sh` 的 `observe`
+    自己造前提——存下樹的 bytes（`knob.entry`）、把 knob 停在 128（與指令傳的 4 各只寫一次）、
+    跑、收 `knob.after`、**逐 byte 還原**並收 `knob.restored`。`judge` 加
+    `h4_knob_could_show_a_rewrite`（前提成立了嗎）與 `h4_knob_put_back`（樹還回去了嗎）。
+  - **哪個閘門看過紅**：`judge old/`（ROLE-2 cycle-07 的 raw）⇒
+    `ASSERT FAIL h4_knob_could_show_a_rewrite  knob [4] against a command asking for 4: writing it
+    through is a no-op, so knob.before == knob.after discriminates nothing` —— **那一行紅的理由就是本條 KI 本身**。
+    `old/EXPECTED-FAILS` 由 5 個 id 變 7 個；`mutate_live_cells.sh` 加 M10c（delete）／M10d（widen），
+    `21 mutations, 0 survived; 2 controls, 0 wrongly caught; 12 fixture checks, 0 failed, 0 pending`。
+  - 🔴 **`h4_knob_unchanged` 本身仍然沒有會讓它紅的 fixture**（ROLE-9 的 4b／4c 是另一個指令，
+    拿來當 `old/` 會弄丟 H4 本體的紅）。寫在 `tools/test_workflow/live_cells/CELLS.md` 的
+    「what these cells do NOT cover」第 0 條；那個寫入動作本身由 G-47 的離線格與 M53–M58 守著。
+  - ⚠️ `new/` fixture **未 live 跑過**（lab 給 ROLE-10），是 `observe` 對該單工作樹離線跑的；
+    fixture 紅綠已跑。逐字理由在 `new/PROVENANCE.md`。
 
-### G-49 🔴 `ndt down` 的中途 rc 被寫成「did NOT verify clean」存進 `lab.claim` 的 note，活過本輪傳給下一個 session
+### G-49 🏁 `ndt down` 的中途 rc 被寫成「did NOT verify clean」存進 `lab.claim` 的 note，活過本輪傳給下一個 session
 
-- **狀態**：**OPEN**（2026-09-12 ROLE-9 實測 10/10 輪）。**fix in flight on `fix/ndt-7-0912`**（③）。
-  🔴 **這是 G-43 的下游**：rc 本身由 FIX-NDT-6 ② 修（`fix/ndt-6-0912`，merge pending），
-  **但那句話已經落到磁碟上的部分沒有被修**。
+- **狀態**：🟢 **已修（2026-09-12 FIX-NDT-7 ③，`bc80baa2`），✅ 已併入 trunk
+  （merge `aab7581e`，2026-09-12 05:56）**。缺陷是 2026-09-12 ROLE-9 實測的，10/10 輪。
+  **這是 G-43 的下游**：rc 本身由 FIX-NDT-6 ② 修（merge `1656bdba`，同日 05:56），
+  而**那句話已經落到磁碟上的部分**是本條，由 FIX-NDT-7 ③ 修。
+  修法側逐字見本條末尾的〈狀態更新〉。
 - **量到什麼**：第 10 輪結束後（04:16:03）`.test_run/lab.claim` 逐字
   `note=down at 2026-09-12 04:16:03 did NOT verify clean; claim kept -- read 'running' below, not this note`，
   而**同一次 down 的 log 裡 `verify clean` 底下五條全是 `ok`、最後印 `clean`**。
@@ -4790,6 +4826,21 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 - 🔑 **為什麼要記**：它不只汙染一次 rc，它把一句假話**存到磁碟上**交給下一個讀 `ndt status` 的人；
   而 note 自己那句 `read 'running' below, not this note` 等於是承認它自己不可信。
 - **證據**：同 G-47 的報告 ③ 與 `logs/ROLE-9/r10-*`／`96-restore-down.log`。⚠️ 🟠 轉述。
+- 🏁 **狀態更新（2026-09-12，FIX-NDT-7 ③）——`fix/FIX-NDT-7-SUMMARY.md` §6 逐字：**
+  - **狀態**：**FIXED** on `fix/ndt-7-0912` (`bc80baa2`)，**已併入 trunk**（merge `aab7581e`，2026-09-12 05:56）。
+  - **修法**：新 `not_verified <half>` ＋ `CLEAN_UNVERIFIED`（清單，不是旗標）；`cmd_down` 記四種
+    （`[3/3]` sweep 非 0、`cmd_clean` 非 0、重讀後仍被佔的 port、`ports.sh` 無 row 可重讀的 port），
+    **`stack.sh` 那一半不記**——「元件死於致命訊號」是從磁碟 `.exit` 讀的、可能是上一輪的結局，
+    是一個關於乾淨機器的真非 0。`claim_note_down` 改吃兩個參數，句子跟著 `verify clean` 的結論；
+    非 0 的 rc 被寫**進**句子（`this teardown still exits N, for something other than residue`）
+    而不是拿來決定句子。
+  - **哪個閘門看過紅**：`test_ndt_up_down_robust.sh` §19（25 格）——改前 `332 passed, 7 failed`，
+    逐字紅（含 `🔴 a clean machine is not written down as unverified / unexpected 'did NOT verify clean'`）
+    存 `logs/gates-0910/test_ndt_up_down_robust.ndt7-0912-r3-RED-item3.log`；改後 `339 passed, 0 failed`。
+    變異 M59–M63 ＋ W10；`mutate_ndt_honesty.sh` 的 M11／M12 錨點重新指過。
+  - 🔴 **不是把 rc 改個名字**：cell 1／2 是 **rc 不同、句子相同**，cell 2／3 是 **rc 相同、句子不同**。
+  - ⚠️ 這一條同時結掉 **FIX-NDT-6 §7-3**（ROLE-11 F6「`ndt down` 印 clean 卻把 note 寫成 did NOT verify」
+    當時沒有格守著，因為 fixture 沒有 claim 檔）——§19 自己建了 claim fixture。
 
 ### G-50 ⚠️ 修法在自己的訊息裡引用它修掉的缺陷，於是「缺陷字串不該出現」的斷言在修好的樹上紅
 
