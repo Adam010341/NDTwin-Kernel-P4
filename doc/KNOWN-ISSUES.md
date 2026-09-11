@@ -2168,6 +2168,10 @@ if(*avgLinkUtilization <= LOW_WATER_MARK){              // 0.40
 
 ### B-17 🔴 sFlow counter sample 的 `ifSpeed = 0` 會讓利用率變 `null`，而檔案面的門關不到它
 
+> ⚠️ **消歧**：`doc/audit/2026-08-28_chaos-harness/02_oracle_muse.md:41` 裡的 `B-17`（「host-bound
+> egress not credited」「Before fix B-17, last-hop usage always 0」）是**另一套編號**，與本條無關。
+> 同 §C／§D 的 `F-4` 消歧註：兩套號不可互相翻譯。
+
 - **狀態**：**OPEN**（2026-09-11 讀碼，🔵；B-13 修的時候盤到的另一半，**沒有實測**）。
   開條目是 orchestrator 2026-09-12 代裁 **B1**（`hunt-0911/DECISIONS-0911-EVENING-B-RULINGS.md`；
   翻盤成本＝刪一條 KI）。
@@ -2965,6 +2969,10 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
 
 ### C-8 🔴 `last_sample_age_seconds` 在一個「秒」欄位裡回 −1.0 哨兵值
 
+> ⚠️ **消歧**：`doc/audit/2026-08-18_live-full-stack-round/subagent-round2-FINDINGS.md:681` 的 `C-8`
+> （group/meter 端點在 P4 上誠實拒絕，判 CLEAN）與 `doc/audit/2026-08-09_tfm-tests.md:1142` 的 `C-8`
+> （`operator!=` 的編譯不確定點）都是**各自那份文件的編號**，與本條無關。
+
 - **狀態**：**OPEN，只登記不修**（2026-09-11 ROLE-5 實測；FIX-PROXY-1 工單交代只登記，
   merge `526ad7c5`，2026-09-11）。 (numbered by KI-FOLLOWUP-2)
 - **觀測**（2026-09-11，ROLE-5，10 台 bmv2、4 hosts、720 s 負載；
@@ -2984,6 +2992,9 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
 - **證據**：`fix/FIX-PROXY-1-SUMMARY.md` §6 逐字。⚠️ 🟠 轉述；raw 在 `scratch/`，不在版控。
 
 ### C-9 🔴 遙測停更時 `usage_bps` 回 0 而不是回「不知道」，只有 `telemetry_status` 分得出來
+
+> ⚠️ **消歧**：同 C-8——那兩份 audit 文件各自也有一條叫 `C-9` 的東西（P4 電源路徑判 CLEAN／
+> `std::set::count` 的編譯不確定點），與本條無關。
 
 - **狀態**：**OPEN，只登記不修**（2026-09-11 ROLE-5 實測；同 C-8 一批，merge `526ad7c5`）。
    (numbered by KI-FOLLOWUP-2)
