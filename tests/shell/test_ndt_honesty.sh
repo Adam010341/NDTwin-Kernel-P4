@@ -819,6 +819,24 @@ has   "  with the two statements kept apart"             "are not the same state
 check "  the rc the table describes is really carried"   "1" \
       "$(grep -c 'the kernel/proxy/Ryu half did not end cleanly' "$NDT")"
 
+section "5E. A7: the help says what 'ndt check' rc 0 is worth when there was no traffic"
+# G-33's second zero-discrimination, Adam's ruling 2026-09-12 (A7): the rc STAYS 0 -- 3 would
+# make every `ndt check` on an idle lab non-zero -- and the help has to carry what that 0 is
+# worth. Under 1 Mbit/s of ground truth the command prints no ratio and no verdict at all and
+# exits 0, which is byte-identical, to a script, to "inside the band". A rule-frequency study
+# with no iperf3 running collects that answer for twenty minutes.
+has   "  🔴 rc 0 is named as 'nothing was compared'"     "rc 0 ALSO MEANS" "$HELP"
+has   "  with the floor that triggers it"                "under 1 Mbit/s of ground truth" "$HELP"
+has   "  🔴 and that it is not the fabric being healthy" "NOT the fabric being healthy" "$HELP"
+has   "  it says what to read instead of the code"       "read the ratio block" "$HELP"
+has   "  and that 0 is a ruling, not an oversight"       "kept at 0 deliberately" "$HELP"
+has   "  attributed, so it can be revisited"             "G-33" "$HELP"
+# 🔴 Against the code: the branch the sentence describes, and the fact that it does not exit.
+check "  the floor the help names is the floor the code uses" "1" \
+      "$(grep -c '^if truth_bps < 1e6:' "$NDT")"
+check "  🔴 and that branch still reaches no sys.exit"   "1" \
+      "$(grep -c 'sys.exit(4)' "$NDT")"
+
 # ==========================================================================================
 section "F9. this suite reads its OWN tree, and not the main checkout"
 # ==========================================================================================

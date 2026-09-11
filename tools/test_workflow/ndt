@@ -7208,6 +7208,17 @@ usage: ndt <command>
                   under 0.5) is still 0, because 1/1024 sampling under-reports by
                   24.8% on a healthy fabric and a red on that side would fire on
                   the EXPECTED reading. (#17)
+                  🔴 rc 0 ALSO MEANS "nothing was compared". With
+                  under 1 Mbit/s of ground truth crossing the fabric this command
+                  prints no ratio and no verdict at all -- it says so -- and exits
+                  0, which to a script is the same byte as "inside the band".
+                  That 0 is NOT the fabric being healthy: a lab with no traffic
+                  generator answers it every time it is asked, for as long as it
+                  is asked. So read the ratio block,
+                  not the exit code; a run with no traffic has no ratio block. The 0
+                  is kept at 0 deliberately (09-12): a non-zero here would make
+                  every 'ndt check' on an idle lab red, which is the same defect
+                  with the sign flipped. (G-33, measured 2026-09-11)
   apps [names]  start readers/apps; no args on a terminal = interactive picker
                   energy sim nsr viz te      ('ndt apps stop [names|all]')
                   ndt apps orphans  -- is anything of an app's still running,
