@@ -1596,17 +1596,109 @@ PY
 # answer, and the narrow answer is the one that keeps saying NOT RESTORED about an edit nobody
 # announced. Any real arm writes first (128 -> 4) and the note is on that write.
 set_host_count() {
-    local n="$1" f="$REPO/p4_proxy/mininet/host_count_override" cur
+    local n="$1" f="$(knob_path)" cur
     cur="$(host_count)"
     [[ "$cur" == "$n" ]] && return 0
-    if (( n % 4 != 0 || n < 4 )); then
-        err "host count must be a multiple of 4 and at least 4 (hosts split over s1-s4); got $n"
-        return 1
-    fi
+    host_count_buildable "$n" || return 1
     printf '%s\n' "$n" > "$f"
     note_up_wrote_host_count "$n"
     warn "host_count_override: $cur -> $n (persistent; affects every later run)"
 }
+
+# host_count_buildable <n> -- the sizes ntg_bmv2_topo.py can lay out, refused in ONE place.
+#
+# [Co-developed with claude code -- Adam]
+# Split out of set_host_count by ROLE-9's finding below, and split rather than duplicated: the
+# refusal has to be askable BEFORE the knob is written, and a second copy of this sentence is
+# the kind of pair that agrees today and drifts next.
+host_count_buildable() {
+    local n="$1"
+    (( n % 4 == 0 && n >= 4 )) && return 0
+    err "host count must be a multiple of 4 and at least 4 (hosts split over s1-s4); got $n"
+    return 1
+}
+
+# --- putting the knob back when the run that moved it did not happen ------------------------
+#
+# [Co-developed with claude code -- Adam]
+# ROLE-9, 2026-09-12, cells 4b (04:14:52) and 4c (04:17:57). `ndt up p4 <n>` wrote <n> through
+# set_host_count as its FIRST act and was then refused 0.1 s later by the H4 topology check,
+# having started nothing -- and left the file at <n>. Both directions, one each:
+# 4 -> 128 refused, knob 128; 128 -> 4 refused, knob 4. That file is somebody else's
+# uncommitted change on this machine (LAB-RULES hard rule 5), and the refusal's own third line
+# read `the fabric is built from p4_proxy/mininet/host_count_override (128)` -- quoting the
+# value the refusal itself had just written, while the operator's tree said 4.
+#
+# The fix is in two halves, and both are needed: up_p4 now writes the knob AFTER every refusal
+# that can be decided without touching the machine, and anything that undoes the bring-up
+# afterwards puts the bytes back.
+#
+# 🔴 BYTES, NOT THE NUMBER. host_count_in skips comment lines and leading whitespace, so the
+# file can read 4 without being the two bytes `4\n`; "write $cur back" would rewrite a hand
+# annotated file into a bare number and call it a restore. The snapshot is a copy, and it is
+# kept on disk under .test_run/ rather than in a variable for the reason lab.claim.prev and
+# round.baseline.prev are: an `ndt` that dies between the write and the restore (this laptop's
+# systemd-oomd does that) would otherwise leave the knob moved with nothing on the machine able
+# to say what it was.
+KNOB_SAVED=""     # "" nothing to put back;  "(absent)" there was no file;  else the copy's path
+KNOB_ENTRY=""     # what host_count() read before this run wrote anything, for the messages
+
+knob_path() { printf '%s\n' "$REPO/p4_proxy/mininet/host_count_override"; }
+
+# knob_snapshot -- take the copy the restore below reads. Answers 0 even when it cannot take
+# one: failing to snapshot must not be a reason to refuse a bring-up, but it IS a reason to say
+# so, because the restore will then be unable to run.
+knob_snapshot() {
+    local f; f="$(knob_path)"
+    KNOB_SAVED=""
+    KNOB_ENTRY="$(host_count)"
+    if [[ ! -e "$f" ]]; then KNOB_SAVED="(absent)"; return 0; fi
+    mkdir -p "$REPO/.test_run" 2>/dev/null
+    if cp -p "$f" "$REPO/.test_run/host_count_override.pre-up" 2>/dev/null; then
+        KNOB_SAVED="$REPO/.test_run/host_count_override.pre-up"
+    else
+        warn "could not copy $(knob_path) aside; if this run is refused the knob will NOT be"
+        warn "  put back automatically -- it reads $KNOB_ENTRY right now"
+    fi
+    return 0
+}
+
+# knob_restore <why> -- put the knob back to the snapshot's BYTES, and assert that it is back.
+# Silent when this run never took a snapshot (an `ndt up p4` with no count writes nothing) and
+# when the file is already identical, so an OVS rollback and a no-op write say nothing.
+knob_restore() {
+    local why="${1:-}" f now
+    f="$(knob_path)"
+    [[ -n "$KNOB_SAVED" ]] || return 0
+    if [[ "$KNOB_SAVED" == "(absent)" ]]; then
+        [[ -e "$f" ]] || { KNOB_SAVED=""; return 0; }
+        rm -f "$f"
+        warn "removed $(short_repo_path "$f"): $why (this run created it)"
+        KNOB_SAVED=""
+        return 0
+    fi
+    if cmp -s "$KNOB_SAVED" "$f" 2>/dev/null; then KNOB_SAVED=""; return 0; fi
+    now="$(host_count)"
+    if ! cp -p "$KNOB_SAVED" "$f" 2>/dev/null; then
+        err "could NOT put p4_proxy/mininet/host_count_override back: it reads $now and this"
+        err "  round started at $KNOB_ENTRY. The bytes are in ${KNOB_SAVED#$REPO/} -- copy them"
+        err "  back by hand; 'git checkout --' would give you HEAD, which is not what you had."
+        return 1
+    fi
+    # 🔴 Asserted, not assumed. A restore that reports success without reading the file back is
+    # the shape 02-recurring-mistakes calls 注入後必須斷言注入成功, with the sign flipped.
+    if ! cmp -s "$KNOB_SAVED" "$f" 2>/dev/null; then
+        err "put p4_proxy/mininet/host_count_override back and it did NOT take: it reads"
+        err "  $(host_count), not $KNOB_ENTRY. The bytes are in ${KNOB_SAVED#$REPO/}."
+        return 1
+    fi
+    warn "host_count_override put back to $KNOB_ENTRY (it read $now): $why"
+    KNOB_SAVED=""
+    return 0
+}
+
+# short_repo_path <path> -- the path as a reader of this checkout would write it.
+short_repo_path() { printf '%s\n' "${1#$REPO/}"; }
 
 json_len() { python3 -c 'import json,sys; d=json.load(sys.stdin); print(len(d[sys.argv[1]]))' "$1" 2>/dev/null; }
 
@@ -2021,6 +2113,13 @@ ndt_port_proto() {
 # rollback_up <why> -- undo the recorded stages, newest first, then say what is left.
 rollback_up() {
     local why="$1" i stage rc=0 out src crc left=0
+    # [Co-developed with claude code -- Adam]
+    # 🔴 ROLE-9, and it is FIRST because it is true in both branches: the P4 host knob is the
+    # one persistent file `ndt up p4 <n>` writes, so "the machine is back to what it was before
+    # this 'ndt up'" is not a sentence this function may print while that file still carries the
+    # count of a fabric it has just taken down. A no-op on the OVS plane and on any `ndt up p4`
+    # with no count -- those runs took no snapshot.
+    knob_restore "this bring-up was rolled back"
     if (( ${#UP_STARTED[@]} == 0 )); then
         info "nothing to roll back: this 'ndt up' had not changed the machine yet"
         return 0
@@ -2080,12 +2179,27 @@ rollback_up() {
 
 up_p4() {
     local hosts topo binary rate n want_paths
-    # An explicit host count on the command line wins and is written through to the override.
+    # [Co-developed with claude code -- Adam]
+    # 🔴 ROLE-9, 2026-09-12. An explicit host count on the command line wins and IS written
+    # through to the override -- but not here, and not before the refusals below. This was
+    # `set_host_count "$1"` as the first statement, so every refusal under it was a refusal
+    # that had already changed a file of Adam's that nothing was going to change back, and the
+    # H4 message three refusals down then quoted the value this command had just written. The
+    # write now happens after the last refusal that can be decided without touching the
+    # machine; see knob_snapshot / knob_restore. `hosts` is the count ASKED FOR, which is what
+    # every check below has to be about: asking the knob here instead would compare NDT_TOPO
+    # against the value of the last round and let `ndt up p4 128` build a 4-host fabric, which
+    # is H4 reached by way of H4's own fix.
+    KNOB_SAVED=""
+    hosts="$(host_count)"
+    KNOB_ENTRY="$hosts"
+    local knob_wanted=""
     if [[ -n "${1:-}" ]]; then
         [[ "$1" =~ ^[0-9]+$ ]] || { err "usage: ndt up p4 [host-count]"; return 2; }
-        set_host_count "$1" || return 1
+        host_count_buildable "$1" || return 1
+        knob_wanted="$1"
+        hosts="$1"
     fi
-    hosts="$(host_count)"
     # 🔴 The path, the rc AND the reason out of ONE call, and not because three lines would be
     # untidy: a command substitution is a subshell, so `topo="$(topo_for_hosts ...)"` alone left
     # TOPO_REFUSAL empty in this shell and this refusal printed its fallback sentence, naming no
@@ -2119,8 +2233,15 @@ up_p4() {
     # operator named is right there, and telling them to derive one would be wrong.
     if (( trc == 3 )); then
         err "refusing to build: ${TOPO_REFUSAL:-NDT_TOPO does not match the host count}"
-        err "  the fabric is built from p4_proxy/mininet/host_count_override ($hosts), and the"
-        err "  kernel would load the model NDT_TOPO names. Two networks, one bring-up."
+        err "  this run asked for a fabric of $hosts host(s), and the kernel would load the"
+        err "  model NDT_TOPO names. Two networks, one bring-up."
+        # 🔴 ROLE-9: the value the OPERATOR arrived with. This line used to read "the fabric is
+        # built from p4_proxy/mininet/host_count_override ($hosts)" and $hosts was what this
+        # very command had written into that file a tenth of a second earlier -- a refusal
+        # quoting a state only the refusal had created. The write is now below this check, so
+        # the sentence can say the true thing instead.
+        err "  p4_proxy/mininet/host_count_override is UNCHANGED at $KNOB_ENTRY: the knob is"
+        err "  written after this check, never before it, so this refusal moved nothing."
         err "  either drop NDT_TOPO, or set the knob to the model's count:  ndt up p4 <n>"
         return 1
     fi
@@ -2158,6 +2279,20 @@ up_p4() {
     # What this run was asked for, written down before anything is built, so `status --check`
     # has a baseline that does not depend on reading a P4-only knob back afterwards. (#8, N12)
     record_up_target p4 "$hosts" "$topo" || return 1
+
+    # [Co-developed with claude code -- Adam]
+    # 🔴 ROLE-9. THE KNOB IS WRITTEN HERE, and this line's position is the fix: everything above
+    # it is a refusal that can be decided without touching the machine, and every one of them
+    # used to run with this file already rewritten. record_up_target is above it too -- it is
+    # the second H4 guard and can still refuse -- so the last thing that can say no has said it
+    # before the only persistent file an `ndt up` writes is moved.
+    #
+    # Nothing below this point may leave the knob moved unless the fabric really came up at
+    # that size: the three refusals in [1/3] and rollback_up all call knob_restore.
+    if [[ -n "$knob_wanted" ]]; then
+        knob_snapshot
+        set_host_count "$knob_wanted" || { knob_restore "the knob write itself was refused"; return 1; }
+    fi
     claim_note_up "p4 $hosts"
 
     # -- 1. fabric --
@@ -2173,6 +2308,7 @@ up_p4() {
             err "the fabric predates the current build of ndtwin_switch.json."
             err "bmv2 loads the pipeline at exec time and never reloads, so these $n switches"
             err "are NOT running $(rate_label "$rate"). take it down and back up:  ndt down && ndt up"
+            knob_restore "this bring-up was refused before it changed anything"
             return 1
         fi
         ok "already up: $n switches, $live_hosts hosts, reusing"
@@ -2207,6 +2343,7 @@ up_p4() {
                 err "refuses instead of proceeding. Ports still held:"
                 ndt_port_residue p4 | sed 's/^/        /' >&2
                 err "deal with it, then retry:  ndt down --deep && ndt up p4"
+                knob_restore "this bring-up was refused before it changed anything"
                 return 1
             fi
         fi
@@ -2220,7 +2357,7 @@ up_p4() {
         # The whole decision, including "could not tell", lives in guard_no_live_ovs so a test
         # can call it on its own. Inline, it sat behind topo_session and a bmv2 count that had
         # already returned in every branch a test could reach.
-        guard_no_live_ovs || return 1
+        guard_no_live_ovs || { knob_restore "this bring-up was refused before it changed anything"; return 1; }
         topo_session && { info "stopping the existing topo session"; sudo -n "$LAB" topo-stop >/dev/null 2>&1; }
         # Recorded before the call, not after: a topo-start that fails part way through has
         # still changed the machine, and topo-stop/cleanup are idempotent. See rollback_up.
