@@ -62,6 +62,13 @@ switch，所以收集到的是 454）、`tests/python` **238**、`tests/shell/te
 所以任何目錄下都能打。底層的 `ndtwin-lab` + `stack.sh` 仍然可用（見 §2.9 的摺疊區），
 但**不要混用**——`ndt` 記帳、裸指令不記帳，混用就是 §2.10 的第一條。
 
+⚠️ **`ndt help` 把完整 usage 印出來之後 `exit 2`。** 它不是失敗，是「你沒給我一個動詞」的
+rc（沒有動詞的 `ndt` 也一樣）。**放進 `set -e` 腳本的那一行會讓整支腳本停在那裡**，
+要印用法請自己接 `|| true`。手冊其餘各節的指令都回它們自己的 rc，只有這一個是這樣。
+<!-- 來源：ROLE-11 F11，log hunt-0911/logs/ROLE-11/01-ndt-help.log（末行 RC=2）；
+     本單在主 checkout 自己再跑過一次，同樣 RC=2
+     （logs/gates-0910/ndt-help-spelling.doc1-0912-r1.log）＝🟢 親自跑過。 -->
+
 ### 2.0 三十秒版
 
 ```bash
