@@ -2185,3 +2185,114 @@ TEST(TopologyInputValidationTest, TheSmallestPositiveLinkBandwidthIsAccepted)
     EXPECT_EQ(out.vertices, 14u);
     EXPECT_EQ(out.edges, 40u);
 }
+
+// =================================================================================================
+// B-14 / door 5 -- `vertex_type`, the field with two entrances and, until now, one door.
+//
+// [Co-developed with claude code -- Adam]
+// 🔴 MEASURED (2026-09-11, ROLE-3, three values, same conclusion each time). A node with
+// `"vertex_type": 2` -- and the variants -1 and 99 -- added to the shipped OVS 4-host model and
+// named by no edge was accepted with ZERO diagnostic, took the node count from 14 to 15, and was
+// republished VERBATIM by both /ndt/get_graph_data and /ndt/get_static_topology_json, the latter
+// down the HOST serialisation branch.
+//
+// The reason it is silent is structural and is the shape S2 of the night's recon names: doors
+// 3b, 3c, 3d and 3e are each written as `vertexType == SWITCH` or `vertexType == HOST`, so a
+// third value does not fail them -- it is not examined by any of them. One unchecked
+// `static_cast<VertexType>(nodeJson.at("vertex_type").get<int>())` disables four doors at once.
+//
+// 🔴 THE CONTROL GROUP IS IN THIS REPO, AT THE OTHER ENTRANCE TO THE SAME FIELD.
+// HttpSession::handleModifyDeviceName answers `POST /ndt/modify_device_name {"vertex_type":2,...}`
+// with 400 and `{"error":"Invalid vertex_type. Must be 0 (switch) or 1 (host)."}` -- ROLE-3 ran
+// it. Same field, same kernel, two entrances, one door. So this door says the API's sentence
+// word for word rather than inventing a second vocabulary for the same mistake, and
+// TheVertexTypeRefusalUsesTheSameSentenceAsTheApi is what keeps the two from drifting apart.
+// =================================================================================================
+
+TEST(TopologyInputValidationTest, AVertexTypeOutsideTheEnumIsRefusedAtLoad)
+{
+    // All three values ROLE-3 measured, because they fail differently one layer down: 2 and 99 are
+    // above the enum, -1 is below it, and a door written `> 1` would admit -1 while passing the
+    // other two.
+    const int kMeasured[] = {2, -1, 99};
+    for (std::size_t i = 0; i < 3; ++i)
+    {
+        SCOPED_TRACE("vertex_type " + std::to_string(kMeasured[i]));
+
+        MutatedTopology topo("vertex_type_" + std::to_string(i));
+        ASSERT_TRUE(topo.usable());
+
+        const std::size_t before = topo.doc().at("nodes").size();
+        json& added = appendUnreferencedNode(topo.doc(), "router-x", json::array({"10.0.0.9"}));
+        added["vertex_type"] = kMeasured[i];
+        ASSERT_EQ(topo.doc().at("nodes").size(), before + 1);
+
+        const LoadOutcome out = loadFile(topo.write());
+
+        EXPECT_TRUE(out.threw)
+            << "a node that is neither a switch nor a host was accepted with no diagnostic; the "
+               "measured consequence was 15 nodes served on :8000 and the value republished "
+               "verbatim by get_graph_data and get_static_topology_json";
+        EXPECT_EQ(out.vertices, 0u);
+        EXPECT_EQ(out.edges, 0u);
+    }
+}
+
+TEST(TopologyInputValidationTest, TheVertexTypeRefusalUsesTheSameSentenceAsTheApi)
+{
+    // 🔴 THE WORDING IS PINNED HERE DELIBERATELY, against this file's usual rule that only the
+    // offending NUMBER is asserted. The claim being made is not "there is a diagnostic" but "the
+    // two entrances to this field answer the same mistake with the same sentence", and the only
+    // way to measure that is to quote HttpSession.cpp's string.
+    MutatedTopology topo("vertex_type_message");
+    ASSERT_TRUE(topo.usable());
+    appendUnreferencedNode(topo.doc(), "router-x", json::array({"10.0.0.9"}))["vertex_type"] = 2;
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    ASSERT_TRUE(out.threw);
+    EXPECT_NE(out.messageSansPath.find("Invalid vertex_type. Must be 0 (switch) or 1 (host)."),
+              std::string::npos)
+        << "the file entrance and the API entrance refuse the same value in different words: "
+        << out.messageSansPath;
+    EXPECT_NE(out.messageSansPath.find("2"), std::string::npos)
+        << "the refusal does not quote the value the file contains: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, AMissingVertexTypeIsRefusedInPlainLanguage)
+{
+    // Already refused before this door -- by `at("vertex_type")` in the validator itself, so
+    // `threw` and `vertices == 0` were both green against it. What was red is the sentence:
+    // `[json.exception.out_of_range.403] key 'vertex_type' not found`, the same complaint R0b
+    // recorded against door 3c's bridge_name.
+    MutatedTopology topo("vertex_type_missing");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastHostNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim].erase("vertex_type");
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "a node with no vertex_type key was accepted";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.messageSansPath.find("json.exception"), std::string::npos)
+        << "the refusal is a raw nlohmann exception, not a diagnostic: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, AVertexTypeWrittenAsAStringIsRefusedInPlainLanguage)
+{
+    MutatedTopology topo("vertex_type_string");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastHostNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim]["vertex_type"] = "1";
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "a node whose vertex_type is a string was accepted";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.messageSansPath.find("json.exception"), std::string::npos)
+        << "the refusal is a raw nlohmann exception, not a diagnostic: " << out.messageSansPath;
+}

@@ -320,6 +320,26 @@ checkDeclaredLinkBandwidth(const json& edgeJson)
     }
 }
 
+/** @brief How a refusal names the node it is refusing.
+ *
+ * [Co-developed with claude code -- Adam]
+ * The shape door 3d builds inline for hosts, hoisted: B-13/B-14/B-15's doors need to name a node
+ * whose `vertex_type` is not yet known to be 0 or 1 -- which is door 4's entire subject -- so
+ * "host" and "switch" are not available as nouns yet. Reads `device_name` defensively for the
+ * reason describeTopologyItem gives at length: this runs while reporting a failure that one of
+ * these fields may itself have caused.
+ */
+std::string
+nodeInWords(const json& nodeJson, std::size_t index)
+{
+    if (nodeJson.is_object() && nodeJson.contains("device_name") &&
+        nodeJson.at("device_name").is_string())
+    {
+        return "node \"" + nodeJson.at("device_name").get<std::string>() + "\"";
+    }
+    return "the node at #" + std::to_string(index);
+}
+
 /** @brief Refuse a topology document that names things the document does not contain.
  *
  * @details
@@ -411,7 +431,52 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
     {
         where = describeTopologyItem(nodeJson, "node", itemIndex++);
 
-        const auto vertexType = static_cast<VertexType>(nodeJson.at("vertex_type").get<int>());
+        // ---- B-14 door 4: "vertex_type" is 0 or 1, and there is no third value ----
+        // [Co-developed with claude code -- Adam]
+        // 🔴 BEFORE THE static_cast, AND THAT IS THE WHOLE DOOR. VertexType has two enumerators
+        // (GraphTypes.hpp), and every door below is written as `vertexType == SWITCH` or
+        // `vertexType == HOST` -- so a third value does not FAIL doors 3b, 3c, 3d and 3e, it is
+        // not examined by any of them. One unchecked cast switches four doors off at once.
+        //
+        // Measured 2026-09-11 (ROLE-3, values 2, -1 and 99, one run each): a node named by no
+        // edge was accepted with ZERO diagnostic, took the shipped OVS 4-host model from 14 nodes
+        // to 15, and was republished verbatim by /ndt/get_graph_data and by
+        // /ndt/get_static_topology_json -- the latter down the HOST branch of the serialiser,
+        // because that branch is the `else`.
+        //
+        // 🔴 THE SENTENCE IS HttpSession'S, WORD FOR WORD, AND THAT IS DELIBERATE. The same field
+        // has a second entrance: handleModifyDeviceName answers the same mistake with 400 and
+        // `Invalid vertex_type. Must be 0 (switch) or 1 (host).` (HttpSession.cpp). Two entrances
+        // to one field, and until now one door. Inventing a second vocabulary here would leave
+        // the operator matching two diagnostics to one mistake, so the API's sentence is quoted
+        // rather than paraphrased, and a test pins that it still is.
+        if (!nodeJson.contains("vertex_type"))
+        {
+            throw std::runtime_error(
+                nodeInWords(nodeJson, itemIndex - 1) +
+                " declares no \"vertex_type\" key. Invalid vertex_type. Must be 0 (switch) or 1 "
+                "(host).");
+        }
+        if (!nodeJson.at("vertex_type").is_number_integer())
+        {
+            throw std::runtime_error(
+                nodeInWords(nodeJson, itemIndex - 1) + " declares \"vertex_type\" " +
+                nodeJson.at("vertex_type").dump() +
+                ", which is not an integer. Invalid vertex_type. Must be 0 (switch) or 1 (host).");
+        }
+        const int declaredVertexType = nodeJson.at("vertex_type").get<int>();
+        if (declaredVertexType != static_cast<int>(VertexType::SWITCH) &&
+            declaredVertexType != static_cast<int>(VertexType::HOST))
+        {
+            throw std::runtime_error(
+                nodeInWords(nodeJson, itemIndex - 1) + " declares \"vertex_type\" " +
+                std::to_string(declaredVertexType) +
+                ". Invalid vertex_type. Must be 0 (switch) or 1 (host). A node that is neither "
+                "used to load with no diagnostic at all: every check below asks whether it is a "
+                "switch or whether it is a host, so a third value is examined by none of them, "
+                "and the graph then served it as though it had been understood");
+        }
+        const auto vertexType = static_cast<VertexType>(declaredVertexType);
         if (vertexType == VertexType::SWITCH)
         {
             switchDpids.insert(nodeJson.at("dpid").get<std::uint64_t>());
