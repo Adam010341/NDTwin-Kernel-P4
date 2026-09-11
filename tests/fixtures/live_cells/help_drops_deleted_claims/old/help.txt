@@ -1,0 +1,66 @@
+usage: ndt <command>
+
+  up [what]     bring the whole lab up and verify it
+                  ndt up            Ryu + OVS, 128 hosts  (the default plane is OVS)
+                  ndt up 4          Ryu + OVS on the P4 test bed's 4-host layout
+                  ndt up ovs        the same as a bare 'ndt up'
+                  ndt up ovs4       the same as 'ndt up 4'
+                  ndt up p4         p4 at the current host count
+                  ndt up p4 4       p4 at 4 hosts   (rewrites host_count_override)
+                  ndt up p4 128     p4 at 128 hosts
+                OVS builds only 128 or 4 -- each is a different ndtwin-lab verb, not a
+                parameter. For any other size, name the plane: 'ndt up p4 N'.
+                NDT_TOPO=<file> forces a specific kernel model.
+  down [--deep] take it all down and prove the machine is clean
+                  --deep also kills whatever still holds :8000/:8080/:8081, including
+                  processes this stack did not start. Off by default: without it, a
+                  stray is reported and left alone rather than killed.
+  status [--check]     what is running, who has the lab, and the state that
+                decides every number. --check also exits non-zero on anything
+                that would make a measurement untrustworthy.
+                  it compares the live lab against what the last 'ndt up' asked
+                  for, recorded in .test_run/up.target -- data plane kind, host
+                  count, kernel graph, and the model file's sha256.
+                  exit 0 all compared fields match; 1 one of them does not (the
+                  message names it); 3 nothing was compared, because no 'ndt up'
+                  has run in THIS checkout. 3 is never "checked and matched".
+                  --check also prints a 'residue' row: rules left inside an app's
+                  window and locks still held. residue FOUND is a problem (rc 1);
+                  residue that could not be checked is printed as NOT CHECKED and
+                  is never printed as clean. (G-12 / W16-2)
+  clean         just the teardown assertion (exit 1 if anything survived)
+  check         telemetry double-count tripwire
+  apps [names]  start readers/apps; no args on a terminal = interactive picker
+                  energy sim nsr viz te      ('ndt apps stop [names|all]')
+                  ndt apps orphans  -- is anything of an app's still running,
+                    and is anything of an app's still on the NETWORK?
+                    exit 0 neither; 1 untracked PROCESSES are running; 2 a
+                    liveness channel could not look; 4 the processes are clean
+                    but a rule or a lock is still there; 5 the processes are
+                    clean and the residue could NOT BE CHECKED (kernel down, a
+                    reading failed, or the plane has no time axis -- every P4
+                    fabric). 4 and 5 are new on 09-07 and are deliberately not 1:
+                    a live process needs 'ndt apps stop', a leftover rule needs a
+                    delete_flow_entry by hand. Every gate that reads this rc has
+                    to be updated. (G-12 / W16-1)
+                  stop and orphans also LIST what an app left on the NETWORK --
+                    flow rules and held locks -- and delete none of it. suspected
+                    by time only: a rule has no owner and its cookie is 0. G-12.
+                    on P4 nothing can be dated at all: its flow stats are
+                    synthesised and report duration 0/0, so every rule is listed
+                    with age=UNKNOWN and none is attributed. (W16-3)
+                  ndt apps trim [names|all]  -- bound a running app's log
+                    (viz wrote 875 MB in 1h54m; the app keeps running)
+  ntg [cli|prompt]     which prompt the topology hands control to
+  claim [min] [note]   reserve the lab (default 30m); needs NDT_OWNER set
+  release              give it back
+
+  .test_run/pids/ is shared, so 'down' kills whoever is registered there.
+  Declare yourself before a long run -- any script can just write .test_run/lab.claim:
+      owner=<name>   expires=<unix seconds>   note=<optional>
+
+  ndt up derives the kernel's topology model from host_count_override, so the
+  4-host-model-against-a-128-host-fabric mistake cannot be made by forgetting an
+  environment variable.
+
+repo: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/dc4aea65-6511-46f3-ae7c-52a9d427e10d/scratchpad/tree-help

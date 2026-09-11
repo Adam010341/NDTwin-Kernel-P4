@@ -1,0 +1,5 @@
+kernel=unknown
+ndt=bf539b577ca6af1311d6f767d430fb8b0fd2c6ca
+orthans_verdict=d08788b28958a2b76b0e3a8048218ae10763c263
+ndt_root=(pre-fix ded00d06^ copy)
+at=2026-09-11T01:0x+08:00

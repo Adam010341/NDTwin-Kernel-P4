@@ -1,0 +1,11 @@
+processes=clean
+network=0/0/0
+not_answerable=3
+ndt_rc=5 (recorded, NOT used for the verdict)
+NOTE: 3 question(s) not answerable -- 'nobody asked', NOT 'the network is
+      clean'. A NOTE and not a FAIL (Adam 2026-09-10).
+NOTE-WHY: !!    lock  routing_lock NOT CHECKED (http 500)
+NOTE-WHY: !!    lock  graph_lock NOT CHECKED (http 500)
+NOTE-WHY: !!    lock  power_lock NOT CHECKED (http 500)
+NOTE-WHY: !!  NOT CHECKED: the residue question could not be answered -- rc 5.
+VERDICT: CLEAN

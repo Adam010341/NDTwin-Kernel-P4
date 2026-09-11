@@ -1,0 +1,19 @@
+processes=clean
+network=0/0/0
+not_answerable=3
+stack=not-reported
+ndt_rc=5 (recorded, NOT used for the verdict)
+NOTE: 3 question(s) not answerable -- 'nobody asked', NOT 'the network is
+      clean'. A NOTE and not a FAIL (Adam 2026-09-10).
+NOTE-WHY: !!    lock  routing_lock NOT CHECKED (http 500)
+NOTE-WHY: !!    lock  graph_lock NOT CHECKED (http 500)
+NOTE-WHY: !!    lock  power_lock NOT CHECKED (http 500)
+NOTE-WHY: !!  NOT CHECKED: the residue question could not be answered -- rc 5.
+VERDICT: NOT CHECKED -- the process half is clean, and the network half answered
+         NOTHING: all 3 of its question(s) came back unanswerable and not one
+         lock or window was read, with the kernel UP (there is a tally, so :8000 was
+         open). network=0/0/0 here is 'nobody got an answer', NOT 'nothing is there'.
+         Not CLEAN and not NOT CLEAN: nothing was found because nothing could be
+         asked. Fix what is answering the probes (the NOTE-WHY lines above say what
+         it was -- http 500 on the lock endpoint means the kernel is up but sick) and
+         ask again; 'ndt apps orphans' is re-runnable and costs nothing.

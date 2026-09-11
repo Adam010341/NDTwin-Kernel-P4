@@ -1,0 +1,4 @@
+kernel=unknown
+ndt=516e28a0a98585eb1e6be548b72e10bd0360dd14
+ndt_root=/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-cells1-0911
+at=2026-09-11T13:01:44+08:00

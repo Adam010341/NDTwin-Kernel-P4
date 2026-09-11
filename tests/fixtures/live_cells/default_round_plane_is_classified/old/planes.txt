@@ -1,0 +1,4 @@
+mininet128: out=<empty> rc=1
+ovs4:       out=ovs rc=0
+p44:        out=p4 rc=0
+physical:   out=<empty> rc=1

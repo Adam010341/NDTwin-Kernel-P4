@@ -1,0 +1,103 @@
+usage: ndt <command>
+
+  up [what]     bring the whole lab up and verify it
+                  ndt up            Ryu + OVS, 128 hosts  (the default plane is OVS)
+                  ndt up 4          Ryu + OVS on the P4 test bed's 4-host layout
+                  ndt up ovs        the same as a bare 'ndt up'
+                  ndt up ovs4       the same as 'ndt up 4'
+                  ndt up p4         p4 at the current host count
+                  ndt up p4 4       p4 at 4 hosts   (rewrites host_count_override)
+                  ndt up p4 128     p4 at 128 hosts
+                OVS builds only 128 or 4 -- each is a different ndtwin-lab verb, not a
+                parameter. For any other size, name the plane: 'ndt up p4 N'.
+                NDT_TOPO=<file> forces a specific kernel model.
+  down [--deep] take it all down and prove the machine is clean
+                  --deep also kills whatever still holds :8000/:8080/:8081, including
+                  processes this stack did not start. Off by default: without it, a
+                  stray is reported and left alone rather than killed.
+  status [--check]     what is running, who has the lab, and the state that
+                decides every number. --check also exits non-zero on anything
+                that would make a measurement untrustworthy.
+                  it compares the live lab against what the last 'ndt up' asked
+                  for, recorded in .test_run/up.target -- data plane kind, host
+                  count, kernel graph, and the model file's sha256.
+                  exit 0 all compared fields match; 1 one of them does not (the
+                  message names it); 3 nothing was compared, because there is
+                  no baseline RIGHT NOW -- .test_run/up.target is absent (every
+                  ordinary up->down clears it) or unreadable.
+                  3 is never "checked and matched", and it is NOT "no 'ndt up'
+                  has ever run here": that sentence was taken out of the output
+                  on 09-05 (W12/I-1) as false after every teardown, and when
+                  .test_run/pids/kernel.exit is there the report says what the
+                  last run was.
+                  --check also prints a 'residue' row: rules left inside an app's
+                  window and locks still held. residue that could not be checked is
+                  printed as NOT CHECKED and never as clean. (G-12 / W16-2)
+                  residue FOUND is a problem, and it is rc 1 ONLY while there is a
+                  baseline: with no up.target the whole report is rc 3, and the
+                  residue and knob problems are printed under "everything else this
+                  report could still check" rather than raising the code. 'ndt down'
+                  clears the baseline, so that is the state at the END of every
+                  round -- exactly when a rule is most likely to be left on the wire
+                  with no process to attribute it to. Read the residue ROW, not the
+                  exit code, when the record row says none. (F2, 2026-09-11)
+  clean         just the teardown assertion (exit 1 if anything survived)
+  check         telemetry double-count tripwire
+  apps [names]  start readers/apps; no args on a terminal = interactive picker
+                  energy sim nsr viz te      ('ndt apps stop [names|all]')
+                  ndt apps orphans  -- is anything of an app's still running,
+                    and is anything of an app's still on the NETWORK?
+                    exit 0 neither; 1 untracked PROCESSES are running; 2 a
+                    liveness channel could not look; 4 the processes are clean
+                    but a rule or a lock is still there; 5 the processes are
+                    clean and the residue could NOT BE CHECKED (kernel down, a
+                    reading failed, or the plane has no time axis -- every P4
+                    fabric). 4 and 5 are new on 09-07 and are deliberately not 1:
+                    a live process needs 'ndt apps stop', a leftover rule needs a
+                    delete_flow_entry by hand. Every gate that reads this rc has
+                    to be updated. (G-12 / W16-1)
+                    🔴 THE CODES ARE NOT DISJOINT IN PRACTICE: the PROCESS answer
+                    wins whenever it is non-zero, so 2 outranks both 4 and 5 -- and
+                    2 is the ordinary answer on this machine, because /proc/<pid>/fd
+                    of a root process cannot be read and every app the lab helper
+                    starts is root. So "4: a rule or a lock is still there" can be
+                    true and unreachable at the same time. The stderr says so when
+                    it happens ("and the network is not clean either (residue rc
+                    would be 4)"), and the fix for a gate is to read the report:
+                    tools/test_workflow/orphans_verdict.sh. (F4, 2026-09-11)
+                  stop and orphans also LIST what an app left on the NETWORK --
+                    flow rules and held locks -- and delete none of it. suspected
+                    by time only: a rule has no owner and its cookie is 0. G-12.
+                    on P4 nothing can be dated at all: its flow stats are
+                    synthesised and report duration 0/0, so every rule is listed
+                    with age=UNKNOWN and none is attributed. (W16-3)
+                  ndt apps trim [names|all]  -- bound a running app's log
+                    (viz wrote 875 MB in 1h54m; the app keeps running)
+  ntg [cli|prompt]     which prompt the topology hands control to
+  claim [min] [note]   reserve the lab (default 30m); needs NDT_OWNER set
+  release              give it back
+
+  .test_run/pids/ is shared, so 'down' kills whoever is registered there.
+  Declare yourself before a long run -- any script can just write .test_run/lab.claim:
+      owner=<name>   expires=<unix seconds>   note=<optional>
+
+  WHAT A CLAIM DOES NOT COVER, measured 2026-09-11 (ROLE-4 T4):
+    a claim only blocks the 'ndt' verbs. It is not the northbound API and it is not
+    a lock. A loop calling /ndt/install_flow_entry and /ndt/delete_flow_entry every
+    2 s kept getting http 200 through its own claim's expiry, and kept getting 200
+    after another owner had taken the claim; it stopped only when that owner's
+    'ndt down' killed the kernel. There is no signal at all when a claim lapses or
+    changes hands -- not to the API caller, not to the previous holder. Re-read
+    'ndt status'; nothing will tell you.
+
+  On P4, 'ndt up' derives the kernel's topology model from
+  p4_proxy/mininet/host_count_override, so model and fabric cannot disagree
+  because an environment variable was forgotten -- and since 09-10 the
+  two-checkout form of that mistake is refused before anything is built ('sudo
+  ndtwin-lab' acts in ONE tree, and 'ndt up' checks it is this one).
+  It does NOT make the 4-host-model-against-a-128-host-fabric mistake
+  impossible: inside one tree the host count is whatever that file says, 'ndt up
+  p4 N' rewrites it, and on 09-05 setting it built exactly that pair (R3-3).
+  OVS has no such knob -- there the size is the verb.
+
+repo: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-cells1-0911

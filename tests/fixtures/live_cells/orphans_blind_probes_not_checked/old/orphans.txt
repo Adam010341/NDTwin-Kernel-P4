@@ -1,0 +1,18 @@
+  ok  no untracked app processes
+
+network residue (nothing below is deleted)
+  !!    lock  routing_lock NOT CHECKED (http 500)
+  !!    lock  graph_lock NOT CHECKED (http 500)
+  !!    lock  power_lock NOT CHECKED (http 500)
+          field (LockManager.hpp), and the kernel has no lock-status endpoint, so the
+          three lines above come from an acquire probe with ttl 0, which excludes nobody.
+    energy: no pidfile and no live process -- no window, so no rule can be dated
+        against it. NOT 'this app left nothing'. (G-12)
+        (its log is empty or absent too -- no sign it ever ran here)
+
+    NOT deleted, and nothing here deletes them.
+    (no app had a datable window in this run)
+    tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 3 question(s) not answerable
+  !!  NOT CHECKED: the residue question could not be answered -- rc 5.
+  !!    this is not 'the network is clean'. see the lines above for which
+  !!    reading failed. (KNOWN-ISSUES G-12)
