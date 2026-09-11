@@ -216,6 +216,71 @@ check "no pgrep -f inside anything it prints"    0 \
 # checker with the reason it is still there -- product code is out of scope for the ticket that
 # widened this -- and the verdict compares found against registered IN BOTH DIRECTIONS, so a new
 # site is red and a registered site someone has fixed is red too.
+# ---------------------------------------------------------------------------------------------
+# The three sites that used to be REGISTERED rather than fixed (FIX-NDT-4 #16, 2026-09-11).
+# Registration was the honest answer under a ticket that forbade touching product code; it is
+# not a fix, and the scan below reports a registry that has rotted in either direction. Two of
+# the three sites are behaviour and are asserted here; the third was an advice string, and the
+# scan is what holds it.
+#
+# 🔴 These run in a SUBSHELL each, because both files are sourced whole: stack.sh and
+# run_layers.sh define `info`, `warn` and friends, and this suite's own `check` must survive.
+echo "the replacements for the two name-based lookups (#16)"
+
+# Both honour an UNDER_TEST override, the same seam mutate_run_layers_topology_from_fabric.sh
+# already uses: it is how these cases were seen RED (pointed at the pre-fix copies of the two
+# files, 2026-09-11) without writing to a product file another session may be executing.
+STACK_SH="${STACK_UNDER_TEST:-$SUITE_DIR/../../tools/test_workflow/stack.sh}"
+RUN_LAYERS="${RUN_LAYERS_UNDER_TEST:-$SUITE_DIR/../../tools/test_workflow/run_layers.sh}"
+
+# count_mininet_procs: the same reading it always made -- the LAST argv field, prefix
+# `mininet:` -- against a captured `ps -eo args=` shape, so no fabric is needed. The third line
+# is the instrument that used to do the counting: its pattern is in its own argv, which is the
+# whole of G-inst-2, and it must not be counted as a host shell.
+PS_SHAPE="bash --norc -is mininet:h1
+bash --norc -is mininet:s3
+awk \$NF ~ /^mininet:/{c++} END{print c+0}
+/usr/bin/python3 /home/adam/Desktop/NDTwin-Kernel/testbed_topo.py
+bash -c grep mininet: /tmp/somewhere.log"
+check "two host/switch shells are counted" "2" \
+    "$(printf '%s\n' "$PS_SHAPE" | ( source "$STACK_SH" >/dev/null 2>&1; mininet_procs_in ))"
+check "  an empty process table counts zero" "0" \
+    "$(: | ( source "$STACK_SH" >/dev/null 2>&1; mininet_procs_in ))"
+
+# kernel_owns_log: THREE states, and the third is why this was not a one-line substitution.
+# `pgrep` could see a kernel started by hand, which the manual teaches; the registry cannot, so
+# "no pidfile at all" has to be state 2 (cannot tell) rather than state 1 (stale) -- state 1
+# hard-fails the log layer, and the documented workflow would fail it every time.
+kol() {   # kol <setup-code> -> the rc, with PID_DIR and the log in a temp dir
+    local setup="$1"
+    (
+        export RUN_DIR="$TMPROOT/run" LOG_DIR="$TMPROOT/run/logs" PID_DIR="$TMPROOT/run/pids"
+        mkdir -p "$LOG_DIR" "$PID_DIR"
+        rm -f "$PID_DIR"/*.pid
+        : > "$LOG_DIR/kernel.log"
+        eval "$setup"
+        NDTWIN_RUN_LAYERS_LIB_ONLY=1 source "$RUN_LAYERS" >/dev/null 2>&1
+        kernel_owns_log; echo "$?"
+    )
+}
+check "🔴 no kernel pidfile at all -> 2, CANNOT TELL (a hand-started kernel records none)" "2" \
+    "$(kol ':')"
+check "🔴 a recorded pid that is gone -> 1, stale (that IS a record)" "1" \
+    "$(kol 'echo "$(bash -c "echo \$\$")" > "$PID_DIR/kernel.pid"')"
+# $BASHPID, not $$: inside a subshell $$ is still the SUITE's pid, and the fd below is opened by
+# the subshell -- naming the wrong process would make the next case pass for the wrong reason.
+check "  a recorded pid that is alive but does not hold the log -> 1" "1" \
+    "$(kol 'echo $BASHPID > "$PID_DIR/kernel.pid"')"
+check "🔴 the pid holding the log is found through the child pidfile -> 0" "0" \
+    "$(kol 'exec 8>>"$LOG_DIR/kernel.log"; echo $BASHPID > "$PID_DIR/kernel.child.pid"')"
+check "  and the reason is named, not left to the caller to guess" "yes" \
+    "$( [[ -n "$(
+        export RUN_DIR="$TMPROOT/run2" LOG_DIR="$TMPROOT/run2/logs" PID_DIR="$TMPROOT/run2/pids"
+        mkdir -p "$LOG_DIR" "$PID_DIR"; : > "$LOG_DIR/kernel.log"
+        NDTWIN_RUN_LAYERS_LIB_ONLY=1 source "$RUN_LAYERS" >/dev/null 2>&1
+        kernel_owns_log; echo "$KERNEL_OWNS_LOG_WHY"
+    )" ]] && echo yes || echo no )"
+
 echo "the whole scan surface, not one hard-coded path"
 scan_out="$(cd "$REPO_ROOT" && python3 tests/shell/check_process_by_name.py 2>&1)"; scan_rc=$?
 check "no unregistered name-based site"          0 "$scan_rc"

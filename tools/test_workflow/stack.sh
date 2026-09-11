@@ -51,9 +51,36 @@ info() { echo "${D}$*${N}"; }
 
 # The mininet: bash tags, one per host/switch shell. A seam so the wedge guard is testable:
 # tests override this to simulate a live or absent Mininet.
-count_mininet_procs() {
-    ps -eo args | awk '$NF ~ /^mininet:/{c++} END{print c+0}'
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 2026-09-11 (FIX-NDT-4 #16, G-inst-2). This was `ps -eo args | awk '$NF ~ /^mininet:/{c++}'`,
+# and the problem is where the pattern LIVES, not the arithmetic: it travels as that awk's own
+# argv -- and as the argv of the shell that invoked it -- so it is in the process table for the
+# duration of the count. Measured 2026-09-11 on this machine: a substring reader of `ps -eo args=`
+# counted 4 `mininet:` with that awk running and 3 without. This function's own last-field rule
+# happens not to count those lines (awk's last field is `c+0}`), and "happens not to" is not a
+# property to build a fabric-liveness check on: twin_audit.py:153 reads the same signal, the
+# wedge guard below branches on this number, and `mn -c` SIGKILLs anything whose command line
+# carries the tag. The reading is unchanged (LAST argv field, prefix `mininet:`); it is now done
+# in this shell, which puts nothing new in the table.
+#
+# There is no pidfile to read instead: Mininet is started by hand in another terminal (see
+# prompt_for_mininet below), so nothing here ever recorded its pids. The process table is the
+# only channel there is, and what this removes is the instrument's own footprint in it.
+#
+# Split in two for the reason run_layers.sh's fabric_hosts_in gives: the counting is then
+# testable against a captured `ps` shape, without a fabric. The tag is assembled at run time
+# for the `mn -c` reason above.
+mininet_procs_in() {
+    local tag="mininet" n=0 line last
+    tag="${tag}:"
+    while read -r line; do
+        last="${line##* }"
+        [[ "$last" == "$tag"* ]] && n=$(( n + 1 ))
+    done
+    echo "$n"
 }
+count_mininet_procs() { mininet_procs_in < <(ps -eo args= 2>/dev/null); }
 ok()   { echo "${G}$*${N}"; }
 warn() { echo "${Y}$*${N}"; }
 err()  { echo "${R}$*${N}" >&2; }
@@ -1070,9 +1097,16 @@ cmd_down() {
     done
 
     if (( leftovers > 0 )); then
+        # [Co-developed with claude code -- Adam]
+        # 🔴 2026-09-11 (FIX-NDT-4 #16, G-9's other half). The third line here used to be
+        # `pgrep -ax ndtwin_kernel`, and advice printed at an operator spreads further than a
+        # lookup in code: it gets pasted into shells, runbooks and other scripts by people who
+        # never read this file, and `-a` prints a command line that the next reader greps. What
+        # the operator actually needs is the pid HOLDING THE PORT, which the line above already
+        # gives, and this registry, which says which of them this stack started.
         err "  find and stop it, or the next 'up' will report on it:"
         err "    ss -ltnp   # tcp rows;  ss -lunp   # the udp one (:6343) -- see ports.sh"
-        err "    pgrep -ax ndtwin_kernel"
+        err "    cat $PID_DIR/*.pid   # what this stack started; check each against /proc/<pid>"
         return 1
     fi
 
