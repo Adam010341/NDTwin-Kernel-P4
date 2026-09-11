@@ -291,6 +291,25 @@ TOPO_P4=/path/to/my_topo.json ./stack.sh up p4
 
 ---
 
+## sudo 面：那份白名單是方便，不是邊界
+
+`ndt` 需要的 root 權限宣告在 `sudo_surface.sh`（`ndt status` 會逐條印出可用與否）。
+這台機器的 sudoers 另外給了一條 `tc` 的 NOPASSWD 白名單，**只涵蓋 netem 形**
+（`tc qdisc add|del|show … netem`）——`htb`、`class`、`tc qdisc replace` 都不在裡面。
+
+🔴 **旁邊那條 NOPASSWD `mnexec` 讓那份白名單不成其為邊界。** `mnexec -a <pid> <任何命令>`
+是以 root 在那個行程的 namespace 裡執行任意命令，所以白名單擋掉的每一種 `tc` 形式，
+都可以原封不動地從 `mnexec` 走一次。2026-09-11（ROLE-8）兩格就是這樣做到的：
+一格掛 `htb root`、一格用 `tc qdisc replace`，兩格都沒有用到白名單裡的任何一條規則。
+
+⇒ **把那份白名單讀成「這個帳號在 lab 上能做什麼」的上界是錯的**：它是「常用動作不必打密碼」的
+方便設施。實際的上界是 `mnexec` 那一條，而它等於 root。要嘛把 `mnexec` 收窄成具體子命令，
+要嘛承認這個帳號在 lab 上就是 root、照 root 稽核——**不要兩條都留著，又拿白名單當防護在講**。
+（2026-09-12 記錄：安全觀察，不是產品缺陷；`ndt` 自己不走 `mnexec` 繞過任何東西，
+它的兩個 `mnexec` 呼叫點在 `sudo_surface.sh` 的表裡宣告著。）
+
+---
+
 ## 已知限制
 
 - **Mininet 手動**：見上面說明。
