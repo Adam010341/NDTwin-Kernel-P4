@@ -247,6 +247,27 @@ add_anchor "bug17-second"   "$TFM" '    if (!validateDataPlaneHomogeneity(m_allo
 # opt-in must not carry this refusal with it. M32 mutates it back inside.
 add_anchor "e26-switchless" "$TFM" '    if (declaredKinds.empty())'
 
+# FIX-DOORS-2 (2026-09-11) -- the four fields ROLE-3 measured going through ten doors untouched.
+# B-13 door 4 (`link_bandwidth_bps`), B-14 door 5 (`vertex_type`), B-15 door 6 (one address, one
+# node, one spelling) and door 7 (the shared "ip" read's diagnostic for the node types door 3d
+# does not cover). Every arm of every one of them gets its own anchor, for the reason door 3d's
+# four have theirs: "refused" and "refused for the right reason, in a sentence" are different
+# claims, and three of these doors are partly about which of two messages the operator gets.
+add_anchor "bw-presence"    "$TFM" '    if (!edgeJson.contains("link_bandwidth_bps"))'
+add_anchor "bw-integer"     "$TFM" '    if (!declared.is_number_integer())'
+add_anchor "bw-unsigned"    "$TFM" '    if (!declared.is_number_unsigned())'
+add_anchor "bw-zero"        "$TFM" '    if (declared.get<std::uint64_t>() == 0)'
+add_anchor "bw-call"        "$TFM" '        checkDeclaredLinkBandwidth(edgeJson);'
+add_anchor "vtype-presence" "$TFM" '        if (!nodeJson.contains("vertex_type"))'
+add_anchor "vtype-integer"  "$TFM" '        if (!nodeJson.at("vertex_type").is_number_integer())'
+add_anchor "vtype-range"    "$TFM" '        if (declaredVertexType != static_cast<int>(VertexType::SWITCH) &&
+            declaredVertexType != static_cast<int>(VertexType::HOST))'
+add_anchor "vtype-sentence" "$TFM" '                ". Invalid vertex_type. Must be 0 (switch) or 1 (host). A node that is neither "'
+add_anchor "addr-canonical" "$TFM" '    if (canonical == text)'
+add_anchor "addr-duplicate" "$TFM" '            if (!claimed.second)'
+add_anchor "addr-edgeside"  "$TFM" '        if (edgeJson.contains(ipKey) && edgeJson.at(ipKey).is_array())'
+add_anchor "door7-notahost" "$TFM" '        if (vertexType != VertexType::HOST)'
+
 echo "=== anchor uniqueness (exact substring count must be 1) ==="
 anchor_ok=1
 for i in "${!ANCHOR_NAME[@]}"; do
@@ -1032,6 +1053,219 @@ mutate "E-26: the switchless refusal is gated on the mixed-plane opt-in" \
     TopologyInputValidationTest.ASwitchlessTopologyIsRefusedEvenWithTheMixedPlaneOptIn
 
 # ================================================================================================
+# 5g. FIX-DOORS-2 / B-13 -- `link_bandwidth_bps` (door 4)
+#
+# 🔴 A THIRD KIND OF CLAIM AGAIN, AND THE MEASUREMENT IS LIVE. ROLE-3 (2026-09-11, binary sha256
+# 356803db69af3b1b..., ndt up ovs 4, two independent repeats on one kernel) loaded a copy of the
+# shipped OVS 4-host model with `link_bandwidth_bps: 0` on every edge -- all four of `ndt up`'s
+# verifications reported ok -- and after 2000 pings h1->h2 eight of the forty edges came back from
+# /ndt/get_graph_data with `"link_bandwidth_utilization_percent": null`; 2000 more h3->h4 made it
+# sixteen. /ndt/get_average_link_usage answered `{"avg_link_usage":0.0,"status":"success"}`
+# throughout. `-1` loaded too and was served as 18446744073709551615.
+#
+# So the ACCEPTANCE half of this door is scored like #61/#62 (`threw`), and the two message halves
+# -- missing key, wrong type -- are scored like #90's (the absence of `json.exception`), because
+# both were already refused, by the builder's own at(), from the middle of its edge loop.
+# ================================================================================================
+
+# M34. The door is there and can never fire. The measured defect verbatim: a zero-capacity link
+#      loads and is divided by.
+mutate "door 4: a zero link_bandwidth_bps is accepted again" \
+    "$TFM" \
+    '    if (declared.get<std::uint64_t>() == 0)' \
+    '    if (declared.get<std::uint64_t>() == 0 && false)' \
+    TopologyInputValidationTest.AZeroLinkBandwidthIsRefusedAtLoad \
+    TopologyInputValidationTest.TheZeroBandwidthRefusalNamesTheFieldAndIsNotAnExceptionClass
+
+# M35. 🔴 THE FLEET-BREAKING DIRECTION OF THIS DOOR, and the M8 of it. "A real link is at least a
+#      megabit" is the rule a reader reaches for the moment 0 is refused, and it is not the rule:
+#      this loader models whatever the file describes, and a shaped or emulated link of a few
+#      bit/s is a topology, not a typo. Every case above stays green under this edit -- only the
+#      1 bit/s case can see it.
+mutate "door 4: the floor is raised from 0 to a megabit" \
+    "$TFM" \
+    '    if (declared.get<std::uint64_t>() == 0)' \
+    '    if (declared.get<std::uint64_t>() < 1000000)' \
+    TopologyInputValidationTest.TheSmallestPositiveLinkBandwidthIsAccepted
+
+# M36. The negative arm alone. -1 then reaches get<uint64_t>(), comes out as
+#      18446744073709551615, is not 0, and loads -- which is exactly what ROLE-3 measured being
+#      served by get_graph_data.
+mutate "door 4: a negative link_bandwidth_bps becomes 18.4 exabit/s again" \
+    "$TFM" \
+    '    if (!declared.is_number_unsigned())' \
+    '    if (!declared.is_number_unsigned() && false)' \
+    TopologyInputValidationTest.ANegativeLinkBandwidthIsRefusedAtLoad
+
+# M37. The presence arm alone. The file is still refused -- by at() four lines down, with the
+#      nlohmann exception class ROLE-3 recorded verbatim -- so `threw` and `vertices` stay green
+#      and only the message moves. This is door 3c/3d's claim, on a new field.
+mutate "door 4: a missing link_bandwidth_bps falls through to at() and its nlohmann exception" \
+    "$TFM" \
+    '    if (!edgeJson.contains("link_bandwidth_bps"))' \
+    '    if (false)' \
+    TopologyInputValidationTest.AMissingLinkBandwidthIsRefusedInPlainLanguage
+
+# M38. The type arm alone, and the reason its case asserts the WORDING. A JSON string is not an
+#      unsigned number either, so with this arm gone the string `"0"` is refused by the arm below
+#      -- still a sentence, still no exception class, and about the wrong mistake: an operator who
+#      typed "0" is told a capacity cannot be negative. `not an integer` is the only assertion
+#      that can tell the two apart.
+mutate "door 4: a string link_bandwidth_bps is refused as a negative number instead" \
+    "$TFM" \
+    '    if (!declared.is_number_integer())' \
+    '    if (!declared.is_number_integer() && false)' \
+    TopologyInputValidationTest.ALinkBandwidthWrittenAsAStringIsRefusedInPlainLanguage
+
+# ================================================================================================
+# 5h. FIX-DOORS-2 / B-14 -- `vertex_type` (door 5)
+#
+# 🔴 ONE UNCHECKED CAST DISABLED FOUR DOORS, AND THAT IS WHY THIS ONE IS NOT JUST ANOTHER FIELD.
+# Doors 3b, 3c, 3d and 3e all begin `vertexType == SWITCH` or `== HOST`, so a third value does not
+# fail them -- it is not examined by any of them. ROLE-3 measured 2, -1 and 99: each loaded with
+# ZERO diagnostic, took the shipped model from 14 nodes to 15, and was republished verbatim by
+# /ndt/get_graph_data AND /ndt/get_static_topology_json.
+#
+# The control group is in this repo: `POST /ndt/modify_device_name {"vertex_type":2,...}` answers
+# 400 `{"error":"Invalid vertex_type. Must be 0 (switch) or 1 (host)."}` (HttpSession.cpp), which
+# ROLE-3 also ran. One field, two entrances, one door -- so M41 is about the SENTENCE, and it is
+# the only mutation in this file that reddens by rewording a diagnostic. That is not an exception
+# to W2: W2 says the tests must not pin prose they make no claim about, and this fix's claim IS
+# that the two entrances answer the same mistake in the same words.
+# ================================================================================================
+
+# M39. The range check can never fire. All three measured values load again.
+mutate "door 5: a vertex_type outside the enum is accepted again" \
+    "$TFM" \
+    '        if (declaredVertexType != static_cast<int>(VertexType::SWITCH) &&
+            declaredVertexType != static_cast<int>(VertexType::HOST))' \
+    '        if (false && declaredVertexType != static_cast<int>(VertexType::SWITCH) &&
+            declaredVertexType != static_cast<int>(VertexType::HOST))' \
+    TopologyInputValidationTest.AVertexTypeOutsideTheEnumIsRefusedAtLoad \
+    TopologyInputValidationTest.TheVertexTypeRefusalUsesTheSameSentenceAsTheApi
+
+# M40. 🔴 THE HALF-RANGE, and the reason the case tries -1 as well as 2 and 99. Written as a
+#      ceiling alone it compiles, refuses both of the values a reader would think of, and admits
+#      the one below the enum -- which is the value an operator gets from a spreadsheet or a
+#      "missing = -1" convention, and the one ROLE-3 found republished as `"vertex_type":-1`.
+mutate "door 5: the range is written as a ceiling only, so -1 still loads" \
+    "$TFM" \
+    '        if (declaredVertexType != static_cast<int>(VertexType::SWITCH) &&
+            declaredVertexType != static_cast<int>(VertexType::HOST))' \
+    '        if (declaredVertexType > static_cast<int>(VertexType::HOST))' \
+    TopologyInputValidationTest.AVertexTypeOutsideTheEnumIsRefusedAtLoad
+
+# M41. The two entrances drift apart. The file is still refused, the value is still quoted, and
+#      the operator now has two different sentences for one mistake depending on which door they
+#      walked into.
+mutate "door 5: the refusal stops using the API's sentence" \
+    "$TFM" \
+    '                ". Invalid vertex_type. Must be 0 (switch) or 1 (host). A node that is neither "' \
+    '                ". That is not a vertex type this loader accepts. A node that is neither "' \
+    TopologyInputValidationTest.TheVertexTypeRefusalUsesTheSameSentenceAsTheApi
+
+# M42. The presence arm. `at("vertex_type")` on the next line still throws, from the validator, so
+#      `vertices == 0` stays green and only the message moves -- door 3c/3d's claim again.
+mutate "door 5: a missing vertex_type falls through to at() and its nlohmann exception" \
+    "$TFM" \
+    '        if (!nodeJson.contains("vertex_type"))' \
+    '        if (false)' \
+    TopologyInputValidationTest.AMissingVertexTypeIsRefusedInPlainLanguage
+
+# ================================================================================================
+# 5i. FIX-DOORS-2 / B-15 -- one address, one node, one spelling (door 6)
+#
+# 🔴 TWO ARMS, AND THE MEASURED FILE IS REFUSED BY EITHER -- so the file ROLE-3 actually fed can
+# only be restored by disabling BOTH, which is M45 and the M2/M31 situation again. A one-site edit
+# that reported itself as restoring the defect would be this gate flattering its subject.
+#   6a  a spelling inet_aton accepts but the twin will not reproduce ("10.1" is 10.0.0.1). M44.
+#   6b  two nodes on one parsed address. M43.
+# ROLE-3's b5-loose.json is both at once: h2's `ip` written `["10.1"]`, which is h1's address.
+# The file loaded with zero warnings; get_graph_data reported h1 and h2 with the same `ip`, and
+# get_static_topology_json printed both as `["10.0.0.1"]`.
+#
+# All thirteen shipped files were checked before these doors were written: zero non-canonical
+# spellings and zero duplicate addresses, node side and edge side, including the five _ipAlias4_
+# files that give every switch four addresses. EveryShippedTopologyStillLoadsWithNothingDropped is
+# what keeps that true.
+# ================================================================================================
+
+# M43. Arm 6b: the second claim on an address is accepted again. nodeAddresses is a set, so before
+#      this door a duplicate was not merely unrefused -- it was unrepresentable.
+mutate "door 6b: two nodes may hold one address again" \
+    "$TFM" \
+    '            if (!claimed.second)' \
+    '            if (!claimed.second && false)' \
+    TopologyInputValidationTest.ASecondNodeClaimingAnExistingAddressIsRefused \
+    TopologyInputValidationTest.TheDuplicateAddressRefusalNamesBothNodes
+
+# M44. Arm 6a: a spelling the twin will not reproduce is accepted again, and silently rewritten.
+mutate "door 6a: an address that is not a dotted quad is accepted and rewritten again" \
+    "$TFM" \
+    '    if (canonical == text)' \
+    '    if (canonical == text || true)' \
+    TopologyInputValidationTest.ANodeAddressThatIsNotADottedQuadIsRefused \
+    TopologyInputValidationTest.TheLooseAddressRefusalNamesBothSpellings \
+    TopologyInputValidationTest.AnEdgeAddressThatIsNotADottedQuadIsRefused
+
+# M45. 🔴 BOTH ARMS, WHICH IS THE MEASURED FILE VERBATIM. With only one of them gone, ROLE-3's
+#      b5-loose.json is still refused -- by the other -- so neither M43 nor M44 can restore it and
+#      neither one's log may be read as saying they could. The red here is on `threw` for the file
+#      that actually served two hosts at one address on :8000.
+mutate2 "door 6, both arms: ROLE-3's b5-loose.json loads again" \
+    "$TFM" \
+    '    if (canonical == text)' \
+    '    if (canonical == text || true)' \
+    '            if (!claimed.second)' \
+    '            if (!claimed.second && false)' \
+    TopologyInputValidationTest.TheMeasuredLooseFormCollisionIsRefused
+
+# M46. 🔴 THE NODE LOOP IS NOT THE WHOLE DOCUMENT. Arm 6a on the edge side removed: this pass
+#      reads an edge's addresses only on the end whose dpid is 0, while the builder parses every
+#      one of them, so without this a switch-side address could be spelled any way at all and no
+#      door would look at it. A guard whose population is smaller than its consumer's is the shape
+#      this function has now been extended for five separate times.
+mutate "door 6a: an edge's addresses are no longer checked for spelling" \
+    "$TFM" \
+    '        if (edgeJson.contains(ipKey) && edgeJson.at(ipKey).is_array())' \
+    '        if (false && edgeJson.contains(ipKey) && edgeJson.at(ipKey).is_array())' \
+    TopologyInputValidationTest.AnEdgeAddressThatIsNotADottedQuadIsRefused
+
+# ================================================================================================
+# 5j. FIX-DOORS-2 / door 7 -- the shared "ip" read, for the node types door 3d does not cover
+#
+# Door 3d (#90) rewrote "missing key" and "not an array" into sentences for HOSTS. The read it was
+# protecting them from is SHARED: a SWITCH with no "ip" key got
+# `[json.exception.out_of_range.403] key 'ip' not found` before #90 and still did after it, because
+# door 3b covers a switch's EMPTY array and nothing covered the other two faults.
+#
+# 🔴 M48 IS THE ONE THAT MATTERS HERE, and it is an ORDERING mutation. Door 7 says the same two
+# things as door 3d, so writing it for every node type instead of `!= HOST` compiles, refuses the
+# same files, and leaves every acceptance case green -- while making door 3d's own two arms
+# unreachable. Without M48 the only symptom would be M18 and M19 flipping from caught to survived,
+# i.e. this gate reporting two failures that name the wrong doors.
+# ================================================================================================
+
+# M47. Door 7 never fires: a switch's missing or non-array "ip" goes back to being an exception
+#      class from the shared read.
+mutate "door 7: a switch's missing \"ip\" falls back to the nlohmann exception" \
+    "$TFM" \
+    '        if (vertexType != VertexType::HOST)' \
+    '        if (vertexType != VertexType::HOST && false)' \
+    TopologyInputValidationTest.ASwitchWithNoIpKeyAtAllIsRefusedInPlainLanguage \
+    TopologyInputValidationTest.ASwitchWhoseIpIsNotAnArrayIsRefusedInPlainLanguage
+
+# M48. 🔴 DOOR 7 WIDENED OVER DOOR 3d. One `!=` gone. The host is still refused, still in a
+#      sentence, still with no exception class -- and no longer AS a host, so the operator loses
+#      the reason (`"dpid": 0, so an address is the only thing that identifies it`) that door 3d
+#      exists to give them.
+mutate "door 7 is applied to hosts too, so door 3d never speaks" \
+    "$TFM" \
+    '        if (vertexType != VertexType::HOST)' \
+    '        if (true)' \
+    TopologyInputValidationTest.AHostWithNoIpKeyIsStillNamedAsAHost
+
+# ================================================================================================
 # 6. the widenings -- these MUST survive
 # ================================================================================================
 
@@ -1126,6 +1360,37 @@ widen "the switchless test is written as size() == 0" \
     '    if (declaredKinds.empty())' \
     '    if (declaredKinds.size() == 0)'
 
+# W10. FIX-DOORS-2's control for door 4. `== 0` written as `< 1`: for an unsigned value these are
+#      the identical predicate, and one character from `<= 1`. If this reddens, M34 and M35 are
+#      pinning how the bandwidth floor is spelled rather than which files it refuses.
+widen "the zero-bandwidth test is written as < 1" \
+    "$TFM" \
+    '    if (declared.get<std::uint64_t>() == 0)' \
+    '    if (declared.get<std::uint64_t>() < 1)'
+
+# W11. Door 5's control. The range written as a floor and a ceiling instead of two inequalities --
+#      identical for an int, and the form a reader is more likely to write. M40 is the same shape
+#      with one half missing, so this widening is what makes M40 a statement about -1 rather than
+#      about how the condition is spelled.
+widen "the vertex_type range is written as a floor and a ceiling" \
+    "$TFM" \
+    '        if (declaredVertexType != static_cast<int>(VertexType::SWITCH) &&
+            declaredVertexType != static_cast<int>(VertexType::HOST))' \
+    '        if (declaredVertexType < static_cast<int>(VertexType::SWITCH) ||
+            declaredVertexType > static_cast<int>(VertexType::HOST))'
+
+# W12. Door 6b's control, and the same shape as W2. The duplicate refusal's prose rewritten while
+#      the two node names and the address stay in it. TheDuplicateAddressRefusalNamesBothNodes
+#      asserts that an operator can find BOTH entries in a 138-node file; it must not be asserting
+#      the paragraph that explains why.
+widen "the duplicate-address refusal is reworded" \
+    "$TFM" \
+    '                    ". An address is how a host is identified and how a switch is found by the "
+                    "paths that do not have its dpid, and the lookup returns whichever node comes "
+                    "first -- so one of these two is unreachable and nothing in the graph can say "
+                    "which");' \
+    '                    ". Only one of them can be found by it.");'
+
 # ================================================================================================
 # 7. restore and verdict
 # ================================================================================================
@@ -1200,6 +1465,16 @@ echo "  so, and a brand comparison cannot go back to a bare literal the loader w
 echo "  W15-2 gate: the switch_kind exemption cannot be removed, cannot spread to the brand_name"
 echo "  presence check, and cannot admit a switch without marking it power_path/telemetry_path"
 echo "  none -- while writing the exemption as two named booleans and a guard stays green."
+echo "  FIX-DOORS-2 gate (B-13/B-14/B-15, 2026-09-11): the four fields ROLE-3 measured walking"
+echo "  through ten doors untouched now have doors that cannot be switched off -- a zero or"
+echo "  negative link_bandwidth_bps cannot be accepted again and its floor cannot be raised off 0"
+echo "  without the 1 bit/s case saying so; a vertex_type outside the enum cannot load, the range"
+echo "  cannot lose its lower half, and the refusal cannot stop using the sentence the API answers"
+echo "  the same mistake with; neither arm of the address door can be dropped, and ROLE-3's"
+echo "  b5-loose.json needs both of them gone before it loads again; an edge's addresses cannot"
+echo "  stop being checked for spelling; and door 7 cannot be switched off, nor widened over door"
+echo "  3d -- while writing the bandwidth floor as < 1, the vertex_type range as a floor and a"
+echo "  ceiling, and the duplicate refusal in different words all stay green."
 echo "  FINDINGS #91 gate: an unknown brand_name cannot be admitted again, the refusal cannot"
 echo "  start suggesting ALLOW_MIXED_DATAPLANE, the accepted list cannot be applied to hosts, and"
 echo "  it cannot lose a hardware model without both the shipped fleet and the brand-drift"
