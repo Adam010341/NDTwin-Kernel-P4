@@ -1976,3 +1976,212 @@ TEST(TopologyInputValidationTest, AHostWithMoreThanOneAddressStillLoads)
     EXPECT_EQ(out.vertices, 14u);
     EXPECT_EQ(out.edges, 40u);
 }
+
+// =================================================================================================
+// B-13 / door 4 -- `link_bandwidth_bps`: the one edge field ten doors never looked at, and the
+// divisor the utilization figure is computed with.
+//
+// [Co-developed with claude code -- Adam]
+// 🔴 MEASURED ON :8000, TWICE, ON THE SAME KERNEL (2026-09-11, ROLE-3, binary sha256
+// 356803db69af3b1b..., scratch/overnight-2026-09-05/hunt-0911/ROLE-3-STUDENT-REPORT.md sections 2
+// and 3). A copy of the shipped OVS 4-host model with `link_bandwidth_bps: 0` on every edge was
+// accepted whole: `ndt up ovs 4` reported all four of its verifications ok, including "kernel
+// graph matches the model file: 4 hosts, 40 edges". After 2000 pings h1 -> h2, eight of the forty
+// edges came back from /ndt/get_graph_data with `"link_bandwidth_utilization_percent": null` --
+// TopologyAndFlowMonitor.cpp computes it as `(1.0 - leftIn / linkBandwidth) * 100`, 0/0 is NaN,
+// and nlohmann serialises NaN as null. 2000 more pings h3 -> h4 turned it into sixteen. Meanwhile
+// /ndt/get_average_link_usage went on answering `{"avg_link_usage":0.0,"status":"success"}`: the
+// average is immune because its accumulator skips edges whose `linkBandwidthUsage` is 0, and an
+// edge whose capacity is 0 has usage 0 -- immune by arithmetic accident, not because anything
+// noticed. Nothing anywhere said an edge was broken.
+//
+// `-1` is the same door and worse: the field is read with `get<uint64_t>()`, so the file's -1 was
+// served back as `"link_bandwidth_bps": 18446744073709551615` -- an 18.4 exabit/s link, declared
+// by nobody.
+//
+// 🔴 WHY 0 IS REFUSED RATHER THAN ADMITTED AS "UNKNOWN". Nothing in this repo reads 0 that way:
+// the unknown convention elsewhere is -1 (DeviceConfigurationAndPowerManager's three report
+// functions), which this field cannot express because it is unsigned, and the manual's only
+// account of the field is doc/2026-01-02_ndt_api.md:668 -- "the figure is the topology file's
+// link_bandwidth_bps" -- with no third state. Admitting 0 would mean inventing one and teaching
+// leftBandwidth, leftBandwidthFromFlowSample, BandwidthSource and the utilization arithmetic
+// about it. All thirteen shipped files declare 1 or 10 Gbit/s and nothing else, so the door costs
+// the fleet nothing. See doc/audit/2026-09-05_fix-topology-three-doors/FIX-TOPOLOGY-THREE-DOORS.md
+// section 11 for the alternative that was not taken.
+//
+// 🔴 WHAT THIS DOOR DOES NOT COVER, AND IT IS THE SAME DEFECT FROM THE OTHER SIDE: linkBandwidth
+// is also written at runtime from an sFlow counter sample (`edgeProps.linkBandwidth =
+// interfaceSpeed` in updateLinkInfo), where 0 is the standard SNMP/sFlow value for "speed unknown
+// or not applicable" and there is no check at all. A file can no longer declare 0; a switch can
+// still report it. That is a runtime door, not a file door, and it is not this fix.
+// =================================================================================================
+
+namespace
+{
+
+/// Index of the LAST edge in the file.
+///
+/// [Co-developed with claude code -- Adam]
+/// Deliberately the last and never the first, for the reason lastSwitchNodeIndex gives one loop
+/// up: the cases below assert `vertices == 0` and `edges == 0`, and the builder's own `at()` on
+/// this field throws from the middle of its edge loop -- on edge N with 14 vertices and N-1 edges
+/// already in the graph. Mutating edge #0 would leave `edges == 0` either way and the case would
+/// be green against the very thing it is measuring.
+std::size_t
+lastEdgeIndex(const json& doc)
+{
+    const auto& edges = doc.at("edges");
+    return edges.empty() ? 0 : edges.size() - 1;
+}
+
+/// Appends one EXTRA node, cloned from the last host, that no edge in the file names.
+///
+/// [Co-developed with claude code -- Adam]
+/// Same construction and the same reason as appendAddresslessHost: a node an edge points at
+/// cannot be used to measure a NODE-side door, because taking its identity away makes those edges
+/// resolve to nothing and #61's edge door refuses the file first -- for the edge, not for the
+/// node. A node nothing points at is the only shape that reaches the node loop's doors alone.
+json&
+appendUnreferencedNode(json& doc, const std::string& name, json ip)
+{
+    json node = doc.at("nodes")[lastHostNodeIndex(doc)];
+    node["device_name"] = name;
+    node["nickname"] = name;
+    node["ip"] = std::move(ip);
+    node["mac"] = 9001;
+    doc["nodes"].push_back(node);
+    return doc["nodes"].back();
+}
+
+} // namespace
+
+TEST(TopologyInputValidationTest, AZeroLinkBandwidthIsRefusedAtLoad)
+{
+    // ROLE-3's b2-zero.json, reproduced on the P4 model: one edge declaring a link of zero bits
+    // per second. Accepted before this door, and then divided by.
+    MutatedTopology topo("bandwidth_zero");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastEdgeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["edges"][victim]["link_bandwidth_bps"] = 0;
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw)
+        << "an edge declaring 0 bit/s was accepted; the measured consequence was "
+           "link_bandwidth_utilization_percent: null on every sampled edge, with "
+           "get_average_link_usage still answering status: success";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.edges, 0u);
+}
+
+TEST(TopologyInputValidationTest, TheZeroBandwidthRefusalNamesTheFieldAndIsNotAnExceptionClass)
+{
+    MutatedTopology topo("bandwidth_zero_message");
+    ASSERT_TRUE(topo.usable());
+    topo.doc()["edges"][lastEdgeIndex(topo.doc())]["link_bandwidth_bps"] = 0;
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    ASSERT_TRUE(out.threw);
+    EXPECT_NE(out.messageSansPath.find("link_bandwidth_bps"), std::string::npos)
+        << "the refusal does not name the field the operator has to edit: " << out.messageSansPath;
+    EXPECT_EQ(out.messageSansPath.find("json.exception"), std::string::npos)
+        << "the refusal is a raw nlohmann exception, not a diagnostic: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, ANegativeLinkBandwidthIsRefusedAtLoad)
+{
+    // 🔴 THE VALUE THE OPERATOR TYPED MUST REACH THEM, AND BEFORE THIS DOOR IT COULD NOT: the
+    // field is read with get<uint64_t>(), so ROLE-3 measured -1 being served back as
+    // 18446744073709551615. A refusal that quoted the unsigned reading would be telling the
+    // operator about a number that is not in their file.
+    MutatedTopology topo("bandwidth_negative");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastEdgeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["edges"][victim]["link_bandwidth_bps"] = -1;
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "an edge declaring -1 bit/s was accepted, and get_graph_data then "
+                              "reported it as an 18.4 exabit/s link";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_NE(out.messageSansPath.find("-1"), std::string::npos)
+        << "the refusal does not quote the value the file actually contains: "
+        << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, AMissingLinkBandwidthIsRefusedInPlainLanguage)
+{
+    // 🔴 WHAT IS RED HERE BEFORE THIS DOOR IS `vertices == 0` AND THE MESSAGE, NOT `threw`. The
+    // builder reads this field with at(), so a missing key already threw -- from the middle of the
+    // edge loop, with 14 vertices and 39 edges already in the graph, and reported as
+    // `[json.exception.out_of_range.403] key 'link_bandwidth_bps' not found`. That is the
+    // 39-of-40 shape validateStaticTopologyJson exists to abolish, reached through the one field
+    // it did not check, and ROLE-3 measured the message verbatim.
+    MutatedTopology topo("bandwidth_missing");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastEdgeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["edges"][victim].erase("link_bandwidth_bps");
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "an edge with no link_bandwidth_bps key was accepted";
+    EXPECT_EQ(out.vertices, 0u)
+        << "the file was refused only after " << out.vertices << " vertices and " << out.edges
+        << " edges were already in the graph -- refused by the builder, not by the door";
+    EXPECT_EQ(out.edges, 0u);
+    EXPECT_EQ(out.messageSansPath.find("json.exception"), std::string::npos)
+        << "the refusal is a raw nlohmann exception, not a diagnostic: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, ALinkBandwidthWrittenAsAStringIsRefusedInPlainLanguage)
+{
+    // The other half of the same operator mistake, and ROLE-3 measured this message too:
+    // `[json.exception.type_error.302] type must be number, but is string`.
+    MutatedTopology topo("bandwidth_string");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastEdgeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["edges"][victim]["link_bandwidth_bps"] = "0";
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "an edge whose link_bandwidth_bps is a string was accepted";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.edges, 0u);
+    EXPECT_EQ(out.messageSansPath.find("json.exception"), std::string::npos)
+        << "the refusal is a raw nlohmann exception, not a diagnostic: " << out.messageSansPath;
+    // 🔴 THE FAULT HAS TO BE THE ONE THE OPERATOR MADE, and this door has two arms that both
+    // reject a string: the type arm, and -- if the type arm is gone -- the "cannot be negative"
+    // arm, because a string is not an unsigned number either. Both refuse the file and both avoid
+    // an exception class, so without this line the type arm has no discriminating case and a
+    // mutation removing it would be scored as caught by nothing. Telling an operator who typed
+    // "0" that a capacity cannot be negative is a true sentence about the wrong mistake.
+    EXPECT_NE(out.messageSansPath.find("not an integer"), std::string::npos)
+        << "the refusal does not say the value is the wrong type: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, TheSmallestPositiveLinkBandwidthIsAccepted)
+{
+    // 🔴 THE OVER-CORRECTION CONTROL, and the M8 of this door. "A real link is at least a
+    // megabit" is the rule a reader reaches for once 0 is refused, and it is not the rule: this
+    // loader models whatever the file describes, and a shaped or emulated link of a few bit/s is
+    // a topology, not a typo. The door is `> 0` and nothing more, and this case is what says so.
+    MutatedTopology topo("bandwidth_one_bit");
+    ASSERT_TRUE(topo.usable());
+
+    topo.doc()["edges"][lastEdgeIndex(topo.doc())]["link_bandwidth_bps"] = 1;
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_FALSE(out.threw) << "an edge declaring 1 bit/s was refused: " << out.message;
+    EXPECT_EQ(out.vertices, 14u);
+    EXPECT_EQ(out.edges, 40u);
+}

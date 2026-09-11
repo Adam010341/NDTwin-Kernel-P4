@@ -252,6 +252,74 @@ switchKindGroupsFromJson(const json& j)
     return groups;
 }
 
+/** @brief Refuse an edge whose declared capacity is not a capacity.
+ *
+ * [Co-developed with claude code -- Adam]
+ * B-13. `link_bandwidth_bps` is the one field of an edge no door looked at, and it is the
+ * divisor: updateLinkInfoLeftLinkBandwidth computes
+ * `(1.0 - leftIn / edgeProps.linkBandwidth) * 100`. Measured 2026-09-11 (ROLE-3, two independent
+ * repeats on one kernel): a copy of the shipped OVS 4-host model with 0 on every edge loaded
+ * whole -- `ndt up ovs 4` reported all four verifications ok, including "kernel graph matches the
+ * model file: 4 hosts, 40 edges" -- and after real traffic 8, then 16, of the 40 edges came back
+ * from /ndt/get_graph_data with `"link_bandwidth_utilization_percent": null`, NaN serialised.
+ * /ndt/get_average_link_usage went on answering `status: success` throughout: its accumulator
+ * skips edges whose usage is 0, and an edge of zero capacity has usage 0, so the average is
+ * immune by arithmetic accident rather than because anything noticed.
+ *
+ * 🔴 0 IS REFUSED RATHER THAN ADMITTED AS "UNKNOWN". Nothing in this repo reads it that way: the
+ * unknown convention elsewhere is -1, which this unsigned field cannot express, and the manual's
+ * only account of the field (doc/2026-01-02_ndt_api.md, the "declared" source) has no third
+ * state. Admitting 0 would mean inventing one and teaching leftBandwidth,
+ * leftBandwidthFromFlowSample, BandwidthSource and the utilization arithmetic about it. All
+ * thirteen shipped files declare 1 or 10 Gbit/s and nothing else.
+ *
+ * 🔴 WHAT THIS DOES NOT COVER: linkBandwidth is also written from an sFlow counter sample
+ * (`edgeProps.linkBandwidth = interfaceSpeed`, updateLinkInfo), where 0 is the standard
+ * SNMP/sFlow value for "speed unknown" and there is no check at all. A file can no longer declare
+ * 0; a switch can still report it. That is a runtime door and it is not this one.
+ *
+ * Missing key and wrong type are refused here rather than by the builder's at(), for door 3c and
+ * 3d's reason: without it the operator is handed
+ * `[json.exception.out_of_range.403] key 'link_bandwidth_bps' not found` from the middle of the
+ * builder's edge loop, with fourteen vertices and thirty-nine edges already in the graph.
+ */
+void
+checkDeclaredLinkBandwidth(const json& edgeJson)
+{
+    if (!edgeJson.contains("link_bandwidth_bps"))
+    {
+        throw std::runtime_error(
+            "this link declares no \"link_bandwidth_bps\", and every edge needs one: it is the "
+            "capacity the twin reports and the divisor it computes "
+            "\"link_bandwidth_utilization_percent\" with");
+    }
+    const auto& declared = edgeJson.at("link_bandwidth_bps");
+    if (!declared.is_number_integer())
+    {
+        throw std::runtime_error(
+            "this link declares \"link_bandwidth_bps\" " + declared.dump() +
+            ", which is not an integer number of bits per second");
+    }
+    if (!declared.is_number_unsigned())
+    {
+        throw std::runtime_error(
+            "this link declares \"link_bandwidth_bps\" " + declared.dump() +
+            ", and a capacity cannot be negative. Read as unsigned -- which is how the builder "
+            "reads it -- that value became 18446744073709551615, an 18.4 exabit/s link nobody "
+            "declared, and it was served that way");
+    }
+    if (declared.get<std::uint64_t>() == 0)
+    {
+        throw std::runtime_error(
+            "this link declares \"link_bandwidth_bps\" 0. A link of zero capacity is not a link "
+            "this twin can model: it is the divisor of "
+            "\"link_bandwidth_utilization_percent\", so every sampled edge reports that field as "
+            "null (NaN), while \"avg_link_usage\" goes on answering status success because its "
+            "accumulator skips edges of zero usage. There is no \"unknown\" reading of this "
+            "field -- if the capacity is not known, the file should not claim one");
+    }
+}
+
 /** @brief Refuse a topology document that names things the document does not contain.
  *
  * @details
@@ -674,6 +742,7 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
     for (const auto& edgeJson : j["edges"])
     {
         where = describeTopologyItem(edgeJson, "edge", itemIndex++);
+        checkDeclaredLinkBandwidth(edgeJson);
         checkEndpoint(edgeJson, "src");
         checkEndpoint(edgeJson, "dst");
     }
