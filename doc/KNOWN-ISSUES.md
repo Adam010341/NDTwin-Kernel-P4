@@ -4436,6 +4436,20 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   ⚠️ 偵察原本只指到 `tools/test_workflow/run_layers.sh:398`——那是以名「查」不是「殺」，
   **真的那兩個是這一輪才找到的**。
 
+### G-50 ⚠️ 修法在自己的訊息裡引用它修掉的缺陷，於是「缺陷字串不該出現」的斷言在修好的樹上紅
+
+- **狀態**：**OPEN**（instrument class, not a product defect）。2026-09-11 CELLS-1 live 兩次
+  （merge `fb2c281e`，2026-09-11）。 (numbered by KI-FOLLOWUP-2)
+- **量到什麼**：`guard_no_teardown_in_flight` 的拒絕訊息引用 `'already up: 10 switches, reusing'` 與
+  `'model matches fabric'`；`/ndt/inject_link_failure` 的遠端 `refused` 引用
+  `a link failure injected at one end only …`。兩次都在**正確行為**上把格判紅。
+- 🔴 **舊 log fixture 結構上抓不到這一類**——在舊 log 裡那個字串就是 status／banner，
+  所以斷言看起來完全承重，閘門也同意。
+- **規則**：absence needle 綁欄位（`"field":"value"`）或綁只有成功路徑會印的前綴（`ok  `）。
+- **實例與逐字原因**寫在 `tools/test_workflow/live_cells/{up_refuses_while_a_down_is_in_flight,
+  link_failure_cuts_both_ends_or_neither}.sh` 的 judge 旁邊。
+- **證據**：`fix/CELLS-1-SUMMARY.md` §6 逐字。⚠️ 🟠 轉述；raw 在 `scratch/`，不在版控。
+
 > 🔗 **A1（`POST /ndt/inject_link_recovery` 把不是自己掛的 netem 也拆掉，2026-09-11 live 3/3）
 > 不在這裡登記**——那一條由 `fix/link-recovery-only-detaches-its-own-netem` 自己登記（09-11 授權）。
 > 本次收條目時（2026-09-11 03:0x）該分支還沒併進 trunk；若它比本次晚併，這一行就是它的入口。
