@@ -49,6 +49,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -114,9 +115,16 @@ def ungated_action() -> actions.Action:
 class FakeShell:
     """Stands in for probes.run and records every argv it is handed.
 
-    Answers only the reads this harness makes on the way through a dry run: no bmv2 processes,
-    no lab claim, and one qdisc tree. Anything else is an assertion failure rather than a
-    default, because a command this test did not predict is exactly what it is looking for.
+    Answers only the reads this harness makes on the way through a dry run: no lab claim and
+    one qdisc tree. Anything else is an assertion failure rather than a default, because a
+    command this test did not predict is exactly what it is looking for.
+
+    2026-09-12: it used to answer `pgrep` too -- "no BMv2 running; pgrep exits 1 on no match".
+    That branch is gone because the command is gone: probes.bmv2_process_count reads the switch
+    manifest by pid now (FIX-PROXY-2 A11), and how many switches are up is decided by the
+    NDTWIN_P4_MANIFEST this file points at a path that does not exist, not by a shell-out. A
+    stub that keeps answering a command nothing runs is the thing that makes a registry of
+    "still asks by name" rot into an excuse.
     """
 
     def __init__(self, tree: str = SHAPED):
@@ -126,8 +134,6 @@ class FakeShell:
     def __call__(self, argv, timeout=5.0, env=None):
         self.calls.append(list(argv))
         words = [w for w in argv if w not in ("sudo", "-n")]
-        if words[0] == "pgrep":
-            return 1, "", ""                       # no BMv2 running; pgrep exits 1 on no match
         if words[:2] == ["ndt", "status"]:
             return 1, "", "no claim"               # G3 fails; a mode that injects nothing goes on
         if words[:3] == ["tc", "qdisc", "show"]:
@@ -154,10 +160,20 @@ class Seam(unittest.TestCase):
         self._run = probes.run
         self._cpu = antioracle.cpu_busy_fraction
         antioracle.cpu_busy_fraction = lambda window_s=1.0: 0.0
+        # And the switch registry, pointed at a path that does not exist: since 2026-09-12 the
+        # bmv2 count is a manifest read rather than a shell-out, and a test that left it on the
+        # default would be answered by whatever fabric this machine happens to be running.
+        self._manifest = os.environ.get("NDTWIN_P4_MANIFEST")
+        os.environ["NDTWIN_P4_MANIFEST"] = os.path.join(
+            tempfile.gettempdir(), "ndtwin_optin_no_such_manifest.json")
 
     def tearDown(self):
         probes.run = self._run
         antioracle.cpu_busy_fraction = self._cpu
+        if self._manifest is None:
+            os.environ.pop("NDTWIN_P4_MANIFEST", None)
+        else:
+            os.environ["NDTWIN_P4_MANIFEST"] = self._manifest
 
     def shell(self, *a, **kw) -> FakeShell:
         fake = FakeShell(*a, **kw)

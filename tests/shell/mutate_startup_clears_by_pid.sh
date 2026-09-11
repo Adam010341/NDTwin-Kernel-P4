@@ -21,7 +21,16 @@
 # probing one port instead of ten, and reporting a held port without saying which port or how to
 # look. Each of those is a plausible edit and each one costs the fix its point.
 #
-# Seven mutations plus a control:
+# 2026-09-12 (FIX-PROXY-2 A8): the reset grew a second half. A gRPC port the reap could not
+# free no longer produces a warning that the run walks past -- it aborts the bring-up, in BOTH
+# mains, naming the port, its owner's `ss -ltnp` line and how to check that by hand. MS8-MS11
+# below are that half, and they are aimed at the four ways a refusal quietly becomes a warning
+# again: the exit disappears, a main stops asking, only the first port is looked up, or the
+# owner stops being named. MS9 is the one that matters most and the one a unit test cannot
+# reach on its own -- ndtwin-lab starts ntg_bmv2_topo.py, so a decision wired into only one
+# main is a decision that does not run.
+#
+# Eleven mutations plus a control:
 #   MS1       the manifest is never consulted -- a reset that resets nothing.
 #   MS2       the manifest is deleted after the reap. This is the A-4 bookkeeping defect moved
 #             to startup: the file is the only handle left on a switch the reap failed to stop.
@@ -30,6 +39,10 @@
 #             the owner. What replaced the name match is a SENTENCE, so a sentence that does not
 #             say anything is the way this fix quietly becomes worse than what it replaced.
 #   MS7       the settle disappears, so a switch on its way out reads as a stranger.
+#   MS8       the abort stops aborting -- the refusal becomes the warning it replaced.
+#   MS9       main() stops calling it, so the policy exists and nothing executes it.
+#   MS10      the owner is looked up for the first held port only.
+#   MS11      the abort stops naming WHO holds the port, leaving a number the operator cannot act on.
 #   C1        a comment is reworded and nothing may change.
 #
 # A mutation that makes the WRONG test go red is a SURVIVOR: the case it targets was never put to
@@ -187,6 +200,30 @@ ms7=$(mutant ms7 '        if settle_s:
             time.sleep(settle_s)')
 report "MS7: no settle, so a switch on its way out reads as a stranger" "$ms7" \
        "test_the_settle_runs_once_when_something_was_reaped"
+
+# --- the refusal (2026-09-12, A8) ----------------------------------------------------------------
+# What replaced "warn and continue" is an ABORT. Each mutation below leaves the abort in place
+# and takes away one thing that makes it a decision rather than a louder warning.
+
+ms8=$(mutant ms8 '    report("")
+    exit_(1)'$'\x1f''    report("")
+    return')
+report "MS8: the abort reports and then goes on anyway" "$ms8" \
+       "test_a_held_port_stops_the_run_with_a_non_zero_status"
+
+ms9=$(mutant ms9 '    abort_if_grpc_ports_are_held(still_held)'$'\x1f''    pass  # the policy is defined, and main does not ask it')
+report "MS9: main() defines the refusal and never calls it" "$ms9" \
+       "test_each_main_aborts_on_what_the_reset_could_not_free"
+
+ms10=$(mutant ms10 '    for port in held:
+        line = owner_of(port)'$'\x1f''    for port in held[:1]:
+        line = owner_of(port)')
+report "MS10: only the first held port has its owner looked up" "$ms10" \
+       "test_the_owner_is_asked_about_every_held_port"
+
+ms11=$(mutant ms11 '            report("  :%d is held by  %s" % (port, line))'$'\x1f''            report("  :%d is held" % port)')
+report "MS11: the abort stops saying WHO holds the port" "$ms11" \
+       "test_the_owner_of_each_held_port_is_printed_verbatim"
 
 # --- the control ---------------------------------------------------------------------------------
 
