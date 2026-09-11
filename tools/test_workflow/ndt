@@ -3142,7 +3142,50 @@ cmd_clean() {
     residue="$(ndt_port_residue all)"; local prc=$?
     if [[ -n "$residue" ]]; then
         printf '%s\n' "$residue" | while IFS= read -r line; do err "$line"; done
-        err "   this stack did not start it; to kill it too:  ndt down --deep"
+        # [Co-developed with claude code -- Adam]
+        # 🔴 ROLE-11 F5, measured 2026-09-12 02:25:14 (logs/ROLE-11/18-clean-live.log). The line
+        # below used to be printed unconditionally, as one summary under the whole list. Thirty
+        # seconds after the reader had brought that fabric up himself with `ndt up p4 4` -- and
+        # following the manual, which sends him here to verify it -- `ndt clean` told him
+        # `this stack did not start it; to kill it too:  ndt down --deep` about a list whose
+        # first two entries were `ndtwin_kernel pid 2511227 holding :8000` and `python pid
+        # 2510886 holding :8081`, both of which the same round's `ndt status` reported as ALIVE
+        # out of .test_run/pids/. The manual's own fold-out says to use --deep only when the
+        # machine is certainly yours; this said it was not. It was the only instruction in that
+        # round that would have broken something if followed.
+        #
+        # Two records answer "did this stack start it", and the second is not optional: bmv2 is
+        # root-owned, so this user cannot see its pids at all (ports.sh says so, and it is why
+        # the P4 plane could not see H3 either). The pidfile registry answers for the kernel,
+        # the proxy and Ryu; the switch manifest -- which this function has already reported as
+        # present, two assertions up -- answers for the fabric's ports.
+        #
+        # 🔴 The stranger half is UNCHANGED and must stay: a :8000 nobody here started is how a
+        # P4 session came to measure an OVS kernel and report 288 edges. "Never say it" would be
+        # this defect with the sign flipped.
+        local cspec cproto cplane crest cport cline
+        local -a mine=() strangers=()
+        while IFS='|' read -r cspec cproto cplane crest; do
+            [[ -z "$cspec" ]] && continue
+            for cport in $(ndt_port_expand "$cspec"); do
+                ndt_port_open "$cport" "$cproto" || continue
+                if [[ "$(port_owner_local "$cport" "$cproto")" == ours ]]; then
+                    mine+=(":$cport ($(ndt_port_holder "$cport" "$cproto")) -- its pid is in .test_run/pids/")
+                elif [[ "$cplane" == p4 && -e "$MANIFEST" ]]; then
+                    mine+=(":$cport -- root-owned, so its pid is invisible here, and the switch manifest this stack wrote is still present")
+                else
+                    strangers+=("$cport")
+                fi
+            done
+        done < <(ndt_port_rows all)
+        if (( ${#mine[@]} > 0 )); then
+            err "   the fabric this stack started is still up. Take it down with:  ndt down"
+            for cline in "${mine[@]}"; do err "     $cline"; done
+        fi
+        if (( ${#strangers[@]} > 0 )); then
+            err "   held by nothing this stack registered: $(printf ':%s ' "${strangers[@]}")"
+            err "   this stack did not start it; to kill it too:  ndt down --deep"
+        fi
         rc=1
     fi
     # 2 is "could not look", not "nothing there". Treated as not-clean for the same reason

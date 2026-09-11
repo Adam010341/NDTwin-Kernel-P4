@@ -1220,5 +1220,71 @@ hasnt "  it did not refuse itself"        "refusing to judge" "$OUT"
 has   "  and its verify clean really ran" "ports closed" "$OUT"
 
 # ==========================================================================================
+section "17. ROLE-11 F5: 'ndt clean' does not call this stack's own fabric somebody else's"
+# ==========================================================================================
+# Measured 2026-09-12 02:25:14 (ROLE-11 F5, hunt-0911/logs/ROLE-11/18-clean-live.log), thirty
+# seconds after the reader had brought that fabric up himself with `ndt up p4 4`, following the
+# manual's own instruction to verify it with `ndt clean`. Seventy-four XX lines, closing on
+# `this stack did not start it; to kill it too:  ndt down --deep` -- and the first two entries
+# of the list that line was summarising were `ndtwin_kernel pid 2511227 holding :8000` and
+# `python pid 2510886 holding :8081`, while the same round's `ndt status` pidfiles row read
+# `kernel.child.pid=2511227 alive, p4_proxy.child.pid=2510886 alive`.
+#
+# The manual's fold-out says to use --deep only when the machine is certainly yours. The tool
+# had just told him it was not. It was the only line in that round that would have broken
+# something if followed.
+#
+# 🔴 The population is DERIVED -- from .test_run/pids/ and from the switch manifest -- and not
+# a hand-written list of ports, because a hand-written list is the shape ports.sh exists to
+# replace.
+reset_fix; rm -f "$DM"
+ledger kernel 2511227
+ledger p4_proxy 2510886
+OUT="$(drive 'FX_HELD="8000:2511227 8081:2510886"; cmd_clean')"
+check "  it is still not clean"                 "1" "$(rc_of_out "$OUT")"
+has   "  and the residue is still listed by port and holder" "holding :8000" "$OUT"
+hasnt "🔴 a pid in .test_run/pids/ is not 'this stack did not start it'" \
+      "to kill it too:  ndt down --deep" "$OUT"
+has   "🔴 it says the fabric this stack started is still up" \
+      "the fabric this stack started is still up" "$OUT"
+has   "  naming the pid it read out of the registry"  "pid 2511227" "$OUT"
+has   "  and the verb that takes it down"             "Take it down with:  ndt down" "$OUT"
+
+# 🔴 bmv2's twenty ports are root-owned, so this user cannot see their pids BY CONSTRUCTION
+# (ports.sh's own note) and the pidfile test cannot answer for them. The switch manifest this
+# stack wrote is the record that can, and it was present in that very log:
+# `switch manifest still present: /tmp/ndtwin_p4_switches.json`.
+reset_fix; rm -f "$DM"
+OUT="$(drive 'FX_HELD="30051: 9091:"; cmd_clean')"
+check "  it is not clean"                       "1" "$(rc_of_out "$OUT")"
+hasnt "🔴 a bmv2 port under this stack's own manifest is not a stranger either" \
+      "to kill it too:  ndt down --deep" "$OUT"
+has   "  and it names the record that answered" "the switch manifest this stack wrote" "$OUT"
+
+# 🔴 THE CONTROL, and it is the whole point: a holder that really is NOT this stack's still gets
+# the old sentence and the --deep remedy. "Never say it" would be the same defect with the sign
+# flipped -- ports.sh's table exists because a stray :8000 makes the next round measure the
+# wrong kernel.
+reset_fix; rm -f "$DM"
+OUT="$(drive 'FX_HELD="8000:999111"; cmd_clean')"
+check "  it is not clean"                       "1" "$(rc_of_out "$OUT")"
+has   "🔴 a holder that is NOT in the registry still gets the old sentence" \
+      "to kill it too:  ndt down --deep" "$OUT"
+hasnt "  and is not claimed as this stack's"    "the fabric this stack started is still up" "$OUT"
+
+# ...and the manifest is the RECORD, not the plane: a bmv2 port with no manifest is a stranger.
+reset_fix; rm -f "$DM"; rm -f "$FIX/manifest.json"
+OUT="$(drive 'FX_HELD="30051:"; cmd_clean')"
+has   "🔴 with no manifest, a bmv2 port is a stranger again" \
+      "to kill it too:  ndt down --deep" "$OUT"
+
+# Both kinds in one report: two ports, two different sentences, neither swallowing the other.
+reset_fix; rm -f "$DM"; ledger kernel 2511227
+OUT="$(drive 'FX_HELD="8000:2511227 8080:999111"; cmd_clean')"
+has   "  this stack's own port is named as its own" "the fabric this stack started is still up" "$OUT"
+has   "  and the stranger still gets --deep"        "to kill it too:  ndt down --deep" "$OUT"
+has   "  which names the port it is about"          "held by nothing this stack registered: :8080" "$OUT"
+
+# ==========================================================================================
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]

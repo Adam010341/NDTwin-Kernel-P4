@@ -714,6 +714,35 @@ report "M49 (widening): the clean guard refuses its own teardown too" "$m" \
        "🔴 'ndt down' is not refused by its own marker at verify clean"
 
 
+# --- ROLE-11 F5: whose processes `ndt clean` is looking at ------------------------------------
+
+# M50 restores F5's pidfile half: the registry is not consulted, so the kernel and proxy this
+# stack started and recorded are summarised as "this stack did not start it".
+m=$(mutant m50 "$NDT" \
+    '                if [[ "$(port_owner_local "$cport" "$cproto")" == ours ]]; then' \
+    '                if false; then')
+report "M50: 'ndt clean' stops reading .test_run/pids/ (ROLE-11 F5)" "$m" \
+       "🔴 a pid in .test_run/pids/ is not 'this stack did not start it'"
+
+# M51 restores the other half: bmv2 is root-owned, so the pidfile test CANNOT answer for its
+# twenty ports -- drop the manifest arm and the fabric's own ports are strangers again, which
+# is most of the 74 lines ROLE-11 was shown.
+m=$(mutant m51 "$NDT" \
+    '                elif [[ "$cplane" == p4 && -e "$MANIFEST" ]]; then' \
+    '                elif false; then')
+report "M51: the switch manifest stops answering for bmv2's ports" "$m" \
+       "🔴 a bmv2 port under this stack's own manifest is not a stranger either"
+
+# M52 (widening): everything is ours, so the sentence is never printed at all. That passes
+# every F5 cell and takes away the report that a stray :8000 makes the next round measure the
+# wrong kernel -- the defect ports.sh exists for, with the sign flipped.
+m=$(mutant m52 "$NDT" \
+    '                    strangers+=("$cport")' \
+    '                    mine+=(":$cport")')
+report "M52 (widening): every holder is called this stack's own" "$m" \
+       "🔴 a holder that is NOT in the registry still gets the old sentence"
+
+
 # --- F1: the plane the rate is read for (F-OFFLINE-1 §1.14) -----------------------------------
 
 # M36 restores F1: `sample_rate` is asked with no argument, so it looks the plane up -- and on a
