@@ -325,7 +325,7 @@ checkDeclaredLinkBandwidth(const json& edgeJson)
  *
  * [Co-developed with claude code -- Adam]
  * The shape door 3d builds inline for hosts, hoisted: B-13/B-14/B-15's doors need to name a node
- * whose `vertex_type` is not yet known to be 0 or 1 -- which is door 4's entire subject -- so
+ * whose `vertex_type` is not yet known to be 0 or 1 -- which is door 5's entire subject -- so
  * "host" and "switch" are not available as nouns yet. Reads `device_name` defensively for the
  * reason describeTopologyItem gives at length: this runs while reporting a failure that one of
  * these fields may itself have caused.
@@ -479,7 +479,7 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
     {
         where = describeTopologyItem(nodeJson, "node", itemIndex++);
 
-        // ---- B-14 door 4: "vertex_type" is 0 or 1, and there is no third value ----
+        // ---- B-14 door 5: "vertex_type" is 0 or 1, and there is no third value ----
         // [Co-developed with claude code -- Adam]
         // 🔴 BEFORE THE static_cast, AND THAT IS THE WHOLE DOOR. VertexType has two enumerators
         // (GraphTypes.hpp), and every door below is written as `vertexType == SWITCH` or
@@ -592,10 +592,19 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
         // and still did after #90 -- door 3b covers a switch's EMPTY array and nothing covered
         // the other two faults. Same defect, same sentence owed, one branch away.
         //
-        // 🔴 AFTER DOOR 3d, AND SKIPPING HOSTS, DELIBERATELY. Written for every node type it
-        // would run FIRST for hosts as well and make door 3d's own two arms unreachable: the
-        // gate's M18 and M19 would then survive with every test still green, which is one door
-        // being measured through another standing in front of it.
+        // 🔴 AFTER DOOR 3d, AND SKIPPING HOSTS, DELIBERATELY -- AND IT IS THE POSITION, NOT THE
+        // CONDITION, THAT DOES THE WORK. Corrected 2026-09-11 after the gate's r2 round measured
+        // what the previous wording asserted: widening this `!=` to every node type changes
+        // nothing at all, because door 3d is forty-nine lines above and has already thrown for a
+        // host by the time control arrives here. The old comment said such a widening "would run
+        // FIRST for hosts"; it would not, and M48 was written from that sentence, so it could
+        // never go red -- an equivalent mutant that cost a full gate round to diagnose.
+        //
+        // What DOES silence door 3d is MOVING this block in front of it. Then door 3d's two arms
+        // become unreachable, the gate's M18 and M19 survive with every test still green, and a
+        // host is refused as a "node" instead of as a host -- losing the `"dpid": 0, so an
+        // address is the only thing that identifies it` reason door 3d exists to give. M48 is now
+        // that move, and because a move is an insertion plus a deletion it is a mutate2.
         //
         // 🔴 WRITTEN WITH TWO NAMED BOOLEANS RATHER THAN DOOR 3d's `else if` CHAIN, AND THAT IS
         // NOT A STYLE CHOICE. Spelled the natural way this block is line-for-line identical to

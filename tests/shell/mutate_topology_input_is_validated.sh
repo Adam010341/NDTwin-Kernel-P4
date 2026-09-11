@@ -1239,11 +1239,34 @@ mutate "door 6a: an edge's addresses are no longer checked for spelling" \
 # `[json.exception.out_of_range.403] key 'ip' not found` before #90 and still did after it, because
 # door 3b covers a switch's EMPTY array and nothing covered the other two faults.
 #
-# 🔴 M48 IS THE ONE THAT MATTERS HERE, and it is an ORDERING mutation. Door 7 says the same two
-# things as door 3d, so writing it for every node type instead of `!= HOST` compiles, refuses the
-# same files, and leaves every acceptance case green -- while making door 3d's own two arms
-# unreachable. Without M48 the only symptom would be M18 and M19 flipping from caught to survived,
-# i.e. this gate reporting two failures that name the wrong doors.
+# 🔴 M48 IS THE ONE THAT MATTERS HERE, and it is an ORDERING mutation -- a MOVE, not a widening.
+#
+# 🔴 IT USED TO BE A WIDENING (`!= HOST` -> `true`) AND THAT VERSION WAS AN EQUIVALENT MUTANT.
+# Door 7 says the same two things as door 3d, so "apply door 7 to every node type as well" reads
+# like it would take door 3d's words away. It does not: door 3d sits FORTY-NINE LINES ABOVE door
+# 7, so a host with no usable "ip" has already been refused by door 3d before control ever
+# reaches door 7, and widening door 7 changes nothing any test can observe. The 2026-09-11 r2
+# round is where that was measured -- `48 mutations, 1 survived`, and the survivor was this one.
+# The source comment it had been written from (door 7's header in TopologyAndFlowMonitor.cpp,
+# "Written for every node type it would run FIRST for hosts as well") was wrong in exactly the
+# same way, and is corrected in the same commit as this rewrite.
+#
+# What actually silences door 3d is MOVING door 7 in front of it, which is what this mutation now
+# does. Door 3d's two shared arms then become unreachable -- M18 and M19 would flip from caught to
+# survived, i.e. this gate would report two failures naming the wrong doors -- and, the part a
+# test can see, a host is refused as a "node" rather than as a host.
+#
+# 🔴 TWO EDITS, AND THE HEADER SAYS SO BECAUSE IT IS TWO -- the M45/M2/M31 rule. A move is an
+# insertion plus a deletion: edit 1 puts door 7's check in front of door 3d, edit 2 switches the
+# original site off. Edit 1 alone would already redden the case, but it would leave the file with
+# TWO copies of door 7 -- which is not a relocation, and would leave the `door7-notahost` anchor
+# pointing at a block that can no longer be reached. The mutation is only honest as both.
+#
+# 🔴 WHAT SEES IT IS THE NOUN, and only the noun. AHostWithNoIpKeyIsStillNamedAsAHost asserts the
+# refusal contains `host "<name>"`; the relocated block answers `node "<name>"`, because
+# nodeInWords() cannot say "host" -- it runs before vertex_type has been established as a noun.
+# Every other case in this file stays green under this mutation, which is the point: without this
+# one, nothing here measures the order of the two doors at all.
 # ================================================================================================
 
 # M47. Door 7 never fires: a switch's missing or non-array "ip" goes back to being an exception
@@ -1255,14 +1278,37 @@ mutate "door 7: a switch's missing \"ip\" falls back to the nlohmann exception" 
     TopologyInputValidationTest.ASwitchWithNoIpKeyAtAllIsRefusedInPlainLanguage \
     TopologyInputValidationTest.ASwitchWhoseIpIsNotAnArrayIsRefusedInPlainLanguage
 
-# M48. 🔴 DOOR 7 WIDENED OVER DOOR 3d. One `!=` gone. The host is still refused, still in a
-#      sentence, still with no exception class -- and no longer AS a host, so the operator loses
-#      the reason (`"dpid": 0, so an address is the only thing that identifies it`) that door 3d
-#      exists to give them.
-mutate "door 7 is applied to hosts too, so door 3d never speaks" \
+# M48. 🔴 DOOR 7 MOVED IN FRONT OF DOOR 3d, so door 3d never speaks. The host is still refused,
+#      still in a sentence, still with no exception class -- and no longer AS a host, so the
+#      operator loses the reason (`"dpid": 0, so an address is the only thing that identifies
+#      it`) that door 3d exists to give them. Edit 1 inserts door 7's check above door 3d; edit 2
+#      switches the original door 7 off, so the block has moved rather than been duplicated.
+#
+#      The inserted copy is door 7's body with its condition dropped (it now runs for every node
+#      type, because at this position that is what "in front of door 3d" means) and its local
+#      renamed, so that the still-present original below keeps compiling.
+IFS= read -r -d '' M48_RELOCATED_DOOR7 <<'RELOC'
+        const bool relocatedDeclaresIpKey = nodeJson.contains("ip");
+        if (!(relocatedDeclaresIpKey && nodeJson.at("ip").is_array()))
+        {
+            throw std::runtime_error(
+                nodeInWords(nodeJson, itemIndex - 1) +
+                (relocatedDeclaresIpKey
+                     ? " declares an \"ip\" that is not an array of address strings"
+                     : " declares no \"ip\" key at all") +
+                "; every node's addresses are read from that key, and a switch is found "
+                "through them by every path that does not already have its dpid");
+        }
+        if (vertexType == VertexType::HOST)
+RELOC
+M48_RELOCATED_DOOR7="${M48_RELOCATED_DOOR7%$'\n'}"
+
+mutate2 "door 7 is moved in front of door 3d, so door 3d never speaks" \
     "$TFM" \
+    '        if (vertexType == VertexType::HOST)' \
+    "$M48_RELOCATED_DOOR7" \
     '        if (vertexType != VertexType::HOST)' \
-    '        if (true)' \
+    '        if (vertexType != VertexType::HOST && false)' \
     TopologyInputValidationTest.AHostWithNoIpKeyIsStillNamedAsAHost
 
 # ================================================================================================
