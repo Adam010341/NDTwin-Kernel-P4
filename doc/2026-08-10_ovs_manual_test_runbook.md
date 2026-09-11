@@ -331,6 +331,16 @@ converged after Xs
 
 以下全部在 terminal A 跑 `curl`。kernel 聽在 `localhost:8000`，Ryu 聽在 `localhost:8080`。
 
+📌 **本 runbook 的 `python3` 片段與入口手冊的規定**：入口手冊
+`doc/2026-08-17_testing-manual.md` §1 寫「**Python 一律用 `p4_proxy/venv/bin/python`**」
+（conda 的 `python3` 缺 grpc/networkx，壞掉的套件在它底下看起來是綠的），而本 runbook 各節
+一路用裸 `python3`。**兩份都是現役文件，衝突以入口手冊為準。**
+09-12 照本節逐字用裸 `python3` 跑 §4a 是通的，但**那次沒事的理由跟手冊給的理由無關**——
+這些片段只 import stdlib 的 `json`／`sys`。任何一段一旦碰到 `grpc`／`networkx`／`requests`，
+裸 `python3` 就會在那裡壞。⇒ **打 `p4_proxy/venv/bin/python` 最省事**，它跑 stdlib 片段一樣通。
+<!-- 來源：ROLE-11 F13，log hunt-0911/logs/ROLE-11/06-graph-4a.log（🟠 轉述：裸 python3、RC=0）。
+     入口手冊那句在 §1（另 §5 重述）；「衝突以入口手冊為準」是該手冊 §6 自己的規定。 -->
+
 ### 4a. 圖（graph）
 
 ```bash
