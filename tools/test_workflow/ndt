@@ -362,6 +362,27 @@ CLAIM="$REPO/.test_run/lab.claim"
 HANDOFF="$REPO/.test_run/lab.handoff"
 
 claim_field() { [[ -f "$CLAIM" ]] && sed -n "s/^$1=//p" "$CLAIM" | head -1; }
+# The claim an `ndt claim` replaced or an `ndt release` removed. Same reader, different file, so
+# a caller cannot accidentally answer "who holds the lab" out of the history. [Co-developed with
+# claude code -- Adam]
+claim_prev_field() { [[ -f "$CLAIM.prev" ]] && sed -n "s/^$1=//p" "$CLAIM.prev" | head -1; }
+
+# claim_write <owner> <expires> <note> <exclusive_cpu> <measuring> -- the five fields to stdout,
+# IN THE ORDER THE HEADER DOCUMENTS, and the only place in this file that writes them.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 R7's incidental finding, 2026-09-11 (R7-reconciler.md section 3b): `lab.claim` and
+# `lab.claim.prev` carried the five fields in DIFFERENT orders --
+# owner/expires/note/exclusive_cpu/measuring against owner/expires/exclusive_cpu/measuring/note --
+# because they came from two writers, claim_take's printf and the note rewriter's. It was
+# harmless that night because R7 compared field by field, and it makes any
+# `diff lab.claim lab.claim.prev`, or any hash comparison, report a difference forever for two
+# files that mean the same thing. Two printfs that agree today are exactly what drifts next, so
+# there is one.
+claim_write() {
+    printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=%s\nmeasuring=%s\n' \
+        "$1" "$2" "$3" "$4" "$5"
+}
 handoff_field() { [[ -f "$HANDOFF" ]] && sed -n "s/^$1=//p" "$HANDOFF" | head -1; }
 
 # --- what this checkout looked like when the round started ---------------------------------
@@ -793,8 +814,7 @@ claim_take() {   # claim_take <mins> <note> <the pre-lock foreign_claim reading>
     #     NDT_MEASURING='sampling matrix, poll-off cell 3/8' ndt claim 90 'S-rate matrix'
     # Empty means "nothing declared", which is NOT "nothing running" -- in_flight still watches
     # the process table for `status`, `up` and `down`.
-    printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=%s\nmeasuring=%s\n' \
-        "$NDT_OWNER" "$(( $(date +%s) + mins * 60 ))" "$note" \
+    claim_write "$NDT_OWNER" "$(( $(date +%s) + mins * 60 ))" "$note" \
         "$( [[ -n "${NDT_EXCLUSIVE_CPU:-}" ]] && echo yes || echo no )" \
         "${NDT_MEASURING:-}" > "$CLAIM"
     # [Co-developed with claude code -- Adam]
@@ -994,8 +1014,7 @@ claim_rewrite() {
     esac
     tmp="$f.$$.tmp"
     {
-        printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=%s\nmeasuring=%s\n' \
-            "$owner" "$exp" "$note" "$ecpu" "$meas"
+        claim_write "$owner" "$exp" "$note" "$ecpu" "$meas"
         # `|| true` because grep -v exits 1 when nothing is left over, which is the ORDINARY case
         # -- a claim written by this tool has exactly the five fields. Without it the compound's
         # status is grep's, and every note rewrite on an ordinary claim reports failure while
@@ -2958,6 +2977,49 @@ stack_pidfile_row() {
     return 0
 }
 
+# claim_prev_row -- the claim that was replaced or released, and whether the lab changed hands.
+# Prints nothing when there is no .prev. Never a `--check` problem: this is history, and a row
+# that turned a teardown red for something that has already happened would be read once.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 R7 I-2, condition 2 of R7's own acceptance of the fix (R7-reconciler.md section 3b,
+# 04:29:25). Condition 1 passed -- `.prev` really was the claim that had been replaced, verified
+# field by field against R7's independent 118-point sampling record -- and condition 2 FAILED:
+# R7 grepped the WHOLE of `ndt status` for prev|changed hands|took|handover|previous|was held and
+# got ZERO hits. The evidence was being kept and no interface mentioned it, so a session that
+# arrived at 04:29 still could not see that the claim had been rewritten two minutes before
+# unless it knew to cat a file. That is half a fix, and this is the other half.
+#
+# 🔴 Printed whether or not a claim is live, because the reader who needs it is the one who
+# arrives AFTER the change. It does not answer "who holds the lab" -- claim_line does, from the
+# live file, and it still says `none` after a release.
+#
+# 🔴 CHANGED HANDS only when the owner really changed. The same owner re-claiming is a rewrite
+# (I-2 residue #1: a note corrected by re-claiming, which pulled `expires` three hours out), and
+# it is disclosed as one. Calling every rewrite a handover would teach the reader to skip the row.
+#
+# The time comes from the FILE's mtime, not from a field: nothing in the claim format records
+# when it was superseded, and the moment the copy was written is exactly that.
+claim_prev_row() {
+    local f="$CLAIM.prev" powner pexp pnote at live
+    [[ -f "$f" ]] || return 0
+    powner="$(claim_prev_field owner)"; pexp="$(claim_prev_field expires)"
+    pnote="$(claim_prev_field note)"
+    at="$(stat -c %Y "$f" 2>/dev/null)"
+    printf '  %-14s %s\n' "prev claim" \
+        "${powner:-<no owner field>} (until $( [[ "$pexp" =~ ^[0-9]+$ ]] && date -d "@$pexp" '+%H:%M:%S' || echo '?' ))$( [[ "$at" =~ ^[0-9]+$ ]] && printf ', superseded %s' "$(date -d "@$at" '+%Y-%m-%d %H:%M:%S')" )  (${f#$REPO/})"
+    live="$(claim_field owner)"
+    if [[ -z "$live" ]]; then
+        printf '  %-14s %s\n' "" "nothing holds the lab now: that claim was released or replaced"
+    elif [[ "$live" == "$powner" ]]; then
+        printf '  %-14s %s\n' "" "the same owner re-claimed it -- a rewrite, not a handover"
+    else
+        printf '  %-14s %s\n' "" "changed hands: $powner -> $live"
+    fi
+    [[ -n "$pnote" ]] && printf '  %-14s %s\n' "" "it said: $(printf '%s' "$pnote" | cut -c1-72)"
+    return 0
+}
+
 # claim_line -- one line describing who holds the lab, in the form that answers "can I touch
 # this right now". Relative time first: an absolute "until 17:11:52" makes the reader do
 # arithmetic against the wall clock, which is the moment they get it wrong. The four states
@@ -3730,6 +3792,9 @@ cmd_status() {
     esac
     local note; note="$(claim_field note)"
     [[ -n "$note" && "$cl" != none && "$cl" != EXPIRED* ]] && printf '  %-14s %s\n' "note" "$note"
+    # R7 I-2 condition 2: the claim's own history, beside the claim. Not behind --check and not
+    # behind "a claim is live" -- see claim_prev_row for whose question this is.
+    claim_prev_row
 
     # [Co-developed with claude code -- Adam]
     # Printed UNCONDITIONALLY while a claim is live, and never behind a flag. The whole point of

@@ -866,6 +866,86 @@ check "🔴 and writes no .prev"                           "gone" \
 no_claim
 rm -f "$(claim_file).prev"
 
+section "6I. 🔴 R7 I-2 condition 2: 'ndt status' says the claim changed hands"
+# R7's own acceptance of the I-2 fix (R7-reconciler.md section 3b, 04:29:25): condition 1 PASSED
+# -- `.prev` really is the claim that was replaced, checked field by field against R7's own
+# independent 118-point sampling record -- and CONDITION 2 FAILED. R7 grepped the WHOLE of
+# `ndt status` for prev|changed hands|took|handover|previous|was held: 0 hits. So the evidence
+# was being kept and no interface mentioned it; a session arriving at 04:29 still could not see
+# that the claim had been rewritten two minutes earlier without knowing to cat a file.
+#
+# 🔴 The row is printed whether or not a claim is live, because the person who needs it is the
+# one who arrives AFTER the change. claim_line is stubbed to `none` in run_status, so nothing
+# below can be coming from the live-claim row.
+rm -f "$(claim_file).prev"
+mk_claim first-owner 3600 "the round that ended"
+OUT="$(claim_run '' 'NDT_OWNER=second-owner cmd_claim 5 "the next round"')"
+check "a new owner claims an expired-or-free lab"        "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+# A LIVE foreign claim is refused (6D), so the handover this row is about is the one that
+# happens through the file: the previous claim expires or is released, and the next owner takes
+# it. Written here in the two steps the machine really takes.
+mk_claim first-owner -60 "the round that ended"
+OLD_EXP="$(cf expires)"
+OUT="$(claim_run '' 'NDT_OWNER=second-owner cmd_claim 5 "the next round"')"
+check "  once it has lapsed, the next owner takes it"    "RC=0" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "  and the replaced claim is kept"                 "first-owner" "$(cprev owner)"
+OUT="$(run_status)"
+has   "🔴 status discloses the claim that was replaced"  "prev claim" "$OUT"
+has   "  naming who held it"                             "first-owner" "$OUT"
+has   "  and the file a reader can check for themselves" "lab.claim.prev" "$OUT"
+has   "🔴 and that it CHANGED HANDS, with both names"    "changed hands: first-owner -> second-owner" "$OUT"
+has   "  and when, from the record's own timestamp"      "prev claim" "$OUT"
+# 🔴 The other direction, and it is what stops this row from being noise: the SAME owner
+# re-claiming is a rewrite, not a handover. R7's I-2 residue #1 is a note corrected by
+# re-claiming, which moved `expires` three hours out -- that is worth disclosing as a rewrite
+# and calling it a handover would teach the reader to skip the row.
+rm -f "$(claim_file).prev"
+mk_claim same-owner -60 "a round"
+OUT="$(claim_run '' 'NDT_OWNER=same-owner cmd_claim 5 "same owner again"')"
+OUT="$(run_status)"
+has   "the same owner re-claiming is still disclosed"    "prev claim" "$OUT"
+hasnt "🔴 but it is NOT called changed hands"            "changed hands" "$OUT"
+has   "  it is called a rewrite by the same owner"       "same owner" "$OUT"
+# With no .prev at all there is no row: a machine nobody has claimed twice has nothing to say.
+no_claim
+rm -f "$(claim_file).prev"
+OUT="$(run_status)"
+hasnt "no .prev -> no handover row at all"               "prev claim" "$OUT"
+
+section "6J. 🔴 one writer for the claim file, so the field order cannot be a function of who wrote"
+# R7's 附帶發現 (section 3b): `lab.claim` and `lab.claim.prev` carried the five fields in
+# DIFFERENT orders -- owner/expires/note/exclusive_cpu/measuring against
+# owner/expires/exclusive_cpu/measuring/note -- because they came from two different writers.
+# Harmless that night (R7 compared field by field), and it makes `diff lab.claim lab.claim.prev`
+# or a hash comparison report a change forever, for two files that mean the same thing.
+#
+# claim_rewrite fixed the order for the note path (8C). This is the other writer: claim_take's
+# own printf. There is now ONE, and the assertion is on the SOURCE -- a text check, said out
+# loud, because two printfs that agree today are exactly what R7 found and what drifts next.
+check "🔴 exactly one place writes the five fields"      "1" \
+      "$(grep -c "printf 'owner=%s" "$NDT")"
+# ...and both paths still produce the documented order, driven rather than read.
+no_claim
+rm -f "$(claim_file).prev"
+OUT="$(claim_run '' 'NDT_OWNER=fixture-owner NDT_MEASURING="cell 3/8" cmd_claim 5 "a note"')"
+check "claim writes the header's order"                  "owner expires note exclusive_cpu measuring" \
+      "$(sed 's/=.*//' "$(claim_file)" | tr '\n' ' ' | sed 's/ $//')"
+claim_run '' 'NDT_OWNER=fixture-owner set_claim_note "corrected"' >/dev/null 2>&1
+check "  and a note rewrite keeps it"                    "owner expires note exclusive_cpu measuring" \
+      "$(sed 's/=.*//' "$(claim_file)" | tr '\n' ' ' | sed 's/ $//')"
+check "  the declaration survived both"                  "cell 3/8" "$(cf measuring)"
+# 🔴 And the copy kept for the next reader is BYTE-IDENTICAL, which is the check R7 could not
+# make that night: with two writers, comparing the files was guaranteed to report a difference.
+# The same owner re-claiming, because a LIVE foreign claim is refused (6D) and this check is
+# about the copy, not about who may take the lab.
+BEFORE_SUM="$(sha256sum "$(claim_file)" | cut -d' ' -f1)"
+OUT="$(claim_run '' 'NDT_OWNER=fixture-owner cmd_claim 5 "a second window"')"
+check "  the re-claim succeeded"                         "RC=0" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "🔴 .prev is byte-identical to the claim it replaced" "$BEFORE_SUM" \
+      "$(sha256sum "$(claim_file).prev" 2>/dev/null | cut -d' ' -f1)"
+no_claim
+rm -f "$(claim_file).prev"
+
 # ==========================================================================================
 # 7. T2 / T2d: measuring= was a declaration nothing enforced, and the refusal printed a
 #    command that could not be pasted
