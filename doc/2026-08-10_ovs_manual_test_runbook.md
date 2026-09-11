@@ -357,8 +357,12 @@ print('edges', len(ed), 'up', sum(1 for e in ed if e['is_up']))"
 switches 10 up 10 enabled 10
 hosts 128 up 128
 edges 288 up 288
-hosts with ipv4: 128
 ```
+
+⚠️ **這裡先前多列了第四行 `hosts with ipv4: 128`，上面那段指令不會印它**（它只 `print` 三次）。
+要那個數字得跑下面 ✅ 段落裡的 Ryu 查詢（`/v1.0/topology/hosts`），它印的是 `128 128` 兩個數字
+一行，不是 `hosts with ipv4: 128`。09-12 照本節逐字跑，輸出就是三行。
+<!-- 來源：ROLE-11 F10，log hunt-0911/logs/ROLE-11/06-graph-4a.log（🟠 轉述：三行，RC=0）。 -->
 
 4 台那一欄逐字（09-12 實測）：
 
