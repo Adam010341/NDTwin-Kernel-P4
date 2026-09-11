@@ -213,8 +213,8 @@ report "M11: a kernel that is down is reported as nothing to report" "$m" \
 # a perfectly clean-looking report: `python3 - <<'\''PY'\''` puts the SCRIPT on stdin, so reading
 # the flow table from sys.stdin reads the end of its own source and answers "unreadable".
 m=$(mutant m12 "$NDT" \
-    '    python3 - "$1" "$2" "${3:-unknown}" 3<&0 <<'\''PY'\''' \
-    '    python3 - "$1" "$2" "${3:-unknown}" <<'\''PY'\''')
+    '    python3 - "$1" "$2" "${3:-unknown}" "${4:-}" 3<&0 <<'\''PY'\''' \
+    '    python3 - "$1" "$2" "${3:-unknown}" "${4:-}" <<'\''PY'\''')
 report "M12: the flow table is read from the heredoc, not the pipe" "$m" \
        "🔴 the rule installed during the app's window"
 
@@ -340,7 +340,7 @@ report "M24 (widening): a real just-installed rule is called undatable" "$m" \
 # The plane is read but never handed over -- the "the fix is in the file and nothing calls it"
 # shape. Every python case stays green; only the shipped tool is blind.
 m=$(mutant m25 "$NDT" \
-    '        done < <(printf '\''%s'\'' "$entries" | residue_rule_lines "$started" "$now" "$plane")' \
+    '        done < <(printf '\''%s'\'' "$entries" | residue_rule_lines "$started" "$now" "$plane" "$wend")' \
     '        done < <(printf '\''%s'\'' "$entries" | residue_rule_lines "$started" "$now")')
 report "M25: the plane never reaches the selector" "$m" \
        "🔴 but with age UNKNOWN, not an age"

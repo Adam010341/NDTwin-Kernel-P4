@@ -424,10 +424,43 @@ hasnt "🔴 not 'no window, so no rule can be dated'"      "no window, so no rul
 has   "  so the rules in that window were listed"        "pri=96" "$OUT"
 check "🔴 and the pidfile is gone afterwards, so the window closes" "no" \
       "$(if [[ -f "$FIX/.test_run/pids/app_sim.pid" ]]; then echo yes; else echo no; fi)"
-# The other direction: a window that is still open on a LATER run must not be invented from a
-# stop that already happened.
+# The other direction, and F3 changed what the right answer is. The stop now leaves the window
+# on disk (section 12), so a later run is no longer entitled to say "no window at all" -- but it
+# must say the window is CLOSED. A window still running to now for an app that stopped is M10's
+# defect with a file behind it.
 OUT="$(FX_PS="" inner 'residue_report sim')"
-has   "  a later run has no window for it again"         "no window, so no rule can be dated" "$OUT"
+has   "  a later run sees the window that stop recorded" "sim    window" "$OUT"
+has   "🔴 and reports it as closed, not open to now"     "window closed" "$OUT"
+hasnt "  nothing windows a stopped app up to now"        "-> now" "$OUT"
+
+section "9B. the window a stop that found NOTHING has to report -- and only RESIDUE_WINDOW has it"
+# 🔴 The case that tells the two mechanisms apart, and it is why F3's on-disk record did NOT
+# replace the pre-loop capture. app_stop's not-running path DISCARDS the pidfile whose pid is
+# not this app ("discarded a pidfile whose pid is not nsr") and writes NO window record -- a
+# record is what a VERIFIED stop leaves, and this stop verified nothing. The pidfile's mtime is
+# the only window there ever was, cmd_apps stop read it before the loop, and after the loop
+# nothing on disk can answer. Without this case mutate_ndt_helper_apps_window's M8 and M9 went
+# green over the record F3 added, which is the gate reporting that the two paths had merged.
+rm -f "$FIX/.test_run/pids"/app_*.pid; rm -rf "$FIX/.test_run/apps"
+# A pid that is really gone: this shell exits before the next command runs. Checked rather than
+# assumed -- pid_max on this machine is in the millions, but a recycled number would make the
+# fixture a live process and the case would be about something else.
+DEADPID="$(bash -c 'echo $$')"
+if [[ "$DEADPID" =~ ^[0-9]+$ ]] && [[ ! -d "/proc/$DEADPID" ]]; then
+    echo "$DEADPID" > "$FIX/.test_run/pids/app_nsr.pid"
+    touch -d "@$(( $(date +%s) - 600 ))" "$FIX/.test_run/pids/app_nsr.pid"
+    mk_entries 300
+    OUT="$(FX_PS="" FX_PORT_PIDS="" inner 'cmd_apps stop nsr; echo "RC=$?"')"
+    check "a stop that found nothing -> rc 2"                "2" "$(rc_of "$OUT")"
+    has   "  and it says it discarded the pidfile"           "discarded a pidfile whose pid is not nsr" "$OUT"
+    has   "🔴 and the residue report still has a window for it" "nsr    window" "$OUT"
+    has   "  so the rule inside it was listed"               "pri=96" "$OUT"
+    check "🔴 and NO record was written -- this stop verified nothing" "no" \
+          "$(if [[ -f "$FIX/.test_run/apps/nsr.window" ]]; then echo yes; else echo no; fi)"
+else
+    note "could not get a provably dead pid (got '$DEADPID') -- 9B did NOT run."
+    note "  that is 'not checked', not 'checked and fine'."
+fi
 
 section "10. the shape lw351 found: a helper app is TWO processes, and it is tracked"
 # 🔴 Measured live 2026-09-07 (lw351, 1/1) on the branch that added the pidfile. With sim
@@ -669,7 +702,75 @@ hasnt "  and nothing is printed about it"                 "CANNOT READ" "$OUT"
 ORPH="$(FX_PORT_PIDS="$OURPID" FX_PS="" inner 'apps_orphans; echo "RC=$?"')"
 hasnt "🔴 control: 'apps orphans' says nothing about fd blindness there" "CANNOT READ" "$ORPH"
 
-section "12. this suite reaps its own fixtures"
+section "12. F3: the window outlives the process that read it"
+# 🔴 FIX-NDT-2 SUMMARY §7-2 / F3. `cmd_apps stop` reads each window before the loop, but
+# RESIDUE_WINDOW is a shell variable and dies with the process -- so every residue report taken
+# AFTER a teardown ("ndt down", or any later `ndt apps orphans` / `ndt status --check`) read
+# "the window is LOST" about the apps whose rules are on the wire right then. The window is now
+# written where the pidfile is deleted, and it carries an END: a window with a start and no end
+# would attribute every rule installed since to an app that stopped yesterday, which is the
+# defect M10 exists for with the sign flipped.
+WINDIR="$FIX/.test_run/apps"
+rm -f "$FIX/.test_run/pids"/app_*.pid; rm -rf "$WINDIR"
+mkdir -p "$FIX/othertree/.test_run/logs"
+echo "the helper wrote this" > "$FIX/othertree/.test_run/logs/app_sim.log"
+# --- the writer: a verified stop leaves the window behind ---------------------------------
+SIMFIX3="$(spawn_fixture "$SIM_ARGV")"
+echo "$SIMFIX3" > "$FIX/.test_run/pids/app_sim.pid"
+mk_entries 0
+OUT="$(FX_DEFAULT_KERNEL_DIR="$FIX/othertree" FX_PS="$SIMFIX3 $SIM_ARGV" FX_SESSIONS="sim" \
+       FX_STOP_PS="" inner 'cmd_apps stop sim; echo "RC=$?"')"
+check "the app really was stopped -> rc 0"               "0" "$(rc_of "$OUT")"
+check "🔴 the stop left a window record on disk"         "yes" \
+      "$(if [[ -f "$WINDIR/sim.window" ]]; then echo yes; else echo no; fi)"
+WREC="$(cat "$WINDIR/sim.window" 2>/dev/null)"
+WSTART="$(sed -n 's/^start=//p' <<<"$WREC")"; WEND="$(sed -n 's/^end=//p' <<<"$WREC")"
+check "  it carries a start and an end, both epoch seconds" "yes" \
+      "$(if [[ "$WSTART" =~ ^[0-9]+$ && "$WEND" =~ ^[0-9]+$ ]]; then echo yes; else echo no; fi)"
+check "🔴 the start is the window the stop read, not the moment it wrote the file" "yes" \
+      "$(if [[ "$WSTART" =~ ^[0-9]+$ && "$WEND" =~ ^[0-9]+$ ]] && (( WSTART <= WEND )); \
+         then echo yes; else echo "no (start=$WSTART end=$WEND)"; fi)"
+# --- the reader: a LATER process, with nothing left to read the window from ----------------
+# Without the record this is section 8's state exactly: no pidfile, no live process, a non-empty
+# log in the helper's tree -> "the window is LOST", counted blind, rc 5.
+OUT="$(FX_DEFAULT_KERNEL_DIR="$FIX/othertree" FX_PS="" inner 'residue_report sim; echo "B=$RESIDUE_BLIND"')"
+has   "🔴 a later process still has a window for sim"    "sim    window" "$OUT"
+hasnt "🔴 not 'the window is LOST' any more"             "the window is LOST" "$OUT"
+has   "  and it names the file the window came from"     "$WINDIR/sim.window" "$OUT"
+has   "  and says the window is closed, not open to now" "window closed" "$OUT"
+has   "  nothing was counted as blind over it"           "B=0" "$OUT"
+# --- the end is a bound, not decoration ---------------------------------------------------
+# Written by hand HERE, and only here: the writer is asserted above from the product's own stop.
+# This is the reader's side, and it needs a window that closed long enough ago for a rule to
+# fall outside it -- which a stop that happened one second ago cannot give.
+NOW_S="$(date +%s)"
+mkdir -p "$WINDIR"
+printf 'start=%s\nend=%s\nby=%s\n' "$(( NOW_S - 600 ))" "$(( NOW_S - 60 ))" "test" > "$WINDIR/sim.window"
+mk_entries 300
+OUT="$(FX_DEFAULT_KERNEL_DIR="$FIX/othertree" FX_PS="" inner 'residue_report sim; residue_verdict; echo "RC=$?"')"
+has   "🔴 a rule installed INSIDE the closed window is listed" "pri=96" "$OUT"
+check "  and that is residue -- rc 4"                    "4" "$(rc_of "$OUT")"
+mk_entries 30
+OUT="$(FX_DEFAULT_KERNEL_DIR="$FIX/othertree" FX_PS="" inner 'residue_report sim; residue_verdict; echo "RC=$?"')"
+hasnt "🔴 a rule installed AFTER it closed is NOT this app's" "pri=96" "$OUT"
+has   "  so the report says nothing arrived in that window" "no flow entry arrived during that window" "$OUT"
+check "  and the verdict is clean -- rc 0"               "0" "$(rc_of "$OUT")"
+# --- who clears it -------------------------------------------------------------------------
+# A start supersedes the window its own last stop left: the record exists to answer for an app
+# that is NOT running, and a bounded set of five files is the whole of the cleanup question.
+SIMFIX4="$(spawn_fixture "$SIM_ARGV")"
+rm -f "$FIX/.test_run/pids"/app_*.pid
+OUT="$(FX_START_PS="$SIMFIX4 $SIM_ARGV" inner 'app_start sim; echo "RC=$?"')"
+check "a start of the same app -> rc 0"                  "0" "$(rc_of "$OUT")"
+check "🔴 and it cleared the window its last stop left"  "no" \
+      "$(if [[ -f "$WINDIR/sim.window" ]]; then echo yes; else echo no; fi)"
+kill -KILL "$SIMFIX4" 2>/dev/null
+# The control: an app that was never stopped here has no record, and nothing invents one.
+check "control: no record for an app nobody stopped"     "no" \
+      "$(if [[ -f "$WINDIR/energy.window" ]]; then echo yes; else echo no; fi)"
+rm -f "$FIX/othertree/.test_run/logs/app_sim.log"
+
+section "13. this suite reaps its own fixtures"
 check "no fixture survives this run"                     "0" "$(reap_fixtures)"
 check "  and neither layer of the two-layer one does"    "0" "$(reap_two_layer)"
 

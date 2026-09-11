@@ -27,7 +27,11 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
-STACK="$REPO/tools/test_workflow/stack.sh"
+# STACK_UNDER_TEST points this at a COPY, the same seam SUPERVISE_UNDER_TEST is. It is how the
+# orphan-sweep group below was seen RED (against the pre-fix stack.sh, 2026-09-11) without
+# writing to a file another session may be running -- a copy needs supervise.sh, components.env
+# and ports.sh beside it, because stack.sh sources all three from its own directory.
+STACK="${STACK_UNDER_TEST:-$REPO/tools/test_workflow/stack.sh}"
 # The mutation gate (tests/shell/mutate_supervise_pidfile_cleanup.sh) points this at a COPY.
 # The start_bg/stop_one groups below go through stack.sh, which finds supervise.sh beside
 # itself and is therefore always the tree's own -- so a mutant is exercised by the groups that
@@ -267,6 +271,111 @@ rm -f "$PID_DIR"/*
 write_exit kernel 0
 out="$(cmd_down 2>&1)"; rc=$?
 check "a clean exit does not fail down" "0" "$rc"
+rm -f "$PID_DIR"/*
+
+# --- the orphaned .exit, and the pidfile beside it (FIX-NDT-3 section 7-2) ---------------------
+#
+# 🔴 stop_one opens `[[ -f "$pidfile" ]] || return 0`, so report_exit -- the whole of B-5's
+# observability -- never sees the record of a component whose pidfile has gone. cmd_down's own
+# sweep covered the FATAL half by reimplementing report_exit's fatal branch inline; a component
+# that ended with a plain non-zero status was read by nobody at all. And the stale pidfile R7
+# found sitting beside such a record (I-3, 02:52:03) survived the very command whose own status
+# row tells the operator to run it.
+#
+# Adam's ruling 09-11 (FIX-NDT-4 #19): the sweep calls report_exit, so both halves come out of
+# ONE writer, and it clears the registry files of a component that is provably not running.
+#
+# 🔴 sweep_orphan_exits is driven DIRECTLY here, and cmd_down end-to-end in one case below.
+# Through cmd_down alone the interesting states are unreachable: stop_one stops whatever is
+# running and removes its pidfile, so "the sweep left a live component's registry alone" cannot
+# be constructed at that level -- and that is the direction a careless sweep gets wrong.
+echo
+echo "the orphan sweep: report the ending, clear only what is provably dead"
+
+# 🔴 NOT `out="$(sweep_orphan_exits)"`. A command substitution is a subshell, so
+# STACK_FATAL_ENDINGS would be set in a process that then exits -- and the case that checks it
+# would read an empty string and call the sweep silent. Output through a file, function in THIS
+# shell, which is also the only way the STACK_EXITS_REPORTED case below means anything.
+sweep_now() {
+    STACK_FATAL_ENDINGS=""; STACK_EXITS_REPORTED=""
+    sweep_orphan_exits >"$TMP/sweep.out" 2>&1
+    out="$(cat "$TMP/sweep.out")"
+}
+
+# One name per case, so a leftover from the previous case cannot be the reason the next one
+# passes. `.exit` records are written by write_exit above.
+rm -f "$PID_DIR"/*
+write_exit ryu 7
+sweep_now
+check "🔴 a non-fatal, non-zero ending with no pidfile is NAMED" "yes" \
+    "$(case "$out" in *"ryu exit status 7"*) echo yes ;; *) echo "no: $out" ;; esac)"
+check "  and it is not called a fatal ending" "" "$STACK_FATAL_ENDINGS"
+
+rm -f "$PID_DIR"/*
+write_exit ryu 134 6
+sweep_now
+check "a FATAL ending with no pidfile is still fatal" "ryu(134)" "$STACK_FATAL_ENDINGS"
+check "  and report_exit removed the record it delivered" "gone" \
+    "$([[ -f "$PID_DIR/ryu.exit" ]] && echo present || echo gone)"
+
+# The stale pidfile R7 read out of .test_run/pids/, beside the record that explains it.
+rm -f "$PID_DIR"/*
+DEAD_PID="$(bash -c 'echo $$')"
+if [[ "$DEAD_PID" =~ ^[0-9]+$ && ! -d "/proc/$DEAD_PID" ]]; then
+    write_exit ryu 143 15
+    echo "$DEAD_PID" > "$PID_DIR/ryu.pid"
+    echo "$DEAD_PID" > "$PID_DIR/ryu.child.pid"
+    printf 'ryu-manager\n' > "$PID_DIR/ryu$CMD_SUFFIX"
+    sweep_now
+    check "🔴 R7 I-3: the pidfile naming a dead pid is swept" "gone" \
+        "$([[ -f "$PID_DIR/ryu.pid" ]] && echo present || echo gone)"
+    check "  and the child pidfile with it" "gone" \
+        "$([[ -f "$PID_DIR/ryu.child.pid" ]] && echo present || echo gone)"
+    check "  and the recorded command line" "gone" \
+        "$([[ -f "$PID_DIR/ryu$CMD_SUFFIX" ]] && echo present || echo gone)"
+    check "  the ending was reported while doing it" "yes" \
+        "$(case "$out" in *"ryu exit status 143"*) echo yes ;; *) echo "no: $out" ;; esac)"
+    check "  and it says which files it removed, not just that it did" "yes" \
+        "$(case "$out" in *"ryu.pid"*) echo yes ;; *) echo "no: $out" ;; esac)"
+else
+    check "could not get a provably dead pid -- this group did NOT run" "skipped" "skipped"
+fi
+
+# 🔴 THE OTHER DIRECTION, and the one a careless sweep gets wrong: a component that is RUNNING
+# keeps its registry. "Clear the stale ones" turning into "clear them" would delete the files
+# `ndt down` signals and port_owner_verdict reads, out from under a live stack.
+rm -f "$PID_DIR"/*
+( exec -a "/nonexistent/NDT-TEST-FIXTURE/ryu-live" sleep 30 ) >/dev/null 2>&1 </dev/null &
+LIVE_PID=$!
+echo "$LIVE_PID" > "$PID_DIR/ryu.pid"
+write_exit ryu 0
+sweep_now
+check "🔴 a LIVE component's pidfile is NOT swept" "present" \
+    "$([[ -f "$PID_DIR/ryu.pid" ]] && echo present || echo gone)"
+check "  and its old record is not reported over it" "" \
+    "$(case "$out" in *"ryu exit status"*) echo "reported: $out" ;; *) echo "" ;; esac)"
+kill -KILL "$LIVE_PID" 2>/dev/null; wait "$LIVE_PID" 2>/dev/null
+
+# 🔴 One report per ending, not two. stop_one reports what it stopped, and a non-fatal record is
+# deliberately NOT removed by report_exit (the next start_bg clears it), so without an
+# accumulator the sweep announces the same ending a second time in the same teardown.
+rm -f "$PID_DIR"/*
+STACK_FATAL_ENDINGS=""; STACK_EXITS_REPORTED=""
+write_exit ryu 143 15
+{ report_exit ryu; sweep_orphan_exits; } >"$TMP/sweep.out" 2>&1
+out="$(cat "$TMP/sweep.out")"
+check "🔴 an ending stop_one already reported is not reported again" "1" \
+    "$(grep -c 'ryu exit status 143' <<<"$out")"
+
+# ...and end to end, which is the statement the finding is about: `ndt down` reports the ending
+# of a component whose pidfile has gone.
+rm -f "$PID_DIR"/*
+STACK_FATAL_ENDINGS=""; STACK_EXITS_REPORTED=""
+write_exit ryu 7
+out="$(cmd_down 2>&1)"; rc=$?
+check "🔴 cmd_down names the orphaned ending" "yes" \
+    "$(case "$out" in *"ryu exit status 7"*) echo yes ;; *) echo "no: $out" ;; esac)"
+check "  and a non-fatal one does not fail the teardown" "0" "$rc"
 rm -f "$PID_DIR"/*
 
 # --- the log gate must recognise the message the kernel actually printed ----------------------

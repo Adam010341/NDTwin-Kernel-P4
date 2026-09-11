@@ -556,9 +556,117 @@ has   "  over-reporting is not called under-reporting"   "twin over-reports by 1
 # pure function is the only thing producing those lines. The live path is on the "needs live
 # verification" list, not on this one.
 check "verdict_lines is called exactly once from the block" "1" \
-      "$(grep -c 'for line in verdict_lines(twin_bps, truth_bps):' "$NDT")"
+      "$(grep -c 'for line in verdict_lines(twin_bps, truth_bps, shape):' "$NDT")"
+check "🔴 and the window shape really reaches it"          "1" \
+      "$(grep -c 'shape = window_shape(subs)' "$NDT")"
 check "  and the lines it returns exist nowhere else"      "1" \
       "$(grep -c 'double-count band; accuracy is NOT' "$NDT")"
+
+section "4F. 🔴 #17: a ratio over the band is not self-evidently a stack of clone replicas"
+# ROLE-5, 2026-09-11 (ROLE-5-TRAFFIC-REPORT.md section 5 L2; logs/ROLE-5/18-posctrl-L2-live.log).
+# ONE `tc netem loss 100%` on s1-eth2, injected two seconds into the eight-second window, with
+# the injection asserted twice (the qdisc read back, and the interface moved 0.48 MB in the next
+# 2s against 85 MB/2s before) -- and the tripwire printed, verbatim:
+#
+#     twin  (integrated)   438.5 Mbit/s
+#     /proc/net/dev        273.7 Mbit/s
+#     ratio                1.60   DOUBLE-COUNTING -- clone replicas stacked
+#     check rc=0
+#
+# There were no clone replicas. The twin publishes its last sampled rate, the ground truth
+# collapsed under it, and the tripwire read a LAG as a STACK -- with the mechanism written into
+# the verdict string. The same round's L3 control installed one rule fifty times (all HTTP 200,
+# accepted_by_switch=1) and the ratio did not move at all, so "install the same rule twice" is
+# not this tripwire's positive control either.
+#
+# Fed here with ROLE-5's own numbers, through the same extraction 4E uses.
+VL2="$(python3 - "$NDT" <<'VLPY'
+import re, sys
+s = open(sys.argv[1]).read()
+m = re.search(r"# --- BEGIN verdict_lines.*?\n(.*?)# --- END verdict_lines ---", s, re.S)
+if not m:
+    print("EXTRACT-FAILED"); sys.exit(0)
+ns = {}
+exec(m.group(1), ns)
+# ROLE-5 L2, the link failure: 3 of 8 sub-windows hot, ground truth fell 1346 -> 82 Mbit/s
+print("== LAG ==")
+for line in ns["verdict_lines"](438.5e6, 273.7e6,
+                                {"hot": 3, "subs": 8, "truth_lo": 82.0, "truth_hi": 1346.1}):
+    print(line)
+# the shape the tripwire was built for: a constant factor over a steady ground truth
+print("== STACK ==")
+for line in ns["verdict_lines"](2.0e6, 1.0e6,
+                                {"hot": 8, "subs": 8, "truth_lo": 1300.0, "truth_hi": 1346.1}):
+    print(line)
+print("== NO SHAPE ==")
+for line in ns["verdict_lines"](2.0e6, 1.0e6):
+    print(line)
+print("== OK ==")
+for line in ns["verdict_lines"](1.0e6, 1.0e6,
+                                {"hot": 0, "subs": 8, "truth_lo": 1300.0, "truth_hi": 1346.1}):
+    print(line)
+VLPY
+)"
+hasnt "verdict_lines still extracts and runs"             "EXTRACT-FAILED" "$VL2"
+LAGBLK="$(sed -n '/^== LAG ==/,/^== STACK ==/p' <<<"$VL2")"
+STKBLK="$(sed -n '/^== STACK ==/,/^== NO SHAPE ==/p' <<<"$VL2")"
+NOSHAPE="$(sed -n '/^== NO SHAPE ==/,/^== OK ==/p' <<<"$VL2")"
+OKBLK="$(sed -n '/^== OK ==/,$p' <<<"$VL2")"
+has   "🔴 ROLE-5's 1.60 is still over the band"          "1.60   DOUBLE-COUNTING" "$LAGBLK"
+hasnt "🔴 but it does NOT name clone replicas as the finding" \
+      "DOUBLE-COUNTING -- clone replicas stacked" "$LAGBLK"
+has   "🔴 it names the twin lagging the truth as a cause" "lagging" "$LAGBLK"
+has   "  and stacking as the other one"                   "clone replicas" "$LAGBLK"
+has   "🔴 with the evidence that separates them"          "3 of the 8 sub-windows" "$LAGBLK"
+has   "  the ground truth range inside the window"        "1346" "$LAGBLK"
+has   "  and where that reading came from"                "ROLE-5" "$LAGBLK"
+# The other direction: the shape the tripwire was built for must still be CALLED that. A verdict
+# that only ever says "two things could have done this" is not a tripwire.
+has   "🔴 a constant factor over a steady truth IS the stack shape" "every" "$STKBLK"
+has   "  and it says so"                                  "clone replicas" "$STKBLK"
+hasnt "  and does not call the lag the leading cause"     "the leading cause is" "$STKBLK"
+has   "  while still saying what the lag would have looked like" \
+      "produces some hot sub-windows and not all of them" "$STKBLK"
+# And with no sub-window evidence at all, neither cause is named as the finding.
+has   "🔴 no shape: the two causes are printed side by side" "lagging" "$NOSHAPE"
+has   "  saying the window could not tell them apart"     "cannot" "$NOSHAPE"
+# The band itself did not move, and a healthy ratio says nothing about either cause.
+has   "control: 1.00 is still ok"                         "1.00   ok" "$OKBLK"
+hasnt "  and prints no cause discussion"                  "lagging" "$OKBLK"
+
+section "4G. 🔴 #17: the verdict reaches the exit code"
+# ROLE-5-TRAFFIC-REPORT.md section 6, S1 附帶 2: `cmd_check` ended on `info`, so it exited 0
+# whatever it printed -- measured live at 02:22:24 with `DOUBLE-COUNTING` on the screen and
+# `check rc=0` in the same log. "It did not go red" was not observable to any script, and this
+# command's output is a screen of prose no driver can read.
+#
+# 🔴 The python block is the thing that decides, and it needs a kernel, a fabric and traffic;
+# what is driven here is the PROPAGATION, with the block replaced by a stub that exits with the
+# code the real one would. Named as a seam rather than presented as a live reading -- the live
+# path is on the "needs live verification" list.
+check_run() {   # <rc the block exits with> -> output + RC=
+    bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+port_open() { [[ \"\$1\" == 8000 ]]; }
+in_flight() { :; }
+measuring_declared() { :; }
+sample_rate() { echo 256; }
+rate_source() { echo 'fixture'; }
+python3() { return $1; }
+cmd_check
+echo \"RC=\$?\"" 2>&1
+}
+OUT="$(check_run 4)"
+check "🔴 a DOUBLE-COUNTING verdict reaches the caller as rc 4" "4" "$(rc_of "$OUT")"
+has   "  and the rc says where to read the finding"      "read the ratio block above" "$OUT"
+has   "  while the rate context still prints under it"   "sample rate" "$OUT"
+hasnt "🔴 it is not reported as the check failing to run" "nothing to check" "$OUT"
+check "  an ok verdict is still rc 0"                    "0" "$(rc_of "$(check_run 0)")"
+check "  and 'could not read the twin' is rc 1"          "1" "$(rc_of "$(check_run 1)")"
+# The source half of the same statement: the block exits 4 on the verdict it printed. A text
+# check, said out loud, because the condition lives inside a python heredoc that needs the lab.
+check "🔴 the block exits 4 when the ratio is over the band" "1" \
+      "$(grep -c 'sys.exit(4)' "$NDT")"
 
 no_claim
 unset NDT_OWNER FX_INFLIGHT
@@ -828,6 +936,123 @@ check "🔴 exactly one of the three is told it holds the lab" "1" \
 WINNER="$(cf owner)"
 check "  and that one is the owner the file names"       "1" \
       "$(grep -cF "lab claimed by $WINNER" "$FIX/race.${WINNER#racer-}" 2>/dev/null)"
+
+section "6H. 🔴 'ndt release' keeps the claim it removed, as .prev"
+# FIX-NDT-3 SUMMARY section 7-3. `ndt claim` keeps one generation (6B above); `release` DELETED,
+# and the two neighbours it was modelled on -- lab.handoff and round.baseline -- both rename. The
+# objection recorded there is that `.prev` could make a reader think somebody still holds the
+# lab; it cannot, because `ndt status` reads the LIVE claim for that question and answers "none"
+# after a release. What `.prev` answers is a different question -- who held it, and until when --
+# which is asked after the fact more often than during.
+rm -f "$(claim_file).prev"
+mk_claim fixture-owner 3600 "the round that is ending"
+OLD_EXP="$(cf expires)"
+OUT="$(claim_run '' 'NDT_OWNER=fixture-owner cmd_release')"
+check "release succeeds"                                 "RC=0" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "  the live claim is gone"                         "gone" \
+      "$( [[ -f "$(claim_file)" ]] && echo present || echo gone )"
+check "🔴 and it was kept, not deleted"                  "fixture-owner" "$(cprev owner)"
+check "  with the expires nothing else can reconstruct"  "$OLD_EXP" "$(cprev expires)"
+check "  and its note"                                   "the round that is ending" "$(cprev note)"
+has   "  and release says where it went"                 "lab.claim.prev" "$OUT"
+# --force takes the same path: it is the override for whose claim it is, not for keeping a copy.
+rm -f "$(claim_file).prev"
+mk_claim someone-else 3600 "their round"
+OUT="$(claim_run '' 'NDT_OWNER=fixture-owner cmd_release --force')"
+check "release --force succeeds"                         "RC=0" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "🔴 and keeps the claim it overrode"               "someone-else" "$(cprev owner)"
+# 🔴 The other direction: with no claim held there is nothing to keep, and a no-op must not
+# manufacture a `.prev` -- a reader would see a handover that never happened. Same reasoning as
+# the round-baseline case in test_ndt_round_baseline.sh group 12: releasing a claim you never
+# took says nothing about whose round is running.
+no_claim
+rm -f "$(claim_file).prev"
+OUT="$(claim_run '' 'NDT_OWNER=fixture-owner cmd_release')"
+has   "release with no claim says so"                    "no claim to release" "$OUT"
+check "🔴 and writes no .prev"                           "gone" \
+      "$( [[ -f "$(claim_file).prev" ]] && echo present || echo gone )"
+no_claim
+rm -f "$(claim_file).prev"
+
+section "6I. 🔴 R7 I-2 condition 2: 'ndt status' says the claim changed hands"
+# R7's own acceptance of the I-2 fix (R7-reconciler.md section 3b, 04:29:25): condition 1 PASSED
+# -- `.prev` really is the claim that was replaced, checked field by field against R7's own
+# independent 118-point sampling record -- and CONDITION 2 FAILED. R7 grepped the WHOLE of
+# `ndt status` for prev|changed hands|took|handover|previous|was held: 0 hits. So the evidence
+# was being kept and no interface mentioned it; a session arriving at 04:29 still could not see
+# that the claim had been rewritten two minutes earlier without knowing to cat a file.
+#
+# 🔴 The row is printed whether or not a claim is live, because the person who needs it is the
+# one who arrives AFTER the change. claim_line is stubbed to `none` in run_status, so nothing
+# below can be coming from the live-claim row.
+rm -f "$(claim_file).prev"
+mk_claim first-owner 3600 "the round that ended"
+OUT="$(claim_run '' 'NDT_OWNER=second-owner cmd_claim 5 "the next round"')"
+check "a new owner claims an expired-or-free lab"        "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+# A LIVE foreign claim is refused (6D), so the handover this row is about is the one that
+# happens through the file: the previous claim expires or is released, and the next owner takes
+# it. Written here in the two steps the machine really takes.
+mk_claim first-owner -60 "the round that ended"
+OLD_EXP="$(cf expires)"
+OUT="$(claim_run '' 'NDT_OWNER=second-owner cmd_claim 5 "the next round"')"
+check "  once it has lapsed, the next owner takes it"    "RC=0" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "  and the replaced claim is kept"                 "first-owner" "$(cprev owner)"
+OUT="$(run_status)"
+has   "🔴 status discloses the claim that was replaced"  "prev claim" "$OUT"
+has   "  naming who held it"                             "first-owner" "$OUT"
+has   "  and the file a reader can check for themselves" "lab.claim.prev" "$OUT"
+has   "🔴 and that it CHANGED HANDS, with both names"    "changed hands: first-owner -> second-owner" "$OUT"
+has   "  and when, from the record's own timestamp"      "prev claim" "$OUT"
+# 🔴 The other direction, and it is what stops this row from being noise: the SAME owner
+# re-claiming is a rewrite, not a handover. R7's I-2 residue #1 is a note corrected by
+# re-claiming, which moved `expires` three hours out -- that is worth disclosing as a rewrite
+# and calling it a handover would teach the reader to skip the row.
+rm -f "$(claim_file).prev"
+mk_claim same-owner -60 "a round"
+OUT="$(claim_run '' 'NDT_OWNER=same-owner cmd_claim 5 "same owner again"')"
+OUT="$(run_status)"
+has   "the same owner re-claiming is still disclosed"    "prev claim" "$OUT"
+hasnt "🔴 but it is NOT called changed hands"            "changed hands" "$OUT"
+has   "  it is called a rewrite by the same owner"       "same owner" "$OUT"
+# With no .prev at all there is no row: a machine nobody has claimed twice has nothing to say.
+no_claim
+rm -f "$(claim_file).prev"
+OUT="$(run_status)"
+hasnt "no .prev -> no handover row at all"               "prev claim" "$OUT"
+
+section "6J. 🔴 one writer for the claim file, so the field order cannot be a function of who wrote"
+# R7's 附帶發現 (section 3b): `lab.claim` and `lab.claim.prev` carried the five fields in
+# DIFFERENT orders -- owner/expires/note/exclusive_cpu/measuring against
+# owner/expires/exclusive_cpu/measuring/note -- because they came from two different writers.
+# Harmless that night (R7 compared field by field), and it makes `diff lab.claim lab.claim.prev`
+# or a hash comparison report a change forever, for two files that mean the same thing.
+#
+# claim_rewrite fixed the order for the note path (8C). This is the other writer: claim_take's
+# own printf. There is now ONE, and the assertion is on the SOURCE -- a text check, said out
+# loud, because two printfs that agree today are exactly what R7 found and what drifts next.
+check "🔴 exactly one place writes the five fields"      "1" \
+      "$(grep -c "printf 'owner=%s" "$NDT")"
+# ...and both paths still produce the documented order, driven rather than read.
+no_claim
+rm -f "$(claim_file).prev"
+OUT="$(claim_run '' 'NDT_OWNER=fixture-owner NDT_MEASURING="cell 3/8" cmd_claim 5 "a note"')"
+check "claim writes the header's order"                  "owner expires note exclusive_cpu measuring" \
+      "$(sed 's/=.*//' "$(claim_file)" | tr '\n' ' ' | sed 's/ $//')"
+claim_run '' 'NDT_OWNER=fixture-owner set_claim_note "corrected"' >/dev/null 2>&1
+check "  and a note rewrite keeps it"                    "owner expires note exclusive_cpu measuring" \
+      "$(sed 's/=.*//' "$(claim_file)" | tr '\n' ' ' | sed 's/ $//')"
+check "  the declaration survived both"                  "cell 3/8" "$(cf measuring)"
+# 🔴 And the copy kept for the next reader is BYTE-IDENTICAL, which is the check R7 could not
+# make that night: with two writers, comparing the files was guaranteed to report a difference.
+# The same owner re-claiming, because a LIVE foreign claim is refused (6D) and this check is
+# about the copy, not about who may take the lab.
+BEFORE_SUM="$(sha256sum "$(claim_file)" | cut -d' ' -f1)"
+OUT="$(claim_run '' 'NDT_OWNER=fixture-owner cmd_claim 5 "a second window"')"
+check "  the re-claim succeeded"                         "RC=0" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "🔴 .prev is byte-identical to the claim it replaced" "$BEFORE_SUM" \
+      "$(sha256sum "$(claim_file).prev" 2>/dev/null | cut -d' ' -f1)"
+no_claim
+rm -f "$(claim_file).prev"
 
 # ==========================================================================================
 # 7. T2 / T2d: measuring= was a declaration nothing enforced, and the refusal printed a

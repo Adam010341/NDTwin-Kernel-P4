@@ -392,11 +392,46 @@ mark_log() {
 # the log layer hard-failed with "is not being written by any running kernel" -- while the kernel was
 # writing it live. A guard that fails on the recommended workflow gets worked around, which is how the
 # last generation of allowlist noise got where it did.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 2026-09-11 (FIX-NDT-4 #16, recon-B item 13): the pids come from the REGISTRY, not from a
+# name. This line was `pgrep -x ndtwin_kernel`, and while `-x` matches comm rather than the whole
+# command line -- the narrow end of that family -- it is still "find the process by what it is
+# called", and what it finds here decides whether a whole layer reports on a live log or a stale
+# one. stack.sh writes <name>.pid (the supervisor, which owns the redirection this log comes
+# from) and supervise.sh writes <name>.child.pid (the kernel itself); both hold the fd, and both
+# are asked, because which of the two carries it depends on whether supervise.sh was available.
+#
+# 🔴 THE THIRD STATE MOVED, and it had to. `pgrep` could see a kernel somebody started by hand,
+# which the manual teaches (`sudo -E bin/ndtwin_kernel`, doc/2026-07-29_HANDOFF.md 5); the
+# registry cannot -- such a kernel records nothing. So "no pidfile at all" is now state 2,
+# CANNOT TELL, not state 1: this script has no record, which is not the same statement as "no
+# kernel is running", and reporting it as staleness would hard-fail the documented workflow.
+# A pidfile that names a pid which is GONE is still state 1 -- that is a record, and it says the
+# kernel this log belongs to has ended. KERNEL_OWNS_LOG_WHY carries the reason to the caller so
+# the message names the case it actually hit.
+KERNEL_OWNS_LOG_WHY=""
+kernel_pidfile_pids() {
+    local f pid
+    for f in "$PID_DIR/kernel.pid" "$PID_DIR/kernel.child.pid"; do
+        [[ -f "$f" && ! -L "$f" ]] || continue
+        pid="$(cat "$f" 2>/dev/null)"
+        [[ "$pid" =~ ^[0-9]+$ ]] && (( pid > 1 )) && [[ -d "/proc/$pid" ]] && echo "$pid"
+    done
+}
 kernel_owns_log() {
     local target pid pids unreadable=0
+    KERNEL_OWNS_LOG_WHY=""
     target="$(readlink -f "$KERNEL_LOG" 2>/dev/null)" || return 1
-    pids="$(pgrep -x ndtwin_kernel 2>/dev/null)"
-    [[ -z "$pids" ]] && return 1   # no kernel at all: definitely stale, not "cannot tell"
+    pids="$(kernel_pidfile_pids)"
+    if [[ -z "$pids" ]]; then
+        if [[ -f "$PID_DIR/kernel.pid" || -f "$PID_DIR/kernel.child.pid" ]]; then
+            KERNEL_OWNS_LOG_WHY="the kernel pid in $PID_DIR is not running any more"
+            return 1   # a record, and it says the kernel that wrote this log has ended
+        fi
+        KERNEL_OWNS_LOG_WHY="nothing in $PID_DIR records a kernel pid (one started by hand writes none)"
+        return 2       # no record: cannot tell, and it must not be reported as "no"
+    fi
 
     for pid in $pids; do
         if readlink -f /proc/"$pid"/fd/* 2>/dev/null | grep -qxF "$target"; then
@@ -405,7 +440,11 @@ kernel_owns_log() {
         # Distinguish "looked and it is not there" from "was not allowed to look".
         [[ -r /proc/"$pid"/fd ]] || unreadable=1
     done
-    [[ "$unreadable" -eq 1 ]] && return 2
+    if [[ "$unreadable" -eq 1 ]]; then
+        KERNEL_OWNS_LOG_WHY="the kernel is running as another user, so /proc/<pid>/fd is unreadable"
+        return 2
+    fi
+    KERNEL_OWNS_LOG_WHY="a recorded kernel is running and does NOT have this log open"
     return 1
 }
 
@@ -438,22 +477,24 @@ run_logcheck() {
             # asserting the log is stale when it may be being written live.
             # [Co-developed with claude code -- Adam]
             if log_written_recently; then
-                echo "${Y}cannot verify the log's owner: the kernel is running as another user"
-                echo "(/proc/<pid>/fd is unreadable), which is what 'sudo -E bin/ndtwin_kernel' does."
+                echo "${Y}cannot verify the log's owner: ${KERNEL_OWNS_LOG_WHY:-the check could not look}."
+                echo "Both cases are the documented workflow -- 'sudo -E bin/ndtwin_kernel' makes"
+                echo "/proc/<pid>/fd unreadable, and a kernel started by hand records no pidfile."
                 echo "Proceeding on file freshness instead -- last written"
                 echo "$(stat -c %y "$KERNEL_LOG" 2>/dev/null).${N}"
             else
                 echo "${R}$KERNEL_LOG has not been written in ${LOG_FRESH_SECONDS:-120}s${N}"
                 echo "last written: $(stat -c %y "$KERNEL_LOG" 2>/dev/null || echo unknown)"
-                echo "a kernel is running but its fds cannot be inspected, and this file looks"
-                echo "stale, so this layer would be checking nothing. Point the checker at the log"
-                echo "your kernel is actually writing:"
+                echo "the owner could not be established (${KERNEL_OWNS_LOG_WHY:-no reason recorded})"
+                echo "and this file looks stale, so this layer would be checking nothing. Point the"
+                echo "checker at the log your kernel is actually writing:"
                 echo "  $CONTRACT_DIR/check_logs.py /path/to/your/kernel.log"
                 return 1
             fi
             ;;
         *)
             echo "${R}$KERNEL_LOG is not being written by any running kernel${N}"
+            echo "why: ${KERNEL_OWNS_LOG_WHY:-no reason recorded}"
             echo "last written: $(stat -c %y "$KERNEL_LOG" 2>/dev/null || echo unknown)"
             echo "this layer would report on a stale file, so it is checking nothing. Either start the"
             echo "kernel with stack.sh, or point the checker at the log your kernel is writing:"

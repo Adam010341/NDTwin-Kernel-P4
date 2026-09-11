@@ -322,11 +322,14 @@ deep_sweep() {
 #                                 never read, and NOT the claim itself -- flock must open what
 #                                 it locks, and opening the file whose absence means "free"
 #                                 would be the same race one layer down (ROLE-4 T1).
-#     .test_run/lab.claim.prev    the claim an `ndt claim` replaced, one generation, the way
-#                                 lab.handoff.prev and round.baseline.prev already keep theirs.
-#                                 R7 I-2: this was the one state file overwritten with no copy
-#                                 kept, so a claim that changed hands mid-round left no trace
-#                                 anywhere. Nothing reads it; it is for the person asking later.
+#     .test_run/lab.claim.prev    the claim an `ndt claim` replaced, or the one `ndt release`
+#                                 removed -- one generation, the way lab.handoff.prev and
+#                                 round.baseline.prev already keep theirs. R7 I-2: this was the
+#                                 one state file overwritten with no copy kept, so a claim that
+#                                 changed hands mid-round left no trace anywhere. `ndt status`
+#                                 reads it (the "prev claim" row): R7's acceptance found the
+#                                 evidence kept and no interface mentioning it, which is half a
+#                                 fix -- the reader still had to know to cat the file.
 #
 # Workspace-local, not /tmp, for the reason components.env already gives about predictable
 # paths in world-writable directories.
@@ -359,6 +362,27 @@ CLAIM="$REPO/.test_run/lab.claim"
 HANDOFF="$REPO/.test_run/lab.handoff"
 
 claim_field() { [[ -f "$CLAIM" ]] && sed -n "s/^$1=//p" "$CLAIM" | head -1; }
+# The claim an `ndt claim` replaced or an `ndt release` removed. Same reader, different file, so
+# a caller cannot accidentally answer "who holds the lab" out of the history. [Co-developed with
+# claude code -- Adam]
+claim_prev_field() { [[ -f "$CLAIM.prev" ]] && sed -n "s/^$1=//p" "$CLAIM.prev" | head -1; }
+
+# claim_write <owner> <expires> <note> <exclusive_cpu> <measuring> -- the five fields to stdout,
+# IN THE ORDER THE HEADER DOCUMENTS, and the only place in this file that writes them.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 R7's incidental finding, 2026-09-11 (R7-reconciler.md section 3b): `lab.claim` and
+# `lab.claim.prev` carried the five fields in DIFFERENT orders --
+# owner/expires/note/exclusive_cpu/measuring against owner/expires/exclusive_cpu/measuring/note --
+# because they came from two writers, claim_take's printf and the note rewriter's. It was
+# harmless that night because R7 compared field by field, and it makes any
+# `diff lab.claim lab.claim.prev`, or any hash comparison, report a difference forever for two
+# files that mean the same thing. Two printfs that agree today are exactly what drifts next, so
+# there is one.
+claim_write() {
+    printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=%s\nmeasuring=%s\n' \
+        "$1" "$2" "$3" "$4" "$5"
+}
 handoff_field() { [[ -f "$HANDOFF" ]] && sed -n "s/^$1=//p" "$HANDOFF" | head -1; }
 
 # --- what this checkout looked like when the round started ---------------------------------
@@ -790,8 +814,7 @@ claim_take() {   # claim_take <mins> <note> <the pre-lock foreign_claim reading>
     #     NDT_MEASURING='sampling matrix, poll-off cell 3/8' ndt claim 90 'S-rate matrix'
     # Empty means "nothing declared", which is NOT "nothing running" -- in_flight still watches
     # the process table for `status`, `up` and `down`.
-    printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=%s\nmeasuring=%s\n' \
-        "$NDT_OWNER" "$(( $(date +%s) + mins * 60 ))" "$note" \
+    claim_write "$NDT_OWNER" "$(( $(date +%s) + mins * 60 ))" "$note" \
         "$( [[ -n "${NDT_EXCLUSIVE_CPU:-}" ]] && echo yes || echo no )" \
         "${NDT_MEASURING:-}" > "$CLAIM"
     # [Co-developed with claude code -- Adam]
@@ -871,7 +894,28 @@ cmd_release() {
             err "released with the knob left at $knob_now (round started at $knob_base) -- '--force'"
         fi
     fi
-    rm -f "$CLAIM"
+    # [Co-developed with claude code -- Adam]
+    # 🔴 R7 I-2 / FIX-NDT-3 SUMMARY section 7-3, Adam's ruling 09-11. This was `rm -f "$CLAIM"`.
+    # `ndt claim` keeps the claim it replaces (claim_take, one generation); `release` deleted the
+    # last one, and the two neighbours both of them were modelled on -- lab.handoff and
+    # round.baseline, four lines below -- rename rather than remove. So does this now: renamed,
+    # never deleted, because "who held the lab, until when, and what they said they were doing"
+    # is asked after the round more often than during it, and after a `rm` nothing on the machine
+    # can answer it.
+    #
+    # 🔴 The objection recorded in section 7-3 is that a `.prev` makes a reader think somebody
+    # still holds the lab. It cannot: `ndt status` reads the LIVE claim for that question and
+    # says "none" here, and the row it prints from `.prev` is a separate one that says the claim
+    # is over (cmd_status, "prev claim"). Two rows, two questions.
+    #
+    # mv, not cp: there is nothing to protect against a half-written destination here -- unlike
+    # claim_take, where a failed write must not leave the lab unclaimed -- and a rename is atomic.
+    if ! mv -f "$CLAIM" "$CLAIM.prev" 2>/dev/null; then
+        warn "could not keep a copy of the released claim (${CLAIM#$REPO/}.prev); removing it"
+        rm -f "$CLAIM"
+    else
+        info "the claim you held is kept as ${CLAIM#$REPO/}.prev -- 'ndt status' reads it back"
+    fi
     # [Co-developed with claude code -- Adam]
     # The round ends here, so the record of where it started stops being a live comparison and
     # becomes history. Adam's decision 09-07 (grill §4E round 3, E-11), on the precedent set by
@@ -970,8 +1014,7 @@ claim_rewrite() {
     esac
     tmp="$f.$$.tmp"
     {
-        printf 'owner=%s\nexpires=%s\nnote=%s\nexclusive_cpu=%s\nmeasuring=%s\n' \
-            "$owner" "$exp" "$note" "$ecpu" "$meas"
+        claim_write "$owner" "$exp" "$note" "$ecpu" "$meas"
         # `|| true` because grep -v exits 1 when nothing is left over, which is the ORDINARY case
         # -- a claim written by this tool has exactly the five fields. Without it the compound's
         # status is grep's, and every note rewrite on an ordinary claim reports failure while
@@ -2934,6 +2977,49 @@ stack_pidfile_row() {
     return 0
 }
 
+# claim_prev_row -- the claim that was replaced or released, and whether the lab changed hands.
+# Prints nothing when there is no .prev. Never a `--check` problem: this is history, and a row
+# that turned a teardown red for something that has already happened would be read once.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 R7 I-2, condition 2 of R7's own acceptance of the fix (R7-reconciler.md section 3b,
+# 04:29:25). Condition 1 passed -- `.prev` really was the claim that had been replaced, verified
+# field by field against R7's independent 118-point sampling record -- and condition 2 FAILED:
+# R7 grepped the WHOLE of `ndt status` for prev|changed hands|took|handover|previous|was held and
+# got ZERO hits. The evidence was being kept and no interface mentioned it, so a session that
+# arrived at 04:29 still could not see that the claim had been rewritten two minutes before
+# unless it knew to cat a file. That is half a fix, and this is the other half.
+#
+# 🔴 Printed whether or not a claim is live, because the reader who needs it is the one who
+# arrives AFTER the change. It does not answer "who holds the lab" -- claim_line does, from the
+# live file, and it still says `none` after a release.
+#
+# 🔴 CHANGED HANDS only when the owner really changed. The same owner re-claiming is a rewrite
+# (I-2 residue #1: a note corrected by re-claiming, which pulled `expires` three hours out), and
+# it is disclosed as one. Calling every rewrite a handover would teach the reader to skip the row.
+#
+# The time comes from the FILE's mtime, not from a field: nothing in the claim format records
+# when it was superseded, and the moment the copy was written is exactly that.
+claim_prev_row() {
+    local f="$CLAIM.prev" powner pexp pnote at live
+    [[ -f "$f" ]] || return 0
+    powner="$(claim_prev_field owner)"; pexp="$(claim_prev_field expires)"
+    pnote="$(claim_prev_field note)"
+    at="$(stat -c %Y "$f" 2>/dev/null)"
+    printf '  %-14s %s\n' "prev claim" \
+        "${powner:-<no owner field>} (until $( [[ "$pexp" =~ ^[0-9]+$ ]] && date -d "@$pexp" '+%H:%M:%S' || echo '?' ))$( [[ "$at" =~ ^[0-9]+$ ]] && printf ', superseded %s' "$(date -d "@$at" '+%Y-%m-%d %H:%M:%S')" )  (${f#$REPO/})"
+    live="$(claim_field owner)"
+    if [[ -z "$live" ]]; then
+        printf '  %-14s %s\n' "" "nothing holds the lab now: that claim was released or replaced"
+    elif [[ "$live" == "$powner" ]]; then
+        printf '  %-14s %s\n' "" "the same owner re-claimed it -- a rewrite, not a handover"
+    else
+        printf '  %-14s %s\n' "" "changed hands: $powner -> $live"
+    fi
+    [[ -n "$pnote" ]] && printf '  %-14s %s\n' "" "it said: $(printf '%s' "$pnote" | cut -c1-72)"
+    return 0
+}
+
 # claim_line -- one line describing who holds the lab, in the form that answers "can I touch
 # this right now". Relative time first: an absolute "until 17:11:52" makes the reader do
 # arithmetic against the wall clock, which is the moment they get it wrong. The four states
@@ -3706,6 +3792,9 @@ cmd_status() {
     esac
     local note; note="$(claim_field note)"
     [[ -n "$note" && "$cl" != none && "$cl" != EXPIRED* ]] && printf '  %-14s %s\n' "note" "$note"
+    # R7 I-2 condition 2: the claim's own history, beside the claim. Not behind --check and not
+    # behind "a claim is live" -- see claim_prev_row for whose question this is.
+    claim_prev_row
 
     # [Co-developed with claude code -- Adam]
     # Printed UNCONDITIONALLY while a claim is live, and never behind a flag. The whole point of
@@ -4105,7 +4194,70 @@ URL = "http://localhost:8000/ndt/get_graph_data"
 IFACE = re.compile(r"^s\d+-eth\d+$")
 
 # --- BEGIN verdict_lines (pure; extracted verbatim by tests/shell/test_ndt_honesty.sh) ---
-def verdict_lines(twin_bps, truth_bps):
+def cause_lines(ratio, shape):
+    """Why a ratio above the band is not, on its own, a stack of clone replicas.
+
+    🔴 ROLE-5, 2026-09-11 (ROLE-5-TRAFFIC-REPORT.md section 5 L2,
+    hunt-0911/logs/ROLE-5/18-posctrl-L2-live.log). ONE `tc netem loss 100%` on s1-eth2, two
+    seconds into the eight-second window, injection asserted twice -- and this check printed
+
+        twin  (integrated)   438.5 Mbit/s
+        /proc/net/dev        273.7 Mbit/s
+        ratio                1.60   DOUBLE-COUNTING -- clone replicas stacked
+
+    with ZERO clone replicas on the fabric. The twin publishes its last sampled rate; the
+    ground truth had just collapsed under it; the tripwire read a LAG as a STACK and wrote a
+    mechanism it had not observed into the verdict string. The same round's L3 control
+    installed one rule fifty times and the ratio did not move at all, so rule duplication is
+    not this tripwire's positive control either -- rules have no input channel to this number.
+
+    🔴 THE DISCRIMINATOR IS SHAPE, NOT SIZE, and it is the one signal the window already
+    contains. Stacking multiplies every sample by the same factor: every sub-window is over
+    the band and the ground truth underneath is steady. A lag is a transient: some sub-windows
+    are over it, and the ground truth moved. When the sub-windows cannot say which -- too few
+    of them, or no ground truth to compare -- BOTH causes are printed and neither is called
+    the finding. That is Adam's E-7 rule applied to an attribution rather than to a reading:
+    "查不了可以不紅，沒去查不准長得像查了沒事".
+    """
+    lag = "twin telemetry lagging a ground truth that moved inside the window"
+    stack = "clone replicas stacked (a proxy restarted on a warm fabric)"
+    hot = (shape or {}).get("hot")
+    subs = (shape or {}).get("subs") or 0
+    lo = (shape or {}).get("truth_lo") or 0.0
+    hi = (shape or {}).get("truth_hi") or 0.0
+    if not shape or subs < 3 or hot is None or lo <= 0:
+        return [
+            "      this window cannot say WHICH of two causes it is, so both are named:",
+            "        * " + stack + ",",
+            "        * " + lag + ".",
+            "      (too few sub-windows carried traffic to compare their shape. ROLE-5",
+            "      2026-09-11 measured the second one reading 1.60 with no replicas at all.)",
+        ]
+    steady = hi <= lo * 1.25
+    swing = "ground truth held within %.0f%% (%.0f-%.0f Mbit/s)" % (
+        (hi / lo - 1.0) * 100.0, lo, hi) if steady else \
+        "ground truth moved %.0fx inside the window (%.0f-%.0f Mbit/s)" % (hi / lo, lo, hi)
+    if hot == subs and steady:
+        return [
+            "      every one of the %d sub-windows is over the band," % subs,
+            "      and %s" % swing,
+            "      -- a CONSTANT factor over a steady truth, which is the shape of",
+            "        * " + stack + ".",
+            "      the other cause, " + lag + ",",
+            "      produces some hot sub-windows and not all of them.",
+        ]
+    return [
+        "      %d of the %d sub-windows are over the band," % (hot, subs),
+        "      and %s" % swing,
+        "      -- a transient, not a constant factor, so the leading cause is",
+        "        * " + lag + ",",
+        "      and NOT",
+        "        * " + stack + ".",
+        "      (ROLE-5 2026-09-11: one netem link failure read 1.60 this way, no replicas.)",
+    ]
+
+
+def verdict_lines(twin_bps, truth_bps, shape=None):
     """Everything this check says about the ratio, as lines. No I/O, so it is testable
     without a kernel, a fabric or traffic -- the rest of this block needs all three.
 
@@ -4116,10 +4268,14 @@ def verdict_lines(twin_bps, truth_bps):
     never designed to be. What was missing is that `ok` was being read as "the twin's
     bandwidth numbers are accurate". So the size of the gap is printed in the same breath as
     the verdict, and the line says in words what the verdict does not mean.
+
+    `shape` is the per-sub-window evidence (see cause_lines) and is None for a caller that has
+    none: the verdict is then still DOUBLE-COUNTING, and the causes are named side by side
+    rather than one of them being presented as the finding.
     """
     ratio = twin_bps / truth_bps
     if ratio > 1.5:
-        verdict = "DOUBLE-COUNTING -- clone replicas stacked"
+        verdict = "DOUBLE-COUNTING -- twin is %.2fx ground truth" % ratio
     elif ratio < 0.5:
         verdict = "under-counting"
     else:
@@ -4135,7 +4291,30 @@ def verdict_lines(twin_bps, truth_bps):
         "      that no doubling was seen)",
         "      ~1.0 expected. ~2.0 is a proxy restarted on a warm fabric stacking clone",
         "      replicas. Absolute numbers cannot show this -- only the ratio can.",
-    ]
+    ] + (cause_lines(ratio, shape) if ratio > 1.5 else [])
+
+
+def window_shape(subs):
+    """The per-sub-window evidence cause_lines reads, from [(twin_bits, truth_bits, dt)].
+
+    A sub-window counts only when its ground truth carried something (1 Mbit/s, the same floor
+    the whole-window verdict uses): LLDP and ARP keep every link faintly busy, and a ratio
+    computed over an idle sub-window is noise with a denominator. Returns None when fewer than
+    three qualify, which is "could not compare" and is printed as such.
+    """
+    rates, hot = [], 0
+    for twin_bits, truth_bits, dt in subs or []:
+        if dt <= 0:
+            continue
+        truth_bps = truth_bits / dt
+        if truth_bps < 1e6:
+            continue
+        rates.append(truth_bps / 1e6)
+        if twin_bits / dt > 1.5 * truth_bps:
+            hot += 1
+    if len(rates) < 3:
+        return None
+    return {"hot": hot, "subs": len(rates), "truth_lo": min(rates), "truth_hi": max(rates)}
 # --- END verdict_lines ---
 
 # The twin publishes a *rate* (link_bandwidth_usage_bps), never a cumulative byte count, so
@@ -4184,7 +4363,14 @@ FULL = {f"s{e['src_dpid']}-eth{e['src_interface']}": e.get("link_bandwidth_usage
 
 t0 = time.time()
 integral = 0.0                # bit-seconds accumulated from the twin's reported rate
-prev_t, prev_v = None, None
+prev_t, prev_v, prev_nd = None, None, None
+# 🔴 #17. Ground truth is now read at every sample as well, not only at the two ends. The
+# whole-window numbers below are unchanged -- they still come from nd1 - nd0 -- and these are
+# for the SHAPE of the window: whether the ratio is a constant factor (which is what stacked
+# clone replicas produce) or a transient over a ground truth that moved (which is what ROLE-5's
+# one netem link failure produced, reading 1.60 with no replicas). Reading /proc/net/dev is a
+# file read on the same machine; it costs nothing next to the HTTP poll it sits beside.
+subs = []                     # [(twin_bits, truth_bits, dt)] per sample interval
 end = t0 + DUR
 while time.time() < end:
     t = time.time()
@@ -4193,16 +4379,23 @@ while time.time() < end:
     except Exception:
         time.sleep(1.0 / HZ); continue
     v = sum(r[k] for k in KEYS if k in r)
+    nd = netdev()
     if prev_t is not None:
         integral += prev_v * (t - prev_t)        # value x dt, not one-sample-per-change
-    prev_t, prev_v = t, v
+        subs.append((prev_v * (t - prev_t),
+                     sum(nd.get(k, 0) - prev_nd.get(k, 0) for k in KEYS) * 8,
+                     t - prev_t))
+    prev_t, prev_v, prev_nd = t, v, nd
     slp = 1.0 / HZ - (time.time() - t)
     if slp > 0:
         time.sleep(slp)
 t1 = time.time()
+nd1 = netdev()
 if prev_t is not None:
     integral += prev_v * (t1 - prev_t)
-nd1 = netdev()
+    subs.append((prev_v * (t1 - prev_t),
+                 sum(nd1.get(k, 0) - prev_nd.get(k, 0) for k in KEYS) * 8,
+                 t1 - prev_t))
 
 keys = KEYS & set(nd1)
 truth_bits = sum(nd1[k] - nd0[k] for k in keys) * 8
@@ -4231,10 +4424,27 @@ if truth_bps < 1e6:
     print("  --  under 1 Mbit/s crossing the fabric; the ratio is not meaningful yet.")
     print("      run this while traffic is flowing.")
 else:
-    for line in verdict_lines(twin_bps, truth_bps):
+    shape = window_shape(subs)
+    for line in verdict_lines(twin_bps, truth_bps, shape):
         print(line)
+    # 🔴 #17, the second half: the VERDICT REACHES THE EXIT CODE. ROLE-5 measured
+    # `check rc=0` under a printed DOUBLE-COUNTING (logs/ROLE-5/18-posctrl-L2-live.log), so
+    # "it did not go red" was not observable to any script -- and this command's whole output
+    # is one screen of prose that a driver cannot read. 4 rather than 1, for the reason
+    # residue_verdict uses 4 and 5: rc 1 on this command already means "the kernel is not up"
+    # and "refused because a measurement is declared", and a caller has to be able to tell
+    # "there is nothing to check" from "the check found something".
+    if twin_bps / truth_bps > 1.5:
+        sys.exit(4)
 PY
 
+    # 🔴 #17, the second half (Adam's ruling 09-11). ROLE-5 measured `check rc=0` under a
+    # printed `DOUBLE-COUNTING` (ROLE-5-TRAFFIC-REPORT.md section 6, S1 附帶 2): this function
+    # ended on `info`, so a script could not observe the one finding the command exists to
+    # produce. The python block exits 4 when it printed DOUBLE-COUNTING and 1 when it could not
+    # read the twin at all; both are kept and returned BELOW, after the rate lines and the CPU
+    # note, because those are the context a reader needs for the number that just went red.
+    local vrc=$?
     # D-2, Adam's decision 09-06 (grill §4D round 9): the rate the ratio above was produced at,
     # and what X1 measured the ratio to be at that rate -- printed in the same breath, because
     # `ok` spans 0.5-1.5 and 0.65 printed `ok` while the twin was a quarter low. Read from the
@@ -4249,6 +4459,19 @@ PY
     info 'CPU: /ndt/get_cpu_utilization returns 10 + hash(ip) % 50 in MININET mode -- a'
     info '     constant unrelated to load, which the Web-GUI displays as if it were real.'
     info '     measure with:  python3 tools/test_workflow/cpu_probe.py <secs> <hz> <out.jsonl>'
+    # 🔴 The rc table for this command, now that it has one:
+    #   0  the ratio is inside the band, or there was too little traffic to compute one
+    #   1  the kernel is not up, a declared measurement was refused, or the twin could not be read
+    #   4  DOUBLE-COUNTING was printed -- the ratio is over the band. See the cause lines it
+    #      printed with it: over the band is NOT the same statement as "clone replicas".
+    # `under-counting` (ratio < 0.5) is deliberately still 0: R4-5 measured twelve consecutive
+    # LOW readings on a healthy fabric and the systematic shortfall at 1/1024 is 24.8%, so a red
+    # on the low side would fire on the expected reading. That asymmetry is in §7 of this round's
+    # SUMMARY for Adam, not decided here.
+    if (( vrc != 0 )); then
+        err "ndt check: rc $vrc -- read the ratio block above; this is not 'the check failed to run'"
+        return "$vrc"
+    fi
 }
 
 # --- apps -------------------------------------------------------------------------
@@ -4392,6 +4615,51 @@ app_pidfile() { echo "$REPO/.test_run/pids/app_$1.pid"; }
 # started in. [Co-developed with claude code -- Adam]
 app_logfile()  { echo "$REPO/.test_run/logs/app_$1.log"; }
 app_pgidfile() { echo "$REPO/.test_run/pids/app_$1.pgid"; }
+
+# --- the window a stop leaves behind, on disk ---------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 F3 (FIX-NDT-2 SUMMARY §7-2, Adam's ruling 09-11). RESIDUE_WINDOW is a shell variable and
+# dies with the process that filled it, so `cmd_apps stop` could date the app it had just
+# stopped and NOBODY AFTER IT could: every residue report taken after a teardown -- the `ndt
+# apps orphans` or `ndt status --check` an operator runs when `ndt down` is finished, which is
+# exactly when the rules are on the wire with nothing running to own them -- read "the window is
+# LOST". The window is therefore written where the pidfile is deleted, which is the last moment
+# anything can still date the app.
+#
+# 🔴 IT CARRIES AN END. A start with no end would window from an app that stopped yesterday to
+# now and report the fabric's own baseline as residue on every later --check -- M10's defect
+# with the sign flipped, and a verb that is red forever is read exactly as often as one that is
+# green forever. A rule installed after the app stopped is not that app's rule.
+#
+# 🔴 WHO CLEANS IT: app_start, for the app it is starting. One file per app, overwritten by the
+# next stop, removed by the next start -- so the set is bounded by $APP_NAMES and never grows.
+# Nothing else deletes it, deliberately: this file IS the record a later process reads, and a
+# teardown that reaped it would be O-4 in a new place.
+app_windowfile() { echo "$REPO/.test_run/apps/$1.window"; }
+
+# app_window_record <name> <start-epoch> -- the closed window [start, now], or rc 1.
+app_window_record() {
+    local name="$1" start="$2" f
+    [[ "$start" =~ ^[0-9]+$ ]] || return 1
+    f="$(app_windowfile "$name")"
+    mkdir -p "$(dirname "$f")" 2>/dev/null || return 1
+    printf 'start=%s\nend=%s\nby=%s\n' "$start" "$(date +%s)" "${NDT_OWNER:-unset}" >"$f" 2>/dev/null
+}
+
+# app_window_read <name> -- "<start> <end>" from that record, or rc 1. Both fields are required:
+# a record with no end is a window with no bound, and this function is the only thing that
+# decides whether the file may be believed.
+app_window_read() {
+    local f s e
+    f="$(app_windowfile "$1")"
+    [[ -f "$f" && ! -L "$f" ]] || return 1
+    s="$(sed -n 's/^start=//p' "$f" 2>/dev/null | head -1)"
+    e="$(sed -n 's/^end=//p' "$f" 2>/dev/null | head -1)"
+    [[ "$s" =~ ^[0-9]+$ && "$e" =~ ^[0-9]+$ ]] || return 1
+    (( e >= s )) || return 1
+    echo "$s $e"
+}
 
 # app_evidence_log <name> -- the file that answers "did this app ever run HERE", or rc 1 when
 # nothing can answer it. NOT the file we write to: the file whoever STARTED it writes to.
@@ -5396,6 +5664,10 @@ app_start() {
     source "$HERE/components.env"
     local pid_dir="$REPO/.test_run/pids" log_dir="$REPO/.test_run/logs"
     mkdir -p "$pid_dir" "$log_dir"
+    # F3. The closed window its own last stop left is superseded HERE, by the start: that record
+    # answers for an app that is not running, and this app is about to be. Leaving it would put a
+    # yesterday-shaped window beside a live process, and the reader would have two answers.
+    rm -f "$(app_windowfile "$name")"
     case "$name" in
         # [Co-developed with claude code -- Adam]
         # G-6. Was: `sudo -n "$LAB" <name>-start >/dev/null && ok "<name> started (tmux: <name>)"`.
@@ -5486,6 +5758,13 @@ app_start() {
 # no way to ask the question at all.
 app_stop() {
     local name="$1"
+    # [Co-developed with claude code -- Adam]
+    # F3. Read BEFORE either branch stops anything, for the same reason cmd_apps stop reads it
+    # before its loop -- a verified stop deletes the pidfile and the live process is gone, so
+    # this is the last moment the app can be dated at all. Unlike RESIDUE_WINDOW this one is
+    # written to disk (app_window_record, below the two removals), because the process that
+    # holds a shell variable is not the process that asks the question.
+    local wstart; wstart="$(app_started_at "$name")" || wstart=""
     case "$name" in
         # [Co-developed with claude code -- Adam]
         # G-6. Was: `sudo -n "$LAB" <name>-stop >/dev/null 2>&1; ok "<name> stopped"`. Note the
@@ -5530,6 +5809,10 @@ app_stop() {
             #
             # NOT removed on the not-running path above: a pidfile with no process is G-12's own
             # case -- something killed it by pid, and that mtime is the only record of when it ran.
+            #
+            # F3: the window this stop is about to destroy, written down first. `|| true` because
+            # a window that could not be read (an app nothing could date) is not a failed stop.
+            app_window_record "$name" "$wstart" || true
             rm -f "$(app_pidfile "$name")"
             # 🔴 `$was`, not `$APP_STATE`. app_wait_stopped polls app_probe until it answers
             # not-running, so by the time this line runs APP_STATE has been overwritten with the
@@ -5660,6 +5943,10 @@ app_stop() {
             done
             if (( rc == 0 )); then
                 app_verify_stopped "$name"; local vrc=$?
+                # F3, the same record as the energy|sim branch above and for the same reason:
+                # written on a VERIFIED stop only, because an unverified one has not established
+                # that the window is closed. See app_windowfile.
+                (( vrc == 0 || vrc == 2 )) && { app_window_record "$name" "$wstart" || true; }
                 case "$vrc" in
                     0) [[ "$poisoned" == 0 ]] && rm -f "$p"
                        rm -f "$(app_pgidfile "$name")"
@@ -5824,16 +6111,22 @@ v = d.get(sys.argv[1]) if isinstance(d, dict) else None
 print("?" if v is None else v)' "$2" 2>/dev/null || echo "?"
 }
 
-# residue_rule_lines <started-epoch> <now-epoch> <plane> -- flow entries JSON on stdin, one line
-# per rule that cannot be excluded from this app's window. A leading `CANNOTWINDOW <reason>`
-# line means the plane has no time axis at all and everything after it is UNKNOWN.
+# residue_rule_lines <started-epoch> <now-epoch> <plane> [<window-end-epoch>] -- flow entries
+# JSON on stdin, one line per rule that cannot be excluded from this app's window. A leading
+# `CANNOTWINDOW <reason>` line means the plane has no time axis at all and everything after it is
+# UNKNOWN.
+#
+# [Co-developed with claude code -- Adam]
+# F3. The fourth argument is the window's RIGHT edge and is empty for a live app, whose window
+# runs to now. It exists because a window read from disk (app_window_read) belongs to an app that
+# has already stopped, and a rule installed after it stopped is somebody else's.
 residue_rule_lines() {
     # 🔴 `3<&0` BEFORE the heredoc, and the JSON is read from fd 3. `python3 - <<'PY'` takes the
     # script itself on stdin, so a `json.load(sys.stdin)` here reads the end of its own source
     # and reports the flow table as unreadable -- a clean-looking "no residue" produced by a
     # plumbing bug, which is the exact failure shape G-12 is about. Redirections apply left to
     # right, so fd 3 is the caller's pipe and fd 0 is the script.
-    python3 - "$1" "$2" "${3:-unknown}" 3<&0 <<'PY'
+    python3 - "$1" "$2" "${3:-unknown}" "${4:-}" 3<&0 <<'PY'
 import json, os, sys
 # --- BEGIN residue_rules (pure; extracted verbatim by tests/python/test_app_residue_rules.py) ---
 # Imported inside the markers as well as above them: the test execs this region on its own, and
@@ -5897,8 +6190,8 @@ def window_blindspot(entries, plane):
     return ""
 
 
-def suspect_rules(entries, started, now, plane="unknown"):
-    """Rules that cannot be excluded from the window [started, now], as printable lines.
+def suspect_rules(entries, started, now, plane="unknown", until=None):
+    """Rules that cannot be excluded from the window [started, until or now], as printable lines.
 
     SUSPECTED, never attributed: there is no owner and no usable cookie anywhere in this
     system (see the block comment above app_started_at in `ndt`), so the only discriminator
@@ -5917,6 +6210,13 @@ def suspect_rules(entries, started, now, plane="unknown"):
     """
     inside, unknown = [], []
     blind = plane == "p4"
+    # 🔴 F3. `until` closes the window on the right. It is None for every app that is still
+    # running -- their window really does run to now -- and a timestamp for a window read back
+    # from a stop's own record, where a rule installed after the app stopped is NOT that app's
+    # residue. Without the bound, a record kept on disk would attribute the whole of the
+    # fabric's later traffic to an app that stopped yesterday, which is a verb that is red
+    # forever, i.e. one nobody reads.
+    stop = now if until is None else int(until)
     for sw in entries or []:
         dpid = sw.get("dpid")
         for _key, rows in sorted((sw.get("flows") or {}).items()):
@@ -5941,6 +6241,8 @@ def suspect_rules(entries, started, now, plane="unknown"):
                     continue
                 if now - dur < started:
                     continue
+                if now - dur > stop:
+                    continue
                 inside.append((dpid, pri, head + "  installed %s ago" % _age(dur)))
     inside.sort(key=lambda r: (str(r[0]), -(r[1] or 0)))
     return [r[2] for r in inside] + unknown
@@ -5948,6 +6250,8 @@ def suspect_rules(entries, started, now, plane="unknown"):
 
 started, now = int(sys.argv[1]), int(sys.argv[2])
 plane = sys.argv[3]
+# Empty means the window is open: this app is running, so it runs to `now`.
+until = int(sys.argv[4]) if len(sys.argv) > 4 and sys.argv[4] else None
 try:
     entries = json.load(os.fdopen(3))
 except Exception:
@@ -5955,7 +6259,7 @@ except Exception:
 blind = window_blindspot(entries, plane)
 if blind:
     print("CANNOTWINDOW " + blind)
-for line in suspect_rules(entries, started, now, plane):
+for line in suspect_rules(entries, started, now, plane, until):
     print(line)
 PY
 }
@@ -6081,6 +6385,7 @@ status_residue_row() {
 # the counters this fills in.
 residue_report() {
     local now started entries lock t line n_rules n_unk n_locks=0 a any=0 lease retry
+    local wend wrec
     local plane blind_said="" elog rpid
     local -a live=()
     now="$(date +%s)"
@@ -6134,6 +6439,18 @@ residue_report() {
         # answer from the machine's own state.
         started="${RESIDUE_WINDOW[$a]:-}"
         [[ -n "$started" ]] || started="$(app_started_at "$a")" || started=""
+        # [Co-developed with claude code -- Adam]
+        # F3. The fourth source, and the only one that survives the process that read it: the
+        # record a verified stop left on disk. Asked LAST, after the pidfile and the live
+        # process, because those two describe an app that is running NOW and this one describes
+        # one that has stopped -- and asked at all, which is the whole of F3: before this, every
+        # report taken after a teardown answered "the window is LOST" about the apps whose rules
+        # were on the wire at that moment. wend is the window's right edge; empty means "open",
+        # i.e. up to now.
+        wend=""
+        if [[ -z "$started" ]] && wrec="$(app_window_read "$a")"; then
+            started="${wrec%% *}"; wend="${wrec##* }"
+        fi
         if [[ -z "$started" ]]; then
             # 🔴 3-51, Adam's ruling E-8 point 4. This branch used to open with "no pidfile and
             # no live process" WITHOUT ever looking for a live process -- it was reached solely
@@ -6184,9 +6501,20 @@ residue_report() {
             continue
         fi
         any=1
-        printf '  %-6s window %s -> now (%s)\n' "$a" \
-            "$(date -d "@$started" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "$started")" \
-            "$(( now - started ))s"
+        if [[ -n "$wend" ]]; then
+            # F3. A CLOSED window, and the line says so and says where it came from: a reader
+            # who sees a window for an app that is not running has to be able to tell a record
+            # from a live reading, and the record is the only one of the two that another
+            # process wrote.
+            printf '  %-6s window %s -> %s (window closed %ss ago; from %s)\n' "$a" \
+                "$(date -d "@$started" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "$started")" \
+                "$(date -d "@$wend" '+%H:%M:%S' 2>/dev/null || echo "$wend")" \
+                "$(( now - wend ))" "$(app_windowfile "$a")"
+        else
+            printf '  %-6s window %s -> now (%s)\n' "$a" \
+                "$(date -d "@$started" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "$started")" \
+                "$(( now - started ))s"
+        fi
         if [[ -z "$entries" ]]; then continue; fi
         n_rules=0; n_unk=0
         while IFS= read -r line; do
@@ -6211,7 +6539,7 @@ residue_report() {
             err "      rule  $line"
             case "$line" in *age=UNKNOWN*) n_unk=$(( n_unk + 1 )) ;; esac
             n_rules=$(( n_rules + 1 ))
-        done < <(printf '%s' "$entries" | residue_rule_lines "$started" "$now" "$plane")
+        done < <(printf '%s' "$entries" | residue_rule_lines "$started" "$now" "$plane" "$wend")
         if (( n_rules == 0 )); then
             ok "      no flow entry arrived during that window"
         elif (( n_rules > 0 )); then
@@ -6796,6 +7124,17 @@ usage: ndt <command>
                   exit code, when the record row says none. (F2, 2026-09-11)
   clean         just the teardown assertion (exit 1 if anything survived)
   check         telemetry double-count tripwire
+                  exit 0 the ratio is inside the +/-50% band, or there was too
+                  little traffic to compute one at all; 1 the kernel is not up, a
+                  DECLARED measurement was refused, or the twin could not be read;
+                  4 DOUBLE-COUNTING was printed. 🔴 READ THE CAUSE LINES under it:
+                  over the band is NOT the same statement as 'clone replicas'.
+                  One netem link failure read 1.60 with no replicas anywhere on
+                  the fabric, and the verdict used to name them (ROLE-5,
+                  2026-09-11). rc 4 is new on 09-11; 'under-counting' (ratio
+                  under 0.5) is still 0, because 1/1024 sampling under-reports by
+                  24.8% on a healthy fabric and a red on that side would fire on
+                  the EXPECTED reading. (#17)
   apps [names]  start readers/apps; no args on a terminal = interactive picker
                   energy sim nsr viz te      ('ndt apps stop [names|all]')
                   ndt apps orphans  -- is anything of an app's still running,

@@ -357,8 +357,9 @@ class TheSubjectIsTheShippedCode(unittest.TestCase):
         with open(NDT) as fh:
             text = fh.read()
         self.assertEqual(
-            1, text.count("for line in suspect_rules(entries, started, now, plane):"),
-            "suspect_rules is defined but the block does not call it with the plane")
+            1, text.count("for line in suspect_rules(entries, started, now, plane, until):"),
+            "suspect_rules is defined but the block does not call it with the plane and the "
+            "window's right edge (F3)")
 
     def test_the_plane_reaches_the_selector_from_the_shell(self):
         """🔴 W16-3 is only fixed if the plane the shell read is the plane python is given.
@@ -373,6 +374,22 @@ class TheSubjectIsTheShippedCode(unittest.TestCase):
         self.assertEqual(1, report.count('residue_rule_lines "$started" "$now" "$plane"'))
         self.assertEqual(1, report.count('plane="$(live_dataplane_kind)"'))
         self.assertEqual(1, text.count('plane = sys.argv[3]'))
+
+    def test_the_window_end_reaches_the_selector_from_the_shell(self):
+        """🔴 F3: the fourth argument is the bound, and a bound nothing passes is not a bound.
+
+        The shell reads the window's right edge from the record a stop left on disk
+        (app_window_read) and hands it to residue_rule_lines; if that argument never arrives,
+        a closed window is read as running to now and every rule installed since the app
+        stopped is attributed to it.
+        """
+        with open(NDT) as fh:
+            text = fh.read()
+        report = body_of(text, "residue_report() {")
+        self.assertEqual(
+            1, report.count('residue_rule_lines "$started" "$now" "$plane" "$wend"'))
+        self.assertEqual(1, text.count(
+            'until = int(sys.argv[4]) if len(sys.argv) > 4 and sys.argv[4] else None'))
 
     def test_the_blindspot_is_announced_by_the_shell_too(self):
         with open(NDT) as fh:
@@ -434,6 +451,41 @@ class TheSubjectIsTheShippedCode(unittest.TestCase):
                     self.assertNotIn(
                         verb, line,
                         "%s must report, never remove -- this line acts: %r" % (fn, raw))
+
+
+class TheWindowHasARightEdge(unittest.TestCase):
+    """F3: a window read back from a stop's record is CLOSED, and the bound has to hold.
+
+    FIX-NDT-2 SUMMARY §7-2. `cmd_apps stop` could date the app it had just stopped and no
+    later process could, because RESIDUE_WINDOW dies with the shell that filled it. The
+    window is now on disk -- which only stops being a lie about the rules if the right edge
+    is honoured, since a start with no end attributes every rule installed since.
+    """
+
+    def setUp(self):
+        self.suspect_rules = load_suspect_rules()
+
+    def test_default_is_open_to_now(self):
+        """No bound passed = a live app, whose window really does run to now."""
+        out = self.suspect_rules(entries(flow(30)), APP_STARTED, NOW, "ovs")
+        self.assertEqual(1, len(out), out)
+
+    def test_a_rule_installed_after_the_window_closed_is_not_listed(self):
+        stopped = NOW - 60
+        out = self.suspect_rules(entries(flow(30)), APP_STARTED, NOW, "ovs", stopped)
+        self.assertEqual([], out)
+
+    def test_a_rule_installed_inside_the_closed_window_is_still_listed(self):
+        stopped = NOW - 60
+        out = self.suspect_rules(entries(flow(300)), APP_STARTED, NOW, "ovs", stopped)
+        self.assertEqual(1, len(out), out)
+        self.assertIn("pri=96", out[0])
+
+    def test_the_bound_does_not_rescue_an_undatable_rule(self):
+        """🔴 "Could not place it" is not "not this app's" -- the bound must not swallow it."""
+        out = self.suspect_rules(entries(flow(None)), APP_STARTED, NOW, "ovs", NOW - 60)
+        self.assertEqual(1, len(out), out)
+        self.assertIn("age=UNKNOWN", out[0])
 
 
 if __name__ == "__main__":

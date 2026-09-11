@@ -167,17 +167,32 @@ ABOUT_THE_RULE = frozenset((
 # 🔴 Every site the widened scan finds in code that is not about the rule, as
 # (path, kind, tool). Line numbers are printed but deliberately NOT part of the verdict: other
 # sessions edit these files all night and a line-pinned registry would go red for the wrong
-# reason. Each entry is a decision someone has to make, not an exemption:
+# reason. Each entry is a decision someone has to make, not an exemption.
 #
-#   run_layers.sh   `pids="$(pgrep -x ndtwin_kernel 2>/dev/null)"` -- recon-B item 13. `-x` is
-#                   an exact match on comm rather than the whole command line, so it is the
-#                   narrow end of the family, but it is still "find the process by its name",
-#                   and what it finds is then signalled.
-#   stack.sh (RUNS) `ps -eo args | awk '$NF ~ /^mininet:/{c++}'` -- counts mininet processes by
-#                   the shape of their argv. This awk's own argv carries the pattern, which is
-#                   exactly G-inst-2.
+# 🔴 IT IS EMPTY, and that is a result rather than a default. The three entries this set was
+# created with were FIXED on 2026-09-11 (FIX-NDT-4 #16, Adam's ruling), and the verdict below
+# compares found against registered in BOTH directions, so the empty set is now itself an
+# assertion: the next site to appear anywhere in the scan surface is red on the day it appears.
+# What the three were, and what replaced them, because the registry is where the next reader
+# looks first:
+#
+#   run_layers.sh   `pids="$(pgrep -x ndtwin_kernel 2>/dev/null)"` -- recon-B item 13. `-x`
+#                   matches comm rather than the whole command line, the narrow end of the
+#                   family, and it was still "find the process by its name". Now
+#                   kernel_pidfile_pids: <name>.pid and <name>.child.pid from $PID_DIR. The
+#                   third state moved with it -- no pidfile is "cannot tell", not "stale",
+#                   because a kernel started by hand (which the manual teaches) records none.
+#   stack.sh (RUNS) `ps -eo args | awk '$NF ~ /^mininet:/{c++}'` -- counted mininet host shells
+#                   by the shape of their argv, with the pattern travelling in the awk's own
+#                   argv, which is G-inst-2. Now mininet_procs_in, the same last-field reading
+#                   done in the shell; there is no pidfile for Mininet, which is started by
+#                   hand, so the process table is the only channel and what went away is the
+#                   instrument's own footprint in it.
 #   stack.sh (TEACHES) `err "    pgrep -ax ndtwin_kernel"` -- printed at the operator as the way
-#                   to look, which is G-9's half of the same defect, in a different file.
+#                   to look, which is G-9's half of the same defect in a different file. Now
+#                   `cat $PID_DIR/*.pid`, beside the `ss -ltnp` line that names the port holder.
+#                   (FIX-NDT-4, 2026-09-11: run_layers.sh:398, stack.sh:55, stack.sh:1075 are FIXED
+#                   and therefore NOT in the list below.)
 #
 # 🔴 2026-09-11, FIX-PROXY-1. Widening the surface to python found five more, and the first two
 # are the frontal violation CLAUDE.md names -- `os.system('sudo pkill -f simple_switch_grpc')`,
@@ -203,9 +218,6 @@ ABOUT_THE_RULE = frozenset((
 #                   evidence that something real still asks, and taking it out of the registry
 #                   should require someone to look at probes.py first.
 REGISTERED = frozenset((
-    ("tools/test_workflow/run_layers.sh", "RUNS", "pgrep"),
-    ("tools/test_workflow/stack.sh", "RUNS", "ps"),
-    ("tools/test_workflow/stack.sh", "TEACHES", "pgrep"),
     ("doc/audit/2026-08-28_chaos-harness/harness/probes.py", "RUNS", "pgrep"),
     ("doc/audit/2026-08-28_chaos-harness/harness/probes.py", "TEACHES", "pgrep"),
     ("doc/audit/2026-08-28_chaos-harness/harness/antioracle.py", "TEACHES", "pkill"),
