@@ -4154,7 +4154,14 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 
 ### G-17 ⚠️ `warning_allowlist.txt:133` 的條目在碼裡沒有呼叫點（一行只能靠讀者判斷的雜訊）
 
-- **狀態**：**OPEN，只列不刪**（2026-09-11 FIX-CONTRACT-1 證實；修法＝刪那一行，Adam 硬規矩是只列不刪）。
+- **狀態**：🟢 **已修（刪掉那一行）——2026-09-11 FIX-NDT-4 #15（`fb77461b`），✅ 已併入 trunk
+  （merge `872fa354`，2026-09-11）。** Adam 09-11 授權刪（本條原本記「只列不刪」是因為
+  FIX-CONTRACT-1 那一單被禁止刪東西）。
+  刪的依據重新量過：`grep -rn 'currently a stub'`／`grep -rn 'P4 BMv2 Power'` 在 `src/`、`include/`、
+  `p4_proxy/` 零命中。段落標題留著並寫上經過；新儀器
+  `tests/python/test_warning_allowlist_entries.py` 讓「Known gaps with an owner」段裡的下一條
+  活不過它的訊息（連段落標題本身都被斷言，免得刪掉段落就變空轉）。
+  〔在此之前這一行寫的是「**OPEN，只列不刪**（2026-09-11 FIX-CONTRACT-1 證實）」。〕
 - **原文（`fix/FIX-CONTRACT-1-SUMMARY.md` §6 逐字）**：
   > `WARNING | P4 BMv2 Power ON from Kernel is currently a stub` 自稱是「a promise to remove it」，
   > 而 `grep -rn 'currently a stub'` 與 `grep -rn 'P4 BMv2 Power'` 在 `src/`、`include/`、`p4_proxy/`
@@ -4167,8 +4174,17 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 ### G-18 🔴 `warning_allowlist.txt:169` 的 FORBID 永遠比對不到它指名的那句話 —— 一個不會亮的紅燈
 
 - **狀態**：**OPEN、未修**（2026-09-11 FIX-CONTRACT-1 實跑證實 `re.search` 回 `None`）。
-  一行修法（`Cannot open .*OpenflowCapacity\.json`）**沒有做**：那會讓目前綠的 run 在缺檔時變紅，
-  屬閘門口徑改動，等 Adam 裁（該單 §7-2）。
+  一行修法（`Cannot open .*OpenflowCapacity\.json`）**沒有做**，仍等 Adam 裁。
+- 🔴 **後果的更正（2026-09-11 FIX-NDT-4 #15，merge `872fa354`）——本條記的後果是錯的。**
+  原本寫「一行修法會讓目前綠的 run 在缺檔時變紅」。**實測不是這樣**：那句話是 ERROR 等級印的
+  （`SPDLOG_LOGGER_ERROR`，`src/ndt_core/http/HttpSession.cpp:2923`），而 `check_logs.py` 對沒被
+  allowlist 的 error 本來就紅——FIX-NDT-4 用兩個 fixture 量過：同一句話 **error 級 rc=1**
+  （`FAIL: 1 problem line(s)`）、**info 級 rc=0**（`PASS`）。
+  ⇒ 修那條正規式**不會**把綠的 run 變紅（缺檔又呼叫到那個端點的 run 今天已經紅了）；
+  它改變的是**哪一條規則**讓它紅，以及**訊息哪天被降級到 info/debug** 時還接不接得住——
+  而那正是 FORBID 這種規則存在的理由。
+  那一輪做的是**讓這盞不會亮的燈不再是沉默的**：那條 pattern 登記在
+  `tests/python/test_warning_allowlist_entries.py` 的 `DARK_FORBID` 裡並附理由，兩個方向都比。
 - **原文（`fix/FIX-CONTRACT-1-SUMMARY.md` §6 逐字）**：
   > 條目是 `FORBID | Cannot open OpenflowCapacity\.json`；kernel 印的是
   > `src/ndt_core/http/HttpSession.cpp:2807` 的 `"Cannot open 2026-01-02_OpenflowCapacity.json"`。
@@ -4290,6 +4306,20 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   > ruling.
 - **與 G-13／G-14 的關係**：G-13 是「P4 的表沒有時間軸」（已修）、G-14 是「窗對 helper 起的 app 天生失明」
   （已修）；本條是**窗這個概念在 `ndt down` 之後根本不存在**。
+- 🏁 **已修（2026-09-11，FIX-NDT-4 F3，`910221d2`），✅ 已併入 trunk（merge `872fa354`，2026-09-11）。**
+  〔`fix/FIX-NDT-4-SUMMARY.md` §6 把它寫成一條新條目（該單自己編 `G-39`）；**同一個缺陷已經在這裡登記過**，
+  所以逐字搬進來當本條的狀態更新，不開第二個代號——KI-FOLLOWUP-2 2026-09-12 判。〕
+  逐字（該單 §6）：`RESIDUE_WINDOW` 是 shell 陣列，跟著取窗的那個行程一起死。`cmd_apps stop` 在迴圈前取窗
+  所以它自己那份報告有窗；**teardown 之後的每一次** residue report（`ndt apps orphans`、
+  `ndt status --check`——正好是收工後會跑的那兩個）都讀成 `the window is LOST`，
+  而那一刻正是「規則在線上、裝它的行程不在了」。
+  修法：在**刪 pidfile 的那一行旁邊**寫一筆 `.test_run/apps/<name>.window`
+  （`start=`／`end=`／`by=`，只有 verified stop 才寫），`residue_report` 當第四個來源讀它，
+  `app_start` 負責清（一個 app 一個檔、下一次 start 刪、上界＝五個 app）。
+  🔴 **那筆紀錄帶右邊界**：只有 start 沒有 end 的窗會把「昨天停掉的 sim」窗到現在、把 fabric 自己的
+  baseline 報成殘留（＝永遠紅的動詞，跟永遠綠的一樣沒人讀）⇒ `suspect_rules` 多一個 `until`。
+  證據：`tests/shell/test_ndt_helper_apps_window.sh` §12（13 格先紅）、§9B；
+  `tests/python/test_app_residue_rules.py::TheWindowHasARightEdge`；閘門 M28–M32。
 
 ### G-28 🔴 `ndt claim` 沒有原子性：同一秒兩個 owner 都拿到 rc 0 與「ok lab claimed by 自己」
 
@@ -4369,6 +4399,16 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 - **證據**：`scratch/overnight-2026-09-05/hunt-0911/ROLE-5-TRAFFIC-REPORT.md` §5（L1／L2／L3）；
   raw `logs/ROLE-5/12-posctrl-L1-arithmetic.log`／`18-posctrl-L2-live.log`／`14-posctrl-L3-dup-installs.log`。
   ⚠️ 🟠 轉述；`scratch/`，不在版控。
+- 🏁 **狀態更新（2026-09-11，FIX-NDT-4 #17）——已修（`20f1bd33`），✅ 已併入 trunk
+  （merge `872fa354`，2026-09-11）。**
+  兩半都修了：①判定字串不再指名機制，改印 `DOUBLE-COUNTING -- twin is <r>x ground truth`，
+  底下用**每個 sub-window 的比值＋窗內真值的範圍**分開兩種成因（疊加＝常數因子＋穩定真值、
+  落後＝暫態＋真值動過），分不開時兩個成因並列而誰都不是「發現」；為此 `/proc/net/dev` 改成
+  每次取樣都讀（整窗的 twin／truth 數字不變）。②`cmd_check` 印了 `DOUBLE-COUNTING` 就回 **rc 4**、
+  讀不到 twin 回 1；`under-counting` 仍是 0（理由與待裁見 `fix/FIX-NDT-4-SUMMARY.md` §7-2）。
+  本條記的「沒有流量時不印 ratio、不印判定、rc 0」那個附帶**沒有改**：仍然是
+  `under 1 Mbit/s ... run this while traffic is flowing`＋rc 0。
+  新變異 M22–M28（含兩顆 widening）；`test_ndt_honesty.sh` 4F／4G，餵的是 ROLE-5 存的那份輸出的數字。
 
 ### G-34 🔴 `.test_run/pids/` 自己互相矛盾（死 pidfile ＋ 同一元件的收工紀錄），而沒有任何介面說得出來
 
@@ -4387,6 +4427,18 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   `/proc` 檢查、`ryu.exit` 逐字）。⚠️ 🟠 轉述；`scratch/`，不在版控。
   ⚠️ **歸屬**：那一輪的角色本來就是從殘骸開始，所以殘骸是誰留的 R7 明說不猜；
   **本條的成立與誰造成它無關**——`pids/` 在自我矛盾而沒有介面說得出來。
+- 🏁 **狀態更新（2026-09-11，FIX-NDT-4 #19）——另一半也修了（`009bb502`），✅ 已併入 trunk
+  （merge `872fa354`，2026-09-11）。**
+  FIX-NDT-3 讓 `ndt status` **說得出**那個矛盾（`stack_pidfile_row`）並讓 `supervise.sh` 刪掉自己那份
+  `.child.pid`；這一單讓 **`ndt down` 真的把它清掉**：`stack.sh` 的 `sweep_orphan_exits` 對
+  「有 `.exit`、pidfile 指著的 pid 不在（或沒有 pidfile）」的元件呼叫 `report_exit`
+  並刪掉 `<name>.pid`／`<name>.child.pid`／`<name>.cmd`，**活著的元件一個檔都不動**。
+  附帶修掉的是同一個地方的第二個缺陷：`cmd_down` 原本只掃 fatal，且那段是 `report_exit` fatal 分支的
+  第二份拷貝（已漂），所以 `exit 7` 這種非 fatal 的結束**誰都沒報**。
+  🔴 **但這份回報在 `ndt down` 那一層看不到**——`ndt:2799-2800` 把 `stack.sh down` 的輸出過濾成
+  `grep -E 'stopped|still|held'` 且沒有接它的 rc（`fix/FIX-NDT-4-SUMMARY.md` §7-1 的新缺陷）。
+  🏁 **那一半已於 2026-09-12 由 FIX-NDT-5 A1 修掉**（merge `d7aa176e`）：過濾器改成拒絕清單、
+  `ndt down` 接上 `stack.sh down` 的 rc（rc 的三種來源與讀法見 G-43）。
 
 ### G-35 🔴 兩支語料檢查在**乾淨的 trunk 上就紅**，改前改後一樣紅
 
@@ -4449,6 +4501,22 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 - **實例與逐字原因**寫在 `tools/test_workflow/live_cells/{up_refuses_while_a_down_is_in_flight,
   link_failure_cuts_both_ends_or_neither}.sh` 的 judge 旁邊。
 - **證據**：`fix/CELLS-1-SUMMARY.md` §6 逐字。⚠️ 🟠 轉述；raw 在 `scratch/`，不在版控。
+
+### G-51 🏁 claim 換手留得下痕跡，但沒有介面說得出來
+
+- **狀態**：🟢 **已修（2026-09-11，FIX-NDT-4 #20 ／ R7 I-2 條件 2，`4b205a7d`），✅ 已併入 trunk
+  （merge `872fa354`，2026-09-11）。** (numbered by KI-FOLLOWUP-2；`fix/FIX-NDT-4-SUMMARY.md` §6
+  自己編的 `G-40` 與 FIX-PROXY-2 的 G-40 撞號，依工單號碼表改編)
+- **量到什麼**：R7 04:29:25 對**整份** `ndt status` grep `prev|changed hands|took|handover|previous|was held`
+  ⇒ **0 命中**，而 `lab.claim.prev` 就在旁邊（113 bytes，R7 逐欄比對過它等於變更前那一份）。
+  ⇒ I-2 是「修一半」：證據保存那半好了，**揭露那半沒有**。
+- **附帶（同一節）**：`lab.claim` 與 `lab.claim.prev` 的**欄位順序不一樣**（兩個 printf 寫的），
+  所以任何 `diff` 或比 hash 的檢查會永遠報「有變」。
+- **修法**：`claim_prev_row` 印上一個 claim 的 owner／到期／**被取代的時刻**
+  （`.prev` 的 mtime——claim 格式裡沒有這個欄位）／要讀的檔，**owner 真的變了才說 changed hands**
+  （同一個 owner 重新 claim 是改寫，那是 I-2 殘餘 #1 的形狀）；五個欄位收成一個寫者 `claim_write`。
+- **證據**：`test_ndt_honesty.sh` 6I／6J（9 格先紅）；`fix/FIX-NDT-4-SUMMARY.md` §6 逐字。
+  ⚠️ 🟠 轉述；raw 在 `scratch/`，不在版控。
 
 > 🔗 **A1（`POST /ndt/inject_link_recovery` 把不是自己掛的 netem 也拆掉，2026-09-11 live 3/3）
 > 不在這裡登記**——那一條由 `fix/link-recovery-only-detaches-its-own-netem` 自己登記（09-11 授權）。
