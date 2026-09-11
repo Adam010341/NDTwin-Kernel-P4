@@ -2682,19 +2682,82 @@ teardown_in_flight() {
     return 0
 }
 
+# teardown_in_flight_refusal <action> <"pid at"> -- the two lines every refusal about a teardown
+# that is already running opens with. One function, because three commands now refuse on this
+# one fact -- a bring-up would reuse the fabric being destroyed, a second teardown would steal
+# the marker, and `clean` would call that fabric residue -- and three hand-written versions of
+# one sentence drift apart. ROLE-12 read the pid out of one of them and it was the wrong pid;
+# that is only legible at all because every refusal prints it in the same place.
+teardown_in_flight_refusal() {
+    local action="$1" tif="$2"
+    err "refusing to $action: an 'ndt down' from this checkout is still running."
+    err "  pid ${tif%% *}, started ${tif#* }   ($(down_marker | sed "s|^$REPO/||"))"
+}
+
+# [Co-developed with claude code -- Adam]
+# 🔴 ROLE-12, measured 2026-09-12 02:07:18-02:07:32 (hunt-0911/logs/ROLE-12/c2b-*, the marker
+# sampled every 0.2 s). This marker had no OWNER: the write was an unconditional `pid=$$` and
+# the removal an unconditional `rm -f`, so two `ndt down`s 3 s apart did this --
+#
+#   02:07:18.107  D1 writes the marker, pid=2455882.
+#   02:07:22.115  D2 overwrites it with ITS pid while D1 is still alive, so for the next 11 s
+#                 every bring-up that was refused named the wrong process.
+#   02:07:32.687  D1 finishes first and removes the marker. The marker was D2's. D2 is alive.
+#   02:07:32.691  `ndt up p4 4` is NOT refused, exits 0, and reaches [3/3].
+#
+# H3's guard, switched off by an overlap -- which is the only situation it exists for. Two
+# rules, one missing word: a marker held by a LIVE process is not yours to overwrite, and a
+# marker that does not name your pid is not yours to remove.
 mark_teardown_start() {
-    local f; f="$(down_marker)"
+    local f pid at tif
+    f="$(down_marker)"
+    pid=""; at=""
+    if [[ -f "$f" ]]; then
+        pid="$(sed -n 's/^pid=//p' "$f" | head -1)"
+        at="$(sed -n 's/^at=//p' "$f" | head -1)"
+    fi
+    # teardown_in_flight is the single reader of staleness -- it removes a marker whose pid is
+    # gone, out loud, and reports no teardown -- so asking it here needs no second copy of that
+    # rule, and the dead-marker case keeps behaving exactly as the bring-up guard does.
+    if tif="$(teardown_in_flight)"; then
+        if [[ "${tif%% *}" != "$$" ]]; then
+            teardown_in_flight_refusal "tear down" "$tif"
+            err "  two teardowns of one lab do not take turns. The second would overwrite this"
+            err "  marker with its own pid, and whichever finished first would remove the"
+            err "  other's -- measured 09-12 02:07:32: the marker went away while the teardown"
+            err "  that owned it was still running, and the next 'ndt up p4 4' was not refused"
+            err "  and built on the fabric being destroyed. That is H3 with the guard removed."
+            err "  wait for it to finish, then run 'ndt down'."
+            return 1
+        fi
+        # Our own marker. `cmd_down` re-entered, or wrote it earlier in this same process;
+        # rewriting it changes nothing, and refusing here would refuse ourselves.
+    elif [[ -n "$pid" ]]; then
+        info "taking over the teardown marker left by pid $pid (recorded ${at:-?}): that"
+        info "  process is gone, so nothing is being torn down under it."
+    fi
     mkdir -p "$(dirname "$f")" 2>/dev/null || return 0
     printf 'pid=%s\nat=%s\nby=%s\n' "$$" "$(date '+%Y-%m-%dT%H:%M:%S%z')" "${NDT_OWNER:-unset}" > "$f"
 }
-mark_teardown_end() { rm -f "$(down_marker)"; }
+
+# 🔴 Only ours. The unconditional `rm -f` this replaces is the half of ROLE-12 that actually
+# took the guard away: the teardown that finished first deleted the marker of the one still
+# running. A marker this process did not write is left where it is, and said so -- silence here
+# would be indistinguishable from having removed it.
+mark_teardown_end() {
+    local f pid; f="$(down_marker)"
+    [[ -f "$f" ]] || return 0
+    pid="$(sed -n 's/^pid=//p' "$f" | head -1)"
+    if [[ "$pid" == "$$" ]]; then rm -f "$f"; return 0; fi
+    warn "leaving the teardown marker in place: it records pid ${pid:-?}, not this process ($$)."
+    warn "  removing it would take the H3 guard away from a teardown that is still running."
+}
 
 # guard_no_teardown_in_flight -- the refusal. Called from preflight, which is the one thing both
 # planes run before the machine is touched.
 guard_no_teardown_in_flight() {
     local tif; tif="$(teardown_in_flight)" || return 0
-    err "refusing to build: an 'ndt down' from this checkout is still running."
-    err "  pid ${tif%% *}, started ${tif#* }   ($(down_marker | sed "s|^$REPO/||"))"
+    teardown_in_flight_refusal build "$tif"
     err "  a bring-up that overlaps a teardown does not fail cleanly -- it REUSES the fabric"
     err "  being destroyed. Measured 09-11: [1/3] said 'already up: 10 switches, reusing',"
     err "  [3/3] passed 'model matches fabric', and the fabric was mid-SIGTERM. The teardown"
@@ -2794,7 +2857,12 @@ cmd_down() {
     # session -- looks exactly like a stack that is up. Written AFTER the refusals above, so a
     # `down` that refused to run never claims to be running one, and removed at the single
     # exit below.
-    mark_teardown_start
+    #
+    # 🔴 ROLE-12: it can now REFUSE, and that refusal is a refusal of this whole command. A
+    # second teardown that carried on would overwrite the first one's marker and then delete
+    # it, which is the H3 guard being taken away by the overlap it is for. See the block
+    # comment on mark_teardown_start for the 02:07:18-02:07:32 timeline.
+    mark_teardown_start || return 1
 
     say "ndt down"
 

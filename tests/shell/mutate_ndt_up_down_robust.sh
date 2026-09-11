@@ -546,7 +546,7 @@ report_green "W6 (behaviour-preserving): the refusal's opening line reworded" "$
 # M30 restores H3: nothing records that a teardown is running, so the only reading a P4
 # bring-up can take is the ports -- which look identical coming up and going down.
 m=$(mutant m30 "$NDT" \
-    '    mark_teardown_start
+    '    mark_teardown_start || return 1
 
     say "ndt down"' \
     '    say "ndt down"')
@@ -601,6 +601,43 @@ m=$(mutant m35 "$NDT" \
     if [[ -n "$held" && "$force" != "--force" ]]; then')
 report "M35: a refused teardown still claims to be running" "$m" \
        "  🔴 a refused 'ndt down' writes no marker"
+
+
+# --- ROLE-12 (2026-09-12): the marker has an owner --------------------------------------------
+
+# M40 restores ROLE-12's first half: mark_teardown_start writes `pid=$$` over whatever is there.
+# A second `ndt down` then takes the record of the first one, and for as long as the first is
+# alive every refusal a bring-up gets names the wrong process.
+m=$(mutant m40 "$NDT" \
+    '        if [[ "${tif%% *}" != "$$" ]]; then' \
+    '        if false; then')
+report "M40: the teardown marker is overwritten again (ROLE-12)" "$m" \
+       "🔴 a second 'ndt down' is refused while one is still running"
+
+# M41 restores the other half, and it is the half that actually removed the guard: an
+# unconditional `rm -f`, so the teardown that finishes first deletes the marker of the one still
+# running (02:07:32.687, with the next `ndt up p4 4` unrefused four milliseconds later).
+m=$(mutant m41 "$NDT" \
+    '    if [[ "$pid" == "$$" ]]; then rm -f "$f"; return 0; fi' \
+    '    rm -f "$f"; return 0')
+report "M41: mark_teardown_end removes anybody's marker (ROLE-12)" "$m" \
+       "🔴 mark_teardown_end does not remove a marker that is not its own"
+
+# M42: the refusal is printed and not acted on -- F8's shape, a third time. The operator sees
+# the whole message and the teardown runs anyway.
+m=$(mutant m42 "$NDT" \
+    '    mark_teardown_start || return 1' \
+    '    mark_teardown_start || true')
+report "M42: the second teardown's refusal is not carried to the rc" "$m" \
+       "  🔴 so no stack.sh teardown ran"
+
+# W7 (behaviour-preserving): the explanation under that refusal reworded. Nothing asserts on it,
+# and a suite that went red here would be reading the sentence rather than the refusal.
+m=$(mutant w7 "$NDT" \
+    '            err "  two teardowns of one lab do not take turns. The second would overwrite this"' \
+    '            err "  one lab does not take two teardowns at once. The second would overwrite this"')
+report_green "W7 (behaviour-preserving): the second-teardown explanation reworded" "$m" \
+       "the wording under the refusal is not the behaviour under test"
 
 
 # --- F1: the plane the rate is read for (F-OFFLINE-1 §1.14) -----------------------------------

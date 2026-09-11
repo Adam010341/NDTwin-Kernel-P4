@@ -975,5 +975,82 @@ check "🔴 a clean stack.sh half is still green"            "0" "$(rc_of_out "$
 hasnt "  with nothing said about it"                       "stack.sh down exited" "$OUT"
 
 # ==========================================================================================
+section '14. ROLE-12: the teardown marker has an OWNER'
+# ==========================================================================================
+# Measured live by ROLE-12, 2026-09-12 02:07:18-02:07:32 (hunt-0911/logs/ROLE-12/c2b-*, marker
+# sampled every 0.2 s). The H3 marker had no owner: mark_teardown_start wrote `pid=$$`
+# unconditionally and mark_teardown_end was an unconditional `rm -f`.
+#
+#   02:07:18.107  D1 writes the marker, pid=2455882.          15 samples say so.
+#   02:07:22.115  D2 (a second `ndt down`, same owner) OVERWRITES it with its own pid, while
+#                 D1 is still alive. 55 samples say so -- so for 11 s every bring-up that was
+#                 refused printed the pid of the teardown that was NOT the one it collided with.
+#   02:07:32.687  D1 finishes first and `rm -f`s the marker. The marker was D2's, and D2 is
+#                 still running.
+#   02:07:32.691  `ndt up p4 4` -- NOT refused, rc 0, reached [3/3] with `data plane forwards`.
+#
+# i.e. H3's guard is switched off by an overlap, which is the one thing it exists for. Two
+# rules, one missing word: a marker held by a LIVE process is not yours to overwrite, and a
+# marker that does not name your pid is not yours to remove.
+reset_fix; rm -f "$DM"
+
+# A live teardown that is not this one: the test's own shell, which is certainly alive.
+printf 'pid=%s\nat=2026-09-12T02:07:18+0800\nby=role-12-D1\n' "$$" > "$DM"
+OUT="$(drive 'cmd_down')"
+check "🔴 a second 'ndt down' is refused while one is still running" "1" "$(rc_of_out "$OUT")"
+has   "  naming what it is refusing on"       "an 'ndt down' from this checkout is still running" "$OUT"
+has   "  with the pid that is doing it"       "pid $$" "$OUT"
+has   "  and when that one started"           "2026-09-12T02:07:18+0800" "$OUT"
+has   "  and the remedy"                      "wait for it to finish" "$OUT"
+check "🔴 and the first teardown's marker is untouched" "$$" "$(sed -n 's/^pid=//p' "$DM")"
+# The refusal is decided before the machine is touched, like every other one in cmd_down.
+check "  🔴 so no stack.sh teardown ran"      "absent" \
+      "$(grep -qF down "$FIX/stack.log" && echo present || echo absent)"
+check "  and no sweep ran"                    "absent" \
+      "$(grep -qF cleanup "$FIX/sudo.log" && echo present || echo absent)"
+
+# 🔴 The consequence the 02:07:22 sample is about: a bring-up during the overlap must name the
+# teardown that is really running, not the one that arrived second and overwrote the record.
+OUT="$(drive 'preflight p4')"
+has   "🔴 a bring-up refused during the overlap names the FIRST teardown" "pid $$" "$OUT"
+has   "  and its start time, not the second one's" "2026-09-12T02:07:18+0800" "$OUT"
+
+# 🔴 THE FAILURE THIS MUST NOT CREATE, again: a `down` that was killed leaves the file behind,
+# and a marker that outlived its process must not make the lab permanently un-teardownable
+# either. Same rule as the bring-up guard, and it has to say whose marker it took.
+reset_fix; rm -f "$DM"
+(exit 0) & DEADPID=$!; wait "$DEADPID" 2>/dev/null
+printf 'pid=%s\nat=2026-09-11T23:59:31+0800\nby=killed-round\n' "$DEADPID" > "$DM"
+OUT="$(drive 'cmd_down')"
+check "🔴 a marker whose pid is gone does NOT refuse the teardown" "0" "$(rc_of_out "$OUT")"
+has   "  and it says whose marker it took over"  "taking over the teardown marker left by pid $DEADPID" "$OUT"
+has   "  naming when that one was recorded"      "2026-09-11T23:59:31+0800" "$OUT"
+check "  and the marker is gone when it finishes" "absent" \
+      "$([[ -f "$DM" ]] && echo present || echo absent)"
+
+# 🔴 mark_teardown_end is asserted DIRECTLY, because the refusal above means a second `down`
+# never reaches it -- and the second line of a guard is exactly the one that must not depend on
+# the first line holding. It was this `rm -f` that removed the marker of a LIVE teardown.
+reset_fix; rm -f "$DM"
+printf 'pid=%s\nat=2026-09-12T02:07:18+0800\nby=role-12-D1\n' "$$" > "$DM"
+OUT="$(drive 'mark_teardown_end')"
+check "🔴 mark_teardown_end does not remove a marker that is not its own" "present" \
+      "$([[ -f "$DM" ]] && echo present || echo absent)"
+has   "  and says why it left it"             "leaving the teardown marker in place" "$OUT"
+has   "  naming the pid recorded in it"       "pid $$" "$OUT"
+# ...and the control: it does remove the one it wrote, or one teardown makes the lab unstartable.
+reset_fix; rm -f "$DM"
+OUT="$(drive 'mark_teardown_start >/dev/null; mark_teardown_end
+echo "MARKER=$([[ -f "$(down_marker)" ]] && echo present || echo absent)"')"
+has   "  🔴 and it does remove the one it wrote" "MARKER=absent" "$OUT"
+
+# The no-marker control: nothing about ownership may change an ordinary teardown.
+reset_fix; rm -f "$DM"
+OUT="$(drive 'cmd_down')"
+check "🔴 with no marker at all, the teardown runs as before" "0" "$(rc_of_out "$OUT")"
+hasnt "  and says nothing about another teardown" "is still running" "$OUT"
+hasnt "  nor about taking one over"               "taking over the teardown marker" "$OUT"
+
+# ==========================================================================================
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]
