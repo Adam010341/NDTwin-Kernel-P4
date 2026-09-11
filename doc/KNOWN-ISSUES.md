@@ -4412,9 +4412,15 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 - **證據**：同 G-28 的報告 ②（T5）＋`logs/ROLE-4/06-up-ovs4.log`（含該角色自己寫的 CORRECTION）、
   `17-claim-timeline.txt`。⚠️ 🟠 轉述。
 
-### G-32 🔴 北向 API 完全不看 claim —— **開放設計題（不是已裁的缺陷）**
+### G-32 🟢 北向 API 完全不看 claim —— **已裁：選項 C（報告，不擋）；2026-09-11 已實作**
 
-- **狀態**：**OPEN，設計題**（2026-09-11 ROLE-4 實測 1/1；**要 Adam 裁該不該讓 API 認 claim**）。
+- **狀態**：**RESOLVED（選項 C）**（Adam 2026-09-11 裁「不擋、回應帶 claim 狀態、換手時 log 一行」；
+  `fix/cpp-small-0911` 實作，閘門 `tests/shell/mutate_lab_claim_on_writes.sh`；
+  ✅ 已併入 trunk，merge `f313b1a4`，2026-09-12）。
+  🔴 **原本擔心的事沒有被擋住，是被「說出來」**：過期後仍在寫、別人搶走 claim 後仍在寫，
+  兩者現在都**照樣 200**，差別只在回應多一個 `lab_claim` 物件、而且換手那一刻 kernel log 一行 WARNING。
+  選項 A（409）**明確沒做**：代價 2（所有既有 client 都要帶身分、沒帶的一次全打斷）在四輪 tester
+  正照手冊 clone 的這一週不可接受。
 - **會發生什麼**：A 每 2 秒 `install_flow_entry`＋`delete_flow_entry`，
   **claim 過期那一秒（`claim_left=-1s`）是 http 200，B 搶到 claim 之後（`owner=intruder-0911`,
   `claim_left=-3s`）還是 200**；A 一直到 B 的 `ndt down` 把 kernel SIGTERM 掉才變 `000`，
@@ -4422,6 +4428,17 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 - **為什麼登記成設計題**：claim 是 lab 層的協定、API 是產品層的介面，
   「產品要不要認實驗室協定」沒有被裁過——把它寫成缺陷會替 Adam 做那個決定。
 - **證據**：同 G-28 的報告 ②（T4）＋`logs/ROLE-4/14-t4-expiry.log`／`14b-write-loop.log`。⚠️ 🟠 轉述。
+- **修法做了什麼**（2026-09-11）：`HttpSession::buildResponse()` 的**單一出口**替十二個寫入 target
+  的回應加 `lab_claim {state, owner, expires_at, note}`（200 與 4xx／5xx 都有；讀取端點與
+  `modify_device_name`／`modify_nickname`／`set_switches_power_state` **刻意不標**，
+  Ryu 的通知 `link_failure_detected` 是控制組）。claim 檔由 `NDT_LAB_CLAIM_FILE` 指定，
+  `tools/test_workflow/stack.sh` 起 kernel 那一行 export 成 `$KERNEL_DIR/.test_run/lab.claim`
+  （**`tools/test_workflow/ndt` 一個字都沒動**）。沒設／檔不在／讀不到都是 `state: none`，
+  **不是錯誤**——`--mode physical` 本來就沒有這個檔。log 是**一次換手一行**，不是一次請求一行；
+  第一次讀到的那一次刻意不印（沒有可比的前一次）。`tools/contract_test/spec.py` 的鍵是 **optional**
+  （09-11 之前的 kernel 一個都不發），schema 釘的是**用字**（`none`／`active`／`expired`）。
+- **證據（修法側）**：`scratch/overnight-2026-09-05/fix/FIX-CPP-SMALL-1-SUMMARY.md` §3；
+  閘門 log `logs/gates-0910/mutate_lab_claim_on_writes.cpp1-0911-r1.log`。
 
 ### G-33 🔴 `ndt check` 的 tripwire 把一次連結故障讀成 `DOUBLE-COUNTING`，而 rc 不帶判定
 
@@ -4514,9 +4531,11 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   **逐字相同**（rc 3 ＋ 同一問題清單）」，不要對照 exit 0。
 - **同族**：`ndt apps orphans` 在 kernel down 之後拿不到 rules／locks 那半（G-12 的另一面）。
 
-### G-37 🔴 `mutate_cpu_report_no_ip.sh` 在 trunk 上拿不到綠，而錨點檢查對它說 `ok(12)`
+### G-37 🟢 `mutate_cpu_report_no_ip.sh` 在 trunk 上拿不到綠，而錨點檢查對它說 `ok(12)` —— **已修**
 
-- **狀態**：**OPEN**（2026-09-11 F-B0-B12 §1-2..4 實跑證實；修法要跑整支 C++ 閘門，今晚沒做）。
+- **狀態**：**RESOLVED**（2026-09-11 `fix/cpp-small-0911`；先在 pristine trunk `6c4000eb` 上
+  跑出紅（`INVALID anchor matches 549 times`、rc 1），修完整支跑綠；
+  ✅ 已併入 trunk，merge `f313b1a4`，2026-09-12）。
 - **會發生什麼**：那支閘門的控制組 C2（`control-empty-check-rewritten`）是 5 行 anchor，
   走沒有第 6 個 uniq 參數的 `mutate_must_live` ⇒ `assert_unique` 用 `grep -c -F` 算出 549、
   `str.count` 算出 1 ⇒ 記 **INVALID**、收尾判紅。**那一顆控制組從來沒有被真的施加過**
@@ -4526,6 +4545,12 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   當證據，**引的是另一個問題的答案**。
 - **範圍**：09-10 那批 28 支閘門不受影響（只有 3 支用 `grep -c -F`，且沒有多行被斷言）。
   修法：給那一顆傳 uniq 參數（`mutate_f1_mininet_health_metrics.sh:184` 同形但沒被咬）＋文件改口。
+- **實際修法與偵察建議的不同**：**不是**給那一顆傳 uniq 參數，而是**把 `assert_unique` 的計數換成
+  精確子字串計數**（python，照 `mutate_bx_flow_liveness.sh` 2026-09-08 起的寫法）——傳 uniq 只治這一顆，
+  換計數把「多行 anchor 用 `grep -c -F` 數」這個形狀整支關掉，而既有 11 個呼叫點的 `$6` 全部保留、全部仍成立。
+- 🔴 **`check_gate_anchors.py` 沒有錯、沒有改**：它的 `ok(12)` 來自 `str.count()`，與精確計數一致（都是 1）。
+  不能拿它當「這支閘門的 anchor 都施加得上」的證據——那是另一個問題
+  （`doc/audit/2026-09-04_fix-cpu-report-no-ip/FIX-CPU-REPORT-NO-IP.md:209` 引錯的就是這一點）。
 
 ### G-38 🔴 產品碼裡有兩個活的 `sudo pkill -f simple_switch_grpc`
 
