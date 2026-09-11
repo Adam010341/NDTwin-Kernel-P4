@@ -463,13 +463,25 @@ class LateTopologyFixture : public ::testing::Test
         {
             // Every field the loader reads; it uses at() rather than value(), so an omission
             // throws rather than defaulting.
+            //
+            // [Co-developed with claude code -- Adam]
+            // 🔴 THE ADDRESS IS DERIVED FROM THE dpid, AND UNTIL 2026-09-11 IT WAS THE SAME
+            // LITERAL FOR EVERY SWITCH THIS LOOP GENERATED. Nothing in these four cases is about
+            // addresses -- they are about ofport identity mapping and when the decision is made
+            // -- so the constant went unnoticed, and the two-switch case was describing a fabric
+            // with two switches on one management address: a topology in which
+            // findVertexByIpNoLock can only ever return the first of them. B-15's door now
+            // refuses that document, which is how this was found. Only the input changed; no
+            // assertion in this file was touched.
             nodes.push_back({{"device_name", "s" + std::to_string(dpid)},
                              {"bridge_name", "s" + std::to_string(dpid)},
                              {"nickname", "s" + std::to_string(dpid)},
                              {"brand_name", brand},
                              {"device_layer", 2},
                              {"dpid", dpid},
-                             {"ip", nlohmann::json::array({"192.168.123.11"})},
+                             {"ip",
+                              nlohmann::json::array(
+                                  {"192.168.123." + std::to_string(10 + dpid)})},
                              {"mac", 0},
                              {"smart_plug_ip", ""},
                              {"smart_plug_outlet", 0},
