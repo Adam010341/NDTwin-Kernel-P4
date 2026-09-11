@@ -133,8 +133,13 @@ report "M8: explain() names the problem but not the line that fixes it" "$m" \
 
 # --- the wiring: the callers must READ the table, not keep a copy ---------------------------------
 
+# 🔴 REPOINTED 2026-09-12 (FIX-NDT-7 item 1): the failure branch of this call now puts the P4
+# host knob back before returning, so the one-line form this anchored on is gone. Same mutation
+# -- up_p4 stops asking the guard -- against the line that is there now. check_gate_anchors.py
+# reported MISSING:1 for it, which is what that checker is for: this gate would otherwise have
+# said SURVIVED, and an applier that cannot apply is a hole and never a skip.
 m=$(mutant m9 "$NDT" \
-    '        guard_no_live_ovs || return 1' \
+    '        guard_no_live_ovs || { knob_restore "this bring-up was refused before it changed anything"; return 1; }' \
     '        :')
 report "M9: up_p4 stops asking the guard" "$m" \
        "up_p4 asks guard_no_live_ovs"
