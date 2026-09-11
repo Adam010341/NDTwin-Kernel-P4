@@ -137,14 +137,26 @@ restore() {   # <label> -> 0 clean, 1 not
     # 🔴 The verdict is read from the LINE, not from the rc of `ndt apps orphans` (which is 2 on
     # this machine whenever an app ran as root) and not from grep CLEAN alone -- `NOT CLEAN` and
     # `NOT CHECKED` both contain neither. ded00d06's rc 3 is a refusal too.
-    if (( drc != 0 || crc != 0 )) || ! grep -q '^VERDICT: CLEAN' "$rdir/6-verdict-postclean.txt"; then
+    #
+    # 🔴 A1-b, 2026-09-12. `ndt down` now carries stack.sh's teardown exit status, and one of the
+    # three things that makes that non-zero is a component that ended on a FATAL signal --
+    # reported out of a `.exit` record on disk and delivered ONCE. So a cell that SIGKILLs a
+    # kernel (or a laptop where systemd-oomd did) makes the restore after the NEXT cell red, and
+    # the grid would stop and blame the cell that inherited it. The down rc is RECORDED and
+    # printed either way; what decides "is the lab restored" is the sweep and the orphan verdict,
+    # the two readings that describe the machine as it is NOW rather than how something ended.
+    # The port-still-held and could-not-stop-it halves of that rc are not lost by this: `ndt
+    # clean` walks the whole port table and is read below.
+    local downnote=""
+    (( drc != 0 )) && downnote="  🔴 ndt down rc=$drc (recorded; see $rdir/3-down.log)"
+    if (( crc != 0 )) || ! grep -q '^VERDICT: CLEAN' "$rdir/6-verdict-postclean.txt"; then
         echo "RESTORE-FAIL after $lab: down rc=$drc clean rc=$crc verdict:" >&2
         grep '^VERDICT:' "$rdir/6-verdict-postclean.txt" | sed 's/^/    /' >&2
         echo "    raw: $rdir" >&2
         return 1
     fi
-    printf 'RESTORE ok  after %-40s down=%s clean=%s %s\n' "$lab" "$drc" "$crc" \
-        "$(grep -m1 '^VERDICT:' "$rdir/6-verdict-postclean.txt")"
+    printf 'RESTORE ok  after %-40s down=%s clean=%s %s%s\n' "$lab" "$drc" "$crc" \
+        "$(grep -m1 '^VERDICT:' "$rdir/6-verdict-postclean.txt")" "$downnote"
     return 0
 }
 

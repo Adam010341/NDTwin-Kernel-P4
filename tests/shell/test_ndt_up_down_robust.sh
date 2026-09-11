@@ -939,5 +939,41 @@ OUT="$(drive 'UP_STARTED=(stack); rollback_up "verification failed"')"
 has  "🔴 the rollback path prints it too"               "kernel did not stop cleanly" "$OUT"
 
 # ==========================================================================================
+section '13. A1-b: a stack.sh teardown that failed makes ndt down non-zero'
+# The other half of FIX-NDT-4 section 7-1. `out=$(... stack.sh down ...)` threw the exit status
+# away here while the rollback path a thousand lines up kept it, so B-5's two channels -- the
+# message and the rc -- were both shut at the one command an operator runs to finish a round.
+reset_fix; rc_for stack_down 1
+out_for stack_down "  🔴 kernel did not stop cleanly: killed by SIGKILL
+     evidence: $FIX/.test_run/pids/kernel.exit, and the tail of $FIX/.test_run/logs/kernel.log
+  teardown itself worked, but something crashed rather than stopped:
+    kernel(137)"
+OUT="$(drive 'cmd_down')"
+check "🔴 'ndt down' is red when its stack.sh half was red" "1" "$(rc_of_out "$OUT")"
+has   "  and names which half"                             "stack.sh down exited 1" "$OUT"
+has   "  with the component that crashed"                  "kernel(137)" "$OUT"
+
+# 🔴 The control against the obvious wrong fix, an early return. A teardown whose first step
+# failed is the teardown that most needs the other three to run: the topology session, the
+# sweep, and the assertion are what decide whether the machine is usable at all.
+SUDO="$(cat "$FIX/sudo.log")"
+has   "🔴 the topology session is still stopped"           "topo-stop" "$SUDO"
+has   "  the sweep still runs"                             "cleanup" "$SUDO"
+has   "  and the machine is still verified"                "verify clean" "$OUT"
+
+# ...including the baseline removal, which is what makes the NEXT `status --check` honest.
+reset_fix; rc_for stack_down 1; printf 'x\n' > "$FIX/.test_run/up.target"
+OUT="$(drive 'cmd_down')"
+check "🔴 and the up-target baseline is still cleared"     "absent" \
+      "$([[ -f "$FIX/.test_run/up.target" ]] && echo present || echo absent)"
+
+# The other direction: a teardown whose stack.sh half was clean must not go red, or every
+# round ends in a false alarm and the rc stops meaning anything.
+reset_fix; rc_for stack_down 0
+OUT="$(drive 'cmd_down')"
+check "🔴 a clean stack.sh half is still green"            "0" "$(rc_of_out "$OUT")"
+hasnt "  with nothing said about it"                       "stack.sh down exited" "$OUT"
+
+# ==========================================================================================
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]

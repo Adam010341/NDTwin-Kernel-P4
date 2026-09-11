@@ -800,6 +800,25 @@ check "  the no-baseline branch still returns 3" "1" \
 check "  and the process answer still wins in cmd_apps orphans" "1" \
       "$(grep -c 'if (( orc != 0 )); then' "$NDT")"
 
+section "5D. A1-b: 'down' has an rc table, and it names the red that comes from an earlier round"
+# 🔴 The teardown gained an exit code it did not have (`stack.sh down` non-zero is now `ndt down`
+# non-zero, Adam's ruling 2026-09-12), and one of the three things behind it is read from a
+# `.exit` record ON DISK. So the first `ndt down` after a round in which something was SIGKILLed
+# -- systemd-oomd does that on this laptop -- exits 1 for an ending that already happened. An
+# operator who is not told that reads it as "this teardown failed" and goes looking for a fabric
+# that is gone; the one after it is green again, which makes it look intermittent as well.
+has   "  🔴 down has an rc table at all"                 "exit 0 the teardown finished" "$HELP"
+has   "  naming the stack half as one cause of 1"        "stack.sh's half exited non-zero" "$HELP"
+has   "  🔴 and that rc 1 can be an ENDING FROM AN EARLIER ROUND" "ENDING FROM AN EARLIER ROUND" "$HELP"
+has   "  naming the signals that produce it"             "SIGKILL" "$HELP"
+has   "  and the file it is read out of"                 ".test_run/pids/<name>.exit" "$HELP"
+has   "  🔴 and that it is delivered once, so the next down is green" "delivered once" "$HELP"
+has   "  with the two statements kept apart"             "are not the same statement" "$HELP"
+# 🔴 Checked against the code, not against itself: a text-only assertion would go on passing if
+# the rc stopped being carried.
+check "  the rc the table describes is really carried"   "1" \
+      "$(grep -c 'the kernel/proxy/Ryu half did not end cleanly' "$NDT")"
+
 # ==========================================================================================
 section "F9. this suite reads its OWN tree, and not the main checkout"
 # ==========================================================================================
@@ -1093,11 +1112,19 @@ mk_claim_m() {  # <owner> <seconds-from-now> <note> <measuring>
 #     over an unexercised branch.
 #   * sudo returns 0. The real cmd_down reads the sweep's rc (FINDING #21), so a sudo stub that
 #     refuses makes down_rc 1 on every path and "the teardown runs" can never be observed.
+#   * 🔴 STACK exists and succeeds (A1-b, 2026-09-12). cmd_down now reads `stack.sh down`'s exit
+#     status too, and a STACK that is not there is bash's 127 -- a true red, because the first
+#     step of the teardown did not run. Four cells here went red on that and every one of them
+#     is about the CLAIM, not about the stack; a fixture that cannot reach "the teardown runs"
+#     proves nothing about the declaration guard. That the failed stack half IS red is asserted
+#     where it belongs: tests/shell/test_ndt_up_down_robust.sh section 13.
+printf '#!/usr/bin/env bash\necho "  stopped kernel"\nexit 0\n' > "$FIX/stack-ok.sh"
+chmod +x "$FIX/stack-ok.sh"
 down_run() {
     bash -c "source '$NDT' >/dev/null 2>&1
 REPO='$FIX'
 CLAIM=\"\$REPO/.test_run/lab.claim\"
-STACK='$FIX/no-such-stack.sh'; LAB='$FIX/no-such-lab'
+STACK='$FIX/stack-ok.sh'; LAB='$FIX/no-such-lab'
 export NDT_OWNER=fixture-owner
 sudo() { return 0; }
 in_flight() { :; }

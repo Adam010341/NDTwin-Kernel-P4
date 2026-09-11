@@ -2829,9 +2829,33 @@ cmd_down() {
     # cleaning up first leaves a tmux session whose bridge then tries to tear down a fabric
     # that is already gone.
     say "[1/3] kernel + proxy/Ryu"
-    local out
-    out="$(NO_COLOR=1 bash "$STACK" down 2>&1)"
+    # [Co-developed with claude code -- Adam]
+    # 🔴 A1-b, Adam's ruling 2026-09-12 (FIX-NDT-4 section 7-1, "both"). This call dropped the
+    # exit status while rollback_up's identical call a thousand lines up kept it -- so B-5's two
+    # channels, the message and the rc, were both shut at the one command an operator runs to
+    # finish a round. stack.sh cmd_down is non-zero for three things a teardown must not hide:
+    # a port still held, a component this stack started that stop_one could not stop, and a
+    # component that ended on a FATAL signal.
+    #
+    # 🔴 THE EXPECTED NEW RED. That third one is reported from a `.exit` record on disk, and
+    # report_exit delivers it ONCE, so a round in which somebody SIGKILLed the kernel (or
+    # systemd-oomd did) makes the NEXT `ndt down` exit 1 -- for an ending that really happened
+    # and that nothing else on this machine would say. It clears itself on that one report. See
+    # the rc table under `down` in `ndt help`, and run_cells.sh's restore, which records a
+    # non-zero down and goes on to judge the machine by the sweep and the orphan verdict.
+    #
+    # Recorded, not returned: the remaining steps are exactly the ones a failed first step makes
+    # more important, and down_rc is the single verdict this function ends on.
+    local out src
+    out="$(NO_COLOR=1 bash "$STACK" down 2>&1)"; src=$?
     stack_down_lines "$out"
+    if (( src != 0 )); then
+        err "stack.sh down exited $src -- the kernel/proxy/Ryu half did not end cleanly;"
+        err "  what it found is printed above. A component that died of a fatal signal is"
+        err "  reported from its .exit record, so this can be an ENDING FROM AN EARLIER ROUND,"
+        err "  reported once. The teardown continues; this is carried to the exit code."
+        down_rc=1
+    fi
 
     say "[2/3] topology session"
     sudo -n "$LAB" topo-stop 2>&1 | sed 's/^/      /'
@@ -7130,6 +7154,21 @@ usage: ndt <command>
                   --deep also kills whatever still holds :8000/:8080/:8081, including
                   processes this stack did not start. Off by default: without it, a
                   stray is reported and left alone rather than killed.
+                  exit 0 the teardown finished and the machine verified clean; 1 any
+                  of: stack.sh's half exited non-zero, the sweep did not finish, or
+                  the assertion found something still running. All four steps run
+                  whatever the earlier ones did -- a first step that failed is what
+                  makes the rest matter -- so the rc is one verdict over all of them
+                  and the block above it says which.
+                  🔴 rc 1 CAN BE AN ENDING FROM AN EARLIER ROUND. stack.sh reports a
+                  component that died of a fault -- SIGKILL (systemd-oomd does this on
+                  this laptop), SIGABRT, SIGSEGV -- out of .test_run/pids/<name>.exit,
+                  and that file outlives the round that wrote it. It is delivered once
+                  and then removed, so the NEXT 'ndt down' is green again. "This
+                  teardown failed" and "something crashed, once, and nobody had been
+                  told" are not the same statement: read the [1/3] block, which names
+                  the component, before you go looking for a fabric that is gone.
+                  (A1, 2026-09-12)
   status [--check]     what is running, who has the lab, and the state that
                 decides every number. --check also exits non-zero on anything
                 that would make a measurement untrustworthy.
