@@ -49,6 +49,7 @@ from mininet.log import setLogLevel
 
 import grpc_ports
 from p4_testbed_topo import (MANIFEST_PATH, MultiSwitchTopo, _host_count_override,
+                             abort_if_grpc_ports_are_held,
                              clear_switches_from_a_previous_run, disable_host_offloads,
                              partial_fabric_verdict, reap_manifest_switches,
                              resolve_bmv2_launcher, verify_switches, write_manifest)
@@ -101,7 +102,11 @@ def main() -> None:
     # `os.system('sudo pkill -f simple_switch_grpc > /dev/null 2>&1')`; see
     # clear_switches_from_a_previous_run for what replaced it and why.
     os.system('sudo mn -c > /dev/null 2>&1')
-    clear_switches_from_a_previous_run(ports=wanted_ports)
+    _, still_held = clear_switches_from_a_previous_run(ports=wanted_ports)
+    # And the refusal, in the file that actually runs: ndtwin-lab starts THIS script, so a
+    # decision written only in p4_testbed_topo.main is a decision nothing executes. Adam ruled
+    # abort-rather-than-warn on 2026-09-12; the reasons are in abort_if_grpc_ports_are_held.
+    abort_if_grpc_ports_are_held(still_held)
     time.sleep(0.5)
 
     net = Mininet(topo=MultiSwitchTopo(), controller=None, autoSetMacs=True)

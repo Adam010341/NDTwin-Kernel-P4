@@ -5,6 +5,7 @@ import json
 import os
 import signal
 import socket
+import subprocess
 import sys
 import tempfile
 import time
@@ -668,11 +669,15 @@ def clear_switches_from_a_previous_run(manifest_path=MANIFEST_PATH, ports=(), re
     process nothing owns. write_manifest replaces the whole file later in this run anyway, and
     stale entries are inert because process_is_a_switch re-checks every pid.
 
-    Reports and continues rather than aborting: BMv2Switch.failure_reason already reads the
-    switch's own log and says "gRPC port N was already in use -- most likely a leftover
-    simple_switch_grpc from an earlier run", and partial_fabric_verdict already turns that into
-    a non-zero verdict. What this adds is saying so BEFORE the bind fails, not a second policy
-    for what to do about it.
+    Reports; it does not decide. This function's job ends at "these ports are still held, and
+    here is how to find out by whom". What to DO about that is abort_if_grpc_ports_are_held,
+    which both mains call on the second half of this function's return value.
+
+    2026-09-12: that decision used to be "warn and go on", and it was written here, in this
+    docstring, as a reason rather than as a choice. It is a choice, Adam ruled it, and it is now
+    "refuse" -- see abort_if_grpc_ports_are_held for what the warn-and-continue path cost. The
+    split is kept because the two halves fail differently: reporting must never raise (teardown
+    and tests call it), and refusing must never happen anywhere except a main.
 
     Returns (reaped_names, ports_still_held). Never raises.
     """
@@ -698,10 +703,101 @@ def clear_switches_from_a_previous_run(manifest_path=MANIFEST_PATH, ports=(), re
         report("  This script will not choose a process to signal by matching its name, so it "
                "is leaving them alone. Find the owner by the port it is holding:")
         report("    sudo ss -ltnp \"sport = :%d\"" % held[0])
-        report("  The switches on those ports will fail to bind, and each one will be named "
-               "with its own log path in the verification report below.")
+        report("  The switch on each of those ports would fail to bind. The caller decides "
+               "what that is worth -- see abort_if_grpc_ports_are_held.")
         report("")
     return reaped, held
+
+
+def port_owner_line(port, run=None):
+    """
+    The `ss -ltnp` line for whatever is listening on `port` right now, or None.
+
+    [Co-developed with claude code -- Adam]
+    Asked BY THE PORT, which is the whole distinction this file spent 2026-09-11 learning: a
+    port is a fact about a socket the kernel owns, a name is a string the target process
+    chose. `sport = :N` is a filter ss evaluates, not a pattern matched against argv, so this
+    lookup cannot select the wrong process the way `pgrep -f` can -- and nothing is signalled
+    on the strength of it either way; the line is printed at a human.
+
+    None when the owner cannot be read, which is a real case rather than a failure: the
+    process column needs privilege to name a process belonging to another user, and a machine
+    without iproute2 has no `ss` at all. The caller must say "could not read" rather than
+    treat an unnamed owner as an absent one -- the port is held in both cases.
+    """
+    run = run or _run_read_only
+    try:
+        rc, out = run(["ss", "-ltnp", "sport = :%d" % port])
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if rc != 0:
+        return None
+    for line in out.splitlines():
+        line = line.strip()
+        if not line or line.startswith("State") or line.startswith("Netid"):
+            continue
+        return " ".join(line.split())
+    return None
+
+
+def _run_read_only(argv, timeout=3.0):
+    """argv with a hard timeout and no shell. Returns (rc, stdout)."""
+    p = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+    return p.returncode, p.stdout
+
+
+def abort_if_grpc_ports_are_held(held, owner_of=None, report=print, exit_=sys.exit):
+    """
+    Refuse to build the fabric when a gRPC port this run needs is still held. Adam, 2026-09-12.
+
+    [Co-developed with claude code -- Adam]
+    The previous policy was to warn and go on, and the warning was accurate: BMv2Switch
+    .failure_reason reads the switch's own log and names the port, and partial_fabric_verdict
+    turns that into a non-zero verdict. Both still happen. What neither of them does is STOP,
+    and continuing is what costs:
+
+      * the fabric that gets built has fewer switches than the topology declares, and every
+        number measured on it afterwards belongs to a population nobody wrote down. The 128-host
+        rounds are the case that settles it -- one missing switch there is 16 hosts that never
+        answer, and the run is over by the time the verdict is read;
+      * "it was reported" is not "someone read it". The report arrives in the middle of
+        Mininet's own output, after the operator has already started waiting.
+
+    Held by WHOM is printed, not just which port: a refusal an operator cannot act on is a
+    slower warning. The owner is read by port (port_owner_line) and never matched by name, and
+    an owner that could not be read is said so -- an unreadable owner must not print like an
+    absent one, and neither is a reason to start on a port that is demonstrably taken.
+
+    Nothing is signalled here. This function has no kill seam, by construction: the fix that
+    replaced `pkill -f simple_switch_grpc` cannot be allowed to grow one back in the function
+    whose whole subject is a process it could not identify.
+
+    Called only from a main -- `exit_` is injected so the tests observe the refusal instead of
+    taking the interpreter down with them.
+    """
+    if not held:
+        return
+    owner_of = owner_of or port_owner_line
+    report("")
+    report("FATAL: %d gRPC port(s) this run needs are still held after the reset: %s"
+           % (len(held), ", ".join(str(p) for p in held)))
+    for port in held:
+        line = owner_of(port)
+        if line:
+            report("  :%d is held by  %s" % (port, line))
+        else:
+            report("  :%d is held, and the owner could not be read here (naming another "
+                   "user's process needs root, and a box without iproute2 has no ss at all)"
+                   % port)
+    report("  Check it yourself, and stop the owner by the pid that line names -- never by "
+           "its name:")
+    for port in held:
+        report("      sudo ss -ltnp 'sport = :%d'" % port)
+    report("  Refusing to start. A fabric built now would be missing the switch on each of "
+           "those ports, and every measurement taken on it would belong to a topology that "
+           "was never declared.")
+    report("")
+    exit_(1)
 
 
 def main():
@@ -746,7 +842,10 @@ def main():
     # `os.system('sudo pkill -f simple_switch_grpc > /dev/null 2>&1')` -- see
     # clear_switches_from_a_previous_run for why that was the wrong instrument and why the pid
     # was available the whole time.
-    clear_switches_from_a_previous_run(ports=wanted_ports)
+    _, still_held = clear_switches_from_a_previous_run(ports=wanted_ports)
+    # And a port the reap could not free stops the run here, before Mininet is built. Adam
+    # ruled that on 2026-09-12; the reasons are in abort_if_grpc_ports_are_held.
+    abort_if_grpc_ports_are_held(still_held)
     time.sleep(0.5)  # let the ports actually be released before anything tries to bind
 
     topo = MultiSwitchTopo()

@@ -908,6 +908,200 @@ class ClearSwitchesFromAPreviousRunTest(unittest.TestCase):
         self.assertEqual(self.slept, [])
 
 
+def testbed_source():
+    """The text of the p4_testbed_topo.py under test, and its directory.
+
+    Reads P4_TESTBED_TOPO_UNDER_TEST the same way load_testbed_module does, so that
+    mutate_startup_clears_by_pid.sh's temp-dir copy is what the source-level assertions below
+    read too. Without this a mutation that deletes a call in main() would be invisible to them
+    and would be scored a survivor of the wrong thing. [Co-developed with claude code -- Adam]
+    """
+    path = os.environ.get("P4_TESTBED_TOPO_UNDER_TEST") or os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "mininet", "p4_testbed_topo.py")
+    with open(path) as fh:
+        return fh.read(), os.path.dirname(os.path.abspath(path))
+
+
+class AbortOnHeldGrpcPortsTest(unittest.TestCase):
+    """
+    Startup's SECOND half: what to do about a gRPC port the reset could not free.
+
+    Until 2026-09-12 the answer was "warn and go on", and the warning said so -- "The switches
+    on those ports will fail to bind, and each one will be named with its own log path in the
+    verification report below". That is a report, and a report is not a decision. What it buys
+    an operator is a fabric with nine switches where the topology says ten, built anyway, with
+    every measurement taken afterwards belonging to a population nobody declared. The 128-host
+    rounds are the case that settles it: a missing switch there is 16 hosts that are not
+    reachable, and the run that produced the numbers is over by the time anyone reads the log.
+
+    So the policy is now: a held port ABORTS the bring-up, before Mininet is built. Expected
+    behaviour below is what an operator needs in order to act on the abort -- which port, who
+    holds it, and how to check that for themselves -- not what the new function does.
+
+    🔴 Nothing here signals anything and nothing here runs `ss`: the owner lookup and sys.exit
+    are both injected. The one thing a test must not do is act on a port some other session on
+    this machine is legitimately using. [Co-developed with claude code -- Adam]
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mod = load_testbed_module()
+
+    def setUp(self):
+        self.said = []
+        self.exits = []
+        self.asked = []
+
+    def abort(self, held, owners=None, **kw):
+        owners = owners or {}
+
+        def owner_of(port):
+            self.asked.append(port)
+            return owners.get(port)
+
+        return self.mod.abort_if_grpc_ports_are_held(
+            held, owner_of=owner_of, report=self.said.append, exit_=self.exits.append, **kw)
+
+    def report(self):
+        return "\n".join(self.said)
+
+    def test_a_clean_start_is_not_aborted_and_is_quiet(self):
+        self.abort([])
+        self.assertEqual(self.exits, [], "a fabric whose ports are free must start")
+        self.assertEqual(self.said, [])
+
+    def test_a_held_port_stops_the_run_with_a_non_zero_status(self):
+        self.abort([53203])
+        self.assertEqual(self.exits, [1],
+                         "a bring-up that goes on without the switch on :53203 hands every "
+                         "later measurement a fabric smaller than the topology it claims")
+
+    def test_every_held_port_is_named_not_just_the_first(self):
+        self.abort([53203, 53207])
+        self.assertIn("53203", self.report())
+        self.assertIn("53207", self.report(),
+                      "naming one of two held ports leaves the operator to discover the "
+                      "second one the next time the run aborts")
+
+    def test_the_owner_of_each_held_port_is_printed_verbatim(self):
+        line = ('LISTEN 0 10 0.0.0.0:53203 0.0.0.0:* '
+                'users:(("simple_switch_g",pid=91234,fd=9))')
+        self.abort([53203], owners={53203: line})
+        self.assertIn(line, self.report(),
+                      "the whole point of aborting instead of warning is that the operator is "
+                      "told WHO to stop; a port number alone is the warning again")
+        self.assertIn("91234", self.report(),
+                      "the pid is what they act on -- by pid, never by name")
+
+    def test_an_owner_that_could_not_be_read_says_so(self):
+        self.abort([53203], owners={})
+        self.assertIn("53203", self.report())
+        self.assertNotIn("None", self.report(),
+                         "an unreadable owner printed as None reads like a value")
+        self.assertTrue(any("could not" in line for line in self.said),
+                        "a lookup that failed must not look the same as a port nobody holds")
+
+    def test_the_abort_says_how_to_check_it_by_the_port(self):
+        self.abort([53205])
+        self.assertIn("sport = :53205", self.report(),
+                      "an operator who is not told how to look is left with the name match "
+                      "this whole change removed")
+
+    def test_the_owner_is_asked_about_every_held_port(self):
+        self.abort([1, 2, 3])
+        self.assertEqual(self.asked, [1, 2, 3])
+
+    def test_it_aborts_even_when_no_owner_can_be_named(self):
+        # The lookup needs root to name another user's process. Failing to name the owner is
+        # not a reason to start on a port that is demonstrably taken.
+        self.abort([53203], owners={})
+        self.assertEqual(self.exits, [1])
+
+
+class PortOwnerLineTest(unittest.TestCase):
+    """The `ss -ltnp` read itself. The command is built here and the runner is injected, so no
+    subprocess starts. [Co-developed with claude code -- Adam]"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mod = load_testbed_module()
+
+    def ask(self, port, rc=0, out="", boom=None):
+        seen = []
+
+        def run(argv):
+            seen.append(argv)
+            if boom is not None:
+                raise boom
+            return rc, out
+        return self.mod.port_owner_line(port, run=run), seen
+
+    SS = ("State  Recv-Q Send-Q Local Address:Port  Peer Address:Port Process\n"
+          'LISTEN 0      10       0.0.0.0:53203      0.0.0.0:*    '
+          'users:(("simple_switch_g",pid=91234,fd=9))\n')
+
+    def test_the_question_is_asked_by_the_port(self):
+        _, seen = self.ask(53203, out=self.SS)
+        self.assertEqual(seen, [["ss", "-ltnp", "sport = :53203"]],
+                         "asked by the port it holds, never by a name the process carries")
+
+    def test_the_listener_line_is_returned_and_the_header_is_not(self):
+        line, _ = self.ask(53203, out=self.SS)
+        self.assertIn("pid=91234", line)
+        self.assertNotIn("Recv-Q", line)
+
+    def test_a_port_with_no_listener_reads_as_unknown(self):
+        line, _ = self.ask(53203, rc=0, out="State Recv-Q Send-Q Local Address:Port\n")
+        self.assertIsNone(line)
+
+    def test_a_missing_ss_is_unknown_rather_than_an_exception(self):
+        line, _ = self.ask(53203, boom=FileNotFoundError("ss"))
+        self.assertIsNone(line, "a machine without iproute2 must still be able to abort")
+
+    def test_a_non_zero_ss_is_unknown(self):
+        line, _ = self.ask(53203, rc=2, out="")
+        self.assertIsNone(line)
+
+
+class BothMainsRefuseAHeldPortTest(unittest.TestCase):
+    """
+    Both topologies abort, asserted on the source text of each main.
+
+    This is a source-level assertion and it is one on purpose: main() builds a real Mininet and
+    cannot be called from a unit test, and the thing that has to be true is precisely that the
+    call is present in BOTH files. FIX-PROXY-1's finding is the reason the weaker test is worth
+    having: the copy that actually runs is ntg_bmv2_topo.py -- ndtwin-lab starts that one, not
+    p4_testbed_topo.py -- and for as long as both files existed the defect lived in both of
+    them while every test looked at one. [Co-developed with claude code -- Adam]
+    """
+
+    def mains(self):
+        """{filename: the text of its main()}. Sliced at `def main(` on purpose: the function
+        being DEFINED in p4_testbed_topo.py says nothing about either file CALLING it, and a
+        test that cannot tell those apart would stay green on the defect it exists for."""
+        text, here = testbed_source()
+        with open(os.path.join(here, "ntg_bmv2_topo.py")) as fh:
+            ntg = fh.read()
+        return {"p4_testbed_topo.py": text[text.index("def main("):],
+                "ntg_bmv2_topo.py": ntg[ntg.index("def main("):]}
+
+    def test_each_main_aborts_on_what_the_reset_could_not_free(self):
+        for name, text in self.mains().items():
+            with self.subTest(file=name):
+                self.assertIn("abort_if_grpc_ports_are_held(", text,
+                              f"{name}'s main() goes on building a fabric on a port it knows "
+                              f"is taken")
+
+    def test_each_main_aborts_after_the_reset_not_before_it(self):
+        for name, text in self.mains().items():
+            with self.subTest(file=name):
+                reset = text.index("clear_switches_from_a_previous_run(ports=")
+                abort = text.index("abort_if_grpc_ports_are_held(")
+                self.assertLess(reset, abort,
+                                f"{name} must decide on what is STILL held after the reap, "
+                                f"not on what was held before it")
+
+
 class GrpcPortIsOpenTest(unittest.TestCase):
     """The probe itself, against a real socket on an ephemeral port -- it is the one part of
     the reset that cannot be injected away without testing nothing."""
