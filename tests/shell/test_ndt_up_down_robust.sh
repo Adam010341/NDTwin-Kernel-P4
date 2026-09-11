@@ -125,7 +125,13 @@ case "$1 ${2:-}" in
     "up p4")
         echo "[1/3] data plane"; echo "started"; exit "$(rc_of stack_up)" ;;
     "down"*)
-        echo "stopped kernel"; echo "stopped ryu"; exit "$(rc_of stack_down)" ;;
+        # A1: what a teardown SAYS is a fixture too, not two hard-coded lines. `out.stack_down`
+        # is how section 12 replays stack.sh cmd_down's real prose -- report_exit's two halves,
+        # sweep_orphan_exits' registry line, the port table's consequence/remedy pair and the
+        # crash sentence with its names line -- through ndt's own filter.
+        if [[ -f "$FIX/out.stack_down" ]]; then cat "$FIX/out.stack_down"
+        else echo "stopped kernel"; echo "stopped ryu"; fi
+        exit "$(rc_of stack_down)" ;;
 esac
 exit 0
 FAKE
@@ -880,6 +886,93 @@ mk_topo StaticNetworkTopologyP4_10Switches_128Hosts.json 128 288
 OUT="$(NDT_TOPO="$FIX/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json" drive 'up_p4 4')"
 check "  the rc-3 refusal still fires"                     "1" "$(rc_of_out "$OUT")"
 has   "  and still carries the reason out of the subshell" "4 host(s) asked for on the p4 plane, 128 declared" "$OUT"
+
+# ==========================================================================================
+section '12. A1-a: what stack.sh down said reaches the operator, instead of being filtered'
+# FIX-NDT-4 section 7-1, Adam's ruling 2026-09-12 ("both"). ndt down piped stack.sh's teardown
+# output through `grep -E 'stopped|still|held'`. Measured at the text layer on 09-12 (the real
+# messages through the real regex, logs/gates-0910/red-A1a-textlayer.ndt5-0912-r1.log): six of
+# the eight lines that matter were dropped, and the one that got through --
+# "teardown itself worked, but something crashed rather than stopped:" -- had its own next
+# line, the NAMES, eaten. Every message below is copied from tools/test_workflow/stack.sh.
+STACK_DOWN_REAL="Shutting down (reverse order)
+  stopped kernel
+  🔴 ryu did not stop cleanly: killed by SIGABRT
+     evidence: $FIX/.test_run/pids/ryu.exit, and the tail of $FIX/.test_run/logs/ryu.log
+  ryu exit status 7 (exited)
+  cleared ryu's stale registry files (pid gone): ryu.pid ryu.child.pid
+  -> the next bring-up cannot bind :8000
+  find and stop it, or the next 'up' will report on it:
+  teardown itself worked, but something crashed rather than stopped:
+    ryu(134)
+Mininet was started manually; clean it up with:  sudo mn -c"
+
+reset_fix; out_for stack_down "$STACK_DOWN_REAL"
+OUT="$(drive 'cmd_down')"
+has  "🔴 the crash half of B-5 arrives"                 "ryu did not stop cleanly" "$OUT"
+has  "  and the evidence it names arrives with it"      "evidence:" "$OUT"
+has  "🔴 a plain non-zero ending arrives (#19)"         "ryu exit status 7" "$OUT"
+has  "🔴 the stale registry files it cleared are named" "cleared ryu's stale registry files" "$OUT"
+has  "  the port table's consequence line"              "the next bring-up cannot bind :8000" "$OUT"
+has  "  and the remedy printed under it"                "find and stop it" "$OUT"
+has  "🔴 the crash sentence keeps its subject"          "ryu(134)" "$OUT"
+has  "  the ordinary 'stopped <name>' lines still show" "stopped kernel" "$OUT"
+
+# 🔴 The control against "just delete the filter". Two lines are dropped on purpose, because
+# `ndt down` answers both better itself: its own [1/3] banner, and `sudo mn -c` -- which is
+# wrong advice inside `ndt down`, whose step [3/3] runs the sweep.
+hasnt "🔴 stack.sh's own banner is not repeated"        "Shutting down (reverse order)" "$OUT"
+hasnt "🔴 nor the 'sudo mn -c' advice ndt down obsoletes" "sudo mn -c" "$OUT"
+
+# 🔴 The direction an allowlist cannot hold: the filter must not decide what a FUTURE message
+# from stack.sh is worth. This is the cell that goes red if anyone re-narrows it to a list of
+# words, which is how the defect was written in the first place.
+reset_fix; out_for stack_down "  a sentence stack.sh learned to print after this filter was written"
+OUT="$(drive 'cmd_down')"
+has  "🔴 a message this filter has never seen is not dropped" \
+     "learned to print after this filter" "$OUT"
+
+# One filter, both call sites. The rollback path (ndt's rollback_up, `stack` stage) had the
+# same grep, and a bring-up that rolls back is the other moment the crash half matters.
+reset_fix; out_for stack_down "  🔴 kernel did not stop cleanly: killed by SIGKILL"
+OUT="$(drive 'UP_STARTED=(stack); rollback_up "verification failed"')"
+has  "🔴 the rollback path prints it too"               "kernel did not stop cleanly" "$OUT"
+
+# ==========================================================================================
+section '13. A1-b: a stack.sh teardown that failed makes ndt down non-zero'
+# The other half of FIX-NDT-4 section 7-1. `out=$(... stack.sh down ...)` threw the exit status
+# away here while the rollback path a thousand lines up kept it, so B-5's two channels -- the
+# message and the rc -- were both shut at the one command an operator runs to finish a round.
+reset_fix; rc_for stack_down 1
+out_for stack_down "  🔴 kernel did not stop cleanly: killed by SIGKILL
+     evidence: $FIX/.test_run/pids/kernel.exit, and the tail of $FIX/.test_run/logs/kernel.log
+  teardown itself worked, but something crashed rather than stopped:
+    kernel(137)"
+OUT="$(drive 'cmd_down')"
+check "🔴 'ndt down' is red when its stack.sh half was red" "1" "$(rc_of_out "$OUT")"
+has   "  and names which half"                             "stack.sh down exited 1" "$OUT"
+has   "  with the component that crashed"                  "kernel(137)" "$OUT"
+
+# 🔴 The control against the obvious wrong fix, an early return. A teardown whose first step
+# failed is the teardown that most needs the other three to run: the topology session, the
+# sweep, and the assertion are what decide whether the machine is usable at all.
+SUDO="$(cat "$FIX/sudo.log")"
+has   "🔴 the topology session is still stopped"           "topo-stop" "$SUDO"
+has   "  the sweep still runs"                             "cleanup" "$SUDO"
+has   "  and the machine is still verified"                "verify clean" "$OUT"
+
+# ...including the baseline removal, which is what makes the NEXT `status --check` honest.
+reset_fix; rc_for stack_down 1; printf 'x\n' > "$FIX/.test_run/up.target"
+OUT="$(drive 'cmd_down')"
+check "🔴 and the up-target baseline is still cleared"     "absent" \
+      "$([[ -f "$FIX/.test_run/up.target" ]] && echo present || echo absent)"
+
+# The other direction: a teardown whose stack.sh half was clean must not go red, or every
+# round ends in a false alarm and the rc stops meaning anything.
+reset_fix; rc_for stack_down 0
+OUT="$(drive 'cmd_down')"
+check "🔴 a clean stack.sh half is still green"            "0" "$(rc_of_out "$OUT")"
+hasnt "  with nothing said about it"                       "stack.sh down exited" "$OUT"
 
 # ==========================================================================================
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
