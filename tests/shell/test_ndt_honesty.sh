@@ -829,6 +829,43 @@ WINNER="$(cf owner)"
 check "  and that one is the owner the file names"       "1" \
       "$(grep -cF "lab claimed by $WINNER" "$FIX/race.${WINNER#racer-}" 2>/dev/null)"
 
+section "6H. 🔴 'ndt release' keeps the claim it removed, as .prev"
+# FIX-NDT-3 SUMMARY section 7-3. `ndt claim` keeps one generation (6B above); `release` DELETED,
+# and the two neighbours it was modelled on -- lab.handoff and round.baseline -- both rename. The
+# objection recorded there is that `.prev` could make a reader think somebody still holds the
+# lab; it cannot, because `ndt status` reads the LIVE claim for that question and answers "none"
+# after a release. What `.prev` answers is a different question -- who held it, and until when --
+# which is asked after the fact more often than during.
+rm -f "$(claim_file).prev"
+mk_claim fixture-owner 3600 "the round that is ending"
+OLD_EXP="$(cf expires)"
+OUT="$(claim_run '' 'NDT_OWNER=fixture-owner cmd_release')"
+check "release succeeds"                                 "RC=0" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "  the live claim is gone"                         "gone" \
+      "$( [[ -f "$(claim_file)" ]] && echo present || echo gone )"
+check "🔴 and it was kept, not deleted"                  "fixture-owner" "$(cprev owner)"
+check "  with the expires nothing else can reconstruct"  "$OLD_EXP" "$(cprev expires)"
+check "  and its note"                                   "the round that is ending" "$(cprev note)"
+has   "  and release says where it went"                 "lab.claim.prev" "$OUT"
+# --force takes the same path: it is the override for whose claim it is, not for keeping a copy.
+rm -f "$(claim_file).prev"
+mk_claim someone-else 3600 "their round"
+OUT="$(claim_run '' 'NDT_OWNER=fixture-owner cmd_release --force')"
+check "release --force succeeds"                         "RC=0" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "🔴 and keeps the claim it overrode"               "someone-else" "$(cprev owner)"
+# 🔴 The other direction: with no claim held there is nothing to keep, and a no-op must not
+# manufacture a `.prev` -- a reader would see a handover that never happened. Same reasoning as
+# the round-baseline case in test_ndt_round_baseline.sh group 12: releasing a claim you never
+# took says nothing about whose round is running.
+no_claim
+rm -f "$(claim_file).prev"
+OUT="$(claim_run '' 'NDT_OWNER=fixture-owner cmd_release')"
+has   "release with no claim says so"                    "no claim to release" "$OUT"
+check "🔴 and writes no .prev"                           "gone" \
+      "$( [[ -f "$(claim_file).prev" ]] && echo present || echo gone )"
+no_claim
+rm -f "$(claim_file).prev"
+
 # ==========================================================================================
 # 7. T2 / T2d: measuring= was a declaration nothing enforced, and the refusal printed a
 #    command that could not be pasted

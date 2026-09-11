@@ -347,6 +347,13 @@ fatal_exit_status() {
 # Set by report_exit, read by cmd_down. Names, not a count, so the message can say which.
 STACK_FATAL_ENDINGS=""
 
+# [Co-developed with claude code -- Adam]
+# Which endings this run has already delivered, so sweep_orphan_exits below cannot announce one a
+# second time. It is needed because report_exit removes only a FATAL record ("delivered once");
+# a status 0 or 143 record is deliberately left for the next start_bg to clear, so the file is
+# still there when the sweep walks the directory a moment later.
+STACK_EXITS_REPORTED=""
+
 report_exit() {
     # Two statements for the reason spelled out at the top of stop_one: a second assignment on a
     # `local` line cannot read the first one.
@@ -357,6 +364,7 @@ report_exit() {
     status="$(sed -n 's/^status=//p' "$f" 2>/dev/null)"
     reason="$(sed -n 's/^reason=//p' "$f" 2>/dev/null)"
     [[ -n "$status" ]] || return 0
+    STACK_EXITS_REPORTED="${STACK_EXITS_REPORTED:+$STACK_EXITS_REPORTED }$name"
     if fatal_exit_status "$status"; then
         err "  🔴 $name did not stop cleanly: $reason"
         err "     evidence: $f, and the tail of $LOG_DIR/$name.log"
@@ -536,6 +544,57 @@ is_running() {
     [[ -f "$pidfile" ]] || return 1
     local pid; pid="$(cat "$pidfile")"
     [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null
+}
+
+# sweep_orphan_exits -- the endings stop_one structurally cannot report, and the registry files
+# that contradict them. Reporting only; the rc it can change is STACK_FATAL_ENDINGS, through
+# report_exit, exactly as stop_one does.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 FIX-NDT-3 SUMMARY section 7-2, Adam's ruling 09-11 (FIX-NDT-4 #19). stop_one opens with
+# `[[ -f "$pidfile" ]] || return 0`, and report_exit sits behind that gate -- so the `.exit` of a
+# component whose pidfile has gone is never read by anybody. cmd_down had a sweep of its own for
+# the FATAL half, which reimplemented report_exit's fatal branch inline (two writers, one
+# message, and they had already drifted: no `reason`, a different evidence line). A component
+# that ended with a plain non-zero status -- `exit 7`, the shape of a bind failure -- was
+# reported by neither.
+#
+# 🔴 AND IT CLEARS THE REGISTRY, which is R7 I-3's other half: `ryu.pid` and `ryu.child.pid`
+# naming a pid that is gone, next to `ryu.exit` saying how it ended (measured 02:52:03 and again
+# at 02:52:27, 57 s and 81 s after the event). `.test_run/pids/` is what a teardown signals and
+# what port_owner_verdict calls "ours", so a dead number in it is the pid-reuse fuse under both;
+# `ndt status`'s own row tells the operator to "delete it or run 'ndt down'", and until now
+# `ndt down` did not.
+#
+# 🔴 ONLY WHAT IS PROVABLY DEAD. A component whose pidfile names a LIVE process keeps every one
+# of its files and its old record is not reported over it: "clear the stale ones" widening into
+# "clear them" would delete the registry out from under a running stack, which is worse than the
+# defect. is_running is the same predicate stop_one and cmd_status use.
+#
+# 🔴 The `.exit` itself is NOT removed here -- report_exit decides that, and it removes only what
+# it has delivered once (a fatal ending). The non-fatal records are the run's history and
+# start_bg clears them when the component next starts.
+sweep_orphan_exits() {
+    local f name pid gone
+    for f in "$PID_DIR"/*.exit; do
+        [[ -e "$f" ]] || continue
+        name="$(basename "$f" .exit)"
+        # Already delivered in this run, by the stop_one that stopped it.
+        case " $STACK_EXITS_REPORTED " in *" $name "*) continue ;; esac
+        is_running "$name" && continue
+        report_exit "$name"
+        # The files that name a pid which is not there. Listed, not just counted: the operator has
+        # been told to look in this directory by `ndt status`, so the line has to match what they
+        # would have seen there.
+        gone=""
+        for pid in "$name.pid" "$name.child.pid" "$name$CMD_SUFFIX"; do
+            [[ -e "$PID_DIR/$pid" ]] || continue
+            rm -f "$PID_DIR/$pid" && gone="${gone:+$gone }$pid"
+        done
+        [[ -n "$gone" ]] &&
+            info "  cleared $name's stale registry files (pid gone): $gone"
+    done
+    return 0
 }
 
 stop_one() {
@@ -1082,19 +1141,13 @@ cmd_down() {
     # Scanned as well as accumulated: report_exit fires from stop_one, which returns early when
     # there is no pidfile, so a component that crashed and whose pidfile someone removed would
     # otherwise be missed by the very check that exists for it.
-    local name f status
-    for f in "$PID_DIR"/*.exit; do
-        [[ -e "$f" ]] || continue
-        name="$(basename "$f" .exit)"
-        status="$(sed -n 's/^status=//p' "$f" 2>/dev/null)"
-        [[ -n "$status" ]] || continue
-        if fatal_exit_status "$status"; then
-            err "  🔴 $name is recorded as having died of a fatal signal (status $status)"
-            err "     evidence: $f, and $PID_DIR/$name.exit.log"
-            STACK_FATAL_ENDINGS="${STACK_FATAL_ENDINGS:+$STACK_FATAL_ENDINGS }$name($status)"
-            rm -f "$f"
-        fi
-    done
+    #
+    # 🔴 2026-09-11 (FIX-NDT-4 #19). This scan used to be written out here, inline, and it read
+    # only the fatal half -- a second copy of report_exit's fatal branch, already drifted from it
+    # (no `reason`, a different evidence line), with nothing at all for a component that ended
+    # `exit 7`. It is now sweep_orphan_exits, one writer for both halves, and it also clears the
+    # registry files that name a pid which is gone (R7 I-3). See the block comment on it.
+    sweep_orphan_exits
 
     if (( leftovers > 0 )); then
         # [Co-developed with claude code -- Adam]

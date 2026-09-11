@@ -322,11 +322,14 @@ deep_sweep() {
 #                                 never read, and NOT the claim itself -- flock must open what
 #                                 it locks, and opening the file whose absence means "free"
 #                                 would be the same race one layer down (ROLE-4 T1).
-#     .test_run/lab.claim.prev    the claim an `ndt claim` replaced, one generation, the way
-#                                 lab.handoff.prev and round.baseline.prev already keep theirs.
-#                                 R7 I-2: this was the one state file overwritten with no copy
-#                                 kept, so a claim that changed hands mid-round left no trace
-#                                 anywhere. Nothing reads it; it is for the person asking later.
+#     .test_run/lab.claim.prev    the claim an `ndt claim` replaced, or the one `ndt release`
+#                                 removed -- one generation, the way lab.handoff.prev and
+#                                 round.baseline.prev already keep theirs. R7 I-2: this was the
+#                                 one state file overwritten with no copy kept, so a claim that
+#                                 changed hands mid-round left no trace anywhere. `ndt status`
+#                                 reads it (the "prev claim" row): R7's acceptance found the
+#                                 evidence kept and no interface mentioning it, which is half a
+#                                 fix -- the reader still had to know to cat the file.
 #
 # Workspace-local, not /tmp, for the reason components.env already gives about predictable
 # paths in world-writable directories.
@@ -871,7 +874,28 @@ cmd_release() {
             err "released with the knob left at $knob_now (round started at $knob_base) -- '--force'"
         fi
     fi
-    rm -f "$CLAIM"
+    # [Co-developed with claude code -- Adam]
+    # 🔴 R7 I-2 / FIX-NDT-3 SUMMARY section 7-3, Adam's ruling 09-11. This was `rm -f "$CLAIM"`.
+    # `ndt claim` keeps the claim it replaces (claim_take, one generation); `release` deleted the
+    # last one, and the two neighbours both of them were modelled on -- lab.handoff and
+    # round.baseline, four lines below -- rename rather than remove. So does this now: renamed,
+    # never deleted, because "who held the lab, until when, and what they said they were doing"
+    # is asked after the round more often than during it, and after a `rm` nothing on the machine
+    # can answer it.
+    #
+    # 🔴 The objection recorded in section 7-3 is that a `.prev` makes a reader think somebody
+    # still holds the lab. It cannot: `ndt status` reads the LIVE claim for that question and
+    # says "none" here, and the row it prints from `.prev` is a separate one that says the claim
+    # is over (cmd_status, "prev claim"). Two rows, two questions.
+    #
+    # mv, not cp: there is nothing to protect against a half-written destination here -- unlike
+    # claim_take, where a failed write must not leave the lab unclaimed -- and a rename is atomic.
+    if ! mv -f "$CLAIM" "$CLAIM.prev" 2>/dev/null; then
+        warn "could not keep a copy of the released claim (${CLAIM#$REPO/}.prev); removing it"
+        rm -f "$CLAIM"
+    else
+        info "the claim you held is kept as ${CLAIM#$REPO/}.prev -- 'ndt status' reads it back"
+    fi
     # [Co-developed with claude code -- Adam]
     # The round ends here, so the record of where it started stops being a live comparison and
     # becomes history. Adam's decision 09-07 (grill §4E round 3, E-11), on the precedent set by
