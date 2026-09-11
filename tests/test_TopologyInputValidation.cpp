@@ -2296,3 +2296,78 @@ TEST(TopologyInputValidationTest, AVertexTypeWrittenAsAStringIsRefusedInPlainLan
     EXPECT_EQ(out.messageSansPath.find("json.exception"), std::string::npos)
         << "the refusal is a raw nlohmann exception, not a diagnostic: " << out.messageSansPath;
 }
+
+// =================================================================================================
+// Door 7 -- the shared `ip` read, in plain language for the nodes door 3d does not cover.
+//
+// [Co-developed with claude code -- Adam]
+// Door 3d (#90) rewrote "missing key" and "not an array" into sentences for HOSTS, because the
+// alternative was `[json.exception.out_of_range.403] key 'ip' not found` from the shared read
+// below it. The shared read is shared: a SWITCH with no `ip` key reached exactly that exception,
+// and still did after #90 -- door 3b covers the empty array for switches and nothing covers the
+// other two faults. Same defect, same sentence owed, one branch away.
+//
+// 🔴 IT SITS AFTER DOOR 3d AND SKIPS HOSTS, DELIBERATELY. Written as a check for every node type
+// it would run FIRST for hosts too and make door 3d's own two arms unreachable -- the gate's M18
+// and M19 would then survive with the tests still green, which is a door being measured by
+// another door standing in front of it.
+// =================================================================================================
+
+TEST(TopologyInputValidationTest, ASwitchWithNoIpKeyAtAllIsRefusedInPlainLanguage)
+{
+    MutatedTopology topo("switch_no_ip_key");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastSwitchNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim].erase("ip");
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "a switch with no \"ip\" key was accepted";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.messageSansPath.find("json.exception"), std::string::npos)
+        << "the refusal is a raw nlohmann exception, not a diagnostic: " << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, AHostWithNoIpKeyIsStillNamedAsAHost)
+{
+    // 🔴 THE ORDER OF THE TWO DOORS IS THE CLAIM HERE, AND NOTHING ELSE MEASURES IT. Door 7 says
+    // the same two things about a missing or non-array "ip" as door 3d, so writing it for every
+    // node type -- one `!=` away -- would refuse the same files with the same register and leave
+    // every other case in this file green, while making door 3d's two arms unreachable: the
+    // gate's M18 and M19 would go from caught to survived, and a reader would have to run the
+    // gate to find out. What door 3d adds is the noun: a host is refused AS a host, with the
+    // sentence about "dpid": 0 being the reason an address is the only thing that identifies it.
+    MutatedTopology topo("host_no_ip_key_noun");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastHostNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    const std::string name = topo.doc()["nodes"][victim].at("device_name").get<std::string>();
+    topo.doc()["nodes"][victim].erase("ip");
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    ASSERT_TRUE(out.threw);
+    EXPECT_NE(out.messageSansPath.find("host \"" + name + "\""), std::string::npos)
+        << "a host with no \"ip\" is refused, but not as a host -- door 7 got there first: "
+        << out.messageSansPath;
+}
+
+TEST(TopologyInputValidationTest, ASwitchWhoseIpIsNotAnArrayIsRefusedInPlainLanguage)
+{
+    MutatedTopology topo("switch_ip_not_array");
+    ASSERT_TRUE(topo.usable());
+
+    const std::size_t victim = lastSwitchNodeIndex(topo.doc());
+    ASSERT_GT(victim, 0u);
+    topo.doc()["nodes"][victim]["ip"] = "192.168.123.20";
+
+    const LoadOutcome out = loadFile(topo.write());
+
+    EXPECT_TRUE(out.threw) << "a switch whose \"ip\" is a bare string was accepted";
+    EXPECT_EQ(out.vertices, 0u);
+    EXPECT_EQ(out.messageSansPath.find("json.exception"), std::string::npos)
+        << "the refusal is a raw nlohmann exception, not a diagnostic: " << out.messageSansPath;
+}

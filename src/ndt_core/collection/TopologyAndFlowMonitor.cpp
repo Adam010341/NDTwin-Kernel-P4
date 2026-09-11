@@ -536,6 +536,38 @@ validateStaticTopologyJson(json& j, std::string& where, utils::DeploymentMode mo
             }
         }
 
+        // ---- door 7: the shared "ip" read, in plain language for every other node type ----
+        // [Co-developed with claude code -- Adam]
+        // Door 3d rewrote "missing key" and "not an array" into sentences for HOSTS, because the
+        // alternative was `[json.exception.out_of_range.403] key 'ip' not found` from the read
+        // just below. The read is shared: a SWITCH with no "ip" key got exactly that exception,
+        // and still did after #90 -- door 3b covers a switch's EMPTY array and nothing covered
+        // the other two faults. Same defect, same sentence owed, one branch away.
+        //
+        // 🔴 AFTER DOOR 3d, AND SKIPPING HOSTS, DELIBERATELY. Written for every node type it
+        // would run FIRST for hosts as well and make door 3d's own two arms unreachable: the
+        // gate's M18 and M19 would then survive with every test still green, which is one door
+        // being measured through another standing in front of it.
+        if (vertexType != VertexType::HOST)
+        {
+            const char* fault = nullptr;
+            if (!nodeJson.contains("ip"))
+            {
+                fault = "declares no \"ip\" key at all";
+            }
+            else if (!nodeJson.at("ip").is_array())
+            {
+                fault = "declares an \"ip\" that is not an array of address strings";
+            }
+            if (fault != nullptr)
+            {
+                throw std::runtime_error(
+                    nodeInWords(nodeJson, itemIndex - 1) + " " + fault +
+                    "; every node's addresses are read from that key, and a switch is found "
+                    "through them by every path that does not already have its dpid");
+            }
+        }
+
         const auto addresses =
             utils::ipStringVecToUint32Vec(nodeJson.at("ip").get<std::vector<std::string>>());
         nodeAddresses.insert(addresses.begin(), addresses.end());
