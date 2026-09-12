@@ -6062,9 +6062,44 @@ proc_registered_here() {
 # of a healthy app of ours and cannot be the question. The fd channel is what attributes those:
 # app_spawn opens $REPO/.test_run/logs/app_<name>.log for them, and a reparented child inherits
 # that fd (it is how FINDING #48's JVMs were found by hand).
+# proc_cwd_link <pid> -- what /proc/<pid>/cwd points at, or rc 1 when it cannot be read.
+# proc_fd_links <pid> -- the target of every fd that pid holds, one per line.
+#                        rc 0 they were read (possibly none); rc 2 they could NOT be read.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 A SEAM, and FIX-NDT-11 ② is why it exists. proc_checkout's fail-closed branch -- both of
+# these blind, so the process is counted as this checkout's and the report says whoever owns it
+# was not established -- is the whole of C10-8's safety side, and until 2026-09-12 nothing had
+# ever driven it in `ndt`: it needs a candidate process whose /proc this user may not read, which
+# in real life is an app `sudo ndtwin-lab` started as root and which a unit test may not create.
+# FIX-NDT-10 SUMMARY §7-9 recorded that gap; the two readings are now functions so a test can
+# make a process of its own unreadable without root, a namespace, or a second uid, and
+# tests/shell/test_ndt_app_orphans.sh section 10 drives the branch against a LIVE fixture.
+#
+# 🔴 rc 2 and rc 1 are different answers here and must not be merged. "I could not look" is not
+# "there is nothing", and folding them would hand this checkout a clean verdict over exactly the
+# orphan class it most needs to find. Same asymmetry as G-14.
+proc_cwd_link() {
+    local t
+    t="$(readlink "/proc/$1/cwd" 2>/dev/null)" || return 1
+    [[ -n "$t" ]] || return 1
+    printf '%s\n' "$t"
+    return 0
+}
+proc_fd_links() {
+    local pid="$1" fd d
+    [[ -r "/proc/$pid/fd" ]] || return 2
+    for fd in "/proc/$pid/fd/"[0-9]*; do
+        [[ -L "$fd" ]] || continue
+        d="$(readlink "$fd" 2>/dev/null)"; d="${d% (deleted)}"
+        [[ -n "$d" ]] && printf '%s\n' "$d"
+    done
+    return 0
+}
+
 PROC_CHECKOUT_WHY=""
 proc_checkout() {
-    local pid="$1" el t d fd blind_cwd=0 blind_fd=0
+    local pid="$1" el t d fds blind_cwd=0 blind_fd=0
     local -a pargv=()
     PROC_CHECKOUT_WHY=""
     [[ "$pid" =~ ^[0-9]+$ ]] && (( pid > 1 )) || { PROC_CHECKOUT_WHY="not a pid"; return 2; }
@@ -6097,7 +6132,7 @@ proc_checkout() {
         return 0
     fi
 
-    t="$(readlink "/proc/$pid/cwd" 2>/dev/null)"
+    t="$(proc_cwd_link "$pid")" || t=""
     if [[ -z "$t" ]]; then
         blind_cwd=1
     elif path_under_this_checkout "$t"; then
@@ -6105,16 +6140,14 @@ proc_checkout() {
         return 0
     fi
 
-    if [[ -r "/proc/$pid/fd" ]]; then
-        for fd in "/proc/$pid/fd/"[0-9]*; do
-            [[ -L "$fd" ]] || continue
-            d="$(readlink "$fd" 2>/dev/null)"; d="${d% (deleted)}"
+    if fds="$(proc_fd_links "$pid")"; then
+        while IFS= read -r d; do
             [[ -n "$d" ]] || continue
             if path_under_this_checkout "$d"; then
                 PROC_CHECKOUT_WHY="it holds $d open"
                 return 0
             fi
-        done
+        done <<<"$fds"
     else
         blind_fd=1
     fi
@@ -6123,7 +6156,6 @@ proc_checkout() {
         PROC_CHECKOUT_WHY="cannot read /proc/$pid/cwd or /proc/$pid/fd (uid $(proc_uid "$pid"), you are $(id -u)) -- who owns it was NOT established"
         return 2
     fi
-    t="$(readlink "/proc/$pid/cwd" 2>/dev/null)"
     PROC_CHECKOUT_WHY="nothing ties it to $REPO${t:+ (it runs in $t)}"
     return 1
 }
