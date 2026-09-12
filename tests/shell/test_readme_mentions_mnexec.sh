@@ -98,10 +98,13 @@ else
     check "the control: a needle that is not there is reported missing" 0 "mentions() can say no"
 fi
 
-echo
-echo "NOT CHECKED HERE: ovs-vsctl, the other row whose taught_by says NOWHERE. README does not"
-echo "                  mention it (measured 2026-09-12). Requiring it would make this gate red"
-echo "                  on delivery; it is written up in CELLS-2-SUMMARY.md section 7."
-echo
-printf 'Ran %s checks, %s failed\n' "$((PASS+FAIL))" "$FAIL"
+printf '\nNOT CHECKED HERE: ovs-vsctl, the other row whose taught_by says NOWHERE. README does not\n'
+printf '                  mention it (measured 2026-09-12). Requiring it would make this gate red\n'
+printf '                  on delivery; it is written up in CELLS-2-SUMMARY.md section 7.\n\n'
+# 🔴 The summary is the last `echo "..."` in this file, and it has to be: group C of
+# tests/shell/test_l1_shell_scoring.sh reads the corpus's SOURCE and takes each suite's last
+# quoted echo as its green-path summary line. The note above was an `echo` in the first draft and
+# this suite became that gate's thirteenth failure -- a new one, on the day it landed, which is
+# exactly the defect group C exists to catch. printf for the prose, echo for the summary.
+echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
 (( FAIL == 0 ))
