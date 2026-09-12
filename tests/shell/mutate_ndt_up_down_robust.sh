@@ -1110,6 +1110,32 @@ m=$(mutant w13 "$NDT" \
 report_green "W13 (behaviour-preserving): the rc-3 explanation reworded" "$m" \
        "section 22 reads the verdict line, not this one"
 
+# --- FIX-NDT-8: [3/3] says it ran the Mininet sweep (section 23) -------------------------------
+
+# M82: the sentence goes. The teardown still does the sweep, and the manual still carries the
+# hand-typed command -- which is the state Adam's Q3 is about.
+m=$(mutant m82 "$NDT" \
+    '    ok "this step ran the Mininet sweep (mn -c) for you"' \
+    '    :')
+report "M82: [3/3] does the Mininet sweep and does not say so" "$m" \
+       "🔴 [3/3] says it ran the Mininet sweep"
+
+# M83 (widening): the new sentence is taken as a licence to stop filtering stack.sh's advice, so
+# the teardown says it did the sweep AND tells the operator to do it by hand. One output, two
+# instructions, and the second one is the wrong one inside a teardown.
+m=$(mutant m83 "$NDT" \
+    "(reverse order\\)\$|Mininet was started manually" \
+    "(reverse order\\)\$")
+report "M83 (widening): the hand-typed advice comes back beside the sentence" "$m" \
+       "🔴 stack.sh's hand-typed advice is still filtered out"
+
+# W14 (behaviour-preserving): one explanatory line under the sentence is reworded.
+m=$(mutant w14 "$NDT" \
+    "    info \"  [1/3] filters it out.\"" \
+    "    info \"  [1/3] drops it.\"")
+report_green "W14 (behaviour-preserving): the [3/3] explanation reworded" "$m" \
+       "section 23 reads the sentence and the verb, not this line"
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then

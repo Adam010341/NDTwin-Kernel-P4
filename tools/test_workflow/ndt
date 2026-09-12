@@ -3301,6 +3301,18 @@ cmd_down() {
     local sweep_out sweep_rc
     sweep_out="$(sudo -n "$LAB" cleanup 2>&1)"; sweep_rc=$?
     printf '%s\n' "$sweep_out" | sed 's/^/      /'
+    # [Co-developed with claude code -- Adam]
+    # 🔴 Adam, 2026-09-12 (form 1 Q3). A1-a stopped this command repeating stack.sh's advice to
+    # run the Mininet sweep by hand, because inside a teardown that advice is wrong: THIS step
+    # has already done it. What was left was a teardown that does the sweep and never says so,
+    # while the manual still carries the hand-typed command -- so the operator cannot tell that
+    # it is redundant here. Said unconditionally: "I ran it" and "it finished" are two
+    # statements, and the second one has its own line and its own rc immediately below.
+    ok "this step ran the Mininet sweep (mn -c) for you"
+    info "  [3/3] is 'ndtwin-lab cleanup' and its sweep runs 'mn -c' before it sweeps"
+    info "  simple_switch_grpc, so the advice stack.sh prints at [1/3] about running that"
+    info "  command by hand is advice this teardown has already acted on -- which is why"
+    info "  [1/3] filters it out."
     if (( sweep_rc != 0 )); then
         err "cleanup exited $sweep_rc -- the sweep did not finish; what survived is named above"
         down_rc=1

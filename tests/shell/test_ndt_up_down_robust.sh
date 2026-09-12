@@ -1789,5 +1789,36 @@ OUT="$(drive 'cmd_down --nope')"
 check "  an unknown option is still 2, not 5"        "2" "$(rc_of_out "$OUT")"
 
 # ==========================================================================================
+section "23. FIX-NDT-8 / Adam Q3: [3/3] says it ran the Mininet sweep for you"
+# ==========================================================================================
+# FIX-NDT-5 stopped `ndt down` repeating stack.sh's advice to run the Mininet sweep by hand --
+# inside a teardown that advice is wrong, because [3/3] has already done it. What was left is a
+# teardown that runs the sweep and never says so: an operator following the manual, which does
+# carry that hand-typed command, has no way to tell that it is redundant here. Adam, 2026-09-12
+# (form 1 Q3): the step says it itself.
+reset_fix; rm -f "$DM"
+OUT="$(drive 'cmd_down')"
+has   "🔴 [3/3] says it ran the Mininet sweep"    "this step ran the Mininet sweep (mn -c) for you" "$OUT"
+has   "  naming the verb that does it"            "'ndtwin-lab cleanup'" "$OUT"
+has   "  and why the [1/3] advice is filtered"    "already acted on" "$OUT"
+
+# 🔴 THE CONTROL, and it is the whole reason this is delicate: the sentence stack.sh prints at
+# [1/3] is still suppressed. Saying "I did the sweep" is not a licence to let the advice that
+# tells the operator to do it by hand back into the same output.
+reset_fix; rm -f "$DM"
+out_for stack_down "Mininet was started manually (not by this script); run: sudo mn -c"
+OUT="$(drive 'cmd_down')"
+hasnt "🔴 stack.sh's hand-typed advice is still filtered out" "Mininet was started manually" "$OUT"
+has   "  while [3/3] still says what it did"      "this step ran the Mininet sweep" "$OUT"
+
+# It is said whatever the sweep's own exit status was: "I ran it" and "it finished" are two
+# statements, and the second one already has its own line and its own rc.
+reset_fix; rm -f "$DM"; rc_for cleanup 1
+OUT="$(drive 'cmd_down')"
+has   "  it is said even when the sweep did not finish" "this step ran the Mininet sweep" "$OUT"
+check "  which is still a failed teardown"        "1" "$(rc_of_out "$OUT")"
+has   "  and the failure still has its own line"  "the sweep did not finish" "$OUT"
+
+# ==========================================================================================
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]
