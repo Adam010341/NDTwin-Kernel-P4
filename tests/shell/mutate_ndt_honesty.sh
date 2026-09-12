@@ -190,9 +190,12 @@ report "M11: ndt down leaves 'in use' standing over an empty lab" "$m" \
 # could not verify rather than on the rc, and its sentence gained the half that failed. The
 # mutation is the same one -- take the "did not verify" branch away -- said against the new
 # condition.
+# 🔴 REPOINTED AGAIN 2026-09-12 (FIX-NDT-8): a teardown that had nothing to tear down now has
+# its own branch above this one, so the "verified clean" branch is an `elif`. The mutation is
+# unchanged -- take the "did not verify" branch away.
 m=$(mutant m12 "$NDT" \
-    '    if [[ -z "$unverified" ]]; then' \
-    '    if true; then')
+    '    elif [[ -z "$unverified" ]]; then' \
+    '    elif true; then')
 report "M12: a teardown that did not verify is reported as clean" "$m" \
        "🔴 a teardown that did not verify says so"
 

@@ -1844,7 +1844,11 @@ has   "  the P4 line is unchanged, whole"              \
 # 🔴 THE CROSS-FILE CELL, and the one with real discriminating power: the command printed here
 # is the command ndtwin-lab itself hands out at each of its three launch verbs. A session name
 # or socket typed twice is a paste that stops working the day one of them moves.
-LABFILE="$(dirname "$NDT")/ndtwin-lab"
+# 🔴 The REPO's helper, not the one beside the ndt under test: the mutation gate points
+# NDT_UNDER_TEST at a copy carrying only ports.sh / sudo_surface.sh / components.env, so
+# `dirname "$NDT"` there has no ndtwin-lab at all and this cell went red for every mutant --
+# measured 2026-09-12 13:1x, `mutate_ndt_up_down_robust` refused with `baseline is RED`.
+LABFILE="$HERE/../../tools/test_workflow/ndtwin-lab"
 ATTACH="$(drive 'lab_attach_cmd' | head -1)"
 check "🔴 that command is what ndtwin-lab itself prints, at all three launch verbs" "3" \
       "$(grep -cF "(attach: $ATTACH)" "$LABFILE")"

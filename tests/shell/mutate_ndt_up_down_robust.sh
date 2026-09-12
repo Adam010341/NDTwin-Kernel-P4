@@ -236,10 +236,13 @@ report "M11: 'ndt down' ignores a sweep that did not finish" "$m" \
 
 # The assertion goes back to being taken at the instant of the sweep: "5 still running / not
 # clean" over a machine that reads 0 a moment later.
+# 🔴 Re-anchored 2026-09-12 (FIX-NDT-8): `verify clean` is now handed the subject cmd_down
+# measured before it acted, so the line this spans gained an argument. The mutation is the same
+# one -- take the wait away -- said against the new call.
 m=$(mutant m12 "$NDT" \
     '    wait_reaped "${NDT_REAP_WAIT:-20}" || true
-    cmd_clean; local clean_rc=$?' \
-    '    cmd_clean; local clean_rc=$?')
+    cmd_clean "$DOWN_SUBJECT"; local clean_rc=$?' \
+    '    cmd_clean "$DOWN_SUBJECT"; local clean_rc=$?')
 report "M12: 'ndt down' asserts at the instant of the sweep" "$m" \
        "🔴 processes reaped just after the sweep are not a failure"
 
@@ -247,10 +250,10 @@ report "M12: 'ndt down' asserts at the instant of the sweep" "$m" \
 # the assertion is skipped and the teardown reports success over a live leftover.
 m=$(mutant m13 "$NDT" \
     '    wait_reaped "${NDT_REAP_WAIT:-20}" || true
-    cmd_clean; local clean_rc=$?
+    cmd_clean "$DOWN_SUBJECT"; local clean_rc=$?
     # Both halves count.' \
     '    wait_reaped "${NDT_REAP_WAIT:-20}" || return 0
-    cmd_clean; local clean_rc=$?
+    cmd_clean "$DOWN_SUBJECT"; local clean_rc=$?
     # Both halves count.')
 report "M13: a wait that times out is reported as clean" "$m" \
        "🔴 a process that never leaves is still RED"
@@ -465,9 +468,11 @@ report "N2 (widening, green): the rollback prints and does nothing" "$m" \
 # anchor -- which spanned both -- silently stopped matching. The mutant then carried an
 # UNMUTATED ndt, the suite was green, and the gate reported N3 as a survivor. That is
 # tests/shell/README.md §1's case, and the reason the gate's verdict is the one we ship.
+# 🔴 Re-anchored 2026-09-12 (FIX-NDT-8): the teardown's single exit now returns down_verdict,
+# which is down_rc except in the one case where nothing was there to tear down (rc 3).
 m=$(mutant n3 "$NDT" \
     '    mark_teardown_end
-    return "$down_rc"' \
+    return "$down_verdict"' \
     '    mark_teardown_end
     return 0')
 report "N3 (widening, green): 'ndt down' always exits 0" "$m" \
@@ -546,7 +551,7 @@ report_green "W6 (behaviour-preserving): the refusal's opening line reworded" "$
 # M30 restores H3: nothing records that a teardown is running, so the only reading a P4
 # bring-up can take is the ports -- which look identical coming up and going down.
 m=$(mutant m30 "$NDT" \
-    '    mark_teardown_start || return 1
+    '    mark_teardown_start || return 5
 
     say "ndt down"' \
     '    say "ndt down"')
@@ -567,8 +572,8 @@ report "M31: the guard is not called from preflight" "$m" \
 # M32: the marker is never removed, so one teardown makes the lab permanently unstartable.
 m=$(mutant m32 "$NDT" \
     '    mark_teardown_end
-    return "$down_rc"' \
-    '    return "$down_rc"')
+    return "$down_verdict"' \
+    '    return "$down_verdict"')
 report "M32: the teardown never removes its marker" "$m" \
        "  🔴 'ndt down' removes its own marker when it finishes"
 
