@@ -308,6 +308,35 @@ TOPO_P4=/path/to/my_topo.json ./stack.sh up p4
 （2026-09-12 記錄：安全觀察，不是產品缺陷；`ndt` 自己不走 `mnexec` 繞過任何東西，
 它的兩個 `mnexec` 呼叫點在 `sudo_surface.sh` 的表裡宣告著。）
 
+### `ovs-vsctl`：另一條沒有任何手冊教的授權，而它的拒絕長得像一個讀數
+
+`sudo_surface.sh` 的表裡 `taught_by` 寫 `NOWHERE` 的有兩條，`mnexec` 是上面那條，另一條是
+**`ovs-vsctl`**（探針 `ovs-vsctl list-br`，目標 `/usr/bin/ovs-vsctl`）。安裝手冊與使用手冊
+都沒有它，只有 `doc/2026-07-29_environment_gotchas.md` 提過——那是這台機器的地雷清單，
+不在安裝路徑上。⇒ **照手冊裝完的機器上，這條是缺的，而缺了不會有人告訴你。**
+
+🔴 **缺了會怎樣（`sudo_surface.sh` 的 consequence 欄逐字寫著）**：`ovs_bridge_count()`
+早期把被拒絕的 `sudo -n ovs-vsctl list-br` 回成 **0 座 bridge**——而 0 也正是
+「這台機器根本沒有 OVS」的答案。同一個數字兩種意思，於是 `ndt up p4` 那道
+「不要蓋在活的 OVS fabric 上」的守衛（`guard_no_live_ovs`）**不會開火**，
+既有的 fabric 被 `topo-stop` 拆掉，而且**沒有任何一行訊息說過這件事**。
+
+現在 `ovs_bridge_count()` 對「被拒絕」回 rc 2、`guard_no_live_ovs` 把「我判斷不出來」
+當成停止的理由（finding #7），所以這條缺了會**擋下** bring-up 而不是默默拆掉別人的 fabric。
+但**授權本身還是要自己加**，規則長這樣（用 `ndt_sudo_rule ovs-vsctl` 產生，不要手抄路徑：
+`target` 欄是這台機器 `command -v` 解出來的，換機器要換）：
+
+```
+<你的帳號> ALL=(root) NOPASSWD: /usr/bin/ovs-vsctl
+```
+
+`ndt status` 會逐條印出這三條授權此刻是通的還是被拒絕的；被拒絕時它印的是「拒絕」，
+不是一個數字——**這一段講的就是那個差別**。
+
+（本節 2026-09-12 補；`tests/shell/test_readme_mentions_mnexec.sh` 會對 `sudo_surface.sh` 裡
+**每一條** `taught_by=NOWHERE` 要求這裡有對應段落，所以這一段被刪掉會紅。
+[Co-developed with claude code -- Adam]）
+
 ---
 
 ## 已知限制
