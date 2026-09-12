@@ -6746,6 +6746,68 @@ app_started_at() {
     return 1
 }
 
+# app_window_seal <name> -- "<end-epoch> <why>" for a window that has to be CLOSED, or rc 1 when
+# it does not.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 RESIDUE-1 (2026-09-12), Adam's ruling 12:3x -- option (b) of that report's §7-2.
+# app_started_at's SECOND source dates an app by the mtime of a pidfile whose process is gone,
+# and until this existed that window had no right edge: it ran to `now`, and residue_report says
+# of itself that "anything installed in that window is listed, whoever installed it". So a
+# pidfile nobody removed frames the whole flow table, for as long as it lies there.
+#
+# Measured: `.test_run/pids/app_viz.pid` was written 2026-09-11 14:04:25; viz reached
+# `BUILD SUCCESS` and exited by itself at 14:05:43, so `ndt apps stop` -- the ONLY path that
+# removes a pidfile -- was never walked. Twelve hours and sixteen minutes later, `ndt status
+# --check` over a freshly built OVS 4-host fabric answered `residue 60 rule(s) inside an app
+# window` and rc 1. The 60 were that fabric's OWN forwarding rules, installed by the `ndt up`
+# seventeen seconds earlier. The window was 44180 seconds wide; a true residue window is the
+# 22 seconds of scratch/overnight-2026-09-05/logs/lv-a7b-03-stop.log.
+#
+# 🔴 IT FIRES ONLY ON THAT SECOND SOURCE, and the three conditions are what make it so:
+#   * a pidfile must exist        -- source 3 (a live process nothing tracks) has none, and its
+#                                    window really does run to now;
+#   * its pid must NOT be live    -- source 1 is a running app, and sealing it would report
+#                                    "nothing arrived" about an app installing rules right now;
+#   * its mtime must be readable  -- otherwise app_started_at did not use it either.
+# So a caller may ask this unconditionally: rc 1 means "this app's window has no right edge to
+# find", which is the honest answer for the other two sources.
+#
+# 🔴 THE EDGE IS THE LOG'S mtime, not the pidfile's. app_evidence_log is the file whoever
+# STARTED the app writes to (3-51: the helper's tree for sim, ours for nsr/viz/te), so its last
+# write is the last moment this machine can prove the app was doing anything. `>= start` is
+# checked because a window that ends before it begins is not a window -- app_window_read refuses
+# one for the same reason -- and because a log that never moved after the fork would otherwise
+# invert it.
+#
+# 🔴 AND WHEN THERE IS NO USABLE LOG the edge is the pidfile's own mtime, i.e. a window of ZERO
+# seconds (Adam's ruling names this case). energy is the app it happens to: the lab helper
+# starts it with `tmux new-session`, no `script -f`, no redirection, so there has never been a
+# file on this machine that could date its end. A zero-length window attributes nothing -- and
+# the caller must print that this is "nothing could be attributed", never "it left nothing",
+# which is why the reason string says so and residue_report prints G-12's sentence under it.
+# A log OLDER than the pidfile lands here too, which is what `>= et` above is for: an end before
+# the start is not a window, it is a negative one, and it would exclude every rule there is
+# while looking like an answer.
+app_window_seal() {
+    local name="$1" p pid et log lm
+    p="$(app_pidfile "$name")"
+    [[ -f "$p" ]] || return 1
+    if pid="$(app_pidfile_pid "$name" 2>/dev/null)" && [[ -n "$pid" ]]; then return 1; fi
+    et="$(stat -c %Y "$p" 2>/dev/null)"
+    [[ "$et" =~ ^[0-9]+$ ]] || return 1
+    log="$(app_evidence_log "$name")" || log=""
+    if [[ -n "$log" && -f "$log" && ! -L "$log" ]]; then
+        lm="$(stat -c %Y "$log" 2>/dev/null)"
+        if [[ "$lm" =~ ^[0-9]+$ ]] && (( lm >= et )); then
+            echo "$lm pid gone; app log mtime"
+            return 0
+        fi
+    fi
+    echo "$et pid gone; nothing later than the pidfile to date the end -- zero-length window"
+    return 0
+}
+
 http_get_flow_entries() {
     curl -sf --max-time 10 http://localhost:8000/ndt/get_switch_openflow_table_entries 2>/dev/null
 }
@@ -7061,7 +7123,7 @@ status_residue_row() {
 # the counters this fills in.
 residue_report() {
     local now started entries lock t line n_rules n_unk n_locks=0 a any=0 lease retry
-    local wend wrec
+    local wend wrec wwhy wseal
     local plane blind_said="" elog rpid
     local -a live=()
     now="$(date +%s)"
@@ -7123,7 +7185,18 @@ residue_report() {
         # report taken after a teardown answered "the window is LOST" about the apps whose rules
         # were on the wire at that moment. wend is the window's right edge; empty means "open",
         # i.e. up to now.
-        wend=""
+        wend=""; wwhy=""
+        # [Co-developed with claude code -- Adam]
+        # 🔴 RESIDUE-1, Adam's ruling 2026-09-12 12:3x. The right edge for the one source that
+        # never had one: a pidfile whose process is gone. app_window_seal answers only for that
+        # source (see its header), so it is asked unconditionally -- a live app and an app with
+        # no pidfile both get rc 1 and keep a window that runs to now, which for them is true.
+        # Asked BEFORE app_window_read for the same reason app_started_at reads the pidfile
+        # before the scan: a pidfile that is still on disk is this app's own record, and a stop's
+        # record is what answers when there is no pidfile left.
+        if [[ -n "$started" ]] && wseal="$(app_window_seal "$a")"; then
+            wend="${wseal%% *}"; wwhy="${wseal#* }"
+        fi
         if [[ -z "$started" ]] && wrec="$(app_window_read "$a")"; then
             started="${wrec%% *}"; wend="${wrec##* }"
         fi
@@ -7177,7 +7250,26 @@ residue_report() {
             continue
         fi
         any=1
-        if [[ -n "$wend" ]]; then
+        if [[ -n "$wwhy" ]]; then
+            # [Co-developed with claude code -- Adam]
+            # RESIDUE-1. A sealed window, and the line names BOTH the edge and where it came
+            # from: a reader has to be able to tell "the app stopped here" from "this is the
+            # last thing on the machine that could date it".
+            printf '  %-6s window %s -> %s (%ss wide)\n' "$a" \
+                "$(date -d "@$started" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "$started")" \
+                "$(date -d "@$wend" '+%H:%M:%S' 2>/dev/null || echo "$wend")" \
+                "$(( wend - started ))"
+            printf '  %-6s   window closed at %s (%s)\n' "" \
+                "$(date -d "@$wend" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "$wend")" "$wwhy"
+            # 🔴 E-7. A window of zero seconds excludes every rule there is, and the sentence
+            # "no flow entry arrived during that window" over it is a check that could not look
+            # wearing the face of a check that looked and found nothing.
+            (( wend == started )) && {
+                warn "      the window has NO extent: nothing on this machine can date when $a"
+                warn "      stopped, so NOTHING can be attributed to it. That is 'nobody could"
+                warn "      ask', NOT 'this app left nothing'. (G-12)"
+            }
+        elif [[ -n "$wend" ]]; then
             # F3. A CLOSED window, and the line says so and says where it came from: a reader
             # who sees a window for an app that is not running has to be able to tell a record
             # from a live reading, and the record is the only one of the two that another

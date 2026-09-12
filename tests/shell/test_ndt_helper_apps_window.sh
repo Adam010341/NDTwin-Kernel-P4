@@ -770,6 +770,93 @@ check "control: no record for an app nobody stopped"     "no" \
       "$(if [[ -f "$WINDIR/energy.window" ]]; then echo yes; else echo no; fi)"
 rm -f "$FIX/othertree/.test_run/logs/app_sim.log"
 
+section "12C. RESIDUE-1: a pidfile whose process is gone does NOT window to now"
+# 🔴 Measured 2026-09-12, RESIDUE-1-REPORT §1/§2. `.test_run/pids/app_viz.pid` was written on
+# 2026-09-11 at 14:04:25; viz finished its own run and exited at 14:05:43 (`BUILD SUCCESS` in
+# its own log, one `Starting ...` line in the whole file), and nothing removed the pidfile --
+# `ndt apps stop` is the only path that removes one, and nobody ran it. Twelve hours later
+# ROLE-11 brought up an OVS 4-host fabric and `ndt status --check` answered
+#
+#     residue        60 rule(s) inside an app window, 0 lock(s) HELD      -> rc 1
+#
+# The 60 were the fabric's OWN forwarding rules, installed by that same `ndt up` seventeen
+# seconds earlier: app_started_at dated the app by the pidfile's mtime, residue_report left the
+# right edge OPEN, and the report says in as many words that "anything installed in that window
+# is listed, whoever installed it". A window with no right edge attributes the whole table.
+#
+# Adam's ruling 2026-09-12 12:3x, option (b) of RESIDUE-1 §7-2: give the window a right edge
+# from the app's own log. The pidfile is NOT removed here -- that is a different question.
+rm -f "$FIX/.test_run/pids"/app_*.pid; rm -rf "$FIX/.test_run/apps"
+rm -f "$FIX/.test_run/logs"/app_*.log
+# A pid that is really gone, checked rather than assumed -- the same construction as 9B.
+DEAD_TE="$(bash -c 'echo $$')"
+if [[ "$DEAD_TE" =~ ^[0-9]+$ ]] && [[ ! -d "/proc/$DEAD_TE" ]]; then
+    NOW12C="$(date +%s)"
+    # The incident's own geometry: the pidfile is 12 hours old and the log stopped moving 100
+    # seconds after it was written, which is where viz's `BUILD SUCCESS` is.
+    echo "$DEAD_TE" > "$FIX/.test_run/pids/app_te.pid"
+    touch -d "@$(( NOW12C - 43200 ))" "$FIX/.test_run/pids/app_te.pid"
+    echo "BUILD SUCCESS" > "$FIX/.test_run/logs/app_te.log"
+    touch -d "@$(( NOW12C - 43100 ))" "$FIX/.test_run/logs/app_te.log"
+    # A rule installed five minutes ago: hours AFTER that log stopped, and therefore nobody's
+    # residue. This is ROLE-11's 60 in miniature.
+    mk_entries 300
+    OUT="$(FX_PS="" FX_PORT_PIDS="" inner 'residue_report te; residue_verdict; echo "RC=$?"')"
+    has   "🔴 the window has a right edge"                   "window closed at" "$OUT"
+    hasnt "🔴 and does not run to now"                       "-> now" "$OUT"
+    has   "  and it says where that edge came from"          "pid gone; app log mtime" "$OUT"
+    hasnt "🔴 a rule installed after the app exited is not framed by it" "pri=96" "$OUT"
+    has   "  so the report says nothing arrived in that window" "no flow entry arrived during that window" "$OUT"
+    check "🔴 and the verdict is clean -- rc 0, not 4"       "0" "$(rc_of "$OUT")"
+    # 🔴 THE CONTROL, and it is the whole reason the edge is the LOG's mtime and not the
+    # pidfile's: a rule installed while the app was still writing IS inside the window. A fix
+    # that sealed every dead app to a zero-length window would pass every assertion above and
+    # fail this one.
+    mk_entries 43150
+    OUT="$(FX_PS="" FX_PORT_PIDS="" inner 'residue_report te; residue_verdict; echo "RC=$?"')"
+    has   "🔴 control: a rule installed INSIDE the closed window is still listed" "pri=96" "$OUT"
+    check "  and that is still residue -- rc 4"              "4" "$(rc_of "$OUT")"
+    # ROLE-11's actual symptom, at the level it was seen: the `--check` row and its problem list.
+    mk_entries 300
+    ROW="$(FX_DEFAULT_KERNEL_DIR="$FIX/othertree" FX_PS="" FX_PORT_PIDS="" inner \
+           'status_residue_row >/dev/null; echo "P=${#STATUS_RESIDUE_PROBLEMS[@]}"')"
+    has   "🔴 --check raises no problem over a fabric it framed by accident" "P=0" "$ROW"
+    # The other direction, and it must not be lost: a pidfile whose pid is ALIVE still windows
+    # to now. Sealing a running app would report "nothing arrived" about an app that is
+    # installing rules this second.
+    TE_ARGV="/nonexistent/NDT-TEST-FIXTURE/Traffic-engineering-App.py"
+    TEFIX="$(spawn_fixture "$TE_ARGV")"
+    echo "$TEFIX" > "$FIX/.test_run/pids/app_te.pid"
+    OUT="$(FX_PS="$TEFIX $TE_ARGV" FX_PORT_PIDS="" inner 'residue_report te')"
+    has   "🔴 control: a LIVE pid still windows to now"      "-> now" "$OUT"
+    hasnt "  and nothing closed it"                          "window closed at" "$OUT"
+    kill -KILL "$TEFIX" 2>/dev/null
+    # 🔴 An app with no log at all cannot have its end dated. Adam's ruling names this case:
+    # the right edge is the pidfile's own mtime, i.e. a zero-length window -- and the line has
+    # to say that nothing could be attributed, because "no flow entry arrived during that
+    # window" over a window of zero seconds is E-7's shape exactly.
+    echo "$DEAD_TE" > "$FIX/.test_run/pids/app_te.pid"
+    touch -d "@$(( NOW12C - 43200 ))" "$FIX/.test_run/pids/app_te.pid"
+    rm -f "$FIX/.test_run/logs/app_te.log"
+    OUT="$(FX_PS="" FX_PORT_PIDS="" inner 'residue_report te; residue_verdict; echo "RC=$?"')"
+    has   "🔴 no log -> the window has no extent, and the report says so" "zero-length window" "$OUT"
+    hasnt "  nothing is attributed to it"                    "pri=96" "$OUT"
+    has   "🔴 and that is NOT read as 'it left nothing'"     "NOT 'this app left nothing'" "$OUT"
+    # 🔴 A log OLDER than the pidfile is the same case, and it must not become a NEGATIVE
+    # window: an end before the start excludes every rule there is while looking like an
+    # answer. app_window_read refuses `e < s` for this reason; so does the seal.
+    echo "stale" > "$FIX/.test_run/logs/app_te.log"
+    touch -d "@$(( NOW12C - 50000 ))" "$FIX/.test_run/logs/app_te.log"
+    OUT="$(FX_PS="" FX_PORT_PIDS="" inner 'residue_report te')"
+    has   "🔴 a log older than the pidfile does not invert the window" "(0s wide)" "$OUT"
+    has   "  and it is named as the same 'nothing can date the end' case" "zero-length window" "$OUT"
+else
+    note "could not get a provably dead pid (got '$DEAD_TE') -- 12C did NOT run."
+    note "  that is 'not checked', not 'checked and fine'."
+fi
+rm -f "$FIX/.test_run/pids"/app_*.pid "$FIX/.test_run/logs"/app_te.log
+mk_entries 300
+
 section "13. this suite reaps its own fixtures"
 check "no fixture survives this run"                     "0" "$(reap_fixtures)"
 check "  and neither layer of the two-layer one does"    "0" "$(reap_two_layer)"

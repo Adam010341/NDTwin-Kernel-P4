@@ -107,9 +107,18 @@ PY
 }
 mk_entries 9000
 
+# [Co-developed with claude code -- Adam]
+# 🔴 RESIDUE-1 (2026-09-12, Adam's ruling 12:3x). The window a dead pid's pidfile opens is now
+# CLOSED at the app's own log mtime, so the fixture leaves that log behind -- and windows with
+# te rather than energy, because energy is the one app of the five with no log channel on any
+# machine (`ndtwin-lab energy-start` is a bare tmux session, no `script -f`). An energy pidfile
+# therefore seals to a ZERO-LENGTH window, which is the right answer for it and the wrong
+# fixture for a suite about a rule that IS inside a window. Same move group 5L of
+# tests/shell/test_apps_residue.sh made on 2026-09-07, for the same reason.
 started_ago() { : > "$FIX/.test_run/pids/app_$1.pid"
-                touch -d "@$(( $(date +%s) - $2 ))" "$FIX/.test_run/pids/app_$1.pid"; }
-started_ago energy 600
+                touch -d "@$(( $(date +%s) - $2 ))" "$FIX/.test_run/pids/app_$1.pid"
+                printf 'the app wrote this\n' > "$FIX/.test_run/logs/app_$1.log"; }
+started_ago te 600
 
 # --- the seam ------------------------------------------------------------------------------
 # Everything that would describe THIS machine is answered by an FX_ variable; check_up_target,
