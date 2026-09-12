@@ -465,6 +465,116 @@ check "🔴 HALF and whole-down give the same rc (kernel down)" \
 OUT="$(FX_KERNEL_UP=1 orphans_with "$LOCKS_FREE" 'bmv2_count() { echo "cannot tell"; }')"
 has   "an unreadable bmv2 count does not break the line" "bmv2=0" "$OUT"
 
+# ==========================================================================================
+section "G-55. an EMPTY flow table says so -- a window over one frames nothing"
+# ==========================================================================================
+# [Co-developed with claude code -- Adam]
+# Measured live 2026-09-12 15:00:47 (CELLS-2 cell 1). `ndt up ovs 4` had converged --
+# paths=installed, h1 -> 10.0.0.2 forwards, sFlow recording 10 samples -- and the kernel's
+# /ndt/get_switch_openflow_table_entries still answered `[]`; the same cell polled it at +0 s,
+# +5 s and +10 s and read 0, 0, 61. Every window over that table framed 0 rules and this report
+# printed `no flow entry arrived during that window`, which is WORD FOR WORD what it prints
+# about a window that really did exclude the rules that were on the wire. Only the cell's own
+# premise assertion (`stale_premise_flow_table_not_empty`) kept four green checks from being a
+# report about an instrument that had stopped looking.
+#
+# 🔴 THIS IS NOT THE SAME CASE AS 5F's `FX_NO_TABLE=1`, and the pair below is what keeps them
+# apart. There the kernel gave NO answer (empty string) and the report says `rules NOT checked`
+# and counts a blind question; here the kernel ANSWERED and its answer is that the plane is
+# empty. Both print a sentence; only one of them is a failure to look.
+#
+# 🔴 AND THE EXIT CODE DOES NOT MOVE. An empty table is the normal state of every idle lab with
+# a kernel up and no fabric, so counting it as BLIND would make `ndt status --check` answer NOT
+# CHECKED on every clean machine -- a gate that can never pass is a gate nobody reads, which is
+# how G-12's own green checks stopped being read. The rc pair at the end of this group is the
+# assertion that it did not move; DOC-4 §7-8 asked for NOT CHECKED here and Adam has not ruled.
+started_ago te 600
+printf '[]' > "$FIX/entries.json"
+EMPTY_OUT="$(run_residue "$LOCKS_FREE" te)"
+has   "🔴 an empty table is named as empty"              "flow table read empty" "$EMPTY_OUT"
+has   "  and what that does to a window"                 "a window over an empty table frames nothing" "$EMPTY_OUT"
+has   "  it says the line below discriminates nothing"   "discriminates NOTHING" "$EMPTY_OUT"
+has   "  and refuses to read it as 'they left nothing'"  "NOT 'these apps left nothing'" "$EMPTY_OUT"
+has   "  it names the issue"                             "KNOWN-ISSUES G-55" "$EMPTY_OUT"
+has   "  and the reading that produced it"               "+10s 61" "$EMPTY_OUT"
+# 🔴 THE THREE NEEDLES tools/test_workflow/live_cells/
+# stale_app_pidfile_does_not_frame_the_fabric.sh greps for do NOT move, and its judge reads the
+# line IMMEDIATELY AFTER the window line (`nxt`). A caveat wedged between the two would make the
+# report's own shape depend on which branch this took, which is why the sentence goes at the top.
+has   "  the window line is unchanged"                   "window closed" "$EMPTY_OUT"
+has   "  and its answer is still the next line"          "no flow entry arrived during that window" "$EMPTY_OUT"
+has   "🔴 and the answer is ADJACENT to the window line" "no flow entry arrived during that window" \
+      "$(grep -A1 -m1 -E '^  te +window ' <<<"$EMPTY_OUT" | tail -1)"
+
+# 🔴 THE DISCRIMINATOR. A table WITH rules in it, none of them inside this app's window: the
+# same `no flow entry arrived during that window`, and NO empty-table sentence. Without this
+# cell "always print the caveat" would pass every check above and the report would carry a
+# sentence that is false of most of the runs it appears in.
+mk_entries 9000
+FULL_OUT="$(run_residue "$LOCKS_FREE" te)"
+has   "the control still frames nothing"                 "no flow entry arrived during that window" "$FULL_OUT"
+hasnt "🔴 but a table WITH rules is not called empty"    "flow table read empty" "$FULL_OUT"
+
+# The other two ways the table can fail to be a list of rules. Neither is "empty".
+OUT="$(FX_NO_TABLE=1 run_residue "$LOCKS_FREE" te)"
+has   "no answer at all is still 'NOT checked'"          "rules NOT checked (not 'none found')" "$OUT"
+hasnt "🔴 and is NOT reported as an empty table"         "flow table read empty" "$OUT"
+OUT="$(FX_KERNEL_UP=0 run_residue "$LOCKS_FREE" te)"
+hasnt "🔴 a kernel that is down is not an empty table"   "flow table read empty" "$OUT"
+printf 'not json at all' > "$FIX/entries.json"
+OUT="$(run_residue "$LOCKS_FREE" te)"
+hasnt "🔴 nor is a table that will not parse"            "flow table read empty" "$OUT"
+has   "  that one is still the JSON failure"             "was not valid JSON" "$OUT"
+
+# `ndt status --check`'s one row about the network, driven directly. The row is where the 15:00
+# reading was read off: `none -- 0 rule(s) in any app window` over a fabric whose table had not
+# been programmed yet.
+check_row() {   # <extra shell> -> status_residue_row's output
+    bash -c "source '$NDT' >/dev/null 2>&1
+$STUBS
+$LOCKS_FREE
+APP_NAMES='te'
+$1
+status_residue_row
+printf 'PROBLEMS=%s\n' \"\${#STATUS_RESIDUE_PROBLEMS[@]}\"" 2>&1
+}
+printf '[]' > "$FIX/entries.json"
+ROW_EMPTY="$(check_row '')"
+has   "🔴 --check's row says the table was empty too"    "flow table read empty" "$ROW_EMPTY"
+has   "  with what it does to the row above it"          "did not exclude anything" "$ROW_EMPTY"
+has   "  and the row itself is unchanged"                "none -- 0 rule(s) in any app window" "$ROW_EMPTY"
+# 🔴 `listed by:` is printed on the RED branch only, and a live cell reads its ABSENCE as this
+# fix holding (CELLS-1 §7-1). A caveat that carried it would turn that cell green-for-nothing.
+hasnt "🔴 and it carries no 'listed by:' line"           "listed by:" "$ROW_EMPTY"
+check "  and raises no problem entry"                    "PROBLEMS=0" "$(grep -o 'PROBLEMS=[0-9]*' <<<"$ROW_EMPTY")"
+mk_entries 9000
+ROW_FULL="$(check_row '')"
+hasnt "  the control row is not called empty"            "flow table read empty" "$ROW_FULL"
+
+# 🔴 THE RC PAIR. The only difference between these two runs is what the table holds, so an rc
+# that moved would be the new sentence leaking into the exit code -- and on an idle lab (kernel
+# up, no fabric) the empty table is the NORMAL reading, so that leak would be red every night.
+printf '[]' > "$FIX/entries.json"
+EMPTY_RC="$(rc_of "$(orphans_with "$LOCKS_FREE")")"
+mk_entries 9000
+FULL_RC="$(rc_of "$(orphans_with "$LOCKS_FREE")")"
+check "🔴 an empty table gives the same rc as a full one" "$FULL_RC" "$EMPTY_RC"
+check "  and that rc is still 0"                         "0" "$EMPTY_RC"
+
+# flow_table_rows on its own: the counter the sentence rests on. Driven directly, because a
+# counter that answered 0 to everything would make the sentence appear on every report and a
+# counter that answered UNREADABLE to everything would make it appear on none -- and the cells
+# above cannot tell either of those from the real thing.
+rows_of() { bash -c "source '$NDT' >/dev/null 2>&1; printf '%s' '$1' | flow_table_rows" 2>&1; }
+check "flow_table_rows: an empty list is 0"              "0"  "$(rows_of '[]')"
+check "  a switch with an empty flows map is 0"          "0"  "$(rows_of '[{"dpid":1,"flows":{}}]')"
+check "  a table with one row is 1"                      "1"  "$(rows_of '[{"dpid":1,"flows":{"0":[{"priority":1}]}}]')"
+check "  rows are summed over switches and tables"       "3"  \
+      "$(rows_of '[{"dpid":1,"flows":{"0":[{"priority":1}],"1":[{"priority":2}]}},{"dpid":2,"flows":{"0":[{"priority":3}]}}]')"
+check "🔴 and a table that will not parse is UNREADABLE, never 0" "UNREADABLE" "$(rows_of 'not json')"
+mk_entries 300
+started_ago te 600
+
 # --- done ---------------------------------------------------------------------------------
 printf '\nRan %d checks, %d failed\n' "$((PASS+FAIL))" "$FAIL"
 [[ "$FAIL" -eq 0 ]] || exit 1

@@ -807,6 +807,45 @@ OUT="$(printf '' | verdict - )"
 check "  an empty report -> rc 2"                         "2"  "$(rc_of "$OUT")"
 
 # =================================================================================================
+section "G-55 -- a report taken over an EMPTY flow table is quoted, and is still CLEAN"
+# =================================================================================================
+# [Co-developed with claude code -- Adam]
+# FIX-NDT-11 ①. `ndt` now says, once, at the top of the network half, that the table it read was
+# empty -- because `no flow entry arrived during that window` is the same sentence whether the
+# window excluded sixty rules or the plane had none (CELLS-2 cell 1, 2026-09-12 15:00:47: a
+# converged `ndt up ovs 4` whose table still read `[]` ten seconds later).
+#
+# 🔴 A NOTE, NEVER A FAIL, and the two cells below are the pair that says so. An empty table is
+# the normal reading on every idle lab with a kernel up and no fabric, so failing on it would put
+# this reader in the red every night -- the shape that made G-12's own green checks unreadable.
+# But a CLEAN that does not QUOTE it is a CLEAN a round log cannot tell from one taken over a
+# fabric whose rules had not been programmed yet, which is the whole of G-55 one layer up.
+mk empty_table <<'EOF'
+  ok  no untracked app processes
+
+rules-in-window (nothing below is deleted)
+  !!    flow table read empty -- a window over an empty table frames nothing.
+    lock  routing_lock free
+    lock  graph_lock free
+    lock  power_lock free
+    te     window 2026-09-12 15:00:23 -> now (24s)
+  ok        no flow entry arrived during that window
+    NOT deleted, and nothing here deletes them.
+    tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 0 question(s) not answerable
+EOF
+OUT="$(verdict "$FIX/empty_table" 0)"
+check "  an empty table is still rc 0"                    "0"  "$(rc_of "$OUT")"
+has   "  and still CLEAN"                                 "VERDICT: CLEAN" "$OUT"
+has   "🔴 but the sentence is carried into the report"    "NOTE-WHY: !!    flow table read empty" "$OUT"
+has   "  with what it means for the window"               "a window over an empty table frames nothing" "$OUT"
+has   "  and the network half still reads 0/0/0"          "network=0/0/0" "$OUT"
+# 🔴 THE CONTROL. `clean` is the same report with rules on the wire and none in the window: the
+# NOTE must be absent there, or "quote it always" would pass the cell above and the note would
+# say nothing.
+OUT="$(verdict "$FIX/clean" 0)"
+hasnt "🔴 and a report with no such line gets no NOTE"    "flow table read empty" "$OUT"
+
+# =================================================================================================
 section "🔴 the synthetic fixtures are QUOTATIONS, and this is what keeps them true"
 # =================================================================================================
 # [Co-developed with claude code -- Adam]
@@ -900,6 +939,7 @@ else
     quoted_in_ndt "ndt still prints a stack: line with a verdict"   "stack: kernel="
     quoted_in_ndt "ndt still says: HALF A STACK"                    "HALF A STACK. the two halves disagree"
     quoted_in_ndt "ndt still says: seen elsewhere (not this checkout)" "seen elsewhere (not this checkout)"
+    quoted_in_ndt "ndt still says: flow table read empty (G-55)"  "flow table read empty -- a window over an empty table frames nothing"
 
     # 🔴 The control. Every check above is a grep for something that IS there; a `quoted_in_ndt`
     # broken into always passing would look identical. This sentence is built to be absent.

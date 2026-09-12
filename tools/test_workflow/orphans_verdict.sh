@@ -382,7 +382,15 @@ grep -F -- 'could not be asked whether they ran here at all' <<<"$REPORT" \
     | sed 's/^[[:space:]]*/NOTE: /'
 # The tool's own sentences for WHY something could not be answered. Quoted rather than summarised:
 # a reader copying this into a round log should be copying ndt's words, not mine.
-grep -E -- 'CANNOT BE ASKED|CANNOT READ|CANNOT WINDOW|window is LOST|NOT CHECKED|the kernel is not up|was not valid JSON|gave no flow table' <<<"$REPORT" \
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 `flow table read empty` is in this list and is NOT a reason to fail (G-55, 2026-09-12). It
+# is the qualifier `no flow entry arrived during that window` has always needed: a window over an
+# empty table excludes nothing, so the sentence under it says nothing about the app. An empty
+# table is the normal state of an idle lab, so failing on it would make this reader red on every
+# clean machine -- but a CLEAN it does not quote is a CLEAN a round log cannot tell from one
+# taken over a fabric whose rules had not been programmed yet. Quoted, never counted.
+grep -E -- 'CANNOT BE ASKED|CANNOT READ|CANNOT WINDOW|window is LOST|NOT CHECKED|the kernel is not up|was not valid JSON|gave no flow table|flow table read empty' <<<"$REPORT" \
     | sed 's/^[[:space:]]*/NOTE-WHY: /'
 
 # --- the verdict --------------------------------------------------------------------------------

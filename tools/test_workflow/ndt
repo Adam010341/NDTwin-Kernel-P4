@@ -7064,6 +7064,36 @@ http_get_flow_entries() {
     curl -sf --max-time 10 http://localhost:8000/ndt/get_switch_openflow_table_entries 2>/dev/null
 }
 
+# flow_table_rows -- flow-entries JSON on stdin, how many rows the WHOLE table holds, or
+# UNREADABLE. Counts, and decides nothing: the sentence the count produces is in residue_report.
+#
+# [Co-developed with claude code -- Adam]
+# G-55. "0 rules in this app's window" and "0 rules anywhere" are two different readings and
+# residue_report printed one sentence for both, so the table's own size is read ONCE per report
+# -- before the per-app loop, which is the only place a reader can be told that everything below
+# it is about an empty table. It is a separate fetch-free call rather than a number smuggled out
+# of residue_rule_lines, because that function runs once per app and is not reached at all when
+# no app has a window: on an idle machine the size of the table would then never be read.
+#
+# 🔴 `3<&0` BEFORE the heredoc, for the reason residue_rule_lines' header gives: `python3 -`
+# takes the script itself on stdin, so a json.load(sys.stdin) here would parse the end of its own
+# source and report every table as UNREADABLE -- an "empty table" sentence that never appears,
+# produced by a plumbing bug, which is the exact shape G-12 is about.
+flow_table_rows() {
+    python3 - 3<&0 <<'PY'
+import json, os, sys
+try:
+    entries = json.load(os.fdopen(3))
+    n = 0
+    for sw in entries or []:
+        for _key, rows in sorted((sw.get("flows") or {}).items()):
+            n += len(rows or [])
+except Exception:
+    print("UNREADABLE"); sys.exit(0)
+print(n)
+PY
+}
+
 # lock_probe <type> -- "held <lease> <retry_after_s>" | "free" | "unknown <why>".
 #
 # 🔴 There is no read-only way to ask. The kernel exposes acquire/release/renew and nothing
@@ -7285,6 +7315,15 @@ RESIDUE_UNDATABLE=0
 RESIDUE_BLIND=0
 RESIDUE_UNKNOWABLE=0
 RESIDUE_UNKNOWABLE_APPS=""
+# [Co-developed with claude code -- Adam]
+# G-55 adds a SIXTH, and like RESIDUE_UNKNOWABLE it is deliberately not one of the four above:
+#   RESIDUE_EMPTY_TABLE  the flow table was read and it has nothing in it  -> 0 of 0, not 0 of N
+#   RESIDUE_TABLE_ROWS   how many rows that reading found ("" = not read, UNREADABLE = not JSON)
+# It changes no exit code. An empty table is the normal state of an idle lab, and a `--check`
+# that went NOT CHECKED on it would be red on every clean machine; what it must not do is look
+# like a window that excluded something.
+RESIDUE_EMPTY_TABLE=0
+RESIDUE_TABLE_ROWS=""
 
 # RESIDUE_WINDOW[<app>] -- a window START read before something destroyed the record it came
 # from. Filled only by `cmd_apps stop`; empty for every other caller.
@@ -7368,6 +7407,21 @@ status_residue_row() {
         *) printf '  %-14s %s\n' "rules-in-window" "none -- 0 rule(s) in any app window, 0 lock(s) held (asked, not assumed)" ;;
     esac
     # [Co-developed with claude code -- Adam]
+    # 🔴 G-55. `none ... (asked, not assumed)` above is a true sentence about an empty table and
+    # a true sentence about a table full of rules none of which fell in a window, and until now
+    # those were the SAME sentence -- the one row `--check` prints about the network said `none`
+    # over a fabric whose table had not been programmed yet (CELLS-2 cell 1, 2026-09-12 15:00:47,
+    # ten seconds after a converged bring-up). Printed under whichever branch ran, including the
+    # red one, because "the rules I found were the whole table" is as much a qualifier on 4 as on
+    # 0. It carries NO `listed by:` line: that string is bound to the red path and a live cell
+    # reads its absence as the fix holding (CELLS-1 §7-1).
+    if (( RESIDUE_EMPTY_TABLE > 0 )); then
+        printf '  %-14s %s\n' "" "${Y}flow table read empty -- a window over an empty table frames nothing${N}"
+        printf '  %-14s %s\n' "" "0 entry(s) on the whole plane, so the row above did not exclude anything:"
+        printf '  %-14s %s\n' "" "it had nothing to exclude. within ~10s of 'ndt up' the table can still"
+        printf '  %-14s %s\n' "" "be empty while the fabric is programmed. (G-55)"
+    fi
+    # [Co-developed with claude code -- Adam]
     # 🔴 3-51 / Adam's E-7 ruling: "查不了可以不紅，沒去查不准長得像查了沒事". This row is the
     # whole of what `--check` says about the network, and until 09-07 it printed
     # "none ... (asked, not assumed)" on a lab where energy and sim had never been asked anything
@@ -7395,6 +7449,7 @@ residue_report() {
     now="$(date +%s)"
     RESIDUE_RULES=0; RESIDUE_LOCKS=0; RESIDUE_UNDATABLE=0; RESIDUE_BLIND=0
     RESIDUE_UNKNOWABLE=0; RESIDUE_UNKNOWABLE_APPS=""
+    RESIDUE_EMPTY_TABLE=0; RESIDUE_TABLE_ROWS=""
 
     say "rules-in-window (nothing below is deleted)"
     if ! port_open 8000; then
@@ -7410,6 +7465,43 @@ residue_report() {
     if [[ -z "$entries" ]]; then
         warn "the kernel gave no flow table on :8000 -- rules NOT checked (not 'none found')."
         RESIDUE_BLIND=$(( RESIDUE_BLIND + 1 ))
+    else
+        # [Co-developed with claude code -- Adam]
+        # 🔴 G-55, measured 2026-09-12 15:00:47 (CELLS-2 cell 1). Said HERE, before the first
+        # window, because it changes what every line under it means -- the same reason
+        # CANNOT WINDOW is said once at the top rather than per rule.
+        #
+        # What was measured: a converged `ndt up ovs 4` (paths=installed, h1 -> 10.0.0.2
+        # forwards, sFlow recording) and the kernel's flow table still read `[]` for about ten
+        # seconds afterwards (+0 s = 0, +5 s = 0, +10 s = 61). Every window over that table
+        # framed 0 rules and this report printed `no flow entry arrived during that window` --
+        # WORD FOR WORD what it prints about a window that really did exclude the rules that
+        # were there. An offline probe of both cases against the `ndt` of trunk 628d84f1
+        # produced two byte-identical reports
+        # (scratch/.../logs/ndt11-0912/q1-empty-table-probe.ndt11-0912-r1.log).
+        # A reader could not tell "this window excluded everything on the wire" from "there was
+        # nothing on the wire", and only the cell's own premise assertion kept that from being
+        # a green check over a tool that had stopped looking.
+        #
+        # 🔴 IT IS NOT COUNTED AS BLIND, and that is a decision rather than an oversight. An
+        # empty flow table is the NORMAL state of every idle lab with a kernel up and no fabric,
+        # so folding it into RESIDUE_BLIND would make `ndt status --check` answer NOT CHECKED on
+        # every clean machine -- a gate that can never pass, which is how G-12's own green checks
+        # stopped being read. The reading is stated, in words, and the exit code is unchanged.
+        # DOC-4 §7-8 asked for NOT CHECKED here and Adam has not ruled; FIX-NDT-11 §7 carries it.
+        RESIDUE_TABLE_ROWS="$(printf '%s' "$entries" | flow_table_rows)"
+        if [[ "$RESIDUE_TABLE_ROWS" == 0 ]]; then
+            RESIDUE_EMPTY_TABLE=1
+            warn "  flow table read empty -- a window over an empty table frames nothing."
+            warn "        the kernel answered and its answer is 0 entry(s) on the whole plane, so"
+            warn "        every 'no flow entry arrived during that window' below is true of an"
+            warn "        empty table whatever the window was: that line discriminates NOTHING"
+            warn "        here. NOT 'these apps left nothing'. (KNOWN-ISSUES G-55)"
+            warn "        a table read within ~10s of 'ndt up' can still be empty while the"
+            warn "        fabric is being programmed (measured 2026-09-12 15:00:47: +0s 0,"
+            warn "        +5s 0, +10s 61). Poll it to non-empty, or install a datable rule of"
+            warn "        your own, before reading a residue claim off this report."
+        fi
     fi
 
     for t in routing_lock graph_lock power_lock; do
