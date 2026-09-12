@@ -1136,6 +1136,40 @@ m=$(mutant w14 "$NDT" \
 report_green "W14 (behaviour-preserving): the [3/3] explanation reworded" "$m" \
        "section 23 reads the sentence and the verb, not this line"
 
+# --- FIX-NDT-8: the way IN is printed on both planes (section 24) ------------------------------
+
+# M84: the OVS bring-up stops printing it, which is the state Adam asked about at 11:23 --
+# 128 hosts on the default plane and no line saying how to reach them.
+m=$(mutant m84 "$NDT" \
+    '        lab_entry_points ovs' \
+    '        :')
+report "M84: the OVS bring-up does not say how to get in" "$m" \
+       "  up_ovs calls it"
+
+# M85: the P4 plane's own line is lost in the consolidation. Moving two sentences into one
+# function is exactly when one of them quietly stops being printed.
+m=$(mutant m85 "$NDT" \
+    '        lab_entry_points p4' \
+    '        :')
+report "M85: the P4 bring-up loses the line it already had" "$m" \
+       "  and up_p4 calls it"
+
+# M86: the attach command drifts from the helper's. A session name typed twice is a command an
+# operator pastes and watches fail on the day one of the two moves.
+m=$(mutant m86 "$NDT" \
+    "lab_attach_cmd() { printf 'sudo tmux -L ndtwinlab attach -t topo\\n'; }" \
+    "lab_attach_cmd() { printf 'sudo tmux -L ndtwinlab attach -t ndtwin\\n'; }")
+report "M86: the attach command no longer matches ndtwin-lab's own" "$m" \
+       "🔴 that command is what ndtwin-lab itself prints, at all three launch verbs"
+
+# M87 (widening): OVS is told it has a proxy. :8081 is the P4 proxy; on this plane nothing is
+# listening there, and a ready line that names it sends the reader to a closed port.
+m=$(mutant m87 "$NDT" \
+    '        ovs) info "Ryu :8080   kernel :8000   Mininet CLI: $(lab_attach_cmd)" ;;' \
+    '        ovs) info "proxy :8081   kernel :8000   Mininet CLI: $(lab_attach_cmd)" ;;')
+report "M87 (widening): the OVS line names a proxy that is not there" "$m" \
+       "  and Ryu's, which is the OVS plane's control plane"
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then

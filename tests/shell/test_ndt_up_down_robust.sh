@@ -1820,5 +1820,41 @@ check "  which is still a failed teardown"        "1" "$(rc_of_out "$OUT")"
 has   "  and the failure still has its own line"  "the sweep did not finish" "$OUT"
 
 # ==========================================================================================
+section "24. FIX-NDT-8 / Adam 11:23: the OVS bring-up prints the way IN, like the P4 one"
+# ==========================================================================================
+# `ndt up p4` ended on `proxy :8081  kernel :8000  Mininet CLI: sudo tmux -L ndtwinlab attach -t
+# topo`; `ndt up ovs` ended on nothing of the kind, so an operator who had just built a 128-host
+# OVS fabric was not told how to get into it -- on the plane that IS the default. Adam asked for
+# it at 11:23 on 2026-09-12.
+#
+# 🔴 One function for both planes, and that is the point: two copies of a command an operator
+# pastes drift, and this file already has the evidence (up_p4 and up_ovs carry two copies of the
+# H4 unpacking, and section 11 exists because one of them was wrong).
+reset_fix
+OUT="$(drive 'lab_entry_points ovs')"
+has   "🔴 the OVS line carries the Mininet CLI command" \
+      "Mininet CLI: sudo tmux -L ndtwinlab attach -t topo" "$OUT"
+has   "  with the kernel's port"                       "kernel :8000" "$OUT"
+has   "  and Ryu's, which is the OVS plane's control plane" "Ryu :8080" "$OUT"
+hasnt "  🔴 and NOT a proxy, which the OVS plane does not have" ":8081" "$OUT"
+OUT="$(drive 'lab_entry_points p4')"
+has   "  the P4 line is unchanged, whole"              \
+      "proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo" "$OUT"
+
+# 🔴 THE CROSS-FILE CELL, and the one with real discriminating power: the command printed here
+# is the command ndtwin-lab itself hands out at each of its three launch verbs. A session name
+# or socket typed twice is a paste that stops working the day one of them moves.
+LABFILE="$(dirname "$NDT")/ndtwin-lab"
+ATTACH="$(drive 'lab_attach_cmd' | head -1)"
+check "🔴 that command is what ndtwin-lab itself prints, at all three launch verbs" "3" \
+      "$(grep -cF "(attach: $ATTACH)" "$LABFILE")"
+
+# The wiring: both planes call it, and only from the branch that says the lab is ready.
+check "  up_ovs calls it"                              "1" "$(grep -c 'lab_entry_points ovs' "$NDT")"
+check "  and up_p4 calls it"                           "1" "$(grep -c 'lab_entry_points p4' "$NDT")"
+check "  🔴 and each call sits under 'up. ready'"      "2" \
+      "$(grep -A1 'say "up\. \${G}ready\${N}"' "$NDT" | grep -c lab_entry_points)"
+
+# ==========================================================================================
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]

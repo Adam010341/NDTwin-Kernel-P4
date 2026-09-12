@@ -2239,6 +2239,32 @@ rollback_up() {
 
 # --- up ---------------------------------------------------------------------------
 
+# --- the way IN, once the lab is up ----------------------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 Adam, 2026-09-12 11:23. `ndt up p4` ended on `proxy :8081  kernel :8000  Mininet CLI: ...`;
+# `ndt up ovs` ended on nothing of the kind, so an operator who had just built a 128-host fabric
+# on the DEFAULT plane was not told how to get into it.
+#
+# ONE function for both planes. Two copies of a command an operator pastes drift, and this file
+# has the evidence: up_p4 and up_ovs carry two copies of the H4 tab unpacking and one of them was
+# wrong for a day (section 11 of tests/shell/test_ndt_up_down_robust.sh).
+#
+# 🔴 The command is not invented here. All three of ndtwin-lab's launch verbs -- topo-start,
+# ovs-topo-start and ovs-topo-4host -- open the session as `-s topo` on the `-L ndtwinlab`
+# socket, and each of them PRINTS this same line as its own `(attach: ...)` hint. The suite
+# compares the two files rather than trusting this string.
+lab_attach_cmd() { printf 'sudo tmux -L ndtwinlab attach -t topo\n'; }
+
+# lab_entry_points <plane> -- the ports and the CLI, for a lab that came up and verified.
+# OVS has no proxy: naming one there would send a reader to a port nothing is listening on.
+lab_entry_points() {
+    case "$1" in
+        p4)  info "proxy :8081   kernel :8000   Mininet CLI: $(lab_attach_cmd)" ;;
+        ovs) info "Ryu :8080   kernel :8000   Mininet CLI: $(lab_attach_cmd)" ;;
+    esac
+}
+
 up_p4() {
     local hosts topo binary rate n want_paths
     # [Co-developed with claude code -- Adam]
@@ -2598,7 +2624,7 @@ print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1))' "$topo" 2>/dev/nul
     echo
     if (( rc == 0 )); then
         say "up. ${G}ready${N}"
-        info "proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo"
+        lab_entry_points p4
     else
         say "up, ${R}but not verified${N} -- do not measure on this"
     fi
@@ -2860,7 +2886,12 @@ print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1), len(t["edges"]))' "
     verify_sflow "$ovs_topo" || rc=1
 
     echo
-    if (( rc == 0 )); then say "up. ${G}ready${N}"; else say "up, ${R}but not verified${N}"; fi
+    if (( rc == 0 )); then
+        say "up. ${G}ready${N}"
+        lab_entry_points ovs
+    else
+        say "up, ${R}but not verified${N}"
+    fi
     return $rc
 }
 
