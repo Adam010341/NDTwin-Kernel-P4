@@ -174,10 +174,20 @@ listener `:6653`／`:6633`、kernel 的 sFlow collector `:6343`（UDP）、bmv2 
      （74 行 XX）＝🟠 轉述；9 條規則／27 個 port 的展開＝本單親自讀 tools/test_workflow/ports.sh
      的 NDT_PORT_TABLE 數出來的（6 個單埠＋10＋10＋1）。 -->
 
-🔴 **已知（工具的措辭，FIX-NDT-6 在修）：在你自己**活著的** fabric 上跑 `ndt clean`，
-它會把你這一輪的行程列成 residue，並在清單末尾建議 `ndt down --deep`。**不要照做。**
+<!-- NDT-MERGED-CAVEAT:BEGIN clean-calls-your-fabric-residue 1656bdba -->
+🏁 **已修（工具的措辭，2026-09-12 merge `1656bdba`，FIX-NDT-6 ④）：在你自己**活著的** fabric 上跑
+`ndt clean`，它曾經把你這一輪的行程列成 residue，並在清單末尾一律建議 `ndt down --deep`。**
+現在它走一次 port 表，對每個被佔的 port 先問兩個紀錄——`.test_run/pids/` 與 switch manifest——
+答得出來的印在 `the fabric this stack started is still up. Take it down with:  ndt down` 底下、
+逐個標明是哪一個紀錄認的；**只有兩個紀錄都不認的 port** 才會拿到 `--deep` 那一句。
+登記在 KNOWN-ISSUES G-44／G-45。
 fabric 活著時 `ndt clean` 回 rc 1 是正常的（就是上面那張表的 **1＝量到了，而且髒**），
 要收請用 `ndt down`；`--deep` 是會殺別人行程的動詞。細節與逐字輸出見下面的摺疊區。
+<!-- 來源：merge `1656bdba` 是不是 HEAD 的祖先＝本單 `git merge-base --is-ancestor` 親驗；
+     `the fabric this stack started is still up` 那句與兩個紀錄的問法＝本單親自讀
+     tools/test_workflow/ndt 的 cmd_clean（mine／strangers 兩個陣列）。
+     🟠 轉述 KNOWN-ISSUES G-45 與 fix/FIX-NDT-6-SUMMARY.md §1.4：本單沒有開 lab 重跑 `ndt clean`。 -->
+<!-- NDT-MERGED-CAVEAT:END clean-calls-your-fabric-residue -->
 
 <details><summary>什麼時候需要 <code>ndt down --deep</code></summary>
 
@@ -191,17 +201,22 @@ XX  :8000 still listening -- this stack did not start it
 這是刻意的：`--deep` 會殺掉佔住**那 27 個 port**（＝上面 `clean` 檢查的同一張表）的任何行程，
 而那可能是別人正在用的東西。確定機器是你的，才加 `--deep`。
 
-⚠️ **`ndt help` 的 `down` 段落仍寫「`--deep` also kills whatever still holds
-:8000/:8080/:8081」，那是三個 port 時代的話**：`deep_sweep` 與 `cmd_clean` 現在讀
-`ports.sh` 的同一張表（九條規則），所以 `--deep` 也會掃 bmv2 的 20 個 port。
-以這裡為準，`ndt help` 的那句待修。
-<!-- 來源：本單親自讀 tools/test_workflow/ndt 的 deep_sweep（`while IFS='|' read ... NDT_PORT_TABLE`，
-     註解自陳「the sweep now covers nine specs instead of three」）與 ports.sh；
-     `ndt help` 的原句出自本單自己跑的 logs/gates-0910/ndt-help-spelling.doc1-0912-r1.log。
-     工具側的措辭未改（不在本單範圍），已列進 SUMMARY §7。 -->
+<!-- NDT-MERGED-CAVEAT:BEGIN help-deep-names-three-ports 1656bdba -->
+🏁 **已修（2026-09-12 merge `1656bdba`，FIX-NDT-6 ⑤）：`ndt help` 的 `down` 段落曾經寫
+「`--deep` also kills whatever still holds :8000/:8080/:8081」，那是三個 port 時代的話。**
+它現在印的是 `--deep also kills whatever still holds ANY port in ports.sh's table -- 9 rule(s), 27 port(s) --`，
+下一行把整張表展開成 `8000/8080/8081/6653/6633/6343/30051-30060/9091-9100/9000`。
+**那兩個數字是 `ndt` 自己從 `ports.sh` 算出來的，不是打進散文裡的**，所以它們不會再各自過期；
+手冊與 `ndt help` 現在講同一件事，要對數字看 `ndt help`。登記在 KNOWN-ISSUES G-46。
+<!-- 來源：`ndt help` 現在那兩行逐字＝本單自己跑 `ndt help` 讀到的
+     （logs/gates-0910/ndt-help-verbatim.doc4-0912-r1.log，rc 2）；deep_sweep 與 cmd_clean 讀
+     ports.sh 同一張表＝FIX-DOC-1 親讀、本單只對帳；merge 是不是 HEAD 的祖先＝本單親驗。 -->
+<!-- NDT-MERGED-CAVEAT:END help-deep-names-three-ports -->
 
-🔴 **已知：那句「this stack did not start it」會蓋到這個 stack 自己登記的行程。**
-09-12 實測：`ndt up p4 4` 起完約 30 秒跑 `ndt clean`，輸出 **74 行 `XX`**，頭兩筆是
+<!-- NDT-MERGED-CAVEAT:BEGIN clean-advises-deep-on-your-own 1656bdba -->
+🏁 **已修（2026-09-12 merge `1656bdba`，FIX-NDT-6 ④）：那句「this stack did not start it」
+曾經蓋到這個 stack 自己登記的行程。**
+**修之前**的 09-12 實測：`ndt up p4 4` 起完約 30 秒跑 `ndt clean`，輸出 **74 行 `XX`**，頭兩筆是
 
 ```
 XX  residue: ndtwin_kernel pid 2511227 holding :8000 (tcp)
@@ -213,11 +228,16 @@ XX  residue: python pid 2510886 holding :8081 (tcp)
 ——這兩個 pid 正是 `.test_run/pids/` 登記在案的。清單**末尾**那一行總結
 `XX     this stack did not start it; to kill it too:  ndt down --deep`
 因此涵蓋了自己人。**第一次用的人照著加 `--deep`，殺掉的是自己剛起的 fabric。**
-工具的修正在 **FIX-NDT-6**；在它落地之前，判斷「這是不是我的」請看 `ndt status` 的
-`pidfiles` 欄，不要看 `clean` 的這句話。
+修法（`1656bdba` 起）：`cmd_clean` 走一次 port 表，對每個被佔的 port 問 `.test_run/pids/` 與
+switch manifest 兩個紀錄；答得出來的印在 `the fabric this stack started is still up` 底下，
+**只有兩個紀錄都不認的**才留給 `this stack did not start it; to kill it too:  ndt down --deep`。
+那一句刻意留著：一顆別人起的 kernel 佔著 :8000，正是一個 P4 session 量到 OVS kernel 的來源，
+把它拿掉會是同一個缺陷把號誌反過來。判「這是不是我的」現在看 `ndt clean` 自己印的那兩塊，
+`ndt status` 的 `pidfiles` 欄仍然可以對帳。
 <!-- 來源：ROLE-11 F5，log hunt-0911/logs/ROLE-11/18-clean-live.log（74 行 XX、末行的 --deep 建議）
-     與 16-check-p4.log（pidfiles 欄）。🟠 轉述（ROLE-11 log）。工具未改：FIX-NDT-6 ③ 在修
-     `clean` 的守衛與措辭。 -->
+     與 16-check-p4.log（pidfiles 欄）。🟠 轉述（ROLE-11 log）。修法的兩塊輸出與「刻意留著」
+     的理由＝本單親自讀 tools/test_workflow/ndt 的 cmd_clean；merge 是不是 HEAD 的祖先＝本單親驗。 -->
+<!-- NDT-MERGED-CAVEAT:END clean-advises-deep-on-your-own -->
 
 `--deep` 自己也有兩道保險：不對 pid < 2 動手、不殺 `ndt` 自己；而如果 port 的持有者
 查不出 pid（例如在別的 netns 裡），它會明說 `--deep cannot address it` 而不是假裝成功。
