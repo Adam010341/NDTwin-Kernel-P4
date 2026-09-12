@@ -393,6 +393,60 @@ m=$(mutant m30 "$NDT" \
 report "M30 (widening): a healthy fabric is called HALF" "$m" \
        "🔴 a healthy P4 fabric is whole-up, not HALF"
 
+# --- G-55: an EMPTY table and a window that excluded everything are two readings ---------------
+#
+# [Co-developed with claude code -- Adam]
+# FIX-NDT-11 ①. Until 2026-09-12 both printed `no flow entry arrived during that window` and
+# nothing else -- two byte-identical reports over a plane with sixty rules on it and a plane with
+# none (CELLS-2 cell 1, 15:00:47). The four mutations below are the two directions that sentence
+# can fail in, plus the counter it rests on: never said, always said, a counter that reads 0 for
+# every table, and a counter that answers 0 rather than UNREADABLE to a table it could not parse
+# -- the last of which would put the sentence on a report where the truth is "I could not look".
+
+m=$(mutant m31 "$NDT" \
+    '        if [[ "$RESIDUE_TABLE_ROWS" == 0 ]]; then' \
+    '        if false; then')
+report "M31: an empty flow table is never named as empty" "$m" \
+       "🔴 an empty table is named as empty"
+
+# (widening) Said on every report. Every cell that requires the sentence passes; the report then
+# carries a sentence that is false of most of the runs it appears in, and the CONTROL is what
+# catches it.
+m=$(mutant m32 "$NDT" \
+    '        if [[ "$RESIDUE_TABLE_ROWS" == 0 ]]; then' \
+    '        if true; then')
+report "M32 (widening): every table is called empty" "$m" \
+       "🔴 but a table WITH rules is not called empty"
+
+m=$(mutant m33 "$NDT" \
+    '            n += len(rows or [])' \
+    '            n += 0')
+# 🔴 The check's name carries its own two leading spaces (it is a continuation line in the
+# suite's output), and `report` greps for `FAILED   <name>`. Without them this gate reported
+# M33 SURVIVED in its first run while the named check had gone red -- the matcher missed, not
+# the mutation. Logged: mutate_apps_stop_lists_rules.ndt11-0912-r1.log.
+report "M33: the row counter counts nothing, so every table reads 0" "$m" \
+       "  a table with one row is 1"
+
+# 🔴 The fail-closed side of the counter. `0` and "I could not read it" are different answers and
+# only one of them may produce the sentence: a table this tool cannot parse is already reported
+# as `was not valid JSON`, and adding "and it was empty" to that would be a check that could not
+# look wearing the face of one that looked. (E-7)
+m=$(mutant m34 "$NDT" \
+    'except Exception:
+    print("UNREADABLE"); sys.exit(0)
+print(n)' \
+    'except Exception:
+    print(0); sys.exit(0)
+print(n)')
+report "M34: a table that will not parse is counted as 0 rows" "$m" \
+       "🔴 and a table that will not parse is UNREADABLE, never 0"
+
+m=$(mutant m35 "$NDT" \
+    '    if (( RESIDUE_EMPTY_TABLE > 0 )); then' \
+    '    if false; then')
+report "M35: 'ndt status --check' stops saying the table was empty" "$m" \
+       "🔴 --check's row says the table was empty too"
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)

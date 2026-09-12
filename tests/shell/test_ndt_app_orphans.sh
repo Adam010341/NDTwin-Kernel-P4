@@ -45,7 +45,10 @@ set -uo pipefail
 
 export NO_COLOR=1                     # deterministic output to match on
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NDT="$HERE/../../tools/test_workflow/ndt"
+# Env:  NDT_UNDER_TEST=<path>   -- point it at a copy to watch this suite go red. Added
+# 2026-09-12 (FIX-NDT-11 ②): section 10's red is a one-line edit to `ndt`'s fail-closed branch,
+# and a red nobody can reproduce from the repo is a red that exists only in a log.
+NDT="${NDT_UNDER_TEST:-$HERE/../../tools/test_workflow/ndt}"
 
 PASS=0
 FAIL=0
@@ -416,6 +419,111 @@ check "apps_status reports ours as ORPHAN"        yes "$(has "$FIX" "$out")"
 SNAPSHOT_LINES="$(fix_line "$OTHERFIX" "$OTHER_ARGV")"
 out="$(apps_status 2>&1)"
 check "  and says nothing of theirs"              no  "$(has "ORPHAN" "$out")"
+
+SNAPSHOT_LINES=""
+rm -f "$PIDDIR"/app_*.pid
+
+# --- 10. E-7 / C10-8: the process nobody could attribute is counted as OURS --------
+#
+# [Co-developed with claude code -- Adam]
+# FIX-NDT-10 SUMMARY §7-9. `proc_checkout` answers 2 -- "could not tell" -- when BOTH
+# /proc/<pid>/cwd and /proc/<pid>/fd are unreadable, every caller treats a 2 as ours, and the
+# report says so instead of claiming to know. That is the whole of C10-8's safety side: the apps
+# `sudo ndtwin-lab` starts run as root, where both readings are refused, and treating "cannot
+# tell" as foreign would hand this checkout a clean verdict over exactly the orphan class it most
+# needs to find. Until now it had a red and a green only in tests/shell/test_orphans_verdict.sh
+# -- on a SYNTHETIC report, i.e. on the reader's handling of a sentence somebody typed. `ndt`'s
+# own branch had never been driven: it needs a candidate process this user may not look inside.
+#
+# 🔴 NO ROOT, NO NAMESPACE, NO SECOND UID. The two readings are a seam (proc_cwd_link /
+# proc_fd_links) and this section replaces them, so the process below is a real live fixture with
+# a real /proc entry and only the two channels are blinded. What that costs is stated rather than
+# hidden: this section proves what proc_checkout DOES with a blind pair, not that root processes
+# produce one -- the second half is an OS fact (FIX-NDT-10's live evidence: `/proc/<pid>/fd of a
+# root process could not be read`, R4-LIVE §4-A9) and is out of an offline suite's reach.
+#
+# 🔴 AND IT NEEDS THE DISCRIMINATING CONTROL. "Cannot tell -> ours" and "another tree's -> not
+# ours" are two answers to two inputs, and a proc_checkout that answered 2 to everything would
+# pass every check in the first group. The control is the same fixture with the seam intact.
+echo "fail-closed (a pid nobody could attribute is counted as this checkout's)"
+
+# The fixture's cwd is $TMPROOT -- this checkout -- so with the seam intact it is OURS by cwd.
+# Blinding both channels is what makes it the unattributable case rather than a foreign one.
+blind_both='proc_cwd_link() { return 1; }; proc_fd_links() { return 2; }'
+blind_cwd_only='proc_cwd_link() { return 1; }'
+# The whole thing runs in a child shell so the seam never leaks into the sections above or below.
+in_ndt() {   # in_ndt <extra shell> <code>  -> its output
+    bash -c "source '$NDT' >/dev/null 2>&1
+REPO='$TMPROOT'
+APP_NAMES='te'
+$1
+$2" 2>&1
+}
+
+check "🔴 both channels blind -> could not tell (rc 2)" 2 \
+      "$(in_ndt "$blind_both" "proc_checkout $FIX >/dev/null; echo \$?")"
+check "  and it says who owns it was not established" yes \
+      "$(has "who owns it was NOT established" "$(in_ndt "$blind_both" "proc_checkout $FIX >/dev/null; printf '%s' \"\$PROC_CHECKOUT_WHY\"")")"
+check "  naming the two channels it could not read"   yes \
+      "$(has "cannot read /proc/$FIX/cwd or /proc/$FIX/fd" "$(in_ndt "$blind_both" "proc_checkout $FIX >/dev/null; printf '%s' \"\$PROC_CHECKOUT_WHY\"")")"
+
+# 🔴 The half this is FOR: it is counted, not merely described. app_claims_pid answers 0 for a 2,
+# and carries the reason so the report can print it.
+check "🔴 app_claims_pid COUNTS it as ours"            0 \
+      "$(in_ndt "$blind_both" "app_claims_pid te $FIX; echo \$?")"
+check "  and records why it could not be established"  yes \
+      "$(has "who owns it was NOT established" "$(in_ndt "$blind_both" "app_claims_pid te $FIX; printf '%s' \"\$APP_ATTRIB_BLIND\"")")"
+check "  and it is NOT filed under elsewhere"          0 \
+      "$(in_ndt "$blind_both" "app_claims_pid te $FIX; echo \${#APP_ELSEWHERE[@]}")"
+
+# 🔴 It reaches the verdict. A fail-closed that stopped at the sentence would be a report that
+# says "I could not tell" over a rc 0 -- the E-7 shape with the sign flipped.
+OUT10="$(in_ndt "$blind_both" "app_ps_snapshot() { printf '%s %s\n' $FIX '$FIX_ARGV'; }
+rm -f '$PIDDIR'/app_*.pid
+apps_orphans; echo \"ORPHANS_RC=\$?\"")"
+check "🔴 apps orphans is rc 1 over it"               ORPHANS_RC=1 "$(grep -o 'ORPHANS_RC=[0-9]*' <<<"$OUT10")"
+check "  it is the orphan, by name"                   yes "$(has "te: pidfile-lost-but-alive" "$OUT10")"
+check "  and the report prints the fail-closed line"  yes "$(has "who owns these could NOT be established, so they are counted as this checkout's" "$OUT10")"
+check "  it is not in the elsewhere column"           no  "$(has "seen elsewhere (not this checkout)" "$OUT10")"
+
+# --- the controls. Each one is an input that must NOT produce "could not tell".
+OTHER10="$(spawn_fixture "python3 /nonexistent/NDT-TEST-FIXTURE-BLIND-CONTROL/$TE_SIG" "$TMPROOT/scratch/wt-other")"
+check "🔴 CONTROL: the same code, seam intact, other tree -> 1" 1 \
+      "$(in_ndt "" "proc_checkout $OTHER10 >/dev/null; echo \$?")"
+check "  and that one IS filed under elsewhere"        1 \
+      "$(in_ndt "" "app_claims_pid te $OTHER10; echo \${#APP_ELSEWHERE[@]}")"
+check "  while our own fixture, seam intact, is 0"     0 \
+      "$(in_ndt "" "proc_checkout $FIX >/dev/null; echo \$?")"
+# 🔴 ONE channel blind is not "could not tell". The fd channel is what attributes our own apps
+# (they run from a sibling repo, so cwd is another checkout by design), so a cwd that cannot be
+# read must still let the fd answer -- and must still be able to say "not ours" when it does not.
+check "🔴 cwd blind, fd readable, other tree -> 1"     1 \
+      "$(in_ndt "$blind_cwd_only" "proc_checkout $OTHER10 >/dev/null; echo \$?")"
+check "  cwd blind, fd readable, nothing of ours -> 1" 1 \
+      "$(in_ndt "$blind_cwd_only" "proc_checkout $FIX >/dev/null; echo \$?")"
+check "🔴 cwd blind, but an fd under \$REPO -> ours"   0 \
+      "$(in_ndt "$blind_cwd_only
+proc_fd_links() { printf '%s\n' /dev/null '$TMPROOT/.test_run/logs/app_te.log'; return 0; }" \
+        "proc_checkout $FIX >/dev/null; echo \$?")"
+check "  and it says which fd said so"                 yes \
+      "$(has "it holds $TMPROOT/.test_run/logs/app_te.log open" "$(in_ndt "$blind_cwd_only
+proc_fd_links() { printf '%s\n' /dev/null '$TMPROOT/.test_run/logs/app_te.log'; return 0; }" \
+        "proc_checkout $FIX >/dev/null; printf '%s' \"\$PROC_CHECKOUT_WHY\"")")"
+# And an fd inside a NESTED checkout is still not ours -- the path rule applies to this channel
+# too, which is the one place a `-lname "$REPO/*"` prefilter could quietly get it wrong.
+check "🔴 an fd inside a nested checkout is not ours"  1 \
+      "$(in_ndt "$blind_cwd_only
+proc_fd_links() { printf '%s\n' '$TMPROOT/scratch/wt-other/x.log'; return 0; }" \
+        "proc_checkout $FIX >/dev/null; echo \$?")"
+
+# The seam itself, against the real /proc, so that a test which mocks it is still anchored to
+# something real: the fixture's own fds and cwd are readable and are what they should be.
+check "proc_cwd_link reads the fixture's real cwd"     "$TMPROOT" \
+      "$(in_ndt "" "proc_cwd_link $FIX")"
+check "proc_fd_links reads its real fds"              0 \
+      "$(in_ndt "" "proc_fd_links $FIX >/dev/null; echo \$?")"
+check "  and a pid that is gone is 'could not read'"  2 \
+      "$(in_ndt "" "proc_fd_links 999999 >/dev/null; echo \$?")"
 
 SNAPSHOT_LINES=""
 rm -f "$PIDDIR"/app_*.pid
