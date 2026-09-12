@@ -345,6 +345,38 @@ fi
 echo
 
 # =================================================================================================
+# [Co-developed with claude code -- Adam]
+# 🔴 (a3) A NEGATIVE CONTROL IS A FIXTURE WHOSE ONLY DEFECT IS THE ONE ASSERTION UNDER TEST.
+# (a) can only redden an assertion that is red on old/, and a PREMISE that is green on both
+# fixtures therefore has no oracle at all -- which is how the first draft of
+# stale_app_pidfile_does_not_frame_the_fabric shipped a premise that passed with a foreign app
+# process running on the machine (it grepped `none running`, which is the row about TRACKED apps).
+# A directory that differs from a passing reading in exactly one line, and a required failing set
+# of exactly one id, is the smallest thing that can hold a premise up.
+echo "(a3) negative controls: a fixture whose ONLY defect is the one the assertion is about"
+neg_control() {   # <cell> <control dir> <the one assert id that must be its whole failing set>
+    local cell="$1" dir="$2" want="$3" got
+    local fix="$FIXROOT/$cell/$dir"
+    CHECKS=$((CHECKS+1))
+    if [[ ! -d "$fix" ]]; then
+        CHECKFAIL=$((CHECKFAIL+1))
+        printf '  FAILED   %-52s no such control directory: %s\n' "$cell" "$fix"
+        return
+    fi
+    got="$(fails_of "$CELLDIR" "$cell" "$fix")"
+    if [[ "$got" == "$want" ]]; then
+        printf '  ok       %-52s %s/ reddens exactly [%s]\n' "$cell" "$dir" "$want"
+    else
+        CHECKFAIL=$((CHECKFAIL+1))
+        printf '  FAILED   %-52s %s/ must redden exactly [%s], got [%s]\n' \
+               "$cell" "$dir" "$want" "${got:-<nothing at all -- the assertion has no power>}"
+    fi
+}
+neg_control stale_app_pidfile_does_not_frame_the_fabric control-untracked \
+            stale_premise_no_app_was_running
+echo
+
+# =================================================================================================
 echo "(b) mutations: is the key assertion the thing that catches the old evidence?"
 # =================================================================================================
 # One DELETE and one WIDEN per cell, on an assertion its fixture's PROVENANCE.md names as
@@ -492,6 +524,18 @@ m=$(mutant m20 "$CELL_SAPDNFTF" \
     '    a_eq    stale_window_frames_no_rule     "none"    "$frames"' \
     '    _a_ok   stale_window_frames_no_rule "(widening: a window that lists the fabric passes)"')
 report "M21 (widen)  RESIDUE-1: the fabric's own table inside the window is accepted" "$m" stale_app_pidfile_does_not_frame_the_fabric
+# 🔴 The premise, and it is mutated because it has an oracle now: (a3)'s control-untracked/ and
+# old/ both redden it. Widened, the cell reads `--check` over a machine somebody else's app
+# process is on, which is the reading that made the first draft's premise worthless.
+m=$(mutant m20b "$CELL_SAPDNFTF" \
+    '    if [[ -z "$untr" && "$apps_row" == *"none running"* ]]; then' \
+    '    if true; then')
+report "M21b (widen) RESIDUE-1: a foreign app process stops disqualifying the reading" "$m" stale_app_pidfile_does_not_frame_the_fabric
+# The problem-list assertion that replaced the one on `--check`'s exit code.
+m=$(mutant m20c "$CELL_SAPDNFTF" \
+    '    if [[ "$nprob" == 0 ]]; then' \
+    '    if true; then')
+report "M21c (widen) RESIDUE-1: the problem list stops being read at all" "$m" stale_app_pidfile_does_not_frame_the_fabric
 
 # --- northbound_write_reply_names_the_lab_claim ---
 # 🔴 ONLY THESE TWO. The rest of that judge's failing set on old/ is a fixture gap -- ROLE-11 was

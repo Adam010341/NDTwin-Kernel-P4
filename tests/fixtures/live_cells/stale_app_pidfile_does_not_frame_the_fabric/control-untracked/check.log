@@ -1,0 +1,11 @@
+network health
+  switches       10 up, 10 enabled, 0 admin-disabled
+  links          40 total, 0 down, 0 admin-disabled
+  apps           none running
+  untracked      sim(1166836) -- running, and no pidfile names them
+                 'ndt down' does stop these -- it scans for them rather than
+                 trusting the pidfile (G-6). Nothing else will, and until then
+                 they keep polling the kernel: 'ndt apps stop <name>'
+  residue        NOT CHECKED: 0 rule(s) could not be dated, 3 question(s) unanswerable
+                 this is not 'the network is clean'; it is 'this plane cannot answer'.
+check: 0 problem(s)
