@@ -1057,6 +1057,59 @@ m=$(mutant w12 "$NDT" \
 report_green "W12 (behaviour-preserving): the rc-3 explanation reworded" "$m" \
        "the cells read the verdict line and the population sentence, not this one"
 
+# --- FIX-NDT-8: 'ndt down' answers 3 when it tore nothing down (section 22) --------------------
+
+# M77: the teardown's refusals go back to 1, one site at a time. Every word of the refusal is
+# unchanged; what a caller reads is not.
+m=$(mutant m77 "$NDT" \
+    '        # 🔴 rc 5: refused. Nothing on this machine was read, let alone changed -- the same
+        # answer `ndt up` and `ndt clean` give for a guard. (Adam, 2026-09-12)
+        return 5' \
+    '        return 1')
+report "M77: a foreign claim refuses the teardown with 1 again" "$m" \
+       "🔴 a foreign claim refuses the teardown with 5"
+m=$(mutant m78 "$NDT" \
+    '    mark_teardown_start || return 5' \
+    '    mark_teardown_start || return 1')
+report "M78: a second teardown is refused with 1 again (ROLE-12)" "$m" \
+       "🔴 a second 'ndt down' is refused while one is still running"
+
+# M79: the defect itself, put back. An already-down lab reports the same byte as a round that
+# removed a fabric and proved it gone -- which is the state ROLE-12's table was in.
+m=$(mutant m79 "$NDT" \
+    '    if (( down_rc == 0 )) && [[ -z "$DOWN_SUBJECT" ]]; then
+        say "${Y}nothing was up to tear down${N}"' \
+    '    if false; then
+        say "${Y}nothing was up to tear down${N}"')
+report "M79: an already-down lab is green again" "$m" \
+       "🔴 tearing down an already-down lab is rc 3, not rc 0"
+
+# M80 (widening): the subject reading is lost -- taken too late to mean anything, or never
+# taken. Every reading in this function after [3/3] answers "nothing", which is the whole
+# reason the question is asked at the top, and with it gone EVERY teardown reports 3.
+m=$(mutant m80 "$NDT" \
+    '    DOWN_SUBJECT="$(lab_subject)"' \
+    '    DOWN_SUBJECT=""')
+report "M80 (widening): every teardown reports 'nothing was up'" "$m" \
+       "🔴 a teardown with something to remove is still rc 0"
+
+# M81: the note goes back to saying "verified clean" after a teardown that had nothing to
+# verify. That sentence is a FILE, and ROLE-9's baseline arrived carrying the previous
+# session's copy of it.
+m=$(mutant m81 "$NDT" \
+    '    if [[ -z "$unverified" && -z "$subject" ]]; then' \
+    '    if false; then')
+report "M81: an empty teardown writes 'verified clean' into the claim" "$m" \
+       "🔴 the note does not claim a clean machine was verified"
+
+# W13 (behaviour-preserving): one explanatory line of the rc-3 block is reworded. Section 22
+# reads the verdict line and the population sentence.
+m=$(mutant w13 "$NDT" \
+    "        info \"  'the lab was already down' and 'this round ended clean' are two statements, and\"" \
+    "        info \"  being already down and having ended a clean round are two statements, and\"")
+report_green "W13 (behaviour-preserving): the rc-3 explanation reworded" "$m" \
+       "section 22 reads the verdict line, not this one"
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then

@@ -997,7 +997,7 @@ reset_fix; rm -f "$DM"
 # A live teardown that is not this one: the test's own shell, which is certainly alive.
 printf 'pid=%s\nat=2026-09-12T02:07:18+0800\nby=role-12-D1\n' "$$" > "$DM"
 OUT="$(drive 'cmd_down')"
-check "🔴 a second 'ndt down' is refused while one is still running" "1" "$(rc_of_out "$OUT")"
+check "🔴 a second 'ndt down' is refused while one is still running" "5" "$(rc_of_out "$OUT")"
 has   "  naming what it is refusing on"       "an 'ndt down' from this checkout is still running" "$OUT"
 has   "  with the pid that is doing it"       "pid $$" "$OUT"
 has   "  and when that one started"           "2026-09-12T02:07:18+0800" "$OUT"
@@ -1703,6 +1703,90 @@ reset_fix; rm -f "$DM"
 OUT="$(drive 'cmd_down')"
 check "🔴 the teardown's own verify clean still ends on 'clean'" "1" "$(grep -cx 'clean' <<<"$OUT")"
 check "  and the teardown is still rc 0"             "0" "$(rc_of_out "$OUT")"
+
+# ==========================================================================================
+section "22. FIX-NDT-8: 'ndt down' answers 3 when there was nothing to tear down, 5 when refused"
+# ==========================================================================================
+# Adam, 2026-09-12 (form 1 Q1). The third table of the same three words. `ndt down` on a lab
+# that was already down printed its four steps, verified an empty machine and exited 0 --
+# indistinguishable, to the caller, from a teardown that removed a fabric and proved it gone.
+# ROLE-12 recorded exactly that pair on 09-12 ("two live OVS teardowns and one already-down
+# lab: rc 0") and had no way to tell the third one from the other two except by reading the log.
+reset_fix; rm -f "$DM" "$FIX/manifest.json"
+OUT="$(drive 'cmd_down')"
+check "🔴 tearing down an already-down lab is rc 3, not rc 0" "3" "$(rc_of_out "$OUT")"
+check "  and the verdict line says what it measured" "1" \
+      "$(grep -cx 'nothing was up to tear down' <<<"$OUT")"
+has   "  naming the three populations it found empty" "no registry entry" "$OUT"
+# 🔴 The direction this must not go: 3 is a verdict, not a shortcut. Every step still runs --
+# they are idempotent, and a teardown that skipped them on an empty reading would be the
+# reading deciding whether to act.
+SUDO="$(cat "$FIX/sudo.log")"
+has   "  🔴 the topo session was still stopped"       "topo-stop" "$SUDO"
+has   "  🔴 and the sweep still ran"                  "cleanup" "$SUDO"
+has   "  and stack.sh was still asked to go down"     "down" "$(cat "$FIX/stack.log")"
+
+# 🔴 THE NOTE, which outlives the round: a teardown that had nothing to tear down must not
+# write "verified clean" into .test_run/lab.claim. That sentence is read by the next session.
+reset_fix; rm -f "$DM" "$FIX/manifest.json"
+mk_claim_note "$IN_USE"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'cmd_down')"
+check "🔴 the note does not claim a clean machine was verified" "0" \
+      "$(grep -cF 'verified clean' <<<"$(cnote)")"
+has   "  it says there was nothing up"                "nothing was up to tear down" "$(cnote)"
+has   "  the claim is still kept"                     "claim kept" "$(cnote)"
+hasnt "  and the 'in use' sentence is still taken back" "in use" "$(cnote)"
+
+# 🔴 CONTROLS. A teardown that HAD a subject is unchanged in every respect.
+reset_fix; rm -f "$DM"
+OUT="$(drive 'cmd_down')"
+check "🔴 a teardown with something to remove is still rc 0" "0" "$(rc_of_out "$OUT")"
+check "  and still ends on 'clean'"                   "1" "$(grep -cx 'clean' <<<"$OUT")"
+has   "  🔴 it names what it was about"               "this teardown is about:" "$OUT"
+has   "  naming the manifest the sweep is going to remove" "the switch manifest" "$OUT"
+# 🔴 And the ordering that makes that work: the manifest is gone by the time anything else
+# looks, because `cleanup` removes it. A subject read after the sweep is always empty.
+reset_fix; rm -f "$DM"
+mk_claim_note "$IN_USE"
+OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'cmd_down')"
+has   "🔴 a subject the sweep removes still counts as one" "verified clean" "$(cnote)"
+
+# A dirty reading outranks "nothing was measured": an empty lab whose stack.sh half reports
+# last round's fatal ending is rc 1, and that 1 is the one A1-b connected.
+reset_fix; rm -f "$DM" "$FIX/manifest.json"; rc_for stack_down 1
+OUT="$(drive 'cmd_down')"
+check "🔴 an empty lab with a non-zero stack.sh half is 1, not 3" "1" "$(rc_of_out "$OUT")"
+check "  and the verdict line is not the empty one"   "0" \
+      "$(grep -cx 'nothing was up to tear down' <<<"$OUT")"
+
+# The three refusals, all 5 now. Each is decided before the machine is touched, which is why
+# each one also has to leave the sweep unrun.
+reset_fix; rm -f "$DM"
+OUT="$(drive 'foreign_claim() { echo "somebody-else (until 03:00)"; }
+cmd_down')"
+check "🔴 a foreign claim refuses the teardown with 5" "5" "$(rc_of_out "$OUT")"
+has   "  and --force is still the way past it"        "ndt down --force" "$OUT"
+check "  🔴 and nothing was swept"                    "absent" \
+      "$(grep -qF cleanup "$FIX/sudo.log" && echo present || echo absent)"
+reset_fix; rm -f "$DM"
+OUT="$(drive 'measuring_declared() { echo "ROLE-4 reader nsr, do not tear down"; }
+cmd_down')"
+check "🔴 a DECLARED measurement refuses with 5"      "5" "$(rc_of_out "$OUT")"
+has   "  quoting the declaration it is protecting"    "ROLE-4 reader nsr" "$OUT"
+reset_fix; rm -f "$DM"
+OUT="$(drive 'in_flight() { echo "iperf3 -c 10.0.0.33 -t 200"; }
+cmd_down')"
+check "🔴 a measurement in flight refuses with 5"     "5" "$(rc_of_out "$OUT")"
+has   "  naming what is running"                      "iperf3 -c 10.0.0.33 -t 200" "$OUT"
+
+# 🔴 The overrides and the usage code are untouched: --force is the one way past all three, and
+# a wrong flag is still a wrong flag.
+reset_fix; rm -f "$DM"
+OUT="$(drive 'foreign_claim() { echo "somebody-else"; }
+cmd_down --force')"
+check "  --force still tears down over a foreign claim" "0" "$(rc_of_out "$OUT")"
+OUT="$(drive 'cmd_down --nope')"
+check "  an unknown option is still 2, not 5"        "2" "$(rc_of_out "$OUT")"
 
 # ==========================================================================================
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"

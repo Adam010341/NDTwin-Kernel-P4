@@ -1100,6 +1100,11 @@ not_verified() { CLEAN_UNVERIFIED="${CLEAN_UNVERIFIED:+$CLEAN_UNVERIFIED, }$1"; 
 # tests/shell/test_ndt_up_down_robust.sh section 19 are the four corners of it.
 claim_note_down() {
     local rc="${1:-0}" unverified="${2:-}" when cleared="" ok=0
+    # 🔴 The third argument is what the teardown was ABOUT, measured before it acted. A teardown
+    # that had nothing to tear down must not write "verified clean" into a file the next session
+    # reads: that sentence would be the "沒量 ≠ 乾淨" conflation one layer down, in the one place
+    # it outlives the round. (Adam, 2026-09-12)
+    local subject="${3:-}"
     when="$(date '+%Y-%m-%d %H:%M:%S')"
     # ROLE-4 T5, 01:57:54 verbatim: `measuring=ROLE-4 reader nsr, do not tear down` was still in
     # the claim AFTER the `ndt down` that had killed that reader -- the declaration outlived the
@@ -1110,7 +1115,12 @@ claim_note_down() {
     if [[ -n "$(measuring_declared)" ]]; then
         cleared="$(printf '%s' "$(claim_field measuring)" | cut -c1-64)"
     fi
-    if [[ -z "$unverified" ]]; then
+    if [[ -z "$unverified" && -z "$subject" ]]; then
+        local also_empty=""
+        (( rc != 0 )) && also_empty="; this teardown still exits $rc, for something other than residue"
+        set_claim_note "down at $when; nothing was up to tear down${also_empty}; claim kept${cleared:+; cleared measuring=$cleared}" && ok=1
+        (( ok )) && info "claim note now says the lab was already down when this teardown ran"
+    elif [[ -z "$unverified" ]]; then
         # 🔴 The rc is carried INTO the sentence rather than deciding it. A reader who finds a
         # note saying the machine is clean and a round that ended non-zero is owed the second
         # half; what they must not be told is that the machine was not checked.
@@ -3084,7 +3094,7 @@ lab_subject() {
 }
 
 cmd_down() {
-    local force="" deep="" arg busy held down_rc=0 declared holder detail DOWN_SUBJECT=""
+    local force="" deep="" arg busy held down_rc=0 down_verdict=0 declared holder detail DOWN_SUBJECT=""
     # 🔴 ROLE-9 / ROLE-11 F6: what `verify clean` could NOT verify, named half by half. Empty
     # means it verified everything, which is a different statement from `down_rc == 0` -- see
     # claim_note_down. The stack.sh half is deliberately not in here: "a component ended on a
@@ -3133,7 +3143,9 @@ cmd_down() {
         err "      that claim: $detail"
         err "if it is someone else's, wait for it to lapse. Only override it if you know they"
         err "have finished:  ndt down --force"
-        return 1
+        # 🔴 rc 5: refused. Nothing on this machine was read, let alone changed -- the same
+        # answer `ndt up` and `ndt clean` give for a guard. (Adam, 2026-09-12)
+        return 5
     fi
     # [Co-developed with claude code -- Adam]
     # T2d, measured 2026-09-11 01:57:27-01:57:54 (logs/ROLE-4/10-t3-down-by-owner.log). The claim
@@ -3158,7 +3170,8 @@ cmd_down() {
         err "here can see whether it is still running -- only you can. Tearing the fabric out"
         err "from under it loses the run (measured 09-11 01:57: it did, silently, rc 0)."
         err "when that run is over:  ndt claim <mins> to redeclare, or  ndt down --force"
-        return 1
+        # 🔴 rc 5: refused.
+        return 5
     fi
     [[ -n "$declared" ]] && warn "--force: tearing down over a declared measurement -- $declared"
     busy="$(in_flight)"
@@ -3167,7 +3180,8 @@ cmd_down() {
         printf '%s\n' "$busy" | sed 's/^/        /' >&2
         err "tearing the fabric out from under it loses the whole run, and nothing else"
         err "on this machine would say so. wait for it, or:  ndt down --force"
-        return 1
+        # 🔴 rc 5: refused.
+        return 5
     fi
     [[ -n "$busy" ]] && warn "--force: tearing down with a measurement in flight"
 
@@ -3181,7 +3195,8 @@ cmd_down() {
     # second teardown that carried on would overwrite the first one's marker and then delete
     # it, which is the H3 guard being taken away by the overlap it is for. See the block
     # comment on mark_teardown_start for the 02:07:18-02:07:32 timeline.
-    mark_teardown_start || return 1
+    # 🔴 rc 5: its only non-zero return is the refusal against somebody else's live teardown.
+    mark_teardown_start || return 5
 
     say "ndt down"
 
@@ -3353,11 +3368,27 @@ cmd_down() {
     # outlive the fabric it describes, which is the same defect with the sign flipped -- a
     # reader would wait for a machine that is already free. Written AFTER the assertion above,
     # so the note reports what was verified rather than what was attempted.
-    claim_note_down "$down_rc" "$CLEAN_UNVERIFIED"
+    # [Co-developed with claude code -- Adam]
+    # 🔴 Adam, 2026-09-12 (form 1 Q1): rc 3 is "this command measured nothing". ROLE-12's own
+    # table has the pair it separates -- "two live OVS teardowns and one already-down lab: rc
+    # 0" -- three rounds, one byte, and only the log could tell the third from the other two.
+    # Read from the subject taken at the TOP of this function, before anything was stopped.
+    down_verdict="$down_rc"
+    if (( down_rc == 0 )) && [[ -z "$DOWN_SUBJECT" ]]; then
+        say "${Y}nothing was up to tear down${N}"
+        info "  no fabric, no registry entry in .test_run/pids/, and no port in ports.sh's table"
+        info "  was held when this command started, so it measured NOTHING -- rc 3, not 0."
+        info "  Every step above still ran: they are idempotent, and a teardown that skipped"
+        info "  them on a reading would be the reading deciding whether to act."
+        info "  'the lab was already down' and 'this round ended clean' are two statements, and"
+        info "  until 09-12 this command answered both with the same byte."
+        down_verdict=3
+    fi
+    claim_note_down "$down_rc" "$CLEAN_UNVERIFIED" "$DOWN_SUBJECT"
     # H3. One exit path, so one removal. A `down` killed before it gets here leaves the marker
     # behind, which is why teardown_in_flight checks the pid rather than trusting the file.
     mark_teardown_end
-    return "$down_rc"
+    return "$down_verdict"
 }
 
 # The teardown assertion, separately callable. Exits non-zero if anything survived, because
@@ -7738,6 +7769,21 @@ usage: ndt <command>
                   whatever the earlier ones did -- a first step that failed is what
                   makes the rest matter -- so the rc is one verdict over all of them
                   and the block above it says which.
+                  3 THERE WAS NOTHING TO TEAR DOWN: no fabric, no registry entry in
+                  .test_run/pids/ and no port in ports.sh's table held at the moment
+                  this command started. Every step still ran -- they are idempotent,
+                  and a teardown that skipped them on a reading would be the reading
+                  deciding whether to act -- and the 3 says this teardown MEASURED
+                  NOTHING, which is not the statement "this round ended clean".
+                  ROLE-12's own table carries the pair it separates: two live OVS
+                  teardowns and one already-down lab, rc 0 for all three, and only
+                  the log could tell the third from the other two.
+                  5 A GUARD REFUSED and nothing was torn down: the lab is claimed by
+                  somebody else, the claim DECLARES a measurement in progress, a
+                  measurement is in flight, or another 'ndt down' from this checkout
+                  is still running. --force is the way past the first three and is
+                  not one of them; the fourth is a wait. 2 is a usage error.
+                  (Adam, 2026-09-12)
                   🔴 rc 1 CAN BE AN ENDING FROM AN EARLIER ROUND. stack.sh reports a
                   component that died of a fault -- SIGKILL (systemd-oomd does this on
                   this laptop), SIGABRT, SIGSEGV -- out of .test_run/pids/<name>.exit,

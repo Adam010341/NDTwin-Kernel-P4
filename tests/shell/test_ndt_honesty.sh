@@ -946,7 +946,7 @@ section "5J. FIX-NDT-8: the 'clean' table carries rc 3, and says what 3 is not"
 # that half), and an assertion that measured NOTHING answers 3 instead of printing `clean`.
 # The second one is the contract change -- every script in this repo that reads this rc has to
 # know that 0 now means "there was something here and it is accounted for".
-has   "  🔴 3 is in the table"                       "3 THERE WAS NOTHING TO JUDGE" "$HELP"
+has   "  🔴 3 is in the clean table"                 "3 THERE WAS NOTHING TO JUDGE" "$HELP"
 has   "  naming the three populations"               "no port in ports.sh's table held" "$HELP"
 has   "  🔴 and 3 is not read as a clean bill"       "3 IS NOT A CLEAN BILL OF HEALTH" "$HELP"
 has   "  with what it used to answer instead"        "answered 0 in that state" "$HELP"
@@ -957,12 +957,34 @@ has   "  attributed, so it can be revisited"         "(Adam, 2026-09-12)" "$HELP
 # 🔴 Against the code. The seam the paragraph describes is a parameter, and the registry half is
 # one function used by both readers -- a text-only cell here would go on passing over a
 # cmd_clean that had gone back to printing `clean` at the end of every run.
-check "  the 3 the table describes is really returned" "1" \
+check "  the clean-table 3 is really returned"        "1" \
       "$(grep -c 'say "${Y}nothing to judge${N}"' "$NDT")"
 check "  🔴 and it is gated on the caller's subject"   "1" \
       "$(grep -c 'if \[\[ -z "$subject_known" && -z "$(pid_registry_entries)" \]\]; then' "$NDT")"
 check "  🔴 and 'ndt down' supplies one it MEASURED"   "1" \
       "$(grep -c 'DOWN_SUBJECT="$(lab_subject)"' "$NDT")"
+
+section "5K. FIX-NDT-8: the 'down' table carries 3 and 5, so all three tables say one thing"
+# Adam, 2026-09-12 (form 1 Q1). The third of the three. `ndt down` on an already-down lab
+# printed its four steps, verified an empty machine and exited 0 -- and ROLE-12's own table has
+# the pair that costs: "two live OVS teardowns and one already-down lab" all reading 0.
+has   "  🔴 3 is in the down table"                   "3 THERE WAS NOTHING TO TEAR DOWN" "$HELP"
+has   "  naming when the reading is taken"            "this command started" "$HELP"
+has   "  🔴 and that the steps ran anyway"            "Every step still ran" "$HELP"
+has   "  with the direction that would be worse"      "would be the reading" "$HELP"
+has   "  🔴 and the two statements kept apart"        "which is not the statement" "$HELP"
+has   "  with the ROLE-12 reading behind it"          "one already-down lab" "$HELP"
+has   "  🔴 5 is in the table, for the four refusals" "5 A GUARD REFUSED and nothing was torn down" "$HELP"
+has   "  naming the declared-measurement one"         "DECLARES a measurement in progress" "$HELP"
+has   "  🔴 and which of them --force answers"        "past the first three" "$HELP"
+# 🔴 Against the code: the verdict this table describes is computed from a subject read at the
+# TOP of the teardown, and the note that outlives the round follows it.
+check "  the down-table 3 is really returned"         "1" \
+      "$(grep -c 'say "${Y}nothing was up to tear down${N}"' "$NDT")"
+check "  🔴 and it is decided by the subject, not by the sweep" "1" \
+      "$(grep -c 'if (( down_rc == 0 )) && \[\[ -z "$DOWN_SUBJECT" \]\]; then' "$NDT")"
+check "  🔴 and the claim note has its own sentence for it"     "1" \
+      "$(grep -c 'if \[\[ -z "$unverified" && -z "$subject" \]\]; then' "$NDT")"
 
 # ==========================================================================================
 section "F9. this suite reads its OWN tree, and not the main checkout"
@@ -1276,6 +1298,13 @@ in_flight() { :; }
 app_probe() { APP_STATE=not-running; }
 cmd_clean() { return 0; }
 wait_reaped() { return 0; }
+# 🔴 THE PREMISE, stubbed 2026-09-12 (FIX-NDT-8): cmd_down now reads what it is ABOUT before it
+# acts, and none of bmv2_count / mn_count / topo_session / MANIFEST / the port table is redirected
+# in this fixture -- so without this line these cells would ask THIS MACHINE whether a lab is up,
+# and every rc below would depend on what somebody else left running. This group is about claims
+# and declarations, so the premise it needs is: there was a lab here.
+# (Double quotes are avoided in this block on purpose -- it is inside a bash -c "..." string.)
+lab_subject() { echo 'the fixture fabric this teardown is about'; }
 clear_up_target() { :; }
 mark_teardown_start() { :; }
 mark_teardown_end() { :; }
@@ -1287,7 +1316,7 @@ echo \"RC=\$?\"" 2>&1
 section "7A. 🔴 T2d: the owner's own teardown honours the declaration"
 mk_claim_m fixture-owner 3600 "T2d round" "ROLE-4 reader nsr, do not tear down"
 OUT="$(down_run '')"
-check "a declared measurement refuses the teardown"      "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "a declared measurement refuses the teardown, rc 5" "RC=5" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
 has   "  and the refusal reads the declaration back"     "ROLE-4 reader nsr, do not tear down" "$OUT"
 has   "  naming the field it came from"                  "measuring=" "$OUT"
 hasnt "🔴 and the teardown never started"                "[1/3]" "$OUT"
@@ -1295,7 +1324,7 @@ check "  the declaration is still there to be read"      "ROLE-4 reader nsr, do 
 
 section "7B. 🔴 --deep is not an override; --force is"
 OUT="$(down_run '--deep')"
-check "🔴 --deep does not override a declaration"        "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "🔴 --deep does not override a declaration"        "RC=5" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
 hasnt "  and no deep sweep ran"                          "the deep sweep ran" "$OUT"
 mk_claim_m fixture-owner 3600 "T2d round" "ROLE-4 reader nsr, do not tear down"
 OUT="$(down_run '--force')"
@@ -1314,7 +1343,7 @@ check "🔴 an expired claim holds nothing, so it declares nothing" "RC=0" "$(gr
 section "7D. 🔴 T2: the rescue command the refusal prints has to parse"
 mk_claim_m other-session 3600 "their round" "their matrix, cell 3/8"
 OUT="$(down_run '')"
-check "a foreign claim refuses the teardown"             "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "a foreign claim refuses the teardown"             "RC=5" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
 RESCUE="$(grep -F 'NDT_OWNER=' <<<"$OUT" | head -1 | sed 's/^[[:space:]]*XX[[:space:]]*//;s/^[[:space:]]*//')"
 check "🔴 that line parses as shell -- it is printed to be pasted" "0" \
       "$(bash -n -c "$RESCUE" 2>/dev/null; echo $?)"

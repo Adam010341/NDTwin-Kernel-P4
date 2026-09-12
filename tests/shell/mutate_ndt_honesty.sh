@@ -709,7 +709,7 @@ m=$(mutant md7 "$NDT" \
     '                  3 THERE WAS NOTHING TO JUDGE: no fabric, nothing in' \
     '                  (anything else means the machine was not readable): no fabric, nothing in')
 report 'MD7: the clean table drops rc 3 (FIX-NDT-8)' "$m" \
-       '  🔴 3 is in the table'
+       '  🔴 3 is in the clean table'
 
 # MD8: the table keeps 3 and calls it clean. This is the sentence, not the code -- and the
 # sentence is the whole of Adam's ruling: "沒量" 不是 "乾淨".
@@ -718,6 +718,14 @@ m=$(mutant md8 "$NDT" \
     '                  🔴 3 means the same as 0 when nothing is running. Until 09-12 this command')
 report 'MD8: the clean table says 3 is a clean bill of health' "$m" \
        '  🔴 and 3 is not read as a clean bill'
+
+# MD9: the down table loses rc 3. The third of the three tables, and the one whose 0 a night
+# round reads on every restore -- run_cells.sh's restore accepts 0 and 3 because of this row.
+m=$(mutant md9 "$NDT" \
+    '                  3 THERE WAS NOTHING TO TEAR DOWN: no fabric, no registry entry in' \
+    '                  (an empty lab answers 0 as usual): no fabric, no registry entry in')
+report 'MD9: the down table drops rc 3 (FIX-NDT-8)' "$m" \
+       '  🔴 3 is in the down table'
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
