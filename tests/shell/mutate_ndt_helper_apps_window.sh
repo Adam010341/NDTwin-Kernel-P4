@@ -129,13 +129,18 @@ report "M2 (widening): the pidfile records the request, not the program" "$m" \
 
 # --- E-8 point 2: a running app with no pidfile has no window ----------------------------------
 
+# 🔴 2026-09-12 (FIX-NDT-10, C10-8): the anchor below moved with the code. app_started_at used
+# to read the machine-wide scan directly; it now goes through app_scan_here, which drops the pids
+# that belong to ANOTHER checkout on this machine before they can date a window. The mutation is
+# the same one -- delete the scan half and leave app_started_at reading the pidfile alone.
 m=$(mutant m3 "$NDT" \
-    '    while read -r pid; do
+    '    app_scan_here "$name"
+    for pid in ${APP_SCAN_HERE[@]+"${APP_SCAN_HERE[@]}"}; do
         [[ "$pid" =~ ^[0-9]+$ ]] || continue
         et="$(ps -o etimes= -p "$pid" 2>/dev/null | tr -d '\'' '\'')"
         [[ "$et" =~ ^[0-9]+$ ]] || continue
         if [[ -z "$best" ]] || (( et > best )); then best="$et"; fi
-    done < <(app_scan_pids "$name")
+    done
     [[ -n "$best" ]] && { echo "$(( $(date +%s) - best ))"; return 0; }' \
     '    :')
 report "M3: app_started_at asks the pidfile and nothing else" "$m" \

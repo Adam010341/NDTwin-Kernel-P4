@@ -6065,7 +6065,7 @@ proc_registered_here() {
 PROC_CHECKOUT_WHY=""
 proc_checkout() {
     local pid="$1" el t d fd blind_cwd=0 blind_fd=0
-    local -a argv=()
+    local -a pargv=()
     PROC_CHECKOUT_WHY=""
     [[ "$pid" =~ ^[0-9]+$ ]] && (( pid > 1 )) || { PROC_CHECKOUT_WHY="not a pid"; return 2; }
     [[ -d "/proc/$pid" ]] || { PROC_CHECKOUT_WHY="pid $pid is gone"; return 2; }
@@ -6075,8 +6075,15 @@ proc_checkout() {
     # argv, argument-wise and absolute-only: a relative path is answered by cwd below, and a
     # command line that merely MENTIONS a path under $REPO is the substring trap pid_is_app's
     # header spends a screen on.
-    mapfile -d '' -t argv 2>/dev/null < "/proc/$pid/cmdline"
-    for el in ${argv[@]+"${argv[@]}"}; do
+    #
+    # 🔴 `pargv`, not `argv`, and the array's NAME is load-bearing. pid_is_app reads the same
+    # file with the same builtin, and tests/shell/mutate_redirection_order.sh anchors a mutation
+    # on that exact line: a second byte-identical copy makes the anchor match twice, and an
+    # ambiguous anchor mutates a site the gate was not named for (check_gate_anchors.py reports
+    # it as DUP, which is how this one was caught). `2>/dev/null` still comes BEFORE the `<`, for
+    # the reason proc_stat_rest's header gives.
+    mapfile -d '' -t pargv 2>/dev/null < "/proc/$pid/cmdline"
+    for el in ${pargv[@]+"${pargv[@]}"}; do
         [[ "$el" == /* ]] || continue
         if path_under_this_checkout "$el"; then
             PROC_CHECKOUT_WHY="its argv runs $el"
