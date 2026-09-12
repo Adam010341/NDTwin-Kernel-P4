@@ -1003,6 +1003,60 @@ m=$(mutant w11 "$NDT" \
 report_green "W11 (behaviour-preserving): the rc-carrying local is renamed" "$m" \
        "the suite asserts the code that comes out, not the variable it came in"
 
+# --- FIX-NDT-8: 'ndt clean' answers 3 when it measured nothing (section 21) --------------------
+
+# M73: the refusal goes back to 1, with every word of it unchanged.
+m=$(mutant m73 "$NDT" \
+    '        # 🔴 rc 5: refused. It outranks rc 3 -- a command that refused did not measure this
+        # machine at all, so it has nothing to report about what is on it. (Adam, 2026-09-12)
+        return 5' \
+    '        return 1')
+report "M73: 'ndt clean' refuses with 1 again (ROLE-12 cell 3)" "$m" \
+       "🔴 'ndt clean' is refused while a teardown is running"
+
+# M74: the defect itself, put back -- an assertion with no subject prints `clean` and exits 0.
+# Nothing else about the command changes, which is the whole reason it went unnoticed: every
+# line of its output is correct, and the one byte a script reads is a different statement.
+m=$(mutant m74 "$NDT" \
+    '    if [[ -z "$subject_known" && -z "$(pid_registry_entries)" ]]; then
+        say "${Y}nothing to judge${N}"' \
+    '    if false; then
+        say "${Y}nothing to judge${N}"')
+report "M74: an empty machine is called clean again" "$m" \
+       "🔴 an empty machine is rc 3, not rc 0"
+
+# M75 (widening): the caller's subject is ignored, so the LAST STEP OF EVERY TEARDOWN reports
+# "nothing to judge". That is this fix with the sign flipped -- "I removed it and proved it
+# gone" downgraded to "there was never anything here" -- and every cell about the empty machine
+# stays green through it.
+m=$(mutant m75 "$NDT" \
+    '    local subject_known="${1:-}"' \
+    '    local subject_known=""')
+report "M75 (widening): every teardown ends on 'nothing to judge'" "$m" \
+       "🔴 the teardown's own verify clean still ends on 'clean'"
+
+# M76 (widening): the registry half of the subject is dropped. A checkout with a live kernel
+# registered in .test_run/pids/ and nothing on the ports then reads as "nothing was ever here",
+# which is the file `ndt down` acts on being invisible to the command that judges the machine.
+m=$(mutant m76 "$NDT" \
+    'pid_registry_entries() {
+    local f
+    for f in "$REPO"/.test_run/pids/*.pid; do' \
+    'pid_registry_entries() {
+    local f
+    return 0
+    for f in "$REPO"/.test_run/pids/*.pid; do')
+report "M76 (widening): the registry stops counting as a subject" "$m" \
+       "🔴 a pidfile in the registry is a subject: rc 0"
+
+# W12 (behaviour-preserving): the last sentence of the rc-3 block is reworded. Section 21 reads
+# the verdict LINE with grep -x and one needle from the block above it.
+m=$(mutant w12 "$NDT" \
+    "        info \"  it at all. A teardown that removed a fabric and proved it gone still says clean.\"" \
+    "        info \"  it at all. A teardown that took a fabric out and proved it gone says clean.\"")
+report_green "W12 (behaviour-preserving): the rc-3 explanation reworded" "$m" \
+       "the cells read the verdict line and the population sentence, not this one"
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then

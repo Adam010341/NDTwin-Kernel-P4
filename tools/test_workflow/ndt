@@ -3042,8 +3042,49 @@ guard_no_teardown_in_flight() {
     return 1
 }
 
+# --- was there anything here at all? -----------------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 Adam, 2026-09-12 (form 1 Q1): "沒量" 不是 "乾淨". `ndt clean` on a machine where nothing had
+# ever been started walked its five assertions over an empty process table, found nothing,
+# printed `clean` and exited 0 -- the same byte a teardown that removed ten bmv2 switches and
+# proved them gone returns. The manual sends a first-time reader to this command to VERIFY a
+# lab. rc 3 is the answer for "there was nothing to measure", and it is not a bill of health.
+#
+# 🔴 ONE definition of the registry half, used by both readers. `.test_run/pids/` is the shared
+# file `ndt down` acts on and port_owner_local attributes listeners with, so a checkout with an
+# entry in it has something for either command to be about -- even a STALE entry, whose pid is
+# gone: that is a fact about this checkout, and `ndt status`'s pidfiles row is what judges it.
+pid_registry_entries() {
+    local f
+    for f in "$REPO"/.test_run/pids/*.pid; do
+        [[ -e "$f" ]] && printf '%s\n' "${f#$REPO/}"
+    done
+    return 0
+}
+
+# lab_subject -- is there anything here for a teardown to take down or an assertion to be about?
+# Prints what it found, one clause per line; rc 0 when there is something, 1 when there is not.
+#
+# 🔴 Six populations, and the last one matters most: a port held by something nobody registered
+# is exactly the case an empty registry must NOT swallow. "Nothing is running" and "nothing was
+# ever here" are the two statements this function exists to keep apart.
+lab_subject() {
+    local found=0 n f
+    n="$(bmv2_count)";  [[ "$n" -gt 0 ]] && { echo "$n bmv2 switch(es)"; found=1; }
+    n="$(mn_count)";    [[ "$n" -gt 0 ]] && { echo "$n host/switch process(es)"; found=1; }
+    topo_session && { echo "a topo tmux session"; found=1; }
+    [[ -e "$MANIFEST" ]] && { echo "the switch manifest ${MANIFEST#$REPO/}"; found=1; }
+    while IFS= read -r f; do
+        [[ -z "$f" ]] && continue
+        echo "the registry entry $f"; found=1
+    done < <(pid_registry_entries)
+    [[ -n "$(ndt_port_residue all)" ]] && { echo "a held port in ports.sh's table"; found=1; }
+    (( found == 1 ))
+}
+
 cmd_down() {
-    local force="" deep="" arg busy held down_rc=0 declared holder detail
+    local force="" deep="" arg busy held down_rc=0 declared holder detail DOWN_SUBJECT=""
     # 🔴 ROLE-9 / ROLE-11 F6: what `verify clean` could NOT verify, named half by half. Empty
     # means it verified everything, which is a different statement from `down_rc == 0` -- see
     # claim_note_down. The stack.sh half is deliberately not in here: "a component ended on a
@@ -3143,6 +3184,18 @@ cmd_down() {
     mark_teardown_start || return 1
 
     say "ndt down"
+
+    # [Co-developed with claude code -- Adam]
+    # 🔴 WHAT THIS TEARDOWN IS ABOUT, read before it changes anything. Every reading below is
+    # taken after the sweep has run, so by then the answer is always "nothing" -- which is why
+    # the question has to be asked here. It decides two things: what `verify clean` is an
+    # assertion ABOUT (see cmd_clean's $1), and, further down, whether this command measured
+    # anything at all. (Adam, 2026-09-12)
+    DOWN_SUBJECT="$(lab_subject)"
+    if [[ -n "$DOWN_SUBJECT" ]]; then
+        info "this teardown is about:"
+        printf '%s\n' "$DOWN_SUBJECT" | sed 's/^/        /'
+    fi
 
     # Apps first: they poll the kernel API, and left running they spend the teardown logging
     # connection errors against a stack that is going away.
@@ -3257,11 +3310,14 @@ cmd_down() {
     # wait_reaped -- the wait is not allowed to decide anything, only to stop the assertion from
     # being taken while the process table is still catching up.
     wait_reaped "${NDT_REAP_WAIT:-20}" || true
-    cmd_clean; local clean_rc=$?
+    cmd_clean "$DOWN_SUBJECT"; local clean_rc=$?
     # Both halves count. A sweep that could not finish is a failed teardown even in the case
     # where cmd_clean cannot see what survived -- cleanup also sweeps patterns cmd_clean does
     # not check (the NTG topology, for one), so "clean" and "the sweep worked" are two answers.
-    (( clean_rc != 0 )) && { down_rc=1; not_verified "the residue check"; }
+    # 🔴 3 is not a failure: it is `cmd_clean` saying it measured nothing. Reachable here only
+    # when this teardown had no subject either -- DOWN_SUBJECT is what it was given -- and that
+    # case is answered at the single exit below, not by calling a clean machine dirty.
+    (( clean_rc != 0 && clean_rc != 3 )) && { down_rc=1; not_verified "the residue check"; }
     # 🔴 ROLE-12: the SECOND reading of the ports [1/3] complained about, and the one the rc
     # follows. Taken by port number with the same probe cmd_clean's residue uses, rather than
     # inherited from clean_rc -- `cmd_clean` is red about a held port for its own reasons, so a
@@ -3316,6 +3372,15 @@ cmd_down() {
 # generations is stack.sh rotate_log's job, at the moment a new one replaces an old one.
 cmd_clean() {
     local rc=0 n p
+    # [Co-developed with claude code -- Adam]
+    # 🔴 $1 is THE SUBJECT, supplied by a caller that has already established one -- `cmd_down`
+    # measured a non-empty lab_subject before it acted, so an empty machine here is that
+    # teardown's RESULT and the verdict is `clean`. Called on its own, with no subject and
+    # nothing to find, this command reports rc 3: it measured nothing. Without the seam every
+    # successful `ndt down` would end on "nothing to judge", which is the same conflation with
+    # the sign flipped -- "I removed it and proved it gone" downgraded to "there was never
+    # anything here". (Adam, 2026-09-12; section 21 drives both halves over ONE machine state.)
+    local subject_known="${1:-}"
 
     # [Co-developed with claude code -- Adam]
     # 🔴 ROLE-12 cell 3, measured 2026-09-12 02:08:24.569: with the marker present and a `down`
@@ -3344,7 +3409,9 @@ cmd_clean() {
         err "  teardown's. Nothing here is wrong about what it measured; it is measuring a"
         err "  machine that is being changed under it. (ROLE-12 cell 3)"
         err "  wait for it to finish, then run 'ndt clean'."
-        return 1
+        # 🔴 rc 5: refused. It outranks rc 3 -- a command that refused did not measure this
+        # machine at all, so it has nothing to report about what is on it. (Adam, 2026-09-12)
+        return 5
     fi
 
     n="$(bmv2_count)"
@@ -3420,8 +3487,20 @@ cmd_clean() {
     (( prc == 0 )) && ok "ports closed: $(ndt_port_label all)"
 
     echo
-    if (( rc == 0 )); then say "${G}clean${N}"; else say "${R}not clean${N}"; fi
-    return $rc
+    if (( rc != 0 )); then say "${R}not clean${N}"; return $rc; fi
+    # 🔴 rc 0 needs a SUBJECT. Nothing dirty was found; whether that is "clean" or "there was
+    # nothing here" is decided by whether anything was here to be judged -- the five assertions
+    # above answer for the fabric, and the registry answers for this checkout.
+    if [[ -z "$subject_known" && -z "$(pid_registry_entries)" ]]; then
+        say "${Y}nothing to judge${N}"
+        info "  no fabric, nothing in .test_run/pids/, and no port in ports.sh's table is held,"
+        info "  so this command measured NOTHING -- rc 3. That is not the same statement as"
+        info "  'clean', which is what it printed here until 09-12 on a machine with no lab on"
+        info "  it at all. A teardown that removed a fabric and proved it gone still says clean."
+        return 3
+    fi
+    say "${G}clean${N}"
+    return 0
 }
 
 # --- status helpers ----------------------------------------------------------------
@@ -7707,9 +7786,23 @@ usage: ndt <command>
                   round -- exactly when a rule is most likely to be left on the wire
                   with no process to attribute it to. Read the residue ROW, not the
                   exit code, when the record row says none. (F2, 2026-09-11)
-  clean         just the teardown assertion (exit 1 if anything survived)
+  clean         just the teardown assertion
+                  exit 0 it had something to be about and none of it is residue; 1
+                  something was MEASURED and is still there -- a switch, a host or
+                  switch process, the topo session, the manifest, a held port, or a
+                  port this user could not read, because unknown is never clean;
+                  3 THERE WAS NOTHING TO JUDGE: no fabric, nothing in
+                  .test_run/pids/, and no port in ports.sh's table held.
+                  🔴 3 IS NOT A CLEAN BILL OF HEALTH, and until 09-12 this command
+                  answered 0 in that state -- the same byte, to a script, as a
+                  teardown that removed ten switches and proved them gone, on a
+                  machine where no lab had ever been started. The manual sends a
+                  first-time reader here to verify a lab. 'ndt down' still ends on
+                  'clean': its own verify step is an assertion about the fabric that
+                  teardown measured BEFORE it acted, so an empty machine there is the
+                  result and not an absent subject. (Adam, 2026-09-12)
                   🔴 it REFUSES while an 'ndt down' from this checkout is running,
-                  and that refusal is also rc 1. Every process that teardown is in the
+                  and that refusal is rc 5. Every process that teardown is in the
                   middle of killing would otherwise be listed here as residue, under
                   advice to run 'ndt down --deep' -- the one verb in this tool that
                   kills processes this stack did not start, which here would be

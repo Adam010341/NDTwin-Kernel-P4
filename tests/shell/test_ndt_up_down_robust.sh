@@ -1180,7 +1180,7 @@ printf 'pid=%s\nat=2026-09-12T02:08:17+0800\nby=role-12-D1\n' "$$" > "$DM"
 # something: without residue there is no `--deep` line to suppress, and the cells would pass
 # against a product with no guard at all. 2460143/2459746 are ROLE-12's own numbers.
 OUT="$(drive 'FX_BMV2=10 FX_MN=14 FX_TOPO_SESSION=1 FX_HELD="8000:2460143 8081:2459746" cmd_clean')"
-check "🔴 'ndt clean' is refused while a teardown is running" "1" "$(rc_of_out "$OUT")"
+check "🔴 'ndt clean' is refused while a teardown is running" "5" "$(rc_of_out "$OUT")"
 has   "  naming what it is refusing on"   "an 'ndt down' from this checkout is still running" "$OUT"
 has   "  with the pid to wait for"        "pid $$" "$OUT"
 has   "  and when that teardown started"  "2026-09-12T02:08:17+0800" "$OUT"
@@ -1638,6 +1638,71 @@ check "  and so is a size the OVS plane cannot build"      "2" "$(rc_of_out "$OU
 reset_fix; rm -f "$DM"
 OUT="$(drive 'preflight p4')"
 check "  🔴 and with nothing wrong at all, preflight is still 0" "0" "$(rc_of_out "$OUT")"
+
+# ==========================================================================================
+section "21. FIX-NDT-8: 'ndt clean' answers 3 when there was nothing to judge, 5 when refused"
+# ==========================================================================================
+# Adam, 2026-09-12 (form 1 Q1): "沒量" 不是 "乾淨". `ndt clean` on a machine where no fabric was
+# ever started walked five assertions over an empty process table, found nothing, printed
+# `clean` and exited 0 -- byte-identical, to any script, to a teardown that removed ten bmv2
+# switches and proved them gone. The manual sends a first-time reader to this command to VERIFY
+# a lab; the answer it gave on a machine with no lab at all was the answer it gives on a lab
+# that was torn down correctly.
+#
+# 🔴 The verdict LINE is asserted with grep -x, not with a substring. `clean` occurs inside
+# `not clean` and inside every sentence about being clean, and this whole group is about which
+# of two words that line is.
+reset_fix; rm -f "$DM" "$FIX/manifest.json"
+OUT="$(drive 'cmd_clean')"
+check "🔴 an empty machine is rc 3, not rc 0"        "3" "$(rc_of_out "$OUT")"
+check "🔴 and the verdict line is NOT 'clean'"       "0" "$(grep -cx 'clean' <<<"$OUT")"
+check "  it says it judged nothing"                  "1" "$(grep -cx 'nothing to judge' <<<"$OUT")"
+has   "  naming the three populations it found empty" "no port in ports.sh" "$OUT"
+has   "  and that 3 is not a clean bill"             "is not the same statement" "$OUT"
+
+# 🔴 THE SEAM, and the pair that gives it discriminating power: the SAME empty machine, read
+# once as an assertion in its own right and once as the last step of a teardown that had
+# something to remove. `ndt down`'s verify clean is about the fabric it just took out -- the
+# subject was established before it acted -- so "nothing here" is its RESULT.
+reset_fix; rm -f "$DM" "$FIX/manifest.json"
+OUT="$(drive 'cmd_clean "the fabric this teardown was asked to remove"')"
+check "🔴 with a subject supplied by the caller, the same machine is 0" "0" "$(rc_of_out "$OUT")"
+check "  and the verdict line is 'clean'"            "1" "$(grep -cx 'clean' <<<"$OUT")"
+
+# A registry entry is a subject on its own: .test_run/pids/ is what `ndt down` acts on, so a
+# machine that has one has something for this command to be about.
+reset_fix; rm -f "$DM" "$FIX/manifest.json"; ledger kernel 992261
+OUT="$(drive 'cmd_clean')"
+check "🔴 a pidfile in the registry is a subject: rc 0" "0" "$(rc_of_out "$OUT")"
+check "  and the verdict line is 'clean'"            "1" "$(grep -cx 'clean' <<<"$OUT")"
+
+# 🔴 THE CONTROLS. "Answer 3 when nothing is running" would swallow every stray this command
+# exists to find -- the empty registry is exactly the state a stray nobody started leaves.
+reset_fix; rm -f "$DM"
+OUT="$(FX_BMV2=10 drive 'cmd_clean')"
+check "🔴 ten switches still running is 1, not 3"    "1" "$(rc_of_out "$OUT")"
+check "  and the verdict line is 'not clean'"        "1" "$(grep -cx 'not clean' <<<"$OUT")"
+reset_fix; rm -f "$DM" "$FIX/manifest.json"
+OUT="$(FX_HELD="8000:992261" drive 'cmd_clean')"
+check "🔴 a stray holding :8000 with an EMPTY registry is 1, not 3" "1" "$(rc_of_out "$OUT")"
+has   "  and it is still named as a stranger"        "this stack did not start it" "$OUT"
+
+# The refusal, and its precedence: an empty machine plus somebody else's teardown is 5. A
+# command that refused did not measure the machine at all, so it cannot report 3 about it.
+reset_fix; rm -f "$DM" "$FIX/manifest.json"
+printf 'pid=%s\nat=2026-09-12T12:00:00+0800\nby=fix-ndt-8\n' "$$" > "$DM"
+OUT="$(drive 'cmd_clean')"
+check "🔴 a refusal outranks 'nothing to judge'"     "5" "$(rc_of_out "$OUT")"
+has   "  and says what it is refusing on"            "an 'ndt down' from this checkout is still running" "$OUT"
+check "  and judged nothing"                         "0" "$(grep -cx 'nothing to judge' <<<"$OUT")"
+rm -f "$DM"
+
+# 🔴 The one this must not break, again: a teardown that HAD something to remove still ends on
+# `clean` and still exits 0. reset_fix leaves the manifest in place, which is that subject.
+reset_fix; rm -f "$DM"
+OUT="$(drive 'cmd_down')"
+check "🔴 the teardown's own verify clean still ends on 'clean'" "1" "$(grep -cx 'clean' <<<"$OUT")"
+check "  and the teardown is still rc 0"             "0" "$(rc_of_out "$OUT")"
 
 # ==========================================================================================
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"

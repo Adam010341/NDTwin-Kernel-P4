@@ -703,6 +703,22 @@ m=$(mutant md6 "$NDT" \
 report 'MD6: the precedence between a refusal and a dirty reading is unwritten' "$m" \
        '  🔴 with the precedence when both are true'
 
+# MD7: the clean table loses rc 3 again. The command's behaviour is unchanged; what goes is the
+# only place an operator or a gate author is told that 0 now means "there WAS something here".
+m=$(mutant md7 "$NDT" \
+    '                  3 THERE WAS NOTHING TO JUDGE: no fabric, nothing in' \
+    '                  (anything else means the machine was not readable): no fabric, nothing in')
+report 'MD7: the clean table drops rc 3 (FIX-NDT-8)' "$m" \
+       '  🔴 3 is in the table'
+
+# MD8: the table keeps 3 and calls it clean. This is the sentence, not the code -- and the
+# sentence is the whole of Adam's ruling: "沒量" 不是 "乾淨".
+m=$(mutant md8 "$NDT" \
+    '                  🔴 3 IS NOT A CLEAN BILL OF HEALTH, and until 09-12 this command' \
+    '                  🔴 3 means the same as 0 when nothing is running. Until 09-12 this command')
+report 'MD8: the clean table says 3 is a clean bill of health' "$m" \
+       '  🔴 and 3 is not read as a clean bill'
+
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then

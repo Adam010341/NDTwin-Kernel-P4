@@ -413,7 +413,11 @@ ndt_port_residue() { return 0; }
 ndt_port_label() { echo none; }
 cmd_clean
 echo \"RC=\$?\"" 2>&1)"
-check "the assertion itself still passes on a clean machine" "0" "$(sed -n 's/^RC=//p' <<<"$CLEAN_OUT" | tail -1)"
+# 🔴 3, not 0, since 2026-09-12: this fixture has no fabric, no registry entry and no held
+# port, so the assertion measured NOTHING and says so (FIX-NDT-8, form 1 Q1). What this cell is
+# about is unchanged -- the generations below must survive it -- and the rc is pinned here so
+# that a later edit cannot turn "nothing to judge" back into a bill of health unnoticed.
+check "the assertion itself judged nothing on this fixture" "3" "$(sed -n 's/^RC=//p' <<<"$CLEAN_OUT" | tail -1)"
 check "🔴 every rotated generation is still there"       "3" \
       "$(ls -1 "$FIX/.test_run/logs/kernel.log".[0-9]* 2>/dev/null | wc -l)"
 check "🔴 and so is the live log"                        "present" \
@@ -872,7 +876,7 @@ section "5G. ROLE-12 cell 3: the help says 'clean' refuses while a teardown is r
 # so the documented rc table is where it has to appear -- a guard nobody is told about is read
 # as a malfunction the first time it fires.
 has   "  🔴 the refusal is documented at all"        "it REFUSES while an 'ndt down'" "$HELP"
-has   "  and that it is rc 1, not a quiet skip"      "that refusal is also rc 1" "$HELP"
+has   "  and that it is rc 5, not a quiet skip"      "that refusal is rc 5" "$HELP"
 has   "  naming what it would otherwise have listed" "middle of killing" "$HELP"
 has   "  🔴 and whose processes the old advice would have taken" "the operator's own" "$HELP"
 has   "  with the pid to wait for named in the block" "names the pid to wait for" "$HELP"
@@ -935,6 +939,30 @@ check "  🔴 and up_p4 passes it out instead of flattening it"     "1" \
       "$(grep -c 'preflight p4 || return \$?' "$NDT")"
 check "  🔴 and up_ovs reads it BEFORE its own housekeeping"      "1" \
       "$(grep -c 'preflight ovs; pf_rc=\$?' "$NDT")"
+
+section "5J. FIX-NDT-8: the 'clean' table carries rc 3, and says what 3 is not"
+# Adam, 2026-09-12 (form 1 Q1, form 4 Q15). Two changes to a documented command, on the command
+# the manual sends a first-time reader to in order to VERIFY a lab: the refusal is 5 (5G reads
+# that half), and an assertion that measured NOTHING answers 3 instead of printing `clean`.
+# The second one is the contract change -- every script in this repo that reads this rc has to
+# know that 0 now means "there was something here and it is accounted for".
+has   "  🔴 3 is in the table"                       "3 THERE WAS NOTHING TO JUDGE" "$HELP"
+has   "  naming the three populations"               "no port in ports.sh's table held" "$HELP"
+has   "  🔴 and 3 is not read as a clean bill"       "3 IS NOT A CLEAN BILL OF HEALTH" "$HELP"
+has   "  with what it used to answer instead"        "answered 0 in that state" "$HELP"
+has   "  🔴 and why a teardown still says clean"     "teardown measured BEFORE it acted" "$HELP"
+has   "  0 is scoped to having had a subject"        "it had something to be about" "$HELP"
+has   "  and 'could not read' is still not clean"    "unknown is never clean" "$HELP"
+has   "  attributed, so it can be revisited"         "(Adam, 2026-09-12)" "$HELP"
+# 🔴 Against the code. The seam the paragraph describes is a parameter, and the registry half is
+# one function used by both readers -- a text-only cell here would go on passing over a
+# cmd_clean that had gone back to printing `clean` at the end of every run.
+check "  the 3 the table describes is really returned" "1" \
+      "$(grep -c 'say "${Y}nothing to judge${N}"' "$NDT")"
+check "  🔴 and it is gated on the caller's subject"   "1" \
+      "$(grep -c 'if \[\[ -z "$subject_known" && -z "$(pid_registry_entries)" \]\]; then' "$NDT")"
+check "  🔴 and 'ndt down' supplies one it MEASURED"   "1" \
+      "$(grep -c 'DOWN_SUBJECT="$(lab_subject)"' "$NDT")"
 
 # ==========================================================================================
 section "F9. this suite reads its OWN tree, and not the main checkout"
