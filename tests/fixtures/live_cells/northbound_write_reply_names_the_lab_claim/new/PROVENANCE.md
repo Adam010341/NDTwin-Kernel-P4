@@ -21,10 +21,14 @@ and a truncated body could lose one.
 The reply this fixture exists for, verbatim from `failure.body`:
 
 ```
-{"down_reason":"declared","lab_claim":{"expires_at":1789204584,"note":"CELLS-2 window 1 on trunk af5efa4f (orchestrator 9/10 auditor holds; CELLS-2 agent runs run_cells --cell)","owner":"overnight-0905","state":"active"},"status":"link failure injected","tc":[...]}
+{"down_reason":"declared","lab_claim":{"expires_at":1789204584,"note":"in use: ndt up ovs 4 at 2026-09-12 15:00:10 by overnight-0905","owner":"overnight-0905","state":"active"},"status":"link failure injected","tc":[...]}
 ```
 
-and `lab.claim` in this directory is the file it was read from, so the judge compares one against
+(`...` is this file's elision of the eight-element `tc` array; everything before it is
+byte-for-byte `failure.body`. The `note` is not the one the CELLS-2 window file carries -- `ndt up`
+rewrites it: `claim note now says the lab is in use (owner and expiry unchanged)`, up.log l.5.)
+
+`lab.claim` in this directory is the file it was read from, so the judge compares one against
 the other rather than against a constant.
 
 **What it does not cover.** `lc_a_post_outside_the_twelve_is_unmarked` reads a 404, not a POST

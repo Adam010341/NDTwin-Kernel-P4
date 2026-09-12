@@ -85,8 +85,12 @@ verified" is worse than no grid.
    the three `requires=none` cells only.** The six others would need a pre-fix `ndt` driving a
    real bring-up (318 s, or a fabric built and hung) or a pre-fix KERNEL rebuilt from
    `0b928fe6^`. The gate lists each one with its reason.
-5. **Six cells have no `new/` fixture yet** -- the first fixed run of the live half. The gate
-   reports them PENDING and counts them separately. PENDING is not passing.
+5. **Two cells have no `new/` fixture yet** -- the first fixed run of the live half. The gate
+   reports them PENDING and counts them separately. PENDING is not passing. They are
+   `stale_app_pidfile_does_not_frame_the_fabric` (its subject is not fixed yet -- see item 6) and
+   `up_refuses_while_a_down_is_in_flight` (FIX-NDT-8 retired its `new/` when the refusal's exit
+   code became 5; the captured raw says 1, and is kept as `new-0911-pre-rc-contract/`). The other
+   seven were captured by the grid's first full run on 2026-09-11.
 6. 🔴 **`stale_app_pidfile_does_not_frame_the_fabric` is RED on this tree, on purpose.** Its
    subject is not fixed yet: FIX-NDT-9 ① closes the window's right edge, and until that merges
    the cell reports the defect RESIDUE-1 found. Its `new/` is the run to take after that merge,

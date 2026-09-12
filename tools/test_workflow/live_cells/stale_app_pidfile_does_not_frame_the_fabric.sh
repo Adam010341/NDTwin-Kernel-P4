@@ -56,6 +56,10 @@ STALE_PIDFILE=""
 # the 4-host model, and the priority is the lowest there is, so nothing on this fabric can match
 # it and nothing it shadows changes. Deleted again at the end of `observe`.
 CELL_RULE='{"dpid":1,"priority":1,"match":{"eth_type":2048,"ipv4_dst":"10.99.99.99"},"actions":[{"type":"OUTPUT","port":1}]}'
+# The one field of it that identifies the rule in a table dump, and the needle the judge greps.
+# The kernel echoes the match back as `"nw_dst": "10.99.99.99"`, so the address alone is what
+# survives both spellings of the key.
+CELL_RULE_ADDR='10.99.99.99'
 
 _stale_unplant() {
     [[ -n "$STALE_PIDFILE" && -f "$STALE_PIDFILE" ]] || return 0
@@ -167,12 +171,26 @@ cell_observe() {
     # Take the rule back off the wire. The fabric is destroyed by run_cells.sh's restore a minute
     # later, so a failed delete costs nothing that survives -- but a cell that left it to the
     # teardown would be leaving its own mess for the next reader of `apps orphans` to find.
+    # 🔴 THE 200 IS NOT THE ANSWER, AND THE FIRST CAPTURE PROVED IT. delete_flow_entry replies
+    # `{"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported
+    # in the kernel log and, since they are not in this response, ..."}` -- so a 200 means the
+    # batch was taken, not that the rule is off the wire. On 2026-09-12 15:05 this cell read the
+    # table once, immediately, got 61 entries again and 10.99.99.99 still in them, and the
+    # SUMMARY then claimed the rule had been removed on the strength of `delete.code` alone.
+    # It polls now, and the judge reads the TABLE rather than the status code.
     curl -s -o "$d/delete.body" -w '%{http_code}\n' \
         -X POST http://localhost:8000/ndt/delete_flow_entry -d "$CELL_RULE" \
         > "$d/delete.code" 2>> "$d/curl.err"
-    printf '%s' "$(curl -sf --max-time 10 \
-        http://localhost:8000/ndt/get_switch_openflow_table_entries 2>/dev/null)" \
-        > "$d/flow_entries.after.json"
+    for i in $(seq 1 12); do
+        printf '%s' "$(curl -sf --max-time 10 \
+            http://localhost:8000/ndt/get_switch_openflow_table_entries 2>/dev/null)" \
+            > "$d/flow_entries.after.json"
+        printf 'sample %s at %s: %s hit(s) for %s\n' "$i" "$(date +%s)" \
+            "$(grep -c "$CELL_RULE_ADDR" "$d/flow_entries.after.json" 2>/dev/null || true)" \
+            "$CELL_RULE_ADDR" >> "$d/delete_poll.log"
+        grep -q "$CELL_RULE_ADDR" "$d/flow_entries.after.json" || break
+        sleep 5
+    done
     printf '%s\n' "$(grep -o '"priority"' < "$d/flow_entries.after.json" | grep -c .)" \
         > "$d/flow_entries.after.count"
 
@@ -183,7 +201,7 @@ cell_observe() {
 
 cell_judge() {
     local d="$1"
-    local app shape listed frames pmt ustart n line nxt
+    local app shape listed frames pmt ustart n line nxt nprob crc untr apps_row
     app="$(rawfield "$d" plant.txt app)"; app="${app:-te}"
     line="$(grep -m1 -E "^  $app +window " "$d/orphans.txt" 2>/dev/null)"
     nxt="$(grep -A1 -m1 -E "^  $app +window " "$d/orphans.txt" 2>/dev/null | tail -1)"
@@ -258,15 +276,59 @@ cell_judge() {
     # (4) what the operator sees. `listed by:` is printed on the residue row's RED branch only,
     #     so its absence is bound to a path and not to a wording (CELLS-1 §7-1).
     a_hasnt stale_check_does_not_list_them  "listed by:  ndt apps orphans"   "$d/check.log"
-    a_eq    stale_check_rc_is_0             "0"       "$(cat "$d/check.rc" 2>/dev/null)"
+    # (5) 🔴 THE PROBLEM LIST, NOT `--check`'s EXIT CODE. The rc is one number for every problem
+    #     the report found, and on 2026-09-12 15:04 this cell's own raw came back
+    #     `check: 2 problem(s)` -- one of them the rules-in-a-window row this cell is about, the
+    #     other an untracked `sim` belonging to ANOTHER WORKTREE's test fixture. An assertion on
+    #     the rc cannot tell those apart, so it would go red on a fixed tree whenever somebody
+    #     else's suite happened to be running, and green on a broken one never. Counted instead:
+    #     how many of the `  - ` problem lines are about rules inside a window. The pattern holds
+    #     across FIX-NDT-9's rename -- `app residue: N rule(s) installed inside an app's window`
+    #     and `rules-in-window: N rule(s) ...` both carry `rule(s)` and `window`.
+    nprob="$(awk '/^check: /{p=1; next} p && /^  - /{print}' "$d/check.log" 2>/dev/null \
+             | grep -cE 'rule\(s\).*window')"
+    crc="$(cat "$d/check.rc" 2>/dev/null)"
+    if [[ "$nprob" == 0 ]]; then
+        _a_ok  stale_check_raises_no_rules_in_window_problem \
+               "no '  - ' problem line is about rules in an app window (check rc was ${crc:-<not recorded>}, which this cell does NOT judge -- see the comment)"
+    else
+        _a_bad stale_check_raises_no_rules_in_window_problem \
+               "$nprob problem line(s) about rules in an app window (check rc ${crc:-<not recorded>}): $(awk '/^check: /{p=1; next} p && /^  - /{print}' "$d/check.log" 2>/dev/null | grep -E 'rule\(s\).*window' | head -1 | sed 's/^ *- //')"
+    fi
 
-    # 🔴 THE PREMISE THE TWO `--check` ASSERTIONS ABOVE REST ON, and it is a premise and not a
+    # 🔴 THE PREMISE THE `--check` ASSERTIONS ABOVE REST ON, and it is a premise and not a
     # control: an app that is REALLY RUNNING has a window that is legitimately open to now, and
     # its window really does contain rules installed a minute ago. On this machine that is not
     # hypothetical -- a sim with no pidfile, dated by app_started_at's third source, was running
-    # on 2026-09-12 14:57. With one of those up, `--check` is red for a reason that is not this
-    # cell's finding, and the row above would be read as a regression of the fix.
-    a_has   stale_premise_no_app_was_running      "none running"        "$d/check.log"
+    # during this cell's own first capture.
+    #
+    # 🔴 IT READS THE UNTRACKED ROW, and the first draft did not. It asserted `a_has ... 'none
+    # running'`, which matches the `apps` row -- and the `apps` row is about apps this checkout
+    # TRACKS. In the raw this cell's old/ fixture came out of, that row said `apps  none running`
+    # and the row under it said `untracked  sim(1166836) -- running`: the premise passed with a
+    # foreign app process on the machine, which is the whole thing it exists to exclude. Measured
+    # 2026-09-12 15:04:47, old/check.log lines 36-37.
+    # tests/fixtures/live_cells/<this cell>/control-untracked/ is the negative control, and
+    # tests/shell/mutate_live_cells.sh requires this id to be in ITS failing set.
+    apps_row="$(grep -m1 -E '^  apps +' "$d/check.log" 2>/dev/null)"
+    untr="$(grep -m1 -E '^  untracked +.*-- running' "$d/check.log" 2>/dev/null)"
+    if [[ -z "$untr" && "$apps_row" == *"none running"* ]]; then
+        _a_ok  stale_premise_no_app_was_running \
+               "no tracked app and no untracked app process: ${apps_row# }"
+    else
+        _a_bad stale_premise_no_app_was_running \
+               "an app process was running while this was measured, so a legitimately-open window could be on the machine and the rows above are not this cell's to read -- apps row [${apps_row:-<absent>}] untracked row [${untr:-<none>}]"
+    fi
+
+    # 🔴 HYGIENE, AND IT IS AN ASSERTION AND NOT A SENTENCE IN A REPORT. The cell puts a rule on
+    # the wire; it has to be able to say the rule came off again, and `delete.code` 200 does not
+    # say that -- the reply is `accepted for programming`. This reads the table.
+    if [[ -s "$d/flow_entries.after.json" ]]; then
+        a_hasnt stale_own_rule_gone  "$CELL_RULE_ADDR"  "$d/flow_entries.after.json"
+    else
+        _a_bad  stale_own_rule_gone \
+                "NOT CHECKED: this raw has no flow_entries.after.json, so whether the rule this cell installed came off the wire was never read. NOT 'it was removed'"
+    fi
 
     # --- controls: the directions a wrong fix would take. They pass on old/ by design.
     a_has   stale_control_fabric_was_really_up   "10 up, 10 enabled"   "$d/check.log"

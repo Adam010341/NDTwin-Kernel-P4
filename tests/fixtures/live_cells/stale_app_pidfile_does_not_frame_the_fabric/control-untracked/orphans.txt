@@ -1,0 +1,11 @@
+app process orphans
+  ok  energy  not running
+  lock  topology  free
+  te     window 2026-09-05 19:38:31 -> 19:39:31 (window closed 604800s ago; from /home/adam/Desktop/NDTwin-Kernel/.test_run/apps/te.window)
+  ok        no flow entry arrived during that window
+  viz    window 2026-09-11 14:04:25 -> 14:05:43 (window closed 89000s ago; from /home/adam/Desktop/NDTwin-Kernel/.test_run/apps/viz.window)
+  ok        no flow entry arrived during that window
+
+  NOT deleted, and nothing here deletes them.
+  tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 3 question(s) not answerable
+  stack: kernel=up dataplane=ovs bmv2=0 mininet=15 proxy=down verdict=whole-up
