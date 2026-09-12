@@ -4980,6 +4980,56 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
     測試去真的 help 輸出裡找它；反方向的四格斷言 help 自己還在印那三段、還在公告 3 與 5。
     只驗前者的話，**一份說不出話的正本會跟任何手冊都不衝突**——M7 就是拿走 help 的那顆變異。
 
+### G-54 🏁 一個沒人清掉的 `app_*.pid`，讓 `ndt status --check` 把整張流表算成那個 app 的殘留
+
+- **狀態**：🏁 **已修**（FIX-NDT-9 ①，`e833b29b`＋`d81b6623`），**併入 trunk `53a62c71`**
+  （2026-09-12 16:3x；三顆 sha 是不是 HEAD 的祖先由 FIX-DOC-4 `git merge-base --is-ancestor` 親驗）。
+  來源：RESIDUE-1 唯讀調查（2026-09-12），Adam 12:3x 親裁 §7-2 的 (b)。
+  ⚠️ 🟠 **本條的量測全部是轉述** `fix/FIX-NDT-9-SUMMARY.md` §6：FIX-DOC-4 沒有開 lab 重驗。
+- **量到什麼**（逐字，全部是既有觀測）：
+  - `.test_run/pids/app_viz.pid` 寫於 **2026-09-11 14:04:25**（`stat -c %Y`）；
+    viz **14:05:43** 自己跑完退出（它自己的 log：`BUILD SUCCESS` / `Finished at: 2026-09-11T14:05:43`，
+    全檔只有 **1 次** `Starting Network Traffic Visualizer`）⇒ **沒有人跑過 `ndt apps stop viz`**，
+    而那是唯一會刪 pidfile 的路徑。`ndt down`／`ndt clean` 不碰 `app_*.pid`（`ndt` 自己寫著
+    `app_*.pid is SKIPPED, and that is not an omission`）。
+  - **12 小時 16 分 20 秒後**（09-12 **02:20:45**），ROLE-11 在一張 **02:20:23 才建出來**的
+    ovs4 fabric 上跑 `ndt status --check`，得到
+    `residue 60 rule(s) inside an app window, 0 lock(s) HELD` ⇒ `check: 1 problem(s)`、**rc 1**。
+    那 60 條是**同一輪 `ndt up ovs4` 在 17 秒前自己裝的轉送規則**
+    （第三方佐證：R7 取樣器量到 `list-br` 在 02:20:28 才由 0 變 10；基線 02:17:19 是
+    `host/switch 0`／`topo session absent`）。
+  - 機制：`app_started_at` 的**第二來源**（pidfile 在、pid 已死）拿 pidfile 的 mtime 當開窗時刻，
+    而 `residue_report` 讓**右端開口到 `now`**。工具自己的自白逐字：
+    `the dated ones are SUSPECTED by time only … anything installed in that window is listed, whoever installed it.`
+  - 🔴 **這個壞法在碼裡被預言過**（`cmd_apps stop` 的 `energy|sim` 分支）：
+    「Left behind, it would window from a sim that stopped yesterday to now and **report the
+    fabric's own baseline as SUSPECTED residue on every later `ndt status --check`**.
+    A verb that is red forever gets read exactly as often as one that is green forever.」
+    預言寫在**會刪 pidfile 的那條路上**，而 viz 走的是**不會被走到的另一條**。
+- **為什麼是這個形狀**：四個視窗來源裡，只有這一個沒有右端。活行程的窗真的到 `now`；
+  停掉時寫的磁碟紀錄（F3）**已經**帶 `end=`，理由逐字就是同一句
+  「a window with a start and no end would attribute every rule installed since」。
+  **同一個判斷做過一次，沒有做在第二個來源上。**
+- **修法**：`app_window_seal`。pid 已死的 pidfile ⇒ 右端＝該 app log（`app_evidence_log`：
+  sim 在 helper 的樹、nsr/viz/te 在這棵樹、energy 沒有）的 mtime，且要求 `>= start`；
+  取不到就用 pidfile 自己的 mtime＝**零長窗**，並印
+  `the window below has NO extent … That is 'nobody could ask', NOT 'this app left nothing'. (G-12)`。
+  活著的 pid 與沒有 pidfile 的 app **不受影響**。
+- **代價／殘留**：
+  - **零長窗那一支目前不算 blind、不改 rc**（FIX-NDT-9 §7-2，未裁）。
+  - **那個 stale `app_viz.pid` 還在機器上**，`ndt` 仍然不會清它（RESIDUE-1 §7-3，未裁）。
+  - 回歸格 `stale_app_pidfile_does_not_frame_the_fabric` 已在 trunk，**綠的 `new/` 要等一輪 live 補捕**。
+
+### G-54b 🏁 `residue` 這個字在 `ndt` 裡是兩個東西（G-54 的第二半，形狀照既有的 C-4b／C-5b）
+
+- **狀態**：🏁 **已修**（改名，`e027c607`，同樣併在 `53a62c71` 裡），Adam 2026-09-12 12:3x 親裁。
+- **事實**：`ndt clean` 印 `XX residue: ndtwin_kernel pid 2511227 holding :8000 (tcp)`（**行程佔 port**，
+  `ndt down` 收得掉、`ndt clean` 在它還在時是紅的）；`ndt status --check` 印
+  `residue 60 rule(s) inside an app window`（**流表規則**，這個工具什麼都不刪，唯一的補救是手打
+  `delete_flow_entry`）。**ROLE-11 的報告第 21 列同時引了這兩種，讀起來像同一個發現出現兩次。**
+- **改法**：流表那半的**輸出**改叫 `rules-in-window`；行程那半保留 `residue`；
+  **函式與變數名沒改**（理由寫在 `status_residue_row` 上面）。rc 一個都沒動。
+
 ### G-56 🏁 兩顆變異共用一個 anchor 時，`check_gate_anchors.py` 的 `ok(N)` 會少算，而總表仍然全綠
 
 - **狀態**：🟢 **已修（2026-09-12 AUDIT-SCAN-1 follow-up `8cd5bec7`）**；
