@@ -5135,9 +5135,77 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   本單的 `mutate_manual_no_stale_in_progress.sh` 照這兩條寫，一次都沒踩到，
   交件是 **15 顆變異＋1 顆控制、`ok(16)`**。
 
+### G-57 🔴 `ndt` 的行程掃描是整台機器的，於是另一棵 worktree 的測試夾具會否決這一棵的還原判準，而 `ndt down` 會去停它
+
+- **狀態**：**OPEN**。收斂已經落地（FIX-NDT-10，分支 commit `f46bbefe`＋`47d24916`，
+  **已併入** trunk 的 merge 是 **`628d84f1`**，2026-09-12 18:41；本條登記者親自驗過那顆是
+  merge commit 且為 HEAD 的祖先），但**兩條路徑到今天沒有紅過也沒有綠過**，見下面〈還剩什麼〉——
+  所以這一條不改 RESOLVED。**接手的是 hunt-0911/FIX-NDT-11 ②**（`proc_checkout` 的 fail-closed
+  分支要在 `ndt` 端拿到紅綠），它的 ③ 接 `cmd_down` 那一半。
+  ⚠️ 🟠 除了上面那顆 sha 與下面標「本條登記者親自」的兩處，本條**轉述** `fix/FIX-NDT-10-SUMMARY.md`
+  §1-①／§6，並依該檔 §8 勘誤過（見〈還剩什麼〉與〈回歸〉）。**本條登記者沒有開 lab、沒有重跑那套套件。**
+- **位置**：`tools/test_workflow/ndt` 的 `app_ps_snapshot`／`app_scan_pids`（機器層索引）、
+  `app_probe`／`apps_orphans`／`cmd_down` 的 `[0/3]`／`status --check` 的 `untracked` 列；
+  讀取端 `tools/test_workflow/orphans_verdict.sh`。
+- **量到什麼**（2026-09-12 15:05:14，CELLS-2 窗口 1；同形狀 05:50 由 ROLE-10 §9 記過 12 次重試）：
+  另一棵 worktree 在跑 `tests/shell/test_ndt_helper_apps_window.sh`，它的夾具**故意**穿著 app 的 argv
+  （`/nonexistent/NDT-TEST-FIXTURE/simulation_platform_manager`、`bash /tmp/ndt-helper-window-*/twolayer`）。
+  本 checkout 的 `ndt apps orphans` 把它們算成自己的孤兒 ⇒ `VERDICT: NOT CLEAN`，
+  而同一時刻這個 lab 是 down 0／clean 0／bridge 0。**夜巡的回歸 grid 因此停了一輪**，
+  停下來的理由讀起來像「實驗室髒了」。
+  加重：同一輪的 `ndt down` 讀到同一個狀態就**動手**——
+  `!! sim is running untracked (pid 1166836) -- stopping it by pid` → `XX could NOT stop sim`
+  （`_restore-stale…/3-down.log` l.11-13）：一棵樹的收工會去殺另一棵樹正在跑的測試。
+- **失效方向：兩邊都錯**。對「乾淨」是悲觀（乾淨的機器被判髒），對「安全」是危險
+  （會對不屬於自己的行程送訊號）。
+- **機制**：`ps -eo pid=,args=` 是**整台機器**的索引，而「argv 帶著 app 的簽名」不等於「這是我的」。
+  這台機器同時有數棵本 repo 的 checkout 在跑。這與同一週修掉的另外兩件是同一個形狀
+  （`ndt` 不要再按名字找行程 G-51／FIX-NDT-4、`p4_proxy` 不要再按名字殺交換機 G-40 那一族），
+  只是被誤認的不是交換機，是別棵樹的夾具。
+- **修法**：機器層掃描回來的每一個 pid 在被計數／回報／送訊號之前多回答一個問題（`proc_checkout`）：
+  它屬於**這個 checkout** 嗎？ours ⇐ 本 checkout 的 `.test_run/pids/` 登記了它的 pid 或 pgid ∨
+  argv／exe／cwd 落在 `$REPO` 底下 ∨ 它開著 `$REPO` 底下的檔。
+  **巢狀 checkout 不算本樹**（每一棵 `wt-*` 都在主 checkout 底下，只比字串前綴會把整台機器說成自己的）。
+  其餘印在自己的一欄 `seen elsewhere (not this checkout)`，那一欄**刻意不含**
+  `pidfile-lost-but-alive` 與 `app(s) are running with nothing tracking them`
+  ——那兩句是 `orphans_verdict.sh` 判 process 半的字串；`orphans_verdict.sh` 另外把數目帶成
+  `elsewhere=<n>` 欄位與一條 NOTE，所以 CLEAN 不會被讀成「什麼都沒有」。
+- **🔴 還剩什麼（三個缺口，兩個是「沒有紅綠」而不是「沒有碼」）**：
+  1. **自家 app 不住在 `$REPO` 裡**（`app_spawn` 從 `$WORKSPACE_ROOT/<App>` 這個 sibling repo 啟動），
+     所以歸屬主要靠 **pidfile 登記**與**開著 `$REPO/.test_run/logs/app_<name>.log`** 這個 fd。
+     一個真孤兒若 pidfile 沒了、又不再持有 `$REPO` 底下任何 fd，會掉進 `seen elsewhere`（只進 NOTE、不擋 grid）。
+     三個選項（留缺口／在啟動鏈上加 `NDT_REPO=$REPO` 印記／退回舊行為）列在 `fix/FIX-NDT-10-SUMMARY.md` §7-1，**未裁**。
+  2. ⚠️ **`proc_checkout` 的 fail-closed 分支（`/proc/<pid>/cwd` 與 `/proc/<pid>/fd` 都讀不到 ⇒
+     算成自己的，並印「誰擁有它沒有被確立」）在 `ndt` 端一格都沒有**——只有合成報告那一層驗過。
+     這是 FIX-NDT-10 §8-6(a) 的自我勘誤：該單原文把它寫得像已驗。**FIX-NDT-11 ② 接這一條。**
+  3. ⚠️ **`cmd_down` 的 `[0/3]` 在「本樹孤兒＋別樹行程同時在場」時只停本樹那個，沒有任何一格走過**
+     （§8-6(b)；當時的 green 場上只有別樹的行程）。**FIX-NDT-11 ③ 接這一條。**
+- **為什麼 fail-closed**：判不出來的一律算成自己的，因為 lab helper 用 root 起的 app
+  正是這個動詞最該找到的那一類（與 G-14 同一種不對稱）。代價就是上面第 2 點：**那條分支沒被走過。**
+- **回歸**：`tests/shell/test_ndt_app_orphans.sh` §8（30 格，含巢狀 checkout 的路徑規則、
+  `app_stop` 不得送訊號、以及**同一份報告裡本樹孤兒仍然 NOT CLEAN** 的鑑別格，52 → 82 格）；
+  `tests/shell/test_orphans_verdict.sh` 的 C10-8 段（**10 格**，其中 4 格對 base 的 reader 紅；
+  該套件 134 → 169 格是 10 格＋另一題的 25 格，FIX-NDT-10 §8-1 已就地更正過一次算錯的帳）。
+  紅：新套件 × base `53a62c71` 的 `ndt` ⇒ **`Ran 82 checks, 19 failed`**，
+  ✅ **本條登記者親自開檔看過**，逐字（`scratch/overnight-2026-09-05/logs/ndt10-0912/red-4-suite-on-base.log`
+  l.122-124，末三行 `Ran 82 checks, 19 failed`／`RC=1`／`Sat Sep 12 05:03:03 PM CST 2026`）：
+
+  ```
+    FAILED     and the other tree's process is ALIVE
+               expected: yes
+               actual:   no
+  ```
+
+  ⚠️ FIX-NDT-10 §6 把這三行寫成一行（`… ALIVE  expected: yes  actual: no`）。**以 log 為準。**
+- **引用時要知道的工件等級**（FIX-NDT-10 §8-7）：那一輪 35 份 log 裡**只有 11 份**有
+  `# cmd:` 與 `# subject: … sha256`，24 份 battery log 有 log 但**沒有受測複本的指紋**，
+  其餘（進場 lab 讀數、base 套件基線格數、anchors 第一次、§7-4 的 12 個 pre-existing 紅）
+  **是口述、沒有工件**。要拿那些數字下判斷的人請先重跑。
+
 ### G-58 🏁 活的工具住在 `doc/audit/` 底下，就會掉出所有掃描面——而且已經有第二個實例
 
-> **編號**：G-57 由 hunt-0911/FIX-NDT-10 預留，**這裡的跳號是刻意的，不是遺失的條目**。
+> **編號**：G-57 是上面那一條（hunt-0911/FIX-NDT-10 預留、2026-09-12 由 FIX-DOC-5 寫入）。
+> 這一條開號時 G-57 還空著，**當時的跳號是刻意的**，現在已經補上。
 
 - **狀態**：🏁 **已修**（登記制；AUDIT-SCAN-1 `20215f92`＋follow-up `8cd5bec7`，
   兩顆都是 trunk `53a62c71` 的祖先，FIX-DOC-4 親驗）。
