@@ -4980,6 +4980,37 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
     測試去真的 help 輸出裡找它；反方向的四格斷言 help 自己還在印那三段、還在公告 3 與 5。
     只驗前者的話，**一份說不出話的正本會跟任何手冊都不衝突**——M7 就是拿走 help 的那顆變異。
 
+### G-56 🏁 兩顆變異共用一個 anchor 時，`check_gate_anchors.py` 的 `ok(N)` 會少算，而總表仍然全綠
+
+- **狀態**：🟢 **已修（2026-09-12 AUDIT-SCAN-1 follow-up `8cd5bec7`）**；
+  「要不要把『一顆變異一個 anchor』變成規矩」**未裁**（AUDIT-SCAN-1 §7-5）。
+  (numbered by hunt-0911/FIX-DOC-3 工單；G-54／G-55 保留給別單)
+- **位置**：`tests/shell/check_gate_anchors.py`（計數語意）；實例是
+  `tests/shell/mutate_check_process_by_name.sh` 的 M1 與 M13。
+- **量到什麼**：兩顆變異改同一行、因此帶同一個 anchor 字串時，`check_gate_anchors.py`
+  一個 `(檔, anchor)` 只算**一格** ⇒ 16 顆變異的閘門報 `ok(15)`，
+  而總表照樣印 `100/100 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)`。
+  **沒有任何輸出說「有一顆沒被檢查」**——`NOT CHECKED AT ALL` 指的是另一件事
+  （UNPARSED／NO-ANCHORS／VIA-UNCHECKED），所以這一顆掉在兩種計數的縫裡。
+- **失效方向：樂觀**。少算的那一顆看起來像不存在，而不是像沒被檢查。
+- **為什麼要記**：repo 已經寫過兩次「`ok(N)` 是錨點格數不是變異顆數」
+  （FIX-PROXY-1 §7-6、FIX-PROXY-2 §0）。這一條補上**為什麼兩個數字會分家的機制**，
+  以及唯一能發現它的辦法：**拿變異顆數去對 `ok(N)`**（閘門自己的 `GATE-SUMMARY mutations=`
+  對 `check_gate_anchors.py --gates <那支>` 的 `ok(N)`）。
+- **不是 G-37**：G-37 是閘門自己的 `assert_unique` 用 `grep -c -F` 數多行 anchor 數錯，
+  而且那一條明寫「`check_gate_anchors.py` 沒有錯」。這一條相反——閘門是對的，
+  **少算發生在 `check_gate_anchors.py` 的 `ok(N)` 語意裡**。兩條都關於「錨點數不等於顆數」，
+  但壞的地方不同，引用時不要互相替代。
+- **現況**：M13 的 anchor 多吃一行註解，兩顆分開 ⇒ `ok(16)`。
+- **證據**：`fix/AUDIT-SCAN-1-SUMMARY.md` §1.4／§6（🟠 轉述）。
+  ✅ **本單親自對帳過修法今天仍然成立**：在 trunk `9f80a33f` 的樹上跑
+  `bash tests/shell/mutate_check_process_by_name.sh` ⇒ `GATE-SUMMARY mutations=16  survived=0`
+  （`logs/gates-0910/mutate_check_process_by_name.doc3-0912-r1.log`），
+  `python3 tests/shell/check_gate_anchors.py HEAD --gates mutate_check_process_by_name.sh` ⇒ `ok(16)`
+  ——**兩個數字相等**。
+- 🔶 **這一條給後面每一支新閘門的用法**：一顆變異一個 anchor，交件時把 `mutations=` 與 `ok(N)`
+  兩個數字放在一起。本單的 `mutate_manual_rc_table.sh` 就是照這樣交的（9 顆變異＋1 顆控制、`ok(10)`）。
+
 > 🔗 **A1（`POST /ndt/inject_link_recovery` 把不是自己掛的 netem 也拆掉，2026-09-11 live 3/3）
 > 不在這裡登記**——那一條由 `fix/link-recovery-only-detaches-its-own-netem` 自己登記（09-11 授權）。
 > 本次收條目時（2026-09-11 03:0x）該分支還沒併進 trunk；若它比本次晚併，這一行就是它的入口。
