@@ -397,14 +397,28 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
 - 🆕 **OVS 4 台（`ndt up ovs4`／`ndt up 4`）：一條 link 都不該 down。** 09-12 實測
   `links          40 total, 0 down, 0 admin-disabled`（模型宣告 40 條邊，其中 8 條是 host 邊）
   ⇒ 上一行那句「只有 256 link(s) are down 才正常」在這個尺寸上**一條都不適用**。
-  那一輪 rc 確實是 1，但唯一的 problem 是
-  `the network carries app residue: 60 rule(s) installed inside an app's window`，
-  而那 60 條在該輪第一個 `ndt up` **之前**就在了、來源未追 ⇒ **不是 ovs4 的性質**。
+  那一輪 rc 確實是 1，唯一的 problem 是
+  `the network carries app residue: 60 rule(s) installed inside an app's window`——
+  🔴 **而那 60 條就是這一輪 ovs4 自己剛裝好的轉送規則**，被一個 **stale 的 `app_viz.pid`**
+  框了進去：viz 於 09-11 14:05:43 自己跑完退出、沒有人跑過 `ndt apps stop viz`，pidfile 就留在
+  `.test_run/pids/`；pid 死掉之後 `ndt` 改拿**那個 pidfile 的 mtime** 當開窗時刻，而且**右端開口到
+  `now`** ⇒ 一個 12.3 小時的窗，把之後任何人裝的規則整碗算進去。工具自己的話逐字：
+  `anything installed in that window is listed, whoever installed it`。
+  ⇒ **OVS 上 `--check` 會不會因為 residue 變紅，取決於 `.test_run/pids/` 裡有沒有 stale 的
+  `app_*.pid`，跟 ovs4 這個尺寸無關。** 看到這條 problem，先去問
+  `.test_run/pids/app_*.pid` 指的行程還活不活（`ndt apps orphans` 會把窗的起迄印出來），
+  不要先去找誰在網路上留了東西。
   本輪沒有在乾淨機器上觀測過 ovs4 的 `--check`，所以**不宣稱**它會回 rc 0：
   ovs4 的 `--check` 要自己看 problems 那幾行，不要拿 128 台那條規則套。
-<!-- 來源：ROLE-11 F4，log hunt-0911/logs/ROLE-11/05-check-after-up.log（ovs4，🟠 轉述）、
-     16-check-p4.log（p4 4，rc 0）。40 條邊裡 8 條是 host 邊＝本單親自讀
-     setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json 數出來的（dpid 0 兩端共 8 筆）。 -->
+<!-- 來源：links 那組數字＝ROLE-11 F4，log hunt-0911/logs/ROLE-11/05-check-after-up.log（ovs4，
+     🟠 轉述）、16-check-p4.log（p4 4，rc 0）；40 條邊裡 8 條是 host 邊＝親自讀
+     setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json 數出來的（dpid 0 兩端共 8 筆）。
+     🔴 那 60 條的來源＝RESIDUE-1 唯讀調查（hunt-0911/RESIDUE-1-REPORT.md §1 時間線、§2 機制）。
+     本段先前寫「那 60 條在該輪第一個 ndt up 之前就在了、來源未追 ⇒ 不是 ovs4 的性質」，那是錯的：
+     它把基線那一列的 `residue NOT CHECKED -- :8000 is closed` 讀成了「查過沒事」。反證＝R7 的
+     3 秒取樣器（第三方）量到 `list-br` 在 02:20:28 才 0→10，而 60 在 02:20:45 第一次被量到；
+     同型 ovs4 在 09-11 的三輪都是 0 條 dated。窗來自 app_viz.pid（mtime 09-11 14:04:25，
+     pid 463161 已死）。修法三選項與「要不要清掉那個 pidfile」在 RESIDUE-1 §7，待 Adam。 -->
 
 🆕 **2026-09-07 起 `--check` 多一列 `residue`**（G-12／W16-2）：它會去問「有沒有 app
 留在網路上的東西」——某個 app 的時間窗內裝的流表規則、還握著的鎖。判準因此多了一條：
