@@ -1,0 +1,10 @@
+ASSERT ok   h3_up_log_present                      up.log present
+ASSERT ok   h3_marker_was_in_place                 down.inflight matches
+ASSERT ok   h3_refusal_names_the_teardown          up.log contains it
+ASSERT ok   h3_refusal_quotes_the_marker           up.log contains it
+ASSERT ok   h3_did_not_reuse_the_fabric            up.log does not contain it
+ASSERT ok   h3_did_not_verify_a_dying_fabric       up.log does not contain it
+ASSERT ok   h3_up_rc_is_5                          = [5]
+ASSERT ok   h3_refusal_is_immediate                refused in 0s
+ASSERT ok   h3_marker_was_removed                  down.inflight.after contains it
+CELL: PASS up_refuses_while_a_down_is_in_flight tag=ndt kernel=c4c8e50310d7e4a1 ndt=54fd094e2dff10ccbe69a5a3b9028ca8b22c36bc at=2026-09-12T14:41:47+08:00
