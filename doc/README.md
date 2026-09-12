@@ -98,9 +98,29 @@ repo 外的一組連結。所以這份索引取代分區——標記地位，不
 |---|---|---|
 | [audit/](audit/) | 歷史紀錄集合 | 審查／複驗／測試證據。**先讀它的 [README.md](audit/README.md)**——它說明了各子資料夾、為什麼產出報告的 prompt 一起收在旁邊、以及哪七類刻意留在 repo 外 |
 | [audit/2026-08-31_p4-source-tree-residue/](audit/2026-08-31_p4-source-tree-residue/) | **現役** | 🔴 **不是原始碼、不能 build。** `/home/adam/P4_Source_Code`（3.5 GB，p4 工具鏈 build tree）待刪，這裡是刪之前撈出來的殘留證據：唯一那份沒 commit 過的 `install-p4dev-v8.sh` 手改（58+/38-）、四份 diff，以及 `git status` 看不到的 `behavioral-model/config.log`——它的第 7 行就是 [audit/bmv2-binary-provenance.md](audit/bmv2-binary-provenance.md) 與 [2026-08-15_bmv2-performance-report.md](2026-08-15_bmv2-performance-report.md) 逐行引用的 `-O0` configure 命令。§3 列出「還有什麼只在那棵樹裡」的母體，§5 列出樹沒了之後會斷的東西。⚠️ **`log.txt` 與 `install-details/` 不是那顆 binary 的 build log**（§2.5）。27 MB 的 raw 在 `audit-raw:p4-source-tree-residue-2026-08-31/` |
+| [audit/2026-08-28_chaos-harness/harness/](audit/2026-08-28_chaos-harness/harness/)、[audit/2026-08-31_sampling-ceiling-after-merge/cpu_gate.py](audit/2026-08-31_sampling-ceiling-after-merge/cpu_gate.py) | **現役工具（住在紀錄裡）** | 🔴 **這兩份不是紀錄，是活的工具**，只是寫在某一輪的目錄裡就沒搬出來過。harness 的 suite 與變異閘在 `tests/python/test_chaos_*.py`（5 支）與 `tests/shell/mutate_chaos_*.sh`（5 支）；`cpu_gate.py` 被 `tests/python/test_cpu_gate_lifetime.py` **按這條路徑 import**（它自己的 docstring：複製一份過去等於測一份複本）、被 `tests/shell/mutate_cpu_gate_lifetime.sh` 直接變異。⇒ 它們是 `tests/shell/check_process_by_name.py` `AUDIT_EXCEPTIONS` 的**兩筆登記例外**（見下） |
 | [2026-08-16_delivery-package/](2026-08-16_delivery-package/) | 待轉交 | 見上 |
 | [debug-log/](debug-log/) | 現役（空目錄） | 給執行期 log 落腳用，靠 `.gitkeep` 保留 |
 | [../tools/remote-lab/](../tools/remote-lab/) | **現役** | 遠端 lab 機器的**佔用協調**（`rlab`＝機器層、`ndtwin-vm.sh`＝VM 層）與 VM 生命週期，含變異閘 **100/100**（G10a 是結構測試：**母體從 dispatch 導出**，斷言每個動詞都被歸類且改動性動詞都有守衛——32/32 全綠時 `stop`／`ssh` 根本沒有守衛，而**接手的 G10 迴圈的是手寫清單，加新動詞照樣全綠**，見 [FINDING-a-fix-needs-its-own-mutation](audit/2026-08-31_completeness-experiments/FINDING-a-fix-needs-its-own-mutation.md)）。**規定與佔用帳的正本不在那裡**，在 [audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md](audit/2026-08-31_completeness-experiments/NSLAB-USAGE-RULES.md)——工具說「怎麼做」，規定說「可不可以做、要登記什麼」。🔴 **動手前先讀規定：R1 要求開跑前登記、不准事後補登** |
+
+### `audit/` 底下的 lint 規則：預設不掃，活工具走登記（2026-09-12）
+
+`tests/shell/check_process_by_name.py`（「不准用名字找／殺行程」那支）**預設不掃 `audit/**`**：
+那底下是某一天量到什麼的紀錄，**為了讓 lint 過而改它＝篡改證據**。
+
+例外不是 glob 裡的硬字串，是 `AUDIT_EXCEPTIONS` 這張**登記表**（路徑＋為什麼算活的＋登記日期），
+而且**兩個方向都查**——登記了卻一個檔都對不到，就是它搬走或被刪了，紅。
+每次跑都會印 `N registered audit exceptions scanned`。
+**入表的判準只有一條：活樹（`tests/`／`tools/`／`p4_proxy/`／`src/`）有東西會「執行或變異」它。
+引用它、連結它、在報告裡提到它，都不算。**
+
+2026-09-12 盤點過一次：`audit/` 底下 130 支 `.py`，其中 13 支提到行程名工具（`pgrep`／`pkill`／
+`killall`／`pidof`）——**5 支是活工具**（harness 4 支＋`cpu_gate.py`，都已登記）、**6 支是一次性
+腳本**（提到它們多半是在說明自己為什麼**不**那樣做）、**2 支 repo 內零引用**：
+`2026-08-28_QM-mirrored-block/kernel_cpu_by_arm.py`，
+以及 `2026-09-02_fix-design-campaign/findings/IPERF3-CONFLICT.patches/committed/cpu_gate.py`
+（與正本**位元相同**，且沒有人按全路徑引用它）。
+**兩支死檔留在原地沒刪**，刪不刪是 Adam 的裁決。「活的工具要不要一律搬出 `audit/`」也還沒裁。
 
 `audit/` 底下有一個看起來放錯地方的 [2026-07-30_audit-be3c242/](audit/2026-07-30_audit-be3c242/)
 ——它是第一輪十階段子系統審查，2026-08-17 才從 `doc/` 頂層搬進去；**在那之前它在外面不是
