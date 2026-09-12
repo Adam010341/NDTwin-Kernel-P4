@@ -4687,6 +4687,19 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 - **證據**：ROLE-12 報告置頂②與 `logs/ROLE-12/c6-03-down-p4-solo.log`（無重疊、rc 捕捉）。⚠️ 🟠 轉述。
   🏁 **它的下游（那句 rc 被寫進 claim note、活到下一個 session）另記為 G-49，已於同日由
   FIX-NDT-7 修掉**（merge `aab7581e`，05:56）。
+- 🏁 **狀態更新（2026-09-12，FIX-NDT-8 ／ FIX-DOC-3）——這一條的 rc 表換版了：**
+  - 該條記的缺陷**沒有回來**：那半的修法（延後按號重讀 port）一個字都沒動，
+    `test_ndt_up_down_robust.sh` §15 的 22 格與 `test_ndt_honesty.sh` §5F 全綠。
+  - **但 `ndt down` 的 rc 表已經換版**：現在還會回 **3**（開工時就沒有東西可拆）與 **5**
+    （被守衛拒絕），而這一條原本寫的「rc 1 的三種來源」現在只描述 **1** 那一格。
+    **讀 G-43 的人要一起讀 G-53。**
+  - 文末那句「`00-COMMON-0911-DAY.md` 02:15 那節可以改寫，但改它是 orchestrator 的事」
+    **仍然成立**，而且現在又多一層：那一節講的 rc 值本身換版了。
+  - **手冊那半（FIX-DOC-3）**：`doc/2026-08-17_testing-manual.md` §2.8 原本把這一條寫成
+    「FIX-NDT-6 在修」的現行缺陷。現在改成已修，並指明兩半分別由 `1656bdba`（rc）與
+    `aab7581e`（note）修掉——不改的話，同一節下面的還原判準會跟它上面那段自相矛盾。
+  - ⚠️ 🟠 **轉述**：本 bullet 抄自 `fix/FIX-NDT-8-SUMMARY.md` §6，FIX-DOC-3 **沒有開 lab 重驗**；
+    親自驗的只有「`1656bdba`／`aab7581e`／`af5efa4f` 都是 trunk `9f80a33f` 的祖先」。
 
 ### G-44 🏁 `ndt clean` 對進行中的 teardown 零守衛，還把那份 fabric 列成 residue 並建議 `--deep`
 
@@ -4841,6 +4854,17 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   - 🔴 **不是把 rc 改個名字**：cell 1／2 是 **rc 不同、句子相同**，cell 2／3 是 **rc 相同、句子不同**。
   - ⚠️ 這一條同時結掉 **FIX-NDT-6 §7-3**（ROLE-11 F6「`ndt down` 印 clean 卻把 note 寫成 did NOT verify」
     當時沒有格守著，因為 fixture 沒有 claim 檔）——§19 自己建了 claim fixture。
+- 🏁 **狀態更新（2026-09-12，FIX-NDT-8）——同一個函式的第三種狀態，同一種誤述：**
+  - 這一條修的那一半**沒有回來**：`CLEAN_UNVERIFIED` 與 `not_verified` 一個字沒動，
+    §19 的 25 格全綠。
+  - **新增一個同形狀的洞，已經一起補掉**：`claim_note_down` 在「什麼都沒拆」的那一輪
+    會寫 `down at T; verified clean`——一台**根本沒有東西可驗**的機器被寫成「驗過了、乾淨」，
+    而那句話一樣是**落到磁碟上、活過本輪**的。現在多一個參數（主體），空主體改寫
+    `down at T; nothing was up to tear down; claim kept`。釘在 `test_ndt_up_down_robust.sh`
+    §22 的兩格（`verified clean` 不得出現、`nothing was up to tear down` 必須出現）與 M81。
+  - ⇒ 這一條的教訓（**note 描述機器，不是 rc 的別名**）**被第二次驗證**：
+    同一個函式、第三種狀態、同一種誤述。新的那一格由 **G-53** 的契約帶出來。
+  - ⚠️ 🟠 **轉述**：本 bullet 抄自 `fix/FIX-NDT-8-SUMMARY.md` §6，FIX-DOC-3 沒有重跑那些閘門。
 
 ### G-50 ⚠️ 修法在自己的訊息裡引用它修掉的缺陷，於是「缺陷字串不該出現」的斷言在修好的樹上紅
 
@@ -4897,6 +4921,95 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   它同時是這種但書的到期偵測器。
 - 〔FIX-DOC-1 §6 的第二條 `G-4x-b`（`ndt help` 的 `--deep` 仍寫三個 port）**不在這裡開號**：
   那與 FIX-NDT-6 §6 的 **G-46** 是同一件事，依工單取 G-46。〕
+
+### G-53 🏁 `ndt up`／`ndt down`／`ndt clean` 三張公告的 rc 表各說各話：「被拒絕」與「量到髒」是同一個 1，「什麼都沒量」也是 0
+
+- **狀態**：**契約變更**，Adam 2026-09-12 起床親裁（表單 1 Q1、表單 4 Q15、表單 5 Q15b）。
+  🟢 **已修（FIX-NDT-8，`0e2118e3`／`57bb5c6d`／`79b5713e`／`af7428bb`），✅ 已併入 trunk
+  （merge `af5efa4f`，2026-09-12）**；手冊那半由 **FIX-DOC-3** 補，見文末〈狀態更新〉。
+  (numbered by hunt-0911/FIX-DOC-3 工單；FIX-NDT-8 §6 自己標的就是 G-53)
+- **量到什麼**（都是既有實測，不是為這一條新量的）：
+  - `ndt up` **根本沒有 rc 表**。被別人 claim、有量測在跑、撞到進行中的 teardown、H4 模型不對等，
+    全部與「preflight 找到一個 stray 佔著 `:8000`」同樣回 **1** ⇒ 沒有任何腳本分得出
+    「等那個 teardown」與「去看那台機器」。
+  - `ndt clean` 在一台**從來沒有起過 lab** 的機器上走完五條斷言、印 `clean`、回 **0**
+    ——對腳本而言，與「拆掉十台 bmv2 並驗證它們都不在了」是同一個 byte。
+    而手冊叫第一次讀它的人用這個指令**驗證** lab（ROLE-11 F5 那一輪就是這樣讀的）。
+  - `ndt down` 對一個本來就 down 的 lab 印完四步、驗完一台空機器、回 **0**。
+    **ROLE-12 自己的表就有這一對**：兩輪 live OVS teardown 與一輪已經 down 的 lab 全部 rc 0，
+    三輪一個 byte，只有 log 分得出第三輪。
+- **失效方向：樂觀**。「我沒看」與「我看了，乾淨」收斂成同一個成功碼。
+- **修法**：一套語意，三張表（`ndt help` 的 `up`／`down`／`clean` 全部改口）——
+  **1 量到髒｜3 什麼都沒量｜5 被守衛拒絕｜0 量了而且乾淨｜2 usage**。
+  「有沒有東西可量」＝ `lab_subject`（bmv2／host-switch 行程／topo session／switch manifest／
+  `.test_run/pids/*.pid`／`ports.sh` 表裡任何被佔的 port）。`cmd_down` 在**動手之前**取它，
+  並把它當**主體**傳給自己的 `verify clean` ⇒ **成功的 teardown 最後一行仍然是 `clean`**，
+  而不是降級成 `nothing to judge`。`preflight` 折成一個答案時**拒絕贏**
+  （這一條是 FIX-NDT-8 自己裁的，該單 §7-3 待 Adam 追認）。
+- **釘在**：`test_ndt_up_down_robust.sh` §20（24 格）／§21（18 格）／§22（26 格）／§23（8 格）／
+  §24（9 格），§8／§9／§11／§14／§16／§18 跟著改值；`test_ndt_honesty.sh` §5I／§5J／§5K
+  （三張表各一段，每段都有對著碼驗的格）；`mutate_ndt_up_down_robust.sh` M64–M87、W11–W14；
+  `mutate_ndt_honesty.sh` MD4–MD9；`mutate_live_cells.sh` R1–R5＋C3（restore 的六個 case 指紋）。
+- 🔴 **下游**：`tools/test_workflow/live_cells/run_cells.sh` 的 `restore()` 改回**硬判**
+  （`down` ∈ {0,3} 且 `clean` ∈ {0,3} 且 orphan verdict CLEAN ⇒ 還原；1 ⇒ RESTORE-FAIL；
+  5 ⇒ RESTORE-FAIL 並印是誰擋的）。repo 裡讀這兩個 rc 的**可執行碼只有它一支**。
+- ⚠️ **對外口徑**：閒置機器上單獨跑 `ndt clean` **回 3 並印 `nothing to judge`**（以前 0），
+  已經 down 的 lab 再 `ndt down` **回 3**，任何守衛拒絕**回 5**（以前混在 1 裡）。
+- 🔴 **同一支工具裡有兩個 5，意思不同**：`ndt apps orphans` 的 5 仍是舊義「行程乾淨、
+  residue 查不到」（G-12／W16-1）。**判孤兒只看 `orphans_verdict.sh` 印的 `VERDICT:`，
+  不看它的 rc**；要不要統一是 FIX-NDT-8 §7-7，未裁。
+- **證據**：ROLE-12 報告（三輪 rc 0 的那一段）、ROLE-11 F5（`18-clean-live.log`）、
+  `fix/FIX-NDT-8-SUMMARY.md` §0 的現況→改後表與 §6（含該單 §8 的勘誤）。
+  ⚠️ 🟠 **轉述**：本條由 FIX-DOC-3 抄錄 FIX-NDT-8 §6，**沒有重跑那些閘門、沒有開 lab**；
+  親自驗的只有「`af5efa4f` 是 trunk `9f80a33f` 的祖先」與「`ndt help` 今天印的三段」。
+- 🏁 **狀態更新（2026-09-12，FIX-DOC-3）——手冊那半：**
+  - `doc/2026-08-17_testing-manual.md` 有三處把舊 rc 語意寫成指示（FIX-NDT-8 §7-11／§8-9 B），
+    其中 §2.8 的**還原判準**要求 `ndt clean` 回 **rc 0**——而那正是新契約下回 **3** 的狀態
+    ⇒ **照手冊做會把一個收乾淨的 lab 判成沒收乾淨**，而那是手冊裡唯一一段教人怎麼判
+    「還原了沒」的文字。
+  - **修法**：rc 表**整份手冊只寫一次**（§2.1），每一列都帶 `ndt help` 的原句；另外兩處
+    （§2.1、§2.8 的 code block 註解）改成指回那張表，不再自己寫碼——**第二份拷貝自己會過期，
+    那就是這一條的形狀**。還原判準改成「`clean` 與 `down` 都收 0 或 3；1 ＝量到髒；
+    5 ＝被拒絕、什麼都沒驗」，並改讀 `orphans_verdict.sh` 的 `VERDICT:` 而不是
+    `ndt apps orphans` 的 rc，與 `run_cells.sh` 的硬判同一套。
+  - **哪個閘門看過紅**：新增 `tests/shell/test_manual_rc_table.sh`。對 base `9f80a33f` 的手冊
+    **10 passed, 16 failed**（逐字存 `logs/gates-0910/test_manual_rc_table.doc3-0912-r5-base-manual.log`）；
+    改後 **26 passed, 0 failed**。變異閘門 `tests/shell/mutate_manual_rc_table.sh`
+    ＝ **9 mutations, 0 survived; 1 control, 0 went red**。
+  - 🔴 **它對著活的 `ndt help` 驗，而且驗兩個方向**：手冊每一列都帶 `ndt help` 的原句，
+    測試去真的 help 輸出裡找它；反方向的四格斷言 help 自己還在印那三段、還在公告 3 與 5。
+    只驗前者的話，**一份說不出話的正本會跟任何手冊都不衝突**——M7 就是拿走 help 的那顆變異。
+
+### G-56 🏁 兩顆變異共用一個 anchor 時，`check_gate_anchors.py` 的 `ok(N)` 會少算，而總表仍然全綠
+
+- **狀態**：🟢 **已修（2026-09-12 AUDIT-SCAN-1 follow-up `8cd5bec7`）**；
+  「要不要把『一顆變異一個 anchor』變成規矩」**未裁**（AUDIT-SCAN-1 §7-5）。
+  (numbered by hunt-0911/FIX-DOC-3 工單；G-54／G-55 保留給別單)
+- **位置**：`tests/shell/check_gate_anchors.py`（計數語意）；實例是
+  `tests/shell/mutate_check_process_by_name.sh` 的 M1 與 M13。
+- **量到什麼**：兩顆變異改同一行、因此帶同一個 anchor 字串時，`check_gate_anchors.py`
+  一個 `(檔, anchor)` 只算**一格** ⇒ 16 顆變異的閘門報 `ok(15)`，
+  而總表照樣印 `100/100 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)`。
+  **沒有任何輸出說「有一顆沒被檢查」**——`NOT CHECKED AT ALL` 指的是另一件事
+  （UNPARSED／NO-ANCHORS／VIA-UNCHECKED），所以這一顆掉在兩種計數的縫裡。
+- **失效方向：樂觀**。少算的那一顆看起來像不存在，而不是像沒被檢查。
+- **為什麼要記**：repo 已經寫過兩次「`ok(N)` 是錨點格數不是變異顆數」
+  （FIX-PROXY-1 §7-6、FIX-PROXY-2 §0）。這一條補上**為什麼兩個數字會分家的機制**，
+  以及唯一能發現它的辦法：**拿變異顆數去對 `ok(N)`**（閘門自己的 `GATE-SUMMARY mutations=`
+  對 `check_gate_anchors.py --gates <那支>` 的 `ok(N)`）。
+- **不是 G-37**：G-37 是閘門自己的 `assert_unique` 用 `grep -c -F` 數多行 anchor 數錯，
+  而且那一條明寫「`check_gate_anchors.py` 沒有錯」。這一條相反——閘門是對的，
+  **少算發生在 `check_gate_anchors.py` 的 `ok(N)` 語意裡**。兩條都關於「錨點數不等於顆數」，
+  但壞的地方不同，引用時不要互相替代。
+- **現況**：M13 的 anchor 多吃一行註解，兩顆分開 ⇒ `ok(16)`。
+- **證據**：`fix/AUDIT-SCAN-1-SUMMARY.md` §1.4／§6（🟠 轉述）。
+  ✅ **本單親自對帳過修法今天仍然成立**：在 trunk `9f80a33f` 的樹上跑
+  `bash tests/shell/mutate_check_process_by_name.sh` ⇒ `GATE-SUMMARY mutations=16  survived=0`
+  （`logs/gates-0910/mutate_check_process_by_name.doc3-0912-r1.log`），
+  `python3 tests/shell/check_gate_anchors.py HEAD --gates mutate_check_process_by_name.sh` ⇒ `ok(16)`
+  ——**兩個數字相等**。
+- 🔶 **這一條給後面每一支新閘門的用法**：一顆變異一個 anchor，交件時把 `mutations=` 與 `ok(N)`
+  兩個數字放在一起。本單的 `mutate_manual_rc_table.sh` 就是照這樣交的（9 顆變異＋1 顆控制、`ok(10)`）。
 
 > 🔗 **A1（`POST /ndt/inject_link_recovery` 把不是自己掛的 netem 也拆掉，2026-09-11 live 3/3）
 > 不在這裡登記**——那一條由 `fix/link-recovery-only-detaches-its-own-netem` 自己登記（09-11 授權）。
