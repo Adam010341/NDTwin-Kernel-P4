@@ -7130,11 +7130,17 @@ http_get_flow_entries() {
 flow_table_rows() {
     python3 - 3<&0 <<'PY'
 import json, os, sys
+# 🔴 `switch`, not `sw`, and the NAME is load-bearing -- the same lesson as proc_checkout's
+# `pargv`. suspect_rules() above iterates `for sw in entries or []:` and
+# tests/shell/mutate_apps_stop_lists_rules.sh anchors a mutation on that exact line; a second
+# byte-identical copy makes the anchor match twice, and an ambiguous anchor mutates a site the
+# gate was not named for. check_gate_anchors.py reports it as DUP, which is how this one was
+# caught (2026-09-12, count 2 want 1).
 try:
     entries = json.load(os.fdopen(3))
     n = 0
-    for sw in entries or []:
-        for _key, rows in sorted((sw.get("flows") or {}).items()):
+    for switch in entries or []:
+        for _key, rows in sorted((switch.get("flows") or {}).items()):
             n += len(rows or [])
 except Exception:
     print("UNREADABLE"); sys.exit(0)
