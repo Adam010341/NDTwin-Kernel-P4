@@ -421,8 +421,12 @@ report "M32 (widening): every table is called empty" "$m" \
 m=$(mutant m33 "$NDT" \
     '            n += len(rows or [])' \
     '            n += 0')
+# 🔴 The check's name carries its own two leading spaces (it is a continuation line in the
+# suite's output), and `report` greps for `FAILED   <name>`. Without them this gate reported
+# M33 SURVIVED in its first run while the named check had gone red -- the matcher missed, not
+# the mutation. Logged: mutate_apps_stop_lists_rules.ndt11-0912-r1.log.
 report "M33: the row counter counts nothing, so every table reads 0" "$m" \
-       "a table with one row is 1"
+       "  a table with one row is 1"
 
 # 🔴 The fail-closed side of the counter. `0` and "I could not read it" are different answers and
 # only one of them may produce the sentence: a table this tool cannot parse is already reported
