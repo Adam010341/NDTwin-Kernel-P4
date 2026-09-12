@@ -19,7 +19,7 @@
 # to pin is not "it crashed" -- it is that a shell parser pointed at python parses fine and
 # reports nothing.
 #
-# Eleven mutations, in four families:
+# Fifteen mutations, in five families:
 #   M1        the SURFACE goes back to shell-only -- the exact state that hid the two live sites.
 #   M2, M5,   the spawner set forgets a way to start a process: os.system, Mininet's Node.cmd,
 #   M6        subprocess.check_output. Each is one line of one file in this tree.
@@ -28,6 +28,12 @@
 #             python, and the extension dispatch that decides which grammar to use.
 #   M8-M10    the DATA rule breaks in both directions: an unreadable file reported as a clean
 #             one (L-3), and prose read as code -- which is the way a lint gets switched off.
+#   M12-M15   the doc/audit REGISTRY breaks in all four of its directions (2026-09-12,
+#             AUDIT-SCAN-1): the registry is emptied so the live tool under doc/audit stops being
+#             read; the rule is REVERSED so all of doc/audit is scanned and a dated record becomes
+#             something a lint can demand edits to; the count is not printed, so the carve-out is
+#             back to being invisible; and an entry that has stopped matching anything is passed
+#             over in silence, which is how a rotted carve-out goes on standing for a live one.
 #
 # A mutation that makes the WRONG check go red is a SURVIVOR, not a kill: the case it targets was
 # never put to the test. Every check name in the suite is unique for exactly this reason.
@@ -133,7 +139,7 @@ echo
 # This is not an invented mutation. It is the state this file was in until 2026-09-11, and the
 # state in which it reported "0 new, 0 stale" while two files ran pkill -f as root.
 
-m1=$(mutant m1 '    for pattern in SUITE_GLOBS + PY_GLOBS:'$'\x1f''    for pattern in SUITE_GLOBS:')
+m1=$(mutant m1 '    surface = SUITE_GLOBS + PY_GLOBS + audit_exception_globs()'$'\x1f''    surface = SUITE_GLOBS')
 report "M1: the derived surface is shell-only again" "$m1" \
        "  and python is in the surface"
 
@@ -186,6 +192,35 @@ report "M9 (widening): only the module docstring is prose" "$m9" \
 m10=$(mutant m10 '        if id(node) in prose:'$'\x1f''        if False:')
 report "M10 (widening): prose is read as code" "$m10" \
        "a docstring is prose"
+
+# --- family 5: the doc/audit registry breaks -----------------------------------------------------
+# 🔴 M12 and M13 are the two halves of one ruling (Adam, 2026-09-12, on FIX-PROXY-1 §7-6):
+# doc/audit/** is a dated record and is NOT scanned, and the live tooling that lives there anyway
+# is scanned because it is REGISTERED. Emptying the registry and reversing the rule are the two
+# ways that ruling can be lost, and neither of them crashes anything.
+#
+# M12 is not an invented mutation either: "the registry is empty" is what the previous shape --
+# one hard-coded glob string under a comment reading "the one exception is" -- degraded to the
+# moment anyone deleted the line, with nothing printing a count and nothing going red.
+
+m12=$(mutant m12 'AUDIT_EXCEPTIONS = ('$'\x1f''AUDIT_EXCEPTIONS = ()
+_DEREGISTERED = (')
+report "M12: the audit-exception registry is emptied" "$m12" \
+       "a registered audit exception IS scanned"
+
+m13=$(mutant m13 '    surface = SUITE_GLOBS + PY_GLOBS + audit_exception_globs()'$'\x1f''    surface = SUITE_GLOBS + PY_GLOBS + ("doc/audit/*/*.py", "doc/audit/*/*/*.py")')
+report "M13: the rule is reversed -- all of doc/audit is scanned" "$m13" \
+       "  and the rest of doc/audit is not"
+
+m14=$(mutant m14 '        print("check_process_by_name: %d registered audit exceptions scanned (%d file(s) under "
+              "them); doc/audit/** is not a scan surface otherwise"
+              % (len(AUDIT_EXCEPTIONS) - len(rotted), exceptions_scanned))'$'\x1f''        pass')
+report "M14: the run stops saying how many exceptions it scanned" "$m14" \
+       "  and the run says how many it scanned"
+
+m15=$(mutant m15 '    for pattern, why, since in rotted:'$'\x1f''    for pattern, why, since in ():')
+report "M15: an exception that matches nothing is passed over" "$m15" \
+       "an exception matching nothing is reported"
 
 # --- the control ---------------------------------------------------------------------------------
 # Rewording a comment must change nothing. Without this, every line above could be measuring
