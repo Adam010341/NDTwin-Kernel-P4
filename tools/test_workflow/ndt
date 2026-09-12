@@ -574,7 +574,9 @@ record_up_target() {
         err "  ROLE-2 measured what that costs on 09-11: the fabric built, the kernel never"
         err "  started, and [2/3] hung past 300s while the proxy retried switch-entered."
         err "  either ask for $mh hosts, or point NDT_TOPO at the model for $hosts."
-        return 1
+        # 🔴 rc 5: a REFUSAL, the same answer topo_for_hosts's H4 gives one screen up. Both
+        # guards, one code -- see the vocabulary note above preflight. (Adam, 2026-09-12)
+        return 5
     fi
     printf 'plane=%s\nhosts=%s\ntopology=%s\ntopology_sha256=%s\nmodel_hosts=%s\nmodel_edges=%s\nat=%s\nby=%s\nbuilder=%s\n' \
         "$plane" "$hosts" "${topo#$REPO/}" "${sum:-unavailable}" \
@@ -1098,6 +1100,11 @@ not_verified() { CLEAN_UNVERIFIED="${CLEAN_UNVERIFIED:+$CLEAN_UNVERIFIED, }$1"; 
 # tests/shell/test_ndt_up_down_robust.sh section 19 are the four corners of it.
 claim_note_down() {
     local rc="${1:-0}" unverified="${2:-}" when cleared="" ok=0
+    # 🔴 The third argument is what the teardown was ABOUT, measured before it acted. A teardown
+    # that had nothing to tear down must not write "verified clean" into a file the next session
+    # reads: that sentence would be the "沒量 ≠ 乾淨" conflation one layer down, in the one place
+    # it outlives the round. (Adam, 2026-09-12)
+    local subject="${3:-}"
     when="$(date '+%Y-%m-%d %H:%M:%S')"
     # ROLE-4 T5, 01:57:54 verbatim: `measuring=ROLE-4 reader nsr, do not tear down` was still in
     # the claim AFTER the `ndt down` that had killed that reader -- the declaration outlived the
@@ -1108,7 +1115,12 @@ claim_note_down() {
     if [[ -n "$(measuring_declared)" ]]; then
         cleared="$(printf '%s' "$(claim_field measuring)" | cut -c1-64)"
     fi
-    if [[ -z "$unverified" ]]; then
+    if [[ -z "$unverified" && -z "$subject" ]]; then
+        local also_empty=""
+        (( rc != 0 )) && also_empty="; this teardown still exits $rc, for something other than residue"
+        set_claim_note "down at $when; nothing was up to tear down${also_empty}; claim kept${cleared:+; cleared measuring=$cleared}" && ok=1
+        (( ok )) && info "claim note now says the lab was already down when this teardown ran"
+    elif [[ -z "$unverified" ]]; then
         # 🔴 The rc is carried INTO the sentence rather than deciding it. A reader who finds a
         # note saying the machine is clean and a round that ended non-zero is owed the second
         # half; what they must not be told is that the machine was not checked.
@@ -1898,8 +1910,24 @@ lab_version_problem() {
 
 # --- preflight --------------------------------------------------------------------
 
+# [Co-developed with claude code -- Adam]
+# 🔴 THE ONE rc VOCABULARY, Adam 2026-09-12 (form 1 Q1, form 4 Q15, form 5 Q15b). `up`, `down`
+# and `clean` now answer with the same three words, and `ndt help` carries all three tables:
+#
+#     rc 1   MEASURED, and it was dirty -- something alive, a port held, a component that
+#            would not stop, an ending that was fatal
+#     rc 3   NOTHING WAS MEASURED, because there was nothing to measure. Not the same
+#            statement as "clean", and that is the whole of the ruling
+#     rc 5   a guard REFUSED. This command did not act at all
+#     rc 0   measured, and clean.   rc 2 stays what it was: a usage error
+#
+# 🔴 PRECEDENCE, because this function folds several checks into ONE answer: a refusal outranks
+# a dirty reading. A teardown in flight can coincide with a port this bring-up would also refuse
+# on, and the only actionable sentence there is "wait for that teardown" -- the port is very
+# likely one it is about to release. Both are still PRINTED; what the refusal decides is the
+# code. (tests/shell/test_ndt_up_down_robust.sh section 20 pins the pair and each corner.)
 preflight() {
-    local mode="$1" bad=0
+    local mode="$1" bad=0 refused=0
     # [Co-developed with claude code -- Adam]
     # FIRST, and for both planes: is the tree `sudo ndtwin-lab` acts in this checkout? Asked
     # here because preflight is the one thing both up_p4 and up_ovs run before anything on the
@@ -1911,7 +1939,9 @@ preflight() {
     # bring-up wrong, both are knowable before anything is read from the machine, and both are
     # plane-independent -- the P4 plane is the one that cannot see the teardown, and the OVS
     # plane's own refusal (mn_count, in up_ovs) fires later and names a symptom.
-    guard_no_teardown_in_flight || bad=1
+    # 🔴 rc 5, not 1: this is a REFUSAL -- nothing was read from the machine and nothing was
+    # built. See the vocabulary note above this function.
+    guard_no_teardown_in_flight || { bad=1; refused=5; }
     [[ -x "$REPO/build/bin/ndtwin_kernel" ]] || { err "kernel binary missing: build/bin/ndtwin_kernel"; bad=1; }
     if [[ "$mode" == "p4" ]]; then
         [[ -x "$REPO/p4_proxy/venv/bin/python" ]] || { err "proxy venv missing: p4_proxy/venv/bin/python"; bad=1; }
@@ -1994,7 +2024,10 @@ preflight() {
         warn "the helper this bring-up will use is not the one in this tree:"
         printf '%s\n' "$labout" | sed 's/^/  /'
     fi
-    return $bad
+    # One answer out of several checks, and the refusal wins -- see the note above.
+    (( bad == 0 )) && return 0
+    (( refused != 0 )) && return "$refused"
+    return 1
 }
 
 # --- rollback: take back what THIS bring-up started --------------------------------
@@ -2206,6 +2239,32 @@ rollback_up() {
 
 # --- up ---------------------------------------------------------------------------
 
+# --- the way IN, once the lab is up ----------------------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 Adam, 2026-09-12 11:23. `ndt up p4` ended on `proxy :8081  kernel :8000  Mininet CLI: ...`;
+# `ndt up ovs` ended on nothing of the kind, so an operator who had just built a 128-host fabric
+# on the DEFAULT plane was not told how to get into it.
+#
+# ONE function for both planes. Two copies of a command an operator pastes drift, and this file
+# has the evidence: up_p4 and up_ovs carry two copies of the H4 tab unpacking and one of them was
+# wrong for a day (section 11 of tests/shell/test_ndt_up_down_robust.sh).
+#
+# 🔴 The command is not invented here. All three of ndtwin-lab's launch verbs -- topo-start,
+# ovs-topo-start and ovs-topo-4host -- open the session as `-s topo` on the `-L ndtwinlab`
+# socket, and each of them PRINTS this same line as its own `(attach: ...)` hint. The suite
+# compares the two files rather than trusting this string.
+lab_attach_cmd() { printf 'sudo tmux -L ndtwinlab attach -t topo\n'; }
+
+# lab_entry_points <plane> -- the ports and the CLI, for a lab that came up and verified.
+# OVS has no proxy: naming one there would send a reader to a port nothing is listening on.
+lab_entry_points() {
+    case "$1" in
+        p4)  info "proxy :8081   kernel :8000   Mininet CLI: $(lab_attach_cmd)" ;;
+        ovs) info "Ryu :8080   kernel :8000   Mininet CLI: $(lab_attach_cmd)" ;;
+    esac
+}
+
 up_p4() {
     local hosts topo binary rate n want_paths
     # [Co-developed with claude code -- Adam]
@@ -2272,7 +2331,8 @@ up_p4() {
         err "  p4_proxy/mininet/host_count_override is UNCHANGED at $KNOB_ENTRY: the knob is"
         err "  written after this check, never before it, so this refusal moved nothing."
         err "  either drop NDT_TOPO, or set the knob to the model's count:  ndt up p4 <n>"
-        return 1
+        # 🔴 rc 5: a refusal, not a dirty reading -- nothing on the machine was looked at.
+        return 5
     fi
     if [[ -z "$topo" ]]; then
         err "no P4 topology model in setting/ has $hosts hosts."
@@ -2287,13 +2347,15 @@ up_p4() {
     local held; held="$(foreign_claim)"
     if [[ -n "$held" ]]; then
         err "the lab is claimed by $held; 'ndt up' may restart the stack under them."
-        return 1
+        # 🔴 rc 5: refused. (Adam, 2026-09-12)
+        return 5
     fi
     local busy; busy="$(in_flight)"
     if [[ -n "$busy" ]]; then
         err "a measurement is running; 'ndt up' may restart the fabric under it:"
         printf '%s\n' "$busy" | sed 's/^/        /' >&2
-        return 1
+        # 🔴 rc 5: refused, the same as the claim above it.
+        return 5
     fi
 
     say "ndt up p4"
@@ -2303,11 +2365,14 @@ up_p4() {
     info "sample rate  $(rate_label "$rate")     (compiled into ndtwin_switch.json)"
     echo
 
-    preflight p4 || return 1
+    # 🔴 `return $?`, not `return 1`: preflight answers 5 when a guard refused and 1 when it
+    # found something. Flattening it here would put the distinction back one screen after it
+    # was made.
+    preflight p4 || return $?
 
     # What this run was asked for, written down before anything is built, so `status --check`
     # has a baseline that does not depend on reading a P4-only knob back afterwards. (#8, N12)
-    record_up_target p4 "$hosts" "$topo" || return 1
+    record_up_target p4 "$hosts" "$topo" || return $?
 
     # [Co-developed with claude code -- Adam]
     # 🔴 ROLE-9. THE KNOB IS WRITTEN HERE, and this line's position is the fix: everything above
@@ -2559,7 +2624,7 @@ print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1))' "$topo" 2>/dev/nul
     echo
     if (( rc == 0 )); then
         say "up. ${G}ready${N}"
-        info "proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo"
+        lab_entry_points p4
     else
         say "up, ${R}but not verified${N} -- do not measure on this"
     fi
@@ -2616,7 +2681,8 @@ up_ovs() {
         err "refusing to build: ${TOPO_REFUSAL:-NDT_TOPO does not match the host count}"
         err "  on OVS the size is the VERB -- ovs-topo-start builds 128, ovs-topo-4host builds"
         err "  4 -- so nothing here can make the fabric follow the model NDT_TOPO names. (H4)"
-        return 1
+        # 🔴 rc 5: the same refusal up_p4 gives. One plane changed is not both.
+        return 5
     fi
     if [[ -z "$ovs_topo" ]]; then
         err "no OVS topology model in setting/ has $ovs_hosts hosts"
@@ -2636,7 +2702,11 @@ up_ovs() {
     say "ndt up ovs${ovs_hosts/128/}"
     info "hosts        $ovs_hosts"
     info "topology     ${ovs_topo#$REPO/}"
-    preflight ovs || { rm -f "$fifo" "$out"; return 1; }
+    # 🔴 The code is READ BEFORE the housekeeping. `rm -f ...; return $?` would return the rc
+    # of `rm`, which is 0 -- a refusal silently becoming a successful bring-up.
+    local pf_rc
+    preflight ovs; pf_rc=$?
+    (( pf_rc != 0 )) && { rm -f "$fifo" "$out"; return "$pf_rc"; }
 
     n="$(mn_count)"
     if [[ "$n" -gt 0 ]]; then
@@ -2648,7 +2718,9 @@ up_ovs() {
 
     # Same as up_p4: the target is recorded once every pre-lab refusal has passed and just
     # before the first thing that changes the machine. (#8, N12)
-    record_up_target ovs "$ovs_hosts" "$ovs_topo" || { rm -f "$fifo" "$out"; return 1; }
+    local rut_rc
+    record_up_target ovs "$ovs_hosts" "$ovs_topo"; rut_rc=$?
+    (( rut_rc != 0 )) && { rm -f "$fifo" "$out"; return "$rut_rc"; }
     claim_note_up "ovs $ovs_hosts"
 
     say "[1/4] control plane (Ryu)"
@@ -2814,7 +2886,12 @@ print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1), len(t["edges"]))' "
     verify_sflow "$ovs_topo" || rc=1
 
     echo
-    if (( rc == 0 )); then say "up. ${G}ready${N}"; else say "up, ${R}but not verified${N}"; fi
+    if (( rc == 0 )); then
+        say "up. ${G}ready${N}"
+        lab_entry_points ovs
+    else
+        say "up, ${R}but not verified${N}"
+    fi
     return $rc
 }
 
@@ -3006,8 +3083,49 @@ guard_no_teardown_in_flight() {
     return 1
 }
 
+# --- was there anything here at all? -----------------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 Adam, 2026-09-12 (form 1 Q1): "沒量" 不是 "乾淨". `ndt clean` on a machine where nothing had
+# ever been started walked its five assertions over an empty process table, found nothing,
+# printed `clean` and exited 0 -- the same byte a teardown that removed ten bmv2 switches and
+# proved them gone returns. The manual sends a first-time reader to this command to VERIFY a
+# lab. rc 3 is the answer for "there was nothing to measure", and it is not a bill of health.
+#
+# 🔴 ONE definition of the registry half, used by both readers. `.test_run/pids/` is the shared
+# file `ndt down` acts on and port_owner_local attributes listeners with, so a checkout with an
+# entry in it has something for either command to be about -- even a STALE entry, whose pid is
+# gone: that is a fact about this checkout, and `ndt status`'s pidfiles row is what judges it.
+pid_registry_entries() {
+    local f
+    for f in "$REPO"/.test_run/pids/*.pid; do
+        [[ -e "$f" ]] && printf '%s\n' "${f#$REPO/}"
+    done
+    return 0
+}
+
+# lab_subject -- is there anything here for a teardown to take down or an assertion to be about?
+# Prints what it found, one clause per line; rc 0 when there is something, 1 when there is not.
+#
+# 🔴 Six populations, and the last one matters most: a port held by something nobody registered
+# is exactly the case an empty registry must NOT swallow. "Nothing is running" and "nothing was
+# ever here" are the two statements this function exists to keep apart.
+lab_subject() {
+    local found=0 n f
+    n="$(bmv2_count)";  [[ "$n" -gt 0 ]] && { echo "$n bmv2 switch(es)"; found=1; }
+    n="$(mn_count)";    [[ "$n" -gt 0 ]] && { echo "$n host/switch process(es)"; found=1; }
+    topo_session && { echo "a topo tmux session"; found=1; }
+    [[ -e "$MANIFEST" ]] && { echo "the switch manifest ${MANIFEST#$REPO/}"; found=1; }
+    while IFS= read -r f; do
+        [[ -z "$f" ]] && continue
+        echo "the registry entry $f"; found=1
+    done < <(pid_registry_entries)
+    [[ -n "$(ndt_port_residue all)" ]] && { echo "a held port in ports.sh's table"; found=1; }
+    (( found == 1 ))
+}
+
 cmd_down() {
-    local force="" deep="" arg busy held down_rc=0 declared holder detail
+    local force="" deep="" arg busy held down_rc=0 down_verdict=0 declared holder detail DOWN_SUBJECT=""
     # 🔴 ROLE-9 / ROLE-11 F6: what `verify clean` could NOT verify, named half by half. Empty
     # means it verified everything, which is a different statement from `down_rc == 0` -- see
     # claim_note_down. The stack.sh half is deliberately not in here: "a component ended on a
@@ -3056,7 +3174,9 @@ cmd_down() {
         err "      that claim: $detail"
         err "if it is someone else's, wait for it to lapse. Only override it if you know they"
         err "have finished:  ndt down --force"
-        return 1
+        # 🔴 rc 5: refused. Nothing on this machine was read, let alone changed -- the same
+        # answer `ndt up` and `ndt clean` give for a guard. (Adam, 2026-09-12)
+        return 5
     fi
     # [Co-developed with claude code -- Adam]
     # T2d, measured 2026-09-11 01:57:27-01:57:54 (logs/ROLE-4/10-t3-down-by-owner.log). The claim
@@ -3081,7 +3201,8 @@ cmd_down() {
         err "here can see whether it is still running -- only you can. Tearing the fabric out"
         err "from under it loses the run (measured 09-11 01:57: it did, silently, rc 0)."
         err "when that run is over:  ndt claim <mins> to redeclare, or  ndt down --force"
-        return 1
+        # 🔴 rc 5: refused.
+        return 5
     fi
     [[ -n "$declared" ]] && warn "--force: tearing down over a declared measurement -- $declared"
     busy="$(in_flight)"
@@ -3090,7 +3211,8 @@ cmd_down() {
         printf '%s\n' "$busy" | sed 's/^/        /' >&2
         err "tearing the fabric out from under it loses the whole run, and nothing else"
         err "on this machine would say so. wait for it, or:  ndt down --force"
-        return 1
+        # 🔴 rc 5: refused.
+        return 5
     fi
     [[ -n "$busy" ]] && warn "--force: tearing down with a measurement in flight"
 
@@ -3104,9 +3226,22 @@ cmd_down() {
     # second teardown that carried on would overwrite the first one's marker and then delete
     # it, which is the H3 guard being taken away by the overlap it is for. See the block
     # comment on mark_teardown_start for the 02:07:18-02:07:32 timeline.
-    mark_teardown_start || return 1
+    # 🔴 rc 5: its only non-zero return is the refusal against somebody else's live teardown.
+    mark_teardown_start || return 5
 
     say "ndt down"
+
+    # [Co-developed with claude code -- Adam]
+    # 🔴 WHAT THIS TEARDOWN IS ABOUT, read before it changes anything. Every reading below is
+    # taken after the sweep has run, so by then the answer is always "nothing" -- which is why
+    # the question has to be asked here. It decides two things: what `verify clean` is an
+    # assertion ABOUT (see cmd_clean's $1), and, further down, whether this command measured
+    # anything at all. (Adam, 2026-09-12)
+    DOWN_SUBJECT="$(lab_subject)"
+    if [[ -n "$DOWN_SUBJECT" ]]; then
+        info "this teardown is about:"
+        printf '%s\n' "$DOWN_SUBJECT" | sed 's/^/        /'
+    fi
 
     # Apps first: they poll the kernel API, and left running they spend the teardown logging
     # connection errors against a stack that is going away.
@@ -3197,6 +3332,18 @@ cmd_down() {
     local sweep_out sweep_rc
     sweep_out="$(sudo -n "$LAB" cleanup 2>&1)"; sweep_rc=$?
     printf '%s\n' "$sweep_out" | sed 's/^/      /'
+    # [Co-developed with claude code -- Adam]
+    # 🔴 Adam, 2026-09-12 (form 1 Q3). A1-a stopped this command repeating stack.sh's advice to
+    # run the Mininet sweep by hand, because inside a teardown that advice is wrong: THIS step
+    # has already done it. What was left was a teardown that does the sweep and never says so,
+    # while the manual still carries the hand-typed command -- so the operator cannot tell that
+    # it is redundant here. Said unconditionally: "I ran it" and "it finished" are two
+    # statements, and the second one has its own line and its own rc immediately below.
+    ok "this step ran the Mininet sweep (mn -c) for you"
+    info "  [3/3] is 'ndtwin-lab cleanup' and its sweep runs 'mn -c' before it sweeps"
+    info "  simple_switch_grpc, so the advice stack.sh prints at [1/3] about running that"
+    info "  command by hand is advice this teardown has already acted on -- which is why"
+    info "  [1/3] filters it out."
     if (( sweep_rc != 0 )); then
         err "cleanup exited $sweep_rc -- the sweep did not finish; what survived is named above"
         down_rc=1
@@ -3221,11 +3368,14 @@ cmd_down() {
     # wait_reaped -- the wait is not allowed to decide anything, only to stop the assertion from
     # being taken while the process table is still catching up.
     wait_reaped "${NDT_REAP_WAIT:-20}" || true
-    cmd_clean; local clean_rc=$?
+    cmd_clean "$DOWN_SUBJECT"; local clean_rc=$?
     # Both halves count. A sweep that could not finish is a failed teardown even in the case
     # where cmd_clean cannot see what survived -- cleanup also sweeps patterns cmd_clean does
     # not check (the NTG topology, for one), so "clean" and "the sweep worked" are two answers.
-    (( clean_rc != 0 )) && { down_rc=1; not_verified "the residue check"; }
+    # 🔴 3 is not a failure: it is `cmd_clean` saying it measured nothing. Reachable here only
+    # when this teardown had no subject either -- DOWN_SUBJECT is what it was given -- and that
+    # case is answered at the single exit below, not by calling a clean machine dirty.
+    (( clean_rc != 0 && clean_rc != 3 )) && { down_rc=1; not_verified "the residue check"; }
     # 🔴 ROLE-12: the SECOND reading of the ports [1/3] complained about, and the one the rc
     # follows. Taken by port number with the same probe cmd_clean's residue uses, rather than
     # inherited from clean_rc -- `cmd_clean` is red about a held port for its own reasons, so a
@@ -3261,11 +3411,27 @@ cmd_down() {
     # outlive the fabric it describes, which is the same defect with the sign flipped -- a
     # reader would wait for a machine that is already free. Written AFTER the assertion above,
     # so the note reports what was verified rather than what was attempted.
-    claim_note_down "$down_rc" "$CLEAN_UNVERIFIED"
+    # [Co-developed with claude code -- Adam]
+    # 🔴 Adam, 2026-09-12 (form 1 Q1): rc 3 is "this command measured nothing". ROLE-12's own
+    # table has the pair it separates -- "two live OVS teardowns and one already-down lab: rc
+    # 0" -- three rounds, one byte, and only the log could tell the third from the other two.
+    # Read from the subject taken at the TOP of this function, before anything was stopped.
+    down_verdict="$down_rc"
+    if (( down_rc == 0 )) && [[ -z "$DOWN_SUBJECT" ]]; then
+        say "${Y}nothing was up to tear down${N}"
+        info "  no fabric, no registry entry in .test_run/pids/, and no port in ports.sh's table"
+        info "  was held when this command started, so it measured NOTHING -- rc 3, not 0."
+        info "  Every step above still ran: they are idempotent, and a teardown that skipped"
+        info "  them on a reading would be the reading deciding whether to act."
+        info "  'the lab was already down' and 'this round ended clean' are two statements, and"
+        info "  until 09-12 this command answered both with the same byte."
+        down_verdict=3
+    fi
+    claim_note_down "$down_rc" "$CLEAN_UNVERIFIED" "$DOWN_SUBJECT"
     # H3. One exit path, so one removal. A `down` killed before it gets here leaves the marker
     # behind, which is why teardown_in_flight checks the pid rather than trusting the file.
     mark_teardown_end
-    return "$down_rc"
+    return "$down_verdict"
 }
 
 # The teardown assertion, separately callable. Exits non-zero if anything survived, because
@@ -3280,6 +3446,15 @@ cmd_down() {
 # generations is stack.sh rotate_log's job, at the moment a new one replaces an old one.
 cmd_clean() {
     local rc=0 n p
+    # [Co-developed with claude code -- Adam]
+    # 🔴 $1 is THE SUBJECT, supplied by a caller that has already established one -- `cmd_down`
+    # measured a non-empty lab_subject before it acted, so an empty machine here is that
+    # teardown's RESULT and the verdict is `clean`. Called on its own, with no subject and
+    # nothing to find, this command reports rc 3: it measured nothing. Without the seam every
+    # successful `ndt down` would end on "nothing to judge", which is the same conflation with
+    # the sign flipped -- "I removed it and proved it gone" downgraded to "there was never
+    # anything here". (Adam, 2026-09-12; section 21 drives both halves over ONE machine state.)
+    local subject_known="${1:-}"
 
     # [Co-developed with claude code -- Adam]
     # 🔴 ROLE-12 cell 3, measured 2026-09-12 02:08:24.569: with the marker present and a `down`
@@ -3308,7 +3483,9 @@ cmd_clean() {
         err "  teardown's. Nothing here is wrong about what it measured; it is measuring a"
         err "  machine that is being changed under it. (ROLE-12 cell 3)"
         err "  wait for it to finish, then run 'ndt clean'."
-        return 1
+        # 🔴 rc 5: refused. It outranks rc 3 -- a command that refused did not measure this
+        # machine at all, so it has nothing to report about what is on it. (Adam, 2026-09-12)
+        return 5
     fi
 
     n="$(bmv2_count)"
@@ -3384,8 +3561,20 @@ cmd_clean() {
     (( prc == 0 )) && ok "ports closed: $(ndt_port_label all)"
 
     echo
-    if (( rc == 0 )); then say "${G}clean${N}"; else say "${R}not clean${N}"; fi
-    return $rc
+    if (( rc != 0 )); then say "${R}not clean${N}"; return $rc; fi
+    # 🔴 rc 0 needs a SUBJECT. Nothing dirty was found; whether that is "clean" or "there was
+    # nothing here" is decided by whether anything was here to be judged -- the five assertions
+    # above answer for the fabric, and the registry answers for this checkout.
+    if [[ -z "$subject_known" && -z "$(pid_registry_entries)" ]]; then
+        say "${Y}nothing to judge${N}"
+        info "  no fabric, nothing in .test_run/pids/, and no port in ports.sh's table is held,"
+        info "  so this command measured NOTHING -- rc 3. That is not the same statement as"
+        info "  'clean', which is what it printed here until 09-12 on a machine with no lab on"
+        info "  it at all. A teardown that removed a fabric and proved it gone still says clean."
+        return 3
+    fi
+    say "${G}clean${N}"
+    return 0
 }
 
 # --- status helpers ----------------------------------------------------------------
@@ -7588,6 +7777,21 @@ usage: ndt <command>
                 OVS builds only 128 or 4 -- each is a different ndtwin-lab verb, not a
                 parameter. For any other size, name the plane: 'ndt up p4 N'.
                 NDT_TOPO=<file> forces a specific kernel model.
+                  exit 0 the fabric came up and verified; 1 something was MEASURED and
+                  it was dirty -- a port held by a stray, a Mininet already running, a
+                  fabric older than the compiled pipeline, a bring-up that could not
+                  finish or could not verify; 5 a GUARD REFUSED and nothing was built:
+                  the lab is claimed by somebody else, a measurement is in flight, an
+                  'ndt down' from this checkout is still running, or NDT_TOPO names a
+                  model of a different network (H4). 2 is a usage error.
+                  🔴 1 AND 5 ARE DIFFERENT QUESTIONS. 1 says this command looked at the
+                  machine and did not like what it found; 5 says it never looked. When
+                  both are true at once -- a teardown in flight AND a port held -- the
+                  answer is 5, because the one action that helps is waiting for that
+                  teardown, and the port is very likely one that teardown is releasing.
+                  Both are still printed. 'down' and 'clean' answer with the same three
+                  words. 3, "there was nothing to measure", cannot arise here: a
+                  bring-up has asked for something whatever it found. (Adam, 09-12)
   down [--deep] take it all down and prove the machine is clean
                   --deep also kills whatever still holds ANY port in ports.sh's table
                   -- $NDT_DEEP_SIZE --, including processes this stack did
@@ -7608,6 +7812,21 @@ usage: ndt <command>
                   whatever the earlier ones did -- a first step that failed is what
                   makes the rest matter -- so the rc is one verdict over all of them
                   and the block above it says which.
+                  3 THERE WAS NOTHING TO TEAR DOWN: no fabric, no registry entry in
+                  .test_run/pids/ and no port in ports.sh's table held at the moment
+                  this command started. Every step still ran -- they are idempotent,
+                  and a teardown that skipped them on a reading would be the reading
+                  deciding whether to act -- and the 3 says this teardown MEASURED
+                  NOTHING, which is not the statement "this round ended clean".
+                  ROLE-12's own table carries the pair it separates: two live OVS
+                  teardowns and one already-down lab, rc 0 for all three, and only
+                  the log could tell the third from the other two.
+                  5 A GUARD REFUSED and nothing was torn down: the lab is claimed by
+                  somebody else, the claim DECLARES a measurement in progress, a
+                  measurement is in flight, or another 'ndt down' from this checkout
+                  is still running. --force is the way past the first three and is
+                  not one of them; the fourth is a wait. 2 is a usage error.
+                  (Adam, 2026-09-12)
                   🔴 rc 1 CAN BE AN ENDING FROM AN EARLIER ROUND. stack.sh reports a
                   component that died of a fault -- SIGKILL (systemd-oomd does this on
                   this laptop), SIGABRT, SIGSEGV -- out of .test_run/pids/<name>.exit,
@@ -7656,9 +7875,23 @@ usage: ndt <command>
                   round -- exactly when a rule is most likely to be left on the wire
                   with no process to attribute it to. Read the residue ROW, not the
                   exit code, when the record row says none. (F2, 2026-09-11)
-  clean         just the teardown assertion (exit 1 if anything survived)
+  clean         just the teardown assertion
+                  exit 0 it had something to be about and none of it is residue; 1
+                  something was MEASURED and is still there -- a switch, a host or
+                  switch process, the topo session, the manifest, a held port, or a
+                  port this user could not read, because unknown is never clean;
+                  3 THERE WAS NOTHING TO JUDGE: no fabric, nothing in
+                  .test_run/pids/, and no port in ports.sh's table held.
+                  🔴 3 IS NOT A CLEAN BILL OF HEALTH, and until 09-12 this command
+                  answered 0 in that state -- the same byte, to a script, as a
+                  teardown that removed ten switches and proved them gone, on a
+                  machine where no lab had ever been started. The manual sends a
+                  first-time reader here to verify a lab. 'ndt down' still ends on
+                  'clean': its own verify step is an assertion about the fabric that
+                  teardown measured BEFORE it acted, so an empty machine there is the
+                  result and not an absent subject. (Adam, 2026-09-12)
                   🔴 it REFUSES while an 'ndt down' from this checkout is running,
-                  and that refusal is also rc 1. Every process that teardown is in the
+                  and that refusal is rc 5. Every process that teardown is in the
                   middle of killing would otherwise be listed here as residue, under
                   advice to run 'ndt down --deep' -- the one verb in this tool that
                   kills processes this stack did not start, which here would be

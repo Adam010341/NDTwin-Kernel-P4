@@ -60,7 +60,12 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = case that must fail
         printf '  caught   %-58s (%s went red)\n' "$1" "$3"
     else
         SURVIVORS=$((SURVIVORS+1))
-        printf '  SURVIVED %-58s (%s stayed green -- that case proves nothing)\n' "$1" "$3"
+        if [[ -f "$2/.unapplied" ]]; then
+            printf '  SURVIVED %-58s (anchor could not be applied -- the gate cannot find that line any more)\n' "$1"
+            sed 's/^/             /' "$2/.apply.err"
+        else
+            printf '  SURVIVED %-58s (%s stayed green -- that case proves nothing)\n' "$1" "$3"
+        fi
         grep -E '^  FAILED|passed, ' <<<"$out" | sed 's/^/             /'
     fi
 }
@@ -76,7 +81,12 @@ report_green() {   # $1 = mutation name, $2 = mutant dir, $3 = why it changes no
         printf '  green    %-58s (%s)\n' "$1" "$3"
     else
         SURVIVORS=$((SURVIVORS+1))
-        printf '  RED      %-58s (behaviour is unchanged, so this is the suite reading text)\n' "$1"
+        if [[ -f "$2/.unapplied" ]]; then
+            printf '  RED      %-58s (anchor could not be applied, so this red is about nothing)\n' "$1"
+            sed 's/^/             /' "$2/.apply.err"
+        else
+            printf '  RED      %-58s (behaviour is unchanged, so this is the suite reading text)\n' "$1"
+        fi
         grep -E '^  FAILED|passed, ' <<<"$out" | sed 's/^/             /'
     fi
 }
@@ -96,13 +106,22 @@ mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replac
     cp "$REPO/tools/test_workflow/ports.sh" "$d/ports.sh"
     cp "$REPO/tools/test_workflow/sudo_surface.sh" "$d/sudo_surface.sh"
     cp "$REPO/tools/test_workflow/components.env" "$d/components.env"
-    python3 - "$d/$(basename "$file")" "$old" "$new" <<'PY'
+    # 🔴 AN ANCHOR THAT WILL NOT APPLY IS A SURVIVOR, AND IT MUST SAY WHICH KIND. Until
+    # 2026-09-12 this python ran bare: a stale anchor printed a traceback into the gate's own
+    # log, the copy stayed UNMUTATED, the suite was green, and the gate said `SURVIVED -- that
+    # case proves nothing`. "The assertion is not load-bearing" and "the gate can no longer find
+    # that line" are very different diagnoses, and this ticket produced four of the second kind
+    # in one round. tests/shell/mutate_live_cells.sh has said it this way since 09-11.
+    if ! python3 - "$d/$(basename "$file")" "$old" "$new" > "$d/.apply.err" 2>&1 <<'PY'
 import sys
 p, a, b = sys.argv[1], sys.argv[2], sys.argv[3]
 s = open(p).read()
 assert s.count(a) == 1, "anchor not unique (%d hits): %s" % (s.count(a), a[:70])
 open(p, "w").write(s.replace(a, b))
 PY
+    then
+        printf 'ANCHOR-NOT-APPLIED %s\n' "$label" > "$d/.unapplied"
+    fi
     echo "$d"
 }
 
@@ -236,10 +255,13 @@ report "M11: 'ndt down' ignores a sweep that did not finish" "$m" \
 
 # The assertion goes back to being taken at the instant of the sweep: "5 still running / not
 # clean" over a machine that reads 0 a moment later.
+# 🔴 Re-anchored 2026-09-12 (FIX-NDT-8): `verify clean` is now handed the subject cmd_down
+# measured before it acted, so the line this spans gained an argument. The mutation is the same
+# one -- take the wait away -- said against the new call.
 m=$(mutant m12 "$NDT" \
     '    wait_reaped "${NDT_REAP_WAIT:-20}" || true
-    cmd_clean; local clean_rc=$?' \
-    '    cmd_clean; local clean_rc=$?')
+    cmd_clean "$DOWN_SUBJECT"; local clean_rc=$?' \
+    '    cmd_clean "$DOWN_SUBJECT"; local clean_rc=$?')
 report "M12: 'ndt down' asserts at the instant of the sweep" "$m" \
        "🔴 processes reaped just after the sweep are not a failure"
 
@@ -247,10 +269,10 @@ report "M12: 'ndt down' asserts at the instant of the sweep" "$m" \
 # the assertion is skipped and the teardown reports success over a live leftover.
 m=$(mutant m13 "$NDT" \
     '    wait_reaped "${NDT_REAP_WAIT:-20}" || true
-    cmd_clean; local clean_rc=$?
+    cmd_clean "$DOWN_SUBJECT"; local clean_rc=$?
     # Both halves count.' \
     '    wait_reaped "${NDT_REAP_WAIT:-20}" || return 0
-    cmd_clean; local clean_rc=$?
+    cmd_clean "$DOWN_SUBJECT"; local clean_rc=$?
     # Both halves count.')
 report "M13: a wait that times out is reported as clean" "$m" \
        "🔴 a process that never leaves is still RED"
@@ -465,9 +487,11 @@ report "N2 (widening, green): the rollback prints and does nothing" "$m" \
 # anchor -- which spanned both -- silently stopped matching. The mutant then carried an
 # UNMUTATED ndt, the suite was green, and the gate reported N3 as a survivor. That is
 # tests/shell/README.md §1's case, and the reason the gate's verdict is the one we ship.
+# 🔴 Re-anchored 2026-09-12 (FIX-NDT-8): the teardown's single exit now returns down_verdict,
+# which is down_rc except in the one case where nothing was there to tear down (rc 3).
 m=$(mutant n3 "$NDT" \
     '    mark_teardown_end
-    return "$down_rc"' \
+    return "$down_verdict"' \
     '    mark_teardown_end
     return 0')
 report "N3 (widening, green): 'ndt down' always exits 0" "$m" \
@@ -546,7 +570,7 @@ report_green "W6 (behaviour-preserving): the refusal's opening line reworded" "$
 # M30 restores H3: nothing records that a teardown is running, so the only reading a P4
 # bring-up can take is the ports -- which look identical coming up and going down.
 m=$(mutant m30 "$NDT" \
-    '    mark_teardown_start || return 1
+    '    mark_teardown_start || return 5
 
     say "ndt down"' \
     '    say "ndt down"')
@@ -559,7 +583,7 @@ report "M30: the teardown records nothing again (H3)" "$m" \
 # M31: the marker is written and nobody refuses on it -- a guard wired to nothing, which is
 # what every "the mechanism exists" check would have signed off (F8's lesson, one file over).
 m=$(mutant m31 "$NDT" \
-    '    guard_no_teardown_in_flight || bad=1' \
+    '    guard_no_teardown_in_flight || { bad=1; refused=5; }' \
     '    :')
 report "M31: the guard is not called from preflight" "$m" \
        "  🔴 P4 preflight refuses while a teardown runs"
@@ -567,8 +591,8 @@ report "M31: the guard is not called from preflight" "$m" \
 # M32: the marker is never removed, so one teardown makes the lab permanently unstartable.
 m=$(mutant m32 "$NDT" \
     '    mark_teardown_end
-    return "$down_rc"' \
-    '    return "$down_rc"')
+    return "$down_verdict"' \
+    '    return "$down_verdict"')
 report "M32: the teardown never removes its marker" "$m" \
        "  🔴 'ndt down' removes its own marker when it finishes"
 
@@ -626,7 +650,7 @@ report "M41: mark_teardown_end removes anybody's marker (ROLE-12)" "$m" \
 # M42: the refusal is printed and not acted on -- F8's shape, a third time. The operator sees
 # the whole message and the teardown runs anyway.
 m=$(mutant m42 "$NDT" \
-    '    mark_teardown_start || return 1' \
+    '    mark_teardown_start || return 5' \
     '    mark_teardown_start || true')
 report "M42: the second teardown's refusal is not carried to the rc" "$m" \
        "  🔴 so no stack.sh teardown ran"
@@ -909,6 +933,266 @@ m=$(mutant w10 "$NDT" \
     'info "the claim note now records a verified-clean teardown (owner and expiry unchanged)"')
 report_green "W10 (behaviour-preserving): the note's on-screen announcement reworded" "$m" \
        "section 19 reads .test_run/lab.claim, not the screen"
+
+# --- FIX-NDT-8: the one rc vocabulary across up, down and clean (section 20) -------------------
+#
+# Adam, 2026-09-12. Every mutation below is a way of making the three words mean one word again,
+# and each of them leaves the product looking exactly as it does now: the same refusals, the
+# same prose, the same guards -- and a caller that cannot tell "I declined to act" from "I
+# looked and it was dirty".
+
+# M64: the refusal code preflight answers with is flattened back to 1. Every message is
+# unchanged; only the byte a script reads moves.
+m=$(mutant m64 "$NDT" \
+    '    guard_no_teardown_in_flight || { bad=1; refused=5; }' \
+    '    guard_no_teardown_in_flight || bad=1')
+report "M64: a refused bring-up exits 1 again (H3)" "$m" \
+       "  🔴 P4 preflight refuses while a teardown runs"
+
+# M65 (widening): preflight answers 5 for everything non-zero. The refusal cells all stay green
+# and the distinction is gone in the other direction -- a stray on :8000 now reads as "wait for
+# a teardown that is not running".
+m=$(mutant m65 "$NDT" \
+    '    (( refused != 0 )) && return "$refused"
+    return 1' \
+    '    return 5')
+report "M65 (widening): every preflight failure is a refusal" "$m" \
+       "🔴 a stray holding :8000 is a dirty reading, still 1"
+
+# M66: up_p4 flattens what preflight answered. This is the shape the code had for months --
+# `|| return 1` -- and it is invisible from inside preflight, which is still perfectly correct.
+m=$(mutant m66 "$NDT" \
+    '    preflight p4 || return $?' \
+    '    preflight p4 || return 1')
+report "M66: up_p4 flattens preflight's answer" "$m" \
+       "🔴 up_p4 carries preflight's refusal code out"
+
+# M67: the real trap, written the way it is easy to write. `rm -f ...; return $?` returns the rc
+# of `rm` -- 0 -- so a refused OVS bring-up reports SUCCESS. Every message still prints.
+m=$(mutant m67 "$NDT" \
+    '    local pf_rc
+    preflight ovs; pf_rc=$?
+    (( pf_rc != 0 )) && { rm -f "$fifo" "$out"; return "$pf_rc"; }' \
+    '    preflight ovs || { rm -f "$fifo" "$out"; return $?; }')
+report "M67: up_ovs reads the rc after its own rm -f" "$m" \
+       "🔴 up_ovs carries it out too, past its own rm -f"
+
+# M68/M69/M70/M71: one refusal at a time back to 1. Four sites, because "the vocabulary is
+# implemented" is a claim about all of them and a single site left behind is the state this
+# gate exists to see.
+m=$(mutant m68 "$NDT" \
+    '        # 🔴 rc 5: refused. (Adam, 2026-09-12)
+        return 5' \
+    '        return 1')
+report "M68: a foreign claim refuses with 1 again" "$m" \
+       "🔴 a lab claimed by somebody else refuses with rc 5"
+m=$(mutant m69 "$NDT" \
+    '        # 🔴 rc 5: a refusal, not a dirty reading -- nothing on the machine was looked at.
+        return 5' \
+    '        return 1')
+report "M69: H4 refuses with 1 again on the P4 side" "$m" \
+       "  🔴 'ndt up p4 4' with a 128-host NDT_TOPO is refused"
+m=$(mutant m70 "$NDT" \
+    '        # 🔴 rc 5: the same refusal up_p4 gives. One plane changed is not both.
+        return 5' \
+    '        return 1')
+report "M70: H4 refuses with 1 again on the OVS side" "$m" \
+       "🔴 H4 refuses with 5 on the OVS side too"
+m=$(mutant m71 "$NDT" \
+    '        # guards, one code -- see the vocabulary note above preflight. (Adam, 2026-09-12)
+        return 5' \
+    '        return 1')
+report "M71: the second H4 guard answers 1 again" "$m" \
+       "  🔴 record_up_target refuses hosts=4 against model_hosts=128"
+
+# M72 (widening): a DIRTY READING starts calling itself a refusal. This is the direction the
+# controls in section 20 exist for -- it makes every refusal cell greener, not redder.
+m=$(mutant m72 "$NDT" \
+    '        err "take it down first:  ndt down"
+        rm -f "$fifo" "$out"; return 1' \
+    '        err "take it down first:  ndt down"
+        rm -f "$fifo" "$out"; return 5')
+report "M72 (widening): a live Mininet reports itself as a refusal" "$m" \
+       "🔴 a live Mininet is a dirty reading, still 1"
+
+# W11 (behaviour-preserving): the local that carries preflight's answer in up_ovs is renamed.
+# Section 20 asserts the rc that comes out, not the name it travelled in.
+m=$(mutant w11 "$NDT" \
+    '    local pf_rc
+    preflight ovs; pf_rc=$?
+    (( pf_rc != 0 )) && { rm -f "$fifo" "$out"; return "$pf_rc"; }' \
+    '    local preflight_rc
+    preflight ovs; preflight_rc=$?
+    (( preflight_rc != 0 )) && { rm -f "$fifo" "$out"; return "$preflight_rc"; }')
+report_green "W11 (behaviour-preserving): the rc-carrying local is renamed" "$m" \
+       "the suite asserts the code that comes out, not the variable it came in"
+
+# --- FIX-NDT-8: 'ndt clean' answers 3 when it measured nothing (section 21) --------------------
+
+# M73: the refusal goes back to 1, with every word of it unchanged.
+m=$(mutant m73 "$NDT" \
+    '        # 🔴 rc 5: refused. It outranks rc 3 -- a command that refused did not measure this
+        # machine at all, so it has nothing to report about what is on it. (Adam, 2026-09-12)
+        return 5' \
+    '        return 1')
+report "M73: 'ndt clean' refuses with 1 again (ROLE-12 cell 3)" "$m" \
+       "🔴 'ndt clean' is refused while a teardown is running"
+
+# M74: the defect itself, put back -- an assertion with no subject prints `clean` and exits 0.
+# Nothing else about the command changes, which is the whole reason it went unnoticed: every
+# line of its output is correct, and the one byte a script reads is a different statement.
+m=$(mutant m74 "$NDT" \
+    '    if [[ -z "$subject_known" && -z "$(pid_registry_entries)" ]]; then
+        say "${Y}nothing to judge${N}"' \
+    '    if false; then
+        say "${Y}nothing to judge${N}"')
+report "M74: an empty machine is called clean again" "$m" \
+       "🔴 an empty machine is rc 3, not rc 0"
+
+# M75 (widening): the caller's subject is ignored, so the LAST STEP OF EVERY TEARDOWN reports
+# "nothing to judge". That is this fix with the sign flipped -- "I removed it and proved it
+# gone" downgraded to "there was never anything here" -- and every cell about the empty machine
+# stays green through it.
+m=$(mutant m75 "$NDT" \
+    '    local subject_known="${1:-}"' \
+    '    local subject_known=""')
+report "M75 (widening): every teardown ends on 'nothing to judge'" "$m" \
+       "🔴 the teardown's own verify clean still ends on 'clean'"
+
+# M76 (widening): the registry half of the subject is dropped. A checkout with a live kernel
+# registered in .test_run/pids/ and nothing on the ports then reads as "nothing was ever here",
+# which is the file `ndt down` acts on being invisible to the command that judges the machine.
+m=$(mutant m76 "$NDT" \
+    'pid_registry_entries() {
+    local f
+    for f in "$REPO"/.test_run/pids/*.pid; do' \
+    'pid_registry_entries() {
+    local f
+    return 0
+    for f in "$REPO"/.test_run/pids/*.pid; do')
+report "M76 (widening): the registry stops counting as a subject" "$m" \
+       "🔴 a pidfile in the registry is a subject: rc 0"
+
+# W12 (behaviour-preserving): the last sentence of the rc-3 block is reworded. Section 21 reads
+# the verdict LINE with grep -x and one needle from the block above it.
+m=$(mutant w12 "$NDT" \
+    "        info \"  it at all. A teardown that removed a fabric and proved it gone still says clean.\"" \
+    "        info \"  it at all. A teardown that took a fabric out and proved it gone says clean.\"")
+report_green "W12 (behaviour-preserving): the rc-3 explanation reworded" "$m" \
+       "the cells read the verdict line and the population sentence, not this one"
+
+# --- FIX-NDT-8: 'ndt down' answers 3 when it tore nothing down (section 22) --------------------
+
+# M77: the teardown's refusals go back to 1, one site at a time. Every word of the refusal is
+# unchanged; what a caller reads is not.
+m=$(mutant m77 "$NDT" \
+    '        # 🔴 rc 5: refused. Nothing on this machine was read, let alone changed -- the same
+        # answer `ndt up` and `ndt clean` give for a guard. (Adam, 2026-09-12)
+        return 5' \
+    '        return 1')
+report "M77: a foreign claim refuses the teardown with 1 again" "$m" \
+       "🔴 a foreign claim refuses the teardown with 5"
+m=$(mutant m78 "$NDT" \
+    '    mark_teardown_start || return 5' \
+    '    mark_teardown_start || return 1')
+report "M78: a second teardown is refused with 1 again (ROLE-12)" "$m" \
+       "🔴 a second 'ndt down' is refused while one is still running"
+
+# M79: the defect itself, put back. An already-down lab reports the same byte as a round that
+# removed a fabric and proved it gone -- which is the state ROLE-12's table was in.
+m=$(mutant m79 "$NDT" \
+    '    if (( down_rc == 0 )) && [[ -z "$DOWN_SUBJECT" ]]; then
+        say "${Y}nothing was up to tear down${N}"' \
+    '    if false; then
+        say "${Y}nothing was up to tear down${N}"')
+report "M79: an already-down lab is green again" "$m" \
+       "🔴 tearing down an already-down lab is rc 3, not rc 0"
+
+# M80 (widening): the subject reading is lost -- taken too late to mean anything, or never
+# taken. Every reading in this function after [3/3] answers "nothing", which is the whole
+# reason the question is asked at the top, and with it gone EVERY teardown reports 3.
+m=$(mutant m80 "$NDT" \
+    '    DOWN_SUBJECT="$(lab_subject)"' \
+    '    DOWN_SUBJECT=""')
+report "M80 (widening): every teardown reports 'nothing was up'" "$m" \
+       "🔴 a teardown with something to remove is still rc 0"
+
+# M81: the note goes back to saying "verified clean" after a teardown that had nothing to
+# verify. That sentence is a FILE, and ROLE-9's baseline arrived carrying the previous
+# session's copy of it.
+m=$(mutant m81 "$NDT" \
+    '    if [[ -z "$unverified" && -z "$subject" ]]; then' \
+    '    if false; then')
+report "M81: an empty teardown writes 'verified clean' into the claim" "$m" \
+       "🔴 the note does not claim a clean machine was verified"
+
+# W13 (behaviour-preserving): one explanatory line of the rc-3 block is reworded. Section 22
+# reads the verdict line and the population sentence.
+m=$(mutant w13 "$NDT" \
+    "        info \"  'the lab was already down' and 'this round ended clean' are two statements, and\"" \
+    "        info \"  being already down and having ended a clean round are two statements, and\"")
+report_green "W13 (behaviour-preserving): the rc-3 explanation reworded" "$m" \
+       "section 22 reads the verdict line, not this one"
+
+# --- FIX-NDT-8: [3/3] says it ran the Mininet sweep (section 23) -------------------------------
+
+# M82: the sentence goes. The teardown still does the sweep, and the manual still carries the
+# hand-typed command -- which is the state Adam's Q3 is about.
+m=$(mutant m82 "$NDT" \
+    '    ok "this step ran the Mininet sweep (mn -c) for you"' \
+    '    :')
+report "M82: [3/3] does the Mininet sweep and does not say so" "$m" \
+       "🔴 [3/3] says it ran the Mininet sweep"
+
+# M83 (widening): the new sentence is taken as a licence to stop filtering stack.sh's advice, so
+# the teardown says it did the sweep AND tells the operator to do it by hand. One output, two
+# instructions, and the second one is the wrong one inside a teardown.
+m=$(mutant m83 "$NDT" \
+    "(reverse order\\)\$|Mininet was started manually" \
+    "(reverse order\\)\$")
+report "M83 (widening): the hand-typed advice comes back beside the sentence" "$m" \
+       "🔴 stack.sh's hand-typed advice is still filtered out"
+
+# W14 (behaviour-preserving): one explanatory line under the sentence is reworded.
+m=$(mutant w14 "$NDT" \
+    "    info \"  [1/3] filters it out.\"" \
+    "    info \"  [1/3] drops it.\"")
+report_green "W14 (behaviour-preserving): the [3/3] explanation reworded" "$m" \
+       "section 23 reads the sentence and the verb, not this line"
+
+# --- FIX-NDT-8: the way IN is printed on both planes (section 24) ------------------------------
+
+# M84: the OVS bring-up stops printing it, which is the state Adam asked about at 11:23 --
+# 128 hosts on the default plane and no line saying how to reach them.
+m=$(mutant m84 "$NDT" \
+    '        lab_entry_points ovs' \
+    '        :')
+report "M84: the OVS bring-up does not say how to get in" "$m" \
+       "  up_ovs calls it"
+
+# M85: the P4 plane's own line is lost in the consolidation. Moving two sentences into one
+# function is exactly when one of them quietly stops being printed.
+m=$(mutant m85 "$NDT" \
+    '        lab_entry_points p4' \
+    '        :')
+report "M85: the P4 bring-up loses the line it already had" "$m" \
+       "  and up_p4 calls it"
+
+# M86: the attach command drifts from the helper's. A session name typed twice is a command an
+# operator pastes and watches fail on the day one of the two moves.
+m=$(mutant m86 "$NDT" \
+    "lab_attach_cmd() { printf 'sudo tmux -L ndtwinlab attach -t topo\\n'; }" \
+    "lab_attach_cmd() { printf 'sudo tmux -L ndtwinlab attach -t ndtwin\\n'; }")
+report "M86: the attach command no longer matches ndtwin-lab's own" "$m" \
+       "🔴 that command is what ndtwin-lab itself prints, at all three launch verbs"
+
+# M87 (widening): OVS is told it has a proxy. :8081 is the P4 proxy; on this plane nothing is
+# listening there, and a ready line that names it sends the reader to a closed port.
+m=$(mutant m87 "$NDT" \
+    '        ovs) info "Ryu :8080   kernel :8000   Mininet CLI: $(lab_attach_cmd)" ;;' \
+    '        ovs) info "proxy :8081   kernel :8000   Mininet CLI: $(lab_attach_cmd)" ;;')
+report "M87 (widening): the OVS line names a proxy that is not there" "$m" \
+       "  and Ryu's, which is the OVS plane's control plane"
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)

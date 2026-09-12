@@ -413,7 +413,11 @@ ndt_port_residue() { return 0; }
 ndt_port_label() { echo none; }
 cmd_clean
 echo \"RC=\$?\"" 2>&1)"
-check "the assertion itself still passes on a clean machine" "0" "$(sed -n 's/^RC=//p' <<<"$CLEAN_OUT" | tail -1)"
+# 🔴 3, not 0, since 2026-09-12: this fixture has no fabric, no registry entry and no held
+# port, so the assertion measured NOTHING and says so (FIX-NDT-8, form 1 Q1). What this cell is
+# about is unchanged -- the generations below must survive it -- and the rc is pinned here so
+# that a later edit cannot turn "nothing to judge" back into a bill of health unnoticed.
+check "the assertion itself judged nothing on this fixture" "3" "$(sed -n 's/^RC=//p' <<<"$CLEAN_OUT" | tail -1)"
 check "🔴 every rotated generation is still there"       "3" \
       "$(ls -1 "$FIX/.test_run/logs/kernel.log".[0-9]* 2>/dev/null | wc -l)"
 check "🔴 and so is the live log"                        "present" \
@@ -872,7 +876,7 @@ section "5G. ROLE-12 cell 3: the help says 'clean' refuses while a teardown is r
 # so the documented rc table is where it has to appear -- a guard nobody is told about is read
 # as a malfunction the first time it fires.
 has   "  🔴 the refusal is documented at all"        "it REFUSES while an 'ndt down'" "$HELP"
-has   "  and that it is rc 1, not a quiet skip"      "that refusal is also rc 1" "$HELP"
+has   "  and that it is rc 5, not a quiet skip"      "that refusal is rc 5" "$HELP"
 has   "  naming what it would otherwise have listed" "middle of killing" "$HELP"
 has   "  🔴 and whose processes the old advice would have taken" "the operator's own" "$HELP"
 has   "  with the pid to wait for named in the block" "names the pid to wait for" "$HELP"
@@ -908,6 +912,79 @@ check "  the size in the help is computed, not typed" "1" \
       "$(grep -c 'ndt_port_table_size all' "$NDT")"
 check "  and so is the list of specs"                 "1" \
       "$(grep -c 'the ports --deep sweeps, from the table' "$NDT")"
+
+section "5I. FIX-NDT-8: 'up' has an rc table, and it is the SAME three words as down and clean"
+# Adam, 2026-09-12 (form 1 Q1, form 5 Q15b). Until today `up` had no rc table at all: the three
+# commands an operator drives a round with answered with three private vocabularies, and the one
+# that never said anything was the one whose refusals an automated round most needs to tell from
+# its failures. A refused bring-up and a bring-up that found a stray on :8000 both exited 1, so
+# no script could tell "wait for the teardown" from "go and look at the machine".
+has   "  🔴 up has an rc table at all"                   "exit 0 the fabric came up and verified" "$HELP"
+has   "  🔴 and 5 is named as a refusal that built nothing" "5 a GUARD REFUSED and nothing was built" "$HELP"
+has   "  naming the four things that refuse"             "claimed by somebody else" "$HELP"
+has   "  including the teardown overlap"                 "from this checkout is still running, or NDT_TOPO" "$HELP"
+has   "  🔴 and 1 is scoped to a reading, not to failure in general" "1 says this command looked at the" "$HELP"
+# 🔴 The needle starts INSIDE the line, not at the sentence: `has` is a line-wise grep -F and
+# the help wraps "-- the / answer is 5". Same red FIX-NDT-5 and FIX-NDT-6 each took once.
+has   "  🔴 with the precedence when both are true"      "answer is 5, because the one action" "$HELP"
+has   "  and that the dirty reading is still printed"    "Both are still printed" "$HELP"
+has   "  🔴 and why 3 cannot appear under 'up'"          "cannot arise here" "$HELP"
+has   "  attributed, so it can be revisited"             "(Adam, 09-12)" "$HELP"
+# 🔴 Against the code, not against itself. A table is prose; these three are the return sites it
+# describes. Without them the whole section goes on passing over an `ndt` that flattened every
+# refusal back to 1 -- which is the state this table would then be lying about.
+check "  the refusal code preflight answers with is really there" "1" \
+      "$(grep -c 'bad=1; refused=5' "$NDT")"
+check "  🔴 and up_p4 passes it out instead of flattening it"     "1" \
+      "$(grep -c 'preflight p4 || return \$?' "$NDT")"
+check "  🔴 and up_ovs reads it BEFORE its own housekeeping"      "1" \
+      "$(grep -c 'preflight ovs; pf_rc=\$?' "$NDT")"
+
+section "5J. FIX-NDT-8: the 'clean' table carries rc 3, and says what 3 is not"
+# Adam, 2026-09-12 (form 1 Q1, form 4 Q15). Two changes to a documented command, on the command
+# the manual sends a first-time reader to in order to VERIFY a lab: the refusal is 5 (5G reads
+# that half), and an assertion that measured NOTHING answers 3 instead of printing `clean`.
+# The second one is the contract change -- every script in this repo that reads this rc has to
+# know that 0 now means "there was something here and it is accounted for".
+has   "  🔴 3 is in the clean table"                 "3 THERE WAS NOTHING TO JUDGE" "$HELP"
+has   "  naming the three populations"               "no port in ports.sh's table held" "$HELP"
+has   "  🔴 and 3 is not read as a clean bill"       "3 IS NOT A CLEAN BILL OF HEALTH" "$HELP"
+has   "  with what it used to answer instead"        "answered 0 in that state" "$HELP"
+has   "  🔴 and why a teardown still says clean"     "teardown measured BEFORE it acted" "$HELP"
+has   "  0 is scoped to having had a subject"        "it had something to be about" "$HELP"
+has   "  and 'could not read' is still not clean"    "unknown is never clean" "$HELP"
+has   "  attributed, so it can be revisited"         "(Adam, 2026-09-12)" "$HELP"
+# 🔴 Against the code. The seam the paragraph describes is a parameter, and the registry half is
+# one function used by both readers -- a text-only cell here would go on passing over a
+# cmd_clean that had gone back to printing `clean` at the end of every run.
+check "  the clean-table 3 is really returned"        "1" \
+      "$(grep -c 'say "${Y}nothing to judge${N}"' "$NDT")"
+check "  🔴 and it is gated on the caller's subject"   "1" \
+      "$(grep -c 'if \[\[ -z "$subject_known" && -z "$(pid_registry_entries)" \]\]; then' "$NDT")"
+check "  🔴 and 'ndt down' supplies one it MEASURED"   "1" \
+      "$(grep -c 'DOWN_SUBJECT="$(lab_subject)"' "$NDT")"
+
+section "5K. FIX-NDT-8: the 'down' table carries 3 and 5, so all three tables say one thing"
+# Adam, 2026-09-12 (form 1 Q1). The third of the three. `ndt down` on an already-down lab
+# printed its four steps, verified an empty machine and exited 0 -- and ROLE-12's own table has
+# the pair that costs: "two live OVS teardowns and one already-down lab" all reading 0.
+has   "  🔴 3 is in the down table"                   "3 THERE WAS NOTHING TO TEAR DOWN" "$HELP"
+has   "  naming when the reading is taken"            "this command started" "$HELP"
+has   "  🔴 and that the steps ran anyway"            "Every step still ran" "$HELP"
+has   "  with the direction that would be worse"      "would be the reading" "$HELP"
+has   "  🔴 and the two statements kept apart"        "which is not the statement" "$HELP"
+has   "  with the ROLE-12 reading behind it"          "one already-down lab" "$HELP"
+has   "  🔴 5 is in the table, for the four refusals" "5 A GUARD REFUSED and nothing was torn down" "$HELP"
+has   "  naming the declared-measurement one"         "DECLARES a measurement in progress" "$HELP"
+has   "  🔴 and which of them --force answers"        "past the first three" "$HELP"
+# 🔴 Against the code: the verdict this table describes is computed from a subject read at the
+# TOP of the teardown, and the note that outlives the round follows it.
+check "  the down-table 3 is really returned"         "1" \
+      "$(grep -c 'say "${Y}nothing was up to tear down${N}"' "$NDT")"
+check "  🔴 and it is decided by the subject, not by the sweep" "1" \
+      "$(grep -c 'if (( down_rc == 0 )) && \[\[ -z "$DOWN_SUBJECT" \]\]; then' "$NDT")"
+check "  🔴 and the claim note has its own sentence for it"     "1" \
+      "$(grep -c 'if \[\[ -z "$unverified" && -z "$subject" \]\]; then' "$NDT")"
 
 # ==========================================================================================
 section "F9. this suite reads its OWN tree, and not the main checkout"
@@ -1221,6 +1298,13 @@ in_flight() { :; }
 app_probe() { APP_STATE=not-running; }
 cmd_clean() { return 0; }
 wait_reaped() { return 0; }
+# 🔴 THE PREMISE, stubbed 2026-09-12 (FIX-NDT-8): cmd_down now reads what it is ABOUT before it
+# acts, and none of bmv2_count / mn_count / topo_session / MANIFEST / the port table is redirected
+# in this fixture -- so without this line these cells would ask THIS MACHINE whether a lab is up,
+# and every rc below would depend on what somebody else left running. This group is about claims
+# and declarations, so the premise it needs is: there was a lab here.
+# (Double quotes are avoided in this block on purpose -- it is inside a bash -c "..." string.)
+lab_subject() { echo 'the fixture fabric this teardown is about'; }
 clear_up_target() { :; }
 mark_teardown_start() { :; }
 mark_teardown_end() { :; }
@@ -1232,7 +1316,7 @@ echo \"RC=\$?\"" 2>&1
 section "7A. 🔴 T2d: the owner's own teardown honours the declaration"
 mk_claim_m fixture-owner 3600 "T2d round" "ROLE-4 reader nsr, do not tear down"
 OUT="$(down_run '')"
-check "a declared measurement refuses the teardown"      "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "a declared measurement refuses the teardown, rc 5" "RC=5" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
 has   "  and the refusal reads the declaration back"     "ROLE-4 reader nsr, do not tear down" "$OUT"
 has   "  naming the field it came from"                  "measuring=" "$OUT"
 hasnt "🔴 and the teardown never started"                "[1/3]" "$OUT"
@@ -1240,7 +1324,7 @@ check "  the declaration is still there to be read"      "ROLE-4 reader nsr, do 
 
 section "7B. 🔴 --deep is not an override; --force is"
 OUT="$(down_run '--deep')"
-check "🔴 --deep does not override a declaration"        "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "🔴 --deep does not override a declaration"        "RC=5" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
 hasnt "  and no deep sweep ran"                          "the deep sweep ran" "$OUT"
 mk_claim_m fixture-owner 3600 "T2d round" "ROLE-4 reader nsr, do not tear down"
 OUT="$(down_run '--force')"
@@ -1259,7 +1343,7 @@ check "🔴 an expired claim holds nothing, so it declares nothing" "RC=0" "$(gr
 section "7D. 🔴 T2: the rescue command the refusal prints has to parse"
 mk_claim_m other-session 3600 "their round" "their matrix, cell 3/8"
 OUT="$(down_run '')"
-check "a foreign claim refuses the teardown"             "RC=1" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
+check "a foreign claim refuses the teardown"             "RC=5" "$(grep -o 'RC=[0-9]*' <<<"$OUT")"
 RESCUE="$(grep -F 'NDT_OWNER=' <<<"$OUT" | head -1 | sed 's/^[[:space:]]*XX[[:space:]]*//;s/^[[:space:]]*//')"
 check "🔴 that line parses as shell -- it is printed to be pasted" "0" \
       "$(bash -n -c "$RESCUE" 2>/dev/null; echo $?)"

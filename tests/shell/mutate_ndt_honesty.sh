@@ -190,9 +190,12 @@ report "M11: ndt down leaves 'in use' standing over an empty lab" "$m" \
 # could not verify rather than on the rc, and its sentence gained the half that failed. The
 # mutation is the same one -- take the "did not verify" branch away -- said against the new
 # condition.
+# 🔴 REPOINTED AGAIN 2026-09-12 (FIX-NDT-8): a teardown that had nothing to tear down now has
+# its own branch above this one, so the "verified clean" branch is an `elif`. The mutation is
+# unchanged -- take the "did not verify" branch away.
 m=$(mutant m12 "$NDT" \
-    '    if [[ -z "$unverified" ]]; then' \
-    '    if true; then')
+    '    elif [[ -z "$unverified" ]]; then' \
+    '    elif true; then')
 report "M12: a teardown that did not verify is reported as clean" "$m" \
        "🔴 a teardown that did not verify says so"
 
@@ -528,7 +531,7 @@ m=$(mutant mc6 "$NDT" \
     '    if false; then
         err "refusing to tear down: this claim DECLARES a measurement in progress."')
 report 'MC6: the teardown stops reading measuring= (T2d verbatim)' "$m" \
-       'a declared measurement refuses the teardown'
+       'a declared measurement refuses the teardown, rc 5'
 
 
 # 🔴 A guard any second flag switches off. --deep is what an operator reaches for when a teardown
@@ -677,6 +680,59 @@ report 'MD3: the --deep size is typed rather than computed (ROLE-11 F7)' "$m" \
        '  the size in the help is computed, not typed'
 
 
+# --- FIX-NDT-8: the three rc tables say one thing (Adam, 2026-09-12) ---------------------------
+
+# MD4: `up` loses its rc table again. It had none at all until today, which is why a refused
+# bring-up and a bring-up that found a stray both read as "1" to every script in this repo.
+m=$(mutant md4 "$NDT" \
+    '                  exit 0 the fabric came up and verified; 1 something was MEASURED and' \
+    '                  (this command prints what it found; read the block above.)')
+report 'MD4: the up table is removed again' "$m" \
+       '  🔴 up has an rc table at all'
+
+# MD5: the table keeps 5 and drops the sentence that says what 5 IS. A code with no meaning
+# beside it is a number an operator guesses at -- and the guess available here is "worse than 1".
+m=$(mutant md5 "$NDT" \
+    '                  🔴 1 AND 5 ARE DIFFERENT QUESTIONS. 1 says this command looked at the' \
+    '                  🔴 1 and 5 are both failures. Read the block above for which.')
+report 'MD5: the up table stops saying what 1 and 5 separate' "$m" \
+       '  🔴 and 1 is scoped to a reading, not to failure in general'
+
+# MD6: the precedence sentence goes. preflight folds several checks into one answer, so "which
+# wins" is a decision the code makes on every run; unwritten, the next reader re-decides it.
+# 🔴 Re-anchored 2026-09-12 after this gate reported MD6 as a SURVIVOR: the first anchor was the
+# line ABOVE the sentence, and the cell reads the sentence -- so the mutation left the needle
+# exactly where it was. The anchor is now the line that carries the ruling, and the replacement
+# is the OTHER ruling rather than a deletion, which is the form an operator could actually meet.
+m=$(mutant md6 "$NDT" \
+    '                  answer is 5, because the one action that helps is waiting for that' \
+    '                  answer is 1, because a held port is a fact whoever else is running and')
+report 'MD6: the precedence between a refusal and a dirty reading is unwritten' "$m" \
+       '  🔴 with the precedence when both are true'
+
+# MD7: the clean table loses rc 3 again. The command's behaviour is unchanged; what goes is the
+# only place an operator or a gate author is told that 0 now means "there WAS something here".
+m=$(mutant md7 "$NDT" \
+    '                  3 THERE WAS NOTHING TO JUDGE: no fabric, nothing in' \
+    '                  (anything else means the machine was not readable): no fabric, nothing in')
+report 'MD7: the clean table drops rc 3 (FIX-NDT-8)' "$m" \
+       '  🔴 3 is in the clean table'
+
+# MD8: the table keeps 3 and calls it clean. This is the sentence, not the code -- and the
+# sentence is the whole of Adam's ruling: "沒量" 不是 "乾淨".
+m=$(mutant md8 "$NDT" \
+    '                  🔴 3 IS NOT A CLEAN BILL OF HEALTH, and until 09-12 this command' \
+    '                  🔴 3 means the same as 0 when nothing is running. Until 09-12 this command')
+report 'MD8: the clean table says 3 is a clean bill of health' "$m" \
+       '  🔴 and 3 is not read as a clean bill'
+
+# MD9: the down table loses rc 3. The third of the three tables, and the one whose 0 a night
+# round reads on every restore -- run_cells.sh's restore accepts 0 and 3 because of this row.
+m=$(mutant md9 "$NDT" \
+    '                  3 THERE WAS NOTHING TO TEAR DOWN: no fabric, no registry entry in' \
+    '                  (an empty lab answers 0 as usual): no fabric, no registry entry in')
+report 'MD9: the down table drops rc 3 (FIX-NDT-8)' "$m" \
+       '  🔴 3 is in the down table'
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
