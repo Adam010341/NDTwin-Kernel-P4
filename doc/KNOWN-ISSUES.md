@@ -2606,6 +2606,28 @@ A-3（數值）與 B-x（母體）確實會在 top-k 相遇，但 A-3 已經修�
   ⇒ 任何 `ip` 為空的頂點（例如沒有位址的 host 條目）會對空 vector 呼叫 `front()`。〔親自讀過（auditor 親讀確認）〕
 - **修法**：一行搬位。**但要編譯**，歸入批次編譯那一輪。
 
+- 🆕 **族的盤點（2026-09-12 補登，FIX-DOC-4；來源 W14 §6.2 與 R2-W18 §6.1，兩單都寫了「我沒有寫進去」）**
+  ——**上面那個溫度迴圈是這一族的一個實例，不是這一族**：
+  - ① `operator[]` 與 `.front()` 是**同一個 UB**，盤點時兩種拼法都要掃；而 `[0]` 前面可以接
+    `(*m_graph)[*vertexOpt2].`——**那正是連續兩次盤點都漏掉的寫法**。
+  - ② **這一族的總數是 24 處**（W2 記 23、原工單記 16，兩次都少算）。第八處
+    `TopologyAndFlowMonitor.cpp` 的 `updateHosts` 在 **W2 自己的 base `f0687b34`** 就存在，
+    而且就在 W2 大改的那個檔案裡。
+  - ③ **24 處現在全部有守衛**，`src/`／`include/` 掃乾淨（R2-W18 §5.1）。
+  - ④ 三個閘門分別守著它們：`tests/shell/mutate_first_address_of.sh`（16）、
+    `mutate_index_zero_guards.sh`（7）、`mutate_attachment_switch_index_zero.sh`（1）。
+  - **證據等級**：①②③④ 都是 ⚠️ 🟠 **轉述** `fix/W14-SUMMARY.md` §6.2／`fix/R2-W18-SUMMARY.md`
+    §5.1／§6.1，**FIX-DOC-4 沒有編譯、沒有跑那三支閘門**（它們要 build，本單不 build）。
+    ✅ 本單親驗的只有兩件：三支閘門的檔案**存在於樹上**；重跑 R2-W18 §5.1 那條 grep
+    （`grep -rn '\.ip\[0\]\|ip\.front()\|ip\.at(0)\|ip\[0\]' src include`，去掉註解行）
+    **今天仍然是七行**（行號已位移：`IntentTranslator.cpp:781`、`DCPM.cpp:1235`／`:2441`／`:2617`、
+    `TopologyAndFlowMonitor.cpp:5033`／`:5048`／`:5270`）。**那七行各自的守衛我沒有逐一重讀。**
+  - 🔶 **為什麼寫在 C-3 底下而不是開 `G-59`**：§G 是「操作陷阱（會製造假的測試結果）」，
+    而這是 C 類的靜默正確性問題；C-3 的抬頭本來就寫著「與 §C 表的 F-1 是同一個檔、同一族」，
+    所以族的盤點掛在這裡，代號才不會把一條 C 類缺陷歸進 G。
+    **替代方案**（若 orchestrator 要一個獨立代號）：照既有的 `C-4b`／`C-5b` 先例開 `C-3b`，
+    把這一段整段搬過去即可，翻盤成本＝一個抬頭。
+
 ### 🔴 F-9 的範圍更正（2026-08-27）
 
 原文說低於約 3 Mbit/s 的鏈路「**讀成 0** 或一個量子」。**「讀成 0」那半沒有被觀察到。**
@@ -4980,6 +5002,82 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
     測試去真的 help 輸出裡找它；反方向的四格斷言 help 自己還在印那三段、還在公告 3 與 5。
     只驗前者的話，**一份說不出話的正本會跟任何手冊都不衝突**——M7 就是拿走 help 的那顆變異。
 
+### G-54 🏁 一個沒人清掉的 `app_*.pid`，讓 `ndt status --check` 把整張流表算成那個 app 的殘留
+
+- **狀態**：🏁 **已修**（FIX-NDT-9 ①，`e833b29b`＋`d81b6623`），**併入 trunk `53a62c71`**
+  （2026-09-12 16:3x；三顆 sha 是不是 HEAD 的祖先由 FIX-DOC-4 `git merge-base --is-ancestor` 親驗）。
+  來源：RESIDUE-1 唯讀調查（2026-09-12），Adam 12:3x 親裁 §7-2 的 (b)。
+  ⚠️ 🟠 **本條的量測全部是轉述** `fix/FIX-NDT-9-SUMMARY.md` §6：FIX-DOC-4 沒有開 lab 重驗。
+- **量到什麼**（逐字，全部是既有觀測）：
+  - `.test_run/pids/app_viz.pid` 寫於 **2026-09-11 14:04:25**（`stat -c %Y`）；
+    viz **14:05:43** 自己跑完退出（它自己的 log：`BUILD SUCCESS` / `Finished at: 2026-09-11T14:05:43`，
+    全檔只有 **1 次** `Starting Network Traffic Visualizer`）⇒ **沒有人跑過 `ndt apps stop viz`**，
+    而那是唯一會刪 pidfile 的路徑。`ndt down`／`ndt clean` 不碰 `app_*.pid`（`ndt` 自己寫著
+    `app_*.pid is SKIPPED, and that is not an omission`）。
+  - **12 小時 16 分 20 秒後**（09-12 **02:20:45**），ROLE-11 在一張 **02:20:23 才建出來**的
+    ovs4 fabric 上跑 `ndt status --check`，得到
+    `residue 60 rule(s) inside an app window, 0 lock(s) HELD` ⇒ `check: 1 problem(s)`、**rc 1**。
+    那 60 條是**同一輪 `ndt up ovs4` 在 17 秒前自己裝的轉送規則**
+    （第三方佐證：R7 取樣器量到 `list-br` 在 02:20:28 才由 0 變 10；基線 02:17:19 是
+    `host/switch 0`／`topo session absent`）。
+  - 機制：`app_started_at` 的**第二來源**（pidfile 在、pid 已死）拿 pidfile 的 mtime 當開窗時刻，
+    而 `residue_report` 讓**右端開口到 `now`**。工具自己的自白逐字：
+    `the dated ones are SUSPECTED by time only … anything installed in that window is listed, whoever installed it.`
+  - 🔴 **這個壞法在碼裡被預言過**（`cmd_apps stop` 的 `energy|sim` 分支）：
+    「Left behind, it would window from a sim that stopped yesterday to now and **report the
+    fabric's own baseline as SUSPECTED residue on every later `ndt status --check`**.
+    A verb that is red forever gets read exactly as often as one that is green forever.」
+    預言寫在**會刪 pidfile 的那條路上**，而 viz 走的是**不會被走到的另一條**。
+- **為什麼是這個形狀**：四個視窗來源裡，只有這一個沒有右端。活行程的窗真的到 `now`；
+  停掉時寫的磁碟紀錄（F3）**已經**帶 `end=`，理由逐字就是同一句
+  「a window with a start and no end would attribute every rule installed since」。
+  **同一個判斷做過一次，沒有做在第二個來源上。**
+- **修法**：`app_window_seal`。pid 已死的 pidfile ⇒ 右端＝該 app log（`app_evidence_log`：
+  sim 在 helper 的樹、nsr/viz/te 在這棵樹、energy 沒有）的 mtime，且要求 `>= start`；
+  取不到就用 pidfile 自己的 mtime＝**零長窗**，並印
+  `the window below has NO extent … That is 'nobody could ask', NOT 'this app left nothing'. (G-12)`。
+  活著的 pid 與沒有 pidfile 的 app **不受影響**。
+- **代價／殘留**：
+  - **零長窗那一支目前不算 blind、不改 rc**（FIX-NDT-9 §7-2，未裁）。
+  - **那個 stale `app_viz.pid` 還在機器上**，`ndt` 仍然不會清它（RESIDUE-1 §7-3，未裁）。
+  - 回歸格 `stale_app_pidfile_does_not_frame_the_fabric` 已在 trunk，**綠的 `new/` 要等一輪 live 補捕**。
+
+### G-54b 🏁 `residue` 這個字在 `ndt` 裡是兩個東西（G-54 的第二半，形狀照既有的 C-4b／C-5b）
+
+- **狀態**：🏁 **已修**（改名，`e027c607`，同樣併在 `53a62c71` 裡），Adam 2026-09-12 12:3x 親裁。
+- **事實**：`ndt clean` 印 `XX residue: ndtwin_kernel pid 2511227 holding :8000 (tcp)`（**行程佔 port**，
+  `ndt down` 收得掉、`ndt clean` 在它還在時是紅的）；`ndt status --check` 印
+  `residue 60 rule(s) inside an app window`（**流表規則**，這個工具什麼都不刪，唯一的補救是手打
+  `delete_flow_entry`）。**ROLE-11 的報告第 21 列同時引了這兩種，讀起來像同一個發現出現兩次。**
+- **改法**：流表那半的**輸出**改叫 `rules-in-window`；行程那半保留 `residue`；
+  **函式與變數名沒改**（理由寫在 `status_residue_row` 上面）。rc 一個都沒動。
+
+### G-55 🔴 「那個視窗裡沒有規則」與「線上根本沒有規則」在輸出上是同一句話
+
+- **狀態**：**OPEN**（instrument class）。來源 CELLS-2（2026-09-12），該單的碼已併入 trunk `53a62c71`；
+  **這一條本身沒有修法落地**，它是一條讀數守則。
+  ⚠️ 🟠 **轉述** `fix/CELLS-2-SUMMARY.md` §6＋§8：FIX-DOC-4 沒有開 lab、沒有重跑那一格。
+- **量到什麼**：2026-09-12 15:00:47，CELLS-2 的首格在一棵**有缺陷**的樹上跑出四個綠：
+  `ndt up ovs 4` 剛回來（`paths=installed`、`h1 -> 10.0.0.2 forwards`、sFlow 10 records），
+  kernel 的 `/ndt/get_switch_openflow_table_entries` 回 `[]`，於是那個右端開口的 app 視窗
+  框住 0 條規則，`residue_report` 印 `no flow entry arrived during that window`，
+  `ndt status --check` 回 rc 0。
+  🔴 **流表在 `ndt up` 回來之後還要約十秒才讀得到**（同格 15:04 的 `flow_poll.log`：
+  +0 s ＝ 0、+5 s ＝ 0、+10 s ＝ 61）。
+  （**數字依 CELLS-2 §8-5 勘誤**：那個視窗是 **588377 s ＝ 6 天 19 小時**寬，不是原稿寫的
+  「12 小時寬」——12.3 小時是 RESIDUE-1 的 viz 視窗，不是這一格種的。窗寬不影響本條的結論：
+  **不論多寬，框住 0 條與線上 0 條在輸出上長得一樣**。）
+- **失效方向：樂觀**。「殘留 0」與「這支工具此刻什麼都看不到」不可分辨，而後者回 rc 0。
+- **為什麼要記**：任何「殘留是 0」的宣稱，都必須同時記下**當時表上有幾條**；
+  否則它與「這支工具不再看了」不可分辨。
+- **規則**：讀 residue／rules-in-window 之前，先輪詢流表到非空，或自己裝一條可定時的規則當母體。
+- **實例與逐字原因**寫在 `tools/test_workflow/live_cells/stale_app_pidfile_does_not_frame_the_fabric.sh`
+  的 `observe` 旁邊，與 `tests/fixtures/live_cells/stale_app_pidfile_does_not_frame_the_fabric/old/PROVENANCE.md`。
+- **同一單的第二筆同形狀教訓（CELLS-2 §8-3，一併記在這裡）**：那一格的收拾宣稱
+  「自己裝的 `10.99.99.99` 規則已刪」，憑的是 `delete.code` **200**——而 200 的 body 自己說
+  per-entry outcomes 不在這個回應裡，`flow_entries.after.json` 仍然含那條規則。
+  **狀態碼不是讀數**：要斷言一條規則沒了，去 grep 表。
+
 ### G-56 🏁 兩顆變異共用一個 anchor 時，`check_gate_anchors.py` 的 `ok(N)` 會少算，而總表仍然全綠
 
 - **狀態**：🟢 **已修（2026-09-12 AUDIT-SCAN-1 follow-up `8cd5bec7`）**；
@@ -5010,6 +5108,37 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   ——**兩個數字相等**。
 - 🔶 **這一條給後面每一支新閘門的用法**：一顆變異一個 anchor，交件時把 `mutations=` 與 `ok(N)`
   兩個數字放在一起。本單的 `mutate_manual_rc_table.sh` 就是照這樣交的（9 顆變異＋1 顆控制、`ok(10)`）。
+
+### G-58 🏁 活的工具住在 `doc/audit/` 底下，就會掉出所有掃描面——而且已經有第二個實例
+
+> **編號**：G-57 由 hunt-0911/FIX-NDT-10 預留，**這裡的跳號是刻意的，不是遺失的條目**。
+
+- **狀態**：🏁 **已修**（登記制；AUDIT-SCAN-1 `20215f92`＋follow-up `8cd5bec7`，
+  兩顆都是 trunk `53a62c71` 的祖先，FIX-DOC-4 親驗）。
+  **「活的工具要不要一律搬出 `doc/audit/`」仍未裁**（FIX-PROXY-1 §7-2 option (iii)，兩次都沒被選）。
+  ⚠️ 🟠 **轉述** `fix/AUDIT-SCAN-1-SUMMARY.md` §6；FIX-DOC-4 親驗的只有
+  「`AUDIT_EXCEPTIONS` 這張表在 `tests/shell/check_process_by_name.py:192` 且 `cpu_gate.py` 在裡面」
+  與上面那兩顆 sha 的祖先關係。
+- **位置**：`doc/audit/2026-08-31_sampling-ceiling-after-merge/cpu_gate.py`
+  （第一個實例是 chaos harness，2026-09-11 FIX-PROXY-1 §7-2 記過）。
+- **事實**：它被 `tests/python/test_cpu_gate_lifetime.py` 按**這條路徑**用
+  `importlib.util.spec_from_file_location` 載入（那支測試的 docstring 自己寫著
+  「複製一份過去等於測一份複本」），並被 `tests/shell/mutate_cpu_gate_lifetime.sh` 直接變異。
+  ⇒ 它是活的工具，卻因為住在一個有日期的目錄底下，
+  **自 2026-08-31 起不在 `check_process_by_name.py` 的掃描面裡**
+  （也不在 `check_test_tmpdirs.py` 的），而它正是一支會讀 `/proc`、談行程識別的工具。
+- **形狀**：這不是「漏掉一個檔」，是**歸檔位置決定了它受不受規則管**。
+  `doc/audit/**` 不掃是對的（改紀錄讓 lint 過＝篡改證據），所以缺的是**例外要能被列舉**。
+- **失效方向：樂觀**。掃描器對它沒有意見，而「沒有意見」與「看過、沒問題」在總表上是同一行。
+- **修法**：掃描器改成 `AUDIT_EXCEPTIONS` 登記表（路徑＋理由＋日期，兩個方向都查，爛掉會紅，
+  每次印 `N registered audit exceptions scanned`），`cpu_gate.py` 已登記。
+  **搬家沒做**——那是 FIX-PROXY-1 §7-2 的 option (iii)，Adam 還沒選。
+- **殘留**：`doc/audit/` 底下 130 支 `.py` 裡，非 harness 的 9 支提到行程名工具、
+  其中 `2026-08-25_large-scale-concurrent/sample_load.py:28` 真的在跑
+  `subprocess.run(["pgrep", "-x", "ndtwin_kernel"])`。它是紀錄、沒進掃描面、沒被修。
+  🆕 **2026-09-12 更新（FIX-DOC-4 親自讀檔）**：那一處**已經修掉**了——FIX-NDT-9 ③（`4a01c66a`，
+  併在 `53a62c71` 裡）把它改成讀 `.test_run/pids/kernel.pid` 與 `/proc/<pid>/comm`。
+  **它仍然不在掃描面裡**（沒有登記，也沒有搬家）⇒ 本條的形狀沒有被這次修掉的那一處推翻。
 
 > 🔗 **A1（`POST /ndt/inject_link_recovery` 把不是自己掛的 netem 也拆掉，2026-09-11 live 3/3）
 > 不在這裡登記**——那一條由 `fix/link-recovery-only-detaches-its-own-netem` 自己登記（09-11 授權）。

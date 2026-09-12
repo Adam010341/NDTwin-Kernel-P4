@@ -19,6 +19,15 @@
 # sentence case 14 (the control) reads, which is how this gate shows the control is load-bearing
 # rather than a case that is green because it asks nothing.
 #
+# 🔴 M10 IS THE HELP SIDE, AND IT IS THE HALF THIS GATE WAS MISSING (FIX-DOC-3 review, §7-7).
+# Cases 2-4 assert that `ndt help` still announces the contract per verb -- the direction that
+# stops an empty authority from certifying any manual at all -- and until M10 those four cases
+# had no mutation behind them: M7 removes the whole help text, which is not the same as the help
+# text quietly losing one sentence. M10 takes exactly one sentence out of a COPY of `ndt`, the one
+# the manual's rc 3 row quotes, and requires BOTH halves to notice: case 2 (the tool still says
+# it) and case 7a (the manual is not quoting a sentence the tool does not print). One of the two
+# going red would mean the other is decorative.
+#
 # C1 at the end is the opposite: an HTML-comment reword, which must leave every case green. A
 # gate with no surviving control cannot tell "the suite is sensitive" from "the suite is stuck
 # red".
@@ -51,6 +60,7 @@ BK=$(mktemp -d /tmp/manual-rc-mutate-XXXXXX)
 trap 'rm -rf "$BK"' EXIT
 MANUAL_SHA=$(sha256sum "$MANUAL" | cut -d' ' -f1)
 TEST_SHA=$(sha256sum "$TEST" | cut -d' ' -f1)
+NDT_SHA=$(sha256sum "$NDT" | cut -d' ' -f1)
 
 MUTATIONS=0
 SURVIVORS=0
@@ -93,8 +103,24 @@ test_mutant() {   # test_mutant <tag> <anchor \x1f replacement>
     echo "$out"
 }
 
-run_pair() {   # run_pair <test file> <manual file>
-    MANUAL="$2" NDT="$NDT" bash "$1" 2>&1
+# A mutated copy of `ndt` that still RUNS. `ndt` sources ports.sh and sudo_surface.sh out of its
+# own directory, so a bare copy in a temp dir dies on line 64 and prints nothing at all -- and a
+# mutant that breaks the whole tool turns every help assertion red at once, which says nothing
+# about the one sentence it removed. The copy therefore sits in a MIRROR of tools/test_workflow/
+# whose other entries are symlinks to the originals, so the only difference between this `ndt`
+# and the repo's is the anchor below. (Measured 2026-09-12: `ndt help` out of the mirror is
+# byte-identical to the repo's except its trailing `repo:` line, which nothing here reads.)
+ndt_mutant() {   # ndt_mutant <tag> <anchor \x1f replacement>
+    local dir="$BK/$1/tools/test_workflow" out f
+    mkdir -p "$dir"
+    for f in "$(dirname "$NDT")"/*; do ln -sfn "$f" "$dir/$(basename "$f")"; done
+    out="$dir/ndt"; rm -f "$out"; cp "$NDT" "$out"
+    apply_exact "$out" "$2" >&2 || { echo ""; return; }
+    echo "$out"
+}
+
+run_pair() {   # run_pair <test file> <manual file> [ndt file]
+    MANUAL="$2" NDT="${3:-$NDT}" bash "$1" 2>&1
 }
 
 report() {   # report <label> <test file> <manual file> <case that must go red>
@@ -117,6 +143,35 @@ report() {   # report <label> <test file> <manual file> <case that must go red>
     else
         SURVIVORS=$((SURVIVORS + 1))
         printf '  SURVIVED      %-54s (%s stayed green -- that case proves nothing)\n' "$1" "$4"
+        grep -E '^  (ok|FAILED) ' <<<"$out" | sed 's/^/                /'
+    fi
+}
+
+# M10 needs BOTH sides to notice one missing sentence, so it gets its own reporter rather than
+# naming one case and hoping the other one would have been red too. The witness is the third
+# argument's purpose: a mutant `ndt` that cannot run at all makes every help case red, which
+# would "catch" this mutation while proving nothing about the sentence it removed.
+report_two() {   # report_two <label> <test> <manual> <ndt> <case A> <case B> <witness that stays green>
+    local out rc
+    MUTATIONS=$((MUTATIONS + 1))
+    if [[ -z "$2" || -z "$3" || -z "$4" ]]; then
+        printf '  DID-NOT-APPLY %-54s (anchor missed; nothing was tested)\n' "$1"
+        UNAPPLIED=$((UNAPPLIED + 1))
+        return
+    fi
+    out=$(run_pair "$2" "$3" "$4"); rc=$?
+    if ! grep -qE '^  (ok|FAILED) ' <<<"$out"; then
+        printf '  TEST-DID-NOT-RUN %-51s (mutant broke the file; harness error)\n' "$1"
+        sed -n '1,4p' <<<"$out" | sed 's/^/                /'
+        UNAPPLIED=$((UNAPPLIED + 1))
+        return
+    fi
+    if [[ "$rc" -ne 0 ]] && grep -q "FAILED   $5" <<<"$out" && grep -q "FAILED   $6" <<<"$out" \
+       && grep -q "ok       $7" <<<"$out"; then
+        printf '  caught        %-54s (both went red; the witness stayed green)\n' "$1"
+    else
+        SURVIVORS=$((SURVIVORS + 1))
+        printf '  SURVIVED      %-54s (one stayed green, or the mutant was not surgical)\n' "$1"
         grep -E '^  (ok|FAILED) ' <<<"$out" | sed 's/^/                /'
     fi
 }
@@ -199,6 +254,17 @@ report "M8: a code-block comment glosses an rc on its own again" "$TEST" "$M" "c
 M=$(manual_mutant m9 'fabric 活著時 `ndt clean` 回 rc 1 是正常的'$'\x1f''fabric 活著時 `ndt clean` 會抱怨')
 report "M9: the control's sentence is removed" "$TEST" "$M" "case 14 CONTROL"
 
+# --- M10: `ndt help` quietly loses ONE sentence ------------------------------------------------
+# 🔴 The half cases 2-4 did not have. M7 takes the whole help text away; a real drift is one line
+# of usage text being reworded, which leaves every other help assertion green. The manual's rc 3
+# row quotes this exact sentence, so case 7a has to see it go missing as well.
+N=$(ndt_mutant m10 '3 THERE WAS NOTHING TO JUDGE: no fabric, nothing in'$'\x1f''3 nothing was found to judge: no fabric, nothing in')
+M=$(manual_copy)
+report_two "M10: 'ndt help' loses the sentence the rc 3 row quotes" "$TEST" "$M" "$N" \
+           "case 2  help's 'clean' block still announces 3 as nothing to judge" \
+           "case 7a every quote in the rc table is verbatim from 'ndt help'" \
+           "case 3  help's 'down' block still announces 3 as nothing to tear down"
+
 # --- C1 (control): a comment is reworded; nothing about the contract changes -------------------
 echo
 M=$(manual_mutant c1 '這是整份手冊唯一一段教人怎麼判「還原了沒」的文字。'$'\x1f''這一段是唯一講「還原了沒」怎麼判的文字。')
@@ -220,6 +286,11 @@ if [[ "$(sha256sum "$TEST" | cut -d' ' -f1)" == "$TEST_SHA" ]]; then
     echo "baseline byte-identical: yes  tests/shell/test_manual_rc_table.sh"
 else
     echo "🔴 THE TEST CHANGED WHILE THIS GATE RAN -- a mutant may be on disk"; ok=1
+fi
+if [[ "$(sha256sum "$NDT" | cut -d' ' -f1)" == "$NDT_SHA" ]]; then
+    echo "baseline byte-identical: yes  tools/test_workflow/ndt"
+else
+    echo "🔴 ndt CHANGED WHILE THIS GATE RAN -- a mutant may be on disk"; ok=1
 fi
 echo "GATE-SUMMARY mutations=$MUTATIONS survived=$SURVIVORS unapplied=$UNAPPLIED controls=$CONTROLS red=$CONTROLS_RED"
 echo "mutation gate: $MUTATIONS mutations, $SURVIVORS survived; $CONTROLS control(s), $CONTROLS_RED went red"
