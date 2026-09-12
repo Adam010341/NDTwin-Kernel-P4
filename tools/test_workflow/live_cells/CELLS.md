@@ -35,6 +35,7 @@ the one `sudo ndtwin-lab` acts for.
 | `orphans_blind_probes_not_checked` | ndt | none | 09-11 F-OFFLINE-1 §1.11, run for real offline. `hunt-0911/F-OFFLINE-1-REPORT.md` | `ded00d06` (merged `954ab467`) | a report with the kernel up and all three lock probes `NOT CHECKED (http 500)` → `VERDICT: NOT CHECKED` rc 3, and **not** the token `VERDICT: CLEAN` | replay of `ded00d06^` |
 | `help_drops_deleted_claims` | ndt | none | 09-11 F-OFFLINE-1 §1.12 and §1.24, run for real offline | `3259d296` (merged `954ab467`) | `ndt help` no longer carries the `has run in THIS checkout` sentence nor the blanket environment-variable guarantee, and does carry the scoped replacements | replay of `3259d296^` |
 | `default_round_plane_is_classified` | ndt | none | 09-11 F-OFFLINE-1 §1.15, run for real offline with its own positive control | `ca9af4f1` (merged `954ab467`) | `last_kernel_plane` reads `Mininet_*` as ovs, `OVS_*` as ovs, `P4_*` as p4, and a physical-mode command as rc 1 / no plane | replay of `ca9af4f1^` |
+| `stale_app_pidfile_does_not_frame_the_fabric` | ndt | ovs4 | 09-12 RESIDUE-1 §1 §2 §6, read-only investigation of `logs/ROLE-11/05-check-after-up.log` (`residue 60 rule(s) inside an app window` 22 s after a bring-up that installed them). This cell's own live run of 15:04 is the red | **not fixed at `af5efa4f`** -- FIX-NDT-9 ① | the app window opened by a pidfile whose process is dead has a right edge, frames no rule of a fabric built later, and `ndt status --check` is rc 0 with no `listed by:  ndt apps orphans` | **this cell's own live run**, 2026-09-12 15:04, kernel `c4c8e50310d7e4a1` |
 
 `requires` is what a cell NEEDS, and `run_cells.sh --requires` filters on it:
 
@@ -85,6 +86,18 @@ verified" is worse than no grid.
    `0b928fe6^`. The gate lists each one with its reason.
 5. **Six cells have no `new/` fixture yet** -- the first fixed run of the live half. The gate
    reports them PENDING and counts them separately. PENDING is not passing.
+6. 🔴 **`stale_app_pidfile_does_not_frame_the_fabric` is RED on this tree, on purpose.** Its
+   subject is not fixed yet: FIX-NDT-9 ① closes the window's right edge, and until that merges
+   the cell reports the defect RESIDUE-1 found. Its `new/` is the run to take after that merge,
+   and a night round before it should expect one red cell here and read this line rather than
+   the wakeup note. It is also the one cell whose `observe` WRITES to the shared `.test_run/`:
+   it plants `.test_run/pids/app_te.pid` and removes it again, with an EXIT trap, and never
+   touches `app_viz.pid` -- the 2026-09-11 stale one, which is the orchestrator's to clear.
+7. **No cell here measures a window that is legitimately open.** Every window these cells stage
+   belongs to a process that is dead. An app that is really running has a window that runs to
+   `now` and really can have installed the rules inside it -- that is not a defect, and
+   `stale_app_pidfile_does_not_frame_the_fabric` sidesteps it with a premise
+   (`stale_premise_no_app_was_running`) rather than measuring it.
 
 ## Registered and NOT converted
 

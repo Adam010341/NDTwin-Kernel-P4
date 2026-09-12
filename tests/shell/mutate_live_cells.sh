@@ -73,6 +73,7 @@ CELL_URWADIIF="$CELLDIR/up_refuses_while_a_down_is_in_flight.sh"
 CELL_HSINC="$CELLDIR/half_stack_is_not_clean.sh"
 CELL_RRFN="$CELLDIR/recovery_refuses_foreign_netem.sh"
 CELL_LFCBEON="$CELLDIR/link_failure_cuts_both_ends_or_neither.sh"
+CELL_SAPDNFTF="$CELLDIR/stale_app_pidfile_does_not_frame_the_fabric.sh"
 
 
 # --- (a) the fixture check, which is also the oracle every mutation is measured against --------
@@ -477,6 +478,21 @@ m=$(mutant m18 "$CELL_LFCBEON" \
     '    _a_ok   a1f_does_not_claim_injected "(widening: the status line may claim a cut that did not happen)"')
 report "M19 (widen)  A1: 'link failure injected' over nothing attached" "$m" link_failure_cuts_both_ends_or_neither
 
+# --- stale_app_pidfile_does_not_frame_the_fabric ---
+# 🔴 The window's right edge and what the window framed, and they are two different failures.
+# RESIDUE-1's defect is the edge; the 122 rules are what the edge cost. A judge that read only
+# the count would go green the day the fabric happens to install nothing in the ten seconds
+# after a bring-up -- which this cell's own first live run did (old/PROVENANCE.md).
+m=$(mutant m19 "$CELL_SAPDNFTF" \
+    '    a_eq    stale_window_has_a_right_edge   "closed"  "$shape"' \
+    '    :')
+report "M20 (delete) RESIDUE-1: a dead pid's window may run to now again" "$m" stale_app_pidfile_does_not_frame_the_fabric
+m=$(mutant m20 "$CELL_SAPDNFTF" \
+    '    a_eq    stale_window_frames_no_rule     "none"    "$frames"' \
+    '    _a_ok   stale_window_frames_no_rule "(widening: a window that lists the fabric passes)"')
+report "M21 (widen)  RESIDUE-1: the fabric's own table inside the window is accepted" "$m" stale_app_pidfile_does_not_frame_the_fabric
+
+
 echo
 # --- run_cells.sh's restore: the rules Adam ruled on 09-12 -------------------------------------
 CELL_RUNCELLS="$CELLDIR/run_cells.sh"
@@ -601,6 +617,13 @@ cat <<'NOTE'
                                            would have to be rebuilt from 0b928fe6^ and pointed
                                            at a live fabric. Not a shell question.
     link_failure_cuts_both_ends_or_neither same, and its pre-fix form really cuts a link end.
+    stale_app_pidfile_does_not_frame_the_fabric
+                                           the defect is in `ndt` and a pre-fix `ndt` is
+                                           reachable -- but this cell's `observe` brings up an
+                                           OVS fabric, installs a flow entry and plants a
+                                           pidfile in the shared .test_run/. The (c) form of it
+                                           IS the night round: today's tree is the pre-fix tree,
+                                           so old/ came out of `run_cells.sh` itself.
 NOTE
 
 echo

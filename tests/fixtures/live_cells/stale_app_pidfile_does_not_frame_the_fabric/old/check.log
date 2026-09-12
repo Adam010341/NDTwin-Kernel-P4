@@ -1,0 +1,62 @@
+lab
+  claim          yours -- 132m left (until 17:16:24)
+  note           in use: ndt up ovs 4 at 2026-09-12 15:04:29 by overnight-0905
+  prev claim     overnight-0905 (until 15:21:13), superseded 2026-09-12 14:42:22  (.test_run/lab.claim.prev)
+                 the same owner re-claimed it -- a rewrite, not a handover
+                 it said: down at 2026-09-12 14:42:22; verified clean; claim kept
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           9f80a33f  +32 file(s) with uncommitted changes
+                 1 of them can change behaviour:
+                 p4_proxy/mininet/host_count_override
+  knob baseline  4 == the value this round started with (at 14:46:24)
+  tree vs round  same set of uncommitted files as when the round started
+  ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6685d3a9)
+
+configuration
+  hosts          4   (what the last 'ndt up' asked for: ovs)
+  topology       setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json
+  p4 host knob   4   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate    1/256
+  rate source    OVS: ovs-vsctl --columns=sampling list sflow
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   present
+  host/switch    15      manifest       absent
+  :8000 kernel   open    :8081 proxy    closed  :8080 ryu open
+  pidfiles       kernel.child.pid=1163759 alive,kernel.pid=1163755 alive,ryu.child.pid=1161417 alive,ryu.pid=1161413 alive
+
+network health
+  switches       10 up, 10 enabled, 0 admin-disabled
+  links          40 total, 0 down, 0 admin-disabled
+  tc netem       none
+  sudo grants    all 3 granted
+  apps           none running
+  untracked      sim(1166836) -- running, and no pidfile names them
+                 'ndt down' does stop these -- it scans for them rather than
+                 trusting the pidfile (G-6). Nothing else will, and until then
+                 they keep polling the kernel: 'ndt apps stop <name>'
+  residue        122 rule(s) inside an app window, 0 lock(s) HELD
+                 listed by:  ndt apps orphans      (nothing deletes them)
+                 1 app(s) could not be asked whether they ran here: energy
+                 the lab helper keeps no log for them, so 'nothing found' above excludes them.
+
+kernel graph
+  10 switches (10 up, 10 enabled), 4 hosts, 40 edges
+
+up target
+  asked for      ovs, 4 hosts   (recorded 2026-09-12 15:04:29 by overnight-0905)
+  topology       setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json   (declares 4 hosts / 40 edges)
+  dataplane      ovs                    == ovs   ok
+  fabric hosts   4                      == 4   ok
+  graph hosts    4                      == 4   ok
+  graph edges    40                     == 40   ok
+  topology file  sha256 2266c69cbcd3    == recorded   ok
+  device names   no overlay file at .test_run/nickname_overlay/StaticNetworkTopologyOVS_10Switches_4Hosts.names.json
+                 that is where this checkout's kernel writes them; not a claim that none are set
+
+check: 2 problem(s)
+  - untracked app process(es) with no pidfile: sim(1166836)
+  - the network carries app residue: 122 rule(s) installed inside an app's window and 0 held lock(s) -- 'ndt apps orphans' lists them (G-12)

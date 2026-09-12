@@ -1,0 +1,2 @@
+viz_pidfile=/home/adam/Desktop/NDTwin-Kernel/.test_run/pids/app_viz.pid
+viz_pidfile_mtime=1789106665

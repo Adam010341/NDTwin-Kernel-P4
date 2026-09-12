@@ -1,0 +1,7 @@
+app=te
+pidfile=/home/adam/Desktop/NDTwin-Kernel/.test_run/pids/app_te.pid
+pid=4194303
+pid_alive=no
+pidfile_mtime=1788608311
+applog=/home/adam/Desktop/NDTwin-Kernel/.test_run/logs/app_te.log
+applog_mtime=1788608371
