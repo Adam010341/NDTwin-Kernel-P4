@@ -336,9 +336,13 @@ report_pages "M11: a doc block drops the word that says the branch landed" "$TES
              "case 11b no doc page calls a branch unmerged without naming the merge that landed it"
 
 # --- M12: the disclosed sha is real, reachable -- and is not a landing ----------------------------------
-# 🔴 A commit on the branch is not the branch arriving. `2244bab0` is an ancestor of HEAD with one
-# parent; if a single-parent commit counted, "fixed in <sha>" could name the very commit that is
-# still only on the branch and the sweep would agree with it.
+# 🔴 A commit on the branch is not the branch arriving. If a single-parent commit counted, "fixed
+# in <sha>" could name the very commit that is still only on the branch and the sweep would agree
+# with it. The replacement sha has to be BOTH reachable and not a merge, or this mutation proves
+# nothing -- measured, not assumed:
+#   2244bab0  `git cat-file -p | grep -c '^parent'` = 1,  `merge-base --is-ancestor .. HEAD` = 0
+#   892fdbdc  (the sha being replaced)            = 2,                                       = 0
+# scratch/overnight-2026-09-05/logs/gates-0910/m12-sha-parents.doc5b-0912-r3.log
 G=$(ki_mutant m12 'merge **`892fdbdc`**，2026-09-12 01:09'$'\x1f''merge **`2244bab0`**，2026-09-12 01:09')
 report_pages "M12: the disclosed sha is an ancestor but not a merge" "$TEST" "$P" "$D" "$G" \
              "case 11  no doc page calls a ticket unfixed without naming the merge that landed it"
@@ -363,6 +367,17 @@ report_pages "M14: the sweep reads one line instead of the block" "$T" "$P" "$D"
 T=$(test_mutant m15 'mapfile -t PAGES < <(git -C "$REPO" ls-files'$'\x1f''mapfile -t PAGES < <(true "$REPO" ls-files')
 report_pages "M15: the sweep's page list comes back empty" "$T" "$P" "$D" "$PGS" \
              "case 11c the sweep has a page list, all of it readable, with the manual and KNOWN-ISSUES in it"
+
+# --- M16: the failure line goes back to printing empty parentheses --------------------------------------
+# 🔴 NOT A HYPOTHETICAL MUTATION -- IT IS THE FIRST RUN OF THIS SWEEP. `merge_branch`'s sed wanted
+# a space before `Merge`, and a merge subject starts at column 1, so every violation line read
+# `… 4e969110… () is reachable from HEAD`. The one thing that tells a reader the prefix lookup
+# matched a DIFFERENT ticket was blank, on the only two lines that would ever have shown it, and
+# the run still looked like a correct finding because those lines were red for their own reason.
+# The ruling that left the lookup alone (FIX-DOC-5 §7-1, D5-1) is exactly as good as this cell.
+T=$(test_mutant m16 '^.*Merge \(fix\/[^: ]*\)'$'\x1f''.* Merge \(fix\/[^: ]*\)')
+report_pages "M16: the failure line stops naming the branch it matched" "$T" "$P" "$D" "$PGS" \
+             "case 11d a violation line names the branch the lookup matched, not just the sha"
 
 # --- C1 (control): a source comment is reworded; nothing about the contract changes -----------------
 echo

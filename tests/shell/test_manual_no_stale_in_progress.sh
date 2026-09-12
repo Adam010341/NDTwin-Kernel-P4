@@ -324,6 +324,13 @@ block_discloses() {   # block_discloses <block text> -> <sha> | ""
 merge_branch() {   # merge_branch <merge sha> -> the branch its subject names
     git -C "$REPO" log -1 --format=%s "$1" 2>/dev/null | sed -n 's/^.*Merge \(fix\/[^: ]*\).*/\1/p'
 }
+# The line case 11 prints for a violation. A function, not an inline echo, because case 11d runs
+# it: the branch name in the parentheses is the ONLY thing that shows a reader the prefix lookup
+# matched a DIFFERENT ticket, and there is nothing else in the output to catch it with.
+viol_ticket() {   # viol_ticket <page> <line no> <ticket> <merge sha>
+    echo "             $1:$2  calls $3 unfixed; $4 ($(merge_branch "$4")) is reachable from HEAD,"
+    echo "                    and this block names no merge of its own"
+}
 
 PVIOL=0; PVIOLB=0; PSKIP_REC=0; PSKIP_DISC=0
 for f in "${PAGES[@]}"; do
@@ -338,8 +345,7 @@ for f in "${PAGES[@]}"; do
             [[ -z "$m" ]] && continue
             if [[ -n "$d" ]]; then PSKIP_DISC=$((PSKIP_DISC + 1)); continue; fi
             PVIOL=$((PVIOL + 1))
-            echo "             $f:$n  calls $t unfixed; $m ($(merge_branch "$m")) is reachable from HEAD,"
-            echo "                    and this block names no merge of its own"
+            viol_ticket "$f" "$n" "$t" "$m"
         done
     done < <(grep -nE "$IN_PROGRESS" "$DOCS/$f" | grep -E 'FIX-[A-Z]+-[0-9]+')
 
@@ -363,6 +369,22 @@ check "case 11  no doc page calls a ticket unfixed without naming the merge that
       0 "$PVIOL"
 check "case 11b no doc page calls a branch unmerged without naming the merge that landed it" \
       0 "$PVIOLB"
+
+# --- case 11d: the failure line names the branch, and not only the sha --------------------------------
+# 🔴 THE SECOND INSTRUMENT CELL, AND THE ONE THAT WAS MISSING UNTIL IT WAS NEEDED. The ruling on
+# the prefix lookup (FIX-DOC-5 §7-1, D5-1) is "leave it alone, because the failure line prints the
+# branch it matched and a reader can see the mismatch". That ruling rests entirely on those
+# parentheses being filled in -- and the FIRST run of this sweep printed `()` on both hits, because
+# the sed wanted a space before `Merge` and a merge subject begins at column 1. Nobody noticed: the
+# only lines that could have shown it were already red for their own reason, which is exactly how
+# an instrument's own defect hides inside the finding it is reporting.
+#
+# It runs the real printer -- the same function the sweep calls -- on a merge this repository has,
+# so it cannot pass by describing what the printer ought to do. M16 puts the old sed back.
+d11="$(viol_ticket doc/EXAMPLE.md 1 FIX-NDT-6 "$(ticket_merge FIX-NDT-6)")"
+check "case 11d a violation line names the branch the lookup matched, not just the sha" \
+      "yes" "$( grep -qE '\(fix/[a-z0-9][a-z0-9._-]*\)' <<<"$d11" \
+                && echo yes || echo "no -- $(head -1 <<<"$d11" | sed 's/^ *//')" )"
 
 # --- case 11c: the sweep's own check -----------------------------------------------------------------
 # Cases 11/11b count violations, so an empty file list is indistinguishable from a clean tree.
