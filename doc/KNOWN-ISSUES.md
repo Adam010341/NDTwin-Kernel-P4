@@ -5087,6 +5087,37 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 - 🔶 **這一條給後面每一支新閘門的用法**：一顆變異一個 anchor，交件時把 `mutations=` 與 `ok(N)`
   兩個數字放在一起。本單的 `mutate_manual_rc_table.sh` 就是照這樣交的（9 顆變異＋1 顆控制、`ok(10)`）。
 
+### G-58 🏁 活的工具住在 `doc/audit/` 底下，就會掉出所有掃描面——而且已經有第二個實例
+
+> **編號**：G-57 由 hunt-0911/FIX-NDT-10 預留，**這裡的跳號是刻意的，不是遺失的條目**。
+
+- **狀態**：🏁 **已修**（登記制；AUDIT-SCAN-1 `20215f92`＋follow-up `8cd5bec7`，
+  兩顆都是 trunk `53a62c71` 的祖先，FIX-DOC-4 親驗）。
+  **「活的工具要不要一律搬出 `doc/audit/`」仍未裁**（FIX-PROXY-1 §7-2 option (iii)，兩次都沒被選）。
+  ⚠️ 🟠 **轉述** `fix/AUDIT-SCAN-1-SUMMARY.md` §6；FIX-DOC-4 親驗的只有
+  「`AUDIT_EXCEPTIONS` 這張表在 `tests/shell/check_process_by_name.py:192` 且 `cpu_gate.py` 在裡面」
+  與上面那兩顆 sha 的祖先關係。
+- **位置**：`doc/audit/2026-08-31_sampling-ceiling-after-merge/cpu_gate.py`
+  （第一個實例是 chaos harness，2026-09-11 FIX-PROXY-1 §7-2 記過）。
+- **事實**：它被 `tests/python/test_cpu_gate_lifetime.py` 按**這條路徑**用
+  `importlib.util.spec_from_file_location` 載入（那支測試的 docstring 自己寫著
+  「複製一份過去等於測一份複本」），並被 `tests/shell/mutate_cpu_gate_lifetime.sh` 直接變異。
+  ⇒ 它是活的工具，卻因為住在一個有日期的目錄底下，
+  **自 2026-08-31 起不在 `check_process_by_name.py` 的掃描面裡**
+  （也不在 `check_test_tmpdirs.py` 的），而它正是一支會讀 `/proc`、談行程識別的工具。
+- **形狀**：這不是「漏掉一個檔」，是**歸檔位置決定了它受不受規則管**。
+  `doc/audit/**` 不掃是對的（改紀錄讓 lint 過＝篡改證據），所以缺的是**例外要能被列舉**。
+- **失效方向：樂觀**。掃描器對它沒有意見，而「沒有意見」與「看過、沒問題」在總表上是同一行。
+- **修法**：掃描器改成 `AUDIT_EXCEPTIONS` 登記表（路徑＋理由＋日期，兩個方向都查，爛掉會紅，
+  每次印 `N registered audit exceptions scanned`），`cpu_gate.py` 已登記。
+  **搬家沒做**——那是 FIX-PROXY-1 §7-2 的 option (iii)，Adam 還沒選。
+- **殘留**：`doc/audit/` 底下 130 支 `.py` 裡，非 harness 的 9 支提到行程名工具、
+  其中 `2026-08-25_large-scale-concurrent/sample_load.py:28` 真的在跑
+  `subprocess.run(["pgrep", "-x", "ndtwin_kernel"])`。它是紀錄、沒進掃描面、沒被修。
+  🆕 **2026-09-12 更新（FIX-DOC-4 親自讀檔）**：那一處**已經修掉**了——FIX-NDT-9 ③（`4a01c66a`，
+  併在 `53a62c71` 裡）把它改成讀 `.test_run/pids/kernel.pid` 與 `/proc/<pid>/comm`。
+  **它仍然不在掃描面裡**（沒有登記，也沒有搬家）⇒ 本條的形狀沒有被這次修掉的那一處推翻。
+
 > 🔗 **A1（`POST /ndt/inject_link_recovery` 把不是自己掛的 netem 也拆掉，2026-09-11 live 3/3）
 > 不在這裡登記**——那一條由 `fix/link-recovery-only-detaches-its-own-netem` 自己登記（09-11 授權）。
 > 本次收條目時（2026-09-11 03:0x）該分支還沒併進 trunk；若它比本次晚併，這一行就是它的入口。
