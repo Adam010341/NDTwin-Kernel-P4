@@ -118,6 +118,17 @@ ndt_mutant() {   # ndt_mutant <tag> <anchor \x1f replacement>
     echo "$out"
 }
 
+# An UNMUTATED mirror of `ndt`, for every mutation that is applied to the manual or to the test.
+# Same reason as manual_copy: with "$NDT" -- a declared repo path -- passed to report(), the case
+# name right after it is read as an anchor inside `ndt`, and the cell scores 0 (want 1). Every
+# entry here is a symlink, `ndt` included, so the tool under test is byte-for-byte the repo's.
+ndt_copy() {
+    local dir="$BK/pristine/tools/test_workflow" f
+    mkdir -p "$dir"
+    for f in "$(dirname "$NDT")"/*; do ln -sfn "$f" "$dir/$(basename "$f")"; done
+    echo "$dir/ndt"
+}
+
 run_triple() {   # run_triple <test file> <manual file> <ndt file>
     # REPO_UNDER_TEST pins the tree git is asked about: the M5 mutant runs from $BK, and without
     # this its case 0 would go red because /tmp is not a repository, muddying the one case M5 is
@@ -204,39 +215,40 @@ echo "mutations:"
 # as "that word is an anchor in that file", and a longer variable name here is read as an anchor
 # it cannot resolve -- the gate then scores UNPARSED, which is NOT a pass (FIX-DOC-3 §2).
 P=$(manual_copy)
+D=$(ndt_copy)
 
 # --- M1: the first caveat goes back to being an open defect -- the ticket itself ---------------
 M=$(manual_mutant m1 '🏁 **已修（工具的措辭，2026-09-12 merge `1656bdba`，FIX-NDT-6 ④）'$'\x1f''🔴 **已知（工具的措辭，FIX-NDT-6 在修）')
-report "M1: the clean caveat is written back as an open defect" "$TEST" "$M" "$NDT" "case 5a caveat 'clean-calls-your-fabric-residue' is retracted and says what merged it"
+report "M1: the clean caveat is written back as an open defect" "$TEST" "$M" "$D" "case 5a caveat 'clean-calls-your-fabric-residue' is retracted and says what merged it"
 
 # --- M2: a caveat loses its marker, so the sweep cannot be seen ---------------------------------
 M=$(manual_mutant m2 '<!-- NDT-MERGED-CAVEAT:BEGIN help-deep-names-three-ports 1656bdba -->
 '$'\x1f''')
-report "M2: the help caveat's BEGIN marker is deleted" "$TEST" "$M" "$NDT" "case 5b caveat 'help-deep-names-three-ports' is retracted and says what merged it"
+report "M2: the help caveat's BEGIN marker is deleted" "$TEST" "$M" "$D" "case 5b caveat 'help-deep-names-three-ports' is retracted and says what merged it"
 
 # --- M3: a caveat claims a merge that is not in the tree ----------------------------------------
 # "Fixed in <sha>" is only worth reading if the sha is reachable from here. A typo, a
 # branch-local sha, or a commit that was rebased away must not read as merged.
 M=$(manual_mutant m3 'NDT-MERGED-CAVEAT:BEGIN clean-advises-deep-on-your-own 1656bdba'$'\x1f''NDT-MERGED-CAVEAT:BEGIN clean-advises-deep-on-your-own 0123456789ab')
-report "M3: a caveat names a merge that is not an ancestor" "$TEST" "$M" "$NDT" "case 5c caveat 'clean-advises-deep-on-your-own' is retracted and says what merged it"
+report "M3: a caveat names a merge that is not an ancestor" "$TEST" "$M" "$D" "case 5c caveat 'clean-advises-deep-on-your-own' is retracted and says what merged it"
 
 # --- M4: the suppression word is taken off a line that really is stale ---------------------------
 # §2.8's note is allowed to quote the old wording because it says 原本. Without that word the
 # line is an ordinary claim about a merged ticket, and case 6 has to see it.
 M=$(manual_mutant m4 '原本這裡寫「FIX-NDT-6 在修」'$'\x1f''這裡寫的是「FIX-NDT-6 在修」')
-report "M4: a stale line loses the word that excuses it" "$TEST" "$M" "$NDT" "case 6  no line calls a ticket unfixed when its merge is already in the tree"
+report "M4: a stale line loses the word that excuses it" "$TEST" "$M" "$D" "case 6  no line calls a ticket unfixed when its merge is already in the tree"
 
 # --- M5: the TEST loses its authority ------------------------------------------------------------
 # 🔴 The direction that matters. Case 1 is a negative assertion about `ndt help`; with no help
 # text at all it is green, and only case 2 stands between this file and a certificate that means
 # nothing.
 T=$(test_mutant m5 'HELP="$(bash "$NDT" help 2>&1)"'$'\x1f''HELP=""')
-report "M5: the test stops reading 'ndt help'" "$T" "$P" "$NDT" "case 2  'ndt help' prints --deep's size out of ports.sh's table"
+report "M5: the test stops reading 'ndt help'" "$T" "$P" "$D" "case 2  'ndt help' prints --deep's size out of ports.sh's table"
 
 # --- M6: the sweep takes the measurement with it --------------------------------------------------
 # Retracting a caveat is not deleting what was measured under it. The pids are the record.
 M=$(manual_mutant m6 'XX  residue: ndtwin_kernel pid 2511227 holding :8000 (tcp)'$'\x1f''XX  residue: 某個行程 holding :8000 (tcp)')
-report "M6: the measured record is dropped with the caveat" "$TEST" "$M" "$NDT" "case 9  the measured record inside the third caveat survived the sweep"
+report "M6: the measured record is dropped with the caveat" "$TEST" "$M" "$D" "case 9  the measured record inside the third caveat survived the sweep"
 
 # --- M7: the tool is 'fixed' by never warning about a stranger again --------------------------------
 N=$(ndt_mutant m7 'err "   this stack did not start it; to kill it too:  ndt down --deep"'$'\x1f''err "   nothing on this machine is worth mentioning"')
@@ -251,7 +263,7 @@ if [[ -z "$M" ]]; then
     echo "  DID-NOT-APPLY C1 (control): the comment it rewords is not there" >&2
     UNAPPLIED=$((UNAPPLIED + 1))
 else
-    control "C1 (control): a source comment is reworded" "$TEST" "$M" "$NDT"
+    control "C1 (control): a source comment is reworded" "$TEST" "$M" "$D"
 fi
 
 echo
