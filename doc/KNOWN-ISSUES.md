@@ -4519,7 +4519,14 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 ### G-34 🔴 `.test_run/pids/` 自己互相矛盾（死 pidfile ＋ 同一元件的收工紀錄），而沒有任何介面說得出來
 
 - **狀態**：**OPEN**（2026-09-11 R7 對帳實測，相隔 24 秒兩次量測都在 ⇒ 不是毫秒級競態）。
-  **FIX-NDT-3 正在修。**
+  🆕 **2026-09-12 更正（FIX-DOC-5 親驗）**：這一行先前寫著「FIX-NDT-3 正在修」，那是它還是分支時的話——
+  **那張單已併入**：分支 `fix/ndt-claim-semantics-0911`、merge **`a180134f`**（2026-09-11 04:27）——
+  本單親自驗過它有兩個父、而且 `git merge-base --is-ancestor` 對 HEAD 為真。
+  **狀態仍記 OPEN，不是筆誤**：本單沒有重跑 R7 的對帳、沒有開 lab，
+  「併入之後 `.test_run/pids/` 還會不會自己互相矛盾」**沒有人重驗過**；要改 RESOLVED 得重跑那一輪。
+  ⚠️ 這一行是 `tests/shell/test_manual_no_stale_in_progress.sh` case 11 抓到的兩行之一，
+  而**它印出來的 sha 是錯的**（前綴查詢把 `fix/ndt-3-` 配到 `fix/ndt-3-51-helper-apps-window`，
+  那是另一張單）：判決對、證據錯。上面那一顆 merge 是本單自己查出來並驗過的。
 - **會發生什麼**：`ryu.pid`＝20717、`ryu.child.pid`＝20722（mtime 02:49）**兩個 pid 都不存在**，
   而隔壁 `ryu.exit`（mtime 02:51）逐字寫著 `at=2026-09-11T02:51:06`／`status=143`／
   `reason=terminated by SIGTERM (15)`。同一刻 10 座 OVS bridge 還活著、四個控制 port 全關、
@@ -4632,6 +4639,9 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 ### G-40 🔴 `process_is_a_switch` 用整條 `/proc/<pid>/cmdline` 的 substring 認交換機，而它是 SIGKILL 前的唯一防線
 
 - **狀態**：**OPEN**（2026-09-12 FIX-PROXY-2 §7-2，**登記未修**：產品碼，不在該單範圍）。
+  **那張單本身已併入**（merge **`892fdbdc`**，2026-09-12 01:09；FIX-DOC-5 親驗它是 merge commit
+  且為 HEAD 的祖先）⇒ 這裡的「未修」講的是**這個缺陷**，不是「那張單還在路上」。
+  兩件事寫在同一行過，而讀者分不出來，所以現在把 merge 寫出來。
 - **在哪裡**：`p4_proxy/mininet/p4_testbed_topo.py:542-556`（判斷在 `:554`）
   （`return b"simple_switch_grpc" in fh.read()`），被 `reap_manifest_switches` 用在
   SIGTERM／SIGKILL 之前，teardown 與 startup 兩條路都走它。
