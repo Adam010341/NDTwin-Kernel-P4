@@ -368,6 +368,17 @@ T=$(test_mutant m15 'mapfile -t PAGES < <(git -C "$REPO" ls-files'$'\x1f''mapfil
 report_pages "M15: the sweep's page list comes back empty" "$T" "$P" "$D" "$PGS" \
              "case 11c the sweep has a page list, all of it readable, with the manual and KNOWN-ISSUES in it"
 
+# --- M16: the failure line goes back to printing empty parentheses --------------------------------------
+# 🔴 NOT A HYPOTHETICAL MUTATION -- IT IS THE FIRST RUN OF THIS SWEEP. `merge_branch`'s sed wanted
+# a space before `Merge`, and a merge subject starts at column 1, so every violation line read
+# `… 4e969110… () is reachable from HEAD`. The one thing that tells a reader the prefix lookup
+# matched a DIFFERENT ticket was blank, on the only two lines that would ever have shown it, and
+# the run still looked like a correct finding because those lines were red for their own reason.
+# The ruling that left the lookup alone (FIX-DOC-5 §7-1, D5-1) is exactly as good as this cell.
+T=$(test_mutant m16 '^.*Merge \(fix\/[^: ]*\)'$'\x1f''.* Merge \(fix\/[^: ]*\)')
+report_pages "M16: the failure line stops naming the branch it matched" "$T" "$P" "$D" "$PGS" \
+             "case 11d a violation line names the branch the lookup matched, not just the sha"
+
 # --- C1 (control): a source comment is reworded; nothing about the contract changes -----------------
 echo
 M=$(manual_mutant c1 '🟠 轉述 KNOWN-ISSUES G-45 與 fix/FIX-NDT-6-SUMMARY.md §1.4：本單沒有開 lab 重跑'$'\x1f''🟠 轉述 KNOWN-ISSUES G-45 與 fix/FIX-NDT-6-SUMMARY.md §1.4；本單並未開 lab 重跑')
