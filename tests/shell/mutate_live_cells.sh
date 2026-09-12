@@ -74,6 +74,7 @@ CELL_HSINC="$CELLDIR/half_stack_is_not_clean.sh"
 CELL_RRFN="$CELLDIR/recovery_refuses_foreign_netem.sh"
 CELL_LFCBEON="$CELLDIR/link_failure_cuts_both_ends_or_neither.sh"
 CELL_SAPDNFTF="$CELLDIR/stale_app_pidfile_does_not_frame_the_fabric.sh"
+CELL_NWRNTLC="$CELLDIR/northbound_write_reply_names_the_lab_claim.sh"
 
 
 # --- (a) the fixture check, which is also the oracle every mutation is measured against --------
@@ -492,6 +493,18 @@ m=$(mutant m20 "$CELL_SAPDNFTF" \
     '    _a_ok   stale_window_frames_no_rule "(widening: a window that lists the fabric passes)"')
 report "M21 (widen)  RESIDUE-1: the fabric's own table inside the window is accepted" "$m" stale_app_pidfile_does_not_frame_the_fabric
 
+# --- northbound_write_reply_names_the_lab_claim ---
+# 🔴 ONLY THESE TWO. The rest of that judge's failing set on old/ is a fixture gap -- ROLE-11 was
+# not running this cell and kept no claim file, no 400 and no 404 -- and mutating a gap would be
+# this gate grading the hole rather than the assertion. Its old/PROVENANCE.md names them.
+m=$(mutant m21 "$CELL_NWRNTLC" \
+    "    a_has   lc_write_reply_carries_the_claim '\"lab_claim\":{'                 \"\$d/failure.body\"" \
+    '    :')
+report "M22 (delete) G-32 C: the write reply need not name the claim" "$m" northbound_write_reply_names_the_lab_claim
+m=$(mutant m22 "$CELL_NWRNTLC" \
+    "    a_has   lc_recovery_reply_carries_it     '\"lab_claim\":{'                 \"\$d/recovery.body\"" \
+    '    _a_ok   lc_recovery_reply_carries_it "(widening: only one of the pair has to carry it)"')
+report "M23 (widen)  G-32 C: one of the two writes is enough" "$m" northbound_write_reply_names_the_lab_claim
 
 echo
 # --- run_cells.sh's restore: the rules Adam ruled on 09-12 -------------------------------------
@@ -624,6 +637,11 @@ cat <<'NOTE'
                                            pidfile in the shared .test_run/. The (c) form of it
                                            IS the night round: today's tree is the pre-fix tree,
                                            so old/ came out of `run_cells.sh` itself.
+    northbound_write_reply_names_the_lab_claim
+                                           the pre-fix subject is the KERNEL, not `ndt`: it
+                                           would have to be rebuilt from ea517ed5^ and pointed
+                                           at a live fabric. Not a shell question. The C++ side
+                                           is mutated in mutate_lab_claim_on_writes.sh.
 NOTE
 
 echo
