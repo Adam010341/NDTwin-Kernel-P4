@@ -1,0 +1,171 @@
+  ok  no untracked app processes
+
+stack
+    stack: kernel=up dataplane=mininet bmv2=0 mininet=15 proxy=down verdict=whole-up
+    the stack is up. that is not residue -- 'apps orphans' is asked before a
+    teardown as well as after it.
+
+network residue (nothing below is deleted)
+    lock  routing_lock free
+    lock  graph_lock free
+    lock  power_lock free
+          field (LockManager.hpp), and the kernel has no lock-status endpoint, so the
+          three lines above come from an acquire probe with ttl 0, which excludes nobody.
+    energy: no pidfile and no live process -- no window, so no rule can be dated
+        against it. NOT 'this app left nothing'. (G-12)
+  !!        and whether it ran here CANNOT BE ASKED: the helper keeps no log for energy
+  !!        ('/usr/local/sbin/ndtwin-lab energy-start' gives it no 'script -f', so its output only ever
+  !!        exists in a tmux pane). That is 'nobody could ask', not 'it never ran'.
+  sim    window 2026-09-12 15:04:48 -> now (0s)
+  ok        no flow entry arrived during that window
+    nsr: no pidfile and no live process -- no window, so no rule can be dated
+        against it. NOT 'this app left nothing'. (G-12)
+        (its log is empty or absent too -- no sign it ever ran here)
+        (log read: /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/app_nsr.log)
+  viz    window 2026-09-11 14:04:25 -> now (90023s)
+  XX        rule  dpid=1 table=0 pri=65535 match={"dl_dst": "01:80:c2:00:00:0e", "dl_type": 35020} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=1 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=1 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=1 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=1 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=1 table=0 pri=1 match={"dl_type": 2048, "nw_dst": "10.99.99.99"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=1 table=0 pri=0 match={} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=10 table=0 pri=65535 match={"dl_dst": "01:80:c2:00:00:0e", "dl_type": 35020} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=10 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=10 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=10 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=10 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=10 table=0 pri=0 match={} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=2 table=0 pri=65535 match={"dl_dst": "01:80:c2:00:00:0e", "dl_type": 35020} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=2 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=2 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=2 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=2 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=2 table=0 pri=0 match={} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=3 table=0 pri=65535 match={"dl_dst": "01:80:c2:00:00:0e", "dl_type": 35020} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=3 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=3 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=3 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=3 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=3 table=0 pri=0 match={} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=4 table=0 pri=65535 match={"dl_dst": "01:80:c2:00:00:0e", "dl_type": 35020} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=4 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=4 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=4 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=4 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=4 table=0 pri=0 match={} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=5 table=0 pri=65535 match={"dl_dst": "01:80:c2:00:00:0e", "dl_type": 35020} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=5 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=5 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=5 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=5 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=5 table=0 pri=0 match={} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=6 table=0 pri=65535 match={"dl_dst": "01:80:c2:00:00:0e", "dl_type": 35020} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=6 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=6 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=6 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=6 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=6 table=0 pri=0 match={} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=7 table=0 pri=65535 match={"dl_dst": "01:80:c2:00:00:0e", "dl_type": 35020} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=7 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=7 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=7 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=7 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=7 table=0 pri=0 match={} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=8 table=0 pri=65535 match={"dl_dst": "01:80:c2:00:00:0e", "dl_type": 35020} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=8 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=8 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=8 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=8 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=8 table=0 pri=0 match={} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=9 table=0 pri=65535 match={"dl_dst": "01:80:c2:00:00:0e", "dl_type": 35020} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=9 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=9 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=9 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=9 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=9 table=0 pri=0 match={} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        61 rule(s) listed: 61 dated inside the window,
+  XX        0 with age=UNKNOWN. the dated ones are SUSPECTED by time only -- a
+  XX        rule has no owner and its cookie is 0 everywhere, so anything installed
+  XX        in that window is listed, whoever installed it. an UNKNOWN one is not a
+  XX        finding at all: it is a rule this tool could not place.
+  te     window 2026-09-05 19:38:31 -> now (588377s)
+  XX        rule  dpid=1 table=0 pri=65535 match={"dl_dst": "01:80:c2:00:00:0e", "dl_type": 35020} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=1 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=1 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=1 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=1 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=1 table=0 pri=1 match={"dl_type": 2048, "nw_dst": "10.99.99.99"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=1 table=0 pri=0 match={} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=10 table=0 pri=65535 match={"dl_dst": "01:80:c2:00:00:0e", "dl_type": 35020} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=10 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=10 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=10 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=10 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=10 table=0 pri=0 match={} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=2 table=0 pri=65535 match={"dl_dst": "01:80:c2:00:00:0e", "dl_type": 35020} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=2 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=2 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=2 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=2 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=2 table=0 pri=0 match={} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=3 table=0 pri=65535 match={"dl_dst": "01:80:c2:00:00:0e", "dl_type": 35020} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=3 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=3 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=3 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=3 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=3 table=0 pri=0 match={} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=4 table=0 pri=65535 match={"dl_dst": "01:80:c2:00:00:0e", "dl_type": 35020} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=4 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=4 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=4 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=4 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=4 table=0 pri=0 match={} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=5 table=0 pri=65535 match={"dl_dst": "01:80:c2:00:00:0e", "dl_type": 35020} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=5 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=5 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=5 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=5 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=5 table=0 pri=0 match={} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=6 table=0 pri=65535 match={"dl_dst": "01:80:c2:00:00:0e", "dl_type": 35020} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=6 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=6 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=6 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=6 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=6 table=0 pri=0 match={} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=7 table=0 pri=65535 match={"dl_dst": "01:80:c2:00:00:0e", "dl_type": 35020} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=7 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=7 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=7 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=7 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=7 table=0 pri=0 match={} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=8 table=0 pri=65535 match={"dl_dst": "01:80:c2:00:00:0e", "dl_type": 35020} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=8 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=8 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=8 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=8 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=8 table=0 pri=0 match={} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=9 table=0 pri=65535 match={"dl_dst": "01:80:c2:00:00:0e", "dl_type": 35020} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        rule  dpid=9 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.1"} actions=["OUTPUT:1"]  installed 8s ago
+  XX        rule  dpid=9 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.2"} actions=["OUTPUT:2"]  installed 8s ago
+  XX        rule  dpid=9 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.3"} actions=["OUTPUT:4"]  installed 8s ago
+  XX        rule  dpid=9 table=0 pri=10 match={"dl_type": 2048, "nw_dst": "10.0.0.4"} actions=["OUTPUT:3"]  installed 8s ago
+  XX        rule  dpid=9 table=0 pri=0 match={} actions=["OUTPUT:CONTROLLER"]  installed 14s ago
+  XX        61 rule(s) listed: 61 dated inside the window,
+  XX        0 with age=UNKNOWN. the dated ones are SUSPECTED by time only -- a
+  XX        rule has no owner and its cookie is 0 everywhere, so anything installed
+  XX        in that window is listed, whoever installed it. an UNKNOWN one is not a
+  XX        finding at all: it is a rule this tool could not place.
+
+    NOT deleted, and nothing here deletes them.
+    a lock heals: it expires at its TTL and the next acquire is told it reclaimed it.
+    a rule does not: no TTL, no owner, no cleanup path. to remove one, by hand:
+      curl -s -X POST -H 'Content-Type: application/json' \
+        -d '{"dpid": <dpid>, "priority": <pri>, "match": <match>}' \
+        http://localhost:8000/ndt/delete_flow_entry
+    tally: 122 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 0 question(s) not answerable
+    and 1 app(s) could not be asked whether they ran here at all: energy (no log channel exists for them -- see above)
+  XX  RESIDUE: the processes are gone and the network is not clean -- rc 4.
+  XX    rc 4 is NOT rc 1: nothing is running, so 'ndt apps stop' has nothing
+  XX    to do. remove the rule by hand (the command is printed above); a held
+  XX    lock frees itself at its TTL.
