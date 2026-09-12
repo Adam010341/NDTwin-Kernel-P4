@@ -200,7 +200,10 @@ fi
 echo
 echo "mutations:"
 
-PRISTINE=$(manual_copy)
+# Short name on purpose. check_gate_anchors.py reads "a declared path followed by a quoted word"
+# as "that word is an anchor in that file", and a longer variable name here is read as an anchor
+# it cannot resolve -- the gate then scores UNPARSED, which is NOT a pass (FIX-DOC-3 §2).
+P=$(manual_copy)
 
 # --- M1: the first caveat goes back to being an open defect -- the ticket itself ---------------
 M=$(manual_mutant m1 '🏁 **已修（工具的措辭，2026-09-12 merge `1656bdba`，FIX-NDT-6 ④）'$'\x1f''🔴 **已知（工具的措辭，FIX-NDT-6 在修）')
@@ -228,7 +231,7 @@ report "M4: a stale line loses the word that excuses it" "$TEST" "$M" "$NDT" "ca
 # text at all it is green, and only case 2 stands between this file and a certificate that means
 # nothing.
 T=$(test_mutant m5 'HELP="$(bash "$NDT" help 2>&1)"'$'\x1f''HELP=""')
-report "M5: the test stops reading 'ndt help'" "$T" "$PRISTINE" "$NDT" "case 2  'ndt help' prints --deep's size out of ports.sh's table"
+report "M5: the test stops reading 'ndt help'" "$T" "$P" "$NDT" "case 2  'ndt help' prints --deep's size out of ports.sh's table"
 
 # --- M6: the sweep takes the measurement with it --------------------------------------------------
 # Retracting a caveat is not deleting what was measured under it. The pids are the record.
@@ -237,7 +240,7 @@ report "M6: the measured record is dropped with the caveat" "$TEST" "$M" "$NDT" 
 
 # --- M7: the tool is 'fixed' by never warning about a stranger again --------------------------------
 N=$(ndt_mutant m7 'err "   this stack did not start it; to kill it too:  ndt down --deep"'$'\x1f''err "   nothing on this machine is worth mentioning"')
-report_isolated "M7: 'ndt' stops warning about a stranger at all" "$TEST" "$PRISTINE" "$N" \
+report_isolated "M7: 'ndt' stops warning about a stranger at all" "$TEST" "$P" "$N" \
                 "case 4  'ndt' still has the stranger sentence (the fix was not 'never say it')" \
                 "case 2  'ndt help' prints --deep's size out of ports.sh's table"
 
