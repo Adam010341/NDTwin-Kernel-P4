@@ -141,11 +141,15 @@ ndt clean           # 只驗不動手；怎麼讀它的 exit code 見下面那�
 
 ⚠️ **這套 rc 只管 `up`／`down`／`clean` 三個動詞。** `ndt status --check`、`ndt check`、
 `ndt apps orphans` 各有自己的表（§2.3、§2.5），**別把碼跨動詞讀**——
-`ndt apps orphans` 的 5 是「行程乾淨、但 residue 查不到」，不是「被拒絕」；
+`ndt apps orphans` 的 5 是「行程乾淨、但 **rules-in-window** 查不到」，不是「被拒絕」；
 判孤兒看 `orphans_verdict.sh` 印的 `VERDICT:`，不看它的 rc。
 <!-- 來源：本單親自跑 `bash tools/test_workflow/ndt help` 讀 up／down／clean 三段（親自讀過）。
      契約本身＝FIX-NDT-8（merge `af5efa4f`，2026-09-12），登記在 KNOWN-ISSUES G-53。
-     釘在 tests/shell/test_manual_rc_table.sh，變異閘門 tests/shell/mutate_manual_rc_table.sh。 -->
+     釘在 tests/shell/test_manual_rc_table.sh，變異閘門 tests/shell/mutate_manual_rc_table.sh。
+     上一行的 rules-in-window：09-12 改名前這裡寫 residue（G-54b），而 `ndt` 今天對這個 5
+     逐字印的是 `NOT CHECKED: the rules-in-window question could not be answered -- rc 5.`
+     （tools/test_workflow/ndt:8040，FIX-DOC-5 親自讀檔）。`ndt clean` 輸出裡的 residue
+     是另一個意思（行程佔 port），那些沒有改。 -->
 
 `ndt down` 分四步印出來（`[0/3] apps` 只在真的有 app 在跑時出現）：
 
