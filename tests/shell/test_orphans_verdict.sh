@@ -159,6 +159,66 @@ network residue (nothing below is deleted)
     tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 0 question(s) not answerable
 EOF
 
+# 🔴 C10-8 (2026-09-12). The column `ndt` prints for processes that carry an app signature and
+# belong to ANOTHER checkout on this machine. Copied from a run of `ndt apps orphans` over two
+# fixtures in a foreign tree (scratch/overnight-2026-09-05/logs/ndt10-0912/green-1-orphans-fixed.log),
+# with the paths shortened. The process half of the report is CLEAN: these lines carry neither of
+# the two sentences it is read from, which is what makes the column a NOTE rather than a verdict.
+mk elsewhere_only <<'EOF'
+  !!  seen elsewhere (not this checkout): 2 process(es)
+  !!      te  pid 1159780  python3 /nonexistent/NDT-TEST-FIXTURE/Traffic-engineering-App.py
+  !!          nothing ties it to /home/adam/Desktop/NDTwin-Kernel (it runs in /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-ndt7-0912)
+  !!      sim  pid 1166836  /nonexistent/NDT-TEST-FIXTURE/simulation_platform_manager 120
+  !!          nothing ties it to /home/adam/Desktop/NDTwin-Kernel (it runs in /tmp/ndt-helper-window-oyNBmC)
+  !!      they carry an app signature and nothing ties them to this checkout, so they are
+  !!      NOT in the verdict and 'ndt down' here does not stop them. Whoever owns that
+  !!      tree stops them. (C10-8, 2026-09-12)
+  ok  no untracked app processes
+
+rules-in-window (nothing below is deleted)
+    lock  routing_lock free
+    lock  graph_lock free
+    lock  power_lock free
+    NOT deleted, and nothing here deletes them.
+    tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 0 question(s) not answerable
+EOF
+
+# The discriminating pair: the same column, in a report that ALSO has an orphan of our own.
+mk elsewhere_and_ours <<'EOF'
+  !!  seen elsewhere (not this checkout): 1 process(es)
+  !!      sim  pid 1166836  /nonexistent/NDT-TEST-FIXTURE/simulation_platform_manager 120
+  !!          nothing ties it to /home/adam/Desktop/NDTwin-Kernel (it runs in /tmp/ndt-helper-window-oyNBmC)
+  !!      they carry an app signature and nothing ties them to this checkout, so they are
+  !!      NOT in the verdict and 'ndt down' here does not stop them. Whoever owns that
+  !!      tree stops them. (C10-8, 2026-09-12)
+  XX  te: pidfile-lost-but-alive -- Traffic-Engineering-App    (CHANGES the network: installs flow rules)
+  XX      pid 1185971  python3 Traffic-engineering-App.py
+  XX      stop it with:  ndt apps stop te
+  XX  1 app(s) are running with nothing tracking them
+
+rules-in-window (nothing below is deleted)
+    lock  routing_lock free
+    lock  graph_lock free
+    lock  power_lock free
+    NOT deleted, and nothing here deletes them.
+    tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 0 question(s) not answerable
+EOF
+
+# The fail-closed side of the same question: a root-owned process this user may not look inside.
+# `ndt` counts it as OURS and says that it could not tell, which is the sentence this reader has
+# to carry (E-7).
+mk attrib_blind <<'EOF'
+  !!  who owns these could NOT be established, so they are counted as this checkout's: sim pid 884317: cannot read /proc/884317/cwd or /proc/884317/fd (uid 0, you are 1000) -- who owns it was NOT established
+  ok  no untracked app processes
+
+rules-in-window (nothing below is deleted)
+    lock  routing_lock free
+    lock  graph_lock free
+    lock  power_lock free
+    NOT deleted, and nothing here deletes them.
+    tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 0 question(s) not answerable
+EOF
+
 # Every P4 fabric, every run: the flow stats carry no clock, so no rule can be placed (W16-3).
 mk p4_undated <<'EOF'
   ok  no untracked app processes
@@ -696,6 +756,30 @@ OUT="$(verdict "$FIX/running" 1)"
 check "  a running orphan is still rc 1 with no stack line" "1" "$(rc_of "$OUT")"
 OUT="$(verdict "$FIX/all_blind" 5)"
 check "  and the all-blind floor still answers 3"         "3" "$(rc_of "$OUT")"
+
+# =================================================================================================
+section "🔴 C10-8 -- another checkout's processes are a NOTE, and ours are still a FAIL"
+# =================================================================================================
+# Measured 2026-09-12 15:05:14 (CELLS-2 window 1). Another worktree of this repo was running
+# tests/shell/test_ndt_helper_apps_window.sh; its fixtures wear an app's argv, `ndt apps orphans`
+# scanned the whole machine, and THIS reader answered NOT CLEAN over a lab that was down and
+# clean. `ndt` now prints those in a column of its own, and the two cells below are the two
+# halves that have to hold at once: the foreign column does not fail the verdict, and a real
+# orphan in the same report still does.
+OUT="$(verdict "$FIX/elsewhere_only" 5)"
+check "  another tree's processes -> rc 0"                "0" "$(rc_of "$OUT")"
+has   "  🔴 and the verdict is CLEAN"                     "VERDICT: CLEAN" "$OUT"
+has   "  the count is carried as a field"                 "elsewhere=2" "$OUT"
+has   "  and as a NOTE, so CLEAN is not read as 'nothing was there'" "belong to ANOTHER checkout" "$OUT"
+OUT="$(verdict "$FIX/elsewhere_and_ours" 1)"
+check "  🔴 ours in the same report -> rc 1"              "1" "$(rc_of "$OUT")"
+has   "  NOT CLEAN, from the process half"                "VERDICT: NOT CLEAN" "$OUT"
+has   "  and theirs is still counted in the field"        "elsewhere=1" "$OUT"
+OUT="$(verdict "$FIX/clean" 0)"
+hasnt "  🔴 a report with no such line gets no field"     "elsewhere=" "$OUT"
+OUT="$(verdict "$FIX/attrib_blind" 5)"
+check "  a pid nobody could attribute -> still rc 0"      "0" "$(rc_of "$OUT")"
+has   "  🔴 and the sentence is carried (E-7)"            "who owns these could NOT be established" "$OUT"
 
 # =================================================================================================
 section "An unreadable report is UNUSABLE, never CLEAN"

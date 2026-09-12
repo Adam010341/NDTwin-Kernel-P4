@@ -291,6 +291,22 @@ fi
 # inferred.
 STACK="$(sed -n 's/.*stack: .*verdict=\([A-Za-z-]*\).*/\1/p' <<<"$REPORT" | tail -1)"
 
+# --- the processes that belong to another checkout ----------------------------------------------
+# 🔴 C10-8, measured 2026-09-12 15:05:14. `ndt apps orphans` scans the whole machine, and this
+# machine runs several checkouts of this repo at once. Until `ndt` learned to separate them, one
+# worktree running tests/shell/test_ndt_helper_apps_window.sh put its fixtures into every other
+# checkout's process half, and THIS file answered NOT CLEAN over a lab that was down and clean --
+# which stopped that night's regression grid.
+#
+# `ndt` now prints them in a column of their own, with neither of the two sentences the process
+# half is read from, so a report carrying this line is already CLEAN by the rules above. What is
+# added here is that the number is not lost: it is a NOTE, the same way "nobody could ask" is.
+#
+# 🔴 Read, never inferred: a report without the line gets NO `elsewhere=` field rather than
+# `elsewhere=0`. Every `ndt` before 2026-09-12 could not have answered this question, and zero
+# is a measurement.
+ELSEWHERE="$(sed -n 's/.*seen elsewhere (not this checkout): \([0-9][0-9]*\) process(es).*/\1/p' <<<"$REPORT" | tail -1)"
+
 # --- did the network half answer ANYTHING? -------------------------------------------------------
 # 🔴 F-OFFLINE-1 §1.11. The tally cannot answer this on its own: `0 lock(s) held` is the same
 # number whether three probes said `free` or three said `NOT CHECKED (http 500)`, and only the
@@ -323,6 +339,7 @@ else
     echo "network=$N_RULES/$N_LOCKS/$N_UNDATED"
     echo "not_answerable=$N_UNANSWERABLE"
 fi
+[[ -n "$ELSEWHERE" ]] && echo "elsewhere=$ELSEWHERE"
 if [[ -n "$STACK" ]]; then
     echo "stack=$STACK"
 else
@@ -345,6 +362,15 @@ if (( N_UNANSWERABLE > 0 )); then
     echo "NOTE: $N_UNANSWERABLE question(s) not answerable -- 'nobody asked', NOT 'the network is"
     echo "      clean'. A NOTE and not a FAIL (Adam 2026-09-10)."
 fi
+if [[ -n "$ELSEWHERE" ]] && (( ELSEWHERE > 0 )); then
+    echo "NOTE: $ELSEWHERE process(es) carrying an app signature belong to ANOTHER checkout on this"
+    echo "      machine and are not in this verdict -- 'ndt' names them and their reason above."
+    echo "      They are real and somebody owns them; that somebody is not this lab. (C10-8)"
+fi
+# The pids `ndt` could not attribute either way. Quoted rather than counted, because the sentence
+# is the finding: they were counted as THIS checkout's, which is the fail-closed side.
+grep -F -- 'who owns these could NOT be established' <<<"$REPORT" \
+    | sed 's/^[[:space:]]*!![[:space:]]*/NOTE: /'
 if (( N_UNDATED > 0 )); then
     echo "NOTE: $N_UNDATED rule(s) could not be dated -- a rule this tool could not place, not a"
     echo "      finding. On a P4 fabric this is EVERY rule (W16-3). A NOTE and not a FAIL."

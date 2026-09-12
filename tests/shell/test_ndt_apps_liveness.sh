@@ -105,10 +105,17 @@ cleanup_fixtures() {
 }
 trap cleanup_fixtures EXIT INT TERM
 
+# spawn_fixture <argv0> [cwd] -- a process wearing that command line; echo its pid.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 C10-8 (2026-09-12): the cwd defaults to $TMPROOT, which is this suite's $REPO, and that is
+# load-bearing rather than tidy. `ndt` now asks whether a scanned pid belongs to THIS checkout
+# before it may be counted or signalled (proc_checkout), and a fixture inherits the cwd of the
+# tree this suite was launched from -- which is another checkout as far as $REPO is concerned.
 spawn_fixture() {
-    local want="$1" pid i
+    local want="$1" dir="${2:-$TMPROOT}" pid i
     local -a argv=()
-    ( exec -a "$want" sleep "$FIXTURE_TTL" ) >/dev/null 2>&1 </dev/null &
+    ( cd "$dir" && exec -a "$want" sleep "$FIXTURE_TTL" ) >/dev/null 2>&1 </dev/null &
     pid=$!
     echo "$pid" >> "$FIXTURE_REG"
     for i in 1 2 3 4 5 6 7 8 9 10; do
