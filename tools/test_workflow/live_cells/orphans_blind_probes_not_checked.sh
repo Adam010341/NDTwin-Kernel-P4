@@ -23,13 +23,18 @@ source "$HERE/_cell_lib.sh"
 cell_observe() {
     local d="$1"
     cell_write_ids "$d"
-    # The report `ndt apps orphans` prints for this state, from ndt's own two print sites
-    # (ndt:5442 for the probe line, ndt:5561-5562 for the tally). Byte-for-byte the `all_blind`
-    # fixture of tests/shell/test_orphans_verdict.sh, so the two instruments cannot drift apart.
+    # The report `ndt apps orphans` prints for this state, from ndt's own two print sites (the
+    # lock probe line and the tally). Byte-for-byte the `all_blind` fixture of
+    # tests/shell/test_orphans_verdict.sh, so the two instruments cannot drift apart -- and that
+    # suite now CHECKS its synthetic fixtures' sentences against ndt's source, which is what
+    # caught this text still saying `network residue` and `the residue question` on 2026-09-12,
+    # a day after FIX-NDT-9 renamed that half to `rules-in-window`. The rename changes nothing
+    # this cell judges (the verdict comes from the tally and the process half, and NOTE-WHY
+    # matches `NOT CHECKED` either way) -- which is precisely why nothing went red for a day.
     cat > "$d/orphans.txt" <<'EOF'
   ok  no untracked app processes
 
-network residue (nothing below is deleted)
+rules-in-window (nothing below is deleted)
   !!    lock  routing_lock NOT CHECKED (http 500)
   !!    lock  graph_lock NOT CHECKED (http 500)
   !!    lock  power_lock NOT CHECKED (http 500)
@@ -42,7 +47,7 @@ network residue (nothing below is deleted)
     NOT deleted, and nothing here deletes them.
     (no app had a datable window in this run)
     tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 3 question(s) not answerable
-  !!  NOT CHECKED: the residue question could not be answered -- rc 5.
+  !!  NOT CHECKED: the rules-in-window question could not be answered -- rc 5.
   !!    this is not 'the network is clean'. see the lines above for which
   !!    reading failed. (KNOWN-ISSUES G-12)
 EOF

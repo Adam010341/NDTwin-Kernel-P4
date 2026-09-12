@@ -90,14 +90,24 @@ verdict() { local out rc; out="$(bash "$V" "$@" 2>&1)"; rc=$?; printf '%s\nRC=%s
 rc_of()   { sed -n 's/^RC=//p' <<<"$1"; }
 
 # --- fixtures -------------------------------------------------------------------------------
-# The shapes `ndt` actually prints. The process half comes from apps_orphans (ndt:5572-5658), the
-# network half from residue_report's tally line (ndt:5561).
+# The shapes `ndt` actually prints. The process half comes from apps_orphans, the network half
+# from residue_report's tally line.
+#
+# 🔴 Two kinds of fixture live here and the difference decides whether one may be edited:
+#   SYNTHETIC  typed out to stand for what `ndt` prints. They have to keep up with `ndt` -- the
+#              flow-table half was renamed `residue` -> `rules-in-window` on 2026-09-12 and these
+#              carried the retired word for a day without anything going red. The section
+#              "the synthetic fixtures are QUOTATIONS" at the end is what notices next time.
+#   CAPTURED   copied verbatim out of a dated live log, named in the block's own comment
+#              (live_a7, kernel_down, kernel_down_running, no_residue_half). They are evidence of
+#              what `ndt` printed THEN and are never reworded -- `kernel_down` in particular is
+#              the exact report this reader once answered UNUSABLE over.
 mk() { cat > "$FIX/$1"; }   # mk <name> <<'EOF' ... EOF
 
 mk clean <<'EOF'
   ok  no untracked app processes
 
-network residue (nothing below is deleted)
+rules-in-window (nothing below is deleted)
     lock  routing_lock free
     lock  graph_lock free
     lock  power_lock free
@@ -114,7 +124,7 @@ mk running <<'EOF'
   XX    stop it with:  ndt apps stop te
   XX  1 app(s) are running with nothing tracking them
 
-network residue (nothing below is deleted)
+rules-in-window (nothing below is deleted)
     lock  routing_lock free
     lock  graph_lock free
     lock  power_lock free
@@ -125,7 +135,7 @@ EOF
 mk one_rule <<'EOF'
   ok  no untracked app processes
 
-network residue (nothing below is deleted)
+rules-in-window (nothing below is deleted)
     lock  routing_lock free
     lock  graph_lock free
     lock  power_lock free
@@ -139,7 +149,7 @@ EOF
 mk one_lock <<'EOF'
   ok  no untracked app processes
 
-network residue (nothing below is deleted)
+rules-in-window (nothing below is deleted)
   XX    lock  routing_lock HELD -- held_by_lease=4, frees itself in 30s (TTL)
     lock  graph_lock free
     lock  power_lock free
@@ -151,7 +161,7 @@ EOF
 mk blind_channel <<'EOF'
   !!  no untracked app processes found, but a channel was blind: sim: fd channel: CANNOT READ /proc/884317/fd (root process) -- not checked
 
-network residue (nothing below is deleted)
+rules-in-window (nothing below is deleted)
     lock  routing_lock free
     lock  graph_lock free
     lock  power_lock free
@@ -223,12 +233,12 @@ EOF
 mk p4_undated <<'EOF'
   ok  no untracked app processes
 
-network residue (nothing below is deleted)
+rules-in-window (nothing below is deleted)
     lock  routing_lock free
     lock  graph_lock free
     lock  power_lock free
     sim    window 2026-09-10 16:35:02 -> now (31s)
-  !!      CANNOT WINDOW -- this plane's flow stats carry no time axis.
+  !!      CANNOT WINDOW -- the P4 plane synthesises flow stats (proxy_agent/ryu_flow_stats.py) and they carry NO install time.
   XX      40 rule(s) listed: 0 dated inside the window, 40 with age=UNKNOWN.
     NOT deleted, and nothing here deletes them.
     tally: 0 dated rule(s) in a window, 0 lock(s) held, 40 rule(s) that could not be dated, 0 question(s) not answerable
@@ -318,7 +328,7 @@ EOF
 mk no_tally <<'EOF'
   ok  no untracked app processes
 
-network residue (nothing below is deleted)
+rules-in-window (nothing below is deleted)
     lock  routing_lock free
     lock  graph_lock free
 EOF
@@ -351,7 +361,7 @@ EOF
 mk all_blind <<'EOF'
   ok  no untracked app processes
 
-network residue (nothing below is deleted)
+rules-in-window (nothing below is deleted)
   !!    lock  routing_lock NOT CHECKED (http 500)
   !!    lock  graph_lock NOT CHECKED (http 500)
   !!    lock  power_lock NOT CHECKED (http 500)
@@ -364,7 +374,7 @@ network residue (nothing below is deleted)
     NOT deleted, and nothing here deletes them.
     (no app had a datable window in this run)
     tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 3 question(s) not answerable
-  !!  NOT CHECKED: the residue question could not be answered -- rc 5.
+  !!  NOT CHECKED: the rules-in-window question could not be answered -- rc 5.
   !!    this is not 'the network is clean'. see the lines above for which
   !!    reading failed. (KNOWN-ISSUES G-12)
 EOF
@@ -374,7 +384,7 @@ EOF
 mk partial_blind <<'EOF'
   ok  no untracked app processes
 
-network residue (nothing below is deleted)
+rules-in-window (nothing below is deleted)
     lock  routing_lock free
   !!    lock  graph_lock NOT CHECKED (http 500)
   !!    lock  power_lock NOT CHECKED (http 500)
@@ -392,7 +402,7 @@ EOF
 mk all_blind_says_free <<'EOF'
   ok  no untracked app processes
 
-network residue (nothing below is deleted)
+rules-in-window (nothing below is deleted)
   !!    lock  routing_lock NOT CHECKED (http 500 -- no lease was free
   !!    lock  graph_lock NOT CHECKED (http 500 -- no lease was free
   !!    lock  power_lock NOT CHECKED (http 500 -- no lease was free
@@ -409,7 +419,7 @@ EOF
 mk locks_blind_window_read <<'EOF'
   ok  no untracked app processes
 
-network residue (nothing below is deleted)
+rules-in-window (nothing below is deleted)
   !!    lock  routing_lock NOT CHECKED (http 500)
   !!    lock  graph_lock NOT CHECKED (http 500)
   !!    lock  power_lock NOT CHECKED (http 500)
@@ -429,7 +439,7 @@ stack
   !!  HALF A STACK. the two halves disagree: one of the kernel and the data plane
   !!  is there and the other is not.
 
-network residue (nothing below is deleted)
+rules-in-window (nothing below is deleted)
     lock  routing_lock free
     lock  graph_lock free
     lock  power_lock free
@@ -447,7 +457,7 @@ stack
   !!  HALF A STACK. the two halves disagree: one of the kernel and the data plane
   !!  is there and the other is not.
 
-network residue (nothing below is deleted)
+rules-in-window (nothing below is deleted)
   !!  the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked.
   !!  this is not 'the lab is clean'. it is 'nobody asked'. (KNOWN-ISSUES G-12)
 EOF
@@ -462,7 +472,7 @@ stack
           the stack is up. that is not residue -- 'apps orphans' is asked before a
           teardown as well as after it.
 
-network residue (nothing below is deleted)
+rules-in-window (nothing below is deleted)
     lock  routing_lock free
     lock  graph_lock free
     lock  power_lock free
@@ -477,14 +487,14 @@ stack
     stack: kernel=down dataplane=none bmv2=0 mininet=0 proxy=down verdict=whole-down
           no kernel and no data plane: nothing of the stack is up.
 
-network residue (nothing below is deleted)
+rules-in-window (nothing below is deleted)
   !!  the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked.
   !!  this is not 'the lab is clean'. it is 'nobody asked'. (KNOWN-ISSUES G-12)
 EOF
 
 # What a caller who forgot `2>&1` collects when an orphan IS running: err() writes to fd 2.
 mk no_process_half <<'EOF'
-network residue (nothing below is deleted)
+rules-in-window (nothing below is deleted)
     lock  routing_lock free
     tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 0 question(s) not answerable
 EOF
@@ -795,6 +805,110 @@ OUT="$(verdict "$FIX/does-not-exist" 0)"
 check "  a missing file -> rc 2"                          "2"  "$(rc_of "$OUT")"
 OUT="$(printf '' | verdict - )"
 check "  an empty report -> rc 2"                         "2"  "$(rc_of "$OUT")"
+
+# =================================================================================================
+section "🔴 the synthetic fixtures are QUOTATIONS, and this is what keeps them true"
+# =================================================================================================
+# [Co-developed with claude code -- Adam]
+# Every `mk` block above that is not marked "verbatim from a live log" is a report somebody typed
+# out to stand for what `ndt apps orphans` prints. Their headers say "the shapes `ndt` actually
+# prints" -- and on 2026-09-12 that had stopped being true without anything going red: FIX-NDT-9
+# renamed the flow-table half from `residue` to `rules-in-window` (Adam, RESIDUE-1 §7-5), and
+# twenty-odd fixtures here still opened with `network residue (nothing below is deleted)` and
+# quoted `NOT CHECKED: the residue question could not be answered`. It was harmless -- this
+# reader keys on `tally:` and on the process half's two sentences, none of which moved -- and
+# that is exactly why nobody noticed. A fixture that lies about its source is a test that
+# measures a report shape which no longer exists.
+#
+# 🔴 What this can and cannot do. It checks that the sentences these fixtures put in `ndt`'s
+# mouth still EXIST in tools/test_workflow/ndt; it cannot check that `ndt` prints them in this
+# arrangement, and no offline reader could. The live cells are what run the real tool. So this is
+# a drift alarm on the wording, and the next rename goes red HERE rather than three weeks later.
+NDT_SRC="$HERE/../../tools/test_workflow/ndt"
+if [[ ! -r "$NDT_SRC" ]]; then
+    t_bad "the fixtures can be checked against ndt" "no readable ndt at $NDT_SRC"
+else
+    # quoted_in_ndt <what> <sentence> -- the sentence has to appear in ndt's source, verbatim.
+    quoted_in_ndt() {
+        if grep -qF -- "$2" "$NDT_SRC"; then t_ok "$1"
+        else t_bad "$1" "not in tools/test_workflow/ndt: [$2]"; fi
+    }
+
+    # 🔴 THE CAPTURES ARE EXEMPT, and the exemption is the point rather than a loophole. These
+    # four fixtures are dated reports copied out of live logs (their `mk` blocks name the log and
+    # the timestamp); they are EVIDENCE of what `ndt` printed on 2026-09-10, not quotations of
+    # what it prints today. Rewording them would destroy the only thing they are for -- and would
+    # make `kernel_down` stop being the report this reader was measured as UNUSABLE over. The
+    # list is spelled out here so that "which fixtures may carry retired wording" is a decision
+    # somebody made rather than a side effect of a pattern.
+    CAPTURED_FIXTURES=(live_a7 kernel_down kernel_down_running no_residue_half)
+    is_captured() { local c; for c in "${CAPTURED_FIXTURES[@]}"; do [[ "$c" == "$1" ]] && return 0; done; return 1; }
+    MISSING_CAPTURE=0
+    for c in "${CAPTURED_FIXTURES[@]}"; do [[ -f "$FIX/$c" ]] || MISSING_CAPTURE=$((MISSING_CAPTURE+1)); done
+    check "every exempted fixture still exists" "0" "$MISSING_CAPTURE"
+
+    # (a) Automatic, over every synthetic fixture on disk: the two line shapes that carry the
+    # half's NAME. These are the lines the 09-12 rename moved, and reading them out of the
+    # fixtures rather than listing them here means a fixture added tomorrow is covered the day it
+    # is added.
+    STALE=0
+    declare -A SEEN_SENTENCE=()
+    for f in "$FIX"/*; do
+        [[ -f "$f" ]] || continue
+        is_captured "${f##*/}" && continue
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            s="${line#"${line%%[![:space:]]*}"}"          # leading whitespace
+            case "$s" in
+                'ok '*|'XX '*|'!! '*) s="${s:3}"; s="${s#"${s%%[![:space:]]*}"}" ;;
+            esac
+            case "$s" in
+                *'(nothing below is deleted)') ;;
+                'NOT CHECKED: the '*'question could not be answered'*) ;;
+                *) continue ;;
+            esac
+            [[ -n "${SEEN_SENTENCE[$s]:-}" ]] && continue
+            SEEN_SENTENCE[$s]="${f##*/}"
+            grep -qF -- "$s" "$NDT_SRC" || STALE=$((STALE+1))
+        done < "$f"
+    done
+    for s in "${!SEEN_SENTENCE[@]}"; do
+        quoted_in_ndt "fixture sentence is still ndt's (${SEEN_SENTENCE[$s]}): ${s:0:46}" "$s"
+    done
+    check "🔴 no fixture quotes a sentence ndt no longer prints" "0" "$STALE"
+
+    # (b) The sentences this reader is BUILT on, listed rather than scanned: if one of them stops
+    # being ndt's, the fixtures are not the only thing that has to change -- the reader's needles
+    # have to change with them, and a green suite over a renamed tool would be the loudest
+    # possible silence. Fragments, not whole lines, wherever ndt interpolates.
+    quoted_in_ndt "ndt still says: no untracked app processes"      "no untracked app processes"
+    quoted_in_ndt "ndt still says: ...are running with nothing tracking them" "app(s) are running with nothing tracking them"
+    quoted_in_ndt "ndt still says: pidfile-lost-but-alive"          "pidfile-lost-but-alive"
+    quoted_in_ndt "ndt still says: ...but a channel was blind"      "no untracked app processes found, but a channel was blind"
+    quoted_in_ndt "ndt still prints the tally's first field"        "dated rule(s) in a window,"
+    quoted_in_ndt "ndt still prints the tally's lock field"         "lock(s) held,"
+    quoted_in_ndt "ndt still prints the tally's undated field"      "rule(s) that could not be dated,"
+    quoted_in_ndt "ndt still prints the tally's unanswerable field" "question(s) not answerable"
+    quoted_in_ndt "ndt still says: no flow entry arrived..."        "no flow entry arrived during that window"
+    quoted_in_ndt "ndt still says: N rule(s) listed:"               "rule(s) listed:"
+    quoted_in_ndt "ndt still says: the kernel is not up (:8000 closed)" "the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked."
+    quoted_in_ndt "ndt still says: NOT CHECKED -- :8000 is closed"  "NOT CHECKED -- :8000 is closed, so no rule and no lock was read"
+    quoted_in_ndt "ndt still says: CANNOT WINDOW"                   "CANNOT WINDOW -- "
+    quoted_in_ndt "ndt still explains WHY a P4 table cannot be windowed" "the P4 plane synthesises flow stats (proxy_agent/ryu_flow_stats.py) and they"
+    quoted_in_ndt "ndt still says: NOT CHECKED (<the kernel's own words>)" "NOT CHECKED ("
+    quoted_in_ndt "ndt still says: ...could not be asked whether they ran here at all" "could not be asked whether they ran here at all"
+    quoted_in_ndt "ndt still says: the window is LOST"              "the window is LOST,"
+    quoted_in_ndt "ndt still prints a stack: line with a verdict"   "stack: kernel="
+    quoted_in_ndt "ndt still says: HALF A STACK"                    "HALF A STACK. the two halves disagree"
+    quoted_in_ndt "ndt still says: seen elsewhere (not this checkout)" "seen elsewhere (not this checkout)"
+
+    # 🔴 The control. Every check above is a grep for something that IS there; a `quoted_in_ndt`
+    # broken into always passing would look identical. This sentence is built to be absent.
+    if grep -qF -- "no untracked app processes were harmed in the making of this fixture" "$NDT_SRC"; then
+        t_bad "the control: a sentence ndt does not print is reported missing" "it matched -- every check above is worthless"
+    else
+        t_ok "the control: a sentence ndt does not print is reported missing"
+    fi
+fi
 
 # =================================================================================================
 section "Plumbing: stdin, and a report captured with colours on"
