@@ -396,6 +396,44 @@ check "  and python is in the surface"           yes \
        && echo yes || echo no)"
 printf '%s\n' "$scan_out" | sed 's/^/           | /'
 
+# 🔴 2026-09-12, AUDIT-SCAN-1 (Adam's ruling on FIX-PROXY-1 §7-6 / FIX-PROXY-2 §7-4).
+# doc/audit/** is a dated record of what was measured on a day: rewriting one to please a lint is
+# falsifying evidence, so it is NOT a scan surface. Some live tooling lives under it anyway for
+# historical reasons, and until today that was ONE hard-coded string in the glob list -- a carve-out
+# nobody could enumerate, date or argue with. It is now a REGISTRY (path, reason, date), and these
+# four cases are what make it one: the registered path is read, everything else under doc/audit is
+# not, the run says how many exceptions it scanned, and an exception that has stopped matching
+# anything is RED rather than silently nothing.
+echo "doc/audit is a record, not a scan surface -- except what is registered"
+auditsurface="$TMPROOT/auditsurface"
+# 🔴 The first path below is verbatim the first entry of AUDIT_EXCEPTIONS in the checker. If the
+# registry changes, this fixture has to change with it -- that coupling IS the assertion, and it is
+# the reason this reads a planted file rather than the real harness: the real harness has no sites
+# left (FIX-PROXY-2 A11 fixed them), so "is it scanned" cannot be answered by "does it report".
+mkdir -p "$auditsurface/doc/audit/2026-08-28_chaos-harness/harness" \
+         "$auditsurface/doc/audit/2026-08-25_large-scale-concurrent"
+printf 'import os\nos.system("pkill -f planted-in-the-registered-exception")\n' \
+    > "$auditsurface/doc/audit/2026-08-28_chaos-harness/harness/planted.py"
+printf 'import os\nos.system("pkill -f planted-in-a-dated-record")\n' \
+    > "$auditsurface/doc/audit/2026-08-25_large-scale-concurrent/planted.py"
+audit_out="$(cd "$auditsurface" && python3 "$BY_NAME" --repo "$auditsurface" 2>&1)"
+check "a registered audit exception IS scanned"  yes \
+    "$(printf '%s\n' "$audit_out" \
+       | grep -qE '^doc/audit/2026-08-28_chaos-harness/harness/planted\.py:[0-9]+: ' \
+       && echo yes || echo no)"
+check "  and the rest of doc/audit is not"       no \
+    "$(printf '%s\n' "$audit_out" \
+       | grep -qE '^doc/audit/2026-08-25_large-scale-concurrent/planted\.py:[0-9]+: ' \
+       && echo yes || echo no)"
+check "  and the run says how many it scanned"   yes \
+    "$(printf '%s\n' "$audit_out" | grep -qF 'registered audit exceptions scanned' \
+       && echo yes || echo no)"
+# The registry's OTHER direction, the one REGISTERED already has: an entry that matches nothing has
+# rotted, and a rotted entry is a carve-out nobody is reading. $pysurface has no doc/audit at all.
+check "an exception matching nothing is reported" yes \
+    "$(printf '%s\n' "$pysurface_out" | grep -qF 'AUDIT EXCEPTION MATCHES NOTHING' \
+       && echo yes || echo no)"
+
 echo "the suite reaps its own fixtures"
 check "no fixture survives this run"             0 "$(reap)"
 

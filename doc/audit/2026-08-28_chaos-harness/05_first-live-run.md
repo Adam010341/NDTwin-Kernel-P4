@@ -76,6 +76,17 @@ passed, because I would have written down what I believed rather than what the k
 last check is the mutation gate: it confirms the numerator still tracks a switch going down, so
 the fix did not turn INV-01 into a constant PASS.
 
+🔴 **2026-09-12 (FIX-PROXY-2 A11): INV-01's denominator changed, so no PASS count on this page is
+comparable across that date.** The independent half used to be `pgrep -cf simple_switch_g[r]pc` --
+every process whose *command line* mentions the binary, which counts another session's fabric, a
+`tail -f` on a switch log and an open editor; it is now the switches **this** fabric declared in
+`p4_testbed_topo.MANIFEST_PATH` that are still alive (pid -> `/proc/<pid>/cmdline`, `basename
+argv[0]`). Two consequences: a bmv2 started by hand outside the topology is no longer visible to
+the invariant, and a null round on a machine with **no fabric at all** turns from **PASS (0 vs 0)**
+into **SKIPPED** (`ManifestUnreadable` -> `process count unavailable`), because 0 and "every switch
+died" were the same number read two ways. The "false-positive floor 0" above was measured on a live
+fabric and still stands; a 0 counted on an empty machine after this date does not exist any more.
+
 ## H-2 🔴 G1 never ran the invariant it existed to validate — and printed "FIRED"
 
 `gate_g1_controls` applied each control, called `ctl.verify()`, and reported **FIRED**. But

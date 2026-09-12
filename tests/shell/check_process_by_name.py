@@ -99,6 +99,22 @@ verdict compares the set FOUND against the set REGISTERED in both directions, so
 red and a registered site that has been fixed is also red -- the registry cannot rot into an
 excuse.
 
+=================================================================================================
+doc/audit/** IS NOT A SCAN SURFACE, and the exceptions are a registry (2026-09-12, AUDIT-SCAN-1)
+=================================================================================================
+A directory under doc/audit is a dated record of what was measured on a day. Editing one so that a
+lint goes green is falsifying evidence, so the rule is: it is not scanned. Both halves draw that
+line -- SUITE_GLOBS names only tools/test_workflow and tests/shell.
+
+Live tooling lives there anyway, because it was written on the day of a round and never moved out,
+and live tooling is exactly what this rule is for. Until 2026-09-12 that carve-out was one
+hard-coded string inside PY_GLOBS under a comment reading "the one exception is". AUDIT_EXCEPTIONS
+replaces it with a list of (glob, why it is live, the day it was registered), checked in both
+directions the way REGISTERED is: an entry whose glob matches nothing is reported and the run exits
+1, because a carve-out that reads no files is a hole with a comment over it. The membership test is
+"does the LIVE tree run it" -- something under tests/, tools/, p4_proxy/ or src/ executes or mutates
+the file -- not "is it useful" and not "does something cite it".
+
 KNOWN LIMITS (documented rather than papered over -- a lint, not a proof)
  * Shell and python, by file extension, within the globs below. `tools/test_workflow/ndt` has
    no extension and looks simple_switch_grpc up with `ps -eo args= | grep -o` twice; it is
@@ -134,10 +150,8 @@ NOT_CHECKED = "NOT CHECKED: "
 SUITE_GLOBS = ("tools/test_workflow/*.sh", "tests/shell/*.sh")
 
 # 🔴 The python surface. Live code and the suites that test it -- the same line the shell half
-# draws. `doc/audit/**` is a dated record of what was measured on a day, and rewriting one to
-# please a lint would be falsifying evidence; the one exception is the chaos harness, which
-# lives under doc/audit for historical reasons but is LIVE TOOLING -- tests/python/test_chaos_*
-# and tests/shell/mutate_chaos_* are its suites and its mutation gates, and this tree runs them.
+# draws. `doc/audit/**` is NOT here and is not a scan surface: it is a dated record of what was
+# measured on a day, and rewriting one to please a lint would be falsifying evidence.
 # `p4_proxy/reference/` is vendored third-party source, not ours to hold to our rules.
 PY_GLOBS = (
     "p4_proxy/mininet/*.py",
@@ -150,8 +164,49 @@ PY_GLOBS = (
     "tools/twin_audit/*.py",
     "tests/python/*.py",
     "tests/shell/*.py",
-    "doc/audit/2026-08-28_chaos-harness/harness/*.py",
 )
+
+# 🔴 The exceptions to "doc/audit/** is not a scan surface", as (glob, why, registered-on).
+#
+# Some LIVE TOOLING lives under doc/audit for historical reasons -- it was written on the day of a
+# round and never moved out -- and a live tool is exactly what this rule is for. Until 2026-09-12
+# the one such tool was a hard-coded string in PY_GLOBS above, sitting in a comment that said "the
+# one exception is". That is a carve-out nobody can enumerate, date, or disagree with: the next
+# person to need one adds a second string, and the rule becomes whatever the glob list happens to
+# say. So it is a REGISTRY, on the same terms as REGISTERED below -- every entry carries the reason
+# it is live and the day someone decided that -- and it is checked in BOTH directions: an entry
+# whose glob matches nothing has rotted (the tool moved, or was deleted) and is reported, because a
+# carve-out that reads no files is a hole with a comment over it.
+#
+# 🔴 THE TEST for this list is not "is it useful", it is: does the LIVE tree run it? Something in
+# tests/, tools/, p4_proxy/ or src/ has to execute or mutate the file -- not cite it, not link to
+# it. A dated instrument that another dated round happened to re-run is still a record.
+#
+# AUDIT-SCAN-1 (2026-09-12) inventoried every .py under doc/audit that names a process-by-name
+# tool: 13 files, of which 4 are the chaos harness and 1 is cpu_gate.py. Of the other 8, seven
+# name the family only in prose explaining why they do NOT do it; the eighth
+# (2026-08-25_large-scale-concurrent/sample_load.py:28) really does run
+# `subprocess.run(["pgrep", "-x", "ndtwin_kernel"])`. None of the 8 is run by anything live, so
+# all 8 stay out -- a record is not made true or false by a lint. The table is in
+# AUDIT-SCAN-1-SUMMARY §2, and what to do about that one live-looking site is §7 there.
+AUDIT_EXCEPTIONS = (
+    ("doc/audit/2026-08-28_chaos-harness/harness/*.py",
+     "live tooling: tests/python/test_chaos_{invariants_method,runner_wiring,opt_in_all_actions,"
+     "link_blackhole_attach,c07_control}.py and tests/shell/mutate_chaos_*.sh are its suites and "
+     "its mutation gates, and this tree runs them",
+     "2026-09-11"),
+    ("doc/audit/2026-08-31_sampling-ceiling-after-merge/cpu_gate.py",
+     "live tooling: tests/python/test_cpu_gate_lifetime.py imports THIS path with "
+     "importlib.spec_from_file_location (its own docstring: copying it here would test a copy) "
+     "and tests/shell/mutate_cpu_gate_lifetime.sh mutates the same path",
+     "2026-09-12"),
+)
+
+
+def audit_exception_globs():
+    """The registered exceptions' globs -- the only part of doc/audit that is a scan surface."""
+    return tuple(pattern for pattern, _why, _since in AUDIT_EXCEPTIONS)
+
 
 # 🔴 The files whose SUBJECT is this rule, and which therefore quote it in their own labels,
 # section headers and fixtures. An instrument that reported these would be reporting itself.
@@ -471,17 +526,30 @@ _ANALYSER_BY_EXTENSION = {".py": python_sites}
 
 
 def scan_tree(repo):
-    """Every script in scope, minus the files whose subject is this rule."""
+    """(found, scanned, exceptions_scanned, rotted) -- every script in scope.
+
+    Minus the files whose subject is this rule. `rotted` is the AUDIT_EXCEPTIONS entries whose
+    glob matched no file at all: the registry's second direction, the same one REGISTERED has.
+    """
     import glob
-    found, scanned = [], 0
-    for pattern in SUITE_GLOBS + PY_GLOBS:
+    # 🔴 doc/audit/** is NOT in this sum. Only the registered exceptions are.
+    surface = SUITE_GLOBS + PY_GLOBS + audit_exception_globs()
+    by_exception = frozenset(audit_exception_globs())
+    found, scanned, exceptions_scanned = [], 0, 0
+    seen = set()
+    for pattern in surface:
         for path in sorted(glob.glob(os.path.join(repo, pattern))):
             rel = os.path.relpath(path, repo)
-            if rel in ABOUT_THE_RULE:
+            if rel in ABOUT_THE_RULE or rel in seen:
                 continue
+            seen.add(rel)
             scanned += 1
+            if pattern in by_exception:
+                exceptions_scanned += 1
             found += scan_file(path, rel=rel)
-    return found, scanned
+    rotted = [entry for entry in AUDIT_EXCEPTIONS
+              if not glob.glob(os.path.join(repo, entry[0]))]
+    return found, scanned, exceptions_scanned, rotted
 
 
 def scan_file(path, rel=None):
@@ -519,8 +587,9 @@ def main(argv):
             scanned += 1
             found += scan_file(path)
         registered = frozenset()          # a named file is being asked about, not audited
+        exceptions_scanned, rotted = 0, []
     else:
-        found, scanned = scan_tree(repo)
+        found, scanned, exceptions_scanned, rotted = scan_tree(repo)
         registered = REGISTERED
 
     for path, line, kind, tool, context in found:
@@ -544,10 +613,17 @@ def main(argv):
     for path, kind, tool in gone:
         print("🔴 REGISTERED BUT GONE: %s %s %s -- fixed? then take it out of REGISTERED, so the "
               "next one cannot hide behind it" % (path, kind, tool))
+    for pattern, why, since in rotted:
+        print("🔴 AUDIT EXCEPTION MATCHES NOTHING: %s (registered %s) -- moved out of doc/audit, "
+              "or deleted? then take it out of AUDIT_EXCEPTIONS, so a carve-out that reads no "
+              "files cannot go on standing for one that did" % (pattern, since))
     if not files:
+        print("check_process_by_name: %d registered audit exceptions scanned (%d file(s) under "
+              "them); doc/audit/** is not a scan surface otherwise"
+              % (len(AUDIT_EXCEPTIONS) - len(rotted), exceptions_scanned))
         print("check_process_by_name: %d file(s) scanned, %d site(s), %d registered, %d new, "
               "%d stale" % (scanned, len(found), len(registered), len(new), len(gone)))
-    return 1 if (new or gone) else 0
+    return 1 if (new or gone or rotted) else 0
 
 
 if __name__ == "__main__":
