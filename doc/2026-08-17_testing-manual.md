@@ -106,8 +106,46 @@ lab
 
 ```bash
 ndt down            # 正常收：apps -> kernel/proxy/Ryu -> topo session -> 掃除
-ndt clean           # 只驗不動手；exit 1 = 還有東西活著
+ndt clean           # 只驗不動手；怎麼讀它的 exit code 見下面那張表
 ```
+
+#### `ndt up`／`ndt down`／`ndt clean` 的 exit code
+
+2026-09-12 起這三個動詞**共用一套 rc**：同一個碼在三個動詞裡是同一個意思。
+**正本是 `ndt help`**（`up`／`down`／`clean` 三段各印一次），下表是它的中文對照；
+**整份手冊只有這一張表**，別處提到 rc 一律指回這裡。
+
+<!-- NDT-RC-TABLE:BEGIN
+     正本＝tools/test_workflow/ndt help 的 up／down／clean 三段（FIX-NDT-8 把表放進 help）。
+     右欄是從那份輸出抄下來的原句，tests/shell/test_manual_rc_table.sh 會拿它去對真的 help。
+     要加行、改字、或在手冊別處再寫一次 rc 之前，先讀那支測試：第二張表就是這次要修的缺陷。 -->
+
+| rc | 意思 | `ndt help` 的原句 |
+|---|---|---|
+| 0 | 量到了，而且乾淨 | `the teardown finished and the machine verified clean` |
+| 1 | 量到了，而且髒 | `something was MEASURED and is still there` |
+| 3 | **沒有東西可量**——閒置的機器、已經收掉的 lab | `THERE WAS NOTHING TO JUDGE` |
+| 5 | **守衛拒絕，機器一個 byte 都沒動** | `A GUARD REFUSED and nothing was torn down` |
+| 2 | 用法錯誤 | `is a usage error` |
+
+<!-- NDT-RC-TABLE:END -->
+
+🔴 **3 不是「乾淨」。** 閒置機器上 `ndt clean` 回 3 並印 `nothing to judge`；已經收掉的 lab
+再 `ndt down` 也回 3。09-12 之前這兩種狀態都回 0，於是對腳本而言「拆掉十台 bmv2 並驗證它們
+都不在了」與「這台機器上從來沒起過 lab」是同一個 byte。
+
+🔴 **5 是「它沒看」。** lab 被別人 claim、claim 裡宣告了 `measuring=`、有量測在跑、
+這個 checkout 的另一個 `ndt down` 還在跑、`NDT_TOPO` 指著另一個網路的 model ⇒ 一律 5，
+而且**什麼都沒做**。以前這些混在 1 裡，所以分不出「去看那台機器」與「等那個 teardown」。
+兩個條件同時成立時（有 teardown 在跑、又有 port 被佔）答案是 **5**，兩件事都會印出來。
+
+⚠️ **這套 rc 只管 `up`／`down`／`clean` 三個動詞。** `ndt status --check`、`ndt check`、
+`ndt apps orphans` 各有自己的表（§2.3、§2.5），**別把碼跨動詞讀**——
+`ndt apps orphans` 的 5 是「行程乾淨、但 residue 查不到」，不是「被拒絕」；
+判孤兒看 `orphans_verdict.sh` 印的 `VERDICT:`，不看它的 rc。
+<!-- 來源：本單親自跑 `bash tools/test_workflow/ndt help` 讀 up／down／clean 三段（親自讀過）。
+     契約本身＝FIX-NDT-8（merge `af5efa4f`，2026-09-12），登記在 KNOWN-ISSUES G-53。
+     釘在 tests/shell/test_manual_rc_table.sh，變異閘門 tests/shell/mutate_manual_rc_table.sh。 -->
 
 `ndt down` 分四步印出來（`[0/3] apps` 只在真的有 app 在跑時出現）：
 
@@ -138,7 +176,7 @@ listener `:6653`／`:6633`、kernel 的 sFlow collector `:6343`（UDP）、bmv2 
 
 🔴 **已知（工具的措辭，FIX-NDT-6 在修）：在你自己**活著的** fabric 上跑 `ndt clean`，
 它會把你這一輪的行程列成 residue，並在清單末尾建議 `ndt down --deep`。**不要照做。**
-fabric 活著時 `ndt clean` 回 rc 1 是正常的（就是上面那句「exit 1 = 還有東西活著」），
+fabric 活著時 `ndt clean` 回 rc 1 是正常的（就是上面那張表的 **1＝量到了，而且髒**），
 要收請用 `ndt down`；`--deep` 是會殺別人行程的動詞。細節與逐字輸出見下面的摺疊區。
 
 <details><summary>什麼時候需要 <code>ndt down --deep</code></summary>
@@ -746,25 +784,53 @@ setup 的一部分，不能是預設值。
 
 ```bash
 ndt down            # 收
-ndt clean           # 證明真的乾淨了；exit 1 = 沒有
+ndt clean           # 驗收；怎麼讀它的 exit code 見 §2.1 那張表
 ```
 
 `ndt down` 約 13 秒。細節見 §2.1（清空和收尾是同一件事）。
 
-🔴 **已知（工具，FIX-NDT-6 在修）：收一個活著的 P4 fabric 時，同一份輸出會同時說兩件相反的話。**
-09-12 實測（`ndt up p4 4` 之後）：`verify clean` 底下五行全 `ok`（含
+🏁 **已修（兩半都修了，2026-09-12）：收一個活著的 P4 fabric 時，同一份輸出曾經同時說兩件相反的話。**
+09-12 02:2x 實測（`ndt up p4 4` 之後）：`verify clean` 底下五行全 `ok`（含
 `ok  ports closed: 8000/8080/8081/6653/6633/6343/30051-30060/9091-9100/9000`）、印綠色 `clean`，
 **緊接著一行** `claim note now says the teardown did not verify clean`，`RC=1`。
 那句話還會**活過這次指令**——之後 `ndt status` 的 `note` 欄逐字：
 `down at 2026-09-12 02:26:12 did NOT verify clean; claim kept -- read 'running' below, not this note`，
 接班的人第一眼看到的就是它。
 
-**這種 rc 1 怎麼判**（同一輪實測的做法）：`ndt clean` 回 **rc 0** 且印 `clean`、
-`ndt apps orphans` 給 `VERDICT: CLEAN`、`ndt status --check` 與你開工時的基線一致
-——三件都過就是已還原，rc 1 照記錄、不照它下結論。三件有任何一件沒過，那才是真的沒收乾淨。
-<!-- 來源：ROLE-11 F6，log hunt-0911/logs/ROLE-11/91-down.log（末六行）、99-final-check.log（note 欄）、
-     92-clean.log（rc 0）、93-orphans-after.log（VERDICT: CLEAN）。🟠 轉述（ROLE-11 log）。
-     工具未改：FIX-NDT-6 ②（rc 看結局不看中途）與 R11-4。 -->
+**rc 那半**由 FIX-NDT-6 ② 修掉（merge `1656bdba`）：`[1/3]` 點名的 bmv2 port 在 `verify clean`
+之後**按號重讀**，rc 跟第二次讀數走 ⇒ 收乾淨的活 P4 fabric 現在回 **0**。
+**已經落到磁碟上那半**由 FIX-NDT-7 ③ 修掉（merge `aab7581e`）：note 描述機器，不再是 rc 的別名。
+⇒ **今天再看到「印了 `clean` 卻 `RC=1`」，那是新缺陷，不是這一條。**
+<!-- 來源：兩個 merge sha 是不是 trunk 的祖先＝本單親自 `git merge-base --is-ancestor` 驗過（都是）；
+     「修好了、現在回 0」本身＝🟠 轉述 KNOWN-ISSUES G-43／G-49 與 00-COMMON-0911-DAY 05:58 那節，
+     本單沒有開 lab 重驗。原本這裡寫「FIX-NDT-6 在修」，是 09-12 05:56 兩顆 merge 之前的話。 -->
+
+**還原判準——三件套。**
+
+<!-- NDT-RESTORE-CRITERION:BEGIN
+     這是整份手冊唯一一段教人怎麼判「還原了沒」的文字。rc 的意思看 §2.1 那張表，
+     這裡只寫怎麼用；tests/shell/test_manual_rc_table.sh 對著 `ndt help` 守它。 -->
+
+1. **`ndt clean` 回 0 或 3。** 兩個都是還原成功——剛收完的 lab 沒有東西可判，那就是 **3**
+   （09-12 之前它回 0，所以舊版手冊寫「要 rc 0」；照舊版做會把一個收乾淨的 lab 判成沒收乾淨）。
+2. **`orphans_verdict.sh` 印 `VERDICT: CLEAN`**（不是讀 `ndt apps orphans` 的 rc——
+   那支的碼是另一套，見 §2.5）。
+3. **`ndt status --check` 與你開工時的基線一致。**
+
+三件都過就是**已還原**。`ndt down` 自己的 rc 用 §2.1 的同一張表讀：**0 或 3** 都算過
+（3 ＝這次 down 開工時機器上就沒有東西可拆），**1** ＝量到髒。
+`ndt clean` 回 **1** ＝量到還有東西在，**還沒還原**。
+`ndt clean` 回 **5** ＝有守衛擋著、**它什麼都沒驗**——先讀它印的是誰擋的（另一個 teardown、
+別人的 claim），等它結束再判；**5 既不是「乾淨」也不是「髒」，不准當成三件套的任何一件通過。**
+
+夜巡的 `live_cells/run_cells.sh` 就是照這個判的（`down` ∈ {0,3}、`clean` ∈ {0,3}、
+`VERDICT: CLEAN`；任何一項不過就 `RESTORE-FAIL`，5 還會印是誰擋的，然後停掉整輪）。
+
+<!-- NDT-RESTORE-CRITERION:END -->
+<!-- 來源：三件套的形狀出自 ROLE-11 F6，log hunt-0911/logs/ROLE-11/91-down.log（末六行）、
+     99-final-check.log（note 欄）、92-clean.log、93-orphans-after.log（VERDICT: CLEAN）＝🟠 轉述。
+     rc 值改口＝FIX-NDT-8（merge `af5efa4f`，2026-09-12，KNOWN-ISSUES G-53）：`ndt clean` 的
+     0→{0,3}、1＝髒、5＝拒絕，與 `live_cells/run_cells.sh` 的 restore 硬判同一套（本單親自讀）。 -->
 
 <details><summary>收到一半被 Ctrl-C 會怎樣（2026-08-21 實測）</summary>
 
