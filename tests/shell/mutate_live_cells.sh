@@ -183,6 +183,115 @@ control() {   # $1 = label, $2 = mutant dir, $3 = the cell whose fixture check m
     fi
 }
 
+# --- the restore DECISION, which is run_cells.sh's and not a judge's ---------------------------
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 FIX-NDT-8, 2026-09-12. The grid's restore is the one part of this directory that decides
+# something without being a cell: after every cell it runs `ndt down`, `ndt clean` and the orphan
+# verdict and rules on whether the next cell may start. Adam's ruling gave the two verbs a
+# vocabulary that can be judged hard again (0 and 3 restored, 1 and 5 not), so the rules are
+# worth pinning -- and the cell oracle above cannot see them, because restore() is not a judge.
+#
+# The probe drives restore() through run_cells.sh's own source seam against a recording fake
+# `ndt` and a fake verdict script. No lab, no `ndt`, no network. What it produces is a
+# FINGERPRINT -- one line per case, "<case>=<rc>" plus "+who" when the refusal was attributed --
+# and a mutation is caught when the fingerprint changes.
+RESTORE_EXPECT='down0-clean0-CLEAN=0
+down3-clean3-CLEAN=0
+down1-clean0-CLEAN=1
+down0-clean1-CLEAN=1
+down5-clean0-CLEAN=1+who
+down0-clean0-NOTCLEAN=1'
+
+restore_fingerprint() {   # <celldir> -> the fingerprint, one case per line
+    local cd_="$1" tree fake out rc case
+    # 🔴 THE SEAM IS CHECKED BEFORE THE SOURCE, and this guard is not theoretical: on 2026-09-12
+    # this probe was pointed at a run_cells.sh that did not have the seam yet, and `source` ran
+    # the WHOLE ROUND -- nine cells' `observe`, against a fake ndt but with their own `sudo -n tc
+    # qdisc add ... netem`, `kill -TERM` and curl calls. Nothing was touched that time (s1-eth1
+    # did not exist, so the netem cells skipped, and the kernel pidfile in the fake tree was
+    # absent, so nothing was signalled) -- but "it skipped" is luck, not a guard. A file without
+    # the seam gets a NOSEAM fingerprint and is never sourced; a mutant that deletes the seam is
+    # then CAUGHT rather than run.
+    if ! grep -q 'RUN_CELLS_LIB_ONLY' "$cd_/run_cells.sh" 2>/dev/null; then
+        for case in "0 0 CLEAN" "3 3 CLEAN" "1 0 CLEAN" "0 1 CLEAN" "5 0 CLEAN" "0 0 NOTCLEAN"; do
+            printf 'NOSEAM-%s\n' "${case// /-}"
+        done
+        return 0
+    fi
+    tree="$BK/rtree"; rm -rf "$tree"; mkdir -p "$tree/tools/test_workflow"
+    fake="$BK/rfake"; rm -rf "$fake"; mkdir -p "$fake"
+    cat > "$tree/tools/test_workflow/ndt" <<'FAKENDT'
+#!/usr/bin/env bash
+case "${1:-}" in
+    down)  cat "$FAKE_DIR/down.out" 2>/dev/null; exit "$(cat "$FAKE_DIR/down.rc")" ;;
+    clean) cat "$FAKE_DIR/clean.out" 2>/dev/null; exit "$(cat "$FAKE_DIR/clean.rc")" ;;
+esac
+exit 0
+FAKENDT
+    cat > "$tree/tools/test_workflow/orphans_verdict.sh" <<'FAKEV'
+#!/usr/bin/env bash
+cat "$FAKE_DIR/verdict.txt"
+exit 0
+FAKEV
+    chmod +x "$tree/tools/test_workflow/ndt" "$tree/tools/test_workflow/orphans_verdict.sh"
+    # The refusal prose a real `ndt down` prints when a guard says no, so the "who blocked it"
+    # half has something to find. Verbatim shape from cmd_down's foreign-claim refusal.
+    printf "  XX  refusing to tear down: the lab is claimed by somebody-else\n  XX  their kernel's pid is in the shared .test_run/pids/\n  XX    pid 4242, started 2026-09-12T12:00:00+0800\n" > "$fake/down.out"
+    : > "$fake/clean.out"
+    # 🔴 `set --` before the source, and it is not tidiness: a sourced script sees the CALLER's
+    # positional parameters, so without it run_cells.sh's own argument loop reads its own path as
+    # an option and exits 2 before restore() is ever defined.
+    for case in "0 0 CLEAN" "3 3 CLEAN" "1 0 CLEAN" "0 1 CLEAN" "5 0 CLEAN" "0 0 NOTCLEAN"; do
+        # 🔴 Each field on its own line, for the reason check_cell's header gives at length.
+        local d_ c_ v_
+        d_="${case%% *}"; c_="$(cut -d' ' -f2 <<<"$case")"; v_="${case##* }"
+        printf '%s\n' "$d_" > "$fake/down.rc"
+        printf '%s\n' "$c_" > "$fake/clean.rc"
+        if [[ "$v_" == CLEAN ]]; then printf 'VERDICT: CLEAN -- nothing of an app is running\n' > "$fake/verdict.txt"
+        else printf 'VERDICT: NOT CLEAN -- two viz JVMs are still running\n' > "$fake/verdict.txt"; fi
+        out="$(FAKE_DIR="$fake" NDT_ROOT="$tree" NDT_OWNER=mutate-live-cells RUN_CELLS_LIB_ONLY=1 \
+               bash -c 'rc_script="$1"; set --
+source "$rc_script" >/dev/null 2>&1
+restore probe
+echo "RC=$?"' _ "$cd_/run_cells.sh" 2>&1)"
+        rc="$(sed -n 's/^RC=//p' <<<"$out" | tail -1)"
+        if grep -q 'who blocked it' <<<"$out"; then rc="${rc}+who"; fi
+        printf 'down%s-clean%s-%s=%s\n' "$d_" "$c_" "$v_" "${rc:-NORC}"
+    done
+}
+
+report_restore() {   # $1 = label, $2 = mutant dir
+    local got
+    MUTATIONS=$((MUTATIONS+1))
+    got="$(restore_fingerprint "$2")"
+    if [[ "$got" == "$RESTORE_BASE" ]]; then
+        SURVIVORS=$((SURVIVORS+1))
+        if [[ -f "$2/.unapplied" ]]; then
+            printf '  SURVIVED %-62s (anchor could not be applied -- the gate cannot find that line any more)\n' "$1"
+            sed 's/^/           /' "$2/.apply.err"
+        else
+            printf '  SURVIVED %-62s (the restore decides exactly the same six ways)\n' "$1"
+        fi
+    else
+        printf '  caught   %-62s (the restore decision changed)\n' "$1"
+        diff <(printf '%s\n' "$RESTORE_BASE") <(printf '%s\n' "$got") | sed 's/^/             /'
+    fi
+}
+
+control_restore() {   # $1 = label, $2 = mutant dir
+    CONTROLS=$((CONTROLS+1))
+    local got
+    got="$(restore_fingerprint "$2")"
+    if [[ "$got" == "$RESTORE_BASE" ]]; then
+        printf '  control  %-62s (the restore decision is unchanged -- as it must be)\n' "$1"
+    else
+        CONTROL_BAD=$((CONTROL_BAD+1))
+        printf '  🔴 CONTROL CAUGHT %-53s (a behaviour-preserving edit moved the decision)\n' "$1"
+        diff <(printf '%s\n' "$RESTORE_BASE") <(printf '%s\n' "$got") | sed 's/^/             /'
+    fi
+}
+
 # =================================================================================================
 echo "(a) baseline: every cell's fixtures must discriminate BEFORE any mutation"
 # =================================================================================================
@@ -215,6 +324,23 @@ if (( CHECKFAIL > 0 )); then
     echo "     against a red baseline -- fix that first."
     exit 2
 fi
+
+# 🔴 The restore's own baseline, and it is compared against a REVIEWED answer rather than
+# against itself: a fingerprint taken from the file under test and then used as the oracle for
+# that file would score every mutation against whatever the file currently does.
+echo "(a2) baseline: run_cells.sh's restore decides the six cases the way Adam ruled"
+CHECKS=$((CHECKS+1))
+RESTORE_BASE="$(restore_fingerprint "$CELLDIR")"
+if [[ "$RESTORE_BASE" == "$RESTORE_EXPECT" ]]; then
+    printf '%s\n' "$RESTORE_BASE" | sed 's/^/  ok       /'
+else
+    CHECKFAIL=$((CHECKFAIL+1))
+    echo "  🔴 the restore does not decide the way this gate was told it does:"
+    diff <(printf '%s\n' "$RESTORE_EXPECT") <(printf '%s\n' "$RESTORE_BASE") | sed 's/^/     /'
+    echo "     mutations prove nothing against a baseline that is already wrong."
+    exit 2
+fi
+echo
 
 # =================================================================================================
 echo "(b) mutations: is the key assertion the thing that catches the old evidence?"
@@ -308,6 +434,18 @@ m=$(mutant m12 "$CELL_URWADIIF" \
     "    a_has   h3_refusal_quotes_the_marker            '.test_run/down.inflight'       \"\$d/up.log\"" \
     '    _a_ok   h3_refusal_quotes_the_marker "(widening: the marker need not be named)"')
 report "M13 (widen)  H3: the marker stops having to be named" "$m" up_refuses_while_a_down_is_in_flight
+# 🔴 The rc assertion, which only became load-bearing on 09-12: until the rc vocabulary existed
+# the pre-fix run exited 1 too (from `a Mininet is already running` on the OVS arm), so this id
+# passed on old/ and new/ alike and discriminated nothing. 5 is the first value that separates a
+# refusal from everything else, and old/ now carries it in EXPECTED-FAILS.
+m=$(mutant m12b "$CELL_URWADIIF" \
+    '    a_eq    h3_up_rc_is_5                    "5"    "$(cat "$d/up.rc" 2>/dev/null)"' \
+    '    :')
+report "M13b (delete) H3: the refusal's exit code is not read (FIX-NDT-8)" "$m" up_refuses_while_a_down_is_in_flight
+m=$(mutant m12c "$CELL_URWADIIF" \
+    '    a_eq    h3_up_rc_is_5                    "5"    "$(cat "$d/up.rc" 2>/dev/null)"' \
+    '    _a_ok   h3_up_rc_is_5 "(widening: any exit code is accepted, including the pre-fix 1)"')
+report "M13c (widen)  H3: the pre-fix 1 is accepted again" "$m" up_refuses_while_a_down_is_in_flight
 
 # --- half_stack_is_not_clean ---
 m=$(mutant m13 "$CELL_HSINC" \
@@ -340,6 +478,49 @@ m=$(mutant m18 "$CELL_LFCBEON" \
 report "M19 (widen)  A1: 'link failure injected' over nothing attached" "$m" link_failure_cuts_both_ends_or_neither
 
 echo
+# --- run_cells.sh's restore: the rules Adam ruled on 09-12 -------------------------------------
+CELL_RUNCELLS="$CELLDIR/run_cells.sh"
+
+# R1: rc 3 stops being a restored lab. "Measured nothing" is the ordinary state between cells --
+# an already-down lab, an assertion with no subject -- so this stops a night round after the
+# first cell that leaves the lab down, which is most of them.
+m=$(mutant r1 "$CELL_RUNCELLS" \
+    '    case "$drc" in
+        0|3) ;;' \
+    '    case "$drc" in
+        0) ;;')
+report_restore "R1  (delete) a down that measured nothing is not a restored lab" "$m"
+
+# R2 (widening): rc 1 is accepted again -- the state this block was in between 09-12 01:09 and
+# today, when the rc could not be judged. Every case stays reported and the grid carries on over
+# a lab with something still running, which is the cell after it measuring somebody else's mess.
+m=$(mutant r2 "$CELL_RUNCELLS" \
+    "        *)   why=\"'ndt down' exited \$drc -- it measured something dirty\" ;;" \
+    "        *)   : ;;")
+report_restore "R2  (widen)  a dirty teardown is recorded and carried on from" "$m"
+
+# R3: a REFUSAL is read as a restored lab. Nothing was torn down at all -- the lab is whatever
+# the cell left it as -- and this is the one rc where carrying on is guaranteed to be wrong.
+m=$(mutant r3 "$CELL_RUNCELLS" \
+    '        5)   why="'"'"'ndt down'"'"' was REFUSED (rc 5) -- nothing was torn down"; blocked=1 ;;' \
+    '        5)   ;;')
+report_restore "R3  (delete) a refused teardown counts as restored" "$m"
+
+# R4: the refusal still stops the grid, and stops saying WHO. A night round that stopped with no
+# attributable reason is the shape the raw directory exists to rescue -- and nobody opens it.
+m=$(mutant r4 "$CELL_RUNCELLS" \
+    '            echo "    who blocked it:" >&2' \
+    '            : >&2')
+report_restore "R4  (delete) the refusal is not attributed" "$m"
+
+# R5 (widening): the orphan verdict stops being read. Both rc halves can be 0 over a machine
+# whose network half still has an app's rule on it -- which is exactly what the verdict is for.
+m=$(mutant r5 "$CELL_RUNCELLS" \
+    "        || why=\"\${why:+\$why; }the orphan verdict is not CLEAN\"" \
+    "        || true")
+report_restore "R5  (widen)  the orphan verdict is not read" "$m"
+
+echo
 # --- controls: behaviour-preserving edits that must NOT be caught ------------------------------
 m=$(mutant c1 "$CELL_OBPNC" \
     '    # 🔴 THE KEY ASSERTION. rc 3 is the whole finding: 0 was the answer that made three failed' \
@@ -355,6 +536,12 @@ m=$(mutant c2 "$CELL_DRPIC" \
     "    a_has  f10_p4_is_not_swallowed          'p44:        out=p4 rc=0'    \"\$d/planes.txt\"
     a_has  f10_ovs_model_still_reads_as_ovs 'ovs4:       out=ovs rc=0'   \"\$d/planes.txt\"")
 control "C2 two assertions swap places" "$m" default_round_plane_is_classified
+# C3 rewords one line of the restore's own explanation. The decision is unchanged, so the
+# fingerprint must be -- a gate that called this a catch would be scoring the diff.
+m=$(mutant c3 "$CELL_RUNCELLS" \
+    '    # The orphan verdict and `ndt clean` are still both read: three readings, all three hard.' \
+    '    # A CONTROL REWROTE THIS COMMENT. Nothing about the decision changed, so nothing may.')
+control_restore "C3 a comment in the restore is rewritten" "$m"
 
 echo
 # =================================================================================================

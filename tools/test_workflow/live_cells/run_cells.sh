@@ -138,37 +138,69 @@ restore() {   # <label> -> 0 clean, 1 not
     # this machine whenever an app ran as root) and not from grep CLEAN alone -- `NOT CLEAN` and
     # `NOT CHECKED` both contain neither. ded00d06's rc 3 is a refusal too.
     #
-    # 🔴 A1-b, 2026-09-12. `ndt down` now carries stack.sh's teardown exit status, and one of the
-    # three things that makes that non-zero is a component that ended on a FATAL signal --
-    # reported out of a `.exit` record on disk and delivered ONCE. So a cell that SIGKILLs a
-    # kernel (or a laptop where systemd-oomd did) makes the restore after the NEXT cell red, and
-    # the grid would stop and blame the cell that inherited it. The down rc is RECORDED and
-    # printed either way; what decides "is the lab restored" is the sweep and the orphan verdict,
-    # the two readings that describe the machine as it is NOW rather than how something ended.
+    # 🔴 2026-09-12, FIX-NDT-8 (Adam, form 1 Q1). BACK TO A HARD JUDGEMENT, on a vocabulary that
+    # can now carry one. Between 09-12 01:09 and today this block RECORDED `ndt down`'s rc and
+    # judged the machine by the sweep and the orphan verdict alone, because that rc had three
+    # sources and one of them -- a component that died of a fatal signal, reported once out of a
+    # .exit record -- can be LAST round's ending, which would have stopped the grid and blamed
+    # the cell that inherited it. `ndt down` and `ndt clean` now answer with one vocabulary:
     #
-    # 🔴 2026-09-12, ROLE-12 then FIX-NDT-6. The sentence that used to stand here -- "the
-    # port-still-held and could-not-stop-it halves of that rc are not lost by this" -- was true
-    # of two halves and silent about a third that did not exist yet in writing: `stack.sh down`
-    # runs in `ndt down`'s step [1/3], BEFORE the bmv2 sweep in [3/3], so over a live P4 fabric
-    # it named the 20 ports of the fabric that teardown was about to remove and exited 1, 7
-    # times out of 7. `ndt down` now re-reads those ports after its own sweep and the rc follows
-    # the second reading, so a live P4 restore is rc 0 again. What still arrives here as
-    # non-zero is the two halves a sweep cannot undo -- a port held by something the stack
-    # STARTED, and a component that ended on a fatal signal -- plus any source this reader
-    # cannot account for. All of them are recorded and printed; "is the lab restored" is still
-    # decided by `ndt clean`, which walks the whole port table, and by the orphan verdict.
-    local downnote=""
-    (( drc != 0 )) && downnote="  🔴 ndt down rc=$drc (recorded; see $rdir/3-down.log)"
-    if (( crc != 0 )) || ! grep -q '^VERDICT: CLEAN' "$rdir/6-verdict-postclean.txt"; then
-        echo "RESTORE-FAIL after $lab: down rc=$drc clean rc=$crc verdict:" >&2
+    #     0  measured, and clean          -> restored
+    #     3  measured NOTHING             -> restored. An already-down lab and an assertion with
+    #                                       no subject are the ordinary state between cells
+    #     1  measured, and DIRTY          -> RESTORE-FAIL. A port still held, something that
+    #                                       would not stop, or a component that ended on a fatal
+    #                                       signal -- and that last one still stops the grid,
+    #                                       which is the point: the next cell must not inherit it
+    #     5  a guard REFUSED              -> RESTORE-FAIL, and the block says WHO blocked it.
+    #                                       Nothing was torn down at all, so the lab is whatever
+    #                                       the cell left it as
+    #
+    # The orphan verdict and `ndt clean` are still both read: three readings, all three hard.
+    local blocked=0 why=""
+    case "$drc" in
+        0|3) ;;
+        5)   why="'ndt down' was REFUSED (rc 5) -- nothing was torn down"; blocked=1 ;;
+        *)   why="'ndt down' exited $drc -- it measured something dirty" ;;
+    esac
+    case "$crc" in
+        0|3) ;;
+        5)   why="${why:+$why; }'ndt clean' was REFUSED (rc 5)"; blocked=1 ;;
+        *)   why="${why:+$why; }'ndt clean' exited $crc -- the machine is not clean" ;;
+    esac
+    grep -q '^VERDICT: CLEAN' "$rdir/6-verdict-postclean.txt" \
+        || why="${why:+$why; }the orphan verdict is not CLEAN"
+    if [[ -n "$why" ]]; then
+        echo "RESTORE-FAIL after $lab: $why" >&2
+        echo "    down rc=$drc  clean rc=$crc" >&2
+        if (( blocked )); then
+            # 🔴 WHO blocked it. A refusal names the pid and what it is protecting, and that is
+            # the one thing a stopped grid needs in its own log -- the raw directory survives,
+            # but the reason a night round stopped should not require opening it.
+            echo "    who blocked it:" >&2
+            grep -hE "refusing to |pid [0-9]+, started |is claimed by |measuring=" \
+                "$rdir/3-down.log" "$rdir/4-clean.log" 2>/dev/null | sed 's/^/      /' >&2
+        fi
         grep '^VERDICT:' "$rdir/6-verdict-postclean.txt" | sed 's/^/    /' >&2
         echo "    raw: $rdir" >&2
         return 1
     fi
+    local note=""
+    [[ "$drc" == 3 || "$crc" == 3 ]] && note="  (3 = measured nothing: the lab was already down)"
     printf 'RESTORE ok  after %-40s down=%s clean=%s %s%s\n' "$lab" "$drc" "$crc" \
-        "$(grep -m1 '^VERDICT:' "$rdir/6-verdict-postclean.txt")" "$downnote"
+        "$(grep -m1 '^VERDICT:' "$rdir/6-verdict-postclean.txt")" "$note"
     return 0
 }
+
+# [Co-developed with claude code -- Adam]
+# A SOURCE SEAM, the same one tools/test_workflow/ndt has and for the same reason: sourced with
+# RUN_CELLS_LIB_ONLY=1 this file defines restore() and stops, so tests/shell/mutate_live_cells.sh
+# can drive the restore DECISION against a recording fake `ndt` instead of against a lab. Without
+# it the only way to exercise this function is a night round, and the rules above -- which rc
+# means restored -- would be the one part of the grid nothing tests. `return` outside a function
+# is legal only in a sourced file, which is exactly when this line is reached with the variable
+# set; executed normally it is never reached with it set.
+[[ -n "${RUN_CELLS_LIB_ONLY:-}" ]] && return 0
 
 # --- the round -----------------------------------------------------------------------------------
 PASS=0; FAIL=0; SKIP=0; TOTAL=0

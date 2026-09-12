@@ -94,7 +94,17 @@ cell_judge() {
     # elsewhere in the same judge is not a needle.
     a_hasnt h3_did_not_reuse_the_fabric             'ok  already up:'               "$d/up.log"
     a_hasnt h3_did_not_verify_a_dying_fabric        'ok  model matches fabric:'     "$d/up.log"
-    a_eq    h3_up_rc_is_1                    "1"    "$(cat "$d/up.rc" 2>/dev/null)"
+    # 🔴 5, and renamed with the value, since 2026-09-12 (FIX-NDT-8, Adam form 5 Q15b): a
+    # REFUSED `ndt up` exits 5 and a bring-up that merely found something dirty still exits 1.
+    # Until today this cell accepted 1 -- and the header above says why that was nearly worthless
+    # here: the pre-fix run ALSO exited 1, from `a Mininet is already running` on the OVS arm, so
+    # the id passed on old/ and on new/ alike. 5 is the first value that separates them.
+    # ⚠️ The `new/` fixture beside this cell was captured on 09-11, under the old contract, and
+    # therefore records rc 1. It has been retired to new-0911-pre-rc-contract/ rather than edited
+    # -- it is captured evidence -- so this cell has NO new/ fixture until the first live round
+    # under the 09-12 contract is captured. tests/shell/mutate_live_cells.sh reports that as
+    # PENDING, which is what it is.
+    a_eq    h3_up_rc_is_5                    "5"    "$(cat "$d/up.rc" 2>/dev/null)"
     secs="$(cat "$d/up.secs" 2>/dev/null)"
     if [[ "$secs" =~ ^[0-9]+$ ]] && (( secs <= 30 )); then
         _a_ok  h3_refusal_is_immediate "refused in ${secs}s"
