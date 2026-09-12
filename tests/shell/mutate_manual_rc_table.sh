@@ -77,6 +77,15 @@ manual_mutant() {   # manual_mutant <tag> <anchor \x1f replacement>
     echo "$out"
 }
 
+# An UNMUTATED copy of the manual, for the mutations that are applied to the test instead.
+# It is a copy and not "$MANUAL" itself because check_gate_anchors.py reads a declared repo path
+# followed by a quoted literal as "anchor in that file", and the case name passed alongside it
+# would be reported as a missing anchor in the manual (100/101, and the cell that is wrong is
+# this gate's own).
+manual_copy() {
+    local out="$BK/manual.pristine.md"; cp "$MANUAL" "$out"; echo "$out"
+}
+
 # A mutated copy of the test itself, run against the REAL manual.
 test_mutant() {   # test_mutant <tag> <anchor \x1f replacement>
     local out="$BK/test.$1.sh"; cp "$TEST" "$out"
@@ -178,7 +187,8 @@ report "M6: the criterion reads the orphans rc, not its VERDICT" "$TEST" "$M" "c
 # vacuously green; case 1 is the only thing standing between this file and a certificate that
 # means nothing.
 T=$(test_mutant m7 'HELP="$(bash "$NDT" help 2>&1)"'$'\x1f''HELP=""')
-report "M7: the test stops reading 'ndt help'" "$T" "$MANUAL" "case 1  'ndt help' still prints a block for 'up' (>= 5 lines)"
+M=$(manual_copy)
+report "M7: the test stops reading 'ndt help'" "$T" "$M" "case 1  'ndt help' still prints a block for 'up' (>= 5 lines)"
 
 # --- M8: a command comment gets its own rc gloss back ----------------------------------------
 M=$(manual_mutant m8 'ndt clean           # 驗收；怎麼讀它的 exit code 見 §2.1 那張表'$'\x1f''ndt clean           # 證明真的乾淨了；exit 1 = 沒有')
