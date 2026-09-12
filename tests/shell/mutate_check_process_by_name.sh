@@ -208,7 +208,12 @@ _DEREGISTERED = (')
 report "M12: the audit-exception registry is emptied" "$m12" \
        "a registered audit exception IS scanned"
 
-m13=$(mutant m13 '    surface = SUITE_GLOBS + PY_GLOBS + audit_exception_globs()'$'\x1f''    surface = SUITE_GLOBS + PY_GLOBS + ("doc/audit/*/*.py", "doc/audit/*/*/*.py")')
+# 🔴 M13's anchor carries the comment line above the surface as well, and M1's does not. They
+# would otherwise be the same string, and check_gate_anchors.py counts one CELL per distinct
+# (file, anchor) -- two mutations sharing an anchor report as one cell, so `ok(N)` would stop
+# matching the mutation count for a reason that has nothing to do with the anchors being sound.
+m13=$(mutant m13 '    # 🔴 doc/audit/** is NOT in this sum. Only the registered exceptions are.
+    surface = SUITE_GLOBS + PY_GLOBS + audit_exception_globs()'$'\x1f''    surface = SUITE_GLOBS + PY_GLOBS + ("doc/audit/*/*.py", "doc/audit/*/*/*.py")')
 report "M13: the rule is reversed -- all of doc/audit is scanned" "$m13" \
        "  and the rest of doc/audit is not"
 
