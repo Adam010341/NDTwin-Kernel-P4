@@ -436,14 +436,20 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
   `links          40 total, 0 down, 0 admin-disabled`（模型宣告 40 條邊，其中 8 條是 host 邊）
   ⇒ 上一行那句「只有 256 link(s) are down 才正常」在這個尺寸上**一條都不適用**。
   那一輪 rc 確實是 1，唯一的 problem 是
-  `the network carries app residue: 60 rule(s) installed inside an app's window`——
+  `the network carries app residue: 60 rule(s) installed inside an app's window`
+  （**那是 09-12 改名前的字**，現在同一件事印 `rules-in-window: N rule(s) …`）——
   🔴 **而那 60 條就是這一輪 ovs4 自己剛裝好的轉送規則**，被一個 **stale 的 `app_viz.pid`**
   框了進去：viz 於 09-11 14:05:43 自己跑完退出、沒有人跑過 `ndt apps stop viz`，pidfile 就留在
   `.test_run/pids/`；pid 死掉之後 `ndt` 改拿**那個 pidfile 的 mtime** 當開窗時刻，而且**右端開口到
   `now`** ⇒ 一個 12.3 小時的窗，把之後任何人裝的規則整碗算進去。工具自己的話逐字：
   `anything installed in that window is listed, whoever installed it`。
-  ⇒ **OVS 上 `--check` 會不會因為 residue 變紅，取決於 `.test_run/pids/` 裡有沒有 stale 的
-  `app_*.pid`，跟 ovs4 這個尺寸無關。** 看到這條 problem，先去問
+  🆕 **09-12 修掉了（FIX-NDT-9 ①，Adam 12:3x 裁）**：pid 已死的 pidfile 開的窗，**右端封在該 app
+  自己 log 的 mtime**（viz 這例＝`14:05:43`）⇒ 那 60 條落在窗外。沒有可用的 log（`energy` 在任何
+  機器上都沒有 log 管道；log 比 pidfile 還舊也算）⇒ **零長視窗**，報告會明說
+  `the window has NO extent … NOT 'this app left nothing'`——**那是「沒有東西可以歸屬」，不是「乾淨」**。
+  pid 活著的窗照舊開到 `now`。**那個 pidfile 本身 `ndt` 還是不會清**（那是另一題）。
+  ⇒ **OVS 上 `--check` 會不會因為 rules-in-window 變紅，取決於 `.test_run/pids/` 裡那個 stale
+  `app_*.pid` 的 app 在窗內有沒有真的裝東西，跟 ovs4 這個尺寸無關。** 看到這條 problem，先去問
   `.test_run/pids/app_*.pid` 指的行程還活不活（`ndt apps orphans` 會把窗的起迄印出來），
   不要先去找誰在網路上留了東西。
   本輪沒有在乾淨機器上觀測過 ovs4 的 `--check`，所以**不宣稱**它會回 rc 0：
@@ -458,10 +464,13 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
      同型 ovs4 在 09-11 的三輪都是 0 條 dated。窗來自 app_viz.pid（mtime 09-11 14:04:25，
      pid 463161 已死）。修法三選項與「要不要清掉那個 pidfile」在 RESIDUE-1 §7，待 Adam。 -->
 
-🆕 **2026-09-07 起 `--check` 多一列 `residue`**（G-12／W16-2）：它會去問「有沒有 app
+🆕 **2026-09-07 起 `--check` 多一列 `rules-in-window`**（G-12／W16-2；**09-12 之前這一列叫
+`residue`**，Adam 12:3x 改名——`residue` 這個字在 `ndt` 裡同時是 `ndt clean` 的
+`XX residue: <proc> holding :<port>`，那是**行程佔 port**、`ndt down` 收得掉的，跟這一列的
+**流表規則**不是同一件事，而這裡什麼都不刪）：它會去問「有沒有 app
 留在網路上的東西」——某個 app 的時間窗內裝的流表規則、還握著的鎖。判準因此多了一條：
 
-| `residue` 那一列說 | 意思 | 對 rc 的影響 |
+| `rules-in-window` 那一列說 | 意思 | 對 rc 的影響 |
 |---|---|---|
 | `none` | 問過了，沒有 | 無 |
 | `N rule(s) inside an app window, M lock(s) HELD` | **有殘留** | **算一個 problem ⇒ rc 1** |
@@ -495,13 +504,13 @@ P4 那邊沒有這個問題，因為 **proxy 不用學、它直接從自己的�
   `/etc/ndtwin-lab.conf` 可改，`ndt` 唯讀地照 helper 同一套信任規則解析），**不是這個 worktree 的**。
 - 🔴 **`energy` 例外：helper 不給它留任何 disk log**（沒有 `script -f`），所以
   「它在這裡跑過沒」**沒有任何管道可以問**。報告會明說 `CANNOT BE ASKED`，
-  `--check` 的 `residue` 列會多印一行「N app(s) could not be asked whether they ran here」。
+  `--check` 的 `rules-in-window` 列會多印一行「N app(s) could not be asked whether they ran here」。
   **這一條不算 problem、不會讓 rc 變 1**（沒有人能對它做任何事，永遠紅的閘門沒人看），
   但也**不會被寫成「沒跑過」**——「查不了」跟「查了沒事」在這份輸出裡長得不一樣。
 - 🔴 **上面那句「別的 checkout 跑過的 app 在這裡永遠沒有窗」對 `sim` 要改口**：窗確實還是只來自
   這個 checkout，**但「它跑過沒」現在是全機器的問題**——helper 的 `KERNEL_DIR` 裡
   `app_sim.log` 非空、而這裡沒有 sim 的 pidfile ⇒ 判定是「**window is LOST**」⇒ `orphans`／
-  `--check` 的 residue 是 **rc 5（NOT CHECKED）**，不是 0。報告會印 `(log read: <路徑>)`，
+  `--check` 的 rules-in-window 是 **rc 5（NOT CHECKED）**，不是 0。報告會印 `(log read: <路徑>)`，
   **看到 5 先看那一行是哪個檔**。要讓它回到 0 只能清掉那個 log，而**那個檔是 root 的**。
   🆕 **09-08（3-51c）起 `ndt` 自己會講，但它清不掉**：在**主 checkout** 上
   `ndt apps trim sim` 印 `cannot truncate <path>: owned by root (helper wrote it); ask the

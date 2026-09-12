@@ -452,8 +452,8 @@ report "M28 (widening): every command is read as ovs" "$m" \
 # M29 restores F2: the help says residue found is rc 1, full stop -- false in the state every
 # round ENDS in, because `ndt down` clears the baseline and the whole report is then rc 3.
 m=$(mutant m29 "$NDT" \
-    '                  residue FOUND is a problem, and it is rc 1 ONLY while there is a' \
-    '                  residue FOUND is a problem (rc 1). and it is rc 1 whenever there is a')
+    '                  rules-in-window FOUND is a problem, and it is rc 1 ONLY while there is a' \
+    '                  rules-in-window FOUND is a problem (rc 1). and it is rc 1 whenever there is a')
 report "M29: help says residue found is always rc 1 (F2)" "$m" \
        "  🔴 rc 1 is scoped to 'while there is a baseline'"
 
@@ -733,6 +733,35 @@ m=$(mutant md9 "$NDT" \
     '                  (an empty lab answers 0 as usual): no fabric, no registry entry in')
 report 'MD9: the down table drops rc 3 (FIX-NDT-8)' "$m" \
        '  🔴 3 is in the down table'
+
+# --- RESIDUE-1 §7-5: one word, two findings, and only one of them moved (Adam, 2026-09-12) ----
+
+# MD10: the --check row goes back to being called `residue`. The code is unchanged; what comes
+# back is a report in which `ndt clean`'s port line and `ndt status --check`'s flow-rule line
+# are the same word, which is how ROLE-11's report quoted both and read as one finding twice.
+m=$(mutant md10 "$NDT" \
+    '        *) printf '\''  %-14s %s\n'\'' "rules-in-window" "none -- 0 rule(s) in any app window, 0 lock(s) held (asked, not assumed)" ;;' \
+    '        *) printf '\''  %-14s %s\n'\'' "residue" "none -- 0 rule(s) in any app window, 0 lock(s) held (asked, not assumed)" ;;')
+report 'MD10: the --check row is called residue again' "$m" \
+       '  all four --check row branches carry the new label'
+
+# MD11 (widening): the rename reaches the PROCESS half too -- a `s/residue/rules-in-window/g`.
+# Every needle the rename added still passes; what breaks is the one thing the ruling kept, and
+# it is what tells a renamed word from a renamed concept.
+m=$(mutant md11 "$NDT" \
+    '                  exit 0 it had something to be about and none of it is residue; 1' \
+    '                  exit 0 it had something to be about and none of it is rules-in-window; 1')
+report 'MD11 (widening): the process half is renamed as well' "$m" \
+       '🔴 and '\''clean'\'' still calls a held port residue'
+
+# MD12: the help stops saying what the word used to cover. The row is renamed and nothing tells
+# an operator reading a 09-11 log that `residue N rule(s)` and this row are the same reading --
+# which is the whole cost of a rename in a project whose reports are read months later.
+m=$(mutant md12 "$NDT" \
+    '                  two findings: this one, and the line '\''clean'\'' prints as' \
+    '                  two things at once, in a way this help does not go into, namely')
+report 'MD12: the help drops what the old word covered' "$m" \
+       '  the help says which two things the word meant'
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)

@@ -785,7 +785,7 @@ has   "  🔴 rc 1 is scoped to 'while there is a baseline'" "it is rc 1 ONLY wh
 has   "  and says what happens without one"              "the whole report is rc 3" "$HELP"
 has   "  naming where they are printed instead"          "everything else this" "$HELP"
 has   "  and that 'ndt down' puts you there"             "clears the baseline" "$HELP"
-has   "  with what to read instead"                      "Read the residue ROW, not the" "$HELP"
+has   "  with what to read instead"                      "Read the rules-in-window ROW, not the" "$HELP"
 #
 # F4: the `apps orphans` table calls itself disjoint. The PROCESS answer wins whenever it is
 # non-zero (cmd_apps orphans: `if (( orc != 0 )); then ... return "$orc"`), and rc 2 is the
@@ -795,7 +795,7 @@ has   "  🔴 the rc table says it is not disjoint"        "THE CODES ARE NOT DI
 has   "  naming which answer wins"                       "PROCESS answer" "$HELP"
 has   "  and why 2 is the ordinary answer here"          "cannot be read and every app the" "$HELP"
 has   "  🔴 and that 4 can be true and unreachable"      "true and unreachable at the same time" "$HELP"
-has   "  with the sentence the tool prints when it is"   "residue rc" "$HELP"
+has   "  with the sentence the tool prints when it is"   "rules-in-window rc" "$HELP"
 has   "  and the reader to use instead"                  "orphans_verdict.sh" "$HELP"
 # 🔴 The claims are checked against the code, not just against themselves: both sentences
 # describe control flow, and a text-only assertion would go on passing if the flow changed.
@@ -985,6 +985,31 @@ check "  🔴 and it is decided by the subject, not by the sweep" "1" \
       "$(grep -c 'if (( down_rc == 0 )) && \[\[ -z "$DOWN_SUBJECT" \]\]; then' "$NDT")"
 check "  🔴 and the claim note has its own sentence for it"     "1" \
       "$(grep -c 'if \[\[ -z "$unverified" && -z "$subject" \]\]; then' "$NDT")"
+
+section "5L. RESIDUE-1 §7-5: one word named two findings, and only one of them moved"
+# 🔴 Adam's ruling 2026-09-12 12:3x. `ndt clean` prints `XX residue: ndtwin_kernel pid 2511227
+# holding :8000` -- a PROCESS holding a port, which `ndt down` removes -- and `ndt status
+# --check` printed `residue N rule(s)` about FLOW RULES, which nothing in this tool deletes and
+# whose only remedy is a delete_flow_entry by hand. ROLE-11's report quoted both, one after the
+# other, and they read as one finding twice. The network half is renamed; the process half keeps
+# the word.
+#
+# 🔴 THIS GROUP IS THE ONE THAT FAILS A BLANKET RENAME, in either direction: a
+# `s/residue/rules-in-window/g` passes every needle above and fails the second half here, and
+# leaving the row alone fails the first half. Both halves are read out of ONE `ndt help`, so
+# they are two claims about the same text and cannot be satisfied separately.
+has   "🔴 the --check row is named rules-in-window"      "'rules-in-window' row" "$HELP"
+hasnt "  and is not called residue any more"            "prints a 'residue' row" "$HELP"
+has   "  the help says which two things the word meant"  "two findings" "$HELP"
+has   "  naming the process half by its printed line"    "residue: <proc> holding" "$HELP"
+has   "🔴 and 'clean' still calls a held port residue"   "none of it is residue" "$HELP"
+has   "  and the teardown refusal still does too"        "listed here as residue" "$HELP"
+# The same pair in the product rather than in its help: the row label and the port line come
+# from different functions, and a rename that reached the wrong one would show up here.
+check "  all four --check row branches carry the new label" "4" \
+      "$(grep -c '"rules-in-window"' "$NDT")"
+check "🔴 and ports.sh still prints the process one" "1" \
+      "$(grep -c "residue: %s holding :%s" "$(dirname "$NDT")/ports.sh")"
 
 # ==========================================================================================
 section "F9. this suite reads its OWN tree, and not the main checkout"

@@ -107,9 +107,18 @@ PY
 }
 mk_entries 9000
 
+# [Co-developed with claude code -- Adam]
+# 🔴 RESIDUE-1 (2026-09-12, Adam's ruling 12:3x). The window a dead pid's pidfile opens is now
+# CLOSED at the app's own log mtime, so the fixture leaves that log behind -- and windows with
+# te rather than energy, because energy is the one app of the five with no log channel on any
+# machine (`ndtwin-lab energy-start` is a bare tmux session, no `script -f`). An energy pidfile
+# therefore seals to a ZERO-LENGTH window, which is the right answer for it and the wrong
+# fixture for a suite about a rule that IS inside a window. Same move group 5L of
+# tests/shell/test_apps_residue.sh made on 2026-09-07, for the same reason.
 started_ago() { : > "$FIX/.test_run/pids/app_$1.pid"
-                touch -d "@$(( $(date +%s) - $2 ))" "$FIX/.test_run/pids/app_$1.pid"; }
-started_ago energy 600
+                touch -d "@$(( $(date +%s) - $2 ))" "$FIX/.test_run/pids/app_$1.pid"
+                printf 'the app wrote this\n' > "$FIX/.test_run/logs/app_$1.log"; }
+started_ago te 600
 
 # --- the seam ------------------------------------------------------------------------------
 # Everything that would describe THIS machine is answered by an FX_ variable; check_up_target,
@@ -165,10 +174,10 @@ rc_of() { sed -n 's/^RC=//p' <<<"$1" | tail -1; }
 section "1. G-12: a rule left inside an app's window makes --check RED"
 mk_entries 300
 OUT="$(run_status --check)"
-has   "🔴 --check prints a residue row"                  "residue" "$OUT"
+has   "🔴 --check prints a rules-in-window row"          "rules-in-window" "$OUT"
 has   "  naming what it found"                           "1 rule(s) inside an app window" "$OUT"
 has   "  and where the detail is"                        "ndt apps orphans" "$OUT"
-has   "🔴 it is listed as a problem"                     "- the network carries app residue" "$OUT"
+has   "🔴 it is listed as a problem"                     "- rules-in-window:" "$OUT"
 check "🔴 and --check exits 1 (it exited 0 over this on 09-05)" "1" "$(rc_of "$OUT")"
 hasnt "  and does not also say ok"                       "check: ok" "$OUT"
 
@@ -178,7 +187,7 @@ section "2. 🔴 the other direction: a clean fabric is still GREEN"
 # read from the other end.
 mk_entries 9000
 OUT="$(run_status --check)"
-has   "it says the network was asked and is clean"       "residue        none" "$OUT"
+has   "it says the network was asked and is clean"       "rules-in-window none" "$OUT"
 has   "  and that it asked rather than assumed"          "asked, not assumed" "$OUT"
 check "🔴 rc 0"                                          "0" "$(rc_of "$OUT")"
 has   "  check: ok"                                      "check: ok" "$OUT"
@@ -193,12 +202,12 @@ section "4. 🔴 'could not check' is said in words -- and is NOT the verdict"
 # rule can be dated, ever. That is a permanent property of the proxy, not a state of the lab.
 record p4
 OUT="$(FX_PLANE=p4 run_status --check)"
-has   "it says NOT CHECKED"                              "residue        NOT CHECKED" "$OUT"
+has   "it says NOT CHECKED"                              "rules-in-window NOT CHECKED" "$OUT"
 has   "🔴 and says what that does not mean"              "this is not 'the network is clean'" "$OUT"
 has   "  naming P4 as the reason it is permanent"        "on P4 that is permanent" "$OUT"
 has   "🔴 and says the locks WERE checked"               "the locks WERE checked" "$OUT"
 check "🔴 but a healthy P4 fabric still passes: rc 0"    "0" "$(rc_of "$OUT")"
-hasnt "  and it is not listed as a problem"              "- the network carries app residue" "$OUT"
+hasnt "  and it is not listed as a problem"              "- rules-in-window:" "$OUT"
 
 # ...and a held lock on P4 IS still residue: locks are kernel state, not flow stats.
 OUT="$(FX_PLANE=p4 FX_LOCKS=held run_status --check)"
@@ -210,13 +219,13 @@ has   "a kernel that is down says NOT CHECKED"           "NOT CHECKED -- :8000 i
 has   "🔴 and not 'clean'"                               "this is not 'the network is clean'" "$OUT"
 
 OUT="$(FX_NO_TABLE=1 run_status --check)"
-has   "an unreadable flow table says NOT CHECKED"        "residue        NOT CHECKED" "$OUT"
-hasnt "🔴 and never 'none'"                              "residue        none" "$OUT"
+has   "an unreadable flow table says NOT CHECKED"        "rules-in-window NOT CHECKED" "$OUT"
+hasnt "🔴 and never 'none'"                              "rules-in-window none" "$OUT"
 
 section "5. 🔴 plain 'ndt status' does not pay for the scan"
 mk_entries 300
 OUT="$(run_status)"
-hasnt "no residue row without --check"                   "residue" "$OUT"
+hasnt "no rules-in-window row without --check"           "rules-in-window" "$OUT"
 check "  and plain status still exits 0"                 "0" "$(rc_of "$OUT")"
 # 🔴 The seam that proves it is the SCAN that is skipped and not merely the printing. The
 # marker is a FILE, not a message: status_residue_row runs residue_report with its output

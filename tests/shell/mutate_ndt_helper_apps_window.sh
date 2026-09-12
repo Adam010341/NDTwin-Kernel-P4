@@ -409,6 +409,59 @@ m=$(mutant m32 "$NDT" \
 report "M32: a start does not supersede the last stop's window" "$m" \
        "🔴 and it cleared the window its last stop left"
 
+# --- RESIDUE-1: the right edge of the window a dead pidfile opens (Adam, 2026-09-12 12:3x) -----
+#
+# The measured defect: `app_viz.pid` was written 2026-09-11 14:04:25, viz exited by itself at
+# 14:05:43, nothing removed the pidfile, and twelve hours later `ndt status --check` over a
+# brand-new OVS fabric reported that fabric's own 60 forwarding rules as residue, rc 1.
+
+# The defect itself: the seal is never asked, so the window runs to now again.
+m=$(mutant m33 "$NDT" \
+    '        if [[ -n "$started" ]] && wseal="$(app_window_seal "$a")"; then' \
+    '        if false; then')
+report "M33: a dead pidfile's window runs to now again (the measured defect)" "$m" \
+       "🔴 the window has a right edge"
+
+# (widening) The seal fires for a LIVE process too, so an app installing rules this second is
+# reported as having had nothing arrive. Sealing everything passes every case M33 owns.
+m=$(mutant m34 "$NDT" \
+    '    if pid="$(app_pidfile_pid "$name" 2>/dev/null)" && [[ -n "$pid" ]]; then return 1; fi' \
+    '    if false; then return 1; fi')
+report "M34 (widening): a running app's window is sealed too" "$m" \
+       "🔴 control: a LIVE pid still windows to now"
+
+# (widening) Every dead app is sealed to a ZERO-length window -- the edge is taken from the
+# pidfile even when the log can date it. "Attribute nothing, ever" also passes M33.
+m=$(mutant m35 "$NDT" \
+    '            echo "$lm pid gone; app log mtime"' \
+    '            echo "$et pid gone; app log mtime"')
+report "M35 (widening): the edge is the pidfile's mtime, never the log's" "$m" \
+       "🔴 control: a rule installed INSIDE the closed window is still listed"
+
+# The line says the window is closed and the rule filter is still given an open one: the report
+# reads right and the number under it is the old one. A verdict and its evidence, disagreeing.
+m=$(mutant m36 "$NDT" \
+    '            wend="${wseal%% *}"; wwhy="${wseal#* }"' \
+    '            wend=""; wwhy="${wseal#* }"')
+report "M36: the sealed edge is printed but never applied" "$m" \
+       "🔴 a rule installed after the app exited is not framed by it"
+
+# An app with no log at all gets no seal, so energy -- the one app the lab helper gives no log
+# channel -- goes back to windowing the whole table.
+m=$(mutant m37 "$NDT" \
+    '    echo "$et pid gone; nothing later than the pidfile to date the end -- zero-length window"' \
+    '    return 1')
+report "M37: no log -> no seal, so the window is open again" "$m" \
+       "🔴 no log -> the window has no extent, and the report says so"
+
+# (widening) The end is taken from a log OLDER than the pidfile, so the window is negative: it
+# excludes every rule there is, which looks exactly like a clean answer.
+m=$(mutant m38 "$NDT" \
+    '        if [[ "$lm" =~ ^[0-9]+$ ]] && (( lm >= et )); then' \
+    '        if [[ "$lm" =~ ^[0-9]+$ ]]; then')
+report "M38 (widening): an end before the start is accepted" "$m" \
+       "🔴 a log older than the pidfile does not invert the window"
+
 # --- the control -------------------------------------------------------------------------------
 # A comment-only edit must NOT turn the suite red. If it does, this gate is measuring "the file
 # changed" rather than "the behaviour changed" and every catch above is uninterpretable.

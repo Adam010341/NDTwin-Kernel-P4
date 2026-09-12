@@ -99,9 +99,24 @@ PY
 mk_entries 300
 
 # app_started_at reads the pidfile's mtime when the process is gone -- which is G-12's case.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 RESIDUE-1 (2026-09-12, Adam's ruling 12:3x): that window now has a RIGHT EDGE, taken from
+# the app's own log, so a fixture for "it was running until a moment ago" has to leave that log
+# where app_evidence_log looks for it. Writing it is not decoration: every app of this project
+# has one before it forks (app_spawn opens it; the helper gives sim a `script -qfa`), and a
+# pidfile with no log anywhere is the state of an app whose end nothing can date -- a zero-length
+# window, which is group 12C of tests/shell/test_ndt_helper_apps_window.sh and not this helper's.
+#
+# 🔴 AND THE WINDOWED APP IS te, NOT energy, for the same reason group 5L moved to te on
+# 2026-09-07: energy is the one app whose log question has no channel -- `ndtwin-lab
+# energy-start` is a bare tmux session with no `script -f`, so there has never been a file on
+# any machine that could close its window. Windowing this suite's rules with it would be
+# asserting the product's behaviour on a state that only exists in this file.
 started_ago() { # <app> <seconds ago>
     : > "$FIX/.test_run/pids/app_$1.pid"
     touch -d "@$(( $(date +%s) - $2 ))" "$FIX/.test_run/pids/app_$1.pid"
+    printf 'the app wrote this\n' > "$FIX/.test_run/logs/app_$1.log"
 }
 no_pidfile() { rm -f "$FIX/.test_run/pids/app_$1.pid"; }
 
@@ -148,8 +163,8 @@ rc_of() { sed -n 's/^RC=//p' <<<"$1" | tail -1; }
 
 # ==========================================================================================
 section "5A. G-12: the lock the dead app is still holding is named, with its lease"
-started_ago energy 600
-OUT="$(run_residue "$LOCK_HELD" energy)"
+started_ago te 600
+OUT="$(run_residue "$LOCK_HELD" te)"
 has   "🔴 the held lock is reported"                     "lock  graph_lock HELD" "$OUT"
 has   "  with the lease the kernel answered 423 with"    "held_by_lease=4" "$OUT"
 has   "  and the TTL that will free it"                  "frees itself in 30s" "$OUT"
@@ -158,12 +173,12 @@ has   "🔴 and the lease is not presented as an owner"    "the lease id is not 
 check "reporting residue does not fail the command"      "0" "$(rc_of "$OUT")"
 
 section "5B. 🔴 a lock that could not be probed is NOT CHECKED -- never 'free'"
-OUT="$(run_residue "$LOCK_BLIND" energy)"
+OUT="$(run_residue "$LOCK_BLIND" te)"
 has   "it says the lock was not checked"                 "lock  routing_lock NOT CHECKED" "$OUT"
 hasnt "🔴 and does not report it as free"                "routing_lock free" "$OUT"
 
 section "5C. G-12's rule is listed, and the baseline it would drown in is not"
-OUT="$(run_residue "$LOCKS_FREE" energy)"
+OUT="$(run_residue "$LOCKS_FREE" te)"
 has   "🔴 the rule installed during the app's window"    "rule  dpid=2" "$OUT"
 has   "  named by priority"                              "pri=96" "$OUT"
 has   "  and by what it does"                            '"OUTPUT:2"' "$OUT"
@@ -175,13 +190,13 @@ hasnt "🔴 nor the pri-0 one"                             "pri=0 " "$OUT"
 has   "  and the report says why it can only suspect"    "cookie is 0 everywhere" "$OUT"
 
 mk_entries 9000
-OUT="$(run_residue "$LOCKS_FREE" energy)"
+OUT="$(run_residue "$LOCKS_FREE" te)"
 has   "🔴 a window with nothing new in it says so plainly" "no flow entry arrived during that window" "$OUT"
 hasnt "  and claims no rule"                             "SUSPECTED rule(s)" "$OUT"
 mk_entries 300
 
 section "5D. 🔴 nothing is deleted, and the report says so and how to do it by hand"
-OUT="$(run_residue "$LOCK_HELD" energy)"
+OUT="$(run_residue "$LOCK_HELD" te)"
 has   "it says the residue was not deleted"              "NOT deleted, and nothing here deletes them" "$OUT"
 has   "  the lock heals on its own"                      "a lock heals" "$OUT"
 has   "🔴 the rule does not -- no TTL, no owner"         "no TTL, no owner, no cleanup path" "$OUT"
@@ -193,28 +208,28 @@ OUT="$(run_residue "$LOCKS_FREE" energy)"
 has   "it says there is no window"                       "no window, so no rule can be dated" "$OUT"
 has   "🔴 and refuses to read that as 'left nothing'"    "NOT 'this app left nothing'" "$OUT"
 hasnt "  no rule is attributed to it"                    "rule  dpid=2" "$OUT"
-started_ago energy 600
+started_ago te 600
 
 section "5F. 🔴 a kernel that is down means NOT CHECKED, never 'the lab is clean'"
-OUT="$(FX_KERNEL_UP=0 run_residue "$LOCKS_FREE" energy)"
+OUT="$(FX_KERNEL_UP=0 run_residue "$LOCKS_FREE" te)"
 has   "it says rules and locks cannot be checked"        "rules and locks CANNOT be checked" "$OUT"
 has   "🔴 and says what that does not mean"              "this is not 'the lab is clean'" "$OUT"
-OUT="$(FX_NO_TABLE=1 run_residue "$LOCKS_FREE" energy)"
+OUT="$(FX_NO_TABLE=1 run_residue "$LOCKS_FREE" te)"
 has   "an empty flow table is 'NOT checked', not 'none'" "rules NOT checked (not 'none found')" "$OUT"
 
 section "5G. 🔴 the wiring -- and the branch the finding was actually measured in"
 # In G-12 the app was killed by pid BEFORE `ndt apps stop` ran, so stop found nothing to stop
 # and returned its truthful no-op. A residue report wired only to the "something was stopped"
 # branch would have printed nothing in the one case it exists for.
-started_ago energy 600
+started_ago te 600
 STOP_OUT="$(bash -c "source '$NDT' >/dev/null 2>&1
 $STUBS
 $LOCK_HELD
 app_stop() { info \"nothing to stop\"; return 2; }
-cmd_apps stop energy
+cmd_apps stop te
 echo \"RC=\$?\"" 2>&1)"
 check "'apps stop' on an already-dead app is still a no-op" "2" "$(rc_of "$STOP_OUT")"
-has   "🔴 and the residue is printed anyway"             "network residue" "$STOP_OUT"
+has   "🔴 and the residue is printed anyway"             "rules-in-window" "$STOP_OUT"
 has   "  naming the lock it left"                        "graph_lock HELD" "$STOP_OUT"
 has   "  and the rule it left"                           "pri=96" "$STOP_OUT"
 
@@ -228,7 +243,7 @@ cmd_apps orphans
 echo \"RC=\$?\"" 2>&1
 }
 ORPH_OUT="$(orphans_with "$LOCK_HELD")"
-has   "'apps orphans' prints the residue too"            "network residue" "$ORPH_OUT"
+has   "'apps orphans' prints the residue too"            "rules-in-window" "$ORPH_OUT"
 has   "  naming the rule"                                "pri=96" "$ORPH_OUT"
 has   "🔴 orphans' own answer about PROCESSES is unchanged" "no untracked app processes" "$ORPH_OUT"
 
@@ -239,13 +254,13 @@ section "5I. W16-1: the exit code. Adam reversed the recommendation -- residue m
 # 7, and the reason is G-12 itself: the finding IS "every existing check went green over it".
 # A residue report whose exit code cannot fail is one more check that goes green.
 check "🔴 a held lock and a rule in the window -> rc 4, not 0" "4" "$(rc_of "$ORPH_OUT")"
-has   "  and it says what 4 means"                       "RESIDUE: the processes are gone and the network is not clean" "$ORPH_OUT"
+has   "  and it says what 4 means"                       "RULES-IN-WINDOW: the processes are gone and the network is not clean" "$ORPH_OUT"
 has   "🔴 and that 4 is not 1 -- nothing is running to stop" "rc 4 is NOT rc 1" "$ORPH_OUT"
 
 mk_entries 9000                       # no rule in the window; locks free
 OUT2="$(orphans_with "$LOCKS_FREE")"
 check "🔴 a clean network -> rc 0 (the codes are not always red)" "0" "$(rc_of "$OUT2")"
-hasnt "  and nothing claims residue"                     "RESIDUE:" "$OUT2"
+hasnt "  and nothing claims residue"                     "RULES-IN-WINDOW:" "$OUT2"
 
 OUT2="$(orphans_with "$LOCK_HELD")"
 check "🔴 a held lock ALONE is still residue -> rc 4"    "4" "$(rc_of "$OUT2")"
@@ -268,10 +283,10 @@ section "5J. W16-3: the P4 plane has no time axis, so nothing on it can be dated
 # Measured 2026-09-07: a rule installed on P4 read duration_sec 0 / duration_nsec 0 twelve and
 # thirty-two seconds later, alongside every pre-existing entry. Believing that 0 dates the
 # whole table to "just installed" -- inside every window, however short.
-OUT="$(FX_PLANE=p4 run_residue "$LOCKS_FREE" energy)"
+OUT="$(FX_PLANE=p4 run_residue "$LOCKS_FREE" te)"
 has   "🔴 it says the plane cannot be windowed"          "CANNOT WINDOW" "$OUT"
 has   "  naming why"                                     "carry NO install time" "$OUT"
-has   "  and what the list below it is"                  "this is the whole flow table, not a residue list" "$OUT"
+has   "  and what the list below it is"                  "this is the whole flow table, not a rules-in-window list" "$OUT"
 has   "🔴 the app's own rule is listed"                  "pri=96" "$OUT"
 has   "🔴 but with age UNKNOWN, not an age"              "age=UNKNOWN (P4 plane" "$OUT"
 hasnt "🔴 and nothing is dated 0 seconds ago"            "installed 0s ago" "$OUT"
@@ -280,13 +295,13 @@ has   "  counted apart from dated ones"                  "0 dated inside the win
 
 OUT2="$(FX_PLANE=p4 orphans_with "$LOCKS_FREE")"
 check "🔴 undatable is rc 5 (NOT CHECKED), never rc 4 (residue)" "5" "$(rc_of "$OUT2")"
-has   "  and it says so in words"                        "NOT CHECKED: the residue question could not be answered" "$OUT2"
+has   "  and it says so in words"                        "NOT CHECKED: the rules-in-window question could not be answered" "$OUT2"
 
 section "5K. W16-3: duration 0/0 is the synthetic signature, whatever the plane says it is"
 # The same table read through a path that did not name the plane. `0` here is not "now": a
 # switch that really installed a rule this second reports duration_nsec != 0.
 mk_entries_p4_zero
-OUT="$(FX_PLANE=unknown run_residue "$LOCKS_FREE" energy)"
+OUT="$(FX_PLANE=unknown run_residue "$LOCKS_FREE" te)"
 has   "🔴 it refuses to window a table with no clock in it" "CANNOT WINDOW" "$OUT"
 has   "  naming the field pair"                          "duration_sec=0 AND duration_nsec=0" "$OUT"
 has   "🔴 every rule is age=UNKNOWN"                     "age=UNKNOWN (duration_sec=0 AND duration_nsec=0" "$OUT"
@@ -302,11 +317,28 @@ json.dump([{"dpid": 5, "flows": {"5": [
      "length": 96, "match": {"in_port": 1}, "packet_count": 0,
      "priority": 96, "table_id": 0}]}}], open(sys.argv[1], "w"))
 PY
-OUT="$(FX_PLANE=ovs run_residue "$LOCKS_FREE" energy)"
+# 🔴 A LIVE pid, not the dead one every other group here uses, and RESIDUE-1 is why. A rule
+# installed THIS SECOND is only inside a window whose right edge is now, and since 2026-09-12 a
+# pidfile whose process is gone is closed at its app's last log write -- which happened earlier
+# in this run, so the dead-pid fixture excluded the rule by a second or two of wall clock. The
+# app that just installed a rule is the app that is still running; the fixture now says so, and
+# /proc is the witness. Killed immediately afterwards, by pid, never by name.
+LIVE_TE_ARGV="/nonexistent/NDT-TEST-FIXTURE/Traffic-engineering-App.py"
+( exec -a "$LIVE_TE_ARGV" sleep 60 ) >/dev/null 2>&1 </dev/null &
+LIVE_TE=$!
+for _i in 1 2 3 4 5 6 7 8 9 10; do
+    [[ "$(tr '\0' '\n' 2>/dev/null < "/proc/$LIVE_TE/cmdline" | head -1)" == "$LIVE_TE_ARGV" ]] && break
+    sleep 0.1
+done
+echo "$LIVE_TE" > "$FIX/.test_run/pids/app_te.pid"
+OUT="$(FX_PLANE=ovs run_residue "$LOCKS_FREE" te)"
 has   "🔴 sec=0 with nsec set is a real just-installed rule, and is DATED" "installed 0s ago" "$OUT"
 hasnt "  no rule line says UNKNOWN"                      "age=UNKNOWN (" "$OUT"
 has   "  and it is counted as dated"                     "1 rule(s) listed: 1 dated inside the window," "$OUT"
 hasnt "  and the plane is not called blind"              "CANNOT WINDOW" "$OUT"
+has   "🔴 and a live pid's window still runs to now"     "-> now" "$OUT"
+kill -KILL "$LIVE_TE" 2>/dev/null
+started_ago te 600
 mk_entries 300
 
 section "5L. an app with no window: a LOST record counts against the code, an absent one does not"
@@ -343,7 +375,7 @@ OUT="$(run_residue "$LOCKS_FREE" energy)"
 has   "🔴 it says the question cannot be asked"          "CANNOT BE ASKED" "$OUT"
 hasnt "🔴 and does not claim it never ran"               "no sign it ever ran here" "$OUT"
 check "  and it is not red on its own"                   "0" "$(rc_of "$(orphans_with "$LOCKS_FREE")")"
-started_ago energy 600
+started_ago te 600
 
 section "5H. lock_probe itself: what the kernel answered, and what it did not"
 # 🔴 Groups 5A-5G stub lock_probe out, so nothing above this line looks at how a 423 is read.
