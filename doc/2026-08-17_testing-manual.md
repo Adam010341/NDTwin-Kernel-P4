@@ -1142,15 +1142,24 @@ contract、12 個沒有**；其中兩筆是 B-6 修法在分支 `fix/w8-declared
 剩下的差額在那次改動之前就在了（trunk `1536ff17` 上算出來是 43／33／10）。
 [Co-developed with claude code -- Adam]
 
-⚠️ **2026-09-07 又動了一次，仍然只在分支上**：Adam 裁 **E-21**，四個 link 端點
+<!-- NDT-MERGED-CAVEAT:BEGIN e21-contract-branch-only bb9301a0 -->
+⚠️ **2026-09-07 又動了一次**：Adam 裁 **E-21**，四個 link 端點
 （`link_failure_detected`／`link_recovery_detected`／`inject_link_failure`／`inject_link_recovery`）
 進契約 ⇒ 🟢 實測 **45／37／8**，剩下的八個是 group／meter 六個 ＋ `get_sflow_stats` ＋
-`inform_all_destination_paths`。分支 `fix/e21-link-endpoints-in-contract`，**未併入 trunk**。
-🔴 **那十七筆檢查描述的是分支不是 trunk**——`inject_*` 兩條路在 trunk 上回 404、
-`link_failure_detected` 在 trunk 上只回 `{"status": "link failure processed"}`，所以對一顆 trunk
-建出來的 kernel 跑會紅，**那是刻意的讀法不是誤報**。其中六筆是 `MUTATE`：它們會**宣告並真的切斷**
+`inform_all_destination_paths`。
+🏁 **那個分支 `fix/e21-link-endpoints-in-contract` 已併入 trunk**（merge `bb9301a0`，2026-09-10）。
+原本寫「未併入 trunk」，是 09-10 14:22 那顆 merge 之前的話。
+🔴 **但那十七筆檢查在併入之後沒有人重跑過。** 它們當初寫的是分支的行為
+（`inject_*` 兩條路在**當時的** trunk 上回 404、`link_failure_detected` 只回
+`{"status": "link failure processed"}`），所以**「對 trunk 跑會紅」這句話現在沒有證據支撐，
+也還沒有人證偽**——要用它們之前先自己對一顆 trunk 建出來的 kernel 跑一次，並把結果寫回這裡。
+其中六筆是 `MUTATE`：它們會**宣告並真的切斷**
 一條 switch↔switch link（MININET 下 `netem loss 100%`，兩端），序列的最後兩步再把它接回來
 ⇒ **不帶 `--allow-mutations` 不會跑到**。
+<!-- 來源：merge `bb9301a0` 是不是 HEAD 的祖先＝FIX-DOC-4 `git merge-base --is-ancestor` 與
+     `git log --merges` 親驗（日期取自該 commit 的 %ad）。🔴 FIX-DOC-4 **沒有建 kernel、沒有跑
+     契約測試**，所以「併入之後那十七筆會不會過」在本檔裡仍然是未量的。 -->
+<!-- NDT-MERGED-CAVEAT:END e21-contract-branch-only -->
 [Co-developed with claude code -- Adam]
 
 ⚠️ **MUTATE 類檢查要 `--allow-mutations` 才會跑**，所以它們很久沒被執行過——2026-08-17

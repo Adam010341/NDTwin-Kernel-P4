@@ -38,10 +38,16 @@
 # DIRECTION TWO IS THE DOCUMENT. Each swept caveat is marked in the manual with
 #     <!-- NDT-MERGED-CAVEAT:BEGIN <id> <merge sha> -->  ...  <!-- NDT-MERGED-CAVEAT:END <id> -->
 # and cases 5a-5c assert, per caveat: it is marked, it says 已修, the sha it names really is an
-# ancestor of HEAD, and it carries no in-progress word. Case 6 is the general sweep -- ANY line
-# of the manual that names a ticket and calls it unfixed, when git says that ticket is merged.
-# Case 6 is the one that will catch the NEXT one of these, in a part of the document this ticket
-# never read.
+# ancestor of HEAD, and it carries no in-progress word. Cases 6 and 6b are the general sweep --
+# ANY line of the manual that names a ticket and calls it unfixed, or names a branch and calls it
+# unmerged, when git says otherwise. They are the ones that will catch the NEXT one of these, in a
+# part of the document this ticket never read.
+#
+# 🔴 CASE 6b EXISTS BECAUSE CASE 6 MISSED ONE WHILE THIS TICKET WAS BEING WRITTEN. §2.6 said
+# `fix/e21-link-endpoints-in-contract` was 未併入 trunk and that seventeen contract checks
+# "describe the branch, not trunk"; the branch merged on 2026-09-10 (`bb9301a0`). The line names
+# no FIX-<X>-<n>, so the ticket-shaped scan walked straight past it. A gate whose stated job is
+# "catch the next one" and cannot see a whole spelling of it is worse than no gate.
 #
 # 🔴 CASE 0 IS THE INSTRUMENT'S OWN CHECK. Case 6 asks git a question; if git cannot answer, an
 # unanswered question would come back as "no violations" and this file would certify the very
@@ -109,6 +115,14 @@ ticket_merge() {   # ticket_merge FIX-NDT-6 -> the merge sha reachable from HEAD
     git -C "$REPO" log --merges --format='%H %s' HEAD 2>/dev/null \
         | grep -F -- " Merge $br" | head -1 | cut -d' ' -f1
 }
+# The same question asked of a branch the document names outright. A caveat does not have to
+# name a ticket to go stale: §2.6 said `fix/e21-link-endpoints-in-contract` was 未併入 trunk, and
+# that branch merged on 2026-09-10 (`bb9301a0`). Case 6 could not see it -- no FIX-<X>-<n> on the
+# line -- which is how the second half of this scan came to exist.
+branch_merge() {   # branch_merge fix/e21-... -> the merge sha reachable from HEAD, or ""
+    git -C "$REPO" log --merges --format='%H %s' HEAD 2>/dev/null \
+        | grep -F -- " Merge $1:" | head -1 | cut -d' ' -f1
+}
 is_ancestor() {   # is_ancestor <sha> -> yes | no
     git -C "$REPO" merge-base --is-ancestor "$1" HEAD >/dev/null 2>&1 && echo yes || echo no
 }
@@ -139,20 +153,38 @@ caveat_region() {   # caveat_region <id> -- the lines strictly between its BEGIN
         index($0, b) { on=1 }' "$MANUAL"
 }
 IN_PROGRESS='在修|待修|尚未修|還沒修|未修|未改|落地之前'
+# The branch-side vocabulary. Kept separate from IN_PROGRESS because the caveat regions are about
+# a TOOL being unfixed, while these are about a CHANGE not having landed; folding them together
+# would make case 5's actual column say IN-PROGRESS about a sentence that is not in a caveat.
+UNMERGED='未併入|尚未併|還沒併|只在分支上|仍在分支上'
 
 # --- cases 5a-5c: one cell per swept caveat -------------------------------------------------------
 # marked / says 已修 / the sha it names is an ancestor of HEAD / no in-progress word left.
 caveat_case() {   # caveat_case <letter> <id>
-    local id="$2" region sha marked fixed anc clean words
+    local id="$2" region sha marked fixed anc clean words nb ne
+    # 🔴 BOTH markers, counted. Without the END count, deleting the END marker of the LAST caveat
+    # makes caveat_region run to the end of the file, and every assertion below passes against a
+    # region that is most of the document. M9 of the mutation gate SURVIVED exactly that way, and
+    # this is the repair: an unterminated region is not a region.
+    nb=$(grep -c "NDT-MERGED-CAVEAT:BEGIN $id " "$MANUAL")
+    ne=$(grep -c "NDT-MERGED-CAVEAT:END $id" "$MANUAL")
     region="$(caveat_region "$id")"
     sha="$(caveat_sha "$id")"
+    if [[ "$nb" != 1 || "$ne" != 1 ]]; then
+        check "case 5$1 caveat '$id' is retracted and says what merged it" \
+              "marked/已修/merged/no-in-progress" "markers $nb BEGIN + $ne END (want 1+1)/-/-/-"
+        return
+    fi
     if [[ -z "$region" || -z "$sha" ]]; then
         check "case 5$1 caveat '$id' is retracted and says what merged it" \
               "marked/已修/merged/no-in-progress" "absent/-/-/-"
         return
     fi
     marked=marked
-    grep -q '已修' <<<"$region" && fixed=已修 || fixed='NO-已修'
+    # 已修 for a tool that was fixed; 已併入 for a change that merely had not landed. Both are
+    # the same statement -- "the thing this caveat warns about is over" -- and a caveat that says
+    # neither has not been retracted, it has only been edited.
+    grep -qE '已修|已併入' <<<"$region" && fixed=已修 || fixed='NO-已修'
     [[ "$(is_ancestor "$sha")" == yes ]] && anc=merged || anc="NOT-AN-ANCESTOR($sha)"
     words="$(grep -oE "$IN_PROGRESS" <<<"$region" | sort -u | tr '\n' ',' | sed 's/,$//')"
     [[ -z "$words" ]] && clean=no-in-progress || clean="IN-PROGRESS($words)"
@@ -162,6 +194,7 @@ caveat_case() {   # caveat_case <letter> <id>
 caveat_case a clean-calls-your-fabric-residue
 caveat_case b help-deep-names-three-ports
 caveat_case c clean-advises-deep-on-your-own
+caveat_case d e21-contract-branch-only
 
 # --- case 6: the general sweep --------------------------------------------------------------------
 # Any line that names a ticket AND calls it unfixed, where git says that ticket is already merged.
@@ -180,6 +213,23 @@ while IFS= read -r line; do
 done < <(grep -nE "$IN_PROGRESS" "$MANUAL" | grep -E 'FIX-[A-Z]+-[0-9]+')
 check "case 6  no line calls a ticket unfixed when its merge is already in the tree" \
       0 "$VIOLATIONS"
+
+# --- case 6b: the same question, asked of a branch the document names outright -------------------
+# "still only on a branch" is the same claim as "still being fixed", and it decays the same way.
+BVIOLATIONS=0
+while IFS= read -r line; do
+    n="${line%%:*}"
+    text="${line#*:}"
+    grep -qE '原本|曾經' <<<"$text" && continue
+    for b in $(grep -oE 'fix/[a-z0-9][a-z0-9._-]*' <<<"$text" | sed 's/[.]$//' | sort -u); do
+        m="$(branch_merge "$b")"
+        [[ -z "$m" ]] && continue
+        BVIOLATIONS=$((BVIOLATIONS + 1))
+        echo "             $(basename "$MANUAL"):$n  calls $b unmerged, but $m is reachable from HEAD"
+    done
+done < <(grep -nE "$UNMERGED" "$MANUAL" | grep -E 'fix/[a-z0-9]')
+check "case 6b no line calls a branch unmerged when its merge is already in the tree" \
+      0 "$BVIOLATIONS"
 
 # --- cases 7-8: the manual quotes the tool it now relies on ------------------------------------------
 # Retracting a caveat means describing what the tool does now. A retraction that quotes nothing is

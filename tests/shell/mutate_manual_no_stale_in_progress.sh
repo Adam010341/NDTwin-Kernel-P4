@@ -256,6 +256,17 @@ report_isolated "M7: 'ndt' stops warning about a stranger at all" "$TEST" "$P" "
                 "case 4  'ndt' still has the stranger sentence (the fix was not 'never say it')" \
                 "case 2  'ndt help' prints --deep's size out of ports.sh's table"
 
+# --- M8: the branch caveat goes back to claiming the branch never landed ---------------------------
+# 🔴 The spelling case 6 could not see. This line names no ticket code, only a branch, which is
+# exactly how it sat in §2.6 for two days after `bb9301a0`.
+M=$(manual_mutant m8 '🏁 **那個分支 `fix/e21-link-endpoints-in-contract` 已併入 trunk**（merge `bb9301a0`，2026-09-10）。'$'\x1f''分支 `fix/e21-link-endpoints-in-contract`，**未併入 trunk**。')
+report "M8: the branch caveat says 未併入 again" "$TEST" "$M" "$D" "case 6b no line calls a branch unmerged when its merge is already in the tree"
+
+# --- M9: the fourth caveat loses its END marker -------------------------------------------------------
+M=$(manual_mutant m9 '<!-- NDT-MERGED-CAVEAT:END e21-contract-branch-only -->
+'$'\x1f''')
+report "M9: the branch caveat's END marker is deleted" "$TEST" "$M" "$D" "case 5d caveat 'e21-contract-branch-only' is retracted and says what merged it"
+
 # --- C1 (control): a source comment is reworded; nothing about the contract changes -----------------
 echo
 M=$(manual_mutant c1 '🟠 轉述 KNOWN-ISSUES G-45 與 fix/FIX-NDT-6-SUMMARY.md §1.4：本單沒有開 lab 重跑'$'\x1f''🟠 轉述 KNOWN-ISSUES G-45 與 fix/FIX-NDT-6-SUMMARY.md §1.4；本單並未開 lab 重跑')
