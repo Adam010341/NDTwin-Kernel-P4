@@ -6086,14 +6086,26 @@ proc_cwd_link() {
     printf '%s\n' "$t"
     return 0
 }
+#
+# 🔴 ONE FORK PER PID, not one per fd (FIX-NDT-11 ⑥, from FIX-NDT-10 SUMMARY §7-8). This was a
+# `readlink` per fd inside a glob loop -- a fork each -- and this file's own comment on
+# app_group_pids records what that shape costs: "one pid one command substitution" is what made
+# `apps orphans` take several seconds on an idle machine. app_log_writers already asks the same
+# directory with a single `find`, so this is that shape and not a new one.
+#
+# The targets are still handed to path_under_this_checkout in bash rather than filtered by
+# `find -lname "$REPO/*"`: -lname is a glob over a path this tool does not control, and it knows
+# nothing about the nested checkouts every wt-* worktree on this machine is.
+# ` (deleted)` is stripped by the caller, which keeps this function to the single fork.
+#
+# 🔴 `find` missing is rc 2 -- "could not tell" -- and NOT an empty answer. Same fail-closed
+# reading as the rest of this function and as G-14: a channel that could not look must not read
+# like a channel that looked and found nothing.
 proc_fd_links() {
-    local pid="$1" fd d
+    local pid="$1"
     [[ -r "/proc/$pid/fd" ]] || return 2
-    for fd in "/proc/$pid/fd/"[0-9]*; do
-        [[ -L "$fd" ]] || continue
-        d="$(readlink "$fd" 2>/dev/null)"; d="${d% (deleted)}"
-        [[ -n "$d" ]] && printf '%s\n' "$d"
-    done
+    command -v find >/dev/null 2>&1 || return 2
+    find "/proc/$pid/fd" -maxdepth 1 -type l -printf '%l\n' 2>/dev/null
     return 0
 }
 
@@ -6142,6 +6154,10 @@ proc_checkout() {
 
     if fds="$(proc_fd_links "$pid")"; then
         while IFS= read -r d; do
+            # The strip lives here rather than in proc_fd_links so that function stays one fork
+            # per pid; a target that is gone still says which file it WAS, which is the answer
+            # to "does this process belong to us".
+            d="${d% (deleted)}"
             [[ -n "$d" ]] || continue
             if path_under_this_checkout "$d"; then
                 PROC_CHECKOUT_WHY="it holds $d open"
