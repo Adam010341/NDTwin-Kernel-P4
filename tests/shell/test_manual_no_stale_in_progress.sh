@@ -71,8 +71,14 @@
 # `tools/test_workflow/ndt`, runs `ndt help` (which prints text and exits 2) and asks git about
 # ancestry.
 #
+# CASES 11/11b/11c ARE THE SAME SWEEP OVER EVERY doc/**/*.md OUTSIDE doc/audit/ (FIX-DOC-4 §7-6).
+# They read a markdown BLOCK rather than a line, and they let a block off when it retracts in
+# place -- when it names a merge commit that is an ancestor of HEAD next to 已修/已併. The long
+# comment above those cases is the part to read before changing them.
+#
 # Overridable for the mutation gate, which must never write this worktree's copies:
-#   MANUAL=<path>  NDT=<path>  bash tests/shell/test_manual_no_stale_in_progress.sh
+#   MANUAL=<path>  NDT=<path>  DOCS=<tree>  bash tests/shell/test_manual_no_stale_in_progress.sh
+# DOCS is the tree the doc-wide sweep reads pages out of (default: the tree this file is in).
 #
 # REPO_UNDER_TEST= is the tree git is asked about. It defaults to the tree this file is in, and
 # the gate sets it explicitly so that running the TEST from a temp copy does not turn case 0 red
@@ -249,6 +255,124 @@ REC="$(caveat_region clean-advises-deep-on-your-own)"
 check "case 9  the measured record inside the third caveat survived the sweep" \
       "1/1/1" \
       "$(grep -c -F -- '74 行 `XX`' <<<"$REC")/$(grep -c -F -- 'XX  residue: ndtwin_kernel pid 2511227 holding :8000 (tcp)' <<<"$REC")/$(grep -c -F -- 'kernel.child.pid=2511227 alive' <<<"$REC")"
+
+# --- cases 11 / 11b / 11c: the same two questions, asked of every doc page -------------------------------
+#
+# 🔴 WHY THIS IS NOT JUST "cases 6/6b WITH MORE FILES". G-52's shape is not specific to the
+# testing manual, and FIX-DOC-4 §7-6 said so and left it. Running 6/6b's exact rule over the
+# other 37 pages produces four hits, and only ONE of them is stale: the other three are entries
+# that name a merged ticket precisely BECAUSE they are recording what it did or did not do.
+# A sweep that calls those three violations teaches the next reader to silence the gate.
+#
+# So the doc-wide half asks for one more thing before it calls a line stale: the markdown BLOCK
+# the line sits in must not already disclose the merge. "Disclose" is checkable, not a word
+# list -- the block has to name a hex sha that resolves in THIS repository to a MERGE commit
+# that is an ancestor of HEAD, next to 已修 or 已併. That is the same bargain the manual's
+# NDT-MERGED-CAVEAT markers strike (retract in place, name what merged it), written as a rule
+# that works in a file which has no markers.
+#
+# 🔴 THE UNIT IS A BLOCK, NOT A LINE, AND THAT IS LOAD-BEARING. Prose here wraps at ~100 chars,
+# so the sentence "§2.8 原本把這一條寫成「FIX-NDT-6 在修」的現行缺陷。現在改成已修 ... `1656bdba`"
+# is three lines: the qualifier is on the first, the ticket on the second, the sha on the third.
+# Line-scoped reading sees the middle line alone and calls a retraction a stale caveat.
+#
+# 🔴 WHAT THIS STILL CANNOT DO (FIX-DOC-4 §7-5, now with an instance). ticket_merge is a PREFIX
+# match on the branch name, and FIX-NDT-3's branch is `fix/ndt-claim-semantics-0911` -- no ticket
+# number in it at all. `fix/ndt-3-` therefore matches `fix/ndt-3-51-helper-apps-window`, a
+# different ticket, and the sweep reports THAT sha. The verdict on G-34's line was right and the
+# evidence printed next to it was wrong. The violation line below prints the branch it matched
+# for exactly this reason: a human reading the failure can see the mismatch. A lookup that
+# demanded `fix/<slug>-<4 digits>` would have gone silent on that line instead, which is worse.
+#
+# DOCS= is the tree the pages are READ from; git is still asked about REPO_UNDER_TEST. The
+# mutation gate points DOCS at a mutated copy so this worktree is never written.
+DOCS="${DOCS:-$REPO}"
+mapfile -t PAGES < <(git -C "$REPO" ls-files -- 'doc/*.md' 'doc/**/*.md' 2>/dev/null \
+                     | grep -v '^doc/audit/' | sort -u)
+
+# The markdown block a line belongs to: from the item it starts (list bullet, heading, table
+# row, fence) or from the line after the last blank one, down to just before the next of either.
+# A `>` blockquote prefix is stripped before deciding, so a quoted note is one block, not one
+# block per line.
+doc_block() {   # doc_block <file> <line number>
+    awk -v L="$2" '
+        function bare(s) { sub(/^[ \t]*/, "", s); sub(/^(> ?)+/, "", s); sub(/^[ \t]*/, "", s); return s }
+        function blank(s) { return bare(s) == "" }
+        function starts(s,  b) { b = bare(s); return b ~ /^([-*+][ \t]|[0-9]+\.[ \t]|#+[ \t]|\||```)/ }
+        { a[NR] = $0 }
+        END {
+            s = L; while (s > 1) { if (starts(a[s])) break; if (blank(a[s-1])) break; s-- }
+            e = L; while (e < NR) { if (blank(a[e+1]) || starts(a[e+1])) break; e++ }
+            for (i = s; i <= e; i++) print a[i]
+        }' "$1"
+}
+
+# "This block retracts in place": it says the thing is over AND names the merge that ended it.
+# Three conditions on the sha, because two of them are cheap to fake: it has to resolve here, it
+# has to be a MERGE commit (>=2 parents -- a topic-branch commit is not a landing), and it has
+# to be an ancestor of HEAD. Prints the sha it accepted so the log says why a line was skipped.
+block_discloses() {   # block_discloses <block text> -> <sha> | ""
+    local blk="$1" tok
+    grep -qE '已修|已併' <<<"$blk" || return 0
+    for tok in $(grep -oE '[0-9a-f]{7,40}' <<<"$blk" | sort -u); do
+        git -C "$REPO" rev-parse --verify --quiet "$tok^{commit}" >/dev/null 2>&1 || continue
+        [[ "$(git -C "$REPO" cat-file -p "$tok^{commit}" | grep -c '^parent ')" -ge 2 ]] || continue
+        git -C "$REPO" merge-base --is-ancestor "$tok" HEAD >/dev/null 2>&1 || continue
+        echo "$tok"; return 0
+    done
+}
+merge_branch() {   # merge_branch <merge sha> -> the branch its subject names
+    git -C "$REPO" log -1 --format=%s "$1" 2>/dev/null | sed -n 's/^.*Merge \(fix\/[^: ]*\).*/\1/p'
+}
+
+PVIOL=0; PVIOLB=0; PSKIP_REC=0; PSKIP_DISC=0
+for f in "${PAGES[@]}"; do
+    [[ -r "$DOCS/$f" ]] || continue
+    while IFS= read -r line; do
+        n="${line%%:*}"; text="${line#*:}"
+        blk="$(doc_block "$DOCS/$f" "$n")"
+        if grep -qE '原本|曾經' <<<"$blk"; then PSKIP_REC=$((PSKIP_REC + 1)); continue; fi
+        d="$(block_discloses "$blk")"
+        for t in $(grep -oE 'FIX-[A-Z]+-[0-9]+' <<<"$text" | sort -u); do
+            m="$(ticket_merge "$t")"
+            [[ -z "$m" ]] && continue
+            if [[ -n "$d" ]]; then PSKIP_DISC=$((PSKIP_DISC + 1)); continue; fi
+            PVIOL=$((PVIOL + 1))
+            echo "             $f:$n  calls $t unfixed; $m ($(merge_branch "$m")) is reachable from HEAD,"
+            echo "                    and this block names no merge of its own"
+        done
+    done < <(grep -nE "$IN_PROGRESS" "$DOCS/$f" | grep -E 'FIX-[A-Z]+-[0-9]+')
+
+    while IFS= read -r line; do
+        n="${line%%:*}"; text="${line#*:}"
+        blk="$(doc_block "$DOCS/$f" "$n")"
+        if grep -qE '原本|曾經' <<<"$blk"; then PSKIP_REC=$((PSKIP_REC + 1)); continue; fi
+        d="$(block_discloses "$blk")"
+        for b in $(grep -oE 'fix/[a-z0-9][a-z0-9._-]*' <<<"$text" | sed 's/[.]$//' | sort -u); do
+            m="$(branch_merge "$b")"
+            [[ -z "$m" ]] && continue
+            if [[ -n "$d" ]]; then PSKIP_DISC=$((PSKIP_DISC + 1)); continue; fi
+            PVIOLB=$((PVIOLB + 1))
+            echo "             $f:$n  calls $b unmerged; $m is reachable from HEAD,"
+            echo "                    and this block names no merge of its own"
+        done
+    done < <(grep -nE "$UNMERGED" "$DOCS/$f" | grep -E 'fix/[a-z0-9]')
+done
+echo "             (sweep: ${#PAGES[@]} page(s); skipped $PSKIP_REC as a record of past wording, $PSKIP_DISC as retracted in place)"
+check "case 11  no doc page calls a ticket unfixed without naming the merge that landed it" \
+      0 "$PVIOL"
+check "case 11b no doc page calls a branch unmerged without naming the merge that landed it" \
+      0 "$PVIOLB"
+
+# --- case 11c: the sweep's own check -----------------------------------------------------------------
+# Cases 11/11b count violations, so an empty file list is indistinguishable from a clean tree.
+# This asserts the list exists, every page in it can actually be read out of DOCS, and the two
+# pages that carry this repository's caveats are in it. M13 empties the list to show it fires.
+PMISS=0
+for f in "${PAGES[@]}"; do [[ -r "$DOCS/$f" ]] || PMISS=$((PMISS + 1)); done
+check "case 11c the sweep has a page list, all of it readable, with the manual and KNOWN-ISSUES in it" \
+      "many/0-unreadable/manual/known-issues" \
+      "$( [[ "${#PAGES[@]}" -ge 20 ]] && echo many || echo "only ${#PAGES[@]}" )/$PMISS-unreadable/$(printf '%s\n' "${PAGES[@]}" | grep -qx 'doc/2026-08-17_testing-manual.md' && echo manual || echo NO-manual)/$(printf '%s\n' "${PAGES[@]}" | grep -qx 'doc/KNOWN-ISSUES.md' && echo known-issues || echo NO-known-issues)"
 
 # --- case 10 (CONTROL): a sentence this ticket does not touch -------------------------------------------
 check "case 10 CONTROL: §2.1 still says the machine's 4 veth are not residue" \

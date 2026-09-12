@@ -4519,7 +4519,14 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 ### G-34 🔴 `.test_run/pids/` 自己互相矛盾（死 pidfile ＋ 同一元件的收工紀錄），而沒有任何介面說得出來
 
 - **狀態**：**OPEN**（2026-09-11 R7 對帳實測，相隔 24 秒兩次量測都在 ⇒ 不是毫秒級競態）。
-  **FIX-NDT-3 正在修。**
+  🆕 **2026-09-12 更正（FIX-DOC-5 親驗）**：這一行先前寫著「FIX-NDT-3 正在修」，那是它還是分支時的話——
+  **那張單已併入**：分支 `fix/ndt-claim-semantics-0911`、merge **`a180134f`**（2026-09-11 04:27）——
+  本單親自驗過它有兩個父、而且 `git merge-base --is-ancestor` 對 HEAD 為真。
+  **狀態仍記 OPEN，不是筆誤**：本單沒有重跑 R7 的對帳、沒有開 lab，
+  「併入之後 `.test_run/pids/` 還會不會自己互相矛盾」**沒有人重驗過**；要改 RESOLVED 得重跑那一輪。
+  ⚠️ 這一行是 `tests/shell/test_manual_no_stale_in_progress.sh` case 11 抓到的兩行之一，
+  而**它印出來的 sha 是錯的**（前綴查詢把 `fix/ndt-3-` 配到 `fix/ndt-3-51-helper-apps-window`，
+  那是另一張單）：判決對、證據錯。上面那一顆 merge 是本單自己查出來並驗過的。
 - **會發生什麼**：`ryu.pid`＝20717、`ryu.child.pid`＝20722（mtime 02:49）**兩個 pid 都不存在**，
   而隔壁 `ryu.exit`（mtime 02:51）逐字寫著 `at=2026-09-11T02:51:06`／`status=143`／
   `reason=terminated by SIGTERM (15)`。同一刻 10 座 OVS bridge 還活著、四個控制 port 全關、
@@ -4557,6 +4564,43 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   **數字逐字相同**。
 - **為什麼算陷阱**：一支「本來就紅」的檢查會讓下一個人把自己的紅當成環境雜訊。
   ⚠️ 🟠 轉述（本條登記者沒有自己跑那兩支）。
+- 🆕 **2026-09-12 現況：上面那個 `82/11` 已經不是今天的數字，而且它每天在動**
+  （FIX-DOC-5 收，來源是別單留下的 log，**本條登記者仍然沒有自己跑過那支**）：
+  - **09-11 CELLS-1 量到 83/12；09-12 CELLS-2 量到 `Ran 84 checks, 12 failed`**
+    （`logs/gates-0910/test_l1_shell_scoring.cells2-0912-r3.log` 的 `:125`，✅ 本條登記者親自開檔看過）。
+  - **84 − 83 ＝ CELLS-2 自己新加的 `tests/shell/test_readme_mentions_mnexec.sh`，而它是 `ok`。**
+    ⇒ **總數變大不等於多一條紅**；對帳要拿「紅的支數」對，不要拿 `Ran N` 對。
+  - **83/12 比 82/11 多出來的那一支紅，🟠 最可能是 `tests/shell/test_guarded_build_reentrant.sh`**
+    （`git log --diff-filter=A` 說它 2026-09-11 才加進來，而它在失敗清單裡）。
+    ⚠️ **這是推論不是量測**：沒有人用 `git archive` 把 `82/11` 那棵樹重建回來比對。
+  - **12 支的清單（`:49`–`:117` 逐字，✅ 本條登記者親自從 log 抄出來的）**：
+    `test_apps_residue`、`test_build_guard`、`test_check_logs_crash_patterns`、
+    `test_guarded_build_reentrant`、`test_ndt_honesty`、`test_ndt_ovs_topo_script`、
+    `test_ndt_status_check_baseline`、`test_ndt_up_down_robust`、`test_ndt_up_target`、
+    `test_orphans_verdict`、`test_stack_log_rotation`、`test_stop_one_targets_its_argument`。
+  - **FIX-NDT-10 §7-4 同一天也講 12 支**，⚠️ 但**那一跑沒有 log**（該單 §8-2 自己列了）。
+    以上面那份 CELLS-2 的 log 為準。
+  - 🔴 **group C 抓到過一次真的，就在同一天**：CELLS-2 的新閘門第一版把散文用 `echo` 印在
+    `printf` 總結行之後，數字一度變成 **13**；改成散文走 `printf`、總結行走 `echo` 之後回到 12
+    （`bcd3c64e`）。⇒ **「本來就紅」不等於「這支沒有鑑別力」**——引用本條的人不要把它讀成可以忽略。
+- 🆕 **2026-09-12 另一種紅，不要跟本條混在一起**：`tests/shell/test_apps_residue.sh` 的 5K 那一格
+  是**時間相依的 flake**，不是「乾淨 trunk 上就紅」。（`test_apps_residue` 在上面那 12 支裡，
+  但那是 group C 的結尾行問題，**跟這裡講的兩格完全無關**。）
+  ✅ **本條登記者親自開檔看過** `logs/gates-0910/test_apps_residue.ndt10-0912-r1.log`
+  （17:20:58 起跑，末行 `Ran 102 checks, 2 failed`），逐字兩格（`:86`–`:90`）：
+
+  ```
+    FAILED   🔴 sec=0 with nsec set is a real just-installed rule, and is DATED
+               no match for 'installed 0s ago'
+    FAILED     and it is counted as dated
+               no match for '1 rule(s) listed: 1 dated inside the window,'
+  ```
+
+  **同一顆 `ndt`、同一棵樹，r2／r3／r4／r5 四份 log 末行都是 `Ran 102 checks, 0 failed`**
+  （✅ 本條登記者親自 `grep` 過那四份）。
+  機制（🟠 轉述 FIX-NDT-10 §7-3）：那一格起一個活著的夾具、把 pid 寫進 pidfile，
+  再要求「0.004 秒前裝的規則落在視窗裡」——而視窗左緣是 `ps -o etimes=`（**秒**解析度）、
+  右緣是 `now`，兩邊各差一秒就會翻。**要不要把左緣換成不靠秒解析度的來源，沒有人裁。**
 
 ### G-36 ⚠️ `ndt down` 之後的 `ndt status --check` 結構上永遠是「沒查」，不是「查過且相符」
 
@@ -4632,6 +4676,9 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 ### G-40 🔴 `process_is_a_switch` 用整條 `/proc/<pid>/cmdline` 的 substring 認交換機，而它是 SIGKILL 前的唯一防線
 
 - **狀態**：**OPEN**（2026-09-12 FIX-PROXY-2 §7-2，**登記未修**：產品碼，不在該單範圍）。
+  **那張單本身已併入**（merge **`892fdbdc`**，2026-09-12 01:09；FIX-DOC-5 親驗它是 merge commit
+  且為 HEAD 的祖先）⇒ 這裡的「未修」講的是**這個缺陷**，不是「那張單還在路上」。
+  兩件事寫在同一行過，而讀者分不出來，所以現在把 merge 寫出來。
 - **在哪裡**：`p4_proxy/mininet/p4_testbed_topo.py:542-556`（判斷在 `:554`）
   （`return b"simple_switch_grpc" in fh.read()`），被 `reap_manifest_switches` 用在
   SIGTERM／SIGKILL 之前，teardown 與 startup 兩條路都走它。
@@ -5108,10 +5155,94 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   ——**兩個數字相等**。
 - 🔶 **這一條給後面每一支新閘門的用法**：一顆變異一個 anchor，交件時把 `mutations=` 與 `ok(N)`
   兩個數字放在一起。本單的 `mutate_manual_rc_table.sh` 就是照這樣交的（9 顆變異＋1 顆控制、`ok(10)`）。
+- 🔶 **第二條用法：怎麼不要讓閘門自己變成破錨**（FIX-DOC-3 踩過一次、FIX-DOC-4 踩過兩次，
+  三次的修法一樣，而它只靠口耳相傳 ⇒ 2026-09-12 FIX-DOC-5 寫在這裡）。
+  `check_gate_anchors.py` 的通用規則（該檔「Generic shape」那段，`:1120` 起）是：
+  **一個「由變數解得開、而且是 repo 裡真的有的檔」的參數，後面緊跟著的那個 ≥8 字元引號字串，
+  就被當成那個檔裡的 anchor**。於是 `report "$MANUAL" "case 6  no line calls a ticket ..."`
+  會被讀成「`case 6 …` 是手冊裡的一句話」——手冊裡當然沒有 ⇒ 那一格是
+  **`0 (want 1)` 或 UNPARSED，兩個都不是 pass**（只有 `ok(` 開頭的才是；UNPARSED 還會讓整支 exit 2）。
+  **兩個動作，任一個就夠，兩個都做最省事**：
+  ① **傳複本的暫存路徑**（`$BK/…`）而不是 repo 路徑——暫存路徑不在 `git ls-files` 裡，
+  「是 repo 檔」那一半就不成立（順便讓閘門絕不寫共用工作樹）；
+  ② **接在它後面的變數名取短**——規則在展開變數**之前**先看原始字面長度，
+  `"$P"`／`"$D"`／`"$T"` 是 2–4 個字元（`len < 8` 直接跳過），而 `"$PRISTINE"` 有 10 個字元，
+  會一路走到「這是一個沒讀過的參數」而讓整格 UNPARSED。
+  ⚠️ **這不是工具的缺陷**，是它刻意的保守：讀不出來的東西寧可整格喊停，也不要靜靜地算成綠。
+  本單的 `mutate_manual_no_stale_in_progress.sh` 照這兩條寫，一次都沒踩到，
+  交件是 **15 顆變異＋1 顆控制、`ok(16)`**。
+
+### G-57 🔴 `ndt` 的行程掃描是整台機器的，於是另一棵 worktree 的測試夾具會否決這一棵的還原判準，而 `ndt down` 會去停它
+
+- **狀態**：**OPEN**。收斂已經落地（FIX-NDT-10，分支 commit `f46bbefe`＋`47d24916`，
+  **已併入** trunk 的 merge 是 **`628d84f1`**，2026-09-12 18:41；本條登記者親自驗過那顆是
+  merge commit 且為 HEAD 的祖先），但**兩條路徑到今天沒有紅過也沒有綠過**，見下面〈還剩什麼〉——
+  所以這一條不改 RESOLVED。**接手的是 hunt-0911/FIX-NDT-11 ②**（`proc_checkout` 的 fail-closed
+  分支要在 `ndt` 端拿到紅綠），它的 ③ 接 `cmd_down` 那一半。
+  ⚠️ 🟠 除了上面那顆 sha 與下面標「本條登記者親自」的兩處，本條**轉述** `fix/FIX-NDT-10-SUMMARY.md`
+  §1-①／§6，並依該檔 §8 勘誤過（見〈還剩什麼〉與〈回歸〉）。**本條登記者沒有開 lab、沒有重跑那套套件。**
+- **位置**：`tools/test_workflow/ndt` 的 `app_ps_snapshot`／`app_scan_pids`（機器層索引）、
+  `app_probe`／`apps_orphans`／`cmd_down` 的 `[0/3]`／`status --check` 的 `untracked` 列；
+  讀取端 `tools/test_workflow/orphans_verdict.sh`。
+- **量到什麼**（2026-09-12 15:05:14，CELLS-2 窗口 1；同形狀 05:50 由 ROLE-10 §9 記過 12 次重試）：
+  另一棵 worktree 在跑 `tests/shell/test_ndt_helper_apps_window.sh`，它的夾具**故意**穿著 app 的 argv
+  （`/nonexistent/NDT-TEST-FIXTURE/simulation_platform_manager`、`bash /tmp/ndt-helper-window-*/twolayer`）。
+  本 checkout 的 `ndt apps orphans` 把它們算成自己的孤兒 ⇒ `VERDICT: NOT CLEAN`，
+  而同一時刻這個 lab 是 down 0／clean 0／bridge 0。**夜巡的回歸 grid 因此停了一輪**，
+  停下來的理由讀起來像「實驗室髒了」。
+  加重：同一輪的 `ndt down` 讀到同一個狀態就**動手**——
+  `!! sim is running untracked (pid 1166836) -- stopping it by pid` → `XX could NOT stop sim`
+  （`_restore-stale…/3-down.log` l.11-13）：一棵樹的收工會去殺另一棵樹正在跑的測試。
+- **失效方向：兩邊都錯**。對「乾淨」是悲觀（乾淨的機器被判髒），對「安全」是危險
+  （會對不屬於自己的行程送訊號）。
+- **機制**：`ps -eo pid=,args=` 是**整台機器**的索引，而「argv 帶著 app 的簽名」不等於「這是我的」。
+  這台機器同時有數棵本 repo 的 checkout 在跑。這與同一週修掉的另外兩件是同一個形狀
+  （`ndt` 不要再按名字找行程 G-51／FIX-NDT-4、`p4_proxy` 不要再按名字殺交換機 G-40 那一族），
+  只是被誤認的不是交換機，是別棵樹的夾具。
+- **修法**：機器層掃描回來的每一個 pid 在被計數／回報／送訊號之前多回答一個問題（`proc_checkout`）：
+  它屬於**這個 checkout** 嗎？ours ⇐ 本 checkout 的 `.test_run/pids/` 登記了它的 pid 或 pgid ∨
+  argv／exe／cwd 落在 `$REPO` 底下 ∨ 它開著 `$REPO` 底下的檔。
+  **巢狀 checkout 不算本樹**（每一棵 `wt-*` 都在主 checkout 底下，只比字串前綴會把整台機器說成自己的）。
+  其餘印在自己的一欄 `seen elsewhere (not this checkout)`，那一欄**刻意不含**
+  `pidfile-lost-but-alive` 與 `app(s) are running with nothing tracking them`
+  ——那兩句是 `orphans_verdict.sh` 判 process 半的字串；`orphans_verdict.sh` 另外把數目帶成
+  `elsewhere=<n>` 欄位與一條 NOTE，所以 CLEAN 不會被讀成「什麼都沒有」。
+- **🔴 還剩什麼（三個缺口，兩個是「沒有紅綠」而不是「沒有碼」）**：
+  1. **自家 app 不住在 `$REPO` 裡**（`app_spawn` 從 `$WORKSPACE_ROOT/<App>` 這個 sibling repo 啟動），
+     所以歸屬主要靠 **pidfile 登記**與**開著 `$REPO/.test_run/logs/app_<name>.log`** 這個 fd。
+     一個真孤兒若 pidfile 沒了、又不再持有 `$REPO` 底下任何 fd，會掉進 `seen elsewhere`（只進 NOTE、不擋 grid）。
+     三個選項（留缺口／在啟動鏈上加 `NDT_REPO=$REPO` 印記／退回舊行為）列在 `fix/FIX-NDT-10-SUMMARY.md` §7-1，**未裁**。
+  2. ⚠️ **`proc_checkout` 的 fail-closed 分支（`/proc/<pid>/cwd` 與 `/proc/<pid>/fd` 都讀不到 ⇒
+     算成自己的，並印「誰擁有它沒有被確立」）在 `ndt` 端一格都沒有**——只有合成報告那一層驗過。
+     這是 FIX-NDT-10 §8-6(a) 的自我勘誤：該單原文把它寫得像已驗。**FIX-NDT-11 ② 接這一條。**
+  3. ⚠️ **`cmd_down` 的 `[0/3]` 在「本樹孤兒＋別樹行程同時在場」時只停本樹那個，沒有任何一格走過**
+     （§8-6(b)；當時的 green 場上只有別樹的行程）。**FIX-NDT-11 ③ 接這一條。**
+- **為什麼 fail-closed**：判不出來的一律算成自己的，因為 lab helper 用 root 起的 app
+  正是這個動詞最該找到的那一類（與 G-14 同一種不對稱）。代價就是上面第 2 點：**那條分支沒被走過。**
+- **回歸**：`tests/shell/test_ndt_app_orphans.sh` §8（30 格，含巢狀 checkout 的路徑規則、
+  `app_stop` 不得送訊號、以及**同一份報告裡本樹孤兒仍然 NOT CLEAN** 的鑑別格，52 → 82 格）；
+  `tests/shell/test_orphans_verdict.sh` 的 C10-8 段（**10 格**，其中 4 格對 base 的 reader 紅；
+  該套件 134 → 169 格是 10 格＋另一題的 25 格，FIX-NDT-10 §8-1 已就地更正過一次算錯的帳）。
+  紅：新套件 × base `53a62c71` 的 `ndt` ⇒ **`Ran 82 checks, 19 failed`**，
+  ✅ **本條登記者親自開檔看過**，逐字（`scratch/overnight-2026-09-05/logs/ndt10-0912/red-4-suite-on-base.log`
+  l.122-124，末三行 `Ran 82 checks, 19 failed`／`RC=1`／`Sat Sep 12 05:03:03 PM CST 2026`）：
+
+  ```
+    FAILED     and the other tree's process is ALIVE
+               expected: yes
+               actual:   no
+  ```
+
+  ⚠️ FIX-NDT-10 §6 把這三行寫成一行（`… ALIVE  expected: yes  actual: no`）。**以 log 為準。**
+- **引用時要知道的工件等級**（FIX-NDT-10 §8-7）：那一輪 35 份 log 裡**只有 11 份**有
+  `# cmd:` 與 `# subject: … sha256`，24 份 battery log 有 log 但**沒有受測複本的指紋**，
+  其餘（進場 lab 讀數、base 套件基線格數、anchors 第一次、§7-4 的 12 個 pre-existing 紅）
+  **是口述、沒有工件**。要拿那些數字下判斷的人請先重跑。
 
 ### G-58 🏁 活的工具住在 `doc/audit/` 底下，就會掉出所有掃描面——而且已經有第二個實例
 
-> **編號**：G-57 由 hunt-0911/FIX-NDT-10 預留，**這裡的跳號是刻意的，不是遺失的條目**。
+> **編號**：G-57 是上面那一條（hunt-0911/FIX-NDT-10 預留、2026-09-12 由 FIX-DOC-5 寫入）。
+> 這一條開號時 G-57 還空著，**當時的跳號是刻意的**，現在已經補上。
 
 - **狀態**：🏁 **已修**（登記制；AUDIT-SCAN-1 `20215f92`＋follow-up `8cd5bec7`，
   兩顆都是 trunk `53a62c71` 的祖先，FIX-DOC-4 親驗）。

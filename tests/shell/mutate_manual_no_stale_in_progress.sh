@@ -54,6 +54,7 @@ REPO="$(cd "$HERE/../.." && pwd)"
 MANUAL="$REPO/doc/2026-08-17_testing-manual.md"
 TEST="$REPO/tests/shell/test_manual_no_stale_in_progress.sh"
 NDT="$REPO/tools/test_workflow/ndt"
+KI="$REPO/doc/KNOWN-ISSUES.md"
 PY="${PY:-/usr/bin/python3}"
 
 BK=$(mktemp -d /tmp/manual-stale-mutate-XXXXXX)
@@ -61,6 +62,16 @@ trap 'rm -rf "$BK"' EXIT
 MANUAL_SHA=$(sha256sum "$MANUAL" | cut -d' ' -f1)
 TEST_SHA=$(sha256sum "$TEST" | cut -d' ' -f1)
 NDT_SHA=$(sha256sum "$NDT" | cut -d' ' -f1)
+KI_SHA=$(sha256sum "$KI" | cut -d' ' -f1)
+
+# The tree cases 11/11b/11c read their pages out of. Built once, never written to: every doc
+# mutation below copies this and edits the copy, so the sweep can be pointed at a mutant without
+# anything under $REPO/doc changing. doc/audit/ is not copied -- the sweep does not read it.
+PGS="$BK/pages.pristine"
+for f in $(git -C "$REPO" ls-files -- 'doc/*.md' 'doc/**/*.md' | grep -v '^doc/audit/'); do
+    mkdir -p "$PGS/$(dirname "$f")"
+    cp "$REPO/$f" "$PGS/$f"
+done
 
 MUTATIONS=0
 SURVIVORS=0
@@ -129,11 +140,24 @@ ndt_copy() {
     echo "$dir/ndt"
 }
 
-run_triple() {   # run_triple <test file> <manual file> <ndt file>
+# A copy of the page tree with doc/KNOWN-ISSUES.md mutated. Same shape as manual_mutant: the
+# body names "$KI" so check_gate_anchors.py counts these anchors in KNOWN-ISSUES.md.
+ki_mutant() {   # ki_mutant <tag> <anchor \x1f replacement>
+    local dir="$BK/pages.$1" out
+    rm -rf "$dir"; cp -r "$PGS" "$dir"
+    out="$dir/doc/KNOWN-ISSUES.md"; cp "$KI" "$out"
+    apply_exact "$out" "$2" >&2 || { echo ""; return; }
+    echo "$dir"
+}
+
+run_quad() {   # run_quad <test file> <manual file> <ndt file> <page tree>
     # REPO_UNDER_TEST pins the tree git is asked about: the M5 mutant runs from $BK, and without
     # this its case 0 would go red because /tmp is not a repository, muddying the one case M5 is
     # about.
-    MANUAL="$2" NDT="$3" REPO_UNDER_TEST="$REPO" bash "$1" 2>&1
+    MANUAL="$2" NDT="$3" DOCS="$4" REPO_UNDER_TEST="$REPO" bash "$1" 2>&1
+}
+run_triple() {   # run_triple <test file> <manual file> <ndt file> -- pristine pages
+    run_quad "$1" "$2" "$3" "$PGS"
 }
 
 report() {   # report <label> <test file> <manual file> <ndt file> <case that must go red>
@@ -183,6 +207,33 @@ report_isolated() {   # report_isolated <label> <test> <manual> <ndt> <case that
     else
         SURVIVORS=$((SURVIVORS + 1))
         printf '  SURVIVED      %-54s (the named case stayed green, or the mutant was not surgical)\n' "$1"
+        grep -E '^  (ok|FAILED) ' <<<"$out" | sed 's/^/                /'
+    fi
+}
+
+# Same judgement as report(), for a mutation applied to the PAGE TREE the doc-wide sweep reads.
+# The manual, `ndt` and the test are all pristine copies, so the only thing that changed is one
+# sentence in one page -- which is what cases 11/11b/11c are about.
+report_pages() {   # report_pages <label> <test> <manual> <ndt> <page tree> <case that must go red>
+    local out rc
+    MUTATIONS=$((MUTATIONS + 1))
+    if [[ -z "$2" || -z "$3" || -z "$4" || -z "$5" ]]; then
+        printf '  DID-NOT-APPLY %-54s (anchor missed; nothing was tested)\n' "$1"
+        UNAPPLIED=$((UNAPPLIED + 1))
+        return
+    fi
+    out=$(run_quad "$2" "$3" "$4" "$5"); rc=$?
+    if ! grep -qE '^  (ok|FAILED) ' <<<"$out"; then
+        printf '  TEST-DID-NOT-RUN %-51s (mutant broke the file; harness error)\n' "$1"
+        sed -n '1,4p' <<<"$out" | sed 's/^/                /'
+        UNAPPLIED=$((UNAPPLIED + 1))
+        return
+    fi
+    if [[ "$rc" -ne 0 ]] && grep -q "FAILED   $6" <<<"$out"; then
+        printf '  caught        %-54s (%s went red)\n' "$1" "$6"
+    else
+        SURVIVORS=$((SURVIVORS + 1))
+        printf '  SURVIVED      %-54s (%s stayed green -- that case proves nothing)\n' "$1" "$6"
         grep -E '^  (ok|FAILED) ' <<<"$out" | sed 's/^/                /'
     fi
 }
@@ -267,6 +318,52 @@ M=$(manual_mutant m9 '<!-- NDT-MERGED-CAVEAT:END e21-contract-branch-only -->
 '$'\x1f''')
 report "M9: the branch caveat's END marker is deleted" "$TEST" "$M" "$D" "case 5d caveat 'e21-contract-branch-only' is retracted and says what merged it"
 
+# --- M10-M15: the doc-wide sweep (cases 11 / 11b / 11c) ------------------------------------------------
+# 🔴 THESE SIX ARE ABOUT ONE BARGAIN. Cases 11/11b let a block off when it retracts IN PLACE --
+# names a merge commit that is an ancestor of HEAD, next to 已修/已併. That escape is the only
+# thing standing between the sweep and four false positives in KNOWN-ISSUES.md, so every clause
+# of it is taken away once: the word (M10, M11), the sha's merge-ness (M12), the sha's existence
+# (M13), and the block that carries it (M14). M15 is the sweep's own silence.
+
+# --- M10: a block says a merge landed and then does not say so ----------------------------------------
+G=$(ki_mutant m10 '**那張單本身已併入**（merge'$'\x1f''**那張單本身的狀態**（merge')
+report_pages "M10: a doc block drops the word that says the ticket landed" "$TEST" "$P" "$D" "$G" \
+             "case 11  no doc page calls a ticket unfixed without naming the merge that landed it"
+
+# --- M11: the same, on the branch half, in a note whose sha is on the NEXT line -------------------------
+G=$(ki_mutant m11 '> 2026-09-10 已併，merge'$'\x1f''> 2026-09-10，見 merge')
+report_pages "M11: a doc block drops the word that says the branch landed" "$TEST" "$P" "$D" "$G" \
+             "case 11b no doc page calls a branch unmerged without naming the merge that landed it"
+
+# --- M12: the disclosed sha is real, reachable -- and is not a landing ----------------------------------
+# 🔴 A commit on the branch is not the branch arriving. `2244bab0` is an ancestor of HEAD with one
+# parent; if a single-parent commit counted, "fixed in <sha>" could name the very commit that is
+# still only on the branch and the sweep would agree with it.
+G=$(ki_mutant m12 'merge **`892fdbdc`**，2026-09-12 01:09'$'\x1f''merge **`2244bab0`**，2026-09-12 01:09')
+report_pages "M12: the disclosed sha is an ancestor but not a merge" "$TEST" "$P" "$D" "$G" \
+             "case 11  no doc page calls a ticket unfixed without naming the merge that landed it"
+
+# --- M13: the disclosed sha does not resolve at all -------------------------------------------------------
+G=$(ki_mutant m13 'merge **`a180134f`**（2026-09-11 04:27）'$'\x1f''merge **`0123456789ab`**（2026-09-11 04:27）')
+report_pages "M13: the disclosed sha is not in this repository" "$TEST" "$P" "$D" "$G" \
+             "case 11  no doc page calls a ticket unfixed without naming the merge that landed it"
+
+# --- M14: the sweep reads a line where it should read a block -----------------------------------------------
+# 🔴 THE ONE THAT IS EASY TO GET WRONG. Prose wraps: B-10's note says 尚未併 on one line and
+# names `0584f1b5` on the next. A line-scoped reader sees the first half of a sentence and calls
+# a retraction a stale caveat -- which is how a sweep teaches people to switch it off.
+T=$(test_mutant m14 'for (i = s; i <= e; i++) print a[i]'$'\x1f''print a[L]')
+report_pages "M14: the sweep reads one line instead of the block" "$T" "$P" "$D" "$PGS" \
+             "case 11b no doc page calls a branch unmerged without naming the merge that landed it"
+
+# --- M15: the sweep stops having anything to sweep -------------------------------------------------------
+# Cases 11/11b count violations, so no pages is indistinguishable from no violations. This is the
+# failure 11c exists for, and it is the failure a doc-wide sweep drifts into on its own -- a moved
+# directory, a renamed pathspec -- without anybody editing a document.
+T=$(test_mutant m15 'mapfile -t PAGES < <(git -C "$REPO" ls-files'$'\x1f''mapfile -t PAGES < <(true "$REPO" ls-files')
+report_pages "M15: the sweep's page list comes back empty" "$T" "$P" "$D" "$PGS" \
+             "case 11c the sweep has a page list, all of it readable, with the manual and KNOWN-ISSUES in it"
+
 # --- C1 (control): a source comment is reworded; nothing about the contract changes -----------------
 echo
 M=$(manual_mutant c1 '🟠 轉述 KNOWN-ISSUES G-45 與 fix/FIX-NDT-6-SUMMARY.md §1.4：本單沒有開 lab 重跑'$'\x1f''🟠 轉述 KNOWN-ISSUES G-45 與 fix/FIX-NDT-6-SUMMARY.md §1.4；本單並未開 lab 重跑')
@@ -293,6 +390,11 @@ if [[ "$(sha256sum "$NDT" | cut -d' ' -f1)" == "$NDT_SHA" ]]; then
     echo "baseline byte-identical: yes  tools/test_workflow/ndt"
 else
     echo "🔴 ndt CHANGED WHILE THIS GATE RAN -- a mutant may be on disk"; ok=1
+fi
+if [[ "$(sha256sum "$KI" | cut -d' ' -f1)" == "$KI_SHA" ]]; then
+    echo "baseline byte-identical: yes  doc/KNOWN-ISSUES.md"
+else
+    echo "🔴 KNOWN-ISSUES CHANGED WHILE THIS GATE RAN -- a mutant may be on disk"; ok=1
 fi
 echo "GATE-SUMMARY mutations=$MUTATIONS survived=$SURVIVORS unapplied=$UNAPPLIED controls=$CONTROLS red=$CONTROLS_RED"
 echo "mutation gate: $MUTATIONS mutations, $SURVIVORS survived; $CONTROLS control(s), $CONTROLS_RED went red"
