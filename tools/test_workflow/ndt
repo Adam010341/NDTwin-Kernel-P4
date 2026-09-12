@@ -574,7 +574,9 @@ record_up_target() {
         err "  ROLE-2 measured what that costs on 09-11: the fabric built, the kernel never"
         err "  started, and [2/3] hung past 300s while the proxy retried switch-entered."
         err "  either ask for $mh hosts, or point NDT_TOPO at the model for $hosts."
-        return 1
+        # 🔴 rc 5: a REFUSAL, the same answer topo_for_hosts's H4 gives one screen up. Both
+        # guards, one code -- see the vocabulary note above preflight. (Adam, 2026-09-12)
+        return 5
     fi
     printf 'plane=%s\nhosts=%s\ntopology=%s\ntopology_sha256=%s\nmodel_hosts=%s\nmodel_edges=%s\nat=%s\nby=%s\nbuilder=%s\n' \
         "$plane" "$hosts" "${topo#$REPO/}" "${sum:-unavailable}" \
@@ -1898,8 +1900,24 @@ lab_version_problem() {
 
 # --- preflight --------------------------------------------------------------------
 
+# [Co-developed with claude code -- Adam]
+# 🔴 THE ONE rc VOCABULARY, Adam 2026-09-12 (form 1 Q1, form 4 Q15, form 5 Q15b). `up`, `down`
+# and `clean` now answer with the same three words, and `ndt help` carries all three tables:
+#
+#     rc 1   MEASURED, and it was dirty -- something alive, a port held, a component that
+#            would not stop, an ending that was fatal
+#     rc 3   NOTHING WAS MEASURED, because there was nothing to measure. Not the same
+#            statement as "clean", and that is the whole of the ruling
+#     rc 5   a guard REFUSED. This command did not act at all
+#     rc 0   measured, and clean.   rc 2 stays what it was: a usage error
+#
+# 🔴 PRECEDENCE, because this function folds several checks into ONE answer: a refusal outranks
+# a dirty reading. A teardown in flight can coincide with a port this bring-up would also refuse
+# on, and the only actionable sentence there is "wait for that teardown" -- the port is very
+# likely one it is about to release. Both are still PRINTED; what the refusal decides is the
+# code. (tests/shell/test_ndt_up_down_robust.sh section 20 pins the pair and each corner.)
 preflight() {
-    local mode="$1" bad=0
+    local mode="$1" bad=0 refused=0
     # [Co-developed with claude code -- Adam]
     # FIRST, and for both planes: is the tree `sudo ndtwin-lab` acts in this checkout? Asked
     # here because preflight is the one thing both up_p4 and up_ovs run before anything on the
@@ -1911,7 +1929,9 @@ preflight() {
     # bring-up wrong, both are knowable before anything is read from the machine, and both are
     # plane-independent -- the P4 plane is the one that cannot see the teardown, and the OVS
     # plane's own refusal (mn_count, in up_ovs) fires later and names a symptom.
-    guard_no_teardown_in_flight || bad=1
+    # 🔴 rc 5, not 1: this is a REFUSAL -- nothing was read from the machine and nothing was
+    # built. See the vocabulary note above this function.
+    guard_no_teardown_in_flight || { bad=1; refused=5; }
     [[ -x "$REPO/build/bin/ndtwin_kernel" ]] || { err "kernel binary missing: build/bin/ndtwin_kernel"; bad=1; }
     if [[ "$mode" == "p4" ]]; then
         [[ -x "$REPO/p4_proxy/venv/bin/python" ]] || { err "proxy venv missing: p4_proxy/venv/bin/python"; bad=1; }
@@ -1994,7 +2014,10 @@ preflight() {
         warn "the helper this bring-up will use is not the one in this tree:"
         printf '%s\n' "$labout" | sed 's/^/  /'
     fi
-    return $bad
+    # One answer out of several checks, and the refusal wins -- see the note above.
+    (( bad == 0 )) && return 0
+    (( refused != 0 )) && return "$refused"
+    return 1
 }
 
 # --- rollback: take back what THIS bring-up started --------------------------------
@@ -2272,7 +2295,8 @@ up_p4() {
         err "  p4_proxy/mininet/host_count_override is UNCHANGED at $KNOB_ENTRY: the knob is"
         err "  written after this check, never before it, so this refusal moved nothing."
         err "  either drop NDT_TOPO, or set the knob to the model's count:  ndt up p4 <n>"
-        return 1
+        # 🔴 rc 5: a refusal, not a dirty reading -- nothing on the machine was looked at.
+        return 5
     fi
     if [[ -z "$topo" ]]; then
         err "no P4 topology model in setting/ has $hosts hosts."
@@ -2287,13 +2311,15 @@ up_p4() {
     local held; held="$(foreign_claim)"
     if [[ -n "$held" ]]; then
         err "the lab is claimed by $held; 'ndt up' may restart the stack under them."
-        return 1
+        # 🔴 rc 5: refused. (Adam, 2026-09-12)
+        return 5
     fi
     local busy; busy="$(in_flight)"
     if [[ -n "$busy" ]]; then
         err "a measurement is running; 'ndt up' may restart the fabric under it:"
         printf '%s\n' "$busy" | sed 's/^/        /' >&2
-        return 1
+        # 🔴 rc 5: refused, the same as the claim above it.
+        return 5
     fi
 
     say "ndt up p4"
@@ -2303,11 +2329,14 @@ up_p4() {
     info "sample rate  $(rate_label "$rate")     (compiled into ndtwin_switch.json)"
     echo
 
-    preflight p4 || return 1
+    # 🔴 `return $?`, not `return 1`: preflight answers 5 when a guard refused and 1 when it
+    # found something. Flattening it here would put the distinction back one screen after it
+    # was made.
+    preflight p4 || return $?
 
     # What this run was asked for, written down before anything is built, so `status --check`
     # has a baseline that does not depend on reading a P4-only knob back afterwards. (#8, N12)
-    record_up_target p4 "$hosts" "$topo" || return 1
+    record_up_target p4 "$hosts" "$topo" || return $?
 
     # [Co-developed with claude code -- Adam]
     # 🔴 ROLE-9. THE KNOB IS WRITTEN HERE, and this line's position is the fix: everything above
@@ -2616,7 +2645,8 @@ up_ovs() {
         err "refusing to build: ${TOPO_REFUSAL:-NDT_TOPO does not match the host count}"
         err "  on OVS the size is the VERB -- ovs-topo-start builds 128, ovs-topo-4host builds"
         err "  4 -- so nothing here can make the fabric follow the model NDT_TOPO names. (H4)"
-        return 1
+        # 🔴 rc 5: the same refusal up_p4 gives. One plane changed is not both.
+        return 5
     fi
     if [[ -z "$ovs_topo" ]]; then
         err "no OVS topology model in setting/ has $ovs_hosts hosts"
@@ -2636,7 +2666,11 @@ up_ovs() {
     say "ndt up ovs${ovs_hosts/128/}"
     info "hosts        $ovs_hosts"
     info "topology     ${ovs_topo#$REPO/}"
-    preflight ovs || { rm -f "$fifo" "$out"; return 1; }
+    # 🔴 The code is READ BEFORE the housekeeping. `rm -f ...; return $?` would return the rc
+    # of `rm`, which is 0 -- a refusal silently becoming a successful bring-up.
+    local pf_rc
+    preflight ovs; pf_rc=$?
+    (( pf_rc != 0 )) && { rm -f "$fifo" "$out"; return "$pf_rc"; }
 
     n="$(mn_count)"
     if [[ "$n" -gt 0 ]]; then
@@ -2648,7 +2682,9 @@ up_ovs() {
 
     # Same as up_p4: the target is recorded once every pre-lab refusal has passed and just
     # before the first thing that changes the machine. (#8, N12)
-    record_up_target ovs "$ovs_hosts" "$ovs_topo" || { rm -f "$fifo" "$out"; return 1; }
+    local rut_rc
+    record_up_target ovs "$ovs_hosts" "$ovs_topo"; rut_rc=$?
+    (( rut_rc != 0 )) && { rm -f "$fifo" "$out"; return "$rut_rc"; }
     claim_note_up "ovs $ovs_hosts"
 
     say "[1/4] control plane (Ryu)"
@@ -7588,6 +7624,21 @@ usage: ndt <command>
                 OVS builds only 128 or 4 -- each is a different ndtwin-lab verb, not a
                 parameter. For any other size, name the plane: 'ndt up p4 N'.
                 NDT_TOPO=<file> forces a specific kernel model.
+                  exit 0 the fabric came up and verified; 1 something was MEASURED and
+                  it was dirty -- a port held by a stray, a Mininet already running, a
+                  fabric older than the compiled pipeline, a bring-up that could not
+                  finish or could not verify; 5 a GUARD REFUSED and nothing was built:
+                  the lab is claimed by somebody else, a measurement is in flight, an
+                  'ndt down' from this checkout is still running, or NDT_TOPO names a
+                  model of a different network (H4). 2 is a usage error.
+                  🔴 1 AND 5 ARE DIFFERENT QUESTIONS. 1 says this command looked at the
+                  machine and did not like what it found; 5 says it never looked. When
+                  both are true at once -- a teardown in flight AND a port held -- the
+                  answer is 5, because the one action that helps is waiting for that
+                  teardown, and the port is very likely one that teardown is releasing.
+                  Both are still printed. 'down' and 'clean' answer with the same three
+                  words. 3, "there was nothing to measure", cannot arise here: a
+                  bring-up has asked for something whatever it found. (Adam, 09-12)
   down [--deep] take it all down and prove the machine is clean
                   --deep also kills whatever still holds ANY port in ports.sh's table
                   -- $NDT_DEEP_SIZE --, including processes this stack did

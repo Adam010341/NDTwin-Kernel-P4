@@ -559,7 +559,7 @@ report "M30: the teardown records nothing again (H3)" "$m" \
 # M31: the marker is written and nobody refuses on it -- a guard wired to nothing, which is
 # what every "the mechanism exists" check would have signed off (F8's lesson, one file over).
 m=$(mutant m31 "$NDT" \
-    '    guard_no_teardown_in_flight || bad=1' \
+    '    guard_no_teardown_in_flight || { bad=1; refused=5; }' \
     '    :')
 report "M31: the guard is not called from preflight" "$m" \
        "  🔴 P4 preflight refuses while a teardown runs"
@@ -909,6 +909,99 @@ m=$(mutant w10 "$NDT" \
     'info "the claim note now records a verified-clean teardown (owner and expiry unchanged)"')
 report_green "W10 (behaviour-preserving): the note's on-screen announcement reworded" "$m" \
        "section 19 reads .test_run/lab.claim, not the screen"
+
+# --- FIX-NDT-8: the one rc vocabulary across up, down and clean (section 20) -------------------
+#
+# Adam, 2026-09-12. Every mutation below is a way of making the three words mean one word again,
+# and each of them leaves the product looking exactly as it does now: the same refusals, the
+# same prose, the same guards -- and a caller that cannot tell "I declined to act" from "I
+# looked and it was dirty".
+
+# M64: the refusal code preflight answers with is flattened back to 1. Every message is
+# unchanged; only the byte a script reads moves.
+m=$(mutant m64 "$NDT" \
+    '    guard_no_teardown_in_flight || { bad=1; refused=5; }' \
+    '    guard_no_teardown_in_flight || bad=1')
+report "M64: a refused bring-up exits 1 again (H3)" "$m" \
+       "🔴 P4 preflight refuses while a teardown runs"
+
+# M65 (widening): preflight answers 5 for everything non-zero. The refusal cells all stay green
+# and the distinction is gone in the other direction -- a stray on :8000 now reads as "wait for
+# a teardown that is not running".
+m=$(mutant m65 "$NDT" \
+    '    (( refused != 0 )) && return "$refused"
+    return 1' \
+    '    return 5')
+report "M65 (widening): every preflight failure is a refusal" "$m" \
+       "🔴 a stray holding :8000 is a dirty reading, still 1"
+
+# M66: up_p4 flattens what preflight answered. This is the shape the code had for months --
+# `|| return 1` -- and it is invisible from inside preflight, which is still perfectly correct.
+m=$(mutant m66 "$NDT" \
+    '    preflight p4 || return $?' \
+    '    preflight p4 || return 1')
+report "M66: up_p4 flattens preflight's answer" "$m" \
+       "🔴 up_p4 carries preflight's refusal code out"
+
+# M67: the real trap, written the way it is easy to write. `rm -f ...; return $?` returns the rc
+# of `rm` -- 0 -- so a refused OVS bring-up reports SUCCESS. Every message still prints.
+m=$(mutant m67 "$NDT" \
+    '    local pf_rc
+    preflight ovs; pf_rc=$?
+    (( pf_rc != 0 )) && { rm -f "$fifo" "$out"; return "$pf_rc"; }' \
+    '    preflight ovs || { rm -f "$fifo" "$out"; return $?; }')
+report "M67: up_ovs reads the rc after its own rm -f" "$m" \
+       "🔴 up_ovs carries it out too, past its own rm -f"
+
+# M68/M69/M70/M71: one refusal at a time back to 1. Four sites, because "the vocabulary is
+# implemented" is a claim about all of them and a single site left behind is the state this
+# gate exists to see.
+m=$(mutant m68 "$NDT" \
+    '        # 🔴 rc 5: refused. (Adam, 2026-09-12)
+        return 5' \
+    '        return 1')
+report "M68: a foreign claim refuses with 1 again" "$m" \
+       "🔴 a lab claimed by somebody else refuses with rc 5"
+m=$(mutant m69 "$NDT" \
+    '        # 🔴 rc 5: a refusal, not a dirty reading -- nothing on the machine was looked at.
+        return 5' \
+    '        return 1')
+report "M69: H4 refuses with 1 again on the P4 side" "$m" \
+       "🔴 'ndt up p4 4' with a 128-host NDT_TOPO is refused"
+m=$(mutant m70 "$NDT" \
+    '        # 🔴 rc 5: the same refusal up_p4 gives. One plane changed is not both.
+        return 5' \
+    '        return 1')
+report "M70: H4 refuses with 1 again on the OVS side" "$m" \
+       "🔴 H4 refuses with 5 on the OVS side too"
+m=$(mutant m71 "$NDT" \
+    '        # guards, one code -- see the vocabulary note above preflight. (Adam, 2026-09-12)
+        return 5' \
+    '        return 1')
+report "M71: the second H4 guard answers 1 again" "$m" \
+       "🔴 record_up_target refuses hosts=4 against model_hosts=128"
+
+# M72 (widening): a DIRTY READING starts calling itself a refusal. This is the direction the
+# controls in section 20 exist for -- it makes every refusal cell greener, not redder.
+m=$(mutant m72 "$NDT" \
+    '        err "take it down first:  ndt down"
+        rm -f "$fifo" "$out"; return 1' \
+    '        err "take it down first:  ndt down"
+        rm -f "$fifo" "$out"; return 5')
+report "M72 (widening): a live Mininet reports itself as a refusal" "$m" \
+       "🔴 a live Mininet is a dirty reading, still 1"
+
+# W11 (behaviour-preserving): the local that carries preflight's answer in up_ovs is renamed.
+# Section 20 asserts the rc that comes out, not the name it travelled in.
+m=$(mutant w11 "$NDT" \
+    '    local pf_rc
+    preflight ovs; pf_rc=$?
+    (( pf_rc != 0 )) && { rm -f "$fifo" "$out"; return "$pf_rc"; }' \
+    '    local preflight_rc
+    preflight ovs; preflight_rc=$?
+    (( preflight_rc != 0 )) && { rm -f "$fifo" "$out"; return "$preflight_rc"; }')
+report_green "W11 (behaviour-preserving): the rc-carrying local is renamed" "$m" \
+       "the suite asserts the code that comes out, not the variable it came in"
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)

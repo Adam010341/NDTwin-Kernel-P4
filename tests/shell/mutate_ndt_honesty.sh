@@ -677,6 +677,31 @@ report 'MD3: the --deep size is typed rather than computed (ROLE-11 F7)' "$m" \
        '  the size in the help is computed, not typed'
 
 
+# --- FIX-NDT-8: the three rc tables say one thing (Adam, 2026-09-12) ---------------------------
+
+# MD4: `up` loses its rc table again. It had none at all until today, which is why a refused
+# bring-up and a bring-up that found a stray both read as "1" to every script in this repo.
+m=$(mutant md4 "$NDT" \
+    '                  exit 0 the fabric came up and verified; 1 something was MEASURED and' \
+    '                  (this command prints what it found; read the block above.)')
+report 'MD4: the up table is removed again' "$m" \
+       '  🔴 up has an rc table at all'
+
+# MD5: the table keeps 5 and drops the sentence that says what 5 IS. A code with no meaning
+# beside it is a number an operator guesses at -- and the guess available here is "worse than 1".
+m=$(mutant md5 "$NDT" \
+    '                  🔴 1 AND 5 ARE DIFFERENT QUESTIONS. 1 says this command looked at the' \
+    '                  🔴 1 and 5 are both failures. Read the block above for which.')
+report 'MD5: the up table stops saying what 1 and 5 separate' "$m" \
+       '  🔴 and 1 is scoped to a reading, not to failure in general'
+
+# MD6: the precedence sentence goes. preflight folds several checks into one answer, so "which
+# wins" is a decision the code makes on every run; unwritten, the next reader re-decides it.
+m=$(mutant md6 "$NDT" \
+    '                  both are true at once -- a teardown in flight AND a port held -- the' \
+    '                  both are true at once, the block above says which came first, and the')
+report 'MD6: the precedence between a refusal and a dirty reading is unwritten' "$m" \
+       '  🔴 with the precedence when both are true'
 
 echo
 NOW_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)

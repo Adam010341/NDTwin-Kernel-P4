@@ -614,7 +614,7 @@ hasnt "  🔴 and the model path is NOT printed for a caller to use" "REFUSAL=[]
 # in-flight check and preflight, so nothing on the machine has been read yet, let alone changed.
 reset_fix
 OUT="$(NDT_TOPO="$T128" drive 'up_p4 4')"
-check "  🔴 'ndt up p4 4' with a 128-host NDT_TOPO is refused" "1" "$(rc_of_out "$OUT")"
+check "  🔴 'ndt up p4 4' with a 128-host NDT_TOPO is refused" "5" "$(rc_of_out "$OUT")"
 has   "  and says what it is refusing"                     "refusing to build" "$OUT"
 has   "  naming a model of a different network"            "names a model of a different network" "$OUT"
 # The numbers reach the OPERATOR, not only TOPO_REFUSAL. They travel out of a command
@@ -632,7 +632,7 @@ check "  🔴 and no baseline was written"                   "absent" \
 # it is handed to it directly, which is the shape any later escape hatch would arrive in.
 reset_fix
 OUT="$(drive "record_up_target p4 4 '$T128'")"
-check "  🔴 record_up_target refuses hosts=4 against model_hosts=128" "1" "$(rc_of_out "$OUT")"
+check "  🔴 record_up_target refuses hosts=4 against model_hosts=128" "5" "$(rc_of_out "$OUT")"
 has   "  and says they are different networks"             "different networks" "$OUT"
 has   "  quoting the two fields it would have written"     "hosts=4, model_hosts=128" "$OUT"
 check "  🔴 and writes no file"                            "absent" \
@@ -693,7 +693,7 @@ DM="$FIX/.test_run/down.inflight"
 # A live teardown: this test's own shell is the pid, so it is certainly alive.
 printf 'pid=%s\nat=2026-09-11T01:26:11+0800\nby=role-2\n' "$$" > "$DM"
 OUT="$(drive 'preflight p4')"
-check "  🔴 P4 preflight refuses while a teardown runs"  "1" "$(rc_of_out "$OUT")"
+check "  🔴 P4 preflight refuses while a teardown runs"  "5" "$(rc_of_out "$OUT")"
 has   "  and says what it is refusing"                   "an 'ndt down' from this checkout is still running" "$OUT"
 has   "  naming the pid that is doing it"                "pid $$" "$OUT"
 has   "  and when it started"                            "2026-09-11T01:26:11+0800" "$OUT"
@@ -701,11 +701,11 @@ has   "  🔴 and what the overlap actually does"          "REUSES the fabric" "
 has   "  quoting what [1/3] said on 09-11"               "already up: 10 switches, reusing" "$OUT"
 has   "  and the remedy"                                 "wait for it to finish" "$OUT"
 OUT="$(drive 'preflight ovs')"
-check "  and OVS preflight refuses too"                  "1" "$(rc_of_out "$OUT")"
+check "  and OVS preflight refuses too"                  "5" "$(rc_of_out "$OUT")"
 # The whole bring-up, not just the predicate: nothing may be built.
 reset_fix; printf 'pid=%s\nat=2026-09-11T01:26:11+0800\n' "$$" > "$DM"
 OUT="$(drive 'up_p4 4')"
-check "  🔴 'ndt up p4 4' is refused"                    "1" "$(rc_of_out "$OUT")"
+check "  🔴 'ndt up p4 4' is refused"                    "5" "$(rc_of_out "$OUT")"
 check "  🔴 and no topo-start ran"                       "absent" \
       "$(grep -qF topo-start "$FIX/sudo.log" && echo present || echo absent)"
 
@@ -884,7 +884,7 @@ check "🔴 and it is the model path byte for byte"          "$(printf '%s' "$T4
 reset_fix
 mk_topo StaticNetworkTopologyP4_10Switches_128Hosts.json 128 288
 OUT="$(NDT_TOPO="$FIX/setting/StaticNetworkTopologyP4_10Switches_128Hosts.json" drive 'up_p4 4')"
-check "  the rc-3 refusal still fires"                     "1" "$(rc_of_out "$OUT")"
+check "  the rc-3 refusal still fires"                     "5" "$(rc_of_out "$OUT")"
 has   "  and still carries the reason out of the subshell" "4 host(s) asked for on the p4 plane, 128 declared" "$OUT"
 
 # ==========================================================================================
@@ -1324,7 +1324,7 @@ knob_put '# Adam: 4 for tonight. NOT committed -- see LAB-RULES hard rule 5.
 '
 KNOB_BEFORE="$(knob_hex)"
 OUT="$(NDT_TOPO="$T4" drive 'up_p4 128')"
-check "🔴 the H4 refusal is still a refusal"               "1" "$(rc_of_out "$OUT")"
+check "🔴 the H4 refusal is still a refusal"               "5" "$(rc_of_out "$OUT")"
 check "🔴 and the knob is byte-for-byte what this run found it" \
       "$KNOB_BEFORE" "$(knob_hex)"
 check "  including the comment a value-only restore would have dropped" "2" \
@@ -1343,7 +1343,7 @@ knob_put '128
 '
 KNOB_BEFORE="$(knob_hex)"
 OUT="$(NDT_TOPO="$T128" drive 'up_p4 4')"
-check "🔴 the mirror direction is refused as well"         "1" "$(rc_of_out "$OUT")"
+check "🔴 the mirror direction is refused as well"         "5" "$(rc_of_out "$OUT")"
 check "🔴 and its knob is untouched too"                   "$KNOB_BEFORE" "$(knob_hex)"
 has   "  quoting ITS entry value, not the 4 it was asked for" "UNCHANGED at 128" "$OUT"
 
@@ -1366,7 +1366,7 @@ knob_put '4
 KNOB_BEFORE="$(knob_hex)"
 OUT="$(drive 'foreign_claim() { echo "someone-else -- 40m left"; }
 up_p4 128')"
-check "  a foreign claim still refuses the bring-up"       "1" "$(rc_of_out "$OUT")"
+check "  a foreign claim still refuses the bring-up"       "5" "$(rc_of_out "$OUT")"
 check "🔴 and the knob is still the operator's"            "$KNOB_BEFORE" "$(knob_hex)"
 
 # -- and preflight, which is the last refusal before the machine changes.
@@ -1536,6 +1536,108 @@ OUT="$(NDT_OWNER="$NOTE_OWNER" drive 'cmd_down')"
 check "  with no claim at all the teardown is green"   "0" "$(rc_of_out "$OUT")"
 check "🔴 and no claim file is invented to narrate"    "gone" \
       "$( [[ -f "$FIX/.test_run/lab.claim" ]] && echo present || echo gone )"
+
+# ==========================================================================================
+section "20. FIX-NDT-8: a REFUSED 'ndt up' exits 5; a DIRTY READING still exits 1"
+# ==========================================================================================
+# Adam, 2026-09-12 (form 1 Q1, form 5 Q15b): one vocabulary across up, down and clean.
+#   rc 1  something was MEASURED and it was dirty -- alive, held, would not stop
+#   rc 3  nothing was measured, because there was nothing to measure
+#   rc 5  a guard REFUSED; this command did not act at all
+# rc 0 is left for "measured, and clean". The three tables in `ndt help` say the same thing,
+# and tests/shell/test_ndt_honesty.sh section 5I reads them.
+#
+# 🔴 THE DIRECTION THAT MATTERS, and every control below is one of its corners: "make every
+# non-zero refusal 5" is not the change. A bring-up that refused because it FOUND something --
+# a stray on :8000, a live Mininet, a fabric older than the pipeline -- measured the machine and
+# is still rc 1. The distinction is between "I looked and it is dirty" and "I declined to look".
+#
+# 🔴 The knob is put back to 4 here, and reset_fix deliberately does not do it: section 18
+# drives the ROLE-9 rewrites and leaves whatever its last case wrote. Without this line the reuse
+# branch below compares a 128-host knob against a 4-host fabric, takes the REBUILD path instead,
+# and the cell that is meant to be about stale_pipeline passes for a reason that has nothing to
+# do with it -- measured here 2026-09-12 12:2x: rc 0, with no refusal printed at all.
+echo 4 > "$FIX/p4_proxy/mininet/host_count_override"
+reset_fix
+OUT="$(drive 'foreign_claim() { echo "somebody-else (until 03:00)"; }
+up_p4')"
+check "🔴 a lab claimed by somebody else refuses with rc 5" "5" "$(rc_of_out "$OUT")"
+has   "  and the sentence an operator reads is unchanged" "the lab is claimed by somebody-else" "$OUT"
+check "  🔴 and nothing was built"                        ""  "$(cat "$FIX/sudo.log")"
+
+reset_fix
+OUT="$(drive 'in_flight() { echo "iperf3 -c 10.0.0.33 -t 200"; }
+up_p4')"
+check "🔴 a measurement in flight refuses with rc 5"      "5" "$(rc_of_out "$OUT")"
+has   "  naming what is running"                          "iperf3 -c 10.0.0.33 -t 200" "$OUT"
+
+# H4 on the OVS side. Section 8 pins the P4 one; one plane changed is not both -- up_p4 and
+# up_ovs carry two copies of this refusal, and they have drifted before (the stray-newline
+# regression in section 11 was in both).
+reset_fix
+OUT="$(NDT_TOPO="$T128" drive 'up_ovs 4')"
+check "🔴 H4 refuses with 5 on the OVS side too"          "5" "$(rc_of_out "$OUT")"
+has   "  and still says the size is the verb there"       "the size is the VERB" "$OUT"
+
+# 🔴 The WIRING, and the trap it is about: up_ovs does housekeeping between the refusal and its
+# own `return`, and `rm -f "$fifo" "$out"; return $?` returns the rc of `rm`. Both planes, both
+# guards, and the control that a preflight which failed for an ordinary reason is NOT promoted.
+reset_fix
+OUT="$(drive 'preflight() { return 5; }
+up_p4')"
+check "🔴 up_p4 carries preflight's refusal code out"     "5" "$(rc_of_out "$OUT")"
+OUT="$(drive 'preflight() { return 1; }
+up_p4')"
+check "🔴 and a preflight that failed for any other reason is still 1" "1" "$(rc_of_out "$OUT")"
+reset_fix
+OUT="$(drive 'preflight() { return 5; }
+up_ovs 4')"
+check "🔴 up_ovs carries it out too, past its own rm -f"  "5" "$(rc_of_out "$OUT")"
+OUT="$(drive 'preflight() { return 1; }
+up_ovs 4')"
+check "  and 1 stays 1 on that path as well"             "1" "$(rc_of_out "$OUT")"
+reset_fix
+OUT="$(drive 'record_up_target() { return 5; }
+up_p4')"
+check "🔴 record_up_target's refusal reaches up_p4's caller" "5" "$(rc_of_out "$OUT")"
+reset_fix
+OUT="$(drive 'record_up_target() { return 5; }
+up_ovs 4')"
+check "  and up_ovs's"                                    "5" "$(rc_of_out "$OUT")"
+
+# 🔴 PRECEDENCE, decided here and written into the help: preflight folds several checks into one
+# answer, and a teardown in flight can coincide with a port this bring-up would also refuse on.
+# The refusal wins, because the actionable sentence is "wait for that teardown" -- and the port
+# it would otherwise send the operator hunting is very likely one that teardown is releasing.
+reset_fix; rm -f "$DM"
+printf 'pid=%s\nat=2026-09-12T11:00:00+0800\nby=fix-ndt-8\n' "$$" > "$DM"
+OUT="$(FX_HELD="8000:992261" drive 'preflight p4')"
+check "🔴 a refusal and a dirty reading together: the refusal wins" "5" "$(rc_of_out "$OUT")"
+has   "  and the dirty reading is still PRINTED, not hidden" "not part of this checkout" "$OUT"
+has   "  while the remedy is the teardown, not the port"     "wait for it to finish" "$OUT"
+rm -f "$DM"
+
+# 🔴 THE CONTROLS. Each of these is a bring-up that refused because it MEASURED something.
+reset_fix
+OUT="$(FX_HELD="8000:992261" drive 'preflight ovs')"
+check "🔴 a stray holding :8000 is a dirty reading, still 1" "1" "$(rc_of_out "$OUT")"
+reset_fix
+OUT="$(FX_MN=14 drive 'up_ovs 4')"
+check "🔴 a live Mininet is a dirty reading, still 1"      "1" "$(rc_of_out "$OUT")"
+has   "  naming the wedge it would trigger"                "wedge trigger" "$OUT"
+reset_fix
+OUT="$(drive 'stale_pipeline() { return 0; }
+FX_BMV2=10 FX_TOPO_SESSION=1 up_p4')"
+check "🔴 a fabric older than the pipeline is a dirty reading, still 1" "1" "$(rc_of_out "$OUT")"
+has   "  naming what those switches are NOT running"       "are NOT running" "$OUT"
+reset_fix
+OUT="$(drive 'up_p4 abc')"
+check "  a usage error is still 2, not 5"                  "2" "$(rc_of_out "$OUT")"
+OUT="$(drive 'up_ovs 16')"
+check "  and so is a size the OVS plane cannot build"      "2" "$(rc_of_out "$OUT")"
+reset_fix; rm -f "$DM"
+OUT="$(drive 'preflight p4')"
+check "  🔴 and with nothing wrong at all, preflight is still 0" "0" "$(rc_of_out "$OUT")"
 
 # ==========================================================================================
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"

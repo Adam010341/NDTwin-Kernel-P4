@@ -909,6 +909,33 @@ check "  the size in the help is computed, not typed" "1" \
 check "  and so is the list of specs"                 "1" \
       "$(grep -c 'the ports --deep sweeps, from the table' "$NDT")"
 
+section "5I. FIX-NDT-8: 'up' has an rc table, and it is the SAME three words as down and clean"
+# Adam, 2026-09-12 (form 1 Q1, form 5 Q15b). Until today `up` had no rc table at all: the three
+# commands an operator drives a round with answered with three private vocabularies, and the one
+# that never said anything was the one whose refusals an automated round most needs to tell from
+# its failures. A refused bring-up and a bring-up that found a stray on :8000 both exited 1, so
+# no script could tell "wait for the teardown" from "go and look at the machine".
+has   "  🔴 up has an rc table at all"                   "exit 0 the fabric came up and verified" "$HELP"
+has   "  🔴 and 5 is named as a refusal that built nothing" "5 a GUARD REFUSED and nothing was built" "$HELP"
+has   "  naming the four things that refuse"             "claimed by somebody else" "$HELP"
+has   "  including the teardown overlap"                 "from this checkout is still running, or NDT_TOPO" "$HELP"
+has   "  🔴 and 1 is scoped to a reading, not to failure in general" "1 says this command looked at the" "$HELP"
+# 🔴 The needle starts INSIDE the line, not at the sentence: `has` is a line-wise grep -F and
+# the help wraps "-- the / answer is 5". Same red FIX-NDT-5 and FIX-NDT-6 each took once.
+has   "  🔴 with the precedence when both are true"      "answer is 5, because the one action" "$HELP"
+has   "  and that the dirty reading is still printed"    "Both are still printed" "$HELP"
+has   "  🔴 and why 3 cannot appear under 'up'"          "cannot arise here" "$HELP"
+has   "  attributed, so it can be revisited"             "(Adam, 09-12)" "$HELP"
+# 🔴 Against the code, not against itself. A table is prose; these three are the return sites it
+# describes. Without them the whole section goes on passing over an `ndt` that flattened every
+# refusal back to 1 -- which is the state this table would then be lying about.
+check "  the refusal code preflight answers with is really there" "1" \
+      "$(grep -c 'bad=1; refused=5' "$NDT")"
+check "  🔴 and up_p4 passes it out instead of flattening it"     "1" \
+      "$(grep -c 'preflight p4 || return \$?' "$NDT")"
+check "  🔴 and up_ovs reads it BEFORE its own housekeeping"      "1" \
+      "$(grep -c 'preflight ovs; pf_rc=\$?' "$NDT")"
+
 # ==========================================================================================
 section "F9. this suite reads its OWN tree, and not the main checkout"
 # ==========================================================================================
