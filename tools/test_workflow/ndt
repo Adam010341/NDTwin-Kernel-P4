@@ -3251,7 +3251,13 @@ cmd_down() {
     # missing -- which is precisely the app that most needs stopping, because nothing else on the
     # machine will ever stop it either. And the failure is silent twice over: app_stop's output is
     # discarded here, so a stop that could not finish said nothing at all.
+    #
+    # 🔴 C10-8, 2026-09-12. What this loop must NOT reach: another checkout's processes. The
+    # 15:4x restore log has this teardown printing `!! sim is running untracked (pid 1166836)
+    # -- stopping it by pid` about a fixture belonging to a test another worktree was running.
+    # app_probe no longer hands those over (app_claims_pid), and they are named below instead.
     local a started=0
+    app_elsewhere_reset; APP_ATTRIB_BLIND=""
     for a in $APP_NAMES; do
         app_probe "$a"
         [[ "$APP_STATE" == not-running ]] && continue
@@ -3269,6 +3275,13 @@ cmd_down() {
             *) err "could NOT stop $a -- rerun 'ndt apps stop $a' to see why" ;;
         esac
     done
+    # C10-8: said even when nothing of ours was running, because "this teardown saw them and
+    # left them alone" is the sentence the 15:4x round needed and did not have.
+    if (( ${#APP_ELSEWHERE[@]} > 0 )) || [[ -n "$APP_ATTRIB_BLIND" ]]; then
+        (( started == 0 )) && say "[0/3] apps"
+        started=1
+        apps_elsewhere_report
+    fi
 
     # Order matters and is not the obvious one: `cleanup` does not stop the topo session, so
     # cleaning up first leaves a tmux session whose bridge then tries to tear down a fabric
@@ -4702,6 +4715,7 @@ cmd_status() {
     # strictly more dangerous than a tracked one -- nobody is going to stop it on the way out --
     # so it is named separately rather than folded into the running list.
     local appson="" orphans="" a
+    app_elsewhere_reset; APP_ATTRIB_BLIND=""
     for a in $APP_NAMES; do
         app_probe "$a"
         case "$APP_STATE" in
@@ -4728,6 +4742,18 @@ cmd_status() {
         printf '  %-14s %s\n' "" "trusting the pidfile (G-6). Nothing else will, and until then"
         printf '  %-14s %s\n' "" "they keep polling the kernel: 'ndt apps stop <name>'"
         problems+=("untracked app process(es) with no pidfile: $orphans")
+    fi
+    # [Co-developed with claude code -- Adam]
+    # 🔴 C10-8. Its own row and NOT a `problems+=` entry: `--check` is the command a session
+    # runs to decide whether the machine it is about to measure is clean, and another tree's
+    # test fixtures are not an answer to that question. They are printed because the row above
+    # used to be red about them and a reader needs to see where they went.
+    if (( ${#APP_ELSEWHERE[@]} > 0 )); then
+        local ecol="" ee
+        for ee in "${APP_ELSEWHERE[@]}"; do
+            ecol="${ecol:+$ecol, }$(cut -d' ' -f2 <<<"$ee")(${ee%% *})"
+        done
+        printf '  %-14s %s\n' "elsewhere" "$ecol -- another checkout's; not counted, not stopped"
     fi
     # W16-2, Adam's decision 09-06 (grill §4D round 7, against the recommendation): --check
     # prints residue and goes red on it. G-12 was measured with `ndt status --check` answering
@@ -5673,6 +5699,9 @@ app_survivors() {
     if [[ -n "$out" ]]; then
         while read -r pid; do
             [[ -n "$pid" ]] || continue
+            # C10-8. The other two channels start from a file under $REPO and are ours by
+            # construction; a listener on :9000 is whoever got there first, on any tree.
+            app_claims_pid "$name" "$pid" || continue
             app_survivor_add "$pid" "listening on :$(app_port "$name")" && APP_SURVIVOR_CORROBORATED=1
         done <<<"$out"
     fi
@@ -5939,6 +5968,198 @@ app_running() {
 # Only the middle one may be reported as "nothing to do", and it now has to be earned by a
 # scan rather than inferred from a missing file.
 
+# --- whose process is it? the scan is machine-wide and the verdict must not be --------------
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 C10-8, measured 2026-09-12 15:05:14 (CELLS-2 window 1; the shape was first written up as
+# ROLE-10 section 9 at 05:50). The scan below reads EVERY process on the machine, and this
+# machine runs several checkouts of this repo at once. Another worktree was running
+# tests/shell/test_ndt_helper_apps_window.sh; its fixtures wear an app's argv on purpose --
+#
+#     XX  sim: pidfile-lost-but-alive -- Simulation-Platform-Manager
+#     XX      pid 1159780  bash /tmp/ndt-helper-window-oyNBmC/twolayer /nonexistent/NDT-TEST-...
+#
+# -- so THIS checkout's `ndt apps orphans` counted them as its own orphans and answered
+# `VERDICT: NOT CLEAN` over a lab that was down, clean and bridge-free. The night's regression
+# grid stopped on it. Worse, in the same round `ndt down` read the same state and acted on it:
+#
+#     !!  sim is running untracked (pid 1166836) -- stopping it by pid
+#     XX  could NOT stop sim
+#
+# i.e. one checkout tearing its lab down tries to KILL another checkout's running test. That is
+# the same defect this repo has been removing all week (`ndt` finding processes by name,
+# p4_proxy killing switches by name), one layer up: the scan is an INDEX of the machine, and
+# "carries an app's signature" is not "belongs to me".
+#
+# So every pid a machine-wide channel produces is asked one more question before it may be
+# counted, reported as an orphan, or signalled: is it THIS checkout's? The answer has three
+# values and the third one is not folded into either of the others.
+
+# path_under_this_checkout <path> -- is that path inside this checkout, and not inside a
+# checkout nested in it?
+#
+# The nested half is not hypothetical and is why a prefix test alone is wrong: every wt-*
+# worktree on this machine lives at $REPO/scratch/overnight-*/wt-*, so from the MAIN checkout
+# every other tree's files are "under $REPO" by string. A directory holding a .git (a file for
+# a worktree, a directory for a clone) is a checkout of its own, and a path inside it belongs
+# to that tree. Walking up stops at $REPO, so $REPO's own .git is never consulted -- this has
+# to work in the unit tests, where $REPO is a temp dir with no .git at all.
+path_under_this_checkout() {
+    local p="$1" d
+    [[ -n "$p" && "$p" == /* ]] || return 1
+    [[ "$p" == "$REPO" || "$p" == "$REPO"/* ]] || return 1
+    d="$p"
+    while [[ -n "$d" && "$d" != "$REPO" && "$d" != / ]]; do
+        [[ -e "$d/.git" ]] && return 1
+        d="${d%/*}"
+    done
+    return 0
+}
+
+# proc_registered_here <pid> -- is this pid, or its process group, written down in this
+# checkout's own register? Sets PROC_CHECKOUT_WHY when it is.
+#
+# .test_run/pids/ is where app_spawn and stack.sh's start_bg record what they started, so a
+# pid named there is ours by the strongest evidence there is: we wrote it. The .pgid files are
+# matched against the pid's GROUP as well as against the pid, which is what keeps a JVM the
+# launcher started (FINDING #48 -- its argv carries no signature at all) attributable here.
+#
+# A symlink is skipped rather than followed, the same refusal app_pidfile_pid makes: a pidfile
+# that is a symlink is a file somebody else controls the target of.
+proc_registered_here() {
+    local pid="$1" f v pgid
+    pgid="$(proc_pgid "$pid")" || pgid=""
+    for f in "$REPO"/.test_run/pids/*.pid "$REPO"/.test_run/pids/*.pgid; do
+        [[ -f "$f" && ! -L "$f" ]] || continue
+        v=""
+        read -r v 2>/dev/null < "$f" || continue
+        [[ "$v" =~ ^[0-9]+$ ]] || continue
+        if [[ "$v" == "$pid" ]]; then
+            PROC_CHECKOUT_WHY="this checkout's ${f##*/} names it"
+            return 0
+        fi
+        if [[ "$f" == *.pgid && -n "$pgid" && "$v" == "$pgid" ]]; then
+            PROC_CHECKOUT_WHY="it is in the process group this checkout's ${f##*/} records"
+            return 0
+        fi
+    done
+    return 1
+}
+
+# proc_checkout <pid> -- 0 this checkout's, 1 another tree's, 2 could not tell.
+# PROC_CHECKOUT_WHY carries the sentence in every case.
+#
+# 🔴 rc 2 is answered as OURS by every caller (app_claims_pid), and that asymmetry is the
+# point: a process this user may not look inside is not evidence of cleanliness, and the apps
+# `sudo ndtwin-lab` starts run as root, where /proc/<pid>/cwd and /proc/<pid>/fd are both
+# unreadable. Treating "cannot tell" as foreign would hand this checkout a clean verdict over
+# exactly the orphan class it most needs to find (G-14 is the same asymmetry for the fd
+# channel). What rc 2 changes is what gets SAID, never what gets counted.
+#
+# 🔴 Positive evidence for US is asked first and negative evidence is only ever read after all
+# of it has failed. Our own apps live OUTSIDE the checkout -- app_spawn runs them from
+# $WORKSPACE_ROOT/<App>, a sibling repo -- so "cwd is in another checkout" is the NORMAL state
+# of a healthy app of ours and cannot be the question. The fd channel is what attributes those:
+# app_spawn opens $REPO/.test_run/logs/app_<name>.log for them, and a reparented child inherits
+# that fd (it is how FINDING #48's JVMs were found by hand).
+PROC_CHECKOUT_WHY=""
+proc_checkout() {
+    local pid="$1" el t d fd blind_cwd=0 blind_fd=0
+    local -a pargv=()
+    PROC_CHECKOUT_WHY=""
+    [[ "$pid" =~ ^[0-9]+$ ]] && (( pid > 1 )) || { PROC_CHECKOUT_WHY="not a pid"; return 2; }
+    [[ -d "/proc/$pid" ]] || { PROC_CHECKOUT_WHY="pid $pid is gone"; return 2; }
+
+    proc_registered_here "$pid" && return 0
+
+    # argv, argument-wise and absolute-only: a relative path is answered by cwd below, and a
+    # command line that merely MENTIONS a path under $REPO is the substring trap pid_is_app's
+    # header spends a screen on.
+    #
+    # 🔴 `pargv`, not `argv`, and the array's NAME is load-bearing. pid_is_app reads the same
+    # file with the same builtin, and tests/shell/mutate_redirection_order.sh anchors a mutation
+    # on that exact line: a second byte-identical copy makes the anchor match twice, and an
+    # ambiguous anchor mutates a site the gate was not named for (check_gate_anchors.py reports
+    # it as DUP, which is how this one was caught). `2>/dev/null` still comes BEFORE the `<`, for
+    # the reason proc_stat_rest's header gives.
+    mapfile -d '' -t pargv 2>/dev/null < "/proc/$pid/cmdline"
+    for el in ${pargv[@]+"${pargv[@]}"}; do
+        [[ "$el" == /* ]] || continue
+        if path_under_this_checkout "$el"; then
+            PROC_CHECKOUT_WHY="its argv runs $el"
+            return 0
+        fi
+    done
+
+    t="$(readlink "/proc/$pid/exe" 2>/dev/null)"; t="${t% (deleted)}"
+    if [[ -n "$t" ]] && path_under_this_checkout "$t"; then
+        PROC_CHECKOUT_WHY="its program is $t"
+        return 0
+    fi
+
+    t="$(readlink "/proc/$pid/cwd" 2>/dev/null)"
+    if [[ -z "$t" ]]; then
+        blind_cwd=1
+    elif path_under_this_checkout "$t"; then
+        PROC_CHECKOUT_WHY="it runs in $t"
+        return 0
+    fi
+
+    if [[ -r "/proc/$pid/fd" ]]; then
+        for fd in "/proc/$pid/fd/"[0-9]*; do
+            [[ -L "$fd" ]] || continue
+            d="$(readlink "$fd" 2>/dev/null)"; d="${d% (deleted)}"
+            [[ -n "$d" ]] || continue
+            if path_under_this_checkout "$d"; then
+                PROC_CHECKOUT_WHY="it holds $d open"
+                return 0
+            fi
+        done
+    else
+        blind_fd=1
+    fi
+
+    if (( blind_cwd && blind_fd )); then
+        PROC_CHECKOUT_WHY="cannot read /proc/$pid/cwd or /proc/$pid/fd (uid $(proc_uid "$pid"), you are $(id -u)) -- who owns it was NOT established"
+        return 2
+    fi
+    t="$(readlink "/proc/$pid/cwd" 2>/dev/null)"
+    PROC_CHECKOUT_WHY="nothing ties it to $REPO${t:+ (it runs in $t)}"
+    return 1
+}
+
+# APP_ELSEWHERE -- "<pid> <app> <why>" for every process a machine-wide channel produced that
+# belongs to another tree. A LIST, printed as its own column, and never counted in a verdict.
+APP_ELSEWHERE=()
+app_elsewhere_reset() { APP_ELSEWHERE=(); }
+app_elsewhere_add() {
+    local pid="$1" name="$2" why="$3" e
+    for e in ${APP_ELSEWHERE[@]+"${APP_ELSEWHERE[@]}"}; do
+        [[ "${e%% *}" == "$pid" ]] && return 1
+    done
+    APP_ELSEWHERE+=("$pid $name $why")
+    return 0
+}
+
+# app_claims_pid <name> <pid> -- may this checkout count that pid as its own?
+#
+# rc 0 yes (including "could not tell", see proc_checkout); rc 1 no, and it has been recorded
+# in APP_ELSEWHERE so the caller's report can print it without counting it.
+app_claims_pid() {
+    local name="$1" pid="$2" rc
+    proc_checkout "$pid"; rc=$?
+    (( rc == 0 )) && return 0
+    if (( rc == 2 )); then
+        # Counted, and the reason travels with it: this is the branch where a check could not
+        # look, and E-7 forbids that looking like a check that looked.
+        APP_ATTRIB_BLIND="${APP_ATTRIB_BLIND:+$APP_ATTRIB_BLIND; }$name pid $pid: $PROC_CHECKOUT_WHY"
+        return 0
+    fi
+    app_elsewhere_add "$pid" "$name" "$PROC_CHECKOUT_WHY"
+    return 1
+}
+APP_ATTRIB_BLIND=""
+
 # app_ps_snapshot -- "<pid> <argv>" for every process, one per line.
 #
 # A seam: the unit tests replace it so a test can never signal a real app on the machine it
@@ -5972,6 +6193,34 @@ app_scan_pids() {
         pid_is_app "$pid" "$name" || continue
         echo "$pid"
     done < <(app_ps_snapshot)
+}
+
+# app_scan_here <name> -- the scanned pids THIS CHECKOUT may claim, in APP_SCAN_HERE.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 C10-8. app_scan_pids above answers "what does this MACHINE have", which is the right
+# question for an index and the wrong one for a verdict: on this machine several checkouts of
+# this repo run at once, and one of them running tests/shell/test_ndt_helper_apps_window.sh
+# made every other one report its fixtures as its own orphans (15:05:14 on 2026-09-12). Every
+# production caller goes through here; the raw scan is left raw so a test can still ask the
+# unconfined question and see the difference.
+#
+# 🔴 A global rather than stdout, and this is not a style choice. The classification has to
+# happen in THIS shell: `while read ... done < <(app_scan_pids)` runs the loop body here but the
+# scan in a SUBSHELL, so a version that recorded the foreign pids inside app_scan_pids recorded
+# them into a shell that exits one line later. Measured while writing this -- the report dropped
+# the fixture correctly and then printed no `seen elsewhere` column at all, which is the worst
+# of the three possible outcomes: confinement with nothing said about what it confined.
+APP_SCAN_HERE=()
+app_scan_here() {
+    local name="$1" pid
+    APP_SCAN_HERE=()
+    while read -r pid; do
+        [[ "$pid" =~ ^[0-9]+$ ]] || continue
+        app_claims_pid "$name" "$pid" || continue
+        APP_SCAN_HERE+=("$pid")
+    done < <(app_scan_pids "$name")
+    return 0
 }
 
 # app_pidfile_pid <name> -- the pidfile's pid, printed only when /proc confirms it is this app.
@@ -6042,9 +6291,10 @@ app_probe() {
         # and only the two together name the state.
         energy|sim)
             local lab_pid
-            while read -r lab_pid; do
+            app_scan_here "$name"
+            for lab_pid in ${APP_SCAN_HERE[@]+"${APP_SCAN_HERE[@]}"}; do
                 [[ -n "$lab_pid" ]] && APP_LIVE_PIDS+=("$lab_pid")
-            done < <(app_scan_pids "$name")
+            done
             if app_running "$name"; then
                 if (( ${#APP_LIVE_PIDS[@]} > 0 )); then
                     APP_STATE=running
@@ -6063,9 +6313,10 @@ app_probe() {
     esac
     from_file="$(app_pidfile_pid "$name")"
     [[ -n "$from_file" ]] && APP_LIVE_PIDS+=("$from_file")
-    while read -r pid; do
+    app_scan_here "$name"
+    for pid in ${APP_SCAN_HERE[@]+"${APP_SCAN_HERE[@]}"}; do
         [[ -n "$pid" && "$pid" != "$from_file" ]] && APP_LIVE_PIDS+=("$pid")
-    done < <(app_scan_pids "$name")
+    done
     if (( ${#APP_LIVE_PIDS[@]} == 0 )); then
         APP_STATE=not-running
     elif [[ -n "$from_file" ]] && (( ${#APP_LIVE_PIDS[@]} == 1 )); then
@@ -6736,12 +6987,13 @@ app_started_at() {
         et="$(stat -c %Y "$p" 2>/dev/null)"
         [[ "$et" =~ ^[0-9]+$ ]] && { echo "$et"; return 0; }
     fi
-    while read -r pid; do
+    app_scan_here "$name"
+    for pid in ${APP_SCAN_HERE[@]+"${APP_SCAN_HERE[@]}"}; do
         [[ "$pid" =~ ^[0-9]+$ ]] || continue
         et="$(ps -o etimes= -p "$pid" 2>/dev/null | tr -d ' ')"
         [[ "$et" =~ ^[0-9]+$ ]] || continue
         if [[ -z "$best" ]] || (( et > best )); then best="$et"; fi
-    done < <(app_scan_pids "$name")
+    done
     [[ -n "$best" ]] && { echo "$(( $(date +%s) - best ))"; return 0; }
     return 1
 }
@@ -7222,9 +7474,10 @@ residue_report() {
             # app_started_at now asks the scan too, so reaching this line usually does mean
             # nothing is running; "usually" is not a thing to print, so it is checked.
             live=()
-            while read -r rpid; do
+            app_scan_here "$a"
+            for rpid in ${APP_SCAN_HERE[@]+"${APP_SCAN_HERE[@]}"}; do
                 [[ "$rpid" =~ ^[0-9]+$ ]] && live+=("$rpid")
-            done < <(app_scan_pids "$a")
+            done
             if (( ${#live[@]} > 0 )); then
                 warn "  $a: running as pid(s) ${live[*]} but no pidfile, and its start time"
                 warn "      could not be read -- no window, so no rule can be dated against it."
@@ -7447,9 +7700,40 @@ stack_report() {
     return 0
 }
 
+# apps_elsewhere_report -- the column C10-8 adds: processes that wear one of these apps'
+# signatures and belong to another checkout on this machine.
+#
+# [Co-developed with claude code -- Adam]
+# Printed whether or not an orphan of ours was found, because the reader's question is the same
+# either way: "what did the scan see, and why is it not in the verdict". Nothing here is a
+# finding about THIS lab, so it changes no exit code -- the count is in the text, and a reader
+# who wants it in a gate has orphans_verdict.sh's `elsewhere=` field.
+apps_elsewhere_report() {
+    local e pid name why n
+    n="${#APP_ELSEWHERE[@]}"
+    if (( n > 0 )); then
+        warn "seen elsewhere (not this checkout): $n process(es)"
+        for e in "${APP_ELSEWHERE[@]}"; do
+            pid="${e%% *}"; why="${e#* }"; name="${why%% *}"; why="${why#* }"
+            warn "    $name  pid $pid  $(tr '\0' ' ' 2>/dev/null < "/proc/$pid/cmdline" | cut -c1-80)"
+            warn "        $why"
+        done
+        warn "    they carry an app signature and nothing ties them to this checkout, so they are"
+        warn "    NOT in the verdict and 'ndt down' here does not stop them. Whoever owns that"
+        warn "    tree stops them. (C10-8, 2026-09-12)"
+    fi
+    # E-7: the pids nobody could attribute are counted as ours (app_claims_pid), and saying so
+    # is the difference between "it is ours" and "we could not tell and did not guess in our own
+    # favour".
+    [[ -n "$APP_ATTRIB_BLIND" ]] &&
+        warn "who owns these could NOT be established, so they are counted as this checkout's: $APP_ATTRIB_BLIND"
+    return 0
+}
+
 apps_orphans() {
     local a found=0 pid e blind="" s spid lp known
     local -a unnamed=()
+    app_elsewhere_reset; APP_ATTRIB_BLIND=""
     for a in $APP_NAMES; do
         app_probe "$a"
         app_survivors "$a"
@@ -7516,6 +7800,14 @@ apps_orphans() {
         done
         err "    stop it with:  ndt apps stop $a"
     done
+    # [Co-developed with claude code -- Adam]
+    # 🔴 C10-8. Its own column, above the verdict, in warn() and not err(): these processes are
+    # REAL and somebody should know they are there -- but they are not this checkout's to count
+    # and not this checkout's to stop, and the 15:05:14 grid stop is what happens when the two
+    # are the same column. Deliberately carries neither `pidfile-lost-but-alive` nor `running
+    # with nothing tracking them`: those two strings are what orphans_verdict.sh's process half
+    # reads, and a NOTE that matched them would be a NOTE in name only.
+    apps_elsewhere_report
     if (( found == 0 )); then
         if [[ -n "$blind" ]]; then
             # "Could not look" is not "nothing there", and this verb gates measurements.

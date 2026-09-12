@@ -118,10 +118,16 @@ trap cleanup EXIT INT TERM
 
 # Same construction as tests/shell/test_ndt_apps_liveness.sh: the pid really is the process
 # wearing that argv, so /proc is the witness and nothing about identity is stubbed.
+# [Co-developed with claude code -- Adam]
+# 🔴 C10-8 (2026-09-12), and this suite is the one the finding was measured ON: its fixtures,
+# running in whatever tree it was launched from, were counted as orphans by every OTHER checkout
+# on the machine at 15:05:14. `ndt` now asks whether a scanned pid belongs to this checkout
+# (proc_checkout), so a fixture that is meant to stand for THIS $REPO's app has to run in it --
+# hence the cwd, which defaults to $FIX and is not scenery.
 spawn_fixture() {
-    local want="$1" pid i
+    local want="$1" dir="${2:-$FIX}" pid i
     local -a argv=()
-    ( exec -a "$want" sleep "$FIXTURE_TTL" ) >/dev/null 2>&1 </dev/null &
+    ( cd "$dir" && exec -a "$want" sleep "$FIXTURE_TTL" ) >/dev/null 2>&1 </dev/null &
     pid=$!
     echo "$pid" >> "$FIXTURE_REG"
     for i in 1 2 3 4 5 6 7 8 9 10; do

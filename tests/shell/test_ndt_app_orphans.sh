@@ -108,19 +108,27 @@ cleanup_fixtures() {
 }
 trap cleanup_fixtures EXIT INT TERM
 
-# spawn_fixture <argv0> -- start a process wearing that command line; echo its pid.
+# spawn_fixture <argv0> [cwd] -- start a process wearing that command line; echo its pid.
 #
 # Asserts its own success before returning. A fixture that silently failed to take the fake argv
 # would make every "not found" check below pass for the wrong reason, which is the one way this
 # suite could go green while testing nothing.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 C10-8 (2026-09-12): the working directory is now part of the fixture, because it is part of
+# the ANSWER. `ndt` asks of every pid the machine-wide scan produces whether it belongs to this
+# checkout (proc_checkout), and a fixture inherits the cwd of whoever started it -- which for
+# this suite is whatever tree it was launched from. Defaulting to $TMPROOT, the REPO every check
+# below runs against, is what makes these fixtures orphans OF THIS CHECKOUT; section 8 passes a
+# directory outside it on purpose and is the control for the other side.
 spawn_fixture() {
-    local want="$1" pid i
+    local want="$1" dir="${2:-$TMPROOT}" pid i
     local -a argv=()
     # The redirections are load-bearing, not tidiness. spawn_fixture is called inside a command
     # substitution, and a background child that inherits that substitution's pipe keeps it open:
     # without these the caller blocks for the fixture's whole lifetime (measured here -- the
     # first draft hung for FIXTURE_TTL seconds per fixture and had to be killed).
-    ( exec -a "$want" sleep "$FIXTURE_TTL" ) >/dev/null 2>&1 </dev/null &
+    ( cd "$dir" && exec -a "$want" sleep "$FIXTURE_TTL" ) >/dev/null 2>&1 </dev/null &
     pid=$!
     echo "$pid" >> "$FIXTURE_REG"
     for i in 1 2 3 4 5 6 7 8 9 10; do
@@ -331,7 +339,88 @@ SNAPSHOT_LINES=""
 out="$(apps_status 2>&1)"
 check "apps_status is quiet when there is none"   no  "$(has "ORPHAN" "$out")"
 
-# --- 8. this suite does not become the thing it tests ------------------------------
+# --- 8. C10-8: the scan is machine-wide, the verdict is this checkout's ------------
+#
+# [Co-developed with claude code -- Adam]
+# Measured 2026-09-12 15:05:14 (CELLS-2 window 1; the shape was ROLE-10 section 9 at 05:50).
+# Another worktree of this repo was running tests/shell/test_ndt_helper_apps_window.sh, whose
+# fixtures wear an app's argv on purpose. `ndt apps orphans` in the MAIN checkout counted them
+# as its own -- `VERDICT: NOT CLEAN`, over a lab that was down, clean and bridge-free -- and the
+# night's regression grid stopped on it; the same round's `ndt down` printed `!! sim is running
+# untracked (pid 1166836) -- stopping it by pid` and tried to kill another tree's test.
+#
+# So this section has two halves and needs both: a process from another checkout is NOT this
+# one's orphan (and is not signalled), AND a genuine orphan of this checkout still is. A
+# confinement that swallowed the second would be a worse defect than the one it fixes, which is
+# why the discriminating check below puts one of each in the same report.
+echo "confinement (another checkout's process is not this checkout's orphan)"
+
+# The rule everything here rests on. The nested case is the one a prefix test gets wrong: every
+# wt-* worktree on this machine lives UNDER the main checkout, so "starts with $REPO" says
+# "mine" about every other tree.
+mkdir -p "$TMPROOT/scratch/wt-other/tests/shell"
+printf 'gitdir: /nowhere\n' > "$TMPROOT/scratch/wt-other/.git"
+check "a path inside \$REPO is this checkout's"   yes "$(yn path_under_this_checkout "$TMPROOT/tools")"
+check "  \$REPO itself is"                        yes "$(yn path_under_this_checkout "$TMPROOT")"
+check "a path outside it is not"                  no  "$(yn path_under_this_checkout "/etc/hostname")"
+check "a relative path is not a path here"        no  "$(yn path_under_this_checkout "tools/x")"
+check "🔴 a path inside a NESTED checkout is not" no  "$(yn path_under_this_checkout "$TMPROOT/scratch/wt-other/tests/shell/t.sh")"
+check "  nor the nested checkout's own directory" no  "$(yn path_under_this_checkout "$TMPROOT/scratch/wt-other")"
+check "  while the directory above it still is"   yes "$(yn path_under_this_checkout "$TMPROOT/scratch")"
+
+# A fixture that belongs to that other tree: same argv shape as ours, running in ITS directory.
+OTHER_ARGV="python3 /nonexistent/NDT-TEST-FIXTURE-OTHERTREE/$TE_SIG"
+OTHERFIX="$(spawn_fixture "$OTHER_ARGV" "$TMPROOT/scratch/wt-other")"
+check "the other tree's fixture is still te by argv" yes "$(yn pid_is_app "$OTHERFIX" te)"
+check "  but proc_checkout says it is not ours"   1   "$(proc_checkout "$OTHERFIX"; echo $?)"
+check "  and our own fixture is ours"             0   "$(proc_checkout "$FIX"; echo $?)"
+
+rm -f "$PIDDIR"/app_*.pid
+SNAPSHOT_LINES="$(fix_line "$OTHERFIX" "$OTHER_ARGV")"
+app_probe te
+check "🔴 app_probe does not adopt it"            not-running "$APP_STATE"
+check "  and it names no pids"                    0 "${#APP_LIVE_PIDS[@]}"
+
+out="$(apps_orphans 2>&1)"; rc=$?
+check "🔴 another checkout's process -> rc 0"     0   "$rc"
+check "  the process half is clean"               yes "$(has "no untracked app processes" "$out")"
+check "  it is NOT called pidfile-lost-but-alive" no  "$(has "pidfile-lost-but-alive" "$out")"
+check "  nor counted as running with nothing tracking it" no "$(has "app(s) are running with nothing tracking them" "$out")"
+check "🔴 it is named in a column of its own"     yes "$(has "seen elsewhere (not this checkout)" "$out")"
+check "  with its pid"                            yes "$(has "$OTHERFIX" "$out")"
+check "  and why it was not counted"              yes "$(has "nothing ties it to" "$out")"
+check "  and that this teardown will not stop it" yes "$(has "does not stop them" "$out")"
+
+# The killing half, which is the branch `ndt down` takes for an app it finds untracked
+# (cmd_down's [0/3] gate is app_probe, G-6). Nothing may be signalled here.
+out="$(app_stop te 2>&1)"; rc=$?
+check "🔴 stop has nothing of ours to stop -> rc 2" 2 "$rc"
+check "  and the other tree's process is ALIVE"   yes "$(yn test -d "/proc/$OTHERFIX")"
+check "  and it is still wearing its own argv"    yes "$(yn pid_is_app "$OTHERFIX" te)"
+
+# 🔴 The discriminator. One report, two processes, two columns: the confinement must not be a
+# way of never finding anything.
+SNAPSHOT_LINES="$(fix_line "$FIX" "$FIX_ARGV")
+$(fix_line "$OTHERFIX" "$OTHER_ARGV")"
+out="$(apps_orphans 2>&1)"; rc=$?
+check "🔴 ours and theirs together -> rc 1"       1   "$rc"
+check "  OURS is the orphan"                      yes "$(has "te: pidfile-lost-but-alive" "$out")"
+check "  and the report names our pid"            yes "$(has "$FIX" "$out")"
+check "  theirs is in the elsewhere column"       yes "$(has "seen elsewhere (not this checkout): 1 process(es)" "$out")"
+check "  and the elsewhere column names theirs"   yes "$(has "$OTHERFIX" "$out")"
+
+# apps_status: the other interface that used to print the same adopted pid.
+out="$(apps_status 2>&1)"
+check "apps_status reports ours as ORPHAN"        yes "$(has "$FIX" "$out")"
+
+SNAPSHOT_LINES="$(fix_line "$OTHERFIX" "$OTHER_ARGV")"
+out="$(apps_status 2>&1)"
+check "  and says nothing of theirs"              no  "$(has "ORPHAN" "$out")"
+
+SNAPSHOT_LINES=""
+rm -f "$PIDDIR"/app_*.pid
+
+# --- 9. this suite does not become the thing it tests ------------------------------
 #
 # Asserted rather than left to the EXIT trap, because the trap's own failure is silent: the
 # first version of it tracked pids in an array assigned inside a command substitution, so it
