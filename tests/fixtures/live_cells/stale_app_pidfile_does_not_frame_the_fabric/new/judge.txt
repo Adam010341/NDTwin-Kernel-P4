@@ -1,0 +1,19 @@
+ASSERT ok   stale_plant_recorded                   plant.txt present
+ASSERT ok   stale_orphans_report_present           orphans.txt present
+ASSERT ok   stale_check_present                    check.log present
+ASSERT ok   stale_premise_pidfile_predates_bringup pidfile mtime 1788608311 is 593782s before the bring-up at 1789202093
+ASSERT ok   stale_premise_pid_was_dead             = [no]
+ASSERT ok   stale_premise_up_rc_is_0               = [0]
+ASSERT ok   stale_premise_rule_was_accepted        = [200]
+ASSERT ok   stale_premise_flow_table_not_empty     61 rule(s) on the wire for a window to frame
+ASSERT ok   stale_premise_the_app_got_a_window      te     window 2026-09-05 19:38:31 -> window closed at 2026-09-05 19:39:31 (60s wide; pid gone; app log mtime)
+ASSERT ok   stale_window_has_a_right_edge          = [closed]
+ASSERT ok   stale_window_frames_no_rule            = [none]
+ASSERT ok   stale_app_block_lists_no_rule          = [0]
+ASSERT ok   stale_check_does_not_list_them         check.log does not contain it
+ASSERT ok   stale_check_raises_no_rules_in_window_problem no '  - ' problem line is about rules in an app window (check rc was 0, which this cell does NOT judge -- see the comment)
+ASSERT ok   stale_premise_no_app_was_running       no tracked app and no untracked app process:  apps           none running
+ASSERT ok   stale_own_rule_gone                    flow_entries.after.json does not contain it
+ASSERT ok   stale_control_fabric_was_really_up     check.log contains it
+ASSERT ok   stale_control_plant_was_removed        = [no]
+CELL: PASS stale_app_pidfile_does_not_frame_the_fabric tag=ndt kernel=c4c8e50310d7e4a1 ndt=a6b2029c4db5bf38b3413843839675d0d576f928 at=2026-09-12T16:34:53+08:00
