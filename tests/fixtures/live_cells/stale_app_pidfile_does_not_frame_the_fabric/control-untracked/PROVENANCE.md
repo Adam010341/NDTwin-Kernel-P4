@@ -23,7 +23,8 @@ passed. The read-only auditor found it; this directory is what stops it coming b
 
 | | |
 |---|---|
-| every file except `check.log` | the hand-written expected-green raw the CELLS-2 agent used on 2026-09-12 15:21 to show this judge can pass at all before window 2 supplies a real `new/` (`logs/gates-0910/judge_dryrun_expected_green.cells2-0912-r1.log`). **Written by hand**, in this cell's raw layout, with the values a fixed tree would produce: a closed `te` window, `no flow entry arrived during that window`, `check.rc` 0, 60 rules on the wire. |
+| `flow_entries.after.json` | `../old/flow_entries.after.json` with the one rule this cell installs (`10.99.99.99`) filtered out, so that `stale_own_rule_gone` -- which reads the table and not the delete's status code -- is green here. Without it this directory would redden two ids and stop being a control for one. |
+| every other file except `check.log` | the hand-written expected-green raw the CELLS-2 agent used on 2026-09-12 15:21 to show this judge can pass at all before window 2 supplies a real `new/` (`logs/gates-0910/judge_dryrun_expected_green.cells2-0912-r1.log`). **Written by hand**, in this cell's raw layout, with the values a fixed tree would produce: a closed `te` window, `no flow entry arrived during that window`, `check.rc` 0, 60 rules on the wire. |
 | `check.log`'s four `untracked` lines | **verbatim from `../old/check.log` lines 37-40**, the real reading `ndt status --check` produced at 15:04:47. Nothing about them is invented -- the pid, the wording and the three continuation lines are `ndt`'s own. |
 
 So the ONE thing that differs between this directory and a clean fixed-tree reading is four lines

@@ -56,6 +56,10 @@ STALE_PIDFILE=""
 # the 4-host model, and the priority is the lowest there is, so nothing on this fabric can match
 # it and nothing it shadows changes. Deleted again at the end of `observe`.
 CELL_RULE='{"dpid":1,"priority":1,"match":{"eth_type":2048,"ipv4_dst":"10.99.99.99"},"actions":[{"type":"OUTPUT","port":1}]}'
+# The one field of it that identifies the rule in a table dump, and the needle the judge greps.
+# The kernel echoes the match back as `"nw_dst": "10.99.99.99"`, so the address alone is what
+# survives both spellings of the key.
+CELL_RULE_ADDR='10.99.99.99'
 
 _stale_unplant() {
     [[ -n "$STALE_PIDFILE" && -f "$STALE_PIDFILE" ]] || return 0
@@ -167,12 +171,26 @@ cell_observe() {
     # Take the rule back off the wire. The fabric is destroyed by run_cells.sh's restore a minute
     # later, so a failed delete costs nothing that survives -- but a cell that left it to the
     # teardown would be leaving its own mess for the next reader of `apps orphans` to find.
+    # 🔴 THE 200 IS NOT THE ANSWER, AND THE FIRST CAPTURE PROVED IT. delete_flow_entry replies
+    # `{"accepted":1,"detail":"entries accepted for programming; per-entry outcomes are reported
+    # in the kernel log and, since they are not in this response, ..."}` -- so a 200 means the
+    # batch was taken, not that the rule is off the wire. On 2026-09-12 15:05 this cell read the
+    # table once, immediately, got 61 entries again and 10.99.99.99 still in them, and the
+    # SUMMARY then claimed the rule had been removed on the strength of `delete.code` alone.
+    # It polls now, and the judge reads the TABLE rather than the status code.
     curl -s -o "$d/delete.body" -w '%{http_code}\n' \
         -X POST http://localhost:8000/ndt/delete_flow_entry -d "$CELL_RULE" \
         > "$d/delete.code" 2>> "$d/curl.err"
-    printf '%s' "$(curl -sf --max-time 10 \
-        http://localhost:8000/ndt/get_switch_openflow_table_entries 2>/dev/null)" \
-        > "$d/flow_entries.after.json"
+    for i in $(seq 1 12); do
+        printf '%s' "$(curl -sf --max-time 10 \
+            http://localhost:8000/ndt/get_switch_openflow_table_entries 2>/dev/null)" \
+            > "$d/flow_entries.after.json"
+        printf 'sample %s at %s: %s hit(s) for %s\n' "$i" "$(date +%s)" \
+            "$(grep -c "$CELL_RULE_ADDR" "$d/flow_entries.after.json" 2>/dev/null || true)" \
+            "$CELL_RULE_ADDR" >> "$d/delete_poll.log"
+        grep -q "$CELL_RULE_ADDR" "$d/flow_entries.after.json" || break
+        sleep 5
+    done
     printf '%s\n' "$(grep -o '"priority"' < "$d/flow_entries.after.json" | grep -c .)" \
         > "$d/flow_entries.after.count"
 
@@ -300,6 +318,16 @@ cell_judge() {
     else
         _a_bad stale_premise_no_app_was_running \
                "an app process was running while this was measured, so a legitimately-open window could be on the machine and the rows above are not this cell's to read -- apps row [${apps_row:-<absent>}] untracked row [${untr:-<none>}]"
+    fi
+
+    # 🔴 HYGIENE, AND IT IS AN ASSERTION AND NOT A SENTENCE IN A REPORT. The cell puts a rule on
+    # the wire; it has to be able to say the rule came off again, and `delete.code` 200 does not
+    # say that -- the reply is `accepted for programming`. This reads the table.
+    if [[ -s "$d/flow_entries.after.json" ]]; then
+        a_hasnt stale_own_rule_gone  "$CELL_RULE_ADDR"  "$d/flow_entries.after.json"
+    else
+        _a_bad  stale_own_rule_gone \
+                "NOT CHECKED: this raw has no flow_entries.after.json, so whether the rule this cell installed came off the wire was never read. NOT 'it was removed'"
     fi
 
     # --- controls: the directions a wrong fix would take. They pass on old/ by design.

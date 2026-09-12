@@ -536,6 +536,14 @@ m=$(mutant m20c "$CELL_SAPDNFTF" \
     '    if [[ "$nprob" == 0 ]]; then' \
     '    if true; then')
 report "M21c (widen) RESIDUE-1: the problem list stops being read at all" "$m" stale_app_pidfile_does_not_frame_the_fabric
+# 🔴 The cell's own hygiene, and it is mutated like a finding because the SUMMARY of 2026-09-12
+# claimed the rule had come off the wire on the strength of `delete.code` 200 -- while the raw
+# beside it still had 10.99.99.99 in the table. A cell that installs something must be able to
+# say it took it back, and "it replied 200" is not that sentence.
+m=$(mutant m20d "$CELL_SAPDNFTF" \
+    '        a_hasnt stale_own_rule_gone  "$CELL_RULE_ADDR"  "$d/flow_entries.after.json"' \
+    '        _a_ok   stale_own_rule_gone "(widening: the rule this cell installed may stay on the wire)"')
+report "M21d (widen) RESIDUE-1: the cell may leave its own rule behind" "$m" stale_app_pidfile_does_not_frame_the_fabric
 
 # --- northbound_write_reply_names_the_lab_claim ---
 # 🔴 ONLY THESE TWO. The rest of that judge's failing set on old/ is a fixture gap -- ROLE-11 was
