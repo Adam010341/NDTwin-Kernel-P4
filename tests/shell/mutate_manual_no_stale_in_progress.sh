@@ -102,9 +102,18 @@ test_mutant() {   # test_mutant <tag> <anchor \x1f replacement>
     echo "$out"
 }
 
-# A mutated copy of `ndt`. It still runs: only a string inside cmd_clean is changed.
+# A mutated copy of `ndt` that still RUNS. `ndt` sources ports.sh and sudo_surface.sh out of its
+# own directory, so a bare copy in a temp dir dies on line 64 and prints nothing at all -- and a
+# mutant that breaks the whole tool turns every help assertion red at once, which says nothing
+# about the one sentence it removed. The copy therefore sits in a MIRROR of tools/test_workflow/
+# whose other entries are symlinks to the originals, so the only difference between this `ndt`
+# and the repo's is the anchor below. (Measured 2026-09-12: `ndt help` out of the mirror is
+# byte-identical to the repo's except its trailing `repo:` line, which nothing here reads.)
 ndt_mutant() {   # ndt_mutant <tag> <anchor \x1f replacement>
-    local out="$BK/ndt.$1"; cp "$NDT" "$out"
+    local dir="$BK/$1/tools/test_workflow" out f
+    mkdir -p "$dir"
+    for f in "$(dirname "$NDT")"/*; do ln -sfn "$f" "$dir/$(basename "$f")"; done
+    out="$dir/ndt"; rm -f "$out"; cp "$NDT" "$out"
     apply_exact "$out" "$2" >&2 || { echo ""; return; }
     echo "$out"
 }
@@ -136,6 +145,33 @@ report() {   # report <label> <test file> <manual file> <ndt file> <case that mu
     else
         SURVIVORS=$((SURVIVORS + 1))
         printf '  SURVIVED      %-54s (%s stayed green -- that case proves nothing)\n' "$1" "$5"
+        grep -E '^  (ok|FAILED) ' <<<"$out" | sed 's/^/                /'
+    fi
+}
+
+# A mutation applied to `ndt` has to be shown to be SURGICAL: a mutant that cannot run turns the
+# whole tool-side half red and would "catch" everything. This reporter names one case that has to
+# go red and one witness that has to stay green.
+report_isolated() {   # report_isolated <label> <test> <manual> <ndt> <case that goes red> <witness that stays green>
+    local out rc
+    MUTATIONS=$((MUTATIONS + 1))
+    if [[ -z "$2" || -z "$3" || -z "$4" ]]; then
+        printf '  DID-NOT-APPLY %-54s (anchor missed; nothing was tested)\n' "$1"
+        UNAPPLIED=$((UNAPPLIED + 1))
+        return
+    fi
+    out=$(run_triple "$2" "$3" "$4"); rc=$?
+    if ! grep -qE '^  (ok|FAILED) ' <<<"$out"; then
+        printf '  TEST-DID-NOT-RUN %-51s (mutant broke the file; harness error)\n' "$1"
+        sed -n '1,4p' <<<"$out" | sed 's/^/                /'
+        UNAPPLIED=$((UNAPPLIED + 1))
+        return
+    fi
+    if [[ "$rc" -ne 0 ]] && grep -q "FAILED   $5" <<<"$out" && grep -q "ok       $6" <<<"$out"; then
+        printf '  caught        %-54s (%s went red; the witness stayed green)\n' "$1" "$5"
+    else
+        SURVIVORS=$((SURVIVORS + 1))
+        printf '  SURVIVED      %-54s (the named case stayed green, or the mutant was not surgical)\n' "$1"
         grep -E '^  (ok|FAILED) ' <<<"$out" | sed 's/^/                /'
     fi
 }
@@ -201,7 +237,9 @@ report "M6: the measured record is dropped with the caveat" "$TEST" "$M" "$NDT" 
 
 # --- M7: the tool is 'fixed' by never warning about a stranger again --------------------------------
 N=$(ndt_mutant m7 'err "   this stack did not start it; to kill it too:  ndt down --deep"'$'\x1f''err "   nothing on this machine is worth mentioning"')
-report "M7: 'ndt' stops warning about a stranger at all" "$TEST" "$PRISTINE" "$N" "case 4  'ndt' still has the stranger sentence (the fix was not 'never say it')"
+report_isolated "M7: 'ndt' stops warning about a stranger at all" "$TEST" "$PRISTINE" "$N" \
+                "case 4  'ndt' still has the stranger sentence (the fix was not 'never say it')" \
+                "case 2  'ndt help' prints --deep's size out of ports.sh's table"
 
 # --- C1 (control): a source comment is reworded; nothing about the contract changes -----------------
 echo
