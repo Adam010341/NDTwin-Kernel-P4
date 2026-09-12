@@ -5030,6 +5030,32 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
 - **改法**：流表那半的**輸出**改叫 `rules-in-window`；行程那半保留 `residue`；
   **函式與變數名沒改**（理由寫在 `status_residue_row` 上面）。rc 一個都沒動。
 
+### G-55 🔴 「那個視窗裡沒有規則」與「線上根本沒有規則」在輸出上是同一句話
+
+- **狀態**：**OPEN**（instrument class）。來源 CELLS-2（2026-09-12），該單的碼已併入 trunk `53a62c71`；
+  **這一條本身沒有修法落地**，它是一條讀數守則。
+  ⚠️ 🟠 **轉述** `fix/CELLS-2-SUMMARY.md` §6＋§8：FIX-DOC-4 沒有開 lab、沒有重跑那一格。
+- **量到什麼**：2026-09-12 15:00:47，CELLS-2 的首格在一棵**有缺陷**的樹上跑出四個綠：
+  `ndt up ovs 4` 剛回來（`paths=installed`、`h1 -> 10.0.0.2 forwards`、sFlow 10 records），
+  kernel 的 `/ndt/get_switch_openflow_table_entries` 回 `[]`，於是那個右端開口的 app 視窗
+  框住 0 條規則，`residue_report` 印 `no flow entry arrived during that window`，
+  `ndt status --check` 回 rc 0。
+  🔴 **流表在 `ndt up` 回來之後還要約十秒才讀得到**（同格 15:04 的 `flow_poll.log`：
+  +0 s ＝ 0、+5 s ＝ 0、+10 s ＝ 61）。
+  （**數字依 CELLS-2 §8-5 勘誤**：那個視窗是 **588377 s ＝ 6 天 19 小時**寬，不是原稿寫的
+  「12 小時寬」——12.3 小時是 RESIDUE-1 的 viz 視窗，不是這一格種的。窗寬不影響本條的結論：
+  **不論多寬，框住 0 條與線上 0 條在輸出上長得一樣**。）
+- **失效方向：樂觀**。「殘留 0」與「這支工具此刻什麼都看不到」不可分辨，而後者回 rc 0。
+- **為什麼要記**：任何「殘留是 0」的宣稱，都必須同時記下**當時表上有幾條**；
+  否則它與「這支工具不再看了」不可分辨。
+- **規則**：讀 residue／rules-in-window 之前，先輪詢流表到非空，或自己裝一條可定時的規則當母體。
+- **實例與逐字原因**寫在 `tools/test_workflow/live_cells/stale_app_pidfile_does_not_frame_the_fabric.sh`
+  的 `observe` 旁邊，與 `tests/fixtures/live_cells/stale_app_pidfile_does_not_frame_the_fabric/old/PROVENANCE.md`。
+- **同一單的第二筆同形狀教訓（CELLS-2 §8-3，一併記在這裡）**：那一格的收拾宣稱
+  「自己裝的 `10.99.99.99` 規則已刪」，憑的是 `delete.code` **200**——而 200 的 body 自己說
+  per-entry outcomes 不在這個回應裡，`flow_entries.after.json` 仍然含那條規則。
+  **狀態碼不是讀數**：要斷言一條規則沒了，去 grep 表。
+
 ### G-56 🏁 兩顆變異共用一個 anchor 時，`check_gate_anchors.py` 的 `ok(N)` 會少算，而總表仍然全綠
 
 - **狀態**：🟢 **已修（2026-09-12 AUDIT-SCAN-1 follow-up `8cd5bec7`）**；
