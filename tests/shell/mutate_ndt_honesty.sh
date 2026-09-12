@@ -531,7 +531,7 @@ m=$(mutant mc6 "$NDT" \
     '    if false; then
         err "refusing to tear down: this claim DECLARES a measurement in progress."')
 report 'MC6: the teardown stops reading measuring= (T2d verbatim)' "$m" \
-       'a declared measurement refuses the teardown'
+       'a declared measurement refuses the teardown, rc 5'
 
 
 # 🔴 A guard any second flag switches off. --deep is what an operator reaches for when a teardown
@@ -700,9 +700,13 @@ report 'MD5: the up table stops saying what 1 and 5 separate' "$m" \
 
 # MD6: the precedence sentence goes. preflight folds several checks into one answer, so "which
 # wins" is a decision the code makes on every run; unwritten, the next reader re-decides it.
+# 🔴 Re-anchored 2026-09-12 after this gate reported MD6 as a SURVIVOR: the first anchor was the
+# line ABOVE the sentence, and the cell reads the sentence -- so the mutation left the needle
+# exactly where it was. The anchor is now the line that carries the ruling, and the replacement
+# is the OTHER ruling rather than a deletion, which is the form an operator could actually meet.
 m=$(mutant md6 "$NDT" \
-    '                  both are true at once -- a teardown in flight AND a port held -- the' \
-    '                  both are true at once, the block above says which came first, and the')
+    '                  answer is 5, because the one action that helps is waiting for that' \
+    '                  answer is 1, because a held port is a fact whoever else is running and')
 report 'MD6: the precedence between a refusal and a dirty reading is unwritten' "$m" \
        '  🔴 with the precedence when both are true'
 

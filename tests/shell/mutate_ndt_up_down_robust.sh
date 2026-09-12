@@ -60,7 +60,12 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = case that must fail
         printf '  caught   %-58s (%s went red)\n' "$1" "$3"
     else
         SURVIVORS=$((SURVIVORS+1))
-        printf '  SURVIVED %-58s (%s stayed green -- that case proves nothing)\n' "$1" "$3"
+        if [[ -f "$2/.unapplied" ]]; then
+            printf '  SURVIVED %-58s (anchor could not be applied -- the gate cannot find that line any more)\n' "$1"
+            sed 's/^/             /' "$2/.apply.err"
+        else
+            printf '  SURVIVED %-58s (%s stayed green -- that case proves nothing)\n' "$1" "$3"
+        fi
         grep -E '^  FAILED|passed, ' <<<"$out" | sed 's/^/             /'
     fi
 }
@@ -76,7 +81,12 @@ report_green() {   # $1 = mutation name, $2 = mutant dir, $3 = why it changes no
         printf '  green    %-58s (%s)\n' "$1" "$3"
     else
         SURVIVORS=$((SURVIVORS+1))
-        printf '  RED      %-58s (behaviour is unchanged, so this is the suite reading text)\n' "$1"
+        if [[ -f "$2/.unapplied" ]]; then
+            printf '  RED      %-58s (anchor could not be applied, so this red is about nothing)\n' "$1"
+            sed 's/^/             /' "$2/.apply.err"
+        else
+            printf '  RED      %-58s (behaviour is unchanged, so this is the suite reading text)\n' "$1"
+        fi
         grep -E '^  FAILED|passed, ' <<<"$out" | sed 's/^/             /'
     fi
 }
@@ -96,13 +106,22 @@ mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replac
     cp "$REPO/tools/test_workflow/ports.sh" "$d/ports.sh"
     cp "$REPO/tools/test_workflow/sudo_surface.sh" "$d/sudo_surface.sh"
     cp "$REPO/tools/test_workflow/components.env" "$d/components.env"
-    python3 - "$d/$(basename "$file")" "$old" "$new" <<'PY'
+    # 🔴 AN ANCHOR THAT WILL NOT APPLY IS A SURVIVOR, AND IT MUST SAY WHICH KIND. Until
+    # 2026-09-12 this python ran bare: a stale anchor printed a traceback into the gate's own
+    # log, the copy stayed UNMUTATED, the suite was green, and the gate said `SURVIVED -- that
+    # case proves nothing`. "The assertion is not load-bearing" and "the gate can no longer find
+    # that line" are very different diagnoses, and this ticket produced four of the second kind
+    # in one round. tests/shell/mutate_live_cells.sh has said it this way since 09-11.
+    if ! python3 - "$d/$(basename "$file")" "$old" "$new" > "$d/.apply.err" 2>&1 <<'PY'
 import sys
 p, a, b = sys.argv[1], sys.argv[2], sys.argv[3]
 s = open(p).read()
 assert s.count(a) == 1, "anchor not unique (%d hits): %s" % (s.count(a), a[:70])
 open(p, "w").write(s.replace(a, b))
 PY
+    then
+        printf 'ANCHOR-NOT-APPLIED %s\n' "$label" > "$d/.unapplied"
+    fi
     echo "$d"
 }
 
@@ -631,7 +650,7 @@ report "M41: mark_teardown_end removes anybody's marker (ROLE-12)" "$m" \
 # M42: the refusal is printed and not acted on -- F8's shape, a third time. The operator sees
 # the whole message and the teardown runs anyway.
 m=$(mutant m42 "$NDT" \
-    '    mark_teardown_start || return 1' \
+    '    mark_teardown_start || return 5' \
     '    mark_teardown_start || true')
 report "M42: the second teardown's refusal is not carried to the rc" "$m" \
        "  🔴 so no stack.sh teardown ran"
@@ -928,7 +947,7 @@ m=$(mutant m64 "$NDT" \
     '    guard_no_teardown_in_flight || { bad=1; refused=5; }' \
     '    guard_no_teardown_in_flight || bad=1')
 report "M64: a refused bring-up exits 1 again (H3)" "$m" \
-       "🔴 P4 preflight refuses while a teardown runs"
+       "  🔴 P4 preflight refuses while a teardown runs"
 
 # M65 (widening): preflight answers 5 for everything non-zero. The refusal cells all stay green
 # and the distinction is gone in the other direction -- a stray on :8000 now reads as "wait for
@@ -972,7 +991,7 @@ m=$(mutant m69 "$NDT" \
         return 5' \
     '        return 1')
 report "M69: H4 refuses with 1 again on the P4 side" "$m" \
-       "🔴 'ndt up p4 4' with a 128-host NDT_TOPO is refused"
+       "  🔴 'ndt up p4 4' with a 128-host NDT_TOPO is refused"
 m=$(mutant m70 "$NDT" \
     '        # 🔴 rc 5: the same refusal up_p4 gives. One plane changed is not both.
         return 5' \
@@ -984,7 +1003,7 @@ m=$(mutant m71 "$NDT" \
         return 5' \
     '        return 1')
 report "M71: the second H4 guard answers 1 again" "$m" \
-       "🔴 record_up_target refuses hosts=4 against model_hosts=128"
+       "  🔴 record_up_target refuses hosts=4 against model_hosts=128"
 
 # M72 (widening): a DIRTY READING starts calling itself a refusal. This is the direction the
 # controls in section 20 exist for -- it makes every refusal cell greener, not redder.
