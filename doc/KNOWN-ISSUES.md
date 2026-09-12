@@ -4564,6 +4564,43 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   **數字逐字相同**。
 - **為什麼算陷阱**：一支「本來就紅」的檢查會讓下一個人把自己的紅當成環境雜訊。
   ⚠️ 🟠 轉述（本條登記者沒有自己跑那兩支）。
+- 🆕 **2026-09-12 現況：上面那個 `82/11` 已經不是今天的數字，而且它每天在動**
+  （FIX-DOC-5 收，來源是別單留下的 log，**本條登記者仍然沒有自己跑過那支**）：
+  - **09-11 CELLS-1 量到 83/12；09-12 CELLS-2 量到 `Ran 84 checks, 12 failed`**
+    （`logs/gates-0910/test_l1_shell_scoring.cells2-0912-r3.log` 的 `:125`，✅ 本條登記者親自開檔看過）。
+  - **84 − 83 ＝ CELLS-2 自己新加的 `tests/shell/test_readme_mentions_mnexec.sh`，而它是 `ok`。**
+    ⇒ **總數變大不等於多一條紅**；對帳要拿「紅的支數」對，不要拿 `Ran N` 對。
+  - **83/12 比 82/11 多出來的那一支紅，🟠 最可能是 `tests/shell/test_guarded_build_reentrant.sh`**
+    （`git log --diff-filter=A` 說它 2026-09-11 才加進來，而它在失敗清單裡）。
+    ⚠️ **這是推論不是量測**：沒有人用 `git archive` 把 `82/11` 那棵樹重建回來比對。
+  - **12 支的清單（`:49`–`:117` 逐字，✅ 本條登記者親自從 log 抄出來的）**：
+    `test_apps_residue`、`test_build_guard`、`test_check_logs_crash_patterns`、
+    `test_guarded_build_reentrant`、`test_ndt_honesty`、`test_ndt_ovs_topo_script`、
+    `test_ndt_status_check_baseline`、`test_ndt_up_down_robust`、`test_ndt_up_target`、
+    `test_orphans_verdict`、`test_stack_log_rotation`、`test_stop_one_targets_its_argument`。
+  - **FIX-NDT-10 §7-4 同一天也講 12 支**，⚠️ 但**那一跑沒有 log**（該單 §8-2 自己列了）。
+    以上面那份 CELLS-2 的 log 為準。
+  - 🔴 **group C 抓到過一次真的，就在同一天**：CELLS-2 的新閘門第一版把散文用 `echo` 印在
+    `printf` 總結行之後，數字一度變成 **13**；改成散文走 `printf`、總結行走 `echo` 之後回到 12
+    （`bcd3c64e`）。⇒ **「本來就紅」不等於「這支沒有鑑別力」**——引用本條的人不要把它讀成可以忽略。
+- 🆕 **2026-09-12 另一種紅，不要跟本條混在一起**：`tests/shell/test_apps_residue.sh` 的 5K 那一格
+  是**時間相依的 flake**，不是「乾淨 trunk 上就紅」。（`test_apps_residue` 在上面那 12 支裡，
+  但那是 group C 的結尾行問題，**跟這裡講的兩格完全無關**。）
+  ✅ **本條登記者親自開檔看過** `logs/gates-0910/test_apps_residue.ndt10-0912-r1.log`
+  （17:20:58 起跑，末行 `Ran 102 checks, 2 failed`），逐字兩格（`:86`–`:90`）：
+
+  ```
+    FAILED   🔴 sec=0 with nsec set is a real just-installed rule, and is DATED
+               no match for 'installed 0s ago'
+    FAILED     and it is counted as dated
+               no match for '1 rule(s) listed: 1 dated inside the window,'
+  ```
+
+  **同一顆 `ndt`、同一棵樹，r2／r3／r4／r5 四份 log 末行都是 `Ran 102 checks, 0 failed`**
+  （✅ 本條登記者親自 `grep` 過那四份）。
+  機制（🟠 轉述 FIX-NDT-10 §7-3）：那一格起一個活著的夾具、把 pid 寫進 pidfile，
+  再要求「0.004 秒前裝的規則落在視窗裡」——而視窗左緣是 `ps -o etimes=`（**秒**解析度）、
+  右緣是 `now`，兩邊各差一秒就會翻。**要不要把左緣換成不靠秒解析度的來源，沒有人裁。**
 
 ### G-36 ⚠️ `ndt down` 之後的 `ndt status --check` 結構上永遠是「沒查」，不是「查過且相符」
 
