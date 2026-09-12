@@ -12,8 +12,8 @@
 #     0  no untracked processes AND nothing on the network
 #     1  untracked app PROCESSES are running
 #     2  a liveness channel was blind
-#     4  processes are clean, but the NETWORK carries residue (a rule, or a held lock)
-#     5  processes are clean, and the residue COULD NOT BE CHECKED
+#     4  processes are clean, but the NETWORK carries rules-in-window (a rule, or a held lock)
+#     5  processes are clean, and the rules-in-window COULD NOT BE CHECKED
 #
 # and it says of itself: "Every gate that reads this rc has to be updated". It has been right to
 # say so. The same fabric, in the same state, has changed code twice inside one merge window --
@@ -36,6 +36,11 @@
 #     processes=<clean|running|unknown>
 #     network=<dated rule(s) in a window>/<lock(s) held>/<rule(s) that could not be dated>
 #     not_answerable=<n>
+#
+# 🔴 `network=` is NOT renamed by the 2026-09-12 rules-in-window ruling, and the reason is what it
+# carries: two of its three numbers -- held locks, and rules nothing could date -- are not rules in
+# any window, so `rules-in-window=` would be a wrong label on a right reading. It names the HALF,
+# the way `processes=` does. FIX-NDT-9 §7 carries this back to Adam rather than deciding it.
 #
 # CLEAN  ==  processes=clean  AND  dated-in-window == 0  AND  locks == 0
 #            AND the network half answered SOMETHING (see NOT CHECKED below).
@@ -232,7 +237,9 @@ TALLY="$(sed -n 's/.*tally: \([0-9][0-9]*\) dated rule(s) in a window, \([0-9][0
 # Only consulted when there is no tally, so a printed number is never skipped in favour of a
 # sentence. Both matches are `ndt` saying, in its own words, that :8000 was closed and therefore
 # no rule and no lock was read: residue_report (ndt:5415) is the one that produces this report
-# shape, status_residue_row (ndt:5368) is the same statement from `ndt status --check`.
+# shape, status_residue_row (ndt:5368) is the same statement from `ndt status --check`. Those two
+# FUNCTIONS keep the word `residue`; what they PRINT has said `rules-in-window` since 2026-09-12
+# (Adam, RESIDUE-1 §7-5), and neither needle below reads that word, so both spellings parse.
 KERNEL_DOWN=0
 if [[ -z "$TALLY" ]] \
    && { grep -qF -- 'the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked' <<<"$REPORT" \
@@ -243,7 +250,8 @@ fi
 if [[ -z "$TALLY" ]] && (( KERNEL_DOWN == 0 )); then
     echo "processes=$PROCESSES"
     echo "VERDICT: UNUSABLE -- no 'tally:' line in the report, and nothing in it says why. This is"
-    echo "         NOT 'the network is clean': the residue report did not run, or did not finish."
+    echo "         NOT 'the network is clean': the rules-in-window report did not run, or did not"
+    echo "         finish."
     echo "         (A report that DOES name the reason -- ':8000 closed' after 'ndt down' -- is read"
     echo "         instead: network=n/a and the verdict comes from the process half.)"
     echo "         Do not pass on it."

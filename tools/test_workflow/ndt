@@ -7073,6 +7073,20 @@ residue_verdict() {
 # the problem entries it raises. Fills STATUS_RESIDUE_PROBLEMS.
 #
 # [Co-developed with claude code -- Adam]
+# 🔴 THE ROW IS CALLED `rules-in-window` AND NOT `residue`, Adam's ruling 2026-09-12 12:3x
+# (RESIDUE-1 §7-5). One word named two different findings in one tool: `ndt clean` prints
+# `XX residue: ndtwin_kernel pid 2511227 holding :8000` -- a PROCESS holding a port, which
+# `ndt down` removes -- and this row printed `residue N rule(s)` about FLOW RULES, which nothing
+# in this tool deletes and which have a different remedy entirely (a delete_flow_entry by hand).
+# A report that quoted both, one after the other, read as one finding twice (ROLE-11's row 21).
+# The process half keeps the word; the network half is the one that moved, here and everywhere
+# it is printed -- the `apps orphans` verdict lines, residue_report's heading and `ndt help`.
+#
+# 🔴 The FUNCTION names did not move (residue_report, residue_verdict, status_residue_row,
+# RESIDUE_*), and that is deliberate: the ruling is about what an operator reads, and renaming
+# the identifiers would rewrite every anchor in tests/shell/mutate_apps_stop_lists_rules.sh and
+# tests/shell/mutate_ndt_*.sh in the same commit as a wording change, which is exactly how a
+# rename stops being reviewable. Whoever renames them next should do it on its own.
 # 🔴 RED ON 4, NOT ON 5, and the row says which it was on every run. Adam's ruling is "有殘留
 # ⇒ rc 非 0" -- residue found, not residue unmeasurable. The difference matters because of
 # W16-3, measured after that ruling: on the P4 plane NO rule can be dated at all, ever, so
@@ -7084,7 +7098,7 @@ STATUS_RESIDUE_PROBLEMS=()
 status_residue_row() {
     STATUS_RESIDUE_PROBLEMS=()
     if ! port_open 8000; then
-        printf '  %-14s %s\n' "residue" "${Y}NOT CHECKED -- :8000 is closed, so no rule and no lock was read${N}"
+        printf '  %-14s %s\n' "rules-in-window" "${Y}NOT CHECKED -- :8000 is closed, so no rule and no lock was read${N}"
         printf '  %-14s %s\n' "" "this is not 'the network is clean'. (G-12; the kernel rows above already fail)"
         return 0
     fi
@@ -7092,14 +7106,14 @@ status_residue_row() {
     residue_report $APP_NAMES >/dev/null 2>&1
     residue_verdict; local rrc=$?
     case "$rrc" in
-        4) printf '  %-14s %s\n' "residue" "${R}$RESIDUE_RULES rule(s) inside an app window, $RESIDUE_LOCKS lock(s) HELD${N}"
+        4) printf '  %-14s %s\n' "rules-in-window" "${R}$RESIDUE_RULES rule(s) inside an app window, $RESIDUE_LOCKS lock(s) HELD${N}"
            printf '  %-14s %s\n' "" "listed by:  ndt apps orphans      (nothing deletes them)"
-           STATUS_RESIDUE_PROBLEMS+=("the network carries app residue: $RESIDUE_RULES rule(s) installed inside an app's window and $RESIDUE_LOCKS held lock(s) -- 'ndt apps orphans' lists them (G-12)") ;;
-        5) printf '  %-14s %s\n' "residue" "${Y}NOT CHECKED: $RESIDUE_UNDATABLE rule(s) could not be dated, $RESIDUE_BLIND question(s) unanswerable${N}"
+           STATUS_RESIDUE_PROBLEMS+=("rules-in-window: $RESIDUE_RULES rule(s) installed inside an app's window and $RESIDUE_LOCKS held lock(s) -- 'ndt apps orphans' lists them (G-12)") ;;
+        5) printf '  %-14s %s\n' "rules-in-window" "${Y}NOT CHECKED: $RESIDUE_UNDATABLE rule(s) could not be dated, $RESIDUE_BLIND question(s) unanswerable${N}"
            printf '  %-14s %s\n' "" "this is not 'the network is clean'; it is 'this plane cannot answer'."
            printf '  %-14s %s\n' "" "on P4 that is permanent (W16-3): its flow stats carry no install time."
            printf '  %-14s %s\n' "" "the locks WERE checked: $RESIDUE_LOCKS held.  details:  ndt apps orphans" ;;
-        *) printf '  %-14s %s\n' "residue" "none -- 0 rule(s) in any app window, 0 lock(s) held (asked, not assumed)" ;;
+        *) printf '  %-14s %s\n' "rules-in-window" "none -- 0 rule(s) in any app window, 0 lock(s) held (asked, not assumed)" ;;
     esac
     # [Co-developed with claude code -- Adam]
     # 🔴 3-51 / Adam's E-7 ruling: "查不了可以不紅，沒去查不准長得像查了沒事". This row is the
@@ -7130,7 +7144,7 @@ residue_report() {
     RESIDUE_RULES=0; RESIDUE_LOCKS=0; RESIDUE_UNDATABLE=0; RESIDUE_BLIND=0
     RESIDUE_UNKNOWABLE=0; RESIDUE_UNKNOWABLE_APPS=""
 
-    say "network residue (nothing below is deleted)"
+    say "rules-in-window (nothing below is deleted)"
     if ! port_open 8000; then
         warn "the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked."
         warn "this is not 'the lab is clean'. it is 'nobody asked'. (KNOWN-ISSUES G-12)"
@@ -7303,7 +7317,7 @@ residue_report() {
                 if [[ -z "$blind_said" ]]; then
                     warn "      CANNOT WINDOW -- ${line#CANNOTWINDOW }."
                     warn "      every rule below is age=UNKNOWN and NONE is attributed to an app;"
-                    warn "      this is the whole flow table, not a residue list. (W16-3, measured"
+                    warn "      this is the whole flow table, not a rules-in-window list. (W16-3, measured"
                     warn "      2026-09-07: a rule installed on P4 still read duration 0/0 32s later)"
                     blind_said=1
                 fi
@@ -7723,15 +7737,15 @@ cmd_apps() {
             residue_report $APP_NAMES
             residue_verdict; local rrc=$?
             if (( orc != 0 )); then
-                (( rrc != 0 )) && err "and the network is not clean either (residue rc would be $rrc)"
+                (( rrc != 0 )) && err "and the network is not clean either (rules-in-window rc would be $rrc)"
                 return "$orc"
             fi
             case "$rrc" in
-                4) err "RESIDUE: the processes are gone and the network is not clean -- rc 4."
+                4) err "RULES-IN-WINDOW: the processes are gone and the network is not clean -- rc 4."
                    err "  rc 4 is NOT rc 1: nothing is running, so 'ndt apps stop' has nothing"
                    err "  to do. remove the rule by hand (the command is printed above); a held"
                    err "  lock frees itself at its TTL." ;;
-                5) warn "NOT CHECKED: the residue question could not be answered -- rc 5."
+                5) warn "NOT CHECKED: the rules-in-window question could not be answered -- rc 5."
                    warn "  this is not 'the network is clean'. see the lines above for which"
                    warn "  reading failed. (KNOWN-ISSUES G-12)" ;;
             esac
@@ -7961,16 +7975,22 @@ usage: ndt <command>
                   on 09-05 (W12/I-1) as false after every teardown, and when
                   .test_run/pids/kernel.exit is there the report says what the
                   last run was.
-                  --check also prints a 'residue' row: rules left inside an app's
-                  window and locks still held. residue that could not be checked is
+                  --check also prints a 'rules-in-window' row: rules left inside an
+                  app's window and locks still held. what could not be checked is
                   printed as NOT CHECKED and never as clean. (G-12 / W16-2)
-                  residue FOUND is a problem, and it is rc 1 ONLY while there is a
+                  🔴 that row was called 'residue' until 2026-09-12. One word named
+                  two findings: this one, and the line 'clean' prints as
+                  'XX residue: <proc> holding :<port>', which is a PROCESS and which
+                  'ndt down' removes. A rule in a window is deleted by nothing here,
+                  and its only remedy is a delete_flow_entry by hand.
+                  (Adam, RESIDUE-1 §7-5)
+                  rules-in-window FOUND is a problem, and it is rc 1 ONLY while there is a
                   baseline: with no up.target the whole report is rc 3, and the
-                  residue and knob problems are printed under "everything else this
+                  rules-in-window and knob problems are printed under "everything else this
                   report could still check" rather than raising the code. 'ndt down'
                   clears the baseline, so that is the state at the END of every
                   round -- exactly when a rule is most likely to be left on the wire
-                  with no process to attribute it to. Read the residue ROW, not the
+                  with no process to attribute it to. Read the rules-in-window ROW, not the
                   exit code, when the record row says none. (F2, 2026-09-11)
   clean         just the teardown assertion
                   exit 0 it had something to be about and none of it is residue; 1
@@ -8027,7 +8047,7 @@ usage: ndt <command>
                     exit 0 neither; 1 untracked PROCESSES are running; 2 a
                     liveness channel could not look; 4 the processes are clean
                     but a rule or a lock is still there; 5 the processes are
-                    clean and the residue could NOT BE CHECKED (kernel down, a
+                    clean and the rules-in-window could NOT BE CHECKED (kernel down, a
                     reading failed, or the plane has no time axis -- every P4
                     fabric). 4 and 5 are new on 09-07 and are deliberately not 1:
                     a live process needs 'ndt apps stop', a leftover rule needs a
@@ -8039,7 +8059,7 @@ usage: ndt <command>
                     of a root process cannot be read and every app the lab helper
                     starts is root. So "4: a rule or a lock is still there" can be
                     true and unreachable at the same time. The stderr says so when
-                    it happens ("and the network is not clean either (residue rc
+                    it happens ("and the network is not clean either (rules-in-window rc
                     would be 4)"), and the fix for a gate is to read the report:
                     tools/test_workflow/orphans_verdict.sh. (F4, 2026-09-11)
                   stop and orphans also LIST what an app left on the NETWORK --

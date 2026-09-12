@@ -106,7 +106,7 @@ mk_entries 300
 # where app_evidence_log looks for it. Writing it is not decoration: every app of this project
 # has one before it forks (app_spawn opens it; the helper gives sim a `script -qfa`), and a
 # pidfile with no log anywhere is the state of an app whose end nothing can date -- a zero-length
-# window, which is group 5N's subject and not this helper's.
+# window, which is group 12C of tests/shell/test_ndt_helper_apps_window.sh and not this helper's.
 #
 # 🔴 AND THE WINDOWED APP IS te, NOT energy, for the same reason group 5L moved to te on
 # 2026-09-07: energy is the one app whose log question has no channel -- `ndtwin-lab
@@ -229,7 +229,7 @@ app_stop() { info \"nothing to stop\"; return 2; }
 cmd_apps stop te
 echo \"RC=\$?\"" 2>&1)"
 check "'apps stop' on an already-dead app is still a no-op" "2" "$(rc_of "$STOP_OUT")"
-has   "🔴 and the residue is printed anyway"             "network residue" "$STOP_OUT"
+has   "🔴 and the residue is printed anyway"             "rules-in-window" "$STOP_OUT"
 has   "  naming the lock it left"                        "graph_lock HELD" "$STOP_OUT"
 has   "  and the rule it left"                           "pri=96" "$STOP_OUT"
 
@@ -243,7 +243,7 @@ cmd_apps orphans
 echo \"RC=\$?\"" 2>&1
 }
 ORPH_OUT="$(orphans_with "$LOCK_HELD")"
-has   "'apps orphans' prints the residue too"            "network residue" "$ORPH_OUT"
+has   "'apps orphans' prints the residue too"            "rules-in-window" "$ORPH_OUT"
 has   "  naming the rule"                                "pri=96" "$ORPH_OUT"
 has   "🔴 orphans' own answer about PROCESSES is unchanged" "no untracked app processes" "$ORPH_OUT"
 
@@ -254,13 +254,13 @@ section "5I. W16-1: the exit code. Adam reversed the recommendation -- residue m
 # 7, and the reason is G-12 itself: the finding IS "every existing check went green over it".
 # A residue report whose exit code cannot fail is one more check that goes green.
 check "🔴 a held lock and a rule in the window -> rc 4, not 0" "4" "$(rc_of "$ORPH_OUT")"
-has   "  and it says what 4 means"                       "RESIDUE: the processes are gone and the network is not clean" "$ORPH_OUT"
+has   "  and it says what 4 means"                       "RULES-IN-WINDOW: the processes are gone and the network is not clean" "$ORPH_OUT"
 has   "🔴 and that 4 is not 1 -- nothing is running to stop" "rc 4 is NOT rc 1" "$ORPH_OUT"
 
 mk_entries 9000                       # no rule in the window; locks free
 OUT2="$(orphans_with "$LOCKS_FREE")"
 check "🔴 a clean network -> rc 0 (the codes are not always red)" "0" "$(rc_of "$OUT2")"
-hasnt "  and nothing claims residue"                     "RESIDUE:" "$OUT2"
+hasnt "  and nothing claims residue"                     "RULES-IN-WINDOW:" "$OUT2"
 
 OUT2="$(orphans_with "$LOCK_HELD")"
 check "🔴 a held lock ALONE is still residue -> rc 4"    "4" "$(rc_of "$OUT2")"
@@ -286,7 +286,7 @@ section "5J. W16-3: the P4 plane has no time axis, so nothing on it can be dated
 OUT="$(FX_PLANE=p4 run_residue "$LOCKS_FREE" te)"
 has   "🔴 it says the plane cannot be windowed"          "CANNOT WINDOW" "$OUT"
 has   "  naming why"                                     "carry NO install time" "$OUT"
-has   "  and what the list below it is"                  "this is the whole flow table, not a residue list" "$OUT"
+has   "  and what the list below it is"                  "this is the whole flow table, not a rules-in-window list" "$OUT"
 has   "🔴 the app's own rule is listed"                  "pri=96" "$OUT"
 has   "🔴 but with age UNKNOWN, not an age"              "age=UNKNOWN (P4 plane" "$OUT"
 hasnt "🔴 and nothing is dated 0 seconds ago"            "installed 0s ago" "$OUT"
@@ -295,7 +295,7 @@ has   "  counted apart from dated ones"                  "0 dated inside the win
 
 OUT2="$(FX_PLANE=p4 orphans_with "$LOCKS_FREE")"
 check "🔴 undatable is rc 5 (NOT CHECKED), never rc 4 (residue)" "5" "$(rc_of "$OUT2")"
-has   "  and it says so in words"                        "NOT CHECKED: the residue question could not be answered" "$OUT2"
+has   "  and it says so in words"                        "NOT CHECKED: the rules-in-window question could not be answered" "$OUT2"
 
 section "5K. W16-3: duration 0/0 is the synthetic signature, whatever the plane says it is"
 # The same table read through a path that did not name the plane. `0` here is not "now": a

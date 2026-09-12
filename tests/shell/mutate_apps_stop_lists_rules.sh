@@ -273,13 +273,13 @@ m=$(mutant m18 "$NDT" \
     fi' \
     '    :')
 report "M18: '--check' stops looking at the network" "$m" \
-       "🔴 --check prints a residue row" row
+       "🔴 --check prints a rules-in-window row" row
 
 # The residue is printed but not counted -- exactly the state G-12 was measured in, where every
 # verb printed something and rc was 0.
 m=$(mutant m19 "$NDT" \
-    '           STATUS_RESIDUE_PROBLEMS+=("the network carries app residue:' \
-    '           : ("the network carries app residue:')
+    '           STATUS_RESIDUE_PROBLEMS+=("rules-in-window:' \
+    '           : ("rules-in-window:')
 report "M19: --check prints residue and still exits 0" "$m" \
        "🔴 and --check exits 1 (it exited 0 over this on 09-05)" row
 
@@ -287,7 +287,7 @@ report "M19: --check prints residue and still exits 0" "$m" \
 # fabric, where doc/2026-08-17_testing-manual.md:279 makes rc 0 the acceptance criterion.
 m=$(mutant m20 "$NDT" \
     '           printf '\''  %-14s %s\n'\'' "" "the locks WERE checked: $RESIDUE_LOCKS held.  details:  ndt apps orphans" ;;' \
-    '           STATUS_RESIDUE_PROBLEMS+=("the residue could not be checked") ;;')
+    '           STATUS_RESIDUE_PROBLEMS+=("the rules-in-window could not be checked") ;;')
 report "M20 (widening): --check goes red on 'could not check'" "$m" \
        "🔴 but a healthy P4 fabric still passes: rc 0" row
 
