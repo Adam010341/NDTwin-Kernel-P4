@@ -189,15 +189,21 @@ report "M9: the report starts deleting what it finds" "$m" \
 
 # No pidfile means no window; defaulting to one attributes the entire flow table to an app that
 # may never have written a line of it.
+#
+# 🔴 RE-ANCHORED 2026-09-12 (FIX-NDT-9). The anchor was `app_started_at`'s closing `return 1`
+# followed by `http_get_flow_entries() {`, and RESIDUE-1's fix put a new function between those
+# two -- so the anchor stopped applying, the mutant carried an UNMODIFIED ndt, and this gate
+# printed `SURVIVED M10 ... that case proves nothing`. `check_gate_anchors.py HEAD` said
+# `MISSING:1` for this file in the same round, which is how it was found rather than believed.
+# The anchor is now app_started_at's own last two lines: same function, same statement, and it
+# does not depend on what follows the closing brace.
 m=$(mutant m10 "$NDT" \
-    '    return 1
-}
-
-http_get_flow_entries() {' \
-    '    echo 0
-}
-
-http_get_flow_entries() {')
+    '    [[ -n "$best" ]] && { echo "$(( $(date +%s) - best ))"; return 0; }
+    return 1
+}' \
+    '    [[ -n "$best" ]] && { echo "$(( $(date +%s) - best ))"; return 0; }
+    echo 0
+}')
 report "M10: an app with no record gets a window of all time" "$m" \
        "🔴 and refuses to read that as 'left nothing'"
 
