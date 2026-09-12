@@ -4587,14 +4587,19 @@ bridge 會 exit 1，於是 **datapath-id 永遠不會被設**。round 4 實際�
   是**時間相依的 flake**，不是「乾淨 trunk 上就紅」。（`test_apps_residue` 在上面那 12 支裡，
   但那是 group C 的結尾行問題，**跟這裡講的兩格完全無關**。）
   ✅ **本條登記者親自開檔看過** `logs/gates-0910/test_apps_residue.ndt10-0912-r1.log`
-  （17:20:58 起跑，末行 `Ran 102 checks, 2 failed`），逐字兩格（`:86`–`:90`）：
+  （17:20:58 起跑，末行 `Ran 102 checks, 2 failed`），`:86`–`:90` **一行不漏**：
 
   ```
     FAILED   🔴 sec=0 with nsec set is a real just-installed rule, and is DATED
                no match for 'installed 0s ago'
+    ok         no rule line says UNKNOWN
     FAILED     and it is counted as dated
                no match for '1 rule(s) listed: 1 dated inside the window,'
   ```
+
+  ⚠️ **中間那一行 `ok` 是 log 裡真的有的，不要省略**：紅的是兩格，但它們**不相鄰**——
+  夾在中間的那一格綠著。省掉它會讓 `:86`–`:90` 讀起來像整段都紅
+  （本條初版就是這樣寫的，2026-09-12 FIX-DOC-5b 補回）。
 
   **同一顆 `ndt`、同一棵樹，r2／r3／r4／r5 四份 log 末行都是 `Ran 102 checks, 0 failed`**
   （✅ 本條登記者親自 `grep` 過那四份）。
