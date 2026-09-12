@@ -842,13 +842,20 @@ if [[ "$DEAD_TE" =~ ^[0-9]+$ ]] && [[ ! -d "/proc/$DEAD_TE" ]]; then
     has   "🔴 no log -> the window has no extent, and the report says so" "zero-length window" "$OUT"
     hasnt "  nothing is attributed to it"                    "pri=96" "$OUT"
     has   "🔴 and that is NOT read as 'it left nothing'"     "NOT 'this app left nothing'" "$OUT"
+    # 🔴 The LINE AFTER a window line is that window's own answer, and
+    # tools/test_workflow/live_cells/stale_app_pidfile_does_not_frame_the_fabric.sh reads exactly
+    # that adjacency (CELLS-2 §7-7). The E-7 caveat above therefore prints ABOVE the window line,
+    # never between it and the answer -- and the zero-length branch is the only one that prints a
+    # caveat at all, so it is the only place the adjacency could have been broken.
+    check "🔴 the line after the window line is still the window's answer" "yes" \
+          "$(awk '/^  te +window /{getline n; if (n ~ /no flow entry arrived during that window/) print "yes"; else print "no: " n; exit}' <<<"$OUT")"
     # 🔴 A log OLDER than the pidfile is the same case, and it must not become a NEGATIVE
     # window: an end before the start excludes every rule there is while looking like an
     # answer. app_window_read refuses `e < s` for this reason; so does the seal.
     echo "stale" > "$FIX/.test_run/logs/app_te.log"
     touch -d "@$(( NOW12C - 50000 ))" "$FIX/.test_run/logs/app_te.log"
     OUT="$(FX_PS="" FX_PORT_PIDS="" inner 'residue_report te')"
-    has   "🔴 a log older than the pidfile does not invert the window" "(0s wide)" "$OUT"
+    has   "🔴 a log older than the pidfile does not invert the window" "(0s wide;" "$OUT"
     has   "  and it is named as the same 'nothing can date the end' case" "zero-length window" "$OUT"
 else
     note "could not get a provably dead pid (got '$DEAD_TE') -- 12C did NOT run."

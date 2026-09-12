@@ -7251,24 +7251,29 @@ residue_report() {
         fi
         any=1
         if [[ -n "$wwhy" ]]; then
-            # [Co-developed with claude code -- Adam]
-            # RESIDUE-1. A sealed window, and the line names BOTH the edge and where it came
-            # from: a reader has to be able to tell "the app stopped here" from "this is the
-            # last thing on the machine that could date it".
-            printf '  %-6s window %s -> %s (%ss wide)\n' "$a" \
-                "$(date -d "@$started" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "$started")" \
-                "$(date -d "@$wend" '+%H:%M:%S' 2>/dev/null || echo "$wend")" \
-                "$(( wend - started ))"
-            printf '  %-6s   window closed at %s (%s)\n' "" \
-                "$(date -d "@$wend" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "$wend")" "$wwhy"
-            # 🔴 E-7. A window of zero seconds excludes every rule there is, and the sentence
-            # "no flow entry arrived during that window" over it is a check that could not look
-            # wearing the face of a check that looked and found nothing.
+            # 🔴 E-7, and it is printed ABOVE the window line rather than below it. A window of
+            # zero seconds excludes every rule there is, and the sentence "no flow entry arrived
+            # during that window" over it is a check that could not look wearing the face of a
+            # check that looked and found nothing. It goes above because the line AFTER a window
+            # line is that window's answer -- `no flow entry arrived ...` or the first rule --
+            # and tools/test_workflow/live_cells/stale_app_pidfile_does_not_frame_the_fabric.sh
+            # reads exactly that adjacency (its `nxt`). A caveat wedged between the two would
+            # make the report's own shape depend on which branch this took.
             (( wend == started )) && {
-                warn "      the window has NO extent: nothing on this machine can date when $a"
-                warn "      stopped, so NOTHING can be attributed to it. That is 'nobody could"
+                warn "      the window below has NO extent: nothing on this machine can date when"
+                warn "      $a stopped, so NOTHING can be attributed to it. That is 'nobody could"
                 warn "      ask', NOT 'this app left nothing'. (G-12)"
             }
+            # [Co-developed with claude code -- Adam]
+            # RESIDUE-1. A sealed window, on ONE line, and it names both the edge and where the
+            # edge came from: a reader has to be able to tell "the app stopped here" from "this
+            # is the last thing on the machine that could date it". `window closed` is the same
+            # two words the app_window_read branch below uses, because both are closed windows
+            # and a reader -- and that live cell -- should not need a third spelling.
+            printf '  %-6s window %s -> window closed at %s (%ss wide; %s)\n' "$a" \
+                "$(date -d "@$started" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "$started")" \
+                "$(date -d "@$wend" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "$wend")" \
+                "$(( wend - started ))" "$wwhy"
         elif [[ -n "$wend" ]]; then
             # F3. A CLOSED window, and the line says so and says where it came from: a reader
             # who sees a window for an app that is not running has to be able to tell a record
