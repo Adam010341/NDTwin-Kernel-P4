@@ -429,20 +429,59 @@ rules-in-window (nothing below is deleted)
     tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 3 question(s) not answerable
 EOF
 
-# 🔴 H2. The three live reports from ROLE-2's cycles, with the `stack:` line `ndt apps orphans`
-# prints from 2026-09-11 on. Everything else in them is clean -- and all three read CLEAN.
+# 🔴 H2. The two live reports from ROLE-2's cycles, with the `stack:` line `ndt apps orphans`
+# prints from 2026-09-11 on. Everything else in them is clean -- and both read CLEAN before H2.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 PRODUCED, NOT TYPED (2026-09-12, FIX-NDT-11 ⑤). Both blocks below are `cmd_apps orphans`'s
+# own output, byte for byte, from the `ndt` of trunk 628d84f1
+# (sha256[0:16] 9f56a38bf50085cc) driven offline with the readings of each state stubbed --
+# port_open, bmv2_count, mn_count, lock_probe, http_get_flow_entries, and an apps_orphans that
+# prints the clean process half. The run is
+# scratch/overnight-2026-09-05/logs/ndt11-0912/q5-half-reports-from-base.ndt11-0912-r1.log.
+# They are still SYNTHETIC by this file's own taxonomy -- the STATE is a fixture, not a machine
+# somebody found in it -- so the QUOTATIONS scan at the end covers them; what has changed is
+# that the wording no longer comes from a person's memory of what `ndt` prints.
+#
+# 🔴 WHAT WAS WRONG WITH THE TYPED VERSION, and it is not what FIX-NDT-10 §7-7 suspected. That
+# report expected to find residue_report's `this is not 'the lab is clean'` sentence sitting in
+# the STACK block; it was already in the right block (`ndt` prints it there itself, from
+# residue_report's kernel-down branch). The real defects were quieter: the HALF sentence was
+# quoted two lines deep out of eight -- it stops before `take it down:  ndt down`, which is the
+# REMEDY, and before the `--mode physical` caveat that says when this state is not a finding --
+# the `!!` lines were indented two columns short of what warn() emits, `half_kernel_only`
+# dropped the whole `NOT deleted ...` block and the `(no app had a datable window in this run)`
+# line, and `half_fabric_only` dropped `cmd_apps orphans`' own closing `NOT CHECKED: the
+# rules-in-window question could not be answered -- rc 5.` Nothing went red for any of it,
+# because this reader keys on `tally:`, on `stack=`, and on two sentences of the process half.
 mk half_kernel_only <<'EOF'
   ok  no untracked app processes
 
 stack
     stack: kernel=up dataplane=none bmv2=0 mininet=0 proxy=up verdict=HALF
-  !!  HALF A STACK. the two halves disagree: one of the kernel and the data plane
-  !!  is there and the other is not.
+  !!    HALF A STACK. the two halves disagree: one of the kernel and the data plane
+  !!    is there and the other is not. this verb answers about APP processes and
+  !!    about the NETWORK; it does not answer about the stack, and on 09-11 it said
+  !!    CLEAN three times over a machine in this state (H2). a kernel with no
+  !!    fabric serves a graph of a network that is not there; a fabric with no
+  !!    kernel forwards with nothing recording it. take it down:  ndt down
+  !!    (a kernel started with --mode physical reads like this too and is not a
+  !!    finding -- 'ndt up' cannot build one.)
 
 rules-in-window (nothing below is deleted)
     lock  routing_lock free
     lock  graph_lock free
     lock  power_lock free
+          field (LockManager.hpp), and the kernel has no lock-status endpoint, so the
+          three lines above come from an acquire probe with ttl 0, which excludes nobody.
+
+    NOT deleted, and nothing here deletes them.
+    a lock heals: it expires at its TTL and the next acquire is told it reclaimed it.
+    a rule does not: no TTL, no owner, no cleanup path. to remove one, by hand:
+      curl -s -X POST -H 'Content-Type: application/json' \
+        -d '{"dpid": <dpid>, "priority": <pri>, "match": <match>}' \
+        http://localhost:8000/ndt/delete_flow_entry
+    (no app had a datable window in this run)
     tally: 0 dated rule(s) in a window, 0 lock(s) held, 0 rule(s) that could not be dated, 0 question(s) not answerable
 EOF
 
@@ -454,12 +493,21 @@ mk half_fabric_only <<'EOF'
 
 stack
     stack: kernel=down dataplane=p4 bmv2=10 mininet=14 proxy=up verdict=HALF
-  !!  HALF A STACK. the two halves disagree: one of the kernel and the data plane
-  !!  is there and the other is not.
+  !!    HALF A STACK. the two halves disagree: one of the kernel and the data plane
+  !!    is there and the other is not. this verb answers about APP processes and
+  !!    about the NETWORK; it does not answer about the stack, and on 09-11 it said
+  !!    CLEAN three times over a machine in this state (H2). a kernel with no
+  !!    fabric serves a graph of a network that is not there; a fabric with no
+  !!    kernel forwards with nothing recording it. take it down:  ndt down
+  !!    (a kernel started with --mode physical reads like this too and is not a
+  !!    finding -- 'ndt up' cannot build one.)
 
 rules-in-window (nothing below is deleted)
   !!  the kernel is not up (:8000 closed) -- rules and locks CANNOT be checked.
   !!  this is not 'the lab is clean'. it is 'nobody asked'. (KNOWN-ISSUES G-12)
+  !!  NOT CHECKED: the rules-in-window question could not be answered -- rc 5.
+  !!    this is not 'the network is clean'. see the lines above for which
+  !!    reading failed. (KNOWN-ISSUES G-12)
 EOF
 
 # 🔴 THE CONTROL for H2: `apps orphans` is asked BEFORE a teardown too, and a healthy fabric
@@ -940,6 +988,33 @@ else
     quoted_in_ndt "ndt still says: HALF A STACK"                    "HALF A STACK. the two halves disagree"
     quoted_in_ndt "ndt still says: seen elsewhere (not this checkout)" "seen elsewhere (not this checkout)"
     quoted_in_ndt "ndt still says: flow table read empty (G-55)"  "flow table read empty -- a window over an empty table frames nothing"
+
+    # (c) 🔴 THE WHOLE SENTENCE, not its first line. FIX-NDT-11 ⑤: the two H2 fixtures quoted
+    # `HALF A STACK` two lines deep out of eight, stopping before `take it down:  ndt down` --
+    # the REMEDY -- and before the `--mode physical` caveat that says when this state is not a
+    # finding. Nothing went red, because this reader keys on `stack=HALF` and on one fragment of
+    # the first line. The sentence is READ OUT OF `ndt` here rather than typed, so an edit to it
+    # goes red in the fixtures the day it is made; typing it would put a third copy of the same
+    # paragraph in the repo and make this cell a test of my own typing.
+    HALF_LINES=()
+    while IFS= read -r hl; do [[ -n "$hl" ]] && HALF_LINES+=("$hl"); done < <(
+        awk '/^        HALF\)$/ {f=1; next} f && /^        whole-up\)$/ {f=0} f' "$NDT_SRC" |
+        sed -n 's/^[[:space:]]*warn "  \(.*\)"[[:space:]]*;;[[:space:]]*$/\1/p;
+                s/^[[:space:]]*warn "  \(.*\)"[[:space:]]*$/\1/p')
+    check "🔴 the HALF sentence was found in ndt to check against" "8" "${#HALF_LINES[@]}"
+    for hf in half_kernel_only half_fabric_only; do
+        HALF_MISSING=0
+        for hl in ${HALF_LINES[@]+"${HALF_LINES[@]}"}; do
+            grep -qF -- "$hl" "$FIX/$hf" || HALF_MISSING=$((HALF_MISSING+1))
+        done
+        check "🔴 $hf quotes the WHOLE HALF sentence" "0" "$HALF_MISSING"
+    done
+    # And the fixtures' own indentation is warn()'s. `  !!  ` + the two spaces the sentence
+    # itself carries: a fixture two columns short is a fixture nobody produced by running ndt.
+    for hf in half_kernel_only half_fabric_only; do
+        check "  $hf uses warn()'s own indentation" "yes" \
+              "$(grep -qF -- '  !!    HALF A STACK.' "$FIX/$hf" && echo yes || echo no)"
+    done
 
     # 🔴 The control. Every check above is a grep for something that IS there; a `quoted_in_ndt`
     # broken into always passing would look identical. This sentence is built to be absent.
