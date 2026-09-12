@@ -31,11 +31,12 @@
 # is what lets the expired-claim and --force controls run at all.
 #
 # Run:  bash tests/shell/test_ndt_down_claim_guard.sh
+# Env:  NDT_UNDER_TEST=<path>   (tests/shell/mutate_ndt_down_claim_guard.sh points it at a copy)
 # Exit: 0 every check passed, 1 some check failed
 set -uo pipefail
 export NO_COLOR=1
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-NDT="$HERE/../../tools/test_workflow/ndt"
+NDT="${NDT_UNDER_TEST:-$HERE/../../tools/test_workflow/ndt}"
 [[ -r "$NDT" ]] || { echo "  FAILED   no ndt at $NDT"; echo "Ran 1 checks, 1 failed"; exit 1; }
 
 PASS=0; FAIL=0
@@ -173,6 +174,36 @@ has   "  🔴 and the declaration is quoted"               "measuring=ROLE-4 rea
 has   "  with what it is"                                "they DECLARED what is running" "$OUT"
 check "  and nothing was touched"                        "sudo=0 stack=0" "$(touched)"
 
+# [Co-developed with claude code -- Adam]
+# 🔴 THE SECOND GUARD, AND UNTIL 2026-09-12 NOTHING HERE REACHED IT. Every case above has a
+# FOREIGN owner, so the claim guard answers first and returns 5 before `measuring=` is ever
+# looked at -- tests/shell/mutate_ndt_down_claim_guard.sh's M5 turned that branch into
+# `if false` and this file stayed green. The branch's own measurement is T2d, 2026-09-11
+# 01:57:27 (logs/ROLE-4/10-t3-down-by-owner.log): the claim said `measuring=ROLE-4 reader nsr,
+# do not tear down`, and the OWNER's own `ndt down` tore the fabric out, printed clean, exited 0
+# and killed the declared reader. The owner is exactly who this guard is for.
+reset_fix
+write_claim "$US" "$FUTURE" "our own round" "ROLE-4 reader nsr, do not tear down"
+OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
+check "🔴 our OWN claim that DECLARES a measurement is refused" "5" "$(rc_of "$OUT")"
+has   "  and it says which guard this is"                "refusing to tear down: this claim DECLARES a measurement in progress." "$OUT"
+has   "  quoting the field"                              "measuring=ROLE-4 reader nsr, do not tear down" "$OUT"
+has   "  and saying it was declared, not guessed at"     "not guessed from the process table" "$OUT"
+check "  and nothing on the machine was reached"         "sudo=0 stack=0" "$(touched)"
+check "  and no in-flight marker was left"               "0" "$(markers)"
+
+# The controls for THAT guard: --force is the one override, --deep is not, and a claim of our own
+# with nothing declared still proceeds (or the field would be impossible to leave empty).
+reset_fix
+write_claim "$US" "$FUTURE" "our own round" "ROLE-4 reader nsr"
+OUT="$(NDT_OWNER="$US" drive 'cmd_down --force')"
+check "  --force tears down over our own declaration"    "0" "$(( $(rc_of "$OUT") == 5 ? 1 : 0 ))"
+has   "  and warns that it is doing exactly that"        "--force: tearing down over a declared measurement" "$OUT"
+reset_fix
+write_claim "$US" "$FUTURE" "our own round" "ROLE-4 reader nsr"
+OUT="$(NDT_OWNER="$US" drive 'cmd_down --deep')"
+check "🔴 --deep does not open the measuring guard either" "5" "$(rc_of "$OUT")"
+
 # =============================================================================================
 section "3. 🔴 the controls -- a guard that refuses everything guards nothing"
 # =============================================================================================
@@ -184,6 +215,17 @@ OUT="$(NDT_OWNER="$US" drive 'cmd_down')"
 check "an EXPIRED claim is not a refusal"                "0" "$(( $(rc_of "$OUT") == 5 ? 1 : 0 ))"
 has   "  the teardown ran"                               "[1/3] kernel + proxy/Ryu" "$OUT"
 hasnt "  and it never claimed to be refusing"            "refusing to tear down: the lab is claimed by" "$OUT"
+# [Co-developed with claude code -- Adam]
+# 🔴 THE INSTRUMENT'S OWN CONTROL (2026-09-12, FIX-NDT-11 ④). Every refusal cell in this file
+# rests on `touched()` reading `sudo=0 stack=0`, and a touched() that could only ever say that --
+# a mis-spelled log path, a counter that lost its input -- would make all of them pass over a
+# guard somebody had deleted. `[1/3] kernel + proxy/Ryu` does not close the gap: that line is a
+# `say`, printed whether or not anything under it ran. So the proceeding path asserts the numbers
+# POSITIVELY, and they are the exact pair FIX-NDT-10 read when it disabled the guard by hand:
+# `expected: [sudo=0 stack=0]  actual: [sudo=2 stack=1]` -- one stack.sh down, and the two
+# `sudo -n $LAB` calls at [2/3] and [3/3].
+check "🔴 and the machine WAS reached -- the instrument can read non-zero" "sudo=2 stack=1" "$(touched)"
+check "  a completed teardown leaves no in-flight marker either" "0" "$(markers)"
 
 # Our OWN claim is not foreign. NDT_OWNER has to be set on every command, so this is the common
 # case, and a guard that refused here would make the claim unusable by the session holding it.
