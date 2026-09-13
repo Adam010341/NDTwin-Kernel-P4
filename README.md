@@ -91,7 +91,3 @@ defaults can change between snapshots; see the caution above.
 ## License
 
 Apache License 2.0 — see [`LICENSE`](LICENSE).
-
----
-
-[Co-developed with claude code -- Adam]
