@@ -31,7 +31,7 @@ entries, topology and flow-usage queries, power management, and fault injection
 (`inject_link_failure` / `inject_link_recovery`). See
 [`doc/2026-01-02_ndt_api.md`](doc/2026-01-02_ndt_api.md).
 
-## Getting started
+## Getting started (Please refer to https://ndtwin.org/ for full tutorial)
 
 ### Build
 
