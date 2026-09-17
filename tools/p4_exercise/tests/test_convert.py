@@ -34,6 +34,10 @@ FIXTURES = os.path.join(HERE, "fixtures")
 BASIC = os.path.join(FIXTURES, "basic")
 P4RUNTIME = os.path.join(FIXTURES, "p4runtime")
 
+#: Where the fixtures were copied from. Only FixtureProvenance reads it, and it skips loudly
+#: when it is not there -- nothing else in this file depends on the machine having tutorials.
+TUTORIALS_EXERCISES = os.path.expanduser("~/tutorials/exercises")
+
 # pod-topo, transcribed from exercises/basic/pod-topo/topology.json rather than computed, so a
 # convert that changes its mind about port numbering has something to disagree with.
 POD_SWITCH_LINKS = sorted([(1, 3, 3, 1), (1, 4, 4, 2), (2, 3, 4, 1), (2, 4, 3, 2)])
@@ -226,9 +230,120 @@ class LinkExtras(unittest.TestCase):
         self.assertEqual(entry["bandwidth_bps"], 1000000000)
         self.assertNotIn("delay_ms", entry)
 
+    def test_a_declared_zero_latency_is_the_same_as_no_latency(self):
+        # utils/run_exercise.py:212-232 defaults an absent third element to '0ms' and then
+        # passes it to addLink exactly as it passes a declared '0'. Two packages describing the
+        # same shaping must not differ.
+        declared = convert._package_link(*convert.parse_links([["s1-p3", "s2-p3", "0", 0.5]])[0])
+        self.assertNotIn("delay_ms", declared)
+
+    def test_a_real_latency_is_recorded(self):
+        entry = convert._package_link(*convert.parse_links([["s1-p3", "s2-p3", "0.05ms", 0.5]])[0])
+        self.assertEqual(entry["delay_ms"], 0.05)
+
     def test_a_latency_string_with_a_unit_is_understood(self):
         self.assertEqual(convert._latency_ms("0.05ms"), 0.05)
         self.assertEqual(convert._latency_ms(2), 2.0)
+
+
+class ShapedLinks(unittest.TestCase):
+    """ecn and mri -- the only two of the thirteen exercises that declare link extras.
+
+    Run through `plan()` on the real topology.json rather than on a hand-made one: the extras
+    are the part of the tutorials format most easily read backwards, and a hand-made fixture
+    would encode whichever reading the author already had.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="p4_exercise_shaped_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def materialise(self, name):
+        """A temp exercise directory: the fixture's real files plus empty build/ placeholders.
+
+        🔴 WHAT THE PLACEHOLDERS DO AND DO NOT PROVE. `plan()` checks that the p4info and bmv2
+        json a runtime file names EXIST; it never opens them (only preflight.py does). ecn and
+        mri ship unbuilt -- there is no build/ in ~/tutorials/exercises/{ecn,mri} -- and
+        compiling them into the fixtures would commit p4c output with an absolute source path
+        baked into it, for a test that does not read a byte of it. So the placeholders are
+        empty, and this test proves nothing whatsoever about ecn's or mri's p4info or entries:
+        preflight.py on such a package would fail at "p4info parses", correctly.
+        """
+        src = os.path.join(FIXTURES, name)
+        dst = os.path.join(self.tmp, name)
+        shutil.copytree(src, dst)
+        os.makedirs(os.path.join(dst, "build"))
+        for rel in (f"build/{name}.p4.p4info.txtpb", f"build/{name}.json"):
+            open(os.path.join(dst, rel), "w", encoding="utf-8").close()
+        return dst
+
+    def test_the_half_megabit_link_of_ecn_and_mri_comes_out_as_500000_bps(self):
+        for name in ("ecn", "mri"):
+            with self.subTest(exercise=name):
+                package, model, _copies = convert.plan(self.materialise(name), "topology.json")
+                shaped = [l for l in package["links"]
+                          if l["a"] == ["s1", 3] and l["b"] == ["s2", 3]]
+                self.assertEqual(len(shaped), 1, package["links"])
+                # ["s1-p3", "s2-p3", "0", 0.5] -- element 3 is the LATENCY and element 4 the
+                # BANDWIDTH in Mbit/s. Reading them the other way round would put a 500 Mbit/s
+                # link where the exercise wants a bottleneck.
+                self.assertEqual(shaped[0]["bandwidth_bps"], 500000)
+                self.assertNotIn("delay_ms", shaped[0])
+
+                others = [l for l in package["links"] if l is not shaped[0]]
+                self.assertEqual({l["bandwidth_bps"] for l in others}, {1000000000})
+                self.assertFalse([l for l in others if "delay_ms" in l])
+
+                # Both directions of the shaped cable carry the same bandwidth in the model.
+                edges = [e for e in model["edges"]
+                         if {(e["src_dpid"], e["src_interface"]),
+                             (e["dst_dpid"], e["dst_interface"])} == {(1, 3), (2, 3)}]
+                self.assertEqual(len(edges), 2)
+                self.assertEqual({e["link_bandwidth_bps"] for e in edges}, {500000})
+
+    def test_ecn_reads_back_with_its_five_hosts(self):
+        # h1/h11/h2/h22/h3 on /31s -- the naming rule holds (h11 is on 10.0.1.11), which is why
+        # these convert at all.
+        _package, model, _copies = convert.plan(self.materialise("ecn"), "topology.json")
+        read = convert.read_back(model)
+        self.assertEqual([n for n, _ip, _mac in read["hosts"]],
+                         ["h1", "h2", "h3", "h11", "h22"])
+        self.assertEqual(read["switches"], [(1, "s1"), (2, "s2"), (3, "s3")])
+        self.assertEqual(len(read["switch_links"]), 3)
+        self.assertEqual(len(read["host_links"]), 5)
+
+
+class FixtureProvenance(unittest.TestCase):
+    """The fixtures claim to be byte copies of ~/tutorials. This is that claim, checked."""
+
+    def test_every_fixture_is_still_byte_identical_to_its_tutorials_original(self):
+        if not os.path.isdir(TUTORIALS_EXERCISES):
+            # Explicit, and never a silent pass: this machine simply cannot answer the question.
+            self.skipTest(
+                f"no p4lang-tutorials checkout at {TUTORIALS_EXERCISES}, so the fixtures cannot "
+                f"be compared with the files they were copied from. This is NOT evidence that "
+                f"they match.")
+        mismatched, orphaned, checked = [], [], 0
+        for root, dirs, files in os.walk(FIXTURES):
+            dirs[:] = [d for d in dirs if d != "__pycache__"]
+            for filename in sorted(files):
+                rel = os.path.relpath(os.path.join(root, filename), FIXTURES)
+                if rel == "README":
+                    continue          # this directory's own note, not a copy of anything
+                original = os.path.join(TUTORIALS_EXERCISES, rel)
+                if not os.path.isfile(original):
+                    orphaned.append(rel)
+                    continue
+                checked += 1
+                if sha(os.path.join(root, filename)) != sha(original):
+                    mismatched.append(rel)
+        self.assertEqual(orphaned, [],
+                         "fixture file(s) with no counterpart in ~/tutorials -- either the "
+                         "exercise moved, or something generated was committed as if copied")
+        self.assertEqual(mismatched, [],
+                         "fixture(s) that have drifted from ~/tutorials; the tests describe a "
+                         "file shape the upstream exercise no longer has")
+        self.assertGreaterEqual(checked, 25, "the fixture tree shrank -- this check got easier")
 
 
 class Refusals(TmpMixin, unittest.TestCase):

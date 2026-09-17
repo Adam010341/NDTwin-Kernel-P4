@@ -4,13 +4,13 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# A test that has never been seen to fail is a decoration. This applies five mutations to the
+# A test that has never been seen to fail is a decoration. This applies seven mutations to the
 # three tools, re-runs the whole suite after each, and records WHICH test went red -- not merely
 # that something did. Same shape as tests/shell/mutate_ryu_rest_topology_bounded.sh, with one
 # difference: the subject is a different file per mutation, because the work item is three tools
 # and a gate that only ever mutated one of them would be evidence about one of them.
 #
-# The five, and why each is worth a line:
+# The seven, and why each is worth a line:
 #
 #   1. convert.py stops writing the reverse direction of an access link. Nothing raises: the
 #      model still loads and `host_links()` still finds every host, because it reads whichever
@@ -28,6 +28,13 @@
 #   5. preflight.py stops checking an lpm prefix length against the field's width. bmv2 takes
 #      the mask from that number; out of range it is either refused at install time or silently
 #      truncated into a route that matches the wrong traffic.
+#   6. preflight.py goes back to a hand-typed MatchType table. Not hypothetical: that table was
+#      written, shipped for the length of one run, and made the first real pre-flight of
+#      exercises/basic report every lpm entry as an unsupported TERNARY -- i.e. a pre-flight
+#      that refuses the one package stage one exists to bring up. p4info.proto skips 1.
+#   7. preflight.py stops enforcing the h<last octet> host naming rule. The proxy does not read
+#      a host's device_name, it derives the name from the address (topo_from_json.py:86), so a
+#      package that fails this rule builds hosts nobody in it can address.
 #
 # 🔴 Guards its own baseline: snapshot before the first mutation, EXIT trap restores on any
 # exit, and the run asserts byte-identity at the end. The baseline is the WORKING TREE, not
@@ -132,6 +139,30 @@ add "5. pre-flight stops checking an lpm prefix length against the field width" 
     '            elif not 0 <= prefix <= field.bitwidth:' \
     '            elif False:  # MUTANT: the prefix length is never out of range' \
     'test_an_lpm_prefix_longer_than_the_field_fails'
+
+# 6 and 7 are the two the judge asked for after the first delivery. Both are regressions of a
+# defect that was actually made and actually shipped for the length of one run -- #6 is the
+# hand-typed enum table, verbatim, that made the first real pre-flight of exercises/basic report
+# every lpm entry as an unsupported TERNARY.
+add "6. match_type_name goes back to the hand-typed (and wrong) enum table" \
+    "$PREFLIGHT" \
+    '    enum = p4info_pb2.MatchField.MatchType
+    try:
+        return enum.Name(int(value))
+    except ValueError:
+        return f"match_type {value}"' \
+    '    del p4info_pb2  # MUTANT: transcribed instead of read, and p4info.proto skips 1
+    return {0: "UNSPECIFIED", 1: "EXACT", 2: "LPM", 3: "TERNARY",
+            4: "RANGE", 5: "OPTIONAL"}.get(int(value), f"match_type {value}")' \
+    'test_the_match_type_names_come_out_of_the_enum'
+
+add "7. pre-flight stops enforcing the h<last octet> host naming rule" \
+    "$PREFLIGHT" \
+    '        if name != expected:
+            wrong.append(f"{name} on {ip} would be built as {expected}")' \
+    '        if False:  # MUTANT: a host may be named anything
+            wrong.append(f"{name} on {ip} would be built as {expected}")' \
+    'test_a_host_whose_name_does_not_match_its_address_fails'
 
 CTRL_SRC="$CONVERT"
 CTRL_ANCHOR='def build_model(hosts, switches, links):'
@@ -324,12 +355,12 @@ fi
 echo "  suite green again after restore"
 
 # Said out loud rather than left to be noticed: the tests no mutation above is expected to
-# redden are not evidence about these five behaviours. The reproducibility test
+# redden are not evidence about these seven behaviours. The reproducibility test
 # (test_two_conversions_are_byte_identical) and the p4c rows are regression guards -- green
 # against a tool that does the wrong thing consistently -- and the read-back tests would also
 # go red under #2, which is why #2 names the dpid test and not one of them.
 printf '\nnot reddened by design: test_two_conversions_are_byte_identical and the p4c rows\n'
-printf '(regression guards; they discriminate nothing about the five behaviours above)\n'
+printf '(regression guards; they discriminate nothing about the seven behaviours above)\n'
 
 printf '\n%s mutations, %s survived\n' "$MUTATIONS" "$SURVIVORS"
 [[ "$SURVIVORS" -eq 0 ]]

@@ -384,9 +384,16 @@ def _package_link(a, b, latency, bandwidth):
         "b": [b[1], b[2]],
         "bandwidth_bps": int(bandwidth * 1e6) if bandwidth is not None else common.DEFAULT_LINK_BPS,
     }
-    # Only present when the exercise declared one, so a package for an exercise that says
-    # nothing about delay does not claim 0 ms as a measured fact.
-    if latency is not None:
+    # Only present when the exercise asks for a delay that is not zero.
+    #
+    # 🔴 A DECLARED ZERO AND AN ABSENT ELEMENT ARE THE SAME THING, and the authority for that is
+    # tutorials itself: `parse_links` defaults a link with no third element to `'0ms'` and then
+    # passes `delay=link['latency']` to addLink either way (utils/run_exercise.py:212-232). So
+    # ecn's and mri's `["s1-p3", "s2-p3", "0", 0.5]` asks for exactly the delay pod-topo's
+    # `["h1", "s1-p1"]` asks for -- none. Recording `delay_ms: 0.0` for one and nothing for the
+    # other would make two packages that describe the same shaping look different, and would
+    # hand G2-C (stage three) a netem qdisc to install for no delay.
+    if latency:
         entry["delay_ms"] = latency
     return entry
 

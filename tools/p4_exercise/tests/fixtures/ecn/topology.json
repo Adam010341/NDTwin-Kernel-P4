@@ -1,0 +1,91 @@
+{
+    "hosts": {
+        "h1": {
+            "ip": "10.0.1.1/31",
+            "mac": "08:00:00:00:01:01",
+            "commands": [
+                "route add default gw 10.0.1.0 dev eth0",
+                "arp -i eth0 -s 10.0.1.0 08:00:00:00:01:00"
+            ]
+        },
+        "h11": {
+            "ip": "10.0.1.11/31",
+            "mac": "08:00:00:00:01:11",
+            "commands": [
+                "route add default gw 10.0.1.10 dev eth0",
+                "arp -i eth0 -s 10.0.1.10 08:00:00:00:01:00"
+            ]
+        },
+        "h2": {
+            "ip": "10.0.2.2/31",
+            "mac": "08:00:00:00:02:02",
+            "commands": [
+                "route add default gw 10.0.2.3 dev eth0",
+                "arp -i eth0 -s 10.0.2.3 08:00:00:00:02:00"
+            ]
+        },
+        "h22": {
+            "ip": "10.0.2.22/31",
+            "mac": "08:00:00:00:02:22",
+            "commands": [
+                "route add default gw 10.0.2.23 dev eth0",
+                "arp -i eth0 -s 10.0.2.23 08:00:00:00:02:00"
+            ]
+        },
+        "h3": {
+            "ip": "10.0.3.3/31",
+            "mac": "08:00:00:00:03:03",
+            "commands": [
+                "route add default gw 10.0.3.2 dev eth0",
+                "arp -i eth0 -s 10.0.3.2 08:00:00:00:03:00"
+            ]
+        }
+    },
+    "switches": {
+        "s1": {
+            "runtime_json": "s1-runtime.json"
+        },
+        "s2": {
+            "runtime_json": "s2-runtime.json"
+        },
+        "s3": {
+            "runtime_json": "s3-runtime.json"
+        }
+    },
+    "links": [
+        [
+            "h1",
+            "s1-p2"
+        ],
+        [
+            "h11",
+            "s1-p1"
+        ],
+        [
+            "s1-p3",
+            "s2-p3",
+            "0",
+            0.5
+        ],
+        [
+            "s1-p4",
+            "s3-p2"
+        ],
+        [
+            "s3-p3",
+            "s2-p4"
+        ],
+        [
+            "h2",
+            "s2-p2"
+        ],
+        [
+            "h22",
+            "s2-p1"
+        ],
+        [
+            "h3",
+            "s3-p1"
+        ]
+    ]
+}
