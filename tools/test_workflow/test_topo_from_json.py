@@ -81,6 +81,36 @@ def main():
             print(f"  FAIL  hosts: {[n for n, _, _ in hs][:8]} ..."); bad += 1
         print()
 
+    # --- the PROXY's host table. [Co-developed with claude code -- Adam] --------------------
+    #
+    # The block above proves the Mininet side. The proxy carried a THIRD copy of the same layout
+    # -- `topo.add_host(ip=f"10.0.0.{i}", mac=f"00:00:00:00:00:{i:02x}", switch_dpid=1 + (i-1)//
+    # (N//4), port=3 + (i-1)%(N//4))` -- and nothing ever checked it against anything. It is the
+    # copy that was WRONG: before the formula it was four literal calls, so at 128 hosts the
+    # proxy knew four hosts and placed two of them on the wrong switch, and the twin reported
+    # healthy throughout. The reader replaced it, so the same tuples the reader produces are
+    # compared against the same formula here.
+    #
+    # Read off topo_from_json rather than by importing proxy_agent.main: main pulls in grpc and
+    # the P4Runtime protobufs, which this file must not require. The proxy's own use of these
+    # three functions is asserted in p4_proxy/tests/test_app_package_proxy.py.
+    print("proxy host table (main.build_host_table vs the quarters formula it replaced)")
+    for name, host_num in (("P4_10Switches_4Hosts", 4), ("P4_10Switches_128Hosts", 128)):
+        path = os.path.join(REPO, "setting", f"StaticNetworkTopology{name}.json")
+        if not os.path.exists(path):
+            print(f"  skip  {name}: not present")
+            continue
+        m = T.load(path)
+        attach = {h: (d, p) for h, d, p in T.host_links(m)}
+        derived = sorted((ip, T.mac_str(mac, n), attach[n][0], attach[n][1])
+                         for n, ip, mac in T.hosts(m))
+        per = host_num // 4
+        literal = sorted((f"10.0.0.{i}", f"00:00:00:00:00:{i:02x}",
+                          1 + (i - 1) // per, 3 + (i - 1) % per)
+                         for i in range(1, host_num + 1))
+        bad += check(f"{name} add_host arguments", derived, literal)
+    print()
+
     # The OVS model of the same size must describe the same cabling -- that is the premise of
     # comparing the two data planes at all.
     ovs = os.path.join(REPO, "setting", "StaticNetworkTopologyOVS_10Switches_4Hosts.json")
