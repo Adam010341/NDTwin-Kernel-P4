@@ -73,6 +73,14 @@ require_root() {
         note "root is available without a prompt (sudo -n)"
         return 0
     fi
+    # The operator account on the lab laptop has NO blanket sudo -- `sudo -n true` asks for a
+    # password there for everyone, Adam included -- only the two grants below. `sudo -n -l <cmd>`
+    # answers 0 exactly when that command runs without a prompt, so ask about what is used.
+    if sudo -n -l /usr/local/sbin/ndtwin-lab >/dev/null 2>&1 \
+       && sudo -n -l /usr/bin/mnexec >/dev/null 2>&1; then
+        note "root is reachable for exactly what this needs: sudoers grants ndtwin-lab and mnexec without a prompt"
+        return 0
+    fi
     die "refusing: this needs root and cannot ask for it. Either grant the sudoers lines
        tools/test_workflow/sudo_surface.sh prints (ndtwin-lab and mnexec), or run this under
        sudo. A step that cannot reach root would report a data plane that never forwarded."
