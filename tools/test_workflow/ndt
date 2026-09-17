@@ -1435,6 +1435,191 @@ host_count_in() {
 
 host_count() { host_count_in "$REPO"; }
 
+# --- the app package knob ---------------------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# p4_proxy/mininet/app_package_override: one line, the ABSOLUTE path of a package directory.
+# Same directive-file shape as host_count_override and bmv2_binary_override above and below
+# it, and a file for the same reason those are -- the topology script is launched through tmux
+# under a fixed root environment where no operator-set variable arrives.
+#
+# 🔴 THREE STATES, NOT TWO, and the third is why these readers exist separately from
+# host_count_in's. app_package.read_knob (p4_proxy/mininet/app_package.py) treats a file that
+# EXISTS but carries no directive line as a refusal to start, where host_count_override falls
+# back to 4. So "absent" and "present but empty" are different answers here, and `ndt` is the
+# only writer: every write below goes through a temp file and a rename so that a killed `ndt`
+# cannot leave the half-written state that refuses to boot the proxy. (P1-A §4-3.)
+#
+# 🔴 WRITTEN BY `ndt` AND NOBODY ELSE, and removed by every command that ends a run. A knob
+# left behind is not inert: the next `ndt up p4`, the next hand-run p4_testbed_topo.py and the
+# next proxy all read it, so a forgotten one silently builds somebody else's exercise fabric
+# and every topology view still reads correct. That is the 2026-08-21 shape, and it is the
+# reason `up` without --app, `down`, `clean` and `rollback_up` all clear it.
+app_knob_path() { printf '%s\n' "$REPO/p4_proxy/mininet/app_package_override"; }
+
+# app_knob_dir -- the package directory the knob names. Empty output for BOTH "no file" and
+# "file with no directive line"; app_knob_state below is what tells those apart.
+app_knob_dir() {
+    local f line; f="$(app_knob_path)"
+    [[ -f "$f" ]] || return 0
+    while read -r line; do
+        line="${line%%$'\r'}"; line="${line#"${line%%[![:space:]]*}"}"
+        [[ -z "$line" || "$line" == \#* ]] && continue
+        printf '%s\n' "$line"; return 0
+    done < "$f"
+    return 0
+}
+
+# app_knob_state -- absent | empty | <the directory>. One word for the three states, so no
+# caller has to re-derive the distinction that decides whether the proxy will start at all.
+app_knob_state() {
+    local f dir; f="$(app_knob_path)"
+    [[ -e "$f" ]] || { echo absent; return 0; }
+    dir="$(app_knob_dir)"
+    [[ -n "$dir" ]] && { printf '%s\n' "$dir"; return 0; }
+    echo empty
+}
+
+# Set when THIS run wrote the knob, so rollback_up can tell "the package this bring-up asked
+# for" from a file it never touched. Same role KNOB_SAVED plays for host_count_override.
+APP_KNOB_WRITTEN=""
+
+# app_knob_write <dir> -- one absolute path plus the note that says who wrote it and when.
+#
+# 🔴 Temp file + rename, and the read-back is ASSERTED. A knob that exists with no directive
+# line is the one state the proxy refuses to start on, so the window in which this file is
+# half-written must not exist on disk at all.
+app_knob_write() {
+    local dir="$1" f tmp back
+    f="$(app_knob_path)"
+    mkdir -p "$(dirname "$f")" 2>/dev/null
+    tmp="$f.ndt.$$"
+    {
+        printf '# written by ndt up p4 --app at %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+        printf '%s\n' "$dir"
+    } > "$tmp" 2>/dev/null || { err "could not write $(short_repo_path "$f")"; rm -f "$tmp"; return 1; }
+    mv -f "$tmp" "$f" 2>/dev/null || { err "could not put $(short_repo_path "$f") in place"; rm -f "$tmp"; return 1; }
+    back="$(app_knob_dir)"
+    if [[ "$back" != "$dir" ]]; then
+        err "wrote $(short_repo_path "$f") and it did NOT take: it reads '${back:-<no directive line>}', not $dir"
+        return 1
+    fi
+    APP_KNOB_WRITTEN="$dir"
+    info "app package set: $dir   ($(short_repo_path "$f"))"
+    return 0
+}
+
+# app_knob_clear <why> -- remove it, naming what it was. Silent when there was nothing there,
+# so an ordinary `ndt down` on a baseline lab says nothing about a feature it is not using.
+app_knob_clear() {
+    local why="${1:-}" f state
+    f="$(app_knob_path)"
+    state="$(app_knob_state)"
+    [[ "$state" == absent ]] && return 0
+    if ! rm -f "$f" 2>/dev/null; then
+        err "could NOT remove $(short_repo_path "$f") (it names ${state}); the next 'ndt up p4'"
+        err "  and the next proxy would both still read it. Remove it by hand."
+        return 1
+    fi
+    if [[ "$state" == empty ]]; then
+        info "app package cleared: the knob existed but named none (that state refuses to start the proxy)${why:+ -- $why}"
+    else
+        info "app package cleared: $state${why:+ -- $why}"
+    fi
+    APP_KNOB_WRITTEN=""
+    return 0
+}
+
+# app_manifest <dir> -- the package's package.json.
+app_manifest() { printf '%s\n' "$1/package.json"; }
+
+# app_model_path <dir> -- the NDTwin topology model a package carries. Its location is fixed by
+# the package format (TICKET-P1 §1), which is why it is spelled once, here.
+app_model_path() { printf '%s\n' "$1/ndtwin/topology.json"; }
+
+# app_package_mode <dir> -- ndtwin | external, or empty when the manifest cannot be read.
+# Empty is never rendered as a mode: a package whose control plane this script cannot name is
+# reported as unreadable, not as the default one.
+app_package_mode() {
+    python3 -c '
+import json, sys
+try:
+    print(json.load(open(sys.argv[1]))["control_plane"]["mode"])
+except Exception:
+    pass' "$(app_manifest "$1")" 2>/dev/null
+}
+
+# app_package_name <dir> -- the package name, or empty.
+app_package_name() {
+    python3 -c '
+import json, sys
+try:
+    print(json.load(open(sys.argv[1]))["name"])
+except Exception:
+    pass' "$(app_manifest "$1")" 2>/dev/null
+}
+
+# The interpreter tools/p4_exercise/preflight.py needs -- it parses p4info through protobuf,
+# which only the proxy's venv has.
+#
+# 🔴 The same path as components.env:57 ($P4_PROXY_PY), written out here because `ndt` does not
+# source components.env -- the same duplication, with the same reason, as SFLOW_PORT above.
+# tests/shell/test_ndt_app_package.sh asserts the two agree, so the copy cannot go stale
+# silently. The environment override is honoured so a test can point it at a stub.
+p4_proxy_py() { printf '%s\n' "${P4_PROXY_PY:-$REPO/p4_proxy/venv/bin/python}"; }
+
+# app_preflight <dir> -- tools/p4_exercise/preflight.py, its table printed VERBATIM.
+#
+# Verbatim and not summarised: the table's whole design is that the reader sees which row is
+# red. Re-rendering it here would be a second opinion about a package this script cannot
+# otherwise judge, and the row that matters would be the one this function decided to drop.
+app_preflight() {
+    local dir="$1" py tool out rc
+    py="$(p4_proxy_py)"
+    tool="${NDT_APP_PREFLIGHT:-$REPO/tools/p4_exercise/preflight.py}"
+    if [[ ! -x "$py" ]]; then
+        err "the app package pre-flight needs the proxy's venv interpreter: $py"
+        err "  create it: python3 -m venv p4_proxy/venv && p4_proxy/venv/bin/pip install -r p4_proxy/requirements.txt"
+        return 1
+    fi
+    [[ -r "$tool" ]] || { err "no package pre-flight at $tool"; return 1; }
+    out="$("$py" "$tool" "$dir" 2>&1)"; rc=$?
+    printf '%s\n' "$out"
+    return $rc
+}
+
+# topo_model_switches <file> -- how many switches the model declares, or nothing.
+# Companion to topo_model_counts, which answers the same question about hosts and edges.
+topo_model_switches() {
+    python3 -c '
+import json,sys; t=json.load(open(sys.argv[1]))
+print(sum(1 for n in t["nodes"] if n.get("vertex_type")==0))' "$1" 2>/dev/null
+}
+
+# topo_model_ping_pair <file> -- "<first host name> <second host address>", the pair
+# verify_dataplane should use for THIS model.
+#
+# 🔴 Read from the model rather than written down. `h1 10.0.0.2` was a literal in two places,
+# and it is only true of the baseline models: exercises/basic's pod-topo puts h1 on 10.0.1.1
+# and h2 on 10.0.2.2, so the literal would have pinged an address no host in that fabric has
+# and reported `fabric is up but not forwarding` about a network it never touched. For both
+# baseline models this function returns exactly the old literal, which is the equivalence that
+# lets it replace one.
+topo_model_ping_pair() {
+    python3 -c '
+import json,sys
+t=json.load(open(sys.argv[1]))
+hs=[n for n in t["nodes"] if n.get("vertex_type")==1]
+def key(n):
+    nm=n.get("device_name") or ""
+    return (0,int(nm[1:])) if nm[1:].isdigit() else (1,nm)
+hs.sort(key=key)
+if len(hs) < 2: raise SystemExit(1)
+a=hs[0].get("device_name"); b=(hs[1].get("ip") or [""])[0]
+if not a or not b: raise SystemExit(1)
+print(a, b)' "$1" 2>/dev/null
+}
+
 bmv2_binary() {
     local f="$REPO/p4_proxy/mininet/bmv2_binary_override" line
     [[ -f "$f" ]] || { echo "simple_switch_grpc (stock, PATH)"; return; }
@@ -1636,11 +1821,21 @@ PY
 # nothing, so it cannot be what put a hand-edited 4 there; leaving that case red is the narrow
 # answer, and the narrow answer is the one that keeps saying NOT RESTORED about an edit nobody
 # announced. Any real arm writes first (128 -> 4) and the note is on that write.
+# $2 is the LAYOUT the count has to be buildable under: `splitter` (the default, and every
+# caller that existed before app packages) or `package`.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 host_count_buildable is a statement about ntg_bmv2_topo.py's four-way splitter -- "hosts
+# split over s1-s4" -- and a package is precisely the thing that REPLACES that splitter: it
+# names every host, its address, and the switch port it hangs off. exercises/p4runtime is three
+# hosts on three switches, so applying the multiple-of-four rule to it would refuse the fabric
+# for violating a layout rule that fabric does not use. The rule is not weakened for the
+# splitter path, which still owns every count it ever owned.
 set_host_count() {
-    local n="$1" f="$(knob_path)" cur
+    local n="$1" layout="${2:-splitter}" f="$(knob_path)" cur
     cur="$(host_count)"
     [[ "$cur" == "$n" ]] && return 0
-    host_count_buildable "$n" || return 1
+    [[ "$layout" == package ]] || host_count_buildable "$n" || return 1
     printf '%s\n' "$n" > "$f"
     note_up_wrote_host_count "$n"
     warn "host_count_override: $cur -> $n (persistent; affects every later run)"
@@ -2182,9 +2377,23 @@ rollback_up() {
     # count of a fabric it has just taken down. A no-op on the OVS plane and on any `ndt up p4`
     # with no count -- those runs took no snapshot.
     knob_restore "this bring-up was rolled back"
+    # [Co-developed with claude code -- Adam]
+    # 🔴 And the app knob, for the same sentence: "the machine is back to what it was before
+    # this 'ndt up'" may not be printed while a file THIS run wrote still points the next proxy
+    # and the next hand-run p4_testbed_topo.py at a package whose fabric has just been taken
+    # down. Only a knob this run wrote is removed -- APP_KNOB_WRITTEN, the same discipline
+    # KNOB_SAVED enforces above -- so a rollback cannot undo somebody else's state.
+    if [[ -n "$APP_KNOB_WRITTEN" ]]; then
+        app_knob_clear "this bring-up was rolled back" || rc=1
+    fi
     if (( ${#UP_STARTED[@]} == 0 )); then
         info "nothing to roll back: this 'ndt up' had not changed the machine yet"
-        return 0
+        # $rc, not 0: clearing the app knob is the only thing a rollback can have to DO when no
+        # stage was started, and an app knob that could not be removed is the one outcome this
+        # sentence must not be printed over -- it still points the next proxy at a package.
+        # (knob_restore's own failure keeps the status it always had: it prints and does not
+        # set rc, which is behaviour this change is not in a position to re-decide.)
+        return $rc
     fi
     echo
     say "rollback"
@@ -2281,9 +2490,89 @@ up_p4() {
     KNOB_SAVED=""
     hosts="$(host_count)"
     KNOB_ENTRY="$hosts"
-    local knob_wanted=""
-    if [[ -n "${1:-}" ]]; then
-        [[ "$1" =~ ^[0-9]+$ ]] || { err "usage: ndt up p4 [host-count]"; return 2; }
+    local knob_wanted="" knob_layout=splitter
+    # --- the app package, if there is one ---------------------------------------------------
+    #
+    # [Co-developed with claude code -- Adam]
+    # Everything in this block is a refusal that can be decided without touching the machine,
+    # and it is FIRST for the reason set_host_count's position is what it is: a package that
+    # cannot be brought up must not have moved a file on the way to saying so. The knob itself
+    # is written far below, beside the host-count knob, under the same rule.
+    local app_dir="" app_mode="" app_model=""
+    if [[ -n "${NDT_APP_DIR:-}" ]]; then
+        app_dir="$NDT_APP_DIR"
+        # 🔴 A package SIZES the fabric -- it names every host -- so a host count beside it is
+        # two answers to one question. Refused rather than ranked.
+        if [[ -n "${1:-}" ]]; then
+            err "ndt up p4 --app <dir> takes no host count: the package's model declares its hosts."
+            err "  got '$1' as well. Drop it, or drop --app."
+            return 2
+        fi
+        app_model="$(app_model_path "$app_dir")"
+        if [[ ! -f "$app_model" ]]; then
+            err "refusing to build: $app_dir carries no ${app_model#$app_dir/}"
+            err "  that file is what the kernel is handed and what the fabric is built from;"
+            err "  tools/p4_exercise/convert.py writes it. This is not an app package."
+            return 5
+        fi
+        # -- 1. pre-flight, printed verbatim. The package is somebody else's artefact and this
+        #       is the only reader that judges it against the p4info it carries.
+        say "app package pre-flight"
+        info "package      $app_dir"
+        if ! app_preflight "$app_dir"; then
+            echo
+            err "refusing to build: the app package did not pass pre-flight (table above)."
+            err "  nothing was started and nothing was written -- p4_proxy/mininet/app_package_override"
+            err "  is UNCHANGED at $(app_knob_state)."
+            err "  fix the red rows, then:  ndt up p4 --app $app_dir"
+            # 🔴 rc 5: a GUARD REFUSED and nothing was built -- the same code the two H4
+            # refusals below and record_up_target's give. The distinction rc 1 carries is
+            # "this command looked at the machine and did not like what it found", and this
+            # refusal never looked at the machine at all. (NDT-8's contract, `ndt help`.)
+            return 5
+        fi
+        echo
+        # -- 2. the size comes out of the model, not off the command line.
+        hosts="$(topo_model_counts "$app_model")"; hosts="${hosts%% *}"
+        if [[ ! "$hosts" =~ ^[0-9]+$ ]]; then
+            err "refusing to build: this script could not count the hosts $app_model declares."
+            err "  it is what host_count_override, the kernel's model and every check below"
+            err "  would be sized from, so an uncounted model is not a package this can build."
+            return 5
+        fi
+        local app_sw; app_sw="$(topo_model_switches "$app_model")"
+        if [[ ! "$app_sw" =~ ^[0-9]+$ ]] || (( app_sw == 0 )); then
+            err "refusing to build: $app_model declares no switches this script can count."
+            return 5
+        fi
+        # 🔴 The fabric size that every check in this function and in verify_p4 compares
+        # against. It was the literal 10 because every topology in setting/ has ten switches;
+        # exercises/basic's pod-topo has four, so leaving the literal would make the bring-up
+        # wait 180 s for six switches that are never coming and then call the fabric dead.
+        SWITCHES="$app_sw"
+        knob_wanted="$hosts"
+        knob_layout=package
+        # -- 3. NDT_TOPO. Set to the package's model so the EXISTING consistency check below
+        #       runs against it, and refused when the operator has already pointed it
+        #       somewhere else: a package naming one model while NDT_TOPO names another is
+        #       2026-08-21 in a new costume -- one of them builds the fabric and the other is
+        #       handed to the kernel, and every topology view reads correct either way.
+        local tv
+        for tv in NDT_TOPO NDTWIN_P4_TOPO_FILE; do
+            local cur="${!tv:-}"
+            [[ -z "$cur" ]] && continue
+            if [[ "$(readlink -f "$cur" 2>/dev/null)" != "$(readlink -f "$app_model" 2>/dev/null)" ]]; then
+                err "refusing to build: $tv=$cur and the app package's model are two different files."
+                err "  the package declares  $app_model"
+                err "  one of them would build the fabric while the other was handed to the kernel."
+                err "  unset $tv, or point it at the package's model."
+                return 5
+            fi
+        done
+        NDT_TOPO="$app_model"
+        app_mode="$(app_package_mode "$app_dir")"
+    elif [[ -n "${1:-}" ]]; then
+        [[ "$1" =~ ^[0-9]+$ ]] || { err "usage: ndt up p4 [host-count] | ndt up p4 --app <dir>"; return 2; }
         host_count_buildable "$1" || return 1
         knob_wanted="$1"
         hosts="$1"
@@ -2361,6 +2650,13 @@ up_p4() {
     say "ndt up p4"
     info "hosts        $hosts        (p4_proxy/mininet/host_count_override)"
     info "topology     ${topo#$REPO/}"
+    # Printed on the same page as the four numbers it changes, because it decides all of them:
+    # the model, the host count, the switch count and the control plane.
+    if [[ -n "$app_dir" ]]; then
+        info "app package  $app_dir (mode ${app_mode:-unreadable}, $SWITCHES switch(es))"
+    else
+        info "app package  none (baseline fabric)"
+    fi
     info "bmv2         $binary"
     info "sample rate  $(rate_label "$rate")     (compiled into ndtwin_switch.json)"
     echo
@@ -2385,8 +2681,29 @@ up_p4() {
     # that size: the three refusals in [1/3] and rollback_up all call knob_restore.
     if [[ -n "$knob_wanted" ]]; then
         knob_snapshot
-        set_host_count "$knob_wanted" || { knob_restore "the knob write itself was refused"; return 1; }
+        set_host_count "$knob_wanted" "$knob_layout" || { knob_restore "the knob write itself was refused"; return 1; }
     fi
+    # [Co-developed with claude code -- Adam]
+    # 🔴 THE APP KNOB, at the same point and under the same rule. The two branches are both
+    # writes to persistent state, and the clearing one is not the harmless half: a knob left
+    # over from an earlier `ndt up p4 --app` is read by the proxy and by p4_testbed_topo.py, so
+    # `ndt up p4 4` with a stale knob would build somebody's exercise fabric under a banner
+    # that says baseline. Every `ndt up` states which of the two it is.
+    if [[ -n "$app_dir" ]]; then
+        app_knob_write "$app_dir" || {
+            knob_restore "the app package knob could not be written"
+            err "nothing was started."
+            return 1; }
+    else
+        app_knob_clear "this 'ndt up' asked for the baseline fabric" || return 1
+    fi
+    # [Co-developed with claude code -- Adam]
+    # 🔴 THE NOTE DOES NOT NAME THE PACKAGE, deliberately. This line is the literal anchor of
+    # mutate_ndt_honesty.sh's M10 ("ndt up p4 stops writing the note"), and an anchor that no
+    # longer resolves makes that gate report a SURVIVOR -- a cell losing its power is worse
+    # than a note losing a word. What another session needs is on `ndt status`'s own
+    # `app package` row and in .test_run/up.target's topology path, which under a package IS
+    # the package's model. If the note should carry it, move M10's anchor in the same commit.
     claim_note_up "p4 $hosts"
 
     # -- 1. fabric --
@@ -2509,6 +2826,15 @@ up_p4() {
     if (( rc != 0 )); then
         err "stack.sh up p4 exited $rc"
         printf '%s\n' "$out" | tail -20 | sed 's/^/      /'
+        # [Co-developed with claude code -- Adam]
+        # 🔴 THE PROXY'S OWN LAST WORDS, not stack.sh's report of its silence. P1-A §4-11 makes
+        # proxy_agent/main.py raise AT IMPORT when the app package or its topology model cannot
+        # be read -- which is the intended outcome, because starting on the baseline fabric
+        # because somebody's package would not parse is the silent substitution the whole
+        # feature exists to remove. But stack.sh only ever sees `proxy did not open :8081`, and
+        # under a package that sentence is true of every possible cause. The traceback that
+        # names the field is in the log and nothing was printing it.
+        proxy_log_tail 10
         rollback_up "stack.sh could not bring the proxy/kernel up over this fabric"
         return 1
     fi
@@ -2516,37 +2842,135 @@ up_p4() {
 
     # -- verify --
     say "[3/3] verify"
-    verify_p4 "$topo" "$want_paths"
+    verify_p4 "$topo" "$want_paths" "$app_mode"
+}
+
+# proxy_log_tail <n> -- the last n lines of the P4 proxy's log, or a line saying there is none.
+# The path is stack.sh's $LOG_DIR/p4_proxy.log; $RUN_DIR defaults to $KERNEL_DIR/.test_run
+# (components.env), and NDT_PROXY_LOG overrides it for the tests.
+proxy_log_tail() {
+    local n="${1:-10}" f="${NDT_PROXY_LOG:-$REPO/.test_run/logs/p4_proxy.log}"
+    if [[ ! -s "$f" ]]; then
+        err "no proxy log at ${f#$REPO/} -- the proxy never got far enough to write one"
+        return 0
+    fi
+    err "the last $n line(s) of ${f#$REPO/}:"
+    tail -n "$n" "$f" | sed 's/^/      /' >&2
+    return 0
 }
 
 verify_p4() {
-    local topo="$1" want_paths="$2" rc=0
+    local topo="$1" want_paths="$2" mode="${3:-}" rc=0
 
-    # Settle, do not sample. Measured 2026-08-20: stack.sh reported "converged after 4s" at
-    # 16256 paths and a read seconds later returned 13184, with the proxy still installing
-    # routes and the kernel making its one startup topology pull in the same window; it was
-    # then rock-steady at 16256 for 40s. So the count is not a monotonic progress bar, and a
-    # single equality check at an arbitrary instant can read a list mid-repopulation. Require
-    # the target twice, at least 3s apart, before calling it ready.
-    local paths hits=0 i
-    for i in $(seq 1 40); do
-        paths="$(curl -s --max-time 5 http://localhost:8081/ryu_server/all_destination_paths \
-                 | json_len all_destination_paths)"
-        if [[ "$paths" == "$want_paths" ]]; then
-            hits=$(( hits + 1 ))
-            (( hits >= 2 )) && break
-        else
-            hits=0
-        fi
-        sleep 3
-    done
-    if (( hits >= 2 )); then
-        ok "proxy: $paths/$want_paths destination paths (stable)"
+    # [Co-developed with claude code -- Adam]
+    # 🔴 UNDER AN EXTERNAL CONTROL PLANE THIS CHECK HAS NO SUBJECT, and saying so is not the
+    # same as passing it. `mode: external` means the proxy opens no arbitration stream, sends
+    # no LLDP, starts no watchdog and installs no route (P1-A §2.3) -- so all_destination_paths
+    # is 0 BY DESIGN, and so is forwarding until the exercise's own controller runs. A bring-up
+    # that reported `0/6 destination paths, never settled` would be reporting the mode as a
+    # fault; one that quietly counted it as ok would be the "report zero, not an error" shape
+    # this project keeps finding. Both unrunnable checks are therefore NAMED, individually,
+    # with what would have to happen before they could be run -- and every other check in this
+    # function still runs, because switches, graph, model and fabric are all assertable.
+    #
+    # 🔴 ONE verdict block at the bottom of this function and ONE call to the entry-points
+    # helper under it, not an early return with a second copy of each.
+    # tests/shell/test_ndt_up_down_robust.sh counts that call site and asserts it sits on the
+    # line after the `ready` line, and it counts it because up_p4 and up_ovs have already
+    # shipped two copies of one paragraph with one of them wrong for a day.
+    if [[ "$mode" == external ]]; then
+        warn "proxy: destination paths NOT CHECKED -- this package declares an external control"
+        warn "  plane, so the proxy installs no routes and 0 is the designed answer, not a"
+        warn "  reading. The exercise's own controller is what puts rules on these switches:"
+        warn "  tools/p4_exercise/run_external_controller.py <pkg> <controller.py>"
     else
-        err "proxy: ${paths:-no answer}/$want_paths destination paths, never settled"
-        rc=1
+        # Settle, do not sample. Measured 2026-08-20: stack.sh reported "converged after 4s" at
+        # 16256 paths and a read seconds later returned 13184, with the proxy still installing
+        # routes and the kernel making its one startup topology pull in the same window; it was
+        # then rock-steady at 16256 for 40s. So the count is not a monotonic progress bar, and a
+        # single equality check at an arbitrary instant can read a list mid-repopulation.
+        # Require the target twice, at least 3s apart, before calling it ready.
+        local paths hits=0 i
+        for i in $(seq 1 40); do
+            paths="$(curl -s --max-time 5 http://localhost:8081/ryu_server/all_destination_paths \
+                     | json_len all_destination_paths)"
+            if [[ "$paths" == "$want_paths" ]]; then
+                hits=$(( hits + 1 ))
+                (( hits >= 2 )) && break
+            else
+                hits=0
+            fi
+            sleep 3
+        done
+        if (( hits >= 2 )); then
+            ok "proxy: $paths/$want_paths destination paths (stable)"
+        else
+            err "proxy: ${paths:-no answer}/$want_paths destination paths, never settled"
+            rc=1
+        fi
     fi
 
+    verify_p4_graph "$topo" || rc=1
+
+    # Same blind spot as the OVS path, for a different reason: the destination-path count
+    # above is what the proxy *says* it installed, and install-then-delete on bmv2 has been
+    # observed to leave a black hole that still counts as a path.
+    #
+    # [Co-developed with claude code -- Adam]
+    # 🔴 THE PAIR COMES OUT OF THE MODEL. `h1 10.0.0.2` was written here as a literal, and it is
+    # a fact about the two baseline models only -- exercises/basic's pod-topo has h1 on 10.0.1.1
+    # and h2 on 10.0.2.2. Under that package the literal names an address no host in that fabric
+    # holds, and `ping` would fail for that reason while this function reported `fabric is up but
+    # not forwarding`: a specific claim about routing, manufactured from a wrong destination.
+    # For both baseline models topo_model_ping_pair returns exactly `h1 10.0.0.2`.
+    if [[ "$mode" == external ]]; then
+        warn "data plane: forwarding NOT TESTED for the same reason -- nothing has programmed"
+        warn "  these switches yet. Test it after the controller has run."
+    else
+        local pair src dst
+        pair="$(topo_model_ping_pair "$topo")"
+        if [[ -z "$pair" ]]; then
+            err "data plane: forwarding NOT TESTED -- ${topo#$REPO/} does not name two hosts this"
+            err "  script can read a source and a destination out of. An untested check must not"
+            err "  print ok, so this is a failure."
+            rc=1
+        else
+            read -r src dst <<<"$pair"
+            verify_dataplane "$src" "$dst" \
+                "the proxy reports its paths installed; that is not the same as bmv2 forwarding them" || rc=1
+        fi
+    fi
+
+    echo
+    if (( rc == 0 )); then
+        say "up. ${G}ready${N}"
+        lab_entry_points p4
+        # 🔴 The caveat is its own line under an unchanged verdict, not a suffix on it. `ready`
+        # is the word an operator and half a dozen scripts grep for; qualifying it in place
+        # would make the sentence mean two things depending on the package.
+        if [[ "$mode" == external ]]; then
+            warn "external control plane: this fabric is up and EMPTY. NDTwin has programmed"
+            warn "  nothing and will not; the exercise's own controller is what makes it"
+            warn "  forward. Until it runs, every ping between these hosts fails."
+        fi
+    else
+        say "up, ${R}but not verified${N} -- do not measure on this"
+    fi
+    return $rc
+}
+
+# verify_p4_graph <topology-file> -- the kernel's graph, against the model it was handed and
+# against the fabric that was actually built. rc 1 if any of the three disagrees or cannot be
+# read.
+#
+# [Co-developed with claude code -- Adam]
+# Split out of verify_p4 so that the external-control-plane branch can ask all three of these
+# questions. They are the ones an external package leaves assertable: the switches, the graph
+# and the host namespaces exist whether or not anybody has programmed them. Split rather than
+# copied, for the reason up_p4 and up_ovs's two copies of the H4 unpacking are recorded as a
+# defect one screen up.
+verify_p4_graph() {
+    local topo="$1" rc=0
     local graph
     graph="$(curl -sf --max-time 5 http://localhost:8000/ndt/get_graph_data \
              | python3 -c "
@@ -2614,19 +3038,6 @@ print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1))' "$topo" 2>/dev/nul
     if [[ "$enabled" != "$SWITCHES" ]]; then
         # Structural in P4 mode, not a fault: nothing calls /ndt/inform_switch_entered.
         info "is_enabled=$enabled/$SWITCHES -- expected in P4 mode, nothing calls inform_switch_entered"
-    fi
-    # Same blind spot as the OVS path, for a different reason: the destination-path count
-    # above is what the proxy *says* it installed, and install-then-delete on bmv2 has been
-    # observed to leave a black hole that still counts as a path.
-    verify_dataplane h1 10.0.0.2 \
-        "the proxy reports its paths installed; that is not the same as bmv2 forwarding them" || rc=1
-
-    echo
-    if (( rc == 0 )); then
-        say "up. ${G}ready${N}"
-        lab_entry_points p4
-    else
-        say "up, ${R}but not verified${N} -- do not measure on this"
     fi
     return $rc
 }
@@ -2721,6 +3132,15 @@ up_ovs() {
     local rut_rc
     record_up_target ovs "$ovs_hosts" "$ovs_topo"; rut_rc=$?
     (( rut_rc != 0 )) && { rm -f "$fifo" "$out"; return "$rut_rc"; }
+    # [Co-developed with claude code -- Adam]
+    # 🔴 THE OVS PLANE CLEARS THE APP KNOB TOO, and it is not housekeeping. The knob is P4-only
+    # in the sense that only P4 readers act on it -- which is exactly why an OVS round is where
+    # a stale one survives unnoticed. The next `ndt up p4 4` in this checkout would then build
+    # somebody's exercise fabric under a banner reading `app package  none`. Same placement
+    # rule as everything else here: after the last refusal, before the first thing that changes
+    # the machine. `--app` on this plane was refused at the dispatch, so there is never a
+    # package to keep.
+    app_knob_clear "this 'ndt up ovs' does not use one" || { rm -f "$fifo" "$out"; return 1; }
     claim_note_up "ovs $ovs_hosts"
 
     say "[1/4] control plane (Ryu)"
@@ -3232,6 +3652,21 @@ cmd_down() {
     say "ndt down"
 
     # [Co-developed with claude code -- Adam]
+    # 🔴 THE APP KNOB IS CLEARED BY THIS COMMAND'S LAST STEP, NOT HERE, and the first draft had
+    # it both places. tests/shell/mutate_ndt_app_package.sh's M4 deleted this call and the
+    # whole suite stayed green -- `verify clean` is cmd_clean, cmd_clean clears the knob, and
+    # there is no path between the teardown starting and that call that returns early. Two
+    # guards over one fact, where removing either is invisible: the shape P1-A's M19 found in
+    # startup() the same week. One of them had to go, and it is this one, because `ndt clean`
+    # is also a verb an operator runs on its own -- putting the checkout back is exactly what
+    # they are asking for there -- while `ndt down` reaches it either way.
+    #
+    # What that costs, said rather than left to be discovered: an `ndt down` killed between
+    # here and `verify clean` (this laptop's systemd-oomd does that) leaves the knob in place.
+    # So does everything else that teardown was doing, and the answer to both is the same --
+    # run it again.
+
+    # [Co-developed with claude code -- Adam]
     # 🔴 WHAT THIS TEARDOWN IS ABOUT, read before it changes anything. Every reading below is
     # taken after the sweep has run, so by then the answer is always "nothing" -- which is why
     # the question has to be asked here. It decides two things: what `verify clean` is an
@@ -3500,6 +3935,14 @@ cmd_clean() {
         # machine at all, so it has nothing to report about what is on it. (Adam, 2026-09-12)
         return 5
     fi
+
+    # [Co-developed with claude code -- Adam]
+    # `ndt clean` is `ndt down`'s last step and also a verb of its own, and both readings want
+    # this: as `down`'s step it is a no-op (the knob went at the top of that command), and on
+    # its own it is the command an operator runs to put the checkout back. Below the refusal
+    # above, for the same reason it sits below `down`'s: a refused clean measured nothing and
+    # must change nothing.
+    app_knob_clear "this checkout is being put back" || rc=1
 
     n="$(bmv2_count)"
     if [[ "$n" -eq 0 ]]; then ok "bmv2 switches: 0"; else err "bmv2 switches: $n still running"; rc=1; fi
@@ -4449,6 +4892,57 @@ print(len(d.get("switches",{})) + len(d.get("hosts",{})))' "$f" 2>/dev/null)"
     return "$bad"
 }
 
+# app_package_row -- the `app package` line in the configuration block, and the problems it
+# raises. [Co-developed with claude code -- Adam]
+#
+# It sits in `configuration` and not in `running` deliberately: like the P4 host knob two rows
+# up, this file is not a description of what is running -- it is what the NEXT `ndt up p4` and
+# the next proxy will read. A proxy started before the knob changed is serving the old package
+# and this row cannot see that; it says what the file says.
+#
+# 🔴 THREE BAD STATES, NAMED SEPARATELY, and all three are `--check` problems:
+#   * the knob names a directory that is not there -- the proxy raises at import and the
+#     bring-up dies at `[2/3] proxy did not open :8081`;
+#   * the knob exists with no directive line -- app_package.read_knob refuses that outright
+#     (P1-A §4-3), so it is a half-finished write, not a default;
+#   * the directory is there but carries no readable package.json -- same import failure, a
+#     different cause, and rendering it as "mode ndtwin" because that is the default would be
+#     the silent substitution this whole feature exists to remove.
+# `none` is not a problem and never colours: it is what every baseline lab reads.
+STATUS_APP_PROBLEMS=()
+app_package_row() {
+    local rel="p4_proxy/mininet/app_package_override"
+    local state mode name
+    STATUS_APP_PROBLEMS=()
+    state="$(app_knob_state)"
+    case "$state" in
+        absent)
+            printf '  %-14s %s\n' "app package" "none   ($rel absent -- the baseline fabric)"
+            return 0 ;;
+        empty)
+            printf '  %-14s %s\n' "app package" "${Y}$rel exists and names no package${N}"
+            printf '  %-14s %s\n' "" "the proxy REFUSES to start on that file; delete it:  rm $rel"
+            STATUS_APP_PROBLEMS+=("the app package knob ($rel) exists but names no package directory -- the proxy refuses to start on it; delete the file")
+            return 0 ;;
+    esac
+    if [[ ! -d "$state" ]]; then
+        printf '  %-14s %s\n' "app package" "${Y}$state -- THE DIRECTORY IS NOT THERE${N}"
+        printf '  %-14s %s\n' "" "the proxy raises at import and 'ndt up p4' dies at [2/3]. delete it:  rm $rel"
+        STATUS_APP_PROBLEMS+=("the app package knob ($rel) names $state, which does not exist -- the next 'ndt up p4' cannot start its proxy")
+        return 0
+    fi
+    mode="$(app_package_mode "$state")"
+    name="$(app_package_name "$state")"
+    if [[ -z "$mode" ]]; then
+        printf '  %-14s %s\n' "app package" "${Y}$state (package.json UNREADABLE -- no control-plane mode)${N}"
+        STATUS_APP_PROBLEMS+=("the app package at $state has no readable package.json control_plane.mode -- the proxy cannot start on it")
+        return 0
+    fi
+    printf '  %-14s %s\n' "app package" "$state (mode $mode)"
+    printf '  %-14s %s\n' "" "${name:+$name -- }$rel; it decides the next 'ndt up p4' and the next proxy"
+    return 0
+}
+
 cmd_status() {
     local check="" ; [[ "${1:-}" == "--check" ]] && check=1
     local hosts topo rate n problems=()
@@ -4614,6 +5108,8 @@ cmd_status() {
         # names what it decides, which is what the has-a-record branch above already does.
         printf '  %-14s %s\n' "p4 host knob" "$hosts   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')"
     fi
+    app_package_row
+    (( ${#STATUS_APP_PROBLEMS[@]} > 0 )) && problems+=("${STATUS_APP_PROBLEMS[@]}")
     printf '  %-14s %s\n' "bmv2" "$(bmv2_binary)"
     # 🔴 The source is printed on its own row, unconditionally, beside the number. X-2 survived
     # because the row said `1/256` and never said where 256 came from; on the OVS plane it came
@@ -8248,6 +8744,63 @@ cmd_ntg() {
 #   * a bare number now follows the default plane: `ndt up 4` is OVS at 4 hosts, where it used
 #     to be P4 at 4. Any other number is refused, because up_ovs cannot build one -- it used to
 #     be accepted and built a P4 fabric of that size. To get the old meaning, say `ndt up p4 N`.
+# up_take_app_flag <args...> -- lift `--app <dir>` / `--app=<dir>` out of `ndt up`'s argv.
+#
+# [Co-developed with claude code -- Adam]
+# Sets NDT_APP_DIR (absolute) and NDT_UP_ARGV (what is left, for resolve_up_target). rc 2 when
+# the flag is malformed or the directory is not one.
+#
+# 🔴 A FUNCTION AND TWO GLOBALS, not a third field on resolve_up_target's output line. The
+# dispatch runs resolve_up_target's answer through `$plan` UNQUOTED -- deliberately, it is two
+# words this file produced -- and a package directory is an operator-supplied path that may
+# carry a space. Putting it on that line would word-split it into a plane nobody named.
+#
+# 🔴 ABSOLUTE, here, once. The knob only accepts absolute paths (app_package.read_knob refuses
+# a relative one, because the proxy is started from p4_proxy/ and the topology script from
+# anywhere, so the same line would name two directories). Resolving it at the point where the
+# operator's cwd is still the operator's cwd is the only place the answer is knowable.
+NDT_APP_DIR=""
+NDT_UP_ARGV=()
+up_take_app_flag() {
+    NDT_APP_DIR=""
+    NDT_UP_ARGV=()
+    # `seen` is tracked apart from the VALUE, and that is the whole point of it. `--app=` and
+    # `--app ""` both set NDT_APP_DIR to the empty string, and an emptiness test alone reads
+    # that as "no package was asked for" -- so the command would build the BASELINE fabric and
+    # clear p4_proxy/mininet/app_package_override on the way, under an argv that says --app.
+    # A flag given with no value is a typo, not a request for the default.
+    local a want=0 seen=0
+    for a in "$@"; do
+        if (( want )); then NDT_APP_DIR="$a"; want=0; seen=1; continue; fi
+        case "$a" in
+            --app)   want=1 ;;
+            --app=*) NDT_APP_DIR="${a#--app=}"; seen=1 ;;
+            *)       NDT_UP_ARGV+=("$a") ;;
+        esac
+    done
+    if (( want )); then
+        err "ndt up --app needs a package directory:  ndt up p4 --app <dir>"
+        return 2
+    fi
+    if (( seen )) && [[ -z "$NDT_APP_DIR" ]]; then
+        err "--app was given an EMPTY package directory."
+        err "  an empty value is not 'no package': taken as one, this command would build the"
+        err "  baseline fabric and clear p4_proxy/mininet/app_package_override on the way, under"
+        err "  an argv that says --app. usage:  ndt up p4 --app <dir>"
+        return 2
+    fi
+    [[ -z "$NDT_APP_DIR" ]] && return 0
+    if [[ ! -d "$NDT_APP_DIR" ]]; then
+        err "--app $NDT_APP_DIR is not a directory"
+        err "  it must be an app package: a directory with package.json and ndtwin/topology.json,"
+        err "  as tools/p4_exercise/convert.py writes one."
+        return 2
+    fi
+    NDT_APP_DIR="$(cd "$NDT_APP_DIR" 2>/dev/null && pwd)" || {
+        err "--app: could not resolve that directory to an absolute path"; return 2; }
+    return 0
+}
+
 resolve_up_target() {
     case "${1:-ovs}" in
         p4)     printf 'up_p4 %s\n'  "${2:-}"    ;;
@@ -8285,10 +8838,25 @@ fi
 
 case "${1:-}" in
     up)
-        if ! plan="$(resolve_up_target "${2:-}" "${3:-}")"; then
-            err "usage: ndt up [p4 [hosts] | ovs [128|4] | ovs4 | 128 | 4]"
+        shift
+        up_take_app_flag "$@" || exit 2
+        set -- ${NDT_UP_ARGV[@]+"${NDT_UP_ARGV[@]}"}
+        if ! plan="$(resolve_up_target "${1:-}" "${2:-}")"; then
+            err "usage: ndt up [p4 [hosts] | p4 --app <dir> | ovs [128|4] | ovs4 | 128 | 4]"
             err "   the default plane is OVS: bare 'ndt up' is 'ndt up ovs' (128 hosts)."
-            err "   OVS builds only 128 or 4. For any other size, name the plane: ndt up p4 ${2:-N}"
+            err "   OVS builds only 128 or 4. For any other size, name the plane: ndt up p4 ${1:-N}"
+            exit 2
+        fi
+        # 🔴 --app IS A P4 FLAG, refused on every other plane rather than ignored there. An app
+        # package supplies a bmv2 pipeline, a P4Runtime election id and a control-plane mode;
+        # nothing on the OVS plane reads any of them, so an accepted-and-ignored --app would
+        # build a 128-host OVS fabric while the operator believed they were running an
+        # exercise. 2, because it is argv naming something this script cannot build -- the same
+        # answer resolve_up_target gives one line up.
+        if [[ -n "$NDT_APP_DIR" && "${plan%% *}" != up_p4 ]]; then
+            err "--app is a P4 flag: ${plan%% *} builds an OVS fabric, and nothing on that plane"
+            err "  reads a package's pipeline, election id or control-plane mode."
+            err "  did you mean:  ndt up p4 --app $NDT_APP_DIR"
             exit 2
         fi
         # shellcheck disable=SC2086 -- plan is "<fn> <arg>", both produced by resolve_up_target
@@ -8323,16 +8891,43 @@ usage: ndt <command>
                   ndt up p4         p4 at the current host count
                   ndt up p4 4       p4 at 4 hosts   (rewrites host_count_override)
                   ndt up p4 128     p4 at 128 hosts
+                  ndt up p4 --app <dir>   p4 on an APP PACKAGE
                 OVS builds only 128 or 4 -- each is a different ndtwin-lab verb, not a
                 parameter. For any other size, name the plane: 'ndt up p4 N'.
                 NDT_TOPO=<file> forces a specific kernel model.
+
+                --app <dir> brings the P4 plane up on an app package -- a directory
+                  with package.json and ndtwin/topology.json, as written by
+                  tools/p4_exercise/convert.py from a p4lang-tutorials exercise. The
+                  package names every host, its address and the switch port it hangs
+                  off, so it SIZES the fabric: no host count may be given with it, and
+                  host_count_override is rewritten to the model's count.
+                  what it does, in order: runs tools/p4_exercise/preflight.py and
+                  prints its table verbatim (a red row means nothing is built and
+                  nothing is written); writes p4_proxy/mininet/app_package_override;
+                  rewrites host_count_override; points NDT_TOPO, the kernel's
+                  --topology and the proxy's NDTWIN_TOPO_FILE at the package's model.
+                  --app is a P4 flag: on any other plane it is a usage error (2), not
+                  an ignored argument.
+                  🔴 THE KNOB IS PERSISTENT AND IS CLEARED AGAIN BY: an 'ndt up' of
+                  any plane WITHOUT --app, 'ndt down', 'ndt clean', and a rolled-back
+                  bring-up. Each of those prints 'app package cleared: <dir>'. Nothing
+                  ever leaves it present-but-empty: that state makes the proxy refuse
+                  to start, and 'ndt status' reports it as a problem.
+                  an external-control-plane package (mode external) brings the fabric
+                  up EMPTY on purpose -- the proxy installs no routes -- so [3/3]
+                  names the destination-path count and the forwarding test as NOT
+                  CHECKED rather than failing or passing them, and still checks the
+                  switches, the graph, the model and the host namespaces.
                   exit 0 the fabric came up and verified; 1 something was MEASURED and
                   it was dirty -- a port held by a stray, a Mininet already running, a
                   fabric older than the compiled pipeline, a bring-up that could not
                   finish or could not verify; 5 a GUARD REFUSED and nothing was built:
                   the lab is claimed by somebody else, a measurement is in flight, an
                   'ndt down' from this checkout is still running, or NDT_TOPO names a
-                  model of a different network (H4). 2 is a usage error.
+                  model of a different network (H4). An --app package that did not
+                  pass tools/p4_exercise/preflight.py is 5 for the same reason: the
+                  table is printed and nothing is built. 2 is a usage error.
                   🔴 1 AND 5 ARE DIFFERENT QUESTIONS. 1 says this command looked at the
                   machine and did not like what it found; 5 says it never looked. When
                   both are true at once -- a teardown in flight AND a port held -- the
