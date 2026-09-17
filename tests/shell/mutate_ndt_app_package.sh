@@ -19,9 +19,16 @@
 #     the positive reading on the proceeding path, which is there precisely so "nothing was
 #     touched" cannot be a sentence this harness always says.
 #
-# 🔴 A mutation that will not apply, a non-unique anchor, or the WRONG check going red counts
-# as SURVIVOR -- never as skipped. A control that goes red makes the whole round void: a
-# harness that reports red for any edit says nothing when it reports red for a mutation.
+# 🔴 A mutation that will not apply, a non-unique anchor, a mutant that does not PARSE, or the
+# WRONG check going red counts as SURVIVOR -- never as skipped. A control that goes red makes
+# the whole round void: a harness that reports red for any edit says nothing when it reports
+# red for a mutation.
+#
+# 🔴 `bash -n` ON EVERY MUTANT, before it is run. `ndt` is sourced by the suite with its output
+# discarded, so a mutant with a syntax error defines no functions at all and EVERY cell goes
+# red -- which looks exactly like a mutation the suite caught, and would let a badly written
+# anchor be scored as evidence. The compile-fail rule the mutation-gate convention already
+# carries for the python gates, applied to the one language this gate mutates.
 #
 # Bare, not wrapped: nothing here compiles anything. tools/test_workflow/ndt is never written
 # -- mutants are whole copies in a temp dir, reached through NDT_UNDER_TEST -- and the sha256
@@ -75,7 +82,7 @@ run_test() { NDT_UNDER_TEST="$1" timeout 600 bash "$TEST" 2>&1; }
 
 echo "baseline (must be green before any mutation):"
 BASE_OUT="$(run_test "$NDT")"; BASE_RC=$?
-BASE_RAN="$(grep -oE 'Ran [0-9]+ checks' <<<"$BASE_OUT" | tail -1)"
+BASE_RAN="$(/usr/bin/grep -oE 'Ran [0-9]+ checks' <<<"$BASE_OUT" | tail -1)"
 tail -1 <<<"$BASE_OUT" | sed 's/^/  /'
 [[ $BASE_RC -eq 0 ]] || { echo "refused: baseline is not green -- mutations would prove nothing"; exit 2; }
 echo
@@ -89,12 +96,16 @@ check_fires() {   # <label> <name> <the check text that MUST go red>
         printf '  SURVIVED %-56s (anchor occurrences: %s, expected 1)\n' "$label" "${d#ANCHOR:}"
         SURVIVED=$((SURVIVED+1)); return
     fi
+    if ! bash -n "$d" 2>/dev/null; then
+        printf '  SURVIVED %-56s (the mutant does not PARSE -- a bash -n failure is not a catch)\n' "$label"
+        SURVIVED=$((SURVIVED+1)); return
+    fi
     out="$(run_test "$d")"; rc=$?
     # 🔴 "the named check went red" is not enough by itself: a mutation that made the suite
     # ABORT after that check would look identical. The trailing count is the only evidence the
     # run reached the end, and it must match the baseline or the mutation removed checks
     # instead of failing them.
-    ran="$(grep -oE 'Ran [0-9]+ checks' <<<"$out" | tail -1)"
+    ran="$(/usr/bin/grep -oE 'Ran [0-9]+ checks' <<<"$out" | tail -1)"
     if [[ "$ran" != "$BASE_RAN" ]]; then
         printf '  SURVIVED %-56s (the run did not finish: "%s" vs baseline "%s")\n' "$label" "$ran" "$BASE_RAN"
         SURVIVED=$((SURVIVED+1)); return
@@ -102,11 +113,11 @@ check_fires() {   # <label> <name> <the check text that MUST go red>
     if [[ $rc -eq 0 ]]; then
         printf '  SURVIVED %-56s (suite still green)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
     fi
-    if grep -qF "FAILED   $want" <<<"$out"; then
+    if /usr/bin/grep -qF "FAILED   $want" <<<"$out"; then
         printf '  caught   %-56s (%s went red)\n' "$label" "$want"; CAUGHT=$((CAUGHT+1))
     else
         printf '  SURVIVED %-56s (red, but NOT on the named check)\n' "$label"
-        grep 'FAILED' <<<"$out" | head -3 | sed 's/^/             /'
+        /usr/bin/grep 'FAILED' <<<"$out" | head -3 | sed 's/^/             /'
         SURVIVED=$((SURVIVED+1))
     fi
 }
@@ -119,12 +130,16 @@ check_control() {   # <label> <name> -- a behaviour-preserving edit; the suite m
         printf '  🔴 CONTROL %-53s (anchor occurrences: %s, expected 1)\n' "$label" "${d#ANCHOR:}"
         CONTROLS_RED=$((CONTROLS_RED+1)); return
     fi
+    if ! bash -n "$d" 2>/dev/null; then
+        printf '  🔴 CONTROL %-53s (the control does not PARSE -- it is not behaviour-preserving)\n' "$label"
+        CONTROLS_RED=$((CONTROLS_RED+1)); return
+    fi
     out="$(run_test "$d")"; rc=$?
     if [[ $rc -eq 0 ]]; then
         printf '  control  %-56s (stayed green, as it must)\n' "$label"
     else
         printf '  🔴 CONTROL %-53s (went RED -- this harness reddens for any edit)\n' "$label"
-        grep 'FAILED' <<<"$out" | head -3 | sed 's/^/             /'
+        /usr/bin/grep 'FAILED' <<<"$out" | head -3 | sed 's/^/             /'
         CONTROLS_RED=$((CONTROLS_RED+1))
     fi
 }
@@ -280,6 +295,45 @@ EOF
 check_fires "M11: a missing package directory is no longer a problem" m11 \
             "  and --check has a problem to exit 1 on"
 
+# --- M12: the OVS plane stops clearing the knob ----------------------------------------------
+# The quiet half of M3, on the plane where a stale knob is least likely to be noticed: nothing
+# on an OVS fabric reads it, so it survives the whole round and decides the NEXT `ndt up p4`.
+# up_ovs's own rollback cannot cover for this -- APP_KNOB_WRITTEN is empty on this plane.
+cat > "$A/m12.old" <<'EOF'
+    app_knob_clear "this 'ndt up ovs' does not use one" || { rm -f "$fifo" "$out"; return 1; }
+EOF
+cat > "$A/m12.new" <<'EOF'
+    :
+EOF
+check_fires "M12: 'ndt up ovs 4' keeps somebody's package" m12 \
+            "🔴 'ndt up ovs 4' clears it as well"
+
+# --- M13: --app with an empty value falls through to the baseline -----------------------------
+# `--app=` and `--app ""` both leave NDT_APP_DIR empty. Read as "no package", the command builds
+# the BASELINE fabric and CLEARS the knob -- under an argv that says --app. A flag given with no
+# value is a typo, not a request for the default.
+cat > "$A/m13.old" <<'EOF'
+    if (( seen )) && [[ -z "$NDT_APP_DIR" ]]; then
+EOF
+cat > "$A/m13.new" <<'EOF'
+    if false; then
+EOF
+check_fires "M13: an empty --app value silently means baseline" m13 \
+            "🔴 --app= with an empty value is a usage error"
+
+# --- M14: a proxy that will not start says nothing about why ----------------------------------
+# P1-A §4-11 makes proxy_agent/main.py raise AT IMPORT when a package will not load, and
+# stack.sh can then only report `proxy did not open :8081`, which under a package is true of
+# every possible cause. This puts the silence back.
+cat > "$A/m14.old" <<'EOF'
+        proxy_log_tail 10
+EOF
+cat > "$A/m14.new" <<'EOF'
+        :
+EOF
+check_fires "M14: the proxy's own last words are not printed" m14 \
+            "🔴 the PROXY's own last words are printed"
+
 # --- the controls: two behaviour-preserving rewrites -----------------------------------------
 # 🔴 Without these the round says nothing. A harness that reported red for ANY edit would print
 # `11 caught, 0 survived` above while catching nothing at all, and these are the edits that tell
@@ -295,10 +349,10 @@ EOF
 check_control "C1: app_knob_clear's early return, written the long way" c1
 
 cat > "$A/c2.old" <<'EOF'
-            --app=*) NDT_APP_DIR="${a#--app=}" ;;
+            --app=*) NDT_APP_DIR="${a#--app=}"; seen=1 ;;
 EOF
 cat > "$A/c2.new" <<'EOF'
-            --app=*) NDT_APP_DIR="${a:6}" ;;
+            --app=*) NDT_APP_DIR="${a:6}"; seen=1 ;;
 EOF
 check_control "C2: --app=<dir> stripped by offset instead of prefix" c2
 

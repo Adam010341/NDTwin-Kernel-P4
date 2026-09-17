@@ -43,9 +43,9 @@ check() {   # <name> <expected> <actual>
     if [[ "$2" == "$3" ]]; then PASS=$((PASS+1)); printf '  ok       %s\n' "$1"
     else FAIL=$((FAIL+1)); printf '  FAILED   %s\n             expected: [%s]\n             actual:   [%s]\n' "$1" "$2" "$3"; fi
 }
-has()   { grep -qF -- "$2" <<<"$3" && { PASS=$((PASS+1)); printf '  ok       %s\n' "$1"; } \
+has()   { /usr/bin/grep -qF -- "$2" <<<"$3" && { PASS=$((PASS+1)); printf '  ok       %s\n' "$1"; } \
           || { FAIL=$((FAIL+1)); printf '  FAILED   %s\n             no match for: [%s]\n' "$1" "$2"; }; }
-hasnt() { grep -qF -- "$2" <<<"$3" && { FAIL=$((FAIL+1)); printf '  FAILED   %s\n             unexpected: [%s]\n' "$1" "$2"; } \
+hasnt() { /usr/bin/grep -qF -- "$2" <<<"$3" && { FAIL=$((FAIL+1)); printf '  FAILED   %s\n             unexpected: [%s]\n' "$1" "$2"; } \
           || { PASS=$((PASS+1)); printf '  ok       %s\n' "$1"; }; }
 section() { printf '\n%s\n' "$1"; }
 
@@ -107,16 +107,30 @@ PKG_OK="$FIX/packages/four"        ; mkpkg "$PKG_OK" ndtwin   4 4
 PKG_EXT="$FIX/packages/three-ext"  ; mkpkg "$PKG_EXT" external 3 3
 PKG_BAD="$FIX/packages/redflag"    ; mkpkg "$PKG_BAD" ndtwin   4 4
 
-# A recording fake stack.sh. Its log is the evidence for "nothing was built".
+# A recording fake stack.sh. Its log is the evidence for "nothing was built". `2/3` is what
+# up_ovs waits for on its stdout before it will go on; $STACK_FAIL switches it to the failing
+# half, which is what section 12 drives.
 cat > "$FIX/stack.sh" <<'FAKE'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$STACK_LOG"
 printf 'TOPO_P4=%s\n' "${TOPO_P4:-}" >> "$STACK_LOG"
+if [[ -e "$STACK_FAIL" ]]; then
+    echo "  proxy did not open :8081; see .test_run/logs/p4_proxy.log"
+    exit 1
+fi
+echo "[2/3] data plane (Mininet, needs sudo)"
 echo "started p4_proxy"
 echo "started kernel"
 exit 0
 FAKE
 chmod +x "$FIX/stack.sh"
+export STACK_FAIL="$FIX/stack-must-fail"
+
+# The OVS-plane model up_ovs's topo_for_hosts globs for. Same shape as the P4 one -- what that
+# reader counts is hosts -- but under the OVS family name, because mixing the two families is
+# the mistake topo_for_hosts exists to prevent.
+cp "$REAL_REPO/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json" \
+   "$FIX/setting/StaticNetworkTopologyOVS_10Switches_4Hosts.json" 2>/dev/null
 
 # --- the pre-flight stand-in --------------------------------------------------------------
 #
@@ -220,13 +234,14 @@ rc_of() { sed -n 's/^RC=//p' <<<"$1" | tail -1; }
 q() { printf '%q' "$1"; }
 
 reset_fix() {
-    rm -f "$FIX/sudo.log" "$FIX/stack.log" "$FIX/bmv2_count" "$PREFLIGHT_FAIL" \
-          "$KNOB" "$FIX/.test_run/up.target" "$FIX/.test_run/host_count_override.pre-up"
+    rm -f "$FIX/sudo.log" "$FIX/stack.log" "$FIX/bmv2_count" "$PREFLIGHT_FAIL" "$STACK_FAIL" \
+          "$KNOB" "$FIX/.test_run/up.target" "$FIX/.test_run/host_count_override.pre-up" \
+          "$FIX/.test_run/logs/p4_proxy.log"
     : > "$FIX/sudo.log"; : > "$FIX/stack.log"
     printf '4\n' > "$FIX/p4_proxy/mininet/host_count_override"
 }
 count_lines() {
-    local n; n="$(grep -c . "$1" 2>/dev/null)"
+    local n; n="$(/usr/bin/grep -c . "$1" 2>/dev/null)"
     [[ "$n" =~ ^[0-9]+$ ]] || n=0
     printf '%s' "$n"
 }
@@ -235,7 +250,7 @@ count_lines() {
 # invocations through the same reader. (The note is tests/shell/test_ndt_down_claim_guard.sh's,
 # and this file reproduced the bug before reading it.)
 stack_ups() {
-    local n; n="$(grep -c '^up p4' "$FIX/stack.log" 2>/dev/null)"
+    local n; n="$(/usr/bin/grep -c '^up p4' "$FIX/stack.log" 2>/dev/null)"
     [[ "$n" =~ ^[0-9]+$ ]] || n=0
     printf '%s' "$n"
 }
@@ -264,9 +279,9 @@ has   "  the banner names the package and its mode"       "app package  $PKG_OK 
 # 🔴 ABSOLUTE, and the knob's reader refuses anything else: the proxy is started from p4_proxy/
 # and the topology script from anywhere, so a relative line would name two directories.
 check "🔴 the line is absolute"                           "1" \
-      "$(grep -c '^/' <<<"$(knob_state)")"
+      "$(/usr/bin/grep -c '^/' <<<"$(knob_state)")"
 has   "  and it carries the note saying who wrote it"     "# written by ndt up p4 --app at" "$(cat "$KNOB")"
-check "  the note is a comment, so the reader skips it"   "2" "$(grep -c . "$KNOB")"
+check "  the note is a comment, so the reader skips it"   "2" "$(/usr/bin/grep -c . "$KNOB")"
 
 # The model decides the size. Not the command line, and not the value the knob happened to
 # hold: `hosts` is what record_up_target writes and what every check downstream compares to.
@@ -358,6 +373,18 @@ OUT="$(NDT_OWNER=t drive 'cmd_clean')"
 check "🔴 'ndt clean' clears it"                          "absent" "$(knob_state)"
 has   "  and names what it removed"                       "app package cleared: $PKG_OK" "$OUT"
 
+# 🔴 THE OVS PLANE TOO, through the real up_ovs. The knob is P4-only in the sense that only P4
+# readers act on it -- which is exactly why an OVS round is where a stale one survives
+# unnoticed, and the next `ndt up p4 4` in this checkout then builds somebody's exercise under
+# a banner reading `app package  none`. up_ovs is driven for real and is expected to fail later
+# on (the stubbed fabric has no hosts); what this cell is about is the file, and up_ovs's own
+# rollback cannot be what removed it -- APP_KNOB_WRITTEN is empty on this plane.
+reset_fix; plant_knob
+OUT="$(drive 'up_ovs 4')"
+check "🔴 'ndt up ovs 4' clears it as well"               "absent" "$(knob_state)"
+has   "  and names what it removed"                       "app package cleared: $PKG_OK" "$OUT"
+has   "  saying it is this plane that does not use one"   "this 'ndt up ovs' does not use one" "$OUT"
+
 # 🔴 The rollback. A bring-up that wrote the knob and then failed must not leave it: the
 # fabric it describes has just been taken back down.
 reset_fix
@@ -406,6 +433,21 @@ check "--app with no value is a usage error"              "2" "$(rc_of "$OUT")"
 has   "  and says what it wanted"                         "ndt up --app needs a package directory" "$OUT"
 OUT="$(drive 'up_take_app_flag p4 --app /no/such/dir')"
 check "--app naming no directory is a usage error"        "2" "$(rc_of "$OUT")"
+# 🔴 AN EMPTY VALUE IS NOT "NO PACKAGE". `--app=` and `--app ""` both leave NDT_APP_DIR empty,
+# and an emptiness test alone reads that as the baseline branch -- so the command would build
+# the baseline fabric AND clear p4_proxy/mininet/app_package_override, under an argv that says
+# --app. `seen` is tracked apart from the value for exactly this.
+OUT="$(drive 'up_take_app_flag p4 --app=')"
+check "🔴 --app= with an empty value is a usage error"    "2" "$(rc_of "$OUT")"
+has   "  and says why an empty value is not the default"  "an empty value is not 'no package'" "$OUT"
+OUT="$(drive 'up_take_app_flag p4 --app ""')"
+check "🔴 so is --app with an empty argument"             "2" "$(rc_of "$OUT")"
+# The control for it: a knob already there must be untouched by that refusal, because the
+# refusal happens in the parser, above everything that writes.
+reset_fix; plant_knob
+OVSOUT2="$(cd "$FIX" && NDT_OWNER=t bash "$NDT" up p4 --app= 2>&1)"; OVSRC2=$?
+check "  the real dispatch refuses it too"                "2" "$OVSRC2"
+check "🔴 and the knob that was there is untouched"       "$PKG_OK" "$(knob_state)"
 OUT="$(drive 'up_take_app_flag ovs; echo "DIR=[$NDT_APP_DIR]"; echo "LEFT=${NDT_UP_ARGV[*]}"')"
 has   "  and argv without the flag is left alone"         "DIR=[]" "$OUT"
 has   "  every word of it"                                "LEFT=ovs" "$OUT"
@@ -543,6 +585,32 @@ has   "the proxy log's tail is printed"                   "AppPackageError: host
 rm -f "$FIX/.test_run/logs/p4_proxy.log"
 OUT="$(drive 'proxy_log_tail 2')"
 has   "  and its absence is said, not skipped"            "the proxy never got far enough to write one" "$OUT"
+
+# =============================================================================================
+section "12. 🔴 when stack.sh cannot bring the proxy up"
+# =============================================================================================
+# P1-A §4-11 makes proxy_agent/main.py raise AT IMPORT when a package will not load, and
+# stack.sh can then only say `proxy did not open :8081` -- true of every possible cause. The
+# traceback naming the field is in the proxy's log, and until this change nothing printed it.
+# The other half of the same path: the knob THIS run wrote must not outlive the rollback.
+reset_fix
+: > "$STACK_FAIL"
+printf 'Traceback (most recent call last):\n  ...\nAppPackageError: hosts h3 is not in the model\n' \
+    > "$FIX/.test_run/logs/p4_proxy.log"
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+check "🔴 a stack.sh that exits 1 fails the bring-up"     "1" "$(rc_of "$OUT")"
+has   "  and says so"                                     "stack.sh up p4 exited 1" "$OUT"
+has   "🔴 the PROXY's own last words are printed"         "AppPackageError: hosts h3 is not in the model" "$OUT"
+has   "  named as the proxy's log"                        "the last 10 line(s) of .test_run/logs/p4_proxy.log" "$OUT"
+has   "  and the bring-up was rolled back"                "rollback" "$OUT"
+check "🔴 the knob THIS run wrote does not outlive it"    "absent" "$(knob_state)"
+has   "  saying why it went"                              "app package cleared: $PKG_OK -- this bring-up was rolled back" "$OUT"
+# The control: with no proxy log there is no traceback to print, and the absence is SAID.
+reset_fix
+: > "$STACK_FAIL"
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+has   "  with no proxy log, the absence is reported"      "the proxy never got far enough to write one" "$OUT"
+rm -f "$STACK_FAIL"
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"

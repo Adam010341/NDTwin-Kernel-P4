@@ -8764,17 +8764,29 @@ NDT_UP_ARGV=()
 up_take_app_flag() {
     NDT_APP_DIR=""
     NDT_UP_ARGV=()
-    local a want=0
+    # `seen` is tracked apart from the VALUE, and that is the whole point of it. `--app=` and
+    # `--app ""` both set NDT_APP_DIR to the empty string, and an emptiness test alone reads
+    # that as "no package was asked for" -- so the command would build the BASELINE fabric and
+    # clear p4_proxy/mininet/app_package_override on the way, under an argv that says --app.
+    # A flag given with no value is a typo, not a request for the default.
+    local a want=0 seen=0
     for a in "$@"; do
-        if (( want )); then NDT_APP_DIR="$a"; want=0; continue; fi
+        if (( want )); then NDT_APP_DIR="$a"; want=0; seen=1; continue; fi
         case "$a" in
             --app)   want=1 ;;
-            --app=*) NDT_APP_DIR="${a#--app=}" ;;
+            --app=*) NDT_APP_DIR="${a#--app=}"; seen=1 ;;
             *)       NDT_UP_ARGV+=("$a") ;;
         esac
     done
     if (( want )); then
         err "ndt up --app needs a package directory:  ndt up p4 --app <dir>"
+        return 2
+    fi
+    if (( seen )) && [[ -z "$NDT_APP_DIR" ]]; then
+        err "--app was given an EMPTY package directory."
+        err "  an empty value is not 'no package': taken as one, this command would build the"
+        err "  baseline fabric and clear p4_proxy/mininet/app_package_override on the way, under"
+        err "  an argv that says --app. usage:  ndt up p4 --app <dir>"
         return 2
     fi
     [[ -z "$NDT_APP_DIR" ]] && return 0

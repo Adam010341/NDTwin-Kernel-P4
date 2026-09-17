@@ -166,9 +166,13 @@ finish() {
         "$NDT" down > "$RUN/90_down.txt" 2>&1; note "ndt down rc=$? -> $(basename "$RUN")/90_down.txt"
         tail -3 "$RUN/90_down.txt" | sed 's/^/     /'
         if [[ -e "$APP_KNOB" ]]; then
-            bad "🔴 p4_proxy/mininet/app_package_override SURVIVED the teardown:"
             sed 's/^/       /' "$APP_KNOB" >&2
-            bad "   the next 'ndt up p4' and the next proxy read it. Remove it by hand."
+            # 🔴 A FAILURE, not a warning. This file decides which fabric the next `ndt up p4`,
+            # the next hand-run p4_testbed_topo.py and the next proxy build. A step that left it
+            # behind has left the checkout pointing at an exercise nobody asked for, and a step
+            # that reported PASS while doing so would be the green light this whole feature is
+            # meant to remove.
+            fail "p4_proxy/mininet/app_package_override SURVIVED the teardown (printed above) -- the next 'ndt up p4' and the next proxy read it; remove it by hand"
         else
             note "app_package_override is gone, as 'ndt down' should leave it"
         fi
@@ -263,11 +267,17 @@ run_verify_p4() {
 
 # pingall_via_ndt <package-dir> -- every ordered host pair, through `ndt`'s OWN dataplane_ok.
 #
-# 🔴 `ndt`'s helper and not a hand-rolled one. dataplane_ok asks the permission question
-# separately from the forwarding question -- `mnexec -a <pid> true` first -- so a missing sudo
-# grant cannot be reported as "the fabric is not forwarding", which is the exact manufactured
-# claim ndt:4012 records. It also finds the namespace by host_pid, which is the reader that does
-# not need pgrep. Sourced in a SUBSHELL: `ndt` defines two hundred names and a $REPO of its own.
+# 🔴 THIS IS NOT THE LOSS MEASUREMENT, and the two must not be confused. `ndt`'s dataplane_ok is
+# `ping -c 2 -W 2` and its exit 0 means AT LEAST ONE of those two replies arrived -- so rc 0 is
+# "this pair is not completely dead", never "0% loss". Acceptance (2) is `pingall` 0% loss and
+# (3) is 3/3; citing a two-packet exit code as evidence for either would be a claim this
+# instrument cannot make. What this function IS: `ndt`'s own check, run so that the step
+# exercises the same predicate `ndt up` ends on -- including its separation of the permission
+# question from the forwarding one (`mnexec -a <pid> true` first), which is why a missing sudo
+# grant here cannot be reported as "the fabric is not forwarding" (ndt:4012). The loss number
+# comes from ping_loss / pingall_loss below.
+#
+# Sourced in a SUBSHELL: `ndt` defines two hundred names and a $REPO of its own.
 pingall_via_ndt() {
     local pkg="$1"
     ( set +e
@@ -281,11 +291,70 @@ pingall_via_ndt() {
           dataplane_ok "$s" "${ip[$d]}"
           case $? in
             0) ok=$((ok+1)) ;;
-            1) bad=$((bad+1)); echo "LOSS $s -> $d (${ip[$d]})" ;;
+            1) bad=$((bad+1)); echo "NOT-FORWARDING $s -> $d (${ip[$d]})" ;;
             *) untested=$((untested+1)); echo "UNTESTED $s -> $d: ${NDT_DATAPLANE_WHY:-unrecorded}" ;;
           esac
         done
       done
-      echo "PINGALL ok=$ok loss=$bad untested=$untested"
+      echo "NDT_DATAPLANE_OK alive=$ok dead=$bad untested=$untested (rc 0 here means >=1 of 2 replies, NOT 0% loss)"
     )
+}
+
+# ping_loss <hN> <dst-ip> <count> <raw-file> -- "<loss%> <received>/<transmitted>" for a ping
+# run INSIDE that host's namespace, or "UNTESTED <why>" with rc 2.
+#
+# 🔴 THE LOSS NUMBER COMES FROM PING'S OWN SUMMARY LINE, parsed here, and from nothing else.
+# The namespace is found with `ndt`'s host_pid and entered with the same `sudo -n mnexec -a`
+# seam dataplane_ok uses -- the form this machine's sudoers allows, and the reader that needs
+# no pgrep. The permission question is asked FIRST and separately (`mnexec -a <pid> true`), so
+# a missing grant comes back as UNTESTED and can never be rendered as packet loss.
+#
+# -c 5, not -c 2: a two-packet sample cannot distinguish 0% from 50%, and both acceptance
+# conditions are about a rate.
+ping_loss() {
+    local h="$1" dst="$2" n="${3:-5}" raw="$4" pid out loss recv trans
+    pid="$( set +e; source "$NDT" >/dev/null 2>&1; host_pid "$h" )"
+    if [[ ! "$pid" =~ ^[0-9]+$ ]]; then
+        printf '### %s -> %s: no namespace\n\n' "$h" "$dst" >> "$raw"
+        echo "UNTESTED no namespace for $h"; return 2
+    fi
+    if ! sudo -n mnexec -a "$pid" true >/dev/null 2>&1; then
+        printf '### %s -> %s: mnexec could not enter the namespace (pid %s)\n\n' "$h" "$dst" "$pid" >> "$raw"
+        echo "UNTESTED mnexec could not enter $h's namespace (pid $pid) -- sudo, not the data plane"; return 2
+    fi
+    out="$(sudo -n mnexec -a "$pid" ping -c "$n" -W 2 "$dst" 2>&1)"
+    printf '### %s -> %s  (pid %s, ping -c %s -W 2)\n%s\n\n' "$h" "$dst" "$pid" "$n" "$out" >> "$raw"
+    loss="$(/usr/bin/grep -oE '[0-9]+(\.[0-9]+)?%[[:space:]]+packet loss' <<<"$out" | head -1 | cut -d'%' -f1)"
+    trans="$(/usr/bin/grep -oE '[0-9]+ packets transmitted' <<<"$out" | head -1 | cut -d' ' -f1)"
+    recv="$(/usr/bin/grep -oE '[0-9]+ received' <<<"$out" | head -1 | cut -d' ' -f1)"
+    # 🔴 No summary line is UNTESTED, never 0%. `ping` prints one whatever happens, so its
+    # absence means the command did not run -- and an unparsed reading rendered as a good one
+    # is the failure mode every check in this suite is written against.
+    if [[ -z "$loss" ]]; then
+        echo "UNTESTED ping printed no '% packet loss' summary for $h -> $dst"; return 2
+    fi
+    printf '%s %s/%s\n' "$loss" "${recv:-?}" "${trans:-?}"
+    return 0
+}
+
+# pingall_loss <package-dir> <count> <raw-file> -- ping_loss over EVERY ORDERED PAIR the model
+# names. Prints one line per pair that is not clean, then a verdict line the caller parses.
+pingall_loss() {
+    local pkg="$1" n="${2:-5}" raw="$3"
+    local -A ip
+    local k a s d r pairs=0 zero=0 lossy=0 untested=0
+    while read -r k a; do ip["$k"]="$a"; done < <(model_hosts "$pkg")
+    for s in $(printf '%s\n' "${!ip[@]}" | sort -V); do
+      for d in $(printf '%s\n' "${!ip[@]}" | sort -V); do
+        [[ "$s" == "$d" ]] && continue
+        pairs=$((pairs+1))
+        r="$(ping_loss "$s" "${ip[$d]}" "$n" "$raw")"
+        case "$r" in
+            UNTESTED*) untested=$((untested+1)); echo "$s -> $d (${ip[$d]}): $r" ;;
+            "0 "*)     zero=$((zero+1)) ;;
+            *)         lossy=$((lossy+1)); echo "$s -> $d (${ip[$d]}): ${r%% *}% packet loss, ${r#* } received" ;;
+        esac
+      done
+    done
+    echo "PINGALL_LOSS pairs=$pairs zero_loss=$zero lossy=$lossy untested=$untested"
 }

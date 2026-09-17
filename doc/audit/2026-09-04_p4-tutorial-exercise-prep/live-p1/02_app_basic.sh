@@ -123,18 +123,39 @@ note "rc=$V_RC -> $(basename "$RUN")/40_verify_p4.txt"
 tail -5 "$RUN/40_verify_p4.txt" | sed 's/^/     /'
 (( V_RC != 0 )) && fail "verify_p4 exited $V_RC over the package fabric"
 
-say "pingall -- every ordered host pair, through ndt's dataplane_ok"
+# ndt's own check first, recorded and NOT cited as the loss evidence -- its ping is -c 2 and
+# its rc 0 means at least one of the two replies arrived.
+say "ndt's own dataplane_ok over every ordered pair (not the loss measurement)"
 set +e
-pingall_via_ndt "$PKG" > "$RUN/41_pingall.txt" 2>&1
+pingall_via_ndt "$PKG" > "$RUN/41_dataplane_ok.txt" 2>&1
 set -e
-sed 's/^/   /' "$RUN/41_pingall.txt"
-PA="$(tail -1 "$RUN/41_pingall.txt")"
+sed 's/^/   /' "$RUN/41_dataplane_ok.txt"
+DO="$(tail -1 "$RUN/41_dataplane_ok.txt")"
+case "$DO" in
+    NDT_DATAPLANE_OK*dead=0*untested=0*) note "ndt's own check found no dead pair and no untested one" ;;
+    *) fail "ndt's dataplane_ok: $DO" ;;
+esac
+
+# --- 🔴 THE ACCEPTANCE MEASUREMENT: 0% LOSS, from ping's own summary ---------------------------
+#
+# Acceptance (2) is `pingall` 0% loss. That is a RATE, and the check above cannot produce one:
+# `ping -c 2` exiting 0 says at least one of two replies arrived, which is equally true of 50%
+# loss. So every ordered pair is pinged again with -c 5 inside its own namespace and the
+# `N% packet loss` line is parsed; the requirement is EXACTLY 0 on every pair, with no pair
+# left untested -- an untested pair is not a passed one.
+say "pingall -- every ordered host pair, ping -c 5, loss parsed from ping"
+set +e
+pingall_loss "$PKG" 5 "$RUN/43_ping_raw.txt" > "$RUN/42_pingall_loss.txt" 2>&1
+set -e
+sed 's/^/   /' "$RUN/42_pingall_loss.txt"
+note "every ping's raw output: $(basename "$RUN")/43_ping_raw.txt"
+PA="$(tail -1 "$RUN/42_pingall_loss.txt")"
 case "$PA" in
-    "PINGALL ok=12 loss=0 untested=0") note "0% loss over all 12 ordered pairs" ;;
-    PINGALL*loss=0*untested=0*)        fail "0% loss, but only $(sed 's/.*ok=\([0-9]*\).*/\1/' <<<"$PA") of 12 pairs were tried" ;;
-    PINGALL*untested=0*)               fail "pingall: $PA" ;;
-    PINGALL*)                          fail "pingall could not test every pair: $PA -- an untested pair is not a passed one" ;;
-    *)                                 fail "pingall produced no verdict line" ;;
+    "PINGALL_LOSS pairs=12 zero_loss=12 lossy=0 untested=0")
+        note "0% packet loss on all 12 ordered pairs, 5 packets each" ;;
+    PINGALL_LOSS*)
+        fail "pingall is not 0% loss on every pair: $PA (detail above, raw in 43_ping_raw.txt)" ;;
+    *)  fail "pingall_loss produced no verdict line" ;;
 esac
 
 say "done -- teardown follows (it must leave no app_package_override behind)"

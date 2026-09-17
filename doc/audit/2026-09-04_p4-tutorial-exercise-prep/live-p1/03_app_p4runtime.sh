@@ -18,19 +18,23 @@
 #      every ping fails at this point. [3/3] says so instead of failing.
 #   3  the exercise's controller, under setsid, through B's adapter -- which rewrites its
 #      hardcoded 127.0.0.1:5005N / device N-1 onto this fabric's ports, on the CONTROLLER side.
-#   4  h1 -> h2 must ping. That is the proof that the exercise's controller is primary and its
-#      rules are in.
+#   4  h1 -> h2 and h2 -> h1 must be 0% loss over 5 packets each. That is the proof that the
+#      exercise's controller is primary and its rules are in.
+#      🔴 THE LOSS IS PARSED OUT OF PING, not read off `ndt`'s dataplane_ok: that helper is
+#      `ping -c 2 -W 2` and its rc 0 means AT LEAST ONE of two replies arrived, which is
+#      equally true of 50% loss. `ndt`'s own check is still run and recorded, beside it.
 #   5  count s1's entries with the THIRD-PARTY client (p4runtime_mastership_probe.py's read
 #      fragment -- `channel` and `count_entries`, no writes, no scenarios: scenarios 2 and 3 of
 #      that file are DESTRUCTIVE by design and are not run here).
 #   6  POST /p4/readopt/1 -- the proxy is asked to adopt the switch, which is the code path that
 #      pushes a pipeline. Under an external package it must refuse, naming itself.
-#   7  count again, and ping again. Same count, still 3/3 => coexistence without a wipe.
+#   7  count again, and ping again. Same count, still 0% over 5 both ways => coexistence
+#      without a wipe.
 #
 # 🔴 A CONTROL IS BUILT IN, and without it step 7 proves nothing: if step 5's count were 0 --
 # because the controller never ran, or because the read failed -- then "the count did not
 # change" would be true of a switch with no tables at all. The count must be > 0 before the
-# readopt, and the ping must already be 3/3.
+# readopt, and the ping must already be 0% loss both ways.
 #
 # Run:  bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/03_app_p4runtime.sh
 # Exit: 0 PASS, 1 FAIL (the last line says which), 2 refused before anything was started.
@@ -132,17 +136,46 @@ fi
 head -20 "$CTRL_LOG" | sed 's/^/     /'
 
 # --- 4. it forwards ---------------------------------------------------------------------------------
-say "h1 -> h2, through ndt's dataplane_ok"
+H1_IP="$(model_hosts "$PKG" | sed -n '1p' | cut -d' ' -f2)"
 H2_IP="$(model_hosts "$PKG" | sed -n '2p' | cut -d' ' -f2)"
-[[ -n "$H2_IP" ]] || die "could not read h2's address out of the package's model"
+[[ -n "$H1_IP" && -n "$H2_IP" ]] || die "could not read h1's and h2's addresses out of the package's model"
+
+# both_ways <label> -- h1 -> h2 and h2 -> h1, five packets each, EXACTLY 0% loss and 5/5
+# received required. Prints OK, or the reasons. Raw goes to <label>_ping_raw.txt.
+#
+# Both directions, because the tunnel rules mycontroller.py writes are per-direction: one
+# direction working is a half-programmed switch, and a single-direction check would call that a
+# pass. One function, called twice, so the before and the after are the same measurement.
+both_ways() {
+    local label="$1" raw="$RUN/${label}_ping_raw.txt" r why="" p h d
+    local probes=("h1 $H2_IP" "h2 $H1_IP")
+    for p in "${probes[@]}"; do
+        read -r h d <<<"$p"
+        r="$(ping_loss "$h" "$d" 5 "$raw")"
+        case "$r" in
+            "0 5/5")   ;;
+            UNTESTED*) why="${why}${why:+; }$h -> $d: $r" ;;
+            *)         why="${why}${why:+; }$h -> $d: ${r%% *}% loss, ${r#* } received" ;;
+        esac
+    done
+    [[ -z "$why" ]] && { echo OK; return 0; }
+    echo "$why"; return 1
+}
+
+say "ndt's own dataplane_ok (recorded, not the loss evidence)"
 set +e
 ( set +e; source "$NDT" >/dev/null 2>&1; dataplane_ok h1 "$H2_IP"; echo "DATAPLANE_RC=$?  why=${NDT_DATAPLANE_WHY:-}" ) \
-    > "$RUN/41_ping_before.txt" 2>&1
+    > "$RUN/41_dataplane_ok_before.txt" 2>&1
 set -e
-sed 's/^/   /' "$RUN/41_ping_before.txt"
-PING_BEFORE="$(sed -n 's/^DATAPLANE_RC=\([0-9]*\).*/\1/p' "$RUN/41_ping_before.txt" | tail -1)"
-if [[ "$PING_BEFORE" != 0 ]]; then
-    fail "h1 cannot reach $H2_IP with the exercise controller running (rc $PING_BEFORE) -- steps 5-7 would be measuring an empty fabric"
+sed 's/^/   /' "$RUN/41_dataplane_ok_before.txt"
+
+say "h1 <-> h2, ping -c 5 each way, loss parsed from ping"
+set +e
+PING_BEFORE="$(both_ways 42_before)"
+set -e
+note "$PING_BEFORE   (raw: $(basename "$RUN")/42_before_ping_raw.txt)"
+if [[ "$PING_BEFORE" != OK ]]; then
+    fail "h1 <-> h2 is not 0% loss with the exercise controller running ($PING_BEFORE) -- steps 5-7 would be measuring an empty fabric"
 fi
 
 # --- 5. the control: there is something to wipe -------------------------------------------------------
@@ -190,12 +223,10 @@ else
     note "unchanged"
 fi
 set +e
-( set +e; source "$NDT" >/dev/null 2>&1; dataplane_ok h1 "$H2_IP"; echo "DATAPLANE_RC=$?  why=${NDT_DATAPLANE_WHY:-}" ) \
-    > "$RUN/71_ping_after.txt" 2>&1
+PING_AFTER="$(both_ways 71_after)"
 set -e
-sed 's/^/   /' "$RUN/71_ping_after.txt"
-PING_AFTER="$(sed -n 's/^DATAPLANE_RC=\([0-9]*\).*/\1/p' "$RUN/71_ping_after.txt" | tail -1)"
-[[ "$PING_AFTER" == 0 ]] || fail "h1 could reach $H2_IP before the readopt and cannot after it (rc $PING_AFTER)"
+note "$PING_AFTER   (raw: $(basename "$RUN")/71_after_ping_raw.txt)"
+[[ "$PING_AFTER" == OK ]] || fail "h1 <-> h2 was 0% loss before the readopt and is not after it ($PING_AFTER)"
 
 tail -20 "$CTRL_LOG" > "$RUN/72_controller_tail.txt" 2>/dev/null || true
 say "done -- teardown follows (controller by pid, then ndt down)"

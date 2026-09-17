@@ -104,20 +104,48 @@ if [[ -s "$SS" ]]; then
     [[ "$PKG" == None ]]       || fail "control_plane.package is $PKG, not null -- something is running a package"
     [[ "$SKIPPED" == "[]" ]]   || fail "control_plane.skipped is $SKIPPED, not [] -- the baseline skips nothing"
     [[ "$ENTRIES" == "[0]" ]]  || fail "entries_recorded is $ENTRIES, not 0 everywhere -- the baseline records no package entries"
-    [[ "$PROBES" == "[True]" ]] || bad "probe_ok is $PROBES -- not every switch answered its liveness probe"
+    # 🔴 A FAILURE, not a warning. probe_ok is what the kernel's p4LivenessFor reads to decide
+    # whether a switch is up at all (DeviceConfigurationAndPowerManager.cpp:668); a baseline
+    # capture taken over a fabric where some switch was not answering is a baseline of a
+    # half-built lab, and every structural number under it inherits that.
+    [[ "$PROBES" == "[True]" ]] || fail "probe_ok is $PROBES -- not every switch answered its liveness probe, so this is not a reading of a healthy baseline"
 fi
 if [[ -s "$GD" ]]; then
+    MODEL="$REPO/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json"
     G_SW="$(jqp "$GD" "len([n for n in d.get('nodes',[]) if n.get('vertex_type')==0])")"
     G_H="$(jqp  "$GD" "len([n for n in d.get('nodes',[]) if n.get('vertex_type')==1])")"
     G_E="$(jqp  "$GD" "len(d.get('edges',[]))")"
     G_B="$(jqp  "$GD" "sorted({n.get('brand_name') for n in d.get('nodes',[]) if n.get('vertex_type')==0})")"
+    G_EN="$(jqp "$GD" "sorted({bool(n.get('is_enabled')) for n in d.get('nodes',[]) if n.get('vertex_type')==0})")"
+    G_UP="$(jqp "$GD" "sorted({bool(n.get('is_up')) for n in d.get('nodes',[]) if n.get('vertex_type')==0})")"
     note "graph               $G_SW switches, $G_H hosts, $G_E edges, brand $G_B"
-    M_H="$(jqp "$REPO/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json" "len([n for n in d['nodes'] if n.get('vertex_type')==1])")"
-    M_S="$(jqp "$REPO/setting/StaticNetworkTopologyP4_10Switches_4Hosts.json" "len([n for n in d['nodes'] if n.get('vertex_type')==0])")"
-    note "the model declares  $M_S switches, $M_H hosts"
+    note "is_up / is_enabled  $G_UP / $G_EN   (distinct values across the switches)"
+    M_H="$(jqp "$MODEL" "len([n for n in d['nodes'] if n.get('vertex_type')==1])")"
+    M_S="$(jqp "$MODEL" "len([n for n in d['nodes'] if n.get('vertex_type')==0])")"
+    M_E="$(jqp "$MODEL" "len(d['edges'])")"
+    note "the model declares  $M_S switches, $M_H hosts, $M_E edges"
     [[ "$G_SW" == "$M_S" ]] || fail "the kernel graph has $G_SW switches, the model it was handed declares $M_S"
     [[ "$G_H"  == "$M_H" ]] || fail "the kernel graph has $G_H hosts, the model it was handed declares $M_H"
+    # 🔴 EDGES, compared rather than printed. The precedent is on disk: the only saved BMv2-plane
+    # graph capture (logs/x2-sweep/001_GET_ndt_get_graph_data.json, 2026-09-06, the 128-host
+    # model) has 288 edges and that model declares 288 -- so the kernel does carry the model's
+    # edge list through one for one, and an inequality here is a real difference, not a known
+    # transformation.
+    [[ "$G_E"  == "$M_E" ]] || fail "the kernel graph has $G_E edges, the model it was handed declares $M_E"
     [[ "$G_B"  == "['BMv2']" ]] || fail "the graph's switch brand is $G_B, not BMv2 -- this is not the P4 plane"
+    [[ "$G_UP" == "[True]" ]] || fail "is_up is $G_UP -- not every switch is up in the kernel's graph"
+    # 🔴 UNIFORM, not a particular value, and the reason is a contradiction on disk that this
+    # step cannot settle. verify_p4's own line says `is_enabled=N/10 -- expected in P4 mode,
+    # nothing calls inform_switch_entered`, i.e. it expects FALSE; the one saved BMv2-plane
+    # capture (x2-sweep, 2026-09-06) has is_enabled TRUE on all ten. Asserting either value
+    # would be this script picking a side of a question it has not measured. What it CAN assert
+    # is that the ten switches agree with each other -- a split set means some of them were
+    # registered and some were not, which is a half-built lab whatever the right value is --
+    # and the value itself is recorded above so the next reader has it.
+    case "$G_EN" in
+        "[True]"|"[False]") note "is_enabled is uniform across the switches ($G_EN); verify_p4 expects False here, the 09-06 128-host capture on disk has True -- recorded, not adjudicated" ;;
+        *) fail "is_enabled is $G_EN -- the switches disagree with each other, so some were registered and some were not" ;;
+    esac
 fi
 
 say "done -- teardown follows"
