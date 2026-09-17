@@ -1,0 +1,373 @@
+#!/usr/bin/env bash
+#
+# Mutation gate for the P4 app package: the baseline literals, the knob, the model-derived host
+# table and switch list, the election id, and `external` mode's read-only refusal plus its
+# disclosure. TICKET-P1 section 2.4.
+#
+# [Co-developed with claude code -- Adam]
+#
+# A test that has never been seen to fail is a decoration, and this feature's central claim --
+# "with no package on disk the fabric behaves exactly as it did" -- is the kind that is trivially
+# green whatever the code does. So every literal `app_package.baseline()` returns, every step
+# `external` mode skips, and every request that has to carry `self.election_id` gets its own
+# mutation, and each one names the single test that must go red.
+#
+# 🔴 THE MUTANT IS A COPY. Every mutation is applied to a copy of p4_proxy under a temp dir and
+# the tests run there. Nothing under p4_proxy/ is written -- another session may be executing
+# those files right now -- and all six sources plus four test files are re-hashed at the end.
+# `setting/` is linked rather than copied: the models are the fabric's, several megabytes, and
+# nothing here mutates them.
+#
+# 🔴 THREE MUTATIONS ARE DELIBERATELY NOT HERE, because they would be EQUIVALENT on the models
+# this repo ships and a gate that reports a survivor for an unkillable mutant teaches people to
+# ignore it:
+#
+#   * "put the quarters formula back in build_host_table". At 4 and at 128 hosts the formula and
+#     the model agree exactly -- that agreement is the whole content of
+#     test_the_proxy_host_table_matches_the_formula_it_replaces_*. What IS killable is the
+#     assumption underneath it, so M7 breaks the port the model gives and M8 makes a host with no
+#     access link get an answer anyway.
+#   * "set DEFAULT_SWITCH_DPIDS back to tuple(range(1, 11))" at its assignment. Both shipped
+#     models declare dpids 1..10, so the constant and the reader produce the same tuple. M9
+#     mutates `switch_dpids` itself, which a model declaring (4, 9) can tell apart.
+#   * "raise PACKAGE_DEFAULT_ELECTION_ID". Nothing in this tree bids it except a package, and no
+#     test can tell 65535 from 65534 without a live third-party controller -- that evidence is
+#     p4_proxy/reference/p4runtime_mastership_probe.py's, and it needs a switch.
+#
+# Usage:  tests/shell/mutate_app_package.sh
+#         PROXY_PY=/path/to/python tests/shell/mutate_app_package.sh
+# Assumes: nothing about the cwd.
+# Exit:    0 every mutation caught, 1 a mutation survived, 2 refused (no interpreter, or the
+#          baseline was red), 3 a source file changed underneath the gate.
+set -uo pipefail
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$HERE/../.." && pwd)"
+PKG="$REPO/p4_proxy/mininet/app_package.py"
+READER="$REPO/p4_proxy/mininet/topo_from_json.py"
+MAIN="$REPO/p4_proxy/proxy_agent/main.py"
+CLIENT="$REPO/p4_proxy/proxy_agent/p4_client.py"
+ROUTES="$REPO/p4_proxy/proxy_agent/api_routes.py"
+PROFILE="$REPO/p4_proxy/proxy_agent/profile.py"
+TEST_PKG="$REPO/p4_proxy/tests/test_app_package.py"
+TEST_PROXY="$REPO/p4_proxy/tests/test_app_package_proxy.py"
+TEST_STARTUP="$REPO/p4_proxy/tests/test_startup.py"
+TEST_WRITES="$REPO/p4_proxy/tests/test_p4_client_writes.py"
+
+MODULES="tests.test_app_package tests.test_app_package_proxy tests.test_startup \
+tests.test_p4_client_writes"
+
+# The interpreter. A git worktree has no venv of its own (p4_proxy/venv/ is gitignored and lives
+# in the main checkout), so the main worktree is consulted before giving up -- asked of git
+# rather than spelled as somebody's home directory, which would make this gate runnable on one
+# machine. Override with PROXY_PY= .
+MAIN_WT="$(git -C "$REPO" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2; exit}')"
+PY=""
+for c in "${PROXY_PY:-}" "$REPO/p4_proxy/venv/bin/python" "$REPO/p4_proxy/venv/bin/python3" \
+         "${MAIN_WT:-/nonexistent}/p4_proxy/venv/bin/python"; do
+    [[ -n "$c" && -x "$c" ]] || continue
+    "$c" -c 'import fastapi, networkx, grpc' >/dev/null 2>&1 || continue
+    PY="$c"; break
+done
+[[ -n "$PY" ]] || {
+    echo "REFUSE: found no interpreter with fastapi/networkx/grpc. Set PROXY_PY=<path>." >&2
+    echo "        A gate that cannot run its tests has not checked anything, so it does not" >&2
+    echo "        get to exit 0." >&2
+    exit 2
+}
+echo "interpreter: $PY"
+
+BK=$(mktemp -d "${TMPDIR:-/tmp}/ndt-apppkg-mutate-XXXXXX")
+trap 'rm -rf "$BK"' EXIT
+# Every mutant lives at $BK/<label>, so each one's `p4_proxy` root is that directory and the
+# repo root the tests derive from it is $BK. The models and the compiled p4info are read, never
+# written, so they are linked in once rather than copied per mutation.
+ln -s "$REPO/setting" "$BK/setting"
+
+BASE_PKG=$(sha256sum "$PKG" | cut -d' ' -f1)
+BASE_READER=$(sha256sum "$READER" | cut -d' ' -f1)
+BASE_MAIN=$(sha256sum "$MAIN" | cut -d' ' -f1)
+BASE_CLIENT=$(sha256sum "$CLIENT" | cut -d' ' -f1)
+BASE_ROUTES=$(sha256sum "$ROUTES" | cut -d' ' -f1)
+BASE_PROFILE=$(sha256sum "$PROFILE" | cut -d' ' -f1)
+BASE_TEST_PKG=$(sha256sum "$TEST_PKG" | cut -d' ' -f1)
+BASE_TEST_PROXY=$(sha256sum "$TEST_PROXY" | cut -d' ' -f1)
+BASE_TEST_STARTUP=$(sha256sum "$TEST_STARTUP" | cut -d' ' -f1)
+BASE_TEST_WRITES=$(sha256sum "$TEST_WRITES" | cut -d' ' -f1)
+
+SURVIVORS=0
+MUTATIONS=0
+
+# The tests import proxy_agent the way the proxy is launched, so the mutant needs the package,
+# the tests beside it, and mininet/ (app_package, topo_from_json and grpc_ports all live there).
+# PYTHONDONTWRITEBYTECODE so a mutant cannot be run from a .pyc of its unmutated self -- a .pyc
+# is revalidated against (mtime-in-SECONDS, size), and two same-size mutants written in one
+# second are exactly the trap mutate_ryu_rest_topology_bounded.sh documents.
+run_against() {
+    ( cd "$1" && PYTHONPATH="$1" PYTHONDONTWRITEBYTECODE=1 timeout 300 \
+        "$PY" -m unittest $MODULES -v 2>&1 )
+}
+
+report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must go red
+    local out rc
+    MUTATIONS=$((MUTATIONS+1))
+    out=$(run_against "$2"); rc=$?
+    if [[ "$rc" -ne 0 ]] && grep -qE "^(FAIL|ERROR): $3 " <<<"$out"; then
+        printf '  caught   %-70s (%s went red)\n' "$1" "$3"
+    else
+        SURVIVORS=$((SURVIVORS+1))
+        printf '  SURVIVED %-70s (%s stayed green -- that case proves nothing)\n' "$1" "$3"
+        grep -E '^(FAIL|ERROR|OK|Ran )' <<<"$out" | sed 's/^/             /'
+    fi
+}
+
+# A mutant is a whole copy of p4_proxy's importable tree plus the compiled artefacts: the reader,
+# the profile, the proxy, the client and the route are one chain, and a mutation to any of them
+# has to be exercised through the real import rather than through a stub of the other four. The
+# anchor must be unique, so a mutation cannot quietly land somewhere other than where it says.
+#
+# The parameters are NAMED rather than used positionally so tests/shell/check_gate_anchors.py can
+# read this gate: it learns which argument is the anchor and which is the file from a function's
+# own `local ... file="$2" old="$3"` line, and a gate it cannot read is a gate it is not checking
+# (finding #28).
+mutant() {   # $1 = label, $2 = file to mutate, $3 = the anchor, $4 = its replacement
+    local label="$1" file="$2" old="$3" new="$4"
+    local d="$BK/$label"; mkdir -p "$d"
+    cp -r "$REPO/p4_proxy/proxy_agent" "$REPO/p4_proxy/tests" "$REPO/p4_proxy/mininet" "$d/"
+    mkdir -p "$d/p4_src"
+    cp -r "$REPO/p4_proxy/p4_src/build" "$d/p4_src/" 2>/dev/null
+    find "$d" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null
+    python3 - "$d/${file#"$REPO/p4_proxy/"}" "$old" "$new" <<'PY'
+import sys
+p, a, b = sys.argv[1], sys.argv[2], sys.argv[3]
+s = open(p).read()
+assert s.count(a) == 1, "anchor not unique (%d hits): %s" % (s.count(a), a[:70])
+open(p, "w").write(s.replace(a, b))
+PY
+    echo "$d"
+}
+
+echo "baseline (must be green before any mutation):"
+base="$BK/base"; mkdir -p "$base"
+cp -r "$REPO/p4_proxy/proxy_agent" "$REPO/p4_proxy/tests" "$REPO/p4_proxy/mininet" "$base/"
+mkdir -p "$base/p4_src"; cp -r "$REPO/p4_proxy/p4_src/build" "$base/p4_src/" 2>/dev/null
+find "$base" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null
+run_against "$base" | grep -E '^(Ran |OK|FAILED)'
+run_against "$base" >/dev/null 2>&1 || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
+echo
+
+# --- the baseline literals: the claim "nothing changed without a package" --------------------
+
+m=$(mutant m1 "$PKG" \
+    'BASELINE_ELECTION_ID: Tuple[int, int] = (0, 1)' \
+    'BASELINE_ELECTION_ID: Tuple[int, int] = (0, 2)')
+report "M1: the baseline bids an election id the fabric has never bid" "$m" \
+       "test_the_baseline_election_id_is_the_literal_zero_one"
+
+m=$(mutant m2 "$PKG" \
+    'BASELINE_CPU_PORT = 255' \
+    'BASELINE_CPU_PORT = 510')
+report "M2: the baseline CPU port moves, so packet-ins go to a port nothing reads" "$m" \
+       "test_the_baseline_cpu_port_is_the_literal_255"
+
+m=$(mutant m3 "$PKG" \
+    'BASELINE_PREFIX_LEN = 24' \
+    'BASELINE_PREFIX_LEN = 16')
+report "M3: the baseline host prefix length is not the /24 the fabric has always used" "$m" \
+       "test_the_baseline_host_prefix_length_is_the_literal_24"
+
+m=$(mutant m4 "$PKG" \
+    '        if self.is_baseline:
+            return None
+        return {h.name: list(h.commands) for h in self.hosts}' \
+    '        return {h.name: list(h.commands) for h in self.hosts}')
+report "M4: baseline host commands are {} not None, so the all-pairs ARP is switched off" "$m" \
+       "test_the_baseline_runs_no_host_commands_and_says_so_with_none_not_empty"
+
+# --- the knob -------------------------------------------------------------------------------
+
+m=$(mutant m5 "$PKG" \
+    '    directory = read_knob(knob_path)
+    return baseline() if directory is None else load(directory)' \
+    '    read_knob(knob_path)
+    return baseline()')
+report "M5: the knob is read and then ignored -- the whole feature does nothing" "$m" \
+       "test_a_knob_naming_a_package_is_the_package_not_the_baseline"
+
+m=$(mutant m6 "$PKG" \
+    '        last_octet = str(ip).rsplit(".", 1)[-1]
+        if not last_octet.isdigit() or int(last_octet) != int(name[1:]):' \
+    '        last_octet = str(ip).rsplit(".", 1)[-1]
+        if False:')
+report "M6: the h<N>-matches-the-last-octet rule is not checked" "$m" \
+       "test_a_host_whose_name_does_not_match_its_address_is_refused"
+
+m=$(mutant m7 "$PKG" \
+    '        if spec.get("pipeline") is not None:
+            raise AppPackageError(' \
+    '        if False:
+            raise AppPackageError(')
+report "M7: a package naming its own pipeline is accepted and silently given NDTwin's" "$m" \
+       "test_a_per_switch_pipeline_is_refused_because_g4_is_not_built"
+
+# --- the host table and the switch list -----------------------------------------------------
+
+m=$(mutant m8 "$MAIN" \
+    '        dpid, port = where
+        mac_str = topo_from_json.mac_str(mac, name)' \
+    '        dpid, port = where[0], where[1] + 1
+        mac_str = topo_from_json.mac_str(mac, name)')
+report "M8: every host is entered one port along from where the model says" "$m" \
+       "test_the_proxy_host_table_matches_the_formula_it_replaces_at_four_hosts"
+
+m=$(mutant m9 "$MAIN" \
+    '        where = attach.get(name)
+        if where is None:' \
+    '        where = attach.get(name, (1, 3))
+        if where is None:')
+report "M9: a host with no access link is placed anyway instead of being refused" "$m" \
+       "test_a_host_with_no_access_link_is_refused_rather_than_skipped"
+
+m=$(mutant m10 "$MAIN" \
+    '    return tuple(dpid for dpid, _name in topo_from_json.switches(model))' \
+    '    return tuple(range(1, 11))')
+report "M10: the switch list is the old range(1, 11) rather than the model's" "$m" \
+       "test_the_switch_list_comes_from_the_model_not_from_a_range"
+
+# --- G3: the election id on the wire --------------------------------------------------------
+
+m=$(mutant m11 "$CLIENT" \
+    '        message.election_id.high = self.election_id[0]
+        message.election_id.low = self.election_id[1]' \
+    '        message.election_id.high = 0
+        message.election_id.low = 1')
+report "M11: every request bids the old hardcoded (0, 1) whatever the package said" "$m" \
+       "test_an_ipv4_route_insert_carries_this_clients_election_id"
+
+m=$(mutant m12 "$CLIENT" \
+    '        message.election_id.high = self.election_id[0]' \
+    '        message.election_id.high = 0')
+report "M12: only the low half of the bid is sent, so nothing can bid above 2**64-1" "$m" \
+       "test_the_arbitration_bid_carries_both_halves_of_this_clients_election_id"
+
+m=$(mutant m13 "$CLIENT" \
+    '        req.arbitration.device_id = self.device_id
+        self._bid(req.arbitration)' \
+    '        req.arbitration.device_id = self.device_id
+        req.arbitration.election_id.low = 1')
+report "M13: the arbitration stream bids (0, 1) while the unary calls bid the package's" "$m" \
+       "test_the_arbitration_bid_carries_both_halves_of_this_clients_election_id"
+
+# --- G3: external mode reads only, and says what it skipped ----------------------------------
+
+m=$(mutant m14 "$CLIENT" \
+    '        if not self.arbitration:
+            raise ControlPlaneReadOnly(' \
+    '        if False:
+            raise ControlPlaneReadOnly(')
+report "M14: a read-only client writes after all -- the pipeline push wipes every table" "$m" \
+       "test_an_external_client_refuses_a_pipeline_push"
+
+m=$(mutant m15 "$CLIENT" \
+    '        if not self.arbitration:
+            print(f"[{self.device_id}] external control plane: no arbitration stream, no "' \
+    '        if False:
+            print(f"[{self.device_id}] external control plane: no arbitration stream, no "')
+report "M15: a read-only client opens an arbitration stream and bids for mastership" "$m" \
+       "test_it_opens_no_stream_and_starts_no_receiver_thread"
+
+m=$(mutant m16 "$MAIN" \
+    '        if read_only or not client.json_path:' \
+    '        if not client.json_path:')
+report "M16: external startup pushes the pipeline anyway" "$m" \
+       "test_an_external_control_plane_pushes_no_pipeline"
+
+m=$(mutant m17 "$MAIN" \
+    '    skipped = list(EXTERNAL_SKIPS) if read_only else []' \
+    '    skipped = []')
+report "M17: the skipped steps are not reported -- skipping becomes silence" "$m" \
+       "test_an_external_startup_names_every_step_it_skipped"
+
+m=$(mutant m18 "$MAIN" \
+    '    if not read_only:
+        try:
+            topo.start_lldp_discovery()' \
+    '    if True:
+        try:
+            topo.start_lldp_discovery()')
+report "M18: external startup beacons LLDP onto somebody else's fabric" "$m" \
+       "test_an_external_control_plane_starts_no_lldp_and_no_watchdog"
+
+m=$(mutant m19 "$MAIN" \
+    '        if read_only:
+            # Not "telemetry failed" -- telemetry was never attempted.' \
+    '        if False:
+            # Not "telemetry failed" -- telemetry was never attempted.')
+report "M19: external startup programs a clone session into somebody else's pipeline" "$m" \
+       "test_an_external_control_plane_programs_no_clone_session"
+
+m=$(mutant m20 "$ROUTES" \
+    '        for dpid, entry in state.get("switches", {}).items():
+            entry["entries_recorded"] = recorded.get(str(dpid), 0)' \
+    '        pass')
+report "M20: switch_state does not say how many package entries went unapplied" "$m" \
+       "test_every_switch_reports_how_many_package_entries_were_recorded_but_not_applied"
+
+m=$(mutant m21 "$ROUTES" \
+    '    if control_plane_report is not None:
+        state["control_plane"] = control_plane_report()' \
+    '    if False:
+        state["control_plane"] = control_plane_report()')
+report "M21: switch_state carries no control_plane at all" "$m" \
+       "test_a_skipped_step_is_named_on_the_endpoint"
+
+# --- negative controls -----------------------------------------------------------------------
+#
+# A gate that reddens on anything is not a gate. These are edits that change no behaviour these
+# suites specify, and each must leave the named test GREEN -- which `report` scores as a
+# SURVIVOR, so they are run separately and the survivor count is not touched.
+
+control() {  # $1 = label, $2 = mutant dir, $3 = what must stay green
+    local out rc
+    out=$(run_against "$2"); rc=$?
+    if [[ "$rc" -eq 0 ]]; then
+        printf '  green    %-70s (%s)\n' "$1" "$3"
+    else
+        SURVIVORS=$((SURVIVORS+1))
+        printf '  🔴 RED   %-70s -- these suites are change detectors, not a specification\n' "$1"
+        grep -E '^(FAIL|ERROR):' <<<"$out" | head -4 | sed 's/^/             /'
+    fi
+}
+
+m=$(mutant n1 "$PKG" \
+    '#: The only format this reader understands.' \
+    '# MUTANT: a comment, and nothing else.
+#: The only format this reader understands.')
+control "N1 (control): a comment-only edit to app_package.py" "$m" "the whole suite stays green"
+
+m=$(mutant n2 "$MAIN" \
+    '    package = profile.current() if package is None else package
+    read_only = package.read_only' \
+    '    package = profile.current() if package is None else package
+    # MUTANT: a comment, and nothing else.
+    read_only = package.read_only')
+control "N2 (control): a comment-only edit inside startup()" "$m" "the whole suite stays green"
+
+echo
+[[ "$(sha256sum "$PKG" | cut -d' ' -f1)" == "$BASE_PKG" ]] || { echo "🔴 baseline CHANGED -- app_package.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$READER" | cut -d' ' -f1)" == "$BASE_READER" ]] || { echo "🔴 baseline CHANGED -- topo_from_json.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$MAIN" | cut -d' ' -f1)" == "$BASE_MAIN" ]] || { echo "🔴 baseline CHANGED -- main.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$CLIENT" | cut -d' ' -f1)" == "$BASE_CLIENT" ]] || { echo "🔴 baseline CHANGED -- p4_client.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$ROUTES" | cut -d' ' -f1)" == "$BASE_ROUTES" ]] || { echo "🔴 baseline CHANGED -- api_routes.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$PROFILE" | cut -d' ' -f1)" == "$BASE_PROFILE" ]] || { echo "🔴 baseline CHANGED -- profile.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$TEST_PKG" | cut -d' ' -f1)" == "$BASE_TEST_PKG" ]] || { echo "🔴 baseline CHANGED -- test_app_package.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$TEST_PROXY" | cut -d' ' -f1)" == "$BASE_TEST_PROXY" ]] || { echo "🔴 baseline CHANGED -- test_app_package_proxy.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$TEST_STARTUP" | cut -d' ' -f1)" == "$BASE_TEST_STARTUP" ]] || { echo "🔴 baseline CHANGED -- test_startup.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$TEST_WRITES" | cut -d' ' -f1)" == "$BASE_TEST_WRITES" ]] || { echo "🔴 baseline CHANGED -- test_p4_client_writes.py was written during the gate"; exit 3; }
+echo "baseline byte-identical: yes (6 sources, 4 test files)"
+if [[ "$SURVIVORS" -eq 0 ]]; then
+    echo "mutation gate: $MUTATIONS mutations, 0 survived"; exit 0
+else
+    echo "mutation gate: $MUTATIONS mutations, $SURVIVORS survived"; exit 1
+fi
+
+# [Co-developed with claude code -- Adam]

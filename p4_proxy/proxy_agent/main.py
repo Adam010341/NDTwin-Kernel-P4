@@ -426,7 +426,13 @@ async def startup(clients_factory, sflow, kernel, topo,
     # Must come after the pipeline is pushed: the clone session lives in the pipeline's PRE, so
     # programming it earlier would be discarded. start(push_config=False) above is why this is
     # not done inside start().
-    agent_ips = {} if read_only else agent_ips_loader()
+    # [Co-developed with claude code -- Adam]
+    # Loaded unconditionally. This used to read `{} if read_only else agent_ips_loader()`, which
+    # made the read-only skip below unreachable: with no agent IPs every switch fell out of the
+    # loop one branch earlier, at "no IP in the topology file", so the two guards masked each
+    # other and tests/shell/mutate_app_package.sh's M19 survived -- deleting either one changed
+    # nothing observable. One guard, one reason, and the message a reader sees is the true one.
+    agent_ips = agent_ips_loader()
     telemetry = []
     for i, client in clients.items():
         if read_only:
