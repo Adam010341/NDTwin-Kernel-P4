@@ -1,0 +1,20 @@
+Fixtures copied verbatim from p4lang/tutorials (~/tutorials), 2026-09-17.
+
+  basic/pod-topo/{topology,s1-runtime,s2-runtime,s3-runtime,s4-runtime}.json
+  basic/triangle-topo/{topology,s1-runtime,s2-runtime,s3-runtime}.json
+  basic/build/{basic.json,basic.p4.p4info.txtpb}
+  basic/solution/basic.p4
+  p4runtime/{topology.json,mycontroller.py,advanced_tunnel.p4}
+  p4runtime/build/{advanced_tunnel.json,advanced_tunnel.p4.p4info.txtpb}
+
+SPDX-FileCopyrightText: 2017-2018 Open Networking Foundation, Nate Foster
+SPDX-License-Identifier: Apache-2.0
+
+Copied rather than read out of ~/tutorials so the tests describe a fixed input: the tutorials
+tree is a working copy somebody edits while doing an exercise, and a test whose subject can be
+edited underneath it reports on whatever was last saved there. The two `build/` directories are
+the output of `make build` in those exercises -- they are here because a tutorials
+`sX-runtime.json` names its own p4info and bmv2 json, so a fixture without them is a fixture
+whose entries cannot be checked against anything.
+
+[Co-developed with claude code -- Adam]
