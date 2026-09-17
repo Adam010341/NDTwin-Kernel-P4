@@ -28,6 +28,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 import proxy_agent.main as main  # noqa: E402
 from proxy_agent.main import startup  # noqa: E402
 
+sys.path.insert(0, os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mininet"))
+import app_package  # noqa: E402
+
 
 class FakeClient:
     """A bmv2 switch that can be made to fail at each independent step."""
@@ -121,7 +125,7 @@ class FakeTopo:
         self.started.append("stop-liveness")
 
 
-def run_startup(clients, *, kernel=None, agent_ips=None, sflow=None, topo=None):
+def run_startup(clients, *, kernel=None, agent_ips=None, sflow=None, topo=None, package=None):
     """Drives startup with fakes and no settling delay, and returns (summary, parts)."""
     kernel = kernel if kernel is not None else FakeKernel()
     sflow = sflow if sflow is not None else FakeSflow()
@@ -130,8 +134,15 @@ def run_startup(clients, *, kernel=None, agent_ips=None, sflow=None, topo=None):
     summary = asyncio.run(startup(
         lambda: clients, sflow, kernel, topo,
         settle_seconds=0, agent_ips_loader=lambda: ips,
+        package=package if package is not None else app_package.baseline(),
     ))
     return summary, {"kernel": kernel, "sflow": sflow, "topo": topo}
+
+
+def external_package(directory="/packages/p4runtime"):
+    """A package whose exercise brings its own controller."""
+    return app_package.Package(dir=directory, name="p4runtime", mode="external",
+                               election_id=(0, 65535))
 
 
 class WhichSwitchesAreClaimedTest(unittest.TestCase):
@@ -243,6 +254,100 @@ class BackgroundLoopsTest(unittest.TestCase):
         summary, _ = run_startup({1: FakeClient(1)}, topo=topo)
         self.assertEqual(summary["entered"], [1])
         self.assertEqual(sorted(topo.started), ["liveness", "watchdog"])
+
+
+class AnExternalControlPlaneTest(unittest.TestCase):
+    """
+    [Co-developed with claude code -- Adam]
+
+    `control_plane.mode: external` means the exercise ships its own controller, and that
+    controller -- not this proxy -- holds mastership. Two controllers on one bmv2 is not a
+    degraded mode: P4Runtime identifies the sender of a unary RPC by the election id in the
+    message rather than by the connection it arrived on, so the second one's
+    SetForwardingPipelineConfig is ACCEPTED and wipes every table the first installed (measured
+    2026-08-13; p4_proxy/reference/p4runtime_mastership_probe.py re-runs it).
+
+    🔴 So this suite asserts two things that have to hold together: that the write steps do NOT
+    happen, and that every one of them is NAMED in what startup returns. Skipping alone is not
+    enough -- a fabric with no telemetry, no discovered links and no proxy-installed routes looks
+    exactly like a broken one, which is GAP-ANALYSIS section 5's "reports zero rather than
+    reports an error".
+    """
+
+    def test_an_external_control_plane_pushes_no_pipeline(self):
+        clients = {1: FakeClient(1), 2: FakeClient(2)}
+        run_startup(clients, package=external_package())
+        for dpid, client in clients.items():
+            self.assertNotIn("pipeline", client.events,
+                             f"switch {dpid}: a pipeline push would have emptied every table the "
+                             f"exercise's own controller installed, and reported success")
+
+    def test_an_external_control_plane_programs_no_clone_session(self):
+        clients = {1: FakeClient(1)}
+        summary, parts = run_startup(clients, package=external_package())
+        self.assertNotIn("clone", clients[1].events)
+        self.assertEqual(summary["telemetry"], [])
+        self.assertEqual(parts["sflow"].registered, {},
+                         "registering a switch for sFlow whose clone session was never "
+                         "programmed advertises telemetry that cannot arrive")
+
+    def test_an_external_control_plane_starts_no_lldp_and_no_watchdog(self):
+        _, parts = run_startup({1: FakeClient(1)}, package=external_package())
+        self.assertNotIn("lldp", parts["topo"].started)
+        self.assertNotIn("watchdog", parts["topo"].started)
+
+    def test_an_external_control_plane_still_polls_liveness(self):
+        # The probe is a unary GetForwardingPipelineConfig with COOKIE_ONLY: no stream, no
+        # election id, no write. Without it every switch reports probe_ok=null forever and the
+        # kernel answers Unknown for the whole fabric.
+        _, parts = run_startup({1: FakeClient(1)}, package=external_package())
+        self.assertIn("liveness", parts["topo"].started)
+
+    def test_an_external_control_plane_still_tells_the_kernel_the_switches_exist(self):
+        # isEnabled gates BFS pathing, flow-table polling and link-usage attribution. A switch
+        # somebody else programs still forwards, so leaving its vertex disabled would empty every
+        # path through it -- the twin would see an exercise it is running as an empty network.
+        summary, parts = run_startup({1: FakeClient(1), 2: FakeClient(2)},
+                                     package=external_package())
+        self.assertEqual(parts["kernel"].entered, [1, 2])
+        self.assertEqual(summary["entered"], [1, 2])
+        self.assertEqual(summary["broken"], [],
+                         "no pipeline was attempted, so no pipeline failed; reporting these as "
+                         "broken would mark a healthy fabric down")
+
+    def test_an_external_startup_names_every_step_it_skipped(self):
+        summary, _ = run_startup({1: FakeClient(1)}, package=external_package())
+        self.assertEqual(summary["control_plane"]["mode"], "external")
+        self.assertEqual(summary["control_plane"]["package"], "/packages/p4runtime")
+        self.assertEqual(summary["control_plane"]["skipped"], sorted(main.EXTERNAL_SKIPS))
+        for step in ("pipeline_push", "clone_session", "sflow_telemetry", "lldp_discovery",
+                     "link_watchdog", "install_initial_routes"):
+            self.assertIn(step, summary["control_plane"]["skipped"])
+
+    def test_a_baseline_startup_reports_an_empty_skip_list_not_a_missing_one(self):
+        # `[]` is the assertion that the disclosure is live on the ordinary fabric too. A field
+        # that only appears when something was skipped cannot be told apart from a proxy too old
+        # to have the field.
+        summary, _ = run_startup({1: FakeClient(1)})
+        self.assertEqual(summary["control_plane"],
+                         {"mode": "ndtwin", "package": None, "skipped": []})
+
+    def test_what_startup_reported_is_what_the_endpoint_serves(self):
+        # The report is not a second copy: main.control_plane_report() is what
+        # GET /p4/switch_state reads, and startup is what writes it.
+        run_startup({1: FakeClient(1)}, package=external_package())
+        self.assertEqual(main.control_plane_report()["mode"], "external")
+        self.addCleanup(run_startup, {1: FakeClient(1)})
+
+    def test_an_ndtwin_mode_package_is_not_treated_as_external(self):
+        # The negative half: mode is what switches this on, not "there is a package".
+        package = app_package.Package(dir="/packages/basic", name="basic", mode="ndtwin")
+        clients = {1: FakeClient(1)}
+        summary, parts = run_startup(clients, package=package)
+        self.assertEqual(clients[1].events, ["pipeline", "clone"])
+        self.assertEqual(sorted(parts["topo"].started), ["liveness", "lldp", "watchdog"])
+        self.assertEqual(summary["control_plane"]["skipped"], [])
+        self.assertEqual(summary["control_plane"]["package"], "/packages/basic")
 
 
 class RegistrationTest(unittest.TestCase):

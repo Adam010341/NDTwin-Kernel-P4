@@ -45,6 +45,26 @@ def inject_emitter(emitter):
     sflow_emitter = emitter
 
 
+# --- what the app package switched off. [Co-developed with claude code -- Adam] --------------
+#
+# 🔴 SKIPPING IS NOT SILENCE (PLAN-0917 3.4). A fabric running somebody else's control plane has
+# no telemetry, no discovered links and no proxy-installed routes, and every one of those looks
+# from the outside exactly like a fault. `GET /p4/switch_state` is where the kernel and an
+# operator already look for this switch's evidence, so it is where the answer to "why is there
+# none" has to be.
+#
+# Callables rather than a dict so the answer is read at request time: `skipped` is null until
+# startup has decided, and a snapshot taken at injection would freeze that null in place.
+control_plane_report = None
+entries_recorded_report = None
+
+
+def inject_control_plane(report, entries_recorded):
+    global control_plane_report, entries_recorded_report
+    control_plane_report = report
+    entries_recorded_report = entries_recorded
+
+
 def _grpc_status_name(exc):
     """
     The gRPC status name of an exception, or None if it is not a gRPC error.
@@ -505,10 +525,38 @@ async def switch_state():
 
     503 when the proxy has no topology at all, which is a different thing from every switch being
     down and must not be answerable with an empty switch map.
+
+    [Co-developed with claude code -- Adam]
+    Two additive fields carry the app package's disclosure (PLAN-0917 3.4, TICKET-P1 2.3):
+
+      * top-level `control_plane` -- {mode, package, skipped}. `skipped` is null before startup
+        has run and a list afterwards, so "nothing was skipped" cannot be confused with "nobody
+        has started yet".
+      * per switch, `entries_recorded` -- how many table entries the package declares for it.
+        Phase 1 applies NONE of them, so this number is the difference between "the package's
+        rules are not on the switch because we have not built that yet" and "the package had no
+        rules". It is 0 on the baseline fabric, which has no package.
+
+    Both are emitted on the baseline fabric too, where they read `mode: ndtwin, package: null,
+    skipped: []` and `entries_recorded: 0`. That IS a change to the baseline response, and it is
+    deliberate: a disclosure field that only appears when there is something to disclose is
+    indistinguishable, to a reader, from a proxy too old to disclose anything -- which is the
+    same "reports zero rather than reports an error" shape the fields exist to close.
+
+    Additive in the sense the kernel cares about: it looks up "switches" by name and then named
+    keys inside each entry (DeviceConfigurationAndPowerManager::p4LivenessFor), so an unknown
+    top-level key and an unknown per-switch key are both inert to that parse.
     """
     if topology is None:
         raise HTTPException(status_code=503, detail="proxy has no topology yet")
-    return topology.switch_liveness()
+    state = topology.switch_liveness()
+    if control_plane_report is not None:
+        state["control_plane"] = control_plane_report()
+    if entries_recorded_report is not None:
+        recorded = entries_recorded_report()
+        for dpid, entry in state.get("switches", {}).items():
+            entry["entries_recorded"] = recorded.get(str(dpid), 0)
+    return state
 
 
 @router.get("/stats/flow/{dpid}")

@@ -34,6 +34,30 @@ SAMPLE_SESSION_ID = 250
 CPU_PORT = 255
 
 
+#: The election id every client bid before app packages existed, and the one a fabric with no
+#: package still bids. `high` is 0 and `low` is 1, which is what `req.election_id.low = 1` on
+#: each unary request used to say inline. [Co-developed with claude code -- Adam]
+DEFAULT_ELECTION_ID = (0, 1)
+
+
+class ControlPlaneReadOnly(RuntimeError):
+    """
+    A write was attempted against a switch whose control plane belongs to somebody else.
+
+    [Co-developed with claude code -- Adam]
+    Raised, never returned as False, and deliberately not a subclass of anything the write paths
+    already catch. `insert_ipv4_route` and friends answer False for "the switch refused this",
+    and the callers treat that as a transient condition to be retried on the next watchdog pass.
+    This is not that: an `external` fabric will refuse every write for as long as it runs, and a
+    retry loop quietly spinning on it is how "the exercise's controller was fighting the proxy"
+    would get discovered from a packet capture instead of from a message.
+
+    RuntimeError rather than a new root so an `except Exception` in a background loop still
+    contains it -- what must not happen is a bare `except grpc.RpcError` swallowing it as a
+    switch-side failure.
+    """
+
+
 class CounterNotFound(LookupError):
     """
     A counter was asked for by name and this pipeline's P4Info does not contain it.
@@ -48,20 +72,50 @@ class CounterNotFound(LookupError):
 
 class P4RuntimeClient:
     """Encapsulates P4Runtime gRPC connection to a single BMv2 switch"""
-    def __init__(self, device_id, grpc_addr, p4info_path, json_path=None):
+    def __init__(self, device_id, grpc_addr, p4info_path, json_path=None,
+                 election_id=DEFAULT_ELECTION_ID, arbitration=True):
         self.device_id = device_id
         self.grpc_addr = grpc_addr
         self.p4info = self._build_p4info(p4info_path)
         self.json_path = json_path
+
+        # --- who this client claims to be. [Co-developed with claude code -- Adam]
+        #
+        # Was the literal `(0, 1)`, written out at NINE sites: the arbitration message in
+        # start(), plus EIGHT unary requests each spelling `req.election_id.low = 1` -- the
+        # pipeline push, write_clone_session's `build()` (one site, four RPCs), the three
+        # ipv4_lpm writes and the three flow_5tuple writes. Counted, not estimated: TICKET-P1
+        # says "12 places" and an earlier draft of this comment said "thirteen"; `/usr/bin/grep
+        # -n election_id` on this file at 532b6c31 returns those nine assignments and nothing
+        # else. One value in one place now,
+        # and the default is that same (0, 1) so a fabric with no app package puts byte-identical
+        # requests on the wire.
+        #
+        # 🔴 It is a parameter because of the mastership note below. A proxy that bids (0, 1) can
+        # be impersonated by anything else that bids (0, 1) -- and P4Runtime says the LATER
+        # equal bid wins the primary role, so the impostor's pipeline push is accepted and every
+        # table is wiped. An app package bids higher (app_package.PACKAGE_DEFAULT_ELECTION_ID),
+        # which turns that same push into PERMISSION_DENIED.
+        self.election_id = (int(election_id[0]), int(election_id[1]))
+
+        # --- whether this client drives the switch at all.
+        #
+        # False under an `external` app package: the exercise ships its own controller, that
+        # controller holds mastership, and this object exists only to READ. It opens no
+        # arbitration stream, starts no receiver thread, and raises ControlPlaneReadOnly from
+        # every method that would write. Reads -- probe(), read_table_entries(),
+        # read_egress_counter() -- need no election id and work unchanged.
+        self.arbitration = bool(arbitration)
+
         # [Co-developed with claude code -- Adam]
         # True only while this stream holds P4Runtime mastership. Set from the arbitration
         # response, cleared whenever the stream ends. readopt_switch reads it before the
         # destructive pipeline push, and must: this flag being false does NOT stop the switch
         # from accepting our RPCs.
         #
-        # Every client built here bids the same hardcoded election_id (0, 1) -- see start()
-        # and the unary calls below. So a second client raised against a switch the first one
-        # still holds is not a lower-priority backup; it presents the incumbent's exact
+        # Every client built with the DEFAULT election id (0, 1) bids the same number -- see
+        # start() and the unary calls below. So a second such client raised against a switch the
+        # first one still holds is not a lower-priority backup; it presents the incumbent's exact
         # (device_id, role, election_id). bmv2 terminates its *stream* as a duplicate, leaving
         # this flag false, but P4Runtime identifies the sender of a unary RPC by the 3-tuple in
         # the message rather than by the connection it arrived on, so the impostor's
@@ -72,6 +126,11 @@ class P4RuntimeClient:
         # measured against a third-party client, a genuinely non-primary push is refused with
         # PERMISSION_DENIED. doc/2026-08-13_p4runtime-mastership-spec-check.md has the three
         # scenarios; p4_proxy/reference/p4runtime_mastership_probe.py re-runs them.
+        #
+        # 🔴 An app package bids higher than (0, 1) precisely so that an impostor presenting the
+        # old default is refused with PERMISSION_DENIED instead of being accepted. And under
+        # `arbitration=False` this flag stays False for the life of the client, which is the
+        # honest answer: no stream was ever opened, so no mastership was ever claimed.
         self.mastership_confirmed = False
 
         # --- what this client has destroyed. [Co-developed with claude code -- Adam]
@@ -155,6 +214,33 @@ class P4RuntimeClient:
         self.packet_in_callback = None   # (device_id, ingress_port, payload) -> None
         self.sample_callback = None      # (device_id, SampledPacket) -> None
 
+    # --- identity and permission. [Co-developed with claude code -- Adam] -------------------
+
+    def _bid(self, message):
+        """Stamp this client's election id onto a request. The one place that number is written.
+
+        Returns the message so a caller can build and stamp in one expression. `high` is set
+        explicitly rather than left at protobuf's zero default: an election id is a 128-bit
+        number in two halves, and a client that only ever wrote the low half could never bid
+        above 2**64 - 1 no matter what it was configured with.
+        """
+        message.election_id.high = self.election_id[0]
+        message.election_id.low = self.election_id[1]
+        return message
+
+    def _refuse_write(self, what):
+        """Raise unless this client is allowed to write to its switch.
+
+        Called first in every method that puts an Update or a pipeline on the wire. `what` names
+        the operation, because "read only" without the operation is not something an operator
+        can act on.
+        """
+        if not self.arbitration:
+            raise ControlPlaneReadOnly(
+                f"switch {self.device_id} ({self.grpc_addr}): refusing {what} -- this fabric's "
+                f"app package declares an external control plane, so the exercise's own "
+                f"controller holds mastership and this proxy reads only")
+
     def _build_p4info(self, p4info_path):
         p4info = p4info_pb2.P4Info()
         with open(p4info_path, "r") as f:
@@ -229,6 +315,10 @@ class P4RuntimeClient:
             self.packet_in_callback(self.device_id, ingress_port, packet.payload)
 
     def send_packet_out(self, egress_port, payload):
+        # A packet-out rides the arbitration stream, which an external-control-plane client
+        # never opened -- and it is a write in every sense that matters: the LLDP beacon is how
+        # this proxy puts frames on somebody else's fabric. [Co-developed with claude code -- Adam]
+        self._refuse_write("a packet-out")
         req = p4runtime_pb2.StreamMessageRequest()
         packet_out = req.packet
         packet_out.payload = payload
@@ -248,12 +338,22 @@ class P4RuntimeClient:
     def start(self, push_config=True):
         """Start the P4Runtime session and claim mastership"""
         self.is_running = True
-        
+
+        # [Co-developed with claude code -- Adam]
+        # 🔴 An `external` fabric's controller is the primary and this client is a reader. Opening
+        # a stream here would bid for mastership against it -- with an election id the package
+        # chose, which either loses (useless) or WINS and takes the exercise's controller off its
+        # own switch. Neither is an observation. So: no stream, no receiver thread, no
+        # mastership, and every write path below raises. Reads need none of it.
+        if not self.arbitration:
+            print(f"[{self.device_id}] external control plane: no arbitration stream, no "
+                  f"pipeline push, no writes. This client reads only.")
+            return
+
         # 1. Open Stream and claim mastership
         req = p4runtime_pb2.StreamMessageRequest()
         req.arbitration.device_id = self.device_id
-        req.arbitration.election_id.high = 0
-        req.arbitration.election_id.low = 1
+        self._bid(req.arbitration)
         self.stream_out_q.put(req)
         
         self.stream = self.stub.StreamChannel(self._stream_iterator())
@@ -337,10 +437,15 @@ class P4RuntimeClient:
             return {"ok": False, "detail": f"{type(e).__name__}: {e}"}
 
     def set_forwarding_pipeline_config(self):
+        # 🔴 The single most destructive call in this class: it empties every table on the switch
+        # (KNOWN-ISSUES A-4c). Against a fabric whose controller is somebody else's, that would
+        # delete the exercise's entire forwarding state and report success.
+        # [Co-developed with claude code -- Adam]
+        self._refuse_write("a pipeline push")
         print(f"[{self.device_id}] Setting Forwarding Pipeline Config...")
         req = p4runtime_pb2.SetForwardingPipelineConfigRequest()
         req.device_id = self.device_id
-        req.election_id.low = 1
+        self._bid(req)
         req.action = p4runtime_pb2.SetForwardingPipelineConfigRequest.VERIFY_AND_COMMIT
         with open(self.json_path, "rb") as f:
             req.config.p4_device_config = f.read()
@@ -427,10 +532,12 @@ class P4RuntimeClient:
         else as unsupported. packet_length_bytes 0 means no truncation on the switch; the
         emitter truncates instead, since it is the side with tests covering it.
         """
+        self._refuse_write("a clone session write")
+
         def build(update_type):
             req = p4runtime_pb2.WriteRequest()
             req.device_id = self.device_id
-            req.election_id.low = 1
+            self._bid(req)
             update = req.updates.add()
             update.type = update_type
             session = update.entity.packet_replication_engine_entry.clone_session_entry
@@ -865,9 +972,10 @@ class P4RuntimeClient:
         A match here wins over any ipv4_lpm entry for the same destination, because the pipeline
         applies flow_5tuple first and only falls through on NoAction.
         """
+        self._refuse_write("a 5-tuple rule insert")
         req = p4runtime_pb2.WriteRequest()
         req.device_id = self.device_id
-        req.election_id.low = 1
+        self._bid(req)
 
         update = req.updates.add()
         update.type = p4runtime_pb2.Update.INSERT
@@ -902,9 +1010,10 @@ class P4RuntimeClient:
 
     def modify_5tuple_rule(self, keys, priority, next_hop_mac, port):
         """Modifies an existing MyIngress.flow_5tuple rule in place."""
+        self._refuse_write("a 5-tuple rule modify")
         req = p4runtime_pb2.WriteRequest()
         req.device_id = self.device_id
-        req.election_id.low = 1
+        self._bid(req)
 
         update = req.updates.add()
         update.type = p4runtime_pb2.Update.MODIFY
@@ -939,9 +1048,10 @@ class P4RuntimeClient:
         and reports success. That is the same shape as the OVS-side defect where
         modify_flow_entry ignored priority and edited a different rule.
         """
+        self._refuse_write("a 5-tuple rule delete")
         req = p4runtime_pb2.WriteRequest()
         req.device_id = self.device_id
-        req.election_id.low = 1
+        self._bid(req)
 
         update = req.updates.add()
         update.type = p4runtime_pb2.Update.DELETE
@@ -958,9 +1068,10 @@ class P4RuntimeClient:
 
     def insert_ipv4_route(self, dst_ip, prefix_len, next_hop_mac, port):
         """Inserts a rule into MyIngress.ipv4_lpm"""
+        self._refuse_write("an ipv4_lpm route insert")
         req = p4runtime_pb2.WriteRequest()
         req.device_id = self.device_id
-        req.election_id.low = 1
+        self._bid(req)
         
         update = req.updates.add()
         update.type = p4runtime_pb2.Update.INSERT
@@ -1055,9 +1166,10 @@ class P4RuntimeClient:
 
     def delete_ipv4_route(self, dst_ip, prefix_len):
         """Deletes a rule from MyIngress.ipv4_lpm"""
+        self._refuse_write("an ipv4_lpm route delete")
         req = p4runtime_pb2.WriteRequest()
         req.device_id = self.device_id
-        req.election_id.low = 1
+        self._bid(req)
         
         update = req.updates.add()
         update.type = p4runtime_pb2.Update.DELETE
@@ -1107,9 +1219,10 @@ class P4RuntimeClient:
 
     def modify_ipv4_route(self, dst_ip, prefix_len, next_hop_mac, port):
         """Modifies a rule in MyIngress.ipv4_lpm"""
+        self._refuse_write("an ipv4_lpm route modify")
         req = p4runtime_pb2.WriteRequest()
         req.device_id = self.device_id
-        req.election_id.low = 1
+        self._bid(req)
         
         update = req.updates.add()
         update.type = p4runtime_pb2.Update.MODIFY

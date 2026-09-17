@@ -1265,6 +1265,27 @@ class TopologyManager:
                 return {"status": "failed", "step": "build",
                         "error": f"{type(e).__name__}: {e}"}
 
+            # [Co-developed with claude code -- Adam]
+            # 🔴 An external control plane cannot be readopted, and the REASON has to be the
+            # true one. A client built for `control_plane.mode: external` bids for nothing, so
+            # `mastership_confirmed` is False for its whole life -- and the mastership gate
+            # below would therefore answer "arbitration was not granted within the settle
+            # window; the old client (or another controller) likely still holds mastership".
+            # That sentence describes a race this proxy lost. What actually happened is that it
+            # was configured never to enter the race, which is a different thing an operator
+            # would act on differently. Same fail-closed outcome, checked first, named for what
+            # it is. (Reported by the P1-A judge against c3ecf7f8.)
+            if not new.arbitration:
+                try:
+                    new.stop()
+                except Exception:  # noqa: BLE001 -- already reporting the first failure
+                    pass
+                return {"status": "failed", "step": "control_plane", "dpid": dpid,
+                        "error": "this fabric's app package declares an external control "
+                                 "plane: the exercise's own controller holds mastership and "
+                                 "this proxy is read-only, so it can neither push a pipeline "
+                                 "nor reinstall routes. The switch was not touched."}
+
             # Before start(): the receiver thread runs from the moment the stream opens, and
             # handle_packet_in drops packets whose callback is still None.
             new.packet_in_callback = self.handle_packet_in

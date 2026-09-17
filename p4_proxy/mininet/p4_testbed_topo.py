@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import glob
 import json
 import os
 import signal
@@ -21,6 +20,7 @@ from mininet.log import setLogLevel, info
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import topo_from_json  # noqa: E402
 import grpc_ports  # noqa: E402
+import app_package  # noqa: E402
 
 # [Co-developed with claude code -- Adam]
 # Where the switch manifest is written: name -> pid, grpc_port, thrift_port, device_id.
@@ -58,105 +58,45 @@ BINARY_OVERRIDE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                     "bmv2_binary_override")
 
 
-HOST_COUNT_OVERRIDE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                        "host_count_override")
+HOST_COUNT_OVERRIDE_PATH = topo_from_json.HOST_COUNT_OVERRIDE_PATH
 
 
-SETTING_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__)))), "setting")
+SETTING_DIR = topo_from_json.SETTING_DIR
 
 
-def _mac_str(mac, name):
-    """The model stores a host MAC as an integer; Mininet wants the colon form.
-
-    [Co-developed with claude code -- Adam]
-    Falls back to deriving it from the host index when the model has no MAC, which is what
-    the formula this replaced did. Note the old formula was `00:00:00:00:00:{i:02x}` and
-    produced an invalid 7-digit address at i >= 256; formatting the integer as a 48-bit
-    address is correct there instead. Nothing has ever run at that size.
-    """
-    try:
-        value = int(mac)
-    except (TypeError, ValueError):
-        value = 0
-    if value <= 0:
-        value = int(name[1:]) if name[1:].isdigit() else 0
-    return ":".join(f"{(value >> shift) & 0xFF:02x}" for shift in (40, 32, 24, 16, 8, 0))
+# [Co-developed with claude code -- Adam]
+# These three moved to topo_from_json.py, which imports no Mininet and can therefore be read by
+# the proxy and by a unit test. The proxy needs the same three answers now that it builds its
+# host table from the model, and a second implementation of "which file, how many hosts, what
+# MAC" is the exact shape that once let the proxy know four hosts while the fabric built 128.
+# These remain as delegates so every existing caller and test keeps its name.
+_mac_str = topo_from_json.mac_str
+_host_count_override = topo_from_json.host_count_override
 
 
-def _topology_model_path(host_num):
-    """The P4 model with this many hosts -- the same rule `ndt up` uses to pick one.
+def _topology_model_path(host_num, package=None):
+    """The model this fabric builds from: the app package's, or the one the host count picks.
 
     [Co-developed with claude code -- Adam]
-    Refuses rather than guessing: building a fabric the twin has no model for is the exact
-    failure this reader exists to prevent, so an unmatched host count must stop the run
-    instead of falling back to some other file.
+    Behaviour with no package is unchanged, `NDTWIN_P4_TOPO_FILE` included -- see
+    topo_from_json.model_path, which is where the body went.
     """
-    override = os.environ.get("NDTWIN_P4_TOPO_FILE")
-    if override:
-        if not os.path.exists(override):
-            raise topo_from_json.TopologyModelError(
-                f"NDTWIN_P4_TOPO_FILE={override} does not exist")
-        # [Co-developed with claude code -- Adam]
-        # The override is checked against the host count too, not trusted on sight. It used to
-        # return here immediately -- which made the docstring above a lie, and produced exactly
-        # the mismatch this function exists to prevent: an override naming the 4-host model with
-        # host_count_override at 128 built a 4-host fabric while the kernel was handed the
-        # 128-host model, silently. Found by review, 2026-08-21.
-        #
-        # An explicit override still wins over the *scan*; what it cannot do is disagree with the
-        # host count the rest of the run is using, because both sides read that count separately.
-        try:
-            declared = len(topo_from_json.hosts(topo_from_json.load(override)))
-        except (OSError, ValueError, KeyError) as exc:
-            raise topo_from_json.TopologyModelError(
-                f"NDTWIN_P4_TOPO_FILE={override} is not a usable topology model: {exc}") from exc
-        if declared != host_num:
-            raise topo_from_json.TopologyModelError(
-                f"NDTWIN_P4_TOPO_FILE={override} declares {declared} hosts but this run wants "
-                f"{host_num} (from NDTWIN_P4_HOST_NUM or host_count_override). Point them at the "
-                f"same size: the fabric would be built from the model while everything else "
-                f"sizes itself from the count.")
-        return override
-    candidates = sorted(glob.glob(os.path.join(SETTING_DIR, "StaticNetworkTopologyP4_*.json")))
-    unreadable = []
-    for path in candidates:
-        try:
-            if len(topo_from_json.hosts(topo_from_json.load(path))) == host_num:
-                return path
-        except (ValueError, KeyError) as exc:
-            # Skipped, but counted: "no model has N hosts" reads as "you need to derive one",
-            # which is the wrong instruction when the right model is sitting there unparseable.
-            unreadable.append(f"{os.path.basename(path)} ({exc.__class__.__name__})")
-    detail = f"; {len(unreadable)} could not be read: {', '.join(unreadable)}" if unreadable else ""
-    raise topo_from_json.TopologyModelError(
-        f"no P4 topology model in {SETTING_DIR} has {host_num} hosts "
-        f"(looked at {len(candidates)}){detail}. Derive one with "
-        f"tools/test_workflow/derive_p4_topology_json.py before building this fabric")
+    return app_package.topology_path(package, host_num, setting_dir=SETTING_DIR)
 
 
-def _host_count_override(path=None):
-    """How many hosts this fabric builds. Default 4; one directive line to change it.
-
-    Same shape as the bmv2 binary override next to it: first non-comment, non-blank line
-    wins, blank lines and #-comments ignored, and a malformed file is refused loudly rather
-    than silently falling back -- a run that quietly built the wrong number of hosts would
-    look exactly like a successful one.
+def fabric_model(package=None):
+    """(package, model_path, model) for this run -- the one place the fabric decides what it is.
 
     [Co-developed with claude code -- Adam]
+    Both `main()` and `MultiSwitchTopo` need the model: main() pre-flights the gRPC port block
+    for the switches the model declares, and that has to happen BEFORE `mn -c` tears anything
+    down, while the topology object is only built afterwards. Rather than thread an object
+    through Mininet's `Topo(**opts)` bag, both call this. It is a pure read of two files.
     """
-    path = path or HOST_COUNT_OVERRIDE_PATH
-    if not os.path.exists(path):
-        return 4
-    with open(path) as fh:
-        for line in fh:
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            if not line.isdigit():
-                raise ValueError(f"{path}: expected a host count, got {line!r}")
-            return int(line)
-    return 4
+    package = app_package.current() if package is None else package
+    host_num = int(os.environ.get("NDTWIN_P4_HOST_NUM", "0")) or _host_count_override()
+    path = _topology_model_path(host_num, package)
+    return package, path, topo_from_json.load(path)
 
 
 def resolve_bmv2_launcher(override_path=None):
@@ -240,12 +180,20 @@ class BMv2Switch(Switch):
     """BMv2 switch for Mininet"""
     def __init__(self, name, json_path=None, device_id=1,
                  grpc_port=grpc_ports.grpc_port(1), thrift_port=grpc_ports.THRIFT_PORT_BASE,
+                 cpu_port=app_package.BASELINE_CPU_PORT,
                  **kwargs):
         Switch.__init__(self, name, **kwargs)
         self.json_path = json_path
         self.device_id = device_id
         self.grpc_port = grpc_port
         self.thrift_port = thrift_port
+        # [Co-developed with claude code -- Adam]
+        # Was the literal 255 written into the argv below, one of three copies of that number
+        # (the other two are p4_client.CPU_PORT and ndtwin_switch.p4). The default here is that
+        # same 255, so a fabric built without a package launches a byte-identical command line;
+        # what the parameter buys is a package whose pipeline puts the CPU port somewhere else
+        # being able to say so, instead of its packet-ins going to a port nothing reads.
+        self.cpu_port = cpu_port
         self.log_file = f"/tmp/{self.name}_bmv2.log"
         # PID of the launched simple_switch_grpc, captured so stop() can target this one
         # switch and so the manifest can be written. None until start() runs.
@@ -272,7 +220,7 @@ class BMv2Switch(Switch):
         args.append('--grpc-server-addr')
         args.append(f'0.0.0.0:{self.grpc_port}')
         args.append('--cpu-port')
-        args.append('255')
+        args.append(str(self.cpu_port))
 
         cmd = ' '.join(args)
         self.launch_argv = cmd
@@ -355,28 +303,49 @@ class BMv2Switch(Switch):
         Switch.stop(self, deleteIntfs)
 
 class MultiSwitchTopo(Topo):
-    def __init__(self, **opts):
+    def __init__(self, package=None, model=None, **opts):
         Topo.__init__(self, **opts)
-        
-        json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../p4_src/build/ndtwin_switch.json')
-        
-        # Add 10 switches
+
+        # Which model to build from, and under which app package. The host count still selects
+        # the model when no package names one -- that is the one knob the lab wrapper can
+        # deliver (see topo_from_json.host_count_override) -- but everything else about the
+        # fabric comes out of the model and the package.
+        #
+        # [Co-developed with claude code -- Adam]
+        # `package`/`model` are arguments so main() can pre-flight the gRPC port block against
+        # the switches this model declares BEFORE `mn -c` tears anything down, and then hand the
+        # same two objects here rather than reading the files twice and risking two answers.
+        if model is None:
+            package, model_path, model = fabric_model(package)
+            info(f"*** topology model: {model_path}\n")
+        elif package is None:
+            package = app_package.baseline()
+
+        base = os.path.dirname(os.path.abspath(__file__))
+        # The fabric-wide pipeline. `pipeline_for` answers NDTwin's own
+        # `p4_src/build/ndtwin_switch.json` for every switch of every package in phase 1 (G4 is
+        # not built), so this is byte-identical to the literal path it replaces.
+        json_path = package.pipeline_for(1, os.path.join(base, ".."))[1]
+
+        # The switches, from the model rather than from `range(1, 11)`.
+        #
+        # [Co-developed with claude code -- Adam]
+        # That literal was the fourth copy of "this fabric has ten switches" -- the others were
+        # main()'s port-block pre-flight, main()'s `net.get` loop, and the proxy's
+        # DEFAULT_SWITCH_DPIDS. The 10-switch models still produce dpids 1..10, which
+        # tools/test_workflow/test_topo_from_json.py asserts; what changes is that a package
+        # with a different switch count is now buildable instead of silently truncated to ten.
         switches = {}
-        for i in range(1, 11):
-            s_name = f's{i}'
+        for dpid, s_name in topo_from_json.switches(model):
             # grpc_port: 30051-30060, thrift_port: 9091-9100, device_id: 1-10.
             # Both bases live in grpc_ports.py, which is also where the reason the gRPC block
             # is 30050-based rather than 50050-based is written down (F-15: 50051-50060 was
             # inside the kernel's ephemeral range, so switches randomly failed to bind).
             s = self.addSwitch(s_name, cls=BMv2Switch, json_path=json_path,
-                               device_id=i, grpc_port=grpc_ports.grpc_port(i),
-                               thrift_port=grpc_ports.thrift_port(i))
-            switches[i] = s
-
-        # Which model to build from. The host count still selects it -- that is the one knob
-        # the lab wrapper can deliver (see _host_count_override) -- but everything else about
-        # the fabric now comes out of the model itself.
-        HOST_NUM_FOR_MODEL = int(os.environ.get("NDTWIN_P4_HOST_NUM", "0")) or _host_count_override()
+                               device_id=dpid, grpc_port=grpc_ports.grpc_port(dpid),
+                               thrift_port=grpc_ports.thrift_port(dpid),
+                               cpu_port=package.cpu_port)
+            switches[dpid] = s
 
         # Links, hosts and host attachment all come from the kernel's own topology model.
         #
@@ -391,10 +360,6 @@ class MultiSwitchTopo(Topo):
         # launched through `tmux` under a fixed root environment where no operator-set variable
         # arrives -- the same reason host_count_override is a file. NDTWIN_P4_TOPO_FILE still
         # wins when the topology is run directly, which is how it gets tested.
-        model_path = _topology_model_path(HOST_NUM_FOR_MODEL)
-        model = topo_from_json.load(model_path)
-        info(f"*** topology model: {model_path}\n")
-
         for a_dpid, a_port, b_dpid, b_port in topo_from_json.switch_links(model):
             self.addLink(switches[a_dpid], switches[b_dpid], port1=a_port, port2=b_port)
 
@@ -407,8 +372,14 @@ class MultiSwitchTopo(Topo):
         # attachment removes that constraint, because the model says where each host actually
         # plugs in. Verified to reproduce the formula exactly at 4 and at 128 hosts before this
         # replaced it (tools/test_workflow/test_topo_from_json.py).
+        #
+        # The prefix length comes from the package and is 24 without one, which is the literal
+        # this replaces. pod-topo puts its four hosts in four different /24s, so a fabric that
+        # kept the literal would give every host a route to every other over its own subnet and
+        # the exercise's `route add default gw` would never be consulted.
         for name, ip, mac in topo_from_json.hosts(model):
-            self.addHost(name, ip=f"{ip}/24", mac=_mac_str(mac, name))
+            self.addHost(name, ip=f"{ip}/{package.host_prefix_len(name)}",
+                         mac=_mac_str(mac, name))
 
         for name, dpid, port in topo_from_json.host_links(model):
             self.addLink(name, switches[dpid], port1=1, port2=port)
@@ -802,8 +773,23 @@ def abort_if_grpc_ports_are_held(held, owner_of=None, report=print, exit_=sys.ex
 
 def main():
     setLogLevel('info')
-    
-    json_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../p4_src/build/ndtwin_switch.json')
+
+    # Which app package, which model, which switches -- decided once, here, before anything is
+    # torn down, and handed to MultiSwitchTopo below so the two cannot read different files.
+    # A malformed knob or an unusable package stops the run here, which is the point: the
+    # alternative is a fabric that comes up on the wrong topology and reports success.
+    # [Co-developed with claude code -- Adam]
+    try:
+        package, model_path, model = fabric_model()
+    except (app_package.AppPackageError, topo_from_json.TopologyModelError, ValueError) as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    print(f"app package: {package.dir or 'baseline (no knob file)'}")
+    print(f"topology model: {model_path}")
+    dpids = [dpid for dpid, _ in topo_from_json.switches(model)]
+
+    json_path = package.pipeline_for(
+        1, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))[1]
     if not os.path.exists(json_path):
         print(f"Error: Compiled P4 JSON not found at {json_path}. Run 'p4c-bm2-ss' first in p4_src.")
         sys.exit(1)
@@ -822,7 +808,7 @@ def main():
     # The block is checked against the *running kernel's* ephemeral range rather than against
     # the number that was safe when it was chosen -- ip_local_port_range is a sysctl, and the
     # demo machine is not necessarily this one. See grpc_ports.py and F-15.
-    wanted_ports = grpc_ports.grpc_port_block(range(1, 11))
+    wanted_ports = grpc_ports.grpc_port_block(dpids)
     try:
         warning = grpc_ports.assert_port_block_is_safe(wanted_ports)
     except grpc_ports.PortBlockError as e:
@@ -848,38 +834,58 @@ def main():
     abort_if_grpc_ports_are_held(still_held)
     time.sleep(0.5)  # let the ports actually be released before anything tries to bind
 
-    topo = MultiSwitchTopo()
+    topo = MultiSwitchTopo(package=package, model=model)
     net = Mininet(topo=topo, controller=None, autoSetMacs=True)
     net.start()
-    
-    # Add static ARPs.
-    #
-    # This was `range(1, 5)`: hard-coded to four hosts, like the two other four-host lists
-    # this fabric carried (the proxy's add_host table, and disable_host_offloads below).
-    # At 128 hosts the switches forward correctly and every rule installs, but nothing pings,
-    # because the sender never resolves the destination MAC -- and an unreachable host looks
-    # exactly like a broken data plane. Measured: with the entry added by hand for one pair,
-    # h1 -> h33 goes from 100% loss to 0% at 1.6 ms.
-    #
-    # One batched invocation per host rather than one per pair: at 128 hosts the pairwise
-    # form is 16256 separate `cmd()` round-trips through Mininet and takes minutes; batching
-    # makes it 128. Behaviour at 4 hosts is unchanged.
-    hosts = [net.get(f'h{i}') for i in range(1, _host_count_override() + 1)]
-    for src in hosts:
-        entries = " ; ".join(
-            f"arp -s {dst.IP()} {dst.MAC()}" for dst in hosts if dst is not src
-        )
-        if entries:
-            src.cmd(entries)
+
+    # The hosts, named by the model rather than counted. `_host_count_override()` and the model
+    # agree by construction (topo_from_json.model_path refuses a model whose host count differs),
+    # but a package names its own model and nothing then ties the count file to it.
+    # [Co-developed with claude code -- Adam]
+    hosts = [net.get(name) for name, _ip, _mac in topo_from_json.hosts(model)]
+
+    host_commands = package.host_commands()
+    if host_commands is None:
+        # Add static ARPs.
+        #
+        # This was `range(1, 5)`: hard-coded to four hosts, like the two other four-host lists
+        # this fabric carried (the proxy's add_host table, and disable_host_offloads below).
+        # At 128 hosts the switches forward correctly and every rule installs, but nothing pings,
+        # because the sender never resolves the destination MAC -- and an unreachable host looks
+        # exactly like a broken data plane. Measured: with the entry added by hand for one pair,
+        # h1 -> h33 goes from 100% loss to 0% at 1.6 ms.
+        #
+        # One batched invocation per host rather than one per pair: at 128 hosts the pairwise
+        # form is 16256 separate `cmd()` round-trips through Mininet and takes minutes; batching
+        # makes it 128. Behaviour at 4 hosts is unchanged.
+        for src in hosts:
+            entries = " ; ".join(
+                f"arp -s {dst.IP()} {dst.MAC()}" for dst in hosts if dst is not src
+            )
+            if entries:
+                src.cmd(entries)
+    else:
+        # [Co-developed with claude code -- Adam]
+        # A package brings its own host setup -- pod-topo's hosts each get a default gateway and
+        # ONE static ARP, for that gateway -- and the all-pairs fan-out above would defeat it:
+        # every host would already hold every other host's MAC, so the exercise's forwarding
+        # tables would never be consulted and a broken data plane would ping perfectly.
+        #
+        # Printed per host rather than run silently. These are the only commands this fabric runs
+        # on somebody else's behalf, and a typo in one of them presents as an unreachable host.
+        for host in hosts:
+            for command in host_commands.get(host.name, ()):
+                info(f"*** {host.name}: {command}\n")
+                host.cmd(command)
 
     disable_host_offloads(hosts)
 
-    switches = [net.get(f's{i}') for i in range(1, 11)]
+    switches = [net.get(name) for _dpid, name in topo_from_json.switches(model)]
     failures = verify_switches(switches)
     write_manifest(switches)
 
     fatal, report = partial_fabric_verdict(failures, len(switches))
-    ports = grpc_ports.grpc_port_block(range(1, len(switches) + 1))
+    ports = grpc_ports.grpc_port_block(dpids)
 
     print("\n======================================================================")
     if report:
