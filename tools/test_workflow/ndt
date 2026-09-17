@@ -2697,7 +2697,14 @@ up_p4() {
     else
         app_knob_clear "this 'ndt up' asked for the baseline fabric" || return 1
     fi
-    claim_note_up "p4 $hosts${app_dir:+ --app $(app_package_name "$app_dir")}"
+    # [Co-developed with claude code -- Adam]
+    # 🔴 THE NOTE DOES NOT NAME THE PACKAGE, deliberately. This line is the literal anchor of
+    # mutate_ndt_honesty.sh's M10 ("ndt up p4 stops writing the note"), and an anchor that no
+    # longer resolves makes that gate report a SURVIVOR -- a cell losing its power is worse
+    # than a note losing a word. What another session needs is on `ndt status`'s own
+    # `app package` row and in .test_run/up.target's topology path, which under a package IS
+    # the package's model. If the note should carry it, move M10's anchor in the same commit.
+    claim_note_up "p4 $hosts"
 
     # -- 1. fabric --
     say "[1/3] bmv2 fabric"
