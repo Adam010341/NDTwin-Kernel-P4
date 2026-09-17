@@ -1000,10 +1000,30 @@ cmd_up() {
         fi
         # The agent must run with p4_proxy as cwd; it resolves p4info/json relative to it.
         # The proxy's host table comes from this file, not from its argv -- see START_BG_IDENTITY.
+        #
+        # [Co-developed with claude code -- Adam]
+        # 🔴 THE APP PACKAGE IS PART OF THE FINGERPRINT for exactly the reason the host count
+        # is. Both are files the proxy reads at import, neither is on its command line, and
+        # `ndt up p4 --app A` followed by `ndt up p4 --app B` produces two proxies with
+        # identical argv and different fabrics -- start_bg would reuse the first. That is the
+        # measured 128-vs-4 failure with a different file behind it.
+        #
+        # 🔴 NDTWIN_TOPO_FILE is the topology this stack is bringing up, handed to the proxy
+        # explicitly. sflow_emitter.load_switch_agent_ips (sflow_emitter.py:510) and
+        # topology_manager (:468) both read it and both fall back to DEFAULT_TOPO_FILE -- the
+        # 4-host model -- when it is unset, so under an app package the proxy was resolving
+        # sFlow agent addresses out of a model of a different network while the kernel was
+        # handed the package's. The kernel attributes a sample by AgentKey{agentIP, port}, so
+        # the telemetry would arrive and be attributed to nothing: no error, an empty twin.
+        # (P1-A §5-9, handed to this ticket.) On the baseline it changes nothing observable --
+        # $topo IS DEFAULT_TOPO_FILE at 4 hosts, and the 4- and 128-host models declare the
+        # same ten agent addresses (192.168.123.11-20), checked.
         START_BG_IDENTITY="hosts=$(sed -n 's/^[[:space:]]*\([0-9][0-9]*\).*/\1/p' \
-            "$KERNEL_DIR/p4_proxy/mininet/host_count_override" 2>/dev/null | head -1)" \
+            "$KERNEL_DIR/p4_proxy/mininet/host_count_override" 2>/dev/null | head -1) app=$(sed -n \
+            '/^[[:space:]]*#/d; /^[[:space:]]*$/d; s/^[[:space:]]*//; p; q' \
+            "$KERNEL_DIR/p4_proxy/mininet/app_package_override" 2>/dev/null) topo=$topo" \
         start_bg p4_proxy "$LOG_DIR/p4_proxy.log" \
-            env PYTHONPATH="$KERNEL_DIR/p4_proxy" \
+            env PYTHONPATH="$KERNEL_DIR/p4_proxy" NDTWIN_TOPO_FILE="$topo" \
             bash -c "cd '$KERNEL_DIR/p4_proxy' && '$P4_PROXY_PY' proxy_agent/main.py"
         wait_for_port 8081 "P4 proxy agent" 30 p4_proxy || {
             err "  proxy did not open :8081; see $LOG_DIR/p4_proxy.log"
