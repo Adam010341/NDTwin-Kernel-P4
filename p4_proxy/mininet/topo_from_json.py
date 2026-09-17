@@ -22,10 +22,24 @@ What it does not do, on purpose:
   * It does not invent ports. Every port here is read from the file; a model that omits one is
     an error rather than something to paper over with a counter.
 """
+import glob
 import json
+import os
 
 SWITCH = 0  # VertexType::SWITCH in include/common_types/GraphTypes.hpp
 HOST = 1
+
+#: Where the kernel's topology models live. Same derivation as p4_testbed_topo.py's SETTING_DIR
+#: -- this file sits at the same depth -- so the two cannot end up scanning different directories.
+SETTING_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))), "setting")
+
+#: The directive file that says how many hosts this fabric builds.
+HOST_COUNT_OVERRIDE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                        "host_count_override")
+
+#: What the fabric builds when nothing says otherwise.
+DEFAULT_HOST_COUNT = 4
 
 
 def _first_ip(value):
@@ -146,3 +160,109 @@ def host_links(model):
     if doubled:
         raise TopologyModelError(f"hosts attached more than once: {doubled[:5]}")
     return dedup
+
+
+# --- who reads which model, and how many hosts it has -----------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+#
+# These three were `_topology_model_path`, `_host_count_override` and `_mac_str` in
+# p4_testbed_topo.py, which imports Mininet at module scope and therefore cannot be imported by
+# the proxy or by a unit test that is not running as root. They moved here because the PROXY now
+# needs the same three answers: it builds its host table from the model too (main.build_host_table),
+# and a second implementation of "which file, how many hosts, what MAC" is precisely the shape
+# that let the proxy know four hosts while the fabric built 128 -- the defect main.py's host-table
+# comment describes. p4_testbed_topo keeps its old private names as one-line delegates so nothing
+# that calls them has to move.
+#
+# This file still only parses: the model path is *chosen* here, nothing is built.
+
+
+def mac_str(mac, name):
+    """The model stores a host MAC as an integer; Mininet and the proxy want the colon form.
+
+    Falls back to deriving it from the host index when the model has no MAC, which is what the
+    formulas this replaced did. Note the proxy's old formula was `00:00:00:00:00:{i:02x}` and
+    produced an invalid 7-digit address at i >= 256; formatting the integer as a 48-bit address
+    is correct there instead. Nothing has ever run at that size.
+    """
+    try:
+        value = int(mac)
+    except (TypeError, ValueError):
+        value = 0
+    if value <= 0:
+        value = int(name[1:]) if name[1:].isdigit() else 0
+    return ":".join(f"{(value >> shift) & 0xFF:02x}" for shift in (40, 32, 24, 16, 8, 0))
+
+
+def host_count_override(path=None):
+    """How many hosts this fabric builds. Default 4; one directive line to change it.
+
+    Same shape as the bmv2 binary override next to it: first non-comment, non-blank line wins,
+    blank lines and #-comments ignored, and a malformed file is refused loudly rather than
+    silently falling back -- a run that quietly built the wrong number of hosts would look
+    exactly like a successful one.
+    """
+    path = path or HOST_COUNT_OVERRIDE_PATH
+    if not os.path.exists(path):
+        return DEFAULT_HOST_COUNT
+    with open(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if not line.isdigit():
+                raise ValueError(f"{path}: expected a host count, got {line!r}")
+            return int(line)
+    return DEFAULT_HOST_COUNT
+
+
+def model_path(host_num, setting_dir=None, env=None):
+    """The P4 model with this many hosts -- the same rule `ndt up` uses to pick one.
+
+    Refuses rather than guessing: building a fabric the twin has no model for is the exact
+    failure this reader exists to prevent, so an unmatched host count must stop the run instead
+    of falling back to some other file.
+    """
+    setting_dir = SETTING_DIR if setting_dir is None else setting_dir
+    env = os.environ if env is None else env
+    override = env.get("NDTWIN_P4_TOPO_FILE")
+    if override:
+        if not os.path.exists(override):
+            raise TopologyModelError(f"NDTWIN_P4_TOPO_FILE={override} does not exist")
+        # [Co-developed with claude code -- Adam]
+        # The override is checked against the host count too, not trusted on sight. It used to
+        # return here immediately -- which made the docstring above a lie, and produced exactly
+        # the mismatch this function exists to prevent: an override naming the 4-host model with
+        # host_count_override at 128 built a 4-host fabric while the kernel was handed the
+        # 128-host model, silently. Found by review, 2026-08-21.
+        #
+        # An explicit override still wins over the *scan*; what it cannot do is disagree with the
+        # host count the rest of the run is using, because both sides read that count separately.
+        try:
+            declared = len(hosts(load(override)))
+        except (OSError, ValueError, KeyError) as exc:
+            raise TopologyModelError(
+                f"NDTWIN_P4_TOPO_FILE={override} is not a usable topology model: {exc}") from exc
+        if declared != host_num:
+            raise TopologyModelError(
+                f"NDTWIN_P4_TOPO_FILE={override} declares {declared} hosts but this run wants "
+                f"{host_num} (from NDTWIN_P4_HOST_NUM or host_count_override). Point them at the "
+                f"same size: the fabric would be built from the model while everything else "
+                f"sizes itself from the count.")
+        return override
+    candidates = sorted(glob.glob(os.path.join(setting_dir, "StaticNetworkTopologyP4_*.json")))
+    unreadable = []
+    for path in candidates:
+        try:
+            if len(hosts(load(path))) == host_num:
+                return path
+        except (ValueError, KeyError) as exc:
+            # Skipped, but counted: "no model has N hosts" reads as "you need to derive one",
+            # which is the wrong instruction when the right model is sitting there unparseable.
+            unreadable.append(f"{os.path.basename(path)} ({exc.__class__.__name__})")
+    detail = f"; {len(unreadable)} could not be read: {', '.join(unreadable)}" if unreadable else ""
+    raise TopologyModelError(
+        f"no P4 topology model in {setting_dir} has {host_num} hosts "
+        f"(looked at {len(candidates)}){detail}. Derive one with "
+        f"tools/test_workflow/derive_p4_topology_json.py before building this fabric")
