@@ -81,8 +81,13 @@ class P4RuntimeClient:
 
         # --- who this client claims to be. [Co-developed with claude code -- Adam]
         #
-        # Was the literal `(0, 1)`, written out thirteen times: once in the arbitration message
-        # and once per unary request as `req.election_id.low = 1`. One value in one place now,
+        # Was the literal `(0, 1)`, written out at NINE sites: the arbitration message in
+        # start(), plus EIGHT unary requests each spelling `req.election_id.low = 1` -- the
+        # pipeline push, write_clone_session's `build()` (one site, four RPCs), the three
+        # ipv4_lpm writes and the three flow_5tuple writes. Counted, not estimated: TICKET-P1
+        # says "12 places" and an earlier draft of this comment said "thirteen"; `/usr/bin/grep
+        # -n election_id` on this file at 532b6c31 returns those nine assignments and nothing
+        # else. One value in one place now,
         # and the default is that same (0, 1) so a fabric with no app package puts byte-identical
         # requests on the wire.
         #

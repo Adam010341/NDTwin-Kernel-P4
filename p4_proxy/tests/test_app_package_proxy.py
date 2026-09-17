@@ -75,6 +75,42 @@ def literal_host_table(host_num):
     )
 
 
+def pod_topo_shaped_model(hosts=((1, "10.0.1.1", 0x080000000111),
+                                 (2, "10.0.2.2", 0x080000000222),
+                                 (3, "10.0.3.3", 0x080000000333),
+                                 (4, "10.0.4.4", 0x080000000444))):
+    """An NDTwin model in the shape `tools/p4_exercise/convert.py` writes for pod-topo.
+
+    [Co-developed with claude code -- Adam]
+    Four hosts on four DIFFERENT switches, each on switch port 1, each in its own /24 -- the
+    layout the quarters formula cannot describe. One inter-switch link so switch_links() has
+    something to return. Written out here rather than imported from the converter's fixtures:
+    what this file needs is a model the formula and the reader disagree about, and spelling it
+    is shorter than depending on another test module's generator.
+    """
+    nodes, edges = [], []
+    for dpid, ip, mac in hosts:
+        nodes.append({"brand_name": "BMv2", "bridge_name": f"s{dpid}", "device_layer": 2,
+                      "device_name": f"s{dpid}", "dpid": dpid, "ecmp_groups": [],
+                      "ip": [f"192.168.123.{10 + dpid}"], "mac": 0, "nickname": f"s{dpid}",
+                      "smart_plug_ip": "", "smart_plug_outlet": 0, "vertex_type": 0})
+        nodes.append({"brand_name": "", "device_layer": 3, "device_name": f"h{dpid}", "dpid": 0,
+                      "ip": [ip], "mac": mac, "nickname": f"h{dpid}", "vertex_type": 1})
+        agent = [f"192.168.123.{10 + dpid}"]
+        edges.append({"src_dpid": 0, "src_interface": 1, "src_ip": [ip],
+                      "dst_dpid": dpid, "dst_interface": 1, "dst_ip": agent,
+                      "link_bandwidth_bps": 1000000000})
+        edges.append({"src_dpid": dpid, "src_interface": 1, "src_ip": agent,
+                      "dst_dpid": 0, "dst_interface": 1, "dst_ip": [ip],
+                      "link_bandwidth_bps": 1000000000})
+    for a, b in ((1, 2), (3, 4), (1, 3)):
+        for s, d in ((a, b), (b, a)):
+            edges.append({"src_dpid": s, "src_interface": 2 + d, "src_ip": [],
+                          "dst_dpid": d, "dst_interface": 2 + s, "dst_ip": [],
+                          "link_bandwidth_bps": 1000000000})
+    return {"nodes": nodes, "edges": edges, "links": []}
+
+
 class RecordingTopo:
     """Records add_host exactly as TopologyManager receives it, and nothing else."""
 
@@ -106,6 +142,26 @@ class TheHostTableMatchesTheFormulaItReplacedTest(unittest.TestCase):
         rows = self.table_for(HOST_128_MODEL)
         self.assertEqual(len(rows), 128)
         self.assertEqual(len({ip for ip, _m, _d, _p in rows}), 128)
+
+    def test_a_pod_topo_shaped_model_is_followed_where_the_formula_would_be_wrong(self):
+        # 🔴 The assertion that makes the two above mean something. The quarters formula and the
+        # two NDTwin models AGREE at 4 and at 128 hosts -- that agreement is the equivalence
+        # proof, and it also means "put the formula back" changes nothing those two tests can
+        # see. pod-topo is the shape that separates them: four hosts on four DIFFERENT switches,
+        # each on port 1, each in its own /24. The formula answers port 3 and 10.0.0.<i> for
+        # every one of them; the model answers port 1 and the exercise's real address.
+        model = pod_topo_shaped_model()
+        topo = RecordingTopo()
+        main.build_host_table(topo, model, package=app_package.baseline())
+        self.assertEqual(sorted(topo.rows), [
+            ("10.0.1.1", "08:00:00:00:01:11", 1, 1),
+            ("10.0.2.2", "08:00:00:00:02:22", 2, 1),
+            ("10.0.3.3", "08:00:00:00:03:33", 3, 1),
+            ("10.0.4.4", "08:00:00:00:04:44", 4, 1),
+        ])
+        self.assertNotEqual(sorted(topo.rows), literal_host_table(4),
+                            "this model is chosen precisely because the formula cannot "
+                            "describe it; if they match, the fixture stopped discriminating")
 
     def test_a_host_with_no_access_link_is_refused_rather_than_skipped(self):
         # A host the proxy routes to and can never install a rule for presents as an empty path,

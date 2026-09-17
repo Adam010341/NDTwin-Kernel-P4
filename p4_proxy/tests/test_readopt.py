@@ -53,8 +53,15 @@ class FakeClient:
     """
 
     def __init__(self, dpid, log=None, start_error=None, pipeline_error=None,
-                 clone_ok=True, route_ok=True, mastership_confirmed=True):
+                 clone_ok=True, route_ok=True, mastership_confirmed=True, arbitration=True):
         self.dpid = dpid
+        # [Co-developed with claude code -- Adam]
+        # Whether this client may drive the switch at all. Declared rather than left to a
+        # getattr default on readopt's side: a double that has stopped standing in for the real
+        # object should fail with AttributeError, and a permissive default in the production
+        # code is a branch that can be silently skipped -- this repo's most-repeated shape.
+        # False is what an `external` app package builds (P4RuntimeClient(arbitration=False)).
+        self.arbitration = arbitration
         self.log = log if log is not None else []
         self.start_error = start_error
         self.pipeline_error = pipeline_error
@@ -405,6 +412,75 @@ class ReadoptMastershipGateTest(ReadoptTestBase):
         self.assertNotIn("routes_pending", result,
                          "a switch that took its routes must not look like it is waiting")
         self.assertNotIn("note", result)
+
+
+class ReadoptUnderAnExternalControlPlaneTest(ReadoptTestBase):
+    """
+    [Co-developed with claude code -- Adam]
+
+    A fabric running `control_plane.mode: external` cannot be readopted: the exercise's own
+    controller holds mastership and this proxy's clients bid for nothing. Failing closed was
+    already true by accident -- an arbitration-less client never sets `mastership_confirmed`,
+    so the gate above caught it -- but it answered `step: "mastership"` with "the old client
+    (or another controller) likely still holds mastership", which describes a RACE THIS PROXY
+    LOST. What actually happened is that it was configured never to enter the race. An
+    operator acts differently on those two: the first says retry or power-cycle, the second
+    says this is the mode you asked for.
+
+    So the same outcome is reached by a check that names itself, placed before the gate. Found
+    by the P1-A judge against c3ecf7f8 -- the SUMMARY had claimed readopt failed at the
+    *pipeline* step, and it never got that far.
+    """
+
+    def external(self):
+        return self.readopt(factory=self.factory(arbitration=False,
+                                                 mastership_confirmed=False))
+
+    def test_readopt_under_an_external_control_plane_says_so(self):
+        result = self.external()
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["step"], "control_plane")
+        self.assertIn("external control plane", result["error"])
+        self.assertIn("read-only", result["error"])
+
+    def test_it_does_not_blame_a_mastership_race_it_never_entered(self):
+        # 🔴 The whole point. `step: "mastership"` here would send an operator looking for
+        # another controller, or power-cycling a switch that is behaving exactly as configured.
+        result = self.external()
+        self.assertNotEqual(result["step"], "mastership")
+        self.assertNotIn("likely still holds mastership", result["error"])
+
+    def test_it_never_reaches_the_pipeline_push(self):
+        self.external()
+        self.assertNotIn(("pipeline", 1), self.log,
+                         "the pipeline push empties every table the exercise's own controller "
+                         "installed, and reports success while doing it")
+
+    def test_it_installs_no_routes(self):
+        self.external()
+        self.assertEqual(self.made[0].routes, [],
+                         "install_initial_routes would write into somebody else's tables")
+        self.assertEqual(self.topo._installed_routes, {})
+
+    def test_it_programs_no_clone_session(self):
+        self.external()
+        self.assertNotIn(("clone", 1), self.log)
+
+    def test_the_old_client_stays_in_place(self):
+        self.external()
+        self.assertIs(self.topo.switches[1], self.old1)
+
+    def test_the_client_it_built_is_torn_down_rather_than_left_holding_a_channel(self):
+        self.external()
+        self.assertTrue(self.made[0].stopped,
+                        "a client readopt refuses to use still owns a gRPC channel and, on the "
+                        "real object, a subchannel pool entry for that address")
+
+    def test_an_arbitrating_client_is_unaffected(self):
+        # The negative half: `arbitration` is what switches this on, not "readopt was called".
+        result = self.readopt(factory=self.factory())
+        self.assertEqual(result["status"], "success")
+        self.assertIn(("pipeline", 1), self.log)
 
 
 class RouteReinstallTest(unittest.TestCase):

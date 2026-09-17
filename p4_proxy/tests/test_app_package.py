@@ -205,10 +205,16 @@ MANIFEST = {
     "name": "basic",
     "source": {"kind": "p4lang-tutorials", "exercise_dir": "/nonexistent/exercises/basic"},
     "topology": "ndtwin/topology.json",
+    # All four of the 4-host model's hosts, with the addresses and MACs that model gives them.
+    # The loader refuses a manifest whose hosts and topology model describe different fabrics,
+    # so a fixture that named two of the four would be a package that cannot exist.
+    # [Co-developed with claude code -- Adam]
     "hosts": {
-        "h1": {"ip": "10.0.0.1", "prefix_len": 24, "mac": "08:00:00:00:01:11",
+        "h1": {"ip": "10.0.0.1", "prefix_len": 24, "mac": "00:00:00:00:00:01",
                "commands": ["route add default gw 10.0.0.10 dev eth0"]},
-        "h2": {"ip": "10.0.0.2", "prefix_len": 24, "mac": "08:00:00:00:02:22", "commands": []},
+        "h2": {"ip": "10.0.0.2", "prefix_len": 24, "mac": "00:00:00:00:00:02", "commands": []},
+        "h3": {"ip": "10.0.0.3", "prefix_len": 24, "mac": "00:00:00:00:00:03", "commands": []},
+        "h4": {"ip": "10.0.0.4", "prefix_len": 24, "commands": []},
     },
     "switches": {
         "1": {"name": "s1", "pipeline": None, "entries": "s1-runtime.json"},
@@ -266,7 +272,13 @@ class AValidPackageTest(unittest.TestCase):
 
     def test_its_host_commands_are_a_dict_even_when_one_host_asked_for_none(self):
         self.assertEqual(self.pkg.host_commands(),
-                         {"h1": ["route add default gw 10.0.0.10 dev eth0"], "h2": []})
+                         {"h1": ["route add default gw 10.0.0.10 dev eth0"],
+                          "h2": [], "h3": [], "h4": []})
+
+    def test_a_host_that_declares_no_mac_takes_the_models(self):
+        # `mac` is optional in the manifest -- the model is the authority the fabric builds
+        # from, and a manifest MAC is a cross-check, not a second source.
+        self.assertIsNone([h for h in self.pkg.hosts if h.name == "h4"][0].mac)
 
     def test_its_entries_are_counted_and_reported_as_recorded_not_applied(self):
         self.assertEqual(self.pkg.entries_recorded(), {"1": 3, "2": 0})
@@ -437,6 +449,14 @@ class RefusalTest(unittest.TestCase):
 # tools/test_workflow/l1_unit_tests.sh fails on purpose -- and a contract held only in somebody's
 # scratch directory is a contract nobody can re-check.
 
+# 🔴 VERBATIM. Both dicts below are `json.load()` of the real package.json bytes, re-emitted with
+# `pprint`; nothing is paraphrased, trimmed or "tidied". The first version of this fixture was
+# hand-typed from a screenful of the real file and got p4runtime's host commands down to one
+# each and invented a `delay_ms: 0.5` that is in neither package -- so the suite asserted a
+# contract nobody had written, which is the exact failure a transcribed fixture exists to
+# prevent (found by the P1-A judge against c3ecf7f8). `delay_ms` is a real part of the FORMAT and
+# is exercised on its own, below, rather than smuggled into a copy of somebody's file.
+
 CONVERTER_BASIC = {
     "bmv2": {"cpu_port": 255},
     "control_plane": {"device_id": "dpid", "election_id": [0, 65535], "grpc_base": 30050,
@@ -486,17 +506,18 @@ CONVERTER_P4RUNTIME = {
                       "mode": "external"},
     "format": 1,
     "hosts": {
-        "h1": {"commands": ["route add default gw 10.0.1.10 dev eth0"],
+        "h1": {"commands": ["route add default gw 10.0.1.10 dev eth0",
+                            "arp -i eth0 -s 10.0.1.10 08:00:00:00:01:00"],
                "ip": "10.0.1.1", "mac": "08:00:00:00:01:11", "prefix_len": 24},
-        "h2": {"commands": ["route add default gw 10.0.2.20 dev eth0"],
+        "h2": {"commands": ["route add default gw 10.0.2.20 dev eth0",
+                            "arp -i eth0 -s 10.0.2.20 08:00:00:00:02:00"],
                "ip": "10.0.2.2", "mac": "08:00:00:00:02:22", "prefix_len": 24},
-        "h3": {"commands": ["route add default gw 10.0.3.30 dev eth0"],
+        "h3": {"commands": ["route add default gw 10.0.3.30 dev eth0",
+                            "arp -i eth0 -s 10.0.3.30 08:00:00:00:03:00"],
                "ip": "10.0.3.3", "mac": "08:00:00:00:03:33", "prefix_len": 24},
     },
-    # `delay_ms` is the third divergence: tutorials links carry a latency, and convert.py records
-    # it. Phase 1 applies no shaping (G2-C is phase 3), so this is carried and not read.
     "links": [
-        {"a": ["h1", 1], "b": ["s1", 1], "bandwidth_bps": 1000000000, "delay_ms": 0.5},
+        {"a": ["h1", 1], "b": ["s1", 1], "bandwidth_bps": 1000000000},
         {"a": ["s1", 2], "b": ["s2", 2], "bandwidth_bps": 1000000000},
         {"a": ["s1", 3], "b": ["s3", 2], "bandwidth_bps": 1000000000},
         {"a": ["s3", 3], "b": ["s2", 3], "bandwidth_bps": 1000000000},
@@ -507,7 +528,8 @@ CONVERTER_P4RUNTIME = {
     "source": {"bmv2_json": "build/advanced_tunnel.json", "controller": "mycontroller.py",
                "exercise_dir": "/home/adam/tutorials/exercises/p4runtime",
                "kind": "p4lang-tutorials", "p4": "advanced_tunnel.p4",
-               "p4info": "build/advanced_tunnel.p4.p4info.txtpb", "topology_json": "topology.json"},
+               "p4info": "build/advanced_tunnel.p4.p4info.txtpb",
+               "topology_json": "topology.json"},
     "switches": {
         "1": {"entries": None, "name": "s1", "pipeline": None},
         "2": {"entries": None, "name": "s2", "pipeline": None},
@@ -516,9 +538,65 @@ CONVERTER_P4RUNTIME = {
     "topology": "ndtwin/topology.json",
 }
 
+#: What the two real `ndtwin/topology.json` files hold, as (nodes, edges). Asserted below, so a
+#: fixture model that drifted from the artefact it stands for is visible rather than assumed.
+CONVERTER_MODEL_SIZES = {"basic": (8, 16), "p4runtime": (6, 12)}
+
+
+def model_for(manifest):
+    """The `ndtwin/topology.json` convert.py writes for this manifest.
+
+    [Co-developed with claude code -- Adam]
+    Built from the manifest's own `links` rather than vendored as a second 6 KB blob, and in the
+    shape the real file has: switch nodes carry the twelve keys the 4-host NDTwin model uses
+    (`brand_name "BMv2"`, agent ip `192.168.123.<10+N>`, `vertex_type 0`), host nodes carry
+    `device_layer 3` / `dpid 0` / an integer MAC, and every edge is stored in both directions
+    with dpid 0 on the host side. `CONVERTER_MODEL_SIZES` pins the node and edge counts against
+    the real artefacts.
+
+    It exists because the loader now REFUSES a package whose manifest hosts and topology model
+    describe different fabrics, which is the point: a fixture pairing somebody's manifest with
+    an unrelated NDTwin model would be testing a package that could not exist.
+    """
+    hosts, switches = manifest["hosts"], manifest["switches"]
+    by_name = {spec["name"]: int(dpid) for dpid, spec in switches.items()}
+    agent_ip = {name: f"192.168.123.{10 + dpid}" for name, dpid in by_name.items()}
+
+    nodes = []
+    for dpid, spec in sorted(switches.items(), key=lambda kv: int(kv[0])):
+        name, n = spec["name"], int(dpid)
+        nodes.append({"brand_name": "BMv2", "bridge_name": name, "device_layer": 2,
+                      "device_name": name, "dpid": n, "ecmp_groups": [],
+                      "ip": [agent_ip[name]], "mac": 0, "nickname": name,
+                      "smart_plug_ip": "", "smart_plug_outlet": 0, "vertex_type": 0})
+    for name in sorted(hosts, key=lambda h: int(h[1:])):
+        spec = hosts[name]
+        nodes.append({"brand_name": "", "device_layer": 3, "device_name": name, "dpid": 0,
+                      "ip": [spec["ip"]], "mac": int(spec["mac"].replace(":", ""), 16),
+                      "nickname": name, "vertex_type": 1})
+
+    def endpoint(name, port):
+        if name in by_name:
+            return by_name[name], port, [agent_ip[name]]
+        return 0, port, [hosts[name]["ip"]]
+
+    edges = []
+    for link in manifest["links"]:
+        (a_name, a_port), (b_name, b_port) = link["a"], link["b"]
+        bw = link.get("bandwidth_bps", 1000000000)
+        a_dpid, a_port, a_ip = endpoint(a_name, a_port)
+        b_dpid, b_port, b_ip = endpoint(b_name, b_port)
+        for (s_dpid, s_port, s_ip), (d_dpid, d_port, d_ip) in (
+                ((a_dpid, a_port, a_ip), (b_dpid, b_port, b_ip)),
+                ((b_dpid, b_port, b_ip), (a_dpid, a_port, a_ip))):
+            edges.append({"src_dpid": s_dpid, "src_interface": s_port, "src_ip": s_ip,
+                          "dst_dpid": d_dpid, "dst_interface": d_port, "dst_ip": d_ip,
+                          "link_bandwidth_bps": bw})
+    return {"nodes": nodes, "edges": edges, "links": []}
+
 
 def lay_out_converter_package(root, manifest, name, entry_files=()):
-    """Write `manifest` plus only the files this READER resolves, and no others.
+    """Write `manifest`, its model, and only the files this READER resolves -- no others.
 
     Deliberately does not create `source.p4info`, `source.bmv2_json`, `source.p4` or
     `source.controller`: this reader does not consume them, so a package that lacks them must
@@ -526,7 +604,8 @@ def lay_out_converter_package(root, manifest, name, entry_files=()):
     """
     directory = os.path.join(root, name)
     os.makedirs(os.path.join(directory, "ndtwin"), exist_ok=True)
-    shutil.copyfile(FOUR_HOST_MODEL, os.path.join(directory, "ndtwin", "topology.json"))
+    with open(os.path.join(directory, "ndtwin", "topology.json"), "w") as fh:
+        json.dump(model_for(manifest), fh, sort_keys=True, indent=2)
     for relpath in entry_files:
         full = os.path.join(directory, relpath)
         os.makedirs(os.path.dirname(full), exist_ok=True)
@@ -549,6 +628,21 @@ class WhatTheConverterActuallyWritesTest(unittest.TestCase):
             [f"pod-topo/s{i}-runtime.json" for i in range(1, 5)]))
         self.external = app_package.load(lay_out_converter_package(
             self.tmp, CONVERTER_P4RUNTIME, "p4runtime"))
+
+    def test_the_fixture_models_are_the_size_the_real_artefacts_are(self):
+        for name, manifest in (("basic", CONVERTER_BASIC), ("p4runtime", CONVERTER_P4RUNTIME)):
+            model = model_for(manifest)
+            self.assertEqual((len(model["nodes"]), len(model["edges"])),
+                             CONVERTER_MODEL_SIZES[name], name)
+
+    def test_the_fixture_models_pass_all_four_topo_from_json_readers(self):
+        # The same four the converter's own tests run, and the same four the fabric uses.
+        for manifest in (CONVERTER_BASIC, CONVERTER_P4RUNTIME):
+            model = model_for(manifest)
+            self.assertTrue(topo_from_json.switches(model))
+            self.assertTrue(topo_from_json.hosts(model))
+            self.assertTrue(topo_from_json.switch_links(model))
+            self.assertTrue(topo_from_json.host_links(model))
 
     def test_the_basic_package_loads_unchanged(self):
         self.assertEqual(self.basic.name, "basic")
@@ -579,7 +673,8 @@ class WhatTheConverterActuallyWritesTest(unittest.TestCase):
         # have refused both packages; a reader that resolved `controller` would have looked for
         # an exercise-relative path inside the package and not found it.
         self.assertEqual(self.external.name, "p4runtime")
-        self.assertIsNone(self.basic.host_commands().get("nonexistent"))
+        self.assertEqual(CONVERTER_P4RUNTIME["source"]["controller"], "mycontroller.py")
+        self.assertFalse(os.path.exists(os.path.join(self.external.dir, "mycontroller.py")))
 
     def test_the_external_package_reads_only(self):
         self.assertEqual(self.external.mode, "external")
@@ -589,21 +684,138 @@ class WhatTheConverterActuallyWritesTest(unittest.TestCase):
     def test_a_switch_with_no_entries_records_zero_rather_than_failing(self):
         self.assertEqual(self.external.entries_recorded(), {"1": 0, "2": 0, "3": 0})
 
-    def test_a_link_delay_is_carried_verbatim_and_applied_by_nobody(self):
-        # Phase 1 does no shaping at all (G2-C is phase 3). Carried so `ndt status` and the
-        # converter's round-trip can show what the exercise declared.
-        self.assertEqual(self.external.links[0]["delay_ms"], 0.5)
-        self.assertEqual(len(self.external.links), 6)
+    def test_neither_real_package_declares_a_link_delay(self):
+        # Pinned because the first version of this fixture invented one. `delay_ms` is part of
+        # the format (see the next test); it is not part of these two artefacts.
+        for manifest in (CONVERTER_BASIC, CONVERTER_P4RUNTIME):
+            for link in manifest["links"]:
+                self.assertNotIn("delay_ms", link)
+
+    def test_every_host_of_both_packages_carries_two_commands(self):
+        # A default gateway and ONE static ARP, for that gateway. Pinned because the first
+        # version of this fixture had one command per host for p4runtime, which would have let
+        # a converter that dropped the ARP line through.
+        for manifest in (CONVERTER_BASIC, CONVERTER_P4RUNTIME):
+            for name, spec in manifest["hosts"].items():
+                self.assertEqual(len(spec["commands"]), 2, f"{manifest['name']}.{name}")
 
     def test_the_host_commands_replace_the_fabrics_all_pairs_arp(self):
-        # pod-topo gives each host a default gateway and ONE static ARP, for that gateway. The
-        # baseline fabric's all-pairs fan-out would pre-resolve every destination MAC, so the
-        # exercise's forwarding tables would never be consulted and a broken data plane would
-        # ping perfectly. `host_commands()` being a dict rather than None is what turns it off.
+        # pod-topo gives each host a default gateway and one static ARP. The baseline fabric's
+        # all-pairs fan-out would pre-resolve every destination MAC, so the exercise's
+        # forwarding tables would never be consulted and a broken data plane would ping
+        # perfectly. `host_commands()` being a dict rather than None is what turns it off.
         commands = self.basic.host_commands()
         self.assertIsNotNone(commands)
-        self.assertEqual(len(commands["h1"]), 2)
-        self.assertIn("route add default gw 10.0.1.10 dev eth0", commands["h1"])
+        self.assertEqual(commands["h1"], ["route add default gw 10.0.1.10 dev eth0",
+                                          "arp -i eth0 -s 10.0.1.10 08:00:00:00:01:00"])
+
+
+class OptionalFormatFieldsTest(unittest.TestCase):
+    """Parts of the format the two shipped packages happen not to use."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_app_pkg_opt_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def load(self, manifest, name):
+        return app_package.load(lay_out_converter_package(self.tmp, manifest, name))
+
+    def test_a_link_delay_is_carried_verbatim_and_applied_by_nobody(self):
+        # Phase 1 does no shaping at all (G2-C is phase 3). Carried so `ndt status` and the
+        # converter's round-trip can show what the exercise declared. Asserted on a manifest
+        # built for it rather than by editing a copy of a real package: that is how the first
+        # version of this suite came to claim a delay that was in neither artefact.
+        manifest = json.loads(json.dumps(CONVERTER_P4RUNTIME))
+        manifest["links"][0]["delay_ms"] = 0.5
+        package = self.load(manifest, "with_delay")
+        self.assertEqual(package.links[0]["delay_ms"], 0.5)
+        self.assertEqual(len(package.links), 6)
+
+    def test_a_package_that_names_no_election_id_gets_the_documented_default(self):
+        # 🔴 The literal, not the constant compared against itself. (0, 65535) is chosen so an
+        # impostor bidding the baseline (0, 1) loses -- refused with PERMISSION_DENIED rather
+        # than accepted as primary and wiping every table (measured 2026-08-13).
+        manifest = json.loads(json.dumps(CONVERTER_P4RUNTIME))
+        manifest["control_plane"] = {"mode": "ndtwin"}
+        package = self.load(manifest, "no_election_id")
+        self.assertEqual(package.election_id, (0, 65535))
+        self.assertEqual(app_package.PACKAGE_DEFAULT_ELECTION_ID, (0, 65535))
+        self.assertGreater(package.election_id, app_package.BASELINE_ELECTION_ID,
+                           "a package must outbid the baseline (0, 1) or an impostor "
+                           "presenting it becomes primary and wipes the tables")
+
+
+class TheManifestAndTheModelMustDescribeOneFabricTest(unittest.TestCase):
+    """
+    [Co-developed with claude code -- Adam]
+
+    A package carries two descriptions of one network: the manifest says which address and
+    which commands h1 has, the model says where h1 plugs in and what MAC it gets. When they
+    disagree the fabric builds one host while the proxy configures another, and nothing
+    downstream notices -- the host comes up, the commands run, the pings go nowhere. This is
+    the 2026-08-21 defect's shape (routes for 128 hosts on a 4-host fabric, every view correct).
+
+    preflight.py checks this too. That is not a reason to skip it: the knob is a file an
+    operator can edit, so a package reaching the proxy has not necessarily been through
+    pre-flight, and "somebody else validated it" is not something this process can observe.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_app_pkg_agree_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def refuses(self, mutate, fragment, name):
+        manifest = json.loads(json.dumps(CONVERTER_BASIC))
+        directory = lay_out_converter_package(self.tmp, manifest, name,
+                                              [f"pod-topo/s{i}-runtime.json" for i in range(1, 5)])
+        # The model is written first, then the manifest is edited: that is the real shape of the
+        # failure -- a hand-edited package.json beside a model nobody regenerated.
+        mutate(manifest)
+        with open(os.path.join(directory, "package.json"), "w") as fh:
+            json.dump(manifest, fh, sort_keys=True, indent=2)
+        with self.assertRaises(app_package.AppPackageError) as caught:
+            app_package.load(directory)
+        self.assertIn(fragment, str(caught.exception))
+        return str(caught.exception)
+
+    def test_a_host_the_model_does_not_have_is_refused(self):
+        def mutate(m):
+            m["hosts"]["h9"] = {"ip": "10.0.9.9", "mac": "08:00:00:00:09:99", "commands": []}
+        message = self.refuses(mutate, "describe different fabrics", "extra_host")
+        self.assertIn("h9", message)
+
+    def test_a_host_the_manifest_does_not_have_is_refused(self):
+        message = self.refuses(lambda m: m["hosts"].pop("h4"),
+                               "describe different fabrics", "missing_host")
+        self.assertIn("h4", message)
+
+    def test_an_address_the_two_disagree_on_is_refused(self):
+        # h4 keeps its name (so the last-octet rule still passes) and changes its /24.
+        message = self.refuses(lambda m: m["hosts"]["h4"].update({"ip": "10.0.9.4"}),
+                               "but the topology model gives it", "wrong_ip")
+        self.assertIn("10.0.9.4", message)
+
+    def test_a_mac_the_two_disagree_on_is_refused(self):
+        message = self.refuses(lambda m: m["hosts"]["h4"].update({"mac": "08:00:00:00:04:45"}),
+                               "but the topology model gives it", "wrong_mac")
+        self.assertIn("08:00:00:00:04:45", message)
+
+    def test_a_manifest_that_declares_no_hosts_at_all_is_not_second_guessed(self):
+        # Declaring none is legitimate -- the fabric is built entirely from the model and no
+        # host commands run -- and it is a different statement from declaring the wrong ones.
+        manifest = json.loads(json.dumps(CONVERTER_BASIC))
+        model_hosts = manifest["hosts"]
+        manifest["hosts"] = {}
+        directory = os.path.join(self.tmp, "no_hosts")
+        os.makedirs(os.path.join(directory, "ndtwin"))
+        with open(os.path.join(directory, "ndtwin", "topology.json"), "w") as fh:
+            json.dump(model_for(dict(manifest, hosts=model_hosts)), fh)
+        manifest["switches"] = {k: dict(v, entries=None) for k, v in manifest["switches"].items()}
+        with open(os.path.join(directory, "package.json"), "w") as fh:
+            json.dump(manifest, fh)
+        package = app_package.load(directory)
+        self.assertEqual(package.hosts, ())
+        self.assertEqual(package.host_commands(), {})
 
 
 class TopologyPathDisagreementTest(unittest.TestCase):

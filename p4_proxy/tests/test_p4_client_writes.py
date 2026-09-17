@@ -1395,6 +1395,39 @@ class AReadOnlyClientTest(unittest.TestCase):
         client = self.read_only()
         self.assertEqual(client.probe()["ok"], True)
 
+    def test_a_table_read_works_and_writes_nothing(self):
+        # 🔴 The half that makes `external` worth having: the twin can still SEE the fabric the
+        # exercise's controller is programming. `/stats/flow/<dpid>` -- which the kernel polls
+        # once a second and turns into every flow's `path` -- is built on this call, so a
+        # read-only client that refused it would give the twin an exercise it cannot observe,
+        # which is the "only an observer" option PLAN-0917 section 2 rejected as not-support.
+        stub = RecordingStub(read_responses=[a_read_response_with_lpm(
+            socket.inet_aton("10.0.0.4"), 32)])
+        client = self.read_only(stub)
+        self.assertEqual(len(client.read_table_entries()), 1)
+        self.assertEqual(stub.requests, [], "a read put a WriteRequest on the wire")
+
+    def test_a_table_read_carries_no_election_id_at_all(self):
+        # Not "carries this client's": a ReadRequest has no election id field in P4Runtime, so
+        # the read path is correct for a non-primary by construction rather than by permission.
+        stub = RecordingStub(read_responses=[a_read_response_with_lpm(
+            socket.inet_aton("10.0.0.4"), 32)])
+        self.read_only(stub).read_table_entries()
+        self.assertFalse(hasattr(stub.reads[0], "election_id"))
+
+    def test_the_egress_counter_read_works(self):
+        # The link-usage numbers. Same argument as the table read: an external fabric that
+        # reported zero bytes on every link would look exactly like an idle one.
+        response = p4runtime_pb2.ReadResponse()
+        entry = response.entities.add().counter_entry
+        entry.counter_id = EGRESS_COUNTER_ID
+        entry.index.index = 3
+        entry.data.byte_count = 15000
+        entry.data.packet_count = 12
+        stub = RecordingStub(read_responses=[response])
+        self.assertEqual(self.read_only(stub).read_egress_counter(3), (15000, 12))
+        self.assertEqual(stub.requests, [])
+
     def test_a_writing_client_is_unaffected(self):
         # The negative half: the guard fires on the flag, not on some incidental property of the
         # fixture. Without this, deleting `arbitration` entirely would leave the suite green.

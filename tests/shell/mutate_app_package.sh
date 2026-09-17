@@ -18,21 +18,26 @@
 # `setting/` is linked rather than copied: the models are the fabric's, several megabytes, and
 # nothing here mutates them.
 #
-# 🔴 THREE MUTATIONS ARE DELIBERATELY NOT HERE, because they would be EQUIVALENT on the models
-# this repo ships and a gate that reports a survivor for an unkillable mutant teaches people to
-# ignore it:
+# 🔴 ONE MUTATION IS DELIBERATELY NOT HERE, because it would be EQUIVALENT in this tree and a
+# gate that reports a survivor for an unkillable mutant teaches people to ignore it:
 #
-#   * "put the quarters formula back in build_host_table". At 4 and at 128 hosts the formula and
-#     the model agree exactly -- that agreement is the whole content of
-#     test_the_proxy_host_table_matches_the_formula_it_replaces_*. What IS killable is the
-#     assumption underneath it, so M7 breaks the port the model gives and M8 makes a host with no
-#     access link get an answer anyway.
-#   * "set DEFAULT_SWITCH_DPIDS back to tuple(range(1, 11))" at its assignment. Both shipped
-#     models declare dpids 1..10, so the constant and the reader produce the same tuple. M9
-#     mutates `switch_dpids` itself, which a model declaring (4, 9) can tell apart.
-#   * "raise PACKAGE_DEFAULT_ELECTION_ID". Nothing in this tree bids it except a package, and no
-#     test can tell 65535 from 65534 without a live third-party controller -- that evidence is
-#     p4_proxy/reference/p4runtime_mastership_probe.py's, and it needs a switch.
+#   * "set DEFAULT_SWITCH_DPIDS back to tuple(range(1, 11))" AT ITS ASSIGNMENT. Both shipped
+#     models declare dpids 1..10, so the constant and the reader produce the same tuple there.
+#     M10 mutates `switch_dpids` itself instead, which a model declaring (4, 9) can tell apart.
+#
+# 🔴 Two that an earlier version of this header wrongly called equivalent, and are not (the P1-A
+# judge was right about both):
+#
+#   * "put the quarters formula back in build_host_table" (M22). It IS equivalent against the two
+#     NDTwin models -- that agreement is the content of
+#     test_the_proxy_host_table_matches_the_formula_it_replaces_* -- but not against a pod-topo
+#     shaped model, where four hosts sit on four different switches on port 1 in four different
+#     /24s and the formula answers port 3 and 10.0.0.<i> for all of them. The discriminating
+#     model is the fix, not dropping the mutation.
+#   * "change PACKAGE_DEFAULT_ELECTION_ID" (M23). What needs a live third-party controller is
+#     proving that 65535 WINS an arbitration; that the documented default is the literal
+#     (0, 65535), and that it outbids the baseline (0, 1), is a pure assertion about a manifest
+#     that names no election id.
 #
 # Usage:  tests/shell/mutate_app_package.sh
 #         PROXY_PY=/path/to/python tests/shell/mutate_app_package.sh
@@ -52,9 +57,11 @@ TEST_PKG="$REPO/p4_proxy/tests/test_app_package.py"
 TEST_PROXY="$REPO/p4_proxy/tests/test_app_package_proxy.py"
 TEST_STARTUP="$REPO/p4_proxy/tests/test_startup.py"
 TEST_WRITES="$REPO/p4_proxy/tests/test_p4_client_writes.py"
+TOPOMGR="$REPO/p4_proxy/proxy_agent/topology_manager.py"
+TEST_READOPT="$REPO/p4_proxy/tests/test_readopt.py"
 
 MODULES="tests.test_app_package tests.test_app_package_proxy tests.test_startup \
-tests.test_p4_client_writes"
+tests.test_p4_client_writes tests.test_readopt"
 
 # The interpreter. A git worktree has no venv of its own (p4_proxy/venv/ is gitignored and lives
 # in the main checkout), so the main worktree is consulted before giving up -- asked of git
@@ -93,6 +100,8 @@ BASE_TEST_PKG=$(sha256sum "$TEST_PKG" | cut -d' ' -f1)
 BASE_TEST_PROXY=$(sha256sum "$TEST_PROXY" | cut -d' ' -f1)
 BASE_TEST_STARTUP=$(sha256sum "$TEST_STARTUP" | cut -d' ' -f1)
 BASE_TEST_WRITES=$(sha256sum "$TEST_WRITES" | cut -d' ' -f1)
+BASE_TOPOMGR=$(sha256sum "$TOPOMGR" | cut -d' ' -f1)
+BASE_TEST_READOPT=$(sha256sum "$TEST_READOPT" | cut -d' ' -f1)
 
 SURVIVORS=0
 MUTATIONS=0
@@ -111,12 +120,12 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must
     local out rc
     MUTATIONS=$((MUTATIONS+1))
     out=$(run_against "$2"); rc=$?
-    if [[ "$rc" -ne 0 ]] && grep -qE "^(FAIL|ERROR): $3 " <<<"$out"; then
+    if [[ "$rc" -ne 0 ]] && /usr/bin/grep -qE "^(FAIL|ERROR): $3 " <<<"$out"; then
         printf '  caught   %-70s (%s went red)\n' "$1" "$3"
     else
         SURVIVORS=$((SURVIVORS+1))
         printf '  SURVIVED %-70s (%s stayed green -- that case proves nothing)\n' "$1" "$3"
-        grep -E '^(FAIL|ERROR|OK|Ran )' <<<"$out" | sed 's/^/             /'
+        /usr/bin/grep -E '^(FAIL|ERROR|OK|Ran )' <<<"$out" | sed 's/^/             /'
     fi
 }
 
@@ -151,7 +160,7 @@ base="$BK/base"; mkdir -p "$base"
 cp -r "$REPO/p4_proxy/proxy_agent" "$REPO/p4_proxy/tests" "$REPO/p4_proxy/mininet" "$base/"
 mkdir -p "$base/p4_src"; cp -r "$REPO/p4_proxy/p4_src/build" "$base/p4_src/" 2>/dev/null
 find "$base" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null
-run_against "$base" | grep -E '^(Ran |OK|FAILED)'
+run_against "$base" | /usr/bin/grep -E '^(Ran |OK|FAILED)'
 run_against "$base" >/dev/null 2>&1 || { echo "  baseline is RED -- fix that first, mutations prove nothing on a red baseline"; exit 2; }
 echo
 
@@ -320,6 +329,45 @@ m=$(mutant m21 "$ROUTES" \
 report "M21: switch_state carries no control_plane at all" "$m" \
        "test_a_skipped_step_is_named_on_the_endpoint"
 
+m=$(mutant m22 "$MAIN" \
+    '        topo.add_host(ip=ip, mac=mac_str, switch_dpid=dpid, port=port)
+        added.append((ip, mac_str, dpid, port))' \
+    '        _i, _per = int(name[1:]), len(topo_from_json.hosts(model)) // 4
+        ip, dpid, port = f"10.0.0.{_i}", 1 + (_i - 1) // _per, 3 + (_i - 1) % _per
+        topo.add_host(ip=ip, mac=mac_str, switch_dpid=dpid, port=port)
+        added.append((ip, mac_str, dpid, port))')
+report "M22: the quarters formula is back, so the model is read and then ignored" "$m" \
+       "test_a_pod_topo_shaped_model_is_followed_where_the_formula_would_be_wrong"
+
+m=$(mutant m23 "$PKG" \
+    'PACKAGE_DEFAULT_ELECTION_ID: Tuple[int, int] = (0, 65535)' \
+    'PACKAGE_DEFAULT_ELECTION_ID: Tuple[int, int] = (0, 1)')
+report "M23: a package that names no election id silently bids the baseline (0, 1)" "$m" \
+       "test_a_package_that_names_no_election_id_gets_the_documented_default"
+
+m=$(mutant m24 "$CLIENT" \
+    '        update.type = p4runtime_pb2.Update.INSERT
+        entry = update.entity.table_entry
+        self._build_5tuple_entry(entry, keys, priority)' \
+    '        req.election_id.high, req.election_id.low = 0, 1
+        update.type = p4runtime_pb2.Update.INSERT
+        entry = update.entity.table_entry
+        self._build_5tuple_entry(entry, keys, priority)')
+report "M24 (ticket M7): ONE unary stops carrying self.election_id and reverts to (0, 1)" "$m" \
+       "test_a_five_tuple_insert_carries_this_clients_election_id"
+
+m=$(mutant m25 "$TOPOMGR" \
+    '            if not new.arbitration:' \
+    '            if False:')
+report "M25: readopt under an external control plane blames a mastership race instead" "$m" \
+       "test_readopt_under_an_external_control_plane_says_so"
+
+m=$(mutant m26 "$PKG" \
+    '    _hosts_agree_with_the_model(hosts, model_hosts, topology, where)' \
+    '    pass')
+report "M26: the manifest's hosts are not checked against the model they must describe" "$m" \
+       "test_an_address_the_two_disagree_on_is_refused"
+
 # --- negative controls -----------------------------------------------------------------------
 #
 # A gate that reddens on anything is not a gate. These are edits that change no behaviour these
@@ -334,7 +382,7 @@ control() {  # $1 = label, $2 = mutant dir, $3 = what must stay green
     else
         SURVIVORS=$((SURVIVORS+1))
         printf '  🔴 RED   %-70s -- these suites are change detectors, not a specification\n' "$1"
-        grep -E '^(FAIL|ERROR):' <<<"$out" | head -4 | sed 's/^/             /'
+        /usr/bin/grep -E '^(FAIL|ERROR):' <<<"$out" | head -4 | sed 's/^/             /'
     fi
 }
 
@@ -363,7 +411,9 @@ echo
 [[ "$(sha256sum "$TEST_PROXY" | cut -d' ' -f1)" == "$BASE_TEST_PROXY" ]] || { echo "🔴 baseline CHANGED -- test_app_package_proxy.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_STARTUP" | cut -d' ' -f1)" == "$BASE_TEST_STARTUP" ]] || { echo "🔴 baseline CHANGED -- test_startup.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_WRITES" | cut -d' ' -f1)" == "$BASE_TEST_WRITES" ]] || { echo "🔴 baseline CHANGED -- test_p4_client_writes.py was written during the gate"; exit 3; }
-echo "baseline byte-identical: yes (6 sources, 4 test files)"
+[[ "$(sha256sum "$TOPOMGR" | cut -d' ' -f1)" == "$BASE_TOPOMGR" ]] || { echo "🔴 baseline CHANGED -- topology_manager.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$TEST_READOPT" | cut -d' ' -f1)" == "$BASE_TEST_READOPT" ]] || { echo "🔴 baseline CHANGED -- test_readopt.py was written during the gate"; exit 3; }
+echo "baseline byte-identical: yes (7 sources, 5 test files)"
 if [[ "$SURVIVORS" -eq 0 ]]; then
     echo "mutation gate: $MUTATIONS mutations, 0 survived"; exit 0
 else

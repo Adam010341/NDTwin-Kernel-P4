@@ -418,6 +418,60 @@ def _switches(raw, package_dir, where):
     return tuple(out)
 
 
+def _hosts_agree_with_the_model(hosts, model_hosts, topology, where):
+    """The manifest's hosts and the topology model's must be the same hosts.
+
+    [Co-developed with claude code -- Adam]
+    🔴 These are two independent descriptions of one network, and this repo's most expensive
+    class of defect is exactly that: the 2026-08-21 round computed routes for 128 hosts on a
+    4-host fabric with every topology view reading correct, and topo_from_json exists because
+    the model and the fabric were two lists nobody compared. A package carries both -- the
+    manifest says which commands h1 runs and which address it has, the model says where h1
+    plugs in and what MAC it gets -- so they can disagree, and if they do the fabric builds one
+    host while the proxy's commands configure another. Nothing downstream notices: the host
+    comes up, the commands run, and the pings go nowhere.
+
+    tools/p4_exercise/preflight.py checks this too, and that is not a reason to skip it here: a
+    package reaching the proxy has not necessarily been through pre-flight (the knob is a file
+    an operator can edit), and "somebody else validated it" is not a property this process can
+    observe. Names, addresses and -- when the manifest declares one -- MACs.
+
+    A manifest with NO hosts is not checked: declaring none is legitimate (the fabric is then
+    built entirely from the model and no host commands run), and it is a different statement
+    from declaring the wrong ones.
+    """
+    if not hosts:
+        return
+    declared = {h.name: h for h in hosts}
+    from_model = {name: (ip, mac) for name, ip, mac in model_hosts}
+
+    missing = sorted(set(from_model) - set(declared), key=_host_sort_key)
+    extra = sorted(set(declared) - set(from_model), key=_host_sort_key)
+    if missing or extra:
+        raise AppPackageError(
+            f"{where}: 'hosts' and the topology model {os.path.basename(topology)} describe "
+            f"different fabrics -- only in the model: {missing[:5]}; only in package.json: "
+            f"{extra[:5]}. The fabric is built from the model and the host commands are keyed "
+            f"by these names, so a host in one and not the other is configured by nobody")
+
+    for name in sorted(declared, key=_host_sort_key):
+        spec = declared[name]
+        model_ip, model_mac = from_model[name]
+        if str(model_ip) != spec.ip:
+            raise AppPackageError(
+                f"{where}: hosts.{name} has ip {spec.ip!r} but the topology model gives it "
+                f"{model_ip!r}. The fabric addresses it from the model and this package's "
+                f"commands assume the other address")
+        if spec.mac is None:
+            continue
+        model_mac_str = topo_from_json.mac_str(model_mac, name)
+        if model_mac_str.lower() != spec.mac.lower():
+            raise AppPackageError(
+                f"{where}: hosts.{name} has mac {spec.mac!r} but the topology model gives it "
+                f"{model_mac_str!r}. Static ARP entries written from one and resolved against "
+                f"the other are a fabric that drops every frame for this host")
+
+
 def _count_entries(path, where):
     """
     How many table entries this runtime file declares. Not what they are -- that is preflight.
@@ -479,13 +533,16 @@ def load(package_dir) -> Package:
     # Parsed here, not merely existence-checked: an unreadable model is a fabric that cannot be
     # built, and finding that out at `addLink` time means Mininet has already been torn down.
     try:
-        topo_from_json.switches(topo_from_json.load(topology))
+        model = topo_from_json.load(topology)
+        topo_from_json.switches(model)
+        model_hosts = topo_from_json.hosts(model)
     except (OSError, ValueError, KeyError) as exc:
         raise AppPackageError(
             f"{where}: topology {topology} is not a usable NDTwin topology model: "
             f"{type(exc).__name__}: {exc}") from exc
 
     hosts = _hosts(doc.get("hosts", {}), where)
+    _hosts_agree_with_the_model(hosts, model_hosts, topology, where)
     switches = _switches(doc.get("switches", {}), package_dir, where)
 
     cp = doc.get("control_plane") or {}
