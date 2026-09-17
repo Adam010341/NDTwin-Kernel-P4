@@ -92,6 +92,7 @@ except ImportError:  # pragma: no cover - depends on the interpreter L1 picks
 
 # Real ids from p4_src/build/ndtwin_switch.p4info.txt.
 IPV4_LPM_ID = 37375156
+FLOW_5TUPLE_ID = 50095925
 IPV4_FORWARD_ID = 28792405
 SEND_TO_CPU_ID = 22952082
 EGRESS_COUNTER_ID = 312422001
@@ -129,6 +130,22 @@ def a_p4info():
     counter.preamble.id = EGRESS_COUNTER_ID
     counter.preamble.name = "MyEgress.egress_port_counter"
 
+    # [Co-developed with claude code -- Adam]
+    # The ternary table the 5-tuple writes address. Added for the election-id suite, which has
+    # to reach every unary request type: without it those three methods raise KeyError on the
+    # table lookup before they ever build a request, and the sites they cover stay untested.
+    # Field ids and names are the real ones from ndtwin_switch.p4info.txt, so a mixed-up id
+    # shows up as the wrong number rather than as an off-by-one that happens to work.
+    five = p4info.tables.add()
+    five.preamble.id = FLOW_5TUPLE_ID
+    five.preamble.name = "MyIngress.flow_5tuple"
+    for field_id, name in ((1, "standard_metadata.ingress_port"), (2, "hdr.ipv4.srcAddr"),
+                           (3, "hdr.ipv4.dstAddr"), (4, "hdr.ipv4.protocol"),
+                           (5, "meta.l4_src_port"), (6, "meta.l4_dst_port")):
+        field = five.match_fields.add()
+        field.id = field_id
+        field.name = name
+
     return p4info
 
 
@@ -148,6 +165,7 @@ class RecordingStub:
         self.requests = []
         self.reads = []
         self.probes = []
+        self.pipeline_pushes = []
         self.probe_timeouts = []
         # [Co-developed with claude code -- Adam]
         # Every timeout a Write was given, so a test can assert the deadline is actually passed.
@@ -189,6 +207,14 @@ class RecordingStub:
             raise self.probe_error
         return p4runtime_pb2.GetForwardingPipelineConfigResponse()
 
+    def SetForwardingPipelineConfig(self, request, timeout=None):
+        # [Co-developed with claude code -- Adam]
+        # Added for the election-id suite. The real stub has always had this method; a double
+        # that lacks one the production code calls fails with AttributeError, which reads as a
+        # broken test rather than as a double that stopped standing in for the real object.
+        self.pipeline_pushes.append(request)
+        return p4runtime_pb2.SetForwardingPipelineConfigResponse()
+
 
 def a_client(stub=None, device_id=1):
     """
@@ -218,6 +244,14 @@ def a_client(stub=None, device_id=1):
     # None is what a client that has never read its tables reports, and is the same starting
     # value __init__ sets.
     client._last_table_read = None
+    # [Co-developed with claude code -- Adam]
+    # Who this client bids as, and whether it may write at all. Assigned here rather than
+    # defaulted on the class for the reason the `rule_install_times` line above gives: a
+    # hand-built double that has stopped standing in for the real object should fail with
+    # AttributeError, not quietly inherit a permissive default. `(0, 1)` and True are what
+    # __init__ sets for a fabric with no app package.
+    client.election_id = (0, 1)
+    client.arbitration = True
     return client
 
 
@@ -1158,6 +1192,215 @@ class DeleteDisambiguatesBmv2UnknownTest(unittest.TestCase):
                              read_responses=[a_read_response_with_lpm(
                                  socket.inet_aton("10.0.0.4"), 24)])
         self.assertIs(a_client(stub).delete_ipv4_route("10.0.0.4", 32), True)
+
+
+# --- who the client says it is, and whether it may write at all --------------------------
+
+
+def a_bidding_client(election_id, stub=None):
+    """A client whose election id is not the default, for asserting it reaches the wire."""
+    client = a_client(stub)
+    client.election_id = election_id
+    return client
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class TheElectionIdOnEveryRequestTest(unittest.TestCase):
+    """
+    [Co-developed with claude code -- Adam]
+
+    The election id used to be the literal `(0, 1)`, written out once per request -- nine sites.
+    It is a parameter now because an app package needs to bid higher: P4Runtime identifies the
+    sender of a unary RPC by the (device_id, role, election_id) in the MESSAGE rather than by the
+    connection it arrived on, so anything else presenting the same `(0, 1)` is accepted as
+    primary and its SetForwardingPipelineConfig wipes every table (measured 2026-08-13).
+
+    🔴 A site that kept its literal would be invisible: every other test in this file passes
+    whatever number is on the wire, bmv2 accepts `(0, 1)` from the proxy today, and the failure
+    only appears when a third-party controller is attached. So each request type is asserted
+    separately -- one test per site, not one loop that stops at the first.
+    """
+
+    BID = (7, 65535)
+
+    def test_the_arbitration_bid_carries_both_halves_of_this_clients_election_id(self):
+        client = a_bidding_client(self.BID)
+        client.arbitration = True
+        client.stream = None
+        client.stub = RecordingStub()
+        # start() is what puts the arbitration message on the queue; run only that part of it by
+        # driving the same code with a stream factory that returns an exhausted iterator.
+        client.stub.StreamChannel = lambda _it: iter(())
+        client.start(push_config=False)
+        req = client.stream_out_q.get_nowait()
+        self.assertEqual(req.arbitration.device_id, client.device_id)
+        self.assertEqual((req.arbitration.election_id.high, req.arbitration.election_id.low),
+                         self.BID)
+        # No stop(): this client has no channel (a_client builds none), and what is under test
+        # is the bytes of the bid, not the teardown.
+        client.is_running = False
+
+    def test_a_pipeline_push_carries_this_clients_election_id(self):
+        stub = RecordingStub()
+        client = a_bidding_client(self.BID, stub)
+        client.json_path = __file__  # any readable file; the bytes are not inspected here
+        client.table_generation = None
+        client.pipeline_commits = 0
+        client.set_forwarding_pipeline_config()
+        req = stub.pipeline_pushes[-1]
+        self.assertEqual((req.election_id.high, req.election_id.low), self.BID)
+
+    def test_a_clone_session_write_carries_this_clients_election_id(self):
+        stub = RecordingStub()
+        a_bidding_client(self.BID, stub).write_clone_session()
+        for req in stub.requests:
+            self.assertEqual((req.election_id.high, req.election_id.low), self.BID)
+
+    def test_an_ipv4_route_insert_carries_this_clients_election_id(self):
+        stub = RecordingStub()
+        a_bidding_client(self.BID, stub).insert_ipv4_route("10.0.0.5", 32, "00:00:00:00:00:05", 4)
+        req = stub.requests[-1]
+        self.assertEqual((req.election_id.high, req.election_id.low), self.BID)
+
+    def test_an_ipv4_route_delete_carries_this_clients_election_id(self):
+        stub = RecordingStub()
+        a_bidding_client(self.BID, stub).delete_ipv4_route("10.0.0.5", 32)
+        req = stub.requests[-1]
+        self.assertEqual((req.election_id.high, req.election_id.low), self.BID)
+
+    def test_an_ipv4_route_modify_carries_this_clients_election_id(self):
+        stub = RecordingStub()
+        a_bidding_client(self.BID, stub).modify_ipv4_route("10.0.0.5", 32, "00:00:00:00:00:05", 4)
+        req = stub.requests[-1]
+        self.assertEqual((req.election_id.high, req.election_id.low), self.BID)
+
+    def test_a_five_tuple_insert_carries_this_clients_election_id(self):
+        stub = RecordingStub()
+        client = a_bidding_client(self.BID, stub)
+        client.insert_5tuple_rule({"hdr.ipv4.dstAddr": "10.0.0.5"}, 101,
+                                  "00:00:00:00:00:05", 4)
+        req = stub.requests[-1]
+        self.assertEqual((req.election_id.high, req.election_id.low), self.BID)
+
+    def test_a_five_tuple_modify_carries_this_clients_election_id(self):
+        stub = RecordingStub()
+        client = a_bidding_client(self.BID, stub)
+        client.modify_5tuple_rule({"hdr.ipv4.dstAddr": "10.0.0.5"}, 101,
+                                  "00:00:00:00:00:05", 4)
+        req = stub.requests[-1]
+        self.assertEqual((req.election_id.high, req.election_id.low), self.BID)
+
+    def test_a_five_tuple_delete_carries_this_clients_election_id(self):
+        stub = RecordingStub()
+        client = a_bidding_client(self.BID, stub)
+        client.delete_5tuple_rule({"hdr.ipv4.dstAddr": "10.0.0.5"}, 101)
+        req = stub.requests[-1]
+        self.assertEqual((req.election_id.high, req.election_id.low), self.BID)
+
+    def test_the_default_is_still_the_literal_zero_one_the_fabric_has_always_bid(self):
+        stub = RecordingStub()
+        a_client(stub).insert_ipv4_route("10.0.0.5", 32, "00:00:00:00:00:05", 4)
+        req = stub.requests[-1]
+        self.assertEqual((req.election_id.high, req.election_id.low), (0, 1))
+        self.assertEqual(p4_client_module.DEFAULT_ELECTION_ID, (0, 1))
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class AReadOnlyClientTest(unittest.TestCase):
+    """
+    [Co-developed with claude code -- Adam]
+
+    `arbitration=False` is what the proxy builds under an `external` app package: the exercise's
+    own controller is the primary, and this object is an observer. Every write raises rather than
+    returning False, because the write callers treat False as "retry on the next pass" and this
+    condition lasts for the life of the run -- a retry loop spinning silently on it is how the
+    problem would be found from a packet capture instead of from a message.
+    """
+
+    def read_only(self, stub=None):
+        client = a_client(stub)
+        client.arbitration = False
+        return client
+
+    def test_it_opens_no_stream_and_starts_no_receiver_thread(self):
+        client = self.read_only()
+        client.stub.StreamChannel = lambda _it: self.fail("a stream was opened")
+        client.start(push_config=True)
+        self.assertIsNone(client.stream_recv_thread)
+        self.assertTrue(client.stream_out_q.empty(),
+                        "an arbitration bid was queued; bidding at all takes mastership away "
+                        "from the controller the exercise is running")
+
+    def test_it_never_reports_a_live_stream(self):
+        # There is no stream, so `stream_alive` has to say so: the liveness report on
+        # GET /p4/switch_state carries this flag, and a client claiming a live stream it never
+        # opened would make an external fabric look like one whose beacons had merely stopped.
+        # (`mastership_confirmed` is asserted on a client built through the real __init__ --
+        # tests/test_app_package_proxy.py -- because this fixture bypasses it.)
+        client = self.read_only()
+        client.start(push_config=True)
+        self.assertFalse(client.stream_alive)
+
+    def test_an_external_client_refuses_a_pipeline_push(self):
+        # 🔴 The one that matters most: this call empties every table on the switch.
+        client = self.read_only()
+        client.json_path = __file__
+        with self.assertRaises(p4_client_module.ControlPlaneReadOnly) as caught:
+            client.set_forwarding_pipeline_config()
+        self.assertIn("external control plane", str(caught.exception))
+        self.assertIn(str(client.device_id), str(caught.exception))
+
+    def test_an_external_client_refuses_a_clone_session(self):
+        with self.assertRaises(p4_client_module.ControlPlaneReadOnly):
+            self.read_only().write_clone_session()
+
+    def test_an_external_client_refuses_a_packet_out(self):
+        # The LLDP beacon: frames this proxy would put on somebody else's fabric.
+        with self.assertRaises(p4_client_module.ControlPlaneReadOnly):
+            self.read_only().send_packet_out(1, b"payload")
+
+    def test_an_external_client_refuses_every_table_write(self):
+        for label, call in (
+                ("insert_ipv4_route",
+                 lambda c: c.insert_ipv4_route("10.0.0.5", 32, "00:00:00:00:00:05", 4)),
+                ("delete_ipv4_route", lambda c: c.delete_ipv4_route("10.0.0.5", 32)),
+                ("modify_ipv4_route",
+                 lambda c: c.modify_ipv4_route("10.0.0.5", 32, "00:00:00:00:00:05", 4)),
+                ("insert_5tuple_rule",
+                 lambda c: c.insert_5tuple_rule({"hdr.ipv4.dstAddr": "10.0.0.5"}, 101,
+                                                "00:00:00:00:00:05", 4)),
+                ("modify_5tuple_rule",
+                 lambda c: c.modify_5tuple_rule({"hdr.ipv4.dstAddr": "10.0.0.5"}, 101,
+                                                "00:00:00:00:00:05", 4)),
+                ("delete_5tuple_rule",
+                 lambda c: c.delete_5tuple_rule({"hdr.ipv4.dstAddr": "10.0.0.5"}, 101)),
+        ):
+            with self.subTest(method=label):
+                stub = RecordingStub()
+                with self.assertRaises(p4_client_module.ControlPlaneReadOnly):
+                    call(self.read_only(stub))
+                self.assertEqual(stub.requests, [],
+                                 f"{label} reached the wire before refusing")
+
+    def test_a_refusal_is_not_a_grpc_error_so_no_write_path_can_swallow_it_as_one(self):
+        # `except grpc.RpcError: return False` is the shape every write path here already has.
+        # A refusal caught by one of those would be reported as a switch-side failure and
+        # retried forever.
+        self.assertFalse(issubclass(p4_client_module.ControlPlaneReadOnly, grpc.RpcError))
+        self.assertTrue(issubclass(p4_client_module.ControlPlaneReadOnly, RuntimeError))
+
+    def test_reads_are_untouched_because_they_need_no_election_id(self):
+        # probe() is the one the liveness poller runs once every two seconds; it is a unary
+        # GetForwardingPipelineConfig with COOKIE_ONLY and carries no election id at all.
+        client = self.read_only()
+        self.assertEqual(client.probe()["ok"], True)
+
+    def test_a_writing_client_is_unaffected(self):
+        # The negative half: the guard fires on the flag, not on some incidental property of the
+        # fixture. Without this, deleting `arbitration` entirely would leave the suite green.
+        stub = RecordingStub()
+        self.assertIs(a_client(stub).insert_ipv4_route("10.0.0.5", 32, "00:00:00:00:00:05", 4),
+                      True)
 
 
 if __name__ == "__main__":

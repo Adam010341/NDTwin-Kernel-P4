@@ -192,6 +192,14 @@ def a_client(stub=None, device_id=1, clock=None, json_path=None):
     # The row count of the last table read -- `rules_total` on GET /p4/switch_state, the
     # denominator the record above is reported against. Same starting value __init__ sets.
     client._last_table_read = None
+    # [Co-developed with claude code -- Adam]
+    # Who this client bids as, and whether it may write at all. Assigned here rather than
+    # defaulted on the class for the reason the `rule_install_times` line above gives: a
+    # hand-built double that has stopped standing in for the real object should fail with
+    # AttributeError, not quietly inherit a permissive default. `(0, 1)` and True are what
+    # __init__ sets for a fabric with no app package.
+    client.election_id = (0, 1)
+    client.arbitration = True
     return client
 
 

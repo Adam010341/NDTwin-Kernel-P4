@@ -12,6 +12,12 @@ from proxy_agent.kernel_notifier import KernelNotifier
 from proxy_agent.rule_journal import RuleJournal
 from proxy_agent import api_routes
 from proxy_agent import kernel_notifier
+# Decides, at import, which app package this process serves, and prints it. Imported before the
+# host table below because the host table is built from the package's topology model.
+# [Co-developed with claude code -- Adam]
+from proxy_agent import profile
+import app_package  # noqa: E402 -- profile put mininet/ on sys.path
+import topo_from_json  # noqa: E402
 
 app = FastAPI(title="P4 Proxy Agent", description="Ryu compatible API for BMv2")
 
@@ -89,35 +95,69 @@ kernel = KernelNotifier()
 topo = TopologyManager(kernel_notifier=kernel, journal=journal)
 
 # Build the static topology (Matches MultiSwitchTopo)
-# Hosts
 #
-# This block was four hard-coded add_host calls for 10.0.0.1-4. That is why P4 had never
-# been measured at 128 hosts: the fabric builds fine (verified -- 10/10 bmv2 switches up,
-# twin sees 10 switches / 128 hosts / 288 edges), but the proxy only ever knew four hosts,
-# and at 128 the hard-coded switch/port were also WRONG -- h2 sits on s1 port 4 in that
+# [Co-developed with claude code -- Adam]
+# This block was four hard-coded add_host calls for 10.0.0.1-4, then a "quarters" formula
+# (`1 + (i-1)//(N//4)`, ports from 3) that reproduced them at any multiple of four. That is why
+# P4 had never been measured at 128 hosts: the fabric builds fine (verified -- 10/10 bmv2
+# switches up, twin sees 10 switches / 128 hosts / 288 edges), but the proxy only ever knew four
+# hosts, and at 128 the hard-coded switch/port were also WRONG -- h2 sits on s1 port 4 in that
 # layout, not s2 port 3 -- so even the hosts it did know were unreachable.
 #
-# Derived from the same quarters rule p4_testbed_topo.py uses, reading the same override
-# file, so the two cannot disagree. At the default of 4 this produces exactly the four
-# lines it replaces.
-_OVERRIDE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                         "mininet", "host_count_override")
-_HOST_NUM = 4
-if os.path.exists(_OVERRIDE):
-    with open(_OVERRIDE) as _fh:
-        for _line in _fh:
-            _line = _line.strip()
-            if _line and not _line.startswith("#"):
-                _HOST_NUM = int(_line)
-                break
-_PER_SWITCH = _HOST_NUM // 4
-for _i in range(1, _HOST_NUM + 1):
-    topo.add_host(
-        ip=f"10.0.0.{_i}",
-        mac=f"00:00:00:00:00:{_i:02x}",
-        switch_dpid=1 + (_i - 1) // _PER_SWITCH,
-        port=3 + (_i - 1) % _PER_SWITCH,
-    )
+# The formula is gone now too. It was the THIRD statement of a layout the kernel's topology model
+# already states exactly, and it could only ever describe a fabric whose hosts divide evenly over
+# s1-s4 -- pod-topo's four hosts sit on four different switches in four different /24s, so the
+# formula would have attached every one of them to the wrong port while reporting nothing.
+# `tools/test_workflow/test_topo_from_json.py` asserts that what the model produces here is
+# element-for-element what the formula produced, at 4 hosts and at 128.
+
+
+def load_fabric_model(package=None, host_count=None):
+    """The topology model this proxy describes: the package's, or the one the host count picks.
+
+    Same decision the Mininet side makes (p4_testbed_topo.fabric_model), through the same two
+    functions, because a proxy and a fabric that chose different models is the 2026-08-21 defect
+    -- routes computed for 128 hosts on a 4-host fabric, every topology view reading correct.
+    """
+    package = profile.current() if package is None else package
+    if host_count is None:
+        host_count = topo_from_json.host_count_override()
+    return topo_from_json.load(app_package.topology_path(package, host_count))
+
+
+def build_host_table(topo, model, package=None):
+    """Tell `topo` where every host in `model` plugs in. Returns what it added, for tests.
+
+    Injectable rather than inline so the equivalence with the formula it replaces is assertable
+    without a TopologyManager, a model file or an import of this module's globals.
+    """
+    package = profile.current() if package is None else package
+    attach = {name: (dpid, port) for name, dpid, port in topo_from_json.host_links(model)}
+    added = []
+    for name, ip, mac in topo_from_json.hosts(model):
+        where = attach.get(name)
+        if where is None:
+            # Refused, not skipped. A host in the model with no access link is a host the proxy
+            # would compute paths *to* and never be able to program a route for, and the symptom
+            # is an empty path rather than an error. topo_from_json.host_links raises for a host
+            # attached twice; this is the other half of that check.
+            raise topo_from_json.TopologyModelError(
+                f"host {name} ({ip}) has no access link in the topology model; the proxy would "
+                f"route to it and never be able to install the rule")
+        dpid, port = where
+        mac_str = topo_from_json.mac_str(mac, name)
+        topo.add_host(ip=ip, mac=mac_str, switch_dpid=dpid, port=port)
+        added.append((ip, mac_str, dpid, port))
+    return added
+
+
+def switch_dpids(model):
+    """The dpids this proxy expects, from the model. `(1, ..., 10)` for both baseline models."""
+    return tuple(dpid for dpid, _name in topo_from_json.switches(model))
+
+
+MODEL = load_fabric_model()
+build_host_table(topo, MODEL)
 
 # Links will be discovered dynamically via LLDP
 
@@ -148,10 +188,14 @@ sflow = SFlowEmitter(batch_size=int(os.environ.get("NDTWIN_SFLOW_BATCH", "1")))
 #: message before it has finished electing, and a config push in that window is rejected.
 MASTERSHIP_SETTLE_S = 1.0
 
-#: The switches this proxy expects, and how their gRPC ports are numbered. Still hardcoded --
-#: deriving them from the topology JSON is Phase 3 work. Named constants so a test can drive
-#: `startup` over two fake switches without pretending there are ten.
-DEFAULT_SWITCH_DPIDS = tuple(range(1, 11))
+#: The switches this proxy expects, and how their gRPC ports are numbered. Derived from the
+#: topology model rather than written as `range(1, 11)`: that literal was one of four copies of
+#: "this fabric has ten switches" and the only one the proxy owned, so a fabric built from a
+#: model with a different switch count left the proxy dialling ports nothing listens on and
+#: ignoring switches that were up. Both 10-switch models produce (1, ..., 10), which
+#: tests/test_app_package.py asserts. Named so a test can drive `startup` over two fake switches
+#: without pretending there are ten. [Co-developed with claude code -- Adam]
+DEFAULT_SWITCH_DPIDS = switch_dpids(MODEL)
 
 # [Co-developed with claude code -- Adam]
 # Imported, not written again. This was `DEFAULT_GRPC_PORT_BASE = 50050`, a second copy of the
@@ -167,7 +211,7 @@ from grpc_ports import GRPC_PORT_BASE  # noqa: E402
 DEFAULT_GRPC_PORT_BASE = GRPC_PORT_BASE
 
 
-def build_p4_client(dpid, port_base=DEFAULT_GRPC_PORT_BASE):
+def build_p4_client(dpid, port_base=DEFAULT_GRPC_PORT_BASE, package=None):
     """
     Construct (but do not start) the client for one switch.
 
@@ -177,13 +221,24 @@ def build_p4_client(dpid, port_base=DEFAULT_GRPC_PORT_BASE):
     this is the single place that knows how a dpid becomes an address and a pair of artifact
     paths. Unstarted on purpose -- readopt owns its own start/settle/push sequence, and
     build_p4_clients starts its batch itself.
+
+    The artefact paths and the election id now come from the app package. Without one that is
+    `p4_src/build/ndtwin_switch.{p4info.txt,json}` and `(0, 1)` -- the two literals this call
+    used to spell out -- so a baseline fabric builds the identical client.
     """
+    package = profile.current() if package is None else package
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    p4info_path, json_path = package.pipeline_for(dpid, base_dir)
     return P4RuntimeClient(
         device_id=dpid,
         grpc_addr=f'localhost:{port_base + dpid}',
-        p4info_path=os.path.join(base_dir, 'p4_src', 'build', 'ndtwin_switch.p4info.txt'),
-        json_path=os.path.join(base_dir, 'p4_src', 'build', 'ndtwin_switch.json')
+        p4info_path=p4info_path,
+        json_path=json_path,
+        election_id=package.election_id,
+        # 🔴 `external` means the exercise brought its own controller. This client then opens no
+        # arbitration stream and refuses every write -- see P4RuntimeClient and startup() for
+        # what that switches off and where it is disclosed.
+        arbitration=package.arbitration,
     )
 
 
@@ -218,9 +273,62 @@ api_routes.inject_readopt(build_p4_client, sflow.handle_sample)
 api_routes.inject_emitter(sflow)
 
 
+# --- what this proxy is not doing, and why. [Co-developed with claude code -- Adam] ---------
+#
+# 🔴 SKIPPING IS NOT SILENCE. Under `control_plane.mode: external` the proxy deliberately does
+# not push a pipeline, does not program a clone session, does not beacon LLDP, does not watch
+# links and does not install routes -- every one of which is a thing the twin normally reports
+# on. A switch with no telemetry reports zero samples; a fabric with no LLDP reports no links; a
+# fabric with no routes reports empty paths. All three of those look EXACTLY like a fault, which
+# is GAP-ANALYSIS section 5's "reports zero rather than reporting an error". So each skipped step
+# is named here, returned by startup(), and served on `GET /p4/switch_state`.
+#
+#: The step names startup() reports. Written down rather than built from strings at the call
+#: sites so that a step which stops being skipped, or starts being, changes this list too.
+SKIP_PIPELINE = "pipeline_push"
+SKIP_CLONE = "clone_session"
+SKIP_TELEMETRY = "sflow_telemetry"
+SKIP_LLDP = "lldp_discovery"
+SKIP_WATCHDOG = "link_watchdog"
+SKIP_ROUTES = "install_initial_routes"
+
+#: Everything `external` turns off, in the order startup() would have done it.
+EXTERNAL_SKIPS = (SKIP_PIPELINE, SKIP_CLONE, SKIP_TELEMETRY, SKIP_LLDP, SKIP_WATCHDOG,
+                  SKIP_ROUTES)
+
+#: The live control-plane report, served on `GET /p4/switch_state`. `skipped` is None until
+#: startup() has run, and that is not the same statement as `[]`: "nothing was skipped" and
+#: "nobody has started yet" are the two answers this disclosure exists to keep apart.
+_control_plane = {"mode": profile.current().mode, "package": profile.current().dir,
+                  "skipped": None}
+
+
+def control_plane_report():
+    """What the proxy is and is not doing to this fabric. A copy, so a reader cannot edit it."""
+    return dict(_control_plane)
+
+
+def _record_control_plane(package, skipped):
+    _control_plane.update({"mode": package.mode, "package": package.dir,
+                           "skipped": sorted(skipped)})
+    return control_plane_report()
+
+
+def entries_recorded_report():
+    """{dpid as string: entries the package declares}. Phase 1 applies none of them."""
+    return profile.current().entries_recorded()
+
+
+# Wired the same way the topology and the readopt factory are, and at the same point: the
+# endpoint has to be able to answer before startup() finishes, because the kernel begins polling
+# it the moment the port is open. [Co-developed with claude code -- Adam]
+api_routes.inject_control_plane(control_plane_report, entries_recorded_report)
+
+
 async def startup(clients_factory, sflow, kernel, topo,
                   *, settle_seconds=MASTERSHIP_SETTLE_S,
-                  agent_ips_loader=load_switch_agent_ips):
+                  agent_ips_loader=load_switch_agent_ips,
+                  package=None):
     """
     Bring the proxy up, and report what it actually claimed.
 
@@ -237,12 +345,39 @@ async def startup(clients_factory, sflow, kernel, topo,
     `broken`, `telemetry` and `entered` are deliberately three separate lists rather than one
     health flag: a switch can hold mastership, take a pipeline, and still have no telemetry, and
     that switch must appear in the graph. Collapsing them would hide the case.
+
+    A fourth key, `control_plane`, says which of the steps below ran at all. Under an app package
+    in `external` mode most of them do not, and every one of them is a step whose absence looks
+    like a fault downstream -- see EXTERNAL_SKIPS.
     """
     print("[Proxy Agent] Starting up...")
+
+    package = profile.current() if package is None else package
+    read_only = package.read_only
+    skipped = list(EXTERNAL_SKIPS) if read_only else []
 
     clients = clients_factory()
     for dpid, client in clients.items():
         topo.add_switch(dpid, client)
+
+    if read_only:
+        # 🔴 The whole point of `external`: the exercise's own controller owns this fabric's
+        # tables. Two controllers on one bmv2 is not a degraded mode -- P4Runtime identifies the
+        # sender of a unary RPC by the election id in the message rather than by the connection
+        # it arrived on, so a second controller's SetForwardingPipelineConfig is ACCEPTED and
+        # wipes every table the first one installed (measured 2026-08-13, p4_client.py:60-74).
+        #
+        # Announced in full, because every step below is a capability the twin normally has and
+        # does not have now. The branches that skip them are marked `not read_only` one by one
+        # rather than by returning early from here: the kernel-acknowledgement block below owns
+        # a background retry that matters just as much on this fabric (stack.sh starts the
+        # kernel AFTER the proxy, so the first push always lands on a closed port), and an early
+        # return is how that kind of thing gets quietly dropped from the second code path.
+        print(f"[Proxy Agent] app package {package.name} declares an EXTERNAL control plane: "
+              f"this proxy will not push pipelines, program clone sessions, send LLDP beacons, "
+              f"watch links or install routes on any of the {len(clients)} switches it "
+              f"connected to. It reads only. Skipped: {', '.join(sorted(skipped))}. "
+              f"Reported on GET /p4/switch_state.")
 
     # Wait ONCE for mastership to be confirmed on all switches.
     # asyncio.sleep, not time.sleep: this coroutine runs on the event loop, and a blocking sleep
@@ -266,7 +401,7 @@ async def startup(clients_factory, sflow, kernel, topo,
     # against a dead switch and the failure surfaces here, or asynchronously in the stream receiver.
     broken = set()
     for i, client in clients.items():
-        if not client.json_path:
+        if read_only or not client.json_path:
             continue
         try:
             client.set_forwarding_pipeline_config()
@@ -291,9 +426,15 @@ async def startup(clients_factory, sflow, kernel, topo,
     # Must come after the pipeline is pushed: the clone session lives in the pipeline's PRE, so
     # programming it earlier would be discarded. start(push_config=False) above is why this is
     # not done inside start().
-    agent_ips = agent_ips_loader()
+    agent_ips = {} if read_only else agent_ips_loader()
     telemetry = []
     for i, client in clients.items():
+        if read_only:
+            # Not "telemetry failed" -- telemetry was never attempted. The clone session is a
+            # WRITE into the pipeline's PRE, and the pipeline belongs to somebody else's
+            # controller. Reported through `control_plane.skipped`, which is the only way a
+            # reader can tell this apart from a fabric whose sampling broke.
+            continue
         if i in broken:
             # The clone session lives in the pipeline's PRE, so there is nothing to program it into.
             # [Co-developed with claude code -- Adam]
@@ -354,35 +495,49 @@ async def startup(clients_factory, sflow, kernel, topo,
         ).start()
 
     # Start LLDP dynamic topology discovery
-    try:
-        topo.start_lldp_discovery()
-        print("[Proxy Agent] Started LLDP Discovery...")
-    except Exception as e:
-        print(f"[Proxy Agent] Failed to start LLDP discovery: {e}")
+    #
+    # Skipped under an external control plane: discovery works by sending packet-outs and
+    # reading the packet-ins they cause, and both ride the arbitration stream this client did
+    # not open. It would also be a write. The consequence -- no discovered links, so
+    # `install_initial_routes` is never reached either (its only automatic callers are this and
+    # the watchdog below) -- is exactly why both appear in `control_plane.skipped`.
+    if not read_only:
+        try:
+            topo.start_lldp_discovery()
+            print("[Proxy Agent] Started LLDP Discovery...")
+        except Exception as e:
+            print(f"[Proxy Agent] Failed to start LLDP discovery: {e}")
 
     # [Co-developed with claude code -- Adam]
     # The other half of LLDP: beacons that stop arriving are how a link failure is detected, and
     # until this existed only the discovery direction was wired. A link that went down stayed up
     # in the twin forever.
-    try:
-        # seed_expected=True enters every link the topology file declares, so one that was already
-        # broken when this process started is reported rather than merely never discovered. The
-        # kernel graph is correct either way -- an undiscovered edge is never enabled -- but
-        # without seeding nothing says *which* link is missing, and "38/40 edges" is a puzzle
-        # rather than a diagnosis.
-        #
-        # Safe to enable as of 2026-08-10: the receive-side port assumption it rests on was
-        # verified live on ten bmv2 switches (32/32 statically, 16/16 observed ingress ports).
-        # The startup grace is 30 s against a measured discovery time of ~2 s.
-        #
-        # ⚠️ That verification is specific to this topology file plus p4_testbed_topo.py. A
-        # topology declaring links Mininet does not wire would report them down forever.
-        # [Co-developed with claude code -- Adam]
-        topo.start_link_watchdog(seed_expected=True)
-        print("[Proxy Agent] Started LLDP link watchdog...")
-    except Exception as e:
-        print(f"[Proxy Agent] Failed to start link watchdog: {e}; link failures will not be "
-              f"reported and the graph will keep showing failed links as up")
+    #
+    # Skipped under an external control plane for the same reason discovery is: the beacons it
+    # waits for are packet-outs this proxy is not allowed to send, so every link would be
+    # reported down within the timeout -- a fabric-wide false alarm, which is worse than the
+    # absence it replaces. Named in `control_plane.skipped` so "no link failures reported" is
+    # not read as "no link failures".
+    if not read_only:
+        try:
+            # seed_expected=True enters every link the topology file declares, so one that was
+            # already broken when this process started is reported rather than merely never
+            # discovered. The kernel graph is correct either way -- an undiscovered edge is never
+            # enabled -- but without seeding nothing says *which* link is missing, and
+            # "38/40 edges" is a puzzle rather than a diagnosis.
+            #
+            # Safe to enable as of 2026-08-10: the receive-side port assumption it rests on was
+            # verified live on ten bmv2 switches (32/32 statically, 16/16 observed ingress ports).
+            # The startup grace is 30 s against a measured discovery time of ~2 s.
+            #
+            # ⚠️ That verification is specific to this topology file plus p4_testbed_topo.py. A
+            # topology declaring links Mininet does not wire would report them down forever.
+            # [Co-developed with claude code -- Adam]
+            topo.start_link_watchdog(seed_expected=True)
+            print("[Proxy Agent] Started LLDP link watchdog...")
+        except Exception as e:
+            print(f"[Proxy Agent] Failed to start link watchdog: {e}; link failures will not be "
+                  f"reported and the graph will keep showing failed links as up")
 
     # [Co-developed with claude code -- Adam]
     # Feeds GET /p4/switch_state, which the kernel's pingWorker reads once a second. Without it
@@ -402,6 +557,10 @@ async def startup(clients_factory, sflow, kernel, topo,
         "telemetry": telemetry,
         "entered": entered,
         "not_entered": not_entered,
+        # What this proxy did NOT do to the fabric, recorded where `GET /p4/switch_state` can
+        # serve it. `[]` here means every step ran -- which is the baseline fabric's answer, and
+        # is a different statement from the `null` the endpoint serves before startup has run.
+        "control_plane": _record_control_plane(package, skipped),
     }
 
 
