@@ -1,9 +1,13 @@
 # M7 — `source_routing` 逐步表與每步預期輸出
 
-Adam 15:2x 裁定的順序第一支。**本檔一個封包都沒送過。**
+Adam 15:2x 裁定的順序第一支。**09-04 撰寫時一個封包都沒送；2026-09-08 17:24 已由
+`drive_exercise.py` 非互動實跑 solution 與 skeleton 各一次，結果見 [`runs/`](runs/)**
+（solution **PASS 5/5**、skeleton **PASS 2/2**；switch `/usr/local/bin/simple_switch_grpc`
+sha `327fa7d172217397`、`p4c-bm2-ss` sha `226f3f66df515c9e`）。
+🔑 **那四次跑的是 exercise 本身，不是 NDTwin**——**13 支在 NDTwin fabric 上跑過的仍是 0 支**。
 每一條預期輸出都標了來源，三種**不可互換**：
 
-- 【實測】＝我在這台機器上真的跑出來的（時間 2026-09-04 14:0x–15:4x）
+- 【實測】＝我在這台機器上真的跑出來的（時間 2026-09-04 14:0x–15:4x，另加 2026-09-08 17:24 的四次 `drive_exercise.py`）
 - 【源碼推導】＝我讀 `.p4`／`topology.json`／`send.py` 推出來的，**沒有執行**
 - 【README 宣稱】＝ exercise 自己的 README 這樣寫，**它本身也在受測**
 
@@ -91,18 +95,25 @@ Source routing：**由來源主機決定整條路徑**。h1 把一疊「出埠�
 | | | | 🔑 後兩個警告**就是** Step 1 的意義：那兩個 action 沒有任何呼叫者，因為 `apply` 裡的 TODO 還沒填。**這一條不用 root 就驗得到** | 【實測】 |
 | 1.2 | **Adam** | 同一行加 `--go` | mininet 起來，印 `s1 -> gRPC port: 50051` … `s3 -> Thrift port: 9092`，最後停在 `mininet>` | 【源碼推導：`run_exercise.py:41,55`；未執行】 |
 | | | | ⚠️ **若 9090 還被佔著，s1 這裡就會失敗** | 【實測：9090 有人佔】 |
+| | | | 🔴 **2026-09-08 更正：Thrift port 那三行不會出現，這一列的預期寫錯了。** `run_exercise.py:33-55` 的 `configureP4Switch` 是 **if／else**：`sw_path` 含 `grpc`（我們用 `simple_switch_grpc`）就只裝 gRPC 版的 `describe()`（`:40-41`），Thrift 版的 `describe()`（`:54-55`）只給非 grpc 的 binary——09-04 把兩個分支當成都會印。09-08 實跑印的就是 `s1/s2/s3 -> gRPC port: 50051/50052/50053` 三行（driver 呼叫的是同一個 `describe()`，`--go` 路徑也會一樣）。仍未執行的只剩 `mininet>` 互動提示本身 | 【實測：09-08 transcript】＋【源碼：`run_exercise.py:33`】 |
 | 1.3 | Adam | `mininet> net` | 三台交換機、三台主機，連線與 §2 的表一致 | 【源碼推導】 |
 | 1.4 | Adam | `mininet> xterm h1 h2` | 兩個 xterm | 【README 宣稱】 |
-| 1.5 | h2 的 xterm | `source /home/adam/p4dev-python-venv/bin/activate`<br>`./receive.py` | `sniffing on eth0`，然後**一直沒有輸出** | 【源碼推導】 |
+| 1.5 | h2 的 xterm | `source /home/adam/p4dev-python-venv/bin/activate`<br>`./receive.py` | `sniffing on eth0`，然後**一直沒有輸出** | 【源碼推導】（09-08 實測相符：`logs/driver-h2-receive.log` 只有 17 B，就是那一行） |
 | | | | 🔴 **不 activate 就會 `ModuleNotFoundError: No module named 'scapy'`**——shebang 是 `#!/usr/bin/env python3`，抓到的是 conda 那顆 | 【實測】 |
-| 1.6 | h1 的 xterm | `source …/activate`<br>`./send.py 10.0.2.2` | `sending on interface h1-eth0 to 10.0.2.2`，然後提示 `Type space separated port nums (example: "2 3 2 2 1") or "q" to quit:` | 【源碼推導：`send.py:47,55`】 |
-| 1.7 | h1 的 xterm | 輸入 `2 3 2 2 1` | `pkt.show2()` 印出 `Ether(type=0x1234)` ＋ **5 層 `SourceRoute`**（前 4 層 `bos=0`，第 5 層 `bos=1`，port 依序 2/3/2/2/1）＋ `IP(ttl=64, dst=10.0.2.2)` ＋ `UDP(sport=1234, dport=4321)` | 【源碼推導：`send.py:60-80`】 |
-| 1.8 | h2 的 xterm | 看 | 🔑 **什麼都沒有。這就是 Step 1 的正確結果。** | 【README 宣稱】＋【源碼推導】 |
-| 1.9 | 任何人 | `less exercises/source_routing/logs/s1.log` | 應看到封包進來、`hdr.srcRoutes[0]` 無效、走 `drop()`／`Dropping packet` 一類的 trace | 【README 宣稱】。⚠️ **確切字串我沒有觀察過，不要照抄成預期值**——要驗的是「有進來、且被丟掉」，不是某一行字 |
+| 1.6 | h1 的 xterm | `source …/activate`<br>`./send.py 10.0.2.2` | `sending on interface eth0 to 10.0.2.2`，然後提示 `Type space separated port nums (example: "2 3 2 2 1") or "q" to quit:` | 【源碼推導：`send.py:47,55`】（09-08 實測相符） |
+| | | | 🔴 **2026-09-08 更正**：這裡原本寫 `h1-eth0`，**錯的**——`p4_mininet.py:21` 的 `P4Host.config` 把 defaultIntf 改名成 `eth0`，`send.py` 印出來的是 `eth0` | 【實測：09-08 四次 transcript 都是 `eth0`】 |
+| 1.7 | h1 的 xterm | 輸入 `2 3 2 2 1` | `pkt.show2()` 印出 `Ether(type=0x1234)` ＋ **5 層 `SourceRoute`**（前 4 層 `bos=0`，第 5 層 `bos=1`，port 依序 2/3/2/2/1）＋ `IP(ttl=64, dst=10.0.2.2)` ＋ `UDP(sport=1234, dport=4321)` | 【源碼推導：`send.py:60-80`】（09-08 實測相符，逐欄對上） |
+| 1.8 | h2 的 xterm | 看 | 🔑 **什麼都沒有。這就是 Step 1 的正確結果。** | 【README 宣稱】＋【源碼推導】（09-08 實測相符：h2 收 **0** 包） |
+| 1.9 | 任何人 | `less exercises/source_routing/logs/s1.log` | 應看到封包進來、`hdr.srcRoutes[0]` 無效、走 `drop()`／`Dropping packet` 一類的 trace | 【README 宣稱】。⚠️ 09-04 寫這一列時**確切字串我沒有觀察過**，不要照抄成預期值——要驗的是「有進來、且被丟掉」，不是某一行字 |
+| | | | ✅ **2026-09-08 實測**：那一輪的 `~/tutorials/exercises/source_routing/logs/s1.log`（159371 B）裡有 **91 行** `Dropping packet at the end of ingress` | 【實測】。⚠️ 行數與拓樸／重試次數有關，**不要當成固定期望值**；期望仍是「有進來、且被丟掉」 |
 | 1.10 | Adam | `mininet> exit` | 回到 shell | 【README 宣稱】 |
 
 **Step 1 的判定**：起得來 ✅、h2 收不到 ✅、s1.log 顯示丟棄 ✅ ⇒ 通過。
 **若 h2 收得到，那是重大異常**（骨架不該轉發任何東西）。
+✅ **2026-09-08 實跑**（`runs/2026-09-08T092437Z_source_routing_skeleton.md`，`drive_exercise.py`，euid 0）：
+三台交換機都起來、`send.py` 送出 **2** 個 `type = 0x1234` 的 frame、**h2 收到 0 包**、
+`logs/s1.log` 有 **91 行** `Dropping packet at the end of ingress`
+（json 12410 B／`e6816123c89b51a8`，四個 unused 警告如 1.1）⇒ **PASS 2/2，判定成立**。
 
 ---
 
@@ -124,13 +135,18 @@ README 的 Step 2 是要人填 `TODO`。**我們測的是 exercise 本身，不�
 | 3.1 | 任何人 | `bash …/run_exercise.sh source_routing solution` | **只有 1 個警告**（`egressSpec_t` unused）；`build/source_routing.json` **19572 B**、`sha256 58f74ed1d535c77e` | 【實測】 |
 | | | | 🔑 **警告從 4 個掉到 1 個**，掉的正是 `srcRoute_nhop`／`srcRoute_finish`／`TYPE_SRCROUTING` ⇒ 它們現在有呼叫者了。**這是不用 root 的第二個判別點** | 【實測】 |
 | 3.2 | Adam | 加 `--go`，重複 1.2–1.7 | 同上 | |
-| 3.3 | h2 的 xterm | 看 | `got a packet`，接著 `pkt.show2()` | 【源碼推導：`receive.py:35-37`】 |
-| 3.4 | h2 的 xterm | 讀那個 `show2()` | **`Ether type=0x0800`（不是 0x1234）**、**沒有任何 `SourceRoute` 層**、`IP ttl=59`、`UDP sport=1234 dport=4321` | 【源碼推導】＋ ttl 這項與【README 宣稱】一致 |
+| 3.3 | h2 的 xterm | 看 | `got a packet`，接著 `pkt.show2()` | 【源碼推導：`receive.py:35-37`】（09-08 實測相符：兩次 `got a packet`） |
+| 3.4 | h2 的 xterm | 讀那個 `show2()` | **scapy `show2()` 顯示 `type      = IPv4`**（**不是** `0x1234`）、**沒有任何 `SourceRoute` 層**、`IP ttl=59`、`UDP sport=1234 dport=4321` | 【源碼推導】＋ ttl 這項與【README 宣稱】一致（09-08 實測相符） |
+| | | | 🔴 **2026-09-08 更正**：這一格原本寫「`Ether type=0x0800`」，**當成字串比對會失敗**——scapy 的 `show2()` 對 0x800 印的是**名字** `IPv4`，只有 0x1234 這種它不認得的才印數字。**線上的值仍是 0x0800**，改的只是顯示形式 | 【實測：09-08 solution transcript】 |
 | | | | 為什麼沒有 SourceRoute 層：5 個項目被 5 跳各彈掉一個（`pop_front(1)`，`:116`），deparser 只 emit 還有效的（`:167`）⇒ 到 h2 時堆疊已空；而最後一跳 `srcRoute_finish()` 把 `etherType` 改回 `0x800`（`:120`），所以 scapy 也不會再當成 SourceRoute 解 | 【源碼推導】 |
-| 3.5 | h1 的 xterm | 輸入 `2 1` | h2 收到，**`ttl = 62`**（最短路徑，2 跳） | 【源碼推導】 |
+| 3.5 | h1 的 xterm | 輸入 `2 1` | h2 收到，**`ttl = 62`**（最短路徑，2 跳） | 【源碼推導】（09-08 實測相符） |
 | 3.6 | Adam | `mininet> exit` | — | |
 
-**Step 3 的判定**：`got a packet` ✅、`ttl == 59` ✅、無 SourceRoute 層且 `type=0x0800` ✅ ⇒ 通過。
+**Step 3 的判定**：`got a packet` ✅、`ttl == 59` ✅、無 SourceRoute 層且 scapy 顯示 `type = IPv4`（＝0x0800）✅ ⇒ 通過。
+✅ **2026-09-08 實跑**（`runs/2026-09-08T092422Z_source_routing_solution.md`，`drive_exercise.py`，euid 0）：
+**h2 收到 2 包**、ttl multiset **`[59, 62]`**（一個 `2 3 2 2 1`、一個 `2 1`，抵達順序不保證）、
+**0 個 SourceRoute 層**、兩包的 etherType 都顯示 `IPv4`
+（json 19572 B／`58f74ed1d535c77e`，只剩 `egressSpec_t` 一個警告如 3.1）⇒ **PASS 5/5，判定成立**。
 
 🔑 **`ttl` 是這支 exercise 最好的斷言**：它同時證明「有送到」與「**走的是我們指定的那條繞圈路徑**」。
 只看「h2 收到了」分不出 `2 3 2 2 1` 與 `2 1`——**59 與 62 才分得出**。
@@ -164,6 +180,11 @@ README 的 Step 2 是要人填 `TODO`。**我們測的是 exercise 本身，不�
 
 - **`--go` 一次都沒跑**，所以第 1.2–1.10 與 3.2–3.6 全部是【源碼推導】或【README 宣稱】。
   Adam 實跑之後，這份的每一列都應該被換成【實測】或被推翻。
+  - 🆕 **2026-09-08 17:24 更新**：`run_exercise.sh --go` 這條路徑**還是沒跑過**——實跑走的是
+    `drive_exercise.py`（非互動，見 `DRIVER.md`），Adam 以 root 跑了 solution／skeleton 各一次。
+    ⇒ **兩個 Step 的結果都驗到了**（1.5–1.9、3.3–3.5 已加註「09-08 實測相符」），
+    但**互動路徑（xterm、`mininet>` 提示、1.2–1.4／1.10／3.6）仍未執行**，維持原等級。
+    三處文件錯（1.6 的 `h1-eth0`、3.4 的 `0x0800` 顯示形式、1.9 的 drop 字串）已在該格就地更正。
 - 依裁定 3，今晚整機測試不含 tutorials ⇒ 這支不趕今晚。
 - 9090 依裁定照舊不動。
 - **下一支**：`basic` → `flowcache` → `p4runtime`。`flowcache` 的骨架**編不過**

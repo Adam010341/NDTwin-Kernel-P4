@@ -12,6 +12,12 @@ exercise（不是官網的 Tutorials 頁）；順序 **`source_routing` → `bas
 
 第一支 `source_routing` 的逐步表已交：**[`M7-source_routing.md`](M7-source_routing.md)**。
 
+🆕 **2026-09-08 17:24**：上面「一個封包都沒送」只描述 **09-04 那一輪**。Adam 以 root 用
+非互動的 [`drive_exercise.py`](DRIVER.md) 跑了 **四次**——`source_routing` 與 `basic` 各
+solution／skeleton 一次，**四次全 PASS**（5/5、2/2、5/5、4/4，exit 0），報告在 [`runs/`](runs/)。
+🔑 **那證明的是「exercise 的預期行為」與「driver 能用」，不是 NDTwin 能跑它們**——
+**在 NDTwin fabric 上仍是 0/13**（見 [`GAP-ANALYSIS.md`](GAP-ANALYSIS.md)）。
+
 [Co-developed with claude code -- Adam]
 
 ---
@@ -71,6 +77,13 @@ tutorials 的第一台交換機固定要 thrift **9090**（`utils/p4runtime_swit
 要跑之前請 Adam 自己收掉，或接受 s1 起不來。
 gRPC 那側 50051–50060 目前**全空**。
 
+🆕 **2026-09-08 更正——不要拿 pid 認它。** dashboard 一重啟 pid 就換一顆（09-04 的
+`1685271` 到 09-08 已經不是同一個），**上面那串 pid 只對 09-04 那一刻有效**。
+要認就認 **cmdline `python3 cli.py dashboard` ＋ cwd `/home/adam/claude-usage`** 這一組
+（`ss -tlnp` 拿到 pid 之後讀 `/proc/<pid>/cmdline` 與 `/proc/<pid>/cwd` 比對）。
+**09-08 17:24 那四次實跑之前，Adam 自己把它收掉了** ⇒ `drive_exercise.py` 的 pre-flight
+印 `OK ports 9090-9099 free`，s1 綁得上 thrift 9090。**這個 blocker 是「跑之前要處理」，不是「已消失」**。
+
 ---
 
 ## 2. 材料清單與狀態
@@ -82,8 +95,8 @@ gRPC 那側 50051–50060 目前**全空**。
 | M3 | 工具鏈身分（sha256 ＋ 版本字串） | ✅ **實跑** | 本文 §3 |
 | M4 | 每支 exercise 的拓樸／控制面／測試腳本盤點 | ✅ **實跑** | 本文 §4 |
 | M5 | 環境 pre-flight（可重跑） | ✅ **實跑** | `preflight.sh` |
-| M6 | 起動指令（繞過 B-1） | ⚠️ **寫好、dry-run 過；`--go` 一次都沒跑**。🔴 **第一版有 bug，已修**（見 §7） | `run_exercise.sh` |
-| M7 | 逐步表＋每步預期輸出 | ✅ **`source_routing` 已交**；`basic`／`flowcache`／`p4runtime` 待做 | [`M7-source_routing.md`](M7-source_routing.md) |
+| M6 | 起動指令（繞過 B-1） | ⚠️ `run_exercise.sh` 寫好、dry-run 過；**`--go` 一次都沒跑**。🔴 **第一版有 bug，已修**（見 §7）。🆕 **09-08 起改用非互動 `drive_exercise.py`**（見 [`DRIVER.md`](DRIVER.md)）：**四次實跑全過**（Adam 以 root，17:24） | `run_exercise.sh`、`drive_exercise.py` |
+| M7 | 逐步表＋每步預期輸出 | ✅ **`source_routing` 已交且 09-08 已實跑**（solution 5/5、skeleton 2/2）；**`basic`（pod-topo）09-08 也已實跑**（5/5、4/4；逐步表**還沒寫**，期望值目前只在 driver 裡）；`flowcache`／`p4runtime` 待做 | [`M7-source_routing.md`](M7-source_routing.md)、[`runs/`](runs/) |
 | M8 | 要對照的文件 | ✅ **已釐清**＝各 exercise 自己的 `README.md`（**它也在受測**），不是官網 Tutorials 頁 | 見 §6 |
 
 ---
@@ -161,8 +174,8 @@ Step 1 的預期不是「編譯失敗」，是「起得來但 ping 不通」。�
 
 | 順序 | exercise | 狀態 |
 |---|---|---|
-| 1 | **`source_routing`** | ✅ **已交** — [`M7-source_routing.md`](M7-source_routing.md) |
-| 2 | `basic` | ⏸ 待做。⚠️ 有**兩套拓樸**，要先定 `pod-topo` 還是 `triangle-topo` |
+| 1 | **`source_routing`** | ✅ **已交，且 09-08 已實跑**（solution PASS 5/5、skeleton PASS 2/2）— [`M7-source_routing.md`](M7-source_routing.md)、[`runs/`](runs/) |
+| 2 | `basic` | ⏸ 逐步表**待做**，但 **09-08 已實跑**（**`pod-topo`**：solution PASS 5/5、skeleton PASS 4/4）——期望值目前只寫在 `drive_exercise.py` 裡，還沒攤成逐步表。⚠️ 有**兩套拓樸**，`triangle-topo` **沒跑過** |
 | 3 | `flowcache` | ⏸ 待做。⚠️ **骨架編不過**（那正是它的第一項作業）⇒ Step 1 的預期跟其他支不同 |
 | 4 | `p4runtime` | ⏸ 待做。⚠️ 無 `*-runtime.json`、`solution/` 裡**沒有 `.p4`**，規則靠 `mycontroller.py` 灌 |
 
@@ -175,11 +188,11 @@ Step 1 的預期不是「編譯失敗」，是「起得來但 ping 不通」。�
 
 | 沒做的事 | 原因 |
 |---|---|
-| 跑任何一支 exercise（`make run` / `run_exercise.sh --go`） | 要互動式 sudo。NOPASSWD 只放行 `mnexec`／`ovs-vsctl`／`ifconfig`／`tc`／`ndtwin-lab`／`ndtwin-p4-power`，**不含 `mn`、`python3`** ⇒ 只有 Adam 能跑 |
+| ~~跑任何一支 exercise~~ ⇒ 🆕 **09-08 已跑 4 次（Adam 以 root，17:24）**：`source_routing`／`basic` × solution／skeleton，全 PASS，報告在 [`runs/`](runs/) | 09-04 的原因仍成立：要互動式 sudo。NOPASSWD 只放行 `mnexec`／`ovs-vsctl`／`ifconfig`／`tc`／`ndtwin-lab`／`ndtwin-p4-power`，**不含 `mn`、`python3`** ⇒ **只有 Adam 能跑**，這四次也是他跑的。`make run`／`run_exercise.sh --go` 這兩條路徑**仍未執行**（跑的是 `drive_exercise.py`）；其餘 11 支也**都還沒跑** |
 | `ndt up` | auditor 說 15:30 前不要動 lab（主 checkout 要重建）。**現在 lab `claim none`／`measuring nothing`，我沒有 claim** |
 | 任何 C++／kernel build | auditor 的建置鎖 |
 | 收掉佔住 9090 的行程 | 那是 Adam 的 dashboard，不是我的；而且守則禁止 `pkill -f` |
-| 改 `~/tutorials` 裡任何**被追蹤**的檔 | 它是對照組。🔴 **更正**：我原本宣稱「樹裡零寫入」——**做不到，而且那樣做會壞掉**。`run_exercise.py` 把 `sX-runtime.json` 與該檔裡的 `p4info`／`bmv2_json` **全部相對於 cwd 解析**（`run_exercise.py:274` 傳 `workdir=os.getcwd()`）⇒ **cwd 必須是 exercise 目錄，產物必須在它的 `build/`**。現在寫入僅限 `build/`／`logs/`／`pcaps/`，三個都在該樹的 `.gitignore`（用 `git check-ignore` 驗過），**被追蹤的內容零改動**（`git status` 前後相同，實測） |
+| 改 `~/tutorials` 裡任何**被追蹤**的檔 | 它是對照組。🔴 **更正**：我原本宣稱「樹裡零寫入」——**做不到，而且那樣做會壞掉**。`run_exercise.py` 把 `sX-runtime.json` 與該檔裡的 `p4info`／`bmv2_json` **全部相對於 cwd 解析**（`run_exercise.py:274` 傳 `workdir=os.getcwd()`）⇒ **cwd 必須是 exercise 目錄，產物必須在它的 `build/`**。現在寫入僅限 `build/`／`logs/`／`pcaps/`，**被追蹤的內容零改動**（`git status` 前後相同，實測；09-08 那四次跑前跑後也相同）。🆕 **2026-09-08 更正**：原本寫「三個都在該樹的 `.gitignore`」——**`pcaps/` 這個目錄不在**，`.gitignore:18` 收的是 `*.pcap`（檔），目錄本身沒被列。結論（`git status` 乾淨）不變，但那句話的依據要照這樣寫 |
 | 對照官網的 Tutorials 頁 | ✅ **已裁定不是那個**：這一輪的「tutorial exercise」＝ p4lang/tutorials 的 exercise。官網那兩頁（`TrafficEngineeringApp.md`／`EnergySavingApp.md`）是另一件事，A-12e 已實跑過 ⇒ **M8 的對照對象就是各 exercise 自己的 `README.md`**，而它本身也在受測（見 `M7-source_routing.md` 的三級標記） |
 
 ### ⚠️ `~/tutorials` 現在不是乾淨的
@@ -204,6 +217,9 @@ Step 1 的預期不是「編譯失敗」，是「起得來但 ping 不通」。�
 | `run_exercise.sh` | 繞過 B-1 的起動指令；預設只印不跑，`--go` 才跑 | ⚠️ 13 支 dry-run 全過；`--go` **一次都沒跑** |
 | `compile_all.sh` | out-of-tree 編譯全部 26 支 | ✅ 跑過 |
 | `COMPILE-MATRIX.txt` | 上者的輸出 | ✅ |
+| `drive_exercise.py` 🆕 | **非互動** driver：pre-flight → 編譯 → 起網路 → 腳本化步驟 → 判定表＋報告（exit 0／1／2）。目前只腳本化 `source_routing` 與 `basic` | ✅ **09-08 跑過 4 次**（Adam 以 root）：`source_routing` solution 5/5、skeleton 2/2；`basic` solution 5/5、skeleton 4/4 |
+| `DRIVER.md` 🆕 | 上者的用法、pass 長什麼樣、已知未知 | — |
+| `runs/` 🆕 | 每次實跑的報告（工具鏈 sha、json sha、逐步原始輸出、判定表、log 路徑） | ✅ 4 份，2026-09-08T0924xxZ |
 
 🔑 **`preflight.sh` 第一版說謊，被自己的輸出抓到**：sudo 那一項印「accepted」，
 而我五分鐘前才手測到它是 refused。原因是 `set -o pipefail` ——
