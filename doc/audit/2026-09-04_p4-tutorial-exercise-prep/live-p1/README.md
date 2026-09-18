@@ -116,3 +116,55 @@ operator 對這兩件事的處置不同（前者重試／power-cycle，後者是
   `NDT_OWNER=adam ndt down && NDT_OWNER=adam ndt release`，並確認上面那個 knob 檔不在。
 - 檔案／目錄：`_common.sh` 是三支共用的前置（工單只列四個檔，多出來的這一個與理由寫在
   `P1-C-SUMMARY.md`；三份同樣的 claim／teardown 程式碼正是這個 repo 反覆記錄的那種缺陷）。
+
+---
+
+## 階段三新增的兩支（TICKET-P3 §2.7）
+
+| 步 | 貼這一行 | 最後一行應該是 |
+|---|---|---|
+| ⑤ | `NDT_OWNER=adam bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/05_link_usage_generic.sh` | `PASS 05_link_usage_generic` |
+| ⑥ | `NDT_OWNER=adam bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/06_thirteen.sh` | `PASS 06_thirteen -- 26 arm(s), every skeleton red and every solution green` |
+
+**跑的順序**：①②②b③ 之後才跑 ⑤，⑤ 綠了才跑 ⑥。⑥ 很長（26 個 arm，每個都自己起一次 fabric）。
+
+### ⑤ `05_link_usage_generic.sh` — 通用格，三組
+
+**在驗什麼。** 前面每一支驗的都是某一支 exercise 的程式；這一支驗的是 **NDTwin**：
+iperf 期間，twin 的 `link_bandwidth_usage_bps` 在**真的搬了位元組的那些 `sN-ethP` 上非零、
+在沒搬的交換機間邊上為零**——不管交換機在跑誰的程式。這是 TICKET-P3 §2.2「先記鏈路位元組、
+再談流身份」可以被斷言的那一半。
+
+三組，第三組是讓前兩組有意義的那一組：
+
+| 組 | package | `--telemetry` | 斷言 |
+|---|---|---|---|
+| 1 `link` | `convert.py --p4 solution/basic.p4`（**exercise 自己的程式**） | `link` | on-path > 0、off-path == 0 |
+| 2 `cooperative` | 同一支 exercise，`--ndtwin-pipeline`（**NDTwin 自己的程式**） | `cooperative` | 同上 |
+| 3 `none`（陽性對照） | 同組 2 的 package | `none` | **on-path 必須恰好 0** |
+
+**為什麼第二組要換 package 而不是只換那個字**：`basic.p4` 沒有合作式的 `packet_in` header，
+`cooperative` 對它會在啟動時被拒（§2.1）。要看合作式那條路就得讓交換機跑 NDTwin 自己的程式。
+
+**不證明**：它不比較三組的取樣誤差或成本——那是工單 E（`doc/audit/2026-09-19_telemetry-three-groups/`）。
+這裡只有「非零／零」。
+
+### ⑥ `06_thirteen.sh` — 13 支 × 兩臂
+
+**它自己不判定**：每一格的判定都在 `drive_exercise.py` 裡，它自己 claim、自己 `ndt up`、
+自己 down＋release、自己寫 report。⑥ 加的是那 26 次分開跑看不到的東西：一張表，
+說哪些 arm 跑了、各自 exit 多少，以及——**重點**——**每個骨架臂都紅、每個解答臂都綠**。
+
+🔴 **骨架臂 exit 0 ＝ FAIL。** 解答全過而骨架也全過的一輪什麼都沒證明：它和「fabric 什麼都轉」、
+「driver 的斷言根本沒跑」、「十三條期望都寫反了」完全相容。
+
+**⑥ 自己不 claim lab**，因為每一次 driver 的 round 會自己 claim；這支若持有 claim 會擋掉自己的子程序。
+所以它**不 source `_common.sh` 的 `start_step`**，也沒有自己的 fabric 要拆——它唯一碰的狀態是
+三個 knob，而且是**檢查**而不是寫（每一 round 自己會寫回；⑥ 是在斷言它們真的寫回了）。
+
+`ONLY=basic,calc bash .../06_thirteen.sh` 可以只重跑一部分。
+
+**rc 2 的那一格不是結果**：pre-flight／claim／compile／root 任一個擋掉都是 2，代表那一 round
+根本沒跑，既不算紅也不算綠，表上會標出來。
+
+[Co-developed with claude code -- Adam]
