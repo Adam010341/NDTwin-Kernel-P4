@@ -208,21 +208,15 @@ sed 's/^/   /' "$RUN/36_kernel_up_after_pipeline.txt"
 
 # And the proxy's own side of the same fact: the switches that got a program now answer their
 # probe, and the one that did not still does not.
+# 🔴 A READ THAT FAILED IS NOT A CHECK THAT PASSED. `get_json` reports its own failure with
+# `bad`, which prints and returns -- it does NOT set the verdict -- so the first draft's bare
+# `if get_json ...; then` skipped every assertion below it and left the step GREEN. The one
+# shape this whole ticket exists to remove, reproduced inside its own fix.
 SS1="$RUN/35_switch_state_after_pipeline.json"
 if get_json "$PROXY_URL/p4/switch_state" "$SS1"; then
-    for d in $(printf '%s' "$SKEL_SET" | tr ',' ' '); do
-        POK="$(jqp "$SS1" "((d.get('switches') or {}).get('$d') or {}).get('probe_ok')")"
-        note "switch $d probe_ok $POK   (the controller loaded a program onto it)"
-        [[ "$POK" == True ]] || fail "switch $d got a program from the controller and its probe_ok is '$POK', want True"
-    done
-    for d in $(printf '%s\n' "$SKEL_SET" | "$PY" -c "
-import sys
-got = {int(x) for x in (sys.stdin.read().strip() or '').split(',') if x}
-print(' '.join(str(d) for d in (1, 2, 3) if d not in got))"); do
-        POK="$(jqp "$SS1" "((d.get('switches') or {}).get('$d') or {}).get('probe_ok')")"
-        note "switch $d probe_ok $POK   (no controller ever loaded a program onto it)"
-        [[ "$POK" == False ]] || fail "switch $d never got a program and its probe_ok is '$POK', want False"
-    done
+    assert_probe_ok_follows_set "$SS1" "$PKG" "$SKEL_SET" "after the skeleton controller" || true
+else
+    fail "could not read /p4/switch_state after the skeleton controller -- the proxy half of this check did not run, and a check that did not run is not a check that passed"
 fi
 
 # --- 4. it forwards ---------------------------------------------------------------------------------
@@ -278,7 +272,15 @@ AWAIT_RC=$?
 set -e
 (( AWAIT_RC != 0 )) && fail "the kernel's up set did not follow the solution controller's pipeline pushes (see 46_kernel_up_after_solution.txt)"
 sed 's/^/   /' "$RUN/46_kernel_up_after_solution.txt"
-get_json "$PROXY_URL/p4/switch_state" "$RUN/45_switch_state_after_solution.json" || true
+# The proxy's side again, on the solution's own set -- the same helper, not a second copy of
+# it. TICKET-P2-F §4.3 asks for this on 45_ as well as 35_; the first draft only captured the
+# file and asserted nothing about it, so `45_` was raw with no reader.
+SS2="$RUN/45_switch_state_after_solution.json"
+if get_json "$PROXY_URL/p4/switch_state" "$SS2"; then
+    assert_probe_ok_follows_set "$SS2" "$PKG" "$SOLN_SET" "after the solution controller" || true
+else
+    fail "could not read /p4/switch_state after the solution controller -- the proxy half of this check did not run, and a check that did not run is not a check that passed"
+fi
 
 say "ndt's own dataplane_ok (recorded, not the loss evidence)"
 set +e

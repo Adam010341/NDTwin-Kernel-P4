@@ -3191,12 +3191,14 @@ verify_p4_probes() {
     # `probe_ok: null` is "no probe has completed yet", which on a fabric that has just come up
     # is the ordinary first second, and reading it as a verdict either way would be inventing
     # one. Five attempts, a second apart; after that a still-null probe IS the finding.
-    local nulls=1
+    # 🔴 No `nulls` flag. The first draft set one on both exits of this loop and never read it
+    # again -- a variable that looks like a decision and is not one is a reader's trap, and the
+    # two things that ARE decided below are decided from `rows` itself.
     for i in 1 2 3 4 5; do
         state="$(proxy_switch_state)"
         rows="$(switch_state_probe_rows <<<"$state")" || rows=""
-        [[ -z "$rows" ]] && { nulls=0; break; }
-        if ! /usr/bin/grep -q ' null ' <<<"$rows"; then nulls=0; break; fi
+        [[ -z "$rows" ]] && break
+        /usr/bin/grep -q ' null ' <<<"$rows" || break
         (( i < 5 )) && sleep 1
     done
     if [[ -z "$rows" ]]; then

@@ -224,6 +224,86 @@ EOF
 check_fires "M6: a graph with no switches reads as an empty up set" m6 \
             "🔴 a graph with no switches in it is rc 1 too"
 
+# --- M7 (widening): "at least these" one layer down ---------------------------------------------
+# await_kernel_up_set's M2 turns the equality into "anything non-empty"; this is the narrower and
+# more plausible version of the same mistake -- every expected switch is up, and extra ones are
+# tolerated. It is the shape somebody writes on purpose when a check is "too strict".
+cat > "$A/m7.old" <<'EOF'
+            if [[ "$got" == "$expected" ]]; then
+EOF
+cat > "$A/m7.new" <<'EOF'
+            if [[ ",$got," == *",${expected%%,*},"* ]]; then
+EOF
+# Named on the superset cell only: the "s3 up while 1,2 were expected" cell stays green under
+# this mutation and correctly so -- `3` does not contain `1` either, so that one still times out.
+# A subset test is wrong about supersets, not about disjoint sets.
+check_fires "M7 (widening): the expected set only has to be a subset" m7 \
+            "🔴 a THIRD switch reported up is not a match"
+
+# --- M8: the probe universe is the literal 1,2,3 again ------------------------------------------
+# 🔴 THE FIX THIS ROUND EXISTS FOR, restored. The SET stays computed from the controller's log
+# and the thing it is subtracted from becomes typed, so a package with a fourth switch has that
+# switch silently unchecked -- and the sentence "s3 is computed, not typed" stays half true.
+cat > "$A/m8.old" <<'EOF'
+    universe="$(model_switch_dpids "$pkg")"
+EOF
+cat > "$A/m8.new" <<'EOF'
+    universe="$(printf '1\n2\n3\n')"
+EOF
+check_fires "M8: the probe universe is hardcoded again" m8 \
+            "🔴 the fourth switch of a four-switch package IS checked" \
+            "  and it is the one named"
+
+# --- M9: only the programmed half is checked -----------------------------------------------------
+# The switches the controller touched answer, and nothing asks about the ones it did not. A twin
+# reporting a switch alive that nobody ever loaded a program onto is exactly the evidence-free
+# liveness this whole ticket replaced, and this is the proxy-side half of it.
+cat > "$A/m9.old" <<'EOF'
+            note "$label: switch $d probe_ok $pok   (no controller ever loaded a program onto it)"
+            [[ "$pok" == False ]] || { fail "$label: switch $d never got a program and its probe_ok is '$pok', want False"; rc=1; }
+EOF
+cat > "$A/m9.new" <<'EOF'
+            note "$label: switch $d probe_ok $pok   (no controller ever loaded a program onto it)"
+EOF
+check_fires "M9: the switches nobody programmed are not checked" m9 \
+            "🔴 a switch answering that nobody programmed is red" \
+            "🔴 the fourth switch of a four-switch package IS checked"
+
+# --- M10: an empty expected set is accepted on the proxy side too ---------------------------------
+# M1's twin. Both halves of the check have to refuse it, or the one that does not becomes the
+# green half of a step that prints two ticks.
+cat > "$A/m10.old" <<'EOF'
+    if [[ -z "$want" ]]; then
+EOF
+cat > "$A/m10.new" <<'EOF'
+    if false; then
+EOF
+# 🔴 NOT the rc cell: with the refusal gone the helper still returns 1, because every switch
+# then falls into the "nobody programmed this" half and the two that are answering fail it. Same
+# exit code, a completely different reason, over a fabric it should never have read. The cells
+# that see it are the sentence and the fact that no probe was read at all.
+check_fires "M10: an empty expected set is accepted by the probe half" m10 \
+            "  for the same reason" \
+            "🔴 and it refuses without reading a single probe"
+
+# --- M11: an unreadable model is treated as an empty universe -------------------------------------
+# Nothing is then checked at all and the helper returns 0. The "unchecked is not passed" rule,
+# on the one input this helper cannot do without.
+cat > "$A/m11.old" <<'EOF'
+    if [[ -z "$universe" ]]; then
+        fail "$label: could not read the switch dpids the package's model declares, so there is no universe to check the probes against"
+        return 1
+    fi
+EOF
+cat > "$A/m11.new" <<'EOF'
+    if [[ -z "$universe" ]]; then
+        return 0
+    fi
+EOF
+check_fires "M11: an unreadable model checks nothing and passes" m11 \
+            "🔴 an unreadable model is refused, not assumed" \
+            "  saying there is no universe to check against"
+
 # --- the controls --------------------------------------------------------------------------------
 # 🔴 Without these the round says nothing: a harness that reddened for ANY edit would print
 # `6 caught, 0 survived` while catching nothing at all.

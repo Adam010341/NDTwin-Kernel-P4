@@ -1302,6 +1302,17 @@ check "🔴 a probe that lands on the third read is GREEN" "0" "$(rc_of "$OUT")"
 has   "  and the fabric is reported as answered"         "3/3 switches answered the liveness probe" "$OUT"
 check "🔴 which took exactly three reads"                "3" "$(ss_reads)"
 
+# --- "unchecked is not passed", on the two inputs this gate cannot do without -------------------
+P_JUNK="$FIX/p_junk.json"; printf 'not json at all\n' > "$P_JUNK"
+OUT="$(evp4 "$P_JUNK")"
+check "🔴 an unreadable switch_state is RED, not a pass"  "1" "$(rc_of "$OUT")"
+has   "  and says the question could not be asked"       "gave no readable switch report" "$OUT"
+has   "  and why that is a failure"                      "An unchecked gate is a" "$OUT"
+OUT="$(drive_v "$ESTUB"$'\n'"GRAPH_JSON=$(q "$(mkgraph_down 3 3)"); SS_SEQ='$P_ALL'
+verify_p4_probes '$FIX/no-such-model.json'")"
+check "🔴 a model whose dpids cannot be read is RED too"  "1" "$(rc_of "$OUT")"
+has   "  naming what it could not read"                  "cannot read the switch dpids" "$OUT"
+
 # --- a fabric whose controller has already run --------------------------------------------------
 OUT="$(evp4 "$P_PROG")"
 check "  three switches already carrying a program pass" "0" "$(rc_of "$OUT")"

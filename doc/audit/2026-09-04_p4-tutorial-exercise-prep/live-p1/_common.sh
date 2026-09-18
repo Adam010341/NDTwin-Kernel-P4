@@ -260,6 +260,17 @@ hs.sort(key=lambda n:(int(n['device_name'][1:]) if n['device_name'][1:].isdigit(
 for n in hs: print(n['device_name'], (n.get('ip') or [''])[0])" "$1/ndtwin/topology.json"
 }
 
+# model_switch_dpids <package-dir> -- the dpids the package's model declares, one per line,
+# ascending. The sibling of model_hosts, and for the same reason: the fabric's shape is a fact
+# about the package, and a script that types it out is a script that agrees with itself.
+model_switch_dpids() {
+    "$PY" -c "
+import json,sys
+t=json.load(open(sys.argv[1]))
+for d in sorted(int(n['dpid']) for n in t['nodes'] if n.get('vertex_type')==0): print(d)" \
+        "$1/ndtwin/topology.json" 2>/dev/null
+}
+
 # --- TICKET-P2-F: the twin's liveness, against what the exercise's controller actually loaded --
 #
 # 🔴 WHY THIS IS THE ASSERTABLE PROPERTY AND "N up" IS NOT. Under `mode: external` NDTwin loads
@@ -357,6 +368,45 @@ await_kernel_up_set() {
       kernel_liveness_rows; } > "$out"
     bad "the kernel's up set never became '$expected' within ${timeout}s (last: $last) -- see $(basename "$out")"
     return 1
+}
+
+# assert_probe_ok_follows_set <switch_state.json> <package-dir> <dpid set> <label> -- the
+# proxy's side of the same fact await_kernel_up_set checks on the kernel's: every switch the
+# controller loaded a program onto now ANSWERS its liveness probe, and every other switch the
+# model declares still does not. rc 1 (and a named `fail` per disagreement) when they disagree.
+#
+# 🔴 THE UNIVERSE COMES OUT OF THE MODEL, not out of this file. The first draft wrote
+# `for d in (1, 2, 3)`, which is true of exercises/p4runtime's pod-topo today and of nothing
+# else -- and it made "s3 is computed, not typed" a half-truth: the set was computed and the
+# thing it was subtracted from was typed. A four-switch package would have had its fourth switch
+# silently unchecked, which is the quietest kind of green there is.
+#
+# 🔴 AN EMPTY EXPECTED SET IS REFUSED, the same control await_kernel_up_set has and for the same
+# reason: with nothing declared programmed, "every switch outside the set is unprogrammed" is a
+# sentence about the whole fabric that a dead fabric satisfies perfectly.
+assert_probe_ok_follows_set() {
+    local ss="$1" pkg="$2" want="$3" label="$4" rc=0 d pok universe
+    universe="$(model_switch_dpids "$pkg")"
+    if [[ -z "$universe" ]]; then
+        fail "$label: could not read the switch dpids the package's model declares, so there is no universe to check the probes against"
+        return 1
+    fi
+    if [[ -z "$want" ]]; then
+        fail "$label: the expected set is EMPTY -- 'every switch outside the set is unprogrammed' is then a sentence about the whole fabric, which a dead one satisfies too"
+        return 1
+    fi
+    while read -r d; do
+        [[ -n "$d" ]] || continue
+        pok="$(jqp "$ss" "((d.get('switches') or {}).get('$d') or {}).get('probe_ok')")"
+        if [[ ",$want," == *",$d,"* ]]; then
+            note "$label: switch $d probe_ok $pok   (the controller loaded a program onto it)"
+            [[ "$pok" == True ]] || { fail "$label: switch $d got a program from the controller and its probe_ok is '$pok', want True"; rc=1; }
+        else
+            note "$label: switch $d probe_ok $pok   (no controller ever loaded a program onto it)"
+            [[ "$pok" == False ]] || { fail "$label: switch $d never got a program and its probe_ok is '$pok', want False"; rc=1; }
+        fi
+    done <<<"$universe"
+    return $rc
 }
 
 # run_app_pipeline_kind <package-dir> -- `ndt`'s own answer to "whose program is on these

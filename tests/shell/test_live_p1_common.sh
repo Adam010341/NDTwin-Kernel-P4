@@ -208,6 +208,81 @@ OUT="$(drive "GRAPH_SEQ='$G_NONE'
 await_kernel_up_set \"\$(controller_program_set '$FIX/log_none.txt')\" 20 '$FIX/out.txt'")"
 check "🔴 a controller that programmed nothing fails the step" "1" "$(rc_of "$OUT")"
 
+# =============================================================================================
+section "4. model_switch_dpids / assert_probe_ok_follows_set -- the proxy's side, same set"
+# =============================================================================================
+# 🔴 THE UNIVERSE IS PART OF THE CLAIM. The first draft of 03 wrote `for d in (1, 2, 3)`, so the
+# SET was computed from the controller's log and the thing it was subtracted from was typed --
+# and "s3 is computed, not typed" was only half true. A four-switch package would have had its
+# fourth switch silently unchecked, which is the quietest green there is.
+
+mkpkg() {   # mkpkg <dir> <n-switches>
+    mkdir -p "$1/ndtwin"
+    python3 - "$1/ndtwin/topology.json" "$2" <<'PYP'
+import json, sys
+ns = int(sys.argv[2])
+nodes = [{"device_name": "s%d" % d, "dpid": d, "vertex_type": 0} for d in range(1, ns + 1)]
+nodes += [{"device_name": "h%d" % h, "dpid": 0, "vertex_type": 1, "ip": ["10.0.%d.%d" % (h, h)]}
+          for h in (1, 2, 3)]
+json.dump({"nodes": nodes, "edges": [], "links": []}, open(sys.argv[1], "w"))
+PYP
+}
+PKG3="$FIX/pkg3"; mkpkg "$PKG3" 3
+PKG4="$FIX/pkg4"; mkpkg "$PKG4" 4
+PKG_BAD="$FIX/pkg-bad"; mkdir -p "$PKG_BAD/ndtwin"; printf 'not json\n' > "$PKG_BAD/ndtwin/topology.json"
+
+# mkss <file> <dpid>:<True|False|null>... -- a switch_state whose subject is probe_ok.
+mkss() {
+    local f="$1"; shift
+    python3 - "$f" "$@" <<'PYS'
+import json, sys
+d = {"status": "success", "switches": {}}
+for spec in sys.argv[2:]:
+    dpid, word = spec.split(":")
+    d["switches"][dpid] = {"probe_ok": {"True": True, "False": False, "null": None}[word]}
+json.dump(d, open(sys.argv[1], "w"))
+PYS
+}
+SS_OK="$FIX/ss_ok.json";     mkss "$SS_OK"   1:True 2:True 3:False
+SS_MISS="$FIX/ss_miss.json"; mkss "$SS_MISS" 1:True 2:False 3:False
+SS_EXTRA="$FIX/ss_extra.json"; mkss "$SS_EXTRA" 1:True 2:True 3:True
+SS_OK4="$FIX/ss_ok4.json";   mkss "$SS_OK4"  1:True 2:True 3:False 4:True
+
+check "  the model's dpids, ascending"                   "1,2,3" "$(one "model_switch_dpids '$PKG3' | paste -sd, -")"
+check "🔴 a four-switch package declares four"           "1,2,3,4" "$(one "model_switch_dpids '$PKG4' | paste -sd, -")"
+check "🔴 an unreadable model gives NOTHING, not a guess" "" "$(one "model_switch_dpids '$PKG_BAD'")"
+
+OUT="$(drive "assert_probe_ok_follows_set '$SS_OK' '$PKG3' '1,2' 'after skel'")"
+check "  the exercise's own shape passes"                "0" "$(rc_of "$OUT")"
+has   "  and says which switch got a program"            "switch 1 probe_ok True   (the controller loaded a program onto it)" "$OUT"
+has   "  and which never did"                            "switch 3 probe_ok False   (no controller ever loaded a program onto it)" "$OUT"
+OUT="$(drive "assert_probe_ok_follows_set '$SS_MISS' '$PKG3' '1,2' 'after skel'")"
+check "🔴 a programmed switch that is not answering is red" "1" "$(rc_of "$OUT")"
+has   "  naming it and what was wanted"                  "switch 2 got a program from the controller and its probe_ok is 'False', want True" "$OUT"
+OUT="$(drive "assert_probe_ok_follows_set '$SS_EXTRA' '$PKG3' '1,2' 'after skel'")"
+check "🔴 a switch answering that nobody programmed is red" "1" "$(rc_of "$OUT")"
+has   "  naming it too"                                  "switch 3 never got a program and its probe_ok is 'True', want False" "$OUT"
+
+# 🔴 THE CELL THAT SAYS THE UNIVERSE IS NOT THE LITERAL 1,2,3: the same expected set over a
+# FOUR-switch package, where s4 is answering and nobody programmed it. A hardcoded universe
+# would never look at s4 and this would pass.
+OUT="$(drive "assert_probe_ok_follows_set '$SS_OK4' '$PKG4' '1,2' 'after skel'")"
+check "🔴 the fourth switch of a four-switch package IS checked" "1" "$(rc_of "$OUT")"
+has   "  and it is the one named"                        "switch 4 never got a program" "$OUT"
+
+# The same two controls await_kernel_up_set has.
+OUT="$(drive "assert_probe_ok_follows_set '$SS_OK' '$PKG3' '' 'after skel'")"
+check "🔴 an EMPTY expected set is refused here too"     "1" "$(rc_of "$OUT")"
+has   "  for the same reason"                            "the expected set is EMPTY" "$OUT"
+# 🔴 rc 1 ALONE DOES NOT SAY IT REFUSED. With the refusal gone the loop still runs, every switch
+# falls into the "nobody programmed this" half, and the two that ARE answering fail it -- rc 1
+# for a completely different reason, over a fabric it should never have looked at. The refusal
+# is immediate, so the evidence is that no switch was read at all.
+hasnt "🔴 and it refuses without reading a single probe" "probe_ok" "$OUT"
+OUT="$(drive "assert_probe_ok_follows_set '$SS_OK' '$PKG_BAD' '1,2' 'after skel'")"
+check "🔴 an unreadable model is refused, not assumed"   "1" "$(rc_of "$OUT")"
+has   "  saying there is no universe to check against"   "no universe to check the probes against" "$OUT"
+
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
 (( FAIL == 0 ))
