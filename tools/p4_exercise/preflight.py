@@ -18,14 +18,20 @@ compile that did not happen is the thing this whole file exists to prevent.
 
 What it does NOT check, said out loud:
 
-  * That the entries would actually be *installed*. Stage one records them and applies none
-    (G5 is stage two); this checks that they *could* be, against the p4info they came with.
+  * That the entries would actually be *installed*. This checks that they *could* be, against
+    the p4info they came with -- and, when the switch carries its own pipeline (G4), that the
+    p4info they came with IS that switch's.
   * That NDTwin's own pipeline can run this program's entries. It cannot, and it is not asked
-    to: `pipeline: null` means the switch runs `ndtwin_switch`, and the entries are checked
-    against the exercise's own p4info because that is the only program they were ever written
-    for. Stage two's G4 is what makes the two agree.
+    to: a switch whose `pipeline` is null runs `ndtwin_switch`, and its entries are still
+    checked against the exercise's own p4info because that is the only program they were ever
+    written for. That pairing is a package the fabric will bring up and whose entries nothing
+    will apply -- which is what `--ndtwin-pipeline` is for and what the proxy discloses.
+  * That the two halves of a pipeline came from one compile, in the sense of a build id. There
+    is none to compare (see _check_pipelines); what is checked is that every table and action
+    the p4info names exists in the bmv2 json, and the p4info's sha256 is printed so the
+    question can be settled between two files that both claim to be the same program.
   * ternary / range / optional matches. Refused with "G5 not done" rather than accepted and
-    silently dropped later.
+    silently dropped later; `POST /p4/table_entry` answers 501 for the same three.
 """
 import argparse
 import math
@@ -218,8 +224,14 @@ def check_entry(entry, index, where):
             continue
         kind = match_type_name(field.match_type)
         if kind not in _SUPPORTED_MATCH:
-            problems.append(f"{where}: {field_name} is a {kind} match -- G5 not done "
-                            f"(stage one installs exact and lpm only)")
+            # The writer's own contract, quoted rather than paraphrased: `POST /p4/table_entry`
+            # answers 501 for these three and names the match_type in the body (TICKET-P2
+            # section 2.3). Saying so here means the pre-flight and the endpoint give the
+            # operator one story instead of two, and that the refusal arrives before the
+            # fabric is up rather than one entry at a time after it.
+            problems.append(f"{where}: {field_name} is a {kind} match -- G5 not done; "
+                            f"POST /p4/table_entry answers 501 for {kind} in this stage "
+                            f"(exact and lpm only)")
             continue
         if kind == "LPM":
             if not (isinstance(value, (list, tuple)) and len(value) == 2):
@@ -304,10 +316,198 @@ def run(package_dir, report=None, compile_p4=True):
     referenced = _check_referenced_files(report, package_dir, package)
     model = _check_topology(report, package_dir, package)
     _check_hosts(report, package, model)
-    _check_entries(report, package_dir, package, referenced)
+    pipeline_p4info = _check_pipelines(report, package_dir, package)
+    used_p4info = _check_entries(report, package_dir, package, referenced)
+    _check_entries_are_for_this_pipeline(report, used_p4info, pipeline_p4info)
     _check_port_block(report, package)
     _check_compile(report, package_dir, package, compile_p4)
     return report
+
+
+# --- the per-switch pipeline (G4) --------------------------------------------------------------
+
+def bmv2_json_names(bmv2):
+    """(table names, action names) a compiled bmv2 JSON declares.
+
+    Tables live under `pipelines[].tables[].name` (ingress and egress are separate pipelines)
+    and actions at the top level. Both are the fully-qualified P4 names -- `MyIngress.ipv4_lpm`,
+    `MyIngress.ipv4_forward`, `NoAction` -- which is the same spelling p4info's
+    `preamble.name` uses, so the two are directly comparable.
+    """
+    tables = set()
+    for pipe in bmv2.get("pipelines") or []:
+        for table in (pipe or {}).get("tables") or []:
+            if isinstance(table, dict) and table.get("name"):
+                tables.add(table["name"])
+    actions = {a["name"] for a in (bmv2.get("actions") or [])
+               if isinstance(a, dict) and a.get("name")}
+    return tables, actions
+
+
+def _sha16(path):
+    import hashlib
+
+    with open(path, "rb") as fh:
+        return hashlib.sha256(fh.read()).hexdigest()[:16]
+
+
+def pipeline_path_problem(package_dir, rel):
+    """Why `rel` is not a usable pipeline path for this package, or None when it is.
+
+    [Co-developed with claude code -- Adam]
+    🔴 THE SAME THREE RULES THE LOADER ENFORCES, IN THE SAME ORDER -- relative, present, inside
+    the package -- because a pre-flight that is more permissive than the loader is worse than no
+    pre-flight at all. It hands an operator a green table and then `ndt up p4 --app <dir>` dies
+    in `app_package.load` (p4_proxy/mininet/app_package.py, `_carried_by_the_package`), with
+    `mn -c` possibly already run, over a package this tool just approved. The whole reason this
+    file exists is to move refusals to the moment the operator is still holding the package.
+
+    Absolute paths and `../` escapes are the two that matter: a pipeline is CARRIED BY the
+    package, so that copying the package to another machine copies the program with it. One
+    that points at `~/tutorials/exercises/firewall/build/firewall.json` passes every check on
+    the machine that built it and loads a different program, or nothing, anywhere else.
+    """
+    if os.path.isabs(str(rel)):
+        return (f"{rel} is an absolute path. A pipeline is carried by the package and named "
+                f"relative to the package directory, so that moving the package moves the "
+                f"program with it -- app_package.load refuses this, and this package would "
+                f"fail at `ndt up p4 --app`, not here")
+    path = os.path.join(package_dir, rel)
+    if not os.path.isfile(path):
+        return f"{rel} is not at {path}"
+    root, real = os.path.realpath(package_dir), os.path.realpath(path)
+    if not (real == root or real.startswith(root + os.sep)):
+        return (f"{rel} resolves to {real}, which is OUTSIDE the package directory {root}. A "
+                f"pipeline must be relative to the package and inside it -- app_package.load "
+                f"refuses this, and this package would fail at `ndt up p4 --app`, not here")
+    return None
+
+
+def _check_pipelines(report, package_dir, package):
+    """Each switch's own program. Returns {dpid: realpath of its p4info} for the ones that pass.
+
+    [Co-developed with claude code -- Adam]
+    🔴 THE TWO HALVES HAVE TO BE ONE COMPILE. bmv2 is launched with the json and the proxy
+    pushes the p4info; if they came from different builds the switch runs one program while
+    every table id, action id and field id the controller uses belongs to another. What that
+    looks like afterwards is not a crash -- it is `INVALID_ARGUMENT` on some writes, silence on
+    the rest, and a data plane that forwards the wrong traffic.
+
+    There is no sha to compare them by: p4c writes no build id into either file, and the bmv2
+    json's own sha is not even stable for one program (it embeds the absolute source path in
+    `program`, so the same .p4 compiled in two directories gives two shas -- measured in
+    TICKET-P1 B). What CAN be checked without running anything is containment: every table and
+    every action the p4info names must exist in the json, because the json is the full program
+    and the p4info is the externally-visible subset of it. A p4info from a different program
+    almost always names something the json does not.
+
+    The p4info's OWN sha is stable, and it is printed: it is the identifier to quote when
+    asking "is this the program the entries were written for", and TICKET-P2 section 3.5 asks
+    for it for exactly that reason. The json's `program` field -- an absolute path into
+    whoever's home directory compiled it -- is printed as information, never compared.
+    """
+    switches = package.get("switches") or {}
+    named = {k: (v or {}).get("pipeline") for k, v in switches.items()}
+    named = {k: p for k, p in named.items() if p is not None}
+    if not named:
+        report.ok("switches pipeline", "all null (every switch runs NDTwin's own artefact)")
+        return {}
+
+    problems, resolved, notes = [], {}, []
+    for key in sorted(named, key=lambda k: (int(k) if str(k).isdigit() else 1 << 30, str(k))):
+        spec, where = named[key], f"s{key}"
+        if not isinstance(spec, dict):
+            problems.append(f"{where}: pipeline is a {type(spec).__name__}, not an object with "
+                            f"'p4info' and 'bmv2_json'")
+            continue
+        absent = [k for k in ("p4info", "bmv2_json") if not spec.get(k)]
+        if absent:
+            problems.append(f"{where}: pipeline names no {absent}; both halves are required")
+            continue
+        paths = {}
+        for k in ("p4info", "bmv2_json"):
+            rel = spec[k]
+            bad = pipeline_path_problem(package_dir, rel)
+            if bad:
+                problems.append(f"{where}: pipeline.{k} {bad}")
+                continue
+            paths[k] = os.path.join(package_dir, rel)
+        if len(paths) != 2:
+            continue
+        try:
+            index = P4InfoIndex.parse(paths["p4info"])
+        except Exception as exc:  # noqa: BLE001 -- an unreadable p4info is a FAIL, not a crash
+            problems.append(f"{where}: pipeline.p4info {spec['p4info']} does not parse: "
+                            f"{type(exc).__name__}: {exc}")
+            continue
+        try:
+            bmv2 = common.load_json(paths["bmv2_json"])
+        except ValueError as exc:
+            problems.append(f"{where}: pipeline.bmv2_json {spec['bmv2_json']} does not parse: "
+                            f"{exc}")
+            continue
+        json_tables, json_actions = bmv2_json_names(bmv2)
+        stray_tables = sorted({t.preamble.name for t in index.p4info.tables} - json_tables)
+        stray_actions = sorted({a.preamble.name for a in index.p4info.actions} - json_actions)
+        if stray_tables or stray_actions:
+            problems.append(
+                f"{where}: the p4info and the bmv2 json are not one compile -- the p4info names "
+                f"table(s) {stray_tables[:3]} and action(s) {stray_actions[:3]} the json does "
+                f"not have. bmv2 would run {os.path.basename(spec['bmv2_json'])} while every id "
+                f"the controller writes came from {os.path.basename(spec['p4info'])}")
+            continue
+        resolved[str(key)] = os.path.realpath(paths["p4info"])
+        notes.append((where, spec, paths, bmv2))
+
+    if problems:
+        report.bad("switches pipeline", f"{len(problems)} problem(s); first: {problems[0]}")
+        for extra in problems[1:4]:
+            report.bad("", extra)
+        if len(problems) > 4:
+            report.bad("", f"... and {len(problems) - 4} more")
+    else:
+        report.ok("switches pipeline",
+                  f"{len(named)} of {len(switches)} switch(es) carry their own program; "
+                  f"p4info tables and actions are all in the bmv2 json")
+    for where, spec, paths, bmv2 in notes:
+        sha = _sha16(paths["p4info"])
+        report.note(f"{where} pipeline",
+                    f"{spec['bmv2_json']}  p4info sha256:{sha}  "
+                    f"program={bmv2.get('program')}")
+    return resolved
+
+
+def _check_entries_are_for_this_pipeline(report, used_p4info, pipeline_p4info):
+    """The p4info an entries file names must be the p4info that switch's pipeline names.
+
+    [Co-developed with claude code -- Adam]
+    🔴 OTHERWISE THE ENTRIES WERE VALIDATED AGAINST A PROGRAM THE SWITCH IS NOT RUNNING, and
+    every row above that says "entries match p4info" is true of the wrong thing. It is not
+    hypothetical in this format: a tutorials `sX-runtime.json` names its p4info INSIDE the file
+    (`"p4info": "build/basic.p4.p4info.txtpb"`), so firewall's s1 -- whose `program` is
+    `build/firewall.json` -- is one edit away from carrying entries checked against `basic`.
+    Compared by realpath, not by the strings: two spellings of one file are one file, and
+    saying they disagree would be a refusal an operator cannot act on.
+
+    Switches whose pipeline is null are not checked: they run NDTwin's own artefact, whose
+    p4info an exercise's entries will never name, and stage two applies none of them there.
+    """
+    shared = sorted(set(used_p4info) & set(pipeline_p4info),
+                    key=lambda k: (int(k) if str(k).isdigit() else 1 << 30, str(k)))
+    if not shared:
+        return
+    wrong = [(k, used_p4info[k], pipeline_p4info[k]) for k in shared
+             if used_p4info[k] != pipeline_p4info[k]]
+    if wrong:
+        key, used, want = wrong[0]
+        report.bad("entries p4info is the pipeline's",
+                   f"{len(wrong)} switch(es) disagree; s{key}'s entries were checked against "
+                   f"{os.path.basename(used)} but that switch runs {os.path.basename(want)}. "
+                   f"The rows above say those entries are valid -- for a program this switch "
+                   f"is not running")
+    else:
+        report.ok("entries p4info is the pipeline's",
+                  f"{len(shared)} switch(es); entries and pipeline name the same p4info")
 
 
 def _check_control_plane(report, package):
@@ -357,14 +557,6 @@ def _check_control_plane(report, package):
     else:
         report.ok("switches keys", f"{len(switches)} dpids: "
                                    f"{sorted(int(k) for k in switches)}")
-    pipelined = sorted(k for k, v in switches.items() if (v or {}).get("pipeline") is not None)
-    if pipelined:
-        report.bad("switches pipeline",
-                   f"dpid(s) {pipelined} name a pipeline -- G4 not done. Stage one runs "
-                   f"NDTwin's own p4_src/build/ndtwin_switch.* on every switch, so a package "
-                   f"that names its own would be loaded by nobody")
-    else:
-        report.ok("switches pipeline", "all null (NDTwin's own artefact; G4 is stage two)")
     misnamed = sorted(k for k, v in switches.items()
                       if (v or {}).get("name") != f"s{k}")
     if misnamed:
@@ -486,17 +678,22 @@ def _check_hosts(report, package, model):
 
 
 def _check_entries(report, package_dir, package, referenced):
-    """Table entries against the p4info the exercise shipped them with."""
+    """Table entries against the p4info the exercise shipped them with.
+
+    Returns {dpid as string: realpath of the p4info the entries named}, which
+    `_check_entries_are_for_this_pipeline` compares against the switch's own pipeline.
+    """
     switches = package.get("switches") or {}
     with_entries = {k: v for k, v in switches.items() if (v or {}).get("entries")}
     if not with_entries:
         mode = (package.get("control_plane") or {}).get("mode")
         report.note("entries", f"none (control plane '{mode}' brings its own)")
         _check_source_p4info(report, package_dir, package)
-        return
+        return {}
 
     total, problems = 0, []
     parsed_any = False
+    used_p4info = {}
     for dpid, spec in sorted(with_entries.items(), key=lambda kv: int(kv[0])):
         path = referenced.get(f"switches[{dpid}].entries")
         if path is None:
@@ -524,6 +721,7 @@ def _check_entries(report, package_dir, package, referenced):
                             f"{type(exc).__name__}: {exc}")
             continue
         parsed_any = True
+        used_p4info[str(dpid)] = os.path.realpath(p4info_path)
         entries = conf.get("table_entries") or []
         total += len(entries)
         for i, entry in enumerate(entries):
@@ -545,6 +743,7 @@ def _check_entries(report, package_dir, package, referenced):
         report.ok("entries match p4info",
                   f"{total} entr{'y' if total == 1 else 'ies'} across "
                   f"{len(with_entries)} switch(es); recorded, NOT applied in stage one")
+    return used_p4info
 
 
 def _check_source_p4info(report, package_dir, package):

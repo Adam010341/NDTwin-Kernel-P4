@@ -135,10 +135,16 @@ class SwitchSpec:
 
     dpid: int
     name: str
-    #: Per-switch pipeline override. **Always None in phase 1** -- `load` refuses anything
-    #: else with "G4 not implemented", because loading a foreign pipeline is a separate piece
-    #: of work and a package that silently got NDTwin's pipeline instead of its own would look
-    #: like a data-plane bug rather than like a feature that is not built yet.
+    #: This switch's own pipeline as (p4info, bmv2_json), **absolute paths inside the package
+    #: directory**, or None for "run NDTwin's own artefacts" (`Package.pipeline`).
+    #:
+    #: [Co-developed with claude code -- Adam]
+    #: Absolute rather than package-relative, and resolved at load time, for the same reason
+    #: `entries` is: the two readers of this object -- a proxy started from `p4_proxy/` and a
+    #: Mininet script started from anywhere -- do not share a working directory, so a relative
+    #: path stored here would name two different files depending on who asked.
+    #: G4 (phase 2) is what made this field able to be anything other than None; a phase-1
+    #: package, whose switches all say `null`, loads unchanged.
     pipeline: Optional[Tuple[str, str]]
     #: Absolute path of this switch's runtime entries file, or None.
     entries: Optional[str]
@@ -165,7 +171,9 @@ class Package:
     device_id: str = BASELINE_DEVICE_ID
     cpu_port: int = BASELINE_CPU_PORT
     prefix_len: int = BASELINE_PREFIX_LEN
-    #: The fabric-wide pipeline, relative to the p4_proxy root. Phase 1 is always NDTwin's own.
+    #: The fabric-wide pipeline, relative to the p4_proxy root: NDTwin's own two artefacts, and
+    #: in format 1 always those. What a package varies is the PER-SWITCH pipeline
+    #: (`SwitchSpec.pipeline`); this is what a switch that names none falls back to.
     pipeline: Tuple[str, str] = BASELINE_PIPELINE
     hosts: Tuple[HostSpec, ...] = ()
     switches: Tuple[SwitchSpec, ...] = ()
@@ -197,9 +205,10 @@ class Package:
     def pipeline_for(self, dpid, base_dir):
         """(p4info_path, json_path) for one switch, absolute, under `base_dir` (p4_proxy root).
 
-        The per-switch override is consulted first and is always None in phase 1 (see
-        SwitchSpec.pipeline), so this returns the fabric-wide pair -- NDTwin's own artefacts --
-        for every switch of every package. When G4 lands, this is the only function that changes.
+        The per-switch override is consulted first; a switch that declares none gets the
+        fabric-wide pair, which in format 1 is always NDTwin's own two artefacts. A per-switch
+        pair is already absolute (`_switches` resolved it against the package directory), so
+        `base_dir` only ever resolves the fabric-wide one.
         """
         for spec in self.switches:
             if spec.dpid == int(dpid) and spec.pipeline:
@@ -207,6 +216,35 @@ class Package:
                 return (_under(base_dir, p4info), _under(base_dir, json_path))
         p4info, json_path = self.pipeline
         return (_under(base_dir, p4info), _under(base_dir, json_path))
+
+    def pipeline_is_ndtwin(self, dpid, base_dir) -> bool:
+        """Is this switch running NDTwin's own compiled pipeline, or somebody else's?
+
+        [Co-developed with claude code -- Adam]
+        🔴 THE QUESTION EVERY DOWNSTREAM SKIP IS ASKED IN. NDTwin's pipeline is the only one
+        that has a CPU port with `packet_in`/`packet_out` headers, a clone session the sFlow
+        sampler reads, and the tables `install_initial_routes` writes. A tutorials program has
+        none of those -- `ndtwin_switch.p4info` declares two `controller_packet_metadata`
+        entries, `basic` and `source_routing` declare zero -- so on a foreign pipeline an LLDP
+        packet-out is a packet nothing parses, a clone session is a session nothing clones to,
+        and the link watchdog, which decides a link is down when no LLDP comes back, marks
+        every seeded link down.
+
+        🔴 WHAT THIS IS AND IS NOT. For a package that came through `load`, this is False for
+        exactly the switches whose `pipeline` is non-null, and it CANNOT be anything else: a
+        per-switch pipeline is required to be relative to the package directory and to resolve
+        inside it (`_carried_by_the_package`), while NDTwin's own two artefacts live under the
+        p4_proxy root, so the two can never be the same path. A package cannot opt in to
+        NDTwin's pipeline by naming it; it opts in by saying `null`, which is what
+        `--ndtwin-pipeline` writes.
+
+        It is still a comparison of resolved paths rather than `spec.pipeline is not None`,
+        for two reasons that are not cosmetic: it is defined for `baseline()` and for a Package
+        built by hand, which have no `switches` at all; and it is the same expression worker B
+        computes independently in `proxy_agent/main.py` (TICKET-P2 section 2.1 has B not import
+        this name), so writing it two ways would be two answers to one question.
+        """
+        return self.pipeline_for(dpid, base_dir) == baseline().pipeline_for(dpid, base_dir)
 
     def host_commands(self):
         """
@@ -318,6 +356,40 @@ def _existing_file(package_dir, value, where):
     return path
 
 
+def _carried_by_the_package(package_dir, value, where):
+    """`_existing_file`, and the file has to be one the package actually carries.
+
+    [Co-developed with claude code -- Adam]
+    🔴 A PIPELINE IS PART OF THE PACKAGE, not a pointer into somebody's home directory. The
+    knob names a package directory and nothing else; `ndt up p4 --app <dir>` pre-flights that
+    directory; and a package is meant to be copyable to another machine. A `pipeline` that
+    resolved to `../../../tutorials/exercises/firewall/build/firewall.json` would pre-flight
+    green here and load a *different* program -- or nothing at all -- on any machine where that
+    tree is not in the same place, which is the "came up, forwards nothing, reports zero" shape
+    this whole format exists to make impossible.
+
+    Symlinks are followed on both sides before comparing, so a link planted inside the package
+    is not a way around it. An absolute path is refused outright rather than allowed when it
+    happens to point inside: the format's own rule for this field is "relative to package_dir"
+    (TICKET-P2 section 2.1), and a package that spells one of its own files absolutely is one
+    that stops working when the directory is moved.
+    """
+    if os.path.isabs(str(value)):
+        raise AppPackageError(
+            f"{where}: {value!r} is an absolute path; a pipeline is carried by the package and "
+            f"is named relative to the package directory, so that moving or copying the "
+            f"package moves the program with it")
+    path = _existing_file(package_dir, value, where)
+    root = os.path.realpath(package_dir)
+    real = os.path.realpath(path)
+    if not (real == root or real.startswith(root + os.sep)):
+        raise AppPackageError(
+            f"{where}: {value!r} resolves to {real}, which is outside the package directory "
+            f"{root}. A package that reaches outside itself for its own pipeline runs a "
+            f"different program -- or none -- on any machine where that path is not there")
+    return path
+
+
 def _election_id(value, where, default):
     if value is None:
         return default
@@ -381,6 +453,50 @@ def _host_sort_key(name):
     return (int(name[1:]), name) if name[1:].isdigit() else (1 << 30, name)
 
 
+#: The two halves of a per-switch pipeline, in the order `pipeline_for` returns them.
+#: Both are required: bmv2 is launched with the json and the proxy pushes the p4info, and a
+#: package carrying one of them would run one program while being addressed as another.
+PIPELINE_KEYS = ("p4info", "bmv2_json")
+
+
+def _switch_pipeline(raw, package_dir, sw):
+    """One switch's `pipeline` field -> (p4info, bmv2_json) absolute, or None.
+
+    [Co-developed with claude code -- Adam]
+    `null` means "NDTwin's own artefacts", which is what every phase-1 package says and what
+    `Package.pipeline` holds. Anything else must be an object naming both halves; every refusal
+    below names the switch and the key, because "the package is invalid" is not something an
+    operator can act on at 2 a.m.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, dict):
+        raise AppPackageError(
+            f"{sw}: pipeline must be null or an object with {list(PIPELINE_KEYS)}, got "
+            f"{type(raw).__name__}. A two-element list was the phase-1 spelling and is not "
+            f"accepted: the two paths are not interchangeable and a swapped pair would launch "
+            f"bmv2 on a p4info")
+    unknown = sorted(set(raw) - set(PIPELINE_KEYS))
+    if unknown:
+        raise AppPackageError(
+            f"{sw}: pipeline has unknown key(s) {unknown}; it carries exactly "
+            f"{list(PIPELINE_KEYS)}. A misspelled key would leave the real one missing and the "
+            f"switch running a program nobody named")
+    out = []
+    for key in PIPELINE_KEYS:
+        if key not in raw:
+            raise AppPackageError(
+                f"{sw}: pipeline names no {key!r}. Both halves are required -- bmv2 is launched "
+                f"with the bmv2_json and the proxy pushes the p4info, so half a pipeline is a "
+                f"switch whose data plane and control plane describe different programs")
+        value = raw[key]
+        if not isinstance(value, str) or not value:
+            raise AppPackageError(
+                f"{sw}: pipeline.{key} must be a non-empty string, got {value!r}")
+        out.append(_carried_by_the_package(package_dir, value, f"{sw}: pipeline.{key}"))
+    return tuple(out)
+
+
 def _switches(raw, package_dir, where):
     if not isinstance(raw, dict):
         raise AppPackageError(f"{where}: 'switches' must be an object, got {type(raw).__name__}")
@@ -397,16 +513,12 @@ def _switches(raw, package_dir, where):
         name = spec.get("name", f"s{dpid}")
         if not isinstance(name, str) or not name:
             raise AppPackageError(f"{sw}: name must be a non-empty string")
-        if spec.get("pipeline") is not None:
-            raise AppPackageError(
-                f"{sw}: pipeline must be null in format {FORMAT} -- per-switch pipeline loading "
-                f"is G4 and is NOT implemented. This package would have run on NDTwin's own "
-                f"pipeline while looking as though it ran on its own")
+        pipeline = _switch_pipeline(spec.get("pipeline"), package_dir, sw)
         entries_path, entries_recorded = None, 0
         if spec.get("entries") is not None:
             entries_path = _existing_file(package_dir, spec["entries"], f"{sw}: entries")
             entries_recorded = _count_entries(entries_path, f"{sw}: entries")
-        out.append(SwitchSpec(dpid=dpid, name=name, pipeline=None,
+        out.append(SwitchSpec(dpid=dpid, name=name, pipeline=pipeline,
                               entries=entries_path, entries_recorded=entries_recorded))
     seen = {}
     for spec in out:

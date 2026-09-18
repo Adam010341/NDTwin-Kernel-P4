@@ -26,9 +26,12 @@ exercise-relative, e.g. "pod-topo/s1-runtime.json") the same string.
 
 What it deliberately does NOT do:
 
-  * It does not invent a pipeline. `switches[*].pipeline` is null in stage one, which the
-    reader turns into NDTwin's own artefact; G4 is a later stage and pre-flight refuses
-    anything else rather than pretending.
+  * It does not invent a pipeline. `switches[*].pipeline` names only artefacts the exercise
+    has ALREADY been built into (`make`), copied into the package beside the runtime files it
+    already copies; an unbuilt exercise is refused with the make command rather than converted
+    into a package naming files that are not there. With no `--p4` -- and with
+    `--ndtwin-pipeline` -- every switch is `null`, which the reader turns into NDTwin's own
+    artefact.
   * It does not apply link shaping. tutorials' optional latency/bandwidth elements are
     recorded on the package's `links` and nothing acts on them yet (G2-C, stage three).
   * It does not guess a prefix length. A tutorials host address without one is refused -- an
@@ -157,7 +160,16 @@ def parse_hosts(raw_hosts):
 
 
 def parse_switches(raw_switches):
-    """tutorials `switches` -> {dpid: {name, entries_rel}} (entries_rel may be None)."""
+    """tutorials `switches` -> {dpid: {name, entries, program}} (both may be None).
+
+    🔴 `program` IS READ, NOT DROPPED. It is tutorials' per-switch pipeline override --
+    `utils/run_exercise.py:76-79` passes it to the switch as `json_path` -- and exactly one of
+    the thirteen shipped exercises uses it: firewall's pod-topo puts `build/firewall.json` on
+    s1 and leaves s2-s4 on the Makefile's `DEFAULT_PROG basic.p4`. A converter that threw the
+    field away produced a package whose four switches all run one program, i.e. an exercise
+    whose whole point (traffic crosses a firewall on the way to the others) cannot happen,
+    while every switch comes up and forwards.
+    """
     out = {}
     for name in sorted(raw_switches):
         spec = raw_switches[name] or {}
@@ -168,7 +180,11 @@ def parse_switches(raw_switches):
             raise ConversionError(
                 f"switch {name!r} is configured through the bmv2 CLI (`cli_input`), which this "
                 f"package format does not carry. Only `runtime_json` (P4Runtime) is supported")
-        out[dpid] = {"name": name, "entries": spec.get("runtime_json")}
+        program = spec.get("program")
+        if program is not None and not (isinstance(program, str) and program):
+            raise ConversionError(
+                f"switch {name!r} has a 'program' that is not a path: {program!r}")
+        out[dpid] = {"name": name, "entries": spec.get("runtime_json"), "program": program}
     return out
 
 
@@ -272,7 +288,82 @@ def _p4_stem(p4_rel):
     return os.path.splitext(os.path.basename(p4_rel))[0]
 
 
-def plan(exercise_dir, topology_rel, p4_rel=None, name=None, mode="auto"):
+def artefacts_for_p4(p4_rel):
+    """`solution/basic.p4` -> ("build/basic.p4.p4info.txtpb", "build/basic.json").
+
+    The exercises' shared Makefile compiles every `*.p4` into `$(BUILD_DIR)/<stem>.json` with
+    `--p4runtime-files $(BUILD_DIR)/<stem>.p4.p4info.txtpb` (~/tutorials/utils/Makefile), which
+    is why the .p4's own directory does not appear on the left: `solution/basic.p4` and
+    `basic.p4` are compiled to the same two files.
+    """
+    stem = _p4_stem(p4_rel)
+    return (f"build/{stem}.p4.p4info.txtpb", f"build/{stem}.json")
+
+
+def artefacts_for_program(program_rel):
+    """`build/firewall.json` -> ("build/firewall.p4.p4info.txtpb", "build/firewall.json").
+
+    tutorials' `program` names the bmv2 json; the p4info that was emitted beside it is the same
+    stem with the Makefile's `.p4.p4info.txtpb` suffix, in the same directory.
+    """
+    directory, base = os.path.split(program_rel)
+    stem = os.path.splitext(base)[0]
+    return (os.path.join(directory, f"{stem}.p4.p4info.txtpb"), program_rel)
+
+
+def switch_pipelines(exercise_dir, switches, p4_rel, ndtwin_pipeline=False):
+    """({dpid: pipeline-or-None}, [(abs_source, package_rel)]) -- G4, TICKET-P2 section 2.5.
+
+    Three cases, and the third is a refusal rather than a mixture:
+
+      * `--ndtwin-pipeline`: every switch gets `null`, i.e. NDTwin's own artefacts. This is the
+        phase-1 cell -- the package's topology, hosts and entries on NDTwin's pipeline -- kept
+        reachable on purpose so that what phase 1 measured can still be measured.
+      * `--p4 <prog>`: every switch runs the exercise's programs. `<prog>`'s artefacts are the
+        fabric default and a switch that declares its own `program` overrides it (firewall: s1
+        runs firewall.json, s2-s4 run the Makefile default). Both halves must already be built;
+        a package that named a pipeline it does not carry could not be brought up.
+      * neither, on a topology where some switch declares `program`: REFUSED. Honouring the
+        override alone would put s1 on firewall.json and leave s2-s4 on `ndtwin_switch` -- a
+        fabric of two different data planes that nothing downstream would report -- and
+        ignoring it would silently produce the "all four switches run one program" package the
+        `program` field exists to prevent. Neither is a package anybody asked for.
+    """
+    declared = {dpid: switches[dpid].get("program") for dpid in switches}
+    if ndtwin_pipeline:
+        return {dpid: None for dpid in switches}, []
+    if not p4_rel:
+        named = sorted(dpid for dpid, prog in declared.items() if prog)
+        if named:
+            raise ConversionError(
+                f"switch(es) {[switches[d]['name'] for d in named]} declare their own "
+                f"'program' (e.g. {declared[named[0]]!r}) but no --p4 was given, so every other "
+                f"switch would be left on NDTwin's own pipeline while these ran the exercise's. "
+                f"Pass --p4 <the exercise's DEFAULT_PROG, e.g. basic.p4> so the whole fabric "
+                f"runs the exercise's programs, or --ndtwin-pipeline to put every switch on "
+                f"NDTwin's")
+        return {dpid: None for dpid in switches}, []
+
+    default = artefacts_for_p4(p4_rel)
+    out, copies = {}, []
+    for dpid in sorted(switches):
+        p4info_rel, json_rel = (artefacts_for_program(declared[dpid]) if declared[dpid]
+                                else default)
+        for rel in (p4info_rel, json_rel):
+            abs_path = os.path.join(exercise_dir, rel)
+            if not os.path.isfile(abs_path):
+                raise ConversionError(
+                    f"switch {switches[dpid]['name']} runs {json_rel!r}, whose artefact {rel!r} "
+                    f"is not at {abs_path}. Build the exercise first (`make` in "
+                    f"{exercise_dir}) -- a package that names a pipeline it does not carry "
+                    f"cannot be pre-flighted and cannot be brought up")
+            copies.append((abs_path, rel))
+        out[dpid] = {"p4info": p4info_rel, "bmv2_json": json_rel}
+    return out, copies
+
+
+def plan(exercise_dir, topology_rel, p4_rel=None, name=None, mode="auto",
+         ndtwin_pipeline=False):
     """Everything the package will contain, without writing anything.
 
     Returns (package_dict, model_dict, copies) where copies is [(abs_source, package_rel_dest)].
@@ -303,6 +394,10 @@ def plan(exercise_dir, topology_rel, p4_rel=None, name=None, mode="auto"):
 
     copies = [(topo_path, topology_rel)]
 
+    pipelines, pipeline_copies = switch_pipelines(exercise_dir, switches, p4_rel,
+                                                  ndtwin_pipeline=ndtwin_pipeline)
+    copies.extend(pipeline_copies)
+
     pkg_switches = {}
     for dpid in sorted(switches):
         entries_rel = switches[dpid]["entries"]
@@ -316,9 +411,9 @@ def plan(exercise_dir, topology_rel, p4_rel=None, name=None, mode="auto"):
             copies.extend(_runtime_json_dependencies(exercise_dir, entries_abs, entries_rel))
         pkg_switches[str(dpid)] = {
             "name": switches[dpid]["name"],
-            # Stage one: NDTwin's own artefact, always. Pre-flight refuses anything else with
-            # "G4 not done" rather than loading a pipeline nothing downstream can push.
-            "pipeline": None,
+            # This switch's own program, or null for NDTwin's own artefacts. See
+            # switch_pipelines() for which of the three cases produced it.
+            "pipeline": pipelines[dpid],
             "entries": entries_rel,
         }
 
@@ -495,8 +590,10 @@ def write(out_dir, package, model, copies):
     return sorted(written)
 
 
-def convert(exercise_dir, topology_rel, out_dir, p4_rel=None, name=None, mode="auto"):
-    package, model, copies = plan(exercise_dir, topology_rel, p4_rel=p4_rel, name=name, mode=mode)
+def convert(exercise_dir, topology_rel, out_dir, p4_rel=None, name=None, mode="auto",
+            ndtwin_pipeline=False):
+    package, model, copies = plan(exercise_dir, topology_rel, p4_rel=p4_rel, name=name,
+                                  mode=mode, ndtwin_pipeline=ndtwin_pipeline)
     read_back(model)
     return package, model, write(out_dir, package, model, copies)
 
@@ -511,11 +608,16 @@ def main(argv=None):
     ap.add_argument("--name", default=None, help="package name (default: the exercise directory's)")
     ap.add_argument("--mode", default="auto", choices=("auto", "ndtwin", "external"),
                     help="control plane mode; auto = external when the exercise has a mycontroller.py")
+    ap.add_argument("--ndtwin-pipeline", action="store_true",
+                    help="put every switch on NDTwin's own compiled pipeline instead of the "
+                         "exercise's programs (the package still carries its topology, hosts "
+                         "and entries). Overrides --p4 and any per-switch `program`.")
     args = ap.parse_args(argv)
 
     try:
         package, model, written = convert(args.exercise_dir, args.topology, args.out,
-                                          p4_rel=args.p4, name=args.name, mode=args.mode)
+                                          p4_rel=args.p4, name=args.name, mode=args.mode,
+                                          ndtwin_pipeline=args.ndtwin_pipeline)
     except ConversionError as exc:
         print(f"REFUSED: {exc}", file=sys.stderr)
         return 1
@@ -524,6 +626,14 @@ def main(argv=None):
     n_h = len([n for n in model["nodes"] if n["vertex_type"] == 1])
     print(f"package '{package['name']}' -> {os.path.abspath(args.out)}")
     print(f"  control plane : {package['control_plane']['mode']}")
+    # Per switch, and spelled out even when they are all the same: "which program does this
+    # switch run" is the question a converted exercise exists to answer, and a summary that
+    # only appeared when the answers differed would make the uniform case unreadable.
+    print("  pipelines     : " + ", ".join(
+        f"{package['switches'][k]['name']}="
+        + (package["switches"][k]["pipeline"]["bmv2_json"]
+           if package["switches"][k]["pipeline"] else "NDTwin's own")
+        for k in sorted(package["switches"], key=int)))
     print(f"  model         : {n_sw} switches, {n_h} hosts, {len(model['edges'])} edges "
           f"({len(model['edges']) // 2} links, both directions stored)")
     print(f"  files         : {len(written)}")

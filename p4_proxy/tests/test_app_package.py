@@ -69,9 +69,9 @@ class BaselineIsTheLiteralsItReplacedTest(unittest.TestCase):
             ("p4_src/build/ndtwin_switch.p4info.txt", "p4_src/build/ndtwin_switch.json"))
 
     def test_the_baseline_pipeline_resolves_under_the_proxy_root_for_every_switch(self):
-        # The same two paths main.build_p4_client used to os.path.join by hand, for any dpid:
-        # phase 1 has no per-switch pipeline, and a package that appeared to have one would be
-        # running on NDTwin's pipeline while looking as though it ran on its own.
+        # The same two paths main.build_p4_client used to os.path.join by hand, for any dpid.
+        # The baseline declares no switches at all, so every dpid falls through to the
+        # fabric-wide pair -- which is what "no package" has to keep meaning.
         for dpid in (1, 7, 10):
             self.assertEqual(
                 self.pkg.pipeline_for(dpid, "/base"),
@@ -283,8 +283,10 @@ class AValidPackageTest(unittest.TestCase):
     def test_its_entries_are_counted_and_reported_as_recorded_not_applied(self):
         self.assertEqual(self.pkg.entries_recorded(), {"1": 3, "2": 0})
 
-    def test_it_still_runs_ndtwins_own_pipeline_because_g4_is_not_built(self):
+    def test_a_package_whose_switches_name_no_pipeline_runs_ndtwins_own(self):
         self.assertEqual(self.pkg.pipeline, app_package.baseline().pipeline)
+        for dpid in (1, 2):
+            self.assertTrue(self.pkg.pipeline_is_ndtwin(dpid, "/base"))
 
     def test_an_ndtwin_mode_package_still_arbitrates(self):
         self.assertTrue(self.pkg.arbitration)
@@ -375,12 +377,6 @@ class RefusalTest(unittest.TestCase):
     def test_host_commands_that_are_not_strings_are_refused(self):
         self.refuses(with_manifest(hosts={"h1": {"ip": "10.0.0.1", "commands": [{"run": "x"}]}}),
                      "commands must be a list of strings")
-
-    def test_a_per_switch_pipeline_is_refused_because_g4_is_not_built(self):
-        doc = with_manifest(switches={"1": {"name": "s1",
-                                            "pipeline": ["basic.p4info.txt", "basic.json"]}})
-        message = self.refuses(doc, "pipeline must be null")
-        self.assertIn("G4", message)
 
     def test_a_switch_key_that_is_not_a_dpid_is_refused(self):
         self.refuses(with_manifest(switches={"s1": {"name": "s1", "pipeline": None}}),
@@ -850,6 +846,237 @@ class TopologyPathDisagreementTest(unittest.TestCase):
             FOUR_HOST_MODEL)
         with self.assertRaises(topo_from_json.TopologyModelError):
             app_package.topology_path(base, 128, env={"NDTWIN_P4_TOPO_FILE": FOUR_HOST_MODEL})
+
+
+# --- G4: the per-switch pipeline ---------------------------------------------------------------
+
+
+class PerSwitchPipelineTest(unittest.TestCase):
+    """A package that carries its own program, one per switch (TICKET-P2 section 2.1).
+
+    [Co-developed with claude code -- Adam]
+    Until G4 this field had to be null and `load` said so. What it is for is exercises/firewall:
+    s1 runs `firewall.json`, s2-s4 run `basic.json`, and a fabric that put one program on all
+    four comes up, forwards, and is not the exercise. Everything here is about the reader, not
+    about whether the program is any good -- tools/p4_exercise/preflight.py parses the p4info
+    and checks the two halves against each other; this file only resolves and refuses.
+    """
+
+    #: Two switches, two different programs. `build/` names, because that is where the
+    #: exercises' Makefile puts them and therefore where convert.py copies them.
+    TWO_PROGRAMS = {
+        "1": {"name": "s1", "entries": "s1-runtime.json",
+              "pipeline": {"p4info": "build/fw.p4.p4info.txtpb", "bmv2_json": "build/fw.json"}},
+        "2": {"name": "s2", "entries": None,
+              "pipeline": {"p4info": "build/basic.p4.p4info.txtpb",
+                           "bmv2_json": "build/basic.json"}},
+    }
+    ARTEFACTS = ("build/fw.p4.p4info.txtpb", "build/fw.json",
+                 "build/basic.p4.p4info.txtpb", "build/basic.json")
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_app_pkg_g4_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def package(self, switches, artefacts=ARTEFACTS):
+        """A loadable package whose switches are `switches`, with the artefacts on disk.
+
+        The artefact files are empty JSON: this reader resolves them and never opens them, and
+        a fixture that carried a real p4info would suggest it did.
+        """
+        directory = build_package(self.tmp, manifest=with_manifest(switches=switches),
+                                  name=f"pkg_{len(os.listdir(self.tmp))}")
+        for rel in artefacts:
+            full = os.path.join(directory, rel)
+            os.makedirs(os.path.dirname(full), exist_ok=True)
+            with open(full, "w") as fh:
+                fh.write("{}\n")
+        return directory
+
+    def refuses(self, switches, fragment, artefacts=ARTEFACTS):
+        directory = self.package(switches, artefacts=artefacts)
+        with self.assertRaises(app_package.AppPackageError) as caught:
+            app_package.load(directory)
+        self.assertIn(fragment, str(caught.exception))
+        return str(caught.exception)
+
+    # --- what it resolves -------------------------------------------------------------------
+
+    def test_the_loader_resolves_each_switchs_pipeline_to_two_absolute_paths(self):
+        # 🔴 The field is READ, not merely permitted. A loader that parsed it and stored None
+        # would leave every switch on NDTwin's pipeline while the manifest, the pre-flight and
+        # `ndt status` all said otherwise -- the exact failure `pipeline: null` was mandatory
+        # to prevent, arriving now through the door that was opened for it.
+        directory = self.package(self.TWO_PROGRAMS)
+        by_dpid = {s.dpid: s.pipeline for s in app_package.load(directory).switches}
+        self.assertEqual(by_dpid[1], (os.path.join(directory, "build/fw.p4.p4info.txtpb"),
+                                      os.path.join(directory, "build/fw.json")))
+        self.assertEqual(by_dpid[2], (os.path.join(directory, "build/basic.p4.p4info.txtpb"),
+                                      os.path.join(directory, "build/basic.json")))
+
+    def test_pipeline_for_answers_per_switch_not_fabric_wide(self):
+        pkg = app_package.load(self.package(self.TWO_PROGRAMS))
+        self.assertTrue(pkg.pipeline_for(1, "/base")[1].endswith("build/fw.json"),
+                        pkg.pipeline_for(1, "/base"))
+        self.assertTrue(pkg.pipeline_for(2, "/base")[1].endswith("build/basic.json"),
+                        pkg.pipeline_for(2, "/base"))
+        self.assertNotEqual(pkg.pipeline_for(1, "/base"), pkg.pipeline_for(2, "/base"))
+
+    def test_a_per_switch_pipeline_ignores_the_base_dir_because_it_is_already_absolute(self):
+        # `base_dir` resolves NDTwin's own two relative paths. A package's own pipeline was
+        # resolved against the PACKAGE at load time, so a proxy rooted at p4_proxy/ and a
+        # Mininet script rooted anywhere get the same file.
+        pkg = app_package.load(self.package(self.TWO_PROGRAMS))
+        self.assertEqual(pkg.pipeline_for(1, "/base"), pkg.pipeline_for(1, "/somewhere/else"))
+
+    def test_a_switch_that_names_no_pipeline_still_gets_ndtwins(self):
+        mixed = json.loads(json.dumps(self.TWO_PROGRAMS))
+        mixed["2"]["pipeline"] = None
+        pkg = app_package.load(self.package(mixed))
+        self.assertEqual(pkg.pipeline_for(2, "/base"),
+                         app_package.baseline().pipeline_for(2, "/base"))
+
+    # --- pipeline_is_ndtwin, the question every downstream skip is asked in ------------------
+
+    def test_pipeline_is_ndtwin_is_false_for_a_package_that_brought_its_own(self):
+        pkg = app_package.load(self.package(self.TWO_PROGRAMS))
+        self.assertFalse(pkg.pipeline_is_ndtwin(1, "/base"))
+        self.assertFalse(pkg.pipeline_is_ndtwin(2, "/base"))
+
+    def test_pipeline_is_ndtwin_is_true_for_the_baseline_and_for_a_null_switch(self):
+        self.assertTrue(app_package.baseline().pipeline_is_ndtwin(1, "/base"))
+        mixed = json.loads(json.dumps(self.TWO_PROGRAMS))
+        mixed["2"]["pipeline"] = None
+        pkg = app_package.load(self.package(mixed))
+        self.assertTrue(pkg.pipeline_is_ndtwin(2, "/base"))
+        self.assertFalse(pkg.pipeline_is_ndtwin(1, "/base"))
+
+    # --- the refusals -----------------------------------------------------------------------
+
+    def test_a_pipeline_that_escapes_the_package_directory_is_refused(self):
+        # 🔴 The file EXISTS, so existence is not what catches this. A package that reaches
+        # outside itself pre-flights green on the machine that built it and loads a different
+        # program -- or none -- anywhere else.
+        outside = os.path.join(self.tmp, "outside.json")
+        with open(outside, "w") as fh:
+            fh.write("{}\n")
+        switches = json.loads(json.dumps(self.TWO_PROGRAMS))
+        switches["1"]["pipeline"]["bmv2_json"] = "../outside.json"
+        message = self.refuses(switches, "outside the package directory")
+        self.assertIn("outside.json", message)
+
+    def test_an_absolute_pipeline_path_is_refused(self):
+        switches = json.loads(json.dumps(self.TWO_PROGRAMS))
+        switches["1"]["pipeline"]["bmv2_json"] = "/tmp/elsewhere.json"
+        self.refuses(switches, "absolute path")
+
+    def test_a_pipeline_missing_its_p4info_is_refused(self):
+        switches = json.loads(json.dumps(self.TWO_PROGRAMS))
+        del switches["1"]["pipeline"]["p4info"]
+        message = self.refuses(switches, "names no 'p4info'")
+        self.assertIn("switches.1", message)
+
+    def test_a_pipeline_missing_its_bmv2_json_is_refused(self):
+        switches = json.loads(json.dumps(self.TWO_PROGRAMS))
+        del switches["1"]["pipeline"]["bmv2_json"]
+        self.refuses(switches, "names no 'bmv2_json'")
+
+    def test_a_pipeline_spelled_as_a_list_is_refused(self):
+        # The phase-1 spelling, and the reason it is not quietly accepted: the two paths are
+        # not interchangeable, so a swapped pair would launch bmv2 on a p4info.
+        switches = json.loads(json.dumps(self.TWO_PROGRAMS))
+        switches["1"]["pipeline"] = ["build/fw.p4.p4info.txtpb", "build/fw.json"]
+        self.refuses(switches, "must be null or an object")
+
+    def test_a_pipeline_with_a_misspelled_key_is_refused(self):
+        switches = json.loads(json.dumps(self.TWO_PROGRAMS))
+        switches["1"]["pipeline"] = {"p4info": "build/fw.p4.p4info.txtpb",
+                                     "bmv2json": "build/fw.json"}
+        self.refuses(switches, "unknown key(s) ['bmv2json']")
+
+    def test_a_pipeline_half_that_is_not_a_string_is_refused(self):
+        switches = json.loads(json.dumps(self.TWO_PROGRAMS))
+        switches["1"]["pipeline"]["bmv2_json"] = 7
+        self.refuses(switches, "must be a non-empty string")
+
+    def test_a_pipeline_naming_a_file_the_package_does_not_carry_is_refused(self):
+        switches = json.loads(json.dumps(self.TWO_PROGRAMS))
+        switches["1"]["pipeline"]["bmv2_json"] = "build/never-compiled.json"
+        message = self.refuses(switches, "does not exist")
+        self.assertIn("pipeline.bmv2_json", message)
+
+
+# --- one switch, no cable between switches -----------------------------------------------------
+
+
+class AOneSwitchFabricHasNoInterSwitchLinksTest(unittest.TestCase):
+    """`topo_from_json.switch_links` on a model with one switch, and on one with two.
+
+    [Co-developed with claude code -- Adam]
+    Lives in this file rather than in a reader suite of its own because it is a PACKAGE
+    property: `exercises/calc` -- and basic_tunnel, load_balance, multicast -- declare one
+    switch and two hosts, and until now `app_package.load` refused every one of them, at the
+    `topo_from_json.switches`/`hosts` parse inside `load`, for having no cable. The one-switch
+    package end to end is the last test here; the first three are the rule that lets it load.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_one_switch_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    @staticmethod
+    def model(dpids, edges=()):
+        return {"nodes": [{"vertex_type": 0, "dpid": d, "bridge_name": f"s{d}",
+                           "device_name": f"s{d}"} for d in dpids],
+                "edges": list(edges), "links": []}
+
+    def test_one_switch_and_no_cable_is_an_empty_list_not_an_error(self):
+        self.assertEqual(topo_from_json.switch_links(self.model([1])), [])
+
+    def test_two_switches_with_no_cable_between_them_is_still_refused(self):
+        # 🔴 The discriminator is the SWITCH count, not the edge count. Two switches and no
+        # edge is a model whose `edges` were dropped: the fabric comes up as two islands, each
+        # one healthy, forwarding nothing between them, and every topology view reads correct.
+        with self.assertRaises(topo_from_json.TopologyModelError) as caught:
+            topo_from_json.switch_links(self.model([1, 2]))
+        message = str(caught.exception)
+        self.assertIn("2 switches", message)
+        self.assertIn("exactly one switch", message)
+
+    def test_ten_switches_with_no_cable_is_refused_too(self):
+        with self.assertRaises(topo_from_json.TopologyModelError):
+            topo_from_json.switch_links(self.model(list(range(1, 11))))
+
+    def test_two_switches_that_are_cabled_are_unaffected(self):
+        # The control: the rule above must not turn a real cable into an empty list.
+        edges = [{"src_dpid": 1, "src_interface": 3, "src_ip": ["192.168.123.11"],
+                  "dst_dpid": 2, "dst_interface": 1, "dst_ip": ["192.168.123.12"]},
+                 {"src_dpid": 2, "src_interface": 1, "src_ip": ["192.168.123.12"],
+                  "dst_dpid": 1, "dst_interface": 3, "dst_ip": ["192.168.123.11"]}]
+        self.assertEqual(topo_from_json.switch_links(self.model([1, 2], edges)),
+                         [(1, 3, 2, 1)])
+
+    def test_a_one_switch_package_loads_with_its_two_hosts(self):
+        manifest = json.loads(json.dumps(MANIFEST))
+        manifest["name"] = "calc"
+        manifest["hosts"] = {
+            "h1": {"ip": "10.0.1.1", "prefix_len": 24, "mac": "08:00:00:00:01:01",
+                   "commands": []},
+            "h2": {"ip": "10.0.1.2", "prefix_len": 24, "mac": "08:00:00:00:01:02",
+                   "commands": []},
+        }
+        manifest["switches"] = {"1": {"name": "s1", "pipeline": None,
+                                      "entries": "s1-runtime.json"}}
+        manifest["links"] = [{"a": ["h1", 1], "b": ["s1", 1], "bandwidth_bps": 1000000000},
+                             {"a": ["h2", 1], "b": ["s1", 2], "bandwidth_bps": 1000000000}]
+        directory = lay_out_converter_package(self.tmp, manifest, "calc",
+                                              entry_files=["s1-runtime.json"])
+        pkg = app_package.load(directory)
+        self.assertEqual([h.name for h in pkg.hosts], ["h1", "h2"])
+        self.assertEqual(pkg.switch_names(), {1: "s1"})
+        model = topo_from_json.load(pkg.topology)
+        self.assertEqual(topo_from_json.switch_links(model), [])
+        self.assertEqual(topo_from_json.host_links(model), [("h1", 1, 1), ("h2", 1, 2)])
 
 
 if __name__ == "__main__":
