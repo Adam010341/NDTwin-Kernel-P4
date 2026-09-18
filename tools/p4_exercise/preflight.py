@@ -351,6 +351,38 @@ def _sha16(path):
         return hashlib.sha256(fh.read()).hexdigest()[:16]
 
 
+def pipeline_path_problem(package_dir, rel):
+    """Why `rel` is not a usable pipeline path for this package, or None when it is.
+
+    [Co-developed with claude code -- Adam]
+    🔴 THE SAME THREE RULES THE LOADER ENFORCES, IN THE SAME ORDER -- relative, present, inside
+    the package -- because a pre-flight that is more permissive than the loader is worse than no
+    pre-flight at all. It hands an operator a green table and then `ndt up p4 --app <dir>` dies
+    in `app_package.load` (p4_proxy/mininet/app_package.py, `_carried_by_the_package`), with
+    `mn -c` possibly already run, over a package this tool just approved. The whole reason this
+    file exists is to move refusals to the moment the operator is still holding the package.
+
+    Absolute paths and `../` escapes are the two that matter: a pipeline is CARRIED BY the
+    package, so that copying the package to another machine copies the program with it. One
+    that points at `~/tutorials/exercises/firewall/build/firewall.json` passes every check on
+    the machine that built it and loads a different program, or nothing, anywhere else.
+    """
+    if os.path.isabs(str(rel)):
+        return (f"{rel} is an absolute path. A pipeline is carried by the package and named "
+                f"relative to the package directory, so that moving the package moves the "
+                f"program with it -- app_package.load refuses this, and this package would "
+                f"fail at `ndt up p4 --app`, not here")
+    path = os.path.join(package_dir, rel)
+    if not os.path.isfile(path):
+        return f"{rel} is not at {path}"
+    root, real = os.path.realpath(package_dir), os.path.realpath(path)
+    if not (real == root or real.startswith(root + os.sep)):
+        return (f"{rel} resolves to {real}, which is OUTSIDE the package directory {root}. A "
+                f"pipeline must be relative to the package and inside it -- app_package.load "
+                f"refuses this, and this package would fail at `ndt up p4 --app`, not here")
+    return None
+
+
 def _check_pipelines(report, package_dir, package):
     """Each switch's own program. Returns {dpid: realpath of its p4info} for the ones that pass.
 
@@ -395,11 +427,11 @@ def _check_pipelines(report, package_dir, package):
         paths = {}
         for k in ("p4info", "bmv2_json"):
             rel = spec[k]
-            path = rel if os.path.isabs(rel) else os.path.join(package_dir, rel)
-            if os.path.isfile(path):
-                paths[k] = path
-            else:
-                problems.append(f"{where}: pipeline.{k} {rel} is not at {path}")
+            bad = pipeline_path_problem(package_dir, rel)
+            if bad:
+                problems.append(f"{where}: pipeline.{k} {bad}")
+                continue
+            paths[k] = os.path.join(package_dir, rel)
         if len(paths) != 2:
             continue
         try:
@@ -438,8 +470,9 @@ def _check_pipelines(report, package_dir, package):
                   f"{len(named)} of {len(switches)} switch(es) carry their own program; "
                   f"p4info tables and actions are all in the bmv2 json")
     for where, spec, paths, bmv2 in notes:
+        sha = _sha16(paths["p4info"])
         report.note(f"{where} pipeline",
-                    f"{spec['bmv2_json']}  p4info sha256:{_sha16(paths['p4info'])}  "
+                    f"{spec['bmv2_json']}  p4info sha256:{sha}  "
                     f"program={bmv2.get('program')}")
     return resolved
 

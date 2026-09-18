@@ -228,9 +228,21 @@ class Package:
         entries, `basic` and `source_routing` declare zero -- so on a foreign pipeline an LLDP
         packet-out is a packet nothing parses, a clone session is a session nothing clones to,
         and the link watchdog, which decides a link is down when no LLDP comes back, marks
-        every seeded link down. Answering "is this ours" by comparing the resolved paths, rather
-        than by asking whether the package named one, means a package that names NDTwin's own
-        artefacts explicitly gets the same answer as one that says `null`.
+        every seeded link down.
+
+        🔴 WHAT THIS IS AND IS NOT. For a package that came through `load`, this is False for
+        exactly the switches whose `pipeline` is non-null, and it CANNOT be anything else: a
+        per-switch pipeline is required to be relative to the package directory and to resolve
+        inside it (`_carried_by_the_package`), while NDTwin's own two artefacts live under the
+        p4_proxy root, so the two can never be the same path. A package cannot opt in to
+        NDTwin's pipeline by naming it; it opts in by saying `null`, which is what
+        `--ndtwin-pipeline` writes.
+
+        It is still a comparison of resolved paths rather than `spec.pipeline is not None`,
+        for two reasons that are not cosmetic: it is defined for `baseline()` and for a Package
+        built by hand, which have no `switches` at all; and it is the same expression worker B
+        computes independently in `proxy_agent/main.py` (TICKET-P2 section 2.1 has B not import
+        this name), so writing it two ways would be two answers to one question.
         """
         return self.pipeline_for(dpid, base_dir) == baseline().pipeline_for(dpid, base_dir)
 

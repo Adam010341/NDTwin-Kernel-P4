@@ -36,6 +36,22 @@ FIREWALL = os.path.join(FIXTURES, "firewall")
 CALC = os.path.join(FIXTURES, "calc")
 
 
+def the_proxys_reader():
+    """`p4_proxy/mininet/app_package`, imported by path the way common imports its sibling.
+
+    [Co-developed with claude code -- Adam]
+    Imported rather than described, because the claim these tests make is a claim about TWO
+    programs: that pre-flight refuses exactly what the loader refuses. A test that only
+    asserted a red row here would still be green on the day the two drift apart, which is the
+    day an operator gets a green table and a dead `ndt up`.
+    """
+    if common.MININET_DIR not in sys.path:
+        sys.path.insert(0, common.MININET_DIR)
+    import app_package  # noqa: E402  (path has to be set first)
+
+    return app_package
+
+
 class PackageCase(unittest.TestCase):
     """A converted pod-topo package in a temp dir, plus helpers to corrupt it."""
 
@@ -284,6 +300,49 @@ class PipelineCells(PackageCase):
         # entries with firewall's p4info and s2-s4's with basic's.
         self.assertEqual(self.rows()["entries p4info is the pipeline's"][0], preflight.PASS)
         self.assertIn("4 switch(es)", self.rows()["entries p4info is the pipeline's"][1])
+
+    # --- the rules the LOADER enforces, enforced here too ------------------------------------
+    #
+    # 🔴 A PRE-FLIGHT THAT IS MORE PERMISSIVE THAN THE LOADER IS WORSE THAN NONE. It hands the
+    # operator a green table and then `ndt up p4 --app <dir>` dies inside app_package.load, over
+    # a package this tool just approved, with `mn -c` possibly already run. Each of the two
+    # cells below therefore asserts BOTH halves: red here, and refused by the real loader.
+
+    def assert_loader_refuses(self):
+        app_package = the_proxys_reader()
+        with self.assertRaises(app_package.AppPackageError) as caught:
+            app_package.load(self.pkg)
+        return str(caught.exception)
+
+    def test_an_absolute_pipeline_path_fails_here_and_not_only_at_bring_up(self):
+        absolute = os.path.join(self.pkg, "build", "firewall.json")
+        self.edit_package(lambda d: d["switches"]["1"]["pipeline"].__setitem__(
+            "bmv2_json", absolute))
+        self.assert_red("switches pipeline", "absolute path")
+        self.assertIn("absolute path", self.assert_loader_refuses())
+
+    def test_a_pipeline_escaping_the_package_directory_fails_here_and_not_only_at_bring_up(self):
+        # The file EXISTS, so existence is not what catches this.
+        outside = os.path.join(self.tmp, "outside.json")
+        with open(outside, "w", encoding="utf-8") as fh:
+            fh.write("{}\n")
+        self.edit_package(lambda d: d["switches"]["1"]["pipeline"].__setitem__(
+            "bmv2_json", "../outside.json"))
+        self.assert_red("switches pipeline", "OUTSIDE the package directory")
+        self.assertIn("outside the package directory", self.assert_loader_refuses())
+
+    def test_a_p4info_that_exists_but_does_not_parse_fails_by_name(self):
+        # 🔴 "The file is there" is not "the file is a p4info". A truncated or half-written
+        # p4info makes every id lookup the controller does come back empty, which arrives as
+        # writes that are refused one at a time after the fabric is up.
+        path = os.path.join(self.pkg, "build", "firewall.p4.p4info.txtpb")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write("tables { preamble { name: \"unterminated\n")
+        rows = self.rows()
+        self.assertEqual(rows["switches pipeline"][0], preflight.FAIL, self.report().render())
+        self.assertIn("pipeline.p4info", rows["switches pipeline"][1])
+        self.assertIn("does not parse", rows["switches pipeline"][1])
+        self.assertIn("s1", rows["switches pipeline"][1])
 
     def test_a_ternary_match_says_the_endpoint_answers_501(self):
         path = os.path.join(self.pkg, "build", "firewall.p4.p4info.txtpb")

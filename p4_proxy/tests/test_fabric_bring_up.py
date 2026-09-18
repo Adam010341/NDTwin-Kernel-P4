@@ -343,7 +343,7 @@ with open(BINARY_OVERRIDE, "w") as _fh:
 BASELINE_JSON = os.path.join(MININET_DIR, "..", "p4_src", "build", "ndtwin_switch.json")
 
 
-def load_two_program_package_fixture():
+def load_two_program_package_fixture(only_s1_is_foreign=False, name="two-programs"):
     """A/P1's `basic` package with exercises/firewall's per-switch pipeline shape laid on it.
 
     [Co-developed with claude code -- Adam]
@@ -359,11 +359,18 @@ def load_two_program_package_fixture():
     spec.loader.exec_module(module)
     manifest = json.loads(json.dumps(module.CONVERTER_BASIC))
     for key, switch in manifest["switches"].items():
+        if only_s1_is_foreign and key != "1":
+            # `--ndtwin-pipeline` on some switches and not others is not a shape convert.py
+            # writes, but it is one an operator can write by hand -- and it is the shape the
+            # per-switch disclosure has to get right, because "some of them" is the answer a
+            # count of "all of them" cannot distinguish from a bug.
+            switch["pipeline"] = None
+            continue
         stem = "firewall" if key == "1" else "basic"
         switch["pipeline"] = {"p4info": f"build/{stem}.p4.p4info.txtpb",
                               "bmv2_json": f"build/{stem}.json"}
     directory = module.lay_out_converter_package(
-        _TMP, manifest, "two-programs",
+        _TMP, manifest, name,
         entry_files=[spec_["entries"] for spec_ in manifest["switches"].values()])
     for stem in ("firewall", "basic"):
         for rel in (f"build/{stem}.p4.p4info.txtpb", f"build/{stem}.json"):
@@ -926,6 +933,56 @@ class EachSwitchRunsTheProgramItsPackageNamedTest(FabricFixture):
         self.patch(app_package, "KNOB_PATH", os.path.join(self.tmp, "no_such_knob"))
         _plan, said = self.plan()
         self.assertEqual([line for line in said if line.startswith("package pipelines: ")], [])
+
+
+class AMixedFabricNamesOnlyTheSwitchesThatAreForeignTest(FabricFixture):
+    """One switch on the exercise's program, three on NDTwin's own.
+
+    [Co-developed with claude code -- Adam]
+    The all-foreign case cannot tell a correct count from `len(dpids)`, and it cannot tell a
+    correct list from "every switch". This one can: `1 of 4`, and s1 alone in the list. It
+    matters because worker B's per-switch skips are driven by the same predicate -- a fabric
+    where s2-s4 still get their clone session and telemetry, and only s1 does not, is the whole
+    point of asking per switch instead of per fabric.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.pkg = load_two_program_package_fixture(only_s1_is_foreign=True, name="mixed")
+        self.use_package(self.pkg)
+
+    def test_only_s1_is_off_ndtwins_pipeline(self):
+        self.assertFalse(self.pkg.pipeline_is_ndtwin(1, os.path.join(MININET_DIR, "..")))
+        for dpid in (2, 3, 4):
+            with self.subTest(dpid=dpid):
+                self.assertTrue(self.pkg.pipeline_is_ndtwin(dpid, os.path.join(MININET_DIR, "..")))
+
+    def test_the_plan_counts_one_of_four_and_lists_only_s1(self):
+        _plan, said = self.plan()
+        lines = [line for line in said if line.startswith("package pipelines: ")]
+        self.assertEqual(len(lines), 1, said)
+        self.assertIn("1 of 4", lines[0])
+        self.assertIn("s1=firewall.json", lines[0])
+        for switch in ("s2=", "s3=", "s4="):
+            with self.subTest(switch=switch):
+                self.assertNotIn(switch, lines[0])
+
+    def test_the_other_three_are_launched_with_ndtwins_own_json(self):
+        _plan, net, _result = self.bring_up()
+        argv = net.argv()
+        self.assertIn(os.path.join(self.pkg.dir, "build", "firewall.json"), argv["s1"])
+        for name in ("s2", "s3", "s4"):
+            with self.subTest(switch=name):
+                self.assertIn(BASELINE_JSON, argv[name])
+                self.assertNotIn("firewall.json", argv[name])
+
+    def test_the_plans_json_paths_are_one_foreign_and_three_baseline(self):
+        plan, _said = self.plan()
+        self.assertTrue(plan.json_paths[1].endswith(os.path.join("build", "firewall.json")),
+                        plan.json_paths[1])
+        for dpid in (2, 3, 4):
+            with self.subTest(dpid=dpid):
+                self.assertEqual(plan.json_paths[dpid], BASELINE_JSON)
 
 
 class TheBridgeNeverAsksForASwitchTheModelDoesNotDeclareTest(FabricFixture):

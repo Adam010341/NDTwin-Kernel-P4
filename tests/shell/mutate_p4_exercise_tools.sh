@@ -193,6 +193,55 @@ add "10. pre-flight accepts entries written against a program the switch does no
     '    wrong = []  # MUTANT: whichever p4info the entries name is fine' \
     'test_entries_written_for_another_program_fail'
 
+# 11-16 close the gaps the P2-A judge found: 53 new tests against 10 named mutations. Each of
+# these is a green pre-flight or a green conversion in front of a package that cannot be brought
+# up, or can be brought up running the wrong thing.
+add "11. --ndtwin-pipeline stops meaning anything, so the phase-1 cell runs the exercise's programs" \
+    "$CONVERT" \
+    '    if ndtwin_pipeline:' \
+    '    if False:  # MUTANT: the flag is accepted and ignored' \
+    'test_the_ndtwin_pipeline_flag_nulls_every_switch_including_the_one_with_a_program'
+
+add "12. a declared per-switch program with no --p4 is silently ignored instead of refused" \
+    "$CONVERT" \
+    '        named = sorted(dpid for dpid, prog in declared.items() if prog)' \
+    '        named = []  # MUTANT: nobody declared a program, so nothing to refuse' \
+    'test_a_program_without_p4_is_refused_rather_than_half_applied'
+
+# 13: the sha is the ONLY stable identifier either half of a pipeline has -- the bmv2 json's own
+# sha moves with the directory it was compiled in (TICKET-P1 B measured it). Without it printed,
+# "is this the program those entries were written for" has no answer an operator can quote.
+add "13. the per-switch INFO row stops printing the p4info sha256" \
+    "$PREFLIGHT" \
+    '        sha = _sha16(paths["p4info"])' \
+    '        sha = "not printed"  # MUTANT: no stable identifier in the report' \
+    'test_the_printed_sha_is_the_p4infos_own'
+
+# 14 and 15 are the two halves of one sentence: PRE-FLIGHT MUST REFUSE EXACTLY WHAT THE LOADER
+# REFUSES. A pre-flight that is more permissive hands the operator a green table and then dies
+# inside app_package.load at `ndt up p4 --app`, with `mn -c` possibly already run, over a package
+# this tool approved. Both cells assert the loader's refusal too, so neither can be made green by
+# relaxing only this file.
+add "14. a pipeline may resolve outside the package directory" \
+    "$PREFLIGHT" \
+    '    if not (real == root or real.startswith(root + os.sep)):' \
+    '    if False:  # MUTANT: outside the package is fine here, and fatal at bring-up' \
+    'test_a_pipeline_escaping_the_package_directory_fails_here_and_not_only_at_bring_up'
+
+add "15. an absolute pipeline path is accepted here and refused by the loader" \
+    "$PREFLIGHT" \
+    '    if os.path.isabs(str(rel)):' \
+    '    if False:  # MUTANT: absolute is fine here, and fatal at bring-up' \
+    'test_an_absolute_pipeline_path_fails_here_and_not_only_at_bring_up'
+
+add "16. a p4info that exists but does not parse is skipped instead of reported" \
+    "$PREFLIGHT" \
+    '        except Exception as exc:  # noqa: BLE001 -- an unreadable p4info is a FAIL, not a crash' \
+    '        except Exception as exc:  # MUTANT: the file is there, so the file is fine
+            continue
+        except Exception as exc:  # unreachable once the mutant above catches everything' \
+    'test_a_p4info_that_exists_but_does_not_parse_fails_by_name'
+
 CTRL_SRC="$CONVERT"
 CTRL_ANCHOR='def build_model(hosts, switches, links):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.
@@ -389,7 +438,7 @@ echo "  suite green again after restore"
 # against a tool that does the wrong thing consistently -- and the read-back tests would also
 # go red under #2, which is why #2 names the dpid test and not one of them.
 printf '\nnot reddened by design: test_two_conversions_are_byte_identical and the p4c rows\n'
-printf '(regression guards; they discriminate nothing about the seven behaviours above)\n'
+printf '(regression guards; they discriminate nothing about the sixteen behaviours above)\n'
 
 printf '\n%s mutations, %s survived\n' "$MUTATIONS" "$SURVIVORS"
 [[ "$SURVIVORS" -eq 0 ]]

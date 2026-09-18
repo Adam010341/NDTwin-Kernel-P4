@@ -17,7 +17,8 @@
 #
 # 🔴 THE MUTANT IS A COPY. Every mutation is applied to a copy of p4_proxy under a temp dir and
 # the tests run there. Nothing under p4_proxy/ is written -- another session may be executing
-# those files right now -- and all six sources plus four test files are re-hashed at the end.
+# those files right now -- and all ten sources plus seven test files are re-hashed at the end
+# (the count is printed on the `baseline byte-identical:` line, which is where it is kept true).
 # `setting/` is linked rather than copied: the models are the fabric's, several megabytes, and
 # nothing here mutates them.
 #
@@ -568,6 +569,27 @@ m=$(mutant m45 "$TESTBED" \
     '    foreign = []  # MUTANT: the log never mentions a foreign pipeline')
 report "M45: the bring-up log never says which switches are not on NDTwin's pipeline" "$m" \
        "test_the_plan_says_out_loud_which_switches_are_not_on_ndtwins_pipeline"
+
+# 🔴 M42 moved the zero-cable rule from "always refuse" to "refuse unless there is exactly one
+# switch", and M42 only guards the REFUSING half. This guards the other half: a single-switch
+# exercise -- calc, basic_tunnel, load_balance, multicast -- must load, and an off-by-one in the
+# new condition puts every one of them back where they were, refused for being complete.
+m=$(mutant m46 "$READER" \
+    '        if len(dpids) == 1:' \
+    '        if len(dpids) == 0:')
+report "M46: the one-switch exemption is off by one, so calc is refused again" "$m" \
+       "test_one_switch_and_no_cable_is_an_empty_list_not_an_error"
+
+# A count of "all of them" cannot be told apart from a bug by a fabric where all of them ARE
+# foreign, which is what M45's cell uses. This is the mixed fabric: one switch on the exercise's
+# program and three on NDTwin's, where "1 of 4" and "4 of 4" are different sentences. Worker B's
+# per-switch clone/telemetry skips are driven by the same predicate.
+m=$(mutant m47 "$TESTBED" \
+    '        report(f"package pipelines: {len(foreign)} of {len(dpids)} switch(es) run the "' \
+    '        foreign = list(dpids)  # MUTANT: every switch is reported foreign
+        report(f"package pipelines: {len(foreign)} of {len(dpids)} switch(es) run the "')
+report "M47: a mixed fabric is reported as though every switch were foreign" "$m" \
+       "test_the_plan_counts_one_of_four_and_lists_only_s1"
 
 # --- negative controls -----------------------------------------------------------------------
 #
