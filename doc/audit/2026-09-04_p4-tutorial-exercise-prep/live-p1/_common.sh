@@ -260,6 +260,105 @@ hs.sort(key=lambda n:(int(n['device_name'][1:]) if n['device_name'][1:].isdigit(
 for n in hs: print(n['device_name'], (n.get('ip') or [''])[0])" "$1/ndtwin/topology.json"
 }
 
+# --- TICKET-P2-F: the twin's liveness, against what the exercise's controller actually loaded --
+#
+# 🔴 WHY THIS IS THE ASSERTABLE PROPERTY AND "N up" IS NOT. Under `mode: external` NDTwin loads
+# no pipeline; the switches have no program until the exercise's own controller pushes one, and
+# the twin's liveness policy (p4LivenessFor) calls a bmv2 with no program Down. Measured
+# 2026-09-18: `ndt up` printed `3 switches, 3 up` and `ndt status` one second later read
+# `0 up, 3 enabled` -- the green was a read landing between a background retry and the 1 Hz
+# pingWorker that undoes it. What IS stable, and what goal (3) is actually about, is the
+# correspondence: the switches the twin calls up should be exactly the switches the controller
+# loaded a program onto, and the rest should be down. Both of this exercise's controllers load
+# s1 and s2 and leave s3 alone, so the expectation is not a constant this file wrote down -- it
+# is parsed out of the controller's own log.
+
+# controller_program_set <log> -- the dpids the controller says it loaded a program onto,
+# sorted, comma-joined. Empty when it says none.
+#
+# 🔴 `sN` -> dpid N is the package's own rule, the one tools/p4_exercise/preflight.py asserts as
+# "every sN has dpid N". The digits are taken to the end of the token, so `s10` is 10 and not 1.
+controller_program_set() {
+    [[ -r "$1" ]] || return 0
+    "$PY" -c "
+import re, sys
+seen = set()
+for line in open(sys.argv[1], errors='replace'):
+    m = re.search(r'Installed P4 Program using SetForwardingPipelineConfig on s([0-9]+)\b', line)
+    if m:
+        seen.add(int(m.group(1)))
+print(','.join(str(d) for d in sorted(seen)))" "$1" 2>/dev/null
+}
+
+# kernel_up_set -- the dpids the kernel graph currently says are up, sorted, comma-joined.
+# Empty when none is up; empty ALSO when the graph cannot be read, so callers that need to tell
+# those apart use the rc (1 = unreadable).
+kernel_up_set() {
+    local body
+    body="$(curl -s --max-time 5 "$KERNEL_URL/ndt/get_graph_data" 2>/dev/null)" || return 1
+    printf '%s' "$body" | "$PY" -c "
+import json, sys
+d = json.load(sys.stdin)
+sw = [n for n in d.get('nodes', []) if n.get('vertex_type') == 0]
+if not sw:
+    raise SystemExit(1)
+print(','.join(str(n['dpid']) for n in sorted(sw, key=lambda n: int(n['dpid'])) if n.get('is_up')))" 2>/dev/null
+}
+
+# kernel_liveness_rows -- "<dpid> <is_up> <is_enabled>" per switch, for the raw captures.
+kernel_liveness_rows() {
+    curl -s --max-time 5 "$KERNEL_URL/ndt/get_graph_data" 2>/dev/null | "$PY" -c "
+import json, sys
+d = json.load(sys.stdin)
+for n in sorted((n for n in d.get('nodes', []) if n.get('vertex_type') == 0),
+                key=lambda n: int(n['dpid'])):
+    print(n['dpid'], bool(n.get('is_up')), bool(n.get('is_enabled')))" 2>/dev/null
+}
+
+# await_kernel_up_set <expected> <timeout-s> <outfile> -- wait until the kernel's up-set is
+# EXACTLY <expected> (a sorted comma-joined dpid list). rc 0 when it is, 1 on timeout or refusal.
+#
+# 🔴 AN EMPTY EXPECTED SET IS REFUSED OUTRIGHT, and that is the control this check needs. The
+# expectation comes out of the controller's own log; if the log named no switch, then "the twin
+# agrees with the controller" is an equality between two empty sets, which is true of a dead
+# fabric, a broken parser and a controller that never started alike. It would be the greenest
+# possible way to check nothing.
+#
+# 🔴 "Exactly" and not "at least": the switches OUTSIDE the set have to be down. s3 never gets a
+# program in this exercise, so a twin that called it up would be reporting liveness it has no
+# evidence for -- which is the shape of the defect this whole check replaces.
+await_kernel_up_set() {
+    local expected="$1" timeout="${2:-20}" out="$3"
+    if [[ -z "$expected" ]]; then
+        bad "await_kernel_up_set: the expected set is EMPTY -- the controller log named no switch it loaded a program onto, and an equality between two empty sets proves nothing"
+        printf 'REFUSED: empty expected set\n' > "$out"
+        return 1
+    fi
+    local i got="" last="<unreadable>"
+    for (( i = 0; i < timeout; i++ )); do
+        if got="$(kernel_up_set)"; then
+            last="${got:-<none>}"
+            if [[ "$got" == "$expected" ]]; then
+                { printf 'expected (from the controller log): %s\n' "$expected"
+                  printf 'kernel up set:                      %s\n' "$got"
+                  printf 'reached after:                      %ds\n' "$i"
+                  printf '\ndpid is_up is_enabled\n'
+                  kernel_liveness_rows; } > "$out"
+                note "kernel up set == $expected after ${i}s   ($(basename "$out"))"
+                return 0
+            fi
+        fi
+        sleep 1
+    done
+    { printf 'expected (from the controller log): %s\n' "$expected"
+      printf 'kernel up set (last read):          %s\n' "$last"
+      printf 'gave up after:                      %ds\n' "$timeout"
+      printf '\ndpid is_up is_enabled\n'
+      kernel_liveness_rows; } > "$out"
+    bad "the kernel's up set never became '$expected' within ${timeout}s (last: $last) -- see $(basename "$out")"
+    return 1
+}
+
 # run_app_pipeline_kind <package-dir> -- `ndt`'s own answer to "whose program is on these
 # switches", out of the same subshell and the same function `ndt up` uses (TICKET-P2-D §3.5).
 #

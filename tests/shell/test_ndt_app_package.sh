@@ -600,6 +600,18 @@ nodes += [{"vertex_type": 1} for _ in range(nh)]
 print(json.dumps({"nodes": nodes, "edges": [{} for _ in range(ns * 4)]}))
 PY
 }
+# TICKET-P2-F: the same graph with every switch DOWN, which is what an external fabric looks
+# like before its controller runs. mkgraph's switches are always up, and "0 up" is the whole
+# subject of section 17.
+mkgraph_down() {   # mkgraph_down <switches> <hosts>
+    python3 - "$1" "$2" <<'PYD'
+import json, sys
+ns, nh = int(sys.argv[1]), int(sys.argv[2])
+nodes = [{"vertex_type": 0, "is_up": False, "is_enabled": False} for _ in range(ns)]
+nodes += [{"vertex_type": 1} for _ in range(nh)]
+print(json.dumps({"nodes": nodes, "edges": [{} for _ in range(ns * 4)]}))
+PYD
+}
 G4="$(mkgraph 4 4)"
 OUT="$(drive_v "$GRAPH"$'\n'"GRAPH_JSON=$(q "$G4"); GRAPH_HOSTS=4; verify_p4_graph '$PKG_OK/ndtwin/topology.json'")"
 check "🔴 a 4-switch package makes the want 4, not 10"    "0" "$(rc_of "$OUT")"
@@ -627,11 +639,23 @@ has   "  and says the check did not run"                  "kernel: UNCHECKED" "$
 # verify_p4 under each mode. The proxy-side checks are driven through the real function with
 # the graph half stubbed, so what is measured here is which checks it runs and what it says
 # about the ones it does not.
+# TICKET-P2-F added a gate to the external branch -- every switch the model declares must be
+# in GET /p4/switch_state with its probe ANSWERED -- so the stub has to answer that endpoint.
+# The fixture is three switches, alive and carrying no program, which is what PKG_EXT's
+# fabric is; section 17 is where the probe states themselves are the subject.
+SS_EXT3="$FIX/ss_ext3.json"
+python3 -c '
+import json, sys
+json.dump({"status": "success",
+           "control_plane": {"mode": "external", "skipped": []},
+           "switches": {str(i): {"probe_ok": False, "probe_detail":
+               "FAILED_PRECONDITION: No forwarding pipeline config set for this device"}
+               for i in (1, 2, 3)}}, open(sys.argv[1], "w"))' "$SS_EXT3"
 VSTUB='
 verify_p4_graph() { echo "GRAPH CHECKED $1"; return 0; }
 verify_dataplane() { echo "PINGED $1 -> $2"; return 0; }
 json_len() { echo 12; }
-curl() { echo "{}"; }
+curl() { case "$*" in */p4/switch_state) cat "'"$SS_EXT3"'" ;; *) echo "{}" ;; esac; }
 '
 OUT="$(drive_v "$VSTUB"$'\n'"verify_p4 '$PKG_OK/ndtwin/topology.json' 12 ndtwin")"
 has   "ndtwin mode pings the pair the model names"        "PINGED h1 -> 10.0.2.2" "$OUT"
@@ -954,6 +978,12 @@ for i, spec in enumerate(sys.argv[3:], start=1):
         rec, app, fail = (int(x) for x in spec.split(":"))
         s["table_entries"] = {"recorded": rec, "applied": app, "failed": fail,
                               "api_writes": 0, "journaled": False}
+    # TICKET-P2-F: the default probe is the one every live capture of an external fabric shows
+    # -- the bmv2 is alive and talking P4Runtime and has no program. It is here rather than in
+    # each cell because it is what these fixtures always MEANT; the probe gate is simply a
+    # newer reader of the same fabric. Section 17 builds its own fixtures for the probe cases.
+    s["probe_ok"] = False
+    s["probe_detail"] = "FAILED_PRECONDITION: No forwarding pipeline config set for this device"
     d["switches"][str(i)] = s
 json.dump(d, open(f, "w"), indent=1)
 PY
@@ -1130,6 +1160,177 @@ OUT="$(run_status --check "$PROXY_STUBS")"
 has   "  an NDTwin-pipeline package still wants twelve"   "4 destination paths (want 12 for 4 hosts)" "$OUT"
 has   "🔴 and the shortfall IS a problem there"           "proxy reports 4 destination paths, want 12" "$OUT"
 check "  so --check exits 1 on it"                        "1" "$(rc_of "$OUT")"
+
+# =============================================================================================
+section "17. 🔴 external: the liveness numbers are a READING and the probe is the gate"
+# =============================================================================================
+# TICKET-P2-F / TICKET-P2 §7-12. Live 2026-09-18, live-p1/03 printed `kernel: 3 switches, 3 up`
+# and its OWN `ndt status` one second later read `0 up, 3 enabled`. Nothing about the fabric
+# changed in that second: under `mode: external` the proxy pushes no pipeline, the liveness
+# probe is a GetForwardingPipelineConfig, a bmv2 with no program answers FAILED_PRECONDITION,
+# and the twin's own policy calls such a switch Down. The only writer of isUp there is the
+# proxy's inform_switch_entered background retry (30 x 10 s, and it does not look at read_only),
+# which the kernel's 1 Hz pingWorker undoes a second later. `3 up` was one read landing between
+# two races -- so waiting longer (P2-D round 3) only buys another ticket in the same lottery.
+#
+# 🔴 SO THE GATE MOVES TO A QUESTION WITH A MECHANICAL ANSWER: is every switch the model
+# declares in the proxy's report, and did its probe get ANSWERED? FAILED_PRECONDITION is an
+# answer -- the process is alive and talking P4Runtime and has no program, which is the designed
+# state. UNAVAILABLE, a probe that raised, a missing dpid, or a probe that never completes are
+# silence, and silence stays red.
+
+# mkprobe <file> <dpid>:<true|false|null>:<detail>... -- a switch_state whose subject is probes.
+# `-` for the detail means the key is absent altogether.
+mkprobe() {
+    local f="$1"; shift
+    python3 - "$f" "$@" <<'PYP'
+import json, sys
+d = {"status": "success", "control_plane": {"mode": "external", "skipped": []}, "switches": {}}
+for spec in sys.argv[2:]:
+    dpid, word, detail = spec.split(":", 2)
+    s = {"probe_ok": {"true": True, "false": False, "null": None}[word]}
+    if detail != "-":
+        s["probe_detail"] = detail
+    d["switches"][dpid] = s
+json.dump(d, open(sys.argv[1], "w"), indent=1)
+PYP
+}
+FP="FAILED_PRECONDITION: No forwarding pipeline config set for this device"
+P_ALL="$FIX/p_all.json"      ; mkprobe "$P_ALL"   "1:false:$FP" "2:false:$FP" "3:false:$FP"
+P_PROG="$FIX/p_prog.json"    ; mkprobe "$P_PROG"  "1:true:answered GetForwardingPipelineConfig" \
+                                                  "2:true:answered GetForwardingPipelineConfig" \
+                                                  "3:true:answered GetForwardingPipelineConfig"
+P_MISS="$FIX/p_miss.json"    ; mkprobe "$P_MISS"  "1:false:$FP" "2:false:$FP"
+P_UNAV="$FIX/p_unav.json"    ; mkprobe "$P_UNAV"  "1:false:$FP" \
+                                                  "2:false:UNAVAILABLE: failed to connect to all addresses" \
+                                                  "3:false:$FP"
+P_NULL="$FIX/p_null.json"    ; mkprobe "$P_NULL"  "1:null:-" "2:null:-" "3:null:-"
+
+# 🔴 A SWITCH_STATE THAT CHANGES BETWEEN READS, which is the only way to tell a bounded re-read
+# from a single read. `SS_SEQ` is one file per call, the last repeating; the counter is a file
+# because every curl runs inside a command substitution.
+# 🔴 verify_p4_graph IS LEFT REAL HERE. The first draft stubbed it, and mutate_ndt_app_package's
+# M36 -- external judged on `N up` again -- then SURVIVED against the one cell that is supposed
+# to be about exactly that: a stub cannot be reddened by a mutation inside the function it
+# replaced. The graph now comes off a fixture through the same `curl` stub the probes do.
+ESTUB='
+verify_dataplane() { echo "PINGED $1 -> $2"; return 0; }
+fabric_host_count() { echo 3; }
+json_len() { echo 0; }
+sleep() { :; }
+ss_next() {
+    local i seq
+    i="$(cat "'"$FIX"'/ss.n" 2>/dev/null)"; i="${i:-0}"
+    echo "$(( i + 1 ))" > "'"$FIX"'/ss.n"
+    read -r -a seq <<< "$SS_SEQ"
+    cat "${seq[i]:-${seq[$(( ${#seq[@]} - 1 ))]}}"
+}
+curl() { printf "%s\n" "$*" >> "'"$FIX"'/ecurl.log"
+         case "$*" in
+             */p4/switch_state)  ss_next ;;
+             */get_graph_data)   printf %s "$GRAPH_JSON" ;;
+             *)                  echo "{}" ;;
+         esac; }
+'
+evp4() {   # evp4 <SS_SEQ> [<extra shell>] -- verify_p4 over PKG_EXT (3 switches), mode external
+    rm -f "$FIX/ss.n"; : > "$FIX/ecurl.log"
+    drive_v "$ESTUB"$'\n'"GRAPH_JSON=$(q "$(mkgraph_down 3 3)"); SS_SEQ='$1'; ${2:-:}
+verify_p4 '$PKG_EXT/ndtwin/topology.json' 6 external"
+}
+ss_reads() {
+    local n; n="$(/usr/bin/grep -c 'p4/switch_state' "$FIX/ecurl.log" 2>/dev/null)"
+    [[ "$n" =~ ^[0-9]+$ ]] || n=0
+    printf '%s' "$n"
+}
+
+# --- the designed state: three alive switches, none carrying a program ------------------------
+OUT="$(evp4 "$P_ALL")"
+check "🔴 an external fabric with 0 up is GREEN"         "0" "$(rc_of "$OUT")"
+has   "🔴 because the probe is what was gated"           "proxy: 3/3 switches answered the liveness probe" "$OUT"
+has   "  and it says why none of them has a pipeline"    "no pipeline loaded on any of them, by design" "$OUT"
+has   "  the verdict word is unchanged"                  "up. ready" "$OUT"
+hasnt "🔴 and NOTHING calls the fabric broken"           "XX" "$OUT"
+
+# --- the reading, which is the half that made the defect visible ------------------------------
+GSTUB='
+curl() { printf %s "$GRAPH_JSON"; }
+fabric_host_count() { echo 3; }
+'
+OUT="$(drive_v "$GSTUB"$'\n'"GRAPH_JSON=$(q "$(mkgraph_down 3 3)")
+verify_p4_graph '$PKG_EXT/ndtwin/topology.json' external")"
+check "🔴 verify_p4_graph under external is green at 0 up" "0" "$(rc_of "$OUT")"
+has   "  the switch COUNT is still reported as a gate"   "kernel: 3 switches in the graph" "$OUT"
+has   "🔴 and up/enabled are named a READING"            "kernel liveness: 0/3 up, 0/3 enabled -- a READING, not a" "$OUT"
+has   "🔴 BOTH numbers, because it took the pair to see it" "0/3 up, 0/3 enabled" "$OUT"
+has   "  naming the policy that decides it"              "p4LivenessFor" "$OUT"
+has   "  and what would change it"                       "within ~3 s of the controller loading a program" "$OUT"
+hasnt "  no second line about the same number"           "is_enabled=0/3" "$OUT"
+# The switch COUNT is still a gate on this plane.
+OUT="$(drive_v "$GSTUB"$'\n'"GRAPH_JSON=$(q "$(mkgraph_down 2 3)")
+verify_p4_graph '$PKG_EXT/ndtwin/topology.json' external")"
+check "🔴 two switches under a three-switch model still FAILS" "1" "$(rc_of "$OUT")"
+has   "  naming both numbers"                            "kernel: 2 switches in the graph (model declares 3)" "$OUT"
+OUT="$(drive_v "$GSTUB"$'\n'"GRAPH_JSON=$(q "$(mkgraph_down 3 3)")
+verify_p4_graph '$PKG_EXT/ndtwin/topology.json' external")"
+check "  and three under three passes"                   "0" "$(rc_of "$OUT")"
+
+# 🔴 THE CONTROL: the reading is external-only. On NDTwin's own pipeline a fabric with 0 up is
+# still a fabric NDTwin failed to bring up, and it is still red with the words it always had.
+OUT="$(drive_v "$GSTUB"$'\n'"GRAPH_JSON=$(q "$(mkgraph_down 3 3)")
+verify_p4_graph '$PKG_EXT/ndtwin/topology.json'")"
+check "🔴 the SAME graph on the baseline path is still red" "1" "$(rc_of "$OUT")"
+has   "  in the words it always had"                     "kernel: 3 switches, 0 up (want 3/3)" "$OUT"
+hasnt "  and says nothing about a reading"               "a READING, not a" "$OUT"
+
+# --- the probe gate's red cases ---------------------------------------------------------------
+OUT="$(evp4 "$P_MISS")"
+check "🔴 a dpid the proxy never built a client for is red" "1" "$(rc_of "$OUT")"
+has   "  naming the dpid"                                "switch 3 is not in /p4/switch_state at all" "$OUT"
+has   "  and the bring-up is not verified"               "but not verified" "$OUT"
+OUT="$(evp4 "$P_UNAV")"
+check "🔴 a switch that could not be reached is red"     "1" "$(rc_of "$OUT")"
+has   "  naming the dpid and what it said"               "switch 2 did not answer the liveness probe: UNAVAILABLE" "$OUT"
+hasnt "  and does not report the fabric as answered"     "3/3 switches answered" "$OUT"
+
+# --- the bounded re-read ------------------------------------------------------------------------
+OUT="$(evp4 "$P_NULL")"
+check "🔴 a probe that never completes is red, not green" "1" "$(rc_of "$OUT")"
+has   "  and says which question went unanswered"        "did not answer the liveness probe: no probe yet" "$OUT"
+check "🔴 after the bounded re-read, not one look"       "5" "$(ss_reads)"
+OUT="$(evp4 "$P_NULL $P_NULL $P_ALL")"
+check "🔴 a probe that lands on the third read is GREEN" "0" "$(rc_of "$OUT")"
+has   "  and the fabric is reported as answered"         "3/3 switches answered the liveness probe" "$OUT"
+check "🔴 which took exactly three reads"                "3" "$(ss_reads)"
+
+# --- a fabric whose controller has already run --------------------------------------------------
+OUT="$(evp4 "$P_PROG")"
+check "  three switches already carrying a program pass" "0" "$(rc_of "$OUT")"
+has   "🔴 and the line says so instead of 'by design'"   "3 of them already carry a pipeline" "$OUT"
+hasnt "  not the no-pipeline sentence"                   "no pipeline loaded on any of them" "$OUT"
+
+# --- 'ndt status --check' does not call an external fabric broken --------------------------------
+# ndt:5594 raised `N switch(es) are down` for any g_up < g_sw. Between `ndt up` and the
+# exercise's controller that is every reading of this report, about a fabric behaving exactly as
+# its package asked.
+DOWN_STUBS='
+http_get_graph() { echo "{}"; }
+graph_summary() { echo "3 0 0 0 3 12 0 0"; }
+port_open() { [[ "$1" == 8000 ]]; }
+'
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_EXT"); up_p4")"
+OUT="$(run_status --check "$DOWN_STUBS")"
+has   "  the report still prints the numbers"            "switches       0 up, 0 enabled" "$OUT"
+has   "🔴 and says they are a reading"                   "up/enabled above is a READING, not a verdict" "$OUT"
+hasnt "🔴 and --check does NOT call the fabric broken"   "switch(es) are down" "$OUT"
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+OUT="$(run_status --check "$DOWN_STUBS")"
+has   "🔴 while an NDTwin-pipeline fabric with 0 up IS a problem" "3 switch(es) are down" "$OUT"
+hasnt "  and gets no reading line"                       "up/enabled above is a READING" "$OUT"
+reset_fix
+OUT="$(run_status --check "$DOWN_STUBS")"
+has   "  and so is the baseline fabric with no package"  "3 switch(es) are down" "$OUT"
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
