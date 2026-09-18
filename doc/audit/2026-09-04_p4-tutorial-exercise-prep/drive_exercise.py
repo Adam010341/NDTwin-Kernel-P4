@@ -94,6 +94,10 @@ CONVERT   = os.path.join(REPO, "tools", "p4_exercise", "convert.py")
 PREFLIGHT = os.path.join(REPO, "tools", "p4_exercise", "preflight.py")
 PKG_ROOT  = os.path.join(REPO, ".test_run", "packages")
 CLAIM     = os.path.join(REPO, ".test_run", "lab.claim")
+#: The P4 host knob. `ndt up p4 --app` writes the package model's host count into it and
+#: `ndt release` refuses while it differs from what the round started at (ndt:885-898), so a
+#: round that does not put it back ends with the lab still claimed. See ndtwin_teardown().
+HOST_KNOB = os.path.join(REPO, "p4_proxy", "mininet", "host_count_override")
 PROXY_URL = "http://localhost:8081"
 
 #: `ndt` refuses to run without an owner, and every call this file makes carries
@@ -244,6 +248,11 @@ def trim(text, cap=6000):
     if len(text) <= cap:
         return text
     return text[:cap] + "\n... [trimmed; %d chars total]" % len(text)
+
+
+def euid():
+    """Who this process is.  A seam, so the refusals that turn on it have tests."""
+    return os.geteuid()
 
 
 def host_key(name):
@@ -521,7 +530,8 @@ def compile_prog(exdir, src, base):
 def companion_programs(exdir, spec, which):
     """The OTHER programs this exercise's topology needs compiled, as (src, base).
 
-    `make build` compiles every *.p4 in the exercise directory (utils/Makefile:19),
+    `make build` compiles every *.p4 in the exercise directory (utils/Makefile:17-18
+    and :43),
     not just the one `-j` names, and exercises/firewall is the shipped case where
     that matters: pod-topo/topology.json gives s1 `build/firewall.json` and leaves
     s2-s4 on DEFAULT_PROG=basic.p4.  A run that compiled only the variant would
@@ -934,7 +944,7 @@ class Steps(object):
         pkts = self._packets(rtext)
 
         if self.which == "solution":
-            self._add("pingAll packet loss", "0.0%", pa.label(),
+            self._add("pingall loss (ping -c 5, every ordered pair)", "0.0%", pa.label(),
                       loss == 0, G_BOTH,
                       "solution/basic.p4 parses+forwards; pod-topo sX-runtime.json has /32 entries for all 4 hosts")
             self._add("h1 ping -c3 h2 received", "3", str(rx),
@@ -946,7 +956,7 @@ class Steps(object):
                       ttls == [63] * len(ttls) and bool(ttls), G_SRC,
                       "solution ipv4_forward does ttl = ttl - 1 once; h1 and h2 share s1 (pod-topo links)")
         else:
-            self._add("pingAll packet loss", "100.0%", pa.label(),
+            self._add("pingall loss (ping -c 5, every ordered pair)", "100.0%", pa.label(),
                       loss == 100, G_BOTH,
                       "see the derivation in DRIVER.md: basic.p4:66-74 / :119-129 / :147 / :202-211")
             self._add("h1 ping -c3 h2 received", "0", str(rx),
@@ -977,7 +987,7 @@ class Steps(object):
             produce the same two rows -- so this run FAILS and says so.
           * h3 -> h1 does NOT connect with the SOLUTION.  README: "TCP flows from
             the outside hosts to hosts inside the internal network should NOT
-            work", and solution/firewall.p4:211-218: direction 1 (s1-runtime.json
+            work", and solution/firewall.p4:212-219: direction 1 (s1-runtime.json
             maps ingress 3|4 -> egress 1|2 to set_direction(1)) reads both bloom
             cells and drop()s unless h1/h2 opened the connection first.
         """
@@ -1001,7 +1011,7 @@ class Steps(object):
             self._add("iperf h3 -> h1 is blocked", "no transfer",
                       "connects" if in_ok else "no transfer",
                       not in_ok, G_BOTH,
-                      "solution/firewall.p4:211-218 drop()s direction-1 packets whose bloom cells are unset")
+                      "solution/firewall.p4:212-219 drop()s direction-1 packets whose bloom cells are unset")
             self._add("the fabric still forwards (pingall)", "0.0%", pa.label(),
                       pa.loss == 0, G_SRC,
                       "ICMP has no TCP header, so check_ports never fires: the firewall drops TCP, not the fabric")
@@ -1087,12 +1097,13 @@ class Steps(object):
         """exercises/link_monitor, README step 1.
 
         WHAT DISTINGUISHES THE ARMS.  Both arms run `swid.apply()`
-        (link_monitor.p4:235 and solution/link_monitor.p4:235), and pod-topo's
+        (link_monitor.p4:239 and solution/link_monitor.p4:239), and pod-topo's
         sX-runtime.json sets that table's DEFAULT action to set_swid(X) -- so the
         switch ids come out non-zero in BOTH, and a check written on them would
         pass over an unimplemented exercise.  What the skeleton's two TODOs
         (link_monitor.p4:240-243) leave unwritten is `probe_data[0].port`,
-        `.byte_cnt`, `.last_time` and `.cur_time`, all of which stay 0 --
+        `.byte_cnt`, `.last_time` and `.cur_time` (the two TODOs at :240-243), all of
+        which stay 0 --
         receive.py then prints `Port 0` and, because `cur_time == last_time`,
         `0 Mbps` for every hop.  【README 宣稱】 step 1.4 says exactly that: "The
         reported link utilization and the switch port numbers will always be 0
@@ -1268,7 +1279,134 @@ def ndt(argv, cwd=None, timeout=900):
     return rc, out
 
 
-def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out):
+def bmv2_identity(status_text):
+    """(sha256[:16], label) for the bmv2 binary `ndt status` says this fabric runs.
+
+    🔴 A BENCHMARK NAMES ITS BINARY BY A sha, NOT BY A VERSION STRING (CLAUDE.md; README
+    section 3). There are two builds of `simple_switch_grpc` on this laptop and `--version`
+    does not tell them apart -- only the hash does, and on the NDTwin fabric this driver does
+    not choose which one runs: `ndt up p4` does, through p4_proxy/mininet/bmv2_binary_override.
+    So the choice is read back out of `ndt status`'s `bmv2` row (ndt's bmv2_binary(): either an
+    absolute path from that override, or the words "simple_switch_grpc (stock, PATH)"), the
+    file is hashed, and anything this cannot resolve comes back UNREADABLE **and never as a
+    bare "-"**: an empty identity in a run report reads as a binary nobody chose.
+    """
+    m = re.search(r"^\s*bmv2\s{2,}(.+?)\s*$", status_text or "", re.M)
+    if not m:
+        return "-", "UNREADABLE: `ndt status` printed no bmv2 row"
+    value = m.group(1)
+    path = value if value.startswith("/") else None
+    if path is None and "stock" in value:
+        import shutil
+        path = shutil.which("simple_switch_grpc")
+    if not path or not os.path.isfile(path):
+        return "-", "UNREADABLE: `ndt status` says %r" % value
+    try:
+        _, ver = run([path, "--version"], timeout=30)
+        ver = (ver.strip().splitlines() or [""])[0]
+    except (OSError, subprocess.TimeoutExpired):        # noqa: BLE001
+        ver = "(--version did not answer)"
+    return sha16(path), "%s   (ndt status: %s)" % (ver, value)
+
+
+def knob_snapshot(path=None):
+    """The P4 host knob's BYTES, or None when there is no file.
+
+    🔴 BYTES, NOT THE NUMBER (live-p1/_common.sh:119-131). `host_count_in` skips comments and
+    leading whitespace, so the file can read 4 without being the two bytes `4\\n`; writing the
+    number back would rewrite a hand-annotated file into a bare number and call it a restore.
+    """
+    try:
+        with open(path or HOST_KNOB, "rb") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def knob_restore(before, path=None):
+    """Put the snapshot back.  -> (ok, what happened, in words)."""
+    path = path or HOST_KNOB
+    now = knob_snapshot(path)
+    if now == before:
+        return True, "unchanged (%s)" % ("absent" if before is None else "%d bytes" % len(before))
+    if before is None:
+        try:
+            os.remove(path)
+        except OSError as e:                             # noqa: BLE001
+            return False, "could NOT remove the knob this round created: %r" % (e,)
+        return True, "removed (this round created it)"
+    try:
+        with open(path, "wb") as f:
+            f.write(before)
+    except OSError as e:                                 # noqa: BLE001
+        return False, "could NOT put the knob back: %r" % (e,)
+    if knob_snapshot(path) != before:
+        return False, "put the knob back and it did NOT take"
+    return True, "put back to the %d bytes this round found" % len(before)
+
+
+def ndtwin_teardown(knob_before, steps_out=None):
+    """`ndt down`, then the host knob, then `ndt release`.  -> "" or what went wrong.
+
+    🔴 THE ORDER IS _common.sh finish()'s, AND THE MIDDLE STEP IS NOT OPTIONAL.
+    `ndt up p4 --app` writes the package model's host count into
+    p4_proxy/mininet/host_count_override -- exercises/source_routing declares THREE hosts, so
+    that file moves off 4 the first time this driver runs that exercise -- `ndt down` does not
+    put it back, and `ndt release` REFUSES while it differs from what the round started at
+    (ndt:885-898, E-11b). A teardown without the restore therefore ends with the lab still
+    claimed by a driver that printed PASS and exited 0, which is the one failure this whole
+    step exists to make impossible.
+    """
+    problems = []
+    drc, dout = ndt(["down"])
+    say("   ndt down rc=%d" % drc)
+    if steps_out is not None:
+        steps_out.append(("N9  ndt down", "ndt down", dout))
+    if drc != 0:
+        problems.append("`ndt down` exited %d" % drc)
+    ok, why = knob_restore(knob_before)
+    say("   host_count_override: %s" % why)
+    if not ok:
+        problems.append(why)
+    rrc, rout = ndt(["release"])
+    say("   ndt release rc=%d" % rrc)
+    if steps_out is not None:
+        steps_out.append(("N10 ndt release", "ndt release", rout))
+    if rrc != 0:
+        problems.append("`ndt release` exited %d -- THE LAB IS STILL CLAIMED" % rrc)
+    return "; ".join(problems)
+
+
+def final_verdict(verdict, exit_code, problem):
+    """The verdict line and the exit code, after the teardown has had its say.
+
+    🔴 A ROUND THAT LEFT THE LAB CLAIMED DID NOT PASS. The expectations can all be green and
+    the next session still find a lab it cannot take; reporting that as PASS/0 would put the
+    reader's attention exactly where the problem is not.
+    """
+    if not problem:
+        return verdict, exit_code
+    return "%s -- LAB NOT RETURNED: %s" % (verdict, problem), exit_code or 1
+
+
+def convert_p4_arg(exdir, spec, which):
+    """The `--p4` path: the file that was actually compiled to the DEFAULT stem.
+
+    Only the stem of this argument decides the package's pipelines (convert.py's `_p4_stem`),
+    but the path itself is recorded in the package as `source.p4` -- so naming `basic.p4` for a
+    package whose build/basic.json is the SOLUTION's compile would be a package that says it
+    carries a program nobody ran. `firewall` keeps the skeleton path on purpose: its
+    DEFAULT_PROG is basic.p4 and solution/ holds one file, firewall.p4.
+    """
+    default = spec["default_prog"]
+    if which == "solution" and default == spec["prog"]:
+        cand = os.path.join("solution", default)
+        if os.path.isfile(os.path.join(exdir, cand)):
+            return cand
+    return default
+
+
+def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=None):
     """convert -> pre-flight -> claim -> up -> steps -> down -> release.
 
     🔴 THE TEARDOWN IS IN A `finally` AND IT IS BOTH HALVES, in _common.sh
@@ -1290,9 +1428,11 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out):
     os.makedirs(os.path.dirname(pkg), exist_ok=True)
     # --p4 names the Makefile's DEFAULT_PROG, whose STEM is what convert.py uses
     # for every switch that does not name a `program` of its own.  The variant
-    # (skeleton or solution) is already compiled to that stem's output names.
+    # (skeleton or solution) is already compiled to that stem's output names, and
+    # convert_p4_arg() is what keeps the recorded source honest about which of
+    # the two that was.
     cmd = [PROXY_PY, CONVERT, exdir, "--topology", spec["topo"],
-           "--p4", spec["default_prog"], "--out", pkg]
+           "--p4", convert_p4_arg(exdir, spec, which), "--out", pkg]
     say("$ " + " ".join(cmd))
     rc, out = run(cmd, cwd=REPO, timeout=600)
     say(trim(out, 3000).rstrip())
@@ -1312,6 +1452,13 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out):
             " nothing was started." % rc)
         return 2, pkg, state
 
+    # 🔴 THE KNOB IS SNAPSHOT BEFORE THE CLAIM, in bytes, because the teardown has to put it
+    # back before `ndt release` will take (ndtwin_teardown's note).
+    knob_before = knob_snapshot()
+    say("host_count_override snapshot: %s"
+        % ("absent" if knob_before is None else "%d bytes (%r)"
+           % (len(knob_before), knob_before[:40])))
+
     # 🔴 THE CLAIM IS TAKEN HERE, after convert and pre-flight -- neither touches
     # the lab, and a package that will not pre-flight must not have held the lab
     # while it was being rejected. (live-p1/02_app_basic.sh:52-54, same order.)
@@ -1323,42 +1470,56 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out):
         return 2, pkg, state
 
     exit_code = 0
+    run_on_ndtwin.teardown_problem = ""
     try:
         rule("ndt up p4 --app")
         rc, out = ndt(["up", "p4", "--app", pkg])
         steps_out.append(("N3  ndt up p4 --app", "ndt up p4 --app %s" % pkg, out))
         if rc != 0:
             say("!! 'ndt up p4 --app' exited %d" % rc)
-            return 1, pkg, state
-        state = switch_state()
-        rule("GET /p4/switch_state")
-        for line in switch_state_summary(state):
-            say("   " + line)
-        steps_out.append(("N4  GET /p4/switch_state", PROXY_URL + "/p4/switch_state",
-                          _json.dumps(state, indent=2, sort_keys=True)))
+            exit_code = 1
+        else:
+            state = switch_state()
+            rule("GET /p4/switch_state")
+            for line in switch_state_summary(state):
+                say("   " + line)
+            steps_out.append(("N4  GET /p4/switch_state", PROXY_URL + "/p4/switch_state",
+                              _json.dumps(state, indent=2, sort_keys=True)))
 
-        rule("scripted steps (no CLI, no xterm)")
-        hosts = NdtwinHosts(ips, cwd=exdir)
-        say("   " + hosts.describe())
-        session = Steps(hosts, ex, which, exdir, log_dir, args)
-        try:
-            session.run()
-        finally:
-            steps_out.extend(session.steps)
-            run_on_ndtwin.expects = session.expects
+            # 🔴 WHICH BMV2 IS RUNNING. The whole `ndt status` is kept as raw, and the binary
+            # it names is hashed into the report's tool-chain table -- on this fabric the
+            # driver did not choose that binary and `--version` cannot tell the two builds on
+            # this laptop apart.
+            rule("ndt status (raw; and the bmv2 binary it names)")
+            srrc, sout = ndt(["status"])
+            steps_out.append(("N5  ndt status", "ndt status (rc=%d)" % srrc, sout))
+            sha, label = bmv2_identity(sout)
+            say("   bmv2 sha256[:16]=%s  %s" % (sha, label))
+            if env is not None:
+                env["switch_sha"], env["switch_ver"] = sha, label
+                env["switch_path"] = "the bmv2 `ndt status` names"
+
+            rule("scripted steps (no CLI, no xterm)")
+            hosts = NdtwinHosts(ips, cwd=exdir)
+            say("   " + hosts.describe())
+            session = Steps(hosts, ex, which, exdir, log_dir, args)
+            try:
+                session.run()
+            finally:
+                steps_out.extend(session.steps)
+                run_on_ndtwin.expects = session.expects
     finally:
-        rule("teardown: ndt down, then ndt release")
-        drc, _ = ndt(["down"])
-        say("   ndt down rc=%d" % drc)
-        rrc, _ = ndt(["release"])
-        say("   ndt release rc=%d" % rrc)
-        if drc != 0 or rrc != 0:
-            say("!! teardown was not clean (down rc=%d, release rc=%d) -- check the lab by hand"
-                % (drc, rrc))
+        rule("teardown: ndt down, the host knob, then ndt release")
+        run_on_ndtwin.teardown_problem = ndtwin_teardown(knob_before, steps_out)
+        if run_on_ndtwin.teardown_problem:
+            say("!! TEARDOWN WAS NOT CLEAN: %s" % run_on_ndtwin.teardown_problem)
+    if run_on_ndtwin.teardown_problem and exit_code == 0:
+        exit_code = 1
     return exit_code, pkg, state
 
 
 run_on_ndtwin.expects = []
+run_on_ndtwin.teardown_problem = ""
 
 
 # -------------------------------------------------------------------- report --
@@ -1383,14 +1544,15 @@ def write_report(path, ctx):
     a("| package | %s |" % ("`%s`" % ctx["package"] if ctx.get("package") else "— (tutorials harness)"))
     a("| cwd | `%s` |" % ctx["exdir"])
     a("| 直譯器 | `%s` (%s) |" % (sys.executable, sys.version.split()[0]))
-    a("| euid | %d |" % os.geteuid())
+    a("| euid | %d |" % euid())
     a("| 判定 | **%s** (exit %d) |" % (ctx["verdict"], ctx["exit"]))
     a("")
     a("## 1. 工具鏈身分")
     a("")
     a("| 執行檔 | sha256[:16] | --version |")
     a("|---|---|---|")
-    a("| `%s` | `%s` | %s |" % (SWITCH, ctx["env"]["switch_sha"], ctx["env"]["switch_ver"]))
+    a("| `%s` | `%s` | %s |" % (ctx["env"].get("switch_path") or SWITCH,
+                               ctx["env"]["switch_sha"], ctx["env"]["switch_ver"]))
     a("| `%s` | `%s` | %s |" % (P4C, ctx["env"]["p4c_sha"], ctx["env"]["p4c_ver"]))
     a("")
     a("> 版本字串分不出這台機器上的兩顆 `simple_switch_grpc`；只有 sha 分得出。"
@@ -1483,7 +1645,7 @@ def write_report(path, ctx):
         f.write("\n".join(L) + "\n")
     # do not leave a root-owned file in Adam's repo
     try:
-        if os.geteuid() == 0 and os.environ.get("SUDO_UID"):
+        if euid() == 0 and os.environ.get("SUDO_UID"):
             os.chown(path, int(os.environ["SUDO_UID"]), int(os.environ["SUDO_GID"]))
             os.chown(os.path.dirname(path), int(os.environ["SUDO_UID"]),
                      int(os.environ["SUDO_GID"]))
@@ -1538,6 +1700,22 @@ def main():
         say("")
         say("!! '%s' is not scripted yet. Scripted: %s" % (ex, ", ".join(sorted(EXERCISES))))
         say("   (the others need their own expectation table first -- see README section 5)")
+        return 2
+
+    # 🔴 THE NDTWIN FABRIC IS NOT RUN AS ROOT, and this is a refusal rather than a warning.
+    # `ndt` is designed to be run as the operator with passwordless grants for ndtwin-lab and
+    # mnexec (tools/test_workflow/sudo_surface.sh); under sudo every file this round writes --
+    # .test_run/, the package directory, runs/ -- comes out root-owned, and the operator's next
+    # unprivileged `ndt` then cannot read its own state (live-p1/_common.sh:64-71 says the same
+    # thing about the same files). Refused before the compile, so nothing has been written yet.
+    if args.fabric == "ndtwin" and euid() == 0:
+        say("")
+        say("!! refusing: --fabric ndtwin must NOT be run as root (euid 0).")
+        say("   `ndt` needs only the two sudoers grants tools/test_workflow/sudo_surface.sh")
+        say("   prints; under sudo this round would leave root-owned files in .test_run/ and")
+        say("   in runs/, and the operator's next unprivileged `ndt` would fail on them.")
+        say("   Run it as yourself:")
+        say("   " + ndtwin_line(ex, which))
         return 2
 
     pf_ok, notes, env = preflight(ex, which, exdir, args.fabric)
@@ -1627,7 +1805,7 @@ def main():
         run_on_ndtwin.expects = []
         try:
             exit_code, package, state = run_on_ndtwin(
-                ex, which, exdir, spec, args, ips, log_dir, steps)
+                ex, which, exdir, spec, args, ips, log_dir, steps, env)
         except Exception as e:                               # noqa: BLE001
             import traceback
             say("!! driver raised: %r" % (e,))
@@ -1636,7 +1814,7 @@ def main():
         expects = run_on_ndtwin.expects
         artifacts = sorted(os.path.join(log_dir, n) for n in os.listdir(log_dir))
     else:
-        if os.geteuid() != 0:
+        if euid() != 0:
             say("")
             say("!! needs root (mininet creates namespaces and veth pairs). Run:")
             say("   " + sudo_line(ex, which))
@@ -1692,6 +1870,11 @@ def main():
             verdict = "PASS (%d/%d)" % (len(expects), len(expects))
     else:
         verdict = "ERROR"
+    # 🔴 THE TEARDOWN HAS THE LAST WORD. Every expectation can be green and the lab still be
+    # claimed -- `ndt release` refuses while the host knob is moved -- and a PASS/0 over that
+    # would point the reader at the one place the problem is not.
+    if args.fabric == "ndtwin":
+        verdict, exit_code = final_verdict(verdict, exit_code, run_on_ndtwin.teardown_problem)
     say("")
     say(">>> %s" % verdict)
 

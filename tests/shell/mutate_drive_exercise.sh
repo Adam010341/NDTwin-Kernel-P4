@@ -104,7 +104,7 @@ add "3. the companion program is never compiled, so s2-s4 have no json" \
 
 add "4. convert.py is given the variant stem, so every switch gets the wrong default" \
     "$DRIVER" \
-    '           "--p4", spec["default_prog"], "--out", pkg]' \
+    '           "--p4", convert_p4_arg(exdir, spec, which), "--out", pkg]' \
     '           "--p4", spec["prog"], "--out", pkg]  # MUTANT' \
     'test_convert_is_given_the_default_prog_and_not_the_variant'
 
@@ -155,8 +155,8 @@ add "9. a FAILED pre-flight goes on to claim the lab and bring the fabric up" \
 
 add "10. the claim is not given back when a step raised" \
     "$DRIVER" \
-    '        rrc, _ = ndt(["release"])' \
-    '        rrc = 0  # MUTANT: the lab stays claimed by a round that is over' \
+    '    rrc, rout = ndt(["release"])' \
+    '    rrc, rout = 0, ""  # MUTANT: the lab stays claimed by a round that is over' \
     'test_the_teardown_runs_both_halves_even_when_the_steps_raise'
 
 add "11. the ndt calls go out with whatever owner the environment had" \
@@ -200,6 +200,185 @@ add "16. an unreadable switch_state is rendered as an ordinary (empty) report" \
     '    if not isinstance(state, dict) or "error" in state:' \
     '    if False:  # MUTANT: whatever came back is a report' \
     'test_an_unreadable_switch_state_says_so_instead_of_printing_zeros'
+
+# 17-21: the lab comes back, and the binary is named. Round 2, after the judge read the code:
+# every one of these is a round that ends looking successful and leaves something behind.
+#
+# 🔴 17 IS THE ONE THAT WAS ACTUALLY BROKEN. `ndt up p4 --app` writes the model's host count
+# into p4_proxy/mininet/host_count_override, `ndt down` does not put it back, and `ndt release`
+# REFUSES while it differs from what the round started at (ndt:885-898). So before the restore
+# existed, `--fabric ndtwin source_routing` (three hosts) ended with the lab still claimed and
+# the driver exiting 0.
+add "17. the host knob is never put back, so the release is refused" \
+    "$DRIVER" \
+    '    ok, why = knob_restore(knob_before)' \
+    '    ok, why = True, "not restored"  # MUTANT' \
+    'test_the_host_knob_is_put_back_between_the_down_and_the_release'
+
+add "18. a release that would not take is not reported" \
+    "$DRIVER" \
+    '        problems.append("`ndt release` exited %d -- THE LAB IS STILL CLAIMED" % rrc)' \
+    '        pass  # MUTANT: the lab stays claimed and the round says PASS' \
+    'test_a_release_that_would_not_take_fails_the_run_and_says_the_lab_is_claimed'
+
+# The restore writes the NUMBER instead of the bytes: an annotated knob file comes back as a
+# bare digit, which reads the same to host_count_in and is not the same file.
+add "19. the knob is restored as a number instead of as its bytes" \
+    "$DRIVER" \
+    '            f.write(before)' \
+    '            f.write(b"4\n")  # MUTANT' \
+    'test_the_knob_is_put_back_as_bytes_and_not_as_the_number'
+
+add "20. the bmv2 binary is named but never hashed" \
+    "$DRIVER" \
+    '    return sha16(path), "%s   (ndt status: %s)" % (ver, value)' \
+    '    return "-", value  # MUTANT: a version string, which cannot tell the two builds apart' \
+    'test_a_path_in_the_status_row_is_hashed'
+
+add "21. the round never asks ndt status, so nothing names the fabric's binary" \
+    "$DRIVER" \
+    '            srrc, sout = ndt(["status"])' \
+    '            srrc, sout = 0, ""  # MUTANT' \
+    'test_the_round_captures_ndt_status_and_hashes_the_binary_it_names'
+
+# 22-23: two refusals and a label.
+add "22. the ndtwin fabric may be run as root" \
+    "$DRIVER" \
+    '    if args.fabric == "ndtwin" and euid() == 0:' \
+    '    if False:  # MUTANT: root-owned files in .test_run/ and runs/ are fine' \
+    'test_ndtwin_mode_refuses_to_run_as_root_and_says_why'
+
+add "23. the package records the skeleton as its source whatever was compiled" \
+    "$DRIVER" \
+    '    if which == "solution" and default == spec["prog"]:' \
+    '    if False:  # MUTANT: source.p4 names a file this run did not build' \
+    'test_a_solution_run_names_the_solution_file_it_compiled'
+
+# 24-30: the cells the judge found unguarded -- each of these is a test that had never been
+# seen to fail, which is the same as not having it.
+add "24. the firewall SOLUTION arm accepts the external flow getting through" \
+    "$DRIVER" \
+    '                      not in_ok, G_BOTH,' \
+    '                      in_ok, G_BOTH,  # MUTANT' \
+    'test_the_solution_arm_wants_the_external_flow_blocked'
+
+add "25. the link_monitor SOLUTION arm accepts a zero port" \
+    "$DRIVER" \
+    '                      bool(ports) and 0 not in ports, G_SRC,' \
+    '                      True, G_SRC,  # MUTANT: the unimplemented arm passes as the solution' \
+    'test_the_two_arms_are_distinguishable'
+
+add "26. somebody else's live claim is read as a free lab" \
+    "$DRIVER" \
+    '    if owner != NDT_OWNER:' \
+    '    if False:  # MUTANT: whoever holds it, it is ours' \
+    'test_a_live_claim_of_somebody_elses_refuses'
+
+add "27. the loss measurement goes back to two packets" \
+    "$DRIVER" \
+    '            out = self.cmd(host, "LANG=C ping -c %d -W 2 %s" % (count, dst))' \
+    '            out = self.cmd(host, "LANG=C ping -c 2 -W 2 %s" % (dst,))  # MUTANT' \
+    'test_pingall_sends_five_packets_on_every_ordered_pair'
+
+# 33.3333% is what ping prints for 2 of 6 lost; an integer-only parser finds nothing there and
+# calls a ping that ran UNTESTED -- or, with the other half of the guard gone, calls it clean.
+add "28. the loss parser stops reading the decimal form ping prints" \
+    "$DRIVER" \
+    '        m = re.search(r"([0-9]+(?:\.[0-9]+)?)% packet loss", out)' \
+    '        m = re.search(r"([0-9]+)% packet loss", out)  # MUTANT' \
+    'test_the_loss_comes_from_the_summary_line'
+
+add "29. the report stops saying which fabric and which package it was" \
+    "$DRIVER" \
+    '    a("| fabric | `%s` |" % ctx.get("fabric", "tutorials"))' \
+    '    pass  # MUTANT: the raw no longer says which fabric produced it' \
+    'test_the_report_header_carries_the_fabric_and_the_package'
+
+add "30. an iperf client the timeout killed counts as a transfer" \
+    "$DRIVER" \
+    '        connected = bool(re.search(r"\d+(\.\d+)?\s*\w?bits/sec", cout)) and not killed' \
+    '        connected = bool(re.search(r"\d+(\.\d+)?\s*\w?bits/sec", cout))  # MUTANT' \
+    'test_a_client_killed_by_the_timeout_is_not_a_transfer'
+
+# 31-41: the cells that had still never been red after round 2's first pass. A test that has
+# never failed is a decoration, and "there is a cell for it" is not the same claim as "that
+# cell can tell". Each of these is a defect somebody could actually ship.
+add "31. the ndtwin dry run tells the operator to sudo" \
+    "$DRIVER" \
+    '                    else ndtwin_line(ex, which)))' \
+    '                    else sudo_line(ex, which)))  # MUTANT' \
+    'test_the_ndtwin_plan_names_the_ndt_commands_and_asks_for_no_sudo'
+
+add "32. every run records solution/ as its source, including the skeleton's" \
+    "$DRIVER" \
+    '    return default' \
+    '    return os.path.join("solution", default)  # MUTANT' \
+    'test_a_skeleton_run_names_the_skeleton'
+
+add "33. a status with no bmv2 row is reported as a dash, not as UNREADABLE" \
+    "$DRIVER" \
+    '        return "-", "UNREADABLE: `ndt status` printed no bmv2 row"' \
+    '        return "-", "-"  # MUTANT: a blank identity reads as a binary nobody chose' \
+    'test_a_status_with_no_bmv2_row_is_UNREADABLE_and_says_so'
+
+add "34. a bmv2 row naming a file that is not there is hashed anyway" \
+    "$DRIVER" \
+    '    if not path or not os.path.isfile(path):' \
+    '    if False:  # MUTANT' \
+    'test_a_row_naming_a_binary_that_is_not_there_is_UNREADABLE'
+
+add "35. the verdict does not mention a lab that was never given back" \
+    "$DRIVER" \
+    '    return "%s -- LAB NOT RETURNED: %s" % (verdict, problem), exit_code or 1' \
+    '    return verdict, exit_code  # MUTANT: PASS over a lab somebody else cannot take' \
+    'test_the_verdict_says_the_lab_was_not_returned'
+
+add "36. every exercise compiles a companion, including the ones that have none" \
+    "$DRIVER" \
+    '    for name in sorted(want - {spec["prog"]}):' \
+    '    for name in sorted(want):  # MUTANT' \
+    'test_an_exercise_whose_default_is_its_own_program_has_no_companion'
+
+add "37. the firewall's internal-to-external flow is expected to FAIL" \
+    "$DRIVER" \
+    '                  out_ok, G_BOTH,' \
+    '                  not out_ok, G_BOTH,  # MUTANT' \
+    'test_both_arms_require_the_internal_to_external_flow'
+
+add "38. the link_monitor SKELETON arm expects a non-zero port" \
+    "$DRIVER" \
+    '                      ports == [0], G_BOTH,' \
+    '                      ports != [0], G_BOTH,  # MUTANT' \
+    'test_the_skeleton_arm_expects_every_reported_port_to_be_zero'
+
+add "39. an EXPIRED claim still refuses the lab" \
+    "$DRIVER" \
+    '    if not re.match(r"^\d+$", exp or "") or int(exp) <= now:' \
+    '    if False:  # MUTANT: a stale claim file refuses forever' \
+    'test_an_expired_claim_is_not_a_claim'
+
+add "40. the switch_state summary drops the pipeline sha" \
+    "$DRIVER" \
+    '        lines.append("s%s  ndtwin=%s p4info_sha256=%s  entries recorded=%s applied=%s "' \
+    '        lines.append("s%s  ndtwin=%s pipeline=%s  entries recorded=%s applied=%s "  # MUTANT' \
+    'test_the_summary_names_the_pipeline_sha_and_the_entry_counts'
+
+add "41. the report names /usr/local/bin's bmv2 whatever the fabric ran" \
+    "$DRIVER" \
+    '    a("| `%s` | `%s` | %s |" % (ctx["env"].get("switch_path") or SWITCH,' \
+    '    a("| `%s` | `%s` | %s |" % (SWITCH,  # MUTANT' \
+    'test_the_report_names_the_bmv2_binary_by_its_sha'
+
+# 42: the last cell that had never been red. The anchor carries the note line below it,
+# because the same assertion is written in both arms and a bare `swids == [1, 2, 3, 4]` would
+# land in whichever came first -- check_gate_anchors.py's DUP verdict, enforced at write time.
+add "42. the link_monitor SOLUTION arm expects three of the four switches" \
+    "$DRIVER" \
+    '                      swids == [1, 2, 3, 4], G_SRC,
+                      "send.py'"'"'s 9 ProbeFwd hops walk s1-s4-s2-s3-s1-s3-s2-s4-s1 over pod-topo")' \
+    '                      swids == [1, 2, 3], G_SRC,  # MUTANT
+                      "send.py'"'"'s 9 ProbeFwd hops walk s1-s4-s2-s3-s1-s3-s2-s4-s1 over pod-topo")' \
+    'test_the_solution_arm_wants_all_four_switch_ids_and_no_zero_port'
 
 CTRL_SRC="$DRIVER"
 CTRL_ANCHOR='def host_key(name):'
@@ -307,7 +486,12 @@ PY
         echo "  🔴 NOTHING WENT RED -- the mutation survived. That behaviour is untested."
         SURVIVORS=$((SURVIVORS + 1))
     elif /usr/bin/grep -q -- "$expected" <<<"$failed"; then
-        printf '  ✅ caught by %s\n     all red: %s\n' "$expected" "$failed"
+        # 🔴 EVERY test that went red is printed, not only the expected one: that list is what
+        # the SUMMARY's "which mutation was this test ever red for" table is built from, and a
+        # cell that only ever names the expected test cannot tell a well-aimed mutation from a
+        # blunt one. (B's gate prints the same thing for the same reason.)
+        local also; also=$(tr ' ' '\n' <<<"$failed" | /usr/bin/grep -v -x -- "$expected" | tr '\n' ' ')
+        printf '  ✅ caught by %s\n     also red: %s\n' "$expected" "${also:-(nothing else)}"
     else
         printf '  🔴 WRONG TEST WENT RED: got [%s], expected [%s]\n' "$failed" "$expected"
         echo "     The gate fires, but not for the reason this mutation claims."
@@ -391,13 +575,22 @@ if [[ -n "$after_red" ]]; then
 fi
 echo "  suite green against the real file"
 
-# Said out loud rather than left to be noticed: the cells no mutation above is expected to
-# redden are not evidence about these sixteen behaviours. The fixture comparison
-# (test_the_tutorials_plan_and_sudo_line_are_what_they_printed_on_09_08) is a regression guard
-# -- it is green against a driver that is consistently wrong about the ndtwin half -- which is
-# why mutation 2 names the firewall cell and not it.
-printf '\nnot reddened by design: the report-shape cells and the 09-08 fixture comparison\n'
-printf '(regression guards; they discriminate nothing about the sixteen behaviours above)\n'
+# 🔴 WHAT THIS GATE DOES NOT ESTABLISH, said out loud and kept true.
+#
+# An earlier version of this footer claimed the 09-08 fixture comparison was "not reddened by
+# design". It is: mutation 1 (the default fabric) turns it red, and the run log says so. A
+# footer that describes the gate's own output wrongly is the same defect the gate exists to
+# catch, one level up.
+#
+# What IS true: every mutation names ONE test, and the `also red:` line under each one names
+# the others that went red with it. Read together those lines cover EVERY cell in the suite --
+# all fifty have been red for at least one mutation here, which is the claim "no test in this
+# suite is a decoration" and is the only form of it worth making. The last eleven mutations
+# (31-42) exist for exactly that: each was added because some cell had never been seen to
+# fail, and the P2-C SUMMARY carries the cell-by-cell table this run produces.
+printf '\nevery cell in the suite has been red for at least one mutation above; the `also red:`\n'
+printf 'lines are what that claim is built from. (The 09-08 fixture comparison IS reddened --\n'
+printf 'by mutation 1 -- and this footer used to say it was not.)\n'
 
 printf '\n%s mutations, %s survived\n' "$MUTATIONS" "$SURVIVORS"
 [[ "$SURVIVORS" -eq 0 ]]

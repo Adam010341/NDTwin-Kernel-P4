@@ -818,6 +818,96 @@ check "🔴 a foreign pipeline raises none of the rate problems" "" "$(probs 'DI
 check "  not even the OVS ones"                                "" "$(probs OVS-NOSFLOW foreign:2,3)"
 check "  a healthy rate raises nothing either (the control)"   "" "$(probs 256 none)"
 
+# =============================================================================================
+section "15. 🔴 the whole of 'ndt status --check' over a foreign package pipeline"
+# =============================================================================================
+# Section 14 drives the three new functions one at a time, and that is not enough on its own:
+# each of them could be right while `cmd_status` called none of them. This drives the WHOLE
+# report with a foreign package knob in place and `stale_pipeline` returning true, and asserts
+# the two halves that have to agree --
+#   * the printed row says `n/a (package pipeline)` and NOT the built json's rate, and
+#   * `--check`'s problem list carries neither the stale-pipeline problem nor any of the four
+#     the rate itself raises.
+# -- because those are the two halves one mutation at a time can pull apart: with the row's
+# early return gone the rate comes back, and with the predicate's exemption gone the problem
+# comes back UNDER a row that still says n/a. Each of those is its own mutation in
+# mutate_ndt_app_package.sh (M19, M20, M23), and each must be able to redden THIS cell alone.
+#
+# The stub set is tests/shell/test_ndt_check_sample_rate.sh:171-204's, plus what a package
+# fabric needs: the knob is real (cmd_status reads it through app_knob_state) and so is the
+# package it names.
+STATUS_STUBS="$STUBS"'
+claim_line() { echo none; }
+claim_prev_row() { :; }
+lab_version_report() { :; }
+lab_version_problem() { :; }
+up_target_field() { :; }
+last_kernel_plane() { :; }
+kernel_exit_field() { :; }
+host_count() { echo 4; }
+topo_for_hosts() { echo setting/StaticNetworkTopologyP4_10Switches_4Hosts.json; }
+live_dataplane_kind() { echo p4; }
+# 🔴 A RATE TOKEN THAT HAS SOMETHING TO SAY. With 256 here the rate raises no --check
+# problem at all, and "a foreign pipeline raises none of them" is then true of every possible
+# implementation -- a vacuous cell, which is exactly what M23 in mutate_ndt_app_package.sh
+# caught when it SURVIVED against the first draft of this section. DISABLED:lo=1 is the
+# compiled pipeline that samples nothing (RESTORE-SWEEP 2026-09-02): a problem on a baseline
+# fabric, and not one under a package pipeline. rate_label stays stubbed, so the printed row
+# is unaffected either way.
+# (No apostrophes in this block: it lives inside a single-quoted stub set.)
+sample_rate() { echo "DISABLED:lo=1"; }
+rate_label() { echo "1/256"; }
+stale_pipeline() { return 0; }
+source_ahead_of_build() { return 1; }
+ovs_bridge_count() { echo 0; }
+ovs_daemon_running() { return 1; }
+lock_probe() { echo free; }
+netem_count() { echo 0; }
+ndt_sudo_report() { return 0; }
+ndt_sudo_rows() { echo one-row; }
+ndt_port_residue() { :; }
+http_get_graph() { :; }
+http_get_flow_entries() { echo "[]"; }
+verify_p4_graph() { :; }
+# 🔴 check_up_target, not a value: with no up.target recorded `--check` exits 3 ("could not
+# check"), which outranks every verdict below it -- so a cell that left it unstubbed would read
+# 3 whatever cmd_status decided about the rate. Stubbed to "compared, and it matched", which is
+# the state this cell is about.
+check_up_target() { return 0; }
+UP_TARGET_PROBLEMS=()
+'
+run_status() {
+    bash -c "source '$NDT' >/dev/null 2>&1
+$STATUS_STUBS
+cmd_status ${1:-}
+echo \"RC=\$?\"" 2>&1
+}
+
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_FOREIGN"); up_p4")"    # writes the knob, as a real round does
+check "  the foreign package is the knob cmd_status will read" "$PKG_FOREIGN" "$(knob_state)"
+OUT="$(run_status --check)"
+has   "🔴 the whole report says the rate is n/a"          "sample rate    n/a (package pipeline)" "$OUT"
+hasnt "🔴 and never prints the built json's number"       "sample rate    1/256" "$OUT"
+has   "  the source row names the dpid and the file"      "foreign pipeline on dpid 1" "$OUT"
+hasnt "🔴 --check does not raise the stale-pipeline problem" "the fabric predates the current build" "$OUT"
+hasnt "  nor any problem about the compiled rate"         "the compiled pipeline samples nothing" "$OUT"
+check "  and --check exits 0 over a healthy package fabric" "0" "$(rc_of "$OUT")"
+
+# The control: the SAME report with an ndtwin-pipeline package prints the rate and DOES raise
+# the stale problem. Without it, "no rate, no problems" is a sentence this harness would say
+# whatever cmd_status did.
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+OUT="$(run_status --check)"
+has   "  an ndtwin-pipeline package still prints the rate" "sample rate    1/256" "$OUT"
+hasnt "  and does not claim a package pipeline"           "n/a (package pipeline)" "$OUT"
+has   "🔴 and the stale build IS a problem there"         "the fabric predates the current build" "$OUT"
+# The other half of M23's evidence: the rate's OWN problem is raised here and suppressed above,
+# so "none of them under a foreign pipeline" is a difference this pair can actually see.
+has   "🔴 and so is the compiled pipeline that samples nothing" "the compiled pipeline samples nothing" "$OUT"
+check "  so --check exits 1 on it"                        "1" "$(rc_of "$OUT")"
+
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
 (( FAIL == 0 ))

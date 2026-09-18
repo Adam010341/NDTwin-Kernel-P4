@@ -133,16 +133,25 @@ def render_main(mod, argv, tut_root):
 
 
 class FakeProc(object):
-    """A process handle the steps can hold: it never forks anything."""
+    """A process handle the steps can hold: it never forks anything.
 
-    def __init__(self, out=b"", fh=None):
+    `timeout_first` reproduces the one case that has no other way in: a client that never
+    connected sits in SYN retries, the first communicate(timeout=...) raises, the caller kills
+    it, and the SECOND communicate returns whatever it had printed by then.
+    """
+
+    def __init__(self, out=b"", fh=None, timeout_first=False):
         self.out, self.fh = out, fh
         self.terminated = self.killed = False
+        self.timeout_first, self._timed_out = timeout_first, False
         if fh is not None:
             fh.write(out)
             fh.flush()
 
     def communicate(self, input=None, timeout=None):
+        if self.timeout_first and not self._timed_out:
+            self._timed_out = True
+            raise subprocess.TimeoutExpired("stub", timeout or 0)
         return (self.out if self.fh is None else b""), None
 
     def terminate(self):
@@ -163,11 +172,12 @@ class StubHosts(object):
     the parser itself has its own cells above.
     """
 
-    def __init__(self, ips, popen_texts=None, cmd_texts=None, pa=None):
+    def __init__(self, ips, popen_texts=None, cmd_texts=None, pa=None, popen_timeouts=()):
         self.ips = dict(ips)
         self.popen_texts = popen_texts or {}
         self.cmd_texts = cmd_texts or {}
         self.pa = pa
+        self.popen_timeouts = tuple(popen_timeouts)
         self.popened = []
         self.cmds = []
 
@@ -183,7 +193,8 @@ class StubHosts(object):
         for key, val in self.popen_texts.items():
             if key in " ".join(argv):
                 text = val if isinstance(val, bytes) else val.encode()
-        return FakeProc(text, kw.get("stdout") if hasattr(kw.get("stdout"), "write") else None)
+        return FakeProc(text, kw.get("stdout") if hasattr(kw.get("stdout"), "write") else None,
+                        timeout_first=any(k in " ".join(argv) for k in self.popen_timeouts))
 
     def cmd(self, host, line):
         self.cmds.append((host, line))
@@ -283,6 +294,93 @@ class PlanBlockIsFrozen(unittest.TestCase):
         self.assertNotIn("sudo", run_line[0])
 
 
+class TheRootRefusal(unittest.TestCase):
+    """🔴 The NDTwin fabric is refused to root, and refused BEFORE anything is written."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="drv-root-")
+        self.mod = load_driver()
+        self.mod.TUT = build_tut_root(self.tmp)
+        self.mod.UTILS = os.path.join(self.tmp, "utils")
+        stub_preflight(self.mod)
+        self.compiled = []
+        real = stub_compile(self.mod)
+
+        def counting(exdir, src, base):
+            self.compiled.append(src)
+            return real(exdir, src, base)
+        self.mod.compile_prog = counting
+
+    def test_ndtwin_mode_refuses_to_run_as_root_and_says_why(self):
+        self.mod.euid = lambda: 0
+        rc, text = render_main(self.mod, ["basic", "--fabric", "ndtwin"], self.mod.TUT)
+        self.assertEqual(2, rc)
+        self.assertIn("must NOT be run as root", text)
+        self.assertIn("root-owned files", text)
+        self.assertEqual([], self.compiled, "the refusal comes before anything is written")
+
+    def test_the_tutorials_fabric_still_requires_root(self):
+        """The opposite refusal, unchanged: Mininet needs namespaces and veth pairs."""
+        self.mod.euid = lambda: 1000
+        rc, text = render_main(self.mod, ["basic"], self.mod.TUT)
+        self.assertEqual(2, rc)
+        self.assertIn("needs root", text)
+
+
+class TheRecordedSource(unittest.TestCase):
+    """`--p4` decides the pipeline by its STEM and the package's `source.p4` by its PATH."""
+
+    def setUp(self):
+        self.mod = load_driver()
+        self.tmp = tempfile.mkdtemp(prefix="drv-src-")
+        build_tut_root(self.tmp)
+
+    def exdir(self, ex):
+        return os.path.join(self.tmp, "exercises", ex)
+
+    def test_a_solution_run_names_the_solution_file_it_compiled(self):
+        self.assertEqual("solution/basic.p4", self.mod.convert_p4_arg(
+            self.exdir("basic"), self.mod.EXERCISES["basic"], "solution"))
+
+    def test_a_skeleton_run_names_the_skeleton(self):
+        self.assertEqual("basic.p4", self.mod.convert_p4_arg(
+            self.exdir("basic"), self.mod.EXERCISES["basic"], "skeleton"))
+
+    def test_firewall_keeps_the_default_prog_because_that_is_the_file_that_was_built(self):
+        """solution/ holds firewall.p4 and nothing else; DEFAULT_PROG is basic.p4, and the
+        skeleton copy is the only basic.p4 there is."""
+        for which in ("solution", "skeleton"):
+            with self.subTest(which=which):
+                self.assertEqual("basic.p4", self.mod.convert_p4_arg(
+                    self.exdir("firewall"), self.mod.EXERCISES["firewall"], which))
+
+
+class TheBmv2Identity(unittest.TestCase):
+    """Which binary the fabric ran, by sha -- `--version` cannot tell the two builds apart."""
+
+    def setUp(self):
+        self.mod = load_driver()
+        self.tmp = tempfile.mkdtemp(prefix="drv-bmv2-")
+
+    def test_a_path_in_the_status_row_is_hashed(self):
+        binary = os.path.join(self.tmp, "simple_switch_grpc")
+        with open(binary, "wb") as f:
+            f.write(b"bytes\n")
+        sha, label = self.mod.bmv2_identity("  bmv2           %s\n" % binary)
+        self.assertEqual(self.mod.sha16(binary), sha)
+        self.assertIn(binary, label)
+
+    def test_a_status_with_no_bmv2_row_is_UNREADABLE_and_says_so(self):
+        sha, label = self.mod.bmv2_identity("  sample rate    1/256\n")
+        self.assertIn("UNREADABLE", label)
+        self.assertIn("no bmv2 row", label)
+
+    def test_a_row_naming_a_binary_that_is_not_there_is_UNREADABLE(self):
+        sha, label = self.mod.bmv2_identity("  bmv2           /nowhere/simple_switch_grpc\n")
+        self.assertIn("UNREADABLE", label)
+        self.assertIn("/nowhere/simple_switch_grpc", label)
+
+
 class TheLossNumber(unittest.TestCase):
     """A rate, parsed out of ping's own summary line, or nothing."""
 
@@ -316,6 +414,14 @@ class TheLossNumber(unittest.TestCase):
         self.assertEqual(20.0, res.loss)
         self.assertEqual(4, res.received)
         self.assertEqual(5, res.transmitted)
+        # 🔴 AND THE DECIMAL FORM, which is what ping prints for most of the fractions that
+        # matter: 3 of 6 lost is `33.3333%`. A parser that reads only the integer part finds
+        # nothing here and reports UNTESTED for a ping that ran -- or, one mutation away,
+        # reports the fabric as clean.
+        r = self.runner("6 packets transmitted, 4 received, 33.3333% packet loss, time 5007ms\n")
+        res = r.ping("h1", "10.0.2.2")
+        self.assertAlmostEqual(33.3333, res.loss, places=4)
+        self.assertEqual(4, res.received)
 
     def test_pingall_sends_five_packets_on_every_ordered_pair(self):
         r = self.runner("5 packets transmitted, 5 received, 0% packet loss, time 4005ms\n")
@@ -405,17 +511,33 @@ class TheNdtwinRound(unittest.TestCase):
         self.mod.CONVERT = "/fake/convert.py"
         self.mod.PREFLIGHT = "/fake/preflight.py"
         self.mod.switch_state = lambda *_a, **_k: {"switches": {}}
+        # 🔴 THE KNOB IS A FIXTURE FILE. `ndt up p4 --app` writes the model's host count into
+        # p4_proxy/mininet/host_count_override for real, and a test that let the driver touch
+        # this checkout's copy would be a test that breaks the next `ndt up p4` in this tree.
+        self.knob = os.path.join(self.tmp, "host_count_override")
+        self.mod.HOST_KNOB = self.knob
+        self.status_text = "  bmv2           simple_switch_grpc (stub)\n"
         self.calls = []
         self.envs = []
+        self.knob_at = []          # (verb, what the knob held when that verb ran)
         self.rcs = {}
         mod = self.mod
 
         def runner(cmd, cwd=None, timeout=None, env=None):
             self.calls.append(list(cmd))
             self.envs.append(env)
+            joined = " ".join(cmd)
+            if cmd and cmd[0] == mod.NDT:
+                self.knob_at.append((cmd[1], self.knob_bytes()))
+            # what `ndt up p4 --app` really does to the knob: the MODEL's host count.
+            if "up p4 --app" in joined:
+                with open(self.knob, "wb") as f:
+                    f.write(b"3\n")
             for key, rc in self.rcs.items():
-                if key in " ".join(cmd):
+                if key in joined:
                     return rc, "stub rc=%d" % rc
+            if "status" in joined:
+                return 0, self.status_text
             return 0, "stub ok"
         mod.run = runner
 
@@ -434,10 +556,18 @@ class TheNdtwinRound(unittest.TestCase):
         self.spec = mod.EXERCISES["basic"]
         self.args = Args()
 
-    def go(self, ex="basic", which="solution"):
+    def knob_bytes(self):
+        try:
+            with open(self.knob, "rb") as f:
+                return f.read()
+        except OSError:
+            return None
+
+    def go(self, ex="basic", which="solution", env=None):
         steps = []
+        self.steps_out = steps
         return self.mod.run_on_ndtwin(ex, which, "/ex", self.mod.EXERCISES[ex], self.args,
-                                      {"h1": "10.0.1.1"}, self.tmp, steps)
+                                      {"h1": "10.0.1.1"}, self.tmp, steps, env)
 
     def verbs(self):
         return [c for c in self.calls if c and c[0] == self.mod.NDT]
@@ -453,7 +583,8 @@ class TheNdtwinRound(unittest.TestCase):
                 order.append("preflight")
             elif c and c[0] == self.mod.NDT:
                 order.append(c[1])
-        self.assertEqual(["convert", "preflight", "claim", "up", "down", "release"], order)
+        self.assertEqual(["convert", "preflight", "claim", "up", "status", "down", "release"],
+                         order)
 
     def test_convert_is_given_the_default_prog_and_not_the_variant(self):
         self.go(ex="firewall")
@@ -470,13 +601,84 @@ class TheNdtwinRound(unittest.TestCase):
         finally:
             self.NoSteps.raises = None
         tail = [" ".join(c[1:2]) for c in self.verbs()]
-        self.assertEqual(["claim", "up", "down", "release"], tail)
+        self.assertEqual(["claim", "up", "status", "down", "release"], tail)
 
     def test_a_refused_preflight_never_takes_the_claim(self):
         self.rcs["preflight.py"] = 1
         rc, pkg, state = self.go()
         self.assertEqual(2, rc)
         self.assertEqual([], self.verbs())
+
+    # --- the knob, and the lab coming back -----------------------------------------------
+
+    def test_the_host_knob_is_put_back_between_the_down_and_the_release(self):
+        """🔴 The order is what makes the release take, so the order is the assertion.
+
+        `ndt release` refuses while the P4 host knob differs from what the round started at
+        (ndt:885-898). A restore after the release is a restore that happened too late, and a
+        restore before the teardown would put it back under a fabric that is still running --
+        so the knob is read at every `ndt` verb and the two readings are compared.
+        """
+        with open(self.knob, "wb") as f:
+            f.write(b"4\n")
+        rc, pkg, state = self.go()
+        self.assertEqual(0, rc)
+        at = dict(self.knob_at)
+        self.assertEqual(b"3\n", at["down"], "the fabric's own value must still be there")
+        self.assertEqual(b"4\n", at["release"], "the release must see what the round started at")
+        self.assertEqual(b"4\n", self.knob_bytes())
+
+    def test_the_knob_is_put_back_as_bytes_and_not_as_the_number(self):
+        """host_count_in skips comments, so `4` and `# mine\n4\n` are the same READING and
+        not the same FILE. Writing the number back would rewrite somebody's annotated file and
+        call it a restore (live-p1/_common.sh:119-131)."""
+        original = b"# 4 hosts: the round I was in the middle of\n4\n"
+        with open(self.knob, "wb") as f:
+            f.write(original)
+        self.go()
+        self.assertEqual(original, self.knob_bytes())
+
+    def test_a_knob_this_round_created_is_removed_again(self):
+        self.assertIsNone(self.knob_bytes())
+        self.go()
+        self.assertIsNone(self.knob_bytes(), "the round created it; it must not outlive it")
+
+    def test_a_release_that_would_not_take_fails_the_run_and_says_the_lab_is_claimed(self):
+        self.rcs["release"] = 1
+        rc, pkg, state = self.go()
+        self.assertNotEqual(0, rc, "a round that did not give the lab back did not pass")
+        self.assertIn("release", self.mod.run_on_ndtwin.teardown_problem)
+        self.assertIn("STILL CLAIMED", self.mod.run_on_ndtwin.teardown_problem)
+
+    def test_a_knob_that_could_not_be_put_back_is_reported_rather_than_passed_over(self):
+        with open(self.knob, "wb") as f:
+            f.write(b"4\n")
+        self.mod.knob_restore = lambda *_a, **_k: (False, "could NOT put the knob back: stub")
+        rc, pkg, state = self.go()
+        self.assertNotEqual(0, rc)
+        self.assertIn("could NOT put the knob back", self.mod.run_on_ndtwin.teardown_problem)
+
+    def test_the_verdict_says_the_lab_was_not_returned(self):
+        v, rc = self.mod.final_verdict("PASS (4/4)", 0, "`ndt release` exited 1 -- THE LAB IS STILL CLAIMED")
+        self.assertIn("LAB NOT RETURNED", v)
+        self.assertEqual(1, rc)
+        v, rc = self.mod.final_verdict("PASS (4/4)", 0, "")
+        self.assertEqual(("PASS (4/4)", 0), (v, rc))
+
+    # --- which bmv2 ------------------------------------------------------------------------
+
+    def test_the_round_captures_ndt_status_and_hashes_the_binary_it_names(self):
+        binary = os.path.join(self.tmp, "simple_switch_grpc")
+        with open(binary, "wb") as f:
+            f.write(b"not really a switch, but it hashes\n")
+        self.status_text = "  bmv2           %s\n  sample rate    1/256\n" % binary
+        env = {"switch_sha": "-", "switch_ver": "-", "p4c_sha": "p", "p4c_ver": "v"}
+        self.go(env=env)
+        self.assertIn(["status"], [c[1:] for c in self.verbs()])
+        self.assertEqual(self.mod.sha16(binary), env["switch_sha"])
+        self.assertNotEqual("-", env["switch_sha"])
+        labels = [lbl for lbl, _cmd, _out in self.steps_out]
+        self.assertTrue(any("ndt status" in l for l in labels), labels)
 
     def test_every_ndt_call_carries_the_owner(self):
         self.go()
@@ -550,6 +752,24 @@ class TheFirewallArms(unittest.TestCase):
         self.assertTrue(verdict(blocked)["iperf h3 -> h1 is blocked"].ok)
         through = self.session("solution", self.OK)
         self.assertFalse(verdict(through)["iperf h3 -> h1 is blocked"].ok)
+
+    def test_a_client_killed_by_the_timeout_is_not_a_transfer(self):
+        """🔴 The one case the exit code and the report line disagree about.
+
+        The solution DROPS h3 -> h1, so iperf's client does not fail fast -- it sits in SYN
+        retries until this driver's own wall clock kills it, and iperf v2 prints its (zero)
+        interval line on the way out. A reading that looked only for `bits/sec` would call
+        that a transfer, and the firewall's whole point would be reported as broken.
+        """
+        hosts = StubHosts(self.ips, popen_texts={"iperf -c": self.OK},
+                          popen_timeouts=("iperf -c",), pa=zero_loss(self.mod))
+        s = steps_for(self.mod, "firewall", "solution", hosts, self.tmp)
+        s.run()
+        v = verdict(s)
+        self.assertTrue(v["iperf h3 -> h1 is blocked"].ok,
+                        "a client the timeout killed did not connect")
+        self.assertFalse(v["iperf h1 -> h3 (internal -> external)"].ok,
+                         "and the same is true in the direction that should have worked")
 
     def test_both_arms_require_the_internal_to_external_flow(self):
         for which in ("skeleton", "solution"):
@@ -653,6 +873,24 @@ class TheReport(unittest.TestCase):
         lines = "\n".join(self.mod.switch_state_summary({"error": "URLError"}))
         self.assertIn("UNREADABLE", lines)
         self.assertNotIn("applied=", lines)
+
+    def test_the_report_names_the_bmv2_binary_by_its_sha(self):
+        """CLAUDE.md: benchmark 必指認 binary（sha＋哪種識別碼）."""
+        path = os.path.join(self.tmp, "r2.md")
+        self.mod.write_report(path, {
+            "utc": "now", "exercise": "basic", "which": "solution", "exdir": "/ex",
+            "fabric": "ndtwin", "package": "/pkg", "switch_state": {},
+            "env": {"switch_sha": "abcdef0123456789", "switch_ver": "bmv2 1.15 (ndt status)",
+                    "switch_path": "the bmv2 `ndt status` names",
+                    "p4c_sha": "0f0f0f0f0f0f0f0f", "p4c_ver": "p4c"},
+            "compile": {"cmd": "p4c", "rc": 0, "out": "", "warnings": 0},
+            "compile_extra": [], "topo_summary": "topology : x", "steps": [],
+            "expects": [], "artifacts": [], "notes": [], "verdict": "PASS", "exit": 0,
+            "stdout": "", "stderr": ""})
+        with open(path) as f:
+            text = f.read()
+        self.assertIn("abcdef0123456789", text)
+        self.assertIn("the bmv2 `ndt status` names", text)
 
     def test_the_report_header_carries_the_fabric_and_the_package(self):
         path = os.path.join(self.tmp, "r.md")

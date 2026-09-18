@@ -89,8 +89,17 @@ echo
 
 CAUGHT=0; SURVIVED=0; CONTROLS=0; CONTROLS_RED=0
 
-check_fires() {   # <label> <name> <the check text that MUST go red>
-    local label="$1" name="$2" want="$3" d out rc ran
+check_fires() {   # <label> <name> <check text that MUST go red> [<more check texts>...]
+    #
+    # 🔴 MORE THAN ONE `want` WHERE ONE WOULD NOT DO. M19, M20 and M23 each break a rule that
+    # is asserted twice: once on the function that decides it (section 14) and once on the
+    # whole `cmd_status --check` report (section 15). A mutation that reddened only the unit
+    # cell would leave "and cmd_status actually calls it" untested, and the two halves of the
+    # package-pipeline rule cover for each other -- with the row's early return gone the rate
+    # comes back, with the predicate's exemption gone the PROBLEM comes back under a row that
+    # still says n/a. Both named, both required.
+    local label="$1" name="$2"; shift 2
+    local wants=("$@") want missing=() d out rc ran
     d="$(mutant "$name")"
     if [[ "$d" == ANCHOR:* ]]; then
         printf '  SURVIVED %-56s (anchor occurrences: %s, expected 1)\n' "$label" "${d#ANCHOR:}"
@@ -113,10 +122,16 @@ check_fires() {   # <label> <name> <the check text that MUST go red>
     if [[ $rc -eq 0 ]]; then
         printf '  SURVIVED %-56s (suite still green)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
     fi
-    if /usr/bin/grep -qF "FAILED   $want" <<<"$out"; then
-        printf '  caught   %-56s (%s went red)\n' "$label" "$want"; CAUGHT=$((CAUGHT+1))
+    for want in "${wants[@]}"; do
+        /usr/bin/grep -qF "FAILED   $want" <<<"$out" || missing+=("$want")
+    done
+    if (( ${#missing[@]} == 0 )); then
+        printf '  caught   %-56s (%d named check(s) went red)\n' "$label" "${#wants[@]}"
+        printf '             red: %s\n' "${wants[@]}"
+        CAUGHT=$((CAUGHT+1))
     else
-        printf '  SURVIVED %-56s (red, but NOT on the named check)\n' "$label"
+        printf '  SURVIVED %-56s (red, but NOT on every named check)\n' "$label"
+        printf '             still green: %s\n' "${missing[@]}"
         /usr/bin/grep 'FAILED' <<<"$out" | head -3 | sed 's/^/             /'
         SURVIVED=$((SURVIVED+1))
     fi
@@ -416,7 +431,8 @@ cat > "$A/m19.new" <<'EOF'
             printf '  %-14s %s\n' "sample rate" "n/a (package pipeline)"
 EOF
 check_fires "M19: a package pipeline is given the built json's rate" m19 \
-            "🔴 a package pipeline has no rate here"
+            "🔴 a package pipeline has no rate here" \
+            "🔴 the whole report says the rate is n/a"
 
 # M20: the predicate the ROW and the --check problem both read stops exempting a foreign
 # pipeline. The row still says n/a (it returns before the stale branch), so what this costs is
@@ -429,7 +445,8 @@ cat > "$A/m20.new" <<'EOF'
     :
 EOF
 check_fires "M20: a foreign pipeline is judged stale after all" m20 \
-            "🔴 a foreign pipeline is never stale"
+            "🔴 a foreign pipeline is never stale" \
+            "🔴 --check does not raise the stale-pipeline problem"
 
 # M21: a package that will not load is reported as NDTwin's pipeline. The silent substitution
 # app_package_row exists to remove, one row further down.
@@ -463,7 +480,8 @@ cat > "$A/m23.new" <<'EOF'
     :
 EOF
 check_fires "M23: a foreign pipeline raises the built json's rate problems" m23 \
-            "🔴 a foreign pipeline raises none of the rate problems"
+            "🔴 a foreign pipeline raises none of the rate problems" \
+            "  nor any problem about the compiled rate"
 
 # --- the controls: two behaviour-preserving rewrites -----------------------------------------
 # 🔴 Without these the round says nothing. A harness that reported red for ANY edit would print
