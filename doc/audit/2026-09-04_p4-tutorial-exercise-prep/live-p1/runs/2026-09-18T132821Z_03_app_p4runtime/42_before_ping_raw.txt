@@ -1,0 +1,24 @@
+### h1 -> 10.0.2.2  (pid 2638529, ping -c 5 -W 2)
+PING 10.0.2.2 (10.0.2.2) 56(84) bytes of data.
+64 bytes from 10.0.2.2: icmp_seq=1 ttl=64 time=2.05 ms
+64 bytes from 10.0.2.2: icmp_seq=2 ttl=64 time=2.62 ms
+64 bytes from 10.0.2.2: icmp_seq=3 ttl=64 time=2.90 ms
+64 bytes from 10.0.2.2: icmp_seq=4 ttl=64 time=2.71 ms
+64 bytes from 10.0.2.2: icmp_seq=5 ttl=64 time=2.70 ms
+
+--- 10.0.2.2 ping statistics ---
+5 packets transmitted, 5 received, 0% packet loss, time 4006ms
+rtt min/avg/max/mdev = 2.054/2.596/2.897/0.286 ms
+
+### h2 -> 10.0.1.1  (pid 2638531, ping -c 5 -W 2)
+PING 10.0.1.1 (10.0.1.1) 56(84) bytes of data.
+64 bytes from 10.0.1.1: icmp_seq=1 ttl=64 time=2.15 ms
+64 bytes from 10.0.1.1: icmp_seq=2 ttl=64 time=2.25 ms
+64 bytes from 10.0.1.1: icmp_seq=3 ttl=64 time=2.03 ms
+64 bytes from 10.0.1.1: icmp_seq=4 ttl=64 time=2.23 ms
+64 bytes from 10.0.1.1: icmp_seq=5 ttl=64 time=2.38 ms
+
+--- 10.0.1.1 ping statistics ---
+5 packets transmitted, 5 received, 0% packet loss, time 4005ms
+rtt min/avg/max/mdev = 2.031/2.208/2.384/0.116 ms
+

@@ -1,0 +1,215 @@
+drive_exercise.py -- link_monitor / solution
+(non-interactive: no mininet CLI, no xterm; kills nothing)
+
+== pre-flight (read-only) ==============================================
+OK   ports 9090-9099 free
+OK   interpreter /home/adam/p4dev-python-venv/bin/python (3.12.3)
+OK   switch  /usr/local/bin/simple_switch_grpc  sha256[:16]=327fa7d172217397  --version=1.15.3-f0b7d201
+OK   p4c     /usr/local/bin/p4c-bm2-ss  sha256[:16]=226f3f66df515c9e  --version=Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release)
+OK   exercise dir /home/adam/tutorials/exercises/link_monitor
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/link_monitor/build/link_monitor.p4.p4info.txtpb -o /home/adam/tutorials/exercises/link_monitor/build/link_monitor.json /home/adam/tutorials/exercises/link_monitor/solution/link_monitor.p4
+-> /home/adam/tutorials/exercises/link_monitor/build/link_monitor.json  56155 B  sha256[:16]=b4a2d84b5e5c547b  warnings=0
+
+== plan ================================================================
+topology : pod-topo/topology.json
+hosts    : h1, h2, h3, h4
+switches : s1, s2, s3, s4
+links    : 8
+program  : /home/adam/tutorials/exercises/link_monitor/solution/link_monitor.p4 -> build/link_monitor.json
+switch   : /usr/local/bin/simple_switch_grpc
+steps    : h1 receive.py + h1 send.py probes; assert swid and port fields
+equivalent to (cwd must be the exercise dir):
+  cd /home/adam/tutorials/exercises/link_monitor && \
+  sudo /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/utils/run_exercise.py -t pod-topo/topology.json -j build/link_monitor.json -b /usr/local/bin/simple_switch_grpc
+  ... except do_net_cli() is replaced by the scripted steps above.
+Reading topology file.
+Building mininet topology.
+/usr/local/bin/simple_switch_grpc -i 1@s1-eth1 -i 2@s1-eth2 -i 3@s1-eth3 -i 4@s1-eth4 --pcap /home/adam/tutorials/exercises/link_monitor/pcaps --nanolog ipc:///tmp/bm-0-log.ipc --device-id 0 build/link_monitor.json --log-console --thrift-port 9090 -- --grpc-server-addr 0.0.0.0:50051
+
+/usr/local/bin/simple_switch_grpc -i 1@s2-eth1 -i 2@s2-eth2 -i 4@s2-eth4 -i 3@s2-eth3 --pcap /home/adam/tutorials/exercises/link_monitor/pcaps --nanolog ipc:///tmp/bm-1-log.ipc --device-id 1 build/link_monitor.json --log-console --thrift-port 9091 -- --grpc-server-addr 0.0.0.0:50052
+
+/usr/local/bin/simple_switch_grpc -i 1@s3-eth1 -i 2@s3-eth2 --pcap /home/adam/tutorials/exercises/link_monitor/pcaps --nanolog ipc:///tmp/bm-2-log.ipc --device-id 2 build/link_monitor.json --log-console --thrift-port 9092 -- --grpc-server-addr 0.0.0.0:50053
+
+/usr/local/bin/simple_switch_grpc -i 2@s4-eth2 -i 1@s4-eth1 --pcap /home/adam/tutorials/exercises/link_monitor/pcaps --nanolog ipc:///tmp/bm-3-log.ipc --device-id 3 build/link_monitor.json --log-console --thrift-port 9093 -- --grpc-server-addr 0.0.0.0:50054
+
+Configuring switch s1 using P4Runtime with file pod-topo/s1-runtime.json
+ - Using P4Info file build/link_monitor.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50051 (bmv2)...
+ - Setting pipeline config (build/link_monitor.json)...
+ - Inserting 6 table entries...
+ - MyEgress.swid: (default action) => MyEgress.set_swid(swid=1)
+ - MyIngress.ipv4_lpm: (default action) => MyIngress.drop()
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.1.1', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:01:11, port=1)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.2.2', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:02:22, port=2)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.3.3', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:03:00, port=3)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.4.4', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:04:00, port=4)
+Configuring switch s2 using P4Runtime with file pod-topo/s2-runtime.json
+ - Using P4Info file build/link_monitor.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50052 (bmv2)...
+ - Setting pipeline config (build/link_monitor.json)...
+ - Inserting 6 table entries...
+ - MyEgress.swid: (default action) => MyEgress.set_swid(swid=2)
+ - MyIngress.ipv4_lpm: (default action) => MyIngress.drop()
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.1.1', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:03:00, port=4)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.2.2', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:04:00, port=3)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.3.3', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:03:33, port=1)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.4.4', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:04:44, port=2)
+Configuring switch s3 using P4Runtime with file pod-topo/s3-runtime.json
+ - Using P4Info file build/link_monitor.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50053 (bmv2)...
+ - Setting pipeline config (build/link_monitor.json)...
+ - Inserting 6 table entries...
+ - MyEgress.swid: (default action) => MyEgress.set_swid(swid=3)
+ - MyIngress.ipv4_lpm: (default action) => MyIngress.drop()
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.1.1', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:01:00, port=1)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.2.2', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:01:00, port=1)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.3.3', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:02:00, port=2)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.4.4', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:02:00, port=2)
+Configuring switch s4 using P4Runtime with file pod-topo/s4-runtime.json
+ - Using P4Info file build/link_monitor.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50054 (bmv2)...
+ - Setting pipeline config (build/link_monitor.json)...
+ - Inserting 6 table entries...
+ - MyEgress.swid: (default action) => MyEgress.set_swid(swid=4)
+ - MyIngress.ipv4_lpm: (default action) => MyIngress.drop()
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.1.1', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:01:00, port=2)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.2.2', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:01:00, port=2)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.3.3', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:02:00, port=1)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.4.4', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:02:00, port=1)
+
+== topology as brought up ==============================================
+s1 -> gRPC port: 50051
+s2 -> gRPC port: 50052
+s3 -> gRPC port: 50053
+s4 -> gRPC port: 50054
+**********
+h1
+default interface: eth0	10.0.1.1	08:00:00:00:01:11
+**********
+**********
+h2
+default interface: eth0	10.0.2.2	08:00:00:00:02:22
+**********
+**********
+h3
+default interface: eth0	10.0.3.3	08:00:00:00:03:33
+**********
+**********
+h4
+default interface: eth0	10.0.4.4	08:00:00:00:04:44
+**********
+
+== scripted steps (no CLI, no xterm) ===================================
+$ h1: /home/adam/p4dev-python-venv/bin/python -u /home/adam/tutorials/exercises/link_monitor/receive.py   (> /home/adam/tutorials/exercises/link_monitor/logs/driver-h1-receive.log)
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/link_monitor/send.py   (one probe per second, for 8s)
+-- h1 receive.py output (/home/adam/tutorials/exercises/link_monitor/logs/driver-h1-receive.log) --
+sniffing on eth0
+
+Switch 1 - Port 1: 0.0001932734511591949 Mbps
+Switch 4 - Port 2: 0.00021092500104583648 Mbps
+Switch 2 - Port 3: 0.0001664104324212907 Mbps
+Switch 3 - Port 2: 0.00015881393850034715 Mbps
+Switch 1 - Port 3: 0.00011066457825700407 Mbps
+Switch 3 - Port 1: 0.00010877891139504421 Mbps
+Switch 2 - Port 4: 7.58003211091103e-05 Mbps
+Switch 4 - Port 1: 5.9268928352509005e-05 Mbps
+Switch 1 - Port 4: 2.7716430314325975e-05 Mbps
+
+Switch 1 - Port 1: 0.0013116648384036726 Mbps
+Switch 4 - Port 2: 0.0011704393829443573 Mbps
+Switch 2 - Port 3: 0.001029174564964208 Mbps
+Switch 3 - Port 2: 0.0008886749486234796 Mbps
+Switch 1 - Port 3: 0.000748023290016811 Mbps
+Switch 3 - Port 1: 0.0006077044063438886 Mbps
+Switch 2 - Port 4: 0.0004669919395245438 Mbps
+Switch 4 - Port 1: 0.0003268015176818101 Mbps
+Switch 1 - Port 4: 0.0001866505939766298 Mbps
+
+Switch 1 - Port 1: 0.0013106147114551041 Mbps
+Switch 4 - Port 2: 0.0011707522668690767 Mbps
+Switch 2 - Port 3: 0.0010309157577816567 Mbps
+Switch 3 - Port 2: 0.0008905371638148971 Mbps
+Switch 1 - Port 3: 0.0007502952822253289 Mbps
+Switch 3 - Port 1: 0.0006094904698741753 Mbps
+Switch 2 - Port 4: 0.00046889378188233504 Mbps
+Switch 4 - Port 1: 0.00032811987312698237 Mbps
+Switch 1 - Port 4: 0.0001874853527068198 Mbps
+
+Switch 1 - Port 1: 0.0013159865933865798 Mbps
+Switch 4 - Port 2: 0.0011748637892294363 Mbps
+Switch 2 - Port 3: 0.0010339074652818572 Mbps
+Switch 3 - Port 2: 0.0008927374050120549 Mbps
+Switch 1 - Port 3: 0.0007517869623695385 Mbps
+Switch 3 - Port 1: 0.0006106828393228858 Mbps
+Switch 2 - Port 4: 0.0004699395344465679 Mbps
+Switch 4 - Port 1: 0.0003288997129958457 Mbps
+Switch 1 - Port 4: 0.00018789671161182104 Mbps
+
+Switch 1 - Port 1: 0.0013160729323750025 Mbps
+Switch 4 - Port 2: 0.0011748361837796242 Mbps
+Switch 2 - Port 3: 0.0010340937578340436 Mbps
+Switch 3 - Port 2: 0.0008932489186986774 Mbps
+Switch 1 - Port 3: 0.0007520357843694062 Mbps
+Switch 3 - Port 1: 0.0006109381425130706 Mbps
+Switch 2 - Port 4: 0.00046982913880318857 Mbps
+Switch 4 - Port 1: 0.0003290491654294679 Mbps
+Switch 1 - Port 4: 0.00018801907218463472 Mbps
+
+Switch 1 - Port 1: 0.0013163616703689338 Mbps
+Switch 4 - Port 2: 0.001175340187525527 Mbps
+Switch 2 - Port 3: 0.0010344442507038336 Mbps
+Switch 3 - Port 2: 0.0008933617929144264 Mbps
+Switch 1 - Port 3: 0.0007523990065981866 Mbps
+Switch 3 - Port 1: 0.0006115194985540112 Mbps
+Switch 2 - Port 4: 0.00047054487135499276 Mbps
+Switch 4 - Port 1: 0.000329317812271205 Mbps
+Switch 1 - Port 4: 0.00018822200785826882 Mbps
+
+Switch 1 - Port 1: 0.0013131103911583901 Mbps
+Switch 4 - Port 2: 0.001173029701112032 Mbps
+Switch 2 - Port 3: 0.0010320139321880846 Mbps
+Switch 3 - Port 2: 0.0008909521464912898 Mbps
+Switch 1 - Port 3: 0.0007503707886905053 Mbps
+Switch 3 - Port 1: 0.0006097835073105615 Mbps
+Switch 2 - Port 4: 0.0004690083209892949 Mbps
+Switch 4 - Port 1: 0.0003283042207611382 Mbps
+Switch 1 - Port 4: 0.00018766457303377376 Mbps
+
+Switch 1 - Port 1: 0.001324376710283726 Mbps
+Switch 4 - Port 2: 0.001182376675649445 Mbps
+Switch 2 - Port 3: 0.0010403592391978987 Mbps
+Switch 3 - Port 2: 0.0008983442687704209 Mbps
+Switch 1 - Port 3: 0.0007561146340670993 Mbps
+Switch 3 - Port 1: 0.0006142131280181586 Mbps
+Switch 2 - Port 4: 0.00047234052602989913 Mbps
+Switch 4 - Port 1: 0.00033069368906525886 Mbps
+Switch 1 - Port 4: 0.00018898567842905655 Mbps
+
+   PASS injection: probes reached h1                   want=>=1 report row         got=72 rows
+   PASS switch ids seen                                want=[1, 2, 3, 4]           got=[1, 2, 3, 4]
+   PASS every reported port is non-zero                want=no 0 port              got=[1, 2, 3, 4]
+
+-- switch logs --
+   /home/adam/tutorials/exercises/link_monitor/logs/driver-h1-receive.log 3346 B
+   /home/adam/tutorials/exercises/link_monitor/logs/s1-p4runtime-requests.txt 3035 B
+   /home/adam/tutorials/exercises/link_monitor/logs/s1.log 977571 B
+   /home/adam/tutorials/exercises/link_monitor/logs/s2-p4runtime-requests.txt 3109 B
+   /home/adam/tutorials/exercises/link_monitor/logs/s2.log 812468 B
+   /home/adam/tutorials/exercises/link_monitor/logs/s3-p4runtime-requests.txt 3115 B
+   /home/adam/tutorials/exercises/link_monitor/logs/s3.log 612248 B
+   /home/adam/tutorials/exercises/link_monitor/logs/s4-p4runtime-requests.txt 3115 B
+   /home/adam/tutorials/exercises/link_monitor/logs/s4.log 572771 B
+
+== net.stop() ==========================================================
+net.stop() returned cleanly
+
+== verdict =============================================================
+   PASS injection: probes reached h1                   want=>=1 report row         got=72 rows   【README 宣稱】
+   PASS switch ids seen                                want=[1, 2, 3, 4]           got=[1, 2, 3, 4]   【源碼推導，未執行】
+   PASS every reported port is non-zero                want=no 0 port              got=[1, 2, 3, 4]   【源碼推導，未執行】
+
+>>> PASS (3/3)
+
+report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-18T113018Z_link_monitor_solution.md

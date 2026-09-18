@@ -1,0 +1,19 @@
+### tree 071b2ada9d16f0e3426e75a84a1104bf9a34db6e
+### driver tests (discover)
+Ran 51 tests in 0.141s
+
+OK
+### driver tests (direct)
+Ran 51 tests in 0.117s
+
+OK
+### mutate_drive_exercise.sh
+lines are what that claim is built from. (The 09-08 fixture comparison IS reddened --
+by mutation 1 -- and this footer used to say it was not.)
+
+43 mutations, 0 survived
+rc=0
+### check_gate_anchors HEAD
+
+108/108 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+### done 19:29:29

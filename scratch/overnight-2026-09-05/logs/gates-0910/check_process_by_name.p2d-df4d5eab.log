@@ -1,0 +1,6 @@
+### check_process_by_name  (worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-ndtup-0918, head df4d5eab)
+### $ python3 tests/shell/check_process_by_name.py
+
+check_process_by_name: 2 registered audit exceptions scanned (7 file(s) under them); doc/audit/** is not a scan surface otherwise
+check_process_by_name: 296 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale
+### rc=0

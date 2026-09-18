@@ -1,0 +1,70 @@
+### tree df4d5eab4273b7d80743c2b6cf16a2936d4b14db
+### test_ndt_app_package
+
+Ran 252 checks, 0 failed
+rc=0
+### test_stack_await_convergence
+
+Ran 35 checks, 0 failed
+rc=0
+### test_ndt_honesty
+
+Ran 345 checks, 0 failed
+rc=0
+### test_ndt_up_down_robust
+
+424 passed, 0 failed
+rc=0
+### test_ndt_status_check_baseline
+
+Ran 104 checks, 0 failed
+rc=0
+### test_ndt_round_baseline
+
+Ran 117 checks, 0 failed
+rc=0
+### test_ndt_status_residue_row
+
+Ran 27 checks, 0 failed
+rc=0
+### test_ndt_check_sample_rate
+
+Ran 39 checks, 0 failed
+rc=0
+### test_ndt_up_target
+
+Ran 23 checks, 0 failed
+rc=0
+### mutate_ndt_app_package
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 da833144422e4dd7410eacbf400ef33f1d8be0a6f4edd26d6f523bcba95d9a4a
+mutation gate: 35 mutations, 0 survived; 2 control(s), 0 went red
+rc=0
+### mutate_stack_await_convergence
+
+baseline byte-identical: yes  tools/test_workflow/stack.sh  sha256 43f1476a3c2cb8fc4db0bc2db23c143b42643acc7a024a98b92414415a79ffb7
+mutation gate: 9 mutations, 0 survived; 2 control(s), 0 went red
+rc=0
+### mutate_ndt_check_sample_rate
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 da833144422e4dd7410eacbf400ef33f1d8be0a6f4edd26d6f523bcba95d9a4a
+mutation gate: 12 mutations, 0 survived
+rc=0
+### driver tests (discover)
+Ran 50 tests in 0.157s
+
+OK
+### check_gate_anchors HEAD
+
+109/109 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+### bash -n
+ok tools/test_workflow/ndt
+ok tools/test_workflow/stack.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/01_baseline.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/02_app_basic.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/02b_app_basic_ndtwin_pipeline.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/03_app_p4runtime.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/04_diag_p4runtime.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/_common.sh
+### done 20:44:29
+### NOTE (orchestrator, 20:4x): the P2-D round-2 worker began editing this worktree at ~20:38 while the later gates above were running; the stack gate printed 9 mutations where df4d5eab has 8 -- an UNCOMMITTED observation of the worker in progress, not a number for df4d5eab. The round-2 sha gets its own rerun.

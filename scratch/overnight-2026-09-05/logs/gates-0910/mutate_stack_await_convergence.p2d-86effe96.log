@@ -1,0 +1,124 @@
+### mutate_stack_await_convergence  (worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-ndtup-0918, head 86effe96)
+### $ bash tests/shell/mutate_stack_await_convergence.sh
+
+baseline (must be green before any mutation):
+  Ran 63 checks, 0 failed
+
+  caught   M1: the proxy's skip list is never read                  (2 named check(s) went red)
+             red: 🔴 the path count is never polled at all
+             red: 🔴 and says the wait did not happen
+             also red: 🔴 and says the wait did not happen
+             also red:   giving the proxy's own reason
+             also red:   and quoting the list it read
+             also red: 🔴 it does NOT announce a wait it is not doing
+             also red: 🔴 the path count is never polled at all
+             also red:   and the proxy was asked exactly once
+             also red:   and says so the same way
+             also red:   with no path poll
+             also red:   saying what it is waiting for
+             also red:   and why the kernel cares
+             also red: 🔴 and reports how many were listed
+             also red: 🔴 the switch list IS polled on this path
+             also red: 🔴 and the destination paths still are NOT
+             also red:   no timeout warning on the happy path
+             also red:   and ends on the full count, not on the first answer
+             also red: 🔴 which took more than one poll
+             also red:   naming what was seen and what was wanted
+             also red:   destination paths are not polled even then
+             also red:   the skip line is still printed first
+             also red:   and the count comes off ITS model, not the other one
+             also red:   after more than one poll
+             also red:   and says which question it could not answer
+             also red:   after a BOUNDED re-read, not one try and not forever
+             also red:   after a BOUNDED re-read, not one try and not forever
+             also red:   after a BOUNDED re-read, not one try and not forever
+  caught   M2 (widening): any skipped step at all cancels the wait  (1 named check(s) went red)
+             red: 🔴 a skip list without lldp_discovery still waits
+             also red: 🔴 a skip list without lldp_discovery still waits
+             also red:   and does not claim the proxy said it
+  caught   M3 (widening): a silent proxy is read as 'nothing to wait for' (3 named check(s) went red)
+             red: 🔴 an answer with no control_plane falls through to today's wait
+             red: 🔴 skipped: null (startup unfinished) falls through to today's wait
+             red: 🔴 an endpoint that does not answer falls through to today's wait
+             also red: 🔴 an answer with no control_plane falls through to today's wait
+             also red:   and never says the proxy told it not to
+             also red: 🔴 skipped: null (startup unfinished) falls through to today's wait
+             also red:   and never says the proxy told it not to
+             also red: 🔴 an endpoint that does not answer falls through to today's wait
+             also red:   and never says the proxy told it not to
+  caught   M4: 'the proxy has not said' becomes 'nothing was skipped' (2 named check(s) went red)
+             red: 🔴 while 'the proxy has not said' is rc 1
+             red:   after a BOUNDED re-read, not one try and not forever
+             also red:   after a BOUNDED re-read, not one try and not forever
+             also red: 🔴 while 'the proxy has not said' is rc 1
+  caught   M5 (widening): OVS is asked about the P4 endpoint        (1 named check(s) went red)
+             red: 🔴 the P4 endpoint is not consulted on the OVS plane
+             also red: 🔴 the P4 endpoint is not consulted on the OVS plane
+             also red:   and the OVS wait is the one that runs
+             also red:   with no P4 skip line
+  caught   M6: the re-read is a single attempt (the instrument)     (1 named check(s) went red)
+             red:   after a BOUNDED re-read, not one try and not forever
+             also red:   after a BOUNDED re-read, not one try and not forever
+             also red:   after a BOUNDED re-read, not one try and not forever
+             also red:   after a BOUNDED re-read, not one try and not forever
+  caught   M7: not waiting is reported as a failure                 (1 named check(s) went red)
+             red: 🔴 it returns success without waiting
+             also red: 🔴 it returns success without waiting
+             also red: 🔴 an external control plane is not waited for either
+             also red: 🔴 it waits for the switch list, then returns 0
+             also red: 🔴 it does not return while fewer than four are listed
+             also red: 🔴 a list that never fills still returns 0
+             also red: 🔴 an external control plane waits for its switches too
+  caught   M8: the skip line stops naming the list it read          (1 named check(s) went red)
+             red:   and quoting the list it read
+             also red:   and quoting the list it read
+  caught   M9: the skip is announced and then not taken             (3 named check(s) went red)
+             red: 🔴 the path count is never polled at all
+             red: 🔴 it does NOT announce a wait it is not doing
+             red:   with no path poll
+             also red: 🔴 it does NOT announce a wait it is not doing
+             also red: 🔴 the path count is never polled at all
+             also red:   with no path poll
+             also red: 🔴 and the destination paths still are NOT
+             also red:   no timeout warning on the happy path
+             also red:   destination paths are not polled even then
+  caught   M10: the switch list is not waited for either (live 21:28) (5 named check(s) went red)
+             red:   saying what it is waiting for
+             red: 🔴 and reports how many were listed
+             red: 🔴 the switch list IS polled on this path
+             red: 🔴 which took more than one poll
+             red:   and the count comes off ITS model, not the other one
+             also red:   saying what it is waiting for
+             also red:   and why the kernel cares
+             also red: 🔴 and reports how many were listed
+             also red: 🔴 the switch list IS polled on this path
+             also red:   and ends on the full count, not on the first answer
+             also red: 🔴 which took more than one poll
+             also red:   in the shape the old loop's timeout already had
+             also red:   naming what was seen and what was wanted
+             also red:   and what starting anyway costs
+             also red:   and the count comes off ITS model, not the other one
+             also red:   after more than one poll
+             also red: 🔴 an uncountable model falls back to the fixed wait
+             also red:   and says which question it could not answer
+  caught   M11 (widening): the first answer ends the switch wait    (3 named check(s) went red)
+             red:   and ends on the full count, not on the first answer
+             red: 🔴 which took more than one poll
+             red:   it never calls a partial list a full one
+             also red:   and ends on the full count, not on the first answer
+             also red: 🔴 which took more than one poll
+             also red:   it never calls a partial list a full one
+             also red:   in the shape the old loop's timeout already had
+             also red:   naming what was seen and what was wanted
+             also red:   and what starting anyway costs
+             also red:   and the count comes off ITS model, not the other one
+             also red:   after more than one poll
+  caught   M12: an uncountable model is not waited for at all       (1 named check(s) went red)
+             red: 🔴 an uncountable model falls back to the fixed wait
+             also red: 🔴 an uncountable model falls back to the fixed wait
+  control  C1: the membership test, written the long way            (stayed green, as it must)
+  control  C2: the re-read bound counted by seq instead of literals (stayed green, as it must)
+
+baseline byte-identical: yes  tools/test_workflow/stack.sh  sha256 e0c22632e67672479dc9fa098850b0aab8fc3c5b711bea8cd08c92e219c01560
+mutation gate: 12 mutations, 0 survived; 2 control(s), 0 went red
+### rc=0

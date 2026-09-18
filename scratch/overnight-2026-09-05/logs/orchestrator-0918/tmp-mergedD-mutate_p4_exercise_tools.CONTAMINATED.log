@@ -1,0 +1,33 @@
+TICKET-P1 §3 p4_exercise tools mutation gate
+  interpreter : p4_proxy/venv/bin/python
+  subjects    : tools/p4_exercise/convert.py
+                tools/p4_exercise/preflight.py
+                tools/p4_exercise/run_external_controller.py
+  suite       : tools/p4_exercise/tests
+  baseline    : 3893f0b14760f96c tools/p4_exercise/convert.py
+  baseline    : 50131b08959ad0f7 tools/p4_exercise/preflight.py
+  baseline    : 5605407255187e80 tools/p4_exercise/run_external_controller.py
+
+baseline (unmutated) must be green:
+  REFUSE: baseline is RED before any mutation.
+    red: test_every_fixture_is_still_byte_identical_to_its_tutorials_original 
+      File "/home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/tests/test_convert.py", line 516, in test_every_fixture_is_still_byte_identical_to_its_tutorials_original
+        self.assertEqual(mismatched, [],
+        ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+                         "fixture(s) that have drifted from ~/tutorials; the tests describe a "
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                         "file shape the upstream exercise no longer has")
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    AssertionError: Lists differ: ['basic/build/basic.json', 'basic/build/basic.p4.p4info.txtpb'] != []
+    
+    First list contains 2 additional elements.
+    First extra element 0:
+    'basic/build/basic.json'
+    
+    - ['basic/build/basic.json', 'basic/build/basic.p4.p4info.txtpb']
+    + [] : fixture(s) that have drifted from ~/tutorials; the tests describe a file shape the upstream exercise no longer has
+    
+    ----------------------------------------------------------------------
+    Ran 106 tests in 0.546s
+    
+    FAILED (failures=1)

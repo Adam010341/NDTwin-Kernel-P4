@@ -1,0 +1,59 @@
+### test_ndt_check_sample_rate  (worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-ndtup-0918, head 2aab2daa)
+### $ bash tests/shell/test_ndt_check_sample_rate.sh
+
+
+1. 🔴 X-2: on the OVS plane the rate comes from OVSDB, not from the bmv2 artefact
+  ok       ten sflow records all saying 64 -> 64
+  ok       🔴 and NOT 256, which is what the compiled json says
+  ok         a swept fabric reads back the swept value
+  ok         and the source is named on every run
+
+2. 🔴 the other direction: on P4 the compiled pipeline IS the answer
+  ok       the P4 plane still reads the built json
+  ok         named as the build artefact it is
+
+3. no fabric: the artefact is all there is, and the row says so
+  ok       it still answers
+  ok       🔴 but says it is not a reading of anything running
+
+4. 🔴 ten records that disagree are not a rate
+  ok       an interrupted sweep is reported as DISAGREE
+  ok         the label names every value it saw
+  ok         and says what that means
+  ok       🔴 and it is never printed as a fraction
+
+5. 🔴 'nothing is sampling' and 'could not ask' are not rates either
+  ok       no sflow record at all
+  ok         said in words
+  ok       a refused ovs-vsctl is UNREADABLE
+  ok       🔴 and never a number
+  ok         and never 'the default'
+
+6. 🔴 X-1: what the ratio is EXPECTED to be at this rate, measured, never interpolated
+  ok       1/64
+  ok       1/256
+  ok       1/1024
+  ok       🔴 a rate X1 did not measure has NO reference
+  ok       check prints the rate
+  ok         and where it came from
+  ok       🔴 and the shortfall to expect at it
+  ok         with the whole measured curve beside it
+  ok       🔴 and says the expected reading is not a healthy one
+  ok       🔴 an unmeasured rate says so instead of guessing
+  ok         and says which three were measured
+  ok         and invents no number
+  ok       a dead pipeline keeps its own words here too
+
+7. the wiring: 'ndt check' asks, and 'ndt status' prints the source
+  ok       cmd_check reads the plane
+  ok         and the rate of THAT plane
+  ok         and prints both
+  ok       🔴 ndt status on an OVS fabric prints 1/64
+  ok       🔴 and not the 1/256 of X-2
+  ok         with a source row beside it
+  ok       🔴 a fabric with no sflow record is a --check problem
+  ok       🔴 so is a fabric whose records disagree
+  ok       🔴 so is a rate that could not be read
+
+Ran 39 checks, 0 failed
+### rc=0

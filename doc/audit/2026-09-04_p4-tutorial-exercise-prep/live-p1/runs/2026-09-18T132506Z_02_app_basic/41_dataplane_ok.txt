@@ -1,0 +1,1 @@
+NDT_DATAPLANE_OK alive=12 dead=0 untested=0 (rc 0 here means >=1 of 2 replies, NOT 0% loss)

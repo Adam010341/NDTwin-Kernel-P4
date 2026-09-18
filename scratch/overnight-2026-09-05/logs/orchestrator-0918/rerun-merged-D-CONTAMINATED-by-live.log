@@ -1,0 +1,32 @@
+### tree fa83c170c81fbd55da7dfe04daaba4cb1e403954  start 21:24:10
+ M p4_proxy/mininet/host_count_override
+?? doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-18T091308Z_01_baseline/
+?? doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-18T091344Z_03_app_p4runtime/
+?? doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-18T094949Z_01_baseline/
+?? doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-18T095025Z_02_app_basic/
+?? doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-18T100055Z_02b_app_basic_ndtwin_pipeline/
+?? doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-18T100220Z_03_app_p4runtime/
+(status above for gated paths; empty = clean)
+### mutate_app_package.sh
+rc=1
+
+baseline byte-identical: yes (10 sources, 7 test files)
+mutation gate: 47 mutations, 2 survived
+### mutate_table_entry.sh
+rc=2
+Ran 372 tests in 0.529s
+FAILED (failures=1)
+  baseline is RED -- fix that first, mutations prove nothing on a red baseline
+### mutate_p4_exercise_tools.sh
+rc=2
+    Ran 106 tests in 0.546s
+    
+    FAILED (failures=1)
+### mutate_drive_exercise.sh
+rc=0
+by mutation 1 -- and this footer used to say it was not.)
+
+43 mutations, 0 survived
+### mutate_ndt_app_package.sh
+
+### NOTE (orchestrator 21:3x): this run overlapped round-2 live. p4_proxy tests import proxy_agent.main, which reads p4_proxy/mininet/app_package_override at import time, so while a package fabric was up DEFAULT_SWITCH_DPIDS was (1,2,3,4) and test_the_baseline_model_still_produces_the_ten_dpids_the_literal_named went red -- in the N2/N3 controls and in later baselines (rc=2). Not a code fault; the run was stopped at mutate_ndt_app_package and is re-run after live finishes.

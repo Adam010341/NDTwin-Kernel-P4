@@ -1,0 +1,31 @@
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic
+  PASS  format                            1
+  INFO  name                              basic
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     255
+  PASS  switches keys                     4 dpids: [1, 2, 3, 4]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  9 present
+  PASS  topo_from_json.switches           4 entries
+  PASS  topo_from_json.hosts              4 entries
+  PASS  topo_from_json.switch_links       4 entries
+  PASS  topo_from_json.host_links         4 entries
+  PASS  switches agree                    model and package.json both say [1, 2, 3, 4]
+  PASS  links agree                       8 links in both
+  PASS  hosts named h<last octet>         4 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h2', 'h3', 'h4']
+  PASS  switches pipeline                 4 of 4 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/basic.json  p4info sha256:9213871cee36bd93  program=solution/basic.p4
+  INFO  s2 pipeline                       build/basic.json  p4info sha256:9213871cee36bd93  program=solution/basic.p4
+  INFO  s3 pipeline                       build/basic.json  p4info sha256:9213871cee36bd93  program=solution/basic.p4
+  INFO  s4 pipeline                       build/basic.json  p4info sha256:9213871cee36bd93  program=solution/basic.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              20 entries across 4 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  4 switch(es); entries and pipeline name the same p4info
+  PASS  gRPC port block                   30051-30054 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  basic.json sha256:e8a1cfc9829fc410  basic.p4.p4info.txtpb sha256:9213871cee36bd93
+
+PASS -- every check passed

@@ -1,0 +1,117 @@
+{
+  "boot_at": 1789738110.3775713,
+  "boot_id": "e6491868bdd6467ba68d1d12827b250b",
+  "control_plane": {
+    "mode": "external",
+    "package": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/p4runtime",
+    "skipped": [
+      "clone_session",
+      "install_initial_routes",
+      "link_watchdog",
+      "lldp_discovery",
+      "pipeline_push",
+      "sflow_telemetry"
+    ]
+  },
+  "links": {},
+  "probe_interval_s": 2.0,
+  "status": "success",
+  "switches": {
+    "1": {
+      "entries_recorded": 0,
+      "grpc_addr": "localhost:30051",
+      "last_lldp_age_s": null,
+      "last_packet_in_age_s": null,
+      "oldest_rule_installed_at": null,
+      "pipeline": {
+        "ndtwin": false,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/p4runtime/build/advanced_tunnel.p4.p4info.txtpb",
+        "p4info_sha256": "4d986039017abeef",
+        "skipped": [
+          "clone_session",
+          "sflow_telemetry"
+        ]
+      },
+      "pipeline_commits": 0,
+      "probe_age_s": 0.883,
+      "probe_detail": "FAILED_PRECONDITION: No forwarding pipeline config set for this device",
+      "probe_ok": false,
+      "rules_timed": 0,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": false,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 0
+      },
+      "table_generation": null
+    },
+    "2": {
+      "entries_recorded": 0,
+      "grpc_addr": "localhost:30052",
+      "last_lldp_age_s": null,
+      "last_packet_in_age_s": null,
+      "oldest_rule_installed_at": null,
+      "pipeline": {
+        "ndtwin": false,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/p4runtime/build/advanced_tunnel.p4.p4info.txtpb",
+        "p4info_sha256": "4d986039017abeef",
+        "skipped": [
+          "clone_session",
+          "sflow_telemetry"
+        ]
+      },
+      "pipeline_commits": 0,
+      "probe_age_s": 0.879,
+      "probe_detail": "FAILED_PRECONDITION: No forwarding pipeline config set for this device",
+      "probe_ok": false,
+      "rules_timed": 0,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": false,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 0
+      },
+      "table_generation": null
+    },
+    "3": {
+      "entries_recorded": 0,
+      "grpc_addr": "localhost:30053",
+      "last_lldp_age_s": null,
+      "last_packet_in_age_s": null,
+      "oldest_rule_installed_at": null,
+      "pipeline": {
+        "ndtwin": false,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/p4runtime/build/advanced_tunnel.p4.p4info.txtpb",
+        "p4info_sha256": "4d986039017abeef",
+        "skipped": [
+          "clone_session",
+          "sflow_telemetry"
+        ]
+      },
+      "pipeline_commits": 0,
+      "probe_age_s": 0.876,
+      "probe_detail": "FAILED_PRECONDITION: No forwarding pipeline config set for this device",
+      "probe_ok": false,
+      "rules_timed": 0,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": false,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 0
+      },
+      "table_generation": null
+    }
+  }
+}

@@ -1,0 +1,24 @@
+### four_paths  (worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-ndtup-0918, head a43ed603)
+### $ p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/hunt-0911/fix/p2d-four-paths.py
+
+model:   /home/adam/tutorials/exercises/basic/pod-topo/topology.json
+switches: s1, s2, s3, s4
+hosts:    h1(10.0.1.1) -> s1 port 1, h2(10.0.2.2) -> s1 port 2, h3(10.0.3.3) -> s2 port 1, h4(10.0.4.4) -> s2 port 2
+inter-switch links in the model: 4
+
+READING -- no LLDP, so no inter-switch edges, and installed_routes() empty:
+  4 of 12 ordered host pairs have a path
+    [['10.0.1.1', 1], [1, 2], ['10.0.2.2', 0]]
+    [['10.0.2.2', 2], [1, 1], ['10.0.1.1', 0]]
+    [['10.0.3.3', 1], [2, 2], ['10.0.4.4', 0]]
+    [['10.0.4.4', 2], [2, 1], ['10.0.3.3', 0]]
+  every one of them is a pair whose two hosts hang off the SAME switch;
+  switchCount (path length - 2) is 1 for each, and the other 8 pairs are ABSENT
+  from the body the kernel's setAllPaths fills m_switchCountMap from -- so
+  /ndt/get_path_switch_count answers 'Path not found' for every cross-switch pair.
+
+CONTROL -- the same graph with the model's own inter-switch links added:
+  12 of 12
+
+VERDICT: as recorded (P2-D-SUMMARY section 4 records 4 and 12 on a four-host pod-topo)
+### rc=0

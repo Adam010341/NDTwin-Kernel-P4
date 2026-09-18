@@ -1,0 +1,13 @@
+  !!  proxy: destination paths NOT CHECKED -- the package's own program runs on dpid
+  !!    1,2,3,4; the proxy says it sent no LLDP and installed no routes on this
+  !!    fabric (control_plane.skipped: install_initial_routes, link_watchdog, lldp_discovery)
+  ok  table entries: 5/5 applied on 4 switch(es), 0 failed
+  ok  kernel: 4 switches, 4 up, 16 edges, 4 hosts
+  ok  model matches fabric: 4 hosts (kernel graph, topology file and 4 host namespaces all agree)
+  ok  data plane: h1 -> 10.0.2.2 forwards
+
+up. ready
+  proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+  !!  package pipeline: NDTwin discovered no links and installed no routes on this
+  !!    fabric; forwarding is whatever the package's 20 entries on
+  !!    4 switch(es) make of it. ndt status quotes no sample rate for it.

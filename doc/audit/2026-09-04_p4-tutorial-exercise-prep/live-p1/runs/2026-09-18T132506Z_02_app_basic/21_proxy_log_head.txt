@@ -1,0 +1,40 @@
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/main.py:1001: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/main.py:1006: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+INFO:     Started server process [2623317]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+[Proxy Agent] app package: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic (mode ndtwin, election_id 0,65535)
+[Proxy Agent] Starting up...
+[1] Received arbitration response: Mastership confirmed.
+[2] Received arbitration response: Mastership confirmed.
+[3] Received arbitration response: Mastership confirmed.
+[4] Received arbitration response: Mastership confirmed.
+[1] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 1
+[2] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 2
+[3] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 3
+[4] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 4
+[1] table entry modify: MyIngress.ipv4_lpm (default action)
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] Switch 1 runs the package's own pipeline: 5 of 5 declared table entries applied, 0 refused
+[2] table entry modify: MyIngress.ipv4_lpm (default action)
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']

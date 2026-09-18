@@ -1,0 +1,27 @@
+### tree a43ed603469e3b073dc923b1da75a7b8684e9b44
+### test_ndt_app_package
+
+Ran 252 checks, 0 failed
+rc=0
+### test_stack_await_convergence
+
+Ran 35 checks, 0 failed
+rc=0
+### mutate_ndt_app_package
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 da833144422e4dd7410eacbf400ef33f1d8be0a6f4edd26d6f523bcba95d9a4a
+mutation gate: 37 mutations, 0 survived; 2 control(s), 0 went red
+rc=0
+### mutate_stack_await_convergence
+
+baseline byte-identical: yes  tools/test_workflow/stack.sh  sha256 43f1476a3c2cb8fc4db0bc2db23c143b42643acc7a024a98b92414415a79ffb7
+mutation gate: 9 mutations, 0 survived; 2 control(s), 0 went red
+rc=0
+### check_gate_anchors HEAD
+
+109/109 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+### four paths repro
+  12 of 12
+
+VERDICT: as recorded (P2-D-SUMMARY section 4 records 4 and 12 on a four-host pod-topo)
+### done 21:23:23

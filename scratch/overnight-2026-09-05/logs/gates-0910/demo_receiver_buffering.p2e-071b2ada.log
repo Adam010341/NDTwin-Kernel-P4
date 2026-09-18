@@ -1,0 +1,8 @@
+# P2-E mechanism demonstration (NOT a gate). Reproduces the 0 B receive log without Mininet.
+# script: demo_receiver_buffering.p2e-071b2ada.py  (child: childlike_receive.py, inlined below)
+# run 2026-09-18, cwd = scratch/overnight-2026-09-05/wt-p2-recv-0918
+
+interpreter: /home/adam/p4dev-python-venv/bin/python
+Python 3.12.3 (main, Aug 31 2026, 10:18:26) [GCC 13.3.0]
+(no flag)                    -> buffered     0 B  first line: ''
+-u                           -> unbuffered   241 B  first line: 'sniffing on eth0'

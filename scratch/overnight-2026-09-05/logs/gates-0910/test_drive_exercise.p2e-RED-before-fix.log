@@ -1,0 +1,62 @@
+../home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-recv-0918/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:274: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-recv-0918/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/fixtures/dryrun_basic_solution.txt' mode='r' encoding='UTF-8'>
+  want = open(os.path.join(FIXTURES, "dryrun_%s_%s.txt" % (ex, which))).read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-recv-0918/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:274: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-recv-0918/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/fixtures/dryrun_basic_skeleton.txt' mode='r' encoding='UTF-8'>
+  want = open(os.path.join(FIXTURES, "dryrun_%s_%s.txt" % (ex, which))).read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-recv-0918/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:274: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-recv-0918/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/fixtures/dryrun_source_routing_solution.txt' mode='r' encoding='UTF-8'>
+  want = open(os.path.join(FIXTURES, "dryrun_%s_%s.txt" % (ex, which))).read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-recv-0918/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:274: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-recv-0918/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/fixtures/dryrun_source_routing_skeleton.txt' mode='r' encoding='UTF-8'>
+  want = open(os.path.join(FIXTURES, "dryrun_%s_%s.txt" % (ex, which))).read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+.......................................FFF.........
+======================================================================
+FAIL: test_every_receive_py_is_started_unbuffered_with_u_before_the_script (test_drive_exercise.TheReceiverIsUnbuffered.test_every_receive_py_is_started_unbuffered_with_u_before_the_script) (exercise='link_monitor')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-recv-0918/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py", line 867, in test_every_receive_py_is_started_unbuffered_with_u_before_the_script
+    self.assertIn("-u", argv,
+    ~~~~~~~~~~~~~^^^^^^^^^^^^
+                  "%s: receive.py's stdout is a file, so without -u its "
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  "output dies in the buffer SIGTERM never flushes (%r)"
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  % (ex, argv))
+                  ^^^^^^^^^^^^^
+AssertionError: '-u' not found in ['/home/adam/p4dev-python-venv/bin/python', '/tmp/drv-unbuf-wqoowwmf/receive.py'] : link_monitor: receive.py's stdout is a file, so without -u its output dies in the buffer SIGTERM never flushes (['/home/adam/p4dev-python-venv/bin/python', '/tmp/drv-unbuf-wqoowwmf/receive.py'])
+
+======================================================================
+FAIL: test_every_receive_py_is_started_unbuffered_with_u_before_the_script (test_drive_exercise.TheReceiverIsUnbuffered.test_every_receive_py_is_started_unbuffered_with_u_before_the_script) (exercise='basic')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-recv-0918/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py", line 867, in test_every_receive_py_is_started_unbuffered_with_u_before_the_script
+    self.assertIn("-u", argv,
+    ~~~~~~~~~~~~~^^^^^^^^^^^^
+                  "%s: receive.py's stdout is a file, so without -u its "
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  "output dies in the buffer SIGTERM never flushes (%r)"
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  % (ex, argv))
+                  ^^^^^^^^^^^^^
+AssertionError: '-u' not found in ['/home/adam/p4dev-python-venv/bin/python', '/tmp/drv-unbuf-wqoowwmf/receive.py'] : basic: receive.py's stdout is a file, so without -u its output dies in the buffer SIGTERM never flushes (['/home/adam/p4dev-python-venv/bin/python', '/tmp/drv-unbuf-wqoowwmf/receive.py'])
+
+======================================================================
+FAIL: test_every_receive_py_is_started_unbuffered_with_u_before_the_script (test_drive_exercise.TheReceiverIsUnbuffered.test_every_receive_py_is_started_unbuffered_with_u_before_the_script) (exercise='source_routing')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-recv-0918/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py", line 867, in test_every_receive_py_is_started_unbuffered_with_u_before_the_script
+    self.assertIn("-u", argv,
+    ~~~~~~~~~~~~~^^^^^^^^^^^^
+                  "%s: receive.py's stdout is a file, so without -u its "
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  "output dies in the buffer SIGTERM never flushes (%r)"
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                  % (ex, argv))
+                  ^^^^^^^^^^^^^
+AssertionError: '-u' not found in ['/home/adam/p4dev-python-venv/bin/python', '/tmp/drv-unbuf-wqoowwmf/receive.py'] : source_routing: receive.py's stdout is a file, so without -u its output dies in the buffer SIGTERM never flushes (['/home/adam/p4dev-python-venv/bin/python', '/tmp/drv-unbuf-wqoowwmf/receive.py'])
+
+----------------------------------------------------------------------
+Ran 51 tests in 0.827s
+
+FAILED (failures=3)

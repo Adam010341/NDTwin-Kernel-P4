@@ -1,0 +1,17 @@
+package 'basic' -> /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic-ndtwin-pipeline
+  control plane : ndtwin
+  pipelines     : s1=NDTwin's own, s2=NDTwin's own, s3=NDTwin's own, s4=NDTwin's own
+  model         : 4 switches, 4 hosts, 16 edges (8 links, both directions stored)
+  files         : 10
+                  build/basic.json
+                  build/basic.p4.p4info.txtpb
+                  ndtwin/topology.json
+                  package.json
+                  pod-topo/s1-runtime.json
+                  pod-topo/s2-runtime.json
+                  pod-topo/s3-runtime.json
+                  pod-topo/s4-runtime.json
+                  pod-topo/topology.json
+                  solution/basic.p4
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic-ndtwin-pipeline

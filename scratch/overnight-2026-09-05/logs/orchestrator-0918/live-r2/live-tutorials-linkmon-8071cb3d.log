@@ -1,0 +1,16 @@
+### trunk 8071cb3d  start 11:30:17
+### drive_exercise link_monitor --which solution --fabric tutorials  start 11:30:17
+rc=0  end 11:30:37  verdict: >>> PASS (3/3)
+      PASS injection: probes reached h1                   want=>=1 report row         got=72 rows
+      PASS switch ids seen                                want=[1, 2, 3, 4]           got=[1, 2, 3, 4]
+      PASS every reported port is non-zero                want=no 0 port              got=[1, 2, 3, 4]
+      PASS injection: probes reached h1                   want=>=1 report row         got=72 rows   【README 宣稱】
+   receive log: /home/adam/tutorials/exercises/link_monitor/logs/driver-h1-receive.log 3346 B
+### drive_exercise link_monitor --which skeleton --fabric tutorials  start 11:30:37
+rc=0  end 11:30:58  verdict: >>> PASS (4/4)
+      PASS injection: probes reached h1                   want=>=1 report row         got=72 rows
+      PASS switch ids seen                                want=[1, 2, 3, 4]           got=[1, 2, 3, 4]
+      PASS every reported port is 0                       want=[0]                    got=[0]
+      PASS every reported utilization is 0                want=['0']                  got=['0']
+   receive log: /home/adam/tutorials/exercises/link_monitor/logs/driver-h1-receive.log 1897 B
+### done 11:30:58

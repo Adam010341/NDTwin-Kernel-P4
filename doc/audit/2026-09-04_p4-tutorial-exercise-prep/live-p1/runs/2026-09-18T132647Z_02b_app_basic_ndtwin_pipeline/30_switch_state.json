@@ -1,0 +1,171 @@
+{
+  "boot_at": 1789738016.36224,
+  "boot_id": "9737f82d30194892a6ca457a9040e2a9",
+  "control_plane": {
+    "mode": "ndtwin",
+    "package": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic-ndtwin-pipeline",
+    "skipped": []
+  },
+  "links": {
+    "1:3->3:1": {
+      "down": false,
+      "last_beacon_age_s": 2.26,
+      "reported_to_kernel": true
+    },
+    "1:4->4:2": {
+      "down": false,
+      "last_beacon_age_s": 2.257,
+      "reported_to_kernel": true
+    },
+    "2:3->4:1": {
+      "down": false,
+      "last_beacon_age_s": 2.262,
+      "reported_to_kernel": true
+    },
+    "2:4->3:2": {
+      "down": false,
+      "last_beacon_age_s": 2.256,
+      "reported_to_kernel": true
+    },
+    "3:1->1:3": {
+      "down": false,
+      "last_beacon_age_s": 2.263,
+      "reported_to_kernel": true
+    },
+    "3:2->2:4": {
+      "down": false,
+      "last_beacon_age_s": 2.259,
+      "reported_to_kernel": true
+    },
+    "4:1->2:3": {
+      "down": false,
+      "last_beacon_age_s": 2.261,
+      "reported_to_kernel": true
+    },
+    "4:2->1:4": {
+      "down": false,
+      "last_beacon_age_s": 2.256,
+      "reported_to_kernel": true
+    }
+  },
+  "probe_interval_s": 2.0,
+  "status": "success",
+  "switches": {
+    "1": {
+      "entries_recorded": 5,
+      "grpc_addr": "localhost:30051",
+      "last_lldp_age_s": 2.257,
+      "last_packet_in_age_s": 1.264,
+      "oldest_rule_installed_at": 1789738017.6919603,
+      "pipeline": {
+        "ndtwin": true,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt",
+        "p4info_sha256": "d54ff55208340f3a",
+        "skipped": []
+      },
+      "pipeline_commits": 1,
+      "probe_age_s": 1.232,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 5
+      },
+      "table_generation": "21a469a7e1944e898c3130633825c100"
+    },
+    "2": {
+      "entries_recorded": 5,
+      "grpc_addr": "localhost:30052",
+      "last_lldp_age_s": 2.256,
+      "last_packet_in_age_s": 1.008,
+      "oldest_rule_installed_at": 1789738017.7140486,
+      "pipeline": {
+        "ndtwin": true,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt",
+        "p4info_sha256": "d54ff55208340f3a",
+        "skipped": []
+      },
+      "pipeline_commits": 1,
+      "probe_age_s": 1.231,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 5
+      },
+      "table_generation": "aff74e7e16e14c2e852cb356b107ad89"
+    },
+    "3": {
+      "entries_recorded": 5,
+      "grpc_addr": "localhost:30053",
+      "last_lldp_age_s": 2.258,
+      "last_packet_in_age_s": 1.137,
+      "oldest_rule_installed_at": 1789738017.718251,
+      "pipeline": {
+        "ndtwin": true,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt",
+        "p4info_sha256": "d54ff55208340f3a",
+        "skipped": []
+      },
+      "pipeline_commits": 1,
+      "probe_age_s": 1.23,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 5
+      },
+      "table_generation": "b5197fe7446744b7a0d8bd01962b270f"
+    },
+    "4": {
+      "entries_recorded": 5,
+      "grpc_addr": "localhost:30054",
+      "last_lldp_age_s": 2.256,
+      "last_packet_in_age_s": 1.008,
+      "oldest_rule_installed_at": 1789738017.71746,
+      "pipeline": {
+        "ndtwin": true,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/p4_src/build/ndtwin_switch.p4info.txt",
+        "p4info_sha256": "d54ff55208340f3a",
+        "skipped": []
+      },
+      "pipeline_commits": 1,
+      "probe_age_s": 1.229,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 0,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 5
+      },
+      "table_generation": "afc2dfb0db334e0bb9c0dfa91cf51f67"
+    }
+  }
+}
