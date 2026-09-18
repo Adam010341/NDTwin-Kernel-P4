@@ -136,7 +136,13 @@ check_fires() {   # <label> <name> <check text that MUST go red> [<more check te
     else
         printf '  SURVIVED %-56s (red, but NOT on every named check)\n' "$label"
         printf '             still green: %s\n' "${missing[@]}"
-        /usr/bin/grep 'FAILED' <<<"$out" | head -3 | sed 's/^/             /'
+        # 🔴 `^  FAILED`, ANCHORED. A bare `grep FAILED` also matches cells that PASSED and
+        # merely have the word in their label -- "🔴 a FAILED pre-flight leaves the telemetry
+        # knob alone" is one, and on 2026-09-19 it was printed under a SURVIVED verdict and
+        # read by the orchestrator as the named check that stayed green. The line that names
+        # that check is the `still green:` one above; this one is context, and context that
+        # shows passing cells as failures is worse than no context.
+        /usr/bin/grep '^  FAILED' <<<"$out" | head -3 | sed 's/^/             /'
         SURVIVED=$((SURVIVED+1))
     fi
 }
@@ -158,7 +164,13 @@ check_control() {   # <label> <name> -- a behaviour-preserving edit; the suite m
         printf '  control  %-56s (stayed green, as it must)\n' "$label"
     else
         printf '  🔴 CONTROL %-53s (went RED -- this harness reddens for any edit)\n' "$label"
-        /usr/bin/grep 'FAILED' <<<"$out" | head -3 | sed 's/^/             /'
+        # 🔴 `^  FAILED`, ANCHORED. A bare `grep FAILED` also matches cells that PASSED and
+        # merely have the word in their label -- "🔴 a FAILED pre-flight leaves the telemetry
+        # knob alone" is one, and on 2026-09-19 it was printed under a SURVIVED verdict and
+        # read by the orchestrator as the named check that stayed green. The line that names
+        # that check is the `still green:` one above; this one is context, and context that
+        # shows passing cells as failures is worse than no context.
+        /usr/bin/grep '^  FAILED' <<<"$out" | head -3 | sed 's/^/             /'
         CONTROLS_RED=$((CONTROLS_RED+1))
     fi
 }
@@ -1108,8 +1120,14 @@ EOF
 cat > "$A/m60.new" <<'EOF'
         if false; then
 EOF
+# 🔴 NOT THE rc CELL, AND THE GATE IS WHAT SAID SO. With this branch gone the switch falls
+# through to the source COMPARISON -- the reader emits the literal word `absent`, which does
+# not equal `cooperative`, so the gate still returns 1. Same exit code, a completely different
+# sentence, and the difference matters to whoever reads it: "the proxy resolved a different
+# source" sends an operator to look at the proxy's own resolution, and "the proxy said nothing"
+# sends them to look at whether it is disclosing at all.
 check_fires "M60: a switch with no telemetry object passes the gate" m60 \
-            "🔴 a switch with no telemetry object at all is red"
+            "  and 'it did not say' is not 'as usual'"
 
 # --- M61 (widening): the two answers are not compared at all ---------------------------------------------
 # 🔴 THE WHOLE POINT OF THE GATE. `ndt` resolved one source and the proxy resolved another; one of
@@ -1121,8 +1139,13 @@ EOF
 cat > "$A/m61.new" <<'EOF'
         if false; then
 EOF
+# 🔴 NOT THE rc CELL either, and for the same reason one mutation up. With the comparison gone
+# the disagreeing switch falls into the branch for the source THIS script resolved -- it is
+# `cooperative`, its clone_session is false because the proxy really put it on `link`, and the
+# gate returns 1 complaining about a missing clone session. The fabric is misreported and the
+# exit code is identical; the sentence is the whole of what changed.
 check_fires "M61 (widening): the proxy's source is never compared to this one" m61 \
-            "🔴 a proxy that resolved a different source is red"
+            "  naming both answers"
 
 # --- M62: a cooperative switch with no clone session passes -----------------------------------------------
 cat > "$A/m62.old" <<'EOF'

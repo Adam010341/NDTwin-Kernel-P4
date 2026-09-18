@@ -108,7 +108,13 @@ check_fires() {   # <label> <name> <check text that MUST go red> [<more>...]
     else
         printf '  SURVIVED %-56s (red, but NOT on every named check)\n' "$label"
         printf '             still green: %s\n' "${missing[@]}"
-        /usr/bin/grep 'FAILED' <<<"$out" | head -3 | sed 's/^/             /'
+        # 🔴 `^  FAILED`, ANCHORED. A bare `grep FAILED` also matches cells that PASSED and
+        # merely have the word in their label -- "🔴 a FAILED pre-flight leaves the telemetry
+        # knob alone" is one, and on 2026-09-19 it was printed under a SURVIVED verdict and
+        # read by the orchestrator as the named check that stayed green. The line that names
+        # that check is the `still green:` one above; this one is context, and context that
+        # shows passing cells as failures is worse than no context.
+        /usr/bin/grep '^  FAILED' <<<"$out" | head -3 | sed 's/^/             /'
         SURVIVED=$((SURVIVED+1))
     fi
 }
@@ -130,7 +136,13 @@ check_control() {   # <label> <name> -- behaviour-preserving; the suite must sta
         printf '  control  %-56s (stayed green, as it must)\n' "$label"
     else
         printf '  🔴 CONTROL %-53s (went RED -- this harness reddens for any edit)\n' "$label"
-        /usr/bin/grep 'FAILED' <<<"$out" | head -3 | sed 's/^/             /'
+        # 🔴 `^  FAILED`, ANCHORED. A bare `grep FAILED` also matches cells that PASSED and
+        # merely have the word in their label -- "🔴 a FAILED pre-flight leaves the telemetry
+        # knob alone" is one, and on 2026-09-19 it was printed under a SURVIVED verdict and
+        # read by the orchestrator as the named check that stayed green. The line that names
+        # that check is the `still green:` one above; this one is context, and context that
+        # shows passing cells as failures is worse than no context.
+        /usr/bin/grep '^  FAILED' <<<"$out" | head -3 | sed 's/^/             /'
         CONTROLS_RED=$((CONTROLS_RED+1))
     fi
 }
