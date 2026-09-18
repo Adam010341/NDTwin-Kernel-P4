@@ -366,19 +366,14 @@ check_fires "M12: every interface with a byte on it is on the path" m12 \
 # reports non-zero EVERYWHERE -- which is exactly what a double-counting collector, a stale rate
 # and a fabric sampling on every port look like.
 cat > "$A/m13.old" <<'EOF'
-        if [[ "$kind" == switch ]]; then
-            if [[ "$(awk "BEGIN{print ($bits != 0) ? 1 : 0}")" == 1 ]]; then
-                fail "$label: $key is an inter-switch link that did NOT carry the flow and the twin integrated $bits bit on it"
-                rc=1
-            fi
+        if [[ "$(awk "BEGIN{print ($bits >= $floor) ? 1 : 0}")" == 1 ]]; then
 EOF
 cat > "$A/m13.new" <<'EOF'
-        if [[ "$kind" == switch ]]; then
-            :
+        if false; then
 EOF
 check_fires "M13 (M-D5): links OFF the path are not checked at all" m13 \
-            "🔴 an inter-switch link OFF the path must be exactly 0" \
-            "  naming it and the bits"
+            "🔴 an inter-switch link off the path carrying the FLOW is red" \
+            "  naming it, the bits and the floor"
 
 # --- M14: an on-path interface the twin does not model is skipped ----------------------------------
 # 🔴 THE MOST IMPORTANT THING THIS CELL CAN FIND, turned into silence. "The twin has no edge for a
@@ -440,18 +435,19 @@ check_fires "M16 (M-D6): the positive control accepts a twin that still reports"
             "🔴 telemetry off and the twin still reporting is RED" \
             "  because the cell above would then prove nothing"
 
-# --- M17 (widening): the ARP allowance is applied to inter-switch links too ----------------------------
-# The plausible "the check is too strict" edit. A double-counted inter-switch link off the path
-# would then have to exceed 5 kbit before anybody noticed, and the exact-zero rule -- which is
-# what makes the off-path half an assertion rather than a tolerance -- is gone.
+# --- M17 (widening): the floor becomes the flow itself -------------------------------------------------
+# 🔴 THE FLOOR IS A BOUND, NOT A BLANK CHEQUE (TICKET-P3 §9 ruling 9, R4). At 2% of the smallest
+# on-path integral it sits two orders of magnitude above a sampled LLDP beacon and two below the
+# flow; at 100% it is the flow, and an off-path link carrying the WHOLE flow passes.
 cat > "$A/m17.old" <<'EOF'
-        if [[ "$kind" == switch ]]; then
+: "${LINK_USAGE_OFFPATH_FRACTION:=0.02}"
 EOF
 cat > "$A/m17.new" <<'EOF'
-        if false; then
+: "${LINK_USAGE_OFFPATH_FRACTION:=1.0}"
 EOF
-check_fires "M17 (widening): every off-path link gets the ARP allowance" m17 \
-            "🔴 an inter-switch link OFF the path must be exactly 0"
+check_fires "M17 (widening): the off-path floor becomes the whole flow" m17 \
+            "🔴 an inter-switch link off the path carrying the FLOW is red" \
+            "  naming it, the bits and the floor"
 
 # --- M18: a window in which the graph never answered is an empty integral ------------------------------
 # rc 0 with no rows, which the assertion then reads as "the twin models none of these links" --
@@ -545,14 +541,81 @@ check_fires "M23: an unknown destination falls back to the last host" m23 \
             "🔴 a destination the model does not declare is refused" \
             "  rather than silently falling back to another host"
 
+# --- M24: the floor is the absolute 5 kbit, whatever the flow ------------------------------------
+# 🔴 THE HALF THAT KEEPS A CORRECT FABRIC GREEN. Without the relative term a single sampled LLDP
+# beacon -- ~500 bit at 1/256, banked as ~128 kbit on a link that carried nothing -- reds every
+# run of the generic cell, at random, on a fabric doing exactly what it is supposed to do.
+cat > "$A/m24.old" <<'EOF'
+print("%.3f" % max(floor_abs, frac * min(vals)) if vals else "%.3f" % floor_abs)
+EOF
+cat > "$A/m24.new" <<'EOF'
+print("%.3f" % floor_abs)
+EOF
+check_fires "M24: the floor loses its relative term" m24 \
+            "🔴 and with a real 16 Mbit flow it is 2% of it, not 5 kbit" \
+            "🔴 one sampled LLDP beacon off the path is NOT a failure"
+
+# --- M25: the floor loses its absolute term -------------------------------------------------------
+# The other half. In a window where the flow itself was small, 2% of it is a handful of bits and
+# an off-path link with real traffic on it slips under -- the bound has to have a floor of its own.
+cat > "$A/m25.old" <<'EOF'
+floor_abs = float(sys.argv[3]); frac = float(sys.argv[4])
+EOF
+cat > "$A/m25.new" <<'EOF'
+floor_abs = 0.0; frac = float(sys.argv[4])
+EOF
+# 🔴 NOT THE rc CELL. With floor_abs gone the quiet window's floor is 2% of 8000 = 160 bit and
+# the 6000 bit off-path edge is still over it -- rc 1 either way, a different number in the
+# message. What sees it is the floor the run PRINTS, which is the number the verdict used.
+check_fires "M25: the floor loses its absolute term" m25 \
+            "  the floor with a 16 kbit smallest on-path integral" \
+            "  naming that floor"
+
+# --- M26: the floor is computed from the LARGEST on-path integral --------------------------------
+# On a fabric whose on-path edges differ -- the host-facing one carries the flow once, an
+# inter-switch one may carry it twice -- taking the max raises the bound above traffic the cell
+# is supposed to catch. `min` is the conservative end and is the one written down.
+cat > "$A/m26.old" <<'EOF'
+print("%.3f" % max(floor_abs, frac * min(vals)) if vals else "%.3f" % floor_abs)
+EOF
+cat > "$A/m26.new" <<'EOF'
+print("%.3f" % max(floor_abs, frac * max(vals)) if vals else "%.3f" % floor_abs)
+EOF
+check_fires "M26: the floor is taken from the largest on-path integral" m26 \
+            "  the floor follows the SMALLEST on-path integral" \
+            "🔴 and 100 kbit off the path is red against it"
+
+# --- M27: the off-path integrals are not recorded ---------------------------------------------------
+# 🔴 A FLOOR ONLY MEANS SOMETHING BESIDE THE NUMBERS IT WAS APPLIED TO. With the reading gone,
+# "under the bound" and "exactly zero" read identically in the raw and the margin -- which is
+# the whole question once the bound is not zero -- is not in the record at all.
+cat > "$A/m27.old" <<'EOF'
+        note "$label: off-path $key  $bits bit  ($kind)"
+EOF
+cat > "$A/m27.new" <<'EOF'
+        :
+EOF
+check_fires "M27: the off-path edges' raw integrals are not recorded" m27 \
+            "  with the edge's own integral beside it"
+
+# --- M28: the floor is not printed ------------------------------------------------------------------
+cat > "$A/m28.old" <<'EOF'
+    note "$label: off-path floor $floor bit   = max(${LINK_USAGE_NOISE_BITS}, ${LINK_USAGE_OFFPATH_FRACTION} x the smallest on-path integral)"
+EOF
+cat > "$A/m28.new" <<'EOF'
+    :
+EOF
+check_fires "M28: the floor the verdict used is not in the raw" m28 \
+            "  and the floor it was judged against is in the raw"
+
 # --- the controls for this half --------------------------------------------------------------------------
 cat > "$A/c3.old" <<'EOF'
-    (( rc == 0 )) && note "$label: link usage follows the iperf path"
+    (( rc == 0 )) && note "$label: link usage follows the iperf path (off-path under $floor bit)"
     return $rc
 EOF
 cat > "$A/c3.new" <<'EOF'
     # the on-path and off-path halves have both had their say by here
-    (( rc == 0 )) && note "$label: link usage follows the iperf path"
+    (( rc == 0 )) && note "$label: link usage follows the iperf path (off-path under $floor bit)"
     return $rc
 EOF
 check_control "C3: a comment above the cell's verdict" c3

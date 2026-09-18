@@ -10,10 +10,13 @@
 # table that says which arms ran, what each of them exited, and -- the part that matters -- that
 # every SKELETON arm was red and every SOLUTION arm was green.
 #
-# 🔴 THE RED ARMS ARE THE SUBJECT, NOT THE LEFTOVERS. A round in which every solution passed and
-# every skeleton ALSO passed has established nothing at all: it is consistent with a fabric that
-# forwards everything, with a driver whose assertions never ran, and with thirteen expectations
-# written the wrong way round. So a skeleton arm that exits 0 fails this step, by name.
+# 🔴 THE RED ARMS ARE THE SUBJECT, AND "RED" IS A PROPERTY OF THE EXPECTATIONS, NOT OF THE RC.
+# drive_exercise.py's skeleton arms assert the red things -- "h2 received 0 packets", "every
+# reported port is 0", "the flow is NOT blocked" -- so a skeleton arm that behaves as the
+# exercise says exits 0 with those met. What this step is for is that BOTH arms of each exercise
+# were run and each held its own expectations; a round in which the skeleton's red assertions
+# did not hold is the finding, because it is consistent with a fabric that forwards everything
+# and with expectations written the wrong way round.
 #
 # 🔴 IT CLAIMS NOTHING ITSELF. `ndt claim` is taken by each drive_exercise.py round (its
 # run_on_ndtwin does convert -> pre-flight -> claim -> up -> steps -> down -> release), so this
@@ -29,12 +32,18 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../../../.." && pwd)"
-DRIVER="$REPO/doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py"
+#: The driver this step runs. A seam of the same shape NDT_UNDER_TEST and STACK_UNDER_TEST are,
+#: so tests/shell/test_live_p1_thirteen.sh can drive this file against a stub whose exit codes
+#: are a table -- which is the only way to test the one decision this step makes without a lab.
+DRIVER="${DRIVER_UNDER_TEST:-$REPO/doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py}"
 VENV_PY="${VENV_PY:-/home/adam/p4dev-python-venv/bin/python}"
 : "${NDT_OWNER:=live-p1}"
 export NDT_OWNER
 
-RUN="$HERE/runs/$(date -u '+%Y-%m-%dT%H%M%SZ')_06_thirteen"
+#: Where this step's raw goes. A seam for the same reason DRIVER_UNDER_TEST is one: without it
+#: every run of tests/shell/test_live_p1_thirteen.sh left a run directory in the CHECKOUT, which
+#: is R3's defect (a test that litters) with the repo as the target instead of /tmp.
+RUN="${RUNS_DIR:-$HERE/runs}/$(date -u '+%Y-%m-%dT%H%M%SZ')_06_thirteen"
 mkdir -p "$RUN" || { echo "could not create $RUN" >&2; exit 2; }
 
 say()  { printf '\n== %s\n' "$*"; }
@@ -70,18 +79,53 @@ printf 'exercise\twhich\trc\tverdict\treport\n' > "$TABLE"
 FAILED=0
 ROWS=0
 
-# 🔴 WHAT "AS EXPECTED" MEANS, per arm, and it is not "rc 0".
-#   solution  rc 0. Anything else is the exercise failing on this fabric.
-#   skeleton  rc 1 -- the red arm being red. rc 0 means the arm was NOT red, which is the
-#             finding; rc 2 means the round never ran and is not evidence either way.
-expected_rc() { [[ "$1" == solution ]] && echo 0 || echo 1; }
+# 🔴 WHAT "AS EXPECTED" MEANS, per arm -- AND A CORRECT SKELETON ARM EXITS 0.
+#
+# Round 1 had this inverted (judge A2, TICKET-P3 section 9 ruling 9). "The red arm is red" is a
+# statement about the EXERCISE, and drive_exercise.py expresses it as an EXPECTATION -- the
+# skeleton arm asserts "h2 received 0 packets", "every reported port is 0", "the flow is NOT
+# blocked". When the skeleton behaves as the exercise says, every one of those PASSES and the
+# driver exits 0. The 2026-09-08 and 2026-09-18 real runs are that: `>>> PASS (2/2)` and
+# `PASS (4/4)` on skeleton arms, exit 0, in runs/. With rc 1 expected, a completely correct
+# round of twenty-six arms would have printed `FAIL 06_thirteen -- 11 of 26`.
+#
+#   solution  rc 0 -- every expectation met.
+#   skeleton  rc 0 -- every expectation met, and the skeleton's expectations are the red ones.
+#             rc 1 means one of them did NOT hold, i.e. the skeleton did not behave the way the
+#             exercise says it does; that is the finding, and it is what "the red arm is not
+#             red" looks like from here.
+#   EXCEPT    the two arms whose red is a REFUSAL rather than a data-plane reading, which
+#             drive_exercise.py reports as `RED ARM (1/1): ... by design` and exit 1:
+#               * flowcache/skeleton, on either fabric -- p4c refuses it (README:29);
+#               * basic_tunnel/skeleton on the NDTWIN fabric -- pre-flight refuses its runtime
+#                 entries, which name a table the skeleton does not declare (README:41-43).
+#                 On the tutorials fabric that same refusal happens inside the harness and the
+#                 driver records it as a met expectation, so it is rc 0 there.
+#
+# 🔴 rc 2 IS NOT EVIDENCE EITHER WAY on any arm: the round never ran.
+expected_rc() {   # expected_rc <exercise> <which>
+    local ex="$1" which="$2"
+    [[ "$which" == solution ]] && { echo 0; return; }
+    case "$ex" in
+        flowcache)    echo 1 ;;
+        basic_tunnel) echo 1 ;;          # ndtwin fabric; this script only drives that one
+        *)            echo 0 ;;
+    esac
+}
 
 run_arm() {   # run_arm <exercise> <which>
-    local ex="$1" which="$2" log="$RUN/${ex}_${which}.log" rc want verdict report
+    # 🔴 THE PATH IS ASSIGNED ON ITS OWN LINE, and that is not style. Under `set -u` bash 5.2
+    # declares every name in a `local` list BEFORE assigning any of them, so a later assignment
+    # that reads an earlier one expands an UNSET variable and the function dies on its first
+    # line: `which: unbound variable`. Both live scripts had it, neither had ever been run, and
+    # tests/shell/test_live_p1_thirteen.sh is what found it (TICKET-P3 §9 ruling 9, round 2).
+    local ex="$1" which="$2"
+    local log rc want verdict report
+    log="$RUN/${ex}_${which}.log"
     say "$ex / $which"
     "$VENV_PY" "$DRIVER" "$ex" --which "$which" --fabric ndtwin > "$log" 2>&1
     rc=$?
-    want="$(expected_rc "$which")"
+    want="$(expected_rc "$ex" "$which")"
     verdict="$(/usr/bin/grep -m1 '^>>> ' "$log" | sed 's/^>>> //')"
     report="$(/usr/bin/grep -m1 '^report: ' "$log" | sed 's/^report: //')"
     printf '%s\t%s\t%s\t%s\t%s\n' "$ex" "$which" "$rc" "${verdict:-<no verdict line>}" "${report:-<none>}" >> "$TABLE"
@@ -91,9 +135,11 @@ run_arm() {   # run_arm <exercise> <which>
     if [[ "$rc" == "$want" ]]; then
         return 0
     fi
-    if [[ "$which" == skeleton && "$rc" == 0 ]]; then
-        bad "$ex/skeleton PASSED. The red arm is not red: with the skeleton behaving like the"
-        bad "  solution, that exercise's solution arm is not evidence about the solution."
+    if [[ "$which" == skeleton && "$rc" == 1 ]]; then
+        bad "$ex/skeleton FAILED an expectation. Its expectations ARE the red ones -- 'received"
+        bad "  0 packets', 'every reported port is 0', 'the flow is NOT blocked' -- so one of"
+        bad "  them not holding means the skeleton did not behave the way the exercise says it"
+        bad "  does, and that exercise's solution arm is then not evidence about the solution."
     elif [[ "$rc" == 2 ]]; then
         bad "$ex/$which exited 2 -- the round never ran (pre-flight, claim, compile or root)."
         bad "  That is not a result about the exercise, and it is not a pass."
@@ -133,7 +179,7 @@ fi
 
 printf '\nraw: %s\n' "$RUN"
 if (( FAILED == 0 )); then
-    printf 'PASS 06_thirteen -- %d arm(s), every skeleton red and every solution green\n' "$ROWS"
+    printf 'PASS 06_thirteen -- %d arm(s), every arm as the exercise says it should be\n' "$ROWS"
     exit 0
 fi
 printf 'FAIL 06_thirteen -- %d of %d arm(s) were not what the exercise says they should be\n' "$FAILED" "$ROWS"

@@ -1773,31 +1773,58 @@ telemetry_word_for_bring_up() {
     echo auto
 }
 
-# telemetry_resolved_rows <word> <pipeline-kind> -- "<dpid> <source>" per switch, or nothing
-# when the question has no answer here.
+# telemetry_resolved_rows <word> <pipeline-kind> -- "<dpid> <source>" per switch, or
+# "ALL <source>" when every switch agrees.
 #
-# 🔴 `auto` IS PER SWITCH AND THE SPLIT COMES FROM app_pipeline_kind, not from a second reading
-# of package.json. `foreign:<dpids>` already names exactly the switches running somebody else's
-# program (Package.pipeline_is_ndtwin), which is the same predicate §2.1 defines `auto` on -- a
-# second implementation here would be a second answer to one question and the one an operator
-# read would be whichever row they looked at.
+# [Co-developed with claude code -- Adam]
+# 🔴 THE RULE LIVES IN app_package.telemetry_source AND THIS CALLS IT (TICKET-P3 §9 ruling 9,
+# round 2). Round 1 had a third copy of §2.1's three layers here, beside B's in app_package and
+# C's in proxy_agent/main.py -- and this one is the one `ndt status` prints and `verify_p4`
+# gates on, so an operator reading a disagreement would have been reading whichever of three
+# implementations they happened to open. B's is now the only one that decides; what remains
+# here is the CALL and the printing.
+#
+# 🔴 verify_p4_telemetry IS STILL A COMPARISON AND IS STILL WORTH MAKING. It checks this
+# answer against the PROXY's disclosure -- a different process, which computes the same three
+# layers from its own reading of the same three inputs (§2.1 has C not import this name for
+# exactly that reason). Collapsing the rule did not collapse the two processes.
+#
+# `pipe` is app_pipeline_kind's word, kept for the two answers app_package cannot give: a
+# package this script could not parse, and a fabric with no package at all.
 telemetry_resolved_rows() {
-    local word="$1" pipe="${2:-}" foreign="" d
-    [[ "$word" == auto ]] || { printf '%s\n' "ALL $word"; return 0; }
+    local word="$1" pipe="${2:-}" dir
     case "$pipe" in
-        foreign:*) foreign="${pipe#foreign:}" ;;
         unreadable) printf '%s\n' "ALL unresolved (the package could not be parsed)"; return 0 ;;
-        *) printf '%s\n' "ALL cooperative"; return 0 ;;
     esac
-    local model; model="$(app_knob_state)"
-    case "$model" in absent|empty) printf '%s\n' "ALL cooperative"; return 0 ;; esac
-    local dpids; dpids="$(topo_model_switch_dpids "$(app_model_path "$model")" 2>/dev/null)"
-    [[ -n "$dpids" ]] || { printf '%s\n' "ALL unresolved (the model declares no switch dpids)"; return 0; }
-    while read -r d; do
-        [[ -n "$d" ]] || continue
-        if [[ ",$foreign," == *",$d,"* ]]; then printf '%s link\n' "$d"
-        else printf '%s cooperative\n' "$d"; fi
-    done <<<"$dpids"
+    dir="$(app_knob_state)"
+    case "$dir" in
+        absent|empty)
+            # No package: every switch runs NDTwin's own pipeline, so `auto` is cooperative
+            # everywhere. There is no Package object for app_package.telemetry_source to take.
+            [[ "$word" == auto ]] && { printf '%s\n' "ALL cooperative"; return 0; }
+            printf '%s\n' "ALL $word"; return 0 ;;
+    esac
+    [[ -d "$dir" ]] || { printf '%s\n' "ALL unresolved (the package directory is not there)"; return 0; }
+    python3 -c '
+import os, sys
+sys.path.insert(0, os.path.join(sys.argv[2], "p4_proxy", "mininet"))
+try:
+    import app_package
+    pkg = app_package.load(sys.argv[1])
+    base = os.path.join(sys.argv[2], "p4_proxy")
+    knob = sys.argv[3] or None
+    rows = [(s.dpid, app_package.telemetry_source(pkg, s.dpid, knob_path=knob, base_dir=base))
+            for s in pkg.switches]
+except Exception as e:                                       # noqa: BLE001
+    print("ALL unresolved (%s)" % (e,))
+else:
+    sources = {src for _d, src in rows}
+    if len(sources) == 1:
+        print("ALL " + sources.pop())
+    else:
+        for dpid, src in sorted(rows):
+            print(dpid, src)
+' "$dir" "$REPO" "$(telemetry_knob_path)" 2>/dev/null || printf '%s\n' "ALL unresolved (app_package could not be asked)"
 }
 
 #: The manifest p4_proxy/mininet/link_telemetry.py writes when it attaches tc filters and
@@ -1813,48 +1840,67 @@ LINK_TELEMETRY_MANIFEST="${LINK_TELEMETRY_MANIFEST:-/tmp/ndtwin_link_telemetry.j
 # was brought up with has exited: the tc filters are still sampling into a group nobody is
 # reading and every `link` switch is silently contributing nothing. "No manifest" is the
 # ordinary state of a cooperative fabric and is not a problem at all.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 `pid`, NOT `emitter_pid`, AND link_telemetry's OWN READERS (judge A1, §9 ruling 5). Round 1
+# read a key B never writes -- manifest_document's field is `pid` (link_telemetry.py:402-405) --
+# and built its test fixture by hand with the wrong name, so 391 offline cells were green over a
+# reader that would have answered `unreadable` for every live fabric: `verify_p4_telemetry`
+# would have failed [3/3] on every `--telemetry link` and on `auto` over a foreign pipeline,
+# `status --check` would have carried an extra problem and `down` would have reported residue,
+# on all thirteen driver arms. read_manifest and process_is_the_emitter are B's, so the shape of
+# that file is now asked of the module that writes it.
+#
+# 🔴 AND `alive` IS process_is_the_emitter, NOT os.path.isdir("/proc/<pid>"). A pid recorded at
+# bring-up is not evidence that the same process holds it now -- Linux recycles them -- and the
+# difference decides whether `ndt down` reports residue and tells an operator to kill it.
 link_emitter_row() {
     [[ -e "$LINK_TELEMETRY_MANIFEST" ]] || { echo "none - - -"; return 0; }
     python3 -c '
-import json, os, sys
+import os, sys
+sys.path.insert(0, os.path.join(sys.argv[2], "p4_proxy", "mininet"))
 try:
-    d = json.load(open(sys.argv[1]))
-    pid = d.get("emitter_pid")
-    sw = d.get("switches") or {}
-    rate = d.get("rate", "-")
-except Exception:
+    import link_telemetry
+except Exception:                                            # noqa: BLE001
     print("unreadable - - -"); raise SystemExit(0)
-if not isinstance(pid, int):
+d = link_telemetry.read_manifest(sys.argv[1])
+if d is None:
+    print("unreadable - - -"); raise SystemExit(0)
+pid = d.get("pid")
+sw = d.get("switches") or []
+rate = d.get("rate", "-")
+if not isinstance(pid, int) or isinstance(pid, bool):
     print("unreadable - %d %s" % (len(sw), rate)); raise SystemExit(0)
-alive = os.path.isdir("/proc/%d" % pid)
+alive = link_telemetry.process_is_the_emitter(pid)
 print("%s %d %d %s" % ("alive" if alive else "dead", pid, len(sw), rate))
-' "$LINK_TELEMETRY_MANIFEST" 2>/dev/null || echo "unreadable - - -"
+' "$LINK_TELEMETRY_MANIFEST" "$REPO" 2>/dev/null || echo "unreadable - - -"
 }
 
-# app_shaped_links [dir] -- "<a> <b> <mbps> <delay-ms>" per link the package asks to be shaped
-# (TICKET-P3 §2.4's G2-C). Empty when no package, or when every link is the plain 1 Gbit/s
-# default that tools/p4_exercise/common.py writes for a link the exercise did not annotate.
+# app_shaped_links [dir] -- one `ndt status` line per link the package asks to be shaped
+# (TICKET-P3 §2.4's G2-C), already formatted. Empty when there is no package, or when every
+# link is the plain default that tools/p4_exercise/common.py writes for an unannotated one.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 app_package.shaped_links AND app_package.format_shaped_link, NOT A SECOND READING OF
+# package.json (§9 ruling 9, round 2). shaped_links is what `build_net` passes `link=TCLink`
+# on, so the status row and the fabric that installs the shaping now read one function -- and
+# format_shaped_link exists in that file for this caller. Round 1's local reader also got the
+# endpoint shape wrong: they are `["h1", 1]` pairs, not strings.
 app_shaped_links() {
     local dir="${1:-}"
     [[ -z "$dir" ]] && { dir="$(app_knob_state)"; case "$dir" in absent|empty) return 0 ;; esac; }
     [[ -d "$dir" ]] || return 0
     python3 -c '
-import json, sys
-DEFAULT = 1e9
+import os, sys
+sys.path.insert(0, os.path.join(sys.argv[2], "p4_proxy", "mininet"))
 try:
-    links = json.load(open(sys.argv[1])).get("links") or []
-except Exception:
+    import app_package
+    pkg = app_package.load(sys.argv[1])
+    for entry in app_package.shaped_links(pkg):
+        print(app_package.format_shaped_link(entry))
+except Exception:                                            # noqa: BLE001
     raise SystemExit(0)
-for l in links:
-    if not isinstance(l, dict):
-        continue
-    bps = l.get("bandwidth_bps")
-    delay = l.get("delay_ms")
-    if (bps is None or float(bps) == DEFAULT) and delay in (None, 0):
-        continue
-    mbps = "-" if bps is None else ("%g" % (float(bps) / 1e6))
-    print(l.get("a", "?"), l.get("b", "?"), mbps, "-" if delay is None else delay)
-' "$(app_manifest "$dir")" 2>/dev/null
+' "$dir" "$REPO" 2>/dev/null
 }
 
 # The interpreter tools/p4_exercise/preflight.py needs -- it parses p4info through protobuf,
@@ -5981,15 +6027,18 @@ telemetry_rows() {
             printf '  %-14s %s\n' "" "${Y}link emitter: $LINK_TELEMETRY_MANIFEST is there and cannot be read${N}"
             STATUS_TELEMETRY_PROBLEMS+=("$LINK_TELEMETRY_MANIFEST exists and cannot be parsed -- whether the link-telemetry emitter is running cannot be answered, and an unchecked question is not a clean one") ;;
     esac
-    local shaped; shaped="$(app_shaped_links)"
+    local shaped
+    shaped="$(app_shaped_links)"
     if [[ -z "$shaped" ]]; then
         printf '  %-14s %s\n' "link shaping" "off (no package link asks for one)"
     else
         printf '  %-14s %s\n' "link shaping" "on"
-        local a b mbps delay
-        while read -r a b mbps delay; do
-            [[ -n "$a" ]] || continue
-            printf '  %-14s %s\n' "" "$a <-> $b   $mbps Mbit/s   delay ${delay}ms"
+        # Already formatted by app_package.format_shaped_link -- the function that exists in
+        # that file for this caller, so the row and the fabric agree by construction.
+        local line
+        while read -r line; do
+            [[ -n "$line" ]] || continue
+            printf '  %-14s %s\n' "" "$line"
         done <<<"$shaped"
     fi
 }

@@ -30,11 +30,13 @@ Run:  p4_proxy/venv/bin/python -m unittest discover \
           -t doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests
 Env:  DRIVE_EXERCISE_UNDER_TEST=<path>   (the mutation gate points it at a copy)
 """
+import glob
 import importlib.util
 import io
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -44,6 +46,24 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 FIXTURES = os.path.join(HERE, "fixtures")
 DEFAULT_DRIVER = os.path.join(os.path.dirname(HERE), "drive_exercise.py")
 DRIVER_PATH = os.path.abspath(os.environ.get("DRIVE_EXERCISE_UNDER_TEST", DEFAULT_DRIVER))
+
+
+def mkdtemp(case, prefix):
+    """A temp dir this test OWNS and gives back, registered with the case that made it.
+
+    🔴 THE TESTS FILLED THE ROOT FILESYSTEM (TICKET-P3 section 9 ruling 9, R3). Every cell built
+    a tutorials tree of its own -- a ~50 KB package copy -- and none of them removed it; the
+    2026-09-19 mutation round was 78 mutants x 124 cells, and with the orchestrator's reruns
+    /tmp held 59,679 `drv-*` directories and `/` reached 0 bytes free, which killed worker A's
+    gate and two reruns. A test that leaves its own litter behind is a test that decides whether
+    somebody else's round finishes.
+
+    `addCleanup`, not `tearDown`: it runs even when setUp itself raises half way through, which
+    is exactly the run that leaves the directory behind and no result to notice it by.
+    """
+    path = tempfile.mkdtemp(prefix=prefix)
+    case.addCleanup(shutil.rmtree, path, ignore_errors=True)
+    return path
 
 
 def load_driver():
@@ -302,7 +322,7 @@ class PlanBlockIsFrozen(unittest.TestCase):
     """🔴 The 09-08 control: same command, same plan, same sudo line."""
 
     def setUp(self):
-        self.tmp = tempfile.mkdtemp(prefix="drv-plan-")
+        self.tmp = mkdtemp(self, "drv-plan-")
         self.mod = load_driver()
         self.mod.TUT = build_tut_root(self.tmp)
         self.mod.UTILS = os.path.join(self.tmp, "utils")
@@ -341,7 +361,7 @@ class TheRootRefusal(unittest.TestCase):
     """🔴 The NDTwin fabric is refused to root, and refused BEFORE anything is written."""
 
     def setUp(self):
-        self.tmp = tempfile.mkdtemp(prefix="drv-root-")
+        self.tmp = mkdtemp(self, "drv-root-")
         self.mod = load_driver()
         self.mod.TUT = build_tut_root(self.tmp)
         self.mod.UTILS = os.path.join(self.tmp, "utils")
@@ -375,7 +395,7 @@ class TheRecordedSource(unittest.TestCase):
 
     def setUp(self):
         self.mod = load_driver()
-        self.tmp = tempfile.mkdtemp(prefix="drv-src-")
+        self.tmp = mkdtemp(self, "drv-src-")
         build_tut_root(self.tmp)
 
     def exdir(self, ex):
@@ -403,7 +423,7 @@ class TheBmv2Identity(unittest.TestCase):
 
     def setUp(self):
         self.mod = load_driver()
-        self.tmp = tempfile.mkdtemp(prefix="drv-bmv2-")
+        self.tmp = mkdtemp(self, "drv-bmv2-")
 
     def test_a_path_in_the_status_row_is_hashed(self):
         binary = os.path.join(self.tmp, "simple_switch_grpc")
@@ -545,7 +565,7 @@ class TheNdtwinRound(unittest.TestCase):
     """convert -> pre-flight -> claim -> up -> steps -> down -> release."""
 
     def setUp(self):
-        self.tmp = tempfile.mkdtemp(prefix="drv-ndtwin-")
+        self.tmp = mkdtemp(self, "drv-ndtwin-")
         self.mod = load_driver()
         quiet(self.mod)
         self.mod.PKG_ROOT = os.path.join(self.tmp, "packages")
@@ -735,7 +755,7 @@ class TheCompanionProgram(unittest.TestCase):
 
     def setUp(self):
         self.mod = load_driver()
-        self.tmp = tempfile.mkdtemp(prefix="drv-compile-")
+        self.tmp = mkdtemp(self, "drv-compile-")
         build_tut_root(self.tmp)
 
     def test_firewall_builds_its_own_program_and_the_default_one(self):
@@ -768,7 +788,7 @@ class TheFirewallArms(unittest.TestCase):
     def setUp(self):
         self.mod = load_driver()
         quiet(self.mod)
-        self.tmp = tempfile.mkdtemp(prefix="drv-fw-")
+        self.tmp = mkdtemp(self, "drv-fw-")
         self.ips = {"h1": "10.0.1.1", "h2": "10.0.2.2", "h3": "10.0.3.3", "h4": "10.0.4.4"}
 
     def session(self, which, transfers):
@@ -831,7 +851,7 @@ class TheLinkMonitorArms(unittest.TestCase):
     def setUp(self):
         self.mod = load_driver()
         quiet(self.mod)
-        self.tmp = tempfile.mkdtemp(prefix="drv-lm-")
+        self.tmp = mkdtemp(self, "drv-lm-")
         self.ips = {"h1": "10.0.1.1", "h2": "10.0.2.2", "h3": "10.0.3.3", "h4": "10.0.4.4"}
 
     def session(self, which, received):
@@ -888,7 +908,7 @@ class TheReceiverIsUnbuffered(unittest.TestCase):
     def setUp(self):
         self.mod = load_driver()
         quiet(self.mod)
-        self.tmp = tempfile.mkdtemp(prefix="drv-unbuf-")
+        self.tmp = mkdtemp(self, "drv-unbuf-")
         self.ips = {"h1": "10.0.1.1", "h2": "10.0.2.2", "h3": "10.0.3.3", "h4": "10.0.4.4"}
 
     def receivers(self, exercise):
@@ -945,7 +965,7 @@ class TheReport(unittest.TestCase):
 
     def setUp(self):
         self.mod = load_driver()
-        self.tmp = tempfile.mkdtemp(prefix="drv-report-")
+        self.tmp = mkdtemp(self, "drv-report-")
 
     def state(self):
         return {"control_plane": {"mode": "ndtwin", "package": "/pkg",
@@ -1110,7 +1130,7 @@ class TheThirteen(unittest.TestCase):
         """utils/Makefile:20-22's DEFAULT_PROG is the wildcard *.p4 and none of the nine
         overrides it, so each is its own default -- unlike firewall, whose Makefile:6 names
         basic.p4 and whose s2-s4 would start on a json nobody built."""
-        tmp = tempfile.mkdtemp(prefix="drv-13-")
+        tmp = mkdtemp(self, "drv-13-")
         build_tut_root(tmp)
         for ex in ("basic_tunnel", "calc", "ecn", "mri", "flowcache", "load_balance",
                    "multicast", "p4runtime", "qos"):
@@ -1130,7 +1150,7 @@ class TheThirteen(unittest.TestCase):
         solution arm and the round stops with "no .p4 source for p4runtime/solution" before it
         starts anything. Measured by reading the real tree on 2026-09-19.
         """
-        tmp = tempfile.mkdtemp(prefix="drv-p4rt-")
+        tmp = mkdtemp(self, "drv-p4rt-")
         build_tut_root(tmp)
         exdir = os.path.join(tmp, "exercises", "p4runtime")
         os.remove(os.path.join(exdir, "solution", "advanced_tunnel.p4"))
@@ -1146,7 +1166,7 @@ class TheThirteen(unittest.TestCase):
         exercise a missing solution/*.p4 IS the error -- and a silent fallback would compile
         the SKELETON and report it as the solution arm.
         """
-        tmp = tempfile.mkdtemp(prefix="drv-nosol-")
+        tmp = mkdtemp(self, "drv-nosol-")
         build_tut_root(tmp)
         exdir = os.path.join(tmp, "exercises", "flowcache")
         os.remove(os.path.join(exdir, "solution", "flowcache.p4"))
@@ -1165,7 +1185,7 @@ class TheBasicTunnelArms(unittest.TestCase):
     def setUp(self):
         self.mod = load_driver()
         quiet(self.mod)
-        self.tmp = tempfile.mkdtemp(prefix="drv-bt-")
+        self.tmp = mkdtemp(self, "drv-bt-")
 
     def session(self, which, h2_text, h3_text):
         """h2 and h3 both sniff both rounds; the stub answers per receiver TAG."""
@@ -1250,7 +1270,7 @@ class TheCalcArms(unittest.TestCase):
     def setUp(self):
         self.mod = load_driver()
         quiet(self.mod)
-        self.tmp = tempfile.mkdtemp(prefix="drv-calc-")
+        self.tmp = mkdtemp(self, "drv-calc-")
 
     def session(self, which, out):
         hosts = StubHosts({"h1": "10.0.1.1", "h2": "10.0.1.2"},
@@ -1304,7 +1324,8 @@ class TheEcnAndQosArms(unittest.TestCase):
     def setUp(self):
         self.mod = load_driver()
         quiet(self.mod)
-        self.tmp = tempfile.mkdtemp(prefix="drv-tos-")
+        self.tmp = mkdtemp(self, "drv-tos-")
+        self.ips = IPS5
 
     def ecn(self, which, tos_values):
         rx = sniffed(*[show2(("IP", [("tos", t)])) for t in tos_values])
@@ -1316,8 +1337,15 @@ class TheEcnAndQosArms(unittest.TestCase):
         self.hosts = hosts
         return s
 
-    def qos(self, which, udp_tos, tcp_tos):
-        seq = {"1": udp_tos, "2": tcp_tos}
+    def qos(self, which, udp_tos, tcp_tos, noise=()):
+        """`udp_tos`/`tcp_tos` are the tos of the frames H1 SENT; `noise` is what h2 replied.
+
+        🔴 qos/receive.py:22 has no BPF filter, so h2's own replies are in the same capture --
+        ICMP port-unreachable (tos 0xc0) for the UDP round, RST (tos 0x0) for the TCP SYN.
+        Every cell below therefore feeds both and asserts on h1's half.
+        """
+        seq = {"1": [(self.ips["h1"], t) for t in udp_tos] + list(noise),
+               "2": [(self.ips["h1"], t) for t in tcp_tos] + list(noise)}
         hosts = StubHosts(IPS5, popen_texts={
             "receive.py": "", "send.py": "###[ IP ]###\n     tos       = 0x1\n"})
         s = steps_for(self.mod, "qos", which, hosts, self.tmp)
@@ -1327,7 +1355,8 @@ class TheEcnAndQosArms(unittest.TestCase):
             real_stop(proc, fh, path, drain)
             for tag, values in seq.items():
                 if path.endswith("driver-h2-%s-receive.log" % tag):
-                    return sniffed(*[show2(("IP", [("tos", t)])) for t in values])
+                    return sniffed(*[show2(("IP", [("src", src), ("tos", t)]))
+                                     for src, t in values])
             return ""
         s._stop_receiver = stop
         s.run()
@@ -1405,6 +1434,30 @@ class TheEcnAndQosArms(unittest.TestCase):
         self.assertTrue(v["RED ARM: UDP tos stays 0x1"].ok)
         self.assertTrue(v["RED ARM: TCP tos stays 0x1"].ok)
 
+    def test_h2s_own_replies_do_not_enter_the_qos_reading(self):
+        """🔴 judge A5. qos/receive.py:22 has NO BPF filter, so the capture also holds what h2
+        sent back: nothing listens on UDP/4321 so the kernel answers ICMP port-unreachable
+        (tos 0xc0), and the TCP round's SYN to port 80 gets a RST (tos 0x0). Reading every
+        `tos` line makes the SKELETON arm's `set(tos) == {"0x1"}` red over a fabric doing
+        exactly what README step 1.6 says, and makes the solution arm a mixture of two hosts.
+        """
+        noise = [(self.ips["h2"], "0xc0"), (self.ips["h2"], "0x0")]
+        v = verdict(self.qos("skeleton", ["0x1"], ["0x1"], noise=noise))
+        self.assertTrue(v["RED ARM: UDP tos stays 0x1"].ok, v["RED ARM: UDP tos stays 0x1"].got)
+        self.assertTrue(v["RED ARM: TCP tos stays 0x1"].ok, v["RED ARM: TCP tos stays 0x1"].got)
+        v = verdict(self.qos("solution", ["0x1", "0xb9"], ["0x1", "0xb1"], noise=noise))
+        self.assertTrue(v["UDP is expedited forwarding"].ok)
+        self.assertTrue(v["TCP is voice admit"].ok)
+
+    def test_the_injection_check_counts_h1s_frames_and_not_the_capture(self):
+        """🔴 THE CONTROL FOR IT. With h2 replying, a capture is never empty -- so a count over
+        the whole capture would say "packets reached h2" for a round in which h1's own frames
+        never arrived, which is the one thing that check exists to rule out."""
+        noise = [(self.ips["h2"], "0xc0")]
+        v = verdict(self.qos("solution", [], [], noise=noise))
+        self.assertFalse(v["injection: h1's packets reached h2 in both rounds"].ok)
+        self.assertIn("udp=0 tcp=0", v["injection: h1's packets reached h2 in both rounds"].got)
+
     def test_the_qos_arms_are_distinguishable(self):
         self.assertFalse(verdict(self.qos("skeleton", ["0xb9"], ["0xb1"]))
                          ["RED ARM: UDP tos stays 0x1"].ok)
@@ -1418,7 +1471,7 @@ class TheMriArms(unittest.TestCase):
     def setUp(self):
         self.mod = load_driver()
         quiet(self.mod)
-        self.tmp = tempfile.mkdtemp(prefix="drv-mri-")
+        self.tmp = mkdtemp(self, "drv-mri-")
 
     SOLUTION = sniffed(show2(("IPOption_MRI", [("count", "2")]),
                              ("SwitchTrace", [("swid", "2"), ("qdepth", "0")]),
@@ -1470,7 +1523,7 @@ class TheLoadBalanceArms(unittest.TestCase):
     def setUp(self):
         self.mod = load_driver()
         quiet(self.mod)
-        self.tmp = tempfile.mkdtemp(prefix="drv-lb-")
+        self.tmp = mkdtemp(self, "drv-lb-")
 
     def session(self, which, n2, n3):
         hosts = StubHosts(IPS3, popen_texts={
@@ -1524,7 +1577,7 @@ class TheMulticastArms(unittest.TestCase):
     def setUp(self):
         self.mod = load_driver()
         quiet(self.mod)
-        self.tmp = tempfile.mkdtemp(prefix="drv-mc-")
+        self.tmp = mkdtemp(self, "drv-mc-")
 
     def session(self, which, loss_of):
         hosts = StubHosts(self.IPS, pa=mk_pingall(self.mod, self.IPS, loss_of))
@@ -1535,7 +1588,15 @@ class TheMulticastArms(unittest.TestCase):
 
     @staticmethod
     def GROUP_ONLY(s, d):
-        return 100 if "h4" in (s, d) else 0
+        """🔴 h4 IS UNREACHABLE IN ONE DIRECTION ONLY (judge A4).
+
+        sig-topo/s1-runtime.json:36-45 installs a mac_forward entry for h4's MAC to port 4 like
+        every other host; it is only the multicast GROUP (:47-65) that leaves port 4 out. So an
+        ARP request from hX floods to ports 1,2,3 and h4 never sees it -- hX -> h4 is 100% --
+        while h4's own ARP floods to 1,2,3, IS answered, and the unicast reply hits h4's
+        mac_forward entry: h4 -> hX is 0%.
+        """
+        return 100 if d == "h4" else 0
 
     def test_ipv6_is_disabled_inside_every_host_and_not_on_the_box(self):
         """exercises/multicast/disable_ipv6.sh as shipped is `sudo sysctl` on the machine.
@@ -1553,8 +1614,17 @@ class TheMulticastArms(unittest.TestCase):
         v = verdict(self.session("solution", self.GROUP_ONLY))
         self.assertTrue(v["h1/h2/h3 reach each other"].ok)
         self.assertTrue(v["nobody reaches h4"].ok)
+        self.assertTrue(v["but h4 reaches them"].ok)
 
-    def test_a_solution_that_also_reached_h4_is_red(self):
+    def test_the_h4_expectation_is_directional(self):
+        """🔴 judge A4: round 1 asserted 100% on all six h4 pairs and would have gone red on
+        three of them over a fabric behaving exactly as the exercise describes. A fabric where
+        h4 -> hX ALSO fails is a different fault (h4's mac_forward entry missing), and is red."""
+        v = verdict(self.session("solution", lambda s, d: 100 if "h4" in (s, d) else 0))
+        self.assertTrue(v["nobody reaches h4"].ok)
+        self.assertFalse(v["but h4 reaches them"].ok)
+
+    def test_a_solution_that_also_reached_h4_is_red(self):   # noqa: D401
         """🔴 sig-topo/s1-runtime.json:47-65 replicates ports 1,2,3; the fourth is README:122's
         own TODO and this driver does not edit the exercise. A fabric that reached h4 is
         running something other than what the package carries."""
@@ -1603,7 +1673,7 @@ class TheControllerArms(unittest.TestCase):
     def setUp(self):
         self.mod = load_driver()
         quiet(self.mod)
-        self.tmp = tempfile.mkdtemp(prefix="drv-ctrl-")
+        self.tmp = mkdtemp(self, "drv-ctrl-")
 
     def session(self, exercise, which, log, loss, fabric="tutorials", package=None, alive=True):
         self.mod.local_popen = fake_controller(log, alive=alive)
@@ -1710,7 +1780,7 @@ class TheRedArmsThatAreNotTheDataPlane(unittest.TestCase):
     """flowcache stops at the compiler and basic_tunnel stops at the control plane."""
 
     def setUp(self):
-        self.tmp = tempfile.mkdtemp(prefix="drv-red-")
+        self.tmp = mkdtemp(self, "drv-red-")
         self.mod = load_driver()
         self.mod.TUT = build_tut_root(self.tmp)
         self.mod.UTILS = os.path.join(self.tmp, "utils")
@@ -1755,6 +1825,68 @@ class TheRedArmsThatAreNotTheDataPlane(unittest.TestCase):
         self.assertEqual(0, rc)
         self.assertNotIn("RED ARM", text)
 
+    def test_basic_tunnels_ndtwin_refusal_reads_like_flowcaches(self):
+        """🔴 ONE EXERCISE MUST NOT READ TWO WAYS ON TWO FABRICS (judge A6).
+
+        basic_tunnel's skeleton cannot install its own runtime entries -- README:41-43 -- and
+        the round therefore ends non-zero having met every expectation it has. On the tutorials
+        fabric the harness raises and the driver records `PASS (1/1)`; on NDTwin the pre-flight
+        refuses, `run_on_ndtwin` returns 1, and round 1's main() printed the word it prints for
+        a driver that fell over: ERROR.
+        """
+        mod = load_driver()
+        mod.TUT = self.mod.TUT
+        mod.RUNS = mkdtemp(self, "drv-a6-")
+        stub_preflight(mod)
+        self.mod, real_mod = mod, self.mod          # compiler() writes into self.mod
+        self.compiler(0)
+        self.mod = real_mod
+        mod.euid = lambda: 1000
+
+        def refuse(ex, which, exdir, spec, args, ips, log_dir, steps, env=None, red_stage=None):
+            mod.run_on_ndtwin.expects = [mod.Expect(
+                "RED ARM: the skeleton's runtime entries must NOT install",
+                "pre-flight refuses them", "pre-flight rc=1", True, mod.G_BOTH, "")]
+            mod.run_on_ndtwin.designed_refusal = True
+            return 1, "/pkg", {}
+        refuse.expects = []
+        refuse.teardown_problem = ""
+        refuse.designed_refusal = False
+        mod.run_on_ndtwin = refuse
+        rc, text = render_main(mod, ["basic_tunnel", "--which", "skeleton",
+                                     "--fabric", "ndtwin"], mod.TUT)
+        self.assertEqual(1, rc)
+        self.assertIn("RED ARM (1/1)", text)
+        self.assertIn("by design", text)
+        self.assertNotIn(">>> ERROR", text)
+
+    def test_a_round_that_really_failed_still_reads_ERROR(self):
+        """🔴 THE CONTROL. The new verdict is reached only when the round ended on the refusal
+        it was SUPPOSED to end on AND every expectation held; a round that fell over, or one
+        whose expectations did not hold, must still say so."""
+        mod = load_driver()
+        mod.TUT = self.mod.TUT
+        mod.RUNS = mkdtemp(self, "drv-a6b-")
+        stub_preflight(mod)
+        self.mod, real_mod = mod, self.mod
+        self.compiler(0)
+        self.mod = real_mod
+        mod.euid = lambda: 1000
+
+        def blew_up(ex, which, exdir, spec, args, ips, log_dir, steps, env=None, red_stage=None):
+            mod.run_on_ndtwin.expects = []
+            mod.run_on_ndtwin.designed_refusal = False
+            return 2, "/pkg", {}
+        blew_up.expects = []
+        blew_up.teardown_problem = ""
+        blew_up.designed_refusal = False
+        mod.run_on_ndtwin = blew_up
+        rc, text = render_main(mod, ["basic_tunnel", "--which", "skeleton",
+                                     "--fabric", "ndtwin"], mod.TUT)
+        self.assertEqual(2, rc)
+        self.assertIn(">>> ERROR", text)
+        self.assertNotIn("RED ARM (", text)
+
     def test_a_compile_failure_anywhere_else_is_still_exit_2(self):
         """Every other exercise's compile failure is a broken tool chain, not an arm."""
         self.compiler(1)
@@ -1767,7 +1899,7 @@ class TheTelemetryFlag(unittest.TestCase):
     """`--telemetry` is an ndtwin flag, and omitting it is not the same as saying `auto`."""
 
     def setUp(self):
-        self.tmp = tempfile.mkdtemp(prefix="drv-tel-")
+        self.tmp = mkdtemp(self, "drv-tel-")
         self.mod = load_driver()
         quiet(self.mod)
         self.mod.TUT = build_tut_root(self.tmp)
@@ -1876,7 +2008,7 @@ class TheGenericLinkUsageCell(unittest.TestCase):
     """🔴 The one cell that is about NDTwin rather than about an exercise's program."""
 
     def setUp(self):
-        self.tmp = tempfile.mkdtemp(prefix="drv-usage-")
+        self.tmp = mkdtemp(self, "drv-usage-")
         self.mod = load_driver()
         quiet(self.mod)
 
@@ -1888,12 +2020,14 @@ class TheGenericLinkUsageCell(unittest.TestCase):
         self.assertFalse(run)
         self.assertIn("should not forward", why)
 
-    def test_two_solutions_forward_nothing_and_are_named(self):
-        """source_routing's solution drops every frame without a 0x1234 stack and calc's
-        drops everything that is not the calculator protocol. Both are properties of the
-        EXERCISE; a cell that went red on them would be reporting the twin for it."""
+    def test_three_solutions_forward_nothing_and_are_named(self):
+        """source_routing's solution drops every frame without a 0x1234 stack, calc's drops
+        everything that is not the calculator protocol, and load_balance's s1 forwards only
+        10.0.0.1/32 and drops the rest (judge A3). All three are properties of the EXERCISE;
+        a cell that went red on them would be reporting the twin for it."""
         for ex, fragment in (("source_routing", "0x1234 source-route stack"),
-                             ("calc", "calculator protocol")):
+                             ("calc", "calculator protocol"),
+                             ("load_balance", "forwards only 10.0.0.1/32")):
             with self.subTest(exercise=ex):
                 run, dst, why = self.mod.link_usage_applies(self.mod.EXERCISES[ex], "solution")
                 self.assertFalse(run)
@@ -1902,9 +2036,11 @@ class TheGenericLinkUsageCell(unittest.TestCase):
     def test_every_other_solution_arm_runs_the_cell(self):
         runs = sorted(ex for ex in self.mod.EXERCISES
                       if self.mod.link_usage_applies(self.mod.EXERCISES[ex], "solution")[0])
+        # load_balance is out as of judge A3: s1-runtime.json:6-25 forwards 10.0.0.1/32 and
+        # drops the rest, so an iperf between two real host addresses crosses nothing.
         self.assertEqual(
             sorted(["basic", "basic_tunnel", "ecn", "firewall", "flowcache", "link_monitor",
-                    "load_balance", "mri", "multicast", "p4runtime", "qos"]), runs)
+                    "mri", "multicast", "p4runtime", "qos"]), runs)
 
     def test_the_two_unreachable_last_hosts_are_overridden(self):
         """🔴 "The model's last host" is a property of the MODEL, and for two packages it is a
@@ -2001,6 +2137,48 @@ class TheGenericLinkUsageCell(unittest.TestCase):
         # expectation becomes exit 1 in main()'s verdict block, which is where every other
         # expectation is judged too.
         self.assertEqual(0, rc)
+
+
+class TheSuiteLeavesNoLitter(unittest.TestCase):
+    """🔴 A TEST RUN THAT FILLS THE DISK DECIDES WHETHER SOMEBODY ELSE'S ROUND FINISHES.
+
+    TICKET-P3 section 9 ruling 9 (R3). Every cell here builds a tutorials tree of its own --
+    a ~50 KB package copy -- and until 2026-09-19 none of them removed it. 78 mutants x 124
+    cells, plus the orchestrator's reruns, left 59,679 `/tmp/drv-*` directories and took `/`
+    to 0 bytes free; worker A's gate and two reruns died of it. `mkdtemp()` above registers
+    every directory with the case that made it, and this cell is what says so out loud.
+
+    It runs LAST by name (`TheSuiteLeavesNoLitter` sorts after every other class here), so the
+    directories it counts are the ones the rest of this file has already finished with.
+    """
+
+    def test_no_drv_temp_directory_outlives_this_run(self):
+        before = set(glob.glob(os.path.join(tempfile.gettempdir(), "drv-*")))
+        # A cell of the same shape as every other one in this file.
+        tmp = mkdtemp(self, "drv-litter-")
+        build_tut_root(tmp)
+        self.assertTrue(os.path.isdir(tmp))
+        # ... and the helper hands it back when this case ends. Everything OTHER than the one
+        # this cell just made must already be gone: `before` is taken inside the run, after the
+        # rest of the suite has finished, so a leak anywhere above shows up right here.
+        leaked = sorted(d for d in before if os.path.isdir(d))
+        self.assertEqual(
+            [], leaked,
+            "these /tmp/drv-* directories outlived the tests that made them:\n  "
+            + "\n  ".join(leaked[:20])
+            + ("\n  ... and %d more" % (len(leaked) - 20) if len(leaked) > 20 else ""))
+
+    def test_the_helper_removes_the_directory_it_handed_out(self):
+        """The mechanism, on its own, so the cell above cannot be green because nothing ran."""
+        class Probe(unittest.TestCase):
+            def runTest(self):
+                Probe.made = mkdtemp(self, "drv-probe-")
+                assert os.path.isdir(Probe.made)
+        probe = Probe()
+        result = probe.run()
+        self.assertTrue(result.wasSuccessful(), result.errors + result.failures)
+        self.assertFalse(os.path.exists(Probe.made),
+                         "addCleanup did not remove %s" % Probe.made)
 
 
 if __name__ == "__main__":                      # pragma: no cover

@@ -140,7 +140,7 @@ sudo、沒有 lab、沒有跑過任何一支（TICKET-P3 §0-2）；離線測試
 | | solution | h2 與 h3 **各** ≥1 包 | 【README 宣稱】 | README step 3「some should be received by each server」 |
 | | skeleton | h2 ≥1、h3 **恰好 0** | 【README 宣稱】＋【源碼推導，未執行】 | README:24-25；`load_balance.p4:107` 空的 `set_ecmp_select` ⇒ `ecmp_select` 恆 0 ⇒ s1 port 2 |
 | `multicast` | injection | 12 個有序對**全部測到**（0 untested） | 【源碼推導，未執行】 | 沒進到 namespace 的主機和群組不複製到的主機長得一樣 |
-| | solution | h1/h2/h3 互通 0%，**而且每一個 h4 的對都 100%** | 【README 宣稱】＋【源碼推導，未執行】 | README:119-120；`sig-topo/s1-runtime.json:47-65` 只複製 port 1,2,3（第四個是 README:122 的 TODO） |
+| | solution | h1/h2/h3 互通 0%；**hX→h4 三對 100%、h4→hX 三對 0%** | 【README 宣稱】＋【源碼推導，未執行】 | README:119-120；`sig-topo/s1-runtime.json:47-65` 只複製 port 1,2,3（第四個是 README:122 的 TODO）。🔴 **但 :36-45 有替 h4 的 MAC 裝 `mac_forward → port 4`**（judge A4）：hX 的 ARP 只氾濫到 1,2,3、h4 收不到 ⇒ hX→h4 100%；h4 自己的 ARP 氾濫到 1,2,3 有人回，單播回覆命中那條 entry ⇒ **h4→hX 0%**。第一版六對都斷言 100%，會在一個完全照 exercise 行為的 fabric 上紅三對。 |
 | | skeleton | pingall 100% | 【README 宣稱】＋【源碼推導，未執行】 | README:78-80；`multicast.p4:91` `default_action = drop` ⇒ 連 ARP 都死 |
 | `p4runtime` | injection | 控制器活著；它裝 pipeline 的交換機集合是 `[1, 2]` | 【源碼推導，未執行】 | `mycontroller.py:142-152`（s3 從不被連） |
 | | solution | log 有 `Installed transit tunnel rule`；h1 ping h2 0% | 【README 宣稱】＋【源碼推導，未執行】 | `solution/mycontroller.py:85`；README step 3 |
@@ -156,10 +156,17 @@ sudo、沒有 lab、沒有跑過任何一支（TICKET-P3 §0-2）；離線測試
    solution 臂必紅，而那不是 `ecn.p4` 的事**——spec 裡的 `"needs": "shaped_links"` 就是這件事，
    §2.4 也把 `ecn` 排在 G2-C 之前不進閘門。`mri` 的斷言只有 count 與 swid，不需要佇列
    （`qdepth` 刻意不斷言）；`qos` 的 topology **沒有**被節流的鏈路。
-2. **兩支的紅臂不在資料面。** `flowcache` 停在 `p4c`（exit 1、verdict 寫
-   `skeleton does not compile, by design`），`basic_tunnel` 停在控制面（pre-flight 或
-   `verify_p4_package_entries`）。兩者都是 **exit 1 而不是 exit 2**：2 的意思是「什麼都沒起、
-   沒東西可看」，把設計好的拒絕歸到那一格就等於跟壞掉的情形同一個抽屜。
+2. **兩支的紅臂不在資料面，而且兩個 fabric 上要讀成同一件事**（judge A6）。
+   `flowcache` 停在 `p4c`（exit 1、verdict 寫 `skeleton does not compile, by design`）；
+   `basic_tunnel` 停在控制面——tutorials 上 harness 在 `program_switches` 丟例外、
+   NDTwin 上 pre-flight 拒絕那些 entry。兩者都是 **exit 1 而不是 exit 2**。
+   🔴 **而且 `basic_tunnel` 骨架在 NDTwin 上印 `RED ARM (1/1): the skeleton does not get past
+   the control plane, by design`，不是 `ERROR`**——第一版讓 `run_on_ndtwin` 回非零，`main()`
+   就印它對「driver 自己倒了」印的那個字，**同一支 exercise 在兩個 fabric 上讀成兩件事**。
+3. **`qos` 的讀數只取 h1 送出的訊框**（judge A5）。`qos/receive.py:22` 沒有 BPF filter，
+   h2 自己的回覆也在同一份 capture：UDP/4321 沒人聽 ⇒ ICMP port-unreachable（tos `0xc0`）、
+   TCP 那輪的 SYN→80 ⇒ RST（tos `0x0`）。整份 capture 都讀進來的話，
+   **骨架臂的 `set(tos) == {"0x1"}` 會在一個完全照 README step 1.6 行為的 fabric 上判紅**。
 3. **`p4runtime`／`flowcache` 的控制器在兩個 fabric 上用兩個啟動方式。** tutorials 上它寫死的
    `127.0.0.1:5005N`／`device_id N-1` 就是真的；NDTwin 上不是，要走
    `tools/p4_exercise/run_external_controller.py`（TICKET-P1D 的 adapter，live-p1/03 用的同一支）。
@@ -180,11 +187,12 @@ sudo、沒有 lab、沒有跑過任何一支（TICKET-P3 §0-2）；離線測試
 | 任何 **skeleton** 臂 | **不跑** | 骨架就是「這個 fabric 不該轉發」的 fabric。跑了會得到空的 on-path 集合，而那個集合空的時候 `assert_link_usage_follows_path` 會**拒絕**——拒絕得對，但講的是別的事。 |
 | `source_routing` solution | **不跑** | `solution/source_routing.p4:127-138` 是 `if (hdr.srcRoutes[0].isValid()) {…} else { drop(); }`：**解答**把每一個沒有 0x1234 stack 的訊框丟掉。audit-raw `7af2f352` 當初就是用 send.py／receive.py＋ttl 量的，不是用 ping（TICKET-P2 §7-10 同一句）。 |
 | `calc` solution | **不跑** | `calc.p4:205-210` 是 `if (hdr.p4calc.isValid()) {…} else { operation_drop(); }`：只認 0x1234 計算機協定，其餘全丟。 |
+| `load_balance` solution | **不跑**（judge A3） | `s1-runtime.json:6-25` 的 `ecmp_group` 只有一條 lpm 條目 `10.0.0.1/32`（負載平衡的服務位址），default action 是 drop ⇒ iperf 打去**任何真實主機位址**都在 s1 被丟掉、on-path 空。改打 10.0.0.1 也救不回來：回程走 s2／s3，它們的表是同一條。 |
 | `multicast` solution | 跑，**目的地 h3** | `sig-topo/s1-runtime.json:47-65` 只複製 port 1,2,3；h4 是 README:122 的 TODO，**設計上不通**。模型的「最後一台主機」正好是它。 |
 | `p4runtime` solution | 跑，**目的地 h2** | 控制器只接 s1／s2、只裝 h1↔h2 那條 tunnel（`mycontroller.py:172-178`），s3／h3 從沒被碰過。 |
 | 其餘 11 支 solution | 跑，目的地＝模型最後一台主機 | |
 
-⇒ **實際會有 11 格**（13 減掉 `source_routing` 與 `calc`）。
+⇒ **實際會有 10 格**（13 減掉 `source_routing`、`calc` 與 `load_balance`）。
 🔴 **不跑的那幾格是「NOT RUN ＋ 理由」寫進 report，不產生任何期望**——不是綠的，也不是紅的。
 把一個沒有封包經過的 fabric 記成綠色，正是這整份工單一直在拒絕的形狀。
 

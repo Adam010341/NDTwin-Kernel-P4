@@ -136,7 +136,10 @@ printf 'this is not json\n' > "$PKG_UNREADABLE/package.json"
 # Package.pipeline_is_ndtwin (TICKET-P2 §2.1) and imports it from $REPO/p4_proxy/mininet --
 # which under these stubs is $FIX -- so the three modules that answer the question are
 # symlinked in. A stand-in for them would be this suite deciding the answer it is checking.
-for m in app_package.py topo_from_json.py grpc_ports.py; do
+# link_telemetry.py joined the list in round 2: `ndt`'s link_emitter_row now asks B's own
+# read_manifest and process_is_the_emitter about the manifest's shape instead of guessing a key
+# (judge A1). It imports app_package and topo_from_json from beside itself, which are here.
+for m in app_package.py topo_from_json.py grpc_ports.py link_telemetry.py; do
     ln -sf "$REAL_REPO/p4_proxy/mininet/$m" "$FIX/p4_proxy/mininet/$m"
 done
 
@@ -1566,15 +1569,47 @@ has   "🔴 an unreadable package resolves to NOTHING, not to a default" "ALL un
 # =============================================================================================
 section "19. 🔴 'ndt status' names the telemetry source, the emitter and the shaped links"
 # =============================================================================================
+# mkmanifest <pid> [<switches>] [<rate>] -- the link-telemetry manifest, AS B'S OWN WRITER
+# WRITES IT.
+#
+# 🔴 NOT A HAND-WRITTEN DICT (judge A1, TICKET-P3 §9 ruling 5). Round 1 wrote the key
+# `emitter_pid`; link_telemetry.manifest_document writes `pid` (link_telemetry.py:402-405), and
+# its switches are a LIST, not a dict. All 391 cells were green over an `ndt` reader that would
+# have answered `unreadable` for every real fabric: verify_p4_telemetry requires a `link`
+# switch's emitter to be alive, so [3/3] would have failed on every `--telemetry link` and on
+# `auto` over a foreign pipeline, `status --check` would have carried an extra problem and
+# `down` would have reported residue -- on all thirteen driver arms. A fixture nobody generates
+# from the writer is a fixture that agrees with whatever the reader guessed.
 mkmanifest() {   # mkmanifest <pid> [<switches>] [<rate>]
-    python3 - "$FIX/ndtwin_link_telemetry.json" "$1" "${2:-2}" "${3:-256}" <<'PYM'
-import json, sys
-f, pid, nsw, rate = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
-json.dump({"emitter_pid": None if pid == "-" else int(pid), "rate": rate,
-           "ifindex_width": 16,
-           "switches": {str(i): {"dpid": i, "agent_ip": "192.168.123.%d" % (10 + i),
-                                 "ports": {}} for i in range(1, nsw + 1)}},
-          open(f, "w"), indent=1)
+    python3 - "$FIX/ndtwin_link_telemetry.json" "$1" "${2:-2}" "${3:-256}" "$REAL_REPO" <<'PYM'
+import sys, os, json
+f, pid, nsw, rate, repo = (sys.argv[1], sys.argv[2], int(sys.argv[3]),
+                           int(sys.argv[4]), sys.argv[5])
+sys.path.insert(0, os.path.join(repo, "p4_proxy", "mininet"))
+import link_telemetry as lt
+
+
+class _Port:                  # what manifest_document reads off a planned port
+    def __init__(self, port):
+        self.port, self.ifname, self.ifindex = port, "s1-eth%d" % port, 100 + port
+        self.key, self.ingress, self.egress = (100 + port) & 0xFFFF, True, False
+
+
+class _Switch:
+    def __init__(self, dpid):
+        self.dpid, self.name = dpid, "s%d" % dpid
+        self.agent_ip = "192.168.123.%d" % (10 + dpid)
+        self.ports = [_Port(1)]
+
+
+class _Plan:
+    rate, trunc, group, ifindex_width = rate, 128, 1, 16
+    collector, sub_agent_id, commands = ("127.0.0.1", 6343), 1, []
+    switches = [_Switch(i) for i in range(1, nsw + 1)]
+
+
+json.dump(lt.manifest_document(_Plan(), None if pid == "-" else int(pid)),
+          open(f, "w"), indent=2)
 PYM
 }
 reset_fix; rm -f "$FIX/ndtwin_link_telemetry.json" "$TELKNOB"
@@ -1595,9 +1630,18 @@ has   "  a knob that names one prints it"                 "telemetry      link  
 
 # 🔴 A LIVE EMITTER IS A ROW; A DEAD ONE IS A --check PROBLEM. `$$` is this shell, which is
 # alive by construction; pid 1 is init, so a pid that CANNOT be alive has to be manufactured.
-mkmanifest "$$" 3 256
+# 🔴 `alive` IS link_telemetry.process_is_the_emitter, NOT "/proc/<pid> exists" (§9 ruling 5):
+# a pid recorded at bring-up is not evidence that the same process holds it now, because Linux
+# recycles pids and this teardown runs as root. So the live fixture is a real process whose
+# cmdline really names the emitter -- a sleeping python started from a file called
+# psample_sflow_emitter.py -- and not merely some pid that happens to exist.
+EMIT_DIR="$FIX/emitter"; mkdir -p "$EMIT_DIR"
+printf 'import time\ntime.sleep(600)\n' > "$EMIT_DIR/psample_sflow_emitter.py"
+python3 "$EMIT_DIR/psample_sflow_emitter.py" & EMIT_PID=$!
+trap 'kill "$EMIT_PID" 2>/dev/null; rm -rf "$FIX"' EXIT INT TERM
+mkmanifest "$EMIT_PID" 3 256
 OUT="$(run_status --check)"
-has   "  an emitter that is running is named with its pid" "link emitter: alive pid $$, 3 switch(es), rate 256" "$OUT"
+has   "  an emitter that is running is named with its pid" "link emitter: alive pid $EMIT_PID, 3 switch(es), rate 256" "$OUT"
 hasnt "  and is not a problem"                             "- the link-telemetry emitter" "$OUT"
 
 # A pid that is not there: the highest pid the kernel will hand out, plus one.
@@ -1626,20 +1670,24 @@ rm -f "$TELKNOB"
 
 # --- link shaping (G2-C's disclosure) --------------------------------------------------------
 mkpkg "$FIX/packages/shaped" ndtwin 4 4
+# 🔴 THE PACKAGE'S OWN LINK FORMAT, which is `["s1", 3]` pairs and not `"s1:3"` strings
+# (app_package._endpoint). Round 1's local reader in `ndt` invented the string form and agreed
+# with this fixture about it; app_package.shaped_links -- the function build_net passes
+# link=TCLink on -- would have raised on both.
 python3 - "$FIX/packages/shaped/package.json" <<'PYS'
 import json, sys
 d = json.load(open(sys.argv[1]))
-d["links"] = [{"a": "s1:3", "b": "s2:3", "bandwidth_bps": 500000.0},
-              {"a": "h1:0", "b": "s1:1", "bandwidth_bps": 1000000000.0},
-              {"a": "s2:4", "b": "s3:2", "bandwidth_bps": 1000000000.0, "delay_ms": 5}]
+d["links"] = [{"a": ["s1", 3], "b": ["s2", 3], "bandwidth_bps": 500000.0},
+              {"a": ["h1", 0], "b": ["s1", 1], "bandwidth_bps": 1000000000.0},
+              {"a": ["s2", 4], "b": ["s3", 2], "bandwidth_bps": 1000000000.0, "delay_ms": 5}]
 json.dump(d, open(sys.argv[1], "w"), indent=2, sort_keys=True)
 PYS
 reset_fix
 OUT="$(drive "NDT_APP_DIR=$(q "$FIX/packages/shaped"); up_p4")"
 OUT="$(run_status)"
-has   "🔴 only the links that ask for shaping are listed" "s1:3 <-> s2:3   0.5 Mbit/s" "$OUT"
-has   "  including one that asks only for delay"          "s2:4 <-> s3:2   1000 Mbit/s   delay 5ms" "$OUT"
-hasnt "🔴 and the plain 1 Gbit/s links are NOT"           "h1:0 <-> s1:1" "$OUT"
+has   "🔴 only the links that ask for shaping are listed" "s1:3<->s2:3 0.5 Mbit/s" "$OUT"
+has   "  including one that asks only for delay"          "s2:4<->s3:2 5ms" "$OUT"
+hasnt "🔴 and the plain 1 Gbit/s links are NOT"           "h1:0<->s1:1" "$OUT"
 reset_fix
 OUT="$(run_status)"
 has   "  a fabric with no package says shaping is off"    "link shaping   off" "$OUT"
@@ -1704,7 +1752,7 @@ T_LINK="$FIX/t_link.json"; mktel "$T_LINK" 1:link:false:false 2:link:false:false
 OUT="$(vtel "$T_LINK" ndtwin)"
 check "🔴 a link fabric with no emitter behind it is red" "1" "$(rc_of "$OUT")"
 has   "  saying where the samples go"                     "tc filters sample into a group nobody reads" "$OUT"
-mkmanifest "$$" 2 256
+mkmanifest "$EMIT_PID" 2 256
 check "🔴 and green once the emitter is alive"            "0" "$(rc_of "$(vtel "$T_LINK" ndtwin)")"
 T_BOTH="$FIX/t_both.json"; mktel "$T_BOTH" 1:link:true:false 2:link:false:false
 OUT="$(vtel "$T_BOTH" ndtwin)"
@@ -1753,9 +1801,9 @@ reset_fix; rm -f "$FIX/ndtwin_link_telemetry.json"
 OUT="$(NDT_OWNER=t drive 'cmd_down')"
 hasnt "  no manifest: 'ndt down' says nothing about it"   "link-telemetry emitter" "$OUT"
 
-mkmanifest "$$" 2 256
+mkmanifest "$EMIT_PID" 2 256
 OUT="$(NDT_OWNER=t drive 'cmd_down')"
-has   "🔴 an emitter that outlived the teardown is residue" "residue: the link-telemetry emitter is still running -- pid $$" "$OUT"
+has   "🔴 an emitter that outlived the teardown is residue" "residue: the link-telemetry emitter is still running -- pid $EMIT_PID" "$OUT"
 has   "  and the command says whose job stopping it is"   "ndtwin-lab topo-stop" "$OUT"
 hasnt "🔴 and this command does NOT kill it"              "pkill" "$OUT"
 check "  the manifest is left exactly where it was"       "1" "$([[ -e "$FIX/ndtwin_link_telemetry.json" ]] && echo 1 || echo 0)"

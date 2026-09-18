@@ -247,6 +247,15 @@ EXERCISES = {
         "prog": "load_balance.p4",
         "default_prog": "load_balance.p4",
         "hosts": 3, "switches": 3,
+        # 🔴 NO GENERIC CELL HERE (judge A3). s1-runtime.json:6-25 gives ecmp_group ONE lpm
+        # entry -- 10.0.0.1/32, the load-balanced service address -- and a default action of
+        # drop. An iperf from h1 to any real host address is dropped at s1, so the on-path set
+        # would be empty and the cell would refuse: correctly, and about the wrong thing.
+        # Sending to 10.0.0.1 instead does not rescue it either -- the reply path from h2/h3
+        # goes through s2/s3, whose own tables carry the same single entry.
+        "link_usage": False,
+        "link_usage_why": ("s1-runtime.json:6-25 forwards only 10.0.0.1/32 and drops the rest, "
+                           "so an iperf between two real host addresses crosses nothing"),
         "plan_steps": ("h2 and h3 receive.py; h1 send.py 10.0.0.1 x10; "
                        "assert both servers got some (solution) / only h2 did (skeleton)"),
     },
@@ -1801,11 +1810,22 @@ class Steps(object):
         pa = self._pingall()
         group = ("h1", "h2", "h3")
         inside = [pa.results.get((s, d)) for s in group for d in group if s != d]
-        to_h4 = [r for (s, d), r in sorted(pa.results.items()) if "h4" in (s, d)]
+        # 🔴 h4 IS UNREACHABLE IN ONE DIRECTION ONLY (judge A4). sig-topo/s1-runtime.json:36-45
+        # installs a mac_forward entry for h4's MAC to port 4 like every other host -- it is
+        # only the MULTICAST GROUP (:47-65) that leaves port 4 out. So an ARP request from hX
+        # floods to ports 1,2,3 and never reaches h4 (hX -> h4 is 100% loss), while h4's own
+        # ARP request floods to 1,2,3 and IS answered, and the unicast reply hits h4's
+        # mac_forward entry: h4 -> hX forwards at 0%. Round 1 asserted 100% on all six pairs
+        # and would have been red on three of them for a fabric behaving exactly as the
+        # exercise describes.
+        to_h4 = [r for (s, d), r in sorted(pa.results.items()) if d == "h4"]
+        from_h4 = [r for (s, d), r in sorted(pa.results.items()) if s == "h4"]
         inside_ok = bool(inside) and all(r is not None and r.tested and r.loss == 0 for r in inside)
         inside_label = ", ".join("%s" % (r.label() if r else "MISSING") for r in inside)
         h4_blocked = bool(to_h4) and all(r.tested and r.loss == 100 for r in to_h4)
         h4_label = ", ".join(r.label() for r in to_h4)
+        h4_out_ok = bool(from_h4) and all(r.tested and r.loss == 0 for r in from_h4)
+        h4_out_label = ", ".join(r.label() for r in from_h4)
 
         self._add("injection: every ordered pair was tested", "0 untested",
                   "%d untested of %d" % (pa.untested, pa.pairs),
@@ -1818,10 +1838,16 @@ class Steps(object):
                       inside_ok, G_BOTH,
                       "README step 3; solution/multicast.p4:74-76 floods to mcast_grp 1 and "
                       ":113-114 prunes the ingress copy")
-            self._add("nobody reaches h4", "100% on every h4 pair", h4_label,
+            self._add("nobody reaches h4", "100% on the three hX -> h4 pairs", h4_label,
                       h4_blocked, G_BOTH,
                       "sig-topo/s1-runtime.json:47-65 replicates ports 1,2,3 only -- port 4 is "
-                      "README:122's TODO and this driver does not edit the exercise")
+                      "README:122's TODO and this driver does not edit the exercise; an ARP "
+                      "request for h4 floods to 1,2,3 and h4 never sees it")
+            self._add("but h4 reaches them", "0% on the three h4 -> hX pairs", h4_out_label,
+                      h4_out_ok, G_SRC,
+                      "sig-topo/s1-runtime.json:36-45 DOES give h4's MAC a mac_forward entry "
+                      "to port 4; only the group leaves 4 out. h4's own ARP floods to 1,2,3, "
+                      "is answered, and the unicast reply hits that entry.")
         else:
             self._add("RED ARM: nothing pings at all", "100.0%", pa.label(),
                       pa.loss == 100, G_BOTH,
@@ -1833,8 +1859,31 @@ class Steps(object):
 
     # ------------------------------------------------------------- qos ----
 
+    def _tos_from(self, text, src):
+        """The tos of every sniffed packet whose IP src is `src` -- and of nothing else.
+
+        🔴 qos/receive.py:22 HAS NO BPF FILTER (judge A5). It prints every frame on h2's eth0,
+        h2's OWN replies included -- and h2 replies: nothing is listening on UDP/4321, so the
+        kernel answers ICMP port-unreachable (tos 0xc0), and the TCP round's SYN to port 80
+        gets a RST (tos 0x0). Reading every `tos` line in the capture therefore makes the
+        skeleton arm's `set(tos) == {"0x1"}` red over a fabric doing exactly what the exercise
+        says, and makes the solution arm's reading a mixture of two hosts' traffic.
+
+        Per PACKET, not per file: `_packets` already splits the capture into one block per
+        `got a packet`, so the src and the tos are read out of the same block and cannot come
+        from two different frames.
+        """
+        out = []
+        for pkt in self._packets(text):
+            if not re.search(r"^\s*src\s*=\s*%s\s*$" % re.escape(src), pkt["text"], re.M):
+                continue
+            m = re.search(r"^\s*tos\s*=\s*(\S+)\s*$", pkt["text"], re.M)
+            if m:
+                out.append(m.group(1))
+        return out
+
     def _qos_round(self, proto, tag):
-        """One `send.py --p=<proto>` run with h2 sniffing. -> (tos values, sender output)."""
+        """One `send.py --p=<proto>` run with h2 sniffing. -> (tos of h1's frames, out, n)."""
         recv, fh, rpath, rcmd = self._start_receiver("h2", "h2-%s" % tag)
         scmd = [VENV_PY, self._script("send.py"), "--p=%s" % proto,
                 "--des=%s" % self.ips["h2"], "--m=P4 driver probe", "--dur=%d" % SEND_SECONDS]
@@ -1842,7 +1891,10 @@ class Steps(object):
         rtext = self._stop_receiver(recv, fh, rpath)
         say("-- h2 (%s) --" % rpath); say(trim(rtext, 3000))
         self.steps.append(("Q%s  h2 sniffer output (%s)" % (tag, proto), rcmd, rtext))
-        return self._field_values(rtext, "tos"), sout, len(self._packets(rtext))
+        mine = self._tos_from(rtext, self.ips["h1"])
+        say("   tos values on frames from %s: %s   (of %d packet(s) sniffed in total)"
+            % (self.ips["h1"], sorted(set(mine)), len(self._packets(rtext))))
+        return mine, sout, len(mine)
 
     def steps_qos(self):
         """exercises/qos, README step 1.6 (skeleton) and step 3 (solution).
@@ -1858,10 +1910,12 @@ class Steps(object):
         udp_tos, udp_out, udp_n = self._qos_round("UDP", "1")
         tcp_tos, tcp_out, tcp_n = self._qos_round("TCP", "2")
 
-        self._add("injection: packets reached h2 in both rounds", ">=1 each",
+        self._add("injection: h1's packets reached h2 in both rounds", ">=1 each",
                   "udp=%d tcp=%d" % (udp_n, tcp_n), udp_n >= 1 and tcp_n >= 1, G_SRC,
-                  "send.py:40-54 loops for --dur seconds; receive.py has no filter, so a zero "
-                  "here means nothing arrived at all")
+                  "send.py:40-54 loops for --dur seconds. Counted on frames whose IP src is "
+                  "h1: receive.py:22 has no BPF filter, so h2's own ICMP unreachable and RST "
+                  "replies are in the same capture and would make a bare count non-zero even "
+                  "if nothing arrived from h1")
 
         if self.which == "solution":
             self._add("UDP is expedited forwarding", "0xb9 among the tos values",
@@ -1876,11 +1930,13 @@ class Steps(object):
             self._add("RED ARM: UDP tos stays 0x1", "['0x1']", str(sorted(set(udp_tos))),
                       bool(udp_tos) and set(udp_tos) == {"0x1"}, G_BOTH,
                       "README step 1.6: 'the ipv4.tos field is always 1'; qos.p4:138 leaves "
-                      "the ingress apply with nothing but ipv4_lpm")
+                      "the ingress apply with nothing but ipv4_lpm. Read on h1's frames only: "
+                      "h2's own ICMP port-unreachable carries tos 0xc0")
             self._add("RED ARM: TCP tos stays 0x1", "['0x1']", str(sorted(set(tcp_tos))),
                       bool(tcp_tos) and set(tcp_tos) == {"0x1"}, G_BOTH,
-                      "the same TODO; if either of these is red the solution's 0xb9/0xb1 "
-                      "proves nothing")
+                      "the same TODO; h2's RST to the SYN carries tos 0x0, which is why this "
+                      "reads h1's frames and not the capture. If either of these is red the "
+                      "solution's 0xb9/0xb1 proves nothing")
         self._log_sizes()
 
     # ------------------------------------------------------ p4runtime -----
@@ -2394,6 +2450,12 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
                 "pre-flight refuses them", "pre-flight rc=%d" % rc, True, G_BOTH,
                 "README:41-43; tools/p4_exercise/preflight.py checks every entry against the "
                 "p4info the package carries, and the skeleton's does not declare that table")]
+            # 🔴 THE VERDICT IS THE DESIGNED-REFUSAL ONE, NOT `ERROR` (judge A6). Returning a
+            # bare non-zero rc made main() print `ERROR`, because that is what a non-zero round
+            # means everywhere else -- while the SAME arm on the tutorials fabric printed
+            # `PASS (1/1)`. One exercise reading two different ways on two fabrics is the thing
+            # the two-fabric driver exists to make impossible.
+            run_on_ndtwin.designed_refusal = True
             say("!! pre-flight FAILED (rc %d) -- and for this arm that IS the expectation." % rc)
             return 1, pkg, state
         say("!! pre-flight FAILED (rc %d). 'ndt up p4 --app' would refuse this too;"
@@ -2446,6 +2508,7 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
                     G_BOTH,
                     "README:41-43; verify_p4_package_entries is the gate that says the "
                     "package's own entries did not go on the switches")]
+                run_on_ndtwin.designed_refusal = True
         else:
             state = switch_state()
             rule("GET /p4/switch_state")
@@ -2525,6 +2588,10 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
 
 run_on_ndtwin.expects = []
 run_on_ndtwin.teardown_problem = ""
+#: Set when the round ended on the refusal its arm is SUPPOSED to end on (judge A6). It is not
+#: an error and it is not a pass: the verdict says `RED ARM (n/n): ... by design` and the exit
+#: code is 1, the same pair `flowcache`'s compile arm reports on the other fabric.
+run_on_ndtwin.designed_refusal = False
 
 
 # -------------------------------------------------------------------- report --
@@ -2876,6 +2943,7 @@ def main():
         log_dir = os.path.join(RUNS, "%s_%s_%s_ndtwin" % (stamp, ex, which))
         os.makedirs(log_dir, exist_ok=True)
         run_on_ndtwin.expects = []
+        run_on_ndtwin.designed_refusal = False
         try:
             exit_code, package, state = run_on_ndtwin(
                 ex, which, exdir, spec, args, ips, log_dir, steps, env, red_stage)
@@ -2934,7 +3002,17 @@ def main():
     for e in expects:
         say("   " + e.line() + "   " + e.grade)
     failed = [e for e in expects if not e.ok]
-    if exit_code == 0:
+    # 🔴 THE DESIGNED REFUSAL HAS ITS OWN VERDICT, and it is the same sentence on both fabrics
+    # (judge A6). `basic_tunnel`'s skeleton cannot install its own runtime entries -- README:41-43
+    # says so -- and the round therefore ends non-zero having met every expectation it has. On
+    # the tutorials fabric that refusal happens inside the harness and comes back as `PASS (1/1)`;
+    # without this branch the SAME arm on the NDTwin fabric printed `ERROR`, which is what a
+    # driver that fell over prints. One exercise must not read two ways on two fabrics.
+    designed = (args.fabric == "ndtwin" and getattr(run_on_ndtwin, "designed_refusal", False))
+    if designed and expects and not failed:
+        verdict, exit_code = ("RED ARM (%d/%d): the skeleton does not get past the control "
+                              "plane, by design" % (len(expects), len(expects))), 1
+    elif exit_code == 0:
         if not expects:
             verdict, exit_code = "NO RESULT", 2
         elif failed:

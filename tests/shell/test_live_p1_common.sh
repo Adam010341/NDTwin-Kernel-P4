@@ -384,24 +384,72 @@ OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_missing.t
 check "🔴 an on-path interface with NO twin edge is red"  "1" "$(rc_of "$OUT")"
 has   "  and says the link is not modelled"              "the twin has NO edge for it" "$OUT"
 
-mkint "$FIX/i_offpath.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
-                           "s1-eth2 12.000 switch"
-OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_offpath.txt' 'leak'")"
-check "🔴 an inter-switch link OFF the path must be exactly 0" "1" "$(rc_of "$OUT")"
-has   "  naming it and the bits"                         "s1-eth2 is an inter-switch link that did NOT carry the flow and the twin integrated 12.000 bit" "$OUT"
+# --- 5c-bis. the off-path FLOOR (TICKET-P3 §9 ruling 9, R4) --------------------------------
+# 🔴 "EXACTLY 0" OFF THE PATH WOULD GO RED ON A CORRECT FABRIC, AT RANDOM. After the kernel
+# banks a sample's frame length BEFORE it asks what the flow was (§2.2), ARP and LLDP count
+# toward link usage; the proxy beacons LLDP along every switch-switch link and the pipeline
+# samples 1/256, so ONE beacon drawn in an eight-second window is banked as 256 x its frame
+# length -- tens of kilobits on an edge that carried nothing. The bound is therefore a floor:
+# max(5 kbit, 2% of the SMALLEST on-path integral). Absolute so a quiet window still has a
+# bound; relative so it cannot be a fixed number an 8 s 2 Mbit/s flow dwarfs.
+check "  the floor with a 16 kbit smallest on-path integral" "5000.000" \
+      "$(one "link_usage_floor '$FIX/onpath.txt' '$FIX/i_good.txt'")"
+mkint "$FIX/i_big.txt" "s1-eth1 16000000.000 host" "s1-eth3 16000000.000 switch"
+printf 's1-eth1\ns1-eth3\n' > "$FIX/onpath2.txt"
+check "🔴 and with a real 16 Mbit flow it is 2% of it, not 5 kbit" "320000.000" \
+      "$(one "link_usage_floor '$FIX/onpath2.txt' '$FIX/i_big.txt'")"
 
-# 🔴 THE ARP ALLOWANCE IS FOR HOST-FACING EDGES AND ONLY THOSE. A host's link is never quiet --
-# ARP and IPv6 neighbour discovery keep it ticking -- and an exact-zero rule there would make
-# every run red for a reason that has nothing to do with the path.
+# A sampled LLDP beacon on an off-path inter-switch link: ~500 bit frame x 256 = ~128 kbit,
+# under 2% of a 16 Mbit on-path integral and over the absolute 5 kbit.
+mkint "$FIX/i_beacon.txt" "s1-eth1 16000000.000 host" "s1-eth3 16000000.000 switch" \
+                          "s1-eth2 128000.000 switch"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath2.txt' '$FIX/i_beacon.txt' 'beacon'")"
+check "🔴 one sampled LLDP beacon off the path is NOT a failure" "0" "$(rc_of "$OUT")"
+has   "  and the floor it was judged against is in the raw" "off-path floor 320000.000 bit" "$OUT"
+has   "  with the edge's own integral beside it"         "off-path s1-eth2  128000.000 bit" "$OUT"
+
+# ... and an edge carrying real traffic off the path still is one.
+mkint "$FIX/i_leak.txt" "s1-eth1 16000000.000 host" "s1-eth3 16000000.000 switch" \
+                        "s1-eth2 4000000.000 switch"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath2.txt' '$FIX/i_leak.txt' 'leak'")"
+check "🔴 an inter-switch link off the path carrying the FLOW is red" "1" "$(rc_of "$OUT")"
+has   "  naming it, the bits and the floor"              "s1-eth2 is an inter-switch link that did NOT carry the flow and the twin integrated 4000000.000 bit on it, at or over the 320000.000 bit floor" "$OUT"
+
+# 🔴 THE FLOOR IS TAKEN FROM THE SMALLEST ON-PATH INTEGRAL, AND THE TWO ENDS DIFFER IN
+# PRACTICE. The on-path edges of one window are not equal: the host-facing edge carries the
+# flow once and an inter-switch edge on a longer path carries it again, so `min` and `max` are
+# a factor of several apart -- and `min` is the conservative end, the one that still catches an
+# off-path link with real traffic on it.
+mkint "$FIX/i_spread.txt" "s1-eth1 1000000.000 host" "s1-eth3 16000000.000 switch" \
+                          "s1-eth2 100000.000 switch"
+check "  the floor follows the SMALLEST on-path integral"  "20000.000" \
+      "$(one "link_usage_floor '$FIX/onpath2.txt' '$FIX/i_spread.txt'")"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath2.txt' '$FIX/i_spread.txt' 'spread'")"
+check "🔴 and 100 kbit off the path is red against it"     "1" "$(rc_of "$OUT")"
+has   "  naming the floor the smallest on-path edge set"  "at or over the 20000.000 bit floor" "$OUT"
+
+# 🔴 THE FLOOR IS NOT A BLANK CHEQUE: in a quiet window it is the absolute 5 kbit, so an
+# off-path edge with real traffic on it is still red there.
+mkint "$FIX/i_offpath.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
+                           "s1-eth2 6000.000 switch"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_offpath.txt' 'quiet'")"
+check "🔴 and in a quiet window the floor is the absolute 5 kbit" "1" "$(rc_of "$OUT")"
+has   "  naming that floor"                              "at or over the 5000.000 bit floor" "$OUT"
+mkint "$FIX/i_under.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
+                         "s1-eth2 12.000 switch"
+check "  12 bit of stray on an off-path link is under it" "0" \
+      "$(rc_of "$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_under.txt' 'stray'")")"
+
+# host-facing edges are held to the same floor -- a host's link is never quiet.
 mkint "$FIX/i_arp.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
                        "s2-eth1 4999.000 host"
-check "  a host-facing edge under the ARP allowance is fine" "0" \
+check "  a host-facing edge under the floor is fine"     "0" \
       "$(rc_of "$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_arp.txt' 'arp'")")"
 mkint "$FIX/i_arplot.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
                           "s2-eth1 5001.000 host"
 OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_arplot.txt' 'arp2'")"
 check "🔴 and one over it is red"                         "1" "$(rc_of "$OUT")"
-has   "  naming the allowance it passed"                 "over the 5000 bit ARP allowance" "$OUT"
+has   "  naming the floor it passed"                     "at or over the 5000.000 bit floor" "$OUT"
 
 # 🔴 THE CONTROL. With nothing measured as on-path the first clause is vacuous and the second is
 # "every edge is zero" -- which a fabric that moved no packet at all satisfies perfectly, and

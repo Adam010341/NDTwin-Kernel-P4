@@ -93,7 +93,14 @@ take_claim "live-p1/05: three telemetry groups over exercises/basic"
 
 # group <n> <label> <package> <telemetry word> <follows|absent> -- one bring-up, one measurement.
 group() {
-    local n="$1" label="$2" pkg="$3" word="$4" expect="$5" dir="$RUN/${n}_${label}"
+    # 🔴 THE PATH IS ASSIGNED ON ITS OWN LINE, and that is not style. Under `set -u` bash 5.2
+    # declares every name in a `local` list BEFORE assigning any of them, so a later assignment
+    # that reads an earlier one expands an UNSET variable and the function dies on its first
+    # line: `label: unbound variable`. Both live scripts had it, neither had ever been run, and
+    # tests/shell/test_live_p1_thirteen.sh is what found it (TICKET-P3 §9 ruling 9, round 2).
+    local n="$1" label="$2" pkg="$3" word="$4" expect="$5"
+    local dir
+    dir="$RUN/${n}_${label}"
     say "group $n: $label   (package $(basename "$pkg"), --telemetry $word, expect $expect)"
     if ! "$NDT" up p4 --app "$pkg" --telemetry "$word" > "$dir.up.txt" 2>&1; then
         sed 's/^/     /' "$dir.up.txt" | tail -25

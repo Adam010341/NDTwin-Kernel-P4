@@ -602,10 +602,26 @@ pingall_loss() {
 #: "> 0 bytes": LLDP, ARP and the proxy's own probes keep every link faintly busy, and a
 #: threshold of zero would put every interface in the fabric on the path.
 : "${LINK_USAGE_ONPATH_BYTES:=10000}"
-#: A host-facing edge OFF the path may still carry ARP. 5 kbit over the window, and only for
-#: host-facing edges: an inter-switch edge off the path must integrate to EXACTLY zero, which
-#: is the half of the assertion that has teeth.
+#: The FLOOR an off-path edge has to stay under. Not zero, and the reason is measured rather
+#: than defensive (TICKET-P3 §9 ruling 9, R4):
+#:
+#:   * after worker A's kernel merge the collector banks a sample's frame length BEFORE it asks
+#:     what the flow was (§2.2), so ARP, LLDP and IPv6 neighbour discovery all count toward
+#:     link usage where they used to be dropped at the `etherType != 0x0800` test;
+#:   * on an NDTwin-pipeline fabric the proxy sends an LLDP beacon along every switch-switch
+#:     link, and the pipeline samples 1 in 256. One beacon drawn in an eight-second window is
+#:     ordinary, and at 1/256 it is banked as 256 x its frame length -- tens of kilobits on an
+#:     edge that carried no flow.
+#:
+#: So "exactly 0 off the path" would have gone red on a fabric doing exactly what it is
+#: supposed to do, and it would have done so at random. The floor is the larger of an absolute
+#: 5 kbit and 2% of the SMALLEST on-path integral: absolute, so a quiet window still has a
+#: bound; relative, so the bound cannot be a fixed number that an 8-second 2 Mbit/s flow
+#: (~16 Mbit on-path) dwarfs -- 2% of that is 320 kbit, which is two orders of magnitude above
+#: a sampled beacon and two orders below the flow. Every edge's raw integral is printed either
+#: way, so a reader can see the margin rather than take the verdict's word for it.
 : "${LINK_USAGE_NOISE_BITS:=5000}"
+: "${LINK_USAGE_OFFPATH_FRACTION:=0.02}"
 #: The twin refreshes usage once a second; sample above that. Same rate as cmd_check.
 : "${LINK_USAGE_HZ:=4}"
 #: `iperf -u -b 2M -t 8`, TICKET-P3 §2.7 verbatim.
@@ -730,8 +746,33 @@ sys.exit(0 if n else 1)
 # 🔴 AN ON-PATH INTERFACE WITH NO TWIN EDGE IS RED, not skipped. "The twin does not model this
 # link" is the most important thing this cell can find, and skipping it would report the gap as
 # a clean run.
+# link_usage_floor <onpath-file> <integral-file> -- the documented off-path bound for this
+# window: max(LINK_USAGE_NOISE_BITS, LINK_USAGE_OFFPATH_FRACTION x the SMALLEST on-path
+# integral). Printed by the assertion so the number is in the raw beside the readings it judged.
+link_usage_floor() {
+    local onpath="$1" integral="$2"
+    "$PY" -c '
+import sys
+floor_abs = float(sys.argv[3]); frac = float(sys.argv[4])
+want = set()
+for line in open(sys.argv[1]):
+    line = line.strip()
+    if line:
+        want.add(line)
+vals = []
+for line in open(sys.argv[2]):
+    parts = line.split()
+    if len(parts) == 3 and parts[0] in want:
+        try:
+            vals.append(float(parts[1]))
+        except ValueError:
+            pass
+print("%.3f" % max(floor_abs, frac * min(vals)) if vals else "%.3f" % floor_abs)
+' "$onpath" "$integral" "$LINK_USAGE_NOISE_BITS" "$LINK_USAGE_OFFPATH_FRACTION"
+}
+
 assert_link_usage_follows_path() {
-    local onpath="$1" integral="$2" label="$3" rc=0 key bits kind
+    local onpath="$1" integral="$2" label="$3" rc=0 key bits kind floor
     if [[ ! -s "$onpath" ]]; then
         fail "$label: the on-path interface set is EMPTY -- nothing measurably carried the flow, so 'usage follows the path' is a sentence about a fabric that moved no packets"
         return 1
@@ -754,22 +795,26 @@ assert_link_usage_follows_path() {
             rc=1
         fi
     done < "$onpath"
+    floor="$(link_usage_floor "$onpath" "$integral")"
+    note "$label: off-path floor $floor bit   = max(${LINK_USAGE_NOISE_BITS}, ${LINK_USAGE_OFFPATH_FRACTION} x the smallest on-path integral)"
     while read -r key bits kind; do
         [[ "$key" == \#* || -z "$key" ]] && continue
         /usr/bin/grep -qx -- "$key" "$onpath" && continue
-        if [[ "$kind" == switch ]]; then
-            if [[ "$(awk "BEGIN{print ($bits != 0) ? 1 : 0}")" == 1 ]]; then
-                fail "$label: $key is an inter-switch link that did NOT carry the flow and the twin integrated $bits bit on it"
-                rc=1
+        # 🔴 EVERY OFF-PATH EDGE'S RAW INTEGRAL IS RECORDED, judged or not (§9 ruling 9, R4).
+        # The verdict is a comparison against a floor, and a floor only means something beside
+        # the numbers it was applied to -- otherwise "under the bound" and "exactly zero" read
+        # the same in the raw, and the margin is the whole question.
+        note "$label: off-path $key  $bits bit  ($kind)"
+        if [[ "$(awk "BEGIN{print ($bits >= $floor) ? 1 : 0}")" == 1 ]]; then
+            if [[ "$kind" == switch ]]; then
+                fail "$label: $key is an inter-switch link that did NOT carry the flow and the twin integrated $bits bit on it, at or over the $floor bit floor"
+            else
+                fail "$label: $key is a host-facing link off the path and the twin integrated $bits bit, at or over the $floor bit floor"
             fi
-        else
-            if [[ "$(awk "BEGIN{print ($bits >= $LINK_USAGE_NOISE_BITS) ? 1 : 0}")" == 1 ]]; then
-                fail "$label: $key is a host-facing link off the path and the twin integrated $bits bit, over the ${LINK_USAGE_NOISE_BITS} bit ARP allowance"
-                rc=1
-            fi
+            rc=1
         fi
     done < "$integral"
-    (( rc == 0 )) && note "$label: link usage follows the iperf path"
+    (( rc == 0 )) && note "$label: link usage follows the iperf path (off-path under $floor bit)"
     return $rc
 }
 

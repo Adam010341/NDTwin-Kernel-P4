@@ -700,7 +700,7 @@ add "76. an exercise that forwards nothing is measured anyway" \
         return False, None, spec.get("link_usage_why") or "this exercise declares no path"' \
     '    if False:  # MUTANT
         pass' \
-    'test_two_solutions_forward_nothing_and_are_named'
+    'test_three_solutions_forward_nothing_and_are_named'
 
 add "77. the destination override is ignored, so two exercises measure to a host they cannot reach" \
     "$DRIVER" \
