@@ -121,6 +121,63 @@ def main():
         bad += check("host attachment", T.host_links(m), literal_host_links(4))
         print()
 
+    # --- one switch, and therefore no cable between switches --------------------------------
+    #
+    # [Co-developed with claude code -- Adam]
+    # `switch_links` raised on any model with no inter-switch edge, which is right for the
+    # models above -- a ten-switch fabric whose edges went missing comes up as ten islands,
+    # each healthy, forwarding nothing -- and wrong for `exercises/calc`, which declares one
+    # switch and two hosts because a single switch has nothing to be cabled to. The
+    # discriminator is the SWITCH count. Both arms are checked here: the empty list and the
+    # refusal that must survive it.
+    print("single-switch model (exercises/calc's shape: 1 switch, 2 hosts, 0 inter-switch links)")
+    calc = {
+        "nodes": [
+            {"brand_name": "BMv2", "bridge_name": "s1", "device_layer": 2, "device_name": "s1",
+             "dpid": 1, "ecmp_groups": [], "ip": ["192.168.123.11"], "mac": 0, "nickname": "s1",
+             "smart_plug_ip": "", "smart_plug_outlet": 0, "vertex_type": 0},
+            {"brand_name": "", "device_layer": 3, "device_name": "h1", "dpid": 0,
+             "ip": ["10.0.1.1"], "mac": 0x080000000101, "nickname": "h1", "vertex_type": 1},
+            {"brand_name": "", "device_layer": 3, "device_name": "h2", "dpid": 0,
+             "ip": ["10.0.1.2"], "mac": 0x080000000102, "nickname": "h2", "vertex_type": 1},
+        ],
+        "edges": [
+            {"src_dpid": 0, "src_interface": 1, "src_ip": ["10.0.1.1"], "dst_dpid": 1,
+             "dst_interface": 1, "dst_ip": ["192.168.123.11"], "link_bandwidth_bps": 1000000000},
+            {"src_dpid": 1, "src_interface": 1, "src_ip": ["192.168.123.11"], "dst_dpid": 0,
+             "dst_interface": 1, "dst_ip": ["10.0.1.1"], "link_bandwidth_bps": 1000000000},
+            {"src_dpid": 0, "src_interface": 1, "src_ip": ["10.0.1.2"], "dst_dpid": 1,
+             "dst_interface": 2, "dst_ip": ["192.168.123.11"], "link_bandwidth_bps": 1000000000},
+            {"src_dpid": 1, "src_interface": 2, "src_ip": ["192.168.123.11"], "dst_dpid": 0,
+             "dst_interface": 1, "dst_ip": ["10.0.1.2"], "link_bandwidth_bps": 1000000000},
+        ],
+        "links": [],
+    }
+    bad += check("switches", [d for d, _n in T.switches(calc)], [1])
+    bad += check("inter-switch links", T.switch_links(calc), [])
+    bad += check("host attachment", T.host_links(calc), [("h1", 1, 1), ("h2", 1, 2)])
+    bad += check("hosts", [n for n, _ip, _mac in T.hosts(calc)], ["h1", "h2"])
+
+    two_switches_no_cable = dict(calc, nodes=calc["nodes"] + [
+        {"brand_name": "BMv2", "bridge_name": "s2", "device_layer": 2, "device_name": "s2",
+         "dpid": 2, "ecmp_groups": [], "ip": ["192.168.123.12"], "mac": 0, "nickname": "s2",
+         "smart_plug_ip": "", "smart_plug_outlet": 0, "vertex_type": 0}])
+    try:
+        got = T.switch_links(two_switches_no_cable)
+    except T.TopologyModelError as exc:
+        if "exactly one switch" in str(exc) and "2 switches" in str(exc):
+            print("  ok    two switches with no cable between them: still refused, and the "
+                  "message explains both cases")
+        else:
+            print(f"  FAIL  two switches with no cable: refused, but the message does not say "
+                  f"which rule applies: {exc}")
+            bad += 1
+    else:
+        print(f"  FAIL  two switches with no cable between them returned {got!r} instead of "
+              f"refusing -- that fabric is two islands, each healthy, forwarding nothing")
+        bad += 1
+    print()
+
     print("PASS -- derived wiring is identical to the hard-coded lists" if not bad
           else f"FAIL -- {bad} mismatch(es); do NOT switch the builder over")
     return 1 if bad else 0

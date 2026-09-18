@@ -343,6 +343,37 @@ with open(BINARY_OVERRIDE, "w") as _fh:
 BASELINE_JSON = os.path.join(MININET_DIR, "..", "p4_src", "build", "ndtwin_switch.json")
 
 
+def load_two_program_package_fixture():
+    """A/P1's `basic` package with exercises/firewall's per-switch pipeline shape laid on it.
+
+    [Co-developed with claude code -- Adam]
+    The shape, not the exercise: s1 names `build/firewall.*` and s2-s4 name `build/basic.*`,
+    which is exactly what convert.py writes for firewall's pod-topo (its topology.json is the
+    one shipped exercise that uses tutorials' per-switch `program` override). The artefact
+    files are empty -- `BMv2Switch.start` only ever puts the PATH in the argv, and a fixture
+    carrying a real compiled program would suggest something here parsed one.
+    """
+    path = os.path.join(HERE, "test_app_package.py")
+    spec = importlib.util.spec_from_file_location("test_app_package_fixture_source", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    manifest = json.loads(json.dumps(module.CONVERTER_BASIC))
+    for key, switch in manifest["switches"].items():
+        stem = "firewall" if key == "1" else "basic"
+        switch["pipeline"] = {"p4info": f"build/{stem}.p4.p4info.txtpb",
+                              "bmv2_json": f"build/{stem}.json"}
+    directory = module.lay_out_converter_package(
+        _TMP, manifest, "two-programs",
+        entry_files=[spec_["entries"] for spec_ in manifest["switches"].values()])
+    for stem in ("firewall", "basic"):
+        for rel in (f"build/{stem}.p4.p4info.txtpb", f"build/{stem}.json"):
+            full = os.path.join(directory, rel)
+            os.makedirs(os.path.dirname(full), exist_ok=True)
+            with open(full, "w") as fh:
+                fh.write("{}\n")
+    return app_package.load(directory)
+
+
 def load_package_fixture():
     """A/P1's verbatim `basic` package, laid out in a temp directory.
 
@@ -813,9 +844,88 @@ class UnderAPackageTest(FabricFixture):
         self.assertEqual(plan.dpids, [1, 2, 3, 4])
         self.assertEqual(plan.ports, [30051, 30052, 30053, 30054])
 
-    def test_the_pipeline_is_still_ndtwins_own_because_g4_is_not_built(self):
+    def test_a_package_whose_switches_name_no_pipeline_still_runs_ndtwins_own(self):
+        # A/P1's `basic` package leaves every `pipeline` null, so all four switches keep
+        # NDTwin's own artefact -- and the plan says so per switch rather than once.
         plan, _said = self.plan()
-        self.assertEqual(plan.json_path, BASELINE_JSON)
+        self.assertEqual(plan.json_paths, {d: BASELINE_JSON for d in (1, 2, 3, 4)})
+
+
+class EachSwitchRunsTheProgramItsPackageNamedTest(FabricFixture):
+    """🔴 G4 ON THE FABRIC SIDE: the json in each bmv2's argv is THAT switch's.
+
+    [Co-developed with claude code -- Adam]
+    `BMv2Switch.__init__` has taken `json_path` per switch since it was written. What it was
+    handed was `pipeline_for(1, ...)` -- dpid 1's answer, copied onto all of them -- which was
+    invisible while every package said `pipeline: null` and every switch therefore got the same
+    `ndtwin_switch.json`. It stops being invisible the moment a package names two programs:
+    exercises/firewall wants firewall.json on s1 and basic.json on s2-s4, and dpid 1's answer
+    for all four is a fabric where three switches run a program the exercise never asked for.
+    They come up. They forward. The exercise does not happen.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.pkg = load_two_program_package_fixture()
+        self.use_package(self.pkg)
+
+    def test_each_switch_is_launched_with_its_own_program(self):
+        _plan, net, _result = self.bring_up()
+        argv = net.argv()
+        self.assertIn(os.path.join(self.pkg.dir, "build", "firewall.json"), argv["s1"])
+        for name in ("s2", "s3", "s4"):
+            with self.subTest(switch=name):
+                self.assertIn(os.path.join(self.pkg.dir, "build", "basic.json"), argv[name])
+                self.assertNotIn("firewall.json", argv[name])
+
+    def test_ndtwins_own_pipeline_is_on_none_of_them(self):
+        _plan, net, _result = self.bring_up()
+        for name, line in net.argv().items():
+            with self.subTest(switch=name):
+                self.assertNotIn("ndtwin_switch.json", line)
+
+    def test_the_plan_holds_one_json_per_switch(self):
+        plan, _said = self.plan()
+        self.assertEqual(sorted(plan.json_paths), [1, 2, 3, 4])
+        self.assertTrue(plan.json_paths[1].endswith(os.path.join("build", "firewall.json")),
+                        plan.json_paths[1])
+        for dpid in (2, 3, 4):
+            with self.subTest(dpid=dpid):
+                self.assertTrue(
+                    plan.json_paths[dpid].endswith(os.path.join("build", "basic.json")),
+                    plan.json_paths[dpid])
+
+    def test_plan_fabric_checks_every_switch_not_just_the_first(self):
+        # 🔴 dpid 1's program is there and dpid 2's is not. A pre-flight that checked only the
+        # first would return a plan, `reset_for_bring_up` would then `mn -c` the fabric that
+        # was running, and s2 would die inside `simple_switch_grpc` with its error in
+        # /tmp/s2_bmv2.log, which nothing reads.
+        #
+        # The package object is loaded first and the file removed afterwards on purpose:
+        # `app_package.load` refuses a package that does not carry its own pipeline, so this is
+        # the second of two doors, and it has to be tested with the first one already open.
+        os.remove(os.path.join(self.pkg.dir, "build", "basic.json"))
+        with self.assertRaises(testbed.FabricPlanError) as ctx:
+            testbed.plan_fabric(package=self.pkg, report=lambda _line: None)
+        self.assertIn("s2", str(ctx.exception))
+        self.assertIn("basic.json", str(ctx.exception))
+
+    def test_the_plan_says_out_loud_which_switches_are_not_on_ndtwins_pipeline(self):
+        # By the time the proxy discloses this in `switch_state` the fabric is already up. An
+        # operator reading a bring-up log has to be able to tell "telemetry is off because this
+        # fabric runs somebody else's program" from "telemetry broke".
+        _plan, said = self.plan()
+        lines = [line for line in said if line.startswith("package pipelines: ")]
+        self.assertEqual(len(lines), 1, said)
+        self.assertIn("4 of 4", lines[0])
+        self.assertIn("s1=firewall.json", lines[0])
+
+    def test_the_baseline_says_nothing_of_the_kind(self):
+        # The control. No package, no line -- a fabric on NDTwin's own pipeline must not start
+        # explaining itself, or the line stops meaning anything when it does appear.
+        self.patch(app_package, "KNOB_PATH", os.path.join(self.tmp, "no_such_knob"))
+        _plan, said = self.plan()
+        self.assertEqual([line for line in said if line.startswith("package pipelines: ")], [])
 
 
 class TheBridgeNeverAsksForASwitchTheModelDoesNotDeclareTest(FabricFixture):
