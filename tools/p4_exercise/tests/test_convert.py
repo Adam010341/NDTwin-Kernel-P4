@@ -33,10 +33,40 @@ from p4_exercise import common, convert  # noqa: E402
 FIXTURES = os.path.join(HERE, "fixtures")
 BASIC = os.path.join(FIXTURES, "basic")
 P4RUNTIME = os.path.join(FIXTURES, "p4runtime")
+#: The two TICKET-P2 fixtures. `firewall` is the ONLY shipped exercise whose topology.json uses
+#: tutorials' per-switch `program` override (s1 runs firewall.json, s2-s4 run the Makefile's
+#: `DEFAULT_PROG basic.p4`), so it is the only one that can tell a converter that reads that
+#: field from one that drops it. `calc` is the single-switch, zero-inter-switch-link shape.
+FIREWALL = os.path.join(FIXTURES, "firewall")
+CALC = os.path.join(FIXTURES, "calc")
 
 #: Where the fixtures were copied from. Only FixtureProvenance reads it, and it skips loudly
 #: when it is not there -- nothing else in this file depends on the machine having tutorials.
 TUTORIALS_EXERCISES = os.path.expanduser("~/tutorials/exercises")
+
+#: 🔴 THE ONLY FIXTURES THAT ARE NOT COPIES, listed here so that "not in ~/tutorials" can never
+#: quietly become the answer for a file that is supposed to be one.
+#:
+#: [Co-developed with claude code -- Adam]
+#: `exercises/firewall` and `exercises/calc` have never been built in this checkout -- there is
+#: no `build/` under either -- and a package cannot name a pipeline it does not carry, so the
+#: four artefacts a firewall package needs and the two a calc package needs were COMPILED into
+#: the fixture tree rather than copied out of one:
+#:
+#:   p4c-bm2-ss --p4v 16 --p4runtime-files build/<stem>.p4.p4info.txtpb \
+#:              -o build/<stem>.json ~/tutorials/exercises/<ex>/<stem>.p4
+#:
+#: with p4c-bm2-ss 1.2.5.15 (SHA 5b948b037a, /usr/local/bin/p4c-bm2-ss). Their bmv2 json
+#: therefore carries `program: /home/adam/tutorials/exercises/<ex>/<stem>.p4`, which is where
+#: the source really is; the p4info sha is the stable identifier and the one the tests compare.
+GENERATED_FIXTURES = frozenset({
+    "firewall/build/basic.json",
+    "firewall/build/basic.p4.p4info.txtpb",
+    "firewall/build/firewall.json",
+    "firewall/build/firewall.p4.p4info.txtpb",
+    "calc/build/calc.json",
+    "calc/build/calc.p4.p4info.txtpb",
+})
 
 # pod-topo, transcribed from exercises/basic/pod-topo/topology.json rather than computed, so a
 # convert that changes its mind about port numbering has something to disagree with.
@@ -208,6 +238,147 @@ class PackageFields(TmpMixin, unittest.TestCase):
         self.assertEqual(package["source"]["bmv2_json"], "build/basic.json")
 
 
+class PerSwitchPipelines(TmpMixin, unittest.TestCase):
+    """G4 on the converter's side: which program each switch is given, and by whom.
+
+    [Co-developed with claude code -- Adam]
+    exercises/firewall is the discriminating exercise and the only one there is: its pod-topo
+    topology.json puts `"program": "build/firewall.json"` on s1 and says nothing about s2-s4,
+    which the Makefile's `DEFAULT_PROG = basic.p4` then answers. A fabric where all four run
+    one program is not a firewall exercise -- and it comes up, and it forwards.
+    """
+
+    def firewall(self, **kw):
+        out = os.path.join(self.tmp, kw.pop("out", "fw"))
+        package, model, _written = convert.convert(
+            FIREWALL, "pod-topo/topology.json", out, p4_rel="basic.p4", **kw)
+        return package, model, out
+
+    def pipelines(self, package):
+        return {package["switches"][k]["name"]: package["switches"][k]["pipeline"]
+                for k in package["switches"]}
+
+    def test_the_switch_that_names_a_program_gets_it_and_the_others_get_the_default(self):
+        package, _model, _out = self.firewall()
+        self.assertEqual(self.pipelines(package), {
+            "s1": {"p4info": "build/firewall.p4.p4info.txtpb",
+                   "bmv2_json": "build/firewall.json"},
+            "s2": {"p4info": "build/basic.p4.p4info.txtpb", "bmv2_json": "build/basic.json"},
+            "s3": {"p4info": "build/basic.p4.p4info.txtpb", "bmv2_json": "build/basic.json"},
+            "s4": {"p4info": "build/basic.p4.p4info.txtpb", "bmv2_json": "build/basic.json"},
+        })
+
+    def test_both_programs_are_copied_into_the_package(self):
+        _package, _model, out = self.firewall()
+        for rel in ("build/firewall.json", "build/firewall.p4.p4info.txtpb",
+                    "build/basic.json", "build/basic.p4.p4info.txtpb"):
+            with self.subTest(artefact=rel):
+                self.assertTrue(os.path.isfile(os.path.join(out, rel)), rel)
+        # And they are the fixtures' own bytes: a package carries the program, it does not
+        # point at one. The p4info sha is the stable half of the pair (the bmv2 json embeds the
+        # absolute source path), so that is the one compared.
+        self.assertEqual(sha(os.path.join(out, "build/firewall.p4.p4info.txtpb")),
+                         sha(os.path.join(FIREWALL, "build/firewall.p4.p4info.txtpb")))
+
+    def test_every_pipeline_path_is_relative_and_inside_the_package(self):
+        package, _model, out = self.firewall()
+        for key, spec in package["switches"].items():
+            with self.subTest(dpid=key):
+                for half in ("p4info", "bmv2_json"):
+                    rel = spec["pipeline"][half]
+                    self.assertFalse(os.path.isabs(rel), rel)
+                    self.assertFalse(rel.startswith(".."), rel)
+                    self.assertTrue(os.path.isfile(os.path.join(out, rel)), rel)
+
+    def test_the_ndtwin_pipeline_flag_nulls_every_switch_including_the_one_with_a_program(self):
+        # The phase-1 cell, kept reachable: package topology + NDTwin's own pipeline. The
+        # switch that names its own program is the interesting one -- the flag has to beat it,
+        # or the "NDTwin pipeline" package would still have one foreign switch in it.
+        package, _model, _out = self.firewall(out="ndtwin", ndtwin_pipeline=True)
+        self.assertEqual(self.pipelines(package),
+                         {"s1": None, "s2": None, "s3": None, "s4": None})
+
+    def test_without_p4_a_plain_exercise_still_converts_to_all_null(self):
+        # The phase-1 behaviour, unchanged for the twelve exercises that name no `program`.
+        package, _model, _out = self.convert_pod()
+        self.assertEqual([s["pipeline"] for s in package["switches"].values()],
+                         [None, None, None, None])
+
+    def test_a_program_without_p4_is_refused_rather_than_half_applied(self):
+        # 🔴 Honouring s1's override alone would build a fabric of two data planes -- s1 on
+        # firewall.json, s2-s4 on ndtwin_switch -- which nothing downstream reports; ignoring it
+        # would be the dropped-field bug. Neither is a package anybody asked for.
+        with self.assertRaises(convert.ConversionError) as cm:
+            convert.plan(FIREWALL, "pod-topo/topology.json")
+        message = str(cm.exception)
+        self.assertIn("s1", message)
+        self.assertIn("--p4", message)
+        self.assertIn("--ndtwin-pipeline", message)
+
+    def test_an_unbuilt_program_is_refused_with_the_make_command(self):
+        # A package naming a pipeline it does not carry cannot be pre-flighted, so the refusal
+        # belongs here, where the operator is still holding the exercise directory.
+        switches = {1: {"name": "s1", "entries": None, "program": "build/nowhere.json"}}
+        with self.assertRaises(convert.ConversionError) as cm:
+            convert.switch_pipelines(FIREWALL, switches, "basic.p4")
+        self.assertIn("build/nowhere", str(cm.exception))
+        self.assertIn("make", str(cm.exception))
+
+    def test_the_p4info_of_a_program_is_the_json_stem_with_the_makefiles_suffix(self):
+        # The naming rule, stated once: `build/firewall.json` and
+        # `build/firewall.p4.p4info.txtpb` are what ~/tutorials/utils/Makefile emits together.
+        self.assertEqual(convert.artefacts_for_program("build/firewall.json"),
+                         ("build/firewall.p4.p4info.txtpb", "build/firewall.json"))
+        # And a .p4 anywhere compiles to build/, not to its own directory.
+        self.assertEqual(convert.artefacts_for_p4("solution/basic.p4"),
+                         ("build/basic.p4.p4info.txtpb", "build/basic.json"))
+
+    def test_parse_switches_keeps_the_program_field(self):
+        parsed = convert.parse_switches({"s1": {"runtime_json": "a.json",
+                                                "program": "build/firewall.json"},
+                                         "s2": {"runtime_json": "b.json"}})
+        self.assertEqual(parsed[1]["program"], "build/firewall.json")
+        self.assertIsNone(parsed[2]["program"])
+
+    def test_two_firewall_conversions_are_byte_identical(self):
+        _p1, _m1, out1 = self.firewall(out="fw-a")
+        _p2, _m2, out2 = self.firewall(out="fw-b")
+        for rel in ("package.json", "ndtwin/topology.json"):
+            self.assertEqual(sha(os.path.join(out1, rel)), sha(os.path.join(out2, rel)), rel)
+
+
+class OneSwitchExercise(TmpMixin, unittest.TestCase):
+    """exercises/calc: one switch, two hosts, no cable between switches because there is no
+    second switch. The reader used to refuse this shape outright."""
+
+    def convert_calc(self, **kw):
+        out = os.path.join(self.tmp, kw.pop("out", "calc"))
+        package, model, _written = convert.convert(CALC, "topology.json", out,
+                                                   p4_rel="calc.p4", **kw)
+        return package, model, out
+
+    def test_it_converts_and_reads_back_through_the_proxys_reader(self):
+        _package, model, _out = self.convert_calc()
+        read = convert.read_back(model)
+        self.assertEqual([d for d, _n in read["switches"]], [1])
+        self.assertEqual([n for n, _ip, _mac in read["hosts"]], ["h1", "h2"])
+        self.assertEqual(read["switch_links"], [])
+        self.assertEqual(read["host_links"], [("h1", 1, 1), ("h2", 1, 2)])
+
+    def test_the_package_has_one_switch_two_hosts_and_two_links(self):
+        package, model, _out = self.convert_calc()
+        self.assertEqual(sorted(package["switches"]), ["1"])
+        self.assertEqual(sorted(package["hosts"]), ["h1", "h2"])
+        self.assertEqual(len(package["links"]), 2)
+        self.assertEqual(len(model["edges"]), 4)   # both directions of each access link
+
+    def test_its_one_switch_runs_calcs_own_program(self):
+        package, _model, out = self.convert_calc()
+        self.assertEqual(package["switches"]["1"]["pipeline"],
+                         {"p4info": "build/calc.p4.p4info.txtpb", "bmv2_json": "build/calc.json"})
+        self.assertTrue(os.path.isfile(os.path.join(out, "build/calc.json")))
+
+
 class LinkExtras(unittest.TestCase):
     """tutorials' optional link elements are [latency, bandwidth], in that order."""
 
@@ -330,6 +501,8 @@ class FixtureProvenance(unittest.TestCase):
                 rel = os.path.relpath(os.path.join(root, filename), FIXTURES)
                 if rel == "README":
                     continue          # this directory's own note, not a copy of anything
+                if rel in GENERATED_FIXTURES:
+                    continue          # compiled here on purpose; see the constant, and below
                 original = os.path.join(TUTORIALS_EXERCISES, rel)
                 if not os.path.isfile(original):
                     orphaned.append(rel)
@@ -343,7 +516,31 @@ class FixtureProvenance(unittest.TestCase):
         self.assertEqual(mismatched, [],
                          "fixture(s) that have drifted from ~/tutorials; the tests describe a "
                          "file shape the upstream exercise no longer has")
-        self.assertGreaterEqual(checked, 25, "the fixture tree shrank -- this check got easier")
+        # 34, not 25: TICKET-P2 added nine copies (firewall's topology, its four runtime files
+        # and its basic.p4; calc's topology, runtime file and calc.p4). The floor moves with
+        # the tree so that deleting fixtures cannot make this check easier.
+        self.assertGreaterEqual(checked, 34, "the fixture tree shrank -- this check got easier")
+
+    def test_the_generated_fixtures_are_all_there_and_are_the_only_exemptions(self):
+        # 🔴 The allow list above is the one way a file can be in this tree without being
+        # compared to anything, so it is itself checked: every name in it must exist (a stale
+        # entry would silently exempt nothing, or worse, a file that later became a copy), and
+        # nothing may be exempt that is not in it -- which is what the `continue` enforces.
+        for rel in sorted(GENERATED_FIXTURES):
+            with self.subTest(fixture=rel):
+                self.assertTrue(os.path.isfile(os.path.join(FIXTURES, rel)),
+                                f"{rel} is exempted from the provenance check but is not there")
+        # And they really are build products of the programs they claim: each json names its
+        # own source, and each p4info parses. `program` is an absolute path into whoever
+        # compiled it -- recorded, never compared (TICKET-P1 B measured that its sha moves with
+        # the directory, while the p4info's does not).
+        for rel in sorted(r for r in GENERATED_FIXTURES if r.endswith(".json")):
+            with self.subTest(fixture=rel):
+                with open(os.path.join(FIXTURES, rel), encoding="utf-8") as fh:
+                    built = json.load(fh)
+                stem = os.path.basename(rel)[: -len(".json")]
+                self.assertTrue(built.get("program", "").endswith(f"{stem}.p4"),
+                                f"{rel} says it was compiled from {built.get('program')!r}")
 
 
 class Refusals(TmpMixin, unittest.TestCase):

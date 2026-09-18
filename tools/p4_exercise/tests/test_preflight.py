@@ -32,6 +32,8 @@ from p4_exercise import common, convert, preflight  # noqa: E402
 FIXTURES = os.path.join(HERE, "fixtures")
 BASIC = os.path.join(FIXTURES, "basic")
 P4RUNTIME = os.path.join(FIXTURES, "p4runtime")
+FIREWALL = os.path.join(FIXTURES, "firewall")
+CALC = os.path.join(FIXTURES, "calc")
 
 
 class PackageCase(unittest.TestCase):
@@ -40,12 +42,14 @@ class PackageCase(unittest.TestCase):
     exercise = BASIC
     topology = "pod-topo/topology.json"
     p4 = None
+    ndtwin_pipeline = False
 
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="p4_exercise_preflight_test_")
         self.addCleanup(shutil.rmtree, self.tmp, True)
         self.pkg = os.path.join(self.tmp, "pkg")
-        convert.convert(self.exercise, self.topology, self.pkg, p4_rel=self.p4)
+        convert.convert(self.exercise, self.topology, self.pkg, p4_rel=self.p4,
+                        ndtwin_pipeline=self.ndtwin_pipeline)
 
     # --- reading the report ------------------------------------------------------------------
 
@@ -194,10 +198,147 @@ class EntriesRedCells(PackageCase):
         self.assert_green()
 
 
+class PipelineCells(PackageCase):
+    """G4: the per-switch pipeline rows, on the one exercise that has two programs."""
+
+    exercise = FIREWALL
+    p4 = "basic.p4"
+
+    def rows(self):
+        return {label: (status, detail) for status, label, detail in self.report().rows}
+
+    def edit_bmv2(self, rel, fn):
+        path = os.path.join(self.pkg, rel)
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+        fn(data)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(common.dumps(data))
+
+    def test_a_two_program_package_passes_every_check(self):
+        self.assert_green()
+
+    def test_each_switch_gets_its_own_row_with_the_p4info_sha_and_the_source(self):
+        # The sha is the stable identifier -- the answer to "is this the program those entries
+        # were written for" -- and `program` is where the source was when it was compiled.
+        rows = self.rows()
+        self.assertIn("build/firewall.json", rows["s1 pipeline"][1])
+        self.assertIn("p4info sha256:", rows["s1 pipeline"][1])
+        self.assertIn("firewall.p4", rows["s1 pipeline"][1])
+        for switch in ("s2", "s3", "s4"):
+            with self.subTest(switch=switch):
+                self.assertIn("build/basic.json", rows[f"{switch} pipeline"][1])
+        # s1 and s2 must not be reported as the same program.
+        self.assertNotEqual(rows["s1 pipeline"][1], rows["s2 pipeline"][1])
+
+    def test_the_printed_sha_is_the_p4infos_own(self):
+        import hashlib
+
+        with open(os.path.join(self.pkg, "build", "firewall.p4.p4info.txtpb"), "rb") as fh:
+            want = hashlib.sha256(fh.read()).hexdigest()[:16]
+        self.assertIn(f"p4info sha256:{want}", self.rows()["s1 pipeline"][1])
+
+    def test_a_p4info_naming_a_table_the_bmv2_json_does_not_have_fails(self):
+        # 🔴 The two halves must be one compile. There is no build id to compare, so what is
+        # checked is containment: the json is the whole program, the p4info is its visible
+        # subset. Dropping a table from the json is what a mismatched pair looks like.
+        def drop_a_table(data):
+            data["pipelines"][0]["tables"] = [
+                t for t in data["pipelines"][0]["tables"]
+                if t["name"] != "MyIngress.check_ports"]
+        self.edit_bmv2("build/firewall.json", drop_a_table)
+        self.assert_red("switches pipeline", "not one compile")
+
+    def test_a_p4info_naming_an_action_the_bmv2_json_does_not_have_fails(self):
+        self.edit_bmv2("build/firewall.json", lambda d: d.__setitem__(
+            "actions", [a for a in d["actions"] if a["name"] != "MyIngress.set_direction"]))
+        self.assert_red("switches pipeline", "not one compile")
+
+    def test_a_missing_pipeline_file_fails_and_names_the_switch(self):
+        os.remove(os.path.join(self.pkg, "build", "firewall.json"))
+        self.assert_red("switches pipeline", "s1")
+
+    def test_a_pipeline_that_is_a_list_rather_than_an_object_fails(self):
+        # The phase-1 spelling. The two paths are not interchangeable: a swapped pair would
+        # launch bmv2 on a p4info.
+        self.edit_package(lambda d: d["switches"]["1"].__setitem__(
+            "pipeline", ["build/firewall.p4.p4info.txtpb", "build/firewall.json"]))
+        self.assert_red("switches pipeline", "not an object")
+
+    def test_a_pipeline_missing_one_half_fails(self):
+        self.edit_package(lambda d: d["switches"]["1"].__setitem__(
+            "pipeline", {"bmv2_json": "build/firewall.json"}))
+        self.assert_red("switches pipeline", "p4info")
+
+    def test_entries_written_for_another_program_fail(self):
+        # 🔴 s1 runs firewall.json, and its runtime file names firewall's p4info INSIDE the
+        # file. Point it at basic's and every "entries match p4info" row above becomes true of
+        # a program this switch is not running -- which is worse than a red row, because it
+        # reads green.
+        self.edit_entries("pod-topo/s1-runtime.json",
+                          lambda d: d.__setitem__("p4info", "build/basic.p4.p4info.txtpb"))
+        self.assert_red("entries p4info is the pipeline's", "not running")
+
+    def test_entries_and_pipeline_agreeing_is_its_own_green_row(self):
+        # The control for the row above: the shipped firewall package really does pair s1's
+        # entries with firewall's p4info and s2-s4's with basic's.
+        self.assertEqual(self.rows()["entries p4info is the pipeline's"][0], preflight.PASS)
+        self.assertIn("4 switch(es)", self.rows()["entries p4info is the pipeline's"][1])
+
+    def test_a_ternary_match_says_the_endpoint_answers_501(self):
+        path = os.path.join(self.pkg, "build", "firewall.p4.p4info.txtpb")
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read().replace("match_type: EXACT", "match_type: TERNARY", 1)
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        self.assert_red("entries match p4info", "501")
+
+
+class NdtwinPipelinePackage(PackageCase):
+    """`--ndtwin-pipeline`: the phase-1 cell, still reachable and still green."""
+
+    exercise = FIREWALL
+    p4 = "basic.p4"
+    ndtwin_pipeline = True
+
+    def test_every_switch_is_null_and_the_row_says_so(self):
+        self.assert_green()
+        rows = {label: (status, detail) for status, label, detail in self.report().rows}
+        self.assertEqual(rows["switches pipeline"][0], preflight.PASS)
+        self.assertIn("all null", rows["switches pipeline"][1])
+
+    def test_with_no_pipeline_the_entries_are_not_compared_to_one(self):
+        # A null pipeline means NDTwin's own artefact, whose p4info an exercise's entries will
+        # never name. Checking them against it would make every phase-1 package permanently red.
+        labels = [label for _s, label, _d in self.report().rows]
+        self.assertNotIn("entries p4info is the pipeline's", labels)
+        self.assertIn("entries match p4info", labels)
+
+
+class OneSwitchPackage(PackageCase):
+    """exercises/calc: one switch, zero inter-switch links, and that is not an error."""
+
+    exercise = CALC
+    topology = "topology.json"
+    p4 = "calc.p4"
+
+    def test_a_single_switch_package_passes_every_check(self):
+        self.assert_green()
+
+    def test_the_zero_link_row_is_a_pass_not_a_failure(self):
+        rows = {label: (status, detail) for status, label, detail in self.report().rows}
+        self.assertEqual(rows["topo_from_json.switch_links"][0], preflight.PASS)
+        self.assertEqual(rows["topo_from_json.switch_links"][1], "0 entries")
+        self.assertIn("2 links in both", rows["links agree"][1])
+
+
 class PackageRedCells(PackageCase):
-    def test_a_non_null_pipeline_fails_with_g4_not_done(self):
-        self.edit_package(lambda d: d["switches"]["1"].__setitem__("pipeline", ["a.p4info", "a.json"]))
-        self.assert_red("switches pipeline", "G4 not done")
+    def test_a_non_null_pipeline_on_a_package_that_carries_none_fails(self):
+        # The basic pod-topo package is converted with no --p4, so every switch is null. A
+        # pipeline pointing at files it does not carry is refused rather than loaded by nobody.
+        self.edit_package(lambda d: d["switches"]["1"].__setitem__(
+            "pipeline", {"p4info": "build/a.p4info.txtpb", "bmv2_json": "build/a.json"}))
+        self.assert_red("switches pipeline", "is not at")
 
     def test_a_grpc_base_other_than_30050_fails(self):
         self.edit_package(lambda d: d["control_plane"].__setitem__("grpc_base", 50050))
