@@ -607,8 +607,8 @@ add "65. the telemetry knob is left where this round moved it" \
 # instruments, and "the same cell over thirteen exercises" becomes a comparison between them.
 add "66. the generic link-usage cell stops going through live-p1/_common.sh" \
     "$DRIVER" \
-    '              "link_usage_round %s %s %s %s\n" % (_sh(LIVE_COMMON), _sh(package),' \
-    '              "true %s %s %s %s\n" % (_sh(LIVE_COMMON), _sh(package),  # MUTANT' \
+    '              "link_usage_round %s %s %s %s %s\n" % (_sh(LIVE_COMMON), _sh(package),' \
+    '              "true %s %s %s %s %s\n" % (_sh(LIVE_COMMON), _sh(package),  # MUTANT' \
     'test_the_cell_is_live_p1_commons_own_function_and_not_a_second_copy'
 
 # 67: a cell that could not run is reported as a cell that passed. rc 2 from link_usage_round
@@ -624,8 +624,9 @@ add "67. any rc from the generic cell counts as a pass" \
 # before, which is the point: this is the cell that is about NDTwin.
 add "68. the round never runs the generic link-usage cell" \
     "$DRIVER" \
-    '            ok, usage_out = link_usage_cell(pkg, "%s/%s" % (ex, which), usage_dir)' \
-    '            ok, usage_out = True, "(MUTANT: not run)"' \
+    '                ok, usage_out = link_usage_cell(pkg, "%s/%s" % (ex, which), usage_dir,
+                                                dst=usage_dst)' \
+    '                ok, usage_out = True, "(MUTANT: not run)"' \
     'test_the_round_runs_it_after_the_steps_and_records_the_expectation'
 
 # 69: a skeleton that COMPILED when it was supposed not to is reported as the designed refusal.
@@ -679,6 +680,35 @@ add "74. a missing solution/*.p4 silently falls back to the skeleton everywhere"
         return cands[0], base
     return os.path.join(exdir, spec["prog"]), base  # MUTANT' \
     'test_an_exercise_with_no_solution_program_is_still_an_error_everywhere_else'
+
+# 75-78: the generic cell needs a FLOW, and four ways to lose that.
+add "75. the generic cell runs on the skeleton arm too" \
+    "$DRIVER" \
+    '    if which != "solution":
+        return False, None, ("the skeleton arm is a fabric the exercise says should not "
+                             "forward; there is no path for a program-independent cell to follow")' \
+    '    if False:  # MUTANT
+        return False, None, ""' \
+    'test_the_cell_does_not_run_on_a_skeleton_arm'
+
+add "76. an exercise that forwards nothing is measured anyway" \
+    "$DRIVER" \
+    '    if want is False:
+        return False, None, spec.get("link_usage_why") or "this exercise declares no path"' \
+    '    if False:  # MUTANT' \
+    'test_two_solutions_forward_nothing_and_are_named'
+
+add "77. the destination override is ignored, so two exercises measure to a host they cannot reach" \
+    "$DRIVER" \
+    '    return True, (want if isinstance(want, str) else None), ""' \
+    '    return True, None, ""  # MUTANT' \
+    'test_the_two_unreachable_last_hosts_are_overridden'
+
+add "78. the destination never reaches the shell helper" \
+    "$DRIVER" \
+    '                                                     _sh(dst or "")))' \
+    '                                                     _sh("")))  # MUTANT' \
+    'test_the_destination_reaches_the_shell_helper'
 
 CTRL_SRC="$DRIVER"
 CTRL_ANCHOR='def host_key(name):'

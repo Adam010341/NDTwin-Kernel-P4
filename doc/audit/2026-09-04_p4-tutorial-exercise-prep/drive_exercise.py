@@ -123,6 +123,15 @@ EXERCISES = {
         "prog": "source_routing.p4",
         "default_prog": "source_routing.p4",
         "hosts": 3, "switches": 3,
+        # 🔴 NO GENERIC CELL HERE. solution/source_routing.p4:127-138 is
+        # `if (hdr.srcRoutes[0].isValid()) { ... } else { drop(); }` -- the SOLUTION drops
+        # every frame that does not carry the 0x1234 source-route stack, which is why
+        # audit-raw 7af2f352 measured this exercise with send.py/receive.py and a ttl rather
+        # than with a ping (TICKET-P2 §7-10 says the same). An iperf between two hosts here
+        # moves nothing, so "link usage follows the iperf path" has no path to follow.
+        "link_usage": False,
+        "link_usage_why": ("solution/source_routing.p4:127-138 drops every frame without a "
+                           "0x1234 source-route stack, so an iperf crosses nothing"),
         "plan_steps": ("h2 receive.py; h1 send.py 10.0.2.2 with '2 3 2 2 1' then '2 1'; "
                        "assert packet count + ttl"),
     },
@@ -188,6 +197,13 @@ EXERCISES = {
         "prog": "calc.p4",
         "default_prog": "calc.p4",
         "hosts": 2, "switches": 1,
+        # 🔴 NO GENERIC CELL HERE either, and for the same shape: calc.p4:205-210 is
+        # `if (hdr.p4calc.isValid()) { calculate.apply(); } else { operation_drop(); }`. The
+        # switch handles the 0x1234 calculator protocol and drops everything else, so an
+        # iperf between h1 and h2 moves nothing whichever arm is running.
+        "link_usage": False,
+        "link_usage_why": ("calc.p4:205-210 drops everything that is not the 0x1234 "
+                           "calculator protocol, so an iperf crosses nothing"),
         "plan_steps": "h1 calc.py <<< '1+1'; assert the answer line (solution 2, skeleton no response)",
     },
     "ecn": {
@@ -244,6 +260,11 @@ EXERCISES = {
         # the script as shipped would turn IPv6 off for the whole machine, which is not this
         # driver's to do, and what it is for is the IPv6 multicast noise inside the fabric.
         "disable_ipv6": True,
+        # 🔴 THE GENERIC CELL RUNS TO h3, NOT TO THE MODEL'S LAST HOST. h4 is the one host
+        # sig-topo/s1-runtime.json:47-65 deliberately does not replicate to (README:122 is
+        # the student's TODO to add it), so a flow to h4 would produce an EMPTY on-path set
+        # and the cell would refuse -- correctly, and about the wrong thing.
+        "link_usage": "h3",
         "plan_steps": ("disable IPv6 in each host; pingall; assert h1/h2/h3 reach each other "
                        "and nobody reaches h4 (sig-topo's group is ports 1,2,3)"),
     },
@@ -260,6 +281,10 @@ EXERCISES = {
         # exercises/flowcache is the control: it ships solution/flowcache.p4 as well.
         "variant": "controller",
         "controller": "mycontroller.py",
+        # 🔴 AND THE GENERIC CELL RUNS TO h2. The controller wires ONE tunnel, h1 <-> h2
+        # (mycontroller.py:172-178), and never contacts s3 at all -- so h3, which is the
+        # model's last host, is unreachable by design on this fabric.
+        "link_usage": "h2",
         "plan_steps": "run the exercise's controller; h1 ping h2; assert the transit rule and the ping",
     },
     "qos": {
@@ -2182,7 +2207,36 @@ def knob_restore(before, path=None):
     return True, "put back to the %d bytes this round found" % len(before)
 
 
-def link_usage_cell(package, label, out_dir, expect="follows", runner=None):
+def link_usage_applies(spec, which):
+    """(run it?, destination host or None, why not) for the generic cell on ONE ndtwin arm.
+
+    🔴 THE CELL NEEDS A FLOW, AND TWO KINDS OF ARM DO NOT HAVE ONE. "Link usage follows the
+    iperf path" is a claim about NDTwin and is program-independent -- but it still needs the
+    exercise's fabric to carry a packet, and:
+
+      * a SKELETON is, for most of these exercises, a fabric that deliberately forwards
+        nothing. Running the cell there produces an EMPTY on-path set, which
+        assert_link_usage_follows_path refuses -- correctly, and about the wrong thing;
+      * two SOLUTIONS forward nothing either. source_routing's drops every frame without a
+        0x1234 stack and calc's drops everything that is not the calculator protocol, both
+        in the solution (see their spec entries). Those are properties of the exercise, not
+        of the twin.
+
+    🔴 AND "NOT RUN" IS NOT "PASSED". Neither case produces an expectation: the round records
+    a named reading saying the cell did not run and why, the way `ndt`'s own NOT CHECKED
+    branches do. Inventing a green cell for a fabric that moved no packet is the exact shape
+    this whole ticket keeps refusing.
+    """
+    if which != "solution":
+        return False, None, ("the skeleton arm is a fabric the exercise says should not "
+                             "forward; there is no path for a program-independent cell to follow")
+    want = spec.get("link_usage", True)
+    if want is False:
+        return False, None, spec.get("link_usage_why") or "this exercise declares no path"
+    return True, (want if isinstance(want, str) else None), ""
+
+
+def link_usage_cell(package, label, out_dir, expect="follows", runner=None, dst=None):
     """The generic cell of TICKET-P3 §2.7, run through live-p1/_common.sh's own helper.
 
     -> (ok, transcript).  `expect` is "follows" (the cell) or "absent" (the control).
@@ -2202,8 +2256,9 @@ def link_usage_cell(package, label, out_dir, expect="follows", runner=None):
     runner = runner or run
     script = ("set -u\n"
               "source %s\n"
-              "link_usage_round %s %s %s %s\n" % (_sh(LIVE_COMMON), _sh(package),
-                                                  _sh(label), _sh(out_dir), _sh(expect)))
+              "link_usage_round %s %s %s %s %s\n" % (_sh(LIVE_COMMON), _sh(package),
+                                                     _sh(label), _sh(out_dir), _sh(expect),
+                                                     _sh(dst or "")))
     rc, out = runner(["bash", "-c", script], cwd=REPO, timeout=240, env=ndt_env())
     say(trim(out, 4000).rstrip())
     return rc == 0, out
@@ -2438,15 +2493,25 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
             # exercise's own steps so that a failure here cannot be confused with one of
             # theirs, and before the teardown because it needs the fabric.
             rule("G1  link usage follows the iperf path (program-independent)")
-            usage_dir = os.path.join(log_dir, "link_usage")
-            ok, usage_out = link_usage_cell(pkg, "%s/%s" % (ex, which), usage_dir)
-            steps_out.append(("N8  G1 link usage follows the iperf path",
-                              "live-p1/_common.sh link_usage_round %s" % pkg, usage_out))
-            run_on_ndtwin.expects = list(run_on_ndtwin.expects) + [Expect(
-                "G1  link usage follows the iperf path", "on-path > 0, off-path == 0",
-                "PASS" if ok else "see the transcript", ok, G_SRC,
-                "TICKET-P3 §2.7's program-independent cell, through live-p1/_common.sh's "
-                "link_usage_round -- the same function live-p1/05 runs")]
+            run_it, usage_dst, why = link_usage_applies(spec, which)
+            if not run_it:
+                say("   NOT RUN: %s" % why)
+                say("   (a cell with no flow to follow is recorded as not run, never as a pass)")
+                steps_out.append(("N8  G1 link usage follows the iperf path -- NOT RUN",
+                                  "live-p1/_common.sh link_usage_round (not called)",
+                                  "NOT RUN: %s" % why))
+            else:
+                usage_dir = os.path.join(log_dir, "link_usage")
+                ok, usage_out = link_usage_cell(pkg, "%s/%s" % (ex, which), usage_dir,
+                                                dst=usage_dst)
+                steps_out.append(("N8  G1 link usage follows the iperf path",
+                                  "live-p1/_common.sh link_usage_round %s (to %s)"
+                                  % (pkg, usage_dst or "the model's last host"), usage_out))
+                run_on_ndtwin.expects = list(run_on_ndtwin.expects) + [Expect(
+                    "G1  link usage follows the iperf path", "on-path > 0, off-path == 0",
+                    "PASS" if ok else "see the transcript", ok, G_SRC,
+                    "TICKET-P3 §2.7's program-independent cell, through live-p1/_common.sh's "
+                    "link_usage_round -- the same function live-p1/05 runs")]
     finally:
         rule("teardown: ndt down, the two knobs, then ndt release")
         run_on_ndtwin.teardown_problem = ndtwin_teardown(knob_before, steps_out,

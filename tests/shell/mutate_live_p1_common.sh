@@ -500,6 +500,39 @@ EOF
 check_fires "M21: an interface seen once is measured from zero" m21 \
             "  and it is not on the path"
 
+# --- M22: the named destination is ignored --------------------------------------------------------
+# 🔴 THE TWO EXERCISES THIS PARAMETER EXISTS FOR. exercises/multicast's sig-topo group
+# replicates ports 1,2,3 -- adding the fourth is README:122's own TODO -- and
+# exercises/p4runtime's controller wires h1<->h2 and never contacts s3. With the caller's
+# destination dropped, both measure to the model's LAST host, which on those two fabrics is
+# unreachable by design: an empty on-path set, and the cell refuses about the wrong thing.
+cat > "$A/m22.old" <<'EOF'
+    if [[ -n "$want_dst" ]]; then
+EOF
+cat > "$A/m22.new" <<'EOF'
+    if false; then
+EOF
+check_fires "M22: the caller's destination host is ignored" m22 \
+            "  a named destination is the one the flow runs to"
+
+# --- M23: a destination the model does not declare falls back to the last host ----------------------
+# Silently measuring between two hosts nobody asked about, and reporting the result under the
+# caller's label.
+cat > "$A/m23.old" <<'EOF'
+        if [[ -z "$dst_ip" ]]; then
+            fail "$label: the package model declares no host '$want_dst' to run a flow to"
+            return 1
+        fi
+EOF
+cat > "$A/m23.new" <<'EOF'
+        if [[ -z "$dst_ip" ]]; then
+            read -r dst dst_ip < <(model_hosts "$pkg" | tail -1)
+        fi
+EOF
+check_fires "M23: an unknown destination falls back to the last host" m23 \
+            "🔴 a destination the model does not declare is refused" \
+            "  rather than silently falling back to another host"
+
 # --- the controls for this half --------------------------------------------------------------------------
 cat > "$A/c3.old" <<'EOF'
     (( rc == 0 )) && note "$label: link usage follows the iperf path"

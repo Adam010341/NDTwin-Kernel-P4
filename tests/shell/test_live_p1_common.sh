@@ -446,6 +446,19 @@ OUT="$(drive "link_usage_round '$PKG3' 'no-ns' '$FIX/lur2'")"
 check "🔴 a host with no namespace is rc 2, a refusal"    "2" "$(rc_of "$OUT")"
 has   "  named as the permission answer it is"           "never a reading about link usage" "$OUT"
 
+# 🔴 THE DESTINATION IS A PARAMETER, AND TWO EXERCISES NEED IT. "The model's last host" is a
+# property of the MODEL, and for exercises/multicast and exercises/p4runtime it is a host the
+# exercise deliberately cannot reach -- sig-topo replicates ports 1,2,3 and p4runtime's
+# controller wires h1<->h2 and never touches s3. Measuring to those produces an EMPTY on-path
+# set, which this cell refuses: correctly, and about the wrong thing.
+OUT="$(drive "link_usage_round '$PKG3' 'to-h2' '$FIX/lur3' follows h2")"
+has   "  a named destination is the one the flow runs to" "h1 -> h2 (10.0.2.2)" "$OUT"
+OUT="$(drive "link_usage_round '$PKG3' 'default' '$FIX/lur4'")"
+has   "  and with none named it is the model's LAST host" "h1 -> h3 (10.0.3.3)" "$OUT"
+OUT="$(drive "link_usage_round '$PKG3' 'to-h9' '$FIX/lur5' follows h9")"
+check "🔴 a destination the model does not declare is refused" "1" "$(rc_of "$OUT")"
+has   "  rather than silently falling back to another host" "declares no host 'h9'" "$OUT"
+
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
 (( FAIL == 0 ))

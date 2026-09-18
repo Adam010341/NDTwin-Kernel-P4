@@ -164,13 +164,31 @@ sudo、沒有 lab、沒有跑過任何一支（TICKET-P3 §0-2）；離線測試
    `127.0.0.1:5005N`／`device_id N-1` 就是真的；NDTwin 上不是，要走
    `tools/p4_exercise/run_external_controller.py`（TICKET-P1D 的 adapter，live-p1/03 用的同一支）。
 
-### 6.3 通用格（每一支 `--fabric ndtwin` 的最後一步）
+### 6.3 通用格（`--fabric ndtwin` 的**解答臂**最後一步）
 
 `G1  link usage follows the iperf path`：在 exercise 自己的步驟**之後**、teardown **之前**跑，
 內容是 `live-p1/_common.sh` 的 `link_usage_round`——**live-p1/05 跑的是同一個函式**。
 它量的是「iperf 期間 `/proc/net/dev` 上真的搬了位元組的 `sN-ethP`」對「twin 的
 `link_bandwidth_usage_bps` 在同一視窗的積分」，斷言 on-path > 0、off-path 的**交換機間**邊 == 0。
-這一格與 exercise 的程式無關，13 支都跑同一格。**它的紅綠鑑別力由 05 的第三組（`--telemetry none`）
-建立，不是由這一格自己建立。**
+這一格與 exercise 的**程式**無關。**它的紅綠鑑別力由 05 的第三組（`--telemetry none`）建立，
+不是由這一格自己建立。**
+
+🔴 **但它需要一條真的流，而有兩類臂沒有。** 工單 §2.7 寫「每一支」，實際上：
+
+| 臂 | 跑不跑 | 理由 |
+|---|---|---|
+| 任何 **skeleton** 臂 | **不跑** | 骨架就是「這個 fabric 不該轉發」的 fabric。跑了會得到空的 on-path 集合，而那個集合空的時候 `assert_link_usage_follows_path` 會**拒絕**——拒絕得對，但講的是別的事。 |
+| `source_routing` solution | **不跑** | `solution/source_routing.p4:127-138` 是 `if (hdr.srcRoutes[0].isValid()) {…} else { drop(); }`：**解答**把每一個沒有 0x1234 stack 的訊框丟掉。audit-raw `7af2f352` 當初就是用 send.py／receive.py＋ttl 量的，不是用 ping（TICKET-P2 §7-10 同一句）。 |
+| `calc` solution | **不跑** | `calc.p4:205-210` 是 `if (hdr.p4calc.isValid()) {…} else { operation_drop(); }`：只認 0x1234 計算機協定，其餘全丟。 |
+| `multicast` solution | 跑，**目的地 h3** | `sig-topo/s1-runtime.json:47-65` 只複製 port 1,2,3；h4 是 README:122 的 TODO，**設計上不通**。模型的「最後一台主機」正好是它。 |
+| `p4runtime` solution | 跑，**目的地 h2** | 控制器只接 s1／s2、只裝 h1↔h2 那條 tunnel（`mycontroller.py:172-178`），s3／h3 從沒被碰過。 |
+| 其餘 11 支 solution | 跑，目的地＝模型最後一台主機 | |
+
+⇒ **實際會有 11 格**（13 減掉 `source_routing` 與 `calc`）。
+🔴 **不跑的那幾格是「NOT RUN ＋ 理由」寫進 report，不產生任何期望**——不是綠的，也不是紅的。
+把一個沒有封包經過的 fabric 記成綠色，正是這整份工單一直在拒絕的形狀。
+
+**目的地是量測的參數，路徑仍然是量出來的。** `link_usage_round` 的第五個參數只決定 iperf 打去哪裡；
+on-path 集合永遠是 `/proc/net/dev` 的 tx_bytes 增量，沒有任何一條路徑是寫死的。
 
 [Co-developed with claude code -- Adam]

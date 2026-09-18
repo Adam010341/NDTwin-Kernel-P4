@@ -1880,6 +1880,51 @@ class TheGenericLinkUsageCell(unittest.TestCase):
         self.mod = load_driver()
         quiet(self.mod)
 
+    def test_the_cell_does_not_run_on_a_skeleton_arm(self):
+        """🔴 A SKELETON IS A FABRIC THE EXERCISE SAYS SHOULD NOT FORWARD. Running the cell
+        there produces an empty on-path set, which the assertion refuses -- correctly, and
+        about the wrong thing. NOT RUN, with the reason, and NO expectation either way."""
+        run, dst, why = self.mod.link_usage_applies(self.mod.EXERCISES["basic"], "skeleton")
+        self.assertFalse(run)
+        self.assertIn("should not forward", why)
+
+    def test_two_solutions_forward_nothing_and_are_named(self):
+        """source_routing's solution drops every frame without a 0x1234 stack and calc's
+        drops everything that is not the calculator protocol. Both are properties of the
+        EXERCISE; a cell that went red on them would be reporting the twin for it."""
+        for ex, fragment in (("source_routing", "0x1234 source-route stack"),
+                             ("calc", "calculator protocol")):
+            with self.subTest(exercise=ex):
+                run, dst, why = self.mod.link_usage_applies(self.mod.EXERCISES[ex], "solution")
+                self.assertFalse(run)
+                self.assertIn(fragment, why)
+
+    def test_every_other_solution_arm_runs_the_cell(self):
+        runs = sorted(ex for ex in self.mod.EXERCISES
+                      if self.mod.link_usage_applies(self.mod.EXERCISES[ex], "solution")[0])
+        self.assertEqual(
+            sorted(["basic", "basic_tunnel", "ecn", "firewall", "flowcache", "link_monitor",
+                    "load_balance", "mri", "multicast", "p4runtime", "qos"]), runs)
+
+    def test_the_two_unreachable_last_hosts_are_overridden(self):
+        """🔴 "The model's last host" is a property of the MODEL, and for two packages it is a
+        host the exercise deliberately cannot reach: multicast's sig-topo group replicates
+        ports 1,2,3 (README:122 is the TODO to add the fourth) and p4runtime's controller
+        wires h1<->h2 and never contacts s3. Measuring to those is an empty on-path set."""
+        self.assertEqual("h3", self.mod.link_usage_applies(
+            self.mod.EXERCISES["multicast"], "solution")[1])
+        self.assertEqual("h2", self.mod.link_usage_applies(
+            self.mod.EXERCISES["p4runtime"], "solution")[1])
+        # everybody else takes the model's own last host, which is what None means here
+        self.assertIsNone(self.mod.link_usage_applies(
+            self.mod.EXERCISES["basic"], "solution")[1])
+
+    def test_the_destination_reaches_the_shell_helper(self):
+        seen = []
+        self.mod.link_usage_cell("/pkg", "x", self.tmp, dst="h3",
+                                 runner=lambda cmd, **kw: (seen.append(cmd), (0, ""))[1])
+        self.assertIn("'h3'", seen[0][2])
+
     def test_the_cell_is_live_p1_commons_own_function_and_not_a_second_copy(self):
         """🔴 live-p1/05 runs link_usage_round three times and the driver runs it once per
         exercise. A Python re-implementation here would make 'the same program-independent
@@ -1947,6 +1992,7 @@ class TheGenericLinkUsageCell(unittest.TestCase):
         self.assertLess(order.index("link_usage"), order.index("down"))
         names = [e.name for e in mod.run_on_ndtwin.expects]
         self.assertIn("G1  link usage follows the iperf path", names)
+        self.assertNotIn("link_usage", order[:order.index("steps")])
         self.assertEqual("G1  link usage follows the iperf path", names[-1],
                          "the generic cell is the LAST expectation, after the exercise's own")
         self.assertFalse([e for e in mod.run_on_ndtwin.expects

@@ -801,33 +801,53 @@ assert_link_usage_absent() {
     return $rc
 }
 
-# link_usage_round <package-dir> <label> <out-dir> [expect] -- the whole measurement, once.
+# link_usage_round <package-dir> <label> <out-dir> [expect] [dst-host] -- the measurement, once.
 # `expect` is `follows` (the cell) or `absent` (the positive control).
 #
 # 🔴 ONE IMPLEMENTATION, TWO CALLERS. live-p1/05 runs it three times and drive_exercise.py's
-# ndtwin arm runs it once at the end of every exercise (TICKET-P3 §2.7). A driver with its own
-# copy of this rule would be a second instrument, and "the same cell on 13 exercises" would be
-# a comparison of thirteen runs of one script against three of another.
+# ndtwin arm runs it once at the end of every exercise that HAS a path (TICKET-P3 §2.7). A
+# driver with its own copy of this rule would be a second instrument, and "the same cell on 13
+# exercises" would be a comparison of thirteen runs of one script against three of another.
 #
 # 🔴 h1 -> the LAST host the package's model declares, so the flow crosses the fabric rather
 # than staying on one switch. Which hosts those are is read from the model, never typed.
+#
+# 🔴 <dst-host> OVERRIDES THAT LAST HOST, AND TWO EXERCISES NEED IT. "The last host" is a
+# property of the MODEL, and for two packages it is a host the exercise deliberately cannot
+# reach: exercises/multicast's sig-topo group replicates ports 1,2,3 and leaving h4 out is the
+# student's own TODO (README:122), and exercises/p4runtime's controller wires the h1<->h2
+# tunnel and never touches s3. Measuring to those would produce an EMPTY on-path set, which
+# this cell refuses -- correctly, and about the wrong thing. The destination is a PARAMETER of
+# the measurement; the PATH is still measured and never typed.
 link_usage_round() {
-    local pkg="$1" label="$2" dir="$3" expect="${4:-follows}"
+    local pkg="$1" label="$2" dir="$3" expect="${4:-follows}" want_dst="${5:-}"
     local src dst dst_ip pid_s pid_c rc=0
     mkdir -p "$dir"
     src="$(model_hosts "$pkg" | head -1 | cut -d' ' -f1)"
-    read -r dst dst_ip < <(model_hosts "$pkg" | tail -1)
+    if [[ -n "$want_dst" ]]; then
+        read -r dst dst_ip < <(model_hosts "$pkg" | /usr/bin/grep -m1 "^$want_dst ")
+        if [[ -z "$dst_ip" ]]; then
+            fail "$label: the package model declares no host '$want_dst' to run a flow to"
+            return 1
+        fi
+    else
+        read -r dst dst_ip < <(model_hosts "$pkg" | tail -1)
+    fi
     if [[ -z "$src" || -z "$dst" || -z "$dst_ip" || "$src" == "$dst" ]]; then
         fail "$label: the package model does not name two hosts to run a flow between (src='$src' dst='$dst')"
         return 1
     fi
+    # 🔴 WHICH TWO HOSTS, SAID BEFORE ANYTHING IS ASKED ABOUT THEM. The pair is a decision --
+    # the model's first host and either its last or the one the caller named -- and the
+    # refusals below are about whether those namespaces exist. Printing the decision after
+    # the refusal would leave a reader of a red run guessing which hosts it meant.
+    note "$label: $src -> $dst ($dst_ip), iperf -u -b $LINK_USAGE_RATE -t $LINK_USAGE_SECONDS"
     pid_s="$( set +e; source "$NDT" >/dev/null 2>&1; host_pid "$dst" )"
     pid_c="$( set +e; source "$NDT" >/dev/null 2>&1; host_pid "$src" )"
     if [[ ! "$pid_s" =~ ^[0-9]+$ || ! "$pid_c" =~ ^[0-9]+$ ]]; then
         fail "$label: no namespace for $src ($pid_c) or $dst ($pid_s) -- this is a permission/namespace answer, never a reading about link usage"
         return 2
     fi
-    note "$label: $src -> $dst ($dst_ip), iperf -u -b $LINK_USAGE_RATE -t $LINK_USAGE_SECONDS"
     netdev_tx "$dir/netdev.before"
     sudo -n mnexec -a "$pid_s" iperf -s -u > "$dir/iperf_server.txt" 2>&1 &
     local srv=$!
