@@ -260,7 +260,21 @@ hs.sort(key=lambda n:(int(n['device_name'][1:]) if n['device_name'][1:].isdigit(
 for n in hs: print(n['device_name'], (n.get('ip') or [''])[0])" "$1/ndtwin/topology.json"
 }
 
-# run_verify_p4 <topology-file> <want-paths> [mode] -- `ndt`'s own [3/3], run again on its own.
+# run_app_pipeline_kind <package-dir> -- `ndt`'s own answer to "whose program is on these
+# switches", out of the same subshell and the same function `ndt up` uses (TICKET-P2-D §3.5).
+#
+# 🔴 `ndt`'s, not this script's. app_pipeline_kind answers through Package.pipeline_is_ndtwin --
+# the real loader, comparing RESOLVED paths -- and a live script that decided for itself whether
+# package.json's `pipeline` field looked foreign would be a second answer to the question it is
+# here to check, agreeing with the first by construction.
+run_app_pipeline_kind() {
+    ( set +e
+      source "$NDT" >/dev/null 2>&1
+      app_pipeline_kind "$1" )
+}
+
+# run_verify_p4 <topology-file> <want-paths> [mode] [pipeline-kind] -- `ndt`'s own [3/3], run
+# again on its own.
 #
 # 🔴 `verify_p4` IS A FUNCTION, NOT A VERB. `ndt`'s dispatch is up / down / clean / status /
 # check / claim / release / apps / ntg and nothing else, so `ndt verify_p4 ...` prints the usage
@@ -270,7 +284,7 @@ for n in hs: print(n['device_name'], (n.get('ip') or [''])[0])" "$1/ndtwin/topol
 run_verify_p4() {
     ( set +e
       source "$NDT" >/dev/null 2>&1
-      verify_p4 "$1" "$2" "${3:-}" )
+      verify_p4 "$1" "$2" "${3:-}" "${4:-}" )
 }
 
 # pingall_via_ndt <package-dir> -- every ordered host pair, through `ndt`'s OWN dataplane_ok.
