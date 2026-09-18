@@ -6,11 +6,24 @@ The bmv2 topology with NTG's CLI attached: the ~40 lines that were missing.
 
 NTG's Mininet mode must live in the process that owns the net (MininetCommunicator drives
 hosts through `host.cmd`/`host.popen`), and its only shipped entry point builds an OVS
-topology. This script is the P4-side twin of that entry point: it builds the same 10-switch
-bmv2 fabric as p4_testbed_topo.py -- reusing its classes, manifest and teardown wholesale --
-and then hands the net to NTG's `command_line()` instead of Mininet's CLI. Recorded as the
-pending feature `ntg-bmv2-support-pending-feature` on 2026-08-15; nothing in NTG itself is
-modified.
+topology. This script is the P4-side twin of that entry point: it builds the same bmv2 fabric
+as p4_testbed_topo.py -- reusing its pre-flight, its bring-up, its manifest and its teardown
+wholesale -- and then hands the net to NTG's `command_line()` instead of Mininet's CLI.
+Recorded as the pending feature `ntg-bmv2-support-pending-feature` on 2026-08-15; nothing in
+NTG itself is modified.
+
+🔴 "REUSING WHOLESALE" IS NOW TRUE AND WAS NOT. `ndtwin-lab topo-start` launches THIS file, not
+p4_testbed_topo.py, so the code that ran on every single bring-up was this one -- and until
+2026-09-18 everything below `MultiSwitchTopo` was a TRANSCRIBED COPY of p4_testbed_topo.main()
+rather than a call to it. When the app-package work landed in that file, this copy kept its
+literals: `ndtwin_switch.json` by hand, `grpc_port_block(range(1, 11))`, the all-pairs ARP with
+no idea that a package brings its own host commands, and `[net.get(f's{i}') for i in range(1,
+11)]`. The first live `ndt up p4 --app` therefore died at `net.get('s5')` on a four-switch
+fabric, before write_manifest, with no try/finally -- so the process went, tmux reaped the
+session, and the pane holding the traceback went with it. `ndt up` could only report "0/4
+switches, manifest missing". Both of those are fixed here: ONE bring-up function in
+p4_testbed_topo.py, called by both mains, and this script's output is tee'd to
+`.test_run/logs/topo.log` so that the next time something dies there is something left to read.
 
 Run it (Mininet needs root; nornir/loguru live in the ntg-env conda env, and the
 dist-packages append below borrows the system Mininet the same way NTG's own topo does):
@@ -44,15 +57,14 @@ sys.path.append(HERE)
 NTG_DIR = os.environ.get("NTG_DIR", "/home/adam/Network-Traffic-Generator")
 sys.path.append(NTG_DIR)
 
-from mininet.net import Mininet
 from mininet.log import setLogLevel
 
-import grpc_ports
-from p4_testbed_topo import (MANIFEST_PATH, MultiSwitchTopo, _host_count_override,
-                             abort_if_grpc_ports_are_held,
-                             clear_switches_from_a_previous_run, disable_host_offloads,
-                             partial_fabric_verdict, reap_manifest_switches,
-                             resolve_bmv2_launcher, verify_switches, write_manifest)
+# 🔴 AS A MODULE, not as a list of names. `from p4_testbed_topo import bring_up` binds a second
+# name to one function and that is fine -- but it also makes every seam a test would patch live
+# in two places at once, and "two places holding one answer" is the defect this file is being
+# repaired for. One module object; every call site says where it came from.
+import p4_testbed_topo as testbed  # noqa: E402
+import topo_log  # noqa: E402
 
 
 def fail(msg: str) -> None:
@@ -60,13 +72,55 @@ def fail(msg: str) -> None:
     sys.exit(1)
 
 
-def main() -> None:
+def run_ntg_cli(net) -> None:
+    """NTG's command loop, with the crash armour that keeps a fabric alive through a bad flow.
+
+    [Co-developed with claude code -- Adam]
+    Verified necessary live (2026-08-15): an uncaught exception inside NTG's command loop --
+    e.g. a flow config that draws from an empty distance bucket dies at randrange(0) in
+    _handle_flow_command -- used to unwind straight through here into the caller's teardown,
+    tearing down all ten switches because one command went wrong. Print the crash, keep the
+    fabric, re-enter the CLI; only a real exit (EOF/Ctrl-C/`exit`, which return instead of
+    raising) gets out of here.
+
+    Re-entry needs two extra pieces, both learned from the armour's own first live round:
+    command_line is single-shot per process -- its logger_config calls loguru's remove(0), and
+    handler 0 only exists the first time, so a bare re-entry dies at line 307 before reaching
+    the prompt. The no-op patch below (our process's copy of the module; NTG's file is
+    untouched) makes re-entry real. And a crash budget keeps a fault that fires before the
+    input loop from spinning hot forever.
+    """
+    # NTG resolves NTG.yaml -> ./setting/Mininet.yaml relative to its cwd.
+    os.chdir(NTG_DIR)
+    from network_traffic_generator import command_line
+
+    crashes = 0
+    while True:
+        try:
+            command_line(net, config_file_path=os.path.join(NTG_DIR, "NTG.yaml"))
+            return
+        except (KeyboardInterrupt, EOFError):
+            return
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            crashes += 1
+            if crashes >= 5:
+                print("\n[ntg_bmv2_topo] NTG crashed 5 times; giving up and tearing down.\n")
+                return
+            import network_traffic_generator as _ntg_mod
+            _ntg_mod.logger_config = lambda *a, **k: None
+            time.sleep(1)
+            print("\n[ntg_bmv2_topo] NTG's command loop crashed (see traceback above). "
+                  "The fabric is still up; returning to the NTG prompt.\n")
+
+
+def main(tee=None, enter_cli=None) -> None:
     setLogLevel('info')
 
-    # Same preconditions as p4_testbed_topo.main, checked before anything is torn down.
-    json_path = os.path.join(HERE, '../p4_src/build/ndtwin_switch.json')
-    if not os.path.exists(json_path):
-        fail(f"compiled P4 JSON not found at {json_path}; run p4c-bm2-ss in p4_src first")
+    # NTG's own two preconditions first. They describe this interpreter and this checkout, they
+    # touch nothing, and "wrong python" is the failure an operator meets most often -- there is
+    # no reason to read a package before saying it.
     if not os.path.isdir(NTG_DIR):
         fail(f"NTG repo not found at {NTG_DIR} (override with the NTG_DIR env var)")
     try:
@@ -75,73 +129,19 @@ def main() -> None:
         fail("this interpreter has no 'nornir'; run with the ntg-env python:\n"
              "  sudo /home/adam/miniconda3/envs/ntg-env/bin/python " + __file__)
 
-    # Pre-flight the binary choice before anything is torn down: a broken override should
-    # fail here, not after mn -c has already destroyed the running fabric.
+    # 🔴 THE SAME PRE-FLIGHT THE OTHER MAIN RUNS, not a copy of it: which package, which model,
+    # which compiled JSON, which binary, and a gRPC port block for the switches THE MODEL
+    # declares. All of it before `reset_for_bring_up` destroys anything.
     try:
-        binary, lib_dir = resolve_bmv2_launcher()
-    except ValueError as e:
+        plan = testbed.plan_fabric()
+    except (testbed.app_package.AppPackageError, testbed.topo_from_json.TopologyModelError,
+            testbed.grpc_ports.PortBlockError, ValueError) as e:
         fail(str(e))
 
-    # And the gRPC port block, against this machine's ephemeral range rather than against the
-    # number that was safe when it was chosen. See grpc_ports.py and F-15.
-    wanted_ports = grpc_ports.grpc_port_block(range(1, 11))
-    try:
-        warning = grpc_ports.assert_port_block_is_safe(wanted_ports)
-    except grpc_ports.PortBlockError as e:
-        fail(str(e))
-    if warning:
-        print(warning)
-    print(f"bmv2 binary: {binary}" + (f"  (LD_LIBRARY_PATH={lib_dir})" if lib_dir else ""))
+    testbed.reset_for_bring_up(plan.ports)
 
-    # Reset exactly the way p4_testbed_topo.main does: mn -c does not touch bmv2, and an
-    # orphaned switch holding its gRPC port kills this run's twin with "Address already in use".
-    #
-    # "Exactly the way" is now one shared function rather than two copies of a line, which is
-    # the reason this file mattered: ndtwin-lab starts THIS script, not p4_testbed_topo.py, so
-    # the copy that actually ran on every bring-up was the one here. Both copies were
-    # `os.system('sudo pkill -f simple_switch_grpc > /dev/null 2>&1')`; see
-    # clear_switches_from_a_previous_run for what replaced it and why.
-    os.system('sudo mn -c > /dev/null 2>&1')
-    _, still_held = clear_switches_from_a_previous_run(ports=wanted_ports)
-    # And the refusal, in the file that actually runs: ndtwin-lab starts THIS script, so a
-    # decision written only in p4_testbed_topo.main is a decision nothing executes. Adam ruled
-    # abort-rather-than-warn on 2026-09-12; the reasons are in abort_if_grpc_ports_are_held.
-    abort_if_grpc_ports_are_held(still_held)
-    time.sleep(0.5)
-
-    net = Mininet(topo=MultiSwitchTopo(), controller=None, autoSetMacs=True)
-    net.start()
-
-    # Static ARPs between the hosts, as the plain topology does.
-    #
-    # This was `range(1, 5)` and it is the fourth hard-coded four-host list in this fabric
-    # (the others: the topology's own wiring and ARP loop, and the proxy's add_host table).
-    # It is also the one that actually runs, because ndtwin-lab starts THIS script, not
-    # p4_testbed_topo.py -- which imports cleanly and hides the difference, since the Topo
-    # class does come from there. At 128 hosts every switch installs its 128 routes and the
-    # paths are computed correctly, but nothing pings: the sender never learns the
-    # destination MAC. Measured: adding the pair by hand takes h1 -> h33 from 100% loss to
-    # 0% at 1.6 ms.
-    #
-    # Batched, but in chunks of 32 rather than one command per host. One command per host is
-    # too long: all 127 entries in a single cmd() is ~4.4 kB and Mininet truncates it --
-    # measured, h1 ended up with entries for h2..h112 and nothing after, and a partial ARP
-    # table fails exactly like a broken data plane. 16256 individual cmd() calls is the other
-    # extreme and takes minutes. Chunking is 4 calls per host.
-    hosts = [net.get(f'h{i}') for i in range(1, _host_count_override() + 1)]
-    for src in hosts:
-        peers = [dst for dst in hosts if dst is not src]
-        for i in range(0, len(peers), 32):
-            src.cmd(" ; ".join(f"arp -s {d.IP()} {d.MAC()}" for d in peers[i:i + 32]))
-    # Without this, bulk TCP stalls at zero through bmv2 -- see the helper's docstring.
-    disable_host_offloads(hosts)
-
-    switches = [net.get(f's{i}') for i in range(1, 11)]
-    failures = verify_switches(switches)
-    write_manifest(switches)
-
-    fatal, report = partial_fabric_verdict(failures, len(switches))
-    ports = grpc_ports.grpc_port_block(range(1, len(switches) + 1))
+    net, switches, fatal, report = testbed.bring_up(plan.package, plan.model)
+    ports = plan.ports
 
     print("\n======================================================================")
     if report:
@@ -149,18 +149,13 @@ def main() -> None:
     else:
         print(f"All {len(switches)} BMv2 switches listening on gRPC "
               f"{ports[0]} ~ {ports[-1]}.")
-        print(f"Switch manifest: {MANIFEST_PATH}")
+        print(f"Switch manifest: {testbed.MANIFEST_PATH}")
     if fatal:
         # This one mattered more than the topology script's: the next statement used to be
         # NTG's traffic generator, so the advice "do not generate traffic on a partial fabric"
         # was printed directly above the prompt that generates traffic on a partial fabric.
         print("======================================================================\n")
-        net.stop()
-        reap_manifest_switches()
-        try:
-            os.remove(MANIFEST_PATH)
-        except OSError:
-            pass
+        testbed.tear_down(net)
         sys.exit(1)
     print("Start the P4 proxy + kernel now (stack.sh up p4 answers its Mininet prompt),")
     print("then use the NTG prompt below. Low-rate template (the CLI needs the flag AND an")
@@ -169,55 +164,53 @@ def main() -> None:
     print("NTG cannot interrupt an experiment -- let flows finish.")
     print("======================================================================\n")
 
-    # NTG resolves NTG.yaml -> ./setting/Mininet.yaml relative to its cwd.
-    os.chdir(NTG_DIR)
-    from network_traffic_generator import command_line
     try:
-        # Crash armour, verified necessary live (2026-08-15): an uncaught exception inside
-        # NTG's command loop -- e.g. a flow config that draws from an empty distance bucket
-        # dies at randrange(0) in _handle_flow_command -- used to unwind straight through
-        # here into the finally below, tearing down all ten switches because one command
-        # went wrong. Print the crash, keep the fabric, and re-enter the CLI; only a real
-        # exit (EOF/Ctrl-C/`exit`, which return instead of raising) reaches teardown.
-        #
-        # Re-entry needs two extra pieces, both learned from the armour's own first live
-        # round: command_line is single-shot per process -- its logger_config calls
-        # loguru's remove(0), and handler 0 only exists the first time, so a bare re-entry
-        # dies at line 307 before reaching the prompt. The no-op patch below (our process's
-        # copy of the module; NTG's file is untouched) makes re-entry real. And a crash
-        # budget keeps a fault that fires before the input loop from spinning hot forever.
-        crashes = 0
-        while True:
-            try:
-                command_line(net, config_file_path=os.path.join(NTG_DIR, "NTG.yaml"))
-                break
-            except (KeyboardInterrupt, EOFError):
-                break
-            except Exception:
-                import traceback
-                traceback.print_exc()
-                crashes += 1
-                if crashes >= 5:
-                    print("\n[ntg_bmv2_topo] NTG crashed 5 times; giving up and tearing down.\n")
-                    break
-                import network_traffic_generator as _ntg_mod
-                _ntg_mod.logger_config = lambda *a, **k: None
-                time.sleep(1)
-                print("\n[ntg_bmv2_topo] NTG's command loop crashed (see traceback above). "
-                      "The fabric is still up; returning to the NTG prompt.\n")
+        if tee is not None:
+            # 🔴 THE TEE COMES OFF FOR THE PROMPT, and this is not a convenience. NTG's
+            # command_line reaches prompt_toolkit's PromptSession, and prompt_toolkit's
+            # create_output returns a PlainTextOutput the moment `sys.stdout.isatty()` is false
+            # (output/defaults.py: "Stdout is not a TTY? Render as plain text."). A prompt
+            # rendered as plain text into a pipe is not one `ndtwin-lab topo-cmd` can drive.
+            # What is captured is the bring-up -- the part that fails and takes the pane with
+            # it -- and the teardown; the interactive session is the operator's, on the pane.
+            tee.note("[ntg_bmv2_topo] the NTG prompt needs the terminal itself, so output "
+                     f"stops being copied to {tee.path} until teardown.")
+            tee.stop()
+        (enter_cli or run_ntg_cli)(net)
     finally:
-        # p4_testbed_topo.main's teardown, verbatim: stop the net, then reap any switch the
-        # power helper restarted (net.stop cannot address those) before the manifest goes.
-        net.stop()
-        reaped = reap_manifest_switches()
-        if reaped:
-            print(f"Reaped {len(reaped)} switch(es) that outlived the topology: "
-                  f"{', '.join(reaped)}")
-        try:
-            os.remove(MANIFEST_PATH)
-        except OSError:
-            pass
+        if tee is not None:
+            tee.start()
+        # p4_testbed_topo's teardown, which is now literally p4_testbed_topo's teardown: stop
+        # the net, then reap any switch the power helper restarted (net.stop cannot address
+        # those) before the manifest goes.
+        testbed.tear_down(net)
+
+
+def run(tee=None, main_=None) -> None:
+    """Start the log, run main, and make sure a crash is written down somewhere that survives.
+
+    [Co-developed with claude code -- Adam]
+    The whole reason this wrapper exists: on 2026-09-18 this script died of a KeyError inside a
+    root-owned tmux pane, tmux reaped the session on exit, and the traceback that named the
+    line existed nowhere afterwards -- `ndtwin-lab topo-out` answered "no topo session" and
+    `ndt up` could only print "look at the pane". The pane is not a record.
+    """
+    if tee is None:
+        tee = topo_log.Tee(topo_log.default_path())
+    # 🔴 BEFORE anything else can fail.
+    tee.start()
+    try:
+        (main_ or main)(tee=tee)
+    except SystemExit:
+        # `fail()` already said why, on a stream the tee was copying. A traceback here would
+        # only name the exit.
+        raise
+    except BaseException:
+        tee.record_traceback()
+        raise
+    finally:
+        tee.close()
 
 
 if __name__ == '__main__':
-    main()
+    run()

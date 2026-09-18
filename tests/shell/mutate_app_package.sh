@@ -39,6 +39,21 @@
 #     (0, 65535), and that it outbids the baseline (0, 1), is a pure assertion about a manifest
 #     that names no election id.
 #
+# 🔴 A THIRD ONE, AND THIS ONE IS NOT EQUIVALENT -- IT IS UNKILLABLE FROM INSIDE ONE PROCESS,
+# which is a different and worse thing, so it is declared here rather than left out silently:
+#
+#   * "topo_log.Tee.stop() closes the saved descriptors in the same loop that restores them,
+#     before joining the pump" (the shape the code had until 2026-09-18). It loses whatever the
+#     pump had not yet written, and -- the reason it was fixed -- a closed descriptor number is
+#     one the next open() in the process receives, so a late chunk of the topology log can land
+#     in an unrelated file. It was found by MEASUREMENT under a real pty and the fix was
+#     confirmed the same way. It is not in the list below because both arms were run three
+#     times each against a file-backed fd 1 and a 400 kB write, and both KEPT the line: the
+#     writer blocks on a full pipe, so the pump has already drained by the time stop() runs. A
+#     mutation nobody can make fail is a decoration, and a gate that shipped one would teach
+#     people to skim this file. What IS asserted, deterministically, is the property that makes
+#     the ordering safe rather than lucky -- the pump owns its own descriptor (M34).
+#
 # Usage:  tests/shell/mutate_app_package.sh
 #         PROXY_PY=/path/to/python tests/shell/mutate_app_package.sh
 # Assumes: nothing about the cwd.
@@ -59,9 +74,18 @@ TEST_STARTUP="$REPO/p4_proxy/tests/test_startup.py"
 TEST_WRITES="$REPO/p4_proxy/tests/test_p4_client_writes.py"
 TOPOMGR="$REPO/p4_proxy/proxy_agent/topology_manager.py"
 TEST_READOPT="$REPO/p4_proxy/tests/test_readopt.py"
+# TICKET-P1D: the fabric side of the same feature. TESTBED holds the ONE bring-up both entry
+# points call, BRIDGE is the entry point `ndtwin-lab topo-start` actually launches, and TOPOLOG
+# is where its output goes now that a dead pane is no longer the only copy.
+TESTBED="$REPO/p4_proxy/mininet/p4_testbed_topo.py"
+BRIDGE="$REPO/p4_proxy/mininet/ntg_bmv2_topo.py"
+TOPOLOG="$REPO/p4_proxy/mininet/topo_log.py"
+TEST_BRINGUP="$REPO/p4_proxy/tests/test_fabric_bring_up.py"
+TEST_TOPOLOG="$REPO/p4_proxy/tests/test_topo_log.py"
 
 MODULES="tests.test_app_package tests.test_app_package_proxy tests.test_startup \
-tests.test_p4_client_writes tests.test_readopt"
+tests.test_p4_client_writes tests.test_readopt tests.test_fabric_bring_up \
+tests.test_topo_log"
 
 # The interpreter. A git worktree has no venv of its own (p4_proxy/venv/ is gitignored and lives
 # in the main checkout), so the main worktree is consulted before giving up -- asked of git
@@ -102,6 +126,11 @@ BASE_TEST_STARTUP=$(sha256sum "$TEST_STARTUP" | cut -d' ' -f1)
 BASE_TEST_WRITES=$(sha256sum "$TEST_WRITES" | cut -d' ' -f1)
 BASE_TOPOMGR=$(sha256sum "$TOPOMGR" | cut -d' ' -f1)
 BASE_TEST_READOPT=$(sha256sum "$TEST_READOPT" | cut -d' ' -f1)
+BASE_TESTBED=$(sha256sum "$TESTBED" | cut -d' ' -f1)
+BASE_BRIDGE=$(sha256sum "$BRIDGE" | cut -d' ' -f1)
+BASE_TOPOLOG=$(sha256sum "$TOPOLOG" | cut -d' ' -f1)
+BASE_TEST_BRINGUP=$(sha256sum "$TEST_BRINGUP" | cut -d' ' -f1)
+BASE_TEST_TOPOLOG=$(sha256sum "$TEST_TOPOLOG" | cut -d' ' -f1)
 
 SURVIVORS=0
 MUTATIONS=0
@@ -120,6 +149,18 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must
     local out rc
     MUTATIONS=$((MUTATIONS+1))
     out=$(run_against "$2"); rc=$?
+    # 🔴 A SUITE THAT DID NOT FINISH IS NOT A VERDICT, in either direction. `timeout 300`
+    # returns 124, and unittest prints its `FAIL: <name>` section at the END -- so a mutant
+    # that hangs the run produces no named failure and would be scored a survivor of nothing.
+    # 2026-09-18 is why this is here: M33 came back SURVIVED under a non-tty harness because
+    # the mutant left fd 1 hijacked and shredded the report on its way out, and the one-line
+    # diagnostic the gate printed was a bare `FAIL`. Named, and it fails the gate.
+    # (mutate_startup_clears_by_pid.sh has had this branch since it was written.)
+    if [[ "$rc" -eq 124 ]]; then
+        SURVIVORS=$((SURVIVORS+1))
+        printf '  🔴 HUNG   %-70s (the suite never finished -- never a catch)\n' "$1"
+        return
+    fi
     if [[ "$rc" -ne 0 ]] && /usr/bin/grep -qE "^(FAIL|ERROR): $3 " <<<"$out"; then
         printf '  caught   %-70s (%s went red)\n' "$1" "$3"
     else
@@ -368,6 +409,77 @@ m=$(mutant m26 "$PKG" \
 report "M26: the manifest's hosts are not checked against the model they must describe" "$m" \
        "test_an_address_the_two_disagree_on_is_refused"
 
+# --- the fabric side: the copy that actually runs (TICKET-P1D) --------------------------------
+#
+# 🔴 EVERY MUTATION BELOW REPRODUCES A STATE THIS REPO WAS ACTUALLY IN ON 2026-09-18. The
+# app-package work landed in p4_testbed_topo.main(); `ndtwin-lab topo-start` launches
+# ntg_bmv2_topo.py; and that file carried a transcribed copy of the bring-up which had kept
+# every literal. These are that copy's literals, put back one at a time.
+
+m=$(mutant m27 "$TESTBED" \
+    '    switches = [net.get(name) for _dpid, name in topo_from_json.switches(model)]' \
+    "    switches = [net.get(f's{i}') for i in range(1, 11)]")
+report "M27: the switch list goes back to range(1, 11), so a 4-switch fabric dies at s5" "$m" \
+       "test_the_bridges_main_never_asks_for_s5"
+
+m=$(mutant m28 "$TESTBED" \
+    '    host_commands = package.host_commands()
+    if host_commands is None:' \
+    '    host_commands = package.host_commands()
+    if True:')
+report "M28: the all-pairs ARP runs over the package's own host commands" "$m" \
+       "test_the_all_pairs_arp_does_not_run_under_a_package"
+
+m=$(mutant m29 "$BRIDGE" \
+    '    # 🔴 BEFORE anything else can fail.
+    tee.start()' \
+    '    # 🔴 BEFORE anything else can fail.
+    pass')
+report "M29: the bridge never opens its log, so a crash is only ever in a dead pane" "$m" \
+       "test_the_log_is_started_before_main_runs"
+
+m=$(mutant m30 "$BRIDGE" \
+    '            tee.stop()
+        (enter_cli or run_ntg_cli)(net)' \
+    '            pass
+        (enter_cli or run_ntg_cli)(net)')
+report "M30: the tee keeps fd 1, so NTG's prompt renders as plain text into a pipe" "$m" \
+       "test_the_tee_comes_off_for_the_prompt_and_goes_back_on_for_teardown"
+
+m=$(mutant m31 "$TESTBED" \
+    '            for i in range(0, len(peers), 32):' \
+    '            for i in range(0, len(peers), 4096):')
+report "M31: the 128-host ARP fan-out is one command again, the one Mininet truncates" "$m" \
+       "test_the_arp_fan_out_is_chunked_at_32_peers_per_command"
+
+m=$(mutant m32 "$TOPOLOG" \
+    '        if os.path.getsize(path) == 0:
+            return None' \
+    '        if False:
+            return None')
+report "M32: an empty log is rotated, so one restart pushes a real generation off the end" "$m" \
+       "test_an_empty_log_is_not_rotated"
+
+m=$(mutant m33 "$TOPOLOG" \
+    '        for fd, saved in sorted(self._saved.items()):' \
+    '        for fd, saved in sorted({}.items()):')
+report "M33: stop() never gives the real descriptors back" "$m" \
+       "test_stop_gives_the_real_descriptors_back"
+
+m=$(mutant m34 "$TOPOLOG" \
+    '            terminal_fd = os.dup(1)' \
+    '            terminal_fd = self._saved[1]')
+report "M34: the pump shares a descriptor stop() closes, so a late chunk lands anywhere" "$m" \
+       "test_the_pump_does_not_share_a_descriptor_stop_will_close"
+
+m=$(mutant m35 "$BRIDGE" \
+    "if __name__ == '__main__':
+    run()" \
+    "if __name__ == '__main__':
+    main()")
+report "M35: the script entry point skips run(), so the log is never opened at all" "$m" \
+       "test_running_the_module_as_a_script_goes_through_run_not_main"
+
 # --- negative controls -----------------------------------------------------------------------
 #
 # A gate that reddens on anything is not a gate. These are edits that change no behaviour these
@@ -413,7 +525,12 @@ echo
 [[ "$(sha256sum "$TEST_WRITES" | cut -d' ' -f1)" == "$BASE_TEST_WRITES" ]] || { echo "🔴 baseline CHANGED -- test_p4_client_writes.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TOPOMGR" | cut -d' ' -f1)" == "$BASE_TOPOMGR" ]] || { echo "🔴 baseline CHANGED -- topology_manager.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_READOPT" | cut -d' ' -f1)" == "$BASE_TEST_READOPT" ]] || { echo "🔴 baseline CHANGED -- test_readopt.py was written during the gate"; exit 3; }
-echo "baseline byte-identical: yes (7 sources, 5 test files)"
+[[ "$(sha256sum "$TESTBED" | cut -d' ' -f1)" == "$BASE_TESTBED" ]] || { echo "🔴 baseline CHANGED -- p4_testbed_topo.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$BRIDGE" | cut -d' ' -f1)" == "$BASE_BRIDGE" ]] || { echo "🔴 baseline CHANGED -- ntg_bmv2_topo.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$TOPOLOG" | cut -d' ' -f1)" == "$BASE_TOPOLOG" ]] || { echo "🔴 baseline CHANGED -- topo_log.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$TEST_BRINGUP" | cut -d' ' -f1)" == "$BASE_TEST_BRINGUP" ]] || { echo "🔴 baseline CHANGED -- test_fabric_bring_up.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$TEST_TOPOLOG" | cut -d' ' -f1)" == "$BASE_TEST_TOPOLOG" ]] || { echo "🔴 baseline CHANGED -- test_topo_log.py was written during the gate"; exit 3; }
+echo "baseline byte-identical: yes (10 sources, 7 test files)"
 if [[ "$SURVIVORS" -eq 0 ]]; then
     echo "mutation gate: $MUTATIONS mutations, 0 survived"; exit 0
 else
