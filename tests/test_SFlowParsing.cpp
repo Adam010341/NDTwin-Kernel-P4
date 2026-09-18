@@ -79,6 +79,24 @@ class DatagramBuilder
         return *this;
     }
 
+    /// Appends opaque bytes, zero-padded to the 32-bit boundary sFlow requires. For frames,
+    /// which are the one part of a datagram that is not word-shaped.
+    /// [Co-developed with claude code -- Adam] TICKET-P3 §2.3.
+    DatagramBuilder& bytesPadded(const std::vector<uint8_t>& payload)
+    {
+        for (size_t i = 0; i < payload.size(); i += 4)
+        {
+            uint32_t word = 0;
+            for (size_t b = 0; b < 4; ++b)
+            {
+                const uint8_t octet = (i + b < payload.size()) ? payload[i + b] : uint8_t(0);
+                word = (word << 8) | octet;
+            }
+            this->word(word);
+        }
+        return *this;
+    }
+
     /// Mutable byte buffer, since handlePacket takes char*.
     std::vector<char> bytes() const
     {
@@ -97,6 +115,97 @@ class DatagramBuilder
   private:
     std::vector<uint32_t> m_words;
 };
+
+// [Co-developed with claude code -- Adam] TICKET-P3 §2.3.
+// One flow sample in the two-record shape the parser's MININET path requires (see
+// test_GoldenFixture.cpp for why record[0] is effectively mandatory), carrying an arbitrary
+// frame. The emitter's committed fixtures cover the frames that matter in production; this is
+// for the ones a test has to build because no emitter produces them on purpose -- a chain of
+// IPv6 extension headers, and every truncation of it.
+void appendFlowSample(DatagramBuilder& b,
+                      const std::vector<uint8_t>& frame,
+                      uint32_t ingress,
+                      uint32_t egress)
+{
+    const size_t paddedFrameBytes = ((frame.size() + 3) / 4) * 4;
+    const auto rawRecordBytes = static_cast<uint32_t>(16 + paddedFrameBytes);
+    // Everything after the type and length words: 8 sample words, record[0] (2 + 4 words),
+    // record[1]'s own two words, and the raw-header record's body.
+    const uint32_t bodyBytes = 8 * 4 + (2 + 4) * 4 + 2 * 4 + rawRecordBytes;
+
+    b.word(1)                      // sample type: flow_sample
+        .word(bodyBytes)           // sample length, bytes, counted from the next word
+        .word(1)                   // sample sequence
+        .word((2u << 24) | ingress) // source id: type 2 (ifIndex) | ifIndex
+        .word(256)                 // sampling rate
+        .word(256)                 // sample pool
+        .word(0)                   // dropped
+        .word(ingress)
+        .word(egress)
+        .word(2)                   // flow record count
+        .word(1001)                // record[0] format: extended_switch
+        .word(16)
+        .words(4)                  // src/dst vlan and priority, all zero
+        .word(1)                   // record[1] format: raw packet header
+        .word(rawRecordBytes)
+        .word(1)                   // header protocol: Ethernet
+        .word(static_cast<uint32_t>(frame.size())) // original frame length
+        .word(0)                                   // stripped
+        .word(static_cast<uint32_t>(frame.size())) // captured header length
+        .bytesPadded(frame);
+}
+
+void appendBigEndian16(std::vector<uint8_t>& out, uint16_t value)
+{
+    out.push_back(static_cast<uint8_t>(value >> 8));
+    out.push_back(static_cast<uint8_t>(value & 0xFF));
+}
+
+/// Ethernet + IPv6 + hop-by-hop + routing + fragment + UDP, in that order.
+///
+/// The chain is the point: §2.3 requires the parser to step over those three header types to
+/// reach the ports, and every step is a length taken from the packet itself -- which is exactly
+/// the shape that reads past the end of a truncated buffer.
+std::vector<uint8_t> ipv6FrameWithExtensionChain()
+{
+    std::vector<uint8_t> frame;
+    for (int i = 0; i < 6; ++i) { frame.push_back(0x02); } // dst mac
+    for (int i = 0; i < 6; ++i) { frame.push_back(0x01); } // src mac
+    appendBigEndian16(frame, 0x86DD);
+
+    std::vector<uint8_t> payload;
+    // hop-by-hop: next header = routing (43), length 0 (=> 8 bytes), then six bytes of options.
+    payload.push_back(43);
+    payload.push_back(0);
+    for (int i = 0; i < 6; ++i) { payload.push_back(0x01); }
+    // routing: next header = fragment (44), length 0 (=> 8 bytes).
+    payload.push_back(44);
+    payload.push_back(0);
+    for (int i = 0; i < 6; ++i) { payload.push_back(0x00); }
+    // fragment: next header = UDP, reserved, offset 0 / more-fragments 0, identification.
+    payload.push_back(17);
+    payload.push_back(0);
+    appendBigEndian16(payload, 0x0000);
+    for (int i = 0; i < 4; ++i) { payload.push_back(0x00); }
+    // UDP: 4242 -> 4243.
+    appendBigEndian16(payload, 4242);
+    appendBigEndian16(payload, 4243);
+    appendBigEndian16(payload, 8);
+    appendBigEndian16(payload, 0);
+
+    // IPv6 header: version 6, payload length, next header = hop-by-hop (0), hop limit.
+    frame.push_back(0x60);
+    frame.push_back(0x00);
+    appendBigEndian16(frame, 0x0000);
+    appendBigEndian16(frame, static_cast<uint16_t>(payload.size()));
+    frame.push_back(0);  // next header: hop-by-hop
+    frame.push_back(64); // hop limit
+    for (int i = 0; i < 16; ++i) { frame.push_back(static_cast<uint8_t>(i == 15 ? 1 : 0)); }
+    for (int i = 0; i < 16; ++i) { frame.push_back(static_cast<uint8_t>(i == 15 ? 2 : 0)); }
+
+    frame.insert(frame.end(), payload.begin(), payload.end());
+    return frame;
+}
 
 /// Finds tests/fixtures whichever directory the test binary was started from.
 /// Same search as test_GoldenFixture.cpp and test_SFlowEmitterRoundtrip.cpp.
@@ -644,4 +753,101 @@ TEST(TelemetrySilenceTest, TheRawAgesAreReportedAlongsideEveryVerdict)
     const auto out = Telemetry::classifyTelemetry(kNow, kNow - 2500, kNow - 1250, 5.0);
     EXPECT_DOUBLE_EQ(out.lastSampleAgeSeconds, 2.5);
     EXPECT_DOUBLE_EQ(out.agentLastSampleAgeSeconds, 1.25);
+}
+
+// =====================================================================================
+// IPv6 extension headers -- TICKET-P3 §2.3
+//
+// [Co-developed with claude code -- Adam]
+// The chain walk is the one loop in the frame parser whose step size comes out of the packet:
+// each extension header says how long it is, in 8-octet units, and the next one starts there.
+// That is the same shape as every other read this suite exists for -- a length taken from an
+// unauthenticated UDP datagram and used as an offset -- with one addition: it can also loop.
+// The bound is kMaxIpv6ExtensionHeaders; the truncations below are the other half.
+//
+// The frames here are built rather than captured because no emitter in this project produces an
+// extension-header chain on purpose. Where a committed fixture exists (plain IPv6/UDP), the
+// assertions live in test_FlowKeyFamilies.cpp against the emitter's own bytes.
+// =====================================================================================
+
+TEST_F(SFlowParsingFixture, HandlesEveryTruncationOfAnIpv6ExtensionHeaderChain)
+{
+    DatagramBuilder b;
+    b.header(1);
+    appendFlowSample(b, ipv6FrameWithExtensionChain(), 3, 4);
+    const auto complete = b.bytes();
+
+    for (size_t keepWords = 7; keepWords * 4 <= complete.size(); ++keepWords)
+    {
+        // A fresh collector per truncation: this asserts termination, and an accumulated flow
+        // table from a longer prefix would make a later failure harder to attribute.
+        resetCollector();
+        std::vector<char> truncated(complete.begin(),
+                                    complete.begin() + static_cast<long>(keepWords * 4));
+        EXPECT_NO_THROW(feed(truncated)) << "failed at " << keepWords << " word(s)";
+    }
+}
+
+TEST_F(SFlowParsingFixture, AFullIpv6ExtensionChainResolvesToTheUpperLayerPorts)
+{
+    // The control for the two cases below: without it, "the chain was not resolved" would be
+    // satisfied by a parser that never resolves one.
+    DatagramBuilder b;
+    b.header(1);
+    appendFlowSample(b, ipv6FrameWithExtensionChain(), 3, 4);
+    feed(b);
+
+    const auto observed = m_collector->nonIpv4Observations();
+    ASSERT_EQ(observed.size(), 1u);
+    const auto& key = observed.begin()->first;
+    EXPECT_EQ(key.family, sflow::FlowKeyFamily::IPv6);
+    EXPECT_EQ(int(key.protocol), 17) << "hop-by-hop, routing and fragment were to be stepped over";
+    EXPECT_EQ(key.srcPort, 4242);
+    EXPECT_EQ(key.dstPort, 4243);
+}
+
+TEST_F(SFlowParsingFixture, AnOpaqueIpv6ExtensionHeaderFallsBackToTheL2Identity)
+{
+    // ESP (50) is encrypted: its payload is not an L4 header and reading one out of it would be
+    // an invented five-tuple. §2.3's rule is to report what is still known -- the two MAC
+    // addresses -- rather than to guess.
+    auto frame = ipv6FrameWithExtensionChain();
+    ASSERT_GT(frame.size(), size_t(54 + 8));
+    frame[54 + 8] = 50; // the routing header's own next-header byte
+
+    DatagramBuilder b;
+    b.header(1);
+    appendFlowSample(b, frame, 3, 4);
+    feed(b);
+
+    const auto observed = m_collector->nonIpv4Observations();
+    ASSERT_EQ(observed.size(), 1u);
+    const auto& key = observed.begin()->first;
+    EXPECT_EQ(key.family, sflow::FlowKeyFamily::L2)
+        << "an unsteppable header must not leave an IPv6 key carrying whatever byte was at the "
+           "port offset";
+    EXPECT_EQ(key.ethType, 0x86DD) << "the ethertype is still known and still says IPv6";
+    EXPECT_EQ(int(key.protocol), 0);
+    EXPECT_EQ(key.srcPort, 0);
+}
+
+TEST_F(SFlowParsingFixture, AChainCutOffInsideTheCapturedHeaderDoesNotInventPorts)
+{
+    // The realistic case, not a crafted one: the agent captures 128 bytes and a long chain runs
+    // past them. The walk then runs out of frame rather than out of chain.
+    auto frame = ipv6FrameWithExtensionChain();
+    ASSERT_GT(frame.size(), size_t(54 + 16));
+    frame.resize(54 + 16); // Ethernet + IPv6 + hop-by-hop + routing, and nothing after
+
+    DatagramBuilder b;
+    b.header(1);
+    appendFlowSample(b, frame, 3, 4);
+    feed(b);
+
+    const auto observed = m_collector->nonIpv4Observations();
+    ASSERT_EQ(observed.size(), 1u);
+    EXPECT_EQ(observed.begin()->first.family, sflow::FlowKeyFamily::L2);
+    EXPECT_EQ(observed.begin()->first.srcPort, 0);
+    EXPECT_EQ(m_collector->malformedDatagramCount(), 0u)
+        << "the datagram is well formed; it is the captured header that ends early";
 }

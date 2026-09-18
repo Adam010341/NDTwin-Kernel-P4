@@ -102,6 +102,66 @@ def frame_large_tcp() -> bytes:
         ipv4("10.0.0.1", "10.0.0.4", 6, tcp(5001, 40998, payload=b"\xab" * 1400))
 
 
+# --- TICKET-P3 §2.3: one frame per FlowKey family -------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# Everything above is IPv4, because before P3 the parser understood nothing else: a frame whose
+# ethertype was not 0x0800 was discarded whole, bytes included. These five are the shapes that
+# used to vanish, and the C++ side (tests/test_FlowKeyFamilies.cpp) asserts what each one becomes.
+#
+# They are built here rather than in the C++ test for the reason the file's docstring gives: the
+# emitter is Python, the parser is C++, and a frame a C++ test invents proves nothing about the
+# bytes the emitter will actually send.
+
+
+def ipv6(src: str, dst: str, next_header: int, payload: bytes) -> bytes:
+    # version 6, traffic class 0, flow label 0; payload length; next header; hop limit 64.
+    return struct.pack(">IHBB", 0x60000000, len(payload), next_header, 64) \
+        + socket.inet_pton(socket.AF_INET6, src) \
+        + socket.inet_pton(socket.AF_INET6, dst) \
+        + payload
+
+
+def ipv4_with_option(src: str, dst: str, proto: int, payload: bytes) -> bytes:
+    # ihl = 6: 20 bytes of header plus one 4-byte option, which is the shape the mri exercise
+    # produces. The pre-P3 parser read the L4 ports at a constant offset, so with an option
+    # present it read the option's own bytes as the ports.
+    option = b"\x01\x01\x01\x00"  # NOP, NOP, NOP, end-of-options
+    total_len = 24 + len(payload)
+    header = struct.pack(">BBHHHBBH", 0x46, 0, total_len, 1, 0, 64, proto, 0) \
+        + socket.inet_aton(src) + socket.inet_aton(dst) + option
+    return header + payload
+
+
+def frame_ipv6_udp() -> bytes:
+    return ethernet("000000000002", "000000000001", 0x86DD) + \
+        ipv6("2001:db8::1", "2001:db8::2", 17, udp(5201, 33334, payload=b"\x00" * 20))
+
+
+def frame_custom_0x1234() -> bytes:
+    # The source-routing exercise's own ethertype. There is no IP header at all, so the only
+    # identity such a frame has is its L2 one -- and its bytes still cross a link.
+    return ethernet("000000000003", "000000000001", 0x1234) + b"\x0a\x0b\x0c\x0d" * 8
+
+
+def frame_ipv4_ihl6_tcp() -> bytes:
+    return ethernet("000000000002", "000000000001", 0x0800) + \
+        ipv4_with_option("10.0.0.5", "10.0.0.6", 6, tcp(6001, 40999, payload=b"\x00" * 20))
+
+
+def frame_vlan_ipv4() -> bytes:
+    # 802.1Q tag: ethertype 0x8100, TCI (vid 100), then the inner ethertype.
+    return ethernet("000000000002", "000000000001", 0x8100) + \
+        struct.pack(">HH", 0x0064, 0x0800) + \
+        ipv4("10.0.0.7", "10.0.0.8", 17, udp(4444, 5555, payload=b"\x00" * 20))
+
+
+def frame_udp_egress_only() -> bytes:
+    # Its own five-tuple so a test can tell it apart from emitted_udp.bin in one collector.
+    return ethernet("000000000002", "000000000001", 0x0800) + \
+        ipv4("10.0.0.9", "10.0.0.10", 17, udp(7001, 7002, payload=b"\x00" * 20))
+
+
 # Every committed fixture, as (filename, [(frame, ingress_port, egress_port), ...]).
 #
 # [Co-developed with claude code -- Adam]
@@ -122,6 +182,15 @@ FIXTURES = [
     ("emitted_tcp_truncated.bin", [(frame_large_tcp(), 1, 2)]),
     # Several samples in one datagram, so the C++ side also walks the sample chain.
     ("emitted_multi.bin", [(frame_tcp(), 1, 2), (frame_udp(), 3, 4), (frame_icmp(), 1, 3)]),
+    # TICKET-P3 §2.3. Appended, never inserted: the six entries above must keep producing
+    # byte-identical files, which is the evidence that the datagram layout did not move.
+    ("emitted_ipv6_udp.bin", [(frame_ipv6_udp(), 3, 4)]),
+    ("emitted_custom_0x1234.bin", [(frame_custom_0x1234(), 3, 4)]),
+    ("emitted_ipv4_ihl6_tcp.bin", [(frame_ipv4_ihl6_tcp(), 3, 4)]),
+    ("emitted_vlan_ipv4.bin", [(frame_vlan_ipv4(), 3, 4)]),
+    # ingress_port 0 with an egress port set: the shape TICKET-P3 §2.2 gives the kernel's
+    # direction split, and the one B's egress tc filters on host-facing ports will emit.
+    ("emitted_egress_only.bin", [(frame_udp_egress_only(), 0, 4)]),
 ]
 
 
