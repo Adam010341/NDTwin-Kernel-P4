@@ -145,6 +145,30 @@ class TheIdsComeFromTheP4InfoTest(unittest.TestCase):
         self.assertEqual(ids, PacketInIds(reason=3, ingress_port=4, egress_port=5,
                                           frame_length=6, sampling_rate=7))
 
+    def test_the_id_is_the_compilers_number_and_not_the_fields_position(self):
+        # 🔴 p4c happens to number a controller header's fields 1..N in order, which makes
+        # "read m.id" and "count the fields" indistinguishable on every artefact this repo has.
+        # They are not the same rule: a p4info is a protobuf, its ids are plain uint32, and
+        # nothing in the format says they are dense or ordered -- a hand-edited one, or another
+        # compiler, may number them anything. Asserted on a message with a gap, because that is
+        # the only shape that can tell the two apart.
+        p4info = p4info_pb2.P4Info()
+        header = p4info.controller_packet_metadata.add()
+        header.preamble.id = 1001
+        header.preamble.name = "packet_in"
+        header.preamble.alias = "packet_in"
+        for meta_id, name, bitwidth in ((11, "reason", 8), (12, "ingress_port", 9),
+                                        (13, "egress_port", 9), (14, "frame_length", 16),
+                                        (15, "sampling_rate", 16), (16, "_pad", 6)):
+            meta = header.metadata.add()
+            meta.id = meta_id
+            meta.name = name
+            meta.bitwidth = bitwidth
+
+        self.assertEqual(packet_in_metadata_ids(p4info),
+                         PacketInIds(reason=11, ingress_port=12, egress_port=13,
+                                     frame_length=14, sampling_rate=15))
+
     def test_a_missing_field_raises_and_names_it(self):
         without_rate = tuple(f for f in NDTWIN_PACKET_IN if f[0] != "sampling_rate")
         with self.assertRaises(TelemetryHeaderMissing) as cm:

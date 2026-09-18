@@ -306,9 +306,14 @@ m=$(mutant b14 "$MAIN" \
 report "M-B14: switch_state claims these entries survive a proxy restart" "$m" \
        "test_the_count_reaches_the_endpoint_report_not_just_the_response"
 
+# TICKET-P3 2.6 gave POST /p4/multicast_group the same not-journaled warning, so the old
+# one-line anchor matched twice. Extended upwards to `priority_honoured`, which only the
+# table-entry response has.
 m=$(mutant b20 "$ROUTES" \
-    '            "journaled": False, "note": TABLE_ENTRY_NOT_JOURNALED}' \
-    '            "journaled": True, "note": TABLE_ENTRY_NOT_JOURNALED}')
+    '            "priority_honoured": written["priority_honoured"],
+            "journaled": False, "note": TABLE_ENTRY_NOT_JOURNALED}' \
+    '            "priority_honoured": written["priority_honoured"],
+            "journaled": True, "note": TABLE_ENTRY_NOT_JOURNALED}')
 report "M-B20: the response claims the entry survives a restart, next to a note saying it does not" "$m" \
        "test_every_success_says_the_entry_is_not_journaled_and_what_that_costs"
 
@@ -370,11 +375,11 @@ m=$(mutant b11 "$MAIN" \
 report "M-B11: an entry the switch refused is counted as applied" "$m" \
        "test_one_refused_entry_does_not_cost_the_others"
 
+# TICKET-P3 2.1 put the telemetry note inside this branch, so the anchor is the condition
+# alone now -- still one site, and `if True:` still returns before the entries go back on.
 m=$(mutant b12 "$MAIN" \
-    '    if ndtwin or result.get("status") != "success":
-        return result' \
-    '    if True:
-        return result')
+    '    if ndtwin or result.get("status") != "success":' \
+    '    if True:')
 report "M-B12: readopt leaves the switch empty -- the push erased the package's entries" "$m" \
        "test_the_packages_entries_go_back_on_after_the_push_that_erased_them"
 
@@ -385,14 +390,15 @@ report "M-B22: entries are written to a switch whose pipeline push failed" "$m" 
        "test_a_switch_whose_pipeline_push_failed_gets_no_entries"
 
 m=$(mutant b23 "$MAIN" \
-    '                                     sample_callback if ndtwin else None,' \
+    '                                     sample_callback if cooperative else None,' \
     '                                     sample_callback,')
 report "M-B23: readopt hands a foreign switch the sFlow callback, so a clone session goes in" "$m" \
        "test_a_foreign_pipeline_gets_no_clone_session"
 
 m=$(mutant b27 "$MAIN" \
-    '    result["clone_session"] = False' \
-    '    pass')
+    '    result["clone_session"] = False
+    result["routes"] = "skipped"' \
+    '    result["routes"] = "skipped"')
 report "M-B27: readopt reports a clone session on a switch that was given none" "$m" \
        "test_it_does_not_claim_a_clone_session_it_never_programmed"
 
@@ -428,11 +434,11 @@ report "M-B31: a deliberate zero is reported as a bare zero, which reads as a re
 
 m=$(mutant b32 "$MAIN" \
     '    result = topology.readopt_switch(dpid, client_factory,
-                                     sample_callback if ndtwin else None,
+                                     sample_callback if cooperative else None,
                                      install_routes=ndtwin)' \
     '    try:
         result = topology.readopt_switch(dpid, client_factory,
-                                         sample_callback if ndtwin else None,
+                                         sample_callback if cooperative else None,
                                          install_routes=ndtwin)
     except Exception as exc:  # noqa: BLE001
         return {"status": "failed", "step": "routes", "dpid": dpid, "error": str(exc)}')
@@ -527,8 +533,10 @@ control "N2 (control): a comment-only edit inside the entry-applying loop" "$m" 
         "the whole suite stays green"
 
 m=$(mutant n3 "$ROUTES" \
-    '    op = data.get("op", "insert")' \
-    '    op = data.get("op") if "op" in data else "insert"')
+    '    op = data.get("op", "insert")
+    spec = {key: data.get(key) for key in' \
+    '    op = data.get("op") if "op" in data else "insert"
+    spec = {key: data.get(key) for key in')
 control "N3 (control): the same default written the long way" "$m" "the whole suite stays green"
 
 echo

@@ -558,6 +558,33 @@ class AForeignPipelineTest(unittest.TestCase):
         self.assertEqual(parts["sflow"].registered, {})
         self.assertEqual(summary["telemetry"], [])
 
+        # [Co-developed with claude code -- Adam]
+        # 🔴 AND WITH THE SOURCE EXPLICITLY SET TO `cooperative`, WHICH IS THE ONLY CASE WHERE
+        # THIS GUARD IS THE ONE DOING THE WORK. TICKET-P3 2.1 made `auto` answer `link` for a
+        # foreign pipeline, so the source check a few lines below would skip such a switch
+        # anyway -- and the two guards would then mask each other exactly the way `read_only`
+        # and "no agent IP" once did (see the comment above `agent_ips = agent_ips_loader()`),
+        # leaving tests/shell/mutate_table_entry.sh's M-B9 a SURVIVOR: deleting the foreign
+        # branch would change nothing observable.
+        #
+        # The switch here CAN carry the cooperative header (ndtwin_telemetry.p4 makes that
+        # possible for somebody else's program), so startup does not refuse it -- and it still
+        # gets no clone session, because TICKET-P2 2.2 says a switch running the package's own
+        # pipeline is programmed by the package's own controller. See P3-C-SUMMARY's objection:
+        # this is the case that makes the include less useful than it could be.
+        knob = os.path.join(self.tmp, "telemetry_override")
+        with open(knob, "w") as fh:
+            fh.write("cooperative\n")
+        capable = FakeClient(1)
+        summary, parts = run_startup({1: capable}, package=self.package(),
+                                     telemetry_knob=knob)
+        self.assertNotIn("clone", capable.events,
+                         "the foreign-pipeline guard is the only thing standing between this "
+                         "switch and a clone session it must not get")
+        self.assertEqual(parts["sflow"].registered, {})
+        self.assertEqual(summary["telemetry_report"]["1"]["source"], "cooperative")
+        self.assertFalse(summary["telemetry_report"]["1"]["clone_session"])
+
     def test_an_ndtwin_switch_beside_a_foreign_one_keeps_its_clone_session(self):
         # Per switch, not fabric-wide: the clone session is programmed into THAT switch's PRE,
         # and an NDTwin pipeline still clones into it whatever its neighbour is running.
