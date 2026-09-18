@@ -277,6 +277,17 @@ m=$(mutant m_b15 "$LINKTEL" \
 report "M-B15: a tc command that failed is ignored, so the fabric measures half of itself" "$m" \
        "test_a_tc_that_failed_stops_the_bring_up_rather_than_half_measuring"
 
+# `topo_log.Tee` is an FD-level tee whose `stop()` ends its pump by letting the LAST write end
+# of the pipe go, and whose own comment states the invariant: this process owns them all. An
+# emitter inheriting fd 2 makes that false -- `stop()` burns its five-second join on every
+# bring-up and the statistics line lands on the operator's NTG prompt for the life of the fabric.
+m=$(mutant m_b16 "$LINKTEL" \
+    '    handle = (opener or open)(log_path or LINK_TELEMETRY_LOG, "wb")' \
+    '    return popen(argv)  # MUTANT: inherit the topology'"'"'s descriptors
+    handle = (opener or open)(log_path or LINK_TELEMETRY_LOG, "wb")')
+report "M-B16: the emitter inherits fds 1 and 2, so it holds the tee's pipe open" "$m" \
+       "test_it_is_launched_onto_its_own_file_and_this_process_keeps_no_descriptor"
+
 # --- negative controls -----------------------------------------------------------------------
 #
 # A gate that reddens on anything is not a gate. These are edits that change no behaviour these

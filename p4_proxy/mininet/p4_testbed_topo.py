@@ -1082,17 +1082,18 @@ def start_link_telemetry(package, model, switches, manifest_path=None, report=pr
 
     try:
         link_telemetry.attach(plan, run=tc_run)
+        proc = link_telemetry.start_emitter(manifest_path, popen=emitter_popen)
+        link_telemetry.write_manifest(plan, getattr(proc, "pid", None), path=manifest_path)
     except Exception:
-        # 🔴 A HALF-ATTACHED FABRIC LEAVES QDISCS BEHIND ON A PATH NO TEARDOWN RUNS. The
-        # manifest is not written yet, so `tear_down` -- which reads it -- would find nothing to
-        # undo, and both mains' abort paths would leave `clsact` on whichever interfaces got
-        # that far. `mn -c` in the next bring-up destroys the veths and takes the qdiscs with
-        # them, but "it is cleaned up by the next run" is not a thing to rely on for state this
-        # process created. Best effort, then the original failure.
+        # 🔴 A HALF-BUILT LINK PATH LEAVES QDISCS BEHIND WHERE NO TEARDOWN RUNS. Until
+        # `write_manifest` returns there is nothing on disk for `tear_down` to read, so both
+        # mains' abort paths would leave `clsact` on whichever interfaces got that far -- and,
+        # if the emitter had already started, an orphan holding a psample group. `mn -c` in the
+        # next bring-up destroys the veths and takes the qdiscs with them, but "the next run
+        # cleans it up" is not a thing to rely on for state this process created. Best effort,
+        # then the original failure.
         link_telemetry.detach(plan, run=tc_run, report=report)
         raise
-    proc = link_telemetry.start_emitter(manifest_path, popen=emitter_popen)
-    link_telemetry.write_manifest(plan, getattr(proc, "pid", None), path=manifest_path)
     report(link_telemetry.describe(plan, getattr(proc, "pid", None)))
 
     # Give it the grace period section 2.5 names, asking each step. `poll()` is the process's

@@ -477,6 +477,38 @@ class TheBringUpLineTest(PlanFixture):
 
 class TheEmitterCommandLineTest(unittest.TestCase):
 
+    def test_it_is_launched_onto_its_own_file_and_this_process_keeps_no_descriptor(self):
+        # 🔴 The invariant `topo_log.Tee.stop()` states in its own comment: this process owns
+        # every write end of the tee's pipe, because Mininet's node shells get their own pipes
+        # and bmv2 is launched onto /tmp/sN_bmv2.log. An emitter inheriting fd 2 would be a
+        # fourth owner -- the pump never sees EOF, `stop()` burns its whole join, and the
+        # statistics line lands on the NTG prompt every ten seconds.
+        opened = []
+        started = {}
+
+        class Handle:
+            closed = False
+
+            def close(self):
+                Handle.closed = True
+
+        def opener(path, mode):
+            opened.append((path, mode))
+            return Handle()
+
+        def popen(argv, **kwargs):
+            started.update(kwargs)
+            return "process"
+        result = link_telemetry.start_emitter("/tmp/m.json", popen=popen, opener=opener,
+                                              log_path="/tmp/emitter.log")
+        self.assertEqual(result, "process")
+        self.assertEqual(opened, [("/tmp/emitter.log", "wb")])
+        self.assertIs(started["stdout"], started["stderr"])
+        self.assertTrue(Handle.closed, "the parent kept a descriptor on the emitter's log")
+
+    def test_the_default_log_sits_beside_the_switches_own(self):
+        self.assertEqual(link_telemetry.LINK_TELEMETRY_LOG, "/tmp/ndtwin_link_telemetry.log")
+
     def test_it_names_the_emitter_beside_this_module_and_the_manifest(self):
         argv = link_telemetry.emitter_argv("/tmp/m.json", python="/usr/bin/python3")
         self.assertEqual(argv, ["/usr/bin/python3", link_telemetry.EMITTER_PATH,

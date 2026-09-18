@@ -536,6 +536,11 @@ class FabricFixture(unittest.TestCase):
         self.patch(app_package, "TELEMETRY_KNOB_PATH", self.telemetry_knob_path)
         self.link_manifest = os.path.join(self.tmp, "ndtwin_link_telemetry.json")
         self.patch(link_telemetry, "LINK_TELEMETRY_MANIFEST", self.link_manifest)
+        # The emitter is launched onto its OWN file rather than inheriting fds 1 and 2 (see
+        # LINK_TELEMETRY_LOG), which means `start_emitter` opens a file -- and /tmp's is not
+        # this suite's to truncate.
+        self.link_log = os.path.join(self.tmp, "ndtwin_link_telemetry.log")
+        self.patch(link_telemetry, "LINK_TELEMETRY_LOG", self.link_log)
         self.patch(link_telemetry, "read_ifindex", fake_ifindex)
         self.sub = FakeSubprocess()
         self.patch(link_telemetry, "subprocess", self.sub)
@@ -1560,6 +1565,18 @@ class LinkTelemetryUnderTheKnobTest(FabricFixture):
         self.bring_up(report=said.append)
         self.assertIn("link telemetry: 10 switch(es), 36 ingress + 4 egress filters, "
                       "emitter pid 4242", said)
+
+    def test_the_emitter_gets_its_own_log_and_not_the_topologys_descriptors(self):
+        # 🔴 `topo_log.Tee` is an FD-level tee whose `stop()` ends the pump by letting the LAST
+        # write end of its pipe go -- and its own comment states the invariant: this process
+        # owns them all, because Mininet's node shells get their own pipes and bmv2 is launched
+        # onto /tmp/sN_bmv2.log. A child of ours holding fd 2 would make `stop()` burn its
+        # five-second join on every bring-up and put a statistics line on the operator's NTG
+        # prompt every ten seconds for the life of the fabric.
+        self.bring_up()
+        self.assertTrue(os.path.exists(self.link_log),
+                        "the emitter was not given a log file of its own")
+        self.assertEqual(self.link_manifest_contents()["log"], self.link_log)
 
     def test_the_manifest_records_the_tc_commands_that_were_run(self):
         self.bring_up()

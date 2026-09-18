@@ -92,6 +92,22 @@ LINK_SUB_AGENT_ID = 1
 #: The emitter this module starts, next to this file.
 EMITTER_PATH = os.path.join(_HERE, "psample_sflow_emitter.py")
 
+#: Where the emitter's own output goes. Beside the switches' `/tmp/sN_bmv2.log`, and for a
+#: reason that is not filing.
+#:
+#: 🔴 THE EMITTER MUST NOT INHERIT THE TOPOLOGY'S DESCRIPTORS. `ntg_bmv2_topo.py` runs under
+#: `topo_log.Tee`, which is an FD-LEVEL tee: `os.dup2` puts a pipe on fds 1 and 2 and a pump
+#: thread drains it. `Tee.stop()` -- called before NTG's prompt, because prompt_toolkit renders
+#: as plain text into a pipe -- ends that pump by putting the real descriptors back and letting
+#: the LAST write end go, and its own comment states the invariant that makes this work: "this
+#: process owns them all -- Mininet gives its node shells their own pipes and bmv2 is launched
+#: with `> /tmp/sN_bmv2.log 2>&1`". A child of ours holding fd 2 would be a fourth owner: the
+#: pump would never see EOF, `stop()` would burn its whole five-second join on every bring-up,
+#: and the emitter's statistics line would keep arriving on the operator's NTG prompt every ten
+#: seconds for the life of the fabric. So the emitter is launched the way bmv2 is, onto its own
+#: file -- which is also the file the orchestrator tails to read those statistics.
+LINK_TELEMETRY_LOG = "/tmp/ndtwin_link_telemetry.log"
+
 #: How long the emitter gets to fall over before the bring-up calls it fatal, and how long a
 #: SIGTERMed one gets before SIGKILL. Section 2.5.
 EMITTER_STARTUP_GRACE_S = 3.0
@@ -363,10 +379,11 @@ def detach(plan_or_interfaces, run=None, report=None):
     return removed
 
 
-def manifest_document(plan, emitter_pid):
+def manifest_document(plan, emitter_pid, log_path=None):
     """What `write_manifest` writes. Separated so a test can read it without a filesystem."""
     return {
         "pid": emitter_pid,
+        "log": log_path or LINK_TELEMETRY_LOG,
         "rate": plan.rate,
         "trunc": plan.trunc,
         "group": plan.group,
@@ -390,7 +407,7 @@ def manifest_document(plan, emitter_pid):
     }
 
 
-def write_manifest(plan, emitter_pid, path=None):
+def write_manifest(plan, emitter_pid, path=None, log_path=None):
     """Record the emitter's pid and the port map where every other reader can find them.
 
     Replace the inode, never truncate in place -- the same reasoning as the switch manifest
@@ -399,7 +416,7 @@ def write_manifest(plan, emitter_pid, path=None):
     fabric's teardown then signals.
     """
     path = path or LINK_TELEMETRY_MANIFEST
-    document = manifest_document(plan, emitter_pid)
+    document = manifest_document(plan, emitter_pid, log_path=log_path)
     try:
         fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".",
                                    prefix=".ndtwin_link_telemetry.")
@@ -512,15 +529,27 @@ def emitter_argv(manifest_path=None, python=None, emitter=None):
             "--manifest", manifest_path or LINK_TELEMETRY_MANIFEST]
 
 
-def start_emitter(manifest_path=None, popen=None, python=None, emitter=None, stderr=None):
-    """Launch the emitter against a manifest that is ALREADY on disk.
+def start_emitter(manifest_path=None, popen=None, python=None, emitter=None, stderr=None,
+                  log_path=None, opener=None):
+    """Launch the emitter against a manifest that is ALREADY on disk, onto its own log.
 
     Returns the Popen. The caller decides what a dead one means -- `bring_up` calls it fatal,
     which section 2.5 requires: an emitter that exited is a fabric measuring nothing while
     every other line of the bring-up reads success.
+
+    `stderr` is for a test that wants the stream itself; production takes the other branch and
+    gets `LINK_TELEMETRY_LOG`, for the reason written at that constant. The handle is closed
+    here -- the child has its own duplicate -- so this process holds no extra descriptor either.
     """
     popen = popen or subprocess.Popen
-    return popen(emitter_argv(manifest_path, python, emitter), stderr=stderr)
+    argv = emitter_argv(manifest_path, python, emitter)
+    if stderr is not None:
+        return popen(argv, stderr=stderr)
+    handle = (opener or open)(log_path or LINK_TELEMETRY_LOG, "wb")
+    try:
+        return popen(argv, stdout=handle, stderr=handle)
+    finally:
+        handle.close()
 
 
 def describe(plan, emitter_pid=None) -> str:
