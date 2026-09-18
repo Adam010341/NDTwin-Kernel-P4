@@ -49,12 +49,14 @@ EXERCISE="${EXERCISE_DIR:-$HOME/tutorials/exercises/basic}"
 PKG="$PKG_ROOT/basic"
 P4C="${P4C:-/usr/local/bin/p4c-bm2-ss}"
 
-# The names below are proxy_agent/main.py's own SKIP_* constants (:288-293), not prose:
-#   SKIP_PIPELINE=pipeline_push   SKIP_CLONE=clone_session   SKIP_TELEMETRY=sflow_telemetry
-#   SKIP_LLDP=lldp_discovery      SKIP_WATCHDOG=link_watchdog
-#   SKIP_ROUTES=install_initial_routes
-# Written out here rather than read from that file: a check that derives its expectation from
-# the code under test agrees with it by construction.
+# The names below are proxy_agent/main.py's own constants, checked against the merged P2-B
+# tree (trunk 78067633) rather than against the ticket:
+#   FOREIGN_PIPELINE_FABRIC_SKIPS = (SKIP_LLDP, SKIP_WATCHDOG, SKIP_ROUTES)
+#                                 = lldp_discovery, link_watchdog, install_initial_routes
+#   FOREIGN_PIPELINE_SWITCH_SKIPS = (SKIP_CLONE, SKIP_TELEMETRY)
+#                                 = clone_session, sflow_telemetry   (per switch, not here)
+# Written out rather than read from that file: a check that derives its expectation from the
+# code under test agrees with it by construction.
 FABRIC_SKIPS="['install_initial_routes', 'link_watchdog', 'lldp_discovery']"   # sorted
 SWITCH_SKIPS="[\"('clone_session', 'sflow_telemetry')\"]"                      # per switch
 

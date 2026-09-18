@@ -138,6 +138,9 @@ if [[ -s "$SS" ]]; then
         || fail "control_plane.skipped is $SKIPPED -- on NDTwin's own pipeline nothing is skipped"
     [[ "$NDTWIN" == "['True']" ]] \
         || fail "pipeline.ndtwin is $NDTWIN, want ['True'] on every switch -- --ndtwin-pipeline nulled them all"
+    # main.py:369 (trunk 78067633): `[] if ndtwin else sorted(FOREIGN_PIPELINE_SWITCH_SKIPS)`,
+    # and the key is emitted either way -- an absent key cannot be told from a proxy too old to
+    # have one.
     [[ "$SW_SKIPPED" == "['()']" ]] \
         || fail "per-switch pipeline.skipped is $SW_SKIPPED, want () on every switch: a clone session and the sFlow sampler both work on this pipeline"
     # 🔴 RECORDED AND NOT APPLIED, which is the phase-one sentence this file exists to keep.
