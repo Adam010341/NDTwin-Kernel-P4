@@ -511,5 +511,182 @@ class ValueWidths(unittest.TestCase):
         self.assertEqual(preflight.match_type_name(4), "TERNARY")
 
 
+# --- TICKET-P3 2.6: the multicast exercise, its PRE entries, and the telemetry word ------------
+
+
+MULTICAST = os.path.join(FIXTURES, "multicast")
+
+
+class TheMulticastExerciseCase(PackageCase):
+    """exercises/multicast/sig-topo -- one switch, four hosts, and a group in its runtime file.
+
+    [Co-developed with claude code -- Adam]
+    The first fixture in this tree whose runtime file declares anything but `table_entries`, and
+    the first one-switch topology with FOUR hosts. Both matter: `multicast_group_entries` used
+    to be carried through convert by accident (the file is copied whole) and nothing said so,
+    and a group that replicates to a port the model does not build is accepted by the PRE and
+    then silently delivers to nobody.
+    """
+
+    exercise = MULTICAST
+    topology = "sig-topo/topology.json"
+    p4 = "multicast.p4"
+
+
+class TheMulticastPackageIsGreen(TheMulticastExerciseCase):
+    def test_it_converts_and_passes_every_check(self):
+        self.assert_green()
+
+    def test_the_groups_survive_the_conversion(self):
+        # convert copies the runtime file whole; this is the assertion that "whole" includes the
+        # key nothing else in the pipeline reads.
+        with open(os.path.join(self.pkg, "sig-topo", "s1-runtime.json"), encoding="utf-8") as fh:
+            entries = json.load(fh)
+        self.assertEqual(len(entries["multicast_group_entries"]), 1)
+        self.assertEqual(entries["multicast_group_entries"][0]["multicast_group_id"], 1)
+        self.assertEqual([r["egress_port"] for r in
+                          entries["multicast_group_entries"][0]["replicas"]], [1, 2, 3])
+
+    def test_the_pre_entries_row_counts_them(self):
+        self.assertEqual(self.statuses()["PRE entries"], preflight.PASS)
+        row = [r for r in self.report().rows if r[1] == "PRE entries"][0]
+        self.assertIn("1 multicast group", row[2])
+
+    def test_a_replica_on_a_port_the_model_does_not_build_fails(self):
+        # s1 has ports 1..4 (four hosts). Port 9 is accepted by the PRE, replicates into
+        # nothing, and reads downstream as "the exercise's forwarding is broken".
+        self.edit_entries("sig-topo/s1-runtime.json",
+                          lambda d: d["multicast_group_entries"][0]["replicas"]
+                          .append({"egress_port": 9, "instance": 1}))
+        self.assert_red("PRE entries", "egress_port 9 is not a port s1 has")
+
+    def test_a_group_id_of_zero_fails(self):
+        self.edit_entries("sig-topo/s1-runtime.json",
+                          lambda d: d["multicast_group_entries"][0]
+                          .__setitem__("multicast_group_id", 0))
+        self.assert_red("PRE entries", "positive integer")
+
+    def test_a_group_with_no_replicas_fails(self):
+        self.edit_entries("sig-topo/s1-runtime.json",
+                          lambda d: d["multicast_group_entries"][0].__setitem__("replicas", []))
+        self.assert_red("PRE entries", "drop every packet")
+
+    def test_the_same_replica_twice_fails(self):
+        self.edit_entries("sig-topo/s1-runtime.json",
+                          lambda d: d["multicast_group_entries"][0]["replicas"]
+                          .append({"egress_port": 1, "instance": 1}))
+        self.assert_red("PRE entries", "declared twice")
+
+    def test_the_same_port_with_a_second_instance_is_accepted(self):
+        # Two copies out of one port IS something the PRE does. The duplicate check must not
+        # refuse the exercise that wants it.
+        self.edit_entries("sig-topo/s1-runtime.json",
+                          lambda d: d["multicast_group_entries"][0]["replicas"]
+                          .append({"egress_port": 1, "instance": 2}))
+        self.assert_green()
+
+    def test_a_clone_session_replica_may_name_the_cpu_port(self):
+        # The CPU port is not a link, so no model edge names it -- and a clone session's whole
+        # purpose is to replicate to it. A check that did not know that would fail every
+        # package that declares one.
+        self.edit_entries("sig-topo/s1-runtime.json",
+                          lambda d: d.__setitem__("clone_session_entries", [
+                              {"clone_session_id": 250,
+                               "replicas": [{"egress_port": 255, "instance": 1}]}]))
+        self.assert_green()
+
+    def test_a_clone_session_replica_on_a_port_that_is_neither_fails(self):
+        self.edit_entries("sig-topo/s1-runtime.json",
+                          lambda d: d.__setitem__("clone_session_entries", [
+                              {"clone_session_id": 250,
+                               "replicas": [{"egress_port": 77, "instance": 1}]}]))
+        self.assert_red("PRE entries", "neither a port s1 has")
+
+
+class TheTelemetryWord(PackageCase):
+    """`telemetry.source` -- the value domain, and the one combination that cannot work."""
+
+    def test_a_package_that_declares_nothing_is_a_note_not_a_failure(self):
+        self.assertEqual(self.statuses()["telemetry.source"], preflight.INFO)
+
+    def test_each_word_in_the_domain_is_accepted(self):
+        for word in ("auto", "none", "cooperative", "link"):
+            with self.subTest(word=word):
+                self.edit_package(lambda d, w=word: d.__setitem__("telemetry", {"source": w}))
+                rows = {label: status for status, label, _d in self.report().rows if label}
+                self.assertEqual(rows["telemetry.source"], preflight.PASS)
+
+    def test_a_word_outside_the_domain_fails(self):
+        self.edit_package(lambda d: d.__setitem__("telemetry", {"source": "sflow"}))
+        self.assert_red("telemetry.source", "not one of")
+
+    def test_a_telemetry_that_is_not_an_object_fails(self):
+        self.edit_package(lambda d: d.__setitem__("telemetry", "link"))
+        self.assert_red("telemetry")
+
+
+class TheCooperativeRefusal(PackageCase):
+    """A package that carries its own program AND asks for the cooperative path."""
+
+    p4 = "solution/basic.p4"
+
+    def test_cooperative_on_a_program_with_no_controller_header_fails(self):
+        # 🔴 The case the proxy refuses to start on. Caught here, before the switches exist:
+        # such a fabric comes up, accepts the clone session and reports zero samples for the
+        # whole run with every step green.
+        self.edit_package(lambda d: d.__setitem__("telemetry", {"source": "cooperative"}))
+        self.assert_red("telemetry cooperative is possible", "cannot clone to the CPU port")
+
+    def test_the_failure_names_the_way_out(self):
+        self.edit_package(lambda d: d.__setitem__("telemetry", {"source": "cooperative"}))
+        joined = " ".join(r[2] for r in self.report().rows if r[0] == preflight.FAIL)
+        self.assertIn("ndtwin_telemetry.p4", joined)
+
+    def test_link_on_the_same_package_is_fine(self):
+        self.edit_package(lambda d: d.__setitem__("telemetry", {"source": "link"}))
+        self.assert_green()
+
+    def test_auto_on_the_same_package_is_fine(self):
+        # `auto` resolves per switch, and a switch running somebody else's program resolves to
+        # `link` -- so there is nothing to refuse.
+        self.edit_package(lambda d: d.__setitem__("telemetry", {"source": "auto"}))
+        self.assert_green()
+
+
+class TheCooperativeIncludeIsAccepted(PackageCase):
+    """The same package built from basic_telemetry -- the include's whole point."""
+
+    exercise = os.path.join(FIXTURES, "basic_telemetry")
+    topology = None                       # set in setUp: this fixture borrows basic's topology
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="p4_exercise_preflight_telemetry_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        # basic_telemetry is a program, not an exercise: it has no topology of its own. So the
+        # package is built from basic's pod-topo and then pointed at the telemetry program's
+        # compiled artefacts -- which is exactly what an author who included the header would
+        # have, and is the shape the refusal above must NOT fire on.
+        self.pkg = os.path.join(self.tmp, "pkg")
+        convert.convert(BASIC, "pod-topo/topology.json", self.pkg)
+        build = os.path.join(self.pkg, "build")
+        os.makedirs(build, exist_ok=True)
+        for name in ("basic_telemetry.p4.p4info.txtpb", "basic_telemetry.json"):
+            shutil.copy(os.path.join(self.exercise, "build", name),
+                        os.path.join(build, name))
+        self.edit_package(self._point_at_the_telemetry_program)
+
+    @staticmethod
+    def _point_at_the_telemetry_program(data):
+        data["telemetry"] = {"source": "cooperative"}
+        for spec in data["switches"].values():
+            spec["pipeline"] = {"p4info": "build/basic_telemetry.p4.p4info.txtpb",
+                                "bmv2_json": "build/basic_telemetry.json"}
+            spec["entries"] = None
+
+    def test_cooperative_is_possible_on_a_program_that_included_the_header(self):
+        rows = {label: status for status, label, _d in self.report().rows if label}
+        self.assertEqual(rows["telemetry cooperative is possible"], preflight.PASS)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

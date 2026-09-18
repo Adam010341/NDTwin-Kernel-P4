@@ -736,6 +736,11 @@ class P4RuntimeClient:
 
         wanted = ([{"egress_port": egress_port, "instance": 1}] if replicas is None
                   else [dict(r) for r in replicas])
+        # What the log line says this session replicates to. Taken from `wanted` rather than
+        # from `egress_port`, which is only the DEFAULT replica's port: a package session
+        # printed as "-> port 255" while it actually replicates to 510 is a log line that
+        # contradicts the switch. [Co-developed with claude code -- Adam]
+        where = ", ".join(str(spec["egress_port"]) for spec in wanted) or "(no replica)"
 
         def build(update_type):
             req = p4runtime_pb2.WriteRequest()
@@ -763,7 +768,7 @@ class P4RuntimeClient:
 
         try:
             self.stub.Write(build(p4runtime_pb2.Update.INSERT), timeout=RPC_TIMEOUT_S)
-            print(f"[{self.device_id}] Clone session {session_id} -> port {egress_port} installed")
+            print(f"[{self.device_id}] Clone session {session_id} -> port {where} installed")
         except grpc.RpcError as insert_error:
             # Any INSERT failure, not just ALREADY_EXISTS -- see the docstring. bmv2 reports a
             # duplicate session as UNKNOWN with empty details, so a code-specific check silently

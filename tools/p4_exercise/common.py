@@ -34,6 +34,15 @@ AGENT_IP_OFFSET = 10
 #: What the shipped models put on a link when nothing says otherwise.
 DEFAULT_LINK_BPS = 1000000000
 
+#: The CPU port a package gets when no switch in the exercise names one. bmv2's own default and
+#: the number ndtwin_switch.p4 compiles in (`const bit<9> CPU_PORT = 255`), so a package that
+#: says nothing gets a fabric whose switches and whose pipeline agree.
+#: [Co-developed with claude code -- Adam]
+#: 🔴 NOT COSMETIC AND NOT GUESSABLE: `flowcache/topology.json` asks for 510 (as the STRING
+#: "510"), and a switch launched on 255 while its program sends to 510 drops every controller
+#: packet with nothing logged on either side.
+DEFAULT_CPU_PORT = 255
+
 
 def import_topo_from_json():
     """The proxy's model reader, imported by path rather than copied."""

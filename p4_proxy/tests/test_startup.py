@@ -18,6 +18,7 @@ main.startup and writing down what it does.
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import json
 import os
 import shutil
@@ -187,18 +188,45 @@ class FakeTopo:
         self.started.append("stop-liveness")
 
 
-def run_startup(clients, *, kernel=None, agent_ips=None, sflow=None, topo=None, package=None):
-    """Drives startup with fakes and no settling delay, and returns (summary, parts)."""
+def run_startup(clients, *, kernel=None, agent_ips=None, sflow=None, topo=None, package=None,
+                telemetry_knob=None):
+    """Drives startup with fakes and no settling delay, and returns (summary, parts).
+
+    [Co-developed with claude code -- Adam]
+    🔴 THE TELEMETRY KNOB IS ALWAYS PATCHED, even when a test says nothing about telemetry.
+    `main.TELEMETRY_KNOB_PATH` is a real path inside the checkout (p4_proxy/mininet/
+    telemetry_override) and `ndt up p4 --telemetry` writes it -- so without this, every startup
+    test in this file would quietly change behaviour on a machine where somebody had left a
+    fabric configured, and the suite would be green here and red there for a reason nobody
+    could see in the diff. `telemetry_knob=None` means "no knob file", which is `auto`.
+    """
     kernel = kernel if kernel is not None else FakeKernel()
     sflow = sflow if sflow is not None else FakeSflow()
     topo = topo if topo is not None else FakeTopo()
     ips = {dpid: f"192.168.123.{10 + dpid}" for dpid in clients} if agent_ips is None else agent_ips
-    summary = asyncio.run(startup(
-        lambda: clients, sflow, kernel, topo,
-        settle_seconds=0, agent_ips_loader=lambda: ips,
-        package=package if package is not None else app_package.baseline(),
-    ))
+    knob = telemetry_knob or os.path.join(tempfile.gettempdir(),
+                                          "ndtwin-no-such-telemetry-override")
+    with mock.patch.object(main, "TELEMETRY_KNOB_PATH", knob):
+        summary = asyncio.run(startup(
+            lambda: clients, sflow, kernel, topo,
+            settle_seconds=0, agent_ips_loader=lambda: ips,
+            package=package if package is not None else app_package.baseline(),
+        ))
     return summary, {"kernel": kernel, "sflow": sflow, "topo": topo}
+
+
+def declaring_telemetry(package, word):
+    """A copy of `package` that also declares `telemetry.source` -- ticket B's field.
+
+    [Co-developed with claude code -- Adam]
+    `Package` is a frozen dataclass and B owns it (TICKET-P3 0.7), so the field does not exist
+    on this branch yet. `main.package_telemetry_source` reads it with getattr precisely so that
+    this branch's code paths can be exercised before B lands, and a subclass carrying the
+    attribute is how a test supplies one without touching the other ticket's file.
+    """
+    subclass = type("PackageDeclaringTelemetry", (type(package),), {"telemetry_source": word})
+    return subclass(**{f.name: getattr(package, f.name)
+                       for f in dataclasses.fields(package)})
 
 
 def external_package(directory="/packages/p4runtime"):
@@ -716,6 +744,323 @@ class ShutdownStopsTheClientsTheTopologyManagerHoldsTest(unittest.TestCase):
         self.assertIn("stop", topo.switches[2].events,
                       "a client that raised on stop() took the switches after it down with it")
         self.assertTrue(sflow.closed, "the emitter socket was never closed")
+
+
+# --- where each switch's samples come from. TICKET-P3 2.1 --------------------------------------
+
+
+class TelemetrySourceTest(unittest.TestCase):
+    """
+    The word, the three layers that resolve it, and the six cells it produces.
+
+    [Co-developed with claude code -- Adam]
+    🔴 THE TWO SOURCES ARE EXCLUSIVE AND NOTHING DOWNSTREAM CAN TELL WHEN THEY ARE NOT. Under
+    `link` the switch-side veths are sampled by tc filters and a separate emitter synthesises the
+    sFlow; if this proxy ALSO programmed a clone session, the same packet would be counted twice
+    -- once cloned to the CPU and once sampled on the wire -- into the same edge's byte total.
+    Every rate and every link utilisation would read exactly double, uniformly, with no error
+    anywhere. That is the 2026-08-16 clone-stacking shape, which took a veth reconciliation
+    harness to catch the last time it happened.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_telemetry_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.saved = (dict(main._pipelines), dict(main._table_entries), dict(main._telemetry),
+                      dict(main._pre_entries))
+        self.addCleanup(self.restore)
+
+    def restore(self):
+        for live, saved in ((main._pipelines, self.saved[0]),
+                            (main._table_entries, self.saved[1]),
+                            (main._telemetry, self.saved[2]),
+                            (main._pre_entries, self.saved[3])):
+            live.clear()
+            live.update(saved)
+
+    def knob(self, text):
+        path = os.path.join(self.tmp, "telemetry_override")
+        with open(path, "w") as fh:
+            fh.write(text)
+        return path
+
+    def foreign_package(self, dpids=(1,)):
+        """A package whose switches run their own program -- so `auto` answers `link`."""
+        switches = tuple(
+            app_package.SwitchSpec(dpid=dpid, name=f"s{dpid}",
+                                   pipeline=("build/basic.p4info.txtpb", "build/basic.json"),
+                                   entries=None, entries_recorded=0)
+            for dpid in dpids)
+        return app_package.Package(dir="/packages/basic", name="basic", switches=switches)
+
+    # --- the resolver itself ------------------------------------------------------------
+
+    def test_no_knob_and_no_declaration_is_auto_and_auto_is_per_switch(self):
+        baseline = app_package.baseline()
+        with mock.patch.object(main, "TELEMETRY_KNOB_PATH", os.path.join(self.tmp, "absent")):
+            self.assertEqual(main._telemetry_source(baseline, 1), main.TELEMETRY_COOPERATIVE)
+            self.assertEqual(main._telemetry_source(self.foreign_package(), 1),
+                             main.TELEMETRY_LINK)
+
+    def test_the_knob_beats_the_package(self):
+        # An operator who typed `--telemetry none` means it for this fabric, whatever the
+        # package prefers -- that is what makes the measurement's control arm reachable at all.
+        package = declaring_telemetry(app_package.baseline(), "cooperative")
+        self.assertEqual(
+            main._telemetry_source(package, 1, knob_path=self.knob("none\n")),
+            main.TELEMETRY_NONE)
+
+    def test_an_auto_knob_defers_to_the_package(self):
+        package = declaring_telemetry(app_package.baseline(), "link")
+        self.assertEqual(
+            main._telemetry_source(package, 1, knob_path=self.knob("auto\n")),
+            main.TELEMETRY_LINK)
+
+    def test_the_package_beats_auto(self):
+        package = declaring_telemetry(app_package.baseline(), "none")
+        with mock.patch.object(main, "TELEMETRY_KNOB_PATH", os.path.join(self.tmp, "absent")):
+            self.assertEqual(main._telemetry_source(package, 1), main.TELEMETRY_NONE)
+
+    def test_comments_and_blank_lines_are_skipped_like_the_other_directive_files(self):
+        knob = self.knob("# written by ndt up p4 --telemetry\n\nlink\n")
+        self.assertEqual(main.read_telemetry_knob(knob), "link")
+
+    def test_a_word_outside_the_domain_is_refused_rather_than_defaulted(self):
+        # 🔴 The fallback is what turns a typo into a silent change of measurement conditions,
+        # and this knob exists so that three processes agree -- the one that cannot read it must
+        # not guess.
+        with self.assertRaises(main.TelemetryConfigError) as cm:
+            main.read_telemetry_knob(self.knob("cooperatvie\n"))
+        self.assertIn("cooperatvie", str(cm.exception))
+
+    def test_an_empty_knob_is_refused_rather_than_read_as_auto(self):
+        with self.assertRaises(main.TelemetryConfigError):
+            main.read_telemetry_knob(self.knob("# nothing but a comment\n"))
+
+    def test_an_absent_knob_is_none_rather_than_an_error(self):
+        self.assertIsNone(main.read_telemetry_knob(os.path.join(self.tmp, "absent")))
+
+    def test_a_package_declaring_a_word_outside_the_domain_is_refused(self):
+        package = declaring_telemetry(app_package.baseline(), "sflow")
+        with self.assertRaises(main.TelemetryConfigError):
+            main.package_telemetry_source(package)
+
+    # --- the six cells: three sources x (NDTwin pipeline, foreign pipeline) ---------------
+
+    def cell(self, source, foreign):
+        package = self.foreign_package() if foreign else app_package.baseline()
+        client = FakeClient(1, packet_in_ids=None if foreign else NDTWIN_PACKET_IN_IDS)
+        summary, parts = run_startup({1: client}, package=package,
+                                     telemetry_knob=self.knob(source + "\n"))
+        return summary, parts, client
+
+    def test_cooperative_on_ndtwins_pipeline_programs_the_clone_and_registers(self):
+        summary, parts, client = self.cell("cooperative", foreign=False)
+        self.assertIn("clone", client.events)
+        self.assertEqual(parts["sflow"].registered, {1: "192.168.123.11"})
+        self.assertEqual(summary["telemetry"], [1])
+        self.assertEqual(summary["telemetry_sources"], {"1": "cooperative"})
+        disclosure = summary["telemetry_report"]["1"]
+        self.assertEqual(disclosure["source"], "cooperative")
+        self.assertTrue(disclosure["clone_session"])
+        self.assertTrue(disclosure["sflow_registered"])
+        self.assertEqual(disclosure["packet_in_ids"],
+                         {"reason": 1, "ingress_port": 2, "egress_port": 3,
+                          "frame_length": 4, "sampling_rate": 5})
+
+    def test_link_on_ndtwins_pipeline_programs_no_clone_and_registers_nothing(self):
+        summary, parts, client = self.cell("link", foreign=False)
+        self.assertNotIn("clone", client.events,
+                         "a clone session under link telemetry counts every packet twice")
+        self.assertEqual(parts["sflow"].registered, {})
+        self.assertEqual(summary["telemetry"], [])
+        disclosure = summary["telemetry_report"]["1"]
+        self.assertEqual(disclosure["source"], "link")
+        self.assertFalse(disclosure["clone_session"])
+        self.assertFalse(disclosure["sflow_registered"])
+        self.assertIn("counted twice", disclosure["reason"])
+
+    def test_none_on_ndtwins_pipeline_samples_nothing_at_all(self):
+        summary, parts, client = self.cell("none", foreign=False)
+        self.assertNotIn("clone", client.events)
+        self.assertEqual(parts["sflow"].registered, {})
+        self.assertEqual(summary["telemetry_report"]["1"]["source"], "none")
+
+    def test_link_on_a_foreign_pipeline_is_still_link_and_still_writes_nothing(self):
+        summary, parts, client = self.cell("link", foreign=True)
+        self.assertNotIn("clone", client.events)
+        self.assertEqual(parts["sflow"].registered, {})
+        self.assertEqual(summary["telemetry_report"]["1"]["source"], "link")
+        # 🔴 TICKET-P2 7-7 froze this list and it stays frozen: those two steps really were
+        # skipped. What is new is the `telemetry` object saying WHY.
+        self.assertEqual(summary["pipelines"]["1"]["skipped"],
+                         sorted([main.SKIP_CLONE, main.SKIP_TELEMETRY]))
+
+    def test_none_on_a_foreign_pipeline_writes_nothing(self):
+        summary, parts, client = self.cell("none", foreign=True)
+        self.assertNotIn("clone", client.events)
+        self.assertEqual(summary["telemetry_report"]["1"]["source"], "none")
+
+    def test_cooperative_on_a_foreign_pipeline_refuses_to_start(self):
+        # 🔴 A REFUSAL, NOT A WARNING. Such a fabric comes up, pushes its pipelines, accepts the
+        # clone session into the PRE (a clone session is a target object, so bmv2 takes it
+        # against any program) and reports zero samples for the whole run with every
+        # intermediate step green. The only moment that is distinguishable from an idle fabric
+        # is now, and it has to be loud.
+        with self.assertRaises(main.TelemetryConfigError) as cm:
+            self.cell("cooperative", foreign=True)
+        self.assertIn("switch 1", str(cm.exception))
+        self.assertIn("ndtwin_telemetry.p4", str(cm.exception))
+
+    def test_the_refusal_happens_before_the_pipeline_push(self):
+        # Nothing is done to a fabric that will not be measurable. A refusal after the pushes
+        # would leave ten switches carrying a program and no controller.
+        client = FakeClient(1, packet_in_ids=None)
+        with self.assertRaises(main.TelemetryConfigError):
+            run_startup({1: client}, package=self.foreign_package(),
+                        telemetry_knob=self.knob("cooperative\n"))
+        self.assertNotIn("pipeline", client.events)
+
+    # --- the baseline is unchanged ------------------------------------------------------
+
+    def test_the_baseline_fabric_resolves_to_cooperative_and_behaves_as_before(self):
+        # live-p1/01's assertion, in unit form: no knob, no package, NDTwin's pipeline.
+        client = FakeClient(1)
+        summary, parts = run_startup({1: client})
+        self.assertEqual(summary["telemetry_sources"], {"1": "cooperative"})
+        self.assertEqual(summary["telemetry"], [1])
+        self.assertIn("clone", client.events)
+        self.assertEqual(parts["sflow"].registered, {1: "192.168.123.11"})
+
+    def test_an_external_control_plane_still_writes_nothing_whatever_the_source_says(self):
+        client = FakeClient(1)
+        summary, parts = run_startup({1: client}, package=external_package(),
+                                     telemetry_knob=self.knob("cooperative\n"))
+        self.assertNotIn("clone", client.events)
+        self.assertEqual(parts["sflow"].registered, {})
+        self.assertIn("external control plane", summary["telemetry_report"]["1"]["reason"])
+
+    def test_a_switch_whose_pipeline_push_failed_gets_no_telemetry_and_says_why(self):
+        client = FakeClient(1, pipeline_error=RuntimeError("switch is down"))
+        summary, _ = run_startup({1: client})
+        self.assertNotIn("clone", client.events)
+        self.assertIn("pipeline push failed", summary["telemetry_report"]["1"]["reason"])
+
+    def test_a_switch_with_no_agent_ip_is_told_apart_from_one_that_was_switched_off(self):
+        client = FakeClient(1)
+        summary, _ = run_startup({1: client}, agent_ips={})
+        self.assertEqual(summary["telemetry_report"]["1"]["source"], "cooperative")
+        self.assertIn("no IP in the topology file", summary["telemetry_report"]["1"]["reason"])
+
+    def test_a_clone_session_that_fails_is_registered_but_not_sampling(self):
+        # The loudest case: the emitter knows the agent, the switch will never send anything.
+        client = FakeClient(1, clone_ok=False)
+        summary, parts = run_startup({1: client})
+        disclosure = summary["telemetry_report"]["1"]
+        self.assertFalse(disclosure["clone_session"])
+        self.assertTrue(disclosure["sflow_registered"])
+        self.assertEqual(parts["sflow"].registered, {1: "192.168.123.11"})
+
+
+class ThePackagesPreEntriesAtStartupTest(unittest.TestCase):
+    """TICKET-P3 2.6 (G9a): the multicast groups and clone sessions a package declares."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_pre_entries_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.saved = (dict(main._pipelines), dict(main._table_entries), dict(main._telemetry),
+                      dict(main._pre_entries))
+        self.addCleanup(self.restore)
+
+    def restore(self):
+        for live, saved in ((main._pipelines, self.saved[0]),
+                            (main._table_entries, self.saved[1]),
+                            (main._telemetry, self.saved[2]),
+                            (main._pre_entries, self.saved[3])):
+            live.clear()
+            live.update(saved)
+
+    def package(self, doc, pipeline=None):
+        path = os.path.join(self.tmp, "s1-runtime.json")
+        with open(path, "w") as fh:
+            json.dump(doc, fh)
+        spec = app_package.SwitchSpec(dpid=1, name="s1", pipeline=pipeline, entries=path,
+                                      entries_recorded=len(doc.get("table_entries") or []))
+        return app_package.Package(dir="/packages/multicast", name="multicast",
+                                   switches=(spec,))
+
+    MULTICAST = {"table_entries": [],
+                 "multicast_group_entries": [
+                     {"multicast_group_id": 1,
+                      "replicas": [{"egress_port": 1, "instance": 1},
+                                   {"egress_port": 2, "instance": 1}]}]}
+
+    def test_a_declared_group_is_programmed_on_ndtwins_own_pipeline_too(self):
+        # 🔴 THE ONE PLACE PRE ENTRIES DIFFER FROM TABLE ENTRIES. A package's table entries name
+        # tables inside the exercise's program and are deliberately NOT applied on our pipeline;
+        # a multicast group is a target object with no program in it, so `mcast_grp 1 -> 1,2`
+        # means the same thing under either. A package built with `convert --ndtwin-pipeline`
+        # (live-p1/02's case) would otherwise lose its groups silently.
+        client = FakeClient(1)
+        summary, _ = run_startup({1: client}, package=self.package(self.MULTICAST))
+        self.assertEqual(client.multicast_groups,
+                         [(1, [{"egress_port": 1, "instance": 1},
+                               {"egress_port": 2, "instance": 1}], "insert")])
+        self.assertEqual(summary["pre_entries"]["1"]["multicast"],
+                         {"recorded": 1, "applied": 1, "failed": 0})
+
+    def test_a_refused_group_is_counted_as_failed(self):
+        client = FakeClient(1, multicast_ok=False)
+        summary, _ = run_startup({1: client}, package=self.package(self.MULTICAST))
+        self.assertEqual(summary["pre_entries"]["1"]["multicast"],
+                         {"recorded": 1, "applied": 0, "failed": 1})
+        self.assertIn("1", summary["entry_errors"])
+
+    def test_a_baseline_fabric_declares_none_and_writes_none(self):
+        client = FakeClient(1)
+        summary, _ = run_startup({1: client})
+        self.assertEqual(client.multicast_groups, [])
+        self.assertEqual(summary["pre_entries"]["1"],
+                         {"multicast": {"recorded": 0, "applied": 0, "failed": 0},
+                          "clone": {"recorded": 0, "applied": 0, "failed": 0}})
+
+    def test_a_switch_whose_pipeline_push_failed_gets_no_pre_entries(self):
+        # There is no PRE to program them into, and a group written into a switch with no
+        # pipeline would be counted as applied.
+        client = FakeClient(1, pipeline_error=RuntimeError("down"))
+        summary, _ = run_startup({1: client}, package=self.package(self.MULTICAST))
+        self.assertEqual(client.multicast_groups, [])
+        self.assertEqual(summary["pre_entries"]["1"]["multicast"]["applied"], 0)
+
+    def test_an_external_control_plane_programs_none_of_them(self):
+        client = FakeClient(1)
+        package = self.package(self.MULTICAST)
+        external = type(package)(**{f.name: getattr(package, f.name)
+                                    for f in dataclasses.fields(package)} | {"mode": "external"})
+        summary, _ = run_startup({1: client}, package=external)
+        self.assertEqual(client.multicast_groups, [])
+        self.assertEqual(summary["pre_entries"]["1"]["multicast"]["applied"], 0)
+
+    def test_a_declared_clone_session_is_programmed_with_its_own_id(self):
+        doc = {"table_entries": [],
+               "clone_session_entries": [{"clone_session_id": 57,
+                                          "replicas": [{"egress_port": 510, "instance": 1}]}]}
+        client = FakeClient(1)
+        summary, _ = run_startup({1: client}, package=self.package(doc))
+        self.assertIn((57, [{"egress_port": 510, "instance": 1}]), client.clone_sessions)
+        self.assertEqual(summary["pre_entries"]["1"]["clone"],
+                         {"recorded": 1, "applied": 1, "failed": 0})
+
+    def test_the_proxys_own_clone_session_is_written_after_the_packages(self):
+        # Order matters: if a package declares session 250 as well, OUR write has to be the last
+        # one, or this proxy's telemetry is whatever the exercise decided it should be.
+        doc = {"table_entries": [],
+               "clone_session_entries": [{"clone_session_id": 250,
+                                          "replicas": [{"egress_port": 9, "instance": 1}]}]}
+        client = FakeClient(1)
+        run_startup({1: client}, package=self.package(doc))
+        self.assertEqual(client.clone_sessions[-1], (None, None),
+                         "the proxy's own default clone session must be the last PRE write")
 
 
 if __name__ == "__main__":

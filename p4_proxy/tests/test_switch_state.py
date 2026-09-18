@@ -647,5 +647,167 @@ class ConnectedSwitchListTest(unittest.TestCase):
         self.assertEqual(self.listed(topo), [6])
 
 
+# --- the telemetry disclosure on GET /p4/switch_state. TICKET-P3 2.6 --------------------------
+
+
+class TheTelemetryDisclosureTest(unittest.TestCase):
+    """
+    Three keys that say why a switch is not sampling, when it is not sampling on purpose.
+
+    [Co-developed with claude code -- Adam]
+    🔴 `pipeline.skipped` ALREADY NAMES THE TWO STEPS AND STAYS EXACTLY AS IT WAS (TICKET-P2
+    7-7): they really were skipped. What it cannot say is WHY, and "why" is the entire
+    difference between a decision and a fault -- a `link` switch and a switch whose clone
+    session failed produce identical `skipped` lists, identical zero sample counts, and
+    identical empty edges in the twin.
+    """
+
+    class FakeTopology:
+        def switch_liveness(self):
+            return {"status": "success", "probe_interval_s": 2.0,
+                    "switches": {"1": {"probe_ok": True}, "2": {"probe_ok": None}},
+                    "boot_id": "b", "boot_at": 1.0}
+
+    def setUp(self):
+        self.saved = (api_routes.topology, api_routes.control_plane_report,
+                      api_routes.entries_recorded_report, api_routes.pipelines_report,
+                      api_routes.table_entries_report, api_routes.note_api_table_entry_write,
+                      api_routes.telemetry_report, api_routes.pre_entries_report,
+                      api_routes.control_plane_telemetry)
+        self.addCleanup(self.restore)
+        api_routes.topology = self.FakeTopology()
+        api_routes.inject_control_plane(
+            lambda: {"mode": "ndtwin", "package": None, "skipped": []}, lambda: {})
+        api_routes.inject_package_reports(lambda: {}, lambda: {}, lambda dpid: None)
+
+    def restore(self):
+        (api_routes.topology, api_routes.control_plane_report,
+         api_routes.entries_recorded_report, api_routes.pipelines_report,
+         api_routes.table_entries_report, api_routes.note_api_table_entry_write,
+         api_routes.telemetry_report, api_routes.pre_entries_report,
+         api_routes.control_plane_telemetry) = self.saved
+
+    def state(self, telemetry=None, pre=None, fabric=None):
+        api_routes.inject_telemetry_reports(
+            None if telemetry is None else (lambda: telemetry),
+            None if pre is None else (lambda: pre),
+            None if fabric is None else (lambda: fabric))
+        return asyncio.run(api_routes.switch_state())
+
+    A_COOPERATIVE_SWITCH = {"source": "cooperative", "clone_session": True,
+                            "sflow_registered": True,
+                            "packet_in_ids": {"reason": 1, "ingress_port": 2, "egress_port": 3,
+                                              "frame_length": 4, "sampling_rate": 5},
+                            "reason": "cooperative telemetry"}
+    A_LINK_SWITCH = {"source": "link", "clone_session": False, "sflow_registered": False,
+                     "packet_in_ids": None, "reason": "telemetry source 'link'"}
+
+    def test_each_switch_carries_its_own_telemetry_object(self):
+        body = self.state(telemetry={"1": self.A_COOPERATIVE_SWITCH, "2": self.A_LINK_SWITCH})
+        self.assertEqual(body["switches"]["1"]["telemetry"], self.A_COOPERATIVE_SWITCH)
+        self.assertEqual(body["switches"]["2"]["telemetry"], self.A_LINK_SWITCH)
+
+    def test_the_five_ids_are_disclosed_by_name(self):
+        # They stopped being something a reader can look up in the source the moment they became
+        # a per-switch fact, so they are published.
+        body = self.state(telemetry={"1": self.A_COOPERATIVE_SWITCH, "2": self.A_LINK_SWITCH})
+        self.assertEqual(body["switches"]["1"]["telemetry"]["packet_in_ids"]["egress_port"], 3)
+        self.assertIsNone(body["switches"]["2"]["telemetry"]["packet_in_ids"])
+
+    def test_the_pre_existing_keys_are_untouched(self):
+        body = self.state(telemetry={"1": self.A_COOPERATIVE_SWITCH})
+        self.assertEqual(body["status"], "success")
+        self.assertEqual(body["switches"]["1"]["probe_ok"], True)
+        self.assertEqual(body["switches"]["2"]["probe_ok"], None)
+        self.assertEqual(body["control_plane"]["skipped"], [])
+
+    def test_a_switch_the_report_does_not_mention_gets_null_rather_than_no_key(self):
+        # An absent key cannot be told from a proxy too old to have one; a null can.
+        body = self.state(telemetry={"1": self.A_COOPERATIVE_SWITCH})
+        self.assertIn("telemetry", body["switches"]["2"])
+        self.assertIsNone(body["switches"]["2"]["telemetry"])
+
+    def test_pre_entries_are_per_switch_and_default_to_zeroes(self):
+        body = self.state(pre={"1": {"multicast": {"recorded": 1, "applied": 1, "failed": 0},
+                                     "clone": {"recorded": 0, "applied": 0, "failed": 0}}})
+        self.assertEqual(body["switches"]["1"]["pre_entries"]["multicast"]["applied"], 1)
+        self.assertEqual(body["switches"]["2"]["pre_entries"],
+                         {"multicast": {"recorded": 0, "applied": 0, "failed": 0},
+                          "clone": {"recorded": 0, "applied": 0, "failed": 0}})
+
+    def test_the_fabric_wide_telemetry_says_what_was_asked_for(self):
+        body = self.state(fabric={"knob": "link", "package": "auto", "link_emitter": None})
+        self.assertEqual(body["control_plane"]["telemetry"],
+                         {"knob": "link", "package": "auto", "link_emitter": None})
+
+    def test_an_uninjected_reporter_adds_no_key_at_all(self):
+        # Belt and braces for the baseline: a proxy that has not wired these up must not grow a
+        # `telemetry` key full of nulls, which a reader would take for a disclosure.
+        body = self.state()
+        self.assertNotIn("telemetry", body["switches"]["1"])
+        self.assertNotIn("pre_entries", body["switches"]["1"])
+        self.assertNotIn("telemetry", body["control_plane"])
+
+
+class TheLinkEmitterSummaryTest(unittest.TestCase):
+    """`control_plane.telemetry.link_emitter` -- read from ticket B's manifest, pid checked live."""
+
+    def setUp(self):
+        import tempfile
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_link_manifest_")
+        self.addCleanup(self._clean)
+
+    def _clean(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def manifest(self, doc):
+        import json
+        path = os.path.join(self.tmp, "ndtwin_link_telemetry.json")
+        with open(path, "w") as fh:
+            json.dump(doc, fh)
+        return path
+
+    def test_no_manifest_is_none_rather_than_an_empty_summary(self):
+        from proxy_agent import main
+        self.assertIsNone(main.link_emitter_report(os.path.join(self.tmp, "absent.json")))
+
+    def test_a_live_pid_reads_alive(self):
+        from proxy_agent import main
+        path = self.manifest({"emitter_pid": os.getpid(), "rate": 256,
+                              "switches": {"1": {}, "2": {}}})
+        report = main.link_emitter_report(path)
+        self.assertTrue(report["alive"])
+        self.assertEqual(report["pid"], os.getpid())
+        self.assertEqual(report["switches"], ["1", "2"])
+        self.assertEqual(report["rate"], 256)
+
+    def test_a_dead_pid_reads_dead(self):
+        # 🔴 THE FIELD IS A LIVE CHECK, NOT A VALUE OUT OF THE FILE. A manifest left behind by a
+        # bring-up that died claims the emitter is running just as confidently as one written a
+        # second ago, and `link` telemetry with a dead emitter samples into nothing: zero on
+        # every edge, no error anywhere.
+        from proxy_agent import main
+        dead = 2 ** 22 - 1            # above the default pid_max, so it cannot be a live process
+        while os.path.exists(f"/proc/{dead}"):
+            dead -= 1
+        report = main.link_emitter_report(self.manifest({"emitter_pid": dead}))
+        self.assertFalse(report["alive"])
+        self.assertEqual(report["pid"], dead)
+
+    def test_a_manifest_that_does_not_parse_is_none_rather_than_a_crash(self):
+        from proxy_agent import main
+        path = os.path.join(self.tmp, "broken.json")
+        with open(path, "w") as fh:
+            fh.write("{not json")
+        self.assertIsNone(main.link_emitter_report(path))
+
+    def test_a_manifest_with_no_pid_is_not_alive(self):
+        from proxy_agent import main
+        report = main.link_emitter_report(self.manifest({"switches": {}}))
+        self.assertFalse(report["alive"])
+        self.assertIsNone(report["pid"])
+
+
 if __name__ == "__main__":
     unittest.main()
