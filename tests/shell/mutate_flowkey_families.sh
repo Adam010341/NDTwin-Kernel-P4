@@ -343,13 +343,19 @@ mutate "M-A6 the L2 hash ignores the MAC addresses" "$SFLOW" \
 # Two of them rather than one because the two files rebuild through completely different amounts
 # of the project -- one translation unit against forty-six -- and a rebuild that large is its own
 # opportunity for something stale to be picked up.
+#
+# 🔴 THE CONTROLS CALL `apply` DIRECTLY, AT THE CALL SITE, and that shape is load-bearing.
+# tests/shell/check_gate_anchors.py reads gate scripts statically to answer "can this gate still
+# find the text it mutates"; it understands `apply <file> <old> <new>` and the `mutate` table, and
+# it read the first draft's `run_control <label> <file> <old> <new>` wrapper positionally --
+# taking the label's successor as the file and the replacement as the anchor, reporting MISSING:1
+# for an anchor that is present. A gate whose anchors that tool cannot count is a gate nobody is
+# watching for drift, which is the entire failure mode it exists to catch, so the wrapper is gone
+# and only the verdict-classifying half of it remains.
 CONTROL_BAD=0
-run_control() {
-    local label="$1" file="$2" old="$3" new="$4"
-    printf '\n=== CONTROL (%s -- MUST survive) ===\n' "$label"
-    if ! apply "$file" "$old" "$new"; then
-        echo "  🔴 CONTROL anchor could not be applied"; CONTROL_BAD=1; restore; return
-    fi
+
+# classify_control -- everything a control does EXCEPT naming a file or an anchor.
+classify_control() {
     if ! build; then
         echo "  🔴 CONTROL DOES NOT COMPILE -- a comment broke the build; the anchor is wrong"
         CONTROL_BAD=1; restore; return
@@ -366,18 +372,28 @@ run_control() {
     restore
 }
 
-run_control "comment in the collector" "$COLL" \
+printf '\n=== CONTROL (comment in the collector -- MUST survive) ===\n'
+if apply "$COLL" \
 "$CONTROL_CPP" \
 '// mutation-gate negative control: text with no behaviour
 // [Co-developed with claude code -- Adam] TICKET-P3 §2.3.
 void
-FlowLinkUsageCollector::noteFrameIdentity'
+FlowLinkUsageCollector::noteFrameIdentity'; then
+    classify_control
+else
+    echo "  🔴 CONTROL anchor could not be applied"; CONTROL_BAD=1; restore
+fi
 
-run_control "comment in SFlowType.hpp" "$SFLOW" \
+printf '\n=== CONTROL (comment in SFlowType.hpp -- MUST survive) ===\n'
+if apply "$SFLOW" \
 "$CONTROL_HDR" \
 '// mutation-gate negative control: text with no behaviour
 inline FrameIdentity
-identifyFrame(const uint8_t* frame, size_t length)'
+identifyFrame(const uint8_t* frame, size_t length)'; then
+    classify_control
+else
+    echo "  🔴 CONTROL anchor could not be applied"; CONTROL_BAD=1; restore
+fi
 
 # --- 7. verdict ---------------------------------------------------------------------------------
 # One rebuild after the final restore, and its result is CHECKED. `build || true` would leave the
