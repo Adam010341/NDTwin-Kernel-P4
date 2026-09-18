@@ -1,0 +1,21 @@
+drive_exercise.py -- source_routing / solution  [DRY RUN]
+(non-interactive: no mininet CLI, no xterm; kills nothing)
+
+== plan ================================================================
+topology : topology.json
+hosts    : h1, h2, h3
+switches : s1, s2, s3
+links    : 6
+program  : <EXDIR>/solution/source_routing.p4 -> build/source_routing.json
+switch   : /usr/local/bin/simple_switch_grpc
+steps    : h2 receive.py; h1 send.py 10.0.2.2 with '2 3 2 2 1' then '2 1'; assert packet count + ttl
+equivalent to (cwd must be the exercise dir):
+  cd <EXDIR> && \
+  sudo /home/adam/p4dev-python-venv/bin/python <TUT>/utils/run_exercise.py -t topology.json -j build/source_routing.json -b /usr/local/bin/simple_switch_grpc
+  ... except do_net_cli() is replaced by the scripted steps above.
+
+== dry run stops here ==================================================
+compile done, nothing was started.  Run it for real with:
+
+  sudo /home/adam/p4dev-python-venv/bin/python <DRIVER> source_routing --which solution
+

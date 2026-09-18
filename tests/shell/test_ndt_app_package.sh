@@ -72,12 +72,14 @@ KNOB="$FIX/p4_proxy/mininet/app_package_override"
 # THREE hosts on THREE switches under an external one. Three is not a multiple of four, which
 # is the number host_count_buildable refuses and the reason exercises/p4runtime needs the
 # package layout to be exempt from it.
-mkpkg() {   # mkpkg <dir> <mode> <n-hosts> <n-switches>
-    local d="$1" mode="$2" nh="$3" ns="$4"
+mkpkg() {   # mkpkg <dir> <mode> <n-hosts> <n-switches> [<pipeline stem for s1>]
+    local d="$1" mode="$2" nh="$3" ns="$4" pipe="${5:-}"
     mkdir -p "$d/ndtwin"
-    python3 - "$d" "$mode" "$nh" "$ns" <<'PY'
+    [[ -n "$pipe" ]] && { mkdir -p "$d/build"; : > "$d/build/$pipe.p4.p4info.txtpb"; echo '{}' > "$d/build/$pipe.json"; }
+    python3 - "$d" "$mode" "$nh" "$ns" "$pipe" <<'PY'
 import json, os, sys
 d, mode, nh, ns = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
+pipe = sys.argv[5] if len(sys.argv) > 5 else ""
 nodes, edges, hosts = [], [], {}
 for i in range(1, ns + 1):
     nodes.append({"device_name": "s%d" % i, "bridge_name": "s%d" % i, "dpid": i,
@@ -87,16 +89,28 @@ for i in range(1, nh + 1):
     ip = "10.0.%d.%d" % (i, i)
     nodes.append({"device_name": "h%d" % i, "dpid": 0, "vertex_type": 1,
                   "device_layer": 3, "ip": [ip], "mac": i})
+    # 🔴 topo_from_json.mac_str(i, "hN")'s own answer, not a second formula:
+    # app_package.load refuses a package whose hosts.hN.mac differs from the model's
+    # (static ARP written from one and resolved against the other drops every frame for
+    # that host), so a fixture with a prettier MAC is a fixture no reader of this package
+    # can load -- which section 14 would then read as "unreadable" for a package that is
+    # fine.
     hosts["h%d" % i] = {"ip": ip, "prefix_len": 24,
-                        "mac": "08:00:00:00:%02d:%02d" % (i, i * 11), "commands": []}
+                        "mac": ":".join("%02x" % ((i >> sh) & 0xFF)
+                                        for sh in (40, 32, 24, 16, 8, 0)),
+                        "commands": []}
     sw = (i - 1) % ns + 1
     edges.append({"src_dpid": 0, "src_interface": 1, "dst_dpid": sw, "dst_interface": 1})
     edges.append({"src_dpid": sw, "src_interface": 1, "dst_dpid": 0, "dst_interface": 1})
 json.dump({"nodes": nodes, "edges": edges, "links": []},
           open(os.path.join(d, "ndtwin", "topology.json"), "w"), indent=2, sort_keys=True)
 json.dump({"format": 1, "name": os.path.basename(d), "topology": "ndtwin/topology.json",
-           "hosts": hosts, "switches": {str(i): {"name": "s%d" % i, "pipeline": None,
-                                                 "entries": None} for i in range(1, ns + 1)},
+           "hosts": hosts,
+           "switches": {str(i): {"name": "s%d" % i,
+                                 "pipeline": ({"p4info": "build/%s.p4.p4info.txtpb" % pipe,
+                                               "bmv2_json": "build/%s.json" % pipe}
+                                              if (pipe and i == 1) else None),
+                                 "entries": None} for i in range(1, ns + 1)},
            "control_plane": {"mode": mode, "election_id": [0, 65535],
                              "grpc_base": 30050, "device_id": "dpid"},
            "bmv2": {"cpu_port": 255}, "links": []},
@@ -106,6 +120,22 @@ PY
 PKG_OK="$FIX/packages/four"        ; mkpkg "$PKG_OK" ndtwin   4 4
 PKG_EXT="$FIX/packages/three-ext"  ; mkpkg "$PKG_EXT" external 3 3
 PKG_BAD="$FIX/packages/redflag"    ; mkpkg "$PKG_BAD" ndtwin   4 4
+# TICKET-P2 §5.5: a package that puts somebody else's program on s1 and leaves s2-s4 on
+# NDTwin's. exercises/firewall is the shipped shape of exactly this.
+PKG_FOREIGN="$FIX/packages/foreign"; mkpkg "$PKG_FOREIGN" ndtwin 4 4 firewall
+# A package directory whose manifest cannot be read at all. `unreadable` is its own answer and
+# is NOT `ndtwin`: rendering an unparsable package as the default pipeline is the silent
+# substitution this feature exists to remove.
+PKG_UNREADABLE="$FIX/packages/unreadable"; mkdir -p "$PKG_UNREADABLE"
+printf 'this is not json\n' > "$PKG_UNREADABLE/package.json"
+
+# 🔴 THE REAL LOADER, over the fixture's paths. app_pipeline_kind answers with
+# Package.pipeline_is_ndtwin (TICKET-P2 §2.1) and imports it from $REPO/p4_proxy/mininet --
+# which under these stubs is $FIX -- so the three modules that answer the question are
+# symlinked in. A stand-in for them would be this suite deciding the answer it is checking.
+for m in app_package.py topo_from_json.py grpc_ports.py; do
+    ln -sf "$REAL_REPO/p4_proxy/mininet/$m" "$FIX/p4_proxy/mininet/$m"
+done
 
 # A recording fake stack.sh. Its log is the evidence for "nothing was built". `2/3` is what
 # up_ovs waits for on its stdout before it will go on; $STACK_FAIL switches it to the failing
@@ -714,6 +744,169 @@ has   "🔴 the topology log is printed here too"           "KeyError: 's5'" "$O
 has   "🔴 labelled as possibly the PREVIOUS round's"      "topo.log may be the PREVIOUS round's" "$OUT"
 has   "  and the bring-up was rolled back"                "rollback" "$OUT"
 rm -f "$TOPO_LOG"
+
+# =============================================================================================
+section "14. 🔴 a package pipeline has no sampling rate here, and the rate rows say so"
+# =============================================================================================
+# TICKET-P2 §5.5 / PLAN-0917 §3.1. `sample rate` is decoded from
+# p4_proxy/p4_src/build/ndtwin_switch.json, and a switch running the package's own program
+# never loaded that file. Printing 1/256 beside it is X-2 with a different plane in it: for
+# months `status` said `1/256` on an OVS fabric out of the same artefact, and the two numbers
+# had only ever agreed by coincidence (D-2 / X-2, 2026-09-06). So the row reads
+# `n/a (package pipeline)`, the source row says which dpids and why, and `stale_pipeline` --
+# a comparison of the manifest's mtime with THAT file's -- is not judged at all.
+#
+# 🔴 app_pipeline_kind's answer comes from Package.pipeline_is_ndtwin, the real loader,
+# symlinked in above. A second copy of "is this switch on NDTwin's pipeline" living in `ndt`
+# would be two answers to one question.
+
+pipe_kind() {   # pipe_kind [dir] -- app_pipeline_kind's one word, without the driver's RC line
+    drive "app_pipeline_kind ${1:-}" | /usr/bin/grep -v '^RC=' | tail -1
+}
+
+reset_fix
+check "🔴 no package: there is no pipeline question to answer" "none" "$(pipe_kind)"
+check "  a package whose switches are all null is ndtwin"      "ndtwin" "$(pipe_kind "$PKG_OK")"
+check "🔴 one switch on somebody else's program names the dpid" "foreign:1" \
+      "$(pipe_kind "$PKG_FOREIGN")"
+check "🔴 a package that will not load is 'unreadable', NOT 'ndtwin'" "unreadable" \
+      "$(pipe_kind "$PKG_UNREADABLE")"
+check "  a directory that is not there is unreadable too"      "unreadable" \
+      "$(pipe_kind "$FIX/packages/gone")"
+
+# Through the knob, which is how cmd_status asks it.
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_FOREIGN"); up_p4")"
+check "  a foreign-pipeline package comes up and writes the knob" "$PKG_FOREIGN" "$(knob_state)"
+check "🔴 and the pipeline question is then answered off the knob" "foreign:1" "$(pipe_kind)"
+
+# --- the two rows themselves ------------------------------------------------------------------
+STALE='stale_pipeline() { return 0; }'
+reset_fix
+OUT="$(drive "$STALE"$'\n'"status_rate_rows 256 p4 none")"
+has   "  a baseline fabric still prints the rate"              "sample rate    1/256" "$OUT"
+has   "  and where it came from"                               "P4: p4_proxy/p4_src/build/ndtwin_switch.json" "$OUT"
+has   "  and the stale warning when it is stale"               "the running switches predate it" "$OUT"
+
+OUT="$(drive "$STALE"$'\n'"status_rate_rows 256 p4 foreign:1")"
+has   "🔴 a package pipeline has no rate here"                 "sample rate    n/a (package pipeline)" "$OUT"
+hasnt "🔴 and the built json's number is NOT printed for it"   "1/256" "$OUT"
+has   "  the source row names the dpid"                        "foreign pipeline on dpid 1" "$OUT"
+has   "  and which file is not what those switches loaded"     "ndtwin_switch.json is NOT what those switches loaded" "$OUT"
+hasnt "🔴 stale_pipeline is not judged under a package pipeline" "the running switches predate it" "$OUT"
+
+OUT="$(drive "$STALE"$'\n'"status_rate_rows 256 p4 foreign:2,3")"
+has   "  two foreign switches are both named"                  "foreign pipeline on dpid 2,3" "$OUT"
+
+# The predicate the row and the --check problem BOTH read, driven on its own: one answer, so a
+# yellow row over a green exit code cannot happen.
+OUT="$(drive "$STALE"$'\n'"status_pipeline_is_stale p4 ndtwin")"
+check "  an ndtwin package on a stale build IS stale"          "0" "$(rc_of "$OUT")"
+OUT="$(drive "$STALE"$'\n'"status_pipeline_is_stale p4 foreign:1")"
+check "🔴 a foreign pipeline is never stale"                   "1" "$(rc_of "$OUT")"
+OUT="$(drive "$STALE"$'\n'"status_pipeline_is_stale ovs none")"
+check "  and the OVS plane is not judged by it either (as before)" "1" "$(rc_of "$OUT")"
+OUT="$(drive 'stale_pipeline() { return 1; }'$'\n'"status_pipeline_is_stale p4 none")"
+check "  a build older than the fabric is not stale"           "1" "$(rc_of "$OUT")"
+
+# The rate's OWN --check problems, through the same seam: a foreign pipeline raises none of
+# them, because each is about ndtwin_switch.json or about an OVS fabric.
+probs() { drive "status_rate_problems $1 $2" | /usr/bin/grep -v '^RC=' ; }
+has   "  a dead rng is still a problem on the baseline"        "samples nothing" "$(probs 'DISABLED:lo=1' none)"
+has   "  and so is an OVS fabric with no sflow record"         "no sFlow record" "$(probs OVS-NOSFLOW none)"
+check "🔴 a foreign pipeline raises none of the rate problems" "" "$(probs 'DISABLED:lo=1' foreign:1)"
+check "  not even the OVS ones"                                "" "$(probs OVS-NOSFLOW foreign:2,3)"
+check "  a healthy rate raises nothing either (the control)"   "" "$(probs 256 none)"
+
+# =============================================================================================
+section "15. 🔴 the whole of 'ndt status --check' over a foreign package pipeline"
+# =============================================================================================
+# Section 14 drives the three new functions one at a time, and that is not enough on its own:
+# each of them could be right while `cmd_status` called none of them. This drives the WHOLE
+# report with a foreign package knob in place and `stale_pipeline` returning true, and asserts
+# the two halves that have to agree --
+#   * the printed row says `n/a (package pipeline)` and NOT the built json's rate, and
+#   * `--check`'s problem list carries neither the stale-pipeline problem nor any of the four
+#     the rate itself raises.
+# -- because those are the two halves one mutation at a time can pull apart: with the row's
+# early return gone the rate comes back, and with the predicate's exemption gone the problem
+# comes back UNDER a row that still says n/a. Each of those is its own mutation in
+# mutate_ndt_app_package.sh (M19, M20, M23), and each must be able to redden THIS cell alone.
+#
+# The stub set is tests/shell/test_ndt_check_sample_rate.sh:171-204's, plus what a package
+# fabric needs: the knob is real (cmd_status reads it through app_knob_state) and so is the
+# package it names.
+STATUS_STUBS="$STUBS"'
+claim_line() { echo none; }
+claim_prev_row() { :; }
+lab_version_report() { :; }
+lab_version_problem() { :; }
+up_target_field() { :; }
+last_kernel_plane() { :; }
+kernel_exit_field() { :; }
+host_count() { echo 4; }
+topo_for_hosts() { echo setting/StaticNetworkTopologyP4_10Switches_4Hosts.json; }
+live_dataplane_kind() { echo p4; }
+# 🔴 A RATE TOKEN THAT HAS SOMETHING TO SAY. With 256 here the rate raises no --check
+# problem at all, and "a foreign pipeline raises none of them" is then true of every possible
+# implementation -- a vacuous cell, which is exactly what M23 in mutate_ndt_app_package.sh
+# caught when it SURVIVED against the first draft of this section. DISABLED:lo=1 is the
+# compiled pipeline that samples nothing (RESTORE-SWEEP 2026-09-02): a problem on a baseline
+# fabric, and not one under a package pipeline. rate_label stays stubbed, so the printed row
+# is unaffected either way.
+# (No apostrophes in this block: it lives inside a single-quoted stub set.)
+sample_rate() { echo "DISABLED:lo=1"; }
+rate_label() { echo "1/256"; }
+stale_pipeline() { return 0; }
+source_ahead_of_build() { return 1; }
+ovs_bridge_count() { echo 0; }
+ovs_daemon_running() { return 1; }
+lock_probe() { echo free; }
+netem_count() { echo 0; }
+ndt_sudo_report() { return 0; }
+ndt_sudo_rows() { echo one-row; }
+ndt_port_residue() { :; }
+http_get_graph() { :; }
+http_get_flow_entries() { echo "[]"; }
+verify_p4_graph() { :; }
+# 🔴 check_up_target, not a value: with no up.target recorded `--check` exits 3 ("could not
+# check"), which outranks every verdict below it -- so a cell that left it unstubbed would read
+# 3 whatever cmd_status decided about the rate. Stubbed to "compared, and it matched", which is
+# the state this cell is about.
+check_up_target() { return 0; }
+UP_TARGET_PROBLEMS=()
+'
+run_status() {
+    bash -c "source '$NDT' >/dev/null 2>&1
+$STATUS_STUBS
+cmd_status ${1:-}
+echo \"RC=\$?\"" 2>&1
+}
+
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_FOREIGN"); up_p4")"    # writes the knob, as a real round does
+check "  the foreign package is the knob cmd_status will read" "$PKG_FOREIGN" "$(knob_state)"
+OUT="$(run_status --check)"
+has   "🔴 the whole report says the rate is n/a"          "sample rate    n/a (package pipeline)" "$OUT"
+hasnt "🔴 and never prints the built json's number"       "sample rate    1/256" "$OUT"
+has   "  the source row names the dpid and the file"      "foreign pipeline on dpid 1" "$OUT"
+hasnt "🔴 --check does not raise the stale-pipeline problem" "the fabric predates the current build" "$OUT"
+hasnt "  nor any problem about the compiled rate"         "the compiled pipeline samples nothing" "$OUT"
+check "  and --check exits 0 over a healthy package fabric" "0" "$(rc_of "$OUT")"
+
+# The control: the SAME report with an ndtwin-pipeline package prints the rate and DOES raise
+# the stale problem. Without it, "no rate, no problems" is a sentence this harness would say
+# whatever cmd_status did.
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+OUT="$(run_status --check)"
+has   "  an ndtwin-pipeline package still prints the rate" "sample rate    1/256" "$OUT"
+hasnt "  and does not claim a package pipeline"           "n/a (package pipeline)" "$OUT"
+has   "🔴 and the stale build IS a problem there"         "the fabric predates the current build" "$OUT"
+# The other half of M23's evidence: the rate's OWN problem is raised here and suppressed above,
+# so "none of them under a foreign pipeline" is a difference this pair can actually see.
+has   "🔴 and so is the compiled pipeline that samples nothing" "the compiled pipeline samples nothing" "$OUT"
+check "  so --check exits 1 on it"                        "1" "$(rc_of "$OUT")"
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"

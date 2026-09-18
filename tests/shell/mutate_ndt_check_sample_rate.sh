@@ -108,8 +108,11 @@ report "P3: 'ndt status' asks for the P4 rate whatever is running" "$m" \
        "🔴 ndt status on an OVS fabric prints 1/64"
 
 # The provenance row disappears, which is the whole reason X-2 survived for months.
+# 🔴 The row moved into status_rate_rows at P2-C (TICKET-P2 §5.5) -- `status` and the package
+# pipeline now decide between two sources, and the printer is one function so the two rows
+# cannot describe different fabrics. The anchor follows it; the mutation is the same one.
 m=$(mutant p4 "$NDT" \
-    '    printf '\''  %-14s %s\n'\'' "rate source" "$(rate_source "$plane_now")"' \
+    '    printf '\''  %-14s %s\n'\'' "rate source" "$(rate_source "$plane")"' \
     '    :')
 report "P4: the row stops saying where the number came from" "$m" \
        "  with a source row beside it"
@@ -148,9 +151,13 @@ report "P8: the record separator is deleted with the spaces" "$m" \
        "ten sflow records all saying 64 -> 64"
 
 # The three non-rates stop being --check problems: printed, and green.
+# 🔴 They moved into status_rate_problems at P2-C, which prints them and leaves cmd_status to
+# collect them -- a foreign package pipeline raises none of them, and that exemption is its own
+# mutation (mutate_ndt_app_package.sh M23). This one is unchanged: the OVS case stops being
+# raised at all.
 m=$(mutant p9 "$NDT" \
-    '        OVS-NOSFLOW)    problems+=(' \
-    '        OVS-NOSFLOW)    : (')
+    '        OVS-NOSFLOW)    echo "no sFlow record exists on any OVS bridge' \
+    '        OVS-NOSFLOW)    : "no sFlow record exists on any OVS bridge')
 report "P9: a fabric that samples nothing leaves --check green" "$m" \
        "🔴 a fabric with no sflow record is a --check problem"
 

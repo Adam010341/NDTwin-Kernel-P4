@@ -89,8 +89,17 @@ echo
 
 CAUGHT=0; SURVIVED=0; CONTROLS=0; CONTROLS_RED=0
 
-check_fires() {   # <label> <name> <the check text that MUST go red>
-    local label="$1" name="$2" want="$3" d out rc ran
+check_fires() {   # <label> <name> <check text that MUST go red> [<more check texts>...]
+    #
+    # 🔴 MORE THAN ONE `want` WHERE ONE WOULD NOT DO. M19, M20 and M23 each break a rule that
+    # is asserted twice: once on the function that decides it (section 14) and once on the
+    # whole `cmd_status --check` report (section 15). A mutation that reddened only the unit
+    # cell would leave "and cmd_status actually calls it" untested, and the two halves of the
+    # package-pipeline rule cover for each other -- with the row's early return gone the rate
+    # comes back, with the predicate's exemption gone the PROBLEM comes back under a row that
+    # still says n/a. Both named, both required.
+    local label="$1" name="$2"; shift 2
+    local wants=("$@") want missing=() d out rc ran
     d="$(mutant "$name")"
     if [[ "$d" == ANCHOR:* ]]; then
         printf '  SURVIVED %-56s (anchor occurrences: %s, expected 1)\n' "$label" "${d#ANCHOR:}"
@@ -113,10 +122,16 @@ check_fires() {   # <label> <name> <the check text that MUST go red>
     if [[ $rc -eq 0 ]]; then
         printf '  SURVIVED %-56s (suite still green)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
     fi
-    if /usr/bin/grep -qF "FAILED   $want" <<<"$out"; then
-        printf '  caught   %-56s (%s went red)\n' "$label" "$want"; CAUGHT=$((CAUGHT+1))
+    for want in "${wants[@]}"; do
+        /usr/bin/grep -qF "FAILED   $want" <<<"$out" || missing+=("$want")
+    done
+    if (( ${#missing[@]} == 0 )); then
+        printf '  caught   %-56s (%d named check(s) went red)\n' "$label" "${#wants[@]}"
+        printf '             red: %s\n' "${wants[@]}"
+        CAUGHT=$((CAUGHT+1))
     else
-        printf '  SURVIVED %-56s (red, but NOT on the named check)\n' "$label"
+        printf '  SURVIVED %-56s (red, but NOT on every named check)\n' "$label"
+        printf '             still green: %s\n' "${missing[@]}"
         /usr/bin/grep 'FAILED' <<<"$out" | head -3 | sed 's/^/             /'
         SURVIVED=$((SURVIVED+1))
     fi
@@ -397,6 +412,76 @@ cat > "$A/m18.new" <<'EOF'
 EOF
 check_fires "M18: the switch count comes off the global ten again" m18 \
             "🔴 a 4-switch package makes the want 4, not 10"
+
+# --- M19-M23: TICKET-P2 §5.5, the package pipeline and the sampling rate ---------------------
+#
+# The whole family is one shape: a number decoded from p4_proxy/p4_src/build/ndtwin_switch.json
+# printed for a fabric that never loaded that file. That is X-2 with a different plane in it --
+# for months `status` printed `1/256` on an OVS fabric out of the same artefact and the two
+# agreed only by coincidence -- and the package pipeline is the third way to reach it.
+
+# M19: the rate rows stop having a foreign branch, so the built json's number is printed for a
+# switch running the exercise's own program.
+cat > "$A/m19.old" <<'EOF'
+        foreign:*)
+            printf '  %-14s %s\n' "sample rate" "n/a (package pipeline)"
+EOF
+cat > "$A/m19.new" <<'EOF'
+        never-taken:*)
+            printf '  %-14s %s\n' "sample rate" "n/a (package pipeline)"
+EOF
+check_fires "M19: a package pipeline is given the built json's rate" m19 \
+            "🔴 a package pipeline has no rate here" \
+            "🔴 the whole report says the rate is n/a"
+
+# M20: the predicate the ROW and the --check problem both read stops exempting a foreign
+# pipeline. The row still says n/a (it returns before the stale branch), so what this costs is
+# a `--check` that exits 1 over a file this fabric never read, with the row beside it saying
+# so -- a yellow problem under a green row, which is the shape E-9 was decided against.
+cat > "$A/m20.old" <<'EOF'
+    case "$kind" in foreign:*) return 1 ;; esac
+EOF
+cat > "$A/m20.new" <<'EOF'
+    :
+EOF
+check_fires "M20: a foreign pipeline is judged stale after all" m20 \
+            "🔴 a foreign pipeline is never stale" \
+            "🔴 --check does not raise the stale-pipeline problem"
+
+# M21: a package that will not load is reported as NDTwin's pipeline. The silent substitution
+# app_package_row exists to remove, one row further down.
+cat > "$A/m21.old" <<'EOF'
+except Exception:
+    print("unreadable")
+EOF
+cat > "$A/m21.new" <<'EOF'
+except Exception:
+    print("ndtwin")
+EOF
+check_fires "M21: an unparsable package reads as NDTwin's own pipeline" m21 \
+            "🔴 a package that will not load is 'unreadable', NOT 'ndtwin'"
+
+# M22: the per-switch pipelines are never consulted, so every package looks like NDTwin's --
+# exactly what `ndt` said before G4 landed, and now a wrong answer rather than an old one.
+cat > "$A/m22.old" <<'EOF'
+    foreign = [s.dpid for s in pkg.switches if not pkg.pipeline_is_ndtwin(s.dpid, base)]
+EOF
+cat > "$A/m22.new" <<'EOF'
+    foreign = []
+EOF
+check_fires "M22: per-switch pipelines are not consulted at all" m22 \
+            "🔴 one switch on somebody else's program names the dpid"
+
+# M23: the rate's own --check problems come back under a foreign pipeline.
+cat > "$A/m23.old" <<'EOF'
+    case "$kind" in foreign:*) return 0 ;; esac
+EOF
+cat > "$A/m23.new" <<'EOF'
+    :
+EOF
+check_fires "M23: a foreign pipeline raises the built json's rate problems" m23 \
+            "🔴 a foreign pipeline raises none of the rate problems" \
+            "  nor any problem about the compiled rate"
 
 # --- the controls: two behaviour-preserving rewrites -----------------------------------------
 # 🔴 Without these the round says nothing. A harness that reported red for ANY edit would print
