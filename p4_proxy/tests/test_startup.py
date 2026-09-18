@@ -204,8 +204,11 @@ def run_startup(clients, *, kernel=None, agent_ips=None, sflow=None, topo=None, 
     sflow = sflow if sflow is not None else FakeSflow()
     topo = topo if topo is not None else FakeTopo()
     ips = {dpid: f"192.168.123.{10 + dpid}" for dpid in clients} if agent_ips is None else agent_ips
-    knob = telemetry_knob or os.path.join(tempfile.gettempdir(),
-                                          "ndtwin-no-such-telemetry-override")
+    # os.getpid() in a path that is deliberately never created: tests/shell/check_test_tmpdirs.py
+    # refuses a fixed /tmp name in a suite, and it is right to -- ctest gives every test its own
+    # process, and two of them agreeing on one path is a race that only shows up under -j2.
+    knob = telemetry_knob or os.path.join(
+        tempfile.gettempdir(), f"ndtwin-no-such-telemetry-override-{os.getpid()}")
     with mock.patch.object(main, "TELEMETRY_KNOB_PATH", knob):
         summary = asyncio.run(startup(
             lambda: clients, sflow, kernel, topo,
