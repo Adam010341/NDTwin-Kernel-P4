@@ -177,6 +177,7 @@ export STACK_LOG="'"$FIX"'/stack.log"
 export P4_PROXY_PY="'"$FIX"'/fakepy"
 export NDT_APP_PREFLIGHT="'"$FIX"'/preflight.sh"
 export NDT_PROXY_LOG="'"$FIX"'/.test_run/logs/p4_proxy.log"
+export NDT_TOPO_LOG="'"$FIX"'/.test_run/logs/topo.log"
 sudo() {
     printf "sudo %s\n" "$*" >> "'"$FIX"'/sudo.log"
     case "$*" in *topo-start*) echo 99 > "'"$FIX"'/bmv2_count" ;; esac
@@ -236,7 +237,7 @@ q() { printf '%q' "$1"; }
 reset_fix() {
     rm -f "$FIX/sudo.log" "$FIX/stack.log" "$FIX/bmv2_count" "$PREFLIGHT_FAIL" "$STACK_FAIL" \
           "$KNOB" "$FIX/.test_run/up.target" "$FIX/.test_run/host_count_override.pre-up" \
-          "$FIX/.test_run/logs/p4_proxy.log"
+          "$FIX/.test_run/logs/p4_proxy.log" "$FIX/.test_run/logs/topo.log"
     : > "$FIX/sudo.log"; : > "$FIX/stack.log"
     printf '4\n' > "$FIX/p4_proxy/mininet/host_count_override"
 }
@@ -611,6 +612,50 @@ reset_fix
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
 has   "  with no proxy log, the absence is reported"      "the proxy never got far enough to write one" "$OUT"
 rm -f "$STACK_FAIL"
+
+# =============================================================================================
+section "13. 🔴 when the FABRIC never comes up, the bridge's own last words"
+# =============================================================================================
+# TICKET-P1D. The 2026-09-18 live round is the whole argument: `ndt up p4 --app` printed
+# `fabric did not come up: 0/4 switches, manifest missing` and `look at the pane`, and by then
+# there was no pane -- ntg_bmv2_topo.py had died of a KeyError and tmux reaps the session when
+# the process goes, so `ndtwin-lab topo-out` answers "no topo session". The bridge now tees its
+# output to .test_run/logs/topo.log and this branch prints the tail of it.
+#
+# 🔴 BEFORE the rollback, not after: rollback_up runs `ndtwin-lab cleanup`, and a cause printed
+# underneath a screen of recovery is a cause nobody reads. The ordering has its own cell.
+reset_fix
+TOPO_LOG="$FIX/.test_run/logs/topo.log"
+printf 'Traceback (most recent call last):\n  File "ntg_bmv2_topo.py", line 139, in main\n    switches = [net.get(f"s{i}") for i in range(1, 11)]\nKeyError: %s\n' "'s5'" > "$TOPO_LOG"
+OUT="$(drive "bmv2_count() { echo 0; }; NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+check "🔴 a fabric that never came up fails the bring-up" "1" "$(rc_of "$OUT")"
+has   "  and says how far it got"                         "fabric did not come up: 0/4 switches" "$OUT"
+has   "🔴 the BRIDGE's own last words are printed"        "KeyError: 's5'" "$OUT"
+has   "  named as the topology log"                       "the last 30 line(s) of .test_run/logs/topo.log" "$OUT"
+has   "  the pane is still offered for the live case"     "sudo -n $FIX/installed-ndtwin-lab topo-out 40" "$OUT"
+has   "  and the bring-up was rolled back"                "rollback" "$OUT"
+check "🔴 the knob THIS run wrote does not outlive it"    "absent" "$(knob_state)"
+# 🔴 THE ORDER. Read as line numbers rather than asserted as prose, because "it was printed"
+# and "it was printed where somebody sees it" are the two halves of this whole ticket.
+tail_at="$(/usr/bin/grep -n 'the last 30 line(s) of' <<<"$OUT" | head -1 | cut -d: -f1)"
+roll_at="$(/usr/bin/grep -n 'this bring-up started' <<<"$OUT" | head -1 | cut -d: -f1)"
+check "🔴 the cause is printed ABOVE the rollback"        "yes" \
+      "$( [[ -n "$tail_at" && -n "$roll_at" && "$tail_at" -lt "$roll_at" ]] && echo yes || echo no )"
+
+# The control: with no topology log there is no traceback to print, and the absence is SAID --
+# an empty tail must not read the same as a clean bring-up.
+reset_fix
+OUT="$(drive "bmv2_count() { echo 0; }; NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+has   "  with no topology log, the absence is reported"   "the bridge never got far enough to write one" "$OUT"
+hasnt "  and no tail is invented"                         "the last 30 line(s)" "$OUT"
+
+# And the baseline plane reaches it too: the bridge is what `ndt up p4` starts with or without
+# a package, so the diagnosis must not be a --app-only feature.
+reset_fix
+printf 'Error: no P4 topology model in setting/ has 4 hosts\n' > "$TOPO_LOG"
+OUT="$(drive 'bmv2_count() { echo 0; }; up_p4 4')"
+has   "🔴 the same tail on a bring-up with NO package"    "no P4 topology model in setting/ has 4 hosts" "$OUT"
+rm -f "$TOPO_LOG"
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"

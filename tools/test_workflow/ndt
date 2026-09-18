@@ -2802,6 +2802,15 @@ up_p4() {
         if [[ "$n" -lt "$SWITCHES" || ! -s "$MANIFEST" ]]; then
             err "fabric did not come up: $n/$SWITCHES switches, manifest $( [[ -s $MANIFEST ]] && echo present || echo missing )"
             err "look at the pane:  sudo -n $LAB topo-out 40"
+            # [Co-developed with claude code -- Adam]
+            # 🔴 THE PANE IS NOT A RECORD, and the line above was the only instrument this
+            # branch had. On 2026-09-18 the bridge died of a KeyError before write_manifest,
+            # tmux reaped the session on exit, and `topo-out` then answered "no topo session" --
+            # so the traceback naming the line existed nowhere by the time anybody read this
+            # message. ntg_bmv2_topo.py tees its output to .test_run/logs/topo.log for exactly
+            # this moment; printed BEFORE rollback_up, because rollback runs `ndtwin-lab
+            # cleanup` and the operator should see the cause above the recovery.
+            topo_log_tail 30
             rollback_up "the fabric never came up, and a half-built one holds :3005x/:909x"
             return 1
         fi
@@ -2852,6 +2861,30 @@ proxy_log_tail() {
     local n="${1:-10}" f="${NDT_PROXY_LOG:-$REPO/.test_run/logs/p4_proxy.log}"
     if [[ ! -s "$f" ]]; then
         err "no proxy log at ${f#$REPO/} -- the proxy never got far enough to write one"
+        return 0
+    fi
+    err "the last $n line(s) of ${f#$REPO/}:"
+    tail -n "$n" "$f" | sed 's/^/      /' >&2
+    return 0
+}
+
+# topo_log_tail <n> -- the last n lines of the bmv2 bridge's log, or a line saying there is none.
+#
+# [Co-developed with claude code -- Adam]
+# The same shape as proxy_log_tail above and for the same reason, one layer down: `ndt up` can
+# only ever observe the fabric's ABSENCE (`0/4 switches, manifest missing`), which is true of
+# every possible cause, and ntg_bmv2_topo.py's own words -- the pre-flight refusal, the
+# per-switch bind error, the traceback -- were until 2026-09-18 only ever in a tmux pane that
+# stops existing the moment the script does.
+#
+# 🔴 THE LAB'S TREE, NOT OURS. The writer is `sudo ndtwin-lab topo-start`, which runs the bridge
+# out of $KERNEL_DIR -- the helper's, which is not necessarily this checkout (FINDING-01 is
+# exactly the two-tree case). lab_kernel_dir() is the same answer `ndt` already uses for
+# app_sim.log. NDT_TOPO_LOG overrides it for the tests and is the name topo_log.py reads.
+topo_log_tail() {
+    local n="${1:-30}" f="${NDT_TOPO_LOG:-$(lab_kernel_dir)/.test_run/logs/topo.log}"
+    if [[ ! -s "$f" ]]; then
+        err "no topology log at ${f#$REPO/} -- the bridge never got far enough to write one"
         return 0
     fi
     err "the last $n line(s) of ${f#$REPO/}:"

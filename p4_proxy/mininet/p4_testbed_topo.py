@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import collections
 import json
 import os
 import signal
@@ -771,121 +772,227 @@ def abort_if_grpc_ports_are_held(held, owner_of=None, report=print, exit_=sys.ex
     exit_(1)
 
 
-def main():
-    setLogLevel('info')
+#: Everything this run decides BEFORE anything on the machine is torn down.
+#: [Co-developed with claude code -- Adam]
+FabricPlan = collections.namedtuple(
+    "FabricPlan",
+    "package model_path model dpids json_path binary lib_dir ports port_warning")
 
-    # Which app package, which model, which switches -- decided once, here, before anything is
-    # torn down, and handed to MultiSwitchTopo below so the two cannot read different files.
-    # A malformed knob or an unusable package stops the run here, which is the point: the
-    # alternative is a fabric that comes up on the wrong topology and reports success.
-    # [Co-developed with claude code -- Adam]
-    try:
-        package, model_path, model = fabric_model()
-    except (app_package.AppPackageError, topo_from_json.TopologyModelError, ValueError) as e:
-        print(f"Error: {e}")
-        sys.exit(1)
-    print(f"app package: {package.dir or 'baseline (no knob file)'}")
-    print(f"topology model: {model_path}")
+
+class FabricPlanError(ValueError):
+    """A pre-flight refusal. ValueError so both mains' existing `except ValueError` catches it."""
+
+
+def plan_fabric(package=None, report=print):
+    """Which package, which model, which switches, which binary, which ports -- decided ONCE.
+
+    [Co-developed with claude code -- Adam]
+    Every check in here happens before `reset_for_bring_up` destroys anything, which is the
+    property the individual checks were each written for: a broken override, an unusable
+    package or a port block inside the ephemeral range must fail while the running fabric is
+    still running.
+
+    🔴 It is one function because it had been two. `ndtwin-lab topo-start` launches
+    ntg_bmv2_topo.py, NOT this file, so the pre-flight that actually ran on every bring-up was
+    the transcribed copy over there -- and on 2026-09-18 that copy was still resolving
+    `ndtwin_switch.json` by a literal path and still pre-flighting `grpc_port_block(range(1,
+    11))` while the model in play declared four switches. Both mains call this now; a decision
+    written here is a decision that executes.
+
+    Raises FabricPlanError, AppPackageError, TopologyModelError, PortBlockError or ValueError,
+    all of which name the field or the file they are about.
+    """
+    package, model_path, model = fabric_model(package)
+    report(f"app package: {package.dir or 'baseline (no knob file)'}")
+    report(f"topology model: {model_path}")
     dpids = [dpid for dpid, _ in topo_from_json.switches(model)]
 
     json_path = package.pipeline_for(
         1, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))[1]
     if not os.path.exists(json_path):
-        print(f"Error: Compiled P4 JSON not found at {json_path}. Run 'p4c-bm2-ss' first in p4_src.")
-        sys.exit(1)
+        raise FabricPlanError(
+            f"Compiled P4 JSON not found at {json_path}. Run 'p4c-bm2-ss' first in p4_src.")
 
-    # Pre-flight the binary choice before anything is torn down: a broken override should
-    # fail here, not after mn -c has already destroyed the running fabric.
-    try:
-        binary, lib_dir = resolve_bmv2_launcher()
-    except ValueError as e:
-        print(f"Error: {e}")
-        sys.exit(1)
-    print(f"bmv2 binary: {binary}" + (f"  (LD_LIBRARY_PATH={lib_dir})" if lib_dir else ""))
+    # The binary choice, before anything is torn down: a broken override should fail here, not
+    # after mn -c has already destroyed the running fabric.
+    binary, lib_dir = resolve_bmv2_launcher()
+    report(f"bmv2 binary: {binary}" + (f"  (LD_LIBRARY_PATH={lib_dir})" if lib_dir else ""))
 
-    # Pre-flight the gRPC port block, for the same reason and in the same place as the binary
-    # check above: this must fail before `mn -c` tears down whatever is running, not after.
-    # The block is checked against the *running kernel's* ephemeral range rather than against
-    # the number that was safe when it was chosen -- ip_local_port_range is a sysctl, and the
-    # demo machine is not necessarily this one. See grpc_ports.py and F-15.
-    wanted_ports = grpc_ports.grpc_port_block(dpids)
-    try:
-        warning = grpc_ports.assert_port_block_is_safe(wanted_ports)
-    except grpc_ports.PortBlockError as e:
-        print(f"Error: {e}")
-        sys.exit(1)
+    # The gRPC port block, for the same reason and in the same place. Checked against the
+    # *running kernel's* ephemeral range rather than against the number that was safe when it
+    # was chosen -- ip_local_port_range is a sysctl, and the demo machine is not necessarily
+    # this one. See grpc_ports.py and F-15. The block is the MODEL's dpids: a four-switch
+    # package that pre-flighted ports for ten would refuse to start over six ports it never
+    # wanted, and would not check the one port it did.
+    ports = grpc_ports.grpc_port_block(dpids)
+    warning = grpc_ports.assert_port_block_is_safe(ports)
     if warning:
-        print(warning)
+        report(warning)
 
+    return FabricPlan(package=package, model_path=model_path, model=model, dpids=dpids,
+                      json_path=json_path, binary=binary, lib_dir=lib_dir, ports=ports,
+                      port_warning=warning)
+
+
+def reset_for_bring_up(ports, settle_s=0.5):
+    """`mn -c`, then last run's switches by pid, then refuse a port that is still held.
+
+    [Co-developed with claude code -- Adam]
+    `mn -c` does not touch bmv2, so a switch orphaned by a closed terminal keeps holding its
+    gRPC port and the matching switch in this run dies with "Address already in use". That is a
+    real failure we hit. Two Mininet topologies cannot coexist here anyway, and `mn -c` above
+    is already a full reset, so clearing these is consistent with what it does.
+
+    By pid out of the manifest, and a report for anything that leaves. This used to be
+    `os.system('sudo pkill -f simple_switch_grpc > /dev/null 2>&1')` -- see
+    clear_switches_from_a_previous_run for why that was the wrong instrument and why the pid
+    was available the whole time. A port the reap could not free stops the run here, before
+    Mininet is built; Adam ruled that on 2026-09-12 and the reasons are in
+    abort_if_grpc_ports_are_held.
+    """
     os.system('sudo mn -c > /dev/null 2>&1')
-    # [Co-developed with claude code -- Adam]
-    # `mn -c` does not touch bmv2, so a switch orphaned by a closed terminal keeps holding its
-    # gRPC port and the matching switch in this run dies with "Address already in use". That
-    # is a real failure we hit. Two Mininet topologies cannot coexist here anyway, and mn -c
-    # above is already a full reset, so clearing these is consistent with what it does.
-    #
-    # By pid out of the manifest, and a report for anything that leaves. This line used to be
-    # `os.system('sudo pkill -f simple_switch_grpc > /dev/null 2>&1')` -- see
-    # clear_switches_from_a_previous_run for why that was the wrong instrument and why the pid
-    # was available the whole time.
-    _, still_held = clear_switches_from_a_previous_run(ports=wanted_ports)
-    # And a port the reap could not free stops the run here, before Mininet is built. Adam
-    # ruled that on 2026-09-12; the reasons are in abort_if_grpc_ports_are_held.
+    _, still_held = clear_switches_from_a_previous_run(ports=ports)
     abort_if_grpc_ports_are_held(still_held)
-    time.sleep(0.5)  # let the ports actually be released before anything tries to bind
+    time.sleep(settle_s)  # let the ports actually be released before anything tries to bind
 
-    topo = MultiSwitchTopo(package=package, model=model)
-    net = Mininet(topo=topo, controller=None, autoSetMacs=True)
+
+def build_net(package, model):
+    """The Mininet this fabric is. A function so a test can put a recorder in its place."""
+    return Mininet(topo=MultiSwitchTopo(package=package, model=model),
+                   controller=None, autoSetMacs=True)
+
+
+def configure_hosts(package, hosts, report=info):
+    """The package's own host commands, or the fabric's all-pairs static ARP. Never both.
+
+    [Co-developed with claude code -- Adam]
+    Returns what it ran: the {name: [command]} mapping under a package, None under the
+    baseline. `Package.host_commands()` answers None rather than {} for exactly this branch --
+    "this package asked for nothing here" and "there is no package" are different statements
+    and the second one means the 128-host ARP fan-out.
+
+    🔴 THE ALL-PAIRS FORM IS THE BRIDGE'S, CHUNKED, and that is a behaviour change for
+    p4_testbed_topo.main() at large host counts. The two copies of this loop disagreed: this
+    file batched all N-1 entries into ONE `cmd()`, ntg_bmv2_topo.py batched them in chunks of
+    32 -- with a measurement written beside it saying why. At 128 hosts a single command is
+    ~4.4 kB, Mininet TRUNCATES it, and h1 ended up holding entries for h2..h112 and nothing
+    after; a partial ARP table fails exactly like a broken data plane. The chunked copy is the
+    one `ndtwin-lab` actually runs, so it is the one that survives the merge. At four hosts the
+    two forms produce a byte-identical command (three peers is one chunk), which is what
+    test_fabric_bring_up.py pins.
+
+    A package's commands are printed per host rather than run silently: these are the only
+    commands this fabric runs on somebody else's behalf, and a typo in one of them presents as
+    an unreachable host.
+    """
+    host_commands = package.host_commands()
+    if host_commands is None:
+        for src in hosts:
+            peers = [dst for dst in hosts if dst is not src]
+            for i in range(0, len(peers), 32):
+                src.cmd(" ; ".join(f"arp -s {d.IP()} {d.MAC()}" for d in peers[i:i + 32]))
+        return None
+
+    # A package brings its own host setup -- pod-topo's hosts each get a default gateway and
+    # ONE static ARP, for that gateway -- and the all-pairs fan-out above would defeat it:
+    # every host would already hold every other host's MAC, so the exercise's forwarding tables
+    # would never be consulted and a broken data plane would ping perfectly.
+    for host in hosts:
+        for command in host_commands.get(host.name, ()):
+            report(f"*** {host.name}: {command}\n")
+            host.cmd(command)
+    return host_commands
+
+
+def bring_up(package, model, net=None, manifest_path=None, verify_timeout=10.0):
+    """Build the fabric, set the hosts up, verify the switches, write the manifest, judge it.
+
+    Returns (net, switches, fatal, report) -- `report` being partial_fabric_verdict's message,
+    None when every switch came up.
+
+    [Co-developed with claude code -- Adam]
+    🔴 THIS IS THE FUNCTION THE TICKET IS ABOUT. There were two of these, and the one that ran
+    on every `ndt up p4` was the one nothing tested: ntg_bmv2_topo.py's copy still read
+    `range(1, 11)` for its switch list after the package work landed here, so a four-switch
+    package died at `net.get('s5')` with a KeyError, before write_manifest, with no try/finally
+    -- so the process died, tmux reaped the session, and the pane carrying the traceback went
+    with it. `ndt up` could only say "0/4 switches, manifest missing". Both entry points call
+    this now.
+
+    `net` and `manifest_path` are seams for the offline tests, not options: a fabric this
+    function builds itself is the only one either main passes.
+    """
+    if manifest_path is None:
+        manifest_path = MANIFEST_PATH
+    if net is None:
+        net = build_net(package, model)
     net.start()
 
     # The hosts, named by the model rather than counted. `_host_count_override()` and the model
-    # agree by construction (topo_from_json.model_path refuses a model whose host count differs),
-    # but a package names its own model and nothing then ties the count file to it.
-    # [Co-developed with claude code -- Adam]
+    # agree by construction (topo_from_json.model_path refuses a model whose host count
+    # differs), but a package names its own model and nothing then ties the count file to it.
     hosts = [net.get(name) for name, _ip, _mac in topo_from_json.hosts(model)]
-
-    host_commands = package.host_commands()
-    if host_commands is None:
-        # Add static ARPs.
-        #
-        # This was `range(1, 5)`: hard-coded to four hosts, like the two other four-host lists
-        # this fabric carried (the proxy's add_host table, and disable_host_offloads below).
-        # At 128 hosts the switches forward correctly and every rule installs, but nothing pings,
-        # because the sender never resolves the destination MAC -- and an unreachable host looks
-        # exactly like a broken data plane. Measured: with the entry added by hand for one pair,
-        # h1 -> h33 goes from 100% loss to 0% at 1.6 ms.
-        #
-        # One batched invocation per host rather than one per pair: at 128 hosts the pairwise
-        # form is 16256 separate `cmd()` round-trips through Mininet and takes minutes; batching
-        # makes it 128. Behaviour at 4 hosts is unchanged.
-        for src in hosts:
-            entries = " ; ".join(
-                f"arp -s {dst.IP()} {dst.MAC()}" for dst in hosts if dst is not src
-            )
-            if entries:
-                src.cmd(entries)
-    else:
-        # [Co-developed with claude code -- Adam]
-        # A package brings its own host setup -- pod-topo's hosts each get a default gateway and
-        # ONE static ARP, for that gateway -- and the all-pairs fan-out above would defeat it:
-        # every host would already hold every other host's MAC, so the exercise's forwarding
-        # tables would never be consulted and a broken data plane would ping perfectly.
-        #
-        # Printed per host rather than run silently. These are the only commands this fabric runs
-        # on somebody else's behalf, and a typo in one of them presents as an unreachable host.
-        for host in hosts:
-            for command in host_commands.get(host.name, ()):
-                info(f"*** {host.name}: {command}\n")
-                host.cmd(command)
-
+    configure_hosts(package, hosts)
+    # Without this, bulk TCP stalls at zero through bmv2 -- see the helper's docstring.
     disable_host_offloads(hosts)
 
+    # 🔴 FROM THE MODEL. This was `[net.get(f's{i}') for i in range(1, 11)]` in the bridge, and
+    # the fifth copy of "this fabric has ten switches".
     switches = [net.get(name) for _dpid, name in topo_from_json.switches(model)]
-    failures = verify_switches(switches)
-    write_manifest(switches)
+    failures = verify_switches(switches, timeout=verify_timeout)
+    write_manifest(switches, path=manifest_path)
 
     fatal, report = partial_fabric_verdict(failures, len(switches))
-    ports = grpc_ports.grpc_port_block(dpids)
+    return net, switches, fatal, report
+
+
+def tear_down(net, manifest_path=None, report=print):
+    """Stop the net, reap what outlived it, then drop the manifest. Returns the names reaped.
+
+    [Co-developed with claude code -- Adam]
+    Order is load-bearing and is the A-4 bookkeeping fix: `net.stop()` only reaps Mininet's own
+    children, a switch ndtwin-p4-power restarted is not one of them, and once the manifest is
+    gone nothing can address such a process at all -- the helper resolves names to pids through
+    that file and nothing else. See reap_manifest_switches.
+
+    Both entry points' teardown, and both of their ABORT paths. Those abort paths used to reap
+    in silence; they say what they reaped now, which is a change and the right direction -- a
+    process this script stopped on its way out is exactly the kind of fact that later reads as
+    "something killed my switch".
+    """
+    if manifest_path is None:
+        manifest_path = MANIFEST_PATH
+    net.stop()
+    reaped = reap_manifest_switches(manifest_path)
+    if reaped:
+        report(f"Reaped {len(reaped)} switch(es) that outlived the topology: "
+               f"{', '.join(reaped)}")
+    try:
+        os.remove(manifest_path)
+    except OSError:
+        pass
+    return reaped
+
+
+def main():
+    setLogLevel('info')
+
+    # Which app package, which model, which switches -- decided once, before anything is torn
+    # down, and handed to bring_up below so nothing reads those files twice and gets two
+    # answers. A malformed knob or an unusable package stops the run here, which is the point:
+    # the alternative is a fabric that comes up on the wrong topology and reports success.
+    # [Co-developed with claude code -- Adam]
+    try:
+        plan = plan_fabric()
+    except (app_package.AppPackageError, topo_from_json.TopologyModelError,
+            grpc_ports.PortBlockError, ValueError) as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+    reset_for_bring_up(plan.ports)
+
+    net, switches, fatal, report = bring_up(plan.package, plan.model)
+    ports = plan.ports
 
     print("\n======================================================================")
     if report:
@@ -906,26 +1013,11 @@ def main():
         # and it did not stop a single run: the operator got a prompt, the wrapper got exit 0,
         # and the partial fabric was used. The switch logs stay on disk (/tmp/sN_bmv2.log) for
         # the post-mortem -- what is withheld is the ability to carry on as if nothing broke.
-        net.stop()
-        reap_manifest_switches()
-        try:
-            os.remove(MANIFEST_PATH)
-        except OSError:
-            pass
+        tear_down(net)
         sys.exit(1)
 
     CLI(net)
-    net.stop()
-    # Before the manifest goes: net.stop() does not reap a switch the power helper restarted,
-    # and once this file is gone nothing can address one. See reap_manifest_switches.
-    reaped = reap_manifest_switches()
-    if reaped:
-        print(f"Reaped {len(reaped)} switch(es) that outlived the topology: "
-              f"{', '.join(reaped)}")
-    try:
-        os.remove(MANIFEST_PATH)
-    except OSError:
-        pass
+    tear_down(net)
 
 if __name__ == '__main__':
     main()

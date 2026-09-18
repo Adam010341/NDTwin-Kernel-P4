@@ -334,6 +334,34 @@ EOF
 check_fires "M14: the proxy's own last words are not printed" m14 \
             "🔴 the PROXY's own last words are printed"
 
+# --- M15: a fabric that never came up says nothing about why (TICKET-P1D) ---------------------
+# The 2026-09-18 live round: `0/4 switches, manifest missing`, `look at the pane` -- and no
+# pane, because the bridge had already exited and tmux reaps the session with the process. This
+# puts that silence back.
+cat > "$A/m15.old" <<'EOF'
+            topo_log_tail 30
+EOF
+cat > "$A/m15.new" <<'EOF'
+            :
+EOF
+check_fires "M15: the bridge's own last words are not printed" m15 \
+            "🔴 the BRIDGE's own last words are printed"
+
+# --- M16: they are printed, but underneath the rollback ---------------------------------------
+# 🔴 A DIFFERENT DEFECT FROM M15 AND THE ONE THAT SURVIVES REVIEW. rollback_up runs `ndtwin-lab
+# cleanup` and prints a screen of its own; a cause underneath that is a cause nobody reads, and
+# "the tail is printed" would be satisfied either way.
+cat > "$A/m16.old" <<'EOF'
+            topo_log_tail 30
+            rollback_up "the fabric never came up, and a half-built one holds :3005x/:909x"
+EOF
+cat > "$A/m16.new" <<'EOF'
+            rollback_up "the fabric never came up, and a half-built one holds :3005x/:909x"
+            topo_log_tail 30
+EOF
+check_fires "M16: the cause is printed underneath the rollback" m16 \
+            "🔴 the cause is printed ABOVE the rollback"
+
 # --- the controls: two behaviour-preserving rewrites -----------------------------------------
 # 🔴 Without these the round says nothing. A harness that reported red for ANY edit would print
 # `11 caught, 0 survived` above while catching nothing at all, and these are the edits that tell

@@ -1145,10 +1145,20 @@ class BothMainsRefuseAHeldPortTest(unittest.TestCase):
 
     This is a source-level assertion and it is one on purpose: main() builds a real Mininet and
     cannot be called from a unit test, and the thing that has to be true is precisely that the
-    call is present in BOTH files. FIX-PROXY-1's finding is the reason the weaker test is worth
-    having: the copy that actually runs is ntg_bmv2_topo.py -- ndtwin-lab starts that one, not
-    p4_testbed_topo.py -- and for as long as both files existed the defect lived in both of
-    them while every test looked at one. [Co-developed with claude code -- Adam]
+    refusal is reached from BOTH files. FIX-PROXY-1's finding is the reason the weaker test is
+    worth having: the copy that actually runs is ntg_bmv2_topo.py -- ndtwin-lab starts that
+    one, not p4_testbed_topo.py -- and for as long as both files carried their own copy the
+    defect lived in both of them while every test looked at one.
+    [Co-developed with claude code -- Adam]
+
+    🔴 2026-09-18, TICKET-P1D: THE TWO COPIES ARE GONE. The reset is one function,
+    `reset_for_bring_up`, and each main calls it -- so "the call is present in both files" is
+    no longer the property to assert; it would now be satisfied by a main that had somehow
+    grown its own second copy back. What is asserted instead is the pair that actually carries
+    the guarantee: each main REACHES the one reset, and the one reset decides on what is still
+    held AFTER the reap. The third case is the new way to break it, and it has its own cell:
+    a main that re-grew a private `clear_switches_from_a_previous_run` would be reporting on a
+    reset nobody had refused on.
     """
 
     def mains(self):
@@ -1161,21 +1171,38 @@ class BothMainsRefuseAHeldPortTest(unittest.TestCase):
         return {"p4_testbed_topo.py": text[text.index("def main("):],
                 "ntg_bmv2_topo.py": ntg[ntg.index("def main("):]}
 
+    def the_one_reset(self):
+        """The text of `reset_for_bring_up`, the single function both mains go through."""
+        text, _here = testbed_source()
+        start = text.index("def reset_for_bring_up(")
+        end = text.index("\ndef ", start + 1)
+        return text[start:end]
+
     def test_each_main_aborts_on_what_the_reset_could_not_free(self):
+        self.assertIn("abort_if_grpc_ports_are_held(", self.the_one_reset(),
+                      "reset_for_bring_up goes on and lets a fabric be built on a port it "
+                      "knows is taken")
         for name, text in self.mains().items():
             with self.subTest(file=name):
-                self.assertIn("abort_if_grpc_ports_are_held(", text,
-                              f"{name}'s main() goes on building a fabric on a port it knows "
-                              f"is taken")
+                self.assertIn("reset_for_bring_up(", text,
+                              f"{name}'s main() never reaches the reset, so nothing refuses a "
+                              f"held port on its path")
 
     def test_each_main_aborts_after_the_reset_not_before_it(self):
+        text = self.the_one_reset()
+        reset = text.index("clear_switches_from_a_previous_run(ports=")
+        abort = text.index("abort_if_grpc_ports_are_held(")
+        self.assertLess(reset, abort,
+                        "reset_for_bring_up must decide on what is STILL held after the reap, "
+                        "not on what was held before it")
+
+    def test_neither_main_carries_a_second_copy_of_the_reset(self):
         for name, text in self.mains().items():
             with self.subTest(file=name):
-                reset = text.index("clear_switches_from_a_previous_run(ports=")
-                abort = text.index("abort_if_grpc_ports_are_held(")
-                self.assertLess(reset, abort,
-                                f"{name} must decide on what is STILL held after the reap, "
-                                f"not on what was held before it")
+                self.assertNotIn("clear_switches_from_a_previous_run(", text,
+                                 f"{name}'s main() reaps on its own again -- a second copy of "
+                                 f"the reset is how this file's switch list stayed at "
+                                 f"range(1, 11) through the whole app-package change")
 
 
 class GrpcPortIsOpenTest(unittest.TestCase):
