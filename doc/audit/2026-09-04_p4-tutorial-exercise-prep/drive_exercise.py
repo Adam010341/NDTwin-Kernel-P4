@@ -772,10 +772,25 @@ class Steps(object):
         return os.path.join(self.exdir, name)
 
     def _start_receiver(self, host, tag, script="receive.py"):
-        """receive.py in the host namespace, stdout+stderr into the log dir."""
+        """receive.py in the host namespace, stdout+stderr into the log dir.
+
+        🔴 `-u`, because the exercise's own file decides whether it flushes and
+        this driver does not get to assume it does.  stdout here is a FILE, so
+        CPython block-buffers it, and `_stop_receiver` ends the child with
+        SIGTERM -- no atexit, no flush, the buffer is discarded.  basic's
+        receive.py:51,58 and source_routing's :41,56 call sys.stdout.flush()
+        themselves; link_monitor/receive.py:16-28 only prints, and on 2026-09-18
+        19:11 its driver-h1-receive.log came back 0 B -- without even :26's
+        "sniffing on eth0" -- while the same run's s1.log recorded all 8 probes
+        as `Egress port is 1`.  An argv flag rather than PYTHONUNBUFFERED in the
+        environment: NdtwinHosts.popen goes through `sudo -n mnexec` (:731),
+        which resets the environment it passes on, and neither popen path takes
+        an `env=` at all -- the flag is the only form that survives both
+        fabrics, and it is visible in the command this step records.
+        """
         path = os.path.join(self.log_dir, "driver-%s-receive.log" % tag)
         fh = open(path, "wb")
-        cmd = [VENV_PY, self._script(script)]
+        cmd = [VENV_PY, "-u", self._script(script)]
         say("$ %s: %s   (> %s)" % (host, " ".join(cmd), path))
         proc = self.h.popen(host, cmd, stdout=fh, stderr=subprocess.STDOUT)
         time.sleep(self.args.recv_warmup)
@@ -1117,6 +1132,14 @@ class Steps(object):
 
         Probes arriving at all is asserted FIRST in both arms: "every port is 0"
         is vacuously true of no probes.
+
+        WHY THE RECEIVER IS STARTED WITH `-u`.  link_monitor/receive.py:16-28
+        never calls sys.stdout.flush() -- unlike basic's and source_routing's --
+        so with stdout redirected to a file its lines sat in the interpreter's
+        buffer and the SIGTERM in _stop_receiver threw them away: on 2026-09-18
+        19:11 both arms failed here with driver-h1-receive.log at 0 B while the
+        same run's s1.log held all 8 probes.  _start_receiver supplies the flush
+        the exercise does not; nothing below changed.
         """
         recv, fh, rpath, rcmd = self._start_receiver("h1", "h1")
         self.steps.append(("L1  h1 starts receive.py", rcmd, "(background; output below)"))
