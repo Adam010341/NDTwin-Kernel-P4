@@ -338,11 +338,18 @@ check_fires "M14: the proxy's own last words are not printed" m14 \
 # The 2026-09-18 live round: `0/4 switches, manifest missing`, `look at the pane` -- and no
 # pane, because the bridge had already exited and tmux reaps the session with the process. This
 # puts that silence back.
+# 🔴 The anchor carries the line BELOW it, and that is not decoration: `topo_log_tail 30` now
+# appears twice in `ndt` (this branch and the topo-start-failed one, M17), so the bare call is
+# no longer unique and the mutation would land in whichever copy came first.
+# tests/shell/check_gate_anchors.py is what said so -- `count : 2 (want 1)` -- which is the
+# whole reason that instrument exists.
 cat > "$A/m15.old" <<'EOF'
             topo_log_tail 30
+            rollback_up "the fabric never came up, and a half-built one holds :3005x/:909x"
 EOF
 cat > "$A/m15.new" <<'EOF'
             :
+            rollback_up "the fabric never came up, and a half-built one holds :3005x/:909x"
 EOF
 check_fires "M15: the bridge's own last words are not printed" m15 \
             "🔴 the BRIDGE's own last words are printed"
