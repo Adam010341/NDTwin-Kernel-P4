@@ -30,7 +30,25 @@
 #         a control going red -- which would mean this gate measures "the file changed" rather
 #         than "the behaviour changed")
 set -uo pipefail
-cd "$(git rev-parse --show-toplevel)"
+
+# 🔴 The worktree this script lives in, and no other. `git rev-parse --show-toplevel` answers
+# about the CALLER's directory, so launching this from the main checkout -- which is trivially
+# easy with a `setsid nohup bash <abs path>` and is how it was first run -- makes it snapshot and
+# mutate a shared checkout that several sessions have uncommitted work in. The anchor check
+# happens to refuse there (a tree without these changes has none of the anchors), but "it would
+# have failed anyway" is not a protection, and the next anchor to become common to both trees
+# removes it. CLAUDE.md's shared-worktree rule is the reason this is an abort and not a warning.
+OWN_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$(git rev-parse --show-toplevel)" || exit 2
+if [[ "$PWD" != "$OWN_ROOT" ]]; then
+    echo "🔴 refusing to run: git says the top level here is" >&2
+    echo "     $PWD" >&2
+    echo "   but this script belongs to" >&2
+    echo "     $OWN_ROOT" >&2
+    echo "   Run it from inside its own worktree. A mutation gate must never edit another" >&2
+    echo "   checkout's files." >&2
+    exit 2
+fi
 
 BUILD_DIR="${BUILD_DIR:-build}"
 TEST_TIMEOUT="${TEST_TIMEOUT:-600}"
