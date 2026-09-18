@@ -367,7 +367,7 @@ mutate "M-A6 the L2 hash ignores the MAC addresses" "$SFLOW" \
 # so one flow becomes one flow-table row per hop. Added rather than swapped in: the seventh
 # mutation costs one more rebuild of SFlowType.hpp, which the round-2 `restore` change (touch only
 # what was written) more than pays for.
-mutate "M-A7 the IPv4 branch keeps the frame's MAC addresses" "$SFLOW" \
+mutate "M-A7 the IPv4 branch keeps the MAC addresses of the frame" "$SFLOW" \
 "$IPV4_CLEARS_L2" \
 '        out.key.icmpType = 0; // MUTANT: the L2 fields stay in the key' \
     FlowKeyFamiliesTest.OneIpv4FlowStaysOneRowWhenTheMacsChangeAtEveryHop \
