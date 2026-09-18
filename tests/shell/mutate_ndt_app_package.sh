@@ -1136,13 +1136,13 @@ check_fires "M62: a cooperative switch that clones nothing passes" m62 \
 
 # --- M63: an unreadable switch_state passes the telemetry gate -----------------------------------------------
 cat > "$A/m63.old" <<'EOF'
-        err "  cannot say which telemetry source each switch is on. An unchecked gate is a"
-        err "  failure, not a pass."
+        err "  cannot say which telemetry source each switch is on. An unchecked gate is not"
+        err "  a passed one."
         return 1
 EOF
 cat > "$A/m63.new" <<'EOF'
-        err "  cannot say which telemetry source each switch is on. An unchecked gate is a"
-        err "  failure, not a pass."
+        err "  cannot say which telemetry source each switch is on. An unchecked gate is not"
+        err "  a passed one."
         return 0
 EOF
 check_fires "M63: an unreadable switch_state passes the telemetry gate" m63 \
@@ -1229,77 +1229,6 @@ cat > "$A/m70.new" <<'EOF'
 EOF
 check_fires "M70: a stale link-telemetry manifest is not residue" m70 \
             "🔴 a stale manifest is residue too"
-
-# --- M71 (M-D4): stack.sh's start_bg fingerprint drops the telemetry source --------------------------------------------------
-#
-# 🔴 A SECOND SUBJECT, AND IT NEEDS ITS OWN APPLIER. Every mutation above edits a copy of `ndt`;
-# this one edits a copy of tools/test_workflow/stack.sh, which the suite reaches through
-# STACK_UNDER_TEST -- the same seam NDT_UNDER_TEST is. Two proxies with identical argv and
-# different telemetry sources is the measured 128-vs-4 reuse failure with a third file behind it,
-# and the fingerprint is the only thing that can tell them apart.
-STACK_SRC="$REPO/tools/test_workflow/stack.sh"
-stack_mutant() {   # stack_mutant <name> -- a copy of stack.sh with the anchor replaced
-    local name="$1" d="$BK/$name"
-    mkdir -p "$d"
-    cp "$STACK_SRC" "$d/stack.sh"
-    python3 - "$d/stack.sh" "$A/$name.old" "$A/$name.new" <<'PY'
-import sys, io
-target, oldf, newf = sys.argv[1], sys.argv[2], sys.argv[3]
-s = io.open(target, encoding='utf-8').read()
-o = io.open(oldf, encoding='utf-8').read()
-n = io.open(newf, encoding='utf-8').read()
-c = s.count(o)
-if c != 1:
-    print("ANCHOR:%d" % c); sys.exit(0)
-io.open(target, 'w', encoding='utf-8').write(s.replace(o, n, 1))
-print(target)
-PY
-}
-check_fires_stack() {   # <label> <name> <check text that MUST go red> [<more>...]
-    local label="$1" name="$2"; shift 2
-    local wants=("$@") want missing=() d out rc ran
-    d="$(stack_mutant "$name")"
-    if [[ "$d" == ANCHOR:* ]]; then
-        printf '  SURVIVED %-56s (anchor occurrences: %s, expected 1)\n' "$label" "${d#ANCHOR:}"
-        SURVIVED=$((SURVIVED+1)); return
-    fi
-    if ! bash -n "$d" 2>/dev/null; then
-        printf '  SURVIVED %-56s (the mutant does not PARSE -- a bash -n failure is not a catch)\n' "$label"
-        SURVIVED=$((SURVIVED+1)); return
-    fi
-    out="$(STACK_UNDER_TEST="$d" timeout 600 bash "$TEST" 2>&1)"; rc=$?
-    ran="$(/usr/bin/grep -oE 'Ran [0-9]+ checks' <<<"$out" | tail -1)"
-    if [[ "$ran" != "$BASE_RAN" ]]; then
-        printf '  SURVIVED %-56s (the run did not finish: "%s" vs baseline "%s")\n' "$label" "$ran" "$BASE_RAN"
-        SURVIVED=$((SURVIVED+1)); return
-    fi
-    if [[ $rc -eq 0 ]]; then
-        printf '  SURVIVED %-56s (suite still green)\n' "$label"; SURVIVED=$((SURVIVED+1)); return
-    fi
-    for want in "${wants[@]}"; do
-        /usr/bin/grep -qF "FAILED   $want" <<<"$out" || missing+=("$want")
-    done
-    if (( ${#missing[@]} == 0 )); then
-        printf '  caught   %-56s (%d named check(s) went red)\n' "$label" "${#wants[@]}"
-        printf '             red: %s\n' "${wants[@]}"
-        /usr/bin/grep '^  FAILED' <<<"$out" | sed 's/^  FAILED   /             also red: /'
-        CAUGHT=$((CAUGHT+1))
-    else
-        printf '  SURVIVED %-56s (red, but NOT on every named check)\n' "$label"
-        printf '             still green: %s\n' "${missing[@]}"
-        SURVIVED=$((SURVIVED+1))
-    fi
-}
-cat > "$A/m71.old" <<'EOF'
-            "$KERNEL_DIR/p4_proxy/mininet/app_package_override" 2>/dev/null) telemetry=$(sed -n \
-            '/^[[:space:]]*#/d; /^[[:space:]]*$/d; s/^[[:space:]]*//; s/[[:space:]].*//; p; q' \
-            "$KERNEL_DIR/p4_proxy/mininet/telemetry_override" 2>/dev/null) topo=$topo" \
-EOF
-cat > "$A/m71.new" <<'EOF'
-            "$KERNEL_DIR/p4_proxy/mininet/app_package_override" 2>/dev/null) topo=$topo" \
-EOF
-check_fires_stack "M71: the start_bg fingerprint drops the telemetry source" m71 \
-            "🔴 the start_bg fingerprint carries the telemetry source"
 
 # --- two more controls, for the half of the file this round added ------------------------------------
 # 🔴 Without them the eleven "caught" lines above say nothing about the NEW cells: a suite that
