@@ -1219,7 +1219,8 @@ class TopologyManager:
         with self._net_lock:
             return dict(self._installed_routes)
 
-    def readopt_switch(self, dpid, client_factory, sample_callback=None, settle_s=1.0):
+    def readopt_switch(self, dpid, client_factory, sample_callback=None, settle_s=1.0,
+                       install_routes=True):
         """
         Re-adopt one bmv2 switch after its process was restarted (Phase 7 powerOn).
 
@@ -1240,6 +1241,22 @@ class TopologyManager:
         for `settle_s` (bmv2 accepts arbitration before it finishes electing, and a config
         push in that window is rejected), and the clone session goes in only after the
         pipeline it lives in.
+
+        `install_routes=False` leaves the shortest-path refill out. [Co-developed with claude
+        code -- Adam] TICKET-P2 round 2. It exists for exactly one caller -- a switch running an
+        app package's OWN pipeline -- and for a reason that has no other expression here: the
+        refill writes `MyIngress.ipv4_lpm` and `MyIngress.ipv4_forward` BY NAME, and against a
+        foreign program those names either do not exist (a KeyError out of the id lookup, which
+        would come out of this method and be read as a proxy crash) or, worse, DO exist and mean
+        something else -- `basic.p4` declares that exact table with that exact action and those
+        exact parameter names -- so the write succeeds and this proxy's shortest paths land on
+        top of the exercise's own forwarding, with both sides reporting success.
+
+        The caller that passes False owns the disclosure: this method then reports
+        `routes_installed: 0, routes_attempted: 0` and, deliberately, does NOT add the
+        `routes_pending` note -- that note promises the link watchdog will install them when the
+        beacons resume, and on the fabric this flag is for there is no watchdog running at all.
+        `main.readopt_switch` adds the named `routes: "skipped"` key.
 
         Route counts of zero are possible and honest: right after a power-on the link
         watchdog may still believe this switch's links are down (its beacons have not resumed
@@ -1351,7 +1368,13 @@ class TopologyManager:
                     print(f"[TopologyManager] readopt {dpid}: old client refused to stop "
                           f"cleanly ({type(e).__name__}: {e}); continuing with the new one")
 
-            routes, attempted = self.install_initial_routes(only_dpid=dpid)
+            if install_routes:
+                routes, attempted = self.install_initial_routes(only_dpid=dpid)
+            else:
+                # Not "nothing was routable" -- nothing was ATTEMPTED, on purpose. See the
+                # docstring: the refill names NDTwin's own tables, and this switch is not
+                # running NDTwin's program. [Co-developed with claude code -- Adam]
+                routes, attempted = 0, 0
 
         # [Co-developed with claude code -- Adam]
         # Zero installed is still honest when zero were *attempted* (the watchdog may hold
@@ -1367,8 +1390,10 @@ class TopologyManager:
                              f"accepting the pipeline; its tables are empty until a proxy "
                              f"restart or a link-watchdog recovery reinstalls them"}
 
+        why_no_routes = "" if install_routes else (
+            " (the route refill was not run: this switch is not running NDTwin's own pipeline)")
         print(f"[TopologyManager] readopt {dpid}: pipeline pushed, clone_session={clone_ok}, "
-              f"{routes} of {attempted} routes installed")
+              f"{routes} of {attempted} routes installed{why_no_routes}")
         result = {"status": "success", "dpid": dpid, "clone_session": clone_ok,
                   "routes_installed": routes, "routes_attempted": attempted}
 
@@ -1384,7 +1409,14 @@ class TopologyManager:
         # Reporting it as a failure was the other option and is worse -- rediscovery genuinely
         # takes time, so every ordinary power-on would report failure, and a status nobody can
         # act on is one everybody learns to ignore.
-        if attempted == 0:
+        #
+        # 🔴 `and install_routes`: this note PROMISES that the link watchdog will install the
+        # routes when the beacons resume, and the one caller that passes install_routes=False is
+        # a fabric where the watchdog was never started (a foreign pipeline has no controller
+        # header, so there are no beacons to resume). Making that promise there would be a
+        # reassurance about a thing that is never going to happen.
+        # [Co-developed with claude code -- Adam]
+        if attempted == 0 and install_routes:
             result["routes_pending"] = True
             result["note"] = ("adopted, but no route was installable yet: this switch's links "
                               "are still down, so no path crosses it. The link watchdog "

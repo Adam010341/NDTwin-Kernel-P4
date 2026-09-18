@@ -709,6 +709,66 @@ class ThePackageHalfOfReadoptTest(unittest.TestCase):
                           "nothing would ever arrive in it")
         self.assertNotIn(("clone", 1), self.made[0].log)
 
+    def test_a_foreign_pipeline_gets_no_ndtwin_routes(self):
+        # 🔴 Round 2, the orchestrator's ruling on objection ①. Before `install_routes` existed
+        # this refill ran unconditionally: against `basic.p4` it SUCCEEDS, because that program
+        # declares `MyIngress.ipv4_lpm` with `MyIngress.ipv4_forward(dstAddr, port)` under those
+        # exact names -- so NDTwin's shortest paths landed on top of the exercise's own
+        # forwarding and both sides reported success.
+        result = self.readopt(self.package())
+        self.assertEqual(self.topo.switches[1].routes, [],
+                         "not one route write may be attempted against a foreign pipeline")
+        self.assertEqual(result["routes_installed"], 0)
+        self.assertEqual(result["routes_attempted"], 0)
+
+    def test_it_says_the_routes_were_skipped_rather_than_reporting_a_bare_zero(self):
+        # `routes_installed: 0` on its own reads as a switch that refused every write. The
+        # named key is the difference between that and a switch that was deliberately not
+        # offered any.
+        result = self.readopt(self.package())
+        self.assertEqual(result["routes"], "skipped")
+        self.assertIn("no NDTwin route was installed", result["routes_note"])
+
+    def test_it_does_not_claim_a_clone_session_it_never_programmed(self):
+        # 🔴 `readopt_switch` answers `clone_session: True` when it is handed no sample callback
+        # -- which means "nothing failed" and is right for a fabric whose sFlow is simply not
+        # wired. Passed through here it would tell an operator a session was programmed when
+        # the decision was that none should be: "reported success without doing it".
+        self.assertIs(self.readopt(self.package())["clone_session"], False)
+
+    def test_it_does_not_promise_a_watchdog_that_is_not_running_will_fix_it(self):
+        # `routes_pending` promises the link watchdog installs the routes when the beacons
+        # resume. On this fabric the watchdog was never started -- a foreign pipeline has no
+        # controller header, so there are no beacons to resume.
+        result = self.readopt(self.package())
+        self.assertNotIn("routes_pending", result)
+        self.assertNotIn("note", result)
+
+    def test_an_exception_from_readopt_is_not_swallowed(self):
+        # Round 1 wrapped this call in `except Exception` to turn the KeyError the route refill
+        # raised against a foreign pipeline into a named failure instead of a 500. That was a
+        # workaround for not having `install_routes`; with the parameter the refill does not
+        # run, so anything raising here is a real fault and must not be dressed as a step name.
+        class Exploding:
+            switches = {1: None}
+
+            def readopt_switch(self, dpid, factory, callback, install_routes=True):
+                raise RuntimeError("the manager itself broke")
+
+        for package in (self.package(), self.package(pipeline=None)):
+            with self.assertRaises(RuntimeError):
+                main.readopt_switch(Exploding(), 1, self.factory(), sample_sink,
+                                    package=package)
+
+    def test_the_ndtwin_path_still_installs_its_routes(self):
+        # The negative half of test_a_foreign_pipeline_gets_no_ndtwin_routes: the flag follows
+        # the pipeline, not "readopt was called through the wrapper".
+        result = self.readopt(self.package(pipeline=None))
+        self.assertEqual(result["routes_installed"], 2)
+        self.assertEqual(result["routes_attempted"], 2)
+        self.assertNotIn("routes", result)
+
+
     def test_the_packages_entries_go_back_on_after_the_push_that_erased_them(self):
         result = self.readopt(self.package(entries=self.entries_file(2)))
         self.assertEqual(result["status"], "success")
@@ -741,6 +801,59 @@ class ThePackageHalfOfReadoptTest(unittest.TestCase):
         self.assertNotIn("table_entries", result)
         self.assertIs(self.topo.switches[1], self.old1)
 
+
+class InstallRoutesIsAParameterTest(ReadoptTestBase):
+    """
+    `TopologyManager.readopt_switch(install_routes=...)` on its own, without the wrapper.
+
+    [Co-developed with claude code -- Adam]
+    The seam the orchestrator's round-2 ruling added. Asserted here as well as through
+    `main.readopt_switch` because the default is what every other caller gets, and a default
+    that silently flipped would take the route refill away from the whole P4 plane.
+    """
+
+    def test_the_default_is_the_behaviour_every_caller_had_before_the_parameter(self):
+        result = self.readopt()
+        self.assertEqual(sorted(r[0] for r in self.made[0].routes), sorted([H1, H2]))
+        self.assertEqual((result["routes_installed"], result["routes_attempted"]), (2, 2))
+
+    def test_install_routes_false_attempts_not_one_write(self):
+        result = self.topo.readopt_switch(1, self.factory(), sample_sink, settle_s=0.25,
+                                          install_routes=False)
+        self.assertEqual(self.made[0].routes, [],
+                         "insert_ipv4_route must not be called at all -- against a foreign "
+                         "pipeline the name it writes means somebody else's table")
+        self.assertEqual(result["status"], "success")
+        self.assertEqual((result["routes_installed"], result["routes_attempted"]), (0, 0))
+
+    def test_install_routes_false_does_not_claim_the_watchdog_will_fix_it(self):
+        result = self.topo.readopt_switch(1, self.factory(), sample_sink, settle_s=0.25,
+                                          install_routes=False)
+        self.assertNotIn("routes_pending", result)
+        self.assertNotIn("note", result)
+
+    def test_zero_attempted_still_says_pending_when_the_refill_did_run(self):
+        # The other side of that guard: when install_routes is True, zero attempted still means
+        # "this switch's links are down and the watchdog will reinstall" -- unchanged from
+        # 79dd4312, and the note must not have been lost along with the false promise.
+        self.topo.net.remove_edge(1, 2)
+        for host in (H1, H2):
+            if self.topo.net.has_node(host):
+                self.topo.net.remove_node(host)
+        result = self.readopt()
+        self.assertEqual(result["routes_attempted"], 0)
+        self.assertTrue(result["routes_pending"])
+        self.assertIn("link watchdog", result["note"])
+
+    def test_the_switch_is_still_adopted_when_the_refill_is_skipped(self):
+        # The pipeline, the mastership gate and the client swap are unchanged: what the flag
+        # removes is the refill, not the adoption.
+        result = self.topo.readopt_switch(1, self.factory(), sample_sink, settle_s=0.25,
+                                          install_routes=False)
+        self.assertEqual(result["status"], "success")
+        self.assertIn(("pipeline", 1), self.log)
+        self.assertIs(self.topo.switches[1], self.made[0])
+        self.assertTrue(self.old1.stopped)
 
 # --- write_manifest -------------------------------------------------------------------
 

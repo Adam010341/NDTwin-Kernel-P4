@@ -676,11 +676,15 @@ async def table_entry(request: Request):
              NOTHING was written.
         501  the entry needs a ternary, range or optional match, which this phase does not
              build. NOTHING was written.
-        502  the switch itself refused it; the body carries the gRPC status name.
+        502  the switch itself refused it; the body carries the gRPC status name. 🔴 THIS ONE
+             DID REACH THE SWITCH -- it is the switch's answer, so the WriteRequest necessarily
+             went out. What it did not do is take effect; whether a partially-applied batch is
+             possible is P4Runtime's business and not something this body can claim either way.
 
-    Every non-200 above is reached before `stub.Write`, and tests/test_table_entry_route.py
-    asserts the stub saw no request for each of them -- "nothing was written" is a claim about
-    the wire, so it is checked on the wire.
+    The 400 / 404 / 409 / 501 rows are the ones reached BEFORE `stub.Write`, and
+    tests/test_table_entry_route.py asserts `stub.requests == []` for each of them --
+    "nothing was written" is a claim about the wire, so it is checked on the wire. The 502 row
+    is deliberately excluded from that assertion, there and here.
 
     `def`-shaped work inside an `async def`: the body has to be awaited, and the write blocks on
     a gRPC round trip, so the blocking half goes to the threadpool by hand -- the same treatment

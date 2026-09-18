@@ -421,6 +421,107 @@ class WhichPipelineEachSwitchRunsTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class WhatTheProxySaysAboutOneSwitchesPipelineTest(unittest.TestCase):
+    """
+    `main._p4info_fingerprint` and `main.pipeline_report_for`.
+
+    [Co-developed with claude code -- Adam]
+    The fingerprint is the stable identifier for "which program is this", which CLAUDE.md
+    requires of anything that names a binary. It had no test at all until round 2 -- it was
+    only ever seen through `pipeline_report_for`, which on this tree answers `None` for every
+    package fixture because their artefact paths do not exist, so the success path of the one
+    function that produces the identifier was never executed.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_p4info_sha_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def test_a_real_file_gets_sixteen_lowercase_hex_characters(self):
+        path = os.path.join(self.tmp, "x.p4info.txt")
+        with open(path, "wb") as fh:
+            fh.write(b"pkg_info { name: \"basic\" }\n")
+        digest = main._p4info_fingerprint(path)
+        self.assertEqual(len(digest), 16)
+        self.assertTrue(all(c in "0123456789abcdef" for c in digest), digest)
+
+    def test_it_is_the_first_sixteen_of_the_files_sha256(self):
+        import hashlib
+        path = os.path.join(self.tmp, "y.p4info.txt")
+        body = b"tables { preamble { id: 1 } }\n"
+        with open(path, "wb") as fh:
+            fh.write(body)
+        self.assertEqual(main._p4info_fingerprint(path),
+                         hashlib.sha256(body).hexdigest()[:16])
+
+    def test_two_different_programs_do_not_share_a_fingerprint(self):
+        paths = []
+        for name, body in (("a", b"one"), ("b", b"two")):
+            path = os.path.join(self.tmp, name)
+            with open(path, "wb") as fh:
+                fh.write(body)
+            paths.append(path)
+        self.assertNotEqual(main._p4info_fingerprint(paths[0]),
+                            main._p4info_fingerprint(paths[1]))
+
+    def test_a_missing_file_is_none_rather_than_an_invented_identifier(self):
+        # None says "nobody could read this program". A zero-length digest, or the hash of an
+        # empty string, would be an identifier -- and two switches whose p4info is missing would
+        # then report the SAME program.
+        self.assertIsNone(main._p4info_fingerprint(os.path.join(self.tmp, "not-there")))
+
+    def test_the_real_ndtwin_p4info_fingerprints_when_it_is_on_disk(self):
+        if not HAVE_P4INFO:  # pragma: no cover -- depends on l0_build_check.sh p4
+            self.skipTest("p4_src/build/ndtwin_switch.p4info.txt is not built")
+        self.assertEqual(len(main._p4info_fingerprint(P4INFO)), 16)
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class EachSwitchNamesItsOwnSkippedStepsTest(unittest.TestCase):
+    """
+    TICKET-P2 round 2: the per-switch half of the disclosure lives on that switch.
+
+    [Co-developed with claude code -- Adam]
+    🔴 The clone session and the sFlow registration are programmed into ONE switch's PRE, so on
+    a mixed fabric they are skipped for the package's switches and done for every other one.
+    Saying `clone_session` in the fabric-wide `control_plane.skipped` there is a true sentence
+    about one switch told about ten, and an operator who acts on it goes looking for a telemetry
+    fault on nine switches that have none. (Round 1 did exactly that; the judge caught it.)
+    """
+
+    def package(self, pipeline):
+        spec = app_package.SwitchSpec(dpid=1, name="s1", pipeline=pipeline, entries=None)
+        return app_package.Package(dir="/pkg", name="exercise", switches=(spec,))
+
+    def test_a_foreign_switch_names_the_two_steps_it_does_not_get(self):
+        report = main.pipeline_report_for(
+            1, self.package(("build/basic.p4info.txtpb", "build/basic.json")))
+        self.assertFalse(report["ndtwin"])
+        self.assertEqual(report["skipped"], sorted([main.SKIP_CLONE, main.SKIP_TELEMETRY]))
+
+    def test_an_ndtwin_switch_says_it_skipped_nothing_rather_than_saying_nothing(self):
+        report = main.pipeline_report_for(1, self.package(None))
+        self.assertTrue(report["ndtwin"])
+        self.assertEqual(report["skipped"], [])
+
+    def test_the_names_are_the_same_constants_the_fabric_wide_list_uses(self):
+        # One vocabulary, two scopes. A second spelling would mean a reader had to learn which
+        # list a name came from before knowing what it meant.
+        self.assertEqual(main.FOREIGN_PIPELINE_SWITCH_SKIPS, (main.SKIP_CLONE,
+                                                              main.SKIP_TELEMETRY))
+        self.assertEqual(main.FOREIGN_PIPELINE_FABRIC_SKIPS, (main.SKIP_LLDP, main.SKIP_WATCHDOG,
+                                                              main.SKIP_ROUTES))
+        for name in main.FOREIGN_PIPELINE_SWITCH_SKIPS + main.FOREIGN_PIPELINE_FABRIC_SKIPS:
+            self.assertIn(name, main.EXTERNAL_SKIPS)
+
+    def test_the_two_scopes_do_not_overlap(self):
+        # 🔴 The property the round-1 bug violated: a step is disclosed at one scope or the
+        # other, never both, or a reader counting either list double-counts.
+        self.assertEqual(set(main.FOREIGN_PIPELINE_SWITCH_SKIPS)
+                         & set(main.FOREIGN_PIPELINE_FABRIC_SKIPS), set())
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class TheProxyReadsTheSameModelTheFabricBuildsTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp(prefix="ndtwin_app_pkg_proxy_")

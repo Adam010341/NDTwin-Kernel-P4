@@ -18,7 +18,7 @@
 #
 # 🔴 THE MUTANT IS A COPY. Every mutation is applied to a copy of p4_proxy under a temp dir and
 # the tests run there. Nothing under p4_proxy/ is written -- another session may be executing
-# those files right now -- and all three sources plus the five test files are re-hashed at the
+# those files right now -- and all four sources plus the six test files are re-hashed at the
 # end. `setting/` is linked rather than copied: the topology models are the fabric's, several
 # megabytes, and nothing here mutates them.
 #
@@ -42,14 +42,21 @@ REPO="$(cd "$HERE/../.." && pwd)"
 CLIENT="$REPO/p4_proxy/proxy_agent/p4_client.py"
 MAIN="$REPO/p4_proxy/proxy_agent/main.py"
 ROUTES="$REPO/p4_proxy/proxy_agent/api_routes.py"
+# Round 2: `readopt_switch` grew `install_routes`, which is the seam that keeps this proxy's
+# shortest paths out of somebody else's `MyIngress.ipv4_lpm`. One mutation (M-B26) lives there.
+TOPOMGR="$REPO/p4_proxy/proxy_agent/topology_manager.py"
 TEST_WRITES="$REPO/p4_proxy/tests/test_p4_client_writes.py"
 TEST_ROUTE="$REPO/p4_proxy/tests/test_table_entry_route.py"
 TEST_STARTUP="$REPO/p4_proxy/tests/test_startup.py"
 TEST_READOPT="$REPO/p4_proxy/tests/test_readopt.py"
 TEST_PROXY="$REPO/p4_proxy/tests/test_app_package_proxy.py"
+# The suites that meet a pipeline NDTwin did not compile: A's compiled fixtures, A's
+# converter, A's runtime files. They are in their own file because mutate_app_package.sh
+# runs its baseline in a tree that holds only p4_proxy/ -- see that file's own header.
+TEST_FOREIGN="$REPO/p4_proxy/tests/test_foreign_pipeline.py"
 
 MODULES="tests.test_p4_client_writes tests.test_table_entry_route tests.test_startup \
-tests.test_readopt tests.test_app_package_proxy"
+tests.test_readopt tests.test_app_package_proxy tests.test_foreign_pipeline"
 
 # The interpreter. A git worktree has no venv of its own (p4_proxy/venv/ is gitignored and lives
 # in the main checkout), so the main worktree is consulted before giving up -- asked of git
@@ -77,15 +84,29 @@ trap 'rm -rf "$BK"' EXIT
 # repo root the tests derive from it is $BK. The models and the compiled p4info are read, never
 # written, so they are linked in once rather than copied per mutation.
 ln -s "$REPO/setting" "$BK/setting"
+# [Co-developed with claude code -- Adam]
+# Round 2: the suites now reach two things outside p4_proxy, and both are INPUTS, never subjects.
+#   tools/    -- ticket A's compiled exercise fixtures (the only foreign p4info this repo has)
+#                and `convert.py`, which test_startup runs to build a real package.
+#   p4_proxy/ -- NOT the mutant. `tools/p4_exercise/common.py` derives the model reader's path
+#                from its own __file__ with abspath (not realpath), so through the link above it
+#                looks for `$BK/p4_proxy/mininet`; without this it finds nothing and every test
+#                that builds a package errors. The converter is not under mutation here, so
+#                giving it the real reader is correct as well as necessary -- the mutants
+#                themselves resolve everything from their own __file__ and never touch this path.
+ln -s "$REPO/tools" "$BK/tools"
+ln -s "$REPO/p4_proxy" "$BK/p4_proxy"
 
 BASE_CLIENT=$(sha256sum "$CLIENT" | cut -d' ' -f1)
 BASE_MAIN=$(sha256sum "$MAIN" | cut -d' ' -f1)
 BASE_ROUTES=$(sha256sum "$ROUTES" | cut -d' ' -f1)
+BASE_TOPOMGR=$(sha256sum "$TOPOMGR" | cut -d' ' -f1)
 BASE_TEST_WRITES=$(sha256sum "$TEST_WRITES" | cut -d' ' -f1)
 BASE_TEST_ROUTE=$(sha256sum "$TEST_ROUTE" | cut -d' ' -f1)
 BASE_TEST_STARTUP=$(sha256sum "$TEST_STARTUP" | cut -d' ' -f1)
 BASE_TEST_READOPT=$(sha256sum "$TEST_READOPT" | cut -d' ' -f1)
 BASE_TEST_PROXY=$(sha256sum "$TEST_PROXY" | cut -d' ' -f1)
+BASE_TEST_FOREIGN=$(sha256sum "$TEST_FOREIGN" | cut -d' ' -f1)
 
 SURVIVORS=0
 MUTATIONS=0
@@ -210,6 +231,30 @@ m=$(mutant b16 "$CLIENT" \
 report "M-B16: a MAC goes onto the wire byte-reversed, and bmv2 takes it" "$m" \
        "test_a_mac_string_is_six_raw_bytes_in_the_order_it_was_written"
 
+m=$(mutant b25 "$CLIENT" \
+    'BUILDABLE_MATCH_TYPES = ("EXACT", "LPM")' \
+    'BUILDABLE_MATCH_TYPES = ("EXACT", "LPM", "RANGE")')
+report "M-B25: a RANGE match is built instead of refused -- [lo, hi] becomes a prefix length" "$m" \
+       "test_a_range_field_is_unsupported_and_says_RANGE"
+
+m=$(mutant b21 "$CLIENT" \
+    '    def _table_by_name(self, name):
+        for table in self.p4info.tables:
+            if name in (table.preamble.name, table.preamble.alias):' \
+    '    def _table_by_name(self, name):
+        for table in self.p4info.tables:
+            if name == table.preamble.name:')
+report "M-B21: an alias is no longer a table name, so a tutorials-shaped entry is a 404" "$m" \
+       "test_the_names_may_be_aliases_because_the_tutorials_helper_accepts_both"
+
+m=$(mutant b24 "$CLIENT" \
+    '        if entry.is_default_action and op == "insert":
+            op, substituted = "modify", True' \
+    '        if False:
+            op, substituted = "modify", True')
+report "M-B24: a default action is INSERTed, which every target refuses" "$m" \
+       "test_a_default_action_insert_is_sent_as_a_modify_and_says_so"
+
 m=$(mutant b19 "$CLIENT" \
     '        self.stub.Write(req, timeout=RPC_TIMEOUT_S)
 
@@ -246,6 +291,12 @@ m=$(mutant b14 "$MAIN" \
 report "M-B14: switch_state claims these entries survive a proxy restart" "$m" \
        "test_the_count_reaches_the_endpoint_report_not_just_the_response"
 
+m=$(mutant b20 "$ROUTES" \
+    '            "journaled": False, "note": TABLE_ENTRY_NOT_JOURNALED}' \
+    '            "journaled": True, "note": TABLE_ENTRY_NOT_JOURNALED}')
+report "M-B20: the response claims the entry survives a restart, next to a note saying it does not" "$m" \
+       "test_every_success_says_the_entry_is_not_journaled_and_what_that_costs"
+
 m=$(mutant b15 "$ROUTES" \
     '    if note_api_table_entry_write is not None:
         note_api_table_entry_write(raw_dpid)' \
@@ -265,8 +316,7 @@ report "M-B17: switch_state stops saying which program each switch is running" "
 # --- startup under a foreign pipeline ---------------------------------------------------------
 
 m=$(mutant b18 "$MAIN" \
-    '    return (package.pipeline_for(dpid, base_dir)
-            == app_package.baseline().pipeline_for(dpid, base_dir))' \
+    '    return package.pipeline_is_ndtwin(dpid, base_dir)' \
     '    return True')
 report "M-B18: every switch is called an NDTwin switch, so no branch below ever fires" "$m" \
        "test_a_package_naming_its_own_artefacts_does_not"
@@ -288,10 +338,16 @@ report "M-B9: a clone session is programmed into a pipeline that never clones" "
        "test_a_foreign_pipeline_gets_no_clone_session_and_no_sflow_registration"
 
 m=$(mutant b10 "$MAIN" \
-    '        skipped.extend([SKIP_CLONE, SKIP_TELEMETRY, SKIP_LLDP, SKIP_WATCHDOG, SKIP_ROUTES])' \
-    '        skipped.extend([SKIP_CLONE, SKIP_TELEMETRY])')
-report "M-B10: LLDP, the watchdog and the routes are switched off without being named" "$m" \
+    '        skipped.extend(FOREIGN_PIPELINE_FABRIC_SKIPS)' \
+    '        skipped.extend([SKIP_LLDP])')
+report "M-B10: LLDP, the watchdog and the routes are switched off, two without being named" "$m" \
        "test_a_foreign_pipeline_names_every_fabric_wide_step_it_switched_off"
+
+m=$(mutant b28 "$MAIN" \
+    '            "skipped": [] if ndtwin else sorted(FOREIGN_PIPELINE_SWITCH_SKIPS)}' \
+    '            "skipped": []}')
+report "M-B28: a foreign switch says it skipped nothing, so its dead telemetry looks like a fault" "$m" \
+       "test_a_foreign_switch_names_the_two_steps_it_does_not_get"
 
 m=$(mutant b11 "$MAIN" \
     '            out["failed"] += 1' \
@@ -306,6 +362,34 @@ m=$(mutant b12 "$MAIN" \
         return result')
 report "M-B12: readopt leaves the switch empty -- the push erased the package's entries" "$m" \
        "test_the_packages_entries_go_back_on_after_the_push_that_erased_them"
+
+m=$(mutant b22 "$MAIN" \
+    '        if i in foreign and i not in broken and not read_only:' \
+    '        if i in foreign and not read_only:')
+report "M-B22: entries are written to a switch whose pipeline push failed" "$m" \
+       "test_a_switch_whose_pipeline_push_failed_gets_no_entries"
+
+m=$(mutant b23 "$MAIN" \
+    '                                     sample_callback if ndtwin else None,' \
+    '                                     sample_callback,')
+report "M-B23: readopt hands a foreign switch the sFlow callback, so a clone session goes in" "$m" \
+       "test_a_foreign_pipeline_gets_no_clone_session"
+
+m=$(mutant b27 "$MAIN" \
+    '    result["clone_session"] = False' \
+    '    pass')
+report "M-B27: readopt reports a clone session on a switch that was given none" "$m" \
+       "test_it_does_not_claim_a_clone_session_it_never_programmed"
+
+# --- the route refill the package's pipeline must not receive (round 2, objection 1) ---------
+
+m=$(mutant b26 "$TOPOMGR" \
+    '            if install_routes:
+                routes, attempted = self.install_initial_routes(only_dpid=dpid)' \
+    '            if True:
+                routes, attempted = self.install_initial_routes(only_dpid=dpid)')
+report "M-B26: the refill runs anyway, putting NDTwin's routes in the exercise's own table" "$m" \
+       "test_install_routes_false_attempts_not_one_write"
 
 # --- negative controls -----------------------------------------------------------------------
 #
@@ -349,12 +433,14 @@ echo
 [[ "$(sha256sum "$CLIENT" | cut -d' ' -f1)" == "$BASE_CLIENT" ]] || { echo "🔴 baseline CHANGED -- p4_client.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$MAIN" | cut -d' ' -f1)" == "$BASE_MAIN" ]] || { echo "🔴 baseline CHANGED -- main.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$ROUTES" | cut -d' ' -f1)" == "$BASE_ROUTES" ]] || { echo "🔴 baseline CHANGED -- api_routes.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$TOPOMGR" | cut -d' ' -f1)" == "$BASE_TOPOMGR" ]] || { echo "🔴 baseline CHANGED -- topology_manager.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_WRITES" | cut -d' ' -f1)" == "$BASE_TEST_WRITES" ]] || { echo "🔴 baseline CHANGED -- test_p4_client_writes.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_ROUTE" | cut -d' ' -f1)" == "$BASE_TEST_ROUTE" ]] || { echo "🔴 baseline CHANGED -- test_table_entry_route.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_STARTUP" | cut -d' ' -f1)" == "$BASE_TEST_STARTUP" ]] || { echo "🔴 baseline CHANGED -- test_startup.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_READOPT" | cut -d' ' -f1)" == "$BASE_TEST_READOPT" ]] || { echo "🔴 baseline CHANGED -- test_readopt.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_PROXY" | cut -d' ' -f1)" == "$BASE_TEST_PROXY" ]] || { echo "🔴 baseline CHANGED -- test_app_package_proxy.py was written during the gate"; exit 3; }
-echo "baseline byte-identical: yes (3 sources, 5 test files)"
+[[ "$(sha256sum "$TEST_FOREIGN" | cut -d' ' -f1)" == "$BASE_TEST_FOREIGN" ]] || { echo "🔴 baseline CHANGED -- test_foreign_pipeline.py was written during the gate"; exit 3; }
+echo "baseline byte-identical: yes (4 sources, 6 test files)"
 if [[ "$SURVIVORS" -eq 0 ]]; then
     echo "mutation gate: $MUTATIONS mutations, 0 survived"; exit 0
 else

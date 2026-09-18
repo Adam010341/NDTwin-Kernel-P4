@@ -10,9 +10,16 @@ forever is what the P4 plane already did once with `/stats/flowentry/delete` (li
 404 on the kernel's most natural delete). A 409 says this fabric belongs to somebody else's
 controller, which is a configuration, not a fault.
 
-🔴 EVERY NON-200 ASSERTS `stub.requests == []`. "Nothing was written" is a claim about the wire,
-and a handler that put the entry on the switch and then failed while building its own response
-would be indistinguishable from one that refused, if all we checked was the exception.
+🔴 EVERY REFUSAL THIS PROXY MAKES ITSELF ASSERTS `stub.requests == []` -- the 400, 404, 409 and
+501 rows. "Nothing was written" is a claim about the wire, and a handler that put the entry on
+the switch and then failed while building its own response would be indistinguishable from one
+that refused, if all we checked was the exception.
+
+🔴 THE 502 IS THE EXCEPTION AND IT IS NOT AN OVERSIGHT. That status is the SWITCH's answer, so
+the WriteRequest necessarily went out; asserting an empty stub there would be asserting
+something false. `test_a_switch_that_refuses_the_write_is_502_carrying_the_grpc_status_name`
+therefore checks the status name and not the wire. (An earlier version of this paragraph said
+"every non-200", which the test below correctly did not do -- the doc was the wrong half.)
 
 The handler is called directly rather than through a FastAPI TestClient -- the convention
 test_flow_stats_route.py and test_flowentry_endpoints.py both state, and here also a
@@ -100,6 +107,25 @@ def a_p4info():
     field.name = "hdr.ipv4.protocol"
     field.bitwidth = 8
     field.match_type = p4info_pb2.MatchField.TERNARY
+
+    # 🔴 SYNTHETIC, and named so nobody mistakes them for ndtwin_switch.p4's. No pipeline in
+    # this repository declares a RANGE or an OPTIONAL match -- ndtwin_switch has exact, lpm and
+    # ternary, and so do `basic` and `source_routing` -- so the only way to reach the 501 that
+    # TICKET-P2 2.3 (:63) promises for those two is a descriptor written here. Same fixture and
+    # same reasoning as test_p4_client_writes.a_p4info(). [Co-developed with claude code -- Adam]
+    for table_id, table_name, kind in ((900000001, "Synthetic.range_table",
+                                        p4info_pb2.MatchField.RANGE),
+                                       (900000002, "Synthetic.optional_table",
+                                        p4info_pb2.MatchField.OPTIONAL)):
+        table = p4info.tables.add()
+        table.preamble.id = table_id
+        table.preamble.name = table_name
+        table.preamble.alias = table_name.split(".")[-1]
+        field = table.match_fields.add()
+        field.id = 1
+        field.name = "meta.probe_key"
+        field.bitwidth = 16
+        field.match_type = kind
 
     forward = p4info.actions.add()
     forward.preamble.id = IPV4_FORWARD_ID
@@ -320,6 +346,28 @@ class EveryRefusalIsItsOwnStatusCodeTest(TableEntryRouteTestBase):
         self.assertEqual(error.status_code, 501)
         self.assertIn("TERNARY", error.detail["message"])
         self.assertEqual(error.detail["outcome"], "unsupported_on_p4")
+        self.assertEqual(self.stub.requests, [])
+
+    def test_a_range_match_is_501_and_names_RANGE(self):
+        # TICKET-P2 2.3 (:63) promises 501 for all three, and this one had no test until round 2.
+        # It matters more than the ternary case, not less: a range value is `[lo, hi]`, the same
+        # shape an lpm entry uses for `[value, prefix_len]`, so this is the one a writer that
+        # guessed from the value would build as a real rule instead of refusing.
+        error = self.refused(table="Synthetic.range_table",
+                             match={"meta.probe_key": [1024, 3000]},
+                             action_name="MyIngress.ipv4_forward")
+        self.assertEqual(error.status_code, 501)
+        self.assertIn("RANGE", error.detail["message"])
+        self.assertEqual(error.detail["outcome"], "unsupported_on_p4")
+        self.assertEqual(self.stub.requests, [])
+
+    def test_an_optional_match_is_501_and_names_OPTIONAL(self):
+        # An optional value is a plain value, indistinguishable by shape from an exact one.
+        error = self.refused(table="Synthetic.optional_table",
+                             match={"meta.probe_key": 7},
+                             action_name="MyIngress.ipv4_forward")
+        self.assertEqual(error.status_code, 501)
+        self.assertIn("OPTIONAL", error.detail["message"])
         self.assertEqual(self.stub.requests, [])
 
     def test_an_external_control_plane_is_409(self):

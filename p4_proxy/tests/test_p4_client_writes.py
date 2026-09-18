@@ -189,6 +189,30 @@ def a_p4info():
         field.bitwidth = bitwidth
         field.match_type = p4info_pb2.MatchField.TERNARY
 
+    # 🔴 SYNTHETIC, and named so nobody mistakes them for ndtwin_switch.p4's.
+    # [Co-developed with claude code -- Adam]
+    # TICKET-P2 2.3 (:63) says range and optional answer 501 too, and NO pipeline in this
+    # repository declares either match type -- ndtwin_switch has exact, lpm and ternary and
+    # nothing else, and neither does `basic` or `source_routing`. So the only way to exercise
+    # those two branches at all is a descriptor written here. The ids are deliberately outside
+    # p4c's range so a real id can never collide with one, and the only thing the code under
+    # test reads off them is `match_type` -- which it resolves through the generated enum, so
+    # what is being asserted is that MatchField.RANGE and MatchField.OPTIONAL reach the refusal,
+    # not that some number does.
+    for table_id, table_name, kind in ((900000001, "Synthetic.range_table",
+                                        p4info_pb2.MatchField.RANGE),
+                                       (900000002, "Synthetic.optional_table",
+                                        p4info_pb2.MatchField.OPTIONAL)):
+        table = p4info.tables.add()
+        table.preamble.id = table_id
+        table.preamble.name = table_name
+        table.preamble.alias = table_name.split(".")[-1]
+        field = table.match_fields.add()
+        field.id = 1
+        field.name = "meta.probe_key"
+        field.bitwidth = 16
+        field.match_type = kind
+
     return p4info
 
 
@@ -1638,6 +1662,37 @@ class BuildTableEntryTest(unittest.TestCase):
                        action_params={"dstAddr": "08:00:00:00:01:11", "port": 1})
         self.assertIn("TERNARY", str(caught.exception))
 
+    def test_a_range_field_is_unsupported_and_says_RANGE(self):
+        # 🔴 A range value is `[lo, hi]` -- the same two-element list an lpm entry uses for
+        # `[value, prefix_len]`. So a writer that decided the shape from the VALUE would build
+        # this as an lpm entry with a prefix length of `hi`, and 3000 is not a prefix length:
+        # it would either be rejected by bmv2 with an opaque status or truncated into a mask
+        # that matches traffic nobody asked about. The p4info is what says which it is.
+        with self.assertRaises(p4_client_module.TableEntryUnsupported) as caught:
+            self.build(table="Synthetic.range_table",
+                       match={"meta.probe_key": [1024, 3000]},
+                       action_name="MyIngress.send_to_cpu", action_params={})
+        self.assertIn("RANGE", str(caught.exception))
+
+    def test_an_optional_field_is_unsupported_and_says_OPTIONAL(self):
+        # An optional value is a plain value -- indistinguishable from an exact one by shape.
+        # Same argument as RANGE, from the other direction.
+        with self.assertRaises(p4_client_module.TableEntryUnsupported) as caught:
+            self.build(table="Synthetic.optional_table",
+                       match={"meta.probe_key": 7},
+                       action_name="MyIngress.send_to_cpu", action_params={})
+        self.assertIn("OPTIONAL", str(caught.exception))
+
+    def test_neither_range_nor_optional_reaches_the_switch(self):
+        for table, value in (("Synthetic.range_table", [1024, 3000]),
+                             ("Synthetic.optional_table", 7)):
+            client = a_client()
+            with self.assertRaises(p4_client_module.TableEntryUnsupported):
+                client.write_table_entry({"table": table, "match": {"meta.probe_key": value},
+                                          "action_name": "MyIngress.send_to_cpu",
+                                          "action_params": {}})
+            self.assertEqual(client.stub.requests, [], f"{table} put a request on the wire")
+
     def test_the_match_type_name_comes_from_the_generated_enum(self):
         # 🔴 P4Runtime's MatchType skips 1: UNSPECIFIED=0, EXACT=2, LPM=3, TERNARY=4, RANGE=5,
         # OPTIONAL=6. A hand-written table would put every entry one match type off, and an lpm
@@ -1820,10 +1875,11 @@ class WriteTableEntryTest(unittest.TestCase):
         self.assertEqual(self.client.stub.requests, [])
 
     def test_an_unknown_table_reaches_no_switch(self):
-        # 🔴 The mutation this exists for: a lookup that answers 0 for an unknown name sends a
-        # WriteRequest with table_id 0, which bmv2 answers with an opaque UNKNOWN -- the
-        # operator is told the switch refused their rule, not that they named a table the
-        # pipeline does not have.
+        # 🔴 The mutation this exists for (mutate_table_entry.sh M-B2): a lookup that answers
+        # SOMETHING for an unknown name -- the gate makes it resolve to the first table in the
+        # p4info -- sends a real WriteRequest into the wrong table. The operator is then told
+        # either that the switch refused their rule or that it accepted it, and in neither case
+        # that they named a table this pipeline does not have.
         with self.assertRaises(KeyError):
             self.client.write_table_entry(self.spec(table="MyIngress.firewall"))
         self.assertEqual(self.client.stub.requests, [])
