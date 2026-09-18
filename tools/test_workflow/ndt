@@ -1559,6 +1559,45 @@ except Exception:
     pass' "$(app_manifest "$1")" 2>/dev/null
 }
 
+# app_pipeline_kind [dir] -- whose pipeline the package's switches run:
+#
+#   none                the knob names no package (the baseline fabric)
+#   ndtwin              a package, and every switch in it runs NDTwin's own artefacts
+#   foreign:<d>,<d>     at least one switch runs somebody else's program; the dpids are named
+#   unreadable          there is a package and this question could not be answered
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 THE ANSWER COMES FROM Package.pipeline_is_ndtwin AND NOT FROM A SECOND COPY OF THE RULE
+# (TICKET-P2 §2.1, §5.5). `pipeline: null` means NDTwin's own pair and a per-switch object
+# means the package's own, but the predicate is a comparison of RESOLVED PATHS -- a second
+# implementation here, reading package.json for a non-null field, would be a second answer to
+# one question, and the one an operator reads would be whichever file they opened.
+#
+# 🔴 `unreadable` IS NOT `ndtwin`. A package this script cannot parse is not a package running
+# NDTwin's pipeline; rendering it as the default is the silent substitution app_package_row
+# above exists to remove.
+app_pipeline_kind() {
+    local dir="${1:-}"
+    if [[ -z "$dir" ]]; then
+        dir="$(app_knob_state)"
+        case "$dir" in absent|empty) echo none; return 0 ;; esac
+    fi
+    [[ -d "$dir" ]] || { echo unreadable; return 0; }
+    python3 -c '
+import os, sys
+sys.path.insert(0, os.path.join(sys.argv[2], "p4_proxy", "mininet"))
+try:
+    import app_package
+    pkg = app_package.load(sys.argv[1])
+    base = os.path.join(sys.argv[2], "p4_proxy")
+    foreign = [s.dpid for s in pkg.switches if not pkg.pipeline_is_ndtwin(s.dpid, base)]
+except Exception:
+    print("unreadable")
+else:
+    print("foreign:" + ",".join(str(d) for d in sorted(foreign)) if foreign else "ndtwin")
+' "$dir" "$REPO" 2>/dev/null || echo unreadable
+}
+
 # The interpreter tools/p4_exercise/preflight.py needs -- it parses p4info through protobuf,
 # which only the proxy's venv has.
 #
@@ -2022,6 +2061,77 @@ check_rate_lines() {
         printf '      calibrated against anything. X1 measured 1/64, 1/256 and 1/1024 only,\n'
         printf '      and the shortfall is not interpolated between them.\n'
     fi
+}
+
+# status_pipeline_is_stale <plane> <pipeline-kind> -- rc 0 when `status` should report the
+# running fabric as predating the current build of ndtwin_switch.json.
+#
+# [Co-developed with claude code -- Adam]
+# One predicate, two readers: the row that prints the warning and the `--check` problem that
+# goes with it. Two copies of this condition is how one of them comes to be true while the
+# other is not, and an operator sees a yellow row with a green exit code.
+status_pipeline_is_stale() {
+    local plane="$1" kind="${2:-none}"
+    [[ "$plane" != ovs ]] || return 1
+    case "$kind" in foreign:*) return 1 ;; esac
+    stale_pipeline
+}
+
+# status_rate_rows <rate-token> <plane> <pipeline-kind> -- `status`'s two rate rows.
+#
+# [Co-developed with claude code -- Adam]
+# No I/O of its own beyond the predicate above, for check_rate_lines's reason:
+# tests/shell/test_ndt_app_package.sh can drive every branch with no fabric and no package on
+# disk. `--check`'s problem list stays in cmd_status, which asks the same predicate.
+#
+# 🔴 A FOREIGN PIPELINE HAS NO RATE HERE, AND SAYING `1/256` WOULD BE X-2 AGAIN (D-2 / X-2,
+# 2026-09-06): that number is decoded from p4_proxy/p4_src/build/ndtwin_switch.json, which a
+# switch running the package's own program never loaded, and the two would agree only by
+# coincidence. So the row reads `n/a (package pipeline)` and the source row says which
+# switches and why -- printed, not omitted, because a provenance that only appears when it is
+# surprising is one nobody has a baseline for.
+#
+# 🔴 AND stale_pipeline IS NOT JUDGED FOR IT (PLAN-0917 §3.1). That predicate compares the
+# manifest's mtime with the build of ndtwin_switch.json; under a package pipeline the fabric
+# is not running that artefact at all, so "the running switches predate it" is a statement
+# about a file this fabric never read.
+status_rate_rows() {
+    local rate="$1" plane="$2" kind="${3:-none}"
+    case "$kind" in
+        foreign:*)
+            printf '  %-14s %s\n' "sample rate" "n/a (package pipeline)"
+            printf '  %-14s %s\n' "rate source" \
+                "the app package runs a foreign pipeline on dpid ${kind#foreign:} -- p4_proxy/p4_src/build/ndtwin_switch.json is NOT what those switches loaded, and stale_pipeline is not judged"
+            return 0 ;;
+    esac
+    if status_pipeline_is_stale "$plane" "$kind"; then
+        printf '  %-14s %s   %s\n' "sample rate" "$(rate_label "$rate")" "${Y}<- from the BUILT json; the running switches predate it${N}"
+    else
+        printf '  %-14s %s\n' "sample rate" "$(rate_label "$rate")"
+    fi
+    printf '  %-14s %s\n' "rate source" "$(rate_source "$plane")"
+}
+
+# status_rate_problems <rate-token> <pipeline-kind> -- the `--check` problems the rate itself
+# raises, one per line. [Co-developed with claude code -- Adam]
+#
+# The two lies `status` could not see before 09-02, and the three the OVS side can tell (D-2):
+# a fabric with no sflow record samples nothing, ten records that disagree have no single rate,
+# and a refused ovs-vsctl is not a default.
+#
+# 🔴 NONE OF THEM UNDER A FOREIGN PIPELINE. Every one is a statement about
+# p4_proxy/p4_src/build/ndtwin_switch.json or about an OVS fabric, and the row above has just
+# said that file is not what these switches loaded -- so raising them would be `--check`
+# exiting 1 over an artefact this fabric never read, with the row beside it saying so.
+status_rate_problems() {
+    local rate="$1" kind="${2:-none}"
+    case "$kind" in foreign:*) return 0 ;; esac
+    case "$rate" in
+        DISABLED:lo=*)  echo "the compiled pipeline samples nothing (rng lower bound above 0) -- restore + recompile" ;;
+        OVS-NOSFLOW)    echo "no sFlow record exists on any OVS bridge -- nothing on this fabric is sampled, so every bandwidth number is 0" ;;
+        OVS-DISAGREE:*) echo "the OVS sflow records disagree (${rate#OVS-DISAGREE:}) -- this fabric has no single sampling rate" ;;
+        UNREADABLE:*)   echo "the sampling rate could not be read (${rate#UNREADABLE:}) -- the bandwidth numbers below have no known rate behind them" ;;
+    esac
 }
 
 # --- is the helper this script runs the helper in this tree? ------------------------
@@ -5179,22 +5289,19 @@ cmd_status() {
     # out of a bmv2 build artefact nothing on that fabric loads, and the two agreed by
     # coincidence. A provenance that only appears when it is surprising is one nobody has a
     # baseline for. [Co-developed with claude code -- Adam]
-    if [[ "$plane_now" != ovs ]] && stale_pipeline; then
-        printf '  %-14s %s   %s\n' "sample rate" "$(rate_label "$rate")" "${Y}<- from the BUILT json; the running switches predate it${N}"
-        problems+=("the fabric predates the current build of ndtwin_switch.json")
-    else
-        printf '  %-14s %s\n' "sample rate" "$(rate_label "$rate")"
-    fi
-    printf '  %-14s %s\n' "rate source" "$(rate_source "$plane_now")"
-    # [Co-developed with claude code -- Adam] the two lies `status` could not see before 09-02,
-    # and the three the OVS side can tell (D-2): a fabric with no sflow record samples nothing,
-    # ten records that disagree have no single rate, and a refused ovs-vsctl is not a default.
-    case "$rate" in
-        DISABLED:lo=*)  problems+=("the compiled pipeline samples nothing (rng lower bound above 0) -- restore + recompile") ;;
-        OVS-NOSFLOW)    problems+=("no sFlow record exists on any OVS bridge -- nothing on this fabric is sampled, so every bandwidth number is 0") ;;
-        OVS-DISAGREE:*) problems+=("the OVS sflow records disagree (${rate#OVS-DISAGREE:}) -- this fabric has no single sampling rate") ;;
-        UNREADABLE:*)   problems+=("the sampling rate could not be read (${rate#UNREADABLE:}) -- the bandwidth numbers below have no known rate behind them") ;;
-    esac
+    # TICKET-P2 §5.5. The app package can put somebody else's program on a switch, and then
+    # neither the number nor the staleness question is about the fabric that is running -- see
+    # status_rate_rows. `foreign:` is the only kind that changes these rows; `unreadable` keeps
+    # today's behaviour, because a package this script could not parse is not evidence that the
+    # pipeline moved (app_package_row above already raises the problem for it).
+    local pkgpipe; pkgpipe="$(app_pipeline_kind)"
+    status_rate_rows "$rate" "$plane_now" "$pkgpipe"
+    status_pipeline_is_stale "$plane_now" "$pkgpipe" \
+        && problems+=("the fabric predates the current build of ndtwin_switch.json")
+    local rateprob
+    while IFS= read -r rateprob; do
+        [[ -n "$rateprob" ]] && problems+=("$rateprob")
+    done < <(status_rate_problems "$rate" "$pkgpipe")
     if [[ "$plane_now" != ovs ]] && source_ahead_of_build; then
         printf '  %-14s %s\n' "pipeline" "${Y}ndtwin_switch.p4 is NEWER than build/ndtwin_switch.json -- restored source, never recompiled${N}"
         problems+=("ndtwin_switch.p4 is newer than its compiled json (restored source, never recompiled)")

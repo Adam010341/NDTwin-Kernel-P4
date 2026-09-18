@@ -1,24 +1,42 @@
 #!/usr/bin/env bash
 #
-# P1 live acceptance ② -- exercises/basic (pod-topo) on NDTwin's OWN control plane.
+# P1/P2 live acceptance ② -- exercises/basic (pod-topo) with the EXERCISE'S OWN pipeline.
 #
 # [Co-developed with claude code -- Adam]
 #
-# Goal condition ②: `--app basic` comes up and `pingall` is 0% loss, with NDTwin's own pipeline
-# and NDTwin's own routes. The package supplies the topology, the host addresses and the host
-# commands; the pipeline stays NDTwin's, because a package's `pipeline` field is null in phase
-# one (G4 is phase two).
+# WHAT CHANGED AT P2 (TICKET-P2 §5.4). In phase one a package's `pipeline` was null on every
+# switch and this step's own header said so: 0% loss proved the fabric forwarded between the
+# addresses the package declared, and NOT that NDTwin was running basic.p4. G4 and G5 are what
+# make that sentence testable, so the same command now says something stronger -- `convert.py
+# --p4` gives every switch build/basic.json, the proxy pushes it, and the exercise's own
+# sX-runtime.json entries are APPLIED rather than merely counted.
+#
+# The phase-one property did not stop being worth checking; it moved to 02b_app_basic_ndtwin.sh,
+# which converts the same exercise with `--ndtwin-pipeline` and asserts exactly what this file
+# used to: `skipped == []`, five entries recorded and none applied, 0% loss.
+#
+# 🔴 WHAT IS AND IS NOT PROVEN HERE.
+#   * 0% loss over every ordered pair, five packets each, says the fabric forwards. Under
+#     basic.p4 that is the exercise's own program doing it: `install_initial_routes` is one of
+#     the things the proxy SKIPS on a foreign pipeline, so nothing NDTwin wrote is carrying
+#     these packets -- the sX-runtime.json entries are.
+#   * `control_plane.skipped` naming exactly lldp_discovery, link_watchdog and
+#     install_initial_routes is the disclosure that goes with that: those three ride on
+#     packet-in/packet-out, and a tutorials p4info declares no controller_packet_metadata at
+#     all (ndtwin_switch declares two, basic declares zero). A short list here would be a proxy
+#     that did half the work of a control plane while reporting that it did none.
+#   * The per-switch skips (clone_session, sflow_telemetry) are on each switch's own row and
+#     NOT in the fabric-wide list -- TICKET-P2 §7-7: in a mixed fabric a neighbouring NDTwin
+#     switch still has its clone session, and a fabric-wide `clone_session` would be saying
+#     something about the whole fabric that is true of only part of it.
+#   * NOT proven: that the firewall or the source-routing exercises behave. This is `basic`,
+#     four switches, one program. The exercises are drive_exercise.py's subject.
 #
 # 🔴 THE PACKAGE IS BUILT HERE, from ~/tutorials, and not read out of somebody's scratch
-# directory. It goes to .test_run/packages/basic, which is gitignored: a package under version
-# control would be a copy of ONF's exercise, and a package read from another worktree would
-# make this step green or absent depending on who had run convert.py that day.
-#
-# 🔴 WHAT IS NOT PROVEN HERE. 0% loss says the fabric forwards between the addresses the
-# package declares. It does NOT say NDTwin is running basic.p4's pipeline -- it is not, and
-# cannot be until G4 -- nor that the exercise's own runtime entries were applied. They are
-# RECORDED and not applied in phase one, which is what `entries_recorded` on every switch says
-# out loud. Read that number as disclosure, not as a result.
+# directory -- and since P2 the artefacts it carries are COMPILED here too: `--p4` copies
+# build/basic.json and build/basic.p4.p4info.txtpb into the package, and a package built around
+# whatever was left in that directory by an earlier round would be a pipeline nobody can name.
+# The two sha256s are printed for that reason.
 #
 # Run:  bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/02_app_basic.sh
 # Exit: 0 PASS, 1 FAIL (the last line says which), 2 refused before anything was started.
@@ -29,17 +47,59 @@ source "$HERE/_common.sh"
 
 EXERCISE="${EXERCISE_DIR:-$HOME/tutorials/exercises/basic}"
 PKG="$PKG_ROOT/basic"
+P4C="${P4C:-/usr/local/bin/p4c-bm2-ss}"
+
+# The names below are proxy_agent/main.py's own SKIP_* constants (:288-293), not prose:
+#   SKIP_PIPELINE=pipeline_push   SKIP_CLONE=clone_session   SKIP_TELEMETRY=sflow_telemetry
+#   SKIP_LLDP=lldp_discovery      SKIP_WATCHDOG=link_watchdog
+#   SKIP_ROUTES=install_initial_routes
+# Written out here rather than read from that file: a check that derives its expectation from
+# the code under test agrees with it by construction.
+FABRIC_SKIPS="['install_initial_routes', 'link_watchdog', 'lldp_discovery']"   # sorted
+SWITCH_SKIPS="[\"('clone_session', 'sflow_telemetry')\"]"                      # per switch
 
 start_step 02_app_basic
 
-# --- 1. build the package --------------------------------------------------------------------
-say "converting $EXERCISE -> $PKG"
+# sw_set <switch_state.json> <python expr over s> -- that expression's DISTINCT values across
+# every switch, sorted. One value in the answer means every switch agrees; two means they do
+# not, and the check that reads it says which was expected.
+sw_set() {
+    jqp "$1" "sorted({repr($2) for s in (list((d.get('switches') or {}).values()) if isinstance(d.get('switches'), dict) else (d.get('switches') or []))})"
+}
+
+# --- 1. compile the exercise, then build the package -------------------------------------------
+say "compiling $EXERCISE/solution/basic.p4 -> build/basic.json"
 [[ -d "$EXERCISE" ]] || die "no exercise at $EXERCISE (set EXERCISE_DIR= to point elsewhere)"
+[[ -x "$P4C" ]]      || die "no p4c-bm2-ss at $P4C (set P4C= to point elsewhere)"
+mkdir -p "$EXERCISE/build"
+# Exactly the exercises' own Makefile recipe (utils/Makefile:47), and the same one
+# drive_exercise.py's compile_prog() runs: the solution is compiled TO THE SKELETON'S OUTPUT
+# NAME, because pod-topo/sX-runtime.json names build/basic.p4.p4info.txtpb and nothing else.
+( cd "$EXERCISE" && "$P4C" --p4v 16 \
+        --p4runtime-files build/basic.p4.p4info.txtpb -o build/basic.json solution/basic.p4 ) \
+    > "$RUN/09_compile.txt" 2>&1 || { sed 's/^/   /' "$RUN/09_compile.txt"; die "p4c failed -- see $(basename "$RUN")/09_compile.txt"; }
+for f in "$EXERCISE/build/basic.json" "$EXERCISE/build/basic.p4.p4info.txtpb"; do
+    [[ -s "$f" ]] || die "p4c reported success and $f is not there"
+    note "$(sha256sum "$f" | cut -c1-16)  $f"
+done
+
+say "converting $EXERCISE -> $PKG   (--p4: every switch runs basic.p4)"
 rm -rf "$PKG"
 "$PY" "$REPO/tools/p4_exercise/convert.py" "$EXERCISE" \
       --topology pod-topo/topology.json --p4 solution/basic.p4 --out "$PKG" \
       > "$RUN/10_convert.txt" 2>&1 || die "convert.py failed -- see $(basename "$RUN")/10_convert.txt"
 tail -2 "$RUN/10_convert.txt" | sed 's/^/   /'
+# The package must actually carry a pipeline, or every assertion below is about phase one with
+# a P2 banner on it. Read out of the package's own manifest, before anything is started.
+PIPES="$("$PY" -c "
+import json,sys
+m=json.load(open(sys.argv[1]))
+print(sorted({repr((v or {}).get('pipeline')) for v in m['switches'].values()}))" "$PKG/package.json")"
+note "package.json switches[*].pipeline: $PIPES"
+case "$PIPES" in
+    *"'p4info': 'build/basic.p4.p4info.txtpb'"*) note "every switch names the exercise's own program" ;;
+    *) die "the package's switches do not name build/basic.* -- convert.py --p4 did not take: $PIPES" ;;
+esac
 
 say "pre-flight"
 set +e
@@ -51,7 +111,7 @@ tail -1 "$RUN/11_preflight.txt" | sed 's/^/   /'
 
 # 🔴 THE CLAIM IS TAKEN HERE, after convert and pre-flight -- neither touches the lab, and a
 # package that will not pre-flight must not have held the lab while it was being rejected.
-take_claim "P1 live acceptance 2: --app basic (pod-topo), ndtwin control plane"
+take_claim "P2 live acceptance 2: --app basic (pod-topo), the exercise's own pipeline"
 
 # --- 2. bring it up on the package -------------------------------------------------------------
 say "ndt up p4 --app $PKG"
@@ -89,20 +149,45 @@ if [[ -s "$SS" ]]; then
     N_SW="$(jqp "$SS" "len(d.get('switches') or [])")"
     MODE="$(jqp "$SS" "(d.get('control_plane') or {}).get('mode')")"
     PKG_SAID="$(jqp "$SS" "(d.get('control_plane') or {}).get('package')")"
-    SKIPPED="$(jqp "$SS" "repr((d.get('control_plane') or {}).get('skipped'))")"
+    SKIPPED="$(jqp "$SS" "sorted((d.get('control_plane') or {}).get('skipped') or [])")"
     ENTRIES="$(jqp "$SS" "sorted({s.get('entries_recorded') for s in ((d.get('switches') or {}).values() if isinstance(d.get('switches'), dict) else (d.get('switches') or []))})")"
+    NDTWIN="$(sw_set "$SS" "(s.get('pipeline') or {}).get('ndtwin')")"
+    SHAS="$(sw_set "$SS" "(s.get('pipeline') or {}).get('p4info_sha256')")"
+    SW_SKIPPED="$(sw_set "$SS" "tuple(sorted((s.get('pipeline') or {}).get('skipped') or []))")"
+    APPLIED="$(sw_set "$SS" "(s.get('table_entries') or {}).get('applied')")"
+    FAILED="$(sw_set "$SS" "(s.get('table_entries') or {}).get('failed')")"
+    RECORDED="$(sw_set "$SS" "(s.get('table_entries') or {}).get('recorded')")"
     note "switches            $N_SW"
     note "control_plane.mode  $MODE"
     note "control_plane.package $PKG_SAID"
     note "control_plane.skipped $SKIPPED"
     note "entries_recorded    $ENTRIES   (distinct values across the switches)"
+    note "pipeline.ndtwin     $NDTWIN"
+    note "pipeline.p4info_sha256 $SHAS"
+    note "pipeline.skipped    $SW_SKIPPED"
+    note "table_entries       recorded=$RECORDED applied=$APPLIED failed=$FAILED"
     [[ "$MODE" == ndtwin ]]   || fail "control_plane.mode is '$MODE', want ndtwin"
     [[ "$PKG_SAID" == "$PKG" ]] || fail "control_plane.package is '$PKG_SAID', want $PKG"
-    [[ "$SKIPPED" == "[]" ]]  || fail "control_plane.skipped is $SKIPPED -- an ndtwin package skips nothing"
     [[ "$N_SW" == 4 ]]        || fail "switch_state names $N_SW switches, pod-topo declares 4"
-    # 🔴 5 per switch, and it is DISCLOSURE, not a result: pod-topo's four sX-runtime.json files
-    # carry five entries each, and phase one records them without applying one of them.
+    # 🔴 THE FABRIC-WIDE LIST IS THE THREE THAT RIDE ON THE CPU PORT, and nothing else
+    # (TICKET-P2 §2.2, §7-7). Sorted on both sides so the assertion is about the SET.
+    [[ "$SKIPPED" == "$FABRIC_SKIPS" ]] \
+        || fail "control_plane.skipped is $SKIPPED, want $FABRIC_SKIPS -- a foreign pipeline has no controller header, so LLDP, the watchdog and the initial routes are what cannot run"
+    # Every switch is on the exercise's program, and says so with a stable identifier.
+    [[ "$NDTWIN" == "['False']" ]] \
+        || fail "pipeline.ndtwin is $NDTWIN, want ['False'] on every switch -- the package named build/basic.* for all four"
+    [[ "$SHAS" != "['None']" ]] \
+        || fail "no switch reported a pipeline.p4info_sha256 -- the one stable identifier a pipeline has"
+    [[ "$SW_SKIPPED" == "$SWITCH_SKIPS" ]] \
+        || fail "per-switch pipeline.skipped is $SW_SKIPPED, want $SWITCH_SKIPS (§7-7: the per-switch skips live on the switch's own row, not in the fabric-wide list)"
+    # 🔴 5 per switch, and at P2 they are APPLIED. pod-topo's four sX-runtime.json files carry
+    # five entries each; phase one recorded them without applying one of them, and that is now
+    # the other script's assertion (02b), not this one's.
     [[ "$ENTRIES" == "[5]" ]] || fail "entries_recorded is $ENTRIES, want 5 on every switch"
+    [[ "$RECORDED" == "['5']" ]] || fail "table_entries.recorded is $RECORDED, want 5 on every switch"
+    [[ "$APPLIED" == "['5']" ]] \
+        || fail "table_entries.applied is $APPLIED, want 5 on every switch -- the exercise's own entries are what forwards here, and 0% loss below would otherwise be somebody else's routes"
+    [[ "$FAILED" == "['0']" ]] || fail "table_entries.failed is $FAILED, want 0 on every switch"
 fi
 G="$RUN/32_get_graph_data.json"
 if [[ -s "$G" ]]; then
@@ -111,6 +196,16 @@ if [[ -s "$G" ]]; then
     note "kernel graph        $G_SW switches, $G_H hosts"
     [[ "$G_SW" == 4 ]] || fail "the kernel graph has $G_SW switches, the package's model declares 4"
     [[ "$G_H"  == 4 ]] || fail "the kernel graph has $G_H hosts, the package's model declares 4"
+fi
+
+# `ndt status` under a foreign pipeline: the sampling rate is NOT the built json's number.
+# Recorded and asserted here because this is the only place a live fabric can say it
+# (TICKET-P2 §5.5; tests/shell/test_ndt_app_package.sh section 14 drives the same two rows
+# offline).
+if [[ -s "$RUN/31_status.txt" ]]; then
+    /usr/bin/grep -E '^ +(sample rate|rate source|app package)' "$RUN/31_status.txt" | sed 's/^/   /' || true
+    /usr/bin/grep -qF 'n/a (package pipeline)' "$RUN/31_status.txt" \
+        || fail "'ndt status' printed a sampling rate for a fabric running the package's own pipeline -- that number is decoded from p4_proxy/p4_src/build/ndtwin_switch.json, which these switches never loaded"
 fi
 
 # --- 4. forwarding ------------------------------------------------------------------------------
