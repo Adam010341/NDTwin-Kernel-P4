@@ -1,0 +1,31 @@
+2026-09-12T20:06:32+08:00
+  ok       case 1  'ndt help' still prints a block for 'up' (>= 5 lines)
+  ok       case 1  'ndt help' still prints a block for 'down' (>= 5 lines)
+  ok       case 1  'ndt help' still prints a block for 'clean' (>= 5 lines)
+  ok       case 2  help's 'clean' block still announces 3 as nothing to judge
+  ok       case 3  help's 'down' block still announces 3 as nothing to tear down
+  ok       case 4a help's 'down' block still announces 5 as a guard refusal
+  ok       case 4b help's 'up' block still announces 5 as a guard refusal
+  ok       case 4c help's 'clean' block still says its refusal is rc 5
+  ok       case 5  the manual carries exactly one rc table (BEGIN/END)
+  ok       case 6  the rc table has a row for rc 0
+  ok       case 6  the rc table has a row for rc 1
+  ok       case 6  the rc table has a row for rc 2
+  ok       case 6  the rc table has a row for rc 3
+  ok       case 6  the rc table has a row for rc 5
+  ok       case 7a every quote in the rc table is verbatim from 'ndt help'
+  ok       case 7b the rc table quotes 'ndt help' at all (>= 5 quotes)
+  ok       case 8  the rc 3 row says nothing was measured, not that it was clean
+  ok       case 9  the rc 5 row says a guard refused and nothing was done
+  ok       case 10 no 'ndt up/down/clean' command comment carries its own rc gloss
+  ok       case 11 the restore criterion exists and is marked
+  ok       case 12a the restore criterion accepts rc 3 from 'ndt clean' as restored
+  ok       case 12d the restore criterion accepts rc 3 from 'ndt down' too
+  ok       case 12b the restore criterion still calls rc 1 not-restored
+  ok       case 12c the restore criterion says rc 5 measured nothing
+  ok       case 13 the restore criterion reads orphans_verdict.sh's VERDICT, not a rc
+  ok       case 14 CONTROL: §2.1 still says a live fabric answers 'ndt clean' with rc 1
+
+26 passed, 0 failed
+RC=0
+2026-09-12T20:06:32+08:00

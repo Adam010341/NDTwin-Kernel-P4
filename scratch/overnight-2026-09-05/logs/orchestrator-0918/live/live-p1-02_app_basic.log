@@ -1,0 +1,106 @@
+== 02_app_basic
+   repo: /home/adam/Desktop/NDTwin-Kernel
+   raw : /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-18T095025Z_02_app_basic
+   owner: 9-18-orchestrator
+   root is reachable for exactly what this needs: sudoers grants ndtwin-lab and mnexec without a prompt
+
+== lab state before this step
+   lab
+     claim          none
+     prev claim     9-18-orchestrator (until 18:34:50), superseded 2026-09-18 17:50:24  (.test_run/lab.claim.prev)
+                    nothing holds the lab now: that claim was released or replaced
+                    it said: down at 2026-09-18 17:50:24; verified clean; claim kept
+     measuring      nothing
+     code           365c60e1  +29 file(s) with uncommitted changes
+                    2 of them can change behaviour:
+                    p4_proxy/mininet/host_count_override
+                    tools/remote-lab/dorm_lab/
+     knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+     tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)
+     ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6685d3a9)
+   
+   lab is free
+   host_count_override snapshot taken (4)
+
+== compiling /home/adam/tutorials/exercises/basic/solution/basic.p4 -> build/basic.json
+   8e2f88dd2d2d876c  /home/adam/tutorials/exercises/basic/build/basic.json
+   9213871cee36bd93  /home/adam/tutorials/exercises/basic/build/basic.p4.p4info.txtpb
+
+== converting /home/adam/tutorials/exercises/basic -> /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic   (--p4: every switch runs basic.p4)
+     read back through p4_proxy/mininet/topo_from_json.py: ok
+     next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic
+   package.json switches[*].pipeline: ["{'bmv2_json': 'build/basic.json', 'p4info': 'build/basic.p4.p4info.txtpb'}"]
+   every switch names the exercise's own program
+
+== pre-flight
+   PASS -- every check passed
+
+== claiming the lab
+     recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+     ok  lab claimed by 9-18-orchestrator for 45m (P2 live acceptance 2: --app basic (pod-topo), the exercise's own pipeline)
+
+== ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic
+   rc=1 -> 2026-09-18T095025Z_02_app_basic/20_up.txt
+             waiting for kernel API on :8000 . up
+     [3/3] verify
+       XX  proxy: 4/12 destination paths, never settled
+       ok  kernel: 4 switches, 4 up, 16 edges, 4 hosts
+       ok  model matches fabric: 4 hosts (kernel graph, topology file and 4 host namespaces all agree)
+       ok  data plane: h1 -> 10.0.2.2 forwards
+     
+     up, but not verified -- do not measure on this
+   !! 'ndt up p4 --app' exited 1 (see 20_up.txt)
+
+== what the knob and the proxy say
+   # written by ndt up p4 --app at 2026-09-18T09:50:27Z
+   /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic
+   [Proxy Agent] app package: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic (mode ndtwin, election_id 0,65535)
+   host_count_override is now: 4
+
+== GET /p4/switch_state
+   switches            4
+   control_plane.mode  ndtwin
+   control_plane.package /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic
+   control_plane.skipped ['install_initial_routes', 'link_watchdog', 'lldp_discovery']
+   entries_recorded    [5]   (distinct values across the switches)
+   pipeline.ndtwin     ['False']
+   pipeline.p4info_sha256 ["'9213871cee36bd93'"]
+   pipeline.skipped    ["('clone_session', 'sflow_telemetry')"]
+   table_entries       recorded=['5'] applied=['5'] failed=['0']
+   kernel graph        4 switches, 4 hosts
+     app package    /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic (mode ndtwin)
+     sample rate    n/a (package pipeline)
+     rate source    the app package runs a foreign pipeline on dpid 1,2,3,4 -- p4_proxy/p4_src/build/ndtwin_switch.json is NOT what those switches loaded, and stale_pipeline is not judged
+
+== verify_p4 (ndt's own [3/3], run again)
+   rc=1 -> 2026-09-18T095025Z_02_app_basic/40_verify_p4.txt
+       ok  kernel: 4 switches, 4 up, 16 edges, 4 hosts
+       ok  model matches fabric: 4 hosts (kernel graph, topology file and 4 host namespaces all agree)
+       ok  data plane: h1 -> 10.0.2.2 forwards
+     
+     up, but not verified -- do not measure on this
+   !! verify_p4 exited 1 over the package fabric
+
+== ndt's own dataplane_ok over every ordered pair (not the loss measurement)
+   NDT_DATAPLANE_OK alive=12 dead=0 untested=0 (rc 0 here means >=1 of 2 replies, NOT 0% loss)
+   ndt's own check found no dead pair and no untested one
+
+== pingall -- every ordered host pair, ping -c 5, loss parsed from ping
+   PINGALL_LOSS pairs=12 zero_loss=12 lossy=0 untested=0
+   every ping's raw output: 2026-09-18T095025Z_02_app_basic/43_ping_raw.txt
+   0% packet loss on all 12 ordered pairs, 5 packets each
+
+== done -- teardown follows (it must leave no app_package_override behind)
+
+== teardown
+   ndt down rc=0 -> 2026-09-18T095025Z_02_app_basic/90_down.txt
+         so stack.sh's exit 1 was a reading from the MIDDLE of this teardown, not
+         its ending, and it is not carried to the exit code. (ROLE-12, 2026-09-12)
+       claim note now says the lab is down and verified clean (owner and expiry unchanged)
+   app_package_override is gone, as 'ndt down' should leave it
+     the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+     this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+     ok  lab released
+
+raw: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-18T095025Z_02_app_basic
+FAIL 02_app_basic -- 'ndt up p4 --app' exited 1 (see 20_up.txt)

@@ -1,0 +1,146 @@
+{
+  "boot_at": 1789725031.3489053,
+  "boot_id": "efec32bbfa47467a997a69ca0d4e35d9",
+  "control_plane": {
+    "mode": "ndtwin",
+    "package": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic",
+    "skipped": [
+      "install_initial_routes",
+      "link_watchdog",
+      "lldp_discovery"
+    ]
+  },
+  "links": {},
+  "probe_interval_s": 2.0,
+  "status": "success",
+  "switches": {
+    "1": {
+      "entries_recorded": 5,
+      "grpc_addr": "localhost:30051",
+      "last_lldp_age_s": null,
+      "last_packet_in_age_s": null,
+      "oldest_rule_installed_at": 1789725032.458402,
+      "pipeline": {
+        "ndtwin": false,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic/build/basic.p4.p4info.txtpb",
+        "p4info_sha256": "9213871cee36bd93",
+        "skipped": [
+          "clone_session",
+          "sflow_telemetry"
+        ]
+      },
+      "pipeline_commits": 1,
+      "probe_age_s": 1.876,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 5,
+      "rules_total": 4,
+      "rules_total_age_s": 2.15,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 5,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 5
+      },
+      "table_generation": "1ccfe643e0bf462fb91b956cb7fc8f40"
+    },
+    "2": {
+      "entries_recorded": 5,
+      "grpc_addr": "localhost:30052",
+      "last_lldp_age_s": null,
+      "last_packet_in_age_s": null,
+      "oldest_rule_installed_at": 1789725032.460588,
+      "pipeline": {
+        "ndtwin": false,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic/build/basic.p4.p4info.txtpb",
+        "p4info_sha256": "9213871cee36bd93",
+        "skipped": [
+          "clone_session",
+          "sflow_telemetry"
+        ]
+      },
+      "pipeline_commits": 1,
+      "probe_age_s": 1.875,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 5,
+      "rules_total": 4,
+      "rules_total_age_s": 2.138,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 5,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 5
+      },
+      "table_generation": "08b27c831db947c48975364b522ee1bf"
+    },
+    "3": {
+      "entries_recorded": 5,
+      "grpc_addr": "localhost:30053",
+      "last_lldp_age_s": null,
+      "last_packet_in_age_s": null,
+      "oldest_rule_installed_at": 1789725032.4622238,
+      "pipeline": {
+        "ndtwin": false,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic/build/basic.p4.p4info.txtpb",
+        "p4info_sha256": "9213871cee36bd93",
+        "skipped": [
+          "clone_session",
+          "sflow_telemetry"
+        ]
+      },
+      "pipeline_commits": 1,
+      "probe_age_s": 1.874,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 5,
+      "rules_total": 4,
+      "rules_total_age_s": 2.127,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 5,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 5
+      },
+      "table_generation": "653c134277a04934bdb9e4429672297f"
+    },
+    "4": {
+      "entries_recorded": 5,
+      "grpc_addr": "localhost:30054",
+      "last_lldp_age_s": null,
+      "last_packet_in_age_s": null,
+      "oldest_rule_installed_at": 1789725032.463688,
+      "pipeline": {
+        "ndtwin": false,
+        "p4info": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic/build/basic.p4.p4info.txtpb",
+        "p4info_sha256": "9213871cee36bd93",
+        "skipped": [
+          "clone_session",
+          "sflow_telemetry"
+        ]
+      },
+      "pipeline_commits": 1,
+      "probe_age_s": 1.873,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 5,
+      "rules_total": 4,
+      "rules_total_age_s": 2.117,
+      "stream_alive": true,
+      "table_entries": {
+        "api_writes": 0,
+        "applied": 5,
+        "failed": 0,
+        "journaled": false,
+        "recorded": 5
+      },
+      "table_generation": "dac464253d3140dd986a22b3f1bd3a01"
+    }
+  }
+}

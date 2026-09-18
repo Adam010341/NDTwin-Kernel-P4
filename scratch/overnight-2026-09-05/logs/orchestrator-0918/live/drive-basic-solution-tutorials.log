@@ -1,0 +1,223 @@
+drive_exercise.py -- basic / solution
+(non-interactive: no mininet CLI, no xterm; kills nothing)
+
+== pre-flight (read-only) ==============================================
+OK   ports 9090-9099 free
+OK   interpreter /home/adam/p4dev-python-venv/bin/python (3.12.3)
+OK   switch  /usr/local/bin/simple_switch_grpc  sha256[:16]=327fa7d172217397  --version=1.15.3-f0b7d201
+OK   p4c     /usr/local/bin/p4c-bm2-ss  sha256[:16]=226f3f66df515c9e  --version=Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release)
+OK   exercise dir /home/adam/tutorials/exercises/basic
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/basic/build/basic.p4.p4info.txtpb -o /home/adam/tutorials/exercises/basic/build/basic.json /home/adam/tutorials/exercises/basic/solution/basic.p4
+-> /home/adam/tutorials/exercises/basic/build/basic.json  14000 B  sha256[:16]=f967b39849a220b0  warnings=0
+
+== plan ================================================================
+topology : pod-topo/topology.json
+hosts    : h1, h2, h3, h4
+switches : s1, s2, s3, s4
+links    : 8
+program  : /home/adam/tutorials/exercises/basic/solution/basic.p4 -> build/basic.json
+switch   : /usr/local/bin/simple_switch_grpc
+steps    : net.pingAll; h1 ping -c3 h2; h1 send.py -> h2 receive.py; assert loss
+equivalent to (cwd must be the exercise dir):
+  cd /home/adam/tutorials/exercises/basic && \
+  sudo /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/utils/run_exercise.py -t pod-topo/topology.json -j build/basic.json -b /usr/local/bin/simple_switch_grpc
+  ... except do_net_cli() is replaced by the scripted steps above.
+Reading topology file.
+Building mininet topology.
+/usr/local/bin/simple_switch_grpc -i 1@s1-eth1 -i 2@s1-eth2 -i 3@s1-eth3 -i 4@s1-eth4 --pcap /home/adam/tutorials/exercises/basic/pcaps --nanolog ipc:///tmp/bm-0-log.ipc --device-id 0 build/basic.json --log-console --thrift-port 9090 -- --grpc-server-addr 0.0.0.0:50051
+
+/usr/local/bin/simple_switch_grpc -i 1@s2-eth1 -i 2@s2-eth2 -i 4@s2-eth4 -i 3@s2-eth3 --pcap /home/adam/tutorials/exercises/basic/pcaps --nanolog ipc:///tmp/bm-1-log.ipc --device-id 1 build/basic.json --log-console --thrift-port 9091 -- --grpc-server-addr 0.0.0.0:50052
+
+/usr/local/bin/simple_switch_grpc -i 1@s3-eth1 -i 2@s3-eth2 --pcap /home/adam/tutorials/exercises/basic/pcaps --nanolog ipc:///tmp/bm-2-log.ipc --device-id 2 build/basic.json --log-console --thrift-port 9092 -- --grpc-server-addr 0.0.0.0:50053
+
+/usr/local/bin/simple_switch_grpc -i 2@s4-eth2 -i 1@s4-eth1 --pcap /home/adam/tutorials/exercises/basic/pcaps --nanolog ipc:///tmp/bm-3-log.ipc --device-id 3 build/basic.json --log-console --thrift-port 9093 -- --grpc-server-addr 0.0.0.0:50054
+
+Configuring switch s1 using P4Runtime with file pod-topo/s1-runtime.json
+ - Using P4Info file build/basic.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50051 (bmv2)...
+ - Setting pipeline config (build/basic.json)...
+ - Inserting 5 table entries...
+ - MyIngress.ipv4_lpm: (default action) => MyIngress.drop()
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.1.1', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:01:11, port=1)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.2.2', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:02:22, port=2)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.3.3', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:03:00, port=3)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.4.4', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:04:00, port=4)
+Configuring switch s2 using P4Runtime with file pod-topo/s2-runtime.json
+ - Using P4Info file build/basic.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50052 (bmv2)...
+ - Setting pipeline config (build/basic.json)...
+ - Inserting 5 table entries...
+ - MyIngress.ipv4_lpm: (default action) => MyIngress.drop()
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.1.1', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:03:00, port=4)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.2.2', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:04:00, port=3)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.3.3', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:03:33, port=1)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.4.4', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:04:44, port=2)
+Configuring switch s3 using P4Runtime with file pod-topo/s3-runtime.json
+ - Using P4Info file build/basic.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50053 (bmv2)...
+ - Setting pipeline config (build/basic.json)...
+ - Inserting 5 table entries...
+ - MyIngress.ipv4_lpm: (default action) => MyIngress.drop()
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.1.1', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:01:00, port=1)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.2.2', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:01:00, port=1)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.3.3', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:02:00, port=2)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.4.4', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:02:00, port=2)
+Configuring switch s4 using P4Runtime with file pod-topo/s4-runtime.json
+ - Using P4Info file build/basic.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50054 (bmv2)...
+ - Setting pipeline config (build/basic.json)...
+ - Inserting 5 table entries...
+ - MyIngress.ipv4_lpm: (default action) => MyIngress.drop()
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.1.1', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:01:00, port=2)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.2.2', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:01:00, port=2)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.3.3', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:02:00, port=1)
+ - MyIngress.ipv4_lpm: hdr.ipv4.dstAddr=['10.0.4.4', 32] => MyIngress.ipv4_forward(dstAddr=08:00:00:00:02:00, port=1)
+
+== topology as brought up ==============================================
+s1 -> gRPC port: 50051
+s2 -> gRPC port: 50052
+s3 -> gRPC port: 50053
+s4 -> gRPC port: 50054
+**********
+h1
+default interface: eth0	10.0.1.1	08:00:00:00:01:11
+**********
+**********
+h2
+default interface: eth0	10.0.2.2	08:00:00:00:02:22
+**********
+**********
+h3
+default interface: eth0	10.0.3.3	08:00:00:00:03:33
+**********
+**********
+h4
+default interface: eth0	10.0.4.4	08:00:00:00:04:44
+**********
+
+== scripted steps (no CLI, no xterm) ===================================
+$ mininet: net.pingAll(timeout=1)
+*** Ping: testing ping reachability
+h1 -> h2 h3 h4 
+h2 -> h1 h3 h4 
+h3 -> h1 h2 h4 
+h4 -> h1 h2 h3 
+*** Results: 0% dropped (12/12 received)
+-> net.pingAll loss = 0.0%   (RECORDED, for the 2026-09-08 rows; not the assertion)
+$ every ordered host pair: ping -c 5 -W 2, loss parsed from ping's summary
+-> pingall 0% (12/12 pairs at 0%, 0 lossy)
+$ h1: ping -c 3 -W 1 10.0.2.2
+PING 10.0.2.2 (10.0.2.2) 56(84) bytes of data.
+64 bytes from 10.0.2.2: icmp_seq=1 ttl=63 time=2.65 ms
+64 bytes from 10.0.2.2: icmp_seq=2 ttl=63 time=2.82 ms
+64 bytes from 10.0.2.2: icmp_seq=3 ttl=63 time=2.80 ms
+
+--- 10.0.2.2 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 2004ms
+rtt min/avg/max/mdev = 2.648/2.756/2.819/0.077 ms
+$ h2: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/basic/receive.py   (> /home/adam/tutorials/exercises/basic/logs/driver-h2-receive.log)
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/basic/send.py 10.0.2.2 P4 driver probe
+sending on interface eth0 to 10.0.2.2
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:11
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 55
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x63be
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = 56236
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x87f5
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+
+-- h2 receive.py output (/home/adam/tutorials/exercises/basic/logs/driver-h2-receive.log) --
+sniffing on eth0
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:22
+  src       = ff:ff:ff:ff:ff:ff
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 55
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 63
+     proto     = tcp
+     chksum    = 0x64be
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = 56236
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x87f5
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+
+   PASS injection: send.py emitted 1 TCP frame         want=1                      got=1
+   PASS pingall loss (ping -c 5, every ordered pair)   want=0.0%                   got=0% (12/12 pairs at 0%, 0 lossy)
+   PASS h1 ping -c3 h2 received                        want=3                      got=3
+   PASS h2 got the send.py packet                      want=>=1                    got=1
+   PASS ttl at h2 (h1-s1-h2 is one hop)                want=[63]                   got=[63]
+
+-- switch logs --
+   /home/adam/tutorials/exercises/basic/logs/driver-h2-receive.log 747 B
+   /home/adam/tutorials/exercises/basic/logs/s1-p4runtime-requests.txt 2670 B
+   /home/adam/tutorials/exercises/basic/logs/s1.log     657421 B
+   /home/adam/tutorials/exercises/basic/logs/s2-p4runtime-requests.txt 2731 B
+   /home/adam/tutorials/exercises/basic/logs/s2.log     604662 B
+   /home/adam/tutorials/exercises/basic/logs/s3-p4runtime-requests.txt 2737 B
+   /home/adam/tutorials/exercises/basic/logs/s3.log     279472 B
+   /home/adam/tutorials/exercises/basic/logs/s4-p4runtime-requests.txt 2737 B
+   /home/adam/tutorials/exercises/basic/logs/s4.log     274444 B
+
+== net.stop() ==========================================================
+net.stop() returned cleanly
+
+== verdict =============================================================
+   PASS injection: send.py emitted 1 TCP frame         want=1                      got=1   【源碼推導，未執行】
+   PASS pingall loss (ping -c 5, every ordered pair)   want=0.0%                   got=0% (12/12 pairs at 0%, 0 lossy)   【README 宣稱】＋【源碼推導，未執行】
+   PASS h1 ping -c3 h2 received                        want=3                      got=3   【源碼推導，未執行】
+   PASS h2 got the send.py packet                      want=>=1                    got=1   【源碼推導，未執行】
+   PASS ttl at h2 (h1-s1-h2 is one hop)                want=[63]                   got=[63]   【源碼推導，未執行】
+
+>>> PASS (5/5)
+
+report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-18T110845Z_basic_solution.md

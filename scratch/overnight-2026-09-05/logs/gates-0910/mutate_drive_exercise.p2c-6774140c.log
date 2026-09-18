@@ -1,0 +1,121 @@
+TICKET-P2 §5 drive_exercise.py mutation gate
+  interpreter : p4_proxy/venv/bin/python
+  subject     : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+  suite       : doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests
+  baseline    : 0cb8bac7f1564887 doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+
+baseline (unmutated) must be green:
+    Ran 33 tests in 0.029s
+    
+    OK
+  ok       baseline green
+
+=== 1. --fabric defaults to ndtwin, so the 09-08 command builds another fabric ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-eugams)
+  anchor occurrences: 1
+  ✅ caught by test_the_default_fabric_is_tutorials
+     all red: test_the_default_fabric_is_tutorials test_the_tutorials_harness_is_handed_the_default_programs_json test_the_tutorials_plan_and_sudo_line_are_what_they_printed_on_09_08 
+
+=== 2. the harness is handed the VARIANT's json instead of DEFAULT_PROG's ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-eugams)
+  anchor occurrences: 1
+  ✅ caught by test_the_tutorials_harness_is_handed_the_default_programs_json
+     all red: test_the_tutorials_harness_is_handed_the_default_programs_json 
+
+=== 3. the companion program is never compiled, so s2-s4 have no json ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-eugams)
+  anchor occurrences: 1
+  ✅ caught by test_firewall_builds_its_own_program_and_the_default_one
+     all red: test_firewall_builds_its_own_program_and_the_default_one 
+
+=== 4. convert.py is given the variant stem, so every switch gets the wrong default ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-eugams)
+  anchor occurrences: 1
+  ✅ caught by test_convert_is_given_the_default_prog_and_not_the_variant
+     all red: test_convert_is_given_the_default_prog_and_not_the_variant 
+
+=== 5. a ping with no summary line reads as 0% loss ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-eugams)
+  anchor occurrences: 1
+  ✅ caught by test_a_ping_with_no_summary_line_is_untested_and_not_zero_loss
+     all red: test_an_untested_pair_makes_the_pingall_number_none_rather_than_zero test_a_ping_with_no_summary_line_is_untested_and_not_zero_loss test_one_untested_pair_voids_the_number_even_when_the_others_were_clean 
+
+=== 6. an untested pair is left out of the total instead of voiding it ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-eugams)
+  anchor occurrences: 1
+  ✅ caught by test_one_untested_pair_voids_the_number_even_when_the_others_were_clean
+     all red: test_one_untested_pair_voids_the_number_even_when_the_others_were_clean 
+
+=== 7. the namespace pid is matched anywhere in the argv, not at its tail ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-eugams)
+  anchor occurrences: 1
+  ✅ caught by test_the_pid_is_the_tail_field_of_the_process_table
+     all red: test_a_command_enters_the_namespace_through_sudo_mnexec test_the_pid_is_the_tail_field_of_the_process_table 
+
+=== 8. a host with no namespace comes back as pid 0 instead of a named failure ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-eugams)
+  anchor occurrences: 1
+  ✅ caught by test_a_host_with_no_namespace_is_a_named_failure_and_not_zero_loss
+     all red: test_a_host_with_no_namespace_is_a_named_failure_and_not_zero_loss 
+
+=== 9. a FAILED pre-flight goes on to claim the lab and bring the fabric up ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-eugams)
+  anchor occurrences: 1
+  ✅ caught by test_a_refused_preflight_never_takes_the_claim
+     all red: test_a_refused_preflight_never_takes_the_claim 
+
+=== 10. the claim is not given back when a step raised ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-eugams)
+  anchor occurrences: 1
+  ✅ caught by test_the_teardown_runs_both_halves_even_when_the_steps_raise
+     all red: test_the_round_runs_convert_preflight_claim_up_down_release_in_order test_the_teardown_runs_both_halves_even_when_the_steps_raise 
+
+=== 11. the ndt calls go out with whatever owner the environment had ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-eugams)
+  anchor occurrences: 1
+  ✅ caught by test_every_ndt_call_carries_the_owner
+     all red: test_every_ndt_call_carries_the_owner 
+
+=== 12. the firewall skeleton arm asserts the flow is BLOCKED (the red arm cannot be red) ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-eugams)
+  anchor occurrences: 1
+  ✅ caught by test_the_skeleton_arm_is_red_when_the_external_flow_is_blocked
+     all red: test_the_skeleton_arm_is_red_when_the_external_flow_is_blocked test_the_skeleton_arm_passes_when_the_external_flow_gets_through 
+
+=== 13. link_monitor stops checking the port field, the only thing that tells the arms apart ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-eugams)
+  anchor occurrences: 1
+  ✅ caught by test_the_two_arms_are_distinguishable
+     all red: test_the_two_arms_are_distinguishable 
+
+=== 14. a run in which NO probe arrived passes every check about the probes ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-eugams)
+  anchor occurrences: 1
+  ✅ caught by test_no_probe_rows_fails_the_injection_check_rather_than_passing_vacuously
+     all red: test_no_probe_rows_fails_the_injection_check_rather_than_passing_vacuously 
+
+=== 15. a claim that DECLARES a measurement is treated as a free lab ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-eugams)
+  anchor occurrences: 1
+  ✅ caught by test_our_own_claim_that_declares_a_measurement_refuses_too
+     all red: test_our_own_claim_that_declares_a_measurement_refuses_too 
+
+=== 16. an unreadable switch_state is rendered as an ordinary (empty) report ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-eugams)
+  anchor occurrences: 1
+  ✅ caught by test_an_unreadable_switch_state_says_so_instead_of_printing_zeros
+     all red: test_an_unreadable_switch_state_says_so_instead_of_printing_zeros 
+
+=== NEGATIVE CONTROL: comment-only edit must stay GREEN ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+  anchor occurrences: 1
+  ✅ green: the suite does not react to a comment
+
+--- was the original written? ---
+  byte-identical  doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  sha256 0cb8bac7f156488775e4ac7add176fecf1e46a6d2e9c991992a241f0b5f95b49
+  suite green against the real file
+
+not reddened by design: the report-shape cells and the 09-08 fixture comparison
+(regression guards; they discriminate nothing about the sixteen behaviours above)
+
+16 mutations, 0 survived

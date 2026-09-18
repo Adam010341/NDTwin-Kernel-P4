@@ -1,0 +1,477 @@
+2026-09-12T21:03:11+08:00
+
+1. #3(a): the cheap refusals are decided BEFORE the machine is touched
+  ok       🔴 a foreign holder of :8000 refuses the bring-up
+  ok         and names the port
+  ok         and says it is not this checkout's
+  ok         and carries the row's consequence
+  ok         and names where the late refusal used to happen
+  ok         and says what to do about it
+  ok       🔴 :8000 held by OUR OWN kernel is not a refusal
+  ok         and is not reported as foreign
+  ok         it is still named, as residue
+  ok       a listener in our recorded process group is ours
+  ok       🔴 a holder we cannot see is NOT refused
+  ok         it is reported as unowned-as-far-as-we-can-tell
+  ok         and never as foreign
+  ok       a P4-only port does not block an OVS bring-up
+  ok         and does block a P4 one
+  ok       nothing held: preflight passes
+  ok         and says nothing about foreign holders
+
+2. #3(b): a bring-up that fails after changing the machine takes it back down
+  ok       a failed 'ndt up ovs4' exits non-zero
+  ok         and rolls back
+  ok         naming what it had started
+  ok         stops what stack.sh started (Ryu)
+  ok         stops the topo session
+  ok         sweeps the data plane
+  ok         and takes the control plane down through stack.sh
+  ok       🔴 keeps .test_run/up.target on purpose
+  ok         the record really is still there
+  ok       a bring-up that came up but did not verify is red
+  ok       🔴 and is NOT rolled back
+  ok         nothing is swept
+  ok       a bring-up that reused a fabric still exits non-zero
+  ok         and rolls back what it did start
+  ok       🔴 but does NOT sweep the fabric it reused
+  ok         and does not stop its topo session
+  ok       a preflight refusal exits non-zero
+  ok         and does not claim to have rolled anything back
+  ok         the machine was not touched at all
+  ok       stack.sh exiting early is red
+  ok         and rolls back
+  ok         through stack.sh down
+  ok       a failed ovs-topo-4host is red
+  ok         and rolls back
+  ok         including the topo session it may have created
+  ok       an incomplete rollback says so
+  ok         and names the survivor cleanup reported
+  ok         and never claims the machine is back as it was
+
+3. #21: cleanup's exit status is read, not thrown away
+  ok       🔴 a failed orphan sweep refuses the bring-up
+  ok         and names the survivor
+  ok         and says why building on it misleads
+  ok       🔴 and no fabric is started on top of it
+  ok       🔴 a successful orphan sweep is not turned into a refusal
+  ok         and the bring-up proceeds
+  ok       🔴 'ndt down' is red when its sweep did not finish
+  ok         and names what survived
+  ok         saying the sweep itself failed
+  ok       🔴 and a clean teardown is still green
+  ok         with no complaint about the sweep
+
+4. #49: the teardown verify waits for the sweep it is verifying
+  ok       🔴 processes reaped just after the sweep are not a failure
+  ok         and the wait is reported, not hidden
+  ok         no false 'still running'
+  ok         the assertion still ran
+  ok       🔴 a process that never leaves is still RED
+  ok         and the bound is stated
+  ok         and the assertion reports what is there
+  ok       a clean machine is not made to wait
+  ok       🔴 'ndt clean' alone does not wait
+  ok         it answers about this instant
+
+5. #83: the installed helper is compared with this tree's, and named
+  ok       a differing helper is reported
+  ok         naming the installed path
+  ok         naming the repo path
+  ok         with both sha256 prefixes
+  ok         and the other one
+  ok         it says which copy actually runs
+  ok         and gives the install command verbatim
+  ok       🔴 matching copies are green and quiet
+  ok         no install advice when nothing needs installing
+  ok       a missing installed helper is a problem
+  ok         and is named as missing, not as a mismatch
+  ok       🔴 'could not compare' is not green
+  ok         and says which side it could not read
+  ok       'ndt status' prints it in the lab section
+  ok         with the install command
+  ok       🔴 'ndt status --check' counts it as a problem
+  ok         and lists it among the problems
+  ok         naming the path a reader can act on
+  ok       🔴 and matching copies leave --check green
+  ok         with nothing in the problem list about it
+  ok       🔴 preflight WARNS and does not refuse
+  ok         the operator is told before the run
+  ok         and told what to do
+
+6. R5: 'ndt up' from a tree the lab does not act in is refused, and says why
+  ok       🔴 'ndt up p4' from a tree the lab does not act in is refused
+  ok         this checkout's path, with ITS host count
+  ok         the lab's tree, with ITS host count
+  ok         and where that second path came from
+  ok       🔴 the sentence that says which half comes from where, and both ways out
+  ok         and how root would move the lab's tree
+  ok       🔴 nothing on the machine was touched
+  ok         no fabric was started
+  ok         and no up.target was recorded
+  ok         it is a refusal, not a rollback
+  ok       🔴 'ndt up ovs4' is refused for the same reason
+  ok         naming the lab's tree
+  ok       🔴 and says that knob is the P4 plane's, not what OVS builds
+  ok         and Ryu is never started
+  ok       the guard answers on its own
+  ok       🔴 the same tree is not a refusal
+  ok         and says nothing
+  ok       🔴 and 'ndt up p4' still comes up in that tree
+  ok         the fabric really was built
+  ok       🔴 the same tree through a symlink is not a refusal
+  ok       🔴 the same tree with a trailing slash is not a refusal
+
+7. R5: topo-start's output is printed, not discarded
+  ok       a bring-up that starts a fabric is still green
+  ok       🔴 and the helper's 'which tree' line reaches the operator
+  ok       a failed topo-start is still red
+  ok         and what the helper said is not swallowed
+  ok         alongside ndt's own line
+
+8. H4: a model of a DIFFERENT network is refused before anything is built
+  ok         🔴 rc 3 -- a real file, for the wrong network
+  ok         and the reason names both counts
+  ok         and the file
+  ok         🔴 and the model path is NOT printed for a caller to use
+  ok         🔴 'ndt up p4 4' with a 128-host NDT_TOPO is refused
+  ok         and says what it is refusing
+  ok         naming a model of a different network
+  ok         🔴 and the refusal names both counts, not a fallback
+  ok         and where the fabric's number comes from
+  ok         and how to make the two agree
+  ok         🔴 and NOTHING was built: no topo-start, no cleanup
+  ok         🔴 and no baseline was written
+  ok         🔴 record_up_target refuses hosts=4 against model_hosts=128
+  ok         and says they are different networks
+  ok         quoting the two fields it would have written
+  ok         🔴 and writes no file
+  ok         🔴 a MATCHING NDT_TOPO is still honoured
+  ok         and its path is what comes back
+  ok         🔴 and with no NDT_TOPO the glob still answers
+  ok         with the 4-host model
+  ok         a size no model has is rc 0 with nothing, as before
+  ok         🔴 and never rc 3 -- there is no NDT_TOPO to blame
+  ok         and no model is named
+  ok         a missing NDT_TOPO file is still rc 1, not 3
+  ok         🔴 and a matching pair is still recorded
+  ok         the baseline is there
+  ok         an uncountable model is not refused
+  ok         🔴 but the missing comparison is said out loud
+  ok         🔴 and the warning does not land in the model path
+
+9. H3: a bring-up that overlaps a teardown is refused, on BOTH planes
+  ok         🔴 P4 preflight refuses while a teardown runs
+  ok         and says what it is refusing
+  ok         naming the pid that is doing it
+  ok         and when it started
+  ok         🔴 and what the overlap actually does
+  ok         quoting what [1/3] said on 09-11
+  ok         and the remedy
+  ok         and OVS preflight refuses too
+  ok         🔴 'ndt up p4 4' is refused
+  ok         🔴 and no topo-start ran
+  ok         🔴 a marker whose pid is gone does NOT refuse
+  ok         it says it removed it
+  ok         naming the pid and when
+  ok         🔴 and the file is gone, so it cannot block again
+  ok         a marker with no pid is stale too
+  ok         🔴 no marker: preflight passes, as before
+  ok         and says nothing about a teardown
+  ok         and so does OVS
+  ok         🔴 'ndt down' removes its own marker when it finishes
+  ok         and left none on disk
+  ok         🔴 and it is present DURING the teardown, not just around it
+  ok         🔴 a refused 'ndt down' writes no marker
+
+10. F1: 'ndt up p4' asks for the P4 plane's rate, not for whatever plane is live
+  ok         🔴 the plane is passed, not looked up
+  ok         🔴 and it is not asked with no argument
+  ok         so the line under the P4 label is the P4 rate
+  ok         🔴 and OVS's 'samples NOTHING' never appears there
+  ok         🔴 nor in the reuse refusal
+
+11. H4 REGRESSION: the tab-packed reading left a newline in the middle of the path
+  ok         the p4 bring-up wrote a target record
+  ok         the record is the nine lines record_up_target writes
+  ok         with no empty line in it
+  ok       🔴 and the line after the path is the sha, not a blank
+  ok       🔴 topology_sha256 is a reading of that file, not 'unavailable'
+  ok         and the model's hosts were counted
+  ok         the bring-up printed the model on the topology line
+  ok         the ovs bring-up wrote a target record
+  ok         and the record is nine lines on this plane as well
+  ok       🔴 with a real sha, on the OVS plane as well
+  ok         and its hosts counted
+  ok       🔴 the path verify_p4 is handed passes [[ -f ]]
+  ok       🔴 and it is the model path byte for byte
+  ok         the rc-3 refusal still fires
+  ok         and still carries the reason out of the subshell
+
+12. A1-a: what stack.sh down said reaches the operator, instead of being filtered
+  ok       🔴 the crash half of B-5 arrives
+  ok         and the evidence it names arrives with it
+  ok       🔴 a plain non-zero ending arrives (#19)
+  ok       🔴 the stale registry files it cleared are named
+  ok         the port table's consequence line
+  ok         and the remedy printed under it
+  ok       🔴 the crash sentence keeps its subject
+  ok         the ordinary 'stopped <name>' lines still show
+  ok       🔴 stack.sh's own banner is not repeated
+  ok       🔴 nor the 'sudo mn -c' advice ndt down obsoletes
+  ok       🔴 a message this filter has never seen is not dropped
+  ok       🔴 the rollback path prints it too
+
+13. A1-b: a stack.sh teardown that failed makes ndt down non-zero
+  ok       🔴 'ndt down' is red when its stack.sh half was red
+  ok         and names which half
+  ok         with the component that crashed
+  ok       🔴 the topology session is still stopped
+  ok         the sweep still runs
+  ok         and the machine is still verified
+  ok       🔴 and the up-target baseline is still cleared
+  ok       🔴 a clean stack.sh half is still green
+  ok         with nothing said about it
+
+14. ROLE-12: the teardown marker has an OWNER
+  ok       🔴 a second 'ndt down' is refused while one is still running
+  ok         naming what it is refusing on
+  ok         with the pid that is doing it
+  ok         and when that one started
+  ok         and the remedy
+  ok       🔴 and the first teardown's marker is untouched
+  ok         🔴 so no stack.sh teardown ran
+  ok         and no sweep ran
+  ok       🔴 a bring-up refused during the overlap names the FIRST teardown
+  ok         and its start time, not the second one's
+  ok       🔴 a marker whose pid is gone does NOT refuse the teardown
+  ok         and it says whose marker it took over
+  ok         naming when that one was recorded
+  ok         and the marker is gone when it finishes
+  ok       🔴 mark_teardown_end does not remove a marker that is not its own
+  ok         and says why it left it
+  ok         naming the pid recorded in it
+  ok         🔴 and it does remove the one it wrote
+  ok       🔴 with no marker at all, the teardown runs as before
+  ok         and says nothing about another teardown
+  ok         nor about taking one over
+
+15. ROLE-12: the rc of a teardown is its ENDING, not a reading from the middle of it
+  ok       🔴 ports [1/3] found open and [3/3] closed are not a failed teardown
+  ok         what [1/3] said is still printed in full
+  ok         and the status it produced is still named
+  ok         🔴 with the verdict on those ports deferred
+  ok         🔴 then re-read, by number, and reported closed
+  ok         and 'verify clean' really ran
+  ok       🔴 a port STILL held after [3/3] keeps the teardown red
+  ok         naming which ones
+  ok         and green when they are not
+  ok       🔴 a fatal ending alongside the ports keeps the teardown red
+  ok         and is still reported as the ending it is
+  ok       🔴 a port this stack STARTED still holds keeps the teardown red
+  ok         and nothing is deferred out of that status
+  ok       🔴 ports named outside that branch defer nothing
+  ok       🔴 an unaccounted-for non-zero is still red
+  ok       🔴 a clean stack.sh half is still green
+  ok         and nothing is deferred
+  ok         the return-site line is stack.sh's own, and unique
+  ok         so is the foreign-holder line
+  ok         and the one for a holder this stack started
+  ok         and report_exit's fatal-ending line
+
+16. ROLE-12 cell 3: 'ndt clean' refuses while a teardown is in flight
+  ok       🔴 'ndt clean' is refused while a teardown is running
+  ok         naming what it is refusing on
+  ok         with the pid to wait for
+  ok         and when that teardown started
+  ok         and the remedy
+  ok       🔴 and it does NOT advise --deep over that teardown's own fabric
+  ok         nor call the fabric being destroyed residue
+  ok         it says what that advice would have killed
+  ok       🔴 with no teardown in flight it judges as before
+  ok         naming what survived
+  ok         and refuses nothing
+  ok       🔴 a marker whose pid is gone does not refuse the assertion
+  ok         it judged the machine instead
+  ok         and said it removed the stale marker
+  ok       🔴 'ndt down' is not refused by its own marker at verify clean
+  ok         it did not refuse itself
+  ok         and its verify clean really ran
+
+17. ROLE-11 F5: 'ndt clean' does not call this stack's own fabric somebody else's
+  ok         it is still not clean
+  ok         and the residue is still listed by port and holder
+  ok       🔴 a pid in .test_run/pids/ is not 'this stack did not start it'
+  ok       🔴 it says the fabric this stack started is still up
+  ok         naming the pid it read out of the registry
+  ok         and the verb that takes it down
+  ok         it is not clean
+  ok       🔴 a bmv2 port under this stack's own manifest is not a stranger either
+  ok         and it names the record that answered
+  ok         it is not clean
+  ok       🔴 a holder that is NOT in the registry still gets the old sentence
+  ok         and is not claimed as this stack's
+  ok       🔴 with no manifest, a bmv2 port is a stranger again
+  ok         this stack's own port is named as its own
+  ok         and the stranger still gets --deep
+  ok         which names the port it is about
+
+18. ROLE-9: a REFUSED 'ndt up p4 <n>' leaves the P4 host knob exactly as it found it
+  ok       🔴 the H4 refusal is still a refusal
+  ok       🔴 and the knob is byte-for-byte what this run found it
+  ok         including the comment a value-only restore would have dropped
+  ok       🔴 and nothing was built
+  ok         the refusal names the value the operator arrived with
+  ok       🔴 and no write was announced, because none happened
+  ok         while the size this run asked for is still named
+  ok       🔴 the mirror direction is refused as well
+  ok       🔴 and its knob is untouched too
+  ok         quoting ITS entry value, not the 4 it was asked for
+  ok         a size no model has is still refused
+  ok         by the message that names the deriver
+  ok       🔴 and that refusal leaves the knob alone as well
+  ok         a foreign claim still refuses the bring-up
+  ok       🔴 and the knob is still the operator's
+  ok         a lab that acts in another tree still refuses
+  ok       🔴 and that refusal moved nothing either
+  ok         a bring-up whose fabric never started is red
+  ok         and it rolled back
+  ok       🔴 and the rollback put the knob back too
+  ok         bytes, so the comment survived the round trip
+  ok         and the put-back is announced, not silent
+  ok       🔴 a bring-up that was NOT refused is green
+  ok       🔴 and the knob carries the count it was given
+  ok         and the write is still announced as persistent
+  ok         the fabric really was built
+  ok         a bring-up that came up and failed verify is red
+  ok       🔴 and the knob still describes the fabric that IS up
+  ok         nothing was rolled back
+  ok       🔴 a model that matches the COUNT ASKED FOR is still built
+  ok         and is not refused as another network
+  ok         the knob was written to the size that was built
+
+19. ROLE-9 / ROLE-11 F6: the claim note carries the verdict 'verify clean' reached
+  ok         a live-P4 teardown that ended clean is green
+  ok         and 'verify clean' really ran
+  ok       🔴 the note says the machine was verified clean
+  ok       🔴 and does not say the opposite
+  ok         the claim is still kept, not released
+  ok         and the 'in use' sentence is gone
+  ok         the teardown is red for that ending
+  ok         and says whose ending it is
+  ok       🔴 the note STILL says the machine verified clean
+  ok       🔴 a clean machine is not written down as unverified
+  ok         while the non-zero it did end on is not hidden
+  ok         a teardown that left residue is red
+  ok       🔴 and its note says it did not verify clean
+  ok         naming the half that could not verify
+  ok         with the sentence that says not to act on it
+  ok         a sweep that did not finish is red
+  ok       🔴 and the note names the sweep
+  ok         not the half that was green
+  ok         ports still held after the sweep are red
+  ok       🔴 and the note names the port re-reading
+  ok         a teardown over somebody else's claim is green
+  ok       🔴 and their note is untouched
+  ok         while saying out loud that it was not updated
+  ok         with no claim at all the teardown is green
+  ok       🔴 and no claim file is invented to narrate
+
+20. FIX-NDT-8: a REFUSED 'ndt up' exits 5; a DIRTY READING still exits 1
+  ok       🔴 a lab claimed by somebody else refuses with rc 5
+  ok         and the sentence an operator reads is unchanged
+  ok         🔴 and nothing was built
+  ok       🔴 a measurement in flight refuses with rc 5
+  ok         naming what is running
+  ok       🔴 H4 refuses with 5 on the OVS side too
+  ok         and still says the size is the verb there
+  ok       🔴 up_p4 carries preflight's refusal code out
+  ok       🔴 and a preflight that failed for any other reason is still 1
+  ok       🔴 up_ovs carries it out too, past its own rm -f
+  ok         and 1 stays 1 on that path as well
+  ok       🔴 record_up_target's refusal reaches up_p4's caller
+  ok         and up_ovs's
+  ok       🔴 a refusal and a dirty reading together: the refusal wins
+  ok         and the dirty reading is still PRINTED, not hidden
+  ok         while the remedy is the teardown, not the port
+  ok       🔴 a stray holding :8000 is a dirty reading, still 1
+  ok       🔴 a live Mininet is a dirty reading, still 1
+  ok         naming the wedge it would trigger
+  ok       🔴 a fabric older than the pipeline is a dirty reading, still 1
+  ok         naming what those switches are NOT running
+  ok         a usage error is still 2, not 5
+  ok         and so is a size the OVS plane cannot build
+  ok         🔴 and with nothing wrong at all, preflight is still 0
+
+21. FIX-NDT-8: 'ndt clean' answers 3 when there was nothing to judge, 5 when refused
+  ok       🔴 an empty machine is rc 3, not rc 0
+  ok       🔴 and the verdict line is NOT 'clean'
+  ok         it says it judged nothing
+  ok         naming the three populations it found empty
+  ok         and that 3 is not a clean bill
+  ok       🔴 with a subject supplied by the caller, the same machine is 0
+  ok         and the verdict line is 'clean'
+  ok       🔴 a pidfile in the registry is a subject: rc 0
+  ok         and the verdict line is 'clean'
+  ok       🔴 ten switches still running is 1, not 3
+  ok         and the verdict line is 'not clean'
+  ok       🔴 a stray holding :8000 with an EMPTY registry is 1, not 3
+  ok         and it is still named as a stranger
+  ok       🔴 a refusal outranks 'nothing to judge'
+  ok         and says what it is refusing on
+  ok         and judged nothing
+  ok       🔴 the teardown's own verify clean still ends on 'clean'
+  ok         and the teardown is still rc 0
+
+22. FIX-NDT-8: 'ndt down' answers 3 when there was nothing to tear down, 5 when refused
+  ok       🔴 tearing down an already-down lab is rc 3, not rc 0
+  ok         and the verdict line says what it measured
+  ok         naming the three populations it found empty
+  ok         🔴 the topo session was still stopped
+  ok         🔴 and the sweep still ran
+  ok         and stack.sh was still asked to go down
+  ok       🔴 the note does not claim a clean machine was verified
+  ok         it says there was nothing up
+  ok         the claim is still kept
+  ok         and the 'in use' sentence is still taken back
+  ok       🔴 a teardown with something to remove is still rc 0
+  ok         and still ends on 'clean'
+  ok         🔴 it names what it was about
+  ok         naming the manifest the sweep is going to remove
+  ok       🔴 a subject the sweep removes still counts as one
+  ok       🔴 an empty lab with a non-zero stack.sh half is 1, not 3
+  ok         and the verdict line is not the empty one
+  ok       🔴 a foreign claim refuses the teardown with 5
+  ok         and --force is still the way past it
+  ok         🔴 and nothing was swept
+  ok       🔴 a DECLARED measurement refuses with 5
+  ok         quoting the declaration it is protecting
+  ok       🔴 a measurement in flight refuses with 5
+  ok         naming what is running
+  ok         --force still tears down over a foreign claim
+  ok         an unknown option is still 2, not 5
+
+23. FIX-NDT-8 / Adam Q3: [3/3] says it ran the Mininet sweep for you
+  ok       🔴 [3/3] says it ran the Mininet sweep
+  ok         naming the verb that does it
+  ok         and why the [1/3] advice is filtered
+  ok       🔴 stack.sh's hand-typed advice is still filtered out
+  ok         while [3/3] still says what it did
+  ok         it is said even when the sweep did not finish
+  ok         which is still a failed teardown
+  ok         and the failure still has its own line
+
+24. FIX-NDT-8 / Adam 11:23: the OVS bring-up prints the way IN, like the P4 one
+  ok       🔴 the OVS line carries the Mininet CLI command
+  ok         with the kernel's port
+  ok         and Ryu's, which is the OVS plane's control plane
+  ok         🔴 and NOT a proxy, which the OVS plane does not have
+  ok         the P4 line is unchanged, whole
+  ok       🔴 that command is what ndtwin-lab itself prints, at all three launch verbs
+  ok         up_ovs calls it
+  ok         and up_p4 calls it
+  ok         🔴 and each call sits under 'up. ready'
+
+424 passed, 0 failed
+RC=0
+2026-09-12T21:03:23+08:00

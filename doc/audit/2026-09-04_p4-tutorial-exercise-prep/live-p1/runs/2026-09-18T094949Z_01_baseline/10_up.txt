@@ -1,0 +1,30 @@
+ndt up p4
+  hosts        4        (p4_proxy/mininet/host_count_override)
+  topology     setting/StaticNetworkTopologyP4_10Switches_4Hosts.json
+  app package  none (baseline fabric)
+  bmv2         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate  1/256     (compiled into ndtwin_switch.json)
+
+  recorded this target in .test_run/up.target -- 'ndt status --check' compares against it
+  claim note now says the lab is in use (owner and expiry unchanged)
+[1/3] bmv2 fabric
+      topo session started from /home/adam/Desktop/NDTwin-Kernel (attach: sudo tmux -L ndtwinlab attach -t topo)
+  waiting for 10 switches and the manifest
+  ok  10 switches up after 4s, manifest written
+  ok  running binary: /usr/local/bmv2-fast/bin/simple_switch_grpc
+[2/3] proxy + kernel
+  stack.sh prompt is answered immediately: the fabric is already up
+        started p4_proxy (pid 1163118) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+        waiting for P4 proxy agent on :8081 . up
+        waiting for link discovery: want 12 destination paths
+          paths=0              paths=12                                                        converged after 5s
+        started kernel (pid 1163293) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+        waiting for kernel API on :8000 . up
+[3/3] verify
+  ok  proxy: 12/12 destination paths (stable)
+  ok  kernel: 10 switches, 10 up, 40 edges, 4 hosts
+  ok  model matches fabric: 4 hosts (kernel graph, topology file and 4 host namespaces all agree)
+  ok  data plane: h1 -> 10.0.0.2 forwards
+
+up. ready
+  proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo

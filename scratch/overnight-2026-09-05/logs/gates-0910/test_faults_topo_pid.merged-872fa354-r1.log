@@ -1,0 +1,75 @@
+topo_pid (the value that gets handed to 'mnexec -a')
+  ok       nothing running -> rc 1
+  ok         and it prints nothing
+  ok       one topology -> rc 0
+  ok         and it is the right pid
+  ok       a log file named after it is not it
+  ok         still rc 0
+  ok       two topologies -> refuses, rc 1
+  ok         and prints no pid at all
+  ok         and says why
+a name-based lookup is caught however it is spelled
+  ok       control: pgrep -f in a substitution
+  ok       (3)b --full instead of -f
+  ok       (3)c two spaces before -f
+  ok       (3)d pkill instead of pgrep
+  ok       -x is still by name
+  ok       killall
+  ok       pidof
+  ok       ps read for a name, not for a pid
+and so is the advice, whoever prints it
+  ok       control: printed by echo
+  ok       (3)e printed by warn, not err
+quoting the forbidden form is not doing it
+  ok       a comment is not an executable line
+  ok         nor something it prints
+  ok       a single-quoted anchor is data
+  ok       a heredoc body belongs to its own file
+  ok       ps read for a pid is not by name
+python: a name-based lookup is a spawner's argument, however it is spelled
+  ok       os.system with the shell one-liner
+  ok       an argv list, with no shell at all
+  ok       check_output, shell=True
+  ok       an f-string handed to os.system
+  ok       an f-string through a Mininet node
+  ok       python: ps read for a name
+python: and so is the advice
+  ok       printed at the operator
+  ok       raised as the way to clean up
+python: quoting the forbidden form is not doing it
+  ok       a python comment is not executable
+  ok         nor a python string it prints
+  ok       a docstring is prose
+  ok       a string used as a block comment
+  ok       signalling a pid is not by name
+  ok       a variable merely NAMED after it
+  ok         and it is not advice either
+  ok       unparseable python is NOT CHECKED
+  ok         and it says so rather than nothing
+the advice strings no longer teach pgrep -f
+  ok       no pgrep -f on an executable line
+  ok       no pgrep -f inside anything it prints
+the replacements for the two name-based lookups (#16)
+  ok       two host/switch shells are counted
+  ok         an empty process table counts zero
+  ok       🔴 no kernel pidfile at all -> 2, CANNOT TELL (a hand-started kernel records none)
+  ok       🔴 a recorded pid that is gone -> 1, stale (that IS a record)
+  ok         a recorded pid that is alive but does not hold the log -> 1
+  ok       🔴 the pid holding the log is found through the child pidfile -> 0
+  ok         and the reason is named, not left to the caller to guess
+the whole scan surface, not one hard-coded path
+  ok       no unregistered name-based site
+  ok         and it looked at more than one file
+  ok         and python is in the surface
+           | tests/python/test_chaos_opt_in_all_actions.py:129: TEACHES pgrep    pgrep
+           | doc/audit/2026-08-28_chaos-harness/harness/antioracle.py:149: TEACHES pkill    sudo prompts, mn -c killing the caller, pkill -f matching the wrapper
+           | doc/audit/2026-08-28_chaos-harness/harness/probes.py:461: RUNS    pgrep    pgrep
+           | doc/audit/2026-08-28_chaos-harness/harness/probes.py:463: TEACHES pgrep    pgrep failed unexpectedly rc=
+           | doc/audit/2026-08-28_chaos-harness/harness/probes.py:544: RUNS    pgrep    pgrep
+           | doc/audit/2026-08-28_chaos-harness/harness/probes.py:546: TEACHES pgrep    pgrep rc=
+           | doc/audit/2026-08-28_chaos-harness/harness/test_probes.py:118: TEACHES pgrep    pgrep
+           | check_process_by_name: 269 file(s) scanned, 7 site(s), 5 registered, 0 new, 0 stale
+the suite reaps its own fixtures
+  ok       no fixture survives this run
+
+Ran 54 checks, all passed (0 skipped)

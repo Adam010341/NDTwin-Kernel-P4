@@ -1,0 +1,39 @@
+interpreter: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-entries-0918/p4_proxy/venv/bin/python
+baseline (must be green before any mutation):
+Ran 368 tests in 0.484s
+OK
+
+  caught   M-B1: a priority no table column can honour is accepted instead of refused (test_a_priority_on_a_table_with_no_priority_column_is_refused went red)
+  caught   M-B2: an unknown table name resolves to some other table and the Write goes out (test_an_unknown_table_reaches_no_switch went red)
+  caught   M-B3: every lpm entry is a /32, so a subnet route blackholes all but one address (test_the_prefix_length_is_not_pinned_to_the_field_width went red)
+  caught   M-B4: a default action is written as an ordinary entry with no key       (test_a_default_action_is_marked_as_one_and_carries_no_match went red)
+  caught   M-B5: a value wider than its field is truncated rather than refused      (test_a_value_wider_than_its_field_is_refused_rather_than_truncated went red)
+  caught   M-B6: a ternary match is built as something else instead of answering 501 (test_a_ternary_match_is_501_and_names_the_match_type went red)
+  caught   M-B16: a MAC goes onto the wire byte-reversed, and bmv2 takes it         (test_a_mac_string_is_six_raw_bytes_in_the_order_it_was_written went red)
+  caught   M-B25: a RANGE match is built instead of refused -- [lo, hi] becomes a prefix length (test_a_range_field_is_unsupported_and_says_RANGE went red)
+  caught   M-B21: an alias is no longer a table name, so a tutorials-shaped entry is a 404 (test_the_names_may_be_aliases_because_the_tutorials_helper_accepts_both went red)
+  caught   M-B24: a default action is INSERTed, which every target refuses          (test_a_default_action_insert_is_sent_as_a_modify_and_says_so went red)
+  caught   M-B19: the silent MODIFY fallback comes back, so an overwrite reports an insert (test_a_grpc_refusal_is_raised_and_not_retried_as_a_modify went red)
+  caught   M-B13: an external control plane's fabric takes the write and answers 200 (test_an_external_control_plane_is_409 went red)
+  caught   M-B7: switch_state stops saying what was written to each switch          (test_every_switch_reports_what_was_written_and_that_none_of_it_is_journaled went red)
+  caught   M-B14: switch_state claims these entries survive a proxy restart         (test_the_count_reaches_the_endpoint_report_not_just_the_response went red)
+  caught   M-B20: the response claims the entry survives a restart, next to a note saying it does not (test_every_success_says_the_entry_is_not_journaled_and_what_that_costs went red)
+  caught   M-B15: a rule POSTed by hand is never counted, so nothing says it will vanish (test_an_accepted_write_is_counted_where_switch_state_can_report_it went red)
+  caught   M-B17: switch_state stops saying which program each switch is running    (test_every_switch_says_which_pipeline_it_is_running_and_names_it went red)
+  caught   M-B18: every switch is called an NDTwin switch, so no branch below ever fires (test_a_package_naming_its_own_artefacts_does_not went red)
+  caught   M-B8: the exercise's entries are applied to NDTwin's own pipeline as well (test_under_ndtwins_own_pipeline_the_entries_stay_recorded_and_unapplied went red)
+  caught   M-B9: a clone session is programmed into a pipeline that never clones    (test_a_foreign_pipeline_gets_no_clone_session_and_no_sflow_registration went red)
+  caught   M-B10: LLDP, the watchdog and the routes are switched off, two without being named (test_a_foreign_pipeline_names_every_fabric_wide_step_it_switched_off went red)
+  caught   M-B28: a foreign switch says it skipped nothing, so its dead telemetry looks like a fault (test_a_foreign_switch_names_the_two_steps_it_does_not_get went red)
+  caught   M-B11: an entry the switch refused is counted as applied                 (test_one_refused_entry_does_not_cost_the_others went red)
+  caught   M-B12: readopt leaves the switch empty -- the push erased the package's entries (test_the_packages_entries_go_back_on_after_the_push_that_erased_them went red)
+  caught   M-B22: entries are written to a switch whose pipeline push failed        (test_a_switch_whose_pipeline_push_failed_gets_no_entries went red)
+  caught   M-B23: readopt hands a foreign switch the sFlow callback, so a clone session goes in (test_a_foreign_pipeline_gets_no_clone_session went red)
+  caught   M-B27: readopt reports a clone session on a switch that was given none   (test_it_does_not_claim_a_clone_session_it_never_programmed went red)
+  caught   M-B26: the refill runs anyway, putting NDTwin's routes in the exercise's own table (test_install_routes_false_attempts_not_one_write went red)
+  green    N1 (control): a comment-only edit beside the writer                      (the whole suite stays green)
+  green    N2 (control): a comment-only edit inside the entry-applying loop         (the whole suite stays green)
+  green    N3 (control): the same default written the long way                      (the whole suite stays green)
+
+baseline byte-identical: yes (4 sources, 6 test files)
+mutation gate: 28 mutations, 0 survived

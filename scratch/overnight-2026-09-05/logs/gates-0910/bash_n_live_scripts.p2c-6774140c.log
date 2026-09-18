@@ -1,0 +1,7 @@
+bash -n doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/02_app_basic.sh -> OK
+bash -n doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/02b_app_basic_ndtwin_pipeline.sh -> OK
+bash -n doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/_common.sh -> OK
+bash -n tests/shell/mutate_drive_exercise.sh -> OK
+bash -n tools/test_workflow/ndt -> OK
+
+shellcheck: NOT INSTALLED on this machine -- bash -n is all there is here

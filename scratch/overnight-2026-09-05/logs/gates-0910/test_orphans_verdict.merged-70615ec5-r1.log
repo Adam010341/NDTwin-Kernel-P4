@@ -1,0 +1,233 @@
+2026-09-12T21:02:57+08:00
+
+GREEN -- a clean fabric
+  ok         rc 0
+  ok         VERDICT: CLEAN
+  ok         processes=clean
+  ok         network=0/0/0
+  ok         not_answerable=0
+  ok         and nothing to NOTE
+
+RED 1 -- the process half says an untracked process is running
+  ok         rc 1
+  ok         processes=running
+  ok         VERDICT: NOT CLEAN
+  ok         and names the remedy
+
+RED 2 -- the tally says a dated rule sits in a window
+  ok         rc 1
+  ok         network=1/0/0
+  ok         VERDICT: NOT CLEAN
+  ok         and says which
+
+🔴 CONTROL -- 1 question(s) not answerable, rc 5, everything else clean
+  ok         🔴 rc 0 -- the case this reader exists for
+  ok         VERDICT: CLEAN
+  ok         processes=clean
+  ok         network=0/0/0
+  ok         not_answerable=1
+  ok         the NOTE is printed, not swallowed
+  ok         and says it is a NOTE and not a FAIL
+  ok         ndt's own rc is recorded
+  ok         the tool's own sentence is quoted
+  ok         and so is the app nobody can ask about
+
+🔴 RC_IS_NOT_CONSULTED -- the discriminating control
+  ok         the same report with rc 5 and rc 0 gives the same verdict
+  ok         🔴 a dated rule is NOT CLEAN even when ndt returned 0
+  ok         and no rc at all is fine -- the report is the input
+  ok         with no ndt_rc line to invent
+
+A held lock is residue -- rc 4's other half
+  ok         rc 1
+  ok         network=0/1/0
+  ok         and says a lock heals at its TTL
+
+A blind liveness channel is NOT a pass (E-7)
+  ok         rc 1
+  ok         processes=unknown
+  ok         and the verdict says which of the two it was
+  ok         🔴 and it is not reported as a running orphan
+
+Undated rules are a NOTE -- every P4 fabric, every run (W16-3)
+  ok         🔴 rc 0 -- a P4 fabric must be able to pass
+  ok         network=0/0/40
+  ok         and the 40 are noted
+  ok         with ndt's sentence for why
+
+🔴 KERNEL DOWN 1/3 -- after 'ndt down' the network half cannot be checked, and says so
+  ok         🔴 rc 0 -- the process half was read and it was clean
+  ok         VERDICT: CLEAN
+  ok         processes=clean
+  ok         🔴 the NOTE this cell exists for
+  ok         network=n/a -- named as missing
+  ok         not_answerable=n/a -- likewise
+  ok         🔴 and NOT counted as zero
+  ok         🔴 nor is not_answerable
+  ok         ndt's own sentence is quoted
+  ok         and so is its 'nobody asked'
+  ok         ndt's rc is recorded, not consulted
+  ok         🔴 and it is not UNUSABLE
+  ok         🔴 split as the probes split it, neither half reads as 0
+
+🔴 KERNEL DOWN 2/3 -- the half that COULD be read still decides
+  ok         🔴 rc 1 -- a kernel-down NOTE does not excuse a running orphan
+  ok         processes=running
+  ok         VERDICT: NOT CLEAN
+  ok         and names the remedy
+  ok         the kernel-down NOTE is still printed
+  ok         🔴 and never says CLEAN
+
+🔴 KERNEL DOWN 3/3 -- the OTHER two causes of a missing tally are still UNUSABLE
+  ok         🔴 rc 2 -- nothing in the report says why the tally is missing
+  ok         and says so
+  ok         🔴 and never says CLEAN
+  ok         🔴 and does not invent a kernel-down NOTE
+  ok         🔴 rc 2 -- a real one-line report from an older ndt
+  ok         processes=clean is still reported
+  ok         🔴 but the verdict is not CLEAN
+  ok         🔴 and a kernel-down NOTE is not invented from a missing tally
+  ok         and it names what is missing
+
+🔴 ALL-BLIND 1/4 -- kernel UP, a tally, and not one network question answered
+  ok         🔴 rc 3 -- zeros nobody could measure are not a clean network
+  ok         VERDICT: NOT CHECKED
+  ok         🔴 and NOT the token CLEAN -- a grep gate must not pass it
+  ok         🔴 nor NOT CLEAN -- nothing was found, so nothing is to be deleted
+  ok         processes=clean is still reported
+  ok         and it says what the zeros mean
+  ok         and names the remedy: ask again
+  ok         ndt's own sentence is quoted
+  ok         ndt's rc is recorded, not consulted
+
+🔴 ALL-BLIND 2/4 -- one answer out of three is still CLEAN, with the NOTE
+  ok         🔴 rc 0 -- partial blindness is this lab's normal state
+  ok         VERDICT: CLEAN
+  ok         with the NOTE, not swallowed
+  ok         🔴 and never NOT CHECKED
+  ok         🔴 the live CONTROL is untouched by the floor
+  ok         and still not NOT CHECKED
+  ok         and a wholly answered clean fabric is still rc 0
+  ok         with no floor NOTE invented for it
+  ok         🔴 and a P4 fabric (40 undated, 0 unanswerable) can still pass
+
+🔴 ALL-BLIND 3/4 -- the discriminator reads the LINE, not the word 'free'
+  ok         🔴 rc 3 -- an error message containing 'free' is not a lock that was read
+  ok         VERDICT: NOT CHECKED
+  ok         🔴 and never CLEAN
+
+🔴 ALL-BLIND 4/4 -- the asymmetry with kernel-down is deliberate
+  ok         🔴 kernel down  -> rc 0
+  ok         🔴 and Adam's 09-10 wording is unchanged
+  ok         🔴 kernel up, all probes blind -> rc 3
+  ok         🔴 the two verdicts are not the same line
+  ok         one window read, three locks blind -> rc 0 (§7-1 is open)
+  ok         with the NOTE
+
+🔴 H2 1/3 -- a stack the report calls HALF is not a clean lab
+  ok         🔴 rc 1 -- a kernel with no fabric is not clean
+  ok         VERDICT: NOT CLEAN
+  ok         🔴 and never CLEAN
+  ok         the field is reported
+  ok         and the reason says which way round
+  ok         and names the remedy
+  ok         processes=clean is still reported
+  ok         and the network half still is too
+  ok         🔴 rc 1 -- a fabric with no kernel is not clean either
+  ok         VERDICT: NOT CLEAN
+  ok         🔴 and the kernel-down CLEAN does not cover it
+  ok         network=n/a is still named as missing
+  ok         and the kernel-down NOTE is still printed
+
+🔴 H2 2/3 -- whole-up and whole-down are both CLEAN
+  ok         🔴 rc 0 -- a healthy fabric is not residue
+  ok         VERDICT: CLEAN
+  ok         and the field says so
+  ok         🔴 with no HALF reason invented
+  ok         rc 0 -- and so is a finished round
+  ok         VERDICT: CLEAN
+  ok         Adam's 09-10 wording is intact
+  ok         and the field says so
+
+🔴 H2 3/3 -- a report that says nothing about the stack changes nothing
+  ok         rc 0 -- an older report is unaffected
+  ok         🔴 and the missing half is NAMED
+  ok         not counted as whole-down
+  ok         and so is the kernel-down fixture
+  ok         still Adam's 09-10 verdict
+  ok         with the stack half named as unreported
+  ok         a running orphan is still rc 1 with no stack line
+  ok         and the all-blind floor still answers 3
+
+🔴 C10-8 -- another checkout's processes are a NOTE, and ours are still a FAIL
+  ok         another tree's processes -> rc 0
+  ok         🔴 and the verdict is CLEAN
+  ok         the count is carried as a field
+  ok         and as a NOTE, so CLEAN is not read as 'nothing was there'
+  ok         🔴 ours in the same report -> rc 1
+  ok         NOT CLEAN, from the process half
+  ok         and theirs is still counted in the field
+  ok         🔴 a report with no such line gets no field
+  ok         a pid nobody could attribute -> still rc 0
+  ok         🔴 and the sentence is carried (E-7)
+
+An unreadable report is UNUSABLE, never CLEAN
+  ok         no tally line -> rc 2
+  ok         and says so
+  ok         🔴 and never says CLEAN
+  ok         no process half -> rc 2
+  ok         and names the cause (stderr was not captured)
+  ok         a missing file -> rc 2
+  ok         an empty report -> rc 2
+
+G-55 -- a report taken over an EMPTY flow table is quoted, and is still CLEAN
+  ok         an empty table is still rc 0
+  ok         and still CLEAN
+  ok       🔴 but the sentence is carried into the report
+  ok         with what it means for the window
+  ok         and the network half still reads 0/0/0
+  ok       🔴 and a report with no such line gets no NOTE
+
+🔴 the synthetic fixtures are QUOTATIONS, and this is what keeps them true
+  ok       every exempted fixture still exists
+  ok       fixture sentence is still ndt's (all_blind): NOT CHECKED: the rules-in-window question coul
+  ok       fixture sentence is still ndt's (all_blind): rules-in-window (nothing below is deleted)
+  ok       🔴 no fixture quotes a sentence ndt no longer prints
+  ok       ndt still says: no untracked app processes
+  ok       ndt still says: ...are running with nothing tracking them
+  ok       ndt still says: pidfile-lost-but-alive
+  ok       ndt still says: ...but a channel was blind
+  ok       ndt still prints the tally's first field
+  ok       ndt still prints the tally's lock field
+  ok       ndt still prints the tally's undated field
+  ok       ndt still prints the tally's unanswerable field
+  ok       ndt still says: no flow entry arrived...
+  ok       ndt still says: N rule(s) listed:
+  ok       ndt still says: the kernel is not up (:8000 closed)
+  ok       ndt still says: NOT CHECKED -- :8000 is closed
+  ok       ndt still says: CANNOT WINDOW
+  ok       ndt still explains WHY a P4 table cannot be windowed
+  ok       ndt still says: NOT CHECKED (<the kernel's own words>)
+  ok       ndt still says: ...could not be asked whether they ran here at all
+  ok       ndt still says: the window is LOST
+  ok       ndt still prints a stack: line with a verdict
+  ok       ndt still says: HALF A STACK
+  ok       ndt still says: seen elsewhere (not this checkout)
+  ok       ndt still says: flow table read empty (G-55)
+  ok       🔴 the HALF sentence was found in ndt to check against
+  ok       🔴 half_kernel_only quotes the WHOLE HALF sentence
+  ok       🔴 half_fabric_only quotes the WHOLE HALF sentence
+  ok         half_kernel_only uses warn()'s own indentation
+  ok         half_fabric_only uses warn()'s own indentation
+  ok       the control: a sentence ndt does not print is reported missing
+
+Plumbing: stdin, and a report captured with colours on
+  ok         '-' reads the report from stdin
+  ok         and answers the same
+  ok         SGR sequences do not hide the tally
+  ok         network=0/0/0
+
+-----------------------------------------------------------
+181 passed, 0 failed
+RC=0
+2026-09-12T21:02:58+08:00

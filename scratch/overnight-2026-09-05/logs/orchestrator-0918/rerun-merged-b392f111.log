@@ -1,0 +1,23 @@
+### tree
+b392f11188a18e7cbd181d5ad2f491a0998ac612
+ M p4_proxy/mininet/host_count_override
+(status above for gated paths; empty = clean)
+### mutate_app_package.sh
+rc=0
+
+baseline byte-identical: yes (10 sources, 7 test files)
+mutation gate: 47 mutations, 0 survived
+### mutate_p4_exercise_tools.sh
+rc=0
+(regression guards; they discriminate nothing about the sixteen behaviours above)
+
+16 mutations, 0 survived
+### p4_proxy tests
+files=30 tests_ran=924 failing_files=0
+### tools tests
+Ran 106 tests in 0.543s
+
+OK
+### topo script
+PASS -- derived wiring is identical to the hard-coded lists
+### done 08:01:46

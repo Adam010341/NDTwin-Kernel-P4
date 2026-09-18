@@ -1,0 +1,31 @@
+baseline (must be green before any mutation):
+  Ran 169 checks, 0 failed
+
+  caught   M1: a FAILED pre-flight is built anyway                  (🔴 the knob was NOT written went red)
+  caught   M2 (widening): the splitter rule is applied to packages  (🔴 a three-host package is built, not refused went red)
+  caught   M3: a baseline 'ndt up p4' keeps somebody's package      (🔴 'ndt up p4 4' with no --app clears it went red)
+  caught   M4: the teardown side leaves the knob behind             (🔴 'ndt down' clears it went red)
+  caught   M5: the bring-up stops calling sudo (the instrument)     (🔴 and the machine WAS reached -- the instrument can read non-zero went red)
+  caught   M6: the switch count stays at the literal 10             (  the switch count came from the model too went red)
+  caught   M7: the hardcoded ping pair comes back                   (ndtwin mode pings the pair the model names went red)
+  caught   M8: external mode is judged by NDTwin's own routes       (🔴 and NAMES the path count as not checked went red)
+  caught   M9 (widening): rollback clears any knob it finds         (🔴 but NOT one this run did not write went red)
+  caught   M10: NDT_TOPO may disagree with the package              (🔴 NDT_TOPO naming another model is refused went red)
+  caught   M11: a missing package directory is no longer a problem  (  and --check has a problem to exit 1 on went red)
+  caught   M12: 'ndt up ovs 4' keeps somebody's package             (🔴 'ndt up ovs 4' clears it as well went red)
+  caught   M13: an empty --app value silently means baseline        (🔴 --app= with an empty value is a usage error went red)
+  caught   M14: the proxy's own last words are not printed          (🔴 the PROXY's own last words are printed went red)
+  caught   M15: the bridge's own last words are not printed         (🔴 the BRIDGE's own last words are printed went red)
+  caught   M16: the cause is printed underneath the rollback        (🔴 the cause is printed ABOVE the rollback went red)
+  caught   M17: a refused topo-start says nothing about the bridge  (🔴 the topology log is printed here too went red)
+  caught   M18: the switch count comes off the global ten again     (🔴 a 4-switch package makes the want 4, not 10 went red)
+  caught   M19: a package pipeline is given the built json's rate   (🔴 a package pipeline has no rate here went red)
+  caught   M20: a foreign pipeline is judged stale after all        (🔴 a foreign pipeline is never stale went red)
+  caught   M21: an unparsable package reads as NDTwin's own pipeline (🔴 a package that will not load is 'unreadable', NOT 'ndtwin' went red)
+  caught   M22: per-switch pipelines are not consulted at all       (🔴 one switch on somebody else's program names the dpid went red)
+  caught   M23: a foreign pipeline raises the built json's rate problems (🔴 a foreign pipeline raises none of the rate problems went red)
+  control  C1: app_knob_clear's early return, written the long way  (stayed green, as it must)
+  control  C2: --app=<dir> stripped by offset instead of prefix     (stayed green, as it must)
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 9aeccca2c54f7e3f7705b99a8ea2a2d63edf55376e6a70787f26aaca7678bcb9
+mutation gate: 23 mutations, 0 survived; 2 control(s), 0 went red

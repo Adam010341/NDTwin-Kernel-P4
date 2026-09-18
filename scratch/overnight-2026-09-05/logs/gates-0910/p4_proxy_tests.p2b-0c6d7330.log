@@ -1,0 +1,35 @@
+# p4_proxy/tests, every file, at 0c6d7330
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-entries-0918/p4_proxy/venv/bin/python
+tests/test_app_package_proxy.py               rc=0  Ran 35   OK
+tests/test_app_package.py                     rc=0  Ran 92   OK
+tests/test_bmv2_binary_override.py            rc=0  Ran 13   OK
+tests/test_clone_session.py                   rc=0  Ran 23   OK
+tests/test_delete_restores_route.py           rc=0  Ran 6    OK
+tests/test_fabric_bring_up.py                 rc=0  Ran 52   OK
+tests/test_five_tuple_match.py                rc=0  Ran 31   OK
+tests/test_flowentry_endpoints.py             rc=0  Ran 27   OK
+tests/test_flow_stats_route.py                rc=0  Ran 9    OK
+tests/test_foreign_pipeline.py                rc=0  Ran 14   OK
+tests/test_journal_is_wired_in_main.py        rc=0  Ran 12   OK
+tests/test_journal_wiring.py                  rc=0  Ran 14   OK
+tests/test_kernel_notifier.py                 rc=0  Ran 21   OK
+tests/test_link_watchdog.py                   rc=0  Ran 74   OK
+tests/test_lldp_beacon.py                     rc=0  Ran 16   OK
+tests/test_p4_client.py                       rc=0  Ran 1    OK (skipped=1)
+tests/test_p4_client_writes.py                rc=0  Ran 147  OK
+tests/test_path_determinism.py                rc=0  Ran 10   OK
+tests/test_port_guard.py                      rc=0  Ran 3    OK
+tests/test_readopt.py                         rc=0  Ran 102  OK
+tests/test_rule_install_times.py              rc=0  Ran 42   OK
+tests/test_rule_journal.py                    rc=0  Ran 19   OK
+tests/test_ryu_flow_stats.py                  rc=0  Ran 35   OK
+tests/test_ryu_topology.py                    rc=0  Ran 32   OK
+tests/test_sflow_emitter.py                   rc=0  Ran 49   OK
+tests/test_startup.py                         rc=0  Ran 44   OK
+tests/test_switch_state.py                    rc=0  Ran 31   OK
+tests/test_table_entry_route.py               rc=0  Ran 26   OK
+tests/test_table_generation.py                rc=0  Ran 11   OK
+tests/test_topo_log.py                        rc=0  Ran 24   OK
+tests/test_topology_properties.py             rc=0  Ran 1    OK
+tests/test_unsupported_match.py               rc=0  Ran 49   OK
+files=32 failing: 0 ; total tests: 1065

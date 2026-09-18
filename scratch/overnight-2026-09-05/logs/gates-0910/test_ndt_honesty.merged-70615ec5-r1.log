@@ -1,0 +1,454 @@
+2026-09-12T21:02:58+08:00
+
+1A. I-1: after a 'down', --check says what was cleared -- not that nothing ever ran
+  ok       🔴 the record line names the clearing, and when
+  ok         and where the history is
+  ok       🔴 the sentence that was false is gone
+  ok         the run it names is reported as history, not as a baseline
+  ok       rc is still 3 -- not 0 and not 1
+  ok         COULD NOT CHECK is still said
+  ok         and it is still never 'ok'
+  ok         finding #79's per-checkout note is still there
+  ok         it still says where the record would be
+
+1B. I-1: and the plane does not change to P4
+  ok       🔴 topology says unknown and names the plane that ran
+  ok       🔴 no P4 model file is printed -- that path was the carrier
+  ok         and the host count is not presented as the fabric's
+  ok         the P4 knob is still shown, named for what it decides
+  ok         and the hosts row says it does not know
+
+1C. 🔴 the other direction: with no kernel.exit it must not invent a teardown
+  ok       🔴 no 'cleared by ndt down' without a record of one
+  ok         it says the checkout cannot tell
+  ok         rc is still 3
+  ok         and the topology row says the same
+  ok         it does not name a plane it was never told
+
+1D. 🔴 the plane is read, not assumed: a P4 exit record reads back as p4
+  ok       'last kernel.exit ran p4' after a P4 run
+  ok         and not ovs
+  ok         --check names the same plane
+
+1E. 🔴 it does not answer 'unknown' to everything -- 1A-1D would pass if it did
+  ok       with a record, hosts is what 'up' asked for
+  ok         and topology is the model that was loaded
+  ok         nothing says 'no up.target'
+  ok         and --check checks: rc 0, not 3
+  ok         it reports a real comparison
+  ok         and says nothing about a clearing
+
+1F. an exit record naming no model is not turned into a plane
+  ok       it says the command names no model it can classify
+  ok         rather than picking one
+
+2A. I-4: the note can be corrected without moving the lease
+  ok       set_claim_note succeeds on our own live claim
+  ok         the note is the new one
+  ok       🔴 expires is byte-identical -- not pushed out
+  ok         owner is untouched
+  ok         and so is exclusive_cpu
+
+2B. 🔴 a session that does not hold the lab must not narrate it
+  ok       someone else's claim is refused
+  ok         and the note is unchanged
+  ok       an expired claim is refused
+  ok         and the note is unchanged
+  ok       no claim at all is refused
+  ok         and no claim file is invented
+
+2C. 🔴 the wiring: 'ndt up ovs4' really rewrites the note
+  ok       the note says the lab is in use
+  ok         and names who is using it
+  ok       🔴 the 'lab free' sentence is gone
+  ok       🔴 and the lease did not move
+
+2D. and 'ndt up p4' does too -- one builder wired is not both
+  ok       the note names the P4 target
+  ok         and not the OVS one
+
+2E. 🔴 and 'ndt down' takes it back -- a stale 'in use' is the same defect, flipped
+  ok       the note says the lab came down
+  ok         and that the claim was kept, not released
+  ok       🔴 it no longer says the lab is in use
+  ok         the lease still did not move
+  ok       🔴 a teardown that did not verify says so
+
+3G. O-4: teardown asserts, and asserting is not deleting
+  ok       the assertion itself judged nothing on this fixture
+  ok       🔴 every rotated generation is still there
+  ok       🔴 and so is the live log
+  ok       🔴 and a .prev from the old scheme
+
+4A. R4-2: it refuses on a DECLARED measurement -- the guard still guards
+  ok       a declared measurement is refused, rc 1
+  ok         and the declaration is quoted back
+  ok         named as a declaration, not as a guess
+  ok       🔴 it stopped before sampling anything
+  ok         --force still gets past it
+
+4B. 🔴 R4-2 itself: traffic alone no longer refuses -- traffic is the precondition
+  ok       🔴 iperf3 clients with nothing declared: rc 0
+  ok       🔴 and it actually samples
+  ok         nothing is refused
+  ok         the traffic is still shown, as the precondition
+  ok         and it says how to make it a protected measurement
+
+4C. the declaration is written by 'ndt claim', and expires with it
+  ok       NDT_MEASURING lands in the claim file
+  ok         beside the note it was given
+  ok         and is empty when nothing was declared
+  ok       🔴 an expired claim declares nothing
+  ok         and a live one declares what it says
+  ok       🔴 rewriting the note does not drop the declaration
+
+4D. 🔴 in_flight is not weakened: 'ndt status' still renders the process table
+  ok       the declared measurement gets its own row
+  ok         naming what it is
+  ok       🔴 and the OBSERVED processes are still printed
+  ok       🔴 with the process line I-4 was caught by
+  ok       🔴 undeclared traffic is still reported by status
+  ok         and no empty 'declared' row is printed
+
+4E. R4-5: the verdict says how big the gap is, and what 'ok' does not mean
+  ok       verdict_lines was found and ran
+  ok       R4-5's own numbers: the ratio is printed as a value
+  ok         with both sides of it
+  ok       🔴 and the size of the gap in words
+  ok       🔴 saying what ok does not mean
+  ok       🔴 the band did not move: 0.85 is still ok
+  ok         and 0.6 is still ok too
+  ok         the +/-50% band is named
+  ok       🔴 a doubling is still called out
+  ok         and named as outside the band
+  ok         over-reporting is not called under-reporting
+  ok       verdict_lines is called exactly once from the block
+  ok       🔴 and the window shape really reaches it
+  ok         and the lines it returns exist nowhere else
+
+4F. 🔴 #17: a ratio over the band is not self-evidently a stack of clone replicas
+  ok       verdict_lines still extracts and runs
+  ok       🔴 ROLE-5's 1.60 is still over the band
+  ok       🔴 but it does NOT name clone replicas as the finding
+  ok       🔴 it names the twin lagging the truth as a cause
+  ok         and stacking as the other one
+  ok       🔴 with the evidence that separates them
+  ok         the ground truth range inside the window
+  ok         and where that reading came from
+  ok       🔴 a constant factor over a steady truth IS the stack shape
+  ok         and it says so
+  ok         and does not call the lag the leading cause
+  ok         while still saying what the lag would have looked like
+  ok       🔴 no shape: the two causes are printed side by side
+  ok         saying the window could not tell them apart
+  ok       control: 1.00 is still ok
+  ok         and prints no cause discussion
+
+4G. 🔴 #17: the verdict reaches the exit code
+  ok       🔴 a DOUBLE-COUNTING verdict reaches the caller as rc 4
+  ok         and the rc says where to read the finding
+  ok         while the rate context still prints under it
+  ok       🔴 it is not reported as the check failing to run
+  ok         an ok verdict is still rc 0
+  ok         and 'could not read the twin' is rc 1
+  ok       🔴 the block exits 4 when the ratio is over the band
+
+1G. F10: the DEFAULT round's model is a Mininet_* file, and it reads as ovs
+  ok         🔴 a Mininet_* model reads as ovs
+  ok         the OVS_* control still reads as ovs
+  ok         🔴 and P4 is NOT swallowed by the new pattern
+  ok         🔴 a physical-mode command is still rc 1
+  ok         and no record at all is still rc 1
+
+5A. F12: help no longer claims what check_up_target deliberately stopped claiming
+  ok         ndt help runs offline and exits 2
+  ok         and it is the help
+  ok         🔴 the sentence W12 removed from the output is gone from the help too
+  ok         🔴 and from the file in that spelling -- the help was its last home
+  ok         rc 3 is explained by the baseline, not by history
+  ok         and it names 'absent' as one cause
+  ok         🔴 and 'unreadable' as the other -- rc 3 has two return sites
+  ok         and says an ordinary up->down clears it
+  ok         3 is still never 'checked and matched'
+  ok         and it says what 3 is NOT
+  ok         and points at the file the report reads instead
+
+5B. B10: help scopes the host_count_override claim to what the code enforces
+  ok         🔴 the blanket 'cannot be made' claim is gone
+  ok         the claim that survives is scoped to P4
+  ok         and to the failure mode it really covers
+  ok         🔴 the two-checkout form is named as refused
+  ok         and by what
+  ok         🔴 and what the knob does NOT prevent is said
+  ok         with the 09-05 counter-example
+  ok         and 'ndt up p4 N' named as the other writer
+  ok         OVS is excluded, because it has no such knob
+  ok         the refusal the help points at is called from 'ndt up'
+
+5C. F2/F4: the help's two rc tables stop saying things the code does not do
+  ok         🔴 rc 1 is scoped to 'while there is a baseline'
+  ok         and says what happens without one
+  ok         naming where they are printed instead
+  ok         and that 'ndt down' puts you there
+  ok         with what to read instead
+  ok         🔴 the rc table says it is not disjoint
+  ok         naming which answer wins
+  ok         and why 2 is the ordinary answer here
+  ok         🔴 and that 4 can be true and unreachable
+  ok         with the sentence the tool prints when it is
+  ok         and the reader to use instead
+  ok         the no-baseline branch still returns 3
+  ok         and the process answer still wins in cmd_apps orphans
+
+5D. A1-b: 'down' has an rc table, and it names the red that comes from an earlier round
+  ok         🔴 down has an rc table at all
+  ok         naming the stack half as one cause of 1
+  ok         🔴 and that rc 1 can be an ENDING FROM AN EARLIER ROUND
+  ok         naming the signals that produce it
+  ok         and the file it is read out of
+  ok         🔴 and that it is delivered once, so the next down is green
+  ok         with the two statements kept apart
+  ok         the rc the table describes is really carried
+
+5E. A7: the help says what 'ndt check' rc 0 is worth when there was no traffic
+  ok         🔴 rc 0 is named as 'nothing was compared'
+  ok         with the floor that triggers it
+  ok         🔴 and that it is not the fabric being healthy
+  ok         it says what to read instead of the code
+  ok         and that 0 is a ruling, not an oversight
+  ok         attributed, so it can be revisited
+  ok         the floor the help names is the floor the code uses
+  ok         🔴 and that branch still reaches no sys.exit
+
+5F. ROLE-12: the 'down' rc table says a port held at [1/3] is not by itself a failure
+  ok         🔴 the paragraph says its claim in its own heading
+  ok         🔴 the table names the ordering that produces it
+  ok         and that it is the live fabric accusing itself
+  ok         with the measurement behind it
+  ok         🔴 and that those ports are RE-READ after the sweep
+  ok         naming both outcomes of that second reading
+  ok         🔴 and that the other two halves are unchanged
+  ok         attributed, so it can be revisited
+  ok         the re-read the table describes is really taken
+  ok         🔴 and it is pinned to stack.sh's return site, not to a word list
+
+5G. ROLE-12 cell 3: the help says 'clean' refuses while a teardown is running
+  ok         🔴 the refusal is documented at all
+  ok         and that it is rc 5, not a quiet skip
+  ok         naming what it would otherwise have listed
+  ok         🔴 and whose processes the old advice would have taken
+  ok         with the pid to wait for named in the block
+  ok         and a stale marker not refusing
+  ok         attributed, so it can be revisited
+  ok         the refusal the help describes is in cmd_clean
+  ok         🔴 and it is scoped to another process's marker
+
+5H. ROLE-11 F7 / FIX-DOC-1: the help's --deep line quotes ports.sh's table, not three ports
+  ok         🔴 --deep no longer names three ports
+  ok         it names the table instead
+  ok         🔴 with the size read out of the table
+  ok         and the specs themselves, ranges and all
+  ok         saying what it used to claim
+  ok         attributed
+  ok         the size in the help is computed, not typed
+  ok         and so is the list of specs
+
+5I. FIX-NDT-8: 'up' has an rc table, and it is the SAME three words as down and clean
+  ok         🔴 up has an rc table at all
+  ok         🔴 and 5 is named as a refusal that built nothing
+  ok         naming the four things that refuse
+  ok         including the teardown overlap
+  ok         🔴 and 1 is scoped to a reading, not to failure in general
+  ok         🔴 with the precedence when both are true
+  ok         and that the dirty reading is still printed
+  ok         🔴 and why 3 cannot appear under 'up'
+  ok         attributed, so it can be revisited
+  ok         the refusal code preflight answers with is really there
+  ok         🔴 and up_p4 passes it out instead of flattening it
+  ok         🔴 and up_ovs reads it BEFORE its own housekeeping
+
+5J. FIX-NDT-8: the 'clean' table carries rc 3, and says what 3 is not
+  ok         🔴 3 is in the clean table
+  ok         naming the three populations
+  ok         🔴 and 3 is not read as a clean bill
+  ok         with what it used to answer instead
+  ok         🔴 and why a teardown still says clean
+  ok         0 is scoped to having had a subject
+  ok         and 'could not read' is still not clean
+  ok         attributed, so it can be revisited
+  ok         the clean-table 3 is really returned
+  ok         🔴 and it is gated on the caller's subject
+  ok         🔴 and 'ndt down' supplies one it MEASURED
+
+5K. FIX-NDT-8: the 'down' table carries 3 and 5, so all three tables say one thing
+  ok         🔴 3 is in the down table
+  ok         naming when the reading is taken
+  ok         🔴 and that the steps ran anyway
+  ok         with the direction that would be worse
+  ok         🔴 and the two statements kept apart
+  ok         with the ROLE-12 reading behind it
+  ok         🔴 5 is in the table, for the four refusals
+  ok         naming the declared-measurement one
+  ok         🔴 and which of them --force answers
+  ok         the down-table 3 is really returned
+  ok         🔴 and it is decided by the subject, not by the sweep
+  ok         🔴 and the claim note has its own sentence for it
+
+5L. RESIDUE-1 §7-5: one word named two findings, and only one of them moved
+  ok       🔴 the --check row is named rules-in-window
+  ok         and is not called residue any more
+  ok         the help says which two things the word meant
+  ok         naming the process half by its printed line
+  ok       🔴 and 'clean' still calls a held port residue
+  ok         and the teardown refusal still does too
+  ok         all four --check row branches carry the new label
+  ok       🔴 and ports.sh still prints the process one
+
+F9. this suite reads its OWN tree, and not the main checkout
+  ok         lab_kernel_dir answers the fixture tree
+  ok         🔴 sim's evidence log is inside the fixture
+  ok         and so is an ordinary app's log
+  ok         🔴 and no reading of it names the main checkout
+  ok         energy still has no evidence log (rc 1)
+
+6A. a free lab: the claim is taken, and the five fields are in the documented order
+  ok       claim on a free lab succeeds
+  ok         and the file says we hold it
+  ok         the header's field order, in the header's order
+  ok         nothing was kept aside -- there was nothing to keep
+
+6B. 🔴 R7 I-2: the claim an overwrite replaces is kept as .prev
+  ok       an expired claim is claimable
+  ok       🔴 and the claim it replaced is still readable
+  ok         with the expires nothing else can reconstruct
+  ok         and its note
+
+6C. 🔴 the loser of the race: free before the lock, held inside it
+  ok       🔴 the loser is refused
+  ok         told it was beaten, not that the lab was busy
+  ok         and who took it
+  ok       🔴 and it did not write over them
+  ok         the reading was taken twice, not once
+
+6D. the ordinary refusal keeps the ordinary sentence
+  ok       a live foreign claim refuses
+  ok         and says it is already claimed
+  ok       🔴 not 'beaten to it' -- that points the reader at the wrong minute
+
+6E. 🔴 the lock is real: nothing is written while another writer holds it
+  ok       🔴 it gives up rather than writing
+  ok         and wrote nothing
+  ok         naming what it waited for
+
+6F. 🔴 the readback: the lock only reaches sessions that use this tool
+  ok       a claim that is not ours after the write is refused
+  ok         and says whose it is now
+  ok       🔴 and does not report success
+
+6G. three real claims in one instant: exactly one is told it won
+  ok       🔴 exactly one of the three is told it holds the lab
+  ok         and that one is the owner the file names
+
+6H. 🔴 'ndt release' keeps the claim it removed, as .prev
+  ok       release succeeds
+  ok         the live claim is gone
+  ok       🔴 and it was kept, not deleted
+  ok         with the expires nothing else can reconstruct
+  ok         and its note
+  ok         and release says where it went
+  ok       release --force succeeds
+  ok       🔴 and keeps the claim it overrode
+  ok       release with no claim says so
+  ok       🔴 and writes no .prev
+
+6I. 🔴 R7 I-2 condition 2: 'ndt status' says the claim changed hands
+  ok       a new owner claims an expired-or-free lab
+  ok         once it has lapsed, the next owner takes it
+  ok         and the replaced claim is kept
+  ok       🔴 status discloses the claim that was replaced
+  ok         naming who held it
+  ok         and the file a reader can check for themselves
+  ok       🔴 and that it CHANGED HANDS, with both names
+  ok         and when, from the record's own timestamp
+  ok       the same owner re-claiming is still disclosed
+  ok       🔴 but it is NOT called changed hands
+  ok         it is called a rewrite by the same owner
+  ok       no .prev -> no handover row at all
+
+6J. 🔴 one writer for the claim file, so the field order cannot be a function of who wrote
+  ok       🔴 exactly one place writes the five fields
+  ok       claim writes the header's order
+  ok         and a note rewrite keeps it
+  ok         the declaration survived both
+  ok         the re-claim succeeded
+  ok       🔴 .prev is byte-identical to the claim it replaced
+
+7A. 🔴 T2d: the owner's own teardown honours the declaration
+  ok       a declared measurement refuses the teardown, rc 5
+  ok         and the refusal reads the declaration back
+  ok         naming the field it came from
+  ok       🔴 and the teardown never started
+  ok         the declaration is still there to be read
+
+7B. 🔴 --deep is not an override; --force is
+  ok       🔴 --deep does not override a declaration
+  ok         and no deep sweep ran
+  ok       --force tears down anyway
+  ok         and says what it went through
+
+7C. an empty declaration declares nothing, and an expired claim declares nothing
+  ok       🔴 nothing declared: the teardown runs
+  ok         and no declaration is discussed
+  ok       🔴 an expired claim holds nothing, so it declares nothing
+
+7D. 🔴 T2: the rescue command the refusal prints has to parse
+  ok       a foreign claim refuses the teardown
+  ok       🔴 that line parses as shell -- it is printed to be pasted
+  ok         it is the command and only the command
+  ok       🔴 no NDT_OWNER= line carries the description
+  ok         which is printed on its own line instead
+  ok       🔴 and the foreign refusal quotes the declaration
+  ok       🔴 an owner name with spaces and parens still parses
+
+8A. 🔴 an 'ndt up' that could not write the note says so
+  ok       our own live claim: written, and nothing is warned
+  ok       🔴 a live claim we do not hold: warned, not swallowed
+  ok         quoting the sentence that is still standing
+  ok         and naming who holds the lab
+  ok         the note itself is unchanged
+  ok       🔴 NDT_OWNER unset -- the 01:55 arm -- is warned too
+  ok       🔴 no claim at all: silent, there is nothing to narrate
+  ok         and an expired claim holds nothing, so it says nothing
+
+8B. 🔴 the teardown clears the declaration it tore down
+  ok       the forced teardown succeeds
+  ok       🔴 measuring= is empty afterwards
+  ok         and the note records that this down cleared it
+  ok         while still saying the lab came down
+  ok         and that the claim was kept
+
+8C. 🔴 the field order is fixed, whoever writes
+  ok       the note was rewritten
+  ok       🔴 and note did not migrate to the last line
+  ok         the declaration survived the rewrite
+  ok         and so did exclusive_cpu
+  ok         a field another script wrote is carried through
+
+9A. T3: 'these survive ndt down' was disproved by the same round's ndt down
+  ok       the untracked row is still printed
+  ok       🔴 the sentence that round's teardown disproved is gone
+  ok       🔴 and it says what a teardown really does to them
+  ok         with the reason it can
+  ok         and why to stop them now anyway
+  ok         cmd_down still stops an untracked app by pid
+
+9B. T4: the help says what a claim does NOT cover
+  ok         the help scopes the claim to this tool's own verbs
+  ok         and names the API as outside it
+  ok       🔴 and says expiry and loss are silent
+  ok         the manual is readable from here
+  ok       🔴 and the manual's claim section says it too
+
+Ran 345 checks, 0 failed
+RC=0
+2026-09-12T21:03:07+08:00

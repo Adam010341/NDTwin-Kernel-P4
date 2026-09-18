@@ -1,0 +1,46 @@
+2026-09-12T21:04:04+08:00
+baseline (all three suites must be green before any mutation):
+Ran 131 checks, 0 failed
+OK
+Ran 27 checks, 0 failed
+
+  caught   M1: 'ndt apps stop' stops reporting residue              (🔴 and the residue is printed anyway went red)
+  caught   M2: 'ndt apps orphans' stops reporting residue           ('apps orphans' prints the residue too went red)
+  caught   M3 (widening): every rule in the table is listed         (test_the_baseline_fabric_is_excluded went red)
+  caught   M4 (widening): no rule is ever listed                    (test_a_rule_installed_inside_the_window_is_listed went red)
+  caught   M5: a rule that cannot be dated is silently dropped      (test_a_rule_with_no_duration_is_listed_as_unknown_not_dropped went red)
+  caught   M6: only the first switch is looked at                   (test_every_switch_is_walked_not_just_the_first went red)
+  caught   M7: a 423 is read as a free lock                         (🔴 a 423 is a HELD lock, with the lease it named went red)
+  caught   M8: an unanswerable probe is reported as free            (🔴 any other code is NOT CHECKED, never free went red)
+  caught   M9: the report starts deleting what it finds             (test_nothing_in_the_residue_path_deletes_anything went red)
+  caught   M10: an app with no record gets a window of all time     (🔴 and refuses to read that as 'left nothing' went red)
+  caught   M11: a kernel that is down is reported as nothing to report (it says rules and locks cannot be checked went red)
+  caught   M12: the flow table is read from the heredoc, not the pipe (🔴 the rule installed during the app's window went red)
+  caught   M13: the lock loop rebinds the app list                  (  and the rule it left went red)
+  caught   M14: 'apps orphans' stops taking its code from the residue (🔴 a held lock and a rule in the window -> rc 4, not 0 went red)
+  caught   M15 (widening): 'could not check' is reported as residue (🔴 undatable is rc 5 (NOT CHECKED), never rc 4 (residue) went red)
+  caught   M16: a lost window is not counted against the code       (🔴 and that is rc 5 -- not checked, not clean went red)
+  caught   M17 (widening): never-started apps count as unchecked    (🔴 a clean network -> rc 0 (the codes are not always red) went red)
+  caught   M18: '--check' stops looking at the network              (🔴 --check prints a rules-in-window row went red)
+  caught   M19: --check prints residue and still exits 0            (🔴 and --check exits 1 (it exited 0 over this on 09-05) went red)
+  caught   M20 (widening): --check goes red on 'could not check'    (🔴 but a healthy P4 fabric still passes: rc 0 went red)
+  caught   M21 (widening): plain 'ndt status' pays for the scan     (🔴 and the flow table is not fetched at all went red)
+  caught   M22: a duration of 0 is read as '0 seconds ago'          (test_on_p4_every_rule_is_unknown_however_old_it_claims_to_be went red)
+  caught   M23: 0/0 is believed when the plane is not named         (test_duration_zero_and_nsec_zero_is_unknown_not_zero_seconds_ago went red)
+  caught   M24 (widening): a real just-installed rule is called undatable (test_a_genuinely_sub_second_rule_is_still_dated went red)
+  caught   M25: the plane never reaches the selector                (🔴 but with age UNKNOWN, not an age went red)
+  caught   M26: the plane's blindness is never announced            (🔴 it says the plane cannot be windowed went red)
+  caught   M27: 'apps orphans' says nothing about the stack (H2)    (🔴 the stack line is printed went red)
+  caught   M28: a control plane with no data plane is not HALF      (🔴 and the verdict word a reader can parse went red)
+  caught   M29: a data plane with no kernel is not HALF             (🔴 a fabric with no kernel is HALF too went red)
+  caught   M30 (widening): a healthy fabric is called HALF          (🔴 a healthy P4 fabric is whole-up, not HALF went red)
+  caught   M31: an empty flow table is never named as empty         (🔴 an empty table is named as empty went red)
+  caught   M32 (widening): every table is called empty              (🔴 but a table WITH rules is not called empty went red)
+  caught   M33: the row counter counts nothing, so every table reads 0 (  a table with one row is 1 went red)
+  caught   M34: a table that will not parse is counted as 0 rows    (🔴 and a table that will not parse is UNREADABLE, never 0 went red)
+  caught   M35: 'ndt status --check' stops saying the table was empty (🔴 --check's row says the table was empty too went red)
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 e6d5215e4c6b478c7f7719223dd2a3399e56d9caed719d4ba956dda50ea96189
+mutation gate: 35 mutations, 0 survived
+RC=0
+2026-09-12T21:08:54+08:00

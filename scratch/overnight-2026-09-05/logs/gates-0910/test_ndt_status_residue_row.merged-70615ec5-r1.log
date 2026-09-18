@@ -1,0 +1,42 @@
+2026-09-12T21:03:07+08:00
+
+1. G-12: a rule left inside an app's window makes --check RED
+  ok       🔴 --check prints a rules-in-window row
+  ok         naming what it found
+  ok         and where the detail is
+  ok       🔴 it is listed as a problem
+  ok       🔴 and --check exits 1 (it exited 0 over this on 09-05)
+  ok         and does not also say ok
+
+2. 🔴 the other direction: a clean fabric is still GREEN
+  ok       it says the network was asked and is clean
+  ok         and that it asked rather than assumed
+  ok       🔴 rc 0
+  ok         check: ok
+
+3. a held lock is residue too, with no rule anywhere
+  ok       the lock is counted
+  ok       🔴 and --check is red on it
+
+4. 🔴 'could not check' is said in words -- and is NOT the verdict
+  ok       it says NOT CHECKED
+  ok       🔴 and says what that does not mean
+  ok         naming P4 as the reason it is permanent
+  ok       🔴 and says the locks WERE checked
+  ok       🔴 but a healthy P4 fabric still passes: rc 0
+  ok         and it is not listed as a problem
+  ok       🔴 a held lock on P4 is still rc 1
+  ok       a kernel that is down says NOT CHECKED
+  ok       🔴 and not 'clean'
+  ok       an unreadable flow table says NOT CHECKED
+  ok       🔴 and never 'none'
+
+5. 🔴 plain 'ndt status' does not pay for the scan
+  ok       no rules-in-window row without --check
+  ok         and plain status still exits 0
+  ok       🔴 and the flow table is not fetched at all
+  ok         while --check does fetch it (the marker works)
+
+Ran 27 checks, 0 failed
+RC=0
+2026-09-12T21:03:11+08:00

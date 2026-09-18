@@ -1,0 +1,26 @@
+### trunk e738ef1f  start 11:08:44
+### drive_exercise basic --which solution --fabric tutorials  start 11:08:44
+rc=0  end 11:09:47  verdict: >>> PASS (5/5)
+        ttl       = 64
+        ttl       = 63
+root-owned under exercise/runs: 33
+### drive_exercise source_routing --which solution --fabric tutorials  start 11:09:47
+rc=0  end 11:09:59  verdict: >>> PASS (5/5)
+                       ttl       = 64
+              ttl       = 64
+        ttl       = 59
+        ttl       = 62
+root-owned under exercise/runs: 25
+### drive_exercise firewall --which solution --fabric tutorials  start 11:09:59
+rc=0  end 11:11:27  verdict: >>> PASS (3/3)
+root-owned under exercise/runs: 34
+### drive_exercise link_monitor --which solution --fabric tutorials  start 11:11:27
+rc=1  end 11:11:48  verdict: >>> FAIL (3/3)
+root-owned under exercise/runs: 35
+### drive_exercise firewall --which skeleton --fabric tutorials  start 11:11:48
+rc=0  end 11:12:55  verdict: >>> PASS (3/3)
+root-owned under exercise/runs: 34
+### drive_exercise link_monitor --which skeleton --fabric tutorials  start 11:12:55
+rc=1  end 11:13:16  verdict: >>> FAIL (4/4)
+root-owned under exercise/runs: 35
+### done 11:13:16

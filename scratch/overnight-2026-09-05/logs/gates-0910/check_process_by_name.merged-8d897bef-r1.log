@@ -1,0 +1,2 @@
+check_process_by_name: 2 registered audit exceptions scanned (7 file(s) under them); doc/audit/** is not a scan surface otherwise
+check_process_by_name: 272 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale

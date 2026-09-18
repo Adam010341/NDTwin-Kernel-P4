@@ -1,0 +1,6 @@
+  XX  proxy: 4/12 destination paths, never settled
+  ok  kernel: 4 switches, 4 up, 16 edges, 4 hosts
+  ok  model matches fabric: 4 hosts (kernel graph, topology file and 4 host namespaces all agree)
+  ok  data plane: h1 -> 10.0.2.2 forwards
+
+up, but not verified -- do not measure on this

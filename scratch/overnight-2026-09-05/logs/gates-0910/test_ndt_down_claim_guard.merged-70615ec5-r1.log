@@ -1,0 +1,54 @@
+2026-09-12T21:02:54+08:00
+
+1. an intruder's 'ndt down' is refused by the claim, and the lab is not touched
+  ok       🔴 somebody else's live claim -> rc 5
+  ok         and it says it is refusing
+  ok         and names the holder
+  ok         and says what it would have destroyed
+  ok         and names the override
+  ok       🔴 NOTHING on the machine was reached
+  ok         and no in-flight teardown marker was left
+  ok         the teardown never started
+  ok         the retry line carries the BARE owner
+  ok         🔴 and not the parenthesised description
+
+2. an owner who wrote measuring= is told what the teardown would have killed
+  ok         still rc 5
+  ok         🔴 and the declaration is quoted
+  ok         with what it is
+  ok         and nothing was touched
+  ok       🔴 our OWN claim that DECLARES a measurement is refused
+  ok         and it says which guard this is
+  ok         quoting the field
+  ok         and saying it was declared, not guessed at
+  ok         and nothing on the machine was reached
+  ok         and no in-flight marker was left
+  ok         --force tears down over our own declaration
+  ok         and warns that it is doing exactly that
+  ok       🔴 --deep does not open the measuring guard either
+
+3. 🔴 the controls -- a guard that refuses everything guards nothing
+  ok       an EXPIRED claim is not a refusal
+  ok         the teardown ran
+  ok         and it never claimed to be refusing
+  ok       🔴 and the machine WAS reached -- the instrument can read non-zero
+  ok         a completed teardown leaves no in-flight marker either
+  ok       our own live claim is not a refusal
+  ok         the teardown ran
+  ok       🔴 an unnamed caller is refused over any claim
+  ok         and touched nothing
+  ok       --force tears down over a foreign claim
+  ok         and warns that it is doing exactly that
+  ok         the teardown ran
+  ok       🔴 --deep does not open the guard
+  ok         and touched nothing
+
+4. the same guard on a claim this tool did not write
+  ok       a hand-written claim still refuses
+  ok         and names the holder
+  ok         and touched nothing
+  ok       a malformed expiry is not a refusal
+
+Ran 41 checks, 0 failed
+RC=0
+2026-09-12T21:02:55+08:00

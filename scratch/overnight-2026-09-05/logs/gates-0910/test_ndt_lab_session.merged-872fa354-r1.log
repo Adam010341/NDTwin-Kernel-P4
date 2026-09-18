@@ -1,0 +1,26 @@
+the shape every test before 2026-08-21 exercised
+  ok    topo alone                                   topo    -> TRUE
+  ok    topo alone                                   energy  -> FALSE
+the regression: an app session sorts ahead of topo
+  ok    energy + topo                                topo    -> TRUE
+  ok    energy + sim + topo                          topo    -> TRUE
+  ok    energy + sim + topo                          energy  -> TRUE
+  ok    energy + sim + topo                          sim     -> TRUE
+must still say absent when it genuinely is
+  ok    energy + sim, topo gone                      topo    -> FALSE
+  ok    no sessions at all                           topo    -> FALSE
+  ok    empty output (sudo -n failed)                topo    -> FALSE
+  ok    no sessions at all                           energy  -> FALSE
+must not be satisfied by a near miss
+  ok    a session named 'topology'                   topo    -> FALSE
+  ok    a session named 'simulator'                  sim     -> FALSE
+  ok    'topo:' only mid-line                        topo    -> FALSE
+the G-7 config line does not change any answer
+  ok    config line + topo                           topo    -> TRUE
+  ok    config line + topo                           energy  -> FALSE
+  ok    config line + no sessions                    topo    -> FALSE
+  ok    a KERNEL_DIR containing 'topo:'              topo    -> FALSE
+the implementation has not drifted from what is tested here
+  ok    expression still present verbatim in ndt    
+
+18 passed, 0 failed

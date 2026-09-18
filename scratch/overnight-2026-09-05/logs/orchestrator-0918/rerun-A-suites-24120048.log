@@ -1,0 +1,6 @@
+### p4_proxy tests (per file, A's invocation)
+files=30 tests_ran=920 failing_files=0
+### tools tests
+Ran 103 tests in 0.189s
+
+OK

@@ -1,0 +1,213 @@
+
+1. --app writes the knob, and writes it the way the proxy's reader demands
+  ok       🔴 a package that passes pre-flight comes up
+  ok       🔴 and the knob names it
+  ok         the write is announced
+  ok         the pre-flight table is printed
+  ok         the banner names the package and its mode
+  ok       🔴 the line is absolute
+  ok         and it carries the note saying who wrote it
+  ok         the note is a comment, so the reader skips it
+  ok       🔴 host_count_override became the MODEL's host count
+  ok         the kernel is handed the package's model
+  ok         and so is verify_p4
+  ok         which is told the control-plane mode
+  ok       🔴 and the machine WAS reached -- the instrument can read non-zero
+
+2. 🔴 three hosts: the layout rule a package replaces
+  ok       🔴 a three-host package is built, not refused
+  ok         and the knob names it
+  ok       🔴 host_count_override is 3, which the splitter rule forbids
+  ok         the switch count came from the model too
+  ok         and the mode reached verify_p4
+  ok       🔴 the SPLITTER path still refuses 3
+  ok         naming the rule
+  ok         and the package path takes it
+
+3. 🔴 a pre-flight FAIL refuses, and moves nothing
+  ok       🔴 rc 5 -- a GUARD REFUSED and nothing was built
+  ok         it says so
+  ok       🔴 and the table is printed VERBATIM
+  ok         with the tool's own verdict line
+  ok       🔴 the knob was NOT written
+  ok         and the refusal SAYS the knob is unchanged
+  ok       🔴 host_count_override was not moved either
+  ok       🔴 NOTHING on the machine was reached
+  ok         and no up.target was recorded
+  ok       a directory with no ndtwin/topology.json is refused
+  ok         saying which file is missing
+  ok         and wrote nothing
+
+4. 🔴 the knob's other end -- every command that ends a run clears it
+  ok       🔴 'ndt up p4 4' with no --app clears it
+  ok         and names what it removed
+  ok         the banner says the fabric is the baseline one
+  ok       🔴 'ndt down' clears it
+  ok         and names what it removed
+  ok       🔴 'ndt clean' clears it
+  ok         and names what it removed
+  ok       🔴 'ndt up ovs 4' clears it as well
+  ok         and names what it removed
+  ok         saying it is this plane that does not use one
+  ok       🔴 a rolled-back bring-up clears the knob it wrote
+  ok         saying why
+  ok       🔴 but NOT one this run did not write
+
+5. 🔴 never a knob that is present and empty
+  ok       after a write the knob names a package
+  ok         and no temp file is left beside it
+  ok       the harness can read the empty state at all
+  ok         and so can ndt
+  ok       🔴 'ndt down' removes an empty knob too
+  ok         saying what that state was
+
+6. 🔴 --app is a P4 flag, and the flag parser is its own subject
+  ok       --app <dir> is lifted out of argv
+  ok         and the plane is left behind for resolve_up_target
+  ok       --app=<dir> means the same thing
+  ok       🔴 a relative path is made absolute here
+  ok       --app with no value is a usage error
+  ok         and says what it wanted
+  ok       --app naming no directory is a usage error
+  ok       🔴 --app= with an empty value is a usage error
+  ok         and says why an empty value is not the default
+  ok       🔴 so is --app with an empty argument
+  ok         the real dispatch refuses it too
+  ok       🔴 and the knob that was there is untouched
+  ok         and argv without the flag is left alone
+  ok         every word of it
+  ok       🔴 --app on the OVS plane is refused
+  ok         saying it is a P4 flag
+  ok         and what to type instead
+  ok         and no OVS bring-up started
+  ok       🔴 --app with a host count is a usage error
+  ok         saying why
+  ok         and nothing was written
+
+7. 🔴 one model, not two -- NDT_TOPO and the package
+  ok       🔴 NDT_TOPO naming another model is refused
+  ok         naming both files
+  ok         and nothing was written
+  ok       🔴 so is NDTWIN_P4_TOPO_FILE -- the proxy's own override
+  ok         NDT_TOPO pointed at the package is fine
+
+8. 🔴 'ndt status' names the file, and --check goes red on every broken state
+  ok       no knob reads as none
+  ok         and is not a problem
+  ok       a package reads as itself, with its mode
+  ok         naming the file that decides the next run
+  ok         and a good package is not a problem
+  ok       🔴 a knob naming a directory that is gone says so
+  ok         and --check has a problem to exit 1 on
+  ok       🔴 an empty knob says the proxy refuses to start
+  ok         and is a problem
+  ok       🔴 a directory with no readable package.json says so
+  ok         and is a problem
+  ok         🔴 and is NOT rendered as the default mode
+
+9. 🔴 the two defaults a stand-in cannot test
+  ok       🔴 ndt's interpreter is components.env's P4_PROXY_PY
+  ok       🔴 and the tool it runs is the repo's pre-flight
+
+10. 🔴 the model decides the ping, and an external plane says what it did NOT check
+  ok       🔴 the 4-host model still gives the old literal
+  ok       🔴 and so does the 128-host model
+  ok         a package gives ITS second host's address
+  ok         and the switch count comes off the model
+  ok       🔴 a 4-switch package makes the want 4, not 10
+  ok         and says so positively
+  ok       🔴 the literal ten is gone
+  ok         and so is is_enabled=4/10
+  ok       🔴 three switches under a 4-switch model still fails
+  ok         naming the model's number as the want
+  ok       🔴 the baseline model still wants ten
+  ok         and says ten
+  ok       🔴 four switches under the baseline model fails
+  ok         naming ten as the want
+  ok       🔴 an uncountable model is a failure, not a pass
+  ok         and says the check did not run
+  ok       ndtwin mode pings the pair the model names
+  ok         and checks the graph
+  ok         and ends ready
+  ok       🔴 external mode still ends green
+  ok       🔴 and NAMES the path count as not checked
+  ok       🔴 and forwarding as not tested
+  ok         saying what would have to run first
+  ok       🔴 and that the fabric is EMPTY, under an unchanged verdict word
+  ok       🔴 it does NOT ping and call the silence a pass
+  ok         but the graph, model and fabric ARE checked
+
+11. 🔴 the proxy's own last words when it will not start
+  ok       the proxy log's tail is printed
+  ok         and its absence is said, not skipped
+
+12. 🔴 when stack.sh cannot bring the proxy up
+  ok       🔴 a stack.sh that exits 1 fails the bring-up
+  ok         and says so
+  ok       🔴 the PROXY's own last words are printed
+  ok         named as the proxy's log
+  ok         and the bring-up was rolled back
+  ok       🔴 the knob THIS run wrote does not outlive it
+  ok         saying why it went
+  ok         with no proxy log, the absence is reported
+
+13. 🔴 when the FABRIC never comes up, the bridge's own last words
+  ok       🔴 a fabric that never came up fails the bring-up
+  ok         and says how far it got
+  ok       🔴 the BRIDGE's own last words are printed
+  ok         named as the topology log
+  ok         the pane is still offered for the live case
+  ok         and the bring-up was rolled back
+  ok       🔴 the knob THIS run wrote does not outlive it
+  ok       🔴 the cause is printed ABOVE the rollback
+  ok         with no topology log, the absence is reported
+  ok         and no tail is invented
+  ok       🔴 the same tail on a bring-up with NO package
+  ok       🔴 a topo-start that refuses fails the bring-up
+  ok         and says so
+  ok       🔴 the topology log is printed here too
+  ok       🔴 labelled as possibly the PREVIOUS round's
+  ok         and the bring-up was rolled back
+
+14. 🔴 a package pipeline has no sampling rate here, and the rate rows say so
+  ok       🔴 no package: there is no pipeline question to answer
+  ok         a package whose switches are all null is ndtwin
+  ok       🔴 one switch on somebody else's program names the dpid
+  ok       🔴 a package that will not load is 'unreadable', NOT 'ndtwin'
+  ok         a directory that is not there is unreadable too
+  ok         a foreign-pipeline package comes up and writes the knob
+  ok       🔴 and the pipeline question is then answered off the knob
+  ok         a baseline fabric still prints the rate
+  ok         and where it came from
+  ok         and the stale warning when it is stale
+  ok       🔴 a package pipeline has no rate here
+  ok       🔴 and the built json's number is NOT printed for it
+  ok         the source row names the dpid
+  ok         and which file is not what those switches loaded
+  ok       🔴 stale_pipeline is not judged under a package pipeline
+  ok         two foreign switches are both named
+  ok         an ndtwin package on a stale build IS stale
+  ok       🔴 a foreign pipeline is never stale
+  ok         and the OVS plane is not judged by it either (as before)
+  ok         a build older than the fabric is not stale
+  ok         a dead rng is still a problem on the baseline
+  ok         and so is an OVS fabric with no sflow record
+  ok       🔴 a foreign pipeline raises none of the rate problems
+  ok         not even the OVS ones
+  ok         a healthy rate raises nothing either (the control)
+
+15. 🔴 the whole of 'ndt status --check' over a foreign package pipeline
+  ok         the foreign package is the knob cmd_status will read
+  ok       🔴 the whole report says the rate is n/a
+  ok       🔴 and never prints the built json's number
+  ok         the source row names the dpid and the file
+  ok       🔴 --check does not raise the stale-pipeline problem
+  ok         nor any problem about the compiled rate
+  ok         and --check exits 0 over a healthy package fabric
+  ok         an ndtwin-pipeline package still prints the rate
+  ok         and does not claim a package pipeline
+  ok       🔴 and the stale build IS a problem there
+  ok       🔴 and so is the compiled pipeline that samples nothing
+  ok         so --check exits 1 on it
+
+Ran 181 checks, 0 failed

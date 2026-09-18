@@ -1,0 +1,57 @@
+baseline (must be green before any mutation):
+  Ran 181 checks, 0 failed
+
+  caught   M1: a FAILED pre-flight is built anyway                  (1 named check(s) went red)
+             red: 🔴 the knob was NOT written
+  caught   M2 (widening): the splitter rule is applied to packages  (1 named check(s) went red)
+             red: 🔴 a three-host package is built, not refused
+  caught   M3: a baseline 'ndt up p4' keeps somebody's package      (1 named check(s) went red)
+             red: 🔴 'ndt up p4 4' with no --app clears it
+  caught   M4: the teardown side leaves the knob behind             (1 named check(s) went red)
+             red: 🔴 'ndt down' clears it
+  caught   M5: the bring-up stops calling sudo (the instrument)     (1 named check(s) went red)
+             red: 🔴 and the machine WAS reached -- the instrument can read non-zero
+  caught   M6: the switch count stays at the literal 10             (1 named check(s) went red)
+             red:   the switch count came from the model too
+  caught   M7: the hardcoded ping pair comes back                   (1 named check(s) went red)
+             red: ndtwin mode pings the pair the model names
+  caught   M8: external mode is judged by NDTwin's own routes       (1 named check(s) went red)
+             red: 🔴 and NAMES the path count as not checked
+  caught   M9 (widening): rollback clears any knob it finds         (1 named check(s) went red)
+             red: 🔴 but NOT one this run did not write
+  caught   M10: NDT_TOPO may disagree with the package              (1 named check(s) went red)
+             red: 🔴 NDT_TOPO naming another model is refused
+  caught   M11: a missing package directory is no longer a problem  (1 named check(s) went red)
+             red:   and --check has a problem to exit 1 on
+  caught   M12: 'ndt up ovs 4' keeps somebody's package             (1 named check(s) went red)
+             red: 🔴 'ndt up ovs 4' clears it as well
+  caught   M13: an empty --app value silently means baseline        (1 named check(s) went red)
+             red: 🔴 --app= with an empty value is a usage error
+  caught   M14: the proxy's own last words are not printed          (1 named check(s) went red)
+             red: 🔴 the PROXY's own last words are printed
+  caught   M15: the bridge's own last words are not printed         (1 named check(s) went red)
+             red: 🔴 the BRIDGE's own last words are printed
+  caught   M16: the cause is printed underneath the rollback        (1 named check(s) went red)
+             red: 🔴 the cause is printed ABOVE the rollback
+  caught   M17: a refused topo-start says nothing about the bridge  (1 named check(s) went red)
+             red: 🔴 the topology log is printed here too
+  caught   M18: the switch count comes off the global ten again     (1 named check(s) went red)
+             red: 🔴 a 4-switch package makes the want 4, not 10
+  caught   M19: a package pipeline is given the built json's rate   (2 named check(s) went red)
+             red: 🔴 a package pipeline has no rate here
+             red: 🔴 the whole report says the rate is n/a
+  caught   M20: a foreign pipeline is judged stale after all        (2 named check(s) went red)
+             red: 🔴 a foreign pipeline is never stale
+             red: 🔴 --check does not raise the stale-pipeline problem
+  caught   M21: an unparsable package reads as NDTwin's own pipeline (1 named check(s) went red)
+             red: 🔴 a package that will not load is 'unreadable', NOT 'ndtwin'
+  caught   M22: per-switch pipelines are not consulted at all       (1 named check(s) went red)
+             red: 🔴 one switch on somebody else's program names the dpid
+  caught   M23: a foreign pipeline raises the built json's rate problems (2 named check(s) went red)
+             red: 🔴 a foreign pipeline raises none of the rate problems
+             red:   nor any problem about the compiled rate
+  control  C1: app_knob_clear's early return, written the long way  (stayed green, as it must)
+  control  C2: --app=<dir> stripped by offset instead of prefix     (stayed green, as it must)
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 9aeccca2c54f7e3f7705b99a8ea2a2d63edf55376e6a70787f26aaca7678bcb9
+mutation gate: 23 mutations, 0 survived; 2 control(s), 0 went red

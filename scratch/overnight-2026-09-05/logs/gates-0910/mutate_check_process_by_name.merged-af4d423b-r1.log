@@ -1,0 +1,25 @@
+baseline (must be green before any mutation):
+Ran 58 checks, all passed (0 skipped)
+
+  caught   M1: the derived surface is shell-only again                (  and python is in the surface went red)
+  caught   M2: os.system is no longer a way to run something          (os.system with the shell one-liner went red)
+  caught   M5: Mininet Node.cmd is not a way to run something         (an f-string through a Mininet node went red)
+  caught   M6: subprocess.check_output is not a spawner               (check_output, shell=True went red)
+  caught   M3: an argv LIST is not followed into its elements         (an argv list, with no shell at all went red)
+  caught   M4: an f-string is not followed into its literal parts     (an f-string handed to os.system went red)
+  caught   M7: ps-read-for-a-name is not checked in python            (python: ps read for a name went red)
+  caught   M11: .py is read with the shell parser                     (a docstring is prose went red)
+  caught   M8: unparseable python is reported as a clean file         (unparseable python is NOT CHECKED went red)
+  caught   M9 (widening): only the module docstring is prose          (a string used as a block comment went red)
+  caught   M10 (widening): prose is read as code                      (a docstring is prose went red)
+  caught   M12: the audit-exception registry is emptied               (a registered audit exception IS scanned went red)
+  caught   M13: the rule is reversed -- all of doc/audit is scanned   (  and the rest of doc/audit is not went red)
+  caught   M14: the run stops saying how many exceptions it scanned   (  and the run says how many it scanned went red)
+  caught   M15: an exception that matches nothing is passed over      (an exception matching nothing is reported went red)
+  SURVIVED C1 (control): a comment is reworded                        (control, as required)
+
+baseline byte-identical: yes  /home/adam/Desktop/NDTwin-Kernel/tests/shell/check_process_by_name.py (never written; every mutation went to a copy)
+
+GATE-SUMMARY mutations=16 survived=0
+mutation gate: 16 mutations, 0 survived
+VERDICT: every mutation was caught by the check named for it; the control survived

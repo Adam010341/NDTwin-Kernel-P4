@@ -1,0 +1,61 @@
+1. the mechanism, on nothing but bash
+  ok       injection check: '< missing 2>/dev/null' really does leak on this bash
+  ok       the fixed order is silent (external command)
+  ok       the fixed order is silent (builtin: mapfile)
+  ok       the fixed order is silent inside $( )
+  ok       an unrelated real error is still visible next to a fixed-order read
+
+2. ndt's pid_is_app, with /proc re-bound to a fixture
+  ok       pid_is_app was lifted out of ndt (non-empty)
+  ok       every /proc read was re-bound to the fixture (>=3 moved, 0 left)
+  ok       🔑 pid_is_app is SILENT when /proc/<pid>/cmdline is gone
+  ok          ... and still answers with the documented rc (existence only)
+  ok       pid_is_app MATCHES from cmdline when comm says otherwise (rc 0)
+  ok          ... and that path is silent too
+  ok       pid_is_app REFUSES a pid whose cmdline is a different app (rc 1)
+
+3. the two report paths that print an argv (ndt app_stop / apps_orphans)
+  ok       app_stop's argv line is silent for a pid that cannot exist
+  ok       app_wait_stopped's argv line (g6) is silent for a pid that cannot exist
+  ok       apps_orphans' argv line is silent for a pid that cannot exist
+  ok       apps_orphans' orphaned-children argv line is silent for a pid that cannot exist
+  ok       app_verify_stopped's survivor argv line is silent for a pid that cannot exist
+  ok       app_kill_by_existence's argv line is silent for a pid that cannot exist
+
+4. the half that forbids 'throw all stderr away'
+  ok       🔑 a REAL error inside pid_is_app still reaches the caller
+
+5. the rest of the family
+  ok       test_teardown_guards.sh (args="$(tr) is silent
+  ok       test_ndt_app_orphans.sh (mapfile -d '' -t argv) is silent
+  ok       test_ep4_gate_and_abort_evidence.sh (hdr=$(wc -c) is silent
+  ok       test_preflight_instrument_self_failures.sh (read -r LPORT) is silent
+  ok       host_witness.sh (IFS= read -r -d '' cmd) is silent
+  ok       ndtwin-vm.sh (a0=""; IFS= read) is silent
+  ok       ndtwin-vm.sh (cut -c1-200) is silent
+  ok       ndtwin-vm.sh (/^-m$/{getline;m=$0}) is silent
+  ok       p4_patch_preflight.sh (patch -p1 --dry-run) is silent
+6. the ordering rule does not depend on how the source is written
+  ok       (4)a source double-quoted (the one it caught)
+  ok       (4)b source unquoted
+  ok       (4)c source single-quoted
+  ok       (4)d source written ${CMDLINE}
+  ok       &> counts as silencing stderr too
+  ok       an explicit fd 0 is still an open
+  ok       another redirection in between is still one command
+  ok       the fixed order is not flagged
+  ok         nor ndt's fixed up-ovs capture
+  ok         nor the two-line awk readers as they stand
+  ok       a <<< herestring opens no file
+  ok       a << heredoc opens no file
+  ok       <&3 duplicates an fd, it does not open a path
+  ok       < <(cmd) is process substitution
+  ok       reading /dev/null cannot fail
+  ok         nor can it with a space or quotes
+  ok       a bit width is not a redirection
+  ok       a numeric comparison is not a redirection
+  ok         nor a string comparison
+
+  ok       static guard: the 3 multi-line sites keep 2> ahead of < (3 lines read)
+
+Ran 48 checks, 0 failed

@@ -1,0 +1,59 @@
+(a) baseline: every cell's fixtures must discriminate BEFORE any mutation
+  ok       default_round_plane_is_classified                    old/ FAIL == EXPECTED-FAILS, new/ PASS
+  ok       half_stack_is_not_clean                              old/ FAIL == EXPECTED-FAILS, new/ PASS
+  ok       help_drops_deleted_claims                            old/ FAIL == EXPECTED-FAILS, new/ PASS
+  ok       link_failure_cuts_both_ends_or_neither               old/ FAIL == EXPECTED-FAILS, new/ PASS
+  ok       orphans_blind_probes_not_checked                     old/ FAIL == EXPECTED-FAILS, new/ PASS
+  ok       recovery_refuses_foreign_netem                       old/ FAIL == EXPECTED-FAILS, new/ PASS
+  ok       up_refuses_a_model_of_another_network                old/ FAIL == EXPECTED-FAILS, new/ PASS
+  ok       up_refuses_while_a_down_is_in_flight                 old/ FAIL == EXPECTED-FAILS, new/ PASS
+  ok       up_target_names_a_readable_model                     old/ FAIL == EXPECTED-FAILS, new/ PASS
+
+(b) mutations: is the key assertion the thing that catches the old evidence?
+  caught   M1  (delete) F5: the rc 3 that replaced 0 is not read          (orphans_blind_probes_not_checked stopped telling old/ from new/)
+  caught   M2  (widen)  F5: the CLEAN token is reported but never tested  (orphans_blind_probes_not_checked stopped telling old/ from new/)
+  caught   M4  (delete) F12: the deleted sentence is not looked for       (help_drops_deleted_claims stopped telling old/ from new/)
+  caught   M5  (widen)  B10: 'say nothing' becomes a passing answer       (help_drops_deleted_claims stopped telling old/ from new/)
+  caught   M6  (delete) F10: the default round's own model is not read    (default_round_plane_is_classified stopped telling old/ from new/)
+  caught   M7  (widen)  F10: the reading is reported but never tested     (default_round_plane_is_classified stopped telling old/ from new/)
+  caught   M8  (delete) H4-regression: ndt's own 'cannot read' sentence   (up_target_names_a_readable_model stopped telling old/ from new/)
+  caught   M9  (widen)  H4-regression: a bring-up that cannot finish passes (up_target_names_a_readable_model stopped telling old/ from new/)
+  caught   M10 (delete) H4: the two host counts stop being compared       (up_refuses_a_model_of_another_network stopped telling old/ from new/)
+  caught   M10b (widen) H4: any refusal counts, whatever refused it       (up_refuses_a_model_of_another_network stopped telling old/ from new/)
+  caught   M11 (widen)  H4: building the fabric first becomes acceptable  (up_refuses_a_model_of_another_network stopped telling old/ from new/)
+  caught   M12 (delete) H3: 'reusing' the fabric being destroyed          (up_refuses_while_a_down_is_in_flight stopped telling old/ from new/)
+  caught   M13 (widen)  H3: the marker stops having to be named           (up_refuses_while_a_down_is_in_flight stopped telling old/ from new/)
+  caught   M14 (delete) H2: the CLEAN token on a half stack               (half_stack_is_not_clean stopped telling old/ from new/)
+  caught   M15 (widen)  H2: which half is up stops being said             (half_stack_is_not_clean stopped telling old/ from new/)
+  caught   M16 (delete) A1: the WIRE reading, which the 200 could not satisfy (recovery_refuses_foreign_netem stopped telling old/ from new/)
+  caught   M17 (widen)  A1: 200 becomes an acceptable answer              (recovery_refuses_foreign_netem stopped telling old/ from new/)
+  caught   M18 (delete) A1: the far end's qdisc is not read               (link_failure_cuts_both_ends_or_neither stopped telling old/ from new/)
+  caught   M19 (widen)  A1: 'link failure injected' over nothing attached (link_failure_cuts_both_ends_or_neither stopped telling old/ from new/)
+
+  control  C1 a comment is rewritten                                      (orphans_blind_probes_not_checked still discriminates -- as it must)
+  control  C2 two assertions swap places                                  (default_round_plane_is_classified still discriminates -- as it must)
+
+(c) the pre-fix tool: does it really fail the cell it is the red of?
+  ok       orphans_blind_probes_not_checked                     the ded00d06^ tool fails this judge
+  ok       help_drops_deleted_claims                            the 3259d296^ tool fails this judge
+  ok       default_round_plane_is_classified                    the ca9af4f1^ tool fails this judge
+  NOT ATTEMPTED, and each with its reason -- these cells' `observe` drives the lab:
+    up_target_names_a_readable_model       the pre-fix ndt's `ndt up` takes ~318 s and ends in
+                                           `rollback INCOMPLETE` (ROLE-6). Paying that price
+                                           nightly is worse than reading the captured log.
+    up_refuses_a_model_of_another_network  the pre-fix ndt BUILDS the 4-host fabric and then
+                                           hangs in [2/3] until a 300 s timeout (ROLE-2 c07).
+    up_refuses_while_a_down_is_in_flight   needs a live teardown to overlap; the pre-fix ndt
+                                           reuses the fabric being destroyed, which is the
+                                           defect, on a shared lab.
+    half_stack_is_not_clean                needs a live half stack.
+    recovery_refuses_foreign_netem         the pre-fix KERNEL is the subject, not `ndt`; it
+                                           would have to be rebuilt from 0b928fe6^ and pointed
+                                           at a live fabric. Not a shell question.
+    link_failure_cuts_both_ends_or_neither same, and its pre-fix form really cuts a link end.
+
+--- the subject was not written ---
+live_cells/*.sh sha256 (all files, concatenated): 692dd71a6e4038d81cbfcdf8e9012197623d18a6d964c0f68aa2f35f6caf7190
+the same, after the round:                        692dd71a6e4038d81cbfcdf8e9012197623d18a6d964c0f68aa2f35f6caf7190
+
+19 mutations, 0 survived;  2 controls, 0 wrongly caught;  12 fixture checks, 0 failed, 0 pending (a cell with no new/ fixture)

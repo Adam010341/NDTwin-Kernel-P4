@@ -1,0 +1,13 @@
+2026-09-12 18:41:27
+  ok       sudo_surface still has NOWHERE rows                  keys: ovs-vsctl mnexec
+  ok       and rows the manual DOES teach are excluded          keys: lab
+  ok       ovs-vsctl: the table declares a probe                [ovs-vsctl list-br]
+  ok       ovs-vsctl: README mentions it                        the key from the table
+  ok       ovs-vsctl: README carries the probe's argument form  [ovs-vsctl list-br], from the probe column
+  ok       mnexec: the table declares a probe                   [mnexec -a 1 true]
+  ok       mnexec: README mentions it                           the key from the table
+  ok       mnexec: README carries the probe's argument form     [mnexec -a], from the probe column
+  ok       README names the surface it is about                 tools/test_workflow/sudo_surface.sh
+  ok       the control: a needle that is not there is reported missing mentions() can say no
+Ran 10 checks, 0 failed
+2026-09-12 18:41:27

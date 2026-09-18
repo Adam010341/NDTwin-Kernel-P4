@@ -1,0 +1,230 @@
+drive_exercise.py -- source_routing / solution
+(non-interactive: no mininet CLI, no xterm; kills nothing)
+
+== pre-flight (read-only) ==============================================
+OK   ports 9090-9099 free
+OK   interpreter /home/adam/p4dev-python-venv/bin/python (3.12.3)
+OK   switch  /usr/local/bin/simple_switch_grpc  sha256[:16]=327fa7d172217397  --version=1.15.3-f0b7d201
+OK   p4c     /usr/local/bin/p4c-bm2-ss  sha256[:16]=226f3f66df515c9e  --version=Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release)
+OK   exercise dir /home/adam/tutorials/exercises/source_routing
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/source_routing/build/source_routing.p4.p4info.txtpb -o /home/adam/tutorials/exercises/source_routing/build/source_routing.json /home/adam/tutorials/exercises/source_routing/solution/source_routing.p4
+/home/adam/tutorials/exercises/source_routing/solution/source_routing.p4(16): [--Wwarn=unused] warning: 'egressSpec_t' is unused
+typedef bit<9> egressSpec_t;
+               ^^^^^^^^^^^^
+-> /home/adam/tutorials/exercises/source_routing/build/source_routing.json  19572 B  sha256[:16]=58f74ed1d535c77e  warnings=1
+
+== plan ================================================================
+topology : topology.json
+hosts    : h1, h2, h3
+switches : s1, s2, s3
+links    : 6
+program  : /home/adam/tutorials/exercises/source_routing/solution/source_routing.p4 -> build/source_routing.json
+switch   : /usr/local/bin/simple_switch_grpc
+steps    : h2 receive.py; h1 send.py 10.0.2.2 with '2 3 2 2 1' then '2 1'; assert packet count + ttl
+equivalent to (cwd must be the exercise dir):
+  cd /home/adam/tutorials/exercises/source_routing && \
+  sudo /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/utils/run_exercise.py -t topology.json -j build/source_routing.json -b /usr/local/bin/simple_switch_grpc
+  ... except do_net_cli() is replaced by the scripted steps above.
+Reading topology file.
+Building mininet topology.
+/usr/local/bin/simple_switch_grpc -i 1@s1-eth1 -i 2@s1-eth2 -i 3@s1-eth3 --pcap /home/adam/tutorials/exercises/source_routing/pcaps --nanolog ipc:///tmp/bm-0-log.ipc --device-id 0 build/source_routing.json --log-console --thrift-port 9090 -- --grpc-server-addr 0.0.0.0:50051
+
+/usr/local/bin/simple_switch_grpc -i 1@s2-eth1 -i 2@s2-eth2 -i 3@s2-eth3 --pcap /home/adam/tutorials/exercises/source_routing/pcaps --nanolog ipc:///tmp/bm-1-log.ipc --device-id 1 build/source_routing.json --log-console --thrift-port 9091 -- --grpc-server-addr 0.0.0.0:50052
+
+/usr/local/bin/simple_switch_grpc -i 1@s3-eth1 -i 2@s3-eth2 -i 3@s3-eth3 --pcap /home/adam/tutorials/exercises/source_routing/pcaps --nanolog ipc:///tmp/bm-2-log.ipc --device-id 2 build/source_routing.json --log-console --thrift-port 9092 -- --grpc-server-addr 0.0.0.0:50053
+
+Configuring switch s1 using P4Runtime with file s1-runtime.json
+ - Using P4Info file build/source_routing.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50051 (bmv2)...
+ - Setting pipeline config (build/source_routing.json)...
+ - Inserting 0 table entries...
+Configuring switch s2 using P4Runtime with file s2-runtime.json
+ - Using P4Info file build/source_routing.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50052 (bmv2)...
+ - Setting pipeline config (build/source_routing.json)...
+ - Inserting 0 table entries...
+Configuring switch s3 using P4Runtime with file s3-runtime.json
+ - Using P4Info file build/source_routing.p4.p4info.txtpb...
+ - Connecting to P4Runtime server on 127.0.0.1:50053 (bmv2)...
+ - Setting pipeline config (build/source_routing.json)...
+ - Inserting 0 table entries...
+
+== topology as brought up ==============================================
+s1 -> gRPC port: 50051
+s2 -> gRPC port: 50052
+s3 -> gRPC port: 50053
+**********
+h1
+default interface: eth0	10.0.1.1	08:00:00:00:01:11
+**********
+**********
+h2
+default interface: eth0	10.0.2.2	08:00:00:00:02:22
+**********
+**********
+h3
+default interface: eth0	10.0.3.3	08:00:00:00:03:33
+**********
+
+== scripted steps (no CLI, no xterm) ===================================
+$ h2: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/source_routing/receive.py   (> /home/adam/tutorials/exercises/source_routing/logs/driver-h2-receive.log)
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/source_routing/send.py 10.0.2.2   <<< b'2 3 2 2 1\n2 1\nq\n'
+sending on interface eth0 to 10.0.2.2
+
+Type space separated port nums (example: "2 3 2 2 1") or "q" to quit: 
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:11
+  type      = 0x1234
+###[ SourceRoute ]### 
+     bos       = 0
+     port      = 2
+###[ SourceRoute ]### 
+        bos       = 0
+        port      = 3
+###[ SourceRoute ]### 
+           bos       = 0
+           port      = 2
+###[ SourceRoute ]### 
+              bos       = 0
+              port      = 2
+###[ SourceRoute ]### 
+                 bos       = 1
+                 port      = 1
+###[ IP ]### 
+                    version   = 4
+                    ihl       = 5
+                    tos       = 0x0
+                    len       = 28
+                    id        = 1
+                    flags     = 
+                    frag      = 0
+                    ttl       = 64
+                    proto     = udp
+                    chksum    = 0x63ce
+                    src       = 10.0.1.1
+                    dst       = 10.0.2.2
+                    \options   \
+###[ UDP ]### 
+                       sport     = 1234
+                       dport     = 4321
+                       len       = 8
+                       chksum    = 0xd328
+
+
+Type space separated port nums (example: "2 3 2 2 1") or "q" to quit: 
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:11
+  type      = 0x1234
+###[ SourceRoute ]### 
+     bos       = 0
+     port      = 2
+###[ SourceRoute ]### 
+        bos       = 1
+        port      = 1
+###[ IP ]### 
+           version   = 4
+           ihl       = 5
+           tos       = 0x0
+           len       = 28
+           id        = 1
+           flags     = 
+           frag      = 0
+           ttl       = 64
+           proto     = udp
+           chksum    = 0x63ce
+           src       = 10.0.1.1
+           dst       = 10.0.2.2
+           \options   \
+###[ UDP ]### 
+              sport     = 1234
+              dport     = 4321
+              len       = 8
+              chksum    = 0xd328
+
+
+Type space separated port nums (example: "2 3 2 2 1") or "q" to quit: 
+-- h2 receive.py output (/home/adam/tutorials/exercises/source_routing/logs/driver-h2-receive.log) --
+sniffing on eth0
+got a packet
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:11
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 28
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 59
+     proto     = udp
+     chksum    = 0x63ce
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 8
+        chksum    = 0xd328
+
+got a packet
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:11
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 28
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = udp
+     chksum    = 0x63ce
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 8
+        chksum    = 0xd328
+
+
+   PASS injection: send.py built 2 srcroute frames     want=2                      got=2
+   PASS h2 received packet count                       want=2                      got=2
+   PASS ttl multiset {2 3 2 2 1 ; 2 1}                 want=[59, 62]               got=[59, 62]
+   PASS no SourceRoute layer left at h2                want=0 blocks               got=0 blocks
+   PASS ethertype seen by h2                           want=IPv4 (0x800)           got=['IPv4', 'IPv4']
+
+-- switch logs --
+   /home/adam/tutorials/exercises/source_routing/logs/driver-h2-receive.log 1047 B
+   /home/adam/tutorials/exercises/source_routing/logs/s1-p4runtime-requests.txt 128 B
+   /home/adam/tutorials/exercises/source_routing/logs/s1.log 169196 B
+   /home/adam/tutorials/exercises/source_routing/logs/s2-p4runtime-requests.txt 128 B
+   /home/adam/tutorials/exercises/source_routing/logs/s2.log 158611 B
+   /home/adam/tutorials/exercises/source_routing/logs/s3-p4runtime-requests.txt 128 B
+   /home/adam/tutorials/exercises/source_routing/logs/s3.log 112150 B
+
+== net.stop() ==========================================================
+net.stop() returned cleanly
+
+== verdict =============================================================
+   PASS injection: send.py built 2 srcroute frames     want=2                      got=2   【源碼推導，未執行】
+   PASS h2 received packet count                       want=2                      got=2   【README 宣稱】＋【源碼推導，未執行】
+   PASS ttl multiset {2 3 2 2 1 ; 2 1}                 want=[59, 62]               got=[59, 62]   【README 宣稱】＋【源碼推導，未執行】
+   PASS no SourceRoute layer left at h2                want=0 blocks               got=0 blocks   【源碼推導，未執行】
+   PASS ethertype seen by h2                           want=IPv4 (0x800)           got=['IPv4', 'IPv4']   【源碼推導，未執行】
+
+>>> PASS (5/5)
+
+report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-18T110948Z_source_routing_solution.md

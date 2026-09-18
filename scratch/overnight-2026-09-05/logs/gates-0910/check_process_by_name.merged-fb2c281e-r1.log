@@ -1,0 +1,11 @@
+tools/test_workflow/run_layers.sh:398: RUNS    pgrep    pids=$(pgrep -x ndtwin_kernel 2>/dev/null)
+tools/test_workflow/stack.sh:55: RUNS    ps       ps -eo args | awk
+tools/test_workflow/stack.sh:1075: TEACHES pgrep    pgrep -ax ndtwin_kernel
+tests/python/test_chaos_opt_in_all_actions.py:129: TEACHES pgrep    pgrep
+doc/audit/2026-08-28_chaos-harness/harness/antioracle.py:149: TEACHES pkill    sudo prompts, mn -c killing the caller, pkill -f matching the wrapper
+doc/audit/2026-08-28_chaos-harness/harness/probes.py:461: RUNS    pgrep    pgrep
+doc/audit/2026-08-28_chaos-harness/harness/probes.py:463: TEACHES pgrep    pgrep failed unexpectedly rc=
+doc/audit/2026-08-28_chaos-harness/harness/probes.py:544: RUNS    pgrep    pgrep
+doc/audit/2026-08-28_chaos-harness/harness/probes.py:546: TEACHES pgrep    pgrep rc=
+doc/audit/2026-08-28_chaos-harness/harness/test_probes.py:118: TEACHES pgrep    pgrep
+check_process_by_name: 268 file(s) scanned, 10 site(s), 8 registered, 0 new, 0 stale

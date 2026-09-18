@@ -1,0 +1,228 @@
+=== check_process_by_name (rc=0)
+check_process_by_name: 2 registered audit exceptions scanned (7 file(s) under them); doc/audit/** is not a scan surface otherwise
+check_process_by_name: 293 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale
+
+=== check_gate_anchors_HEAD (rc=0)
+anchors of each gate, counted in each rev's own files
+columns:
+  c0   HEAD
+
+                                               c0            
+mutate_a2_poll_round.sh                        ok(10)        
+mutate_a4f_sflow_power_cycle.sh                ok(6)         
+mutate_a7_dispatch_status.sh                   ok(10)        
+mutate_app_package.sh                          ok(49)        
+mutate_apps_stop_kills_the_group.sh            ok(12)        
+mutate_apps_stop_lists_rules.sh                ok(34)        
+mutate_attachment_switch_index_zero.sh         ok(8)         
+mutate_b3_historical_logging.sh                ok(9)         
+mutate_b5_power_manager_shutdown.sh            ok(4)         
+mutate_build_guard.sh                          ok(14)        
+mutate_bx_flow_liveness.sh                     ok(5)         
+mutate_capacity_reads_running_artifact.sh      ok(14)        
+mutate_cell_gate_suspect_wiring.sh             ok(6)         
+mutate_chaos_blackhole_attach.sh               ok(12)        
+mutate_chaos_c07_control.sh                    ok(6)         
+mutate_chaos_invariants_method.sh              ok(11)        
+mutate_chaos_opt_in_all_actions.sh             ok(12)        
+mutate_chaos_runner_wiring.sh                  ok(11)        
+mutate_check_gate_anchors.sh                   ok(14)        
+mutate_check_process_by_name.sh                ok(16)        
+mutate_check_test_tmpdirs.sh                   ok(21)        
+mutate_cloexec_listening_sockets.sh            ok(14)        
+mutate_contract_link_endpoints.sh              ok(18)        
+mutate_contract_per_node_identity.sh           ok(13)        
+mutate_cpu_gate_lifetime.sh                    ok(11)        
+mutate_cpu_report_no_ip.sh                     ok(12)        
+mutate_declared_link_failure_survives_poll.sh  ok(8)         
+mutate_delete_group_entry.sh                   ok(9)         
+mutate_dispatch_status_honest.sh               ok(20)        
+mutate_e_restore_asserts_compiled_artifact.sh  ok(5)         
+mutate_ep4_gate_and_abort_evidence.sh          ok(7)         
+mutate_exempt_switch_is_not_dialled.sh         ok(18)        
+mutate_f13_group_meter_existence.sh            ok(8)         
+mutate_f1_mininet_health_metrics.sh            ok(8)         
+mutate_f6_stale_table_carry_forward.sh         ok(9)         
+mutate_f8_declared_link_capacity.sh            ok(11)        
+mutate_first_address_of.sh                     ok(10)        
+mutate_flow_rate_denominator.sh                ok(5)         
+mutate_g6_apps_liveness.sh                     ok(6)         
+mutate_g7_ndtwin_lab_config.sh                 ok(15)        
+mutate_g9_cleanup_no_pkill_f.sh                ok(7)         
+mutate_g9_faults_topo_pid.sh                   ok(5)         
+mutate_gate_anchors_root_files.sh              ok(11)        
+mutate_gate_exit_code.sh                       ok(4)         
+mutate_group_install_modify_readback.sh        ok(9)         
+mutate_harness_instruments.sh                  ok(12)        
+mutate_index_zero_guards.sh                    ok(11)        
+mutate_iperf3_guard.sh                         ok(5)         
+mutate_is_up_split.sh                          ok(19)        
+mutate_kernel_reports_loaded_model.sh          ok(7)         
+mutate_kernel_stop_is_bounded.sh               ok(15)        
+mutate_known_issues_references.sh              ok(14)        
+mutate_l1_shell_scoring.sh                     ok(14)        
+mutate_l3_dispatch_drift.sh                    ok(5)         
+mutate_lab_claim_on_writes.sh                  ok(11)        
+mutate_live_cells.sh                           ok(36)        
+mutate_lock_lease_all.sh                       ok-via(3)     
+mutate_lock_lease_expiry.sh                    ok(9)         
+mutate_lock_ownership.sh                       ok(8)         
+mutate_lock_renew_expiry.sh                    ok(6)         
+mutate_log_suffix_idempotent.sh                ok(7)         
+mutate_logfile_takes_a_path.sh                 ok(13)        
+mutate_logger_cli.sh                           ok(12)        
+mutate_make_topology_stdout.sh                 ok(1)         
+mutate_manual_no_stale_in_progress.sh          ok(17)        
+mutate_manual_rc_table.sh                      ok(11)        
+mutate_ndt_app_package.sh                      ok(20)        
+mutate_ndt_check_sample_rate.sh                ok(12)        
+mutate_ndt_down_claim_guard.sh                 ok(8)         
+mutate_ndt_helper_apps_window.sh               ok(38)        
+mutate_ndt_honesty.sh                          ok(67)        
+mutate_ndt_ovs_topo_script.sh                  ok(8)         
+mutate_ndt_round_baseline.sh                   ok(24)        
+mutate_ndt_sample_rate_reads_both_bounds.sh    ok(3)         
+mutate_ndt_status_check.sh                     ok(19)        
+mutate_ndt_sudo_surface.sh                     ok(13)        
+mutate_ndt_up_down_robust.sh                   ok(99)        
+mutate_ndt_up_target.sh                        ok(8)         
+mutate_nickname_overlay.sh                     ok(16)        
+mutate_optimistic_topology_reporting.sh        ok(11)        
+mutate_orphans_verdict.sh                      ok(12)        
+mutate_ovs4_has_sflow.sh                       ok(24)        
+mutate_ovs_power_off_asks_the_bridge.sh        ok(11)        
+mutate_p4_exercise_tools.sh                    ok(17)        
+mutate_p4_priority_refusal.sh                  ok(9)         
+mutate_p4_rule_install_time.sh                 ok(25)        
+mutate_path_determinism.sh                     ok(5)         
+mutate_phantom_filter_covers_ovs.sh            ok(13)        
+mutate_poll_does_not_resurrect.sh              ok(13)        
+mutate_ports_that_block_restart.sh             ok(9)         
+mutate_preflight_instrument_self_failures.sh   ok(6)         
+mutate_rate_denominator.sh                     ok(6)         
+mutate_redirection_order.sh                    ok(19)        
+mutate_refused_is_not_timeout.sh               ok(7)         
+mutate_rule_journal_is_wired.sh                ok(12)        
+mutate_run_layers_topology_from_fabric.sh      ok(5)         
+mutate_ryu_rest_topology_bounded.sh            ok(6)         
+mutate_stack_log_rotation.sh                   ok(7)         
+mutate_startup_clears_by_pid.sh                ok(11)        
+mutate_supervise_pidfile_cleanup.sh            ok(2)         
+mutate_table_entry.sh                          ok(30)        
+mutate_te_launcher_stdin.sh                    ok(5)         
+mutate_testbed_banner.sh                       ok(23)        
+mutate_topk_recursive_lock.sh                  ok(5)         
+mutate_topology_input_is_validated.sh          ok(47)        
+mutate_unknown_identifier_is_not_zero.sh       ok(6)         
+mutate_withdrawal_needs_observed_failure.sh    ok(32)        
+
+107/107 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+
+=== kiref (rc=0)
+............................................
+----------------------------------------------------------------------
+Ran 44 tests in 1.274s
+
+OK
+
+=== check_test_tmpdirs (rc=0)
+check_test_tmpdirs: 328 file(s) scanned, 0 fixed temp paths
+
+=== test_redirection_order (rc=0)
+1. the mechanism, on nothing but bash
+  ok       injection check: '< missing 2>/dev/null' really does leak on this bash
+  ok       the fixed order is silent (external command)
+  ok       the fixed order is silent (builtin: mapfile)
+  ok       the fixed order is silent inside $( )
+  ok       an unrelated real error is still visible next to a fixed-order read
+
+2. ndt's pid_is_app, with /proc re-bound to a fixture
+  ok       pid_is_app was lifted out of ndt (non-empty)
+  ok       every /proc read was re-bound to the fixture (>=3 moved, 0 left)
+  ok       🔑 pid_is_app is SILENT when /proc/<pid>/cmdline is gone
+  ok          ... and still answers with the documented rc (existence only)
+  ok       pid_is_app MATCHES from cmdline when comm says otherwise (rc 0)
+  ok          ... and that path is silent too
+  ok       pid_is_app REFUSES a pid whose cmdline is a different app (rc 1)
+
+3. the two report paths that print an argv (ndt app_stop / apps_orphans)
+  ok       app_stop's argv line is silent for a pid that cannot exist
+  ok       app_wait_stopped's argv line (g6) is silent for a pid that cannot exist
+  ok       apps_orphans' argv line is silent for a pid that cannot exist
+  ok       apps_orphans' orphaned-children argv line is silent for a pid that cannot exist
+  ok       app_verify_stopped's survivor argv line is silent for a pid that cannot exist
+  ok       app_kill_by_existence's argv line is silent for a pid that cannot exist
+
+4. the half that forbids 'throw all stderr away'
+  ok       🔑 a REAL error inside pid_is_app still reaches the caller
+
+5. the rest of the family
+  ok       test_teardown_guards.sh (args="$(tr) is silent
+  ok       test_ndt_app_orphans.sh (mapfile -d '' -t argv) is silent
+  ok       test_ep4_gate_and_abort_evidence.sh (hdr=$(wc -c) is silent
+  ok       test_preflight_instrument_self_failures.sh (read -r LPORT) is silent
+  ok       host_witness.sh (IFS= read -r -d '' cmd) is silent
+  ok       ndtwin-vm.sh (a0=""; IFS= read) is silent
+  ok       ndtwin-vm.sh (cut -c1-200) is silent
+  ok       ndtwin-vm.sh (/^-m$/{getline;m=$0}) is silent
+  ok       p4_patch_preflight.sh (patch -p1 --dry-run) is silent
+6. the ordering rule does not depend on how the source is written
+  ok       (4)a source double-quoted (the one it caught)
+  ok       (4)b source unquoted
+  ok       (4)c source single-quoted
+  ok       (4)d source written ${CMDLINE}
+  ok       &> counts as silencing stderr too
+  ok       an explicit fd 0 is still an open
+  ok       another redirection in between is still one command
+  ok       the fixed order is not flagged
+  ok         nor ndt's fixed up-ovs capture
+  ok         nor the two-line awk readers as they stand
+  ok       a <<< herestring opens no file
+  ok       a << heredoc opens no file
+  ok       <&3 duplicates an fd, it does not open a path
+  ok       < <(cmd) is process substitution
+  ok       reading /dev/null cannot fail
+  ok         nor can it with a space or quotes
+  ok       a bit width is not a redirection
+  ok       a numeric comparison is not a redirection
+  ok         nor a string comparison
+
+  ok       static guard: the 3 multi-line sites keep 2> ahead of < (3 lines read)
+
+Ran 48 checks, 0 failed
+
+=== test_log_suffix_idempotent (rc=0)
+  ok       case 1  one suffix
+  ok       case 2  suffixes compose in order
+  ok       case 3  a child deriving from the base does not stack
+  ok       case 3b and appending to the inherited name is what stacked
+  ok       case 4  f(f(x)) == f(x): deriving twice from the base is stable
+  ok       case 5  no suffixes returns the base untouched
+  ok       case 6  lib_e.sh and run_f5.sh carry the same derive_log
+case 7 the rule is 'built from the inherited LOG', not one spelling of it
+  ok       case 7a  ${LOG%.log} (the one it caught)
+  ok       case 7b  (6)b the other strip operator
+  ok       case 7c  (6)c the suffix quoted
+  ok       case 7d  no quotes on the assignment
+  ok       case 7e  appended with no strip at all
+  ok       case 7f  braced and appended
+  ok       case 7o  after a case pattern is still an assignment
+  ok       case 7g  the base, not the inherited name
+  ok       case 7h  deriving from the base is the fix
+  ok       case 7i  a default is not an append
+  ok       case 7j  another variable is not it
+  ok       case 7p  a name that merely ends in it
+  ok       case 7k  a comment is not code
+  ok       case 7l  and the stripper still sees code
+  ok       case 7m  the scan found the shell scripts
+  ok       case 7n  the four the ticket named are in it (of 7 copies found)
+  ok       case 7  no script appends a suffix to the inherited LOG
+  ok       case 8  2026-08-31_sampling-ceiling-after-merge/round.env exports LOG_BASE
+  ok       case 8  2026-08-31_f5-fine-grid-round/round.env exports LOG_BASE
+  ok       case 9  a dry run whose LOG lacks .dryrun. says so
+  ok       case 9b and STOPS rather than carrying on
+  ok       case 10 a real run holding a dry-run transcript says so
+  ok       case 10b and STOPS too
+
+  30 passed, 0 failed
+

@@ -1,0 +1,22 @@
+### tree
+c0650ff8b161fa616bcc251d2f0c205fa8e470ce
+(status above; empty = clean)
+### mutate_app_package.sh
+rc=0
+
+baseline byte-identical: yes (10 sources, 7 test files)
+mutation gate: 47 mutations, 0 survived
+### mutate_p4_exercise_tools.sh
+rc=0
+(regression guards; they discriminate nothing about the sixteen behaviours above)
+
+16 mutations, 0 survived
+### p4_proxy tests
+files=30 tests_ran=924 failing_files=0
+### tools tests
+Ran 106 tests in 0.523s
+
+OK
+### topo script
+PASS -- derived wiring is identical to the hard-coded lists
+### done 07:56:35

@@ -1,0 +1,24 @@
+2026-09-12T21:03:48+08:00
+baseline (unmutated) must be green:
+  ok       baseline green
+
+mutations:
+  caught   the all-blind floor never fires                        (  🔴 rc 3 -- zeros nobody could measure are not a clean network went red)
+  caught   the floor fires on partial blindness too               (  🔴 rc 0 -- partial blindness is this lab's normal state went red)
+  caught   the answer test matches a bare 'free' anywhere         (  🔴 rc 3 -- an error message containing 'free' is not a lock that was read went red)
+  caught   kernel-down loses Adam's 09-10 CLEAN wording           (  🔴 and Adam's 09-10 wording is unchanged went red)
+  caught   NOT CHECKED prints but exits 0                         (  🔴 rc 3 -- zeros nobody could measure are not a clean network went red)
+  caught   a window that was read stops being an answer           (  one window read, three locks blind -> rc 0 (§7-1 is open) went red)
+  caught   one dated rule in a window stops being residue         (  🔴 a dated rule is NOT CLEAN even when ndt returned 0 went red)
+  caught   kernel-down inferred from a missing tally              (  🔴 rc 2 -- a real one-line report from an older ndt went red)
+  caught   a HALF stack stops being a reason                      (  🔴 rc 1 -- a kernel with no fabric is not clean went red)
+  caught   the stack line is not parsed at all                    (  the field is reported went red)
+  caught   a healthy live fabric is called residue                (  🔴 rc 0 -- a healthy fabric is not residue went red)
+  caught   an unreported stack half is counted as clean           (  🔴 and the missing half is NAMED went red)
+
+baseline restored: tools/test_workflow/orphans_verdict.sh byte-identical to the pre-run snapshot
+after restore: the suite is green again
+
+12 mutations, 0 survived
+RC=0
+2026-09-12T21:04:04+08:00

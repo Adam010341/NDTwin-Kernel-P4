@@ -1,0 +1,124 @@
+2026-09-12 16:34:13
+(a) baseline: every cell's fixtures must discriminate BEFORE any mutation
+  ok       default_round_plane_is_classified                    old/ FAIL == EXPECTED-FAILS, new/ PASS
+  ok       half_stack_is_not_clean                              old/ FAIL == EXPECTED-FAILS, new/ PASS
+  ok       help_drops_deleted_claims                            old/ FAIL == EXPECTED-FAILS, new/ PASS
+  ok       link_failure_cuts_both_ends_or_neither               old/ FAIL == EXPECTED-FAILS, new/ PASS
+  ok       northbound_write_reply_names_the_lab_claim           old/ FAIL == EXPECTED-FAILS, new/ PASS
+  ok       orphans_blind_probes_not_checked                     old/ FAIL == EXPECTED-FAILS, new/ PASS
+  ok       recovery_refuses_foreign_netem                       old/ FAIL == EXPECTED-FAILS, new/ PASS
+  PENDING  stale_app_pidfile_does_not_frame_the_fabric          old/ FAIL == EXPECTED-FAILS; no new/ yet (the first fixed run has not been captured)
+  ok       up_refuses_a_model_of_another_network                old/ FAIL == EXPECTED-FAILS, new/ PASS
+  ok       up_refuses_while_a_down_is_in_flight                 old/ FAIL == EXPECTED-FAILS, new/ PASS
+  ok       up_target_names_a_readable_model                     old/ FAIL == EXPECTED-FAILS, new/ PASS
+
+(a2) baseline: run_cells.sh's restore decides the six cases the way Adam ruled
+  ok       down0-clean0-CLEAN=0
+  ok       down3-clean3-CLEAN=0
+  ok       down1-clean0-CLEAN=1
+  ok       down0-clean1-CLEAN=1
+  ok       down5-clean0-CLEAN=1+who
+  ok       down0-clean0-NOTCLEAN=1
+
+(a3) negative controls: a fixture whose ONLY defect is the one the assertion is about
+  ok       stale_app_pidfile_does_not_frame_the_fabric          control-untracked/ reddens exactly [stale_premise_no_app_was_running]
+
+(b) mutations: is the key assertion the thing that catches the old evidence?
+  caught   M1  (delete) F5: the rc 3 that replaced 0 is not read          (orphans_blind_probes_not_checked stopped telling old/ from new/)
+  caught   M2  (widen)  F5: the CLEAN token is reported but never tested  (orphans_blind_probes_not_checked stopped telling old/ from new/)
+  caught   M4  (delete) F12: the deleted sentence is not looked for       (help_drops_deleted_claims stopped telling old/ from new/)
+  caught   M5  (widen)  B10: 'say nothing' becomes a passing answer       (help_drops_deleted_claims stopped telling old/ from new/)
+  caught   M6  (delete) F10: the default round's own model is not read    (default_round_plane_is_classified stopped telling old/ from new/)
+  caught   M7  (widen)  F10: the reading is reported but never tested     (default_round_plane_is_classified stopped telling old/ from new/)
+  caught   M8  (delete) H4-regression: ndt's own 'cannot read' sentence   (up_target_names_a_readable_model stopped telling old/ from new/)
+  caught   M9  (widen)  H4-regression: a bring-up that cannot finish passes (up_target_names_a_readable_model stopped telling old/ from new/)
+  caught   M10 (delete) H4: the two host counts stop being compared       (up_refuses_a_model_of_another_network stopped telling old/ from new/)
+  caught   M10b (widen) H4: any refusal counts, whatever refused it       (up_refuses_a_model_of_another_network stopped telling old/ from new/)
+  caught   M10c (delete) ROLE-9: the cell stops checking its own premise  (up_refuses_a_model_of_another_network stopped telling old/ from new/)
+  caught   M10d (widen) ROLE-9: a no-op write-through counts as a premise (up_refuses_a_model_of_another_network stopped telling old/ from new/)
+  caught   M11 (widen)  H4: building the fabric first becomes acceptable  (up_refuses_a_model_of_another_network stopped telling old/ from new/)
+  caught   M12 (delete) H3: 'reusing' the fabric being destroyed          (up_refuses_while_a_down_is_in_flight stopped telling old/ from new/)
+  caught   M13 (widen)  H3: the marker stops having to be named           (up_refuses_while_a_down_is_in_flight stopped telling old/ from new/)
+  caught   M13b (delete) H3: the refusal's exit code is not read (FIX-NDT-8) (up_refuses_while_a_down_is_in_flight stopped telling old/ from new/)
+  caught   M13c (widen)  H3: the pre-fix 1 is accepted again              (up_refuses_while_a_down_is_in_flight stopped telling old/ from new/)
+  caught   M14 (delete) H2: the CLEAN token on a half stack               (half_stack_is_not_clean stopped telling old/ from new/)
+  caught   M15 (widen)  H2: which half is up stops being said             (half_stack_is_not_clean stopped telling old/ from new/)
+  caught   M16 (delete) A1: the WIRE reading, which the 200 could not satisfy (recovery_refuses_foreign_netem stopped telling old/ from new/)
+  caught   M17 (widen)  A1: 200 becomes an acceptable answer              (recovery_refuses_foreign_netem stopped telling old/ from new/)
+  caught   M18 (delete) A1: the far end's qdisc is not read               (link_failure_cuts_both_ends_or_neither stopped telling old/ from new/)
+  caught   M19 (widen)  A1: 'link failure injected' over nothing attached (link_failure_cuts_both_ends_or_neither stopped telling old/ from new/)
+  caught   M20 (delete) RESIDUE-1: a dead pid's window may run to now again (stale_app_pidfile_does_not_frame_the_fabric stopped telling old/ from new/)
+  caught   M21 (widen)  RESIDUE-1: the fabric's own table inside the window is accepted (stale_app_pidfile_does_not_frame_the_fabric stopped telling old/ from new/)
+  caught   M21b (widen) RESIDUE-1: a foreign app process stops disqualifying the reading (stale_app_pidfile_does_not_frame_the_fabric stopped telling old/ from new/)
+  caught   M21c (widen) RESIDUE-1: the problem list stops being read at all (stale_app_pidfile_does_not_frame_the_fabric stopped telling old/ from new/)
+  caught   M21d (widen) RESIDUE-1: the cell may leave its own rule behind (stale_app_pidfile_does_not_frame_the_fabric stopped telling old/ from new/)
+  caught   M22 (delete) G-32 C: the write reply need not name the claim   (northbound_write_reply_names_the_lab_claim stopped telling old/ from new/)
+  caught   M23 (widen)  G-32 C: one of the two writes is enough           (northbound_write_reply_names_the_lab_claim stopped telling old/ from new/)
+
+  caught   R1  (delete) a down that measured nothing is not a restored lab (the restore decision changed)
+             2c2
+             < down3-clean3-CLEAN=0
+             ---
+             > down3-clean3-CLEAN=1
+  caught   R2  (widen)  a dirty teardown is recorded and carried on from  (the restore decision changed)
+             3c3
+             < down1-clean0-CLEAN=1
+             ---
+             > down1-clean0-CLEAN=0
+  caught   R3  (delete) a refused teardown counts as restored             (the restore decision changed)
+             5c5
+             < down5-clean0-CLEAN=1+who
+             ---
+             > down5-clean0-CLEAN=0
+  caught   R4  (delete) the refusal is not attributed                     (the restore decision changed)
+             5c5
+             < down5-clean0-CLEAN=1+who
+             ---
+             > down5-clean0-CLEAN=1
+  caught   R5  (widen)  the orphan verdict is not read                    (the restore decision changed)
+             6c6
+             < down0-clean0-NOTCLEAN=1
+             ---
+             > down0-clean0-NOTCLEAN=0
+
+  control  C1 a comment is rewritten                                      (orphans_blind_probes_not_checked still discriminates -- as it must)
+  control  C2 two assertions swap places                                  (default_round_plane_is_classified still discriminates -- as it must)
+  control  C3 a comment in the restore is rewritten                       (the restore decision is unchanged -- as it must be)
+
+(c) the pre-fix tool: does it really fail the cell it is the red of?
+  ok       orphans_blind_probes_not_checked                     the ded00d06^ tool fails this judge
+  ok       help_drops_deleted_claims                            the 3259d296^ tool fails this judge
+  ok       default_round_plane_is_classified                    the ca9af4f1^ tool fails this judge
+  NOT ATTEMPTED, and each with its reason -- these cells' `observe` drives the lab:
+    up_target_names_a_readable_model       the pre-fix ndt's `ndt up` takes ~318 s and ends in
+                                           `rollback INCOMPLETE` (ROLE-6). Paying that price
+                                           nightly is worse than reading the captured log.
+    up_refuses_a_model_of_another_network  the pre-fix ndt BUILDS the 4-host fabric and then
+                                           hangs in [2/3] until a 300 s timeout (ROLE-2 c07).
+    up_refuses_while_a_down_is_in_flight   needs a live teardown to overlap; the pre-fix ndt
+                                           reuses the fabric being destroyed, which is the
+                                           defect, on a shared lab.
+    half_stack_is_not_clean                needs a live half stack.
+    recovery_refuses_foreign_netem         the pre-fix KERNEL is the subject, not `ndt`; it
+                                           would have to be rebuilt from 0b928fe6^ and pointed
+                                           at a live fabric. Not a shell question.
+    link_failure_cuts_both_ends_or_neither same, and its pre-fix form really cuts a link end.
+    stale_app_pidfile_does_not_frame_the_fabric
+                                           the defect is in `ndt` and a pre-fix `ndt` is
+                                           reachable -- but this cell's `observe` brings up an
+                                           OVS fabric, installs a flow entry and plants a
+                                           pidfile in the shared .test_run/. The (c) form of it
+                                           IS the night round: today's tree is the pre-fix tree,
+                                           so old/ came out of `run_cells.sh` itself.
+    northbound_write_reply_names_the_lab_claim
+                                           the pre-fix subject is the KERNEL, not `ndt`: it
+                                           would have to be rebuilt from ea517ed5^ and pointed
+                                           at a live fabric. Not a shell question. The C++ side
+                                           is mutated in mutate_lab_claim_on_writes.sh.
+
+--- the subject was not written ---
+live_cells/*.sh sha256 (all files, concatenated): 3bc90c2832aa36df2305c5295e74480d4b030257e4071d7e597ae5bbf6baba33
+the same, after the round:                        3bc90c2832aa36df2305c5295e74480d4b030257e4071d7e597ae5bbf6baba33
+
+35 mutations, 0 survived;  3 controls, 0 wrongly caught;  16 fixture checks, 0 failed, 1 pending (a cell with no new/ fixture)
+2026-09-12 16:34:22

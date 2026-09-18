@@ -1,0 +1,25 @@
+2026-09-12 17:21:28
+baseline (must be green before any mutation):
+OK
+
+  caught   M1: a stale line-number citation comes back (data)       (test_every_line_number_citation_names_the_entry_it_lands_in went red)
+  caught   M2: .cpp is not scanned                                  (test_a_cpp_comment_is_scanned went red)
+  caught   M3: violations are found and never reported (rc 0)       (test_a_line_in_another_entry_is_reported went red)
+  caught   M4 (widening): a correct citation is reported too        (test_a_correct_reference_is_not_a_violation went red)
+  caught   M5: the .md-less spelling is a bypass again              (test_the_md_less_spelling_is_read_too went red)
+  caught   M6: verbatim records are corrected like source           (test_a_log_is_a_verbatim_record_and_is_not_read went red)
+  caught   M7: a table row stops being an entry                     (test_a_table_row_is_an_entry_too went red)
+  caught   M8: the walk visits nothing and the scan is green        (test_the_scan_actually_read_the_repository went red)
+  caught   M9: a code anywhere in the file counts as claimed        (test_a_code_in_a_different_paragraph_does_not_count went red)
+  caught   M10: the fast path tests for one spelling of the name    (test_a_citation_with_no_code_is_reported_in_every_spelling_too went red)
+  caught   M11: one colon, one space each side, and nothing else    (test_each_spelling_of_a_wrong_line_is_reported went red)
+  caught   M12 (widening): a 行 row label is read as a line number (test_a_row_label_is_not_a_line_number went red)
+  caught   M13: a bare code is never even found                     (test_a_bare_code_with_no_entry_is_reported went red)
+  caught   M14 (widening): any code on the line is claimed          (test_a_code_beyond_the_window_is_not_claimed_by_this_document went red)
+
+  SURVIVED C1 (control): a comment is reworded                      (control, as required)
+
+baseline byte-identical: yes  tests/python/test_known_issues_references.py
+GATE-SUMMARY mutations=14 survived=0 controls=1 red=0
+mutation gate: 14 mutations, 0 survived; 1 control(s), 0 went red
+2026-09-12 17:21:48

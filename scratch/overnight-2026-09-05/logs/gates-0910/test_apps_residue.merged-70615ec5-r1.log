@@ -1,0 +1,167 @@
+2026-09-12T21:02:36+08:00
+
+5A. G-12: the lock the dead app is still holding is named, with its lease
+  ok       🔴 the held lock is reported
+  ok         with the lease the kernel answered 423 with
+  ok         and the TTL that will free it
+  ok         the locks that are free are said to be free
+  ok       🔴 and the lease is not presented as an owner
+  ok       reporting residue does not fail the command
+
+5B. 🔴 a lock that could not be probed is NOT CHECKED -- never 'free'
+  ok       it says the lock was not checked
+  ok       🔴 and does not report it as free
+
+5C. G-12's rule is listed, and the baseline it would drown in is not
+  ok       🔴 the rule installed during the app's window
+  ok         named by priority
+  ok         and by what it does
+  ok         with its age
+  ok         counted, dated and undated apart
+  ok         and labelled SUSPECTED by time only
+  ok       🔴 the pri-65535 baseline rule is not listed
+  ok       🔴 nor the pri-0 one
+  ok         and the report says why it can only suspect
+  ok       🔴 a window with nothing new in it says so plainly
+  ok         and claims no rule
+
+5D. 🔴 nothing is deleted, and the report says so and how to do it by hand
+  ok       it says the residue was not deleted
+  ok         the lock heals on its own
+  ok       🔴 the rule does not -- no TTL, no owner
+  ok         and the command to remove one is handed over
+
+5E. 🔴 an app with no window is said to have none -- not reported clean
+  ok       it says there is no window
+  ok       🔴 and refuses to read that as 'left nothing'
+  ok         no rule is attributed to it
+
+5F. 🔴 a kernel that is down means NOT CHECKED, never 'the lab is clean'
+  ok       it says rules and locks cannot be checked
+  ok       🔴 and says what that does not mean
+  ok       an empty flow table is 'NOT checked', not 'none'
+
+5G. 🔴 the wiring -- and the branch the finding was actually measured in
+  ok       'apps stop' on an already-dead app is still a no-op
+  ok       🔴 and the residue is printed anyway
+  ok         naming the lock it left
+  ok         and the rule it left
+  ok       'apps orphans' prints the residue too
+  ok         naming the rule
+  ok       🔴 orphans' own answer about PROCESSES is unchanged
+
+5I. W16-1: the exit code. Adam reversed the recommendation -- residue must be RED
+  ok       🔴 a held lock and a rule in the window -> rc 4, not 0
+  ok         and it says what 4 means
+  ok       🔴 and that 4 is not 1 -- nothing is running to stop
+  ok       🔴 a clean network -> rc 0 (the codes are not always red)
+  ok         and nothing claims residue
+  ok       🔴 a held lock ALONE is still residue -> rc 4
+  ok       🔴 a lock that could not be probed -> rc 5, NOT 0
+  ok         and 5 says it is not 'clean'
+  ok       🔴 a kernel that is down -> rc 5, NOT 0
+  ok       🔴 untracked PROCESSES still win the code: rc 1
+  ok         and the residue is still named beside it
+
+5J. W16-3: the P4 plane has no time axis, so nothing on it can be dated
+  ok       🔴 it says the plane cannot be windowed
+  ok         naming why
+  ok         and what the list below it is
+  ok       🔴 the app's own rule is listed
+  ok       🔴 but with age UNKNOWN, not an age
+  ok       🔴 and nothing is dated 0 seconds ago
+  ok         the baseline rules are listed too, since none can be excluded
+  ok         counted apart from dated ones
+  ok       🔴 undatable is rc 5 (NOT CHECKED), never rc 4 (residue)
+  ok         and it says so in words
+
+5K. W16-3: duration 0/0 is the synthetic signature, whatever the plane says it is
+  ok       🔴 it refuses to window a table with no clock in it
+  ok         naming the field pair
+  ok       🔴 every rule is age=UNKNOWN
+  ok       🔴 and none is dated to right now
+  ok       🔴 sec=0 with nsec set is a real just-installed rule, and is DATED
+  ok         no rule line says UNKNOWN
+  ok         and it is counted as dated
+  ok         and the plane is not called blind
+  ok       🔴 and a live pid's window still runs to now
+tests/shell/test_apps_residue.sh: line 116: 4132124 Killed                  ( exec -a "$LIVE_TE_ARGV" sleep 60 ) > /dev/null 2>&1 < /dev/null
+
+5L. an app with no window: a LOST record counts against the code, an absent one does not
+  ok       an empty log reads as 'never ran here'
+  ok         and does not make the verb red
+  ok       🔴 a non-empty log means it RAN and the window is lost
+  ok       🔴 and that is rc 5 -- not checked, not clean
+
+5M. 3-51: an app nobody can ask is not an app that was asked
+  ok       🔴 it says the question cannot be asked
+  ok       🔴 and does not claim it never ran
+  ok         and it is not red on its own
+
+5H. lock_probe itself: what the kernel answered, and what it did not
+  ok       🔴 a 423 is a HELD lock, with the lease it named
+  ok         a 200 is a free lock
+  ok       🔴 any other code is NOT CHECKED, never free
+  ok       🔴 a 423 whose body cannot be read still says HELD
+  ok       🔴 no answer at all is not a free lock
+
+H2. 'apps orphans' says what of the STACK is up -- the reading it never had
+  ok       🔴 the stack line is printed
+  ok         with the counts beside the word
+  ok         and the proxy
+  ok       🔴 and the verdict word a reader can parse
+  ok         with the sentence that says what it means
+  ok         and the remedy
+  ok         and the physical-mode caveat, not guessed at
+  ok       🔴 a fabric with no kernel is HALF too
+  ok         and the plane is named from the count
+  ok         with both counts
+  ok         and an OVS fabric reads as mininet
+  ok         still HALF
+  ok       🔴 a healthy P4 fabric is whole-up, not HALF
+  ok         and no HALF sentence is printed
+  ok         it says why that is not residue
+  ok         a healthy OVS fabric too
+  ok       🔴 and a finished round is whole-down
+  ok         with no HALF sentence
+  ok         and it says what that means
+  ok       🔴 HALF and whole-up give the same rc (kernel up, locks free)
+  ok       🔴 and with a HELD lock, which is the rc 4 case
+  ok       🔴 a HALF stack with a held lock is still 4, not a new code
+  ok       🔴 HALF and whole-down give the same rc (kernel down)
+  ok       an unreadable bmv2 count does not break the line
+
+G-55. an EMPTY flow table says so -- a window over one frames nothing
+  ok       🔴 an empty table is named as empty
+  ok         and what that does to a window
+  ok         it says the line below discriminates nothing
+  ok         and refuses to read it as 'they left nothing'
+  ok         it names the issue
+  ok         and the reading that produced it
+  ok         the window line is unchanged
+  ok         and its answer is still the next line
+  ok       🔴 and the answer is ADJACENT to the window line
+  ok       the control still frames nothing
+  ok       🔴 but a table WITH rules is not called empty
+  ok       no answer at all is still 'NOT checked'
+  ok       🔴 and is NOT reported as an empty table
+  ok       🔴 a kernel that is down is not an empty table
+  ok       🔴 nor is a table that will not parse
+  ok         that one is still the JSON failure
+  ok       🔴 --check's row says the table was empty too
+  ok         with what it does to the row above it
+  ok         and the row itself is unchanged
+  ok       🔴 and it carries no 'listed by:' line
+  ok         and raises no problem entry
+  ok         the control row is not called empty
+  ok       🔴 an empty table gives the same rc as a full one
+  ok         and that rc is still 0
+  ok       flow_table_rows: an empty list is 0
+  ok         a switch with an empty flows map is 0
+  ok         a table with one row is 1
+  ok         rows are summed over switches and tables
+  ok       🔴 and a table that will not parse is UNREADABLE, never 0
+
+Ran 131 checks, 0 failed
+RC=0
+2026-09-12T21:02:47+08:00

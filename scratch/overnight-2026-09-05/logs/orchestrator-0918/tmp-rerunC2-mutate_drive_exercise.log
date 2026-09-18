@@ -1,0 +1,278 @@
+TICKET-P2 §5 drive_exercise.py mutation gate
+  interpreter : p4_proxy/venv/bin/python
+  subject     : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+  suite       : doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests
+  baseline    : 129f1abad24811bc doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+
+baseline (unmutated) must be green:
+    Ran 50 tests in 0.410s
+    
+    OK
+  ok       baseline green
+
+=== 1. --fabric defaults to ndtwin, so the 09-08 command builds another fabric ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_the_default_fabric_is_tutorials
+     also red: test_the_tutorials_fabric_still_requires_root test_the_tutorials_harness_is_handed_the_default_programs_json test_the_tutorials_plan_and_sudo_line_are_what_they_printed_on_09_08  
+
+=== 2. the harness is handed the VARIANT's json instead of DEFAULT_PROG's ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_the_tutorials_harness_is_handed_the_default_programs_json
+     also red:  
+
+=== 3. the companion program is never compiled, so s2-s4 have no json ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_firewall_builds_its_own_program_and_the_default_one
+     also red:  
+
+=== 4. convert.py is given the variant stem, so every switch gets the wrong default ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_convert_is_given_the_default_prog_and_not_the_variant
+     also red:  
+
+=== 5. a ping with no summary line reads as 0% loss ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_a_ping_with_no_summary_line_is_untested_and_not_zero_loss
+     also red: test_an_untested_pair_makes_the_pingall_number_none_rather_than_zero test_one_untested_pair_voids_the_number_even_when_the_others_were_clean  
+
+=== 6. an untested pair is left out of the total instead of voiding it ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_one_untested_pair_voids_the_number_even_when_the_others_were_clean
+     also red:  
+
+=== 7. the namespace pid is matched anywhere in the argv, not at its tail ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_the_pid_is_the_tail_field_of_the_process_table
+     also red: test_a_command_enters_the_namespace_through_sudo_mnexec  
+
+=== 8. a host with no namespace comes back as pid 0 instead of a named failure ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_a_host_with_no_namespace_is_a_named_failure_and_not_zero_loss
+     also red:  
+
+=== 9. a FAILED pre-flight goes on to claim the lab and bring the fabric up ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_a_refused_preflight_never_takes_the_claim
+     also red:  
+
+=== 10. the claim is not given back when a step raised ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_the_teardown_runs_both_halves_even_when_the_steps_raise
+     also red: test_a_release_that_would_not_take_fails_the_run_and_says_the_lab_is_claimed test_the_host_knob_is_put_back_between_the_down_and_the_release test_the_round_runs_convert_preflight_claim_up_down_release_in_order  
+
+=== 11. the ndt calls go out with whatever owner the environment had ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_every_ndt_call_carries_the_owner
+     also red:  
+
+=== 12. the firewall skeleton arm asserts the flow is BLOCKED (the red arm cannot be red) ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_the_skeleton_arm_is_red_when_the_external_flow_is_blocked
+     also red: test_the_skeleton_arm_passes_when_the_external_flow_gets_through  
+
+=== 13. link_monitor stops checking the port field, the only thing that tells the arms apart ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_the_two_arms_are_distinguishable
+     also red:  
+
+=== 14. a run in which NO probe arrived passes every check about the probes ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_no_probe_rows_fails_the_injection_check_rather_than_passing_vacuously
+     also red:  
+
+=== 15. a claim that DECLARES a measurement is treated as a free lab ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_our_own_claim_that_declares_a_measurement_refuses_too
+     also red:  
+
+=== 16. an unreadable switch_state is rendered as an ordinary (empty) report ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_an_unreadable_switch_state_says_so_instead_of_printing_zeros
+     also red:  
+
+=== 17. the host knob is never put back, so the release is refused ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_the_host_knob_is_put_back_between_the_down_and_the_release
+     also red: test_a_knob_that_could_not_be_put_back_is_reported_rather_than_passed_over test_a_knob_this_round_created_is_removed_again test_the_knob_is_put_back_as_bytes_and_not_as_the_number  
+
+=== 18. a release that would not take is not reported ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_a_release_that_would_not_take_fails_the_run_and_says_the_lab_is_claimed
+     also red:  
+
+=== 19. the knob is restored as a number instead of as its bytes ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_the_knob_is_put_back_as_bytes_and_not_as_the_number
+     also red:  
+
+=== 20. the bmv2 binary is named but never hashed ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_a_path_in_the_status_row_is_hashed
+     also red: test_the_round_captures_ndt_status_and_hashes_the_binary_it_names  
+
+=== 21. the round never asks ndt status, so nothing names the fabric's binary ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_the_round_captures_ndt_status_and_hashes_the_binary_it_names
+     also red: test_the_round_runs_convert_preflight_claim_up_down_release_in_order test_the_teardown_runs_both_halves_even_when_the_steps_raise  
+
+=== 22. the ndtwin fabric may be run as root ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_ndtwin_mode_refuses_to_run_as_root_and_says_why
+     also red:  
+
+=== 23. the package records the skeleton as its source whatever was compiled ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_a_solution_run_names_the_solution_file_it_compiled
+     also red:  
+
+=== 24. the firewall SOLUTION arm accepts the external flow getting through ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_the_solution_arm_wants_the_external_flow_blocked
+     also red: test_a_client_killed_by_the_timeout_is_not_a_transfer  
+
+=== 25. the link_monitor SOLUTION arm accepts a zero port ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_the_two_arms_are_distinguishable
+     also red:  
+
+=== 26. somebody else's live claim is read as a free lab ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_a_live_claim_of_somebody_elses_refuses
+     also red:  
+
+=== 27. the loss measurement goes back to two packets ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_pingall_sends_five_packets_on_every_ordered_pair
+     also red:  
+
+=== 28. the loss parser stops reading the decimal form ping prints ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_the_loss_comes_from_the_summary_line
+     also red:  
+
+=== 29. the report stops saying which fabric and which package it was ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_the_report_header_carries_the_fabric_and_the_package
+     also red:  
+
+=== 30. an iperf client the timeout killed counts as a transfer ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_a_client_killed_by_the_timeout_is_not_a_transfer
+     also red:  
+
+=== 31. the ndtwin dry run tells the operator to sudo ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_the_ndtwin_plan_names_the_ndt_commands_and_asks_for_no_sudo
+     also red:  
+
+=== 32. every run records solution/ as its source, including the skeleton's ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_a_skeleton_run_names_the_skeleton
+     also red: test_convert_is_given_the_default_prog_and_not_the_variant test_firewall_keeps_the_default_prog_because_that_is_the_file_that_was_built  
+
+=== 33. a status with no bmv2 row is reported as a dash, not as UNREADABLE ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_a_status_with_no_bmv2_row_is_UNREADABLE_and_says_so
+     also red:  
+
+=== 34. a bmv2 row naming a file that is not there is hashed anyway ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_a_row_naming_a_binary_that_is_not_there_is_UNREADABLE
+     also red: test_a_knob_that_could_not_be_put_back_is_reported_rather_than_passed_over test_a_knob_this_round_created_is_removed_again test_a_release_that_would_not_take_fails_the_run_and_says_the_lab_is_claimed test_convert_is_given_the_default_prog_and_not_the_variant test_every_ndt_call_carries_the_owner test_the_host_knob_is_put_back_between_the_down_and_the_release test_the_knob_is_put_back_as_bytes_and_not_as_the_number test_the_round_runs_convert_preflight_claim_up_down_release_in_order test_the_teardown_runs_both_halves_even_when_the_steps_raise  
+
+=== 35. the verdict does not mention a lab that was never given back ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_the_verdict_says_the_lab_was_not_returned
+     also red:  
+
+=== 36. every exercise compiles a companion, including the ones that have none ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_an_exercise_whose_default_is_its_own_program_has_no_companion
+     also red: test_firewall_builds_its_own_program_and_the_default_one  
+
+=== 37. the firewall's internal-to-external flow is expected to FAIL ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_both_arms_require_the_internal_to_external_flow
+     also red: test_a_client_killed_by_the_timeout_is_not_a_transfer  
+
+=== 38. the link_monitor SKELETON arm expects a non-zero port ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_the_skeleton_arm_expects_every_reported_port_to_be_zero
+     also red: test_the_two_arms_are_distinguishable  
+
+=== 39. an EXPIRED claim still refuses the lab ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_an_expired_claim_is_not_a_claim
+     also red:  
+
+=== 40. the switch_state summary drops the pipeline sha ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_the_summary_names_the_pipeline_sha_and_the_entry_counts
+     also red: test_the_report_header_carries_the_fabric_and_the_package  
+
+=== 41. the report names /usr/local/bin's bmv2 whatever the fabric ran ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_the_report_names_the_bmv2_binary_by_its_sha
+     also red:  
+
+=== 42. the link_monitor SOLUTION arm expects three of the four switches ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-8SNeGG)
+  anchor occurrences: 1
+  ✅ caught by test_the_solution_arm_wants_all_four_switch_ids_and_no_zero_port
+     also red:  
+
+=== NEGATIVE CONTROL: comment-only edit must stay GREEN ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+  anchor occurrences: 1
+  ✅ green: the suite does not react to a comment
+
+--- was the original written? ---
+  byte-identical  doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  sha256 129f1abad24811bc9ca8accccc4d8857918ede77e34048b1bfe963ff2995eed2
+  suite green against the real file
+
+every cell in the suite has been red for at least one mutation above; the `also red:`
+lines are what that claim is built from. (The 09-08 fixture comparison IS reddened --
+by mutation 1 -- and this footer used to say it was not.)
+
+42 mutations, 0 survived

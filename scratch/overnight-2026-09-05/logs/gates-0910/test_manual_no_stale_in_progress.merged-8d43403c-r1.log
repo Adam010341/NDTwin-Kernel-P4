@@ -1,0 +1,25 @@
+2026-09-12T20:06:23+08:00
+  ok       case 0  git resolves a merged ticket (FIX-NDT-6 -> a merge reachable from HEAD)
+  ok       case 1  'ndt help' no longer names only three ports for --deep
+  ok       case 2  'ndt help' prints --deep's size out of ports.sh's table
+  ok       case 3  'ndt' tells an operator its own fabric is its own
+  ok       case 4  'ndt' still has the stranger sentence (the fix was not 'never say it')
+  ok       case 5a caveat 'clean-calls-your-fabric-residue' is retracted and says what merged it
+  ok       case 5b caveat 'help-deep-names-three-ports' is retracted and says what merged it
+  ok       case 5c caveat 'clean-advises-deep-on-your-own' is retracted and says what merged it
+  ok       case 5d caveat 'e21-contract-branch-only' is retracted and says what merged it
+  ok       case 6  no line calls a ticket unfixed when its merge is already in the tree
+  ok       case 6b no line calls a branch unmerged when its merge is already in the tree
+  ok       case 7  the manual quotes help's computed --deep size
+  ok       case 8  the manual quotes clean's own-fabric sentence
+  ok       case 9  the measured record inside the third caveat survived the sweep
+             (sweep: 38 page(s); skipped 2 as a record of past wording, 4 as retracted in place)
+  ok       case 11  no doc page calls a ticket unfixed without naming the merge that landed it
+  ok       case 11b no doc page calls a branch unmerged without naming the merge that landed it
+  ok       case 11d a violation line names the branch the lookup matched, not just the sha
+  ok       case 11c the sweep has a page list, all of it readable, with the manual and KNOWN-ISSUES in it
+  ok       case 10 CONTROL: §2.1 still says the machine's 4 veth are not residue
+
+19 passed, 0 failed
+RC=0
+2026-09-12T20:06:24+08:00

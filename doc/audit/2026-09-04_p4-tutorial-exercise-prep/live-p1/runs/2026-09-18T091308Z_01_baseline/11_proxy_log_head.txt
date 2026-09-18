@@ -1,0 +1,40 @@
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/main.py:1001: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/main.py:1006: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+INFO:     Started server process [661666]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+[Proxy Agent] app package: baseline (mode ndtwin, election_id 0,1)
+[Proxy Agent] Starting up...
+[1] Received arbitration response: Mastership confirmed.
+[2] Received arbitration response: Mastership confirmed.
+[3] Received arbitration response: Mastership confirmed.
+[4] Received arbitration response: Mastership confirmed.
+[5] Received arbitration response: Mastership confirmed.
+[6] Received arbitration response: Mastership confirmed.
+[7] Received arbitration response: Mastership confirmed.
+[8] Received arbitration response: Mastership confirmed.
+[9] Received arbitration response: Mastership confirmed.
+[10] Received arbitration response: Mastership confirmed.
+[1] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 1
+[2] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 2
+[3] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 3
+[4] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 4
+[5] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 5
+[6] Setting Forwarding Pipeline Config...

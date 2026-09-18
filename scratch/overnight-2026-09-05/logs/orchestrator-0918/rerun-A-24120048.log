@@ -1,0 +1,19 @@
+### mutate_app_package.sh
+
+baseline byte-identical: yes (10 sources, 7 test files)
+mutation gate: 45 mutations, 0 survived
+### mutate_p4_exercise_tools.sh
+(regression guards; they discriminate nothing about the seven behaviours above)
+
+10 mutations, 0 survived
+### p4_proxy tests
+  File "/home/adam/miniconda3/lib/python3.13/unittest/loader.py", line 308, in discover
+    raise ImportError('Start directory is not importable: %r' % start_dir)
+ImportError: Start directory is not importable: '/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-core-0918/p4_proxy/tests'
+### tools tests
+  File "/home/adam/miniconda3/lib/python3.13/unittest/loader.py", line 308, in discover
+    raise ImportError('Start directory is not importable: %r' % start_dir)
+ImportError: Start directory is not importable: '/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-core-0918/tools/p4_exercise/tests'
+### test_topo_from_json
+
+PASS -- derived wiring is identical to the hard-coded lists

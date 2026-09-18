@@ -1,0 +1,17 @@
+2026-09-12T21:03:40+08:00
+baseline (must be green before any mutation):
+  Ran 41 checks, 0 failed
+
+  caught   M1: the foreign-claim guard never fires                  (🔴 NOTHING on the machine was reached went red)
+  caught   M2: stack.sh is never invoked (the stack= number)        (🔴 and the machine WAS reached -- the instrument can read non-zero went red)
+  caught   M3: [2/3] stops calling sudo (the sudo= number)          (🔴 and the machine WAS reached -- the instrument can read non-zero went red)
+  caught   M4: the refusal sentence loses one word                  (  and it says it is refusing went red)
+  caught   M5: a DECLARED measurement stops guarding                (🔴 our OWN claim that DECLARES a measurement is refused went red)
+  caught   M6: the retry line carries the description again         (  🔴 and not the parenthesised description went red)
+  caught   M7 (widening): any claim file at all is a refusal        (an EXPIRED claim is not a refusal went red)
+  control  C1: the --force warning, written the long way            (stayed green, as it must)
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 e6d5215e4c6b478c7f7719223dd2a3399e56d9caed719d4ba956dda50ea96189
+mutation gate: 7 mutations, 0 survived; 1 control(s), 0 went red
+RC=0
+2026-09-12T21:03:48+08:00

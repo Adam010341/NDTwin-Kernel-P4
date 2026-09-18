@@ -1,0 +1,64 @@
+### tree
+6774140c4fded0ef71138e052208e68e4420317a
+(status above; empty = clean)
+### mutate_drive_exercise.sh
+rc=0
+
+16 mutations, 0 survived
+### mutate_ndt_app_package.sh
+rc=0
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 9aeccca2c54f7e3f7705b99a8ea2a2d63edf55376e6a70787f26aaca7678bcb9
+mutation gate: 23 mutations, 0 survived; 2 control(s), 0 went red
+### mutate_ndt_check_sample_rate.sh
+rc=0
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 9aeccca2c54f7e3f7705b99a8ea2a2d63edf55376e6a70787f26aaca7678bcb9
+mutation gate: 12 mutations, 0 survived
+### test_ndt_app_package.sh
+rc=0
+
+Ran 169 checks, 0 failed
+### test_ndt_check_sample_rate.sh
+rc=0
+
+Ran 39 checks, 0 failed
+### test_ndt_honesty.sh
+rc=0
+
+Ran 345 checks, 0 failed
+### test_ndt_round_baseline.sh
+rc=0
+
+Ran 117 checks, 0 failed
+### test_ndt_status_check_baseline.sh
+rc=0
+
+Ran 104 checks, 0 failed
+### test_ndt_status_residue_row.sh
+rc=0
+
+Ran 27 checks, 0 failed
+### test_ndt_up_down_robust.sh
+rc=0
+
+424 passed, 0 failed
+### driver tests (discover)
+Ran 33 tests in 0.040s
+
+OK
+### driver tests (direct file)
+Ran 33 tests in 0.030s
+
+OK
+### tools tests
+Ran 106 tests in 0.207s
+
+OK
+### check_gate_anchors HEAD
+107/107 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+### bash -n live scripts
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/01_baseline.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/02_app_basic.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/02b_app_basic_ndtwin_pipeline.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/03_app_p4runtime.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/04_diag_p4runtime.sh
+### done 08:57:20

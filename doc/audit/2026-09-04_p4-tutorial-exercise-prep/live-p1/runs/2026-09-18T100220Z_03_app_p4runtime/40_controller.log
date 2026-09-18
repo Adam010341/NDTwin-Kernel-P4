@@ -1,0 +1,101 @@
+[adapter] tutorials utils : /home/adam/tutorials/utils
+[adapter] grpc base       : 30050 (device id = dpid)
+[adapter] running          /home/adam/tutorials/exercises/p4runtime/solution/mycontroller.py  (cwd /home/adam/tutorials/exercises/p4runtime)
+[adapter] s1: 127.0.0.1:50051 device_id=0  ->  localhost:30051 device_id=1
+[adapter] s2: 127.0.0.1:50052 device_id=1  ->  localhost:30052 device_id=2
+Installed P4 Program using SetForwardingPipelineConfig on s1
+Installed P4 Program using SetForwardingPipelineConfig on s2
+Installed ingress tunnel rule on s1
+Installed transit tunnel rule on s1
+Installed egress tunnel rule on s2
+Installed ingress tunnel rule on s2
+Installed transit tunnel rule on s2
+Installed egress tunnel rule on s1
+
+----- Reading tables rules for s1 -----
+MyIngress.ipv4_lpm:  hdr.ipv4.dstAddr (b'\n\x00\x02\x02', 32) -> MyIngress.myTunnel_ingress dst_id b'd' 
+MyIngress.myTunnel_exact:  hdr.myTunnel.dst_id b'd' -> MyIngress.myTunnel_forward port b'\x02' 
+MyIngress.myTunnel_exact:  hdr.myTunnel.dst_id b'\xc8' -> MyIngress.myTunnel_egress dstAddr b'\x08\x00\x00\x00\x01\x11' port b'\x01' 
+
+----- Reading tables rules for s2 -----
+MyIngress.ipv4_lpm:  hdr.ipv4.dstAddr (b'\n\x00\x01\x01', 32) -> MyIngress.myTunnel_ingress dst_id b'\xc8' 
+MyIngress.myTunnel_exact:  hdr.myTunnel.dst_id b'd' -> MyIngress.myTunnel_egress dstAddr b'\x08\x00\x00\x00\x02"' port b'\x01' 
+MyIngress.myTunnel_exact:  hdr.myTunnel.dst_id b'\xc8' -> MyIngress.myTunnel_forward port b'\x02' 
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 0 packets (0 bytes)
+s2 MyIngress.egressTunnelCounter 100: 0 packets (0 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 0 packets (0 bytes)
+s1 MyIngress.egressTunnelCounter 200: 0 packets (0 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 0 packets (0 bytes)
+s2 MyIngress.egressTunnelCounter 100: 0 packets (0 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 0 packets (0 bytes)
+s1 MyIngress.egressTunnelCounter 200: 0 packets (0 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 0 packets (0 bytes)
+s2 MyIngress.egressTunnelCounter 100: 0 packets (0 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 0 packets (0 bytes)
+s1 MyIngress.egressTunnelCounter 200: 0 packets (0 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 0 packets (0 bytes)
+s2 MyIngress.egressTunnelCounter 100: 0 packets (0 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 0 packets (0 bytes)
+s1 MyIngress.egressTunnelCounter 200: 0 packets (0 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 1 packets (98 bytes)
+s2 MyIngress.egressTunnelCounter 100: 1 packets (102 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 1 packets (98 bytes)
+s1 MyIngress.egressTunnelCounter 200: 1 packets (102 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 3 packets (294 bytes)
+s2 MyIngress.egressTunnelCounter 100: 3 packets (306 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 3 packets (294 bytes)
+s1 MyIngress.egressTunnelCounter 200: 3 packets (306 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 5 packets (490 bytes)
+s2 MyIngress.egressTunnelCounter 100: 5 packets (510 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 5 packets (490 bytes)
+s1 MyIngress.egressTunnelCounter 200: 5 packets (510 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 8 packets (784 bytes)
+s2 MyIngress.egressTunnelCounter 100: 8 packets (816 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 8 packets (784 bytes)
+s1 MyIngress.egressTunnelCounter 200: 8 packets (816 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 10 packets (980 bytes)
+s2 MyIngress.egressTunnelCounter 100: 10 packets (1020 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 10 packets (980 bytes)
+s1 MyIngress.egressTunnelCounter 200: 10 packets (1020 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 13 packets (1274 bytes)
+s2 MyIngress.egressTunnelCounter 100: 13 packets (1326 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 13 packets (1274 bytes)
+s1 MyIngress.egressTunnelCounter 200: 13 packets (1326 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 15 packets (1470 bytes)
+s2 MyIngress.egressTunnelCounter 100: 15 packets (1530 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 15 packets (1470 bytes)
+s1 MyIngress.egressTunnelCounter 200: 15 packets (1530 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 18 packets (1764 bytes)
+s2 MyIngress.egressTunnelCounter 100: 18 packets (1836 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 18 packets (1764 bytes)
+s1 MyIngress.egressTunnelCounter 200: 18 packets (1836 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 20 packets (1960 bytes)
+s2 MyIngress.egressTunnelCounter 100: 20 packets (2040 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 20 packets (1960 bytes)
+s1 MyIngress.egressTunnelCounter 200: 20 packets (2040 bytes)

@@ -1,0 +1,14 @@
+### trunk 78067633  09:13:08
+### live-p1/01_baseline.sh  start 09:13:08
+rc=0  end 09:13:44
+tail: cannot open '/tmp/live-01_baseline.log' for reading: No such file or directory
+### live-p1/03_app_p4runtime.sh  start 09:13:44
+rc=0  end 09:19:58
+tail: cannot open '/tmp/live-03_app_p4runtime.log' for reading: No such file or directory
+### post: ndt status (claim/measuring/app package/knob)
+  claim          none
+  measuring      nothing
+  knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+  app package    none   (p4_proxy/mininet/app_package_override absent -- the baseline fabric)
+  bmv2 switches  0       topo session   absent
+### done 09:19:59

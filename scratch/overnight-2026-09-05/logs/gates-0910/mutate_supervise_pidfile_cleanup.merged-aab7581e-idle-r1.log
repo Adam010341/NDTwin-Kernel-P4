@@ -1,0 +1,9 @@
+baseline (must be green before any mutation):
+Ran 62 checks, all passed
+
+  caught   M1: the reaped child's pidfile is left in the registry (R7 I-3) (🔴 the child pidfile is gone once the ending is recorded went red)
+  caught   M2 (widening): <prefix>.pid is reaped too, and stop_one goes blind (🔴 and <prefix>.pid is NOT removed -- stop_one needs it to report the ending went red)
+  caught   M3: it is removed while the child is still running         (🔴 a RUNNING component still has its child pidfile went red)
+
+baseline byte-identical: yes  tools/test_workflow/supervise.sh  sha256 6d9ac732e78e4172f279642d06a82a3261169693ce760f749e765de5d98fac13
+mutation gate: 3 mutations, 0 survived
