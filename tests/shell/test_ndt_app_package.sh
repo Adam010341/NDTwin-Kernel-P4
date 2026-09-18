@@ -1026,6 +1026,10 @@ OUT="$(vp4 "$SS_NULL" ndtwin foreign:1,2,3,4)"
 check "🔴 'skipped: null' is NOT 'nothing was skipped'"   "1" "$(rc_of "$OUT")"
 OUT="$(vp4 "$SS_JUNK" ndtwin foreign:1,2,3,4)"
 check "🔴 an unreadable switch_state is red, not quiet"   "1" "$(rc_of "$OUT")"
+# 🔴 AND THE RC ALONE IS NOT ENOUGH HERE. Junk on the wire fails the entries gate below as well,
+# so rc 1 is what this cell would read from an implementation that had stopped asking the proxy
+# about discovery altogether. The sentence is what says which question went unanswered.
+has   "  saying which question went unanswered"           "gave no control_plane.skipped" "$OUT"
 
 # --- §3.2-2: the entries are the gate ---------------------------------------------------------
 OUT="$(vp4 "$SS_GOOD" ndtwin foreign:1,2,3,4)"

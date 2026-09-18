@@ -511,7 +511,7 @@ check_fires "M24: 'NOT CHECKED' without asking the proxy at all" m24 \
             "🔴 a proxy that did NOT skip discovery is red" \
             "🔴 an endpoint with no control_plane is red too" \
             "🔴 'skipped: null' is NOT 'nothing was skipped'" \
-            "🔴 an unreadable switch_state is red, not quiet"
+            "  saying which question went unanswered"
 
 # M24c: the unreadable case borrows the readable one's sentence. Still red -- the empty list has
 # no lldp_discovery in it either -- but the report now says `control_plane.skipped is []`, i.e.
