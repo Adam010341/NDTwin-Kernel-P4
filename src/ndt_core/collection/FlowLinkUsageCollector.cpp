@@ -1051,20 +1051,45 @@ FlowLinkUsageCollector::noteFrameIdentity(const FrameIdentity& identity,
         return;
     }
 
+    const int64_t nowMs = utils::getCurrentTimeMillisSystemClock();
+
     std::unique_lock<std::shared_mutex> lk(m_nonIpv4ObservationsMutex);
     auto it = m_nonIpv4Observations.find(identity.key);
     if (it == m_nonIpv4Observations.end())
     {
         if (m_nonIpv4Observations.size() >= kMaxNonIpv4Observations)
         {
-            m_nonIpv4ObservationsDropped.fetch_add(1, std::memory_order_relaxed);
-            return;
+            // [Co-developed with claude code -- Adam] Round 2, fable-judge F5.
+            // 🔴 EVICT THE OLDEST RATHER THAN REFUSE THE NEWEST. The first draft refused, which
+            // reads fine for a cap on distinct *ethertypes* and is wrong for what these keys
+            // actually are: an IPv6 key carries the L4 ports, so one run of ordinary traffic
+            // mints a new identity per ephemeral port and fills 1024 in minutes. After that the
+            // table would be frozen on whatever was seen first and every later identity -- the
+            // one an operator is looking for, because it is the one happening now -- would only
+            // increment a counter. Least-recently-seen goes, which is the same thing
+            // purgeIdleFlows does to the flow table and for the same reason.
+            //
+            // O(n) over 1024 entries, and only on an insert into a full table. The ingest that
+            // reaches here is one sampled frame in `samplingRate`, so this is nowhere near the
+            // hot path -- and a heap keyed on a timestamp that every hit updates would be more
+            // machinery than the bound is worth.
+            auto oldest = m_nonIpv4Observations.begin();
+            for (auto scan = m_nonIpv4Observations.begin(); scan != m_nonIpv4Observations.end();
+                 ++scan)
+            {
+                if (scan->second.lastSeenMs < oldest->second.lastSeenMs)
+                {
+                    oldest = scan;
+                }
+            }
+            m_nonIpv4Observations.erase(oldest);
+            m_nonIpv4ObservationsEvicted.fetch_add(1, std::memory_order_relaxed);
         }
         it = m_nonIpv4Observations.emplace(identity.key, FamilyObservation{}).first;
     }
     it->second.samples += 1;
     it->second.estimatedBytes += uint64_t(frameLength) * samplingRate;
-    it->second.lastSeenMs = utils::getCurrentTimeMillisSystemClock();
+    it->second.lastSeenMs = nowMs;
 }
 
 // [Co-developed with claude code -- Adam]
@@ -1118,6 +1143,10 @@ FlowLinkUsageCollector::frameFamilyStatsJson() const
         {"non_ipv4_flows",
          {{"tracked", table.size()},
           {"dropped_over_capacity", m_nonIpv4ObservationsDropped.load(std::memory_order_relaxed)},
+          // Non-zero means this list is a window over the most recently seen identities rather
+          // than everything since startup. [Co-developed with claude code -- Adam]
+          {"evicted_least_recently_seen",
+           m_nonIpv4ObservationsEvicted.load(std::memory_order_relaxed)},
           {"capacity", kMaxNonIpv4Observations},
           {"observed", observed}}}};
 }
