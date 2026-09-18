@@ -1,0 +1,19 @@
+ip netns add ndtspike-a
+ip netns add ndtspike-b
+ip -netns ndtspike-a link add spk-a type veth peer name spk-b netns ndtspike-b
+ip netns exec ndtspike-a sysctl -qw net.ipv6.conf.all.disable_ipv6=1
+ip netns exec ndtspike-a sysctl -qw net.ipv6.conf.default.disable_ipv6=1
+ip netns exec ndtspike-b sysctl -qw net.ipv6.conf.all.disable_ipv6=1
+ip netns exec ndtspike-b sysctl -qw net.ipv6.conf.default.disable_ipv6=1
+ip -netns ndtspike-a addr add 10.99.0.1/24 dev spk-a
+ip -netns ndtspike-b addr add 10.99.0.2/24 dev spk-b
+ip -netns ndtspike-a link set lo up
+ip -netns ndtspike-b link set lo up
+ip -netns ndtspike-a link set spk-a up
+ip -netns ndtspike-b link set spk-b up
+ip netns exec ndtspike-a tc qdisc add dev spk-a clsact
+ip netns exec ndtspike-a tc filter add dev spk-a egress matchall action sample rate 4 group 7 trunc 128
+ip netns exec ndtspike-a tc filter add dev spk-a ingress matchall action sample rate 4 group 8 trunc 128
+ip netns exec ndtspike-a python3 psample_listen.py --seconds 20 --json --data-prefix 32
+ip netns exec ndtspike-a ping -c 200 -i 0.02 -q 10.99.0.2
+ip netns exec ndtspike-a sh -c "dd if=/dev/zero bs=1400 count=2000 status=none | nc -u -w 2 10.99.0.2 9999"

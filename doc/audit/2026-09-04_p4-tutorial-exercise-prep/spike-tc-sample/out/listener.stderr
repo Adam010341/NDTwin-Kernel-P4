@@ -1,0 +1,3 @@
+psample_listen: family id 44, mcast groups config=28,packets=29, joined `packets` (id 29), netns inode net:[4026533652], listening 20.0s
+psample_listen: SUMMARY {"distinct_iifindex": [2], "elapsed_s": 20.001, "enobufs_events": 0, "filtered_out_by_group_option": 0, "ifindex_attr_widths_bytes": [2], "ifindex_names": {"2": "spk-a"}, "iifindex_counts": {"2": 54}, "netns_links": {"1": "lo", "2": "spk-a"}, "non_sample_commands": 0, "oifindex_counts": {"2": 44}, "origsize_max": 98, "origsize_mean": 97.43, "origsize_min": 42, "per_group": {"7": 44, "8": 54}, "sample_rates_seen": [4], "samples": 98, "started_wall": 1789645915.44}
+psample_listen: samples=98 distinct_iifindex=[2] origsize min/max/mean=42/98/97.43 rates=[4] elapsed=20.001s
