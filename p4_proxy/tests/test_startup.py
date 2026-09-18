@@ -18,8 +18,11 @@ main.startup and writing down what it does.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
+import shutil
 import sys
+import tempfile
 import unittest
 from unittest import mock
 
@@ -37,8 +40,9 @@ class FakeClient:
     """A bmv2 switch that can be made to fail at each independent step."""
 
     def __init__(self, dpid, pipeline_error=None, clone_ok=True, json_path="pipeline.json",
-                 stop_error=None):
+                 stop_error=None, entry_errors=()):
         self.dpid = dpid
+        self.device_id = dpid
         self.stop_error = stop_error
         self.json_path = json_path
         self.pipeline_error = pipeline_error
@@ -48,6 +52,12 @@ class FakeClient:
         #: clone session lives in the pipeline's PRE, so programming it before the pipeline push
         #: would be silently discarded and the switch would report zero traffic forever.
         self.events = []
+        #: Every (spec, op) `apply_package_entries` handed this client, and the exceptions it
+        #: should raise instead of accepting them -- one per entry, `None` for "accept this
+        #: one". A tuple rather than a flag because the property under test is that ONE refused
+        #: entry does not cost the others. [Co-developed with claude code -- Adam]
+        self.written = []
+        self.entry_errors = list(entry_errors)
 
     def set_forwarding_pipeline_config(self):
         self.events.append("pipeline")
@@ -57,6 +67,15 @@ class FakeClient:
     def write_clone_session(self):
         self.events.append("clone")
         return self.clone_ok
+
+    def write_table_entry(self, spec, op="insert"):
+        self.events.append("table_entry")
+        self.written.append((spec, op))
+        if self.entry_errors:
+            error = self.entry_errors.pop(0)
+            if error is not None:
+                raise error
+        return {"dpid": self.dpid, "op": op, "table": spec.get("table")}
 
     def stop(self):
         self.events.append("stop")
@@ -348,6 +367,206 @@ class AnExternalControlPlaneTest(unittest.TestCase):
         self.assertEqual(sorted(parts["topo"].started), ["liveness", "lldp", "watchdog"])
         self.assertEqual(summary["control_plane"]["skipped"], [])
         self.assertEqual(summary["control_plane"]["package"], "/packages/basic")
+
+
+class AForeignPipelineTest(unittest.TestCase):
+    """
+    TICKET-P2 2.2: what changes when a switch is running the app package's own program.
+
+    [Co-developed with claude code -- Adam]
+
+    🔴 THE THREE THINGS THAT STOP HAPPENING ALL LOOK LIKE FAULTS FROM OUTSIDE, which is why
+    every one of them is asserted together with its disclosure:
+
+      * no clone session and no sFlow registration for that switch -- the PRE write would
+        SUCCEED (a clone session is a target object, not part of the P4 program) and then
+        nothing would ever clone into it, because `clone_preserving_field_list` exists only in
+        ndtwin_switch.p4. A registered switch that never samples is zero telemetry with every
+        intermediate step green;
+      * no LLDP and no watchdog for the WHOLE fabric -- both ride a controller header a
+        tutorials pipeline does not declare, and the watchdog seeds every declared link and
+        would report the lot down inside its timeout;
+      * the package's own entries ARE applied, which is the only reason such a fabric forwards
+        anything at all.
+
+    And the negative half, which is what keeps the two above from being change detectors: under
+    NDTwin's own pipeline -- every package phase 1 accepts -- none of it happens, the entries
+    stay recorded and unapplied, and `skipped` is empty.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_startup_entries_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.saved = (dict(main._pipelines), dict(main._table_entries), dict(main._api_writes))
+        self.addCleanup(self.restore)
+
+    def restore(self):
+        for live, saved in ((main._pipelines, self.saved[0]),
+                            (main._table_entries, self.saved[1]),
+                            (main._api_writes, self.saved[2])):
+            live.clear()
+            live.update(saved)
+
+    def entries_file(self, dpid, count):
+        path = os.path.join(self.tmp, f"s{dpid}-runtime.json")
+        with open(path, "w") as fh:
+            json.dump({"target": "bmv2", "table_entries": [
+                {"table": "MyIngress.ipv4_lpm",
+                 "match": {"hdr.ipv4.dstAddr": [f"10.0.{dpid}.{i + 1}", 32]},
+                 "action_name": "MyIngress.ipv4_forward",
+                 "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1}}
+                for i in range(count)]}, fh)
+        return path
+
+    def package(self, dpids=(1,), pipeline=("build/basic.p4info.txtpb", "build/basic.json"),
+                entries=2, mode="ndtwin"):
+        switches = tuple(
+            app_package.SwitchSpec(dpid=dpid, name=f"s{dpid}", pipeline=pipeline,
+                                   entries=None if not entries else self.entries_file(dpid,
+                                                                                      entries),
+                                   entries_recorded=entries)
+            for dpid in dpids)
+        return app_package.Package(dir="/packages/basic", name="basic", mode=mode,
+                                   switches=switches)
+
+    # --- the fabric-wide half ---------------------------------------------------------
+
+    def test_a_foreign_pipeline_names_every_fabric_wide_step_it_switched_off(self):
+        summary, _ = run_startup({1: FakeClient(1)}, package=self.package())
+        self.assertEqual(summary["control_plane"]["skipped"],
+                         sorted([main.SKIP_CLONE, main.SKIP_TELEMETRY, main.SKIP_LLDP,
+                                 main.SKIP_WATCHDOG, main.SKIP_ROUTES]))
+
+    def test_the_pipeline_push_itself_is_not_skipped(self):
+        # 🔴 The one step that must still happen. `pipeline_push` is absent from the list above
+        # on purpose: the package's program is loaded BY this proxy, which is the whole feature.
+        client = FakeClient(1)
+        summary, _ = run_startup({1: client}, package=self.package())
+        self.assertIn("pipeline", client.events)
+        self.assertNotIn(main.SKIP_PIPELINE, summary["control_plane"]["skipped"])
+
+    def test_no_lldp_and_no_watchdog_run_on_a_fabric_with_a_foreign_pipeline(self):
+        _, parts = run_startup({1: FakeClient(1)}, package=self.package())
+        self.assertNotIn("lldp", parts["topo"].started)
+        self.assertNotIn("watchdog", parts["topo"].started)
+        self.assertIn("liveness", parts["topo"].started,
+                      "the probe is a unary read with no election id; dropping it would make "
+                      "the kernel answer Unknown for every switch")
+
+    def test_one_foreign_switch_switches_the_whole_fabrics_discovery_off(self):
+        # A beacon leaves one switch and arrives at another, so a link between an NDTwin switch
+        # and a package switch cannot be discovered either -- and a seeded watchdog would report
+        # it down. Per-switch here would be a fabric-wide false alarm.
+        package = self.package(dpids=(1,), entries=0)
+        _, parts = run_startup({1: FakeClient(1), 2: FakeClient(2)}, package=package)
+        self.assertNotIn("lldp", parts["topo"].started)
+
+    # --- the per-switch half ----------------------------------------------------------
+
+    def test_a_foreign_pipeline_gets_no_clone_session_and_no_sflow_registration(self):
+        client = FakeClient(1)
+        summary, parts = run_startup({1: client}, package=self.package())
+        self.assertNotIn("clone", client.events)
+        self.assertEqual(parts["sflow"].registered, {})
+        self.assertEqual(summary["telemetry"], [])
+
+    def test_an_ndtwin_switch_beside_a_foreign_one_keeps_its_clone_session(self):
+        # Per switch, not fabric-wide: the clone session is programmed into THAT switch's PRE,
+        # and an NDTwin pipeline still clones into it whatever its neighbour is running.
+        ours, theirs = FakeClient(2), FakeClient(1)
+        summary, parts = run_startup({1: theirs, 2: ours}, package=self.package(dpids=(1,),
+                                                                                entries=0))
+        self.assertIn("clone", ours.events)
+        self.assertNotIn("clone", theirs.events)
+        self.assertEqual(summary["telemetry"], [2])
+        self.assertEqual(sorted(parts["sflow"].registered), [2])
+
+    def test_the_packages_entries_are_applied_to_a_foreign_pipeline(self):
+        client = FakeClient(1)
+        summary, _ = run_startup({1: client}, package=self.package(entries=2))
+        self.assertEqual(len(client.written), 2)
+        self.assertEqual(summary["table_entries"]["1"]["recorded"], 2)
+        self.assertEqual(summary["table_entries"]["1"]["applied"], 2)
+        self.assertEqual(summary["table_entries"]["1"]["failed"], 0)
+
+    def test_the_entries_go_on_after_the_pipeline_that_defines_their_tables(self):
+        client = FakeClient(1)
+        run_startup({1: client}, package=self.package(entries=2))
+        self.assertEqual(client.events, ["pipeline", "table_entry", "table_entry"],
+                         "an entry written before the push is erased by it, and the push "
+                         "reports success either way")
+
+    def test_one_refused_entry_does_not_cost_the_others(self):
+        # A tutorials runtime file is a list of independent rules. Stopping at the first failure
+        # leaves the fabric programmed up to an arbitrary point with nothing saying where.
+        client = FakeClient(1, entry_errors=[RuntimeError("table not in this pipeline"), None])
+        summary, _ = run_startup({1: client}, package=self.package(entries=2))
+        self.assertEqual(len(client.written), 2)
+        self.assertEqual(summary["table_entries"]["1"]["applied"], 1)
+        self.assertEqual(summary["table_entries"]["1"]["failed"], 1)
+
+    def test_a_refused_entry_is_named_not_just_counted(self):
+        client = FakeClient(1, entry_errors=[RuntimeError("no such table")])
+        summary, _ = run_startup({1: client}, package=self.package(entries=1))
+        self.assertIn("1", summary["entry_errors"])
+        self.assertIn("no such table", summary["entry_errors"]["1"][0])
+
+    def test_a_switch_whose_pipeline_push_failed_gets_no_entries(self):
+        # There is no pipeline to write them into, and the attempt would produce a second
+        # misleading error for the same cause.
+        client = FakeClient(1, pipeline_error=RuntimeError("dead"))
+        summary, _ = run_startup({1: client}, package=self.package(entries=2))
+        self.assertEqual(client.written, [])
+        self.assertEqual(summary["table_entries"]["1"]["applied"], 0)
+        self.assertEqual(summary["table_entries"]["1"]["recorded"], 2,
+                         "the count of what the package declared does not depend on whether "
+                         "the switch was reachable")
+
+    def test_every_switch_is_reported_with_the_program_it_runs(self):
+        summary, _ = run_startup({1: FakeClient(1), 2: FakeClient(2)},
+                                 package=self.package(dpids=(1,), entries=0))
+        self.assertFalse(summary["pipelines"]["1"]["ndtwin"])
+        self.assertTrue(summary["pipelines"]["2"]["ndtwin"])
+        self.assertIn("basic.p4info.txtpb", summary["pipelines"]["1"]["p4info"])
+
+    # --- the negative half: NDTwin's own pipeline is untouched ------------------------
+
+    def test_under_ndtwins_own_pipeline_the_entries_stay_recorded_and_unapplied(self):
+        # 🔴 What phase 1 shipped and `live-p1/02` asserts. `MyIngress.ipv4_lpm` in basic.p4 is
+        # not `MyIngress.ipv4_lpm` in ndtwin_switch.p4 even though the two strings are equal, so
+        # applying these would put the exercise's forwarding into our pipeline on top of the
+        # routes install_initial_routes computes -- and both would report success.
+        client = FakeClient(1)
+        summary, _ = run_startup({1: client}, package=self.package(pipeline=None, entries=5))
+        self.assertEqual(client.written, [])
+        self.assertEqual(summary["table_entries"]["1"],
+                         {"recorded": 5, "applied": 0, "failed": 0, "api_writes": 0,
+                          "journaled": False})
+
+    def test_under_ndtwins_own_pipeline_nothing_is_skipped(self):
+        summary, parts = run_startup({1: FakeClient(1)},
+                                     package=self.package(pipeline=None, entries=5))
+        self.assertEqual(summary["control_plane"]["skipped"], [])
+        self.assertEqual(sorted(parts["topo"].started), ["liveness", "lldp", "watchdog"])
+        self.assertEqual(summary["telemetry"], [1])
+
+    def test_an_external_package_is_reported_exactly_as_phase_one_reported_it(self):
+        # `external` and "foreign pipeline" are independent: the first says somebody else drives
+        # this fabric, the second says which program is on it. An external package still skips
+        # the six EXTERNAL_SKIPS and nothing more, and applies no entries -- it is not allowed
+        # to write at all.
+        client = FakeClient(1)
+        summary, _ = run_startup({1: client}, package=self.package(entries=5, mode="external"))
+        self.assertEqual(summary["control_plane"]["skipped"], sorted(main.EXTERNAL_SKIPS))
+        self.assertEqual(client.events, [])
+        self.assertEqual(summary["table_entries"]["1"]["applied"], 0)
+        self.assertEqual(summary["table_entries"]["1"]["recorded"], 5)
+
+    def test_the_baseline_fabric_reports_a_pipeline_of_its_own_and_no_entries(self):
+        summary, _ = run_startup({1: FakeClient(1)})
+        self.assertTrue(summary["pipelines"]["1"]["ndtwin"])
+        self.assertEqual(summary["control_plane"]["skipped"], [])
+        self.assertEqual(summary["entry_errors"], {})
 
 
 class RegistrationTest(unittest.TestCase):

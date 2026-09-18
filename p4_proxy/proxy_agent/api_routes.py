@@ -5,6 +5,14 @@ import json
 import time
 from proxy_agent.topology_manager import TopologyManager, UnsupportedMatchError, needs_five_tuple
 from proxy_agent import ryu_topology, ryu_flow_stats
+# [Co-developed with claude code -- Adam]
+# The three refusals POST /p4/table_entry has to turn into 409 / 501 / 400. Imported as types
+# rather than matched on a message, because a message is a string somebody will reword and a
+# status code derived from one would silently become a 500 the day they did. No cycle:
+# p4_client imports boot_identity, rule_install_times and sflow_emitter, none of which reach
+# back here.
+from proxy_agent.p4_client import (ControlPlaneReadOnly, TableEntryInvalid,
+                                   TableEntryUnsupported)
 
 # We will attach the topology manager instance to the router later
 router = APIRouter()
@@ -21,11 +29,19 @@ def inject_topology(topo: TopologyManager):
 # the sFlow emitter's, wired the same way startup() wires it.
 readopt_client_factory = None
 readopt_sample_callback = None
+# [Co-developed with claude code -- Adam]
+# The third injected piece: main.py's `readopt_switch(topology, dpid, factory, callback)`.
+# TopologyManager owns the re-adoption sequence and knows nothing about app packages, and what a
+# foreign pipeline changes -- no clone session, the package's entries re-applied afterwards -- is
+# package knowledge. So the decision is made where the package is known (main.py) and this module
+# stays the translator from a result dict to a status code, which is all it ever was.
+readopt_runner = None
 
-def inject_readopt(client_factory, sample_callback):
-    global readopt_client_factory, readopt_sample_callback
+def inject_readopt(client_factory, sample_callback, runner):
+    global readopt_client_factory, readopt_sample_callback, readopt_runner
     readopt_client_factory = client_factory
     readopt_sample_callback = sample_callback
+    readopt_runner = runner
 
 
 # Injected for GET /sflow/stats (ticket P). [Co-developed with claude code -- Adam]
@@ -65,14 +81,41 @@ def inject_control_plane(report, entries_recorded):
     entries_recorded_report = entries_recorded
 
 
+# --- the G4/G5 half of the same disclosure (TICKET-P2 2.2). [Co-developed with claude code -- Adam]
+#
+# A second injector rather than three more arguments on the one above: `control_plane` and
+# `entries_recorded` answer "what did the package switch off" and "how many rules did it declare",
+# and these answer "which program is each switch running" and "what actually got written". Both
+# are read at request time for the reason the first pair is -- startup fills them in while the
+# kernel is already polling.
+#
+# `note_api_table_entry_write` is the counter POST /p4/table_entry increments. It lives in main.py
+# with the other per-switch bookkeeping; this module holds no state of its own so that a proxy
+# restart cannot leave a stale count behind an endpoint.
+pipelines_report = None
+table_entries_report = None
+note_api_table_entry_write = None
+
+
+def inject_package_reports(pipelines, table_entries, note_api_write):
+    global pipelines_report, table_entries_report, note_api_table_entry_write
+    pipelines_report = pipelines
+    table_entries_report = table_entries
+    note_api_table_entry_write = note_api_write
+
+
 def _grpc_status_name(exc):
     """
     The gRPC status name of an exception, or None if it is not a gRPC error.
 
     [Co-developed with claude code -- Adam]
     grpc.RpcError exposes code() but the concrete class is an internal name
-    (_MultiThreadedRendezvous, _InactiveRpcError) that means nothing in a log. Duck-typed so this
-    module keeps its lack of a gRPC import; a non-gRPC exception has no code() and falls back.
+    (_MultiThreadedRendezvous, _InactiveRpcError) that means nothing in a log. Duck-typed rather
+    than `isinstance(exc, grpc.RpcError)`: a non-gRPC exception has no code() and falls back, so
+    this stays the one predicate for "did something below us fail with a status", whatever the
+    class. (This module imports p4_client as of TICKET-P2, so gRPC is now a transitive
+    dependency; an earlier version of this note said it was not, and that half has stopped
+    being true.)
     """
     code = getattr(exc, "code", None)
     if not callable(code):
@@ -493,12 +536,17 @@ def readopt(dpid: int):
     """
     if topology is None:
         raise HTTPException(status_code=503, detail="proxy has no topology yet")
-    if readopt_client_factory is None:
+    if readopt_client_factory is None or readopt_runner is None:
         raise HTTPException(status_code=503,
                             detail="readopt is not wired: main.py did not inject a client "
                                    "factory, so this endpoint cannot build connections")
 
-    result = topology.readopt_switch(dpid, readopt_client_factory, readopt_sample_callback)
+    # [Co-developed with claude code -- Adam]
+    # Through main.py's wrapper, not straight at the TopologyManager: under a foreign pipeline
+    # the switch gets no clone session and the package's own entries go back on afterwards, and
+    # both of those are decisions only the side that holds the package can make. The wrapper
+    # returns the same result dict, so the three status codes below are unchanged.
+    result = readopt_runner(topology, dpid, readopt_client_factory, readopt_sample_callback)
     if result["status"] == "unknown-switch":
         raise HTTPException(status_code=404, detail=result)
     if result["status"] != "success":
@@ -556,7 +604,154 @@ async def switch_state():
         recorded = entries_recorded_report()
         for dpid, entry in state.get("switches", {}).items():
             entry["entries_recorded"] = recorded.get(str(dpid), 0)
+    # [Co-developed with claude code -- Adam]
+    # Two more per-switch keys, TICKET-P2 2.2. In a loop of their own rather than folded into the
+    # one above, because that loop is `tests/shell/mutate_app_package.sh` M20's anchor and a gate
+    # cell that stops resolving is a cell that reports SURVIVOR for everything.
+    #
+    #   pipeline       which program this switch is running, and a stable identifier for it. The
+    #                  sha is of the p4info, never of the bmv2 JSON: that file carries the
+    #                  absolute path of its source, so the same program compiled twice in two
+    #                  directories has two hashes.
+    #   table_entries  recorded / applied / failed / api_writes / journaled. `journaled: false`
+    #                  is a constant and is emitted anyway: these rules do NOT survive a proxy
+    #                  restart and nothing replays them (Adam 2026-09-18, option a), and a reader
+    #                  who is not told that finds an empty table with no explanation.
+    if pipelines_report is not None:
+        pipelines = pipelines_report()
+        for dpid, entry in state.get("switches", {}).items():
+            entry["pipeline"] = pipelines.get(str(dpid))
+    if table_entries_report is not None:
+        written = table_entries_report()
+        for dpid, entry in state.get("switches", {}).items():
+            entry["table_entries"] = written.get(
+                str(dpid), {"recorded": 0, "applied": 0, "failed": 0, "api_writes": 0,
+                            "journaled": False})
     return state
+
+
+#: Attached to every accepted `POST /p4/table_entry`. Adam's 2026-09-18 ruling (option a) is that
+#: phase 2 does not journal these, and the consequence is stated in the response itself rather
+#: than only in a document: an operator who POSTs a rule and restarts the proxy gets an empty
+#: table, and the only warning they will ever read is this one.
+#: [Co-developed with claude code -- Adam]
+TABLE_ENTRY_NOT_JOURNALED = ("not journaled: this entry is lost when the proxy restarts "
+                             "(Adam 2026-09-18, option a)")
+
+
+@router.post("/p4/table_entry")
+async def table_entry(request: Request):
+    """
+    Write one table entry, in the shape tutorials' `sX-runtime.json` already uses. TICKET-P2 2.3.
+
+    [Co-developed with claude code -- Adam]
+    The existing `/stats/flowentry/*` endpoints speak OpenFlow and compile a match down to one of
+    NDTwin's own two tables. This one speaks P4: it names a table, an action and their parameters
+    out of the pipeline the switch is actually running, which is the only way to program a
+    package that brought its own program.
+
+        {"dpid": 1, "op": "insert",
+         "table": "MyIngress.ipv4_lpm",
+         "match": {"hdr.ipv4.dstAddr": ["10.0.1.1", 32]},
+         "action_name": "MyIngress.ipv4_forward",
+         "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1},
+         "default_action": false, "priority": null}
+
+    🔴 NOT JOURNALED, AND THE RESPONSE SAYS SO. `rule_journal` records what the kernel's routing
+    asks for so a restart has something to fall back on; a rule POSTed here is recorded nowhere
+    and is gone with the process. Adam ruled that phase 2 ships it that way (option a), so the
+    duty this endpoint has is to be honest about it in the one place a caller definitely reads --
+    `journaled: false` plus a note, on every success. `switch_state`'s `table_entries.api_writes`
+    is the other half: it counts them, so the rules that will vanish are countable before they do.
+
+    Status codes, and what each one means happened to the switch:
+
+        200  the switch accepted the write.
+        400  the request cannot be represented in this pipeline -- a value wider than its field,
+             an lpm prefix out of range, a default action carrying a match, a priority on a
+             table with no priority column, an unknown `op`. NOTHING was written.
+        404  an unknown dpid, or a table / field / action / parameter this switch's p4info does
+             not describe. NOTHING was written.
+        409  this fabric's package declares an external control plane, so the proxy reads only.
+             NOTHING was written.
+        501  the entry needs a ternary, range or optional match, which this phase does not
+             build. NOTHING was written.
+        502  the switch itself refused it; the body carries the gRPC status name.
+
+    Every non-200 above is reached before `stub.Write`, and tests/test_table_entry_route.py
+    asserts the stub saw no request for each of them -- "nothing was written" is a claim about
+    the wire, so it is checked on the wire.
+
+    `def`-shaped work inside an `async def`: the body has to be awaited, and the write blocks on
+    a gRPC round trip, so the blocking half goes to the threadpool by hand -- the same treatment
+    and the same reason as the three flowentry endpoints above.
+    """
+    data = await _flowentry_body(request)
+    if topology is None:
+        raise HTTPException(status_code=503, detail="proxy has no topology yet")
+
+    raw_dpid = data.get("dpid")
+    if isinstance(raw_dpid, bool) or not isinstance(raw_dpid, int):
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "malformed body",
+                    "message": f"'dpid' must be an integer, got {raw_dpid!r}"})
+    client = topology.switches.get(raw_dpid)
+    if client is None:
+        # 404, the same answer an unknown table gets: from the caller's side both are "the thing
+        # you named is not here". A 503 would say "try again", and a dpid the proxy never
+        # connected to will not appear by being retried.
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "unknown switch",
+                    "message": f"switch {raw_dpid} is not connected to the proxy",
+                    "dpid": raw_dpid})
+
+    op = data.get("op", "insert")
+    spec = {key: data.get(key) for key in
+            ("table", "match", "action_name", "action_params", "default_action", "priority")
+            if key in data}
+
+    try:
+        written = await run_in_threadpool(client.write_table_entry, spec, op)
+    except ControlPlaneReadOnly as err:
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "external control plane", "dpid": raw_dpid,
+                    "message": str(err)})
+    except TableEntryUnsupported as err:
+        raise HTTPException(
+            status_code=501,
+            detail={"error": "match type not supported", "outcome": "unsupported_on_p4",
+                    "remedy": "use an exact or lpm match, or wait for the ternary writer",
+                    "dpid": raw_dpid, "message": str(err)})
+    except TableEntryInvalid as err:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "invalid table entry", "dpid": raw_dpid, "message": str(err)})
+    except KeyError as err:
+        # KeyError stringifies with its own quotes (`"table 'x' not found"`), so the argument is
+        # unwrapped -- a message a caller reads should not be double-quoted.
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not in this pipeline", "dpid": raw_dpid,
+                    "message": err.args[0] if err.args else str(err)})
+    except Exception as err:  # noqa: BLE001 -- gRPC, or anything else the switch did
+        reason = _grpc_status_name(err)
+        if reason is None:
+            raise
+        raise HTTPException(
+            status_code=502,
+            detail={"error": "the switch refused the write", "dpid": raw_dpid,
+                    "grpc_status": reason,
+                    "message": f"switch {raw_dpid} refused this entry: {reason}"})
+
+    if note_api_table_entry_write is not None:
+        note_api_table_entry_write(raw_dpid)
+    return {"status": "success", "dpid": raw_dpid, "op": written["op"],
+            "table": written["table"], "match_types": written["match_types"],
+            "priority_honoured": written["priority_honoured"],
+            "journaled": False, "note": TABLE_ENTRY_NOT_JOURNALED}
 
 
 @router.get("/stats/flow/{dpid}")

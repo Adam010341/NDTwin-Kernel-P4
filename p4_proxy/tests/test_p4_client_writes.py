@@ -93,7 +93,9 @@ except ImportError:  # pragma: no cover - depends on the interpreter L1 picks
 # Real ids from p4_src/build/ndtwin_switch.p4info.txt.
 IPV4_LPM_ID = 37375156
 FLOW_5TUPLE_ID = 50095925
+L2_FORWARD_ID = 42660923
 IPV4_FORWARD_ID = 28792405
+FORWARD_L2_ID = 29098536
 SEND_TO_CPU_ID = 22952082
 EGRESS_COUNTER_ID = 312422001
 DST_ADDR_PARAM_ID = 1
@@ -108,23 +110,58 @@ def a_p4info():
     table = p4info.tables.add()
     table.preamble.id = IPV4_LPM_ID
     table.preamble.name = "MyIngress.ipv4_lpm"
+    # [Co-developed with claude code -- Adam]
+    # alias, match_type and bitwidth added for the generic table-entry writer (TICKET-P2 4.1).
+    # The real p4info has carried all three since it was generated -- a double that omits them
+    # would let `build_table_entry` read an UNSPECIFIED match type and a zero-width field and
+    # still look correct here, which is a double that has stopped standing in for the object.
+    # Values transcribed from p4_src/build/ndtwin_switch.p4info.txt.
+    table.preamble.alias = "ipv4_lpm"
     field = table.match_fields.add()
     field.id = DST_ADDR_FIELD_ID
     field.name = "hdr.ipv4.dstAddr"
+    field.bitwidth = 32
+    field.match_type = p4info_pb2.MatchField.LPM
 
     forward = p4info.actions.add()
     forward.preamble.id = IPV4_FORWARD_ID
     forward.preamble.name = "MyIngress.ipv4_forward"
+    forward.preamble.alias = "ipv4_forward"
     param = forward.params.add()
     param.id = DST_ADDR_PARAM_ID
     param.name = "dstAddr"
+    param.bitwidth = 48
     param = forward.params.add()
     param.id = PORT_PARAM_ID
     param.name = "port"
+    param.bitwidth = 9
 
     cpu = p4info.actions.add()
     cpu.preamble.id = SEND_TO_CPU_ID
     cpu.preamble.name = "MyIngress.send_to_cpu"
+    cpu.preamble.alias = "send_to_cpu"
+
+    # The EXACT table, so the writer's third match type is exercised against a real one rather
+    # than against a field invented for the test. bit<48> on an exact match is also the only
+    # place a MAC is a KEY rather than an action parameter.
+    l2 = p4info.tables.add()
+    l2.preamble.id = L2_FORWARD_ID
+    l2.preamble.name = "MyIngress.l2_forward"
+    l2.preamble.alias = "l2_forward"
+    field = l2.match_fields.add()
+    field.id = 1
+    field.name = "hdr.ethernet.dstAddr"
+    field.bitwidth = 48
+    field.match_type = p4info_pb2.MatchField.EXACT
+
+    l2_action = p4info.actions.add()
+    l2_action.preamble.id = FORWARD_L2_ID
+    l2_action.preamble.name = "MyIngress.forward_l2"
+    l2_action.preamble.alias = "forward_l2"
+    param = l2_action.params.add()
+    param.id = 1
+    param.name = "port"
+    param.bitwidth = 9
 
     counter = p4info.counters.add()
     counter.preamble.id = EGRESS_COUNTER_ID
@@ -139,12 +176,18 @@ def a_p4info():
     five = p4info.tables.add()
     five.preamble.id = FLOW_5TUPLE_ID
     five.preamble.name = "MyIngress.flow_5tuple"
-    for field_id, name in ((1, "standard_metadata.ingress_port"), (2, "hdr.ipv4.srcAddr"),
-                           (3, "hdr.ipv4.dstAddr"), (4, "hdr.ipv4.protocol"),
-                           (5, "meta.l4_src_port"), (6, "meta.l4_dst_port")):
+    five.preamble.alias = "flow_5tuple"
+    for field_id, name, bitwidth in ((1, "standard_metadata.ingress_port", 9),
+                                     (2, "hdr.ipv4.srcAddr", 32),
+                                     (3, "hdr.ipv4.dstAddr", 32),
+                                     (4, "hdr.ipv4.protocol", 8),
+                                     (5, "meta.l4_src_port", 16),
+                                     (6, "meta.l4_dst_port", 16)):
         field = five.match_fields.add()
         field.id = field_id
         field.name = name
+        field.bitwidth = bitwidth
+        field.match_type = p4info_pb2.MatchField.TERNARY
 
     return p4info
 
@@ -1434,6 +1477,368 @@ class AReadOnlyClientTest(unittest.TestCase):
         stub = RecordingStub()
         self.assertIs(a_client(stub).insert_ipv4_route("10.0.0.5", 32, "00:00:00:00:00:05", 4),
                       True)
+
+
+# --- the generic table-entry writer (TICKET-P2 4.1) ------------------------------------------
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class EncodeValueTest(unittest.TestCase):
+    """
+    `encode_value` -- the rules tutorials' `p4runtime_lib/convert.encode` states, re-stated.
+
+    [Co-developed with claude code -- Adam]
+    They are re-stated rather than imported because `~/tutorials` is a directory on one laptop
+    and not a dependency of this proxy. So the agreement is what gets asserted, against values
+    taken from the exercises' own runtime files -- `08:00:00:00:01:11` and `10.0.1.1` are
+    `basic/pod-topo/s1-runtime.json`'s, verbatim.
+
+    🔴 EVERY OUT-OF-RANGE CASE IS A REFUSAL, NOT A NARROWING. A truncated value installs a rule
+    for traffic nobody asked about, and it forwards.
+    """
+
+    def encode(self, value, bitwidth):
+        return p4_client_module.encode_value(value, bitwidth)
+
+    def test_a_mac_string_is_six_raw_bytes_in_the_order_it_was_written(self):
+        self.assertEqual(self.encode("08:00:00:00:01:11", 48),
+                         bytes.fromhex("080000000111"))
+
+    def test_an_ipv4_string_is_four_raw_bytes(self):
+        self.assertEqual(self.encode("10.0.1.1", 32), socket.inet_aton("10.0.1.1"))
+
+    def test_an_integer_is_ceil_bitwidth_over_eight_bytes_big_endian(self):
+        # bit<9> is two bytes. Little-endian would send port 1 as 0x0100 = 256, which is not a
+        # port on any bmv2 here, so every packet matching the rule would be dropped.
+        self.assertEqual(self.encode(1, 9), b"\x00\x01")
+        self.assertEqual(self.encode(1, 8), b"\x01")
+        self.assertEqual(self.encode(1, 16), b"\x00\x01")
+        self.assertEqual(self.encode(0x0102, 16), b"\x01\x02")
+
+    def test_a_value_wider_than_its_field_is_refused_rather_than_truncated(self):
+        with self.assertRaises(p4_client_module.TableEntryInvalid) as caught:
+            self.encode(512, 9)
+        self.assertIn("511", str(caught.exception))
+        # The boundary itself is legal: bit<9> holds 0..511.
+        self.assertEqual(self.encode(511, 9), b"\x01\xff")
+
+    def test_a_negative_value_is_refused_because_p4_fields_are_unsigned(self):
+        with self.assertRaises(p4_client_module.TableEntryInvalid):
+            self.encode(-1, 9)
+
+    def test_a_mac_in_a_field_that_is_not_48_bits_is_refused(self):
+        # Not silently padded or cut. A MAC in a bit<32> field is somebody's entry naming the
+        # wrong key, and the switch answers an opaque UNKNOWN to a short value.
+        with self.assertRaises(p4_client_module.TableEntryInvalid):
+            self.encode("08:00:00:00:01:11", 32)
+
+    def test_an_address_in_a_field_that_is_not_32_bits_is_refused(self):
+        with self.assertRaises(p4_client_module.TableEntryInvalid):
+            self.encode("10.0.1.1", 48)
+
+    def test_a_decimal_or_hex_string_is_read_as_the_integer_it_spells(self):
+        self.assertEqual(self.encode("17", 8), b"\x11")
+        self.assertEqual(self.encode("0x11", 8), b"\x11")
+
+    def test_a_json_boolean_is_not_a_value_for_a_bit_field(self):
+        # JSON has a boolean and P4 does not. Accepting `true` as 1 would encode a type
+        # confusion in somebody's manifest as a working rule.
+        with self.assertRaises(p4_client_module.TableEntryInvalid):
+            self.encode(True, 8)
+
+    def test_a_field_with_no_declared_width_is_refused_rather_than_guessed(self):
+        with self.assertRaises(p4_client_module.TableEntryInvalid):
+            self.encode(1, 0)
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class BuildTableEntryTest(unittest.TestCase):
+    """
+    What `build_table_entry` puts in the TableEntry, read out of the p4info and not guessed.
+
+    [Co-developed with claude code -- Adam]
+    The match SHAPE comes from the p4info's declared match type, never from the value: `[v, 32]`
+    is an lpm entry on one table and a ternary value/mask pair on another, and the two mean
+    different traffic. tools/p4_exercise/preflight.py has to guess because it may not have the
+    pipeline; this side always has it.
+    """
+
+    def setUp(self):
+        self.client = a_client()
+
+    def build(self, **spec):
+        return self.client.build_table_entry(spec)
+
+    def lpm_spec(self, **overrides):
+        spec = {"table": "MyIngress.ipv4_lpm",
+                "match": {"hdr.ipv4.dstAddr": ["10.0.1.1", 32]},
+                "action_name": "MyIngress.ipv4_forward",
+                "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1}}
+        spec.update(overrides)
+        return spec
+
+    def test_an_lpm_entry_carries_the_value_and_the_prefix_length_it_was_given(self):
+        entry, kinds = self.build(**self.lpm_spec(
+            match={"hdr.ipv4.dstAddr": ["10.0.1.0", 24]}))
+        self.assertEqual(entry.table_id, IPV4_LPM_ID)
+        self.assertEqual(entry.match[0].field_id, DST_ADDR_FIELD_ID)
+        self.assertEqual(entry.match[0].lpm.value, socket.inet_aton("10.0.1.0"))
+        self.assertEqual(entry.match[0].lpm.prefix_len, 24)
+        self.assertEqual(kinds, {"hdr.ipv4.dstAddr": "LPM"})
+
+    def test_the_prefix_length_is_not_pinned_to_the_field_width(self):
+        # A /32 written for a /24 forwards one address and blackholes the rest of the subnet.
+        entry, _ = self.build(**self.lpm_spec(match={"hdr.ipv4.dstAddr": ["10.0.0.0", 8]}))
+        self.assertEqual(entry.match[0].lpm.prefix_len, 8)
+
+    def test_a_prefix_length_outside_the_field_width_is_refused(self):
+        with self.assertRaises(p4_client_module.TableEntryInvalid):
+            self.build(**self.lpm_spec(match={"hdr.ipv4.dstAddr": ["10.0.1.1", 33]}))
+
+    def test_an_lpm_field_given_a_bare_value_is_refused_rather_than_assumed_to_be_a_host_route(self):
+        with self.assertRaises(p4_client_module.TableEntryInvalid):
+            self.build(**self.lpm_spec(match={"hdr.ipv4.dstAddr": "10.0.1.1"}))
+
+    def test_an_exact_entry_carries_a_plain_value(self):
+        entry, kinds = self.build(table="MyIngress.l2_forward",
+                                  match={"hdr.ethernet.dstAddr": "08:00:00:00:01:11"},
+                                  action_name="MyIngress.forward_l2",
+                                  action_params={"port": 1})
+        self.assertEqual(entry.table_id, L2_FORWARD_ID)
+        self.assertEqual(entry.match[0].exact.value, bytes.fromhex("080000000111"))
+        self.assertEqual(kinds, {"hdr.ethernet.dstAddr": "EXACT"})
+
+    def test_an_exact_field_given_a_pair_is_refused(self):
+        with self.assertRaises(p4_client_module.TableEntryInvalid):
+            self.build(table="MyIngress.l2_forward",
+                       match={"hdr.ethernet.dstAddr": ["08:00:00:00:01:11", 48]},
+                       action_name="MyIngress.forward_l2", action_params={"port": 1})
+
+    def test_the_action_parameters_go_in_by_name_with_the_widths_the_p4info_declares(self):
+        entry, _ = self.build(**self.lpm_spec())
+        action = entry.action.action
+        self.assertEqual(action.action_id, IPV4_FORWARD_ID)
+        params = {p.param_id: p.value for p in action.params}
+        self.assertEqual(params[DST_ADDR_PARAM_ID], bytes.fromhex("080000000111"))
+        self.assertEqual(params[PORT_PARAM_ID], b"\x00\x01", "port is bit<9>, so two bytes")
+
+    def test_an_omitted_action_parameter_is_refused_rather_than_written_as_zero(self):
+        # bmv2 takes an action with a missing parameter as that parameter's zero -- port 0,
+        # MAC 00:00:00:00:00:00 -- and forwards accordingly. A rule that drops traffic while
+        # reporting success.
+        with self.assertRaises(p4_client_module.TableEntryInvalid) as caught:
+            self.build(**self.lpm_spec(action_params={"port": 1}))
+        self.assertIn("dstAddr", str(caught.exception))
+
+    def test_a_ternary_field_is_unsupported_and_says_which_match_type_it_is(self):
+        with self.assertRaises(p4_client_module.TableEntryUnsupported) as caught:
+            self.build(table="MyIngress.flow_5tuple",
+                       match={"hdr.ipv4.dstAddr": ["10.0.1.1", "255.255.255.255"]},
+                       action_name="MyIngress.ipv4_forward",
+                       action_params={"dstAddr": "08:00:00:00:01:11", "port": 1})
+        self.assertIn("TERNARY", str(caught.exception))
+
+    def test_the_match_type_name_comes_from_the_generated_enum(self):
+        # 🔴 P4Runtime's MatchType skips 1: UNSPECIFIED=0, EXACT=2, LPM=3, TERNARY=4, RANGE=5,
+        # OPTIONAL=6. A hand-written table would put every entry one match type off, and an lpm
+        # written as an exact match is a /32 rule.
+        self.assertEqual(p4info_pb2.MatchField.MatchType.Name(2), "EXACT")
+        self.assertEqual(p4info_pb2.MatchField.MatchType.Name(3), "LPM")
+        self.assertEqual(p4info_pb2.MatchField.MatchType.Name(4), "TERNARY")
+        table = self.client._table_by_name("MyIngress.ipv4_lpm")
+        self.assertEqual(self.client._match_type_name(table.match_fields[0]), "LPM")
+
+    def test_a_default_action_is_marked_as_one_and_carries_no_match(self):
+        entry, kinds = self.build(table="MyIngress.ipv4_lpm", default_action=True,
+                                  action_name="MyIngress.send_to_cpu", action_params={})
+        self.assertTrue(entry.is_default_action)
+        self.assertEqual(len(entry.match), 0)
+        self.assertEqual(kinds, {})
+
+    def test_a_default_action_that_also_names_a_match_is_refused(self):
+        # It is two different rules. A default action is what the table does when NOTHING
+        # matched, and P4Runtime answers the contradiction with an opaque INVALID_ARGUMENT.
+        with self.assertRaises(p4_client_module.TableEntryInvalid):
+            self.build(**self.lpm_spec(default_action=True))
+
+    def test_an_ordinary_entry_is_not_marked_as_the_default(self):
+        entry, _ = self.build(**self.lpm_spec())
+        self.assertFalse(entry.is_default_action)
+
+    def test_a_priority_on_a_table_with_no_priority_column_is_refused(self):
+        with self.assertRaises(p4_client_module.TableEntryInvalid) as caught:
+            self.build(**self.lpm_spec(priority=777))
+        self.assertIn("priority not honourable", str(caught.exception))
+
+    def test_a_null_or_zero_priority_is_accepted_because_it_asks_for_nothing(self):
+        for value in (None, 0):
+            entry, _ = self.build(**self.lpm_spec(priority=value))
+            self.assertEqual(entry.priority, 0)
+
+    def test_the_names_may_be_aliases_because_the_tutorials_helper_accepts_both(self):
+        # `p4runtime_lib/helper.py` looks a name up as preamble.name then as alias, so a package
+        # written against that helper would be refused here for a spelling its own toolchain
+        # takes.
+        entry, _ = self.build(table="ipv4_lpm",
+                              match={"hdr.ipv4.dstAddr": ["10.0.1.1", 32]},
+                              action_name="ipv4_forward",
+                              action_params={"dstAddr": "08:00:00:00:01:11", "port": 1})
+        self.assertEqual(entry.table_id, IPV4_LPM_ID)
+        self.assertEqual(entry.action.action.action_id, IPV4_FORWARD_ID)
+
+    def test_a_table_this_pipeline_does_not_have_is_a_keyerror_naming_it(self):
+        with self.assertRaises(KeyError) as caught:
+            self.build(**self.lpm_spec(table="MyIngress.firewall"))
+        self.assertIn("MyIngress.firewall", str(caught.exception))
+
+    def test_a_match_field_this_table_does_not_have_is_a_keyerror(self):
+        with self.assertRaises(KeyError):
+            self.build(**self.lpm_spec(match={"hdr.ipv4.srcAddr": ["10.0.1.1", 32]}))
+
+    def test_an_action_parameter_this_action_does_not_have_is_a_keyerror(self):
+        with self.assertRaises(KeyError):
+            self.build(**self.lpm_spec(
+                action_params={"dstAddr": "08:00:00:00:01:11", "port": 1, "vlan": 7}))
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class WriteTableEntryTest(unittest.TestCase):
+    """
+    What reaches the wire, and -- for every refusal -- that nothing did.
+
+    [Co-developed with claude code -- Adam]
+    🔴 "NOTHING WAS WRITTEN" IS A CLAIM ABOUT THE WIRE, so it is checked on the wire:
+    `stub.requests == []`. Asserting only that the call raised would leave a writer that put the
+    entry on the switch and then failed formatting its own success message looking identical to
+    one that refused before touching it.
+    """
+
+    def setUp(self):
+        self.client = a_client()
+
+    def spec(self, **overrides):
+        spec = {"table": "MyIngress.ipv4_lpm",
+                "match": {"hdr.ipv4.dstAddr": ["10.0.1.1", 32]},
+                "action_name": "MyIngress.ipv4_forward",
+                "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1}}
+        spec.update(overrides)
+        return spec
+
+    def test_an_insert_is_an_insert_addressed_to_this_device_with_this_election_id(self):
+        result = self.client.write_table_entry(self.spec())
+        request = self.client.stub.requests[0]
+        self.assertEqual(request.device_id, 1)
+        self.assertEqual((request.election_id.high, request.election_id.low), (0, 1))
+        self.assertEqual(only_update(request).type, p4runtime_pb2.Update.INSERT)
+        self.assertEqual(result["table"], "MyIngress.ipv4_lpm")
+        self.assertEqual(result["match_types"], {"hdr.ipv4.dstAddr": "LPM"})
+        self.assertFalse(result["priority_honoured"])
+
+    def test_modify_and_delete_send_the_update_type_they_name(self):
+        self.client.write_table_entry(self.spec(), "modify")
+        self.client.write_table_entry(self.spec(), "delete")
+        self.assertEqual([only_update(r).type for r in self.client.stub.requests],
+                         [p4runtime_pb2.Update.MODIFY, p4runtime_pb2.Update.DELETE])
+
+    def test_a_delete_may_omit_the_action_because_it_names_the_entry_not_what_it_did(self):
+        spec = self.spec()
+        del spec["action_name"], spec["action_params"]
+        self.client.write_table_entry(spec, "delete")
+        self.assertEqual(only_update(self.client.stub.requests[0]).type,
+                         p4runtime_pb2.Update.DELETE)
+
+    def test_an_insert_that_omits_the_action_is_refused_and_nothing_is_written(self):
+        spec = self.spec()
+        del spec["action_name"], spec["action_params"]
+        with self.assertRaises(p4_client_module.TableEntryInvalid):
+            self.client.write_table_entry(spec, "insert")
+        self.assertEqual(self.client.stub.requests, [])
+
+    def test_an_unknown_op_is_refused_and_nothing_is_written(self):
+        with self.assertRaises(p4_client_module.TableEntryInvalid):
+            self.client.write_table_entry(self.spec(), "upsert")
+        self.assertEqual(self.client.stub.requests, [])
+
+    def test_a_default_action_insert_is_sent_as_a_modify_and_says_so(self):
+        # Every table already has a default entry (the compiler's), so an INSERT is refused by
+        # the target. tutorials' own `WriteTableEntry` makes the same substitution, which is why
+        # no runtime file carries an `op` for these -- but the caller asked for an insert, so
+        # the result reports what actually went on the wire.
+        result = self.client.write_table_entry(
+            {"table": "MyIngress.ipv4_lpm", "default_action": True,
+             "action_name": "MyIngress.send_to_cpu", "action_params": {}})
+        self.assertEqual(result["op"], "modify")
+        self.assertTrue(result["op_substituted"])
+        self.assertEqual(only_update(self.client.stub.requests[0]).type,
+                         p4runtime_pb2.Update.MODIFY)
+        self.assertTrue(
+            only_update(self.client.stub.requests[0]).entity.table_entry.is_default_action)
+
+    def test_a_grpc_refusal_is_raised_and_not_retried_as_a_modify(self):
+        # 🔴 The one write path in this class with no MODIFY fallback. `insert_ipv4_route` retries
+        # because its caller means "make this route be so"; this method's callers are an
+        # operator's POST and a package's entries file, and both are entitled to be told the
+        # entry was already there rather than handed a clean insert for an overwrite.
+        self.client.stub = RecordingStub(FakeRpcError(grpc.StatusCode.ALREADY_EXISTS),
+                                         always=True)
+        with self.assertRaises(grpc.RpcError):
+            self.client.write_table_entry(self.spec())
+        self.assertEqual([only_update(r).type for r in self.client.stub.requests],
+                         [p4runtime_pb2.Update.INSERT],
+                         "a MODIFY here would overwrite somebody's rule and report an insert")
+
+    def test_an_accepted_write_is_dated_so_its_age_can_be_reported(self):
+        # KNOWN-ISSUES G-13: bmv2 cannot say how old an entry is, so the write path says it.
+        self.assertEqual(len(self.client.rule_install_times), 0)
+        self.client.write_table_entry(self.spec())
+        self.assertEqual(len(self.client.rule_install_times), 1)
+
+    def test_a_delete_forgets_the_stamp_so_the_next_rule_does_not_inherit_its_age(self):
+        self.client.write_table_entry(self.spec())
+        self.client.write_table_entry(self.spec(), "delete")
+        self.assertEqual(len(self.client.rule_install_times), 0)
+
+    def test_a_refused_write_dates_nothing(self):
+        self.client.stub = RecordingStub(FakeRpcError(grpc.StatusCode.UNKNOWN), always=True)
+        with self.assertRaises(grpc.RpcError):
+            self.client.write_table_entry(self.spec())
+        self.assertEqual(len(self.client.rule_install_times), 0)
+
+    def test_an_unsupported_match_reaches_no_switch(self):
+        with self.assertRaises(p4_client_module.TableEntryUnsupported):
+            self.client.write_table_entry(
+                {"table": "MyIngress.flow_5tuple",
+                 "match": {"hdr.ipv4.protocol": [6, 255]},
+                 "action_name": "MyIngress.ipv4_forward",
+                 "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1}})
+        self.assertEqual(self.client.stub.requests, [])
+
+    def test_an_over_wide_value_reaches_no_switch(self):
+        with self.assertRaises(p4_client_module.TableEntryInvalid):
+            self.client.write_table_entry(self.spec(
+                action_params={"dstAddr": "08:00:00:00:01:11", "port": 512}))
+        self.assertEqual(self.client.stub.requests, [])
+
+    def test_an_unknown_table_reaches_no_switch(self):
+        # 🔴 The mutation this exists for: a lookup that answers 0 for an unknown name sends a
+        # WriteRequest with table_id 0, which bmv2 answers with an opaque UNKNOWN -- the
+        # operator is told the switch refused their rule, not that they named a table the
+        # pipeline does not have.
+        with self.assertRaises(KeyError):
+            self.client.write_table_entry(self.spec(table="MyIngress.firewall"))
+        self.assertEqual(self.client.stub.requests, [])
+
+    def test_a_priority_this_table_cannot_honour_reaches_no_switch(self):
+        with self.assertRaises(p4_client_module.TableEntryInvalid):
+            self.client.write_table_entry(self.spec(priority=777))
+        self.assertEqual(self.client.stub.requests, [])
+
+    def test_a_read_only_client_writes_no_table_entry(self):
+        self.client.arbitration = False
+        with self.assertRaises(p4_client_module.ControlPlaneReadOnly) as caught:
+            self.client.write_table_entry(self.spec())
+        self.assertEqual(self.client.stub.requests, [])
+        self.assertIn("external control plane", str(caught.exception))
 
 
 if __name__ == "__main__":

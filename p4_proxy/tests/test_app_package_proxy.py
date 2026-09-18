@@ -53,6 +53,22 @@ except ImportError:  # pragma: no cover -- environment, not behaviour
     api_routes = None
     HAVE_P4RUNTIME = False
 
+# [Co-developed with claude code -- Adam]
+# 🔴 READ AT IMPORT, BEFORE ANY TEST HAS RUN. What is asserted below is that PRODUCTION wired
+# these -- main.py's own import-time inject_* calls -- and every test in this file that touches
+# `switch_state` replaces them with stubs and puts them back. Reading them inside a test would
+# therefore assert only that the previous test's cleanup worked. Finding #71 is the whole reason
+# this distinction is worth four lines: rule_journal.py shipped with 33 green tests and no
+# production caller, because every one of them injected the journal itself.
+WIRED_AT_IMPORT = None if not HAVE_P4RUNTIME else {
+    "control_plane": api_routes.control_plane_report,
+    "entries_recorded": api_routes.entries_recorded_report,
+    "pipelines": api_routes.pipelines_report,
+    "table_entries": api_routes.table_entries_report,
+    "note_api_write": api_routes.note_api_table_entry_write,
+    "readopt_runner": api_routes.readopt_runner,
+}
+
 # l0_build_check.sh p4 writes this. Without it there is no p4info to build a client from, which
 # is the second prerequisite l1_unit_tests.sh allows a skip to blame.
 P4INFO = os.path.join(PROXY_DIR, "p4_src", "build", "ndtwin_switch.p4info.txt")
@@ -251,16 +267,22 @@ class SwitchStateDisclosesTheControlPlaneTest(unittest.TestCase):
 
     def setUp(self):
         self.saved = (api_routes.topology, api_routes.control_plane_report,
-                      api_routes.entries_recorded_report)
+                      api_routes.entries_recorded_report, api_routes.pipelines_report,
+                      api_routes.table_entries_report,
+                      api_routes.note_api_table_entry_write)
         api_routes.topology = self.FakeTopology()
         self.addCleanup(self.restore)
 
     def restore(self):
         (api_routes.topology, api_routes.control_plane_report,
-         api_routes.entries_recorded_report) = self.saved
+         api_routes.entries_recorded_report, api_routes.pipelines_report,
+         api_routes.table_entries_report,
+         api_routes.note_api_table_entry_write) = self.saved
 
-    def state(self, report, recorded):
+    def state(self, report, recorded, pipelines=None, written=None):
         api_routes.inject_control_plane(lambda: report, lambda: recorded)
+        api_routes.inject_package_reports(lambda: pipelines or {}, lambda: written or {},
+                                          lambda dpid: None)
         return asyncio.run(api_routes.switch_state())
 
     def test_the_pre_existing_keys_are_untouched(self):
@@ -295,6 +317,107 @@ class SwitchStateDisclosesTheControlPlaneTest(unittest.TestCase):
         # 0, not absent: a switch the package declares no entries for is a different statement
         # from a switch nobody asked about, and both must be answerable from one poll.
         self.assertEqual(body["switches"]["2"]["entries_recorded"], 0)
+
+    def test_every_switch_says_which_pipeline_it_is_running_and_names_it(self):
+        # [Co-developed with claude code -- Adam] TICKET-P2 2.2. Without this a fabric with no
+        # telemetry and no discovered links is indistinguishable from a broken one: the reason
+        # is which program is loaded, and nothing else on this endpoint says.
+        body = self.state(
+            {"mode": "ndtwin", "package": "/pkg", "skipped": []}, {},
+            pipelines={"1": {"ndtwin": False, "p4info": "/pkg/build/basic.p4info.txtpb",
+                             "p4info_sha256": "9213871cee36bd93"},
+                       "2": {"ndtwin": True, "p4info": "/p/ndtwin_switch.p4info.txt",
+                             "p4info_sha256": "d54ff55208340f3a"}})
+        self.assertFalse(body["switches"]["1"]["pipeline"]["ndtwin"])
+        self.assertEqual(body["switches"]["1"]["pipeline"]["p4info_sha256"],
+                         "9213871cee36bd93")
+        self.assertTrue(body["switches"]["2"]["pipeline"]["ndtwin"])
+
+    def test_every_switch_reports_what_was_written_and_that_none_of_it_is_journaled(self):
+        body = self.state(
+            {"mode": "ndtwin", "package": "/pkg", "skipped": []}, {},
+            written={"1": {"recorded": 5, "applied": 4, "failed": 1, "api_writes": 2,
+                           "journaled": False}})
+        self.assertEqual(body["switches"]["1"]["table_entries"],
+                         {"recorded": 5, "applied": 4, "failed": 1, "api_writes": 2,
+                          "journaled": False})
+        # A switch nobody reported on still answers, with zeroes and the same `journaled: false`.
+        # Absent would be readable as "this proxy is too old to say", which is the shape the
+        # whole disclosure exists to close.
+        self.assertEqual(body["switches"]["2"]["table_entries"],
+                         {"recorded": 0, "applied": 0, "failed": 0, "api_writes": 0,
+                          "journaled": False})
+
+    def test_journaled_is_false_even_when_entries_were_applied(self):
+        # 🔴 The one number a reader could misread as reassurance. `applied: 4` says four rules
+        # are on the switch; `journaled: false` says all four are gone after a proxy restart and
+        # nothing replays them (Adam 2026-09-18, option a).
+        body = self.state({"mode": "ndtwin", "package": "/pkg", "skipped": []}, {},
+                          written={"1": {"recorded": 4, "applied": 4, "failed": 0,
+                                         "api_writes": 0, "journaled": False}})
+        self.assertIs(body["switches"]["1"]["table_entries"]["journaled"], False)
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class ProductionWiresTheDisclosureItselfTest(unittest.TestCase):
+    """
+    Importing `proxy_agent.main` is what wires `GET /p4/switch_state` and the readopt endpoint.
+
+    [Co-developed with claude code -- Adam]
+    Every other test in this file injects its own stubs, which is the right way to test what the
+    endpoint DOES and says nothing about whether anybody calls inject_* in production. That gap
+    is finding #71 exactly, and it shipped once with 33 green tests behind it.
+    """
+
+    def test_main_injected_every_report_the_endpoint_reads(self):
+        for name, wired in WIRED_AT_IMPORT.items():
+            self.assertIsNotNone(wired, f"main.py never injected {name}; the endpoint would "
+                                        f"serve a switch_state with that field missing, which "
+                                        f"reads as a proxy too old to have it")
+
+    def test_they_are_mains_own_functions_and_not_somebody_elses_copies(self):
+        self.assertIs(WIRED_AT_IMPORT["pipelines"], main.pipelines_report)
+        self.assertIs(WIRED_AT_IMPORT["table_entries"], main.table_entries_report)
+        self.assertIs(WIRED_AT_IMPORT["note_api_write"], main.note_api_table_entry_write)
+        self.assertIs(WIRED_AT_IMPORT["readopt_runner"], main.readopt_switch)
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class WhichPipelineEachSwitchRunsTest(unittest.TestCase):
+    """
+    `main._pipeline_is_ndtwin`, the predicate every TICKET-P2 branch turns on.
+
+    [Co-developed with claude code -- Adam]
+    Computed as an equivalence against what `baseline()` answers for the same switch rather than
+    as "did the manifest declare an override". A package that names NDTwin's own artefacts
+    explicitly is running NDTwin's pipeline however it spelled it, and the client is built from
+    the VALUE, so the value is what decides.
+    """
+
+    def package(self, pipeline):
+        spec = app_package.SwitchSpec(dpid=1, name="s1", pipeline=pipeline, entries=None)
+        return app_package.Package(dir="/pkg", name="exercise", switches=(spec,))
+
+    def test_the_baseline_fabric_runs_ndtwins_own_pipeline(self):
+        self.assertTrue(main._pipeline_is_ndtwin(app_package.baseline(), 1))
+
+    def test_a_package_that_overrides_nothing_still_runs_ndtwins_own_pipeline(self):
+        self.assertTrue(main._pipeline_is_ndtwin(self.package(None), 1))
+
+    def test_a_package_naming_its_own_artefacts_does_not(self):
+        self.assertFalse(main._pipeline_is_ndtwin(
+            self.package(("build/basic.p4.p4info.txtpb", "build/basic.json")), 1))
+
+    def test_a_package_that_names_ndtwins_own_paths_is_not_called_foreign(self):
+        # 🔴 The discriminating case. "Did the manifest declare a pipeline" answers False here
+        # and would switch off telemetry, LLDP and the routes on a fabric running our own
+        # program -- a fabric-wide degradation caused by how a file was written.
+        self.assertTrue(main._pipeline_is_ndtwin(
+            self.package(app_package.BASELINE_PIPELINE), 1))
+
+    def test_a_switch_the_package_does_not_mention_follows_the_fabric_wide_answer(self):
+        self.assertTrue(main._pipeline_is_ndtwin(
+            self.package(("build/basic.p4.p4info.txtpb", "build/basic.json")), 7))
 
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")

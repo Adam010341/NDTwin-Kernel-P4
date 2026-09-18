@@ -29,6 +29,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import shutil
 import signal
 import sys
 import tempfile
@@ -41,6 +42,15 @@ from fastapi import HTTPException  # noqa: E402
 
 from proxy_agent import api_routes, topology_manager  # noqa: E402
 from proxy_agent.topology_manager import TopologyManager  # noqa: E402
+# [Co-developed with claude code -- Adam]
+# TICKET-P2 4.2: the endpoint goes through main.readopt_switch now, because what a foreign
+# pipeline changes about a re-adoption is package knowledge. Guarded the way
+# test_app_package_proxy.py guards it -- main pulls in the P4Runtime protobufs, and an
+# interpreter without them should report a skip rather than crash the whole file's import.
+try:
+    import proxy_agent.main as main  # noqa: E402
+except ImportError:  # pragma: no cover -- environment, not behaviour
+    main = None
 
 H1, H2 = "10.0.50.1", "10.0.50.2"
 
@@ -527,6 +537,18 @@ def make_factory(dpid):
     raise AssertionError("the endpoint must pass the factory through, not call it")
 
 
+def plain_runner(topology, dpid, client_factory, sample_callback):
+    """What main.readopt_switch reduces to on a fabric with no foreign pipeline.
+
+    [Co-developed with claude code -- Adam]
+    The endpoint no longer calls the TopologyManager directly -- main.py wraps it, because what
+    a foreign pipeline changes is package knowledge. These tests are about the endpoint's status
+    codes, so the wrapper here is the identity one; ThePackageHalfOfReadoptTest below drives the
+    real wrapper.
+    """
+    return topology.readopt_switch(dpid, client_factory, sample_callback)
+
+
 class ReadoptEndpointTest(unittest.TestCase):
     """
     POST /p4/readopt/{dpid}. The handler is called directly, per the convention
@@ -538,24 +560,43 @@ class ReadoptEndpointTest(unittest.TestCase):
         api_routes.topology = None
         api_routes.readopt_client_factory = None
         api_routes.readopt_sample_callback = None
+        api_routes.readopt_runner = None
 
     def wire(self, result):
         fake = SentinelFactory(result)
         api_routes.topology = fake
-        api_routes.inject_readopt(make_factory, sample_sink)
+        api_routes.inject_readopt(make_factory, sample_sink, plain_runner)
         return fake
 
     def test_no_topology_is_503(self):
         api_routes.topology = None
-        api_routes.inject_readopt(make_factory, sample_sink)
+        api_routes.inject_readopt(make_factory, sample_sink, plain_runner)
         with self.assertRaises(HTTPException) as ctx:
             api_routes.readopt(1)
         self.assertEqual(ctx.exception.status_code, 503)
+
+    def test_an_unwired_runner_is_503_as_well(self):
+        # [Co-developed with claude code -- Adam]
+        # The wrapper is a third injected piece and it is not optional: without it there is
+        # nobody to decide whether this switch may have a clone session. A None here used to be
+        # reachable only as an AttributeError -- a 500, which the kernel reads as a proxy bug
+        # rather than as the restart window it actually is.
+        api_routes.topology = SentinelFactory({"status": "success"})
+        api_routes.inject_readopt(make_factory, sample_sink, plain_runner)
+        api_routes.readopt_runner = None
+        with self.assertRaises(HTTPException) as ctx:
+            api_routes.readopt(1)
+        self.assertEqual(ctx.exception.status_code, 503)
+        self.assertIn("wired", str(ctx.exception.detail))
 
     def test_unwired_factory_is_503_and_says_so(self):
         # The kernel retries a 503; a 500 looks like a bug in the proxy. "Not wired yet"
         # is the proxy-restart window, and it must be distinguishable.
         api_routes.topology = SentinelFactory({"status": "success"})
+        # The runner IS injected, so the 503 below can only be the missing factory -- without
+        # this line both halves are None and the test would pass whichever branch fired.
+        # [Co-developed with claude code -- Adam]
+        api_routes.inject_readopt(make_factory, sample_sink, plain_runner)
         api_routes.readopt_client_factory = None
         with self.assertRaises(HTTPException) as ctx:
             api_routes.readopt(1)
@@ -592,6 +633,113 @@ class ReadoptEndpointTest(unittest.TestCase):
         self.assertEqual(dpid, 1)
         self.assertIs(factory, make_factory)
         self.assertIs(callback, sample_sink)
+
+
+# --- the package's half of readopt (TICKET-P2 4.2) -------------------------------------
+
+
+class ThePackageHalfOfReadoptTest(unittest.TestCase):
+    """
+    `main.readopt_switch`, the wrapper POST /p4/readopt/{dpid} now goes through.
+
+    [Co-developed with claude code -- Adam]
+    A readopt pushes a pipeline, and a pipeline push empties every table on the switch
+    (KNOWN-ISSUES A-4c). On NDTwin's own pipeline `install_initial_routes` refills what matters
+    and nothing else was there. On a FOREIGN pipeline the rules that vanished are the package's
+    own entries, and nothing else in this system will ever put them back -- they are not
+    journaled (Adam 2026-09-18, option a), so a power-cycled switch would come back forwarding
+    nothing while every liveness signal said it was healthy.
+
+    The clone session is the other half: a foreign pipeline clones nothing to the CPU port, so
+    programming its PRE succeeds and produces zero samples forever.
+    """
+
+    def setUp(self):
+        if main is None:  # pragma: no cover -- environment, not behaviour
+            self.skipTest("proxy_agent.main is not importable in this interpreter")
+        self.topo, self.old1, self.old2 = build_topology()
+        self._real_sleep = topology_manager.time.sleep
+        topology_manager.time.sleep = lambda seconds: None
+        self.addCleanup(self._restore)
+        self.made = []
+        self.saved_entries = dict(main._table_entries)
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_readopt_entries_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def _restore(self):
+        topology_manager.time.sleep = self._real_sleep
+        main._table_entries.clear()
+        main._table_entries.update(self.saved_entries)
+
+    def factory(self, **kwargs):
+        def make(dpid):
+            client = FakeClient(dpid, **kwargs)
+            client.write_table_entry = lambda spec, op="insert": client.written.append((spec, op))
+            client.written = []
+            self.made.append(client)
+            return client
+        return make
+
+    def entries_file(self, count=2):
+        path = os.path.join(self.tmp, "s1-runtime.json")
+        with open(path, "w") as fh:
+            json.dump({"target": "bmv2", "table_entries": [
+                {"table": "MyIngress.ipv4_lpm",
+                 "match": {"hdr.ipv4.dstAddr": [f"10.0.1.{i + 1}", 32]},
+                 "action_name": "MyIngress.ipv4_forward",
+                 "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1}}
+                for i in range(count)]}, fh)
+        return path
+
+    def package(self, pipeline=("build/x.p4info.txtpb", "build/x.json"), entries=None):
+        """A package whose switch 1 runs `pipeline`; None there means NDTwin's own."""
+        switch = main.app_package.SwitchSpec(dpid=1, name="s1", pipeline=pipeline,
+                                             entries=entries,
+                                             entries_recorded=0 if entries is None else 2)
+        return main.app_package.Package(dir="/pkg", name="exercise", switches=(switch,))
+
+    def readopt(self, package):
+        return main.readopt_switch(self.topo, 1, self.factory(), sample_sink, package=package)
+
+    def test_a_foreign_pipeline_gets_no_clone_session(self):
+        self.readopt(self.package())
+        self.assertIsNone(self.made[0].sample_at_start,
+                          "a pipeline that clones nothing to the CPU port must not be "
+                          "registered for sampling; the session would be programmed and "
+                          "nothing would ever arrive in it")
+        self.assertNotIn(("clone", 1), self.made[0].log)
+
+    def test_the_packages_entries_go_back_on_after_the_push_that_erased_them(self):
+        result = self.readopt(self.package(entries=self.entries_file(2)))
+        self.assertEqual(result["status"], "success")
+        self.assertEqual(result["table_entries"]["applied"], 2)
+        self.assertEqual(len(self.topo.switches[1].written), 2,
+                         "the pipeline push emptied the switch and nothing else in this "
+                         "system replays these rules -- they are not journaled")
+
+    def test_the_count_reaches_the_endpoint_report_not_just_the_response(self):
+        self.readopt(self.package(entries=self.entries_file(2)))
+        self.assertEqual(main.table_entries_report()["1"]["applied"], 2)
+        self.assertEqual(main.table_entries_report()["1"]["journaled"], False)
+
+    def test_ndtwins_own_pipeline_is_readopted_exactly_as_before(self):
+        # The negative half. `pipeline: null` is every package phase 1 accepts, and this path
+        # must stay the one that has been running: clone session programmed, no entries applied.
+        result = self.readopt(self.package(pipeline=None, entries=self.entries_file(2)))
+        self.assertEqual(result["status"], "success")
+        self.assertIn(("clone", 1), self.made[0].log)
+        self.assertNotIn("table_entries", result)
+        self.assertEqual(self.topo.switches[1].written, [])
+
+    def test_a_readopt_that_failed_applies_nothing(self):
+        # Re-applying entries to a switch whose re-adoption failed would write into a client
+        # that was torn down, and report a count for rules nobody holds.
+        result = main.readopt_switch(
+            self.topo, 1, self.factory(mastership_confirmed=False), sample_sink,
+            package=self.package(entries=self.entries_file(2)))
+        self.assertEqual(result["status"], "failed")
+        self.assertNotIn("table_entries", result)
+        self.assertIs(self.topo.switches[1], self.old1)
 
 
 # --- write_manifest -------------------------------------------------------------------
