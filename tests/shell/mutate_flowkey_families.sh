@@ -87,7 +87,8 @@ L2_COUNTER='    case FlowKeyFamily::L2:
         break;'
 MAC_HASH='        hashCombine(seed, key.srcMac);
         hashCombine(seed, key.dstMac);'
-IPV4_CLEARS_L2='        out.key = FlowKey{}; // every L2 field back to zero -- see the note above'
+IPV4_CLEARS_L2='        out.key = FlowKey{};
+        out.key.family = FlowKeyFamily::IPv4;'
 CONTROL_CPP='// [Co-developed with claude code -- Adam] TICKET-P3 §2.3.
 void
 FlowLinkUsageCollector::noteFrameIdentity'
@@ -369,7 +370,7 @@ mutate "M-A6 the L2 hash ignores the MAC addresses" "$SFLOW" \
 # what was written) more than pays for.
 mutate "M-A7 the IPv4 branch keeps the MAC addresses of the frame" "$SFLOW" \
 "$IPV4_CLEARS_L2" \
-'        out.key.icmpType = 0; // MUTANT: the L2 fields stay in the key' \
+'        out.key.family = FlowKeyFamily::IPv4;' \
     FlowKeyFamiliesTest.OneIpv4FlowStaysOneRowWhenTheMacsChangeAtEveryHop \
     FlowKeyFamiliesTest.TheParsersOwnIpv4KeyCarriesNoL2Fields
 

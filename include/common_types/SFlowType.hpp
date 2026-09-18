@@ -318,7 +318,11 @@ identifyFrame(const uint8_t* frame, size_t length)
 
     if (ethType == kEtherTypeIpv4)
     {
-        out.key = FlowKey{}; // every L2 field back to zero -- see the note above
+        // Every L2 field back to zero -- see the note above. The comment is on its own line
+        // rather than trailing the statement because check_gate_anchors.py takes any anchor
+        // containing a slash for a file path, and a `//` comment inside the anchor made it
+        // report this gate's M-A7 as NOFILE.
+        out.key = FlowKey{};
         out.key.family = FlowKeyFamily::IPv4;
         out.identified = false; // until the header is known to be there and well formed
 
