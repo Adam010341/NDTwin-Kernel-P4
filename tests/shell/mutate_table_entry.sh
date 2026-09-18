@@ -347,15 +347,27 @@ m=$(mutant b8 "$MAIN" \
 report "M-B8: the exercise's entries are applied to NDTwin's own pipeline as well" "$m" \
        "test_under_ndtwins_own_pipeline_the_entries_stay_recorded_and_unapplied"
 
-m=$(mutant b9 "$MAIN" \
-    '        if i in foreign:
-            # [Co-developed with claude code -- Adam]
-            # 🔴 The PRE write would SUCCEED.' \
-    '        if False:
-            # [Co-developed with claude code -- Adam]
-            # 🔴 The PRE write would SUCCEED.')
-report "M-B9: a clone session is programmed into a pipeline that never clones" "$m" \
-       "test_a_foreign_pipeline_gets_no_clone_session_and_no_sflow_registration"
+# 🔴 M-B9 IS RETIRED, AND THE REASON IS THE INTERESTING PART (TICKET-P3 section 9 ruling 4).
+# It mutated `if i in foreign:` in the telemetry loop to `if False:` and was killed by
+# `test_a_foreign_pipeline_gets_no_clone_session_and_no_sflow_registration`. TICKET-P3 put a
+# telemetry-source check a few lines below it, and under `auto` a foreign pipeline resolves to
+# `link` -- so with the foreign branch deleted that check skipped the same switch and the
+# mutation changed nothing observable. It SURVIVED in P3-C round 1 for exactly that reason, and
+# the fix was not to delete the guard: section 9 ruling 4 then made the branch conditional
+# (`and source != TELEMETRY_COOPERATIVE`), because a foreign program that includes
+# ndtwin_telemetry.p4 CAN clone to the CPU port and must get a session.
+#
+# So the claim worth mutating moved. It is no longer "a foreign switch is skipped" -- that is
+# now true only sometimes, and the sometimes is the point. M-B9b below is the claim that
+# replaced it, in the other direction: the branch must NOT swallow the switch that can carry
+# the header. The negative direction is still covered, by the refusal
+# (`test_a_foreign_pipeline_that_cannot_carry_the_header_still_gets_nothing`) and by
+# M-C3/M-C22 in tests/shell/mutate_telemetry_by_name.sh.
+m=$(mutant b9b "$MAIN" \
+    '        if i in foreign and source != TELEMETRY_COOPERATIVE:' \
+    '        if i in foreign:  # MUTANT: round 1, before section 9 ruling 4')
+report "M-B9b: a foreign program that includes the header is left without a clone session" "$m" \
+       "test_a_foreign_program_that_included_the_header_gets_the_cooperative_path"
 
 m=$(mutant b10 "$MAIN" \
     '        skipped.extend(FOREIGN_PIPELINE_FABRIC_SKIPS)' \
@@ -363,9 +375,17 @@ m=$(mutant b10 "$MAIN" \
 report "M-B10: LLDP, the watchdog and the routes are switched off, two without being named" "$m" \
        "test_a_foreign_pipeline_names_every_fabric_wide_step_it_switched_off"
 
+# Round 2: section 9 ruling 4 moved the expression this anchored on into `switch_skips_for`,
+# which is now the ONE definition of the per-switch list (predicted before startup, re-recorded
+# by startup with the decision it actually made). The mutation is unchanged in meaning: a
+# foreign switch that really did skip both says it skipped nothing.
 m=$(mutant b28 "$MAIN" \
-    '            "skipped": [] if ndtwin else sorted(FOREIGN_PIPELINE_SWITCH_SKIPS)}' \
-    '            "skipped": []}')
+    '    if ndtwin:
+        return []
+    if package.read_only:' \
+    '    if True:
+        return []
+    if package.read_only:')
 report "M-B28: a foreign switch says it skipped nothing, so its dead telemetry looks like a fault" "$m" \
        "test_a_foreign_switch_names_the_two_steps_it_does_not_get"
 
@@ -395,10 +415,13 @@ m=$(mutant b23 "$MAIN" \
 report "M-B23: readopt hands a foreign switch the sFlow callback, so a clone session goes in" "$m" \
        "test_a_foreign_pipeline_gets_no_clone_session"
 
+# Round 2: section 9 ruling 4 merged readopt's two "no clone session was programmed" paths into
+# one guarded block (the foreign-with-header case now KEEPS its session), so the two lines this
+# anchored on are no longer adjacent. Same mutation: report the session `readopt_switch` claims
+# rather than the one this switch was given.
 m=$(mutant b27 "$MAIN" \
-    '    result["clone_session"] = False
-    result["routes"] = "skipped"' \
-    '    result["routes"] = "skipped"')
+    '    if result.get("status") == "success" and not cooperative:' \
+    '    if False:')
 report "M-B27: readopt reports a clone session on a switch that was given none" "$m" \
        "test_it_does_not_claim_a_clone_session_it_never_programmed"
 

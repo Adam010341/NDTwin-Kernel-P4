@@ -59,9 +59,14 @@ TEST_STARTUP="$REPO/p4_proxy/tests/test_startup.py"
 TEST_STATE="$REPO/p4_proxy/tests/test_switch_state.py"
 TEST_EMITTER="$REPO/p4_proxy/tests/test_sflow_emitter.py"
 TEST_CLONE="$REPO/p4_proxy/tests/test_clone_session.py"
+# Round 2: section 9 ruling 4 put a telemetry decision on the readopt path too (a power-cycled
+# switch whose own program carries the header must come back with its clone session), so that
+# suite is part of this gate's baseline now.
+TEST_READOPT="$REPO/p4_proxy/tests/test_readopt.py"
 
 MODULES="tests.test_packet_in_by_name tests.test_counter_route tests.test_multicast_group \
-tests.test_startup tests.test_switch_state tests.test_sflow_emitter tests.test_clone_session"
+tests.test_startup tests.test_switch_state tests.test_sflow_emitter tests.test_clone_session \
+tests.test_readopt"
 
 # The interpreter. A git worktree has no venv of its own (p4_proxy/venv/ is gitignored and lives
 # in the main checkout), so the main worktree is consulted before giving up -- asked of git
@@ -111,6 +116,7 @@ BASE_TEST_STARTUP=$(sha256sum "$TEST_STARTUP" | cut -d' ' -f1)
 BASE_TEST_STATE=$(sha256sum "$TEST_STATE" | cut -d' ' -f1)
 BASE_TEST_EMITTER=$(sha256sum "$TEST_EMITTER" | cut -d' ' -f1)
 BASE_TEST_CLONE=$(sha256sum "$TEST_CLONE" | cut -d' ' -f1)
+BASE_TEST_READOPT=$(sha256sum "$TEST_READOPT" | cut -d' ' -f1)
 
 SURVIVORS=0
 MUTATIONS=0
@@ -247,23 +253,30 @@ m=$(mutant c5 "$MAIN" \
 report "M-C5: cooperative on a pipeline that cannot carry it is accepted, and reports zero" "$m" \
        "test_cooperative_on_a_foreign_pipeline_refuses_to_start"
 
+# 🔴 RETARGETED IN ROUND 2. The three layers moved to app_package (section 9 ruling 5), so the
+# proxy-side defect is no longer "the knob is read and ignored" -- it is "the caller's knob path
+# never reaches the rule". `ndt` writes one file and three processes read it; a proxy that
+# silently consulted a different one would resolve `auto` on a fabric brought up with
+# `--telemetry link`, and the two sources would then both run.
 m=$(mutant c13 "$MAIN" \
-    '    knob = read_telemetry_knob(knob_path)
-    if knob and knob != TELEMETRY_AUTO:
-        return knob' \
-    '    knob = read_telemetry_knob(knob_path)
-    if False:
-        return knob')
-report "M-C13: the knob is read and ignored, so --telemetry changes nothing" "$m" \
+    '            knob_path=knob_path or TELEMETRY_KNOB_PATH,' \
+    '            knob_path=TELEMETRY_KNOB_PATH,  # MUTANT: the caller does not get a say')
+report "M-C13: the knob path a caller names is dropped, so --telemetry reaches nothing" "$m" \
        "test_the_knob_beats_the_package"
 
+# 🔴 RETARGETED IN ROUND 2, same reason. app_package raises `AppPackageError` for a word
+# outside the domain; this side's job is to re-type it so startup's refusal path sees it.
+# Swallowing it is the fallback section 2.1 forbids -- a fabric brought up on `cooperatvie`
+# measuring something nobody asked for, every number on it as plausible as a correct one.
 m=$(mutant c14 "$MAIN" \
-    '            if line not in TELEMETRY_WORDS:
-                raise TelemetryConfigError(' \
-    '            if False:
-                raise TelemetryConfigError(')
-report "M-C14: a mistyped telemetry word is accepted and silently changes the conditions" "$m" \
-       "test_a_word_outside_the_domain_is_refused_rather_than_defaulted"
+    '            base_dir=proxy_root() if base_dir is None else base_dir)
+    except app_package.AppPackageError as exc:
+        raise TelemetryConfigError(str(exc)) from exc' \
+    '            base_dir=proxy_root() if base_dir is None else base_dir)
+    except app_package.AppPackageError:
+        return TELEMETRY_COOPERATIVE  # MUTANT: a word nobody can read falls back')
+report "M-C14: a knob word app_package refused is swallowed into a silent default" "$m" \
+       "test_a_refusal_from_the_package_reader_arrives_as_a_telemetry_refusal"
 
 # --- G7: the counter route ---------------------------------------------------------------------
 
@@ -347,12 +360,36 @@ report "M-C18: the baseline clone session's replica changes instance, so a warm 
 # --- the disclosure -------------------------------------------------------------------------------
 
 m=$(mutant c10 "$MAIN" \
-    '    alive = False
-    if isinstance(pid, int) and pid > 0:
-        alive = os.path.exists(f"/proc/{pid}")' \
-    '    alive = True  # MUTANT: the manifest exists, so the emitter must be running')
+    '            "alive": bool(pid) and link_telemetry.process_is_the_emitter(pid),' \
+    '            "alive": True,  # MUTANT: the manifest exists, so the emitter must be running')
 report "M-C10: a dead link emitter is reported alive, and link telemetry samples into nothing" "$m" \
-       "test_a_dead_pid_reads_dead"
+       "test_a_pid_that_is_not_the_emitter_reads_dead"
+
+# Round 2, section 9 ruling 5: the manifest is B's document and `switches` is a LIST of objects.
+# Round 1 iterated it as a map and produced a list of stringified dicts -- silently wrong, not
+# None, and the hand-written fixture agreed with the mistake.
+m=$(mutant c21 "$MAIN" \
+    '    if isinstance(switches, list):
+        for entry in switches:
+            if isinstance(entry, dict) and entry.get("dpid") is not None:
+                dpids.append(entry["dpid"])' \
+    '    dpids = [str(entry) for entry in (switches or [])]  # MUTANT: round 1, verbatim')
+report "M-C21: the emitter's switches come back as text nobody can match to a dpid" "$m" \
+       "test_the_switches_come_back_as_dpids_and_not_as_stringified_objects"
+
+# Section 9 ruling 4: the per-switch skip list is what was ACTUALLY skipped.
+m=$(mutant c22 "$MAIN" \
+    '    return [] if cooperative else sorted(FOREIGN_PIPELINE_SWITCH_SKIPS)' \
+    '    return sorted(FOREIGN_PIPELINE_SWITCH_SKIPS)  # MUTANT: P2 ruling 7, un-amended')
+report "M-C22: a switch that got a clone session is reported as having skipped it" "$m" \
+       "test_that_switch_says_it_skipped_nothing"
+
+m=$(mutant c23 "$MAIN" \
+    '    cooperative = (telemetry_source == TELEMETRY_COOPERATIVE
+                   and (ndtwin or pipeline_carries_telemetry(package, dpid)))' \
+    '    cooperative = ndtwin and telemetry_source == TELEMETRY_COOPERATIVE  # MUTANT: round 1')
+report "M-C23: readopt withholds the clone session from a program that can carry it" "$m" \
+       "test_a_readopted_foreign_switch_with_the_header_keeps_its_clone_session"
 
 m=$(mutant c19 "$ROUTES" \
     '    if telemetry_report is not None:
@@ -397,7 +434,8 @@ echo
 [[ "$(sha256sum "$TEST_STATE" | cut -d' ' -f1)" == "$BASE_TEST_STATE" ]] || { echo "🔴 baseline CHANGED -- test_switch_state.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_EMITTER" | cut -d' ' -f1)" == "$BASE_TEST_EMITTER" ]] || { echo "🔴 baseline CHANGED -- test_sflow_emitter.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_CLONE" | cut -d' ' -f1)" == "$BASE_TEST_CLONE" ]] || { echo "🔴 baseline CHANGED -- test_clone_session.py was written during the gate"; exit 3; }
-echo "baseline byte-identical: yes (4 sources, 7 test files)"
+[[ "$(sha256sum "$TEST_READOPT" | cut -d' ' -f1)" == "$BASE_TEST_READOPT" ]] || { echo "🔴 baseline CHANGED -- test_readopt.py was written during the gate"; exit 3; }
+echo "baseline byte-identical: yes (4 sources, 8 test files)"
 if [[ "$SURVIVORS" -eq 0 ]]; then
     echo "mutation gate: $MUTATIONS mutations, 0 survived"; exit 0
 else

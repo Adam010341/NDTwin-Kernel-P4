@@ -35,8 +35,22 @@ import sys
 import tempfile
 import types
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+
+#: The two real compiled p4infos TICKET-P3 section 9 ruling 4's decision rests on: `basic`
+#: declares no controller header, `basic_telemetry` is the same solution with
+#: `#include "ndtwin_telemetry.p4"`. Absolute, because a per-switch pipeline is passed through
+#: `Package.pipeline_for` untouched when it already is. [Co-developed with claude code -- Adam]
+_FIXTURES = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "tools", "p4_exercise", "tests", "fixtures")
+PLAIN_FOREIGN_PIPELINE = (os.path.join(_FIXTURES, "basic", "build", "basic.p4.p4info.txtpb"),
+                          os.path.join(_FIXTURES, "basic", "build", "basic.json"))
+TELEMETRY_FOREIGN_PIPELINE = (
+    os.path.join(_FIXTURES, "basic_telemetry", "build", "basic_telemetry.p4.p4info.txtpb"),
+    os.path.join(_FIXTURES, "basic_telemetry", "build", "basic_telemetry.json"))
 
 from fastapi import HTTPException  # noqa: E402
 
@@ -708,6 +722,46 @@ class ThePackageHalfOfReadoptTest(unittest.TestCase):
                           "registered for sampling; the session would be programmed and "
                           "nothing would ever arrive in it")
         self.assertNotIn(("clone", 1), self.made[0].log)
+
+    def test_a_readopted_foreign_switch_with_the_header_keeps_its_clone_session(self):
+        # 🔴 TICKET-P3 SECTION 9 RULING 4, on the readopt path. This switch runs the exercise's
+        # OWN program -- so `pipeline_is_ndtwin` is False and the routes are still not refilled
+        # -- but that program includes `p4_proxy/p4_src/ndtwin_telemetry.p4`, so it really does
+        # clone to the CPU port. Under `cooperative` it must come back from a power-cycle with
+        # its clone session, or the exercise's twin goes dark the first time a switch restarts
+        # and nothing says why.
+        #
+        # The decision is made from the p4info FILE, because the client this readopt will use
+        # does not exist when `sample_callback` has to be chosen.
+        knob = os.path.join(self.tmp, "telemetry_override")
+        with open(knob, "w") as fh:
+            fh.write("cooperative\n")
+        package = self.package(pipeline=TELEMETRY_FOREIGN_PIPELINE)
+        with mock.patch.object(main, "TELEMETRY_KNOB_PATH", knob):
+            result = self.readopt(package)
+
+        self.assertIsNotNone(self.made[0].sample_at_start,
+                             "a program that carries the cooperative header must be handed the "
+                             "sFlow callback")
+        self.assertIn(("clone", 1), self.made[0].log)
+        self.assertIs(result["clone_session"], True)
+        self.assertNotIn("telemetry_note", result)
+        # And the routes are still the exercise's own business.
+        self.assertEqual(result["routes"], "skipped")
+        self.assertEqual(main.pipelines_report()["1"]["skipped"], [],
+                         "nothing was skipped on this switch, so the list is empty")
+
+    def test_a_readopted_foreign_switch_without_the_header_still_gets_none(self):
+        # The negative half, and the one that keeps the case above from being a change
+        # detector: the same knob, a program with no controller header.
+        knob = os.path.join(self.tmp, "telemetry_override")
+        with open(knob, "w") as fh:
+            fh.write("cooperative\n")
+        with mock.patch.object(main, "TELEMETRY_KNOB_PATH", knob):
+            result = self.readopt(self.package(pipeline=PLAIN_FOREIGN_PIPELINE))
+        self.assertIsNone(self.made[0].sample_at_start)
+        self.assertIs(result["clone_session"], False)
+        self.assertIn("count every packet twice", result["telemetry_note"])
 
     def test_a_foreign_pipeline_gets_no_ndtwin_routes(self):
         # 🔴 Round 2, the orchestrator's ruling on objection ①. Before `install_routes` existed
