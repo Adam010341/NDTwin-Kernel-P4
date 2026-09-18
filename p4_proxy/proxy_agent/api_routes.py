@@ -11,7 +11,7 @@ from proxy_agent import ryu_topology, ryu_flow_stats
 # status code derived from one would silently become a 500 the day they did. No cycle:
 # p4_client imports boot_identity, rule_install_times and sflow_emitter, none of which reach
 # back here.
-from proxy_agent.p4_client import (ControlPlaneReadOnly, TableEntryInvalid,
+from proxy_agent.p4_client import (ControlPlaneReadOnly, CounterNotFound, TableEntryInvalid,
                                    TableEntryUnsupported)
 
 # We will attach the topology manager instance to the router later
@@ -102,6 +102,26 @@ def inject_package_reports(pipelines, table_entries, note_api_write):
     pipelines_report = pipelines
     table_entries_report = table_entries
     note_api_table_entry_write = note_api_write
+
+
+# --- the telemetry half of the disclosure (TICKET-P3 2.6). [Co-developed with claude code -- Adam]
+#
+# 🔴 A THIRD INJECTOR, NOT THREE MORE ARGUMENTS ON THE SECOND. The pair above answers "which
+# program is on each switch and what got written to it". These answer "where does each switch's
+# telemetry come from, and is anything actually emitting" -- and that is the question a reader
+# asks when the twin shows zeros, which is the same picture a dead fabric shows. Callables, read
+# at request time, for the reason the other two are: startup fills them in while the kernel is
+# already polling, and `link_emitter.alive` is a live check of a pid that can die at any moment.
+telemetry_report = None
+pre_entries_report = None
+control_plane_telemetry = None
+
+
+def inject_telemetry_reports(telemetry, pre_entries, fabric_telemetry):
+    global telemetry_report, pre_entries_report, control_plane_telemetry
+    telemetry_report = telemetry
+    pre_entries_report = pre_entries
+    control_plane_telemetry = fabric_telemetry
 
 
 def _grpc_status_name(exc):
@@ -627,6 +647,34 @@ async def switch_state():
             entry["table_entries"] = written.get(
                 str(dpid), {"recorded": 0, "applied": 0, "failed": 0, "api_writes": 0,
                             "journaled": False})
+    # [Co-developed with claude code -- Adam]
+    # TICKET-P3 2.6. Three more keys, in loops of their own for the reason the pair above is:
+    # each loop is a mutation gate's anchor, and an anchor that stops resolving turns that gate
+    # into SURVIVOR for everything it covers.
+    #
+    #   telemetry    per switch -- where its samples come from, whether a clone session went in,
+    #                whether the emitter knows it, and the metadata ids its own p4info gave.
+    #                `pipeline.skipped` still lists the two cooperative steps that were skipped
+    #                (TICKET-P2 7-7 froze that list, and they really were skipped); this says
+    #                WHY, which is the difference between a decision and a fault.
+    #   pre_entries  per switch -- the multicast groups and clone sessions the package declared
+    #                and what became of them. Separate from `table_entries` because they are
+    #                target objects rather than program ones, and are programmed on switches
+    #                whose table entries are deliberately not.
+    #   control_plane.telemetry  fabric-wide -- the knob, the package's declaration, and a
+    #                summary of the link emitter (including whether its pid is still alive).
+    if telemetry_report is not None:
+        per_switch = telemetry_report()
+        for dpid, entry in state.get("switches", {}).items():
+            entry["telemetry"] = per_switch.get(str(dpid))
+    if pre_entries_report is not None:
+        pre = pre_entries_report()
+        for dpid, entry in state.get("switches", {}).items():
+            entry["pre_entries"] = pre.get(
+                str(dpid), {"multicast": {"recorded": 0, "applied": 0, "failed": 0},
+                            "clone": {"recorded": 0, "applied": 0, "failed": 0}})
+    if control_plane_telemetry is not None and "control_plane" in state:
+        state["control_plane"]["telemetry"] = control_plane_telemetry()
     return state
 
 
@@ -755,6 +803,179 @@ async def table_entry(request: Request):
     return {"status": "success", "dpid": raw_dpid, "op": written["op"],
             "table": written["table"], "match_types": written["match_types"],
             "priority_honoured": written["priority_honoured"],
+            "journaled": False, "note": TABLE_ENTRY_NOT_JOURNALED}
+
+
+# --- reading one counter (TICKET-P3 2.6, G7) --------------------------------------------------
+
+
+@router.get("/p4/counter/{name}")
+async def counter(name: str, dpid: int, index: int = 0):
+    """
+    One counter cell of one switch: `GET /p4/counter/<name>?dpid=<n>&index=<i>`.
+
+    [Co-developed with claude code -- Adam]
+    The exercises measure with counters -- `link_monitor` keys one per switch id, `mri` counts
+    per hop -- and until now the only way to read a bmv2 counter through this proxy was not to.
+    `read_egress_counter` has existed with a carefully-argued three-outcome contract and NO
+    production caller since it was written; this is that caller, and the three outcomes are the
+    three status codes.
+
+        200  the read succeeded. `bytes` and `packets` are the switch's own numbers, and a
+             truthful (0, 0) is a 200 -- a port that forwarded nothing is a measurement.
+        404  an unknown dpid, or a counter this switch's p4info does not describe. Structural
+             and permanent: the running pipeline does not have it, so no retry helps, and a
+             zero would be a fabrication. `name` is accepted as either the full
+             `preamble.name` (`MyEgress.egress_port_counter`) or the alias
+             (`egress_port_counter`) -- tutorials' own helpers use both spellings.
+        503  the read failed, or the switch reported no entry for that index. 🔴 EXPLICITLY NOT
+             A ZERO. bmv2 omits an entry it holds no state for, and a dropped connection
+             returns nothing at all; answering 0 for either makes the instrument's failure mode
+             identical to its most interesting finding (see read_egress_counter's docstring).
+
+    🔴 WORKS UNDER AN EXTERNAL CONTROL PLANE, and that is the point of it being a read. A
+    P4Runtime ReadRequest carries no election id, so it needs no mastership -- an `external`
+    fabric's own controller owns the tables and this proxy can still say what the counters hold.
+    Every write endpoint answers 409 there; this one answers 200.
+
+    `def`-shaped work in an `async def`: the read blocks on a gRPC round trip, so it goes to the
+    threadpool by hand -- the same treatment as the write endpoints above, and for the same
+    reason (the kernel polls /p4/switch_state once a second on this event loop).
+    """
+    if topology is None:
+        raise HTTPException(status_code=503, detail="proxy has no topology yet")
+    client = topology.switches.get(dpid)
+    if client is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "unknown switch", "dpid": dpid,
+                    "message": f"switch {dpid} is not connected to the proxy"})
+    if index < 0:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "invalid index", "dpid": dpid, "counter": name,
+                    "message": f"index {index} is negative; counter indices are unsigned"})
+
+    try:
+        reading = await run_in_threadpool(client.read_egress_counter, index, name)
+    except CounterNotFound as err:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "not in this pipeline", "dpid": dpid, "counter": name,
+                    "message": str(err)})
+
+    if reading is None:
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "counter not read", "dpid": dpid, "counter": name, "index": index,
+                    "message": f"switch {dpid} returned no counter entry for {name}[{index}], "
+                               f"or the read failed. This is NOT a reading of zero: bmv2 omits "
+                               f"an entry it holds no state for, and a zero here would be "
+                               f"indistinguishable from a port that carried no traffic"})
+
+    byte_count, packet_count = reading
+    return {"dpid": dpid, "counter": name, "index": index,
+            "bytes": byte_count, "packets": packet_count}
+
+
+# --- programming one multicast group (TICKET-P3 2.6, G8) --------------------------------------
+
+
+@router.post("/p4/multicast_group")
+async def multicast_group(request: Request):
+    """
+    Write one PRE multicast group, in the shape tutorials' `sX-runtime.json` already uses.
+
+    [Co-developed with claude code -- Adam]
+        {"dpid": 1, "op": "insert", "multicast_group_id": 1,
+         "replicas": [{"egress_port": 2, "instance": 1}, {"egress_port": 3, "instance": 1}]}
+
+    The `multicast` exercise is the one that needs it: its program sets
+    `standard_metadata.mcast_grp` and the PRE decides what that means. Without the group the
+    packet is dropped inside the PRE -- no table misses, no error, h1 simply cannot reach
+    h2/h3/h4 while every rule reads correct. That is the failure this endpoint exists to make
+    impossible to mistake for a forwarding bug.
+
+    Status codes, and what each one means happened to the switch:
+
+        200  the switch accepted the write.
+        400  the request is not a group this proxy will ask for -- a malformed body, an id below
+             1 (P4Runtime numbers groups from 1 and 0 means "do not multicast"), no replicas at
+             all, a replica with no port or a negative one, or the same (egress_port, instance)
+             twice. NOTHING was written.
+        404  an unknown dpid. NOTHING was written.
+        409  this fabric's package declares an external control plane, so the proxy reads only.
+             NOTHING was written.
+        502  the switch itself refused it, after an INSERT and the MODIFY that follows. 🔴 THIS
+             ONE DID REACH THE SWITCH: it is the switch's answer, so the WriteRequest
+             necessarily went out. The gRPC status names are printed by the client rather than
+             returned here, because `write_multicast_group` keeps `write_clone_session`'s
+             boolean contract (TICKET-P3 2.6 says its rules and its messages follow that
+             method), and a body that invented a status name would be reporting one it did not
+             see. tests/test_multicast_group.py asserts `stub.requests == []` for the
+             400/404/409 rows and deliberately not for this one.
+
+    🔴 THE DUPLICATE-REPLICA REFUSAL IS NOT PEDANTRY. Two replicas with the same port and the
+    same instance id are ONE replica to the PRE: the second is absorbed, not rejected, so a
+    four-port group written with a copy-pasted `instance` silently becomes a one-port group and
+    three hosts stop receiving. That is a 400 with the pair named, in `write_multicast_group`.
+    """
+    data = await _flowentry_body(request)
+    if topology is None:
+        raise HTTPException(status_code=503, detail="proxy has no topology yet")
+
+    raw_dpid = data.get("dpid")
+    if isinstance(raw_dpid, bool) or not isinstance(raw_dpid, int):
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "malformed body",
+                    "message": f"'dpid' must be an integer, got {raw_dpid!r}"})
+    client = topology.switches.get(raw_dpid)
+    if client is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "unknown switch", "dpid": raw_dpid,
+                    "message": f"switch {raw_dpid} is not connected to the proxy"})
+
+    replicas = data.get("replicas")
+    if replicas is not None and not isinstance(replicas, list):
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "malformed body", "dpid": raw_dpid,
+                    "message": f"'replicas' must be a list, got {replicas!r}"})
+
+    op = data.get("op", "insert")
+    group_id = data.get("multicast_group_id")
+
+    try:
+        written = await run_in_threadpool(client.write_multicast_group, group_id,
+                                          replicas or [], op)
+    except ControlPlaneReadOnly as err:
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "external control plane", "dpid": raw_dpid,
+                    "message": str(err)})
+    except TableEntryInvalid as err:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "invalid multicast group", "dpid": raw_dpid,
+                    "message": str(err)})
+
+    if not written:
+        raise HTTPException(
+            status_code=502,
+            detail={"error": "the switch refused the write", "dpid": raw_dpid,
+                    "multicast_group_id": group_id,
+                    "message": f"switch {raw_dpid} refused multicast group {group_id!r}; the "
+                               f"gRPC status names are in the proxy log. Packets sent to this "
+                               f"group will be dropped by the PRE"})
+
+    return {"status": "success", "dpid": raw_dpid, "op": str(op or "insert").lower(),
+            "multicast_group_id": group_id,
+            "replicas": len(replicas or []),
+            # The same warning `POST /p4/table_entry` carries, for the same reason: nothing
+            # journals a PRE entry either, and a group that vanishes on a proxy restart is a
+            # forwarding change nobody will connect to the restart.
             "journaled": False, "note": TABLE_ENTRY_NOT_JOURNALED}
 
 

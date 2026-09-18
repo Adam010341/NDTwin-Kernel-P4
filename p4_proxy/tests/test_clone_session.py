@@ -31,6 +31,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 try:
     import grpc  # noqa: F401
     from p4.v1 import p4runtime_pb2
+    from p4.config.v1 import p4info_pb2
     from proxy_agent.p4_client import (
         CPU_PORT,
         SAMPLE_SESSION_ID,
@@ -64,6 +65,8 @@ from proxy_agent.sflow_emitter import (  # noqa: E402
     PKTIN_META_SAMPLING_RATE,
     PKTIN_REASON_PACKET_IN,
     PKTIN_REASON_SAMPLE,
+    packet_in_metadata_ids,
+    packet_out_metadata_ids,
 )
 
 
@@ -113,6 +116,36 @@ class RecordingStub:
             raise self.error
 
 
+def a_packet_io_p4info():
+    """Just the two @controller_header descriptors, as p4c writes them for ndtwin_switch.p4.
+
+    Ids are POSITIONAL in the real artefact, so `_pad` is included: dropping a field here would
+    renumber the rest and the test would then assert numbers no compiler produces.
+    """
+    p4info = p4info_pb2.P4Info()
+    packet_in = p4info.controller_packet_metadata.add()
+    packet_in.preamble.id = 81826293
+    packet_in.preamble.name = "packet_in"
+    packet_in.preamble.alias = "packet_in"
+    for meta_id, name, bitwidth in ((1, "reason", 8), (2, "ingress_port", 9),
+                                    (3, "egress_port", 9), (4, "frame_length", 16),
+                                    (5, "sampling_rate", 16), (6, "_pad", 6)):
+        meta = packet_in.metadata.add()
+        meta.id = meta_id
+        meta.name = name
+        meta.bitwidth = bitwidth
+    packet_out = p4info.controller_packet_metadata.add()
+    packet_out.preamble.id = 76689799
+    packet_out.preamble.name = "packet_out"
+    packet_out.preamble.alias = "packet_out"
+    for meta_id, name, bitwidth in ((1, "egress_port", 9), (2, "_pad", 7)):
+        meta = packet_out.metadata.add()
+        meta.id = meta_id
+        meta.name = name
+        meta.bitwidth = bitwidth
+    return p4info
+
+
 def a_client() -> P4RuntimeClient:
     """
     A client with no gRPC channel.
@@ -126,6 +159,16 @@ def a_client() -> P4RuntimeClient:
     client.stub = RecordingStub()
     client.packet_in_callback = None
     client.sample_callback = None
+    # [Co-developed with claude code -- Adam]
+    # TICKET-P3 2.6 (G1): `handle_packet_in` reads the metadata ids this switch's own p4info
+    # gives the fields, so the double needs a p4info that describes the controller headers --
+    # and it is resolved with the PRODUCTION functions, so a mutation to the name lookup
+    # reddens these tests too instead of being hidden by a fixture that agrees with the
+    # constants.
+    client.p4info = a_packet_io_p4info()
+    client.packet_in_ids = packet_in_metadata_ids(client.p4info)
+    client.packet_in_ids_error = None
+    client.packet_out_ids = packet_out_metadata_ids(client.p4info)
     # [Co-developed with claude code -- Adam]
     # Who this client bids as, and whether it may write at all. Assigned here rather than
     # defaulted on the class for the reason the `rule_install_times` line above gives: a

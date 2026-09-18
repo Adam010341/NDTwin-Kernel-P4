@@ -242,6 +242,62 @@ add "16. a p4info that exists but does not parse is skipped instead of reported"
         except Exception as exc:  # unreachable once the mutant above catches everything' \
     'test_a_p4info_that_exists_but_does_not_parse_fails_by_name'
 
+# 17-22 are TICKET-P3 2.6's convert / pre-flight half: the exercise's own CPU port (G9b), the
+# telemetry word, and the PRE entries a runtime file declares (G8/G9a). The proxy-side mutations
+# of the same ticket are in tests/shell/mutate_telemetry_by_name.sh -- split on the file that is
+# mutated rather than on the ticket, so each gate's baseline check still means something.
+#
+# Every one of these is a package that pre-flights green and then produces a fabric where the
+# failure is a host that does not receive: a switch launched on the wrong CPU port drops every
+# controller packet, a group replicating into a port the fabric does not build delivers to
+# nobody, and two replicas sharing an instance id are one replica inside the PRE.
+add "17. two switches may ask for two different CPU ports, and one is silently given the other's" \
+    "$CONVERT" \
+    '    values = sorted(set(declared.values()))
+    if len(values) > 1:' \
+    '    values = sorted(set(declared.values()))
+    if False:  # MUTANT: whichever one sorts first wins, for every switch' \
+    'test_switches_that_disagree_are_refused_and_both_are_named'
+
+add "18. a cpu_port written as a string stays a string" \
+    "$CONVERT" \
+    '    elif isinstance(raw, str) and raw.strip():
+        try:
+            value = int(raw.strip(), 0)' \
+    '    elif isinstance(raw, str) and raw.strip():
+        try:
+            value = raw.strip()  # MUTANT: flowcache asks for "510" and gets "510"' \
+    'test_a_string_cpu_port_becomes_an_integer'
+
+add "19. pre-flight accepts a telemetry source outside the value domain" \
+    "$PREFLIGHT" \
+    '        if source in TELEMETRY_WORDS:' \
+    '        if True:  # MUTANT: any word is a telemetry source' \
+    'test_a_word_outside_the_domain_fails'
+
+add "20. pre-flight lets a program with no controller header be asked for cooperative telemetry" \
+    "$PREFLIGHT" \
+    '        absent = [name for name in PACKET_IN_FIELDS
+                  if name not in packet_in_fields(index.p4info)]' \
+    '        absent = []  # MUTANT: every program can clone to the CPU port' \
+    'test_cooperative_on_a_program_with_no_controller_header_fails'
+
+add "21. a multicast replica may name a port the fabric does not build" \
+    "$PREFLIGHT" \
+    '                if known and port not in known and port != cpu_port:
+                    problems.append(
+                        f"{where} replica {j}: egress_port {port} is not a port s{dpid} has -- "' \
+    '                if False:  # MUTANT: the PRE will take it, so it must be fine
+                    problems.append(
+                        f"{where} replica {j}: egress_port {port} is not a port s{dpid} has -- "' \
+    'test_a_replica_on_a_port_the_model_does_not_build_fails'
+
+add "22. the same (port, instance) twice is accepted, and the group is quietly smaller" \
+    "$PREFLIGHT" \
+    '                if (port, instance) in seen:' \
+    '                if False:  # MUTANT: the PRE holds both. It does not.' \
+    'test_the_same_replica_twice_fails'
+
 CTRL_SRC="$CONVERT"
 CTRL_ANCHOR='def build_model(hosts, switches, links):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.
@@ -438,7 +494,7 @@ echo "  suite green again after restore"
 # against a tool that does the wrong thing consistently -- and the read-back tests would also
 # go red under #2, which is why #2 names the dpid test and not one of them.
 printf '\nnot reddened by design: test_two_conversions_are_byte_identical and the p4c rows\n'
-printf '(regression guards; they discriminate nothing about the sixteen behaviours above)\n'
+printf '(regression guards; they discriminate nothing about the %d behaviours above)\n' "${#MUT_LABEL[@]}"
 
 printf '\n%s mutations, %s survived\n' "$MUTATIONS" "$SURVIVORS"
 [[ "$SURVIVORS" -eq 0 ]]

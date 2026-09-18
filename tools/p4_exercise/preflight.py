@@ -319,9 +319,219 @@ def run(package_dir, report=None, compile_p4=True):
     pipeline_p4info = _check_pipelines(report, package_dir, package)
     used_p4info = _check_entries(report, package_dir, package, referenced)
     _check_entries_are_for_this_pipeline(report, used_p4info, pipeline_p4info)
+    _check_telemetry(report, package_dir, package, pipeline_p4info)
+    _check_pre_entries(report, package_dir, package, model, referenced)
     _check_port_block(report, package)
     _check_compile(report, package_dir, package, compile_p4)
     return report
+
+
+# --- telemetry (TICKET-P3 2.1) ----------------------------------------------------------------
+
+#: The words a package may declare, and what each one resolves to per switch. Spelled here as
+#: well as in the proxy because pre-flight runs BEFORE the fabric exists and must refuse a
+#: package the proxy would refuse to start on -- a refusal at bring-up costs a tmux pane full of
+#: half-started switches and a `ndt down`. [Co-developed with claude code -- Adam]
+TELEMETRY_WORDS = ("auto", "none", "cooperative", "link")
+
+#: The five @controller_header("packet_in") fields the cooperative path needs, by name. The
+#: proxy looks them up by name (sflow_emitter.packet_in_metadata_ids) because their ids are
+#: positional; so does this.
+PACKET_IN_FIELDS = ("reason", "ingress_port", "egress_port", "frame_length", "sampling_rate")
+
+
+def packet_in_fields(p4info):
+    """The names inside this p4info's `packet_in` controller header, as a set (empty if none)."""
+    for entry in getattr(p4info, "controller_packet_metadata", []):
+        if entry.preamble.name == "packet_in" or entry.preamble.alias == "packet_in":
+            return {m.name for m in entry.metadata}
+    return set()
+
+
+def _check_telemetry(report, package_dir, package, pipeline_p4info):
+    """`telemetry.source`, and whether the pipelines can carry what it asks for.
+
+    [Co-developed with claude code -- Adam]
+    🔴 `cooperative` ON A PROGRAM WITH NO CONTROLLER HEADER IS THE CASE THIS EXISTS FOR. Such a
+    fabric comes up, pushes its pipelines, accepts a clone session into the PRE (a clone session
+    is a target object, so bmv2 takes it against any program) and then reports zero samples for
+    the entire run -- every step green, every link reading zero, and zero is what an idle fabric
+    reads too. The proxy refuses to start on it; this says so before the switches are launched.
+
+    Only the package is consulted, never the `telemetry_override` knob: the knob is this
+    machine's state at bring-up time and pre-flight is a statement about a package directory,
+    which somebody may be checking on another machine entirely.
+    """
+    telemetry = package.get("telemetry")
+    if telemetry is None:
+        report.note("telemetry.source", "not declared (auto: NDTwin's pipeline gets the "
+                                        "cooperative path, anybody else's gets link telemetry)")
+        source = "auto"
+    elif not isinstance(telemetry, dict):
+        report.bad("telemetry", f"{telemetry!r} is not an object with a 'source'")
+        return
+    else:
+        source = telemetry.get("source")
+        if source in TELEMETRY_WORDS:
+            report.ok("telemetry.source", str(source))
+        else:
+            report.bad("telemetry.source",
+                       f"{source!r} is not one of {', '.join(TELEMETRY_WORDS)}. A fabric started "
+                       f"on a word nobody reads samples nothing and reports zero, which is "
+                       f"indistinguishable from a fabric with no traffic")
+            return
+
+    if source != "cooperative":
+        return
+
+    # Every switch that carries its OWN program has to declare the header. A switch with
+    # `pipeline: null` runs ndtwin_switch.p4, which declares it by construction -- and the
+    # package directory does not carry that artefact, so there is nothing here to read.
+    missing = []
+    for dpid, rel in sorted(pipeline_p4info.items(), key=lambda kv: int(kv[0])):
+        try:
+            index = P4InfoIndex.parse(rel)
+        except Exception as exc:  # noqa: BLE001 -- already reported by _check_pipelines
+            missing.append(f"s{dpid}: p4info unreadable ({type(exc).__name__})")
+            continue
+        absent = [name for name in PACKET_IN_FIELDS
+                  if name not in packet_in_fields(index.p4info)]
+        if absent:
+            missing.append(f"s{dpid}: no {', '.join(absent)} in its packet_in header")
+    if missing:
+        report.bad("telemetry cooperative is possible",
+                   f"{len(missing)} switch(es) run a program that cannot clone to the CPU port: "
+                   f"{'; '.join(missing[:3])}. Include p4_proxy/p4_src/ndtwin_telemetry.p4 in "
+                   f"the program, or declare telemetry.source 'link' or 'none'")
+    else:
+        report.ok("telemetry cooperative is possible",
+                  f"every switch's p4info declares the five packet_in fields")
+
+
+# --- the PRE entries a runtime file declares (TICKET-P3 2.6, G8/G9a) --------------------------
+
+
+def _switch_ports(model):
+    """{dpid: {port numbers the model gives that switch}}, from the reader's own output."""
+    ports = {}
+    if not model:
+        return ports
+    reads = model.get("reads") or {}
+    for dpid, _name in reads.get("switches") or ():
+        ports.setdefault(dpid, set())
+    for a_dpid, a_port, b_dpid, b_port in reads.get("switch_links") or ():
+        ports.setdefault(a_dpid, set()).add(a_port)
+        ports.setdefault(b_dpid, set()).add(b_port)
+    for _host, dpid, port in reads.get("host_links") or ():
+        ports.setdefault(dpid, set()).add(port)
+    return ports
+
+
+def _check_pre_entries(report, package_dir, package, model, referenced):
+    """`multicast_group_entries` and `clone_session_entries`, against the model's own ports.
+
+    [Co-developed with claude code -- Adam]
+    A multicast group replicating to a port the fabric does not build is not an error at the
+    switch: the PRE accepts the group, replicates into a port that carries nothing, and the
+    host that should have received the packet does not. Which is exactly what a missing group
+    looks like, and exactly what a wrong forwarding rule looks like. So the ports are checked
+    against the model that will be built rather than against the switch that does not exist yet.
+
+    The CPU port is the one legitimate exception: it is not a link, so no model edge names it,
+    and a clone session's whole purpose is to replicate to it.
+    """
+    switches = package.get("switches") or {}
+    ports = _switch_ports(model)
+    cpu_port = (package.get("bmv2") or {}).get("cpu_port")
+    problems, totals = [], {"multicast": 0, "clone": 0}
+
+    for dpid, spec in sorted(switches.items(), key=lambda kv: int(kv[0])):
+        if not (spec or {}).get("entries"):
+            continue
+        path = referenced.get(f"switches[{dpid}].entries")
+        if path is None:
+            continue              # already reported by 'referenced files'
+        try:
+            conf = common.load_json(path)
+        except ValueError:
+            continue              # already reported by 'entries match p4info'
+        known = ports.get(int(dpid), set())
+
+        for i, entry in enumerate(conf.get("multicast_group_entries") or []):
+            totals["multicast"] += 1
+            where = f"s{dpid} multicast entry {i}"
+            if not isinstance(entry, dict):
+                problems.append(f"{where}: not an object")
+                continue
+            gid = entry.get("multicast_group_id")
+            if isinstance(gid, bool) or not isinstance(gid, int) or gid < 1:
+                problems.append(
+                    f"{where}: multicast_group_id {gid!r} is not a positive integer "
+                    f"(P4Runtime numbers groups from 1; 0 means 'do not multicast')")
+            replicas = entry.get("replicas")
+            if not isinstance(replicas, list) or not replicas:
+                problems.append(f"{where}: declares no replicas, so the group would drop every "
+                                f"packet sent to it")
+                continue
+            seen = set()
+            for j, replica in enumerate(replicas):
+                if not isinstance(replica, dict) or "egress_port" not in replica:
+                    problems.append(f"{where} replica {j}: no egress_port")
+                    continue
+                port = replica.get("egress_port")
+                instance = replica.get("instance", 1)
+                if isinstance(port, bool) or not isinstance(port, int):
+                    problems.append(f"{where} replica {j}: egress_port {port!r} is not a port "
+                                    f"number")
+                    continue
+                if known and port not in known and port != cpu_port:
+                    problems.append(
+                        f"{where} replica {j}: egress_port {port} is not a port s{dpid} has -- "
+                        f"the model gives it {sorted(known)}. The PRE would accept this group "
+                        f"and replicate into nothing")
+                if (port, instance) in seen:
+                    problems.append(
+                        f"{where} replica {j}: (egress_port {port}, instance {instance}) is "
+                        f"declared twice, and the PRE holds one replica for the pair -- the "
+                        f"group would be smaller than it looks")
+                seen.add((port, instance))
+
+        for i, entry in enumerate(conf.get("clone_session_entries") or []):
+            totals["clone"] += 1
+            where = f"s{dpid} clone session entry {i}"
+            if not isinstance(entry, dict):
+                problems.append(f"{where}: not an object")
+                continue
+            sid = entry.get("clone_session_id", entry.get("session_id"))
+            if isinstance(sid, bool) or not isinstance(sid, int) or sid < 1:
+                problems.append(f"{where}: clone_session_id {sid!r} is not a positive integer")
+            for j, replica in enumerate(entry.get("replicas") or []):
+                if not isinstance(replica, dict) or "egress_port" not in replica:
+                    problems.append(f"{where} replica {j}: no egress_port")
+                    continue
+                port = replica.get("egress_port")
+                if isinstance(port, bool) or not isinstance(port, int):
+                    problems.append(f"{where} replica {j}: egress_port {port!r} is not a port "
+                                    f"number")
+                    continue
+                if known and port not in known and port != cpu_port:
+                    problems.append(
+                        f"{where} replica {j}: egress_port {port} is neither a port s{dpid} has "
+                        f"nor this package's bmv2.cpu_port ({cpu_port})")
+
+    if not totals["multicast"] and not totals["clone"]:
+        report.note("PRE entries", "none declared (no multicast group, no clone session)")
+        return
+    if problems:
+        report.bad("PRE entries", f"{len(problems)} problem(s); first: {problems[0]}")
+        for extra in problems[1:4]:
+            report.bad("", extra)
+        if len(problems) > 4:
+            report.bad("", f"... and {len(problems) - 4} more")
+    else:
+        report.ok("PRE entries",
+                  f"{totals['multicast']} multicast group(s) and {totals['clone']} clone "
+                  f"session(s); every replica names a port the model builds")
 
 
 # --- the per-switch pipeline (G4) --------------------------------------------------------------

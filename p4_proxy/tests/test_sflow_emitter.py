@@ -48,7 +48,19 @@ from proxy_agent.sflow_emitter import (  # noqa: E402
     metadata_by_id,
     load_switch_agent_ips,
     sample_from_packet_in,
+    PacketInIds,
 )
+
+#: The numbering ndtwin_switch.p4's `packet_in_header_t` produces, as a PacketInIds.
+#: [Co-developed with claude code -- Adam]
+#: TICKET-P3 2.6 made `sample_from_packet_in` take the numbering rather than assume it. These
+#: cases are about the DECODING, so they hand it this -- and `P4InfoAgreementTest` below is what
+#: says these five numbers are the ones the compiler actually produced.
+NDTWIN_PACKET_IN_IDS = PacketInIds(reason=PKTIN_META_REASON,
+                                   ingress_port=PKTIN_META_INGRESS_PORT,
+                                   egress_port=PKTIN_META_EGRESS_PORT,
+                                   frame_length=PKTIN_META_FRAME_LENGTH,
+                                   sampling_rate=PKTIN_META_SAMPLING_RATE)
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 FIXTURE_DIR = os.path.join(REPO_ROOT, "tests", "fixtures")
@@ -344,7 +356,7 @@ class PacketInDecodingTest(unittest.TestCase):
     """
 
     def test_reads_every_field_from_metadata(self):
-        sample = sample_from_packet_in(a_packet_in())
+        sample = sample_from_packet_in(a_packet_in(), NDTWIN_PACKET_IN_IDS)
         self.assertIsNotNone(sample)
         self.assertEqual(sample.ingress_port, 3)
         self.assertEqual(sample.egress_port, 7)
@@ -356,17 +368,20 @@ class PacketInDecodingTest(unittest.TestCase):
         # LLDP beacons and unmatched traffic come up the same channel and must reach the
         # discovery path instead. Returning None rather than raising is what lets the caller
         # tell them apart.
-        self.assertIsNone(sample_from_packet_in(a_packet_in(reason=PKTIN_REASON_PACKET_IN)))
+        self.assertIsNone(sample_from_packet_in(a_packet_in(reason=PKTIN_REASON_PACKET_IN),
+                                              NDTWIN_PACKET_IN_IDS))
 
     def test_a_missing_reason_is_treated_as_a_packet_in(self):
         # Defaulting the other way would feed arbitrary discovery traffic into the telemetry
         # path, inventing flows the network does not have.
-        self.assertIsNone(sample_from_packet_in(a_packet_in(omit=(PKTIN_META_REASON,))))
+        self.assertIsNone(sample_from_packet_in(a_packet_in(omit=(PKTIN_META_REASON,)),
+                                                NDTWIN_PACKET_IN_IDS))
 
     def test_handles_the_widest_values(self):
         # bit<9> ports: 511 is the maximum; frame_length and sampling_rate are bit<16>.
         sample = sample_from_packet_in(
-            a_packet_in(ingress=511, egress=511, frame_length=65535, sampling_rate=65535))
+            a_packet_in(ingress=511, egress=511, frame_length=65535, sampling_rate=65535),
+            NDTWIN_PACKET_IN_IDS)
         self.assertEqual(sample.ingress_port, 511)
         self.assertEqual(sample.egress_port, 511)
         self.assertEqual(sample.frame_length, 65535)
@@ -375,7 +390,7 @@ class PacketInDecodingTest(unittest.TestCase):
     def test_zero_valued_fields_survive_canonical_encoding(self):
         # P4Runtime strips leading zeros, so zero encodes as a single 0x00 byte rather than the
         # field's declared width. Port 0 is a legitimate value.
-        sample = sample_from_packet_in(a_packet_in(ingress=0, egress=0))
+        sample = sample_from_packet_in(a_packet_in(ingress=0, egress=0), NDTWIN_PACKET_IN_IDS)
         self.assertEqual(sample.ingress_port, 0)
         self.assertEqual(sample.egress_port, 0)
 
@@ -383,16 +398,18 @@ class PacketInDecodingTest(unittest.TestCase):
         # The kernel multiplies by the sampling rate, so zero would report zero throughput for
         # real traffic. Dropping the sample is the lesser failure, and a zero rate can only mean
         # the switch is running a pipeline that does not match this p4info.
-        self.assertIsNone(sample_from_packet_in(a_packet_in(sampling_rate=0)))
-        self.assertIsNone(sample_from_packet_in(a_packet_in(omit=(PKTIN_META_SAMPLING_RATE,))))
+        self.assertIsNone(sample_from_packet_in(a_packet_in(sampling_rate=0), NDTWIN_PACKET_IN_IDS))
+        self.assertIsNone(sample_from_packet_in(a_packet_in(omit=(PKTIN_META_SAMPLING_RATE,)),
+                                                NDTWIN_PACKET_IN_IDS))
 
     def test_an_empty_frame_is_rejected(self):
-        self.assertIsNone(sample_from_packet_in(a_packet_in(payload=b"")))
+        self.assertIsNone(sample_from_packet_in(a_packet_in(payload=b""), NDTWIN_PACKET_IN_IDS))
 
     def test_a_missing_frame_length_falls_back_to_the_frame_size(self):
         # Better to under-report one sample than to scale it to zero bytes.
         sample = sample_from_packet_in(
-            a_packet_in(payload=b"0123456789", omit=(PKTIN_META_FRAME_LENGTH,)))
+            a_packet_in(payload=b"0123456789", omit=(PKTIN_META_FRAME_LENGTH,)),
+            NDTWIN_PACKET_IN_IDS)
         self.assertEqual(sample.frame_length, 10)
 
     def test_metadata_by_id_collapses_the_list(self):
@@ -722,7 +739,7 @@ class EndToEndCallbackTest(unittest.TestCase):
             frame_length=(PKTIN_META_FRAME_LENGTH, len(frame)),
             sampling_rate=(PKTIN_META_SAMPLING_RATE, 256))
 
-        sample = sample_from_packet_in(packet_in)
+        sample = sample_from_packet_in(packet_in, NDTWIN_PACKET_IN_IDS)
         self.assertTrue(emitter.handle_sample(1, sample))
 
         self.assertEqual(len(sock.sent), 1)

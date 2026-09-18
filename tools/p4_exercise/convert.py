@@ -184,8 +184,75 @@ def parse_switches(raw_switches):
         if program is not None and not (isinstance(program, str) and program):
             raise ConversionError(
                 f"switch {name!r} has a 'program' that is not a path: {program!r}")
-        out[dpid] = {"name": name, "entries": spec.get("runtime_json"), "program": program}
+        out[dpid] = {"name": name, "entries": spec.get("runtime_json"), "program": program,
+                     "cpu_port": _cpu_port(name, spec)}
     return out
+
+
+def _cpu_port(name, spec):
+    """tutorials `switches[s].cpu_port` as an int, or None when the switch does not name one.
+
+    [Co-developed with claude code -- Adam]
+    🔴 IT IS A STRING IN AT LEAST ONE SHIPPED EXERCISE. `flowcache/topology.json` writes
+    `"cpu_port": "510"`, and tutorials' own reader passes it straight to the switch's argv where
+    it becomes a string on a command line and works. A package reader wants a number
+    (`app_package` validates 0..511 as an int), so the conversion happens here rather than
+    being discovered later as a type error inside a bring-up.
+
+    `None`, not 255, for a switch that names none: the DEFAULT is the package's business and is
+    applied once in `plan()`. Returning the default here would make "this exercise asked for
+    255" and "this exercise asked for nothing" the same answer, and the check that every switch
+    agrees could then not tell a real disagreement from a partially-specified topology.
+    """
+    raw = spec.get("cpu_port")
+    if raw is None:
+        return None
+    if isinstance(raw, bool):
+        raise ConversionError(f"switch {name!r} has cpu_port {raw!r}, which is not a port number")
+    if isinstance(raw, int):
+        value = raw
+    elif isinstance(raw, str) and raw.strip():
+        try:
+            value = int(raw.strip(), 0)
+        except ValueError:
+            raise ConversionError(
+                f"switch {name!r} has cpu_port {raw!r}, which is not a port number")
+    else:
+        raise ConversionError(
+            f"switch {name!r} has cpu_port {raw!r}, which is not a port number")
+    if not 0 <= value <= 511:
+        raise ConversionError(
+            f"switch {name!r} has cpu_port {value}, outside bmv2's port range 0..511")
+    return value
+
+
+def package_cpu_port(switches):
+    """The one cpu_port this package declares, or the default when no switch names one.
+
+    [Co-developed with claude code -- Adam]
+    🔴 ONE NUMBER FOR THE WHOLE PACKAGE, because `package.json` has one field for it
+    (`bmv2.cpu_port`, which `app_package` validates and the bring-up passes to every switch).
+    Two switches asking for two different CPU ports is therefore not something this format can
+    carry, and converting it anyway would silently give one of them the other's -- a switch
+    whose pipeline sends packets to a port the controller is not listening on, which presents as
+    "telemetry from nine of ten switches" with no error. So it is refused, and the message names
+    the two switches rather than saying "inconsistent".
+    """
+    declared = {dpid: spec["cpu_port"] for dpid, spec in switches.items()
+                if spec.get("cpu_port") is not None}
+    if not declared:
+        return common.DEFAULT_CPU_PORT
+    values = sorted(set(declared.values()))
+    if len(values) > 1:
+        first = sorted(d for d, v in declared.items() if v == values[0])[0]
+        second = sorted(d for d, v in declared.items() if v == values[1])[0]
+        raise ConversionError(
+            f"the exercise gives two switches different CPU ports: "
+            f"{switches[first]['name']} asks for {values[0]} and "
+            f"{switches[second]['name']} for {values[1]}. A package carries ONE "
+            f"bmv2.cpu_port for the whole fabric, so one of them would silently be given the "
+            f"other's and would send packets to a port nothing is listening on")
+    return values[0]
 
 
 # --- writing the NDTwin side ---------------------------------------------------------------
@@ -466,7 +533,8 @@ def plan(exercise_dir, topology_rel, p4_rel=None, name=None, mode="auto",
             "grpc_base": common.REQUIRED_GRPC_BASE,
             "device_id": common.REQUIRED_DEVICE_ID,
         },
-        "bmv2": {"cpu_port": 255},
+        # The exercise's own, when it names one -- flowcache's is 510 (G9b, TICKET-P3 2.6).
+        "bmv2": {"cpu_port": package_cpu_port(switches)},
         "links": [_package_link(a, b, latency, bandwidth) for a, b, latency, bandwidth in links],
     }
     model = build_model(hosts, switches, links)

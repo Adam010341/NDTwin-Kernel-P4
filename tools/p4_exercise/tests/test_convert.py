@@ -66,6 +66,44 @@ GENERATED_FIXTURES = frozenset({
     "firewall/build/firewall.p4.p4info.txtpb",
     "calc/build/calc.json",
     "calc/build/calc.p4.p4info.txtpb",
+    # TICKET-P3 2.6. Compiled FROM basic_telemetry/basic_telemetry.p4 below, from inside that
+    # directory, so the json's `program` is the relative "basic_telemetry.p4" rather than an
+    # absolute path into one machine -- anyone who recompiles it the same way gets the same
+    # bytes:
+    #
+    #   cd tools/p4_exercise/tests/fixtures/basic_telemetry
+    #   p4c-bm2-ss --p4v 16 -I <repo>/p4_proxy/p4_src \
+    #              --p4runtime-files build/basic_telemetry.p4.p4info.txtpb \
+    #              -o build/basic_telemetry.json basic_telemetry.p4
+    #
+    # (p4c warns once, about NDTWIN_PKTIN_REASON_PACKET_IN being unused -- that constant is for
+    # the including program, not for the include. rc is 0.)
+    "basic_telemetry/build/basic_telemetry.json",
+    "basic_telemetry/build/basic_telemetry.p4.p4info.txtpb",
+    # TICKET-P3 2.6 again: `exercises/multicast` has never been built in this checkout either,
+    # and its runtime file names build/multicast.p4.p4info.txtpb. Compiled from the fixture's
+    # own copy of the SKELETON multicast.p4 (the tables and actions its entries name are in the
+    # skeleton; only the group logic is missing), from inside the fixture directory:
+    #
+    #   cd tools/p4_exercise/tests/fixtures/multicast
+    #   p4c-bm2-ss --p4v 16 --p4runtime-files build/multicast.p4.p4info.txtpb \
+    #              -o build/multicast.json multicast.p4
+    "multicast/build/multicast.json",
+    "multicast/build/multicast.p4.p4info.txtpb",
+})
+
+#: 🔴 THE FIXTURES THAT ARE NEITHER COPIED NOR COMPILED -- written here, on purpose, and listed
+#: for the reason GENERATED_FIXTURES is listed: "not in ~/tutorials" must never quietly become
+#: the answer for a file that is supposed to be a copy.
+#:
+#: [Co-developed with claude code -- Adam]
+#: `basic_telemetry.p4` is the tutorials `basic` SOLUTION with p4_proxy/p4_src/ndtwin_telemetry.p4
+#: included and seven marked edits, and it is the evidence for TICKET-P3 2.6's claim that an
+#: exercise author can keep their own program and gain a live twin. It cannot be a copy, because
+#: upstream has no such file -- and `test_the_authored_fixture_is_the_solution_plus_the_include`
+#: is what stops it drifting into being a different program: it diffs against the solution.
+AUTHORED_FIXTURES = frozenset({
+    "basic_telemetry/basic_telemetry.p4",
 })
 
 # pod-topo, transcribed from exercises/basic/pod-topo/topology.json rather than computed, so a
@@ -501,8 +539,8 @@ class FixtureProvenance(unittest.TestCase):
                 rel = os.path.relpath(os.path.join(root, filename), FIXTURES)
                 if rel == "README":
                     continue          # this directory's own note, not a copy of anything
-                if rel in GENERATED_FIXTURES:
-                    continue          # compiled here on purpose; see the constant, and below
+                if rel in GENERATED_FIXTURES or rel in AUTHORED_FIXTURES:
+                    continue          # compiled or written here on purpose; see the constants
                 original = os.path.join(TUTORIALS_EXERCISES, rel)
                 if not os.path.isfile(original):
                     orphaned.append(rel)
@@ -526,7 +564,7 @@ class FixtureProvenance(unittest.TestCase):
         # compared to anything, so it is itself checked: every name in it must exist (a stale
         # entry would silently exempt nothing, or worse, a file that later became a copy), and
         # nothing may be exempt that is not in it -- which is what the `continue` enforces.
-        for rel in sorted(GENERATED_FIXTURES):
+        for rel in sorted(GENERATED_FIXTURES | AUTHORED_FIXTURES):
             with self.subTest(fixture=rel):
                 self.assertTrue(os.path.isfile(os.path.join(FIXTURES, rel)),
                                 f"{rel} is exempted from the provenance check but is not there")
@@ -593,6 +631,113 @@ class Refusals(TmpMixin, unittest.TestCase):
     def test_a_missing_topology_is_refused(self):
         with self.assertRaises(convert.ConversionError):
             convert.plan(BASIC, "no-such-topo/topology.json")
+
+
+# --- TICKET-P3 2.6 (G9b): the exercise's own CPU port -----------------------------------------
+
+
+class TheCpuPort(TmpMixin, unittest.TestCase):
+    """`switches[s].cpu_port`, which exactly one shipped exercise sets -- and sets as a STRING.
+
+    [Co-developed with claude code -- Adam]
+    `flowcache/topology.json` writes `"cpu_port": "510"`. tutorials passes it to the switch's
+    argv, where a string on a command line works; a package reader wants a number. A switch
+    launched on 255 while its program sends controller packets to 510 drops every one of them,
+    with nothing logged on either side -- which is why the default is not simply left in place
+    for every exercise.
+    """
+
+    def _topology(self, **per_switch):
+        with open(os.path.join(BASIC, "pod-topo", "topology.json"), encoding="utf-8") as fh:
+            topo = json.load(fh)
+        for name, value in per_switch.items():
+            topo["switches"][name]["cpu_port"] = value
+        return topo
+
+    def test_an_exercise_that_says_nothing_gets_the_default(self):
+        package, _model, _copies = convert.plan(BASIC, "pod-topo/topology.json")
+        self.assertEqual(package["bmv2"]["cpu_port"], common.DEFAULT_CPU_PORT)
+        self.assertEqual(package["bmv2"]["cpu_port"], 255)
+
+    def test_a_string_cpu_port_becomes_an_integer(self):
+        switches = convert.parse_switches(
+            self._topology(s1="510", s2="510", s3="510", s4="510")["switches"])
+        self.assertEqual(convert.package_cpu_port(switches), 510)
+        self.assertIsInstance(convert.package_cpu_port(switches), int)
+
+    def test_an_integer_cpu_port_is_taken_as_written(self):
+        switches = convert.parse_switches(
+            self._topology(s1=192, s2=192, s3=192, s4=192)["switches"])
+        self.assertEqual(convert.package_cpu_port(switches), 192)
+
+    def test_a_hex_string_is_read_base_zero(self):
+        switches = convert.parse_switches(self._topology(s1="0x1fe")["switches"])
+        self.assertEqual(convert.package_cpu_port(switches), 510)
+
+    def test_switches_that_disagree_are_refused_and_both_are_named(self):
+        # 🔴 A package carries ONE bmv2.cpu_port. Converting a disagreement would silently give
+        # one switch the other's, and that switch's controller packets go to a port nothing is
+        # listening on.
+        switches = convert.parse_switches(self._topology(s1="510", s3=255)["switches"])
+        with self.assertRaises(convert.ConversionError) as cm:
+            convert.package_cpu_port(switches)
+        message = str(cm.exception)
+        self.assertIn("s1", message)
+        self.assertIn("s3", message)
+        self.assertIn("510", message)
+
+    def test_one_switch_naming_it_is_enough_for_the_whole_package(self):
+        # Silence is not a vote for 255: a switch that names nothing agrees with whoever did.
+        switches = convert.parse_switches(self._topology(s1="510")["switches"])
+        self.assertEqual(convert.package_cpu_port(switches), 510)
+
+    def test_a_cpu_port_outside_bmv2s_range_is_refused(self):
+        with self.assertRaises(convert.ConversionError) as cm:
+            convert.parse_switches(self._topology(s1=512)["switches"])
+        self.assertIn("0..511", str(cm.exception))
+
+    def test_a_cpu_port_that_is_not_a_number_is_refused(self):
+        with self.assertRaises(convert.ConversionError):
+            convert.parse_switches(self._topology(s1="cpu")["switches"])
+
+    def test_a_boolean_cpu_port_is_refused(self):
+        # True is an int in Python and 1 is a real port number.
+        with self.assertRaises(convert.ConversionError):
+            convert.parse_switches(self._topology(s1=True)["switches"])
+
+    def test_the_default_is_still_what_ndtwins_own_pipeline_compiles_in(self):
+        # `const bit<9> CPU_PORT = 255` in ndtwin_switch.p4 and in ndtwin_telemetry.p4. If this
+        # ever moves, a baseline fabric's telemetry stops and nothing says why.
+        self.assertEqual(common.DEFAULT_CPU_PORT, 255)
+
+
+class ThePreEntriesSurviveTheConversion(TmpMixin, unittest.TestCase):
+    """`multicast_group_entries` / `clone_session_entries` are carried, not dropped."""
+
+    def test_the_multicast_exercises_group_is_in_the_written_package(self):
+        # convert copies the runtime file whole, so this holds by construction -- and that is
+        # exactly why it is asserted: nothing else in the converter mentions the key, so a
+        # future "normalise the entries file" change would drop it with every test still green.
+        out = os.path.join(self.tmp, "pkg")
+        convert.convert(os.path.join(FIXTURES, "multicast"), "sig-topo/topology.json", out,
+                        p4_rel="multicast.p4")
+        with open(os.path.join(out, "sig-topo", "s1-runtime.json"), encoding="utf-8") as fh:
+            entries = json.load(fh)
+        self.assertIn("multicast_group_entries", entries)
+        self.assertEqual([r["egress_port"]
+                          for r in entries["multicast_group_entries"][0]["replicas"]], [1, 2, 3])
+
+    def test_the_one_switch_topology_reads_back(self):
+        # sig-topo has ONE switch and zero inter-switch links, which TICKET-P2 2.4 made legal
+        # for exactly this shape. A fixture that could not be read back would make every other
+        # assertion in this class vacuous.
+        _package, model, _copies = convert.plan(os.path.join(FIXTURES, "multicast"),
+                                                "sig-topo/topology.json")
+        read = convert.read_back(model)
+        self.assertEqual(read["switches"], [(1, "s1")])
+        self.assertEqual(read["switch_links"], [])
+        self.assertEqual(sorted(name for name, _ip, _mac in read["hosts"]),
+                         ["h1", "h2", "h3", "h4"])
 
 
 if __name__ == "__main__":
