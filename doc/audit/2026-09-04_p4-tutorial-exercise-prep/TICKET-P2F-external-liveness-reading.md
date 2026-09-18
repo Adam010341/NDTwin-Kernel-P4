@@ -128,3 +128,16 @@ external 下 `[3/3]` 印的順序與語意：
 - `inform_switch_entered` 在 external 下照打（`main.py:863`）——proxy 對一台它沒推 pipeline、不會驅動的交換機說「entered」，與 `kernel_notifier.py:90-94` 自己寫的語意（「pipeline pushed 之後才送」）矛盾；round 1 的假綠就是它給的。
 - `stack.sh` 逾時段的舊字「the kernel pulls once and never retries」不對（§2-4）。
 - `renotify_until_acknowledged` 30×10 s 的上界與 `CONVERGE_WAIT=300` 同長度，差 1～4 s——不是設計，是巧合。
+
+## 8. 實作對照（P2-D worker 第四輪交件 `49f368f6`，orchestrator 自 `hunt-0911/fix/P2-F-SUMMARY.md` §8 貼入；行號以 `49f368f6` 為準）
+
+| 契約 | 落在哪裡 | 與工單不同之處 |
+|---|---|---|
+| §4.1 revert | `--no-commit`＋`commit -F`（理由 §5-1）；結果與 `a43ed603` 逐位元組相同 | 工單寫 `--no-edit` |
+| §4.2-2 新閘 | `ndt:3129`／`:3153`／`:3182`，呼叫點 `:3351` | `probe_ok` 三態當三個字傳，不折成布林（§5-3） |
+| §4.2-3/4 graph | `verify_p4_graph` 加第二參數 `mode`（`:3489`、external 分支 `:3536-3556`），呼叫點 `:3412` | 加參數而不是拆函式（§5-2） |
+| §4.2 末段 `cmd_status` | **查過：會記 problem**（改動前 `:5594`）。已改：`app_knob_mode`（`:1571`）＋`:5779-5784` | 工單要求「查了再說」，答案是「會」 |
+| §4.3 `32_` | `03:130-137` | 位置在 `if [[ -s "$SS0" ]]` **整段之後**，否則 `control_plane.skipped` 那組既有斷言會被包進新區塊 |
+| §4.3 骨架後／解答後 | `03:192-231`／`03:274-281` | 期望集合之外的 dpid 也斷言 `probe_ok == False`，且是算出來的（§5-4） |
+| §4.3 helpers | `_common.sh:281`／`:296`／`:309`／`:330` | 多一個 `kernel_liveness_rows`（§5-5） |
+| §4.4 文件 | `PLAN-0917` §3.4 末；本節 | `TICKET-P2F` 那個檔不在本分支上（§5-6） |
