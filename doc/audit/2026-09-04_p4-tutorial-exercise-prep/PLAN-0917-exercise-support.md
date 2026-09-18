@@ -97,6 +97,12 @@ profile 下沒有遙測」，否則就是 GAP-ANALYSIS §5-① 那種「報零�
 - **bmv2 單佇列下 `enq/deq_qdepth` 是否有值**：GAP-ANALYSIS 沒讀 bmv2 原始碼，【不確定】；階段三跑 ecn 前先拿 tutorials harness 的 raw 對。
 - **thrift 9090**：tutorials 的 s1 固定要 9090（09-04 被 dashboard 佔）；NDTwin 用 9091–9100，走 `--exercise` 時 thrift port 由 NDTwin 配、不撞。
 - **flowcache skeleton 編不過**是作業本身（COMPILE-MATRIX），driver 的 skeleton 方向對它＝「編譯失敗」才是紅。
+- **（09-17 工單 B 挖到）單交換機 exercise（`calc`：`switches: ['s1']`）會被 `topo_from_json.switch_links()` 的
+  「model declares no inter-switch links」擋下**——reader 的既有行為；階段二要支援它就得放寬那條（零鏈路的合法情境＝一台交換機）。
+- **（09-17 工單 B 挖到）bmv2 json 的 sha 不是穩定識別碼**：`p4c-bm2-ss` 把 `source_info` 的**絕對路徑**寫進 json，同一份 `.p4` 換目錄編就換 sha；
+  **p4info 的 sha 才穩定**（同檔兩次 `9213871cee36bd93`）⇒ 「同一份程式」對帳用 p4info sha，benchmark 指認 binary 時 bmv2 json 要另附編譯目錄。
+- **（09-17 工單 B）entries 的 pre-flight 是對 exercise 自帶的 p4info 驗（package 自洽），不是對現在跑的 `ndtwin_switch` 驗**——後者要等 G4；
+  這是 orchestrator 確認過的解讀。
 
 ## 7. 執行方式
 - 每階段一張工單派 **opus** 在獨立 worktree 做；orchestrator 只寫單、讀 SUMMARY、fable-judge、逐 hunk 讀 diff、推。
@@ -152,6 +158,9 @@ package ＝ `{ .p4 或已編好的 json+p4info（每台可不同）, topology.js
 exercise 只要 exact＋lpm；**論文 app 會用 ternary／range／optional**（ACL、range match 一類）⇒ 階段二先做 exact＋lpm（GAP-ANALYSIS A'），
 階段四升成 p4info 驅動的 generic writer（GAP-2 候選 B，~400 行），match kind 由 p4info 的 `match_type` 決定；
 `rule_journal` 要在階段二就決定（§6 第一條），不然階段四會再撞一次。
+**09-17 更正（`PAPER-APPS-CANDIDATES.md` 的結果）**：5 個公開原始碼的論文 app 候選裡 **4/5 要 ternary＋priority**（G6 觀測面同為 4/5）——
+「ternary 在 13 支 exercise 裡 0 次」只對 exercise 成立，跨進論文 app 就是多數 ⇒ generic writer **提前到階段二末**（至少 `POST /p4/table_entry`
+的 body 與 journal 形狀從第一天就帶 `match_type`／`priority`，exact＋lpm 先實作、ternary 留 501 而不是缺欄位）。
 
 ### 8.5 階段表重排（取代 §4）
 | 階段 | 做什麼 | 驗證 |
