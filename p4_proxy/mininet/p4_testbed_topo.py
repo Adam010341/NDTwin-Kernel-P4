@@ -862,14 +862,66 @@ def build_net(package, model):
                    controller=None, autoSetMacs=True)
 
 
+#: What a package's hosts must call their interface.
+#:
+#: [Co-developed with claude code -- Adam]
+#: p4lang/tutorials' P4Host renames the default interface to this in `config()`
+#: (~/tutorials/utils/p4_mininet.py:21, `self.defaultIntf().rename("eth0")`) before it runs
+#: anything on the host, and every exercise is written on top of that: the runtime JSONs, the
+#: `route add default gw ... dev eth0` / `arp -i eth0 -s ...` pair convert.py copies into a
+#: package, and every send.py / receive.py, all name eth0. An NDTwin Mininet host's default
+#: interface is `h1-eth0`, so without this the package's own commands address a device that
+#: does not exist.
+PACKAGE_HOST_INTF = "eth0"
+
+
+def rename_default_intf(host, name=PACKAGE_HOST_INTF):
+    """Rename this host's default interface, the way p4lang/tutorials' P4Host does.
+
+    [Co-developed with claude code -- Adam]
+    Returns the old name, or None when there was nothing to do. Mininet's `Intf.rename` is what
+    P4Host calls and it is what is called here: it fixes up the node's `nameToIntf` and brings
+    the interface down and back up around `ip link set ... name ...`, which preserves the
+    address. P4Host does it in `config()`, i.e. after `Node.config` has assigned the address
+    and before anything runs on the host; this runs after `net.start()` and before the
+    package's first command, which is the same place in the order that matters.
+    """
+    intf = host.defaultIntf()
+    if intf is None or intf.name == name:
+        return None
+    old = intf.name
+    intf.rename(name)
+    return old
+
+
+#: What configure_hosts did. `commands` is None under the baseline -- see host_commands().
+#: [Co-developed with claude code -- Adam]
+HostSetup = collections.namedtuple("HostSetup", "commands renamed noisy")
+
+
 def configure_hosts(package, hosts, report=info):
     """The package's own host commands, or the fabric's all-pairs static ARP. Never both.
 
     [Co-developed with claude code -- Adam]
-    Returns what it ran: the {name: [command]} mapping under a package, None under the
-    baseline. `Package.host_commands()` answers None rather than {} for exactly this branch --
-    "this package asked for nothing here" and "there is no package" are different statements
-    and the second one means the 128-host ARP fan-out.
+    Returns a HostSetup: what ran ({name: [command]} under a package, None under the baseline),
+    which interfaces were renamed, and every command that PRINTED something.
+    `Package.host_commands()` answers None rather than {} for exactly this branch -- "this
+    package asked for nothing here" and "there is no package" are different statements and the
+    second one means the 128-host ARP fan-out.
+
+    🔴 TWO THINGS THE FIRST LIVE PACKAGE RUN COST, both on 2026-09-18, both here:
+
+      * every host command ran against `eth0` on a host whose interface is `h1-eth0`, so
+        `route add default gw 10.0.1.10 dev eth0` set no route and every ping answered
+        `connect: Network is unreachable`. The fabric, the proxy and the kernel were all
+        correct and the exercise could not send a packet. See PACKAGE_HOST_INTF: the rename is
+        what p4lang/tutorials does, and it is done for EVERY host under a package -- including
+        hosts the package gives no commands, because send.py and receive.py name eth0 too;
+      * `host.cmd(command)` threw its output away, so the kernel's own
+        `SIOCADDRT: No such device` -- which says the whole thing in five words -- existed
+        nowhere. Every command's output is now printed under the command that produced it, and
+        counted. A host command that prints is nearly always one that failed: these are
+        `route`, `arp` and `ifconfig` invocations, which are silent when they work.
 
     🔴 THE ALL-PAIRS FORM IS THE BRIDGE'S, CHUNKED, and that is a behaviour change for
     p4_testbed_topo.main() at large host counts. The two copies of this loop disagreed: this
@@ -887,24 +939,45 @@ def configure_hosts(package, hosts, report=info):
     """
     host_commands = package.host_commands()
     if host_commands is None:
+        # 🔴 AND NOTHING IS RENAMED HERE. The baseline fabric's hosts are `h1-eth0` and every
+        # other reader of this fabric -- the ARP fan-out above, disable_host_offloads, NTG's
+        # MininetCommunicator -- has always seen that name. Renaming under the baseline would
+        # be a change nobody asked for, on the one path this whole ticket promises not to
+        # change.
         for src in hosts:
             peers = [dst for dst in hosts if dst is not src]
             for i in range(0, len(peers), 32):
                 src.cmd(" ; ".join(f"arp -s {d.IP()} {d.MAC()}" for d in peers[i:i + 32]))
-        return None
+        return HostSetup(commands=None, renamed=(), noisy=())
+
+    # EVERY host, before ANY command -- the commands are written against eth0 and so is the
+    # exercise's own send.py. A host with no commands is renamed too, for that second reason.
+    renamed = []
+    for host in hosts:
+        old = rename_default_intf(host)
+        if old is not None:
+            renamed.append((host.name, old))
+            report(f"*** {host.name}: {old} renamed to {PACKAGE_HOST_INTF} "
+                   f"(p4lang/tutorials P4Host.config does the same)\n")
 
     # A package brings its own host setup -- pod-topo's hosts each get a default gateway and
     # ONE static ARP, for that gateway -- and the all-pairs fan-out above would defeat it:
     # every host would already hold every other host's MAC, so the exercise's forwarding tables
     # would never be consulted and a broken data plane would ping perfectly.
+    noisy = []
     for host in hosts:
         for command in host_commands.get(host.name, ()):
             report(f"*** {host.name}: {command}\n")
-            host.cmd(command)
-    return host_commands
+            output = (host.cmd(command) or "").strip()
+            if output:
+                noisy.append((host.name, command, output))
+                for line in output.splitlines():
+                    report(f"***   {host.name}: {line}\n")
+    return HostSetup(commands=host_commands, renamed=tuple(renamed), noisy=tuple(noisy))
 
 
-def bring_up(package, model, net=None, manifest_path=None, verify_timeout=10.0):
+def bring_up(package, model, net=None, manifest_path=None, verify_timeout=10.0,
+             report=print):
     """Build the fabric, set the hosts up, verify the switches, write the manifest, judge it.
 
     Returns (net, switches, fatal, report) -- `report` being partial_fabric_verdict's message,
@@ -932,7 +1005,15 @@ def bring_up(package, model, net=None, manifest_path=None, verify_timeout=10.0):
     # agree by construction (topo_from_json.model_path refuses a model whose host count
     # differs), but a package names its own model and nothing then ties the count file to it.
     hosts = [net.get(name) for name, _ip, _mac in topo_from_json.hosts(model)]
-    configure_hosts(package, hosts)
+    host_setup = configure_hosts(package, hosts)
+    if host_setup.noisy:
+        # 🔴 SAID ONCE, ON STDOUT, WHERE `ndt up` WILL TAIL IT. The per-command output above
+        # goes through Mininet's logger; this line is the one that has to survive being read
+        # quickly. A host command that prints is nearly always one that failed -- the 09-18
+        # live round's were `SIOCADDRT: No such device`, ten of them, and nothing said a word.
+        report(f"WARNING: {len(host_setup.noisy)} of this package's host command(s) PRINTED "
+               f"OUTPUT (see the '***' lines above). `route`, `arp` and `ifconfig` are silent "
+               f"when they work, so treat each of these as a host that is not configured.")
     # Without this, bulk TCP stalls at zero through bmv2 -- see the helper's docstring.
     disable_host_offloads(hosts)
 
@@ -942,8 +1023,8 @@ def bring_up(package, model, net=None, manifest_path=None, verify_timeout=10.0):
     failures = verify_switches(switches, timeout=verify_timeout)
     write_manifest(switches, path=manifest_path)
 
-    fatal, report = partial_fabric_verdict(failures, len(switches))
-    return net, switches, fatal, report
+    fatal, verdict = partial_fabric_verdict(failures, len(switches))
+    return net, switches, fatal, verdict, host_setup
 
 
 def tear_down(net, manifest_path=None, report=print):
@@ -991,7 +1072,7 @@ def main():
 
     reset_for_bring_up(plan.ports)
 
-    net, switches, fatal, report = bring_up(plan.package, plan.model)
+    net, switches, fatal, report, _host_setup = bring_up(plan.package, plan.model)
     ports = plan.ports
 
     print("\n======================================================================")

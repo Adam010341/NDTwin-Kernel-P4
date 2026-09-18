@@ -384,6 +384,20 @@ EOF
 check_fires "M17: a refused topo-start says nothing about the bridge" m17 \
             "🔴 the topology log is printed here too"
 
+# --- M18: the verdict's denominator goes back to the global ten -------------------------------
+# Exactly the live red of 2026-09-18: a four-switch package came up correctly and verify_p4_graph
+# printed `kernel: 4 switches, 4 up (want 10/10)` and `is_enabled=4/10`, reporting a healthy
+# fabric as two faults, because the want came off SWITCHES -- the literal 10 -- rather than off
+# the model it was handed.
+cat > "$A/m18.old" <<'EOF'
+    local want_sw; want_sw="$(topo_model_switches "$topo")"
+EOF
+cat > "$A/m18.new" <<'EOF'
+    local want_sw; want_sw="$SWITCHES"
+EOF
+check_fires "M18: the switch count comes off the global ten again" m18 \
+            "🔴 a 4-switch package makes the want 4, not 10"
+
 # --- the controls: two behaviour-preserving rewrites -----------------------------------------
 # 🔴 Without these the round says nothing. A harness that reported red for ANY edit would print
 # `11 caught, 0 survived` above while catching nothing at all, and these are the edits that tell

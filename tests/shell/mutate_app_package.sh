@@ -480,6 +480,33 @@ m=$(mutant m35 "$BRIDGE" \
 report "M35: the script entry point skips run(), so the log is never opened at all" "$m" \
        "test_running_the_module_as_a_script_goes_through_run_not_main"
 
+# --- the data plane the first live package run could not use ----------------------------------
+
+m=$(mutant m36 "$TESTBED" \
+    '    renamed = []
+    for host in hosts:
+        old = rename_default_intf(host)' \
+    '    renamed = []
+    for host in []:
+        old = rename_default_intf(host)')
+report "M36: a package's hosts keep h1-eth0, so every command names a device that is not there" "$m" \
+       "test_every_host_gets_its_interface_renamed_to_eth0"
+
+m=$(mutant m37 "$TESTBED" \
+    '            output = (host.cmd(command) or "").strip()' \
+    '            host.cmd(command)
+            output = ""')
+report "M37: a host command's output is discarded again -- SIOCADDRT goes back to being silent" "$m" \
+       "test_what_a_host_command_printed_is_reported_and_counted"
+
+m=$(mutant m38 "$TESTBED" \
+    '        return HostSetup(commands=None, renamed=(), noisy=())' \
+    '        for host in hosts:
+            rename_default_intf(host)
+        return HostSetup(commands=None, renamed=(), noisy=())')
+report "M38: the baseline renames too, so h1-eth0 stops being what every other reader sees" "$m" \
+       "test_nothing_is_renamed_under_the_baseline"
+
 # --- negative controls -----------------------------------------------------------------------
 #
 # A gate that reddens on anything is not a gate. These are edits that change no behaviour these
