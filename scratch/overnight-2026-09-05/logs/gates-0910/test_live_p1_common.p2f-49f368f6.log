@@ -1,0 +1,43 @@
+### test_live_p1_common  (worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-ndtup-0918, head 49f368f6)
+### $ bash tests/shell/test_live_p1_common.sh
+
+
+1. controller_program_set -- the expectation comes out of the controller's own log
+  ok         the two switches this exercise programs
+  ok       🔴 a controller that programmed nothing gives an EMPTY set
+  ok       🔴 s10 is dpid 10, not dpid 1
+  ok         a log that is not there is empty, not an error
+
+2. kernel_up_set -- which switches the twin says are up, right now
+  ok         two of three up
+  ok         all three up
+  ok       🔴 none up is an EMPTY answer, not a missing one
+  ok         and it is rc 0 -- 'nothing is up' is a reading
+  ok       🔴 an unreadable graph is rc 1, NOT an empty set
+  ok         and so is an endpoint that does not answer
+  ok       🔴 a graph with no switches in it is rc 1 too
+
+3. await_kernel_up_set -- it waits, and it matches EXACTLY
+  ok       🔴 it waits until the up set becomes the expected one
+  ok         which took three polls, not one
+  ok         and it says how long it took
+  ok         the file names the expectation and its source
+  ok         and the per-switch rows behind the verdict
+  ok       🔴 a THIRD switch reported up is not a match
+  ok         and the failure says what it saw
+  ok         with the last reading in it
+  ok         the file keeps both sides
+  ok       🔴 a set that never arrives is a failure
+  ok         naming what it gave up after
+  ok         after polling for the whole timeout (+1 for the capture)
+  ok         s3 up while 1,2 were expected is not a match
+  ok       🔴 an EMPTY expected set is refused, not satisfied
+  ok         saying why an empty-to-empty match proves nothing
+  ok       🔴 and it refuses WITHOUT reading the graph at all
+  ok         the file records the refusal too
+  ok       🔴 end to end: log -> expectation -> twin agrees
+  ok         and the expectation really came from the log
+  ok       🔴 a controller that programmed nothing fails the step
+
+Ran 31 checks, 0 failed
+### rc=0

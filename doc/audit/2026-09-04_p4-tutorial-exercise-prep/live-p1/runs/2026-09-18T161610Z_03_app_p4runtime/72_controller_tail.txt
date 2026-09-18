@@ -1,0 +1,20 @@
+s2 MyIngress.ingressTunnelCounter 200: 13 packets (1274 bytes)
+s1 MyIngress.egressTunnelCounter 200: 13 packets (1326 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 15 packets (1470 bytes)
+s2 MyIngress.egressTunnelCounter 100: 15 packets (1530 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 15 packets (1470 bytes)
+s1 MyIngress.egressTunnelCounter 200: 15 packets (1530 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 18 packets (1764 bytes)
+s2 MyIngress.egressTunnelCounter 100: 18 packets (1836 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 18 packets (1764 bytes)
+s1 MyIngress.egressTunnelCounter 200: 18 packets (1836 bytes)
+
+----- Reading tunnel counters -----
+s1 MyIngress.ingressTunnelCounter 100: 20 packets (1960 bytes)
+s2 MyIngress.egressTunnelCounter 100: 20 packets (2040 bytes)
+s2 MyIngress.ingressTunnelCounter 200: 20 packets (1960 bytes)
+s1 MyIngress.egressTunnelCounter 200: 20 packets (2040 bytes)

@@ -1,0 +1,51 @@
+### tree 49f368f674c568e1d6185fc7391bf5c9df368736  start 23:24:25
+?? doc/audit/2026-09-04_p4-tutorial-exercise-prep/TICKET-P2F-external-liveness-reading.md
+(status above; expected: only the untracked TICKET-P2F copy)
+### test_ndt_app_package
+Ran 291 checks, 0 failed
+rc=0
+### test_live_p1_common
+Ran 31 checks, 0 failed
+rc=0
+### test_stack_await_convergence
+Ran 35 checks, 0 failed
+rc=0
+### test_ndt_honesty
+Ran 345 checks, 0 failed
+rc=0
+### test_ndt_up_down_robust
+424 passed, 0 failed
+rc=0
+### test_ndt_status_check_baseline
+Ran 104 checks, 0 failed
+rc=0
+### test_ndt_round_baseline
+Ran 117 checks, 0 failed
+rc=0
+### test_ndt_status_residue_row
+Ran 27 checks, 0 failed
+rc=0
+### test_ndt_check_sample_rate
+Ran 39 checks, 0 failed
+rc=0
+### test_ndt_up_target
+Ran 23 checks, 0 failed
+rc=0
+### mutate_live_p1_common
+
+baseline byte-identical: yes  live-p1/_common.sh  sha256 9bad733406b4457e729ac0c46c3fb7ebef2255cb50185121fefa9aebc5f83415
+mutation gate: 6 mutations, 0 survived; 2 control(s), 0 went red
+rc=0
+### mutate_stack_await_convergence
+
+baseline byte-identical: yes  tools/test_workflow/stack.sh  sha256 43f1476a3c2cb8fc4db0bc2db23c143b42643acc7a024a98b92414415a79ffb7
+mutation gate: 9 mutations, 0 survived; 2 control(s), 0 went red
+rc=0
+### mutate_ndt_check_sample_rate
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 de15cb5430f25731f6eff4a94288e690d76a2ce2a67780da33493bb427f08669
+mutation gate: 12 mutations, 0 survived
+rc=0
+### mutate_ndt_app_package
+
+### STOPPED BY THE ORCHESTRATOR at 23:35:02, during mutate_ndt_app_package: the P2-F worker was dispatched round 5 (judge fixes) into this same worktree, and that gate reads ndt and the two test files it was about to edit -- the same contamination shape as rerun-D-df4d5eab. Everything above this line ran before any round-5 edit and stands for 49f368f6; the mutate_ndt_app_package number for this sha is the WORKER'S log (44/0, mutate_ndt_app_package.p2f-49f368f6.log), not this file. The full set is re-run on the round-5 sha.

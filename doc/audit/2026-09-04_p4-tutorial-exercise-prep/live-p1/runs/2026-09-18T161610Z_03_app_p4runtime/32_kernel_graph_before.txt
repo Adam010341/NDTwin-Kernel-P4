@@ -1,0 +1,6 @@
+dpid is_up is_enabled
+1 False False
+2 False False
+3 False False
+
+kernel up set: 

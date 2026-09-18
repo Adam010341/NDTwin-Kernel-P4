@@ -1,0 +1,67 @@
+### tree 665e11fb7b928edccb31a31ecec2d8d09cc88a3e  start 00:12:14
+?? doc/audit/2026-09-04_p4-tutorial-exercise-prep/TICKET-P2F-external-liveness-reading.md
+(status above; expected: only the untracked TICKET-P2F copy)
+### test_ndt_app_package
+Ran 296 checks, 0 failed
+rc=0
+### test_live_p1_common
+Ran 48 checks, 0 failed
+rc=0
+### test_stack_await_convergence
+Ran 35 checks, 0 failed
+rc=0
+### test_ndt_honesty
+Ran 345 checks, 0 failed
+rc=0
+### test_ndt_up_down_robust
+424 passed, 0 failed
+rc=0
+### test_ndt_status_check_baseline
+Ran 104 checks, 0 failed
+rc=0
+### test_ndt_round_baseline
+Ran 117 checks, 0 failed
+rc=0
+### test_ndt_status_residue_row
+Ran 27 checks, 0 failed
+rc=0
+### test_ndt_check_sample_rate
+Ran 39 checks, 0 failed
+rc=0
+### test_ndt_up_target
+Ran 23 checks, 0 failed
+rc=0
+### mutate_live_p1_common
+
+baseline byte-identical: yes  live-p1/_common.sh  sha256 d70f4de7190e1cca15c5d0dc53ff78d8428b29f2607c5f6dbe4ae678a6dcc04e
+mutation gate: 11 mutations, 0 survived; 2 control(s), 0 went red
+rc=0
+### mutate_stack_await_convergence
+
+baseline byte-identical: yes  tools/test_workflow/stack.sh  sha256 43f1476a3c2cb8fc4db0bc2db23c143b42643acc7a024a98b92414415a79ffb7
+mutation gate: 9 mutations, 0 survived; 2 control(s), 0 went red
+rc=0
+### mutate_ndt_check_sample_rate
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 a60578861c4cf0b18e835035c6bc3b169df65b3efde77fbd797cbc2522753f11
+mutation gate: 12 mutations, 0 survived
+rc=0
+### mutate_ndt_app_package
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 a60578861c4cf0b18e835035c6bc3b169df65b3efde77fbd797cbc2522753f11
+mutation gate: 49 mutations, 0 survived; 2 control(s), 0 went red
+rc=0
+### check_gate_anchors HEAD
+110/110 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+### bash -n
+ok tools/test_workflow/ndt
+ok tools/test_workflow/stack.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/01_baseline.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/02_app_basic.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/02b_app_basic_ndtwin_pipeline.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/03_app_p4runtime.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/04_diag_p4runtime.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/_common.sh
+ok tests/shell/test_live_p1_common.sh
+ok tests/shell/mutate_live_p1_common.sh
+### done 00:29:26

@@ -1,0 +1,48 @@
+### trunk 8eddb0e8  start 16:12:39
+lab before:  claim none| measuring nothing| app package none (p4_proxy/mininet/app_package_override absent -- the baseline fabric)| bmv2 switches 0 topo session absent|
+### live-p1/01_baseline  start 16:12:40
+rc=0  end 16:13:16  verdict: PASS 01_baseline
+lab after:  claim none| measuring nothing| app package none (p4_proxy/mininet/app_package_override absent -- the baseline fabric)| bmv2 switches 0 topo session absent|
+### live-p1/02_app_basic  start 16:13:17
+rc=0  end 16:14:45  verdict: PASS 02_app_basic
+lab after:  claim none| measuring nothing| app package none (p4_proxy/mininet/app_package_override absent -- the baseline fabric)| bmv2 switches 0 topo session absent|
+### live-p1/02b_app_basic_ndtwin_pipeline  start 16:14:46
+rc=0  end 16:16:09  verdict: PASS 02b_app_basic_ndtwin_pipeline
+lab after:  claim none| measuring nothing| app package none (p4_proxy/mininet/app_package_override absent -- the baseline fabric)| bmv2 switches 0 topo session absent|
+### live-p1/03_app_p4runtime  start 16:16:10
+rc=0  end 16:17:25  verdict: PASS 03_app_p4runtime
+lab after:  claim none| measuring nothing| app package none (p4_proxy/mininet/app_package_override absent -- the baseline fabric)| bmv2 switches 0 topo session absent|
+### drive_exercise basic --which skeleton --fabric ndtwin  start 16:17:26
+rc=0  end 16:19:15  verdict: >>> PASS (4/4)
+        ttl       = 64
+lab after:  claim none| measuring nothing| app package none (p4_proxy/mininet/app_package_override absent -- the baseline fabric)| bmv2 switches 0 topo session absent|
+### drive_exercise basic --which solution --fabric ndtwin  start 16:19:16
+rc=0  end 16:20:36  verdict: >>> PASS (5/5)
+        ttl       = 64
+        ttl       = 63
+lab after:  claim none| measuring nothing| app package none (p4_proxy/mininet/app_package_override absent -- the baseline fabric)| bmv2 switches 0 topo session absent|
+### drive_exercise source_routing --which skeleton --fabric ndtwin  start 16:20:37
+rc=0  end 16:21:08  verdict: >>> PASS (2/2)
+                       ttl       = 64
+              ttl       = 64
+lab after:  claim none| measuring nothing| app package none (p4_proxy/mininet/app_package_override absent -- the baseline fabric)| bmv2 switches 0 topo session absent|
+### drive_exercise source_routing --which solution --fabric ndtwin  start 16:21:09
+rc=0  end 16:21:41  verdict: >>> PASS (5/5)
+                       ttl       = 64
+              ttl       = 64
+        ttl       = 59
+        ttl       = 62
+lab after:  claim none| measuring nothing| app package none (p4_proxy/mininet/app_package_override absent -- the baseline fabric)| bmv2 switches 0 topo session absent|
+### drive_exercise firewall --which skeleton --fabric ndtwin  start 16:21:42
+rc=0  end 16:23:05  verdict: >>> PASS (3/3)
+lab after:  claim none| measuring nothing| app package none (p4_proxy/mininet/app_package_override absent -- the baseline fabric)| bmv2 switches 0 topo session absent|
+### drive_exercise firewall --which solution --fabric ndtwin  start 16:23:06
+rc=0  end 16:26:42  verdict: >>> PASS (3/3)
+lab after:  claim none| measuring nothing| app package none (p4_proxy/mininet/app_package_override absent -- the baseline fabric)| bmv2 switches 0 topo session absent|
+### drive_exercise link_monitor --which skeleton --fabric ndtwin  start 16:26:43
+rc=0  end 16:27:20  verdict: >>> PASS (4/4)
+lab after:  claim none| measuring nothing| app package none (p4_proxy/mininet/app_package_override absent -- the baseline fabric)| bmv2 switches 0 topo session absent|
+### drive_exercise link_monitor --which solution --fabric ndtwin  start 16:27:21
+rc=0  end 16:27:59  verdict: >>> PASS (3/3)
+lab after:  claim none| measuring nothing| app package none (p4_proxy/mininet/app_package_override absent -- the baseline fabric)| bmv2 switches 0 topo session absent|
+### done 16:27:59

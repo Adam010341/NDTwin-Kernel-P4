@@ -1,0 +1,65 @@
+baseline (must be green before any mutation):
+  Ran 35 checks, 0 failed
+
+  caught   M1: the proxy's skip list is never read                  (2 named check(s) went red)
+             red: 🔴 the path count is never polled at all
+             red: 🔴 and says the wait did not happen
+             also red: 🔴 and says the wait did not happen
+             also red:   giving the proxy's own reason
+             also red:   and quoting the list it read
+             also red: 🔴 it does NOT announce a wait it is not doing
+             also red: 🔴 the path count is never polled at all
+             also red:   and the proxy was asked exactly once
+             also red:   and says so the same way
+             also red:   with no path poll
+             also red:   after a BOUNDED re-read, not one try and not forever
+             also red:   after a BOUNDED re-read, not one try and not forever
+             also red:   after a BOUNDED re-read, not one try and not forever
+  caught   M2 (widening): any skipped step at all cancels the wait  (1 named check(s) went red)
+             red: 🔴 a skip list without lldp_discovery still waits
+             also red: 🔴 a skip list without lldp_discovery still waits
+             also red:   and does not claim the proxy said it
+  caught   M3 (widening): a silent proxy is read as 'nothing to wait for' (3 named check(s) went red)
+             red: 🔴 an answer with no control_plane falls through to today's wait
+             red: 🔴 skipped: null (startup unfinished) falls through to today's wait
+             red: 🔴 an endpoint that does not answer falls through to today's wait
+             also red: 🔴 an answer with no control_plane falls through to today's wait
+             also red:   and never says the proxy told it not to
+             also red: 🔴 skipped: null (startup unfinished) falls through to today's wait
+             also red:   and never says the proxy told it not to
+             also red: 🔴 an endpoint that does not answer falls through to today's wait
+             also red:   and never says the proxy told it not to
+  caught   M4: 'the proxy has not said' becomes 'nothing was skipped' (2 named check(s) went red)
+             red: 🔴 while 'the proxy has not said' is rc 1
+             red:   after a BOUNDED re-read, not one try and not forever
+             also red:   after a BOUNDED re-read, not one try and not forever
+             also red: 🔴 while 'the proxy has not said' is rc 1
+  caught   M5 (widening): OVS is asked about the P4 endpoint        (1 named check(s) went red)
+             red: 🔴 the P4 endpoint is not consulted on the OVS plane
+             also red: 🔴 the P4 endpoint is not consulted on the OVS plane
+             also red:   and the OVS wait is the one that runs
+             also red:   with no P4 skip line
+  caught   M6: the re-read is a single attempt (the instrument)     (1 named check(s) went red)
+             red:   after a BOUNDED re-read, not one try and not forever
+             also red:   after a BOUNDED re-read, not one try and not forever
+             also red:   after a BOUNDED re-read, not one try and not forever
+             also red:   after a BOUNDED re-read, not one try and not forever
+  caught   M7: not waiting is reported as a failure                 (1 named check(s) went red)
+             red: 🔴 it returns success without waiting
+             also red: 🔴 it returns success without waiting
+             also red: 🔴 an external control plane is not waited for either
+  caught   M8: the skip line stops naming the list it read          (1 named check(s) went red)
+             red:   and quoting the list it read
+             also red:   and quoting the list it read
+  caught   M9: the skip is announced and then not taken             (3 named check(s) went red)
+             red: 🔴 the path count is never polled at all
+             red: 🔴 it does NOT announce a wait it is not doing
+             red:   with no path poll
+             also red: 🔴 it does NOT announce a wait it is not doing
+             also red: 🔴 the path count is never polled at all
+             also red:   with no path poll
+  control  C1: the membership test, written the long way            (stayed green, as it must)
+  control  C2: the re-read bound counted by seq instead of literals (stayed green, as it must)
+
+baseline byte-identical: yes  tools/test_workflow/stack.sh  sha256 43f1476a3c2cb8fc4db0bc2db23c143b42643acc7a024a98b92414415a79ffb7
+mutation gate: 9 mutations, 0 survived; 2 control(s), 0 went red

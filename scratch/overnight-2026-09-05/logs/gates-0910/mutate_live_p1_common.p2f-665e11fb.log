@@ -1,0 +1,79 @@
+### mutate_live_p1_common  (worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-ndtup-0918, head 665e11fb)
+### $ bash tests/shell/mutate_live_p1_common.sh
+
+baseline (must be green before any mutation):
+  Ran 48 checks, 0 failed
+
+  caught   M1: an empty expected set is accepted                    (3 named check(s) went red)
+             red: 🔴 an EMPTY expected set is refused, not satisfied
+             red: 🔴 and it refuses WITHOUT reading the graph at all
+             red: 🔴 a controller that programmed nothing fails the step
+             also red: 🔴 an EMPTY expected set is refused, not satisfied
+             also red:   saying why an empty-to-empty match proves nothing
+             also red: 🔴 and it refuses WITHOUT reading the graph at all
+             also red:   the file records the refusal too
+             also red: 🔴 a controller that programmed nothing fails the step
+  caught   M2 (widening): any non-empty up set counts as a match    (2 named check(s) went red)
+             red: 🔴 a THIRD switch reported up is not a match
+             red:   s3 up while 1,2 were expected is not a match
+             also red: 🔴 a THIRD switch reported up is not a match
+             also red:   and the failure says what it saw
+             also red:   with the last reading in it
+             also red:   the file keeps both sides
+             also red:   s3 up while 1,2 were expected is not a match
+  caught   M3: giving up is reported as agreement                   (2 named check(s) went red)
+             red: 🔴 a set that never arrives is a failure
+             red: 🔴 a THIRD switch reported up is not a match
+             also red: 🔴 a THIRD switch reported up is not a match
+             also red: 🔴 a set that never arrives is a failure
+             also red:   s3 up while 1,2 were expected is not a match
+  caught   M4: s10 is parsed as dpid 1                              (1 named check(s) went red)
+             red: 🔴 s10 is dpid 10, not dpid 1
+             also red: 🔴 s10 is dpid 10, not dpid 1
+  caught   M5: the wait is one look (the instrument)                (2 named check(s) went red)
+             red: 🔴 it waits until the up set becomes the expected one
+             red:   which took three polls, not one
+             also red: 🔴 it waits until the up set becomes the expected one
+             also red:   which took three polls, not one
+             also red:   and it says how long it took
+             also red:   after polling for the whole timeout (+1 for the capture)
+             also red: 🔴 end to end: log -> expectation -> twin agrees
+  caught   M6: a graph with no switches reads as an empty up set    (1 named check(s) went red)
+             red: 🔴 a graph with no switches in it is rc 1 too
+             also red: 🔴 a graph with no switches in it is rc 1 too
+  caught   M7 (widening): the expected set only has to be a subset  (1 named check(s) went red)
+             red: 🔴 a THIRD switch reported up is not a match
+             also red: 🔴 a THIRD switch reported up is not a match
+             also red:   and the failure says what it saw
+             also red:   with the last reading in it
+             also red:   the file keeps both sides
+  caught   M8: the probe universe is hardcoded again                (2 named check(s) went red)
+             red: 🔴 the fourth switch of a four-switch package IS checked
+             red:   and it is the one named
+             also red: 🔴 the fourth switch of a four-switch package IS checked
+             also red:   and it is the one named
+             also red: 🔴 an unreadable model is refused, not assumed
+             also red:   saying there is no universe to check against
+  caught   M9: the switches nobody programmed are not checked       (2 named check(s) went red)
+             red: 🔴 a switch answering that nobody programmed is red
+             red: 🔴 the fourth switch of a four-switch package IS checked
+             also red: 🔴 a switch answering that nobody programmed is red
+             also red:   naming it too
+             also red: 🔴 the fourth switch of a four-switch package IS checked
+             also red:   and it is the one named
+  caught   M10: an empty expected set is accepted by the probe half (2 named check(s) went red)
+             red:   for the same reason
+             red: 🔴 and it refuses without reading a single probe
+             also red:   for the same reason
+             also red: 🔴 and it refuses without reading a single probe
+  caught   M11: an unreadable model checks nothing and passes       (2 named check(s) went red)
+             red: 🔴 an unreadable model is refused, not assumed
+             red:   saying there is no universe to check against
+             also red: 🔴 an unreadable model is refused, not assumed
+             also red:   saying there is no universe to check against
+  control  C1: a comment beside the refusal                         (stayed green, as it must)
+  control  C2: the parameters unpacked one per line                 (stayed green, as it must)
+
+baseline byte-identical: yes  live-p1/_common.sh  sha256 d70f4de7190e1cca15c5d0dc53ff78d8428b29f2607c5f6dbe4ae678a6dcc04e
+mutation gate: 11 mutations, 0 survived; 2 control(s), 0 went red
+### rc=0

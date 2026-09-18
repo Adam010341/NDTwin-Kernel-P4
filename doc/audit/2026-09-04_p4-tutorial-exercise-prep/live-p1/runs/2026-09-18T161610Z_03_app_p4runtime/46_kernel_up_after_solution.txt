@@ -1,0 +1,8 @@
+expected (from the controller log): 1,2
+kernel up set:                      1,2
+reached after:                      0s
+
+dpid is_up is_enabled
+1 True True
+2 True True
+3 False True

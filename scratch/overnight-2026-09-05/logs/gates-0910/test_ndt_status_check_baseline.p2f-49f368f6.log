@@ -1,0 +1,140 @@
+### test_ndt_status_check_baseline  (worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-ndtup-0918, head 49f368f6)
+### $ bash tests/shell/test_ndt_status_check_baseline.sh
+
+
+1. the ovs4 false red: a healthy 4-host OVS fabric is GREEN
+  ok       a healthy ovs4 exits 0
+  ok       and says so
+  ok       🔴 no false red about the topology file
+  ok       🔴 and the P4 128-host model is not the baseline
+  ok       it names the fabric it was asked for
+  ok       and the model file that goes with it
+  ok       configuration reports 4 hosts, not the knob's 128
+  ok       the P4 knob is still shown, named for what it is
+  ok       it prints what it compared: the data plane
+  ok         the fabric-side host count
+  ok         the kernel graph
+  ok         and the identity of the model file
+
+2. zero discriminating power: a P4 fabric where ovs4 was asked for is RED
+  ok       🔴 a P4 fabric under an ovs4 record is not ok
+  ok         and it is NOT reported as checked-and-matched
+  ok       the mismatch names the field: dataplane
+  ok         and shows it in the comparison
+  ok         host count is NOT what differs (it agrees)
+
+3. no record: 'could not check' has its own words and its own exit code
+  ok       🔴 no baseline exits 3, not 0 and not 1
+  ok         and says it could not check
+  ok         never the mismatch sentence
+  ok         never 'ok'
+  ok         it says where the record would be
+  ok         and that .test_run is per checkout (#79)
+  ok       🔴 a coincidence must not be reported as a pass
+  ok         'could not check' is never 'checked and matched'
+
+4. a mismatch names the field that differs
+  ok       a 128-host graph under a 4-host record is red
+  ok         and the field is named
+  ok       a link-count dip in the kernel graph is red
+  ok         and the field is named
+  ok       a 128-host FABRIC under a 4-host record is red
+  ok         and the field is named
+
+5. a reading that could not be taken is RED, never green
+  ok       no host namespaces at all is red
+  ok         named as not compared, not as agreement
+  ok       🔴 a refused ovs-vsctl is not 'no OVS here'
+  ok         it is reported as an unanswered question
+  ok         and is not reported as a match
+  ok       a kernel that answers nothing is red
+  ok         named as the kernel graph, not as a mismatch
+  ok       the model file edited under a running kernel is red
+  ok         and it says the file changed, naming it
+
+6. 🔴 the other direction: it is not simply always red
+  ok       a healthy P4 fabric under a p4 record is ok
+  ok         and it says what it compared
+  ok         naming the plane it was asked for
+  ok       and the ovs4 case is still ok after all of that
+
+7. the record itself: written by 'up', read by '--check', dropped by 'down'
+  ok       record_up_target writes the plane
+  ok         the host count
+  ok         the topology path, relative to the repo
+  ok         the counts that file declares
+  ok         and the file's sha256 as it was at 'up' time
+  ok       up_target_field reads them back
+  ok       clear_up_target removes it ('down' calls it)
+  ok       live_dataplane_kind: bmv2 running is p4
+  ok         bridges and no bmv2 is ovs
+  ok         neither is 'none'
+  ok       🔴 a refused ovs-vsctl is 'unknown', not 'none'
+
+8. the wiring: 'up' really writes it and 'down' really drops it
+  ok       'ndt up ovs4' records its target
+  ok         with the host count it was asked for
+  ok         and the OVS model, not the P4 one
+  ok       'ndt up p4' records its target too
+  ok         with the P4 model
+  ok       'ndt down' drops the record
+
+9. 🔴 the nickname overlay is named and NOT compared (W10)
+  ok       the report names the overlay even when absent
+  ok         it says the FILE is missing, not that no name is set
+  ok       🔴 it never claims none are set
+  ok         and says so out loud
+  ok       🔴 renaming two switches leaves --check GREEN
+  ok         the topology row is still ok
+  ok         and NOT 'CHANGED SINCE up'
+  ok         nor the sentence that misled the operator
+  ok         the overlay is counted, not hidden
+  ok         and the row says it was left out on purpose
+  ok         and names the file the count came from
+  ok         the 'missing' wording is gone once it exists
+  ok       🔴 an overlay does not blind the model-file check
+  ok         the edit is still named
+  ok       an unparseable overlay does not turn --check red
+  ok         and the row admits it could not count
+  ok       the row's path is the one the kernel writes
+
+10. 🔴 R7 I-3: .test_run/pids/ contradicting itself, and no interface saying so
+
+10A. 🔴 a *.pid naming a pid that is gone is disclosed, and it is a --check problem
+  ok       🔴 the row names the file and calls it stale
+  ok         and says the pid is gone
+  ok       🔴 quoting the .exit that already knew
+  ok         with what it said
+  ok         and when
+  ok       🔴 the child pidfile is not skipped
+  ok       🔴 and --check goes red on it -- R7 measured rc 0
+  ok         it is listed as a problem, not only printed
+  ok         saying why a dead number in there is dangerous
+
+10B. 🔴 a stale pidfile with no .exit beside it is still disclosed
+  ok       the row still names it
+  ok       🔴 and says the record is missing rather than inventing one
+  ok         still red
+
+10C. 🔴 the other direction: a live stack is not called stale
+  ok       a pidfile naming a live pid is NOT stale
+  ok         it is reported as tracked and alive
+  ok       🔴 and --check stays green
+  ok       an empty registry says so in its own words
+  ok         and is green
+
+10D. app_*.pid belongs to the apps rows, and is not read twice
+  ok       🔴 an app pidfile is not claimed by this row
+  ok         and --check is not reddened by it here
+  ok       🔴 an unusable pidfile is named as unusable
+  ok         and is red -- 'ndt down' reads these
+
+F9. this suite reads its OWN tree, and not the main checkout
+  ok         lab_kernel_dir answers the fixture tree
+  ok         🔴 sim's evidence log is inside the fixture
+  ok         and so is an ordinary app's log
+  ok         🔴 and no reading of it names the main checkout
+  ok         energy still has no evidence log (rc 1)
+
+Ran 104 checks, 0 failed
+### rc=0

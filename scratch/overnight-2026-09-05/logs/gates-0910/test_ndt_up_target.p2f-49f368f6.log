@@ -1,0 +1,41 @@
+### test_ndt_up_target  (worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-ndtup-0918, head 49f368f6)
+### $ bash tests/shell/test_ndt_up_target.sh
+
+
+the default plane is OVS
+  ok       a bare 'ndt up' is OVS, not P4
+  ok       and it is the 128-host fabric
+  ok       'ndt up ovs' is the same thing
+  ok       'ndt up ovs4' is the 4-host layout
+
+a bare number follows the default plane -- it is a size, not a plane
+  ok       'ndt up 4' is OVS at 4 (it used to be P4)
+  ok       'ndt up 128' is OVS at 128
+  ok       🔴 a size OVS cannot build is refused
+  ok       and refusing means printing nothing
+  ok       0 is refused too, not read as a fabric
+
+🔴 P4 is still reachable -- a resolver that always said OVS would pass everything above
+  ok       'ndt up p4' keeps the current host count
+  ok       'ndt up p4 4' is P4 at 4
+  ok       'ndt up p4 128' is P4 at 128
+  ok       'ndt up p4 16' is allowed -- P4 takes any size
+  ok       P4 is rc 0, not a refusal
+
+🔴 and it does not refuse everything -- the checks above would pass if it did
+  ok       a bare 'ndt up' is rc 0
+  ok       'ndt up ovs4' is rc 0
+  ok       'ndt up 4' is rc 0
+
+nonsense is refused, and is not silently a plane
+  ok       a word that is not a plane is rc 2
+  ok       'ovs8' is not quietly ovs
+  ok       an empty second word does not break p4
+
+🔴 the usage text must not EXECUTE anything
+  ok       no backtick in the usage heredoc
+  ok       no $( ) in the usage heredoc
+  ok       the usage heredoc was actually found
+
+Ran 23 checks, 0 failed
+### rc=0

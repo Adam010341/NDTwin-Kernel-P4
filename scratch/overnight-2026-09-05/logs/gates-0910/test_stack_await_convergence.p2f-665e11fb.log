@@ -1,0 +1,51 @@
+### test_stack_await_convergence  (worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-ndtup-0918, head 665e11fb)
+### $ bash tests/shell/test_stack_await_convergence.sh
+
+
+1. 🔴 a proxy that says it sent no LLDP is not waited for
+  ok       🔴 it returns success without waiting
+  ok       🔴 and says the wait did not happen
+  ok         giving the proxy's own reason
+  ok         and quoting the list it read
+  ok       🔴 it does NOT announce a wait it is not doing
+  ok         and does not fall back to a fixed sleep
+  ok       🔴 the path count is never polled at all
+  ok         and the proxy was asked exactly once
+  ok       🔴 an external control plane is not waited for either
+  ok         and says so the same way
+  ok         with no path poll
+
+2. 🔴 THE CONTROL -- a proxy that IS discovering links is waited for, unchanged
+  ok       🔴 a baseline fabric still converges the old way
+  ok       🔴 and announces the wait, with the model's number
+  ok         reporting when it converged
+  ok         and never claims the wait was skipped
+  ok       🔴 the path count IS polled here
+  ok       🔴 a skip list without lldp_discovery still waits
+  ok         and does not claim the proxy said it
+
+3. 🔴 silence is not consent -- three ways the proxy can say nothing
+  ok       🔴 an answer with no control_plane falls through to today's wait
+  ok         and never says the proxy told it not to
+  ok         after a BOUNDED re-read, not one try and not forever
+  ok       🔴 skipped: null (startup unfinished) falls through to today's wait
+  ok         and never says the proxy told it not to
+  ok         after a BOUNDED re-read, not one try and not forever
+  ok       🔴 an endpoint that does not answer falls through to today's wait
+  ok         and never says the proxy told it not to
+  ok         after a BOUNDED re-read, not one try and not forever
+
+4. 🔴 the OVS plane is never asked about a P4 endpoint
+  ok       🔴 the P4 endpoint is not consulted on the OVS plane
+  ok         and the OVS wait is the one that runs
+  ok         with no P4 skip line
+
+5. 🔴 proxy_skipped_steps on its own
+  ok         the list comes back comma-joined and sorted
+  ok         an empty skip list is an empty answer
+  ok       🔴 and 'nothing was skipped' is rc 0, not rc 1
+  ok       🔴 while 'the proxy has not said' is rc 1
+  ok         and so is an answer with no control_plane
+
+Ran 35 checks, 0 failed
+### rc=0

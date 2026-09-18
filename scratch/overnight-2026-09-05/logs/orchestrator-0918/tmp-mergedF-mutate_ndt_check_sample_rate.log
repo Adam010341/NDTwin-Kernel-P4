@@ -1,0 +1,18 @@
+baseline (the suite must be green before any mutation):
+Ran 39 checks, 0 failed
+
+  caught   P1: the OVS plane reads the bmv2 build artefact again    (ten sflow records all saying 64 -> 64 went red)
+  caught   P2 (widening): every plane reads OVSDB                   (the P4 plane still reads the built json went red)
+  caught   P3: 'ndt status' asks for the P4 rate whatever is running (🔴 ndt status on an OVS fabric prints 1/64 went red)
+  caught   P4: the row stops saying where the number came from      (  with a source row beside it went red)
+  caught   P5: ten disagreeing records report the first one         (an interrupted sweep is reported as DISAGREE went red)
+  caught   P6: a fabric with no sflow record is given a rate        (no sflow record at all went red)
+  caught   P7: a refused ovs-vsctl becomes a number                 (a refused ovs-vsctl is UNREADABLE went red)
+  caught   P8: the record separator is deleted with the spaces      (ten sflow records all saying 64 -> 64 went red)
+  caught   P9: a fabric that samples nothing leaves --check green   (🔴 a fabric with no sflow record is a --check problem went red)
+  caught   P10: 'ndt check' stops printing the rate at all          (  and prints both went red)
+  caught   P11 (widening): an unmeasured rate gets an invented shortfall (🔴 an unmeasured rate says so instead of guessing went red)
+  caught   P12: the measured shortfall is misquoted                 (1/1024 went red)
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 a60578861c4cf0b18e835035c6bc3b169df65b3efde77fbd797cbc2522753f11
+mutation gate: 12 mutations, 0 survived

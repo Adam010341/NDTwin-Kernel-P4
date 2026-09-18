@@ -1,0 +1,15 @@
+### bash_n_live_scripts  (worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-ndtup-0918, head 49f368f6)
+### $ bash -c for f in doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/*.sh tools/test_workflow/ndt tools/test_workflow/stack.sh tests/shell/test_live_p1_common.sh tests/shell/mutate_live_p1_common.sh; do if bash -n "$f"; then echo "OK   $f"; else echo "FAIL $f"; fi; done; echo "shellcheck: $(command -v shellcheck || echo NOT INSTALLED on this machine)"
+
+OK   doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/01_baseline.sh
+OK   doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/02_app_basic.sh
+OK   doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/02b_app_basic_ndtwin_pipeline.sh
+OK   doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/03_app_p4runtime.sh
+OK   doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/04_diag_p4runtime.sh
+OK   doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/_common.sh
+OK   tools/test_workflow/ndt
+OK   tools/test_workflow/stack.sh
+OK   tests/shell/test_live_p1_common.sh
+OK   tests/shell/mutate_live_p1_common.sh
+shellcheck: NOT INSTALLED on this machine
+### rc=0

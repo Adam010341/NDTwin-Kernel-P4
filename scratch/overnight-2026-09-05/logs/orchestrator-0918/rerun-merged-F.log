@@ -1,0 +1,116 @@
+### tree 8eddb0e89e81b83144944176631c0158180303ac  start 00:28:41
+ M p4_proxy/mininet/host_count_override
+?? doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-18T091308Z_01_baseline/
+?? doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-18T091344Z_03_app_p4runtime/
+?? doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-18T094949Z_01_baseline/
+?? doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-18T095025Z_02_app_basic/
+?? doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-18T100055Z_02b_app_basic_ndtwin_pipeline/
+?? doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-18T100220Z_03_app_p4runtime/
+?? doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-18T132418Z_01_baseline/
+?? doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-18T132506Z_02_app_basic/
+?? doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-18T132647Z_02b_app_basic_ndtwin_pipeline/
+(status above for gated paths; empty = clean)
+### mutate_app_package.sh
+rc=0
+
+baseline byte-identical: yes (10 sources, 7 test files)
+mutation gate: 47 mutations, 0 survived
+### mutate_table_entry.sh
+rc=0
+
+baseline byte-identical: yes (4 sources, 6 test files)
+mutation gate: 39 mutations, 0 survived
+### mutate_p4_exercise_tools.sh
+rc=2
+    Ran 106 tests in 0.285s
+    
+    FAILED (failures=1)
+### mutate_drive_exercise.sh
+rc=0
+by mutation 1 -- and this footer used to say it was not.)
+
+43 mutations, 0 survived
+### mutate_ndt_app_package.sh
+rc=0
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 a60578861c4cf0b18e835035c6bc3b169df65b3efde77fbd797cbc2522753f11
+mutation gate: 49 mutations, 0 survived; 2 control(s), 0 went red
+### mutate_stack_await_convergence.sh
+rc=0
+
+baseline byte-identical: yes  tools/test_workflow/stack.sh  sha256 43f1476a3c2cb8fc4db0bc2db23c143b42643acc7a024a98b92414415a79ffb7
+mutation gate: 9 mutations, 0 survived; 2 control(s), 0 went red
+### mutate_ndt_check_sample_rate.sh
+rc=0
+
+baseline byte-identical: yes  tools/test_workflow/ndt  sha256 a60578861c4cf0b18e835035c6bc3b169df65b3efde77fbd797cbc2522753f11
+mutation gate: 12 mutations, 0 survived
+### mutate_live_p1_common.sh
+rc=0
+
+baseline byte-identical: yes  live-p1/_common.sh  sha256 d70f4de7190e1cca15c5d0dc53ff78d8428b29f2607c5f6dbe4ae678a6dcc04e
+mutation gate: 11 mutations, 0 survived; 2 control(s), 0 went red
+### test_ndt_app_package.sh
+rc=0
+Ran 296 checks, 0 failed
+### test_stack_await_convergence.sh
+rc=0
+Ran 35 checks, 0 failed
+### test_live_p1_common.sh
+rc=0
+Ran 48 checks, 0 failed
+### test_ndt_honesty.sh
+rc=0
+Ran 345 checks, 0 failed
+### test_ndt_up_down_robust.sh
+rc=0
+424 passed, 0 failed
+### test_ndt_status_check_baseline.sh
+rc=0
+Ran 104 checks, 0 failed
+### test_ndt_round_baseline.sh
+rc=0
+Ran 117 checks, 0 failed
+### test_ndt_status_residue_row.sh
+rc=0
+Ran 27 checks, 0 failed
+### test_ndt_check_sample_rate.sh
+rc=0
+Ran 39 checks, 0 failed
+### test_ndt_up_target.sh
+rc=0
+Ran 23 checks, 0 failed
+### p4_proxy tests
+files=32 tests_ran=1069 failing_files=0
+### tools tests
+Ran 106 tests in 0.209s
+
+FAILED (failures=1)
+### topo script
+PASS -- derived wiring is identical to the hard-coded lists
+### driver tests (discover)
+Ran 51 tests in 0.069s
+
+OK
+### contract self-test
+Self-test passed: 166 checks
+### bash -n
+ok tools/test_workflow/ndt
+ok tools/test_workflow/stack.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/01_baseline.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/02_app_basic.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/02b_app_basic_ndtwin_pipeline.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/03_app_p4runtime.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/04_diag_p4runtime.sh
+ok doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/_common.sh
+### merged_checks.sh 8eddb0e8 r1
+check_process_by_name rc=0  check_process_by_name: 298 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale
+check_gate_anchors rc=0  110/110 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+kiref rc=0  OK
+check_test_tmpdirs rc=0  check_test_tmpdirs: 333 file(s) scanned, 0 fixed temp paths
+test_redirection_order rc=0  Ran 48 checks, 0 failed
+test_log_suffix_idempotent rc=0    30 passed, 0 failed
+MERGED-CHECKS 8eddb0e8 r1: ALL-GREEN
+### done 00:48:26
+
+### NOTE (orchestrator, 00:51:26): mutate_p4_exercise_tools.sh rc=2 and "tools tests" FAILED above for ONE reason that is not the tree: tools/p4_exercise/tests/test_convert.py FixtureProvenance compares the repo fixture basic/build/{basic.json,basic.p4.p4info.txtpb} (a SKELETON compile, captured 09-17) byte-for-byte with ~/tutorials/exercises/basic/build/, and drive_exercise.py compiles whichever arm it runs into that same directory -- the round-3 basic SOLUTION run at 00:19 left the solution compile there. The contaminated D run of 09-18 had the identical failure. Restored by running the driver's basic SKELETON arm (--fabric ndtwin, restore-basic-skeleton-compile.log, PASS 4/4), after which the two files are byte-identical to the fixture again; both gates re-run on the same tree: see tmp-mergedF-mutate_p4_exercise_tools.RERUN-after-skeleton-restore.log and tmp-mergedF-tools_tests.RERUN-after-skeleton-restore.log. Phase-3 candidate: the driver writes into the exercise's own build/ and the provenance test assumes that directory is pristine.

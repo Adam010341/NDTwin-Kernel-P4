@@ -1,0 +1,49 @@
+### mutate_live_p1_common  (worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-ndtup-0918, head 49f368f6)
+### $ bash tests/shell/mutate_live_p1_common.sh
+
+baseline (must be green before any mutation):
+  Ran 31 checks, 0 failed
+
+  caught   M1: an empty expected set is accepted                    (3 named check(s) went red)
+             red: 🔴 an EMPTY expected set is refused, not satisfied
+             red: 🔴 and it refuses WITHOUT reading the graph at all
+             red: 🔴 a controller that programmed nothing fails the step
+             also red: 🔴 an EMPTY expected set is refused, not satisfied
+             also red:   saying why an empty-to-empty match proves nothing
+             also red: 🔴 and it refuses WITHOUT reading the graph at all
+             also red:   the file records the refusal too
+             also red: 🔴 a controller that programmed nothing fails the step
+  caught   M2 (widening): any non-empty up set counts as a match    (2 named check(s) went red)
+             red: 🔴 a THIRD switch reported up is not a match
+             red:   s3 up while 1,2 were expected is not a match
+             also red: 🔴 a THIRD switch reported up is not a match
+             also red:   and the failure says what it saw
+             also red:   with the last reading in it
+             also red:   the file keeps both sides
+             also red:   s3 up while 1,2 were expected is not a match
+  caught   M3: giving up is reported as agreement                   (2 named check(s) went red)
+             red: 🔴 a set that never arrives is a failure
+             red: 🔴 a THIRD switch reported up is not a match
+             also red: 🔴 a THIRD switch reported up is not a match
+             also red: 🔴 a set that never arrives is a failure
+             also red:   s3 up while 1,2 were expected is not a match
+  caught   M4: s10 is parsed as dpid 1                              (1 named check(s) went red)
+             red: 🔴 s10 is dpid 10, not dpid 1
+             also red: 🔴 s10 is dpid 10, not dpid 1
+  caught   M5: the wait is one look (the instrument)                (2 named check(s) went red)
+             red: 🔴 it waits until the up set becomes the expected one
+             red:   which took three polls, not one
+             also red: 🔴 it waits until the up set becomes the expected one
+             also red:   which took three polls, not one
+             also red:   and it says how long it took
+             also red:   after polling for the whole timeout (+1 for the capture)
+             also red: 🔴 end to end: log -> expectation -> twin agrees
+  caught   M6: a graph with no switches reads as an empty up set    (1 named check(s) went red)
+             red: 🔴 a graph with no switches in it is rc 1 too
+             also red: 🔴 a graph with no switches in it is rc 1 too
+  control  C1: a comment beside the refusal                         (stayed green, as it must)
+  control  C2: the parameters unpacked one per line                 (stayed green, as it must)
+
+baseline byte-identical: yes  live-p1/_common.sh  sha256 9bad733406b4457e729ac0c46c3fb7ebef2255cb50185121fefa9aebc5f83415
+mutation gate: 6 mutations, 0 survived; 2 control(s), 0 went red
+### rc=0

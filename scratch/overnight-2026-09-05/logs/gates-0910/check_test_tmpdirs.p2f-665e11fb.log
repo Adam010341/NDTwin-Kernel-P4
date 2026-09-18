@@ -1,0 +1,5 @@
+### check_test_tmpdirs  (worktree /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p2-ndtup-0918, head 665e11fb)
+### $ python3 tests/shell/check_test_tmpdirs.py
+
+check_test_tmpdirs: 333 file(s) scanned, 0 fixed temp paths
+### rc=0
