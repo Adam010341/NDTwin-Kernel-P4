@@ -40,12 +40,19 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import types
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FIXTURES = os.path.join(HERE, "fixtures")
 DEFAULT_DRIVER = os.path.join(os.path.dirname(HERE), "drive_exercise.py")
 DRIVER_PATH = os.path.abspath(os.environ.get("DRIVE_EXERCISE_UNDER_TEST", DEFAULT_DRIVER))
+
+
+#: Every temp dir THIS PROCESS handed out, in order. `TheSuiteLeavesNoLitter` asserts on these
+#: and on nothing else: two copies of this suite running at once (a mutation gate does exactly
+#: that) must not report each other's live directories as leaks (round-3 ruling 4).
+MADE_TEMP_DIRS = []
 
 
 def mkdtemp(case, prefix):
@@ -62,6 +69,7 @@ def mkdtemp(case, prefix):
     is exactly the run that leaves the directory behind and no result to notice it by.
     """
     path = tempfile.mkdtemp(prefix=prefix)
+    MADE_TEMP_DIRS.append(path)
     case.addCleanup(shutil.rmtree, path, ignore_errors=True)
     return path
 
@@ -231,12 +239,27 @@ class StubHosts(object):
         self.popened = []
         self.cmds = []
         self.procs = []
+        self.arp_flushes = 0
 
     def names(self):
         return sorted(self.ips)
 
+    def flush_arp(self):
+        """🔴 RECORDED, NOT IGNORED. multicast's expectation is only true from cold ARP caches
+        (round-3 ruling 5), so the cells below assert that the step actually asked for them."""
+        self.arp_flushes += 1
+        return self.names()
+
     def ping(self, host, dst, count=5):
-        return self.pings[(host, dst)]
+        # After a flush the arm re-measures hX -> h4 from cold caches; that repeat is answered
+        # from `pings` when the case supplies it, and otherwise from the pingall table, which is
+        # what "the fabric did not change between the two passes" looks like here.
+        if (host, dst) in self.pings:
+            return self.pings[(host, dst)]
+        for (s_, d_), r in (self.pa.results.items() if self.pa else {}.items()):
+            if s_ == host and self.ips.get(d_) == dst:
+                return r
+        raise KeyError((host, dst))
 
     def describe(self):
         return "stub hosts"
@@ -1616,6 +1639,42 @@ class TheMulticastArms(unittest.TestCase):
         self.assertTrue(v["nobody reaches h4"].ok)
         self.assertTrue(v["but h4 reaches them"].ok)
 
+    def test_the_arp_caches_are_emptied_before_and_between_the_passes(self):
+        """🔴 THE EXPECTATION IS ONLY TRUE FROM COLD CACHES (round-3 ruling 5).
+
+        `hX -> h4 is 100%` describes a host that has not learned h4's MAC. h4's own ARP IS
+        answered (the group reaches h1-h3, and their unicast replies hit h4's mac_forward
+        entry), so after the h4 -> hX pairs every other host holds h4's MAC and a later
+        hX -> h4 ping is a plain unicast that forwards at 0% -- on a fabric that did not change.
+        Two flushes: one before the walk, one before the direction is re-measured on its own.
+        """
+        sess = self.session("solution", self.GROUP_ONLY)
+        self.assertEqual(2, sess.h.arp_flushes)
+
+    def test_the_pingall_order_is_src_major(self):
+        """🔴 AND THE ORDER IS WHY THE FIRST PASS IS READABLE AT ALL.
+
+        With h4 last as a SOURCE, every hX -> h4 pair is measured before h4 has ever ARPed. A
+        dst-major walk would measure h1 -> h4 after h4 -> h1 had taught h1 h4's MAC and the
+        expectation would invert. The re-measure above is what makes the arm not DEPEND on this,
+        but the order is still a property of `pingall` that a refactor could silently change.
+        """
+        seen = []
+
+        class Recorder(StubHosts):
+            def ping(self, host, dst, count=5):
+                seen.append((host, dst))
+                return StubHosts.ping(self, host, dst, count)
+
+        ips = {"h1": "10.0.1.1", "h2": "10.0.2.2", "h3": "10.0.3.3", "h4": "10.0.4.4"}
+        rec = Recorder(ips, pa=None)
+        ok = self.mod.PingResult(0.0, 5, 5)
+        rec.pings = {(s, ips[d]): ok for s in ips for d in ips if s != d}
+        self.mod.HostRunner.pingall(rec, count=1)
+        srcs = [s for s, _d in seen]
+        self.assertEqual(sorted(srcs), srcs, "pingall must walk src-major: %r" % (seen,))
+        self.assertEqual("h4", srcs[-1], "h4 must be the LAST source: %r" % (srcs,))
+
     def test_the_h4_expectation_is_directional(self):
         """🔴 judge A4: round 1 asserted 100% on all six h4 pairs and would have gone red on
         three of them over a fabric behaving exactly as the exercise describes. A fabric where
@@ -1847,11 +1906,10 @@ class TheRedArmsThatAreNotTheDataPlane(unittest.TestCase):
             mod.run_on_ndtwin.expects = [mod.Expect(
                 "RED ARM: the skeleton's runtime entries must NOT install",
                 "pre-flight refuses them", "pre-flight rc=1", True, mod.G_BOTH, "")]
-            mod.run_on_ndtwin.designed_refusal = True
+            mod.designed_refusal_seen()
             return 1, "/pkg", {}
         refuse.expects = []
         refuse.teardown_problem = ""
-        refuse.designed_refusal = False
         mod.run_on_ndtwin = refuse
         rc, text = render_main(mod, ["basic_tunnel", "--which", "skeleton",
                                      "--fabric", "ndtwin"], mod.TUT)
@@ -1859,6 +1917,86 @@ class TheRedArmsThatAreNotTheDataPlane(unittest.TestCase):
         self.assertIn("RED ARM (1/1)", text)
         self.assertIn("by design", text)
         self.assertNotIn(">>> ERROR", text)
+
+    def test_the_tutorials_arm_reads_the_same_as_the_ndtwin_one(self):
+        """🔴 ONE EXERCISE, ONE VERDICT, ON BOTH FABRICS (round-3 ruling 1).
+
+        Round 2 fixed only the NDTwin half: the flag lived on `run_on_ndtwin` and the verdict
+        asked `args.fabric == "ndtwin"`, so `basic_tunnel/skeleton` still printed `PASS (1/1)`
+        and exited 0 on tutorials while printing `RED ARM (1/1)` and exiting 1 on NDTwin -- the
+        same defect A6 named, half-done. The refusal arrives differently (a harness exception
+        from `program_switches`, not a pre-flight rc); it is the same refusal.
+        """
+        mod = load_driver()
+        mod.TUT = self.mod.TUT
+        mod.RUNS = mkdtemp(self, "drv-a6t-")
+        stub_preflight(mod)
+        self.mod, real_mod = mod, self.mod
+        self.compiler(0)
+        self.mod = real_mod
+        mod.euid = lambda: 0                       # the tutorials path refuses non-root
+
+        # 🔴 THE REAL TUTORIALS PATH, with the harness replaced rather than the verdict forced.
+        # `make_driver` wraps whatever ExerciseRunner it is handed, so a stub whose
+        # `program_switches` RAISES is exactly the fabric this arm meets: README:41-43 says the
+        # skeleton's runtime entries name a table it does not declare, and the tutorials harness
+        # raises rather than pre-flighting.
+        class StubNet(object):
+            switches = []
+            hosts = []
+
+            def start(self):
+                pass
+
+            def stop(self):
+                pass
+
+        class StubRunner(object):
+            def __init__(self, *a, **kw):
+                self.net = StubNet()
+
+            def create_network(self):
+                pass
+
+            def program_hosts(self):
+                pass
+
+            def program_switches(self):
+                # README:41-43: sX-runtime.json names MyIngress.myTunnel_exact and the
+                # skeleton declares no such table, so the harness raises here.
+                raise Exception("P4RuntimeWriteException: no such table myTunnel_exact")
+
+        fake = types.ModuleType("run_exercise")
+        fake.ExerciseRunner = StubRunner
+        sys.modules["run_exercise"] = fake
+        self.addCleanup(sys.modules.pop, "run_exercise", None)
+
+        rc, text = render_main(mod, ["basic_tunnel", "--which", "skeleton",
+                                     "--fabric", "tutorials"], mod.TUT)
+        self.assertEqual(1, rc, text[-3000:])
+        self.assertIn("RED ARM (", text)
+        self.assertIn("by design", text)
+        self.assertNotIn(">>> PASS", text)
+
+    def test_the_flag_does_not_leak_from_one_round_into_the_next(self):
+        """🔴 MODULE STATE THAT IS NEVER CLEARED REPORTS THE PREVIOUS ROUND'S REFUSAL.
+
+        The flag had to become module-level so both fabrics could set it; that makes resetting
+        it per round load-bearing, and `06_thirteen.sh` runs twenty-six rounds in one loop.
+        """
+        mod = load_driver()
+        mod.TUT = self.mod.TUT
+        mod.RUNS = mkdtemp(self, "drv-a6leak-")
+        stub_preflight(mod)
+        self.mod, real_mod = mod, self.mod
+        self.compiler(0)
+        self.mod = real_mod
+        mod.euid = lambda: 1000                    # stops at the root check; the RESET is the point
+        mod.DESIGNED_REFUSAL["hit"] = True          # as if a previous round had refused
+        rc, text = render_main(mod, ["basic", "--which", "solution",
+                                     "--fabric", "tutorials"], mod.TUT)
+        self.assertNotIn("RED ARM (", text)
+        self.assertFalse(mod.DESIGNED_REFUSAL["hit"])
 
     def test_a_round_that_really_failed_still_reads_ERROR(self):
         """🔴 THE CONTROL. The new verdict is reached only when the round ended on the refusal
@@ -1875,11 +2013,9 @@ class TheRedArmsThatAreNotTheDataPlane(unittest.TestCase):
 
         def blew_up(ex, which, exdir, spec, args, ips, log_dir, steps, env=None, red_stage=None):
             mod.run_on_ndtwin.expects = []
-            mod.run_on_ndtwin.designed_refusal = False
             return 2, "/pkg", {}
         blew_up.expects = []
         blew_up.teardown_problem = ""
-        blew_up.designed_refusal = False
         mod.run_on_ndtwin = blew_up
         rc, text = render_main(mod, ["basic_tunnel", "--which", "skeleton",
                                      "--fabric", "ndtwin"], mod.TUT)
@@ -2033,6 +2169,19 @@ class TheGenericLinkUsageCell(unittest.TestCase):
                 self.assertFalse(run)
                 self.assertIn(fragment, why)
 
+    def test_the_generic_cell_states_the_bound_it_actually_applies(self):
+        """🔴 AN EXPECTATION LINE THAT NAMES A BOUND NOBODY APPLIES IS WORSE THAN NONE.
+
+        R4 replaced "off-path integrates to exactly 0" with a floor, because after the kernel
+        merge a single sampled LLDP beacon (1/256, banked as 256x its frame length) would red a
+        correct fabric at random. The Expect's `want` string went on saying `off-path == 0`
+        (round-3 ruling 7), so a reader reconciling a GREEN cell against it would conclude the
+        off-path edges carried nothing measurable -- which is not what was checked.
+        """
+        src = open(self.mod.__file__ if hasattr(self.mod, "__file__") else DRIVER).read()
+        self.assertNotIn('"on-path > 0, off-path == 0"', src)
+        self.assertIn("off-path under max(5 kbit, 2% of the smallest on-path)", src)
+
     def test_every_other_solution_arm_runs_the_cell(self):
         runs = sorted(ex for ex in self.mod.EXERCISES
                       if self.mod.link_usage_applies(self.mod.EXERCISES[ex], "solution")[0])
@@ -2153,15 +2302,22 @@ class TheSuiteLeavesNoLitter(unittest.TestCase):
     """
 
     def test_no_drv_temp_directory_outlives_this_run(self):
-        before = set(glob.glob(os.path.join(tempfile.gettempdir(), "drv-*")))
+        """🔴 ONLY THE ONES THIS PROCESS MADE (round-3 ruling 4).
+
+        Round 2 asserted on every `/tmp/drv-*` on the machine. Two copies of this suite running
+        at once -- which is exactly what a mutation gate does, and what the overnight fleet does
+        across worktrees -- would then red each other: B's live directories are not A's litter.
+        The suite can only honestly speak for its own.
+        """
+        made = set(MADE_TEMP_DIRS)
         # A cell of the same shape as every other one in this file.
         tmp = mkdtemp(self, "drv-litter-")
         build_tut_root(tmp)
         self.assertTrue(os.path.isdir(tmp))
-        # ... and the helper hands it back when this case ends. Everything OTHER than the one
-        # this cell just made must already be gone: `before` is taken inside the run, after the
-        # rest of the suite has finished, so a leak anywhere above shows up right here.
-        leaked = sorted(d for d in before if os.path.isdir(d))
+        # ... and the helper hands it back when this case ends. Every directory THIS RUN made
+        # before now must already be gone: this class sorts last, so the rest of the suite has
+        # finished and a leak anywhere above shows up right here.
+        leaked = sorted(d for d in made if os.path.isdir(d))
         self.assertEqual(
             [], leaked,
             "these /tmp/drv-* directories outlived the tests that made them:\n  "

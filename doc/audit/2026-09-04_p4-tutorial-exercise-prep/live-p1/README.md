@@ -189,9 +189,12 @@ iperf 期間，twin 的 `link_bandwidth_usage_bps` 在**真的搬了位元組的
 **兩個例外**，紅在「拒絕」而不在資料面，driver 印 `RED ARM (n/n): … by design`、exit 1：
 
 - `flowcache` 骨架（兩個 fabric 都是）——`p4c` 拒編（README:29）；
-- `basic_tunnel` 骨架**在 NDTwin fabric 上**——pre-flight 拒絕它的 runtime entries，
-  那些 entry 指名一張骨架沒有宣告的表（README:41-43）。
-  在 tutorials fabric 上同一個拒絕發生在 harness 裡面，driver 記成一條**達成的期望**，所以那邊是 exit 0。
+- `basic_tunnel` 骨架（**兩個 fabric 都是**）——它的 runtime entries 指名一張骨架沒有宣告的表
+  （README:41-43）。NDTwin 上是 pre-flight 拒絕，tutorials 上是 harness 自己丟例外——
+  **同一個拒絕，兩條路**。
+  🔴 第二輪只修了 NDTwin 那半（旗標掛在 `run_on_ndtwin` 上、判定又問 `args.fabric`），於是
+  同一支 exercise 在 tutorials 印 `PASS (1/1)`／exit 0、在 NDTwin 印 `RED ARM (1/1)`／exit 1
+  ——**正是 A6 指的那個缺陷，只做了一半**。第三輪把旗標改成 module-level、判定不再問 fabric。
 
 **⑥ 自己不 claim lab**，因為每一次 driver 的 round 會自己 claim；這支若持有 claim 會擋掉自己的子程序。
 所以它**不 source `_common.sh` 的 `start_step`**，也沒有自己的 fabric 要拆——它唯一碰的狀態是

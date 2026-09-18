@@ -160,9 +160,12 @@ sudo、沒有 lab、沒有跑過任何一支（TICKET-P3 §0-2）；離線測試
    `flowcache` 停在 `p4c`（exit 1、verdict 寫 `skeleton does not compile, by design`）；
    `basic_tunnel` 停在控制面——tutorials 上 harness 在 `program_switches` 丟例外、
    NDTwin 上 pre-flight 拒絕那些 entry。兩者都是 **exit 1 而不是 exit 2**。
-   🔴 **而且 `basic_tunnel` 骨架在 NDTwin 上印 `RED ARM (1/1): the skeleton does not get past
-   the control plane, by design`，不是 `ERROR`**——第一版讓 `run_on_ndtwin` 回非零，`main()`
-   就印它對「driver 自己倒了」印的那個字，**同一支 exercise 在兩個 fabric 上讀成兩件事**。
+   🔴 **而且 `basic_tunnel` 骨架在兩個 fabric 上都印 `RED ARM (1/1): the skeleton does not get
+   past the control plane, by design`／exit 1。** 第一版讓 `run_on_ndtwin` 回非零、`main()` 印
+   `ERROR`；**第二版只修了 NDTwin 那半**——旗標掛在 `run_on_ndtwin` 上（只有 NDTwin 的路徑碰得到）、
+   判定又寫 `args.fabric == "ndtwin"`，所以 tutorials 臂仍是 `PASS (1/1)`／exit 0。
+   第三輪把旗標改成 module-level 的 `DESIGNED_REFUSAL`、兩條路徑都設、判定不問 fabric，
+   並且**每一 round 開頭重設**（`06` 一個迴圈跑二十六 round，不重設就會報上一 round 的拒絕）。
 3. **`qos` 的讀數只取 h1 送出的訊框**（judge A5）。`qos/receive.py:22` 沒有 BPF filter，
    h2 自己的回覆也在同一份 capture：UDP/4321 沒人聽 ⇒ ICMP port-unreachable（tos `0xc0`）、
    TCP 那輪的 SYN→80 ⇒ RST（tos `0x0`）。整份 capture 都讀進來的話，

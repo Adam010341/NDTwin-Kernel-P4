@@ -52,9 +52,25 @@ MUTATIONS=0
 
 run_against() { NDT_UNDER_TEST="$1/ndt" timeout 600 bash "$TEST" 2>&1; }
 
+# 🔴 A MUTANT THAT DOES NOT PARSE IS NOT A MUTANT (round-3 ruling 3). `bash -n` is the whole
+# guard: a syntactically dead `ndt` reddens every cell for one reason -- it cannot run -- which
+# looks exactly like "the suite is sensitive" while proving nothing, and leaves the NAMED cell
+# absent from the output, which `report` cannot tell from green. That is how M9 was reported as
+# a survivor for a defect that was in the GATE. Refuse instead: a gate that cannot say what it
+# measured must not print a verdict.
+syntax_ok() {   # $1 = mutant dir; prints the error when it is not
+    bash -n "$1/ndt" 2>&1
+}
+
 report() {   # $1 = mutation name, $2 = mutant dir, $3 = case that must fail
-    local out rc
+    local out rc err
     MUTATIONS=$((MUTATIONS+1))
+    if ! err="$(syntax_ok "$2")" || [[ -n "$err" ]]; then
+        SURVIVORS=$((SURVIVORS+1))
+        printf '  🔴 DEAD   %-58s (the mutant is not valid bash -- it measures nothing)\n' "$1"
+        sed 's/^/             /' <<<"$err"
+        return
+    fi
     out=$(run_against "$2"); rc=$?
     if [[ "$rc" -ne 0 ]] && grep -qF "FAILED   $3" <<<"$out"; then
         printf '  caught   %-58s (%s went red)\n' "$1" "$3"
@@ -74,8 +90,14 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = case that must fail
 # must leave the suite GREEN, and a red here is the suite over-fitted to the implementation's
 # text rather than to what it does.
 report_green() {   # $1 = mutation name, $2 = mutant dir, $3 = why it changes nothing
-    local out rc
+    local out rc err
     MUTATIONS=$((MUTATIONS+1))
+    if ! err="$(syntax_ok "$2")" || [[ -n "$err" ]]; then
+        SURVIVORS=$((SURVIVORS+1))
+        printf '  🔴 DEAD   %-58s (the mutant is not valid bash -- it measures nothing)\n' "$1"
+        sed 's/^/             /' <<<"$err"
+        return
+    fi
     out=$(run_against "$2"); rc=$?
     if [[ "$rc" -eq 0 ]]; then
         printf '  green    %-58s (%s)\n' "$1" "$3"
@@ -223,11 +245,19 @@ report "M8: a REUSED fabric is rolled back as if we built it" "$m" \
 
 # 🔴 And the other opposite error: rolling back a stack that came up and merely failed its
 # verification, which destroys the one state an operator needs to be able to read.
+# 🔴 THE ANCHOR IS THE COMPLETE CALL, AND IT WAS NOT (TICKET-P3 round-3 ruling 3).
+# `verify_p4 "$topo" "$want_paths"` became a PREFIX of the real line when verify_p4 grew two
+# more arguments (`ndt:3307` now passes "$app_mode" "$app_pipe"). The mutant therefore became
+#     verify_p4 "$topo" "$want_paths" || { ... } "$app_mode" "$app_pipe"
+# -- a bash syntax error. The whole of `ndt` then failed to parse, all 424 cells went red, and
+# the NAMED cell never printed at all, so `report` read it as "stayed green" and called M9 a
+# survivor. A gate whose mutant does not PARSE is measuring nothing; the bash -n below turns
+# that into a refusal instead of a survivor, and this anchor stops it happening here.
 m=$(mutant m9 "$NDT" \
     '    say "[3/3] verify"
-    verify_p4 "$topo" "$want_paths"' \
+    verify_p4 "$topo" "$want_paths" "$app_mode" "$app_pipe"' \
     '    say "[3/3] verify"
-    verify_p4 "$topo" "$want_paths" || { rollback_up "verification failed"; return 1; }')
+    verify_p4 "$topo" "$want_paths" "$app_mode" "$app_pipe" || { rollback_up "verification failed"; return 1; }')
 report "M9: a stack that failed VERIFICATION is torn down too" "$m" \
        "🔴 and is NOT rolled back"
 

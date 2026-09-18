@@ -47,6 +47,12 @@ section() { printf '\n%s\n' "$1"; }
 FIX="$(mktemp -d "${TMPDIR:-/tmp}/live-p1-13-XXXXXX")"
 trap 'rm -rf "$FIX"' EXIT INT TERM
 
+#: What `live-p1/runs/` held BEFORE this suite ran. Section 6 asserts on the difference, never
+#: on the count: a real `06` run leaves a directory there legitimately, and a cell that counted
+#: them would go red forever after the first one -- taking the gate, which refuses to run over a
+#: red baseline, with it (round-3 ruling 4).
+RUNS_BEFORE="$(ls -d "$LIVE/runs"/*_06_thirteen 2>/dev/null | sort)"
+
 # --- the stub driver -----------------------------------------------------------------------
 # 🔴 IT PRINTS WHAT THE REAL ONE PRINTS. 06 reads two lines out of each run -- the `>>> ` verdict
 # and the `report: ` path -- and nothing else, so the stub emits both; a stub that printed
@@ -61,6 +67,10 @@ rc = int(os.environ.get("RC_%s_%s" % (ex, which), "0"))
 verdict = {0: "PASS (4/4)", 1: "FAIL (1/4)", 2: "ERROR"}[rc]
 if rc == 1 and os.environ.get("BY_DESIGN_%s_%s" % (ex, which)):
     verdict = "RED ARM (1/1): the skeleton does not get past the control plane, by design"
+# rc 1 with a verdict that is NOT a refusal: the red arm turning out not to be red.
+v = os.environ.get("VERDICT_%s_%s" % (ex, which))
+if v:
+    verdict = v
 print(">>> %s" % verdict)
 print("report: /nowhere/%s_%s.md" % (ex, which))
 sys.exit(rc)
@@ -112,6 +122,35 @@ check "  basic_tunnel's skeleton is expected to exit 1 here" "0" "$?"
 OUT="$(run13 basic_tunnel)"; RC=$?
 check "🔴 and one that exits 0 is the finding"            "1" "$RC"
 
+# 🔴 rc 1 IS NOT ENOUGH: the two exception arms must exit 1 *on their designed refusal*
+# (round-3 ruling 2). `flowcache/skeleton` that COMPILED prints `FAIL (1/1): the skeleton
+# COMPILED` and exits 1; comparing rc only, the step called that a PASS -- for exactly the
+# finding it exists to report.
+OUT="$(run13 flowcache RC_flowcache_skeleton=1 \
+       "VERDICT_flowcache_skeleton=FAIL (1/1): the skeleton COMPILED")"; RC=$?
+check "🔴 rc 1 with a NON-refusal verdict is the finding, not a pass" "1" "$RC"
+has   "  named as the refusal not having happened"       "its verdict is not a designed refusal" "$OUT"
+has   "  and the verdict itself is quoted"               "FAIL (1/1): the skeleton COMPILED" "$OUT"
+
+OUT="$(run13 basic_tunnel RC_basic_tunnel_skeleton=1 \
+       "VERDICT_basic_tunnel_skeleton=FAIL (1/3)")"; RC=$?
+check "🔴 same for basic_tunnel's entries actually installing" "1" "$RC"
+has   "  and it says the red arm is not red"             "the red arm is not red" "$OUT"
+
+# 🔴 THE VERDICT MUST *START* WITH `RED ARM`, not merely contain it. The driver's own failure
+# text can name the thing it was expecting -- and a substring test would then read a FAILURE as
+# the designed refusal, which is the exact confusion this assertion exists to prevent.
+OUT="$(run13 flowcache RC_flowcache_skeleton=1 \
+       "VERDICT_flowcache_skeleton=FAIL (1/1): expected RED ARM, but the skeleton COMPILED")"
+RC=$?
+check "🔴 a FAIL that merely mentions RED ARM is still a failure" "1" "$RC"
+has   "  and is named as one"                            "its verdict is not a designed refusal" "$OUT"
+
+# 🔴 THE CONTROL FOR BOTH: an arm whose rc is 0 is not subjected to the verdict test, because
+# `want` is 0 there and a designed refusal is not what it is supposed to do.
+OUT="$(run13 qos "VERDICT_qos_skeleton=PASS (4/4)")"
+check "  a want-0 arm is not asked for a RED ARM verdict" "0" "$?"
+
 # 🔴 THE CONTROL: the exception is per exercise, not a blanket "1 is fine for skeletons".
 OUT="$(run13 qos RC_qos_skeleton=1)"; RC=$?
 check "🔴 qos's skeleton exiting 1 is still a failure"    "1" "$RC"
@@ -154,9 +193,29 @@ section "6. 🔴 this suite leaves nothing in the checkout"
 # R3 with the repo as the target instead of /tmp: every run of this file used to leave a
 # `live-p1/runs/<UTC>_06_thirteen/` directory behind, because 06 derives its raw directory from
 # its own location. RUNS_DIR is the seam; this is the assertion that the cells above used it.
-LEFT="$(ls -d "$LIVE/runs"/*_06_thirteen 2>/dev/null | wc -l)"
-check "🔴 no run directory was written into the checkout" "0" "$LEFT"
+# 🔴 A SET DIFFERENCE, NOT A COUNT (round-3 ruling 4). Counting every
+# `live-p1/runs/*_06_thirteen` makes this cell -- and therefore the gate, which refuses to run
+# over a red baseline -- fail forever the moment somebody runs 06 for real ONCE. What this
+# suite can honestly assert is that IT created none; directories from real runs are evidence
+# that the step works, not litter.
+AFTER="$(ls -d "$LIVE/runs"/*_06_thirteen 2>/dev/null | sort)"
+NEW="$(comm -13 <(printf '%s\n' "$RUNS_BEFORE") <(printf '%s\n' "$AFTER"))"
+check "🔴 this suite wrote no run directory into the checkout" "" "$(printf '%s' "$NEW")"
 has   "  and the raw really went to the fixture instead" "$FIX/runs" "$(run13 basic)"
+
+# 🔴 AND A REAL RUN'S RAW IS NOT LITTER. This is the half that needs a fixture to be testable
+# at all: with no directory there, "count them all" and "count only mine" agree. A decoy of the
+# shape `06` really writes makes them disagree -- and the all-counting version is the one that
+# would go red forever after the first real run of the step, taking the gate (which refuses to
+# run over a red baseline) with it.
+DECOY="$LIVE/runs/1970-01-01T000000Z_06_thirteen"
+mkdir -p "$DECOY"
+BEFORE2="$(ls -d "$LIVE/runs"/*_06_thirteen 2>/dev/null | sort)"
+run13 basic >/dev/null 2>&1
+AFTER2="$(ls -d "$LIVE/runs"/*_06_thirteen 2>/dev/null | sort)"
+NEW2="$(comm -13 <(printf '%s\n' "$BEFORE2") <(printf '%s\n' "$AFTER2"))"
+check "🔴 a PREVIOUS real run's directory is not counted as ours" "" "$(printf '%s' "$NEW2")"
+rmdir "$DECOY" 2>/dev/null
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"

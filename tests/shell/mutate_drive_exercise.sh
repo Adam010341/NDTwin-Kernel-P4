@@ -714,6 +714,70 @@ add "78. the destination never reaches the shell helper" \
     '                                                     _sh("")))  # MUTANT' \
     'test_the_destination_reaches_the_shell_helper'
 
+# 79: A6 half-done again -- the verdict asks which fabric it was, so `basic_tunnel`'s skeleton
+# goes back to reading `PASS (1/1)` / exit 0 on tutorials and `RED ARM (1/1)` / exit 1 on NDTwin.
+# ONE EXERCISE MUST NOT READ TWO WAYS ON TWO FABRICS (round-3 ruling 1).
+add "79. the designed-refusal verdict is restricted to one fabric again" \
+    "$DRIVER" \
+    '    designed = DESIGNED_REFUSAL["hit"]' \
+    '    designed = (args.fabric == "ndtwin" and DESIGNED_REFUSAL["hit"])  # MUTANT' \
+    'test_the_tutorials_arm_reads_the_same_as_the_ndtwin_one'
+
+# 80: the tutorials harness refusal stops setting the flag at all -- the same arm, reported as
+# an ordinary pass because `program_switches` raising is what it is SUPPOSED to do here.
+add "80. the tutorials harness refusal is not recorded as a designed one" \
+    "$DRIVER" \
+    '                designed_refusal_seen()
+                return False' \
+    '                return False  # MUTANT' \
+    'test_the_tutorials_arm_reads_the_same_as_the_ndtwin_one'
+
+# 81: the flag is module state and is never cleared, so round N reports round N-1's refusal --
+# and `06_thirteen.sh` runs twenty-six rounds in one loop.
+add "81. the designed-refusal flag leaks from one round into the next" \
+    "$DRIVER" \
+    '    DESIGNED_REFUSAL["hit"] = False
+
+    if args.fabric == "ndtwin":' \
+    '    if args.fabric == "ndtwin":  # MUTANT' \
+    'test_the_flag_does_not_leak_from_one_round_into_the_next'
+
+# 82: multicast measures from whatever ARP state the fabric happens to be in. h4's own ARP IS
+# answered, so once it has run every other host holds h4's MAC and hX -> h4 becomes a plain
+# unicast that h4's mac_forward entry delivers -- 0% on a fabric that has not changed.
+add "82. multicast no longer empties the ARP caches before measuring" \
+    "$DRIVER" \
+    '        flushed = self.h.flush_arp()' \
+    '        flushed = []  # MUTANT' \
+    'test_the_arp_caches_are_emptied_before_and_between_the_passes'
+
+# 83: the re-measure from cold caches goes away, so "h4 is unreachable" is once again only as
+# true as the order the pairs happened to be walked in.
+add "83. the cold-cache re-measure of hX -> h4 is dropped" \
+    "$DRIVER" \
+    '            reflushed = self.h.flush_arp()' \
+    '            reflushed = []  # MUTANT' \
+    'test_the_arp_caches_are_emptied_before_and_between_the_passes'
+
+# 84: pingall walks dst-major, so h1 -> h4 is measured AFTER h4 -> h1 has taught h1 h4's MAC and
+# the expectation inverts on a fabric that is behaving exactly as the exercise describes.
+add "84. pingall walks dst-major, poisoning the h4 expectation" \
+    "$DRIVER" \
+    '        for src in self.names():
+            for dst in self.names():' \
+    '        for dst in self.names():          # MUTANT
+            for src in self.names():' \
+    'test_the_pingall_order_is_src_major'
+
+# 85: the generic cell's expectation string goes back to naming a bound nobody applies. R4
+# replaced "exactly 0 off the path" with a floor; a reader reconciling a green cell against
+# `off-path == 0` concludes the off-path edges integrated to zero, which they did not.
+add "85. the generic cell claims an off-path bound that is not the one applied" \
+    "$DRIVER" \
+    '                    "on-path > 0, off-path under max(5 kbit, 2% of the smallest on-path)",' \
+    '                    "on-path > 0, off-path == 0",  # MUTANT' \
+    'test_the_generic_cell_states_the_bound_it_actually_applies'
+
 CTRL_SRC="$DRIVER"
 CTRL_ANCHOR='def host_key(name):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.

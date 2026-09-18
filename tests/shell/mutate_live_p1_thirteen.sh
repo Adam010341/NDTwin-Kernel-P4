@@ -161,9 +161,12 @@ EOF
 cat > "$A/m2.new" <<'EOF'
     want="$rc"
 EOF
+# 🔴 NOT the "FAILED an expectation" cell any more: with `want="$rc"` that arm now trips the
+# by-design guard instead and fails with a DIFFERENT sentence. It still fails -- which is what
+# these two cells assert -- and naming the sentence would be pinning the message, not the rule.
 check_fires "M2 (widening): every arm is expected to do whatever it did" m2 \
-            "🔴 a skeleton arm that FAILED an expectation is the finding" \
-            "🔴 a flowcache skeleton that exits 0 is the finding"
+            "🔴 a flowcache skeleton that exits 0 is the finding" \
+            "🔴 and one that exits 0 is the finding"
 
 # --- M3: the two designed-refusal arms lose their exception ------------------------------------------
 # flowcache's skeleton stops at p4c and basic_tunnel's stops at pre-flight; both report
@@ -188,8 +191,11 @@ EOF
 cat > "$A/m4.new" <<'EOF'
         *)            echo 1 ;;
 EOF
+# 🔴 THE qos CELL CANNOT SEE THIS ONE ANY MORE, and that is not a weakening: with the exception
+# granted to every skeleton, qos/skeleton rc 1 is now caught by the by-design guard instead
+# (its verdict is a `FAIL`, not a `RED ARM`), so the step still fails and that cell still
+# passes. What only M4 breaks is the arm that is supposed to exit 0.
 check_fires "M4 (widening): every skeleton may exit 1" m4 \
-            "🔴 qos's skeleton exiting 1 is still a failure" \
             "  a correct pair of arms passes"
 
 # --- M5: rc 2 is treated as a result -----------------------------------------------------------------
@@ -237,6 +243,59 @@ EOF
 check_fires "M7: the set -u local hazard comes back" m7 \
             "  a correct pair of arms passes" \
             "  the table names each arm"
+
+# --- M8 (round-3 ruling 2): rc 1 alone is accepted from the exception arms ------------------------
+# 🔴 THE DEFECT THE JUDGE FOUND IN ROUND 2'S FIX. The two exception arms are expected to exit 1
+# -- but an arm that FAILED an expectation exits 1 too. `flowcache/skeleton` that COMPILED
+# prints `FAIL (1/1): the skeleton COMPILED` and exits 1; comparing rc only, this step printed
+# PASS for exactly the finding it exists to report.
+cat > "$A/m8.old" <<'EOF'
+        if [[ "$want" == 1 && "$verdict" != "RED ARM"* ]]; then
+EOF
+cat > "$A/m8.new" <<'EOF'
+        if false; then
+EOF
+check_fires "M8: rc 1 is accepted without a by-design verdict" m8 \
+            "🔴 rc 1 with a NON-refusal verdict is the finding, not a pass" \
+            "🔴 same for basic_tunnel's entries actually installing"
+
+# --- M9 (widening): the verdict test is applied to the want-0 arms too ---------------------------
+# 🔴 THE CONTROL FOR M8. Every other arm is supposed to exit 0 with `PASS (n/n)`; demanding a
+# `RED ARM` verdict from them would fail the eleven arms that are behaving correctly.
+cat > "$A/m9.old" <<'EOF'
+        if [[ "$want" == 1 && "$verdict" != "RED ARM"* ]]; then
+EOF
+cat > "$A/m9.new" <<'EOF'
+        if [[ "$verdict" != "RED ARM"* ]]; then
+EOF
+check_fires "M9 (widening): every arm must print a RED ARM verdict" m9 \
+            "  a correct pair of arms passes" \
+            "  a want-0 arm is not asked for a RED ARM verdict"
+
+# --- M10: the verdict is read from the wrong end of the line -------------------------------------
+# A `FAIL (1/1)` whose *reason* text happens to contain the words would pass a substring test;
+# the assertion is that the verdict STARTS with `RED ARM`, which is what the driver prints.
+cat > "$A/m10.old" <<'EOF'
+        if [[ "$want" == 1 && "$verdict" != "RED ARM"* ]]; then
+EOF
+cat > "$A/m10.new" <<'EOF'
+        if [[ "$want" == 1 && "$verdict" != *"RED ARM"* ]]; then
+EOF
+# 🔴 THE CELL THAT SEES IT IS THE ONE WHOSE VERDICT *MENTIONS* `RED ARM` WITHOUT BEING ONE.
+# A plain `FAIL (1/1): the skeleton COMPILED` reads the same under prefix and substring, so the
+# first named cell here proved nothing about the difference.
+check_fires "M10: the by-design check becomes a substring match" m10 \
+            "🔴 a FAIL that merely mentions RED ARM is still a failure" \
+            "  and is named as one"
+
+# --- (no M11) R3(b) lives in the TEST FILE, which this gate does not mutate ---------------------
+# 🔴 SAID OUT LOUD RATHER THAN FAKED. The set-difference that keeps a real `06` run's raw from
+# being reported as this suite's litter is in `tests/shell/test_live_p1_thirteen.sh`, not in
+# `06_thirteen.sh`; this gate's subject is the STEP. A mutation here would have had to anchor
+# in the test, and `check_gate_anchors.py` counts every anchor in the applier's subject -- it
+# would have read as MISSING against 06. The evidence for R3(b) is the cell that plants a decoy
+# run directory and asserts it is not counted ("a PREVIOUS real run's directory is not counted
+# as ours"), which fails if the difference is replaced by a count.
 
 # --- the control -----------------------------------------------------------------------------------------
 cat > "$A/c1.old" <<'EOF'

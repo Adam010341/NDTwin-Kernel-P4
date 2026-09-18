@@ -869,7 +869,39 @@ class HostRunner(object):
         recv = int(t.group(2)) if t else 0
         return PingResult(float(m.group(1)), recv, trans, raw=out)
 
+    def flush_arp(self):
+        """Empty every host's ARP cache. Returns the hosts it actually flushed.
+
+        🔴 A CACHED MAC MAKES AN UNREACHABLE HOST REACHABLE (round-3 ruling 5). multicast's
+        expectation is that hX -> h4 is 100% because the ARP request for h4 floods to ports
+        1,2,3 and h4 never sees it -- but that is a statement about a host that has NOT already
+        learned h4's MAC. Once h4 has sent its own ARP (which IS answered, because the group
+        reaches h1/h2/h3 and their unicast replies hit h4's mac_forward entry), h1-h3 hold h4's
+        MAC and a later hX -> h4 ping is a plain unicast that h4's own entry forwards: 0% loss,
+        on a fabric that has not changed at all.
+
+        So the measurement only means what it says from a known cache state, and this is how it
+        is put into one. `ip neigh flush all` is a read-modify of the host's own namespace and
+        needs no lab claim.
+        """
+        done = []
+        for name in self.names():
+            try:
+                self.cmd(name, "ip neigh flush all")
+                done.append(name)
+            except Exception:                                # noqa: BLE001
+                pass
+        return done
+
     def pingall(self, count=5):
+        """Every ordered pair, SRC-MAJOR: h1->h2, h1->h3, ..., h4->h1, h4->h2, h4->h3.
+
+        🔴 THE ORDER IS LOAD-BEARING FOR multicast AND IS PINNED BY A TEST
+        (`TheMulticastArms.test_the_pingall_order_is_src_major`). With h4 last as a SOURCE,
+        every hX -> h4 pair is measured before h4 has ever ARPed, which is the only state in
+        which "h4 is unreachable" is observable. A dst-major walk would measure h1 -> h4 after
+        h4 -> h1 had already taught h1 h4's MAC, and the expectation would invert.
+        """
         pa = PingAll()
         for src in self.names():
             for dst in self.names():
@@ -1807,6 +1839,11 @@ class Steps(object):
                            "sysctl -w net.ipv6.conf.{all,default}.disable_ipv6=1 in each host",
                            "exercises/multicast/disable_ipv6.sh's two lines, per namespace"))
 
+        # 🔴 FROM A KNOWN CACHE STATE (round-3 ruling 5). See HostRunner.flush_arp.
+        flushed = self.h.flush_arp()
+        say("$ ip neigh flush all, in each host namespace -> %s" % (", ".join(flushed) or "none"))
+        self.steps.append(("ARP caches emptied before the measurement",
+                           "ip neigh flush all (each host)", ", ".join(flushed) or "none"))
         pa = self._pingall()
         group = ("h1", "h2", "h3")
         inside = [pa.results.get((s, d)) for s in group for d in group if s != d]
@@ -1848,6 +1885,25 @@ class Steps(object):
                       "sig-topo/s1-runtime.json:36-45 DOES give h4's MAC a mac_forward entry "
                       "to port 4; only the group leaves 4 out. h4's own ARP floods to 1,2,3, "
                       "is answered, and the unicast reply hits that entry.")
+            # 🔴 AND IT IS NOT AN ARTEFACT OF THE PING ORDER (round-3 ruling 5). The pass above
+            # got hX -> h4 right because h4 is last as a source, so nobody had learned its MAC
+            # yet. That is true of THIS walk; it would not be true of a dst-major one, nor of a
+            # second pingall on the same fabric -- by now h1-h3 DO hold h4's MAC, from the
+            # replies they sent it. So: flush again and re-measure just that direction. If the
+            # 100% only held because of ordering, this cell is where it shows.
+            reflushed = self.h.flush_arp()
+            say("$ ip neigh flush all again -> %s; re-measuring the three hX -> h4 pairs"
+                % (", ".join(reflushed) or "none"))
+            again = [(src, self.h.ping(src, self.h.ips["h4"], 5)) for src in group]
+            again_ok = all(r.tested and r.loss == 100 for _s, r in again)
+            again_label = ", ".join("%s->h4 %s" % (s, r.label()) for s, r in again)
+            self.steps.append(("hX -> h4 re-measured from cold ARP caches",
+                               "ip neigh flush all; ping -c 5 -W 2 h4", again_label))
+            self._add("and h4 is unreachable from cold caches, not just from this ping order",
+                      "100% on all three, after a second flush", again_label, again_ok, G_SRC,
+                      "the first pass measured hX -> h4 before h4 had ever ARPed, which this "
+                      "walk guarantees only because h4 sorts last as a source; this repeats it "
+                      "from a state that does not depend on the order at all")
         else:
             self._add("RED ARM: nothing pings at all", "100.0%", pa.label(),
                       pa.loss == 100, G_BOTH,
@@ -2113,6 +2169,13 @@ def make_driver(base_cls, exercise, which, exdir, spec, args, ips):
                     "will not work with the starter code'")]
                 self.steps = [("T0  program_switches (the exercise's own sX-runtime.json)",
                                "ExerciseRunner.program_switches()", traceback.format_exc())]
+                # 🔴 THE SAME VERDICT THE NDTwin ARM GETS (round-3 ruling 1). The refusal lands
+                # here as a harness exception instead of a pre-flight rc, but it is the refusal
+                # README:41-43 describes and the arm met every expectation it has. Reporting it
+                # as `PASS (1/1)` / exit 0 here while the other fabric says `RED ARM (1/1)` /
+                # exit 1 is one exercise reading two ways -- which is what the two-fabric driver
+                # exists to make impossible.
+                designed_refusal_seen()
                 return False
             if want:
                 self.expects = [Expect(
@@ -2396,6 +2459,26 @@ def convert_p4_arg(exdir, spec, which):
     return default
 
 
+#: Whether this round ended on the refusal its arm is SUPPOSED to end on (judge A6, and the
+#: round-3 ruling that it must read the same on both fabrics). It is neither an error nor a
+#: pass: the verdict is `RED ARM (n/n): ... by design` and the exit code is 1 -- the pair
+#: `flowcache`'s compile arm has always reported.
+#:
+#: 🔴 A DICT, AND MODULE-LEVEL, BECAUSE BOTH FABRICS HAVE TO SET IT. Round 2 hung it on
+#: `run_on_ndtwin`, which is only reachable from the NDTwin path, and then read it under
+#: `args.fabric == "ndtwin"` -- so `basic_tunnel`'s skeleton still printed `PASS (1/1)` / exit 0
+#: on tutorials while printing `RED ARM (1/1)` / exit 1 on NDTwin. That is the same defect A6
+#: named, half-fixed: ONE EXERCISE MUST NOT READ TWO WAYS ON TWO FABRICS. The tutorials refusal
+#: happens inside the harness (`program_switches` raises) rather than in a pre-flight, but it is
+#: the same refusal, for the reason README:41-43 gives.
+DESIGNED_REFUSAL = {"hit": False}
+
+
+def designed_refusal_seen():
+    """Call when the arm ended on its own designed refusal. Both fabrics call this."""
+    DESIGNED_REFUSAL["hit"] = True
+
+
 def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=None,
                   red_stage=None):
     """convert -> pre-flight -> claim -> up -> steps -> down -> release.
@@ -2455,7 +2538,7 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
             # means everywhere else -- while the SAME arm on the tutorials fabric printed
             # `PASS (1/1)`. One exercise reading two different ways on two fabrics is the thing
             # the two-fabric driver exists to make impossible.
-            run_on_ndtwin.designed_refusal = True
+            designed_refusal_seen()
             say("!! pre-flight FAILED (rc %d) -- and for this arm that IS the expectation." % rc)
             return 1, pkg, state
         say("!! pre-flight FAILED (rc %d). 'ndt up p4 --app' would refuse this too;"
@@ -2508,7 +2591,7 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
                     G_BOTH,
                     "README:41-43; verify_p4_package_entries is the gate that says the "
                     "package's own entries did not go on the switches")]
-                run_on_ndtwin.designed_refusal = True
+                designed_refusal_seen()
         else:
             state = switch_state()
             rule("GET /p4/switch_state")
@@ -2571,10 +2654,18 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
                                   "live-p1/_common.sh link_usage_round %s (to %s)"
                                   % (pkg, usage_dst or "the model's last host"), usage_out))
                 run_on_ndtwin.expects = list(run_on_ndtwin.expects) + [Expect(
-                    "G1  link usage follows the iperf path", "on-path > 0, off-path == 0",
+                    # 🔴 THE STRING SAYS WHAT THE CELL ACTUALLY ASSERTS (round-3 ruling 7).
+                    # It said `off-path == 0` -- which is the rule R4 REMOVED, because a single
+                    # sampled LLDP beacon (1/256, banked as 256x its frame length) would red a
+                    # correct fabric at random. An expectation line that names a bound nobody
+                    # applies is worse than none: a reader reconciling a green cell against it
+                    # concludes the off-path edges integrated to zero, which they did not.
+                    "G1  link usage follows the iperf path",
+                    "on-path > 0, off-path under max(5 kbit, 2% of the smallest on-path)",
                     "PASS" if ok else "see the transcript", ok, G_SRC,
                     "TICKET-P3 §2.7's program-independent cell, through live-p1/_common.sh's "
-                    "link_usage_round -- the same function live-p1/05 runs")]
+                    "link_usage_round -- the same function live-p1/05 runs. The floor and every "
+                    "off-path edge's raw integral are in that transcript.")]
     finally:
         rule("teardown: ndt down, the two knobs, then ndt release")
         run_on_ndtwin.teardown_problem = ndtwin_teardown(knob_before, steps_out,
@@ -2588,10 +2679,6 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
 
 run_on_ndtwin.expects = []
 run_on_ndtwin.teardown_problem = ""
-#: Set when the round ended on the refusal its arm is SUPPOSED to end on (judge A6). It is not
-#: an error and it is not a pass: the verdict says `RED ARM (n/n): ... by design` and the exit
-#: code is 1, the same pair `flowcache`'s compile arm reports on the other fabric.
-run_on_ndtwin.designed_refusal = False
 
 
 # -------------------------------------------------------------------- report --
@@ -2933,6 +3020,10 @@ def main():
     state = {}
     steps = []
     expects = []
+    # 🔴 RESET BEFORE THE ROUND, ON EITHER FABRIC. The flag is module state so that both the
+    # tutorials harness-exception path and the NDTwin pre-flight path can set it; module state
+    # that is never cleared is module state that reports the PREVIOUS round's refusal.
+    DESIGNED_REFUSAL["hit"] = False
 
     if args.fabric == "ndtwin":
         # 🔴 NO ROOT, AND NOT BY OVERSIGHT.  `ndt` is designed to be run as the
@@ -2943,7 +3034,6 @@ def main():
         log_dir = os.path.join(RUNS, "%s_%s_%s_ndtwin" % (stamp, ex, which))
         os.makedirs(log_dir, exist_ok=True)
         run_on_ndtwin.expects = []
-        run_on_ndtwin.designed_refusal = False
         try:
             exit_code, package, state = run_on_ndtwin(
                 ex, which, exdir, spec, args, ips, log_dir, steps, env, red_stage)
@@ -3005,10 +3095,10 @@ def main():
     # 🔴 THE DESIGNED REFUSAL HAS ITS OWN VERDICT, and it is the same sentence on both fabrics
     # (judge A6). `basic_tunnel`'s skeleton cannot install its own runtime entries -- README:41-43
     # says so -- and the round therefore ends non-zero having met every expectation it has. On
-    # the tutorials fabric that refusal happens inside the harness and comes back as `PASS (1/1)`;
-    # without this branch the SAME arm on the NDTwin fabric printed `ERROR`, which is what a
-    # driver that fell over prints. One exercise must not read two ways on two fabrics.
-    designed = (args.fabric == "ndtwin" and getattr(run_on_ndtwin, "designed_refusal", False))
+    # the tutorials fabric the refusal lands as a harness exception and on NDTwin as a pre-flight
+    # rc; BOTH set DESIGNED_REFUSAL, and this branch does not ask which fabric it was. Round 2
+    # asked, and `basic_tunnel`'s skeleton went on reading two ways (round-3 ruling 1).
+    designed = DESIGNED_REFUSAL["hit"]
     if designed and expects and not failed:
         verdict, exit_code = ("RED ARM (%d/%d): the skeleton does not get past the control "
                               "plane, by design" % (len(expects), len(expects))), 1

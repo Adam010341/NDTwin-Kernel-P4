@@ -97,10 +97,11 @@ ROWS=0
 #   EXCEPT    the two arms whose red is a REFUSAL rather than a data-plane reading, which
 #             drive_exercise.py reports as `RED ARM (1/1): ... by design` and exit 1:
 #               * flowcache/skeleton, on either fabric -- p4c refuses it (README:29);
-#               * basic_tunnel/skeleton on the NDTWIN fabric -- pre-flight refuses its runtime
-#                 entries, which name a table the skeleton does not declare (README:41-43).
-#                 On the tutorials fabric that same refusal happens inside the harness and the
-#                 driver records it as a met expectation, so it is rc 0 there.
+#               * basic_tunnel/skeleton, on EITHER fabric -- its runtime entries name a table
+#                 the skeleton does not declare (README:41-43). NDTwin refuses them in
+#                 pre-flight; tutorials raises inside the harness. Round 2 reported those two
+#                 as different verdicts (`RED ARM (1/1)`/1 vs `PASS (1/1)`/0); round 3 made the
+#                 driver report the same refusal the same way on both, so this table does too.
 #
 # 🔴 rc 2 IS NOT EVIDENCE EITHER WAY on any arm: the round never ran.
 expected_rc() {   # expected_rc <exercise> <which>
@@ -108,7 +109,7 @@ expected_rc() {   # expected_rc <exercise> <which>
     [[ "$which" == solution ]] && { echo 0; return; }
     case "$ex" in
         flowcache)    echo 1 ;;
-        basic_tunnel) echo 1 ;;          # ndtwin fabric; this script only drives that one
+        basic_tunnel) echo 1 ;;          # both fabrics now; this script drives ndtwin
         *)            echo 0 ;;
     esac
 }
@@ -132,7 +133,24 @@ run_arm() {   # run_arm <exercise> <which>
     ROWS=$((ROWS+1))
     note "rc=$rc (want $want)   ${verdict:-<no verdict line>}"
     [[ -n "$report" ]] && note "report: $report"
+    # 🔴 rc 1 ALONE CANNOT TELL "by design" FROM "the red arm is not red" (round-3 ruling 2).
+    # The two exception arms are expected to exit 1 -- but so does an arm that FAILED an
+    # expectation. `flowcache/skeleton` that COMPILED prints `FAIL (1/1): the skeleton COMPILED`
+    # and exits 1; `basic_tunnel/skeleton` whose entries INSTALLED prints `FAIL (1/n)` and exits
+    # 1. Comparing rc only, this step printed PASS for both -- for exactly the finding it exists
+    # to report. The verdict line is already in `$verdict`; it just was not asserted on.
     if [[ "$rc" == "$want" ]]; then
+        if [[ "$want" == 1 && "$verdict" != "RED ARM"* ]]; then
+            bad "$ex/$which exited 1 as expected, but its verdict is not a designed refusal:"
+            bad "    $verdict"
+            bad "  This arm's red is supposed to be a REFUSAL -- p4c for flowcache, the control"
+            bad "  plane for basic_tunnel -- which the driver reports as 'RED ARM (n/n): ... by"
+            bad "  design'. A 'FAIL (n/m)' here means the refusal did NOT happen and an"
+            bad "  expectation went red instead: the red arm is not red, which is the finding."
+            tail -20 "$log" | sed 's/^/     /'
+            FAILED=$((FAILED+1))
+            return 1
+        fi
         return 0
     fi
     if [[ "$which" == skeleton && "$rc" == 1 ]]; then

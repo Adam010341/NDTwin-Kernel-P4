@@ -507,6 +507,72 @@ OUT="$(drive "link_usage_round '$PKG3' 'to-h9' '$FIX/lur5' follows h9")"
 check "🔴 a destination the model does not declare is refused" "1" "$(rc_of "$OUT")"
 has   "  rather than silently falling back to another host" "declares no host 'h9'" "$OUT"
 
+# =============================================================================================
+section "9. 🔴 no live-p1 script reintroduces the \`set -u\` \`local\` hazard"
+# =============================================================================================
+# Under `set -u`, bash 5.2 declares EVERY name in a `local` list before assigning any of them,
+# so `local a="$1" b="${a}.log"` expands an unset `a` and the function dies on its own first
+# line. `05_link_usage_generic.sh` and `06_thirteen.sh` both had it and NEITHER HAD EVER BEEN
+# RUN, so nothing in the repo said a word (found in round 2, via 06's new test).
+#
+# 🔴 WHY THIS IS A SCANNER AND NOT A RUN OF 05. `group()` is reachable only after p4c, two
+# convert.py runs, two pre-flights and a lab claim; a stub deep enough to reach it would be a
+# stub of the whole step, and would pin the stub rather than the script. What actually
+# regresses here is the SHAPE, in any of these files, including ones written later -- so that
+# is what is checked, with a positive control below so the check cannot pass by finding nothing.
+# 🔴 `python3`, NOT `$PY`. The first version used `$PY`, which is not set in this file's scope
+# -- so the scan errored, printed NOTHING, and the "no script has the hazard" check went GREEN
+# on empty output. The positive control below is the only reason that was caught, which is the
+# entire argument for having one.
+hazard_scan() {   # hazard_scan <file>... -- prints "<file>:<line> <name> reads $<earlier>"
+    python3 - "$@" <<'PYH'
+import re, sys
+for path in sys.argv[1:]:
+    try:
+        lines = open(path, errors="replace").read().splitlines()
+    except OSError:
+        continue
+    for n, line in enumerate(lines, 1):
+        m = re.match(r"\s*local\s+(.*)$", line)
+        if not m:
+            continue
+        seen = []
+        for chunk in re.finditer(r"([A-Za-z_][A-Za-z0-9_]*)=(\"(?:[^\"\\]|\\.)*\"|\S*)",
+                                 m.group(1)):
+            name, val = chunk.group(1), chunk.group(2)
+            for prev in seen:
+                if re.search(r"\$\{?%s\b" % re.escape(prev), val):
+                    print("%s:%d %s reads $%s" % (path, n, name, prev))
+            seen.append(name)
+PYH
+}
+
+OUT="$(hazard_scan "$LIVE"/*.sh)"
+check "🔴 no live-p1 script has a cross-referencing \`local\`" "" "$OUT"
+[[ -n "$OUT" ]] && printf '%s\n' "$OUT" | sed 's/^/             /'
+
+# 🔴 THE POSITIVE CONTROL. Without it "found nothing" and "cannot find anything" read the same.
+cat > "$FIX/hazard.sh" <<'HZ'
+f() {
+    local ex="$1" which="$2" log="$RUN/${ex}_${which}.log" rc
+    echo "$log$rc"
+}
+HZ
+OUT="$(hazard_scan "$FIX/hazard.sh")"
+has   "  and the scanner finds one that IS there"        "log reads \$ex" "$OUT"
+has   "  naming both of the names it read"               "log reads \$which" "$OUT"
+
+# ... and the shape that is FINE must not be flagged: separate statements are the fix.
+cat > "$FIX/ok.sh" <<'OK'
+f() {
+    local ex="$1" which="$2"
+    local log rc
+    log="$RUN/${ex}_${which}.log"
+    echo "$log$rc"
+}
+OK
+check "🔴 and the FIXED shape is not flagged"            "" "$(hazard_scan "$FIX/ok.sh")"
+
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
 (( FAIL == 0 ))
