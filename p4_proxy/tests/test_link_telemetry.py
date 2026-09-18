@@ -49,6 +49,37 @@ FOUR_HOST_MODEL = os.path.join(REPO, "setting",
                                "StaticNetworkTopologyP4_10Switches_4Hosts.json")
 
 
+def load_package_fixture(name="link_telemetry_pkg", foreign_switches=()):
+    """A/P1's verbatim `basic` package (pod-topo), optionally with some switches made foreign.
+
+    Loaded out of test_app_package.py by path rather than re-typed: `CONVERTER_BASIC` there is
+    `json.load()` of the bytes tools/p4_exercise/convert.py actually wrote, and its own header
+    records what a hand-typed copy of it got wrong.
+
+    pod-topo matters here for two reasons the shipped 10-switch model cannot show: its hosts
+    attach on **port 1**, not port 3, and a package can put a foreign pipeline on some switches
+    and not others -- which is what `auto` has to resolve per switch.
+    """
+    import importlib.util
+    path = os.path.join(HERE, "test_app_package.py")
+    spec = importlib.util.spec_from_file_location("test_app_package_fixture_source", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    manifest = json.loads(json.dumps(module.CONVERTER_BASIC))
+    for key in (str(d) for d in foreign_switches):
+        manifest["switches"][key]["pipeline"] = {
+            "p4info": "build/firewall.p4.p4info.txtpb", "bmv2_json": "build/firewall.json"}
+    directory = module.lay_out_converter_package(
+        tempfile.mkdtemp(prefix="ndtwin_link_pkg_"), manifest, name,
+        entry_files=[spec_["entries"] for spec_ in manifest["switches"].values()])
+    for rel in ("build/firewall.p4.p4info.txtpb", "build/firewall.json"):
+        full = os.path.join(directory, rel)
+        os.makedirs(os.path.dirname(full), exist_ok=True)
+        with open(full, "w") as fh:
+            fh.write("{}\n")
+    return app_package.load(directory)
+
+
 class StubIntf:
     def __init__(self, name):
         self.name = name
@@ -396,12 +427,17 @@ class StoppingTheEmitterTest(unittest.TestCase):
         self.assertEqual(killed, [(42, signal.SIGTERM)])
 
     def test_one_that_will_not_go_is_killed_after_the_grace_period(self):
-        killed = []
+        killed, slept = [], []
         fate = link_telemetry.stop_emitter(42, kill=lambda p, s: killed.append((p, s)),
                                            is_emitter=lambda pid, **kw: True,
-                                           sleep=lambda _s: None, grace_s=0.5)
+                                           sleep=slept.append, grace_s=0.5)
         self.assertEqual(fate, "kill")
         self.assertEqual(killed, [(42, signal.SIGTERM), (42, signal.SIGKILL)])
+        # 🔴 FIVE, and it is a whole number because the loop counts steps rather than
+        # subtracting 0.1 from a float five times -- which gives six, and is the pattern
+        # `p4_testbed_topo.start_link_telemetry` carries a warning about beside its own loop.
+        self.assertEqual(len(slept), 5)
+        self.assertEqual(set(slept), {link_telemetry.EMITTER_POLL_INTERVAL_S})
 
     def test_the_process_check_reads_one_cmdline_and_never_scans(self):
         tmp = tempfile.mkdtemp(prefix="ndtwin_proc_")
@@ -460,6 +496,119 @@ class ShuttingDownFromTheManifestTest(PlanFixture):
             self.path, run=run, is_emitter=lambda pid, **kw: False)
         self.assertEqual(fate, "absent")
         self.assertFalse(os.path.exists(self.path))
+
+
+# --- a package's own fabric, which is neither ten switches nor all of one source --------------
+
+
+class PackageFixture(unittest.TestCase):
+    """pod-topo: four switches, four hosts, and hosts on port 1."""
+
+    foreign = ()
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_link_pkg_case_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.knob = os.path.join(self.tmp, "telemetry_override")
+        self.package = load_package_fixture(name=f"pkg_{id(self)}",
+                                            foreign_switches=self.foreign)
+        self.model = topo_from_json.load(self.package.topology)
+
+    def set_knob(self, word):
+        with open(self.knob, "w") as fh:
+            fh.write(word + "\n")
+
+    def switches(self):
+        ports = {}
+        for a, ap, b, bp in topo_from_json.switch_links(self.model):
+            ports.setdefault(a, set()).add(ap)
+            ports.setdefault(b, set()).add(bp)
+        for _name, dpid, port in topo_from_json.host_links(self.model):
+            ports.setdefault(dpid, set()).add(port)
+        return [StubSwitch(name, dpid, sorted(ports.get(dpid, ())))
+                for dpid, name in topo_from_json.switches(self.model)]
+
+    def plan(self, **kwargs):
+        kwargs.setdefault("ifindex_of", ifindex_of)
+        kwargs.setdefault("knob_path", self.knob)
+        return link_telemetry.plan(self.package, self.model, self.switches(), **kwargs)
+
+
+class APackagesOwnFabricTest(PackageFixture):
+    """Every link test above uses the shipped model, whose hosts are all on port 3."""
+
+    def test_the_hosts_of_this_model_are_on_port_one(self):
+        # The premise of the next cell, asserted rather than assumed: a host-facing port is
+        # whatever the model says, and hard-coding 3 would pass every test in this file that
+        # uses the shipped 10-switch model.
+        self.assertEqual(topo_from_json.host_links(self.model),
+                         [("h1", 1, 1), ("h2", 1, 2), ("h3", 2, 1), ("h4", 2, 2)])
+
+    def test_the_egress_filters_follow_the_model_and_not_the_number_three(self):
+        self.set_knob("link")
+        plan = self.plan()
+        egress = [(s.dpid, p.port) for s in plan.switches for p in s.ports if p.egress]
+        self.assertEqual(egress, [(1, 1), (1, 2), (2, 1), (2, 2)])
+        # s3 and s4 carry no host at all: ingress only, on both of their ports.
+        s3 = [s for s in plan.switches if s.dpid == 3][0]
+        self.assertEqual([(p.port, p.ingress, p.egress) for p in s3.ports],
+                         [(1, True, False), (2, True, False)])
+
+    def test_the_counts_for_this_fabric(self):
+        self.set_knob("link")
+        plan = self.plan()
+        # Four hosts + eight switch-side ends of the four inter-switch cables.
+        self.assertEqual(plan.ingress_filters(), 12)
+        self.assertEqual(plan.egress_filters(), 4)
+
+    def test_the_agent_addresses_are_the_packages_model_not_the_shipped_ones(self):
+        self.set_knob("link")
+        self.assertEqual([s.agent_ip for s in self.plan().switches],
+                         [f"192.168.123.{10 + d}" for d in range(1, 5)])
+
+
+class AMixedFabricUnderAutoTest(PackageFixture):
+    """🔴 `auto` is resolved PER SWITCH, and every other plan test is all-or-nothing.
+
+    `exercises/firewall` is this shape: its own program on s1, NDTwin's on s2-s4. Cooperative
+    telemetry needs the `packet_in` header and the clone session only NDTwin's pipeline has, so
+    on s1 it would produce nothing at all -- not an error, an empty twin. A plan that answered
+    "all ten" or "none" would satisfy every other cell in this file.
+    """
+
+    foreign = (1,)
+
+    def test_only_the_foreign_switch_is_on_the_link_path(self):
+        plan = self.plan()          # no knob: the `auto` rule decides
+        self.assertEqual([s.dpid for s in plan.switches], [1])
+
+    def test_the_sources_record_one_link_and_three_cooperative(self):
+        self.assertEqual(dict(self.plan().sources),
+                         {1: "link", 2: "cooperative", 3: "cooperative", 4: "cooperative"})
+
+    def test_the_filters_are_only_on_that_switchs_ports(self):
+        plan = self.plan()
+        devices = sorted({argv[4] for argv in plan.commands})
+        self.assertEqual(devices, ["s1-eth1", "s1-eth2", "s1-eth3", "s1-eth4"])
+        self.assertEqual(plan.ingress_filters(), 4)
+        # s1 carries h1 on port 1 and h2 on port 2; ports 3 and 4 go to s3 and s4.
+        self.assertEqual(plan.egress_filters(), 2)
+
+    def test_the_manifest_holds_only_the_switch_that_samples(self):
+        document = link_telemetry.manifest_document(self.plan(), 99)
+        self.assertEqual([s["dpid"] for s in document["switches"]], [1])
+
+    def test_the_knob_overrides_the_rule_for_every_switch(self):
+        # The mixed answer is the RULE's, not a property of the fabric: `--telemetry link`
+        # still puts all four on the link path.
+        self.set_knob("link")
+        self.assertEqual([s.dpid for s in self.plan().switches], [1, 2, 3, 4])
+
+    def test_none_takes_even_the_foreign_switch_off(self):
+        self.set_knob("none")
+        plan = self.plan()
+        self.assertTrue(plan.is_empty)
+        self.assertIn("4 none", plan.reason)
 
 
 class TheBringUpLineTest(PlanFixture):

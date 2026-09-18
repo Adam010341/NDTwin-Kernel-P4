@@ -5,8 +5,11 @@
 # what a dead emitter means, the three layers of the telemetry knob, TCLink's on/off condition,
 # the units bandwidth is expressed in, the direction a sample carries onto the wire, the length
 # the kernel multiplies by the sampling rate, and the teardown that takes the filters off.
-# TICKET-P3 section 4.3 (M-B1 .. M-B11), plus three the ticket does not list and the reason each
-# is here is written beside it.
+# TICKET-P3 section 4.3 (M-B1 .. M-B11), plus seven the ticket does not list -- four of them
+# added in round 2 for the three claims the judge found were made in prose only (F1's abort
+# path, F2's pre-flight, the attach/start/write ordering) -- and the reason each is here is
+# written beside it. M-B11 is split: M-B11a is the coarse "the whole teardown call goes" and
+# M-B11b is the ticket's literal "it does not detach".
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -190,11 +193,23 @@ report "M-B4: an emitter that died is not fatal, so a silent fabric reports succ
 
 # `net.stop()` deletes the veths, so a teardown that skips the detach leaves the qdiscs to be
 # removed only by accident -- and leaves the manifest naming a pid nothing will signal.
-m=$(mutant m_b11 "$TESTBED" \
+#
+# 🔴 TWO MUTANTS, BECAUSE THE FIRST IS COARSER THAN THE TICKET'S. M-B11a removes the WHOLE
+# call -- emitter, filters and manifest together -- which a suite could catch on any one of the
+# three; the ticket's M-B11 is "tear_down does not detach" alone. M-B11b is that one, at the
+# line that actually detaches, with the emitter still being stopped and the manifest still
+# removed, so only the detach can be what redders it.
+m=$(mutant m_b11a "$TESTBED" \
     '    link_telemetry.shut_down(link_manifest_path, report=report)' \
     '    pass  # MUTANT: the emitter and the filters are left behind')
-report "M-B11: tear_down neither stops the emitter nor removes the filters" "$m" \
+report "M-B11a (coarse): tear_down neither stops the emitter nor removes the filters" "$m" \
        "test_the_qdiscs_come_off_before_the_net_is_stopped"
+
+m=$(mutant m_b11b "$LINKTEL" \
+    '    removed = detach(interfaces, run=run, report=report)' \
+    '    removed = []  # MUTANT: the emitter is stopped, the filters stay on')
+report "M-B11b (ticket-literal): teardown stops the emitter but never detaches" "$m" \
+       "test_it_stops_the_pid_the_manifest_names_and_detaches_every_interface"
 
 # --- section 2.1: the three layers of the knob -----------------------------------------------
 
@@ -248,6 +263,74 @@ m=$(mutant m_b10 "$EMITTER" \
     '        frame_length=len(decoded.get("data") or b""),  # MUTANT: the captured length')
 report "M-B10: link usage is computed from the truncated length, so the whole fabric reads low" "$m" \
        "test_the_frame_length_is_origsize_and_not_the_captured_length"
+
+# --- round 2: the three claims the judge found were made in prose only ------------------------
+
+# 🔴 F1. `bring_up` is not inside either main's `except ValueError` -- only `plan_fabric` is --
+# and by the time this fires the net has been built and STARTED. A bare raise unwinds past a
+# `tear_down` that is only ever reached through the `fatal` return: a running fabric, no
+# manifest, whatever filters got attached, and the traceback in a tmux pane that stops existing
+# when the process does.
+m=$(mutant m_b18 "$TESTBED" \
+    '    except ValueError as exc:
+        # 🔴 A REFUSAL HERE IS AN ABORT PATH' \
+    '    except KeyError as exc:  # MUTANT: the refusal unwinds out of bring_up
+        # 🔴 A REFUSAL HERE IS AN ABORT PATH')
+report "M-B18 (F1): a refused link telemetry plan unwinds instead of becoming a verdict" "$m" \
+       "test_the_bridge_stops_the_net_it_started"
+
+# 🔴 F2. TICKET-P3 section 2.1 says a word outside the domain refuses the START. Read for the
+# first time inside `bring_up`, that refusal lands after `reset_for_bring_up` has destroyed the
+# fabric that was running and after `net.start()` has built its replacement.
+m=$(mutant m_b19 "$TESTBED" \
+    '    telemetry_knob = app_package.read_telemetry_knob()' \
+    '    telemetry_knob = None  # MUTANT: the knob is not validated in the pre-flight')
+report "M-B19 (F2): a bad telemetry knob is discovered only after the old fabric is destroyed" "$m" \
+       "test_a_telemetry_knob_outside_the_domain_is_refused_in_the_pre_flight"
+
+# Attach first because a `tc` that fails is then a failure with no process to clean up: the
+# recovery detaches, and it cannot stop an emitter whose pid was never written down. Start the
+# emitter first and a mid-way attach failure leaves a process holding a psample group that
+# nothing -- not this teardown, not the next bring-up -- can address.
+m=$(mutant m_b17 "$TESTBED" \
+    '        link_telemetry.attach(plan, run=tc_run)
+        proc = link_telemetry.start_emitter(manifest_path, popen=emitter_popen)' \
+    '        proc = link_telemetry.start_emitter(manifest_path, popen=emitter_popen)
+        link_telemetry.attach(plan, run=tc_run)  # MUTANT: after the emitter')
+report "M-B17: the emitter is started before the filters, so a failed attach orphans it" "$m" \
+       "test_the_filters_are_on_before_the_emitter_is_started"
+
+# The manifest carries the pid, and the pid is the only handle anything downstream ever gets on
+# that process. Written first it records None, and `ndt status`, `verify_p4`, teardown and the
+# next bring-up all have nothing to address.
+m=$(mutant m_b22 "$TESTBED" \
+    '        proc = link_telemetry.start_emitter(manifest_path, popen=emitter_popen)
+        link_telemetry.write_manifest(plan, getattr(proc, "pid", None), path=manifest_path)' \
+    '        link_telemetry.write_manifest(plan, None, path=manifest_path)  # MUTANT: first
+        proc = link_telemetry.start_emitter(manifest_path, popen=emitter_popen)')
+report "M-B22: the manifest is written before the emitter exists, so it records no pid" "$m" \
+       "test_the_manifest_is_written_after_the_emitter_so_it_can_carry_its_pid"
+
+# Everything else `reset_for_bring_up` reaps is announced -- the switch reap prints what it
+# took, the port check names the holder -- because "something killed my process" is exactly the
+# kind of fact that is unanswerable afterwards.
+m=$(mutant m_b20 "$TESTBED" \
+    '    link_telemetry.shut_down(report=print)' \
+    '    link_telemetry.shut_down()  # MUTANT: kill the stale emitter in silence')
+report "M-B20: a previous run's emitter is killed without a word" "$m" \
+       "test_a_previous_runs_emitter_is_stopped_before_a_new_fabric_is_built"
+
+# The float-subtraction pattern `p4_testbed_topo` carries a warning about beside its own grace
+# loop: 0.5 s in 0.1 s steps is six iterations, not five, so the wait is longer than it says.
+m=$(mutant m_b21 "$LINKTEL" \
+    '    for _step in range(int(math.ceil(grace_s / EMITTER_POLL_INTERVAL_S))):
+        if not is_emitter(pid):' \
+    '    _deadline = grace_s  # MUTANT: float subtraction, whose trip count nobody can state
+    while _deadline > 0:
+        _deadline -= EMITTER_POLL_INTERVAL_S
+        if not is_emitter(pid):')
+report "M-B21: the SIGTERM grace loop counts by subtracting floats" "$m" \
+       "test_one_that_will_not_go_is_killed_after_the_grace_period"
 
 # --- three the ticket does not list ----------------------------------------------------------
 

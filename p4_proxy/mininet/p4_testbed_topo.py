@@ -799,7 +799,8 @@ def abort_if_grpc_ports_are_held(held, owner_of=None, report=print, exit_=sys.ex
 #: [Co-developed with claude code -- Adam]
 FabricPlan = collections.namedtuple(
     "FabricPlan",
-    "package model_path model dpids json_paths binary lib_dir ports port_warning")
+    "package model_path model dpids json_paths binary lib_dir ports port_warning "
+    "telemetry_knob telemetry_sources")
 
 
 class FabricPlanError(ValueError):
@@ -856,6 +857,28 @@ def plan_fabric(package=None, report=print):
                f"package's own program, not NDTwin's: "
                + ", ".join(f"s{d}={os.path.basename(json_paths[d])}" for d in foreign))
 
+    # 🔴 THE TELEMETRY KNOB, READ HERE, FOR THE SAME REASON EVERYTHING ELSE IN THIS FUNCTION IS
+    # READ HERE. `read_telemetry_knob` refuses a word outside the domain, and TICKET-P3 §2.1
+    # says that refusal is "拒絕啟動" -- refuse to start. Read for the first time inside
+    # `bring_up`, it would refuse AFTER `reset_for_bring_up` had already destroyed the fabric
+    # that was running and AFTER `net.start()` had built its replacement: "refuse to start"
+    # would have degraded into "die halfway up", which is the failure mode the whole of this
+    # pre-flight exists to prevent. The word comes from `ndt`, which validates before writing,
+    # so a bad one here means something else wrote the file.
+    #
+    # The per-switch resolution is reported for the reason the foreign-pipeline line above is:
+    # by the time the proxy discloses it in `switch_state` the fabric is already up, and an
+    # operator has to be able to tell "this switch is on the link path" from "its telemetry
+    # broke" while there is still something to read.
+    telemetry_knob = app_package.read_telemetry_knob()
+    telemetry_sources = {dpid: app_package.telemetry_source(package, dpid) for dpid in dpids}
+    counts = {}
+    for source in telemetry_sources.values():
+        counts[source] = counts.get(source, 0) + 1
+    report(f"telemetry: {telemetry_knob or 'auto'} "
+           f"({'knob' if telemetry_knob else 'no knob'}) -> "
+           + ", ".join(f"{n} {source}" for source, n in sorted(counts.items())))
+
     # The binary choice, before anything is torn down: a broken override should fail here, not
     # after mn -c has already destroyed the running fabric.
     binary, lib_dir = resolve_bmv2_launcher()
@@ -874,7 +897,8 @@ def plan_fabric(package=None, report=print):
 
     return FabricPlan(package=package, model_path=model_path, model=model, dpids=dpids,
                       json_paths=json_paths, binary=binary, lib_dir=lib_dir, ports=ports,
-                      port_warning=warning)
+                      port_warning=warning, telemetry_knob=telemetry_knob,
+                      telemetry_sources=telemetry_sources)
 
 
 def reset_for_bring_up(ports, settle_s=0.5):
@@ -899,7 +923,7 @@ def reset_for_bring_up(ports, settle_s=0.5):
     # by the pid its manifest names, after /proc says that pid is still it -- never by pattern.
     # `mn -c` does not touch it, exactly as `mn -c` does not touch bmv2.
     # [Co-developed with claude code -- Adam]
-    link_telemetry.shut_down()
+    link_telemetry.shut_down(report=print)
     os.system('sudo mn -c > /dev/null 2>&1')
     _, still_held = clear_switches_from_a_previous_run(ports=ports)
     abort_if_grpc_ports_are_held(still_held)
@@ -1073,6 +1097,32 @@ def start_link_telemetry(package, model, switches, manifest_path=None, report=pr
     link usage on a fabric that is working -- which is indistinguishable from an idle network.
     Section 2.5 says fatal; this returns it as such and lets `bring_up` fold it into the verdict.
     """
+    try:
+        return _start_link_telemetry(package, model, switches, manifest_path=manifest_path,
+                                     report=report, tc_run=tc_run,
+                                     emitter_popen=emitter_popen, sleep=sleep, grace_s=grace_s)
+    except ValueError as exc:
+        # 🔴 A REFUSAL HERE IS AN ABORT PATH, AND IT ONLY IS ONE IF IT COMES BACK AS A VERDICT.
+        # `link_telemetry.plan` refuses four things and `attach` a fifth, and `read_telemetry_knob`
+        # refuses a word outside the domain; every one of them is a ValueError, which BOTH MAINS
+        # CATCH -- around `plan_fabric`, and nowhere else. By the time this function runs, `net`
+        # has been built and started, and a bare raise from here unwinds straight out of
+        # `bring_up` past a `tear_down` that is only ever reached through the `fatal` return.
+        # The fabric would be left running with no manifest, with whatever filters got attached,
+        # and with the traceback in a tmux pane that stops existing when the process does --
+        # which is the exact 2026-09-18 shape this whole file was repaired for.
+        #
+        # So it is folded into the verdict the same way a dead emitter is (see `bring_up`), and
+        # both mains reach teardown through the path they already have. ValueError only:
+        # anything else is a defect in this code and must not be dressed up as a fabric verdict.
+        return LinkTelemetry(
+            plan=None, proc=None, fatal=True,
+            verdict=(f"FATAL: link telemetry could not be brought up: {exc}"))
+
+
+def _start_link_telemetry(package, model, switches, manifest_path=None, report=print,
+                          tc_run=None, emitter_popen=None, sleep=time.sleep, grace_s=None):
+    """`start_link_telemetry`'s body. Separate so its refusals have one place to be caught."""
     grace_s = link_telemetry.EMITTER_STARTUP_GRACE_S if grace_s is None else grace_s
     manifest_path = manifest_path or link_telemetry.LINK_TELEMETRY_MANIFEST
     plan = link_telemetry.plan(package, model, switches)

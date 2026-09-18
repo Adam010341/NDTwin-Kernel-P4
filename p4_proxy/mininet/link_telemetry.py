@@ -37,6 +37,7 @@ spike-tc-sample/, run live 2026-09-17):
 from __future__ import annotations
 
 import json
+import math
 import os
 import signal
 import subprocess
@@ -113,9 +114,28 @@ LINK_TELEMETRY_LOG = "/tmp/ndtwin_link_telemetry.log"
 EMITTER_STARTUP_GRACE_S = 3.0
 EMITTER_STOP_GRACE_S = 5.0
 
+#: How often a SIGTERMed emitter is asked whether it has gone. Same step as the start-up
+#: grace loop in `p4_testbed_topo`, and a named constant so both loops' trip counts are
+#: arithmetic rather than float subtraction.
+EMITTER_POLL_INTERVAL_S = 0.1
+
 
 class LinkTelemetryError(ValueError):
-    """A refusal. ValueError so both mains' existing `except ValueError` keeps catching it."""
+    """A refusal.
+
+    ValueError because that is the class both mains already funnel malformed-input failures
+    through -- `AppPackageError`, `TopologyModelError` and `PortBlockError` are all ValueErrors
+    and both mains catch exactly that around `plan_fabric`.
+
+    🔴 WHAT THAT DOES **NOT** BUY, and the first version of this docstring claimed it did:
+    `bring_up` is NOT inside either main's `except ValueError`, and by the time this class is
+    raised from there the net has been built and started. A bare raise out of `bring_up` would
+    go past a `tear_down` that is only ever reached through the `fatal` return, leaving a
+    running fabric, no manifest, and whatever filters got attached. So
+    `p4_testbed_topo.start_link_telemetry` catches ValueError itself and returns it as a fatal
+    verdict; being a ValueError is what makes that catch narrow enough to be honest, not a
+    teardown somebody else performs.
+    """
 
 
 @dataclass(frozen=True)
@@ -477,12 +497,15 @@ def stop_emitter(pid, kill=None, is_emitter=None, sleep=None, grace_s=EMITTER_ST
         kill(int(pid), signal.SIGTERM)
     except OSError:
         return "absent"
-    deadline = grace_s
-    while deadline > 0:
+    # A whole number of steps rather than `while deadline > 0: deadline -= 0.1`. That
+    # subtraction is binary floating point -- 0.5 becomes six steps, not five -- and
+    # `p4_testbed_topo.start_link_telemetry` already carries that warning beside its own
+    # grace loop. A loop whose trip count nobody can state is one whose test has to be
+    # written from its own behaviour.
+    for _step in range(int(math.ceil(grace_s / EMITTER_POLL_INTERVAL_S))):
         if not is_emitter(pid):
             return "term"
-        sleep(0.1)
-        deadline -= 0.1
+        sleep(EMITTER_POLL_INTERVAL_S)
     try:
         kill(int(pid), signal.SIGKILL)
     except OSError:

@@ -38,7 +38,9 @@ files directly and parses "Ran N tests".
 """
 
 import atexit
+import contextlib
 import importlib.util
+import io
 import json
 import os
 import shutil
@@ -460,24 +462,56 @@ class FakeSubprocess:
             self.stdout = b""
 
     def __init__(self):
-        self.ran = []
-        self.started = []
+        # 🔴 ONE ORDERED LOG, not a list per kind. Two lists can say what happened and cannot
+        # say what happened FIRST, and the order of attach / start / write_manifest is the
+        # part of section 2.5 that is load-bearing: a `tc` that fails after the emitter exists
+        # leaves an orphan holding a psample group, and the manifest cannot carry a pid that
+        # does not exist yet. `reset()` rather than reassignment, because the derived views
+        # below are properties.
+        self.events = []
         self.rc = 0
         self.process = None
 
+    def reset(self):
+        self.events = []
+
     def run(self, argv, **kwargs):
-        self.ran.append(list(argv))
+        self.events.append(("run", list(argv)))
         return self.CompletedProcess(list(argv), returncode=self.rc)
 
     def Popen(self, argv, **kwargs):          # noqa: N802 -- subprocess spells it this way
-        self.started.append(list(argv))
+        self.events.append(("popen", list(argv)))
         self.process = self.process or FakeProcess()
         return self.process
 
     # --- what the assertions read ------------------------------------------------------
+    @property
+    def ran(self):
+        return [argv for kind, argv in self.events if kind == "run"]
+
+    @property
+    def started(self):
+        return [argv for kind, argv in self.events if kind == "popen"]
+
     def tc(self):
         """Every `tc` command line, as a string, in order."""
         return [" ".join(argv) for argv in self.ran if argv and argv[0] == "tc"]
+
+    def kinds(self):
+        """The sequence of things that happened, one word each."""
+        out = []
+        for kind, argv in self.events:
+            if kind == "popen":
+                out.append("popen")
+            elif argv and argv[0] == "tc" and argv[1:3] == ["qdisc", "add"]:
+                out.append("qdisc")
+            elif argv and argv[0] == "tc" and argv[1:3] == ["filter", "add"]:
+                out.append("filter")
+            elif argv and argv[0] == "tc" and argv[1:3] == ["qdisc", "del"]:
+                out.append("detach")
+            else:
+                out.append(" ".join(argv))
+        return out
 
 
 #: ifindexes for the offline suites: `sN-ethM` -> a number nothing on this machine owns.
@@ -1319,6 +1353,43 @@ class PlanFabricRefusesBeforeAnythingIsTornDownTest(FabricFixture):
             testbed.plan_fabric(report=lambda _line: None)
         self.assertIn("no directive line", str(ctx.exception))
 
+    def test_a_telemetry_knob_outside_the_domain_is_refused_in_the_pre_flight(self):
+        # 🔴 F2. TICKET-P3 §2.1: a word outside the domain is "refuse to start". Read for the
+        # first time inside `bring_up`, that refusal lands AFTER `reset_for_bring_up` has
+        # destroyed the fabric that was running and AFTER `net.start()` has built its
+        # replacement -- "refuse to start" degraded into "die halfway up".
+        self.set_telemetry_knob("linkk")
+        with self.assertRaises(app_package.AppPackageError) as ctx:
+            testbed.plan_fabric(report=lambda _line: None)
+        self.assertIn("'linkk'", str(ctx.exception))
+
+    def test_the_refusal_happens_before_anything_is_reset(self):
+        # The property that makes it a pre-flight rather than an early error: `plan_fabric`
+        # returns (or raises) before `reset_for_bring_up` is ever called, and `main` calls them
+        # in that order. Asserted by watching the reset itself.
+        self.set_telemetry_knob("nonsense")
+        reset = []
+        self.patch(testbed, "reset_for_bring_up",
+                   lambda ports, settle_s=0.5: reset.append(ports))
+        self.patch(testbed, "build_net", lambda package, model: self.fail("built a net"))
+        with self.assertRaises(SystemExit):
+            testbed.main()
+        self.assertEqual(reset, [], "the running fabric was destroyed before the knob was read")
+
+    def test_the_plan_resolves_and_reports_the_source_of_every_switch(self):
+        # The same argument the foreign-pipeline line above is here for: by the time the proxy
+        # discloses this in `switch_state` the fabric is already up.
+        self.set_telemetry_knob("link")
+        plan, said = self.plan()
+        self.assertEqual(plan.telemetry_knob, "link")
+        self.assertEqual(plan.telemetry_sources, {dpid: "link" for dpid in range(1, 11)})
+        self.assertIn("telemetry: link (knob) -> 10 link", said)
+
+    def test_with_no_knob_the_plan_reports_the_rule_that_was_applied(self):
+        plan, said = self.plan()
+        self.assertIsNone(plan.telemetry_knob)
+        self.assertIn("telemetry: auto (no knob) -> 10 cooperative", said)
+
     def test_the_plan_says_which_package_and_which_model_it_chose(self):
         # FINDING-01: a round that ran the wrong tree's topology for hours with no line of
         # output that could have caught it. Both mains print these two now; the bridge did not.
@@ -1526,12 +1597,48 @@ class LinkTelemetryUnderTheKnobTest(FabricFixture):
                                     "--manifest", self.link_manifest])
 
     def test_the_filters_are_on_before_the_emitter_is_started(self):
-        # Order, not presence: a filter attached after the listener joined would have lost
-        # nothing, but a listener started before its own manifest exists has nothing to map
-        # samples with -- and the manifest cannot be written until the pid exists.
+        # 🔴 ORDER, WHICH IS WHAT THIS CELL IS NAMED FOR -- it used to assert only that both
+        # lists were non-empty, which the opposite order satisfies just as well.
+        #
+        # Attach first because a `tc` that fails is then a failure with no process to clean up:
+        # `start_link_telemetry`'s recovery detaches, and it cannot stop an emitter whose pid
+        # was never written down (the manifest is what carries it). Start the emitter first and
+        # a mid-way attach failure leaves a process holding a psample group that nothing --
+        # not this teardown, not the next bring-up -- can address.
         self.bring_up()
-        self.assertTrue(self.sub.ran, "no tc ran at all")
-        self.assertTrue(self.sub.started, "the emitter was never started")
+        kinds = self.sub.kinds()
+        self.assertIn("popen", kinds, "the emitter was never started")
+        self.assertEqual(kinds.count("popen"), 1)
+        before = kinds[:kinds.index("popen")]
+        self.assertEqual(sorted(set(before)), ["filter", "qdisc"],
+                         "something other than the filters ran before the emitter")
+        self.assertEqual(len(before), 76, "not every filter was on before the emitter started")
+        self.assertEqual(kinds[kinds.index("popen") + 1:], [],
+                         "a tc command ran after the emitter was started")
+
+    def test_the_manifest_is_written_after_the_emitter_so_it_can_carry_its_pid(self):
+        # The manifest is the only handle anything downstream gets on that process, and it is
+        # written with `proc.pid` -- so writing it first would record None and every later
+        # reader (`ndt status`, `verify_p4`, teardown, the next bring-up) would have nothing to
+        # address. Pinned by order, not only by the value, because a value can be right by luck.
+        order = []
+        real = link_telemetry.write_manifest
+
+        def write_manifest(plan, emitter_pid, path=None, log_path=None):
+            order.append(("write_manifest", emitter_pid))
+            return real(plan, emitter_pid, path=path, log_path=log_path)
+        self.patch(link_telemetry, "write_manifest", write_manifest)
+        original_popen = self.sub.Popen
+
+        def popen(argv, **kwargs):
+            proc = original_popen(argv, **kwargs)
+            order.append(("popen", proc.pid))
+            return proc
+        self.sub.Popen = popen
+        self.bring_up()
+        self.assertEqual([step for step, _pid in order], ["popen", "write_manifest"])
+        self.assertEqual(order[0][1], order[1][1])
+        self.assertEqual(self.link_manifest_contents()["pid"], order[0][1])
 
     def test_the_manifest_names_the_pid_the_rate_and_every_port(self):
         self.bring_up()
@@ -1745,24 +1852,33 @@ class NothingIsLeftAttachedOnAPathNoTeardownRunsTest(FabricFixture):
         super().setUp()
         self.set_telemetry_knob("link")
 
-    def test_an_attach_that_failed_takes_off_what_it_had_already_put_on(self):
-        # 🔴 The manifest is not written until the emitter exists, so `tear_down` -- which reads
-        # it -- would find nothing to undo. Both mains' abort paths would then leave `clsact` on
-        # whichever interfaces got that far.
-        self.sub.rc = 0
-        calls = []
+    def fail_attach_at(self, device):
+        """Make the `tc filter add` for `device` fail, the way a missing veth does."""
         original = self.sub.run
 
         def run(argv, **kwargs):
-            calls.append(list(argv))
-            if "s5-eth" in " ".join(argv) and argv[1] == "filter":
+            if device in " ".join(argv) and argv[1] == "filter":
                 self.sub.rc = 2
             return original(argv, **kwargs)
         self.sub.run = run
-        with self.assertRaises(link_telemetry.LinkTelemetryError):
-            self.bring_up()
-        deletes = [c for c in calls if c[1:3] == ["qdisc", "del"]]
+
+    def test_an_attach_that_failed_takes_off_what_it_had_already_put_on(self):
+        # 🔴 The manifest is not written until the emitter exists, so `tear_down` -- which reads
+        # it -- would find nothing to undo. Without this recovery both mains would leave
+        # `clsact` on whichever interfaces got that far.
+        self.fail_attach_at("s5-eth")
+        _plan, _net, (_n, _s, fatal, _v, _u) = self.bring_up()
+        self.assertTrue(fatal)
+        deletes = [c for c in self.sub.ran if c[1:3] == ["qdisc", "del"]]
         self.assertTrue(deletes, "a failed attach left every qdisc it had installed behind")
+
+    def test_an_attach_that_failed_started_no_emitter_to_be_orphaned(self):
+        # The other half of why attach comes first: there is no process to stop, and no pid
+        # written down that anything could stop it BY.
+        self.fail_attach_at("s5-eth")
+        self.bring_up()
+        self.assertEqual(self.sub.started, [])
+        self.assertFalse(os.path.exists(self.link_manifest))
 
     def test_a_previous_runs_emitter_is_stopped_before_a_new_fabric_is_built(self):
         # `mn -c` does not touch it, exactly as `mn -c` does not touch bmv2. An emitter orphaned
@@ -1782,9 +1898,94 @@ class NothingIsLeftAttachedOnAPathNoTeardownRunsTest(FabricFixture):
         self.patch(testbed, "clear_switches_from_a_previous_run",
                    lambda ports=(), **kw: ([], []))
         self.patch(testbed, "abort_if_grpc_ports_are_held", lambda held, **kw: None)
-        testbed.reset_for_bring_up([30051], settle_s=0.0)
+        said = io.StringIO()
+        with contextlib.redirect_stdout(said):
+            testbed.reset_for_bring_up([30051], settle_s=0.0)
         self.assertEqual(stopped, [4242])
         self.assertFalse(os.path.exists(self.link_manifest))
+        # 🔴 AND IT SAID SO. Everything else this function reaps is announced -- the switch
+        # reap prints what it took, `abort_if_grpc_ports_are_held` names the holder -- because
+        # "something killed my process" is exactly the kind of fact that is unanswerable later.
+        # A stale emitter killed in silence would be the one exception, for no reason.
+        self.assertIn("link telemetry: emitter pid 4242 term", said.getvalue())
+
+
+class ARefusalInsideTheBringUpIsAVerdictAndNotATracebackTest(FabricFixture):
+    """🔴 F1. `bring_up` is not inside either main's `except ValueError` -- only `plan_fabric` is.
+
+    `link_telemetry.plan` refuses four things (a switch in its own netns, an unreadable ifindex,
+    two interfaces aliasing in psample's sixteen bits, a link switch with no agent address),
+    `attach` a fifth, and the knob reader a sixth. Every one is a ValueError, and for a long
+    time this file called that "both mains already catch it". They do -- around `plan_fabric`,
+    which has already returned by then. By the time these fire, `net` has been built and
+    STARTED, and a bare raise would unwind out of `bring_up` past a `tear_down` that is only
+    ever reached through the `fatal` return: a running fabric, no manifest, whatever filters
+    got attached, and the traceback in a tmux pane that stops existing when the process does.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.set_telemetry_knob("link")
+        # Two interfaces that collide in the low sixteen bits: `plan()` refuses, because
+        # whichever alias won, every sample from the other would be booked against it.
+        self.patch(link_telemetry, "read_ifindex",
+                   lambda ifname, sys_root=None: {"s1-eth1": 0x00010001,
+                                                  "s2-eth1": 0x00020001}.get(
+                                                      ifname, fake_ifindex(ifname)))
+
+    def test_it_comes_back_as_a_fatal_verdict_that_names_the_reason(self):
+        _plan, _net, (_n, _s, fatal, verdict, _u) = self.bring_up()
+        self.assertTrue(fatal, "a fabric whose link telemetry was refused was not fatal")
+        self.assertIn("link telemetry could not be brought up", verdict)
+        self.assertIn("s1-eth1", verdict)
+        self.assertIn("attributed to the other", verdict)
+
+    def test_a_dead_switch_and_a_refusal_are_both_reported(self):
+        _plan, _net, (_n, _s, fatal, verdict, _u) = self.bring_up(healthy=False)
+        self.assertTrue(fatal)
+        self.assertIn("0/10", verdict)
+        self.assertIn("link telemetry could not be brought up", verdict)
+
+    def drive(self, main, **extra):
+        nets = []
+        self.patch(testbed, "build_net", lambda package, model: nets.append(
+            RecordingNet(package, model)) or nets[-1])
+        self.patch(testbed, "reset_for_bring_up", lambda ports, settle_s=0.5: None)
+        self.patch(testbed, "CLI", lambda net: None)
+        self.patch(link_telemetry, "process_is_the_emitter", lambda pid, **kw: False)
+        with self.assertRaises(SystemExit) as ctx:
+            main(**extra)
+        self.assertEqual(ctx.exception.code, 1)
+        self.assertEqual(len(nets), 1)
+        return nets[0]
+
+    def test_the_topology_script_stops_the_net_it_started(self):
+        # 🔴 THE CELL THE FIRST ROUND WAS MISSING. `net.stopped` is the whole question: a
+        # refusal that unwound would leave this False and a fabric up.
+        self.assertTrue(self.drive(testbed.main).stopped)
+
+    def test_the_bridge_stops_the_net_it_started(self):
+        # And the bridge above all, because `ndtwin-lab topo-start` launches THIS one.
+        self.assertTrue(self.drive(ntg.main, enter_cli=lambda net: None).stopped)
+
+    def test_nothing_is_left_attached_and_no_emitter_was_started(self):
+        self.drive(testbed.main)
+        self.assertEqual(self.sub.started, [],
+                         "an emitter was started for a plan that was refused")
+        # `plan()` refused before `attach`, so there is nothing to detach -- and nothing was
+        # attached either. The fabric is exactly as it was, minus the net.
+        self.assertEqual(self.sub.tc(), [])
+        self.assertFalse(os.path.exists(self.link_manifest))
+
+    def test_a_defect_in_this_code_is_still_a_traceback(self):
+        # 🔴 The catch is ValueError and stays ValueError. A verdict that swallowed an
+        # AttributeError would turn a bug in this file into "the fabric is partly up", which is
+        # the shape the fatal verdict exists to stop being.
+        def boom(*_a, **_k):
+            raise AttributeError("a defect, not a fabric verdict")
+        self.patch(link_telemetry, "plan", boom)
+        with self.assertRaises(AttributeError):
+            self.bring_up()
 
 
 # --- 8. both entry points, on the link path --------------------------------------------------
@@ -1817,8 +2018,7 @@ class TheTwoEntryPointsBringLinkTelemetryUpTheSameWayTest(FabricFixture):
         self.patch(testbed, "CLI", lambda net: None)
         self.patch(testbed, "tear_down", tear_down)
         self.patch(link_telemetry, "process_is_the_emitter", lambda pid, **kw: False)
-        self.sub.ran = []
-        self.sub.started = []
+        self.sub.reset()
         main(**extra)
         return {"tc": self.sub.tc(), "started": self.sub.started,
                 "manifest": recorded.get("manifest")}
