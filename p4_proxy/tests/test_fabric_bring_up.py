@@ -42,6 +42,7 @@ import importlib.util
 import json
 import os
 import shutil
+import signal
 import sys
 import tempfile
 import types
@@ -56,6 +57,7 @@ sys.path.insert(0, MININET_DIR)
 import app_package  # noqa: E402
 import topo_from_json  # noqa: E402
 import topo_log  # noqa: E402
+import link_telemetry  # noqa: E402
 
 FOUR_HOST_MODEL = os.path.join(REPO, "setting", "StaticNetworkTopologyP4_10Switches_4Hosts.json")
 HOST_128_MODEL = os.path.join(REPO, "setting", "StaticNetworkTopologyP4_10Switches_128Hosts.json")
@@ -89,6 +91,16 @@ class StubSwitchBase:
 
     def stop(self, deleteIntfs=True):
         self.stopped = True
+
+
+class StubTCLink:
+    """mininet.link.TCLink, as a name `build_net` can pass and a test can identify.
+
+    It is never instantiated here: what is on trial is WHETHER it reaches Mininet's `link=`
+    keyword, because a fabric nobody asked to shape must keep getting the plain Link it has
+    always had (an htb qdisc on every interface changes the timing of every reading ever taken
+    on this fabric).
+    """
 
 
 class StubTopo:
@@ -127,7 +139,7 @@ def install_mininet_stubs():
         "mininet.node": {"Switch": StubSwitchBase, "Host": type("Host", (), {})},
         "mininet.cli": {"CLI": type("CLI", (), {"__init__": lambda self, net: None})},
         "mininet.log": {"setLogLevel": lambda *a, **k: None, "info": lambda *a, **k: None},
-        "mininet.link": {"Intf": StubIntf},
+        "mininet.link": {"Intf": StubIntf, "TCLink": StubTCLink},
     }
     for name, attrs in stubs.items():
         mod = sys.modules.get(name) or types.ModuleType(name)
@@ -399,6 +411,82 @@ def load_package_fixture():
     return app_package.load(directory)
 
 
+class FakeProcess:
+    """A `subprocess.Popen` that is a pid and an exit status, and nothing else."""
+
+    def __init__(self, pid=4242, exits=None):
+        self.pid = pid
+        #: None means "still running". A list is consumed one poll at a time, which is how the
+        #: "it died during the grace period" case is written without a real process.
+        self._exits = list(exits) if isinstance(exits, list) else exits
+        self.polls = 0
+
+    def poll(self):
+        """None until the scripted status is reached, and that status for ever after.
+
+        Latching matters: a real `Popen.poll()` does not un-exit, so a fake that answered the
+        next element of a list on every call would let production code pass this suite by
+        calling `poll()` a different number of times than it does live.
+        """
+        self.polls += 1
+        if isinstance(self._exits, list):
+            if self._exits:
+                status = self._exits.pop(0)
+                if status is None:
+                    return None
+                self._exits = status
+                return status
+            return None
+        return self._exits
+
+
+class FakeSubprocess:
+    """`subprocess`, for a suite that is forbidden to run `tc` or start a process.
+
+    🔴 INSTALLED FOR EVERY CASE IN THIS FILE, not only the link-telemetry ones. TICKET-P3
+    section 0 forbids this suite from running `tc`, and `link_telemetry.attach` resolves
+    `subprocess.run` out of its own module globals at call time -- so replacing the module
+    attribute is what makes "a unit test cannot shell out" a property of the fixture rather
+    than of each test remembering to patch.
+    """
+
+    PIPE = -1
+
+    class CompletedProcess:
+        def __init__(self, argv, returncode=0, stderr=b""):
+            self.args = argv
+            self.returncode = returncode
+            self.stderr = stderr
+            self.stdout = b""
+
+    def __init__(self):
+        self.ran = []
+        self.started = []
+        self.rc = 0
+        self.process = None
+
+    def run(self, argv, **kwargs):
+        self.ran.append(list(argv))
+        return self.CompletedProcess(list(argv), returncode=self.rc)
+
+    def Popen(self, argv, **kwargs):          # noqa: N802 -- subprocess spells it this way
+        self.started.append(list(argv))
+        self.process = self.process or FakeProcess()
+        return self.process
+
+    # --- what the assertions read ------------------------------------------------------
+    def tc(self):
+        """Every `tc` command line, as a string, in order."""
+        return [" ".join(argv) for argv in self.ran if argv and argv[0] == "tc"]
+
+
+#: ifindexes for the offline suites: `sN-ethM` -> a number nothing on this machine owns.
+#: Deterministic and stated here rather than read from /sys, which a unit test has no veth in.
+def fake_ifindex(ifname, sys_root="/sys/class/net"):
+    switch, _, port = ifname.partition("-eth")
+    return 1000 + int(switch[1:]) * 10 + int(port or 0)
+
+
 class FabricFixture(unittest.TestCase):
     """Base: the machine's own knob, host count and binary replaced by this file's."""
 
@@ -433,6 +521,37 @@ class FabricFixture(unittest.TestCase):
         self.reaped_paths = []
         self.patch(testbed, "reap_manifest_switches",
                    lambda path=None, **kwargs: (self.reaped_paths.append(path), [])[1])
+
+        # --- link telemetry (TICKET-P3 sections 2.1, 2.5) ----------------------------------
+        #
+        # 🔴 FOUR THINGS THIS SUITE MUST NOT REACH, and all four are the machine's:
+        #   * the telemetry knob next to the topology script -- an operator's `link` would
+        #     otherwise make every case in this file build a different fabric;
+        #   * /tmp/ndtwin_link_telemetry.json -- `tear_down` reads it and SIGTERMs the pid it
+        #     names, so a suite run while a fabric is up would kill that fabric's emitter;
+        #   * `tc` and `Popen`, which section 0 forbids outright;
+        #   * /sys/class/net, which has no `s1-eth1` unless somebody has a fabric up -- in
+        #     which case it has one belonging to a DIFFERENT fabric.
+        self.telemetry_knob_path = os.path.join(self.tmp, "telemetry_override")
+        self.patch(app_package, "TELEMETRY_KNOB_PATH", self.telemetry_knob_path)
+        self.link_manifest = os.path.join(self.tmp, "ndtwin_link_telemetry.json")
+        self.patch(link_telemetry, "LINK_TELEMETRY_MANIFEST", self.link_manifest)
+        self.patch(link_telemetry, "read_ifindex", fake_ifindex)
+        self.sub = FakeSubprocess()
+        self.patch(link_telemetry, "subprocess", self.sub)
+        # The three-second liveness grace is real time in production and dead time here. The
+        # loop that spends it has its own case (StartingTheEmitterTest), which is where it is
+        # allowed to cost something.
+        self.patch(link_telemetry, "EMITTER_STARTUP_GRACE_S", 0.0)
+
+    def set_telemetry_knob(self, word):
+        """Write the knob `ndt up p4 --telemetry <word>` writes."""
+        with open(self.telemetry_knob_path, "w") as fh:
+            fh.write(word + "\n")
+
+    def link_manifest_contents(self):
+        with open(self.link_manifest) as fh:
+            return json.load(fh)
 
     def stub_module(self, name, module=None):
         old = sys.modules.get(name)
@@ -486,6 +605,7 @@ class FabricFixture(unittest.TestCase):
         net = RecordingNet(plan.package, plan.model, healthy=healthy, outputs=outputs)
         result = testbed.bring_up(plan.package, plan.model, net=net,
                                   manifest_path=self.manifest,
+                                  link_manifest_path=self.link_manifest,
                                   verify_timeout=verify_timeout,
                                   report=(report if report is not None else lambda _line: None))
         return plan, net, result
@@ -1201,6 +1321,511 @@ class PlanFabricRefusesBeforeAnythingIsTornDownTest(FabricFixture):
         self.assertTrue(any(line.startswith("app package: ") for line in said), said)
         self.assertTrue(any(line.startswith("topology model: ") for line in said), said)
         self.assertTrue(any(line.startswith("bmv2 binary: ") for line in said), said)
+
+
+# --- 6. G2-C: TCLink only when the package shaped something (TICKET-P3 section 2.4) ---------
+
+
+class RecordingMininet:
+    """Mininet's constructor, recorded. `build_net`'s whole subject is what it is called with."""
+
+    def __init__(self, **kwargs):
+        self.kwargs = kwargs
+        RecordingMininet.last = self
+
+
+def shaped_package_fixture(name, edits):
+    """CONVERTER_BASIC with `edits` applied to its `links`, laid out and loaded."""
+    path = os.path.join(HERE, "test_app_package.py")
+    spec = importlib.util.spec_from_file_location("test_app_package_fixture_source", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    manifest = json.loads(json.dumps(module.CONVERTER_BASIC))
+    edits(manifest["links"])
+    directory = module.lay_out_converter_package(
+        _TMP, manifest, name,
+        entry_files=[spec_["entries"] for spec_ in manifest["switches"].values()])
+    return app_package.load(directory)
+
+
+class TheMininetConstructorTest(FabricFixture):
+    """`link=TCLink` reaches Mininet if and only if this package shaped a cable."""
+
+    def setUp(self):
+        super().setUp()
+        self.patch(testbed, "Mininet", RecordingMininet)
+
+    def build(self, package):
+        plan, _said = self.plan() if package is None else (None, None)
+        if package is None:
+            package, model = plan.package, plan.model
+        else:
+            model = topo_from_json.load(package.topology)
+        return testbed.build_net(package, model).kwargs
+
+    def test_the_baseline_is_the_constructor_call_this_fabric_has_always_made(self):
+        # 🔴 EQUAL, not "contains". The claim G2-C has to keep is that a fabric nobody asked to
+        # shape is built exactly as before, and `assertIn` would pass with `link=TCLink` beside
+        # the other three. Written from the literal in build_net's own first branch.
+        kwargs = self.build(None)
+        self.assertEqual(sorted(kwargs), ["autoSetMacs", "controller", "topo"])
+        self.assertIs(kwargs["controller"], None)
+        self.assertIs(kwargs["autoSetMacs"], True)
+        self.assertIsInstance(kwargs["topo"], testbed.MultiSwitchTopo)
+
+    def test_a_package_that_shapes_nothing_is_also_the_call_it_has_always_been(self):
+        # pod-topo's every link is 1 Gbit/s with no delay, which is convert.py's default for a
+        # tutorials link that declares neither -- so `basic` must not drag TCLink in.
+        kwargs = self.build(load_package_fixture())
+        self.assertEqual(sorted(kwargs), ["autoSetMacs", "controller", "topo"])
+
+    def test_a_bandwidth_a_package_shaped_brings_tclink_in(self):
+        package = shaped_package_fixture(
+            "shaped_bw", lambda links: links[2].__setitem__("bandwidth_bps", 500000))
+        kwargs = self.build(package)
+        self.assertIs(kwargs["link"], StubTCLink)
+
+    def test_a_delay_alone_brings_tclink_in(self):
+        # Bandwidth left at the default: `delay_ms` on its own is shaping too, which is the
+        # half of section 2.4's condition a `bandwidth_bps != DEFAULT` test cannot reach.
+        package = shaped_package_fixture(
+            "shaped_delay", lambda links: links[2].__setitem__("delay_ms", 5))
+        self.assertIs(self.build(package)["link"], StubTCLink)
+
+
+class OnlyTheShapedCablesCarryShapingTest(FabricFixture):
+    """`bw=`/`delay=` land on the declared cable and on no other."""
+
+    def topo_for(self, package):
+        return testbed.MultiSwitchTopo(package=package,
+                                       model=topo_from_json.load(package.topology))
+
+    def kwargs_by_cable(self, topo):
+        return {(a, kw.get("port1"), b, kw.get("port2")):
+                {k: v for k, v in kw.items() if k not in ("port1", "port2")}
+                for a, b, kw in topo.link_calls}
+
+    def test_an_unshaped_package_adds_no_link_argument_anywhere(self):
+        for kwargs in self.kwargs_by_cable(self.topo_for(load_package_fixture())).values():
+            self.assertEqual(kwargs, {})
+
+    def test_the_shaped_cable_gets_bw_in_mbit_and_the_others_get_nothing(self):
+        # links[2] of CONVERTER_BASIC is {"a": ["s1", 3], "b": ["s3", 1]}: an inter-switch
+        # cable, and the shape ecn/mri declare (`["s1-p3", "s2-p3", "0", 0.5]` -> 500000 bps).
+        package = shaped_package_fixture(
+            "only_one_shaped", lambda links: links[2].__setitem__("bandwidth_bps", 500000))
+        cables = self.kwargs_by_cable(self.topo_for(package))
+        self.assertEqual(cables[("s1", 3, "s3", 1)], {"bw": 0.5})
+        others = [k for k, v in cables.items() if v and k != ("s1", 3, "s3", 1)]
+        self.assertEqual(others, [], "shaping leaked onto a cable the package did not shape")
+
+    def test_a_host_cable_can_be_shaped_too_and_is_matched_by_name_and_port(self):
+        package = shaped_package_fixture(
+            "shaped_host", lambda links: links[0].update({"bandwidth_bps": 2000000,
+                                                          "delay_ms": 1.5}))
+        cables = self.kwargs_by_cable(self.topo_for(package))
+        # `{"a": ["h1", 1], "b": ["s1", 1]}`, and MultiSwitchTopo builds host cables as
+        # (host, switch, port1=1, port2=port) -- so the match has to be unordered.
+        self.assertEqual(cables[("h1", 1, "s1", 1)], {"bw": 2.0, "delay": "1.5ms"})
+
+    def test_a_declared_zero_delay_is_no_delay_at_all(self):
+        # tutorials' own rule, and convert.py's: ecn's `["s1-p3", "s2-p3", "0", 0.5]` asks for
+        # the same delay pod-topo's `["h1", "s1-p1"]` asks for -- none. A netem for it would be
+        # a qdisc the exercise never asked for.
+        package = shaped_package_fixture(
+            "zero_delay", lambda links: links[2].update({"delay_ms": 0}))
+        self.assertEqual(app_package.shaped_links(package), [])
+        for kwargs in self.kwargs_by_cable(self.topo_for(package)).values():
+            self.assertEqual(kwargs, {})
+
+
+# --- 7. link telemetry (TICKET-P3 sections 2.1, 2.2, 2.5) ------------------------------------
+
+
+class LinkTelemetryIsOffUnlessSomethingAsksForItTest(FabricFixture):
+    """The baseline, and the byte-identical claim that goes with it."""
+
+    def test_no_knob_and_ndtwins_pipeline_means_no_tc_and_no_emitter(self):
+        said = []
+        self.bring_up(report=said.append)
+        self.assertEqual(self.sub.tc(), [])
+        self.assertEqual(self.sub.started, [])
+        self.assertFalse(os.path.exists(self.link_manifest))
+
+    def test_the_bring_up_says_why_it_is_off_rather_than_saying_nothing(self):
+        said = []
+        self.bring_up(report=said.append)
+        line = [l for l in said if l.startswith("link telemetry:")]
+        self.assertEqual(line, ["link telemetry: off (no switch is on the link path "
+                                "(10 cooperative))"])
+
+    def test_telemetry_none_switches_it_off_and_says_so(self):
+        self.set_telemetry_knob("none")
+        said = []
+        self.bring_up(report=said.append)
+        self.assertEqual(self.sub.tc(), [])
+        self.assertIn("link telemetry: off (no switch is on the link path (10 none))", said)
+
+
+class LinkTelemetryUnderTheKnobTest(FabricFixture):
+    """`--telemetry link` on NDTwin's own ten-switch fabric: every filter, word for word."""
+
+    def setUp(self):
+        super().setUp()
+        self.set_telemetry_knob("link")
+
+    def test_every_port_gets_an_ingress_filter_and_only_host_ports_an_egress_one(self):
+        self.bring_up()
+        ingress = [c for c in self.sub.tc() if " ingress " in c]
+        egress = [c for c in self.sub.tc() if " egress " in c]
+        # 16 inter-switch cables = 32 switch-side ends, plus 4 host-facing ports.
+        self.assertEqual(len(ingress), 36)
+        # 🔴 FOUR, one per host. An egress filter on every port would double-count every
+        # inter-switch link: the kernel already credits those from the RECEIVING switch's
+        # ingress sample, and the one direction with no receiving switch is switch->host.
+        self.assertEqual(len(egress), 4)
+        self.assertEqual(sorted(c.split()[4] for c in egress),
+                         ["s1-eth3", "s2-eth3", "s3-eth3", "s4-eth3"])
+
+    def test_s1s_commands_are_the_ones_the_spike_measured(self):
+        # 🔴 TRANSCRIBED from spike-tc-sample/spike.sh, which was run live on 2026-09-17 --
+        # not read back from link_telemetry's own composer. s1 carries switch ports 1 and 2 and
+        # host h1 on port 3, which tools/test_workflow/test_topo_from_json.py pins.
+        self.bring_up()
+        s1 = [c for c in self.sub.tc() if " s1-eth" in c]
+        self.assertEqual(s1, [
+            "tc qdisc add dev s1-eth1 clsact",
+            "tc filter add dev s1-eth1 ingress matchall action sample rate 256 group 27 "
+            "trunc 128",
+            "tc qdisc add dev s1-eth2 clsact",
+            "tc filter add dev s1-eth2 ingress matchall action sample rate 256 group 27 "
+            "trunc 128",
+            "tc qdisc add dev s1-eth3 clsact",
+            "tc filter add dev s1-eth3 ingress matchall action sample rate 256 group 27 "
+            "trunc 128",
+            "tc filter add dev s1-eth3 egress matchall action sample rate 256 group 27 "
+            "trunc 128",
+        ])
+
+    def test_the_rate_is_the_one_compiled_into_ndtwins_own_pipeline(self):
+        # 1-in-256 on both telemetry paths, which is what makes the section 2.8 arms
+        # comparable: a link arm at another rate would differ in two ways at once.
+        self.assertEqual(link_telemetry.LINK_SAMPLE_RATE, 256)
+        self.assertEqual(link_telemetry.LINK_SAMPLE_TRUNC, 128)
+
+    def test_the_emitter_is_started_with_the_manifest_it_has_to_read(self):
+        self.bring_up()
+        self.assertEqual(len(self.sub.started), 1)
+        argv = self.sub.started[0]
+        self.assertEqual(argv[1:], [link_telemetry.EMITTER_PATH,
+                                    "--manifest", self.link_manifest])
+
+    def test_the_filters_are_on_before_the_emitter_is_started(self):
+        # Order, not presence: a filter attached after the listener joined would have lost
+        # nothing, but a listener started before its own manifest exists has nothing to map
+        # samples with -- and the manifest cannot be written until the pid exists.
+        self.bring_up()
+        self.assertTrue(self.sub.ran, "no tc ran at all")
+        self.assertTrue(self.sub.started, "the emitter was never started")
+
+    def test_the_manifest_names_the_pid_the_rate_and_every_port(self):
+        self.bring_up()
+        document = self.link_manifest_contents()
+        self.assertEqual(document["pid"], 4242)
+        self.assertEqual(document["rate"], 256)
+        self.assertEqual(document["group"], 27)
+        self.assertEqual(document["ifindex_width"], 16)
+        self.assertEqual(document["sub_agent_id"], 1)
+        self.assertEqual(document["collector"], ["127.0.0.1", 6343])
+        self.assertEqual(len(document["switches"]), 10)
+        s1 = document["switches"][0]
+        self.assertEqual(s1["dpid"], 1)
+        self.assertEqual(s1["agent_ip"], "192.168.123.11")
+        self.assertEqual(sorted(s1["ports"]), ["1", "2", "3"])
+        self.assertEqual(s1["ports"]["3"],
+                         {"ifname": "s1-eth3", "ifindex": 1013, "key": 1013,
+                          "ingress": True, "egress": True})
+        self.assertEqual(s1["ports"]["1"]["egress"], False)
+
+    def test_the_agent_address_is_the_one_the_kernel_looks_samples_up_by(self):
+        # AgentKey{agentIP, port}: an address the kernel's topology does not hold produces
+        # telemetry attributed to nothing -- no error, an empty twin.
+        self.bring_up()
+        document = self.link_manifest_contents()
+        self.assertEqual([s["agent_ip"] for s in document["switches"]],
+                         [f"192.168.123.{10 + d}" for d in range(1, 11)])
+
+    def test_the_bring_up_line_counts_the_switches_and_the_filters(self):
+        said = []
+        self.bring_up(report=said.append)
+        self.assertIn("link telemetry: 10 switch(es), 36 ingress + 4 egress filters, "
+                      "emitter pid 4242", said)
+
+    def test_the_manifest_records_the_tc_commands_that_were_run(self):
+        self.bring_up()
+        recorded = [" ".join(argv) for argv in self.link_manifest_contents()["tc_commands"]]
+        self.assertEqual(recorded, self.sub.tc())
+
+
+class TearingLinkTelemetryDownTest(FabricFixture):
+    """The emitter, then the filters, then the net -- and the manifest last."""
+
+    def setUp(self):
+        super().setUp()
+        self.set_telemetry_knob("link")
+        self.events = []
+        # Mutable rather than re-patched: `stop_emitter` binds its predicate once, on the way
+        # in, so a SIGTERM that "worked" has to be observable through the same callable.
+        self.emitter_alive = [True]
+        self.patch(link_telemetry, "process_is_the_emitter",
+                   lambda pid, **kw: pid == 4242 and self.emitter_alive[0])
+
+        def kill(pid, sig):
+            self.events.append(("kill", pid, sig))
+            self.emitter_alive[0] = False       # it went on the SIGTERM
+        self.kill = kill
+
+    def tear_down(self):
+        _plan, net, (built, _s, _f, _r, _u) = self.bring_up()
+        original_run = self.sub.run
+
+        def run(argv, **kwargs):
+            self.events.append(("tc", " ".join(argv)))
+            return original_run(argv, **kwargs)
+        self.sub.run = run
+        original_stop = net.stop
+
+        def stop():
+            self.events.append(("net.stop",))
+            return original_stop()
+        net.stop = stop
+        testbed.tear_down(built, manifest_path=self.manifest,
+                          link_manifest_path=self.link_manifest,
+                          report=lambda _line: None)
+        return net
+
+    def test_the_emitter_is_signalled_by_the_pid_the_manifest_named(self):
+        self.patch(link_telemetry, "stop_emitter",
+                   lambda pid, **kw: self.events.append(("stop", pid)) or "term")
+        self.tear_down()
+        self.assertIn(("stop", 4242), self.events)
+
+    def test_the_qdiscs_come_off_before_the_net_is_stopped(self):
+        # 🔴 ORDER. `net.stop()` deletes the veths; a `tc qdisc del` after it is addressed to
+        # devices that are gone, so the filters would come off only by accident.
+        self.patch(link_telemetry, "stop_emitter", lambda pid, **kw: "term")
+        self.tear_down()
+        kinds = [e[0] for e in self.events]
+        self.assertIn("net.stop", kinds)
+        first_del = min(i for i, e in enumerate(self.events)
+                        if e[0] == "tc" and "qdisc del" in e[1])
+        self.assertLess(first_del, kinds.index("net.stop"))
+
+    def test_every_interface_that_was_given_a_qdisc_gets_it_taken_away(self):
+        self.patch(link_telemetry, "stop_emitter", lambda pid, **kw: "term")
+        self.tear_down()
+        removed = [e[1].split()[4] for e in self.events
+                   if e[0] == "tc" and "qdisc del" in e[1]]
+        self.assertEqual(len(removed), 36)
+        self.assertEqual(sorted(set(removed)), sorted(removed),
+                         "an interface was detached twice")
+
+    def test_the_emitter_is_sigtermed_and_then_left_alone_when_it_goes(self):
+        self.patch(link_telemetry, "os", _OsWithKill(self.kill))
+        self.tear_down()
+        self.assertEqual([e for e in self.events if e[0] == "kill"],
+                         [("kill", 4242, signal.SIGTERM)])
+
+    def test_the_manifest_is_gone_afterwards(self):
+        self.patch(link_telemetry, "stop_emitter", lambda pid, **kw: "term")
+        self.tear_down()
+        self.assertFalse(os.path.exists(self.link_manifest))
+
+    def test_a_teardown_with_no_link_telemetry_at_all_is_quiet(self):
+        # The baseline path, and the one every existing case in this file takes.
+        fate, removed, document = link_telemetry.shut_down(
+            os.path.join(self.tmp, "no_such_manifest.json"))
+        self.assertEqual((fate, removed, document), (None, [], None))
+
+
+class _OsWithKill:
+    """`os`, with `kill` replaced. Everything else is the real module."""
+
+    def __init__(self, kill):
+        self.kill = kill
+
+    def __getattr__(self, name):
+        return getattr(os, name)
+
+
+class AnEmitterThatDiedIsFatalTest(FabricFixture):
+    """Section 2.5: not a warning. The filters are on and nothing is listening."""
+
+    def setUp(self):
+        super().setUp()
+        self.set_telemetry_knob("link")
+
+    def test_a_fabric_whose_emitter_exited_is_refused(self):
+        self.sub.process = FakeProcess(pid=777, exits=9)
+        _plan, _net, (_n, _s, fatal, verdict, _u) = self.bring_up()
+        self.assertTrue(fatal, "ten healthy switches and a dead emitter was not fatal")
+        self.assertIn("exited with 9", verdict)
+        self.assertIn("zero link usage", verdict)
+
+    def test_a_live_emitter_on_a_healthy_fabric_is_not_fatal_and_says_nothing(self):
+        _plan, _net, (_n, _s, fatal, verdict, _u) = self.bring_up()
+        self.assertFalse(fatal)
+        self.assertIsNone(verdict)
+
+    def test_a_dead_switch_and_a_dead_emitter_are_both_reported(self):
+        # An operator told only about the switch fixes half of it.
+        self.sub.process = FakeProcess(pid=777, exits=1)
+        _plan, _net, (_n, _s, fatal, verdict, _u) = self.bring_up(healthy=False)
+        self.assertTrue(fatal)
+        self.assertIn("0/10", verdict)
+        self.assertIn("link-telemetry emitter", verdict)
+
+
+class StartingTheEmitterTest(FabricFixture):
+    """The grace period itself, which every other case patches to zero."""
+
+    def setUp(self):
+        super().setUp()
+        self.set_telemetry_knob("link")
+
+    def start(self, process, grace_s, slept=None):
+        plan, _said = self.plan()
+        net = RecordingNet(plan.package, plan.model)
+        switches = [net.get(name) for _d, name in topo_from_json.switches(plan.model)]
+        self.sub.process = process
+        return testbed.start_link_telemetry(
+            plan.package, plan.model, switches, manifest_path=self.link_manifest,
+            report=lambda _line: None, grace_s=grace_s,
+            sleep=(slept.append if slept is not None else lambda _s: None))
+
+    def test_an_emitter_that_survives_the_grace_period_is_polled_until_it_expires(self):
+        slept = []
+        result = self.start(FakeProcess(pid=11), grace_s=0.5, slept=slept)
+        self.assertFalse(result.fatal)
+        # 0.5s in 0.1s steps: five sleeps, and it was asked each time rather than once.
+        self.assertEqual(len(slept), 5)   # 0.5s in 0.1s steps, stated as a trip count
+
+    def test_an_emitter_that_dies_during_the_grace_period_is_caught(self):
+        # Alive for the first two polls, gone on the third: the case a single poll at t=0
+        # cannot see, which is the whole reason there is a grace period.
+        slept = []
+        result = self.start(FakeProcess(pid=11, exits=[None, None, 3]),
+                            grace_s=1.0, slept=slept)
+        self.assertTrue(result.fatal)
+        self.assertIn("exited with 3", result.verdict)
+        self.assertLess(len(slept), 10, "the loop did not stop when the process did")
+
+
+class NothingIsLeftAttachedOnAPathNoTeardownRunsTest(FabricFixture):
+    """The two ways a `clsact` qdisc could outlive the process that installed it."""
+
+    def setUp(self):
+        super().setUp()
+        self.set_telemetry_knob("link")
+
+    def test_an_attach_that_failed_takes_off_what_it_had_already_put_on(self):
+        # 🔴 The manifest is not written until the emitter exists, so `tear_down` -- which reads
+        # it -- would find nothing to undo. Both mains' abort paths would then leave `clsact` on
+        # whichever interfaces got that far.
+        self.sub.rc = 0
+        calls = []
+        original = self.sub.run
+
+        def run(argv, **kwargs):
+            calls.append(list(argv))
+            if "s5-eth" in " ".join(argv) and argv[1] == "filter":
+                self.sub.rc = 2
+            return original(argv, **kwargs)
+        self.sub.run = run
+        with self.assertRaises(link_telemetry.LinkTelemetryError):
+            self.bring_up()
+        deletes = [c for c in calls if c[1:3] == ["qdisc", "del"]]
+        self.assertTrue(deletes, "a failed attach left every qdisc it had installed behind")
+
+    def test_a_previous_runs_emitter_is_stopped_before_a_new_fabric_is_built(self):
+        # `mn -c` does not touch it, exactly as `mn -c` does not touch bmv2. An emitter orphaned
+        # by a closed terminal holds a psample group and writes sFlow the kernel attributes to a
+        # fabric that no longer exists.
+        stale = link_telemetry.plan(app_package.baseline(),
+                                    topo_from_json.load(FOUR_HOST_MODEL),
+                                    [], knob_path=self.telemetry_knob_path)
+        link_telemetry.write_manifest(stale, 4242, path=self.link_manifest)
+        stopped = []
+        self.patch(link_telemetry, "stop_emitter",
+                   lambda pid, **kw: stopped.append(pid) or "term")
+        # 🔴 `reset_for_bring_up` runs `sudo mn -c`. TICKET-P3 section 0 forbids this suite
+        # from touching Mininet at all, so the one call that would is replaced -- restored by
+        # addCleanup whether this case passes or fails.
+        self.patch(testbed.os, "system", lambda _cmd: 0)
+        self.patch(testbed, "clear_switches_from_a_previous_run",
+                   lambda ports=(), **kw: ([], []))
+        self.patch(testbed, "abort_if_grpc_ports_are_held", lambda held, **kw: None)
+        testbed.reset_for_bring_up([30051], settle_s=0.0)
+        self.assertEqual(stopped, [4242])
+        self.assertFalse(os.path.exists(self.link_manifest))
+
+
+# --- 8. both entry points, on the link path --------------------------------------------------
+
+
+class TheTwoEntryPointsBringLinkTelemetryUpTheSameWayTest(FabricFixture):
+    """The section-4.2 claim: this is one bring-up, so it is one on the link path too."""
+
+    def setUp(self):
+        super().setUp()
+        self.set_telemetry_knob("link")
+
+    def drive(self, main, **extra):
+        recorded = {}
+        real_tear_down = testbed.tear_down
+
+        def tear_down(net, manifest_path=None, report=print, link_manifest_path=None):
+            try:
+                with open(link_manifest_path or self.link_manifest) as fh:
+                    recorded["manifest"] = json.load(fh)
+            except (OSError, ValueError):
+                recorded["manifest"] = None
+            return real_tear_down(net, manifest_path=manifest_path, report=report,
+                                  link_manifest_path=link_manifest_path or self.link_manifest)
+
+        nets = []
+        self.patch(testbed, "build_net", lambda package, model: nets.append(
+            RecordingNet(package, model)) or nets[-1])
+        self.patch(testbed, "reset_for_bring_up", lambda ports, settle_s=0.5: None)
+        self.patch(testbed, "CLI", lambda net: None)
+        self.patch(testbed, "tear_down", tear_down)
+        self.patch(link_telemetry, "process_is_the_emitter", lambda pid, **kw: False)
+        self.sub.ran = []
+        self.sub.started = []
+        main(**extra)
+        return {"tc": self.sub.tc(), "started": self.sub.started,
+                "manifest": recorded.get("manifest")}
+
+    def test_both_mains_attach_the_same_filters_and_start_the_same_emitter(self):
+        # 🔴 `ndtwin-lab topo-start` launches the BRIDGE. For as long as the two files carried
+        # two copies of the bring-up, a feature landing in the other one was a feature that
+        # never ran. This is that assertion for link telemetry.
+        from_topo = self.drive(testbed.main)
+        from_bridge = self.drive(ntg.main, enter_cli=lambda net: None)
+        self.assertEqual(from_topo, from_bridge)
+        # 36 clsact qdiscs + 36 ingress + 4 egress filters on the way up, and one `qdisc del`
+        # per interface on the way down. Spelled out rather than as a total, because a total
+        # cannot tell "the egress filters went missing" from "four extra deletes".
+        commands = from_topo["tc"]
+        self.assertEqual(len([c for c in commands if "qdisc add" in c]), 36)
+        self.assertEqual(len([c for c in commands if "filter add" in c and " ingress " in c]), 36)
+        self.assertEqual(len([c for c in commands if "filter add" in c and " egress " in c]), 4)
+        self.assertEqual(len([c for c in commands if "qdisc del" in c]), 36)
+
+    def test_the_default_manifest_path_is_the_one_every_other_reader_uses(self):
+        # Neither main passes a path -- `ndt status`, `verify_p4` and the proxy's
+        # `switch_state` all find the emitter through this one name.
+        self.assertEqual(link_telemetry.LINK_TELEMETRY_MANIFEST, self.link_manifest)
 
 
 if __name__ == "__main__":
