@@ -660,6 +660,26 @@ add "72. an exercise can sit in the table with no scripted steps" \
         "topo": "topology.json",' \
     'test_all_thirteen_exercises_are_in_the_table'
 
+# 73-74: 🔴 exercises/p4runtime has NO solution/*.p4. Measured by reading the real tree on
+# 2026-09-19 -- advanced_tunnel.p4 has no TODO in it, the exercise IS the controller, and both
+# arms run the same pipeline. Either half of the flag that says so is a round that never starts,
+# or a round that silently compiles the skeleton and calls it the solution.
+add "73. the controller-variant exercises look for a solution/*.p4 that is not there" \
+    "$DRIVER" \
+    '    if which == "skeleton" or spec.get("variant") == "controller":' \
+    '    if which == "skeleton":  # MUTANT' \
+    'test_p4runtime_compiles_the_same_program_on_both_arms'
+
+add "74. a missing solution/*.p4 silently falls back to the skeleton everywhere" \
+    "$DRIVER" \
+    '    if cands:
+        return cands[0], base
+    return None, base' \
+    '    if cands:
+        return cands[0], base
+    return os.path.join(exdir, spec["prog"]), base  # MUTANT' \
+    'test_an_exercise_with_no_solution_program_is_still_an_error_everywhere_else'
+
 CTRL_SRC="$DRIVER"
 CTRL_ANCHOR='def host_key(name):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.

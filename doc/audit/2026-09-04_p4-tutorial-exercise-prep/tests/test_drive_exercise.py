@@ -1122,6 +1122,37 @@ class TheThirteen(unittest.TestCase):
         red = {ex: s["red_arm"] for ex, s in self.mod.EXERCISES.items() if s.get("red_arm")}
         self.assertEqual({"flowcache": "compile", "basic_tunnel": "entries"}, red)
 
+    def test_p4runtime_compiles_the_same_program_on_both_arms(self):
+        """🔴 exercises/p4runtime ships solution/mycontroller.py and NO solution/*.p4.
+
+        advanced_tunnel.p4 has no TODO in it -- the exercise IS the controller -- so both arms
+        run the same pipeline. Without `variant: controller` pick_source returns None for the
+        solution arm and the round stops with "no .p4 source for p4runtime/solution" before it
+        starts anything. Measured by reading the real tree on 2026-09-19.
+        """
+        tmp = tempfile.mkdtemp(prefix="drv-p4rt-")
+        build_tut_root(tmp)
+        exdir = os.path.join(tmp, "exercises", "p4runtime")
+        os.remove(os.path.join(exdir, "solution", "advanced_tunnel.p4"))
+        for which in ("skeleton", "solution"):
+            with self.subTest(which=which):
+                src, base = self.mod.pick_source(exdir, self.mod.EXERCISES["p4runtime"], which)
+                self.assertEqual(os.path.join(exdir, "advanced_tunnel.p4"), src)
+                self.assertEqual("advanced_tunnel", base)
+
+    def test_an_exercise_with_no_solution_program_is_still_an_error_everywhere_else(self):
+        """🔴 THE CONTROL for the flag above. `variant: controller` is explicit rather than
+        "fall back to the skeleton whenever solution/ has no .p4", because for every other
+        exercise a missing solution/*.p4 IS the error -- and a silent fallback would compile
+        the SKELETON and report it as the solution arm.
+        """
+        tmp = tempfile.mkdtemp(prefix="drv-nosol-")
+        build_tut_root(tmp)
+        exdir = os.path.join(tmp, "exercises", "flowcache")
+        os.remove(os.path.join(exdir, "solution", "flowcache.p4"))
+        src, base = self.mod.pick_source(exdir, self.mod.EXERCISES["flowcache"], "solution")
+        self.assertIsNone(src)
+
     def test_only_the_two_external_controller_exercises_name_a_controller(self):
         ctrl = {ex: s["controller"] for ex, s in self.mod.EXERCISES.items()
                 if s.get("controller")}

@@ -252,8 +252,13 @@ EXERCISES = {
         "prog": "advanced_tunnel.p4",
         "default_prog": "advanced_tunnel.p4",
         "hosts": 3, "switches": 3,
-        # The .p4 has no TODO at all: the exercise is the CONTROLLER, and the skeleton's gap
-        # is the transit rule (mycontroller.py:76 prints "TODO Install transit tunnel rule").
+        # 🔴 The .p4 has no TODO at all and there is NO solution/*.p4: the exercise is the
+        # CONTROLLER, and the skeleton's gap is the transit rule (mycontroller.py:76 prints
+        # "TODO Install transit tunnel rule"). Both arms therefore compile the SAME program,
+        # which is what `variant: controller` says -- without it pick_source finds nothing to
+        # compile for the solution arm and the round stops before it starts.
+        # exercises/flowcache is the control: it ships solution/flowcache.p4 as well.
+        "variant": "controller",
         "controller": "mycontroller.py",
         "plan_steps": "run the exercise's controller; h1 ping h2; assert the transit rule and the ping",
     },
@@ -636,9 +641,22 @@ def preflight(ex, which, exdir, fabric="tutorials"):
 
 
 def pick_source(exdir, spec, which):
-    """Return (source .p4 path, output basename) for the requested variant."""
+    """Return (source .p4 path, output basename) for the requested variant.
+
+    🔴 ONE EXERCISE'S VARIANT IS NOT ITS PROGRAM. exercises/p4runtime ships
+    solution/mycontroller.py and NO solution/*.p4: advanced_tunnel.p4 has no TODO in it,
+    the exercise IS the controller, and both arms run the same pipeline. Without
+    spec["variant"] == "controller" this function returns None there and `main()` stops
+    with "no .p4 source for p4runtime/solution" -- measured 2026-09-19 by reading the real
+    tree, before the orchestrator's live round rather than during it.
+
+    The flag is explicit rather than "fall back to the skeleton when solution/ has no .p4",
+    because for every other exercise a missing solution/*.p4 IS the error this returns None
+    for. exercises/flowcache is the control: it has BOTH solution/flowcache.p4 and
+    solution/mycontroller.py, so its two arms differ in the program as well.
+    """
     base = spec["prog"][:-3]                       # what sX-runtime.json names
-    if which == "skeleton":
+    if which == "skeleton" or spec.get("variant") == "controller":
         return os.path.join(exdir, spec["prog"]), base
     cands = sorted(glob.glob(os.path.join(exdir, "solution", "*.p4")))
     for c in cands:
