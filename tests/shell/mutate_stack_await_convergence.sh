@@ -274,6 +274,25 @@ EOF
 check_fires "M8: the skip line stops naming the list it read" m8 \
             "  and quoting the list it read"
 
+# --- M9: the skip is announced and then not taken ----------------------------------------------
+# 🔴 THE LINE IS PRINTED AND THE WAIT HAPPENS ANYWAY. Every reader of the log sees
+# `link discovery: NOT WAITED` and every bring-up still burns the whole CONVERGE_WAIT -- the
+# report and the behaviour disagree, and the report is the half anybody would ever check. None
+# of the message cells notices, because the message is right. What sees it is the path poll that
+# should not have happened, and the wait announcement printed underneath a line saying there
+# would not be one.
+cat > "$A/m9.old" <<'EOF'
+            info "  link discovery: NOT WAITED -- the proxy says it sends no LLDP on this fabric (control_plane.skipped: ${skipped//,/, })"
+            return 0
+EOF
+cat > "$A/m9.new" <<'EOF'
+            info "  link discovery: NOT WAITED -- the proxy says it sends no LLDP on this fabric (control_plane.skipped: ${skipped//,/, })"
+EOF
+check_fires "M9: the skip is announced and then not taken" m9 \
+            "🔴 the path count is never polled at all" \
+            "🔴 it does NOT announce a wait it is not doing" \
+            "  with no path poll"
+
 # --- the controls: two behaviour-preserving rewrites -------------------------------------------
 # 🔴 Without these the round says nothing. A harness that reported red for ANY edit would print
 # `8 caught, 0 survived` above while catching nothing at all.

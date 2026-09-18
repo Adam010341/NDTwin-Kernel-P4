@@ -665,6 +665,52 @@ EOF
 check_fires "M33: an unreadable package is treated as somebody else's pipeline" m33 \
             "  pipeline kind 'unreadable' still counts paths"
 
+# --- M34: THE LIVE DEFECT ITSELF, in the form it shipped in ----------------------------------
+#
+# 🔴 THE ONE MUTATION THIS WHOLE TICKET IS ABOUT, and the first round did not have it. Every
+# other mutation here attacks a piece of the new branch; this one deletes the branch and puts
+# `365c60e1` back. A foreign fabric falls into the counting loop, polls forty times for twelve
+# destination paths the proxy has said it will never install, reads four, and ends
+# `up, but not verified -- do not measure on this` -- which is exactly what
+# `live-p1/runs/2026-09-18T095025Z_02_app_basic/20_up.txt` says, over a fabric whose twelve
+# ordered pairs then pinged at 0% loss. The entries gate goes with it (it lives in the same
+# branch), so the one thing NDTwin IS responsible for on that fabric stops being checked at the
+# same moment the thing it is not responsible for starts failing the bring-up.
+#
+# 🔴 THE ANCHOR CARRIES THE LINE ABOVE IT. `    elif [[ -n "$foreign" ]]; then` occurs three
+# times in verify_p4 -- the paths branch, the data-plane branch and the caveat -- so the elif
+# alone would be a DUP and this mutation would be scored as a survivor rather than applied.
+# The external branch's last warn is unique, and it is the line this elif hangs off.
+cat > "$A/m34.old" <<'EOF'
+        warn "  tools/p4_exercise/run_external_controller.py <pkg> <controller.py>"
+    elif [[ -n "$foreign" ]]; then
+EOF
+cat > "$A/m34.new" <<'EOF'
+        warn "  tools/p4_exercise/run_external_controller.py <pkg> <controller.py>"
+    elif false; then
+EOF
+check_fires "M34: the live defect -- a package fabric is counted after all" m34 \
+            "🔴 a package pipeline ends ready, not 'never settled'" \
+            "🔴 it does NOT count paths and call four of twelve a failure" \
+            "🔴 and NAMES the package fabric's path count as not checked" \
+            "🔴 the entries the proxy applied are reported"
+
+# --- M35: the entries gate runs and its answer is thrown away ---------------------------------
+# The `ok` and the three `err` lines still print, the dpid is still named, and the bring-up
+# still ends `up. ready`. A gate whose verdict nobody reads is a gate that is not there -- and
+# this is the shape that survives a reading of the output, because the output is right.
+cat > "$A/m35.old" <<'EOF'
+        verify_p4_package_entries "$state" || rc=1
+EOF
+cat > "$A/m35.new" <<'EOF'
+        verify_p4_package_entries "$state"
+EOF
+check_fires "M35: the entries gate's verdict is ignored" m35 \
+            "🔴 one refused entry fails the bring-up" \
+            "🔴 applied < recorded with 0 failed is red too" \
+            "🔴 a switch that reports no table_entries is red" \
+            "🔴 refusals are red even when the counts add up"
+
 # --- the controls: two behaviour-preserving rewrites -----------------------------------------
 # 🔴 Without these the round says nothing. A harness that reported red for ANY edit would print
 # `11 caught, 0 survived` above while catching nothing at all, and these are the edits that tell

@@ -1001,7 +1001,12 @@ verify_p4 '$PKG_OK/ndtwin/topology.json' 12 '$2' '$3'"
 # --- §3.2-1: the path count, and the proxy's own word for why ---------------------------------
 OUT="$(vp4 "$SS_GOOD" ndtwin foreign:1,2,3,4)"
 check "🔴 a package pipeline ends ready, not 'never settled'" "0" "$(rc_of "$OUT")"
-has   "🔴 and NAMES the path count as not checked"        "proxy: destination paths NOT CHECKED" "$OUT"
+# 🔴 A NAME NO OTHER CELL IN THIS FILE HAS. The external section already says "and NAMES the
+# path count as not checked" about its own branch, and mutate_ndt_app_package.sh's check_fires
+# matches a required red BY THE CELL'S TEXT -- so a mutation aimed at this branch would have
+# been satisfied by the external cell going red instead. Two cells with one name are two
+# answers to "which check caught it".
+has   "🔴 and NAMES the package fabric's path count as not checked" "proxy: destination paths NOT CHECKED" "$OUT"
 has   "  naming the dpids the package's program is on"    "runs on dpid" "$OUT"
 has   "  and quoting what the proxy said it skipped"      "control_plane.skipped: install_initial_routes, link_watchdog, lldp_discovery" "$OUT"
 hasnt "🔴 it does NOT count paths and call four of twelve a failure" "never settled" "$OUT"
