@@ -140,6 +140,42 @@ restore_knob() {
     note "host_count_override put back to what this step found"
 }
 
+# --- the telemetry knob (TICKET-P3 §2.1) --------------------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 THE SAME SNAPSHOT-AND-RESTORE AS THE HOST KNOB, AND FOR THE OPPOSITE REASON. `ndt release`
+# REFUSES while host_count_override differs, so a step that forgot that one finds out at once.
+# NOTHING refuses over p4_proxy/mininet/telemetry_override: `ndt down` does not clear it (§2.1 --
+# it is a standing choice about the NEXT fabric, not a description of this one) and `ndt release`
+# does not read it. So a step that moved it and walked away decides the next bring-up's telemetry
+# source with nothing on any screen saying so, and the only protection is this pair.
+#
+# 🔴 BYTES, NOT THE WORD, for the same reason as the host knob: the file may carry a comment the
+# operator wrote, and rewriting it to a bare word is not a restore.
+TEL_KNOB="$REPO/p4_proxy/mininet/telemetry_override"
+TEL_ENTRY_COPY=""
+snapshot_telemetry_knob() {
+    TEL_ENTRY_COPY="$RUN/00_telemetry_override.entry"
+    if [[ -e "$TEL_KNOB" ]]; then
+        cp -p "$TEL_KNOB" "$TEL_ENTRY_COPY"
+        note "telemetry_override snapshot taken ($(tr -d '\n' < "$TEL_KNOB" | head -c 40))"
+    else
+        TEL_ENTRY_COPY="(absent)"
+        note "telemetry_override does not exist; it will be removed again at the end"
+    fi
+}
+restore_telemetry_knob() {
+    [[ -n "$TEL_ENTRY_COPY" ]] || return 0
+    if [[ "$TEL_ENTRY_COPY" == "(absent)" ]]; then
+        [[ -e "$TEL_KNOB" ]] && note "telemetry_override removed (this step created it)"
+        rm -f "$TEL_KNOB"; return 0
+    fi
+    cmp -s "$TEL_ENTRY_COPY" "$TEL_KNOB" 2>/dev/null && return 0
+    cp -p "$TEL_ENTRY_COPY" "$TEL_KNOB" || { bad "could NOT put telemetry_override back -- the bytes are in $TEL_ENTRY_COPY"; return 1; }
+    cmp -s "$TEL_ENTRY_COPY" "$TEL_KNOB" || { bad "put telemetry_override back and it did NOT take"; return 1; }
+    note "telemetry_override put back to what this step found"
+}
+
 take_claim() {   # take_claim <note>
     say "claiming the lab"
     if ! "$NDT" claim "$CLAIM_MINUTES" "$1" 2>&1 | sed 's/^/   /'; then
@@ -186,6 +222,9 @@ finish() {
         fi
     fi
     restore_knob || true
+    # TICKET-P3 §2.1: beside the host knob, in the same place, for the reason
+    # restore_telemetry_knob's own note gives -- nothing downstream refuses over this one.
+    restore_telemetry_knob || true
     if (( CLAIMED )); then
         "$NDT" release 2>&1 | sed 's/^/   /' || bad "'ndt release' did not take -- run it by hand"
     fi
@@ -223,6 +262,7 @@ start_step() {
     require_root
     require_free_lab
     snapshot_knob
+    snapshot_telemetry_knob
 }
 
 # --- captures ---------------------------------------------------------------------------------
@@ -528,4 +568,288 @@ pingall_loss() {
       done
     done
     echo "PINGALL_LOSS pairs=$pairs zero_loss=$zero lossy=$lossy untested=$untested"
+}
+
+# --- TICKET-P3 §2.7: the generic cell -- link usage follows the iperf path ---------------------
+#
+# [Co-developed with claude code -- Adam]
+#
+# 🔴 WHY THIS CELL IS PROGRAM-INDEPENDENT, AND WHY THAT IS THE POINT. Every other acceptance
+# this suite carries is a claim about one exercise's program: source_routing's ttl, firewall's
+# blocked direction, link_monitor's port field. This one is a claim about NDTwin: while a flow
+# crosses the fabric, the twin's `link_bandwidth_usage_bps` must be non-zero on the interfaces
+# that carried it and zero on the inter-switch interfaces that did not -- whatever program the
+# switches are running. It is the assertable half of TICKET-P3 §2.2's "record the link bytes
+# BEFORE you ask what the flow was".
+#
+# 🔴 GROUND TRUTH IS /proc/net/dev AND THE TWIN IS THE SUBJECT. The on-path set is not written
+# down here and is not derived from the topology: it is measured, as the tx_bytes delta on each
+# `sN-ethP` across the same window, and it is the only thing the assertion is allowed to be
+# about. A path this file typed out would be this file agreeing with itself, and would be wrong
+# the first time an exercise's own control plane routed a flow the other way round the pod.
+#
+# 🔴 THE KEY IS `ndt check`'s KEY, not a second spelling of it. `s<src_dpid>-eth<src_interface>`
+# is how cmd_check already joins the twin's edges to /proc/net/dev (ndt:6168-6170), and two
+# readers of one join is how the same fabric gets two answers.
+#
+# 🔴 WHAT THE NUMBERS ARE FOR. The integral is a bit-count over the NOMINAL window (each sample
+# weighted by 1/HZ), not over the measured wall clock, and it is used for exactly one thing:
+# telling zero from non-zero. A curl that took longer than its slot stretches the real window
+# without moving that verdict. The measured span is printed beside it so the reader can see
+# both, and no rate is ever quoted from this cell -- `ndt check` is the instrument for rates.
+
+#: An interface that moved less than this across the window did not carry the flow. 10 kB, not
+#: "> 0 bytes": LLDP, ARP and the proxy's own probes keep every link faintly busy, and a
+#: threshold of zero would put every interface in the fabric on the path.
+: "${LINK_USAGE_ONPATH_BYTES:=10000}"
+#: A host-facing edge OFF the path may still carry ARP. 5 kbit over the window, and only for
+#: host-facing edges: an inter-switch edge off the path must integrate to EXACTLY zero, which
+#: is the half of the assertion that has teeth.
+: "${LINK_USAGE_NOISE_BITS:=5000}"
+#: The twin refreshes usage once a second; sample above that. Same rate as cmd_check.
+: "${LINK_USAGE_HZ:=4}"
+#: `iperf -u -b 2M -t 8`, TICKET-P3 §2.7 verbatim.
+: "${LINK_USAGE_SECONDS:=8}"
+: "${LINK_USAGE_RATE:=2M}"
+
+# netdev_tx <out> -- "<iface> <tx_bytes>" for every sN-ethP, from /proc/net/dev. The switches
+# are in the ROOT namespace (Mininet's addSwitch defaults to inNamespace=False), so this file
+# is where their veth ends are counted and no mnexec is needed.
+netdev_tx() {
+    "$PY" -c '
+import re, sys
+out = open(sys.argv[1], "w")
+iface = re.compile(r"^s\d+-eth\d+$")
+for line in open("/proc/net/dev"):
+    if ":" not in line:
+        continue
+    name, rest = line.split(":", 1)
+    name = name.strip()
+    if iface.match(name):
+        out.write("%s %d\n" % (name, int(rest.split()[8])))
+' "$1"
+}
+
+# onpath_ifaces <before> <after> [threshold-bytes] -- the interfaces that carried the flow,
+# one per line, sorted. THE MEASUREMENT, not a list this file knows.
+#
+# 🔴 An interface that appears in only one of the two readings is NOT on the path and is not
+# silently zero either: it is skipped and named on stderr, because "the interface went away
+# mid-window" and "it moved no bytes" are different facts and only one of them is a reading.
+onpath_ifaces() {
+    "$PY" -c '
+import sys
+thresh = int(sys.argv[3])
+def read(p):
+    d = {}
+    for line in open(p):
+        parts = line.split()
+        if len(parts) == 2:
+            d[parts[0]] = int(parts[1])
+    return d
+b, a = read(sys.argv[1]), read(sys.argv[2])
+for k in sorted(set(b) ^ set(a)):
+    sys.stderr.write("   onpath_ifaces: %s is in only one of the two readings -- skipped\n" % k)
+for k in sorted(set(b) & set(a)):
+    if a[k] - b[k] > thresh:
+        print(k)
+' "$1" "$2" "${3:-$LINK_USAGE_ONPATH_BYTES}"
+}
+
+# twin_usage_integral <out> <seconds> [hz] -- poll /ndt/get_graph_data and integrate each
+# edge's reported rate over the window. Writes "<key> <bits> <switch|host>" per edge, sorted,
+# and a trailing "# samples=<n> span=<s>" comment. rc 1 when the graph never answered.
+#
+# 🔴 EVERY EDGE, INCLUDING HOST-FACING ONES. cmd_check deliberately compares inter-switch edges
+# only, because it is computing a ratio and the two populations have to match. This cell is not
+# a ratio: the switch->host edge is where TICKET-P3 §2.2's egress-only sample lands, so leaving
+# it out would leave out the half of the mechanism this round is here to see. The kind travels
+# with the key so the assertion can hold the two to different standards.
+twin_usage_integral() {
+    local out="$1" secs="${2:-$LINK_USAGE_SECONDS}" hz="${3:-$LINK_USAGE_HZ}"
+    local n=$(( secs * hz )) i t0 t1 tmp
+    tmp="$(mktemp "${TMPDIR:-/tmp}/twin-usage-XXXXXX")"
+    t0="$(date +%s)"
+    for (( i = 0; i < n; i++ )); do
+        curl -s --max-time 5 "$KERNEL_URL/ndt/get_graph_data" >> "$tmp" 2>/dev/null
+        printf '\n\036\n' >> "$tmp"
+        sleep "$(awk "BEGIN{print 1/$hz}")"
+    done
+    t1="$(date +%s)"
+    "$PY" -c '
+import json, sys
+src, out, hz, span = sys.argv[1], sys.argv[2], float(sys.argv[3]), sys.argv[4]
+dt = 1.0 / hz
+bits, kind, n = {}, {}, 0
+for blob in open(src, errors="replace").read().split("\036"):
+    blob = blob.strip()
+    if not blob:
+        continue
+    try:
+        g = json.loads(blob)
+    except Exception:
+        continue
+    sw = {node["dpid"] for node in g.get("nodes", []) if node.get("vertex_type") == 0}
+    if not sw:
+        continue
+    n += 1
+    for e in g.get("edges", []):
+        try:
+            key = "s%s-eth%s" % (e["src_dpid"], e["src_interface"])
+            v = float(e.get("link_bandwidth_usage_bps") or 0.0)
+        except Exception:
+            continue
+        if e["src_dpid"] not in sw:
+            continue                      # host->switch direction: no sN-ethP carries it
+        bits[key] = bits.get(key, 0.0) + v * dt
+        kind[key] = "switch" if e.get("dst_dpid") in sw else "host"
+fh = open(out, "w")
+for key in sorted(bits):
+    fh.write("%s %.3f %s\n" % (key, bits[key], kind[key]))
+fh.write("# samples=%d span=%ss\n" % (n, span))
+sys.exit(0 if n else 1)
+' "$tmp" "$out" "$hz" "$(( t1 - t0 ))"
+    local rc=$?
+    rm -f "$tmp"
+    (( rc == 0 )) || bad "twin_usage_integral: /ndt/get_graph_data never answered with a switch in it -- there is no twin reading for this window"
+    return $rc
+}
+
+# assert_link_usage_follows_path <onpath-file> <integral-file> <label> -- THE CELL.
+#   * every interface that carried the flow has a twin edge, and that edge integrated > 0;
+#   * every inter-switch edge that did NOT carry it integrated to exactly 0;
+#   * every host-facing edge that did not carry it stayed under LINK_USAGE_NOISE_BITS.
+# rc 0 when all three hold. Each disagreement is a named `fail`.
+#
+# 🔴 AN EMPTY ON-PATH SET IS REFUSED. With nothing measured as on-path the first clause is
+# vacuous and the second is "every edge is zero", which a fabric that moved no packet at all
+# satisfies perfectly -- and that fabric is exactly what a broken iperf, a missing sudo grant
+# and a dead switch all look like. Same control await_kernel_up_set and
+# assert_probe_ok_follows_set carry, for the same reason.
+#
+# 🔴 AN ON-PATH INTERFACE WITH NO TWIN EDGE IS RED, not skipped. "The twin does not model this
+# link" is the most important thing this cell can find, and skipping it would report the gap as
+# a clean run.
+assert_link_usage_follows_path() {
+    local onpath="$1" integral="$2" label="$3" rc=0 key bits kind
+    if [[ ! -s "$onpath" ]]; then
+        fail "$label: the on-path interface set is EMPTY -- nothing measurably carried the flow, so 'usage follows the path' is a sentence about a fabric that moved no packets"
+        return 1
+    fi
+    if [[ ! -s "$integral" ]]; then
+        fail "$label: there is no twin integral for this window"
+        return 1
+    fi
+    while read -r key; do
+        [[ -n "$key" ]] || continue
+        read -r _ bits kind < <(/usr/bin/grep -m1 "^$key " "$integral"; printf ' \n')
+        if [[ -z "$kind" ]]; then
+            fail "$label: $key carried the flow and the twin has NO edge for it -- the link is not modelled, which is a gap this cell exists to find"
+            rc=1; continue
+        fi
+        if [[ "$(awk "BEGIN{print ($bits > 0) ? 1 : 0}")" == 1 ]]; then
+            note "$label: on-path  $key  $bits bit  ($kind)"
+        else
+            fail "$label: $key carried the flow and the twin integrated $bits bit over the window"
+            rc=1
+        fi
+    done < "$onpath"
+    while read -r key bits kind; do
+        [[ "$key" == \#* || -z "$key" ]] && continue
+        /usr/bin/grep -qx -- "$key" "$onpath" && continue
+        if [[ "$kind" == switch ]]; then
+            if [[ "$(awk "BEGIN{print ($bits != 0) ? 1 : 0}")" == 1 ]]; then
+                fail "$label: $key is an inter-switch link that did NOT carry the flow and the twin integrated $bits bit on it"
+                rc=1
+            fi
+        else
+            if [[ "$(awk "BEGIN{print ($bits >= $LINK_USAGE_NOISE_BITS) ? 1 : 0}")" == 1 ]]; then
+                fail "$label: $key is a host-facing link off the path and the twin integrated $bits bit, over the ${LINK_USAGE_NOISE_BITS} bit ARP allowance"
+                rc=1
+            fi
+        fi
+    done < "$integral"
+    (( rc == 0 )) && note "$label: link usage follows the iperf path"
+    return $rc
+}
+
+# assert_link_usage_absent <onpath-file> <integral-file> <label> -- THE POSITIVE CONTROL.
+# The same window with the telemetry source set to `none`: every interface that carried the
+# flow must integrate to EXACTLY zero in the twin. Without this the cell above has no
+# discriminating power -- a twin that reported a constant non-zero on every edge would pass it.
+assert_link_usage_absent() {
+    local onpath="$1" integral="$2" label="$3" rc=0 key bits kind
+    if [[ ! -s "$onpath" ]]; then
+        fail "$label (control): the on-path interface set is EMPTY -- with no traffic measured, 'the twin reports nothing' is true of any twin at all"
+        return 1
+    fi
+    while read -r key; do
+        [[ -n "$key" ]] || continue
+        read -r _ bits kind < <(/usr/bin/grep -m1 "^$key " "$integral" 2>/dev/null; printf ' \n')
+        if [[ -z "$kind" ]]; then
+            note "$label (control): $key has no twin edge at all"
+            continue
+        fi
+        if [[ "$(awk "BEGIN{print ($bits != 0) ? 1 : 0}")" == 1 ]]; then
+            fail "$label (control): telemetry is off and the twin still integrated $bits bit on $key, which carried the flow -- the cell above has no discriminating power"
+            rc=1
+        else
+            note "$label (control): $key carried the flow and the twin reports 0 bit, as it must with no sampling"
+        fi
+    done < "$onpath"
+    (( rc == 0 )) && note "$label (control): with telemetry off the twin reports nothing on the path"
+    return $rc
+}
+
+# link_usage_round <package-dir> <label> <out-dir> [expect] -- the whole measurement, once.
+# `expect` is `follows` (the cell) or `absent` (the positive control).
+#
+# 🔴 ONE IMPLEMENTATION, TWO CALLERS. live-p1/05 runs it three times and drive_exercise.py's
+# ndtwin arm runs it once at the end of every exercise (TICKET-P3 §2.7). A driver with its own
+# copy of this rule would be a second instrument, and "the same cell on 13 exercises" would be
+# a comparison of thirteen runs of one script against three of another.
+#
+# 🔴 h1 -> the LAST host the package's model declares, so the flow crosses the fabric rather
+# than staying on one switch. Which hosts those are is read from the model, never typed.
+link_usage_round() {
+    local pkg="$1" label="$2" dir="$3" expect="${4:-follows}"
+    local src dst dst_ip pid_s pid_c rc=0
+    mkdir -p "$dir"
+    src="$(model_hosts "$pkg" | head -1 | cut -d' ' -f1)"
+    read -r dst dst_ip < <(model_hosts "$pkg" | tail -1)
+    if [[ -z "$src" || -z "$dst" || -z "$dst_ip" || "$src" == "$dst" ]]; then
+        fail "$label: the package model does not name two hosts to run a flow between (src='$src' dst='$dst')"
+        return 1
+    fi
+    pid_s="$( set +e; source "$NDT" >/dev/null 2>&1; host_pid "$dst" )"
+    pid_c="$( set +e; source "$NDT" >/dev/null 2>&1; host_pid "$src" )"
+    if [[ ! "$pid_s" =~ ^[0-9]+$ || ! "$pid_c" =~ ^[0-9]+$ ]]; then
+        fail "$label: no namespace for $src ($pid_c) or $dst ($pid_s) -- this is a permission/namespace answer, never a reading about link usage"
+        return 2
+    fi
+    note "$label: $src -> $dst ($dst_ip), iperf -u -b $LINK_USAGE_RATE -t $LINK_USAGE_SECONDS"
+    netdev_tx "$dir/netdev.before"
+    sudo -n mnexec -a "$pid_s" iperf -s -u > "$dir/iperf_server.txt" 2>&1 &
+    local srv=$!
+    sleep 1
+    sudo -n mnexec -a "$pid_c" iperf -c "$dst_ip" -u -b "$LINK_USAGE_RATE" -t "$LINK_USAGE_SECONDS" \
+        > "$dir/iperf_client.txt" 2>&1 &
+    local cli=$!
+    twin_usage_integral "$dir/twin_integral.txt" "$LINK_USAGE_SECONDS" "$LINK_USAGE_HZ" || rc=1
+    wait "$cli" 2>/dev/null || true
+    netdev_tx "$dir/netdev.after"
+    # 🔴 The server is stopped by the pid this function started, never by name (CLAUDE.md).
+    kill "$srv" 2>/dev/null || true
+    wait "$srv" 2>/dev/null || true
+    onpath_ifaces "$dir/netdev.before" "$dir/netdev.after" > "$dir/onpath.txt" 2>"$dir/onpath.err"
+    [[ -s "$dir/onpath.err" ]] && sed 's/^/   /' "$dir/onpath.err"
+    note "$label: on-path interfaces: $(tr '\n' ' ' < "$dir/onpath.txt")"
+    if [[ "$expect" == absent ]]; then
+        assert_link_usage_absent "$dir/onpath.txt" "$dir/twin_integral.txt" "$label" || rc=1
+    else
+        assert_link_usage_follows_path "$dir/onpath.txt" "$dir/twin_integral.txt" "$label" || rc=1
+    fi
+    printf 'LINK_USAGE %s expect=%s onpath=%s rc=%s\n' \
+        "$label" "$expect" "$(/usr/bin/grep -c . "$dir/onpath.txt" 2>/dev/null || echo 0)" "$rc"
+    return $rc
 }

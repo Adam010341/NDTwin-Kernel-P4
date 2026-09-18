@@ -283,6 +283,169 @@ OUT="$(drive "assert_probe_ok_follows_set '$SS_OK' '$PKG_BAD' '1,2' 'after skel'
 check "🔴 an unreadable model is refused, not assumed"   "1" "$(rc_of "$OUT")"
 has   "  saying there is no universe to check against"   "no universe to check the probes against" "$OUT"
 
+# =============================================================================================
+section "5. TICKET-P3 §2.7 -- the generic cell: link usage follows the iperf path"
+# =============================================================================================
+# 🔴 THE ONE CHECK IN THIS SUITE THAT IS ABOUT NDTwin RATHER THAN ABOUT AN EXERCISE. Every other
+# acceptance here is a claim about one program: source_routing's ttl, the twin's liveness under
+# p4runtime's controller. This one says that while a flow crosses the fabric the twin's
+# `link_bandwidth_usage_bps` is non-zero exactly on the interfaces that carried it -- whatever
+# program the switches are running -- and it is the assertable half of §2.2's "record the link
+# bytes BEFORE you ask what the flow was".
+#
+# 🔴 THE ON-PATH SET IS MEASURED, NOT WRITTEN DOWN. It is the tx_bytes delta on each `sN-ethP`
+# across the same window. A path this file typed out would be this file agreeing with itself,
+# and would be wrong the first time an exercise's own control plane routed a flow the other way
+# round the pod.
+
+# mkgraph_usage <file> <"<src_dpid>:<port>:<dst_dpid>:<bps>" ...> -- a /ndt/get_graph_data body.
+# dst_dpid 0 is the host placeholder, which is how a host-facing edge is spelled.
+mkgraph_usage() {
+    local f="$1"; shift
+    python3 - "$f" "$@" <<'PYU'
+import json, sys
+nodes = [{"device_name": "s%d" % d, "dpid": d, "vertex_type": 0, "is_up": True}
+         for d in (1, 2, 3)]
+nodes += [{"device_name": "h%d" % h, "dpid": 0, "vertex_type": 1} for h in (1, 2)]
+edges = []
+for spec in sys.argv[2:]:
+    src, port, dst, bps = spec.split(":")
+    edges.append({"src_dpid": int(src), "src_interface": int(port), "dst_dpid": int(dst),
+                  "dst_interface": 1, "link_bandwidth_usage_bps": float(bps)})
+json.dump({"nodes": nodes, "edges": edges}, open(sys.argv[1], "w"))
+PYU
+}
+
+# --- 5a. onpath_ifaces: the measurement -------------------------------------------------------
+cat > "$FIX/nd.before" <<'ND'
+s1-eth1 1000
+s1-eth2 1000
+s1-eth3 1000
+s2-eth1 1000
+ND
+cat > "$FIX/nd.after" <<'ND'
+s1-eth1 2000000
+s1-eth2 1000
+s1-eth3 11001
+s2-eth1 11000
+ND
+OUT="$(drive "onpath_ifaces '$FIX/nd.before' '$FIX/nd.after' | paste -sd, -")"
+check "🔴 only the interfaces that moved bytes are on the path" "s1-eth1,s1-eth3" "$(/usr/bin/grep -v '^RC=' <<<"$OUT" | head -1)"
+# 🔴 THE THRESHOLD IS 10 kB AND NOT "> 0 bytes". LLDP, ARP and the proxy's own probes keep every
+# link faintly busy; with a threshold of zero every interface in the fabric is on every path and
+# the off-path half of the assertion has nothing left to be about. s2-eth1 grew by EXACTLY 10000
+# and is out; s1-eth3 grew by 10001 and is in.
+OUT="$(drive "onpath_ifaces '$FIX/nd.before' '$FIX/nd.after' 1 | paste -sd, -")"
+check "  a threshold of 1 byte puts the noise on the path too" "s1-eth1,s1-eth3,s2-eth1" "$(/usr/bin/grep -v '^RC=' <<<"$OUT" | head -1)"
+
+printf 's1-eth1 1000\n' > "$FIX/nd.short"
+OUT="$(drive "onpath_ifaces '$FIX/nd.short' '$FIX/nd.after'")"
+has   "🔴 an interface in only ONE reading is named, not silently zero" "is in only one of the two readings -- skipped" "$OUT"
+hasnt "  and it is not on the path"                      "s1-eth3" "$(/usr/bin/grep -v 'only one of' <<<"$OUT")"
+
+# --- 5b. twin_usage_integral: the twin's side -------------------------------------------------
+G_USAGE="$FIX/g_usage.json"
+mkgraph_usage "$G_USAGE" 1:1:0:8000 1:3:2:16000 2:3:1:0 3:1:0:0 0:1:1:99999
+OUT="$(drive "GRAPH_SEQ='$G_USAGE'; twin_usage_integral '$FIX/int.txt' 1 4; cat '$FIX/int.txt'")"
+check "  the integral is rc 0 when the graph answered"   "0" "$(rc_of "$OUT")"
+# 1 s at 4 Hz is four samples, each weighted by the nominal 1/4 s: 8000 bps -> 8000 bit.
+has   "  a host-facing edge integrates its rate over the window" "s1-eth1 8000.000 host" "$OUT"
+has   "  and an inter-switch edge is marked as one"      "s1-eth3 16000.000 switch" "$OUT"
+has   "  an edge the twin reports at zero is still listed" "s2-eth3 0.000 switch" "$OUT"
+has   "  with the sample count and the measured span"    "# samples=4" "$OUT"
+# 🔴 THE host->switch DIRECTION IS DROPPED, and it has to be: its key would be `s0-eth1`, which
+# is no interface at all, and /proc/net/dev has nothing to join it to.
+hasnt "🔴 the host->switch direction has no sN-ethP to be" "s0-eth" "$OUT"
+OUT="$(drive "twin_usage_integral '$FIX/int2.txt' 1 4")"
+check "🔴 a graph that never answered is rc 1, not an empty integral" "1" "$(rc_of "$OUT")"
+has   "  saying there is no twin reading for the window" "there is no twin reading for this window" "$OUT"
+
+# --- 5c. assert_link_usage_follows_path -------------------------------------------------------
+mkint() {   # mkint <file> <"<key> <bits> <kind>" ...>
+    local f="$1"; shift
+    : > "$f"
+    local row; for row in "$@"; do printf '%s\n' "$row" >> "$f"; done
+    printf '# samples=4 span=1s\n' >> "$f"
+}
+printf 's1-eth1\ns1-eth3\n' > "$FIX/onpath.txt"
+mkint "$FIX/i_good.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
+                        "s1-eth2 0.000 switch" "s2-eth1 400.000 host"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_good.txt' 'green'")"
+check "  usage on the path and nothing off it is green"  "0" "$(rc_of "$OUT")"
+has   "  and it says so"                                 "green: link usage follows the iperf path" "$OUT"
+
+mkint "$FIX/i_zero.txt" "s1-eth1 8000.000 host" "s1-eth3 0.000 switch" "s1-eth2 0.000 switch"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_zero.txt' 'zero'")"
+check "🔴 an interface that carried the flow and reads 0 is red" "1" "$(rc_of "$OUT")"
+has   "  naming it"                                      "s1-eth3 carried the flow and the twin integrated 0.000 bit" "$OUT"
+
+mkint "$FIX/i_missing.txt" "s1-eth1 8000.000 host"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_missing.txt' 'gap'")"
+check "🔴 an on-path interface with NO twin edge is red"  "1" "$(rc_of "$OUT")"
+has   "  and says the link is not modelled"              "the twin has NO edge for it" "$OUT"
+
+mkint "$FIX/i_offpath.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
+                           "s1-eth2 12.000 switch"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_offpath.txt' 'leak'")"
+check "🔴 an inter-switch link OFF the path must be exactly 0" "1" "$(rc_of "$OUT")"
+has   "  naming it and the bits"                         "s1-eth2 is an inter-switch link that did NOT carry the flow and the twin integrated 12.000 bit" "$OUT"
+
+# 🔴 THE ARP ALLOWANCE IS FOR HOST-FACING EDGES AND ONLY THOSE. A host's link is never quiet --
+# ARP and IPv6 neighbour discovery keep it ticking -- and an exact-zero rule there would make
+# every run red for a reason that has nothing to do with the path.
+mkint "$FIX/i_arp.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
+                       "s2-eth1 4999.000 host"
+check "  a host-facing edge under the ARP allowance is fine" "0" \
+      "$(rc_of "$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_arp.txt' 'arp'")")"
+mkint "$FIX/i_arplot.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
+                          "s2-eth1 5001.000 host"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_arplot.txt' 'arp2'")"
+check "🔴 and one over it is red"                         "1" "$(rc_of "$OUT")"
+has   "  naming the allowance it passed"                 "over the 5000 bit ARP allowance" "$OUT"
+
+# 🔴 THE CONTROL. With nothing measured as on-path the first clause is vacuous and the second is
+# "every edge is zero" -- which a fabric that moved no packet at all satisfies perfectly, and
+# that fabric is what a broken iperf, a missing sudo grant and a dead switch all look like.
+: > "$FIX/onpath_empty.txt"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath_empty.txt' '$FIX/i_good.txt' 'empty'")"
+check "🔴 an EMPTY on-path set is refused, not satisfied" "1" "$(rc_of "$OUT")"
+has   "  saying why"                                     "the on-path interface set is EMPTY" "$OUT"
+# 🔴 rc 1 ALONE DOES NOT SAY IT REFUSED. With the refusal gone the loops still run, every edge
+# falls into the off-path half, and the host-facing one is over the ARP allowance -- rc 1 for a
+# completely different reason, over a window this helper should never have judged. The evidence
+# that it refused is that no edge was named at all.
+hasnt "🔴 and it refuses WITHOUT judging a single edge"   "s1-eth1" "$OUT"
+
+# --- 5d. assert_link_usage_absent: the positive control ---------------------------------------
+# 🔴 WITHOUT THIS THE CELL ABOVE HAS NO DISCRIMINATING POWER. A twin that reported a constant
+# non-zero on every edge would pass "usage follows the path" on every run, for ever.
+mkint "$FIX/i_silent.txt" "s1-eth1 0.000 host" "s1-eth3 0.000 switch"
+OUT="$(drive "assert_link_usage_absent '$FIX/onpath.txt' '$FIX/i_silent.txt' 'none-group'")"
+check "  telemetry off: the twin reports nothing on the path" "0" "$(rc_of "$OUT")"
+has   "  and says what that proves"                      "with telemetry off the twin reports nothing on the path" "$OUT"
+OUT="$(drive "assert_link_usage_absent '$FIX/onpath.txt' '$FIX/i_good.txt' 'none-group'")"
+check "🔴 telemetry off and the twin still reporting is RED" "1" "$(rc_of "$OUT")"
+has   "  because the cell above would then prove nothing" "the cell above has no discriminating power" "$OUT"
+OUT="$(drive "assert_link_usage_absent '$FIX/onpath_empty.txt' '$FIX/i_silent.txt' 'none-group'")"
+check "🔴 and an EMPTY on-path set is refused here too"   "1" "$(rc_of "$OUT")"
+has   "  for the same reason"                            "the on-path interface set is EMPTY" "$OUT"
+
+# --- 5e. link_usage_round: the two refusals it can decide offline -----------------------------
+# The measurement itself needs a fabric and is the orchestrator's to run. What CAN be decided
+# here is the pair of refusals, and both are the same rule: an answer about permissions or about
+# the package is never rendered as a reading about link usage.
+mkdir -p "$FIX/pkg1host/ndtwin"
+python3 -c '
+import json, sys
+json.dump({"nodes": [{"device_name": "h1", "dpid": 0, "vertex_type": 1, "ip": ["10.0.1.1"]}],
+           "edges": [], "links": []}, open(sys.argv[1], "w"))' "$FIX/pkg1host/ndtwin/topology.json"
+OUT="$(drive "link_usage_round '$FIX/pkg1host' 'one-host' '$FIX/lur1'")"
+check "🔴 a model with one host cannot carry a flow"      "1" "$(rc_of "$OUT")"
+has   "  and says so instead of measuring nothing"       "does not name two hosts to run a flow between" "$OUT"
+OUT="$(drive "link_usage_round '$PKG3' 'no-ns' '$FIX/lur2'")"
+check "🔴 a host with no namespace is rc 2, a refusal"    "2" "$(rc_of "$OUT")"
+has   "  named as the permission answer it is"           "never a reading about link usage" "$OUT"
+
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
 (( FAIL == 0 ))

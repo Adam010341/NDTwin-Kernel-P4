@@ -327,6 +327,208 @@ cat > "$A/c2.new" <<'EOF'
 EOF
 check_control "C2: the parameters unpacked one per line" c2
 
+
+# =================================================================================================
+# TICKET-P3 §2.7: the generic cell -- link usage follows the iperf path.
+#
+# 🔴 THIS CELL'S FAILURE MODE IS A GREEN RUN. Every mutation below leaves the step printing the
+# same sentences over the same fabric; what changes is that a twin reporting nothing, a twin
+# reporting everything, or a twin reporting a link nobody used all pass.
+# =================================================================================================
+
+# --- M12: the on-path threshold becomes zero ------------------------------------------------------
+# LLDP, ARP and the proxy's probes keep every link faintly busy, so with a threshold of 0 every
+# interface in the fabric is on every path -- and the off-path half of the assertion, which is the
+# half with teeth, has nothing left to be about.
+cat > "$A/m12.old" <<'EOF'
+: "${LINK_USAGE_ONPATH_BYTES:=10000}"
+EOF
+cat > "$A/m12.new" <<'EOF'
+: "${LINK_USAGE_ONPATH_BYTES:=0}"
+EOF
+check_fires "M12: every interface with a byte on it is on the path" m12 \
+            "🔴 only the interfaces that moved bytes are on the path"
+
+# --- M13 (M-D5): the off-path assertion is dropped ------------------------------------------------
+# 🔴 THE HALF THAT HAS TEETH. "Usage is non-zero where the flow went" is satisfied by a twin that
+# reports non-zero EVERYWHERE -- which is exactly what a double-counting collector, a stale rate
+# and a fabric sampling on every port look like.
+cat > "$A/m13.old" <<'EOF'
+        if [[ "$kind" == switch ]]; then
+            if [[ "$(awk "BEGIN{print ($bits != 0) ? 1 : 0}")" == 1 ]]; then
+                fail "$label: $key is an inter-switch link that did NOT carry the flow and the twin integrated $bits bit on it"
+                rc=1
+            fi
+EOF
+cat > "$A/m13.new" <<'EOF'
+        if [[ "$kind" == switch ]]; then
+            :
+EOF
+check_fires "M13 (M-D5): links OFF the path are not checked at all" m13 \
+            "🔴 an inter-switch link OFF the path must be exactly 0" \
+            "  naming it and the bits"
+
+# --- M14: an on-path interface the twin does not model is skipped ----------------------------------
+# 🔴 THE MOST IMPORTANT THING THIS CELL CAN FIND, turned into silence. "The twin has no edge for a
+# link that carried the flow" reported as a clean run is the gap reporting itself as its own fix.
+cat > "$A/m14.old" <<'EOF'
+        if [[ -z "$kind" ]]; then
+            fail "$label: $key carried the flow and the twin has NO edge for it -- the link is not modelled, which is a gap this cell exists to find"
+            rc=1; continue
+        fi
+EOF
+cat > "$A/m14.new" <<'EOF'
+        if [[ -z "$kind" ]]; then
+            continue
+        fi
+EOF
+check_fires "M14: an unmodelled on-path link is skipped instead of red" m14 \
+            "🔴 an on-path interface with NO twin edge is red" \
+            "  and says the link is not modelled"
+
+# --- M15: an empty on-path set is accepted ----------------------------------------------------------
+# With nothing measured as on-path, "every on-path edge is non-zero" is vacuous and "every
+# off-path edge is zero" is true of a fabric that moved no packet at all -- which is what a broken
+# iperf, a missing sudo grant and a dead switch all produce.
+cat > "$A/m15.old" <<'EOF'
+    if [[ ! -s "$onpath" ]]; then
+        fail "$label: the on-path interface set is EMPTY -- nothing measurably carried the flow, so 'usage follows the path' is a sentence about a fabric that moved no packets"
+        return 1
+    fi
+EOF
+cat > "$A/m15.new" <<'EOF'
+    if false; then
+        return 1
+    fi
+EOF
+# 🔴 NOT THE rc CELL. With the refusal gone the loop still runs, every edge falls into the
+# off-path half, and the host-facing one is over the ARP allowance -- so rc is 1 for a completely
+# different reason, over a window this helper should never have judged. What sees it is the
+# sentence and the fact that no edge was judged at all. (mutate_live_p1_common.sh's own M10
+# carries the same note about the probe half.)
+check_fires "M15: an EMPTY on-path set passes the cell" m15 \
+            "  saying why" \
+            "🔴 and it refuses WITHOUT judging a single edge"
+
+# --- M16 (M-D6): the positive control stops discriminating --------------------------------------------
+# 🔴 WITHOUT THE CONTROL THE CELL ABOVE IS UNFALSIFIABLE. `none` is the group with no sampling at
+# all; a twin that still reported usage there is a twin whose numbers do not come from the
+# telemetry source the round selected, and every "link usage follows the path" green afterwards
+# would be about something else.
+cat > "$A/m16.old" <<'EOF'
+        if [[ "$(awk "BEGIN{print ($bits != 0) ? 1 : 0}")" == 1 ]]; then
+            fail "$label (control): telemetry is off and the twin still integrated $bits bit on $key, which carried the flow -- the cell above has no discriminating power"
+            rc=1
+EOF
+cat > "$A/m16.new" <<'EOF'
+        if false; then
+            rc=1
+EOF
+check_fires "M16 (M-D6): the positive control accepts a twin that still reports" m16 \
+            "🔴 telemetry off and the twin still reporting is RED" \
+            "  because the cell above would then prove nothing"
+
+# --- M17 (widening): the ARP allowance is applied to inter-switch links too ----------------------------
+# The plausible "the check is too strict" edit. A double-counted inter-switch link off the path
+# would then have to exceed 5 kbit before anybody noticed, and the exact-zero rule -- which is
+# what makes the off-path half an assertion rather than a tolerance -- is gone.
+cat > "$A/m17.old" <<'EOF'
+        if [[ "$kind" == switch ]]; then
+EOF
+cat > "$A/m17.new" <<'EOF'
+        if false; then
+EOF
+check_fires "M17 (widening): every off-path link gets the ARP allowance" m17 \
+            "🔴 an inter-switch link OFF the path must be exactly 0"
+
+# --- M18: a window in which the graph never answered is an empty integral ------------------------------
+# rc 0 with no rows, which the assertion then reads as "the twin models none of these links" --
+# a completely different finding, from a window in which nothing was asked.
+cat > "$A/m18.old" <<'EOF'
+sys.exit(0 if n else 1)
+EOF
+cat > "$A/m18.new" <<'EOF'
+sys.exit(0)
+EOF
+check_fires "M18: a graph that never answered reads as an empty integral" m18 \
+            "🔴 a graph that never answered is rc 1, not an empty integral" \
+            "  saying there is no twin reading for the window"
+
+# --- M19: the host->switch direction is integrated too --------------------------------------------------
+# Its key is `s0-ethN`, which is no interface at all: /proc/net/dev has nothing to join it to, so
+# every such edge becomes an on-path interface the twin models and nothing measured -- or an
+# off-path edge with usage on it. Either way the assertion is about a key that cannot exist.
+cat > "$A/m19.old" <<'EOF'
+        if e["src_dpid"] not in sw:
+            continue                      # host->switch direction: no sN-ethP carries it
+EOF
+cat > "$A/m19.new" <<'EOF'
+        if False:
+            continue
+EOF
+check_fires "M19: the host->switch direction gets an sN-ethP key" m19 \
+            "🔴 the host->switch direction has no sN-ethP to be"
+
+# --- M20: every edge is called inter-switch -------------------------------------------------------------
+# The host-facing links then fall under the exact-zero rule, and a run is red for the ARP that is
+# always there -- the failure mode the allowance exists to prevent, reached from the other side.
+cat > "$A/m20.old" <<'EOF'
+        kind[key] = "switch" if e.get("dst_dpid") in sw else "host"
+EOF
+cat > "$A/m20.new" <<'EOF'
+        kind[key] = "switch"
+EOF
+# 🔴 Named on the INTEGRAL cell only: the ARP-allowance cells above feed the assertion a
+# handmade integral file, so they are about the rule and not about the classifier. This mutation
+# is in the classifier.
+check_fires "M20: host-facing edges are classified as inter-switch" m20 \
+            "  a host-facing edge integrates its rate over the window"
+
+# --- M21: an interface present in only one reading is treated as starting at zero ------------------------
+# "The interface went away mid-window" and "it moved 2 MB" are different facts, and the second one
+# is manufactured from the first.
+cat > "$A/m21.old" <<'EOF'
+for k in sorted(set(b) & set(a)):
+    if a[k] - b[k] > thresh:
+        print(k)
+EOF
+cat > "$A/m21.new" <<'EOF'
+for k in sorted(set(a)):
+    if a[k] - b.get(k, 0) > thresh:
+        print(k)
+EOF
+check_fires "M21: an interface seen once is measured from zero" m21 \
+            "  and it is not on the path"
+
+# --- the controls for this half --------------------------------------------------------------------------
+cat > "$A/c3.old" <<'EOF'
+    (( rc == 0 )) && note "$label: link usage follows the iperf path"
+    return $rc
+EOF
+cat > "$A/c3.new" <<'EOF'
+    # the on-path and off-path halves have both had their say by here
+    (( rc == 0 )) && note "$label: link usage follows the iperf path"
+    return $rc
+EOF
+check_control "C3: a comment above the cell's verdict" c3
+
+# 🔴 THE ANCHOR IS THE CONTROL'S SIGNATURE PLUS ITS OWN FIRST MESSAGE. The two assert_
+# functions declare the same locals, so the declaration alone matches twice -- which this gate
+# scores as a SURVIVOR, and correctly: a control that mutated whichever site came first would
+# not be the control anybody wrote.
+cat > "$A/c4.old" <<'EOF'
+    local onpath="$1" integral="$2" label="$3" rc=0 key bits kind
+    if [[ ! -s "$onpath" ]]; then
+        fail "$label (control): the on-path interface set is EMPTY -- with no traffic measured, 'the twin reports nothing' is true of any twin at all"
+EOF
+cat > "$A/c4.new" <<'EOF'
+    local onpath="$1" integral="$2" label="$3"
+    local rc=0 key bits kind
+    if [[ ! -s "$onpath" ]]; then
+        fail "$label (control): the on-path interface set is EMPTY -- with no traffic measured, 'the twin reports nothing' is true of any twin at all"
+EOF
+check_control "C4: the cell's locals declared on two lines" c4
+
 echo
 NOW_SUM="$(sha256sum "$COMMON" | cut -d' ' -f1)"
 if [[ "$NOW_SUM" != "$BASE_SUM" ]]; then
