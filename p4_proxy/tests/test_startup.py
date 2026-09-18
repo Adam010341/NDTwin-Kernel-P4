@@ -46,6 +46,23 @@ import app_package  # noqa: E402
 # `p4_proxy/`, because tests/shell/mutate_app_package.sh runs it inside exactly such a tree.
 
 
+#: The two REAL compiled p4infos this file uses to decide whether a foreign program can carry
+#: the cooperative header. Absolute, because `Package.pipeline_for` passes an absolute
+#: per-switch pipeline through untouched, and these live outside the p4_proxy root.
+#: [Co-developed with claude code -- Adam]
+_FIXTURES = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "tools", "p4_exercise", "tests", "fixtures")
+#: tutorials `basic`: zero `controller_packet_metadata`. `auto` answers `link` for it, and
+#: `cooperative` is refused.
+PLAIN_FOREIGN_PIPELINE = (os.path.join(_FIXTURES, "basic", "build", "basic.p4.p4info.txtpb"),
+                          os.path.join(_FIXTURES, "basic", "build", "basic.json"))
+#: the same program with `#include "ndtwin_telemetry.p4"` -- TICKET-P3 section 9 ruling 4's
+#: whole subject. Foreign pipeline, five packet_in fields, so `cooperative` works.
+TELEMETRY_FOREIGN_PIPELINE = (
+    os.path.join(_FIXTURES, "basic_telemetry", "build", "basic_telemetry.p4.p4info.txtpb"),
+    os.path.join(_FIXTURES, "basic_telemetry", "build", "basic_telemetry.json"))
+
 #: What `packet_in_metadata_ids` returns for ndtwin_switch.p4's p4info. Built with the
 #: production class rather than a stand-in dict so a double cannot outlive a change to it.
 #: [Co-developed with claude code -- Adam]
@@ -219,17 +236,18 @@ def run_startup(clients, *, kernel=None, agent_ips=None, sflow=None, topo=None, 
 
 
 def declaring_telemetry(package, word):
-    """A copy of `package` that also declares `telemetry.source` -- ticket B's field.
+    """A copy of `package` that declares `telemetry.source`.
 
     [Co-developed with claude code -- Adam]
-    `Package` is a frozen dataclass and B owns it (TICKET-P3 0.7), so the field does not exist
-    on this branch yet. `main.package_telemetry_source` reads it with getattr precisely so that
-    this branch's code paths can be exercised before B lands, and a subclass carrying the
-    attribute is how a test supplies one without touching the other ticket's file.
+    🔴 A REAL `Package`, AS OF ROUND 2 (TICKET-P3 section 9 ruling 5). Round 1 built a SUBCLASS
+    carrying the word as a class attribute, because `Package` is a frozen dataclass that B owned
+    and the field did not exist on this branch yet. B is merged and `telemetry_source` is a real
+    field -- and the subclass trick stopped working the moment it was, silently: an instance
+    attribute set by `__init__` shadows a class attribute, so every one of these cases quietly
+    read `auto` instead of the word it asked for. `dataclasses.replace` on the real type is what
+    a caller writes, so it is what these tests use.
     """
-    subclass = type("PackageDeclaringTelemetry", (type(package),), {"telemetry_source": word})
-    return subclass(**{f.name: getattr(package, f.name)
-                       for f in dataclasses.fields(package)})
+    return dataclasses.replace(package, telemetry_source=word)
 
 
 def external_package(directory="/packages/p4runtime"):
@@ -560,33 +578,28 @@ class AForeignPipelineTest(unittest.TestCase):
         self.assertNotIn("clone", client.events)
         self.assertEqual(parts["sflow"].registered, {})
         self.assertEqual(summary["telemetry"], [])
+        self.assertEqual(summary["pipelines"]["1"]["skipped"],
+                         sorted([main.SKIP_CLONE, main.SKIP_TELEMETRY]))
 
-        # [Co-developed with claude code -- Adam]
-        # 🔴 AND WITH THE SOURCE EXPLICITLY SET TO `cooperative`, WHICH IS THE ONLY CASE WHERE
-        # THIS GUARD IS THE ONE DOING THE WORK. TICKET-P3 2.1 made `auto` answer `link` for a
-        # foreign pipeline, so the source check a few lines below would skip such a switch
-        # anyway -- and the two guards would then mask each other exactly the way `read_only`
-        # and "no agent IP" once did (see the comment above `agent_ips = agent_ips_loader()`),
-        # leaving tests/shell/mutate_table_entry.sh's M-B9 a SURVIVOR: deleting the foreign
-        # branch would change nothing observable.
+    def test_a_foreign_pipeline_that_cannot_carry_the_header_still_gets_nothing(self):
+        # 🔴 THE GUARD'S DISCRIMINATING CASE, as of TICKET-P3 section 9 ruling 4. Under `auto` a
+        # foreign pipeline resolves to `link`, so the telemetry-source check below would skip
+        # this switch even with the foreign branch gone -- the two guards would mask each other
+        # exactly the way `read_only` and "no agent IP" once did, and
+        # tests/shell/mutate_table_entry.sh's M-B9 SURVIVED on precisely that in round 1.
         #
-        # The switch here CAN carry the cooperative header (ndtwin_telemetry.p4 makes that
-        # possible for somebody else's program), so startup does not refuse it -- and it still
-        # gets no clone session, because TICKET-P2 2.2 says a switch running the package's own
-        # pipeline is programmed by the package's own controller. See P3-C-SUMMARY's objection:
-        # this is the case that makes the include less useful than it could be.
+        # What separates them is a switch asked for `cooperative` whose program has no
+        # controller header: the source check would let it through, and the refusal in startup
+        # is what stops it -- with the client's own `packet_in_ids` as the evidence, not the
+        # package's opinion of whose pipeline it is.
         knob = os.path.join(self.tmp, "telemetry_override")
         with open(knob, "w") as fh:
             fh.write("cooperative\n")
-        capable = FakeClient(1)
-        summary, parts = run_startup({1: capable}, package=self.package(),
-                                     telemetry_knob=knob)
-        self.assertNotIn("clone", capable.events,
-                         "the foreign-pipeline guard is the only thing standing between this "
-                         "switch and a clone session it must not get")
-        self.assertEqual(parts["sflow"].registered, {})
-        self.assertEqual(summary["telemetry_report"]["1"]["source"], "cooperative")
-        self.assertFalse(summary["telemetry_report"]["1"]["clone_session"])
+        blind = FakeClient(1, packet_in_ids=None)
+        with self.assertRaises(main.TelemetryConfigError) as cm:
+            run_startup({1: blind}, package=self.package(), telemetry_knob=knob)
+        self.assertIn("switch 1", str(cm.exception))
+        self.assertNotIn("clone", blind.events)
 
     def test_an_ndtwin_switch_beside_a_foreign_one_keeps_its_clone_session(self):
         # Per switch, not fabric-wide: the clone session is programmed into THAT switch's PRE,
@@ -814,14 +827,27 @@ class TelemetrySourceTest(unittest.TestCase):
             fh.write(text)
         return path
 
-    def foreign_package(self, dpids=(1,)):
-        """A package whose switches run their own program -- so `auto` answers `link`."""
+    def foreign_package(self, dpids=(1,), pipeline=None):
+        """A package whose switches run their own program -- so `auto` answers `link`.
+
+        [Co-developed with claude code -- Adam]
+        `pipeline` defaults to the REAL compiled `basic` artefacts (absolute paths, which
+        `Package.pipeline_for` passes through untouched). Round 1 named files that do not exist,
+        which was enough while the only question was "is this NDTwin's pipeline" -- section 9
+        ruling 4 made the p4info's CONTENT decide whether a foreign switch may have cooperative
+        telemetry, so the fixture has to be a program that really does, or really does not,
+        declare the header.
+        """
+        pipeline = pipeline or PLAIN_FOREIGN_PIPELINE
         switches = tuple(
-            app_package.SwitchSpec(dpid=dpid, name=f"s{dpid}",
-                                   pipeline=("build/basic.p4info.txtpb", "build/basic.json"),
+            app_package.SwitchSpec(dpid=dpid, name=f"s{dpid}", pipeline=pipeline,
                                    entries=None, entries_recorded=0)
             for dpid in dpids)
         return app_package.Package(dir="/packages/basic", name="basic", switches=switches)
+
+    def include_package(self, dpids=(1,)):
+        """A package whose switches run their own program AND included ndtwin_telemetry.p4."""
+        return self.foreign_package(dpids, pipeline=TELEMETRY_FOREIGN_PIPELINE)
 
     # --- the resolver itself ------------------------------------------------------------
 
@@ -863,23 +889,45 @@ class TelemetrySourceTest(unittest.TestCase):
             main.read_telemetry_knob(self.knob("cooperatvie\n"))
         self.assertIn("cooperatvie", str(cm.exception))
 
-    def test_an_empty_knob_is_refused_rather_than_read_as_auto(self):
-        with self.assertRaises(main.TelemetryConfigError):
-            main.read_telemetry_knob(self.knob("# nothing but a comment\n"))
+    def test_an_empty_knob_reads_as_nothing_rather_than_raising(self):
+        # 🔴 A BEHAVIOUR THAT CHANGED AT THE COLLAPSE (section 9 ruling 5), recorded rather than
+        # quietly adopted. Round 1's proxy-side reader REFUSED a knob file that exists and names
+        # nothing, on the app-package knob's precedent. `app_package.read_telemetry_knob` is the
+        # one implementation now and answers None -- "the package decides" -- and `ndt`, the
+        # only writer, deletes the file rather than emptying it.
+        self.assertIsNone(main.read_telemetry_knob(self.knob("# nothing but a comment\n")))
 
     def test_an_absent_knob_is_none_rather_than_an_error(self):
         self.assertIsNone(main.read_telemetry_knob(os.path.join(self.tmp, "absent")))
 
-    def test_a_package_declaring_a_word_outside_the_domain_is_refused(self):
-        package = declaring_telemetry(app_package.baseline(), "sflow")
-        with self.assertRaises(main.TelemetryConfigError):
-            main.package_telemetry_source(package)
+    def test_a_refusal_from_the_package_reader_arrives_as_a_telemetry_refusal(self):
+        # 🔴 THE WRAPPING IS THE CONTRACT (section 9 ruling 5). The rule lives in app_package and
+        # raises `AppPackageError`; startup's refusal path catches `TelemetryConfigError`. Let
+        # the first through unwrapped and a fabric whose knob says `cooperatvie` dies with a
+        # traceback nobody routes, instead of the named refusal this whole path exists to be.
+        with self.assertRaises(main.TelemetryConfigError) as cm:
+            main._telemetry_source(app_package.baseline(), 1,
+                                   knob_path=self.knob("cooperatvie\n"))
+        self.assertIn("cooperatvie", str(cm.exception))
+        self.assertIsInstance(cm.exception.__cause__, app_package.AppPackageError)
 
     # --- the six cells: three sources x (NDTwin pipeline, foreign pipeline) ---------------
 
-    def cell(self, source, foreign):
-        package = self.foreign_package() if foreign else app_package.baseline()
-        client = FakeClient(1, packet_in_ids=None if foreign else NDTWIN_PACKET_IN_IDS)
+    def cell(self, source, foreign, include=False):
+        """One (source, pipeline) cell. `include` is the foreign program that CAN carry it.
+
+        The double's `packet_in_ids` is set from the same fact the package's p4info states, so
+        the client and the file cannot disagree about a switch -- which is the disagreement
+        section 9 ruling 4's decision now rests on.
+        """
+        if include:
+            package = self.include_package()
+        elif foreign:
+            package = self.foreign_package()
+        else:
+            package = app_package.baseline()
+        client = FakeClient(1, packet_in_ids=None if (foreign and not include)
+                            else NDTWIN_PACKET_IN_IDS)
         summary, parts = run_startup({1: client}, package=package,
                                      telemetry_knob=self.knob(source + "\n"))
         return summary, parts, client
@@ -930,6 +978,89 @@ class TelemetrySourceTest(unittest.TestCase):
         summary, parts, client = self.cell("none", foreign=True)
         self.assertNotIn("clone", client.events)
         self.assertEqual(summary["telemetry_report"]["1"]["source"], "none")
+
+    # --- the case ndtwin_telemetry.p4 exists for. TICKET-P3 section 9 ruling 4 -----------
+
+    def test_a_foreign_program_that_included_the_header_gets_the_cooperative_path(self):
+        # 🔴 THE WHOLE POINT OF THE INCLUDE. This switch runs the exercise's OWN program -- the
+        # p4info is the compiled `basic_telemetry` fixture, which is the tutorials `basic`
+        # solution plus `#include "ndtwin_telemetry.p4"` -- so `pipeline.ndtwin` is False. It
+        # can nonetheless clone to the CPU port, so under `cooperative` it gets a clone session
+        # and an sFlow registration exactly like an NDTwin switch. Round 1 refused it (P2 2.2's
+        # frozen branch), which made the include decorative.
+        summary, parts, client = self.cell("cooperative", foreign=True, include=True)
+        self.assertFalse(summary["pipelines"]["1"]["ndtwin"],
+                         "the fixture has to be a FOREIGN pipeline or this proves nothing")
+        self.assertIn("clone", client.events)
+        self.assertEqual(parts["sflow"].registered, {1: "192.168.123.11"})
+        self.assertEqual(summary["telemetry"], [1])
+        disclosure = summary["telemetry_report"]["1"]
+        self.assertEqual(disclosure["source"], "cooperative")
+        self.assertTrue(disclosure["clone_session"])
+        self.assertTrue(disclosure["sflow_registered"])
+
+    def test_that_switch_says_it_skipped_nothing(self):
+        # P2 ruling 7 amended: `pipeline.skipped` is what was ACTUALLY skipped on this switch.
+        # Saying `[clone_session, sflow_telemetry]` here would be false about a switch that has
+        # both -- and a reader who acted on it would go looking for a telemetry fault.
+        summary, _parts, _client = self.cell("cooperative", foreign=True, include=True)
+        self.assertEqual(summary["pipelines"]["1"]["skipped"], [])
+
+    def test_the_fabric_level_skips_are_unchanged_for_it(self):
+        # 🔴 AND THE FABRIC-LEVEL THREE STAY. LLDP, the watchdog and the route refill are
+        # skipped for ANY foreign pipeline: the refill writes `MyIngress.ipv4_lpm` by name into
+        # a program that merely happens to spell it the same, and a beacon leaves one switch to
+        # arrive at another. Section 9 ruling 4 moved the per-switch pair only.
+        summary, _parts, _client = self.cell("cooperative", foreign=True, include=True)
+        self.assertEqual(summary["control_plane"]["skipped"],
+                         sorted([main.SKIP_LLDP, main.SKIP_WATCHDOG, main.SKIP_ROUTES]))
+
+    def test_the_same_program_under_auto_is_still_link(self):
+        # `auto` has not changed: it asks whose pipeline it is, not what the pipeline can do.
+        # An author who includes the header and wants the cooperative path says so.
+        summary, parts, client = self.cell("auto", foreign=True, include=True)
+        self.assertEqual(summary["telemetry_report"]["1"]["source"], "link")
+        self.assertNotIn("clone", client.events)
+        self.assertEqual(parts["sflow"].registered, {})
+        self.assertEqual(summary["pipelines"]["1"]["skipped"],
+                         sorted([main.SKIP_CLONE, main.SKIP_TELEMETRY]))
+
+    def test_the_same_program_under_link_gets_nothing_and_says_both_were_skipped(self):
+        summary, parts, client = self.cell("link", foreign=True, include=True)
+        self.assertNotIn("clone", client.events)
+        self.assertEqual(summary["pipelines"]["1"]["skipped"],
+                         sorted([main.SKIP_CLONE, main.SKIP_TELEMETRY]))
+
+    def test_a_plain_foreign_program_still_says_both_were_skipped(self):
+        # live-p1/02's switch, unchanged: `basic` under `auto` resolves to `link` and neither
+        # step happens. The amended rule must not move this cell.
+        summary, _parts, client = self.cell("auto", foreign=True)
+        self.assertNotIn("clone", client.events)
+        self.assertEqual(summary["pipelines"]["1"]["skipped"],
+                         sorted([main.SKIP_CLONE, main.SKIP_TELEMETRY]))
+
+    def test_the_endpoint_answers_the_same_before_startup_has_run(self):
+        # `pipeline_report_for` PREDICTS the decision for the kernel's first poll, and the
+        # prediction and the record come out of one function. A switch that answers
+        # `[clone_session, sflow_telemetry]` before startup and `[]` afterwards would be a
+        # disclosure that contradicts itself within one run.
+        package = self.include_package()
+        with mock.patch.object(main, "TELEMETRY_KNOB_PATH", self.knob("cooperative\n")):
+            self.assertEqual(main.pipeline_report_for(1, package)["skipped"], [])
+            self.assertEqual(
+                main.pipeline_report_for(1, self.foreign_package())["skipped"],
+                sorted([main.SKIP_CLONE, main.SKIP_TELEMETRY]),
+                "a program with no controller header cannot have cooperative telemetry, so it "
+                "skipped both whatever the knob says")
+
+    def test_an_external_fabric_reports_both_skipped_whatever_the_source_says(self):
+        # Under `external` nothing is programmed at all and `control_plane.skipped` carries the
+        # six names. The per-switch pair stays as P2 wrote it: a switch that was not touched
+        # did skip them.
+        package = dataclasses.replace(self.include_package(), mode="external")
+        with mock.patch.object(main, "TELEMETRY_KNOB_PATH", self.knob("cooperative\n")):
+            self.assertEqual(main.pipeline_report_for(1, package)["skipped"],
+                             sorted([main.SKIP_CLONE, main.SKIP_TELEMETRY]))
 
     def test_cooperative_on_a_foreign_pipeline_refuses_to_start(self):
         # 🔴 A REFUSAL, NOT A WARNING. Such a fabric comes up, pushes its pipelines, accepts the
@@ -990,6 +1121,94 @@ class TelemetrySourceTest(unittest.TestCase):
         self.assertFalse(disclosure["clone_session"])
         self.assertTrue(disclosure["sflow_registered"])
         self.assertEqual(parts["sflow"].registered, {1: "192.168.123.11"})
+
+
+class TheOneImplementationTest(unittest.TestCase):
+    """
+    `main._telemetry_source` and `app_package.telemetry_source` answer the same thing. Always.
+
+    [Co-developed with claude code -- Adam]
+    🔴 THIS TEST IS TRIVIALLY TRUE TODAY, AND THAT IS WHY IT EXISTS (TICKET-P3 section 9 ruling
+    5). Round 1 had two implementations of one rule -- section 2.1 required it, so that neither
+    ticket blocked on the other -- and the arrangement worked exactly as intended right up to
+    the moment nobody collapsed them. `main._telemetry_source` is one line of delegation now, so
+    every cell below passes by construction. What the grid catches is the DAY SOMEBODY RE-FORKS
+    IT: a branch added on the proxy side "just for this case" reddens here, which is the only
+    place that would notice. A one-off reconciliation done at merge time would not have been.
+
+    🔴 AND IT IS A GRID, not one call. The rule has three layers and a per-switch tail, so a
+    fork that agreed about the knob and disagreed about `auto` would pass a single comparison.
+    """
+
+    #: Everything a package may declare, everything the knob may say, and both kinds of switch.
+    DECLARATIONS = (None, "auto", "none", "cooperative", "link")
+    KNOB_WORDS = (None, "auto", "none", "cooperative", "link")
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_one_impl_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def knob_path(self, word):
+        if word is None:
+            return os.path.join(self.tmp, "absent")
+        path = os.path.join(self.tmp, "telemetry_override")
+        with open(path, "w") as fh:
+            fh.write(word + "\n")
+        return path
+
+    def packages(self):
+        """(label, package, dpid) for an NDTwin switch and a foreign one."""
+        foreign = app_package.Package(
+            dir="/packages/basic", name="basic",
+            switches=(app_package.SwitchSpec(dpid=1, name="s1",
+                                             pipeline=PLAIN_FOREIGN_PIPELINE,
+                                             entries=None, entries_recorded=0),))
+        return (("ndtwin", app_package.baseline(), 1), ("foreign", foreign, 1))
+
+    def test_every_cell_of_the_grid_agrees(self):
+        checked = 0
+        for label, package, dpid in self.packages():
+            for declared in self.DECLARATIONS:
+                declaring = (package if declared is None
+                             else dataclasses.replace(package, telemetry_source=declared))
+                for word in self.KNOB_WORDS:
+                    knob = self.knob_path(word)
+                    with self.subTest(pipeline=label, declared=declared, knob=word):
+                        mine = main._telemetry_source(declaring, dpid, knob_path=knob)
+                        theirs = app_package.telemetry_source(
+                            declaring, dpid, knob_path=knob,
+                            base_dir=main.proxy_root())
+                        self.assertEqual(mine, theirs)
+                        self.assertIn(mine, main.TELEMETRY_SOURCES,
+                                      "a resolved source is never `auto`")
+                        checked += 1
+        self.assertEqual(checked, 2 * len(self.DECLARATIONS) * len(self.KNOB_WORDS))
+
+    def test_the_two_modules_name_the_same_knob_file(self):
+        # Three processes agreeing on a word cannot agree on it through two different files.
+        self.assertEqual(main.TELEMETRY_KNOB_PATH, app_package.TELEMETRY_KNOB_PATH)
+
+    def test_the_words_are_the_same_objects_not_equal_copies(self):
+        # Re-exported, not re-spelled. A second `"link"` here would be free to stop agreeing,
+        # and the disagreement would present as a fabric counting every packet twice.
+        self.assertIs(main.TELEMETRY_COOPERATIVE, app_package.TELEMETRY_COOPERATIVE)
+        self.assertIs(main.TELEMETRY_LINK, app_package.TELEMETRY_LINK)
+        self.assertIs(main.TELEMETRY_NONE, app_package.TELEMETRY_NONE)
+        self.assertIs(main.TELEMETRY_AUTO, app_package.TELEMETRY_AUTO)
+        self.assertEqual(tuple(main.TELEMETRY_SOURCES), tuple(app_package.TELEMETRY_RESOLVED))
+        self.assertEqual(tuple(main.TELEMETRY_WORDS), tuple(app_package.TELEMETRY_SOURCES))
+
+    def test_the_proxy_does_not_carry_its_own_copy_of_the_rule(self):
+        # 🔴 A STRUCTURAL ASSERTION, because the grid above passes for a fork that HAPPENS to
+        # agree -- and a fork that agrees today is the one that stops agreeing quietly. The
+        # proxy's function body must be a delegation: no knob file is opened on this side, and
+        # no `pipeline_is_ndtwin` branch is taken on this side.
+        import inspect
+        body = inspect.getsource(main._telemetry_source)
+        self.assertIn("app_package.telemetry_source", body)
+        self.assertNotIn("pipeline_is_ndtwin", body,
+                         "the `auto` rule belongs to app_package; a copy here is a second "
+                         "implementation whatever it currently answers")
 
 
 class ThePackagesPreEntriesAtStartupTest(unittest.TestCase):

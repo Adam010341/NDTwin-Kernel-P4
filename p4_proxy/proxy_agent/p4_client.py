@@ -215,6 +215,31 @@ def encode_value(value, bitwidth) -> bytes:
     return value.to_bytes(width, byteorder="big")
 
 
+def pipeline_carries_telemetry(p4info_path):
+    """Whether the program at `p4info_path` declares the five `packet_in` fields NDTwin needs.
+
+    [Co-developed with claude code -- Adam]
+    The same question `P4RuntimeClient.__init__` answers for a client that exists, asked of a
+    FILE for a switch that does not have one yet -- `readopt_switch` has to decide whether to
+    hand the re-adoption a sample callback BEFORE the new client is built, and TICKET-P3 section
+    9 ruling 4 makes that decision depend on the program's header rather than on whose pipeline
+    it is.
+
+    Any failure is False: an unreadable or unparseable p4info is a switch this proxy cannot
+    reason about, and the safe answer there is "no cooperative telemetry" -- a clone session
+    programmed into a program that never clones reports zero samples for the rest of the run
+    with nothing erroring anywhere.
+    """
+    try:
+        p4info = p4info_pb2.P4Info()
+        with open(p4info_path) as fh:
+            text_format.Merge(fh.read(), p4info)
+        packet_in_metadata_ids(p4info)
+        return True
+    except Exception:  # noqa: BLE001 -- a question, not an operation; every failure is "no"
+        return False
+
+
 class P4RuntimeClient:
     """Encapsulates P4Runtime gRPC connection to a single BMv2 switch"""
     def __init__(self, device_id, grpc_addr, p4info_path, json_path=None,

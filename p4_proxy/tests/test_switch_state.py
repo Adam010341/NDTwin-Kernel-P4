@@ -24,15 +24,23 @@ nothing and is reported as NO TESTS RAN.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import sys
 import threading
 import time
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from proxy_agent import api_routes  # noqa: E402
+from proxy_agent import main  # noqa: E402
+# `p4_proxy/mininet` -- the fabric side. `main` puts it on sys.path at import (via profile), so
+# this line only names what these tests read: ticket B's manifest writer and its liveness
+# predicate, used to BUILD the fixture rather than to describe it.
+# [Co-developed with claude code -- Adam]
+import link_telemetry  # noqa: E402
 from proxy_agent.rule_install_times import RuleInstallTimes  # noqa: E402
 from proxy_agent.topology_manager import (  # noqa: E402
     LIVENESS_PROBE_INTERVAL_S,
@@ -750,7 +758,16 @@ class TheTelemetryDisclosureTest(unittest.TestCase):
 
 
 class TheLinkEmitterSummaryTest(unittest.TestCase):
-    """`control_plane.telemetry.link_emitter` -- read from ticket B's manifest, pid checked live."""
+    """`control_plane.telemetry.link_emitter` -- B's manifest, read with B's reader.
+
+    [Co-developed with claude code -- Adam]
+    🔴 THE FIXTURE IS BUILT BY `link_telemetry.manifest_document()`, NOT BY HAND (TICKET-P3
+    section 9 ruling 5). Round 1 hand-wrote a dict from the ticket's prose, in which `switches`
+    was a map; B writes a LIST of objects. The proxy iterated it as a map and produced a list of
+    stringified dicts -- silently wrong, not None, not an exception -- and the hand-written
+    fixture agreed with the mistake, so nothing could catch it. A fixture produced by the writer
+    cannot disagree with the writer.
+    """
 
     def setUp(self):
         import tempfile
@@ -761,52 +778,86 @@ class TheLinkEmitterSummaryTest(unittest.TestCase):
         import shutil
         shutil.rmtree(self.tmp, ignore_errors=True)
 
-    def manifest(self, doc):
-        import json
+    def plan(self, dpids=(1, 2)):
+        """A LinkTelemetryPlan, built with B's own dataclasses."""
+        switches = []
+        for dpid in dpids:
+            ports = [link_telemetry.PortPlan(port=1, ifname=f"s{dpid}-eth1",
+                                             ifindex=100 + dpid, key=100 + dpid,
+                                             ingress=True, egress=True)]
+            switches.append(link_telemetry.SwitchPlan(
+                dpid=dpid, name=f"s{dpid}", agent_ip=f"192.168.123.{10 + dpid}", ports=ports))
+        return link_telemetry.LinkTelemetryPlan(switches=tuple(switches), commands=(),
+                                                rate=link_telemetry.LINK_SAMPLE_RATE)
+
+    def manifest(self, pid, dpids=(1, 2)):
         path = os.path.join(self.tmp, "ndtwin_link_telemetry.json")
+        document = link_telemetry.manifest_document(self.plan(dpids), pid)
         with open(path, "w") as fh:
-            json.dump(doc, fh)
+            json.dump(document, fh)
         return path
 
     def test_no_manifest_is_none_rather_than_an_empty_summary(self):
-        from proxy_agent import main
         self.assertIsNone(main.link_emitter_report(os.path.join(self.tmp, "absent.json")))
 
-    def test_a_live_pid_reads_alive(self):
-        from proxy_agent import main
-        path = self.manifest({"emitter_pid": os.getpid(), "rate": 256,
-                              "switches": {"1": {}, "2": {}}})
-        report = main.link_emitter_report(path)
-        self.assertTrue(report["alive"])
-        self.assertEqual(report["pid"], os.getpid())
-        self.assertEqual(report["switches"], ["1", "2"])
-        self.assertEqual(report["rate"], 256)
+    def test_the_switches_come_back_as_dpids_and_not_as_stringified_objects(self):
+        # The judge's finding, pinned. `switches` is a list of {dpid, name, agent_ip, ports};
+        # iterating it as a map gives a list whose entries are dicts rendered as text, and every
+        # reader downstream sees a plausible-looking list of "switches" that names nothing.
+        report = main.link_emitter_report(self.manifest(os.getpid(), dpids=(3, 1, 2)))
+        self.assertEqual(report["switches"], [1, 2, 3])
+        for entry in report["switches"]:
+            self.assertIsInstance(entry, int)
 
-    def test_a_dead_pid_reads_dead(self):
-        # 🔴 THE FIELD IS A LIVE CHECK, NOT A VALUE OUT OF THE FILE. A manifest left behind by a
-        # bring-up that died claims the emitter is running just as confidently as one written a
-        # second ago, and `link` telemetry with a dead emitter samples into nothing: zero on
-        # every edge, no error anywhere.
-        from proxy_agent import main
-        dead = 2 ** 22 - 1            # above the default pid_max, so it cannot be a live process
-        while os.path.exists(f"/proc/{dead}"):
-            dead -= 1
-        report = main.link_emitter_report(self.manifest({"emitter_pid": dead}))
-        self.assertFalse(report["alive"])
-        self.assertEqual(report["pid"], dead)
+    def test_the_rate_and_the_pid_come_from_the_document(self):
+        report = main.link_emitter_report(self.manifest(os.getpid()))
+        self.assertEqual(report["pid"], os.getpid())
+        self.assertEqual(report["rate"], link_telemetry.LINK_SAMPLE_RATE)
+
+    def test_a_pid_that_is_not_the_emitter_reads_dead(self):
+        # 🔴 `alive` IS B'S `process_is_the_emitter`, NOT `/proc/<pid>` EXISTING (section 9
+        # ruling 5). This test's own pid is a live process and is NOT the emitter, so round 1's
+        # check would have called it alive -- which is the exact lie the field exists to avoid:
+        # `link` telemetry with a dead emitter samples into nothing, zero on every edge.
+        report = main.link_emitter_report(self.manifest(os.getpid()))
+        self.assertFalse(report["alive"],
+                         "this test process is not psample_sflow_emitter.py")
+
+    def test_a_pid_whose_cmdline_is_the_emitter_reads_alive(self):
+        # The positive half, with B's predicate pointed at a /proc tree written here: nothing is
+        # launched, and the assertion is still about the real check rather than about a stub.
+        proc = os.path.join(self.tmp, "proc", "4242")
+        os.makedirs(proc, exist_ok=True)
+        with open(os.path.join(proc, "cmdline"), "wb") as fh:
+            fh.write(b"/usr/bin/python3\x00" + os.path.basename(
+                link_telemetry.EMITTER_PATH).encode() + b"\x00--manifest\x00/tmp/m.json\x00")
+        self.assertTrue(link_telemetry.process_is_the_emitter(
+            4242, proc_root=os.path.join(self.tmp, "proc")))
+
+        path = self.manifest(4242)
+        with mock.patch.object(link_telemetry, "process_is_the_emitter",
+                               lambda pid: pid == 4242):
+            self.assertTrue(main.link_emitter_report(path)["alive"])
 
     def test_a_manifest_that_does_not_parse_is_none_rather_than_a_crash(self):
-        from proxy_agent import main
         path = os.path.join(self.tmp, "broken.json")
         with open(path, "w") as fh:
             fh.write("{not json")
         self.assertIsNone(main.link_emitter_report(path))
 
     def test_a_manifest_with_no_pid_is_not_alive(self):
-        from proxy_agent import main
-        report = main.link_emitter_report(self.manifest({"switches": {}}))
+        path = os.path.join(self.tmp, "ndtwin_link_telemetry.json")
+        document = link_telemetry.manifest_document(self.plan(), None)
+        with open(path, "w") as fh:
+            json.dump(document, fh)
+        report = main.link_emitter_report(path)
         self.assertFalse(report["alive"])
         self.assertIsNone(report["pid"])
+
+    def test_the_proxy_reads_the_path_the_bring_up_writes(self):
+        # One constant, B's. Two would be a proxy that reports "no link emitter" on a fabric
+        # that has one.
+        self.assertEqual(main.LINK_TELEMETRY_MANIFEST, link_telemetry.LINK_TELEMETRY_MANIFEST)
 
 
 if __name__ == "__main__":
