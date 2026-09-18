@@ -442,3 +442,70 @@ FINDINGS 的表格逐列帶上：hops、主機數、frame 尺寸、遙測組、b
 7. **softirq 單獨記錄並逐組報**（§5.3）——`link` 的資料面成本歸屬不到任何 pid。
 
 **[Co-developed with claude code -- Adam]**
+
+---
+
+## AMENDMENT-1 — samples/s 的軸、ladder 臂的遙測在／不在怎麼證、driver 的四項要求
+
+**2026-09-19 由 orchestrator 核准 PREREG（`eebf9054`）後、寫腳本之前註冊。附加，上文一字未改。**
+
+**修訂資格（08-28 AMENDMENT-1 的三條，逐條）**
+
+| | 狀態 |
+|---|---|
+| 本輪零封包 | ✅ `raw/` 仍不存在，沒有任何一臂跑過 |
+| 理由只引既有資料 | ✅ 引工單 A 的計數器語意變更、08-20 的 `POLL=off`、B 的 emitter log 形狀；**沒有一個來自本輪** |
+| 只收緊 | ✅ 指定一個原本沒指定的軸、把一條原本靠 twin 的斷言換成成本更低且在梯子臂上真的做得到的來源、加四項 driver 的拒絕與清理條件 |
+
+### A1.1 samples/s 的軸＝`addressed_total` 增量，且 `samples_by_family` 並列
+
+§5.3 的橫軸 `S(k)` 與 §5.2 的 `N` 校核都用 **`GET /ndt/get_sflow_stats` 的 `addressed_total` 增量 ÷ 秒**。
+
+🔴 **這個計數器的語意在工單 A 併回後會變**：A 之前它只數 IPv4 TCP/UDP/ICMP 的樣本，
+A 之後它數**每一個**格式正確的 flow sample（ARP、LLDP、IPv6、非首片段都算進去）。
+本輪跑在 A 之後，所以軸就是「所有樣本」——這正是要的口徑（遙測成本跟著樣本走，不跟著能不能解出五元組走）。
+
+⇒ 每一臂、每一個視窗的前後各存**整份 `get_sflow_stats` 文件**（`sflow_before.json`／`sflow_after.json`），
+`analyse.py` 從中取增量：`addressed_total`、`rx_total`、`sock_ovfl_total`、`app_drop_total`，
+**以及 A 新增的 `samples_by_family {ipv4, ipv6, l2, undecodable}` 與 `malformed_ipv4_ihl`**。
+`samples_by_family` 的增量**逐組印在 CPU 表旁邊**——ARP／LLDP 的貢獻要**看得見**，不是被假設掉。
+（分析器在頂層與 `telemetry_health` 兩層都找這些鍵，並記下在哪一層找到：A 的放置位置本 worker 沒看過碼，
+不猜；找不到就寫 `absent`，不寫 0。）
+
+### A1.2 梯子臂的遙測在／不在，改用 `get_sflow_stats`，不用 twin
+
+§2.1 的兩條作廢斷言原本都寫成 twin 讀數。**在梯子臂上那會跟 §5.3 打架**：twin 的
+4 Hz poll 由被量 CPU 的那個 kernel 行程服務（08-20 的 `POLL=off`）。改成：
+
+| 臂種類 | 遙測「不在」（`none`） | 遙測「在」（`cooperative`／`link`） |
+|---|---|---|
+| **梯子臂** | `addressed_total` 增量 **== 0**（`rx_total` 增量也記） | `addressed_total` 增量 **> 0** |
+| **取樣誤差視窗** | 上列 **＋** 視窗內 twin 非零讀數計數 **== 0** | 上列 **＋** on-path 邊至少一個非零讀數 |
+
+kernel 自己數到的樣本數是比 twin 更直接的證據（twin 是它的下游），而且梯子臂上一臂只要兩個 HTTP 請求。
+
+### A1.3 driver 的四項（orchestrator 指定）
+
+1. **`--only G<n>` / `--only C<n>`**：重跑單一世代或單一控制臂——§7 的重跑規則需要它。
+2. **raw 目錄以 UTC 命名**：`raw/<YYYY-MM-DDTHHMMSSZ>_<label>/`。
+3. **開跑前拒絕**：`p4_proxy/mininet/telemetry_override`、`p4_proxy/mininet/app_package_override`
+   或 `/tmp/ndtwin_link_telemetry.json` **任一存在 ⇒ 拒跑，什麼都不起**。
+   三個都是「上一輪沒收乾淨」的證據，而它們每一個都會無聲決定本輪跑的是什麼。
+4. **收工與每一條 abort 路徑**都要：knob 回到**不存在（＝auto）**、`ndt down`、lab `release`，順序同
+   `live-p1/_common.sh` 的 `finish()`（`ndt release` 在 knob 還沒回位時會拒絕，所以還原不是選配）。
+
+### A1.4 `link` 組把 emitter 的 log 收進 raw
+
+`/tmp/ndtwin_link_telemetry.log` 會被下一次 bring-up 蓋掉 ⇒ **每一臂結束時複製進該臂的 raw**
+（`emitter.log`），並取它 `k=v` 統計行的 `samples=`／`dropped_*`／`enobufs=` 增量：
+那是 **H-B3（樣本掉了）唯一的機制證據**，計數器為 0 時不准做那個歸因（§5.2 紅字）。
+
+### A1.5 samples/s 逐階量（不是逐 rep、不是算出來的）
+
+§5.3 的擬合橫軸是 samples/s，那個量**必須量到**——用「offered pps × 假設的 1/256」會把模型
+放進擬合的兩邊。⇒ `run_group_arm.sh` 每一**階**（不是每個 rep）讀一次 `get_sflow_stats`，
+存成 `sflow_rung<k>_{before,after}.json`；`S(k) = Δaddressed_total ÷ 該階的秒數`。
+一階一個 HTTP 請求 ≈ 0.04 req/s，比 08-20 的 `POLL=off` 要拿掉的 4 Hz poll 低兩個數量級；
+仍然是被量的那個行程在服務，所以是逐階不是逐 rep。
+
+**[Co-developed with claude code -- Adam]**
