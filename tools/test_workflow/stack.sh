@@ -243,6 +243,116 @@ print(",".join(sorted(str(s) for s in skipped)))' 2>/dev/null)" && { printf '%s'
     return 1
 }
 
+# model_switch_count <topo> -> how many switches the topology file declares, or nothing.
+#
+# [Co-developed with claude code -- Adam]
+# Same rule as `ndt`'s topo_model_switches (tools/test_workflow/ndt): vertex_type 0 nodes. Its
+# own helper rather than a third field on expected_counts, deliberately -- that function's
+# output is parsed as exactly two words by `want_a="${want% *}"` / `want_b="${want#* }"` and
+# compared whole against observed_counts, so a third field would have to be stripped out again
+# at every one of those sites. The path goes in as argv, never interpolated into the source.
+model_switch_count() {
+    python3 -c '
+import json, sys
+t = json.load(open(sys.argv[1]))
+print(sum(1 for n in t["nodes"] if n.get("vertex_type") == 0))' "$1" 2>/dev/null
+}
+
+# observed_switch_count -> how many switches the P4 proxy currently LISTS, or nothing when the
+# endpoint cannot be read.
+observed_switch_count() {
+    curl -s --max-time 3 "$P4_PROXY_URL/v1.0/topology/switches" \
+    | python3 -c 'import json,sys
+d = json.load(sys.stdin)
+if not isinstance(d, list):
+    raise SystemExit(1)
+print(len(d))' 2>/dev/null
+}
+
+# await_switch_list <topo> <timeout> -- wait until the proxy LISTS every switch the model
+# declares. Always rc 0: like the loop below, this is a wait, not a verdict -- `ndt`'s [3/3] is
+# what judges the fabric, and it does so against the kernel graph.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 THE HALF OF THE WAIT THAT IS STILL REAL WHEN LLDP IS NOT. Live 2026-09-18 21:28, on the
+# first round with the NOT WAITED skip in it: `live-p1/03` (mode external) came back
+# `XX kernel: 3 switches, 0 up (want 3/3)` -- a regression against the same script's
+# `ok kernel: 3 switches, 3 up` four hours earlier, when the 300 s discovery wait was still
+# being served. Skipping the LLDP wait skipped a second thing that was riding on it.
+#
+# The chain, all of it read on 2026-09-18:
+#   * `GET /v1.0/topology/switches` serves `connected_switch_dpids()` only
+#     (proxy_agent/api_routes.py:173-182);
+#   * the kernel's `updateSwitches` sets `isUp` (and `isEnabled`) for exactly the dpids that
+#     reply lists, and -- FINDINGS #46 -- never clears either for one it does not
+#     (TopologyAndFlowMonitor.cpp:2268-2367). So it is a one-way ratchet: a switch listed once
+#     stays up, a switch never listed is never up;
+#   * the kernel pulls topology at startup and `ndt`'s verify runs once, right after.
+# So "how soon after the proxy does the kernel start" decides what the twin believes about
+# power, and the 300 s wait had been paying for that by accident.
+#
+# 🔴 WHAT THIS CANNOT FIX, AND THE SUMMARY SAYS SO. Under `external` the proxy pushes no
+# pipeline (main.py:747 `if read_only or not client.json_path: continue`), the liveness probe is
+# a GetForwardingPipelineConfig, and a bmv2 with no pipeline answers FAILED_PRECONDITION --
+# measured `probe_ok: false` on all three switches in BOTH live runs, the one that passed and
+# the one that failed. `connected_switch_dpids` excludes a switch whose last probe said a
+# definite False, so once that first probe lands the list is empty and STAYS empty. This wait
+# therefore has two outcomes on an external fabric and only one of them is the one named above:
+# it wins the race against the first probe (the list is full while `_last_probe` is still
+# empty -- "no reading" is not "down", topology_manager.py:1624-1628) and returns in a second,
+# or it does not and it spends the timeout, which is the old behaviour restored and is the
+# timing under which 03 passed. Both are at least as good as before this ticket; neither is
+# something this script can assert, and the orchestrator's re-run is what decides which.
+await_switch_list() {
+    local topo="$1" timeout="$2"
+    local want; want="$(model_switch_count "$topo")"
+    if [[ ! "$want" =~ ^[1-9][0-9]*$ ]]; then
+        # Same shape as the loop's own unreadable-model path: proceeding immediately on a model
+        # this script cannot count would release the kernel against a fabric it knows nothing
+        # about, which is the race both waits exist to remove.
+        warn "  cannot count the switches $topo declares; falling back to a fixed wait"
+        countdown "$timeout" "waiting for the switches to register with the proxy"
+        return 0
+    fi
+    info "  waiting for the proxy to list ${want} switches (it is what the kernel reads isUp from)"
+    local start; start=$(date +%s)
+    local got last="" probed=0
+    while true; do
+        got="$(observed_switch_count)"
+        if [[ -n "$got" ]]; then
+            probed=1
+            if [[ "$got" != "$last" ]]; then
+                printf '\r    switches=%s%*s' "$got" 10 ''
+                last="$got"
+            fi
+            if [[ "$got" == "$want" ]]; then
+                printf '\r%*s\r' 44 ''
+                # 🔴 `$got`, NOT `$want`. They are equal on this line and only on this line, and
+                # a report that quotes the TARGET is a report that cannot be wrong -- which is
+                # the whole objection to it. This was `$want` until the mutation gate's M11
+                # (return on the first answer, whatever it said) survived against two cells that
+                # read this text: the mutant returned on a reply listing nothing and this line
+                # still said "4 switches listed". An instrument must not be able to print its
+                # own expectation. [Co-developed with claude code -- Adam]
+                ok "  $got switches listed after $(( $(date +%s) - start ))s"
+                return 0
+            fi
+        fi
+        if (( $(date +%s) - start >= timeout )); then
+            printf '\r%*s\r' 44 ''
+            if (( probed == 0 )); then
+                warn "  control plane never answered; slept ${timeout}s without confirming"
+            else
+                warn "  did not converge within ${timeout}s (last: switches=${last:-none}, want: $want)"
+                warn "  the kernel pulls once and never retries, so its graph will stay"
+                warn "  incomplete -- starting it anyway so the state can be inspected"
+            fi
+            return 0
+        fi
+        sleep 2
+    done
+}
+
 # await_convergence <mode> <topo> <timeout>
 #
 # Polls the control plane until it reports the whole topology *and* has installed the
@@ -274,7 +384,13 @@ await_convergence() {
         local skipped; skipped="$(proxy_skipped_steps)"
         if [[ ",$skipped," == *,lldp_discovery,* ]]; then
             info "  link discovery: NOT WAITED -- the proxy says it sends no LLDP on this fabric (control_plane.skipped: ${skipped//,/, })"
-            return 0
+            # 🔴 NOT a return. Two different things were riding on the discovery wait, and only
+            # one of them is about discovery: the kernel reads which switches are UP off
+            # `GET /v1.0/topology/switches`, once, at startup. Returning here starts it before
+            # the proxy has listed any -- live 2026-09-18 21:28, `live-p1/03` went from
+            # `3 switches, 3 up` to `3 switches, 0 up` on exactly that. See await_switch_list.
+            await_switch_list "$topo" "$timeout"
+            return $?
         fi
     fi
     local want; want="$(expected_counts "$mode" "$topo")"

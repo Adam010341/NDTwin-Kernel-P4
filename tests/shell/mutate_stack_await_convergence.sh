@@ -250,12 +250,15 @@ check_fires "M6: the re-read is a single attempt (the instrument)" m6 \
 # --- M7: the skip reports a failure -------------------------------------------------------------
 # `up p4` treats a non-zero here as "the stack did not come up" and rolls back. A fabric that is
 # working perfectly would be torn down for having been correctly diagnosed.
+# 🔴 ITS ANCHOR MOVED IN ROUND 3 TOO, for the same reason as M9's: the line after the skip
+# message is now the switch-list wait. The mutation is unchanged in meaning -- this branch
+# reports a failure -- and it is caught by the same cell.
 cat > "$A/m7.old" <<'EOF'
-            info "  link discovery: NOT WAITED -- the proxy says it sends no LLDP on this fabric (control_plane.skipped: ${skipped//,/, })"
-            return 0
+            await_switch_list "$topo" "$timeout"
+            return $?
 EOF
 cat > "$A/m7.new" <<'EOF'
-            info "  link discovery: NOT WAITED -- the proxy says it sends no LLDP on this fabric (control_plane.skipped: ${skipped//,/, })"
+            await_switch_list "$topo" "$timeout"
             return 1
 EOF
 check_fires "M7: not waiting is reported as a failure" m7 \
@@ -281,17 +284,69 @@ check_fires "M8: the skip line stops naming the list it read" m8 \
 # of the message cells notices, because the message is right. What sees it is the path poll that
 # should not have happened, and the wait announcement printed underneath a line saying there
 # would not be one.
+# 🔴 THE ANCHOR MOVED IN ROUND 3 and the mutation kept its meaning: the line after the skip is
+# no longer `return 0`, it is the switch-list wait and then `return $?`. Dropping the return is
+# still "announced and then not taken" -- the switch wait happens, and then the discovery loop
+# this branch exists to skip runs anyway, underneath a line saying it would not.
 cat > "$A/m9.old" <<'EOF'
-            info "  link discovery: NOT WAITED -- the proxy says it sends no LLDP on this fabric (control_plane.skipped: ${skipped//,/, })"
-            return 0
+            await_switch_list "$topo" "$timeout"
+            return $?
 EOF
 cat > "$A/m9.new" <<'EOF'
-            info "  link discovery: NOT WAITED -- the proxy says it sends no LLDP on this fabric (control_plane.skipped: ${skipped//,/, })"
+            await_switch_list "$topo" "$timeout"
 EOF
 check_fires "M9: the skip is announced and then not taken" m9 \
             "🔴 the path count is never polled at all" \
             "🔴 it does NOT announce a wait it is not doing" \
             "  with no path poll"
+
+# --- M10: ROUND 2's OWN BEHAVIOUR, which live called a regression -------------------------------
+# 🔴 THE DEFECT THIS ROUND EXISTS FOR. Returning here skips the discovery wait AND the half that
+# was riding on it: the kernel reads which switches are up off `GET /v1.0/topology/switches`,
+# once, at startup, and never clears isUp for a dpid that reply omits (FINDINGS #46). Measured
+# live 2026-09-18 21:28 -- `live-p1/03` went from `ok kernel: 3 switches, 3 up` to
+# `XX kernel: 3 switches, 0 up (want 3/3)` on exactly this line.
+cat > "$A/m10.old" <<'EOF'
+            await_switch_list "$topo" "$timeout"
+            return $?
+EOF
+cat > "$A/m10.new" <<'EOF'
+            return 0
+EOF
+check_fires "M10: the switch list is not waited for either (live 21:28)" m10 \
+            "  saying what it is waiting for" \
+            "🔴 and reports how many were listed" \
+            "🔴 the switch list IS polled on this path" \
+            "🔴 which took more than one poll" \
+            "  and the count comes off ITS model, not the other one"
+
+# --- M11 (widening): any answer at all ends the wait --------------------------------------------
+# The endpoint answers `[]` from the moment it is up, so this returns on the first poll of every
+# run -- which is M10 with a poll in front of it, and every message cell still passes because the
+# wait really did happen. What sees it is the count in the line it prints and the number of polls.
+cat > "$A/m11.old" <<'EOF'
+            if [[ "$got" == "$want" ]]; then
+EOF
+cat > "$A/m11.new" <<'EOF'
+            if [[ -n "$got" ]]; then
+EOF
+check_fires "M11 (widening): the first answer ends the switch wait" m11 \
+            "  and ends on the full count, not on the first answer" \
+            "🔴 which took more than one poll" \
+            "  it never calls a partial list a full one"
+
+# --- M12: a model this script cannot count releases the kernel immediately ----------------------
+# The one path where there is no number to wait for. Proceeding at once puts the kernel against
+# a fabric nothing has confirmed anything about -- the race both waits exist to remove -- and the
+# warning above it still prints, so the log still says a fallback happened.
+cat > "$A/m12.old" <<'EOF'
+        countdown "$timeout" "waiting for the switches to register with the proxy"
+EOF
+cat > "$A/m12.new" <<'EOF'
+        :
+EOF
+check_fires "M12: an uncountable model is not waited for at all" m12 \
+            "🔴 an uncountable model falls back to the fixed wait"
 
 # --- the controls: two behaviour-preserving rewrites -------------------------------------------
 # 🔴 Without these the round says nothing. A harness that reported red for ANY edit would print
