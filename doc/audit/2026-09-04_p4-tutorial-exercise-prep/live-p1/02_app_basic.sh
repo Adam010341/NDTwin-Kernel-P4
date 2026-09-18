@@ -227,7 +227,12 @@ say "what 'ndt up' said about paths and entries"
 # happens to declare today; an assertion that hardcoded it would go red the day the exercise gains
 # a sixth entry, and would say nothing about whether `ndt up` and the endpoint agree -- which is
 # the thing worth checking.
-EXPECT_ENTRIES="$("$PY" -c "
+#
+# 🔴 GUARDED on the capture, like the block above: `fail` records a verdict and RETURNS (it is not
+# `die`), so an unreadable switch_state must not take the rest of this script -- and the teardown
+# after it -- down with a `set -e` abort inside a command substitution.
+if [[ -s "$SS" ]]; then
+    EXPECT_ENTRIES="$("$PY" -c "
 import json,sys
 d=json.load(open(sys.argv[1]))
 sw=d.get('switches') or {}
@@ -239,9 +244,12 @@ if n and len(set(vals))==1:
 else:
     print('table entries: %d/%d applied across %d switch(es) (they do not all carry the same count), 0 failed'
           % (sum(v[0] for v in vals), sum(v[1] for v in vals), n))" "$SS")"
-note "expected from switch_state: $EXPECT_ENTRIES"
-/usr/bin/grep -qF "$EXPECT_ENTRIES" "$RUN/20_up.txt" \
-    || fail "'ndt up' did not print the entries line switch_state implies: [$EXPECT_ENTRIES] (see 20_up.txt) -- applying the package's own entries is the one thing NDTwin is responsible for on this fabric, so it is the gate"
+    note "expected from switch_state: $EXPECT_ENTRIES"
+    /usr/bin/grep -qF "$EXPECT_ENTRIES" "$RUN/20_up.txt" \
+        || fail "'ndt up' did not print the entries line switch_state implies: [$EXPECT_ENTRIES] (see 20_up.txt) -- applying the package's own entries is the one thing NDTwin is responsible for on this fabric, so it is the gate"
+else
+    fail "no switch_state capture to compute the entries line from -- 'ndt up' printed one and nothing can be compared against it"
+fi
 
 say "verify_p4 (ndt's own [3/3], run again)"
 # The fourth argument `ndt up` passes: app_pipeline_kind's word for whose program is on these
