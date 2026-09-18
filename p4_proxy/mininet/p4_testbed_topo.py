@@ -323,10 +323,17 @@ class MultiSwitchTopo(Topo):
             package = app_package.baseline()
 
         base = os.path.dirname(os.path.abspath(__file__))
-        # The fabric-wide pipeline. `pipeline_for` answers NDTwin's own
-        # `p4_src/build/ndtwin_switch.json` for every switch of every package in phase 1 (G4 is
-        # not built), so this is byte-identical to the literal path it replaces.
-        json_path = package.pipeline_for(1, os.path.join(base, ".."))[1]
+        # [Co-developed with claude code -- Adam]
+        # 🔴 ASKED PER SWITCH, NOT ONCE FOR DPID 1. `BMv2Switch.__init__` has always taken
+        # `json_path` per switch; what it was handed was dpid 1's answer, copied to all of them.
+        # With `pipeline: null` everywhere that was invisible -- every switch got the same
+        # `p4_src/build/ndtwin_switch.json`. It stops being invisible the moment a package
+        # declares its own programs: exercises/firewall runs `firewall.json` on s1 and
+        # `basic.json` on s2-s4, and dpid 1's answer for all four is a fabric where three
+        # switches run a program the exercise never asked for, forwarding plausibly and wrongly.
+        # The un-normalised `os.path.join(base, "..")` is kept verbatim: that string is what
+        # lands in the baseline argv today, and test_fabric_bring_up pins the argv byte for byte.
+        proxy_root = os.path.join(base, "..")
 
         # The switches, from the model rather than from `range(1, 11)`.
         #
@@ -342,7 +349,8 @@ class MultiSwitchTopo(Topo):
             # Both bases live in grpc_ports.py, which is also where the reason the gRPC block
             # is 30050-based rather than 50050-based is written down (F-15: 50051-50060 was
             # inside the kernel's ephemeral range, so switches randomly failed to bind).
-            s = self.addSwitch(s_name, cls=BMv2Switch, json_path=json_path,
+            s = self.addSwitch(s_name, cls=BMv2Switch,
+                               json_path=package.pipeline_for(dpid, proxy_root)[1],
                                device_id=dpid, grpc_port=grpc_ports.grpc_port(dpid),
                                thrift_port=grpc_ports.thrift_port(dpid),
                                cpu_port=package.cpu_port)
@@ -776,7 +784,7 @@ def abort_if_grpc_ports_are_held(held, owner_of=None, report=print, exit_=sys.ex
 #: [Co-developed with claude code -- Adam]
 FabricPlan = collections.namedtuple(
     "FabricPlan",
-    "package model_path model dpids json_path binary lib_dir ports port_warning")
+    "package model_path model dpids json_paths binary lib_dir ports port_warning")
 
 
 class FabricPlanError(ValueError):
@@ -807,11 +815,31 @@ def plan_fabric(package=None, report=print):
     report(f"topology model: {model_path}")
     dpids = [dpid for dpid, _ in topo_from_json.switches(model)]
 
-    json_path = package.pipeline_for(
-        1, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))[1]
-    if not os.path.exists(json_path):
-        raise FabricPlanError(
-            f"Compiled P4 JSON not found at {json_path}. Run 'p4c-bm2-ss' first in p4_src.")
+    # [Co-developed with claude code -- Adam]
+    # 🔴 EVERY SWITCH, BY NAME. This used to check dpid 1's json and call the fabric pre-flighted.
+    # Under `pipeline: null` that was one file standing for all of them; under a package that
+    # names its own programs it is one file standing for none of the others, and the switch whose
+    # program was never compiled would fail at `simple_switch_grpc` launch time -- after `mn -c`
+    # has already destroyed the fabric that was running, with the error in /tmp/sN_bmv2.log,
+    # which nothing reads. The message names the dpid so the answer is "compile firewall.p4",
+    # not "something is missing".
+    proxy_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+    json_paths = {}
+    for dpid in dpids:
+        json_paths[dpid] = package.pipeline_for(dpid, proxy_root)[1]
+        if not os.path.exists(json_paths[dpid]):
+            raise FabricPlanError(
+                f"Compiled P4 JSON for s{dpid} not found at {json_paths[dpid]}. "
+                f"Run 'p4c-bm2-ss' first in p4_src.")
+    # Said out loud when, and only when, some switch is not running NDTwin's own pipeline.
+    # An operator reading a bring-up log has to be able to tell "the telemetry is off because
+    # this fabric runs somebody else's program" from "the telemetry broke", and by the time the
+    # proxy discloses it in `switch_state` the fabric is already up.
+    foreign = [dpid for dpid in dpids if not package.pipeline_is_ndtwin(dpid, proxy_root)]
+    if foreign:
+        report(f"package pipelines: {len(foreign)} of {len(dpids)} switch(es) run the "
+               f"package's own program, not NDTwin's: "
+               + ", ".join(f"s{d}={os.path.basename(json_paths[d])}" for d in foreign))
 
     # The binary choice, before anything is torn down: a broken override should fail here, not
     # after mn -c has already destroyed the running fabric.
@@ -830,7 +858,7 @@ def plan_fabric(package=None, report=print):
         report(warning)
 
     return FabricPlan(package=package, model_path=model_path, model=model, dpids=dpids,
-                      json_path=json_path, binary=binary, lib_dir=lib_dir, ports=ports,
+                      json_paths=json_paths, binary=binary, lib_dir=lib_dir, ports=ports,
                       port_warning=warning)
 
 

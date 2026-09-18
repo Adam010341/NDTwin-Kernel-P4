@@ -1,4 +1,8 @@
-Fixtures copied verbatim from p4lang/tutorials (~/tutorials), 2026-09-17.
+Fixtures from p4lang/tutorials (~/tutorials), 2026-09-17 and 2026-09-18.
+
+COPIED VERBATIM (test_convert.FixtureProvenance compares every one of these to
+~/tutorials/exercises/<same relative path> by sha256, and says so loudly when that tree is
+not on the machine rather than passing silently):
 
   basic/pod-topo/{topology,s1-runtime,s2-runtime,s3-runtime,s4-runtime}.json
   basic/triangle-topo/{topology,s1-runtime,s2-runtime,s3-runtime}.json
@@ -6,15 +10,50 @@ Fixtures copied verbatim from p4lang/tutorials (~/tutorials), 2026-09-17.
   basic/solution/basic.p4
   p4runtime/{topology.json,mycontroller.py,advanced_tunnel.p4}
   p4runtime/build/{advanced_tunnel.json,advanced_tunnel.p4.p4info.txtpb}
+  ecn/{topology.json,s1-runtime.json,s2-runtime.json,s3-runtime.json}
+  mri/{topology.json,s1-runtime.json,s2-runtime.json,s3-runtime.json}
+  firewall/pod-topo/{topology,s1-runtime,s2-runtime,s3-runtime,s4-runtime}.json   (2026-09-18)
+  firewall/basic.p4                                                              (2026-09-18)
+  calc/{topology.json,s1-runtime.json,calc.p4}                                   (2026-09-18)
 
-SPDX-FileCopyrightText: 2017-2018 Open Networking Foundation, Nate Foster
+COMPILED HERE, NOT COPIED (2026-09-18; the allow list is
+test_convert.GENERATED_FIXTURES, and every name in it is checked to exist so the exemption
+cannot rot into a silent pass):
+
+  firewall/build/{basic.json,basic.p4.p4info.txtpb}
+  firewall/build/{firewall.json,firewall.p4.p4info.txtpb}
+  calc/build/{calc.json,calc.p4.p4info.txtpb}
+
+  Neither exercise has ever been built in this checkout -- there is no build/ under either --
+  and TICKET-P2's G4 means a package names the program each switch runs, so a package that
+  does not carry those artefacts cannot be converted at all. Produced with:
+
+    p4c-bm2-ss --p4v 16 --p4runtime-files build/<stem>.p4.p4info.txtpb \
+               -o build/<stem>.json ~/tutorials/exercises/<exercise>/<stem>.p4
+
+  p4c-bm2-ss 1.2.5.15 (SHA 5b948b037a BUILD: Release), /usr/local/bin/p4c-bm2-ss.
+  Their bmv2 json therefore carries `program: /home/adam/tutorials/exercises/<ex>/<stem>.p4`,
+  which is where the source really is. That absolute path is also why a bmv2 json's sha256 is
+  NOT a stable identifier for "this program" (measured in TICKET-P1 B: the same .p4 compiled
+  in two directories gave two shas); the p4info's sha256 is stable and is the one pre-flight
+  prints and the tests compare.
+
+WHY firewall AND calc. firewall/pod-topo is the ONLY shipped exercise whose topology.json uses
+tutorials' per-switch `program` override -- s1 runs build/firewall.json, s2-s4 fall through to
+the Makefile's `DEFAULT_PROG = basic.p4` -- so it is the only fixture that can tell a converter
+which reads that field from one which drops it. Its runtime files pair with it: s1-runtime.json
+names firewall's p4info inside the file and s2-s4's name basic's. calc is the single-switch,
+two-host, zero-inter-switch-link shape, which `topo_from_json.switch_links` refused outright
+until TICKET-P2.
+
+SPDX-FileCopyrightText: 2017-2019 Open Networking Foundation, Nate Foster, Stephen Ibanez
 SPDX-License-Identifier: Apache-2.0
 
 Copied rather than read out of ~/tutorials so the tests describe a fixed input: the tutorials
 tree is a working copy somebody edits while doing an exercise, and a test whose subject can be
-edited underneath it reports on whatever was last saved there. The two `build/` directories are
-the output of `make build` in those exercises -- they are here because a tutorials
-`sX-runtime.json` names its own p4info and bmv2 json, so a fixture without them is a fixture
-whose entries cannot be checked against anything.
+edited underneath it reports on whatever was last saved there. The `build/` directories are
+here because a tutorials `sX-runtime.json` names its own p4info and bmv2 json, so a fixture
+without them is a fixture whose entries cannot be checked against anything -- and, since G4,
+because `switches[*].pipeline` names them too.
 
 [Co-developed with claude code -- Adam]

@@ -106,7 +106,8 @@ def hosts(model):
 def switch_links(model):
     """[(a_dpid, a_port, b_dpid, b_port)] once per physical link, lower dpid first.
 
-    The model stores both directions; a fabric needs each cable once.
+    The model stores both directions; a fabric needs each cable once. Empty is returned for a
+    one-switch model and refused for any other -- see the comment at the bottom of the function.
     """
     dpids = {d for d, _ in switches(model)}
     seen, out = set(), []
@@ -125,7 +126,24 @@ def switch_links(model):
         seen.add(key)
         out.append((key[0][0], key[0][1], key[1][0], key[1][1]))
     if not out:
-        raise TopologyModelError("model declares no inter-switch links")
+        # [Co-developed with claude code -- Adam]
+        # 🔴 ZERO CABLES IS A FACT ABOUT A ONE-SWITCH FABRIC AND A DEFECT IN ANY OTHER.
+        # This raised unconditionally, which is right for the models it was written for: a
+        # ten-switch fabric with no inter-switch edge is a file whose `edges` were dropped, and
+        # building it would give ten islands that ping nothing while every topology view reads
+        # correct. But `exercises/calc` -- and `basic_tunnel`, `load_balance`, `multicast`,
+        # every single-switch exercise -- declares one switch and two hosts, and a switch has
+        # nothing to be cabled TO. Refusing those said "this model is broken" about a model that
+        # is complete, and the operator's only route past it was to invent a second switch.
+        # The discriminator is the switch count, not the edge count.
+        if len(dpids) == 1:
+            return []
+        raise TopologyModelError(
+            f"model declares no inter-switch links, and it has {len(dpids)} switches "
+            f"({sorted(dpids)}). Zero cables is legitimate for exactly one switch -- a "
+            f"single-switch exercise has nothing to cable to -- and for two or more it means "
+            f"the edges are missing: the fabric would come up as isolated islands, each one "
+            f"healthy, forwarding nothing between them")
     return sorted(out)
 
 
