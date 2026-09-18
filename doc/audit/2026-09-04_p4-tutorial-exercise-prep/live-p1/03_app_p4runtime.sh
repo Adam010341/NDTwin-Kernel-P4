@@ -115,7 +115,9 @@ if [[ -s "$SS0" ]]; then
     [[ "$ENTRIES" == "[0]" ]] || fail "entries_recorded is $ENTRIES -- an external package brings its own entries"
     # Every step the proxy did NOT take has to be named. A short list is a proxy that did half
     # the work of a control plane while reporting that it did none.
-    for s in pipeline_push clone_session lldp link_watchdog initial_routes; do
+    # The names the proxy actually emits (P1-A's startup(); live 2026-09-18:
+    # clone_session, install_initial_routes, link_watchdog, lldp_discovery, pipeline_push, sflow_telemetry).
+    for s in pipeline_push clone_session lldp_discovery link_watchdog install_initial_routes sflow_telemetry; do
         /usr/bin/grep -qF "'$s'" <<<"$SKIPPED" || fail "control_plane.skipped does not name '$s': $SKIPPED"
     done
 fi
@@ -137,17 +139,37 @@ if ! "$CTRL_PY" -c "import sys; sys.path.insert(0, '$TUTORIALS_UTILS'); import g
 fi
 note "controller interpreter $CTRL_PY imports p4runtime_lib + p4.tmp"
 CTRL_LOG="$RUN/40_controller.log"
-setsid "$CTRL_PY" "$REPO/tools/p4_exercise/run_external_controller.py" "$PKG" mycontroller.py \
-    > "$CTRL_LOG" 2>&1 < /dev/null &
-CTRL_PID=$!
-note "pid $CTRL_PID -> $(basename "$CTRL_LOG")   (the EXIT trap stops it by this pid; never pkill)"
-sleep 10
-if ! kill -0 "$CTRL_PID" 2>/dev/null; then
-    sed 's/^/     /' "$CTRL_LOG"
+# start_controller <path relative to the exercise dir> <log> -- under setsid, by pid, with
+# PYTHONUNBUFFERED (the controller is killed by pid at teardown, and a block-buffered stdout
+# left 40_controller.log at 0 bytes after a run that had written rules -- live 2026-09-18).
+start_controller() {
+    local ctrl="$1" log="$2"
+    setsid env PYTHONUNBUFFERED=1 "$CTRL_PY" "$REPO/tools/p4_exercise/run_external_controller.py" "$PKG" "$ctrl" \
+        > "$log" 2>&1 < /dev/null &
+    CTRL_PID=$!
+    note "$ctrl: pid $CTRL_PID -> $(basename "$log")   (stopped by this pid; never pkill)"
+    sleep 10
+    if ! kill -0 "$CTRL_PID" 2>/dev/null; then
+        sed 's/^/     /' "$log"
+        CTRL_PID=""
+        fail "the controller $ctrl exited within 10s -- see $(basename "$log")"
+    fi
+    head -12 "$log" | sed 's/^/     /'
+}
+stop_controller() {
+    if [[ -n "$CTRL_PID" ]] && kill -0 "$CTRL_PID" 2>/dev/null; then
+        kill "$CTRL_PID" 2>/dev/null || true
+        for _ in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$CTRL_PID" 2>/dev/null || break; sleep 1; done
+        kill -0 "$CTRL_PID" 2>/dev/null && bad "controller pid $CTRL_PID is still alive after TERM"
+    fi
     CTRL_PID=""
-    fail "the controller exited within 10s -- see 40_controller.log"
-fi
-head -20 "$CTRL_LOG" | sed 's/^/     /'
+}
+# 🔴 THE SKELETON FIRST, AS THE CONTROL. exercises/p4runtime/mycontroller.py leaves the transit
+# rule as the student's TODO, so with it every ping dies inside s1 (measured 2026-09-18: s1's
+# ingressTunnelCounter counts them, s1-eth2 transmits nothing, 2 entries per switch instead of
+# 3). That is the exercise's own red arm, and it is what makes the solution's green mean
+# "the transit rule forwards", not "something forwards".
+start_controller mycontroller.py "$RUN/37_skeleton_controller.log"
 
 # --- 4. it forwards ---------------------------------------------------------------------------------
 H1_IP="$(model_hosts "$PKG" | sed -n '1p' | cut -d' ' -f2)"
@@ -161,7 +183,11 @@ H2_IP="$(model_hosts "$PKG" | sed -n '2p' | cut -d' ' -f2)"
 # direction working is a half-programmed switch, and a single-direction check would call that a
 # pass. One function, called twice, so the before and the after are the same measurement.
 both_ways() {
-    local label="$1" raw="$RUN/${label}_ping_raw.txt" r why="" p h d
+    # Two `local` statements, not one: bash expands every word of a `local` line before it
+    # assigns any of them, so `${label}` on the same line as `label="$1"` is still unset --
+    # and under `set -u` that killed this function silently (found live, 2026-09-18).
+    local label="$1"
+    local raw="$RUN/${label}_ping_raw.txt" r why="" p h d
     local probes=("h1 $H2_IP" "h2 $H1_IP")
     for p in "${probes[@]}"; do
         read -r h d <<<"$p"
@@ -175,6 +201,19 @@ both_ways() {
     [[ -z "$why" ]] && { echo OK; return 0; }
     echo "$why"; return 1
 }
+
+say "control: the SKELETON controller must NOT forward h1 <-> h2 (its transit rule is a TODO)"
+set +e
+PING_SKELETON="$(both_ways 38_skeleton)"
+set -e
+note "skeleton: $PING_SKELETON   (raw: $(basename "$RUN")/38_skeleton_ping_raw.txt)"
+if [[ "$PING_SKELETON" == OK ]]; then
+    fail "the skeleton controller forwarded h1 <-> h2 at 0% loss -- with the transit rule missing that cannot be the tunnel, so the solution's green below would prove nothing"
+fi
+stop_controller
+
+say "starting the exercise's SOLUTION controller (solution/mycontroller.py) under setsid"
+start_controller solution/mycontroller.py "$CTRL_LOG"
 
 say "ndt's own dataplane_ok (recorded, not the loss evidence)"
 set +e
