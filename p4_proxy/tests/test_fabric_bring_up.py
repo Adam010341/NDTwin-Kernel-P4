@@ -188,14 +188,42 @@ class RecordingSwitch(testbed.BMv2Switch):
         return self.healthy
 
 
-class RecordingHost:
-    """A Mininet host that writes down every command instead of running it."""
+class RecordingIntf(StubIntf):
+    """A mininet.link.Intf that records `rename` instead of touching a device.
 
-    def __init__(self, name, ip, mac):
+    The real one fixes up the node's nameToIntf and runs `ip link set ... name ...` between an
+    ifconfig down and up; what matters to these cells is that it was called, on which
+    interface, and WHEN relative to the host's commands.
+    """
+
+    def __init__(self, name, host):
+        StubIntf.__init__(self, name)
+        self.host = host
+
+    def rename(self, newname):
+        self.host.events.append(("rename", self.name, newname))
+        self.name = newname
+        return ""
+
+
+class RecordingHost:
+    """A Mininet host that writes down every command instead of running it.
+
+    `outputs` maps a command to what `cmd()` should answer, so a cell can reproduce the thing
+    the 09-18 live round threw away: `route add default gw ... dev eth0` answering
+    `SIOCADDRT: No such device` on a host whose interface was never renamed.
+    """
+
+    def __init__(self, name, ip, mac, outputs=None):
         self.name = name
         self._ip = ip.split("/")[0]
         self._mac = mac
         self.commands = []
+        # One ordered log of everything that happened to this host, so "the rename came first"
+        # is a fact a test can read rather than an order it has to assume.
+        self.events = []
+        self.outputs = dict(outputs or {})
+        self._intfs = [RecordingIntf(f"{name}-eth0", self), StubIntf("lo")]
 
     def IP(self):
         return self._ip
@@ -203,12 +231,16 @@ class RecordingHost:
     def MAC(self):
         return self._mac
 
+    def defaultIntf(self):
+        return self._intfs[0]
+
     def intfList(self):
-        return [StubIntf(f"{self.name}-eth0"), StubIntf("lo")]
+        return list(self._intfs)
 
     def cmd(self, line):
         self.commands.append(line)
-        return ""
+        self.events.append(("cmd", line))
+        return self.outputs.get(line, "")
 
     @property
     def host_setup(self):
@@ -218,6 +250,10 @@ class RecordingHost:
     @property
     def offload_commands(self):
         return [c for c in self.commands if c.startswith("ethtool ")]
+
+    @property
+    def intf_name(self):
+        return self.defaultIntf().name
 
 
 class RecordingNet:
@@ -229,7 +265,7 @@ class RecordingNet:
     Mininet.getNodeByName does.
     """
 
-    def __init__(self, package, model, healthy=True):
+    def __init__(self, package, model, healthy=True, outputs=None):
         self.topo = testbed.MultiSwitchTopo(package=package, model=model)
         self.switches = {}
         for name, kwargs in self.topo.switch_calls:
@@ -238,7 +274,8 @@ class RecordingNet:
             self.switches[name].healthy = healthy
         self.hosts = {}
         for name, kwargs in self.topo.host_calls:
-            self.hosts[name] = RecordingHost(name, kwargs["ip"], kwargs["mac"])
+            self.hosts[name] = RecordingHost(name, kwargs["ip"], kwargs["mac"],
+                                             outputs=(outputs or {}).get(name))
         # Interfaces in link-declaration order, which is the order real Mininet numbers them
         # and therefore the order BMv2Switch.start emits `-i port@intf`.
         for a, b, kwargs in self.topo.link_calls:
@@ -401,17 +438,18 @@ class FabricFixture(unittest.TestCase):
         quiet = []
         return testbed.plan_fabric(report=quiet.append), quiet
 
-    def bring_up(self, healthy=True, verify_timeout=None):
+    def bring_up(self, healthy=True, verify_timeout=None, outputs=None, report=None):
         # An unhealthy fabric is judged immediately: verify_switches POLLS for ten seconds
         # because a real bmv2 needs a moment to bind, and a suite that waited for that on
         # purpose would spend twenty seconds proving something it already knows.
         if verify_timeout is None:
             verify_timeout = 10.0 if healthy else 0.0
         plan, _said = self.plan()
-        net = RecordingNet(plan.package, plan.model, healthy=healthy)
+        net = RecordingNet(plan.package, plan.model, healthy=healthy, outputs=outputs)
         result = testbed.bring_up(plan.package, plan.model, net=net,
                                   manifest_path=self.manifest,
-                                  verify_timeout=verify_timeout)
+                                  verify_timeout=verify_timeout,
+                                  report=(report if report is not None else lambda _line: None))
         return plan, net, result
 
     def manifest_contents(self):
@@ -426,7 +464,7 @@ class BaselineIsWhatItWasTest(FabricFixture):
     """No knob: the argv, the ARP and the manifest, each against the literal it comes from."""
 
     def test_the_switches_are_the_models_ten_in_dpid_order(self):
-        _plan, net, (_net, switches, _fatal, _report) = self.bring_up()
+        _plan, net, (_net, switches, _fatal, _report, _setup) = self.bring_up()
         self.assertEqual([s.name for s in switches],
                          ["s%d" % i for i in range(1, 11)])
         # And they were fetched by name from the net, in that order -- which is what
@@ -482,6 +520,17 @@ class BaselineIsWhatItWasTest(FabricFixture):
             ["arp -s 10.0.0.2 00:00:00:00:00:02 ; arp -s 10.0.0.3 00:00:00:00:00:03 ; "
              "arp -s 10.0.0.4 00:00:00:00:00:04"])
 
+    def test_nothing_is_renamed_under_the_baseline(self):
+        # 🔴 THE HALF THAT KEEPS THE PROMISE. The baseline fabric's hosts are h1-eth0 and every
+        # reader of it -- the ARP fan-out, disable_host_offloads, NTG's MininetCommunicator --
+        # has always seen that name. The rename is a package's business only.
+        _plan, net, (_n, _sw, _fatal, _report, setup) = self.bring_up()
+        self.assertEqual(setup.renamed, ())
+        for name, host in net.hosts.items():
+            with self.subTest(host=name):
+                self.assertEqual(host.intf_name, f"{name}-eth0")
+                self.assertEqual([kind for kind, *_r in host.events][0], "cmd")
+
     def test_offloads_are_turned_off_on_every_host(self):
         # Without this, bulk TCP stalls at zero through bmv2 (measured 2026-08-15).
         _plan, net, _result = self.bring_up()
@@ -505,13 +554,13 @@ class BaselineIsWhatItWasTest(FabricFixture):
         })
 
     def test_a_fabric_that_came_up_is_not_fatal_and_says_nothing(self):
-        _plan, _net, (_n, switches, fatal, report) = self.bring_up()
+        _plan, _net, (_n, switches, fatal, report, _setup) = self.bring_up()
         self.assertFalse(fatal)
         self.assertIsNone(report)
         self.assertEqual(len(switches), 10)
 
     def test_a_fabric_that_did_not_come_up_is_fatal_and_names_the_count(self):
-        _plan, _net, (_n, _switches, fatal, report) = self.bring_up(healthy=False)
+        _plan, _net, (_n, _switches, fatal, report, _setup) = self.bring_up(healthy=False)
         self.assertTrue(fatal)
         self.assertIn("10 of 10 BMv2 switches did NOT come up.", report)
 
@@ -636,7 +685,7 @@ class UnderAPackageTest(FabricFixture):
         self.use_package(self.pkg)
 
     def test_the_switches_are_the_packages_four_and_nothing_asks_for_more(self):
-        _plan, net, (_n, switches, _fatal, _report) = self.bring_up()
+        _plan, net, (_n, switches, _fatal, _report, _setup) = self.bring_up()
         self.assertEqual([s.name for s in switches], ["s1", "s2", "s3", "s4"])
 
     def test_the_hosts_are_the_packages_four_with_its_addresses(self):
@@ -666,6 +715,91 @@ class UnderAPackageTest(FabricFixture):
                 self.assertEqual(fanout, [],
                                  "the fabric ran its own all-pairs ARP over the package's "
                                  "host commands")
+
+    def test_every_host_gets_its_interface_renamed_to_eth0(self):
+        # 🔴 THE 2026-09-18 DATA-PLANE RED. The package's commands are p4lang/tutorials'
+        # commands -- `route add default gw 10.0.1.10 dev eth0` -- and a tutorials host IS
+        # eth0, because P4Host.config renames it (utils/p4_mininet.py:21). An NDTwin host is
+        # h1-eth0, so the route went to a device that does not exist, and every ping in the
+        # live run answered `connect: Network is unreachable` over a fabric that was otherwise
+        # perfect: 4 switches, 4 up, 16 edges, entries recorded on all four.
+        _plan, net, _result = self.bring_up()
+        for name, host in net.hosts.items():
+            with self.subTest(host=name):
+                self.assertEqual(host.intf_name, "eth0")
+
+    def test_the_rename_happens_before_the_first_command(self):
+        # Order is the whole content of the fix: renaming after the commands have run leaves
+        # exactly the failure it is meant to remove.
+        _plan, net, _result = self.bring_up()
+        for name, host in net.hosts.items():
+            with self.subTest(host=name):
+                kinds = [kind for kind, *_rest in host.events]
+                self.assertEqual(kinds[0], "rename",
+                                 f"{name} ran something before its interface was renamed")
+                self.assertEqual(host.events[0], ("rename", f"{name}-eth0", "eth0"))
+
+    def test_a_host_the_package_gives_no_commands_is_renamed_too(self):
+        # P4Host renames every host, and so does this: the exercise's own send.py and
+        # receive.py name eth0 whether or not the manifest asked for anything to be run here.
+        package = load_package_fixture()
+        silent = app_package.Package(
+            dir=package.dir, name=package.name, topology=package.topology,
+            hosts=tuple(app_package.HostSpec(name=h.name, ip=h.ip, prefix_len=h.prefix_len,
+                                             mac=h.mac, commands=())
+                        for h in package.hosts),
+            switches=package.switches)
+        hosts = [RecordingHost("h1", "10.0.1.1/24", "08:00:00:00:01:11")]
+        setup = testbed.configure_hosts(silent, hosts, report=lambda _line: None)
+        self.assertEqual(hosts[0].intf_name, "eth0")
+        self.assertEqual(setup.renamed, (("h1", "h1-eth0"),))
+        self.assertEqual(hosts[0].host_setup, [])
+
+    def test_the_offload_commands_name_the_renamed_interface(self):
+        # disable_host_offloads walks intfList() and uses intf.name, so it follows the rename
+        # rather than fighting it. Read rather than assumed: a helper that had cached the old
+        # name would silently stop turning offloads off, and bulk TCP stalls at zero when it
+        # does (measured 2026-08-15).
+        _plan, net, _result = self.bring_up()
+        self.assertEqual(net.hosts["h1"].offload_commands,
+                         ["ethtool -K eth0 tx off rx off gso off tso off gro off"])
+
+    def test_what_a_host_command_printed_is_reported_and_counted(self):
+        # 🔴 THE OTHER HALF OF THE SAME LIVE RED: `host.cmd(command)` threw its answer away, so
+        # the kernel's own five-word diagnosis existed nowhere on the machine and the fabric
+        # looked healthy all the way up.
+        said = []
+        broken = "route add default gw 10.0.1.10 dev eth0"
+        _plan, net, (_n, _sw, _fatal, _report, setup) = self.bring_up(
+            outputs={"h1": {broken: "SIOCADDRT: No such device\n"}},
+            report=said.append)
+        self.assertEqual([(h, c) for h, c, _o in setup.noisy], [("h1", broken)])
+        self.assertEqual(setup.noisy[0][2], "SIOCADDRT: No such device")
+        # bring_up's own line, on stdout, which is what `ndt up` tails out of topo.log. The
+        # per-command copy goes through Mininet's info() and has its own cell below.
+        self.assertTrue(any("PRINTED OUTPUT" in line for line in said),
+                        f"bring_up said nothing about a host command that failed: {said}")
+        self.assertTrue(any("1 of this package's host command(s)" in line for line in said),
+                        f"the count is not in what it said: {said}")
+
+    def test_the_printed_output_is_written_under_the_command_that_produced_it(self):
+        said = []
+        broken = "route add default gw 10.0.1.10 dev eth0"
+        hosts = [RecordingHost("h1", "10.0.1.1/24", "08:00:00:00:01:11",
+                               outputs={broken: "SIOCADDRT: No such device\n"})]
+        testbed.configure_hosts(load_package_fixture(), hosts, report=said.append)
+        joined = "".join(said)
+        self.assertIn(f"*** h1: {broken}\n", joined)
+        self.assertIn("***   h1: SIOCADDRT: No such device\n", joined)
+        self.assertLess(joined.index(f"*** h1: {broken}"),
+                        joined.index("***   h1: SIOCADDRT"),
+                        "the output is printed somewhere other than under its own command")
+
+    def test_a_silent_host_command_is_not_reported_as_a_problem(self):
+        # The control. `route`, `arp` and `ifconfig` say nothing when they work, and a fabric
+        # that warned about every one of them would be a warning nobody reads.
+        _plan, _net, (_n, _sw, _fatal, _report, setup) = self.bring_up()
+        self.assertEqual(setup.noisy, ())
 
     def test_the_manifest_holds_the_packages_four_switches(self):
         self.bring_up()

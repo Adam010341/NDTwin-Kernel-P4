@@ -3032,10 +3032,29 @@ print(len(sw), sum(1 for n in sw if n.get('is_up')), sum(1 for n in sw if n.get(
 import json,sys; t=json.load(open(sys.argv[1]))
 print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1))' "$topo" 2>/dev/null)"
 
-    if [[ "$total" == "$SWITCHES" && "$up" == "$SWITCHES" ]]; then
+    # 🔴 THE DENOMINATOR COMES OUT OF THE MODEL THIS FUNCTION WAS HANDED, not out of $SWITCHES.
+    # [Co-developed with claude code -- Adam]
+    # The global is the literal 10, and up_p4 overwrites it from the package -- but this
+    # function is reached by more than one path and a global that some caller forgot to set is
+    # a denominator that silently belongs to another fabric. Measured live on 2026-09-18 under
+    # `ndt up p4 --app basic`: the fabric, the proxy and the kernel all had FOUR switches and
+    # this printed `kernel: 4 switches, 4 up (want 10/10)` and `is_enabled=4/10`, i.e. it
+    # reported a correct fabric as broken. `$topo` is the file the kernel was handed and is
+    # already what `want_hosts` below is counted from -- counting the switches from the same
+    # place is one reader for one question. topo_model_switches is C's helper, unchanged.
+    # For both baseline models this is 10, so the baseline verdict is the one it always was.
+    local want_sw; want_sw="$(topo_model_switches "$topo")"
+    if [[ ! "$want_sw" =~ ^[0-9]+$ ]] || (( want_sw == 0 )); then
+        # Unobtainable is RED, exactly as it is for the host count below: a check whose
+        # expected value could not be read has not been run, and must not print ok.
+        err "kernel: UNCHECKED -- cannot count the switches ${topo#$REPO/} declares"
+        err "  the kernel says $total switches with $up up, and there is nothing to judge that"
+        err "  against. topo_model_switches gave '${want_sw:-<empty>}'."
+        rc=1
+    elif [[ "$total" == "$want_sw" && "$up" == "$want_sw" ]]; then
         ok "kernel: $total switches, $up up, $edges edges, $hosts hosts"
     else
-        err "kernel: $total switches, $up up (want $SWITCHES/$SWITCHES)"
+        err "kernel: $total switches, $up up (want $want_sw/$want_sw)"
         rc=1
     fi
     # The graph must describe the network we actually built.
@@ -3077,9 +3096,11 @@ print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1))' "$topo" 2>/dev/nul
         err "model/fabric mismatch: kernel graph has $hosts hosts, topology file has $want_hosts, the FABRIC has $live_hosts host namespaces"
         rc=1
     fi
-    if [[ "$enabled" != "$SWITCHES" ]]; then
+    if [[ "$want_sw" =~ ^[0-9]+$ ]] && [[ "$enabled" != "$want_sw" ]]; then
         # Structural in P4 mode, not a fault: nothing calls /ndt/inform_switch_entered.
-        info "is_enabled=$enabled/$SWITCHES -- expected in P4 mode, nothing calls inform_switch_entered"
+        # The denominator is the model's, for the reason above -- `is_enabled=4/10` on a
+        # four-switch package read as two faults where there were none.
+        info "is_enabled=$enabled/$want_sw -- expected in P4 mode, nothing calls inform_switch_entered"
     fi
     return $rc
 }

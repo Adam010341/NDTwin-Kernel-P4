@@ -552,6 +552,48 @@ has   "  a package gives ITS second host's address"       "h1 10.0.2.2" "$OUT"
 OUT="$(drive "topo_model_switches '$PKG_EXT/ndtwin/topology.json'")"
 has   "  and the switch count comes off the model"        "3" "$OUT"
 
+# 🔴 verify_p4_graph's DENOMINATOR, driven for real with the kernel's answer stubbed.
+# Live, 2026-09-18: a four-switch package came up correctly -- 4 switches, 4 up, 16 edges, all
+# four with entries recorded -- and this printed `kernel: 4 switches, 4 up (want 10/10)` and
+# `is_enabled=4/10`, reporting a healthy fabric as two faults. The want came off the global
+# SWITCHES, which is the literal 10. It comes off the model this function is handed now.
+GRAPH='
+curl() { printf %s "$GRAPH_JSON"; }
+fabric_host_count() { echo "$GRAPH_HOSTS"; }
+'
+mkgraph() {   # mkgraph <switches> <hosts>
+    python3 - "$1" "$2" <<'PY'
+import json, sys
+ns, nh = int(sys.argv[1]), int(sys.argv[2])
+nodes = [{"vertex_type": 0, "is_up": True, "is_enabled": True} for _ in range(ns)]
+nodes += [{"vertex_type": 1} for _ in range(nh)]
+print(json.dumps({"nodes": nodes, "edges": [{} for _ in range(ns * 4)]}))
+PY
+}
+G4="$(mkgraph 4 4)"
+OUT="$(drive_v "$GRAPH"$'\n'"GRAPH_JSON=$(q "$G4"); GRAPH_HOSTS=4; verify_p4_graph '$PKG_OK/ndtwin/topology.json'")"
+check "🔴 a 4-switch package makes the want 4, not 10"    "0" "$(rc_of "$OUT")"
+has   "  and says so positively"                          "kernel: 4 switches, 4 up" "$OUT"
+hasnt "🔴 the literal ten is gone"                        "want 10/10" "$OUT"
+hasnt "  and so is is_enabled=4/10"                       "is_enabled=4/10" "$OUT"
+# The control that keeps the cell above from passing on any denominator at all.
+G3="$(mkgraph 3 4)"
+OUT="$(drive_v "$GRAPH"$'\n'"GRAPH_JSON=$(q "$G3"); GRAPH_HOSTS=4; verify_p4_graph '$PKG_OK/ndtwin/topology.json'")"
+check "🔴 three switches under a 4-switch model still fails" "1" "$(rc_of "$OUT")"
+has   "  naming the model's number as the want"           "want 4/4" "$OUT"
+# Baseline: the 10-switch models still want ten.
+G10="$(mkgraph 10 4)"
+OUT="$(drive_v "$GRAPH"$'\n'"GRAPH_JSON=$(q "$G10"); GRAPH_HOSTS=4; verify_p4_graph '$BASE4'")"
+check "🔴 the baseline model still wants ten"             "0" "$(rc_of "$OUT")"
+has   "  and says ten"                                    "kernel: 10 switches, 10 up" "$OUT"
+OUT="$(drive_v "$GRAPH"$'\n'"GRAPH_JSON=$(q "$G4"); GRAPH_HOSTS=4; verify_p4_graph '$BASE4'")"
+check "🔴 four switches under the baseline model fails"   "1" "$(rc_of "$OUT")"
+has   "  naming ten as the want"                          "want 10/10" "$OUT"
+# Unobtainable is RED, not green -- same rule as the host count beside it.
+OUT="$(drive_v "$GRAPH"$'\n'"GRAPH_JSON=$(q "$G4"); GRAPH_HOSTS=4; verify_p4_graph '$FIX/no-such-model.json'")"
+check "🔴 an uncountable model is a failure, not a pass"  "1" "$(rc_of "$OUT")"
+has   "  and says the check did not run"                  "kernel: UNCHECKED" "$OUT"
+
 # verify_p4 under each mode. The proxy-side checks are driven through the real function with
 # the graph half stubbed, so what is measured here is which checks it runs and what it says
 # about the ones it does not.

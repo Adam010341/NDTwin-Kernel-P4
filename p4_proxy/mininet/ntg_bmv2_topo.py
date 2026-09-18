@@ -140,7 +140,8 @@ def main(tee=None, enter_cli=None) -> None:
 
     testbed.reset_for_bring_up(plan.ports)
 
-    net, switches, fatal, report = testbed.bring_up(plan.package, plan.model)
+    net, switches, fatal, report, _host_setup = testbed.bring_up(
+        plan.package, plan.model)
     ports = plan.ports
 
     print("\n======================================================================")
