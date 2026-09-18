@@ -408,7 +408,7 @@ class StoppingTheEmitterTest(unittest.TestCase):
         self.addCleanup(shutil.rmtree, tmp, True)
         os.makedirs(os.path.join(tmp, "77"))
         with open(os.path.join(tmp, "77", "cmdline"), "wb") as fh:
-            fh.write(b"/usr/bin/python3\x00/x/psample_sflow_emitter.py\x00--manifest\x00/tmp/m\x00")
+            fh.write(b"/usr/bin/python3\x00/x/psample_sflow_emitter.py\x00--manifest\x00m.json\x00")
         os.makedirs(os.path.join(tmp, "78"))
         with open(os.path.join(tmp, "78", "cmdline"), "wb") as fh:
             fh.write(b"/usr/bin/vim\x00notes.txt\x00")
@@ -499,10 +499,10 @@ class TheEmitterCommandLineTest(unittest.TestCase):
         def popen(argv, **kwargs):
             started.update(kwargs)
             return "process"
-        result = link_telemetry.start_emitter("/tmp/m.json", popen=popen, opener=opener,
-                                              log_path="/tmp/emitter.log")
+        result = link_telemetry.start_emitter("<manifest path>", popen=popen, opener=opener,
+                                              log_path="<emitter log path>")
         self.assertEqual(result, "process")
-        self.assertEqual(opened, [("/tmp/emitter.log", "wb")])
+        self.assertEqual(opened, [("<emitter log path>", "wb")])
         self.assertIs(started["stdout"], started["stderr"])
         self.assertTrue(Handle.closed, "the parent kept a descriptor on the emitter's log")
 
@@ -510,9 +510,9 @@ class TheEmitterCommandLineTest(unittest.TestCase):
         self.assertEqual(link_telemetry.LINK_TELEMETRY_LOG, "/tmp/ndtwin_link_telemetry.log")
 
     def test_it_names_the_emitter_beside_this_module_and_the_manifest(self):
-        argv = link_telemetry.emitter_argv("/tmp/m.json", python="/usr/bin/python3")
+        argv = link_telemetry.emitter_argv("<manifest path>", python="/usr/bin/python3")
         self.assertEqual(argv, ["/usr/bin/python3", link_telemetry.EMITTER_PATH,
-                                "--manifest", "/tmp/m.json"])
+                                "--manifest", "<manifest path>"])
         self.assertTrue(os.path.exists(link_telemetry.EMITTER_PATH),
                         "the emitter the bring-up starts is not next to this module")
 
