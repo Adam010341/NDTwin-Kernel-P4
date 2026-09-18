@@ -135,7 +135,8 @@ for f in "${FILES[@]}"; do
     cp -p "$f" "$s"; SNAP["$f"]="$s"; SHA["$f"]=$(sha256sum "$f" | cut -d' ' -f1)
 done
 
-# Which files this run has written since the last restore. Maintained by `apply`.
+# Which files this run has written since the last restore. Maintained at the three `apply`
+# call sites -- see the note above apply() for why it cannot live inside it.
 DIRTY=()
 
 restore() {
@@ -241,11 +242,13 @@ SURVIVORS=0
 
 # apply <file> <old> <new> -- python does the replace so the anchor is matched LITERALLY,
 # newlines and all, and re-asserts its own count at the moment of writing.
+#
+# 🔴 apply()'s BODY IS THE PYTHON HEREDOC AND NOTHING ELSE. check_gate_anchors.py recognises a
+# `NAME+=("$1")` statement inside a function as a mutation-table BUILDER, so recording the dirty
+# file in here -- the obvious place -- made the tool classify apply() as a table it could not find
+# call sites for, and it reported this whole gate as UNPARSED (which is exit 2, "not checked",
+# not a caveat on a pass). The bookkeeping lives at the three call sites instead.
 apply() {
-    # Recorded BEFORE the write, and recorded even if the write then fails: restore must touch
-    # anything this run might have modified, and an over-touch costs a rebuild while an
-    # under-touch costs a false verdict.
-    DIRTY+=("$1")
     python3 - "$1" "$2" "$3" <<'PY'
 import sys, pathlib
 path, old, new = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -260,6 +263,9 @@ PY
 mutate() {
     local label="$1" file="$2" old="$3" new="$4"; shift 4
     local expected=("$@")
+    # See apply(): the dirty-file bookkeeping lives at the call sites, so restore() knows which
+    # file to touch without apply() looking like a table builder to check_gate_anchors.py.
+    DIRTY+=("$file")
     MUTATIONS=$((MUTATIONS + 1))
     printf '\n=== %d. %s ===\n' "$MUTATIONS" "$label"
     printf '  expect red: %s\n' "${expected[*]}"
@@ -403,6 +409,7 @@ classify_control() {
 }
 
 printf '\n=== CONTROL (comment in the collector -- MUST survive) ===\n'
+DIRTY+=("$COLL")
 if apply "$COLL" \
 "$CONTROL_CPP" \
 '// mutation-gate negative control: text with no behaviour
@@ -415,6 +422,7 @@ else
 fi
 
 printf '\n=== CONTROL (comment in SFlowType.hpp -- MUST survive) ===\n'
+DIRTY+=("$SFLOW")
 if apply "$SFLOW" \
 "$CONTROL_HDR" \
 '// mutation-gate negative control: text with no behaviour
