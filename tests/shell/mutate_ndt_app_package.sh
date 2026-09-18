@@ -974,12 +974,27 @@ check_fires "M50: an unknown declared source falls back to auto" m50 \
 # fabric this command builds inherits whatever the last round chose, and the banner it prints is
 # the one the operator asked for.
 cat > "$A/m51.old" <<'EOF'
-    telemetry_knob_write "$tel_word" || {
+    telemetry_knob_apply "$tel_word" || {
 EOF
 cat > "$A/m51.new" <<'EOF'
-    [[ -n "${NDT_TELEMETRY:-}" ]] && telemetry_knob_write "$tel_word" || {
+    [[ -n "${NDT_TELEMETRY:-}" ]] && telemetry_knob_apply "$tel_word" || {
 EOF
 check_fires "M51: a bring-up that asked for nothing leaves the last round's word" m51 \
+            "🔴 a stale knob does NOT survive a bring-up that asked for nothing"
+
+# --- M72: applying `auto` writes the word into the file instead of removing it ------------------
+# 🔴 A COMMAND INVENTING STATE TO DESCRIBE A DEFAULT. A file containing `auto` says exactly what
+# its own absence already said, and it is a file: it appears in `git status` of whatever tree the
+# bring-up ran in, and every later reader has to know that `auto` and absent are the same thing.
+# It is also how a test that drives up_p4 against the real checkout starts leaving junk in it.
+cat > "$A/m72.old" <<'EOF'
+    [[ "$w" != auto ]] && { telemetry_knob_write "$w"; return $?; }
+EOF
+cat > "$A/m72.new" <<'EOF'
+    telemetry_knob_write "$w"; return $?
+EOF
+check_fires "M72: applying auto writes a file instead of removing one" m72 \
+            "  a package that declares nothing leaves no knob" \
             "🔴 a stale knob does NOT survive a bring-up that asked for nothing"
 
 # --- M52: the refusal path writes the knob anyway -------------------------------------------------
@@ -989,7 +1004,7 @@ cat > "$A/m52.old" <<'EOF'
         if ! app_preflight "$app_dir"; then
 EOF
 cat > "$A/m52.new" <<'EOF'
-        telemetry_knob_write "${NDT_TELEMETRY:-auto}" >/dev/null 2>&1
+        telemetry_knob_apply "${NDT_TELEMETRY:-auto}" >/dev/null 2>&1
         if ! app_preflight "$app_dir"; then
 EOF
 check_fires "M52: a refused bring-up has already chosen a source" m52 \

@@ -1447,21 +1447,34 @@ reset_fix; rm -f "$TELKNOB"
 OUT="$(drive "NDT_TELEMETRY=none; NDT_APP_DIR=$(q "$PKG_TEL"); up_p4")"
 check "🔴 and the flag outranks the package"              "none" "$(tel_state)"
 
+# 🔴 `auto` IS THE ABSENT FILE, so applying it REMOVES one rather than writing the word into
+# it. telemetry_knob_word answers `absent` for a missing file and the resolver turns that into
+# `auto`, so a file containing `auto` says exactly what its own absence already said -- and
+# `ndt` already works this way one knob over: app_knob_clear removes app_package_override for a
+# baseline bring-up instead of writing "none" into it.
 reset_fix; rm -f "$TELKNOB"
 OUT="$(drive "NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
-check "  a package that declares nothing is auto"         "auto" "$(tel_state)"
+check "  a package that declares nothing leaves no knob"  "absent" "$(tel_state)"
+has   "  and the banner says which state that is"         "telemetry    auto" "$OUT"
 
 reset_fix; rm -f "$TELKNOB"
 OUT="$(drive 'up_p4 4')"
-check "  and so is the baseline fabric"                   "auto" "$(tel_state)"
+check "  and so does the baseline fabric"                 "absent" "$(tel_state)"
 
-# 🔴 THE WORD IS WRITTEN EVERY TIME, INCLUDING `auto`. The alternative -- leave the file alone
-# when nothing was asked for -- makes this bring-up inherit the last one's choice with nothing
-# on screen saying so, which is the failure mode host_count_override was given a banner row for.
+# 🔴 THE WORD IS APPLIED EVERY TIME, AND FOR `auto` THAT IS A REMOVAL. The alternative -- leave
+# the file alone when nothing was asked for -- makes this bring-up inherit the last one's choice
+# with nothing on screen saying so, which is the failure mode host_count_override has a banner
+# row for.
 reset_fix
 printf 'link\n' > "$TELKNOB"
 OUT="$(drive 'up_p4 4')"
-check "🔴 a stale knob does NOT survive a bring-up that asked for nothing" "auto" "$(tel_state)"
+check "🔴 a stale knob does NOT survive a bring-up that asked for nothing" "absent" "$(tel_state)"
+has   "  and the removal is said out loud"                "cleared p4_proxy/mininet/telemetry_override" "$OUT"
+
+reset_fix
+printf 'link\n' > "$TELKNOB"
+OUT="$(drive 'NDT_TELEMETRY=auto; up_p4 4')"
+check "  --telemetry auto clears it too"                  "absent" "$(tel_state)"
 
 # 🔴 A DECLARED WORD THAT IS NOT A SOURCE IS A REFUSAL, not a fall back to auto.
 reset_fix; rm -f "$TELKNOB"

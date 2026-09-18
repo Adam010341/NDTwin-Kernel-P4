@@ -1683,6 +1683,35 @@ telemetry_knob_write() {
     return 0
 }
 
+# telemetry_knob_apply <word> -- put <word> in force, which for `auto` means REMOVING the file.
+#
+# 🔴 ABSENT IS `auto`, SO `auto` IS ABSENT. telemetry_knob_word answers `absent` for a missing
+# file and the resolver turns that into `auto`, so a file containing the word `auto` says
+# exactly what its own absence already said -- and creating one is a command inventing state to
+# describe a default. That is the shape `ndt` already uses one screen up: app_knob_clear REMOVES
+# app_package_override for a baseline bring-up rather than writing "none" into it, and
+# set_host_count is only called when a count was asked for.
+#
+# 🔴 AND IT IS A REMOVAL, NOT A SKIP. A knob left at `link` while this bring-up resolved `auto`
+# is the next round's fabric being decided by the last one, which is the whole reason the word
+# is applied on every bring-up rather than only when --telemetry was given.
+telemetry_knob_apply() {
+    local w="$1" f
+    telemetry_word_valid "$w" || {
+        err "telemetry source '$w' is not one of: $TELEMETRY_WORDS"; return 2; }
+    [[ "$w" != auto ]] && { telemetry_knob_write "$w"; return $?; }
+    f="$(telemetry_knob_path)"
+    if [[ -e "$f" ]]; then
+        rm -f "$f" 2>/dev/null || {
+            err "could NOT remove $(short_repo_path "$f"); it still names $(telemetry_knob_word)"
+            return 1; }
+        info "telemetry    auto   (cleared $(short_repo_path "$f") -- an absent knob IS auto)"
+    else
+        info "telemetry    auto   ($(short_repo_path "$f") absent -- auto, then the package)"
+    fi
+    return 0
+}
+
 # app_package_telemetry <dir> -- the package's own declared telemetry.source, or empty.
 #
 # 🔴 OPTIONAL AND ADDITIVE. package.json format stays 1: a package that says nothing about
@@ -3062,7 +3091,7 @@ up_p4() {
             err "nothing was started."
             return 1; }
     fi
-    telemetry_knob_write "$tel_word" || {
+    telemetry_knob_apply "$tel_word" || {
         knob_restore "the telemetry knob could not be written"
         err "nothing was started."
         return 1; }
