@@ -139,7 +139,7 @@ cat > "$A/m1.old" <<'EOF'
     [[ "$which" == solution ]] && { echo 0; return; }
     case "$ex" in
         flowcache)    echo 1 ;;
-        basic_tunnel) echo 1 ;;          # ndtwin fabric; this script only drives that one
+        basic_tunnel) echo 1 ;;          # both fabrics now; this script drives ndtwin
         *)            echo 0 ;;
     esac
 EOF
@@ -173,7 +173,7 @@ check_fires "M2 (widening): every arm is expected to do whatever it did" m2 \
 # `RED ARM (n/n): ... by design` and exit 1. Without the exception a correct round is red on two.
 cat > "$A/m3.old" <<'EOF'
         flowcache)    echo 1 ;;
-        basic_tunnel) echo 1 ;;          # ndtwin fabric; this script only drives that one
+        basic_tunnel) echo 1 ;;          # both fabrics now; this script drives ndtwin
 EOF
 cat > "$A/m3.new" <<'EOF'
         __never__)    echo 1 ;;
