@@ -332,6 +332,135 @@ def _pipeline_is_ndtwin(package, dpid, base_dir=None):
     return package.pipeline_is_ndtwin(dpid, base_dir)
 
 
+# --- where each switch's samples come from (TICKET-P3 2.1). [Co-developed with claude code -- Adam]
+#
+# One word, three readers: this proxy, the fabric bring-up (which hangs `tc ... action sample`
+# filters and runs the psample emitter) and `ndt` (which writes the knob and prints it). They
+# must agree per switch, because the two sources DOUBLE-COUNT if both run: the pipeline clones a
+# sampled packet to the CPU port and the veth filter samples the same packet on the wire, and
+# the kernel adds both into the same link's byte total. Nothing errors; every rate reads twice
+# what it should, uniformly -- the exact shape the 2026-08-16 clone-stacking incident had.
+#
+#   none         nothing samples. The control arm of the three-group measurement.
+#   cooperative  today's path: the P4 pipeline clones to the CPU, this proxy synthesises sFlow.
+#   link         the switch-side veths are sampled instead; this proxy does NOT program a clone
+#                session and does NOT register the switch with the emitter.
+#   auto         per switch: NDTwin's pipeline -> cooperative, anybody else's -> link.
+
+TELEMETRY_AUTO = "auto"
+TELEMETRY_NONE = "none"
+TELEMETRY_COOPERATIVE = "cooperative"
+TELEMETRY_LINK = "link"
+
+#: The resolved values -- what `_telemetry_source` may return.
+TELEMETRY_SOURCES = (TELEMETRY_NONE, TELEMETRY_COOPERATIVE, TELEMETRY_LINK)
+#: Everything that may be WRITTEN, knob or package. `auto` is a question, not an answer.
+TELEMETRY_WORDS = (TELEMETRY_AUTO,) + TELEMETRY_SOURCES
+
+#: The knob `ndt up p4 --telemetry <word>` writes, beside `host_count_override` and the app
+#: package knob and in the same directive-file shape. A file rather than an environment
+#: variable for the reason app_package.KNOB_PATH is one: the proxy, the topology script and
+#: `ndt` are three processes started by three different parents.
+TELEMETRY_KNOB_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mininet", "telemetry_override")
+
+
+class TelemetryConfigError(RuntimeError):
+    """
+    The telemetry configuration is one this proxy will not start under.
+
+    [Co-developed with claude code -- Adam]
+    🔴 A REFUSAL, NOT A WARNING (TICKET-P3 2.1). Both cases it covers -- a knob naming a word
+    that is not a telemetry source, and a switch asked for `cooperative` whose program has no
+    controller header -- produce a fabric that comes up, connects, pushes pipelines, accepts a
+    clone session and then reports ZERO samples for the whole run. A warning about that scrolls
+    past in a tmux pane and the measurement it silently spoiled is discovered days later, if at
+    all. See doc/audit/2026-08-20 for the last time a telemetry knob failed quietly.
+    """
+
+
+def read_telemetry_knob(path=None):
+    """
+    The telemetry word this machine is configured for, or None when the file is absent.
+
+    [Co-developed with claude code -- Adam]
+    First non-blank, non-`#` line wins -- `host_count_override`'s shape, so an operator who has
+    seen one directive file has seen all of them. Absent means `auto`, which is why the absence
+    is a plain None and not an error: `ndt down` deletes the file and the next bring-up is the
+    baseline.
+
+    A word outside the value domain RAISES rather than falling back to `auto`. The fallback is
+    what makes a typo ("cooperatvie") into a silent change of measurement conditions -- and this
+    knob exists precisely so that three processes agree, so the one that cannot read it must not
+    guess.
+    """
+    path = path or TELEMETRY_KNOB_PATH
+    if not os.path.exists(path):
+        return None
+    with open(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line not in TELEMETRY_WORDS:
+                raise TelemetryConfigError(
+                    f"{path}: {line!r} is not a telemetry source. Expected one of "
+                    f"{', '.join(TELEMETRY_WORDS)}. A fabric started on a word nobody reads "
+                    f"samples nothing and reports zero, which is indistinguishable from a "
+                    f"fabric with no traffic")
+            return line
+    raise TelemetryConfigError(
+        f"{path}: exists but names no telemetry source. Delete the file for 'auto' -- an empty "
+        f"knob is a half-finished write, not a default")
+
+
+def package_telemetry_source(package):
+    """What the app package DECLARES, as a word in TELEMETRY_WORDS.
+
+    [Co-developed with claude code -- Adam]
+    Read with getattr rather than as an attribute: `Package.telemetry_source` is ticket B's
+    field (TICKET-P3 2.1) and this branch was written in parallel with it, so until B lands
+    every package answers the default. That is not a workaround -- it is the same arrangement
+    TICKET-P2 2.1 used for `pipeline_is_ndtwin`, and it means this file's branches are exercised
+    from the day they are written instead of waiting on somebody else's merge.
+    """
+    declared = getattr(package, "telemetry_source", TELEMETRY_AUTO)
+    word = str(declared or TELEMETRY_AUTO)
+    if word not in TELEMETRY_WORDS:
+        raise TelemetryConfigError(
+            f"app package {package.name!r} declares telemetry source {declared!r}, which is not "
+            f"one of {', '.join(TELEMETRY_WORDS)}")
+    return word
+
+
+def _telemetry_source(package, dpid, knob_path=None, base_dir=None):
+    """
+    Where switch `dpid`'s samples come from: `none`, `cooperative` or `link`. Never `auto`.
+
+    [Co-developed with claude code -- Adam]
+    🔴 THE LOCAL EQUIVALENT OF `app_package.telemetry_source`, ON PURPOSE (TICKET-P3 2.1). Ticket
+    B owns that function and is being written beside this one; importing it would make every
+    branch here unrunnable until B merged, and the orchestrator collapses the two afterwards --
+    exactly as TICKET-P2 2.1 did with `pipeline_is_ndtwin`, which is now one function called
+    from here. Three layers, most specific first:
+
+      1. the knob, when it names a source. An operator who typed `--telemetry link` means it for
+         this fabric, whatever the package prefers.
+      2. the package, when it declares one.
+      3. `auto`, which is PER SWITCH: our pipeline can clone to the CPU port and somebody else's
+         cannot, so a mixed fabric gets cooperative telemetry on our switches and link telemetry
+         on theirs -- and the whole fabric is measured either way, which is the point.
+    """
+    knob = read_telemetry_knob(knob_path)
+    if knob and knob != TELEMETRY_AUTO:
+        return knob
+    declared = package_telemetry_source(package)
+    if declared != TELEMETRY_AUTO:
+        return declared
+    return (TELEMETRY_COOPERATIVE if _pipeline_is_ndtwin(package, dpid, base_dir)
+            else TELEMETRY_LINK)
+
+
 def _p4info_fingerprint(path):
     """`sha256[:16]` of a p4info file, or None if it cannot be read.
 
@@ -559,6 +688,254 @@ def _record_table_entries(dpid, recorded, applied, failed):
     _table_entries[str(dpid)] = {"recorded": recorded, "applied": applied, "failed": failed}
 
 
+# --- what telemetry each switch has, and why. TICKET-P3 2.6 -----------------------------------
+# [Co-developed with claude code -- Adam]
+#
+# 🔴 THE SAME ARGUMENT AS `pipeline.skipped`, one layer up. A switch with `link` telemetry has no
+# clone session and is not registered with the emitter, and every one of those absences is also
+# what a BROKEN cooperative switch looks like. `pipeline.skipped` already names the two steps --
+# and it stays exactly as it was (TICKET-P2 7-7), because they really were skipped -- but it
+# cannot say WHY, and "why" is the whole difference between a decision and a fault.
+#
+#   telemetry  {"source", "clone_session", "sflow_registered", "packet_in_ids", "reason"}
+#
+# `packet_in_ids` is the five metadata ids this switch's own p4info gave, or null for a program
+# that declares no controller header. It is disclosed because G1 made them a per-switch fact:
+# "the proxy reads field `egress_port` as id 3" used to be a constant anybody could look up in
+# the source, and is now an answer that depends on which program is loaded.
+
+#: {dpid as string: the object above}. Written by startup(), read by the endpoint.
+_telemetry = {}
+
+#: Where the fabric bring-up writes what its psample emitter is doing (TICKET-P3 2.5). Read,
+#: never written, by this process: the emitter is ticket B's and lives in the topology script's
+#: process tree. Absent is the ordinary answer -- no `link` switch, no manifest.
+LINK_TELEMETRY_MANIFEST = "/tmp/ndtwin_link_telemetry.json"
+
+
+def _telemetry_blank(package, dpids):
+    """What `telemetry` says before startup has asked a switch anything.
+
+    Resolvable without a client -- the source is a function of the knob, the package and the
+    dpid -- so the endpoint answers the kernel's first poll with the truth rather than with a
+    null that a reader cannot tell from "this proxy is too old to say".
+    """
+    out = {}
+    for dpid in dpids:
+        try:
+            source = _telemetry_source(package, dpid)
+        except TelemetryConfigError as exc:
+            # Recorded, not raised: this runs at import, and a knob nobody can read must fail
+            # the STARTUP (where it is a refusal with a message) rather than the module import,
+            # which would leave the proxy dead with a traceback and no endpoint to ask.
+            out[str(dpid)] = {"source": None, "clone_session": False, "sflow_registered": False,
+                              "packet_in_ids": None, "reason": str(exc)}
+            continue
+        out[str(dpid)] = {"source": source, "clone_session": False, "sflow_registered": False,
+                          "packet_in_ids": None,
+                          "reason": "startup has not reached this switch yet"}
+    return out
+
+
+def _record_telemetry(dpid, source, clone_session, sflow_registered, packet_in_ids, reason):
+    _telemetry[str(dpid)] = {"source": source,
+                             "clone_session": bool(clone_session),
+                             "sflow_registered": bool(sflow_registered),
+                             "packet_in_ids": packet_in_ids,
+                             "reason": reason}
+
+
+def telemetry_report():
+    """{dpid as string: that switch's telemetry disclosure}. A copy per switch."""
+    return {dpid: dict(entry) for dpid, entry in _telemetry.items()}
+
+
+def link_emitter_report(path=None):
+    """
+    A summary of ticket B's psample emitter, or None when there is no manifest.
+
+    [Co-developed with claude code -- Adam]
+    🔴 `alive` IS A LIVE CHECK, NOT A FIELD OF THE FILE. The manifest records a pid; a manifest
+    left behind by a bring-up that died says the emitter is running just as confidently as one
+    written a second ago, and `link` telemetry with a dead emitter is a fabric that samples into
+    nothing -- zero on every edge, no error. `/proc/<pid>` is the cheapest question that
+    distinguishes them, and it is asked at request time so the answer is never a cached yes.
+    ⚠️ It says a process with that pid exists, not that it is the emitter: pids are reused. The
+    stronger check (the pid's cmdline) belongs to `ndt verify_p4`, which owns the fabric; this
+    endpoint reports what it can cheaply and truthfully see.
+    """
+    path = path or LINK_TELEMETRY_MANIFEST
+    try:
+        with open(path) as fh:
+            doc = json.load(fh)
+    except (OSError, ValueError):
+        return None
+    pid = doc.get("emitter_pid") or doc.get("pid")
+    alive = False
+    if isinstance(pid, int) and pid > 0:
+        alive = os.path.exists(f"/proc/{pid}")
+    switches = doc.get("switches") or {}
+    return {"manifest": path,
+            "pid": pid,
+            "alive": alive,
+            "switches": sorted(str(k) for k in switches),
+            "rate": doc.get("rate")}
+
+
+def control_plane_telemetry(package=None, knob_path=None, manifest_path=None):
+    """
+    The fabric-wide half of the telemetry disclosure: what was asked for, and who is emitting.
+
+    [Co-developed with claude code -- Adam]
+    `knob` and `package` are the two INPUTS to `_telemetry_source`, reported separately from the
+    per-switch answers they produce. A reader looking at a fabric that is sampling nothing has to
+    be able to tell "nobody asked for telemetry" from "somebody asked and it did not happen", and
+    a resolved word per switch cannot answer the first.
+    """
+    package = profile.current() if package is None else package
+    try:
+        knob = read_telemetry_knob(knob_path)
+    except TelemetryConfigError as exc:
+        knob = f"refused: {exc}"
+    try:
+        declared = getattr(package, "telemetry_source", None)
+    except Exception:  # noqa: BLE001 -- a disclosure must not raise
+        declared = None
+    return {"knob": "absent" if knob is None else knob,
+            "package": declared,
+            "link_emitter": link_emitter_report(manifest_path)}
+
+
+# --- the PRE entries a package declares (G9a). [Co-developed with claude code -- Adam] --------
+#
+# 🔴 NOT TABLE ENTRIES, AND THE DIFFERENCE IS WHY THEY ARE APPLIED WHERE TABLE ENTRIES ARE NOT.
+# A package's `table_entries` name tables inside the exercise's own program, so on an NDTwin
+# pipeline they are recorded and deliberately never written (`MyIngress.ipv4_lpm` in `basic.p4`
+# is not the one in `ndtwin_switch.p4` even though the strings match). A multicast group and a
+# clone session are TARGET-level objects in the PRE: they have no program in them at all, they
+# exist on every pipeline, and an exercise whose group is missing forwards nothing to the hosts
+# that group was for -- the tutorials `multicast` exercise is exactly that, h1 to h2/h3/h4.
+
+#: {dpid as string: {"multicast": {...}, "clone": {...}}}, each with recorded/applied/failed.
+_pre_entries = {}
+
+PRE_ENTRY_KINDS = ("multicast", "clone")
+
+
+def _blank_pre_counts():
+    return {kind: {"recorded": 0, "applied": 0, "failed": 0} for kind in PRE_ENTRY_KINDS}
+
+
+def pre_entries_report():
+    """{dpid as string: how many PRE entries were declared, programmed and refused}."""
+    return {dpid: {kind: dict(counts) for kind, counts in entry.items()}
+            for dpid, entry in _pre_entries.items()}
+
+
+def _record_pre_entries(dpid, counts):
+    _pre_entries[str(dpid)] = {kind: dict(counts.get(kind, {"recorded": 0, "applied": 0,
+                                                            "failed": 0}))
+                               for kind in PRE_ENTRY_KINDS}
+
+
+def read_pre_entries(entries_path):
+    """The `multicast_group_entries` / `clone_session_entries` a runtime file declares.
+
+    Returns `{"multicast": [...], "clone": [...]}`; empty lists when the file has neither, which
+    is every tutorials exercise but `multicast` and `flowcache`. Never raises: a file that will
+    not parse is already refused by `app_package.load`, so reaching that here means it changed
+    under a running proxy and the caller counts it as zero declared rather than dying.
+    """
+    out = {"multicast": [], "clone": []}
+    if not entries_path:
+        return out
+    try:
+        with open(entries_path) as fh:
+            doc = json.load(fh)
+    except (OSError, ValueError):
+        return out
+    if isinstance(doc, dict):
+        out["multicast"] = list(doc.get("multicast_group_entries") or [])
+        out["clone"] = list(doc.get("clone_session_entries") or [])
+    return out
+
+
+def apply_package_pre_entries(client, entries_path):
+    """
+    Program every multicast group and clone session a package declares. Returns counts.
+
+    [Co-developed with claude code -- Adam]
+        {"multicast": {"recorded", "applied", "failed"}, "clone": {...}, "errors": [...]}
+
+    One refusal does not stop the rest, for `apply_package_entries`' reason: a runtime file is a
+    list of independent objects and stopping half way leaves a fabric programmed to an arbitrary
+    point with no record of where.
+
+    🔴 A FAILURE IS COUNTED AS A FAILURE. `write_multicast_group` returns False for a switch that
+    refused the write, and False is falsy in the same way a successful write of zero groups is --
+    so the count is taken from the return value explicitly rather than from "did anything raise".
+    A group counted as applied that is not on the switch makes `pre_entries.failed == 0` a
+    sentence about nothing.
+    """
+    out = {"multicast": {"recorded": 0, "applied": 0, "failed": 0},
+           "clone": {"recorded": 0, "applied": 0, "failed": 0},
+           "errors": []}
+    declared = read_pre_entries(entries_path)
+    out["multicast"]["recorded"] = len(declared["multicast"])
+    out["clone"]["recorded"] = len(declared["clone"])
+    dpid = getattr(client, "device_id", "?")
+
+    for index, spec in enumerate(declared["multicast"]):
+        spec = spec if isinstance(spec, dict) else {}
+        try:
+            ok = client.write_multicast_group(spec.get("multicast_group_id"),
+                                              spec.get("replicas") or [],
+                                              spec.get("op", "insert"))
+        except Exception as exc:  # noqa: BLE001 -- one group must not cost the others
+            ok = False
+            out["errors"].append(f"multicast entry {index}: {type(exc).__name__}: {exc}")
+            print(f"[Proxy Agent] switch {dpid}: multicast group entry {index} was NOT "
+                  f"programmed -- {type(exc).__name__}: {exc}")
+        if ok:
+            out["multicast"]["applied"] += 1
+        else:
+            out["multicast"]["failed"] += 1
+            if len(out["errors"]) == 0 or not out["errors"][-1].startswith(
+                    f"multicast entry {index}:"):
+                out["errors"].append(
+                    f"multicast entry {index}: the switch refused multicast group "
+                    f"{spec.get('multicast_group_id')!r}")
+
+    for index, spec in enumerate(declared["clone"]):
+        spec = spec if isinstance(spec, dict) else {}
+        try:
+            ok = client.write_clone_session(
+                session_id=spec.get("clone_session_id", spec.get("session_id")),
+                replicas=spec.get("replicas") or None)
+        except Exception as exc:  # noqa: BLE001
+            ok = False
+            out["errors"].append(f"clone entry {index}: {type(exc).__name__}: {exc}")
+            print(f"[Proxy Agent] switch {dpid}: clone session entry {index} was NOT programmed "
+                  f"-- {type(exc).__name__}: {exc}")
+        if ok:
+            out["clone"]["applied"] += 1
+        else:
+            out["clone"]["failed"] += 1
+            if len(out["errors"]) == 0 or not out["errors"][-1].startswith(
+                    f"clone entry {index}:"):
+                out["errors"].append(
+                    f"clone entry {index}: the switch refused clone session "
+                    f"{spec.get('clone_session_id', spec.get('session_id'))!r}")
+    return out
+
+
+#: Filled at import for the reason `_pipelines` is: the kernel polls `GET /p4/switch_state` from
+#: the moment the port is open, and a telemetry object that only appears once startup has
+#: finished is indistinguishable, to that reader, from a proxy too old to have one.
+_telemetry.update(_telemetry_blank(profile.current(), DEFAULT_SWITCH_DPIDS))
+_pre_entries.update({str(dpid): _blank_pre_counts() for dpid in DEFAULT_SWITCH_DPIDS})
+
+
 def readopt_switch(topology, dpid, client_factory, sample_callback, package=None):
     """
     The package's half of `POST /p4/readopt/{dpid}`.
@@ -603,11 +980,51 @@ def readopt_switch(topology, dpid, client_factory, sample_callback, package=None
     package = profile.current() if package is None else package
     ndtwin = _pipeline_is_ndtwin(package, dpid)
 
+    # [Co-developed with claude code -- Adam]
+    # TICKET-P3 2.1: the telemetry source decides the clone session here for the same reason it
+    # does in startup -- a switch whose samples come from the link emitter must not also clone
+    # to the CPU port, or every byte it carries is counted twice. `sample_callback=None` is how
+    # readopt is told a switch gets no telemetry, so the two conditions meet in one expression
+    # rather than becoming a second parameter nobody passes.
+    #
+    # 🔴 THE ROUTE REFILL IS NOT TELEMETRY. `install_routes` stays on `ndtwin` alone: a fabric
+    # measured by the link emitter still runs NDTwin's pipeline and still wants NDTwin's
+    # shortest paths back after a power-cycle. Folding the two conditions together would make
+    # `--telemetry link` silently stop refilling the routes of every switch that power-cycles.
+    telemetry_source = _telemetry_source(package, dpid)
+    cooperative = ndtwin and telemetry_source == TELEMETRY_COOPERATIVE
+
     result = topology.readopt_switch(dpid, client_factory,
-                                     sample_callback if ndtwin else None,
+                                     sample_callback if cooperative else None,
                                      install_routes=ndtwin)
 
+    if result.get("status") == "success":
+        # The push inside readopt empties this switch's PRE along with its tables, so whatever
+        # the package declared there goes back on -- on every pipeline, for the reason startup's
+        # own PRE loop gives. Recorded, not added to: the counts describe what is on the switch
+        # now. [Co-developed with claude code -- Adam]
+        pre = apply_package_pre_entries(topology.switches.get(dpid),
+                                        package_entries_path(package, dpid))
+        _record_pre_entries(dpid, pre)
+        result["pre_entries"] = {kind: dict(pre[kind]) for kind in PRE_ENTRY_KINDS}
+        _record_telemetry(
+            dpid, telemetry_source, bool(result.get("clone_session")) and cooperative,
+            cooperative, None if not cooperative else _telemetry.get(
+                str(dpid), {}).get("packet_in_ids"),
+            f"re-adopted: telemetry source '{telemetry_source}'"
+            + ("" if cooperative else ", so no clone session was programmed"))
+
     if ndtwin or result.get("status") != "success":
+        if ndtwin and result.get("status") == "success" and not cooperative:
+            # 🔴 SAME LIE, OTHER CAUSE (TICKET-P2 7-8). `readopt_switch` answers
+            # `clone_session: True` when it was handed no sample callback, which means "nothing
+            # failed" -- correct for a fabric whose sFlow is simply not wired, and wrong here,
+            # where the decision was that this switch gets none.
+            result["clone_session"] = False
+            result["telemetry_note"] = (
+                f"telemetry source '{telemetry_source}': no clone session was programmed for "
+                f"this switch on purpose. Its samples come from somewhere else, and programming "
+                f"one here would count every packet twice")
         return result
 
     result["clone_session"] = False
@@ -637,6 +1054,8 @@ api_routes.inject_readopt(build_p4_client, sflow.handle_sample, readopt_switch)
 api_routes.inject_control_plane(control_plane_report, entries_recorded_report)
 api_routes.inject_package_reports(pipelines_report, table_entries_report,
                                   note_api_table_entry_write)
+api_routes.inject_telemetry_reports(telemetry_report, pre_entries_report,
+                                    control_plane_telemetry)
 
 
 async def startup(clients_factory, sflow, kernel, topo,
@@ -702,6 +1121,32 @@ async def startup(clients_factory, sflow, kernel, topo,
     _pipelines.clear()
     _pipelines.update(_describe_pipelines(package, sorted(clients)))
     foreign = {dpid for dpid in clients if not _pipelines[str(dpid)]["ndtwin"]}
+
+    # --- where each switch's samples are to come from. TICKET-P3 2.1.
+    # [Co-developed with claude code -- Adam]
+    #
+    # Resolved for EVERY connected switch before anything is done to any of them, and resolved
+    # once: `_telemetry_source` reads a file, and asking it again inside the telemetry loop
+    # would let a knob rewritten mid-startup give two switches two answers on one fabric.
+    #
+    # 🔴 THE REFUSAL IS HERE, BEFORE THE PIPELINE PUSH. `cooperative` on a program with no
+    # @controller_header("packet_in") is not a degraded mode: the pipeline cannot clone to the
+    # CPU port, the PRE accepts the clone session anyway, the emitter registers an agent, and
+    # the switch reports zero samples for the entire run with every intermediate step green.
+    # Raising takes the proxy down with a message naming the switch and the missing fields,
+    # which is the only moment the difference is still visible. `link` and `none` are silent by
+    # design and say so in the disclosure instead.
+    telemetry_sources = {}
+    for dpid, client in clients.items():
+        source = _telemetry_source(package, dpid)
+        telemetry_sources[dpid] = source
+        if source == TELEMETRY_COOPERATIVE and getattr(client, "packet_in_ids", None) is None:
+            raise TelemetryConfigError(
+                f"switch {dpid} is configured for 'cooperative' telemetry and the pipeline it "
+                f"runs cannot carry it: {getattr(client, 'packet_in_ids_error', None)} "
+                f"(p4info {_pipelines[str(dpid)]['p4info']}). Ask for telemetry 'link' or "
+                f"'none', or build this switch's program with "
+                f"p4_proxy/p4_src/ndtwin_telemetry.p4 included")
 
     if read_only:
         # 🔴 The whole point of `external`: the exercise's own controller owns this fabric's
@@ -790,6 +1235,32 @@ async def startup(clients_factory, sflow, kernel, topo,
         if counts["errors"]:
             entry_errors[str(i)] = counts["errors"]
 
+        # --- the PRE half of the same file (G9a). [Co-developed with claude code -- Adam]
+        #
+        # 🔴 ON EVERY SWITCH, NOT ONLY THE FOREIGN ONES -- the one place this loop treats the two
+        # kinds differently. A multicast group and a clone session are target objects with no
+        # program in them, so `mcast_grp 1 -> ports 2,3,4` means the same thing under
+        # ndtwin_switch.p4 as under the exercise's own, and a package that brings NDTwin's
+        # pipeline WITH its own topology (`convert --ndtwin-pipeline`, which live-p1/02 uses) is
+        # exactly the case that would otherwise silently lose its groups.
+        #
+        # After the table entries, before the telemetry loop. Before, because this proxy's own
+        # clone session is written down there and must win if a package declares the same id;
+        # after, because a package's groups are part of its forwarding and its table entries are
+        # what reference them.
+        pre = _blank_pre_counts()
+        if i not in broken and not read_only:
+            pre = apply_package_pre_entries(client, package_entries_path(package, i))
+            if pre["multicast"]["recorded"] or pre["clone"]["recorded"]:
+                print(f"[Proxy Agent] Switch {i}: "
+                      f"{pre['multicast']['applied']}/{pre['multicast']['recorded']} multicast "
+                      f"group(s) and {pre['clone']['applied']}/{pre['clone']['recorded']} clone "
+                      f"session(s) from the package programmed, "
+                      f"{pre['multicast']['failed'] + pre['clone']['failed']} refused")
+            if pre.get("errors"):
+                entry_errors.setdefault(str(i), []).extend(pre["errors"])
+        _record_pre_entries(i, pre)
+
     # --- telemetry --------------------------------------------------------------------
     # [Co-developed with claude code -- Adam]
     #
@@ -804,16 +1275,30 @@ async def startup(clients_factory, sflow, kernel, topo,
     # nothing observable. One guard, one reason, and the message a reader sees is the true one.
     agent_ips = agent_ips_loader()
     telemetry = []
+
+    def _ids_of(client):
+        """The five packet_in ids this switch's p4info gave, as a dict, or None."""
+        ids = getattr(client, "packet_in_ids", None)
+        return None if ids is None else ids.as_dict()
+
     for i, client in clients.items():
+        source = telemetry_sources[i]
         if read_only:
             # Not "telemetry failed" -- telemetry was never attempted. The clone session is a
             # WRITE into the pipeline's PRE, and the pipeline belongs to somebody else's
             # controller. Reported through `control_plane.skipped`, which is the only way a
             # reader can tell this apart from a fabric whose sampling broke.
+            _record_telemetry(i, source, False, False, _ids_of(client),
+                              "the app package declares an external control plane: this proxy "
+                              "writes nothing, so no clone session was programmed whatever the "
+                              "telemetry source says")
             continue
         if i in broken:
             # The clone session lives in the pipeline's PRE, so there is nothing to program it into.
             # [Co-developed with claude code -- Adam]
+            _record_telemetry(i, source, False, False, _ids_of(client),
+                              "the pipeline push failed for this switch, so there is no PRE to "
+                              "program a clone session into")
             continue
         if i in foreign:
             # [Co-developed with claude code -- Adam]
@@ -829,12 +1314,41 @@ async def startup(clients_factory, sflow, kernel, topo,
             print(f"[Proxy Agent] Switch {i} runs the package's own pipeline, which does not "
                   f"clone to the CPU port; no clone session and no sFlow registration for it "
                   f"({SKIP_CLONE}, {SKIP_TELEMETRY} on GET /p4/switch_state)")
+            _record_telemetry(i, source, False, False, _ids_of(client),
+                              f"this switch runs the app package's own pipeline, which does not "
+                              f"clone to the CPU port; its samples come from '{source}'")
+            continue
+
+        # --- the source decides, and the two others are not failures. TICKET-P3 2.1.
+        # [Co-developed with claude code -- Adam]
+        #
+        # 🔴 EXCLUSIVE, AND THAT IS THE WHOLE POINT. Under `link` the switch-side veths are
+        # sampled by tc filters and a separate emitter synthesises the sFlow. If this proxy ALSO
+        # programmed a clone session, the same packet would be counted twice -- once cloned to
+        # the CPU and once sampled on the wire -- into the same edge's byte total, and the twin
+        # would read exactly double with nothing anywhere reporting an error. `none` is the
+        # measurement's control arm and must sample nothing at all.
+        #
+        # Placed after the `foreign` branch so that branch's message and behaviour are untouched
+        # (TICKET-P2 7-7 froze its `pipeline.skipped` list), and so an `auto` fabric on NDTwin's
+        # own pipeline reaches the code below exactly as it did before this ticket.
+        if source != TELEMETRY_COOPERATIVE:
+            print(f"[Proxy Agent] Switch {i}: telemetry source is '{source}', so this proxy "
+                  f"programs no clone session and registers no sFlow agent for it "
+                  f"({SKIP_CLONE}, {SKIP_TELEMETRY} on GET /p4/switch_state). "
+                  f"{'Its samples come from the link emitter.' if source == TELEMETRY_LINK else 'Nothing samples this switch.'}")
+            _record_telemetry(i, source, False, False, _ids_of(client),
+                              f"telemetry source '{source}': the cooperative path is off for "
+                              f"this switch on purpose, so that nothing is counted twice")
             continue
 
         agent_ip = agent_ips.get(i)
         if agent_ip is None:
             print(f"[Proxy Agent] Switch {i} has no IP in the topology file; "
                   f"its samples would be attributed to nothing, so telemetry is off for it")
+            _record_telemetry(i, source, False, False, _ids_of(client),
+                              "this switch has no IP in the topology file, so its samples would "
+                              "be attributed to no edge")
             continue
 
         sflow.register_switch(i, agent_ip)
@@ -842,10 +1356,17 @@ async def startup(clients_factory, sflow, kernel, topo,
         if client.write_clone_session():
             telemetry.append(i)
             print(f"[Proxy Agent] Switch {i} sampling to sFlow as {agent_ip}")
+            _record_telemetry(i, source, True, True, _ids_of(client),
+                              f"cooperative telemetry: the pipeline clones 1-in-N to the CPU "
+                              f"port and this proxy emits sFlow as {agent_ip}")
         else:
             # Reported loudly: the pipeline still clones, bmv2 still drops the copy, and
             # everything downstream looks healthy while reporting zero traffic.
             print(f"[Proxy Agent] Switch {i}: clone session failed, NO telemetry from it")
+            _record_telemetry(i, source, False, True, _ids_of(client),
+                              "cooperative telemetry was asked for and the clone session could "
+                              "not be programmed: this switch is registered with the emitter "
+                              "and will produce no samples")
 
     # --- tell the kernel these switches exist -----------------------------------------
     # [Co-developed with claude code -- Adam]
@@ -995,6 +1516,14 @@ async def startup(clients_factory, sflow, kernel, topo,
         # Non-empty only when an entry was refused. The counts say how many; this says which,
         # and a count with no reason is a number nobody can act on.
         "entry_errors": entry_errors,
+        # [Co-developed with claude code -- Adam]
+        # TICKET-P3 2.1/2.6. `telemetry` above stays what it has always been -- the dpids whose
+        # clone session went in -- because `live-p1/01` reads it and a key that changes meaning
+        # under the same name is the worst of both. These two are new: the word each switch
+        # resolved to, and the full per-switch disclosure the endpoint serves.
+        "telemetry_sources": {str(dpid): word for dpid, word in telemetry_sources.items()},
+        "telemetry_report": telemetry_report(),
+        "pre_entries": pre_entries_report(),
     }
 
 

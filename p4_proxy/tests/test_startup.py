@@ -30,6 +30,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 
 import proxy_agent.main as main  # noqa: E402
 from proxy_agent.main import startup  # noqa: E402
+from proxy_agent.sflow_emitter import PacketInIds  # noqa: E402
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "mininet"))
@@ -44,13 +45,36 @@ import app_package  # noqa: E402
 # `p4_proxy/`, because tests/shell/mutate_app_package.sh runs it inside exactly such a tree.
 
 
+#: What `packet_in_metadata_ids` returns for ndtwin_switch.p4's p4info. Built with the
+#: production class rather than a stand-in dict so a double cannot outlive a change to it.
+#: [Co-developed with claude code -- Adam]
+NDTWIN_PACKET_IN_IDS = PacketInIds(reason=1, ingress_port=2, egress_port=3, frame_length=4,
+                                   sampling_rate=5)
+
+
 class FakeClient:
     """A bmv2 switch that can be made to fail at each independent step."""
 
     def __init__(self, dpid, pipeline_error=None, clone_ok=True, json_path="pipeline.json",
-                 stop_error=None, entry_errors=()):
+                 stop_error=None, entry_errors=(), packet_in_ids=NDTWIN_PACKET_IN_IDS,
+                 multicast_ok=True):
         self.dpid = dpid
         self.device_id = dpid
+        # [Co-developed with claude code -- Adam]
+        # TICKET-P3 2.6 (G1): the real client resolves the five packet_in metadata ids out of
+        # its own p4info at construction, and `None` means "this program declares no controller
+        # header". startup() refuses to give such a switch `cooperative` telemetry, so a double
+        # that did not carry the attribute would make every test here take that refusal -- which
+        # is how these two lines came to exist. The default is the NDTwin pipeline's answer,
+        # because that is what every switch in this file runs unless it says otherwise.
+        self.packet_in_ids = packet_in_ids
+        self.packet_in_ids_error = (None if packet_in_ids is not None
+                                    else "no packet_in controller header in this p4info")
+        #: Whether this switch accepts a multicast group write (TICKET-P3 2.6, G8).
+        self.multicast_ok = multicast_ok
+        #: Every (group_id, replicas, op) and (session_id, replicas) the PRE was asked for.
+        self.multicast_groups = []
+        self.clone_sessions = []
         self.stop_error = stop_error
         self.json_path = json_path
         self.pipeline_error = pipeline_error
@@ -72,9 +96,20 @@ class FakeClient:
         if self.pipeline_error is not None:
             raise self.pipeline_error
 
-    def write_clone_session(self):
+    def write_clone_session(self, session_id=None, egress_port=None, replicas=None):
+        # [Co-developed with claude code -- Adam]
+        # The signature is the production one as of TICKET-P3 2.6: startup's telemetry loop
+        # still calls it with no arguments, and `apply_package_pre_entries` calls it with a
+        # session id and a replica list out of the package's runtime file. A double that
+        # accepted only the first would turn a correct G9a call into a TypeError.
         self.events.append("clone")
+        self.clone_sessions.append((session_id, replicas))
         return self.clone_ok
+
+    def write_multicast_group(self, group_id, replicas, op="insert"):
+        self.events.append("multicast")
+        self.multicast_groups.append((group_id, list(replicas or []), op))
+        return self.multicast_ok
 
     def write_table_entry(self, spec, op="insert"):
         self.events.append("table_entry")

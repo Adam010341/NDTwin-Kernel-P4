@@ -64,6 +64,8 @@ try:
     from proxy_agent import p4_client as p4_client_module
     from proxy_agent.p4_client import P4RuntimeClient, CounterNotFound
     from proxy_agent.rule_install_times import RuleInstallTimes
+    from proxy_agent.sflow_emitter import (TelemetryHeaderMissing, packet_in_metadata_ids,
+                                           packet_out_metadata_ids)
 
     class FakeRpcError(grpc.RpcError):
         """
@@ -213,6 +215,39 @@ def a_p4info():
         field.bitwidth = 16
         field.match_type = kind
 
+    # [Co-developed with claude code -- Adam]
+    # The two controller headers, added for TICKET-P3 2.6 (G1). The proxy resolves the metadata
+    # ids BY NAME out of this message now, so a double without them makes every packet-in and
+    # packet-out path raise -- which is the correct failure for a double that has stopped
+    # standing in for the object, and is how these lines came to be here. Names, ids and widths
+    # are transcribed from p4_src/build/ndtwin_switch.p4info.txt, `_pad` included: the ids are
+    # positional in the real artefact, so a fixture that dropped a field would renumber the
+    # rest and quietly assert the wrong numbers.
+    packet_in = p4info.controller_packet_metadata.add()
+    packet_in.preamble.id = 81826293
+    packet_in.preamble.name = "packet_in"
+    packet_in.preamble.alias = "packet_in"
+    for meta_id, name, bitwidth in ((1, "reason", 8),
+                                    (2, "ingress_port", 9),
+                                    (3, "egress_port", 9),
+                                    (4, "frame_length", 16),
+                                    (5, "sampling_rate", 16),
+                                    (6, "_pad", 6)):
+        meta = packet_in.metadata.add()
+        meta.id = meta_id
+        meta.name = name
+        meta.bitwidth = bitwidth
+
+    packet_out = p4info.controller_packet_metadata.add()
+    packet_out.preamble.id = 76689799
+    packet_out.preamble.name = "packet_out"
+    packet_out.preamble.alias = "packet_out"
+    for meta_id, name, bitwidth in ((1, "egress_port", 9), (2, "_pad", 7)):
+        meta = packet_out.metadata.add()
+        meta.id = meta_id
+        meta.name = name
+        meta.bitwidth = bitwidth
+
     return p4info
 
 
@@ -296,6 +331,18 @@ def a_client(stub=None, device_id=1):
     client.device_id = device_id
     client.grpc_addr = "127.0.0.1:50051"
     client.p4info = a_p4info()
+    # [Co-developed with claude code -- Adam]
+    # Resolved with the PRODUCTION functions rather than written out as 1..5, so a mutation to
+    # the name lookup reaches these tests instead of being papered over by a fixture that agrees
+    # with the old constants. `__init__` does exactly this; a double that hardcoded the answer
+    # would be asserting the constants against themselves.
+    try:
+        client.packet_in_ids = packet_in_metadata_ids(client.p4info)
+        client.packet_in_ids_error = None
+    except TelemetryHeaderMissing as exc:
+        client.packet_in_ids = None
+        client.packet_in_ids_error = str(exc)
+    client.packet_out_ids = packet_out_metadata_ids(client.p4info)
     client.stub = stub if stub is not None else RecordingStub()
     client.packet_in_callback = None
     client.sample_callback = None

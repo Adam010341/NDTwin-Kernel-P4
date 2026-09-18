@@ -420,8 +420,15 @@ class SFlowEmitter:
 # --- interpreting a CPU packet ----------------------------------------------------
 
 # Metadata ids of packet_in_header_t in ndtwin_switch.p4, as they appear in the generated
-# p4info. They are positional, so reordering the header's fields renumbers them -- which is
-# why these are named constants rather than literals at the use site.
+# p4info. They are positional, so reordering the header's fields renumbers them.
+#
+# 🔴 THESE ARE NOW THE EXPECTATION, NOT THE LOOKUP (TICKET-P3 2.6, G1). Production reads the ids
+# out of the switch's own p4info by NAME -- `packet_in_metadata_ids` below -- because a package
+# may bring a program that declares the same five fields in another order, and a positional
+# constant against such a program does not fail: it reads `egress_port` as `ingress_port` and
+# the twin credits every byte to the wrong end of the link. What is left here is the value the
+# NDTwin pipeline must resolve to, which `test_packet_in_by_name.py` and
+# `P4InfoAgreementTest` assert against the generated p4info.
 PKTIN_META_REASON = 1
 PKTIN_META_INGRESS_PORT = 2
 PKTIN_META_EGRESS_PORT = 3
@@ -430,6 +437,110 @@ PKTIN_META_SAMPLING_RATE = 5
 
 PKTIN_REASON_PACKET_IN = 0
 PKTIN_REASON_SAMPLE = 1
+
+#: The name of the controller header the samples ride, as P4Runtime's reference implementation
+#: matches it (by name, and it recognises only these two).
+PACKET_IN_HEADER = "packet_in"
+PACKET_OUT_HEADER = "packet_out"
+
+#: The five fields of `packet_in_header_t` this proxy needs, by the name the P4 program gives
+#: them. `_pad` is deliberately not here: it exists to make the header a whole number of bytes
+#: and carries nothing.
+PACKET_IN_FIELDS = ("reason", "ingress_port", "egress_port", "frame_length", "sampling_rate")
+
+
+class TelemetryHeaderMissing(LookupError):
+    """
+    A pipeline was asked for cooperative telemetry and its p4info does not describe the header.
+
+    [Co-developed with claude code -- Adam]
+    Raised by `packet_in_metadata_ids`, and carrying the names that were missing rather than
+    only the fact that something was. The proxy turns it into a refusal to start that switch
+    (TICKET-P3 2.1): a switch whose program cannot clone to the CPU port reports ZERO samples
+    for the whole run, with no error at any step -- pipeline pushed, clone session accepted by
+    the PRE, agent registered, and an empty twin. The failure has to be loud at the only moment
+    it is still distinguishable from a quiet fabric.
+    """
+
+    def __init__(self, missing, present=()):
+        self.missing = tuple(missing)
+        self.present = tuple(present)
+        super().__init__(
+            "this pipeline's p4info does not describe cooperative telemetry: the "
+            "@controller_header(\"packet_in\") fields %s are missing (present: %s). A program "
+            "that does not declare them cannot clone sampled packets to the CPU port, so "
+            "telemetry from this switch would be zero rather than an error -- include "
+            "p4_proxy/p4_src/ndtwin_telemetry.p4, or ask for telemetry 'link' or 'none'."
+            % (", ".join(self.missing) or "(none)",
+               ", ".join(self.present) or "(none)"))
+
+
+@dataclass(frozen=True)
+class PacketInIds:
+    """The metadata id of each `packet_in_header_t` field, for ONE switch's p4info."""
+
+    reason: int
+    ingress_port: int
+    egress_port: int
+    frame_length: int
+    sampling_rate: int
+
+    def as_dict(self) -> dict:
+        """The five ids by name -- what `GET /p4/switch_state` discloses."""
+        return {name: getattr(self, name) for name in PACKET_IN_FIELDS}
+
+
+def _controller_metadata_by_name(p4info, header_name) -> dict:
+    """{field name: metadata id} for one @controller_header, or {} if the program has none.
+
+    [Co-developed with claude code -- Adam]
+    Duck-typed over the parsed p4info message rather than over a file, so the caller can hand it
+    a p4info it built in memory -- which is how the reordering case is tested without compiling
+    a second program.
+    """
+    for entry in getattr(p4info, "controller_packet_metadata", []):
+        if entry.preamble.name == header_name or entry.preamble.alias == header_name:
+            return {m.name: int(m.id) for m in entry.metadata}
+    return {}
+
+
+def packet_in_metadata_ids(p4info) -> PacketInIds:
+    """
+    The five `packet_in` metadata ids of THIS switch's pipeline, looked up by field name.
+
+    [Co-developed with claude code -- Adam]
+    🔴 BY NAME, NOT BY POSITION. The p4info numbers a controller header's fields in declaration
+    order, so `PKTIN_META_EGRESS_PORT = 3` is a fact about ndtwin_switch.p4 and about no other
+    program. A package that ships its own telemetry-carrying pipeline -- the shape
+    p4_src/ndtwin_telemetry.p4 exists to make possible -- may declare them in any order, and a
+    positional read of such a program does not raise: it swaps two 9-bit port numbers, and the
+    kernel attributes every sampled byte to the reverse edge. There is no downstream check that
+    could notice, because both values are plausible ports.
+
+    Raises `TelemetryHeaderMissing` when any of the five is absent, which is the case for every
+    tutorials pipeline (`basic` and `source_routing` declare no controller header at all).
+    """
+    found = _controller_metadata_by_name(p4info, PACKET_IN_HEADER)
+    missing = [name for name in PACKET_IN_FIELDS if name not in found]
+    if missing:
+        raise TelemetryHeaderMissing(missing, sorted(found))
+    return PacketInIds(**{name: found[name] for name in PACKET_IN_FIELDS})
+
+
+def packet_out_metadata_ids(p4info) -> dict:
+    """
+    {field name: metadata id} for `packet_out`, or `{}` for a program with no such header.
+
+    [Co-developed with claude code -- Adam]
+    The packet-out side of G1, for the LLDP beacon. It returns a dict rather than a typed record
+    because the header's shape is the including program's business: ndtwin_switch.p4 declares
+    `egress_port` and `_pad`, and a program that pads differently -- or not at all -- is still
+    perfectly usable as long as `egress_port` is there. `{}` rather than an exception: a
+    tutorials pipeline has no packet_out header, and that is already handled a level up by not
+    beaconing at all (main.FOREIGN_PIPELINE_FABRIC_SKIPS), so raising here would turn a decision
+    that has been made into an error that has to be caught.
+    """
+    return _controller_metadata_by_name(p4info, PACKET_OUT_HEADER)
 
 
 def metadata_by_id(packet_in) -> dict[int, int]:
@@ -443,9 +554,15 @@ def metadata_by_id(packet_in) -> dict[int, int]:
     return {m.metadata_id: int.from_bytes(m.value, "big") for m in packet_in.metadata}
 
 
-def sample_from_packet_in(packet_in) -> Optional[SampledPacket]:
+def sample_from_packet_in(packet_in, ids: PacketInIds) -> Optional[SampledPacket]:
     """
     Builds a SampledPacket from a telemetry-sample packet-in, or returns None.
+
+    `ids` is the switch's own `packet_in` numbering, from `packet_in_metadata_ids`. 🔴 IT IS A
+    REQUIRED ARGUMENT (TICKET-P3 2.6). A default of "the ids ndtwin_switch.p4 happens to have"
+    is exactly the positional read this function was changed to stop doing, and a default is
+    invisible at the call site -- so the one caller that forgot to pass the switch's real
+    numbering would look identical to the ones that did.
 
     Returns None for a genuine packet-in (unmatched traffic or an LLDP beacon), which belongs
     to the discovery path instead. The distinction comes from the `reason` field rather than
@@ -458,24 +575,24 @@ def sample_from_packet_in(packet_in) -> Optional[SampledPacket]:
     not match this p4info.
     """
     meta = metadata_by_id(packet_in)
-    if meta.get(PKTIN_META_REASON, PKTIN_REASON_PACKET_IN) != PKTIN_REASON_SAMPLE:
+    if meta.get(ids.reason, PKTIN_REASON_PACKET_IN) != PKTIN_REASON_SAMPLE:
         return None
 
     frame = bytes(packet_in.payload)
     if not frame:
         return None
 
-    sampling_rate = meta.get(PKTIN_META_SAMPLING_RATE, 0)
+    sampling_rate = meta.get(ids.sampling_rate, 0)
     if sampling_rate == 0:
         return None
 
     # frame_length is the length before truncation. Fall back to the frame we actually have if
     # the switch reported nothing, so a sample still counts rather than scaling to zero bytes.
-    frame_length = meta.get(PKTIN_META_FRAME_LENGTH, 0) or len(frame)
+    frame_length = meta.get(ids.frame_length, 0) or len(frame)
 
     return SampledPacket(
-        ingress_port=meta.get(PKTIN_META_INGRESS_PORT, 0),
-        egress_port=meta.get(PKTIN_META_EGRESS_PORT, 0),
+        ingress_port=meta.get(ids.ingress_port, 0),
+        egress_port=meta.get(ids.egress_port, 0),
         frame_length=frame_length,
         sampling_rate=sampling_rate,
         frame=frame,
