@@ -306,7 +306,7 @@ m=$(mutant n2 "$EMITTER" \
     '    iif, oif = decoded.get("iifindex"), decoded.get("oifindex")' \
     '    # MUTANT: a comment, and nothing else.
     iif, oif = decoded.get("iifindex"), decoded.get("oifindex")')
-control "N2 (control): a comment-only edit where a sample'\''s direction is decided" "$m" \
+control "N2 (control): a comment-only edit where a sample direction is decided" "$m" \
         "the whole suite stays green"
 
 echo
