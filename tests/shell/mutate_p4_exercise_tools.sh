@@ -4,7 +4,10 @@
 #
 # [Co-developed with claude code -- Adam]
 #
-# A test that has never been seen to fail is a decoration. This applies seven mutations to the
+# TICKET-P2 section 3.7 appended M-A4, M-A5 and M-A6 as 8, 9 and 10 (G4, the per-switch
+# pipeline). The header below was written for the first seven and still describes them.
+#
+# A test that has never been seen to fail is a decoration. This applies ten mutations to the
 # three tools, re-runs the whole suite after each, and records WHICH test went red -- not merely
 # that something did. Same shape as tests/shell/mutate_ryu_rest_topology_bounded.sh, with one
 # difference: the subject is a different file per mutation, because the work item is three tools
@@ -163,6 +166,32 @@ add "7. pre-flight stops enforcing the h<last octet> host naming rule" \
     '        if False:  # MUTANT: a host may be named anything
             wrong.append(f"{name} on {ip} would be built as {expected}")' \
     'test_a_host_whose_name_does_not_match_its_address_fails'
+
+# 8, 9 and 10 are TICKET-P2 section 3.7's M-A4, M-A5 and M-A6 -- the converter and pre-flight
+# halves of G4, the per-switch pipeline. All three describe a package that pre-flights green and
+# brings a fabric up that runs the wrong program: nothing crashes, every switch forwards, and the
+# twin reports health throughout. `firewall` is the discriminating exercise and the only one
+# there is -- its pod-topo topology.json is the single shipped use of tutorials' per-switch
+# `program` override (s1 build/firewall.json, s2-s4 the Makefile's DEFAULT_PROG basic.p4).
+add "8. convert drops the per-switch 'program', so every switch runs the default" \
+    "$CONVERT" \
+    '        p4info_rel, json_rel = (artefacts_for_program(declared[dpid]) if declared[dpid]
+                                else default)' \
+    '        p4info_rel, json_rel = default  # MUTANT: the program override is ignored' \
+    'test_the_switch_that_names_a_program_gets_it_and_the_others_get_the_default'
+
+add "9. pre-flight stops checking that the p4info is a subset of the bmv2 json" \
+    "$PREFLIGHT" \
+    '        if stray_tables or stray_actions:' \
+    '        if False:  # MUTANT: two halves of two different compiles are fine' \
+    'test_a_p4info_naming_a_table_the_bmv2_json_does_not_have_fails'
+
+add "10. pre-flight accepts entries written against a program the switch does not run" \
+    "$PREFLIGHT" \
+    '    wrong = [(k, used_p4info[k], pipeline_p4info[k]) for k in shared
+             if used_p4info[k] != pipeline_p4info[k]]' \
+    '    wrong = []  # MUTANT: whichever p4info the entries name is fine' \
+    'test_entries_written_for_another_program_fail'
 
 CTRL_SRC="$CONVERT"
 CTRL_ANCHOR='def build_model(hosts, switches, links):'

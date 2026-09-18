@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 #
 # Mutation gate for the P4 app package: the baseline literals, the knob, the model-derived host
-# table and switch list, the election id, and `external` mode's read-only refusal plus its
-# disclosure. TICKET-P1 section 2.4.
+# table and switch list, the election id, `external` mode's read-only refusal plus its
+# disclosure, the fabric side both entry points share, and -- from TICKET-P2 section 3.7 -- the
+# per-switch pipeline (G4): which program each switch is launched with, which of them are not
+# NDTwin's, and the one-switch model that has no cable to declare.
+# TICKET-P1 section 2.4 and TICKET-P2 section 3.7.
 #
 # [Co-developed with claude code -- Adam]
 #
@@ -251,13 +254,16 @@ m=$(mutant m6 "$PKG" \
 report "M6: the h<N>-matches-the-last-octet rule is not checked" "$m" \
        "test_a_host_whose_name_does_not_match_its_address_is_refused"
 
+# 🔴 M7 CHANGED SUBJECT WHEN G4 LANDED, and the sentence it is about did not.
+# Until TICKET-P2 a non-null `pipeline` was REFUSED, and M7 removed the refusal: the package was
+# then accepted and silently given NDTwin's pipeline. G4 made the field legal, so the refusal is
+# gone -- but the same silent substitution is now one line away, through the door that was opened
+# for it: parse the field and store None. Same failure, same mutation slot, new anchor.
 m=$(mutant m7 "$PKG" \
-    '        if spec.get("pipeline") is not None:
-            raise AppPackageError(' \
-    '        if False:
-            raise AppPackageError(')
+    '        pipeline = _switch_pipeline(spec.get("pipeline"), package_dir, sw)' \
+    '        pipeline = None  # MUTANT: read, then thrown away')
 report "M7: a package naming its own pipeline is accepted and silently given NDTwin's" "$m" \
-       "test_a_per_switch_pipeline_is_refused_because_g4_is_not_built"
+       "test_the_loader_resolves_each_switchs_pipeline_to_two_absolute_paths"
 
 # --- the host table and the switch list -----------------------------------------------------
 
@@ -507,6 +513,62 @@ m=$(mutant m38 "$TESTBED" \
 report "M38: the baseline renames too, so h1-eth0 stops being what every other reader sees" "$m" \
        "test_nothing_is_renamed_under_the_baseline"
 
+# --- G4: the per-switch pipeline (TICKET-P2 section 3.7, M-A1..M-A3 and M-A7..M-A9) -----------
+#
+# 🔴 EVERY ONE OF THESE IS A FABRIC THAT COMES UP. That is what makes them worth a line: a
+# switch running the wrong compiled program does not fail to start, does not log an error and
+# does not report anything to the twin -- it forwards, plausibly, according to a program nobody
+# asked it to run. The exercise that discriminates is `firewall`, the only shipped one whose
+# topology.json uses tutorials' per-switch `program` override (s1 firewall.json, s2-s4 basic).
+
+m=$(mutant m39 "$PKG" \
+    '        for spec in self.switches:
+            if spec.dpid == int(dpid) and spec.pipeline:' \
+    '        for spec in []:
+            if spec.dpid == int(dpid) and spec.pipeline:')
+report "M39 (M-A1): pipeline_for ignores the per-switch override and answers fabric-wide" "$m" \
+       "test_pipeline_for_answers_per_switch_not_fabric_wide"
+
+m=$(mutant m40 "$TESTBED" \
+    '                               json_path=package.pipeline_for(dpid, proxy_root)[1],' \
+    '                               json_path=package.pipeline_for(1, proxy_root)[1],')
+report "M40 (M-A2): every bmv2 is launched with dpid 1's json, the shape before G4" "$m" \
+       "test_each_switch_is_launched_with_its_own_program"
+
+m=$(mutant m41 "$TESTBED" \
+    '        if not os.path.exists(json_paths[dpid]):' \
+    '        if dpid == 1 and not os.path.exists(json_paths[dpid]):')
+report "M41 (M-A3): the pre-flight checks only dpid 1's json, so s2 dies after mn -c" "$m" \
+       "test_plan_fabric_checks_every_switch_not_just_the_first"
+
+m=$(mutant m42 "$READER" \
+    '        if len(dpids) == 1:' \
+    '        if True:')
+report "M42 (M-A7): zero cables is accepted at any switch count, so islands look like a fabric" "$m" \
+       "test_two_switches_with_no_cable_between_them_is_still_refused"
+
+m=$(mutant m43 "$PKG" \
+    '    if not (real == root or real.startswith(root + os.sep)):' \
+    '    if False:')
+report "M43 (M-A8): a pipeline may point outside the package it is supposed to be part of" "$m" \
+       "test_a_pipeline_that_escapes_the_package_directory_is_refused"
+
+m=$(mutant m44 "$PKG" \
+    '        return self.pipeline_for(dpid, base_dir) == baseline().pipeline_for(dpid, base_dir)' \
+    '        return True  # MUTANT: everything is NDTwins pipeline')
+report "M44 (M-A9): pipeline_is_ndtwin is always True, so nothing downstream ever skips" "$m" \
+       "test_pipeline_is_ndtwin_is_false_for_a_package_that_brought_its_own"
+
+# Not in the ticket's list, and here for the reason the ticket gives for the others: an operator
+# reading a bring-up log has to be able to tell "the telemetry is off because this fabric runs
+# somebody else's program" from "the telemetry broke", and by the time the proxy discloses it in
+# `switch_state` the fabric is already up. A disclosure nothing can redden is a decoration.
+m=$(mutant m45 "$TESTBED" \
+    '    foreign = [dpid for dpid in dpids if not package.pipeline_is_ndtwin(dpid, proxy_root)]' \
+    '    foreign = []  # MUTANT: the log never mentions a foreign pipeline')
+report "M45: the bring-up log never says which switches are not on NDTwin's pipeline" "$m" \
+       "test_the_plan_says_out_loud_which_switches_are_not_on_ndtwins_pipeline"
+
 # --- negative controls -----------------------------------------------------------------------
 #
 # A gate that reddens on anything is not a gate. These are edits that change no behaviour these
@@ -538,6 +600,13 @@ m=$(mutant n2 "$MAIN" \
     # MUTANT: a comment, and nothing else.
     read_only = package.read_only')
 control "N2 (control): a comment-only edit inside startup()" "$m" "the whole suite stays green"
+
+m=$(mutant n3 "$TESTBED" \
+    '        proxy_root = os.path.join(base, "..")' \
+    '        # MUTANT: a comment, and nothing else.
+        proxy_root = os.path.join(base, "..")')
+control "N3 (control): a comment-only edit where MultiSwitchTopo resolves the pipeline" "$m" \
+        "the whole suite stays green"
 
 echo
 [[ "$(sha256sum "$PKG" | cut -d' ' -f1)" == "$BASE_PKG" ]] || { echo "🔴 baseline CHANGED -- app_package.py was written during the gate"; exit 3; }
