@@ -282,9 +282,17 @@ report "M-B18 (F1): a refused link telemetry plan unwinds instead of becoming a 
 # 🔴 F2. TICKET-P3 section 2.1 says a word outside the domain refuses the START. Read for the
 # first time inside `bring_up`, that refusal lands after `reset_for_bring_up` has destroyed the
 # fabric that was running and after `net.start()` has built its replacement.
+#
+# 🔴 BOTH LINES, and the first version of this mutant taught me why. Removing only the
+# `read_telemetry_knob()` call left the pre-flight still refusing, because the very next line
+# resolves every switch's source and `telemetry_source()` reads the knob itself: the named cell
+# stayed green and the gate called it a survivor, correctly. What the pre-flight buys is that
+# EITHER of these runs before `reset_for_bring_up`; the mutant has to take the whole block.
 m=$(mutant m_b19 "$TESTBED" \
-    '    telemetry_knob = app_package.read_telemetry_knob()' \
-    '    telemetry_knob = None  # MUTANT: the knob is not validated in the pre-flight')
+    '    telemetry_knob = app_package.read_telemetry_knob()
+    telemetry_sources = {dpid: app_package.telemetry_source(package, dpid) for dpid in dpids}' \
+    '    telemetry_knob = None  # MUTANT: nothing reads the knob until bring_up does
+    telemetry_sources = {}')
 report "M-B19 (F2): a bad telemetry knob is discovered only after the old fabric is destroyed" "$m" \
        "test_a_telemetry_knob_outside_the_domain_is_refused_in_the_pre_flight"
 
