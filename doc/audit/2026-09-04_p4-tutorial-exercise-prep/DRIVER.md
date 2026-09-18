@@ -25,7 +25,8 @@
    （工具鏈 sha、json sha、每步指令、原始輸出、判定表、log 路徑），最後印出報告路徑。
    exit **0** 全過／**1** 有一條沒過／**2** pre-flight 擋掉或那支還沒腳本化。
 
-目前腳本化的只有 **`source_routing`** 與 **`basic`**，其它會印 "not scripted yet" 然後 exit 2。
+~~目前腳本化的只有 **`source_routing`** 與 **`basic`**~~ ⇒ 🆕 **2026-09-19：十三支全部腳本化**（TICKET-P3 §2.7，期望表在 §6）。`EXERCISES` 以外的名字仍然印 "not scripted yet" 然後 exit 2。
+**新增的九支一次都沒跑過**——§6 每一格都標了證據等級。
 
 ## 2. Adam 要打的那一行
 
