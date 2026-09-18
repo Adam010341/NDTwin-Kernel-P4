@@ -62,7 +62,7 @@ Body＝tutorials `sX-runtime.json` 一筆 entry 的形狀＋`dpid`（＋選配 `
 ```
 - `op` ∈ insert（預設）| modify | delete；match 值形狀照 tutorials：exact＝純值、lpm＝`[value, prefix_len]`、ternary＝`[value, mask]`、range＝`[lo, hi]`、optional＝純值——**後三種本階段回 501**，訊息帶 p4info 的 match_type 名。
 - 表名／欄位名／action 名／參數名一律查該台 client 的 p4info（`preamble.name`；alias 也接受——tutorials 的 helper 兩者都認，寫進測試）；值編碼：MAC 字串 6 bytes、IPv4 字串 4 bytes、int ⇒ `ceil(bitwidth/8)` big-endian、超出 bitwidth ⇒ 400；`default_action: true` ⇒ `is_default_action`，帶 match ⇒ 400。
-- `priority`：exact／lpm 表上非 null 且非 0 ⇒ 400「priority not honourable on this table」（與 `/stats/flowentry/add` 的 `_refuse_unhonourable_priority` 同語意）。
+- `priority`：exact／lpm 表上非 null 且非 0 ⇒ 400「priority not honourable on this table」——**同一句話、不同碼**（09-18 07:5x orchestrator 裁，B 第一輪指出原文「與 `_refuse_unhonourable_priority` 同語意」對不上：那條回 501）。理由：這個端點講 P4Runtime，spec 定義 priority≠0 於沒有 ternary／range／optional 欄位的表為 INVALID_ARGUMENT＝client 的錯 ⇒ 400；`/stats/flowentry/*` 講 OpenFlow，合法 OF 而交換機做不到才 501。
 - 回應 200：`{"status":"success","dpid":1,"op":"insert","table":"…","match_types":{"hdr.ipv4.dstAddr":"LPM"},"priority_honoured":false,"journaled":false,"note":"not journaled: this entry is lost when the proxy restarts (Adam 2026-09-18, option a)"}`。
 - 非 200：404 未知 dpid／表／action／欄位／參數；400 形狀或位寬；501 ternary／range／optional；409 `external`（`ControlPlaneReadOnly` 的訊息）；502 switch 拒絕（gRPC code 名，用 `_grpc_status_name`）。**任何非 200 都沒有 Write 上線**——測試用 stub stub 斷言 `Write` 沒被呼叫。
 - **不 journal**（裁決 a）：不碰 `rule_journal`、不碰 `topology_manager.route_flow`；`api_writes` 計數進 `switch_state`。
@@ -116,3 +116,13 @@ opus；worktree `scratch/overnight-2026-09-05/wt-p2-entries-0918`，分支 `feat
 2. C 併回後 live：`live-p1/01`（baseline 逐位元組不變）、`02`（兩格）、`03` 仍 PASS；driver 對 NDTwin fabric 八次：basic／source_routing／firewall／link_monitor × skeleton 紅／solution 綠；`--fabric tutorials` 四次當對照，basic 與 source_routing 的數字與 audit-raw `7af2f352` 對得上（pingAll 0%／100%、ping 3/3／0/3、h2 收 2／0、ttl [59,62]）。
 3. `tests/shell/mutate_app_package.sh` 舊 38 顆全殺＋新的各有具名測試殺；`mutate_table_entry.sh`、`mutate_p4_exercise_tools.sh`、`mutate_ndt_app_package.sh` 0 survived；`merged_checks.sh` 六項綠；契約自測綠。
 4. raw 進 audit-raw；宣稱只寫量到的。
+
+## 7. 執行中的裁定（orchestrator，09-18；工單本體不回頭改，這裡是有效的補充）
+
+1. **B §5-3 `default_action: true` ＋ `op: insert` 送成 MODIFY 並揭露（`op` 回 `"modify"`）**：接受。每張表本來就有 compiler 給的 default entry，INSERT 必被拒；tutorials 的 `switch.WriteTableEntry` 做同一個替換。這不是 §4.1 禁的「ALREADY_EXISTS 後自動退 MODIFY」。
+2. **B §6-1 readopt 的 `install_initial_routes` 無條件呼叫**（`topology_manager.readopt_switch`，`79dd4312` 的 :1354）：B 第二輪加 `install_routes=True` 參數、外來 pipeline 傳 False；**`p4_proxy/proxy_agent/topology_manager.py` 及其 readopt 測試檔臨時擴給 B**（只准動那一個函式與它的測試），要紅測＋變異。
+3. **B §6-2 `mutate_app_package.sh` M18 的 anchor 決定了生產碼形狀**（`read_only` 重綁而不是第二個布林）：這輪接受；「anchor 挑只有這個判斷會出現的字串」記為階段三閘門衛生項目，連同 `merged_checks.sh:11` 字面 `HEAD`、`test_topo_from_json.py` 不在任何閘門（A 的兩條）。
+4. **B §5-11 baseline 的 `switch_state` 多 `pipeline`／`table_entries` 兩鍵、`startup()` 回傳多三鍵**：接受，與 P1-A §4-1 同一類；§2.2「逐位元組相同」讀成「所有既有 cell 逐格相同，外加有文件的新鍵」。
+5. **A／B 各自的 `pipeline_is_ndtwin`**：A 併入後 B `git merge trunk`（不 rebase），`main._pipeline_is_ndtwin` 收成呼叫 `Package.pipeline_is_ndtwin`；B 用 A 的 fixtures（`tools/p4_exercise/tests/fixtures/{firewall,calc}/build/*.p4info.txtpb`）補「真外來 p4info」的紅測（B §7-2）。
+6. **A 第二輪（judge 後）**：preflight 對 pipeline 路徑的規則要與 loader 對稱（拒絕絕對路徑與逃出 package 的路徑）；每個閘門與套件的 stdout 存 `scratch/overnight-2026-09-05/logs/gates-0910/<gate>.p2a-<sha>.log`——**沒有 log 的數字只是轉述**。
+
