@@ -3381,9 +3381,21 @@ HttpSession::handleGetSflowStats(http::response<http::string_body>& res)
         return;
     }
     res.result(http::status::ok);
-    res.body() =
-        json{{"status", "success"},
-             {"telemetry_health", m_flowLinkUsageCollector->ingestHealthJson()}}.dump();
+    json body{{"status", "success"},
+              {"telemetry_health", m_flowLinkUsageCollector->ingestHealthJson()}};
+
+    // [Co-developed with claude code -- Adam] TICKET-P3 §2.3.
+    // Additive: `status` and `telemetry_health` keep their exact shape. What is new is the
+    // question "what did the samples carry", which had no answer anywhere -- a frame that was not
+    // IPv4 was dropped by the parser without a counter, so an exercise carrying its own ethertype
+    // was indistinguishable from an idle network. Numbers rather than a warning log, because the
+    // gate that reads this runs against a process, not against its stderr.
+    const json families = m_flowLinkUsageCollector->frameFamilyStatsJson();
+    body["samples_by_family"] = families.at("samples_by_family");
+    body["malformed_ipv4_ihl"] = families.at("malformed_ipv4_ihl");
+    body["non_ipv4_flows"] = families.at("non_ipv4_flows");
+
+    res.body() = body.dump();
 }
 
 void

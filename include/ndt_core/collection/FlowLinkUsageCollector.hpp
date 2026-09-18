@@ -424,6 +424,54 @@ class FlowLinkUsageCollector
     /// endpoint that carries it carries the same keys. [Co-developed with claude code -- Adam]
     nlohmann::json ingestHealthJson() const;
 
+    // =============================================================================================
+    // Frame families -- TICKET-P3 §2.3
+    // [Co-developed with claude code -- Adam]
+    //
+    // 🔴 WHY THESE LIVE BESIDE THE FLOW TABLE RATHER THAN IN IT.
+    // m_flowInfoTable is IPv4-only and stays that way: two frozen contract tests assert exactly
+    // that -- test_GoldenFixture.cpp's IgnoresNonIpv4Frames ("protocol N suggests a non-IPv4 frame
+    // was parsed as a flow") and test_SFlowEmitterRoundtrip.cpp's
+    // IgnoresEmittedArpWithoutInventingAFlow (ARP must leave the table empty) -- and TICKET-P3 §2.3
+    // forbids editing either file while requiring both to stay green. Non-IPv4 traffic is therefore
+    // *observed* here, in its own bounded table, instead of being routed into a structure whose
+    // consumers (rate passes, the classifier's five-tuple lookup, the path walk, the historical
+    // serialiser) all assume an IPv4 five-tuple. See P3-A-SUMMARY.md "objections" -- merging the
+    // two is a decision for the orchestrator, not for this worker, because it means changing files
+    // this ticket assigns to nobody.
+    // =============================================================================================
+
+    /// One non-IPv4 identity and what has been seen of it. Sample counts, not rates: a rate here
+    /// would need a drain interval, and nothing downstream consumes one yet.
+    struct FamilyObservation
+    {
+        uint64_t samples = 0;
+        /// frame_length * sampling_rate, i.e. the same estimator the link counters use.
+        uint64_t estimatedBytes = 0;
+        int64_t lastSeenMs = 0;
+    };
+
+    /// Per-family sample counts since startup, plus the two malformed-shape counters.
+    struct FrameFamilyCounts
+    {
+        uint64_t ipv4 = 0;
+        uint64_t ipv6 = 0;
+        uint64_t l2 = 0;
+        /// Flow samples whose 14-byte Ethernet header was not even present.
+        uint64_t undecodable = 0;
+        /// IPv4 frames whose `ihl` field was below 5: counted, never recorded as a flow.
+        uint64_t malformedIpv4Ihl = 0;
+    };
+
+    FrameFamilyCounts frameFamilyCounts() const;
+
+    /// Snapshot of the non-IPv4 observation table. A copy, like getFlowInfoTable().
+    std::map<FlowKey, FamilyObservation> nonIpv4Observations() const;
+
+    /// The object GET /ndt/get_sflow_stats publishes: counts, the malformed-ihl number, and a
+    /// bounded list of the non-IPv4 identities seen.
+    nlohmann::json frameFamilyStatsJson() const;
+
   private:
     inline std::string ourIpToString(uint32_t ipFront, uint32_t ipBack);
     inline uint32_t ipFromFrontBack(uint32_t ipFront, uint32_t ipBack);
@@ -543,6 +591,7 @@ class FlowLinkUsageCollector
         return m_malformedDatagrams.load(std::memory_order_relaxed);
     }
 
+
     /**
      * @brief Writes the accumulated egress byte counts onto switch-to-host edges.
      *
@@ -605,6 +654,19 @@ class FlowLinkUsageCollector
     uint64_t sampledByteCreditFor(uint32_t agentIp, uint32_t port) const;
 
     /**
+     * @brief The same quantity from the *egress* bank: bytes banked for one (agent IP, output
+     *        port), which creditHostBoundEgressEdges pays out to switch-to-host edges only.
+     *
+     * [Co-developed with claude code -- Adam] TICKET-P3 §2.2.
+     * The counterpart of sampledByteCreditFor, and the seam the direction split needs. Which of
+     * the two banks a sample lands in is the whole of §2.2's second rule, and the two are not
+     * distinguishable from outside: an egress-only sample banked in m_counterReports credits the
+     * edge pointing the *other way*, which is a wrong number, not a missing one -- and a wrong
+     * number on an edge that has traffic looks exactly like a right one.
+     */
+    uint64_t egressByteCreditFor(uint32_t agentIp, uint32_t port) const;
+
+    /**
      * @brief The active window this collector applies, in ms. Production always leaves it alone.
      *
      * [Co-developed with claude code -- Adam]
@@ -634,6 +696,34 @@ class FlowLinkUsageCollector
     void reportMalformedDatagram(size_t len, const char* reason);
 
     std::atomic<uint64_t> m_malformedDatagrams{0};
+
+    // [Co-developed with claude code -- Adam] TICKET-P3 §2.3.
+    /// Counts one sampled frame against its family and records a non-IPv4 identity.
+    void noteFrameIdentity(const FrameIdentity& identity,
+                           uint32_t frameLength,
+                           uint32_t samplingRate);
+
+    /// Atomics rather than a mutex: they are written on every sample by every worker thread and
+    /// read only by an HTTP handler, so a lock here would serialise the ingest to publish a
+    /// number nobody reads at that rate.
+    std::atomic<uint64_t> m_samplesIpv4{0};
+    std::atomic<uint64_t> m_samplesIpv6{0};
+    std::atomic<uint64_t> m_samplesL2{0};
+    std::atomic<uint64_t> m_samplesUndecodable{0};
+    std::atomic<uint64_t> m_malformedIpv4Ihl{0};
+    /// Distinct identities refused once the table was full. Published, because a silently
+    /// truncated table reads exactly like a quiet network.
+    std::atomic<uint64_t> m_nonIpv4ObservationsDropped{0};
+
+    /// Bounded on purpose: the keys come off an unauthenticated UDP port, and one crafted frame
+    /// per packet would otherwise be an unbounded allocation. 1024 is far above the handful of
+    /// ethertypes any exercise uses and far below anything that matters for memory.
+    static constexpr size_t kMaxNonIpv4Observations = 1024;
+
+    std::map<FlowKey, FamilyObservation> m_nonIpv4Observations;
+    /// Its own mutex rather than m_flowInfoTableMutex: this map is written on the ingest path,
+    /// which must not take the flow-table lock any earlier than it already does.
+    mutable std::shared_mutex m_nonIpv4ObservationsMutex;
 
     void purgeIdleFlows();
     void fetchAllDestinationPaths();

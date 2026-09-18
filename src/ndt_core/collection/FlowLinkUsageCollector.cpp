@@ -952,6 +952,176 @@ FlowLinkUsageCollector::workerLoop(size_t qid)
     }
 }
 
+namespace
+{
+
+/**
+ * @brief Lifts a sampled Ethernet frame out of the datagram's 32-bit words into bytes.
+ *
+ * [Co-developed with claude code -- Adam] TICKET-P3 §2.3.
+ *
+ * The parser around this reads the frame through fixed *word* offsets, which is why it could only
+ * ever answer questions whose answer sat at a constant offset -- and why an IPv4 option (mri) or a
+ * VLAN tag shifted every field after it without anything noticing. identifyFrame needs bytes, so
+ * this is the one place the conversion happens.
+ *
+ * Three independent bounds, because each one is wrong on its own:
+ *   - the end of this sample, so a short frame cannot read the next sample's bytes as its own;
+ *   - the agent's declared captured length, when the vendor's layout lets us find it;
+ *   - kMaxSampledHeaderBytes, so a crafted length cannot make this copy unbounded.
+ * `BoundedWords::has` covers the datagram's own end, which the first two do not imply.
+ */
+sflow::SampledHeader
+readSampledHeader(const sflow::BoundedWords& data,
+                  size_t startWord,
+                  size_t endWord,
+                  uint32_t declaredCapturedBytes)
+{
+    sflow::SampledHeader out;
+    if (startWord >= endWord)
+    {
+        return out;
+    }
+
+    size_t availableBytes = (endWord - startWord) * 4;
+    if (declaredCapturedBytes > 0 && declaredCapturedBytes < availableBytes)
+    {
+        availableBytes = declaredCapturedBytes;
+    }
+    if (availableBytes > sflow::kMaxSampledHeaderBytes)
+    {
+        availableBytes = sflow::kMaxSampledHeaderBytes;
+    }
+
+    size_t written = 0;
+    for (size_t word = 0; written < availableBytes; ++word)
+    {
+        if (!data.has(startWord + word))
+        {
+            break;
+        }
+        const uint32_t value = ntohl(data[startWord + word]);
+        for (int shift = 3; shift >= 0 && written < availableBytes; --shift)
+        {
+            out.bytes[written++] = static_cast<uint8_t>((value >> (shift * 8)) & 0xFF);
+        }
+    }
+    out.length = written;
+    return out;
+}
+
+} // namespace
+
+// [Co-developed with claude code -- Adam] TICKET-P3 §2.3.
+void
+FlowLinkUsageCollector::noteFrameIdentity(const FrameIdentity& identity,
+                                          uint32_t frameLength,
+                                          uint32_t samplingRate)
+{
+    if (!identity.ethernetHeaderPresent)
+    {
+        // Not counted against a family: we do not know one. A sample whose Ethernet header did not
+        // fit is a fact about the agent's capture length, not about the traffic.
+        m_samplesUndecodable.fetch_add(1, std::memory_order_relaxed);
+        return;
+    }
+
+    switch (identity.key.family)
+    {
+    case FlowKeyFamily::IPv4:
+        m_samplesIpv4.fetch_add(1, std::memory_order_relaxed);
+        break;
+    case FlowKeyFamily::IPv6:
+        m_samplesIpv6.fetch_add(1, std::memory_order_relaxed);
+        break;
+    case FlowKeyFamily::L2:
+        m_samplesL2.fetch_add(1, std::memory_order_relaxed);
+        break;
+    }
+
+    if (identity.ipv4MalformedIhl)
+    {
+        m_malformedIpv4Ihl.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    // IPv4 keys belong in the flow table, which the caller fills; this table is what the flow
+    // table cannot hold. See the header for why the two are separate.
+    if (!identity.identified || identity.key.family == FlowKeyFamily::IPv4)
+    {
+        return;
+    }
+
+    std::unique_lock<std::shared_mutex> lk(m_nonIpv4ObservationsMutex);
+    auto it = m_nonIpv4Observations.find(identity.key);
+    if (it == m_nonIpv4Observations.end())
+    {
+        if (m_nonIpv4Observations.size() >= kMaxNonIpv4Observations)
+        {
+            m_nonIpv4ObservationsDropped.fetch_add(1, std::memory_order_relaxed);
+            return;
+        }
+        it = m_nonIpv4Observations.emplace(identity.key, FamilyObservation{}).first;
+    }
+    it->second.samples += 1;
+    it->second.estimatedBytes += uint64_t(frameLength) * samplingRate;
+    it->second.lastSeenMs = utils::getCurrentTimeMillisSystemClock();
+}
+
+// [Co-developed with claude code -- Adam]
+FlowLinkUsageCollector::FrameFamilyCounts
+FlowLinkUsageCollector::frameFamilyCounts() const
+{
+    FrameFamilyCounts out;
+    out.ipv4 = m_samplesIpv4.load(std::memory_order_relaxed);
+    out.ipv6 = m_samplesIpv6.load(std::memory_order_relaxed);
+    out.l2 = m_samplesL2.load(std::memory_order_relaxed);
+    out.undecodable = m_samplesUndecodable.load(std::memory_order_relaxed);
+    out.malformedIpv4Ihl = m_malformedIpv4Ihl.load(std::memory_order_relaxed);
+    return out;
+}
+
+// [Co-developed with claude code -- Adam]
+std::map<FlowKey, FlowLinkUsageCollector::FamilyObservation>
+FlowLinkUsageCollector::nonIpv4Observations() const
+{
+    std::shared_lock<std::shared_mutex> lk(m_nonIpv4ObservationsMutex);
+    return m_nonIpv4Observations;
+}
+
+// [Co-developed with claude code -- Adam]
+nlohmann::json
+FlowLinkUsageCollector::frameFamilyStatsJson() const
+{
+    const FrameFamilyCounts counts = frameFamilyCounts();
+
+    nlohmann::json families{{"ipv4", counts.ipv4},
+                            {"ipv6", counts.ipv6},
+                            {"l2", counts.l2},
+                            {"undecodable", counts.undecodable}};
+
+    nlohmann::json observed = nlohmann::json::array();
+    const auto table = nonIpv4Observations();
+    for (const auto& [key, observation] : table)
+    {
+        nlohmann::json row = flowKeyIdentityJson(key);
+        row["samples"] = observation.samples;
+        row["estimated_bytes"] = observation.estimatedBytes;
+        row["last_seen_ms"] = observation.lastSeenMs;
+        observed.push_back(row);
+    }
+
+    return nlohmann::json{
+        {"samples_by_family", families},
+        {"malformed_ipv4_ihl", counts.malformedIpv4Ihl},
+        // The count beside the list, not derived from it: a reader must be able to tell a quiet
+        // network from a table that stopped accepting new keys.
+        {"non_ipv4_flows",
+         {{"tracked", table.size()},
+          {"dropped_over_capacity", m_nonIpv4ObservationsDropped.load(std::memory_order_relaxed)},
+          {"capacity", kMaxNonIpv4Observations},
+          {"observed", observed}}}};
+}
+
 void
 FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
 {
@@ -1224,22 +1394,21 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
         {
             uint32_t sampleLen = ntohl(data[index + 1]);
 
-            // 1. Extract flow data. Offsets differ by vendor.
-            uint32_t inputPort, outputPort, frameLength;
-            uint8_t protocol;
-            uint32_t srcIp, dstIp;
-            uint16_t srcPort, dstPort, icmpType, icmpCode;
+            // 1. Extract the sample's own fields. The offsets differ by vendor; the *frame* is no
+            //    longer read here at all -- readSampledHeader lifts it into bytes and
+            //    identifyFrame says what it is. Before TICKET-P3 this block read the ethertype,
+            //    the IPv4 header and the L4 ports from fixed word offsets three times over, and a
+            //    sample that was not IPv4 was discarded whole -- bytes and all.
+            //    [Co-developed with claude code -- Adam]
+            uint32_t inputPort = 0;
+            uint32_t outputPort = 0;
+            uint32_t frameLength = 0;
             uint32_t flowDataLength = 0;
-            uint32_t samplingRate = ntohl(data[index + 4]);
-
-            uint16_t etherType = 0;
-            uint16_t frag;
-            uint16_t fragOff;
-            bool mf;
-            bool df;
-
-            bool isAckPacket = false;
-            const uint8_t TCP_ACK_FLAG = 0x10;
+            uint32_t samplingRate = 0;
+            /// First word of the sampled Ethernet frame.
+            size_t frameStartWord = 0;
+            /// What the agent says it captured, or 0 when this vendor's layout does not say.
+            uint32_t declaredCapturedBytes = 0;
 
             if (sampleType == 1)
             { // Brocade
@@ -1259,60 +1428,8 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
                     index += flowDataLength / 4 + 2;
                 }
                 frameLength = ntohl(data[index + 13]);
-
-                etherType = ntohl(data[index + 19]) >> 16 & 0xFFFF;
-
-                SPDLOG_LOGGER_TRACE(Logger::instance(), "etherType = 0x{:04x}", etherType);
-                if (etherType != 0x0800)
-                {
-                    SPDLOG_LOGGER_TRACE(Logger::instance(),
-                                        "Not IPv4 packet, etherType {}",
-                                        etherType);
-                    if (m_mode == utils::MININET)
-                    {
-                        index += (sampleLen / 4 + 2 - (flowDataLength / 4 + 2));
-                    }
-                    else
-                    {
-                        index += (sampleLen / 4 + 2);
-                    }
-                    continue;
-                }
-
-                uint32_t w21 = ntohl(data[index + 21]);
-
-                // bytes 6..7 of IPv4 header (flags+fragment offset)
-                frag = (w21 >> 16) & 0xFFFF;
-
-                mf = (frag & 0x2000) != 0; // More fragments
-                df = (frag & 0x4000) != 0; // Don't fragment
-                fragOff = frag & 0x1FFF;   // in 8-byte units
-
-                SPDLOG_LOGGER_TRACE(Logger::instance(),
-                                    "ntohl(data[index + 21]) {}",
-                                    ntohl(data[index + 21]));
-                protocol = ntohl(data[index + 21]) & 0xFF;
-                srcIp = ipFromFrontBack(ntohl(data[index + 22]), ntohl(data[index + 23]));
-                dstIp = ipFromFrontBack(ntohl(data[index + 23]), ntohl(data[index + 24]));
-                if (protocol != 1)
-                {
-                    srcPort = ntohl(data[index + 24]) & 0xFFFF;
-                    dstPort = (ntohl(data[index + 25]) >> 16) & 0xFFFF;
-                    if (protocol == 6)
-                    {
-                        uint8_t tcpFlags = (ntohl(data[index + 28]) >> 8) & 0xFF;
-
-                        if (tcpFlags & TCP_ACK_FLAG)
-                        {
-                            isAckPacket = true;
-                        }
-                    }
-                }
-                else
-                {
-                    icmpType = (ntohl(data[index + 24]) >> 8) & 0xFF;
-                    icmpCode = ntohl(data[index + 24]) & 0xF;
-                }
+                declaredCapturedBytes = ntohl(data[index + 15]);
+                frameStartWord = static_cast<size_t>(index) + 16;
             }
             else
             { // HPE (sampleType == 3)
@@ -1321,84 +1438,61 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
                 outputPort = ntohl(data[index + 11]);
                 frameLength = ntohl(data[index + 12 + 4]);
 
-                etherType = ntohl(data[index + 12 + 6 + 5]) >> 16 & 0xFFFF;
-
-                SPDLOG_LOGGER_TRACE(Logger::instance(), "etherType = 0x{:04x}", etherType);
-                if (etherType != 0x0800)
-                {
-                    SPDLOG_LOGGER_TRACE(Logger::instance(),
-                                        "Not IPv4 packet, etherType {}",
-                                        etherType);
-                    if (m_mode == utils::MININET)
-                    {
-                        index += (sampleLen / 4 + 2 - (flowDataLength / 4 + 2));
-                    }
-                    else
-                    {
-                        index += (sampleLen / 4 + 2);
-                    }
-                    continue;
-                }
-
-                uint32_t w25 = ntohl(data[index + 25]);
-                frag = (w25 >> 16) & 0xFFFF;
-
-                mf = (frag & 0x2000) != 0;
-                df = (frag & 0x4000) != 0;
-                fragOff = frag & 0x1FFF; // in 8-byte units
-
-                protocol = ntohl(data[index + 12 + 6 + 7]) & 0xFF;
-                srcIp = ipFromFrontBack(ntohl(data[index + 12 + 6 + 7 + 1]),
-                                        ntohl(data[index + 12 + 6 + 7 + 2]));
-                dstIp = ipFromFrontBack(ntohl(data[index + 12 + 6 + 7 + 2]),
-                                        ntohl(data[index + 12 + 6 + 7 + 3]));
-                if (protocol != 1)
-                {
-                    srcPort = ntohl(data[index + 12 + 6 + 7 + 3]) & 0xFFFF;
-                    dstPort = (ntohl(data[index + 12 + 6 + 7 + 4]) >> 16) & 0xFFFF;
-                    if (protocol == 6) // It's a TCP packet
-                    {
-                        uint8_t tcpFlags = (ntohl(data[index + 32]) >> 8) & 0xFF;
-
-                        if (tcpFlags & TCP_ACK_FLAG)
-                        {
-                            isAckPacket = true;
-                        }
-                    }
-                }
-                else
-                {
-                    icmpType = ntohl(data[index + 28] >> 8) & 0xFF;
-                    icmpCode = ntohl(data[index + 28]) & 0xF;
-                }
+                // The frame starts three words before the one this branch read the ethertype
+                // from (index + 12 + 6 + 5), i.e. at +20. The captured-length word is NOT
+                // identifiable from these offsets -- +16 as the original length leaves one
+                // unexplained word before the frame -- so the read below is bounded by the
+                // sample and the datagram instead of by a declared length. No fixture and no
+                // capture has ever covered this vendor. [Co-developed with claude code -- Adam]
+                declaredCapturedBytes = 0;
+                frameStartWord = static_cast<size_t>(index) + 20;
             }
+
+            // [Co-developed with claude code -- Adam]
+            // Where this sample ends, by the same arithmetic the advancement at the bottom of the
+            // branch uses -- but clamped. That subtraction is unsigned and wraps when a crafted
+            // flowDataLength exceeds sampleLen; the loop's own no-progress guard catches the wrap
+            // afterwards, which is fine for advancing and useless as a bound. Falls back to the
+            // end of the datagram, which BoundedWords enforces anyway.
+            const size_t sampleWords = static_cast<size_t>(sampleLen) / 4 + 2;
+            const size_t skippedWords =
+                (m_mode == utils::MININET) ? (static_cast<size_t>(flowDataLength) / 4 + 2) : 0;
+            const size_t advanceWords =
+                (sampleWords > skippedWords) ? (sampleWords - skippedWords) : 0;
+            size_t sampleEndWord = words;
+            if (advanceWords > 0 && static_cast<size_t>(index) + advanceWords <= words)
+            {
+                sampleEndWord = static_cast<size_t>(index) + advanceWords;
+            }
+
+            const SampledHeader header =
+                readSampledHeader(data, frameStartWord, sampleEndWord, declaredCapturedBytes);
+            const FrameIdentity identity = identifyFrame(header.bytes.data(), header.length);
 
             if (m_mode == utils::TESTBED)
             {
                 SPDLOG_LOGGER_TRACE(
                     Logger::instance(),
-                    "FLOW SAMPLE from Agent {}: {} -> {} (Proto: {}, Len: {}, Input "
-                    "port: {}, Ouput port: {} ICMP type {} ICMP code {}, Sampling rate {})",
+                    "FLOW SAMPLE from Agent {}: family {} ethertype 0x{:04x} (Proto: {}, Len: {}, "
+                    "Input port: {}, Ouput port: {}, Sampling rate {})",
                     agentIpStr,
-                    utils::ipToString(srcIp),
-                    utils::ipToString(dstIp),
-                    protocol,
+                    toString(identity.key.family),
+                    identity.key.ethType,
+                    identity.key.protocol,
                     frameLength,
                     inputPort,
                     outputPort,
-                    icmpType,
-                    icmpCode,
                     samplingRate);
             }
 
             // check whether it is pure ack
             bool isPureAck = false;
-            if (protocol == 6) // Check if it's a TCP packet first
+            if (identity.key.family == FlowKeyFamily::IPv4 && identity.key.protocol == 6)
             {
                 const uint32_t PURE_ACK_SIZE_THRESHOLD = 80; // Your proposed threshold
 
-                // isAckPacket should be true if the ACK flag is set
-                if (isAckPacket && frameLength < PURE_ACK_SIZE_THRESHOLD)
+                // identity.tcpAck should be true if the ACK flag is set
+                if (identity.tcpAck && frameLength < PURE_ACK_SIZE_THRESHOLD)
                 {
                     SPDLOG_LOGGER_TRACE(Logger::instance(),
                                         "Pure ACK packet (size: {} bytes)",
@@ -1408,102 +1502,122 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
             }
 
             // 2. Process the extracted data using common logic.
-            if (protocol == 6 || protocol == 17 || protocol == 1) // TCP, UDP, or ICMP
+            if (m_mode == utils::MININET)
             {
-                if (m_mode == utils::MININET)
+                // Read-only lookup: operator[] would insert a 0 entry for every unknown
+                // ifIndex, mutating the map from a worker thread without the mutex.
+                inputPort = lookupOfport(inputPort);
+                outputPort = lookupOfport(outputPort);
+            }
+
+            const bool isIngress = (inputPort != 0); // Simple direction check
+            const uint32_t relevantPort = isIngress ? inputPort : outputPort;
+
+            // =====================================================================================
+            // 🔴 LINK BYTES FIRST, FLOW IDENTITY SECOND. [Co-developed with claude code -- Adam]
+            // TICKET-P3 §2.2. This block used to sit *inside* `if (protocol == 6 || 17 || 1)`,
+            // downstream of an ethertype test that `continue`d the whole sample -- so a link
+            // carrying source-routed frames (0x1234), ARP, LLDP, IPv6 or a non-first fragment
+            // reported 0 bps while the bytes demonstrably moved. How many bytes crossed a link is
+            // not a question about what the bytes were, and PLAN §8.3's first claim -- "link
+            // utilisation is independent of the application" -- is exactly this ordering.
+            //
+            // The direction split is the second half of §2.2. A sample with inputPort == 0 (the
+            // egress-only shape B's tc filters produce on host-facing ports) used to be banked in
+            // m_counterReports keyed by its *output* port, which the drain then reads as "bytes
+            // arriving on that port" and credits to the edge pointing the other way. Such samples
+            // did not exist before -- every P4-clone and OVS sample carries an ingress port -- so
+            // the branch was dead rather than wrong in production; B makes it live.
+            // =====================================================================================
+            if (m_mode == utils::MININET)
+            {
+                std::unique_lock<std::shared_mutex> lk(m_counterReportsMutex);
+                const uint64_t sampledBytes = uint64_t(frameLength) * samplingRate;
+
+                // A-4f. Two timestamps, under the lock this line already holds. The rate drain a
+                // second later cannot leave them behind: it zeroes the byte accumulator, which is
+                // exactly why the accumulator alone can never distinguish "no bytes because the
+                // link is idle" from "no bytes because nobody is sampling this switch any more".
+                // These do not get zeroed.
+                //
+                // lastReportTimestampInMilliseconds is reused rather than duplicated: on the
+                // MININET path it is otherwise never written (only the TESTBED counter-sample
+                // branch touches it) and the two paths are mutually exclusive on m_mode, so the
+                // field means what its name says in both.
+                const int64_t sampleAt = utils::getCurrentTimeMillisSteadyClock();
+
+                if (isIngress)
                 {
-                    // Read-only lookup: operator[] would insert a 0 entry for every unknown
-                    // ifIndex, mutating the map from a worker thread without the mutex.
-                    inputPort = lookupOfport(inputPort);
-                    outputPort = lookupOfport(outputPort);
-                    SPDLOG_LOGGER_TRACE(
-                        Logger::instance(),
-                        "FLOW SAMPLE in Mininet from Agent {}: {} -> {} (Proto: {}, Len: {}, Input "
-                        "port: {}, Ouput port: {}, frag: {:#06x})",
-                        agentIpStr,
-                        utils::ipToString(srcIp),
-                        utils::ipToString(dstIp),
-                        protocol,
-                        frameLength,
-                        inputPort,
-                        outputPort,
-                        static_cast<uint32_t>(frag));
-                }
-
-                bool isIngress = (inputPort != 0); // Simple direction check
-                uint32_t relevantPort = isIngress ? inputPort : outputPort;
-
-                SPDLOG_LOGGER_TRACE(Logger::instance(),
-                                    "Flow Sample Recieve Src Ip {}, Dst Ip {}, Src port {}, Dst "
-                                    "port {}, Protocol {}, frag {:#06x}",
-                                    utils::ipToString(srcIp),
-                                    utils::ipToString(dstIp),
-                                    srcPort,
-                                    dstPort,
-                                    protocol,
-                                    static_cast<uint32_t>(frag));
-
-                // Drop non-first fragments (they don't have UDP/TCP ports)
-                if (fragOff != 0)
-                {
-                    SPDLOG_LOGGER_TRACE(Logger::instance(),
-                                        "Drop non-first fragment: frag={:#06x} off={} mf={} df={}",
-                                        frag,
-                                        fragOff,
-                                        mf,
-                                        df);
-                    continue;
-                }
-
-                FlowKey key = {};
-                if (protocol != 1)
-                {
-                    key = {srcIp, dstIp, srcPort, dstPort, protocol};
-                }
-                else
-                {
-                    key = {srcIp, dstIp, icmpType, icmpCode, protocol};
-                }
-
-                AgentKey agentKey = {agentIp, relevantPort};
-
-                if (m_mode == utils::MININET)
-                {
-                    std::unique_lock<std::shared_mutex> lk(m_counterReportsMutex);
-                    auto& ingress = m_counterReports[make_pair(agentIp, relevantPort)];
-                    ingress.inputByteCountOnALinkMultiplySampingRate +=
-                        uint64_t(frameLength) * samplingRate;
-
-                    // [Co-developed with claude code -- Adam]
-                    // A-4f. Two timestamps, under the lock this line already holds. The rate
-                    // drain a second later cannot leave them behind: it zeroes the byte
-                    // accumulator, which is exactly why the accumulator alone can never
-                    // distinguish "no bytes because the link is idle" from "no bytes because
-                    // nobody is sampling this switch any more". These do not get zeroed.
-                    //
-                    // lastReportTimestampInMilliseconds is reused rather than duplicated: on
-                    // the MININET path it is otherwise never written (only the TESTBED
-                    // counter-sample branch at :1120 touches it) and the two paths are
-                    // mutually exclusive on m_mode, so the field means what its name says in
-                    // both.
-                    const int64_t sampleAt = utils::getCurrentTimeMillisSteadyClock();
+                    auto& ingress = m_counterReports[make_pair(agentIp, inputPort)];
+                    ingress.inputByteCountOnALinkMultiplySampingRate += sampledBytes;
                     ingress.lastReportTimestampInMilliseconds = sampleAt;
-                    m_lastSampleFromAgentMillis[agentIp] = sampleAt;
 
                     // The same sample also crossed the sampling switch's *egress* edge. For a
                     // switch-to-switch edge that credit belongs to the downstream sampler, but
                     // the last hop of a path ends at a host, which has no sampler -- so the
                     // egress side is banked here and creditHostBoundEgressEdges pays out only
-                    // the host-bound entries. Guarded on isIngress: an ingress-less sample has
-                    // already been keyed by its output port on the line above, and banking it
-                    // twice would count the same bytes twice. [Co-developed with claude code -- Adam]
-                    if (isIngress && outputPort != 0)
+                    // the host-bound entries.
+                    if (outputPort != 0)
                     {
                         m_egressCounterReports[make_pair(agentIp, outputPort)]
-                            .inputByteCountOnALinkMultiplySampingRate +=
-                            uint64_t(frameLength) * samplingRate;
+                            .inputByteCountOnALinkMultiplySampingRate += sampledBytes;
                     }
                 }
+                else if (outputPort != 0)
+                {
+                    // Egress-only: the bytes left through outputPort and nothing is known about
+                    // where they came in. The egress bank is the only honest place for them --
+                    // m_counterReports would claim they *arrived* on that port.
+                    m_egressCounterReports[make_pair(agentIp, outputPort)]
+                        .inputByteCountOnALinkMultiplySampingRate += sampledBytes;
+                }
+                else
+                {
+                    // Neither port survived: both ifIndexes translated to 0, which is what
+                    // lookupOfport returns for an unknown interface when the topology is not an
+                    // all-bmv2 one (and therefore what every sample looks like before a topology
+                    // is loaded at all). §2.2's redirect is written for `inputPort == 0 &&
+                    // outputPort != 0` precisely so this case is left where it was: the bytes
+                    // are real and dropping them here would lose the sample entirely, while the
+                    // (agent, 0) entry names no edge and so credits none.
+                    auto& unattributed = m_counterReports[make_pair(agentIp, relevantPort)];
+                    unattributed.inputByteCountOnALinkMultiplySampingRate += sampledBytes;
+                    unattributed.lastReportTimestampInMilliseconds = sampleAt;
+                }
+
+                // Per agent, not per port, and therefore written for every flow sample whatever
+                // it carried: the question this answers is "is this switch sampling at all".
+                m_lastSampleFromAgentMillis[agentIp] = sampleAt;
+            }
+
+            // Counted for every sample, including the ones no flow is made of. The counters are
+            // the only place a non-IPv4 frame is visible to a reader of the API.
+            noteFrameIdentity(identity, frameLength, samplingRate);
+
+            // The flow table is IPv4-only -- see FlowLinkUsageCollector.hpp for the two frozen
+            // contract tests that fix that and P3-A-SUMMARY.md for the objection. A non-first
+            // fragment carries no ports, so it is banked above and identified above but is not a
+            // flow. [Co-developed with claude code -- Adam]
+            const bool isClassifiableIpv4 =
+                identity.identified && identity.key.family == FlowKeyFamily::IPv4 &&
+                identity.ipv4FragmentOffset == 0 &&
+                (identity.key.protocol == 6 || identity.key.protocol == 17 ||
+                 identity.key.protocol == 1); // TCP, UDP, or ICMP
+
+            if (isClassifiableIpv4)
+            {
+                const FlowKey key = identity.key;
+
+                SPDLOG_LOGGER_TRACE(Logger::instance(),
+                                    "Flow Sample Recieve Src Ip {}, Dst Ip {}, Src port {}, Dst "
+                                    "port {}, Protocol {}",
+                                    utils::ipToString(key.srcIP),
+                                    utils::ipToString(key.dstIP),
+                                    key.srcPort,
+                                    key.dstPort,
+                                    key.protocol);
+
+                AgentKey agentKey = {agentIp, relevantPort};
 
                 // [Co-developed with claude code -- Adam]
                 // One lock taken *before* the lookup and held across the branch, rather than one
@@ -1535,7 +1649,7 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
 
                     // Find flow stasts on an agent
                     info.isPureAck = isPureAck;
-                    info.isAck = isAckPacket;
+                    info.isAck = identity.tcpAck;
 
                     SPDLOG_LOGGER_TRACE(Logger::instance(),
                                         "Ack?{} PureAck?{} ",
@@ -1723,6 +1837,19 @@ FlowLinkUsageCollector::sampledByteCreditFor(uint32_t agentIp, uint32_t port) co
     std::shared_lock<std::shared_mutex> lk(m_counterReportsMutex);
     const auto it = m_counterReports.find(std::make_pair(agentIp, port));
     return it == m_counterReports.end() ? 0u : it->second.inputByteCountOnALinkMultiplySampingRate;
+}
+
+// [Co-developed with claude code -- Adam] TICKET-P3 §2.2.
+uint64_t
+FlowLinkUsageCollector::egressByteCreditFor(uint32_t agentIp, uint32_t port) const
+{
+    // Same mutex as the ingress bank: the two maps are written on the same ingest line and
+    // drained by the same rate-loop pass.
+    std::shared_lock<std::shared_mutex> lk(m_counterReportsMutex);
+    const auto it = m_egressCounterReports.find(std::make_pair(agentIp, port));
+    return it == m_egressCounterReports.end()
+               ? 0u
+               : it->second.inputByteCountOnALinkMultiplySampingRate;
 }
 
 // [Co-developed with claude code -- Adam]
@@ -2557,6 +2684,12 @@ FlowLinkUsageCollector::getFlowInfoJson(sflow::FlowLivenessFilter filter)
         j["src_port"] = flowKey.srcPort;
         j["dst_port"] = flowKey.dstPort;
         j["protocol_id"] = flowKey.protocol;
+        // [Co-developed with claude code -- Adam] TICKET-P3 §2.3. Every existing key above is
+        // untouched; this one says which family the four above are to be read as. It is "ipv4" on
+        // every row this table can hold today -- and that is the point of publishing it: a
+        // consumer that branches on it keeps working if the table ever carries another family,
+        // whereas one that assumes IPv4 silently misreads the first IPv6 row it sees.
+        j["family"] = sflow::toString(flowKey.family);
 
         j["estimated_flow_sending_rate_bps_in_the_proceeding_1sec_timeslot"] =
             flowInfo.estimatedFlowSendingRatePeriodically;
