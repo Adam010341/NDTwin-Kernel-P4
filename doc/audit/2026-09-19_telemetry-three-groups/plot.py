@@ -1,0 +1,290 @@
+#!/usr/bin/env python3
+"""
+The three figures of the three-group telemetry round, as .png and .pdf.
+
+[Co-developed with claude code -- Adam]
+
+🔴 WHAT IS ALLOWED ON A FIGURE, and nothing else (CLAUDE.md, TICKET-P3 section 2.8):
+      the title, the axis labels, the tick labels, and the value labels.
+Method, caveats, conditions, the reconciliation, what a bar does NOT mean -- all of that goes in
+FINDINGS.md beside the figure. There is no legend box either: a series is named by its tick
+label (figures 1 and 2) or by a short word at the end of its own line (figure 3), which is a
+series label rather than a block of prose parked on the plot.
+
+🔴 IT READS summary.json, NEVER raw/. Every number on a figure has therefore passed through
+analyse.py, which the unit tests cover. A figure that recomputed its own numbers would be a
+second implementation of the analysis with no tests and no way to notice it had drifted -- and
+the 08-20 round found two disagreements exactly by checking a figure against its report.
+
+🔴 n/a IS NOT A BAR OF HEIGHT ZERO. The `none` group has no sampling error to plot; figure 2
+prints the word n/a where its bar would be. Drawing a zero would put an absence on the axis as a
+measurement, which is the single thing PREREG section 5.2 forbids for that cell.
+
+matplotlib is imported lazily so that everything above rendering -- the layout, the labels, the
+n/a decision -- is importable and testable under p4_proxy/venv/bin/python, which has no
+matplotlib. `render` is the only function that needs it.
+
+Usage:
+    plot.py --summary <summary.json> [--out <directory>] [--check]
+
+`--check` builds every figure's data and prints it without drawing anything, so the figures can
+be reviewed before a machine with matplotlib is involved.
+"""
+import argparse
+import json
+import os
+import sys
+
+GROUP_ORDER = ("none", "cooperative", "link")
+#: The short words that appear as tick labels. Deliberately shorter than the group names used in
+#: prose: a tick label is read at a glance and has no room for a sentence.
+GROUP_TICK = {"none": "none", "cooperative": "coop", "link": "link"}
+FIGURES = ("fig1_pps_ceiling", "fig2_sampling_error", "fig3_cpu")
+
+
+def load_summary(path):
+    with open(path) as fh:
+        return json.load(fh)
+
+
+# --- figure 1: the pps ceiling ---------------------------------------------------------------
+
+def figure1_data(summary):
+    """[(tick label, value, value label)] -- one bar per (group, frame) cell, frames grouped.
+
+    An unresolved cell (two arms more than one rung apart) is drawn at its mean with its value
+    label carrying both arm values, because the mean of two values a factor apart is not a
+    reading and the figure must not present it as one.
+    """
+    cells = summary.get("cells") or {}
+    parsed = {}
+    for key, cell in cells.items():
+        group, frame = key.split("|")
+        parsed[(group, int(frame))] = cell
+    bars = []
+    for frame in sorted({frame for (_g, frame) in parsed}):
+        for group in GROUP_ORDER:
+            cell = parsed.get((group, frame))
+            if not cell:
+                continue
+            mean = cell.get("mean")
+            arms = sorted(v for v in (cell.get("arms") or {}).values() if v is not None)
+            if mean is None:
+                label = "n/a"
+            elif cell.get("resolved"):
+                label = "%.1f" % mean
+            else:
+                label = "%.1f*" % mean if not arms else "%.1f* (%s)" % (
+                    mean, "/".join("%g" % a for a in arms))
+            bars.append({"tick": "%s\n%dB" % (GROUP_TICK.get(group, group), frame),
+                         "value": mean or 0.0, "label": label,
+                         "resolved": bool(cell.get("resolved"))})
+    return {"title": "Clean forwarding rate by telemetry source and frame size",
+            "xlabel": "telemetry source / Ethernet frame size",
+            "ylabel": "highest clean rate (kpps)",
+            "bars": bars}
+
+
+# --- figure 2: the sampling error --------------------------------------------------------------
+
+def figure2_data(summary):
+    """One bar per (group, rate); the `none` group gets the word n/a where its bar would be."""
+    rows = summary.get("sampling_error") or []
+    by_key = {(row["group"], row["offered_mbit"]): row for row in rows}
+    rates = sorted({rate for (_g, rate) in by_key})
+    bars = []
+    for rate in rates:
+        for group in GROUP_ORDER:
+            row = by_key.get((group, rate))
+            tick = "%s\n%gM" % (GROUP_TICK.get(group, group), rate)
+            if row is None:
+                continue
+            error = row.get("median_abs_error")
+            if error is None:
+                # 🔴 The absence is drawn as an absence. PREREG 5.2.
+                bars.append({"tick": tick, "value": None, "label": "n/a", "na": True})
+            else:
+                bars.append({"tick": tick, "value": 100.0 * error,
+                             "label": "%.1f" % (100.0 * error), "na": False})
+    return {"title": "Twin bandwidth error against /proc/net/dev, by telemetry source",
+            "xlabel": "telemetry source / offered rate",
+            "ylabel": "median |twin / ground truth - 1|  (%)",
+            "bars": bars}
+
+
+# --- figure 3: CPU ------------------------------------------------------------------------------
+
+def figure3_data(summary):
+    """Three panels (bmv2, kernel, proxy+emitter), one line per group, x = offered kpps.
+
+    The series are labelled at the right-hand end of their own line rather than in a legend box:
+    the group word sits where the reader's eye already is, and nothing else is added to the plot.
+    """
+    panels = []
+    kernel = summary.get("cpu_kernel") or {}
+    bmv2 = summary.get("cpu_bmv2") or {}
+    for label, source in (("bmv2", bmv2), ("kernel", kernel)):
+        per_group = source.get("per_group") or {}
+        series = []
+        for group in GROUP_ORDER:
+            points = sorted((float(k), v.get("cpu")) for k, v in (per_group.get(group) or {}).items()
+                            if v.get("cpu") is not None)
+            if points:
+                series.append({"name": GROUP_TICK.get(group, group), "points": points})
+        panels.append({"panel": label, "series": series})
+    # proxy + emitter share a panel: together they are "the control plane's share of sampling",
+    # and under `none` and `cooperative` the emitter does not exist at all.
+    per_group = (kernel.get("per_group") or {})
+    series = []
+    for group in GROUP_ORDER:
+        points = sorted((float(k), v.get("_proxy_plus_emitter"))
+                        for k, v in (per_group.get(group) or {}).items()
+                        if v.get("_proxy_plus_emitter") is not None)
+        if points:
+            series.append({"name": GROUP_TICK.get(group, group), "points": points})
+    panels.append({"panel": "proxy + emitter", "series": series})
+    return {"title": "CPU by telemetry source and offered rate (1024 B frames)",
+            "xlabel": "offered rate (kpps)",
+            "ylabel": "CPU (% of one core)",
+            "panels": panels}
+
+
+def figure_data(summary):
+    return {"fig1_pps_ceiling": figure1_data(summary),
+            "fig2_sampling_error": figure2_data(summary),
+            "fig3_cpu": figure3_data(summary)}
+
+
+# --- the one function that needs matplotlib ------------------------------------------------------
+
+def _pyplot():
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    return plt
+
+
+def _bar_axes(plt, data, out_base):
+    figure, axes = plt.subplots(figsize=(9, 4.5))
+    ticks = [bar["tick"] for bar in data["bars"]]
+    values = [0.0 if bar.get("value") is None else bar["value"] for bar in data["bars"]]
+    positions = list(range(len(values)))
+    axes.bar(positions, values, width=0.68)
+    axes.set_xticks(positions)
+    axes.set_xticklabels(ticks)
+    axes.set_title(data["title"])
+    axes.set_xlabel(data["xlabel"])
+    axes.set_ylabel(data["ylabel"])
+    top = max(values) if values else 1.0
+    for position, bar in zip(positions, data["bars"]):
+        height = 0.0 if bar.get("value") is None else bar["value"]
+        axes.annotate(bar["label"], (position, height), textcoords="offset points",
+                      xytext=(0, 4), ha="center", fontsize=9)
+    axes.set_ylim(0, top * 1.18 if top else 1.0)
+    figure.tight_layout()
+    for extension in ("png", "pdf"):
+        figure.savefig("%s.%s" % (out_base, extension), dpi=160)
+    plt.close(figure)
+
+
+def _line_panels(plt, data, out_base):
+    panels = data["panels"]
+    figure, axes_list = plt.subplots(1, len(panels), figsize=(4.2 * len(panels), 4.2), sharex=True)
+    if len(panels) == 1:
+        axes_list = [axes_list]
+    for axes, panel in zip(axes_list, panels):
+        ends = []
+        for series in panel["series"]:
+            xs = [x for x, _y in series["points"]]
+            ys = [y for _x, y in series["points"]]
+            axes.plot(xs, ys, marker="o", markersize=3)
+            if xs:
+                ends.append((ys[-1], xs[-1], series["name"]))
+        # The series name at the end of its own line, not in a legend block. Two lines that end
+        # at the same value would print their labels on top of each other and the reader would
+        # see one illegible word instead of two names, so colliding labels are staggered by a
+        # fixed offset in POINTS -- which does not move the data, only the text beside it.
+        span = (max(y for y, _x, _n in ends) - min(y for y, _x, _n in ends)) if ends else 0.0
+        previous = None
+        for index, (y, x, name) in enumerate(sorted(ends)):
+            collides = previous is not None and (span == 0 or abs(y - previous) < 0.03 * span)
+            axes.annotate(name, (x, y), textcoords="offset points",
+                          xytext=(5, 9 if collides and index % 2 else (-9 if collides else 0)),
+                          ha="left", va="center", fontsize=9)
+            previous = y
+        axes.set_title(panel["panel"])
+        axes.set_xlabel(data["xlabel"])
+        axes.set_xscale("log")
+        # room on the right for the end-of-line labels, which would otherwise be clipped
+        axes.margins(x=0.22)
+    axes_list[0].set_ylabel(data["ylabel"])
+    figure.suptitle(data["title"])
+    figure.tight_layout()
+    for extension in ("png", "pdf"):
+        figure.savefig("%s.%s" % (out_base, extension), dpi=160)
+    plt.close(figure)
+
+
+def render(summary, out_dir):
+    """Draw all three figures. Returns the list of files written."""
+    plt = _pyplot()
+    data = figure_data(summary)
+    written = []
+    _bar_axes(plt, data["fig1_pps_ceiling"], os.path.join(out_dir, "fig1_pps_ceiling"))
+    _bar_axes(plt, data["fig2_sampling_error"], os.path.join(out_dir, "fig2_sampling_error"))
+    _line_panels(plt, data["fig3_cpu"], os.path.join(out_dir, "fig3_cpu"))
+    for name in FIGURES:
+        for extension in ("png", "pdf"):
+            path = os.path.join(out_dir, "%s.%s" % (name, extension))
+            if os.path.exists(path):
+                written.append(path)
+    return written
+
+
+def describe(data, stream=sys.stdout):
+    """What each figure would show, as text -- `--check`, and what the tests read."""
+    write = stream.write
+    for name in ("fig1_pps_ceiling", "fig2_sampling_error"):
+        figure = data[name]
+        write("%s: %s\n" % (name, figure["title"]))
+        write("  x: %s   y: %s\n" % (figure["xlabel"], figure["ylabel"]))
+        for bar in figure["bars"]:
+            write("    %-14s %-10s %s\n"
+                  % (bar["tick"].replace("\n", " "),
+                     "n/a" if bar.get("value") is None else "%.3f" % bar["value"], bar["label"]))
+    figure = data["fig3_cpu"]
+    write("fig3_cpu: %s\n" % figure["title"])
+    write("  x: %s   y: %s\n" % (figure["xlabel"], figure["ylabel"]))
+    for panel in figure["panels"]:
+        write("    panel %s\n" % panel["panel"])
+        for series in panel["series"]:
+            write("      %-6s %s\n" % (series["name"],
+                                       " ".join("%g:%.1f" % point for point in series["points"])))
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Render the three figures of the E round")
+    parser.add_argument("--summary", required=True, help="summary.json written by analyse.py")
+    parser.add_argument("--out", help="directory for the figures (default: beside this script)")
+    parser.add_argument("--check", action="store_true",
+                        help="print what each figure would show and draw nothing")
+    args = parser.parse_args(argv)
+    summary = load_summary(args.summary)
+    data = figure_data(summary)
+    if args.check:
+        describe(data)
+        return 0
+    out_dir = args.out or os.path.dirname(os.path.abspath(__file__))
+    try:
+        written = render(summary, out_dir)
+    except ImportError:
+        print("plot.py: this interpreter has no matplotlib. Use one that does, or --check.",
+              file=sys.stderr)
+        return 2
+    for path in written:
+        print("wrote %s" % path)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
