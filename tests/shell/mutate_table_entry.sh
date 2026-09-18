@@ -468,6 +468,12 @@ m=$(mutant b38 "$MAIN" \
 report "M-B38: the fingerprint ignores the file, so every program has the same one" "$m" \
        "test_two_different_programs_do_not_share_a_fingerprint"
 
+m=$(mutant b39 "$MAIN" \
+    '        election_id=package.election_id,' \
+    '        election_id=app_package.BASELINE_ELECTION_ID,')
+report "M-B39: the factory drops the package's bid, so every write goes out as the old (0, 1)" "$m" \
+       "test_the_client_the_factory_built_took_its_identity_from_the_package"
+
 m=$(mutant b37 "$MAIN" \
     'FOREIGN_PIPELINE_FABRIC_SKIPS = (SKIP_LLDP, SKIP_WATCHDOG, SKIP_ROUTES)' \
     'FOREIGN_PIPELINE_FABRIC_SKIPS = (SKIP_CLONE, SKIP_LLDP, SKIP_WATCHDOG, SKIP_ROUTES)')
