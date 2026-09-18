@@ -117,6 +117,11 @@ trap 'rm -rf "$BK"' EXIT
 # repo root the tests derive from it is $BK. The models and the compiled p4info are read, never
 # written, so they are linked in once rather than copied per mutation.
 ln -s "$REPO/setting" "$BK/setting"
+# TICKET-P3 section 2.4: test_app_package reads `DEFAULT_LINK_BPS` out of
+# tools/p4_exercise/common.py and asserts it equals app_package's copy of that literal -- the
+# one place the duplication is CHECKED rather than assumed. Linked, never copied and never
+# mutated; without it that cell errors in every mutant and the baseline is red.
+ln -s "$REPO/tools" "$BK/tools"
 
 BASE_PKG=$(sha256sum "$PKG" | cut -d' ' -f1)
 BASE_READER=$(sha256sum "$READER" | cut -d' ' -f1)
@@ -590,6 +595,17 @@ m=$(mutant m47 "$TESTBED" \
         report(f"package pipelines: {len(foreign)} of {len(dpids)} switch(es) run the "')
 report "M47: a mixed fabric is reported as though every switch were foreign" "$m" \
        "test_the_plan_counts_one_of_four_and_lists_only_s1"
+
+# TICKET-P3 section 4.3, M-B12. The loader's other refusals are all about a field a package
+# has always had; this one is about the field TICKET-P3 adds, and it is the one that decides
+# what the whole fabric measures. A misspelt source that fell back to `auto` would bring the
+# fabric up on a different telemetry path than the package asked for, and every number taken on
+# it would be exactly as plausible as a correct one.
+m=$(mutant m48 "$PKG" \
+    '    if telemetry_source not in TELEMETRY_SOURCES:' \
+    '    if False:  # MUTANT: any word is a telemetry source')
+report "M48 (M-B12): a package may name a telemetry source outside the domain" "$m" \
+       "test_a_word_outside_the_domain_is_refused_by_name"
 
 # --- negative controls -----------------------------------------------------------------------
 #

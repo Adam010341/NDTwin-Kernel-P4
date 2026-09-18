@@ -59,6 +59,37 @@ KNOB_PATH = os.path.join(_HERE, "app_package_override")
 #: rather than read with today's field meanings.
 FORMAT = 1
 
+#: The telemetry knob, beside the package knob and shaped like `host_count_override`: first
+#: non-blank, non-`#` line wins, a missing file means `auto`.
+#:
+#: [Co-developed with claude code -- Adam]
+#: TICKET-P3 section 2.1. One word, three readers -- this fabric (which ports get a `tc ...
+#: action sample` filter), the proxy (whether it writes a clone session and registers an sFlow
+#: agent) and `ndt status`. A file rather than an environment variable for the same reason the
+#: three beside it are files: `ndtwin-lab topo-start` launches the topology through `tmux` under
+#: a fixed root environment, so no operator-set variable reaches it.
+#:
+#: `ndt` is the only writer. This module only ever reads it.
+TELEMETRY_KNOB_PATH = os.path.join(_HERE, "telemetry_override")
+
+#: What the word may be. `auto` is the default and is resolved PER SWITCH; the other three are
+#: what `telemetry_source()` can answer.
+TELEMETRY_AUTO = "auto"
+TELEMETRY_NONE = "none"
+TELEMETRY_COOPERATIVE = "cooperative"
+TELEMETRY_LINK = "link"
+TELEMETRY_SOURCES = (TELEMETRY_AUTO, TELEMETRY_NONE, TELEMETRY_COOPERATIVE, TELEMETRY_LINK)
+#: The three a resolved answer can be. `auto` is a rule, not a source.
+TELEMETRY_RESOLVED = (TELEMETRY_NONE, TELEMETRY_COOPERATIVE, TELEMETRY_LINK)
+
+#: A link the exercise did not ask to shape. tools/p4_exercise/common.py's DEFAULT_LINK_BPS,
+#: which is what convert.py writes for a tutorials link with no bandwidth element -- kept as a
+#: literal here rather than imported because this module must stay importable by a Mininet
+#: script running as root with only the standard library, and `tools/p4_exercise/` is not on
+#: its path. test_app_package.py reads that file and asserts the two numbers are the same, so
+#: the duplication is checked rather than assumed.
+DEFAULT_LINK_BPS = 1000000000
+
 MODE_NDTWIN = "ndtwin"
 MODE_EXTERNAL = "external"
 MODES = (MODE_NDTWIN, MODE_EXTERNAL)
@@ -177,9 +208,18 @@ class Package:
     pipeline: Tuple[str, str] = BASELINE_PIPELINE
     hosts: Tuple[HostSpec, ...] = ()
     switches: Tuple[SwitchSpec, ...] = ()
-    #: Recorded verbatim from the package, applied by nobody in phase 1 (G2-C is phase 3).
-    #: Kept so that `ndt status` and the converter round-trip can show what was declared.
+    #: Recorded verbatim from the package. Read by `shaped_links()`, which is what turns the
+    #: ones an exercise actually shaped into `TCLink` arguments (G2-C, TICKET-P3 section 2.4).
     links: Tuple[dict, ...] = field(default_factory=tuple)
+    #: What this package asks for as its telemetry source: one of TELEMETRY_SOURCES. `auto`
+    #: -- the default, and what every package written before TICKET-P3 says by omission -- is
+    #: a RULE rather than an answer; `telemetry_source()` resolves it per switch.
+    #:
+    #: [Co-developed with claude code -- Adam]
+    #: A declaration, not a decision: the knob outranks it (section 2.1), because the knob is
+    #: what `ndt up p4 --telemetry <word>` writes and an operator who names a source on the
+    #: command line has said something more recent than the package author did.
+    telemetry_source: str = TELEMETRY_AUTO
 
     # --- what callers actually ask ------------------------------------------------------
 
@@ -328,6 +368,196 @@ def read_knob(path=None) -> Optional[str]:
     raise AppPackageError(
         f"{path}: exists but names no package directory. Delete the file to run the baseline "
         f"fabric -- an empty knob is a half-finished write, not a default")
+
+
+# --- telemetry: one word, three readers (TICKET-P3 section 2.1) ------------------------------
+#
+# [Co-developed with claude code -- Adam]
+#
+# `cooperative` is today's path: NDTwin's pipeline clones a sampled packet to the CPU port and
+# the proxy synthesises sFlow from it. `link` is the new one: a `tc ... action sample` filter on
+# the switch-side veth and a root emitter that turns psample notifications into the same sFlow.
+# `none` is neither, which is the control arm the three-group measurement needs. `auto` is the
+# rule that picks between the first two per switch, and it is the only one of the four that is
+# not an answer -- which is why `telemetry_source()` never returns it.
+#
+# 🔴 WHY THE RULE IS PER SWITCH. A fabric can be mixed: `exercises/firewall` runs its own
+# program on s1 and NDTwin's on s2-s4. Cooperative telemetry needs the `packet_in` header and
+# the clone session that only NDTwin's pipeline has, so on s1 it would produce nothing at all
+# -- not an error, an empty twin. `auto` therefore asks `pipeline_is_ndtwin` per switch and
+# sends the foreign ones down the link path, which needs nothing from the program.
+
+#: The p4_proxy root, spelled exactly as `MultiSwitchTopo` spells it when it resolves a
+#: pipeline. Un-normalised on purpose: `pipeline_is_ndtwin` compares two paths resolved against
+#: the SAME base, so the spelling cancels -- and keeping one expression means it cannot stop
+#: cancelling because two sites normalised differently.
+PROXY_ROOT = os.path.join(_HERE, "..")
+
+
+def read_telemetry_knob(path=None) -> Optional[str]:
+    """The telemetry source this machine is configured for, or None for "the package decides".
+
+    The `host_count_override` shape, as TICKET-P3 section 2.1 specifies: first non-blank,
+    non-`#` line wins; a file that is absent -- or present and carries no directive -- is None.
+
+    🔴 A WORD OUTSIDE THE DOMAIN IS A REFUSAL, not a fallback to `auto`. `ndt` is the only
+    writer and it validates before writing, so a bad word here means something else wrote the
+    file; answering `auto` to it would bring the fabric up measuring something nobody asked
+    for, and every number taken on it would look exactly as valid as a correct one.
+    """
+    path = path or TELEMETRY_KNOB_PATH
+    if not os.path.exists(path):
+        return None
+    with open(path) as fh:
+        for line in fh:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line not in TELEMETRY_SOURCES:
+                raise AppPackageError(
+                    f"{path}: telemetry source must be one of {list(TELEMETRY_SOURCES)}, got "
+                    f"{line!r}")
+            return line
+    return None
+
+
+def telemetry_source(package, dpid, knob_path=None, base_dir=None) -> str:
+    """Which telemetry source switch `dpid` runs under: "none", "cooperative" or "link".
+
+    Three layers, most recent first (TICKET-P3 section 2.1):
+
+      1. the knob, when it names something other than `auto` -- `ndt up p4 --telemetry <word>`;
+      2. the package's own `telemetry.source`, when it names something other than `auto`;
+      3. `auto`: this switch runs NDTwin's pipeline => `cooperative`, otherwise => `link`.
+
+    [Co-developed with claude code -- Adam]
+    `base_dir` exists because layer 3 has to ask `pipeline_is_ndtwin`, which resolves a pair of
+    paths; it defaults to the p4_proxy root the fabric itself uses and no caller passes it
+    except a test. The proxy computes the same three layers independently in
+    `proxy_agent/main.py` -- TICKET-P3 section 2.1 has worker C not import this name, the same
+    arrangement TICKET-P2 used for `pipeline_is_ndtwin` -- so the two are compared after the
+    merge rather than sharing an import that would hide a disagreement.
+
+    Never answers "auto": `auto` is the rule, and a caller that received it back would have to
+    implement the rule a second time.
+    """
+    knob = read_telemetry_knob(knob_path)
+    if knob is not None and knob != TELEMETRY_AUTO:
+        return knob
+    declared = getattr(package, "telemetry_source", TELEMETRY_AUTO)
+    if declared != TELEMETRY_AUTO:
+        return declared
+    if base_dir is None:
+        base_dir = PROXY_ROOT
+    return (TELEMETRY_COOPERATIVE if package.pipeline_is_ndtwin(dpid, base_dir)
+            else TELEMETRY_LINK)
+
+
+# --- G2-C: which links this package actually shaped (TICKET-P3 section 2.4) ------------------
+
+
+def _link_endpoint(entry, side, where):
+    """One `links[]` endpoint as (name, port). The format is `["h1", 1]` / `["s1", 3]`."""
+    value = entry.get(side)
+    if (not isinstance(value, (list, tuple)) or len(value) != 2
+            or not isinstance(value[0], str) or not isinstance(value[1], int)
+            or isinstance(value[1], bool)):
+        raise AppPackageError(
+            f"{where}: links[].{side} must be [name, port], got {value!r}")
+    return (value[0], int(value[1]))
+
+
+def shaped_links(package):
+    """[(a, b, bw_mbps, delay_ms)] for the links this package asked to shape -- and only those.
+
+    `a` and `b` are `(name, port)` tuples in the manifest's own order and orientation (hosts
+    first, the way convert.py writes them). `bw_mbps` is None when the link's bandwidth is the
+    default one, `delay_ms` is None when it declared no delay; a link where both are None is
+    not shaped and is not in this list at all.
+
+    [Co-developed with claude code -- Adam]
+    🔴 THE EMPTY LIST IS THE LOAD-BEARING ANSWER. `build_net` passes `link=TCLink` if and only
+    if this is non-empty, so a package that shapes nothing -- and the baseline, which has no
+    links at all -- builds the Mininet the fabric has always built, with the same constructor
+    call. TCLink is not a free "same but configurable": it puts an htb qdisc and a netem on
+    every interface it makes, which changes the timing of a fabric nobody asked to shape.
+
+    🔴 A DECLARED ZERO DELAY IS NO DELAY, which is tutorials' own rule and convert.py's: its
+    `parse_links` defaults a link with no third element to `'0ms'` and passes it to addLink
+    either way, so ecn's `["s1-p3", "s2-p3", "0", 0.5]` asks for exactly the delay pod-topo's
+    `["h1", "s1-p1"]` asks for -- none. Installing a netem for it would be a qdisc the exercise
+    never asked for.
+    """
+    where = f"{package.name}: package.json"
+    out = []
+    for entry in package.links:
+        if not isinstance(entry, dict):
+            raise AppPackageError(f"{where}: links[] entries must be objects, got {entry!r}")
+        bps = entry.get("bandwidth_bps", DEFAULT_LINK_BPS)
+        if not isinstance(bps, (int, float)) or isinstance(bps, bool) or bps <= 0:
+            raise AppPackageError(
+                f"{where}: links[].bandwidth_bps must be a positive number, got {bps!r}")
+        delay = entry.get("delay_ms")
+        if delay is not None and (not isinstance(delay, (int, float))
+                                  or isinstance(delay, bool) or delay < 0):
+            raise AppPackageError(
+                f"{where}: links[].delay_ms must be a non-negative number, got {delay!r}")
+        bw_mbps = None if bps == DEFAULT_LINK_BPS else bps / 1e6
+        delay_ms = float(delay) if delay else None
+        if bw_mbps is None and delay_ms is None:
+            continue
+        out.append((_link_endpoint(entry, "a", where), _link_endpoint(entry, "b", where),
+                    bw_mbps, delay_ms))
+    return out
+
+
+def shaping_index(package):
+    """{frozenset({(name, port), (name, port)}): {"bw": mbps|None, "delay": ms|None}}.
+
+    The same facts as `shaped_links`, keyed the way `MultiSwitchTopo.addLink` can ask: it knows
+    each cable as two (node name, port) pairs and has no idea which of them the manifest listed
+    first. Unordered, because `["h1", 1] / ["s1", 1]` and the reverse are one cable.
+    """
+    index = {}
+    for a, b, bw_mbps, delay_ms in shaped_links(package):
+        index[frozenset((a, b))] = {"bw": bw_mbps, "delay": delay_ms}
+    return index
+
+
+def link_shaping_kwargs(index, a, b):
+    """The `bw=`/`delay=` Mininet wants for one cable, or `{}` when it is not shaped.
+
+    🔴 `{}` MATTERS AS MUCH AS THE VALUES. An unshaped link inside a package that shapes one
+    other link must reach `addLink` with the same arguments it reaches it with today, or a
+    fabric built for one 0.5 Mbit/s bottleneck would quietly have every other cable rebuilt as
+    a TCLink with a rate limit of its own.
+
+    `delay` is Mininet's own spelling -- a string with a unit, which is what it hands to netem.
+    """
+    shaping = index.get(frozenset((a, b)))
+    if not shaping:
+        return {}
+    kwargs = {}
+    if shaping["bw"] is not None:
+        kwargs["bw"] = shaping["bw"]
+    if shaping["delay"] is not None:
+        kwargs["delay"] = f"{shaping['delay']}ms"
+    return kwargs
+
+
+def format_shaped_link(entry) -> str:
+    """One `shaped_links()` entry as `ndt status` prints it: `s1:3<->s2:3 0.5 Mbit/s`.
+
+    Here rather than in `ndt` so the fabric that installs the shaping and the status line that
+    claims it are reading one function. Worker D calls this; nothing in this file does.
+    """
+    (a_name, a_port), (b_name, b_port), bw_mbps, delay_ms = entry
+    text = f"{a_name}:{a_port}<->{b_name}:{b_port}"
+    if bw_mbps is not None:
+        text += f" {bw_mbps:g} Mbit/s"
+    if delay_ms is not None:
+        text += f" {delay_ms:g}ms"
+    return text
 
 
 # --- loading ---------------------------------------------------------------------------------
@@ -690,6 +920,21 @@ def load(package_dir) -> Package:
     if not isinstance(links, list):
         raise AppPackageError(f"{where}: 'links' must be a list")
 
+    # TICKET-P3 section 2.1: optional, additive, `format` stays 1. A package that says nothing
+    # here means `auto`, which is what every package written before this field existed means.
+    telemetry = doc.get("telemetry") or {}
+    if not isinstance(telemetry, dict):
+        raise AppPackageError(f"{where}: 'telemetry' must be an object")
+    telemetry_source = telemetry.get("source", TELEMETRY_AUTO)
+    if telemetry_source not in TELEMETRY_SOURCES:
+        # 🔴 REFUSED, not defaulted. A misspelt source that fell back to `auto` would bring the
+        # fabric up measuring something other than what the package asked for, and every reading
+        # taken on it would look valid -- which is the silent-degradation shape this whole
+        # module exists to avoid. The message lists the domain so the fix is one edit.
+        raise AppPackageError(
+            f"{where}: telemetry.source must be one of {list(TELEMETRY_SOURCES)}, got "
+            f"{telemetry_source!r}")
+
     return Package(
         dir=package_dir,
         name=name,
@@ -704,6 +949,7 @@ def load(package_dir) -> Package:
         hosts=hosts,
         switches=switches,
         links=tuple(links),
+        telemetry_source=telemetry_source,
     )
 
 

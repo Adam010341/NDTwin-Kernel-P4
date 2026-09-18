@@ -11,7 +11,8 @@ from google.protobuf import text_format
 
 from proxy_agent import boot_identity
 from proxy_agent.rule_install_times import RuleInstallTimes
-from proxy_agent.sflow_emitter import PKTIN_META_INGRESS_PORT, sample_from_packet_in
+from proxy_agent.sflow_emitter import (TelemetryHeaderMissing, packet_in_metadata_ids,
+                                       packet_out_metadata_ids, sample_from_packet_in)
 
 
 # [Co-developed with claude code -- Adam]
@@ -214,6 +215,31 @@ def encode_value(value, bitwidth) -> bytes:
     return value.to_bytes(width, byteorder="big")
 
 
+def pipeline_carries_telemetry(p4info_path):
+    """Whether the program at `p4info_path` declares the five `packet_in` fields NDTwin needs.
+
+    [Co-developed with claude code -- Adam]
+    The same question `P4RuntimeClient.__init__` answers for a client that exists, asked of a
+    FILE for a switch that does not have one yet -- `readopt_switch` has to decide whether to
+    hand the re-adoption a sample callback BEFORE the new client is built, and TICKET-P3 section
+    9 ruling 4 makes that decision depend on the program's header rather than on whose pipeline
+    it is.
+
+    Any failure is False: an unreadable or unparseable p4info is a switch this proxy cannot
+    reason about, and the safe answer there is "no cooperative telemetry" -- a clone session
+    programmed into a program that never clones reports zero samples for the rest of the run
+    with nothing erroring anywhere.
+    """
+    try:
+        p4info = p4info_pb2.P4Info()
+        with open(p4info_path) as fh:
+            text_format.Merge(fh.read(), p4info)
+        packet_in_metadata_ids(p4info)
+        return True
+    except Exception:  # noqa: BLE001 -- a question, not an operation; every failure is "no"
+        return False
+
+
 class P4RuntimeClient:
     """Encapsulates P4Runtime gRPC connection to a single BMv2 switch"""
     def __init__(self, device_id, grpc_addr, p4info_path, json_path=None,
@@ -222,6 +248,29 @@ class P4RuntimeClient:
         self.grpc_addr = grpc_addr
         self.p4info = self._build_p4info(p4info_path)
         self.json_path = json_path
+
+        # --- which metadata ids THIS switch's program uses. TICKET-P3 2.6 (G1).
+        # [Co-developed with claude code -- Adam]
+        #
+        # Resolved once, here, because the p4info is parsed here and because every later reader
+        # is on a hot path: `handle_packet_in` runs once per sampled packet at 1-in-256 of all
+        # traffic, and re-walking the p4info there would put a linear scan inside the telemetry
+        # loop.
+        #
+        # 🔴 A MISSING HEADER IS NOT A CONSTRUCTION FAILURE. Most pipelines this proxy meets are
+        # somebody else's: `basic` and `source_routing` declare no controller header at all, and
+        # a client that refused to exist for them could not read their counters, probe them or
+        # write their tables -- everything an `external` fabric IS allowed to do. So the absence
+        # is recorded and the telemetry path is simply unavailable; `main.startup` is where it
+        # becomes a refusal, and only for a switch whose package ASKED for cooperative telemetry.
+        try:
+            self.packet_in_ids = packet_in_metadata_ids(self.p4info)
+            self.packet_in_ids_error = None
+        except TelemetryHeaderMissing as exc:
+            self.packet_in_ids = None
+            self.packet_in_ids_error = str(exc)
+        #: {field name: metadata id} for packet_out, `{}` for a program with no such header.
+        self.packet_out_ids = packet_out_metadata_ids(self.p4info)
 
         # --- who this client claims to be. [Co-developed with claude code -- Adam]
         #
@@ -444,15 +493,22 @@ class P4RuntimeClient:
         that would try to read every sampled packet as a beacon and, at 1-in-256 of all traffic,
         drown discovery in work it cannot use.
         """
-        sample = sample_from_packet_in(packet)
-        if sample is not None:
-            if self.sample_callback:
-                self.sample_callback(self.device_id, sample)
-            return
+        # A pipeline with no `packet_in` header cannot have sent a sample, and there is no
+        # numbering to read one with. Nothing is dropped silently: such a switch is never
+        # registered for telemetry in the first place (main.startup), so anything arriving here
+        # from it is a genuine packet-in. [Co-developed with claude code -- Adam]
+        ids = self.packet_in_ids
+        if ids is not None:
+            sample = sample_from_packet_in(packet, ids)
+            if sample is not None:
+                if self.sample_callback:
+                    self.sample_callback(self.device_id, sample)
+                return
 
         ingress_port = 0
+        ingress_port_id = None if ids is None else ids.ingress_port
         for meta in packet.metadata:
-            if meta.metadata_id == PKTIN_META_INGRESS_PORT:
+            if meta.metadata_id == ingress_port_id:
                 ingress_port = int.from_bytes(meta.value, byteorder='big')
 
         if self.packet_in_callback:
@@ -463,20 +519,35 @@ class P4RuntimeClient:
         # never opened -- and it is a write in every sense that matters: the LLDP beacon is how
         # this proxy puts frames on somebody else's fabric. [Co-developed with claude code -- Adam]
         self._refuse_write("a packet-out")
+        # TICKET-P3 2.6 (G1): the two ids come from this switch's own p4info, by field name.
+        # Against ndtwin_switch.p4 they resolve to 1 and 2 -- the literals that used to be
+        # written here -- so the beacon on the wire is byte-identical. Against a program that
+        # declares the header in another order they would not be, and a beacon whose egress port
+        # lands in `_pad` is emitted, accepted and sent nowhere.
+        # [Co-developed with claude code -- Adam]
+        ids = self.packet_out_ids
+        egress_id = ids.get("egress_port")
+        if egress_id is None:
+            raise TelemetryHeaderMissing(
+                ["egress_port"], sorted(ids),
+            )
         req = p4runtime_pb2.StreamMessageRequest()
         packet_out = req.packet
         packet_out.payload = payload
-        
+
         # egress_port
         meta = packet_out.metadata.add()
-        meta.metadata_id = 1 
+        meta.metadata_id = egress_id
         meta.value = egress_port.to_bytes(2, byteorder='big')
-        
-        # _pad
-        meta_pad = packet_out.metadata.add()
-        meta_pad.metadata_id = 2
-        meta_pad.value = (0).to_bytes(1, byteorder='big')
-        
+
+        # _pad, when the program declares one. A header with no padding field is legal P4 and
+        # sending a metadata id it does not have would be refused by PI.
+        pad_id = ids.get("_pad")
+        if pad_id is not None:
+            meta_pad = packet_out.metadata.add()
+            meta_pad.metadata_id = pad_id
+            meta_pad.value = (0).to_bytes(1, byteorder='big')
+
         self.stream_out_q.put(req)
 
     def start(self, push_config=True):
@@ -619,7 +690,8 @@ class P4RuntimeClient:
         self._last_table_read = None
 
     # [Co-developed with claude code -- Adam]
-    def write_clone_session(self, session_id=SAMPLE_SESSION_ID, egress_port=CPU_PORT):
+    def write_clone_session(self, session_id=SAMPLE_SESSION_ID, egress_port=CPU_PORT,
+                            replicas=None):
         """
         Programs the PRE clone session the pipeline samples into.
 
@@ -675,8 +747,25 @@ class P4RuntimeClient:
         bytestring. Only one may be set. class_of_service must stay 0 -- PI rejects anything
         else as unsupported. packet_length_bytes 0 means no truncation on the switch; the
         emitter truncates instead, since it is the side with tests covering it.
+
+        [Co-developed with claude code -- Adam]
+        `replicas` (TICKET-P3 2.6, G9a) is for a package that ships its own `clone_session_entries`
+        -- flowcache's controller programs session 57 with its own replica list, and an exercise
+        that declared two of them would otherwise get one. 🔴 ITS DEFAULT IS THE OLD BEHAVIOUR
+        SPELLED OUT: `None` means exactly `[{"egress_port": egress_port, "instance": 1}]`, so a
+        fabric with no package puts byte-identical WriteRequests on the wire -- which is what
+        `test_clone_session.py` asserts field by field and what makes this an addition rather
+        than a change.
         """
         self._refuse_write("a clone session write")
+
+        wanted = ([{"egress_port": egress_port, "instance": 1}] if replicas is None
+                  else [dict(r) for r in replicas])
+        # What the log line says this session replicates to. Taken from `wanted` rather than
+        # from `egress_port`, which is only the DEFAULT replica's port: a package session
+        # printed as "-> port 255" while it actually replicates to 510 is a log line that
+        # contradicts the switch. [Co-developed with claude code -- Adam]
+        where = ", ".join(str(spec["egress_port"]) for spec in wanted) or "(no replica)"
 
         def build(update_type):
             req = p4runtime_pb2.WriteRequest()
@@ -688,9 +777,10 @@ class P4RuntimeClient:
             session.session_id = session_id
             session.class_of_service = 0
             session.packet_length_bytes = 0
-            replica = session.replicas.add()
-            replica.egress_port = egress_port
-            replica.instance = 1
+            for spec in wanted:
+                replica = session.replicas.add()
+                replica.egress_port = int(spec["egress_port"])
+                replica.instance = int(spec.get("instance", 1))
             return req
 
         try:
@@ -703,7 +793,7 @@ class P4RuntimeClient:
 
         try:
             self.stub.Write(build(p4runtime_pb2.Update.INSERT), timeout=RPC_TIMEOUT_S)
-            print(f"[{self.device_id}] Clone session {session_id} -> port {egress_port} installed")
+            print(f"[{self.device_id}] Clone session {session_id} -> port {where} installed")
         except grpc.RpcError as insert_error:
             # Any INSERT failure, not just ALREADY_EXISTS -- see the docstring. bmv2 reports a
             # duplicate session as UNKNOWN with empty details, so a code-specific check silently
@@ -740,6 +830,151 @@ class P4RuntimeClient:
                   f"({settle_error.code().name}: {settle_error.details()}) -- the session "
                   f"may hold stacked replicas and multiply every sample from this switch")
             return False
+
+    # [Co-developed with claude code -- Adam]
+    #: A multicast group id of 0 is not a group. P4Runtime reserves it (a `mcast_grp` of 0 in
+    #: bmv2 means "do not multicast"), so an entry that asks for it is a package bug that the
+    #: switch would answer with INVALID_ARGUMENT -- refused here instead, where the message can
+    #: say which entry.
+    MULTICAST_GROUP_ID_MIN = 1
+
+    def write_multicast_group(self, group_id, replicas, op="insert"):
+        """
+        Programs one PRE multicast group: `mcast_grp` N replicates to these (port, instance)s.
+
+        [Co-developed with claude code -- Adam]
+        TICKET-P3 2.6 (G8). tutorials' `multicast` exercise declares its group in the runtime
+        file (`multicast_group_entries`) and its program then sets `standard_metadata.mcast_grp`;
+        without the group the packet is dropped by the PRE with nothing logged -- the exercise's
+        h1 simply cannot reach h2/h3/h4 and every table entry reads correct.
+
+        `replicas` is the tutorials shape: `[{"egress_port": 2, "instance": 1}, ...]`.
+        `instance` defaults to 1 rather than 0, because two replicas to the same port with the
+        same instance id are the same replica and the second is silently not added -- which is
+        how a group of four becomes a group of three with no error.
+
+        Returns True on success, False on a refusal that was reported. Raises
+        `TableEntryInvalid` for a group this proxy will not ask for at all: an id below
+        MULTICAST_GROUP_ID_MIN, an empty replica list, a port that is not a number. Those are
+        400s at the route, and none of them reaches the switch.
+
+        🔴 THE INSERT/MODIFY FALLBACK IS write_clone_session'S, FOR write_clone_session'S REASON,
+        and not the general "retry the other verb" this file refuses elsewhere. bmv2 answers a
+        duplicate PRE object with **UNKNOWN and an empty details string** rather than
+        ALREADY_EXISTS (measured 2026-08-13, C9), so a code-specific check silently never fires;
+        the MODIFY that follows replaces the group's replica list, and a genuine failure fails
+        it too and is reported. What is deliberately NOT copied is the clone session's
+        DELETE-first settle pair: that exists because a clone session's backing group survives a
+        pipeline re-push and accumulates a replica per proxy restart (doc/audit/
+        2026-08-16_clone-stacking-raw-repro.md), and MODIFY on a multicast group REPLACES the
+        replica list outright rather than appending to it, so the stacking shape cannot arise.
+        """
+        self._refuse_write("a multicast group write")
+
+        verb = str(op or "insert").lower()
+        if verb not in ("insert", "modify", "delete"):
+            raise TableEntryInvalid(
+                f"multicast group op {op!r} is not one of insert, modify, delete")
+
+        try:
+            gid = int(group_id)
+        except (TypeError, ValueError):
+            raise TableEntryInvalid(
+                f"multicast_group_id {group_id!r} is not an integer")
+        if isinstance(group_id, bool) or gid < self.MULTICAST_GROUP_ID_MIN:
+            raise TableEntryInvalid(
+                f"multicast_group_id {group_id!r} is not a group: P4Runtime numbers groups from "
+                f"{self.MULTICAST_GROUP_ID_MIN}, and 0 means 'do not multicast'")
+
+        wanted = []
+        for index, spec in enumerate(replicas or ()):
+            if not isinstance(spec, dict):
+                raise TableEntryInvalid(
+                    f"replica {index} of multicast group {gid} is {spec!r}, not an object with "
+                    f"an egress_port")
+            if "egress_port" not in spec:
+                raise TableEntryInvalid(
+                    f"replica {index} of multicast group {gid} names no egress_port")
+            port, instance = spec.get("egress_port"), spec.get("instance", 1)
+            for label, value in (("egress_port", port), ("instance", instance)):
+                if isinstance(value, bool) or not isinstance(value, int):
+                    raise TableEntryInvalid(
+                        f"replica {index} of multicast group {gid} has {label}={value!r}, which "
+                        f"is not a port number")
+                if value < 0:
+                    raise TableEntryInvalid(
+                        f"replica {index} of multicast group {gid} has {label}={value}; "
+                        f"P4Runtime ports and instances are unsigned")
+            wanted.append((port, instance))
+
+        # A DELETE names the group and nothing else -- P4Runtime identifies the entity by its id
+        # -- but an INSERT or MODIFY with no replicas is a group that replicates to nowhere,
+        # which forwards exactly as much as no group at all and is far harder to notice.
+        if not wanted and verb != "delete":
+            raise TableEntryInvalid(
+                f"multicast group {gid} declares no replicas; a group that replicates to nothing "
+                f"drops every packet sent to it, which reads as a forwarding bug rather than as "
+                f"an empty group")
+
+        duplicates = sorted({pair for pair in wanted if wanted.count(pair) > 1})
+        if duplicates:
+            # Two replicas with the same (port, instance) are ONE replica to the PRE. The second
+            # is not rejected, it is absorbed -- so a group of four ports declared with a
+            # copy-pasted instance id becomes a group of one and every host but the first stops
+            # receiving, with no error anywhere.
+            raise TableEntryInvalid(
+                f"multicast group {gid} declares the same (egress_port, instance) twice "
+                f"{duplicates}: the PRE would hold one replica, not two, and the packets nobody "
+                f"receives would look like a forwarding fault")
+
+        def build(update_type):
+            req = p4runtime_pb2.WriteRequest()
+            req.device_id = self.device_id
+            self._bid(req)
+            update = req.updates.add()
+            update.type = update_type
+            group = update.entity.packet_replication_engine_entry.multicast_group_entry
+            group.multicast_group_id = gid
+            for port, instance in wanted:
+                replica = group.replicas.add()
+                replica.egress_port = port
+                replica.instance = instance
+            return req
+
+        if verb == "delete":
+            try:
+                self.stub.Write(build(p4runtime_pb2.Update.DELETE), timeout=RPC_TIMEOUT_S)
+                print(f"[{self.device_id}] Multicast group {gid} deleted")
+                return True
+            except grpc.RpcError as delete_error:
+                print(f"[{self.device_id}] Multicast group {gid} could not be deleted: "
+                      f"DELETE {delete_error.code().name}: {delete_error.details()}")
+                return False
+
+        first = (p4runtime_pb2.Update.INSERT if verb == "insert"
+                 else p4runtime_pb2.Update.MODIFY)
+        try:
+            self.stub.Write(build(first), timeout=RPC_TIMEOUT_S)
+            print(f"[{self.device_id}] Multicast group {gid} -> "
+                  f"{[p for p, _i in wanted]} installed")
+            return True
+        except grpc.RpcError as first_error:
+            if verb != "insert":
+                print(f"[{self.device_id}] Multicast group {gid} could not be modified: "
+                      f"MODIFY {first_error.code().name}: {first_error.details()} -- the group "
+                      f"on the switch is whatever was there before")
+                return False
+            try:
+                self.stub.Write(build(p4runtime_pb2.Update.MODIFY), timeout=RPC_TIMEOUT_S)
+                print(f"[{self.device_id}] Multicast group {gid} already present, updated "
+                      f"(INSERT said {first_error.code().name})")
+                return True
+            except grpc.RpcError as modify_error:
+                print(f"[{self.device_id}] Multicast group {gid} could not be programmed: "
+                      f"INSERT {first_error.code().name}: {first_error.details()} / "
+                      f"MODIFY {modify_error.code().name}: {modify_error.details()} "
+                      f"-- packets sent to this group will be dropped by the PRE")
+                return False
 
     # --- Helper methods for lookups ---
     def _get_table_id(self, name):
@@ -1268,7 +1503,13 @@ class P4RuntimeClient:
         name = counter_name if counter_name is not None else self.EGRESS_COUNTER_NAME
         counter_id = None
         for counter in self.p4info.counters:
-            if counter.preamble.name == name:
+            # [Co-developed with claude code -- Adam]
+            # By full name OR alias, the same pair `_table_by_name` accepts (TICKET-P3 2.6, G7).
+            # tutorials' runtime files and its `p4runtime_lib` helpers use both spellings
+            # interchangeably -- `MyEgress.egress_port_counter` and `egress_port_counter` name
+            # the same object -- so accepting only one turns a correct request into
+            # "counter not in this pipeline", which reads as a wiring error.
+            if name in (counter.preamble.name, counter.preamble.alias):
                 counter_id = counter.preamble.id
                 break
 

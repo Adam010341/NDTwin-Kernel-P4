@@ -306,9 +306,14 @@ m=$(mutant b14 "$MAIN" \
 report "M-B14: switch_state claims these entries survive a proxy restart" "$m" \
        "test_the_count_reaches_the_endpoint_report_not_just_the_response"
 
+# TICKET-P3 2.6 gave POST /p4/multicast_group the same not-journaled warning, so the old
+# one-line anchor matched twice. Extended upwards to `priority_honoured`, which only the
+# table-entry response has.
 m=$(mutant b20 "$ROUTES" \
-    '            "journaled": False, "note": TABLE_ENTRY_NOT_JOURNALED}' \
-    '            "journaled": True, "note": TABLE_ENTRY_NOT_JOURNALED}')
+    '            "priority_honoured": written["priority_honoured"],
+            "journaled": False, "note": TABLE_ENTRY_NOT_JOURNALED}' \
+    '            "priority_honoured": written["priority_honoured"],
+            "journaled": True, "note": TABLE_ENTRY_NOT_JOURNALED}')
 report "M-B20: the response claims the entry survives a restart, next to a note saying it does not" "$m" \
        "test_every_success_says_the_entry_is_not_journaled_and_what_that_costs"
 
@@ -342,15 +347,27 @@ m=$(mutant b8 "$MAIN" \
 report "M-B8: the exercise's entries are applied to NDTwin's own pipeline as well" "$m" \
        "test_under_ndtwins_own_pipeline_the_entries_stay_recorded_and_unapplied"
 
-m=$(mutant b9 "$MAIN" \
-    '        if i in foreign:
-            # [Co-developed with claude code -- Adam]
-            # 🔴 The PRE write would SUCCEED.' \
-    '        if False:
-            # [Co-developed with claude code -- Adam]
-            # 🔴 The PRE write would SUCCEED.')
-report "M-B9: a clone session is programmed into a pipeline that never clones" "$m" \
-       "test_a_foreign_pipeline_gets_no_clone_session_and_no_sflow_registration"
+# 🔴 M-B9 IS RETIRED, AND THE REASON IS THE INTERESTING PART (TICKET-P3 section 9 ruling 4).
+# It mutated `if i in foreign:` in the telemetry loop to `if False:` and was killed by
+# `test_a_foreign_pipeline_gets_no_clone_session_and_no_sflow_registration`. TICKET-P3 put a
+# telemetry-source check a few lines below it, and under `auto` a foreign pipeline resolves to
+# `link` -- so with the foreign branch deleted that check skipped the same switch and the
+# mutation changed nothing observable. It SURVIVED in P3-C round 1 for exactly that reason, and
+# the fix was not to delete the guard: section 9 ruling 4 then made the branch conditional
+# (`and source != TELEMETRY_COOPERATIVE`), because a foreign program that includes
+# ndtwin_telemetry.p4 CAN clone to the CPU port and must get a session.
+#
+# So the claim worth mutating moved. It is no longer "a foreign switch is skipped" -- that is
+# now true only sometimes, and the sometimes is the point. M-B9b below is the claim that
+# replaced it, in the other direction: the branch must NOT swallow the switch that can carry
+# the header. The negative direction is still covered, by the refusal
+# (`test_a_foreign_pipeline_that_cannot_carry_the_header_still_gets_nothing`) and by
+# M-C3/M-C22 in tests/shell/mutate_telemetry_by_name.sh.
+m=$(mutant b9b "$MAIN" \
+    '        if i in foreign and source != TELEMETRY_COOPERATIVE:' \
+    '        if i in foreign:  # MUTANT: round 1, before section 9 ruling 4')
+report "M-B9b: a foreign program that includes the header is left without a clone session" "$m" \
+       "test_a_foreign_program_that_included_the_header_gets_the_cooperative_path"
 
 m=$(mutant b10 "$MAIN" \
     '        skipped.extend(FOREIGN_PIPELINE_FABRIC_SKIPS)' \
@@ -358,9 +375,17 @@ m=$(mutant b10 "$MAIN" \
 report "M-B10: LLDP, the watchdog and the routes are switched off, two without being named" "$m" \
        "test_a_foreign_pipeline_names_every_fabric_wide_step_it_switched_off"
 
+# Round 2: section 9 ruling 4 moved the expression this anchored on into `switch_skips_for`,
+# which is now the ONE definition of the per-switch list (predicted before startup, re-recorded
+# by startup with the decision it actually made). The mutation is unchanged in meaning: a
+# foreign switch that really did skip both says it skipped nothing.
 m=$(mutant b28 "$MAIN" \
-    '            "skipped": [] if ndtwin else sorted(FOREIGN_PIPELINE_SWITCH_SKIPS)}' \
-    '            "skipped": []}')
+    '    if ndtwin:
+        return []
+    if package.read_only:' \
+    '    if True:
+        return []
+    if package.read_only:')
 report "M-B28: a foreign switch says it skipped nothing, so its dead telemetry looks like a fault" "$m" \
        "test_a_foreign_switch_names_the_two_steps_it_does_not_get"
 
@@ -370,11 +395,11 @@ m=$(mutant b11 "$MAIN" \
 report "M-B11: an entry the switch refused is counted as applied" "$m" \
        "test_one_refused_entry_does_not_cost_the_others"
 
+# TICKET-P3 2.1 put the telemetry note inside this branch, so the anchor is the condition
+# alone now -- still one site, and `if True:` still returns before the entries go back on.
 m=$(mutant b12 "$MAIN" \
-    '    if ndtwin or result.get("status") != "success":
-        return result' \
-    '    if True:
-        return result')
+    '    if ndtwin or result.get("status") != "success":' \
+    '    if True:')
 report "M-B12: readopt leaves the switch empty -- the push erased the package's entries" "$m" \
        "test_the_packages_entries_go_back_on_after_the_push_that_erased_them"
 
@@ -385,14 +410,18 @@ report "M-B22: entries are written to a switch whose pipeline push failed" "$m" 
        "test_a_switch_whose_pipeline_push_failed_gets_no_entries"
 
 m=$(mutant b23 "$MAIN" \
-    '                                     sample_callback if ndtwin else None,' \
+    '                                     sample_callback if cooperative else None,' \
     '                                     sample_callback,')
 report "M-B23: readopt hands a foreign switch the sFlow callback, so a clone session goes in" "$m" \
        "test_a_foreign_pipeline_gets_no_clone_session"
 
+# Round 2: section 9 ruling 4 merged readopt's two "no clone session was programmed" paths into
+# one guarded block (the foreign-with-header case now KEEPS its session), so the two lines this
+# anchored on are no longer adjacent. Same mutation: report the session `readopt_switch` claims
+# rather than the one this switch was given.
 m=$(mutant b27 "$MAIN" \
-    '    result["clone_session"] = False' \
-    '    pass')
+    '    if result.get("status") == "success" and not cooperative:' \
+    '    if False:')
 report "M-B27: readopt reports a clone session on a switch that was given none" "$m" \
        "test_it_does_not_claim_a_clone_session_it_never_programmed"
 
@@ -428,11 +457,11 @@ report "M-B31: a deliberate zero is reported as a bare zero, which reads as a re
 
 m=$(mutant b32 "$MAIN" \
     '    result = topology.readopt_switch(dpid, client_factory,
-                                     sample_callback if ndtwin else None,
+                                     sample_callback if cooperative else None,
                                      install_routes=ndtwin)' \
     '    try:
         result = topology.readopt_switch(dpid, client_factory,
-                                         sample_callback if ndtwin else None,
+                                         sample_callback if cooperative else None,
                                          install_routes=ndtwin)
     except Exception as exc:  # noqa: BLE001
         return {"status": "failed", "step": "routes", "dpid": dpid, "error": str(exc)}')
@@ -527,8 +556,10 @@ control "N2 (control): a comment-only edit inside the entry-applying loop" "$m" 
         "the whole suite stays green"
 
 m=$(mutant n3 "$ROUTES" \
-    '    op = data.get("op", "insert")' \
-    '    op = data.get("op") if "op" in data else "insert"')
+    '    op = data.get("op", "insert")
+    spec = {key: data.get(key) for key in' \
+    '    op = data.get("op") if "op" in data else "insert"
+    spec = {key: data.get(key) for key in')
 control "N3 (control): the same default written the long way" "$m" "the whole suite stays green"
 
 echo

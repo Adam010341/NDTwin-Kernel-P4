@@ -2,6 +2,7 @@
 
 import collections
 import json
+import math
 import os
 import signal
 import socket
@@ -22,6 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import topo_from_json  # noqa: E402
 import grpc_ports  # noqa: E402
 import app_package  # noqa: E402
+import link_telemetry  # noqa: E402
 
 # [Co-developed with claude code -- Adam]
 # Where the switch manifest is written: name -> pid, grpc_port, thrift_port, device_id.
@@ -369,8 +371,19 @@ class MultiSwitchTopo(Topo):
         # launched through `tmux` under a fixed root environment where no operator-set variable
         # arrives -- the same reason host_count_override is a file. NDTWIN_P4_TOPO_FILE still
         # wins when the topology is run directly, which is how it gets tested.
+        # [Co-developed with claude code -- Adam]
+        # G2-C (TICKET-P3 section 2.4). `shaping_index` is empty for the baseline and for every
+        # package that shapes nothing, and `link_shaping_kwargs` then answers `{}` -- so those
+        # addLink calls are the calls this file has always made, argument for argument. What a
+        # shaped link gets is `bw=<Mbps>` / `delay="<ms>ms"` on THAT cable only: ecn's and mri's
+        # 0.5 Mbit/s bottleneck is the whole point of those two exercises, and without it their
+        # queue depth is zero forever and both read green while measuring nothing.
+        shaping = app_package.shaping_index(package)
+
         for a_dpid, a_port, b_dpid, b_port in topo_from_json.switch_links(model):
-            self.addLink(switches[a_dpid], switches[b_dpid], port1=a_port, port2=b_port)
+            self.addLink(switches[a_dpid], switches[b_dpid], port1=a_port, port2=b_port,
+                         **app_package.link_shaping_kwargs(
+                             shaping, (switches[a_dpid], a_port), (switches[b_dpid], b_port)))
 
         # Hosts and their attachment, also from the model.
         #
@@ -391,7 +404,9 @@ class MultiSwitchTopo(Topo):
                          mac=_mac_str(mac, name))
 
         for name, dpid, port in topo_from_json.host_links(model):
-            self.addLink(name, switches[dpid], port1=1, port2=port)
+            self.addLink(name, switches[dpid], port1=1, port2=port,
+                         **app_package.link_shaping_kwargs(
+                             shaping, (name, 1), (switches[dpid], port)))
 
 def verify_switches(switches, timeout=10.0):
     """
@@ -784,7 +799,8 @@ def abort_if_grpc_ports_are_held(held, owner_of=None, report=print, exit_=sys.ex
 #: [Co-developed with claude code -- Adam]
 FabricPlan = collections.namedtuple(
     "FabricPlan",
-    "package model_path model dpids json_paths binary lib_dir ports port_warning")
+    "package model_path model dpids json_paths binary lib_dir ports port_warning "
+    "telemetry_knob telemetry_sources")
 
 
 class FabricPlanError(ValueError):
@@ -841,6 +857,28 @@ def plan_fabric(package=None, report=print):
                f"package's own program, not NDTwin's: "
                + ", ".join(f"s{d}={os.path.basename(json_paths[d])}" for d in foreign))
 
+    # 🔴 THE TELEMETRY KNOB, READ HERE, FOR THE SAME REASON EVERYTHING ELSE IN THIS FUNCTION IS
+    # READ HERE. `read_telemetry_knob` refuses a word outside the domain, and TICKET-P3 §2.1
+    # says that refusal is "拒絕啟動" -- refuse to start. Read for the first time inside
+    # `bring_up`, it would refuse AFTER `reset_for_bring_up` had already destroyed the fabric
+    # that was running and AFTER `net.start()` had built its replacement: "refuse to start"
+    # would have degraded into "die halfway up", which is the failure mode the whole of this
+    # pre-flight exists to prevent. The word comes from `ndt`, which validates before writing,
+    # so a bad one here means something else wrote the file.
+    #
+    # The per-switch resolution is reported for the reason the foreign-pipeline line above is:
+    # by the time the proxy discloses it in `switch_state` the fabric is already up, and an
+    # operator has to be able to tell "this switch is on the link path" from "its telemetry
+    # broke" while there is still something to read.
+    telemetry_knob = app_package.read_telemetry_knob()
+    telemetry_sources = {dpid: app_package.telemetry_source(package, dpid) for dpid in dpids}
+    counts = {}
+    for source in telemetry_sources.values():
+        counts[source] = counts.get(source, 0) + 1
+    report(f"telemetry: {telemetry_knob or 'auto'} "
+           f"({'knob' if telemetry_knob else 'no knob'}) -> "
+           + ", ".join(f"{n} {source}" for source, n in sorted(counts.items())))
+
     # The binary choice, before anything is torn down: a broken override should fail here, not
     # after mn -c has already destroyed the running fabric.
     binary, lib_dir = resolve_bmv2_launcher()
@@ -859,7 +897,8 @@ def plan_fabric(package=None, report=print):
 
     return FabricPlan(package=package, model_path=model_path, model=model, dpids=dpids,
                       json_paths=json_paths, binary=binary, lib_dir=lib_dir, ports=ports,
-                      port_warning=warning)
+                      port_warning=warning, telemetry_knob=telemetry_knob,
+                      telemetry_sources=telemetry_sources)
 
 
 def reset_for_bring_up(ports, settle_s=0.5):
@@ -878,6 +917,13 @@ def reset_for_bring_up(ports, settle_s=0.5):
     Mininet is built; Adam ruled that on 2026-09-12 and the reasons are in
     abort_if_grpc_ports_are_held.
     """
+    # Last run's link telemetry first, and by the same reasoning the switch reap below stands
+    # on: an emitter orphaned by a closed terminal is a process holding a psample group and
+    # writing sFlow the kernel will attribute to a fabric that no longer exists. It is stopped
+    # by the pid its manifest names, after /proc says that pid is still it -- never by pattern.
+    # `mn -c` does not touch it, exactly as `mn -c` does not touch bmv2.
+    # [Co-developed with claude code -- Adam]
+    link_telemetry.shut_down(report=print)
     os.system('sudo mn -c > /dev/null 2>&1')
     _, still_held = clear_switches_from_a_previous_run(ports=ports)
     abort_if_grpc_ports_are_held(still_held)
@@ -885,7 +931,25 @@ def reset_for_bring_up(ports, settle_s=0.5):
 
 
 def build_net(package, model):
-    """The Mininet this fabric is. A function so a test can put a recorder in its place."""
+    """The Mininet this fabric is. A function so a test can put a recorder in its place.
+
+    [Co-developed with claude code -- Adam]
+    🔴 `link=TCLink` IS PASSED ONLY WHEN THE PACKAGE SHAPED SOMETHING, and the call below it is
+    byte for byte the call this function has always made. TCLink is not "the same Link, with
+    options": it puts an htb qdisc on every interface it builds and a netem behind it, which
+    changes the timing of every cable in a fabric nobody asked to shape -- and every reading
+    ever taken on this fabric was taken without it. So the two cases are two literal calls
+    rather than one call with a conditional keyword: the unshaped one cannot acquire an
+    argument by accident. test_fabric_bring_up pins it.
+
+    Imported inside the branch because the module-level Mininet imports at the top of this file
+    are what the offline suites stub, and a fourth one at import time would make every test that
+    does not care about shaping have to know about TCLink.
+    """
+    if app_package.shaped_links(package):
+        from mininet.link import TCLink
+        return Mininet(topo=MultiSwitchTopo(package=package, model=model),
+                       controller=None, autoSetMacs=True, link=TCLink)
     return Mininet(topo=MultiSwitchTopo(package=package, model=model),
                    controller=None, autoSetMacs=True)
 
@@ -1004,8 +1068,108 @@ def configure_hosts(package, hosts, report=info):
     return HostSetup(commands=host_commands, renamed=tuple(renamed), noisy=tuple(noisy))
 
 
+#: How often the emitter is asked whether it is still there, during its start-up grace period.
+#: [Co-developed with claude code -- Adam]
+EMITTER_POLL_INTERVAL_S = 0.1
+
+#: What `start_link_telemetry` answers: the plan, the emitter's Popen (None when there is no
+#: emitter), and whether the bring-up must be called fatal because of it.
+#: [Co-developed with claude code -- Adam]
+LinkTelemetry = collections.namedtuple("LinkTelemetry", "plan proc fatal verdict")
+
+
+def start_link_telemetry(package, model, switches, manifest_path=None, report=print,
+                         tc_run=None, emitter_popen=None, sleep=time.sleep,
+                         grace_s=None):
+    """Plan, attach, start the emitter, record it -- or say in one line why there is none.
+
+    [Co-developed with claude code -- Adam]
+    TICKET-P3 section 2.5. The order is load-bearing in both directions: the filters go on
+    BEFORE the emitter so that no sample is generated with nobody listening to blame for it,
+    and the manifest is written AFTER the emitter because the manifest is what carries its pid
+    -- which is the only handle anything downstream (`ndt status`, `verify_p4`, teardown, the
+    next bring-up) ever gets on that process. `pkill -f` is forbidden here and this is the
+    arrangement that makes it unnecessary.
+
+    🔴 AN EMITTER THAT DIED IS FATAL, not a warning. The filters are on: the kernel is sampling
+    one packet in 256 off every switch veth and multicasting it to a group nobody has joined.
+    Every other line of the bring-up reads success, `ndt up` exits 0, and the twin shows zero
+    link usage on a fabric that is working -- which is indistinguishable from an idle network.
+    Section 2.5 says fatal; this returns it as such and lets `bring_up` fold it into the verdict.
+    """
+    try:
+        return _start_link_telemetry(package, model, switches, manifest_path=manifest_path,
+                                     report=report, tc_run=tc_run,
+                                     emitter_popen=emitter_popen, sleep=sleep, grace_s=grace_s)
+    except ValueError as exc:
+        # 🔴 A REFUSAL HERE IS AN ABORT PATH, AND IT ONLY IS ONE IF IT COMES BACK AS A VERDICT.
+        # `link_telemetry.plan` refuses four things and `attach` a fifth, and `read_telemetry_knob`
+        # refuses a word outside the domain; every one of them is a ValueError, which BOTH MAINS
+        # CATCH -- around `plan_fabric`, and nowhere else. By the time this function runs, `net`
+        # has been built and started, and a bare raise from here unwinds straight out of
+        # `bring_up` past a `tear_down` that is only ever reached through the `fatal` return.
+        # The fabric would be left running with no manifest, with whatever filters got attached,
+        # and with the traceback in a tmux pane that stops existing when the process does --
+        # which is the exact 2026-09-18 shape this whole file was repaired for.
+        #
+        # So it is folded into the verdict the same way a dead emitter is (see `bring_up`), and
+        # both mains reach teardown through the path they already have. ValueError only:
+        # anything else is a defect in this code and must not be dressed up as a fabric verdict.
+        return LinkTelemetry(
+            plan=None, proc=None, fatal=True,
+            verdict=(f"FATAL: link telemetry could not be brought up: {exc}"))
+
+
+def _start_link_telemetry(package, model, switches, manifest_path=None, report=print,
+                          tc_run=None, emitter_popen=None, sleep=time.sleep, grace_s=None):
+    """`start_link_telemetry`'s body. Separate so its refusals have one place to be caught."""
+    grace_s = link_telemetry.EMITTER_STARTUP_GRACE_S if grace_s is None else grace_s
+    manifest_path = manifest_path or link_telemetry.LINK_TELEMETRY_MANIFEST
+    plan = link_telemetry.plan(package, model, switches)
+    if plan.is_empty:
+        report(link_telemetry.describe(plan))
+        return LinkTelemetry(plan=plan, proc=None, fatal=False, verdict=None)
+
+    try:
+        link_telemetry.attach(plan, run=tc_run)
+        proc = link_telemetry.start_emitter(manifest_path, popen=emitter_popen)
+        link_telemetry.write_manifest(plan, getattr(proc, "pid", None), path=manifest_path)
+    except Exception:
+        # 🔴 A HALF-BUILT LINK PATH LEAVES QDISCS BEHIND WHERE NO TEARDOWN RUNS. Until
+        # `write_manifest` returns there is nothing on disk for `tear_down` to read, so both
+        # mains' abort paths would leave `clsact` on whichever interfaces got that far -- and,
+        # if the emitter had already started, an orphan holding a psample group. `mn -c` in the
+        # next bring-up destroys the veths and takes the qdiscs with them, but "the next run
+        # cleans it up" is not a thing to rely on for state this process created. Best effort,
+        # then the original failure.
+        link_telemetry.detach(plan, run=tc_run, report=report)
+        raise
+    report(link_telemetry.describe(plan, getattr(proc, "pid", None)))
+
+    # Give it the grace period section 2.5 names, asking each step. `poll()` is the process's
+    # own exit status, not a scan for a name.
+    #
+    # A whole number of steps rather than `while deadline > 0: deadline -= 0.1`, because that
+    # subtraction is binary floating point: 0.5 becomes six steps, not five, and a loop whose
+    # trip count nobody can state is one whose test has to be written from its own behaviour.
+    for _step in range(int(math.ceil(grace_s / EMITTER_POLL_INTERVAL_S))):
+        if proc.poll() is not None:
+            break
+        sleep(EMITTER_POLL_INTERVAL_S)
+    status = proc.poll()
+    if status is not None:
+        return LinkTelemetry(
+            plan=plan, proc=proc, fatal=True,
+            verdict=(f"FATAL: the link-telemetry emitter exited with {status} within "
+                     f"{grace_s:.0f}s of starting. {plan.ingress_filters()} ingress and "
+                     f"{plan.egress_filters()} egress sampling filters are attached and nothing "
+                     f"is listening to them, so this fabric would report zero link usage while "
+                     f"forwarding normally. Its stderr says why."))
+    return LinkTelemetry(plan=plan, proc=proc, fatal=False, verdict=None)
+
+
 def bring_up(package, model, net=None, manifest_path=None, verify_timeout=10.0,
-             report=print):
+             report=print, link_manifest_path=None):
     """Build the fabric, set the hosts up, verify the switches, write the manifest, judge it.
 
     Returns (net, switches, fatal, report) -- `report` being partial_fabric_verdict's message,
@@ -1029,6 +1193,15 @@ def bring_up(package, model, net=None, manifest_path=None, verify_timeout=10.0,
         net = build_net(package, model)
     net.start()
 
+    # 🔴 FROM THE MODEL, AND BEFORE THE HOSTS. This was `[net.get(f's{i}') for i in range(1,
+    # 11)]` in the bridge, and the fifth copy of "this fabric has ten switches". It moved ahead
+    # of the host set-up when link telemetry landed: section 2.5 puts the sampling filters on
+    # between `net.start()` and `configure_hosts`, so that the very first packet a host command
+    # sends is already being sampled, and planning them needs these objects.
+    switches = [net.get(name) for _dpid, name in topo_from_json.switches(model)]
+    telemetry = start_link_telemetry(package, model, switches,
+                                     manifest_path=link_manifest_path, report=report)
+
     # The hosts, named by the model rather than counted. `_host_count_override()` and the model
     # agree by construction (topo_from_json.model_path refuses a model whose host count
     # differs), but a package names its own model and nothing then ties the count file to it.
@@ -1045,17 +1218,19 @@ def bring_up(package, model, net=None, manifest_path=None, verify_timeout=10.0,
     # Without this, bulk TCP stalls at zero through bmv2 -- see the helper's docstring.
     disable_host_offloads(hosts)
 
-    # 🔴 FROM THE MODEL. This was `[net.get(f's{i}') for i in range(1, 11)]` in the bridge, and
-    # the fifth copy of "this fabric has ten switches".
-    switches = [net.get(name) for _dpid, name in topo_from_json.switches(model)]
     failures = verify_switches(switches, timeout=verify_timeout)
     write_manifest(switches, path=manifest_path)
 
     fatal, verdict = partial_fabric_verdict(failures, len(switches))
+    if telemetry.fatal:
+        # Both verdicts, never one instead of the other: a fabric can lose a switch AND its
+        # emitter, and an operator who is told only about the switch fixes half of it.
+        fatal = True
+        verdict = f"{verdict}\n{telemetry.verdict}" if verdict else telemetry.verdict
     return net, switches, fatal, verdict, host_setup
 
 
-def tear_down(net, manifest_path=None, report=print):
+def tear_down(net, manifest_path=None, report=print, link_manifest_path=None):
     """Stop the net, reap what outlived it, then drop the manifest. Returns the names reaped.
 
     [Co-developed with claude code -- Adam]
@@ -1071,6 +1246,18 @@ def tear_down(net, manifest_path=None, report=print):
     """
     if manifest_path is None:
         manifest_path = MANIFEST_PATH
+    # 🔴 THE EMITTER AND THE FILTERS GO FIRST, BEFORE `net.stop()`, and both come out of the
+    # link-telemetry manifest rather than out of an argument. Two reasons, and the second is
+    # why this is not merely tidier:
+    #   * `net.stop()` deletes the veths, and a `tc qdisc del` after that is addressed to
+    #     devices that are gone -- so the filters would come off only by accident;
+    #   * both entry points tear down with a bare `tear_down(net)`, including from their ABORT
+    #     paths, and a plan object threaded through those is a fourth thing an abort path has
+    #     to remember. Reading the manifest means the NEXT bring-up can also clean up after a
+    #     process that died without one.
+    # The emitter is stopped by the pid the manifest names, after `/proc/<pid>/cmdline` says it
+    # is still that process -- never by pattern (section 0 item 1).
+    link_telemetry.shut_down(link_manifest_path, report=report)
     net.stop()
     reaped = reap_manifest_switches(manifest_path)
     if reaped:

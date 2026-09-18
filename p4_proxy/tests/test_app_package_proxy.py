@@ -266,23 +266,39 @@ class SwitchStateDisclosesTheControlPlaneTest(unittest.TestCase):
                     "boot_id": "b", "boot_at": 1.0}
 
     def setUp(self):
+        # [Co-developed with claude code -- Adam]
+        # The three TICKET-P3 reporters are saved and CLEARED here, not merely saved: importing
+        # proxy_agent.main wires the real ones into this module's globals, so a fixture that
+        # only restored them afterwards would be asserting against whatever the production
+        # module injected -- which is how "the baseline control_plane has exactly three keys"
+        # started failing on a change it was not about.
         self.saved = (api_routes.topology, api_routes.control_plane_report,
                       api_routes.entries_recorded_report, api_routes.pipelines_report,
                       api_routes.table_entries_report,
-                      api_routes.note_api_table_entry_write)
+                      api_routes.note_api_table_entry_write,
+                      api_routes.telemetry_report, api_routes.pre_entries_report,
+                      api_routes.control_plane_telemetry)
         api_routes.topology = self.FakeTopology()
+        api_routes.inject_telemetry_reports(None, None, None)
         self.addCleanup(self.restore)
 
     def restore(self):
         (api_routes.topology, api_routes.control_plane_report,
          api_routes.entries_recorded_report, api_routes.pipelines_report,
          api_routes.table_entries_report,
-         api_routes.note_api_table_entry_write) = self.saved
+         api_routes.note_api_table_entry_write,
+         api_routes.telemetry_report, api_routes.pre_entries_report,
+         api_routes.control_plane_telemetry) = self.saved
 
-    def state(self, report, recorded, pipelines=None, written=None):
+    def state(self, report, recorded, pipelines=None, written=None,
+              telemetry=None, pre_entries=None, fabric_telemetry=None):
         api_routes.inject_control_plane(lambda: report, lambda: recorded)
         api_routes.inject_package_reports(lambda: pipelines or {}, lambda: written or {},
                                           lambda dpid: None)
+        api_routes.inject_telemetry_reports(
+            None if telemetry is None else (lambda: telemetry),
+            None if pre_entries is None else (lambda: pre_entries),
+            None if fabric_telemetry is None else (lambda: fabric_telemetry))
         return asyncio.run(api_routes.switch_state())
 
     def test_the_pre_existing_keys_are_untouched(self):
@@ -295,8 +311,19 @@ class SwitchStateDisclosesTheControlPlaneTest(unittest.TestCase):
 
     def test_the_baseline_fabric_says_it_skipped_nothing_rather_than_saying_nothing(self):
         body = self.state({"mode": "ndtwin", "package": None, "skipped": []}, {})
-        self.assertEqual(body["control_plane"],
-                         {"mode": "ndtwin", "package": None, "skipped": []})
+        # [Co-developed with claude code -- Adam]
+        # Cell by cell rather than dict-equal, because TICKET-P3 2.6 adds a fourth key
+        # (`telemetry`) that this fixture does not inject and that the orchestrator's ruling on
+        # TICKET-P2 7-4 allows: "byte-identical" means every existing cell is identical, plus
+        # documented new keys. A dict-equal assertion here is the one shape that cannot express
+        # that -- it fails on an addition exactly as loudly as on a change.
+        self.assertEqual(body["control_plane"]["mode"], "ndtwin")
+        self.assertIsNone(body["control_plane"]["package"])
+        self.assertEqual(body["control_plane"]["skipped"], [])
+        self.assertEqual(sorted(body["control_plane"]),
+                         ["mode", "package", "skipped"],
+                         "with no telemetry reporter injected, the three original keys are all "
+                         "there is -- an absent reporter must not invent a key")
 
     def test_a_skipped_step_is_named_on_the_endpoint(self):
         body = self.state({"mode": "external", "package": "/pkg",
