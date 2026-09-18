@@ -1199,11 +1199,18 @@ check_fires "M65: the telemetry gate is run and its verdict ignored" m65 \
 # cooperative header at all, so `cooperative` there means the proxy writes a clone session for a
 # pipeline that cannot clone -- and the link emitter, which the fabric DID attach, is then the
 # only source while the twin believes there are two.
+# 🔴 THE ANCHOR MOVED WITH THE RULE (§9 ruling 9 R1, round 2). `ndt` no longer re-derives the
+# split from `foreign:<dpids>`: it CALLS app_package.telemetry_source once per switch, which is
+# the only implementation of §2.1's three layers on this side of the merge. So the edit that
+# reproduces the old defect is the one that asks about ONE switch and prints its answer for all
+# of them -- the same fabric-wide claim, reached the new way.
 cat > "$A/m66.old" <<'EOF'
-        if [[ ",$foreign," == *",$d,"* ]]; then printf '%s link\n' "$d"
+    rows = [(s.dpid, app_package.telemetry_source(pkg, s.dpid, knob_path=knob, base_dir=base))
+            for s in pkg.switches]
 EOF
 cat > "$A/m66.new" <<'EOF'
-        if false; then printf '%s link\n' "$d"
+    one = app_package.telemetry_source(pkg, pkg.switches[0].dpid, knob_path=knob, base_dir=base)
+    rows = [(s.dpid, one) for s in pkg.switches]
 EOF
 check_fires "M66: auto puts a foreign switch on the cooperative source" m66 \
             "🔴 auto over a mixed package splits switch by switch"
@@ -1273,11 +1280,12 @@ EOF
 check_control "C3: telemetry_word_valid written the long way" c3
 
 cat > "$A/c4.old" <<'EOF'
-    local shaped; shaped="$(app_shaped_links)"
+    local shaped
+    shaped="$(app_shaped_links)"
 EOF
 cat > "$A/c4.new" <<'EOF'
-    local shaped
-    shaped="$(app_shaped_links)"   # the links the package asks to be shaped
+    local shaped                    # the links the package asks to be shaped
+    shaped="$(app_shaped_links)"
 EOF
 check_control "C4: the shaped-links read split over two lines" c4
 
