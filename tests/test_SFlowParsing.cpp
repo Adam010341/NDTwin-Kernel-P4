@@ -207,6 +207,44 @@ std::vector<uint8_t> ipv6FrameWithExtensionChain()
     return frame;
 }
 
+/// Ethernet + IPv6 + @p hops hop-by-hop headers + UDP.
+///
+/// [Co-developed with claude code -- Adam] Round 2, fable-judge F4. The chain walk is bounded, and
+/// a bound has two sides: below it the chain must resolve, above it the parser must SAY it could
+/// not rather than hand back whatever next-header value it was holding when it gave up.
+std::vector<uint8_t> ipv6FrameWithHopByHopChain(int hops)
+{
+    std::vector<uint8_t> frame;
+    for (int i = 0; i < 6; ++i) { frame.push_back(0x02); }
+    for (int i = 0; i < 6; ++i) { frame.push_back(0x01); }
+    appendBigEndian16(frame, 0x86DD);
+
+    std::vector<uint8_t> payload;
+    for (int i = 0; i < hops; ++i)
+    {
+        // Each one says "another hop-by-hop follows", except the last, which says UDP.
+        payload.push_back(static_cast<uint8_t>(i + 1 < hops ? 0 : 17));
+        payload.push_back(0); // length 0 => 8 bytes
+        for (int b = 0; b < 6; ++b) { payload.push_back(0x01); }
+    }
+    appendBigEndian16(payload, 4242);
+    appendBigEndian16(payload, 4243);
+    appendBigEndian16(payload, 8);
+    appendBigEndian16(payload, 0);
+
+    frame.push_back(0x60);
+    frame.push_back(0x00);
+    appendBigEndian16(frame, 0x0000);
+    appendBigEndian16(frame, static_cast<uint16_t>(payload.size()));
+    frame.push_back(0);  // next header: hop-by-hop
+    frame.push_back(64); // hop limit
+    for (int i = 0; i < 16; ++i) { frame.push_back(static_cast<uint8_t>(i == 15 ? 1 : 0)); }
+    for (int i = 0; i < 16; ++i) { frame.push_back(static_cast<uint8_t>(i == 15 ? 2 : 0)); }
+
+    frame.insert(frame.end(), payload.begin(), payload.end());
+    return frame;
+}
+
 /// Finds tests/fixtures whichever directory the test binary was started from.
 /// Same search as test_GoldenFixture.cpp and test_SFlowEmitterRoundtrip.cpp.
 std::filesystem::path fixtureDir()
@@ -850,4 +888,49 @@ TEST_F(SFlowParsingFixture, AChainCutOffInsideTheCapturedHeaderDoesNotInventPort
     EXPECT_EQ(observed.begin()->first.srcPort, 0);
     EXPECT_EQ(m_collector->malformedDatagramCount(), 0u)
         << "the datagram is well formed; it is the captured header that ends early";
+}
+
+TEST_F(SFlowParsingFixture, AChainWithinTheBoundResolvesAndOneBeyondItDoesNot)
+{
+    // [Co-developed with claude code -- Adam] Round 2, fable-judge F4. Both sides of the bound in
+    // one case, because either alone is satisfied by a parser that is simply broken: a walk that
+    // resolved nothing would pass the second half, and one that never gave up would pass the
+    // first. kMaxIpv6ExtensionHeaders is 8.
+    //
+    // At d3c65dd4 the loop ran exactly the bound and fell out with `resolved` still true, so a
+    // 9-hop chain was reported as IPv6 with protocol 0 -- an extension header presented as an
+    // upper-layer protocol -- and the ports read from whatever byte sat at the offset. The report
+    // claimed the L2 fallback that the code did not do.
+    {
+        DatagramBuilder b;
+        b.header(1);
+        appendFlowSample(b, ipv6FrameWithHopByHopChain(8), 3, 4);
+        feed(b);
+
+        const auto observed = m_collector->nonIpv4Observations();
+        ASSERT_EQ(observed.size(), 1u);
+        EXPECT_EQ(observed.begin()->first.family, sflow::FlowKeyFamily::IPv6);
+        EXPECT_EQ(int(observed.begin()->first.protocol), 17) << "eight hops is inside the bound";
+        EXPECT_EQ(observed.begin()->first.srcPort, 4242);
+    }
+
+    resetCollector();
+
+    {
+        DatagramBuilder b;
+        b.header(1);
+        appendFlowSample(b, ipv6FrameWithHopByHopChain(9), 3, 4);
+        feed(b);
+
+        const auto observed = m_collector->nonIpv4Observations();
+        ASSERT_EQ(observed.size(), 1u);
+        const auto& key = observed.begin()->first;
+        EXPECT_EQ(key.family, sflow::FlowKeyFamily::L2)
+            << "a chain we refused to finish walking is opaque, and an opaque frame is reported "
+               "by the identity we do have";
+        EXPECT_EQ(key.ethType, 0x86DD);
+        EXPECT_EQ(int(key.protocol), 0);
+        EXPECT_EQ(key.srcPort, 0) << "protocol 0 with ports would be an extension header quoted "
+                                     "as if it were UDP";
+    }
 }

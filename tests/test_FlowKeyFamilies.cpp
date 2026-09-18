@@ -615,3 +615,382 @@ TEST_F(FlowKeyFamiliesTest, RepeatedFramesOfOneIdentityAccumulateOnOneRow)
     EXPECT_GT(observation->second.lastSeenMs, 0);
     EXPECT_EQ(families().at("l2").get<uint64_t>(), 3u);
 }
+
+// =================================================================================================
+// ROUND 2 -- the fable-judge's findings on d3c65dd4
+//
+// [Co-developed with claude code -- Adam]
+// F1 is the one that mattered: identifyFrame wrote the frame's MAC addresses and ethertype into
+// the key before it knew which family it was building, and the IPv4 branch never cleared them.
+// FlowKey::operator== is defaulted and the flow table is an unordered_map keyed on the whole
+// struct, so on the fabric this ticket exists for -- where ndtwin_switch.p4 rewrites both MACs at
+// every hop and the sample is an I2E clone carrying the ingress-time addresses -- ONE FLOW WOULD
+// HAVE BECOME ONE ROW PER HOP. None of the round-1 tests could see it: they assert five fields at
+// a time, the hash case builds its key by hand with zero MACs, the golden capture is a single OVS
+// bridge that rewrites nothing, and the emitted fixtures all carry one fixed MAC pair.
+//
+// These cases are built rather than emitted for the same reason: the property is about two frames
+// that differ ONLY in their MACs, which no committed fixture can express.
+// =================================================================================================
+
+namespace
+{
+
+void pushWord(std::vector<char>& out, uint32_t hostOrder)
+{
+    const uint32_t net = htonl(hostOrder);
+    const char* p = reinterpret_cast<const char*>(&net);
+    out.insert(out.end(), p, p + 4);
+}
+
+void pushNetworkWord(std::vector<char>& out, uint32_t networkOrder)
+{
+    const char* p = reinterpret_cast<const char*>(&networkOrder);
+    out.insert(out.end(), p, p + 4);
+}
+
+void pushFrame(std::vector<char>& out, const std::vector<uint8_t>& frame)
+{
+    for (size_t i = 0; i < frame.size(); i += 4)
+    {
+        uint32_t word = 0;
+        for (size_t b = 0; b < 4; ++b)
+        {
+            word = (word << 8) | ((i + b < frame.size()) ? frame[i + b] : uint8_t(0));
+        }
+        pushWord(out, word);
+    }
+}
+
+void pushBe16(std::vector<uint8_t>& out, uint16_t value)
+{
+    out.push_back(static_cast<uint8_t>(value >> 8));
+    out.push_back(static_cast<uint8_t>(value & 0xFF));
+}
+
+/// dst/src MAC as six repeats of one byte each, then the ethertype.
+std::vector<uint8_t> ethernetHeader(uint8_t dstByte, uint8_t srcByte, uint16_t ethType)
+{
+    std::vector<uint8_t> out(6, dstByte);
+    out.insert(out.end(), 6, srcByte);
+    pushBe16(out, ethType);
+    return out;
+}
+
+/// Ethernet + IPv4 + 8 bytes of L4. `fragmentOffset` is in 8-octet units, as on the wire.
+std::vector<uint8_t> ipv4Frame(uint8_t dstMacByte,
+                               uint8_t srcMacByte,
+                               const char* srcIp,
+                               const char* dstIp,
+                               uint8_t protocol,
+                               uint16_t srcPort,
+                               uint16_t dstPort,
+                               uint16_t fragmentOffset = 0,
+                               size_t trailingPayloadBytes = 0)
+{
+    std::vector<uint8_t> frame = ethernetHeader(dstMacByte, srcMacByte, 0x0800);
+    frame.push_back(0x45); // version 4, ihl 5
+    frame.push_back(0x00);
+    pushBe16(frame, 28);   // total length
+    pushBe16(frame, 1);    // identification
+    pushBe16(frame, static_cast<uint16_t>(fragmentOffset & 0x1FFF));
+    frame.push_back(64);   // ttl
+    frame.push_back(protocol);
+    pushBe16(frame, 0);    // checksum
+    const uint32_t src = ::inet_addr(srcIp);
+    const uint32_t dst = ::inet_addr(dstIp);
+    const uint8_t* srcBytes = reinterpret_cast<const uint8_t*>(&src);
+    const uint8_t* dstBytes = reinterpret_cast<const uint8_t*>(&dst);
+    frame.insert(frame.end(), srcBytes, srcBytes + 4);
+    frame.insert(frame.end(), dstBytes, dstBytes + 4);
+    pushBe16(frame, srcPort);
+    pushBe16(frame, dstPort);
+    pushBe16(frame, 8);
+    pushBe16(frame, 0);
+    frame.insert(frame.end(), trailingPayloadBytes, 0x00);
+    return frame;
+}
+
+/// An L2-only frame whose source address is a function of @p index, so a test can mint as many
+/// distinct L2 identities as it needs. Six bytes of MAC, not one: the L2 key is (dst, src,
+/// ethertype), so varying a payload byte -- or only the low byte of the MAC -- mints far fewer
+/// identities than the loop appears to. [Co-developed with claude code -- Adam] Round 2.
+std::vector<uint8_t> l2FrameWithSourceIndex(uint32_t index)
+{
+    std::vector<uint8_t> frame(6, 0x02); // one destination for all of them
+    frame.push_back(0x00);
+    frame.push_back(0x00);
+    frame.push_back(static_cast<uint8_t>((index >> 24) & 0xFF));
+    frame.push_back(static_cast<uint8_t>((index >> 16) & 0xFF));
+    frame.push_back(static_cast<uint8_t>((index >> 8) & 0xFF));
+    frame.push_back(static_cast<uint8_t>(index & 0xFF));
+    pushBe16(frame, 0x1234);
+    frame.insert(frame.end(), 18, 0x00);
+    return frame;
+}
+
+struct SampleSpec
+{
+    std::vector<uint8_t> frame;
+    uint32_t ingress = 0;
+    uint32_t egress = 0;
+};
+
+/// A Brocade (type 1) flow sample in the two-record shape the parser's MININET path requires --
+/// the same layout p4_proxy/proxy_agent/sflow_emitter.py produces and test_GoldenFixture.cpp
+/// pins. Built here only for frames no committed fixture can express.
+void appendBrocadeSample(std::vector<char>& out, const SampleSpec& spec)
+{
+    const size_t paddedFrameBytes = ((spec.frame.size() + 3) / 4) * 4;
+    const auto rawRecordBytes = static_cast<uint32_t>(16 + paddedFrameBytes);
+    const uint32_t bodyBytes = 8 * 4 + (2 + 4) * 4 + 2 * 4 + rawRecordBytes;
+
+    pushWord(out, 1);         // sample type: flow_sample
+    pushWord(out, bodyBytes); // sample length
+    pushWord(out, 1);         // sample sequence
+    pushWord(out, (2u << 24) | spec.ingress);
+    pushWord(out, kSamplingRate);
+    pushWord(out, kSamplingRate); // sample pool
+    pushWord(out, 0);             // dropped
+    pushWord(out, spec.ingress);
+    pushWord(out, spec.egress);
+    pushWord(out, 2);    // flow record count
+    pushWord(out, 1001); // record[0]: extended_switch
+    pushWord(out, 16);
+    for (int i = 0; i < 4; ++i) { pushWord(out, 0); }
+    pushWord(out, 1); // record[1]: raw packet header
+    pushWord(out, rawRecordBytes);
+    pushWord(out, 1); // header protocol: Ethernet
+    pushWord(out, static_cast<uint32_t>(spec.frame.size()));
+    pushWord(out, 0); // stripped
+    pushWord(out, static_cast<uint32_t>(spec.frame.size()));
+    pushFrame(out, spec.frame);
+}
+
+std::vector<char> brocadeDatagram(const std::vector<SampleSpec>& samples)
+{
+    std::vector<char> out;
+    pushWord(out, 5);                            // version
+    pushWord(out, 1);                            // address type: IPv4
+    pushNetworkWord(out, ::inet_addr(kAgentIpStr.c_str()));
+    pushWord(out, 1);                            // sub-agent id
+    pushWord(out, 1);                            // datagram sequence
+    pushWord(out, 125000);                       // uptime
+    pushWord(out, static_cast<uint32_t>(samples.size()));
+    for (const auto& s : samples)
+    {
+        appendBrocadeSample(out, s);
+    }
+    return out;
+}
+
+/// An HPE (type 3) flow sample, AS THIS PARSER READS ONE.
+///
+/// 🔴 What this pins is the branch, not a vendor. No capture of a real HPE agent exists in this
+/// repository and none ever has -- the type-3 branch has been uncovered since it was written, and
+/// TICKET-P3 did not change that. It is built here from the offsets the branch itself uses
+/// (sampling rate +5, input +9, output +11, frame length +16, frame at +20) so that the rewrite
+/// -- which now reads the frame through identifyFrame instead of through fixed word offsets --
+/// has at least one executable check that it reads the frame where it claims to.
+///
+/// One consequence is visible and left alone: under MININET the advancement at the end of the
+/// branch subtracts the extended-switch record that a type-3 sample does not have, so the parser
+/// believes the sample ends two words before it does. The frame read is bounded by that, i.e. the
+/// last 8 bytes of the frame are invisible to it. That arithmetic predates this ticket; a
+/// single-sample datagram is used here so it cannot desynchronise a sample chain.
+std::vector<char> hpeDatagram(const SampleSpec& spec)
+{
+    const size_t frameWords = (spec.frame.size() + 3) / 4;
+    std::vector<char> out;
+    pushWord(out, 5);
+    pushWord(out, 1);
+    pushNetworkWord(out, ::inet_addr(kAgentIpStr.c_str()));
+    pushWord(out, 1);
+    pushWord(out, 1);
+    pushWord(out, 125000);
+    pushWord(out, 1); // one sample
+
+    pushWord(out, 3);                                                  // +0 sample type: HPE
+    pushWord(out, static_cast<uint32_t>((18 + frameWords) * 4));       // +1 length
+    pushWord(out, 0);                                                  // +2
+    pushWord(out, 0);                                                  // +3
+    pushWord(out, 0);                                                  // +4
+    pushWord(out, kSamplingRate);                                      // +5 sampling rate
+    pushWord(out, 0);                                                  // +6
+    pushWord(out, 0);                                                  // +7
+    pushWord(out, 0);                                                  // +8
+    pushWord(out, spec.ingress);                                       // +9 input interface
+    pushWord(out, 0);                                                  // +10
+    pushWord(out, spec.egress);                                        // +11 output interface
+    for (int i = 12; i <= 15; ++i) { pushWord(out, 0); }               // +12..+15
+    pushWord(out, static_cast<uint32_t>(spec.frame.size()));           // +16 frame length
+    for (int i = 17; i <= 19; ++i) { pushWord(out, 0); }               // +17..+19
+    pushFrame(out, spec.frame);                                        // +20..
+    return out;
+}
+
+} // namespace
+
+TEST_F(FlowKeyFamiliesTest, OneIpv4FlowStaysOneRowWhenTheMacsChangeAtEveryHop)
+{
+    // 🔴 F1. Two samples of the SAME five-tuple whose only difference is the Ethernet addresses
+    // and the port they arrived on -- which is precisely what the twin sees for one flow crossing
+    // two hops of an NDTwin fabric. One row, two per-agent stats entries.
+    //
+    // At d3c65dd4 this was two rows, and every consumer of the flow table would have reported the
+    // flow twice with each copy's rate averaged over its own hop.
+    const std::vector<SampleSpec> firstHop{
+        {ipv4Frame(0x02, 0x01, "10.0.0.1", "10.0.0.4", 6, 5001, 40997), 1, 2}};
+    const std::vector<SampleSpec> secondHop{
+        {ipv4Frame(0xAA, 0xBB, "10.0.0.1", "10.0.0.4", 6, 5001, 40997), 3, 4}};
+
+    auto first = brocadeDatagram(firstHop);
+    auto second = brocadeDatagram(secondHop);
+    feedBytes(first);
+    feedBytes(second);
+
+    const auto table = m_collector->getFlowInfoTable();
+    ASSERT_EQ(table.size(), 1u)
+        << "the same five-tuple seen at two hops is one flow; " << table.size()
+        << " rows means the key is carrying something the fabric rewrites per hop";
+
+    const auto& [key, info] = *table.begin();
+    EXPECT_EQ(key.srcMac, 0u);
+    EXPECT_EQ(key.dstMac, 0u);
+    EXPECT_EQ(key.ethType, 0u);
+    EXPECT_EQ(info.agentFlowStats.size(), 2u)
+        << "one row, but the two hops must still be distinguishable inside it";
+}
+
+TEST_F(FlowKeyFamiliesTest, TheParsersOwnIpv4KeyCarriesNoL2Fields)
+{
+    // The same property stated where it is caused rather than where it is felt, so a future
+    // change that reintroduces it fails here first and with a legible message. The hash case
+    // cannot do this job: it builds its key by hand, so it would keep passing.
+    feed("emitted_tcp.bin");
+
+    const auto table = m_collector->getFlowInfoTable();
+    ASSERT_EQ(table.size(), 1u);
+    const sflow::FlowKey key = table.begin()->first;
+
+    EXPECT_EQ(key.family, sflow::FlowKeyFamily::IPv4);
+    EXPECT_EQ(key.srcMac, 0u) << "an IPv4 key must carry the five-tuple and nothing else";
+    EXPECT_EQ(key.dstMac, 0u);
+    EXPECT_EQ(key.ethType, 0u) << "0x0800 here would still be a per-family constant in the key";
+    EXPECT_EQ(sflow::FlowKeyHash{}(key), preFamilyHash(key))
+        << "and therefore the pre-family hash, which is what the early return promises";
+}
+
+TEST_F(FlowKeyFamiliesTest, AnIpv6KeyCarriesNoL2FieldsEither)
+{
+    // Same reasoning one family over: an IPv6 key with MACs would split the side table per hop.
+    feed("emitted_ipv6_udp.bin");
+
+    const auto observation = soleObservation();
+    ASSERT_TRUE(observation.has_value());
+    EXPECT_EQ(observation->first.srcMac, 0u);
+    EXPECT_EQ(observation->first.dstMac, 0u);
+    EXPECT_EQ(observation->first.ethType, 0u);
+}
+
+TEST_F(FlowKeyFamiliesTest, ANonFirstFragmentBanksItsBytesAndDoesNotEndTheDatagram)
+{
+    // Two samples in one datagram: a non-first fragment, then an ordinary packet. Before this
+    // ticket the fragment took `continue` WITHOUT advancing the read position, so the loop's own
+    // no-progress guard broke out and every later sample in that datagram was discarded -- a
+    // fragment on the wire cost the twin every sample batched behind it.
+    const std::vector<SampleSpec> samples{
+        {ipv4Frame(0x02, 0x01, "10.0.0.1", "10.0.0.4", 17, 1111, 2222, /*fragmentOffset=*/100),
+         1, 2},
+        {ipv4Frame(0x02, 0x01, "10.0.0.5", "10.0.0.6", 17, 3333, 4444), 1, 2}};
+    auto datagram = brocadeDatagram(samples);
+    feedBytes(datagram);
+
+    EXPECT_EQ(m_collector->malformedDatagramCount(), 0u);
+
+    const auto table = m_collector->getFlowInfoTable();
+    ASSERT_EQ(table.size(), 1u) << "the fragment is not a flow (it carries no ports), and the "
+                                  "sample behind it must still have been parsed";
+    EXPECT_EQ(table.begin()->first.srcPort, 3333) << "the surviving flow is the second sample";
+
+    const uint64_t bothFrames = 2 * samples[0].frame.size() * kSamplingRate;
+    EXPECT_EQ(m_collector->sampledByteCreditFor(kAgentIp, 1u), bothFrames)
+        << "both samples' bytes crossed the link, fragment included";
+    EXPECT_EQ(families().at("ipv4").get<uint64_t>(), 2u);
+}
+
+TEST_F(FlowKeyFamiliesTest, AnHpeSampleIsReadFromWhereTheBranchSaysTheFrameIs)
+{
+    // See hpeDatagram's note: this pins the type-3 branch's own arithmetic, not a vendor's wire
+    // format. It exists because the rewrite moved that branch from fixed word offsets to
+    // identifyFrame and there was no coverage of it at all, before or after.
+    //
+    // The 20 trailing bytes are load-bearing, and their reason is the shortfall hpeDatagram
+    // documents: the parser believes a type-3 sample ends two words before it does, so the last
+    // 8 bytes of the frame are outside the bound it reads through. With a minimal 42-byte frame
+    // that shortfall lands exactly on the L4 ports and this test would be asserting the
+    // truncation instead of the offset. Measured, not guessed -- the first draft came back with
+    // both ports 0.
+    const SampleSpec spec{
+        ipv4Frame(0x02, 0x01, "10.0.0.7", "10.0.0.8", 6, 8001, 9001, 0, /*trailing=*/20), 1, 2};
+    auto datagram = hpeDatagram(spec);
+    feedBytes(datagram);
+
+    EXPECT_EQ(m_collector->malformedDatagramCount(), 0u);
+
+    const auto table = m_collector->getFlowInfoTable();
+    ASSERT_EQ(table.size(), 1u) << "the HPE branch did not find an IPv4 frame where it looked";
+    const sflow::FlowKey key = table.begin()->first;
+    EXPECT_EQ(utils::ipToString(key.srcIP), "10.0.0.7");
+    EXPECT_EQ(utils::ipToString(key.dstIP), "10.0.0.8");
+    EXPECT_EQ(key.srcPort, 8001);
+    EXPECT_EQ(key.dstPort, 9001);
+    EXPECT_EQ(key.srcMac, 0u);
+    EXPECT_EQ(m_collector->sampledByteCreditFor(kAgentIp, 1u),
+              spec.frame.size() * kSamplingRate);
+}
+
+TEST_F(FlowKeyFamiliesTest, TheSideTableEvictsItsOldestIdentityRatherThanRefusingNewOnes)
+{
+    // The table is capped at 1024 because its keys come off an unauthenticated UDP port. The cap
+    // has to evict rather than refuse: an IPv6 key carries the L4 ports, so ordinary traffic
+    // mints a new identity per ephemeral port and a refusing table freezes on whatever it saw
+    // first -- and the identity an operator is looking for is the one happening now.
+    constexpr uint32_t kIdentities = 1025;
+    for (uint32_t i = 0; i < kIdentities; ++i)
+    {
+        auto datagram = brocadeDatagram({{l2FrameWithSourceIndex(i), 1, 2}});
+        feedBytes(datagram);
+    }
+
+    const auto stats = m_collector->frameFamilyStatsJson();
+    EXPECT_EQ(stats.at("samples_by_family").at("l2").get<uint64_t>(), uint64_t(kIdentities))
+        << "every sample is counted whether or not its identity survived in the table";
+    EXPECT_EQ(stats.at("non_ipv4_flows").at("tracked").get<size_t>(), 1024u);
+    EXPECT_GE(stats.at("non_ipv4_flows").at("evicted_least_recently_seen").get<uint64_t>(), 1u)
+        << "the cap was reached, so something must have been evicted and said so";
+    EXPECT_EQ(stats.at("non_ipv4_flows").at("dropped_over_capacity").get<uint64_t>(), 0u)
+        << "nothing is refused any more; a non-zero here would mean the old behaviour is back";
+}
+
+TEST_F(FlowKeyFamiliesTest, AnArpOnlySwitchCountsAsASwitchThatIsSampling)
+{
+    // A behaviour change round 1 did not state: m_lastSampleFromAgentMillis and the per-port
+    // timestamp are now written for EVERY MININET flow sample, so a switch whose only traffic is
+    // ARP or LLDP reads `live` on that port and `idle` (not `silent`) elsewhere. That is the
+    // intended semantics -- A-4f's question is "is this switch sampling at all", and a switch
+    // sending us ARP samples demonstrably is -- but before this ticket a non-IPv4 sample updated
+    // neither, so an all-ARP link was indistinguishable from a dead sampler.
+    feed("emitted_arp.bin"); // ingress port 2
+
+    const auto onThePort = m_collector->telemetryStatusFor(kAgentIp, kArpIngressPort, 5.0);
+    EXPECT_EQ(onThePort.status, "live") << "a sample arrived on this port a moment ago";
+
+    const auto elsewhere = m_collector->telemetryStatusFor(kAgentIp, 7u, 5.0);
+    EXPECT_EQ(elsewhere.status, "idle")
+        << "the agent is reporting, so a quiet port really is quiet -- not unmeasurable";
+
+    const auto otherAgent = m_collector->telemetryStatusFor(::inet_addr("192.168.123.99"), 1u, 5.0);
+    EXPECT_EQ(otherAgent.status, "unknown")
+        << "the control: an agent we have never heard from is not made live by someone else's ARP";
+}

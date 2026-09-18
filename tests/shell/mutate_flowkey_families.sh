@@ -87,6 +87,7 @@ L2_COUNTER='    case FlowKeyFamily::L2:
         break;'
 MAC_HASH='        hashCombine(seed, key.srcMac);
         hashCombine(seed, key.dstMac);'
+IPV4_CLEARS_L2='        out.key = FlowKey{}; // every L2 field back to zero -- see the note above'
 CONTROL_CPP='// [Co-developed with claude code -- Adam] TICKET-P3 §2.3.
 void
 FlowLinkUsageCollector::noteFrameIdentity'
@@ -100,6 +101,7 @@ add_anchor "control-cpp"   "$COLL"  "$CONTROL_CPP"
 add_anchor "ipv6-branch"   "$SFLOW" "$IPV6_BRANCH"
 add_anchor "ihl-offset"    "$SFLOW" "$IHL_OFFSET"
 add_anchor "mac-hash"      "$SFLOW" "$MAC_HASH"
+add_anchor "ipv4-clears-l2" "$SFLOW" "$IPV4_CLEARS_L2"
 add_anchor "control-hdr"   "$SFLOW" "$CONTROL_HDR"
 
 # 🔴 `grep -cF` is the WRONG TOOL for a multi-line anchor and it fails in the direction that hides
@@ -133,6 +135,9 @@ for f in "${FILES[@]}"; do
     cp -p "$f" "$s"; SNAP["$f"]="$s"; SHA["$f"]=$(sha256sum "$f" | cut -d' ' -f1)
 done
 
+# Which files this run has written since the last restore. Maintained by `apply`.
+DIRTY=()
+
 restore() {
     local f
     for f in "${FILES[@]}"; do
@@ -141,8 +146,18 @@ restore() {
         # mutant -- so ninja sees nothing to do and the NEXT mutation is measured against a binary
         # that still contains the previous one, while the source on disk looks pristine. The
         # sha256 check below passes either way, because it checks the file and not the artifact.
-        touch "$f"
+        #
+        # Only the file this run actually wrote needs it, and that distinction is worth making
+        # here: SFlowType.hpp is included by ~46 translation units, so touching it for a mutation
+        # that lives in the .cpp doubled the wall clock of every single step -- the first full run
+        # took 1h45m, and a run that long is how the 05:34 disk-full incident got to interrupt one
+        # halfway through. A file nobody wrote still has a correct object.
+        # [Co-developed with claude code -- Adam] Round 2.
+        if [[ " ${DIRTY[*]-} " == *" $f "* ]]; then
+            touch "$f"
+        fi
     done
+    DIRTY=()
 }
 trap 'restore; rm -rf "$BK"' EXIT
 
@@ -227,6 +242,10 @@ SURVIVORS=0
 # apply <file> <old> <new> -- python does the replace so the anchor is matched LITERALLY,
 # newlines and all, and re-asserts its own count at the moment of writing.
 apply() {
+    # Recorded BEFORE the write, and recorded even if the write then fails: restore must touch
+    # anything this run might have modified, and an over-touch costs a rebuild while an
+    # under-touch costs a false verdict.
+    DIRTY+=("$1")
     python3 - "$1" "$2" "$3" <<'PY'
 import sys, pathlib
 path, old, new = sys.argv[1], sys.argv[2], sys.argv[3]
@@ -336,6 +355,17 @@ mutate "M-A6 the L2 hash ignores the MAC addresses" "$SFLOW" \
 '        (void)key.srcMac;
         (void)key.dstMac;' \
     FlowKeyFamiliesTest.TwoL2KeysDifferingOnlyInTheirMacsHashDifferently
+
+# M-A7. 🔑 ROUND 2, THE ONE THE JUDGE FOUND. The IPv4 branch stops clearing the L2 fields, so an
+# IPv4 key carries the frame's MAC addresses again -- and this fabric rewrites both at every hop,
+# so one flow becomes one flow-table row per hop. Added rather than swapped in: the seventh
+# mutation costs one more rebuild of SFlowType.hpp, which the round-2 `restore` change (touch only
+# what was written) more than pays for.
+mutate "M-A7 the IPv4 branch keeps the frame's MAC addresses" "$SFLOW" \
+"$IPV4_CLEARS_L2" \
+'        out.key.icmpType = 0; // MUTANT: the L2 fields stay in the key' \
+    FlowKeyFamiliesTest.OneIpv4FlowStaysOneRowWhenTheMacsChangeAtEveryHop \
+    FlowKeyFamiliesTest.TheParsersOwnIpv4KeyCarriesNoL2Fields
 
 # --- 6. negative controls -----------------------------------------------------------------------
 # One per file. They must SURVIVE. If the suite goes red on a comment, the gate above is measuring
