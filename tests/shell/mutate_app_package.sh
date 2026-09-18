@@ -39,6 +39,21 @@
 #     (0, 65535), and that it outbids the baseline (0, 1), is a pure assertion about a manifest
 #     that names no election id.
 #
+# 🔴 A THIRD ONE, AND THIS ONE IS NOT EQUIVALENT -- IT IS UNKILLABLE FROM INSIDE ONE PROCESS,
+# which is a different and worse thing, so it is declared here rather than left out silently:
+#
+#   * "topo_log.Tee.stop() closes the saved descriptors in the same loop that restores them,
+#     before joining the pump" (the shape the code had until 2026-09-18). It loses whatever the
+#     pump had not yet written, and -- the reason it was fixed -- a closed descriptor number is
+#     one the next open() in the process receives, so a late chunk of the topology log can land
+#     in an unrelated file. It was found by MEASUREMENT under a real pty and the fix was
+#     confirmed the same way. It is not in the list below because both arms were run three
+#     times each against a file-backed fd 1 and a 400 kB write, and both KEPT the line: the
+#     writer blocks on a full pipe, so the pump has already drained by the time stop() runs. A
+#     mutation nobody can make fail is a decoration, and a gate that shipped one would teach
+#     people to skim this file. What IS asserted, deterministically, is the property that makes
+#     the ordering safe rather than lucky -- the pump owns its own descriptor (M34).
+#
 # Usage:  tests/shell/mutate_app_package.sh
 #         PROXY_PY=/path/to/python tests/shell/mutate_app_package.sh
 # Assumes: nothing about the cwd.
@@ -134,6 +149,18 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must
     local out rc
     MUTATIONS=$((MUTATIONS+1))
     out=$(run_against "$2"); rc=$?
+    # 🔴 A SUITE THAT DID NOT FINISH IS NOT A VERDICT, in either direction. `timeout 300`
+    # returns 124, and unittest prints its `FAIL: <name>` section at the END -- so a mutant
+    # that hangs the run produces no named failure and would be scored a survivor of nothing.
+    # 2026-09-18 is why this is here: M33 came back SURVIVED under a non-tty harness because
+    # the mutant left fd 1 hijacked and shredded the report on its way out, and the one-line
+    # diagnostic the gate printed was a bare `FAIL`. Named, and it fails the gate.
+    # (mutate_startup_clears_by_pid.sh has had this branch since it was written.)
+    if [[ "$rc" -eq 124 ]]; then
+        SURVIVORS=$((SURVIVORS+1))
+        printf '  🔴 HUNG   %-70s (the suite never finished -- never a catch)\n' "$1"
+        return
+    fi
     if [[ "$rc" -ne 0 ]] && /usr/bin/grep -qE "^(FAIL|ERROR): $3 " <<<"$out"; then
         printf '  caught   %-70s (%s went red)\n' "$1" "$3"
     else
@@ -444,6 +471,14 @@ m=$(mutant m34 "$TOPOLOG" \
     '            terminal_fd = self._saved[1]')
 report "M34: the pump shares a descriptor stop() closes, so a late chunk lands anywhere" "$m" \
        "test_the_pump_does_not_share_a_descriptor_stop_will_close"
+
+m=$(mutant m35 "$BRIDGE" \
+    "if __name__ == '__main__':
+    run()" \
+    "if __name__ == '__main__':
+    main()")
+report "M35: the script entry point skips run(), so the log is never opened at all" "$m" \
+       "test_running_the_module_as_a_script_goes_through_run_not_main"
 
 # --- negative controls -----------------------------------------------------------------------
 #

@@ -362,6 +362,21 @@ EOF
 check_fires "M16: the cause is printed underneath the rollback" m16 \
             "🔴 the cause is printed ABOVE the rollback"
 
+# --- M17: the OTHER way the fabric step fails says nothing ------------------------------------
+# `ndtwin-lab topo-start` can refuse on its own (a topo session already up, an untrusted config).
+# The bridge may then never have run -- which is exactly why the tail is LABELLED as possibly the
+# previous round's rather than dropped: the other likely cause is a bridge that died before tmux
+# could report it, and for that one this is the only record there is.
+cat > "$A/m17.old" <<'EOF'
+            err "topo.log may be the PREVIOUS round's -- the bridge may not have started:"
+            topo_log_tail 30
+EOF
+cat > "$A/m17.new" <<'EOF'
+            :
+EOF
+check_fires "M17: a refused topo-start says nothing about the bridge" m17 \
+            "🔴 the topology log is printed here too"
+
 # --- the controls: two behaviour-preserving rewrites -----------------------------------------
 # 🔴 Without these the round says nothing. A harness that reported red for ANY edit would print
 # `11 caught, 0 survived` above while catching nothing at all, and these are the edits that tell

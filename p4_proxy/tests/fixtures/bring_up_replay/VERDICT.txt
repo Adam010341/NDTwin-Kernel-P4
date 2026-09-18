@@ -1,0 +1,28 @@
+# Recorded by: bash p4_proxy/tests/fixtures/bring_up_replay/replay_ab.sh
+# repo:  3ee5ca5fa5c1af70f6bf4e6c9c0efe6843dac4b3 (+ the follow-up working tree; see README.md)
+# base:  41d7950f  (TICKET-P1D's base, the pre-change pair of files)
+# host:  Linux 7.0.0-31-generic   python: Python 3.13.13
+# date:  2026-09-18T04:12:02Z
+
+files under p4_proxy/mininet/ that changed since 41d7950f: p4_proxy/mininet/ntg_bmv2_topo.py p4_proxy/mininet/p4_testbed_topo.py p4_proxy/mininet/topo_log.py 
+
+=== 4 hosts ===
+p4_testbed_topo.main()  BEFORE vs AFTER          IDENTICAL
+ntg_bmv2_topo.main()    BEFORE vs AFTER          IDENTICAL
+BEFORE: the two mains against each other         IDENTICAL
+AFTER:  the two mains against each other         IDENTICAL
+  old topo    h1: 1 command(s), 3 arp entries, longest 105 bytes
+  old bridge  h1: 1 command(s), 3 arp entries, longest 105 bytes
+  new topo    h1: 1 command(s), 3 arp entries, longest 105 bytes
+  new bridge  h1: 1 command(s), 3 arp entries, longest 105 bytes
+
+=== 128 hosts ===
+p4_testbed_topo.main()  BEFORE vs AFTER          DIFFERS  (only: host_setup)
+ntg_bmv2_topo.main()    BEFORE vs AFTER          IDENTICAL
+BEFORE: the two mains against each other         DIFFERS  (only: host_setup)
+AFTER:  the two mains against each other         IDENTICAL
+  old topo    h1: 1 command(s), 127 arp entries, longest 4717 bytes
+  old bridge  h1: 4 command(s), 127 arp entries, longest 1181 bytes
+  new topo    h1: 4 command(s), 127 arp entries, longest 1181 bytes
+  new bridge  h1: 4 command(s), 127 arp entries, longest 1181 bytes
+

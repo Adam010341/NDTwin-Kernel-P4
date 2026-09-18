@@ -657,6 +657,22 @@ OUT="$(drive 'bmv2_count() { echo 0; }; up_p4 4')"
 has   "🔴 the same tail on a bring-up with NO package"    "no P4 topology model in setting/ has 4 hosts" "$OUT"
 rm -f "$TOPO_LOG"
 
+# The OTHER way the fabric step fails: `ndtwin-lab topo-start` itself refuses (a topo session is
+# already up, the config is untrusted, ...). The bridge may then never have run, so the log is
+# quite possibly the previous round's -- printed anyway, because the other likely cause is a
+# bridge that died before tmux could report it, and LABELLED, because a stale traceback read as
+# this run's is a wrong diagnosis rather than a missing one.
+reset_fix
+printf 'KeyError: %s\n' "'s5'" > "$TOPO_LOG"
+SUDO_FAIL='sudo() { printf "sudo %s\n" "$*" >> "'"$FIX"'/sudo.log"; case "$*" in *topo-start*) return 1 ;; esac; return 0; }'
+OUT="$(drive "$SUDO_FAIL"$'\n'"NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+check "🔴 a topo-start that refuses fails the bring-up"   "1" "$(rc_of "$OUT")"
+has   "  and says so"                                     "topo-start failed" "$OUT"
+has   "🔴 the topology log is printed here too"           "KeyError: 's5'" "$OUT"
+has   "🔴 labelled as possibly the PREVIOUS round's"      "topo.log may be the PREVIOUS round's" "$OUT"
+has   "  and the bring-up was rolled back"                "rollback" "$OUT"
+rm -f "$TOPO_LOG"
+
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
 (( FAIL == 0 ))

@@ -55,6 +55,7 @@ sys.path.insert(0, MININET_DIR)
 
 import app_package  # noqa: E402
 import topo_from_json  # noqa: E402
+import topo_log  # noqa: E402
 
 FOUR_HOST_MODEL = os.path.join(REPO, "setting", "StaticNetworkTopologyP4_10Switches_4Hosts.json")
 HOST_128_MODEL = os.path.join(REPO, "setting", "StaticNetworkTopologyP4_10Switches_128Hosts.json")
@@ -347,16 +348,28 @@ class FabricFixture(unittest.TestCase):
         # way this script is run wrongly.
         self.stub_module("nornir")
 
-    def stub_module(self, name):
+        # 🔴 NOTHING IN THIS SUITE READS THE HOST'S /proc. `tear_down` calls
+        # `reap_manifest_switches`, whose `is_switch` default is bound at def time to
+        # `process_is_a_switch` -- which opens /proc/<pid>/cmdline for every pid in the
+        # manifest, and the manifest these tests write says pid 12345. What that pid is on the
+        # machine running the suite is not something a unit test gets to depend on (the answer
+        # today is "nothing"; tomorrow it is somebody's editor). The real function has its own
+        # tests in test_readopt.py, against an injected /proc root.
+        self.reaped_paths = []
+        self.patch(testbed, "reap_manifest_switches",
+                   lambda path=None, **kwargs: (self.reaped_paths.append(path), [])[1])
+
+    def stub_module(self, name, module=None):
         old = sys.modules.get(name)
+        had = name in sys.modules
 
         def restore():
-            if old is None:
+            if not had:
                 sys.modules.pop(name, None)
             else:
                 sys.modules[name] = old
         self.addCleanup(restore)
-        sys.modules[name] = types.ModuleType(name)
+        sys.modules[name] = types.ModuleType(name) if module is None else module
 
     def patch(self, module, name, value):
         old = getattr(module, name)
@@ -603,6 +616,12 @@ class TheTwoEntryPointsDoTheSameThingTest(FabricFixture):
         self.assertTrue(self.drive(ntg.main, enter_cli=lambda net: None)["stopped"])
         self.assertFalse(os.path.exists(self.manifest),
                          "teardown left the manifest behind")
+        # 🔴 AND IT REAPED BY THE MANIFEST IT WAS GIVEN. The reap is stubbed in this suite (it
+        # would otherwise read the host's /proc), so without this the stub would be hiding the
+        # wiring as well as the /proc read: a tear_down that never called it, or called it on
+        # the machine's real /tmp manifest, would look identical.
+        self.assertEqual(self.reaped_paths, [self.manifest, self.manifest],
+                         "tear_down did not reap the manifest it was given, once per main")
 
 
 # --- 3. under a package -------------------------------------------------------------------------
@@ -758,6 +777,53 @@ class TheBridgeRecordsWhatKilledItTest(FabricFixture):
         self.assertEqual(tee.calls, ["start", "record_traceback", "close"])
         self.assertIn("KeyError", tee.tracebacks[0] or "")
         self.assertIn("'s5'", tee.tracebacks[0] or "")
+
+    def test_running_the_module_as_a_script_goes_through_run_not_main(self):
+        # 🔴 EXISTENCE IS NOT WIRING, and every other cell in this file would stay green on the
+        # defect: they call `run()` or `main()` themselves. `if __name__ == '__main__': main()`
+        # ships a bridge whose log is never opened -- which is the whole ticket -- so the
+        # module is EXECUTED as __main__ here, with the tee replaced by a recorder and the
+        # pre-flight made to refuse at once, and what is asserted is that a tee was built and
+        # started before anything else could happen.
+        import runpy
+        built = []
+
+        class RecordingTee(FakeTee):
+            def __init__(self, path, **kwargs):
+                FakeTee.__init__(self)
+                self.path = path
+                built.append(self)
+
+        self.patch(topo_log, "Tee", RecordingTee)
+
+        def refuse(*args, **kwargs):
+            raise SystemExit(7)
+
+        def never(*args, **kwargs):
+            # 🔴 The stop before `os.system('sudo mn -c')`. If the module under runpy somehow
+            # bound a DIFFERENT p4_testbed_topo than the one patched here, the refusal above
+            # would not fire and the next statement in main() tears down this machine's
+            # fabric. It fails loudly instead.
+            raise AssertionError("reset_for_bring_up was reached from a unit test")
+
+        self.patch(testbed, "plan_fabric", refuse)
+        self.patch(testbed, "reset_for_bring_up", never)
+        self.setenv("NTG_DIR", self.tmp)
+        # The re-executed module does `import p4_testbed_topo as testbed` and `import
+        # topo_log`; both have to resolve to the copies patched above.
+        self.stub_module("p4_testbed_topo", testbed)
+        self.stub_module("topo_log", topo_log)
+        self.assertIs(sys.modules["p4_testbed_topo"], testbed)
+
+        with self.assertRaises(SystemExit) as ctx:
+            runpy.run_path(os.path.join(MININET_DIR, "ntg_bmv2_topo.py"),
+                           run_name="__main__")
+        self.assertEqual(ctx.exception.code, 7, "the module did not reach the pre-flight")
+        self.assertEqual(len(built), 1,
+                         "running the bridge as a script opened no log at all -- __main__ is "
+                         "not going through run(), so a crash would die in the pane again")
+        self.assertEqual(built[0].calls[0], "start",
+                         "the log was built but not started before main ran")
 
     def test_a_refusal_is_not_dressed_up_as_a_crash(self):
         # `fail()` has already printed its reason onto a stream the tee was copying; a

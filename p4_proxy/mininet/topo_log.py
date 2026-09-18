@@ -92,9 +92,14 @@ def keep_depth(env=None):
 def rotate(path, keep=None, env=None, now=None):
     """Move `path` aside under its own start time and prune to `keep` generations.
 
-    Returns the name the old log was moved to, or None when there was nothing to move. An
-    EMPTY file is not rotated, which is stack.sh's `[[ -s "$log" ]]` -- a run that wrote
-    nothing must not push a real generation off the end.
+    Returns the name the old log was moved to, or None when there was nothing to move.
+
+    An EMPTY file is not rotated -- a run that wrote nothing must not push a real generation
+    off the end of the keep window. 🔴 One deliberate difference from the original: in stack.sh
+    that guard is at the CALL SITE (`if [[ -s "$log" ]]; then rotate_log "$log"; fi`,
+    stack.sh:509-510), not inside `rotate_log`. It is folded in here because this function has
+    one caller -- `Tee.open` -- and a rule that lives in the caller is a rule the next caller
+    does not inherit. The behaviour is the same; where it is written down is not.
     """
     keep = keep_depth(env) if keep is None else keep
     try:

@@ -2788,6 +2788,15 @@ up_p4() {
         [[ -n "$tsout" ]] && printf '%s\n' "$tsout" | sed 's/^/      /'
         if (( tsrc != 0 )); then
             err "topo-start failed"
+            # [Co-developed with claude code -- Adam]
+            # The bridge may never have been launched at all here -- `ndtwin-lab topo-start`
+            # refuses outright when a topo session is already up -- so whatever topo.log holds
+            # is quite possibly the PREVIOUS round's. Printed anyway, and labelled: the other
+            # likely cause is a bridge that started and died before tmux could report it, and
+            # for that case this is the only record. An unlabelled tail would be worse than
+            # none, because a stale traceback read as this run's is a wrong diagnosis.
+            err "topo.log may be the PREVIOUS round's -- the bridge may not have started:"
+            topo_log_tail 30
             rollback_up "topo-start failed; this run had already begun changing the machine"
             return 1
         fi

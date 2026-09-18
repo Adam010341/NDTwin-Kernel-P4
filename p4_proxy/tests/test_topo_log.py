@@ -30,6 +30,7 @@ files directly and parses "Ran N tests".
 import os
 import sys
 import tempfile
+import time
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -98,8 +99,10 @@ class RotationTest(unittest.TestCase):
         self.assertRegex(os.path.basename(moved), r"^topo\.log\.\d{8}-\d{6}(-\d+)?$")
 
     def test_an_empty_log_is_not_rotated(self):
-        # `[[ -s "$log" ]]` in stack.sh. A run that wrote nothing must not push a real
-        # generation off the end of the keep window.
+        # A run that wrote nothing must not push a real generation off the end of the keep
+        # window. In stack.sh the guard is at the CALL SITE (`if [[ -s "$log" ]]; then
+        # rotate_log "$log"; fi`, stack.sh:509-510); here it is inside rotate(), which is the
+        # one difference between the two and is why this cell asserts it of the function.
         self.write("topo.log", "")
         self.assertIsNone(topo_log.rotate(self.log, keep=5, env={}))
         self.assertTrue(os.path.exists(self.log))
@@ -144,14 +147,45 @@ class TheTeeTest(unittest.TestCase):
         self.log = os.path.join(self.tmp, "logs", "topo.log")
         self.tee = topo_log.Tee(self.log, keep=5, env={})
         self.addCleanup(self._cleanup)
+        self._suite_fds = {1: os.dup(1), 2: os.dup(2)}
+        self.addCleanup(self._restore_the_suites_own_descriptors)
 
     def _cleanup(self):
         import shutil
         self.tee.close()
         shutil.rmtree(self.tmp, ignore_errors=True)
 
+    def _restore_the_suites_own_descriptors(self):
+        """Put fds 1 and 2 back whatever the code under test did with them.
+
+        🔴 THIS IS NOT TIDINESS, IT IS WHAT MAKES THE MUTATION GATE ABLE TO SEE. Measured
+        2026-09-18: with the `stop()` restore mutated away, every cell below leaves fd 1 and
+        fd 2 pointing at a tee pipe for the REST OF THE SUITE. unittest's own report then goes
+        through that pipe and is interleaved by the pump thread, so `FAIL: <name>` no longer
+        starts a line and the gate -- which greps for exactly that -- scored M33 as a SURVIVOR
+        (`34 mutations, 1 survived`, gate run with pipes on stdout/stderr and /dev/null on
+        stdin). The mutation was being caught and the evidence was being shredded on the way
+        out. A test that redirects this process's descriptors puts them back itself.
+
+        Registered AFTER _cleanup so it runs BEFORE it: cleanups are LIFO, and the tee's own
+        close() joins its pump, which only ends when the pipe's last write end is gone -- which
+        is what restoring these descriptors does.
+        """
+        for fd, saved in sorted(self._suite_fds.items()):
+            try:
+                os.dup2(saved, fd)
+                os.close(saved)
+            except OSError:
+                pass
+        self._suite_fds = {}
+
     def contents(self):
-        self.tee.stop()
+        # join_timeout is short because this is a TEST calling stop(), not the teardown path.
+        # The production value is five seconds and stays five seconds; under a mutant that
+        # never restores fd 1 the pump never sees EOF, and ten cells each waiting the real
+        # budget turned a 0.006 s suite into a 70 s one -- slow enough to start competing with
+        # the mutation gate's own `timeout 300`.
+        self.tee.stop(join_timeout=0.5)
         with open(self.log, "rb") as fh:
             return fh.read().decode("utf-8", "replace")
 
@@ -180,22 +214,101 @@ class TheTeeTest(unittest.TestCase):
         sys.stdout.flush()
         self.assertIn("MARKER-print", self.contents())
 
+    @staticmethod
+    def ident(fd):
+        st = os.fstat(fd)
+        return (st.st_dev, st.st_ino)
+
+    def assert_the_terminal_comes_back(self, terminal_fd, read_back, label):
+        """Put `terminal_fd` on fds 1 and 2, tee over it, stop, and check they came back.
+
+        🔴 THE TERMINAL IS ONE THIS TEST MADE. The first version compared fd 1 against
+        whatever the harness happened to hand this process, which made the cell's
+        discriminating power a property of how the suite was launched rather than of the code:
+        it reddened under a tty and could not be relied on otherwise. A descriptor created
+        here is the same descriptor under `python x.py`, under `-m unittest`, inside a command
+        substitution and inside the mutation gate.
+
+        Two independent assertions, because they fail for different reasons: fd 1 is the same
+        open file it was (identity), and a byte written to it after the hand-over arrives on
+        this test's own terminal and NOT in the log (behaviour -- an unrestored fd 1 is still
+        the tee's pipe, so the byte would go through the pump into the file).
+        """
+        log = os.path.join(self.tmp, "restore-%s.log" % label)
+        tee = topo_log.Tee(log, keep=5, env={})
+        saved = {1: os.dup(1), 2: os.dup(2)}
+        # No newline in the marker itself: a pty applies ONLCR, so the "\n" this test writes
+        # comes back as "\r\n" and an equality on the whole line would be asserting termios
+        # rather than anything about the tee.
+        marker = b"MARKER-after-the-handover-" + label.encode()
+        try:
+            os.dup2(terminal_fd, 1)
+            os.dup2(terminal_fd, 2)
+            before = self.ident(1)
+            started = tee.start()
+            during = self.ident(1)
+            tee.stop()
+            after = self.ident(1)
+            os.write(1, marker + b"\n")
+        finally:
+            # Back to the suite's own descriptors FIRST -- the tee's pump only ends when the
+            # last write end of its pipe is gone, and fds 1 and 2 are those write ends.
+            for fd, fd_saved in sorted(saved.items()):
+                os.dup2(fd_saved, fd)
+                os.close(fd_saved)
+            tee.close()
+        self.assertTrue(started, "the tee refused to start over a %s" % label)
+        self.assertNotEqual(during, before, "start() did not redirect fd 1 at all")
+        self.assertEqual(after, before,
+                         "stop() left fd 1 pointing at the tee's pipe, so NTG's prompt would "
+                         "render as plain text into it (prompt_toolkit create_output: "
+                         "\"Stdout is not a TTY? Render as plain text.\")")
+        with open(log, "rb") as fh:
+            self.assertNotIn(marker, fh.read(),
+                             "a byte written after the hand-over still went through the tee")
+        self.assertIn(marker, read_back(),
+                      "the byte written after the hand-over never reached the terminal")
+
+    @staticmethod
+    def drain(fd, timeout=2.0):
+        """Whatever is readable on `fd` within `timeout`. Never blocks forever.
+
+        A bare os.read() here would hang the whole suite on exactly the failure this cell is
+        about -- nothing arriving -- and a gate cannot tell a hang from a catch.
+        """
+        import select
+        deadline = time.monotonic() + timeout
+        out = b""
+        while time.monotonic() < deadline:
+            ready, _, _ = select.select([fd], [], [], max(0.0, deadline - time.monotonic()))
+            if not ready:
+                break
+            chunk = os.read(fd, 65536)
+            if not chunk:
+                break
+            out += chunk
+            if out.rstrip():
+                break
+        return out
+
     def test_stop_gives_the_real_descriptors_back(self):
-        # The one property NTG's prompt depends on: prompt_toolkit's create_output returns a
-        # PlainTextOutput the moment sys.stdout.isatty() is false (output/defaults.py, "Stdout
-        # is not a TTY? Render as plain text."), and a plain-text prompt is not one
-        # `ndtwin-lab topo-cmd` can drive. What that needs is the ORIGINAL descriptor back,
-        # which is what this asserts -- fd 1 is the same open file it was before start().
-        before = os.fstat(1)
-        self.tee.start()
-        during = os.fstat(1)
-        self.tee.stop()
-        after = os.fstat(1)
-        self.assertNotEqual((during.st_dev, during.st_ino), (before.st_dev, before.st_ino),
-                            "start() did not redirect fd 1 at all")
-        self.assertEqual((after.st_dev, after.st_ino), (before.st_dev, before.st_ino),
-                         "stop() left fd 1 pointing at the pipe, so the NTG prompt would "
-                         "render as plain text into it")
+        # The pane shape: `ndtwin-lab topo-start` runs the bridge inside tmux, so fd 1 is a
+        # pty, and that is the case NTG's prompt depends on.
+        master, slave = os.openpty()
+        self.addCleanup(os.close, master)
+        self.addCleanup(os.close, slave)
+        self.assert_the_terminal_comes_back(
+            slave, lambda: self.drain(master), "pty")
+
+    def test_stop_gives_the_real_descriptors_back_with_no_tty_at_all(self):
+        # 🔴 THE SHAPE THE GATE ITSELF RUNS IN, and the reason this cell exists: the mutation
+        # gate captures its mutants with `out=$(...)`, so stdout is a pipe and there is no tty
+        # anywhere. The restore has to be observable there too.
+        read_fd, write_fd = os.pipe()
+        self.addCleanup(os.close, read_fd)
+        self.addCleanup(os.close, write_fd)
+        self.assert_the_terminal_comes_back(
+            write_fd, lambda: self.drain(read_fd), "pipe")
 
     def test_the_pump_does_not_share_a_descriptor_stop_will_close(self):
         # 🔴 THE GUARD FOR A DEFECT FOUND BY MEASUREMENT, 2026-09-18. Under a real pty the line
