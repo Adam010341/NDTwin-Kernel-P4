@@ -73,6 +73,14 @@ session「9/17 orchestrator」2026-09-17 寫；基底 trunk `70615ec5`。材料�
 `SAMPLE_SESSION`）、LLDP beacon（packet-out 用的 metadata 名字對不上就跳過）。**原則：跳過≠靜默**，狀態端點要說「這台在 exercise
 profile 下沒有遙測」，否則就是 GAP-ANALYSIS §5-① 那種「報零不報錯」。
 
+🆕 **09-18（TICKET-P2-F，live 量到才知道的）：跳過的清單還要往上傳一層——`external` 模式下
+`ndt up` 的 `N up`／`N enabled` 是讀數，不是閘。** 那個模式不推 pipeline，探針對沒程式的 bmv2 回
+`FAILED_PRECONDITION`，twin 自己的 liveness 政策因此判它 Down；唯一會把 isUp 寫成 true 的是 proxy 的
+`inform_switch_entered` 背景重試，而 kernel 的 pingWorker 一秒後又寫回 false。所以那兩個數字量到的是
+一場競賽——`live-p1/03` 印過 `3 up`，同一支腳本一秒後的 `ndt status` 是 `0 up, 3 enabled`。
+閘改成「模型宣告的每台都在 `switch_state` 裡、而且探針**被回答了**」；**「這些交換機該是 up」這件事，
+要等練習自己的控制器載入 pipeline 之後才斷言**（03 用控制器 log 解析出的集合對帳）。
+
 ## 4. 階段、解鎖、怎麼驗
 
 | 階段 | 做什麼 | 解鎖 | 驗證（skeleton 紅／solution 綠＝天然 mutation 對） |

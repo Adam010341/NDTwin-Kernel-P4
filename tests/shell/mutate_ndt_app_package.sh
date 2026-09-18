@@ -681,12 +681,16 @@ check_fires "M33: an unreadable package is treated as somebody else's pipeline" 
 # times in verify_p4 -- the paths branch, the data-plane branch and the caveat -- so the elif
 # alone would be a DUP and this mutation would be scored as a survivor rather than applied.
 # The external branch's last warn is unique, and it is the line this elif hangs off.
+# 🔴 THE ANCHOR MOVED IN ROUND 4: TICKET-P2-F put the external plane's own probe gate between
+# that warn and this elif, so the old pair no longer occurs and the mutation scored ANCHOR:0 --
+# a survivor, correctly, because a mutation that cannot be applied has proved nothing. The line
+# above the elif is now the probes call, which is equally unique.
 cat > "$A/m34.old" <<'EOF'
-        warn "  tools/p4_exercise/run_external_controller.py <pkg> <controller.py>"
+        verify_p4_probes "$topo" || rc=1
     elif [[ -n "$foreign" ]]; then
 EOF
 cat > "$A/m34.new" <<'EOF'
-        warn "  tools/p4_exercise/run_external_controller.py <pkg> <controller.py>"
+        verify_p4_probes "$topo" || rc=1
     elif false; then
 EOF
 check_fires "M34: the live defect -- a package fabric is counted after all" m34 \
@@ -710,6 +714,185 @@ check_fires "M35: the entries gate's verdict is ignored" m35 \
             "🔴 applied < recorded with 0 failed is red too" \
             "🔴 a switch that reports no table_entries is red" \
             "🔴 refusals are red even when the counts add up"
+
+# --- M36-M42: TICKET-P2-F, external liveness is a reading and the probe is the gate ----------
+#
+# The family is one live measurement: live-p1/03 printed `kernel: 3 switches, 3 up` and its own
+# `ndt status` one second later read `0 up, 3 enabled`. Nothing about the fabric changed in that
+# second -- `3 up` was one read landing between two races (a background retry that writes isUp
+# true, a 1 Hz pingWorker that writes it back false), over a fabric where no pipeline is loaded
+# and the twin's own policy therefore calls every switch Down. So `up` stops being the gate and
+# a question with a mechanical answer takes its place.
+
+# M36: `up` is a gate on the external plane again -- the round-1 lottery restored. Every
+# external bring-up is then green or red depending on which second `ndt` read the graph in.
+cat > "$A/m36.old" <<'EOF'
+    elif [[ "$mode" == external ]]; then
+        # 🔴 THE SWITCH COUNT IS STILL A GATE; `up` AND `enabled` ARE A READING. TICKET-P2-F
+EOF
+cat > "$A/m36.new" <<'EOF'
+    elif false; then
+        # 🔴 THE SWITCH COUNT IS STILL A GATE; `up` AND `enabled` ARE A READING. TICKET-P2-F
+EOF
+check_fires "M36: external is judged on 'N up' again (the lottery)" m36 \
+            "🔴 an external fabric with 0 up is GREEN" \
+            "🔴 verify_p4_graph under external is green at 0 up" \
+            "🔴 and up/enabled are named a READING"
+
+# M37: the check that REPLACED it is not a gate -- the errors still print, the bring-up is still
+# green. A switch nobody could reach is then reported and passed in the same breath, which is
+# strictly worse than the state before this ticket: it looks like it was checked.
+cat > "$A/m37.old" <<'EOF'
+        verify_p4_probes "$topo" || rc=1
+EOF
+cat > "$A/m37.new" <<'EOF'
+        verify_p4_probes "$topo" || true
+EOF
+check_fires "M37: the probe gate's verdict is ignored" m37 \
+            "🔴 a switch that could not be reached is red" \
+            "🔴 a dpid the proxy never built a client for is red" \
+            "🔴 a probe that never completes is red, not green"
+
+# M38: FAILED_PRECONDITION is treated as silence. It is the designed answer of every switch on
+# an external fabric, so this makes the ONLY state that plane is ever in a failure -- `ndt up`
+# would never again report an external package as ready.
+cat > "$A/m38.old" <<'EOF'
+                if [[ "$detail" == FAILED_PRECONDITION* ]]; then
+EOF
+cat > "$A/m38.new" <<'EOF'
+                if false; then
+EOF
+check_fires "M38: a switch with no program counts as unreachable" m38 \
+            "🔴 an external fabric with 0 up is GREEN" \
+            "🔴 because the probe is what was gated"
+
+# M39 (widening): the switch COUNT stops being a gate on the external plane too. Then nothing at
+# all about the kernel graph is asserted there -- a graph with two of three switches in it reads
+# exactly like a healthy one, which is what "up is a reading" must not be allowed to become.
+cat > "$A/m39.old" <<'EOF'
+        if [[ "$total" == "$want_sw" ]]; then
+EOF
+cat > "$A/m39.new" <<'EOF'
+        if true; then
+EOF
+check_fires "M39 (widening): external asserts nothing about the graph" m39 \
+            "🔴 two switches under a three-switch model still FAILS"
+
+# M40: the bounded re-read collapses to one look. `probe_ok: null` is "no probe has completed
+# yet", which on a fabric one second old is the ordinary case -- so every external bring-up
+# would race the proxy's first probe and lose about a fifth of the time.
+cat > "$A/m40.old" <<'EOF'
+    for i in 1 2 3 4 5; do
+        state="$(proxy_switch_state)"
+EOF
+cat > "$A/m40.new" <<'EOF'
+    for i in 1; do
+        state="$(proxy_switch_state)"
+EOF
+check_fires "M40: the probe is read once, not up to five times" m40 \
+            "🔴 a probe that lands on the third read is GREEN" \
+            "🔴 which took exactly three reads"
+
+# M41 (widening): a probe that never completed counts as answered. "Nobody has asked yet" and
+# "it answered" become the same reading -- the exact substitution proxy_agent keeps `probe_ok`
+# nullable to prevent, reproduced one layer up.
+cat > "$A/m41.old" <<'EOF'
+            *)
+                err "proxy: switch $dpid did not answer the liveness probe: ${detail:-no probe yet}"
+                rc=1 ;;
+EOF
+cat > "$A/m41.new" <<'EOF'
+            *)
+                answered=$(( answered + 1 )) ;;
+EOF
+check_fires "M41 (widening): an unanswered probe counts as answered" m41 \
+            "🔴 a probe that never completes is red, not green" \
+            "  and says which question went unanswered"
+
+# M42: `ndt status --check` calls an external fabric broken again. Every reading of the report
+# between `ndt up` and the exercise's controller exits 1 over "3 switch(es) are down", about a
+# fabric doing exactly what its package asked for.
+cat > "$A/m42.old" <<'EOF'
+        if [[ "$statmode" == external ]]; then
+EOF
+cat > "$A/m42.new" <<'EOF'
+        if false; then
+EOF
+check_fires "M42: --check reports an external fabric as down" m42 \
+            "🔴 and --check does NOT call the fabric broken" \
+            "🔴 and says they are a reading"
+
+# --- M43-M47: the other direction of each P2-F conditional, and the two unchecked-is-not-passed
+#     paths (judge, round 5). Every new `if` had been mutated ONE way only, so the cells that
+#     say "this is external-ONLY" had never gone red for anything.
+
+# M43 (widening): EVERY plane gets the external reading. `up` stops being a gate on NDTwin's own
+# pipeline and on the baseline too -- a fabric NDTwin genuinely failed to bring up is then
+# reported `ready` with its liveness printed as a reading. That is far worse than the defect
+# this ticket fixed: it is the same silence, applied where the numbers really are a verdict.
+cat > "$A/m43.old" <<'EOF'
+    elif [[ "$mode" == external ]]; then
+        # 🔴 THE SWITCH COUNT IS STILL A GATE; `up` AND `enabled` ARE A READING. TICKET-P2-F
+EOF
+cat > "$A/m43.new" <<'EOF'
+    elif true; then
+        # 🔴 THE SWITCH COUNT IS STILL A GATE; `up` AND `enabled` ARE A READING. TICKET-P2-F
+EOF
+check_fires "M43 (widening): every plane gets the liveness reading" m43 \
+            "🔴 the SAME graph on the baseline path is still red" \
+            "  in the words it always had"
+
+# M44 (widening): `--check` stops calling ANY fabric's switches down. The baseline and the
+# NDTwin-pipeline package lose the one problem that says the fabric is not running, and the
+# report exits 0 over a dead lab.
+cat > "$A/m44.old" <<'EOF'
+        if [[ "$statmode" == external ]]; then
+EOF
+cat > "$A/m44.new" <<'EOF'
+        if true; then
+EOF
+check_fires "M44 (widening): no fabric is ever reported as down" m44 \
+            "🔴 while an NDTwin-pipeline fabric with 0 up IS a problem" \
+            "  and gets no reading line" \
+            "  and so is the baseline fabric with no package"
+
+# M45: an unreadable switch_state passes the probe gate. "I could not ask" becomes "they all
+# answered" -- the substitution this gate was written to remove, on the gate itself.
+cat > "$A/m45.old" <<'EOF'
+        err "  failure, not a pass."
+        return 1
+EOF
+cat > "$A/m45.new" <<'EOF'
+        err "  failure, not a pass."
+        return 0
+EOF
+check_fires "M45: an unreadable switch_state passes the probe gate" m45 \
+            "🔴 an unreadable switch_state is RED, not a pass"
+
+# M46: a model whose dpids cannot be read passes. There is then no list to check the proxy's
+# report against and the gate says so and proceeds anyway.
+cat > "$A/m46.old" <<'EOF'
+        err "  is no list to check the proxy's report against. An unchecked gate is a failure."
+        return 1
+EOF
+cat > "$A/m46.new" <<'EOF'
+        err "  is no list to check the proxy's report against. An unchecked gate is a failure."
+        return 0
+EOF
+check_fires "M46: an uncountable model passes the probe gate" m46 \
+            "🔴 a model whose dpids cannot be read is RED too"
+
+# M47: the mode never reaches verify_p4_graph. Every branch of §4.2-3/4 is then unreachable from
+# the command that matters while the function itself stays perfect -- the P1-A M19 shape, and
+# the same one M29 attacks one argument over.
+cat > "$A/m47.old" <<'EOF'
+    verify_p4_graph "$topo" "$mode" || rc=1
+EOF
+cat > "$A/m47.new" <<'EOF'
+    verify_p4_graph "$topo" || rc=1
+EOF
+check_fires "M47: the bring-up stops telling the graph check the mode" m47 \
+            "🔴 an external fabric with 0 up is GREEN"
 
 # --- the controls: two behaviour-preserving rewrites -----------------------------------------
 # 🔴 Without these the round says nothing. A harness that reported red for ANY edit would print

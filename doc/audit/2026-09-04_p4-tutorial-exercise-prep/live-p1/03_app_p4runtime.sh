@@ -122,6 +122,20 @@ if [[ -s "$SS0" ]]; then
     done
 fi
 
+# --- TICKET-P2-F: the twin's liveness BEFORE any controller has run. RECORDED, NOT ASSERTED ---
+#
+# 🔴 THIS IS THE READING THE OLD ASSERTION SHOULD HAVE BEEN. On 2026-09-18 `ndt up` printed
+# `3 switches, 3 up` here and this script's own `31_status.txt`, one second later, read
+# `0 up, 3 enabled`. Nothing about the fabric changed in that second -- no pipeline is loaded on
+# an external fabric until its own controller runs, the twin's liveness policy calls such a
+# switch Down, and the only thing that ever writes isUp true is a background retry the 1 Hz
+# pingWorker undoes. So whatever this file captures here is a snapshot of a race, and the
+# assertion that matters is two sections down, after a controller has actually loaded something.
+say "kernel liveness before any controller (a READING -- nothing here is asserted)"
+{ printf 'dpid is_up is_enabled\n'; kernel_liveness_rows
+  printf '\nkernel up set: %s\n' "$(kernel_up_set || echo '<unreadable>')"; } > "$RUN/32_kernel_graph_before.txt"
+sed 's/^/   /' "$RUN/32_kernel_graph_before.txt"
+
 # --- 3. the exercise's own controller -------------------------------------------------------------
 say "starting the exercise controller under setsid"
 # 🔴 NOT $PY. The tutorials' p4runtime_lib imports p4.tmp.p4config_pb2, which the proxy venv does
@@ -171,6 +185,40 @@ stop_controller() {
 # "the transit rule forwards", not "something forwards".
 start_controller mycontroller.py "$RUN/37_skeleton_controller.log"
 
+# --- 🔴 THE ASSERTION THIS SCRIPT CAN ACTUALLY MAKE (TICKET-P2-F §4.3) -------------------------
+#
+# The twin's liveness should follow the exercise's own pipeline pushes. Both controllers here
+# load s1 and s2 and leave s3 alone, so within a probe interval (2 s) plus a pingWorker tick
+# (1 s) the kernel graph should read s1, s2 up and s3 down -- and stay there, because s1 and s2
+# now answer their probes and s3 still does not.
+#
+# 🔴 THE EXPECTATION IS PARSED OUT OF THE CONTROLLER'S OWN LOG, not written here. A constant
+# would keep passing the day the exercise changes which switches it programs, and would be this
+# file agreeing with itself. An empty parse is refused (await_kernel_up_set), because an
+# equality between two empty sets is the greenest possible way to check nothing.
+say "the twin's liveness should follow the SKELETON controller's pipeline pushes"
+SKEL_SET="$(controller_program_set "$RUN/37_skeleton_controller.log")"
+note "the controller's log says it loaded a program onto: ${SKEL_SET:-<none>}"
+set +e
+await_kernel_up_set "$SKEL_SET" 20 "$RUN/36_kernel_up_after_pipeline.txt"
+AWAIT_RC=$?
+set -e
+(( AWAIT_RC != 0 )) && fail "the kernel's up set did not follow the skeleton controller's pipeline pushes (see 36_kernel_up_after_pipeline.txt)"
+sed 's/^/   /' "$RUN/36_kernel_up_after_pipeline.txt"
+
+# And the proxy's own side of the same fact: the switches that got a program now answer their
+# probe, and the one that did not still does not.
+# 🔴 A READ THAT FAILED IS NOT A CHECK THAT PASSED. `get_json` reports its own failure with
+# `bad`, which prints and returns -- it does NOT set the verdict -- so the first draft's bare
+# `if get_json ...; then` skipped every assertion below it and left the step GREEN. The one
+# shape this whole ticket exists to remove, reproduced inside its own fix.
+SS1="$RUN/35_switch_state_after_pipeline.json"
+if get_json "$PROXY_URL/p4/switch_state" "$SS1"; then
+    assert_probe_ok_follows_set "$SS1" "$PKG" "$SKEL_SET" "after the skeleton controller" || true
+else
+    fail "could not read /p4/switch_state after the skeleton controller -- the proxy half of this check did not run, and a check that did not run is not a check that passed"
+fi
+
 # --- 4. it forwards ---------------------------------------------------------------------------------
 H1_IP="$(model_hosts "$PKG" | sed -n '1p' | cut -d' ' -f2)"
 H2_IP="$(model_hosts "$PKG" | sed -n '2p' | cut -d' ' -f2)"
@@ -214,6 +262,25 @@ stop_controller
 
 say "starting the exercise's SOLUTION controller (solution/mycontroller.py) under setsid"
 start_controller solution/mycontroller.py "$CTRL_LOG"
+
+say "the twin's liveness should follow the SOLUTION controller's pipeline pushes too"
+SOLN_SET="$(controller_program_set "$CTRL_LOG")"
+note "the controller's log says it loaded a program onto: ${SOLN_SET:-<none>}"
+set +e
+await_kernel_up_set "$SOLN_SET" 20 "$RUN/46_kernel_up_after_solution.txt"
+AWAIT_RC=$?
+set -e
+(( AWAIT_RC != 0 )) && fail "the kernel's up set did not follow the solution controller's pipeline pushes (see 46_kernel_up_after_solution.txt)"
+sed 's/^/   /' "$RUN/46_kernel_up_after_solution.txt"
+# The proxy's side again, on the solution's own set -- the same helper, not a second copy of
+# it. TICKET-P2-F §4.3 asks for this on 45_ as well as 35_; the first draft only captured the
+# file and asserted nothing about it, so `45_` was raw with no reader.
+SS2="$RUN/45_switch_state_after_solution.json"
+if get_json "$PROXY_URL/p4/switch_state" "$SS2"; then
+    assert_probe_ok_follows_set "$SS2" "$PKG" "$SOLN_SET" "after the solution controller" || true
+else
+    fail "could not read /p4/switch_state after the solution controller -- the proxy half of this check did not run, and a check that did not run is not a check that passed"
+fi
 
 say "ndt's own dataplane_ok (recorded, not the loss evidence)"
 set +e

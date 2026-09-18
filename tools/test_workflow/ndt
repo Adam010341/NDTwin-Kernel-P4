@@ -1559,6 +1559,22 @@ except Exception:
     pass' "$(app_manifest "$1")" 2>/dev/null
 }
 
+# app_knob_mode -- the control-plane mode of the package the KNOB names (`external`, `ndtwin`),
+# or nothing when there is no package, the directory is gone, or package.json cannot be read.
+#
+# [Co-developed with claude code -- Adam]
+# The same reader app_package_row uses two screens down, asked from the knob so that
+# `cmd_status` can answer one question with it: on an external fabric `0 up` is the designed
+# state, not a fault (TICKET-P2-F §4.2). Nothing is inferred when the answer cannot be read --
+# an unreadable package keeps today's behaviour, because a package this script could not parse
+# is not evidence that the switches are supposed to be down.
+app_knob_mode() {
+    local dir; dir="$(app_knob_state)"
+    case "$dir" in absent|empty) return 0 ;; esac
+    [[ -d "$dir" ]] || return 0
+    app_package_mode "$dir"
+}
+
 # app_pipeline_kind [dir] -- whose pipeline the package's switches run:
 #
 #   none                the knob names no package (the baseline fabric)
@@ -3102,6 +3118,133 @@ print(",".join(shas) if shas else "p4info sha unreported")' 2>/dev/null \
     || echo "p4info sha unreported"
 }
 
+# switch_state_probe_rows -- "<dpid> <true|false|null> <probe_detail>" per switch, from the JSON
+# on stdin, in dpid order. rc 1 when there is no readable `switches` map.
+#
+# [Co-developed with claude code -- Adam]
+# `null` travels as its own word and is NOT folded into `false`. proxy_agent/topology_manager.py
+# (switch_liveness) sets probe_ok None until a probe has completed, deliberately, "so the kernel
+# can tell startup from a failure" -- and the gate below has to tell them apart too: a switch
+# that has not been probed yet is a switch to read again, and one that answered is a verdict.
+switch_state_probe_rows() {
+    python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    raise SystemExit(1)
+sw = d.get("switches")
+if isinstance(sw, list):
+    sw = {str(s.get("dpid")): s for s in sw}
+if not isinstance(sw, dict) or not sw:
+    raise SystemExit(1)
+out = []
+for dpid in sorted(sw, key=lambda k: (0, int(k)) if str(k).isdigit() else (1, str(k))):
+    s = sw[dpid] or {}
+    ok = s.get("probe_ok")
+    word = "null" if ok is None else ("true" if ok else "false")
+    detail = s.get("probe_detail")
+    out.append("%s %s %s" % (dpid, word, detail if detail else "no probe yet"))
+print("\n".join(out))' 2>/dev/null
+}
+
+# topo_model_switch_dpids <file> -- the dpids the model declares, one per line, sorted.
+# Companion to topo_model_switches, which answers how many. The same `vertex_type == 0` rule.
+topo_model_switch_dpids() {
+    python3 -c '
+import json,sys; t=json.load(open(sys.argv[1]))
+for d in sorted(int(n["dpid"]) for n in t["nodes"] if n.get("vertex_type")==0): print(d)' \
+        "$1" 2>/dev/null
+}
+
+# verify_p4_probes <topology-file> -- the gate that replaces "N up" under an external control
+# plane. rc 1 when a switch the model declares is missing from GET /p4/switch_state, or is there
+# and did not answer its liveness probe.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 WHY "N UP" CANNOT BE THE GATE HERE, and this can (TICKET-P2-F §2, TICKET-P2 §7-12). Under
+# `external` the proxy pushes no pipeline (main.py:747), the liveness probe is a
+# GetForwardingPipelineConfig, and a bmv2 with no program answers FAILED_PRECONDITION -- so
+# `probe_ok` is false for every switch, `connected_switch_dpids` excludes them all, and
+# `/v1.0/topology/switches` is `[]` from the first probe onwards. The ONLY writer of isUp on such
+# a fabric is the proxy's `inform_switch_entered` background retry (main.py:863, which does not
+# look at read_only; kernel_notifier.py:153, 30 x 10 s), and the kernel's own pingWorker sets it
+# back to false a second later. Measured: live-p1/03 round 1 printed `3 switches, 3 up` and its
+# OWN `ndt status` one second later read `0 up, 3 enabled`. That green was `ndt`'s single read
+# landing inside a <= 1 s window between two races -- not a fabric state, and not repeatable.
+#
+# 🔴 WHAT THIS ASKS INSTEAD is a question with a mechanical answer: is every switch the model
+# declares present in the proxy's report, and did its probe get ANSWERED? `FAILED_PRECONDITION`
+# is an answer -- it means the bmv2 process is alive and talking P4Runtime and simply has no
+# program, which is precisely the designed state of an external fabric before its controller
+# runs. `UNAVAILABLE`, `DEADLINE_EXCEEDED`, a probe that raised, a dpid that is missing, or a
+# probe that never completes are all silence, and silence is red.
+verify_p4_probes() {
+    local topo="$1" want rows i state
+    want="$(topo_model_switch_dpids "$topo")"
+    if [[ -z "$want" ]]; then
+        err "proxy: UNCHECKED -- cannot read the switch dpids ${topo#$REPO/} declares, so there"
+        err "  is no list to check the proxy's report against. An unchecked gate is a failure."
+        return 1
+    fi
+    # Bounded re-read, the same shape and the same bound as stack.sh's proxy_skipped_steps: a
+    # `probe_ok: null` is "no probe has completed yet", which on a fabric that has just come up
+    # is the ordinary first second, and reading it as a verdict either way would be inventing
+    # one. Five attempts, a second apart; after that a still-null probe IS the finding.
+    # 🔴 No `nulls` flag. The first draft set one on both exits of this loop and never read it
+    # again -- a variable that looks like a decision and is not one is a reader's trap, and the
+    # two things that ARE decided below are decided from `rows` itself.
+    for i in 1 2 3 4 5; do
+        state="$(proxy_switch_state)"
+        rows="$(switch_state_probe_rows <<<"$state")" || rows=""
+        [[ -z "$rows" ]] && break
+        /usr/bin/grep -q ' null ' <<<"$rows" || break
+        (( i < 5 )) && sleep 1
+    done
+    if [[ -z "$rows" ]]; then
+        err "proxy: GET /p4/switch_state gave no readable switch report, so this script cannot"
+        err "  say whether the fabric's switches are answering at all. An unchecked gate is a"
+        err "  failure, not a pass."
+        return 1
+    fi
+    local rc=0 answered=0 programmed=0 total=0 dpid word detail row
+    while read -r dpid; do
+        [[ -n "$dpid" ]] || continue
+        total=$(( total + 1 ))
+        row="$(/usr/bin/grep -m1 "^$dpid " <<<"$rows")"
+        if [[ -z "$row" ]]; then
+            err "proxy: switch $dpid is not in /p4/switch_state at all -- the model declares it and"
+            err "  the proxy has never built a client for it."
+            rc=1; continue
+        fi
+        read -r _ word detail <<<"$row"
+        case "$word" in
+            true)  answered=$(( answered + 1 )); programmed=$(( programmed + 1 )) ;;
+            false)
+                # 🔴 The ONE refusal that counts as an answer, and it is narrow on purpose: the
+                # prefix, not a substring, so a detail that merely mentions the words somewhere
+                # cannot buy a pass.
+                if [[ "$detail" == FAILED_PRECONDITION* ]]; then
+                    answered=$(( answered + 1 ))
+                else
+                    err "proxy: switch $dpid did not answer the liveness probe: $detail"
+                    rc=1
+                fi ;;
+            *)
+                err "proxy: switch $dpid did not answer the liveness probe: ${detail:-no probe yet}"
+                rc=1 ;;
+        esac
+    done <<<"$want"
+    if (( rc == 0 )); then
+        if (( programmed > 0 )); then
+            ok "proxy: $answered/$total switches answered the liveness probe ($programmed of them already carry a pipeline)"
+        else
+            ok "proxy: $answered/$total switches answered the liveness probe (no pipeline loaded on any of them, by design)"
+        fi
+    fi
+    return $rc
+}
+
 #: What verify_p4_package_entries counted, for the caveat paragraph under the verdict. Globals
 #: rather than a second parse: the sentence under `ready` and the `ok` line above it must not be
 #: able to quote two different numbers for one fabric.
@@ -3203,6 +3346,11 @@ verify_p4() {
         warn "  plane, so the proxy installs no routes and 0 is the designed answer, not a"
         warn "  reading. The exercise's own controller is what puts rules on these switches:"
         warn "  tools/p4_exercise/run_external_controller.py <pkg> <controller.py>"
+        # 🔴 AND THE CHECK THAT REPLACES "N UP" ON THIS PLANE (TICKET-P2-F §4.2-2). The bring-up
+        # is not left with nothing assertable about the switches just because the liveness
+        # numbers are a race here: every switch the model declares has to be in the proxy's
+        # report, and its probe has to have been ANSWERED. See verify_p4_probes.
+        verify_p4_probes "$topo" || rc=1
     elif [[ -n "$foreign" ]]; then
         # [Co-developed with claude code -- Adam]
         # 🔴 NOT CHECKED, AND THE PROXY HAS TO SAY SO ITSELF (TICKET-P2-D §3.2-1). Live on
@@ -3263,7 +3411,7 @@ verify_p4() {
         fi
     fi
 
-    verify_p4_graph "$topo" || rc=1
+    verify_p4_graph "$topo" "$mode" || rc=1
 
     # Same blind spot as the OVS path, for a different reason: the destination-path count
     # above is what the proxy *says* it installed, and install-then-delete on bmv2 has been
@@ -3341,7 +3489,14 @@ verify_p4() {
 # copied, for the reason up_p4 and up_ovs's two copies of the H4 unpacking are recorded as a
 # defect one screen up.
 verify_p4_graph() {
-    local topo="$1" rc=0
+    # [Co-developed with claude code -- Adam]
+    # 🔴 THE SECOND ARGUMENT IS THE CONTROL-PLANE MODE, AND ONLY `external` READS DIFFERENTLY
+    # (TICKET-P2-F §4.2-3/4). Empty -- which is what every direct caller and every test cell
+    # passes -- is today's behaviour to the byte. A parameter rather than a second function
+    # because the graph fetch, the UNCHECKED paths, the host gate and the denominator rule are
+    # the same question on both planes, and a copy of them would be two readers of one graph
+    # with one of them eventually wrong.
+    local topo="$1" mode="${2:-}" rc=0
     local graph
     graph="$(curl -sf --max-time 5 http://localhost:8000/ndt/get_graph_data \
              | python3 -c "
@@ -3380,6 +3535,27 @@ print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1))' "$topo" 2>/dev/nul
         err "  the kernel says $total switches with $up up, and there is nothing to judge that"
         err "  against. topo_model_switches gave '${want_sw:-<empty>}'."
         rc=1
+    elif [[ "$mode" == external ]]; then
+        # 🔴 THE SWITCH COUNT IS STILL A GATE; `up` AND `enabled` ARE A READING. TICKET-P2-F
+        # §4.2-3/4 and TICKET-P2 §7-12: on an external fabric nothing has loaded a pipeline
+        # until the exercise's own controller runs, the twin's liveness policy calls a bmv2
+        # with no program Down, and the only thing that ever writes isUp true here is a
+        # background retry the pingWorker undoes a second later. `3 up` was measured once and
+        # its own `ndt status` read `0 up, 3 enabled` a second afterwards. So the numbers are
+        # printed -- BOTH of them, because it took the pair to see what was happening -- and
+        # they decide nothing. What the graph still has to agree about is how many switches
+        # there ARE.
+        if [[ "$total" == "$want_sw" ]]; then
+            ok "kernel: $total switches in the graph, $edges edges, $hosts hosts"
+        else
+            err "kernel: $total switches in the graph (model declares $want_sw)"
+            rc=1
+        fi
+        warn "kernel liveness: $up/$want_sw up, $enabled/$want_sw enabled -- a READING, not a"
+        warn "  verdict. No pipeline is loaded on an external fabric until its own controller"
+        warn "  runs, and the twin's liveness policy (p4LivenessFor: probe FAILED_PRECONDITION,"
+        warn "  no LLDP) calls such a switch Down. Expect this to change to N/$want_sw up"
+        warn "  within ~3 s of the controller loading a program on N switches."
     elif [[ "$total" == "$want_sw" && "$up" == "$want_sw" ]]; then
         ok "kernel: $total switches, $up up, $edges edges, $hosts hosts"
     else
@@ -3425,7 +3601,9 @@ print(sum(1 for n in t["nodes"] if n.get("vertex_type")==1))' "$topo" 2>/dev/nul
         err "model/fabric mismatch: kernel graph has $hosts hosts, topology file has $want_hosts, the FABRIC has $live_hosts host namespaces"
         rc=1
     fi
-    if [[ "$want_sw" =~ ^[0-9]+$ ]] && [[ "$enabled" != "$want_sw" ]]; then
+    # Not under `external`: the READING above already prints `enabled`, with the reason, and a
+    # second line about the same number would be this function saying it twice.
+    if [[ "$mode" != external ]] && [[ "$want_sw" =~ ^[0-9]+$ ]] && [[ "$enabled" != "$want_sw" ]]; then
         # Structural in P4 mode, not a fault: nothing calls /ndt/inform_switch_entered.
         # The denominator is the model's, for the reason above -- `is_enabled=4/10` on a
         # four-switch package read as two faults where there were none.
@@ -5591,7 +5769,21 @@ cmd_status() {
         read -r g_sw g_up g_en g_sdis g_hosts g_edges g_edown g_edis <<<"$gstate"
         printf '  %-14s %s up, %s enabled, %s admin-disabled\n' "switches" "$g_up" "$g_en" "$g_sdis"
         printf '  %-14s %s total, %s down, %s admin-disabled\n' "links" "$g_edges" "$g_edown" "$g_edis"
-        (( g_up  < g_sw )) && problems+=("$(( g_sw - g_up )) switch(es) are down")
+        # 🔴 `0 up` IS THE DESIGNED STATE OF AN EXTERNAL FABRIC, and --check must not exit 1 on
+        # it (TICKET-P2-F §4.2). The proxy pushes no pipeline under `mode: external`, the twin's
+        # liveness policy calls a bmv2 with no program Down, and nothing changes that until the
+        # exercise's own controller runs -- so every reading of this report between `ndt up` and
+        # the controller would raise "3 switch(es) are down" about a fabric behaving exactly as
+        # the package asked. The same decision, and the same wording, as verify_p4_graph's
+        # liveness READING: the numbers are printed, they decide nothing, and the row says why.
+        # Any other mode -- including a package this script could not read -- keeps today's
+        # problem, because that is the case where down really is down.
+        local statmode; statmode="$(app_knob_mode)"
+        if [[ "$statmode" == external ]]; then
+            printf '  %-14s %s\n' "" "up/enabled above is a READING, not a verdict: an external package loads no pipeline until its own controller runs, and the twin calls such a switch Down"
+        else
+            (( g_up  < g_sw )) && problems+=("$(( g_sw - g_up )) switch(es) are down")
+        fi
         (( g_sdis > 0 ))   && problems+=("$g_sdis switch(es) are admin-disabled -- a power test may not have been undone")
         (( g_edown > 0 ))  && problems+=("$g_edown link(s) are down")
         (( g_edis  > 0 ))  && problems+=("$g_edis link(s) are admin-disabled")
