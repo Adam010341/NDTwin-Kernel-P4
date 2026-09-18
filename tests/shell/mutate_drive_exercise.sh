@@ -691,11 +691,15 @@ add "75. the generic cell runs on the skeleton arm too" \
         return False, None, ""' \
     'test_the_cell_does_not_run_on_a_skeleton_arm'
 
+# 🔴 THE REPLACEMENT KEEPS A BODY. `if False:` alone leaves the `if` with no suite, the mutant
+# does not PARSE, and this gate scores that as a SURVIVOR -- correctly: a mutation that never
+# reached the interpreter established nothing about the behaviour it was aimed at.
 add "76. an exercise that forwards nothing is measured anyway" \
     "$DRIVER" \
     '    if want is False:
         return False, None, spec.get("link_usage_why") or "this exercise declares no path"' \
-    '    if False:  # MUTANT' \
+    '    if False:  # MUTANT
+        pass' \
     'test_two_solutions_forward_nothing_and_are_named'
 
 add "77. the destination override is ignored, so two exercises measure to a host they cannot reach" \
