@@ -1,0 +1,21 @@
+drive_exercise.py -- basic / skeleton  [DRY RUN]
+(non-interactive: no mininet CLI, no xterm; kills nothing)
+
+== plan ================================================================
+topology : pod-topo/topology.json
+hosts    : h1, h2, h3, h4
+switches : s1, s2, s3, s4
+links    : 8
+program  : <EXDIR>/basic.p4 -> build/basic.json
+switch   : /usr/local/bin/simple_switch_grpc
+steps    : net.pingAll; h1 ping -c3 h2; h1 send.py -> h2 receive.py; assert loss
+equivalent to (cwd must be the exercise dir):
+  cd <EXDIR> && \
+  sudo /home/adam/p4dev-python-venv/bin/python <TUT>/utils/run_exercise.py -t pod-topo/topology.json -j build/basic.json -b /usr/local/bin/simple_switch_grpc
+  ... except do_net_cli() is replaced by the scripted steps above.
+
+== dry run stops here ==================================================
+compile done, nothing was started.  Run it for real with:
+
+  sudo /home/adam/p4dev-python-venv/bin/python <DRIVER> basic --which skeleton
+
