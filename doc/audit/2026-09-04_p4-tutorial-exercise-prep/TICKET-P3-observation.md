@@ -150,4 +150,10 @@ opus；worktree `scratch/overnight-2026-09-05/wt-p3-driver-0919`，分支 `feat/
 4. 所有 mutation 閘門 0 survived、控制組 0 紅；`merged_checks.sh` 七項綠；契約自測綠。
 
 ## 9. 執行中的裁定（orchestrator，09-19；工單本體不回頭改，這裡是有效的補充）
-（空——併入時逐條追加）
+
+1. **（03:5x，B 併入 `f5ad6890`）§2.5 的 tear_down 順序**：link manifest 在 `link_telemetry.shut_down()` 內、`net.stop()` 之前就刪，不是最後——manifest 的語意是「有 emitter 在跑」，SIGTERM 之後留著只是說謊；一個原子 undo 才能被 `reset_for_bring_up` 重用、才不用把 plan 物件穿過兩個 main 的 abort 路徑。接受 worker 的做法。
+2. **（同上）`bring_up` 內的拒絕（tc 失敗、ifindex 對映碰撞、netns、壞 knob 字）折進 fatal verdict**，兩個 main 走既有的 `tear_down` 路徑；knob 值域在 `plan_fabric` 就檢（judge F1／F2，B 第二輪 `80c97464` 做了）。`sampling_rate` 取 psample 的 `SAMPLE_RATE` 屬性、manifest 的值是 fallback——比 §2.2 寫的常數更對，接受。
+3. **（04:1x，C 收件後）PRE entries（multicast group／clone session）在每台都套，含 NDTwin pipeline 的台**：PRE 物件裡沒有程式，`convert --ndtwin-pipeline` 的 package 否則會靜默丟掉 group。接受 C 的判斷；與 table entries 的不對稱寫在碼裡。
+4. **（同上）🔴 合作式 A 對「自己的程式＋include 了 `ndtwin_telemetry.p4`＋來源 cooperative」的交換機必須真的生效**——C 第一輪保留 P2 §7-7 的凍結分岔，使這種台拿不到 clone session，那就等於 A 路只對 NDTwin 自己的 pipeline 有效，不是 goal 要的「兩者都做」。裁定：**P2 §7-7 修正為「每台的 `pipeline.skipped` 列的是這台實際跳過的步驟」**——外來 pipeline 且（來源≠cooperative 或沒有 header）⇒ 仍是 `[clone_session, sflow_telemetry]`（live-p1/02 的 basic 不變）；外來 pipeline 且來源 cooperative 且 G1 自檢過 ⇒ 寫 clone session、`register_switch`、`skipped: []`。fabric 級三個跳過（lldp／watchdog／routes）對任何外來 pipeline照舊（LLDP 靠 include 的 packet_out 其實可行——階段四候選）。`mutate_table_entry.sh` 的 M-B9 因此成為等價變異：退休並換成「foreign＋header＋cooperative 卻沒拿到 clone session」的新變異，閘門檔頭寫明。
+5. **（同上）`_telemetry_source` 兩份實作收成一份**：B 已在 trunk，C 第二輪 `git merge trunk` 後改呼叫 `app_package.telemetry_source`（`AppPackageError` 包成 `TelemetryConfigError` 保住拒絕語意），並把「同一組（package、knob、dpid）兩邊同答」寫成常駐測試而不是一次性對帳。`link_emitter_report` 改讀 B 真正的 manifest 形狀（`switches[]` 是物件清單，取 `dpid`），`alive` 改用 `link_telemetry.process_is_the_emitter(pid)`（讀 `/proc/<pid>/cmdline`）而不是 `/proc/<pid>` 存在。
+6. **階段三候選（不在本輪）**：package `bmv2.cpu_port` 與 pipeline 編進去的 CPU port 沒有交叉檢查（宣告 510、程式 255 ⇒ 控制器封包全丟、兩邊不報錯；bmv2 json 沒有可靠欄位可比）；`GET /p4/counter/{name}` 的 `name` 含 `/` 進不來；`POST /p4/multicast_group` 502 不帶 gRPC code 名（在 proxy log）。
