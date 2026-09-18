@@ -90,7 +90,7 @@ if [[ -s "$SS" ]]; then
     MODE="$(jqp "$SS" "(d.get('control_plane') or {}).get('mode')")"
     PKG_SAID="$(jqp "$SS" "(d.get('control_plane') or {}).get('package')")"
     SKIPPED="$(jqp "$SS" "repr((d.get('control_plane') or {}).get('skipped'))")"
-    ENTRIES="$(jqp "$SS" "sorted({s.get('entries_recorded') for s in (d.get('switches') or [])})")"
+    ENTRIES="$(jqp "$SS" "sorted({s.get('entries_recorded') for s in ((d.get('switches') or {}).values() if isinstance(d.get('switches'), dict) else (d.get('switches') or []))})")"
     note "switches            $N_SW"
     note "control_plane.mode  $MODE"
     note "control_plane.package $PKG_SAID"

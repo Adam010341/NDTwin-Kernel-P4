@@ -104,7 +104,7 @@ get_json "$PROXY_URL/p4/switch_state" "$SS0" || fail "no switch_state"
 if [[ -s "$SS0" ]]; then
     MODE="$(jqp "$SS0" "(d.get('control_plane') or {}).get('mode')")"
     SKIPPED="$(jqp "$SS0" "sorted((d.get('control_plane') or {}).get('skipped') or [])")"
-    ENTRIES="$(jqp "$SS0" "sorted({s.get('entries_recorded') for s in (d.get('switches') or [])})")"
+    ENTRIES="$(jqp "$SS0" "sorted({s.get('entries_recorded') for s in ((d.get('switches') or {}).values() if isinstance(d.get('switches'), dict) else (d.get('switches') or []))})")"
     N_SW="$(jqp "$SS0" "len(d.get('switches') or [])")"
     note "control_plane.mode  $MODE"
     note "control_plane.skipped $SKIPPED"
@@ -122,8 +122,22 @@ fi
 
 # --- 3. the exercise's own controller -------------------------------------------------------------
 say "starting the exercise controller under setsid"
+# 🔴 NOT $PY. The tutorials' p4runtime_lib imports p4.tmp.p4config_pb2, which the proxy venv does
+# not carry (checked 2026-09-18: p4_proxy/venv -> ModuleNotFoundError: No module named 'p4.tmp';
+# /home/adam/p4dev-python-venv -> imports ok). The import is proved here, in the interpreter
+# that will run the controller, so a missing module is a named refusal and not "the controller
+# exited within 10s".
+CTRL_PY="${CTRL_PY:-/home/adam/p4dev-python-venv/bin/python}"
+[[ -x "$CTRL_PY" ]] || fail "no controller interpreter at $CTRL_PY (set CTRL_PY= to point elsewhere)"
+TUTORIALS_UTILS="$(dirname "$(dirname "$EXERCISE")")/utils"
+if ! "$CTRL_PY" -c "import sys; sys.path.insert(0, '$TUTORIALS_UTILS'); import grpc, p4runtime_lib.bmv2, p4runtime_lib.helper; from p4.tmp import p4config_pb2" \
+        > "$RUN/39_controller_imports.txt" 2>&1; then
+    sed 's/^/     /' "$RUN/39_controller_imports.txt"
+    fail "$CTRL_PY cannot import the tutorials' p4runtime_lib from $TUTORIALS_UTILS -- the controller would die at import"
+fi
+note "controller interpreter $CTRL_PY imports p4runtime_lib + p4.tmp"
 CTRL_LOG="$RUN/40_controller.log"
-setsid "$PY" "$REPO/tools/p4_exercise/run_external_controller.py" "$PKG" mycontroller.py \
+setsid "$CTRL_PY" "$REPO/tools/p4_exercise/run_external_controller.py" "$PKG" mycontroller.py \
     > "$CTRL_LOG" 2>&1 < /dev/null &
 CTRL_PID=$!
 note "pid $CTRL_PID -> $(basename "$CTRL_LOG")   (the EXIT trap stops it by this pid; never pkill)"
