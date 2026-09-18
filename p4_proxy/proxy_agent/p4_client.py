@@ -70,6 +70,150 @@ class CounterNotFound(LookupError):
     """
 
 
+# --- the generic table-entry writer (G5). [Co-developed with claude code -- Adam] -------------
+#
+# Everything above this line writes ONE of two tables, both of them NDTwin's own, both of them
+# spelled as literals (`MyIngress.ipv4_lpm`, `MyIngress.flow_5tuple`). A package that brings its
+# own pipeline has neither, so the entries it declares -- tutorials' `sX-runtime.json` -- need a
+# writer that reads the shape of every entry out of the p4info the switch is actually running.
+#
+# 🔴 THREE EXCEPTION TYPES, BECAUSE THE THREE FAILURES ARE NOT THE SAME FAILURE. A caller that
+# receives one boolean cannot tell "this pipeline has no such table" (the operator pointed at the
+# wrong package) from "this proxy cannot build a ternary entry yet" (true of every package, and
+# nothing the operator did) from "the switch refused it" (retryable). TICKET-P2 2.3 maps them to
+# 404 / 501 / 502, and api_routes.table_entry is the only translator.
+
+
+class TableEntryUnsupported(NotImplementedError):
+    """
+    The p4info describes this entry and this proxy cannot build it yet. -> HTTP 501.
+
+    [Co-developed with claude code -- Adam]
+    Phase 2 builds `exact` and `lpm` matches only. A ternary, range or optional field is not a
+    malformed request and not a missing table -- it is a capability this writer does not have,
+    which is the same thing the six group/meter endpoints already mean by 501
+    (P4RoutingStrategy.cpp:11-23). The message carries the p4info's own match-type NAME so the
+    reader is told which of the three it hit rather than being left to guess from the field.
+
+    NotImplementedError so an `except Exception` still contains it while `except ValueError`
+    -- the shape errors below -- deliberately does not.
+    """
+
+
+class TableEntryInvalid(ValueError):
+    """
+    The request cannot be represented in this pipeline. -> HTTP 400.
+
+    [Co-developed with claude code -- Adam]
+    A value wider than its field, an lpm prefix outside 0..bitwidth, a default action carrying a
+    match, a priority on a table with no priority column. Every one of them is the client's
+    error, and every one of them is refused BEFORE anything reaches `stub.Write` -- a rule that
+    lands and is then reported as a 400 is the defect `modify_ipv4_route` used to have, inverted.
+
+    ValueError, so a caller that already funnels malformed input (AppPackageError is one too)
+    keeps catching it.
+    """
+
+
+#: `op` as a caller spells it -> the P4Runtime Update type. A dict rather than an if/elif chain
+#: so an unknown verb is a KeyError-shaped refusal at ONE place, and so the three names this
+#: endpoint accepts are readable as a set. [Co-developed with claude code -- Adam]
+TABLE_ENTRY_OPS = {
+    "insert": p4runtime_pb2.Update.INSERT,
+    "modify": p4runtime_pb2.Update.MODIFY,
+    "delete": p4runtime_pb2.Update.DELETE,
+}
+
+#: Match types this writer can put on the wire. Everything else in the p4info enum raises
+#: TableEntryUnsupported. Named rather than tested inline so the 501 message and the branch
+#: cannot drift apart.
+BUILDABLE_MATCH_TYPES = ("EXACT", "LPM")
+
+
+def encode_value(value, bitwidth) -> bytes:
+    """
+    One P4Runtime field value, in the ceil(bitwidth/8) bytes the target expects.
+
+    [Co-developed with claude code -- Adam]
+    The rules are tutorials' `p4runtime_lib/convert.encode` -- a dotted string is an IPv4
+    address, a colon-separated one is a MAC, anything else is an integer, and everything is
+    big-endian and exactly as wide as the field. They are re-stated here rather than imported:
+    `~/tutorials` is not a dependency of this proxy, it is a directory on one laptop, and a
+    writer that only works where somebody cloned a tutorial is not a writer this fabric can
+    ship. The agreement is asserted instead -- tests/test_p4_client_writes.py pins each rule
+    against the values from the exercises' own runtime files.
+
+    🔴 A VALUE THAT DOES NOT FIT IS REFUSED, NOT TRUNCATED. `int.to_bytes` raises OverflowError,
+    but `value & mask` would not, and a silently narrowed value installs a rule for an address
+    nobody asked about -- which forwards, and reports success. bmv2 also rejects a value of the
+    wrong width outright, so a short or long encoding here surfaces as an opaque UNKNOWN from
+    the switch rather than as the client error it is.
+
+    `True` is not 1 here. JSON has a boolean and P4 does not; a manifest that wrote `true` where
+    it meant `1` is a file somebody should fix, and accepting it would encode a type confusion.
+    """
+    try:
+        bitwidth = int(bitwidth)
+    except (TypeError, ValueError):
+        raise TableEntryInvalid(f"bitwidth must be an integer, got {bitwidth!r}")
+    if bitwidth <= 0:
+        raise TableEntryInvalid(
+            f"this pipeline's p4info gives the field a bitwidth of {bitwidth}; a field with no "
+            f"width has no encoding, so nothing is guessed here")
+    width = (bitwidth + 7) // 8
+
+    if isinstance(value, (bytes, bytearray)):
+        raw = bytes(value)
+        if len(raw) != width:
+            raise TableEntryInvalid(
+                f"a bit<{bitwidth}> field takes {width} byte(s), got {len(raw)}")
+        return raw
+
+    if isinstance(value, bool):
+        raise TableEntryInvalid(
+            f"{value!r} is a JSON boolean, not a value for a bit<{bitwidth}> field")
+
+    if isinstance(value, str):
+        text = value.strip()
+        if ":" in text:
+            if bitwidth != 48:
+                raise TableEntryInvalid(
+                    f"{text!r} is a MAC address (48 bits) and the field is bit<{bitwidth}>")
+            groups = text.split(":")
+            if len(groups) != 6 or any(len(g) != 2 for g in groups):
+                raise TableEntryInvalid(f"{text!r} is not a MAC address like 08:00:00:00:01:11")
+            try:
+                return bytes.fromhex("".join(groups))
+            except ValueError:
+                raise TableEntryInvalid(f"{text!r} is not a MAC address like 08:00:00:00:01:11")
+        if "." in text:
+            if bitwidth != 32:
+                raise TableEntryInvalid(
+                    f"{text!r} is an IPv4 address (32 bits) and the field is bit<{bitwidth}>")
+            try:
+                return socket.inet_aton(text)
+            except OSError:
+                raise TableEntryInvalid(f"{text!r} is not an IPv4 address")
+        try:
+            # base 0 so "0x0a" and "10" both work, which is what the runtime files contain.
+            value = int(text, 0)
+        except ValueError:
+            raise TableEntryInvalid(
+                f"{text!r} is neither an address, a MAC, nor an integer literal")
+
+    if not isinstance(value, int):
+        raise TableEntryInvalid(
+            f"{value!r} ({type(value).__name__}) is not a value for a bit<{bitwidth}> field")
+    if value < 0:
+        raise TableEntryInvalid(f"{value} is negative; P4 fields are unsigned")
+    if value >= (1 << bitwidth):
+        raise TableEntryInvalid(
+            f"{value} does not fit in bit<{bitwidth}> (max {(1 << bitwidth) - 1}); a value this "
+            f"wide would have to be truncated, and a truncated rule matches traffic nobody "
+            f"asked about")
+    return value.to_bytes(width, byteorder="big")
+
+
 class P4RuntimeClient:
     """Encapsulates P4Runtime gRPC connection to a single BMv2 switch"""
     def __init__(self, device_id, grpc_addr, p4info_path, json_path=None,
@@ -621,6 +765,300 @@ class P4RuntimeClient:
                 for param in action.params:
                     if param.name == param_name: return param.id
         raise KeyError(f"Action parameter {param_name} not found")
+
+    # --- the generic writer's lookups. [Co-developed with claude code -- Adam] -----------
+    #
+    # Separate from the four above, which return an id and accept the fully-qualified
+    # `preamble.name` only. These return the DESCRIPTOR, because the generic writer needs the
+    # bitwidth and the match type as well as the id, and they accept the `alias` too: tutorials'
+    # runtime files and its own p4info helper look names up both ways
+    # (`p4runtime_lib/helper.py` tries name then alias), so a package written against that
+    # helper would be refused here for a spelling its own toolchain accepts. The four above are
+    # left exactly as they were -- they are on the baseline write paths, and this ticket changes
+    # nothing a fabric without a package does.
+
+    def _table_by_name(self, name):
+        for table in self.p4info.tables:
+            if name in (table.preamble.name, table.preamble.alias):
+                return table
+        raise KeyError(
+            f"table {name!r} is not in the pipeline switch {self.device_id} is running "
+            f"({len(self.p4info.tables)} tables: "
+            f"{sorted(t.preamble.name for t in self.p4info.tables)[:6]})")
+
+    def _action_by_name(self, name):
+        for action in self.p4info.actions:
+            if name in (action.preamble.name, action.preamble.alias):
+                return action
+        raise KeyError(
+            f"action {name!r} is not in the pipeline switch {self.device_id} is running")
+
+    @staticmethod
+    def _match_field_by_name(table, name):
+        for field in table.match_fields:
+            if field.name == name:
+                return field
+        raise KeyError(
+            f"{table.preamble.name} has no match field {name!r} "
+            f"(it matches on {[f.name for f in table.match_fields]})")
+
+    @staticmethod
+    def _action_param_by_name(action, name):
+        for param in action.params:
+            if param.name == name:
+                return param
+        raise KeyError(
+            f"action {action.preamble.name} has no parameter {name!r} "
+            f"(it takes {[p.name for p in action.params]})")
+
+    @staticmethod
+    def _match_type_name(field):
+        """The p4info's own name for this field's match type.
+
+        [Co-developed with claude code -- Adam]
+        🔴 Read out of the generated enum, never transcribed. The values are NOT 0..n --
+        P4Runtime skips 1 (UNSPECIFIED=0, EXACT=2, LPM=3, TERNARY=4, RANGE=5, OPTIONAL=6) --
+        so a hand-written table would put every entry one match type off, and an lpm written
+        as an exact match is a /32 rule that forwards one address and blackholes the subnet.
+        """
+        return p4info_pb2.MatchField.MatchType.Name(field.match_type)
+
+    def table_honours_priority(self, table):
+        """
+        Whether an entry's priority selects anything in this table.
+
+        [Co-developed with claude code -- Adam]
+        Only a table with a ternary, range or optional field has a priority column; on an
+        exact/lpm table P4Runtime's priority is not part of the entry's identity, so every
+        priority names the same entry. `_refuse_unhonourable_priority` in api_routes.py makes
+        the same distinction for the OpenFlow-shaped endpoints, and made it after a live
+        measurement (2026-09-03): a modify at a priority that had never existed rewrote the
+        entry that was there and answered 200.
+        """
+        return any(self._match_type_name(f) not in BUILDABLE_MATCH_TYPES
+                   for f in table.match_fields)
+
+    def build_table_entry(self, spec):
+        """
+        `(TableEntry, {field name: match type})` for one tutorials-shaped entry.
+
+        [Co-developed with claude code -- Adam]
+        `spec` is one element of a `sX-runtime.json` `table_entries` list, plus the optional
+        `priority` and `default_action` those files already use:
+
+            {"table": "MyIngress.ipv4_lpm",
+             "match": {"hdr.ipv4.dstAddr": ["10.0.1.1", 32]},
+             "action_name": "MyIngress.ipv4_forward",
+             "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1}}
+
+        Every name is resolved against THIS switch's p4info, and every shape decision is made
+        from the p4info's declared match type rather than from the value's shape. Guessing from
+        the value is what tools/p4_exercise/preflight.py has to do -- it has the entries file and
+        not necessarily the pipeline -- and it is a guess: `[v, 32]` is an lpm entry on one table
+        and a ternary value/mask pair on another, and the two mean different traffic.
+
+        Puts nothing on the wire. Everything that can be refused is refused here, so that
+        `write_table_entry` reaches `stub.Write` only for an entry this pipeline can represent.
+        """
+        if not isinstance(spec, dict):
+            raise TableEntryInvalid(
+                f"a table entry must be an object, got {type(spec).__name__}")
+        table_name = spec.get("table")
+        if not isinstance(table_name, str) or not table_name:
+            raise TableEntryInvalid("a table entry must name its 'table'")
+        table = self._table_by_name(table_name)
+
+        match = spec.get("match") or {}
+        if not isinstance(match, dict):
+            raise TableEntryInvalid(
+                f"{table_name}: 'match' must be an object of field name -> value, got "
+                f"{type(match).__name__}")
+        default_action = spec.get("default_action", False)
+        if not isinstance(default_action, bool):
+            raise TableEntryInvalid(
+                f"{table_name}: 'default_action' must be true or false, got "
+                f"{default_action!r}")
+        if default_action and match:
+            # A default action is what the table does when NOTHING matched. An entry that is
+            # both is two different rules, and P4Runtime answers the contradiction with an
+            # opaque INVALID_ARGUMENT from the switch rather than naming it.
+            raise TableEntryInvalid(
+                f"{table_name}: a default action has no match -- it is what the table does when "
+                f"no entry matched. This one names {sorted(match)}")
+
+        entry = p4runtime_pb2.TableEntry()
+        entry.table_id = table.preamble.id
+        entry.is_default_action = default_action
+
+        match_types = {}
+        for field_name, raw in match.items():
+            field = self._match_field_by_name(table, field_name)
+            kind = self._match_type_name(field)
+            match_types[field.name] = kind
+            if kind not in BUILDABLE_MATCH_TYPES:
+                raise TableEntryUnsupported(
+                    f"{table.preamble.name}.{field.name} is a {kind} match, and this proxy "
+                    f"builds {' and '.join(BUILDABLE_MATCH_TYPES)} entries only "
+                    f"(TICKET-P2 2.3). Nothing was written.")
+            m = entry.match.add()
+            m.field_id = field.id
+            if kind == "EXACT":
+                if isinstance(raw, (list, tuple)):
+                    raise TableEntryInvalid(
+                        f"{table.preamble.name}.{field.name} is an EXACT match, so its value is "
+                        f"a plain value, not the pair {list(raw)!r}")
+                m.exact.value = encode_value(raw, field.bitwidth)
+            else:  # LPM
+                if not isinstance(raw, (list, tuple)) or len(raw) != 2:
+                    raise TableEntryInvalid(
+                        f"{table.preamble.name}.{field.name} is an LPM match, so its value is "
+                        f"[value, prefix_len]; got {raw!r}")
+                value, prefix_len = raw
+                if isinstance(prefix_len, bool) or not isinstance(prefix_len, int):
+                    raise TableEntryInvalid(
+                        f"{table.preamble.name}.{field.name}: the prefix length must be an "
+                        f"integer, got {prefix_len!r}")
+                if not 0 <= prefix_len <= field.bitwidth:
+                    raise TableEntryInvalid(
+                        f"{table.preamble.name}.{field.name}: prefix length {prefix_len} is "
+                        f"outside 0..{field.bitwidth}")
+                m.lpm.value = encode_value(value, field.bitwidth)
+                m.lpm.prefix_len = prefix_len
+
+        action_name = spec.get("action_name")
+        if action_name is not None:
+            if not isinstance(action_name, str) or not action_name:
+                raise TableEntryInvalid(
+                    f"{table_name}: 'action_name' must be a non-empty string")
+            action = self._action_by_name(action_name)
+            params = spec.get("action_params") or {}
+            if not isinstance(params, dict):
+                raise TableEntryInvalid(
+                    f"{table_name}: 'action_params' must be an object, got "
+                    f"{type(params).__name__}")
+            missing = [p.name for p in action.params if p.name not in params]
+            if missing:
+                # Not defaulted to zero. bmv2 accepts an action with a missing parameter as
+                # whatever that parameter's zero means -- port 0, MAC 00:00:00:00:00:00 -- and
+                # forwards accordingly, which is a rule that drops traffic while reporting
+                # success.
+                raise TableEntryInvalid(
+                    f"{action.preamble.name} takes {[p.name for p in action.params]} and this "
+                    f"entry omits {missing}; an omitted parameter would be written as zero")
+            built = entry.action.action
+            built.action_id = action.preamble.id
+            for name in params:
+                param = self._action_param_by_name(action, name)
+                written = built.params.add()
+                written.param_id = param.id
+                written.value = encode_value(params[name], param.bitwidth)
+
+        priority = spec.get("priority")
+        if priority is not None:
+            if isinstance(priority, bool) or not isinstance(priority, int):
+                raise TableEntryInvalid(
+                    f"{table_name}: 'priority' must be an integer or null, got {priority!r}")
+            if priority and not self.table_honours_priority(table):
+                raise TableEntryInvalid(
+                    f"priority not honourable on this table: {table.preamble.name} matches only "
+                    f"on {[self._match_type_name(f) for f in table.match_fields]} fields, which "
+                    f"have no priority column -- precedence there is the prefix length and the "
+                    f"table holds one entry per key, so priority {priority} cannot select an "
+                    f"entry. Omit it, or write to a table with a ternary field.")
+            entry.priority = priority
+
+        return entry, match_types
+
+    def _built_entry_match(self, entry):
+        """The match of an entry this client just built, in `read_table_entries`' shape.
+
+        The install-time record is keyed by that shape on both sides (see the note above
+        insert_5tuple_rule): a second spelling would mean every lookup misses, every rule
+        reports duration 0/0, and the result is indistinguishable from KNOWN-ISSUES G-13
+        being unfixed. [Co-developed with claude code -- Adam]
+        """
+        out = {}
+        for m in entry.match:
+            name = self._match_field_name(entry.table_id, m.field_id)
+            if m.HasField("exact"):
+                out[name] = {"type": "exact", "value": m.exact.value}
+            elif m.HasField("lpm"):
+                out[name] = {"type": "lpm", "value": m.lpm.value,
+                             "prefix_len": m.lpm.prefix_len}
+        return out
+
+    def write_table_entry(self, spec, op="insert"):
+        """
+        Put one package- or API-supplied table entry on this switch. TICKET-P2 2.3.
+
+        [Co-developed with claude code -- Adam]
+        Returns what went on the wire:
+
+            {"dpid", "op", "table", "match_types", "priority_honoured", "is_default_action"}
+
+        🔴 NO MODIFY FALLBACK, deliberately, and this is the one place in this class that has
+        none. `insert_ipv4_route` and `insert_5tuple_rule` retry an ALREADY_EXISTS/UNKNOWN as a
+        MODIFY because their caller is the router, which means "make this route be so" and has
+        no reader for the difference. This method's callers are an operator's POST and a
+        package's own entries file, and both of them are entitled to be told that the entry was
+        already there -- a retry would report a clean insert for a switch that overwrote
+        somebody's rule. The gRPC error is raised, carrying its status code, and
+        api_routes.table_entry turns it into a 502 naming that code.
+
+        Every refusal happens before `stub.Write`: an unknown name, an unbuildable match type, a
+        value that does not fit, a priority the table cannot honour, and an external control
+        plane. tests/test_p4_client_writes.py asserts the stub recorded no request for each.
+        """
+        op = str(op or "insert").strip().lower()
+        if op not in TABLE_ENTRY_OPS:
+            raise TableEntryInvalid(
+                f"op must be one of {sorted(TABLE_ENTRY_OPS)}, got {op!r}")
+        self._refuse_write(f"a table entry {op}")
+
+        entry, match_types = self.build_table_entry(spec)
+
+        # 🔴 A default entry is MODIFIED, never inserted: every table already has one (the
+        # compiler's, usually NoAction), so an INSERT is refused by the target. tutorials'
+        # own `p4runtime_lib/switch.WriteTableEntry` makes the same substitution, which is why
+        # no runtime file carries an `op` for these. Disclosed in the result rather than done
+        # quietly -- the caller asked for an insert and something else went on the wire.
+        substituted = False
+        if entry.is_default_action and op == "insert":
+            op, substituted = "modify", True
+        if op in ("insert", "modify") and not entry.action.HasField("action"):
+            raise TableEntryInvalid(
+                f"an {op} needs an action; this entry names none. Only a delete may omit it, "
+                f"because a delete names the entry to remove and not what it did.")
+
+        req = p4runtime_pb2.WriteRequest()
+        req.device_id = self.device_id
+        self._bid(req)
+        update = req.updates.add()
+        update.type = TABLE_ENTRY_OPS[op]
+        update.entity.table_entry.CopyFrom(entry)
+
+        self.stub.Write(req, timeout=RPC_TIMEOUT_S)
+
+        table_name = self._table_name(entry.table_id)
+        recorded_match = self._built_entry_match(entry)
+        if op == "delete":
+            self.rule_install_times.forget(self.device_id, table_name, entry.priority,
+                                           recorded_match)
+        else:
+            self.rule_install_times.record(self.device_id, table_name, entry.priority,
+                                           recorded_match)
+        print(f"[{self.device_id}] table entry {op}: {table_name} "
+              f"{sorted(match_types) or '(default action)'}")
+        return {
+            "dpid": self.device_id,
+            "op": op,
+            "table": table_name,
+            "match_types": match_types,
+            "priority_honoured": self.table_honours_priority(
+                self._table_by_name(table_name)),
+            "is_default_action": entry.is_default_action,
+            "op_substituted": substituted,
+        }
 
     # --- Reading tables back -------------------------------------------------------
     # [Co-developed with claude code -- Adam]

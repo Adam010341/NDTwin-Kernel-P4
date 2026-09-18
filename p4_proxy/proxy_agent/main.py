@@ -1,4 +1,6 @@
 import asyncio
+import hashlib
+import json
 import os
 import socket
 import sys
@@ -242,6 +244,188 @@ def build_p4_client(dpid, port_base=DEFAULT_GRPC_PORT_BASE, package=None):
     )
 
 
+# --- what this proxy is not doing, and why. [Co-developed with claude code -- Adam] ---------
+#
+# 🔴 SKIPPING IS NOT SILENCE. Under `control_plane.mode: external` the proxy deliberately does
+# not push a pipeline, does not program a clone session, does not beacon LLDP, does not watch
+# links and does not install routes -- every one of which is a thing the twin normally reports
+# on. A switch with no telemetry reports zero samples; a fabric with no LLDP reports no links; a
+# fabric with no routes reports empty paths. All three of those look EXACTLY like a fault, which
+# is GAP-ANALYSIS section 5's "reports zero rather than reporting an error". So each skipped step
+# is named here, returned by startup(), and served on `GET /p4/switch_state`.
+#
+# 🔴 THE NAMES LIVE HERE, ABOVE THE PIPELINE SECTION, because the per-switch disclosure below
+# needs them. They used to sit further down, next to `_control_plane`, and every reader of them
+# was a function body -- so a forward reference worked by accident of call order. TICKET-P2
+# round 2 gave `pipeline_report_for` a `skipped` list, which is built from these at import time,
+# and that is exactly the call that would have found them undefined.
+#
+#: The step names startup() reports. Written down rather than built from strings at the call
+#: sites so that a step which stops being skipped, or starts being, changes this list too.
+SKIP_PIPELINE = "pipeline_push"
+SKIP_CLONE = "clone_session"
+SKIP_TELEMETRY = "sflow_telemetry"
+SKIP_LLDP = "lldp_discovery"
+SKIP_WATCHDOG = "link_watchdog"
+SKIP_ROUTES = "install_initial_routes"
+
+#: Everything `external` turns off, in the order startup() would have done it.
+EXTERNAL_SKIPS = (SKIP_PIPELINE, SKIP_CLONE, SKIP_TELEMETRY, SKIP_LLDP, SKIP_WATCHDOG,
+                  SKIP_ROUTES)
+
+#: What a FOREIGN pipeline turns off ON ONE SWITCH, reported in that switch's own `pipeline`
+#: object rather than in the fabric-wide `control_plane.skipped`.
+#:
+#: 🔴 The distinction is the whole point and it was got wrong once (TICKET-P2 round 2, found by
+#: the judge). A mixed fabric -- one package switch beside nine NDTwin ones -- DOES program a
+#: clone session, on the nine. Putting `clone_session` in the fabric-wide list there says
+#: something about the whole fabric that is true of one switch, and a reader who acts on it goes
+#: looking for a telemetry fault on nine switches that have none.
+FOREIGN_PIPELINE_SWITCH_SKIPS = (SKIP_CLONE, SKIP_TELEMETRY)
+
+#: What a foreign pipeline ANYWHERE turns off for the WHOLE fabric. All three ride packet-out /
+#: packet-in through a controller header a tutorials pipeline does not declare, and a beacon
+#: leaves one switch to arrive at another -- so one foreign switch is enough to make the answer
+#: no for every link. TICKET-P2 2.2 (:48) names exactly these three.
+FOREIGN_PIPELINE_FABRIC_SKIPS = (SKIP_LLDP, SKIP_WATCHDOG, SKIP_ROUTES)
+
+
+# --- whose pipeline is on each switch (G4/G5). [Co-developed with claude code -- Adam] -------
+#
+# A package may now name its own compiled artefacts per switch, and almost everything this proxy
+# does to a switch assumes NDTwin's: the clone session targets a session ndtwin_switch.p4
+# declares, the telemetry path reads a header only that program emits, LLDP rides packet-in /
+# packet-out through a controller header a tutorials pipeline does not have at all (measured on
+# the p4info: ndtwin_switch declares 2 controller_packet_metadata, `basic` and `source_routing`
+# declare none), and install_initial_routes writes `MyIngress.ipv4_lpm` by name.
+#
+# So the question "is this switch running our pipeline" decides several branches below, and it
+# has exactly one definition:
+
+
+def proxy_root():
+    """The p4_proxy directory -- what the package's relative artefact paths resolve against.
+
+    Same derivation as `build_p4_client` and `default_journal_path`, named once so the three
+    cannot answer differently for the same process.
+    """
+    return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def _pipeline_is_ndtwin(package, dpid, base_dir=None):
+    """
+    Whether switch `dpid` runs NDTwin's own compiled pipeline under this package.
+
+    [Co-developed with claude code -- Adam]
+    🔴 ONE DEFINITION, ON `Package`. This used to compute the equivalence here -- TICKET-P2 2.1
+    (:44) forbade importing ticket A's `Package.pipeline_is_ndtwin` while the two branches were
+    being written in parallel, because an import would have made this branch unable to run until
+    the other landed. A is merged, so the rule collapses onto its owner exactly as the ticket
+    said it would, and what is left here is the default for `base_dir`: every caller in this file
+    means the p4_proxy root, and making each of them say so was ten chances to say something
+    else.
+
+    The predicate itself is a comparison of RESOLVED PATHS, not `spec.pipeline is not None` --
+    see app_package.pipeline_is_ndtwin for why that distinction is not cosmetic.
+    """
+    base_dir = proxy_root() if base_dir is None else base_dir
+    return package.pipeline_is_ndtwin(dpid, base_dir)
+
+
+def _p4info_fingerprint(path):
+    """`sha256[:16]` of a p4info file, or None if it cannot be read.
+
+    A stable identifier for "which program is this", per CLAUDE.md's rule that a benchmark names
+    its binary. The bmv2 JSON is deliberately NOT fingerprinted: it carries the absolute path of
+    the source in a `program` field, so the same program compiled in two directories has two
+    hashes and the difference says nothing.
+    """
+    try:
+        with open(path, "rb") as fh:
+            return hashlib.sha256(fh.read()).hexdigest()[:16]
+    except OSError:
+        return None
+
+
+def pipeline_report_for(dpid, package=None):
+    """
+    What `GET /p4/switch_state` says about one switch's pipeline.
+
+    [Co-developed with claude code -- Adam]
+    `skipped` is PER SWITCH and is not the same list as `control_plane.skipped`. The clone
+    session and the sFlow registration are programmed into one switch's own PRE, so on a mixed
+    fabric they are skipped for the package's switches and done for everybody else -- which is a
+    sentence about a switch, not about a fabric. Empty for an NDTwin switch, and emitted anyway:
+    `[]` says "nothing was skipped here", and an absent key cannot be told from a proxy too old
+    to have one.
+    """
+    package = profile.current() if package is None else package
+    base_dir = proxy_root()
+    p4info_path, _json_path = package.pipeline_for(dpid, base_dir)
+    ndtwin = _pipeline_is_ndtwin(package, dpid, base_dir)
+    return {"ndtwin": ndtwin,
+            "p4info": p4info_path,
+            "p4info_sha256": _p4info_fingerprint(p4info_path),
+            "skipped": [] if ndtwin else sorted(FOREIGN_PIPELINE_SWITCH_SKIPS)}
+
+
+def package_entries_path(package, dpid):
+    """The runtime-entries file this package declares for one switch, or None."""
+    for spec in package.switches:
+        if spec.dpid == int(dpid):
+            return spec.entries
+    return None
+
+
+def apply_package_entries(client, entries_path):
+    """
+    Write every entry a package declares for one switch. Returns counts; never raises.
+
+    [Co-developed with claude code -- Adam]
+        {"applied": n, "failed": n, "errors": ["<table>: <reason>", ...]}
+
+    🔴 One refused entry does not stop the rest, and it does not take startup down either. A
+    tutorials runtime file is a list of independent rules: `ipv4_lpm` entries for four hosts plus
+    a default action, say. Stopping at the first failure would leave a fabric programmed up to an
+    arbitrary point with no record of where, and raising would put us back in the state the
+    per-switch guard around the pipeline push was written to fix -- one switch's problem ending
+    the whole proxy's startup.
+
+    Each failure is printed AND counted AND named in `errors`. The count reaches
+    `GET /p4/switch_state` as `table_entries.failed`, because "the package's rules are not on
+    this switch" has to be a number somewhere: a fabric that forwards nothing because five
+    inserts were refused looks, from every other view, exactly like a fabric whose links are
+    down.
+    """
+    out = {"applied": 0, "failed": 0, "errors": []}
+    if not entries_path:
+        return out
+    try:
+        with open(entries_path) as fh:
+            doc = json.load(fh)
+    except (OSError, ValueError) as exc:
+        # Counted as neither applied nor failed, because with no file there is no denominator:
+        # how many entries it held is exactly what could not be read. `errors` is the disclosure,
+        # and app_package.load already refuses a package whose entries file will not parse, so
+        # reaching this means the file changed under a running proxy.
+        out["errors"].append(f"{entries_path} could not be read: {type(exc).__name__}: {exc}")
+        print(f"[Proxy Agent] switch {getattr(client, 'device_id', '?')}: {out['errors'][-1]}")
+        return out
+    entries = doc.get("table_entries") or []
+    for index, spec in enumerate(entries):
+        table = spec.get("table") if isinstance(spec, dict) else None
+        op = spec.get("op", "insert") if isinstance(spec, dict) else "insert"
+        try:
+            client.write_table_entry(spec, op)
+            out["applied"] += 1
+        except Exception as exc:  # noqa: BLE001 -- one entry must not cost the other four
+            out["failed"] += 1
+            out["errors"].append(f"entry {index} ({table}): {type(exc).__name__}: {exc}")
+            print(f"[Proxy Agent] switch {getattr(client, 'device_id', '?')}: table entry "
+                  f"{index} into {table} was NOT applied -- {type(exc).__name__}: {exc}")
+    return out
+
+
 def build_p4_clients(dpids=DEFAULT_SWITCH_DPIDS, port_base=DEFAULT_GRPC_PORT_BASE):
     """
     Connect to each bmv2 switch and return {dpid: client} for the ones that came up.
@@ -263,38 +447,11 @@ def build_p4_clients(dpids=DEFAULT_SWITCH_DPIDS, port_base=DEFAULT_GRPC_PORT_BAS
     return clients
 
 
-# Wired at import time like inject_topology above: the readopt endpoint needs to build
-# clients (paths and port numbering live here) and to hand new ones the sFlow callback,
-# exactly as startup() does for the originals. [Co-developed with claude code -- Adam]
-api_routes.inject_readopt(build_p4_client, sflow.handle_sample)
 # The emitter itself, for GET /sflow/stats. [Co-developed with claude code -- Adam]
 # Ticket P needs the send-side counters readable; sflow_emitter.py is deliberately untouched
 # because four measurement rounds were taken against its current uncommitted contents.
 api_routes.inject_emitter(sflow)
 
-
-# --- what this proxy is not doing, and why. [Co-developed with claude code -- Adam] ---------
-#
-# 🔴 SKIPPING IS NOT SILENCE. Under `control_plane.mode: external` the proxy deliberately does
-# not push a pipeline, does not program a clone session, does not beacon LLDP, does not watch
-# links and does not install routes -- every one of which is a thing the twin normally reports
-# on. A switch with no telemetry reports zero samples; a fabric with no LLDP reports no links; a
-# fabric with no routes reports empty paths. All three of those look EXACTLY like a fault, which
-# is GAP-ANALYSIS section 5's "reports zero rather than reporting an error". So each skipped step
-# is named here, returned by startup(), and served on `GET /p4/switch_state`.
-#
-#: The step names startup() reports. Written down rather than built from strings at the call
-#: sites so that a step which stops being skipped, or starts being, changes this list too.
-SKIP_PIPELINE = "pipeline_push"
-SKIP_CLONE = "clone_session"
-SKIP_TELEMETRY = "sflow_telemetry"
-SKIP_LLDP = "lldp_discovery"
-SKIP_WATCHDOG = "link_watchdog"
-SKIP_ROUTES = "install_initial_routes"
-
-#: Everything `external` turns off, in the order startup() would have done it.
-EXTERNAL_SKIPS = (SKIP_PIPELINE, SKIP_CLONE, SKIP_TELEMETRY, SKIP_LLDP, SKIP_WATCHDOG,
-                  SKIP_ROUTES)
 
 #: The live control-plane report, served on `GET /p4/switch_state`. `skipped` is None until
 #: startup() has run, and that is not the same statement as `[]`: "nothing was skipped" and
@@ -315,14 +472,171 @@ def _record_control_plane(package, skipped):
 
 
 def entries_recorded_report():
-    """{dpid as string: entries the package declares}. Phase 1 applies none of them."""
+    """{dpid as string: entries the package declares}. How many, never which."""
     return profile.current().entries_recorded()
 
 
-# Wired the same way the topology and the readopt factory are, and at the same point: the
-# endpoint has to be able to answer before startup() finishes, because the kernel begins polling
-# it the moment the port is open. [Co-developed with claude code -- Adam]
+# --- what is running on each switch, and what got written to it. TICKET-P2 2.2 ---------------
+# [Co-developed with claude code -- Adam]
+#
+# Two more per-switch disclosures, for the same reason `entries_recorded` exists: under a foreign
+# pipeline this proxy stops doing several things, and every one of them presents downstream as a
+# fault rather than as a decision.
+#
+#   pipeline       {"ndtwin": bool, "p4info": <abs>, "p4info_sha256": <16 hex>}
+#   table_entries  {"recorded", "applied", "failed", "api_writes", "journaled"}
+#
+# `journaled` is a constant `False` and is emitted anyway (Adam 2026-09-18, option a): entries
+# applied here are NOT written to the rule journal, so they are gone after a proxy restart and
+# nothing replays them. A field that says so is the difference between an operator who knows to
+# re-run `ndt up p4 --app` and one who finds an empty table with no explanation.
+
+#: Accepted `POST /p4/table_entry` writes, per switch, for the life of this process. Separate
+#: from `applied`, which counts only what the package's own entries file put on the switch: an
+#: operator asking "where did these rules come from" is asking exactly which of the two, and one
+#: combined number cannot answer it.
+_api_writes = {}
+
+#: 🔴 `+= 1` is a read, an add and a store, and the store is not the read's turn of the GIL.
+#: `POST /p4/table_entry` runs its write on FastAPI's threadpool, so two operators posting at
+#: once can both read 4 and both write 5 -- one rule counted zero times. Every other dict here
+#: is written by startup alone, on the event loop, one whole key at a time; this is the only
+#: read-modify-write in the file. Three lines, no test: a lock has no observable behaviour to
+#: assert that would not just be re-running the race. [Co-developed with claude code -- Adam]
+_api_writes_lock = threading.Lock()
+
+
+def _describe_pipelines(package, dpids):
+    return {str(dpid): pipeline_report_for(dpid, package) for dpid in dpids}
+
+
+def _blank_entry_counts(package):
+    return {dpid: {"recorded": count, "applied": 0, "failed": 0}
+            for dpid, count in package.entries_recorded().items()}
+
+
+#: Filled at import so the endpoint can answer before startup() has run -- the kernel polls it
+#: from the moment the port is open -- and re-recorded by startup() against the switches that
+#: actually connected.
+_pipelines = _describe_pipelines(profile.current(), DEFAULT_SWITCH_DPIDS)
+_table_entries = _blank_entry_counts(profile.current())
+
+
+def pipelines_report():
+    """{dpid as string: what that switch's pipeline is}. A copy per switch."""
+    return {dpid: dict(entry) for dpid, entry in _pipelines.items()}
+
+
+def _dpid_order(key):
+    return (0, int(key), "") if str(key).isdigit() else (1, 0, str(key))
+
+
+def table_entries_report():
+    """{dpid as string: how many entries were declared, applied, refused and POSTed}."""
+    out = {}
+    for dpid in sorted(set(_table_entries) | set(_api_writes), key=_dpid_order):
+        counts = _table_entries.get(dpid, {"recorded": 0, "applied": 0, "failed": 0})
+        out[dpid] = {"recorded": counts.get("recorded", 0),
+                     "applied": counts.get("applied", 0),
+                     "failed": counts.get("failed", 0),
+                     "api_writes": _api_writes.get(dpid, 0),
+                     # Not a variable. Nothing in this proxy journals a table entry, and the
+                     # constant is emitted so that "these rules do not survive a restart" is
+                     # something the endpoint SAYS rather than something a reader has to know.
+                     "journaled": False}
+    return out
+
+
+def note_api_table_entry_write(dpid):
+    """One accepted `POST /p4/table_entry`. Called by the route, never by startup."""
+    key = str(dpid)
+    with _api_writes_lock:
+        _api_writes[key] = _api_writes.get(key, 0) + 1
+        return _api_writes[key]
+
+
+def _record_table_entries(dpid, recorded, applied, failed):
+    _table_entries[str(dpid)] = {"recorded": recorded, "applied": applied, "failed": failed}
+
+
+def readopt_switch(topology, dpid, client_factory, sample_callback, package=None):
+    """
+    The package's half of `POST /p4/readopt/{dpid}`.
+
+    [Co-developed with claude code -- Adam]
+    `TopologyManager.readopt_switch` owns the re-adoption sequence -- build, arbitrate, settle,
+    push, clone, routes -- and it knows nothing about app packages, which is right: it is the
+    same sequence whatever pipeline the switch runs. What changes under a FOREIGN pipeline is
+    what may be done to the switch afterwards, and that is package knowledge, so it is decided
+    here and passed in rather than branched on down there.
+
+    All three rules in TICKET-P2 4.2 are expressible from this side, as of round 2:
+
+      * no clone session -- `sample_callback=None` is exactly how readopt is told a switch gets
+        no telemetry, and a foreign pipeline clones nothing to the CPU port, so a session
+        programmed into its PRE would report zero samples forever and look like a broken
+        emitter;
+      * no route refill -- `install_routes=False`. That parameter was added to
+        `TopologyManager.readopt_switch` in round 2 (the orchestrator's ruling on objection ①);
+        before it existed the refill ran unconditionally and wrote NDTwin's shortest paths into
+        `MyIngress.ipv4_lpm` by name -- which against `basic.p4` SUCCEEDS, because that program
+        declares the same table with the same action and the same parameter names, so this
+        proxy's routes landed on top of the exercise's own forwarding with both sides reporting
+        success;
+      * the package's entries are re-applied afterwards, because the push that just happened
+        emptied every table on the switch (KNOWN-ISSUES A-4c) including the ones this proxy put
+        there at startup.
+
+    🔴 NOTHING IS CAUGHT HERE. An earlier version wrapped the call in `except Exception` to turn
+    the KeyError the route refill raised against a foreign pipeline into a named failure instead
+    of a 500. That was a workaround for not having the parameter; with the parameter the refill
+    does not run, so an exception coming out of readopt now means something genuinely went wrong
+    and both branches re-raise it unchanged.
+
+    🔴 TWO KEYS ARE OVERWRITTEN for a foreign switch, and both are "reported success without
+    doing it" otherwise. `readopt_switch` answers `clone_session: True` when it was handed no
+    sample callback -- which means "nothing failed" there and is right for a fabric whose sFlow
+    is simply not wired, but here it would tell an operator a session was programmed when the
+    decision was that none should be. And `routes_installed: 0` with nothing beside it reads as
+    a switch that refused its routes rather than one that was deliberately not offered any.
+    """
+    package = profile.current() if package is None else package
+    ndtwin = _pipeline_is_ndtwin(package, dpid)
+
+    result = topology.readopt_switch(dpid, client_factory,
+                                     sample_callback if ndtwin else None,
+                                     install_routes=ndtwin)
+
+    if ndtwin or result.get("status") != "success":
+        return result
+
+    result["clone_session"] = False
+    result["routes"] = "skipped"
+    result["routes_note"] = (
+        "this switch runs the app package's own pipeline: no clone session was programmed (it "
+        "does not clone to the CPU port) and no NDTwin route was installed (the refill names "
+        "NDTwin's own tables). Its forwarding is the package's table entries below.")
+
+    # The pipeline push inside readopt emptied the switch. Whatever the package declared for it
+    # is gone with everything else, so it goes back on -- and the counts are re-recorded, not
+    # added to, because they describe what is on the switch now.
+    counts = apply_package_entries(topology.switches.get(dpid),
+                                   package_entries_path(package, dpid))
+    _record_table_entries(dpid, _table_entries.get(str(dpid), {}).get("recorded", 0),
+                          counts["applied"], counts["failed"])
+    result["table_entries"] = dict(counts)
+    return result
+
+
+# Wired the same way the topology is, and at the same point: the endpoints have to be able to
+# answer before startup() finishes, because the kernel begins polling the moment the port is
+# open. The readopt factory is here too -- that endpoint needs to build clients (paths and port
+# numbering live in this file) and to hand new ones the sFlow callback, exactly as startup()
+# does for the originals. [Co-developed with claude code -- Adam]
+api_routes.inject_readopt(build_p4_client, sflow.handle_sample, readopt_switch)
 api_routes.inject_control_plane(control_plane_report, entries_recorded_report)
+api_routes.inject_package_reports(pipelines_report, table_entries_report,
+                                  note_api_table_entry_write)
 
 
 async def startup(clients_factory, sflow, kernel, topo,
@@ -349,6 +663,27 @@ async def startup(clients_factory, sflow, kernel, topo,
     A fourth key, `control_plane`, says which of the steps below ran at all. Under an app package
     in `external` mode most of them do not, and every one of them is a step whose absence looks
     like a fault downstream -- see EXTERNAL_SKIPS.
+
+    [Co-developed with claude code -- Adam]
+    A fifth and sixth, `pipelines` and `table_entries`, say which program each switch is running
+    and how many of the package's own rules went onto it. Under a FOREIGN pipeline (TICKET-P2
+    2.2) three more things change, all of them disclosed through the same two keys and
+    `control_plane.skipped`:
+
+      * per switch -- no clone session and no sFlow registration, because the exercise's
+        pipeline does not clone to the CPU port. The PRE write would SUCCEED and produce nothing,
+        which is the "reports zero rather than reports an error" shape exactly;
+      * per switch -- the package's declared entries are APPLIED, through the same writer
+        `POST /p4/table_entry` uses;
+      * fabric-wide -- no LLDP, no watchdog and therefore no initial routes, because all three
+        ride packet-in/packet-out through a controller header a tutorials pipeline does not
+        declare. The watchdog would additionally report every seeded link down inside its
+        timeout: a fabric-wide false alarm.
+
+    🔴 THE TWO DISCLOSURES ARE NOT ONE LIST. `control_plane.skipped` carries the FABRIC-wide
+    three only; the per-switch pair lands on that switch's `pipeline.skipped`. On a mixed fabric
+    the switches beside the package's still get a clone session and still sample, so saying
+    `clone_session` at fabric level would be a true sentence about one switch told about ten.
     """
     print("[Proxy Agent] Starting up...")
 
@@ -359,6 +694,14 @@ async def startup(clients_factory, sflow, kernel, topo,
     clients = clients_factory()
     for dpid, client in clients.items():
         topo.add_switch(dpid, client)
+
+    # Which program each switch is about to run, recorded before anything is done to it so the
+    # endpoint can answer while the pushes are still in flight. `foreign` is the set this
+    # ticket's branches turn on; on the baseline fabric, and on any package whose switches all
+    # declare `pipeline: null`, it is empty and every branch below is the one that ran before.
+    _pipelines.clear()
+    _pipelines.update(_describe_pipelines(package, sorted(clients)))
+    foreign = {dpid for dpid in clients if not _pipelines[str(dpid)]["ndtwin"]}
 
     if read_only:
         # 🔴 The whole point of `external`: the exercise's own controller owns this fabric's
@@ -420,6 +763,33 @@ async def startup(clients_factory, sflow, kernel, topo,
         print(f"[Proxy Agent] {len(broken)} of {len(clients)} switches have no pipeline "
               f"({sorted(broken)}); they will report as down and will not be enabled in the graph")
 
+    # --- the package's own table entries (G5). [Co-developed with claude code -- Adam] ------
+    #
+    # 🔴 ONLY ON A FOREIGN PIPELINE, and only after the push that loaded it. Under NDTwin's own
+    # pipeline a package's entries stay RECORDED AND UNAPPLIED, which is what phase 1 shipped
+    # and what `live-p1/02` asserts: those files are written against the exercise's tables, and
+    # `MyIngress.ipv4_lpm` in `basic.p4` is not `MyIngress.ipv4_lpm` in `ndtwin_switch.p4` even
+    # though the two strings are equal -- applying them would put the exercise's forwarding
+    # decisions into our pipeline, on top of the routes install_initial_routes computes, and
+    # both would report success.
+    #
+    # Recorded per switch whether or not anything was applied: `recorded` with `applied: 0` on
+    # our own pipeline is a sentence ("these exist and were deliberately not used"), and the
+    # same pair on a foreign one after a failure is a different sentence that must not look
+    # like it.
+    entry_errors = {}
+    for i, client in clients.items():
+        recorded = package.entries_recorded().get(str(i), 0)
+        counts = {"applied": 0, "failed": 0, "errors": []}
+        if i in foreign and i not in broken and not read_only:
+            counts = apply_package_entries(client, package_entries_path(package, i))
+            print(f"[Proxy Agent] Switch {i} runs the package's own pipeline: "
+                  f"{counts['applied']} of {recorded} declared table entries applied, "
+                  f"{counts['failed']} refused")
+        _record_table_entries(i, recorded, counts["applied"], counts["failed"])
+        if counts["errors"]:
+            entry_errors[str(i)] = counts["errors"]
+
     # --- telemetry --------------------------------------------------------------------
     # [Co-developed with claude code -- Adam]
     #
@@ -444,6 +814,21 @@ async def startup(clients_factory, sflow, kernel, topo,
         if i in broken:
             # The clone session lives in the pipeline's PRE, so there is nothing to program it into.
             # [Co-developed with claude code -- Adam]
+            continue
+        if i in foreign:
+            # [Co-developed with claude code -- Adam]
+            # 🔴 The PRE write would SUCCEED. A clone session is a target-level object, not part
+            # of the P4 program, so bmv2 accepts it against any pipeline -- and then nothing ever
+            # clones into it, because `clone_preserving_field_list` only exists in
+            # ndtwin_switch.p4. The result is a switch registered for sFlow, a session programmed,
+            # no error anywhere, and zero samples for the rest of the run: "reports zero rather
+            # than reports an error" with every intermediate step green.
+            #
+            # register_switch is skipped for the same reason. A registered switch that never
+            # samples is an agent address the kernel attributes nothing to.
+            print(f"[Proxy Agent] Switch {i} runs the package's own pipeline, which does not "
+                  f"clone to the CPU port; no clone session and no sFlow registration for it "
+                  f"({SKIP_CLONE}, {SKIP_TELEMETRY} on GET /p4/switch_state)")
             continue
 
         agent_ip = agent_ips.get(i)
@@ -499,6 +884,40 @@ async def startup(clients_factory, sflow, kernel, topo,
             daemon=True,
             name="switch-entered-retry",
         ).start()
+
+    # --- what a foreign pipeline takes away from the whole fabric. TICKET-P2 2.2 -----------
+    # [Co-developed with claude code -- Adam]
+    #
+    # LLDP discovery, the link watchdog and (through them) install_initial_routes all ride
+    # packet-out and packet-in. Those need a controller header, and the p4info says which
+    # programs have one: `ndtwin_switch` declares two `controller_packet_metadata` entries,
+    # `basic` and `source_routing` declare none. A packet-out into such a pipeline is not an
+    # error, it is a frame the parser was never written to emit -- so discovery would find
+    # nothing and the watchdog, which seeds every declared link and waits for beacons, would
+    # report the ENTIRE fabric down inside its timeout. A fabric-wide false alarm is worse than
+    # the absence it replaces, which is the same argument `external` mode already makes.
+    #
+    # Fabric-wide on ONE switch being foreign, not per switch: a beacon leaves one switch and
+    # arrives at another, so a link between an NDTwin switch and a package switch cannot be
+    # discovered either, and a watchdog seeded with every declared link would mark it down.
+    #
+    # 🔴 REBOUND ONTO `read_only` RATHER THAN ADDED AS A SECOND CONDITION. From this line down,
+    # every `if not read_only:` is asking one question -- "may this proxy drive this fabric
+    # through the CPU port?" -- and the answer is now no for a second reason. The two reasons
+    # stay apart where a reader looks for them: `control_plane.mode` says which one, and every
+    # switch's `pipeline.ndtwin` says which switches. (The mechanical constraint is real too:
+    # `tests/shell/mutate_app_package.sh` M18 anchors on those exact three lines, and that gate
+    # belongs to another ticket's file.)
+    if foreign and not read_only:
+        skipped.extend(FOREIGN_PIPELINE_FABRIC_SKIPS)
+        print(f"[Proxy Agent] {len(foreign)} of {len(clients)} switches "
+              f"({sorted(foreign)}) run the app package's own pipeline, which carries no "
+              f"controller header: this proxy will not send LLDP beacons, watch links or "
+              f"install routes on ANY switch of this fabric. Skipped: "
+              f"{', '.join(sorted(set(skipped)))}. The per-switch skips (no clone session, no "
+              f"sFlow) are on each switch's own `pipeline.skipped`, because the switches "
+              f"beside these still have both. Reported on GET /p4/switch_state.")
+        read_only = True
 
     # Start LLDP dynamic topology discovery
     #
@@ -567,6 +986,15 @@ async def startup(clients_factory, sflow, kernel, topo,
         # serve it. `[]` here means every step ran -- which is the baseline fabric's answer, and
         # is a different statement from the `null` the endpoint serves before startup has run.
         "control_plane": _record_control_plane(package, skipped),
+        # [Co-developed with claude code -- Adam]
+        # Which program each switch runs, and what this proxy managed to write onto it. Returned
+        # as well as served so a test can assert the decision without an HTTP layer, and so the
+        # numbers a live run reports come from the same dictionaries the endpoint reads.
+        "pipelines": pipelines_report(),
+        "table_entries": table_entries_report(),
+        # Non-empty only when an entry was refused. The counts say how many; this says which,
+        # and a count with no reason is a number nobody can act on.
+        "entry_errors": entry_errors,
     }
 
 
