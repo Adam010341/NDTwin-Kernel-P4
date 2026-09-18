@@ -212,6 +212,37 @@ paths_installed() {
     [[ -n "$n" && "$n" -gt 0 ]]
 }
 
+# proxy_skipped_steps -> the fabric-wide control-plane steps the P4 proxy says it did not run,
+# comma-joined; empty when it has not said.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 BOUNDED RE-READ, and the bound is what makes it safe. The socket on :8081 is bound and
+# listening BEFORE the app can answer anything -- proxy_agent/main.py's claim_listen_socket()
+# takes it ahead of Server.run, deliberately, so that a second agent cannot write to the fabric
+# and only then discover the port is taken -- while uvicorn awaits the ASGI lifespan (and with it
+# `startup()`, which is where `control_plane.skipped` is recorded) before it begins serving on
+# that socket. So the port being open is NOT the same event as the answer being ready: a GET in
+# that window connects and waits. Every answer that does arrive already carries the final list;
+# what can happen is no answer at all, and five one-second attempts is the difference between
+# that case falling through to the ordinary wait and it being read as "nothing was skipped".
+proxy_skipped_steps() {
+    local i out
+    for i in 1 2 3 4 5; do
+        out="$(curl -s --max-time 3 "$P4_PROXY_URL/p4/switch_state" \
+               | python3 -c 'import json,sys
+d = json.load(sys.stdin)
+cp = d.get("control_plane")
+if not isinstance(cp, dict):
+    raise SystemExit(1)
+skipped = cp.get("skipped")
+if skipped is None:
+    raise SystemExit(1)
+print(",".join(sorted(str(s) for s in skipped)))' 2>/dev/null)" && { printf '%s' "$out"; return 0; }
+        sleep 1
+    done
+    return 1
+}
+
 # await_convergence <mode> <topo> <timeout>
 #
 # Polls the control plane until it reports the whole topology *and* has installed the
@@ -227,6 +258,25 @@ paths_installed() {
 # immediately on an unreadable control plane would reintroduce the race this replaces.
 await_convergence() {
     local mode="$1" topo="$2" timeout="$3"
+    # [Co-developed with claude code -- Adam]
+    # 🔴 DO NOT WAIT FOR SOMETHING NOBODY IS DOING (TICKET-P2-D §3.4). The loop below waits for
+    # the proxy to report `hosts * (hosts - 1)` destination paths, which it installs after LLDP
+    # discovery -- and under an app package carrying its own P4 program, or an external control
+    # plane, the proxy sends no LLDP at all and says so in `control_plane.skipped`. Measured live
+    # on 2026-09-18: exercises/basic burned the whole CONVERGE_WAIT (300 s) on every bring-up and
+    # then proceeded anyway, four driver rounds at 7.5 minutes each, over a fabric that was
+    # forwarding the entire time. `03_app_p4runtime` did the same under `external`.
+    #
+    # 🔴 THE PROXY'S OWN WORD, not this script's guess from the topology or the knob. "I did not
+    # look" and "I looked and found nothing" are the two answers this whole disclosure exists to
+    # keep apart, and a silent proxy falls through to the wait it would have done anyway.
+    if [[ "$mode" != "ovs" ]]; then
+        local skipped; skipped="$(proxy_skipped_steps)"
+        if [[ ",$skipped," == *,lldp_discovery,* ]]; then
+            info "  link discovery: NOT WAITED -- the proxy says it sends no LLDP on this fabric (control_plane.skipped: ${skipped//,/, })"
+            return 0
+        fi
+    fi
     local want; want="$(expected_counts "$mode" "$topo")"
     if [[ -z "$want" ]]; then
         warn "  cannot read expected counts from $topo; falling back to a fixed wait"

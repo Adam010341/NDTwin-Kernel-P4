@@ -245,7 +245,7 @@ port_open() { return 1; }
 # with an `unset -f`, because unsetting a function does not bring the original back.
 STUBS_V="$STUBS"
 STUBS="$STUBS"'
-verify_p4() { echo "VERIFY_P4 topo=$1 want_paths=$2 mode=${3:-<none>}"; return 0; }
+verify_p4() { echo "VERIFY_P4 topo=$1 want_paths=$2 mode=${3:-<none>} pipe=${4:-<none>}"; return 0; }
 '
 
 _drive() {   # _drive <stub-set> <shell-code> -> its output plus a trailing RC=<n>
@@ -876,9 +876,10 @@ verify_p4_graph() { :; }
 check_up_target() { return 0; }
 UP_TARGET_PROBLEMS=()
 '
-run_status() {
+run_status() {   # run_status [<cmd_status args>] [<extra stubs appended after STATUS_STUBS>]
     bash -c "source '$NDT' >/dev/null 2>&1
 $STATUS_STUBS
+${2:-}
 cmd_status ${1:-}
 echo \"RC=\$?\"" 2>&1
 }
@@ -906,6 +907,228 @@ has   "🔴 and the stale build IS a problem there"         "the fabric predates
 # The other half of M23's evidence: the rate's OWN problem is raised here and suppressed above,
 # so "none of them under a foreign pipeline" is a difference this pair can actually see.
 has   "🔴 and so is the compiled pipeline that samples nothing" "the compiled pipeline samples nothing" "$OUT"
+check "  so --check exits 1 on it"                        "1" "$(rc_of "$OUT")"
+
+# =============================================================================================
+section "16. 🔴 verify_p4 under a package pipeline -- paths NOT CHECKED, entries the gate"
+# =============================================================================================
+# TICKET-P2-D. The hole this section closes was found LIVE and could not be found here, because
+# §0-2 forbids a worker `ndt up` and `curl` in this file is a stub: on 2026-09-18
+# `ndt up p4 --app <exercises/basic>` waited the whole CONVERGE_WAIT for twelve destination
+# paths, read four, and ended `up, but not verified` over a fabric whose twelve ordered pairs
+# all pinged at 0% loss. Four was the DESIGNED answer -- the proxy skips lldp_discovery on a
+# foreign pipeline (proxy_agent/main.py FOREIGN_PIPELINE_FABRIC_SKIPS), so its graph has no
+# inter-switch links and the only pairs it can path are the ones sharing a switch.
+#
+# 🔴 THE THREE SEGMENTS ARE THREE DIFFERENT VERDICTS, and that is the whole design:
+#   * the path count is NOT CHECKED -- but only once the proxy has SAID it skipped discovery.
+#     "I stopped counting because a package named its own pipeline" would print the same
+#     sentence over a proxy that really was discovering links and had found four of twelve,
+#     which is the fault the count exists to catch wearing this message as a disguise;
+#   * the table entries are the GATE, because applying the package's own rules is the one thing
+#     NDTwin is responsible for on this fabric;
+#   * forwarding is a READING. A skeleton is meant not to forward and source_routing's own
+#     solution does not answer a plain ping, so a gate here hands drive_exercise.py an ERROR
+#     where it needs a red arm and a green one.
+
+# mkss <file> <control-plane spec> <per-switch spec>... -- a switch_state fixture.
+#   control-plane spec:  NOCP            no control_plane object at all
+#                        NULL            control_plane present, skipped: null (startup unfinished)
+#                        <empty>         skipped: []
+#                        a,b,c           skipped: [a, b, c]
+#   per-switch spec:     <rec>:<app>:<fail>   or   NOENTRIES (no table_entries block)
+mkss() {
+    local f="$1" cp="$2"; shift 2
+    python3 - "$f" "$cp" "$@" <<'PY'
+import json, sys
+f, cp = sys.argv[1], sys.argv[2]
+d = {"status": "success", "switches": {}}
+if cp != "NOCP":
+    d["control_plane"] = {"mode": "ndtwin", "package": "/pkg",
+                          "skipped": None if cp == "NULL" else ([] if cp == "" else cp.split(","))}
+for i, spec in enumerate(sys.argv[3:], start=1):
+    s = {"pipeline": {"ndtwin": False, "p4info": "/pkg/build/basic.p4.p4info.txtpb",
+                      "p4info_sha256": "9213871cee36bd93",
+                      "skipped": ["clone_session", "sflow_telemetry"]}}
+    if spec != "NOENTRIES":
+        rec, app, fail = (int(x) for x in spec.split(":"))
+        s["table_entries"] = {"recorded": rec, "applied": app, "failed": fail,
+                              "api_writes": 0, "journaled": False}
+    d["switches"][str(i)] = s
+json.dump(d, open(f, "w"), indent=1)
+PY
+}
+SKIPS3=install_initial_routes,link_watchdog,lldp_discovery
+SS_GOOD="$FIX/ss_good.json"    ; mkss "$SS_GOOD"    "$SKIPS3" 5:5:0 5:5:0 5:5:0 5:5:0
+SS_NOLLDP="$FIX/ss_nolldp.json"; mkss "$SS_NOLLDP"  ""        5:5:0 5:5:0 5:5:0 5:5:0
+SS_NOCP="$FIX/ss_nocp.json"    ; mkss "$SS_NOCP"    NOCP      5:5:0 5:5:0 5:5:0 5:5:0
+SS_NULL="$FIX/ss_null.json"    ; mkss "$SS_NULL"    NULL      5:5:0 5:5:0 5:5:0 5:5:0
+SS_FAILED="$FIX/ss_failed.json"; mkss "$SS_FAILED"  "$SKIPS3" 5:5:0 5:4:1 5:5:0 5:5:0
+SS_SHORT="$FIX/ss_short.json"  ; mkss "$SS_SHORT"   "$SKIPS3" 5:5:0 5:5:0 5:3:0 5:5:0
+SS_EMPTY="$FIX/ss_empty.json"  ; mkss "$SS_EMPTY"   "$SKIPS3" 0:0:0 0:0:0
+SS_MIXED="$FIX/ss_mixed.json"  ; mkss "$SS_MIXED"   "$SKIPS3" 5:5:0 3:3:0
+# 🔴 The one shape only the `failed` half can catch: every recorded entry is applied AND the
+# proxy still reports refusals. Without it `failed != 0` and `applied != recorded` cover for
+# each other -- deleting either leaves the other printing the same sentence about the same
+# switch, which is what this fixture was added for after that mutation survived.
+SS_FAILONLY="$FIX/ss_failonly.json"; mkss "$SS_FAILONLY" "$SKIPS3" 5:5:0 5:5:2
+SS_NOTE="$FIX/ss_noentries.json"; mkss "$SS_NOTE"   "$SKIPS3" 5:5:0 NOENTRIES
+SS_JUNK="$FIX/ss_junk.json"    ; printf 'not json at all\n' > "$SS_JUNK"
+
+# 🔴 `verify_dataplane_reading` and `verify_p4_package_entries` are left REAL -- they are the
+# subject. What is stubbed is the machine: the endpoint (one `curl`, answering the fixture the
+# cell points at), the kernel graph, the ping's own exit code, and `verify_dataplane`, whose
+# presence in the output is how a cell proves the READING path was NOT taken.
+FSTUB='
+verify_p4_graph() { echo "GRAPH CHECKED $1"; return 0; }
+# 🔴 The stub honours DP_RC too, so "a package fabric is not failed for a silent data
+# plane" is a claim about the RC and not only about the wording: with the stub always
+# returning 0, a mutation that routed the foreign branch back through verify_dataplane
+# would keep the bring-up green and only the sentences would change.
+verify_dataplane() { echo "PINGED $1 -> $2"; [[ "${DP_RC:-0}" == 1 ]] && return 1; return 0; }
+dataplane_ok() { NDT_DATAPLANE_WHY=""; return ${DP_RC:-0}; }
+ndt_sudo_explain() { echo "SUDO EXPLAIN $1"; }
+lab_entry_points() { echo "ENTRY POINTS $1"; }
+json_len() { echo "${PATHS_ANSWER:-4}"; }
+curl() { cat "$SS_FILE"; }
+sleep() { :; }
+'
+vp4() {   # vp4 <switch_state file> <mode> <pipe> [<extra shell before the call>]
+    drive_v "$FSTUB"$'\n'"SS_FILE=$(q "$1"); ${4:-:}
+verify_p4 '$PKG_OK/ndtwin/topology.json' 12 '$2' '$3'"
+}
+
+# --- §3.2-1: the path count, and the proxy's own word for why ---------------------------------
+OUT="$(vp4 "$SS_GOOD" ndtwin foreign:1,2,3,4)"
+check "🔴 a package pipeline ends ready, not 'never settled'" "0" "$(rc_of "$OUT")"
+# 🔴 A NAME NO OTHER CELL IN THIS FILE HAS. The external section already says "and NAMES the
+# path count as not checked" about its own branch, and mutate_ndt_app_package.sh's check_fires
+# matches a required red BY THE CELL'S TEXT -- so a mutation aimed at this branch would have
+# been satisfied by the external cell going red instead. Two cells with one name are two
+# answers to "which check caught it".
+has   "🔴 and NAMES the package fabric's path count as not checked" "proxy: destination paths NOT CHECKED" "$OUT"
+has   "  naming the dpids the package's program is on"    "runs on dpid" "$OUT"
+has   "  and quoting what the proxy said it skipped"      "control_plane.skipped: install_initial_routes, link_watchdog, lldp_discovery" "$OUT"
+hasnt "🔴 it does NOT count paths and call four of twelve a failure" "never settled" "$OUT"
+hasnt "  nor report a stable count it never took"         "destination paths (stable)" "$OUT"
+has   "  the verdict word is the same one"                "up. ready" "$OUT"
+has   "  with the entry points under it"                  "ENTRY POINTS p4" "$OUT"
+has   "🔴 and the caveat says what NDTwin did not do"     "package pipeline: NDTwin discovered no links" "$OUT"
+hasnt "🔴 and it is NOT the external plane's EMPTY paragraph" "this fabric is up and EMPTY" "$OUT"
+
+# 🔴 THE CONTROL WITHOUT WHICH "NOT CHECKED" IS A SENTENCE THIS BRANCH ALWAYS SAYS. A proxy that
+# did not skip discovery gets the check it deserves, in red -- an expectation the proxy does not
+# confirm is a fault, not a quieter success.
+OUT="$(vp4 "$SS_NOLLDP" ndtwin foreign:1,2,3,4)"
+check "🔴 a proxy that did NOT skip discovery is red"     "1" "$(rc_of "$OUT")"
+has   "  and says the expectation was not confirmed"      "this script expected the proxy to skip discovery for a package pipeline" "$OUT"
+has   "  quoting the list that does not name it"          "which does not name lldp_discovery" "$OUT"
+has   "  under the unverified verdict"                    "but not verified" "$OUT"
+OUT="$(vp4 "$SS_NOCP" ndtwin foreign:1,2,3,4)"
+check "🔴 an endpoint with no control_plane is red too"   "1" "$(rc_of "$OUT")"
+has   "  and says the proxy gave no skipped list"         "gave no control_plane.skipped" "$OUT"
+OUT="$(vp4 "$SS_NULL" ndtwin foreign:1,2,3,4)"
+check "🔴 'skipped: null' is NOT 'nothing was skipped'"   "1" "$(rc_of "$OUT")"
+OUT="$(vp4 "$SS_JUNK" ndtwin foreign:1,2,3,4)"
+check "🔴 an unreadable switch_state is red, not quiet"   "1" "$(rc_of "$OUT")"
+# 🔴 AND THE RC ALONE IS NOT ENOUGH HERE. Junk on the wire fails the entries gate below as well,
+# so rc 1 is what this cell would read from an implementation that had stopped asking the proxy
+# about discovery altogether. The sentence is what says which question went unanswered.
+has   "  saying which question went unanswered"           "gave no control_plane.skipped" "$OUT"
+
+# --- §3.2-2: the entries are the gate ---------------------------------------------------------
+OUT="$(vp4 "$SS_GOOD" ndtwin foreign:1,2,3,4)"
+has   "🔴 the entries the proxy applied are reported"     "table entries: 5/5 applied on 4 switch(es), 0 failed" "$OUT"
+OUT="$(vp4 "$SS_FAILED" ndtwin foreign:1,2,3,4)"
+check "🔴 one refused entry fails the bring-up"           "1" "$(rc_of "$OUT")"
+has   "  naming how many, of how many, on which dpid"     "the proxy could not apply 1 of 5 on dpid 2" "$OUT"
+hasnt "🔴 and not the counts-disagree sentence, which is a different fault" "neither written nor refused" "$OUT"
+OUT="$(vp4 "$SS_FAILONLY" ndtwin foreign:1,2)"
+check "🔴 refusals are red even when the counts add up"   "1" "$(rc_of "$OUT")"
+has   "  naming the refused count and the dpid"           "could not apply 2 of 5 on dpid 2" "$OUT"
+OUT="$(vp4 "$SS_SHORT" ndtwin foreign:1,2,3,4)"
+check "🔴 applied < recorded with 0 failed is red too"    "1" "$(rc_of "$OUT")"
+has   "  and says the counts themselves disagree"         "neither written nor refused" "$OUT"
+OUT="$(vp4 "$SS_NOTE" ndtwin foreign:1,2,3,4)"
+check "🔴 a switch that reports no table_entries is red"  "1" "$(rc_of "$OUT")"
+has   "  because an unchecked gate is not a passed one"   "an unchecked gate is a failure, not a pass" "$OUT"
+OUT="$(vp4 "$SS_EMPTY" ndtwin foreign:1,2)"
+check "  a package with no entries at all is NOT red"     "0" "$(rc_of "$OUT")"
+has   "  but is told that nothing will forward"           "the package carries no entries" "$OUT"
+OUT="$(vp4 "$SS_MIXED" ndtwin foreign:1,2)"
+check "  switches carrying different counts still pass"   "0" "$(rc_of "$OUT")"
+has   "🔴 and the totals say so in a different word"      "8/8 applied across 2 switch(es)" "$OUT"
+
+# --- §3.2-3: forwarding is a reading, not a verdict -------------------------------------------
+OUT="$(vp4 "$SS_GOOD" ndtwin foreign:1,2,3,4 'DP_RC=1')"
+check "🔴 a silent data plane does NOT fail a package fabric" "0" "$(rc_of "$OUT")"
+has   "  it is reported as a reading"                     "a READING, not a verdict" "$OUT"
+has   "  naming the program it is a reading of"           "9213871cee36bd93" "$OUT"
+has   "  and saying who judges it"                        "The exercise's driver judges it." "$OUT"
+hasnt "🔴 and NOT as a verdict about NDTwin's routing"    "fabric is up but not forwarding" "$OUT"
+has   "  the verdict is still ready"                      "up. ready" "$OUT"
+# 🔴 THE CONTROL. The same dead ping on NDTwin's own pipeline is still a failure -- this is the
+# one verdict TICKET-P2-D changes, and it changes it for exactly one fabric.
+# 🔴 The two reporters side by side over ONE dead ping, with nothing stubbed but the ping itself:
+# same input, same instrument, two verdicts, and the difference is whose program is running.
+DPSTUB='dataplane_ok() { NDT_DATAPLANE_WHY=""; return 1; }'
+OUT="$(drive_v "$DPSTUB"$'\n'"verify_dataplane_reading h1 10.0.2.2 'sha'")"
+has   "  the reading function itself warns rather than errs" "a READING, not a verdict" "$OUT"
+check "  and returns 0 whatever the ping did"             "0" "$(rc_of "$OUT")"
+OUT="$(drive_v "$DPSTUB"$'\n'"verify_dataplane h1 10.0.2.2 'the hint'")"
+has   "🔴 while verify_dataplane still calls it a fault"  "fabric is up but not forwarding" "$OUT"
+check "  and still returns 1"                             "1" "$(rc_of "$OUT")"
+OUT="$(vp4 "$SS_GOOD" ndtwin foreign:1,2,3,4 'DP_RC=2')"
+has   "  an unanswerable ping is still NOT tested"        "forwarding NOT tested" "$OUT"
+check "  and does not fail the bring-up either"           "0" "$(rc_of "$OUT")"
+
+# --- §3.1: every other kind takes today's path, to the byte -----------------------------------
+# 🔴 The discriminator: `PINGED` comes from the STUBBED verify_dataplane, so its presence proves
+# the old branch ran and its absence proves the reading branch did.
+for kind in '' none ndtwin unreadable; do
+    OUT="$(vp4 "$SS_GOOD" ndtwin "$kind" 'PATHS_ANSWER=12')"
+    has   "  pipeline kind '${kind:-<empty>}' still counts paths" "12/12 destination paths (stable)" "$OUT"
+    has   "  and still pings through verify_dataplane"    "PINGED h1 -> 10.0.2.2" "$OUT"
+    hasnt "  and says nothing about a package pipeline"   "package pipeline: NDTwin discovered no links" "$OUT"
+done
+OUT="$(vp4 "$SS_GOOD" external foreign:1,2,3,4)"
+check "🔴 external outranks foreign, and is unchanged"    "0" "$(rc_of "$OUT")"
+has   "  the external sentence, not the package one"     "this package declares an external control" "$OUT"
+has   "  and the EMPTY caveat"                            "this fabric is up and EMPTY" "$OUT"
+hasnt "  no entries gate on a plane nothing was pushed to" "table entries:" "$OUT"
+
+# --- §3.1: up_p4 is what hands verify_p4 the answer -------------------------------------------
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_FOREIGN"); up_p4")"
+has   "🔴 up_p4 passes the package's pipeline kind on"    "mode=ndtwin pipe=foreign:1" "$OUT"
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+has   "  an all-NDTwin package passes 'ndtwin'"           "mode=ndtwin pipe=ndtwin" "$OUT"
+reset_fix
+OUT="$(drive "up_p4 4")"
+has   "🔴 and a baseline round passes no kind at all"     "mode=<none> pipe=<none>" "$OUT"
+
+# --- §3.3: 'ndt status' does not want paths it knows nobody installed -------------------------
+# The same rule as the sampling rate two sections up, on the other number this report gets out of
+# a package fabric. `hosts * (hosts - 1)` is what NDTwin's own control plane installs after LLDP;
+# on this fabric there was no LLDP, so the shortfall is about something never attempted.
+PROXY_STUBS='
+port_open() { [[ "$1" == 8081 ]]; }
+curl() { echo "{}"; }
+json_len() { echo 4; }
+'
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_FOREIGN"); up_p4")"
+OUT="$(run_status --check "$PROXY_STUBS")"
+has   "🔴 a package fabric is told none were expected"    "4 destination paths reported; none expected" "$OUT"
+has   "  naming the dpid and the step the proxy skipped"  "the package's program on dpid 1, proxy skipped lldp_discovery" "$OUT"
+hasnt "🔴 and the shortfall is NOT a --check problem"     "proxy reports 4 destination paths, want" "$OUT"
+check "  so --check still exits 0"                        "0" "$(rc_of "$OUT")"
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+OUT="$(run_status --check "$PROXY_STUBS")"
+has   "  an NDTwin-pipeline package still wants twelve"   "4 destination paths (want 12 for 4 hosts)" "$OUT"
+has   "🔴 and the shortfall IS a problem there"           "proxy reports 4 destination paths, want 12" "$OUT"
 check "  so --check exits 1 on it"                        "1" "$(rc_of "$OUT")"
 
 printf '\n'

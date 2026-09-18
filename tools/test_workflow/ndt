@@ -2608,7 +2608,7 @@ up_p4() {
     # and it is FIRST for the reason set_host_count's position is what it is: a package that
     # cannot be brought up must not have moved a file on the way to saying so. The knob itself
     # is written far below, beside the host-count knob, under the same rule.
-    local app_dir="" app_mode="" app_model=""
+    local app_dir="" app_mode="" app_model="" app_pipe=""
     if [[ -n "${NDT_APP_DIR:-}" ]]; then
         app_dir="$NDT_APP_DIR"
         # 🔴 A package SIZES the fabric -- it names every host -- so a host count beside it is
@@ -2681,6 +2681,12 @@ up_p4() {
         done
         NDT_TOPO="$app_model"
         app_mode="$(app_package_mode "$app_dir")"
+        # [Co-developed with claude code -- Adam]
+        # TICKET-P2-D §3.1. Whose program the verify step is about to be looking at, read HERE --
+        # off the directory this command was given -- and not off the knob at verify time: the
+        # knob is written further down and a verify that re-read it would be answering about
+        # whatever file was on disk by then rather than about the package this round brought up.
+        app_pipe="$(app_pipeline_kind "$app_dir")"
     elif [[ -n "${1:-}" ]]; then
         [[ "$1" =~ ^[0-9]+$ ]] || { err "usage: ndt up p4 [host-count] | ndt up p4 --app <dir>"; return 2; }
         host_count_buildable "$1" || return 1
@@ -2970,7 +2976,7 @@ up_p4() {
 
     # -- verify --
     say "[3/3] verify"
-    verify_p4 "$topo" "$want_paths" "$app_mode"
+    verify_p4 "$topo" "$want_paths" "$app_mode" "$app_pipe"
 }
 
 # proxy_log_tail <n> -- the last n lines of the P4 proxy's log, or a line saying there is none.
@@ -3011,10 +3017,172 @@ topo_log_tail() {
     return 0
 }
 
+# --- what the proxy says it did to a package's fabric. TICKET-P2-D §3.2 -----------------------
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 ONE GET, READ THREE WAYS. `GET /p4/switch_state` answers all three questions verify_p4 has
+# to ask under a package's own pipeline -- which fabric-wide steps the proxy skipped, how many of
+# the package's entries went onto each switch, and which program those switches are running -- so
+# it is fetched ONCE into a variable and parsed from there. Three separate GETs would be three
+# instants, and a fabric that changed between them would be reported as one.
+proxy_switch_state() {
+    curl -s --max-time 5 http://localhost:8081/p4/switch_state
+}
+
+# switch_state_skipped -- the FABRIC-wide control-plane steps the proxy says it did not run,
+# comma-joined, read from the JSON on stdin. rc 1 when the proxy did not say at all.
+#
+# 🔴 THREE DIFFERENT SILENCES, ALL rc 1: no answer, no `control_plane` object, and
+# `skipped: null`. The last is the endpoint's own word for "startup has not finished yet"
+# (proxy_agent/main.py:455-459 keeps it deliberately apart from `[]`, which means "every step
+# ran"), and reading it as an empty list would turn "nobody has started" into "nothing was
+# skipped" -- the silent substitution this whole disclosure exists to remove.
+switch_state_skipped() {
+    python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    raise SystemExit(1)
+cp = d.get("control_plane")
+if not isinstance(cp, dict):
+    raise SystemExit(1)
+skipped = cp.get("skipped")
+if skipped is None:
+    raise SystemExit(1)
+print(",".join(sorted(str(s) for s in skipped)))' 2>/dev/null
+}
+
+# switch_state_entry_rows -- "<dpid> <recorded> <applied> <failed>" per switch, from the JSON on
+# stdin, in dpid order. rc 1 when there is no readable `switches` map, or when any switch carries
+# no `table_entries` block: an ABSENT count is not a zero, and a gate that read it as one would
+# pass every fabric whose proxy forgot to report.
+switch_state_entry_rows() {
+    python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    raise SystemExit(1)
+sw = d.get("switches")
+if isinstance(sw, list):
+    sw = {str(s.get("dpid")): s for s in sw}
+if not isinstance(sw, dict) or not sw:
+    raise SystemExit(1)
+out = []
+for dpid in sorted(sw, key=lambda k: (0, int(k)) if str(k).isdigit() else (1, str(k))):
+    te = (sw[dpid] or {}).get("table_entries")
+    if not isinstance(te, dict):
+        raise SystemExit(1)
+    try:
+        out.append("%s %d %d %d" % (dpid, int(te["recorded"]), int(te["applied"]),
+                                    int(te["failed"])))
+    except Exception:
+        raise SystemExit(1)
+print("\n".join(out))' 2>/dev/null
+}
+
+# switch_state_p4info_shas -- the DISTINCT pipeline fingerprints on this fabric, comma-joined,
+# or `p4info sha unreported` when no switch carries one. The one stable identifier a pipeline has
+# (CLAUDE.md: a benchmark names its binary), and the thing the forwarding READING below is a
+# reading *of* -- "this program does not forward plain IPv4" is a sentence about a named program.
+switch_state_p4info_shas() {
+    python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    sw = d.get("switches")
+    if isinstance(sw, list):
+        sw = {str(s.get("dpid")): s for s in sw}
+    shas = sorted({(s or {}).get("pipeline", {}).get("p4info_sha256")
+                   for s in (sw or {}).values()} - {None})
+except Exception:
+    shas = []
+print(",".join(shas) if shas else "p4info sha unreported")' 2>/dev/null \
+    || echo "p4info sha unreported"
+}
+
+#: What verify_p4_package_entries counted, for the caveat paragraph under the verdict. Globals
+#: rather than a second parse: the sentence under `ready` and the `ok` line above it must not be
+#: able to quote two different numbers for one fabric.
+VERIFY_P4_ENTRIES_APPLIED=0
+VERIFY_P4_ENTRIES_SWITCHES=0
+
+# verify_p4_package_entries <switch_state json> -- the entries gate. rc 1 when the proxy could
+# not put the package's own rules on a switch.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 THIS IS THE GATE, AND FORWARDING IS NOT (TICKET-P2 §7-10). On a fabric running the package's
+# own program, applying the entries the package declares is the ONE thing NDTwin is responsible
+# for: the pipeline came out of the package, the routes are the package's, and whether plain IPv4
+# gets through is the exercise's claim. So a refused write is red here, and a ping that does not
+# come back is a reading below.
+#
+# 🔴 A COUNT THAT COULD NOT BE READ IS RED. An unchecked gate is not a passed one, and
+# `table_entries` is served by the same startup that applied them (proxy_agent/main.py) -- its
+# absence means something other than "zero entries".
+verify_p4_package_entries() {
+    local state="$1" rows dpid rec app fail
+    VERIFY_P4_ENTRIES_APPLIED=0; VERIFY_P4_ENTRIES_SWITCHES=0
+    if ! rows="$(switch_state_entry_rows <<<"$state")"; then
+        err "table entries: GET /p4/switch_state reports no table_entries for this fabric -- the"
+        err "  one thing NDTwin is responsible for under a package pipeline cannot be checked,"
+        err "  and an unchecked gate is a failure, not a pass."
+        return 1
+    fi
+    local n=0 tot_rec=0 tot_app=0 bad=0 same=1 first=""
+    while read -r dpid rec app fail; do
+        [[ -n "$dpid" ]] || continue
+        n=$(( n + 1 )); tot_rec=$(( tot_rec + rec )); tot_app=$(( tot_app + app ))
+        [[ -z "$first" ]] && first="$app/$rec"
+        [[ "$app/$rec" == "$first" ]] || same=0
+        if (( fail != 0 )); then
+            err "table entries: the proxy could not apply $fail of $rec on dpid $dpid -- see table_entries on GET /p4/switch_state"
+            bad=1
+        elif (( app != rec )); then
+            err "table entries: the proxy could not apply $(( rec - app )) of $rec on dpid $dpid -- see table_entries on GET /p4/switch_state"
+            err "  and reported none of them as failed, so those $(( rec - app )) entries were"
+            err "  neither written nor refused -- the counts themselves disagree."
+            bad=1
+        fi
+    done <<<"$rows"
+    VERIFY_P4_ENTRIES_APPLIED="$tot_app"; VERIFY_P4_ENTRIES_SWITCHES="$n"
+    (( bad )) && return 1
+    if (( tot_rec == 0 )); then
+        warn "table entries: the package carries no entries; nothing forwards until something writes some (POST /p4/table_entry)"
+        return 0
+    fi
+    # 🔴 The per-switch pair when every switch carries the same one, and the totals when they do
+    # not -- with a different preposition, so a reader can tell which quantity they are looking
+    # at. `5/5 applied on 4 switch(es)` and `20/20 applied across 4 switch(es)` are two numbers,
+    # and one format that meant either would be a row nobody can reconcile with the endpoint.
+    if (( same )); then
+        ok "table entries: $first applied on $n switch(es), 0 failed"
+    else
+        ok "table entries: $tot_app/$tot_rec applied across $n switch(es) (they do not all carry the same count), 0 failed"
+    fi
+    return 0
+}
+
 verify_p4() {
-    local topo="$1" want_paths="$2" mode="${3:-}" rc=0
+    local topo="$1" want_paths="$2" mode="${3:-}" pipe="${4:-}" rc=0
 
     # [Co-developed with claude code -- Adam]
+    # 🔴 THE FOURTH ARGUMENT IS WHOSE PROGRAM IS ON THESE SWITCHES (TICKET-P2-D §3.1), and it is
+    # app_pipeline_kind's word for it -- `none`, `ndtwin`, `unreadable` or `foreign:<dpids>`.
+    # Empty (no package at all), `none`, `ndtwin` and `unreadable` take today's path to the byte:
+    # a package this script could not parse is not evidence that the pipeline moved, and treating
+    # it as one would make an unreadable package quieter than a readable one.
+    #
+    # `mode == external` OUTRANKS it and its branches are unchanged: an external package's
+    # control plane is absent for a larger reason -- no arbitration stream at all -- and the
+    # foreign-pipeline branches below assume a proxy that is talking to these switches.
+    local foreign="" state="" skipped="" sk_rc=1
+    if [[ "$mode" != external && "$pipe" == foreign:* ]]; then
+        foreign="${pipe#foreign:}"
+        state="$(proxy_switch_state)"
+        skipped="$(switch_state_skipped <<<"$state")"; sk_rc=$?
+    fi
     # 🔴 UNDER AN EXTERNAL CONTROL PLANE THIS CHECK HAS NO SUBJECT, and saying so is not the
     # same as passing it. `mode: external` means the proxy opens no arbitration stream, sends
     # no LLDP, starts no watchdog and installs no route (P1-A §2.3) -- so all_destination_paths
@@ -3035,6 +3203,39 @@ verify_p4() {
         warn "  plane, so the proxy installs no routes and 0 is the designed answer, not a"
         warn "  reading. The exercise's own controller is what puts rules on these switches:"
         warn "  tools/p4_exercise/run_external_controller.py <pkg> <controller.py>"
+    elif [[ -n "$foreign" ]]; then
+        # [Co-developed with claude code -- Adam]
+        # 🔴 NOT CHECKED, AND THE PROXY HAS TO SAY SO ITSELF (TICKET-P2-D §3.2-1). Live on
+        # 2026-09-18 this branch did not exist: `ndt up p4 --app` over exercises/basic waited the
+        # whole CONVERGE_WAIT for 12 destination paths, read 4, and ended `up, but not verified`
+        # over a fabric whose twelve ordered pairs all pinged at 0% loss. The proxy skips LLDP on
+        # a package pipeline BY DESIGN -- a tutorials p4info declares no controller_packet_metadata
+        # at all, so there is no header for a beacon to ride -- and 4/12 was the designed answer.
+        #
+        # 🔴 BUT AN EXPECTATION THE PROXY DOES NOT CONFIRM IS RED, NOT GREEN. If this script
+        # simply stopped counting whenever a package named its own pipeline, it would print the
+        # same sentence over a proxy that WAS discovering links and had found four of twelve --
+        # which is the fault the count exists to catch, wearing this message as a disguise. So
+        # `control_plane.skipped` is read, and `lldp_discovery` has to be in it.
+        if (( sk_rc != 0 )); then
+            err "proxy: this script expected the proxy to skip discovery for a package pipeline"
+            err "  and the proxy does not say so: GET /p4/switch_state gave no control_plane.skipped"
+            err "  (no answer, no control_plane object, or skipped still null -- which is the"
+            err "  endpoint's word for 'startup has not finished', not for 'nothing was skipped')."
+            rc=1
+        elif [[ ",$skipped," != *,lldp_discovery,* ]]; then
+            err "proxy: this script expected the proxy to skip discovery for a package pipeline"
+            err "  and the proxy does not say so: control_plane.skipped is [${skipped//,/, }],"
+            err "  which does not name lldp_discovery. Either this fabric is discovering links"
+            err "  after all -- in which case the path count is a check that should have run --"
+            err "  or the disclosure is wrong. Both are faults, and neither is a clean bring-up."
+            rc=1
+        else
+            warn "proxy: destination paths NOT CHECKED -- the package's own program runs on dpid"
+            warn "  $foreign; the proxy says it sent no LLDP and installed no routes on this"
+            warn "  fabric (control_plane.skipped: ${skipped//,/, })"
+        fi
+        verify_p4_package_entries "$state" || rc=1
     else
         # Settle, do not sample. Measured 2026-08-20: stack.sh reported "converged after 4s" at
         # 16256 paths and a read seconds later returned 13184, with the proxy still installing
@@ -3086,6 +3287,17 @@ verify_p4() {
             err "  script can read a source and a destination out of. An untested check must not"
             err "  print ok, so this is a failure."
             rc=1
+        elif [[ -n "$foreign" ]]; then
+            # [Co-developed with claude code -- Adam]
+            # 🔴 THE SAME PING, AND DELIBERATELY NOT THE SAME VERDICT (TICKET-P2 §7-10). Under
+            # the package's own program, whether plain IPv4 forwards is the PACKAGE's claim:
+            # source_routing's own SOLUTION does not answer a plain ping (audit-raw 7af2f352
+            # measured it with send.py/receive.py and a ttl), and every skeleton is supposed not
+            # to forward -- that is what makes it a red arm. A gate here would hand
+            # drive_exercise.py an ERROR where it needs a red and a green, so the reading is
+            # reported and the exercise's driver is the one that judges it.
+            read -r src dst <<<"$pair"
+            verify_dataplane_reading "$src" "$dst" "$(switch_state_p4info_shas <<<"$state")"
         else
             read -r src dst <<<"$pair"
             verify_dataplane "$src" "$dst" \
@@ -3104,6 +3316,13 @@ verify_p4() {
             warn "external control plane: this fabric is up and EMPTY. NDTwin has programmed"
             warn "  nothing and will not; the exercise's own controller is what makes it"
             warn "  forward. Until it runs, every ping between these hosts fails."
+        elif [[ -n "$foreign" ]]; then
+            # The same shape as the EMPTY paragraph above and for the same reason: `ready` is the
+            # word half a dozen scripts grep for, so what is qualified is the paragraph under it,
+            # never the word. TICKET-P2-D §3.2-4.
+            warn "package pipeline: NDTwin discovered no links and installed no routes on this"
+            warn "  fabric; forwarding is whatever the package's $VERIFY_P4_ENTRIES_APPLIED entries on"
+            warn "  $VERIFY_P4_ENTRIES_SWITCHES switch(es) make of it. ndt status quotes no sample rate for it."
         fi
     else
         say "up, ${R}but not verified${N} -- do not measure on this"
@@ -4669,6 +4888,37 @@ verify_dataplane() {
     return 0
 }
 
+# verify_dataplane_reading <hN> <dst-ip> <p4info sha> -- the same ping as verify_dataplane,
+# reported as a READING and never as a verdict. Always rc 0.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 THE ONE PLACE IN THIS SCRIPT WHERE A SILENT DATA PLANE IS NOT A FAULT, and the reason is
+# whose program is running (TICKET-P2 §7-10, TICKET-P2-D §3.2-3). On NDTwin's own pipeline a
+# fabric that does not forward is a fabric NDTwin failed to program, and `verify_dataplane` above
+# is right to go red. Under the package's own program the question has a different owner: the
+# pipeline, the tables and the entries are all the exercise's, a skeleton is MEANT not to forward,
+# and source_routing's solution does not answer a plain ping either (audit-raw 7af2f352 measured
+# that arm with send.py/receive.py and a ttl, not with ping). Red here would mean
+# drive_exercise.py never sees a red arm or a green one -- only `ndt up` exiting 1, i.e. ERROR,
+# for both.
+#
+# 🔴 What it does NOT do is soften the permission case or invent a success. rc 2 still says the
+# question went unanswered, in verify_dataplane's own words, and a ping that works still prints
+# the same `ok` line -- the only thing that changed is the sentence under a ping that does not.
+verify_dataplane_reading() {
+    dataplane_ok "$1" "$2"
+    case $? in
+        0) ok "data plane: $1 -> $2 forwards" ;;
+        2) warn "data plane: forwarding NOT tested -- ${NDT_DATAPLANE_WHY:-reason unrecorded}"
+           [[ "$NDT_DATAPLANE_WHY" == "sudo refused mnexec" ]] && ndt_sudo_explain mnexec ;;
+        *) warn "data plane: $1 cannot reach $2 -- a READING, not a verdict: under the package's"
+           warn "  own program ($3) whether plain IPv4 forwards is the package's claim, not"
+           warn "  NDTwin's (a skeleton does not forward; source_routing needs its header)."
+           warn "  The exercise's driver judges it." ;;
+    esac
+    return 0
+}
+
 # --- sFlow: is anything actually sampling? ------------------------------------------
 #
 # [Co-developed with claude code -- Adam]
@@ -5445,9 +5695,25 @@ cmd_status() {
         local paths ph="${ut_hosts:-$hosts}"
         paths="$(curl -s --max-time 5 http://localhost:8081/ryu_server/all_destination_paths | json_len all_destination_paths)"
         say "proxy"
-        echo "  ${paths:-?} destination paths (want $(( ph * (ph - 1) )) for $ph hosts)"
-        [[ -n "$paths" && "$paths" != "$(( ph * (ph - 1) ))" ]] &&
-            problems+=("proxy reports $paths destination paths, want $(( ph * (ph - 1) ))")
+        # [Co-developed with claude code -- Adam]
+        # TICKET-P2-D §3.3. The same reasoning as the sampling-rate rows two screens up, on the
+        # other number this report gets out of a package fabric: `hosts * (hosts - 1)` is what
+        # NDTwin's OWN control plane installs once LLDP has discovered the links, and on a fabric
+        # running the package's program the proxy sends no LLDP and installs no routes at all
+        # (proxy_agent/main.py FOREIGN_PIPELINE_FABRIC_SKIPS). The count is then not low -- it is
+        # about something that was never attempted, and raising it as a `--check` problem sends an
+        # operator to debug a fabric that is behaving exactly as designed. `unreadable` keeps
+        # today's behaviour: a package this script could not parse is not evidence about routes.
+        case "$pkgpipe" in
+            foreign:*)
+                echo "  ${paths:-?} destination paths reported; none expected -- the package's program on dpid ${pkgpipe#foreign:}, proxy skipped lldp_discovery"
+                ;;
+            *)
+                echo "  ${paths:-?} destination paths (want $(( ph * (ph - 1) )) for $ph hosts)"
+                [[ -n "$paths" && "$paths" != "$(( ph * (ph - 1) ))" ]] &&
+                    problems+=("proxy reports $paths destination paths, want $(( ph * (ph - 1) ))")
+                ;;
+        esac
     fi
 
     # -- does the running lab match what `ndt up` was asked for? (#8, decision N12 (a)) --

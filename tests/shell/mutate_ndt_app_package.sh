@@ -128,6 +128,10 @@ check_fires() {   # <label> <name> <check text that MUST go red> [<more check te
     if (( ${#missing[@]} == 0 )); then
         printf '  caught   %-56s (%d named check(s) went red)\n' "$label" "${#wants[@]}"
         printf '             red: %s\n' "${wants[@]}"
+        # Every OTHER cell this mutation reddened, so "which test kills which mutation" can be
+        # rebuilt from the log rather than from memory -- mutate_drive_exercise.sh's own line,
+        # for the same reason (P2-C SUMMARY §8.2-5).
+        /usr/bin/grep '^  FAILED' <<<"$out" | sed 's/^  FAILED   /             also red: /'
         CAUGHT=$((CAUGHT+1))
     else
         printf '  SURVIVED %-56s (red, but NOT on every named check)\n' "$label"
@@ -482,6 +486,230 @@ EOF
 check_fires "M23: a foreign pipeline raises the built json's rate problems" m23 \
             "🔴 a foreign pipeline raises none of the rate problems" \
             "  nor any problem about the compiled rate"
+
+# --- M24-M33: TICKET-P2-D, `verify_p4` over a fabric running the package's own program --------
+#
+# The family this time is one live defect and the three ways of over-correcting it. On
+# 2026-09-18 `ndt up p4 --app <exercises/basic>` waited out CONVERGE_WAIT for twelve destination
+# paths, read four, and ended `up, but not verified` over a fabric whose twelve ordered pairs all
+# pinged at 0% loss -- because the proxy skips LLDP on a foreign pipeline by design. The
+# over-corrections are: stop counting without checking that the proxy really did skip it (M24),
+# stop gating on the entries too (M25, M30, M31), and turn the forwarding verdict into silence
+# (M27) or keep it as a gate (M26).
+
+# M24: the path count is abandoned on the strength of the KNOB, without reading what the proxy
+# says -- the endpoint is not consulted and the answer is assumed. The same sentence would then
+# be printed over a proxy that WAS discovering links and had found four of twelve, which is the
+# fault the count exists to catch wearing this message as a disguise.
+cat > "$A/m24.old" <<'EOF'
+        skipped="$(switch_state_skipped <<<"$state")"; sk_rc=$?
+EOF
+cat > "$A/m24.new" <<'EOF'
+        skipped="lldp_discovery"; sk_rc=0
+EOF
+check_fires "M24: 'NOT CHECKED' without asking the proxy at all" m24 \
+            "🔴 a proxy that did NOT skip discovery is red" \
+            "🔴 an endpoint with no control_plane is red too" \
+            "🔴 'skipped: null' is NOT 'nothing was skipped'" \
+            "  saying which question went unanswered"
+
+# M24c: the unreadable case borrows the readable one's sentence. Still red -- the empty list has
+# no lldp_discovery in it either -- but the report now says `control_plane.skipped is []`, i.e.
+# quotes an answer as if the proxy had given one. "I could not ask" and "it answered nothing" are
+# the two states this whole disclosure exists to keep apart, one layer up from the endpoint.
+cat > "$A/m24c.old" <<'EOF'
+        if (( sk_rc != 0 )); then
+EOF
+cat > "$A/m24c.new" <<'EOF'
+        if false; then
+EOF
+check_fires "M24c: an unanswerable endpoint is quoted as having answered" m24c \
+            "  and says the proxy gave no skipped list"
+
+# M24b: the membership test goes, so ANY skip list satisfies it. A proxy reporting that it
+# skipped `sflow_telemetry` while beaconing normally would have its path count dropped.
+cat > "$A/m24b.old" <<'EOF'
+        elif [[ ",$skipped," != *,lldp_discovery,* ]]; then
+EOF
+cat > "$A/m24b.new" <<'EOF'
+        elif false; then
+EOF
+check_fires "M24b (widening): any skip list at all is enough" m24b \
+            "🔴 a proxy that did NOT skip discovery is red"
+
+# M25: a refused table entry stops failing the bring-up. That is the one thing NDTwin IS
+# responsible for on this fabric -- the pipeline and the rules are both the package's, and
+# applying them is the whole of NDTwin's job -- so `up. ready` over refused writes is a fabric
+# reported healthy while carrying a hole the operator's next ping will find.
+cat > "$A/m25.old" <<'EOF'
+        if (( fail != 0 )); then
+EOF
+cat > "$A/m25.new" <<'EOF'
+        if false; then
+EOF
+# 🔴 The named check is the fixture where the counts ADD UP and the proxy still reports refusals:
+# with `applied != recorded` still in place, a 5-recorded/4-applied/1-failed switch is caught by
+# the other branch printing word for word the same sentence, so the first draft of this mutation
+# left the whole suite green. Two guards over one fact, where deleting either is invisible --
+# P1-A's M19 again, and the fixture is the fix.
+check_fires "M25: refused table entries no longer fail the bring-up" m25 \
+            "🔴 refusals are red even when the counts add up" \
+            "🔴 and not the counts-disagree sentence, which is a different fault"
+
+# M26: forwarding is a gate again. `ndt up` then exits 1 on every skeleton arm and on
+# source_routing's solution (whose own answer to a plain ping is silence -- audit-raw 7af2f352
+# measured that arm with send.py/receive.py and a ttl), so drive_exercise.py never sees a red
+# arm or a green one, only ERROR for both. This is the exact shape TICKET-P2 §7-10 decided
+# against, restored.
+cat > "$A/m26.old" <<'EOF'
+            verify_dataplane_reading "$src" "$dst" "$(switch_state_p4info_shas <<<"$state")"
+EOF
+cat > "$A/m26.new" <<'EOF'
+            verify_dataplane "$src" "$dst" "the package's own program" || rc=1
+EOF
+check_fires "M26: a package fabric is failed for not forwarding" m26 \
+            "🔴 a silent data plane does NOT fail a package fabric"
+
+# M27: a package pipeline falls into the external branch. Both print `destination paths NOT
+# CHECKED`, so the headline survives -- what is lost is the dpids, the proxy's own reason, and
+# the entries gate entirely. An external plane has nothing on it; this one has the package's
+# rules on it, and they are the thing worth checking.
+cat > "$A/m27.old" <<'EOF'
+    if [[ "$mode" == external ]]; then
+        warn "proxy: destination paths NOT CHECKED -- this package declares an external control"
+EOF
+cat > "$A/m27.new" <<'EOF'
+    if [[ "$mode" == external || -n "$foreign" ]]; then
+        warn "proxy: destination paths NOT CHECKED -- this package declares an external control"
+EOF
+check_fires "M27: a package pipeline is reported as an external plane" m27 \
+            "  naming the dpids the package's program is on" \
+            "🔴 the entries the proxy applied are reported"
+
+# M28: `ndt status --check` goes back to wanting `hosts * (hosts - 1)` destination paths on a
+# fabric where nobody installed any. Every reading of the report on a package fabric exits 1,
+# and the operator's next move is to debug a control plane that is behaving as designed.
+cat > "$A/m28.old" <<'EOF'
+            foreign:*)
+                echo "  ${paths:-?} destination paths reported; none expected -- the package's program on dpid ${pkgpipe#foreign:}, proxy skipped lldp_discovery"
+EOF
+cat > "$A/m28.new" <<'EOF'
+            never-taken:*)
+                echo "  ${paths:-?} destination paths reported; none expected -- the package's program on dpid ${pkgpipe#foreign:}, proxy skipped lldp_discovery"
+EOF
+check_fires "M28: status wants paths nobody was ever going to install" m28 \
+            "🔴 a package fabric is told none were expected" \
+            "🔴 and the shortfall is NOT a --check problem"
+
+# M29: `up_p4` stops telling verify_p4 whose program is on the switches. Every branch above is
+# then unreachable from the command that matters, while the functions themselves stay perfect --
+# the P1-A M19 shape (a decision that is right and never consulted).
+cat > "$A/m29.old" <<'EOF'
+    verify_p4 "$topo" "$want_paths" "$app_mode" "$app_pipe"
+EOF
+cat > "$A/m29.new" <<'EOF'
+    verify_p4 "$topo" "$want_paths" "$app_mode"
+EOF
+check_fires "M29: the bring-up stops passing the pipeline kind on" m29 \
+            "🔴 up_p4 passes the package's pipeline kind on"
+
+# M30: applied < recorded with nothing reported as failed is accepted. "The proxy wrote four of
+# five and called none of them a failure" is a count that disagrees with itself, and reading it
+# as success is the "report zero rather than report an error" shape this project keeps finding.
+cat > "$A/m30.old" <<'EOF'
+        elif (( app != rec )); then
+EOF
+cat > "$A/m30.new" <<'EOF'
+        elif false; then
+EOF
+check_fires "M30: entries that vanished between recorded and applied are fine" m30 \
+            "🔴 applied < recorded with 0 failed is red too"
+
+# M31: a switch that reports no `table_entries` at all is read as zero entries. An ABSENT count
+# is not a zero -- the gate then passes every fabric whose proxy forgot to report, which is an
+# unchecked gate printing `ok`.
+cat > "$A/m31.old" <<'EOF'
+    te = (sw[dpid] or {}).get("table_entries")
+    if not isinstance(te, dict):
+        raise SystemExit(1)
+EOF
+cat > "$A/m31.new" <<'EOF'
+    te = (sw[dpid] or {}).get("table_entries") or {"recorded": 0, "applied": 0, "failed": 0}
+EOF
+check_fires "M31: a missing entry count is read as zero entries" m31 \
+            "🔴 a switch that reports no table_entries is red"
+
+# M32: the caveat under `ready` goes. The verdict word is unchanged and correct; what is lost is
+# the paragraph saying NDTwin discovered no links, installed no routes, and quotes no sample
+# rate for this fabric -- so `ready` means two different things depending on the package and
+# nothing on the screen says which.
+cat > "$A/m32.old" <<'EOF'
+            warn "package pipeline: NDTwin discovered no links and installed no routes on this"
+EOF
+cat > "$A/m32.new" <<'EOF'
+            warn "package pipeline:"
+EOF
+check_fires "M32: the ready line loses the paragraph that qualifies it" m32 \
+            "🔴 and the caveat says what NDTwin did not do"
+
+# M33: `unreadable` is treated as a foreign pipeline. A package this script could not parse is
+# not evidence that the pipeline moved -- and this way round the consequence is worse than M21's,
+# because an unparsable package would have its path count and its forwarding verdict both
+# withdrawn on the strength of a file nobody could read.
+cat > "$A/m33.old" <<'EOF'
+    if [[ "$mode" != external && "$pipe" == foreign:* ]]; then
+EOF
+cat > "$A/m33.new" <<'EOF'
+    if [[ "$mode" != external && "$pipe" != ndtwin && -n "$pipe" ]]; then
+EOF
+check_fires "M33: an unreadable package is treated as somebody else's pipeline" m33 \
+            "  pipeline kind 'unreadable' still counts paths"
+
+# --- M34: THE LIVE DEFECT ITSELF, in the form it shipped in ----------------------------------
+#
+# 🔴 THE ONE MUTATION THIS WHOLE TICKET IS ABOUT, and the first round did not have it. Every
+# other mutation here attacks a piece of the new branch; this one deletes the branch and puts
+# `365c60e1` back. A foreign fabric falls into the counting loop, polls forty times for twelve
+# destination paths the proxy has said it will never install, reads four, and ends
+# `up, but not verified -- do not measure on this` -- which is exactly what
+# `live-p1/runs/2026-09-18T095025Z_02_app_basic/20_up.txt` says, over a fabric whose twelve
+# ordered pairs then pinged at 0% loss. The entries gate goes with it (it lives in the same
+# branch), so the one thing NDTwin IS responsible for on that fabric stops being checked at the
+# same moment the thing it is not responsible for starts failing the bring-up.
+#
+# 🔴 THE ANCHOR CARRIES THE LINE ABOVE IT. `    elif [[ -n "$foreign" ]]; then` occurs three
+# times in verify_p4 -- the paths branch, the data-plane branch and the caveat -- so the elif
+# alone would be a DUP and this mutation would be scored as a survivor rather than applied.
+# The external branch's last warn is unique, and it is the line this elif hangs off.
+cat > "$A/m34.old" <<'EOF'
+        warn "  tools/p4_exercise/run_external_controller.py <pkg> <controller.py>"
+    elif [[ -n "$foreign" ]]; then
+EOF
+cat > "$A/m34.new" <<'EOF'
+        warn "  tools/p4_exercise/run_external_controller.py <pkg> <controller.py>"
+    elif false; then
+EOF
+check_fires "M34: the live defect -- a package fabric is counted after all" m34 \
+            "🔴 a package pipeline ends ready, not 'never settled'" \
+            "🔴 it does NOT count paths and call four of twelve a failure" \
+            "🔴 and NAMES the package fabric's path count as not checked" \
+            "🔴 the entries the proxy applied are reported"
+
+# --- M35: the entries gate runs and its answer is thrown away ---------------------------------
+# The `ok` and the three `err` lines still print, the dpid is still named, and the bring-up
+# still ends `up. ready`. A gate whose verdict nobody reads is a gate that is not there -- and
+# this is the shape that survives a reading of the output, because the output is right.
+cat > "$A/m35.old" <<'EOF'
+        verify_p4_package_entries "$state" || rc=1
+EOF
+cat > "$A/m35.new" <<'EOF'
+        verify_p4_package_entries "$state"
+EOF
+check_fires "M35: the entries gate's verdict is ignored" m35 \
+            "🔴 one refused entry fails the bring-up" \
+            "🔴 applied < recorded with 0 failed is red too" \
+            "🔴 a switch that reports no table_entries is red" \
+            "🔴 refusals are red even when the counts add up"
 
 # --- the controls: two behaviour-preserving rewrites -----------------------------------------
 # 🔴 Without these the round says nothing. A harness that reported red for ANY edit would print

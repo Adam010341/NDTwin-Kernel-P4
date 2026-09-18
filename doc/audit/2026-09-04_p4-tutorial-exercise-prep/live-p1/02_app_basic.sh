@@ -211,9 +211,58 @@ if [[ -s "$RUN/31_status.txt" ]]; then
 fi
 
 # --- 4. forwarding ------------------------------------------------------------------------------
+#
+# 🔴 WHAT `ndt up` ITSELF SAID ABOUT THE PATH COUNT (TICKET-P2-D §3.2). At 365c60e1 this bring-up
+# FAILED here: verify_p4 waited the whole CONVERGE_WAIT for 12 destination paths, read 4, printed
+# `4/12 destination paths, never settled` and ended `up, but not verified` -- over this same
+# fabric, whose twelve ordered pairs all ping at 0% loss below. Four is not a shortfall: with no
+# LLDP there are no inter-switch links in the proxy's graph, so the only host pairs it can find a
+# path for are the ones hanging off the SAME switch (pod-topo puts h1,h2 on s1 and h3,h4 on s2).
+# The count is now NOT CHECKED, and the proxy has to say `lldp_discovery` in control_plane.skipped
+# before it may be -- which the assertion above already read out of the endpoint.
+say "what 'ndt up' said about paths and entries"
+/usr/bin/grep -qF 'destination paths NOT CHECKED' "$RUN/20_up.txt" \
+    || fail "'ndt up' did not say the destination-path count was NOT CHECKED -- under a package pipeline the proxy sends no LLDP, so a count of 12 is a target nothing is working towards (see 20_up.txt)"
+# 🔴 THE NUMBERS COME OUT OF switch_state, NOT OUT OF THIS FILE. Five per switch is what pod-topo
+# happens to declare today; an assertion that hardcoded it would go red the day the exercise gains
+# a sixth entry, and would say nothing about whether `ndt up` and the endpoint agree -- which is
+# the thing worth checking.
+#
+# 🔴 GUARDED on the capture, like the block above: `fail` records a verdict and RETURNS (it is not
+# `die`), so an unreadable switch_state must not take the rest of this script -- and the teardown
+# after it -- down with a `set -e` abort inside a command substitution.
+if [[ -s "$SS" ]]; then
+    EXPECT_ENTRIES="$("$PY" -c "
+import json,sys
+d=json.load(open(sys.argv[1]))
+sw=d.get('switches') or {}
+vals=[((s.get('table_entries') or {}).get('applied'), (s.get('table_entries') or {}).get('recorded'))
+      for s in (sw.values() if isinstance(sw, dict) else sw)]
+n=len(vals)
+if n and len(set(vals))==1:
+    print('table entries: %d/%d applied on %d switch(es), 0 failed' % (vals[0][0], vals[0][1], n))
+else:
+    print('table entries: %d/%d applied across %d switch(es) (they do not all carry the same count), 0 failed'
+          % (sum(v[0] for v in vals), sum(v[1] for v in vals), n))" "$SS")"
+    note "expected from switch_state: $EXPECT_ENTRIES"
+    /usr/bin/grep -qF "$EXPECT_ENTRIES" "$RUN/20_up.txt" \
+        || fail "'ndt up' did not print the entries line switch_state implies: [$EXPECT_ENTRIES] (see 20_up.txt) -- applying the package's own entries is the one thing NDTwin is responsible for on this fabric, so it is the gate"
+else
+    fail "no switch_state capture to compute the entries line from -- 'ndt up' printed one and nothing can be compared against it"
+fi
+
 say "verify_p4 (ndt's own [3/3], run again)"
+# The fourth argument `ndt up` passes: app_pipeline_kind's word for whose program is on these
+# switches, read through the real loader. Asserted before it is used, because every branch below
+# is about this value being `foreign:` -- a run where it came back `ndtwin` would exercise the
+# old path and report it as the new one.
+PIPE_KIND="$(run_app_pipeline_kind "$PKG")"
+printf '%s\n' "$PIPE_KIND" > "$RUN/39_pipeline_kind.txt"
+note "app_pipeline_kind $PKG -> $PIPE_KIND"
+[[ "$PIPE_KIND" == "foreign:1,2,3,4" ]] \
+    || fail "app_pipeline_kind says '$PIPE_KIND', want foreign:1,2,3,4 -- convert.py --p4 put build/basic.* on all four switches, and Package.pipeline_is_ndtwin is what verify_p4 and 'ndt status' both read"
 set +e
-run_verify_p4 "$PKG/ndtwin/topology.json" 12 ndtwin > "$RUN/40_verify_p4.txt" 2>&1
+run_verify_p4 "$PKG/ndtwin/topology.json" 12 ndtwin "$PIPE_KIND" > "$RUN/40_verify_p4.txt" 2>&1
 V_RC=$?
 set -e
 note "rc=$V_RC -> $(basename "$RUN")/40_verify_p4.txt"
