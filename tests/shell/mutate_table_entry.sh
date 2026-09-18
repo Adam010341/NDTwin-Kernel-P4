@@ -22,14 +22,18 @@
 # end. `setting/` is linked rather than copied: the topology models are the fabric's, several
 # megabytes, and nothing here mutates them.
 #
-# 🔴 ONE MUTATION IS DELIBERATELY NOT HERE, because it is EQUIVALENT in this tree:
+# 🔴 A NOTE THAT WAS TRUE AND IS NOT ANY MORE, kept because the correction is the interesting
+# part. Before ticket A merged, this header said that mutating `_pipeline_is_ndtwin`'s BASE
+# DIRECTORY would be equivalent, "because under phase-1 app_package.py every package's
+# `pipeline_for` returns the fabric-wide pair". A's G4 reader landed, per-switch pipelines are
+# real, and `pipeline_for` now returns paths INSIDE the package directory -- so that mutation is
+# no longer equivalent, and M-B34 is it: `pipeline_report_for` reading the fabric-wide pair
+# instead of the per-switch one. It is killed by the only test that can tell them apart, which
+# is the one holding a package whose four switches run two different programs.
 #
-#   * "apply the package's entries under NDTwin's own pipeline TOO" written as a change to
-#     `_pipeline_is_ndtwin`'s BASE DIRECTORY (say, resolving against the package dir instead of
-#     the proxy root). Under phase-1 `app_package.py` every package's `pipeline_for` returns the
-#     fabric-wide pair, so both spellings answer the same paths and the predicate is unchanged.
-#     M-B18 mutates the predicate's RESULT instead, which a package declaring its own artefacts
-#     can tell apart -- and that package is a fixture, not a file on disk.
+# The lesson is the gate's, not the ticket's: an "equivalent mutation" claim is a claim about
+# the tree, and it expires when the tree changes. M-B18 caught this class of rot once already
+# in round 2 -- see the SUMMARY -- by SURVIVING after its anchor moved out from under it.
 #
 # Usage:  tests/shell/mutate_table_entry.sh
 #         PROXY_PY=/path/to/python tests/shell/mutate_table_entry.sh
@@ -137,6 +141,17 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must
     fi
     if [[ "$rc" -ne 0 ]] && /usr/bin/grep -qE "^(FAIL|ERROR): $3 " <<<"$out"; then
         printf '  caught   %-72s (%s went red)\n' "$1" "$3"
+        # 🔴 EVERY test that reddened, not only the one this mutation is named for.
+        # [Co-developed with claude code -- Adam]
+        # A gate that records one name per mutation cannot answer the question an auditor
+        # actually asks -- "which of these tests has ever been seen to fail?" -- for any test
+        # that is not somebody's named killer. M-B24 reddens
+        # test_the_default_action_row_every_runtime_file_carries_is_a_modify as well as its own
+        # named case, and round 2's log said nothing about it, so that test read as unproven
+        # when it was not. Printed, not counted: the verdict is still the named one.
+        /usr/bin/grep -E '^(FAIL|ERROR): ' <<<"$out" \
+            | sed -E 's/^(FAIL|ERROR): [^(]*\(([^)]*)\).*/             also red: \2/' \
+            | sort -u
     else
         SURVIVORS=$((SURVIVORS+1))
         printf '  SURVIVED %-72s (%s stayed green -- that case proves nothing)\n' "$1" "$3"
@@ -390,6 +405,87 @@ m=$(mutant b26 "$TOPOMGR" \
                 routes, attempted = self.install_initial_routes(only_dpid=dpid)')
 report "M-B26: the refill runs anyway, putting NDTwin's routes in the exercise's own table" "$m" \
        "test_install_routes_false_attempts_not_one_write"
+
+m=$(mutant b29 "$TOPOMGR" \
+    '        if attempted == 0 and install_routes:' \
+    '        if attempted == 0:')
+report "M-B29: a fabric with no watchdog is promised the watchdog will install its routes" "$m" \
+       "test_install_routes_false_does_not_claim_the_watchdog_will_fix_it"
+
+m=$(mutant b30 "$TOPOMGR" \
+    '    def readopt_switch(self, dpid, client_factory, sample_callback=None, settle_s=1.0,
+                       install_routes=True):' \
+    '    def readopt_switch(self, dpid, client_factory, sample_callback=None, settle_s=1.0,
+                       install_routes=False):')
+report "M-B30: the default flips, so the whole P4 plane silently stops refilling its routes" "$m" \
+       "test_the_default_is_the_behaviour_every_caller_had_before_the_parameter"
+
+m=$(mutant b31 "$MAIN" \
+    '    result["routes"] = "skipped"' \
+    '    pass')
+report "M-B31: a deliberate zero is reported as a bare zero, which reads as a refusal" "$m" \
+       "test_it_says_the_routes_were_skipped_rather_than_reporting_a_bare_zero"
+
+m=$(mutant b32 "$MAIN" \
+    '    result = topology.readopt_switch(dpid, client_factory,
+                                     sample_callback if ndtwin else None,
+                                     install_routes=ndtwin)' \
+    '    try:
+        result = topology.readopt_switch(dpid, client_factory,
+                                         sample_callback if ndtwin else None,
+                                         install_routes=ndtwin)
+    except Exception as exc:  # noqa: BLE001
+        return {"status": "failed", "step": "routes", "dpid": dpid, "error": str(exc)}')
+report "M-B32: round 1's swallow comes back, so a real fault is dressed as a route failure" "$m" \
+       "test_an_exception_from_readopt_is_not_swallowed"
+
+m=$(mutant b33 "$MAIN" \
+    '            return hashlib.sha256(fh.read()).hexdigest()[:16]' \
+    '            return hashlib.sha256(fh.read()).hexdigest()[:8]')
+report "M-B33: the program identifier is half as wide as every reader of it expects" "$m" \
+       "test_a_real_file_gets_sixteen_lowercase_hex_characters"
+
+m=$(mutant b34 "$MAIN" \
+    '    p4info_path, _json_path = package.pipeline_for(dpid, base_dir)
+    ndtwin = _pipeline_is_ndtwin(package, dpid, base_dir)' \
+    '    p4info_path, _json_path = app_package.baseline().pipeline_for(dpid, base_dir)
+    ndtwin = _pipeline_is_ndtwin(package, dpid, base_dir)')
+report "M-B34: every switch is reported running NDTwin's artefacts, whatever it was given" "$m" \
+       "test_the_fingerprint_is_a_digest_because_the_file_is_really_there"
+
+m=$(mutant b36 "$MAIN" \
+    '    except OSError:
+        return None' \
+    '    except OSError:
+        return ""')
+report "M-B36: an unreadable p4info gets an identifier, so two of them are the same program" "$m" \
+       "test_a_missing_file_is_none_rather_than_an_invented_identifier"
+
+m=$(mutant b38 "$MAIN" \
+    '            return hashlib.sha256(fh.read()).hexdigest()[:16]' \
+    '            fh.read()
+            return hashlib.sha256(b"").hexdigest()[:16]')
+report "M-B38: the fingerprint ignores the file, so every program has the same one" "$m" \
+       "test_two_different_programs_do_not_share_a_fingerprint"
+
+m=$(mutant b37 "$MAIN" \
+    'FOREIGN_PIPELINE_FABRIC_SKIPS = (SKIP_LLDP, SKIP_WATCHDOG, SKIP_ROUTES)' \
+    'FOREIGN_PIPELINE_FABRIC_SKIPS = (SKIP_CLONE, SKIP_LLDP, SKIP_WATCHDOG, SKIP_ROUTES)')
+report "M-B37: the two scopes overlap again, so a per-switch skip is told about the fabric" "$m" \
+       "test_the_two_scopes_do_not_overlap"
+
+m=$(mutant b35 "$CLIENT" \
+    '        req = p4runtime_pb2.WriteRequest()
+        req.device_id = self.device_id
+        self._bid(req)
+        update = req.updates.add()
+        update.type = TABLE_ENTRY_OPS[op]' \
+    '        req = p4runtime_pb2.WriteRequest()
+        req.device_id = self.device_id
+        update = req.updates.add()
+        update.type = TABLE_ENTRY_OPS[op]')
+report "M-B35: a table entry carries no election id, so the switch answers PERMISSION_DENIED" "$m" \
+       "test_an_insert_is_an_insert_addressed_to_this_device_with_this_election_id"
 
 # --- negative controls -----------------------------------------------------------------------
 #

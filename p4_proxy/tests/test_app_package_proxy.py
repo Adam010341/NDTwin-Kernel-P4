@@ -348,6 +348,28 @@ class SwitchStateDisclosesTheControlPlaneTest(unittest.TestCase):
                          {"recorded": 0, "applied": 0, "failed": 0, "api_writes": 0,
                           "journaled": False})
 
+    def test_the_per_switch_skipped_list_survives_the_trip_through_the_endpoint(self):
+        # 🔴 Round 3. `pipeline.skipped` was asserted at `main.pipeline_report_for` and in what
+        # `startup()` returns, and at neither of those is it on the wire. The endpoint copies
+        # per-switch dicts one key at a time, so a list that never reached it -- or reached it
+        # flattened, or under another name -- would have left both of those green. This is the
+        # only place the shape the kernel and an operator actually GET is checked.
+        body = self.state(
+            {"mode": "ndtwin", "package": "/pkg", "skipped": ["lldp_discovery"]}, {},
+            pipelines={"1": {"ndtwin": False, "p4info": "/pkg/build/basic.p4info.txtpb",
+                             "p4info_sha256": "9213871cee36bd93",
+                             "skipped": ["clone_session", "sflow_telemetry"]},
+                       "2": {"ndtwin": True, "p4info": "/p/ndtwin_switch.p4info.txt",
+                             "p4info_sha256": "d54ff55208340f3a", "skipped": []}})
+        self.assertEqual(body["switches"]["1"]["pipeline"]["skipped"],
+                         ["clone_session", "sflow_telemetry"])
+        self.assertEqual(body["switches"]["2"]["pipeline"]["skipped"], [],
+                         "the NDTwin switch beside it still has both, and an empty list is how "
+                         "the endpoint says so")
+        # And the two scopes stay apart on the wire, which is the whole point of the split:
+        # the fabric-wide list must not have grown the per-switch names on the way out.
+        self.assertNotIn("clone_session", body["control_plane"]["skipped"])
+
     def test_journaled_is_false_even_when_entries_were_applied(self):
         # 🔴 The one number a reader could misread as reassurance. `applied: 4` says four rules
         # are on the switch; `journaled: false` says all four are gone after a proxy restart and

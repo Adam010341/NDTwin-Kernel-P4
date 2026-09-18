@@ -43,6 +43,7 @@ try:
     from p4.config.v1 import p4info_pb2
 
     import proxy_agent.main as main
+    from proxy_agent import p4_client as p4_client_module
     from proxy_agent.p4_client import P4RuntimeClient
     from proxy_agent.rule_install_times import RuleInstallTimes
 
@@ -175,6 +176,43 @@ class AgainstARealTutorialsPipelineTest(unittest.TestCase):
         p4info = p4info_pb2.P4Info()
         text_format.Merge(open(path).read(), p4info)
         return p4info
+
+    def test_a_ternary_table_in_a_real_compiled_p4info_answers_unsupported(self):
+        # 🔴 The only REAL ternary table this repository has, and until round 3 nothing pointed
+        # the writer at it. The 501 path was covered twice over -- by the in-file p4info subset
+        # and by a synthetic descriptor -- and both of those are declarations this suite wrote
+        # itself. `MyIngress.flow_5tuple` is p4c's output from ndtwin_switch.p4: six TERNARY
+        # fields it decided the numbering of. None of the tutorials fixtures has one (asserted
+        # in test_no_fixture_pipeline_declares_a_ternary_range_or_optional_match), so this is
+        # where "a real compiler said TERNARY and the writer refused" gets checked.
+        client = a_client()
+        client.p4info = self.real_ndtwin_p4info()
+        table = client._table_by_name("MyIngress.flow_5tuple")
+        self.assertEqual({client._match_type_name(f) for f in table.match_fields}, {"TERNARY"})
+
+        with self.assertRaises(p4_client_module.TableEntryUnsupported) as caught:
+            client.write_table_entry({
+                "table": "MyIngress.flow_5tuple",
+                "match": {"hdr.ipv4.dstAddr": ["10.0.1.1", "255.255.255.255"]},
+                "action_name": "MyIngress.ipv4_forward",
+                "action_params": {"dstAddr": "08:00:00:00:01:11", "port": 1}})
+        self.assertIn("TERNARY", str(caught.exception))
+        self.assertIn("flow_5tuple", str(caught.exception))
+        self.assertEqual(client.stub.requests, [],
+                         "a refusal this proxy makes itself must not reach the switch")
+
+    def test_the_same_real_p4info_still_builds_its_exact_and_lpm_tables(self):
+        # The negative half: the refusal above is about the match type, not about this being a
+        # real p4info or this table being unfamiliar.
+        client = a_client()
+        client.p4info = self.real_ndtwin_p4info()
+        entry, kinds = client.build_table_entry({
+            "table": "MyIngress.l2_forward",
+            "match": {"hdr.ethernet.dstAddr": "08:00:00:00:01:11"},
+            "action_name": "MyIngress.forward_l2",
+            "action_params": {"port": 1}})
+        self.assertEqual(kinds, {"hdr.ethernet.dstAddr": "EXACT"})
+        self.assertEqual(entry.match[0].exact.value, bytes.fromhex("080000000111"))
 
     def test_an_entry_from_pod_topos_own_runtime_file_builds_against_basic(self):
         # Verbatim from tools/p4_exercise/tests/fixtures/firewall/pod-topo/s2-runtime.json.
@@ -310,23 +348,23 @@ class ARealPackageWithRealPipelinesTest(unittest.TestCase):
             live.update(saved)
 
     def real_client(self, dpid):
-        """A P4RuntimeClient holding that switch's REAL p4info, with a recording stub.
+        """The client PRODUCTION builds for this switch, with a recording stub in place of gRPC.
 
-        No channel and no __init__: what is under test is the writer, and the writer's only
-        input from the switch's side is the p4info.
+        [Co-developed with claude code -- Adam]
+        🔴 `main.build_p4_client`, not a hand-assembled object. An earlier version of this
+        method set `p4info`, `election_id` and `arbitration` itself, and a test that then
+        asserted "every write carries the package's election id" was only asserting that `_bid`
+        uses whatever the test put there -- it could not have seen `build_p4_client` dropping
+        `package.election_id` on the floor. Going through the factory means the p4info path, the
+        election id and the write permission all come from the package by the same route the
+        proxy uses, and the only thing this test supplies is the absence of a switch.
+
+        grpc connects lazily, so constructing this touches nothing; the channel is closed on
+        cleanup because it owns a subchannel pool entry (see P4RuntimeClient.__init__).
         """
-        p4info_path, _json_path = self.package.pipeline_for(dpid, main.proxy_root())
-        client = P4RuntimeClient.__new__(P4RuntimeClient)
-        client.device_id = dpid
-        client.grpc_addr = f"localhost:{30050 + dpid}"
-        client.p4info = client._build_p4info(p4info_path)
-        client.json_path = _json_path
+        client = main.build_p4_client(dpid, package=self.package)
+        self.addCleanup(client.channel.close)
         client.stub = RecordingWriteStub()
-        client.election_id = (0, 65535)
-        client.arbitration = True
-        client.rule_install_times = RuleInstallTimes()
-        client._last_table_read = None
-        client.sample_callback = None
         client.events = []
         return client
 
@@ -408,6 +446,22 @@ class ARealPackageWithRealPipelinesTest(unittest.TestCase):
         self.assertEqual(parts["sflow"].registered, {})
         for client in clients.values():
             self.assertNotIn("clone", client.events)
+
+    def test_the_client_the_factory_built_took_its_identity_from_the_package(self):
+        # 🔴 The assertion that makes the next one mean anything. The election id, the artefact
+        # path and the write permission are read off the CLIENT here, and the client came out of
+        # `main.build_p4_client` -- so the next test's "every request carries (0, 65535)" is a
+        # statement about what the package produced, not about what this file assigned.
+        _, _, clients = self.run_it()
+        for dpid, client in clients.items():
+            self.assertEqual(client.election_id, (0, 65535),
+                             "convert.py writes control_plane.election_id [0, 65535] and the "
+                             "factory is what carries it to the client")
+            self.assertTrue(client.arbitration)
+            self.assertEqual(client.grpc_addr, f"localhost:{30050 + dpid}")
+            self.assertTrue(client.json_path.startswith(self.package_dir),
+                            f"switch {dpid} was built from {client.json_path}, which is not in "
+                            f"the package -- the per-switch pipeline was not followed")
 
     def test_every_entry_that_went_out_carries_the_packages_election_id(self):
         # The package bids (0, 65535); a rule written under the baseline (0, 1) would be
