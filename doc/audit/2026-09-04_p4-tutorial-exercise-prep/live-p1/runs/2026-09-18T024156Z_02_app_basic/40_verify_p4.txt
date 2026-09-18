@@ -1,0 +1,5 @@
+  XX  proxy: no answer/12 destination paths, never settled
+  XX  kernel: no usable answer from /ndt/get_graph_data
+  !!  data plane: forwarding NOT tested -- no namespace for h1
+
+up, but not verified -- do not measure on this

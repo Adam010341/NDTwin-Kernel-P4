@@ -1,0 +1,1 @@
+{"detail":{"status":"failed","step":"control_plane","dpid":1,"error":"this fabric's app package declares an external control plane: the exercise's own controller holds mastership and this proxy is read-only, so it can neither push a pipeline nor reinstall routes. The switch was not touched."}}

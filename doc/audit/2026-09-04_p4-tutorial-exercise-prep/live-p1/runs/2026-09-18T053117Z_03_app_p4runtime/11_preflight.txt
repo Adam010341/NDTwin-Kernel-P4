@@ -1,0 +1,26 @@
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/p4runtime
+  PASS  format                       1
+  INFO  name                         p4runtime
+  PASS  control_plane.mode           external
+  PASS  control_plane.grpc_base      30050
+  PASS  control_plane.device_id      dpid
+  PASS  control_plane.election_id    [0, 65535]
+  PASS  bmv2.cpu_port                255
+  PASS  switches keys                3 dpids: [1, 2, 3]
+  PASS  switches pipeline            all null (NDTwin's own artefact; G4 is stage two)
+  PASS  switches name                every sN has dpid N
+  PASS  referenced files             5 present
+  PASS  topo_from_json.switches      3 entries
+  PASS  topo_from_json.hosts         3 entries
+  PASS  topo_from_json.switch_links  3 entries
+  PASS  topo_from_json.host_links    3 entries
+  PASS  switches agree               model and package.json both say [1, 2, 3]
+  PASS  links agree                  6 links in both
+  PASS  hosts named h<last octet>    3 hosts
+  PASS  hosts agree                  model and package.json both say ['h1', 'h2', 'h3']
+  INFO  entries                      none (control plane 'external' brings its own)
+  PASS  p4info parses                build/advanced_tunnel.p4.p4info.txtpb: 2 table(s)
+  PASS  gRPC port block              30051-30053 safe on this machine
+  PASS  p4c-bm2-ss                   rc=0  advanced_tunnel.json sha256:72236dfa69832b0d  advanced_tunnel.p4.p4info.txtpb sha256:4d986039017abeef
+
+PASS -- every check passed

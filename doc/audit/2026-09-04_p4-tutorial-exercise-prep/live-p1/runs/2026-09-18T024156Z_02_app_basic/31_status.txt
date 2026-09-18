@@ -1,0 +1,48 @@
+lab
+  claim          yours -- 42m left (until 11:26:58)
+  note           in use: ndt up p4 4 at 2026-09-18 10:41:58 by adam
+  prev claim     adam (until 11:26:01), superseded 2026-09-18 10:41:39  (.test_run/lab.claim.prev)
+                 the same owner re-claimed it -- a rewrite, not a handover
+                 it said: down at 2026-09-18 10:41:39; verified clean; claim kept
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           41d7950f  +37 file(s) with uncommitted changes
+                 2 of them can change behaviour:
+                 p4_proxy/mininet/host_count_override
+                 tools/remote-lab/dorm_lab/
+  knob baseline  4 == the value this round started with (at 10:41:58)
+  tree vs round  same set of uncommitted files as when the round started
+  ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6685d3a9)
+
+configuration
+  hosts          4   (what the last 'ndt up' asked for: p4)
+  topology       .test_run/packages/basic/ndtwin/topology.json
+  p4 host knob   4   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  app package    none   (p4_proxy/mininet/app_package_override absent -- the baseline fabric)
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate    1/256
+  rate source    no fabric running -- this is the COMPILED P4 pipeline, not a reading
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  0       topo session   absent
+  host/switch    0       manifest       absent
+  :8000 kernel   closed  :8081 proxy    closed  :8080 ryu closed
+  pidfiles       none recorded
+
+network health
+  switches       kernel not answering; no graph
+  tc netem       none
+  sudo grants    all 3 granted
+  apps           none running
+
+
+up target
+  asked for      p4, 4 hosts   (recorded 2026-09-18 10:41:58 by adam)
+  topology       .test_run/packages/basic/ndtwin/topology.json   (declares 4 hosts / 16 edges)
+  dataplane      none                   != p4   MISMATCH
+  fabric hosts   no host namespaces found (fabric_host_count gave '0') -- NOT COMPARED
+  kernel graph   the kernel gave no graph on :8000 -- NOT COMPARED
+  topology file  sha256 d9dc6f1e7729    == recorded   ok
+  device names   no overlay file at .test_run/nickname_overlay/topology.names.json
+                 that is where this checkout's kernel writes them; not a claim that none are set

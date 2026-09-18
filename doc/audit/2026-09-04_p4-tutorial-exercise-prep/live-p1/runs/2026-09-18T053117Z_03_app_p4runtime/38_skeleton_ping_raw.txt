@@ -1,0 +1,12 @@
+### h1 -> 10.0.2.2  (pid 1834099, ping -c 5 -W 2)
+PING 10.0.2.2 (10.0.2.2) 56(84) bytes of data.
+
+--- 10.0.2.2 ping statistics ---
+5 packets transmitted, 0 received, 100% packet loss, time 4087ms
+
+### h2 -> 10.0.1.1  (pid 1834102, ping -c 5 -W 2)
+PING 10.0.1.1 (10.0.1.1) 56(84) bytes of data.
+
+--- 10.0.1.1 ping statistics ---
+5 packets transmitted, 0 received, 100% packet loss, time 4098ms
+

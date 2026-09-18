@@ -1,0 +1,69 @@
+{
+  "boot_at": 1789708426.5074375,
+  "boot_id": "f5ddda166a9b46a2bda6ea85a16e7e87",
+  "control_plane": {
+    "mode": "external",
+    "package": "/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/p4runtime",
+    "skipped": [
+      "clone_session",
+      "install_initial_routes",
+      "link_watchdog",
+      "lldp_discovery",
+      "pipeline_push",
+      "sflow_telemetry"
+    ]
+  },
+  "links": {},
+  "probe_interval_s": 2.0,
+  "status": "success",
+  "switches": {
+    "1": {
+      "entries_recorded": 0,
+      "grpc_addr": "localhost:30051",
+      "last_lldp_age_s": null,
+      "last_packet_in_age_s": null,
+      "oldest_rule_installed_at": null,
+      "pipeline_commits": 0,
+      "probe_age_s": 1.931,
+      "probe_detail": "FAILED_PRECONDITION: No forwarding pipeline config set for this device",
+      "probe_ok": false,
+      "rules_timed": 0,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": false,
+      "table_generation": null
+    },
+    "2": {
+      "entries_recorded": 0,
+      "grpc_addr": "localhost:30052",
+      "last_lldp_age_s": null,
+      "last_packet_in_age_s": null,
+      "oldest_rule_installed_at": null,
+      "pipeline_commits": 0,
+      "probe_age_s": 1.93,
+      "probe_detail": "FAILED_PRECONDITION: No forwarding pipeline config set for this device",
+      "probe_ok": false,
+      "rules_timed": 0,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": false,
+      "table_generation": null
+    },
+    "3": {
+      "entries_recorded": 0,
+      "grpc_addr": "localhost:30053",
+      "last_lldp_age_s": null,
+      "last_packet_in_age_s": null,
+      "oldest_rule_installed_at": null,
+      "pipeline_commits": 0,
+      "probe_age_s": 1.929,
+      "probe_detail": "FAILED_PRECONDITION: No forwarding pipeline config set for this device",
+      "probe_ok": false,
+      "rules_timed": 0,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": false,
+      "table_generation": null
+    }
+  }
+}

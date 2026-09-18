@@ -1,0 +1,43 @@
+table_entry {
+  table_id: 37375156
+  match {
+    field_id: 1
+    lpm {
+      value: "\n\000\001\001"
+      prefix_len: 32
+    }
+  }
+  action {
+    action {
+      action_id: 24181246
+      params {
+        param_id: 1
+        value: "\310"
+      }
+    }
+  }
+}
+
+table_entry {
+  table_id: 35862311
+  match {
+    field_id: 1
+    exact {
+      value: "d"
+    }
+  }
+  action {
+    action {
+      action_id: 33029817
+      params {
+        param_id: 1
+        value: "\010\000\000\000\002\""
+      }
+      params {
+        param_id: 2
+        value: "\001"
+      }
+    }
+  }
+}
+

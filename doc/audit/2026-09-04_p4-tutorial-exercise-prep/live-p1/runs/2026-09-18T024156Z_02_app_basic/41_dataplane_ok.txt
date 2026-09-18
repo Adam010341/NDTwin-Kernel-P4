@@ -1,0 +1,13 @@
+UNTESTED h4 -> h1: no namespace for h4
+UNTESTED h4 -> h3: no namespace for h4
+UNTESTED h4 -> h2: no namespace for h4
+UNTESTED h1 -> h4: no namespace for h1
+UNTESTED h1 -> h3: no namespace for h1
+UNTESTED h1 -> h2: no namespace for h1
+UNTESTED h3 -> h4: no namespace for h3
+UNTESTED h3 -> h1: no namespace for h3
+UNTESTED h3 -> h2: no namespace for h3
+UNTESTED h2 -> h4: no namespace for h2
+UNTESTED h2 -> h1: no namespace for h2
+UNTESTED h2 -> h3: no namespace for h2
+NDT_DATAPLANE_OK alive=0 dead=0 untested=12 (rc 0 here means >=1 of 2 replies, NOT 0% loss)

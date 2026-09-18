@@ -1,0 +1,13 @@
+h1 -> h2 (10.0.2.2): UNTESTED no namespace for h1
+h1 -> h3 (10.0.3.3): UNTESTED no namespace for h1
+h1 -> h4 (10.0.4.4): UNTESTED no namespace for h1
+h2 -> h1 (10.0.1.1): UNTESTED no namespace for h2
+h2 -> h3 (10.0.3.3): UNTESTED no namespace for h2
+h2 -> h4 (10.0.4.4): UNTESTED no namespace for h2
+h3 -> h1 (10.0.1.1): UNTESTED no namespace for h3
+h3 -> h2 (10.0.2.2): UNTESTED no namespace for h3
+h3 -> h4 (10.0.4.4): UNTESTED no namespace for h3
+h4 -> h1 (10.0.1.1): UNTESTED no namespace for h4
+h4 -> h2 (10.0.2.2): UNTESTED no namespace for h4
+h4 -> h3 (10.0.3.3): UNTESTED no namespace for h4
+PINGALL_LOSS pairs=12 zero_loss=0 lossy=0 untested=12

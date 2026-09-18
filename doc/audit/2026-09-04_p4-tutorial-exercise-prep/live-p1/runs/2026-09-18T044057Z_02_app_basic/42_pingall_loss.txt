@@ -1,0 +1,13 @@
+h1 -> h2 (10.0.2.2): UNTESTED ping printed no '% packet loss' summary for h1 -> 10.0.2.2
+h1 -> h3 (10.0.3.3): UNTESTED ping printed no '% packet loss' summary for h1 -> 10.0.3.3
+h1 -> h4 (10.0.4.4): UNTESTED ping printed no '% packet loss' summary for h1 -> 10.0.4.4
+h2 -> h1 (10.0.1.1): UNTESTED ping printed no '% packet loss' summary for h2 -> 10.0.1.1
+h2 -> h3 (10.0.3.3): UNTESTED ping printed no '% packet loss' summary for h2 -> 10.0.3.3
+h2 -> h4 (10.0.4.4): UNTESTED ping printed no '% packet loss' summary for h2 -> 10.0.4.4
+h3 -> h1 (10.0.1.1): UNTESTED ping printed no '% packet loss' summary for h3 -> 10.0.1.1
+h3 -> h2 (10.0.2.2): UNTESTED ping printed no '% packet loss' summary for h3 -> 10.0.2.2
+h3 -> h4 (10.0.4.4): UNTESTED ping printed no '% packet loss' summary for h3 -> 10.0.4.4
+h4 -> h1 (10.0.1.1): UNTESTED ping printed no '% packet loss' summary for h4 -> 10.0.1.1
+h4 -> h2 (10.0.2.2): UNTESTED ping printed no '% packet loss' summary for h4 -> 10.0.2.2
+h4 -> h3 (10.0.3.3): UNTESTED ping printed no '% packet loss' summary for h4 -> 10.0.3.3
+PINGALL_LOSS pairs=12 zero_loss=0 lossy=0 untested=12

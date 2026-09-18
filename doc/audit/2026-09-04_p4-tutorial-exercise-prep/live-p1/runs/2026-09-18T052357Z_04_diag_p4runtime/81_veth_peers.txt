@@ -1,0 +1,27 @@
+1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN mode DEFAULT group default qlen 1000\    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+2: wlp0s20f3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DORMANT group default qlen 1000\    link/ether 64:32:a8:e0:85:1c brd ff:ff:ff:ff:ff:ff
+3: tailscale0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1280 qdisc fq_codel state UNKNOWN mode DEFAULT group default qlen 500\    link/none 
+4: br-634fc31085ec: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default \    link/ether f6:07:a4:20:3b:c4 brd ff:ff:ff:ff:ff:ff
+5: docker0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc noqueue state DOWN mode DEFAULT group default \    link/ether 2e:70:0c:44:97:26 brd ff:ff:ff:ff:ff:ff
+6: vethfb2d020@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br-634fc31085ec state UP mode DEFAULT group default \    link/ether 02:16:c6:48:21:ca brd ff:ff:ff:ff:ff:ff link-netnsid 0
+7: veth5e1a8cb@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br-634fc31085ec state UP mode DEFAULT group default \    link/ether ae:98:09:3c:64:e3 brd ff:ff:ff:ff:ff:ff link-netnsid 1
+8: veth27b78b1@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue master br-634fc31085ec state UP mode DEFAULT group default \    link/ether b2:bb:9b:e6:00:c2 brd ff:ff:ff:ff:ff:ff link-netnsid 2
+135: s1-eth1@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000\    link/ether 76:c7:e6:1d:7e:e9 brd ff:ff:ff:ff:ff:ff link-netnsid 3
+136: s2-eth1@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000\    link/ether 46:56:ce:0a:b7:d8 brd ff:ff:ff:ff:ff:ff link-netnsid 4
+137: s3-eth1@if2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000\    link/ether 76:52:9b:cb:b0:93 brd ff:ff:ff:ff:ff:ff link-netnsid 5
+138: s2-eth2@s1-eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000\    link/ether 5a:66:12:45:fb:11 brd ff:ff:ff:ff:ff:ff
+139: s1-eth2@s2-eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000\    link/ether a6:cc:79:2e:e4:52 brd ff:ff:ff:ff:ff:ff
+140: s3-eth2@s1-eth3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000\    link/ether d2:58:21:61:c5:1c brd ff:ff:ff:ff:ff:ff
+141: s1-eth3@s3-eth2: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000\    link/ether e2:d8:4c:4b:c0:82 brd ff:ff:ff:ff:ff:ff
+142: s3-eth3@s2-eth3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000\    link/ether d6:d8:54:31:ab:c1 brd ff:ff:ff:ff:ff:ff
+143: s2-eth3@s3-eth3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP mode DEFAULT group default qlen 1000\    link/ether 5e:bf:5e:22:ee:9c brd ff:ff:ff:ff:ff:ff
+---
+s1-eth1 ifindex=135 peer_ifindex=2 peer=wlp0s20f3
+s1-eth2 ifindex=139 peer_ifindex=138 peer=s2-eth2
+s1-eth3 ifindex=141 peer_ifindex=140 peer=s3-eth2
+s2-eth1 ifindex=136 peer_ifindex=2 peer=wlp0s20f3
+s2-eth2 ifindex=138 peer_ifindex=139 peer=s1-eth2
+s2-eth3 ifindex=143 peer_ifindex=142 peer=s3-eth3
+s3-eth1 ifindex=137 peer_ifindex=2 peer=wlp0s20f3
+s3-eth2 ifindex=140 peer_ifindex=141 peer=s1-eth3
+s3-eth3 ifindex=142 peer_ifindex=143 peer=s2-eth3

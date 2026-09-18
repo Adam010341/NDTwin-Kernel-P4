@@ -1,0 +1,335 @@
+{
+  "boot_at": 1789699054.1325,
+  "boot_id": "cf7a7d9a2b7645e0a8b1e83ba26c914a",
+  "control_plane": {
+    "mode": "ndtwin",
+    "package": null,
+    "skipped": []
+  },
+  "links": {
+    "10:1->5:4": {
+      "down": false,
+      "last_beacon_age_s": 3.915,
+      "reported_to_kernel": true
+    },
+    "10:2->6:4": {
+      "down": false,
+      "last_beacon_age_s": 3.916,
+      "reported_to_kernel": true
+    },
+    "10:3->7:4": {
+      "down": false,
+      "last_beacon_age_s": 3.915,
+      "reported_to_kernel": true
+    },
+    "10:4->8:4": {
+      "down": false,
+      "last_beacon_age_s": 3.915,
+      "reported_to_kernel": true
+    },
+    "1:1->5:1": {
+      "down": false,
+      "last_beacon_age_s": 3.919,
+      "reported_to_kernel": true
+    },
+    "1:2->6:1": {
+      "down": false,
+      "last_beacon_age_s": 3.918,
+      "reported_to_kernel": true
+    },
+    "2:1->5:2": {
+      "down": false,
+      "last_beacon_age_s": 3.917,
+      "reported_to_kernel": true
+    },
+    "2:2->6:2": {
+      "down": false,
+      "last_beacon_age_s": 3.92,
+      "reported_to_kernel": true
+    },
+    "3:1->7:1": {
+      "down": false,
+      "last_beacon_age_s": 3.919,
+      "reported_to_kernel": true
+    },
+    "3:2->8:1": {
+      "down": false,
+      "last_beacon_age_s": 3.918,
+      "reported_to_kernel": true
+    },
+    "4:1->7:2": {
+      "down": false,
+      "last_beacon_age_s": 3.917,
+      "reported_to_kernel": true
+    },
+    "4:2->8:2": {
+      "down": false,
+      "last_beacon_age_s": 3.92,
+      "reported_to_kernel": true
+    },
+    "5:1->1:1": {
+      "down": false,
+      "last_beacon_age_s": 3.919,
+      "reported_to_kernel": true
+    },
+    "5:2->2:1": {
+      "down": false,
+      "last_beacon_age_s": 3.918,
+      "reported_to_kernel": true
+    },
+    "5:3->9:1": {
+      "down": false,
+      "last_beacon_age_s": 3.915,
+      "reported_to_kernel": true
+    },
+    "5:4->10:1": {
+      "down": false,
+      "last_beacon_age_s": 3.916,
+      "reported_to_kernel": true
+    },
+    "6:1->1:2": {
+      "down": false,
+      "last_beacon_age_s": 3.918,
+      "reported_to_kernel": true
+    },
+    "6:2->2:2": {
+      "down": false,
+      "last_beacon_age_s": 3.92,
+      "reported_to_kernel": true
+    },
+    "6:3->9:2": {
+      "down": false,
+      "last_beacon_age_s": 3.915,
+      "reported_to_kernel": true
+    },
+    "6:4->10:2": {
+      "down": false,
+      "last_beacon_age_s": 3.915,
+      "reported_to_kernel": true
+    },
+    "7:1->3:1": {
+      "down": false,
+      "last_beacon_age_s": 3.922,
+      "reported_to_kernel": true
+    },
+    "7:2->4:1": {
+      "down": false,
+      "last_beacon_age_s": 3.919,
+      "reported_to_kernel": true
+    },
+    "7:3->9:3": {
+      "down": false,
+      "last_beacon_age_s": 3.917,
+      "reported_to_kernel": true
+    },
+    "7:4->10:3": {
+      "down": false,
+      "last_beacon_age_s": 3.916,
+      "reported_to_kernel": true
+    },
+    "8:1->3:2": {
+      "down": false,
+      "last_beacon_age_s": 3.92,
+      "reported_to_kernel": true
+    },
+    "8:2->4:2": {
+      "down": false,
+      "last_beacon_age_s": 3.918,
+      "reported_to_kernel": true
+    },
+    "8:3->9:4": {
+      "down": false,
+      "last_beacon_age_s": 3.915,
+      "reported_to_kernel": true
+    },
+    "8:4->10:4": {
+      "down": false,
+      "last_beacon_age_s": 3.915,
+      "reported_to_kernel": true
+    },
+    "9:1->5:3": {
+      "down": false,
+      "last_beacon_age_s": 3.916,
+      "reported_to_kernel": true
+    },
+    "9:2->6:3": {
+      "down": false,
+      "last_beacon_age_s": 3.916,
+      "reported_to_kernel": true
+    },
+    "9:3->7:3": {
+      "down": false,
+      "last_beacon_age_s": 3.915,
+      "reported_to_kernel": true
+    },
+    "9:4->8:3": {
+      "down": false,
+      "last_beacon_age_s": 3.915,
+      "reported_to_kernel": true
+    }
+  },
+  "probe_interval_s": 2.0,
+  "status": "success",
+  "switches": {
+    "1": {
+      "entries_recorded": 0,
+      "grpc_addr": "localhost:30051",
+      "last_lldp_age_s": 3.917,
+      "last_packet_in_age_s": 3.345,
+      "oldest_rule_installed_at": 1789699055.7078657,
+      "pipeline_commits": 1,
+      "probe_age_s": 0.875,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_generation": "4f478236c8314c2cb8f7818dfe85e809"
+    },
+    "10": {
+      "entries_recorded": 0,
+      "grpc_addr": "localhost:30060",
+      "last_lldp_age_s": 3.915,
+      "last_packet_in_age_s": 3.027,
+      "oldest_rule_installed_at": 1789699055.7518394,
+      "pipeline_commits": 1,
+      "probe_age_s": 0.871,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_generation": "9a977cc91ef24cf8b19a1d0c1c577519"
+    },
+    "2": {
+      "entries_recorded": 0,
+      "grpc_addr": "localhost:30052",
+      "last_lldp_age_s": 3.917,
+      "last_packet_in_age_s": 3.411,
+      "oldest_rule_installed_at": 1789699055.7112148,
+      "pipeline_commits": 1,
+      "probe_age_s": 0.874,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_generation": "b5886c55598241059b75f3c90332c147"
+    },
+    "3": {
+      "entries_recorded": 0,
+      "grpc_addr": "localhost:30053",
+      "last_lldp_age_s": 3.918,
+      "last_packet_in_age_s": 3.218,
+      "oldest_rule_installed_at": 1789699055.713581,
+      "pipeline_commits": 1,
+      "probe_age_s": 0.874,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_generation": "950e168b9d974f3f8803c930424b78cc"
+    },
+    "4": {
+      "entries_recorded": 0,
+      "grpc_addr": "localhost:30054",
+      "last_lldp_age_s": 3.916,
+      "last_packet_in_age_s": 3.219,
+      "oldest_rule_installed_at": 1789699055.7141798,
+      "pipeline_commits": 1,
+      "probe_age_s": 0.873,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_generation": "8a7482523b7f4b80a71033b2a4e44d2b"
+    },
+    "5": {
+      "entries_recorded": 0,
+      "grpc_addr": "localhost:30055",
+      "last_lldp_age_s": 3.915,
+      "last_packet_in_age_s": 3.345,
+      "oldest_rule_installed_at": 1789699055.7259767,
+      "pipeline_commits": 1,
+      "probe_age_s": 0.873,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_generation": "6136822a7c984d98b0a6a09ad1f5f6a4"
+    },
+    "6": {
+      "entries_recorded": 0,
+      "grpc_addr": "localhost:30056",
+      "last_lldp_age_s": 3.915,
+      "last_packet_in_age_s": 3.345,
+      "oldest_rule_installed_at": 1789699055.712694,
+      "pipeline_commits": 1,
+      "probe_age_s": 0.873,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_generation": "d294a1cc3b9243dabe30545fc9f2f1c0"
+    },
+    "7": {
+      "entries_recorded": 0,
+      "grpc_addr": "localhost:30057",
+      "last_lldp_age_s": 3.916,
+      "last_packet_in_age_s": 2.964,
+      "oldest_rule_installed_at": 1789699055.7262664,
+      "pipeline_commits": 1,
+      "probe_age_s": 0.872,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_generation": "7049f514670549159b69b0f32b1e8afc"
+    },
+    "8": {
+      "entries_recorded": 0,
+      "grpc_addr": "localhost:30058",
+      "last_lldp_age_s": 3.915,
+      "last_packet_in_age_s": 3.027,
+      "oldest_rule_installed_at": 1789699055.7286048,
+      "pipeline_commits": 1,
+      "probe_age_s": 0.872,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_generation": "78adb1f0556342c09641c27d183c6efa"
+    },
+    "9": {
+      "entries_recorded": 0,
+      "grpc_addr": "localhost:30059",
+      "last_lldp_age_s": 3.915,
+      "last_packet_in_age_s": 2.964,
+      "oldest_rule_installed_at": 1789699055.7402103,
+      "pipeline_commits": 1,
+      "probe_age_s": 0.872,
+      "probe_detail": "answered GetForwardingPipelineConfig",
+      "probe_ok": true,
+      "rules_timed": 4,
+      "rules_total": null,
+      "rules_total_age_s": null,
+      "stream_alive": true,
+      "table_generation": "291f61e2a5dc46c3a08758e9db5e3822"
+    }
+  }
+}

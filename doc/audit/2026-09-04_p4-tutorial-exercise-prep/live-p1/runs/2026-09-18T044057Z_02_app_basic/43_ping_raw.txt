@@ -1,0 +1,36 @@
+### h1 -> 10.0.2.2  (pid 1598639, ping -c 5 -W 2)
+ping: connect: Network is unreachable
+
+### h1 -> 10.0.3.3  (pid 1598639, ping -c 5 -W 2)
+ping: connect: Network is unreachable
+
+### h1 -> 10.0.4.4  (pid 1598639, ping -c 5 -W 2)
+ping: connect: Network is unreachable
+
+### h2 -> 10.0.1.1  (pid 1598641, ping -c 5 -W 2)
+ping: connect: Network is unreachable
+
+### h2 -> 10.0.3.3  (pid 1598641, ping -c 5 -W 2)
+ping: connect: Network is unreachable
+
+### h2 -> 10.0.4.4  (pid 1598641, ping -c 5 -W 2)
+ping: connect: Network is unreachable
+
+### h3 -> 10.0.1.1  (pid 1598643, ping -c 5 -W 2)
+ping: connect: Network is unreachable
+
+### h3 -> 10.0.2.2  (pid 1598643, ping -c 5 -W 2)
+ping: connect: Network is unreachable
+
+### h3 -> 10.0.4.4  (pid 1598643, ping -c 5 -W 2)
+ping: connect: Network is unreachable
+
+### h4 -> 10.0.1.1  (pid 1598645, ping -c 5 -W 2)
+ping: connect: Network is unreachable
+
+### h4 -> 10.0.2.2  (pid 1598645, ping -c 5 -W 2)
+ping: connect: Network is unreachable
+
+### h4 -> 10.0.3.3  (pid 1598645, ping -c 5 -W 2)
+ping: connect: Network is unreachable
+

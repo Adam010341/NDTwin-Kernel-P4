@@ -1,0 +1,280 @@
+
+[2026-09-18 05:29:11.095] /p4.v1.P4Runtime/SetForwardingPipelineConfig
+---
+Message too long (32763 bytes)! Skipping log...
+---
+
+[2026-09-18 05:29:11.118] /p4.v1.P4Runtime/Write
+---
+device_id: 1
+election_id {
+  low: 1
+}
+updates {
+  type: INSERT
+  entity {
+    table_entry {
+      table_id: 37375156
+      match {
+        field_id: 1
+        lpm {
+          value: "\n\000\002\002"
+          prefix_len: 32
+        }
+      }
+      action {
+        action {
+          action_id: 24181246
+          params {
+            param_id: 1
+            value: "\000d"
+          }
+        }
+      }
+    }
+  }
+}
+---
+
+[2026-09-18 05:29:11.125] /p4.v1.P4Runtime/Write
+---
+device_id: 1
+election_id {
+  low: 1
+}
+updates {
+  type: INSERT
+  entity {
+    table_entry {
+      table_id: 35862311
+      match {
+        field_id: 1
+        exact {
+          value: "\000\310"
+        }
+      }
+      action {
+        action {
+          action_id: 33029817
+          params {
+            param_id: 1
+            value: "\010\000\000\000\001\021"
+          }
+          params {
+            param_id: 2
+            value: "\000\001"
+          }
+        }
+      }
+    }
+  }
+}
+---
+
+[2026-09-18 05:29:13.127] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2026-09-18 05:29:13.132] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 200
+    }
+  }
+}
+---
+
+[2026-09-18 05:29:15.134] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2026-09-18 05:29:15.140] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 200
+    }
+  }
+}
+---
+
+[2026-09-18 05:29:17.142] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2026-09-18 05:29:17.148] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 200
+    }
+  }
+}
+---
+
+[2026-09-18 05:29:19.149] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2026-09-18 05:29:19.155] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 200
+    }
+  }
+}
+---
+
+[2026-09-18 05:29:21.157] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2026-09-18 05:29:21.162] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 200
+    }
+  }
+}
+---
+
+[2026-09-18 05:29:23.163] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2026-09-18 05:29:23.169] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 200
+    }
+  }
+}
+---
+
+[2026-09-18 05:29:25.171] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2026-09-18 05:29:25.176] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 200
+    }
+  }
+}
+---
+
+[2026-09-18 05:29:27.178] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 315557958
+    index {
+      index: 100
+    }
+  }
+}
+---
+
+[2026-09-18 05:29:27.184] /p4.v1.P4Runtime/Read
+---
+device_id: 1
+entities {
+  counter_entry {
+    counter_id: 312374841
+    index {
+      index: 200
+    }
+  }
+}
+---

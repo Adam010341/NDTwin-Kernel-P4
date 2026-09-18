@@ -1,0 +1,8 @@
+  ok  proxy: 12/12 destination paths (stable)
+  XX  kernel: 4 switches, 4 up (want 10/10)
+  ok  model matches fabric: 4 hosts (kernel graph, topology file and 4 host namespaces all agree)
+  is_enabled=4/10 -- expected in P4 mode, nothing calls inform_switch_entered
+  XX  data plane: h1 cannot reach 10.0.2.2 -- fabric is up but not forwarding
+  XX     the proxy reports its paths installed; that is not the same as bmv2 forwarding them
+
+up, but not verified -- do not measure on this

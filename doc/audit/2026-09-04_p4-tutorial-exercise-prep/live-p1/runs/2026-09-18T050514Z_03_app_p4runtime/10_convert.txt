@@ -1,0 +1,12 @@
+package 'p4runtime' -> /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/p4runtime
+  control plane : external
+  model         : 3 switches, 3 hosts, 12 edges (6 links, both directions stored)
+  files         : 6
+                  advanced_tunnel.p4
+                  build/advanced_tunnel.json
+                  build/advanced_tunnel.p4.p4info.txtpb
+                  ndtwin/topology.json
+                  package.json
+                  topology.json
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/p4runtime

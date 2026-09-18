@@ -1,0 +1,58 @@
+lab
+  claim          yours -- 45m left (until 13:48:10)
+  note           in use: ndt up p4 4 at 2026-09-18 13:03:12 by adam
+  prev claim     adam (until 13:26:00), superseded 2026-09-18 12:41:43  (.test_run/lab.claim.prev)
+                 the same owner re-claimed it -- a rewrite, not a handover
+                 it said: down at 2026-09-18 12:41:43; verified clean; claim kept
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           8e62b423  +38 file(s) with uncommitted changes
+                 3 of them can change behaviour:
+                 p4_proxy/mininet/host_count_override
+                 p4_proxy/mininet/app_package_override
+                 tools/remote-lab/dorm_lab/
+  knob baseline  4 == the value this round started with (at 13:03:10)
+  tree vs round  0 file(s) LEFT the uncommitted set, 1 joined it
+                 + p4_proxy/mininet/app_package_override
+  ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6685d3a9)
+
+configuration
+  hosts          4   (what the last 'ndt up' asked for: p4)
+  topology       .test_run/packages/basic/ndtwin/topology.json
+  p4 host knob   4   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  app package    /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic (mode ndtwin)
+                 basic -- p4_proxy/mininet/app_package_override; it decides the next 'ndt up p4' and the next proxy
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate    1/256
+  rate source    P4: p4_proxy/p4_src/build/ndtwin_switch.json
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  4       topo session   present
+  host/switch    8       manifest       present
+  :8000 kernel   open    :8081 proxy    open    :8080 ryu closed
+  binary         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  pidfiles       kernel.child.pid=1711539 alive,kernel.pid=1711534 alive,p4_proxy.child.pid=1711164 alive,p4_proxy.pid=1711159 alive
+
+network health
+  switches       4 up, 4 enabled, 0 admin-disabled
+  links          16 total, 0 down, 0 admin-disabled
+  tc netem       none
+  sudo grants    all 3 granted
+  apps           none running
+
+kernel graph
+  4 switches (4 up, 4 enabled), 4 hosts, 16 edges
+proxy
+  12 destination paths (want 12 for 4 hosts)
+
+up target
+  asked for      p4, 4 hosts   (recorded 2026-09-18 13:03:12 by adam)
+  topology       .test_run/packages/basic/ndtwin/topology.json   (declares 4 hosts / 16 edges)
+  dataplane      p4                     == p4   ok
+  fabric hosts   4                      == 4   ok
+  graph hosts    4                      == 4   ok
+  graph edges    16                     == 16   ok
+  topology file  sha256 d9dc6f1e7729    == recorded   ok
+  device names   no overlay file at .test_run/nickname_overlay/topology.names.json
+                 that is where this checkout's kernel writes them; not a claim that none are set

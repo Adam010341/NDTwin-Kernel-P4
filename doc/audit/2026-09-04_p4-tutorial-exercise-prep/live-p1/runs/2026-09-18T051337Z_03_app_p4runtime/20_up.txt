@@ -1,0 +1,67 @@
+app package pre-flight
+  package      /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/p4runtime
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/p4runtime
+  PASS  format                       1
+  INFO  name                         p4runtime
+  PASS  control_plane.mode           external
+  PASS  control_plane.grpc_base      30050
+  PASS  control_plane.device_id      dpid
+  PASS  control_plane.election_id    [0, 65535]
+  PASS  bmv2.cpu_port                255
+  PASS  switches keys                3 dpids: [1, 2, 3]
+  PASS  switches pipeline            all null (NDTwin's own artefact; G4 is stage two)
+  PASS  switches name                every sN has dpid N
+  PASS  referenced files             5 present
+  PASS  topo_from_json.switches      3 entries
+  PASS  topo_from_json.hosts         3 entries
+  PASS  topo_from_json.switch_links  3 entries
+  PASS  topo_from_json.host_links    3 entries
+  PASS  switches agree               model and package.json both say [1, 2, 3]
+  PASS  links agree                  6 links in both
+  PASS  hosts named h<last octet>    3 hosts
+  PASS  hosts agree                  model and package.json both say ['h1', 'h2', 'h3']
+  INFO  entries                      none (control plane 'external' brings its own)
+  PASS  p4info parses                build/advanced_tunnel.p4.p4info.txtpb: 2 table(s)
+  PASS  gRPC port block              30051-30053 safe on this machine
+  PASS  p4c-bm2-ss                   rc=0  advanced_tunnel.json sha256:72236dfa69832b0d  advanced_tunnel.p4.p4info.txtpb sha256:4d986039017abeef
+
+PASS -- every check passed
+
+ndt up p4
+  hosts        3        (p4_proxy/mininet/host_count_override)
+  topology     .test_run/packages/p4runtime/ndtwin/topology.json
+  app package  /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/p4runtime (mode external, 3 switch(es))
+  bmv2         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate  1/256     (compiled into ndtwin_switch.json)
+
+  recorded this target in .test_run/up.target -- 'ndt status --check' compares against it
+  !!  host_count_override: 4 -> 3 (persistent; affects every later run)
+  app package set: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/p4runtime   (p4_proxy/mininet/app_package_override)
+  claim note now says the lab is in use (owner and expiry unchanged)
+[1/3] bmv2 fabric
+      topo session started from /home/adam/Desktop/NDTwin-Kernel (attach: sudo tmux -L ndtwinlab attach -t topo)
+  waiting for 3 switches and the manifest
+  ok  3 switches up after 4s, manifest written
+  ok  running binary: /usr/local/bmv2-fast/bin/simple_switch_grpc
+[2/3] proxy + kernel
+  stack.sh prompt is answered immediately: the fabric is already up
+        started p4_proxy (pid 1824169) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/p4_proxy.log
+        waiting for P4 proxy agent on :8081 .. up
+        waiting for link discovery: want 6 destination paths
+        started kernel (pid 1825912) -> /home/adam/Desktop/NDTwin-Kernel/.test_run/logs/kernel.log
+        waiting for kernel API on :8000 . up
+[3/3] verify
+  !!  proxy: destination paths NOT CHECKED -- this package declares an external control
+  !!    plane, so the proxy installs no routes and 0 is the designed answer, not a
+  !!    reading. The exercise's own controller is what puts rules on these switches:
+  !!    tools/p4_exercise/run_external_controller.py <pkg> <controller.py>
+  ok  kernel: 3 switches, 3 up, 12 edges, 3 hosts
+  ok  model matches fabric: 3 hosts (kernel graph, topology file and 3 host namespaces all agree)
+  !!  data plane: forwarding NOT TESTED for the same reason -- nothing has programmed
+  !!    these switches yet. Test it after the controller has run.
+
+up. ready
+  proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+  !!  external control plane: this fabric is up and EMPTY. NDTwin has programmed
+  !!    nothing and will not; the exercise's own controller is what makes it
+  !!    forward. Until it runs, every ping between these hosts fails.

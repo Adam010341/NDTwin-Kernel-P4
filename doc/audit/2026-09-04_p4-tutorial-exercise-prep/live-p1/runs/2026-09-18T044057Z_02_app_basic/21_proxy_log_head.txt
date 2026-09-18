@@ -1,0 +1,40 @@
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/main.py:573: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/main.py:578: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+INFO:     Started server process [1598938]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+[Proxy Agent] app package: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic (mode ndtwin, election_id 0,65535)
+[Proxy Agent] Starting up...
+[1] Received arbitration response: Mastership confirmed.
+[2] Received arbitration response: Mastership confirmed.
+[3] Received arbitration response: Mastership confirmed.
+[4] Received arbitration response: Mastership confirmed.
+[1] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 1
+[2] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 2
+[3] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 3
+[4] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 4
+[1] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 1 sampling to sFlow as 192.168.123.11
+[2] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 2 sampling to sFlow as 192.168.123.12
+[3] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 3 sampling to sFlow as 192.168.123.13
+[4] Clone session 250 -> port 255 installed
+[Proxy Agent] Switch 4 sampling to sFlow as 192.168.123.14
+[Kernel] switch 1 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
