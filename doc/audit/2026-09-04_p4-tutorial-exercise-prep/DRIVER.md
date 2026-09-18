@@ -101,3 +101,75 @@ h2 收得到；skeleton ⇒ loss 100%、0/3、收不到。
    跑前跑後應完全相同（本輪四次 dry-run 前後 md5 皆 `b2f872b1916e20a3879d2dbebc35e06c`）。
    ✅ **09-08 那四次真跑也一樣**：`git status` 前後相同，寫入只有 `build/`／`logs/`／`pcaps/`
    （tutorials tree `c80d83e`；`~/tutorials` 本來就有的那三行註解改動與兩個 `.vsix` 不是這輪造成的，見 README §6）。
+
+---
+
+## 6. 十三支的期望表（TICKET-P3 §2.7；**2026-09-19 新增的九支一次都沒跑過**）
+
+🔴 **這一節整張表的證據等級是【源碼推導，未執行】或【README 宣稱】。** 寫這九支的 session 沒有
+sudo、沒有 lab、沒有跑過任何一支（TICKET-P3 §0-2）；離線測試斷言的是「driver 用這個方式問問題」
+以及「兩臂可區分」，**不是**「exercise 在 NDTwin 上會這樣」。上面 §3／§4 那四支（`basic`／
+`source_routing`／`firewall`／`link_monitor`）仍是 09-08／09-18 那幾次實跑的結論，沒有被這輪改動。
+
+三級標記沿用 M7：
+
+- 【README 宣稱】＝ exercise 自己的 README 逐字說的；
+- 【源碼推導，未執行】＝ 從 `.p4`／`send.py`／`receive.py`／`sX-runtime.json` 讀出來的；
+- 【README 宣稱】＋【源碼推導，未執行】＝ 兩者都有，而且一致。
+
+### 6.1 九支的判定表
+
+| exercise | 臂 | 期望（driver 斷言的那一條） | 來源等級 | 依據 |
+|---|---|---|---|---|
+| `basic_tunnel` | injection | `send.py` 印了兩行 `sending on interface … to dst_id N` | 【源碼推導，未執行】 | `send.py:38` |
+| | solution | `--dst_id 2` 只落 h2；`--dst_id 3` 只落 h3，**兩輪送同一個 IP** | 【README 宣稱】＋【源碼推導，未執行】 | README:121-124、:138-140；`solution/basic_tunnel.p4` 的 `myTunnel_exact` |
+| | skeleton | **紅臂在 entries，不在資料面**：`sX-runtime.json` 的 `myTunnel_exact` 三筆裝不進去 | 【README 宣稱】 | README:41-43 逐字 |
+| `calc` | injection | `calc.py` 回顯 `> 1+1` | 【README 宣稱】＋【源碼推導，未執行】 | `calc.py:80-84`；README 的兩段 transcript |
+| | solution | 有一行**整行**是 `2`，而且沒有 `Didn't receive response` | 【README 宣稱】 | README step 3 的 transcript |
+| | skeleton | 有 `Didn't receive response`，而且沒有 `2` 那一行 | 【README 宣稱】＋【源碼推導，未執行】 | README step 1.3；`calc.p4:116-126` 的 `check_p4calc` 沒有 transition ⇒ `:205-210` drop |
+| `ecn` | injection | h2 至少收到一包，且 `send.py` 的 show2 印了 tos | 【源碼推導，未執行】 | `send.py:35-41`、`receive.py:34` |
+| | solution | h2 看到的 tos 值裡有 `0x3` | 【README 宣稱】＋【源碼推導，未執行】 | README step 3；`solution/ecn.p4:131-139`、`ecn.p4:9` 的 `ECN_THRESHOLD = 10` |
+| | skeleton | 每一包 tos 都是 `0x1` | 【README 宣稱】＋【源碼推導，未執行】 | README step 1.8；`ecn.p4:132-138` 空的 `MyEgress.apply` |
+| `mri` | injection | h2 收到包，而且包裡真的有 MRI option（`count` 欄存在） | 【源碼推導，未執行】 | `receive.py:33-50` 的 `IPOption_MRI` |
+| | solution | `count == 2`、swid 集合 `[1, 2]` | 【README 宣稱】＋【源碼推導，未執行】 | README step 3 的 dump；`sX-runtime.json:6-13` 的 `default_action` |
+| | skeleton | `count == 0`、沒有任何 swid | 【README 宣稱】＋【源碼推導，未執行】 | README step 1.7；`mri.p4:205`／`:268` |
+| `flowcache` | skeleton | **紅臂在編譯器**：`p4c` 拒編 | 【README 宣稱】＋【源碼推導，未執行】 | README:29 逐字；`flowcache.p4:83-91` 兩個空 header vs `:232`／`:269-271` 讀它們 |
+| | solution | 控制器在 s1/s2/s3 都裝了 pipeline、cache 了一條流、h1 ping h2 通 | 【README 宣稱】＋【源碼推導，未執行】 | README step 3；`mycontroller.py:457-472`、`:372-376` |
+| `load_balance` | injection | `send.py` 十次都印了 `sending on interface … to 10.0.0.1` | 【源碼推導，未執行】 | `send.py:34` |
+| | solution | h2 與 h3 **各** ≥1 包 | 【README 宣稱】 | README step 3「some should be received by each server」 |
+| | skeleton | h2 ≥1、h3 **恰好 0** | 【README 宣稱】＋【源碼推導，未執行】 | README:24-25；`load_balance.p4:107` 空的 `set_ecmp_select` ⇒ `ecmp_select` 恆 0 ⇒ s1 port 2 |
+| `multicast` | injection | 12 個有序對**全部測到**（0 untested） | 【源碼推導，未執行】 | 沒進到 namespace 的主機和群組不複製到的主機長得一樣 |
+| | solution | h1/h2/h3 互通 0%，**而且每一個 h4 的對都 100%** | 【README 宣稱】＋【源碼推導，未執行】 | README:119-120；`sig-topo/s1-runtime.json:47-65` 只複製 port 1,2,3（第四個是 README:122 的 TODO） |
+| | skeleton | pingall 100% | 【README 宣稱】＋【源碼推導，未執行】 | README:78-80；`multicast.p4:91` `default_action = drop` ⇒ 連 ARP 都死 |
+| `p4runtime` | injection | 控制器活著；它裝 pipeline 的交換機集合是 `[1, 2]` | 【源碼推導，未執行】 | `mycontroller.py:142-152`（s3 從不被連） |
+| | solution | log 有 `Installed transit tunnel rule`；h1 ping h2 0% | 【README 宣稱】＋【源碼推導，未執行】 | `solution/mycontroller.py:85`；README step 3 |
+| | skeleton | log 有 `TODO Install transit tunnel rule`；h1 ping h2 100% | 【README 宣稱】＋【源碼推導，未執行】 | `mycontroller.py:76`；README step 1.3 |
+| `qos` | injection | 兩輪都有包到 h2 | 【源碼推導，未執行】 | `send.py:40-54`；`receive.py:22` 沒有 filter |
+| | solution | UDP 那輪 tos 含 `0xb9`、TCP 那輪含 `0xb1` | 【README 宣稱】＋【源碼推導，未執行】 | README:110-111；`solution/qos.p4:208-214`（46<<2\|1＝0xb9、44<<2\|1＝0xb1） |
+| | skeleton | 兩輪 tos 都只有 `0x1` | 【README 宣稱】＋【源碼推導，未執行】 | README step 1.6；`qos.p4:138` |
+
+### 6.2 三件跟「期望對不對」無關、但會決定判讀的事
+
+1. **`ecn` 需要 G2-C（TICKET-P3 §2.4）。** `ecn.p4:9` 的 `ECN_THRESHOLD = 10`，而唯一會排隊的是
+   `topology.json:65-69` 的 `[ "s1-p3", "s2-p3", "0", 0.5 ]`＝0.5 Mbit/s。**沒有整形的 fabric 上
+   solution 臂必紅，而那不是 `ecn.p4` 的事**——spec 裡的 `"needs": "shaped_links"` 就是這件事，
+   §2.4 也把 `ecn` 排在 G2-C 之前不進閘門。`mri` 的斷言只有 count 與 swid，不需要佇列
+   （`qdepth` 刻意不斷言）；`qos` 的 topology **沒有**被節流的鏈路。
+2. **兩支的紅臂不在資料面。** `flowcache` 停在 `p4c`（exit 1、verdict 寫
+   `skeleton does not compile, by design`），`basic_tunnel` 停在控制面（pre-flight 或
+   `verify_p4_package_entries`）。兩者都是 **exit 1 而不是 exit 2**：2 的意思是「什麼都沒起、
+   沒東西可看」，把設計好的拒絕歸到那一格就等於跟壞掉的情形同一個抽屜。
+3. **`p4runtime`／`flowcache` 的控制器在兩個 fabric 上用兩個啟動方式。** tutorials 上它寫死的
+   `127.0.0.1:5005N`／`device_id N-1` 就是真的；NDTwin 上不是，要走
+   `tools/p4_exercise/run_external_controller.py`（TICKET-P1D 的 adapter，live-p1/03 用的同一支）。
+
+### 6.3 通用格（每一支 `--fabric ndtwin` 的最後一步）
+
+`G1  link usage follows the iperf path`：在 exercise 自己的步驟**之後**、teardown **之前**跑，
+內容是 `live-p1/_common.sh` 的 `link_usage_round`——**live-p1/05 跑的是同一個函式**。
+它量的是「iperf 期間 `/proc/net/dev` 上真的搬了位元組的 `sN-ethP`」對「twin 的
+`link_bandwidth_usage_bps` 在同一視窗的積分」，斷言 on-path > 0、off-path 的**交換機間**邊 == 0。
+這一格與 exercise 的程式無關，13 支都跑同一格。**它的紅綠鑑別力由 05 的第三組（`--telemetry none`）
+建立，不是由這一格自己建立。**
+
+[Co-developed with claude code -- Adam]
