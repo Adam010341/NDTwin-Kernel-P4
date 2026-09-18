@@ -1079,6 +1079,251 @@ class AOneSwitchFabricHasNoInterSwitchLinksTest(unittest.TestCase):
         self.assertEqual(topo_from_json.host_links(model), [("h1", 1, 1), ("h2", 1, 2)])
 
 
+# --- TICKET-P3 section 2.1: one word, three readers ------------------------------------------
+
+
+class TelemetrySourceTest(unittest.TestCase):
+    """The knob, the package's declaration, and the per-switch `auto` rule -- in that order."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_telemetry_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.knob = os.path.join(self.tmp, "telemetry_override")
+
+    def write_knob(self, text):
+        with open(self.knob, "w") as fh:
+            fh.write(text)
+        return self.knob
+
+    def package(self, source=None, name="telemetry"):
+        manifest = json.loads(json.dumps(CONVERTER_BASIC))
+        if source is not None:
+            manifest["telemetry"] = {"source": source}
+        return app_package.load(lay_out_converter_package(
+            self.tmp, manifest, name,
+            entry_files=[spec["entries"] for spec in manifest["switches"].values()]))
+
+    # --- the domain --------------------------------------------------------------------
+
+    def test_the_four_words_are_the_domain_and_auto_is_not_an_answer(self):
+        # 🔴 The literals, not the constant compared with itself. `auto` is in the domain a
+        # package and the knob may state, and NOT in what `telemetry_source()` may answer:
+        # answering `auto` would make every caller implement the per-switch rule a second time.
+        self.assertEqual(app_package.TELEMETRY_SOURCES,
+                         ("auto", "none", "cooperative", "link"))
+        self.assertEqual(app_package.TELEMETRY_RESOLVED, ("none", "cooperative", "link"))
+
+    def test_a_package_that_says_nothing_means_auto(self):
+        self.assertEqual(self.package().telemetry_source, "auto")
+        self.assertEqual(app_package.baseline().telemetry_source, "auto")
+
+    def test_each_word_of_the_domain_is_carried_verbatim(self):
+        for i, word in enumerate(app_package.TELEMETRY_SOURCES):
+            self.assertEqual(self.package(word, name=f"telemetry_{i}").telemetry_source, word)
+
+    def test_a_word_outside_the_domain_is_refused_by_name(self):
+        with self.assertRaises(app_package.AppPackageError) as ctx:
+            self.package("linke", name="typo")
+        self.assertIn("telemetry.source", str(ctx.exception))
+        self.assertIn("'linke'", str(ctx.exception))
+
+    def test_telemetry_that_is_not_an_object_is_refused(self):
+        manifest = json.loads(json.dumps(CONVERTER_BASIC))
+        manifest["telemetry"] = "link"
+        with self.assertRaises(app_package.AppPackageError) as ctx:
+            app_package.load(lay_out_converter_package(
+                self.tmp, manifest, "telemetry_scalar",
+                entry_files=[sp["entries"] for sp in manifest["switches"].values()]))
+        self.assertIn("'telemetry' must be an object", str(ctx.exception))
+
+    def test_the_field_is_additive_and_the_format_number_does_not_move(self):
+        # Section 2.1: `format` stays 1, because a reader that does not know this key still
+        # reads every other key correctly.
+        self.assertEqual(app_package.FORMAT, 1)
+        self.assertEqual(self.package("link", name="still_one").telemetry_source, "link")
+
+    # --- the knob ----------------------------------------------------------------------
+
+    def test_a_knob_that_does_not_exist_is_not_an_opinion(self):
+        self.assertIsNone(app_package.read_telemetry_knob(
+            os.path.join(self.tmp, "no_such_file")))
+
+    def test_the_first_non_comment_line_wins(self):
+        self.assertEqual(app_package.read_telemetry_knob(
+            self.write_knob("# written by ndt\n\nlink\ncooperative\n")), "link")
+
+    def test_a_knob_with_only_comments_is_not_an_opinion_either(self):
+        # `host_count_override`'s shape, which section 2.1 names: an empty directive file
+        # falls back rather than refusing. The refusing case is the word, below.
+        self.assertIsNone(app_package.read_telemetry_knob(self.write_knob("# nothing\n")))
+
+    def test_a_knob_word_outside_the_domain_refuses_the_run(self):
+        # 🔴 REFUSED, not defaulted. `ndt` validates before writing, so a bad word here means
+        # something else wrote the file -- and a fabric that came up on `auto` instead would
+        # measure something nobody asked for, with every reading as plausible as a correct one.
+        with self.assertRaises(app_package.AppPackageError) as ctx:
+            app_package.read_telemetry_knob(self.write_knob("linkk\n"))
+        self.assertIn("'linkk'", str(ctx.exception))
+        self.assertIn("auto", str(ctx.exception))
+
+    def test_the_default_knob_path_sits_beside_the_other_three(self):
+        self.assertEqual(os.path.basename(app_package.TELEMETRY_KNOB_PATH),
+                         "telemetry_override")
+        self.assertEqual(os.path.dirname(app_package.TELEMETRY_KNOB_PATH),
+                         os.path.dirname(app_package.KNOB_PATH))
+
+    # --- the three layers --------------------------------------------------------------
+
+    def test_the_knob_outranks_the_packages_own_declaration(self):
+        package = self.package("cooperative", name="layered")
+        self.write_knob("link\n")
+        self.assertEqual(app_package.telemetry_source(package, 1, knob_path=self.knob), "link")
+
+    def test_an_auto_knob_defers_to_the_package(self):
+        package = self.package("none", name="auto_knob")
+        self.write_knob("auto\n")
+        self.assertEqual(app_package.telemetry_source(package, 1, knob_path=self.knob), "none")
+
+    def test_with_neither_saying_anything_the_rule_decides_per_switch(self):
+        package = self.package(name="auto_both")
+        knob = os.path.join(self.tmp, "absent")
+        # Every switch of `basic` says `pipeline: null`, i.e. NDTwin's own artefacts.
+        self.assertEqual(app_package.telemetry_source(package, 1, knob_path=knob),
+                         "cooperative")
+
+    def test_auto_sends_a_foreign_pipeline_down_the_link_path(self):
+        # 🔴 THE REASON THE RULE IS PER SWITCH. A tutorials program has no `packet_in` header
+        # and no clone session, so cooperative telemetry on it produces nothing at all -- not
+        # an error, an empty twin. `firewall` runs its own program on s1 and NDTwin's on the
+        # other three, and this is that fabric.
+        manifest = json.loads(json.dumps(CONVERTER_BASIC))
+        for key, switch in manifest["switches"].items():
+            if key == "1":
+                switch["pipeline"] = {"p4info": "build/firewall.p4.p4info.txtpb",
+                                      "bmv2_json": "build/firewall.json"}
+        directory = lay_out_converter_package(
+            self.tmp, manifest, "mixed_auto",
+            entry_files=[sp["entries"] for sp in manifest["switches"].values()])
+        for rel in ("build/firewall.p4.p4info.txtpb", "build/firewall.json"):
+            full = os.path.join(directory, rel)
+            os.makedirs(os.path.dirname(full), exist_ok=True)
+            with open(full, "w") as fh:
+                fh.write("{}\n")
+        package = app_package.load(directory)
+        knob = os.path.join(self.tmp, "absent")
+        self.assertEqual(app_package.telemetry_source(package, 1, knob_path=knob), "link")
+        for dpid in (2, 3, 4):
+            self.assertEqual(app_package.telemetry_source(package, dpid, knob_path=knob),
+                             "cooperative")
+
+    def test_a_resolved_answer_is_never_auto_whatever_the_inputs(self):
+        package = self.package("auto", name="never_auto")
+        for text in ("auto\n", "# nothing\n"):
+            self.assertIn(app_package.telemetry_source(package, 1,
+                                                       knob_path=self.write_knob(text)),
+                          app_package.TELEMETRY_RESOLVED)
+
+
+# --- TICKET-P3 section 2.4: which links this package actually shaped --------------------------
+
+
+class ShapedLinksTest(unittest.TestCase):
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_shaping_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def load(self, edits, name):
+        manifest = json.loads(json.dumps(CONVERTER_BASIC))
+        edits(manifest["links"])
+        return app_package.load(lay_out_converter_package(
+            self.tmp, manifest, name,
+            entry_files=[sp["entries"] for sp in manifest["switches"].values()]))
+
+    def test_the_default_bandwidth_is_the_converters_own_literal(self):
+        # 🔴 READ OUT OF tools/p4_exercise/common.py, not compared with itself. The two numbers
+        # have to agree or `shaped_links` would shape every unshaped link in every converted
+        # package; this module cannot import that file (it must stay importable by a root
+        # Mininet script with only the standard library), so the duplication is CHECKED here.
+        source = os.path.join(REPO, "tools", "p4_exercise", "common.py")
+        with open(source) as fh:
+            text = fh.read()
+        import re
+        match = re.search(r"^DEFAULT_LINK_BPS\s*=\s*(\d+)\s*$", text, re.M)
+        self.assertIsNotNone(match, f"no DEFAULT_LINK_BPS in {source}")
+        self.assertEqual(int(match.group(1)), app_package.DEFAULT_LINK_BPS)
+        self.assertEqual(app_package.DEFAULT_LINK_BPS, 1000000000)
+
+    def test_a_package_that_shaped_nothing_shapes_nothing(self):
+        # Every one of pod-topo's eight links is the default 1 Gbit/s with no delay.
+        self.assertEqual(app_package.shaped_links(self.load(lambda links: None, "plain")), [])
+        self.assertEqual(app_package.shaped_links(app_package.baseline()), [])
+
+    def test_a_bottleneck_is_reported_in_megabit_with_its_endpoints(self):
+        # ecn's and mri's `["s1-p3", "s2-p3", "0", 0.5]` -- 500000 bps, which is the whole
+        # point of both exercises and reads as zero queue depth without G2-C.
+        package = self.load(lambda links: links[2].__setitem__("bandwidth_bps", 500000),
+                            "bottleneck")
+        self.assertEqual(app_package.shaped_links(package),
+                         [(("s1", 3), ("s3", 1), 0.5, None)])
+
+    def test_a_delay_alone_is_shaping(self):
+        package = self.load(lambda links: links[0].__setitem__("delay_ms", 2.5), "delay_only")
+        self.assertEqual(app_package.shaped_links(package),
+                         [(("h1", 1), ("s1", 1), None, 2.5)])
+
+    def test_a_declared_zero_delay_is_not_shaping(self):
+        package = self.load(lambda links: links[0].__setitem__("delay_ms", 0), "zero_delay")
+        self.assertEqual(app_package.shaped_links(package), [])
+
+    def test_both_together(self):
+        package = self.load(
+            lambda links: links[3].update({"bandwidth_bps": 10000000, "delay_ms": 1}), "both")
+        self.assertEqual(app_package.shaped_links(package),
+                         [(("s1", 4), ("s4", 2), 10.0, 1.0)])
+
+    def test_the_index_is_unordered_so_either_end_may_be_asked_first(self):
+        # MultiSwitchTopo knows a cable as two (node, port) pairs and has no idea which of them
+        # the manifest listed first: host links are built as (host, switch) and the manifest
+        # writes hosts first, but an inter-switch cable has no such convention.
+        package = self.load(lambda links: links[2].__setitem__("bandwidth_bps", 500000),
+                            "unordered")
+        index = app_package.shaping_index(package)
+        self.assertEqual(app_package.link_shaping_kwargs(index, ("s1", 3), ("s3", 1)),
+                         {"bw": 0.5})
+        self.assertEqual(app_package.link_shaping_kwargs(index, ("s3", 1), ("s1", 3)),
+                         {"bw": 0.5})
+
+    def test_an_unshaped_cable_gets_no_keyword_at_all(self):
+        # 🔴 `{}`, not `{"bw": None}`. An unshaped link inside a package that shapes one other
+        # link has to reach addLink with the arguments it reaches it with today.
+        package = self.load(lambda links: links[2].__setitem__("bandwidth_bps", 500000),
+                            "one_only")
+        index = app_package.shaping_index(package)
+        self.assertEqual(app_package.link_shaping_kwargs(index, ("h1", 1), ("s1", 1)), {})
+
+    def test_delay_is_spelled_the_way_mininet_hands_it_to_netem(self):
+        package = self.load(lambda links: links[0].__setitem__("delay_ms", 0.5), "delay_fmt")
+        index = app_package.shaping_index(package)
+        self.assertEqual(app_package.link_shaping_kwargs(index, ("h1", 1), ("s1", 1)),
+                         {"delay": "0.5ms"})
+
+    def test_a_negative_or_zero_bandwidth_is_refused(self):
+        for bad in (0, -1):
+            with self.assertRaises(app_package.AppPackageError):
+                app_package.shaped_links(
+                    self.load(lambda links, b=bad: links[0].__setitem__("bandwidth_bps", b),
+                              f"bad_bw_{bad}"))
+
+    def test_the_status_line_names_both_ends_and_what_was_asked_for(self):
+        # The string `ndt status` prints. Here rather than in `ndt` so the fabric that installs
+        # the shaping and the line that claims it are reading one function.
+        package = self.load(
+            lambda links: links[2].update({"bandwidth_bps": 500000, "delay_ms": 5}), "status")
+        self.assertEqual(app_package.format_shaped_link(app_package.shaped_links(package)[0]),
+                         "s1:3<->s3:1 0.5 Mbit/s 5ms")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
 
