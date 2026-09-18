@@ -824,6 +824,55 @@ class TheLinkMonitorArms(unittest.TestCase):
                 self.assertFalse(v["switch ids seen"].ok)
 
 
+class TheReceiverIsUnbuffered(unittest.TestCase):
+    """🔴 The receiver's stdout is a FILE, so the interpreter block-buffers it.
+
+    2026-09-18 19:11, tutorials harness, link_monitor/solution: both arms failed on
+    the FIRST assertion -- `injection: probes reached h1  want=>=1 report row  got=0
+    rows` -- with `logs/driver-h1-receive.log` at 0 B, not even receive.py:26's
+    `sniffing on eth0`.  The dataplane was fine: the same run's s1.log has 8
+    `Egress port is 1`, one per probe.  link_monitor/receive.py:16-28 only prints;
+    basic/receive.py:51,58 and source_routing/receive.py:41,56 flush themselves,
+    which is the whole reason those two arms passed on the same driver.
+
+    `_start_receiver` redirects stdout to a file and `_stop_receiver` ends the child
+    with SIGTERM, which runs no atexit handler -- so a buffer that was never flushed
+    is simply discarded.  `-u` is the fix, and it belongs in the ARGV of every
+    receiver this driver starts, not only link_monitor's: it is the exercise's own
+    file that decides whether it flushes, and the driver does not get to assume.
+    """
+
+    def setUp(self):
+        self.mod = load_driver()
+        quiet(self.mod)
+        self.tmp = tempfile.mkdtemp(prefix="drv-unbuf-")
+        self.ips = {"h1": "10.0.1.1", "h2": "10.0.2.2", "h3": "10.0.3.3", "h4": "10.0.4.4"}
+
+    def receivers(self, exercise):
+        """Every argv this exercise's steps started a receive.py with."""
+        hosts = StubHosts(self.ips, popen_texts={"receive.py": ""},
+                          pa=zero_loss(self.mod))
+        steps_for(self.mod, exercise, "solution", hosts, self.tmp).run()
+        return [argv for _host, argv in hosts.popened
+                if any(a.endswith("receive.py") for a in argv)]
+
+    def test_every_receive_py_is_started_unbuffered_with_u_before_the_script(self):
+        for ex in ("link_monitor", "basic", "source_routing"):
+            with self.subTest(exercise=ex):
+                started = self.receivers(ex)
+                self.assertEqual(1, len(started),
+                                 "%s starts exactly one receiver: %r" % (ex, started))
+                argv = started[0]
+                script = [i for i, a in enumerate(argv) if a.endswith("receive.py")][0]
+                self.assertIn("-u", argv,
+                              "%s: receive.py's stdout is a file, so without -u its "
+                              "output dies in the buffer SIGTERM never flushes (%r)"
+                              % (ex, argv))
+                self.assertLess(argv.index("-u"), script,
+                                "%s: -u after the script is an argument to receive.py, "
+                                "not an interpreter flag (%r)" % (ex, argv))
+
+
 class TheLabRefusal(unittest.TestCase):
     """The ndtwin pre-flight asks `require_free_lab`'s two questions."""
 

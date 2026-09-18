@@ -7,9 +7,11 @@
 #
 # A test that has never been seen to fail is a decoration, and this driver's suite is the
 # shape most at risk of being one: every fabric in it is a stub, so a cell can be green
-# because the driver is right or because the stub answered the question for it. Sixteen
-# mutations, each aimed at a decision the driver makes on its own, and each naming the ONE
-# test that must go red for it.
+# because the driver is right or because the stub answered the question for it. Every
+# mutation below is aimed at a decision the driver makes on its own, and each names the ONE
+# test that must go red for it.  (No count is written here on purpose: this header said
+# "Sixteen" while the table had grown to 42, and a gate that misdescribes its own size is
+# the defect it exists to catch, one level up. The run prints the number it actually ran.)
 #
 # 🔴 THE MUTANT IS A COPY, AND THE ORIGINAL IS NEVER WRITTEN. `mutate_p4_exercise_tools.sh`
 # edits its subjects in place and restores them, which is safe there and is not safe here:
@@ -25,7 +27,7 @@
 # reached the interpreter established nothing. None of them aborts the remaining mutations.
 #
 # 🔴 THE NEGATIVE CONTROL is not optional either: a suite that reddens for any edit would
-# print "16 caught" above while catching nothing at all. A comment-only edit must stay green.
+# print "N caught" above while catching nothing at all. A comment-only edit must stay green.
 #
 # Usage:  tests/shell/mutate_drive_exercise.sh
 #         PYTHON=... tests/shell/mutate_drive_exercise.sh
@@ -380,6 +382,18 @@ add "42. the link_monitor SOLUTION arm expects three of the four switches" \
                       "send.py'"'"'s 9 ProbeFwd hops walk s1-s4-s2-s3-s1-s3-s2-s4-s1 over pod-topo")' \
     'test_the_solution_arm_wants_all_four_switch_ids_and_no_zero_port'
 
+# 43 (P2-E): the defect the 2026-09-18 19:11 live round actually hit. Without `-u` the
+# receiver's stdout is a file the interpreter block-buffers, and _stop_receiver's SIGTERM
+# runs no atexit handler -- so link_monitor's driver-h1-receive.log came back 0 B and every
+# assertion about the probes failed while the switch log held all 8 of them. This is a
+# mutation whose survival would be invisible in the suite and loud in the lab: the arms that
+# pass (basic, source_routing) pass only because THEIR receive.py flushes itself.
+add "43. the receiver is started buffered, so its output dies with the SIGTERM" \
+    "$DRIVER" \
+    '        cmd = [VENV_PY, "-u", self._script(script)]' \
+    '        cmd = [VENV_PY, self._script(script)]  # MUTANT: a file is block-buffered' \
+    'test_every_receive_py_is_started_unbuffered_with_u_before_the_script'
+
 CTRL_SRC="$DRIVER"
 CTRL_ANCHOR='def host_key(name):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.
@@ -584,10 +598,11 @@ echo "  suite green against the real file"
 #
 # What IS true: every mutation names ONE test, and the `also red:` line under each one names
 # the others that went red with it. Read together those lines cover EVERY cell in the suite --
-# all fifty have been red for at least one mutation here, which is the claim "no test in this
-# suite is a decoration" and is the only form of it worth making. The last eleven mutations
-# (31-42) exist for exactly that: each was added because some cell had never been seen to
-# fail, and the P2-C SUMMARY carries the cell-by-cell table this run produces.
+# all fifty-one have been red for at least one mutation here, which is the claim "no test in
+# this suite is a decoration" and is the only form of it worth making. Mutations 31-42 exist
+# for exactly that: each was added because some cell had never been seen to fail, and the
+# P2-C SUMMARY carries the cell-by-cell table this run produces. Mutation 43 is the fifty-
+# first cell, added with it by P2-E.
 printf '\nevery cell in the suite has been red for at least one mutation above; the `also red:`\n'
 printf 'lines are what that claim is built from. (The 09-08 fixture comparison IS reddened --\n'
 printf 'by mutation 1 -- and this footer used to say it was not.)\n'
