@@ -1,0 +1,50 @@
+the launch is reachable at all
+  ok       ndtwin-lab defines ovs_topo_script
+  ok       ndtwin-lab defines ovs_topo_pattern
+  ok       ndtwin-lab defines ovs_topo_start
+  ok         and still defines sweep_matches (the sweep)
+  ok         and still defines sweep_count (the sweep)
+what `ndt up ovs` launches
+  ok       the launch succeeds
+  ok       🔴 it really launched something
+  ok       the topology comes from the kernel tree
+  ok         and that file exists on disk
+  ok       the interpreter is the lab's NTG_PY
+  ok       tmux's working directory is the tree
+  ok       it is still the 'topo' session
+  ok       🔴 nothing in the launch names the NTG tree
+  ok       it says which file it started
+the tree the config chose is the tree that runs
+  ok       a different KERNEL_DIR moves the script
+  ok         and moves the working directory too
+  ok         and it still starts
+  ok         and the sweep pattern moves with it
+  ok         and does not name another tree's copy
+  ok       pointed here, it launches this repo's copy
+🔴 a missing topology refuses instead of starting an empty window
+  ok       rc is non-zero
+  ok         and the message names the missing file
+  ok         and nothing was launched
+the sweep still finds what the launch starts (ndt down)
+  ok       cleanup's pattern matches the launched argv
+  ok       🔴 the OLD NTG pattern does not match it
+  ok       the NTG pattern still finds an NTG orphan
+  ok       another tree's testbed_topo.py is not it
+  ok       a mention of it is still not a process
+  ok       a live process with that command line is found
+  ok       🔴 sweeping the old pattern alone is blind to it
+  ok         and it is gone once reaped
+the file it launches is one that interpreter can run
+  ok       it imports under /home/adam/miniconda3/envs/ntg-env/bin/python
+  ok         and its banner is finding #42's, not the constant one
+the verbs are wired to what was tested
+  ok       the ovs-topo-start branch was found
+  ok       the cleanup branch was found
+  ok       the ovs-topo-start branch launches that file
+  ok         and hands it to NTG_PY
+  ok         🔴 and names no file in the NTG tree
+  ok       cleanup sweeps the pattern the launch uses
+  ok         and still sweeps the NTG suffix (orphans)
+  ok         and has not lost the bmv2 sweeps
+
+Ran 41 checks, 0 failed

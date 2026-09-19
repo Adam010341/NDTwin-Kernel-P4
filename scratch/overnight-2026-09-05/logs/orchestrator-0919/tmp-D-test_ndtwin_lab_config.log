@@ -1,0 +1,69 @@
+no config file (the behaviour that must not change)
+  ok       sourcing as a non-root user works
+  ok       KERNEL_DIR is the pre-G-7 default
+  ok       NTG_PY is the pre-G-7 default
+  ok       ENERGY_DIR is the pre-G-7 default
+  ok       SIM_DIR is the pre-G-7 default
+  ok       BRIDGE is built from KERNEL_DIR
+  ok       a missing config file is not an error
+  ok         and it says the defaults are in use
+  ok       the fixed path is /etc/ndtwin-lab.conf
+trust (the refusals are what protect anything)
+  the file half
+  ok       a file owned by this user is refused
+  ok         and it says who owns it
+  ok       a world-writable file is refused
+  ok       a symlink is refused outright
+  ok         and says it will not read the target
+  ok       a directory is not a config file
+  ok       a real root-owned file IS trusted
+  ok         /etc/hostname really is root-owned
+  ok         and really is not group/other writable
+  the directory half
+  ok       a directory owned by this user is refused
+  ok         and it says who owns it
+  ok       /tmp is root-owned
+  ok         but world-writable, so it is refused
+  ok         and it explains it can be replaced
+  ok       /etc IS trusted
+  ok         /etc really is root-owned
+  and the directory is judged FIRST
+  ok       a bad directory refuses before the file
+parse (only four keys, absolute paths, and the tree must exist)
+  ok       a good file sets what it names
+  ok       unknown-key is refused
+  ok         and names the line number
+  ok       relative-path is refused
+  ok         and names the line number
+  ok       dotdot is refused
+  ok         and names the line number
+  ok       no-equals is refused
+  ok         and names the line number
+  ok       a KERNEL_DIR that does not exist
+  ok       a KERNEL_DIR with no bridge script
+  ok         and it says what is missing
+  ok       a shell command in the file is refused
+  ok         and was NOT executed
+a refused config file (the rescue path has to stay open)
+  ok       load of a refused file -> rc 1
+  ok         the built-in defaults are in force
+  ok         parse alone DOES half-apply
+  ok         a half-applied file leaves no residue
+  ok         and the source says it was REFUSED
+  ok       status still runs
+  ok       config still runs
+  ok       topo-start does NOT
+  ok       cleanup does NOT
+  ok       energy-start does NOT
+  ok       sim-stop does NOT
+  ok       the refusal is announced
+  ok         and says how to remove the file
+  ok         and says defaults are in use
+  ok         even on the verb that dies
+  ok       a good config prints no banner
+  ok         and does not block anything
+the environment still does not get a vote
+  ok       an exported KERNEL_DIR is ignored
+  ok       no 'source' of the config anywhere
+
+Ran 59 checks, all passed

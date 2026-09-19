@@ -1,0 +1,151 @@
+### P3-E three-group telemetry round  2026-09-19 09:31:22 UTC
+owner               p3-E
+repo                /home/adam/Desktop/NDTwin-Kernel
+raw                 /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T093122Z_full
+hosts               4   (ndt up p4 4 --telemetry <group>)
+selection           everything: C1 C2 C3 then G1..G6
+settle              60s after bring-up, 20s between arms
+
+controls (run once, inside G1, BEFORE any measurement arm -- PREREG 4.3):
+  C1  generator ceiling at 64 B frames    h1 -> h1 loopback, not through bmv2, 3 reps
+      requirement: >= 5x the highest 64 B pps this round measures through bmv2
+  C2  generator ceiling at 1024 B frames  same, -l 982, 3 reps
+  C3  the external gate has a positive control: two throwaway ladders (1 2 3 5 8 12 kpps),
+      one clean and one with 4 CPU burners from rung 4. external must step up, and
+      the gate must reject the burner arm. If it does not fire, the round does not start.
+
+generations:
+  G1  none         pass a   arms: none_f64_a  none_f1024_a  
+      + sampling-error block: 3 passes over the rates, middle one reversed
+        2 20 100 | 100 20 2 | 2 20 100  Mbit/s, 8s each
+  G2  cooperative  pass a   arms: cooperative_f64_a  cooperative_f1024_a  
+      + sampling-error block: 3 passes over the rates, middle one reversed
+        2 20 100 | 100 20 2 | 2 20 100  Mbit/s, 8s each
+  G3  link         pass a   arms: link_f64_a  link_f1024_a  
+      + sampling-error block: 3 passes over the rates, middle one reversed
+        2 20 100 | 100 20 2 | 2 20 100  Mbit/s, 8s each
+  G4  link         pass b   arms: link_f1024_b  link_f64_b  
+  G5  cooperative  pass b   arms: cooperative_f1024_b  cooperative_f64_b  
+  G6  none         pass b   arms: none_f1024_b  none_f64_b  
+
+teardown on EVERY path (including abort):
+  ndt down  ->  rm /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/telemetry_override (absent = auto)  ->  restore /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/host_count_override bytes  ->  ndt release
+   host_count_override snapshot taken
+
+== claiming the lab
+     recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+     ok  lab claimed by p3-E for 600m (P3-E three-group telemetry round)
+
+== G1: ndt up p4 4 --telemetry none
+     
+     up. ready
+       proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+   settling 60s
+   G1: ok  telemetry: none -- 0 cooperative, 0 link, 10 none; the proxy agrees switch by switch
+   G1: ndt status --check rc=0 (the live lab matches .test_run/up.target)
+
+== C1: generator ceiling at 64B frames (h1 -> h1 loopback, not through bmv2)
+     rep 1: 827043.5 pps
+     rep 2: 771853.3 pps
+     rep 3: 750396.4 pps
+     ceiling 827043.5 pps -- the 5x requirement is checked by analyse.py against the measured cells
+
+== C2: generator ceiling at 1024B frames (h1 -> h1 loopback, not through bmv2)
+     rep 1: 713270.2 pps
+     rep 2: 785664.9 pps
+     rep 3: 762848.1 pps
+     ceiling 785664.9 pps -- the 5x requirement is checked by analyse.py against the measured cells
+
+== C3: the external gate's positive control -- two throwaway ladders, one with burners
+     external 0.0272 -> 0.1834 with 4 burners: the gate fires (+0.1562)
+
+== G1: sampling-error block (group none) -- 3 passes, the middle one reversed
+  window p1  group none            2 Mbit/s offered   twin     0.00  truth     8.25 Mbit/s  n/a (none)
+  window p1  group none           20 Mbit/s offered   twin     0.00  truth    82.40 Mbit/s  n/a (none)
+  window p1  group none          100 Mbit/s offered   twin     0.00  truth   412.01 Mbit/s  n/a (none)
+  window p2  group none          100 Mbit/s offered   twin     0.00  truth   412.02 Mbit/s  n/a (none)
+  window p2  group none           20 Mbit/s offered   twin     0.00  truth    82.41 Mbit/s  n/a (none)
+  window p2  group none            2 Mbit/s offered   twin     0.00  truth     8.24 Mbit/s  n/a (none)
+  window p3  group none            2 Mbit/s offered   twin     0.00  truth     8.25 Mbit/s  n/a (none)
+  window p3  group none           20 Mbit/s offered   twin     0.00  truth    82.41 Mbit/s  n/a (none)
+  window p3  group none          100 Mbit/s offered   twin     0.00  truth   412.01 Mbit/s  n/a (none)
+
+== G1: ladder arm none_f64_a  (group none, frame 64B)
+🔴 INVALID: no simple_switch binary in /tmp/ndtwin_p4_switches.json -- this arm cannot name what it measured
+### E arm none_f64_a  group none  frame 64B (payload 22)  h1->h4  step 8s  09:39:19Z
+      1 kpps  reps 1  loss   0.0000%  sent     999.9 pps  recv     999.8 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.8 pps  recv    1999.4 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.6 pps  recv    2999.1 pps  clean=yes
+      5 kpps  reps 1  loss   0.0000%  sent    4999.2 pps  recv    4998.7 pps  clean=yes
+      8 kpps  reps 1  loss   0.0000%  sent    7998.7 pps  recv    7998.0 pps  clean=yes
+     12 kpps  reps 1  loss   0.0000%  sent   11998.1 pps  recv   11996.5 pps  clean=yes
+     20 kpps  reps 3  loss   0.0119%  sent   19996.6 pps  recv   19993.9 pps  clean=yes
+     30 kpps  reps 3  loss   0.3892%  sent   29995.1 pps  recv   29990.6 pps  clean=yes
+     45 kpps  reps 1  loss   6.1885%  sent   44992.9 pps  recv   44983.7 pps  clean=no
+     70 kpps  reps 1  loss  31.3773%  sent   69988.0 pps  recv   69971.8 pps  clean=no
+    110 kpps  reps 1  loss  47.9627%  sent  109981.2 pps  recv  109963.2 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 30 kpps  reps 0.2200,0.0850,2.0761  median 0.2200% <= 0.5%
+### top_rung_confirmation=30:0.2200,0.0850,2.0761=>0.2200 
+### kernel_sha256_end=be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49
+### sflow_counter_level=telemetry_health/telemetry_health
+### d_rx_total=0
+### d_addressed_total=0
+### d_sock_ovfl_total=0
+### d_app_drop_total=0
+### d_malformed_ipv4_ihl=0
+### d_family_ipv4=0
+### d_family_ipv6=0
+### d_family_l2=0
+### d_family_undecodable=0
+### finished=2026-09-19T09:42:03Z
+### invalid=no simple_switch binary in /tmp/ndtwin_p4_switches.json -- this arm cannot name what it measured
+
+== G1: ladder arm none_f1024_a  (group none, frame 1024B)
+🔴 INVALID: no simple_switch binary in /tmp/ndtwin_p4_switches.json -- this arm cannot name what it measured
+### E arm none_f1024_a  group none  frame 1024B (payload 982)  h1->h4  step 8s  09:42:23Z
+      1 kpps  reps 1  loss   0.0000%  sent     999.9 pps  recv     999.7 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.8 pps  recv    1999.0 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.6 pps  recv    2999.3 pps  clean=yes
+      5 kpps  reps 1  loss   0.0000%  sent    4999.3 pps  recv    4998.8 pps  clean=yes
+      8 kpps  reps 1  loss   0.0000%  sent    7998.6 pps  recv    7997.4 pps  clean=yes
+     12 kpps  reps 1  loss   0.0000%  sent   11998.1 pps  recv   11996.5 pps  clean=yes
+     20 kpps  reps 3  loss   0.0931%  sent   19996.8 pps  recv   19994.1 pps  clean=yes
+     30 kpps  reps 3  loss   0.2046%  sent   29995.0 pps  recv   29991.9 pps  clean=yes
+     45 kpps  reps 1  loss   9.5366%  sent   44992.7 pps  recv   44988.1 pps  clean=no
+     70 kpps  reps 1  loss  29.2882%  sent   69988.3 pps  recv   69981.7 pps  clean=no
+    110 kpps  reps 1  loss  49.2399%  sent  109983.9 pps  recv  109974.8 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 30 kpps  reps 0.3884,0.2875,0.4384  median 0.3884% <= 0.5%
+### top_rung_confirmation=30:0.3884,0.2875,0.4384=>0.3884 
+### kernel_sha256_end=be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49
+### sflow_counter_level=telemetry_health/telemetry_health
+### d_rx_total=0
+### d_addressed_total=0
+### d_sock_ovfl_total=0
+### d_app_drop_total=0
+### d_malformed_ipv4_ihl=0
+### d_family_ipv4=0
+### d_family_ipv6=0
+### d_family_l2=0
+### d_family_undecodable=0
+### finished=2026-09-19T09:45:07Z
+### invalid=no simple_switch binary in /tmp/ndtwin_p4_switches.json -- this arm cannot name what it measured
+
+== teardown
+   final: ndt down rc=0
+         so stack.sh's exit 1 was a reading from the MIDDLE of this teardown, not
+         its ending, and it is not carried to the exit code. (ROLE-12, 2026-09-12)
+       claim note now says the lab is down and verified clean (owner and expiry unchanged)
+   telemetry_override removed (absent = auto)
+     the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+     this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+     ok  lab released
+
+arm                          group        clean_kpps verdict
+none_f64_a                   none         30         INVALID: no simple_switch binary in /tmp/ndtwin_p4_switches.json -- this arm cannot name what it measured
+raw: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T093122Z_full
+FAIL P3-E -- 1 problem(s):
+  G1/none_f64_a: no simple_switch binary in /tmp/ndtwin_p4_switches.json -- this arm cannot name what it measured

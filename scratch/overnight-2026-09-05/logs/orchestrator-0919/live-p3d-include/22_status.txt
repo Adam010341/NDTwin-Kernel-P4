@@ -1,0 +1,60 @@
+lab
+  claim          none
+  prev claim     p3-orchestrator (until 17:39:15), superseded 2026-09-19 16:55:00  (.test_run/lab.claim.prev)
+                 nothing holds the lab now: that claim was released or replaced
+                 it said: down at 2026-09-19 16:55:00; verified clean; claim kept
+  measuring      nothing
+  code           1ea07e7b  +61 file(s) with uncommitted changes
+                 4 of them can change behaviour:
+                 p4_proxy/mininet/host_count_override
+                 p4_proxy/mininet/app_package_override
+                 p4_proxy/mininet/telemetry_override
+                 tools/remote-lab/dorm_lab/
+  knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+  tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)
+  ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6685d3a9)
+
+configuration
+  hosts          4   (what the last 'ndt up' asked for: p4)
+  topology       /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/inc-pkg/ndtwin/topology.json
+  p4 host knob   4   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  app package    /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/inc-pkg (mode ndtwin)
+                 basic_telemetry -- p4_proxy/mininet/app_package_override; it decides the next 'ndt up p4' and the next proxy
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  telemetry      cooperative   (p4_proxy/mininet/telemetry_override)
+                 every switch: cooperative
+                 link emitter: none (/tmp/ndtwin_link_telemetry.json absent)
+  link shaping   off (no package link asks for one)
+  sample rate    n/a (package pipeline)
+  rate source    the app package runs a foreign pipeline on dpid 1,2,3,4 -- p4_proxy/p4_src/build/ndtwin_switch.json is NOT what those switches loaded, and stale_pipeline is not judged
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  4       topo session   present
+  host/switch    8       manifest       present
+  :8000 kernel   open    :8081 proxy    open    :8080 ryu closed
+  binary         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  pidfiles       kernel.child.pid=968867 alive,kernel.pid=968861 alive,p4_proxy.child.pid=968766 alive,p4_proxy.pid=968761 alive
+
+network health
+  switches       4 up, 4 enabled, 0 admin-disabled
+  links          16 total, 8 down, 0 admin-disabled
+  tc netem       none
+  sudo grants    all 3 granted
+  apps           none running
+
+kernel graph
+  4 switches (4 up, 4 enabled), 4 hosts, 16 edges
+proxy
+  4 destination paths reported; none expected -- the package's program on dpid 1,2,3,4, proxy skipped lldp_discovery
+
+up target
+  asked for      p4, 4 hosts   (recorded 2026-09-19 16:55:01 by p3-orchestrator)
+  topology       /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/inc-pkg/ndtwin/topology.json   (declares 4 hosts / 16 edges)
+  dataplane      p4                     == p4   ok
+  fabric hosts   4                      == 4   ok
+  graph hosts    4                      == 4   ok
+  graph edges    16                     == 16   ok
+  topology file  /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/inc-pkg/ndtwin/topology.json is gone -- NOT COMPARED
+  device names   no overlay file at .test_run/nickname_overlay/topology.names.json
+                 that is where this checkout's kernel writes them; not a claim that none are set

@@ -1,0 +1,41 @@
+### tree c293d23d  start 04:57:16
+### p4_proxy_tests
+Ran 1365 tests in 19.825s
+OK (skipped=1)
+rc=0
+### p4_exercise_tests
+Ran 154 tests in 1.552s
+OK
+rc=0
+### contract_selftest
+Self-test passed: 166 checks
+rc=0
+### mutate_telemetry_by_name
+Ran 387 tests in 8.102s
+OK
+mutation gate: 22 mutations, 0 survived
+rc=0
+### mutate_table_entry
+Ran 415 tests in 0.302s
+OK
+mutation gate: 39 mutations, 0 survived
+rc=0
+### mutate_app_package
+Ran 615 tests in 0.904s
+OK
+mutation gate: 48 mutations, 0 survived
+rc=0
+### mutate_p4_exercise_tools
+22 mutations, 0 survived
+rc=0
+### check_gate_anchors
+112/112 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+rc=0
+### check_process_by_name
+check_process_by_name: 2 registered audit exceptions scanned (7 file(s) under them); doc/audit/** is not a scan surface otherwise
+check_process_by_name: 307 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale
+rc=0
+### check_test_tmpdirs
+check_test_tmpdirs: 340 file(s) scanned, 0 fixed temp paths
+rc=0
+### done 05:05:03

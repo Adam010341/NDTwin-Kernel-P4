@@ -1,0 +1,1904 @@
+{
+  "arms": [
+    {
+      "arm": "none_f1024_a",
+      "clean_kpps": 30.0,
+      "d_addressed": 0,
+      "dir": "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full/G1/none_f1024_a",
+      "external": -0.0014,
+      "families": {
+        "ipv4": 0,
+        "ipv6": 0,
+        "l2": 0,
+        "undecodable": 0
+      },
+      "frame": 1024,
+      "group": "none",
+      "invalid": null,
+      "kernel_sha": "be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49",
+      "pipeline_sha": "0b19d789d74fc9963861a20ea168e72d99390841bc592a04c4b2881fddb29743",
+      "shares": {
+        "bmv2": 0.1736,
+        "emitter": 0.0,
+        "iperf3": 0.0748,
+        "kernel": 0.0005,
+        "proxy": 0.0018
+      },
+      "softirq_share": 0.009,
+      "switch_binary_sha": "3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a",
+      "truncated_at": "110"
+    },
+    {
+      "arm": "none_f64_a",
+      "clean_kpps": 30.0,
+      "d_addressed": 0,
+      "dir": "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full/G1/none_f64_a",
+      "external": 0.0061,
+      "families": {
+        "ipv4": 0,
+        "ipv6": 0,
+        "l2": 0,
+        "undecodable": 0
+      },
+      "frame": 64,
+      "group": "none",
+      "invalid": null,
+      "kernel_sha": "be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49",
+      "pipeline_sha": "0b19d789d74fc9963861a20ea168e72d99390841bc592a04c4b2881fddb29743",
+      "shares": {
+        "bmv2": 0.167,
+        "emitter": 0.0,
+        "iperf3": 0.074,
+        "kernel": 0.0005,
+        "proxy": 0.0019
+      },
+      "softirq_share": 0.0085,
+      "switch_binary_sha": "3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a",
+      "truncated_at": "110"
+    },
+    {
+      "arm": "cooperative_f1024_a",
+      "clean_kpps": 30.0,
+      "d_addressed": 64764,
+      "dir": "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full/G2/cooperative_f1024_a",
+      "external": -0.0384,
+      "families": {
+        "ipv4": 64764,
+        "ipv6": 0,
+        "l2": 0,
+        "undecodable": 0
+      },
+      "frame": 1024,
+      "group": "cooperative",
+      "invalid": null,
+      "kernel_sha": "be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49",
+      "pipeline_sha": "0b19d789d74fc9963861a20ea168e72d99390841bc592a04c4b2881fddb29743",
+      "shares": {
+        "bmv2": 0.1906,
+        "emitter": 0.0,
+        "iperf3": 0.0782,
+        "kernel": 0.0042,
+        "proxy": 0.0123
+      },
+      "softirq_share": 0.0071,
+      "switch_binary_sha": "3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a",
+      "truncated_at": "110"
+    },
+    {
+      "arm": "cooperative_f64_a",
+      "clean_kpps": 30.0,
+      "d_addressed": 65209,
+      "dir": "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full/G2/cooperative_f64_a",
+      "external": 0.0243,
+      "families": {
+        "ipv4": 65209,
+        "ipv6": 0,
+        "l2": 0,
+        "undecodable": 0
+      },
+      "frame": 64,
+      "group": "cooperative",
+      "invalid": null,
+      "kernel_sha": "be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49",
+      "pipeline_sha": "0b19d789d74fc9963861a20ea168e72d99390841bc592a04c4b2881fddb29743",
+      "shares": {
+        "bmv2": 0.1652,
+        "emitter": 0.0,
+        "iperf3": 0.0719,
+        "kernel": 0.0038,
+        "proxy": 0.0111
+      },
+      "softirq_share": 0.0102,
+      "switch_binary_sha": "3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a",
+      "truncated_at": "110"
+    },
+    {
+      "arm": "link_f1024_a",
+      "clean_kpps": 30.0,
+      "d_addressed": 81688,
+      "dir": "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full/G3/link_f1024_a",
+      "external": -0.0371,
+      "families": {
+        "ipv4": 81685,
+        "ipv6": 0,
+        "l2": 3,
+        "undecodable": 0
+      },
+      "frame": 1024,
+      "group": "link",
+      "invalid": null,
+      "kernel_sha": "be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49",
+      "pipeline_sha": "0b19d789d74fc9963861a20ea168e72d99390841bc592a04c4b2881fddb29743",
+      "shares": {
+        "bmv2": 0.182,
+        "emitter": 0.004,
+        "iperf3": 0.077,
+        "kernel": 0.0041,
+        "proxy": 0.002
+      },
+      "softirq_share": 0.0086,
+      "switch_binary_sha": "3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a",
+      "truncated_at": "110"
+    },
+    {
+      "arm": "link_f64_a",
+      "clean_kpps": 30.0,
+      "d_addressed": 86426,
+      "dir": "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full/G3/link_f64_a",
+      "external": -0.0921,
+      "families": {
+        "ipv4": 86422,
+        "ipv6": 0,
+        "l2": 4,
+        "undecodable": 0
+      },
+      "frame": 64,
+      "group": "link",
+      "invalid": null,
+      "kernel_sha": "be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49",
+      "pipeline_sha": "0b19d789d74fc9963861a20ea168e72d99390841bc592a04c4b2881fddb29743",
+      "shares": {
+        "bmv2": 0.1741,
+        "emitter": 0.004,
+        "iperf3": 0.0801,
+        "kernel": 0.0042,
+        "proxy": 0.0023
+      },
+      "softirq_share": 0.0056,
+      "switch_binary_sha": "3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a",
+      "truncated_at": "110"
+    },
+    {
+      "arm": "link_f1024_b",
+      "clean_kpps": 12.0,
+      "d_addressed": 60389,
+      "dir": "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full/G4/link_f1024_b",
+      "external": 0.0208,
+      "families": {
+        "ipv4": 60384,
+        "ipv6": 0,
+        "l2": 5,
+        "undecodable": 0
+      },
+      "frame": 1024,
+      "group": "link",
+      "invalid": null,
+      "kernel_sha": "be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49",
+      "pipeline_sha": "0b19d789d74fc9963861a20ea168e72d99390841bc592a04c4b2881fddb29743",
+      "shares": {
+        "bmv2": 0.1441,
+        "emitter": 0.0033,
+        "iperf3": 0.0709,
+        "kernel": 0.0033,
+        "proxy": 0.002
+      },
+      "softirq_share": 0.0093,
+      "switch_binary_sha": "3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a",
+      "truncated_at": "110"
+    },
+    {
+      "arm": "link_f64_b",
+      "clean_kpps": 30.0,
+      "d_addressed": 81698,
+      "dir": "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full/G4/link_f64_b",
+      "external": 0.0023,
+      "families": {
+        "ipv4": 81696,
+        "ipv6": 0,
+        "l2": 2,
+        "undecodable": 0
+      },
+      "frame": 64,
+      "group": "link",
+      "invalid": null,
+      "kernel_sha": "be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49",
+      "pipeline_sha": "0b19d789d74fc9963861a20ea168e72d99390841bc592a04c4b2881fddb29743",
+      "shares": {
+        "bmv2": 0.1668,
+        "emitter": 0.0039,
+        "iperf3": 0.0733,
+        "kernel": 0.004,
+        "proxy": 0.0019
+      },
+      "softirq_share": 0.0102,
+      "switch_binary_sha": "3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a",
+      "truncated_at": "110"
+    },
+    {
+      "arm": "cooperative_f1024_b",
+      "clean_kpps": 30.0,
+      "d_addressed": 68806,
+      "dir": "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full/G5/cooperative_f1024_b",
+      "external": -0.0269,
+      "families": {
+        "ipv4": 68806,
+        "ipv6": 0,
+        "l2": 0,
+        "undecodable": 0
+      },
+      "frame": 1024,
+      "group": "cooperative",
+      "invalid": null,
+      "kernel_sha": "be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49",
+      "pipeline_sha": "0b19d789d74fc9963861a20ea168e72d99390841bc592a04c4b2881fddb29743",
+      "shares": {
+        "bmv2": 0.1733,
+        "emitter": 0.0,
+        "iperf3": 0.0756,
+        "kernel": 0.0039,
+        "proxy": 0.0115
+      },
+      "softirq_share": 0.0086,
+      "switch_binary_sha": "3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a",
+      "truncated_at": "110"
+    },
+    {
+      "arm": "cooperative_f64_b",
+      "clean_kpps": 30.0,
+      "d_addressed": 65031,
+      "dir": "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full/G5/cooperative_f64_b",
+      "external": -0.0136,
+      "families": {
+        "ipv4": 65031,
+        "ipv6": 0,
+        "l2": 0,
+        "undecodable": 0
+      },
+      "frame": 64,
+      "group": "cooperative",
+      "invalid": null,
+      "kernel_sha": "be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49",
+      "pipeline_sha": "0b19d789d74fc9963861a20ea168e72d99390841bc592a04c4b2881fddb29743",
+      "shares": {
+        "bmv2": 0.175,
+        "emitter": 0.0,
+        "iperf3": 0.0749,
+        "kernel": 0.004,
+        "proxy": 0.011
+      },
+      "softirq_share": 0.007,
+      "switch_binary_sha": "3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a",
+      "truncated_at": "110"
+    },
+    {
+      "arm": "none_f1024_b",
+      "clean_kpps": 30.0,
+      "d_addressed": 0,
+      "dir": "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full/G6/none_f1024_b",
+      "external": 0.0195,
+      "families": {
+        "ipv4": 0,
+        "ipv6": 0,
+        "l2": 0,
+        "undecodable": 0
+      },
+      "frame": 1024,
+      "group": "none",
+      "invalid": null,
+      "kernel_sha": "be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49",
+      "pipeline_sha": "0b19d789d74fc9963861a20ea168e72d99390841bc592a04c4b2881fddb29743",
+      "shares": {
+        "bmv2": 0.1584,
+        "emitter": 0.0,
+        "iperf3": 0.0716,
+        "kernel": 0.0005,
+        "proxy": 0.0019
+      },
+      "softirq_share": 0.0082,
+      "switch_binary_sha": "3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a",
+      "truncated_at": "110"
+    },
+    {
+      "arm": "none_f64_b",
+      "clean_kpps": 30.0,
+      "d_addressed": 0,
+      "dir": "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full/G6/none_f64_b",
+      "external": -0.0118,
+      "families": {
+        "ipv4": 0,
+        "ipv6": 0,
+        "l2": 0,
+        "undecodable": 0
+      },
+      "frame": 64,
+      "group": "none",
+      "invalid": null,
+      "kernel_sha": "be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49",
+      "pipeline_sha": "0b19d789d74fc9963861a20ea168e72d99390841bc592a04c4b2881fddb29743",
+      "shares": {
+        "bmv2": 0.165,
+        "emitter": 0.0,
+        "iperf3": 0.0741,
+        "kernel": 0.0005,
+        "proxy": 0.0018
+      },
+      "softirq_share": 0.0072,
+      "switch_binary_sha": "3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a",
+      "truncated_at": "110"
+    },
+    {
+      "arm": "c3a_noburn",
+      "clean_kpps": 12.0,
+      "d_addressed": 0,
+      "dir": "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full/controls/C3/c3a_noburn",
+      "external": 0.0538,
+      "families": {
+        "ipv4": 0,
+        "ipv6": 0,
+        "l2": 0,
+        "undecodable": 0
+      },
+      "frame": 1024,
+      "group": "none",
+      "invalid": null,
+      "kernel_sha": "be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49",
+      "pipeline_sha": "0b19d789d74fc9963861a20ea168e72d99390841bc592a04c4b2881fddb29743",
+      "shares": {
+        "bmv2": 0.0584,
+        "emitter": 0.0,
+        "iperf3": 0.064,
+        "kernel": 0.0005,
+        "proxy": 0.002
+      },
+      "softirq_share": 0.0049,
+      "switch_binary_sha": "3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a",
+      "truncated_at": "not-truncated"
+    },
+    {
+      "arm": "c3b_burn",
+      "clean_kpps": 12.0,
+      "d_addressed": 0,
+      "dir": "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full/controls/C3/c3b_burn",
+      "external": 0.2262,
+      "families": {
+        "ipv4": 0,
+        "ipv6": 0,
+        "l2": 0,
+        "undecodable": 0
+      },
+      "frame": 1024,
+      "group": "none",
+      "invalid": null,
+      "kernel_sha": "be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49",
+      "pipeline_sha": "0b19d789d74fc9963861a20ea168e72d99390841bc592a04c4b2881fddb29743",
+      "shares": {
+        "bmv2": 0.0782,
+        "emitter": 0.0,
+        "iperf3": 0.0691,
+        "kernel": 0.0005,
+        "proxy": 0.0021
+      },
+      "softirq_share": 0.0034,
+      "switch_binary_sha": "3ff54b5c1901c9d3ffd80ac05dc3dc7d0e696e3df73174c1616fb87ac9aedb4a",
+      "truncated_at": "not-truncated"
+    }
+  ],
+  "binaries": [
+    "be70b5dd3235"
+  ],
+  "ceiling": [
+    {
+      "cell_mean": 30.0,
+      "frame": 64,
+      "group": "cooperative",
+      "none_mean": 30.0,
+      "ratio": 1.0,
+      "verdict": "H-A1 indistinguishable at +/-1 rung",
+      "why_unresolved": null
+    },
+    {
+      "cell_mean": 30.0,
+      "frame": 64,
+      "group": "link",
+      "none_mean": 30.0,
+      "ratio": 1.0,
+      "verdict": "H-A1 indistinguishable at +/-1 rung",
+      "why_unresolved": null
+    },
+    {
+      "cell_mean": 30.0,
+      "frame": 1024,
+      "group": "cooperative",
+      "none_mean": 21.0,
+      "ratio": null,
+      "verdict": "H-A0 unresolved",
+      "why_unresolved": "the arms of a cell are more than one rung apart (gap 0 / 2)"
+    },
+    {
+      "cell_mean": 21.0,
+      "frame": 1024,
+      "group": "link",
+      "none_mean": 21.0,
+      "ratio": null,
+      "verdict": "H-A0 unresolved",
+      "why_unresolved": "the arms of a cell are more than one rung apart (gap 2 / 2)"
+    }
+  ],
+  "cells": {
+    "cooperative|1024": {
+      "arms": {
+        "cooperative_f1024_a": 30.0,
+        "cooperative_f1024_b": 30.0
+      },
+      "frame": 1024,
+      "group": "cooperative",
+      "mean": 30.0,
+      "n": 2,
+      "resolved": true,
+      "rung_gap": 0
+    },
+    "cooperative|64": {
+      "arms": {
+        "cooperative_f64_a": 30.0,
+        "cooperative_f64_b": 30.0
+      },
+      "frame": 64,
+      "group": "cooperative",
+      "mean": 30.0,
+      "n": 2,
+      "resolved": true,
+      "rung_gap": 0
+    },
+    "link|1024": {
+      "arms": {
+        "link_f1024_a": 30.0,
+        "link_f1024_b": 12.0
+      },
+      "frame": 1024,
+      "group": "link",
+      "mean": 21.0,
+      "n": 2,
+      "resolved": false,
+      "rung_gap": 2
+    },
+    "link|64": {
+      "arms": {
+        "link_f64_a": 30.0,
+        "link_f64_b": 30.0
+      },
+      "frame": 64,
+      "group": "link",
+      "mean": 30.0,
+      "n": 2,
+      "resolved": true,
+      "rung_gap": 0
+    },
+    "none|1024": {
+      "arms": {
+        "c3a_noburn": 12.0,
+        "c3b_burn": 12.0,
+        "none_f1024_a": 30.0,
+        "none_f1024_b": 30.0
+      },
+      "frame": 1024,
+      "group": "none",
+      "mean": 21.0,
+      "n": 4,
+      "resolved": false,
+      "rung_gap": 2
+    },
+    "none|64": {
+      "arms": {
+        "none_f64_a": 30.0,
+        "none_f64_b": 30.0
+      },
+      "frame": 64,
+      "group": "none",
+      "mean": 30.0,
+      "n": 2,
+      "resolved": true,
+      "rung_gap": 0
+    }
+  },
+  "controls": {
+    "C1": {
+      "ceiling_pps": "804277.3",
+      "control": "C1",
+      "frame_bytes": "64",
+      "payload_bytes": "22",
+      "reps_pps": "804277.3 794569.3 770523.4",
+      "requirement": ">= 5x the highest 64B pps this round measures through bmv2 (PREREG 4.3)",
+      "verdict": "computed by analyse.py once the 64B cells exist"
+    },
+    "C2": {
+      "ceiling_pps": "795477.5",
+      "control": "C2",
+      "frame_bytes": "1024",
+      "payload_bytes": "982",
+      "reps_pps": "766478.9 795477.5 786313.3",
+      "requirement": ">= 5x the highest 1024B pps this round measures through bmv2 (PREREG 4.3)",
+      "verdict": "computed by analyse.py once the 1024B cells exist"
+    },
+    "C3": {
+      "burners": "4",
+      "control": "C3",
+      "external_with_burners": "0.2262",
+      "external_without_burners": "0.0538",
+      "ladder": "1 2 3 5 8 12",
+      "threshold": "+0.15 absolute (PREREG 6.2)",
+      "verdict": "FIRES"
+    }
+  },
+  "cpu_bmv2": {
+    "fits": {
+      "cooperative": {
+        "fit": {
+          "fixed_percent": 4.106397254665633,
+          "marginal_percent_per_sample": 0.03099347638077813,
+          "marginal_us_per_sample": 309.9347638077813,
+          "max_samples_per_s": 1064.1904112064908,
+          "points": 3
+        },
+        "verdict": "H-C1 cost is dominated by a fixed component (08-20 reproduces)"
+      },
+      "link": {
+        "fit": null,
+        "verdict": "H-C0 not resolved"
+      }
+    },
+    "frame": 1024,
+    "label": "bmv2",
+    "per_group": {
+      "cooperative": {
+        "1.0": {
+          "_proxy_plus_emitter": 3.4659734274420932,
+          "arms": 2,
+          "cpu": 30.593929696486498,
+          "samples_per_s": 19.555976525691996,
+          "softirq_frac": 0.0018427975608228241,
+          "spread": 1.4704514459180622
+        },
+        "2.0": {
+          "_proxy_plus_emitter": 4.19909361229719,
+          "arms": 2,
+          "cpu": 40.65853572954306,
+          "samples_per_s": 38.7247823579815,
+          "softirq_frac": 0.004656852752440821,
+          "spread": 0.005419661323557534
+        },
+        "3.0": {
+          "_proxy_plus_emitter": 4.1327822720660405,
+          "arms": 2,
+          "cpu": 49.06012501098766,
+          "samples_per_s": 60.3540741161238,
+          "softirq_frac": 0.0005441889694898042,
+          "spread": 1.5593714479678056e-06
+        },
+        "5.0": {
+          "_proxy_plus_emitter": 5.198960306400588,
+          "arms": 2,
+          "cpu": 68.71953296616442,
+          "samples_per_s": 97.38028262888056,
+          "softirq_frac": 0.0002836681620890881,
+          "spread": 1.7238266526943136
+        },
+        "8.0": {
+          "_proxy_plus_emitter": 7.06572441374729,
+          "arms": 2,
+          "cpu": 97.65364402018659,
+          "samples_per_s": 154.4896326030725,
+          "softirq_frac": 0.0010673564446053412,
+          "spread": 1.466471104740009
+        },
+        "12.0": {
+          "_proxy_plus_emitter": 8.602669421190116,
+          "arms": 2,
+          "cpu": 134.4746680894924,
+          "samples_per_s": 217.26811683113783,
+          "softirq_frac": 0.005488994181260069,
+          "spread": 10.48007593311138
+        },
+        "20.0": {
+          "_proxy_plus_emitter": 14.742785409761675,
+          "arms": 2,
+          "cpu": 205.65401451028515,
+          "samples_per_s": 357.555142039305,
+          "softirq_frac": 0.007456226365026189,
+          "spread": 0.07841714879833717
+        },
+        "30.0": {
+          "_proxy_plus_emitter": 23.795835746899073,
+          "arms": 2,
+          "cpu": 382.7205242002575,
+          "samples_per_s": 173.22226451176516,
+          "softirq_frac": 0.012358038983517648,
+          "spread": 14.397480451905324
+        },
+        "45.0": {
+          "_proxy_plus_emitter": 26.99463268734356,
+          "arms": 2,
+          "cpu": 482.57246290848286,
+          "samples_per_s": 826.0372197913451,
+          "softirq_frac": 0.005569741631838972,
+          "spread": 69.11718256358876
+        },
+        "70.0": {
+          "_proxy_plus_emitter": 39.394747203165096,
+          "arms": 2,
+          "cpu": 621.9837322828143,
+          "samples_per_s": 947.3825087204193,
+          "softirq_frac": 0.023205511714564434,
+          "spread": 82.52234961154579
+        },
+        "110.0": {
+          "_proxy_plus_emitter": 50.045406725202014,
+          "arms": 2,
+          "cpu": 764.8565261656065,
+          "samples_per_s": 1064.1904112064908,
+          "softirq_frac": 0.027851370927144396,
+          "spread": 13.342162768622188
+        }
+      },
+      "link": {
+        "1.0": {
+          "_proxy_plus_emitter": 2.5329955890438502,
+          "arms": 2,
+          "cpu": 26.929742535323893,
+          "samples_per_s": 22.736672125831234,
+          "softirq_frac": 0.00029322660584199344,
+          "spread": 0.2666319701494757
+        },
+        "2.0": {
+          "_proxy_plus_emitter": 2.9994046191149173,
+          "arms": 2,
+          "cpu": 36.32612655803209,
+          "samples_per_s": 44.736999066008565,
+          "softirq_frac": 9.869719699960521e-05,
+          "spread": 1.7378289252286194
+        },
+        "3.0": {
+          "_proxy_plus_emitter": 3.2662312007377654,
+          "arms": 2,
+          "cpu": 49.8600191459561,
+          "samples_per_s": 69.04136354128309,
+          "softirq_frac": 0.0003482030971975556,
+          "spread": 13.598187039806213
+        },
+        "5.0": {
+          "_proxy_plus_emitter": 3.6661778169365,
+          "arms": 2,
+          "cpu": 64.05812522973591,
+          "samples_per_s": 120.74105771612781,
+          "softirq_frac": 0.00015140375953570724,
+          "spread": 5.732570991169702
+        },
+        "8.0": {
+          "_proxy_plus_emitter": 4.794953443673518,
+          "arms": 2,
+          "cpu": 90.7908770358496,
+          "samples_per_s": 192.83229445101716,
+          "softirq_frac": 0.00010029152770614497,
+          "spread": 1.8723802515151675
+        },
+        "12.0": {
+          "_proxy_plus_emitter": 7.049890840794659,
+          "arms": 2,
+          "cpu": 200.4102419441461,
+          "samples_per_s": 151.04062148514717,
+          "softirq_frac": 0.007114744628774378,
+          "spread": 139.5219878292709
+        },
+        "20.0": {
+          "_proxy_plus_emitter": 7.371392704605931,
+          "arms": 2,
+          "cpu": 202.85053272478967,
+          "samples_per_s": 426.1856883168185,
+          "softirq_frac": 0.008245211528976391,
+          "spread": 5.842222708898731
+        },
+        "30.0": {
+          "_proxy_plus_emitter": 10.77694574682299,
+          "arms": 2,
+          "cpu": 361.75324767543555,
+          "samples_per_s": 444.45111233135555,
+          "softirq_frac": 0.01993825619057078,
+          "spread": 27.692054539204207
+        },
+        "45.0": {
+          "_proxy_plus_emitter": 13.397324806111618,
+          "arms": 2,
+          "cpu": 466.9073989726123,
+          "samples_per_s": 1013.0757806845011,
+          "softirq_frac": 0.02558724635894185,
+          "spread": 23.65751789502127
+        },
+        "70.0": {
+          "_proxy_plus_emitter": 16.130187579510384,
+          "arms": 2,
+          "cpu": 615.2130927169476,
+          "samples_per_s": 1282.2673276441078,
+          "softirq_frac": 0.029428189568104883,
+          "spread": 83.79859729561065
+        },
+        "110.0": {
+          "_proxy_plus_emitter": 19.59605387800606,
+          "arms": 2,
+          "cpu": 725.9201358978246,
+          "samples_per_s": 1574.3559350677738,
+          "softirq_frac": 0.039248989534921175,
+          "spread": 40.02854459595517
+        }
+      },
+      "none": {
+        "1.0": {
+          "_proxy_plus_emitter": 2.4661867697047537,
+          "arms": 4,
+          "cpu": 29.927351921604675,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.00037595092731363723,
+          "spread": 6.136017126517444
+        },
+        "2.0": {
+          "_proxy_plus_emitter": 2.2663644706162778,
+          "arms": 4,
+          "cpu": 39.794693766396044,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.0002952032099983117,
+          "spread": 8.398880230468542
+        },
+        "3.0": {
+          "_proxy_plus_emitter": 2.1997066910093843,
+          "arms": 4,
+          "cpu": 49.526728673719205,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.003334081821655788,
+          "spread": 4.532730487891733
+        },
+        "5.0": {
+          "_proxy_plus_emitter": 2.3330222459857484,
+          "arms": 4,
+          "cpu": 65.52459633447592,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.00015104923200543933,
+          "spread": 6.123524416851488
+        },
+        "8.0": {
+          "_proxy_plus_emitter": 2.6492840008480054,
+          "arms": 4,
+          "cpu": 94.37947477719847,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.00035575435396461246,
+          "spread": 19.98945015536448
+        },
+        "12.0": {
+          "_proxy_plus_emitter": 2.2721445322019482,
+          "arms": 4,
+          "cpu": 133.8509673196295,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.003005733096494811,
+          "spread": 27.307659407577944
+        },
+        "20.0": {
+          "_proxy_plus_emitter": 2.307334321672127,
+          "arms": 2,
+          "cpu": 199.38117127152907,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.006730354583510562,
+          "spread": 5.09860272683099
+        },
+        "30.0": {
+          "_proxy_plus_emitter": 2.560228642816675,
+          "arms": 2,
+          "cpu": 366.17445418772166,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.014850208298681656,
+          "spread": 1.0069211973436722
+        },
+        "45.0": {
+          "_proxy_plus_emitter": 2.999599986968189,
+          "arms": 2,
+          "cpu": 439.8746736445129,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.003907963775444721,
+          "spread": 11.33182217299094
+        },
+        "70.0": {
+          "_proxy_plus_emitter": 2.9327379548173296,
+          "arms": 2,
+          "cpu": 552.3534294205897,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.022090124214981292,
+          "spread": 83.2430441451483
+        },
+        "110.0": {
+          "_proxy_plus_emitter": 2.532826735438453,
+          "arms": 2,
+          "cpu": 725.9226502651313,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.0266565448145899,
+          "spread": 35.42303078605357
+        }
+      }
+    },
+    "rows": [
+      {
+        "delta_percent": 0.6665777748818229,
+        "group": "cooperative",
+        "kpps": 1.0,
+        "resolved": false,
+        "samples_per_s": 19.555976525691996,
+        "spread": 6.136017126517444
+      },
+      {
+        "delta_percent": 0.8638419631470171,
+        "group": "cooperative",
+        "kpps": 2.0,
+        "resolved": false,
+        "samples_per_s": 38.7247823579815,
+        "spread": 8.398880230468542
+      },
+      {
+        "delta_percent": -0.4666036627315435,
+        "group": "cooperative",
+        "kpps": 3.0,
+        "resolved": false,
+        "samples_per_s": 60.3540741161238,
+        "spread": 4.532730487891733
+      },
+      {
+        "delta_percent": 3.194936631688506,
+        "group": "cooperative",
+        "kpps": 5.0,
+        "resolved": false,
+        "samples_per_s": 97.38028262888056,
+        "spread": 6.123524416851488
+      },
+      {
+        "delta_percent": 3.2741692429881226,
+        "group": "cooperative",
+        "kpps": 8.0,
+        "resolved": false,
+        "samples_per_s": 154.4896326030725,
+        "spread": 19.98945015536448
+      },
+      {
+        "delta_percent": 0.6237007698629213,
+        "group": "cooperative",
+        "kpps": 12.0,
+        "resolved": false,
+        "samples_per_s": 217.26811683113783,
+        "spread": 27.307659407577944
+      },
+      {
+        "delta_percent": 6.2728432387560815,
+        "group": "cooperative",
+        "kpps": 20.0,
+        "resolved": true,
+        "samples_per_s": 357.555142039305,
+        "spread": 5.09860272683099
+      },
+      {
+        "delta_percent": 16.546070012535836,
+        "group": "cooperative",
+        "kpps": 30.0,
+        "resolved": true,
+        "samples_per_s": 173.22226451176516,
+        "spread": 14.397480451905324
+      },
+      {
+        "delta_percent": 42.69778926396998,
+        "group": "cooperative",
+        "kpps": 45.0,
+        "resolved": false,
+        "samples_per_s": 826.0372197913451,
+        "spread": 69.11718256358876
+      },
+      {
+        "delta_percent": 69.63030286222465,
+        "group": "cooperative",
+        "kpps": 70.0,
+        "resolved": false,
+        "samples_per_s": 947.3825087204193,
+        "spread": 83.2430441451483
+      },
+      {
+        "delta_percent": 38.933875900475186,
+        "group": "cooperative",
+        "kpps": 110.0,
+        "resolved": true,
+        "samples_per_s": 1064.1904112064908,
+        "spread": 35.42303078605357
+      },
+      {
+        "delta_percent": -2.997609386280782,
+        "group": "link",
+        "kpps": 1.0,
+        "resolved": false,
+        "samples_per_s": 22.736672125831234,
+        "spread": 6.136017126517444
+      },
+      {
+        "delta_percent": -3.4685672083639574,
+        "group": "link",
+        "kpps": 2.0,
+        "resolved": false,
+        "samples_per_s": 44.736999066008565,
+        "spread": 8.398880230468542
+      },
+      {
+        "delta_percent": 0.33329047223689656,
+        "group": "link",
+        "kpps": 3.0,
+        "resolved": false,
+        "samples_per_s": 69.04136354128309,
+        "spread": 13.598187039806213
+      },
+      {
+        "delta_percent": -1.466471104740009,
+        "group": "link",
+        "kpps": 5.0,
+        "resolved": false,
+        "samples_per_s": 120.74105771612781,
+        "spread": 6.123524416851488
+      },
+      {
+        "delta_percent": -3.5885977413488632,
+        "group": "link",
+        "kpps": 8.0,
+        "resolved": false,
+        "samples_per_s": 192.83229445101716,
+        "spread": 19.98945015536448
+      },
+      {
+        "delta_percent": 66.5592746245166,
+        "group": "link",
+        "kpps": 12.0,
+        "resolved": false,
+        "samples_per_s": 151.04062148514717,
+        "spread": 139.5219878292709
+      },
+      {
+        "delta_percent": 3.4693614532606034,
+        "group": "link",
+        "kpps": 20.0,
+        "resolved": false,
+        "samples_per_s": 426.1856883168185,
+        "spread": 5.842222708898731
+      },
+      {
+        "delta_percent": -4.421206512286119,
+        "group": "link",
+        "kpps": 30.0,
+        "resolved": false,
+        "samples_per_s": 444.45111233135555,
+        "spread": 27.692054539204207
+      },
+      {
+        "delta_percent": 27.032725328099446,
+        "group": "link",
+        "kpps": 45.0,
+        "resolved": true,
+        "samples_per_s": 1013.0757806845011,
+        "spread": 23.65751789502127
+      },
+      {
+        "delta_percent": 62.859663296357894,
+        "group": "link",
+        "kpps": 70.0,
+        "resolved": false,
+        "samples_per_s": 1282.2673276441078,
+        "spread": 83.79859729561065
+      },
+      {
+        "delta_percent": -0.0025143673067304917,
+        "group": "link",
+        "kpps": 110.0,
+        "resolved": false,
+        "samples_per_s": 1574.3559350677738,
+        "spread": 40.02854459595517
+      }
+    ]
+  },
+  "cpu_kernel": {
+    "fits": {
+      "cooperative": {
+        "fit": {
+          "fixed_percent": 0.9397272319930692,
+          "marginal_percent_per_sample": 0.0110507545915251,
+          "marginal_us_per_sample": 110.50754591525099,
+          "max_samples_per_s": 1064.1904112064908,
+          "points": 11
+        },
+        "verdict": "H-C1 cost is dominated by a fixed component (08-20 reproduces)"
+      },
+      "link": {
+        "fit": {
+          "fixed_percent": 1.0083406641306594,
+          "marginal_percent_per_sample": 0.008363761607113244,
+          "marginal_us_per_sample": 83.63761607113244,
+          "max_samples_per_s": 1574.3559350677738,
+          "points": 11
+        },
+        "verdict": "H-C2 cost is per sample (08-20's fixed component does not reproduce here)"
+      }
+    },
+    "frame": 1024,
+    "label": "kernel",
+    "per_group": {
+      "cooperative": {
+        "1.0": {
+          "_proxy_plus_emitter": 3.4659734274420932,
+          "arms": 2,
+          "cpu": 1.3330755875524731,
+          "samples_per_s": 19.555976525691996,
+          "softirq_frac": 0.0018427975608228241,
+          "spread": 0.2667910343750606
+        },
+        "2.0": {
+          "_proxy_plus_emitter": 4.19909361229719,
+          "arms": 2,
+          "cpu": 1.5330223146702109,
+          "samples_per_s": 38.7247823579815,
+          "softirq_frac": 0.004656852752440821,
+          "spread": 0.13310232663712185
+        },
+        "3.0": {
+          "_proxy_plus_emitter": 4.1327822720660405,
+          "arms": 2,
+          "cpu": 1.733102242235977,
+          "samples_per_s": 60.3540741161238,
+          "softirq_frac": 0.0005441889694898042,
+          "spread": 5.5086491368427914e-08
+        },
+        "5.0": {
+          "_proxy_plus_emitter": 5.198960306400588,
+          "arms": 2,
+          "cpu": 2.1995645719763655,
+          "samples_per_s": 97.38028262888056,
+          "softirq_frac": 0.0002836681620890881,
+          "spread": 0.13359986931600565
+        },
+        "8.0": {
+          "_proxy_plus_emitter": 7.06572441374729,
+          "arms": 2,
+          "cpu": 2.799626654503643,
+          "samples_per_s": 154.4896326030725,
+          "softirq_frac": 0.0010673564446053412,
+          "spread": 0.0
+        },
+        "12.0": {
+          "_proxy_plus_emitter": 8.602669421190116,
+          "arms": 2,
+          "cpu": 3.2622741674717384,
+          "samples_per_s": 217.26811683113783,
+          "softirq_frac": 0.005488994181260069,
+          "spread": 0.40786074417341345
+        },
+        "20.0": {
+          "_proxy_plus_emitter": 14.742785409761675,
+          "arms": 2,
+          "cpu": 4.7247490467022555,
+          "samples_per_s": 357.555142039305,
+          "softirq_frac": 0.007456226365026189,
+          "spread": 0.11762865113328136
+        },
+        "30.0": {
+          "_proxy_plus_emitter": 23.795835746899073,
+          "arms": 2,
+          "cpu": 7.923613373704839,
+          "samples_per_s": 173.22226451176516,
+          "softirq_frac": 0.012358038983517648,
+          "spread": 0.17496938049190547
+        },
+        "45.0": {
+          "_proxy_plus_emitter": 26.99463268734356,
+          "arms": 2,
+          "cpu": 9.798053904483304,
+          "samples_per_s": 826.0372197913451,
+          "softirq_frac": 0.005569741631838972,
+          "spread": 0.40122607310134484
+        },
+        "70.0": {
+          "_proxy_plus_emitter": 39.394747203165096,
+          "arms": 2,
+          "cpu": 11.865084596292668,
+          "samples_per_s": 947.3825087204193,
+          "softirq_frac": 0.023205511714564434,
+          "spread": 1.8664181764616483
+        },
+        "110.0": {
+          "_proxy_plus_emitter": 50.045406725202014,
+          "arms": 2,
+          "cpu": 14.250486351297475,
+          "samples_per_s": 1064.1904112064908,
+          "softirq_frac": 0.027851370927144396,
+          "spread": 0.24184125812664803
+        }
+      },
+      "link": {
+        "1.0": {
+          "_proxy_plus_emitter": 2.5329955890438502,
+          "arms": 2,
+          "cpu": 1.3331555730694626,
+          "samples_per_s": 22.736672125831234,
+          "softirq_frac": 0.00029322660584199344,
+          "spread": 0.2666311565643744
+        },
+        "2.0": {
+          "_proxy_plus_emitter": 2.9994046191149173,
+          "arms": 2,
+          "cpu": 1.6663289891933029,
+          "samples_per_s": 44.736999066008565,
+          "softirq_frac": 9.869719699960521e-05,
+          "spread": 0.1330845572557331
+        },
+        "3.0": {
+          "_proxy_plus_emitter": 3.2662312007377654,
+          "arms": 2,
+          "cpu": 1.8664178289930091,
+          "samples_per_s": 69.04136354128309,
+          "softirq_frac": 0.0003482030971975556,
+          "spread": 0.0
+        },
+        "5.0": {
+          "_proxy_plus_emitter": 3.6661778169365,
+          "arms": 2,
+          "cpu": 2.1997066910093843,
+          "samples_per_s": 120.74105771612781,
+          "softirq_frac": 0.00015140375953570724,
+          "spread": 0.13331548717760544
+        },
+        "8.0": {
+          "_proxy_plus_emitter": 4.794953443673518,
+          "arms": 2,
+          "cpu": 2.7078119119984616,
+          "samples_per_s": 192.83229445101716,
+          "softirq_frac": 0.00010029152770614497,
+          "spread": 0.08300145544546922
+        },
+        "12.0": {
+          "_proxy_plus_emitter": 7.049890840794659,
+          "arms": 2,
+          "cpu": 4.476723565930428,
+          "samples_per_s": 151.04062148514717,
+          "softirq_frac": 0.007114744628774378,
+          "spread": 2.8209314080266825
+        },
+        "20.0": {
+          "_proxy_plus_emitter": 7.371392704605931,
+          "arms": 2,
+          "cpu": 4.548306135613313,
+          "samples_per_s": 426.1856883168185,
+          "softirq_frac": 0.008245211528976391,
+          "spread": 0.1568381001011474
+        },
+        "30.0": {
+          "_proxy_plus_emitter": 10.77694574682299,
+          "arms": 2,
+          "cpu": 7.609102674708973,
+          "samples_per_s": 444.45111233135555,
+          "softirq_frac": 0.01993825619057078,
+          "spread": 0.5554489338464226
+        },
+        "45.0": {
+          "_proxy_plus_emitter": 13.397324806111618,
+          "arms": 2,
+          "cpu": 9.598089145299003,
+          "samples_per_s": 1013.0757806845011,
+          "softirq_frac": 0.02558724635894185,
+          "spread": 0.26789273595112917
+        },
+        "70.0": {
+          "_proxy_plus_emitter": 16.130187579510384,
+          "arms": 2,
+          "cpu": 11.86435622539005,
+          "samples_per_s": 1282.2673276441078,
+          "softirq_frac": 0.029428189568104883,
+          "spread": 1.8678749182668835
+        },
+        "110.0": {
+          "_proxy_plus_emitter": 19.59605387800606,
+          "arms": 2,
+          "cpu": 15.26358265135838,
+          "samples_per_s": 1574.3559350677738,
+          "softirq_frac": 0.039248989534921175,
+          "spread": 0.9311120979639629
+        }
+      },
+      "none": {
+        "1.0": {
+          "_proxy_plus_emitter": 2.4661867697047537,
+          "arms": 4,
+          "cpu": 0.7331911289193538,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.00037595092731363723,
+          "spread": 0.5333155577081903
+        },
+        "2.0": {
+          "_proxy_plus_emitter": 2.2663644706162778,
+          "arms": 4,
+          "cpu": 0.6665777960689319,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.0002952032099983117,
+          "spread": 0.5332622071931885
+        },
+        "3.0": {
+          "_proxy_plus_emitter": 2.1997066910093843,
+          "arms": 4,
+          "cpu": 0.5999199973936378,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.003334081821655788,
+          "spread": 0.2666311311398399
+        },
+        "5.0": {
+          "_proxy_plus_emitter": 2.3330222459857484,
+          "arms": 4,
+          "cpu": 0.7331822675316588,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.00015104923200543933,
+          "spread": 0.13331553378925198
+        },
+        "8.0": {
+          "_proxy_plus_emitter": 2.6492840008480054,
+          "arms": 4,
+          "cpu": 0.6200940941509825,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.00035575435396461246,
+          "spread": 0.13313788485508926
+        },
+        "12.0": {
+          "_proxy_plus_emitter": 2.2721445322019482,
+          "arms": 4,
+          "cpu": 0.5999161507799824,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.003005733096494811,
+          "spread": 0.22132660565281148
+        },
+        "20.0": {
+          "_proxy_plus_emitter": 2.307334321672127,
+          "arms": 2,
+          "cpu": 0.6209443082360852,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.006730354583510562,
+          "spread": 0.06560254132408105
+        },
+        "30.0": {
+          "_proxy_plus_emitter": 2.560228642816675,
+          "arms": 2,
+          "cpu": 0.6603273989045682,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.014850208298681656,
+          "spread": 0.004129924483979086
+        },
+        "45.0": {
+          "_proxy_plus_emitter": 2.999599986968189,
+          "arms": 2,
+          "cpu": 0.7332355523700018,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.003907963775444721,
+          "spread": 0.13331555497636394
+        },
+        "70.0": {
+          "_proxy_plus_emitter": 2.9327379548173296,
+          "arms": 2,
+          "cpu": 0.7331822675316588,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.022090124214981292,
+          "spread": 0.13320894292545415
+        },
+        "110.0": {
+          "_proxy_plus_emitter": 2.532826735438453,
+          "arms": 2,
+          "cpu": 0.6665244667410422,
+          "samples_per_s": 0.0,
+          "softirq_frac": 0.0266565448145899,
+          "spread": 0.2665244936711728
+        }
+      }
+    },
+    "rows": [
+      {
+        "delta_percent": 0.5998844586331193,
+        "group": "cooperative",
+        "kpps": 1.0,
+        "resolved": true,
+        "samples_per_s": 19.555976525691996,
+        "spread": 0.5333155577081903
+      },
+      {
+        "delta_percent": 0.866444518601279,
+        "group": "cooperative",
+        "kpps": 2.0,
+        "resolved": true,
+        "samples_per_s": 38.7247823579815,
+        "spread": 0.5332622071931885
+      },
+      {
+        "delta_percent": 1.1331822448423392,
+        "group": "cooperative",
+        "kpps": 3.0,
+        "resolved": true,
+        "samples_per_s": 60.3540741161238,
+        "spread": 0.2666311311398399
+      },
+      {
+        "delta_percent": 1.4663823044447066,
+        "group": "cooperative",
+        "kpps": 5.0,
+        "resolved": true,
+        "samples_per_s": 97.38028262888056,
+        "spread": 0.13359986931600565
+      },
+      {
+        "delta_percent": 2.1795325603526603,
+        "group": "cooperative",
+        "kpps": 8.0,
+        "resolved": true,
+        "samples_per_s": 154.4896326030725,
+        "spread": 0.13313788485508926
+      },
+      {
+        "delta_percent": 2.6623580166917558,
+        "group": "cooperative",
+        "kpps": 12.0,
+        "resolved": true,
+        "samples_per_s": 217.26811683113783,
+        "spread": 0.40786074417341345
+      },
+      {
+        "delta_percent": 4.10380473846617,
+        "group": "cooperative",
+        "kpps": 20.0,
+        "resolved": true,
+        "samples_per_s": 357.555142039305,
+        "spread": 0.11762865113328136
+      },
+      {
+        "delta_percent": 7.2632859748002705,
+        "group": "cooperative",
+        "kpps": 30.0,
+        "resolved": true,
+        "samples_per_s": 173.22226451176516,
+        "spread": 0.17496938049190547
+      },
+      {
+        "delta_percent": 9.064818352113303,
+        "group": "cooperative",
+        "kpps": 45.0,
+        "resolved": true,
+        "samples_per_s": 826.0372197913451,
+        "spread": 0.40122607310134484
+      },
+      {
+        "delta_percent": 11.13190232876101,
+        "group": "cooperative",
+        "kpps": 70.0,
+        "resolved": true,
+        "samples_per_s": 947.3825087204193,
+        "spread": 1.8664181764616483
+      },
+      {
+        "delta_percent": 13.583961884556434,
+        "group": "cooperative",
+        "kpps": 110.0,
+        "resolved": true,
+        "samples_per_s": 1064.1904112064908,
+        "spread": 0.2665244936711728
+      },
+      {
+        "delta_percent": 0.5999644441501089,
+        "group": "link",
+        "kpps": 1.0,
+        "resolved": true,
+        "samples_per_s": 22.736672125831234,
+        "spread": 0.5333155577081903
+      },
+      {
+        "delta_percent": 0.999751193124371,
+        "group": "link",
+        "kpps": 2.0,
+        "resolved": true,
+        "samples_per_s": 44.736999066008565,
+        "spread": 0.5332622071931885
+      },
+      {
+        "delta_percent": 1.2664978315993713,
+        "group": "link",
+        "kpps": 3.0,
+        "resolved": true,
+        "samples_per_s": 69.04136354128309,
+        "spread": 0.2666311311398399
+      },
+      {
+        "delta_percent": 1.4665244234777255,
+        "group": "link",
+        "kpps": 5.0,
+        "resolved": true,
+        "samples_per_s": 120.74105771612781,
+        "spread": 0.13331553378925198
+      },
+      {
+        "delta_percent": 2.087717817847479,
+        "group": "link",
+        "kpps": 8.0,
+        "resolved": true,
+        "samples_per_s": 192.83229445101716,
+        "spread": 0.13313788485508926
+      },
+      {
+        "delta_percent": 3.876807415150445,
+        "group": "link",
+        "kpps": 12.0,
+        "resolved": true,
+        "samples_per_s": 151.04062148514717,
+        "spread": 2.8209314080266825
+      },
+      {
+        "delta_percent": 3.9273618273772275,
+        "group": "link",
+        "kpps": 20.0,
+        "resolved": true,
+        "samples_per_s": 426.1856883168185,
+        "spread": 0.1568381001011474
+      },
+      {
+        "delta_percent": 6.948775275804405,
+        "group": "link",
+        "kpps": 30.0,
+        "resolved": true,
+        "samples_per_s": 444.45111233135555,
+        "spread": 0.5554489338464226
+      },
+      {
+        "delta_percent": 8.864853592929002,
+        "group": "link",
+        "kpps": 45.0,
+        "resolved": true,
+        "samples_per_s": 1013.0757806845011,
+        "spread": 0.26789273595112917
+      },
+      {
+        "delta_percent": 11.131173957858392,
+        "group": "link",
+        "kpps": 70.0,
+        "resolved": true,
+        "samples_per_s": 1282.2673276441078,
+        "spread": 1.8678749182668835
+      },
+      {
+        "delta_percent": 14.597058184617339,
+        "group": "link",
+        "kpps": 110.0,
+        "resolved": true,
+        "samples_per_s": 1574.3559350677738,
+        "spread": 0.9311120979639629
+      }
+    ]
+  },
+  "emitter_counters": {
+    "dropped_ambiguous_direction": 0,
+    "dropped_decode_error": 0,
+    "dropped_no_direction": 0,
+    "dropped_no_origsize": 0,
+    "dropped_other_group": 0,
+    "dropped_unknown_ifindex": 0,
+    "emit_failed": 0,
+    "emitted": 467876,
+    "enobufs": 0,
+    "samples": 467876
+  },
+  "external_gate": [
+    {
+      "arm": "cooperative_f64_a",
+      "external": 0.0243,
+      "fires": false,
+      "group": "cooperative",
+      "group_median": 0.0243,
+      "softirq_share": 0.0102
+    },
+    {
+      "arm": "link_f1024_b",
+      "external": 0.0208,
+      "fires": false,
+      "group": "link",
+      "group_median": 0.01155,
+      "softirq_share": 0.0093
+    },
+    {
+      "arm": "link_f64_b",
+      "external": 0.0023,
+      "fires": false,
+      "group": "link",
+      "group_median": 0.01155,
+      "softirq_share": 0.0102
+    },
+    {
+      "arm": "none_f64_a",
+      "external": 0.0061,
+      "fires": false,
+      "group": "none",
+      "group_median": 0.03665,
+      "softirq_share": 0.0085
+    },
+    {
+      "arm": "none_f1024_b",
+      "external": 0.0195,
+      "fires": false,
+      "group": "none",
+      "group_median": 0.03665,
+      "softirq_share": 0.0082
+    },
+    {
+      "arm": "c3a_noburn",
+      "external": 0.0538,
+      "fires": false,
+      "group": "none",
+      "group_median": 0.03665,
+      "softirq_share": 0.0049
+    },
+    {
+      "arm": "c3b_burn",
+      "external": 0.2262,
+      "fires": true,
+      "group": "none",
+      "group_median": 0.03665,
+      "softirq_share": 0.0034
+    }
+  ],
+  "families": {
+    "c3a_noburn": {
+      "ipv4": 0,
+      "ipv6": 0,
+      "l2": 0,
+      "undecodable": 0
+    },
+    "c3b_burn": {
+      "ipv4": 0,
+      "ipv6": 0,
+      "l2": 0,
+      "undecodable": 0
+    },
+    "cooperative_f1024_a": {
+      "ipv4": 64764,
+      "ipv6": 0,
+      "l2": 0,
+      "undecodable": 0
+    },
+    "cooperative_f1024_b": {
+      "ipv4": 68806,
+      "ipv6": 0,
+      "l2": 0,
+      "undecodable": 0
+    },
+    "cooperative_f64_a": {
+      "ipv4": 65209,
+      "ipv6": 0,
+      "l2": 0,
+      "undecodable": 0
+    },
+    "cooperative_f64_b": {
+      "ipv4": 65031,
+      "ipv6": 0,
+      "l2": 0,
+      "undecodable": 0
+    },
+    "link_f1024_a": {
+      "ipv4": 81685,
+      "ipv6": 0,
+      "l2": 3,
+      "undecodable": 0
+    },
+    "link_f1024_b": {
+      "ipv4": 60384,
+      "ipv6": 0,
+      "l2": 5,
+      "undecodable": 0
+    },
+    "link_f64_a": {
+      "ipv4": 86422,
+      "ipv6": 0,
+      "l2": 4,
+      "undecodable": 0
+    },
+    "link_f64_b": {
+      "ipv4": 81696,
+      "ipv6": 0,
+      "l2": 2,
+      "undecodable": 0
+    },
+    "none_f1024_a": {
+      "ipv4": 0,
+      "ipv6": 0,
+      "l2": 0,
+      "undecodable": 0
+    },
+    "none_f1024_b": {
+      "ipv4": 0,
+      "ipv6": 0,
+      "l2": 0,
+      "undecodable": 0
+    },
+    "none_f64_a": {
+      "ipv4": 0,
+      "ipv6": 0,
+      "l2": 0,
+      "undecodable": 0
+    },
+    "none_f64_b": {
+      "ipv4": 0,
+      "ipv6": 0,
+      "l2": 0,
+      "undecodable": 0
+    }
+  },
+  "invalid_arms": [],
+  "raw": "/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full",
+  "reconciliation": [
+    {
+      "consistent": true,
+      "group": "none",
+      "id": "a",
+      "interval": [
+        0.6,
+        1.67
+      ],
+      "matched": false,
+      "mine_kpps": 21.0,
+      "note": "the ticket's named pairing; 08-28 had no zero-telemetry arm",
+      "outside_means": "NOT a refutation -- name which of the four stated differences (fabric size, path length, kernel binary, telemetry group) could carry it, and say that only a matched-fabric arm would decide, which this round does not have",
+      "ratio": 1.3125,
+      "theirs_kpps": 16.0
+    },
+    {
+      "consistent": false,
+      "group": "cooperative",
+      "id": "a",
+      "interval": [
+        0.6,
+        1.67
+      ],
+      "matched": true,
+      "mine_kpps": 30.0,
+      "note": "condition-matched: 08-28's arms ran with production cooperative sampling on",
+      "outside_means": "NOT a refutation -- name which of the four stated differences (fabric size, path length, kernel binary, telemetry group) could carry it, and say that only a matched-fabric arm would decide, which this round does not have",
+      "ratio": 1.875,
+      "theirs_kpps": 16.0
+    },
+    {
+      "consistent": true,
+      "fixed_share": 0.07399523564108385,
+      "group": "cooperative",
+      "id": "b",
+      "interval": [
+        103.0,
+        618.0
+      ],
+      "marginal_us_per_sample": 110.50754591525099,
+      "outside_means": "the fixed-cost result does not reproduce on a 10-switch fabric at 8 s windows -- a result. Name the candidate among the three stated differences (fabric size, window length, the zero point) and what would decide it",
+      "theirs_us_per_sample": 206.0,
+      "verdict": "H-C1 cost is dominated by a fixed component (08-20 reproduces)"
+    },
+    {
+      "consistent": false,
+      "fixed_share": 0.07113073605777526,
+      "group": "link",
+      "id": "b",
+      "interval": [
+        103.0,
+        618.0
+      ],
+      "marginal_us_per_sample": 83.63761607113244,
+      "outside_means": "the fixed-cost result does not reproduce on a 10-switch fabric at 8 s windows -- a result. Name the candidate among the three stated differences (fabric size, window length, the zero point) and what would decide it",
+      "theirs_us_per_sample": 206.0,
+      "verdict": "H-C2 cost is per sample (08-20's fixed component does not reproduce here)"
+    },
+    {
+      "forbidden": "no cell of this table may be divided by another; this round ran no stock arm",
+      "id": "c",
+      "table": [
+        {
+          "conditions": "3 hops, 1400 B",
+          "source": "08-15",
+          "value": "fast 300 Mbit/s"
+        },
+        {
+          "conditions": "1 hop, 1400 B, control plane live",
+          "source": "1b (08-28)",
+          "value": "fast 360 Mbit/s"
+        },
+        {
+          "conditions": "3 hops, 1024 B frame, 128 hosts, cooperative sampling on",
+          "source": "2 (08-28)",
+          "value": "fast 16.0 kpps = 131.1 Mbit/s frame"
+        },
+        {
+          "conditions": "4 inter-switch hops, 1024 B frame, 4 hosts, NO telemetry",
+          "source": "this round",
+          "value": "21.0 kpps = 172.0 Mbit/s frame"
+        }
+      ]
+    },
+    {
+      "ceiling_pps": 804277.3,
+      "frame": 64,
+      "highest_measured_pps": 30000.0,
+      "id": "C1",
+      "outside_means": "the round reports only 'generator-limited' at this frame size and may say nothing about bmv2's pps there (PREREG 7)",
+      "passes": true,
+      "required_pps": 150000.0
+    },
+    {
+      "ceiling_pps": 795477.5,
+      "frame": 1024,
+      "highest_measured_pps": 30000.0,
+      "id": "C2",
+      "outside_means": "the round reports only 'generator-limited' at this frame size and may say nothing about bmv2's pps there (PREREG 7)",
+      "passes": true,
+      "required_pps": 150000.0
+    }
+  ],
+  "sampling_error": [
+    {
+      "group": "cooperative",
+      "median_abs_error": 0.1717515345393843,
+      "median_signed_error": -0.05996367910699352,
+      "nonzero_twin_readings": 187,
+      "note": null,
+      "offered_mbit": 2.0,
+      "predicted": {
+        "median_abs": 0.050437541573712726,
+        "n_samples": 178.57142857142858
+      },
+      "verdict": "above the shot-noise band, signs mixed",
+      "windows": 3
+    },
+    {
+      "group": "cooperative",
+      "median_abs_error": 0.02622888677506341,
+      "median_signed_error": 0.02539513717253472,
+      "nonzero_twin_readings": 384,
+      "note": null,
+      "offered_mbit": 20.0,
+      "predicted": {
+        "median_abs": 0.015949751095236567,
+        "n_samples": 1785.7142857142858
+      },
+      "verdict": "H-B1 shot-noise limited",
+      "windows": 3
+    },
+    {
+      "group": "cooperative",
+      "median_abs_error": 0.018273355320401197,
+      "median_signed_error": -0.018273355320401197,
+      "nonzero_twin_readings": 384,
+      "note": null,
+      "offered_mbit": 100.0,
+      "predicted": {
+        "median_abs": 0.007132945534630137,
+        "n_samples": 8928.57142857143
+      },
+      "verdict": "above the shot-noise band, signs mixed",
+      "windows": 3
+    },
+    {
+      "group": "link",
+      "median_abs_error": 0.194131547245041,
+      "median_signed_error": -0.194131547245041,
+      "nonzero_twin_readings": 168,
+      "note": null,
+      "offered_mbit": 2.0,
+      "predicted": {
+        "median_abs": 0.050437541573712726,
+        "n_samples": 178.57142857142858
+      },
+      "verdict": "H-B2 systematic bias",
+      "windows": 3
+    },
+    {
+      "group": "link",
+      "median_abs_error": 0.04764722057840598,
+      "median_signed_error": 0.00721958530733513,
+      "nonzero_twin_readings": 380,
+      "note": null,
+      "offered_mbit": 20.0,
+      "predicted": {
+        "median_abs": 0.015949751095236567,
+        "n_samples": 1785.7142857142858
+      },
+      "verdict": "above the shot-noise band, signs mixed",
+      "windows": 3
+    },
+    {
+      "group": "link",
+      "median_abs_error": 0.029268040223136893,
+      "median_signed_error": 0.029268040223136893,
+      "nonzero_twin_readings": 384,
+      "note": null,
+      "offered_mbit": 100.0,
+      "predicted": {
+        "median_abs": 0.007132945534630137,
+        "n_samples": 8928.57142857143
+      },
+      "verdict": "H-B2 systematic bias",
+      "windows": 3
+    },
+    {
+      "group": "none",
+      "median_abs_error": null,
+      "median_signed_error": null,
+      "nonzero_twin_readings": 0,
+      "note": "n/a -- the none group has no twin readings; non-zero readings observed: 0 (must be 0)",
+      "offered_mbit": 2.0,
+      "predicted": {
+        "median_abs": 0.050437541573712726,
+        "n_samples": 178.57142857142858
+      },
+      "verdict": null,
+      "windows": 3
+    },
+    {
+      "group": "none",
+      "median_abs_error": null,
+      "median_signed_error": null,
+      "nonzero_twin_readings": 0,
+      "note": "n/a -- the none group has no twin readings; non-zero readings observed: 0 (must be 0)",
+      "offered_mbit": 20.0,
+      "predicted": {
+        "median_abs": 0.015949751095236567,
+        "n_samples": 1785.7142857142858
+      },
+      "verdict": null,
+      "windows": 3
+    },
+    {
+      "group": "none",
+      "median_abs_error": null,
+      "median_signed_error": null,
+      "nonzero_twin_readings": 0,
+      "note": "n/a -- the none group has no twin readings; non-zero readings observed: 0 (must be 0)",
+      "offered_mbit": 100.0,
+      "predicted": {
+        "median_abs": 0.007132945534630137,
+        "n_samples": 8928.57142857143
+      },
+      "verdict": null,
+      "windows": 3
+    }
+  ],
+  "sampling_error_cross_group": [
+    {
+      "attribution": null,
+      "cooperative": 0.1717515345393843,
+      "link": 0.194131547245041,
+      "offered_mbit": 2.0,
+      "ratio": 1.1303045865975931,
+      "verdict": "H-B4 the two paths are equally accurate"
+    },
+    {
+      "attribution": null,
+      "cooperative": 0.02622888677506341,
+      "link": 0.04764722057840598,
+      "offered_mbit": 20.0,
+      "ratio": 1.8165933227370377,
+      "verdict": "H-B4 the two paths are equally accurate"
+    },
+    {
+      "attribution": null,
+      "cooperative": 0.018273355320401197,
+      "link": 0.029268040223136893,
+      "offered_mbit": 100.0,
+      "ratio": 1.6016784936295052,
+      "verdict": "H-B4 the two paths are equally accurate"
+    }
+  ]
+}

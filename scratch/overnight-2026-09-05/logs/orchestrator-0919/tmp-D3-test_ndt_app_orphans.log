@@ -1,0 +1,115 @@
+identity (pid_is_app reads /proc; a mention is not a match)
+  ok       the fixture is te
+  ok       the fixture is NOT nsr
+  ok       a command line that only MENTIONS te is not te
+  ok       an unrelated process is not te
+  ok       a pid that does not exist is not te
+  ok       pid 1 is refused outright
+  ok       an empty pid is refused
+machine-wide scan (real ps, read-only)
+  ok       real scan finds the live fixture
+  ok       real scan does not report the decoy
+  ok       real scan does not report this shell
+three states
+  ok       no pidfile, nothing alive -> not-running
+  ok         and it names no pids
+  ok       no pidfile, one alive -> pidfile-lost-but-alive
+  ok         and it names the live pid
+  ok       pidfile names the live one -> running
+  ok         and it names it once, not twice
+  ok       stale pidfile + live orphan -> pidfile-lost-but-alive
+  ok         and it names the orphan, not the stale pid
+  ok       stale pidfile, nothing alive -> not-running
+  ok       pidfile names a LIVE stranger -> not-running
+  ok         and the stranger is not on the kill list
+  ok       symlinked pidfile + live app -> pidfile-lost-but-alive
+  ok         the link is not followed
+the scan is actually executed on the negative path
+  ok       not-running, and the scan ran anyway
+  ok         the process snapshot was taken
+  ok       stop's not-running path also scans
+stop
+  ok       nothing running -> rc 2 (was 0 before G-6)
+  ok         says not running
+  ok         and says how it knows
+  ok       pidfile lost, app alive -> rc 0
+  ok         names the state
+  ok         does NOT claim it is not running
+  ok         names the pid it found
+  ok         the process is actually gone
+  ok       stale pidfile naming a stranger -> rc 2
+  ok         the stranger is still alive
+  ok         and the bad pidfile was discarded
+  ok       symlinked pidfile -> rc 1 (still poisoned)
+  ok         says it is a symlink
+  ok         the link is left for the operator
+  ok         and /etc/hostname was not read as a pid
+  ok         but the app was still stopped
+apps orphans (the gate a measurement runs before it starts)
+  ok       clean machine -> rc 0
+  ok         and it says so
+  ok       an untracked app -> rc 1
+  ok         names the app
+  ok         names the pid
+  ok         says how to stop it
+the three interfaces that all said 'not there'
+  ok       apps_status shows ORPHAN, not '-'
+  ok         and names the pid
+  ok       apps_status is quiet when there is none
+confinement (another checkout's process is not this checkout's orphan)
+  ok       a path inside $REPO is this checkout's
+  ok         $REPO itself is
+  ok       a path outside it is not
+  ok       a relative path is not a path here
+  ok       🔴 a path inside a NESTED checkout is not
+  ok         nor the nested checkout's own directory
+  ok         while the directory above it still is
+  ok       the other tree's fixture is still te by argv
+  ok         but proc_checkout says it is not ours
+  ok         and our own fixture is ours
+  ok       🔴 app_probe does not adopt it
+  ok         and it names no pids
+  ok       🔴 another checkout's process -> rc 0
+  ok         the process half is clean
+  ok         it is NOT called pidfile-lost-but-alive
+  ok         nor counted as running with nothing tracking it
+  ok       🔴 it is named in a column of its own
+  ok         with its pid
+  ok         and why it was not counted
+  ok         and that this teardown will not stop it
+  ok       🔴 stop has nothing of ours to stop -> rc 2
+  ok         and the other tree's process is ALIVE
+  ok         and it is still wearing its own argv
+  ok       🔴 ours and theirs together -> rc 1
+  ok         OURS is the orphan
+  ok         and the report names our pid
+  ok         theirs is in the elsewhere column
+  ok         and the elsewhere column names theirs
+  ok       apps_status reports ours as ORPHAN
+  ok         and says nothing of theirs
+fail-closed (a pid nobody could attribute is counted as this checkout's)
+  ok       🔴 both channels blind -> could not tell (rc 2)
+  ok         and it says who owns it was not established
+  ok         naming the two channels it could not read
+  ok       🔴 app_claims_pid COUNTS it as ours
+  ok         and records why it could not be established
+  ok         and it is NOT filed under elsewhere
+  ok       🔴 apps orphans is rc 1 over it
+  ok         it is the orphan, by name
+  ok         and the report prints the fail-closed line
+  ok         it is not in the elsewhere column
+  ok       🔴 CONTROL: the same code, seam intact, other tree -> 1
+  ok         and that one IS filed under elsewhere
+  ok         while our own fixture, seam intact, is 0
+  ok       🔴 cwd blind, fd readable, other tree -> 1
+  ok         cwd blind, fd readable, nothing of ours -> 1
+  ok       🔴 cwd blind, but an fd under $REPO -> ours
+  ok         and it says which fd said so
+  ok       🔴 an fd inside a nested checkout is not ours
+  ok       proc_cwd_link reads the fixture's real cwd
+  ok       proc_fd_links reads its real fds
+  ok         and a pid that is gone is 'could not read'
+the suite reaps its own fixtures
+  ok       no fixture survives this run
+
+Ran 103 checks, all passed

@@ -1,0 +1,38 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/adam/miniconda3/lib/python3.13/unittest/__main__.py", line 18, in <module>
+    main(module=None)
+    ~~~~^^^^^^^^^^^^^
+  File "/home/adam/miniconda3/lib/python3.13/unittest/main.py", line 103, in __init__
+    self.parseArgs(argv)
+    ~~~~~~~~~~~~~~^^^^^^
+  File "/home/adam/miniconda3/lib/python3.13/unittest/main.py", line 142, in parseArgs
+    self.createTests()
+    ~~~~~~~~~~~~~~~~^^
+  File "/home/adam/miniconda3/lib/python3.13/unittest/main.py", line 153, in createTests
+    self.test = self.testLoader.loadTestsFromNames(self.testNames,
+                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+                                                   self.module)
+                                                   ^^^^^^^^^^^^
+  File "/home/adam/miniconda3/lib/python3.13/unittest/loader.py", line 207, in loadTestsFromNames
+    suites = [self.loadTestsFromName(name, module) for name in names]
+              ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+  File "/home/adam/miniconda3/lib/python3.13/unittest/loader.py", line 137, in loadTestsFromName
+    module = __import__(module_name)
+  File "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/tests/test_app_package_proxy.py", line 48, in <module>
+    import proxy_agent.main as main
+  File "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/main.py", line 169, in <module>
+    MODEL = load_fabric_model()
+  File "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/main.py", line 135, in load_fabric_model
+    return topo_from_json.load(app_package.topology_path(package, host_count))
+                               ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^
+  File "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/app_package.py", line 986, in topology_path
+    return topo_from_json.model_path(host_num, setting_dir=setting_dir, env=env)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/topo_from_json.py", line 283, in model_path
+    raise TopologyModelError(
+    ...<2 lines>...
+        f"tools/test_workflow/derive_p4_topology_json.py before building this fabric")
+topo_from_json.TopologyModelError: no P4 topology model in /home/adam/Desktop/NDTwin-Kernel/setting has 3 hosts (looked at 2). Derive one with tools/test_workflow/derive_p4_topology_json.py before building this fabric
+[Proxy Agent] app package: baseline (mode ndtwin, election_id 0,1)

@@ -1,0 +1,14 @@
+### tree a10bf6ff  start 05:37:18  free=3.2G
+### mutate_stack_telemetry_identity
+baseline byte-identical: yes  tools/test_workflow/stack.sh  sha256 02de11fca77d52aedc7ad9de707f43d7513e82618947215c6b789699b0f22c2f
+mutation gate: 2 mutations, 0 survived; 1 control(s), 0 went red
+rc=0  drv-dirs=0
+### mutate_drive_exercise
+  ✅ caught by test_the_flag_is_refused_on_the_tutorials_fabric
+78 mutations, 0 survived
+rc=0  drv-dirs=8774
+### mutate_ndt_app_package
+             also red: 🔴 --telemetry on the OVS plane is refused
+🔴 baseline CHANGED during the gate -- tools/test_workflow/ndt was written
+rc=3  drv-dirs=0
+### done 06:07:18  free=3.2G

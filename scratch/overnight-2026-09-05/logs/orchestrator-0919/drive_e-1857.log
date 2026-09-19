@@ -1,0 +1,540 @@
+### P3-E three-group telemetry round  2026-09-19 10:57:59 UTC
+owner               p3-E
+repo                /home/adam/Desktop/NDTwin-Kernel
+raw                 /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full
+hosts               4   (ndt up p4 4 --telemetry <group>)
+selection           everything: C1 C2 C3 then G1..G6
+settle              60s after bring-up, 20s between arms
+
+controls (run once, inside G1, BEFORE any measurement arm -- PREREG 4.3):
+  C1  generator ceiling at 64 B frames    h1 -> h1 loopback, not through bmv2, 3 reps
+      requirement: >= 5x the highest 64 B pps this round measures through bmv2
+  C2  generator ceiling at 1024 B frames  same, -l 982, 3 reps
+  C3  the external gate has a positive control: two throwaway ladders (1 2 3 5 8 12 kpps),
+      one clean and one with 4 CPU burners from rung 4. external must step up, and
+      the gate must reject the burner arm. If it does not fire, the round does not start.
+
+generations:
+  G1  none         pass a   arms: none_f64_a  none_f1024_a  
+      + sampling-error block: 3 passes over the rates, middle one reversed
+        2 20 100 | 100 20 2 | 2 20 100  Mbit/s, 8s each
+  G2  cooperative  pass a   arms: cooperative_f64_a  cooperative_f1024_a  
+      + sampling-error block: 3 passes over the rates, middle one reversed
+        2 20 100 | 100 20 2 | 2 20 100  Mbit/s, 8s each
+  G3  link         pass a   arms: link_f64_a  link_f1024_a  
+      + sampling-error block: 3 passes over the rates, middle one reversed
+        2 20 100 | 100 20 2 | 2 20 100  Mbit/s, 8s each
+  G4  link         pass b   arms: link_f1024_b  link_f64_b  
+  G5  cooperative  pass b   arms: cooperative_f1024_b  cooperative_f64_b  
+  G6  none         pass b   arms: none_f1024_b  none_f64_b  
+
+teardown on EVERY path (including abort):
+  ndt down  ->  rm /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/telemetry_override (absent = auto)  ->  restore /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/host_count_override bytes  ->  ndt release
+   host_count_override snapshot taken
+
+== claiming the lab
+     recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+     ok  lab claimed by p3-E for 600m (P3-E three-group telemetry round)
+
+== G1: ndt up p4 4 --telemetry none
+     
+     up. ready
+       proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+   settling 60s
+   G1: ok  telemetry: none -- 0 cooperative, 0 link, 10 none; the proxy agrees switch by switch
+   G1: ndt status --check rc=0 (the live lab matches .test_run/up.target)
+
+== C1: generator ceiling at 64B frames (h1 -> h1 loopback, not through bmv2)
+     rep 1: 804277.3 pps
+     rep 2: 794569.3 pps
+     rep 3: 770523.4 pps
+     ceiling 804277.3 pps -- the 5x requirement is checked by analyse.py against the measured cells
+
+== C2: generator ceiling at 1024B frames (h1 -> h1 loopback, not through bmv2)
+     rep 1: 766478.9 pps
+     rep 2: 795477.5 pps
+     rep 3: 786313.3 pps
+     ceiling 795477.5 pps -- the 5x requirement is checked by analyse.py against the measured cells
+
+== C3: the external gate's positive control -- two throwaway ladders, one with burners
+     external 0.0538 -> 0.2262 with 4 burners: the gate fires (+0.1724)
+
+== G1: sampling-error block (group none) -- 3 passes, the middle one reversed
+  window p1  group none            2 Mbit/s offered   twin     0.00  truth     8.24 Mbit/s  n/a (none)
+  window p1  group none           20 Mbit/s offered   twin     0.00  truth    82.41 Mbit/s  n/a (none)
+  window p1  group none          100 Mbit/s offered   twin     0.00  truth   412.02 Mbit/s  n/a (none)
+  window p2  group none          100 Mbit/s offered   twin     0.00  truth   412.02 Mbit/s  n/a (none)
+  window p2  group none           20 Mbit/s offered   twin     0.00  truth    82.41 Mbit/s  n/a (none)
+  window p2  group none            2 Mbit/s offered   twin     0.00  truth     8.24 Mbit/s  n/a (none)
+  window p3  group none            2 Mbit/s offered   twin     0.00  truth     8.25 Mbit/s  n/a (none)
+  window p3  group none           20 Mbit/s offered   twin     0.00  truth    82.40 Mbit/s  n/a (none)
+  window p3  group none          100 Mbit/s offered   twin     0.00  truth   412.02 Mbit/s  n/a (none)
+
+== G1: ladder arm none_f64_a  (group none, frame 64B)
+### E arm none_f64_a  group none  frame 64B (payload 22)  h1->h4  step 8s  11:05:39Z
+      1 kpps  reps 1  loss   0.0000%  sent     999.9 pps  recv     999.9 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.8 pps  recv    1999.5 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.6 pps  recv    2999.0 pps  clean=yes
+      5 kpps  reps 1  loss   0.0000%  sent    4999.2 pps  recv    4998.9 pps  clean=yes
+      8 kpps  reps 1  loss   0.0000%  sent    7998.7 pps  recv    7998.0 pps  clean=yes
+     12 kpps  reps 1  loss   0.0000%  sent   11998.1 pps  recv   11996.9 pps  clean=yes
+     20 kpps  reps 3  loss   0.0269%  sent   19996.7 pps  recv   19994.9 pps  clean=yes
+     30 kpps  reps 3  loss   0.2754%  sent   29995.2 pps  recv   29988.4 pps  clean=yes
+     45 kpps  reps 1  loss  11.3307%  sent   44992.4 pps  recv   44987.0 pps  clean=no
+     70 kpps  reps 1  loss  29.1328%  sent   69989.6 pps  recv   69984.3 pps  clean=no
+    110 kpps  reps 1  loss  48.8778%  sent  109983.4 pps  recv  109973.7 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 30 kpps  reps 0.1317,0.2246,0.1138  median 0.1317% <= 0.5%
+### top_rung_confirmation=30:0.1317,0.2246,0.1138=>0.1317 
+### kernel_sha256_end=be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49
+### sflow_counter_level=telemetry_health/telemetry_health
+### d_rx_total=0
+### d_addressed_total=0
+### d_sock_ovfl_total=0
+### d_app_drop_total=0
+### d_malformed_ipv4_ihl=0
+### d_family_ipv4=0
+### d_family_ipv6=0
+### d_family_l2=0
+### d_family_undecodable=0
+### finished=2026-09-19T11:08:23Z
+### invalid=no
+
+== G1: ladder arm none_f1024_a  (group none, frame 1024B)
+### E arm none_f1024_a  group none  frame 1024B (payload 982)  h1->h4  step 8s  11:08:43Z
+      1 kpps  reps 1  loss   0.0000%  sent     999.9 pps  recv     999.7 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.8 pps  recv    1999.4 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.6 pps  recv    2999.2 pps  clean=yes
+      5 kpps  reps 1  loss   0.0000%  sent    4999.2 pps  recv    4998.8 pps  clean=yes
+      8 kpps  reps 1  loss   0.0000%  sent    7998.7 pps  recv    7997.8 pps  clean=yes
+     12 kpps  reps 1  loss   0.0000%  sent   11998.0 pps  recv   11995.7 pps  clean=yes
+     20 kpps  reps 3  loss   0.0213%  sent   19997.0 pps  recv   19994.3 pps  clean=yes
+     30 kpps  reps 3  loss   0.3988%  sent   29995.4 pps  recv   29991.1 pps  clean=yes
+     45 kpps  reps 1  loss   5.6545%  sent   44992.8 pps  recv   44984.6 pps  clean=no
+     70 kpps  reps 1  loss  30.4037%  sent   69989.0 pps  recv   69976.0 pps  clean=no
+    110 kpps  reps 1  loss  53.6458%  sent  109984.8 pps  recv  109961.9 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 30 kpps  reps 0.2634,0.2596,0.1846  median 0.2596% <= 0.5%
+### top_rung_confirmation=30:0.2634,0.2596,0.1846=>0.2596 
+### kernel_sha256_end=be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49
+### sflow_counter_level=telemetry_health/telemetry_health
+### d_rx_total=0
+### d_addressed_total=0
+### d_sock_ovfl_total=0
+### d_app_drop_total=0
+### d_malformed_ipv4_ihl=0
+### d_family_ipv4=0
+### d_family_ipv6=0
+### d_family_l2=0
+### d_family_undecodable=0
+### finished=2026-09-19T11:11:27Z
+### invalid=no
+   G1: ndt down rc=0
+
+== G2: ndt up p4 4 --telemetry cooperative
+     
+     up. ready
+       proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+   settling 60s
+   G2: ok  telemetry: cooperative -- 10 cooperative, 0 link, 0 none; the proxy agrees switch by switch
+   G2: ndt status --check rc=0 (the live lab matches .test_run/up.target)
+
+== G2: sampling-error block (group cooperative) -- 3 passes, the middle one reversed
+  window p1  group cooperative     2 Mbit/s offered   twin     9.96  truth     8.24 Mbit/s  |ratio-1| = 0.2087  (ratio 1.209)
+  window p1  group cooperative    20 Mbit/s offered   twin    87.24  truth    82.41 Mbit/s  |ratio-1| = 0.0586  (ratio 1.059)
+  window p1  group cooperative   100 Mbit/s offered   twin   404.54  truth   412.07 Mbit/s  |ratio-1| = 0.0183  (ratio 0.982)
+  window p2  group cooperative   100 Mbit/s offered   twin   412.10  truth   412.04 Mbit/s  |ratio-1| = 0.0002  (ratio 1.000)
+  window p2  group cooperative    20 Mbit/s offered   twin    84.50  truth    82.40 Mbit/s  |ratio-1| = 0.0254  (ratio 1.025)
+  window p2  group cooperative     2 Mbit/s offered   twin     7.75  truth     8.24 Mbit/s  |ratio-1| = 0.0600  (ratio 0.940)
+  window p3  group cooperative     2 Mbit/s offered   twin     6.82  truth     8.24 Mbit/s  |ratio-1| = 0.1718  (ratio 0.828)
+  window p3  group cooperative    20 Mbit/s offered   twin    80.24  truth    82.40 Mbit/s  |ratio-1| = 0.0262  (ratio 0.974)
+  window p3  group cooperative   100 Mbit/s offered   twin   397.52  truth   412.01 Mbit/s  |ratio-1| = 0.0352  (ratio 0.965)
+
+== G2: ladder arm cooperative_f64_a  (group cooperative, frame 64B)
+### E arm cooperative_f64_a  group cooperative  frame 64B (payload 22)  h1->h4  step 8s  11:15:55Z
+      1 kpps  reps 1  loss   0.0000%  sent    1000.0 pps  recv     999.8 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.7 pps  recv    1999.4 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.5 pps  recv    2999.3 pps  clean=yes
+      5 kpps  reps 1  loss   0.0000%  sent    4999.2 pps  recv    4998.6 pps  clean=yes
+      8 kpps  reps 1  loss   0.0000%  sent    7998.7 pps  recv    7998.1 pps  clean=yes
+     12 kpps  reps 1  loss   0.0000%  sent   11998.1 pps  recv   11997.2 pps  clean=yes
+     20 kpps  reps 3  loss   0.0175%  sent   19996.6 pps  recv   19994.9 pps  clean=yes
+     30 kpps  reps 3  loss   0.0408%  sent   29995.1 pps  recv   29990.1 pps  clean=yes
+     45 kpps  reps 1  loss  11.0859%  sent   44992.8 pps  recv   44982.8 pps  clean=no
+     70 kpps  reps 1  loss  30.3858%  sent   69989.3 pps  recv   69977.4 pps  clean=no
+    110 kpps  reps 1  loss  50.4658%  sent  109985.2 pps  recv  109959.5 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 30 kpps  reps 0.4696,0.1963,0.0392  median 0.1963% <= 0.5%
+### top_rung_confirmation=30:0.4696,0.1963,0.0392=>0.1963 
+### kernel_sha256_end=be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49
+### sflow_counter_level=telemetry_health/telemetry_health
+### d_rx_total=65209
+### d_addressed_total=65209
+### d_sock_ovfl_total=0
+### d_app_drop_total=0
+### d_malformed_ipv4_ihl=0
+### d_family_ipv4=65209
+### d_family_ipv6=0
+### d_family_l2=0
+### d_family_undecodable=0
+### finished=2026-09-19T11:18:39Z
+### invalid=no
+
+== G2: ladder arm cooperative_f1024_a  (group cooperative, frame 1024B)
+### E arm cooperative_f1024_a  group cooperative  frame 1024B (payload 982)  h1->h4  step 8s  11:18:59Z
+      1 kpps  reps 1  loss   0.0000%  sent     999.9 pps  recv     999.7 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.8 pps  recv    1999.4 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.6 pps  recv    2999.2 pps  clean=yes
+      5 kpps  reps 1  loss   0.0000%  sent    4999.3 pps  recv    4998.7 pps  clean=yes
+      8 kpps  reps 1  loss   0.0000%  sent    7998.9 pps  recv    7997.3 pps  clean=yes
+     12 kpps  reps 1  loss   0.0000%  sent   11997.8 pps  recv   11996.0 pps  clean=yes
+     20 kpps  reps 3  loss   0.0106%  sent   19996.8 pps  recv   19993.5 pps  clean=yes
+     30 kpps  reps 3  loss   0.3325%  sent   29995.0 pps  recv   29989.5 pps  clean=yes
+     45 kpps  reps 1  loss   5.5611%  sent   44993.9 pps  recv   44987.0 pps  clean=no
+     70 kpps  reps 1  loss  34.1289%  sent   69990.3 pps  recv   69977.8 pps  clean=no
+    110 kpps  reps 1  loss  53.1407%  sent  109982.6 pps  recv  109953.8 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 30 kpps  reps 0.0983,0.0888,0.1917  median 0.0983% <= 0.5%
+### top_rung_confirmation=30:0.0983,0.0888,0.1917=>0.0983 
+### kernel_sha256_end=be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49
+### sflow_counter_level=telemetry_health/telemetry_health
+### d_rx_total=64764
+### d_addressed_total=64764
+### d_sock_ovfl_total=0
+### d_app_drop_total=0
+### d_malformed_ipv4_ihl=0
+### d_family_ipv4=64764
+### d_family_ipv6=0
+### d_family_l2=0
+### d_family_undecodable=0
+### finished=2026-09-19T11:21:43Z
+### invalid=no
+   G2: ndt down rc=0
+
+== G3: ndt up p4 4 --telemetry link
+     
+     up. ready
+       proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+   settling 60s
+   G3: ok  telemetry: link -- 0 cooperative, 10 link, 0 none; the proxy agrees switch by switch
+   G3: ndt status --check rc=0 (the live lab matches .test_run/up.target)
+
+== G3: sampling-error block (group link) -- 3 passes, the middle one reversed
+  window p1  group link            2 Mbit/s offered   twin     5.90  truth     8.24 Mbit/s  |ratio-1| = 0.2837  (ratio 0.716)
+  window p1  group link           20 Mbit/s offered   twin    78.39  truth    82.41 Mbit/s  |ratio-1| = 0.0488  (ratio 0.951)
+  window p1  group link          100 Mbit/s offered   twin   421.85  truth   412.00 Mbit/s  |ratio-1| = 0.0239  (ratio 1.024)
+  window p2  group link          100 Mbit/s offered   twin   431.94  truth   412.03 Mbit/s  |ratio-1| = 0.0483  (ratio 1.048)
+  window p2  group link           20 Mbit/s offered   twin    86.33  truth    82.40 Mbit/s  |ratio-1| = 0.0476  (ratio 1.048)
+  window p2  group link            2 Mbit/s offered   twin     7.19  truth     8.24 Mbit/s  |ratio-1| = 0.1272  (ratio 0.873)
+  window p3  group link            2 Mbit/s offered   twin     6.64  truth     8.24 Mbit/s  |ratio-1| = 0.1941  (ratio 0.806)
+  window p3  group link           20 Mbit/s offered   twin    83.00  truth    82.41 Mbit/s  |ratio-1| = 0.0072  (ratio 1.007)
+  window p3  group link          100 Mbit/s offered   twin   424.09  truth   412.03 Mbit/s  |ratio-1| = 0.0293  (ratio 1.029)
+
+== G3: ladder arm link_f64_a  (group link, frame 64B)
+### E arm link_f64_a  group link  frame 64B (payload 22)  h1->h4  step 8s  11:26:14Z
+      1 kpps  reps 1  loss   0.0000%  sent     999.9 pps  recv     999.8 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.8 pps  recv    1999.6 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.5 pps  recv    2999.2 pps  clean=yes
+      5 kpps  reps 1  loss   0.0000%  sent    4999.2 pps  recv    4998.9 pps  clean=yes
+      8 kpps  reps 1  loss   0.0000%  sent    7998.7 pps  recv    7998.2 pps  clean=yes
+     12 kpps  reps 3  loss   0.0000%  sent   11998.1 pps  recv   11997.1 pps  clean=yes
+     20 kpps  reps 3  loss   0.0100%  sent   19996.6 pps  recv   19994.2 pps  clean=yes
+     30 kpps  reps 3  loss   0.1358%  sent   29995.0 pps  recv   29990.5 pps  clean=yes
+     45 kpps  reps 1  loss   4.1771%  sent   44992.9 pps  recv   44984.0 pps  clean=no
+     70 kpps  reps 1  loss  29.7262%  sent   69988.8 pps  recv   69983.4 pps  clean=no
+    110 kpps  reps 1  loss  47.9981%  sent  109984.7 pps  recv  109964.3 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 30 kpps  reps 0.1992,0.1096,0.0696  median 0.1096% <= 0.5%
+### top_rung_confirmation=30:0.1992,0.1096,0.0696=>0.1096 
+### kernel_sha256_end=be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49
+### sflow_counter_level=telemetry_health/telemetry_health
+### d_rx_total=86426
+### d_addressed_total=86426
+### d_sock_ovfl_total=0
+### d_app_drop_total=0
+### d_malformed_ipv4_ihl=0
+### d_family_ipv4=86422
+### d_family_ipv6=0
+### d_family_l2=4
+### d_family_undecodable=0
+### finished=2026-09-19T11:29:16Z
+### invalid=no
+
+== G3: ladder arm link_f1024_a  (group link, frame 1024B)
+### E arm link_f1024_a  group link  frame 1024B (payload 982)  h1->h4  step 8s  11:29:36Z
+      1 kpps  reps 1  loss   0.0000%  sent     999.9 pps  recv     999.9 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.8 pps  recv    1999.5 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.6 pps  recv    2999.4 pps  clean=yes
+      5 kpps  reps 1  loss   0.0000%  sent    4999.3 pps  recv    4998.6 pps  clean=yes
+      8 kpps  reps 1  loss   0.0000%  sent    7998.7 pps  recv    7997.8 pps  clean=yes
+     12 kpps  reps 1  loss   0.0000%  sent   11997.9 pps  recv   11996.2 pps  clean=yes
+     20 kpps  reps 3  loss   0.0419%  sent   19997.0 pps  recv   19994.1 pps  clean=yes
+     30 kpps  reps 3  loss   0.0921%  sent   29995.2 pps  recv   29991.1 pps  clean=yes
+     45 kpps  reps 1  loss   6.3340%  sent   44993.7 pps  recv   44986.4 pps  clean=no
+     70 kpps  reps 1  loss  27.7340%  sent   69990.4 pps  recv   69976.7 pps  clean=no
+    110 kpps  reps 1  loss  51.7637%  sent  109991.2 pps  recv  109962.9 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 30 kpps  reps 0.5884,0.0879,0.1875  median 0.1875% <= 0.5%
+### top_rung_confirmation=30:0.5884,0.0879,0.1875=>0.1875 
+### kernel_sha256_end=be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49
+### sflow_counter_level=telemetry_health/telemetry_health
+### d_rx_total=81688
+### d_addressed_total=81688
+### d_sock_ovfl_total=0
+### d_app_drop_total=0
+### d_malformed_ipv4_ihl=0
+### d_family_ipv4=81685
+### d_family_ipv6=0
+### d_family_l2=3
+### d_family_undecodable=0
+### finished=2026-09-19T11:32:20Z
+### invalid=no
+   G3: ndt down rc=0
+
+== G4: ndt up p4 4 --telemetry link
+     
+     up. ready
+       proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+   settling 60s
+   G4: ok  telemetry: link -- 0 cooperative, 10 link, 0 none; the proxy agrees switch by switch
+   G4: ndt status --check rc=0 (the live lab matches .test_run/up.target)
+
+== G4: ladder arm link_f1024_b  (group link, frame 1024B)
+### E arm link_f1024_b  group link  frame 1024B (payload 982)  h1->h4  step 8s  11:34:27Z
+      1 kpps  reps 1  loss   0.0000%  sent     999.9 pps  recv     999.8 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.8 pps  recv    1999.6 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.6 pps  recv    2999.3 pps  clean=yes
+      5 kpps  reps 1  loss   0.0000%  sent    4999.2 pps  recv    4998.7 pps  clean=yes
+      8 kpps  reps 1  loss   0.0000%  sent    7998.6 pps  recv    7997.9 pps  clean=yes
+     12 kpps  reps 1  loss   0.0000%  sent   11998.2 pps  recv   11997.2 pps  clean=yes
+     20 kpps  reps 3  loss   1.1007%  sent   19996.9 pps  recv   19993.4 pps  clean=no
+     30 kpps  reps 1  loss   2.7245%  sent   29995.2 pps  recv   29991.2 pps  clean=no
+     45 kpps  reps 1  loss   5.7270%  sent   44993.6 pps  recv   44985.6 pps  clean=no
+     70 kpps  reps 1  loss  27.1873%  sent   69990.0 pps  recv   69980.8 pps  clean=no
+    110 kpps  reps 1  loss  49.6634%  sent  109985.1 pps  recv  109955.7 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 12 kpps  reps 0.0000,0.0000,0.1344  median 0.0000% <= 0.5%
+### top_rung_confirmation=12:0.0000,0.0000,0.1344=>0.0000 
+### kernel_sha256_end=be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49
+### sflow_counter_level=telemetry_health/telemetry_health
+### d_rx_total=60389
+### d_addressed_total=60389
+### d_sock_ovfl_total=0
+### d_app_drop_total=0
+### d_malformed_ipv4_ihl=0
+### d_family_ipv4=60384
+### d_family_ipv6=0
+### d_family_l2=5
+### d_family_undecodable=0
+### finished=2026-09-19T11:36:52Z
+### invalid=no
+
+== G4: ladder arm link_f64_b  (group link, frame 64B)
+### E arm link_f64_b  group link  frame 64B (payload 22)  h1->h4  step 8s  11:37:13Z
+      1 kpps  reps 1  loss   0.0000%  sent     999.9 pps  recv     999.8 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.8 pps  recv    1999.6 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.6 pps  recv    2999.2 pps  clean=yes
+      5 kpps  reps 1  loss   0.0000%  sent    4999.2 pps  recv    4998.8 pps  clean=yes
+      8 kpps  reps 1  loss   0.0000%  sent    7998.8 pps  recv    7998.3 pps  clean=yes
+     12 kpps  reps 1  loss   0.0000%  sent   11997.9 pps  recv   11996.0 pps  clean=yes
+     20 kpps  reps 3  loss   0.0013%  sent   19996.6 pps  recv   19993.0 pps  clean=yes
+     30 kpps  reps 3  loss   0.0633%  sent   29995.5 pps  recv   29990.3 pps  clean=yes
+     45 kpps  reps 1  loss   8.8087%  sent   44992.8 pps  recv   44987.8 pps  clean=no
+     70 kpps  reps 1  loss  28.1594%  sent   69989.9 pps  recv   69975.7 pps  clean=no
+    110 kpps  reps 1  loss  48.6923%  sent  109986.0 pps  recv  109965.5 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 30 kpps  reps 0.0783,0.0496,0.0242  median 0.0496% <= 0.5%
+### top_rung_confirmation=30:0.0783,0.0496,0.0242=>0.0496 
+### kernel_sha256_end=be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49
+### sflow_counter_level=telemetry_health/telemetry_health
+### d_rx_total=81698
+### d_addressed_total=81698
+### d_sock_ovfl_total=0
+### d_app_drop_total=0
+### d_malformed_ipv4_ihl=0
+### d_family_ipv4=81696
+### d_family_ipv6=0
+### d_family_l2=2
+### d_family_undecodable=0
+### finished=2026-09-19T11:39:57Z
+### invalid=no
+   G4: ndt down rc=0
+
+== G5: ndt up p4 4 --telemetry cooperative
+     
+     up. ready
+       proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+   settling 60s
+   G5: ok  telemetry: cooperative -- 10 cooperative, 0 link, 0 none; the proxy agrees switch by switch
+   G5: ndt status --check rc=0 (the live lab matches .test_run/up.target)
+
+== G5: ladder arm cooperative_f1024_b  (group cooperative, frame 1024B)
+### E arm cooperative_f1024_b  group cooperative  frame 1024B (payload 982)  h1->h4  step 8s  11:41:59Z
+      1 kpps  reps 1  loss   0.0000%  sent     999.9 pps  recv     999.8 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.8 pps  recv    1999.5 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.5 pps  recv    2999.1 pps  clean=yes
+      5 kpps  reps 1  loss   0.0000%  sent    4999.2 pps  recv    4998.5 pps  clean=yes
+      8 kpps  reps 1  loss   0.0000%  sent    7998.6 pps  recv    7997.9 pps  clean=yes
+     12 kpps  reps 3  loss   0.0000%  sent   11998.0 pps  recv   11997.0 pps  clean=yes
+     20 kpps  reps 3  loss   0.0131%  sent   19996.4 pps  recv   19993.8 pps  clean=yes
+     30 kpps  reps 3  loss   0.2192%  sent   29995.2 pps  recv   29990.0 pps  clean=yes
+     45 kpps  reps 1  loss   6.3398%  sent   44992.8 pps  recv   44981.3 pps  clean=no
+     70 kpps  reps 1  loss  30.1068%  sent   69990.5 pps  recv   69959.7 pps  clean=no
+    110 kpps  reps 1  loss  53.1818%  sent  109984.3 pps  recv  109922.7 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 30 kpps  reps 0.2942,0.3667,1.0539  median 0.3667% <= 0.5%
+### top_rung_confirmation=30:0.2942,0.3667,1.0539=>0.3667 
+### kernel_sha256_end=be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49
+### sflow_counter_level=telemetry_health/telemetry_health
+### d_rx_total=68806
+### d_addressed_total=68806
+### d_sock_ovfl_total=0
+### d_app_drop_total=0
+### d_malformed_ipv4_ihl=0
+### d_family_ipv4=68806
+### d_family_ipv6=0
+### d_family_l2=0
+### d_family_undecodable=0
+### finished=2026-09-19T11:45:01Z
+### invalid=no
+
+== G5: ladder arm cooperative_f64_b  (group cooperative, frame 64B)
+### E arm cooperative_f64_b  group cooperative  frame 64B (payload 22)  h1->h4  step 8s  11:45:21Z
+      1 kpps  reps 1  loss   0.0000%  sent    1000.0 pps  recv     999.8 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.8 pps  recv    1999.6 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.6 pps  recv    2999.4 pps  clean=yes
+      5 kpps  reps 1  loss   0.0000%  sent    4999.2 pps  recv    4998.3 pps  clean=yes
+      8 kpps  reps 1  loss   0.0000%  sent    7998.7 pps  recv    7997.6 pps  clean=yes
+     12 kpps  reps 1  loss   0.0000%  sent   11998.0 pps  recv   11996.5 pps  clean=yes
+     20 kpps  reps 3  loss   0.0038%  sent   19996.6 pps  recv   19993.6 pps  clean=yes
+     30 kpps  reps 3  loss   0.1946%  sent   29994.9 pps  recv   29989.8 pps  clean=yes
+     45 kpps  reps 1  loss   9.9214%  sent   44992.3 pps  recv   44980.6 pps  clean=no
+     70 kpps  reps 1  loss  30.6465%  sent   69989.3 pps  recv   69977.4 pps  clean=no
+    110 kpps  reps 1  loss  51.2003%  sent  109985.5 pps  recv  109965.2 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 30 kpps  reps 0.0633,0.1142,0.0588  median 0.0633% <= 0.5%
+### top_rung_confirmation=30:0.0633,0.1142,0.0588=>0.0633 
+### kernel_sha256_end=be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49
+### sflow_counter_level=telemetry_health/telemetry_health
+### d_rx_total=65031
+### d_addressed_total=65031
+### d_sock_ovfl_total=0
+### d_app_drop_total=0
+### d_malformed_ipv4_ihl=0
+### d_family_ipv4=65031
+### d_family_ipv6=0
+### d_family_l2=0
+### d_family_undecodable=0
+### finished=2026-09-19T11:48:05Z
+### invalid=no
+   G5: ndt down rc=0
+
+== G6: ndt up p4 4 --telemetry none
+     
+     up. ready
+       proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+   settling 60s
+   G6: ok  telemetry: none -- 0 cooperative, 0 link, 10 none; the proxy agrees switch by switch
+   G6: ndt status --check rc=0 (the live lab matches .test_run/up.target)
+
+== G6: ladder arm none_f1024_b  (group none, frame 1024B)
+### E arm none_f1024_b  group none  frame 1024B (payload 982)  h1->h4  step 8s  11:50:07Z
+      1 kpps  reps 1  loss   0.0000%  sent     999.9 pps  recv     999.8 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.7 pps  recv    1999.5 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.6 pps  recv    2999.4 pps  clean=yes
+      5 kpps  reps 1  loss   0.0000%  sent    4999.2 pps  recv    4998.7 pps  clean=yes
+      8 kpps  reps 3  loss   0.0000%  sent    7998.8 pps  recv    7997.3 pps  clean=yes
+     12 kpps  reps 1  loss   0.0000%  sent   11997.9 pps  recv   11996.0 pps  clean=yes
+     20 kpps  reps 3  loss   0.0225%  sent   19996.7 pps  recv   19993.6 pps  clean=yes
+     30 kpps  reps 3  loss   0.3692%  sent   29994.9 pps  recv   29989.8 pps  clean=yes
+     45 kpps  reps 1  loss   5.3967%  sent   44992.0 pps  recv   44980.0 pps  clean=no
+     70 kpps  reps 1  loss  29.8076%  sent   69988.5 pps  recv   69973.0 pps  clean=no
+    110 kpps  reps 1  loss  50.1923%  sent  109984.4 pps  recv  109969.0 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 30 kpps  reps 0.4888,0.9213,0.3888  median 0.4888% <= 0.5%
+### top_rung_confirmation=30:0.4888,0.9213,0.3888=>0.4888 
+### kernel_sha256_end=be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49
+### sflow_counter_level=telemetry_health/telemetry_health
+### d_rx_total=0
+### d_addressed_total=0
+### d_sock_ovfl_total=0
+### d_app_drop_total=0
+### d_malformed_ipv4_ihl=0
+### d_family_ipv4=0
+### d_family_ipv6=0
+### d_family_l2=0
+### d_family_undecodable=0
+### finished=2026-09-19T11:53:09Z
+### invalid=no
+
+== G6: ladder arm none_f64_b  (group none, frame 64B)
+### E arm none_f64_b  group none  frame 64B (payload 22)  h1->h4  step 8s  11:53:29Z
+      1 kpps  reps 1  loss   0.0000%  sent     999.9 pps  recv     999.8 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.8 pps  recv    1999.4 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.6 pps  recv    2999.2 pps  clean=yes
+      5 kpps  reps 1  loss   0.0000%  sent    4999.2 pps  recv    4998.7 pps  clean=yes
+      8 kpps  reps 1  loss   0.0000%  sent    7998.8 pps  recv    7997.8 pps  clean=yes
+     12 kpps  reps 1  loss   0.0000%  sent   11998.0 pps  recv   11996.6 pps  clean=yes
+     20 kpps  reps 3  loss   0.0069%  sent   19996.7 pps  recv   19993.8 pps  clean=yes
+     30 kpps  reps 3  loss   0.1438%  sent   29994.9 pps  recv   29990.8 pps  clean=yes
+     45 kpps  reps 1  loss  12.4224%  sent   44993.3 pps  recv   44987.2 pps  clean=no
+     70 kpps  reps 1  loss  32.5052%  sent   69989.3 pps  recv   69978.7 pps  clean=no
+    110 kpps  reps 1  loss  49.3319%  sent  109984.7 pps  recv  109964.4 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 30 kpps  reps 0.1554,0.0738,0.3346  median 0.1554% <= 0.5%
+### top_rung_confirmation=30:0.1554,0.0738,0.3346=>0.1554 
+### kernel_sha256_end=be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49
+### sflow_counter_level=telemetry_health/telemetry_health
+### d_rx_total=0
+### d_addressed_total=0
+### d_sock_ovfl_total=0
+### d_app_drop_total=0
+### d_malformed_ipv4_ihl=0
+### d_family_ipv4=0
+### d_family_ipv6=0
+### d_family_l2=0
+### d_family_undecodable=0
+### finished=2026-09-19T11:56:13Z
+### invalid=no
+   G6: ndt down rc=0
+
+== arms complete
+   next, offline:  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/analyse.py --raw /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full --out /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full/summary.json
+   then:           /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/plot.py --summary /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full/summary.json --out /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups
+
+== teardown
+   final: ndt down rc=0
+     
+     clean
+       claim note now says the lab is down and verified clean (owner and expiry unchanged)
+     the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+     this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+     ok  lab released
+
+arm                          group        clean_kpps verdict
+none_f64_a                   none         30         ok
+none_f1024_a                 none         30         ok
+cooperative_f64_a            cooperative  30         ok
+cooperative_f1024_a          cooperative  30         ok
+link_f64_a                   link         30         ok
+link_f1024_a                 link         30         ok
+link_f1024_b                 link         12         ok
+link_f64_b                   link         30         ok
+cooperative_f1024_b          cooperative  30         ok
+cooperative_f64_b            cooperative  30         ok
+none_f1024_b                 none         30         ok
+none_f64_b                   none         30         ok
+raw: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full
+PASS P3-E -- every selected arm produced a reading. Now: analyse.py, then plot.py.

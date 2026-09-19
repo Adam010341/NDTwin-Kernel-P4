@@ -1,0 +1,91 @@
+### tree a10bf6ff  start 05:27:00
+### driver_tests
+Ran 124 tests in 0.163s
+OK
+rc=0
+### test_live_p1_common
+  ok         naming the allowance it passed
+Ran 88 checks, 0 failed
+rc=0
+### test_ndt_app_package
+  ok         because an unchecked gate is not a passed one
+Ran 391 checks, 0 failed
+rc=0
+### test_ndt_app_orphans
+Ran 103 checks, all passed
+rc=0
+### test_ndt_apps_liveness
+Ran 51 checks, all passed
+rc=0
+### test_ndt_check_sample_rate
+Ran 39 checks, 0 failed
+rc=0
+### test_ndt_down_claim_guard
+Ran 41 checks, 0 failed
+rc=0
+### test_ndt_down_stops_only_ours
+Ran 29 checks, 0 failed
+rc=0
+### test_ndt_helper_apps_window
+  ok       🔴 a tree with no ntg_bmv2_topo.py sets nothing (the helper checks this too)
+Ran 150 checks, 0 failed
+rc=0
+### test_ndt_honesty
+  ok         and --check checks: rc 0, not 3
+Ran 345 checks, 0 failed
+rc=0
+### test_ndt_ovs_topo_script
+Ran 41 checks, 0 failed
+rc=0
+### test_ndt_round_baseline
+Ran 117 checks, 0 failed
+rc=0
+### test_ndt_sample_rate_reads_both_bounds
+Ran 6 checks, 0 failed
+rc=0
+### test_ndt_status_check_baseline
+Ran 104 checks, 0 failed
+rc=0
+### test_ndt_status_residue_row
+Ran 27 checks, 0 failed
+rc=0
+### test_ndt_sudo_surface
+  ok       control, no topo session: the guard does not ask and PASSES
+Ran 33 checks, 0 failed
+rc=0
+### test_ndt_up_down_robust
+  ok         🔴 the plane is passed, not looked up
+424 passed, 0 failed
+rc=0
+### test_ndt_up_target
+🔴 and it does not refuse everything -- the checks above would pass if it did
+Ran 23 checks, 0 failed
+rc=0
+### test_ndtwin_lab_config
+Ran 59 checks, all passed
+rc=0
+### test_ndtwin_lab_sweep
+Ran 29 checks, all passed
+rc=0
+### test_stack_await_convergence
+Ran 35 checks, 0 failed
+rc=0
+### check_gate_anchors
+111/111 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+rc=0
+### check_process_by_name
+rc=0
+### mutate_stack_telemetry_identity
+  Ran 391 checks, 1 failed
+rc=2
+### mutate_stack_await_convergence
+  Ran 35 checks, 0 failed
+mutation gate: 9 mutations, 0 survived; 2 control(s), 0 went red
+rc=0
+### mutate_live_p1_common
+  caught   M11: an unreadable model checks nothing and passes       (2 named check(s) went red)
+mutation gate: 23 mutations, 0 survived; 4 control(s), 0 went red
+rc=0
+### mutate_drive_exercise
+     also red: test_a_compile_failure_anywhere_else_is_still_exit_2 test_a_flowcache_skeleton_that_DOES_compile_is_the_finding test_a_flowcache_skeleton_that_does_not_compile_is_exit_1_and_says_by_design test_an_exercise_with_no_solution_program_is_still_an_error_everywhere_else test_an_unreadable_switch_state_says_so_instead_of_printing_zeros test_a_telemetry_knob_this_round_created_is_removed_again test_ndtwin_mode_refuses_to_run_as_root_and_says_why test_no_flag_means_the_package_decides test_none_of_the_nine_has_a_companion_program_to_build test_p4runtime_compiles_the_same_program_on_both_arms test_the_flag_is_refused_on_the_tutorials_fabric test_the_flowcache_solution_is_not_treated_as_a_red_arm test_the_report_header_carries_the_fabric_and_the_package test_the_report_names_the_bmv2_binary_by_its_sha test_the_summary_names_the_pipeline_sha_and_the_entry_counts test_the_telemetry_knob_is_put_back_by_the_teardown test_the_tutorials_fabric_still_requires_root test_the_word_is_passed_through_when_it_is_given  
+     also red: test_a_compile_failure_anywhere_else_is_still_exit_2 test_a_flowcache_skeleton_that_DOES_compile_is_the_finding test_a_flowcache_skeleton_that_does_not_compile_is_exit_1_and_says_by_design test_an_exercise_with_no_solution_program_is_still_an_error_everywhere_else test_an_unreadable_switch_state_says_so_instead_of_printing_zeros test_a_solution_run_names_the_solution_file_it_compiled test_a_telemetry_knob_this_round_created_is_removed_again test_firewall_keeps_the_default_prog_because_that_is_the_file_that_was_built test_ndtwin_mode_refuses_to_run_as_root_and_says_why test_no_flag_means_the_package_decides test_none_of_the_nine_has_a_companion_program_to_build test_p4runtime_compiles_the_same_program_on_both_arms test_the_flag_is_refused_on_the_tutorials_fabric test_the_flowcache_solution_is_not_treated_as_

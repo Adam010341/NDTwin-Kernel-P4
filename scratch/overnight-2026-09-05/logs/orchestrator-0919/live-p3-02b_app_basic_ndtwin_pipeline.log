@@ -1,0 +1,94 @@
+== 02b_app_basic_ndtwin_pipeline
+   repo: /home/adam/Desktop/NDTwin-Kernel
+   raw : /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-19T051944Z_02b_app_basic_ndtwin_pipeline
+   owner: p3-orchestrator
+   root is reachable for exactly what this needs: sudoers grants ndtwin-lab and mnexec without a prompt
+
+== lab state before this step
+   lab
+     claim          yours -- 44m left (until 14:03:01)
+     note           down at 2026-09-19 13:19:42 did NOT verify clean -- a stale /tmp/ndtwin_link_telemetry.json survived this teardown; claim kept -- read 'running' below, not this note
+     prev claim     p3-orchestrator (until 14:02:10), superseded 2026-09-19 13:17:56  (.test_run/lab.claim.prev)
+                    the same owner re-claimed it -- a rewrite, not a handover
+                    it said: down at 2026-09-19 13:17:56; verified clean; claim kept
+     exclusive cpu  no (heavy local jobs may overlap this claim)
+     measuring      nothing
+     code           2a551df7  +43 file(s) with uncommitted changes
+                    2 of them can change behaviour:
+                    p4_proxy/mininet/host_count_override
+                    tools/remote-lab/dorm_lab/
+     knob baseline  4 == the value this round started with (at 13:18:01)
+     tree vs round  0 file(s) LEFT the uncommitted set, 1 joined it
+                    + doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-19T051944Z_02b_app_basic_ndtwin_pipeline/
+     ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6685d3a9)
+   
+   lab is free
+   host_count_override snapshot taken (4)
+   telemetry_override does not exist; it will be removed again at the end
+
+== compiling /home/adam/tutorials/exercises/basic/solution/basic.p4 -> build/basic.json (for the entries' p4info)
+   9213871cee36bd93  build/basic.p4.p4info.txtpb
+
+== converting /home/adam/tutorials/exercises/basic -> /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic-ndtwin-pipeline   (--ndtwin-pipeline: every switch stays on NDTwin's)
+     read back through p4_proxy/mininet/topo_from_json.py: ok
+     next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic-ndtwin-pipeline
+   package.json switches[*].pipeline: ['None']
+
+== pre-flight
+   PASS -- every check passed
+
+== claiming the lab
+     recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+     ok  lab claimed by p3-orchestrator for 45m (P2 live acceptance 2b: --app basic (pod-topo) on NDTwin's own pipeline)
+
+== ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic-ndtwin-pipeline
+   rc=0 -> 2026-09-19T051944Z_02b_app_basic_ndtwin_pipeline/20_up.txt
+       ok  proxy: 12/12 destination paths (stable)
+       ok  kernel: 4 switches, 4 up, 16 edges, 4 hosts
+       ok  model matches fabric: 4 hosts (kernel graph, topology file and 4 host namespaces all agree)
+       ok  telemetry: auto -- 4 cooperative, 0 link, 0 none; the proxy agrees switch by switch
+       ok  data plane: h1 -> 10.0.2.2 forwards
+     
+     up. ready
+       proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+   host_count_override is now: 4
+
+== GET /p4/switch_state
+   switches            4
+   control_plane.mode  ndtwin
+   control_plane.skipped []
+   entries_recorded    [5]
+   pipeline.ndtwin     ['True']
+   pipeline.skipped    ['()']
+   table_entries       recorded=['5'] applied=['0']
+     app package    /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic-ndtwin-pipeline (mode ndtwin)
+     sample rate    1/256
+     rate source    P4: p4_proxy/p4_src/build/ndtwin_switch.json
+
+== verify_p4 (ndt's own [3/3], run again)
+   rc=0 -> 2026-09-19T051944Z_02b_app_basic_ndtwin_pipeline/40_verify_p4.txt
+       ok  telemetry: auto -- 4 cooperative, 0 link, 0 none; the proxy agrees switch by switch
+       ok  data plane: h1 -> 10.0.2.2 forwards
+     
+     up. ready
+       proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+
+== pingall -- every ordered host pair, ping -c 5, loss parsed from ping
+   PINGALL_LOSS pairs=12 zero_loss=12 lossy=0 untested=0
+   every ping's raw output: 2026-09-19T051944Z_02b_app_basic_ndtwin_pipeline/43_ping_raw.txt
+   0% packet loss on all 12 ordered pairs, 5 packets each -- NDTwin's own routes
+
+== done -- teardown follows (it must leave no app_package_override behind)
+
+== teardown
+   ndt down rc=0 -> 2026-09-19T051944Z_02b_app_basic_ndtwin_pipeline/90_down.txt
+         so stack.sh's exit 1 was a reading from the MIDDLE of this teardown, not
+         its ending, and it is not carried to the exit code. (ROLE-12, 2026-09-12)
+       claim note now says the lab is down and verified clean (owner and expiry unchanged)
+   app_package_override is gone, as 'ndt down' should leave it
+     the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+     this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+     ok  lab released
+
+raw: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-19T051944Z_02b_app_basic_ndtwin_pipeline
+PASS 02b_app_basic_ndtwin_pipeline

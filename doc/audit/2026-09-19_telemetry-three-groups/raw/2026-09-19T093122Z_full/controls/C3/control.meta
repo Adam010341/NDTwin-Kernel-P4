@@ -1,0 +1,7 @@
+control=C3
+burners=4
+ladder=1 2 3 5 8 12
+external_without_burners=0.0272
+external_with_burners=0.1834
+threshold=+0.15 absolute (PREREG 6.2)
+verdict=FIRES

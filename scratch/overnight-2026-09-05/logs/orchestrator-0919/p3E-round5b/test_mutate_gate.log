@@ -1,0 +1,7 @@
+### test_mutate_gate.sh -- asserts on what the gate SAID in that self-test
+# tree:    /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919
+# head:    5e62459932c357e2a2722e116bf14a47c20e7781
+# when:    2026-09-19 10:03:14 UTC
+# cmd: tests/test_mutate_gate.sh
+###
+=== the gate refuses a verdict when it could not mutate

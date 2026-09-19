@@ -1,0 +1,50 @@
+
+1. 🔴 a correct SKELETON arm exits 0, and the step expects that
+  ok         a correct pair of arms passes
+  ok         and says so
+  ok       🔴 neither arm of a correct pair wants a non-zero rc
+  ok       🔴 a skeleton arm that FAILED an expectation is the finding
+  ok         named as the red arm not being red
+  ok         and a solution arm that failed is a failure too
+
+2. 🔴 the two arms whose red is a REFUSAL are the exceptions
+  ok         flowcache's skeleton is expected to exit 1
+  ok         and the table carries the by-design verdict
+  ok       🔴 a flowcache skeleton that exits 0 is the finding
+  ok         because p4c was supposed to refuse it
+  ok         basic_tunnel's skeleton is expected to exit 1 here
+  ok       🔴 and one that exits 0 is the finding
+  ok       🔴 rc 1 with a NON-refusal verdict is the finding, not a pass
+  ok         named as the refusal not having happened
+  ok         and the verdict itself is quoted
+  ok       🔴 same for basic_tunnel's entries actually installing
+  ok         and it says the red arm is not red
+  ok       🔴 a FAIL that merely mentions RED ARM is still a failure
+  ok         and is named as one
+  ok         a want-0 arm is not asked for a RED ARM verdict
+  ok       🔴 qos's skeleton exiting 1 is still a failure
+
+3. 🔴 rc 2 is not evidence either way
+  ok         a round that never ran fails the step
+  ok         and says it is not a result about the exercise
+
+4. the table, and what the step reads out of each run
+  ok         two exercises is four arms
+  ok         the table names each arm
+  ok         with the verdict the driver printed
+  ok         and the report path
+  ok         the count is arms, not exercises
+  ok       🔴 a failure does not stop the loop
+
+5. the refusals, before anything is written
+  ok       🔴 no interpreter with scapy is rc 2
+  ok         naming it
+
+6. 🔴 this suite leaves nothing in the checkout
+  ok       🔴 this suite wrote no run directory into the checkout
+  ok         and the raw really went to the fixture instead
+  ok       🔴 our own decoy IS visible to the listing
+  ok       🔴 a PREVIOUS real run's directory is not counted as ours
+  ok         (and a count, rather than a difference, would have seen it)
+
+Ran 36 checks, 0 failed

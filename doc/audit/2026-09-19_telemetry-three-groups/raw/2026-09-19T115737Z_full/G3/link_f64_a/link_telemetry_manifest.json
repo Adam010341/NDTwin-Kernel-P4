@@ -1,0 +1,1307 @@
+{
+  "pid": 2264869,
+  "log": "/tmp/ndtwin_link_telemetry.log",
+  "rate": 256,
+  "trunc": 128,
+  "group": 27,
+  "ifindex_width": 16,
+  "collector": [
+    "127.0.0.1",
+    6343
+  ],
+  "sub_agent_id": 1,
+  "switches": [
+    {
+      "dpid": 1,
+      "name": "s1",
+      "agent_ip": "192.168.123.11",
+      "ports": {
+        "1": {
+          "ifname": "s1-eth1",
+          "ifindex": 2088,
+          "key": 2088,
+          "ingress": true,
+          "egress": false
+        },
+        "2": {
+          "ifname": "s1-eth2",
+          "ifindex": 2090,
+          "key": 2090,
+          "ingress": true,
+          "egress": false
+        },
+        "3": {
+          "ifname": "s1-eth3",
+          "ifindex": 2083,
+          "key": 2083,
+          "ingress": true,
+          "egress": true
+        }
+      }
+    },
+    {
+      "dpid": 2,
+      "name": "s2",
+      "agent_ip": "192.168.123.12",
+      "ports": {
+        "1": {
+          "ifname": "s2-eth1",
+          "ifindex": 2092,
+          "key": 2092,
+          "ingress": true,
+          "egress": false
+        },
+        "2": {
+          "ifname": "s2-eth2",
+          "ifindex": 2094,
+          "key": 2094,
+          "ingress": true,
+          "egress": false
+        },
+        "3": {
+          "ifname": "s2-eth3",
+          "ifindex": 2084,
+          "key": 2084,
+          "ingress": true,
+          "egress": true
+        }
+      }
+    },
+    {
+      "dpid": 3,
+      "name": "s3",
+      "agent_ip": "192.168.123.13",
+      "ports": {
+        "1": {
+          "ifname": "s3-eth1",
+          "ifindex": 2096,
+          "key": 2096,
+          "ingress": true,
+          "egress": false
+        },
+        "2": {
+          "ifname": "s3-eth2",
+          "ifindex": 2098,
+          "key": 2098,
+          "ingress": true,
+          "egress": false
+        },
+        "3": {
+          "ifname": "s3-eth3",
+          "ifindex": 2085,
+          "key": 2085,
+          "ingress": true,
+          "egress": true
+        }
+      }
+    },
+    {
+      "dpid": 4,
+      "name": "s4",
+      "agent_ip": "192.168.123.14",
+      "ports": {
+        "1": {
+          "ifname": "s4-eth1",
+          "ifindex": 2100,
+          "key": 2100,
+          "ingress": true,
+          "egress": false
+        },
+        "2": {
+          "ifname": "s4-eth2",
+          "ifindex": 2102,
+          "key": 2102,
+          "ingress": true,
+          "egress": false
+        },
+        "3": {
+          "ifname": "s4-eth3",
+          "ifindex": 2086,
+          "key": 2086,
+          "ingress": true,
+          "egress": true
+        }
+      }
+    },
+    {
+      "dpid": 5,
+      "name": "s5",
+      "agent_ip": "192.168.123.15",
+      "ports": {
+        "1": {
+          "ifname": "s5-eth1",
+          "ifindex": 2087,
+          "key": 2087,
+          "ingress": true,
+          "egress": false
+        },
+        "2": {
+          "ifname": "s5-eth2",
+          "ifindex": 2091,
+          "key": 2091,
+          "ingress": true,
+          "egress": false
+        },
+        "3": {
+          "ifname": "s5-eth3",
+          "ifindex": 2104,
+          "key": 2104,
+          "ingress": true,
+          "egress": false
+        },
+        "4": {
+          "ifname": "s5-eth4",
+          "ifindex": 2106,
+          "key": 2106,
+          "ingress": true,
+          "egress": false
+        }
+      }
+    },
+    {
+      "dpid": 6,
+      "name": "s6",
+      "agent_ip": "192.168.123.16",
+      "ports": {
+        "1": {
+          "ifname": "s6-eth1",
+          "ifindex": 2089,
+          "key": 2089,
+          "ingress": true,
+          "egress": false
+        },
+        "2": {
+          "ifname": "s6-eth2",
+          "ifindex": 2093,
+          "key": 2093,
+          "ingress": true,
+          "egress": false
+        },
+        "3": {
+          "ifname": "s6-eth3",
+          "ifindex": 2108,
+          "key": 2108,
+          "ingress": true,
+          "egress": false
+        },
+        "4": {
+          "ifname": "s6-eth4",
+          "ifindex": 2110,
+          "key": 2110,
+          "ingress": true,
+          "egress": false
+        }
+      }
+    },
+    {
+      "dpid": 7,
+      "name": "s7",
+      "agent_ip": "192.168.123.17",
+      "ports": {
+        "1": {
+          "ifname": "s7-eth1",
+          "ifindex": 2095,
+          "key": 2095,
+          "ingress": true,
+          "egress": false
+        },
+        "2": {
+          "ifname": "s7-eth2",
+          "ifindex": 2099,
+          "key": 2099,
+          "ingress": true,
+          "egress": false
+        },
+        "3": {
+          "ifname": "s7-eth3",
+          "ifindex": 2112,
+          "key": 2112,
+          "ingress": true,
+          "egress": false
+        },
+        "4": {
+          "ifname": "s7-eth4",
+          "ifindex": 2114,
+          "key": 2114,
+          "ingress": true,
+          "egress": false
+        }
+      }
+    },
+    {
+      "dpid": 8,
+      "name": "s8",
+      "agent_ip": "192.168.123.18",
+      "ports": {
+        "1": {
+          "ifname": "s8-eth1",
+          "ifindex": 2097,
+          "key": 2097,
+          "ingress": true,
+          "egress": false
+        },
+        "2": {
+          "ifname": "s8-eth2",
+          "ifindex": 2101,
+          "key": 2101,
+          "ingress": true,
+          "egress": false
+        },
+        "3": {
+          "ifname": "s8-eth3",
+          "ifindex": 2116,
+          "key": 2116,
+          "ingress": true,
+          "egress": false
+        },
+        "4": {
+          "ifname": "s8-eth4",
+          "ifindex": 2118,
+          "key": 2118,
+          "ingress": true,
+          "egress": false
+        }
+      }
+    },
+    {
+      "dpid": 9,
+      "name": "s9",
+      "agent_ip": "192.168.123.19",
+      "ports": {
+        "1": {
+          "ifname": "s9-eth1",
+          "ifindex": 2103,
+          "key": 2103,
+          "ingress": true,
+          "egress": false
+        },
+        "2": {
+          "ifname": "s9-eth2",
+          "ifindex": 2107,
+          "key": 2107,
+          "ingress": true,
+          "egress": false
+        },
+        "3": {
+          "ifname": "s9-eth3",
+          "ifindex": 2111,
+          "key": 2111,
+          "ingress": true,
+          "egress": false
+        },
+        "4": {
+          "ifname": "s9-eth4",
+          "ifindex": 2115,
+          "key": 2115,
+          "ingress": true,
+          "egress": false
+        }
+      }
+    },
+    {
+      "dpid": 10,
+      "name": "s10",
+      "agent_ip": "192.168.123.20",
+      "ports": {
+        "1": {
+          "ifname": "s10-eth1",
+          "ifindex": 2105,
+          "key": 2105,
+          "ingress": true,
+          "egress": false
+        },
+        "2": {
+          "ifname": "s10-eth2",
+          "ifindex": 2109,
+          "key": 2109,
+          "ingress": true,
+          "egress": false
+        },
+        "3": {
+          "ifname": "s10-eth3",
+          "ifindex": 2113,
+          "key": 2113,
+          "ingress": true,
+          "egress": false
+        },
+        "4": {
+          "ifname": "s10-eth4",
+          "ifindex": 2117,
+          "key": 2117,
+          "ingress": true,
+          "egress": false
+        }
+      }
+    }
+  ],
+  "tc_commands": [
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s1-eth1",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s1-eth1",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s1-eth2",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s1-eth2",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s1-eth3",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s1-eth3",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s1-eth3",
+      "egress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s2-eth1",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s2-eth1",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s2-eth2",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s2-eth2",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s2-eth3",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s2-eth3",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s2-eth3",
+      "egress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s3-eth1",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s3-eth1",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s3-eth2",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s3-eth2",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s3-eth3",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s3-eth3",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s3-eth3",
+      "egress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s4-eth1",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s4-eth1",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s4-eth2",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s4-eth2",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s4-eth3",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s4-eth3",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s4-eth3",
+      "egress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s5-eth1",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s5-eth1",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s5-eth2",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s5-eth2",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s5-eth3",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s5-eth3",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s5-eth4",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s5-eth4",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s6-eth1",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s6-eth1",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s6-eth2",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s6-eth2",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s6-eth3",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s6-eth3",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s6-eth4",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s6-eth4",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s7-eth1",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s7-eth1",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s7-eth2",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s7-eth2",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s7-eth3",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s7-eth3",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s7-eth4",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s7-eth4",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s8-eth1",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s8-eth1",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s8-eth2",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s8-eth2",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s8-eth3",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s8-eth3",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s8-eth4",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s8-eth4",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s9-eth1",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s9-eth1",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s9-eth2",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s9-eth2",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s9-eth3",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s9-eth3",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s9-eth4",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s9-eth4",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s10-eth1",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s10-eth1",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s10-eth2",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s10-eth2",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s10-eth3",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s10-eth3",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ],
+    [
+      "tc",
+      "qdisc",
+      "add",
+      "dev",
+      "s10-eth4",
+      "clsact"
+    ],
+    [
+      "tc",
+      "filter",
+      "add",
+      "dev",
+      "s10-eth4",
+      "ingress",
+      "matchall",
+      "action",
+      "sample",
+      "rate",
+      "256",
+      "group",
+      "27",
+      "trunc",
+      "128"
+    ]
+  ]
+}

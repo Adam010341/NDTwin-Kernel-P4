@@ -1,0 +1,7 @@
+control=C2
+frame_bytes=1024
+payload_bytes=982
+reps_pps=713270.2 785664.9 762848.1 
+ceiling_pps=785664.9
+requirement=>= 5x the highest 1024B pps this round measures through bmv2 (PREREG 4.3)
+verdict=computed by analyse.py once the 1024B cells exist

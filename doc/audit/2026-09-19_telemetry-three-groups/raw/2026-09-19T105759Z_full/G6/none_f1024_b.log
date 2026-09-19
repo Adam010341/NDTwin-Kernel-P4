@@ -1,0 +1,29 @@
+### E arm none_f1024_b  group none  frame 1024B (payload 982)  h1->h4  step 8s  11:50:07Z
+      1 kpps  reps 1  loss   0.0000%  sent     999.9 pps  recv     999.8 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.7 pps  recv    1999.5 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.6 pps  recv    2999.4 pps  clean=yes
+      5 kpps  reps 1  loss   0.0000%  sent    4999.2 pps  recv    4998.7 pps  clean=yes
+      8 kpps  reps 3  loss   0.0000%  sent    7998.8 pps  recv    7997.3 pps  clean=yes
+     12 kpps  reps 1  loss   0.0000%  sent   11997.9 pps  recv   11996.0 pps  clean=yes
+     20 kpps  reps 3  loss   0.0225%  sent   19996.7 pps  recv   19993.6 pps  clean=yes
+     30 kpps  reps 3  loss   0.3692%  sent   29994.9 pps  recv   29989.8 pps  clean=yes
+     45 kpps  reps 1  loss   5.3967%  sent   44992.0 pps  recv   44980.0 pps  clean=no
+     70 kpps  reps 1  loss  29.8076%  sent   69988.5 pps  recv   69973.0 pps  clean=no
+    110 kpps  reps 1  loss  50.1923%  sent  109984.4 pps  recv  109969.0 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 30 kpps  reps 0.4888,0.9213,0.3888  median 0.4888% <= 0.5%
+### top_rung_confirmation=30:0.4888,0.9213,0.3888=>0.4888 
+### kernel_sha256_end=be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49
+### sflow_counter_level=telemetry_health/telemetry_health
+### d_rx_total=0
+### d_addressed_total=0
+### d_sock_ovfl_total=0
+### d_app_drop_total=0
+### d_malformed_ipv4_ihl=0
+### d_family_ipv4=0
+### d_family_ipv6=0
+### d_family_l2=0
+### d_family_undecodable=0
+### finished=2026-09-19T11:53:09Z
+### invalid=no

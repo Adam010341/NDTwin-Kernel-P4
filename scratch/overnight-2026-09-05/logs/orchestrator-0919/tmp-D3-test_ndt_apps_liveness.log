@@ -1,0 +1,60 @@
+identity (energy and sim are recognisable at all)
+  ok       sim has a signature
+  ok       energy has a signature
+  ok       sim is not energy
+  ok       real ps finds the live sim fixture
+  ok       real ps does not report this shell
+state (a session is not a program; a program is not a session)
+  ok       session up + process alive  -> running
+  ok         and it names the pid
+  ok       session up + NO process     -> not-running
+  ok         and the reason is recorded
+  ok       no session + process alive  -> orphan
+  ok       no session + no process     -> not-running
+  ok         with no false reason attached
+start (the rc of 'tmux new-session; echo' is not evidence)
+  ok       start of an app that never came up -> rc 1
+  ok         does NOT say ok ... started
+  ok         says it did not start
+  ok         names the empty session as the reason
+  ok         and points at the app's own output
+  ok       start of an app that does come up -> rc 0
+  ok         says it started
+  ok         names the pid it verified
+  ok         and it asked the lab to start it
+  ok       lab refuses the request -> rc 1
+  ok         and the rc is reported
+stop (the D1 shape: rc 0 for apps that were never started)
+  ok       stop of a never-started lab app -> rc 2
+  ok         does NOT say ok sim stopped
+  ok         says it is not running
+  ok       stop of a never-started pidfile app -> rc 2
+  ok         still says not running
+  ok       stop of a running app -> rc 0
+  ok         says it stopped it
+  ok       stop with an empty session -> rc 2
+  ok         says the session was still there
+  ok         and clears it
+  ok       stop that did not stop it -> rc 1
+  ok         does NOT claim success
+  ok         says it is still running
+  ok         names the pid to kill
+  ok       lab stop of a lab-owned app -> rc 0
+  ok         says it stopped it
+apps stop all (what D1 recorded as APPS_STOP_ALL_RC=0)
+  ok       nothing was running -> rc 2
+  ok         and it says nothing was stopped
+  ok       one of five was running -> rc 0
+  ok         and the mix is stated
+app_spawn stdin (W7: te died of EOFError one second in)
+  ok       app_spawn feeds APP_STDIN to the program
+  ok       a fed app is still its own session leader
+  ok         and its group was recorded for stop
+  ok       pid_is_app still matches a fed app
+  ok       app_spawn without APP_STDIN behaves as before
+  ok       the te branch requests mode 2
+the suite reaps its own fixtures
+  ok       no fixture survives this run
+  ok       no spawned app survives this run
+
+Ran 51 checks, all passed

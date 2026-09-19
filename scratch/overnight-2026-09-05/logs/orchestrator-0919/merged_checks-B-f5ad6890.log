@@ -1,0 +1,8 @@
+check_process_by_name rc=0  check_process_by_name: 303 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale
+check_gate_anchors rc=0  111/111 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+kiref rc=0  OK
+check_test_tmpdirs rc=0  check_test_tmpdirs: 336 file(s) scanned, 0 fixed temp paths
+test_redirection_order rc=0  Ran 48 checks, 0 failed
+test_log_suffix_idempotent rc=0    30 passed, 0 failed
+test_topo_from_json rc=0  PASS -- derived wiring is identical to the hard-coded lists
+MERGED-CHECKS f5ad6890 r1: ALL-GREEN

@@ -1,0 +1,188 @@
+{
+  "bmv2": {
+    "cpu_port": 255
+  },
+  "control_plane": {
+    "device_id": "dpid",
+    "election_id": [
+      0,
+      65535
+    ],
+    "grpc_base": 30050,
+    "mode": "ndtwin"
+  },
+  "format": 1,
+  "hosts": {
+    "h1": {
+      "commands": [
+        "route add default gw 10.0.1.10 dev eth0",
+        "arp -i eth0 -s 10.0.1.10 08:00:00:00:01:00"
+      ],
+      "ip": "10.0.1.1",
+      "mac": "08:00:00:00:01:11",
+      "prefix_len": 24
+    },
+    "h2": {
+      "commands": [
+        "route add default gw 10.0.2.20 dev eth0",
+        "arp -i eth0 -s 10.0.2.20 08:00:00:00:02:00"
+      ],
+      "ip": "10.0.2.2",
+      "mac": "08:00:00:00:02:22",
+      "prefix_len": 24
+    },
+    "h3": {
+      "commands": [
+        "route add default gw 10.0.3.30 dev eth0",
+        "arp -i eth0 -s 10.0.3.30 08:00:00:00:03:00"
+      ],
+      "ip": "10.0.3.3",
+      "mac": "08:00:00:00:03:33",
+      "prefix_len": 24
+    },
+    "h4": {
+      "commands": [
+        "route add default gw 10.0.4.40 dev eth0",
+        "arp -i eth0 -s 10.0.4.40 08:00:00:00:04:00"
+      ],
+      "ip": "10.0.4.4",
+      "mac": "08:00:00:00:04:44",
+      "prefix_len": 24
+    }
+  },
+  "links": [
+    {
+      "a": [
+        "h1",
+        1
+      ],
+      "b": [
+        "s1",
+        1
+      ],
+      "bandwidth_bps": 1000000000
+    },
+    {
+      "a": [
+        "h2",
+        1
+      ],
+      "b": [
+        "s1",
+        2
+      ],
+      "bandwidth_bps": 1000000000
+    },
+    {
+      "a": [
+        "s1",
+        3
+      ],
+      "b": [
+        "s3",
+        1
+      ],
+      "bandwidth_bps": 1000000000
+    },
+    {
+      "a": [
+        "s1",
+        4
+      ],
+      "b": [
+        "s4",
+        2
+      ],
+      "bandwidth_bps": 1000000000
+    },
+    {
+      "a": [
+        "h3",
+        1
+      ],
+      "b": [
+        "s2",
+        1
+      ],
+      "bandwidth_bps": 1000000000
+    },
+    {
+      "a": [
+        "h4",
+        1
+      ],
+      "b": [
+        "s2",
+        2
+      ],
+      "bandwidth_bps": 1000000000
+    },
+    {
+      "a": [
+        "s2",
+        3
+      ],
+      "b": [
+        "s4",
+        1
+      ],
+      "bandwidth_bps": 1000000000
+    },
+    {
+      "a": [
+        "s2",
+        4
+      ],
+      "b": [
+        "s3",
+        2
+      ],
+      "bandwidth_bps": 1000000000
+    }
+  ],
+  "name": "basic_telemetry",
+  "source": {
+    "bmv2_json": "build/basic_telemetry.json",
+    "controller": null,
+    "exercise_dir": "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/inc-ex",
+    "kind": "p4lang-tutorials",
+    "p4": "basic_telemetry.p4",
+    "p4info": "build/basic_telemetry.p4.p4info.txtpb",
+    "topology_json": "pod-topo/topology.json"
+  },
+  "switches": {
+    "1": {
+      "entries": "pod-topo/s1-runtime.json",
+      "name": "s1",
+      "pipeline": {
+        "bmv2_json": "build/basic_telemetry.json",
+        "p4info": "build/basic_telemetry.p4.p4info.txtpb"
+      }
+    },
+    "2": {
+      "entries": "pod-topo/s2-runtime.json",
+      "name": "s2",
+      "pipeline": {
+        "bmv2_json": "build/basic_telemetry.json",
+        "p4info": "build/basic_telemetry.p4.p4info.txtpb"
+      }
+    },
+    "3": {
+      "entries": "pod-topo/s3-runtime.json",
+      "name": "s3",
+      "pipeline": {
+        "bmv2_json": "build/basic_telemetry.json",
+        "p4info": "build/basic_telemetry.p4.p4info.txtpb"
+      }
+    },
+    "4": {
+      "entries": "pod-topo/s4-runtime.json",
+      "name": "s4",
+      "pipeline": {
+        "bmv2_json": "build/basic_telemetry.json",
+        "p4info": "build/basic_telemetry.p4.p4info.txtpb"
+      }
+    }
+  },
+  "topology": "ndtwin/topology.json"
+}

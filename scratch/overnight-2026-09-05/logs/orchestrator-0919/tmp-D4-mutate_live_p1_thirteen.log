@@ -1,0 +1,95 @@
+baseline (must be green before any mutation):
+  Ran 34 checks, 0 failed
+
+  caught   M1: a correct skeleton arm is expected to fail           (2 named check(s) went red)
+             red:   a correct pair of arms passes
+             red: 🔴 neither arm of a correct pair wants a non-zero rc
+             also red:   a correct pair of arms passes
+             also red:   and says so
+             also red: 🔴 neither arm of a correct pair wants a non-zero rc
+             also red:   named as the red arm not being red
+             also red:   a want-0 arm is not asked for a RED ARM verdict
+             also red:   two exercises is four arms
+  caught   M2 (widening): every arm is expected to do whatever it did (2 named check(s) went red)
+             red: 🔴 a flowcache skeleton that exits 0 is the finding
+             red: 🔴 and one that exits 0 is the finding
+             also red:   named as the red arm not being red
+             also red: 🔴 a flowcache skeleton that exits 0 is the finding
+             also red:   because p4c was supposed to refuse it
+             also red: 🔴 and one that exits 0 is the finding
+             also red:   a round that never ran fails the step
+             also red:   and says it is not a result about the exercise
+  caught   M3: the designed-refusal arms lose their exception       (2 named check(s) went red)
+             red:   flowcache's skeleton is expected to exit 1
+             red:   basic_tunnel's skeleton is expected to exit 1 here
+             also red:   flowcache's skeleton is expected to exit 1
+             also red: 🔴 a flowcache skeleton that exits 0 is the finding
+             also red:   because p4c was supposed to refuse it
+             also red:   basic_tunnel's skeleton is expected to exit 1 here
+             also red: 🔴 and one that exits 0 is the finding
+             also red:   named as the refusal not having happened
+             also red:   and it says the red arm is not red
+             also red:   and is named as one
+  caught   M4 (widening): every skeleton may exit 1                 (1 named check(s) went red)
+             red:   a correct pair of arms passes
+             also red:   a correct pair of arms passes
+             also red:   and says so
+             also red: 🔴 neither arm of a correct pair wants a non-zero rc
+             also red:   named as the red arm not being red
+             also red:   a want-0 arm is not asked for a RED ARM verdict
+             also red:   two exercises is four arms
+  caught   M5: a round that never ran is reported like any other failure (1 named check(s) went red)
+             red:   and says it is not a result about the exercise
+             also red:   and says it is not a result about the exercise
+  caught   M6: the loop stops at the first failing arm (the instrument) (1 named check(s) went red)
+             red: 🔴 a failure does not stop the loop
+             also red: 🔴 a failure does not stop the loop
+  caught   M7: the set -u local hazard comes back                   (2 named check(s) went red)
+             red:   a correct pair of arms passes
+             red:   the table names each arm
+             also red:   a correct pair of arms passes
+             also red:   and says so
+             also red:   named as the red arm not being red
+             also red:   flowcache's skeleton is expected to exit 1
+             also red:   and the table carries the by-design verdict
+             also red:   because p4c was supposed to refuse it
+             also red:   basic_tunnel's skeleton is expected to exit 1 here
+             also red:   named as the refusal not having happened
+             also red:   and the verdict itself is quoted
+             also red:   and it says the red arm is not red
+             also red:   and is named as one
+             also red:   a want-0 arm is not asked for a RED ARM verdict
+             also red:   and says it is not a result about the exercise
+             also red:   two exercises is four arms
+             also red:   the table names each arm
+             also red:   with the verdict the driver printed
+             also red:   and the report path
+             also red:   the count is arms, not exercises
+             also red: 🔴 a failure does not stop the loop
+  caught   M8: rc 1 is accepted without a by-design verdict         (2 named check(s) went red)
+             red: 🔴 rc 1 with a NON-refusal verdict is the finding, not a pass
+             red: 🔴 same for basic_tunnel's entries actually installing
+             also red: 🔴 rc 1 with a NON-refusal verdict is the finding, not a pass
+             also red:   named as the refusal not having happened
+             also red: 🔴 same for basic_tunnel's entries actually installing
+             also red:   and it says the red arm is not red
+             also red: 🔴 a FAIL that merely mentions RED ARM is still a failure
+             also red:   and is named as one
+  caught   M9 (widening): every arm must print a RED ARM verdict    (2 named check(s) went red)
+             red:   a correct pair of arms passes
+             red:   a want-0 arm is not asked for a RED ARM verdict
+             also red:   a correct pair of arms passes
+             also red:   and says so
+             also red:   flowcache's skeleton is expected to exit 1
+             also red:   basic_tunnel's skeleton is expected to exit 1 here
+             also red:   a want-0 arm is not asked for a RED ARM verdict
+             also red:   two exercises is four arms
+  caught   M10: the by-design check becomes a substring match       (2 named check(s) went red)
+             red: 🔴 a FAIL that merely mentions RED ARM is still a failure
+             red:   and is named as one
+             also red: 🔴 a FAIL that merely mentions RED ARM is still a failure
+             also red:   and is named as one
+  control  C1: a comment above expected_rc                          (stayed green, as it must)
+
+baseline byte-identical: yes  live-p1/06_thirteen.sh  sha256 fc9d96bae33bd77b74c95ec8bc96060720977e24a29f41656f48ad377e5c9cce
+mutation gate: 10 mutations, 0 survived; 1 control(s), 0 went red

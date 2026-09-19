@@ -1,0 +1,17 @@
+   include: h1 -> h4 (10.0.4.4), iperf -u -b 2M -t 8
+   include: on-path interfaces: s1-eth4 s2-eth2 s4-eth1 
+   include: on-path  s1-eth4  14693523.250 bit  (switch)
+   include: on-path  s2-eth2  28630061.250 bit  (host)
+   include: on-path  s4-eth1  28630061.250 bit  (switch)
+   include: off-path floor 293870.465 bit   = max(5000, 0.02 x the smallest on-path integral)
+   include: off-path s1-eth1  0.000 bit  (host)
+   include: off-path s1-eth2  0.000 bit  (host)
+   include: off-path s1-eth3  0.000 bit  (switch)
+   include: off-path s2-eth1  0.000 bit  (host)
+   include: off-path s2-eth3  0.000 bit  (switch)
+   include: off-path s2-eth4  0.000 bit  (switch)
+   include: off-path s3-eth1  0.000 bit  (switch)
+   include: off-path s3-eth2  0.000 bit  (switch)
+   include: off-path s4-eth2  0.000 bit  (switch)
+   include: link usage follows the iperf path (off-path under 293870.465 bit)
+LINK_USAGE include expect=follows onpath=3 rc=0

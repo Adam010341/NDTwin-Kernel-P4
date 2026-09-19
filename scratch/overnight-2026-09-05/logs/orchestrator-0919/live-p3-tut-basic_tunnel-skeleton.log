@@ -1,0 +1,14 @@
+drive_exercise.py -- basic_tunnel / skeleton
+(non-interactive: no mininet CLI, no xterm; kills nothing)
+
+== pre-flight (read-only) ==============================================
+!! FAIL  ports 9090-9099: 1 listener(s) -- s1 will not bind its thrift port
+         LISTEN 0      5                        127.0.0.1:9090  0.0.0.0:* users:(("python3",pid=2364314,fd=3))
+         pid=2364314  cmdline: python3 cli.py dashboard  cwd: /home/adam/claude-usage
+         -> close it yourself; this driver never kills a process.
+OK   interpreter /home/adam/p4dev-python-venv/bin/python (3.12.3)
+OK   switch  /usr/local/bin/simple_switch_grpc  sha256[:16]=327fa7d172217397  --version=1.15.3-f0b7d201
+OK   p4c     /usr/local/bin/p4c-bm2-ss  sha256[:16]=226f3f66df515c9e  --version=Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release)
+OK   exercise dir /home/adam/tutorials/exercises/basic_tunnel
+
+!! PRE-FLIGHT REFUSED -- nothing was started.

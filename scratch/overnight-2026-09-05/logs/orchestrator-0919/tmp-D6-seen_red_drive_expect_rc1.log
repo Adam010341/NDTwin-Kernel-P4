@@ -1,0 +1,64 @@
+
+1. 🔴 a mutant that does not parse is REFUSED, not counted
+  ok         the gate exits 2 (refused), not 1 (a survivor)
+  ok       🔴 it says the mutant is DEAD
+  ok         and why that is not a measurement
+  ok         the refusal is spelled out
+  ok       🔴 and it prints NO verdict line at all
+  ok       🔴 in particular it does not say anything survived
+  ok         report_green refuses the same way
+  ok         with the same DEAD line
+  ok         and no verdict line either
+
+2. 🔴 THE CONTROL: a mutant that DOES parse is not reported dead
+  ok         a parseable mutant lets the gate reach its verdict
+  ok       🔴 it is NOT called dead
+  ok         and the gate does not refuse
+  ok         the verdict line is printed
+  ok         and it counts the dead separately
+  ok         the mutation itself was caught
+
+3. the counters are three, not two
+  ok       🔴 both report functions increment DEAD, not SURVIVORS
+  ok       🔴 and no SURVIVORS increment sits in a dead branch
+  ok         the verdict is gated on DEAD
+
+5. 🔴 mutate_drive_exercise.sh answers about ITSELF, not about its subject
+  FAILED   🔴 gate mode with a dead interpreter exits 2
+             expected: [2]
+             actual:   [1]
+  FAILED   🔴 and prints NO verdict line
+             a verdict line was printed
+  FAILED   🔴 no 'ANCHOR IS NOT UNIQUE' about the subject
+             unexpected: [ANCHOR IS NOT UNIQUE]
+  FAILED   🔴 no empty-count line
+             unexpected: [( matches)]
+  ok       🔴 and no 'anchor(s) have moved'
+  FAILED     it is named as the gate's own refusal
+             no match for: [REFUSED]
+  FAILED   🔴 an anchor_count that cannot run exits 2
+             expected: [2]
+             actual:   [1]
+  FAILED     named as anchor_count's failure
+             no match for: [REFUSED: anchor_count could not run]
+  FAILED     and the parent shell acts on it
+             no match for: [the gate could not count anchors]
+  FAILED   🔴 no verdict line
+             a verdict line was printed
+  FAILED   🔴 not folded into 'the anchor is stale'
+             unexpected: [ANCHOR IS NOT UNIQUE]
+  FAILED   🔴 run from /tmp every anchor still resolves
+             no match for: [ANCHORS: ok]
+  ok         nothing reported as a stale anchor
+  FAILED     and the header names the cwd it ran in
+             no match for: [cwd        : /tmp]
+  ok         the resolved subject
+  FAILED     and the subject's sha
+             no match for: [subject sha:]
+
+4. 🔴 the lift must FAIL LOUDLY when the gate's shape changes
+  ok         the rename really changed the copy
+  ok       🔴 a gate whose shape moved makes THIS suite red, not green
+  ok         and it is visible as a failure, not as silence
+
+Ran 37 checks, 13 failed

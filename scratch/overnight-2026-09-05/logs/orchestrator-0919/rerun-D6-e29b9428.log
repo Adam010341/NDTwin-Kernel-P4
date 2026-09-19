@@ -1,0 +1,34 @@
+### tree e29b9428  start 10:54:18  free=3.1G
+### driver_tests
+Ran 138 tests in 1.232s
+OK
+rc=0  drv-dirs=0
+### test_live_p1_common
+  ok         naming the floor it passed
+Ran 112 checks, 0 failed
+rc=0  drv-dirs=0
+### test_live_p1_thirteen
+Ran 36 checks, 0 failed
+rc=0  drv-dirs=0
+### test_mutate_gate_dead_mutant
+  ok       🔴 in particular it does not say anything survived
+Ran 37 checks, 0 failed
+rc=0  drv-dirs=0
+### test_topo_from_json
+PASS -- derived wiring is identical to the hard-coded lists
+rc=0  drv-dirs=0
+### check_gate_anchors
+114/114 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+rc=0  drv-dirs=0
+### mutate_drive_exercise
+=== 52. mri no longer checks that the MRI option reached h2 ===
+87 mutations, 0 survived
+rc=0  drv-dirs=0
+### seen_red_drive_expect_rc1
+             no match for: [REFUSED: anchor_count could not run]
+Ran 37 checks, 13 failed
+rc=1  drv-dirs=0
+### refusal_gate_mode_expect_rc2
+rc=2  drv-dirs=0
+### worktree status lines: 0
+### done 10:59:28  free=3.1G

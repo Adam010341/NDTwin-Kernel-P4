@@ -1,0 +1,14 @@
+baseline (must be green before any mutation):
+  Ran 391 checks, 0 failed
+
+  caught   M1: the start_bg fingerprint drops the telemetry source  (1 named check(s) went red)
+             red: 🔴 the start_bg fingerprint carries the telemetry source
+             also red: 🔴 the start_bg fingerprint carries the telemetry source
+             also red:   an absent knob leaves the field empty, not missing
+  caught   M2: the fingerprint reads the knob's comment line        (1 named check(s) went red)
+             red: 🔴 the start_bg fingerprint carries the telemetry source
+             also red: 🔴 the start_bg fingerprint carries the telemetry source
+  control  C1: a comment above the fingerprint                      (stayed green, as it must)
+
+baseline byte-identical: yes  tools/test_workflow/stack.sh  sha256 02de11fca77d52aedc7ad9de707f43d7513e82618947215c6b789699b0f22c2f
+mutation gate: 2 mutations, 0 survived; 1 control(s), 0 went red

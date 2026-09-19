@@ -1,0 +1,250 @@
+usage: ndt <command>
+
+  up [what]     bring the whole lab up and verify it
+                  ndt up            Ryu + OVS, 128 hosts  (the default plane is OVS)
+                  ndt up 4          Ryu + OVS on the P4 test bed's 4-host layout
+                  ndt up ovs        the same as a bare 'ndt up'
+                  ndt up ovs4       the same as 'ndt up 4'
+                  ndt up p4         p4 at the current host count
+                  ndt up p4 4       p4 at 4 hosts   (rewrites host_count_override)
+                  ndt up p4 128     p4 at 128 hosts
+                  ndt up p4 --app <dir>   p4 on an APP PACKAGE
+                OVS builds only 128 or 4 -- each is a different ndtwin-lab verb, not a
+                parameter. For any other size, name the plane: 'ndt up p4 N'.
+                NDT_TOPO=<file> forces a specific kernel model.
+
+                --app <dir> brings the P4 plane up on an app package -- a directory
+                  with package.json and ndtwin/topology.json, as written by
+                  tools/p4_exercise/convert.py from a p4lang-tutorials exercise. The
+                  package names every host, its address and the switch port it hangs
+                  off, so it SIZES the fabric: no host count may be given with it, and
+                  host_count_override is rewritten to the model's count.
+                  what it does, in order: runs tools/p4_exercise/preflight.py and
+                  prints its table verbatim (a red row means nothing is built and
+                  nothing is written); writes p4_proxy/mininet/app_package_override;
+                  rewrites host_count_override; points NDT_TOPO, the kernel's
+                  --topology and the proxy's NDTWIN_TOPO_FILE at the package's model.
+                  --app is a P4 flag: on any other plane it is a usage error (2), not
+                  an ignored argument.
+                  🔴 THE KNOB IS PERSISTENT AND IS CLEARED AGAIN BY: an 'ndt up' of
+                  any plane WITHOUT --app, 'ndt down', 'ndt clean', and a rolled-back
+                  bring-up. Each of those prints 'app package cleared: <dir>'. Nothing
+                  ever leaves it present-but-empty: that state makes the proxy refuse
+                  to start, and 'ndt status' reports it as a problem.
+                  an external-control-plane package (mode external) brings the fabric
+                  up EMPTY on purpose -- the proxy installs no routes -- so [3/3]
+                  names the destination-path count and the forwarding test as NOT
+                  CHECKED rather than failing or passing them, and still checks the
+                  switches, the graph, the model and the host namespaces.
+                  exit 0 the fabric came up and verified; 1 something was MEASURED and
+                  it was dirty -- a port held by a stray, a Mininet already running, a
+                  fabric older than the compiled pipeline, a bring-up that could not
+                  finish or could not verify; 5 a GUARD REFUSED and nothing was built:
+                  the lab is claimed by somebody else, a measurement is in flight, an
+                  'ndt down' from this checkout is still running, or NDT_TOPO names a
+                  model of a different network (H4). An --app package that did not
+                  pass tools/p4_exercise/preflight.py is 5 for the same reason: the
+                  table is printed and nothing is built. 2 is a usage error.
+                  🔴 1 AND 5 ARE DIFFERENT QUESTIONS. 1 says this command looked at the
+                  machine and did not like what it found; 5 says it never looked. When
+                  both are true at once -- a teardown in flight AND a port held -- the
+                  answer is 5, because the one action that helps is waiting for that
+                  teardown, and the port is very likely one that teardown is releasing.
+                  Both are still printed. 'down' and 'clean' answer with the same three
+                  words. 3, "there was nothing to measure", cannot arise here: a
+                  bring-up has asked for something whatever it found. (Adam, 09-12)
+  down [--deep] take it all down and prove the machine is clean
+                  --deep also kills whatever still holds ANY port in ports.sh's table
+                  -- 9 rule(s), 27 port(s) --, including processes this stack did
+                  not start. Off by default: without it, a stray is reported and left
+                  alone rather than killed.
+                  the ports --deep sweeps, from the table:
+                    8000/8080/8081/6653/6633/6343/30051-30060/9091-9100/9000
+                  🔴 this line used to name only the three ports that were easy to
+                  name, while deep_sweep had been reading the whole table since
+                  ports.sh existed -- 24 ports short, in the sentence an operator
+                  reads before running the one verb here that kills processes this
+                  stack did not start. The size and the list above are computed from
+                  the table, so they cannot go stale again; the manual's copy was
+                  corrected the same day. (ROLE-11 F7 / FIX-DOC-1, 2026-09-12)
+                  exit 0 the teardown finished and the machine verified clean; 1 any
+                  of: stack.sh's half exited non-zero, the sweep did not finish, or
+                  the assertion found something still running. All four steps run
+                  whatever the earlier ones did -- a first step that failed is what
+                  makes the rest matter -- so the rc is one verdict over all of them
+                  and the block above it says which.
+                  3 THERE WAS NOTHING TO TEAR DOWN: no fabric, no registry entry in
+                  .test_run/pids/ and no port in ports.sh's table held at the moment
+                  this command started. Every step still ran -- they are idempotent,
+                  and a teardown that skipped them on a reading would be the reading
+                  deciding whether to act -- and the 3 says this teardown MEASURED
+                  NOTHING, which is not the statement "this round ended clean".
+                  ROLE-12's own table carries the pair it separates: two live OVS
+                  teardowns and one already-down lab, rc 0 for all three, and only
+                  the log could tell the third from the other two.
+                  5 A GUARD REFUSED and nothing was torn down: the lab is claimed by
+                  somebody else, the claim DECLARES a measurement in progress, a
+                  measurement is in flight, or another 'ndt down' from this checkout
+                  is still running. --force is the way past the first three and is
+                  not one of them; the fourth is a wait. 2 is a usage error.
+                  (Adam, 2026-09-12)
+                  🔴 rc 1 CAN BE AN ENDING FROM AN EARLIER ROUND. stack.sh reports a
+                  component that died of a fault -- SIGKILL (systemd-oomd does this on
+                  this laptop), SIGABRT, SIGSEGV -- out of .test_run/pids/<name>.exit,
+                  and that file outlives the round that wrote it. It is delivered once
+                  and then removed, so the NEXT 'ndt down' is green again. "This
+                  teardown failed" and "something crashed, once, and nobody had been
+                  told" are not the same statement: read the [1/3] block, which names
+                  the component, before you go looking for a fabric that is gone.
+                  (A1, 2026-09-12)
+                  🔴 A PORT HELD AT [1/3] IS NOT BY ITSELF A FAILED TEARDOWN.
+                  [1/3] runs before the data-plane sweep in [3/3], so over a LIVE P4
+                  fabric stack.sh's port assertion can only be naming the 20 bmv2
+                  ports (30051-30060, 9091-9100) of
+                  the fabric this teardown is about to remove
+                  -- measured 7 of 7 on 2026-09-12, against 0 of 2 live OVS
+                  teardowns and 0 of 1 on an already-down lab. Those ports are
+                  re-read after 'verify clean', by number, and the rc follows the
+                  SECOND reading: closed by [3/3] -> not a failure, and the block
+                  above says which ports and that it re-read them; still held -> rc 1,
+                  naming them. The other two halves of that status -- a port held by
+                  something this stack STARTED, and a component that ended on a fatal
+                  signal -- are red whatever the sweep does. (ROLE-12, 2026-09-12)
+  status [--check]     what is running, who has the lab, and the state that
+                decides every number. --check also exits non-zero on anything
+                that would make a measurement untrustworthy.
+                  it compares the live lab against what the last 'ndt up' asked
+                  for, recorded in .test_run/up.target -- data plane kind, host
+                  count, kernel graph, and the model file's sha256.
+                  exit 0 all compared fields match; 1 one of them does not (the
+                  message names it); 3 nothing was compared, because there is
+                  no baseline RIGHT NOW -- .test_run/up.target is absent (every
+                  ordinary up->down clears it) or unreadable.
+                  3 is never "checked and matched", and it is NOT "no 'ndt up'
+                  has ever run here": that sentence was taken out of the output
+                  on 09-05 (W12/I-1) as false after every teardown, and when
+                  .test_run/pids/kernel.exit is there the report says what the
+                  last run was.
+                  --check also prints a 'rules-in-window' row: rules left inside an
+                  app's window and locks still held. what could not be checked is
+                  printed as NOT CHECKED and never as clean. (G-12 / W16-2)
+                  🔴 that row was called 'residue' until 2026-09-12. One word named
+                  two findings: this one, and the line 'clean' prints as
+                  'XX residue: <proc> holding :<port>', which is a PROCESS and which
+                  'ndt down' removes. A rule in a window is deleted by nothing here,
+                  and its only remedy is a delete_flow_entry by hand.
+                  (Adam, RESIDUE-1 §7-5)
+                  rules-in-window FOUND is a problem, and it is rc 1 ONLY while there is a
+                  baseline: with no up.target the whole report is rc 3, and the
+                  rules-in-window and knob problems are printed under "everything else this
+                  report could still check" rather than raising the code. 'ndt down'
+                  clears the baseline, so that is the state at the END of every
+                  round -- exactly when a rule is most likely to be left on the wire
+                  with no process to attribute it to. Read the rules-in-window ROW, not the
+                  exit code, when the record row says none. (F2, 2026-09-11)
+  clean         just the teardown assertion
+                  exit 0 it had something to be about and none of it is residue; 1
+                  something was MEASURED and is still there -- a switch, a host or
+                  switch process, the topo session, the manifest, a held port, or a
+                  port this user could not read, because unknown is never clean;
+                  3 THERE WAS NOTHING TO JUDGE: no fabric, nothing in
+                  .test_run/pids/, and no port in ports.sh's table held.
+                  🔴 3 IS NOT A CLEAN BILL OF HEALTH, and until 09-12 this command
+                  answered 0 in that state -- the same byte, to a script, as a
+                  teardown that removed ten switches and proved them gone, on a
+                  machine where no lab had ever been started. The manual sends a
+                  first-time reader here to verify a lab. 'ndt down' still ends on
+                  'clean': its own verify step is an assertion about the fabric that
+                  teardown measured BEFORE it acted, so an empty machine there is the
+                  result and not an absent subject. (Adam, 2026-09-12)
+                  🔴 it REFUSES while an 'ndt down' from this checkout is running,
+                  and that refusal is rc 5. Every process that teardown is in the
+                  middle of killing would otherwise be listed here as residue, under
+                  advice to run 'ndt down --deep' -- the one verb in this tool that
+                  kills processes this stack did not start, which here would be
+                  the operator's own teardown. Measured 2026-09-12 02:08:24: it
+                  listed 10 bmv2, 14 host/switch processes, the topo session, the
+                  manifest and 23 ports, every one of them that teardown's. The block
+                  names the pid to wait for. A marker whose pid is gone is
+                  removed and does not refuse. (ROLE-12 cell 3)
+  check         telemetry double-count tripwire
+                  exit 0 the ratio is inside the +/-50% band, or there was too
+                  little traffic to compute one at all; 1 the kernel is not up, a
+                  DECLARED measurement was refused, or the twin could not be read;
+                  4 DOUBLE-COUNTING was printed. 🔴 READ THE CAUSE LINES under it:
+                  over the band is NOT the same statement as 'clone replicas'.
+                  One netem link failure read 1.60 with no replicas anywhere on
+                  the fabric, and the verdict used to name them (ROLE-5,
+                  2026-09-11). rc 4 is new on 09-11; 'under-counting' (ratio
+                  under 0.5) is still 0, because 1/1024 sampling under-reports by
+                  24.8% on a healthy fabric and a red on that side would fire on
+                  the EXPECTED reading. (#17)
+                  🔴 rc 0 ALSO MEANS "nothing was compared". With
+                  under 1 Mbit/s of ground truth crossing the fabric this command
+                  prints no ratio and no verdict at all -- it says so -- and exits
+                  0, which to a script is the same byte as "inside the band".
+                  That 0 is NOT the fabric being healthy: a lab with no traffic
+                  generator answers it every time it is asked, for as long as it
+                  is asked. So read the ratio block,
+                  not the exit code; a run with no traffic has no ratio block. The 0
+                  is kept at 0 deliberately (09-12): a non-zero here would make
+                  every 'ndt check' on an idle lab red, which is the same defect
+                  with the sign flipped. (G-33, measured 2026-09-11)
+  apps [names]  start readers/apps; no args on a terminal = interactive picker
+                  energy sim nsr viz te      ('ndt apps stop [names|all]')
+                  ndt apps orphans  -- is anything of an app's still running,
+                    and is anything of an app's still on the NETWORK?
+                    exit 0 neither; 1 untracked PROCESSES are running; 2 a
+                    liveness channel could not look; 4 the processes are clean
+                    but a rule or a lock is still there; 5 the processes are
+                    clean and the rules-in-window could NOT BE CHECKED (kernel down, a
+                    reading failed, or the plane has no time axis -- every P4
+                    fabric). 4 and 5 are new on 09-07 and are deliberately not 1:
+                    a live process needs 'ndt apps stop', a leftover rule needs a
+                    delete_flow_entry by hand. Every gate that reads this rc has
+                    to be updated. (G-12 / W16-1)
+                    🔴 THE CODES ARE NOT DISJOINT IN PRACTICE: the PROCESS answer
+                    wins whenever it is non-zero, so 2 outranks both 4 and 5 -- and
+                    2 is the ordinary answer on this machine, because /proc/<pid>/fd
+                    of a root process cannot be read and every app the lab helper
+                    starts is root. So "4: a rule or a lock is still there" can be
+                    true and unreachable at the same time. The stderr says so when
+                    it happens ("and the network is not clean either (rules-in-window rc
+                    would be 4)"), and the fix for a gate is to read the report:
+                    tools/test_workflow/orphans_verdict.sh. (F4, 2026-09-11)
+                  stop and orphans also LIST what an app left on the NETWORK --
+                    flow rules and held locks -- and delete none of it. suspected
+                    by time only: a rule has no owner and its cookie is 0. G-12.
+                    on P4 nothing can be dated at all: its flow stats are
+                    synthesised and report duration 0/0, so every rule is listed
+                    with age=UNKNOWN and none is attributed. (W16-3)
+                  ndt apps trim [names|all]  -- bound a running app's log
+                    (viz wrote 875 MB in 1h54m; the app keeps running)
+  ntg [cli|prompt]     which prompt the topology hands control to
+  claim [min] [note]   reserve the lab (default 30m); needs NDT_OWNER set
+  release              give it back
+
+  .test_run/pids/ is shared, so 'down' kills whoever is registered there.
+  Declare yourself before a long run -- any script can just write .test_run/lab.claim:
+      owner=<name>   expires=<unix seconds>   note=<optional>
+
+  WHAT A CLAIM DOES NOT COVER, measured 2026-09-11 (ROLE-4 T4):
+    a claim only blocks the 'ndt' verbs. It is not the northbound API and it is not
+    a lock. A loop calling /ndt/install_flow_entry and /ndt/delete_flow_entry every
+    2 s kept getting http 200 through its own claim's expiry, and kept getting 200
+    after another owner had taken the claim; it stopped only when that owner's
+    'ndt down' killed the kernel. There is no signal at all when a claim lapses or
+    changes hands -- not to the API caller, not to the previous holder. Re-read
+    'ndt status'; nothing will tell you.
+
+  On P4, 'ndt up' derives the kernel's topology model from
+  p4_proxy/mininet/host_count_override, so model and fabric cannot disagree
+  because an environment variable was forgotten -- and since 09-10 the
+  two-checkout form of that mistake is refused before anything is built ('sudo
+  ndtwin-lab' acts in ONE tree, and 'ndt up' checks it is this one).
+  It does NOT make the 4-host-model-against-a-128-host-fabric mistake
+  impossible: inside one tree the host count is whatever that file says, 'ndt up
+  p4 N' rewrites it, and on 09-05 setting it built exactly that pair (R3-3).
+  OVS has no such knob -- there the size is the verb.
+
+repo: /home/adam/Desktop/NDTwin-Kernel

@@ -1,0 +1,43 @@
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ cmake --build build --target ndtwin_kernel
+[0/1] Re-running CMake...
+--  [Config] Found local config: /home/adam/Desktop/NDTwin-Kernel/setting/AppConfig.hpp
+CMake Warning (dev) at /usr/share/cmake-3.28/Modules/FetchContent.cmake:1331 (message):
+  The DOWNLOAD_EXTRACT_TIMESTAMP option was not given and policy CMP0135 is
+  not set.  The policy's OLD behavior will be used.  When using a URL
+  download, the timestamps of extracted files should preferably be that of
+  the time of extraction, otherwise code that depends on the extracted
+  contents might not be rebuilt if the URL changes.  The OLD behavior
+  preserves the timestamps from the archive instead, but this is usually not
+  what you want.  Update your project to the NEW behavior or specify the
+  DOWNLOAD_EXTRACT_TIMESTAMP option with a value of true to avoid this
+  robustness issue.
+Call Stack (most recent call first):
+  CMakeLists.txt:126 (FetchContent_Declare)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+-- Configuring done (0.5s)
+-- Generating done (0.1s)
+-- Build files have been written to: /home/adam/Desktop/NDTwin-Kernel/build
+[1/21] Building CXX object CMakeFiles/ndtwin_kernel.dir/src/main.cpp.o
+[2/21] Building CXX object src/ndt_core/collection/CMakeFiles/NdtCore_CollectionLib.dir/FlowLinkUsageCollector.cpp.o
+[3/21] Building CXX object src/ndt_core/collection/CMakeFiles/NdtCore_CollectionLib.dir/TopologyAndFlowMonitor.cpp.o
+[4/21] Linking CXX static library lib/libNdtCore_CollectionLib.a
+[5/21] Building CXX object src/ndt_core/routing_management/CMakeFiles/NdtCore_RoutingManagementLib.dir/FlowRoutingManager.cpp.o
+[6/21] Building CXX object src/ndt_core/routing_management/CMakeFiles/NdtCore_RoutingManagementLib.dir/Controller.cpp.o
+[7/21] Linking CXX static library lib/libNdtCore_RoutingManagementLib.a
+[8/21] Building CXX object src/ndt_core/data_management/CMakeFiles/NdtCore_DataManagementLib.dir/HistoricalDataManager.cpp.o
+[9/21] Linking CXX static library lib/libNdtCore_DataManagementLib.a
+[10/21] Building CXX object src/ndt_core/event_handling/CMakeFiles/NdtCore_EventHandlingLib.dir/ControllerAndOtherEventHandler.cpp.o
+[11/21] Linking CXX static library lib/libNdtCore_EventHandlingLib.a
+[12/21] Building CXX object src/ndt_core/power_management/CMakeFiles/NdtCore_PowerManagementLib.dir/DeviceConfigurationAndPowerManager.cpp.o
+[13/21] Building CXX object src/ndt_core/power_management/CMakeFiles/NdtCore_PowerManagementLib.dir/OVSPowerStrategy.cpp.o
+[14/21] Building CXX object src/ndt_core/power_management/CMakeFiles/NdtCore_PowerManagementLib.dir/P4PowerStrategy.cpp.o
+[15/21] Linking CXX static library lib/libNdtCore_PowerManagementLib.a
+[16/21] Building CXX object src/ndt_core/intent_translator/CMakeFiles/NdtCore_IntentTranslatorLib.dir/IntentTranslator.cpp.o
+[17/21] Building CXX object src/ndt_core/intent_translator/CMakeFiles/NdtCore_IntentTranslatorLib.dir/LLMAgent.cpp.o
+[18/21] Linking CXX static library lib/libNdtCore_IntentTranslatorLib.a
+[19/21] Building CXX object src/ndt_core/http/CMakeFiles/NdtCore_HttpLib.dir/HttpSession.cpp.o
+[20/21] Linking CXX static library lib/libNdtCore_HttpLib.a
+[21/21] Linking CXX executable bin/ndtwin_kernel
+guarded_build: exit 0

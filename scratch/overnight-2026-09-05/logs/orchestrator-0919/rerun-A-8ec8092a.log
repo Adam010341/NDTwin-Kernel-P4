@@ -1,0 +1,18 @@
+### rebuild start 12:35:11  free=3.1G
+### rebuild rc=0  guarded_build: exit 0  12:48:00
+### test binary sha after rebuild 43ce21f76c5ae491
+### tree 8ec8092a  start 12:48:01
+### worktree clean? 0 modified
+### test binary sha 43ce21f76c5ae491
+### gtest direct rc=0  [  PASSED  ] 1366 tests. 
+### ctest rc=0  100% tests passed, 0 tests failed out of 1366
+### gtest families+contracts rc=0  [  PASSED  ] 73 tests. 
+### regen rc=0    wrote emitted_egress_only.bin: 180 bytes (45 words)
+### fixtures byte-identical after regen rc=0
+### test_sflow_emitter rc=0  Ran 49 tests in 0.010s OK 
+### check_gate_anchors rc=0  111/111 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+### check_process_by_name rc=0  check_process_by_name: 299 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale
+grep: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/mutate_flowkey_families.p3a-8ec8092a.log: No such file or directory
+grep: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/gates-0910/mutate_flowkey_families.p3a-8ec8092a.log: No such file or directory
+### mutation gate log verdict:   GATE_RC=
+### done 12:49:17

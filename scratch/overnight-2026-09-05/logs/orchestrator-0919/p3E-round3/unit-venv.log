@@ -1,0 +1,13 @@
+### unit suite, venv interpreter
+# tree:    /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919
+# head:    e1fa63eae8043bf3a150210dd5da300d71e429da
+# when:    2026-09-19 08:07:39 UTC
+# cmd: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python -m unittest discover -s tests -t tests
+###
+.............................................s..
+----------------------------------------------------------------------
+Ran 48 tests in 0.550s
+
+OK (skipped=1)
+
+### rc=0

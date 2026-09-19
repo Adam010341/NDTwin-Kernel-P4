@@ -1,0 +1,28 @@
+### question (a): end_label_offsets only pushes UP -- does the top label stay inside the axes?
+# head:        f51ee88f
+# when:        2026-09-19 13:36:21 UTC
+# MEASURED, not read: plot.end_label_offsets is wrapped to record its real inputs and
+# outputs while plot.render() draws figure 3 from the fourth campaign summary.json
+# (read-only): /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105759Z_full/summary.json
+###
+panel bmv2             axes height 206.5 pt   ylim (-9.97, 801.75)
+   link  y=725.92     natural  187.2 pt -> drawn  187.2 pt (offset  +0.0) top of glyph  192.7 pt  inside (13.8 pt to spare)
+   none  y=725.92     natural  187.2 pt -> drawn  198.2 pt (offset +11.0) top of glyph  203.7 pt  inside (2.8 pt to spare)
+   coop  y=764.86     natural  197.1 pt -> drawn  209.2 pt (offset +12.1) top of glyph  214.7 pt  🔴 8.2 pt ABOVE the axes top
+
+panel kernel           axes height 206.5 pt   ylim (-0.13, 16.00)
+   none  y=0.67       natural   10.2 pt -> drawn   10.2 pt (offset  +0.0) top of glyph   15.7 pt  inside (190.7 pt to spare)
+   coop  y=14.25      natural  184.1 pt -> drawn  184.1 pt (offset  +0.0) top of glyph  189.6 pt  inside (16.9 pt to spare)
+   link  y=15.26      natural  197.1 pt -> drawn  197.1 pt (offset  +0.0) top of glyph  202.6 pt  inside (3.9 pt to spare)
+
+panel proxy + emitter  axes height 206.5 pt   ylim (-0.19, 52.44)
+   none  y=2.53       natural   10.7 pt -> drawn   10.7 pt (offset  +0.0) top of glyph   16.2 pt  inside (190.3 pt to spare)
+   link  y=19.60      natural   77.6 pt -> drawn   77.6 pt (offset  +0.0) top of glyph   83.1 pt  inside (123.3 pt to spare)
+   coop  y=50.05      natural  197.1 pt -> drawn  197.1 pt (offset  +0.0) top of glyph  202.6 pt  inside (3.9 pt to spare)
+
+headroom, for the record: the top data point's distance to the axes top, in points
+   bmv2             9.4 pt of headroom above the highest line end
+   kernel           9.4 pt of headroom above the highest line end
+   proxy + emitter  9.4 pt of headroom above the highest line end
+
+### rc=0

@@ -1,0 +1,124 @@
+== 05_link_usage_generic
+   repo: /home/adam/Desktop/NDTwin-Kernel
+   raw : /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-19T063035Z_05_link_usage_generic
+   owner: p3-orchestrator
+   root is reachable for exactly what this needs: sudoers grants ndtwin-lab and mnexec without a prompt
+
+== lab state before this step
+   lab
+     claim          none
+     prev claim     p3-orchestrator (until 15:14:15), superseded 2026-09-19 14:30:32  (.test_run/lab.claim.prev)
+                    nothing holds the lab now: that claim was released or replaced
+                    it said: down at 2026-09-19 14:30:32; verified clean; claim kept
+     measuring      nothing
+     code           cbc968d8  +52 file(s) with uncommitted changes
+                    2 of them can change behaviour:
+                    p4_proxy/mininet/host_count_override
+                    tools/remote-lab/dorm_lab/
+     knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+     tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)
+     ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6685d3a9)
+   
+   lab is free
+   host_count_override snapshot taken (4)
+   telemetry_override does not exist; it will be removed again at the end
+
+== compiling exercises/basic (solution) and converting it twice
+   build/basic.json sha256 f967b39849a220b0  (the SOLUTION, compiled to the skeleton's name)
+   both packages pre-flight PASS
+   pipeline kinds: --p4 -> foreign:1,2,3,4   --ndtwin-pipeline -> ndtwin
+
+== claiming the lab
+     recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+     ok  lab claimed by p3-orchestrator for 45m (live-p1/05: three telemetry groups over exercises/basic)
+
+== group 20: link   (package basic, --telemetry link, expect follows)
+     
+     up. ready
+       proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+       !!  package pipeline: NDTwin discovered no links and installed no routes on this
+       !!    fabric; forwarding is whatever the package's 20 entries on
+       !!    4 switch(es) make of it. ndt status quotes no sample rate for it.
+       telemetry      link   (p4_proxy/mininet/telemetry_override)
+                      every switch: link
+                      link emitter: alive pid 3100346, 4 switch(es), rate 256
+       link shaping   off (no package link asks for one)
+   link: h1 -> h4 (10.0.4.4), iperf -u -b 2M -t 8
+   link: on-path interfaces: s1-eth4 s2-eth2 s4-eth1 
+   link: on-path  s1-eth4  12378699.250 bit  (switch)
+   link: on-path  s2-eth2  17795070.250 bit  (host)
+   link: on-path  s4-eth1  10058408.250 bit  (switch)
+   link: off-path floor 201168.165 bit   = max(5000, 0.02 x the smallest on-path integral)
+   link: off-path s1-eth1  0.000 bit  (host)
+   link: off-path s1-eth2  0.000 bit  (host)
+   link: off-path s1-eth3  0.000 bit  (switch)
+   link: off-path s2-eth1  0.000 bit  (host)
+   link: off-path s2-eth3  0.000 bit  (switch)
+   link: off-path s2-eth4  0.000 bit  (switch)
+   link: off-path s3-eth1  0.000 bit  (switch)
+   link: off-path s3-eth2  0.000 bit  (switch)
+   link: off-path s4-eth2  0.000 bit  (switch)
+   link: link usage follows the iperf path (off-path under 201168.165 bit)
+LINK_USAGE link expect=follows onpath=3 rc=0
+
+== group 30: cooperative   (package basic-ndtwin-pipeline, --telemetry cooperative, expect follows)
+       ok  model matches fabric: 4 hosts (kernel graph, topology file and 4 host namespaces all agree)
+       ok  telemetry: cooperative -- 4 cooperative, 0 link, 0 none; the proxy agrees switch by switch
+       ok  data plane: h1 -> 10.0.2.2 forwards
+     
+     up. ready
+       proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+       telemetry      cooperative   (p4_proxy/mininet/telemetry_override)
+                      every switch: cooperative
+                      link emitter: none (/tmp/ndtwin_link_telemetry.json absent)
+       link shaping   off (no package link asks for one)
+   cooperative: h1 -> h4 (10.0.4.4), iperf -u -b 2M -t 8
+   cooperative: on-path interfaces: s1-eth3 s2-eth2 s3-eth2 
+   cooperative: on-path  s1-eth3  4642992.000 bit  (switch)
+   cooperative: on-path  s2-eth2  10834653.000 bit  (host)
+   cooperative: on-path  s3-eth2  10834653.000 bit  (switch)
+   cooperative: off-path floor 92859.840 bit   = max(5000, 0.02 x the smallest on-path integral)
+   cooperative: off-path s1-eth1  0.000 bit  (host)
+   cooperative: off-path s1-eth2  0.000 bit  (host)
+   cooperative: off-path s1-eth4  0.000 bit  (switch)
+   cooperative: off-path s2-eth1  0.000 bit  (host)
+   cooperative: off-path s2-eth3  0.000 bit  (switch)
+   cooperative: off-path s2-eth4  0.000 bit  (switch)
+   cooperative: off-path s3-eth1  0.000 bit  (switch)
+   cooperative: off-path s4-eth1  0.000 bit  (switch)
+   cooperative: off-path s4-eth2  0.000 bit  (switch)
+   cooperative: link usage follows the iperf path (off-path under 92859.840 bit)
+LINK_USAGE cooperative expect=follows onpath=3 rc=0
+
+== group 40: none   (package basic-ndtwin-pipeline, --telemetry none, expect absent)
+       ok  model matches fabric: 4 hosts (kernel graph, topology file and 4 host namespaces all agree)
+       ok  telemetry: none -- 0 cooperative, 0 link, 4 none; the proxy agrees switch by switch
+       ok  data plane: h1 -> 10.0.2.2 forwards
+     
+     up. ready
+       proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+       telemetry      none   (p4_proxy/mininet/telemetry_override)
+                      every switch: none
+                      link emitter: none (/tmp/ndtwin_link_telemetry.json absent)
+       link shaping   off (no package link asks for one)
+   none: h1 -> h4 (10.0.4.4), iperf -u -b 2M -t 8
+   none: on-path interfaces: s1-eth3 s2-eth2 s3-eth2 
+   none (control): s1-eth3 carried the flow and the twin reports 0 bit, as it must with no sampling
+   none (control): s2-eth2 carried the flow and the twin reports 0 bit, as it must with no sampling
+   none (control): s3-eth2 carried the flow and the twin reports 0 bit, as it must with no sampling
+   none (control): with telemetry off the twin reports nothing on the path
+LINK_USAGE none expect=absent onpath=3 rc=0
+
+== teardown
+   ndt down rc=0 -> 2026-09-19T063035Z_05_link_usage_generic/90_down.txt
+     
+     clean
+       claim note now says the lab is down and verified clean (owner and expiry unchanged)
+   app_package_override is gone, as 'ndt down' should leave it
+   telemetry_override removed (this step created it)
+     the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+     this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+     ok  lab released
+
+raw: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-19T063035Z_05_link_usage_generic
+PASS 05_link_usage_generic

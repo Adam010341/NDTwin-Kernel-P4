@@ -1,0 +1,306 @@
+drive_exercise.py -- calc / skeleton
+(non-interactive: no mininet CLI, no xterm; kills nothing)
+fabric   : ndtwin -- the package fabric `ndt up p4 --app` builds; no root needed
+
+== pre-flight (read-only) ==============================================
+OK   lab is free (claim: owner=- expires=- measuring=nothing)
+OK   host scripts will run under /home/adam/p4dev-python-venv/bin/python
+OK   ndt /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt, converter /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py, pre-flight /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py
+--   switch  n/a: `ndt up p4` chooses the bmv2 binary -- see the `ndt status` capture
+OK   p4c     /usr/local/bin/p4c-bm2-ss  sha256[:16]=226f3f66df515c9e  --version=Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release)
+OK   exercise dir /home/adam/tutorials/exercises/calc
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/calc/build/calc.p4.p4info.txtpb -o /home/adam/tutorials/exercises/calc/build/calc.json /home/adam/tutorials/exercises/calc/calc.p4
+/home/adam/tutorials/exercises/calc/calc.p4(116): [--Wwarn=parser-transition] warning: check_p4calc: implicit transition to `reject'
+    state check_p4calc {
+          ^^^^^^^^^^^^
+/home/adam/tutorials/exercises/calc/calc.p4(63): [--Wwarn=unused] warning: 'P4CALC_P' is unused
+const bit<8> P4CALC_P = 0x50; // 'P'
+             ^^^^^^^^
+/home/adam/tutorials/exercises/calc/calc.p4(64): [--Wwarn=unused] warning: 'P4CALC_4' is unused
+const bit<8> P4CALC_4 = 0x34; // '4'
+             ^^^^^^^^
+/home/adam/tutorials/exercises/calc/calc.p4(65): [--Wwarn=unused] warning: 'P4CALC_VER' is unused
+const bit<8> P4CALC_VER = 0x01; // v0.1
+             ^^^^^^^^^^
+/home/adam/tutorials/exercises/calc/calc.p4(148): [--Wwarn=unused] warning: 'send_back' is unused
+    action send_back(bit<32> result) {
+           ^^^^^^^^^
+/home/adam/tutorials/exercises/calc/calc.p4(148): [--Wwarn=unused] warning: 'result' is unused
+    action send_back(bit<32> result) {
+                             ^^^^^^
+[--Wwarn=unsupported] warning: Explicit transition to reject not supported on this target
+-> /home/adam/tutorials/exercises/calc/build/calc.json  13480 B  sha256[:16]=b70e4ffd6c14d9b2  warnings=7
+
+== plan ================================================================
+topology : topology.json
+hosts    : h1, h2
+switches : s1
+links    : 2
+program  : /home/adam/tutorials/exercises/calc/calc.p4 -> build/calc.json
+switch   : /usr/local/bin/simple_switch_grpc
+steps    : h1 calc.py <<< '1+1'; assert the answer line (solution 2, skeleton no response)
+package  : /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/calc-skeleton
+equivalent to (from the repo root, as the operator -- no sudo):
+  /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py /home/adam/tutorials/exercises/calc --topology topology.json --p4 calc.p4 --out /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/calc-skeleton
+  /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/calc-skeleton
+  NDT_OWNER=p3-live-06 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt claim 45 '...' && NDT_OWNER=p3-live-06 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/calc-skeleton
+  ... the scripted steps above, then `ndt down` and `ndt release`.
+telemetry: whatever the package declares (no --telemetry given)
+
+== convert the exercise into an app package ============================
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py /home/adam/tutorials/exercises/calc --topology topology.json --p4 calc.p4 --out /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/calc-skeleton
+package 'calc' -> /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/calc-skeleton
+  control plane : ndtwin
+  pipelines     : s1=build/calc.json
+  model         : 1 switches, 2 hosts, 4 edges (2 links, both directions stored)
+  files         : 7
+                  build/calc.json
+                  build/calc.p4.p4info.txtpb
+                  calc.p4
+                  ndtwin/topology.json
+                  package.json
+                  s1-runtime.json
+                  topology.json
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/calc-skeleton
+
+== pre-flight the package ==============================================
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/calc-skeleton
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/calc-skeleton
+  PASS  format                            1
+  INFO  name                              calc
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     255
+  PASS  switches keys                     1 dpids: [1]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  6 present
+  PASS  topo_from_json.switches           1 entries
+  PASS  topo_from_json.hosts              2 entries
+  PASS  topo_from_json.switch_links       0 entries
+  PASS  topo_from_json.host_links         2 entries
+  PASS  switches agree                    model and package.json both say [1]
+  PASS  links agree                       2 links in both
+  PASS  hosts named h<last octet>         2 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h2']
+  PASS  switches pipeline                 1 of 1 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/calc.json  p4info sha256:728f02730b0a09b3  program=/home/adam/tutorials/exercises/calc/calc.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              0 entries across 1 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  1 switch(es); entries and pipeline name the same p4info
+  INFO  telemetry.source                  not declared (auto: NDTwin's pipeline gets the cooperative path, anybody else's gets link telemetry)
+  INFO  PRE entries                       none declared (no multicast group, no clone session)
+  PASS  gRPC port block                   30051-30051 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  calc.json sha256:e5a7b8b9da37f950  calc.p4.p4info.txtpb sha256:728f02730b0a09b3
+
+PASS -- every check passed
+host_count_override snapshot: 2 bytes (b'4\n')
+telemetry_override snapshot: absent
+
+== claim the lab =======================================================
+$ NDT_OWNER=p3-live-06 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt claim 45 drive_exercise calc/skeleton on the ndtwin fabric
+  recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+  ok  lab claimed by p3-live-06 for 45m (drive_exercise calc/skeleton on the ndtwin fabric)
+
+== ndt up p4 --app =====================================================
+$ NDT_OWNER=p3-live-06 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/calc-skeleton
+app package pre-flight
+  package      /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/calc-skeleton
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/calc-skeleton
+  PASS  format                            1
+  INFO  name                              calc
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     255
+  PASS  switches keys                     1 dpids: [1]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  6 present
+  PASS  topo_from_json.switches           1 entries
+  PASS  topo_from_json.hosts              2 entries
+  PASS  topo_from_json.switch_links       0 entries
+  PASS  topo_from_json.host_links         2 entries
+  PASS  switches agree                    model and package.json both say [1]
+  PASS  links agree                       2 links in both
+  PASS  hosts named h<last octet>         2 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h2']
+  PASS  switches pipeline                 1 of 1 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/calc.json  p4info sha256:728f02730b0a09b3  program=/home/adam/tutorials/exercises/calc/calc.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              0 entries across 1 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  1 switch(es); entries and pipeline name the same p4info
+  INFO  telemetry.source                  not declared (auto: NDTwin's pipeline gets the cooperative path, anybody else's gets link telemetry)
+  INFO  PRE entries                       none declared (no multicast group, no clone session)
+  PASS  gRPC port block                   30051-30051 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  calc.json sha256:e5a7b8b9da37f950  calc.p4.p4info.txtpb sha256:728f02730b0a09b3
+
+PASS -- every check passed
+
+ndt up p4
+  hosts        2        (p4_proxy/mininet/host_count_override)
+  topology     .test_run/packages/calc-skeleton/ndtwin/topology.json
+  app package  /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/calc-skeleton (mode ndtwin, 1 switch(es))
+  bmv2         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate  1/256     (compiled into ndtwin_switch.json)
+
+  recorded this target in .test_run/up.target -- 'ndt status --check' compares against it
+  !!  host_count_override: 4 -> 2 (persistent; affects every later run)
+  app package set: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/calc-skeleton   (p4_proxy/mininet/app_package_override)
+  telemetry    auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+  claim note now says the lab i
+... [trimmed; 4959 chars total]
+
+== GET /p4/switch_state ================================================
+   control_plane.mode    ndtwin
+   control_plane.package /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/calc-skeleton
+   control_plane.skipped ['install_initial_routes', 'link_watchdog', 'lldp_discovery']
+   s1  ndtwin=False p4info_sha256=728f02730b0a09b3  entries recorded=0 applied=0 failed=0 api_writes=0  (entries_recorded=0)
+
+== ndt status (raw; and the bmv2 binary it names) ======================
+$ NDT_OWNER=p3-live-06 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt status
+lab
+  claim          yours -- 45m left (until 23:33:15)
+  note           in use: ndt up p4 2 at 2026-09-19 22:48:17 by p3-live-06
+  prev claim     p3-live-06 (until 23:32:40), superseded 2026-09-19 22:48:13  (.test_run/lab.claim.prev)
+                 the same owner re-claimed it -- a rewrite, not a handover
+                 it said: down at 2026-09-19 22:48:13; verified clean; claim kept
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           f3b6d09c  +61 file(s) with uncommitted changes
+                 3 of them can change behaviour:
+                 p4_proxy/mininet/host_count_override
+                 p4_proxy/mininet/app_package_override
+                 tools/remote-lab/dorm_lab/
+  knob baseline  2, written by 'ndt up p4 2' at 22:48:16 this round; the round started at 4 -- write 4 back before 'ndt release'
+                   echo 4 > p4_proxy/mininet/host_count_override      # write it back; 'git checkout --' would give you HEAD
+                 'ndt release' refuses while these differ; 'ndt release --force' releases anyway
+  tree vs round  0 file(s) LEFT the uncommitted set, 1 joined it
+                 + p4_proxy/mininet/app_package_override
+  ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6685d3a9)
+
+configuration
+  hosts          2   (what the last 'ndt up' asked for: p4)
+  topology       .test_run/packages/calc-skeleton/ndtwin/topology.json
+  p4 host knob   2   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  app package    /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/calc-skeleton (mode ndtwin)
+                 calc -- p4_proxy/mininet/app_package_override; it decides the next 'ndt up p4' and the next proxy
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  telemetry      auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+                 every switch: link
+                 link emitter: alive pid 2869768, 1 switch(es), rate 256
+  link shaping   off (no package link asks for one)
+  sample rate    n/a (package pipeline)
+  rate source    the app package runs a foreign pipeline on dpid 1 -- p4_proxy/p4_src/build/ndtwin_switch.json is NOT what those switches loaded, and stale_pipeline is not judged
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  1       topo session   present
+  host/switch    3       manifest       present
+  :8000 kernel   open    :8081 proxy    open    :8080 ryu closed
+  binary         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  pidfiles       kernel.child.pid=2869934 alive,kernel.pid=2869929 alive,p4_proxy.child.pid=2869871 alive,p4_proxy.pid=2869866 alive
+
+network health
+  switches       1 up, 1 enabled, 0 admin-disabled
+  links          4 total, 0 down, 0 admin-disabled
+  tc netem       none
+  sudo grants    all 3 granted
+  apps           none running
+
+kernel graph
+  1 switches (1 up, 1 ena
+... [trimmed; 3768 chars total]
+   bmv2 sha256[:16]=3ff54b5c1901c9d3  1.15.3-f0b7d201   (ndt status: /usr/local/bmv2-fast/bin/simple_switch_grpc)
+
+== scripted steps (no CLI, no xterm) ===================================
+   hosts: h1=10.0.1.1, h2=10.0.1.2
+$ h1: /home/adam/p4dev-python-venv/bin/python -u /home/adam/tutorials/exercises/calc/calc.py   <<< b'1+1\nquit\n'
+/home/adam/tutorials/exercises/calc/calc.py:50: SyntaxWarning: invalid escape sequence '\s'
+  pattern = "^\s*([0-9]+)\s*"
+/home/adam/tutorials/exercises/calc/calc.py:59: SyntaxWarning: invalid escape sequence '\s'
+  pattern = "^\s*([-+&|^])\s*"
+> 1+1
+Didn't receive response
+> 
+   PASS injection: calc.py read the expression         want=> 1+1                  got=yes
+   PASS RED ARM: the skeleton must not answer          want=Didn't receive response got=Didn't receive response
+
+-- switch logs --
+
+== G1  link usage follows the iperf path (program-independent) =========
+   NOT RUN: the skeleton arm is a fabric the exercise says should not forward; there is no path for a program-independent cell to follow
+   (a cell with no flow to follow is recorded as not run, never as a pass)
+
+== teardown: ndt down, the two knobs, then ndt release =================
+$ NDT_OWNER=p3-live-06 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt down
+ndt down
+  this teardown is about:
+        1 bmv2 switch(es)
+        3 host/switch process(es)
+        a topo tmux session
+        the switch manifest /tmp/ndtwin_p4_switches.json
+        the registry entry .test_run/pids/app_viz.pid
+        the registry entry .test_run/pids/kernel.child.pid
+        the registry entry .test_run/pids/kernel.pid
+        the registry entry .test_run/pids/p4_proxy.child.pid
+        the registry entry .test_run/pids/p4_proxy.pid
+        a held port in ports.sh's table
+[1/3] kernel + proxy/Ryu
+        stopped kernel
+        kernel exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        stopped p4_proxy
+        p4_proxy exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30051 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9091 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        ryu exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        find and stop it, or the next 'up' will report on it:
+          ss -ltnp   # tcp rows;  ss -lunp   # the udp one (:6343) -- see ports.sh
+          cat /home/adam/Desktop/NDTwin-Kernel/.test_run/pids/*.pid   # what this stack started; check each against /proc/<pid>
+  !!  stack.sh down exited 1, and the only thing behind that status is port(s)
+  !!    still listening at [1/3], held by processes it did not start:
+  !!      9091 30051 
+  !!    [1/3] runs BEFORE the data-plane sweep in [3/3], so on a live P4 fabric this
+  !!    is the fabric this teardown is about to remove, accusing itself. The verdict
+  !!    on these ports is taken AFTER 'verify clean' below, not here. (ROLE-12)
+[2/3] topology session
+      topo stopped
+[3/3] sweep
+        none           ntg_bmv2_topo
+        none           p4_testbed_topo
+        none           OVS testbed_topo
+        none           NTG testbed_topo
+        none           simple_switch_grpc
+      cleanup done
+  ok  this step ran the Mininet sweep (mn -c) for you
+    [3/3] is 'ndtwin-lab cleanup' and its sweep runs 'mn -c' before it sweeps
+    simple_switch_grpc, so the advice stack.sh prints at [1/3] about running that
+    command by hand is advice this teardown has already acted on -- which is why
+    [1/3] filt
+... [trimmed; 3720 chars total]
+   ndt down rc=0
+   host_count_override: put back to the 2 bytes this round found
+   telemetry_override: unchanged (absent)
+$ NDT_OWNER=p3-live-06 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+  the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+  this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+  ok  lab released
+   ndt release rc=0
+
+== verdict =============================================================
+   PASS injection: calc.py read the expression         want=> 1+1                  got=yes   【README 宣稱】＋【源碼推導，未執行】
+   PASS RED ARM: the skeleton must not answer          want=Didn't receive response got=Didn't receive response   【README 宣稱】＋【源碼推導，未執行】
+
+>>> PASS (2/2)
+
+report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T144814Z_calc_skeleton_ndtwin.md

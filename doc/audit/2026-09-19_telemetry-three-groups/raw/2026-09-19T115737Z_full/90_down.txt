@@ -1,0 +1,32 @@
+ndt down
+  this teardown is about:
+        the registry entry .test_run/pids/app_viz.pid
+[1/3] kernel + proxy/Ryu
+        kernel exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        p4_proxy exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        ryu exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+      done
+[2/3] topology session
+      no topo session
+[3/3] sweep
+        none           ntg_bmv2_topo
+        none           p4_testbed_topo
+        none           OVS testbed_topo
+        none           NTG testbed_topo
+        none           simple_switch_grpc
+      cleanup done
+  ok  this step ran the Mininet sweep (mn -c) for you
+    [3/3] is 'ndtwin-lab cleanup' and its sweep runs 'mn -c' before it sweeps
+    simple_switch_grpc, so the advice stack.sh prints at [1/3] about running that
+    command by hand is advice this teardown has already acted on -- which is why
+    [1/3] filters it out.
+
+verify clean
+  ok  bmv2 switches: 0
+  ok  host/switch processes: 0
+  ok  no topo session
+  ok  no switch manifest
+  ok  ports closed: 8000/8080/8081/6653/6633/6343/30051-30060/9091-9100/9000
+
+clean
+  claim note now says the lab is down and verified clean (owner and expiry unchanged)

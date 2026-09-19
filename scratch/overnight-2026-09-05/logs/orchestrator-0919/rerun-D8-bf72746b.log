@@ -1,0 +1,18 @@
+### tree bf72746b  start 12:08:27  free=3.1G
+### test_mutate_gate_dead_mutant
+1. 🔴 a mutant that does not parse is REFUSED, not counted
+Ran 43 checks, 0 failed
+rc=0
+### check_gate_anchors
+114/114 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+rc=0
+### test_live_p1_thirteen
+Ran 36 checks, 0 failed
+rc=0
+### seen_red_drive_e29b9428_expect_rc1
+1. 🔴 a mutant that does not parse is REFUSED, not counted
+Ran 43 checks, 6 failed
+rc=1
+### gate script sha ed8105c6653924a7  subject sha 0c66148e0a46ff66
+### worktree status lines: 0
+### done 12:18:12

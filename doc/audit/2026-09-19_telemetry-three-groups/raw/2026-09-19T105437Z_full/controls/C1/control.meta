@@ -1,0 +1,7 @@
+control=C1
+frame_bytes=64
+payload_bytes=22
+reps_pps=789116.9 741393.8 790629.2 
+ceiling_pps=790629.2
+requirement=>= 5x the highest 64B pps this round measures through bmv2 (PREREG 4.3)
+verdict=computed by analyse.py once the 64B cells exist

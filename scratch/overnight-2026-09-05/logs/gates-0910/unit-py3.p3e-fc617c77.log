@@ -1,0 +1,79 @@
+### unit-py3 -- doc/audit/2026-09-19_telemetry-three-groups
+# tree:        /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups
+# head:        fc617c77
+# when:        2026-09-19 13:23:05 UTC
+# interpreter: /home/adam/miniconda3/bin/python3
+# matplotlib:  3.10.8   (the RenderTest cell only runs here; /usr/bin/python3 has none and
+#              skipped it, which is why this log was re-run against the interpreter
+#              that draws the figures -- _line_panels is where ruling 32(2) landed)
+###
+test_a_ratio_below_the_registered_interval_is_H_A2 (test_analyse.CeilingTest.test_a_ratio_below_the_registered_interval_is_H_A2) ... ok
+test_a_ratio_inside_one_realised_rung_is_H_A1 (test_analyse.CeilingTest.test_a_ratio_inside_one_realised_rung_is_H_A1) ... ok
+test_an_unresolved_cell_produces_NO_ratio_at_all (test_analyse.CeilingTest.test_an_unresolved_cell_produces_NO_ratio_at_all) ... ok
+test_the_interval_boundaries_are_the_realised_step_not_the_nominal_one (test_analyse.CeilingTest.test_the_interval_boundaries_are_the_realised_step_not_the_nominal_one) ... ok
+test_a_cell_whose_arms_are_one_rung_apart_is_resolved (test_analyse.CellTableTest.test_a_cell_whose_arms_are_one_rung_apart_is_resolved) ... ok
+test_a_cell_whose_arms_are_six_rungs_apart_is_NOT_resolved (test_analyse.CellTableTest.test_a_cell_whose_arms_are_six_rungs_apart_is_NOT_resolved) ... ok
+test_every_arm_was_found_and_none_of_them_is_invalid (test_analyse.CellTableTest.test_every_arm_was_found_and_none_of_them_is_invalid) ... ok
+test_the_none_1024_cell_is_the_two_ladder_arms_only (test_analyse.CellTableTest.test_the_none_1024_cell_is_the_two_ladder_arms_only) ... ok
+test_the_two_C3_throwaway_ladders_are_found_and_tagged_as_controls (test_analyse.CellTableTest.test_the_two_C3_throwaway_ladders_are_found_and_tagged_as_controls) ... ok
+test_a_delta_smaller_than_its_spread_is_H_C0_and_no_line_is_fitted (test_analyse.CpuTest.test_a_delta_smaller_than_its_spread_is_H_C0_and_no_line_is_fitted) ... ok
+test_a_process_alive_before_the_window_is_not_charged_its_lifetime (test_analyse.CpuTest.test_a_process_alive_before_the_window_is_not_charged_its_lifetime) ... ok
+test_a_process_that_appears_inside_the_window_IS_charged_from_zero (test_analyse.CpuTest.test_a_process_that_appears_inside_the_window_IS_charged_from_zero) ... ok
+test_samples_per_second_comes_from_the_rung_pair_not_from_the_offered_rate (test_analyse.CpuTest.test_samples_per_second_comes_from_the_rung_pair_not_from_the_offered_rate) ... ok
+test_the_cpu_verdict_names_a_mixed_decomposition_as_a_result (test_analyse.CpuTest.test_the_cpu_verdict_names_a_mixed_decomposition_as_a_result) ... ok
+test_the_fit_recovers_the_fixed_and_marginal_costs_and_calls_it_H_C1 (test_analyse.CpuTest.test_the_fit_recovers_the_fixed_and_marginal_costs_and_calls_it_H_C1) ... ok
+test_sample_loss_IS_attributed_once_a_drop_counter_has_moved (test_analyse.EmitterAttributionTest.test_sample_loss_IS_attributed_once_a_drop_counter_has_moved) ... ok
+test_sample_loss_is_NOT_attributed_when_every_drop_counter_is_zero (test_analyse.EmitterAttributionTest.test_sample_loss_is_NOT_attributed_when_every_drop_counter_is_zero) ... ok
+test_the_last_statistics_line_wins (test_analyse.EmitterAttributionTest.test_the_last_statistics_line_wins) ... ok
+test_analyse_renders_without_raising_and_carries_the_family_counts (test_analyse.EndToEndTest.test_analyse_renders_without_raising_and_carries_the_family_counts) ... ok
+test_a_genuinely_foreign_arm_inside_a_group_still_fires (test_analyse.LoadGateTest.test_a_genuinely_foreign_arm_inside_a_group_still_fires) ... ok
+test_the_gate_is_within_group_so_the_link_treatment_does_not_fire_it (test_analyse.LoadGateTest.test_the_gate_is_within_group_so_the_link_treatment_does_not_fire_it) ... ok
+test_the_none_group_gate_median_counts_the_ladder_arms_only (test_analyse.LoadGateTest.test_the_none_group_gate_median_counts_the_ladder_arms_only) ... ok
+test_a_value_with_a_trailing_comment_still_parses_as_its_number (test_analyse.MetaParsingTest.test_a_value_with_a_trailing_comment_still_parses_as_its_number) ... ok
+test_an_absent_counter_is_not_zero (test_analyse.MetaParsingTest.test_an_absent_counter_is_not_zero) ... ok
+test_a_for_none_is_the_ladder_cell_and_not_C3s_throwaway_ladders (test_analyse.ReconciliationTest.test_a_for_none_is_the_ladder_cell_and_not_C3s_throwaway_ladders) ... ok
+test_a_is_reported_for_BOTH_the_none_and_the_cooperative_cell (test_analyse.ReconciliationTest.test_a_is_reported_for_BOTH_the_none_and_the_cooperative_cell) ... ok
+test_a_sender_control_below_five_times_FAILS (test_analyse.ReconciliationTest.test_a_sender_control_below_five_times_FAILS) ... ok
+test_a_uses_the_registered_interval_and_says_outside_is_not_a_refutation (test_analyse.ReconciliationTest.test_a_uses_the_registered_interval_and_says_outside_is_not_a_refutation) ... ok
+test_b_compares_the_marginal_slope_against_08_20s_206_microseconds (test_analyse.ReconciliationTest.test_b_compares_the_marginal_slope_against_08_20s_206_microseconds) ... ok
+test_c_forbids_dividing_any_cell_of_its_table_by_another (test_analyse.ReconciliationTest.test_c_forbids_dividing_any_cell_of_its_table_by_another) ... ok
+test_the_sender_control_passes_only_at_five_times_the_measured_ceiling (test_analyse.ReconciliationTest.test_the_sender_control_passes_only_at_five_times_the_measured_ceiling) ... ok
+test_an_error_at_the_prediction_is_H_B1 (test_analyse.SamplingErrorTest.test_an_error_at_the_prediction_is_H_B1) ... ok
+test_an_error_far_above_the_band_with_one_sign_is_H_B2 (test_analyse.SamplingErrorTest.test_an_error_far_above_the_band_with_one_sign_is_H_B2) ... ok
+test_the_none_group_is_n_a_and_is_NOT_zero (test_analyse.SamplingErrorTest.test_the_none_group_is_n_a_and_is_NOT_zero) ... ok
+test_the_shot_noise_prediction_is_the_registered_formula (test_analyse.SamplingErrorTest.test_the_shot_noise_prediction_is_the_registered_formula) ... ok
+test_a_DOT_LESS_option_value_is_still_not_the_binary (test_manifest.RealManifestTest.test_a_DOT_LESS_option_value_is_still_not_the_binary) ... ok
+test_a_list_argv_still_works (test_manifest.RealManifestTest.test_a_list_argv_still_works) ... ok
+test_a_missing_or_broken_manifest_is_empty_not_a_crash (test_manifest.RealManifestTest.test_a_missing_or_broken_manifest_is_empty_not_a_crash) ... ok
+test_an_argument_that_merely_contains_the_word_is_not_the_binary (test_manifest.RealManifestTest.test_an_argument_that_merely_contains_the_word_is_not_the_binary) ... ok
+test_every_switch_gives_a_pid_and_its_device_id (test_manifest.RealManifestTest.test_every_switch_gives_a_pid_and_its_device_id) ... ok
+test_the_LD_LIBRARY_PATH_prefix_is_not_mistaken_for_the_binary (test_manifest.RealManifestTest.test_the_LD_LIBRARY_PATH_prefix_is_not_mistaken_for_the_binary) ... ok
+test_the_binary_is_found_in_a_string_argv (test_manifest.RealManifestTest.test_the_binary_is_found_in_a_string_argv) ... ok
+test_the_fixture_really_is_the_shape_that_broke_it (test_manifest.RealManifestTest.test_the_fixture_really_is_the_shape_that_broke_it) ... ok
+test_the_keys_this_round_reads_are_the_manifest_s_own (test_manifest.RealManifestTest.test_the_keys_this_round_reads_are_the_manifest_s_own) ... ok
+test_check_mode_prints_every_figure_without_matplotlib (test_plot.DescribeTest.test_check_mode_prints_every_figure_without_matplotlib) ... ok
+test_a_resolved_cell_is_labelled_with_its_mean_alone (test_plot.Figure1Test.test_a_resolved_cell_is_labelled_with_its_mean_alone) ... ok
+test_an_unresolved_cell_is_marked_and_shows_BOTH_arm_values (test_plot.Figure1Test.test_an_unresolved_cell_is_marked_and_shows_BOTH_arm_values) ... ok
+test_one_bar_per_cell_grouped_by_frame_size (test_plot.Figure1Test.test_one_bar_per_cell_grouped_by_frame_size) ... ok
+test_a_measured_group_is_drawn_as_a_percentage (test_plot.Figure2Test.test_a_measured_group_is_drawn_as_a_percentage) ... ok
+test_the_none_group_is_drawn_as_n_a_and_NOT_as_a_zero_bar (test_plot.Figure2Test.test_the_none_group_is_drawn_as_n_a_and_NOT_as_a_zero_bar) ... ok
+test_the_y_axis_says_what_the_number_is (test_plot.Figure2Test.test_the_y_axis_says_what_the_number_is) ... ok
+test_ends_that_are_far_apart_on_the_display_are_not_moved_at_all (test_plot.Figure3EndLabelTest.test_ends_that_are_far_apart_on_the_display_are_not_moved_at_all) ... ok
+test_three_ends_within_a_label_height_get_three_different_offsets (test_plot.Figure3EndLabelTest.test_three_ends_within_a_label_height_get_three_different_offsets) ... ok
+test_each_panel_has_one_series_per_group_named_by_a_single_word (test_plot.Figure3Test.test_each_panel_has_one_series_per_group_named_by_a_single_word) ... ok
+test_the_kernel_panel_rises_with_offered_rate_for_a_sampling_group (test_plot.Figure3Test.test_the_kernel_panel_rises_with_offered_rate_for_a_sampling_group) ... ok
+test_the_x_axis_is_the_offered_rate (test_plot.Figure3Test.test_the_x_axis_is_the_offered_rate) ... ok
+test_three_panels_one_per_process_class (test_plot.Figure3Test.test_three_panels_one_per_process_class) ... ok
+test_a_figure_carries_only_a_title_axes_and_labels (test_plot.FigureContentRulesTest.test_a_figure_carries_only_a_title_axes_and_labels) ... ok
+test_every_figure_names_both_of_its_axes (test_plot.FigureContentRulesTest.test_every_figure_names_both_of_its_axes) ... ok
+test_no_value_label_is_a_sentence (test_plot.FigureContentRulesTest.test_no_value_label_is_a_sentence) ... ok
+test_render_writes_a_png_and_a_pdf_for_each_figure (test_plot.RenderTest.test_render_writes_a_png_and_a_pdf_for_each_figure) ... ok
+test_figures_are_built_from_a_json_round_trip (test_plot.SummaryIsTheOnlyInputTest.test_figures_are_built_from_a_json_round_trip) ... ok
+test_plot_never_reads_the_raw_tree (test_plot.SummaryIsTheOnlyInputTest.test_plot_never_reads_the_raw_tree) ... ok
+
+----------------------------------------------------------------------
+Ran 63 tests in 2.361s
+
+OK
+
+### rc=0

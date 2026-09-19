@@ -1,0 +1,11 @@
+### hazard_scan.py over the three shell scripts
+# tree:    /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919
+# head:    a3a51548e015b5a29198dc24871cc58fce0e3225
+# when:    2026-09-19 08:52:05 UTC
+# files: drive_e.sh run_group_arm.sh sample_error.sh
+# rc: 0 = every file scanned and clean; 1 = every file scanned and FOUND something;
+#     2 = the sweep is INCOMPLETE (nothing given, or a path that could not be read)
+###
+# hazard_scan: 3 file(s) given, 3 scanned, 0 unreadable, 0 finding(s)
+
+### rc=0

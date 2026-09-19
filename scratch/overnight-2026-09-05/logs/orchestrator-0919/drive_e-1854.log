@@ -1,0 +1,67 @@
+### P3-E three-group telemetry round  2026-09-19 10:54:37 UTC
+owner               p3-E
+repo                /home/adam/Desktop/NDTwin-Kernel
+raw                 /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105437Z_full
+hosts               4   (ndt up p4 4 --telemetry <group>)
+selection           everything: C1 C2 C3 then G1..G6
+settle              60s after bring-up, 20s between arms
+
+controls (run once, inside G1, BEFORE any measurement arm -- PREREG 4.3):
+  C1  generator ceiling at 64 B frames    h1 -> h1 loopback, not through bmv2, 3 reps
+      requirement: >= 5x the highest 64 B pps this round measures through bmv2
+  C2  generator ceiling at 1024 B frames  same, -l 982, 3 reps
+  C3  the external gate has a positive control: two throwaway ladders (1 2 3 5 8 12 kpps),
+      one clean and one with 4 CPU burners from rung 4. external must step up, and
+      the gate must reject the burner arm. If it does not fire, the round does not start.
+
+generations:
+  G1  none         pass a   arms: none_f64_a  none_f1024_a  
+      + sampling-error block: 3 passes over the rates, middle one reversed
+        2 20 100 | 100 20 2 | 2 20 100  Mbit/s, 8s each
+  G2  cooperative  pass a   arms: cooperative_f64_a  cooperative_f1024_a  
+      + sampling-error block: 3 passes over the rates, middle one reversed
+        2 20 100 | 100 20 2 | 2 20 100  Mbit/s, 8s each
+  G3  link         pass a   arms: link_f64_a  link_f1024_a  
+      + sampling-error block: 3 passes over the rates, middle one reversed
+        2 20 100 | 100 20 2 | 2 20 100  Mbit/s, 8s each
+  G4  link         pass b   arms: link_f1024_b  link_f64_b  
+  G5  cooperative  pass b   arms: cooperative_f1024_b  cooperative_f64_b  
+  G6  none         pass b   arms: none_f1024_b  none_f64_b  
+
+teardown on EVERY path (including abort):
+  ndt down  ->  rm /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/telemetry_override (absent = auto)  ->  restore /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/host_count_override bytes  ->  ndt release
+   host_count_override snapshot taken
+
+== claiming the lab
+     recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+     ok  lab claimed by p3-E for 600m (P3-E three-group telemetry round)
+
+== G1: ndt up p4 4 --telemetry none
+     
+     up. ready
+       proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+   settling 60s
+   G1: ok  telemetry: none -- 0 cooperative, 0 link, 10 none; the proxy agrees switch by switch
+   G1: ndt status --check rc=0 (the live lab matches .test_run/up.target)
+
+== C1: generator ceiling at 64B frames (h1 -> h1 loopback, not through bmv2)
+     rep 1: 789116.9 pps
+     rep 2: 741393.8 pps
+     rep 3: 790629.2 pps
+     ceiling 790629.2 pps -- the 5x requirement is checked by analyse.py against the measured cells
+
+== C2: generator ceiling at 1024B frames (h1 -> h1 loopback, not through bmv2)
+     rep 1: 761751.9 pps
+
+== teardown
+   final: ndt down rc=0
+         so stack.sh's exit 1 was a reading from the MIDDLE of this teardown, not
+         its ending, and it is not carried to the exit code. (ROLE-12, 2026-09-12)
+       claim note now says the lab is down and verified clean (owner and expiry unchanged)
+   telemetry_override removed (absent = auto)
+     the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+     this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+     ok  lab released
+
+raw: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T105437Z_full
+PASS P3-E -- every selected arm produced a reading. Now: analyse.py, then plot.py.

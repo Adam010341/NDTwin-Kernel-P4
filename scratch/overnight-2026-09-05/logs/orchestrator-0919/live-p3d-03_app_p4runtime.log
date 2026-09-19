@@ -1,0 +1,160 @@
+== 03_app_p4runtime
+   repo: /home/adam/Desktop/NDTwin-Kernel
+   raw : /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-19T083016Z_03_app_p4runtime
+   owner: p3-orchestrator
+   root is reachable for exactly what this needs: sudoers grants ndtwin-lab and mnexec without a prompt
+
+== lab state before this step
+   lab
+     claim          none
+     prev claim     p3-orchestrator (until 17:14:02), superseded 2026-09-19 16:30:15  (.test_run/lab.claim.prev)
+                    nothing holds the lab now: that claim was released or replaced
+                    it said: down at 2026-09-19 16:30:15; verified clean; claim kept
+     measuring      nothing
+     code           7242e127  +57 file(s) with uncommitted changes
+                    2 of them can change behaviour:
+                    p4_proxy/mininet/host_count_override
+                    tools/remote-lab/dorm_lab/
+     knob baseline  4 (the default; no round baseline recorded -- 'ndt claim' writes one)
+     tree vs round  no baseline in .test_run/round.baseline -- nothing here can say what this round changed ('ndt claim' records one)
+     ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6685d3a9)
+   
+   lab is free
+   host_count_override snapshot taken (4)
+   telemetry_override does not exist; it will be removed again at the end
+
+== converting /home/adam/tutorials/exercises/p4runtime -> /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/p4runtime
+     read back through p4_proxy/mininet/topo_from_json.py: ok
+     next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/p4runtime
+
+== pre-flight
+   PASS -- every check passed
+
+== claiming the lab
+     recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+     ok  lab claimed by p3-orchestrator for 45m (P1 live acceptance 3: --app p4runtime, external control plane)
+
+== ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/p4runtime   (external: it comes up empty on purpose)
+   rc=0 -> 2026-09-19T083016Z_03_app_p4runtime/20_up.txt
+       ok  model matches fabric: 3 hosts (kernel graph, topology file and 3 host namespaces all agree)
+       ok  telemetry: auto -- 0 cooperative, 3 link, 0 none; the proxy agrees switch by switch
+       !!  data plane: forwarding NOT TESTED for the same reason -- nothing has programmed
+       !!    these switches yet. Test it after the controller has run.
+     
+     up. ready
+       proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+       !!  external control plane: this fabric is up and EMPTY. NDTwin has programmed
+       !!    nothing and will not; the exercise's own controller is what makes it
+       !!    forward. Until it runs, every ping between these hosts fails.
+   control_plane.mode  external
+   control_plane.skipped ['clone_session', 'install_initial_routes', 'link_watchdog', 'lldp_discovery', 'pipeline_push', 'sflow_telemetry']
+   entries_recorded    [0]
+   switches            3
+
+== kernel liveness before any controller (a READING -- nothing here is asserted)
+   dpid is_up is_enabled
+   1 False False
+   2 False False
+   3 False False
+   
+   kernel up set: 
+
+== starting the exercise controller under setsid
+   controller interpreter /home/adam/p4dev-python-venv/bin/python imports p4runtime_lib + p4.tmp
+   mycontroller.py: pid 816005 -> 37_skeleton_controller.log   (stopped by this pid; never pkill)
+     [adapter] tutorials utils : /home/adam/tutorials/utils
+     [adapter] grpc base       : 30050 (device id = dpid)
+     [adapter] running          /home/adam/tutorials/exercises/p4runtime/mycontroller.py  (cwd /home/adam/tutorials/exercises/p4runtime)
+     [adapter] s1: 127.0.0.1:50051 device_id=0  ->  localhost:30051 device_id=1
+     [adapter] s2: 127.0.0.1:50052 device_id=1  ->  localhost:30052 device_id=2
+     Installed P4 Program using SetForwardingPipelineConfig on s1
+     Installed P4 Program using SetForwardingPipelineConfig on s2
+     Installed ingress tunnel rule on s1
+     TODO Install transit tunnel rule
+     Installed egress tunnel rule on s2
+     Installed ingress tunnel rule on s2
+     TODO Install transit tunnel rule
+
+== the twin's liveness should follow the SKELETON controller's pipeline pushes
+   the controller's log says it loaded a program onto: 1,2
+   kernel up set == 1,2 after 0s   (36_kernel_up_after_pipeline.txt)
+   expected (from the controller log): 1,2
+   kernel up set:                      1,2
+   reached after:                      0s
+   
+   dpid is_up is_enabled
+   1 True True
+   2 True True
+   3 False True
+   after the skeleton controller: switch 1 probe_ok True   (the controller loaded a program onto it)
+   after the skeleton controller: switch 2 probe_ok True   (the controller loaded a program onto it)
+   after the skeleton controller: switch 3 probe_ok False   (no controller ever loaded a program onto it)
+
+== control: the SKELETON controller must NOT forward h1 <-> h2 (its transit rule is a TODO)
+   skeleton: h1 -> 10.0.2.2: 100% loss, 0/5 received; h2 -> 10.0.1.1: 100% loss, 0/5 received   (raw: 2026-09-19T083016Z_03_app_p4runtime/38_skeleton_ping_raw.txt)
+
+== starting the exercise's SOLUTION controller (solution/mycontroller.py) under setsid
+   solution/mycontroller.py: pid 818550 -> 40_controller.log   (stopped by this pid; never pkill)
+     [adapter] tutorials utils : /home/adam/tutorials/utils
+     [adapter] grpc base       : 30050 (device id = dpid)
+     [adapter] running          /home/adam/tutorials/exercises/p4runtime/solution/mycontroller.py  (cwd /home/adam/tutorials/exercises/p4runtime)
+     [adapter] s1: 127.0.0.1:50051 device_id=0  ->  localhost:30051 device_id=1
+     [adapter] s2: 127.0.0.1:50052 device_id=1  ->  localhost:30052 device_id=2
+     Installed P4 Program using SetForwardingPipelineConfig on s1
+     Installed P4 Program using SetForwardingPipelineConfig on s2
+     Installed ingress tunnel rule on s1
+     Installed transit tunnel rule on s1
+     Installed egress tunnel rule on s2
+     Installed ingress tunnel rule on s2
+     Installed transit tunnel rule on s2
+
+== the twin's liveness should follow the SOLUTION controller's pipeline pushes too
+   the controller's log says it loaded a program onto: 1,2
+   kernel up set == 1,2 after 0s   (46_kernel_up_after_solution.txt)
+   expected (from the controller log): 1,2
+   kernel up set:                      1,2
+   reached after:                      0s
+   
+   dpid is_up is_enabled
+   1 True True
+   2 True True
+   3 False True
+   after the solution controller: switch 1 probe_ok True   (the controller loaded a program onto it)
+   after the solution controller: switch 2 probe_ok True   (the controller loaded a program onto it)
+   after the solution controller: switch 3 probe_ok False   (no controller ever loaded a program onto it)
+
+== ndt's own dataplane_ok (recorded, not the loss evidence)
+   DATAPLANE_RC=0  why=
+
+== h1 <-> h2, ping -c 5 each way, loss parsed from ping
+   OK   (raw: 2026-09-19T083016Z_03_app_p4runtime/42_before_ping_raw.txt)
+
+== counting s1's entries with the third-party client
+   s1 entries before the readopt: 3
+
+== POST /p4/readopt/1 -- the proxy's own pipeline-push path
+   http 502
+     {"detail":{"status":"failed","step":"control_plane","dpid":1,"error":"this fabric's app package declares an external control plane: the exercise's own controller holds mastership and this proxy is read-only, so it can neither push a pipeline nor reinstall routes. The switch was not touched."}}   refused, which is what an external control plane must do
+   and it says why: the body names the external / read-only control plane
+
+== counting again, and pinging again
+   s1 entries after the readopt:  3   (before: 3)
+   unchanged
+   OK   (raw: 2026-09-19T083016Z_03_app_p4runtime/71_after_ping_raw.txt)
+
+== done -- teardown follows (controller by pid, then ndt down)
+
+== teardown
+   stopping the exercise controller (pid 818550)
+   ndt down rc=0 -> 2026-09-19T083016Z_03_app_p4runtime/90_down.txt
+         so stack.sh's exit 1 was a reading from the MIDDLE of this teardown, not
+         its ending, and it is not carried to the exit code. (ROLE-12, 2026-09-12)
+       claim note now says the lab is down and verified clean (owner and expiry unchanged)
+   app_package_override is gone, as 'ndt down' should leave it
+   host_count_override put back to what this step found
+     the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+     this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+     ok  lab released
+
+raw: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-19T083016Z_03_app_p4runtime
+PASS 03_app_p4runtime

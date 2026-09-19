@@ -1,0 +1,97 @@
+### 2026-09-19 16:27:10  tree 7242e127  kernel sha be70b5dd32356847  built 2026-09-19 12:56:00.274796141 +0800
+### 2026-09-19 16:27:10  host_count_override at start: 4
+### 2026-09-19 16:27:10  7.4 pre-checks
+### 2026-09-19 16:27:10  absent: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/telemetry_override
+### 2026-09-19 16:27:10  absent: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/mininet/app_package_override
+### 2026-09-19 16:27:10  absent: /tmp/ndtwin_link_telemetry.json
+lab
+  claim          none
+  prev claim     p3-orchestrator (until 15:46:49), superseded 2026-09-19 15:02:42  (.test_run/lab.claim.prev)
+                 nothing holds the lab now: that claim was released or replaced
+                 it said: down at 2026-09-19 15:02:42; verified clean; claim kept
+  measuring      nothing
+  code           7242e127  +53 file(s) with uncommitted changes
+                 2 of them can change behaviour:
+### 2026-09-19 16:27:10  7.3 live-p1
+### 2026-09-19 16:27:10  run 01_baseline -> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0919/live-p3d-01_baseline.log
+### 2026-09-19 16:27:37  01_baseline rc=0  last: PASS 01_baseline
+        claim          none
+        measuring      nothing
+### 2026-09-19 16:27:38  run 02_app_basic -> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0919/live-p3d-02_app_basic.log
+### 2026-09-19 16:29:00  02_app_basic rc=0  last: PASS 02_app_basic
+        claim          none
+        measuring      nothing
+### 2026-09-19 16:29:01  run 02b_app_basic_ndtwin_pipeline -> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0919/live-p3d-02b_app_basic_ndtwin_pipeline.log
+### 2026-09-19 16:30:15  02b_app_basic_ndtwin_pipeline rc=0  last: PASS 02b_app_basic_ndtwin_pipeline
+        claim          none
+        measuring      nothing
+### 2026-09-19 16:30:16  run 03_app_p4runtime -> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0919/live-p3d-03_app_p4runtime.log
+### 2026-09-19 16:31:25  03_app_p4runtime rc=0  last: PASS 03_app_p4runtime
+        claim          none
+        measuring      nothing
+### 2026-09-19 16:31:26  run 05_link_usage_generic -> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0919/live-p3d-05_link_usage_generic.log
+### 2026-09-19 16:32:56  05_link_usage_generic rc=0  last: PASS 05_link_usage_generic
+        claim          none
+        measuring      nothing
+### 2026-09-19 16:32:57  run 06_thirteen -> /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/logs/orchestrator-0919/live-p3d-06_thirteen.log
+### 2026-09-19 16:55:00  06_thirteen rc=1  last: FAIL 06_thirteen -- 3 of 26 arm(s) were not what the exercise says they should be
+        claim          none
+        measuring      nothing
+### 2026-09-19 16:55:01  7.5 include cell (ruling 7): basic solution + ndtwin_telemetry.p4 include, --telemetry cooperative
+  ok  telemetry: cooperative -- 4 cooperative, 0 link, 0 none; the proxy agrees switch by switch
+  ok  data plane: h1 -> 10.0.2.2 forwards
+
+up. ready
+  proxy :8081   kernel :8000   Mininet CLI: sudo tmux -L ndtwinlab attach -t topo
+  !!  package pipeline: NDTwin discovered no links and installed no routes on this
+  !!    fabric; forwarding is whatever the package's 20 entries on
+  !!    4 switch(es) make of it. ndt status quotes no sample rate for it.
+  telemetry      cooperative   (p4_proxy/mininet/telemetry_override)
+                 every switch: cooperative
+                 link emitter: none (/tmp/ndtwin_link_telemetry.json absent)
+  link shaping   off (no package link asks for one)
+   switch 1 cooperative True True ids cooperative telemetry: the pipeline clones 1-in-N to the CPU port and this proxy emits sFlow as 192.168.123.11
+   switch 2 cooperative True True ids cooperative telemetry: the pipeline clones 1-in-N to the CPU port and this proxy emits sFlow as 192.168.123.12
+   switch 3 cooperative True True ids cooperative telemetry: the pipeline clones 1-in-N to the CPU port and this proxy emits sFlow as 192.168.123.13
+   switch 4 cooperative True True ids cooperative telemetry: the pipeline clones 1-in-N to the CPU port and this proxy emits sFlow as 192.168.123.14
+INCLUDE_CELL switch_state PASS
+   include: off-path floor 247672.960 bit   = max(5000, 0.02 x the smallest PRIMARY on-path integral)
+   include: off-path s1-eth1  0.000 bit  (host)
+   include: off-path s1-eth2  0.000 bit  (host)
+   include: off-path s1-eth3  0.000 bit  (switch)
+   include: off-path s2-eth1  0.000 bit  (host)
+   include: off-path s2-eth3  0.000 bit  (switch)
+   include: off-path s2-eth4  0.000 bit  (switch)
+   include: off-path s3-eth1  0.000 bit  (switch)
+   include: off-path s3-eth2  0.000 bit  (switch)
+   include: off-path s4-eth2  0.000 bit  (switch)
+   include: link usage follows the iperf path (off-path under 247672.960 bit)
+LINK_USAGE include expect=follows primary=3 minor=0 rc=0
+    telemetry_health/addressed_total 0 -> 16
+    addressed_total None -> None
+    samples_by_family/ipv4 0 -> 16
+    samples_by_family/l2 0 -> 0
+    samples_by_family/undecodable 0 -> 0
+INCLUDE_CELL kernel_received_samples PASS addressed delta 16 ipv4 samples delta 16
+### 2026-09-19 16:55:25  include cell rc=0
+### 2026-09-19 16:55:25  7.1 tutorials arms (sudo via /etc/sudoers.d/ndtwin-drive-exercise)
+### 2026-09-19 16:55:25  tut basic_tunnel/skeleton rc=2  <no verdict line>
+### 2026-09-19 16:55:26  tut basic_tunnel/solution rc=2  <no verdict line>
+### 2026-09-19 16:55:26  tut calc/skeleton rc=2  <no verdict line>
+### 2026-09-19 16:55:26  tut calc/solution rc=2  <no verdict line>
+### 2026-09-19 16:55:26  tut ecn/skeleton rc=2  <no verdict line>
+### 2026-09-19 16:55:26  tut ecn/solution rc=2  <no verdict line>
+### 2026-09-19 16:55:26  tut mri/skeleton rc=2  <no verdict line>
+### 2026-09-19 16:55:27  tut mri/solution rc=2  <no verdict line>
+### 2026-09-19 16:55:27  tut flowcache/skeleton rc=2  <no verdict line>
+### 2026-09-19 16:55:27  tut flowcache/solution rc=2  <no verdict line>
+### 2026-09-19 16:55:27  tut load_balance/skeleton rc=2  <no verdict line>
+### 2026-09-19 16:55:27  tut load_balance/solution rc=2  <no verdict line>
+### 2026-09-19 16:55:27  tut multicast/skeleton rc=2  <no verdict line>
+### 2026-09-19 16:55:28  tut multicast/solution rc=2  <no verdict line>
+### 2026-09-19 16:55:28  tut p4runtime/skeleton rc=2  <no verdict line>
+### 2026-09-19 16:55:28  tut p4runtime/solution rc=2  <no verdict line>
+### 2026-09-19 16:55:28  tut qos/skeleton rc=2  <no verdict line>
+### 2026-09-19 16:55:28  tut qos/solution rc=2  <no verdict line>
+### 2026-09-19 16:55:28  host_count_override restored to 4; telemetry_override removed
+### 2026-09-19 16:55:28  done

@@ -1,0 +1,13 @@
+### unit suite, python3 (has matplotlib, so render runs)
+# tree:    /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919
+# head:    a3a51548e015b5a29198dc24871cc58fce0e3225
+# when:    2026-09-19 08:52:05 UTC
+# cmd: python3 -m unittest discover -s tests -t tests
+###
+................................................
+----------------------------------------------------------------------
+Ran 48 tests in 1.439s
+
+OK
+
+### rc=0

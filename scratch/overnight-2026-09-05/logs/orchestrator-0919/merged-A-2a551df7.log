@@ -1,0 +1,21 @@
+### merged tree 2a551df7  start 12:50:28
+### merged_checks
+check_process_by_name rc=0  check_process_by_name: 312 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale
+check_gate_anchors rc=0  115/115 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+kiref rc=0  OK
+check_test_tmpdirs rc=0  check_test_tmpdirs: 346 file(s) scanned, 0 fixed temp paths
+test_redirection_order rc=0  Ran 48 checks, 0 failed
+test_log_suffix_idempotent rc=0    30 passed, 0 failed
+test_topo_from_json rc=0  PASS -- derived wiring is identical to the hard-coded lists
+MERGED-CHECKS 2a551df7 r1: ALL-GREEN
+### start 12:50:51  trunk 2a551df7  free=3.3G
+### kernel sha before: c4c8e50310d7e4a1
+### build rc=0  guarded_build: exit 0  12:56:00
+### kernel sha after:  be70b5dd32356847
+### test target rc=0  13:16:14
+### gtest direct rc=0  [  PASSED  ] 1366 tests. 
+### done 13:16:30  free=3.3G
+### fixtures regen on merged tree
+regen rc=0
+fixtures diff rc=0 (0 = byte-identical)
+### done 13:16:30  free=3.3G

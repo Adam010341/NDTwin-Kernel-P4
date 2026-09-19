@@ -1,0 +1,3 @@
+baseline (must be green before any mutation):
+  Ran 391 checks, 1 failed
+refused: baseline is not green -- mutations would prove nothing

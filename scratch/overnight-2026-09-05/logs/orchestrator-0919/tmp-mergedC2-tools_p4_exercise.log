@@ -1,0 +1,7 @@
+...................................................../home/adam/p4dev-python-venv/lib/python3.12/site-packages/google/protobuf/internal/well_known_types.py:91: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+  _EPOCH_DATETIME_NAIVE = datetime.datetime.utcfromtimestamp(0)
+.....................................................................................................
+----------------------------------------------------------------------
+Ran 154 tests in 1.461s
+
+OK

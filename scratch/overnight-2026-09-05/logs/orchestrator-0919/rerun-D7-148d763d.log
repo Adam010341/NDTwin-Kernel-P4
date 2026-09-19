@@ -1,0 +1,25 @@
+### tree 148d763d  start 11:39:37  free=3.1G
+### driver_tests
+Ran 138 tests in 1.313s
+OK
+rc=0  drv-dirs=0
+### test_live_p1_thirteen
+Ran 36 checks, 0 failed
+rc=0  drv-dirs=0
+### test_mutate_gate_dead_mutant
+  ok       🔴 in particular it does not say anything survived
+Ran 42 checks, 0 failed
+rc=0  drv-dirs=0
+### check_gate_anchors
+114/114 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+rc=0  drv-dirs=0
+### mutate_drive_exercise
+=== 52. mri no longer checks that the MRI option reached h2 ===
+88 mutations, 0 survived
+rc=0  drv-dirs=0
+### seen_red_drive_8a55bc60_expect_rc1
+             unexpected: [survived]
+Ran 42 checks, 13 failed
+rc=1  drv-dirs=0
+### worktree status lines: 0
+### done 11:45:23  free=3.1G

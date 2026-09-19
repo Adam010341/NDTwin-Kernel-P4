@@ -1,0 +1,249 @@
+# 執行報告 — `basic_tunnel` / skeleton
+
+由 `drive_exercise.py` 自動產生，**非互動**（沒有進 mininet CLI、沒有開 xterm）。
+每一條期望的來源等級沿用 `M7-source_routing.md` 的三級標記。
+
+[Co-developed with claude code -- Adam]
+
+| 欄位 | 值 |
+|---|---|
+| UTC | 2026-09-19T145252Z |
+| exercise | `basic_tunnel` |
+| which | `skeleton` |
+| fabric | `ndtwin` |
+| package | `/home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_tunnel-skeleton` |
+| cwd | `/home/adam/tutorials/exercises/basic_tunnel` |
+| 直譯器 | `/home/adam/p4dev-python-venv/bin/python` (3.12.3) |
+| euid | 1000 |
+| 判定 | **RED ARM (1/1): the skeleton does not get past the control plane, by design** (exit 1) |
+
+## 1. 工具鏈身分
+
+| 執行檔 | sha256[:16] | --version |
+|---|---|---|
+| `/usr/local/bin/simple_switch_grpc` | `-` | n/a: `ndt up p4` chooses the bmv2 binary -- see the `ndt status` capture |
+| `/usr/local/bin/p4c-bm2-ss` | `226f3f66df515c9e` | Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release) |
+
+> 版本字串分不出這台機器上的兩顆 `simple_switch_grpc`；只有 sha 分得出。此處用的是 `/usr/local/bin` 那顆，**不是** `bmv2-fast`。
+
+## 2. 編譯
+
+```
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/basic_tunnel/build/basic_tunnel.p4.p4info.txtpb -o /home/adam/tutorials/exercises/basic_tunnel/build/basic_tunnel.json /home/adam/tutorials/exercises/basic_tunnel/basic_tunnel.p4
+rc=0  warnings=1
+/home/adam/tutorials/exercises/basic_tunnel/basic_tunnel.p4(8): [--Wwarn=unused] warning: 'TYPE_MYTUNNEL' is unused
+const bit<16> TYPE_MYTUNNEL = 0x1212;
+              ^^^^^^^^^^^^^
+```
+
+| 產物 | bytes | sha256[:16] |
+|---|---|---|
+| `/home/adam/tutorials/exercises/basic_tunnel/build/basic_tunnel.json` | 14360 | `44af1a4289aa8b00` |
+| `/home/adam/tutorials/exercises/basic_tunnel/build/basic_tunnel.p4.p4info.txtpb` | 943 | `9213871cee36bd93` |
+
+來源 `.p4`：`/home/adam/tutorials/exercises/basic_tunnel/basic_tunnel.p4`（編到骨架的輸出檔名，`.p4` 原始檔一個字沒動）
+
+## 3. 拓樸
+
+```
+topology : topology.json
+hosts    : h1, h2, h3
+switches : s1, s2, s3
+links    : 6
+```
+
+## 4. 每一步的指令與原始輸出
+
+### 1. N1  convert.py
+
+```
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py /home/adam/tutorials/exercises/basic_tunnel --topology topology.json --p4 basic_tunnel.p4 --out /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_tunnel-skeleton
+```
+
+```
+package 'basic_tunnel' -> /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_tunnel-skeleton
+  control plane : ndtwin
+  pipelines     : s1=build/basic_tunnel.json, s2=build/basic_tunnel.json, s3=build/basic_tunnel.json
+  model         : 3 switches, 3 hosts, 12 edges (6 links, both directions stored)
+  files         : 9
+                  basic_tunnel.p4
+                  build/basic_tunnel.json
+                  build/basic_tunnel.p4.p4info.txtpb
+                  ndtwin/topology.json
+                  package.json
+                  s1-runtime.json
+                  s2-runtime.json
+                  s3-runtime.json
+                  topology.json
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_tunnel-skeleton
+```
+
+### 2. N2  preflight.py
+
+```
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_tunnel-skeleton
+```
+
+```
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_tunnel-skeleton
+  PASS  format                            1
+  INFO  name                              basic_tunnel
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     255
+  PASS  switches keys                     3 dpids: [1, 2, 3]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  8 present
+  PASS  topo_from_json.switches           3 entries
+  PASS  topo_from_json.hosts              3 entries
+  PASS  topo_from_json.switch_links       3 entries
+  PASS  topo_from_json.host_links         3 entries
+  PASS  switches agree                    model and package.json both say [1, 2, 3]
+  PASS  links agree                       6 links in both
+  PASS  hosts named h<last octet>         3 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h2', 'h3']
+  PASS  switches pipeline                 3 of 3 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/basic_tunnel.json  p4info sha256:9213871cee36bd93  program=/home/adam/tutorials/exercises/basic_tunnel/basic_tunnel.p4
+  INFO  s2 pipeline                       build/basic_tunnel.json  p4info sha256:9213871cee36bd93  program=/home/adam/tutorials/exercises/basic_tunnel/basic_tunnel.p4
+  INFO  s3 pipeline                       build/basic_tunnel.json  p4info sha256:9213871cee36bd93  program=/home/adam/tutorials/exercises/basic_tunnel/basic_tunnel.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  FAIL  entries match p4info              9 problem(s); first: s1 entry 3: table 'MyIngress.myTunnel_exact' is not in the p4info (it has: MyIngress.ipv4_lpm)
+  FAIL                                    s1 entry 4: table 'MyIngress.myTunnel_exact' is not in the p4info (it has: MyIngress.ipv4_lpm)
+  FAIL                                    s1 entry 5: table 'MyIngress.myTunnel_exact' is not in the p4info (it has: MyIngress.ipv4_lpm)
+  FAIL                                    s2 entry 3: table 'MyIngress.myTunnel_exact' is not in the p4info (it has: MyIngress.ipv4_lpm)
+  FAIL                                    s2 entry 4: table 'MyIngress.myTunnel_exact' is not in the p4info (it has: MyIngress.ipv4_lpm)
+  FAIL                                    s2 entry 5: table 'MyIngress.myTunnel_exact' is not in the p4info (it has: MyIngress.ipv4_lpm)
+  FAIL                                    ... and 3 more
+  PASS  entries p4info is the pipeline's  3 switch(es); entries and pipeline name the same p4info
+  INFO  telemetry.source                  not declared (auto: NDTwin's pipeline gets the cooperative path, anybody else's gets link telemetry)
+  INFO  PRE entries                       none declared (no multicast group, no clone session)
+  PASS  gRPC port block                   30051-30053 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  basic_tunnel.json sha256:9f5a7c6425ad4dc6  basic_tunnel.p4.p4info.txtpb sha256:9213871cee36bd93
+
+FAIL -- 7 check(s) failed; do NOT bring this package up
+```
+
+## 5. 判定表
+
+| 結果 | 期望 | 來源等級 | want | got | 依據 |
+|---|---|---|---|---|---|
+| PASS | RED ARM: the skeleton's runtime entries must NOT install | 【README 宣稱】＋【源碼推導，未執行】 | `pre-flight refuses them` | `pre-flight rc=1` | README:41-43; tools/p4_exercise/preflight.py checks every entry against the p4info the package carries, and the skeleton's does not declare that table |
+
+## 6. 交換機 log / pcap
+
+
+## 8. 完整 transcript
+
+### stdout
+
+```
+drive_exercise.py -- basic_tunnel / skeleton
+(non-interactive: no mininet CLI, no xterm; kills nothing)
+fabric   : ndtwin -- the package fabric `ndt up p4 --app` builds; no root needed
+
+== pre-flight (read-only) ==============================================
+OK   lab is free (claim: owner=- expires=- measuring=nothing)
+OK   host scripts will run under /home/adam/p4dev-python-venv/bin/python
+OK   ndt /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt, converter /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py, pre-flight /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py
+--   switch  n/a: `ndt up p4` chooses the bmv2 binary -- see the `ndt status` capture
+OK   p4c     /usr/local/bin/p4c-bm2-ss  sha256[:16]=226f3f66df515c9e  --version=Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release)
+OK   exercise dir /home/adam/tutorials/exercises/basic_tunnel
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/basic_tunnel/build/basic_tunnel.p4.p4info.txtpb -o /home/adam/tutorials/exercises/basic_tunnel/build/basic_tunnel.json /home/adam/tutorials/exercises/basic_tunnel/basic_tunnel.p4
+/home/adam/tutorials/exercises/basic_tunnel/basic_tunnel.p4(8): [--Wwarn=unused] warning: 'TYPE_MYTUNNEL' is unused
+const bit<16> TYPE_MYTUNNEL = 0x1212;
+              ^^^^^^^^^^^^^
+-> /home/adam/tutorials/exercises/basic_tunnel/build/basic_tunnel.json  14360 B  sha256[:16]=44af1a4289aa8b00  warnings=1
+
+== plan ================================================================
+topology : topology.json
+hosts    : h1, h2, h3
+switches : s1, s2, s3
+links    : 6
+program  : /home/adam/tutorials/exercises/basic_tunnel/basic_tunnel.p4 -> build/basic_tunnel.json
+switch   : /usr/local/bin/simple_switch_grpc
+steps    : h2/h3 receive.py; h1 send.py 10.0.2.2 --dst_id 2 then --dst_id 3; assert which host the tunnel delivered to
+package  : /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_tunnel-skeleton
+equivalent to (from the repo root, as the operator -- no sudo):
+  /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py /home/adam/tutorials/exercises/basic_tunnel --topology topology.json --p4 basic_tunnel.p4 --out /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_tunnel-skeleton
+  /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_tunnel-skeleton
+  NDT_OWNER=p3-live-06 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt claim 45 '...' && NDT_OWNER=p3-live-06 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_tunnel-skeleton
+  ... the scripted steps above, then `ndt down` and `ndt release`.
+telemetry: whatever the package declares (no --telemetry given)
+
+== convert the exercise into an app package ============================
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py /home/adam/tutorials/exercises/basic_tunnel --topology topology.json --p4 basic_tunnel.p4 --out /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_tunnel-skeleton
+package 'basic_tunnel' -> /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_tunnel-skeleton
+  control plane : ndtwin
+  pipelines     : s1=build/basic_tunnel.json, s2=build/basic_tunnel.json, s3=build/basic_tunnel.json
+  model         : 3 switches, 3 hosts, 12 edges (6 links, both directions stored)
+  files         : 9
+                  basic_tunnel.p4
+                  build/basic_tunnel.json
+                  build/basic_tunnel.p4.p4info.txtpb
+                  ndtwin/topology.json
+                  package.json
+                  s1-runtime.json
+                  s2-runtime.json
+                  s3-runtime.json
+                  topology.json
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_tunnel-skeleton
+
+== pre-flight the package ==============================================
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_tunnel-skeleton
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_tunnel-skeleton
+  PASS  format                            1
+  INFO  name                              basic_tunnel
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     255
+  PASS  switches keys                     3 dpids: [1, 2, 3]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  8 present
+  PASS  topo_from_json.switches           3 entries
+  PASS  topo_from_json.hosts              3 entries
+  PASS  topo_from_json.switch_links       3 entries
+  PASS  topo_from_json.host_links         3 entries
+  PASS  switches agree                    model and package.json both say [1, 2, 3]
+  PASS  links agree                       6 links in both
+  PASS  hosts named h<last octet>         3 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h2', 'h3']
+  PASS  switches pipeline                 3 of 3 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/basic_tunnel.json  p4info sha256:9213871cee36bd93  program=/home/adam/tutorials/exercises/basic_tunnel/basic_tunnel.p4
+  INFO  s2 pipeline                       build/basic_tunnel.json  p4info sha256:9213871cee36bd93  program=/home/adam/tutorials/exercises/basic_tunnel/basic_tunnel.p4
+  INFO  s3 pipeline                       build/basic_tunnel.json  p4info sha256:9213871cee36bd93  program=/home/adam/tutorials/exercises/basic_tunnel/basic_tunnel.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  FAIL  entries match p4info              9 problem(s); first: s1 entry 3: table 'MyIngress.myTunnel_exact' is not in the p4info (it has: MyIngress.ipv4_lpm)
+  FAIL                                    s1 entry 4: table 'MyIngress.myTunnel_exact' is not in the p4info (it has: MyIngress.ipv4_lpm)
+  FAIL                                    s1 entry 5: table 'MyIngress.myTunnel_exact' is not in the p4info (it has: MyIngress.ipv4_lpm)
+  FAIL                                    s2 entry 3: table 'MyIngress.myTunnel_exact' is not in the p4info (it has: MyIngress.ipv4_lpm)
+  FAIL                                    s2 entry 4: table 'MyIngress.myTunnel_exact' is not in the p4info (it has: MyIngress.ipv4_lpm)
+  FAIL                                    s2 entry 5: table 'MyIngress.myTunnel_exact' is not in the p4info (it has: MyIngress.ipv4_lpm)
+  FAIL                                    ... and 3 more
+  PASS  entries p4info is the pipeline's  3 switch(es); entries and pipeline name the same p4info
+  INFO  telemetry.source                  not declared (auto: NDTwin's pipeline gets the cooperative path, anybody else's gets link telemetry)
+  INFO  PRE entries                       none declared (no multicast group, no clone session)
+  PASS  gRPC port block                   30051-30053 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  basic_tunnel.json sha256:9f5a7c6425ad4dc6  basic_tunnel.p4.p4info.txtpb sha256:9213871cee36bd93
+
+FAIL -- 7 check(s) failed; do NOT bring this package up
+!! pre-flight FAILED (rc 1) -- and for this arm that IS the expectation.
+
+== verdict =============================================================
+   PASS RED ARM: the skeleton's runtime entries must NOT install want=pre-flight refuses them got=pre-flight rc=1   【README 宣稱】＋【源碼推導，未執行】
+
+>>> RED ARM (1/1): the skeleton does not get past the control plane, by design
+```
+
+### stderr（mininet 的 logger 走這裡）
+
+```
+
+```

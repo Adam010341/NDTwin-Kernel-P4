@@ -1,0 +1,581 @@
+sniffing on eth0
+got a packet
+###[ Ethernet ]### 
+  dst       = 33:33:00:00:00:02
+  src       = fe:55:91:9f:43:40
+  type      = IPv6
+###[ IPv6 ]### 
+     version   = 6
+     tc        = 0
+     fl        = 0
+     plen      = 16
+     nh        = ICMPv6
+     hlim      = 255
+     src       = fe80::fc55:91ff:fe9f:4340
+     dst       = ff02::2
+###[ ICMPv6 Neighbor Discovery - Router Solicitation ]### 
+        type      = Router Solicitation
+        code      = 0
+        cksum     = 0xd8c2
+        res       = 0
+###[ ICMPv6 Neighbor Discovery Option - Source Link-Layer Address ]### 
+           type      = 1
+           len       = 1
+           lladdr    = fe:55:91:9f:43:40
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xb9
+     len       = 43
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = udp
+     chksum    = 0x6506
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 23
+        chksum    = 0xc2ad
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:00
+  src       = 08:00:00:00:02:02
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xd8
+     len       = 71
+     id        = 42183
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = icmp
+     chksum    = 0xbe14
+     src       = 10.0.2.2
+     dst       = 10.0.1.1
+     \options   \
+###[ ICMP ]### 
+        type      = dest-unreach
+        code      = port-unreachable
+        chksum    = 0x1428
+        reserved  = 0
+        length    = 0
+        nexthopmtu= 0
+        unused    = ''
+###[ IP in ICMP ]### 
+           version   = 4
+           ihl       = 5
+           tos       = 0xb9
+           len       = 43
+           id        = 1
+           flags     = 
+           frag      = 0
+           ttl       = 62
+           proto     = udp
+           chksum    = 0x6506
+           src       = 10.0.1.1
+           dst       = 10.0.2.2
+           \options   \
+###[ UDP in ICMP ]### 
+              sport     = 1234
+              dport     = 4321
+              len       = 23
+              chksum    = 0xc2ad
+###[ Raw ]### 
+                 load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xb9
+     len       = 43
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = udp
+     chksum    = 0x6506
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 23
+        chksum    = 0xc2ad
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:00
+  src       = 08:00:00:00:02:02
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xd8
+     len       = 71
+     id        = 42626
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = icmp
+     chksum    = 0xbc59
+     src       = 10.0.2.2
+     dst       = 10.0.1.1
+     \options   \
+###[ ICMP ]### 
+        type      = dest-unreach
+        code      = port-unreachable
+        chksum    = 0x1428
+        reserved  = 0
+        length    = 0
+        nexthopmtu= 0
+        unused    = ''
+###[ IP in ICMP ]### 
+           version   = 4
+           ihl       = 5
+           tos       = 0xb9
+           len       = 43
+           id        = 1
+           flags     = 
+           frag      = 0
+           ttl       = 62
+           proto     = udp
+           chksum    = 0x6506
+           src       = 10.0.1.1
+           dst       = 10.0.2.2
+           \options   \
+###[ UDP in ICMP ]### 
+              sport     = 1234
+              dport     = 4321
+              len       = 23
+              chksum    = 0xc2ad
+###[ Raw ]### 
+                 load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 33:33:00:00:00:fb
+  src       = fe:55:91:9f:43:40
+  type      = IPv6
+###[ IPv6 ]### 
+     version   = 6
+     tc        = 0
+     fl        = 522566
+     plen      = 149
+     nh        = UDP
+     hlim      = 255
+     src       = fe80::fc55:91ff:fe9f:4340
+     dst       = ff02::fb
+###[ UDP ]### 
+        sport     = mdns
+        dport     = mdns
+        len       = 149
+        chksum    = 0xcf5a
+###[ DNS ]### 
+           id        = 0
+           qr        = 0
+           opcode    = QUERY
+           aa        = 0
+           tc        = 0
+           rd        = 0
+           ra        = 0
+           z         = 0
+           ad        = 0
+           cd        = 0
+           rcode     = ok
+           qdcount   = 9
+           ancount   = 0
+           nscount   = 0
+           arcount   = 0
+           \qd        \
+            |###[ DNS Question Record ]### 
+            |  qname     = '_ipps._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_ftp._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_webdav._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_webdavs._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_sftp-ssh._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_smb._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_afpovertcp._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_nfs._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_ipp._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+           an        = None
+           ns        = None
+           ar        = None
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 33:33:00:00:00:02
+  src       = 08:00:00:00:02:02
+  type      = IPv6
+###[ IPv6 ]### 
+     version   = 6
+     tc        = 0
+     fl        = 0
+     plen      = 16
+     nh        = ICMPv6
+     hlim      = 255
+     src       = fe80::a00:ff:fe00:202
+     dst       = ff02::2
+###[ ICMPv6 Neighbor Discovery - Router Solicitation ]### 
+        type      = Router Solicitation
+        code      = 0
+        cksum     = 0x672a
+        res       = 0
+###[ ICMPv6 Neighbor Discovery Option - Source Link-Layer Address ]### 
+           type      = 1
+           len       = 1
+           lladdr    = 08:00:00:00:02:02
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xb9
+     len       = 43
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = udp
+     chksum    = 0x6506
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 23
+        chksum    = 0xc2ad
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:00
+  src       = 08:00:00:00:02:02
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xd8
+     len       = 71
+     id        = 42863
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = icmp
+     chksum    = 0xbb6c
+     src       = 10.0.2.2
+     dst       = 10.0.1.1
+     \options   \
+###[ ICMP ]### 
+        type      = dest-unreach
+        code      = port-unreachable
+        chksum    = 0x1428
+        reserved  = 0
+        length    = 0
+        nexthopmtu= 0
+        unused    = ''
+###[ IP in ICMP ]### 
+           version   = 4
+           ihl       = 5
+           tos       = 0xb9
+           len       = 43
+           id        = 1
+           flags     = 
+           frag      = 0
+           ttl       = 62
+           proto     = udp
+           chksum    = 0x6506
+           src       = 10.0.1.1
+           dst       = 10.0.2.2
+           \options   \
+###[ UDP in ICMP ]### 
+              sport     = 1234
+              dport     = 4321
+              len       = 23
+              chksum    = 0xc2ad
+###[ Raw ]### 
+                 load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xb9
+     len       = 43
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = udp
+     chksum    = 0x6506
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 23
+        chksum    = 0xc2ad
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:00
+  src       = 08:00:00:00:02:02
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xd8
+     len       = 71
+     id        = 42945
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = icmp
+     chksum    = 0xbb1a
+     src       = 10.0.2.2
+     dst       = 10.0.1.1
+     \options   \
+###[ ICMP ]### 
+        type      = dest-unreach
+        code      = port-unreachable
+        chksum    = 0x1428
+        reserved  = 0
+        length    = 0
+        nexthopmtu= 0
+        unused    = ''
+###[ IP in ICMP ]### 
+           version   = 4
+           ihl       = 5
+           tos       = 0xb9
+           len       = 43
+           id        = 1
+           flags     = 
+           frag      = 0
+           ttl       = 62
+           proto     = udp
+           chksum    = 0x6506
+           src       = 10.0.1.1
+           dst       = 10.0.2.2
+           \options   \
+###[ UDP in ICMP ]### 
+              sport     = 1234
+              dport     = 4321
+              len       = 23
+              chksum    = 0xc2ad
+###[ Raw ]### 
+                 load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xb9
+     len       = 43
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = udp
+     chksum    = 0x6506
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 23
+        chksum    = 0xc2ad
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:00
+  src       = 08:00:00:00:02:02
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xd8
+     len       = 71
+     id        = 43555
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = icmp
+     chksum    = 0xb8b8
+     src       = 10.0.2.2
+     dst       = 10.0.1.1
+     \options   \
+###[ ICMP ]### 
+        type      = dest-unreach
+        code      = port-unreachable
+        chksum    = 0x1428
+        reserved  = 0
+        length    = 0
+        nexthopmtu= 0
+        unused    = ''
+###[ IP in ICMP ]### 
+           version   = 4
+           ihl       = 5
+           tos       = 0xb9
+           len       = 43
+           id        = 1
+           flags     = 
+           frag      = 0
+           ttl       = 62
+           proto     = udp
+           chksum    = 0x6506
+           src       = 10.0.1.1
+           dst       = 10.0.2.2
+           \options   \
+###[ UDP in ICMP ]### 
+              sport     = 1234
+              dport     = 4321
+              len       = 23
+              chksum    = 0xc2ad
+###[ Raw ]### 
+                 load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xb9
+     len       = 43
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = udp
+     chksum    = 0x6506
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 23
+        chksum    = 0xc2ad
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:00
+  src       = 08:00:00:00:02:02
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0xd8
+     len       = 71
+     id        = 44090
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = icmp
+     chksum    = 0xb6a1
+     src       = 10.0.2.2
+     dst       = 10.0.1.1
+     \options   \
+###[ ICMP ]### 
+        type      = dest-unreach
+        code      = port-unreachable
+        chksum    = 0x1428
+        reserved  = 0
+        length    = 0
+        nexthopmtu= 0
+        unused    = ''
+###[ IP in ICMP ]### 
+           version   = 4
+           ihl       = 5
+           tos       = 0xb9
+           len       = 43
+           id        = 1
+           flags     = 
+           frag      = 0
+           ttl       = 62
+           proto     = udp
+           chksum    = 0x6506
+           src       = 10.0.1.1
+           dst       = 10.0.2.2
+           \options   \
+###[ UDP in ICMP ]### 
+              sport     = 1234
+              dport     = 4321
+              len       = 23
+              chksum    = 0xc2ad
+###[ Raw ]### 
+                 load      = 'P4 driver probe'
+

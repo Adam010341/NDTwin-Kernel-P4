@@ -1,0 +1,131 @@
+
+=== group A: the 'Ran N checks' form, which is the only one the old scorer knew ===
+  ok       A1 'Ran 60 checks, all passed' -> 60 ran, 0 failed
+  ok       A2 'Ran 6 checks, 0 failed' -> the second number is the failed count, not the total
+  ok       A3 'Ran 12 checks, 3 failed' -> 12 ran, 3 failed
+
+=== group B: the two forms the old scorer scored as zero (the 09-02 defect) ===
+  ok       B1 '12 passed, 0 failed' (test_cell_gate_suspect_wiring) -> 12 ran, 0 failed
+  ok       B2 '  12 passed, 0 failed' indented (test_ep4_gate_and_abort_evidence) -> 12 ran
+  ok       B3 '  7 passed, 0 failed' (test_gate_exit_code_not_tee) -> 7 ran
+  ok       B4 '  15 passed, 0 failed' (test_log_suffix_idempotent) -> 15 ran
+  ok       B5 the banner form (test_harness_instruments) -> 34 ran, 0 failed
+  ok       B6 'N passed, M failed' with M>0 carries the failed count through
+  ok       B7 the banner's third number is the failed count
+  ok       B8 a real transcript, ok lines then the summary last
+
+=== group Z: zero stays zero -- 'nothing ran' must not become 'passed' ===
+  ok       Z1 a log with no summary at all is 0 ran, never a pass
+  ok       Z2 an empty log is 0 ran
+  ok       Z3 'Ran 0 checks, all passed' -> 0 ran (the __main__-guard shape, shell edition)
+  ok       Z4 '0 passed, 0 failed' -> 0 ran, so a suite that collected nothing cannot pass
+  ok       Z5 '===== 0 check(s): 0 ok, 0 FAILED =====' -> 0 ran
+  ok       Z6 a check whose NAME quotes a summary is output, not a summary
+  ok       Z7 the LAST summary wins, as tail -1 did (5 passed + 1 failed = 6 ran)
+
+=== group V: the verdict branch order, so ran=0 keeps its own answer ===
+  ok       V1 rc!=0 is FAIL-RC even with a green summary
+  ok       V2 a skip outranks the zero count, so a skipping suite is not 'no tests ran'
+  ok       V3 rc=0 and nothing collected is NO-TESTS-RAN, NOT a pass
+  ok       V4 rc=0 over a summary that names failures is FAIL-CHECKS
+  ok       V5 rc=0, checks ran, none failed, none skipped is the only PASS
+  ok       V6 NO-TESTS-RAN and PASS are different tokens (the distinction is the point)
+
+=== group W: the driver still counts every non-PASS verdict as a failure ===
+  ok       W  the FAIL-RC arm increments FAILURES
+  ok       W  the FAIL-SKIP arm increments FAILURES
+  ok       W  the NO-TESTS-RAN arm increments FAILURES
+  ok       W  the FAIL-CHECKS arm increments FAILURES
+
+=== group X: the scorer is WIRED IN, and the Python side keeps unittest's line ===
+  ok       X0 the scoring dispatch was located, so X1-X4 are not asking about an empty string
+  ok       X1 the shell arm scores with shell_summary
+  ok       X2 the shell arm does NOT count with unittest's '^Ran N'
+  ok       X3 the Python arm still counts with unittest's '^Ran N' (the __main__-guard catch)
+  ok       X4 the shell arm binds both numbers the verdict needs
+
+=== group C: the corpus -- every suite in tests/shell prints a form this scorer reads ===
+  FAILED   C  test_apps_residue.sh's last line scores non-zero (it is 'something was logged')
+             expected: nonzero
+             actual:   zero
+  ok       C  test_apps_stop_kills_the_group.sh's last line scores non-zero (it is 'Ran 9 checks, 0 failed')
+  FAILED   C  test_build_guard.sh ends in an echo this test can read
+             expected: found
+             actual:   not found
+  ok       C  test_cell_gate_suspect_wiring.sh's last line scores non-zero (it is '9 passed, 0 failed')
+  FAILED   C  test_check_logs_crash_patterns.sh's last line scores non-zero (it is '  (checker under test: $CHECK_LOGS)')
+             expected: nonzero
+             actual:   zero
+  ok       C  test_ep4_gate_and_abort_evidence.sh's last line scores non-zero (it is '  9 passed, 0 failed')
+  ok       C  test_e_restore_asserts_compiled_artifact.sh's last line scores non-zero (it is 'Ran 9 checks, 0 failed')
+  ok       C  test_faults.sh's last line scores non-zero (it is 'Ran 9 checks, all passed')
+  ok       C  test_faults_topo_pid.sh's last line scores non-zero (it is 'Ran 9 checks, all passed${SKIP:+ ($SKIP skipped)}')
+  ok       C  test_gate_exit_code_not_tee.sh's last line scores non-zero (it is '  9 passed, 0 failed')
+  FAILED   C  test_guarded_build_reentrant.sh's last line scores non-zero (it is 'systemd-run $*')
+             expected: nonzero
+             actual:   zero
+  ok       C  test_harness_instruments.sh's last line scores non-zero (it is '===== 9 check(s): 9 ok, 0 FAILED =====')
+  ok       C  test_iperf3_guard.sh's last line scores non-zero (it is '  9 passed, 0 failed')
+  ok       C  test_l1_shell_scoring.sh's last line scores non-zero (it is 'Ran 9 checks, 0 failed')
+  ok       C  test_lab_handoff.sh's last line scores non-zero (it is 'Ran 9 checks, all passed')
+  ok       C  test_live_p1_common.sh's last line scores non-zero (it is 'Ran 9 checks, 0 failed')
+  ok       C  test_local_ci.sh's last line scores non-zero (it is 'Ran 9 checks, all passed')
+  ok       C  test_log_suffix_idempotent.sh's last line scores non-zero (it is '  9 passed, 0 failed')
+  ok       C  test_make_topology_stdout_is_json.sh's last line scores non-zero (it is 'Ran 9 checks, 0 failed')
+  ok       C  test_manual_no_stale_in_progress.sh's last line scores non-zero (it is '9 passed, 0 failed')
+  ok       C  test_manual_rc_table.sh's last line scores non-zero (it is '9 passed, 0 failed')
+  ok       C  test_ndt_app_orphans.sh's last line scores non-zero (it is 'Ran 9 checks, all passed')
+  ok       C  test_ndt_app_package.sh's last line scores non-zero (it is 'Ran 9 checks, 0 failed')
+  ok       C  test_ndt_apps_liveness.sh's last line scores non-zero (it is 'Ran 9 checks, all passed')
+  ok       C  test_ndt_check_sample_rate.sh's last line scores non-zero (it is 'Ran 9 checks, 0 failed')
+  ok       C  test_ndt_down_claim_guard.sh's last line scores non-zero (it is 'Ran 9 checks, 0 failed')
+  ok       C  test_ndt_down_stops_only_ours.sh's last line scores non-zero (it is 'Ran 9 checks, 0 failed')
+  ok       C  test_ndt_helper_apps_window.sh's last line scores non-zero (it is 'Ran 9 checks, 0 failed')
+  FAILED   C  test_ndt_honesty.sh's last line scores non-zero (it is 'other-session (until 03:00:00, their round)')
+             expected: nonzero
+             actual:   zero
+  FAILED   C  test_ndt_ovs_topo_script.sh's last line scores non-zero (it is 'the verbs are wired to what was tested')
+             expected: nonzero
+             actual:   zero
+  ok       C  test_ndt_round_baseline.sh's last line scores non-zero (it is 'Ran 9 checks, 0 failed')
+  ok       C  test_ndt_sample_rate_reads_both_bounds.sh's last line scores non-zero (it is 'Ran 9 checks, 0 failed')
+  FAILED   C  test_ndt_status_check_baseline.sh's last line scores non-zero (it is '$p')
+             expected: nonzero
+             actual:   zero
+  ok       C  test_ndt_status_residue_row.sh's last line scores non-zero (it is 'Ran 9 checks, 0 failed')
+  ok       C  test_ndt_sudo_surface.sh's last line scores non-zero (it is 'Ran 9 checks, 0 failed')
+  FAILED   C  test_ndt_up_down_robust.sh's last line scores non-zero (it is 'MARKER=$([[ -f ')
+             expected: nonzero
+             actual:   zero
+  FAILED   C  test_ndt_up_target.sh's last line scores non-zero (it is 'resolve_up_target is not defined after sourcing $NDT')
+             expected: nonzero
+             actual:   zero
+  ok       C  test_ndtwin_lab_config.sh's last line scores non-zero (it is 'Ran 9 checks, all passed')
+  ok       C  test_ndtwin_lab_sweep.sh's last line scores non-zero (it is 'Ran 9 checks, all passed')
+  FAILED   C  test_orphans_verdict.sh ends in an echo this test can read
+             expected: found
+             actual:   not found
+  ok       C  test_ovs4_sflow_verify.sh's last line scores non-zero (it is 'Ran 9 checks, 0 failed')
+  ok       C  test_p4_coverage_gate.sh's last line scores non-zero (it is 'Ran 9 checks, all passed')
+  ok       C  test_ports_that_block_restart.sh's last line scores non-zero (it is 'Ran 9 checks, 0 failed')
+  ok       C  test_preflight_instrument_self_failures.sh's last line scores non-zero (it is 'Ran 9 checks, 0 failed')
+  ok       C  test_qdisc_snapshot.sh's last line scores non-zero (it is 'Ran 9 checks, all passed')
+  ok       C  test_readme_mentions_mnexec.sh's last line scores non-zero (it is 'Ran 9 checks, 0 failed')
+  ok       C  test_redirection_order.sh's last line scores non-zero (it is 'Ran 9 checks, 0 failed')
+  ok       C  test_run_layers_asks_kernel.sh's last line scores non-zero (it is 'Ran 1 checks, 1 failed')
+  ok       C  test_run_layers_topology_from_fabric.sh's last line scores non-zero (it is 'Ran 1 checks, 1 failed')
+  ok       C  test_slim_client_json.sh's last line scores non-zero (it is 'Ran 9 checks, all passed')
+  ok       C  test_stack_await_convergence.sh's last line scores non-zero (it is 'Ran 9 checks, 0 failed')
+  FAILED   C  test_stack_log_rotation.sh ends in an echo this test can read
+             expected: found
+             actual:   not found
+  ok       C  test_start_bg_log_rotation.sh's last line scores non-zero (it is 'Ran 9 checks, all passed')
+  FAILED   C  test_stop_one_targets_its_argument.sh's last line scores non-zero (it is '  (stack.sh under test: $STACK)')
+             expected: nonzero
+             actual:   zero
+  ok       C  test_supervise_exit_status.sh's last line scores non-zero (it is 'Ran 9 checks, all passed')
+  ok       C  test_topk_no_recursive_shared_lock.sh's last line scores non-zero (it is 'Ran 9 checks, all passed')
+  ok       C  test_up_ovs_wedge_guard.sh's last line scores non-zero (it is 'Ran 9 checks, all passed')
+  ok       C  test_wait_for_port.sh's last line scores non-zero (it is 'Ran 9 checks, all passed')
+
+Ran 91 checks, 12 failed

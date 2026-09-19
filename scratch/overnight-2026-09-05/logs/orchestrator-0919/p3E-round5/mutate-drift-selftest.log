@@ -1,0 +1,42 @@
+### mutation gate --self-test: the two paths on which it REFUSES a verdict
+# tree:    /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919
+# head:    5e62459932c357e2a2722e116bf14a47c20e7781
+# when:    2026-09-19 09:49:46 UTC
+# (a) an anchor that matches nothing => DRIFT, never SURVIVED
+# (b) a mutation whose required cells are only partly red => SURVIVED, never caught
+# expected: drifted: 1, REFUSING A VERDICT, a single ### rc=2, and NO ### rc=0
+###
+### mutation gate -- doc/audit/2026-09-19_telemetry-three-groups
+# tree:        /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups
+# head:        5e62459932c357e2a2722e116bf14a47c20e7781
+# when:        2026-09-19 09:51:28 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/p4_proxy/venv/bin/python
+###
+self-test (a): a mutation whose anchor cannot be found
+Traceback (most recent call last):
+  File "<stdin>", line 5, in <module>
+AssertionError: anchor is not unique (0 hits): MEDIAN_OVER_SD = 0.674   ### no such line exists
+  🔴 DRIFT  ST-1: an anchor that matches nothing                                     (its anchor no longer matches -- NO mutation was made,
+                                                                                             so this is not a verdict about the tests)
+
+self-test (b): two required cells, only ONE of which can go red
+  SURVIVED ST-2: one cell red, one cell that cannot be                             
+             still green:   a cell name that does not exist in the suite
+               FAIL  🔴 a generation whose status --check said rc 1 does NOT end in PASS
+               FAIL    the failure names the generation and the rc
+               FAIL    and it says the arms of that generation ran under it
+               FAIL    the fixture is the shape that broke it (argv is a string)
+               FAIL  🔴 the binary is found in a string argv
+               FAIL    and all ten switches give a pid and a device id
+             passed: 63   failed: 6
+
+--- self-test expectations
+  ok    (a) an unmatchable anchor was reported as DRIFT, not as a survivor
+  ok    (b) a partially-red mutation was reported SURVIVED, not caught
+
+mutations: 1   survivors: 1   drifted: 1
+🔴 REFUSING A VERDICT: 1 mutation(s) could not be applied at all. Fix their
+   anchors and run this again -- a gate that did not mutate has not tested anything.
+   (this is the self-test: both refusal paths fired, which is the pass condition)
+
+### rc=2

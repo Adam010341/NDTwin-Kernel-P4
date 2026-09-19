@@ -1,0 +1,29 @@
+### tree 80c97464  start 03:53:30
+### p4_proxy_tests
+[TopologyManager] Refusing delete for DPID 1: neither table can honour ['dl_dst']
+<sys>:0: ResourceWarning: unclosed <socket.socket fd=3, family=2, type=2, proto=0, laddr=('0.0.0.0', 0)>
+rc=0
+### mutate_link_telemetry
+baseline byte-identical: yes (4 sources, 4 test files)
+mutation gate: 22 mutations, 0 survived
+rc=0
+### mutate_app_package
+baseline byte-identical: yes (10 sources, 7 test files)
+mutation gate: 48 mutations, 0 survived
+rc=0
+### test_topo_from_json
+
+PASS -- derived wiring is identical to the hard-coded lists
+rc=0
+### check_gate_anchors
+
+111/111 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+rc=0
+### check_process_by_name
+check_process_by_name: 2 registered audit exceptions scanned (7 file(s) under them); doc/audit/** is not a scan surface otherwise
+check_process_by_name: 303 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale
+rc=0
+### check_test_tmpdirs
+check_test_tmpdirs: 336 file(s) scanned, 0 fixed temp paths
+rc=0
+### done 03:56:26

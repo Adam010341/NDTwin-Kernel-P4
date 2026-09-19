@@ -1,0 +1,212 @@
+baseline (must be green before any mutation):
+  Ran 134 checks, 0 failed
+
+  caught   M1: an empty expected set is accepted                    (3 named check(s) went red)
+             red: 🔴 an EMPTY expected set is refused, not satisfied
+             red: 🔴 and it refuses WITHOUT reading the graph at all
+             red: 🔴 a controller that programmed nothing fails the step
+             also red: 🔴 an EMPTY expected set is refused, not satisfied
+             also red:   saying why an empty-to-empty match proves nothing
+             also red: 🔴 and it refuses WITHOUT reading the graph at all
+             also red:   the file records the refusal too
+             also red: 🔴 a controller that programmed nothing fails the step
+  caught   M2 (widening): any non-empty up set counts as a match    (2 named check(s) went red)
+             red: 🔴 a THIRD switch reported up is not a match
+             red:   s3 up while 1,2 were expected is not a match
+             also red: 🔴 a THIRD switch reported up is not a match
+             also red:   and the failure says what it saw
+             also red:   with the last reading in it
+             also red:   the file keeps both sides
+             also red:   s3 up while 1,2 were expected is not a match
+  caught   M3: giving up is reported as agreement                   (2 named check(s) went red)
+             red: 🔴 a set that never arrives is a failure
+             red: 🔴 a THIRD switch reported up is not a match
+             also red: 🔴 a THIRD switch reported up is not a match
+             also red: 🔴 a set that never arrives is a failure
+             also red:   s3 up while 1,2 were expected is not a match
+  caught   M4: s10 is parsed as dpid 1                              (1 named check(s) went red)
+             red: 🔴 s10 is dpid 10, not dpid 1
+             also red: 🔴 s10 is dpid 10, not dpid 1
+  caught   M5: the wait is one look (the instrument)                (2 named check(s) went red)
+             red: 🔴 it waits until the up set becomes the expected one
+             red:   which took three polls, not one
+             also red: 🔴 it waits until the up set becomes the expected one
+             also red:   which took three polls, not one
+             also red:   and it says how long it took
+             also red:   after polling for the whole timeout (+1 for the capture)
+             also red: 🔴 end to end: log -> expectation -> twin agrees
+  caught   M6: a graph with no switches reads as an empty up set    (1 named check(s) went red)
+             red: 🔴 a graph with no switches in it is rc 1 too
+             also red: 🔴 a graph with no switches in it is rc 1 too
+  caught   M7 (widening): the expected set only has to be a subset  (1 named check(s) went red)
+             red: 🔴 a THIRD switch reported up is not a match
+             also red: 🔴 a THIRD switch reported up is not a match
+             also red:   and the failure says what it saw
+             also red:   with the last reading in it
+             also red:   the file keeps both sides
+  caught   M8: the probe universe is hardcoded again                (2 named check(s) went red)
+             red: 🔴 the fourth switch of a four-switch package IS checked
+             red:   and it is the one named
+             also red: 🔴 the fourth switch of a four-switch package IS checked
+             also red:   and it is the one named
+             also red: 🔴 an unreadable model is refused, not assumed
+             also red:   saying there is no universe to check against
+  caught   M9: the switches nobody programmed are not checked       (2 named check(s) went red)
+             red: 🔴 a switch answering that nobody programmed is red
+             red: 🔴 the fourth switch of a four-switch package IS checked
+             also red: 🔴 a switch answering that nobody programmed is red
+             also red:   naming it too
+             also red: 🔴 the fourth switch of a four-switch package IS checked
+             also red:   and it is the one named
+  caught   M10: an empty expected set is accepted by the probe half (2 named check(s) went red)
+             red:   for the same reason
+             red: 🔴 and it refuses without reading a single probe
+             also red:   for the same reason
+             also red: 🔴 and it refuses without reading a single probe
+  caught   M11: an unreadable model checks nothing and passes       (2 named check(s) went red)
+             red: 🔴 an unreadable model is refused, not assumed
+             red:   saying there is no universe to check against
+             also red: 🔴 an unreadable model is refused, not assumed
+             also red:   saying there is no universe to check against
+  control  C1: a comment beside the refusal                         (stayed green, as it must)
+  control  C2: the parameters unpacked one per line                 (stayed green, as it must)
+  caught   M12: every interface with a byte on it is on the path    (1 named check(s) went red)
+             red: 🔴 only the interfaces that moved bytes are on the path
+             also red: 🔴 only the interfaces that moved bytes are on the path
+             also red:   and the 340 B interface is not listed at all
+             also red:   nor the 170 B ones
+  caught   M13 (M-D5): links OFF the path are not checked at all    (2 named check(s) went red)
+             red: 🔴 an inter-switch link off the path carrying the FLOW is red
+             red:   naming it, the bits and the floor
+             also red: 🔴 an inter-switch link off the path carrying the FLOW is red
+             also red:   naming it, the bits and the floor
+             also red: 🔴 and 100 kbit off the path is red against it
+             also red:   naming the floor the smallest on-path edge set
+             also red: 🔴 and in a quiet window the floor is the absolute 5 kbit
+             also red:   naming that floor
+             also red: 🔴 and one over it is red
+             also red:   naming the floor it passed
+  caught   M14: an unmodelled on-path link is skipped instead of red (2 named check(s) went red)
+             red: 🔴 an on-path interface with NO twin edge is red
+             red:   and says the link is not modelled
+             also red: 🔴 an on-path interface with NO twin edge is red
+             also red:   and says the link is not modelled
+  caught   M15: an EMPTY on-path set passes the cell                (2 named check(s) went red)
+             red:   saying why
+             red: 🔴 and it refuses WITHOUT judging a single edge
+             also red:   saying why
+             also red: 🔴 and it refuses WITHOUT judging a single edge
+  caught   M16 (M-D6): the positive control accepts a twin that still reports (2 named check(s) went red)
+             red: 🔴 telemetry off and the twin still reporting is RED
+             red:   because the cell above would then prove nothing
+             also red: 🔴 telemetry off and the twin still reporting is RED
+             also red:   because the cell above would then prove nothing
+  caught   M17 (widening): the off-path floor becomes the whole flow (2 named check(s) went red)
+             red: 🔴 an inter-switch link off the path carrying the FLOW is red
+             red:   naming it, the bits and the floor
+             also red:   the floor with a 16 kbit smallest on-path integral
+             also red: 🔴 and with a real 16 Mbit flow it is 2% of it, not 5 kbit
+             also red:   and the floor it was judged against is in the raw
+             also red: 🔴 an inter-switch link off the path carrying the FLOW is red
+             also red:   naming it, the bits and the floor
+             also red:   the floor follows the SMALLEST on-path integral
+             also red: 🔴 and 100 kbit off the path is red against it
+             also red:   naming the floor the smallest on-path edge set
+             also red: 🔴 and in a quiet window the floor is the absolute 5 kbit
+             also red:   naming that floor
+             also red: 🔴 and one over it is red
+             also red:   naming the floor it passed
+  caught   M18: a graph that never answered reads as an empty integral (2 named check(s) went red)
+             red: 🔴 a graph that never answered is rc 1, not an empty integral
+             red:   saying there is no twin reading for the window
+             also red: 🔴 a graph that never answered is rc 1, not an empty integral
+             also red:   saying there is no twin reading for the window
+  caught   M19: the host->switch direction gets an sN-ethP key      (1 named check(s) went red)
+             red: 🔴 the host->switch direction has no sN-ethP to be
+             also red: 🔴 the host->switch direction has no sN-ethP to be
+  caught   M20: host-facing edges are classified as inter-switch    (1 named check(s) went red)
+             red:   a host-facing edge integrates its rate over the window
+             also red:   a host-facing edge integrates its rate over the window
+  caught   M21: an interface seen once is measured from zero        (1 named check(s) went red)
+             red:   and it is not on the path
+             also red:   and it is not on the path
+  caught   M22: the caller's destination host is ignored            (1 named check(s) went red)
+             red:   a named destination is the one the flow runs to
+             also red:   a named destination is the one the flow runs to
+             also red: 🔴 a destination the model does not declare is refused
+             also red:   rather than silently falling back to another host
+  caught   M23: an unknown destination falls back to the last host  (2 named check(s) went red)
+             red: 🔴 a destination the model does not declare is refused
+             red:   rather than silently falling back to another host
+             also red: 🔴 a destination the model does not declare is refused
+             also red:   rather than silently falling back to another host
+  caught   M24: the floor loses its relative term                   (2 named check(s) went red)
+             red: 🔴 and with a real 16 Mbit flow it is 2% of it, not 5 kbit
+             red: 🔴 one sampled LLDP beacon off the path is NOT a failure
+             also red: 🔴 and with a real 16 Mbit flow it is 2% of it, not 5 kbit
+             also red: 🔴 one sampled LLDP beacon off the path is NOT a failure
+             also red:   and the floor it was judged against is in the raw
+             also red:   naming it, the bits and the floor
+             also red:   the floor follows the SMALLEST on-path integral
+             also red:   naming the floor the smallest on-path edge set
+  caught   M25: the floor loses its absolute term                   (2 named check(s) went red)
+             red:   the floor with a 16 kbit smallest on-path integral
+             red:   naming that floor
+             also red:   usage on the path and nothing off it is green
+             also red:   and it says so
+             also red:   the floor with a 16 kbit smallest on-path integral
+             also red:   naming that floor
+             also red:   a host-facing edge under the floor is fine
+             also red:   naming the floor it passed
+  caught   M26: the floor is taken from the largest on-path integral (2 named check(s) went red)
+             red:   the floor follows the SMALLEST on-path integral
+             red: 🔴 and 100 kbit off the path is red against it
+             also red:   the floor follows the SMALLEST on-path integral
+             also red: 🔴 and 100 kbit off the path is red against it
+             also red:   naming the floor the smallest on-path edge set
+  caught   M27: the off-path edges' raw integrals are not recorded  (1 named check(s) went red)
+             red:   with the edge's own integral beside it
+             also red:   with the edge's own integral beside it
+  caught   M28: the floor the verdict used is not in the raw        (1 named check(s) went red)
+             red:   and the floor it was judged against is in the raw
+             also red:   and the floor it was judged against is in the raw
+  caught   M29: finish() runs under set -e again                    (2 named check(s) went red)
+             red: 🔴 'ndt release' still ran -- the lab is not left claimed
+             red: 🔴 and the LAST line is the verdict, as the README promises
+             also red:   the 'ndt down rc=' line is printed
+             also red: 🔴 its rc is folded into the verdict
+             also red:   the raw path is printed
+             also red: 🔴 and the LAST line is the verdict, as the README promises
+             also red: 🔴 'ndt release' still ran -- the lab is not left claimed
+  caught   M30: a non-zero 'ndt down' is not folded into the verdict (1 named check(s) went red)
+             red: 🔴 its rc is folded into the verdict
+             also red: 🔴 a failing 'ndt down' still produces a verdict
+             also red: 🔴 its rc is folded into the verdict
+  caught   M31: every interface over the byte threshold is primary again (2 named check(s) went red)
+             red: 🔴 s1-eth4 is MINOR, not primary
+             red: 🔴 the real qos/solution reading PASSES
+             also red: 🔴 only the interfaces that moved bytes are on the path
+             also red:   and onpath_primary gives the old one-name shape
+             also red:   a threshold of 1 byte puts the noise on the path too
+             also red: 🔴 s1-eth4 is MINOR, not primary
+             also red: 🔴 s3-eth1 is MINOR, not primary
+             also red: 🔴 the real qos/solution reading PASSES
+             also red: 🔴 the minor rows are printed, not asserted
+             also red: 🔴 with the expected sample count beside them
+             also red:   and said to be NOT asserted
+  caught   M32 (widening): the share is so high nothing is primary  (2 named check(s) went red)
+             red: 🔴 s1-eth3 is PRIMARY
+             red: 🔴 s2-eth1 is PRIMARY
+             also red: 🔴 only the interfaces that moved bytes are on the path
+             also red:   and onpath_primary gives the old one-name shape
+             also red:   a threshold of 1 byte puts the noise on the path too
+             also red: 🔴 s1-eth3 is PRIMARY
+             also red: 🔴 s2-eth1 is PRIMARY
+             also red:   the two primaries are asserted and named
+             also red: 🔴 a PRIMARY interface with a zero integral is still red
+             also red:   naming it as primary, with its byte count
+  control  C3: a comment above the cell's verdict                   (stayed green, as it must)
+  control  C4: the cell's locals declared on two lines              (stayed green, as it must)
+
+baseline byte-identical: yes  live-p1/_common.sh  sha256 25972c2987aae9be00f0799b8af121487c3bb967c4b3990b8e3344c9836cf2a3
+mutation gate: 32 mutations, 0 survived; 4 control(s), 0 went red

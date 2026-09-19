@@ -1,0 +1,58 @@
+### RED RUN (2) -- ruling 32(2): figure 3 end labels under the pre-fix rule
+# head:        f51ee88f
+# when:        2026-09-19 13:32:33 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# (2a) plot.py verbatim from e0549840 (3a4ec0646d93): the rule lived INLINE in _line_panels, so
+#      there is no function for the case to call and it can only ERROR.
+# (2b) the pre-fix rule transplanted into the new function (ae195f193a3b) -- the same substitution
+#      M-E30 makes. THIS is the behavioural red: old arithmetic, real values, named assert.
+###
+
+--- (2a)
+test_ends_that_are_far_apart_on_the_display_are_not_moved_at_all (test_plot.Figure3EndLabelTest.test_ends_that_are_far_apart_on_the_display_are_not_moved_at_all) ... ERROR
+test_three_ends_within_a_label_height_get_three_different_offsets (test_plot.Figure3EndLabelTest.test_three_ends_within_a_label_height_get_three_different_offsets) ... ERROR
+
+======================================================================
+ERROR: test_ends_that_are_far_apart_on_the_display_are_not_moved_at_all (test_plot.Figure3EndLabelTest.test_ends_that_are_far_apart_on_the_display_are_not_moved_at_all)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/red2a/tests/test_plot.py", line 196, in test_ends_that_are_far_apart_on_the_display_are_not_moved_at_all
+    placed = plot.end_label_offsets(ends, (2.1997066910093843, 50.045406725202014), 216.0)
+             ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'plot' has no attribute 'end_label_offsets'
+
+======================================================================
+ERROR: test_three_ends_within_a_label_height_get_three_different_offsets (test_plot.Figure3EndLabelTest.test_three_ends_within_a_label_height_get_three_different_offsets)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/red2a/tests/test_plot.py", line 178, in test_three_ends_within_a_label_height_get_three_different_offsets
+    placed = plot.end_label_offsets(self.ends(), (self.PANEL_LOW, self.COOP_110),
+             ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'plot' has no attribute 'end_label_offsets'
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.002s
+
+FAILED (errors=2)
+### rc=1
+
+--- (2b)
+test_ends_that_are_far_apart_on_the_display_are_not_moved_at_all (test_plot.Figure3EndLabelTest.test_ends_that_are_far_apart_on_the_display_are_not_moved_at_all) ... ok
+test_three_ends_within_a_label_height_get_three_different_offsets (test_plot.Figure3EndLabelTest.test_three_ends_within_a_label_height_get_three_different_offsets) ... FAIL
+
+======================================================================
+FAIL: test_three_ends_within_a_label_height_get_three_different_offsets (test_plot.Figure3EndLabelTest.test_three_ends_within_a_label_height_get_three_different_offsets)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/red2b/tests/test_plot.py", line 182, in test_three_ends_within_a_label_height_get_three_different_offsets
+    self.assertEqual(len(offsets), 3,
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+                     "height %.0f pt: offsets %s" % (height_points, offsets))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 2 != 3 : height 160 pt: offsets {0.0, 9.0}
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.001s
+
+FAILED (failures=1)
+### rc=1

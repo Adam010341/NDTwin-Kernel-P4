@@ -1,0 +1,168 @@
+Running main() from /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-kernel-0919/build/_deps/googletest-src/googletest/src/gtest_main.cc
+Note: Google Test filter = FlowKeyFamiliesTest.*:LastHopAttributionTest.*:GoldenFixture*:*Roundtrip*:SFlowParsing*
+[==========] Running 73 tests from 5 test suites.
+[----------] Global test environment set-up.
+[----------] 23 tests from SFlowParsingFixture
+[ RUN      ] SFlowParsingFixture.RejectsNullBuffer
+[       OK ] SFlowParsingFixture.RejectsNullBuffer (0 ms)
+[ RUN      ] SFlowParsingFixture.RejectsDatagramShorterThanTheHeader
+[       OK ] SFlowParsingFixture.RejectsDatagramShorterThanTheHeader (0 ms)
+[ RUN      ] SFlowParsingFixture.RejectsUnalignedLength
+[       OK ] SFlowParsingFixture.RejectsUnalignedLength (0 ms)
+[ RUN      ] SFlowParsingFixture.ExtractsFlowsWhenTheVersionIsFive
+[       OK ] SFlowParsingFixture.ExtractsFlowsWhenTheVersionIsFive (21 ms)
+[ RUN      ] SFlowParsingFixture.IgnoresUnsupportedVersion
+[       OK ] SFlowParsingFixture.IgnoresUnsupportedVersion (0 ms)
+[ RUN      ] SFlowParsingFixture.HandlesHeaderThatPromisesASampleWithNoBodyAtAll
+[       OK ] SFlowParsingFixture.HandlesHeaderThatPromisesASampleWithNoBodyAtAll (0 ms)
+[ RUN      ] SFlowParsingFixture.HandlesEveryTruncationOfACounterSample
+[       OK ] SFlowParsingFixture.HandlesEveryTruncationOfACounterSample (0 ms)
+[ RUN      ] SFlowParsingFixture.HandlesEveryTruncationOfAFlowSample
+[       OK ] SFlowParsingFixture.HandlesEveryTruncationOfAFlowSample (20 ms)
+[ RUN      ] SFlowParsingFixture.RejectsAnImpossibleSampleCount
+[       OK ] SFlowParsingFixture.RejectsAnImpossibleSampleCount (0 ms)
+[ RUN      ] SFlowParsingFixture.TerminatesWhenSampleLengthIsZero
+[       OK ] SFlowParsingFixture.TerminatesWhenSampleLengthIsZero (19 ms)
+[ RUN      ] SFlowParsingFixture.TerminatesWhenFlowDataLengthExceedsSampleLength
+[       OK ] SFlowParsingFixture.TerminatesWhenFlowDataLengthExceedsSampleLength (0 ms)
+[ RUN      ] SFlowParsingFixture.HandlesSampleLengthLargerThanTheDatagram
+[       OK ] SFlowParsingFixture.HandlesSampleLengthLargerThanTheDatagram (0 ms)
+[ RUN      ] SFlowParsingFixture.HandlesUnknownSampleTypes
+[       OK ] SFlowParsingFixture.HandlesUnknownSampleTypes (0 ms)
+[ RUN      ] SFlowParsingFixture.HandlesManySamplesWithinOneDatagram
+[       OK ] SFlowParsingFixture.HandlesManySamplesWithinOneDatagram (0 ms)
+[ RUN      ] SFlowParsingFixture.HandlesNonIpv4EtherType
+[       OK ] SFlowParsingFixture.HandlesNonIpv4EtherType (19 ms)
+[ RUN      ] SFlowParsingFixture.SurvivesStructuredGarbage
+[       OK ] SFlowParsingFixture.SurvivesStructuredGarbage (2 ms)
+[ RUN      ] SFlowParsingFixture.SurvivesTruncationSweepOverGarbage
+[       OK ] SFlowParsingFixture.SurvivesTruncationSweepOverGarbage (0 ms)
+[ RUN      ] SFlowParsingFixture.CountsEveryMalformedDatagramEvenThoughLoggingIsRateLimited
+[       OK ] SFlowParsingFixture.CountsEveryMalformedDatagramEvenThoughLoggingIsRateLimited (0 ms)
+[ RUN      ] SFlowParsingFixture.HandlesEveryTruncationOfAnIpv6ExtensionHeaderChain
+[       OK ] SFlowParsingFixture.HandlesEveryTruncationOfAnIpv6ExtensionHeaderChain (462 ms)
+[ RUN      ] SFlowParsingFixture.AFullIpv6ExtensionChainResolvesToTheUpperLayerPorts
+[       OK ] SFlowParsingFixture.AFullIpv6ExtensionChainResolvesToTheUpperLayerPorts (20 ms)
+[ RUN      ] SFlowParsingFixture.AnOpaqueIpv6ExtensionHeaderFallsBackToTheL2Identity
+[       OK ] SFlowParsingFixture.AnOpaqueIpv6ExtensionHeaderFallsBackToTheL2Identity (21 ms)
+[ RUN      ] SFlowParsingFixture.AChainCutOffInsideTheCapturedHeaderDoesNotInventPorts
+[       OK ] SFlowParsingFixture.AChainCutOffInsideTheCapturedHeaderDoesNotInventPorts (19 ms)
+[ RUN      ] SFlowParsingFixture.AChainWithinTheBoundResolvesAndOneBeyondItDoesNot
+[       OK ] SFlowParsingFixture.AChainWithinTheBoundResolvesAndOneBeyondItDoesNot (41 ms)
+[----------] 23 tests from SFlowParsingFixture (650 ms total)
+
+[----------] 7 tests from GoldenFixtureTest
+[ RUN      ] GoldenFixtureTest.TheFixtureSetIsCapturedTrafficOnly
+[       OK ] GoldenFixtureTest.TheFixtureSetIsCapturedTrafficOnly (3 ms)
+[ RUN      ] GoldenFixtureTest.FixturesArePresentAndWellFormed
+[       OK ] GoldenFixtureTest.FixturesArePresentAndWellFormed (3 ms)
+[ RUN      ] GoldenFixtureTest.ParsesRealOvsDatagramsIntoFlows
+[       OK ] GoldenFixtureTest.ParsesRealOvsDatagramsIntoFlows (24 ms)
+[ RUN      ] GoldenFixtureTest.ExtractsTheCapturedIperfFlowExactly
+[       OK ] GoldenFixtureTest.ExtractsTheCapturedIperfFlowExactly (25 ms)
+[ RUN      ] GoldenFixtureTest.ExtractsAllThreeProtocolPathsFromRealTraffic
+[       OK ] GoldenFixtureTest.ExtractsAllThreeProtocolPathsFromRealTraffic (24 ms)
+[ RUN      ] GoldenFixtureTest.IgnoresNonIpv4Frames
+[       OK ] GoldenFixtureTest.IgnoresNonIpv4Frames (24 ms)
+[ RUN      ] GoldenFixtureTest.RequiresExtendedSwitchRecordBeforeTheRawHeader
+[       OK ] GoldenFixtureTest.RequiresExtendedSwitchRecordBeforeTheRawHeader (3 ms)
+[----------] 7 tests from GoldenFixtureTest (109 ms total)
+
+[----------] 9 tests from EmitterRoundtripTest
+[ RUN      ] EmitterRoundtripTest.ParsesEmittedTcpSampleIntoTheExactFiveTuple
+[       OK ] EmitterRoundtripTest.ParsesEmittedTcpSampleIntoTheExactFiveTuple (19 ms)
+[ RUN      ] EmitterRoundtripTest.ParsesEmittedUdpSample
+[       OK ] EmitterRoundtripTest.ParsesEmittedUdpSample (20 ms)
+[ RUN      ] EmitterRoundtripTest.ParsesEmittedIcmpSampleWithTypeAndCodeInThePortFields
+[       OK ] EmitterRoundtripTest.ParsesEmittedIcmpSampleWithTypeAndCodeInThePortFields (21 ms)
+[ RUN      ] EmitterRoundtripTest.ParsesIcmpWithBothTypeAndCodeNonZero
+[       OK ] EmitterRoundtripTest.ParsesIcmpWithBothTypeAndCodeNonZero (22 ms)
+[ RUN      ] EmitterRoundtripTest.IgnoresEmittedArpWithoutInventingAFlow
+[       OK ] EmitterRoundtripTest.IgnoresEmittedArpWithoutInventingAFlow (21 ms)
+[ RUN      ] EmitterRoundtripTest.ParsesATruncatedFrameAndReportsTheOriginalLength
+[       OK ] EmitterRoundtripTest.ParsesATruncatedFrameAndReportsTheOriginalLength (19 ms)
+[ RUN      ] EmitterRoundtripTest.WalksEverySampleInAMultiSampleDatagram
+[       OK ] EmitterRoundtripTest.WalksEverySampleInAMultiSampleDatagram (20 ms)
+[ RUN      ] EmitterRoundtripTest.BatchedSamplesBankEverySampleBytes
+[       OK ] EmitterRoundtripTest.BatchedSamplesBankEverySampleBytes (82 ms)
+[ RUN      ] EmitterRoundtripTest.EmittedAndCapturedDatagramsAgreeOnStructure
+[       OK ] EmitterRoundtripTest.EmittedAndCapturedDatagramsAgreeOnStructure (19 ms)
+[----------] 9 tests from EmitterRoundtripTest (248 ms total)
+
+[----------] 26 tests from FlowKeyFamiliesTest
+[ RUN      ] FlowKeyFamiliesTest.Ipv4KeyHashIsBitIdenticalToThePreFamilyExpression
+[       OK ] FlowKeyFamiliesTest.Ipv4KeyHashIsBitIdenticalToThePreFamilyExpression (3 ms)
+[ RUN      ] FlowKeyFamiliesTest.TwoL2KeysDifferingOnlyInTheirMacsHashDifferently
+[       OK ] FlowKeyFamiliesTest.TwoL2KeysDifferingOnlyInTheirMacsHashDifferently (0 ms)
+[ RUN      ] FlowKeyFamiliesTest.OrderingAmongIpv4KeysStillFollowsTheFiveTuple
+[       OK ] FlowKeyFamiliesTest.OrderingAmongIpv4KeysStillFollowsTheFiveTuple (0 ms)
+[ RUN      ] FlowKeyFamiliesTest.AnIpv4SampleIsStillAnIpv4FlowWithTheSameFiveTuple
+[       OK ] FlowKeyFamiliesTest.AnIpv4SampleIsStillAnIpv4FlowWithTheSameFiveTuple (1 ms)
+[ RUN      ] FlowKeyFamiliesTest.AnArpSampleBanksItsLinkBytesAndIsObservedAsL2
+[       OK ] FlowKeyFamiliesTest.AnArpSampleBanksItsLinkBytesAndIsObservedAsL2 (0 ms)
+[ RUN      ] FlowKeyFamiliesTest.ACustomEtherTypeSampleBanksItsLinkBytesAndIsObservedAsL2
+[       OK ] FlowKeyFamiliesTest.ACustomEtherTypeSampleBanksItsLinkBytesAndIsObservedAsL2 (0 ms)
+[ RUN      ] FlowKeyFamiliesTest.AnIpv6UdpSampleIsObservedWithItsAddressesAndPorts
+[       OK ] FlowKeyFamiliesTest.AnIpv6UdpSampleIsObservedWithItsAddressesAndPorts (0 ms)
+[ RUN      ] FlowKeyFamiliesTest.Ipv4OptionsMoveThePortsAndTheParserFollowsThem
+[       OK ] FlowKeyFamiliesTest.Ipv4OptionsMoveThePortsAndTheParserFollowsThem (0 ms)
+[ RUN      ] FlowKeyFamiliesTest.AVlanTaggedIpv4SampleIsIdentifiedAsIpv4AfterOneTagIsStripped
+[       OK ] FlowKeyFamiliesTest.AVlanTaggedIpv4SampleIsIdentifiedAsIpv4AfterOneTagIsStripped (0 ms)
+[ RUN      ] FlowKeyFamiliesTest.AnIhlBelowFiveIsCountedAndRecordedAsNoFlowButStillBanksItsBytes
+[       OK ] FlowKeyFamiliesTest.AnIhlBelowFiveIsCountedAndRecordedAsNoFlowButStillBanksItsBytes (0 ms)
+[ RUN      ] FlowKeyFamiliesTest.AnEgressOnlySampleCreditsTheEgressBankAndOnlyThat
+[       OK ] FlowKeyFamiliesTest.AnEgressOnlySampleCreditsTheEgressBankAndOnlyThat (0 ms)
+[ RUN      ] FlowKeyFamiliesTest.TheTwoHalvesOfADualPortSampleAreTheTwoOneSidedSamples
+[       OK ] FlowKeyFamiliesTest.TheTwoHalvesOfADualPortSampleAreTheTwoOneSidedSamples (1 ms)
+[ RUN      ] FlowKeyFamiliesTest.TheStatsObjectCarriesEveryFamilyAndTheNonIpv4Identities
+[       OK ] FlowKeyFamiliesTest.TheStatsObjectCarriesEveryFamilyAndTheNonIpv4Identities (0 ms)
+[ RUN      ] FlowKeyFamiliesTest.RepeatedFramesOfOneIdentityAccumulateOnOneRow
+[       OK ] FlowKeyFamiliesTest.RepeatedFramesOfOneIdentityAccumulateOnOneRow (0 ms)
+[ RUN      ] FlowKeyFamiliesTest.OneIpv4FlowStaysOneRowWhenTheMacsChangeAtEveryHop
+[       OK ] FlowKeyFamiliesTest.OneIpv4FlowStaysOneRowWhenTheMacsChangeAtEveryHop (0 ms)
+[ RUN      ] FlowKeyFamiliesTest.TheParsersOwnIpv4KeyCarriesNoL2Fields
+[       OK ] FlowKeyFamiliesTest.TheParsersOwnIpv4KeyCarriesNoL2Fields (0 ms)
+[ RUN      ] FlowKeyFamiliesTest.AnIpv6KeyCarriesNoL2FieldsEither
+[       OK ] FlowKeyFamiliesTest.AnIpv6KeyCarriesNoL2FieldsEither (0 ms)
+[ RUN      ] FlowKeyFamiliesTest.ANonFirstFragmentBanksItsBytesAndDoesNotEndTheDatagram
+[       OK ] FlowKeyFamiliesTest.ANonFirstFragmentBanksItsBytesAndDoesNotEndTheDatagram (0 ms)
+[ RUN      ] FlowKeyFamiliesTest.AnHpeSampleIsReadFromWhereTheBranchSaysTheFrameIs
+[       OK ] FlowKeyFamiliesTest.AnHpeSampleIsReadFromWhereTheBranchSaysTheFrameIs (0 ms)
+[ RUN      ] FlowKeyFamiliesTest.TheSideTableEvictsItsOldestIdentityRatherThanRefusingNewOnes
+[       OK ] FlowKeyFamiliesTest.TheSideTableEvictsItsOldestIdentityRatherThanRefusingNewOnes (69 ms)
+[ RUN      ] FlowKeyFamiliesTest.AnArpOnlySwitchCountsAsASwitchThatIsSampling
+[       OK ] FlowKeyFamiliesTest.AnArpOnlySwitchCountsAsASwitchThatIsSampling (0 ms)
+[ RUN      ] FlowKeyFamiliesTest.TheSideTableEvictsTheLeastRecentlySeenIdentityAndAHitCountsAsSeen
+[       OK ] FlowKeyFamiliesTest.TheSideTableEvictsTheLeastRecentlySeenIdentityAndAHitCountsAsSeen (44 ms)
+[ RUN      ] FlowKeyFamiliesTest.AnIcmpv6SampleCarriesItsTypeAndItsWholeCodeInThePortFields
+[       OK ] FlowKeyFamiliesTest.AnIcmpv6SampleCarriesItsTypeAndItsWholeCodeInThePortFields (0 ms)
+[ RUN      ] FlowKeyFamiliesTest.AnIpv4SampleOfAnotherProtocolBanksItsBytesAndIsCountedWithoutBeingAFlow
+[       OK ] FlowKeyFamiliesTest.AnIpv4SampleOfAnotherProtocolBanksItsBytesAndIsCountedWithoutBeingAFlow (0 ms)
+[ RUN      ] FlowKeyFamiliesTest.AnHpeIcmpSampleCarriesTheRealIcmpTypeRatherThanAConstantZero
+[       OK ] FlowKeyFamiliesTest.AnHpeIcmpSampleCarriesTheRealIcmpTypeRatherThanAConstantZero (0 ms)
+[ RUN      ] FlowKeyFamiliesTest.AVlanTaggedIpv6SampleIsIdentifiedAsIpv6AfterOneTagIsStripped
+[       OK ] FlowKeyFamiliesTest.AVlanTaggedIpv6SampleIsIdentifiedAsIpv6AfterOneTagIsStripped (0 ms)
+[----------] 26 tests from FlowKeyFamiliesTest (135 ms total)
+
+[----------] 8 tests from LastHopAttributionTest
+[ RUN      ] LastHopAttributionTest.FindEdgeToHostReturnsTheHostBoundEdgeOnly
+[       OK ] LastHopAttributionTest.FindEdgeToHostReturnsTheHostBoundEdgeOnly (0 ms)
+[ RUN      ] LastHopAttributionTest.TheHostBoundSiteDividesByTheIntervalItWasGiven
+[       OK ] LastHopAttributionTest.TheHostBoundSiteDividesByTheIntervalItWasGiven (0 ms)
+[ RUN      ] LastHopAttributionTest.OneSampleCreditsTheLastHopEdgeWithSampledBytesTimesRate
+[       OK ] LastHopAttributionTest.OneSampleCreditsTheLastHopEdgeWithSampledBytesTimesRate (0 ms)
+[ RUN      ] LastHopAttributionTest.SwitchToSwitchEgressEntriesAreDroppedNotWritten
+[       OK ] LastHopAttributionTest.SwitchToSwitchEgressEntriesAreDroppedNotWritten (0 ms)
+[ RUN      ] LastHopAttributionTest.TheCreditDecaysToZeroWhenTrafficStops
+[       OK ] LastHopAttributionTest.TheCreditDecaysToZeroWhenTrafficStops (0 ms)
+[ RUN      ] LastHopAttributionTest.TwoSamplesInOneSecondAccumulate
+[       OK ] LastHopAttributionTest.TwoSamplesInOneSecondAccumulate (0 ms)
+[ RUN      ] LastHopAttributionTest.AnIngressLessSampleIsBankedOnceAndOnTheEgressSide
+[       OK ] LastHopAttributionTest.AnIngressLessSampleIsBankedOnceAndOnTheEgressSide (0 ms)
+[ RUN      ] LastHopAttributionTest.TheLastHopEdgeJoinsTheFlowSetOnceThePathIsKnown
+[       OK ] LastHopAttributionTest.TheLastHopEdgeJoinsTheFlowSetOnceThePathIsKnown (0 ms)
+[----------] 8 tests from LastHopAttributionTest (4 ms total)
+
+[----------] Global test environment tear-down
+[==========] 73 tests from 5 test suites ran. (1149 ms total)
+[  PASSED  ] 73 tests.

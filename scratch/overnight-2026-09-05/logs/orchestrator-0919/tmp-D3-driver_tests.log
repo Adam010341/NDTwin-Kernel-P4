@@ -1,0 +1,20 @@
+../home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:360: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/fixtures/dryrun_basic_solution.txt' mode='r' encoding='UTF-8'>
+  want = open(os.path.join(FIXTURES, "dryrun_%s_%s.txt" % (ex, which))).read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:360: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/fixtures/dryrun_basic_skeleton.txt' mode='r' encoding='UTF-8'>
+  want = open(os.path.join(FIXTURES, "dryrun_%s_%s.txt" % (ex, which))).read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:360: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/fixtures/dryrun_source_routing_solution.txt' mode='r' encoding='UTF-8'>
+  want = open(os.path.join(FIXTURES, "dryrun_%s_%s.txt" % (ex, which))).read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:360: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/fixtures/dryrun_source_routing_skeleton.txt' mode='r' encoding='UTF-8'>
+  want = open(os.path.join(FIXTURES, "dryrun_%s_%s.txt" % (ex, which))).read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+................................................../home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2181: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py' mode='r' encoding='UTF-8'>
+  src = open(self.mod.__file__ if hasattr(self.mod, "__file__") else DRIVER).read()
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+....................................................................................
+----------------------------------------------------------------------
+Ran 136 tests in 1.214s
+
+OK

@@ -1,0 +1,142 @@
+TICKET-P2 §5 drive_exercise.py mutation gate
+  interpreter : p4_proxy/venv/bin/python
+  subject     : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+  suite       : doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests
+  baseline    : cac1d530ad32446f doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+
+baseline (unmutated) must be green:
+    Ran 124 tests in 0.146s
+    
+    OK
+  ok       baseline green
+
+=== 1. --fabric defaults to ndtwin, so the 09-08 command builds another fabric ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-OCY11f)
+  anchor occurrences: 1
+  ✅ caught by test_the_default_fabric_is_tutorials
+     also red: test_the_flag_is_refused_on_the_tutorials_fabric test_the_tutorials_fabric_still_requires_root test_the_tutorials_harness_is_handed_the_default_programs_json test_the_tutorials_plan_and_sudo_line_are_what_they_printed_on_09_08  
+
+=== 2. the harness is handed the VARIANT's json instead of DEFAULT_PROG's ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-OCY11f)
+  anchor occurrences: 1
+  ✅ caught by test_the_tutorials_harness_is_handed_the_default_programs_json
+     also red:  
+
+=== 3. the companion program is never compiled, so s2-s4 have no json ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-OCY11f)
+  anchor occurrences: 1
+  ✅ caught by test_firewall_builds_its_own_program_and_the_default_one
+     also red: test_a_flowcache_skeleton_that_DOES_compile_is_the_finding test_a_flowcache_skeleton_that_does_not_compile_is_exit_1_and_says_by_design test_an_exercise_with_no_solution_program_is_still_an_error_everywhere_else test_an_unreadable_switch_state_says_so_instead_of_printing_zeros test_a_telemetry_knob_this_round_created_is_removed_again test_ndtwin_mode_refuses_to_run_as_root_and_says_why test_no_flag_means_the_package_decides test_none_of_the_nine_has_a_companion_program_to_build test_p4runtime_compiles_the_same_program_on_both_arms test_the_flag_is_refused_on_the_tutorials_fabric test_the_flowcache_solution_is_not_treated_as_a_red_arm test_the_report_header_carries_the_fabric_and_the_package test_the_report_names_the_bmv2_binary_by_its_sha test_the_summary_names_the_pipeline_sha_and_the_entry_counts test_the_telemetry_knob_is_put_back_by_the_teardown test_the_tutorials_fabric_still_requires_root test_the_word_is_passed_through_when_it_is_given  
+
+=== 4. convert.py is given the variant stem, so every switch gets the wrong default ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-OCY11f)
+  anchor occurrences: 1
+  ✅ caught by test_convert_is_given_the_default_prog_and_not_the_variant
+     also red:  
+
+=== 5. a ping with no summary line reads as 0% loss ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-OCY11f)
+  anchor occurrences: 1
+  ✅ caught by test_a_ping_with_no_summary_line_is_untested_and_not_zero_loss
+     also red: test_an_untested_pair_makes_the_pingall_number_none_rather_than_zero test_one_untested_pair_voids_the_number_even_when_the_others_were_clean  
+
+=== 6. an untested pair is left out of the total instead of voiding it ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-OCY11f)
+  anchor occurrences: 1
+  ✅ caught by test_one_untested_pair_voids_the_number_even_when_the_others_were_clean
+     also red:  
+
+=== 7. the namespace pid is matched anywhere in the argv, not at its tail ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-OCY11f)
+  anchor occurrences: 1
+  ✅ caught by test_the_pid_is_the_tail_field_of_the_process_table
+     also red: test_a_command_enters_the_namespace_through_sudo_mnexec  
+
+=== 8. a host with no namespace comes back as pid 0 instead of a named failure ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-OCY11f)
+  anchor occurrences: 1
+  ✅ caught by test_a_host_with_no_namespace_is_a_named_failure_and_not_zero_loss
+     also red: test_a_compile_failure_anywhere_else_is_still_exit_2 test_a_flowcache_skeleton_that_DOES_compile_is_the_finding test_a_flowcache_skeleton_that_does_not_compile_is_exit_1_and_says_by_design test_an_exercise_with_no_solution_program_is_still_an_error_everywhere_else test_an_unreadable_switch_state_says_so_instead_of_printing_zeros test_a_telemetry_knob_this_round_created_is_removed_again test_ndtwin_mode_refuses_to_run_as_root_and_says_why test_no_flag_means_the_package_decides test_none_of_the_nine_has_a_companion_program_to_build test_p4runtime_compiles_the_same_program_on_both_arms test_the_flag_is_refused_on_the_tutorials_fabric test_the_flowcache_solution_is_not_treated_as_a_red_arm test_the_report_header_carries_the_fabric_and_the_package test_the_report_names_the_bmv2_binary_by_its_sha test_the_summary_names_the_pipeline_sha_and_the_entry_counts test_the_telemetry_knob_is_put_back_by_the_teardown test_the_tutorials_fabric_still_requires_root test_the_word_is_passed_through_when_it_is_given  
+
+=== 9. a FAILED pre-flight goes on to claim the lab and bring the fabric up ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-OCY11f)
+  anchor occurrences: 1
+tests/shell/mutate_drive_exercise.sh: line 777: cannot create temp file for here-document: No space left on device
+  🔴 NOTHING WENT RED -- the mutation survived. That behaviour is untested.
+
+=== 10. the claim is not given back when a step raised ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-OCY11f)
+  anchor occurrences: 1
+tests/shell/mutate_drive_exercise.sh: line 777: cannot create temp file for here-document: No space left on device
+  🔴 NOTHING WENT RED -- the mutation survived. That behaviour is untested.
+
+=== 11. the ndt calls go out with whatever owner the environment had ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-OCY11f)
+  anchor occurrences: 1
+cp: error copying 'doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py' to '/tmp/drive-exercise-mutate-OCY11f/drive_exercise.py': No space left on device
+Traceback (most recent call last):
+  File "<stdin>", line 5, in <module>
+  File "/home/adam/miniconda3/lib/python3.13/pathlib/_local.py", line 555, in write_text
+    return PathBase.write_text(self, data, encoding, errors, newline)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/adam/miniconda3/lib/python3.13/pathlib/_abc.py", line 652, in write_text
+    return f.write(data)
+           ~~~~~~~^^^^^^
+OSError: [Errno 28] No space left on device
+  🔴 mutation could not be applied. NOT a pass.
+
+=== 12. the firewall skeleton arm asserts the flow is BLOCKED (the red arm cannot be red) ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-OCY11f)
+  anchor occurrences: 1
+cp: error copying 'doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py' to '/tmp/drive-exercise-mutate-OCY11f/drive_exercise.py': No space left on device
+Traceback (most recent call last):
+  File "<stdin>", line 4, in <module>
+AssertionError: anchor is not unique at write time
+  🔴 mutation could not be applied. NOT a pass.
+
+=== 13. link_monitor stops checking the port field, the only thing that tells the arms apart ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-OCY11fTraceback (most recent call last):
+  File "<stdin>", line 4, in <module>
+AssertionError: anchor is not unique at write time
+  🔴 mutation could not be applied. NOT a pass.
+
+=== 15. a claim that DECLARES a measurement is treated as a free lab ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-OCY11f)
+  anchor occurrences: 1
+  ✅ caught by test_our_own_claim_that_declares_a_measurement_refuses_too
+     also red: test_a_compile_failure_anywhere_else_is_still_exit_2 test_a_flowcache_skeleton_that_DOES_compile_is_the_finding test_a_flowcache_skeleton_that_does_not_compile_is_exit_1_and_says_by_design test_an_exercise_with_no_solution_program_is_still_an_error_everywhere_else test_an_unreadable_switch_state_says_so_instead_of_printing_zeros test_a_solution_run_names_the_solution_file_it_compiled test_a_telemetry_knob_this_round_created_is_removed_again test_firewall_keeps_the_default_prog_because_that_is_the_file_that_was_built test_ndtwin_mode_refuses_to_run_as_root_and_says_why test_no_flag_means_the_package_decides test_none_of_the_nine_has_a_companion_program_to_build test_p4runtime_compiles_the_same_program_on_both_arms test_the_flag_is_refused_on_the_tutorials_fabric test_the_flowcache_solution_is_not_treated_as_a_red_arm test_the_report_header_carries_the_fabric_and_the_package test_the_report_names_the_bmv2_binary_by_its_sha test_the_summary_names_the_pipeline_sha_and_the_entry_counts test_the_telemetry_knob_is_put_back_by_the_teardown test_the_tutorials_fabric_still_requires_root test_the_word_is_passed_through_when_it_is_given  
+
+=== 16. an unreadable switch_state is rendered as an ordinary (empty) report ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-OCY11f)
+  anchor occurrences: 1
+tests/shell/mutate_drive_exercise.sh: line 777: cannot create temp file for here-document: No space left on device
+  🔴 NOTHING WENT RED -- the mutation survived. That behaviour is untested.
+
+=== 17. the host knob is never put back, so the release is refused ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-OCY11f)
+  anchor occurrences: 1
+tests/shell/mutate_drive_exercise.sh: line 777: cannot create temp file for here-document: No space left on device
+  🔴 NOTHING WENT RED -- the mutation survived. That behaviour is untested.
+
+=== 18. a release that would not take is not reported ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-OCY11f)
+  anchor occurrences: 1
+tests/shell/mutate_drive_exercise.sh: line 777: cannot create temp file for here-document: No space left on device
+  🔴 NOTHING WENT RED -- the mutation survived. That behaviour is untested.
+
+=== 19. the knob is restored as a number instead of as its bytes ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-OCY11f)
+  anchor occurrences: 1
+tests/shell/mutate_drive_exercise.sh: line 777: cannot create temp file for here-document: No space left on device
+  🔴 NOTHING WENT RED -- the mutation survived. That behaviour is untested.
+
+=== 20. the bmv2 binary is named but never hashed ===
+  subject           : doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py  (mutated as a copy in /tmp/drive-exercise-mutate-OCY11f)
+  anchor occurrences: 1
+cp: error copying 'doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py' to '/tmp/drive-exercise-mutate-OCY11f/drive_exercise.py': No space left on device
+Traceback (most recent call last):
+  File "<stdin>", line 5, in <module>
+  File "/home/adam/miniconda3/lib/python3.13/pathlib/_local.py", line 555, in write_text
+    return PathBase.write_text(self, data, encoding, errors, newline)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/adam/m

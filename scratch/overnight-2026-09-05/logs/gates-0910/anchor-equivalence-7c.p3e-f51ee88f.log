@@ -1,0 +1,21 @@
+### is the reproduced pre-fix driver EQUIVALENT to what the old control reproduced?
+# head: f51ee88f
+# when: 2026-09-19 13:30:49 UTC
+# left  = OLD control (test_drive_e_offline.sh @ e0549840) applied to OLD driver (e0549840)
+# right = THIS control applied to the driver at this head
+###
+
+--- the release handling each one ends up with (the whole point of the control)
+
+driver_old.sh:
+        "$NDT" release 2>&1 | sed 's/^/   /' || bad "'ndt release' did not take -- run it by hand"
+    fi
+
+driver_new.sh:
+        "$NDT" release 2>&1 | sed 's/^/   /' || bad "'ndt release' did not take -- run it by hand"
+    fi
+
+--- diff of those two extracts (empty = the same shape is seeded back)
+(no differences)
+
+--- and the guards this round added are still present in the reproduced file: 1

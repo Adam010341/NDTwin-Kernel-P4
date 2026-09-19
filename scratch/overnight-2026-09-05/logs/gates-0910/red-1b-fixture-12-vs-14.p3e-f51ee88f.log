@@ -1,0 +1,52 @@
+### RED RUN (1b) -- what each fixture writes: the old one 12 arm.meta, this one 14
+# head:        f51ee88f
+# when:        2026-09-19 13:32:32 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+###
+old fixture (e0549840)     arm.meta files: 12
+      G1/none_f1024_a/arm.meta
+      G1/none_f64_a/arm.meta
+      G2/cooperative_f1024_a/arm.meta
+      G2/cooperative_f64_a/arm.meta
+      G3/link_f1024_a/arm.meta
+      G3/link_f64_a/arm.meta
+      G4/link_f1024_b/arm.meta
+      G4/link_f64_b/arm.meta
+      G5/cooperative_f1024_b/arm.meta
+      G5/cooperative_f64_b/arm.meta
+      G6/none_f1024_b/arm.meta
+      G6/none_f64_b/arm.meta
+this fixture (f51ee88f)    arm.meta files: 14
+      G1/none_f1024_a/arm.meta
+      G1/none_f64_a/arm.meta
+      G2/cooperative_f1024_a/arm.meta
+      G2/cooperative_f64_a/arm.meta
+      G3/link_f1024_a/arm.meta
+      G3/link_f64_a/arm.meta
+      G4/link_f1024_b/arm.meta
+      G4/link_f64_b/arm.meta
+      G5/cooperative_f1024_b/arm.meta
+      G5/cooperative_f64_b/arm.meta
+      G6/none_f1024_b/arm.meta
+      G6/none_f64_b/arm.meta
+      controls/C3/c3a_noburn/arm.meta
+      controls/C3/c3b_burn/arm.meta
+
+--- this round test_every_arm_was_found... (asserts 14) against the OLD fixture
+test_every_arm_was_found_and_none_of_them_is_invalid (test_analyse.CellTableTest.test_every_arm_was_found_and_none_of_them_is_invalid) ... FAIL
+
+======================================================================
+FAIL: test_every_arm_was_found_and_none_of_them_is_invalid (test_analyse.CellTableTest.test_every_arm_was_found_and_none_of_them_is_invalid)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/red1b/tests/test_analyse.py", line 52, in test_every_arm_was_found_and_none_of_them_is_invalid
+    self.assertEqual(len(self.arms), 14)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+AssertionError: 12 != 14
+
+----------------------------------------------------------------------
+Ran 1 test in 0.025s
+
+FAILED (failures=1)
+
+### rc=1

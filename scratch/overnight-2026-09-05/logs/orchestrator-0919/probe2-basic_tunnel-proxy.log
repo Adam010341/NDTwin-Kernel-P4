@@ -1,0 +1,65 @@
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/main.py:1633: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("startup")
+/home/adam/Desktop/NDTwin-Kernel/p4_proxy/proxy_agent/main.py:1638: DeprecationWarning: 
+        on_event is deprecated, use lifespan event handlers instead.
+
+        Read more about it in the
+        [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+        
+  @app.on_event("shutdown")
+INFO:     Started server process [3521650]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+[Proxy Agent] app package: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/basic_tunnel-solution (mode ndtwin, election_id 0,65535)
+[Proxy Agent] Starting up...
+[1] Received arbitration response: Mastership confirmed.
+[2] Received arbitration response: Mastership confirmed.
+[3] Received arbitration response: Mastership confirmed.
+[1] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 1
+[2] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 2
+[3] Setting Forwarding Pipeline Config...
+[Proxy Agent] Connected to Switch 3
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[1] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] switch 1: table entry 3 into MyIngress.myTunnel_exact was NOT applied -- TableEntryInvalid: MyIngress.myTunnel_exact.hdr.myTunnel.dst_id is an EXACT match, so its value is a plain value, not the pair [1]
+[Proxy Agent] switch 1: table entry 4 into MyIngress.myTunnel_exact was NOT applied -- TableEntryInvalid: MyIngress.myTunnel_exact.hdr.myTunnel.dst_id is an EXACT match, so its value is a plain value, not the pair [2]
+[Proxy Agent] switch 1: table entry 5 into MyIngress.myTunnel_exact was NOT applied -- TableEntryInvalid: MyIngress.myTunnel_exact.hdr.myTunnel.dst_id is an EXACT match, so its value is a plain value, not the pair [3]
+[Proxy Agent] Switch 1 runs the package's own pipeline: 3 of 6 declared table entries applied, 3 refused
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[2] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] switch 2: table entry 3 into MyIngress.myTunnel_exact was NOT applied -- TableEntryInvalid: MyIngress.myTunnel_exact.hdr.myTunnel.dst_id is an EXACT match, so its value is a plain value, not the pair [1]
+[Proxy Agent] switch 2: table entry 4 into MyIngress.myTunnel_exact was NOT applied -- TableEntryInvalid: MyIngress.myTunnel_exact.hdr.myTunnel.dst_id is an EXACT match, so its value is a plain value, not the pair [2]
+[Proxy Agent] switch 2: table entry 5 into MyIngress.myTunnel_exact was NOT applied -- TableEntryInvalid: MyIngress.myTunnel_exact.hdr.myTunnel.dst_id is an EXACT match, so its value is a plain value, not the pair [3]
+[Proxy Agent] Switch 2 runs the package's own pipeline: 3 of 6 declared table entries applied, 3 refused
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[3] table entry insert: MyIngress.ipv4_lpm ['hdr.ipv4.dstAddr']
+[Proxy Agent] switch 3: table entry 3 into MyIngress.myTunnel_exact was NOT applied -- TableEntryInvalid: MyIngress.myTunnel_exact.hdr.myTunnel.dst_id is an EXACT match, so its value is a plain value, not the pair [1]
+[Proxy Agent] switch 3: table entry 4 into MyIngress.myTunnel_exact was NOT applied -- TableEntryInvalid: MyIngress.myTunnel_exact.hdr.myTunnel.dst_id is an EXACT match, so its value is a plain value, not the pair [2]
+[Proxy Agent] switch 3: table entry 5 into MyIngress.myTunnel_exact was NOT applied -- TableEntryInvalid: MyIngress.myTunnel_exact.hdr.myTunnel.dst_id is an EXACT match, so its value is a plain value, not the pair [3]
+[Proxy Agent] Switch 3 runs the package's own pipeline: 3 of 6 declared table entries applied, 3 refused
+[Proxy Agent] Switch 1 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 2 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Proxy Agent] Switch 3 runs the package's own pipeline, which does not clone to the CPU port; no clone session and no sFlow registration for it (clone_session, sflow_telemetry on GET /p4/switch_state)
+[Kernel] switch 1 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=1 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 2 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=2 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Kernel] switch 3 entered: FAILED ConnectionError: HTTPConnectionPool(host='localhost', port=8000): Max retries exceeded with url: /ndt/inform_switch_entered?dpid=3 (Caused by NewConnectionError("HTTPConnection(host='localhost', port=8000): Failed to establish a new connection: [Errno 111] Connection refused"))
+[Proxy Agent] Kernel did not acknowledge 3/3 switches yet ([1, 2, 3]) -- normal when the kernel starts after the proxy. Its topology poll enables switches on its own; retrying the push in the background for up to 5 minutes.
+[Proxy Agent] 3 of 3 switches ([1, 2, 3]) run the app package's own pipeline, which carries no controller header: this proxy will not send LLDP beacons, watch links or install routes on ANY switch of this fabric. Skipped: install_initial_routes, link_watchdog, lldp_discovery. The per-switch skips (no clone session, no sFlow) are on each switch's own `pipeline.skipped`, because the switches beside these still have both. Reported on GET /p4/switch_state.
+[Proxy Agent] Started liveness polling...
+INFO:     127.0.0.1:59480 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59496 - "GET /v1.0/topology/switches HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59506 - "GET /v1.0/topology/hosts HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59512 - "GET /v1.0/topology/links HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59528 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59536 - "GET /p4/switch_state HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59538 - "GET /p4/switch_state HTTP/1.1" 200 OK

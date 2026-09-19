@@ -1,0 +1,28 @@
+### sample_error.sh --dry-run
+# tree:    /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919
+# head:    6e67431aeceae0b8b78b5d58a2dc434cfbeb7b4c
+# when:    2026-09-19 07:16:12 UTC
+# cmd: --group none --rate 20 --window p1 --dry-run
+###
+### DRY RUN -- sample_error.sh   (nothing started, nothing written)
+group               none
+offered rate        20 Mbit/s   UDP, -l 1400 (frame 1442 B)
+window              p1, 8s at 4 Hz   (= ndt check NDT_CHECK_SECS / HZ)
+metric              |twin_integral/tx_bytes - 1| over the SAME inter-switch key set
+                    n/a for this group -- it has no twin readings; a 0 would be a reading
+out                 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups/raw/se_none_20M_p1
+
+commands this window would run, verbatim:
+  curl -sf --max-time 10 http://localhost:8000/ndt/get_sflow_stats
+  curl -sf --max-time 10 http://localhost:8081/p4/switch_state
+  sudo -n mnexec -a $DST_PID iperf3 -s -1 --daemon -p <port>
+  sudo -n mnexec -a $SRC_PID iperf3 -c 10.0.0.4 -p <port> -u -b 20M -t 12 -l 1400 --json
+  # concurrently, for 8s: GET http://localhost:8000/ndt/get_graph_data at 4 Hz + /proc/net/dev each sample
+  curl -sf --max-time 10 http://localhost:8000/ndt/get_sflow_stats
+
+this window is INVALID when:
+  * any switch telemetry.source != none
+  * any non-zero twin link_bandwidth_usage_bps reading, or addressed_total moved
+  * ground truth under 1 Mbit/s over the window (ndt check: the ratio is not meaningful)
+
+### rc=0

@@ -1,0 +1,43 @@
+### run_group_arm.sh --dry-run
+# tree:    /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919
+# head:    6e67431aeceae0b8b78b5d58a2dc434cfbeb7b4c
+# when:    2026-09-19 07:16:12 UTC
+# cmd: --group link --frame 64 --arm f64_a --dry-run
+###
+### DRY RUN -- run_group_arm.sh   (nothing started, nothing written)
+arm                 f64_a
+group               link   (proved per switch from GET http://localhost:8081/p4/switch_state)
+frame_bytes         64
+payload_bytes       22   (frame = payload + 42; iperf3 -l takes the PAYLOAD)
+host_pair           h1 -> h4
+ladder_kpps         1 2 3 5 8 12 20 30 45 70 110 160 240
+step_s              8   clean <= 0.5%   ambiguous band (0, 2.0%] => 3 reps
+saturation stop     two consecutive rungs > 25%
+burners             0
+out                 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups/raw/f64_a
+
+commands this arm would run, verbatim:
+  curl -sf --max-time 10 http://localhost:8081/p4/switch_state
+  curl -sf --max-time 10 http://localhost:8000/ndt/get_sflow_stats
+  sha256sum /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/build/bin/ndtwin_kernel
+  sha256sum $SWITCH_BIN          # $SWITCH_BIN read from /tmp/ndtwin_p4_switches.json argv
+  nm -DC $SWITCH_BIN | /usr/bin/grep -c EventLogger    # fast=0, stock=24 (1b section 3)
+  sha256sum /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/p4_proxy/p4_src/build/ndtwin_switch.json
+  /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups/cpu_arm_probe.py --out /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups/raw/f64_a/cpu.jsonl --duration <arm seconds> --hz 2 \
+      --comm iperf3=iperf3 --pid kernel=$KERNEL_PID --pid proxy=$PROXY_PID --pid emitter=$EMITTER_PID \
+      --pid bmv2-<device_id>=$PID ...   # pids from /tmp/ndtwin_p4_switches.json
+  sudo -n mnexec -a $DST_PID iperf3 -s -1 --daemon -p <port>
+  sudo -n mnexec -a $SRC_PID iperf3 -c <dst ip> -p <port> -u -b <kpps*22*8> -t 8 -l 22 --json
+  curl -sf --max-time 10 http://localhost:8000/ndt/get_sflow_stats
+  curl -sf --max-time 10 http://localhost:8081/p4/switch_state
+  cp /tmp/ndtwin_link_telemetry.log /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups/raw/f64_a/emitter.log      # the next bring-up overwrites it
+
+this arm is INVALID (exit 1, reason in arm.meta) when:
+  * any switch telemetry.source != link
+  * get_sflow_stats addressed_total did NOT move (a silent outage looks exactly like none)
+  * link_emitter.alive is not true before or after
+  * the kernel sha256 differs between the start and the end of the arm
+  * the switch binary is not the one bmv2_binary_override names, or is not the fast signature
+  * any rung produced NO_MEASUREMENT
+
+### rc=0

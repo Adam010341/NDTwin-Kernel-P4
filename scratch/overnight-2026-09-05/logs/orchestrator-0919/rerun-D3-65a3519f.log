@@ -1,0 +1,111 @@
+### tree 65a3519f  start 08:18:30  free=3.2G
+### driver_tests
+Ran 136 tests in 1.214s
+OK
+rc=0  drv-dirs=0
+### test_live_p1_common
+  ok         naming the floor it passed
+Ran 103 checks, 0 failed
+rc=0  drv-dirs=0
+### test_live_p1_thirteen
+Ran 34 checks, 0 failed
+rc=0  drv-dirs=0
+### test_ndt_app_package
+  ok         because an unchecked gate is not a passed one
+Ran 391 checks, 0 failed
+rc=0  drv-dirs=0
+### test_ndt_app_orphans
+Ran 103 checks, all passed
+rc=0  drv-dirs=0
+### test_ndt_apps_liveness
+Ran 51 checks, all passed
+rc=0  drv-dirs=0
+### test_ndt_check_sample_rate
+Ran 39 checks, 0 failed
+rc=0  drv-dirs=0
+### test_ndt_down_claim_guard
+Ran 41 checks, 0 failed
+rc=0  drv-dirs=0
+### test_ndt_down_stops_only_ours
+Ran 29 checks, 0 failed
+rc=0  drv-dirs=0
+### test_ndt_helper_apps_window
+  ok       🔴 a tree with no ntg_bmv2_topo.py sets nothing (the helper checks this too)
+Ran 150 checks, 0 failed
+rc=0  drv-dirs=0
+### test_ndt_honesty
+  ok         the declaration survived the rewrite
+Ran 345 checks, 0 failed
+rc=0  drv-dirs=0
+### test_ndt_ovs_topo_script
+Ran 41 checks, 0 failed
+rc=0  drv-dirs=0
+### test_ndt_round_baseline
+Ran 117 checks, 0 failed
+rc=0  drv-dirs=0
+### test_ndt_sample_rate_reads_both_bounds
+Ran 6 checks, 0 failed
+rc=0  drv-dirs=0
+### test_ndt_status_check_baseline
+Ran 104 checks, 0 failed
+rc=0  drv-dirs=0
+### test_ndt_status_residue_row
+Ran 27 checks, 0 failed
+rc=0  drv-dirs=0
+### test_ndt_sudo_surface
+  ok       control, no topo session: the guard does not ask and PASSES
+Ran 33 checks, 0 failed
+rc=0  drv-dirs=0
+### test_ndt_up_down_robust
+  ok         bytes, so the comment survived the round trip
+424 passed, 0 failed
+rc=0  drv-dirs=0
+### test_ndt_up_target
+🔴 and it does not refuse everything -- the checks above would pass if it did
+Ran 23 checks, 0 failed
+rc=0  drv-dirs=0
+### test_ndtwin_lab_config
+Ran 59 checks, all passed
+rc=0  drv-dirs=0
+### test_ndtwin_lab_sweep
+Ran 29 checks, all passed
+rc=0  drv-dirs=0
+### test_stack_await_convergence
+Ran 35 checks, 0 failed
+rc=0  drv-dirs=0
+### check_gate_anchors
+114/114 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+rc=0  drv-dirs=0
+### check_process_by_name
+rc=0  drv-dirs=0
+### check_test_tmpdirs
+rc=0  drv-dirs=0
+### mutate_stack_telemetry_identity
+  Ran 391 checks, 0 failed
+mutation gate: 2 mutations, 0 survived; 1 control(s), 0 went red
+rc=0  drv-dirs=0
+### mutate_live_p1_thirteen
+  Ran 34 checks, 0 failed
+mutation gate: 10 mutations, 0 survived; 1 control(s), 0 went red
+rc=0  drv-dirs=0
+### mutate_live_p1_common
+             also red:   naming the floor it passed
+mutation gate: 28 mutations, 0 survived; 4 control(s), 0 went red
+rc=0  drv-dirs=0
+### mutate_app_package
+  caught   M41 (M-A3): the pre-flight checks only dpid 1's json, so s2 dies after mn -c (test_plan_fabric_checks_every_switch_not_just_the_first went red)
+mutation gate: 48 mutations, 0 survived
+rc=0  drv-dirs=0
+### mutate_drive_exercise
+=== 52. mri no longer checks that the MRI option reached h2 ===
+85 mutations, 0 survived
+rc=0  drv-dirs=0
+### mutate_ndt_app_package
+             also red:   because an unchecked gate is not a passed one
+mutation gate: 73 mutations, 0 survived; 4 control(s), 0 went red
+rc=0  drv-dirs=0
+### mutate_ndt_up_down_robust
+  caught   M56 (widening): the knob is rewritten from the value, not the bytes (  bytes, so the comment survived the round trip went red)
+mutation gate: 106 mutations, 0 survived, 0 dead
+rc=0  drv-dirs=0
+### done 09:20:16  free=3.1G

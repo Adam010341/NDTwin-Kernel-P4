@@ -1,0 +1,16 @@
+### rebuild start 05:38:35  free=3.2G
+### rebuild rc=0  guarded_build: exit 0  05:51:17
+### test binary sha after rebuild c9dc9fb2fa870c55
+### tree d3c65dd4  start 05:51:17
+### worktree clean? 1 modified
+### test binary sha c9dc9fb2fa870c55
+### gtest direct rc=0  [  PASSED  ] 1353 tests. 
+### ctest rc=0  100% tests passed, 0 tests failed out of 1353
+### gtest families+contracts rc=0  [  PASSED  ] 60 tests. 
+### regen rc=0    wrote emitted_egress_only.bin: 180 bytes (45 words)
+### fixtures byte-identical after regen rc=0
+### test_sflow_emitter rc=0  Ran 49 tests in 0.004s OK 
+### check_gate_anchors rc=0  111/111 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+### check_process_by_name rc=0  check_process_by_name: 299 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale
+### mutation gate log verdict:   GATE_RC=
+### done 05:52:05

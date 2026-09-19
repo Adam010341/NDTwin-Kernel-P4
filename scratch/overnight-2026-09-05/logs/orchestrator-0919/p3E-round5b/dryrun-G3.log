@@ -1,0 +1,59 @@
+### drive_e.sh --dry-run (G3)
+# tree:    /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919
+# head:    5e62459932c357e2a2722e116bf14a47c20e7781
+# when:    2026-09-19 10:03:14 UTC
+# cmd: NDT_OWNER=p3-E drive_e.sh --only G3 --dry-run
+###
+### DRY RUN -- drive_e.sh   (nothing is started, no fabric is built, nothing is written)
+
+owner               p3-E
+repo                /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919
+raw                 /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups/raw/2026-09-19T100453Z_G3
+hosts               4   (ndt up p4 4 --telemetry <group>)
+selection           G3
+settle              60s after bring-up, 20s between arms
+
+controls (run once, inside G1, BEFORE any measurement arm -- PREREG 4.3):
+  C1  generator ceiling at 64 B frames    h1 -> h1 loopback, not through bmv2, 3 reps
+      requirement: >= 5x the highest 64 B pps this round measures through bmv2
+  C2  generator ceiling at 1024 B frames  same, -l 982, 3 reps
+  C3  the external gate has a positive control: two throwaway ladders (1 2 3 5 8 12 kpps),
+      one clean and one with 4 CPU burners from rung 4. external must step up, and
+      the gate must reject the burner arm. If it does not fire, the round does not start.
+
+generations:
+  G1  none         pass a   arms: none_f64_a  none_f1024_a  
+      + sampling-error block: 3 passes over the rates, middle one reversed
+        2 20 100 | 100 20 2 | 2 20 100  Mbit/s, 8s each
+  G2  cooperative  pass a   arms: cooperative_f64_a  cooperative_f1024_a  
+      + sampling-error block: 3 passes over the rates, middle one reversed
+        2 20 100 | 100 20 2 | 2 20 100  Mbit/s, 8s each
+  G3  link         pass a   arms: link_f64_a  link_f1024_a  
+      + sampling-error block: 3 passes over the rates, middle one reversed
+        2 20 100 | 100 20 2 | 2 20 100  Mbit/s, 8s each
+  G4  link         pass b   arms: link_f1024_b  link_f64_b  
+  G5  cooperative  pass b   arms: cooperative_f1024_b  cooperative_f64_b  
+  G6  none         pass b   arms: none_f1024_b  none_f64_b  
+
+teardown on EVERY path (including abort):
+  ndt down  ->  rm /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/p4_proxy/mininet/telemetry_override (absent = auto)  ->  restore /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/p4_proxy/mininet/host_count_override bytes  ->  ndt release
+
+the exact commands, per generation:
+  NDT_OWNER=p3-E /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/tools/test_workflow/ndt claim 600 "P3-E three-group telemetry round"
+  NDT_OWNER=p3-E /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/tools/test_workflow/ndt up p4 4 --telemetry <group>
+  NDT_OWNER=p3-E /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups/sample_error.sh --group <group> --rate <R> --window p<pass> --out <run>/<gen>/se_<group>_<R>M_p<pass>
+  NDT_OWNER=p3-E /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups/run_group_arm.sh --group <group> --frame <F> --arm <group>_f<F>_<pass> --out <run>/<gen>/<arm>
+  NDT_OWNER=p3-E /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/tools/test_workflow/ndt down
+  rm -f /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/p4_proxy/mininet/telemetry_override ; restore /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/p4_proxy/mininet/host_count_override ; NDT_OWNER=p3-E /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/tools/test_workflow/ndt release
+
+and then, offline:
+  /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups/analyse.py --raw <run> --out <run>/summary.json
+  /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups/plot.py --summary <run>/summary.json --out /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups
+
+refusals checked before anything starts:
+  /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/p4_proxy/mininet/telemetry_override absent, good
+  /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/p4_proxy/mininet/app_package_override absent, good
+  /tmp/ndtwin_link_telemetry.json                                        absent, good
+  lab.claim owner/measuring, and root reachable without a prompt
+
+### rc=0

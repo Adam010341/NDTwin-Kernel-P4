@@ -1,0 +1,37 @@
+### tree 547979f7  start 15:37:34  free=3.0G
+### test_mutate_gate_dead_mutant
+1. 🔴 a mutant that does not parse is REFUSED, not counted
+Ran 43 checks, 0 failed
+rc=0
+### check_gate_anchors
+115/115 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+rc=0
+### test_live_p1_thirteen
+Ran 36 checks, 0 failed
+rc=0
+### test_live_p1_common
+Ran 134 checks, 0 failed
+rc=0
+### test_ndt_app_package
+  ok         and checks the graph
+Ran 395 checks, 0 failed
+rc=0
+### driver_tests
+Ran 143 tests in 1.563s
+OK
+rc=0
+### mutate_live_p1_common
+  caught   M11: an unreadable model checks nothing and passes       (2 named check(s) went red)
+mutation gate: 32 mutations, 0 survived; 4 control(s), 0 went red
+rc=0
+### mutate_drive_exercise
+=== 52. mri no longer checks that the MRI option reached h2 ===
+90 mutations, 0 survived
+rc=0
+### mutate_ndt_app_package
+             also red: 🔴 rc 5 -- a GUARD REFUSED and nothing was built
+mutation gate: 75 mutations, 0 survived; 4 control(s), 0 went red
+rc=0
+### gate script sha 17f6963d5b8d055e  subject sha b349cd285b09857c
+### worktree status lines: 0
+### done 16:16:12

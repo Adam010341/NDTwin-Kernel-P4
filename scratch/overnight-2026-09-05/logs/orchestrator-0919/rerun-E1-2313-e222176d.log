@@ -1,0 +1,36 @@
+### tree e222176d  start 23:13:28
+### unit_venv
+Ran 76 tests in 1.260s
+OK (skipped=1)
+rc=0
+### unit_conda
+Ran 76 tests in 3.466s
+OK
+rc=0
+### offline_round
+  ok      an incomplete sweep outranks a finding (2, not 1)
+passed: 78   failed: 0
+rc=0
+### gate_selftest
+passed: 14   failed: 0
+rc=0
+### hazard_scan
+# hazard_scan: 3 file(s) given, 3 scanned, 0 unreadable, 0 finding(s)
+rc=0
+### mutate_analyse
+OK (skipped=1)
+mutations: 34   survivors: 0   drifted: 0
+rc=0
+### subject shas
+  analyse.py                 84d78d3ceb761226
+  plot.py                    99fbdc7d546e264c
+  drive_e.sh                 7d0184b8c81aa3a3
+  tests/synthetic.py         747e9edfa69e516d
+  tests/mutate_analyse.sh    5f5e3806368bcb7f
+  tests/inventory.py         2352d300022d7e98
+  tests/test_real_shape.py   5e17bfdf4ef7332c
+  tests/fixtures/real_run_inventory.json 858cd5da300745ae
+### worktree status lines: 0
+### done 23:32:23
+
+[exited with code 0]

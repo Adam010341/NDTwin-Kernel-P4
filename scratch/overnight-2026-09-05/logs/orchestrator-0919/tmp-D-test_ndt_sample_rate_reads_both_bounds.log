@@ -1,0 +1,7 @@
+  ok       production lo=0 hi=255 reads 256
+  ok       lo=1 hi=255 is reported DISABLED, not 1/256
+  ok       lo=0 hi=1023 reads 1024
+  ok       rate_label: 1/256 for a rate, DISABLED text (not 1/DISABLED) for a dead pipeline
+  ok       source older than build -> not ahead
+  ok       source newer than build -> ahead (restored .p4, never recompiled)
+Ran 6 checks, 0 failed

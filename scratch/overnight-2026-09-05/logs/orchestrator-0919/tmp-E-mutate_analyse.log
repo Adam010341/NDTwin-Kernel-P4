@@ -1,0 +1,25 @@
+interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+baseline (must be green before any mutation):
+Ran 48 tests in 0.571s
+OK (skipped=1)
+
+  caught   M-E1: the ceiling interval is the NOMINAL 1.5x ladder step, not the realised 1.667x (test_the_interval_boundaries_are_the_realised_step_not_the_nominal_one went red)
+  caught   M-E2: a cell is resolved however far apart its two arms landed           (test_a_cell_whose_arms_are_six_rungs_apart_is_NOT_resolved went red)
+  caught   M-E3: an unresolved cell still gets a ratio (1b section 4's missing branch, restored) (test_an_unresolved_cell_produces_NO_ratio_at_all went red)
+  caught   M-E4: the none group's missing sampling error is reported as 0.0         (test_the_none_group_is_n_a_and_is_NOT_zero went red)
+  caught   M-E5: figure 2 draws the none group as a zero bar instead of n/a         (test_the_none_group_is_drawn_as_n_a_and_NOT_as_a_zero_bar went red)
+  caught   M-E6: figure 1 labels an unresolved cell with a mean no arm measured     (test_an_unresolved_cell_is_marked_and_shows_BOTH_arm_values went red)
+  caught   M-E7: the shot-noise prediction uses the sd rather than the median of |X| (test_the_shot_noise_prediction_is_the_registered_formula went red)
+  caught   M-E8: sample loss is attributed with every drop counter at zero (the ROLE-5 failure) (test_sample_loss_is_NOT_attributed_when_every_drop_counter_is_zero went red)
+  caught   M-E9: a process alive before the window is charged its whole lifetime to that window (test_a_process_alive_before_the_window_is_not_charged_its_lifetime went red)
+  caught   M-E10: samples/s is assumed from the offered rate instead of read from the counter (test_samples_per_second_comes_from_the_rung_pair_not_from_the_offered_rate went red)
+  caught   M-E11: a line is fitted through deltas smaller than their own spread (H-C0 removed) (test_a_delta_smaller_than_its_spread_is_H_C0_and_no_line_is_fitted went red)
+  caught   M-E12: the mixed decomposition has no branch of its own (08-28 section 4's H3 lesson) (test_the_cpu_verdict_names_a_mixed_decomposition_as_a_result went red)
+  caught   M-E13: the foreign-CPU gate compares an arm to the median of ALL arms, across groups (test_the_gate_is_within_group_so_the_link_treatment_does_not_fire_it went red)
+  caught   M-E14: reconciliation (a) drops the condition-matched cooperative pairing (test_a_is_reported_for_BOTH_the_none_and_the_cooperative_cell went red)
+  caught   M-E15: the generator control passes at 1x instead of the registered 5x   (test_a_sender_control_below_five_times_FAILS went red)
+  caught   M-E16: reconciliation (b) compares against the wrong 08-20 figure        (test_b_compares_the_marginal_slope_against_08_20s_206_microseconds went red)
+  control  C-E1: a comment added above GROUPS (semantics unchanged)                 (stayed green, as a control must)
+  control  C-E2: a comprehension variable renamed in figure1_data (semantics unchanged) (stayed green, as a control must)
+
+mutations: 16   survivors: 0

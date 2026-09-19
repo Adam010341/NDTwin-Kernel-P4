@@ -1,0 +1,7 @@
+gate       : tests/shell/mutate_drive_exercise.sh
+cwd        : /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919
+interpreter: MISSING: /nonexistent/python
+subject    : /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+subject sha: 0c66148e0a46ff66dd6d77126db75a02af43452e55700a28851fdcb9a0dd877e
+
+REFUSE: no interpreter at /nonexistent/python (override with PYTHON=).

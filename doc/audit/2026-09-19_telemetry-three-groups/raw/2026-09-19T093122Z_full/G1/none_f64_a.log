@@ -1,0 +1,30 @@
+🔴 INVALID: no simple_switch binary in /tmp/ndtwin_p4_switches.json -- this arm cannot name what it measured
+### E arm none_f64_a  group none  frame 64B (payload 22)  h1->h4  step 8s  09:39:19Z
+      1 kpps  reps 1  loss   0.0000%  sent     999.9 pps  recv     999.8 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.8 pps  recv    1999.4 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.6 pps  recv    2999.1 pps  clean=yes
+      5 kpps  reps 1  loss   0.0000%  sent    4999.2 pps  recv    4998.7 pps  clean=yes
+      8 kpps  reps 1  loss   0.0000%  sent    7998.7 pps  recv    7998.0 pps  clean=yes
+     12 kpps  reps 1  loss   0.0000%  sent   11998.1 pps  recv   11996.5 pps  clean=yes
+     20 kpps  reps 3  loss   0.0119%  sent   19996.6 pps  recv   19993.9 pps  clean=yes
+     30 kpps  reps 3  loss   0.3892%  sent   29995.1 pps  recv   29990.6 pps  clean=yes
+     45 kpps  reps 1  loss   6.1885%  sent   44992.9 pps  recv   44983.7 pps  clean=no
+     70 kpps  reps 1  loss  31.3773%  sent   69988.0 pps  recv   69971.8 pps  clean=no
+    110 kpps  reps 1  loss  47.9627%  sent  109981.2 pps  recv  109963.2 pps  clean=no
+  ⚠️  two consecutive rungs above 25% -- stopping the climb at 110 kpps.
+     Rungs above 110 kpps were NOT measured; the highest clean rung is already below.
+  ✅ confirmed 30 kpps  reps 0.2200,0.0850,2.0761  median 0.2200% <= 0.5%
+### top_rung_confirmation=30:0.2200,0.0850,2.0761=>0.2200 
+### kernel_sha256_end=be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49
+### sflow_counter_level=telemetry_health/telemetry_health
+### d_rx_total=0
+### d_addressed_total=0
+### d_sock_ovfl_total=0
+### d_app_drop_total=0
+### d_malformed_ipv4_ihl=0
+### d_family_ipv4=0
+### d_family_ipv6=0
+### d_family_l2=0
+### d_family_undecodable=0
+### finished=2026-09-19T09:42:03Z
+### invalid=no simple_switch binary in /tmp/ndtwin_p4_switches.json -- this arm cannot name what it measured

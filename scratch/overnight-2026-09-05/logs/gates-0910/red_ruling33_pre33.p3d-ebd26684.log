@@ -1,0 +1,97 @@
+RED RUN -- the ruling-33 cells against the driver BEFORE the fix
+  what this is    : the cells added by ruling 33, run against the last commit that did
+                    NOT have the fix, so 'seen red' is a reading and not a promise.
+  subject (pre-33): /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/drive_exercise.pre33.py
+                    extracted with: git -C <wt> show 75dc6605:doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+                    git blob       : 54f02a2282626ca125d23502157665a28c384d0c
+                    sha256         : 7c03816aab5795fbc9792cad476d3fc830ab4448a17efb16bd0563ff4dcf84ae
+                    75dc6605 = 'ruling 31: the controller's real pid reaches G1 ...'
+                    re-hashed here : 54f02a2282626ca125d23502157665a28c384d0c  (git hash-object of the extracted file;
+                                     equal to the blob above => this IS 75dc6605's driver)
+  in-tree driver  : /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+                    sha256         : 4ddb776bd9dd1a1a494c7fb915b6c9fb7b856b5c14fc1fc205aff9c9464a9ff5   (the FIXED one; not used here)
+  instrument      : /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py
+                    sha256         : 139cdfea5f95d340c1f2db3f4865b645b1204d3eb6b5e47d80895140473ac691
+                    git blob at ebd26684: 8be011e34646dca1352667c505f80aba9d6b9ec5
+  head            : ebd2668478374f8c446f1ad17b6cbb0c80eb6dca  (worktree clean: 0 modified files)
+  interpreter     : /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/p4_proxy/venv/bin/python
+  command         : env -C <wt>/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests \
+                      DRIVE_EXERCISE_UNDER_TEST=<subject above> <interpreter> -m unittest -v \
+                      test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect
+  expected        : the two cells ruling 33 names go red, and three more go red as a
+                    consequence of the same missing constant; 1 of 6 stays green.
+  date            : 2026-09-19T141617Z UTC
+================================================================
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2195: SyntaxWarning: invalid escape sequence '\s'
+  `^\s*`, which does not match those, so `count` came back empty and `swid` came back [] --
+test_the_arithmetic_helper_falls_back_rather_than_inventing_one (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_arithmetic_helper_falls_back_rather_than_inventing_one) ... ERROR
+test_the_cell_answers_window_rather_than_a_failed_reading (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_cell_answers_window_rather_than_a_failed_reading) ... /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:68: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/_common.sh' mode='r' encoding='UTF-8'>
+  m = re.search(r"^%s=(\d+)\s*$" % name, open(COMMON_SH).read(), re.M)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+FAIL
+test_the_got_field_carries_the_arithmetic_the_shell_printed (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_got_field_carries_the_arithmetic_the_shell_printed) ... FAIL
+test_the_other_three_answers_are_unchanged (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_other_three_answers_are_unchanged) ... ok
+test_the_round_names_the_window_and_never_the_twin_sentence (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_round_names_the_window_and_never_the_twin_sentence) ... FAIL
+test_the_two_refusal_codes_are_the_shell_files_own (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_two_refusal_codes_are_the_shell_files_own)
+🔴 ONE PROTOCOL, TWO FILES, AND THIS IS WHERE THEY ARE MADE TO AGREE. ... FAIL
+
+======================================================================
+ERROR: test_the_arithmetic_helper_falls_back_rather_than_inventing_one (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_arithmetic_helper_falls_back_rather_than_inventing_one)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py", line 2167, in test_the_arithmetic_helper_falls_back_rather_than_inventing_one
+    self.assertEqual(self.ARITHMETIC, self.mod.window_arithmetic(self.WINDOW_OUT))
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'drive_exercise_under_test' has no attribute 'window_arithmetic'
+
+======================================================================
+FAIL: test_the_cell_answers_window_rather_than_a_failed_reading (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_cell_answers_window_rather_than_a_failed_reading)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py", line 2130, in test_the_cell_answers_window_rather_than_a_failed_reading
+    self.assertEqual("window", ok)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+AssertionError: 'window' != False
+
+======================================================================
+FAIL: test_the_got_field_carries_the_arithmetic_the_shell_printed (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_got_field_carries_the_arithmetic_the_shell_printed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py", line 2158, in test_the_got_field_carries_the_arithmetic_the_shell_printed
+    self.assertEqual(self.ARITHMETIC, e.got)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'window = max(8, ceil(10 x 256 x 1500 x 8 / 100000)) = 308s' != 'see the transcript'
+- window = max(8, ceil(10 x 256 x 1500 x 8 / 100000)) = 308s
++ see the transcript
+
+
+======================================================================
+FAIL: test_the_round_names_the_window_and_never_the_twin_sentence (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_round_names_the_window_and_never_the_twin_sentence)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py", line 2146, in test_the_round_names_the_window_and_never_the_twin_sentence
+    self.assertEqual("G1 NOT RUN -- the window this path needs exceeds the caller's limit",
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     expects[-1].name)
+                     ^^^^^^^^^^^^^^^^^
+AssertionError: "G1 NOT RUN -- the window this path needs exceeds the caller's limit" != 'G1  link usage follows the iperf path'
+- G1 NOT RUN -- the window this path needs exceeds the caller's limit
++ G1  link usage follows the iperf path
+
+
+======================================================================
+FAIL: test_the_two_refusal_codes_are_the_shell_files_own (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_two_refusal_codes_are_the_shell_files_own)
+🔴 ONE PROTOCOL, TWO FILES, AND THIS IS WHERE THEY ARE MADE TO AGREE.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py", line 2117, in test_the_two_refusal_codes_are_the_shell_files_own
+    self.assertTrue(hasattr(self.mod, name),
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+                    "%s is declared in %s and nowhere in the driver" % (name, COMMON_SH))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : LINK_USAGE_WINDOW_RC is declared in /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/_common.sh and nowhere in the driver
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.062s
+
+FAILED (failures=4, errors=1)

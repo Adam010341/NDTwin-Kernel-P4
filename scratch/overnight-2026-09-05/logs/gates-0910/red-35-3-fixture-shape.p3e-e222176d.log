@@ -1,0 +1,85 @@
+### RED RUN 35(3) -- the PREVIOUS fixture against the structural reconciliation
+# head:        e222176d
+# when:        2026-09-19 14:27:12 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# fixture:     tests/synthetic.py from f51ee88f (sha256 50d87130d402) -- 4 window keys, one bmv2
+#              process, family counts nested, no `requirement` in control.meta
+# real side:   tests/fixtures/real_run_inventory.json (sha256 858cd5da3007), extracted from
+#              raw/2026-09-19T105759Z_full
+###
+test_a_real_run_has_the_six_directory_classes_and_so_does_the_fixture (test_real_shape.RealRunShapeTest.test_a_real_run_has_the_six_directory_classes_and_so_does_the_fixture) ... ok
+test_a_window_really_does_carry_more_edges_than_the_flow_crosses (test_real_shape.RealRunShapeTest.test_a_window_really_does_carry_more_edges_than_the_flow_crosses) ... ERROR
+test_every_file_the_analysis_reads_carries_the_real_key_set (test_real_shape.RealRunShapeTest.test_every_file_the_analysis_reads_carries_the_real_key_set) ... FAIL
+test_every_file_the_analysis_reads_has_the_real_CARDINALITIES (test_real_shape.RealRunShapeTest.test_every_file_the_analysis_reads_has_the_real_CARDINALITIES) ... FAIL
+test_the_file_classes_the_fixture_skips_are_exactly_the_declared_ones (test_real_shape.RealRunShapeTest.test_the_file_classes_the_fixture_skips_are_exactly_the_declared_ones) ... ok
+test_the_fixture_invents_no_file_class_a_real_run_does_not_have (test_real_shape.RealRunShapeTest.test_the_fixture_invents_no_file_class_a_real_run_does_not_have) ... ok
+test_the_fixture_invents_no_key_in_a_file_the_analysis_reads (test_real_shape.RealRunShapeTest.test_the_fixture_invents_no_key_in_a_file_the_analysis_reads) ... ok
+
+======================================================================
+ERROR: test_a_window_really_does_carry_more_edges_than_the_flow_crosses (test_real_shape.RealRunShapeTest.test_a_window_really_does_carry_more_edges_than_the_flow_crosses)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/r8red3/tests/test_real_shape.py", line 192, in test_a_window_really_does_carry_more_edges_than_the_flow_crosses
+    self.assertEqual(len(synthetic.ALL_EDGE_KEYS), 32)
+                         ^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'synthetic' has no attribute 'ALL_EDGE_KEYS'
+
+======================================================================
+FAIL: test_every_file_the_analysis_reads_carries_the_real_key_set (test_real_shape.RealRunShapeTest.test_every_file_the_analysis_reads_carries_the_real_key_set)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/r8red3/tests/test_real_shape.py", line 161, in test_every_file_the_analysis_reads_carries_the_real_key_set
+    self.assertEqual(missing, NOT_WRITTEN_KEYS.get(file_class, []),
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     "%s: keys a real run has and the fixture does not" % file_class)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: ['requirement'] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+'requirement'
+
+- ['requirement']
++ [] : control.meta: keys a real run has and the fixture does not
+
+======================================================================
+FAIL: test_every_file_the_analysis_reads_has_the_real_CARDINALITIES (test_real_shape.RealRunShapeTest.test_every_file_the_analysis_reads_has_the_real_CARDINALITIES)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/r8red3/tests/test_real_shape.py", line 179, in test_every_file_the_analysis_reads_has_the_real_CARDINALITIES
+    self.assertEqual(mine.get(key), bounds,
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+                     "%s: %s is %s in a real run and %s in the fixture"
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     % (file_class, key, bounds, mine.get(key)))
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: Lists differ: [2, 2] != [12, 13]
+
+First differing element 0:
+2
+12
+
+- [2, 2]
++ [12, 13] : cpu.jsonl: static is [12, 13] in a real run and [2, 2] in the fixture
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.058s
+
+FAILED (failures=2, errors=1)
+### rc=1
+
+--- every structural difference the old fixture has (the assertions above stop at the first)
+  keys missing from arm.meta                   ['clone_sessions', 'gate', 'link_emitter_alive', 'link_emitter_pid', 'link_emitter_rate', 'rep_rule', 'sflow_registered', 'switch_count', 'switch_pids', 'telemetry_knob', 'telemetry_package', 'top_rung_confirmation']
+  keys missing from control.meta               ['requirement']
+  keys missing from sflow_rung<N>_after.json   ['malformed_ipv4_ihl', 'non_ipv4_flows', 'samples_by_family']
+  keys missing from sflow_rung<N>_before.json  ['malformed_ipv4_ihl', 'non_ipv4_flows', 'samples_by_family']
+  cardinality  cpu.jsonl                  static                 real [12, 13]  fixture [2, 2]
+  cardinality  sflow_rung<N>_after.json   non_ipv4_flows         real [4, 4]    fixture None
+  cardinality  sflow_rung<N>_after.json   samples_by_family      real [4, 4]    fixture None
+  cardinality  sflow_rung<N>_after.json   telemetry_health       real [12, 12]  fixture [14, 14]
+  cardinality  sflow_rung<N>_before.json  non_ipv4_flows         real [4, 4]    fixture None
+  cardinality  sflow_rung<N>_before.json  samples_by_family      real [4, 4]    fixture None
+  cardinality  sflow_rung<N>_before.json  telemetry_health       real [12, 12]  fixture [14, 14]
+  cardinality  window.json                excluded_host_facing   real [4, 4]    fixture [2, 2]
+  cardinality  window.json                keys                   real [32, 32]  fixture [4, 4]
+  cardinality  window.json                per_edge_peak_bps      real [0, 4]    fixture [4, 4]

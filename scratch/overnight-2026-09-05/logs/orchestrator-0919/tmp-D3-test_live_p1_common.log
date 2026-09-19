@@ -1,0 +1,117 @@
+
+1. controller_program_set -- the expectation comes out of the controller's own log
+  ok         the two switches this exercise programs
+  ok       🔴 a controller that programmed nothing gives an EMPTY set
+  ok       🔴 s10 is dpid 10, not dpid 1
+  ok         a log that is not there is empty, not an error
+
+2. kernel_up_set -- which switches the twin says are up, right now
+  ok         two of three up
+  ok         all three up
+  ok       🔴 none up is an EMPTY answer, not a missing one
+  ok         and it is rc 0 -- 'nothing is up' is a reading
+  ok       🔴 an unreadable graph is rc 1, NOT an empty set
+  ok         and so is an endpoint that does not answer
+  ok       🔴 a graph with no switches in it is rc 1 too
+
+3. await_kernel_up_set -- it waits, and it matches EXACTLY
+  ok       🔴 it waits until the up set becomes the expected one
+  ok         which took three polls, not one
+  ok         and it says how long it took
+  ok         the file names the expectation and its source
+  ok         and the per-switch rows behind the verdict
+  ok       🔴 a THIRD switch reported up is not a match
+  ok         and the failure says what it saw
+  ok         with the last reading in it
+  ok         the file keeps both sides
+  ok       🔴 a set that never arrives is a failure
+  ok         naming what it gave up after
+  ok         after polling for the whole timeout (+1 for the capture)
+  ok         s3 up while 1,2 were expected is not a match
+  ok       🔴 an EMPTY expected set is refused, not satisfied
+  ok         saying why an empty-to-empty match proves nothing
+  ok       🔴 and it refuses WITHOUT reading the graph at all
+  ok         the file records the refusal too
+  ok       🔴 end to end: log -> expectation -> twin agrees
+  ok         and the expectation really came from the log
+  ok       🔴 a controller that programmed nothing fails the step
+
+4. model_switch_dpids / assert_probe_ok_follows_set -- the proxy's side, same set
+  ok         the model's dpids, ascending
+  ok       🔴 a four-switch package declares four
+  ok       🔴 an unreadable model gives NOTHING, not a guess
+  ok         the exercise's own shape passes
+  ok         and says which switch got a program
+  ok         and which never did
+  ok       🔴 a programmed switch that is not answering is red
+  ok         naming it and what was wanted
+  ok       🔴 a switch answering that nobody programmed is red
+  ok         naming it too
+  ok       🔴 the fourth switch of a four-switch package IS checked
+  ok         and it is the one named
+  ok       🔴 an EMPTY expected set is refused here too
+  ok         for the same reason
+  ok       🔴 and it refuses without reading a single probe
+  ok       🔴 an unreadable model is refused, not assumed
+  ok         saying there is no universe to check against
+
+5. TICKET-P3 §2.7 -- the generic cell: link usage follows the iperf path
+  ok       🔴 only the interfaces that moved bytes are on the path
+  ok         a threshold of 1 byte puts the noise on the path too
+  ok       🔴 an interface in only ONE reading is named, not silently zero
+  ok         and it is not on the path
+  ok         the integral is rc 0 when the graph answered
+  ok         a host-facing edge integrates its rate over the window
+  ok         and an inter-switch edge is marked as one
+  ok         an edge the twin reports at zero is still listed
+  ok         with the sample count and the measured span
+  ok       🔴 the host->switch direction has no sN-ethP to be
+  ok       🔴 a graph that never answered is rc 1, not an empty integral
+  ok         saying there is no twin reading for the window
+  ok         usage on the path and nothing off it is green
+  ok         and it says so
+  ok       🔴 an interface that carried the flow and reads 0 is red
+  ok         naming it
+  ok       🔴 an on-path interface with NO twin edge is red
+  ok         and says the link is not modelled
+  ok         the floor with a 16 kbit smallest on-path integral
+  ok       🔴 and with a real 16 Mbit flow it is 2% of it, not 5 kbit
+  ok       🔴 one sampled LLDP beacon off the path is NOT a failure
+  ok         and the floor it was judged against is in the raw
+  ok         with the edge's own integral beside it
+  ok       🔴 an inter-switch link off the path carrying the FLOW is red
+  ok         naming it, the bits and the floor
+  ok         the floor follows the SMALLEST on-path integral
+  ok       🔴 and 100 kbit off the path is red against it
+  ok         naming the floor the smallest on-path edge set
+  ok       🔴 and in a quiet window the floor is the absolute 5 kbit
+  ok         naming that floor
+  ok         12 bit of stray on an off-path link is under it
+  ok         a host-facing edge under the floor is fine
+  ok       🔴 and one over it is red
+  ok         naming the floor it passed
+  ok       🔴 an EMPTY on-path set is refused, not satisfied
+  ok         saying why
+  ok       🔴 and it refuses WITHOUT judging a single edge
+  ok         telemetry off: the twin reports nothing on the path
+  ok         and says what that proves
+  ok       🔴 telemetry off and the twin still reporting is RED
+  ok         because the cell above would then prove nothing
+  ok       🔴 and an EMPTY on-path set is refused here too
+  ok         for the same reason
+  ok       🔴 a model with one host cannot carry a flow
+  ok         and says so instead of measuring nothing
+  ok       🔴 a host with no namespace is rc 2, a refusal
+  ok         named as the permission answer it is
+  ok         a named destination is the one the flow runs to
+  ok         and with none named it is the model's LAST host
+  ok       🔴 a destination the model does not declare is refused
+  ok         rather than silently falling back to another host
+
+9. 🔴 no live-p1 script reintroduces the `set -u` `local` hazard
+  ok       🔴 no live-p1 script has a cross-referencing `local`
+  ok         and the scanner finds one that IS there
+  ok         naming both of the names it read
+  ok       🔴 and the FIXED shape is not flagged
+
+Ran 103 checks, 0 failed

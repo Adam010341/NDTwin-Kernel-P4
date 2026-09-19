@@ -1,0 +1,73 @@
+### RED RUN 35(2) -- the staggered top label drawn outside its own axes
+# head:        e222176d
+# when:        2026-09-19 14:26:49 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python
+# (2a) plot.py verbatim from f51ee88f (2d68aeb46592): no place_end_labels at all -> ERROR only.
+# (2b) this head with the raise removed (78a94d851e31) -- byte-identical to M-E34. The number it
+#      reports, 214.7 pt on a 206.5 pt axes, is the SAME number the real figure measured
+#      in question-a-label-headroom.p3e-f51ee88f.log -- the unit case reproduces it.
+###
+
+--- (2a)
+test_no_label_is_drawn_above_the_top_of_its_own_axes (test_plot.Figure3LabelsStayInsideTest.test_no_label_is_drawn_above_the_top_of_its_own_axes) ... ERROR
+test_only_the_panel_that_needs_room_is_given_any (test_plot.Figure3LabelsStayInsideTest.test_only_the_panel_that_needs_room_is_given_any) ... ERROR
+test_the_computed_axes_match_the_ones_the_real_figure_drew (test_plot.Figure3LabelsStayInsideTest.test_the_computed_axes_match_the_ones_the_real_figure_drew) ... ok
+
+======================================================================
+ERROR: test_no_label_is_drawn_above_the_top_of_its_own_axes (test_plot.Figure3LabelsStayInsideTest.test_no_label_is_drawn_above_the_top_of_its_own_axes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/r8red2a/tests/test_plot.py", line 244, in test_no_label_is_drawn_above_the_top_of_its_own_axes
+    ylim, placed = plot.place_end_labels(ends, original, self.HEIGHT_PT)
+                   ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'plot' has no attribute 'place_end_labels'
+
+======================================================================
+ERROR: test_only_the_panel_that_needs_room_is_given_any (test_plot.Figure3LabelsStayInsideTest.test_only_the_panel_that_needs_room_is_given_any)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/r8red2a/tests/test_plot.py", line 266, in test_only_the_panel_that_needs_room_is_given_any
+    ylim, _placed = plot.place_end_labels(ends, original, self.HEIGHT_PT)
+                    ^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'plot' has no attribute 'place_end_labels'
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.002s
+
+FAILED (errors=2)
+### rc=1
+
+--- (2b)
+test_no_label_is_drawn_above_the_top_of_its_own_axes (test_plot.Figure3LabelsStayInsideTest.test_no_label_is_drawn_above_the_top_of_its_own_axes) ... FAIL
+test_only_the_panel_that_needs_room_is_given_any (test_plot.Figure3LabelsStayInsideTest.test_only_the_panel_that_needs_room_is_given_any) ... FAIL
+test_the_computed_axes_match_the_ones_the_real_figure_drew (test_plot.Figure3LabelsStayInsideTest.test_the_computed_axes_match_the_ones_the_real_figure_drew) ... ok
+
+======================================================================
+FAIL: test_no_label_is_drawn_above_the_top_of_its_own_axes (test_plot.Figure3LabelsStayInsideTest.test_no_label_is_drawn_above_the_top_of_its_own_axes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/r8red2b/tests/test_plot.py", line 249, in test_no_label_is_drawn_above_the_top_of_its_own_axes
+    self.assertLessEqual(
+    ~~~~~~~~~~~~~~~~~~~~^
+        glyph_top, self.HEIGHT_PT + 1e-6,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        "%s: %s's label top is %.1f pt on a %.1f pt axes"
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        % (panel, label["name"], glyph_top, self.HEIGHT_PT))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 214.70828732771142 not less than or equal to 206.500001 : bmv2: coop's label top is 214.7 pt on a 206.5 pt axes
+
+======================================================================
+FAIL: test_only_the_panel_that_needs_room_is_given_any (test_plot.Figure3LabelsStayInsideTest.test_only_the_panel_that_needs_room_is_given_any)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/r8red2b/tests/test_plot.py", line 268, in test_only_the_panel_that_needs_room_is_given_any
+    self.assertGreater(ylim[1], original[1], panel)
+    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 801.7528653471206 not greater than 801.7528653471206 : bmv2
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.002s
+
+FAILED (failures=2)
+### rc=1

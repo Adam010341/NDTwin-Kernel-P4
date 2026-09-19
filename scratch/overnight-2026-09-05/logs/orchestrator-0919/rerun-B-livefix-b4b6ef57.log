@@ -1,0 +1,16 @@
+### tree b4b6ef57  start 13:51:27
+### p4_proxy_suite
+rc=1
+### check_gate_anchors
+115/115 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+rc=0
+### mutate_link_telemetry
+OK
+mutation gate: 28 mutations, 0 survived
+rc=0
+### mutate_app_package
+OK
+mutation gate: 48 mutations, 0 survived
+rc=0
+### worktree status lines: 0
+### done 13:55:42

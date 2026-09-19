@@ -1,0 +1,42 @@
+
+0. the premises -- without these the run below discriminates nothing
+  ok       the two fixtures are different processes
+  ok       ours is alive before the teardown
+  ok       theirs is alive before the teardown
+  ok       🔴 both wear an app's signature (argv alone cannot tell them apart)
+  ok         proc_checkout says ours is ours
+  ok         and theirs belongs to another tree
+  ok       🔴 ours has a process group of its own
+  ok       🔴 theirs has one too
+
+1. 🔴 one teardown, two processes: ours is stopped, theirs is listed and left alive
+  ok       the apps step ran
+  ok       🔴 ours is named as untracked and stopped by pid
+  ok         and the teardown says it stopped it
+  ok       🔴 OURS IS GONE
+  ok       🔴 THEIRS IS STILL ALIVE
+  ok       🔴 theirs is named in the elsewhere column
+  ok         with its pid
+  ok         and why it was not counted
+  ok         and that this teardown will not stop it
+  ok       🔴 theirs was never called untracked
+  ok         and the teardown never says it could not stop it
+  ok         and theirs is still the process it was
+  ok         the teardown carried on to [1/3]
+  ok         and reached the sweep
+  ok       🔴 and a foreign process is not a refusal (rc is not 5)
+
+2. the control -- with ONLY the foreign process on the field, nothing is stopped
+  ok       🔴 the other tree's process survives a teardown
+  ok         and nothing claims to have stopped te
+  ok         it is listed instead
+### CONTROL FIXTURE 401364 after kill: /proc/401364 exists = no
+
+3. the other control -- a clean field is not a teardown that stopped something
+  ok       nothing is stopped when nothing is running
+  ok         and no elsewhere column is printed
+  ok         the teardown still ran
+
+Ran 29 checks, 0 failed
+### FIXTURE 401040 after kill: /proc/401040 exists = no
+### FIXTURE 401049 after kill: /proc/401049 exists = no

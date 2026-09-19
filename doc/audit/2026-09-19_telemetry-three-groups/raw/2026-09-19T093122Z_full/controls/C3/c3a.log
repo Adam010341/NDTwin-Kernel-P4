@@ -1,0 +1,23 @@
+🔴 INVALID: no simple_switch binary in /tmp/ndtwin_p4_switches.json -- this arm cannot name what it measured
+### E arm c3a_noburn  group none  frame 1024B (payload 982)  h1->h4  step 8s  09:33:33Z
+      1 kpps  reps 1  loss   0.0000%  sent     999.9 pps  recv     999.8 pps  clean=yes
+      2 kpps  reps 1  loss   0.0000%  sent    1999.8 pps  recv    1999.6 pps  clean=yes
+      3 kpps  reps 1  loss   0.0000%  sent    2999.5 pps  recv    2999.2 pps  clean=yes
+      5 kpps  reps 1  loss   0.0000%  sent    4999.2 pps  recv    4998.8 pps  clean=yes
+      8 kpps  reps 1  loss   0.0000%  sent    7998.7 pps  recv    7998.1 pps  clean=yes
+     12 kpps  reps 3  loss   0.0052%  sent   11998.0 pps  recv   11996.8 pps  clean=yes
+  ✅ confirmed 12 kpps  reps 0.0000,0.0167,0.0198  median 0.0167% <= 0.5%
+### top_rung_confirmation=12:0.0000,0.0167,0.0198=>0.0167 
+### kernel_sha256_end=be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49
+### sflow_counter_level=telemetry_health/telemetry_health
+### d_rx_total=0
+### d_addressed_total=0
+### d_sock_ovfl_total=0
+### d_app_drop_total=0
+### d_malformed_ipv4_ihl=0
+### d_family_ipv4=0
+### d_family_ipv6=0
+### d_family_l2=0
+### d_family_undecodable=0
+### finished=2026-09-19T09:35:13Z
+### invalid=no simple_switch binary in /tmp/ndtwin_p4_switches.json -- this arm cannot name what it measured

@@ -1,0 +1,155 @@
+### offline round, driver under test = PRE-RULING-21 (ce1b2207)
+# tree:    /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919
+# head:    a3a51548e015b5a29198dc24871cc58fce0e3225
+# when:    2026-09-19 08:52:05 UTC
+# E_DRIVER: /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/prefix_drive_e.sh
+# old driver sha256: 9f93eca2537805d65771d130e74e398f227675d93248066fd85b9d3bd0f7b576
+# expected: RED -- ruling 21(1), 21(2) and the measuring defect must fail here
+###
+=== 1. the copy under test IS the real drive_e.sh
+  ok      byte-identical to /tmp/claude-1000/-home-adam-Desktop-NDTwin-Kernel/ab335656-6485-4e2e-a7ca-7d0070a0d3c0/scratchpad/prefix_drive_e.sh
+
+=== 2. a whole round, offline
+  ok      the driver finished (not killed by timeout)
+  FAIL    it reached its own verdict, and it is a PASS
+        expected to contain: PASS P3-E
+        got: 
+raw: /tmp/ndt-e-offline-Cack7B/fixed/round/raw/2026-09-19T085343Z_full
+FAIL P3-E -- the driver exited 1 before its own verdict
+  FAIL    six generations were brought up
+        want: 6
+        got:  1
+  FAIL    every generation was torn down, plus the final one
+        want: 7
+        got:  1
+  ok      the lab was released exactly once
+
+=== 3. ruling 21(1): no call to a word that is not an ndt subcommand
+  FAIL  🔴 every ndt call names a real subcommand
+        want: 
+        got:  verify_p4
+  FAIL  🔴 verify_p4 is never invoked
+        must NOT contain: verify_p4
+  FAIL    the standalone re-check that does exist is used
+        expected to contain: status --check
+        got: verify_p4 | measuring=<unset>
+down | measuring=<unset>
+release | measuring=<unset>
+  FAIL    and the bring-up's own telemetry assertion was read
+        expected to contain: telemetry: none --
+        got: 
+raw: /tmp/ndt-e-offline-Cack7B/fixed/round/raw/2026-09-19T085343Z_full
+FAIL P3-E -- the driver exited 1 before its own verdict
+
+=== 4. ruling 21(2): the sender control is REACHED and does not abort the driver
+  FAIL  🔴 C1 ran (the set -u local hazard would have killed the shell here)
+        expected to contain: C1: generator ceiling at 64B frames
+        got: 
+raw: /tmp/ndt-e-offline-Cack7B/fixed/round/raw/2026-09-19T085343Z_full
+FAIL P3-E -- the driver exited 1 before its own verdict
+  FAIL    C2 ran too
+        expected to contain: C2: generator ceiling at 1024B frames
+        got: 
+raw: /tmp/ndt-e-offline-Cack7B/fixed/round/raw/2026-09-19T085343Z_full
+FAIL P3-E -- the driver exited 1 before its own verdict
+  FAIL    and the gate's positive control ran after them
+        expected to contain: C3: the external gate
+        got: 
+raw: /tmp/ndt-e-offline-Cack7B/fixed/round/raw/2026-09-19T085343Z_full
+FAIL P3-E -- the driver exited 1 before its own verdict
+
+=== 5. the third defect the same raw showed: down refuses while measuring= is declared
+  FAIL  🔴 every teardown is preceded by a claim that retracts measuring=
+        want: 7
+        got:  0
+  ok    🔴 and the guard is never overridden with --force
+  ok      the round re-declares it at the next bring-up
+
+=== 6. negative controls: the new checks can fail
+  FAIL  🔴 a bring-up asserting the wrong telemetry source is caught
+        expected to contain: asserted a telemetry source that is not 'none'
+        got: 
+raw: /tmp/ndt-e-offline-Cack7B/wrong-group/round/raw/2026-09-19T085343Z_full
+FAIL P3-E -- the driver exited 1 before its own verdict
+  FAIL  🔴 a down that still refuses after the retraction is a reported failure
+        expected to contain: refused (rc 5)
+        got: 
+raw: /tmp/ndt-e-offline-Cack7B/down-refuses/round/raw/2026-09-19T085343Z_full
+FAIL P3-E -- the driver exited 1 before its own verdict
+  ok      and it is still not forced
+
+=== 6b. ruling 22(1): `ndt status --check` rc 1 is a verdict and cannot coexist with PASS
+  ok    🔴 a generation whose status --check said rc 1 does NOT end in PASS
+  FAIL    the failure names the generation and the rc
+        expected to contain: G1: 'ndt status --check' rc=1
+        got: 
+raw: /tmp/ndt-e-offline-Cack7B/check-rc1/round/raw/2026-09-19T085343Z_full
+FAIL P3-E -- the driver exited 1 before its own verdict
+  FAIL    and it says the arms of that generation ran under it
+        expected to contain: the arms of this generation ran under it
+        got: 
+raw: /tmp/ndt-e-offline-Cack7B/check-rc1/round/raw/2026-09-19T085343Z_full
+FAIL P3-E -- the driver exited 1 before its own verdict
+  FAIL    the arms still ran (12 of them, as in a clean round)
+        want: 12
+        got:  0
+  FAIL    and all six generations were still brought up
+        want: 6
+        got:  1
+  FAIL  🔴 rc 3 is recorded as NOTHING compared, and stays out of the verdict
+        expected to contain: NOTHING was compared
+        got: 
+raw: /tmp/ndt-e-offline-Cack7B/check-rc3/round/raw/2026-09-19T085343Z_full
+FAIL P3-E -- the driver exited 1 before its own verdict
+  FAIL    so the round can still pass on it
+        expected to contain: PASS P3-E
+        got: 
+raw: /tmp/ndt-e-offline-Cack7B/check-rc3/round/raw/2026-09-19T085343Z_full
+FAIL P3-E -- the driver exited 1 before its own verdict
+
+=== 6c. ruling 22(2): the round baseline the release compares against
+  ok      the entry knob was 128 and is 128 again at the end
+  ok    🔴 the release is not refused, so the lab is actually given back
+  ok    🔴 and the round does not report a release refusal
+  FAIL    the round passes
+        expected to contain: PASS P3-E
+        got: 
+raw: /tmp/ndt-e-offline-Cack7B/knob-128/round/raw/2026-09-19T085343Z_full
+FAIL P3-E -- the driver exited 1 before its own verdict
+  ok      the final claim re-recorded the baseline from the RESTORED value
+  ok    🔴 a refused release means the round does NOT pass
+  FAIL    and it says the lab is still claimed
+        expected to contain: THE LAB IS STILL CLAIMED
+        got: 
+raw: /tmp/ndt-e-offline-Cack7B/release-refuses/round/raw/2026-09-19T085343Z_full
+FAIL P3-E -- the driver exited 1 before its own verdict
+  FAIL    in the failure list, not only on the way past
+        expected to contain: final: 'ndt release' refused (rc 1)
+        got: 
+raw: /tmp/ndt-e-offline-Cack7B/release-refuses/round/raw/2026-09-19T085343Z_full
+FAIL P3-E -- the driver exited 1 before its own verdict
+
+=== 7. pre-fix controls SKIPPED -- E_DRIVER is set, so the driver under test is already old
+
+=== 7b. and the refusals still refuse: a leftover link-telemetry manifest starts nothing
+  ok    🔴 it refuses before anything is started
+  ok      and says which file decided it
+  ok      nothing was claimed
+
+=== 8. the hazard scanner over the three scripts, with both positive controls
+  ok    🔴 no cross-referencing `local` in any of the three scripts (scanner rc)
+          # hazard_scan: 3 file(s) given, 3 scanned, 0 unreadable, 0 finding(s)
+  ok      positive control: the $name form is found
+  ok      ... and the scanner exits non-zero for it
+  ok    🔴 positive control: the ARITHMETIC form is found (D's scanner misses this one)
+  ok      ... and the scanner exits non-zero for it too
+  ok      negative control: split declarations are not flagged (rc 0)
+  ok      and nothing to scan is rc 2, not a pass
+  ok    🔴 a path that cannot be read is rc 2, not rc 0
+  ok      and the name is printed
+  ok      and it is counted as unreadable, not as scanned
+  ok      an incomplete sweep outranks a finding (2, not 1)
+
+passed: 26   failed: 22
+
+### rc=1

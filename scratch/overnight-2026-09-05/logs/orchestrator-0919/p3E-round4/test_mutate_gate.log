@@ -1,0 +1,31 @@
+### test_mutate_gate.sh -- asserts on what the gate SAID in that self-test
+# tree:    /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919
+# head:    a3a51548e015b5a29198dc24871cc58fce0e3225
+# when:    2026-09-19 08:52:05 UTC
+# cmd: tests/test_mutate_gate.sh
+###
+=== the gate refuses a verdict when it could not mutate
+  ok    🔴 rc is 2 -- refused, not 0 (pass) and not 1 (a survivor)
+  ok    🔴 and it says so in words
+  ok      the drifted mutation is named as DRIFT, not as a survivor
+  ok      and the reason is on the line
+  ok      the counters carry it
+
+=== and exactly one verdict marker, which is the refusal
+  ok    🔴 the log ends in ### rc=2
+  ok    🔴 and there is no ### rc=0 anywhere in it
+  ok      nor a ### rc=1
+  ok      exactly one rc marker in the whole run
+
+=== a mutation whose cells are only PARTLY red is not caught
+  ok    🔴 report_shell says SURVIVED when one required cell stayed green
+  ok      and it names the cell that stayed green
+  ok      it is never reported as caught
+
+=== the gate checked itself and said which paths fired
+  ok      (a) the drift path
+  ok      (b) the partial-red path
+
+passed: 14   failed: 0
+
+### rc=0

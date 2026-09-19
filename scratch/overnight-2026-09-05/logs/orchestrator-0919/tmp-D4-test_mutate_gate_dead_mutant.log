@@ -1,0 +1,26 @@
+
+1. 🔴 a mutant that does not parse is REFUSED, not counted
+  ok         the gate exits 2 (refused), not 1 (a survivor)
+  ok       🔴 it says the mutant is DEAD
+  ok         and why that is not a measurement
+  ok         the refusal is spelled out
+  ok       🔴 and it prints NO verdict line at all
+  ok       🔴 in particular it does not say anything survived
+  ok         report_green refuses the same way
+  ok         with the same DEAD line
+  ok         and no verdict line either
+
+2. 🔴 THE CONTROL: a mutant that DOES parse is not reported dead
+  ok         a parseable mutant lets the gate reach its verdict
+  ok       🔴 it is NOT called dead
+  ok         and the gate does not refuse
+  ok         the verdict line is printed
+  ok         and it counts the dead separately
+  ok         the mutation itself was caught
+
+3. the counters are three, not two
+  ok       🔴 both report functions increment DEAD, not SURVIVORS
+  ok       🔴 and no SURVIVORS increment sits in a dead branch
+  ok         the verdict is gated on DEAD
+
+Ran 18 checks, 0 failed

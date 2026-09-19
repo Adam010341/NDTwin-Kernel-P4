@@ -1,0 +1,32 @@
+### merged tree 7242e127  start 16:25:14  knob=4
+### merged_checks
+check_process_by_name rc=0  check_process_by_name: 313 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale
+check_gate_anchors rc=0  115/115 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+kiref rc=0  OK
+check_test_tmpdirs rc=0  check_test_tmpdirs: 347 file(s) scanned, 0 fixed temp paths
+test_redirection_order rc=0  Ran 48 checks, 0 failed
+test_log_suffix_idempotent rc=0    30 passed, 0 failed
+test_topo_from_json rc=0  PASS -- derived wiring is identical to the hard-coded lists
+MERGED-CHECKS 7242e127 r1: ALL-GREEN
+### driver_tests
+Ran 143 tests in 1.220s
+OK
+rc=0
+### test_live_p1_common
+  ok       🔴 the real qos/solution reading PASSES
+Ran 137 checks, 0 failed
+rc=0
+### test_live_p1_thirteen
+Ran 36 checks, 0 failed
+rc=0
+### test_ndt_app_package
+  ok         and checks the graph
+Ran 395 checks, 0 failed
+rc=0
+### test_mutate_gate_dead_mutant
+Ran 43 checks, 0 failed
+rc=0
+### test_ndt_up_down_robust
+rc=0
+### p4_proxy suite rc=0  Ran 1394 tests in 17.945s OK (skipped=1) 
+### drv-dirs=0  done 16:26:32

@@ -1,0 +1,7 @@
+.................................................
+----------------------------------------------------------------------
+Ran 49 tests in 0.010s
+
+OK
+[sflow] could not read topology /nonexistent/topology.json: [Errno 2] No such file or directory: '/nonexistent/topology.json'; no sFlow will be emitted
+[sflow] could not read topology /tmp/tmpho5_g_cg.json: Expecting property name enclosed in double quotes: line 1 column 2 (char 1); no sFlow will be emitted

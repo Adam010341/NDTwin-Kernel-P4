@@ -1,0 +1,14 @@
+### merged tree 7d6c88a2  start 15:57:00
+### merged_checks
+check_process_by_name rc=0  check_process_by_name: 313 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale
+check_gate_anchors rc=0  115/115 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+kiref rc=0  OK
+check_test_tmpdirs rc=0  check_test_tmpdirs: 347 file(s) scanned, 0 fixed temp paths
+test_redirection_order rc=0  Ran 48 checks, 0 failed
+test_log_suffix_idempotent rc=0    30 passed, 0 failed
+test_topo_from_json rc=0  PASS -- derived wiring is identical to the hard-coded lists
+MERGED-CHECKS 7d6c88a2 r1: ALL-GREEN
+### p4_proxy suite rc=1  
+### tools/p4_exercise rc=0  Ran 154 tests in 1.461s OK 
+### mutate_table_entry rc=2  
+### done 15:57:10

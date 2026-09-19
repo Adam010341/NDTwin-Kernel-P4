@@ -1,0 +1,682 @@
+== 06_thirteen
+   repo: /home/adam/Desktop/NDTwin-Kernel
+   raw : /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-19T052518Z_06_thirteen
+   owner: p3-orchestrator
+
+== basic / skeleton
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T052519Z_basic_skeleton_ndtwin.md
+   !! basic/skeleton FAILED an expectation. Its expectations ARE the red ones -- 'received
+   !!   0 packets', 'every reported port is 0', 'the flow is NOT blocked' -- so one of
+   !!   them not holding means the skeleton did not behave the way the exercise says it
+   !!   does, and that exercise's solution arm is then not evidence about the solution.
+     ... [trimmed; 6563 chars total]
+        ndt down rc=1
+        host_count_override: put back to the 2 bytes this round found
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS injection: send.py emitted 1 TCP frame         want=1                      got=1   【源碼推導，未執行】
+        PASS pingall loss (ping -c 5, every ordered pair)   want=100.0%                 got=100% (0/12 pairs at 0%, 12 lossy)   【README 宣稱】＋【源碼推導，未執行】
+        PASS h1 ping -c3 h2 received                        want=0                      got=0   【源碼推導，未執行】
+        PASS h2 got the send.py packet                      want=0                      got=0   【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T052519Z_basic_skeleton_ndtwin.md
+
+== basic / solution
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T052720Z_basic_solution_ndtwin.md
+   !! basic/solution exited 1, want 0
+        host_count_override: put back to the 2 bytes this round found
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS injection: send.py emitted 1 TCP frame         want=1                      got=1   【源碼推導，未執行】
+        PASS pingall loss (ping -c 5, every ordered pair)   want=0.0%                   got=0% (12/12 pairs at 0%, 0 lossy)   【README 宣稱】＋【源碼推導，未執行】
+        PASS h1 ping -c3 h2 received                        want=3                      got=3   【源碼推導，未執行】
+        PASS h2 got the send.py packet                      want=>=1                    got=1   【源碼推導，未執行】
+        PASS ttl at h2 (h1-s1-h2 is one hop)                want=[63]                   got=[63]   【源碼推導，未執行】
+        PASS G1  link usage follows the iperf path          want=on-path > 0, off-path under max(5 kbit, 2% of the smallest on-path) got=PASS   【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T052720Z_basic_solution_ndtwin.md
+
+== source_routing / skeleton
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T052903Z_source_routing_skeleton_ndtwin.md
+   !! source_routing/skeleton FAILED an expectation. Its expectations ARE the red ones -- 'received
+   !!   0 packets', 'every reported port is 0', 'the flow is NOT blocked' -- so one of
+   !!   them not holding means the skeleton did not behave the way the exercise says it
+   !!   does, and that exercise's solution arm is then not evidence about the solution.
+               measure the wrong process, so this is reported rather than ignored.
+             -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only 
+     ... [trimmed; 5719 chars total]
+        ndt down rc=1
+        host_count_override: unchanged (2 bytes)
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS injection: send.py built 2 srcroute frames     want=2                      got=2   【源碼推導，未執行】
+        PASS h2 received packet count                       want=0                      got=0   【README 宣稱】＋【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T052903Z_source_routing_skeleton_ndtwin.md
+
+== source_routing / solution
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T052946Z_source_routing_solution_ndtwin.md
+   !! source_routing/solution exited 1, want 0
+        ndt down rc=1
+        host_count_override: unchanged (2 bytes)
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS injection: send.py built 2 srcroute frames     want=2                      got=2   【源碼推導，未執行】
+        PASS h2 received packet count                       want=2                      got=2   【README 宣稱】＋【源碼推導，未執行】
+        PASS ttl multiset {2 3 2 2 1 ; 2 1}                 want=[59, 62]               got=[59, 62]   【README 宣稱】＋【源碼推導，未執行】
+        PASS no SourceRoute layer left at h2                want=0 blocks               got=0 blocks   【源碼推導，未執行】
+        PASS ethertype seen by h2                           want=IPv4 (0x800)           got=['IPv4', 'IPv4']   【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T052946Z_source_routing_solution_ndtwin.md
+
+== calc / skeleton
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053030Z_calc_skeleton_ndtwin.md
+   !! calc/skeleton FAILED an expectation. Its expectations ARE the red ones -- 'received
+   !!   0 packets', 'every reported port is 0', 'the flow is NOT blocked' -- so one of
+   !!   them not holding means the skeleton did not behave the way the exercise says it
+   !!   does, and that exercise's solution arm is then not evidence about the solution.
+         command by hand is advice this teardown has already acted on -- which is why
+         [1/3] filt
+     ... [trimmed; 4003 chars total]
+        ndt down rc=1
+        host_count_override: put back to the 2 bytes this round found
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS injection: calc.py read the expression         want=> 1+1                  got=yes   【README 宣稱】＋【源碼推導，未執行】
+        PASS RED ARM: the skeleton must not answer          want=Didn't receive response got=Didn't receive response   【README 宣稱】＋【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053030Z_calc_skeleton_ndtwin.md
+
+== calc / solution
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053107Z_calc_solution_ndtwin.md
+   !! calc/solution exited 1, want 0
+         [1/3] filt
+     ... [trimmed; 4003 chars total]
+        ndt down rc=1
+        host_count_override: put back to the 2 bytes this round found
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS injection: calc.py read the expression         want=> 1+1                  got=yes   【README 宣稱】＋【源碼推導，未執行】
+        PASS the switch answered 1+1                        want=2                      got=2   【README 宣稱】＋【源碼推導，未執行】
+        PASS and it did not time out                        want=no timeout             got=answered   【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053107Z_calc_solution_ndtwin.md
+
+== multicast / skeleton
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053144Z_multicast_skeleton_ndtwin.md
+   !! multicast/skeleton FAILED an expectation. Its expectations ARE the red ones -- 'received
+   !!   0 packets', 'every reported port is 0', 'the flow is NOT blocked' -- so one of
+   !!   them not holding means the skeleton did not behave the way the exercise says it
+   !!   does, and that exercise's solution arm is then not evidence about the solution.
+         command by hand is advice this teardown has already acted on -- which is why
+         [1/3] filt
+     ... [trimmed; 4008 chars total]
+        ndt down rc=1
+        host_count_override: put back to the 2 bytes this round found
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS injection: every ordered pair was tested       want=0 untested             got=0 untested of 12   【源碼推導，未執行】
+        PASS RED ARM: nothing pings at all                  want=100.0%                 got=100% (0/12 pairs at 0%, 12 lossy)   【README 宣稱】＋【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053144Z_multicast_skeleton_ndtwin.md
+
+== multicast / solution
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053334Z_multicast_solution_ndtwin.md
+   !! multicast/solution exited 1, want 0
+        host_count_override: put back to the 2 bytes this round found
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS injection: every ordered pair was tested       want=0 untested             got=0 untested of 12   【源碼推導，未執行】
+        PASS h1/h2/h3 reach each other                      want=0% on all 6 pairs      got=0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received   【README 宣稱】＋【源碼推導，未執行】
+        PASS nobody reaches h4                              want=100% on the three hX -> h4 pairs got=100% loss, 0/5 received, 100% loss, 0/5 received, 100% loss, 0/5 received   【README 宣稱】＋【源碼推導，未執行】
+        PASS but h4 reaches them                            want=0% on the three h4 -> hX pairs got=0% loss, 5/5 received, 0% loss, 5/5 received, 0% loss, 5/5 received   【源碼推導，未執行】
+        PASS and h4 is unreachable from cold caches, not just from this ping order want=100% on all three, after a second flush got=h1->h4 100% loss, 0/5 received, h2->h4 100% loss, 0/5 received, h3->h4 100% loss, 0/5 received   【源碼推導，未執行】
+        PASS G1  link usage follows the iperf path          want=on-path > 0, off-path under max(5 kbit, 2% of the smallest on-path) got=PASS   【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053334Z_multicast_solution_ndtwin.md
+
+== basic_tunnel / skeleton
+   rc=1 (want 1)   RED ARM (1/1): the skeleton does not get past the control plane, by design
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053533Z_basic_tunnel_skeleton_ndtwin.md
+
+== basic_tunnel / solution
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053534Z_basic_tunnel_solution_ndtwin.md
+   !! basic_tunnel/solution exited 1, want 0
+             :9092 is still listening, held by a process this user cannot see (probably root-owned)
+               This script did not start it. The next 'up' would find the port open and
+               measure the wrong process, so this is reported rather than ignored.
+             -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only 
+     ... [trimmed; 5717 chars total]
+        ndt down rc=1
+        host_count_override: unchanged (2 bytes)
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053534Z_basic_tunnel_solution_ndtwin.md
+
+== load_balance / skeleton
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053606Z_load_balance_skeleton_ndtwin.md
+   !! load_balance/skeleton FAILED an expectation. Its expectations ARE the red ones -- 'received
+   !!   0 packets', 'every reported port is 0', 'the flow is NOT blocked' -- so one of
+   !!   them not holding means the skeleton did not behave the way the exercise says it
+   !!   does, and that exercise's solution arm is then not evidence about the solution.
+               measure the wrong process, so this is reported rather than ignored.
+             -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only 
+     ... [trimmed; 5717 chars total]
+        ndt down rc=1
+        host_count_override: unchanged (2 bytes)
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS injection: send.py emitted 10 frames           want=10                     got=10   【源碼推導，未執行】
+        PASS RED ARM: only h2 is used                       want=h2>=1 and h3==0        got=h2=10 h3=0   【README 宣稱】＋【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053606Z_load_balance_skeleton_ndtwin.md
+
+== load_balance / solution
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053700Z_load_balance_solution_ndtwin.md
+   !! load_balance/solution exited 1, want 0
+               measure the wrong process, so this is reported rather than ignored.
+             -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only 
+     ... [trimmed; 5717 chars total]
+        ndt down rc=1
+        host_count_override: unchanged (2 bytes)
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS injection: send.py emitted 10 frames           want=10                     got=10   【源碼推導，未執行】
+        PASS both servers were used                         want=h2>=1 and h3>=1        got=h2=4 h3=6   【README 宣稱】＋【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053700Z_load_balance_solution_ndtwin.md
+
+== qos / skeleton
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053755Z_qos_skeleton_ndtwin.md
+   !! qos/skeleton FAILED an expectation. Its expectations ARE the red ones -- 'received
+   !!   0 packets', 'every reported port is 0', 'the flow is NOT blocked' -- so one of
+   !!   them not holding means the skeleton did not behave the way the exercise says it
+   !!   does, and that exercise's solution arm is then not evidence about the solution.
+             -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only 
+     ... [trimmed; 5708 chars total]
+        ndt down rc=1
+        host_count_override: put back to the 2 bytes this round found
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS injection: h1's packets reached h2 in both rounds want=>=1 each               got=udp=12 tcp=6   【源碼推導，未執行】
+        FAIL RED ARM: UDP tos stays 0x1                     want=['0x1']                got=['0x1', '0xc0']   【README 宣稱】＋【源碼推導，未執行】
+        PASS RED ARM: TCP tos stays 0x1                     want=['0x1']                got=['0x1']   【README 宣稱】＋【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053755Z_qos_skeleton_ndtwin.md
+
+== qos / solution
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053856Z_qos_solution_ndtwin.md
+   !! qos/solution exited 1, want 0
+     ... [trimmed; 5708 chars total]
+        ndt down rc=1
+        host_count_override: put back to the 2 bytes this round found
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS injection: h1's packets reached h2 in both rounds want=>=1 each               got=udp=635 tcp=724   【源碼推導，未執行】
+        PASS UDP is expedited forwarding                    want=0xb9 among the tos values got=['0xb8', '0xb9', '0xd8']   【README 宣稱】＋【源碼推導，未執行】
+        PASS TCP is voice admit                             want=0xb1 among the tos values got=['0xb1', '0xb8']   【README 宣稱】＋【源碼推導，未執行】
+        FAIL G1  link usage follows the iperf path          want=on-path > 0, off-path under max(5 kbit, 2% of the smallest on-path) got=see the transcript   【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053856Z_qos_solution_ndtwin.md
+
+== link_monitor / skeleton
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054007Z_link_monitor_skeleton_ndtwin.md
+   !! link_monitor/skeleton FAILED an expectation. Its expectations ARE the red ones -- 'received
+   !!   0 packets', 'every reported port is 0', 'the flow is NOT blocked' -- so one of
+   !!   them not holding means the skeleton did not behave the way the exercise says it
+   !!   does, and that exercise's solution arm is then not evidence about the solution.
+     ... [trimmed; 6570 chars total]
+        ndt down rc=1
+        host_count_override: put back to the 2 bytes this round found
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS injection: probes reached h1                   want=>=1 report row         got=72 rows   【README 宣稱】
+        PASS switch ids seen                                want=[1, 2, 3, 4]           got=[1, 2, 3, 4]   【源碼推導，未執行】
+        PASS every reported port is 0                       want=[0]                    got=[0]   【README 宣稱】＋【源碼推導，未執行】
+        PASS every reported utilization is 0                want=['0']                  got=['0']   【README 宣稱】＋【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054007Z_link_monitor_skeleton_ndtwin.md
+
+== link_monitor / solution
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054057Z_link_monitor_solution_ndtwin.md
+   !! link_monitor/solution exited 1, want 0
+     ... [trimmed; 6570 chars total]
+        ndt down rc=1
+        host_count_override: put back to the 2 bytes this round found
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS injection: probes reached h1                   want=>=1 report row         got=72 rows   【README 宣稱】
+        PASS switch ids seen                                want=[1, 2, 3, 4]           got=[1, 2, 3, 4]   【源碼推導，未執行】
+        PASS every reported port is non-zero                want=no 0 port              got=[1, 2, 3, 4]   【源碼推導，未執行】
+        PASS G1  link usage follows the iperf path          want=on-path > 0, off-path under max(5 kbit, 2% of the smallest on-path) got=PASS   【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054057Z_link_monitor_solution_ndtwin.md
+
+== firewall / skeleton
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054159Z_firewall_skeleton_ndtwin.md
+   !! firewall/skeleton FAILED an expectation. Its expectations ARE the red ones -- 'received
+   !!   0 packets', 'every reported port is 0', 'the flow is NOT blocked' -- so one of
+   !!   them not holding means the skeleton did not behave the way the exercise says it
+   !!   does, and that exercise's solution arm is then not evidence about the solution.
+             -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them i
+     ... [trimmed; 6566 chars total]
+        ndt down rc=1
+        host_count_override: put back to the 2 bytes this round found
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS iperf h1 -> h3 (internal -> external)          want=connects               got=connects   【README 宣稱】＋【源碼推導，未執行】
+        PASS RED ARM: iperf h3 -> h1 must connect           want=connects               got=connects   【README 宣稱】＋【源碼推導，未執行】
+        PASS the fabric forwards (pingall)                  want=0.0%                   got=0% (12/12 pairs at 0%, 0 lossy)   【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054159Z_firewall_skeleton_ndtwin.md
+
+== firewall / solution
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054334Z_firewall_solution_ndtwin.md
+   !! firewall/solution exited 1, want 0
+     ... [trimmed; 6566 chars total]
+        ndt down rc=1
+        host_count_override: put back to the 2 bytes this round found
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS iperf h1 -> h3 (internal -> external)          want=connects               got=connects   【README 宣稱】＋【源碼推導，未執行】
+        PASS iperf h3 -> h1 is blocked                      want=no transfer            got=no transfer   【README 宣稱】＋【源碼推導，未執行】
+        PASS the fabric still forwards (pingall)            want=0.0%                   got=0% (12/12 pairs at 0%, 0 lossy)   【源碼推導，未執行】
+        PASS G1  link usage follows the iperf path          want=on-path > 0, off-path under max(5 kbit, 2% of the smallest on-path) got=PASS   【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054334Z_firewall_solution_ndtwin.md
+
+== ecn / skeleton
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054729Z_ecn_skeleton_ndtwin.md
+   !! ecn/skeleton FAILED an expectation. Its expectations ARE the red ones -- 'received
+   !!   0 packets', 'every reported port is 0', 'the flow is NOT blocked' -- so one of
+   !!   them not holding means the skeleton did not behave the way the exercise says it
+   !!   does, and that exercise's solution arm is then not evidence about the solution.
+             -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only 
+     ... [trimmed; 5708 chars total]
+        ndt down rc=1
+        host_count_override: put back to the 2 bytes this round found
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS injection: packets reached h2                  want=>=1                    got=2   【源碼推導，未執行】
+        PASS injection: send.py showed the frame it built   want=1 show2                got=1   【源碼推導，未執行】
+        PASS RED ARM: every tos stays 0x1                   want=['0x1']                got=['0x1']   【README 宣稱】＋【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054729Z_ecn_skeleton_ndtwin.md
+
+== ecn / solution
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054821Z_ecn_solution_ndtwin.md
+   !! ecn/solution exited 1, want 0
+     ... [trimmed; 5708 chars total]
+        ndt down rc=1
+        host_count_override: put back to the 2 bytes this round found
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS injection: packets reached h2                  want=>=1                    got=3   【源碼推導，未執行】
+        PASS injection: send.py showed the frame it built   want=1 show2                got=1   【源碼推導，未執行】
+        PASS h2 saw a congestion-marked packet              want=0x3 among the tos values got=['0x1', '0x3']   【README 宣稱】＋【源碼推導，未執行】
+        FAIL G1  link usage follows the iperf path          want=on-path > 0, off-path under max(5 kbit, 2% of the smallest on-path) got=see the transcript   【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054821Z_ecn_solution_ndtwin.md
+
+== mri / skeleton
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054923Z_mri_skeleton_ndtwin.md
+   !! mri/skeleton FAILED an expectation. Its expectations ARE the red ones -- 'received
+   !!   0 packets', 'every reported port is 0', 'the flow is NOT blocked' -- so one of
+   !!   them not holding means the skeleton did not behave the way the exercise says it
+   !!   does, and that exercise's solution arm is then not evidence about the solution.
+     ... [trimmed; 5708 chars total]
+        ndt down rc=1
+        host_count_override: put back to the 2 bytes this round found
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS injection: packets reached h2                  want=>=1                    got=3   【源碼推導，未執行】
+        FAIL injection: the MRI option survived to h2       want=>=1 count field        got=0   【源碼推導，未執行】
+        FAIL RED ARM: the hop count stays 0                 want=[0]                    got=[]   【README 宣稱】＋【源碼推導，未執行】
+        PASS and no swid is ever stamped                    want=[]                     got=[]   【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054923Z_mri_skeleton_ndtwin.md
+
+== mri / solution
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T055015Z_mri_solution_ndtwin.md
+   !! mri/solution exited 1, want 0
+        ndt down rc=1
+        host_count_override: put back to the 2 bytes this round found
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS injection: packets reached h2                  want=>=1                    got=3   【源碼推導，未執行】
+        FAIL injection: the MRI option survived to h2       want=>=1 count field        got=0   【源碼推導，未執行】
+        FAIL hop count at h2                                want=2                      got=[]   【README 宣稱】＋【源碼推導，未執行】
+        FAIL switch ids in the trace                        want=[1, 2]                 got=[]   【README 宣稱】＋【源碼推導，未執行】
+        PASS G1  link usage follows the iperf path          want=on-path > 0, off-path under max(5 kbit, 2% of the smallest on-path) got=PASS   【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T055015Z_mri_solution_ndtwin.md
+
+== p4runtime / skeleton
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T055118Z_p4runtime_skeleton_ndtwin.md
+   !! p4runtime/skeleton FAILED an expectation. Its expectations ARE the red ones -- 'received
+   !!   0 packets', 'every reported port is 0', 'the flow is NOT blocked' -- so one of
+   !!   them not holding means the skeleton did not behave the way the exercise says it
+   !!   does, and that exercise's solution arm is then not evidence about the solution.
+     ... [trimmed; 5714 chars total]
+        ndt down rc=1
+        host_count_override: unchanged (2 bytes)
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS injection: the controller stayed up            want=alive after 12s        got=alive   【源碼推導，未執行】
+        PASS switches the controller programmed             want=[1, 2]                 got=[1, 2]   【源碼推導，未執行】
+        PASS RED ARM: the transit rule is still the student's TODO want=TODO Install transit tunnel rule got=still a TODO   【源碼推導，未執行】
+        PASS RED ARM: h1 -> h2 does not forward             want=100% loss              got=100% loss, 0/5 received   【README 宣稱】＋【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T055118Z_p4runtime_skeleton_ndtwin.md
+
+== p4runtime / solution
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T055210Z_p4runtime_solution_ndtwin.md
+   !! p4runtime/solution exited 1, want 0
+        ndt down rc=1
+        host_count_override: unchanged (2 bytes)
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS injection: the controller stayed up            want=alive after 12s        got=alive   【源碼推導，未執行】
+        PASS switches the controller programmed             want=[1, 2]                 got=[1, 2]   【源碼推導，未執行】
+        PASS the transit rule went in                       want=Installed transit tunnel rule got=installed   【源碼推導，未執行】
+        PASS h1 -> h2 forwards through the tunnel           want=0.0%                   got=0% loss, 5/5 received   【README 宣稱】＋【源碼推導，未執行】
+        FAIL G1  link usage follows the iperf path          want=on-path > 0, off-path under max(5 kbit, 2% of the smallest on-path) got=see the transcript   【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T055210Z_p4runtime_solution_ndtwin.md
+
+== flowcache / skeleton
+   rc=1 (want 1)   RED ARM (1/1): skeleton does not compile, by design
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T055311Z_flowcache_skeleton_ndtwin.md
+
+== flowcache / solution
+   rc=1 (want 0)   ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T055312Z_flowcache_solution_ndtwin.md
+   !! flowcache/solution exited 1, want 0
+        ndt down rc=1
+        host_count_override: unchanged (2 bytes)
+        telemetry_override: unchanged (absent)
+     $ NDT_OWNER=p3-orchestrator /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+       the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+       this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+       ok  lab released
+        ndt release rc=0
+     !! TEARDOWN WAS NOT CLEAN: `ndt down` exited 1
+     
+     == verdict =============================================================
+        PASS injection: the controller stayed up            want=alive after 12s        got=alive   【源碼推導，未執行】
+        PASS switches the controller programmed             want=[1, 2, 3]              got=[1, 2, 3]   【源碼推導，未執行】
+        PASS the controller cached the flow it was punted   want=a flow_cache entry     got=cached   【源碼推導，未執行】
+        FAIL h1 -> h2 forwards once the cache is warm       want=0.0%                   got=40% loss, 3/5 received   【README 宣稱】＋【源碼推導，未執行】
+        FAIL G1  link usage follows the iperf path          want=on-path > 0, off-path under max(5 kbit, 2% of the smallest on-path) got=see the transcript   【源碼推導，未執行】
+     
+     >>> ERROR -- LAB NOT RETURNED: `ndt down` exited 1
+     
+     report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T055312Z_flowcache_solution_ndtwin.md
+
+== the table
+   exercise        which     rc  verdict                                                                     report
+   basic           skeleton  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T052519Z_basic_skeleton_ndtwin.md
+   basic           solution  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T052720Z_basic_solution_ndtwin.md
+   source_routing  skeleton  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T052903Z_source_routing_skeleton_ndtwin.md
+   source_routing  solution  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T052946Z_source_routing_solution_ndtwin.md
+   calc            skeleton  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053030Z_calc_skeleton_ndtwin.md
+   calc            solution  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053107Z_calc_solution_ndtwin.md
+   multicast       skeleton  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053144Z_multicast_skeleton_ndtwin.md
+   multicast       solution  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053334Z_multicast_solution_ndtwin.md
+   basic_tunnel    skeleton  1   RED ARM (1/1): the skeleton does not get past the control plane, by design  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053533Z_basic_tunnel_skeleton_ndtwin.md
+   basic_tunnel    solution  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053534Z_basic_tunnel_solution_ndtwin.md
+   load_balance    skeleton  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053606Z_load_balance_skeleton_ndtwin.md
+   load_balance    solution  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053700Z_load_balance_solution_ndtwin.md
+   qos             skeleton  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053755Z_qos_skeleton_ndtwin.md
+   qos             solution  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T053856Z_qos_solution_ndtwin.md
+   link_monitor    skeleton  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054007Z_link_monitor_skeleton_ndtwin.md
+   link_monitor    solution  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054057Z_link_monitor_solution_ndtwin.md
+   firewall        skeleton  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054159Z_firewall_skeleton_ndtwin.md
+   firewall        solution  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054334Z_firewall_solution_ndtwin.md
+   ecn             skeleton  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054729Z_ecn_skeleton_ndtwin.md
+   ecn             solution  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054821Z_ecn_solution_ndtwin.md
+   mri             skeleton  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T054923Z_mri_skeleton_ndtwin.md
+   mri             solution  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T055015Z_mri_solution_ndtwin.md
+   p4runtime       skeleton  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T055118Z_p4runtime_skeleton_ndtwin.md
+   p4runtime       solution  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T055210Z_p4runtime_solution_ndtwin.md
+   flowcache       skeleton  1   RED ARM (1/1): skeleton does not compile, by design                         /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T055311Z_flowcache_skeleton_ndtwin.md
+   flowcache       solution  1   ERROR -- LAB NOT RETURNED: `ndt down` exited 1                              /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-19T055312Z_flowcache_solution_ndtwin.md
+
+== what the rounds left behind
+   p4_proxy/mininet/host_count_override: 3
+   p4_proxy/mininet/app_package_override: absent
+   p4_proxy/mininet/telemetry_override: absent
+
+raw: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-19T052518Z_06_thirteen
+FAIL 06_thirteen -- 24 of 26 arm(s) were not what the exercise says they should be

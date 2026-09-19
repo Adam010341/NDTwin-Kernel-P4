@@ -1,0 +1,21 @@
+### tree 8d04e130  start 14:43:08
+### unit_tests
+Ran 48 tests in 0.778s
+OK (skipped=1)
+rc=0
+### offline_round
+passed: 33   failed: 0
+rc=0
+### hazard_scan
+rc=0
+### check_gate_anchors
+115/115 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+rc=0
+### mutation_gate
+OK (skipped=1)
+mutations: 19   survivors: 0
+rc=0
+### dry_run
+rc=0
+### worktree status lines: 0
+### done 14:44:11

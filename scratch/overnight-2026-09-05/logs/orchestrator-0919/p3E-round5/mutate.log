@@ -1,0 +1,10 @@
+### mutation gate -- doc/audit/2026-09-19_telemetry-three-groups
+# tree:        /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/doc/audit/2026-09-19_telemetry-three-groups
+# head:        5e62459932c357e2a2722e116bf14a47c20e7781
+# when:        2026-09-19 09:51:26 UTC
+# interpreter: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-measure-0919/p4_proxy/venv/bin/python
+###
+baseline (must be green before any mutation):
+Ran 56 tests in 0.538s
+FAILED (errors=8, skipped=1)
+  baseline is RED -- fix that first; mutations prove nothing on a red baseline

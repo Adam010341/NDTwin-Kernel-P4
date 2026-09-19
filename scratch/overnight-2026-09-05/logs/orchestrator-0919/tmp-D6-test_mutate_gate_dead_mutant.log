@@ -1,0 +1,49 @@
+
+1. 🔴 a mutant that does not parse is REFUSED, not counted
+  ok         the gate exits 2 (refused), not 1 (a survivor)
+  ok       🔴 it says the mutant is DEAD
+  ok         and why that is not a measurement
+  ok         the refusal is spelled out
+  ok       🔴 and it prints NO verdict line at all
+  ok       🔴 in particular it does not say anything survived
+  ok         report_green refuses the same way
+  ok         with the same DEAD line
+  ok         and no verdict line either
+
+2. 🔴 THE CONTROL: a mutant that DOES parse is not reported dead
+  ok         a parseable mutant lets the gate reach its verdict
+  ok       🔴 it is NOT called dead
+  ok         and the gate does not refuse
+  ok         the verdict line is printed
+  ok         and it counts the dead separately
+  ok         the mutation itself was caught
+
+3. the counters are three, not two
+  ok       🔴 both report functions increment DEAD, not SURVIVORS
+  ok       🔴 and no SURVIVORS increment sits in a dead branch
+  ok         the verdict is gated on DEAD
+
+5. 🔴 mutate_drive_exercise.sh answers about ITSELF, not about its subject
+  ok       🔴 gate mode with a dead interpreter exits 2
+  ok       🔴 and prints NO verdict line
+  ok       🔴 no 'ANCHOR IS NOT UNIQUE' about the subject
+  ok       🔴 no empty-count line
+  ok       🔴 and no 'anchor(s) have moved'
+  ok         it is named as the gate's own refusal
+  ok       🔴 an anchor_count that cannot run exits 2
+  ok         named as anchor_count's failure
+  ok         and the parent shell acts on it
+  ok       🔴 no verdict line
+  ok       🔴 not folded into 'the anchor is stale'
+  ok       🔴 run from /tmp every anchor still resolves
+  ok         nothing reported as a stale anchor
+  ok         and the header names the cwd it ran in
+  ok         the resolved subject
+  ok         and the subject's sha
+
+4. 🔴 the lift must FAIL LOUDLY when the gate's shape changes
+  ok         the rename really changed the copy
+  ok       🔴 a gate whose shape moved makes THIS suite red, not green
+  ok         and it is visible as a failure, not as silence
+
+Ran 37 checks, 0 failed

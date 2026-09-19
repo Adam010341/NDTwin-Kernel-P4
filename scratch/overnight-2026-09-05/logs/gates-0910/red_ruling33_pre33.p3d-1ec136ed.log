@@ -1,0 +1,73 @@
+/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:2195: SyntaxWarning: invalid escape sequence '\s'
+  `^\s*`, which does not match those, so `count` came back empty and `swid` came back [] --
+test_the_arithmetic_helper_falls_back_rather_than_inventing_one (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_arithmetic_helper_falls_back_rather_than_inventing_one) ... ERROR
+test_the_cell_answers_window_rather_than_a_failed_reading (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_cell_answers_window_rather_than_a_failed_reading) ... /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py:68: ResourceWarning: unclosed file <_io.TextIOWrapper name='/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/_common.sh' mode='r' encoding='UTF-8'>
+  m = re.search(r"^%s=(\d+)\s*$" % name, open(COMMON_SH).read(), re.M)
+ResourceWarning: Enable tracemalloc to get the object allocation traceback
+FAIL
+test_the_got_field_carries_the_arithmetic_the_shell_printed (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_got_field_carries_the_arithmetic_the_shell_printed) ... FAIL
+test_the_other_three_answers_are_unchanged (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_other_three_answers_are_unchanged) ... ok
+test_the_round_names_the_window_and_never_the_twin_sentence (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_round_names_the_window_and_never_the_twin_sentence) ... FAIL
+test_the_two_refusal_codes_are_the_shell_files_own (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_two_refusal_codes_are_the_shell_files_own)
+🔴 ONE PROTOCOL, TWO FILES, AND THIS IS WHERE THEY ARE MADE TO AGREE. ... FAIL
+
+======================================================================
+ERROR: test_the_arithmetic_helper_falls_back_rather_than_inventing_one (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_arithmetic_helper_falls_back_rather_than_inventing_one)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py", line 2167, in test_the_arithmetic_helper_falls_back_rather_than_inventing_one
+    self.assertEqual(self.ARITHMETIC, self.mod.window_arithmetic(self.WINDOW_OUT))
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'drive_exercise_under_test' has no attribute 'window_arithmetic'
+
+======================================================================
+FAIL: test_the_cell_answers_window_rather_than_a_failed_reading (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_cell_answers_window_rather_than_a_failed_reading)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py", line 2130, in test_the_cell_answers_window_rather_than_a_failed_reading
+    self.assertEqual("window", ok)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+AssertionError: 'window' != False
+
+======================================================================
+FAIL: test_the_got_field_carries_the_arithmetic_the_shell_printed (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_got_field_carries_the_arithmetic_the_shell_printed)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py", line 2158, in test_the_got_field_carries_the_arithmetic_the_shell_printed
+    self.assertEqual(self.ARITHMETIC, e.got)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 'window = max(8, ceil(10 x 256 x 1500 x 8 / 100000)) = 308s' != 'see the transcript'
+- window = max(8, ceil(10 x 256 x 1500 x 8 / 100000)) = 308s
++ see the transcript
+
+
+======================================================================
+FAIL: test_the_round_names_the_window_and_never_the_twin_sentence (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_round_names_the_window_and_never_the_twin_sentence)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py", line 2146, in test_the_round_names_the_window_and_never_the_twin_sentence
+    self.assertEqual("G1 NOT RUN -- the window this path needs exceeds the caller's limit",
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                     expects[-1].name)
+                     ^^^^^^^^^^^^^^^^^
+AssertionError: "G1 NOT RUN -- the window this path needs exceeds the caller's limit" != 'G1  link usage follows the iperf path'
+- G1 NOT RUN -- the window this path needs exceeds the caller's limit
++ G1  link usage follows the iperf path
+
+
+======================================================================
+FAIL: test_the_two_refusal_codes_are_the_shell_files_own (test_drive_exercise.TheOverLongWindowRefusalIsNotATwinDefect.test_the_two_refusal_codes_are_the_shell_files_own)
+🔴 ONE PROTOCOL, TWO FILES, AND THIS IS WHERE THEY ARE MADE TO AGREE.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py", line 2117, in test_the_two_refusal_codes_are_the_shell_files_own
+    self.assertTrue(hasattr(self.mod, name),
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+                    "%s is declared in %s and nowhere in the driver" % (name, COMMON_SH))
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : LINK_USAGE_WINDOW_RC is declared in /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p3-driver-0919/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/_common.sh and nowhere in the driver
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.068s
+
+FAILED (failures=4, errors=1)

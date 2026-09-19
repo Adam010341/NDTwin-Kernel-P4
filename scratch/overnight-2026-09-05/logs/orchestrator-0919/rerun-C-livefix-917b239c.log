@@ -1,0 +1,11 @@
+### tree 917b239c  start 15:25:43
+### p4_proxy suite rc=0  Ran 1394 tests in 22.558s OK (skipped=1) 
+### check_gate_anchors
+115/115 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+rc=0
+### mutate_table_entry
+OK
+mutation gate: 41 mutations, 0 survived
+rc=0
+### worktree status lines: 0
+### done 15:27:44

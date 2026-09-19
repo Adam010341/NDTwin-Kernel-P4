@@ -1,0 +1,13 @@
+### merged tree e8a8400e  start 14:17:00
+### merged_checks
+check_process_by_name rc=0  check_process_by_name: 312 file(s) scanned, 0 site(s), 0 registered, 0 new, 0 stale
+check_gate_anchors rc=0  115/115 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+kiref rc=0  OK
+check_test_tmpdirs rc=0  check_test_tmpdirs: 346 file(s) scanned, 0 fixed temp paths
+test_redirection_order rc=0  Ran 48 checks, 0 failed
+test_log_suffix_idempotent rc=0    30 passed, 0 failed
+test_topo_from_json rc=0  PASS -- derived wiring is identical to the hard-coded lists
+MERGED-CHECKS e8a8400e r1: ALL-GREEN
+### p4_proxy suite rc=0  Ran 1380 tests in 24.088s OK (skipped=1) 
+### mutate_link_telemetry rc=0  mutation gate: 28 mutations, 0 survived
+### done 14:18:38
