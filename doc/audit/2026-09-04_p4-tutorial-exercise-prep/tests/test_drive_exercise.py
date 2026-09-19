@@ -1685,14 +1685,25 @@ class TheMulticastArms(unittest.TestCase):
         self.assertGreater(last_flush, ev.index("pingall"),
                            "the second flush must follow the pingall: %r" % (ev,))
         self.assertIn("ping", ev, ev)
-        # 🔴 THE *FIRST* RE-MEASURE PING, NOT THE LAST (TICKET-P3 §9 ruling 15⑤). Asserting on
-        # the last one passes for an arm that flushed in the MIDDLE of the re-measure: some
-        # pings before the flush, some after, and the "cold caches" the cell is about were
-        # warm for part of it. Every ping after `last_flush` must belong to the re-measure, so
-        # the first ping that follows it is the boundary that matters.
-        after = [i for i, e in enumerate(ev) if e == "ping" and i > last_flush]
+        # 🔴 EVERY PING, NOT "THE FIRST ONE AFTER" (TICKET-P3 §9 ruling 16①). Round 6 rewrote
+        # this cell's words and not its meaning: `after` being non-empty is the same statement
+        # as "the LAST ping is after last_flush" (round 5's), and the equality that followed was
+        # a tautology -- `ev[last_flush]` IS the flush, so the pings in `ev[last_flush:]` are
+        # exactly `after`, and `len(after) == len(after)` holds for anything. The arm the
+        # comment claimed to block -- a flush in the MIDDLE of the re-measure,
+        # [flush, pingall, ping, flush, ping, ping] -- passed it. Mutation 87 was killed by
+        # `after` being EMPTY, never by the boundary this cell was supposed to be about.
+        #
+        # The stub's `pingall` records one "pingall" event and no per-pair pings, so every
+        # "ping" in a multicast session is one of the three re-measure pings. "All of them come
+        # after the last flush" is therefore exactly "the re-measure ran on cold caches".
+        pings = [i for i, e in enumerate(ev) if e == "ping"]
+        after = [i for i in pings if i > last_flush]
         self.assertTrue(after, "no ping at all after the second flush: %r" % (ev,))
-        self.assertEqual(len([e for e in ev[last_flush:] if e == "ping"]), len(after), ev)
+        self.assertEqual(len(pings), len(after),
+                         "every re-measure ping must follow the last flush -- a flush in the "
+                         "middle of the re-measure leaves the earlier pings on warm caches: %r"
+                         % (ev,))
 
     def test_the_arp_caches_are_emptied_before_and_between_the_passes(self):
         """🔴 THE EXPECTATION IS ONLY TRUE FROM COLD CACHES (round-3 ruling 5).

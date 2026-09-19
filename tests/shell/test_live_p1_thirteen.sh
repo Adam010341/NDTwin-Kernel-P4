@@ -45,7 +45,12 @@ hasnt() { /usr/bin/grep -qF -- "$2" <<<"$3" && { FAIL=$((FAIL+1)); printf '  FAI
 section() { printf '\n%s\n' "$1"; }
 
 FIX="$(mktemp -d "${TMPDIR:-/tmp}/live-p1-13-XXXXXX")"
-trap 'rm -rf "$FIX"' EXIT INT TERM
+#: 🔴 THE DECOY IS IN THE REAL CHECKOUT, SO THE TRAP HAS TO KNOW ABOUT IT (§9 ruling 16④).
+#: Section 6's own `rmdir` only runs if the suite gets that far; an interrupt or an early exit
+#: between `mkdir` and it would leave a fixture directory in `live-p1/runs/` -- which is
+#: precisely the litter this file exists to assert nobody leaves.
+DECOY="$LIVE/runs/1970-01-01T000000Z.pid${$}_06_thirteen"
+trap 'rm -rf "$FIX"; rmdir "$DECOY" 2>/dev/null' EXIT INT TERM
 
 #: What `live-p1/runs/` held BEFORE this suite ran. Section 6 asserts on the difference, never
 #: on the count: a real `06` run leaves a directory there legitimately, and a cell that counted
@@ -219,7 +224,7 @@ has   "  and the raw really went to the fixture instead" "$FIX/runs" "$(run13 ba
 # because the fixture was INVISIBLE, which is the cheapest way there is to pass a test: remove
 # the thing it was supposed to be about. The stamp still marks it a fixture; the pid still
 # keeps it ours (two suites in one checkout must not race); and now it is inside the glob.
-DECOY="$LIVE/runs/1970-01-01T000000Z.pid${$}_06_thirteen"
+# (DECOY is defined at the top so the EXIT trap can remove it; this is where it is created.)
 mkdir -p "$DECOY"
 # 🔴 ANOTHER COPY'S DECOY IS NOT OURS EITHER (TICKET-P3 §9 ruling 15④). The comment above says
 # the pid stops two suites in one checkout racing -- and until now only the litter cells acted

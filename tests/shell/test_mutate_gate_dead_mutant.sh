@@ -221,6 +221,36 @@ PYWRAP
     hasnt_verdict "🔴 no verdict line"                       "$OUT"
     hasnt "🔴 not folded into 'the anchor is stale'"         "ANCHOR IS NOT UNIQUE" "$OUT"
 
+    # 🔴 (b2) AN INTERPRETER THAT DIES *MID-RUN* (TICKET-P3 §9 ruling 16②). Round 6 made a
+    # suite-that-did-not-run a refusal at the BASELINE only; inside the mutation loop it was
+    # counted as a survivor and the gate carried on to print `N mutations, M survived` -- a
+    # verdict about a comparison that never happened. This wrapper runs normally for the first
+    # few invocations (the baseline suite and the anchor counts) and then fails with no output,
+    # which is exactly what a crashed interpreter looks like from `red_tests`.
+    # 🔴 IT COUNTS ONLY `-m unittest` INVOCATIONS, so the death lands in a MUTATION's
+    # red_tests rather than in an anchor count (which has its own refusal, tested above). The
+    # baseline uses two: red_tests plus the line that displays its tail. The third is the first
+    # mutation's.
+    cat > "$FIX/badpy/dies-later" <<PYWRAP
+#!/bin/sh
+case " \$* " in
+  *" -m unittest "*)
+    C="$FIX/badpy/.count"
+    n=\$(cat "\$C" 2>/dev/null || echo 0); n=\$((n+1)); echo "\$n" > "\$C"
+    [ "\$n" -ge 3 ] && exit 1
+    ;;
+esac
+exec "$REAL_PY" "\$@"
+PYWRAP
+    chmod +x "$FIX/badpy/dies-later"
+    rm -f "$FIX/badpy/.count"
+    OUT="$(PYTHON="$FIX/badpy/dies-later" timeout 900 bash "$DRVGATE" 2>&1)"; RC=$?
+    check "🔴 an interpreter that dies MID-RUN is a refusal"  "2" "$RC"
+    has   "  named as the suite not having run"              "the test suite did not run at all" "$OUT"
+    has   "  and it says nothing was measured"               "nothing was measured" "$OUT"
+    hasnt_verdict "🔴 no verdict line after a mid-run death"  "$OUT"
+    hasnt "🔴 and it is NOT called a survivor"               "survived" "$OUT"
+
     # 🔴 (c) FROM A FOREIGN CWD the subject is still the right file (round 4's defect).
     OUT="$(ANCHOR_CHECK=1 timeout 600 env -C /tmp bash "$DRVGATE" 2>&1)"
     has   "🔴 run from /tmp every anchor still resolves"     "ANCHORS: ok" "$OUT"

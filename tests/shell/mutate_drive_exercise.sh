@@ -97,6 +97,26 @@ fi
 # 🔴 THE REFUSAL, REACHED FROM THE PARENT SHELL (§9 ruling 15①). `anchor_count` cannot end the
 # gate from inside `$(...)`, so it returns 2 and every call site funnels here. This is the only
 # place that ends the process, and it ends it the way a refusal must: rc 2, no verdict line.
+#: How many times the suite failed to RUN (no `Ran N tests` line). 🔴 SEPARATE FROM SURVIVORS
+#: AND IT REFUSES EVERYWHERE (TICKET-P3 §9 ruling 16②). Round 6 made NO-SUITE a refusal at the
+#: baseline only: inside `mutate` it was SURVIVORS++ and the gate carried on to print
+#: `N mutations, M survived` -- a verdict about a comparison that never happened, the exact
+#: shape ruling 12a forbids; at the negative control it printed "A COMMENT TURNED THE SUITE
+#: RED: NO-SUITE" (it did not -- the suite never ran); and the closing check called it
+#: "THE SUITE IS RED". A suite that did not execute is not red, not green and not a survivor.
+NOSUITE=0
+
+refuse_no_suite() {   # refuse_no_suite <where>
+    NOSUITE=$((NOSUITE+1))
+    echo
+    echo "🔴 REFUSED: the test suite did not run at all (no 'Ran N tests' line) -- $1."
+    echo "   interpreter: $PYTHON"
+    echo "   That is neither red nor green nor a survivor: nothing was measured. No verdict"
+    echo "   line is printed, because a count of survivors would describe a comparison that"
+    echo "   never happened."
+    exit 2
+}
+
 refuse_anchor_count() {
     echo
     echo "🔴 REFUSED: the gate could not count anchors, so it measured nothing."
@@ -868,6 +888,23 @@ add "87. the cold-cache re-measure runs BEFORE its own flush" \
                 % (", ".join(reflushed) or "none"))' \
     'test_the_second_flush_happens_after_the_pingall'
 
+# 88: THE FLUSH LANDS IN THE MIDDLE OF THE RE-MEASURE (TICKET-P3 §9 ruling 16①). One ping on
+# warm caches, then the flush, then the other two -- so two flushes still happen, both still
+# follow the walk, and the LAST ping still follows the LAST flush. Round 6's cell passed this
+# exactly as written; it is the arm that cell's own comment claimed to block.
+add "88. the second flush lands between the first and second re-measure ping" \
+    "$DRIVER" \
+    '            reflushed = self.h.flush_arp()
+            say("$ ip neigh flush all again -> %s; re-measuring the three hX -> h4 pairs"
+                % (", ".join(reflushed) or "none"))
+            again = [(src, self.h.ping(src, self.h.ips["h4"], 5)) for src in group]' \
+    '            again = [(group[0], self.h.ping(group[0], self.h.ips["h4"], 5))]  # MUTANT
+            reflushed = self.h.flush_arp()
+            say("$ ip neigh flush all again -> %s; re-measuring the three hX -> h4 pairs"
+                % (", ".join(reflushed) or "none"))
+            again += [(src, self.h.ping(src, self.h.ips["h4"], 5)) for src in group[1:]]' \
+    'test_the_second_flush_happens_after_the_pingall'
+
 CTRL_SRC="$DRIVER"
 CTRL_ANCHOR='def host_key(name):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.
@@ -976,8 +1013,7 @@ PY
 
     local failed; failed=$(red_tests "$MUTANT")
     if [[ "$failed" == "NO-SUITE" ]]; then
-        echo "  🔴 THE SUITE DID NOT RUN (no 'Ran N tests') -- this mutation measured nothing."
-        SURVIVORS=$((SURVIVORS + 1)); return
+        refuse_no_suite "while measuring mutation: $label"
     fi
     if [[ "$failed" == "HUNG" ]]; then
         echo "  🔴 THE SUITE DID NOT FINISH (timeout) -- a run that hung caught nothing."
@@ -1010,12 +1046,9 @@ echo
 echo "baseline (unmutated) must be green:"
 BASE_RED=$(red_tests)
 if [[ "$BASE_RED" == "NO-SUITE" ]]; then
-    echo "  🔴 REFUSED: the test suite did not run at all (no 'Ran N tests' line)."
-    echo "     interpreter: $PYTHON"
-    echo "     Not a green baseline and not a red one -- nothing was measured."
     DRIVE_EXERCISE_UNDER_TEST="$DRIVER" "$PYTHON" -m unittest discover -s "$TESTS" -t "$TESTS" 2>&1 \
         | tail -10 | sed 's/^/     /'
-    exit 2
+    refuse_no_suite "at the baseline, before any mutation"
 fi
 if [[ -n "$BASE_RED" ]]; then
     echo "  REFUSE: baseline is RED before any mutation."
@@ -1056,6 +1089,7 @@ PY
     if [[ -z "$ctrl_red" ]]; then
         echo "  ✅ green: the suite does not react to a comment"
     else
+        [[ "$ctrl_red" == "NO-SUITE" ]] && refuse_no_suite "at the negative control"
         printf '  🔴 A COMMENT TURNED THE SUITE RED: %s\n' "$ctrl_red"
         echo "     These tests are change detectors, not a specification."
         SURVIVORS=$((SURVIVORS + 1))
@@ -1077,6 +1111,7 @@ fi
 printf '  byte-identical  %s  sha256 %s\n' "$DRIVER" "$BASE_SUM"
 
 after_red=$(red_tests)
+[[ "$after_red" == "NO-SUITE" ]] && refuse_no_suite "on the closing re-check against the real file"
 if [[ -n "$after_red" ]]; then
     printf '🔴 THE SUITE IS RED AGAINST THE REAL FILE: %s\n' "$after_red"
     exit 2
