@@ -402,15 +402,12 @@ check_fires "M14: an unmodelled on-path link is skipped instead of red" m14 \
 # off-path edge is zero" is true of a fabric that moved no packet at all -- which is what a broken
 # iperf, a missing sudo grant and a dead switch all produce.
 cat > "$A/m15.old" <<'EOF'
-    if [[ ! -s "$onpath" ]]; then
-        fail "$label: the on-path interface set is EMPTY -- nothing measurably carried the flow, so 'usage follows the path' is a sentence about a fabric that moved no packets"
+        fail "$label: the on-path interface set is EMPTY -- nothing measurably carried the flow (iperf -l ${LINK_USAGE_DATAGRAM}, so ${LINK_USAGE_DATAGRAM}+28 B on the wire plus any encapsulation); 'usage follows the path' is a sentence about a fabric that moved no packets"
         return 1
-    fi
 EOF
 cat > "$A/m15.new" <<'EOF'
-    if false; then
-        return 1
-    fi
+        :
+        return 0
 EOF
 # 🔴 NOT THE rc CELL. With the refusal gone the loop still runs, every edge falls into the
 # off-path half, and the host-facing one is over the ARP allowance -- so rc is 1 for a completely
@@ -418,8 +415,10 @@ EOF
 # sentence and the fact that no edge was judged at all. (mutate_live_p1_common.sh's own M10
 # carries the same note about the probe half.)
 check_fires "M15: an EMPTY on-path set passes the cell" m15 \
-            "  saying why" \
-            "🔴 and it refuses WITHOUT judging a single edge"
+            "🔴 an EMPTY on-path set is refused, not satisfied" \
+            "  saying why"
+# (not "refuses WITHOUT judging a single edge": this mutation returns 0 and judges nothing
+# either, so that cell is true of both and cannot see it.)
 
 # --- M16 (M-D6): the positive control stops discriminating --------------------------------------------
 # 🔴 WITHOUT THE CONTROL THE CELL ABOVE IS UNFALSIFIABLE. `none` is the group with no sampling at
@@ -556,24 +555,14 @@ cat > "$A/m24.new" <<'EOF'
 print("%.3f" % floor_abs)
 EOF
 check_fires "M24: the floor loses its relative term" m24 \
-            "🔴 and with a real 16 Mbit flow it is 2% of it, not 5 kbit" \
-            "🔴 one sampled LLDP beacon off the path is NOT a failure"
+            "🔴 above 153.6 Mbit the 2% term decides again"
 
-# --- M25: the floor loses its absolute term -------------------------------------------------------
-# The other half. In a window where the flow itself was small, 2% of it is a handful of bits and
-# an off-path link with real traffic on it slips under -- the bound has to have a floor of its own.
-cat > "$A/m25.old" <<'EOF'
-floor_abs = float(sys.argv[3]); frac = float(sys.argv[4])
-EOF
-cat > "$A/m25.new" <<'EOF'
-floor_abs = 0.0; frac = float(sys.argv[4])
-EOF
-# 🔴 NOT THE rc CELL. With floor_abs gone the quiet window's floor is 2% of 8000 = 160 bit and
-# the 6000 bit off-path edge is still over it -- rc 1 either way, a different number in the
-# message. What sees it is the floor the run PRINTS, which is the number the verdict used.
-check_fires "M25: the floor loses its absolute term" m25 \
-            "  the floor with a 16 kbit smallest on-path integral" \
-            "  naming that floor"
+# --- (no M25) the absolute constant is gone, so there is nothing to remove ---------------------
+# 🔴 §9 ruling 26① replaced `max(LINK_USAGE_NOISE_BITS, ...)` with ONE SAMPLE, and
+# `max(5000, 3072000)` is always 3072000 -- the old constant was a term no input could reach.
+# Keeping a mutation that deletes dead arithmetic would be a mutation nothing can observe, so
+# the constant is gone from the floor and M25 with it. M35 is the mutation that matters now:
+# it drops the one-sample term itself.
 
 # --- M26: the floor is computed from the LARGEST on-path integral --------------------------------
 # On a fabric whose on-path edges differ -- the host-facing one carries the flow once, an
@@ -587,7 +576,7 @@ print("%.3f" % max(floor_abs, frac * max(vals)) if vals else "%.3f" % floor_abs)
 EOF
 check_fires "M26: the floor is taken from the largest on-path integral" m26 \
             "  the floor follows the SMALLEST on-path integral" \
-            "🔴 and 100 kbit off the path is red against it"
+            "🔴 and 10 Mbit off the path is red against it"
 
 # --- M27: the off-path integrals are not recorded ---------------------------------------------------
 # 🔴 A FLOOR ONLY MEANS SOMETHING BESIDE THE NUMBERS IT WAS APPLIED TO. With the reading gone,
@@ -604,7 +593,7 @@ check_fires "M27: the off-path edges' raw integrals are not recorded" m27 \
 
 # --- M28: the floor is not printed ------------------------------------------------------------------
 cat > "$A/m28.old" <<'EOF'
-    note "$label: off-path floor $floor bit   = max(${LINK_USAGE_NOISE_BITS}, ${LINK_USAGE_OFFPATH_FRACTION} x the smallest PRIMARY on-path integral)"
+    note "$label: off-path floor $floor bit   = max(ONE SAMPLE = ${LINK_USAGE_SAMPLE_RATE} x ${LINK_USAGE_MTU_BYTES} x 8 = $(( LINK_USAGE_SAMPLE_RATE * LINK_USAGE_MTU_BYTES * 8 )) bit, ${LINK_USAGE_OFFPATH_FRACTION} x the smallest PRIMARY on-path integral)"
 EOF
 cat > "$A/m28.new" <<'EOF'
     :
@@ -690,6 +679,117 @@ EOF
 check_fires "M33: a failed 'ndt release' only warns" m33 \
             "🔴 a failing 'ndt release' fails the round" \
             "🔴 and the LAST line is FAIL, not PASS"
+
+# --- M34 (§9 ruling 26①): the window ignores the path's bottleneck ------------------------------
+# 🔴 THE LIVE DEFECT. With min_bw fixed at the unshaped default, ecn's 500 kbit/s bottleneck is
+# invisible and the window stays 8 s -- ~1.3 expected samples per primary link from the shaped
+# rate (e^-1.3 = 27% chance of zero), or ~1.8 from the bytes ecn actually delivered
+# (e^-1.8 = 16.5%); three runs in four read s2-eth1 = 0 on a fabric that forwarded every byte.
+# Each lambda goes with its own P(zero) -- pairing 1.3 with 16% was this file's own slip.
+cat > "$A/m34.old" <<'EOF'
+min_bps = min(bps) if bps else float(default_bps)
+EOF
+cat > "$A/m34.new" <<'EOF'
+min_bps = float(default_bps)
+EOF
+check_fires "M34: the window ignores the path's slowest link" m34 \
+            "🔴 the slowest declared link is the 500 kbit/s bottleneck" \
+            "🔴 so the window grows to 62 s"
+
+# --- M35 (§9 ruling 26①): the off-path floor drops below one sample ------------------------------
+# 🔴 A single sampled 170-byte frame is 348 kbit and a 1500-byte one is 3.07 Mbit; a floor of
+# 5 kbit reds the smallest thing the sampler can possibly report.
+cat > "$A/m35.old" <<'EOF'
+one_sample = float(sys.argv[4]) * float(sys.argv[5]) * 8
+floor_abs = one_sample
+EOF
+cat > "$A/m35.new" <<'EOF'
+one_sample = float(sys.argv[4]) * float(sys.argv[5]) * 8
+floor_abs = 5000.0
+EOF
+check_fires "M35: the off-path floor falls back below one sample" m35 \
+            "🔴 the floor is at least ONE sample's worth of bits" \
+            "  the floor is one sample even for a small on-path integral"
+
+# --- M36 (§9 ruling 26②): the iperf datagram goes back to the default --------------------------
+# 1470 + 28 + a 4-byte tunnel header exceeds 1500: p4runtime and flowcache read 273 B on every
+# interface because the fabric dropped every datagram.
+cat > "$A/m36.old" <<'EOF'
+: "${LINK_USAGE_DATAGRAM:=1200}"
+EOF
+cat > "$A/m36.new" <<'EOF'
+: "${LINK_USAGE_DATAGRAM:=1470}"
+EOF
+check_fires "M36: the iperf datagram is the 1470-byte default again" m36 \
+            "🔴 and NAMING the datagram size it chose"
+
+# --- M37 (§9 ruling 26②): a dead exercise controller is measured anyway -------------------------
+# 🔴 flowcache's first packet needs the controller's packet-in. Measuring without it measures
+# the controller's absence and reports it as "usage does not follow the path".
+cat > "$A/m37.old" <<'EOF'
+    if [[ -n "$CTRL_PID" ]] && ! kill -0 "$CTRL_PID" 2>/dev/null; then
+EOF
+cat > "$A/m37.new" <<'EOF'
+    if false; then
+EOF
+check_fires "M37: G1 runs with the exercise controller dead" m37 \
+            "🔴 a dead exercise controller makes G1 NOT RUN" \
+            "  and the summary line says NOT-RUN"
+
+# --- M38 (§9 ruling 28①): NOT RUN goes back to rc 0 -----------------------------------------
+# 🔴 THE DEFECT THAT MADE THE WHOLE BRANCH DECORATIVE. `link_usage_cell` reads rc == 0 as
+# ok=True, so a NOT RUN that returned 0 became a PASS G1 over a dead controller.
+cat > "$A/m38.old" <<'EOF'
+        return $LINK_USAGE_NOT_RUN_RC
+EOF
+cat > "$A/m38.new" <<'EOF'
+        return 0
+EOF
+check_fires "M38: NOT RUN returns 0 again, which callers read as a pass" m38 \
+            "🔴 NOT RUN has its own rc, not 0 and not 2"
+
+# --- M39 (§9 ruling 28①): the caller's CTRL_PID is thrown away again -------------------------
+# 🔴 `link_usage_cell` sources this file in a fresh shell; an unconditional reset there made
+# the liveness check unreachable from the driver no matter how the arm was written.
+cat > "$A/m39.old" <<'EOF'
+CTRL_PID="${CTRL_PID:-}"
+EOF
+cat > "$A/m39.new" <<'EOF'
+CTRL_PID=""
+EOF
+check_fires "M39: sourcing the file discards the caller's controller pid" m39 \
+            "🔴 a dead exercise controller makes G1 NOT RUN" \
+            "🔴 NOT RUN has its own rc, not 0 and not 2"
+
+# --- M40 (§9 ruling 28⑤): the window ignores what iperf actually offers -----------------------
+# 🔴 A 1 Gbit/s link carries only the 2 Mbit/s the sender offers. Dividing by the LINK speed
+# reported 2604 expected samples for a window that delivers about five.
+cat > "$A/m40.old" <<'EOF'
+carried = min(min_bps, offered)
+EOF
+cat > "$A/m40.new" <<'EOF'
+carried = min_bps
+EOF
+check_fires "M40: the window uses the link speed, not the offered rate" m40 \
+            "🔴 a 1 Gbit/s path gets 16 s, because iperf offers only 2 Mbit/s" \
+            "  and the carried rate is the offered one, not the link's"
+
+# --- M41 (§9 rulings 28⑤ and 31⑤): a window longer than the caller can wait for is measured
+# anyway. 🔴 THIS WAS CONTROL C5 UNTIL NOW, and a control is what you write when no fixture
+# reaches the branch -- i.e. when the refusal has never been seen red. §12b of the suite now
+# drives it with a package whose slowest link is 100,000 bit/s (308 s needed, 200 s allowed),
+# so it is a MUTATION with cells to kill it: with the guard gone the round walks past its own
+# limit, reaches host_pid, and answers rc 2 -- a permission sentence over a refusal that was
+# about arithmetic.
+cat > "$A/m41.old" <<'EOF'
+    if (( secs > LINK_USAGE_MAX_SECONDS )); then
+EOF
+cat > "$A/m41.new" <<'EOF'
+    if false; then
+EOF
+check_fires "M41: an over-long window is measured instead of refused" m41 \
+            "🔴 and the refusal names both numbers" \
+            "🔴 the over-long window has its own rc, not 1"
 
 # --- the controls for this half --------------------------------------------------------------------------
 cat > "$A/c3.old" <<'EOF'

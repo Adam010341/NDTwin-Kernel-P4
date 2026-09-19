@@ -118,10 +118,39 @@ group() {
     return $rc
 }
 
-group 20 link        "$PKG_FOREIGN" link        follows || fail "group 1 (link): the twin's link usage did not follow the iperf path"
-group 30 cooperative "$PKG_NDTWIN"  cooperative follows || fail "group 2 (cooperative): the twin's link usage did not follow the iperf path"
+# group_verdict <n> <label> <pkg> <word> <expect> <who> <sentence-for-a-red-reading>
+#
+# 🔴 FOUR ANSWERS, FOUR SENTENCES (§9 ruling 31③). `link_usage_round` returns 0 (the reading was
+# made and it holds), 1 (it was made and it does not), 2 (no namespace / no sudo),
+# $LINK_USAGE_NOT_RUN_RC (the exercise controller was not alive) and $LINK_USAGE_WINDOW_RC (the
+# window this path needs is longer than the caller will wait). Only ONE of those is "the twin's
+# link usage did not follow the iperf path"; printing that sentence over the other three blames
+# the twin for a dead process, a missing namespace or this script's own limit. Every one of them
+# is still a FAILED step -- the round promised a reading and did not make it -- so the last line
+# says FAIL either way, and the reason line says which.
+group_verdict() {
+    local n="$1" label="$2" pkg="$3" word="$4" expect="$5" who="$6" sentence="$7"
+    local rc=0
+    group "$n" "$label" "$pkg" "$word" "$expect" || rc=$?
+    case "$rc" in
+        0) return 0 ;;
+        "$LINK_USAGE_NOT_RUN_RC")
+            fail "$who: NOT RUN -- the exercise controller was not alive, so nothing was measured; this is not a reading about link usage" ;;
+        "$LINK_USAGE_WINDOW_RC")
+            fail "$who: NOT RUN -- the window this path needs is longer than this caller will wait (the arithmetic is printed above) and no flow was started" ;;
+        2)  fail "$who: NOT RUN -- no namespace for the two hosts; a permission answer, never a reading about link usage" ;;
+        *)  fail "$who: $sentence" ;;
+    esac
+    return "$rc"
+}
+
+group_verdict 20 link        "$PKG_FOREIGN" link        follows \
+    "group 1 (link)"        "the twin's link usage did not follow the iperf path"
+group_verdict 30 cooperative "$PKG_NDTWIN"  cooperative follows \
+    "group 2 (cooperative)" "the twin's link usage did not follow the iperf path"
 
 # 🔴 THE POSITIVE CONTROL, AND IT IS NOT OPTIONAL. Without it the two greens above are satisfied
 # by a twin that reports a constant non-zero on every edge -- which is what a stale collector, a
 # double-counted clone and a rate that never decays all look like.
-group 40 none        "$PKG_NDTWIN"  none        absent  || fail "positive control (none): telemetry is off and the twin still reported usage on the path -- the two groups above have no discriminating power"
+group_verdict 40 none        "$PKG_NDTWIN"  none        absent  \
+    "positive control (none)" "telemetry is off and the twin still reported usage on the path -- the two groups above have no discriminating power"
