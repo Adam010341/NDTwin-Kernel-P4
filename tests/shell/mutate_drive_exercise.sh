@@ -946,7 +946,7 @@ add "92. the generic cell is called without the arm's controller pid" \
     "$DRIVER" \
     '                                                dst=usage_dst, ctrl_pid=ctrl)' \
     '                                                dst=usage_dst)  # MUTANT' \
-    'test_the_generic_cell_is_given_the_arms_controller_pid'
+    'test_the_driver_passes_the_controller_pid_through'
 
 # 93: NOT RUN is scored as a pass again (§9 ruling 28①).
 add "93. a NOT RUN generic cell is reported as a pass" \
