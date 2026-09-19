@@ -29,6 +29,7 @@ REPO="$(cd "$ROUND/../../.." && pwd)"
 
 ANALYSE="$ROUND/analyse.py"
 PLOT="$ROUND/plot.py"
+DRIVER="$ROUND/drive_e.sh"
 
 # The interpreter. A git worktree has no venv of its own (p4_proxy/venv/ is gitignored and lives
 # in the main checkout), so the main worktree is consulted before giving up -- asked of git
@@ -65,7 +66,12 @@ copy_tree() {   # copy_tree <destination>
     local d="$1"
     mkdir -p "$d/tests"
     cp "$ANALYSE" "$PLOT" "$d/"
+    # the three shell scripts too: since ruling 21 the gate also mutates the DRIVER, and
+    # tests/test_drive_e_offline.sh finds them beside itself exactly as it does in the round.
+    cp "$ROUND/drive_e.sh" "$ROUND/run_group_arm.sh" "$ROUND/sample_error.sh" "$d/"
+    chmod +x "$d"/*.sh
     cp "$HERE"/*.py "$HERE"/*.sh "$d/tests/" 2>/dev/null
+    chmod +x "$d"/tests/*.sh 2>/dev/null
     find "$d" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null
 }
 
@@ -110,6 +116,27 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must
         SURVIVORS=$((SURVIVORS + 1))
         printf '  SURVIVED %-72s (%s stayed green -- that case proves nothing)\n' "$1" "$3"
         /usr/bin/grep -E '^(FAIL|ERROR|OK|Ran )' <<<"$out" | sed 's/^/             /'
+    fi
+}
+
+# The shell half of the gate. A mutation to drive_e.sh cannot be caught by a python unittest, so
+# it is run against tests/test_drive_e_offline.sh -- the one that drives a whole round offline.
+report_shell() {   # $1 = mutation name, $2 = mutant dir, $3 = the cell text that must go red
+    local out rc
+    MUTATIONS=$((MUTATIONS + 1))
+    out="$( cd "$2" && PYTHONDONTWRITEBYTECODE=1 timeout 900 ./tests/test_drive_e_offline.sh 2>&1 )"
+    rc=$?
+    if [[ "$rc" -eq 124 ]]; then
+        SURVIVORS=$((SURVIVORS + 1))
+        printf '  🔴 HUNG   %-72s (the offline round never finished -- never a catch)\n' "$1"
+        return
+    fi
+    if [[ "$rc" -ne 0 ]] && /usr/bin/grep -qF "  FAIL  $3" <<<"$out"; then
+        printf '  caught   %-72s (%s went red)\n' "$1" "$3"
+    else
+        SURVIVORS=$((SURVIVORS + 1))
+        printf '  SURVIVED %-72s (%s stayed green -- that cell proves nothing)\n' "$1" "$3"
+        /usr/bin/grep -E '^(  FAIL|passed:)' <<<"$out" | sed 's/^/             /'
     fi
 }
 
@@ -251,6 +278,32 @@ m=$(mutant m16 "$ANALYSE" \
     'OLD_MARGINAL_US_PER_SAMPLE = 20.6')
 report "M-E16: reconciliation (b) compares against the wrong 08-20 figure" "$m" \
        "test_b_compares_the_marginal_slope_against_08_20s_206_microseconds"
+
+# --- the driver (ruling 21). Each of these is a defect that really happened. --------------
+
+m=$(mutant m17 "$DRIVER" \
+    '    verify_generation "$group" "$gen"' \
+    '    "$NDT" verify_p4 > "$RUN/$gen/11_verify.txt" 2>&1')
+report_shell "M-E17: the generation check calls ndt verify_p4, which is not a subcommand" "$m" \
+       "🔴 verify_p4 is never invoked"
+
+m=$(mutant m18 "$DRIVER" \
+    '    local id="$1"
+    local frame="$2"
+    local payload
+    local out
+    payload=$((frame - 42))
+    out="$RUN/controls/$id"' \
+    '    local id="$1" frame="$2" payload=$((frame - 42)) out="$RUN/controls/$id"')
+report_shell "M-E18: the four locals of the sender control are re-joined onto one line" "$m" \
+       "🔴 C1 ran (the set -u local hazard would have killed the shell here)"
+
+m=$(mutant m19 "$DRIVER" \
+    '    declare_measuring off || true
+    "$NDT" down > "$log" 2>&1' \
+    '    "$NDT" down > "$log" 2>&1')
+report_shell "M-E19: the teardown stops retracting measuring= (ndt down then refuses, rc 5)" "$m" \
+       "🔴 every teardown is preceded by a claim that retracts measuring="
 
 # --- the controls: changes that must NOT be caught -------------------------------------------------
 # A suite that goes red on a comment is not sensitive, it is fragile, and a fragile suite gets
