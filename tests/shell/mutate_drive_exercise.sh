@@ -851,8 +851,8 @@ add "84. pingall walks dst-major, poisoning the h4 expectation" \
 # `off-path == 0` concludes the off-path edges integrated to zero, which they did not.
 add "85. the generic cell claims an off-path bound that is not the one applied" \
     "$DRIVER" \
-    '                    "primary on-path > 0; minor rows printed, not asserted; "
-                        "off-path under one sample's worth (256 x MTU x 8 bit) or 2% of the "
+    '                        "primary on-path > 0; minor rows printed, not asserted; "
+                        "off-path under one sample'"'"'s worth (256 x MTU x 8 bit) or 2% of the "
                         "smallest PRIMARY on-path, whichever is larger",' \
     '                    "on-path > 0, off-path == 0",  # MUTANT' \
     'test_the_generic_cell_states_the_bound_it_actually_applies'
