@@ -36,6 +36,8 @@ GATE="${GATE_UNDER_TEST:-$HERE/mutate_ndt_up_down_robust.sh}"
 #: Section 4 re-enters this file once, against a deliberately broken copy of the gate. The flag
 #: stops that copy from re-entering again (and keeps its output out of the outer count).
 SELFTEST_INNER="${SELFTEST_INNER:-0}"
+#: The interpreter the stdin-only wrapper in section 5 delegates to.
+REAL_PY="$(cd "$HERE/../.." && pwd)/p4_proxy/venv/bin/python"
 [[ -r "$GATE" ]] || { echo "  FAILED   no gate at $GATE"; echo "Ran 1 checks, 1 failed"; exit 1; }
 
 PASS=0; FAIL=0
@@ -48,6 +50,16 @@ has()   { /usr/bin/grep -qF -- "$2" <<<"$3" && { PASS=$((PASS+1)); printf '  ok 
 hasnt() { /usr/bin/grep -qF -- "$2" <<<"$3" && { FAIL=$((FAIL+1)); printf '  FAILED   %s\n             unexpected: [%s]\n' "$1" "$2"; } \
           || { PASS=$((PASS+1)); printf '  ok       %s\n' "$1"; }; }
 section() { printf '\n%s\n' "$1"; }
+# 🔴 THE VERDICT LINE HAS A SHAPE: `<n> mutations, <n> survived` at the start of a line. A
+# substring test for "mutations," also matches the refusal's own prose, which is how a cell can
+# look strict and assert nothing.
+hasnt_verdict() {   # <name> <text>
+    if /usr/bin/grep -qE '^[0-9]+ mutations,' <<<"$2"; then
+        FAIL=$((FAIL+1)); printf '  FAILED   %s\n             a verdict line was printed\n' "$1"
+    else
+        PASS=$((PASS+1)); printf '  ok       %s\n' "$1"
+    fi
+}
 
 FIX="$(mktemp -d "${TMPDIR:-/tmp}/gate-dead-XXXXXX")"
 trap 'rm -rf "$FIX"' EXIT INT TERM
@@ -163,45 +175,61 @@ has   "  the verdict is gated on DEAD"                   'if [[ "$DEAD" -gt 0 ]]
 # =============================================================================================
 section "5. 🔴 mutate_drive_exercise.sh answers about ITSELF, not about its subject"
 # =============================================================================================
-# TICKET-P3 §9 ruling 14d. That gate's PYTHON, PREP and DRIVER were RELATIVE, so what it
-# measured depended on the caller's cwd. Run from another checkout it read THAT checkout's
-# drive_exercise.py, found none of the anchors, and printed
-# `ANCHOR IS NOT UNIQUE (0 matches) -- Fix the anchor.` -- true about the file it read, wrong
-# about the subject, and identical to a genuinely stale anchor. It cost a whole gate run in
-# round 4 and a deleted log.
-DRVGATE="$HERE/mutate_drive_exercise.sh"
+# TICKET-P3 §9 rulings 14d and 15①. Two separate defects, one symptom.
+#
+#   * round 4: PREP/DRIVER were RELATIVE, so run from another checkout the gate read THAT
+#     checkout's drive_exercise.py, found no anchors, and said `ANCHOR IS NOT UNIQUE (0
+#     matches) -- Fix the anchor`: true about the file it opened, false about its subject.
+#   * round 5: the refusal added for that was `exit 2` INSIDE `anchor_count`, which is only
+#     ever called as `n=$(anchor_count ...)`. `exit` ends the command substitution, not the
+#     gate. The parent read `n=""`, `[[ "" -ne 1 ]]` was true, and the gate printed 87 lines of
+#     `🔴  matches`, `ANCHORS: BROKEN -- 87 anchor(s) have moved` and `86 mutations, 87
+#     survived`, rc 1. The fix was cosmetic and the test that "proved" it ran the gate only in
+#     ANCHOR_CHECK mode -- which exits 2 unconditionally, so the rc-2 cell was vacuous and the
+#     `ANCHOR IS NOT UNIQUE` text it asserted absent is never printed in that mode at all.
+#
+# 🔴 SO THIS RUNS THE GATE IN GATE MODE. It is cheap: with a broken interpreter the gate must
+# refuse before it runs a single mutation.
+DRVGATE="${DRVGATE_UNDER_TEST:-$HERE/mutate_drive_exercise.sh}"
 if [[ -r "$DRVGATE" ]]; then
-    # 🔴 (a) AN INTERPRETER THAT IS NOT THERE: the gate already refuses before the anchors,
-    # and the header still says what it resolved -- which is the diagnosis round 4 lacked.
-    OUT="$(PYTHON=/nonexistent/python ANCHOR_CHECK=1 timeout 300 bash "$DRVGATE" 2>&1)"
-    has   "  a missing interpreter is refused by name"       "REFUSE: no interpreter at /nonexistent/python" "$OUT"
-    hasnt "🔴 NOT reported as a stale anchor"                "ANCHOR IS NOT UNIQUE" "$OUT"
-    hasnt "🔴 and no verdict is printed"                     "mutations, 0 survived" "$OUT"
-    has   "  the header names the interpreter it could not resolve" "MISSING: /nonexistent/python" "$OUT"
-
-    # 🔴 (b) AN INTERPRETER THAT EXISTS AND FAILS is the one anchor_count itself has to catch:
-    # it used to print nothing, the caller's arithmetic turned that into 0, and the gate said
-    # `ANCHOR IS NOT UNIQUE (0 matches) -- Fix the anchor`. There is no count to report.
     mkdir -p "$FIX/badpy"
     printf '#!/bin/sh\necho "ImportError: no pathlib here" >&2\nexit 1\n' > "$FIX/badpy/python"
     chmod +x "$FIX/badpy/python"
-    OUT="$(PYTHON="$FIX/badpy/python" ANCHOR_CHECK=1 timeout 300 bash "$DRVGATE" 2>&1)"; RC=$?
-    check "🔴 an interpreter that FAILS is a refusal, rc 2"  "2" "$RC"
-    has   "  named as the gate's own failure"                "REFUSED: anchor_count could not run" "$OUT"
-    has   "  quoting what the interpreter said"              "ImportError" "$OUT"
-    hasnt "🔴 NOT folded into 'the anchor is stale'"         "ANCHOR IS NOT UNIQUE" "$OUT"
-    hasnt "🔴 and no verdict line"                           "ANCHORS: ok" "$OUT"
 
-    # 🔴 (b) FROM A FOREIGN CWD the subject is still the right file, so every anchor resolves.
-    OUT="$(ANCHOR_CHECK=1 timeout 600 env -C /tmp bash "$DRVGATE" 2>&1)"; RC=$?
-    check "🔴 run from /tmp it still reads its OWN checkout" "2" "$RC"
-    has   "  every anchor resolves to one site"              "ANCHORS: ok" "$OUT"
-    hasnt "  nothing is reported as a stale anchor"          "ANCHOR IS NOT UNIQUE" "$OUT"
+    # 🔴 (a) GATE MODE, broken interpreter: refuse, and say nothing that sounds like a result.
+    OUT="$(PYTHON="$FIX/badpy/python" timeout 600 bash "$DRVGATE" 2>&1)"; RC=$?
+    check "🔴 gate mode with a dead interpreter exits 2"     "2" "$RC"
+    hasnt_verdict "🔴 and prints NO verdict line"            "$OUT"
+    hasnt "🔴 no 'ANCHOR IS NOT UNIQUE' about the subject"   "ANCHOR IS NOT UNIQUE" "$OUT"
+    hasnt "🔴 no empty-count line"                           "( matches)" "$OUT"
+    hasnt "🔴 and no 'anchor(s) have moved'"                 "have moved" "$OUT"
+    has   "  it is named as the gate's own refusal"          "REFUSED" "$OUT"
+
+    # 🔴 (b) THE anchor_count PATH SPECIFICALLY. (a) refuses at the baseline suite, which is
+    # earlier; this interpreter runs unittest normally and fails ONLY on the `-` (stdin) script
+    # that anchor_count uses, so the refusal has to come from anchor_count's own return.
+    cat > "$FIX/badpy/stdin-only" <<PYWRAP
+#!/bin/sh
+for a in "\$@"; do [ "\$a" = "-" ] && { echo "SyntaxError: refused stdin" >&2; exit 1; }; done
+exec "$REAL_PY" "\$@"
+PYWRAP
+    chmod +x "$FIX/badpy/stdin-only"
+    OUT="$(PYTHON="$FIX/badpy/stdin-only" timeout 900 bash "$DRVGATE" 2>&1)"; RC=$?
+    check "🔴 an anchor_count that cannot run exits 2"       "2" "$RC"
+    has   "  named as anchor_count's failure"                "REFUSED: anchor_count could not run" "$OUT"
+    has   "  and the parent shell acts on it"                "the gate could not count anchors" "$OUT"
+    hasnt_verdict "🔴 no verdict line"                       "$OUT"
+    hasnt "🔴 not folded into 'the anchor is stale'"         "ANCHOR IS NOT UNIQUE" "$OUT"
+
+    # 🔴 (c) FROM A FOREIGN CWD the subject is still the right file (round 4's defect).
+    OUT="$(ANCHOR_CHECK=1 timeout 600 env -C /tmp bash "$DRVGATE" 2>&1)"
+    has   "🔴 run from /tmp every anchor still resolves"     "ANCHORS: ok" "$OUT"
+    hasnt "  nothing reported as a stale anchor"             "ANCHOR IS NOT UNIQUE" "$OUT"
     has   "  and the header names the cwd it ran in"         "cwd        : /tmp" "$OUT"
     has   "  the resolved subject"                           "drive_exercise.py" "$OUT"
     has   "  and the subject's sha"                          "subject sha:" "$OUT"
 else
-    FAIL=$((FAIL+1)); printf '  FAILED   no mutate_drive_exercise.sh beside this test\n'
+    FAIL=$((FAIL+1)); printf '  FAILED   no mutate_drive_exercise.sh at %s\n' "$DRVGATE"
 fi
 
 if [[ "$SELFTEST_INNER" == 1 ]]; then

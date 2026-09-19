@@ -221,13 +221,24 @@ has   "  and the raw really went to the fixture instead" "$FIX/runs" "$(run13 ba
 # keeps it ours (two suites in one checkout must not race); and now it is inside the glob.
 DECOY="$LIVE/runs/1970-01-01T000000Z.pid${$}_06_thirteen"
 mkdir -p "$DECOY"
-BEFORE2="$(ls -d "$LIVE/runs"/*_06_thirteen 2>/dev/null | sort)"
+# 🔴 ANOTHER COPY'S DECOY IS NOT OURS EITHER (TICKET-P3 §9 ruling 15④). The comment above says
+# the pid stops two suites in one checkout racing -- and until now only the litter cells acted
+# on it: BEFORE2/AFTER2 took EVERY fixture, so a sibling suite creating or removing its own
+# decoy between the two listings landed in the difference and reddened this cell. Keep ours
+# (pid == $$) and drop every other pid's.
+runs_visible() {   # every run dir, minus fixtures that are not this process's
+    ls -d "$LIVE/runs"/*_06_thirteen 2>/dev/null \
+        | /usr/bin/grep -vE "/1970-01-01T000000Z\.pid[0-9]+_06_thirteen$|^$" \
+        | { cat; ls -d "$LIVE/runs"/1970-01-01T000000Z.pid${$}_06_thirteen 2>/dev/null; } \
+        | sort
+}
+BEFORE2="$(runs_visible)"
 # 🔴 THE INJECTION IS ASSERTED, NOT ASSUMED. Without this, a decoy that the glob cannot see --
 # a rename, a different stamp, a runs/ that does not exist -- makes every cell below vacuous
 # and green. This is the cell round 4 did not have.
-has   "🔴 the decoy really is visible to the suite's own glob" "$DECOY" "$BEFORE2"
+has   "🔴 our own decoy IS visible to the listing" "$DECOY" "$BEFORE2"
 run13 basic >/dev/null 2>&1
-AFTER2="$(ls -d "$LIVE/runs"/*_06_thirteen 2>/dev/null | sort)"
+AFTER2="$(runs_visible)"
 NEW2="$(comm -13 <(printf '%s\n' "$BEFORE2") <(printf '%s\n' "$AFTER2"))"
 check "🔴 a PREVIOUS real run's directory is not counted as ours" "" "$(printf '%s' "$NEW2")"
 # ... and with a plain count it WOULD have been counted -- which is what makes the cell above

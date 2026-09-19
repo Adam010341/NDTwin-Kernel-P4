@@ -94,6 +94,17 @@ fi
 # arithmetic turned that into 0 -- reported as `ANCHOR IS NOT UNIQUE (0 matches)`, i.e. a claim
 # about the anchor. There is no number to report: the gate stops, rc 2, no verdict line, the
 # same refusal a dead mutant gets in mutate_ndt_up_down_robust.sh.
+# 🔴 THE REFUSAL, REACHED FROM THE PARENT SHELL (§9 ruling 15①). `anchor_count` cannot end the
+# gate from inside `$(...)`, so it returns 2 and every call site funnels here. This is the only
+# place that ends the process, and it ends it the way a refusal must: rc 2, no verdict line.
+refuse_anchor_count() {
+    echo
+    echo "🔴 REFUSED: the gate could not count anchors, so it measured nothing."
+    echo "   No verdict line is printed at all: a count of survivors would be a claim about a"
+    echo "   comparison that never happened. See the REFUSED lines above for what failed."
+    exit 2
+}
+
 anchor_count() {
     local out rc
     out="$(ANCHOR="$2" "$PYTHON" - "$1" 2>&1 <<'PY'
@@ -107,7 +118,13 @@ PY
         echo "   subject     : $1" >&2
         echo "   it printed  : ${out:-<nothing>}" >&2
         echo "   This is NOT 'the anchor is stale' -- the gate could not look. No verdict." >&2
-        exit 2
+        # 🔴 `return 2`, NOT `exit 2` (TICKET-P3 §9 ruling 15①). Every call site is
+        # `n=$(anchor_count ...)`, and `exit` inside a command substitution ends only THAT
+        # subshell: the parent read `n=""`, `[[ "" -ne 1 ]]` was true, and the gate printed
+        # `ANCHOR IS NOT UNIQUE ( matches)`, counted a survivor, and still printed
+        # `86 mutations, 87 survived` / rc 1. In gate mode round 5's "refusal" changed nothing
+        # but a line on stderr. A refusal has to travel as an EXIT STATUS the caller checks.
+        return 2
     fi
     printf '%s\n' "$out"
 }
@@ -835,6 +852,22 @@ add "86. multicast flushes the ARP caches AFTER the pingall instead of before" \
                            "ip neigh flush all (each host)", ", ".join(flushed) or "none"))' \
     'test_the_first_flush_happens_BEFORE_the_pingall'
 
+# 87: THE SECOND FLUSH MOVES TO AFTER THE RE-MEASURE (TICKET-P3 §9 ruling 15⑤). Two flushes
+# still happen and both still sit after the walk, so the arithmetic round 5 asserted is
+# satisfied -- while the three hX -> h4 pairs are re-measured with h4's MAC still cached from
+# the pairs above them, which is the one state in which their expectation is not true.
+add "87. the cold-cache re-measure runs BEFORE its own flush" \
+    "$DRIVER" \
+    '            reflushed = self.h.flush_arp()
+            say("$ ip neigh flush all again -> %s; re-measuring the three hX -> h4 pairs"
+                % (", ".join(reflushed) or "none"))
+            again = [(src, self.h.ping(src, self.h.ips["h4"], 5)) for src in group]' \
+    '            again = [(src, self.h.ping(src, self.h.ips["h4"], 5)) for src in group]  # MUTANT
+            reflushed = self.h.flush_arp()
+            say("$ ip neigh flush all again -> %s; re-measuring the three hX -> h4 pairs"
+                % (", ".join(reflushed) or "none"))' \
+    'test_the_second_flush_happens_after_the_pingall'
+
 CTRL_SRC="$DRIVER"
 CTRL_ANCHOR='def host_key(name):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.
@@ -851,14 +884,14 @@ if [[ "$ANCHOR_CHECK" != "0" ]]; then
     echo "================================================================"
     broken=0
     for i in "${!MUT_LABEL[@]}"; do
-        n=$(anchor_count "${MUT_SRC[$i]}" "${MUT_ANCHOR[$i]}")
+        n=$(anchor_count "${MUT_SRC[$i]}" "${MUT_ANCHOR[$i]}") || refuse_anchor_count
         if [[ "$n" -eq 1 ]]; then
             printf '  ok    %s  (%s)\n' "$n" "${MUT_LABEL[$i]}"
         else
             printf '  🔴 %s matches  (%s)\n' "$n" "${MUT_LABEL[$i]}"; broken=$((broken + 1))
         fi
     done
-    n=$(anchor_count "$CTRL_SRC" "$CTRL_ANCHOR")
+    n=$(anchor_count "$CTRL_SRC" "$CTRL_ANCHOR") || refuse_anchor_count
     if [[ "$n" -eq 1 ]]; then
         printf '  ok    %s  (negative control)\n' "$n"
     else
@@ -894,6 +927,14 @@ red_tests() {
     out=$(DRIVE_EXERCISE_UNDER_TEST="$drv" timeout 600 \
           "$PYTHON" -m unittest discover -s "$TESTS" -t "$TESTS" 2>&1); rc=$?
     if [[ $rc -eq 124 ]]; then echo "HUNG"; return; fi
+    # 🔴 A SUITE THAT NEVER RAN IS NOT A SUITE WITH NO RED CELLS (§9 ruling 15①). unittest
+    # always prints `Ran N tests`; an interpreter that died prints no such line, and rc != 0
+    # with nothing parsable came back as the empty string -- which the caller reads as "nothing
+    # went red". At the baseline that printed `ok baseline green` over a suite that never
+    # executed; for a mutation it would have reported a survivor.
+    if ! /usr/bin/grep -qE '^Ran [0-9]+ tests?' <<<"$out"; then
+        echo "NO-SUITE"; return
+    fi
     if [[ $rc -eq 0 ]]; then echo ""; return; fi
     sed -n 's/^\(FAIL\|ERROR\): \([A-Za-z_][A-Za-z0-9_]*\) .*/\2/p' <<<"$out" | sort -u | tr '\n' ' '
 }
@@ -904,7 +945,7 @@ red_tests() {
 # tests/shell/check_gate_anchors.py reads -- and the file that is WRITTEN is the copy.
 mutate() {
     local label="$1" src="$2" anchor="$3" repl="$4" expected="$5"
-    local n; n=$(anchor_count "$src" "$anchor")
+    local n; n=$(anchor_count "$src" "$anchor") || refuse_anchor_count
     printf '\n=== %s ===\n' "$label"
     printf '  subject           : %s  (mutated as a copy in %s)\n' "$src" "$WORK"
     printf '  anchor occurrences: %s\n' "$n"
@@ -934,6 +975,10 @@ PY
     fi
 
     local failed; failed=$(red_tests "$MUTANT")
+    if [[ "$failed" == "NO-SUITE" ]]; then
+        echo "  🔴 THE SUITE DID NOT RUN (no 'Ran N tests') -- this mutation measured nothing."
+        SURVIVORS=$((SURVIVORS + 1)); return
+    fi
     if [[ "$failed" == "HUNG" ]]; then
         echo "  🔴 THE SUITE DID NOT FINISH (timeout) -- a run that hung caught nothing."
         SURVIVORS=$((SURVIVORS + 1))
@@ -964,6 +1009,14 @@ printf '  baseline    : %s %s\n' "${BASE_SUM:0:16}" "$DRIVER"
 echo
 echo "baseline (unmutated) must be green:"
 BASE_RED=$(red_tests)
+if [[ "$BASE_RED" == "NO-SUITE" ]]; then
+    echo "  🔴 REFUSED: the test suite did not run at all (no 'Ran N tests' line)."
+    echo "     interpreter: $PYTHON"
+    echo "     Not a green baseline and not a red one -- nothing was measured."
+    DRIVE_EXERCISE_UNDER_TEST="$DRIVER" "$PYTHON" -m unittest discover -s "$TESTS" -t "$TESTS" 2>&1 \
+        | tail -10 | sed 's/^/     /'
+    exit 2
+fi
 if [[ -n "$BASE_RED" ]]; then
     echo "  REFUSE: baseline is RED before any mutation."
     printf '    red: %s\n' "$BASE_RED"
@@ -986,7 +1039,7 @@ done
 # if this goes red the suite is a change detector, not a specification.
 
 printf '\n=== NEGATIVE CONTROL: comment-only edit must stay GREEN ===\n'
-n=$(anchor_count "$CTRL_SRC" "$CTRL_ANCHOR")
+n=$(anchor_count "$CTRL_SRC" "$CTRL_ANCHOR") || refuse_anchor_count
 printf '  subject           : %s\n' "$CTRL_SRC"
 printf '  anchor occurrences: %s\n' "$n"
 if [[ "$n" -ne 1 ]]; then

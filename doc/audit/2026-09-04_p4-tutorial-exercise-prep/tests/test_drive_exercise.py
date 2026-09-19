@@ -1685,8 +1685,14 @@ class TheMulticastArms(unittest.TestCase):
         self.assertGreater(last_flush, ev.index("pingall"),
                            "the second flush must follow the pingall: %r" % (ev,))
         self.assertIn("ping", ev, ev)
-        self.assertGreater(len(ev) - 1 - ev[::-1].index("ping"), last_flush,
-                           "the re-measure's pings must come AFTER the second flush: %r" % (ev,))
+        # 🔴 THE *FIRST* RE-MEASURE PING, NOT THE LAST (TICKET-P3 §9 ruling 15⑤). Asserting on
+        # the last one passes for an arm that flushed in the MIDDLE of the re-measure: some
+        # pings before the flush, some after, and the "cold caches" the cell is about were
+        # warm for part of it. Every ping after `last_flush` must belong to the re-measure, so
+        # the first ping that follows it is the boundary that matters.
+        after = [i for i, e in enumerate(ev) if e == "ping" and i > last_flush]
+        self.assertTrue(after, "no ping at all after the second flush: %r" % (ev,))
+        self.assertEqual(len([e for e in ev[last_flush:] if e == "ping"]), len(after), ev)
 
     def test_the_arp_caches_are_emptied_before_and_between_the_passes(self):
         """🔴 THE EXPECTATION IS ONLY TRUE FROM COLD CACHES (round-3 ruling 5).
