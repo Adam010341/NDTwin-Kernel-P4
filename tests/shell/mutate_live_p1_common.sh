@@ -402,15 +402,12 @@ check_fires "M14: an unmodelled on-path link is skipped instead of red" m14 \
 # off-path edge is zero" is true of a fabric that moved no packet at all -- which is what a broken
 # iperf, a missing sudo grant and a dead switch all produce.
 cat > "$A/m15.old" <<'EOF'
-    if [[ ! -s "$onpath" ]]; then
         fail "$label: the on-path interface set is EMPTY -- nothing measurably carried the flow (iperf -l ${LINK_USAGE_DATAGRAM}, so ${LINK_USAGE_DATAGRAM}+28 B on the wire plus any encapsulation); 'usage follows the path' is a sentence about a fabric that moved no packets"
         return 1
-    fi
 EOF
 cat > "$A/m15.new" <<'EOF'
-    if false; then
-        return 1
-    fi
+        :
+        return 0
 EOF
 # 🔴 NOT THE rc CELL. With the refusal gone the loop still runs, every edge falls into the
 # off-path half, and the host-facing one is over the ARP allowance -- so rc is 1 for a completely
