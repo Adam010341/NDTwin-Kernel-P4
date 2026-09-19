@@ -288,14 +288,24 @@ check_fires "M10: the by-design check becomes a substring match" m10 \
             "🔴 a FAIL that merely mentions RED ARM is still a failure" \
             "  and is named as one"
 
-# --- (no M12) the decoy's process-unique suffix is also in the TEST FILE -------------------------
-# 🔴 §9 ruling 12e. `DECOY="...06_thirteen.pid$$"` is in tests/shell/test_live_p1_thirteen.sh,
-# not in `06_thirteen.sh`; this gate's subject is the STEP, and an anchor in the test would be
-# counted by check_gate_anchors.py against 06 and read as MISSING. The evidence is the run
-# recorded in the SUMMARY: two copies of the suite, same checkout, in parallel -- both
-# `Ran 34 checks, 0 failed`, and no `*_06_thirteen*` directory left in the checkout afterwards.
-# With the fixed name, the second mkdir succeeds, the first rmdir removes it under the second,
-# and each sees a directory it did not create.
+# --- (no M12) the decoy's process-unique name is also in the TEST FILE ---------------------------
+# 🔴 §9 rulings 12e and 14a. `DECOY="$LIVE/runs/1970-01-01T000000Z.pid${$}_06_thirteen"` is in
+# tests/shell/test_live_p1_thirteen.sh, not in `06_thirteen.sh`; this gate's subject is the
+# STEP, and an anchor in the test would be counted by check_gate_anchors.py against 06 and read
+# as MISSING.
+#
+# 🔴 AND ROUND 4'S VERSION OF THIS NOTE WAS WRONG, which is why the wording is different now.
+# It said the parallel run was the evidence. It was not: round 4 put the pid at the END
+# (`..._06_thirteen.pid$$`), which falls OUTSIDE the suite's own glob `*_06_thirteen`, so the
+# decoy was invisible to BEFORE2/AFTER2 and the cell it was supposed to protect answered the
+# same for a difference and for a count. The parallel run passed because the fixture had been
+# made invisible -- the cheapest way there is to pass a test.
+#
+# The evidence now is a red one: `logs/gates-0910/test_live_p1_thirteen.seen-red-12e.log` is the
+# suite with `comm -13` replaced by a plain `AFTER2`, and the cell
+# "a PREVIOUS real run's directory is not counted as ours" FAILS there. Plus a cell in the
+# suite that asserts the decoy is visible to the glob at all, so this can never go vacuous
+# again without something going red.
 
 # --- (no M11) R3(b) lives in the TEST FILE, which this gate does not mutate ---------------------
 # 🔴 SAID OUT LOUD RATHER THAN FAKED. The set-difference that keeps a real `06` run's raw from

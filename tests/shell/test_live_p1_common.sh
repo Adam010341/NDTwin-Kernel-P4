@@ -600,9 +600,25 @@ check "🔴 and the FIXED shape is not flagged"            "" "$(hazard_scan "$F
 # With no `python3` reachable the scan cannot happen -- and the cell above, which asserts an
 # EMPTY result, would be satisfied by that silence. This is the difference between "I looked
 # and found nothing" and "I could not look".
-OUT="$(PATH=/nonexistent hazard_scan "$FIX/hazard.sh" 2>&1)"; SCAN_RC=$?
-check "🔴 a scanner that cannot run is NOT a clean scan"  "3" "$SCAN_RC"
+# 🔴 THE PATH MUST STILL HAVE coreutils (TICKET-P3 §9 ruling 14g). `PATH=/nonexistent` killed
+# `mktemp` inside hazard_scan before python3 was ever reached -- so that cell proved the
+# function fails when the SHELL loses its tools, which is not the thing under test. This PATH
+# has everything the function itself uses and nothing called `python3`, so the only thing that
+# can fail is the interpreter, and the rc it reports must be 127 (command not found).
+mkdir -p "$FIX/nopy"
+for t in mktemp tr rm cat sed grep; do
+    src="$(command -v "$t" 2>/dev/null)" && ln -sf "$src" "$FIX/nopy/$t"
+done
+OUT="$(PATH="$FIX/nopy" hazard_scan "$FIX/hazard.sh" 2>&1)"; SCAN_RC=$?
+check "🔴 no python3 on PATH is NOT a clean scan"         "3" "$SCAN_RC"
 has   "  and it says so out loud"                        "SCANNER-FAILED" "$OUT"
+has   "🔴 naming the rc that says 'command not found'"    "rc=127" "$OUT"
+# ... and the control for THIS control: the same PATH still runs the function's own tools, so a
+# red here would mean the fixture broke the shell rather than the interpreter.
+# (`/bin/bash` by absolute path: the trimmed PATH deliberately has no `bash` either, and this
+# control is about the tools the FUNCTION uses, not about how this line finds a shell.)
+check "  (the trimmed PATH still has the tools hazard_scan itself uses)" "0" \
+      "$(PATH="$FIX/nopy" /bin/bash -c 'mktemp -u >/dev/null && tr -d "" </dev/null' >/dev/null 2>&1; echo $?)"
 # (an empty needle matches everything, so "it did not print an empty result" is asserted by
 # the rc-3 and SCANNER-FAILED cells above, not by a `hasnt ""` that can never fail)
 

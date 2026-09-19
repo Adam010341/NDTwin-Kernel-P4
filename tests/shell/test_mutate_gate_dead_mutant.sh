@@ -33,6 +33,9 @@ set -uo pipefail
 export NO_COLOR=1
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GATE="${GATE_UNDER_TEST:-$HERE/mutate_ndt_up_down_robust.sh}"
+#: Section 4 re-enters this file once, against a deliberately broken copy of the gate. The flag
+#: stops that copy from re-entering again (and keeps its output out of the outer count).
+SELFTEST_INNER="${SELFTEST_INNER:-0}"
 [[ -r "$GATE" ]] || { echo "  FAILED   no gate at $GATE"; echo "Ran 1 checks, 1 failed"; exit 1; }
 
 PASS=0; FAIL=0
@@ -156,6 +159,73 @@ check "🔴 both report functions increment DEAD, not SURVIVORS" "2" \
 check "🔴 and no SURVIVORS increment sits in a dead branch" "0" \
       "$(/usr/bin/grep -A1 'DEAD=$((DEAD+1))' "$GATE" | /usr/bin/grep -c 'SURVIVORS=')"
 has   "  the verdict is gated on DEAD"                   'if [[ "$DEAD" -gt 0 ]]; then' "$(cat "$GATE")"
+
+# =============================================================================================
+section "5. 🔴 mutate_drive_exercise.sh answers about ITSELF, not about its subject"
+# =============================================================================================
+# TICKET-P3 §9 ruling 14d. That gate's PYTHON, PREP and DRIVER were RELATIVE, so what it
+# measured depended on the caller's cwd. Run from another checkout it read THAT checkout's
+# drive_exercise.py, found none of the anchors, and printed
+# `ANCHOR IS NOT UNIQUE (0 matches) -- Fix the anchor.` -- true about the file it read, wrong
+# about the subject, and identical to a genuinely stale anchor. It cost a whole gate run in
+# round 4 and a deleted log.
+DRVGATE="$HERE/mutate_drive_exercise.sh"
+if [[ -r "$DRVGATE" ]]; then
+    # 🔴 (a) AN INTERPRETER THAT IS NOT THERE: the gate already refuses before the anchors,
+    # and the header still says what it resolved -- which is the diagnosis round 4 lacked.
+    OUT="$(PYTHON=/nonexistent/python ANCHOR_CHECK=1 timeout 300 bash "$DRVGATE" 2>&1)"
+    has   "  a missing interpreter is refused by name"       "REFUSE: no interpreter at /nonexistent/python" "$OUT"
+    hasnt "🔴 NOT reported as a stale anchor"                "ANCHOR IS NOT UNIQUE" "$OUT"
+    hasnt "🔴 and no verdict is printed"                     "mutations, 0 survived" "$OUT"
+    has   "  the header names the interpreter it could not resolve" "MISSING: /nonexistent/python" "$OUT"
+
+    # 🔴 (b) AN INTERPRETER THAT EXISTS AND FAILS is the one anchor_count itself has to catch:
+    # it used to print nothing, the caller's arithmetic turned that into 0, and the gate said
+    # `ANCHOR IS NOT UNIQUE (0 matches) -- Fix the anchor`. There is no count to report.
+    mkdir -p "$FIX/badpy"
+    printf '#!/bin/sh\necho "ImportError: no pathlib here" >&2\nexit 1\n' > "$FIX/badpy/python"
+    chmod +x "$FIX/badpy/python"
+    OUT="$(PYTHON="$FIX/badpy/python" ANCHOR_CHECK=1 timeout 300 bash "$DRVGATE" 2>&1)"; RC=$?
+    check "🔴 an interpreter that FAILS is a refusal, rc 2"  "2" "$RC"
+    has   "  named as the gate's own failure"                "REFUSED: anchor_count could not run" "$OUT"
+    has   "  quoting what the interpreter said"              "ImportError" "$OUT"
+    hasnt "🔴 NOT folded into 'the anchor is stale'"         "ANCHOR IS NOT UNIQUE" "$OUT"
+    hasnt "🔴 and no verdict line"                           "ANCHORS: ok" "$OUT"
+
+    # 🔴 (b) FROM A FOREIGN CWD the subject is still the right file, so every anchor resolves.
+    OUT="$(ANCHOR_CHECK=1 timeout 600 env -C /tmp bash "$DRVGATE" 2>&1)"; RC=$?
+    check "🔴 run from /tmp it still reads its OWN checkout" "2" "$RC"
+    has   "  every anchor resolves to one site"              "ANCHORS: ok" "$OUT"
+    hasnt "  nothing is reported as a stale anchor"          "ANCHOR IS NOT UNIQUE" "$OUT"
+    has   "  and the header names the cwd it ran in"         "cwd        : /tmp" "$OUT"
+    has   "  the resolved subject"                           "drive_exercise.py" "$OUT"
+    has   "  and the subject's sha"                          "subject sha:" "$OUT"
+else
+    FAIL=$((FAIL+1)); printf '  FAILED   no mutate_drive_exercise.sh beside this test\n'
+fi
+
+if [[ "$SELFTEST_INNER" == 1 ]]; then
+    printf '\n'
+    echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
+    (( FAIL == 0 )); exit
+fi
+
+# =============================================================================================
+section "4. 🔴 the lift must FAIL LOUDLY when the gate's shape changes"
+# =============================================================================================
+# The judge's scenario (§9 ruling 14c). Everything above is built on `sed` pulling the gate's
+# own functions out by name. If somebody renames `run_against`, or moves the verdict block, the
+# lift silently produces something that does not run -- and a harness that quietly produced
+# nothing would report... nothing, which `hasnt` reads as success. So: rename it in a copy and
+# assert the harness goes RED rather than quietly passing.
+RENAMED="$FIX/gate-renamed.sh"
+sed 's/^run_against()/run_against_RENAMED()/; s/out=$(run_against /out=$(run_against_RENAMED /' \
+    "$GATE" > "$RENAMED"
+check "  the rename really changed the copy"             "0" \
+      "$(/usr/bin/grep -qF 'run_against_RENAMED' "$RENAMED"; echo $?)"
+OUT="$(SELFTEST_INNER=1 GATE_UNDER_TEST="$RENAMED" timeout 300 bash "${BASH_SOURCE[0]}" 2>&1)"; RC=$?
+check "🔴 a gate whose shape moved makes THIS suite red, not green" "1" "$RC"
+has   "  and it is visible as a failure, not as silence" "FAILED" "$OUT"
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"

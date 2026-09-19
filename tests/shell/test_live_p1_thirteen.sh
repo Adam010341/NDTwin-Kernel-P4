@@ -51,7 +51,7 @@ trap 'rm -rf "$FIX"' EXIT INT TERM
 #: on the count: a real `06` run leaves a directory there legitimately, and a cell that counted
 #: them would go red forever after the first one -- taking the gate, which refuses to run over a
 #: red baseline, with it (round-3 ruling 4).
-RUNS_BEFORE="$(ls -d "$LIVE/runs"/*_06_thirteen 2>/dev/null | sort)"
+RUNS_BEFORE="$(ls -d "$LIVE/runs"/*_06_thirteen 2>/dev/null | /usr/bin/grep -v '/1970-01-01T000000Z\.pid[0-9]*_06_thirteen$' | sort)"
 
 # --- the stub driver -----------------------------------------------------------------------
 # 🔴 IT PRINTS WHAT THE REAL ONE PRINTS. 06 reads two lines out of each run -- the `>>> ` verdict
@@ -198,7 +198,11 @@ section "6. 🔴 this suite leaves nothing in the checkout"
 # over a red baseline -- fail forever the moment somebody runs 06 for real ONCE. What this
 # suite can honestly assert is that IT created none; directories from real runs are evidence
 # that the step works, not litter.
-AFTER="$(ls -d "$LIVE/runs"/*_06_thirteen 2>/dev/null | sort)"
+# 🔴 FIXTURE NAMES ARE NOT LITTER EITHER (§9 ruling 14a). The decoy below is deliberately
+# inside the glob now, and another copy of this suite may have one live while this one runs;
+# `1970-01-01T000000Z.pid<N>` is a name `06` itself can never write (it stamps UTC now), so it
+# is filtered by SHAPE rather than by luck.
+AFTER="$(ls -d "$LIVE/runs"/*_06_thirteen 2>/dev/null | /usr/bin/grep -v '/1970-01-01T000000Z\.pid[0-9]*_06_thirteen$' | sort)"
 NEW="$(comm -13 <(printf '%s\n' "$RUNS_BEFORE") <(printf '%s\n' "$AFTER"))"
 check "🔴 this suite wrote no run directory into the checkout" "" "$(printf '%s' "$NEW")"
 has   "  and the raw really went to the fixture instead" "$FIX/runs" "$(run13 basic)"
@@ -208,17 +212,28 @@ has   "  and the raw really went to the fixture instead" "$FIX/runs" "$(run13 ba
 # shape `06` really writes makes them disagree -- and the all-counting version is the one that
 # would go red forever after the first real run of the step, taking the gate (which refuses to
 # run over a red baseline) with it.
-# 🔴 PROCESS-UNIQUE (TICKET-P3 §9 ruling 12e). A fixed name is written into the REAL checkout,
-# so two copies of this suite in one checkout race on it: the second `mkdir -p` succeeds, the
-# first `rmdir` removes it under the second, and each sees a directory it did not create. The
-# 1970 stamp keeps it obvious as a fixture; the pid keeps it ours.
-DECOY="$LIVE/runs/1970-01-01T000000Z_06_thirteen.pid$$"
+# 🔴 THE PID GOES BEFORE THE SUFFIX, AND THAT IS THE WHOLE FIX (TICKET-P3 §9 ruling 14a).
+# Round 4 wrote `..._06_thirteen.pid$$` -- which no longer matches this suite's own glob
+# `*_06_thirteen`, so BEFORE2 and AFTER2 never saw the decoy at all and the set-difference cell
+# below answered the same whether it used `comm -13` or plain AFTER2. The cell went green
+# because the fixture was INVISIBLE, which is the cheapest way there is to pass a test: remove
+# the thing it was supposed to be about. The stamp still marks it a fixture; the pid still
+# keeps it ours (two suites in one checkout must not race); and now it is inside the glob.
+DECOY="$LIVE/runs/1970-01-01T000000Z.pid${$}_06_thirteen"
 mkdir -p "$DECOY"
 BEFORE2="$(ls -d "$LIVE/runs"/*_06_thirteen 2>/dev/null | sort)"
+# 🔴 THE INJECTION IS ASSERTED, NOT ASSUMED. Without this, a decoy that the glob cannot see --
+# a rename, a different stamp, a runs/ that does not exist -- makes every cell below vacuous
+# and green. This is the cell round 4 did not have.
+has   "🔴 the decoy really is visible to the suite's own glob" "$DECOY" "$BEFORE2"
 run13 basic >/dev/null 2>&1
 AFTER2="$(ls -d "$LIVE/runs"/*_06_thirteen 2>/dev/null | sort)"
 NEW2="$(comm -13 <(printf '%s\n' "$BEFORE2") <(printf '%s\n' "$AFTER2"))"
 check "🔴 a PREVIOUS real run's directory is not counted as ours" "" "$(printf '%s' "$NEW2")"
+# ... and with a plain count it WOULD have been counted -- which is what makes the cell above
+# a statement about the difference rather than about an empty directory listing.
+check "  (and a count, rather than a difference, would have seen it)" "$DECOY" \
+      "$(printf '%s\n' "$AFTER2" | /usr/bin/grep -F "$DECOY")"
 rmdir "$DECOY" 2>/dev/null
 
 printf '\n'

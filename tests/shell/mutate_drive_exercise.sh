@@ -44,10 +44,33 @@ set -uo pipefail
 # would describe a file that was never on disk.
 export PYTHONDONTWRITEBYTECODE=1
 
-PYTHON="${PYTHON:-p4_proxy/venv/bin/python}"
-PREP=doc/audit/2026-09-04_p4-tutorial-exercise-prep
+# [Co-developed with claude code -- Adam]
+# 🔴 ABSOLUTE, DERIVED FROM THIS SCRIPT'S OWN LOCATION (TICKET-P3 §9 ruling 14d) -- the way
+# every other gate in this directory already does it.
+#
+# These four were RELATIVE, so "which files this gate measured" depended on the caller's cwd.
+# Run from another checkout, `$DRIVER` resolved to THAT checkout's drive_exercise.py: the
+# anchors genuinely were not in the file the gate read, and it reported
+# `ANCHOR IS NOT UNIQUE (0 matches) -- Fix the anchor.` -- a true statement about the wrong
+# file, and indistinguishable from an anchor that had really gone stale. That is exactly the
+# failure §9 ruling 12a named for `bash -n`, in a second place: A TOOL THAT MEASURED THE WRONG
+# THING, OR COULD NOT MEASURE AT ALL, MUST SAY SO ABOUT ITSELF -- never about its subject.
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$HERE/.." && cd .. && pwd)"
+PYTHON="${PYTHON:-$REPO/p4_proxy/venv/bin/python}"
+PREP="$REPO/doc/audit/2026-09-04_p4-tutorial-exercise-prep"
 DRIVER="$PREP/drive_exercise.py"
 TESTS="$PREP/tests"
+
+# 🔴 THE LOG SAYS WHAT THIS RUN READ (§9 ruling 14d). Round 4's bad run was only diagnosable
+# by re-deriving it afterwards; a log that names the cwd, the resolved interpreter, the resolved
+# subject and its sha cannot be mistaken for a run against a different checkout.
+printf 'gate       : %s\n' "${BASH_SOURCE[0]}"
+printf 'cwd        : %s\n' "$PWD"
+printf 'interpreter: %s\n' "$(realpath "$PYTHON" 2>/dev/null || echo "MISSING: $PYTHON")"
+printf 'subject    : %s\n' "$(realpath "$DRIVER" 2>/dev/null || echo "MISSING: $DRIVER")"
+printf 'subject sha: %s\n' "$(sha256sum "$DRIVER" 2>/dev/null | cut -d' ' -f1)"
+echo
 
 ANCHOR_CHECK="${ANCHOR_CHECK:-0}"
 if [[ "${1:-}" == "--dry-run" ]]; then
@@ -66,11 +89,27 @@ fi
 #
 # python, not `grep -c -F`: grep splits a multi-line -F pattern into several patterns and
 # counts matching LINES, so a multi-line anchor would report the wrong number.
+# 🔴 IT REFUSES INSTEAD OF ANSWERING A NUMBER IT DOES NOT HAVE (§9 ruling 14d). When the
+# interpreter could not run, this printed nothing, `n` became the empty string, and the caller's
+# arithmetic turned that into 0 -- reported as `ANCHOR IS NOT UNIQUE (0 matches)`, i.e. a claim
+# about the anchor. There is no number to report: the gate stops, rc 2, no verdict line, the
+# same refusal a dead mutant gets in mutate_ndt_up_down_robust.sh.
 anchor_count() {
-    ANCHOR="$2" "$PYTHON" - "$1" <<'PY'
+    local out rc
+    out="$(ANCHOR="$2" "$PYTHON" - "$1" 2>&1 <<'PY'
 import os, pathlib, sys
 print(pathlib.Path(sys.argv[1]).read_text().count(os.environ["ANCHOR"]))
 PY
+)"; rc=$?
+    if [[ "$rc" -ne 0 || ! "$out" =~ ^[0-9]+$ ]]; then
+        echo "🔴 REFUSED: anchor_count could not run (rc=$rc)" >&2
+        echo "   interpreter : $PYTHON" >&2
+        echo "   subject     : $1" >&2
+        echo "   it printed  : ${out:-<nothing>}" >&2
+        echo "   This is NOT 'the anchor is stale' -- the gate could not look. No verdict." >&2
+        exit 2
+    fi
+    printf '%s\n' "$out"
 }
 
 # --- the mutation table -------------------------------------------------------------------------

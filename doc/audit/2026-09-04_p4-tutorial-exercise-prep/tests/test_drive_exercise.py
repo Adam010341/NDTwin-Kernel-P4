@@ -260,6 +260,10 @@ class StubHosts(object):
         return self.names()
 
     def ping(self, host, dst, count=5):
+        # 🔴 RECORDED TOO (TICKET-P3 §9 ruling 14e). The `events` comment claimed "ping" was one
+        # of the three, and it was not -- so "the re-measure happens AFTER the second flush",
+        # which is the whole point of the second flush, was not pinned by anything.
+        self.events.append("ping")
         # After a flush the arm re-measures hX -> h4 from cold caches; that repeat is answered
         # from `pings` when the case supplies it, and otherwise from the pingall table, which is
         # what "the fabric did not change between the two passes" looks like here.
@@ -1667,12 +1671,22 @@ class TheMulticastArms(unittest.TestCase):
 
     def test_the_second_flush_happens_after_the_pingall(self):
         """The other half of the order: the re-measure is only independent of the first walk if
-        its flush comes after that walk."""
+        its flush comes after that walk -- AND the re-measure's pings come after that flush.
+
+        🔴 THE SECOND HALF IS §9 ruling 14e. A flush placed after the walk but after the
+        re-measure too would satisfy the arithmetic below and measure nothing: the pings it was
+        supposed to isolate would already have happened. `ping` is now an event, so the order
+        that matters can actually be read.
+        """
         sess = self.session("solution", self.GROUP_ONLY)
         ev = sess.h.events
         self.assertGreater(len([e for e in ev if e == "flush"]), 1, ev)
-        self.assertGreater(len(ev) - 1 - ev[::-1].index("flush"), ev.index("pingall"),
+        last_flush = len(ev) - 1 - ev[::-1].index("flush")
+        self.assertGreater(last_flush, ev.index("pingall"),
                            "the second flush must follow the pingall: %r" % (ev,))
+        self.assertIn("ping", ev, ev)
+        self.assertGreater(len(ev) - 1 - ev[::-1].index("ping"), last_flush,
+                           "the re-measure's pings must come AFTER the second flush: %r" % (ev,))
 
     def test_the_arp_caches_are_emptied_before_and_between_the_passes(self):
         """🔴 THE EXPECTATION IS ONLY TRUE FROM COLD CACHES (round-3 ruling 5).
