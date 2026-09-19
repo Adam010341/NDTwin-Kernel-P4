@@ -16,6 +16,11 @@ add_executable(
   test_SFlowParsing.cpp
   test_GoldenFixture.cpp
   test_SFlowEmitterRoundtrip.cpp
+  # [Co-developed with claude code -- Adam] TICKET-P3 §2.2/§2.3: the three FlowKey families, the
+  # ihl-derived L4 offset, and which of the two byte banks a sample lands in. Next to the two
+  # suites above because it is the same subject read from the other end -- those pin the datagram
+  # layout the parser requires, this pins what the parser makes of the frame inside it.
+  test_FlowKeyFamilies.cpp
   test_ClassifierDropRule.cpp
   test_EventBus.cpp
   test_P4FlowStatsToClassifier.cpp

@@ -84,6 +84,11 @@ class ProbeCollector : public sflow::FlowLinkUsageCollector
     using sflow::FlowLinkUsageCollector::creditHostBoundEgressEdges;
 
     using sflow::FlowLinkUsageCollector::handlePacket;
+
+    /// TICKET-P3 §2.2: which of the two banks a sample landed in is the property under test in
+    /// AnIngressLessSampleIsBankedOnceAndOnTheEgressSide, and only the ingress bank's own reader
+    /// can answer it. [Co-developed with claude code -- Adam]
+    using sflow::FlowLinkUsageCollector::sampledByteCreditFor;
 };
 
 /// Exposes the protected loader, which is the production writer of the switch-kind index.
@@ -335,23 +340,42 @@ TEST_F(LastHopAttributionTest, TwoSamplesInOneSecondAccumulate)
         << "samples within one second must add, not overwrite";
 }
 
-TEST_F(LastHopAttributionTest, AnIngressLessSampleIsNotBankedTwice)
+TEST_F(LastHopAttributionTest, AnIngressLessSampleIsBankedOnceAndOnTheEgressSide)
 {
+    // [Co-developed with claude code -- Adam] TICKET-P3 §2.2, second rule. This case asserted the
+    // opposite until P3, and the old assertion was a description of a dead branch rather than of
+    // a decision: no sample in production ever had inputPort == 0 -- the P4 clone path and OVS
+    // both fill it -- so "the ingress bank already has it" was true only because nothing ever
+    // took that path. It is about to stop being dead: B's link telemetry puts an *egress* tc
+    // filter on every host-facing port, and those samples carry an output port and no input port.
+    //
+    // Under the old rule such a sample was banked in m_counterReports keyed by its OUTPUT port,
+    // and the ingress drain reads that map as "bytes that arrived on this port" and credits
+    // `getAgentKeyFromTheOtherSide` -- the edge pointing the other way. The bytes were not lost,
+    // they were attributed to the reverse direction, which is worse: an edge with traffic showing
+    // a plausible wrong number, rather than an edge showing nothing.
+    //
+    // Both halves are asserted, because either alone is satisfied by a mistake: crediting the
+    // host edge does not say the ingress bank stayed out of it, and an empty ingress bank does
+    // not say the bytes went anywhere at all.
     auto data = loadFixture("emitted_udp.bin");
     ASSERT_FALSE(data.empty());
     // Word 14 of the datagram is the sample's input interface (see the layout table in
-    // sflow_emitter.py). Zeroing it makes an egress-style sample: the parser then keys the
-    // *ingress* bank by the output port, and banking the egress side too would count the
-    // same bytes twice on (agent, outputPort).
+    // sflow_emitter.py). Zeroing it makes an egress-only sample.
     ASSERT_GE(data.size(), size_t(15 * 4));
     data[14 * 4] = data[14 * 4 + 1] = data[14 * 4 + 2] = data[14 * 4 + 3] = 0;
 
     m_collector->handlePacket(data.data(), data.size());
+
+    EXPECT_EQ(m_collector->sampledByteCreditFor(kAgentIp, kUdpEgressPort), 0u)
+        << "an egress-only sample must not enter the ingress bank: the drain would read it as "
+           "bytes arriving on port " << kUdpEgressPort << " and credit the reverse edge";
+
     m_collector->creditHostBoundEgressEdges(kOneSecond);
 
-    EXPECT_EQ(usageOf(m_edgeToHost), 0u)
-        << "an ingress-less sample is already keyed by its output port in the ingress bank; "
-           "the egress bank must not take it as well";
+    EXPECT_EQ(usageOf(m_edgeToHost), kUdpFrameLen * kSamplingRate * 8)
+        << "the sample left through the port this edge leaves by, so the egress bank owns it -- "
+           "once, not twice";
 }
 
 TEST_F(LastHopAttributionTest, TheLastHopEdgeJoinsTheFlowSetOnceThePathIsKnown)
