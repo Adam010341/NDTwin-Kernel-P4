@@ -15,7 +15,7 @@ was marked `invalid=no simple_switch binary in ... -- this arm cannot name what 
 The first real round died on it after measuring a ceiling of 30 kpps that then could not be
 used. (Ruling 27; the real manifest is kept verbatim at
 scratch/overnight-2026-09-05/logs/orchestrator-0919/evidence-ndtwin_p4_switches-argv-is-a-string.json
-and copied into tests/fixtures/ndtwin_p4_switches.real.json.)
+and copied byte for byte into tests/fixtures/ndtwin_p4_switches.real.json.)
 
 It is a module rather than another heredoc inside the arm script so that it can be TESTED. The
 offline stub had a list-shaped `argv`, which is exactly why the suite was green while the real

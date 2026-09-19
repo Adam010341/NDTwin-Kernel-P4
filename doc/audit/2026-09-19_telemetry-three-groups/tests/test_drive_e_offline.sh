@@ -237,7 +237,7 @@ SEEOF
     # 🔴 A REAL-SHAPED SWITCH MANIFEST. The stub used to write `argv` as a LIST, which is
     # the shape run_group_arm.sh assumed -- so this suite was green while the arm script could
     # never have worked against the lab, and the first real campaign marked every arm invalid.
-    # One switch's object is copied from the manifest the lab really wrote. (Ruling 27.)
+    # It is the manifest the lab really wrote -- all ten switches, byte for byte. (Ruling 27.)
     cp "$HERE/fixtures/ndtwin_p4_switches.real.json" "$dir/ndtwin_p4_switches.json"
 
     printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/bin/sudo"

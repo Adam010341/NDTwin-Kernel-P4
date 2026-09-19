@@ -3,8 +3,9 @@
 
 [Co-developed with claude code -- Adam]
 
-🔴 THE FIXTURE IS THE REAL FILE, verbatim. tests/fixtures/ndtwin_p4_switches.real.json is a copy
-of the /tmp/ndtwin_p4_switches.json that the 2026-09-19 17:31 campaign produced. The offline
+🔴 THE FIXTURE IS THE REAL FILE, byte for byte. tests/fixtures/ndtwin_p4_switches.real.json is a
+byte-for-byte copy of the /tmp/ndtwin_p4_switches.json that the 2026-09-19 17:31 campaign
+produced -- all ten switches, as the lab wrote it, not re-serialized. The offline
 stub used to write a manifest whose `argv` was a LIST, which is the shape run_group_arm.sh
 assumed -- so the suite was green while the arm script could never have worked against the lab.
 A fixture that agrees with the code's assumption proves nothing about the world; that is the
@@ -56,8 +57,21 @@ class RealManifestTest(unittest.TestCase):
                          "/usr/local/bmv2-fast/bin/simple_switch_grpc")
 
     def test_an_argument_that_merely_contains_the_word_is_not_the_binary(self):
+        # Rejected by the dot in `simple_switch.log`.
         tricky = {"s1": {"pid": 5, "argv": "env --log-file /tmp/simple_switch.log /opt/x/simple_switch_grpc -i 1@e"}}
         self.assertEqual(manifest.switch_binary(tricky), "/opt/x/simple_switch_grpc")
+
+    def test_a_DOT_LESS_option_value_is_still_not_the_binary(self):
+        # 🔴 THIS CELL IS WHAT MAKES THE "follows an option" RULE TESTABLE. With a dot in the
+        # name the other rule already rejects it, so a mutation removing this one changed
+        # nothing and could not be killed -- an equivalent mutant, which is a gate reporting a
+        # survivor about a rule nothing tests. `--log-dir /var/log/simple_switch_grpc` has no
+        # dot, so only "a token that follows an option is that option's value" can reject it.
+        tricky = {"s1": {"pid": 5,
+                         "argv": "env --log-dir /var/log/simple_switch_grpc "
+                                 "/usr/local/bmv2-fast/bin/simple_switch_grpc -i 1@s1-eth1"}}
+        self.assertEqual(manifest.switch_binary(tricky),
+                         "/usr/local/bmv2-fast/bin/simple_switch_grpc")
 
     def test_every_switch_gives_a_pid_and_its_device_id(self):
         rows = manifest.switch_rows(self.data)

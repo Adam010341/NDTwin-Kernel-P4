@@ -86,6 +86,14 @@ copy_tree() {   # copy_tree <destination>
        "$ROUND/manifest.py" "$d/"
     chmod +x "$d"/*.sh
     cp "$HERE"/*.py "$HERE"/*.sh "$d/tests/" 2>/dev/null
+    # 🔴 AND THE FIXTURES. test_manifest.py reads the real switch manifest out of
+    # tests/fixtures/, and a mutant without it fails for a harness reason -- which this gate
+    # correctly refused a verdict over (baseline RED) rather than scoring. Ruling 27's fixture
+    # is the whole point of that test; leaving it behind would make every mutant meaningless.
+    if [[ -d "$HERE/fixtures" ]]; then
+        mkdir -p "$d/tests/fixtures"
+        cp "$HERE"/fixtures/* "$d/tests/fixtures/" 2>/dev/null
+    fi
     chmod +x "$d"/tests/*.sh 2>/dev/null
     find "$d" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null
 }
@@ -518,8 +526,19 @@ m=$(mutant m27 "$MANIFEST" \
         return False' \
     '    if False:
         return False')
-report_shell "M-E27: an option VALUE (--log-file /tmp/simple_switch.log) can be taken for the binary" "$m" \
-       "  the fixture is the shape that broke it (argv is a string)"
+# 🔴 report, NOT report_shell, and bound to the DOT-LESS cell. Two ways to get this wrong were
+# taken before the right one, and both are the same mistake: binding a mutation to a cell that
+# cannot go red for it.
+#   1. a shell cell that merely checks the FIXTURE's type() -- it never runs the rule at all;
+#   2. the --log-file /tmp/simple_switch.log cell -- the "no dot in the basename" rule already
+#      rejects that one, so removing the "follows an option" rule changes NOTHING and the
+#      mutation is EQUIVALENT. A gate reporting a survivor there is reporting about a rule that
+#      nothing tests.
+# test_a_DOT_LESS_option_value_is_still_not_the_binary uses `--log-dir /var/log/
+# simple_switch_grpc`, where this rule is the only thing standing between the reader and the
+# wrong answer. (Rulings 27 and 29; same family as M-E10 and M-E19.)
+report "M-E27: a dot-less option VALUE (--log-dir /var/log/simple_switch_grpc) is taken for the binary" "$m" \
+       "test_a_DOT_LESS_option_value_is_still_not_the_binary"
 
 # --- the controls: changes that must NOT be caught -------------------------------------------------
 # A suite that goes red on a comment is not sensitive, it is fragile, and a fragile suite gets
