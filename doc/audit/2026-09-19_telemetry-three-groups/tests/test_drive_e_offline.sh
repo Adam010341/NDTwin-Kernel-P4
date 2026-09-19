@@ -544,7 +544,13 @@ src, dst = sys.argv[1], sys.argv[2]
 s = open(src).read()
 start = s.index("        # Only re-claim when the knob really went back.")
 end = s.index('        if (( release_rc != 0 )); then')
-tail_end = s.index('        fi\n    fi\n    printf ', end)
+# 🔴 THE END OF THE RELEASE BLOCK, NOT WHATEVER FOLLOWS IT. This used to look for
+# `        fi\n    fi\n    printf ` -- it took the next statement after the block as part of
+# its own landmark, and ruling 32(3) then inserted the two verdict guards exactly there. The
+# slice stopped matching, this cell's driver was never written, and three cells failed with
+# `cp: cannot stat .../driver.sh` -- a HARNESS error that looks exactly like a defect red.
+# The two `fi` are the shape being cut out; what comes after them is not this cell's business.
+tail_end = s.index('        fi\n    fi\n', end)
 old_shape = ('        "$NDT" release 2>&1 | sed \'s/^/   /\' '
              '|| bad "\'ndt release\' did not take -- run it by hand"\n')
 open(dst, "w").write(s[:start] + old_shape + s[tail_end + len("        fi\n"):])
