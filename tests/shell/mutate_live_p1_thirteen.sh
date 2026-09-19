@@ -288,6 +288,15 @@ check_fires "M10: the by-design check becomes a substring match" m10 \
             "🔴 a FAIL that merely mentions RED ARM is still a failure" \
             "  and is named as one"
 
+# --- (no M12) the decoy's process-unique suffix is also in the TEST FILE -------------------------
+# 🔴 §9 ruling 12e. `DECOY="...06_thirteen.pid$$"` is in tests/shell/test_live_p1_thirteen.sh,
+# not in `06_thirteen.sh`; this gate's subject is the STEP, and an anchor in the test would be
+# counted by check_gate_anchors.py against 06 and read as MISSING. The evidence is the run
+# recorded in the SUMMARY: two copies of the suite, same checkout, in parallel -- both
+# `Ran 34 checks, 0 failed`, and no `*_06_thirteen*` directory left in the checkout afterwards.
+# With the fixed name, the second mkdir succeeds, the first rmdir removes it under the second,
+# and each sees a directory it did not create.
+
 # --- (no M11) R3(b) lives in the TEST FILE, which this gate does not mutate ---------------------
 # 🔴 SAID OUT LOUD RATHER THAN FAKED. The set-difference that keeps a real `06` run's raw from
 # being reported as this suite's litter is in `tests/shell/test_live_p1_thirteen.sh`, not in

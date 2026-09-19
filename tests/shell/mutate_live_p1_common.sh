@@ -608,6 +608,15 @@ EOF
 check_fires "M28: the floor the verdict used is not in the raw" m28 \
             "  and the floor it was judged against is in the raw"
 
+# --- (no mutation) the `local` hazard scanner is in the TEST FILE -------------------------------
+# 🔴 §9 ruling 12d is a change to tests/shell/test_live_p1_common.sh (the scanner now fails when
+# its INTERPRETER fails, instead of printing nothing and being read as a clean scan). This
+# gate's subject is `live-p1/_common.sh`; an anchor in the test file would be counted against
+# _common.sh by check_gate_anchors.py and read as MISSING. The scanner is covered inside the
+# suite instead, by four cells that are each other's controls: empty PATH => rc 3, an
+# interpreter that exits 1 => rc 3, a working interpreter => rc 0 and no SCANNER-FAILED, and
+# the positive/negative shape controls that were already there.
+
 # --- the controls for this half --------------------------------------------------------------------------
 cat > "$A/c3.old" <<'EOF'
     (( rc == 0 )) && note "$label: link usage follows the iperf path (off-path under $floor bit)"

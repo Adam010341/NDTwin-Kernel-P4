@@ -240,14 +240,23 @@ class StubHosts(object):
         self.cmds = []
         self.procs = []
         self.arp_flushes = 0
+        #: What the arm did, in order: "flush" / "pingall" / "ping". 🔴 THE ORDER IS THE POINT
+        #: (§9 ruling 12c): a flush after the pingall is not a flush at all for the pairs whose
+        #: expectation depends on cold caches, and a count cannot tell the two apart.
+        self.events = []
 
     def names(self):
         return sorted(self.ips)
 
     def flush_arp(self):
-        """🔴 RECORDED, NOT IGNORED. multicast's expectation is only true from cold ARP caches
-        (round-3 ruling 5), so the cells below assert that the step actually asked for them."""
+        """🔴 RECORDED IN ORDER, NOT JUST COUNTED (TICKET-P3 §9 ruling 12c).
+
+        Round 3's cell counted flushes and got 2 either way -- so an arm that flushed AFTER the
+        pingall, which is the same as not flushing at all for the pairs that matter, passed it.
+        `events` is the sequence, and the cell below reads the sequence.
+        """
         self.arp_flushes += 1
+        self.events.append("flush")
         return self.names()
 
     def ping(self, host, dst, count=5):
@@ -283,6 +292,7 @@ class StubHosts(object):
         return ""
 
     def pingall(self, count=5):
+        self.events.append("pingall")
         return self.pa
 
 
@@ -1638,6 +1648,31 @@ class TheMulticastArms(unittest.TestCase):
         self.assertTrue(v["h1/h2/h3 reach each other"].ok)
         self.assertTrue(v["nobody reaches h4"].ok)
         self.assertTrue(v["but h4 reaches them"].ok)
+
+    def test_the_first_flush_happens_BEFORE_the_pingall(self):
+        """🔴 A FLUSH AFTER THE PINGALL IS NOT A FLUSH AT ALL (TICKET-P3 §9 ruling 12c).
+
+        Round 3's cell counted flushes; it got 2 whether the first one ran before or after the
+        walk, so an arm that measured from whatever ARP state the fabric was already in passed
+        it. What the expectation rests on is that hX -> h4 is measured while nobody holds h4's
+        MAC -- which is a statement about ORDER, so this reads the order.
+        """
+        sess = self.session("solution", self.GROUP_ONLY)
+        self.assertIn("flush", sess.h.events)
+        self.assertIn("pingall", sess.h.events)
+        self.assertEqual("flush", sess.h.events[0],
+                         "the first thing the arm does must be the flush: %r" % (sess.h.events,))
+        self.assertLess(sess.h.events.index("flush"), sess.h.events.index("pingall"),
+                        "the flush must precede the pingall: %r" % (sess.h.events,))
+
+    def test_the_second_flush_happens_after_the_pingall(self):
+        """The other half of the order: the re-measure is only independent of the first walk if
+        its flush comes after that walk."""
+        sess = self.session("solution", self.GROUP_ONLY)
+        ev = sess.h.events
+        self.assertGreater(len([e for e in ev if e == "flush"]), 1, ev)
+        self.assertGreater(len(ev) - 1 - ev[::-1].index("flush"), ev.index("pingall"),
+                           "the second flush must follow the pingall: %r" % (ev,))
 
     def test_the_arp_caches_are_emptied_before_and_between_the_passes(self):
         """🔴 THE EXPECTATION IS ONLY TRUE FROM COLD CACHES (round-3 ruling 5).

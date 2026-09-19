@@ -208,7 +208,11 @@ has   "  and the raw really went to the fixture instead" "$FIX/runs" "$(run13 ba
 # shape `06` really writes makes them disagree -- and the all-counting version is the one that
 # would go red forever after the first real run of the step, taking the gate (which refuses to
 # run over a red baseline) with it.
-DECOY="$LIVE/runs/1970-01-01T000000Z_06_thirteen"
+# 🔴 PROCESS-UNIQUE (TICKET-P3 §9 ruling 12e). A fixed name is written into the REAL checkout,
+# so two copies of this suite in one checkout race on it: the second `mkdir -p` succeeds, the
+# first `rmdir` removes it under the second, and each sees a directory it did not create. The
+# 1970 stamp keeps it obvious as a fixture; the pid keeps it ours.
+DECOY="$LIVE/runs/1970-01-01T000000Z_06_thirteen.pid$$"
 mkdir -p "$DECOY"
 BEFORE2="$(ls -d "$LIVE/runs"/*_06_thirteen 2>/dev/null | sort)"
 run13 basic >/dev/null 2>&1

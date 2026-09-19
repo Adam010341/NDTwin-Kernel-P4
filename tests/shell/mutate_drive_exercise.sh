@@ -778,6 +778,24 @@ add "85. the generic cell claims an off-path bound that is not the one applied" 
     '                    "on-path > 0, off-path == 0",  # MUTANT' \
     'test_the_generic_cell_states_the_bound_it_actually_applies'
 
+# 86: THE FLUSH MOVES TO AFTER THE WALK (TICKET-P3 §9 ruling 12c). Two flushes still happen, so
+# a cell that COUNTS them is satisfied -- and the measurement is taken from whatever ARP state
+# the fabric was already in, which is the state the expectation is not true in. This is the
+# mutation round 3's cell could not see.
+add "86. multicast flushes the ARP caches AFTER the pingall instead of before" \
+    "$DRIVER" \
+    '        flushed = self.h.flush_arp()
+        say("$ ip neigh flush all, in each host namespace -> %s" % (", ".join(flushed) or "none"))
+        self.steps.append(("ARP caches emptied before the measurement",
+                           "ip neigh flush all (each host)", ", ".join(flushed) or "none"))
+        pa = self._pingall()' \
+    '        pa = self._pingall()  # MUTANT: the walk first
+        flushed = self.h.flush_arp()
+        say("$ ip neigh flush all, in each host namespace -> %s" % (", ".join(flushed) or "none"))
+        self.steps.append(("ARP caches emptied before the measurement",
+                           "ip neigh flush all (each host)", ", ".join(flushed) or "none"))' \
+    'test_the_first_flush_happens_BEFORE_the_pingall'
+
 CTRL_SRC="$DRIVER"
 CTRL_ANCHOR='def host_key(name):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.

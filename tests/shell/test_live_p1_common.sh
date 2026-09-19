@@ -524,7 +524,28 @@ section "9. 🔴 no live-p1 script reintroduces the \`set -u\` \`local\` hazard"
 # -- so the scan errored, printed NOTHING, and the "no script has the hazard" check went GREEN
 # on empty output. The positive control below is the only reason that was caught, which is the
 # entire argument for having one.
+# 🔴 THE SCANNER MUST FAIL WHEN THE SCANNER FAILS (TICKET-P3 §9 ruling 12d). The first version
+# printed nothing when `python3` itself could not run -- and "prints nothing" is exactly what
+# "no script has the hazard" looks like, so the check went GREEN on a scan that never happened.
+# (That is not hypothetical: it shipped that way for one iteration, with `$PY` unset, and only
+# the positive control caught it.) A tool that cannot run has not answered; this returns
+# non-zero and says so on stderr, and `hazard_check` below turns that into a FAILED cell.
 hazard_scan() {   # hazard_scan <file>... -- prints "<file>:<line> <name> reads $<earlier>"
+    local out err rc
+    err="$(mktemp "${TMPDIR:-/tmp}/hazard-err-XXXXXX")"
+    out="$(hazard_scan_raw "$@" 2>"$err")"; rc=$?
+    if (( rc != 0 )) || [[ -s "$err" ]]; then
+        printf 'SCANNER-FAILED rc=%s %s\n' "$rc" "$(tr '\n' ' ' < "$err")"
+        rm -f "$err"
+        return 3
+    fi
+    rm -f "$err"
+    printf '%s' "$out"
+    [[ -z "$out" ]] || printf '\n'
+    return 0
+}
+
+hazard_scan_raw() {
     python3 - "$@" <<'PYH'
 import re, sys
 for path in sys.argv[1:]:
@@ -547,11 +568,13 @@ for path in sys.argv[1:]:
 PYH
 }
 
-OUT="$(hazard_scan "$LIVE"/*.sh)"
-check "🔴 no live-p1 script has a cross-referencing \`local\`" "" "$OUT"
+OUT="$(hazard_scan "$LIVE"/*.sh)"; SCAN_RC=$?
+check "  the scanner itself ran"                         "0" "$SCAN_RC"
+check "🔴 no live-p1 script has a cross-referencing \`local\`" "" "$(printf '%s' "$OUT")"
 [[ -n "$OUT" ]] && printf '%s\n' "$OUT" | sed 's/^/             /'
 
 # 🔴 THE POSITIVE CONTROL. Without it "found nothing" and "cannot find anything" read the same.
+mkdir -p "$FIX/bin"
 cat > "$FIX/hazard.sh" <<'HZ'
 f() {
     local ex="$1" which="$2" log="$RUN/${ex}_${which}.log" rc
@@ -572,6 +595,33 @@ f() {
 }
 OK
 check "🔴 and the FIXED shape is not flagged"            "" "$(hazard_scan "$FIX/ok.sh")"
+
+# 🔴 THE CONTROL THE JUDGE ASKED FOR (§9 ruling 12d): break the INTERPRETER, not the input.
+# With no `python3` reachable the scan cannot happen -- and the cell above, which asserts an
+# EMPTY result, would be satisfied by that silence. This is the difference between "I looked
+# and found nothing" and "I could not look".
+OUT="$(PATH=/nonexistent hazard_scan "$FIX/hazard.sh" 2>&1)"; SCAN_RC=$?
+check "🔴 a scanner that cannot run is NOT a clean scan"  "3" "$SCAN_RC"
+has   "  and it says so out loud"                        "SCANNER-FAILED" "$OUT"
+# (an empty needle matches everything, so "it did not print an empty result" is asserted by
+# the rc-3 and SCANNER-FAILED cells above, not by a `hasnt ""` that can never fail)
+
+# ... and the same for an interpreter that exists but fails.
+cat > "$FIX/bin/python3" <<'BOGUS'
+#!/bin/sh
+echo "ImportError: something the scanner needs is missing" >&2
+exit 1
+BOGUS
+chmod +x "$FIX/bin/python3"
+OUT="$(PATH="$FIX/bin:$PATH" hazard_scan "$FIX/hazard.sh" 2>&1)"; SCAN_RC=$?
+check "🔴 an interpreter that fails is not a clean scan either" "3" "$SCAN_RC"
+has   "  naming what it said"                            "ImportError" "$OUT"
+
+# 🔴 THE NEGATIVE CONTROL FOR THE CONTROL: a working interpreter must NOT trip the guard, or
+# every run of this suite would refuse and the two cells above would be vacuous.
+OUT="$(hazard_scan "$FIX/ok.sh")"; SCAN_RC=$?
+check "  a working interpreter is not reported as failed" "0" "$SCAN_RC"
+hasnt "  and prints no SCANNER-FAILED"                   "SCANNER-FAILED" "$OUT"
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
