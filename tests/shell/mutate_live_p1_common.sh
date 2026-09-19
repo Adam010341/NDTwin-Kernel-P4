@@ -698,12 +698,12 @@ check_fires "M34: the window ignores the path's slowest link" m34 \
 # 🔴 A single sampled 170-byte frame is 348 kbit and a 1500-byte one is 3.07 Mbit; a floor of
 # 5 kbit reds the smallest thing the sampler can possibly report.
 cat > "$A/m35.old" <<'EOF'
-one_sample = float(sys.argv[5]) * float(sys.argv[6]) * 8
-floor_abs = one_sample; frac = float(sys.argv[4])
+one_sample = float(sys.argv[4]) * float(sys.argv[5]) * 8
+floor_abs = one_sample
 EOF
 cat > "$A/m35.new" <<'EOF'
-one_sample = float(sys.argv[5]) * float(sys.argv[6]) * 8
-floor_abs = 5000.0; frac = float(sys.argv[4])
+one_sample = float(sys.argv[4]) * float(sys.argv[5]) * 8
+floor_abs = 5000.0
 EOF
 check_fires "M35: the off-path floor falls back below one sample" m35 \
             "🔴 the floor is at least ONE sample's worth of bits" \

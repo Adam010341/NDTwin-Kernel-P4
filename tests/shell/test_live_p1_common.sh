@@ -918,7 +918,17 @@ has   "🔴 and NAMING the datagram size it chose"         "iperf -l 1200" "$OUT
 
 # 🔴 A DEAD CONTROLLER IS 'NOT RUN', NEVER 'PASS'. flowcache's first packet needs the
 # controller's packet-in; measuring without it measures the controller's absence.
-OUT="$(drive "CTRL_PID=999999; link_usage_round '$PKG3' 'noctrl' '$FIX/lur3'")"
+# 🔴 THE PID IS SET *BEFORE* THE SOURCE, WHICH IS WHAT THE DRIVER DOES (§9 ruling 28①).
+# `link_usage_cell` builds `CTRL_PID=<pid>` then `source _common.sh` -- so a file that reset
+# CTRL_PID unconditionally at source time threw the pid away and the branch was unreachable.
+# Setting it after the source (as an earlier version of this cell did) tests the branch but
+# NOT the reachability, and that is exactly how the defect survived.
+OUT="$(bash -c "set -u
+CTRL_PID=999999
+source '$COMMON'
+$STUBS
+link_usage_round '$PKG3' 'noctrl' '$FIX/lur3'
+echo \"RC=\$?\"" 2>&1)"
 has   "🔴 a dead exercise controller makes G1 NOT RUN"   "G1 NOT RUN" "$OUT"
 has   "  naming the pid it checked"                      "pid 999999" "$OUT"
 has   "  and the summary line says NOT-RUN"              "rc=NOT-RUN" "$OUT"

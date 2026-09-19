@@ -683,7 +683,8 @@ add "65. the telemetry knob is left where this round moved it" \
 # instruments, and "the same cell over thirteen exercises" becomes a comparison between them.
 add "66. the generic link-usage cell stops going through live-p1/_common.sh" \
     "$DRIVER" \
-    '              "link_usage_round %s %s %s %s %s\n" % (_sh(LIVE_COMMON), _sh(package),' \
+    '              "link_usage_round %s %s %s %s %s\n" % (_sh(str(ctrl_pid or "")),
+                                                     _sh(LIVE_COMMON), _sh(package),' \
     '              "true %s %s %s %s %s\n" % (_sh(LIVE_COMMON), _sh(package),  # MUTANT' \
     'test_the_cell_is_live_p1_commons_own_function_and_not_a_second_copy'
 
@@ -692,7 +693,7 @@ add "66. the generic link-usage cell stops going through live-p1/_common.sh" \
 # one.
 add "67. any rc from the generic cell counts as a pass" \
     "$DRIVER" \
-    '    return rc == 0, out' \
+    '    return ("not-run" if rc == LINK_USAGE_NOT_RUN_RC else bool(rc == 0)), out' \
     '    return True, out  # MUTANT' \
     'test_a_non_zero_rc_is_a_failed_cell_and_not_a_skip'
 
@@ -701,7 +702,7 @@ add "67. any rc from the generic cell counts as a pass" \
 add "68. the round never runs the generic link-usage cell" \
     "$DRIVER" \
     '                ok, usage_out = link_usage_cell(pkg, "%s/%s" % (ex, which), usage_dir,
-                                                dst=usage_dst)' \
+                                                dst=usage_dst, ctrl_pid=ctrl)' \
     '                ok, usage_out = True, "(MUTANT: not run)"' \
     'test_the_round_runs_it_after_the_steps_and_records_the_expectation'
 
@@ -851,7 +852,8 @@ add "84. pingall walks dst-major, poisoning the h4 expectation" \
 add "85. the generic cell claims an off-path bound that is not the one applied" \
     "$DRIVER" \
     '                    "primary on-path > 0; minor rows printed, not asserted; "
-                    "off-path under max(5 kbit, 2% of the smallest PRIMARY on-path)",' \
+                        "off-path under one sample's worth (256 x MTU x 8 bit) or 2% of the "
+                        "smallest PRIMARY on-path, whichever is larger",' \
     '                    "on-path > 0, off-path == 0",  # MUTANT' \
     'test_the_generic_cell_states_the_bound_it_actually_applies'
 
