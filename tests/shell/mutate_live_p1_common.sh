@@ -378,16 +378,20 @@ check_fires "M13 (M-D5): links OFF the path are not checked at all" m13 \
 # --- M14: an on-path interface the twin does not model is skipped ----------------------------------
 # 🔴 THE MOST IMPORTANT THING THIS CELL CAN FIND, turned into silence. "The twin has no edge for a
 # link that carried the flow" reported as a clean run is the gap reporting itself as its own fix.
+# 🔴 THE ANCHOR MOVED WITH THE CLASSES (§9 ruling 20①): an unmodelled link is now red only
+# when it is PRIMARY -- a MINOR one is printed, because a side branch the sampler cannot see is
+# not evidence that the twin is missing an edge.
 cat > "$A/m14.old" <<'EOF'
         if [[ -z "$kind" ]]; then
-            fail "$label: $key carried the flow and the twin has NO edge for it -- the link is not modelled, which is a gap this cell exists to find"
-            rc=1; continue
-        fi
+            if [[ "$cls" == P ]]; then
+                fail "$label: $key carried the flow and the twin has NO edge for it -- the link is not modelled, which is a gap this cell exists to find"
+                rc=1
 EOF
 cat > "$A/m14.new" <<'EOF'
         if [[ -z "$kind" ]]; then
-            continue
-        fi
+            if false; then
+                fail "$label: $key carried the flow and the twin has NO edge for it -- the link is not modelled, which is a gap this cell exists to find"
+                rc=1
 EOF
 check_fires "M14: an unmodelled on-path link is skipped instead of red" m14 \
             "🔴 an on-path interface with NO twin edge is red" \
