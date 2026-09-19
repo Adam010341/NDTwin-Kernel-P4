@@ -2698,7 +2698,11 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
                     # applies is worse than none: a reader reconciling a green cell against it
                     # concludes the off-path edges integrated to zero, which they did not.
                     "G1  link usage follows the iperf path",
-                    "on-path > 0, off-path under max(5 kbit, 2% of the smallest on-path)",
+                    # 🔴 THE WORDS NAME THE THREE CLASSES (§9 ruling 20① + round-3 ruling 7's
+                    # principle): a reader reconciling a green cell has to know which rows were
+                    # asserted, which were only printed, and which the floor covered.
+                    "primary on-path > 0; minor rows printed, not asserted; "
+                    "off-path under max(5 kbit, 2% of the smallest PRIMARY on-path)",
                     "PASS" if ok else "see the transcript", ok, G_SRC,
                     "TICKET-P3 §2.7's program-independent cell, through live-p1/_common.sh's "
                     "link_usage_round -- the same function live-p1/05 runs. The floor and every "

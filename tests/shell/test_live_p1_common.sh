@@ -711,6 +711,25 @@ check "🔴 and the LAST line is the verdict, as the README promises" "1" \
       "$(printf '%s\n' "$OUT10" | tail -1 | /usr/bin/grep -cE '^(PASS|FAIL) ')"
 has   "🔴 'ndt release' still ran -- the lab is not left claimed" "release" "$(cat "$FIX10/ndt.log")"
 
+# 🔴 A RELEASE THAT DID NOT TAKE MUST FAIL THE ROUND (the shape E's judge found today). `bad`
+# only prints: the verdict stayed whatever it was, so a round whose release failed could end
+# PASS -- and the next person to want the lab finds it held by a step that reported success.
+cat > "$FIX10/bin/ndt" <<'STUBREL'
+#!/usr/bin/env bash
+echo "$*" >> "$NDTLOG"
+case "${1:-}" in
+    release) echo "stub: release did NOT take"; exit 1 ;;
+    *)       exit 0 ;;
+esac
+STUBREL
+chmod +x "$FIX10/bin/ndt"
+: > "$FIX10/ndt.log"
+OUT10="$(timeout 120 bash "$FIX10/step.sh" 2>&1)"; RC10=$?
+check "🔴 a failing 'ndt release' fails the round"        "1" "$RC10"
+check "🔴 and the LAST line is FAIL, not PASS"            "1" \
+      "$(printf '%s\n' "$OUT10" | tail -1 | /usr/bin/grep -c '^FAIL ')"
+has   "  saying the lab is still claimed"                "THE LAB IS STILL CLAIMED" "$OUT10"
+
 # 🔴 THE CONTROL: with a `down` that succeeds the verdict is PASS and nothing above is a fluke.
 cat > "$FIX10/bin/ndt" <<'STUBOK'
 #!/usr/bin/env bash

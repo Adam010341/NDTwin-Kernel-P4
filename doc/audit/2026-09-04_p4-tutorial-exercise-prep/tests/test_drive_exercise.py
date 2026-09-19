@@ -2359,7 +2359,11 @@ class TheGenericLinkUsageCell(unittest.TestCase):
         """
         src = open(self.mod.__file__ if hasattr(self.mod, "__file__") else DRIVER).read()
         self.assertNotIn('"on-path > 0, off-path == 0"', src)
-        self.assertIn("off-path under max(5 kbit, 2% of the smallest on-path)", src)
+        # 🔴 AND IT NAMES ALL THREE CLASSES (§9 ruling 20①). "off-path under ..." alone was true
+        # of the two-class world too; what a reader needs is which rows were asserted at all.
+        self.assertIn("primary on-path > 0", src)
+        self.assertIn("minor rows printed, not asserted", src)
+        self.assertIn("off-path under max(5 kbit, 2% of the smallest PRIMARY on-path)", src)
 
     def test_every_other_solution_arm_runs_the_cell(self):
         runs = sorted(ex for ex in self.mod.EXERCISES

@@ -678,6 +678,19 @@ check_fires "M32 (widening): the share is so high nothing is primary" m32 \
             "🔴 s1-eth3 is PRIMARY" \
             "🔴 s2-eth1 is PRIMARY"
 
+# --- M33: a failed `ndt release` only warns ----------------------------------------------------
+# 🔴 A ROUND MUST NOT PRINT PASS WITH THE LAB STILL CLAIMED. `bad` prints and leaves the verdict
+# alone, so the step ends green while the next person to want the lab finds it held.
+cat > "$A/m33.old" <<'EOF'
+            || fail "'ndt release' did not take -- THE LAB IS STILL CLAIMED; run it by hand"
+EOF
+cat > "$A/m33.new" <<'EOF'
+            || bad "'ndt release' did not take -- run it by hand"
+EOF
+check_fires "M33: a failed 'ndt release' only warns" m33 \
+            "🔴 a failing 'ndt release' fails the round" \
+            "🔴 and the LAST line is FAIL, not PASS"
+
 # --- the controls for this half --------------------------------------------------------------------------
 cat > "$A/c3.old" <<'EOF'
     (( rc == 0 )) && note "$label: link usage follows the iperf path (off-path under $floor bit)"

@@ -244,7 +244,12 @@ finish() {
     # restore_telemetry_knob's own note gives -- nothing downstream refuses over this one.
     restore_telemetry_knob || true
     if (( CLAIMED )); then
-        "$NDT" release 2>&1 | sed 's/^/   /' || bad "'ndt release' did not take -- run it by hand"
+        # 🔴 `fail`, NOT `bad` -- THE ROUND MUST NOT PRINT PASS WITH THE LAB STILL CLAIMED.
+        # `bad` only prints; the verdict stays whatever it was, so a round whose release did not
+        # take could end `PASS`, and the next person to want the lab finds it held by a step
+        # that reported success. (The same shape worker E's judge found today.)
+        "$NDT" release 2>&1 | sed 's/^/   /' \
+            || fail "'ndt release' did not take -- THE LAB IS STILL CLAIMED; run it by hand"
     fi
     printf '\n'
     # 🔴 A REFUSAL KEEPS ITS OWN CODE. `die` exits 2 and 2 means "nothing was started" -- the
@@ -725,8 +730,11 @@ for k, d in sorted(deltas.items()):
 ' "$1" "$2" "${3:-$LINK_USAGE_ONPATH_BYTES}" "$LINK_USAGE_PRIMARY_FRACTION"
 }
 
-# onpath_primary <onpath-file> -- just the PRIMARY interface names, for callers that want the
-# old one-name-per-line shape.
+# onpath_primary <onpath-file> -- just the PRIMARY interface names, one per line.
+#
+# 🔴 THIS IS THE ONE LIST THAT IS ASSERTED ON, and it has a name so that a caller asking "which
+# interfaces did this round actually check?" gets the answer from the same place the assertion
+# uses, rather than re-deriving the class rule. `link_usage_round` prints it; the suite reads it.
 onpath_primary() { /usr/bin/awk '$2 == "P" {print $1}' "$1"; }
 
 # twin_usage_integral <out> <seconds> [hz] -- poll /ndt/get_graph_data and integrate each
@@ -872,7 +880,7 @@ assert_link_usage_follows_path() {
         fi
     done < "$onpath"
     floor="$(link_usage_floor "$onpath" "$integral")"
-    note "$label: off-path floor $floor bit   = max(${LINK_USAGE_NOISE_BITS}, ${LINK_USAGE_OFFPATH_FRACTION} x the smallest on-path integral)"
+    note "$label: off-path floor $floor bit   = max(${LINK_USAGE_NOISE_BITS}, ${LINK_USAGE_OFFPATH_FRACTION} x the smallest PRIMARY on-path integral)"
     while read -r key bits kind; do
         [[ "$key" == \#* || -z "$key" ]] && continue
         # 🔴 MINOR ROWS ARE NOT OFF-PATH EITHER. They moved real bytes; holding them to the
@@ -989,13 +997,17 @@ link_usage_round() {
     wait "$srv" 2>/dev/null || true
     onpath_ifaces "$dir/netdev.before" "$dir/netdev.after" > "$dir/onpath.txt" 2>"$dir/onpath.err"
     [[ -s "$dir/onpath.err" ]] && sed 's/^/   /' "$dir/onpath.err"
-    note "$label: on-path interfaces: $(tr '\n' ' ' < "$dir/onpath.txt")"
+    # 🔴 THE TWO CLASSES ARE NAMED SEPARATELY (§9 ruling 20①). One list mixing P and M would
+    # read as "these all carried the flow and were all checked", and only the P rows were.
+    note "$label: primary=$(onpath_primary "$dir/onpath.txt" | tr '\n' ' ')  minor=$(/usr/bin/awk '$2=="M"{printf "%s ", $1}' "$dir/onpath.txt")"
     if [[ "$expect" == absent ]]; then
         assert_link_usage_absent "$dir/onpath.txt" "$dir/twin_integral.txt" "$label" || rc=1
     else
         assert_link_usage_follows_path "$dir/onpath.txt" "$dir/twin_integral.txt" "$label" || rc=1
     fi
-    printf 'LINK_USAGE %s expect=%s onpath=%s rc=%s\n' \
-        "$label" "$expect" "$(/usr/bin/grep -c . "$dir/onpath.txt" 2>/dev/null || echo 0)" "$rc"
+    printf 'LINK_USAGE %s expect=%s primary=%s minor=%s rc=%s\n' \
+        "$label" "$expect" \
+        "$(/usr/bin/awk '$2=="P"{n++} END{print n+0}' "$dir/onpath.txt" 2>/dev/null || echo 0)" \
+        "$(/usr/bin/awk '$2=="M"{n++} END{print n+0}' "$dir/onpath.txt" 2>/dev/null || echo 0)" "$rc"
     return $rc
 }

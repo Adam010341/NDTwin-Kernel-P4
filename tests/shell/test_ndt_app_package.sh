@@ -1836,7 +1836,12 @@ check "🔴 and the file really is gone"                    "0" "$([[ -e "$FIX/n
 check "🔴 and the verdict is the same as with no manifest at all" "$NOMANIFEST_RC" "$DOWN_RC"
 check "🔴 in particular it is NOT 1 ('this ran and something was wrong')" "0" \
       "$([[ "$DOWN_RC" == 1 ]] && echo 1 || echo 0)"
-hasnt "  it is not called residue any more"               "a stale $FIX/ndtwin_link_telemetry.json survived" "$OUT"
+# 🔴 THE OLD SENTENCE'S OWN WORDS, BECAUSE THE PREVIOUS ONE COULD NOT GO RED. It looked for
+# "a stale ... survived this teardown", which only `not_verified` -> `claim_note_down` prints --
+# and this fixture holds no valid claim, so `set_claim_note` skips it. The cell was green even
+# against the report-only copy in the seen-red log: it asserted nothing. `the pid it names` is
+# what the report-only branch actually prints, so its absence is a real difference.
+hasnt "🔴 and the old residue sentence is gone with it"    "the pid it names" "$OUT"
 mv "$FIX/manifest.json.aside" "$FIX/manifest.json" 2>/dev/null
 rm -f "$FIX/ndtwin_link_telemetry.json"
 
