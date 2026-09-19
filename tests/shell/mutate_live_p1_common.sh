@@ -631,8 +631,8 @@ cat > "$A/m29.new" <<'EOF'
     trap - EXIT INT TERM
 EOF
 check_fires "M29: finish() runs under set -e again" m29 \
-            "🔴 a failing 'ndt down' still produces a verdict" \
-            "🔴 'ndt release' still ran -- the lab is not left claimed"
+            "🔴 'ndt release' still ran -- the lab is not left claimed" \
+            "🔴 and the LAST line is the verdict, as the README promises"
 
 # --- M30: the failing `ndt down` stops reaching the verdict ----------------------------------------
 # The other half: `set +e` alone would let the teardown finish while saying nothing about WHY.

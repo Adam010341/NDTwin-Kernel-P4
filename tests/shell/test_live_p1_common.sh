@@ -677,8 +677,14 @@ chmod +x "$FIX10/bin/ndt"
 
 # The smallest driver that exercises the real `finish`: source the file under test, claim, and
 # let the EXIT trap run with a `down` that fails.
+# 🔴 `set -euo pipefail`, THE LINE EVERY REAL STEP SCRIPT HAS (02_app_basic.sh:43, and the
+# others). `_common.sh` does NOT set it -- the steps do -- so a driver here that used
+# `set -uo pipefail` would never have `-e` on, and the whole scenario would be vacuous: the
+# mutation that removes `set +e` from finish() would change nothing and the cells below would
+# pass for a defect that is still there. (That is exactly what happened on the first attempt;
+# the gate's M29 caught it.)
 cat > "$FIX10/step.sh" <<STEPSH
-set -uo pipefail
+set -euo pipefail
 export NDTLOG="$FIX10/ndt.log"
 source "$COMMON"
 NDT="$FIX10/bin/ndt"
