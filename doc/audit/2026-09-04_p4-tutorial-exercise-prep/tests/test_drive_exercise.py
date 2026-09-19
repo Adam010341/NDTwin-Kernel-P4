@@ -47,6 +47,28 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 FIXTURES = os.path.join(HERE, "fixtures")
 DEFAULT_DRIVER = os.path.join(os.path.dirname(HERE), "drive_exercise.py")
 DRIVER_PATH = os.path.abspath(os.environ.get("DRIVE_EXERCISE_UNDER_TEST", DEFAULT_DRIVER))
+#: live-p1/_common.sh, the OTHER half of the two-file protocol the driver speaks (§9 ruling 33).
+#: 🔴 REACHED FROM THIS FILE, NEVER FROM `mod.LIVE_COMMON`. The driver computes that from its
+#: own `__file__`, and the mutation gate runs a COPY of the driver in a temp directory -- so
+#: `mod.LIVE_COMMON` there names a path that does not exist, every mutation would be "caught"
+#: by the resulting error and the comment-only control would go red with them, which voids the
+#: round. This file is never copied.
+COMMON_SH = os.path.join(os.path.dirname(HERE), "live-p1", "_common.sh")
+
+
+def shell_rc(name):
+    """The exit code `_common.sh` itself declares for `name`.
+
+    🔴 THE FIXTURE SPEAKS THE SHELL'S PROTOCOL, NOT THE DRIVER'S (§9 ruling 33). A stub that
+    took this rc from the module under test would hand the round whatever that module already
+    believes -- and "the two files stopped agreeing" is the entire defect this reads for. It
+    also makes the red run meaningful against the code BEFORE the fix, where the driver has no
+    such constant at all: the shell still emits 4 and the cell still has to answer for it.
+    """
+    m = re.search(r"^%s=(\d+)\s*$" % name, open(COMMON_SH).read(), re.M)
+    if m is None:                                            # pragma: no cover
+        raise AssertionError("%s is not declared in %s" % (name, COMMON_SH))
+    return int(m.group(1))
 
 
 #: Every temp dir THIS PROCESS handed out, in order. `TheSuiteLeavesNoLitter` asserts on these
@@ -2010,6 +2032,141 @@ class TheNotRunCellIsAFailInTheVerdict(unittest.TestCase):
         self.assertIn("G1 NOT RUN: the exercise controller was not alive for the flow", text)
         self.assertIn("want=a flow measured with the arm's controller alive", text)
         self.assertIn("got=nothing was measured", text)
+
+
+class TheOverLongWindowRefusalIsNotATwinDefect(unittest.TestCase):
+    """🔴 A LIMIT THIS CALLER SET IS NOT A READING ABOUT THE TWIN (§9 ruling 33).
+
+    `_common.sh` gained `LINK_USAGE_WINDOW_RC=4` in ruling 31⑤ -- the window this path needs
+    is longer than the caller will wait for, refused with its arithmetic and before a single
+    datagram is offered -- and `link_usage_cell` here still knew only rc 3. rc 4 fell through
+    `bool(rc == 0)` to False, so an NDTwin arm would have recorded that refusal under
+    `G1  link usage follows the iperf path`, whose want and got are sentences about the twin:
+    exactly the misattribution ruling 31③ had just taken out of live-p1/05, one file later.
+    """
+
+    #: What `link_usage_round` really prints on that path: the derivation, then the refusal,
+    #: then its summary line. (The same 100,000 bit/s package §12b of
+    #: tests/shell/test_live_p1_common.sh drives the shell side with: 308 s against a 200 s
+    #: limit.)
+    WINDOW_OUT = (
+        "   ecn/solution: slowest declared link = 100000 bit/s; iperf offers 2000000 bit/s; "
+        "a link therefore carries at most 100000 bit/s\n"
+        "   ecn/solution: at 8s that is only 0.26 expected samples per primary link\n"
+        "   ecn/solution: window = max(8, ceil(10 x 256 x 1500 x 8 / 100000)) = 308s\n"
+        "   !! ecn/solution: the window this path needs (308s) exceeds the caller's limit "
+        "(200s) -- at 100000 bit/s it takes that long to expect 10 samples per link. "
+        "Measuring for less would report a sampler miss as a routing fault.\n"
+        "LINK_USAGE ecn/solution expect=follows primary=- minor=- rc=WINDOW-TOO-LONG\n")
+
+    ARITHMETIC = "window = max(8, ceil(10 x 256 x 1500 x 8 / 100000)) = 308s"
+
+    def setUp(self):
+        self.tmp = mkdtemp(self, "drv-window-")
+        self.mod = load_driver()
+        quiet(self.mod)
+        mod = self.mod
+        mod.PKG_ROOT = os.path.join(self.tmp, "packages")
+        mod.NDT = "/fake/ndt"
+        mod.PROXY_PY = "/fake/python"
+        mod.CONVERT = "/fake/convert.py"
+        mod.PREFLIGHT = "/fake/preflight.py"
+        mod.HOST_KNOB = os.path.join(self.tmp, "host_count_override")
+        mod.TELEMETRY_KNOB = os.path.join(self.tmp, "telemetry_override")
+        mod.switch_state = lambda *_a, **_k: {"switches": {}}
+        mod.NdtwinHosts = lambda *a, **kw: StubHosts({"h1": "10.0.1.1"})
+        self.calls = []
+        case = self
+
+        # 🔴 THE REAL `link_usage_cell`, WITH THE SHELL STUBBED UNDER IT. Stubbing the cell
+        # itself would test the round's branch over an answer this file invented; what is
+        # under test is the mapping from `link_usage_round`'s rc to that answer.
+        def runner(cmd, cwd=None, timeout=None, env=None):
+            case.calls.append(list(cmd))
+            if cmd and cmd[0] == "bash":
+                return shell_rc("LINK_USAGE_WINDOW_RC"), case.WINDOW_OUT
+            return 0, "stub ok"
+        mod.run = runner
+
+        class NoSteps(object):
+            ctrl_pid = None
+
+            def __init__(self, *a, **kw):
+                self.expects, self.steps = [], []
+
+            def run(self):
+                pass
+
+            def stop_controller(self):
+                return []
+        mod.Steps = NoSteps
+        self.args = Args()
+        self.args.telemetry = None
+
+    def go(self):
+        self.steps_out = []
+        return self.mod.run_on_ndtwin("basic", "solution", "/ex",
+                                      self.mod.EXERCISES["basic"], self.args,
+                                      {"h1": "10.0.1.1"}, self.tmp, self.steps_out, None)
+
+    def test_the_two_refusal_codes_are_the_shell_files_own(self):
+        """🔴 ONE PROTOCOL, TWO FILES, AND THIS IS WHERE THEY ARE MADE TO AGREE.
+        rc 4 existed in `_common.sh` for a whole round while this module knew only rc 3 --
+        nothing in either file's tests could say so, because neither read the other."""
+        for name in ("LINK_USAGE_NOT_RUN_RC", "LINK_USAGE_WINDOW_RC"):
+            self.assertTrue(hasattr(self.mod, name),
+                            "%s is declared in %s and nowhere in the driver" % (name, COMMON_SH))
+            self.assertEqual(shell_rc(name), getattr(self.mod, name),
+                             "%s: the driver and _common.sh disagree" % name)
+        self.assertNotEqual(self.mod.LINK_USAGE_NOT_RUN_RC, self.mod.LINK_USAGE_WINDOW_RC,
+                            "two refusals sharing one code cannot be told apart")
+        self.assertNotIn(self.mod.LINK_USAGE_WINDOW_RC, (0, 1, 2),
+                         "0 is a pass, 1 is a red cell and 2 is the permission answer")
+
+    def test_the_cell_answers_window_rather_than_a_failed_reading(self):
+        ok, out = self.mod.link_usage_cell(
+            "/pkg", "ecn/solution", self.tmp,
+            runner=lambda *_a, **_k: (shell_rc("LINK_USAGE_WINDOW_RC"), self.WINDOW_OUT))
+        self.assertEqual("window", ok)
+        self.assertIsNot(ok, False)
+        self.assertIn("rc=WINDOW-TOO-LONG", out)
+
+    def test_the_other_three_answers_are_unchanged(self):
+        cell = self.mod.link_usage_cell
+        self.assertIs(True, cell("/pkg", "x", self.tmp, runner=lambda *a, **k: (0, ""))[0])
+        self.assertIs(False, cell("/pkg", "x", self.tmp, runner=lambda *a, **k: (1, ""))[0])
+        self.assertIs(False, cell("/pkg", "x", self.tmp, runner=lambda *a, **k: (2, ""))[0])
+        self.assertEqual("not-run", cell(
+            "/pkg", "x", self.tmp,
+            runner=lambda *a, **k: (self.mod.LINK_USAGE_NOT_RUN_RC, ""))[0])
+
+    def test_the_round_names_the_window_and_never_the_twin_sentence(self):
+        rc, _pkg, _state = self.go()
+        expects = self.mod.run_on_ndtwin.expects
+        self.assertEqual("G1 NOT RUN -- the window this path needs exceeds the caller's limit",
+                         expects[-1].name)
+        self.assertFalse(expects[-1].ok, "a refusal is recorded as a FAIL, never as a pass")
+        rendered = " | ".join(e.line() for e in expects)
+        self.assertNotIn("link usage follows the iperf path", rendered,
+                         "the twin's sentence was used for a refusal about the caller's limit")
+        self.assertNotIn("primary on-path > 0", rendered)
+        self.assertEqual(0, rc, "the ROUND's rc is about the fabric; the verdict is main()'s")
+
+    def test_the_got_field_carries_the_arithmetic_the_shell_printed(self):
+        self.go()
+        e = self.mod.run_on_ndtwin.expects[-1]
+        self.assertEqual(self.ARITHMETIC, e.got)
+        self.assertEqual("a window this caller can wait for", e.want)
+        labels = [lbl for lbl, _cmd, _out in self.steps_out]
+        self.assertIn("N8c G1 -- NOT RUN (the window is over the limit)", labels)
+        raw = [out for lbl, _cmd, out in self.steps_out if lbl.startswith("N8c")][0]
+        self.assertIn("rc=WINDOW-TOO-LONG", raw,
+                      "the cell's own transcript has to reach the report")
+
+    def test_the_arithmetic_helper_falls_back_rather_than_inventing_one(self):
+        self.assertEqual(self.ARITHMETIC, self.mod.window_arithmetic(self.WINDOW_OUT))
+        self.assertIn("transcript", self.mod.window_arithmetic("nothing like it here"))
+        self.assertIn("transcript", self.mod.window_arithmetic(""))
 
 
 class TheFlowcacheWarmUp(unittest.TestCase):

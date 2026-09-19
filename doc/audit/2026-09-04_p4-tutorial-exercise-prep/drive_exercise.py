@@ -2495,6 +2495,15 @@ def link_usage_applies(spec, which):
 #: namespace / no sudo".
 LINK_USAGE_NOT_RUN_RC = 3
 
+#: `link_usage_round`'s "the window this path needs is longer than this caller will wait" code.
+#: 🔴 AND IT IS NOT 1 EITHER (§9 ruling 33). _common.sh gained this code in ruling 31⑤ and this
+#: file did not follow it, so rc 4 fell through `bool(rc == 0)` to False and a refusal about
+#: THIS CALLER'S PATIENCE was recorded under `G1  link usage follows the iperf path` with a
+#: want/got about the twin -- the same misattribution ruling 31③ had just removed from
+#: live-p1/05. Both constants are asserted against the shell file's own text by
+#: test_drive_exercise.py: two files spelling one protocol is how the last one drifted.
+LINK_USAGE_WINDOW_RC = 4
+
 
 def link_usage_cell(package, label, out_dir, expect="follows", runner=None, dst=None,
                     ctrl_pid=None):
@@ -2513,6 +2522,12 @@ def link_usage_cell(package, label, out_dir, expect="follows", runner=None, dst=
     🔴 A CELL THAT COULD NOT RUN IS NOT A CELL THAT PASSED. rc 2 from link_usage_round is
     "no namespace / no sudo" -- a permission answer -- and it comes back as a FAILED
     expectation naming that, never as a quiet skip and never as link usage.
+
+    🔴 FOUR ANSWERS (§9 rulings 28① and 33): True, False, "not-run" (the arm's controller was
+    not alive) and "window" (the window this path needs is longer than this caller will wait).
+    The last two are refusals, and each carries its own sentence into the verdict: a reader
+    must never have to decide from a red G1 whether the twin lost a flow, a process died or
+    this round's own limit was reached.
     """
     runner = runner or run
     # 🔴 THE CONTROLLER'S PID CROSSES THE SHELL BOUNDARY (§9 ruling 28①). This spawns a FRESH
@@ -2529,10 +2544,30 @@ def link_usage_cell(package, label, out_dir, expect="follows", runner=None, dst=
                                                      _sh(dst or "")))
     rc, out = runner(["bash", "-c", script], cwd=REPO, timeout=240, env=ndt_env())
     say(trim(out, 4000).rstrip())
-    # 🔴 THREE ANSWERS, NOT TWO. NOT RUN is neither ok nor a failure of the fabric -- the
-    # round records it as a FAIL of its own, with a sentence naming the controller (§9 ruling
-    # 31②), rather than as a twin defect or as a quiet skip.
-    return ("not-run" if rc == LINK_USAGE_NOT_RUN_RC else bool(rc == 0)), out
+    # 🔴 THE TWO REFUSALS ARE ANSWERS OF THEIR OWN, NOT SHADES OF FALSE. Neither is ok and
+    # neither is a failure of the fabric; the round records each as a FAIL with a sentence
+    # naming what actually stopped it -- the controller (§9 ruling 31②) or the window this
+    # caller would have had to wait for (§9 ruling 33) -- rather than as a twin defect or as
+    # a quiet skip.
+    if rc == LINK_USAGE_NOT_RUN_RC:
+        return "not-run", out
+    if rc == LINK_USAGE_WINDOW_RC:
+        return "window", out
+    return bool(rc == 0), out
+
+
+def window_arithmetic(out):
+    """The `window = max(8, ceil(...)) = Ns` line link_usage_round printed, or a fallback.
+
+    🔴 THE REFUSAL'S EVIDENCE IS THE ARITHMETIC, and it is already on screen: _common.sh
+    prints the derivation before it decides, so the expectation's `got` quotes that line
+    rather than restating a number this file would then own a second copy of.
+    """
+    for line in reversed((out or "").splitlines()):
+        i = line.find("window = max(")
+        if i >= 0:
+            return line[i:].strip()
+    return "the window this path needs is in the transcript"
 
 
 def _sh(word):
@@ -2836,6 +2871,25 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
                         "are its own; a cell measured without it measures the controller's "
                         "absence, so it is recorded as a FAIL naming the controller -- never "
                         "as a pass, and never scored as a twin defect")]
+                elif ok == "window":
+                    # 🔴 THIS ONE IS ABOUT THE CALLER, NOT THE FABRIC (§9 ruling 33). The
+                    # window `link_usage_round` computed for this path is longer than it will
+                    # wait for, so it refused before offering a single datagram: nothing was
+                    # measured, and the twin is not what stopped it. Recorded as a FAIL -- the
+                    # round promised a reading and has not made one -- under a name that says
+                    # whose limit it was, with the derivation as the evidence.
+                    say("   G1 NOT RUN: the window this path needs exceeds the caller's limit")
+                    steps_out.append(("N8c G1 -- NOT RUN (the window is over the limit)",
+                                      "link_usage_round (refused before any iperf)", usage_out))
+                    run_on_ndtwin.expects = list(run_on_ndtwin.expects) + [Expect(
+                        "G1 NOT RUN -- the window this path needs exceeds the caller's limit",
+                        "a window this caller can wait for",
+                        window_arithmetic(usage_out), False, G_SRC,
+                        "live-p1/_common.sh's LINK_USAGE_MAX_SECONDS refusal: at this path's "
+                        "slowest declared bandwidth the flow would have to run for longer than "
+                        "the cell's own timeout to expect LINK_USAGE_MIN_SAMPLES samples per "
+                        "link, and measuring for less would report a sampler miss as a routing "
+                        "fault. No iperf was started, so this is not a reading about the twin")]
                 else:
                     run_on_ndtwin.expects = list(run_on_ndtwin.expects) + [Expect(
                         # 🔴 THE STRING SAYS WHAT THE CELL ACTUALLY ASSERTS (round-3 ruling 7).

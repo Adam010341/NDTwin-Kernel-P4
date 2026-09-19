@@ -951,12 +951,32 @@ add "92. the generic cell is called without the arm's controller pid" \
     '                                                dst=usage_dst)  # MUTANT' \
     'test_the_cell_is_handed_the_pid_of_the_process_the_round_started'
 
-# 93: NOT RUN is scored as a pass again (§9 ruling 28①).
-add "93. a NOT RUN generic cell is reported as a pass" \
+# 93: NOT RUN stops being an answer of its own and folds back into true/false (§9 ruling 28①).
+# The anchor moved with ruling 33, which turned the one-line return into the four-answer map;
+# the mutation is the same one -- rc 3 falls through to `bool(rc == 0)`.
+add "93. a NOT RUN generic cell is folded back into true/false" \
     "$DRIVER" \
-    '    return ("not-run" if rc == LINK_USAGE_NOT_RUN_RC else bool(rc == 0)), out' \
-    '    return rc == 0, out  # MUTANT' \
+    '    if rc == LINK_USAGE_NOT_RUN_RC:' \
+    '    if False:  # MUTANT' \
     'test_a_not_run_generic_cell_is_never_a_pass'
+
+# 96 (§9 ruling 33): the window refusal falls through to `bool(rc == 0)` again, so an NDTwin
+# arm records "the caller would have had to wait 308 s" under the twin's own sentence -- the
+# misattribution ruling 31③ removed from live-p1/05 and this file did not follow.
+add "96. the over-long-window refusal is reported as a reading about the twin" \
+    "$DRIVER" \
+    '    if rc == LINK_USAGE_WINDOW_RC:' \
+    '    if False:  # MUTANT' \
+    'test_the_round_names_the_window_and_never_the_twin_sentence'
+
+# 97 (§9 ruling 33): the two files stop agreeing on the protocol. rc 4 is _common.sh's, and a
+# driver that spells it 5 maps nothing -- which is precisely the state ruling 33 found, one
+# round after the shell side gained the code.
+add "97. the driver's window rc drifts from the shell file's" \
+    "$DRIVER" \
+    'LINK_USAGE_WINDOW_RC = 4' \
+    'LINK_USAGE_WINDOW_RC = 5  # MUTANT' \
+    'test_the_two_refusal_codes_are_the_shell_files_own'
 
 # 94: the arm's controller is stopped BEFORE the generic cell again -- the order the driver had
 # until §9 ruling 31①, in which every G1 on p4runtime and flowcache measured a fabric whose
