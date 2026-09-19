@@ -397,13 +397,13 @@ has   "  and says the link is not modelled"              "the twin has NO edge f
 # toward link usage; the proxy beacons LLDP along every switch-switch link and the pipeline
 # samples 1/256, so ONE beacon drawn in an eight-second window is banked as 256 x its frame
 # length -- tens of kilobits on an edge that carried nothing. The bound is therefore a floor:
-# max(5 kbit, 2% of the SMALLEST on-path integral). Absolute so a quiet window still has a
-# bound; relative so it cannot be a fixed number an 8 s 2 Mbit/s flow dwarfs.
-# 🔴 THE FLOOR IS NOW AT LEAST ONE SAMPLE (§9 ruling 26①): 256 x 1500 x 8 = 3,072,000 bit.
-# Below that there is nothing the sampler could have reported, so a bound under it bounds noise
-# that cannot exist. For a realistic 8-second flow this term DOMINATES the 2% one -- the 2%
-# only takes over above 153.6 Mbit on-path -- and saying so is better than pretending the
-# relative term still decides these cases.
+# ONE SAMPLE'S WORTH (256 x MTU x 8 bit = 256 x 1500 x 8 = 3,072,000 bit) or 2% of the smallest
+# PRIMARY on-path integral, WHICHEVER IS LARGER (§9 rulings 26① and 31④).
+# 🔴 THE ABSOLUTE TERM IS ONE SAMPLE, NOT THE OLD 5 kbit: below one sample there is nothing the
+# sampler could have reported, so a bound under it bounds noise that cannot exist -- and
+# max(5000, 3072000) is always the latter, which is why that constant was removed rather than
+# left inside the max() reading like a rule. For a realistic 8-second flow the absolute term
+# DOMINATES; the 2% one only takes over above 153.6 Mbit on-path (3,072,000 / 0.02).
 check "  the floor is one sample even for a small on-path integral" "3072000.000" \
       "$(one "link_usage_floor '$FIX/onpath.txt' '$FIX/i_good.txt'")"
 mkint "$FIX/i_big.txt" "s1-eth1 16000000.000 host" "s1-eth3 16000000.000 switch"
@@ -416,8 +416,9 @@ mkint "$FIX/i_huge.txt" "s1-eth1 400000000.000 host" "s1-eth3 400000000.000 swit
 check "🔴 above 153.6 Mbit the 2% term decides again"     "8000000.000" \
       "$(one "link_usage_floor '$FIX/onpath2.txt' '$FIX/i_huge.txt'")"
 
-# A sampled LLDP beacon on an off-path inter-switch link: ~500 bit frame x 256 = ~128 kbit,
-# under 2% of a 16 Mbit on-path integral and over the absolute 5 kbit.
+# A sampled LLDP beacon on an off-path inter-switch link: ~500 bit frame x 256 = ~128 kbit --
+# under one sample's worth of a 1500-byte frame (3,072,000 bit), which is the floor that decides
+# this case, and under 2% of a 16 Mbit on-path integral (320 kbit) as well.
 mkint "$FIX/i_beacon.txt" "s1-eth1 16000000.000 host" "s1-eth3 16000000.000 switch" \
                           "s1-eth2 128000.000 switch"
 OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath2.txt' '$FIX/i_beacon.txt' 'beacon'")"
@@ -449,10 +450,9 @@ OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath2.txt' '$FIX/i_spread.t
 check "🔴 and 10 Mbit off the path is red against it"      "1" "$(rc_of "$OUT")"
 has   "  naming the floor the smallest on-path edge set"  "at or over the 8000000.000 bit floor" "$OUT"
 
-# 🔴 THE FLOOR IS NOT A BLANK CHEQUE: in a quiet window it is the absolute 5 kbit, so an
-# off-path edge with real traffic on it is still red there.
-# 🔴 THE "QUIET WINDOW" ABSOLUTE FLOOR IS NOW ONE SAMPLE, so an off-path edge has to carry
-# more than one sample's worth to be red at all.
+# 🔴 THE FLOOR IS NOT A BLANK CHEQUE: in a quiet window it is one sample's worth (3,072,000
+# bit), so an off-path edge carrying more than one sample's worth is still red there -- and an
+# edge carrying less than that is under the smallest thing the sampler could have reported.
 mkint "$FIX/i_offpath.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
                            "s1-eth2 4000000.000 switch"
 OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_offpath.txt' 'quiet'")"
@@ -839,8 +839,17 @@ section "12. 🔴 ecn's bottleneck: a window too short for the sampler to see th
 # 8 s 2 Mbit/s iperf delivers ~691 kB -- the REAL numbers from
 # runs/2026-09-19T085702Z_ecn_solution_ndtwin/link_usage are s1-eth3 690,928 B (twin 875,000
 # bit: one sample got through) and s2-eth1 691,131 B with twin 0. At 1 sample in 256 the
-# expected count per primary link is ~1.8 and P(zero) is ~16%: three runs in four read
-# s2-eth1 = 0 and went red on a fabric that forwarded every byte.
+# expected count per primary link is ~1.8, so P(zero) = e^-1.8 = 16.5% -- the one number this
+# repo quotes for it (§9 ruling 31⑥) -- and three runs in four read s2-eth1 = 0 and went red on
+# a fabric that forwarded every byte.
+#
+# 🔴 TWO RUNS, AND THE FIXTURE BELOW SAYS WHICH IS WHICH (§9 ruling 31⑥). The off-path
+# 348,002 bit on s1-eth1 is NOT from T085702Z -- that run's s1-eth1 integral is 0.000. It is
+# from runs/2026-09-19T085056Z_ecn_solution_ndtwin/link_usage/twin_integral.txt, the run
+# before it (s1-eth3 692,445 B, twin 500,000 bit). The fixture at §12's end is therefore a
+# COMPOSITE of the two, built to exercise both halves of the floor in one cell; a reader
+# reconciling it against either run's raw has to be told that, or the numbers look like one
+# window that never existed.
 mkdir -p "$FIX/ecnpkg/ndtwin"
 python3 -c '
 import json, sys
@@ -889,6 +898,43 @@ hasnt "🔴 one sampled frame off the path is NOT a failure" "s1-eth1 is a host-
 # the assertion.
 check "🔴 s2-eth1 with a zero integral is still red"      "1" "$(rc_of "$OUT")"
 has   "  naming it as primary"                           "s2-eth1 carried the flow (691131 B, primary)" "$OUT"
+
+# --- 12b. a window longer than the caller will wait for (§9 rulings 28⑤ and 31⑤) -------------
+# 🔴 THIS REFUSAL HAD NEVER BEEN RED. It was written in round 28 and `mutate_live_p1_common.sh`
+# carried it as CONTROL C5 -- "no fixture reaches it yet" -- which is a promise about a branch
+# nobody had run. A package whose slowest link is 100,000 bit/s needs
+# ceil(10 x 256 x 1500 x 8 / 100000) = ceil(307.2) = 308 s, over the 200 s a caller will wait
+# (`link_usage_cell` runs this under timeout=240), so the round must refuse: print the
+# arithmetic, start NO iperf, and return a code of its own that no caller can read as a cell
+# that merely failed.
+mkdir -p "$FIX/slowpkg/ndtwin"
+python3 -c '
+import json, sys
+json.dump({"nodes": [{"device_name": "zz1", "dpid": 0, "vertex_type": 1, "ip": ["10.9.9.1"]},
+                     {"device_name": "zz2", "dpid": 0, "vertex_type": 1, "ip": ["10.9.9.2"]}],
+           "edges": [], "links": []}, open(sys.argv[1], "w"))' "$FIX/slowpkg/ndtwin/topology.json"
+python3 -c '
+import json, sys
+json.dump({"links": [{"a": ["zz1", 0], "b": ["s1", 1], "bandwidth_bps": 100000.0},
+                     {"a": ["s1", 2], "b": ["zz2", 0], "bandwidth_bps": 1000000000.0}]},
+          open(sys.argv[1], "w"))' "$FIX/slowpkg/package.json"
+: > "$FIX/iperf.log"
+# 🔴 `sudo` AND `iperf` ARE STUBBED SO THAT "NOTHING WAS STARTED" IS A READING AND NOT A HOPE.
+# The refusal happens before host_pid, so an empty log is the only evidence that no flow was
+# offered; without the stub the cell would be green because this laptop has no fabric up.
+OUT="$(bash -c "set -u
+source '$COMMON' >/dev/null 2>&1
+$STUBS
+sudo()  { printf 'sudo %s\n' \"\$*\" >> '$FIX/iperf.log'; }
+iperf() { printf 'iperf %s\n' \"\$*\" >> '$FIX/iperf.log'; }
+link_usage_round '$FIX/slowpkg' 'too-slow' '$FIX/lur6'
+echo \"RC=\$?\"" 2>&1)"
+has   "🔴 the window it needs is computed and printed"   "window = max(8, ceil(10 x 256 x 1500 x 8 / 100000)) = 308s" "$OUT"
+has   "🔴 and the refusal names both numbers"            "the window this path needs (308s) exceeds the caller's limit (200s)" "$OUT"
+has   "  saying why a shorter window would be a lie"     "Measuring for less would report a sampler miss as a routing fault" "$OUT"
+has   "  and the summary line says WINDOW-TOO-LONG"      "rc=WINDOW-TOO-LONG" "$OUT"
+check "🔴 the over-long window has its own rc, not 1"    "4" "$(rc_of "$OUT")"
+check "🔴 and NO iperf was started for it"               "" "$(cat "$FIX/iperf.log")"
 
 # =============================================================================================
 section "13. 🔴 p4runtime/flowcache: 273 B everywhere means the flow never moved"

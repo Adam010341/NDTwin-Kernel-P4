@@ -682,8 +682,10 @@ check_fires "M33: a failed 'ndt release' only warns" m33 \
 
 # --- M34 (§9 ruling 26①): the window ignores the path's bottleneck ------------------------------
 # 🔴 THE LIVE DEFECT. With min_bw fixed at the unshaped default, ecn's 500 kbit/s bottleneck is
-# invisible and the window stays 8 s -- ~1.3 expected samples per primary link, P(zero) ~16%,
-# and three runs in four read s2-eth1 = 0 on a fabric that forwarded every byte.
+# invisible and the window stays 8 s -- ~1.3 expected samples per primary link from the shaped
+# rate (e^-1.3 = 27% chance of zero), or ~1.8 from the bytes ecn actually delivered
+# (e^-1.8 = 16.5%); three runs in four read s2-eth1 = 0 on a fabric that forwarded every byte.
+# Each lambda goes with its own P(zero) -- pairing 1.3 with 16% was this file's own slip.
 cat > "$A/m34.old" <<'EOF'
 min_bps = min(bps) if bps else float(default_bps)
 EOF
@@ -772,14 +774,22 @@ check_fires "M40: the window uses the link speed, not the offered rate" m40 \
             "🔴 a 1 Gbit/s path gets 16 s, because iperf offers only 2 Mbit/s" \
             "  and the carried rate is the offered one, not the link's"
 
-# --- M41 (§9 ruling 28⑤): a window longer than the caller can wait for is silently truncated --
+# --- M41 (§9 rulings 28⑤ and 31⑤): a window longer than the caller can wait for is measured
+# anyway. 🔴 THIS WAS CONTROL C5 UNTIL NOW, and a control is what you write when no fixture
+# reaches the branch -- i.e. when the refusal has never been seen red. §12b of the suite now
+# drives it with a package whose slowest link is 100,000 bit/s (308 s needed, 200 s allowed),
+# so it is a MUTATION with cells to kill it: with the guard gone the round walks past its own
+# limit, reaches host_pid, and answers rc 2 -- a permission sentence over a refusal that was
+# about arithmetic.
 cat > "$A/m41.old" <<'EOF'
     if (( secs > LINK_USAGE_MAX_SECONDS )); then
 EOF
 cat > "$A/m41.new" <<'EOF'
     if false; then
 EOF
-check_control "C5: the over-long-window refusal (no fixture reaches it yet)" m41
+check_fires "M41: an over-long window is measured instead of refused" m41 \
+            "🔴 and the refusal names both numbers" \
+            "🔴 the over-long window has its own rc, not 1"
 
 # --- the controls for this half --------------------------------------------------------------------------
 cat > "$A/c3.old" <<'EOF'

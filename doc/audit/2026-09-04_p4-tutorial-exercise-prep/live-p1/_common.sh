@@ -54,6 +54,13 @@ CTRL_PID="${CTRL_PID:-}"
 #: callers.
 LINK_USAGE_NOT_RUN_RC=3
 
+#: 🔴 AND THE WINDOW REFUSAL HAS ITS OWN CODE TOO (§9 ruling 31⑤). "The window this path needs
+#: is longer than the caller will wait" is not 1 ("the usage did not follow the path"), not 2
+#: ("no namespace") and not 3 ("the controller is gone"): nothing was measured and nothing was
+#: even started, and a caller that cannot tell it from a red cell would report a refusal as a
+#: finding about the twin.
+LINK_USAGE_WINDOW_RC=4
+
 # --- output ----------------------------------------------------------------------------------
 say()  { printf '\n== %s\n' "$*"; }
 note() { printf '   %s\n' "$*"; }
@@ -647,12 +654,23 @@ pingall_loss() {
 #:     edge that carried no flow.
 #:
 #: So "exactly 0 off the path" would have gone red on a fabric doing exactly what it is
-#: supposed to do, and it would have done so at random. The floor is the larger of an absolute
-#: 5 kbit and 2% of the SMALLEST on-path integral: absolute, so a quiet window still has a
-#: bound; relative, so the bound cannot be a fixed number that an 8-second 2 Mbit/s flow
-#: (~16 Mbit on-path) dwarfs -- 2% of that is 320 kbit, which is two orders of magnitude above
-#: a sampled beacon and two orders below the flow. Every edge's raw integral is printed either
-#: way, so a reader can see the margin rather than take the verdict's word for it.
+#: supposed to do, and it would have done so at random. The floor is the larger of
+#: ONE SAMPLE'S WORTH -- LINK_USAGE_SAMPLE_RATE x LINK_USAGE_MTU_BYTES x 8, i.e. 256 x 1500 x 8
+#: = 3,072,000 bit -- and LINK_USAGE_OFFPATH_FRACTION (2%) of the SMALLEST PRIMARY on-path
+#: integral.
+#:
+#: 🔴 THE ABSOLUTE TERM IS ONE SAMPLE, NOT 5 kbit (§9 rulings 26① and 31④). At 1/256 a single
+#: sampled frame is banked as 256 x its length, so ONE beacon is already megabits: a floor
+#: below that goes red on the smallest thing the sampler is capable of reporting, and nothing
+#: is measurable below one sample. The old 5 kbit constant was removed rather than kept inside
+#: the max(), because max(5000, 3072000) is always the latter -- a term no input could reach,
+#: written as though it were a rule.
+#:
+#: 🔴 THE RELATIVE TERM TAKES OVER ONLY FOR A BIG FLOW. 2% passes one sample's worth when the
+#: smallest PRIMARY integral exceeds 3,072,000 / 0.02 = 153.6 Mbit; an 8-second 2 Mbit/s flow
+#: (~16 Mbit on-path) is well under that, so the absolute term is what bounds it. Every edge's
+#: raw integral is printed either way, so a reader can see the margin rather than take the
+#: verdict's word for it.
 : "${LINK_USAGE_OFFPATH_FRACTION:=0.02}"
 #: The twin refreshes usage once a second; sample above that. Same rate as cmd_check.
 : "${LINK_USAGE_HZ:=4}"
@@ -661,8 +679,9 @@ pingall_loss() {
 #: 🔴 THE WINDOW HAS TO BE LONG ENOUGH FOR THE SAMPLER TO SEE THE FLOW (§9 ruling 26①).
 #: ecn shapes s1-s2 to 500 kbit/s, so an 8 s 2 Mbit/s iperf delivers ~691 kB -- about 460
 #: datagrams -- and at 1 in 256 the EXPECTED sample count per primary link is ~1.8. P(zero
-#: samples) is then ~16%, and three runs out of four read s2-eth1 = 0 and went red on a fabric
-#: that had forwarded every byte. The fix is not a looser assertion, it is a window that makes
+#: samples) is then e^-1.8 = 16.5% -- ONE number, everywhere it is quoted (§9 ruling 31⑥) --
+#: and three runs out of four read s2-eth1 = 0 and went red on a fabric that had forwarded
+#: every byte. The fix is not a looser assertion, it is a window that makes
 #: the expectation reachable: enough seconds for >= this many samples on the SLOWEST link of
 #: the path.
 : "${LINK_USAGE_MIN_SAMPLES:=10}"
@@ -1104,7 +1123,8 @@ link_usage_round() {
     # on screen saying it had not.
     if (( secs > LINK_USAGE_MAX_SECONDS )); then
         fail "$label: the window this path needs (${secs}s) exceeds the caller's limit (${LINK_USAGE_MAX_SECONDS}s) -- at $carried bit/s it takes that long to expect ${LINK_USAGE_MIN_SAMPLES} samples per link. Measuring for less would report a sampler miss as a routing fault."
-        return 1
+        printf 'LINK_USAGE %s expect=%s primary=- minor=- rc=WINDOW-TOO-LONG\n' "$label" "$expect"
+        return $LINK_USAGE_WINDOW_RC
     fi
     # 🔴 `-l 1200`, NOT THE 1470-BYTE DEFAULT (§9 ruling 26②). advanced_tunnel adds a 4-byte
     # myTunnel header, so 1470 + 28 + 4 > the 1500 MTU and the fabric dropped EVERY datagram --

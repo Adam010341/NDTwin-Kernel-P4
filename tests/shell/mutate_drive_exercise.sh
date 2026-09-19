@@ -941,12 +941,15 @@ add "91. flowcache stops warming the cache before it measures loss" \
     'test_flowcache_warms_the_cache_before_it_measures_loss'
 
 # 92: the cell no longer carries the controller pid, so the NOT RUN branch is unreachable from
-# the driver again (§9 ruling 28①).
+# the driver again (§9 ruling 28①). 🔴 REPOINTED (§9 ruling 31①): the cell that used to catch
+# this was `assertIn("ctrl_pid=ctrl", open(DRIVER_PATH).read())` -- a grep for this very line,
+# which was green while `run_on_ndtwin.ctrl_pid` was an attribute nothing ever assigned. The
+# cell that catches it now starts a real process and reads the pid the cell was handed.
 add "92. the generic cell is called without the arm's controller pid" \
     "$DRIVER" \
     '                                                dst=usage_dst, ctrl_pid=ctrl)' \
     '                                                dst=usage_dst)  # MUTANT' \
-    'test_the_driver_passes_the_controller_pid_through'
+    'test_the_cell_is_handed_the_pid_of_the_process_the_round_started'
 
 # 93: NOT RUN is scored as a pass again (§9 ruling 28①).
 add "93. a NOT RUN generic cell is reported as a pass" \
@@ -954,6 +957,25 @@ add "93. a NOT RUN generic cell is reported as a pass" \
     '    return ("not-run" if rc == LINK_USAGE_NOT_RUN_RC else bool(rc == 0)), out' \
     '    return rc == 0, out  # MUTANT' \
     'test_a_not_run_generic_cell_is_never_a_pass'
+
+# 94: the arm's controller is stopped BEFORE the generic cell again -- the order the driver had
+# until §9 ruling 31①, in which every G1 on p4runtime and flowcache measured a fabric whose
+# controller had already exited. The mutation restores it in one line, at the top of the branch
+# that runs the cell.
+add "94. the controller is stopped before the generic cell measures" \
+    "$DRIVER" \
+    '                usage_dir = os.path.join(log_dir, "link_usage")' \
+    '                usage_dir = os.path.join(log_dir, "link_usage"); steps_out.extend(session.stop_controller())  # MUTANT' \
+    'test_the_controller_is_alive_while_the_cell_measures_and_stopped_after'
+
+# 95: the channel loses its source -- Steps publishes no pid, so the cell is handed None and the
+# liveness check has nothing to check again (§9 ruling 31①). 92 kills the sink; this kills the
+# spring, which is the half that was missing at f87580cb.
+add "95. _start_controller publishes no pid for the process it started" \
+    "$DRIVER" \
+    '        self.ctrl_pid = proc.pid' \
+    '        self.ctrl_pid = None  # MUTANT' \
+    'test_start_controller_publishes_the_pid_of_the_process_it_started'
 
 CTRL_SRC="$DRIVER"
 CTRL_ANCHOR='def host_key(name):'

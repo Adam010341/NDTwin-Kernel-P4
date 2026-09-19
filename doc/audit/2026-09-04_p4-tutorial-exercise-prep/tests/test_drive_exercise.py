@@ -188,7 +188,13 @@ class FakeProc(object):
     it, and the SECOND communicate returns whatever it had printed by then.
     """
 
+    #: Fake pids, far above /proc/sys/kernel/pid_max's usual 4194304 so that a test which
+    #: mistook one for a real process could never accidentally find one (§9 ruling 31①).
+    _next_pid = 9000001
+
     def __init__(self, out=b"", fh=None, timeout_first=False):
+        FakeProc._next_pid += 1
+        self.pid = FakeProc._next_pid
         self.out, self.fh = out, fh
         self.fed = None
         self.terminated = self.killed = False
@@ -643,6 +649,7 @@ class TheNdtwinRound(unittest.TestCase):
 
         class NoSteps(object):
             raises = None
+            ctrl_pid = None                  # this arm starts no controller (§9 ruling 31①)
 
             def __init__(self, *a, **kw):
                 self.expects, self.steps = [], []
@@ -650,6 +657,9 @@ class TheNdtwinRound(unittest.TestCase):
             def run(self):
                 if NoSteps.raises:
                     raise NoSteps.raises
+
+            def stop_controller(self):
+                return []
         self.NoSteps = NoSteps
         mod.Steps = NoSteps
         mod.NdtwinHosts = lambda *a, **kw: StubHosts({"h1": "10.0.1.1"})
@@ -1699,10 +1709,307 @@ class TheGenericCellsThirdAnswer(unittest.TestCase):
         # ... and the source happens AFTER, or the file's default would overwrite it.
         self.assertLess(seen["script"].index("CTRL_PID="), seen["script"].index("source "))
 
-    def test_the_driver_passes_the_controller_pid_through(self):
-        src = open(DRIVER_PATH).read()
-        self.assertIn("ctrl_pid=ctrl", src)
-        self.assertIn('getattr(run_on_ndtwin, "ctrl_pid", None)', src)
+
+def alive(pid):
+    """Is `pid` a live process right now?  The same question CTRL_PID answers in the shell."""
+    if not pid:
+        return False
+    try:
+        os.kill(int(pid), 0)
+    except (OSError, ValueError):
+        return False
+    return True
+
+
+class TheControllerOutlivesTheArmsOwnSteps(unittest.TestCase):
+    """🔴 THE PID IS A PROCESS'S, AND THE PROCESS IS STILL THERE (§9 ruling 31①).
+
+    What the judge found at f87580cb: `link_usage_cell` was handed
+    `getattr(run_on_ndtwin, "ctrl_pid", None)` -- an attribute NOTHING in the file ever
+    assigned (`proc.pid` did not appear in it at all) -- so every G1 ran with CTRL_PID
+    empty and the liveness check inside `link_usage_round` had nothing to check. And both
+    controller arms stopped the controller in their own `finally`, which runs BEFORE the
+    generic cell, so even a working pid would have named a process that was already gone.
+
+    The test that stood for all of this was
+    `assertIn("ctrl_pid=ctrl", open(DRIVER_PATH).read())`: it was green over code that
+    could not work, because it read the call site's own text instead of running it. It is
+    deleted, and these cells start a real process and ask the kernel about it instead.
+    """
+
+    def setUp(self):
+        self.mod = load_driver()
+        quiet(self.mod)
+        self.tmp = mkdtemp(self, "drv-ctrlpid-")
+        self.spawned = []
+
+    def sleeper(self, argv, **kw):
+        """A stand-in controller that is a REAL process: `sleep`, holding the log fd."""
+        p = subprocess.Popen(["sleep", "30"], stdout=kw.get("stdout"),
+                             stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+        self.spawned.append(p)
+        self.addCleanup(self.reap, p)
+        return p
+
+    @staticmethod
+    def reap(p):
+        if p.poll() is None:
+            p.kill()
+            try:
+                p.wait(timeout=10)
+            except subprocess.TimeoutExpired:                # pragma: no cover
+                pass
+
+    def session(self, exercise="p4runtime"):
+        self.mod.local_popen = self.sleeper
+        hosts = StubHosts(IPS3, pings={("h1", IPS3["h2"]): self.mod.PingResult(0.0, 5, 5)})
+        return steps_for(self.mod, exercise, "solution", hosts, self.tmp)
+
+    def test_start_controller_publishes_the_pid_of_the_process_it_started(self):
+        """The first link of the channel: `proc.pid`, not a name for one."""
+        s = self.session()
+        proc = s._start_controller("solution", "p4runtime")[0]
+        self.assertEqual(self.spawned[0].pid, proc.pid)
+        self.assertEqual(proc.pid, s.ctrl_pid,
+                         "the channel has to start at the process the driver forked")
+        self.assertTrue(alive(s.ctrl_pid), "and that pid has to name something alive")
+
+    def test_the_arms_own_steps_leave_the_controller_running(self):
+        """🔴 THE REORDER, AS A READING OF THE KERNEL'S (§9 ruling 31①).
+
+        `steps_p4runtime` used to end `finally: self._stop_controller(...)`, three call
+        frames before the round reaches G1. Here the whole arm runs -- its expectations go
+        red, because `sleep` writes no pipeline lines, and that is not what this cell is
+        about -- and the controller must still be alive when it returns.
+        """
+        s = self.session()
+        s.run()
+        self.assertIsNotNone(s.ctrl_pid)
+        self.assertIsNone(self.spawned[0].poll(),
+                          "the arm stopped its controller before the generic cell could see it")
+        self.assertTrue(alive(s.ctrl_pid))
+
+    def test_stop_controller_ends_it_files_the_log_and_can_be_called_twice(self):
+        s = self.session()
+        s._start_controller("solution", "p4runtime")
+        pid = s.ctrl_pid
+        self.assertTrue(alive(pid))
+        tail = s.stop_controller()
+        self.assertEqual(["P9  controller log after the round"], [t[0] for t in tail])
+        self.assertIsNotNone(self.spawned[0].poll(), "stop_controller did not end it")
+        self.assertFalse(alive(pid))
+        self.assertEqual(pid, s.ctrl_pid,
+                         "the pid survives the stop: the cell's reading is about THIS pid")
+        self.assertEqual([], s.stop_controller(),
+                         "idempotent -- the round's teardown may call it a second time")
+
+    def test_each_arm_files_the_log_under_its_own_step(self):
+        s = self.session("flowcache")
+        s._start_controller("solution", "flowcache")
+        self.assertEqual(["W9  controller log after the round"],
+                         [t[0] for t in s.stop_controller()])
+
+    def test_the_flowcache_arm_reads_the_log_without_ending_the_controller(self):
+        """It used to stop the controller to read its 'added table entry' line -- and
+        flowcache punts the FIRST packet of every flow to that controller, so the cell that
+        runs next needed the process it had just killed."""
+        s = self.session("flowcache")
+        _proc, fh, path, _text, _alive, _ctrl = s._start_controller("solution", "flowcache")
+        with open(path, "w") as f:
+            f.write("For switch s1 flow (SA=10.0.1.1, DA=10.0.2.2, proto=1) added table entry\n")
+        self.assertIn("added table entry", s._controller_log())
+        self.assertTrue(alive(s.ctrl_pid), "reading the log must not end the process")
+
+
+class TheControllerPidReachesTheGenericCell(unittest.TestCase):
+    """🔴 THE WHOLE CHANNEL, WITH A REAL PROCESS AT ONE END (§9 ruling 31①).
+
+    Steps.ctrl_pid -> run_on_ndtwin.ctrl_pid -> link_usage_cell(ctrl_pid=...). The stub
+    Steps starts a real `sleep` and publishes its pid the way `_start_controller` does; the
+    stub cell asks the kernel whether that pid is alive AT THE MOMENT IT IS CALLED, which is
+    what `link_usage_round` does with CTRL_PID in _common.sh.
+    """
+
+    def setUp(self):
+        self.tmp = mkdtemp(self, "drv-chan-")
+        self.mod = load_driver()
+        quiet(self.mod)
+        mod = self.mod
+        mod.PKG_ROOT = os.path.join(self.tmp, "packages")
+        mod.NDT = "/fake/ndt"
+        mod.PROXY_PY = "/fake/python"
+        mod.CONVERT = "/fake/convert.py"
+        mod.PREFLIGHT = "/fake/preflight.py"
+        mod.HOST_KNOB = os.path.join(self.tmp, "host_count_override")
+        mod.TELEMETRY_KNOB = os.path.join(self.tmp, "telemetry_override")
+        mod.switch_state = lambda *_a, **_k: {"switches": {}}
+        mod.run = lambda cmd, cwd=None, timeout=None, env=None: (0, "stub ok")
+        mod.NdtwinHosts = lambda *a, **kw: StubHosts({"h1": "10.0.1.1"})
+        self.order = []
+        self.seen = {}
+        self.spawned = []
+        case = self
+
+        def cell(package, label, out_dir, expect="follows", runner=None, dst=None,
+                 ctrl_pid=None):
+            case.seen["pid"] = ctrl_pid
+            case.seen["alive"] = alive(ctrl_pid)
+            case.order.append("cell")
+            if not case.seen["alive"]:
+                return "not-run", "LINK_USAGE %s rc=NOT-RUN (controller not alive)" % label
+            return True, "LINK_USAGE %s rc=0" % label
+        mod.link_usage_cell = cell
+
+        class SleepSteps(object):
+            """A Steps that starts a real process and hands its pid over the real channel."""
+            stop_in_run = False
+
+            def __init__(self, *a, **kw):
+                self.expects, self.steps, self.ctrl_pid, self.proc = [], [], None, None
+
+            def run(self):
+                self.proc = case.spawn()
+                self.ctrl_pid = self.proc.pid
+                case.order.append("steps")
+                if SleepSteps.stop_in_run:
+                    # The order the driver had until ruling 31①: the arm's own `finally`
+                    # ends the controller, and the generic cell runs over its absence.
+                    self._end()
+
+            def _end(self):
+                if self.proc is not None:
+                    TheControllerOutlivesTheArmsOwnSteps.reap(self.proc)
+                    self.proc = None
+                    case.order.append("stop")
+
+            def stop_controller(self):
+                if self.proc is None:
+                    return []
+                self._end()
+                return [("P9  controller log after the round", "/dev/null", "")]
+        self.SleepSteps = SleepSteps
+        mod.Steps = SleepSteps
+        self.args = Args()
+        self.args.telemetry = None
+
+    def spawn(self):
+        p = subprocess.Popen(["sleep", "30"], stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
+        self.spawned.append(p)
+        self.addCleanup(TheControllerOutlivesTheArmsOwnSteps.reap, p)
+        return p
+
+    def go(self):
+        return self.mod.run_on_ndtwin("basic", "solution", "/ex",
+                                      self.mod.EXERCISES["basic"], self.args,
+                                      {"h1": "10.0.1.1"}, self.tmp, [], None)
+
+    def test_the_cell_is_handed_the_pid_of_the_process_the_round_started(self):
+        self.go()
+        pid = self.spawned[0].pid
+        self.assertEqual(pid, self.seen["pid"],
+                         "the cell was handed %r, not the controller's pid" % (self.seen["pid"],))
+        self.assertEqual(pid, self.mod.run_on_ndtwin.ctrl_pid,
+                         "the round has to publish the pid it was given")
+
+    def test_the_controller_is_alive_while_the_cell_measures_and_stopped_after(self):
+        rc, _pkg, _state = self.go()
+        self.assertTrue(self.seen["alive"],
+                        "the controller was not running when the cell measured")
+        self.assertLess(self.order.index("steps"), self.order.index("cell"))
+        self.assertLess(self.order.index("cell"), self.order.index("stop"),
+                        "the controller must be stopped AFTER the generic cell, not before")
+        self.assertFalse(alive(self.seen["pid"]), "the round left the controller running")
+        self.assertIsNotNone(self.spawned[0].poll())
+        names = [e.name for e in self.mod.run_on_ndtwin.expects]
+        self.assertEqual("G1  link usage follows the iperf path", names[-1])
+        self.assertTrue(self.mod.run_on_ndtwin.expects[-1].ok)
+        self.assertEqual(0, rc)
+
+    def test_a_controller_stopped_before_the_cell_makes_the_arm_red(self):
+        """The reverse reading: with the OLD order the cell is handed a dead pid, answers
+        NOT RUN, and the round records a FAIL naming the controller (§9 ruling 31②) --
+        never a green G1 over a fabric nothing was driving."""
+        self.SleepSteps.stop_in_run = True
+        self.addCleanup(setattr, self.SleepSteps, "stop_in_run", False)
+        self.go()
+        self.assertEqual(self.spawned[0].pid, self.seen["pid"])
+        self.assertFalse(self.seen["alive"])
+        expects = self.mod.run_on_ndtwin.expects
+        self.assertEqual("G1 NOT RUN -- the exercise controller was not alive",
+                         expects[-1].name)
+        self.assertFalse(expects[-1].ok, "NOT RUN is recorded as a FAIL, never as a pass")
+
+
+class TheNotRunCellIsAFailInTheVerdict(unittest.TestCase):
+    """🔴 NOT RUN IS A FAIL, AND THE SENTENCE SAYS WHOSE (§9 ruling 31②).
+
+    It is not a pass -- nothing was measured -- and it is not scored as a twin defect: the
+    expectation's NAME carries the controller, so a reader never files it under "NDTwin lost
+    the flow". This drives main()'s verdict section, which is where the exit code is decided.
+    """
+
+    def setUp(self):
+        self.tmp = mkdtemp(self, "drv-notrun-")
+        self.mod = load_driver()
+        mod = self.mod
+        mod.TUT = build_tut_root(self.tmp)
+        mod.RUNS = os.path.join(self.tmp, "runs")
+        mod.UTILS = os.path.join(self.tmp, "utils")
+        mod.PKG_ROOT = os.path.join(self.tmp, "packages")
+        mod.NDT = "/fake/ndt"
+        mod.PROXY_PY = "/fake/python"
+        mod.CONVERT = "/fake/convert.py"
+        mod.PREFLIGHT = "/fake/preflight.py"
+        mod.HOST_KNOB = os.path.join(self.tmp, "host_count_override")
+        mod.TELEMETRY_KNOB = os.path.join(self.tmp, "telemetry_override")
+        mod.euid = lambda: 1000
+        stub_preflight(mod)
+        mod.switch_state = lambda *_a, **_k: {"switches": {}}
+        mod.run = lambda cmd, cwd=None, timeout=None, env=None: (0, "stub ok")
+        mod.NdtwinHosts = lambda *a, **kw: StubHosts({"h1": "10.0.1.1"})
+
+        def compiled(exdir, src, base):
+            build = os.path.join(exdir, "build")
+            os.makedirs(build, exist_ok=True)
+            for name in (base + ".json", base + ".p4.p4info.txtpb"):
+                with open(os.path.join(build, name), "w") as f:
+                    f.write("{}\n")
+            info = {"cmd": "p4c (stubbed)", "rc": 0, "out": "", "warnings": 0, "src": src,
+                    "json": os.path.join(build, base + ".json"), "bytes": 1, "sha": "j" * 16,
+                    "p4info": os.path.join(build, base + ".p4.p4info.txtpb")}
+            return 0, info["json"], info
+        mod.compile_prog = compiled
+
+        class NoSteps(object):
+            ctrl_pid = None
+
+            def __init__(self, *a, **kw):
+                self.expects, self.steps = [], []
+
+            def run(self):
+                pass
+
+            def stop_controller(self):
+                return []
+        mod.Steps = NoSteps
+        mod.link_usage_cell = lambda *a, **kw: (
+            "not-run", "LINK_USAGE basic/solution rc=NOT-RUN (controller not alive)")
+
+    def test_the_round_ends_FAIL_with_the_sentence_that_names_the_controller(self):
+        rc, text = render_main(self.mod, ["basic", "--fabric", "ndtwin"], self.mod.TUT)
+        self.assertIn("FAIL G1 NOT RUN -- the exercise controller was not alive", text)
+        self.assertIn(">>> FAIL (1/1)", text)
+        self.assertNotIn(">>> PASS", text)
+        self.assertEqual(1, rc, "a round that could not make its reading does not exit 0")
+
+    def test_the_round_says_out_loud_whose_absence_it_was(self):
+        """The verdict line is terse; the transcript above it has to name the process, or a
+        reader reconciling a red round starts by looking at the twin."""
+        _rc, text = render_main(self.mod, ["basic", "--fabric", "ndtwin"], self.mod.TUT)
+        self.assertIn("G1 NOT RUN: the exercise controller was not alive for the flow", text)
+        self.assertIn("want=a flow measured with the arm's controller alive", text)
+        self.assertIn("got=nothing was measured", text)
 
 
 class TheFlowcacheWarmUp(unittest.TestCase):
@@ -2302,11 +2609,16 @@ class TheTelemetryFlag(unittest.TestCase):
         mod.run = runner
 
         class NoSteps(object):
+            ctrl_pid = None
+
             def __init__(self, *a, **kw):
                 self.expects, self.steps = [], []
 
             def run(self):
                 pass
+
+            def stop_controller(self):
+                return []
         mod.Steps = NoSteps
         mod.NdtwinHosts = lambda *a, **kw: StubHosts({"h1": "10.0.1.1"})
         self.args = Args()
@@ -2517,11 +2829,17 @@ class TheGenericLinkUsageCell(unittest.TestCase):
         mod.link_usage_cell = lambda *a, **kw: (order.append("link_usage"), (False, "nope"))[1]
 
         class NoSteps(object):
+            ctrl_pid = None
+
             def __init__(self, *a, **kw):
                 self.expects, self.steps = [], []
 
             def run(self):
                 order.append("steps")
+
+            def stop_controller(self):
+                order.append("stop_controller")
+                return []
         mod.Steps = NoSteps
         mod.NdtwinHosts = lambda *a, **kw: StubHosts({"h1": "10.0.1.1"})
         args = Args()
