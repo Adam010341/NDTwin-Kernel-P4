@@ -31,6 +31,7 @@ ANALYSE="$ROUND/analyse.py"
 PLOT="$ROUND/plot.py"
 DRIVER="$ROUND/drive_e.sh"
 SCANNER="$HERE/hazard_scan.py"
+MANIFEST="$ROUND/manifest.py"
 
 # The interpreter. A git worktree has no venv of its own (p4_proxy/venv/ is gitignored and lives
 # in the main checkout), so the main worktree is consulted before giving up -- asked of git
@@ -69,6 +70,7 @@ BASE_SYNTH="$(sha256sum "$HERE/synthetic.py" | cut -d' ' -f1)"
 BASE_DRIVER="$(sha256sum "$DRIVER" | cut -d' ' -f1)"
 BASE_SCANNER="$(sha256sum "$SCANNER" | cut -d' ' -f1)"
 BASE_TEST_OFF="$(sha256sum "$HERE/test_drive_e_offline.sh" | cut -d' ' -f1)"
+BASE_MANIFEST="$(sha256sum "$MANIFEST" | cut -d' ' -f1)"
 
 SURVIVORS=0
 MUTATIONS=0
@@ -80,9 +82,18 @@ copy_tree() {   # copy_tree <destination>
     cp "$ANALYSE" "$PLOT" "$d/"
     # the three shell scripts too: since ruling 21 the gate also mutates the DRIVER, and
     # tests/test_drive_e_offline.sh finds them beside itself exactly as it does in the round.
-    cp "$ROUND/drive_e.sh" "$ROUND/run_group_arm.sh" "$ROUND/sample_error.sh" "$d/"
+    cp "$ROUND/drive_e.sh" "$ROUND/run_group_arm.sh" "$ROUND/sample_error.sh" \
+       "$ROUND/manifest.py" "$d/"
     chmod +x "$d"/*.sh
     cp "$HERE"/*.py "$HERE"/*.sh "$d/tests/" 2>/dev/null
+    # 🔴 AND THE FIXTURES. test_manifest.py reads the real switch manifest out of
+    # tests/fixtures/, and a mutant without it fails for a harness reason -- which this gate
+    # correctly refused a verdict over (baseline RED) rather than scoring. Ruling 27's fixture
+    # is the whole point of that test; leaving it behind would make every mutant meaningless.
+    if [[ -d "$HERE/fixtures" ]]; then
+        mkdir -p "$d/tests/fixtures"
+        cp "$HERE"/fixtures/* "$d/tests/fixtures/" 2>/dev/null
+    fi
     chmod +x "$d"/tests/*.sh 2>/dev/null
     find "$d" -name __pycache__ -type d -prune -exec rm -rf {} + 2>/dev/null
 }
@@ -499,6 +510,36 @@ m=$(mutant_tests m25 "$SCANNER" \
 report_shell "M-E25: an unreadable path is counted as a clean scan (rc 0)" "$m" \
        "🔴 a path that cannot be read is rc 2, not rc 0"
 
+m=$(mutant m26 "$MANIFEST" \
+    '    if isinstance(argv, str):
+        try:
+            return shlex.split(argv)
+        except ValueError:
+            return argv.split()' \
+    '    if isinstance(argv, str):
+        return argv')
+report_shell "M-E26: a string argv is not split, so iterating it yields characters (ruling 27)" "$m" \
+       "🔴 the binary is found in a string argv"
+
+m=$(mutant m27 "$MANIFEST" \
+    '    if previous is not None and previous.startswith("-"):
+        return False' \
+    '    if False:
+        return False')
+# 🔴 report, NOT report_shell, and bound to the DOT-LESS cell. Two ways to get this wrong were
+# taken before the right one, and both are the same mistake: binding a mutation to a cell that
+# cannot go red for it.
+#   1. a shell cell that merely checks the FIXTURE's type() -- it never runs the rule at all;
+#   2. the --log-file /tmp/simple_switch.log cell -- the "no dot in the basename" rule already
+#      rejects that one, so removing the "follows an option" rule changes NOTHING and the
+#      mutation is EQUIVALENT. A gate reporting a survivor there is reporting about a rule that
+#      nothing tests.
+# test_a_DOT_LESS_option_value_is_still_not_the_binary uses `--log-dir /var/log/
+# simple_switch_grpc`, where this rule is the only thing standing between the reader and the
+# wrong answer. (Rulings 27 and 29; same family as M-E10 and M-E19.)
+report "M-E27: a dot-less option VALUE (--log-dir /var/log/simple_switch_grpc) is taken for the binary" "$m" \
+       "test_a_DOT_LESS_option_value_is_still_not_the_binary"
+
 # --- the controls: changes that must NOT be caught -------------------------------------------------
 # A suite that goes red on a comment is not sensitive, it is fragile, and a fragile suite gets
 # ignored -- which costs more than the mutations it catches.
@@ -521,7 +562,7 @@ control "C-E2: a comprehension variable renamed in figure1_data (semantics uncha
 # driver, the scanner and the offline suite are all under the gate now; a change to any of them
 # while it ran would make its verdict about a tree that no longer exists.
 for pair in "$ANALYSE:$BASE_ANALYSE" "$PLOT:$BASE_PLOT" \
-            "$DRIVER:$BASE_DRIVER" "$SCANNER:$BASE_SCANNER" \
+            "$DRIVER:$BASE_DRIVER" "$SCANNER:$BASE_SCANNER" "$MANIFEST:$BASE_MANIFEST" \
             "$HERE/test_drive_e_offline.sh:$BASE_TEST_OFF" \
             "$HERE/test_analyse.py:$BASE_TEST_A" "$HERE/test_plot.py:$BASE_TEST_P" \
             "$HERE/synthetic.py:$BASE_SYNTH"; do
