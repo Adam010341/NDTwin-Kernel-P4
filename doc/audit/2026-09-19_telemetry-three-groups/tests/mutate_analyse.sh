@@ -631,6 +631,17 @@ m=$(mutant m35 "$ANALYSE" \
 report "M-E35: one switch falls out of the bmv2 class, so the fold stops being a sum of ten" "$m" \
        "test_the_ten_bmv2_processes_are_folded_into_one_class_and_SUMMED"
 
+# 🔴 THE DISHONEST VERSION OF THE FIT. This clamps every label to sit under the axes top, which
+# is what "silently returning a limit the labels do not fit under" would look like from the
+# outside: the overflow disappears from the return and the caller cannot tell any more. The
+# characterisation case for the headroom <= 0 branch is what refuses it. (Ruling 37(5).)
+m=$(mutant m36 "$PLOT" \
+    '        final = natural if previous is None else max(natural, previous + label_points)' \
+    '        final = min(natural if previous is None else max(natural, previous + label_points),
+                    height_points - label_points / 2.0)')
+report "M-E36: the stack is clamped to the axes, so an overflow stops being visible to the caller" "$m" \
+       "test_a_stack_taller_than_its_axes_is_not_reported_as_fitting"
+
 # --- the controls: changes that must NOT be caught -------------------------------------------------
 # A suite that goes red on a comment is not sensitive, it is fragile, and a fragile suite gets
 # ignored -- which costs more than the mutations it catches.
