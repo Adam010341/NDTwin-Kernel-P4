@@ -227,17 +227,23 @@ PYWRAP
     # verdict about a comparison that never happened. This wrapper runs normally for the first
     # few invocations (the baseline suite and the anchor counts) and then fails with no output,
     # which is exactly what a crashed interpreter looks like from `red_tests`.
-    # 🔴 IT COUNTS ONLY `-m unittest` INVOCATIONS, so the death lands in a MUTATION's
-    # red_tests rather than in an anchor count (which has its own refusal, tested above). The
-    # baseline uses two: red_tests plus the line that displays its tail. The third is the first
-    # mutation's.
+    # 🔴 IT DIES EXACTLY ONCE, ON THE THIRD `-m unittest` CALL (TICKET-P3 §9 ruling 17①).
+    # Round 7 used `-ge 3`: every later call failed too, so a gate that had gone back to
+    # "SURVIVORS++ and continue" inside mutate() would still have been stopped at the negative
+    # control or the closing re-check -- by the SAME refuse_no_suite -- and these cells would
+    # have stayed green for exactly the regression they exist to catch. That is the round-6
+    # shape once more: a cell that cannot fail for the reason it names.
+    #
+    # Counting only `-m unittest` puts the death in a MUTATION's red_tests rather than in an
+    # anchor count (which has its own refusal, tested above): the baseline uses two calls --
+    # red_tests plus the line that displays its tail -- so the third is the first mutation's.
     cat > "$FIX/badpy/dies-later" <<PYWRAP
 #!/bin/sh
 case " \$* " in
   *" -m unittest "*)
     C="$FIX/badpy/.count"
     n=\$(cat "\$C" 2>/dev/null || echo 0); n=\$((n+1)); echo "\$n" > "\$C"
-    [ "\$n" -ge 3 ] && exit 1
+    [ "\$n" -eq 3 ] && exit 1
     ;;
 esac
 exec "$REAL_PY" "\$@"
@@ -248,6 +254,10 @@ PYWRAP
     check "🔴 an interpreter that dies MID-RUN is a refusal"  "2" "$RC"
     has   "  named as the suite not having run"              "the test suite did not run at all" "$OUT"
     has   "  and it says nothing was measured"               "nothing was measured" "$OUT"
+    # 🔴 PINNED TO THE MUTATION LOOP (§9 ruling 17①). Without this the cells above are also
+    # satisfied by a refusal raised at the baseline, the control or the closing re-check --
+    # stations that were already refusing in round 6, when mutate() was not.
+    has   "🔴 and the refusal comes from the MUTATION loop"  "while measuring mutation:" "$OUT"
     hasnt_verdict "🔴 no verdict line after a mid-run death"  "$OUT"
     hasnt "🔴 and it is NOT called a survivor"               "survived" "$OUT"
 
