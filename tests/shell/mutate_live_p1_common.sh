@@ -691,6 +691,60 @@ check_fires "M33: a failed 'ndt release' only warns" m33 \
             "🔴 a failing 'ndt release' fails the round" \
             "🔴 and the LAST line is FAIL, not PASS"
 
+# --- M34 (§9 ruling 26①): the window ignores the path's bottleneck ------------------------------
+# 🔴 THE LIVE DEFECT. With min_bw fixed at the unshaped default, ecn's 500 kbit/s bottleneck is
+# invisible and the window stays 8 s -- ~1.3 expected samples per primary link, P(zero) ~16%,
+# and three runs in four read s2-eth1 = 0 on a fabric that forwarded every byte.
+cat > "$A/m34.old" <<'EOF'
+min_bps = min(bps) if bps else float(default_bps)
+EOF
+cat > "$A/m34.new" <<'EOF'
+min_bps = float(default_bps)
+EOF
+check_fires "M34: the window ignores the path's slowest link" m34 \
+            "🔴 the slowest declared link is the 500 kbit/s bottleneck" \
+            "🔴 so the window grows to 62 s"
+
+# --- M35 (§9 ruling 26①): the off-path floor drops below one sample ------------------------------
+# 🔴 A single sampled 170-byte frame is 348 kbit and a 1500-byte one is 3.07 Mbit; a floor of
+# 5 kbit reds the smallest thing the sampler can possibly report.
+cat > "$A/m35.old" <<'EOF'
+one_sample = float(sys.argv[5]) * float(sys.argv[6]) * 8
+floor_abs = max(floor_abs, one_sample)
+EOF
+cat > "$A/m35.new" <<'EOF'
+one_sample = 0.0
+floor_abs = max(floor_abs, one_sample)
+EOF
+check_fires "M35: the off-path floor falls back below one sample" m35 \
+            "🔴 the floor is at least ONE sample's worth of bits" \
+            "🔴 one sampled frame off the path is NOT a failure"
+
+# --- M36 (§9 ruling 26②): the iperf datagram goes back to the default --------------------------
+# 1470 + 28 + a 4-byte tunnel header exceeds 1500: p4runtime and flowcache read 273 B on every
+# interface because the fabric dropped every datagram.
+cat > "$A/m36.old" <<'EOF'
+: "${LINK_USAGE_DATAGRAM:=1200}"
+EOF
+cat > "$A/m36.new" <<'EOF'
+: "${LINK_USAGE_DATAGRAM:=1470}"
+EOF
+check_fires "M36: the iperf datagram is the 1470-byte default again" m36 \
+            "🔴 and NAMING the datagram size it chose"
+
+# --- M37 (§9 ruling 26②): a dead exercise controller is measured anyway -------------------------
+# 🔴 flowcache's first packet needs the controller's packet-in. Measuring without it measures
+# the controller's absence and reports it as "usage does not follow the path".
+cat > "$A/m37.old" <<'EOF'
+    if [[ -n "$CTRL_PID" ]] && ! kill -0 "$CTRL_PID" 2>/dev/null; then
+EOF
+cat > "$A/m37.new" <<'EOF'
+    if false; then
+EOF
+check_fires "M37: G1 runs with the exercise controller dead" m37 \
+            "🔴 a dead exercise controller makes G1 NOT RUN" \
+            "  and the summary line says NOT-RUN"
+
 # --- the controls for this half --------------------------------------------------------------------------
 cat > "$A/c3.old" <<'EOF'
     (( rc == 0 )) && note "$label: link usage follows the iperf path (off-path under $floor bit)"

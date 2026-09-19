@@ -399,12 +399,22 @@ has   "  and says the link is not modelled"              "the twin has NO edge f
 # length -- tens of kilobits on an edge that carried nothing. The bound is therefore a floor:
 # max(5 kbit, 2% of the SMALLEST on-path integral). Absolute so a quiet window still has a
 # bound; relative so it cannot be a fixed number an 8 s 2 Mbit/s flow dwarfs.
-check "  the floor with a 16 kbit smallest on-path integral" "5000.000" \
+# 🔴 THE FLOOR IS NOW AT LEAST ONE SAMPLE (§9 ruling 26①): 256 x 1500 x 8 = 3,072,000 bit.
+# Below that there is nothing the sampler could have reported, so a bound under it bounds noise
+# that cannot exist. For a realistic 8-second flow this term DOMINATES the 2% one -- the 2%
+# only takes over above 153.6 Mbit on-path -- and saying so is better than pretending the
+# relative term still decides these cases.
+check "  the floor is one sample even for a small on-path integral" "3072000.000" \
       "$(one "link_usage_floor '$FIX/onpath.txt' '$FIX/i_good.txt'")"
 mkint "$FIX/i_big.txt" "s1-eth1 16000000.000 host" "s1-eth3 16000000.000 switch"
 printf 's1-eth1 P 16000000\ns1-eth3 P 16000000\n' > "$FIX/onpath2.txt"
-check "🔴 and with a real 16 Mbit flow it is 2% of it, not 5 kbit" "320000.000" \
+check "  and a 16 Mbit flow does not raise it: 2% is 320 kbit, under one sample" "3072000.000" \
       "$(one "link_usage_floor '$FIX/onpath2.txt' '$FIX/i_big.txt'")"
+# 🔴 THE 2% TERM IS STILL THERE AND STILL TAKES OVER when the flow is big enough for it to mean
+# something -- 2% of 400 Mbit is 8 Mbit, well above one sample.
+mkint "$FIX/i_huge.txt" "s1-eth1 400000000.000 host" "s1-eth3 400000000.000 switch"
+check "🔴 above 153.6 Mbit the 2% term decides again"     "8000000.000" \
+      "$(one "link_usage_floor '$FIX/onpath2.txt' '$FIX/i_huge.txt'")"
 
 # A sampled LLDP beacon on an off-path inter-switch link: ~500 bit frame x 256 = ~128 kbit,
 # under 2% of a 16 Mbit on-path integral and over the absolute 5 kbit.
@@ -412,36 +422,42 @@ mkint "$FIX/i_beacon.txt" "s1-eth1 16000000.000 host" "s1-eth3 16000000.000 swit
                           "s1-eth2 128000.000 switch"
 OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath2.txt' '$FIX/i_beacon.txt' 'beacon'")"
 check "🔴 one sampled LLDP beacon off the path is NOT a failure" "0" "$(rc_of "$OUT")"
-has   "  and the floor it was judged against is in the raw" "off-path floor 320000.000 bit" "$OUT"
+has   "  and the floor it was judged against is in the raw" "off-path floor 3072000.000 bit" "$OUT"
 has   "  with the edge's own integral beside it"         "off-path s1-eth2  128000.000 bit" "$OUT"
 
 # ... and an edge carrying real traffic off the path still is one.
+# 🔴 ABOVE ONE SAMPLE, so it is a real reading and not something the sampler could not have
+# produced: 4 Mbit is more than 3.07 Mbit.
 mkint "$FIX/i_leak.txt" "s1-eth1 16000000.000 host" "s1-eth3 16000000.000 switch" \
                         "s1-eth2 4000000.000 switch"
 OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath2.txt' '$FIX/i_leak.txt' 'leak'")"
 check "🔴 an inter-switch link off the path carrying the FLOW is red" "1" "$(rc_of "$OUT")"
-has   "  naming it, the bits and the floor"              "s1-eth2 is an inter-switch link that did NOT carry the flow and the twin integrated 4000000.000 bit on it, at or over the 320000.000 bit floor" "$OUT"
+has   "  naming it, the bits and the floor"              "s1-eth2 is an inter-switch link that did NOT carry the flow and the twin integrated 4000000.000 bit on it, at or over the 3072000.000 bit floor" "$OUT"
 
 # 🔴 THE FLOOR IS TAKEN FROM THE SMALLEST ON-PATH INTEGRAL, AND THE TWO ENDS DIFFER IN
 # PRACTICE. The on-path edges of one window are not equal: the host-facing edge carries the
 # flow once and an inter-switch edge on a longer path carries it again, so `min` and `max` are
 # a factor of several apart -- and `min` is the conservative end, the one that still catches an
 # off-path link with real traffic on it.
-mkint "$FIX/i_spread.txt" "s1-eth1 1000000.000 host" "s1-eth3 16000000.000 switch" \
-                          "s1-eth2 100000.000 switch"
-check "  the floor follows the SMALLEST on-path integral"  "20000.000" \
+# 🔴 SCALED SO THE 2% TERM IS THE ONE UNDER TEST: 2% of 400 Mbit is 8 Mbit, above one
+# sample, and the off-path edge at 10 Mbit is above that.
+mkint "$FIX/i_spread.txt" "s1-eth1 400000000.000 host" "s1-eth3 6400000000.000 switch" \
+                          "s1-eth2 10000000.000 switch"
+check "  the floor follows the SMALLEST on-path integral"  "8000000.000" \
       "$(one "link_usage_floor '$FIX/onpath2.txt' '$FIX/i_spread.txt'")"
 OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath2.txt' '$FIX/i_spread.txt' 'spread'")"
-check "🔴 and 100 kbit off the path is red against it"     "1" "$(rc_of "$OUT")"
-has   "  naming the floor the smallest on-path edge set"  "at or over the 20000.000 bit floor" "$OUT"
+check "🔴 and 10 Mbit off the path is red against it"      "1" "$(rc_of "$OUT")"
+has   "  naming the floor the smallest on-path edge set"  "at or over the 8000000.000 bit floor" "$OUT"
 
 # 🔴 THE FLOOR IS NOT A BLANK CHEQUE: in a quiet window it is the absolute 5 kbit, so an
 # off-path edge with real traffic on it is still red there.
+# 🔴 THE "QUIET WINDOW" ABSOLUTE FLOOR IS NOW ONE SAMPLE, so an off-path edge has to carry
+# more than one sample's worth to be red at all.
 mkint "$FIX/i_offpath.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
-                           "s1-eth2 6000.000 switch"
+                           "s1-eth2 4000000.000 switch"
 OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_offpath.txt' 'quiet'")"
-check "🔴 and in a quiet window the floor is the absolute 5 kbit" "1" "$(rc_of "$OUT")"
-has   "  naming that floor"                              "at or over the 5000.000 bit floor" "$OUT"
+check "🔴 and in a quiet window the floor is one sample"   "1" "$(rc_of "$OUT")"
+has   "  naming that floor"                              "at or over the 3072000.000 bit floor" "$OUT"
 mkint "$FIX/i_under.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
                          "s1-eth2 12.000 switch"
 check "  12 bit of stray on an off-path link is under it" "0" \
@@ -452,11 +468,13 @@ mkint "$FIX/i_arp.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
                        "s2-eth1 4999.000 host"
 check "  a host-facing edge under the floor is fine"     "0" \
       "$(rc_of "$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_arp.txt' 'arp'")")"
+# 🔴 ONE SAMPLE IS THE UNIT NOW: a host-facing edge is red only above 3,072,000 bit, because
+# below that the sampler could not have produced a reading at all.
 mkint "$FIX/i_arplot.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
-                          "s2-eth1 5001.000 host"
+                          "s2-eth1 3072001.000 host"
 OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_arplot.txt' 'arp2'")"
 check "🔴 and one over it is red"                         "1" "$(rc_of "$OUT")"
-has   "  naming the floor it passed"                     "at or over the 5000.000 bit floor" "$OUT"
+has   "  naming the floor it passed"                     "at or over the 3072000.000 bit floor" "$OUT"
 
 # 🔴 THE CONTROL. With nothing measured as on-path the first clause is vacuous and the second is
 # "every edge is zero" -- which a fabric that moved no packet at all satisfies perfectly, and
@@ -813,6 +831,91 @@ mkint "$FIX/qos.int0" "s1-eth3 0.000 switch" "s2-eth1 14704115.500 host" "s1-eth
 OUT="$(drive "assert_link_usage_follows_path '$FIX/qos.onpath' '$FIX/qos.int0' 'qos0'")"
 check "🔴 a PRIMARY interface with a zero integral is still red" "1" "$(rc_of "$OUT")"
 has   "  naming it as primary, with its byte count"      "s1-eth3 carried the flow (2162160 B, primary)" "$OUT"
+
+# =============================================================================================
+section "12. 🔴 ecn's bottleneck: a window too short for the sampler to see the flow"
+# =============================================================================================
+# TICKET-P3 §9 ruling 26①, from the final live pass. ecn shapes s1-s2 to 500,000 bit/s, so an
+# 8 s 2 Mbit/s iperf delivers ~691 kB -- the REAL numbers from
+# runs/2026-09-19T085702Z_ecn_solution_ndtwin/link_usage are s1-eth3 690,928 B (twin 875,000
+# bit: one sample got through) and s2-eth1 691,131 B with twin 0. At 1 sample in 256 the
+# expected count per primary link is ~1.8 and P(zero) is ~16%: three runs in four read
+# s2-eth1 = 0 and went red on a fabric that forwarded every byte.
+mkdir -p "$FIX/ecnpkg/ndtwin"
+python3 -c '
+import json, sys
+json.dump({"links": [{"a": ["h1", 0], "b": ["s1", 1], "bandwidth_bps": 1000000000.0},
+                     {"a": ["s1", 3], "b": ["s2", 3], "bandwidth_bps": 500000.0},
+                     {"a": ["s2", 1], "b": ["h2", 0], "bandwidth_bps": 1000000000.0}]},
+          open(sys.argv[1], "w"))' "$FIX/ecnpkg/package.json"
+
+read -r ECN_T ECN_BPS ECN_AT8 < <(drive "link_usage_window '$FIX/ecnpkg'" | /usr/bin/grep -v '^RC=')
+check "🔴 the slowest declared link is the 500 kbit/s bottleneck" "500000" "$ECN_BPS"
+# (1.30 = bandwidth x time / (rate x MTU x 8). The ruling quotes ~1.8, which is the same
+# quantity computed from the bytes ecn actually delivered -- 691,131 B -- rather than from the
+# shaped rate; both are under two samples, which is the point.)
+check "🔴 at the old 8 s window only ~1.3 samples were expected" "1.30" "$ECN_AT8"
+check "🔴 so the window grows to 62 s"                    "62" "$ECN_T"
+
+# 🔴 THE CONTROL: an unshaped package keeps the 8 s window -- the rule must not slow every
+# round down to 61 s for a bottleneck that is not there.
+mkdir -p "$FIX/fastpkg"
+python3 -c '
+import json, sys
+json.dump({"links": [{"a": ["s1", 3], "b": ["s2", 3], "bandwidth_bps": 1000000000.0}]},
+          open(sys.argv[1], "w"))' "$FIX/fastpkg/package.json"
+read -r F_T F_BPS F_AT8 < <(drive "link_usage_window '$FIX/fastpkg'" | /usr/bin/grep -v '^RC=')
+check "  a 1 Gbit/s path keeps the 8 s window"            "8" "$F_T"
+
+# 🔴 ONE SAMPLED FRAME IS THE SMALLEST THING THE SAMPLER CAN REPORT, so the off-path floor
+# cannot be below it: a single 170-byte packet is 256 x 170 x 8 = 348 kbit, thirty-five times
+# the old 10 kbit floor, and the cell would have gone red on it.
+mkint "$FIX/ecn.int" "s1-eth3 875000.000 switch" "s2-eth1 0.000 host" "s1-eth1 348002.000 host"
+printf 's1-eth3 P 690928\ns2-eth1 P 691131\n' > "$FIX/ecn.onpath"
+FLOOR="$(one "link_usage_floor '$FIX/ecn.onpath' '$FIX/ecn.int'")"
+check "🔴 the floor is at least ONE sample's worth of bits" "3072000.000" "$FLOOR"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/ecn.onpath' '$FIX/ecn.int' 'ecn'")"
+has   "  and the raw says how that number was reached"   "ONE SAMPLE = 256 x 1500 x 8" "$OUT"
+has   "🔴 one sampled frame off the path is NOT a failure" "off-path s1-eth1  348002.000 bit" "$OUT"
+
+# ... and a PRIMARY link the twin never saw is still red -- the window is what changes, not
+# the assertion.
+check "🔴 s2-eth1 with a zero integral is still red"      "1" "$(rc_of "$OUT")"
+has   "  naming it as primary"                           "s2-eth1 carried the flow (691131 B, primary)" "$OUT"
+
+# =============================================================================================
+section "13. 🔴 p4runtime/flowcache: 273 B everywhere means the flow never moved"
+# =============================================================================================
+# §9 ruling 26②. Both arms read EXACTLY 273 B on every interface: the fabric dropped every
+# 1470-byte datagram (advanced_tunnel's 4-byte header pushes 1470+28+4 past the 1500 MTU)
+# while the driver's 64-byte pings passed.
+cat > "$FIX/flat.before" <<'NB'
+s1-eth1 1000
+s1-eth2 1000
+s1-eth3 1000
+s2-eth1 1000
+NB
+cat > "$FIX/flat.after" <<'NA'
+s1-eth1 1273
+s1-eth2 1273
+s1-eth3 1273
+s2-eth1 1273
+NA
+drive "onpath_ifaces '$FIX/flat.before' '$FIX/flat.after' > '$FIX/flat.onpath'" >/dev/null
+check "  273 B on every interface is nobody on the path"  "" "$(cat "$FIX/flat.onpath")"
+mkint "$FIX/flat.int" "s1-eth1 0.000 host" "s1-eth3 0.000 switch"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/flat.onpath' '$FIX/flat.int' 'flat'")"
+check "🔴 the cell refuses rather than measuring nothing" "1" "$(rc_of "$OUT")"
+has   "  saying nothing carried the flow"                "nothing measurably carried the flow" "$OUT"
+has   "🔴 and NAMING the datagram size it chose"         "iperf -l 1200" "$OUT"
+
+# 🔴 A DEAD CONTROLLER IS 'NOT RUN', NEVER 'PASS'. flowcache's first packet needs the
+# controller's packet-in; measuring without it measures the controller's absence.
+OUT="$(drive "CTRL_PID=999999; link_usage_round '$PKG3' 'noctrl' '$FIX/lur3'")"
+has   "🔴 a dead exercise controller makes G1 NOT RUN"   "G1 NOT RUN" "$OUT"
+has   "  naming the pid it checked"                      "pid 999999" "$OUT"
+has   "  and the summary line says NOT-RUN"              "rc=NOT-RUN" "$OUT"
+hasnt "🔴 and it never reports the flow as measured"     "LINK_USAGE noctrl expect=follows primary=s" "$OUT"
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"

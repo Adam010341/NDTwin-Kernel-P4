@@ -649,7 +649,20 @@ pingall_loss() {
 : "${LINK_USAGE_HZ:=4}"
 #: `iperf -u -b 2M -t 8`, TICKET-P3 §2.7 verbatim.
 : "${LINK_USAGE_SECONDS:=8}"
+#: 🔴 THE WINDOW HAS TO BE LONG ENOUGH FOR THE SAMPLER TO SEE THE FLOW (§9 ruling 26①).
+#: ecn shapes s1-s2 to 500 kbit/s, so an 8 s 2 Mbit/s iperf delivers ~691 kB -- about 460
+#: datagrams -- and at 1 in 256 the EXPECTED sample count per primary link is ~1.8. P(zero
+#: samples) is then ~16%, and three runs out of four read s2-eth1 = 0 and went red on a fabric
+#: that had forwarded every byte. The fix is not a looser assertion, it is a window that makes
+#: the expectation reachable: enough seconds for >= this many samples on the SLOWEST link of
+#: the path.
+: "${LINK_USAGE_MIN_SAMPLES:=10}"
+#: The bandwidth of an unshaped link, matching app_package.DEFAULT_LINK_BPS.
+: "${LINK_USAGE_DEFAULT_BPS:=1000000000}"
 : "${LINK_USAGE_RATE:=2M}"
+#: 🔴 iperf's UDP payload. The default 1470 + 28 IP/UDP + a 4-byte tunnel header exceeds 1500
+#: and the fabric drops every datagram (§9 ruling 26②).
+: "${LINK_USAGE_DATAGRAM:=1200}"
 
 # netdev_tx <out> -- "<iface> <tx_bytes>" for every sN-ethP, from /proc/net/dev. The switches
 # are in the ROOT namespace (Mininet's addSwitch defaults to inNamespace=False), so this file
@@ -678,6 +691,41 @@ for line in open("/proc/net/dev"):
 #: What the sampler can see, used only to print an expected sample count beside a MINOR row.
 : "${LINK_USAGE_MTU_BYTES:=1500}"
 : "${LINK_USAGE_SAMPLE_RATE:=256}"
+
+# link_usage_window <package-dir> -- how many seconds the iperf must run, and why.
+#
+# 🔴 SIZED FROM THE SLOWEST LINK ON THE PATH (§9 ruling 26①). A sample is one frame in
+# LINK_USAGE_SAMPLE_RATE, so to expect N samples on a link carrying B bits/s of a flow for t
+# seconds you need  t >= N * rate * MTU * 8 / B.  The bottleneck decides: a link shaped to
+# 500 kbit/s carries 500 kbit/s no matter what the sender offers, so the window is computed
+# from the SMALLEST bandwidth_bps the package declares (unshaped links are DEFAULT_LINK_BPS).
+#
+# Prints "<seconds> <min_bps> <expected_samples_at_8s>" so the caller can put the arithmetic in
+# the raw rather than a number with no derivation.
+link_usage_window() {
+    local pkg="$1"
+    "$PY" - "$pkg" "$LINK_USAGE_SECONDS" "$LINK_USAGE_MIN_SAMPLES" \
+          "$LINK_USAGE_SAMPLE_RATE" "$LINK_USAGE_MTU_BYTES" "$LINK_USAGE_DEFAULT_BPS" <<'PYW'
+import json, math, os, sys
+pkg, base_t, want_n = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
+rate, mtu, default_bps = int(sys.argv[4]), int(sys.argv[5]), int(sys.argv[6])
+bps = []
+try:
+    with open(os.path.join(pkg, "package.json")) as fh:
+        for link in (json.load(fh).get("links") or []):
+            if isinstance(link, dict):
+                b = link.get("bandwidth_bps", default_bps)
+                if isinstance(b, (int, float)) and not isinstance(b, bool) and b > 0:
+                    bps.append(float(b))
+except (OSError, ValueError):
+    pass
+min_bps = min(bps) if bps else float(default_bps)
+need = want_n * rate * mtu * 8 / min_bps
+secs = max(base_t, int(math.ceil(need)))
+at_base = base_t * min_bps / (rate * mtu * 8)
+print("%d %d %.2f" % (secs, int(min_bps), at_base))
+PYW
+}
 
 # onpath_ifaces <before> <after> [threshold-bytes] -- "<iface> <class> <delta>" per interface
 # that moved at least the threshold, sorted. THE MEASUREMENT, not a list this file knows.
@@ -819,6 +867,13 @@ link_usage_floor() {
     "$PY" -c '
 import sys
 floor_abs = float(sys.argv[3]); frac = float(sys.argv[4])
+# 🔴 THE FLOOR IS AT LEAST ONE SAMPLE WORTH OF BITS (§9 ruling 26①). A single sampled frame on
+# an off-path link is banked as rate x frame x 8 bits -- one 170-byte packet at 1/256 is
+# 348 kbit, thirty-five times the old 10 kbit floor -- so a floor below one sample means the
+# cell reds on the smallest thing the sampler can possibly report. Nothing can be measured
+# below one sample; a bound under it is a bound on noise that does not exist.
+one_sample = float(sys.argv[5]) * float(sys.argv[6]) * 8
+floor_abs = max(floor_abs, one_sample)
 want = set()
 for line in open(sys.argv[1]):
     parts = line.split()
@@ -836,13 +891,20 @@ for line in open(sys.argv[2]):
         except ValueError:
             pass
 print("%.3f" % max(floor_abs, frac * min(vals)) if vals else "%.3f" % floor_abs)
-' "$onpath" "$integral" "$LINK_USAGE_NOISE_BITS" "$LINK_USAGE_OFFPATH_FRACTION"
+' "$onpath" "$integral" "$LINK_USAGE_NOISE_BITS" "$LINK_USAGE_OFFPATH_FRACTION" \
+      "$LINK_USAGE_SAMPLE_RATE" "$LINK_USAGE_MTU_BYTES"
 }
 
 assert_link_usage_follows_path() {
     local onpath="$1" integral="$2" label="$3" rc=0 key bits kind floor
     if [[ ! -s "$onpath" ]]; then
-        fail "$label: the on-path interface set is EMPTY -- nothing measurably carried the flow, so 'usage follows the path' is a sentence about a fabric that moved no packets"
+        # 🔴 AND IT NAMES THE DATAGRAM SIZE (§9 ruling 26②). p4runtime and flowcache read
+        # EXACTLY 273 B on every interface: the fabric dropped every 1470-byte UDP datagram
+        # (advanced_tunnel's 4-byte header pushes 1470+28+4 over the 1500 MTU) while the
+        # driver's 64-byte pings passed. "Nothing carried the flow" and "the flow was too big
+        # to carry" are different findings, and the second one is only visible if the size
+        # this cell chose is on the screen beside the verdict.
+        fail "$label: the on-path interface set is EMPTY -- nothing measurably carried the flow (iperf -l ${LINK_USAGE_DATAGRAM}, so ${LINK_USAGE_DATAGRAM}+28 B on the wire plus any encapsulation); 'usage follows the path' is a sentence about a fabric that moved no packets"
         return 1
     fi
     if [[ ! -s "$integral" ]]; then
@@ -880,7 +942,7 @@ assert_link_usage_follows_path() {
         fi
     done < "$onpath"
     floor="$(link_usage_floor "$onpath" "$integral")"
-    note "$label: off-path floor $floor bit   = max(${LINK_USAGE_NOISE_BITS}, ${LINK_USAGE_OFFPATH_FRACTION} x the smallest PRIMARY on-path integral)"
+    note "$label: off-path floor $floor bit   = max(${LINK_USAGE_NOISE_BITS}, ONE SAMPLE = ${LINK_USAGE_SAMPLE_RATE} x ${LINK_USAGE_MTU_BYTES} x 8 = $(( LINK_USAGE_SAMPLE_RATE * LINK_USAGE_MTU_BYTES * 8 )) bit, ${LINK_USAGE_OFFPATH_FRACTION} x the smallest PRIMARY on-path integral)"
     while read -r key bits kind; do
         [[ "$key" == \#* || -z "$key" ]] && continue
         # 🔴 MINOR ROWS ARE NOT OFF-PATH EITHER. They moved real bytes; holding them to the
@@ -971,11 +1033,35 @@ link_usage_round() {
         fail "$label: the package model does not name two hosts to run a flow between (src='$src' dst='$dst')"
         return 1
     fi
+    # 🔴 AN EXTERNAL CONTROL PLANE MUST STILL BE RUNNING (§9 ruling 26②). flowcache's first
+    # packet of a flow needs the controller's packet-in; p4runtime's tunnel entries are the
+    # controller's too. If it exited between the arm's own steps and this cell, the flow is
+    # dropped for a reason that has nothing to do with link usage -- and reporting that as
+    # "usage does not follow the path" blames the twin for a dead process. NOT RUN is the
+    # honest answer; PASS is never one of the options.
+    if [[ -n "$CTRL_PID" ]] && ! kill -0 "$CTRL_PID" 2>/dev/null; then
+        bad "$label: the exercise controller (pid $CTRL_PID) is NOT running -- G1 NOT RUN."
+        bad "  This arm's data plane needs it (flowcache's packet-in, p4runtime's entries), so a"
+        bad "  flow measured without it would be measuring the controller's absence."
+        printf 'LINK_USAGE %s expect=%s primary=- minor=- rc=NOT-RUN\n' "$label" "$expect"
+        return 0
+    fi
+
     # 🔴 WHICH TWO HOSTS, SAID BEFORE ANYTHING IS ASKED ABOUT THEM. The pair is a decision --
     # the model's first host and either its last or the one the caller named -- and the
     # refusals below are about whether those namespaces exist. Printing the decision after
     # the refusal would leave a reader of a red run guessing which hosts it meant.
-    note "$label: $src -> $dst ($dst_ip), iperf -u -b $LINK_USAGE_RATE -t $LINK_USAGE_SECONDS"
+    # 🔴 THE WINDOW IS COMPUTED, AND ITS ARITHMETIC GOES IN THE RAW (§9 ruling 26①).
+    local secs min_bps at_base
+    read -r secs min_bps at_base < <(link_usage_window "$pkg")
+    note "$label: slowest declared link = $min_bps bit/s; at ${LINK_USAGE_SECONDS}s that is only $at_base expected samples per primary link"
+    note "$label: window = max(${LINK_USAGE_SECONDS}, ceil(${LINK_USAGE_MIN_SAMPLES} x ${LINK_USAGE_SAMPLE_RATE} x ${LINK_USAGE_MTU_BYTES} x 8 / $min_bps)) = ${secs}s"
+    # 🔴 `-l 1200`, NOT THE 1470-BYTE DEFAULT (§9 ruling 26②). advanced_tunnel adds a 4-byte
+    # myTunnel header, so 1470 + 28 + 4 > the 1500 MTU and the fabric dropped EVERY datagram --
+    # p4runtime and flowcache both read 273 B on every interface, the driver's 64-byte pings
+    # having passed. 1200 leaves room for any encapsulation these exercises add; mri,
+    # source_routing and basic_tunnel get the same headroom.
+    note "$label: $src -> $dst ($dst_ip), iperf -u -b $LINK_USAGE_RATE -t $secs -l $LINK_USAGE_DATAGRAM"
     pid_s="$( set +e; source "$NDT" >/dev/null 2>&1; host_pid "$dst" )"
     pid_c="$( set +e; source "$NDT" >/dev/null 2>&1; host_pid "$src" )"
     if [[ ! "$pid_s" =~ ^[0-9]+$ || ! "$pid_c" =~ ^[0-9]+$ ]]; then
@@ -986,10 +1072,12 @@ link_usage_round() {
     sudo -n mnexec -a "$pid_s" iperf -s -u > "$dir/iperf_server.txt" 2>&1 &
     local srv=$!
     sleep 1
-    sudo -n mnexec -a "$pid_c" iperf -c "$dst_ip" -u -b "$LINK_USAGE_RATE" -t "$LINK_USAGE_SECONDS" \
+    sudo -n mnexec -a "$pid_c" iperf -c "$dst_ip" -u -b "$LINK_USAGE_RATE" -t "$secs" -l "$LINK_USAGE_DATAGRAM" \
         > "$dir/iperf_client.txt" 2>&1 &
     local cli=$!
-    twin_usage_integral "$dir/twin_integral.txt" "$LINK_USAGE_SECONDS" "$LINK_USAGE_HZ" || rc=1
+    # 🔴 THE TWIN IS INTEGRATED OVER THE SAME WINDOW THE FLOW RAN FOR. A 9 s integral over a
+    # 61 s flow would divide the samples it did catch by the wrong span.
+    twin_usage_integral "$dir/twin_integral.txt" "$secs" "$LINK_USAGE_HZ" || rc=1
     wait "$cli" 2>/dev/null || true
     netdev_tx "$dir/netdev.after"
     # 🔴 The server is stopped by the pid this function started, never by name (CLAUDE.md).
