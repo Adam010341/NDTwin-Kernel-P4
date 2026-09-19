@@ -205,7 +205,10 @@ class TheProxyAcceptsWhatTheExerciseWritesTest(unittest.TestCase):
             {"table": "Synthetic.mac_exact",
              "match": {"hdr.ethernet.dstAddr": ["08:00:00:00:01:11"]},
              # basic_tunnel's own action, so the entry is refused for the shape under test or
-             # for nothing at all -- an entry with no action is refused a step earlier.
+             # for nothing at all. Without it the refusal comes from `write_table_entry`
+             # (p4_client.py, "an insert needs an action"), which runs AFTER
+             # `build_table_entry` has already accepted the match -- so the test would pass on
+             # broken code and fail on correct code, for a reason that is not the subject.
              "action_name": "MyIngress.myTunnel_forward",
              "action_params": {"port": 1}}, "insert")
         written = self.stub.requests[0].updates[0].entity.table_entry

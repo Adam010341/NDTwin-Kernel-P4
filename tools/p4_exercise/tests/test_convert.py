@@ -90,6 +90,24 @@ GENERATED_FIXTURES = frozenset({
     #              -o build/multicast.json multicast.p4
     "multicast/build/multicast.json",
     "multicast/build/multicast.p4.p4info.txtpb",
+    # TICKET-P3 section 9 ruling 23②, and the orchestrator's option (c) on the drift the
+    # live runs caused. These two are the SOLUTION compiled by absolute path -- the driver's
+    # `compile_prog` equivalent, which is what the fabric actually ran when the defect was
+    # found -- while `~/tutorials/exercises/basic_tunnel/build/` holds the skeleton's Makefile
+    # build (relative `program`, 67 lines of p4info, and no `MyIngress.myTunnel_exact` at all).
+    # The two cannot both be true of one path, so these are GENERATED with the command
+    # recorded rather than byte-provenanced against a tree that builds whichever program was
+    # asked for last:
+    #
+    #   p4c-bm2-ss --p4v 16 \
+    #       --p4runtime-files tools/p4_exercise/tests/fixtures/basic_tunnel/build/basic_tunnel.p4.p4info.txtpb \
+    #       -o tools/p4_exercise/tests/fixtures/basic_tunnel/build/basic_tunnel.json \
+    #       /home/adam/tutorials/exercises/basic_tunnel/solution/basic_tunnel.p4
+    #
+    # `s1-runtime.json` beside them is NOT here: it is a plain copy no build rewrites, and it
+    # is the file the whole fix is about, so it stays under the provenance check.
+    "basic_tunnel/build/basic_tunnel.json",
+    "basic_tunnel/build/basic_tunnel.p4.p4info.txtpb",
 })
 
 #: 🔴 THE FIXTURES THAT ARE NEITHER COPIED NOR COMPILED -- written here, on purpose, and listed
