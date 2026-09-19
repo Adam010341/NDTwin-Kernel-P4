@@ -1988,6 +1988,206 @@ class ARefusalInsideTheBringUpIsAVerdictAndNotATracebackTest(FabricFixture):
             self.bring_up()
 
 
+# --- 7b. the shutdown signal, and the teardown that has to survive it ------------------------
+#
+# 🔴 THE ONLY DEFECT LIVE FOUND (TICKET-P3 section 9 ruling 19(1), 2026-09-19). `ndt down`
+# reported "residue: /tmp/ndtwin_link_telemetry.json is still there and the pid it names
+# (2386073) is gone" after every run. `ndtwin-lab topo-stop` sends C-c to the tmux pane, waits
+# ten seconds, then `kill-session`; Mininet's CLI catches KeyboardInterrupt and carries on by
+# design, so the C-c did nothing, and the SIGHUP landed on a process whose `main()` was a bare
+# `CLI(net)` followed by `tear_down(net)` -- python died between the two lines. Every cell
+# below is one link in that chain.
+
+
+class TheShutdownSignalReachesTheTeardownTest(FabricFixture):
+
+    def setUp(self):
+        super().setUp()
+        self.set_telemetry_knob("link")
+        # Whatever this suite installs for real is put back afterwards, whichever way it ends.
+        for name in testbed.TEARDOWN_SIGNALS:
+            number = getattr(signal, name, None)
+            if number is not None:
+                self.addCleanup(signal.signal, number, signal.getsignal(number))
+
+    def raise_guarded(self, name):
+        """Raise this signal at ourselves, but never with its default disposition in place.
+
+        🔴 THE GUARD IS THE WHOLE POINT, and it is here because its absence cost a gate run:
+        with SIGHUP left at SIG_DFL, `signal.raise_signal` TERMINATES the test runner. The
+        suite then produces no output at all -- unittest prints its failures at the end -- so a
+        mutant that removed a handler came back as a SURVIVOR of nothing rather than as a red
+        cell. A test that can kill its own runner is not a test.
+        """
+        number = getattr(signal, name)
+        self.assertNotIn(signal.getsignal(number), (signal.SIG_DFL, signal.SIG_IGN, None),
+                         f"{name} still has its default disposition -- raising it here would "
+                         f"terminate this process instead of testing anything")
+        signal.raise_signal(number)
+
+    def test_all_three_signals_are_installed(self):
+        installed = testbed.install_teardown_signal_handlers(
+            report=lambda _line: None, install=lambda number, handler: None)
+        self.assertEqual(installed, ["SIGINT", "SIGTERM", "SIGHUP"])
+
+    def test_each_one_really_changes_the_disposition_and_raises(self):
+        # 🔴 Guarded on purpose: if the handler were NOT installed, raising SIGTERM or SIGHUP
+        # here would terminate the test runner. The assertion below fails first in that case,
+        # so this cell can never be the thing that kills the suite.
+        testbed.install_teardown_signal_handlers(report=lambda _line: None)
+        for name in ("SIGINT", "SIGTERM", "SIGHUP"):
+            with self.assertRaises(SystemExit) as ctx:
+                self.raise_guarded(name)
+            self.assertEqual(ctx.exception.code, 0)
+            # Re-armed for the next one: each iteration is a fresh "first" signal.
+            testbed.install_teardown_signal_handlers(report=lambda _line: None)
+
+    def test_the_second_signal_does_not_interrupt_the_teardown_the_first_asked_for(self):
+        # `topo-stop` sends C-c and then SIGHUP ten seconds later, so the second one can easily
+        # land while the teardown is still running. Re-raising there would abort it halfway and
+        # leave exactly the residue this exists to remove.
+        said = []
+        testbed.install_teardown_signal_handlers(report=said.append)
+        with self.assertRaises(SystemExit):
+            self.raise_guarded("SIGINT")
+        self.raise_guarded("SIGHUP")      # must NOT raise
+        self.raise_guarded("SIGTERM")     # nor this
+        self.assertEqual(len([line for line in said if "tearing the fabric down" in line]), 1)
+        self.assertEqual(len([line for line in said if "still going" in line]), 2)
+
+    def test_a_cli_that_catches_keyboardinterrupt_still_lets_the_shutdown_out(self):
+        # 🔴 THE LIVE DEFECT, IN A UNIT TEST. This is `mininet.cli.CLI.run`'s shape: a
+        # `while True` whose body is wrapped in `except KeyboardInterrupt`, which is exactly
+        # why the C-c did nothing. With our handler installed the signal raises SystemExit --
+        # a BaseException that is not a KeyboardInterrupt -- so the catch does not see it and
+        # it leaves the loop.
+        #
+        # Checked rather than assumed, 2026-09-19: there is no `signal.signal` anywhere in
+        # mininet/*.py on this machine, so nothing puts the default disposition back.
+        testbed.install_teardown_signal_handlers(report=lambda _line: None)
+        loops = []
+        raise_guarded = self.raise_guarded
+
+        def mininets_cli_loop():
+            while True:
+                try:
+                    raise_guarded("SIGINT")              # what topo-stop's C-c becomes
+                    return "the signal did nothing at all"
+                except KeyboardInterrupt:
+                    loops.append(1)
+                    if len(loops) > 3:
+                        raise RuntimeError(
+                            "the shutdown was swallowed by the CLI loop, which is the "
+                            "2026-09-19 live defect")
+        with self.assertRaises(SystemExit):
+            mininets_cli_loop()
+        self.assertEqual(loops, [], "the CLI loop caught our shutdown")
+
+    def test_catching_keyboardinterrupt_does_not_catch_systemexit(self):
+        # The load-bearing step of the argument above, pinned on its own so that if Python
+        # ever changed it this file says which cell to read.
+        try:
+            raise SystemExit(0)
+        except KeyboardInterrupt:                        # noqa: B014 -- that is the point
+            self.fail("a KeyboardInterrupt catch swallowed a SystemExit")
+        except SystemExit:
+            pass
+
+
+class BothMainsTearDownWhateverEndsTheCliTest(FabricFixture):
+    """The `finally`, driven through each main with a CLI that ends the way a signal ends it."""
+
+    def setUp(self):
+        super().setUp()
+        self.set_telemetry_knob("link")
+        self.torn = []
+        self.order = []
+
+    def drive(self, main, cli, **extra):
+        nets = []
+        real_tear_down = testbed.tear_down
+
+        def tear_down(net, manifest_path=None, report=print, link_manifest_path=None):
+            self.torn.append(net)
+            return real_tear_down(net, manifest_path=manifest_path,
+                                  report=lambda _line: None,
+                                  link_manifest_path=link_manifest_path or self.link_manifest)
+        self.patch(testbed, "build_net", lambda package, model: nets.append(
+            RecordingNet(package, model)) or nets[-1])
+        self.patch(testbed, "reset_for_bring_up", lambda ports, settle_s=0.5: None)
+        self.patch(testbed, "CLI", cli)
+        self.patch(testbed, "tear_down", tear_down)
+        self.patch(link_telemetry, "process_is_the_emitter", lambda pid, **kw: False)
+        # The real handlers are not installed by these cells: `main` installs them, and this
+        # process must not be left with them afterwards. Recorded rather than silenced, so
+        # "main arms them at all" is a fact a cell can read -- and it is one of the two halves
+        # of ruling 19(1); the `finally` without the handlers is a `finally` nothing reaches.
+        self.patch(testbed, "install_teardown_signal_handlers",
+                   lambda **kwargs: self.order.append("armed") or ["SIGINT", "SIGTERM",
+                                                                   "SIGHUP"])
+        try:
+            main(**extra)
+        except SystemExit as exc:
+            return nets[0], exc.code
+        return nets[0], None
+
+    def signalled_cli(self, net):
+        """What `CLI(net)` does once a shutdown signal has raised SystemExit through it."""
+        self.order.append("cli")
+        raise SystemExit(0)
+
+    def test_the_handlers_are_armed_before_the_cli_is_entered(self):
+        # 🔴 The other half of ruling 19(1). A `finally` is not reached by a signal whose
+        # disposition is still the default: SIGHUP terminates the process where it stands.
+        self.drive(testbed.main, self.signalled_cli)
+        self.assertEqual(self.order, ["armed", "cli"])
+
+    def test_the_bridge_arms_them_too(self):
+        self.drive(ntg.main, lambda _net: None,
+                   enter_cli=lambda _net: self.order.append("cli"))
+        self.assertEqual(self.order, ["armed", "cli"])
+
+    def test_the_topology_script_tears_down_when_the_cli_is_cut_short(self):
+        net, code = self.drive(testbed.main, self.signalled_cli)
+        self.assertEqual(code, 0)
+        self.assertEqual(self.torn, [net], "tear_down did not run, or ran twice")
+        self.assertTrue(net.stopped)
+        self.assertFalse(os.path.exists(self.link_manifest),
+                         "the link manifest outlived the process, which is the live defect")
+
+    def test_the_bridge_tears_down_when_the_cli_is_cut_short(self):
+        # `ndtwin-lab topo-start` launches THIS one, so it is the one that mattered nightly.
+        net, code = self.drive(ntg.main, self.signalled_cli,
+                               enter_cli=lambda _net: (_ for _ in ()).throw(SystemExit(0)))
+        self.assertEqual(code, 0)
+        self.assertTrue(net.stopped)
+        self.assertFalse(os.path.exists(self.link_manifest))
+
+    def test_a_normal_cli_exit_still_tears_down_exactly_once(self):
+        net, code = self.drive(testbed.main, lambda _net: None)
+        self.assertIsNone(code)
+        self.assertEqual(self.torn, [net])
+        self.assertFalse(os.path.exists(self.link_manifest))
+
+    def test_a_fatal_fabric_tears_down_exactly_once_and_still_exits_one(self):
+        # 🔴 There used to be a `tear_down(net)` on the fatal line AND now there is a
+        # `finally`. Two teardowns would mean `net.stop()` twice and a second reap of a
+        # manifest that is already gone.
+        self.sub.process = FakeProcess(pid=777, exits=9)
+        net, code = self.drive(testbed.main, lambda _net: self.fail("the CLI was offered"))
+        self.assertEqual(code, 1)
+        self.assertEqual(self.torn, [net], "the fatal path tore the fabric down twice")
+
+    def test_an_exception_out_of_the_cli_also_reaches_the_teardown(self):
+        # Not only signals: NTG's command loop has crashed in here before, and the fabric it
+        # was driving must not be left up because of it.
+        def angry_cli(_net):
+            raise RuntimeError("the CLI fell over")
+        with self.assertRaises(RuntimeError):
+            self.drive(testbed.main, angry_cli)
+        self.assertEqual(len(self.torn), 1)
+
+
 # --- 8. both entry points, on the link path --------------------------------------------------
 
 

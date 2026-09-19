@@ -1270,6 +1270,93 @@ def tear_down(net, manifest_path=None, report=print, link_manifest_path=None):
     return reaped
 
 
+#: What "shut this fabric down" arrives as. TICKET-P3 section 9 ruling 19(1).
+#:
+#: [Co-developed with claude code -- Adam]
+#: `ndtwin-lab topo-stop` sends C-c to the tmux pane, waits up to ten seconds, then
+#: `kill-session` -- which is a SIGHUP to the pane's process group. SIGTERM is what anything
+#: else that stops a process sends. All three mean the same thing here, and none of them meant
+#: anything at all until 2026-09-19.
+TEARDOWN_SIGNALS = ("SIGINT", "SIGTERM", "SIGHUP")
+
+
+def install_teardown_signal_handlers(report=print, signals=None, install=None):
+    """Make a shutdown signal raise SystemExit, so a `finally` gets to tear the fabric down.
+
+    [Co-developed with claude code -- Adam]
+    🔴 WHAT THIS IS FOR, measured live on 2026-09-19 (ruling 19(1); raw in
+    live-p1/runs/2026-09-19T051758Z_02_app_basic/90_down.txt). `ndt down` reported
+    "residue: /tmp/ndtwin_link_telemetry.json is still there and the pid it names (2386073) is
+    gone" after every single run. The chain:
+
+      * `topo-stop` sends C-c. Mininet's CLI.run() CATCHES KeyboardInterrupt in a `while True`
+        loop and prints "Interrupt" -- by design, so a stray Ctrl-C does not destroy your
+        fabric. So the C-c does nothing.
+      * Ten seconds later `kill-session` SIGHUPs the pane's process group. SIGHUP's default
+        action is to terminate, this process had no handler, and `main()` was a bare
+        `CLI(net)` followed by `tear_down(net)`. Python died between the two.
+      * `tear_down` -> `link_telemetry.shut_down` therefore never ran. The emitter, in the same
+        process group, died of the same SIGHUP -- so the manifest outlived the process it
+        names, and the next thing to read it found a dead pid.
+
+    🔴 WHY A HANDLER IS ENOUGH FOR THE C-c TOO, and this was checked rather than assumed:
+    Mininet's CLI installs NO signal handler of its own (there is no `signal.signal` anywhere
+    in mininet/*.py on this machine; `CLI.run` only runs `stty ... intr ^C`, which is terminal
+    settings, not disposition). Its `except KeyboardInterrupt` catches what the DEFAULT SIGINT
+    handler raises. Replace that handler and SIGINT raises SystemExit instead -- which is a
+    BaseException and not a KeyboardInterrupt, so Mininet's catch does not see it and it
+    leaves `CLI(net)` on its way to the `finally`. Both routes work; SIGTERM and SIGHUP never
+    went near Mininet's loop in the first place.
+
+    🔴 THE FIRST SIGNAL WINS AND THE REST ARE NO-OPS. `topo-stop` sends C-c and then, ten
+    seconds later, SIGHUP -- so the second one can easily arrive while the teardown it asked
+    for is still running. Re-raising SystemExit there would abort that teardown halfway and
+    leave exactly the residue this exists to remove. Disarming rather than `SIG_IGN` keeps the
+    disposition a Python-level handler, so nothing about the process becomes unkillable that
+    was not already: SIGKILL is untouched, and the window is bounded by `tear_down` itself.
+
+    Returns the names of the signals actually installed, which is what a test reads.
+    """
+    install = install or signal.signal
+    fired = []
+    installed = []
+
+    def handler(signum, _frame):
+        name = _signal_name(signum)
+        if fired:
+            # The second one. Say so -- an operator who pressed Ctrl-C twice has to be able to
+            # tell "it is ignoring me" from "it is already shutting down".
+            report(f"*** {name} received while already tearing down; still going.")
+            return
+        fired.append(name)
+        report(f"\n*** {name} received -- tearing the fabric down before exiting.")
+        # 0 rather than 128+signum: this is a REQUESTED shutdown that completed, not a failure.
+        # Nothing downstream reads this pane's exit status today (`ndt down` judges by residue),
+        # and a non-zero code for a normal stop would be the wrong thing for anything that
+        # starts reading it later.
+        raise SystemExit(0)
+
+    for name in (signals or TEARDOWN_SIGNALS):
+        number = getattr(signal, name, None)
+        if number is None:
+            continue
+        try:
+            install(number, handler)
+        except (ValueError, OSError, RuntimeError):
+            # Not the main thread, or a platform without this signal. A fabric that cannot
+            # install a handler still runs; it just tears down the way it did before.
+            continue
+        installed.append(name)
+    return installed
+
+
+def _signal_name(signum):
+    try:
+        return signal.Signals(signum).name
+    except ValueError:
+        return f"signal {signum}"
+
+
 def main():
     setLogLevel('info')
 
@@ -1304,16 +1391,27 @@ def main():
         print(f"Switch manifest: {MANIFEST_PATH}")
     print("======================================================================\n")
 
-    if fatal:
-        # Refuse the CLI rather than printing a warning above it. The warning was there before
-        # and it did not stop a single run: the operator got a prompt, the wrapper got exit 0,
-        # and the partial fabric was used. The switch logs stay on disk (/tmp/sN_bmv2.log) for
-        # the post-mortem -- what is withheld is the ability to carry on as if nothing broke.
+    # 🔴 ARMED HERE, AND THE TEARDOWN IS A `finally`. Ruling 19(1): this used to be a bare
+    # `CLI(net)` followed by `tear_down(net)`, and `topo-stop`'s SIGHUP landed between the two
+    # on every single live run -- so `link_telemetry.shut_down` never ran and the manifest
+    # outlived the emitter it names. The handlers cover exactly the window in which there is a
+    # net to tear down; a signal during `bring_up` itself is still the abrupt death it always
+    # was (see the SUMMARY -- closing that would mean a `finally` inside `bring_up`, which owns
+    # the net it has not returned yet).
+    install_teardown_signal_handlers()
+    try:
+        if fatal:
+            # Refuse the CLI rather than printing a warning above it. The warning was there
+            # before and it did not stop a single run: the operator got a prompt, the wrapper
+            # got exit 0, and the partial fabric was used. The switch logs stay on disk
+            # (/tmp/sN_bmv2.log) for the post-mortem -- what is withheld is the ability to
+            # carry on as if nothing broke. The teardown is the `finally` below, which is why
+            # there is no `tear_down(net)` on this line any more: there used to be, and with a
+            # `finally` in place it would have run twice.
+            sys.exit(1)
+        CLI(net)
+    finally:
         tear_down(net)
-        sys.exit(1)
-
-    CLI(net)
-    tear_down(net)
 
 if __name__ == '__main__':
     main()
