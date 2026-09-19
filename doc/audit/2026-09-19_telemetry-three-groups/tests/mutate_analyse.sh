@@ -305,6 +305,26 @@ m=$(mutant m19 "$DRIVER" \
 report_shell "M-E19: the teardown stops retracting measuring= (ndt down then refuses, rc 5)" "$m" \
        "🔴 every teardown is preceded by a claim that retracts measuring="
 
+m=$(mutant m20 "$DRIVER" \
+    '            FAILURES+=("$gen: '"'"'ndt status --check'"'"' rc=1 -- see $gen/11_verify.txt; the arms of this generation ran under it")
+            ;;' \
+    '            ;;')
+report_shell "M-E20: a status --check rc 1 goes back to being a note, so PASS can coexist with it" "$m" \
+       "🔴 a generation whose status --check said rc 1 does NOT end in PASS"
+
+m=$(mutant m21 "$DRIVER" \
+    '        declare_measuring off || true
+        local release_log="$RUN/95_release.txt"' \
+    '        local release_log="$RUN/95_release.txt"')
+report_shell "M-E21: the final re-claim is dropped, so the release compares against a stale baseline" "$m" \
+       "🔴 the release is not refused, so the lab is actually given back"
+
+m=$(mutant m22 "$DRIVER" \
+    '            FAILURES+=("final: '"'"'ndt release'"'"' refused (rc $release_rc) -- the lab is still claimed; see 95_release.txt")' \
+    '            :')
+report_shell "M-E22: a refused release is printed but never reaches the verdict" "$m" \
+       "🔴 a refused release means the round does NOT pass"
+
 # --- the controls: changes that must NOT be caught -------------------------------------------------
 # A suite that goes red on a comment is not sensitive, it is fragile, and a fragile suite gets
 # ignored -- which costs more than the mutations it catches.

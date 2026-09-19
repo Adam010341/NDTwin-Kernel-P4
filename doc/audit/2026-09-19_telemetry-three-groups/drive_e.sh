@@ -291,7 +291,32 @@ finish() {
     [[ -e "$APP_KNOB" ]] && bad "app_package_override SURVIVED the teardown -- the next 'ndt up p4' reads it"
     restore_host_knob || true
     if (( CLAIMED )); then
-        "$NDT" release 2>&1 | sed 's/^/   /' || bad "'ndt release' did not take -- run it by hand"
+        # 🔴 THE ROUND BASELINE HAS TO BE RE-RECORDED FROM THE RESTORED KNOB, OR THE RELEASE
+        # REFUSES. Every `ndt claim` runs record_round_baseline, which snapshots the knob AS IT
+        # IS AT THAT MOMENT (ndt:844 -> :442-455). This driver re-claims once per generation to
+        # declare and retract `measuring=`, and those claims happen AFTER `ndt up p4 4` has
+        # rewritten the knob to 4 -- so the round's recorded starting point silently becomes 4.
+        # cmd_release then compares that baseline against the knob it finds (ndt:885-894) and,
+        # when this checkout's entry value is not 4, refuses with rc 1 and KEEPS THE CLAIM.
+        #
+        # It is dormant only because the entry value here is also 4. One `git checkout --
+        # p4_proxy/mininet/host_count_override` in the main checkout lights it, and then the
+        # round ends with the lab still claimed. (Ruling 22(2), introduced by last round's fix.)
+        #
+        # One more claim, after the restore, makes the baseline agree with the bytes that are
+        # actually on disk -- which is what the release is entitled to compare against.
+        declare_measuring off || true
+        local release_log="$RUN/95_release.txt"
+        "$NDT" release > "$release_log" 2>&1
+        local release_rc=$?
+        sed 's/^/   /' "$release_log"
+        # 🔴 AND THE rc IS READ. This was `"$NDT" release 2>&1 | sed ... || bad ...`, where the
+        # `||` tests SED's status and can never see the release refuse: the round printed the
+        # refusal, called itself a PASS, and left the claim on the lab.
+        if (( release_rc != 0 )); then
+            bad "'ndt release' refused (rc $release_rc) -- THE LAB IS STILL CLAIMED. Read $release_log."
+            FAILURES+=("final: 'ndt release' refused (rc $release_rc) -- the lab is still claimed; see 95_release.txt")
+        fi
     fi
     printf '\n'
     if (( ${#RESULTS[@]} )); then
@@ -397,7 +422,25 @@ verify_generation() {   # verify_generation <group> <gen id>
     local check_rc=$?
     case "$check_rc" in
         0) note "$gen: ndt status --check rc=0 (the live lab matches .test_run/up.target)" ;;
-        3) note "$gen: ⚠️  ndt status --check rc=3 -- NOTHING was compared (no up.target baseline). Not a pass." ;;
+        1)
+            # 🔴 rc 1 IS A VERDICT, AND IT IS ndt's, NOT A GUESS OF MINE. Its own words are
+            # "compared against the last 'ndt up': dataplane, fabric hosts, kernel graph,
+            # topology file" and, when any of those differ, "check: N problem(s)" with the list
+            # (ndt:6468-6475). The problems it can name include a dead data plane, a host count
+            # that is not the one the round asked for, a kernel graph that no longer matches, a
+            # changed model sha256, a DEAD link-telemetry emitter and a stale pipeline -- every
+            # one of which makes this generation's numbers something other than what their group
+            # label says. Ruling 22(1): that cannot sit in the same run as `PASS P3-E`.
+            #
+            # It does NOT skip the generation. The arms still run and still write their raw,
+            # because a cell that was measured under a named problem is evidence about that
+            # problem; what is forbidden is the round calling itself a pass over it. So it goes
+            # into FAILURES (which decides the verdict) and the return value is untouched.
+            bad "$gen: ndt status --check rc=1 -- ndt compared the live lab against .test_run/up.target and found a problem"
+            /usr/bin/grep -E "^[[:space:]]*- " "$out" | tail -8 | sed 's/^/       /' >&2
+            FAILURES+=("$gen: 'ndt status --check' rc=1 -- see $gen/11_verify.txt; the arms of this generation ran under it")
+            ;;
+        3) note "$gen: ⚠️  ndt status --check rc=3 -- NOTHING was compared (no up.target baseline). Not a pass, not a failure." ;;
         *) note "$gen: ⚠️  ndt status --check rc=$check_rc -- read $gen/11_verify.txt; recorded, not gating." ;;
     esac
     echo "status_check_rc=$check_rc" >> "$out"

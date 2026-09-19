@@ -58,42 +58,101 @@ cleanup() { rm -rf "$SB"; }
 trap cleanup EXIT
 
 # --- the sandbox --------------------------------------------------------------------------
-build_sandbox() {   # build_sandbox <dir> <driver source> [down_rc] [telemetry word to assert]
+# 🔴 THE STUB IS STATEFUL, BECAUSE THE BUGS ARE ABOUT STATE (ruling 22(2)). A stub that
+# answered every command with canned text could not have shown that `ndt claim` rewrites the
+# round baseline, nor that `ndt release` refuses when the knob no longer matches it -- and it was
+# a stateless stub that let M-E19 be killed by an assertion about the CALL LOG rather than by
+# behaviour. This one keeps the two pieces of state the real ndt keeps and that this driver
+# actually collides with:
+#
+#   * `claim`  runs record_round_baseline unconditionally, which snapshots the knob AS IT IS NOW
+#              (ndt:844 -> :442-455), and records NDT_MEASURING.
+#   * `up p4 N` REWRITES the knob to N, exactly as the real one does.
+#   * `down`   refuses rc 5 while measuring is non-empty (ndt:4618-4628), and clears it on a
+#              successful teardown (ndt:1137).
+#   * `release` refuses rc 1 when the knob differs from the recorded baseline (ndt:885-894).
+#
+# Environment knobs of the stub itself: STATUS_CHECK_RC, FORCE_DOWN_RC, FORCE_TELEMETRY_WORD.
+build_sandbox() {   # build_sandbox <dir> <driver source> [entry host_count]
     local dir="$1"
     local driver="$2"
-    local down_rc="${3:-0}"
-    local force_word="${4:-}"
+    local entry_hosts="${3:-4}"
     mkdir -p "$dir/round" "$dir/repo/tools/test_workflow" "$dir/repo/p4_proxy/mininet" \
              "$dir/repo/.test_run/pids" "$dir/bin"
     cp "$driver" "$dir/round/drive_e.sh"
     chmod +x "$dir/round/drive_e.sh"
-    printf '4\n' > "$dir/repo/p4_proxy/mininet/host_count_override"
+    printf '%s\n' "$entry_hosts" > "$dir/repo/p4_proxy/mininet/host_count_override"
 
-    # --- the stub ndt. It answers the five subcommands the driver is allowed to use and, for
-    # anything else, does what the real one does: prints the usage text and exits 2. That is
-    # what makes `ndt verify_p4` visible instead of silently ignored.
-    cat > "$dir/repo/tools/test_workflow/ndt" <<NDTEOF
+    cat > "$dir/repo/tools/test_workflow/ndt" <<'NDTEOF'
 #!/usr/bin/env bash
 set -uo pipefail
-CALLS="$dir/ndt_calls.txt"
-# 🔴 the presence or absence of NDT_MEASURING in THIS command's environment is recorded, because
-# the retraction is exactly "a claim issued without it".
-printf '%s | measuring=%s\n' "\$*" "\${NDT_MEASURING:-<unset>}" >> "\$CALLS"
-FORCE_WORD="$force_word"
-DOWN_RC=$down_rc
-case "\${1:-}" in
-  claim)   echo "ok  lab claimed"; exit 0 ;;
-  release) echo "ok  released"; exit 0 ;;
+HERE_NDT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"       # = <dir>/repo
+SBOX="$(cd "$HERE_NDT/.." && pwd)"                                    # = <dir>
+CALLS="$SBOX/ndt_calls.txt"
+STATE="$SBOX/ndt_state"
+KNOB="$HERE_NDT/p4_proxy/mininet/host_count_override"
+printf '%s | measuring=%s\n' "$*" "${NDT_MEASURING:-<unset>}" >> "$CALLS"
+
+knob_now()  { tr -d '[:space:]' < "$KNOB" 2>/dev/null; }
+state_get() { sed -n "s/^$1=//p" "$STATE" 2>/dev/null | tail -1; }
+state_put() {   # state_put <key> <value>
+    local key="$1"
+    local value="$2"
+    local tmp="$STATE.tmp"
+    { /usr/bin/grep -v "^$key=" "$STATE" 2>/dev/null; printf '%s=%s\n' "$key" "$value"; } > "$tmp"
+    mv -f "$tmp" "$STATE"
+}
+
+case "${1:-}" in
+  claim)
+    # record_round_baseline: the knob as it is AT THIS MOMENT, plus the declaration
+    state_put measuring "${NDT_MEASURING:-}"
+    state_put baseline_host_count "$(knob_now)"
+    echo "ok  lab claimed (round baseline host_count=$(knob_now))"
+    exit 0 ;;
+  release)
+    if (( ${FORCE_RELEASE_RC:-0} != 0 )); then
+      echo "refusing (stub FORCE_RELEASE_RC=${FORCE_RELEASE_RC})" >&2
+      exit "${FORCE_RELEASE_RC}"
+    fi
+    base="$(state_get baseline_host_count)"
+    now="$(knob_now)"
+    if [[ -n "$base" && "$base" != "$now" ]]; then
+      echo "refusing: the P4 host knob is $now" >&2
+      echo "this round started at $base, and the claim is not released with it moved" >&2
+      exit 1
+    fi
+    echo "ok  released"
+    exit 0 ;;
   status)
-    if [[ "\${2:-}" == "--check" ]]; then
-      echo "  ok  data plane kind: p4"; echo "  ok  host count: 4"; echo "  ok  model sha256 matches"
-      exit 0
+    if [[ "${2:-}" == "--check" ]]; then
+      case "${STATUS_CHECK_RC:-0}" in
+        1) echo "check: 2 problem(s)"
+           echo "  - data plane: h1 -> 10.0.0.2 does NOT forward"
+           echo "  - model sha256 differs from the one the last 'ndt up' used"
+           exit 1 ;;
+        3) echo "check: nothing was compared -- .test_run/up.target is absent"; exit 3 ;;
+        *) echo "  ok  check: ok"
+           echo "  compared against the last 'ndt up': dataplane, fabric hosts, kernel graph, topology file"
+           exit 0 ;;
+      esac
     fi
     echo "  running: stub"; exit 0 ;;
   up)
-    group="none"
-    while (( \$# )); do [[ "\$1" == "--telemetry" ]] && { group="\${2:-none}"; }; shift; done
-    [[ -n "\$FORCE_WORD" ]] && group="\$FORCE_WORD"
+    group="none"; hosts=""
+    shift
+    while (( $# )); do
+      case "$1" in
+        --telemetry) group="${2:-none}"; shift 2 ;;
+        p4) shift ;;
+        [0-9]*) hosts="$1"; shift ;;
+        *) shift ;;
+      esac
+    done
+    # the real `ndt up p4 N` rewrites the knob; so does this one, because that rewrite is what
+    # the round baseline then gets recorded from.
+    [[ -n "$hosts" ]] && printf '%s\n' "$hosts" > "$KNOB"
+    [[ -n "${FORCE_TELEMETRY_WORD:-}" ]] && group="$FORCE_TELEMETRY_WORD"
     cat <<UPEOF
 [1/3] bmv2 fabric
   ok  10 switches up after 5s, manifest written
@@ -102,18 +161,27 @@ case "\${1:-}" in
 [3/3] verify
   ok  kernel: 10 switches, 10 up, 40 edges, 4 hosts
   ok  model matches fabric: 4 hosts (kernel graph, topology file and 4 host namespaces all agree)
-  ok  telemetry: \$group -- 0 cooperative, 0 link, 10 none; the proxy agrees switch by switch
+  ok  telemetry: $group -- 0 cooperative, 0 link, 10 none; the proxy agrees switch by switch
   ok  data plane: h1 -> 10.0.0.2 forwards
 
 up. ready
 UPEOF
     exit 0 ;;
   down)
-    if (( DOWN_RC == 5 )); then
+    meas="$(state_get measuring)"
+    if [[ -n "$meas" ]]; then
       echo "refusing to tear down: this claim DECLARES a measurement in progress." >&2
+      echo "    measuring=$meas" >&2
+      echo "when that run is over:  ndt claim <mins> to redeclare, or  ndt down --force" >&2
       exit 5
     fi
-    echo "  ok  verified clean"; exit 0 ;;
+    if (( ${FORCE_DOWN_RC:-0} != 0 )); then
+      echo "refusing to tear down (stub FORCE_DOWN_RC=${FORCE_DOWN_RC})" >&2
+      exit "${FORCE_DOWN_RC}"
+    fi
+    state_put measuring ""
+    echo "  ok  verified clean"
+    exit 0 ;;
 esac
 cat <<USAGEEOF
 usage: ndt <command>
@@ -171,17 +239,16 @@ SEEOF
     chmod +x "$dir/bin/sudo" "$dir/bin/ps"
 }
 
-# 🔴 LT_MANIFEST IS POINTED INTO THE SANDBOX. The driver refuses to start when
-# /tmp/ndtwin_link_telemetry.json exists -- which is correct, and which really fired in the
-# middle of writing this file, because something on this machine created one. A test whose
-# result depends on whether another session is running is not a test of this driver, so the
-# path is made hermetic here and the refusal gets its own cell below instead.
-run_driver() {   # run_driver <dir> -- stdout+stderr of a whole round
-    ( cd "$1/round" && PATH="$1/bin:$PATH" NDT_REPO="$1/repo" NDT_OWNER=p3-E-offline \
-        LT_MANIFEST="$1/repo/no-such-link-manifest.json" \
+run_driver() {   # run_driver <dir> [VAR=VALUE ...] -- stdout+stderr of a whole round
+    local dir="$1"
+    shift
+    ( cd "$dir/round" && env "$@" PATH="$dir/bin:$PATH" NDT_REPO="$dir/repo" \
+        NDT_OWNER=p3-E-offline LT_MANIFEST="$dir/repo/no-such-link-manifest.json" \
         FABRIC_SETTLE_S=0 SETTLE_S=0 WINDOW_GAP_S=0 CTRL_RATES="1 2" CLAIM_MINUTES=5 \
         timeout 300 ./drive_e.sh 2>&1 )
 }
+
+knob_of() { tr -d '[:space:]' < "$1/repo/p4_proxy/mininet/host_count_override" 2>/dev/null; }
 
 printf '=== 1. the copy under test IS the real drive_e.sh\n'
 SB1="$SB/fixed"; build_sandbox "$SB1" "$REAL_DRIVER"
@@ -229,15 +296,62 @@ has   "  the round re-declares it at the next bring-up" \
       "measuring=P3-E three-group telemetry round" "$CALLS1"
 
 printf '\n=== 6. negative controls: the new checks can fail\n'
-SB2="$SB/wrong-group"; build_sandbox "$SB2" "$REAL_DRIVER" 0 "cooperative"
-OUT2="$(run_driver "$SB2")"
+SB2="$SB/wrong-group"; build_sandbox "$SB2" "$REAL_DRIVER"
+OUT2="$(run_driver "$SB2" FORCE_TELEMETRY_WORD=cooperative)"
 has   "🔴 a bring-up asserting the wrong telemetry source is caught" \
       "asserted a telemetry source that is not 'none'" "$OUT2"
-SB3="$SB/down-refuses"; build_sandbox "$SB3" "$REAL_DRIVER" 5
-OUT3="$(run_driver "$SB3")"
+SB3="$SB/down-refuses"; build_sandbox "$SB3" "$REAL_DRIVER"
+OUT3="$(run_driver "$SB3" FORCE_DOWN_RC=5)"
 has   "🔴 a down that still refuses after the retraction is a reported failure" \
       "refused (rc 5)" "$OUT3"
 hasnt "  and it is still not forced" "down --force" "$(cat "$SB3/ndt_calls.txt")"
+
+printf '\n=== 6b. ruling 22(1): `ndt status --check` rc 1 is a verdict and cannot coexist with PASS\n'
+SB7="$SB/check-rc1"; build_sandbox "$SB7" "$REAL_DRIVER"
+OUT7="$(run_driver "$SB7" STATUS_CHECK_RC=1)"
+hasnt "🔴 a generation whose status --check said rc 1 does NOT end in PASS" "PASS P3-E" "$OUT7"
+has   "  the failure names the generation and the rc" \
+      "G1: 'ndt status --check' rc=1" "$OUT7"
+has   "  and it says the arms of that generation ran under it" \
+      "the arms of this generation ran under it" "$OUT7"
+# 🔴 rc 1 must NOT skip the generation: a cell measured under a named problem is evidence about
+# that problem. What is forbidden is calling the round a pass over it.
+check "  the arms still ran (12 of them, as in a clean round)" "12" \
+      "$(find "$SB7/round/raw" -name arm.meta -not -path '*/controls/*' 2>/dev/null | wc -l)"
+check "  and all six generations were still brought up" "6" \
+      "$(/usr/bin/grep -c '^up p4 4 --telemetry' "$SB7/ndt_calls.txt")"
+
+SB8="$SB/check-rc3"; build_sandbox "$SB8" "$REAL_DRIVER"
+OUT8="$(run_driver "$SB8" STATUS_CHECK_RC=3)"
+has   "🔴 rc 3 is recorded as NOTHING compared, and stays out of the verdict" \
+      "NOTHING was compared" "$OUT8"
+has   "  so the round can still pass on it" "PASS P3-E" "$OUT8"
+
+printf '\n=== 6c. ruling 22(2): the round baseline the release compares against\n'
+# 🔴 THE ENTRY KNOB IS 128 HERE, AND THAT IS THE WHOLE CELL. `ndt up p4 4` rewrites the knob to
+# 4; every `ndt claim` re-records the round baseline from the knob AS IT IS THEN; finish()
+# restores 128 and releases. Without a re-claim after the restore, the baseline still says 4,
+# cmd_release refuses rc 1 and KEEPS THE CLAIM -- and on 8d04e130 the driver only `bad`s, so the
+# round says PASS with the lab still claimed. It is dormant at entry=4 and lit at anything else.
+SB9="$SB/knob-128"; build_sandbox "$SB9" "$REAL_DRIVER" 128
+OUT9="$(run_driver "$SB9")"
+check "  the entry knob was 128 and is 128 again at the end" "128" "$(knob_of "$SB9")"
+has   "🔴 the release is not refused, so the lab is actually given back" "ok  released" "$OUT9"
+hasnt "🔴 and the round does not report a release refusal" "THE LAB IS STILL CLAIMED" "$OUT9"
+has   "  the round passes" "PASS P3-E" "$OUT9"
+check "  the final claim re-recorded the baseline from the RESTORED value" "128" \
+      "$(sed -n 's/^baseline_host_count=//p' "$SB9/ndt_state" | tail -1)"
+
+# 🔴 THE OTHER HALF OF 22(2): the release's rc has to REACH THE VERDICT. It used to be
+# `"$NDT" release 2>&1 | sed ... || bad ...`, where the `||` tests SED's status and can never
+# see a refusal -- so the round printed it, called itself a PASS, and left the claim on the lab.
+# Forcing the stub to refuse makes that non-vacuous whether or not the knob is involved.
+SB11="$SB/release-refuses"; build_sandbox "$SB11" "$REAL_DRIVER"
+OUT11="$(run_driver "$SB11" FORCE_RELEASE_RC=1)"
+hasnt "🔴 a refused release means the round does NOT pass" "PASS P3-E" "$OUT11"
+has   "  and it says the lab is still claimed" "THE LAB IS STILL CLAIMED" "$OUT11"
+has   "  in the failure list, not only on the way past" \
+      "final: 'ndt release' refused (rc 1)" "$OUT11"
 
 if [[ -n "${E_DRIVER:-}" ]]; then
 printf '\n=== 7. pre-fix controls SKIPPED -- E_DRIVER is set, so the driver under test is already old\n'
@@ -304,8 +418,12 @@ check "  nothing was claimed" "0" "$(/usr/bin/grep -c . "$SB6/ndt_calls.txt" 2>/
 
 printf '\n=== 8. the hazard scanner over the three scripts, with both positive controls\n'
 SCAN_OUT="$(python3 "$SCAN" "$ROUND/drive_e.sh" "$ROUND/run_group_arm.sh" "$ROUND/sample_error.sh")"
-check "🔴 no cross-referencing \`local\` in any of the three scripts" "" "$SCAN_OUT"
-[[ -n "$SCAN_OUT" ]] && printf '%s\n' "$SCAN_OUT" | sed 's/^/          /'
+SCAN_RC=$?
+# 🔴 THE rc IS THE ASSERTION NOW. The scanner used to exit 0 unconditionally, so a saved `rc=0`
+# said nothing about whether the tree was clean -- a log recording that rc recorded nothing
+# (ruling 22(3)). 0 = scanned and clean, 1 = scanned and FOUND something, 2 = nothing to scan.
+check "🔴 no cross-referencing \`local\` in any of the three scripts (scanner rc)" "0" "$SCAN_RC"
+printf '%s\n' "$SCAN_OUT" | sed 's/^/          /' 
 mkdir -p "$SB/ctl"
 cat > "$SB/ctl/dollar.sh" <<'CTL1'
 f() {
@@ -325,12 +443,17 @@ h() {
     payload=$((frame - 42))
 }
 CTL3
-has   "  positive control: the \$name form is found" "log reads \$ex" \
-      "$(python3 "$SCAN" "$SB/ctl/dollar.sh")"
+DOLLAR_OUT="$(python3 "$SCAN" "$SB/ctl/dollar.sh")"; DOLLAR_RC=$?
+has   "  positive control: the \$name form is found" "log reads \$ex" "$DOLLAR_OUT"
+check "  ... and the scanner exits non-zero for it" "1" "$DOLLAR_RC"
+ARITH_OUT="$(python3 "$SCAN" "$SB/ctl/arith.sh")"; ARITH_RC=$?
 has   "🔴 positive control: the ARITHMETIC form is found (D's scanner misses this one)" \
-      "payload reads \$frame" "$(python3 "$SCAN" "$SB/ctl/arith.sh")"
-check "  negative control: split declarations are not flagged" "" \
-      "$(python3 "$SCAN" "$SB/ctl/ok.sh")"
+      "payload reads \$frame" "$ARITH_OUT"
+check "  ... and the scanner exits non-zero for it too" "1" "$ARITH_RC"
+python3 "$SCAN" "$SB/ctl/ok.sh" >/dev/null 2>&1
+check "  negative control: split declarations are not flagged (rc 0)" "0" "$?"
+python3 "$SCAN" >/dev/null 2>&1
+check "  and nothing to scan is rc 2, not a pass" "2" "$?"
 
 printf '\n%s\n' "passed: $PASS   failed: $FAIL"
 (( FAIL == 0 )) || exit 1

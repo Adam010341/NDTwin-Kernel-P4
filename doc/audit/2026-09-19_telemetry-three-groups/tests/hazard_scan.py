@@ -111,6 +111,16 @@ def scan(paths):
 
 
 if __name__ == "__main__":
-    for row in scan(sys.argv[1:]):
+    # 🔴 EXIT 1 WHEN SOMETHING IS FOUND. This used to `sys.exit(0)` unconditionally, so a saved
+    # `rc=0` carried no information at all -- the scanner exited 0 whether the tree was clean or
+    # full of hazards, and a log that records that rc was recording nothing. (Ruling 22(3).)
+    #   0  scanned, found nothing      1  scanned, FOUND something      2  nothing to scan
+    paths = sys.argv[1:]
+    if not paths:
+        print("hazard_scan.py: give at least one file to scan", file=sys.stderr)
+        sys.exit(2)
+    rows = scan(paths)
+    for row in rows:
         print(row)
-    sys.exit(0)
+    print("# hazard_scan: %d file(s) scanned, %d finding(s)" % (len(paths), len(rows)))
+    sys.exit(1 if rows else 0)
