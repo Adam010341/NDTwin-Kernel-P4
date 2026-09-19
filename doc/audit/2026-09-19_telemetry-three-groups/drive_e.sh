@@ -81,6 +81,10 @@ SE_RATES_PASS2="${SE_RATES_PASS2:-100 20 2}"
 SE_RATES_PASS3="${SE_RATES_PASS3:-2 20 100}"
 CTRL_RATES="${CTRL_RATES:-1 2 3 5 8 12}"    # C3's throwaway ladder: short, the gate is the point
 CTRL_BURNERS="${CTRL_BURNERS:-4}"
+WINDOW_GAP_S="${WINDOW_GAP_S:-3}"   # between sampling-error windows; 0 in the offline test
+FINAL_CLAIM_MINUTES="${FINAL_CLAIM_MINUTES:-10}"   # the last retraction renews by this, not 600
+MEASURING_NOTE="P3-E three-group telemetry round (pps ceiling / sampling error / CPU)"
+CLAIM_NOTE="P3-E three-group telemetry round"
 : "${NDT_OWNER:=p3-E}"
 export NDT_OWNER
 
@@ -222,13 +226,65 @@ restore_host_knob() {
     note "host_count_override put back to the bytes this round found"
 }
 
+# 🔴 `ndt down` REFUSES (rc 5) WHILE THE CLAIM DECLARES A MEASUREMENT, and this driver is what
+# declares one. The first real run proved it: raw/2026-09-19T062206Z_full/90_down.txt is the
+# refusal, not a teardown -- "refusing to tear down: this claim DECLARES a measurement in
+# progress ... when that run is over: ndt claim <mins> to redeclare, or ndt down --force". So
+# the round that was supposed to leave the lab clean left the fabric up.
+#
+# The fix is NOT --force. --force also skips the in_flight process check, which is the reading
+# that can still tell the truth about whether something is running; a script that forces past a
+# guard on every path has removed the guard. The declaration is THIS driver's own statement, and
+# the driver is the one thing that knows when its arms are finished -- so it RETRACTS the
+# statement the way ndt itself suggests (re-claim without NDT_MEASURING), and then runs an
+# ordinary `ndt down` that still refuses if a real process is in flight.
+#
+# If the down still refuses after the retraction, that refusal is about something else and is
+# reported as a failure with the command to run by hand. It is never overridden here.
+declare_measuring() {   # declare_measuring on|off [minutes]
+    local want="$1"
+    # 🔴 THE FINAL RETRACTION MUST NOT RENEW FOR TEN HOURS. `ndt claim` is a renewal as well as
+    # a rewrite, so the last one before the release was extending the lease by CLAIM_MINUTES --
+    # and if that release is then refused, the lab is locked for the whole of it with nobody
+    # running anything. A few minutes is enough to release inside. (Ruling 24(5) candidate.)
+    local minutes="${2:-$CLAIM_MINUTES}"
+    local rc=0
+    if [[ "$want" == on ]]; then
+        NDT_MEASURING="$MEASURING_NOTE" "$NDT" claim "$minutes" "$CLAIM_NOTE" >/dev/null 2>&1
+        rc=$?
+    else
+        # no NDT_MEASURING in this command's environment => the claim is rewritten with the
+        # field empty, which is the retraction.
+        "$NDT" claim "$minutes" "$CLAIM_NOTE (arms finished)" >/dev/null 2>&1
+        rc=$?
+    fi
+    (( rc == 0 )) || bad "could not set measuring=$want on the claim (ndt claim rc=$rc)"
+    return "$rc"
+}
+
+teardown_fabric() {   # teardown_fabric <log path> <label>
+    local log="$1"
+    local label="$2"
+    local rc=0
+    declare_measuring off || true
+    "$NDT" down > "$log" 2>&1
+    rc=$?
+    note "$label: ndt down rc=$rc"
+    if (( rc == 5 )); then
+        bad "$label: 'ndt down' still REFUSED after the measuring declaration was retracted."
+        bad "  That refusal is about something else -- read $log. It is not overridden here."
+        bad "  If you have checked that nothing is running:  NDT_OWNER=$NDT_OWNER $NDT down --force"
+        FAILURES+=("$label: 'ndt down' refused (rc 5) -- see $log; the fabric may still be up")
+    fi
+    return "$rc"
+}
+
 finish() {
     local rc=$?
     trap - EXIT INT TERM
     say "teardown"
     if (( CLAIMED )); then
-        "$NDT" down > "$RUN/90_down.txt" 2>&1
-        note "ndt down rc=$? -> 90_down.txt"
+        teardown_fabric "$RUN/90_down.txt" "final"
         tail -3 "$RUN/90_down.txt" | sed 's/^/     /'
     fi
     # `ndt down` deliberately does not touch telemetry_override (TICKET-P3 2.1), so this does.
@@ -239,9 +295,66 @@ finish() {
             || bad "could NOT remove $TELEMETRY_KNOB -- the next 'ndt up p4' reads it"
     fi
     [[ -e "$APP_KNOB" ]] && bad "app_package_override SURVIVED the teardown -- the next 'ndt up p4' reads it"
-    restore_host_knob || true
+    # 🔴 A FAILED RESTORE IS A FAILURE OF THE ROUND, AND FAILURES IS THE ONLY THING THAT
+    # CATCHES IT. This was `restore_host_knob || true`: the cp can fail (this machine hit ENOSPC
+    # once today), the knob then stays at whatever `ndt up p4 4` wrote, and that is the one value
+    # the next round's `ndt up p4` reads.
+    #
+    # And `cmd_release` CANNOT protect this round, which my round-3 comment got wrong (ruling
+    # 25(2)): finish() calls teardown_fabric "final" FIRST, and that retracts the measurement
+    # with an `ndt claim` -- which runs record_round_baseline and writes host_count from the knob
+    # AS IT IS THEN, i.e. 4, before restore_host_knob has run at all. So by the time the release
+    # compares, the baseline is already 4 whatever happens next. The FAILURES+= below is the
+    # guard. Skipping the second re-claim (further down) is hygiene -- it keeps this round from
+    # re-asserting a baseline it knows is wrong -- not protection.
+    local knob_restored=1
+    restore_host_knob || knob_restored=0
+    if (( ! knob_restored )); then
+        FAILURES+=("final: host_count_override was NOT put back -- it is still $(cat "$HOST_KNOB" 2>/dev/null | tr -d '[:space:]'), and the next 'ndt up p4' reads it")
+    fi
     if (( CLAIMED )); then
-        "$NDT" release 2>&1 | sed 's/^/   /' || bad "'ndt release' did not take -- run it by hand"
+        # 🔴 THE ROUND BASELINE HAS TO BE RE-RECORDED FROM THE RESTORED KNOB, OR THE RELEASE
+        # REFUSES. Every `ndt claim` runs record_round_baseline, which snapshots the knob AS IT
+        # IS AT THAT MOMENT (ndt:844 -> :442-455). This driver re-claims once per generation to
+        # declare and retract `measuring=`, and those claims happen AFTER `ndt up p4 4` has
+        # rewritten the knob to 4 -- so the round's recorded starting point silently becomes 4.
+        # cmd_release then compares that baseline against the knob it finds (ndt:885-894) and,
+        # when this checkout's entry value is not 4, refuses with rc 1 and KEEPS THE CLAIM.
+        #
+        # It is dormant only because the entry value here is also 4. One `git checkout --
+        # p4_proxy/mininet/host_count_override` in the main checkout lights it, and then the
+        # round ends with the lab still claimed. (Ruling 22(2), introduced by last round's fix.)
+        #
+        # One more claim, after the restore, makes the baseline agree with the bytes that are
+        # actually on disk -- which is what the release is entitled to compare against.
+        # Only re-claim when the knob really went back. This is HYGIENE, NOT PROTECTION: the
+        # retraction inside teardown_fabric above has already recorded the baseline from the
+        # pre-restore knob, so cmd_release will compare 4 against 4 either way and pass. What
+        # this avoids is this round asserting, one more time and after it knows better, a
+        # baseline that does not describe the tree it is leaving behind. (Ruling 25(2).)
+        if (( knob_restored )); then
+            declare_measuring off "$FINAL_CLAIM_MINUTES"
+        else
+            bad "not re-claiming: the knob is not back, and a re-claim would make 'ndt release' accept it"
+        fi
+        local release_log="$RUN/95_release.txt"
+        "$NDT" release > "$release_log" 2>&1
+        local release_rc=$?
+        sed 's/^/   /' "$release_log"
+        # 🔴 AND A REFUSAL NOW REACHES THE VERDICT. The old line was
+        #     "$NDT" release 2>&1 | sed 's/^/   /' || bad "'ndt release' did not take ..."
+        # and my first account of why that failed was WRONG, so it is corrected here rather than
+        # quietly dropped: this script runs `set -uo pipefail` (line 49), so the pipeline's
+        # status IS release's, the `||` DID fire, and `bad` DID print `!! 'ndt release' did not
+        # take`. The hole was one line further on -- bad() only prints to stderr:
+        #     bad()  { printf '   !! %s\n' "$*" >&2; }
+        # FAILURES stayed empty, and FAILURES is what decides the verdict. So the round printed
+        # the refusal and called itself a PASS in the same breath, with the claim still on the
+        # lab. (Ruling 22(2) said exactly this; ruling 24(1) corrects my comment about it.)
+        if (( release_rc != 0 )); then
+            bad "'ndt release' refused (rc $release_rc) -- THE LAB IS STILL CLAIMED. Read $release_log."
+            FAILURES+=("final: 'ndt release' refused (rc $release_rc) -- the lab is still claimed; see 95_release.txt")
+        fi
     fi
     printf '\n'
     if (( ${#RESULTS[@]} )); then
@@ -263,14 +376,16 @@ snapshot_host_knob
 trap finish EXIT INT TERM
 
 say "claiming the lab"
-NDT_MEASURING="P3-E three-group telemetry round (pps ceiling / sampling error / CPU)" \
-    "$NDT" claim "$CLAIM_MINUTES" "P3-E three-group telemetry round" 2>&1 | sed 's/^/   /' \
+NDT_MEASURING="$MEASURING_NOTE" \
+    "$NDT" claim "$CLAIM_MINUTES" "$CLAIM_NOTE" 2>&1 | sed 's/^/   /' \
     || die "'ndt claim' would not take. Nothing was started."
 CLAIMED=1
 
 # --- the pieces --------------------------------------------------------------------------
 fabric_up() {   # fabric_up <group> <gen id>
-    local group="$1" gen="$2"
+    local group="$1"
+    local gen="$2"
+    declare_measuring on || true
     say "$gen: ndt up p4 $HOSTS --telemetry $group"
     if ! "$NDT" up p4 "$HOSTS" --telemetry "$group" > "$RUN/$gen/10_up.txt" 2>&1; then
         tail -20 "$RUN/$gen/10_up.txt" | sed 's/^/     /'
@@ -280,15 +395,102 @@ fabric_up() {   # fabric_up <group> <gen id>
     tail -3 "$RUN/$gen/10_up.txt" | sed 's/^/     /'
     note "settling ${FABRIC_SETTLE_S}s"
     sleep "$FABRIC_SETTLE_S"
-    "$NDT" verify_p4 > "$RUN/$gen/11_verify.txt" 2>&1
-    note "ndt verify_p4 rc=$? -> $gen/11_verify.txt"
-    return 0
+    verify_generation "$group" "$gen"
+}
+
+# 🔴 `ndt verify_p4` IS NOT A SUBCOMMAND. It was never one: `ndt`'s dispatch is up/down/status/
+# check/clean/apps/ntg/claim/release, and an unknown word prints the usage text and exits 2. The
+# round's first generation recorded that usage text as its verification (ruling 21(1)), and rc 2
+# went unread because the call was not tested -- a check that cannot fail is not a check.
+#
+# What replaces it is TWO readings, and they are deliberately not given the same authority:
+#
+#   HARD GATE -- `ndt up`'s own [3/3] block, parsed out of 10_up.txt. It is the only thing on
+#     this machine that asserts the telemetry source PER SWITCH at bring-up ("telemetry: none --
+#     0 cooperative, 0 link, 10 none; the proxy agrees switch by switch"), and the group is what
+#     every number in this round is indexed by. Its exact wording is not guessed: it is copied
+#     from the generation that really ran, raw/2026-09-19T062206Z_full/G1/10_up.txt lines 26-29.
+#
+#   RECORDED, NOT GATING -- `ndt status --check`, which IS the standalone re-check that exists
+#     (it compares the live lab against .test_run/up.target: plane, host count, kernel graph,
+#     model sha256; rc 0 match, 1 mismatch, 3 nothing compared). Its rc and its whole report go
+#     into 11_verify.txt and into the log, and rc 3 is written down as "nothing was compared",
+#     never as a pass -- but it does not fail the generation, because I have never seen its
+#     output against a `--telemetry` fabric and turning an unverified expectation into a hard
+#     gate is the exact mistake that produced ruling 21(1) in the first place.
+#
+# The group is proved again per arm and per window from /p4/switch_state (PREREG 2), so this is
+# the generation-level belt to that pair of braces, not the only reading of it.
+verify_generation() {   # verify_generation <group> <gen id>
+    local group="$1"
+    local gen="$2"
+    local up_log="$RUN/$gen/10_up.txt"
+    local out="$RUN/$gen/11_verify.txt"
+    local rc=0
+    local line=""
+
+    {
+        echo "### generation $gen -- the [3/3] block ndt up printed (hard gate)"
+        /usr/bin/grep -nE "^[[:space:]]*(ok|XX)[[:space:]]+(kernel|telemetry|data plane|model)" \
+            "$up_log" 2>/dev/null || echo "(no [3/3] lines found in $up_log)"
+    } > "$out"
+
+    line="$(/usr/bin/grep -oE "ok[[:space:]]+telemetry: [a-z]+ --.*" "$up_log" 2>/dev/null | head -1)"
+    if [[ -z "$line" ]]; then
+        FAILURES+=("$gen: 'ndt up' printed no 'ok telemetry:' line -- the group was never asserted at bring-up")
+        rc=1
+    elif [[ "$line" != *"telemetry: $group --"* ]]; then
+        FAILURES+=("$gen: bring-up asserted a telemetry source that is not '$group': $line")
+        rc=1
+    elif [[ "$line" != *"the proxy agrees switch by switch"* ]]; then
+        FAILURES+=("$gen: bring-up did not say the proxy agrees switch by switch: $line")
+        rc=1
+    else
+        note "$gen: $line"
+    fi
+    /usr/bin/grep -qE "^[[:space:]]*ok[[:space:]]+data plane: .* forwards" "$up_log" 2>/dev/null \
+        || { FAILURES+=("$gen: bring-up did not report the data plane forwarding"); rc=1; }
+
+    # the standalone re-check that really exists -- recorded, never silently believed
+    {
+        echo
+        echo "### ndt status --check   (rc 0 all compared fields match; 1 a mismatch; 3 NOTHING was compared)"
+    } >> "$out"
+    "$NDT" status --check >> "$out" 2>&1
+    local check_rc=$?
+    case "$check_rc" in
+        0) note "$gen: ndt status --check rc=0 (the live lab matches .test_run/up.target)" ;;
+        1)
+            # 🔴 rc 1 IS A VERDICT, AND IT IS ndt's, NOT A GUESS OF MINE. Its own words are
+            # "compared against the last 'ndt up': dataplane, fabric hosts, kernel graph,
+            # topology file" and, when any of those differ, "check: N problem(s)" with the list
+            # (ndt:6468-6475). The problems it can name include a dead data plane, a host count
+            # that is not the one the round asked for, a kernel graph that no longer matches, a
+            # changed model sha256, a DEAD link-telemetry emitter and a stale pipeline -- every
+            # one of which makes this generation's numbers something other than what their group
+            # label says. Ruling 22(1): that cannot sit in the same run as `PASS P3-E`.
+            #
+            # It does NOT skip the generation. The arms still run and still write their raw,
+            # because a cell that was measured under a named problem is evidence about that
+            # problem; what is forbidden is the round calling itself a pass over it. So it goes
+            # into FAILURES (which decides the verdict) and the return value is untouched.
+            bad "$gen: ndt status --check rc=1 -- ndt compared the live lab against .test_run/up.target and found a problem"
+            /usr/bin/grep -E "^[[:space:]]*- " "$out" | tail -8 | sed 's/^/       /' >&2
+            FAILURES+=("$gen: 'ndt status --check' rc=1 -- see $gen/11_verify.txt; the arms of this generation ran under it")
+            ;;
+        3) note "$gen: ⚠️  ndt status --check rc=3 -- NOTHING was compared (no up.target baseline). Not a pass, not a failure." ;;
+        *) note "$gen: ⚠️  ndt status --check rc=$check_rc -- read $gen/11_verify.txt; recorded, not gating." ;;
+    esac
+    echo "status_check_rc=$check_rc" >> "$out"
+    return "$rc"
 }
 
 fabric_down() {   # fabric_down <gen id>
     local gen="$1"
-    "$NDT" down > "$RUN/$gen/99_down.txt" 2>&1
-    note "$gen: ndt down rc=$?"
+    # Between generations the arms really are finished -- the last one returned and the driver
+    # slept -- so retracting the declaration here is true, and it is re-declared at the next
+    # generation's bring-up.
+    teardown_fabric "$RUN/$gen/99_down.txt" "$gen"
     rm -f "$TELEMETRY_KNOB"
     sleep "$SETTLE_S"
 }
@@ -320,7 +522,7 @@ sampling_block() {   # sampling_block <group> <gen id>
                 | tee -a "$RUN/$gen/sampling_error.log"
             local rc="${PIPESTATUS[0]}"
             (( rc == 0 )) || FAILURES+=("$gen: sampling-error window ${group} ${rate}M ${n} is invalid")
-            sleep 3
+            sleep "$WINDOW_GAP_S"
         done
     done
 }
@@ -331,7 +533,19 @@ sampling_block() {   # sampling_block <group> <gen id>
 # packets are bound by per-packet cost and large ones by bandwidth, so one says nothing about
 # the other -- and neither says anything about this machine three weeks later.
 sender_control() {   # sender_control <C1|C2> <frame>
-    local id="$1" frame="$2" payload=$((frame - 42)) out="$RUN/controls/$id"
+    # 🔴 ONE NAME PER `local`, AND NOTHING ON THAT LINE READS ANOTHER OF THEM. This line used to
+    # be `local id="$1" frame="$2" payload=$((frame - 42)) out="$RUN/controls/$id"`, and under
+    # `set -u` that is `frame: unbound variable`: bash expands every right-hand side on a `local`
+    # line BEFORE it assigns any of them, so `frame` is still unset when `$((frame - 42))` reads
+    # it. It killed the round's first generation (ruling 21(2)), and it is the same shape D found
+    # in live-p1/05 and 06 (ruling 9 / 12d). The dry-run could not see it because the dry-run
+    # never enters a generation -- which is why test_drive_e_offline.sh now does.
+    local id="$1"
+    local frame="$2"
+    local payload
+    local out
+    payload=$((frame - 42))
+    out="$RUN/controls/$id"
     mkdir -p "$out"
     say "$id: generator ceiling at ${frame}B frames (h1 -> h1 loopback, not through bmv2)"
     local src_pid rep best=0
