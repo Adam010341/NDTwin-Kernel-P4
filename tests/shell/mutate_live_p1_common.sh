@@ -695,7 +695,7 @@ check_control "C3: a comment above the cell's verdict" c3
 # scores as a SURVIVOR, and correctly: a control that mutated whichever site came first would
 # not be the control anybody wrote.
 cat > "$A/c4.old" <<'EOF'
-    local onpath="$1" integral="$2" label="$3" rc=0 key bits kind
+    local onpath="$1" integral="$2" label="$3" rc=0 key bits kind cls delta
     if [[ ! -s "$onpath" ]]; then
         fail "$label (control): the on-path interface set is EMPTY -- with no traffic measured, 'the twin reports nothing' is true of any twin at all"
 EOF
