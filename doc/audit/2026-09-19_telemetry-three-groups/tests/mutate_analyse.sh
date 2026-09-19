@@ -540,6 +540,58 @@ m=$(mutant m27 "$MANIFEST" \
 report "M-E27: a dot-less option VALUE (--log-dir /var/log/simple_switch_grpc) is taken for the binary" "$m" \
        "test_a_DOT_LESS_option_value_is_still_not_the_binary"
 
+# --- ruling 32: the control arms, the label collision, and the verdict over an unfinished round ---
+# All five of these are defects the fourth campaign's own raw or log showed, not invented ones.
+
+m=$(mutant m28 "$ANALYSE" \
+    '    cells = {}
+    for arm in arms:
+        if arm.get("control"):
+            continue' \
+    '    cells = {}
+    for arm in arms:')
+report "M-E28: C3's throwaway ladders are pooled into the none|1024 cell again" "$m" \
+       "test_the_none_1024_cell_is_the_two_ladder_arms_only"
+
+m=$(mutant m29 "$ANALYSE" \
+    '    by_group = {}
+    for arm in arms:
+        if arm.get("control"):
+            continue
+        if arm["external"] is None or arm["external"] < 0:' \
+    '    by_group = {}
+    for arm in arms:
+        if arm["external"] is None or arm["external"] < 0:')
+report "M-E29: the load gate's own positive control is back in the group median it moves" "$m" \
+       "test_the_none_group_gate_median_counts_the_ladder_arms_only"
+
+# 🔴 THE PRE-FIX RULE, PUT BACK WHERE IT WAS. plot.py:207-213 judged a collision as "closer than
+# 3% of the spread of the end values" and staggered by a fixed +/-9 points. It is written out
+# here rather than approximated, so that what this mutation restores is the code that drew the
+# fourth campaign's figure 3 and not a caricature of it.
+m=$(mutant m30 "$PLOT" \
+    '        final = natural if previous is None else max(natural, previous + label_points)' \
+    '        _span = ordered[-1][0] - ordered[0][0]
+        _collides = index > 0 and (_span == 0 or abs(y - ordered[index - 1][0]) < 0.03 * _span)
+        final = natural + (9.0 if _collides and index % 2 else (-9.0 if _collides else 0.0))')
+report "M-E30: figure 3 judges label collisions as 3% of the end values' spread again" "$m" \
+       "test_three_ends_within_a_label_height_get_three_different_offsets"
+
+m=$(mutant m31 "$DRIVER" \
+    'trap finish EXIT
+trap '"'"'SIGNALLED=INT; finish'"'"' INT
+trap '"'"'SIGNALLED=TERM; finish'"'"' TERM' \
+    'trap finish EXIT INT TERM')
+report_shell "M-E31: the traps stop recording WHICH signal ended the round (the 18:54 shape)" "$m" \
+       "🔴 an interrupted round says it was interrupted, and by which signal"
+
+m=$(mutant m32 "$DRIVER" \
+    '    if (( arms_seen != arms_expected )); then' \
+    '    if false; then')
+report_shell "M-E32: the arm count is no longer compared against the selection" "$m" \
+       "🔴 a round that measured fewer arms than it selected does NOT pass" \
+       "🔴 and the verdict says how many of how many"
+
 # --- the controls: changes that must NOT be caught -------------------------------------------------
 # A suite that goes red on a comment is not sensitive, it is fragile, and a fragile suite gets
 # ignored -- which costs more than the mutations it catches.

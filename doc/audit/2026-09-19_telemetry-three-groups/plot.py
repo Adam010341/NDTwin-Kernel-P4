@@ -36,6 +36,11 @@ import os
 import sys
 
 GROUP_ORDER = ("none", "cooperative", "link")
+#: How much vertical room one end-of-line label needs before the next one touches it. The labels
+#: are drawn at fontsize 9 and matplotlib's line height is 1.2x the font size, so a label owns
+#: about 11 points of the axes. It is a display quantity and it is in display units, which is the
+#: whole of the correction below.
+LABEL_HEIGHT_PT = 11.0
 #: The short words that appear as tick labels. Deliberately shorter than the group names used in
 #: prose: a tick label is read at a glance and has no room for a sentence.
 GROUP_TICK = {"none": "none", "cooperative": "coop", "link": "link"}
@@ -149,6 +154,42 @@ def figure3_data(summary):
             "panels": panels}
 
 
+def end_label_offsets(ends, ylim, height_points, label_points=LABEL_HEIGHT_PT):
+    """[(y, x, name)] -> the same, in y order, each with the offset its label must be drawn at.
+
+    🔴 WHETHER TWO LABELS COLLIDE IS A QUESTION ABOUT THE DISPLAY, NOT ABOUT THE VALUES. This
+    used to ask whether two ends were closer than 3% of the SPREAD OF THE ENDS, which has no
+    relation to the picture: the ends can be spread over a hundredth of the axes (three lines
+    that converge) or over all of it, and 3% of their own spread says the same thing in both
+    cases. Figure 3's bmv2 panel in the fourth campaign is the second case: the three ends are
+    725.92, 725.92 and 764.86 on an axis running from about 27 to 765, so `coop` sits 38.9 units
+    -- about one label height -- above the other two, the old rule called that "far apart" (38.9
+    > 3% of 38.9) and gave it offset 0, while `none` had already been nudged 9 points up into
+    exactly that space. Two names were printed on top of each other and the figure showed one
+    illegible word.
+    So: convert each end to a position on THE AXES, in points, and require a label height
+    between consecutive labels. A label that has been displaced carries its displacement into
+    the next comparison -- the staggering is what created the collision the old rule could not
+    see. Nothing here moves the data; only the text beside it.
+
+    `ylim` is the axes' own (low, high) and `height_points` its height in points, both read from
+    the figure after the layout is fixed. The y axis is linear (only x is logarithmic here), so
+    the conversion is one ratio.
+    """
+    ordered = sorted(ends)
+    low, high = ylim
+    span = float(high) - float(low)
+    scale = (float(height_points) / span) if (span > 0 and height_points > 0) else 0.0
+    placed, previous = [], None
+    for index, (y, x, name) in enumerate(ordered):
+        natural = (y - low) * scale
+        final = natural if previous is None else max(natural, previous + label_points)
+        placed.append({"name": name, "x": x, "y": y, "natural_points": natural,
+                       "display_points": final, "offset": final - natural})
+        previous = final
+    return placed
+
+
 def figure_data(summary):
     return {"fig1_pps_ceiling": figure1_data(summary),
             "fig2_sampling_error": figure2_data(summary),
@@ -192,6 +233,7 @@ def _line_panels(plt, data, out_base):
     figure, axes_list = plt.subplots(1, len(panels), figsize=(4.2 * len(panels), 4.2), sharex=True)
     if len(panels) == 1:
         axes_list = [axes_list]
+    panel_ends = []
     for axes, panel in zip(axes_list, panels):
         ends = []
         for series in panel["series"]:
@@ -200,18 +242,7 @@ def _line_panels(plt, data, out_base):
             axes.plot(xs, ys, marker="o", markersize=3)
             if xs:
                 ends.append((ys[-1], xs[-1], series["name"]))
-        # The series name at the end of its own line, not in a legend block. Two lines that end
-        # at the same value would print their labels on top of each other and the reader would
-        # see one illegible word instead of two names, so colliding labels are staggered by a
-        # fixed offset in POINTS -- which does not move the data, only the text beside it.
-        span = (max(y for y, _x, _n in ends) - min(y for y, _x, _n in ends)) if ends else 0.0
-        previous = None
-        for index, (y, x, name) in enumerate(sorted(ends)):
-            collides = previous is not None and (span == 0 or abs(y - previous) < 0.03 * span)
-            axes.annotate(name, (x, y), textcoords="offset points",
-                          xytext=(5, 9 if collides and index % 2 else (-9 if collides else 0)),
-                          ha="left", va="center", fontsize=9)
-            previous = y
+        panel_ends.append((axes, ends))
         axes.set_title(panel["panel"])
         axes.set_xlabel(data["xlabel"])
         axes.set_xscale("log")
@@ -219,7 +250,19 @@ def _line_panels(plt, data, out_base):
         axes.margins(x=0.22)
     axes_list[0].set_ylabel(data["ylabel"])
     figure.suptitle(data["title"])
+    # 🔴 THE LAYOUT IS FIXED BEFORE THE LABELS ARE PLACED, because where a label goes is decided
+    # in points on the axes and the axes' height is not known until then. tight_layout() moves
+    # the axes; annotate() with an offset in points does not.
     figure.tight_layout()
+    inches = figure.get_size_inches()[1]
+    for axes, ends in panel_ends:
+        # The series name at the end of its own line, not in a legend block. Two lines whose ends
+        # land within a label height of each other on the DISPLAY would print their names on top
+        # of one another, so those labels are staggered -- which moves the text, never the data.
+        height_points = axes.get_position().height * inches * 72.0
+        for label in end_label_offsets(ends, axes.get_ylim(), height_points):
+            axes.annotate(label["name"], (label["x"], label["y"]), textcoords="offset points",
+                          xytext=(5, label["offset"]), ha="left", va="center", fontsize=9)
     for extension in ("png", "pdf"):
         figure.savefig("%s.%s" % (out_base, extension), dpi=160)
     plt.close(figure)

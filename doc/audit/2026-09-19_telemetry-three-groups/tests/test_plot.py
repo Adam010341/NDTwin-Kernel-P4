@@ -149,6 +149,54 @@ class Figure3Test(unittest.TestCase):
         self.assertIn("kpps", self.figure["xlabel"])
 
 
+class Figure3EndLabelTest(unittest.TestCase):
+    """Figure 3's end-of-line labels, against the three values that overprinted.
+
+    🔴 REAL NUMBERS, NOT CHOSEN ONES. These are the bmv2 panel's three end values at 110 kpps in
+    raw/2026-09-19T105759Z_full/summary.json -- `cpu_bmv2.per_group.<group>.110.0.cpu` -- and the
+    panel's lowest plotted value, which is where its axis starts. On that axis `coop` sits 38.9
+    units above the other two: less than one label height, and 33 times more than 3% of the
+    spread of the ends. That is the whole gap between the two rules.
+    """
+    #: cpu_bmv2.per_group.{none,cooperative,link}.110.0.cpu
+    NONE_110 = 725.9226502651313
+    COOP_110 = 764.8565261656065
+    LINK_110 = 725.9201358978246
+    #: the lowest value the same panel plots (link at 1 kpps), i.e. where the axis begins
+    PANEL_LOW = 26.929742535323893
+
+    def ends(self):
+        return [(self.NONE_110, 110.0, "none"), (self.COOP_110, 110.0, "coop"),
+                (self.LINK_110, 110.0, "link")]
+
+    def test_three_ends_within_a_label_height_get_three_different_offsets(self):
+        # The axes height is only known at draw time and depends on the figure's layout, so the
+        # rule has to hold for any plausible height of a 4.2 inch panel rather than for one
+        # number. At every one of these the three labels are inside one label height of each
+        # other, and all three must be readable.
+        for height_points in (160.0, 200.0, 216.0, 260.0):
+            placed = plot.end_label_offsets(self.ends(), (self.PANEL_LOW, self.COOP_110),
+                                            height_points)
+            self.assertEqual([p["name"] for p in placed], ["link", "none", "coop"])
+            offsets = {round(p["offset"], 6) for p in placed}
+            self.assertEqual(len(offsets), 3,
+                             "height %.0f pt: offsets %s" % (height_points, offsets))
+            positions = [p["display_points"] for p in placed]
+            for lower, upper in zip(positions, positions[1:]):
+                self.assertGreaterEqual(
+                    upper - lower, plot.LABEL_HEIGHT_PT - 1e-9,
+                    "height %.0f pt: labels %.2f pt apart" % (height_points, upper - lower))
+
+    def test_ends_that_are_far_apart_on_the_display_are_not_moved_at_all(self):
+        # The control: a rule that staggered everything would be as wrong as one that staggered
+        # nothing. These are the same summary's proxy+emitter ends (2.53 / 19.60 / 50.05) on
+        # their own panel, tens of points apart.
+        ends = [(2.532826735438453, 110.0, "none"), (19.59605387800606, 110.0, "link"),
+                (50.045406725202014, 110.0, "coop")]
+        placed = plot.end_label_offsets(ends, (2.1997066910093843, 50.045406725202014), 216.0)
+        self.assertEqual([p["offset"] for p in placed], [0.0, 0.0, 0.0])
+
+
 class DescribeTest(unittest.TestCase):
     def test_check_mode_prints_every_figure_without_matplotlib(self):
         import io

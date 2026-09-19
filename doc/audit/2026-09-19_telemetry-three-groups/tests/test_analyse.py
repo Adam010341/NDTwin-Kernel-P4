@@ -47,8 +47,37 @@ class CellTableTest(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_every_arm_was_found_and_none_of_them_is_invalid(self):
-        self.assertEqual(len(self.arms), 12)
+        # twelve measurement arms plus C3's two throwaway ladders: fourteen arm.meta files, which
+        # is what a full round really writes (raw/2026-09-19T105759Z_full has exactly these).
+        self.assertEqual(len(self.arms), 14)
         self.assertEqual([a["arm"] for a in self.arms if a["invalid"]], [])
+
+    def test_the_two_C3_throwaway_ladders_are_found_and_tagged_as_controls(self):
+        # 🔴 FOUND, AND TAGGED. Both halves matter: they must be read (they are raw, and an
+        # analysis that skipped a directory would be hiding it) and they must be distinguishable
+        # from a measurement arm, because they declare `group=none frame_bytes=1024` exactly as
+        # one does. Everything else in this file rests on that one bit.
+        self.assertEqual(len(self.arms), 14)
+        self.assertEqual(sorted(a["arm"] for a in self.arms if a.get("control")),
+                         ["c3a_noburn", "c3b_burn"])
+        for arm in self.arms:
+            self.assertIn("control", arm)
+            if arm["arm"].startswith("c3"):
+                continue
+            self.assertFalse(arm["control"], arm["arm"])
+
+    def test_the_none_1024_cell_is_the_two_ladder_arms_only(self):
+        # 🔴 THE DEFECT, AS A NUMBER. The fourth campaign's summary.json read
+        #   "none|1024": n=4, mean=21.0, arms {c3a_noburn: 12, c3b_burn: 12,
+        #                                      none_f1024_a: 30, none_f1024_b: 30}
+        # -- an unresolved cell (rung gap 2), a figure-1 label of `21.0* (12/12/30/30)`, both
+        # 1024 B ratios pushed to H-A0 and reconciliation (a) comparing 21.0 against 16.0.
+        cell = self.cells[("none", 1024)]
+        self.assertEqual(sorted(cell["arms"]), ["none_f1024_a", "none_f1024_b"])
+        self.assertEqual(cell["n"], 2)
+        self.assertAlmostEqual(cell["mean"], 20.0)
+        self.assertTrue(cell["resolved"])
+        self.assertEqual(cell["rung_gap"], 0)
 
     def test_a_cell_whose_arms_are_one_rung_apart_is_resolved(self):
         cell = self.cells[("cooperative", 1024)]
@@ -281,6 +310,26 @@ class LoadGateTest(unittest.TestCase):
         for row in link:
             self.assertAlmostEqual(row["group_median"], 0.30, places=4)
 
+    def test_the_none_group_gate_median_counts_the_ladder_arms_only(self):
+        # 🔴 THE GATE'S POSITIVE CONTROL MOVED THE GATE'S OWN REFERENCE. `c3b_burn` runs four
+        # burners on purpose; in the fourth campaign it sat in the `none` group's row list with
+        # fires=true and pulled that group's median to 0.03665 -- so the threshold every real
+        # `none` arm was judged against had been raised by the arm built to prove the threshold
+        # works. Here the four `none` arms all report 0.0500 and the controls 0.0538 / 0.2262;
+        # pooling gives 0.0519, the ladder arms alone give exactly 0.0500.
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        synthetic.build(tmp.name)
+        arms, _windows, _controls = analyse.walk_raw(tmp.name)
+        rows = analyse.external_gate(arms)
+        none_rows = [r for r in rows if r["group"] == "none"]
+        self.assertEqual(sorted(r["arm"] for r in none_rows),
+                         ["none_f1024_a", "none_f1024_b", "none_f64_a", "none_f64_b"])
+        for row in none_rows:
+            self.assertAlmostEqual(row["group_median"], synthetic.DEFAULT_EXTERNAL["none"],
+                                   places=6)
+        self.assertEqual([r["arm"] for r in rows if r["arm"].startswith("c3")], [])
+
     def test_a_genuinely_foreign_arm_inside_a_group_still_fires(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
@@ -317,6 +366,22 @@ class ReconciliationTest(unittest.TestCase):
         self.assertAlmostEqual(row["ratio"], 20.0 / 16.0)
         self.assertTrue(row["consistent"])
         self.assertIn("NOT a refutation", row["outside_means"])
+
+    def test_a_for_none_is_the_ladder_cell_and_not_C3s_throwaway_ladders(self):
+        # 🔴 WHAT THE POOLING COST AT THE END OF THE PIPE. Reconciliation (a) is the round's
+        # comparison against 08-28's 16.0 kpps, and in the fourth campaign it was handed 21.0 --
+        # the average of two real 30s and two control ladders that stop at 12 by construction.
+        # The number this row divides has to be the cell's, and the cell has two members.
+        row = next(r for r in self.rows("a") if r["group"] == "none")
+        cell = self.summary["cells"]["none|1024"]
+        self.assertEqual(sorted(cell["arms"]), ["none_f1024_a", "none_f1024_b"])
+        self.assertAlmostEqual(row["mine_kpps"], 20.0)
+        self.assertAlmostEqual(row["mine_kpps"], cell["mean"])
+        # and the controls are still in the record -- excluded from the cell, not deleted
+        self.assertEqual(sorted(a["arm"] for a in self.summary["control_arms"]),
+                         ["c3a_noburn", "c3b_burn"])
+        self.assertEqual([a["arm"] for a in self.summary["arms"] if a["arm"].startswith("c3")],
+                         [])
 
     def test_b_compares_the_marginal_slope_against_08_20s_206_microseconds(self):
         row = next(r for r in self.rows("b") if r["group"] == "cooperative")

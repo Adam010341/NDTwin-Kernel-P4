@@ -27,6 +27,12 @@ WHAT IT REFUSES TO DO
   * compare an arm's foreign-CPU residual to the median of ALL arms. The gate is within group,
     because `tc action sample` burns softirq charged to no pid and a global gate would fire on
     the treatment (PREREG 6.2).
+  * put a CONTROL arm into a measurement cell. C3's two throwaway ladders (`controls/C3/
+    c3a_noburn`, `c3b_burn`) are `group=none frame_bytes=1024` like a real arm and they carry a
+    `highest_clean_kpps`, but it is the top of a six-rung ladder that stops at 12 -- an
+    instrument reading about the load gate, not a ceiling. Pooling them into `none|1024` is what
+    the fourth campaign's summary.json did: the cell read `21.0* (12/12/30/30)`, went unresolved,
+    took both 1024 B ratios to H-A0 and handed reconciliation (a) 21.0 to compare against 16.0.
 
 Usage:
     analyse.py --raw <run directory> [--out summary.json]
@@ -120,7 +126,25 @@ def read_tsv(path):
     return [dict(zip(header, line.split("\t"))) for line in lines[1:]]
 
 
-def load_arm(directory):
+def is_control_arm(directory, raw_dir=None):
+    """True when this arm directory lives under the round's `controls/` tree.
+
+    🔴 THE PATH, NOT THE LADDER. Two tests were available for "this arm is a control": the
+    directory (`<run>/controls/C3/<arm>`, where drive_e.sh's gate_control() -- and only
+    gate_control() -- writes), or `ladder_kpps` differing from the registered 13-rung ladder.
+    The path is chosen because it is the ROUND'S OWN FILING of the arm: gate_control() passes
+    `--out $RUN/controls/C3/<arm>` (drive_e.sh:660-665 at this head; the ticket cites :596-600,
+    from before this round added the two verdict guards above it), and nothing else in the
+    driver writes under controls/. The ladder test would answer the same question by the knob the
+    control happens to set (`RATES_KPPS="$CTRL_RATES"`), so a future control that reused the
+    full ladder, or a measurement arm rerun over a shortened one, would each be classified by
+    something that is not what they are. A reading's status is not an inference from its values.
+    """
+    path = os.path.relpath(directory, raw_dir) if raw_dir else directory
+    return "controls" in os.path.normpath(path).split(os.sep)
+
+
+def load_arm(directory, raw_dir=None):
     """One ladder arm: its meta, its ladder, its rung windows and its CPU trace path."""
     meta_path = os.path.join(directory, "arm.meta")
     if not os.path.exists(meta_path):
@@ -130,6 +154,7 @@ def load_arm(directory):
     return {
         "dir": directory,
         "arm": meta.get("arm", os.path.basename(directory)),
+        "control": is_control_arm(directory, raw_dir),
         "group": meta.get("group"),
         "frame": as_int(meta.get("frame_bytes")),
         "clean_kpps": as_float(meta.get("highest_clean_kpps")),
@@ -160,12 +185,18 @@ def load_window(path):
 
 
 def walk_raw(raw_dir):
-    """Every arm and every sampling-error window under a run directory."""
+    """Every arm and every sampling-error window under a run directory.
+
+    Control arms come back in the same list, tagged `control`: they exist, they were measured
+    and they belong in the record -- they simply are not members of a measurement cell. Each
+    consumer below drops them explicitly, so a reader can see where the line is drawn instead of
+    discovering that the list they were handed was already filtered.
+    """
     arms, windows, controls = [], [], {}
     for root, dirs, files in os.walk(raw_dir):
         dirs.sort()
         if "arm.meta" in files:
-            arm = load_arm(root)
+            arm = load_arm(root, raw_dir)
             if arm:
                 arms.append(arm)
         if "window.json" in files:
@@ -199,9 +230,16 @@ def cell_table(arms):
     A cell whose arms are more than ONE ladder rung apart is unresolved: on a x1.5-ish ladder one
     rung IS the instrument's resolution, and averaging two values two rungs apart produces a
     number that no arm measured and that no repeat would reproduce.
+
+    🔴 A CONTROL ARM IS NOT A MEMBER OF A CELL. C3's throwaway ladders declare `group=none
+    frame_bytes=1024` and stop at rung 12 by construction, so pooling them reads their ladder's
+    last rung as a ceiling -- which is how the fourth campaign got `none|1024 = 21.0*
+    (12/12/30/30)`, an unresolved cell, two H-A0 ratios and a reconciliation against 21.0.
     """
     cells = {}
     for arm in arms:
+        if arm.get("control"):
+            continue
         if arm["invalid"] or arm["group"] not in GROUPS or arm["frame"] is None:
             continue
         cells.setdefault((arm["group"], arm["frame"]), []).append(arm)
@@ -238,7 +276,10 @@ def ratio_verdict(ratio):
 
 
 def ceiling_comparisons(cells):
-    """Each treated cell against the `none` cell at the same frame size."""
+    """Each treated cell against the `none` cell at the same frame size.
+
+    It reads cells, never arms, so the control arms cell_table() dropped cannot reach a ratio.
+    """
     out = []
     frames = sorted({frame for (_group, frame) in cells})
     for frame in frames:
@@ -555,9 +596,15 @@ def fit_fixed_and_marginal(points):
 
 
 def cpu_comparison(arms, frame=1024, label="kernel"):
-    """Delta<label>(group - none) at every rung both groups measured, plus the (F, m) fit."""
+    """Delta<label>(group - none) at every rung both groups measured, plus the (F, m) fit.
+
+    Control arms are excluded here too: `c3b_burn` runs four CPU burners, so a fit that included
+    it would be reading the burners' cost as the telemetry's.
+    """
     by_group = {}
     for arm in arms:
+        if arm.get("control"):
+            continue
         if arm["invalid"] or arm["frame"] != frame or arm["group"] not in GROUPS:
             continue
         by_group.setdefault(arm["group"], []).append(arm)
@@ -628,9 +675,18 @@ def cpu_verdict(fit):
 # --- the load gate, within group ---------------------------------------------------------------
 
 def external_gate(arms):
-    """PREREG 6.2: an arm fires when its external exceeds ITS OWN GROUP's median by > 0.15."""
+    """PREREG 6.2: an arm fires when its external exceeds ITS OWN GROUP's median by > 0.15.
+
+    🔴 THE GATE'S OWN POSITIVE CONTROL IS NOT ONE OF THE ARMS IT GATES. `c3b_burn` runs four CPU
+    burners ON PURPOSE so the gate can be seen to fire; it belongs to C3's row in section 1, and
+    its 0.2262 dragged the `none` group's reference to 0.03665 in the fourth campaign -- the
+    control moving the threshold it was built to validate. `c3a_noburn` is its paired baseline
+    and leaves the same way. Both are reported under `control_arms`, with C3's own verdict.
+    """
     by_group = {}
     for arm in arms:
+        if arm.get("control"):
+            continue
         if arm["external"] is None or arm["external"] < 0:
             continue
         by_group.setdefault(arm["group"], []).append(arm)
@@ -735,7 +791,12 @@ def reconcile(cells, cpu, controls):
 # --- putting it together -----------------------------------------------------------------------
 
 def analyse(raw_dir):
-    arms, windows, controls = walk_raw(raw_dir)
+    all_arms, windows, controls = walk_raw(raw_dir)
+    # 🔴 ONE SPLIT, MADE ONCE AND NAMED. Everything below this line that says `arms` means the
+    # measurement arms; the control arms keep their own key in the summary so that nothing about
+    # them is lost -- they are simply not cell members, gate rows, fit points or summands.
+    arms = [a for a in all_arms if not a.get("control")]
+    control_arms = [a for a in all_arms if a.get("control")]
     cells = cell_table(arms)
     emitter = {}
     for arm in arms:
@@ -754,7 +815,12 @@ def analyse(raw_dir):
         "raw": os.path.abspath(raw_dir),
         "arms": [{k: v for k, v in arm.items() if k not in ("ladder", "rungs", "meta")}
                  for arm in arms],
-        "invalid_arms": [{"arm": a["arm"], "reason": a["invalid"]} for a in arms if a["invalid"]],
+        # the controls, in full and on their own. They are evidence about the instrument, and
+        # the reader has to be able to see what they measured without finding it inside a cell.
+        "control_arms": [{k: v for k, v in arm.items() if k not in ("ladder", "rungs", "meta")}
+                         for arm in control_arms],
+        "invalid_arms": [{"arm": a["arm"], "reason": a["invalid"]}
+                         for a in all_arms if a["invalid"]],
         "cells": {"%s|%s" % key: value for key, value in cells.items()},
         "ceiling": ceiling_comparisons(cells),
         "sampling_error": sampling,
@@ -765,7 +831,9 @@ def analyse(raw_dir):
         "external_gate": external_gate(arms),
         "controls": controls,
         "reconciliation": reconcile(cells, cpu, controls),
-        "binaries": sorted({(a["kernel_sha"] or "?")[:12] for a in arms}),
+        # the binaries are an IDENTIFICATION, not a sum, so every arm that ran is named --
+        # including the controls, which ran on the same kernel and should be seen to have.
+        "binaries": sorted({(a["kernel_sha"] or "?")[:12] for a in all_arms}),
         "families": {a["arm"]: a["families"] for a in arms if a["families"]},
     }
     return summary
@@ -779,6 +847,12 @@ def render(summary, stream=sys.stdout):
         write("  %-28s %-12s %-6s clean=%-8s external=%-8s %s\n"
               % (arm["arm"], arm["group"], arm["frame"], arm["clean_kpps"], arm["external"],
                  "INVALID: %s" % arm["invalid"] if arm["invalid"] else ""))
+    if summary.get("control_arms"):
+        write("=== control arms (NOT in any cell, NOT in the gate, NOT in a fit)\n")
+        for arm in summary["control_arms"]:
+            write("  %-28s %-12s %-6s clean=%-8s external=%-8s %s\n"
+                  % (arm["arm"], arm["group"], arm["frame"], arm["clean_kpps"], arm["external"],
+                     "INVALID: %s" % arm["invalid"] if arm["invalid"] else ""))
     write("\n=== (1) pps ceiling, against the none cell at the same frame\n")
     for row in summary["ceiling"]:
         write("  %-12s %5sB  cell=%-8s none=%-8s ratio=%-8s %s%s\n"

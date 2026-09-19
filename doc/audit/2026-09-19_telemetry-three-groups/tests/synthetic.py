@@ -21,6 +21,10 @@ are chosen so that each registered branch of PREREG is exercised by at least one
     CPU          Delta(coop - none) = 5.0 + 0.0206 * samples_per_s              -> H-C1 (206 us)
     gate         link's external is 0.30 against the other groups' 0.05         -> within-group
                                                                                    it does NOT fire
+    controls     controls/C3/{c3a_noburn,c3b_burn}: group none, 1024 B, the
+                 six-rung throwaway ladder, clean=12, external 0.0538 / 0.2262  -> tagged
+                                                                                   `control`,
+                                                                                   in NO cell
 
 Nothing here imports analyse.py: a fixture that borrowed the code under test would agree with it
 by construction.
@@ -30,6 +34,16 @@ import os
 
 CLK_TCK = 100
 LADDER = [1, 8, 20]
+#: C3's throwaway ladder, exactly the one drive_e.sh registers as CTRL_RATES (`drive_e.sh:90`)
+#: and hands to run_group_arm.sh at `drive_e.sh:660-665`. It STOPS at 12 by construction, so the
+#: `highest_clean_kpps=12` those two arms report is the top of the ladder, not a ceiling.
+CTRL_LADDER = [1, 2, 3, 5, 8, 12]
+CTRL_BURNERS = 4
+#: The two externals of the real control, from raw/2026-09-19T105759Z_full/controls/C3/
+#: {c3a_noburn,c3b_burn}/arm.meta. The step of +0.1724 is what makes the gate fire, which is the
+#: whole purpose of the pair -- and the reason neither belongs in the gate's own reference.
+C3_EXTERNAL_NOBURN = 0.0538
+C3_EXTERNAL_BURN = 0.2262
 #: The four inter-switch interfaces h1 -> h4 crosses on the 4-host model (s1 -> agg -> core ->
 #: agg -> s4). Written out because the window's own key set is what drives the shot-noise
 #: prediction, and a test that left it implicit would not notice the prediction changing.
@@ -101,10 +115,15 @@ def _sflow_document(addressed, families=True):
 
 
 def write_arm(root, group, frame, pass_label, clean_kpps, external=None, softirq=None,
-              kernel_spread=0.0, invalid=None, ladder=None):
-    """One ladder arm directory, exactly as run_group_arm.sh writes one."""
+              kernel_spread=0.0, invalid=None, ladder=None, arm_name=None, burners=0):
+    """One ladder arm directory, exactly as run_group_arm.sh writes one.
+
+    `arm_name` and `burners` exist for C3's two throwaway ladders, which run_group_arm.sh writes
+    with exactly this code path -- the driver only passes it a different `--arm`, a different
+    `--out` and `BURNERS=` (drive_e.sh:660-665).
+    """
     ladder = LADDER if ladder is None else ladder
-    arm = "%s_f%d_%s" % (group, frame, pass_label)
+    arm = arm_name or ("%s_f%d_%s" % (group, frame, pass_label))
     directory = os.path.join(root, arm)
     external = DEFAULT_EXTERNAL[group] if external is None else external
     softirq = DEFAULT_SOFTIRQ[group] if softirq is None else softirq
@@ -187,7 +206,8 @@ def write_arm(root, group, frame, pass_label, clean_kpps, external=None, softirq
         "pipeline_json_sha256=" + "c" * 64,
         "switch_count_manifest=10", "kernel_pid=11", "proxy_pid=12",
         "emitter_pid=%s" % ("13" if group == "link" else "none"),
-        "burners=0", "telemetry_sources=" + ",".join("%d:%s" % (d, group) for d in range(1, 11)),
+        "burners=%d" % burners,
+        "telemetry_sources=" + ",".join("%d:%s" % (d, group) for d in range(1, 11)),
         "group_mismatch=none", "ladder_truncated_at=not-truncated",
         "highest_clean_kpps=%d" % clean_kpps,
         "kernel_sha256_end=" + "a" * 64,
@@ -297,6 +317,23 @@ def build(root, cells=None, coop_error=0.045, link_error=0.150, emitter_dropped=
                   reps_pps="%s %s %s" % (c1_ceiling, c1_ceiling - 900, c1_ceiling + 900))
     write_control(root, "C2", frame_bytes=1024, payload_bytes=982, ceiling_pps=c2_ceiling,
                   reps_pps="%s %s %s" % (c2_ceiling, c2_ceiling - 900, c2_ceiling + 900))
-    write_control(root, "C3", burners=4, external_without_burners=0.0178,
-                  external_with_burners=0.2959, threshold="+0.15 absolute", verdict="FIRES")
+    # 🔴 C3'S TWO THROWAWAY LADDERS, WHERE AND AS THE DRIVER WRITES THEM. They were missing
+    # until now, and that absence is why nothing could see analyse.py pooling them into
+    # `none|1024`: the fixture disagreed with the raw about what a run directory contains, so
+    # the suite was asserting about a tree the round never produces. Same family as M-E10 and
+    # ruling 27's string `argv` -- a fixture shaped like the code's assumption proves nothing.
+    # gate_control() (drive_e.sh:656-666) runs run_group_arm.sh twice with `--group none
+    # --frame 1024`, `RATES_KPPS="1 2 3 5 8 12"` and BURNERS 0 then 4, into
+    # <run>/controls/C3/<arm>. Every value below is from the real pair in
+    # raw/2026-09-19T105759Z_full/controls/C3/*/arm.meta.
+    c3_root = os.path.join(root, "controls", "C3")
+    for arm_name, burners, external in (("c3a_noburn", 0, C3_EXTERNAL_NOBURN),
+                                        ("c3b_burn", CTRL_BURNERS, C3_EXTERNAL_BURN)):
+        write_arm(c3_root, "none", 1024, "a", CTRL_LADDER[-1], external=external,
+                  ladder=CTRL_LADDER, arm_name=arm_name, burners=burners)
+    write_control(root, "C3", burners=CTRL_BURNERS,
+                  ladder=" ".join(str(k) for k in CTRL_LADDER),
+                  external_without_burners=C3_EXTERNAL_NOBURN,
+                  external_with_burners=C3_EXTERNAL_BURN,
+                  threshold="+0.15 absolute", verdict="FIRES")
     return root

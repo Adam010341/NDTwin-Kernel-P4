@@ -211,6 +211,15 @@ while (( $# )); do
     esac
 done
 mkdir -p "$OUT"
+# STUB_ARM_SLEEP makes an arm take long enough that a signal can be delivered WHILE the round is
+# inside one, which is the only way to test an interrupted round without a race. STUB_ARM_SKIP
+# names arms that produce no arm.meta at all -- an arm that did not happen, the shape a round
+# ends up in when something eats one.
+[[ -n "${STUB_ARM_SLEEP:-}" ]] && sleep "$STUB_ARM_SLEEP"
+if [[ ",${STUB_ARM_SKIP:-}," == *",$ARM,"* ]]; then
+    echo "### stub arm $ARM left no reading behind"
+    exit 0
+fi
 EXT=0.0500
 [[ "$ARM" == c3a_noburn ]] && EXT=0.0178
 [[ "$ARM" == c3b_burn ]]   && EXT=0.2959
@@ -376,6 +385,50 @@ hasnt "🔴 a refused release means the round does NOT pass" "PASS P3-E" "$OUT11
 has   "  and it says the lab is still claimed" "THE LAB IS STILL CLAIMED" "$OUT11"
 has   "  in the failure list, not only on the way past" \
       "final: 'ndt release' refused (rc 1)" "$OUT11"
+
+printf '\n=== 6g. ruling 32(3): a round that was CUT DOWN does not print PASS over what it never measured\n'
+# 🔴 THE THIRD CAMPAIGN START, AS A CELL. It was stopped with SIGTERM before a single arm
+# existed and its last line was `PASS P3-E -- every selected arm produced a reading`
+# (scratch/overnight-2026-09-05/logs/orchestrator-0919/drive_e-1854.log:67), because FAILURES was
+# empty -- nothing had gone wrong, nothing had happened at all. The signal is delivered for real
+# here, to a real background round, in the middle of a real arm: STUB_ARM_SLEEP holds the arm
+# open long enough that the kill lands inside it rather than in a gap between commands.
+SB14="$SB/interrupted"; build_sandbox "$SB14" "$REAL_DRIVER"
+OUT14_FILE="$SB14/round.out"
+( cd "$SB14/round" && exec env PATH="$SB14/bin:$PATH" NDT_REPO="$SB14/repo" \
+    NDT_OWNER=p3-E-offline LT_MANIFEST="$SB14/repo/no-such-link-manifest.json" \
+    FABRIC_SETTLE_S=0 SETTLE_S=0 WINDOW_GAP_S=0 CTRL_RATES="1 2" CLAIM_MINUTES=5 \
+    STUB_ARM_SLEEP=2 ./drive_e.sh ) > "$OUT14_FILE" 2>&1 &
+DRIVER_PID=$!
+# 🔴 ITS OWN CHILD'S PID, NEVER A PATTERN. `pkill -f`/`pgrep -f` are forbidden project-wide and
+# would be wrong here anyway: this waits for the round to reach its first ladder arm and signals
+# the one process it started.
+for _ in $(seq 1 200); do
+    /usr/bin/grep -q 'ladder arm none_f64_a' "$OUT14_FILE" 2>/dev/null && break
+    sleep 0.1
+done
+kill -TERM "$DRIVER_PID" 2>/dev/null
+wait "$DRIVER_PID"; RC14=$?
+OUT14="$(cat "$OUT14_FILE" 2>/dev/null)"
+hasnt "🔴 an interrupted round does NOT print PASS" "PASS P3-E" "$OUT14"
+has   "🔴 an interrupted round says it was interrupted, and by which signal" \
+      "INTERRUPTED (SIGTERM)" "$OUT14"
+has   "  and it says how many arms of the selection it had measured" \
+      "arms produced a reading" "$OUT14"
+check "  and it exits 1, not 0" "1" "$RC14"
+has   "  the teardown still ran (the lab is given back on the signal path too)" "teardown" "$OUT14"
+
+printf '\n=== 6h. ruling 32(3): fewer arms than the selection is not a PASS either\n'
+# The same hole without a signal: every generation runs, nothing reports a failure, and one arm
+# simply never writes a reading. FAILURES stays empty and the old verdict is a PASS over 13 arms
+# of 14 -- "every selected arm produced a reading" said about an arm that produced nothing.
+SB15="$SB/short-round"; build_sandbox "$SB15" "$REAL_DRIVER"
+OUT15="$(run_driver "$SB15" STUB_ARM_SKIP=none_f1024_b)"; RC15=$?
+check "  the round really is one arm short (13 readings on disk, not 14)" "13" \
+      "$(find "$SB15/round/raw" -name arm.meta 2>/dev/null | wc -l)"
+hasnt "🔴 a round that measured fewer arms than it selected does NOT pass" "PASS P3-E" "$OUT15"
+has   "🔴 and the verdict says how many of how many" "13 of 14 arms produced a reading" "$OUT15"
+check "  and it exits 1, not 0" "1" "$RC15"
 
 if [[ -n "${E_DRIVER:-}" ]]; then
 printf '\n=== 7. pre-fix controls SKIPPED -- E_DRIVER is set, so the driver under test is already old\n'
