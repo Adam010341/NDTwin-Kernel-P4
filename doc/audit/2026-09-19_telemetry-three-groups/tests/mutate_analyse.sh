@@ -30,6 +30,7 @@ REPO="$(cd "$ROUND/../../.." && pwd)"
 ANALYSE="$ROUND/analyse.py"
 PLOT="$ROUND/plot.py"
 DRIVER="$ROUND/drive_e.sh"
+SCANNER="$HERE/hazard_scan.py"
 
 # The interpreter. A git worktree has no venv of its own (p4_proxy/venv/ is gitignored and lives
 # in the main checkout), so the main worktree is consulted before giving up -- asked of git
@@ -48,7 +49,14 @@ done
     echo "        get to exit 0." >&2
     exit 2
 }
-echo "interpreter: $PY"
+# 🔴 THE SAME HEADER EVERY OTHER LOG IN THIS ROUND CARRIES (ruling 24(5)). A gate log that
+# does not say which tree and which head it ran against is a number without a subject.
+printf '### mutation gate -- doc/audit/2026-09-19_telemetry-three-groups\n'
+printf '# tree:        %s\n' "$ROUND"
+printf '# head:        %s\n' "$(git -C "$ROUND" rev-parse HEAD 2>/dev/null || echo '?')"
+printf '# when:        %s\n' "$(date -u '+%F %T UTC')"
+printf '# interpreter: %s\n' "$PY"
+printf '###\n'
 
 BK="$(mktemp -d "${TMPDIR:-/tmp}/ndt-e-mutate-XXXXXX")"
 trap 'rm -rf "$BK"' EXIT
@@ -61,6 +69,7 @@ BASE_SYNTH="$(sha256sum "$HERE/synthetic.py" | cut -d' ' -f1)"
 
 SURVIVORS=0
 MUTATIONS=0
+DRIFTS=0
 
 copy_tree() {   # copy_tree <destination>
     local d="$1"
@@ -95,11 +104,29 @@ count = source.count(anchor)
 assert count == 1, "anchor is not unique (%d hits): %s" % (count, anchor[:70])
 open(path, "w").write(source.replace(anchor, replacement))
 PY
+    local apply_rc=$?
+    # 🔴 AN ANCHOR THAT NO LONGER MATCHES IS NOT A SURVIVOR. The apply step asserts the
+    # anchor occurs exactly once; when a later edit reworded the target, that assert fails, the
+    # copy is left UNMUTATED, and the suite then passes -- which this gate used to print as
+    # "SURVIVED", i.e. as evidence about a test. It is the opposite: no mutation was made, so
+    # there is no verdict to give. Measured here on 2026-09-19: M-E21's anchor drifted when
+    # round 3 rewrote the release block, and the gate reported a survivor that never existed.
+    # (Ruling 24(5) candidate, taken because it produced a wrong verdict in this round's own run.)
+    if (( apply_rc != 0 )); then
+        echo "DRIFT"
+        return 3
+    fi
     echo "$d"
 }
 
 report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must go red
     local out rc
+    if [[ "$2" == DRIFT ]]; then
+        DRIFTS=$((DRIFTS + 1))
+        printf '  🔴 DRIFT  %-72s (its anchor no longer matches -- NO mutation was made,\n' "$1"
+        printf '                   %-72s  so this is not a verdict about the tests)\n' ""
+        return
+    fi
     MUTATIONS=$((MUTATIONS + 1))
     out="$(run_against "$2")"; rc=$?
     # 🔴 A SUITE THAT DID NOT FINISH IS NOT A VERDICT, in either direction. `timeout 300` returns
@@ -121,21 +148,71 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = the test case that must
 
 # The shell half of the gate. A mutation to drive_e.sh cannot be caught by a python unittest, so
 # it is run against tests/test_drive_e_offline.sh -- the one that drives a whole round offline.
-report_shell() {   # $1 = mutation name, $2 = mutant dir, $3 = the cell text that must go red
-    local out rc
+# mutant_tests -- same as mutant(), for a file that lives in tests/ rather than beside the
+# round's scripts. The destination path matters: copy_tree puts tests/*.py under tests/.
+mutant_tests() {   # $1 = label, $2 = file under tests/, $3 = anchor, $4 = replacement
+    local label="$1"
+    local file="$2"
+    local old="$3"
+    local new="$4"
+    local d="$BK/$label"
+    copy_tree "$d"
+    "$PY" - "$d/tests/$(basename "$file")" "$old" "$new" <<'PYMT'
+import sys
+path, anchor, replacement = sys.argv[1], sys.argv[2], sys.argv[3]
+source = open(path).read()
+count = source.count(anchor)
+assert count == 1, "anchor is not unique (%d hits): %s" % (count, anchor[:70])
+open(path, "w").write(source.replace(anchor, replacement))
+PYMT
+    local apply_rc=$?
+    # 🔴 AN ANCHOR THAT NO LONGER MATCHES IS NOT A SURVIVOR. The apply step asserts the
+    # anchor occurs exactly once; when a later edit reworded the target, that assert fails, the
+    # copy is left UNMUTATED, and the suite then passes -- which this gate used to print as
+    # "SURVIVED", i.e. as evidence about a test. It is the opposite: no mutation was made, so
+    # there is no verdict to give. Measured here on 2026-09-19: M-E21's anchor drifted when
+    # round 3 rewrote the release block, and the gate reported a survivor that never existed.
+    # (Ruling 24(5) candidate, taken because it produced a wrong verdict in this round's own run.)
+    if (( apply_rc != 0 )); then
+        echo "DRIFT"
+        return 3
+    fi
+    echo "$d"
+}
+
+report_shell() {   # $1 = mutation name, $2 = mutant dir, $3.. = EVERY cell that must go red
+    local name="$1"
+    local dir="$2"
+    shift 2
+    local out rc missing=""
+    if [[ "$dir" == DRIFT ]]; then
+        DRIFTS=$((DRIFTS + 1))
+        printf '  🔴 DRIFT  %-72s (its anchor no longer matches -- NO mutation was made,\n' "$name"
+        printf '                   %-72s  so this is not a verdict about the tests)\n' ""
+        return
+    fi
     MUTATIONS=$((MUTATIONS + 1))
-    out="$( cd "$2" && PYTHONDONTWRITEBYTECODE=1 timeout 900 ./tests/test_drive_e_offline.sh 2>&1 )"
+    out="$( cd "$dir" && PYTHONDONTWRITEBYTECODE=1 timeout 900 ./tests/test_drive_e_offline.sh 2>&1 )"
     rc=$?
     if [[ "$rc" -eq 124 ]]; then
         SURVIVORS=$((SURVIVORS + 1))
-        printf '  🔴 HUNG   %-72s (the offline round never finished -- never a catch)\n' "$1"
+        printf '  🔴 HUNG   %-72s (the offline round never finished -- never a catch)\n' "$name"
         return
     fi
-    if [[ "$rc" -ne 0 ]] && /usr/bin/grep -qF "  FAIL  $3" <<<"$out"; then
-        printf '  caught   %-72s (%s went red)\n' "$1" "$3"
+    # 🔴 ALL of them, not any of them. Ruling 22(2) asked for M-E19 to be killed by
+    # BEHAVIOUR rather than by an assertion about the call log, and the honest way to record that
+    # is to require both: the behavioural cell proves the mutation changes what the round DOES,
+    # the call-log cell says which call it changed. (Ruling 24(2).)
+    local cell
+    for cell in "$@"; do
+        /usr/bin/grep -qF "  FAIL  $cell" <<<"$out" || missing="$missing
+             still green: $cell"
+    done
+    if [[ "$rc" -ne 0 && -z "$missing" ]]; then
+        printf '  caught   %-72s (%d cell(s) went red)\n' "$name" "$#"
     else
         SURVIVORS=$((SURVIVORS + 1))
-        printf '  SURVIVED %-72s (%s stayed green -- that cell proves nothing)\n' "$1" "$3"
+        printf '  SURVIVED %-72s%s\n' "$name" "$missing"
         /usr/bin/grep -E '^(  FAIL|passed:)' <<<"$out" | sed 's/^/             /'
     fi
 }
@@ -303,6 +380,7 @@ m=$(mutant m19 "$DRIVER" \
     "$NDT" down > "$log" 2>&1' \
     '    "$NDT" down > "$log" 2>&1')
 report_shell "M-E19: the teardown stops retracting measuring= (ndt down then refuses, rc 5)" "$m" \
+       "  it reached its own verdict, and it is a PASS" \
        "🔴 every teardown is preceded by a claim that retracts measuring="
 
 m=$(mutant m20 "$DRIVER" \
@@ -313,9 +391,12 @@ report_shell "M-E20: a status --check rc 1 goes back to being a note, so PASS ca
        "🔴 a generation whose status --check said rc 1 does NOT end in PASS"
 
 m=$(mutant m21 "$DRIVER" \
-    '        declare_measuring off || true
-        local release_log="$RUN/95_release.txt"' \
-    '        local release_log="$RUN/95_release.txt"')
+    '        if (( knob_restored )); then
+            declare_measuring off "$FINAL_CLAIM_MINUTES"
+        else' \
+    '        if false; then
+            declare_measuring off "$FINAL_CLAIM_MINUTES"
+        else')
 report_shell "M-E21: the final re-claim is dropped, so the release compares against a stale baseline" "$m" \
        "🔴 the release is not refused, so the lab is actually given back"
 
@@ -324,6 +405,30 @@ m=$(mutant m22 "$DRIVER" \
     '            :')
 report_shell "M-E22: a refused release is printed but never reaches the verdict" "$m" \
        "🔴 a refused release means the round does NOT pass"
+
+m=$(mutant m23 "$DRIVER" \
+    '    local knob_restored=1
+    restore_host_knob || knob_restored=0' \
+    '    local knob_restored=1
+    restore_host_knob || true')
+report_shell "M-E23: a failed knob restore goes back to being swallowed by || true" "$m" \
+       "🔴 a round whose knob did not go back does NOT pass"
+
+m=$(mutant m24 "$DRIVER" \
+    '        if (( knob_restored )); then
+            declare_measuring off "$FINAL_CLAIM_MINUTES"' \
+    '        if true; then
+            declare_measuring off "$FINAL_CLAIM_MINUTES"')
+report_shell "M-E24: the round re-claims even when the knob is not back (release guard vacuous)" "$m" \
+       "🔴 and it does NOT re-claim over the top of it"
+
+m=$(mutant_tests m25 "$SCANNER" \
+    '    if could_not_read:
+        sys.exit(2)' \
+    '    if False:
+        sys.exit(2)')
+report_shell "M-E25: an unreadable path is counted as a clean scan (rc 0)" "$m" \
+       "🔴 a path that cannot be read is rc 2, not rc 0"
 
 # --- the controls: changes that must NOT be caught -------------------------------------------------
 # A suite that goes red on a comment is not sensitive, it is fragile, and a fragile suite gets
@@ -354,6 +459,16 @@ for pair in "$ANALYSE:$BASE_ANALYSE" "$PLOT:$BASE_PLOT" \
 done
 
 echo
-echo "mutations: $MUTATIONS   survivors: $SURVIVORS"
-(( SURVIVORS == 0 )) || exit 1
-exit 0
+echo "mutations: $MUTATIONS   survivors: $SURVIVORS   drifted: $DRIFTS"
+if (( DRIFTS > 0 )); then
+    echo "🔴 REFUSING A VERDICT: $DRIFTS mutation(s) could not be applied at all. Fix their"
+    echo "   anchors and run this again -- a gate that did not mutate has not tested anything."
+    printf '\n### rc=2\n'
+    exit 2
+fi
+if (( SURVIVORS == 0 )); then
+    printf '\n### rc=0\n'
+    exit 0
+fi
+printf '\n### rc=1\n'
+exit 1

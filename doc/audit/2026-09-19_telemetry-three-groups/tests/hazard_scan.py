@@ -85,12 +85,23 @@ def names_read(value):
     return read
 
 
-def scan(paths):
+def scan(paths, unreadable=None):
+    """Findings for every path that could be READ. Paths that could not are appended to
+    `unreadable` -- never silently counted as scanned.
+
+    🔴 This used to `except OSError: continue`, which made a path that does not exist
+    indistinguishable from a clean one: `hazard_scan.py /nonexistent.sh` printed "1 file(s)
+    scanned, 0 finding(s)" and exited 0, while the contract in this file's own header says 0
+    means scanned and clean. A sweep that silently skipped a file cannot support "found
+    nothing" -- that is the same error as reporting an absent counter as a zero. (Ruling 24(4).)
+    """
     findings = []
     for path in paths:
         try:
             lines = open(path, errors="replace").read().splitlines()
-        except OSError:
+        except OSError as exc:
+            if unreadable is not None:
+                unreadable.append("%s (%s)" % (path, exc.strerror or exc))
             continue
         for number, line in enumerate(lines, 1):
             match = re.match(r"\s*local\s+(.*)$", line)
@@ -114,13 +125,23 @@ if __name__ == "__main__":
     # 🔴 EXIT 1 WHEN SOMETHING IS FOUND. This used to `sys.exit(0)` unconditionally, so a saved
     # `rc=0` carried no information at all -- the scanner exited 0 whether the tree was clean or
     # full of hazards, and a log that records that rc was recording nothing. (Ruling 22(3).)
-    #   0  scanned, found nothing      1  scanned, FOUND something      2  nothing to scan
+    #   0  every file scanned, found nothing
+    #   1  every file scanned, FOUND something
+    #   2  the sweep is incomplete: nothing to scan, or a path that could not be read
     paths = sys.argv[1:]
     if not paths:
         print("hazard_scan.py: give at least one file to scan", file=sys.stderr)
         sys.exit(2)
-    rows = scan(paths)
+    could_not_read = []
+    rows = scan(paths, could_not_read)
     for row in rows:
         print(row)
-    print("# hazard_scan: %d file(s) scanned, %d finding(s)" % (len(paths), len(rows)))
+    for name in could_not_read:
+        print("COULD NOT READ %s" % name, file=sys.stderr)
+    print("# hazard_scan: %d file(s) given, %d scanned, %d unreadable, %d finding(s)"
+          % (len(paths), len(paths) - len(could_not_read), len(could_not_read), len(rows)))
+    # 🔴 "could not scan" OUTRANKS "found something", because an incomplete sweep cannot support
+    # either verdict about the files it never opened.
+    if could_not_read:
+        sys.exit(2)
     sys.exit(1 if rows else 0)

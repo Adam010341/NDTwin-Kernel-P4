@@ -236,7 +236,21 @@ SEEOF
     # is REACHED rather than skipped -- being reached is the whole point of cell B.
     printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/bin/sudo"
     printf '#!/usr/bin/env bash\necho "  12345 mininet:h1"\n' > "$dir/bin/ps"
-    chmod +x "$dir/bin/sudo" "$dir/bin/ps"
+    # 🔴 A `cp` THAT FAILS ONLY ON THE KNOB RESTORE. NDT_BREAK_RESTORE=1 makes
+    # `cp -p <entry copy> <host_count_override>` fail the way a full disk would (this machine hit
+    # ENOSPC once today), and leaves every other cp -- including the driver's own snapshot of the
+    # entry bytes, whose destination is the .entry file -- working. Deterministic: no chmod race
+    # against a run that is already going.
+    cat > "$dir/bin/cp" <<'CPEOF'
+#!/usr/bin/env bash
+dest="${!#}"
+if [[ "${NDT_BREAK_RESTORE:-0}" == "1" && "$dest" == */host_count_override ]]; then
+    echo "cp: cannot create regular file '$dest': No space left on device (stubbed)" >&2
+    exit 1
+fi
+exec /usr/bin/cp "$@"
+CPEOF
+    chmod +x "$dir/bin/sudo" "$dir/bin/ps" "$dir/bin/cp"
 }
 
 run_driver() {   # run_driver <dir> [VAR=VALUE ...] -- stdout+stderr of a whole round
@@ -342,10 +356,14 @@ has   "  the round passes" "PASS P3-E" "$OUT9"
 check "  the final claim re-recorded the baseline from the RESTORED value" "128" \
       "$(sed -n 's/^baseline_host_count=//p' "$SB9/ndt_state" | tail -1)"
 
-# 🔴 THE OTHER HALF OF 22(2): the release's rc has to REACH THE VERDICT. It used to be
-# `"$NDT" release 2>&1 | sed ... || bad ...`, where the `||` tests SED's status and can never
-# see a refusal -- so the round printed it, called itself a PASS, and left the claim on the lab.
-# Forcing the stub to refuse makes that non-vacuous whether or not the knob is involved.
+# 🔴 THE OTHER HALF OF 22(2): the release's rc has to REACH THE VERDICT.
+#
+# The mechanism, corrected (ruling 24(1)): the old line was
+#     "$NDT" release 2>&1 | sed 's/^/   /' || bad "'ndt release' did not take ..."
+# and `set -uo pipefail` is in force, so the pipeline's status IS release's and the `||` DID
+# fire. `bad` printed. What it did NOT do is touch FAILURES -- bad() only writes to stderr --
+# and FAILURES is what decides the verdict. Cell 7c below pins that on the old driver: the
+# message is printed AND the round still says PASS.
 SB11="$SB/release-refuses"; build_sandbox "$SB11" "$REAL_DRIVER"
 OUT11="$(run_driver "$SB11" FORCE_RELEASE_RC=1)"
 hasnt "🔴 a refused release means the round does NOT pass" "PASS P3-E" "$OUT11"
@@ -356,6 +374,22 @@ has   "  in the failure list, not only on the way past" \
 if [[ -n "${E_DRIVER:-}" ]]; then
 printf '\n=== 7. pre-fix controls SKIPPED -- E_DRIVER is set, so the driver under test is already old\n'
 else
+printf '\n=== 6d. ruling 24(3): a knob that did not go back cannot end in PASS\n'
+# 🔴 THE RE-CLAIM MADE cmd_release's KNOB GUARD VACUOUS. If restore_host_knob's cp fails -- this
+# machine hit ENOSPC once today -- the knob is still 4; the final re-claim would then record the
+# round baseline as 4, the release would compare 4 == 4 and pass, and the round would print PASS
+# with the knob left where `ndt up p4 4` put it. NDT_BREAK_RESTORE makes the restore's cp fail
+# for real (a PATH shim, only on that destination) rather than by a mocked return value.
+SB12="$SB/knob-not-restored"; build_sandbox "$SB12" "$REAL_DRIVER" 128
+OUT12="$(run_driver "$SB12" NDT_BREAK_RESTORE=1)"
+check "  the knob really did not go back (still what 'ndt up p4 4' wrote)" "4" "$(knob_of "$SB12")"
+hasnt "🔴 a round whose knob did not go back does NOT pass" "PASS P3-E" "$OUT12"
+has   "  and it says so in the failure list" "host_count_override was NOT put back" "$OUT12"
+has   "  naming the value the next 'ndt up p4' would read" \
+      "the next 'ndt up p4' reads it" "$OUT12"
+has   "🔴 and it does NOT re-claim over the top of it" \
+      "not re-claiming: the knob is not back" "$OUT12"
+
 printf '\n=== 7. THE PRE-FIX CONTROLS -- each defect put back, each check must go RED\n'
 # (a) ndt verify_p4
 SB4="$SB/prefix-verify"
@@ -406,6 +440,32 @@ has   "  the teardown still ran (the EXIT trap fires even on the dead shell)" \
 
 fi
 
+# (c) ruling 24(1): the OLD release line, and what it really did
+SB13="$SB/prefix-release"
+mkdir -p "$SB13"
+python3 - "$REAL_DRIVER" "$SB13/driver.sh" <<'PYREL'
+import sys
+src, dst = sys.argv[1], sys.argv[2]
+s = open(src).read()
+start = s.index("        # Only re-claim when the knob really went back.")
+end = s.index('        if (( release_rc != 0 )); then')
+tail_end = s.index('        fi\n    fi\n    printf ', end)
+old_shape = ('        "$NDT" release 2>&1 | sed \'s/^/   /\' '
+             '|| bad "\'ndt release\' did not take -- run it by hand"\n')
+open(dst, "w").write(s[:start] + old_shape + s[tail_end + len("        fi\n"):])
+PYREL
+check "  the pre-fix release shape was re-introduced" "1" \
+      "$(/usr/bin/grep -cE "^[[:space:]]*\"\\\$NDT\" release 2>&1 \| sed" "$SB13/driver.sh")"
+build_sandbox "$SB13" "$SB13/driver.sh"
+OUT13="$(run_driver "$SB13" FORCE_RELEASE_RC=1)"
+# 🔴 THE MECHANISM, PINNED. `set -uo pipefail` means the `||` saw RELEASE's rc, not sed's, so
+# the old code DID print this line. My first account of the defect said the opposite; ruling
+# 24(1) corrected it, and this cell is what makes the correction checkable rather than a claim.
+has   "🔴 the old code DID print the refusal (the \`||\` fired -- pipefail)" \
+      "'ndt release' did not take" "$OUT13"
+has   "🔴 ... and said PASS in the same breath, because bad() never touched FAILURES" \
+      "PASS P3-E" "$OUT13"
+
 printf '\n=== 7b. and the refusals still refuse: a leftover link-telemetry manifest starts nothing\n'
 SB6="$SB/leftover"; build_sandbox "$SB6" "$REAL_DRIVER"
 : > "$SB6/repo/leftover-manifest.json"
@@ -454,6 +514,17 @@ python3 "$SCAN" "$SB/ctl/ok.sh" >/dev/null 2>&1
 check "  negative control: split declarations are not flagged (rc 0)" "0" "$?"
 python3 "$SCAN" >/dev/null 2>&1
 check "  and nothing to scan is rc 2, not a pass" "2" "$?"
+# 🔴 A FILE THAT COULD NOT BE READ IS NOT A CLEAN FILE. `except OSError: continue` counted it as
+# scanned and exited 0, so `hazard_scan.py /nonexistent.sh` reported "1 file(s) scanned, 0
+# finding(s)" rc 0 -- against this scanner's own contract that 0 means scanned and clean. An
+# incomplete sweep cannot support "found nothing", the same way an absent counter is not a zero.
+# (Ruling 24(4).)
+NOFILE_OUT="$(python3 "$SCAN" /nonexistent-hazard-target.sh 2>&1)"; NOFILE_RC=$?
+check "🔴 a path that cannot be read is rc 2, not rc 0" "2" "$NOFILE_RC"
+has   "  and the name is printed" "/nonexistent-hazard-target.sh" "$NOFILE_OUT"
+has   "  and it is counted as unreadable, not as scanned" "0 scanned, 1 unreadable" "$NOFILE_OUT"
+python3 "$SCAN" "$SB/ctl/arith.sh" /nonexistent-hazard-target.sh >/dev/null 2>&1
+check "  an incomplete sweep outranks a finding (2, not 1)" "2" "$?"
 
 printf '\n%s\n' "passed: $PASS   failed: $FAIL"
 (( FAIL == 0 )) || exit 1

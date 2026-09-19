@@ -82,6 +82,7 @@ SE_RATES_PASS3="${SE_RATES_PASS3:-2 20 100}"
 CTRL_RATES="${CTRL_RATES:-1 2 3 5 8 12}"    # C3's throwaway ladder: short, the gate is the point
 CTRL_BURNERS="${CTRL_BURNERS:-4}"
 WINDOW_GAP_S="${WINDOW_GAP_S:-3}"   # between sampling-error windows; 0 in the offline test
+FINAL_CLAIM_MINUTES="${FINAL_CLAIM_MINUTES:-10}"   # the last retraction renews by this, not 600
 MEASURING_NOTE="P3-E three-group telemetry round (pps ceiling / sampling error / CPU)"
 CLAIM_NOTE="P3-E three-group telemetry round"
 : "${NDT_OWNER:=p3-E}"
@@ -240,16 +241,21 @@ restore_host_knob() {
 #
 # If the down still refuses after the retraction, that refusal is about something else and is
 # reported as a failure with the command to run by hand. It is never overridden here.
-declare_measuring() {   # declare_measuring on|off
+declare_measuring() {   # declare_measuring on|off [minutes]
     local want="$1"
+    # 🔴 THE FINAL RETRACTION MUST NOT RENEW FOR TEN HOURS. `ndt claim` is a renewal as well as
+    # a rewrite, so the last one before the release was extending the lease by CLAIM_MINUTES --
+    # and if that release is then refused, the lab is locked for the whole of it with nobody
+    # running anything. A few minutes is enough to release inside. (Ruling 24(5) candidate.)
+    local minutes="${2:-$CLAIM_MINUTES}"
     local rc=0
     if [[ "$want" == on ]]; then
-        NDT_MEASURING="$MEASURING_NOTE" "$NDT" claim "$CLAIM_MINUTES" "$CLAIM_NOTE" >/dev/null 2>&1
+        NDT_MEASURING="$MEASURING_NOTE" "$NDT" claim "$minutes" "$CLAIM_NOTE" >/dev/null 2>&1
         rc=$?
     else
         # no NDT_MEASURING in this command's environment => the claim is rewritten with the
         # field empty, which is the retraction.
-        "$NDT" claim "$CLAIM_MINUTES" "$CLAIM_NOTE (arms finished)" >/dev/null 2>&1
+        "$NDT" claim "$minutes" "$CLAIM_NOTE (arms finished)" >/dev/null 2>&1
         rc=$?
     fi
     (( rc == 0 )) || bad "could not set measuring=$want on the claim (ndt claim rc=$rc)"
@@ -289,7 +295,19 @@ finish() {
             || bad "could NOT remove $TELEMETRY_KNOB -- the next 'ndt up p4' reads it"
     fi
     [[ -e "$APP_KNOB" ]] && bad "app_package_override SURVIVED the teardown -- the next 'ndt up p4' reads it"
-    restore_host_knob || true
+    # 🔴 A FAILED RESTORE IS A FAILURE OF THE ROUND, AND IT MUST NOT BE FOLLOWED BY A RE-CLAIM.
+    # This was `restore_host_knob || true`, and the combination with the re-claim below made
+    # cmd_release's knob guard VACUOUS: if the cp fails (this machine hit ENOSPC once today),
+    # the knob is still 4, the re-claim then records the baseline as 4, the release compares
+    # 4 == 4 and passes, and the round prints PASS with the knob left where `ndt up p4 4` put
+    # it -- which is the one value the next round's `ndt up p4` will read. The guard I added in
+    # round 2 to stop a release being refused had quietly become a guard that can never fire.
+    # (Ruling 24(3).)
+    local knob_restored=1
+    restore_host_knob || knob_restored=0
+    if (( ! knob_restored )); then
+        FAILURES+=("final: host_count_override was NOT put back -- it is still $(cat "$HOST_KNOB" 2>/dev/null | tr -d '[:space:]'), and the next 'ndt up p4' reads it")
+    fi
     if (( CLAIMED )); then
         # 🔴 THE ROUND BASELINE HAS TO BE RE-RECORDED FROM THE RESTORED KNOB, OR THE RELEASE
         # REFUSES. Every `ndt claim` runs record_round_baseline, which snapshots the knob AS IT
@@ -305,14 +323,28 @@ finish() {
         #
         # One more claim, after the restore, makes the baseline agree with the bytes that are
         # actually on disk -- which is what the release is entitled to compare against.
-        declare_measuring off || true
+        # Only re-claim when the knob really went back. Re-claiming re-records the round
+        # baseline from the bytes ON DISK, so doing it after a failed restore would tell
+        # cmd_release that 4 was where the round started -- see above.
+        if (( knob_restored )); then
+            declare_measuring off "$FINAL_CLAIM_MINUTES"
+        else
+            bad "not re-claiming: the knob is not back, and a re-claim would make 'ndt release' accept it"
+        fi
         local release_log="$RUN/95_release.txt"
         "$NDT" release > "$release_log" 2>&1
         local release_rc=$?
         sed 's/^/   /' "$release_log"
-        # 🔴 AND THE rc IS READ. This was `"$NDT" release 2>&1 | sed ... || bad ...`, where the
-        # `||` tests SED's status and can never see the release refuse: the round printed the
-        # refusal, called itself a PASS, and left the claim on the lab.
+        # 🔴 AND A REFUSAL NOW REACHES THE VERDICT. The old line was
+        #     "$NDT" release 2>&1 | sed 's/^/   /' || bad "'ndt release' did not take ..."
+        # and my first account of why that failed was WRONG, so it is corrected here rather than
+        # quietly dropped: this script runs `set -uo pipefail` (line 49), so the pipeline's
+        # status IS release's, the `||` DID fire, and `bad` DID print `!! 'ndt release' did not
+        # take`. The hole was one line further on -- bad() only prints to stderr:
+        #     bad()  { printf '   !! %s\n' "$*" >&2; }
+        # FAILURES stayed empty, and FAILURES is what decides the verdict. So the round printed
+        # the refusal and called itself a PASS in the same breath, with the claim still on the
+        # lab. (Ruling 22(2) said exactly this; ruling 24(1) corrects my comment about it.)
         if (( release_rc != 0 )); then
             bad "'ndt release' refused (rc $release_rc) -- THE LAB IS STILL CLAIMED. Read $release_log."
             FAILURES+=("final: 'ndt release' refused (rc $release_rc) -- the lab is still claimed; see 95_release.txt")
