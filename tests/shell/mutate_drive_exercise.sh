@@ -691,9 +691,14 @@ add "66. the generic link-usage cell stops going through live-p1/_common.sh" \
 # 67: a cell that could not run is reported as a cell that passed. rc 2 from link_usage_round
 # is "no namespace / no sudo" -- a permission answer, and the greenest possible way to publish
 # one.
+# 🔴 THE ANCHOR MOVED WITH RULING 33, AND THE ANCHOR CHECK IS WHAT SAID SO. 67 and 93 shared
+# the one-line `return ("not-run" if ...)`, which the four-answer map replaced; 93 was
+# repointed with the ruling and this one was not, so `ANCHOR_CHECK=1` reported `0 matches`
+# before any verdict was produced. It now names the last line of that map -- the one that
+# still decides true/false -- which is the same mutation it always was.
 add "67. any rc from the generic cell counts as a pass" \
     "$DRIVER" \
-    '    return ("not-run" if rc == LINK_USAGE_NOT_RUN_RC else bool(rc == 0)), out' \
+    '    return bool(rc == 0), out' \
     '    return True, out  # MUTANT' \
     'test_a_non_zero_rc_is_a_failed_cell_and_not_a_skip'
 
