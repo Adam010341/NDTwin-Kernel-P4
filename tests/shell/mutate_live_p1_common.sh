@@ -499,15 +499,15 @@ check_fires "M20: host-facing edges are classified as inter-switch" m20 \
 # --- M21: an interface present in only one reading is treated as starting at zero ------------------------
 # "The interface went away mid-window" and "it moved 2 MB" are different facts, and the second one
 # is manufactured from the first.
+# 🔴 RE-ANCHORED ON THE CLASSIFYING LOOP (§9 ruling 20①): the old one-name-per-line loop is
+# gone, but the mutation is the same one -- an interface present in only the AFTER reading is
+# measured from zero, so "the interface appeared mid-window" is silently turned into "it moved
+# all of those bytes".
 cat > "$A/m21.old" <<'EOF'
-for k in sorted(set(b) & set(a)):
-    if a[k] - b[k] > thresh:
-        print(k)
+deltas = {k: a[k] - b[k] for k in sorted(set(b) & set(a))}
 EOF
 cat > "$A/m21.new" <<'EOF'
-for k in sorted(set(a)):
-    if a[k] - b.get(k, 0) > thresh:
-        print(k)
+deltas = {k: a[k] - b.get(k, 0) for k in sorted(set(a))}
 EOF
 check_fires "M21: an interface seen once is measured from zero" m21 \
             "  and it is not on the path"
