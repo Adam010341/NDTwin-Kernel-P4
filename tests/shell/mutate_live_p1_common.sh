@@ -378,16 +378,20 @@ check_fires "M13 (M-D5): links OFF the path are not checked at all" m13 \
 # --- M14: an on-path interface the twin does not model is skipped ----------------------------------
 # 🔴 THE MOST IMPORTANT THING THIS CELL CAN FIND, turned into silence. "The twin has no edge for a
 # link that carried the flow" reported as a clean run is the gap reporting itself as its own fix.
+# 🔴 THE ANCHOR MOVED WITH THE CLASSES (§9 ruling 20①): an unmodelled link is now red only
+# when it is PRIMARY -- a MINOR one is printed, because a side branch the sampler cannot see is
+# not evidence that the twin is missing an edge.
 cat > "$A/m14.old" <<'EOF'
         if [[ -z "$kind" ]]; then
-            fail "$label: $key carried the flow and the twin has NO edge for it -- the link is not modelled, which is a gap this cell exists to find"
-            rc=1; continue
-        fi
+            if [[ "$cls" == P ]]; then
+                fail "$label: $key carried the flow and the twin has NO edge for it -- the link is not modelled, which is a gap this cell exists to find"
+                rc=1
 EOF
 cat > "$A/m14.new" <<'EOF'
         if [[ -z "$kind" ]]; then
-            continue
-        fi
+            if false; then
+                fail "$label: $key carried the flow and the twin has NO edge for it -- the link is not modelled, which is a gap this cell exists to find"
+                rc=1
 EOF
 check_fires "M14: an unmodelled on-path link is skipped instead of red" m14 \
             "🔴 an on-path interface with NO twin edge is red" \
@@ -495,15 +499,15 @@ check_fires "M20: host-facing edges are classified as inter-switch" m20 \
 # --- M21: an interface present in only one reading is treated as starting at zero ------------------------
 # "The interface went away mid-window" and "it moved 2 MB" are different facts, and the second one
 # is manufactured from the first.
+# 🔴 RE-ANCHORED ON THE CLASSIFYING LOOP (§9 ruling 20①): the old one-name-per-line loop is
+# gone, but the mutation is the same one -- an interface present in only the AFTER reading is
+# measured from zero, so "the interface appeared mid-window" is silently turned into "it moved
+# all of those bytes".
 cat > "$A/m21.old" <<'EOF'
-for k in sorted(set(b) & set(a)):
-    if a[k] - b[k] > thresh:
-        print(k)
+deltas = {k: a[k] - b[k] for k in sorted(set(b) & set(a))}
 EOF
 cat > "$A/m21.new" <<'EOF'
-for k in sorted(set(a)):
-    if a[k] - b.get(k, 0) > thresh:
-        print(k)
+deltas = {k: a[k] - b.get(k, 0) for k in sorted(set(a))}
 EOF
 check_fires "M21: an interface seen once is measured from zero" m21 \
             "  and it is not on the path"
@@ -600,7 +604,7 @@ check_fires "M27: the off-path edges' raw integrals are not recorded" m27 \
 
 # --- M28: the floor is not printed ------------------------------------------------------------------
 cat > "$A/m28.old" <<'EOF'
-    note "$label: off-path floor $floor bit   = max(${LINK_USAGE_NOISE_BITS}, ${LINK_USAGE_OFFPATH_FRACTION} x the smallest on-path integral)"
+    note "$label: off-path floor $floor bit   = max(${LINK_USAGE_NOISE_BITS}, ${LINK_USAGE_OFFPATH_FRACTION} x the smallest PRIMARY on-path integral)"
 EOF
 cat > "$A/m28.new" <<'EOF'
     :
@@ -616,6 +620,76 @@ check_fires "M28: the floor the verdict used is not in the raw" m28 \
 # suite instead, by four cells that are each other's controls: empty PATH => rc 3, an
 # interpreter that exits 1 => rc 3, a working interpreter => rc 0 and no SCANNER-FAILED, and
 # the positive/negative shape controls that were already there.
+
+# --- M29 (§9 ruling 19②): finish() loses its `set +e` --------------------------------------------
+# 🔴 THE LIVE DEFECT, RESTORED. Under `set -euo pipefail` a non-zero `ndt down` ends the EXIT
+# trap half way: live 02's log stops at `== teardown`, live 03's at "stopping the exercise
+# controller" -- no `ndt down rc=`, no `ndt release`, and no verdict line, while the README
+# promises the last line is PASS or FAIL. A teardown is the one place where every step must run
+# BECAUSE an earlier one failed.
+cat > "$A/m29.old" <<'EOF'
+    set +e
+    trap - EXIT INT TERM
+EOF
+cat > "$A/m29.new" <<'EOF'
+    trap - EXIT INT TERM
+EOF
+check_fires "M29: finish() runs under set -e again" m29 \
+            "🔴 'ndt release' still ran -- the lab is not left claimed" \
+            "🔴 and the LAST line is the verdict, as the README promises"
+
+# --- M30: the failing `ndt down` stops reaching the verdict ----------------------------------------
+# The other half: `set +e` alone would let the teardown finish while saying nothing about WHY.
+cat > "$A/m30.old" <<'EOF'
+        (( down_rc == 0 )) || fail "'ndt down' exited $down_rc -- see $(basename "$RUN")/90_down.txt"
+EOF
+cat > "$A/m30.new" <<'EOF'
+        :
+EOF
+check_fires "M30: a non-zero 'ndt down' is not folded into the verdict" m30 \
+            "🔴 its rc is folded into the verdict"
+
+# --- M31 (§9 ruling 20①): every interface over 10 kB is PRIMARY again ------------------------
+# 🔴 THE LIVE DEFECT, RESTORED. With the share at 0 the 15,120 B side branch is primary again
+# and the cell demands a non-zero twin integral on it -- while a 1/256 sampler is expected to
+# catch 0.04 samples from ten packets. That is qos/solution's real reading going red on a twin
+# that was right.
+cat > "$A/m31.old" <<'EOF'
+: "${LINK_USAGE_PRIMARY_FRACTION:=0.05}"
+EOF
+cat > "$A/m31.new" <<'EOF'
+: "${LINK_USAGE_PRIMARY_FRACTION:=0}"
+EOF
+check_fires "M31: every interface over the byte threshold is primary again" m31 \
+            "🔴 s1-eth4 is MINOR, not primary" \
+            "🔴 the real qos/solution reading PASSES"
+
+# --- M32 (widening): nothing is primary ------------------------------------------------------
+# 🔴 THE CONTROL FOR M31. At a share of 1.0 only the single largest interface is primary, so
+# the OTHER end of the same flow stops being asserted -- and "usage follows the path" would be
+# a claim about one interface.
+cat > "$A/m32.old" <<'EOF'
+: "${LINK_USAGE_PRIMARY_FRACTION:=0.05}"
+EOF
+cat > "$A/m32.new" <<'EOF'
+: "${LINK_USAGE_PRIMARY_FRACTION:=1.5}"
+EOF
+check_fires "M32 (widening): the share is so high nothing is primary" m32 \
+            "🔴 s1-eth3 is PRIMARY" \
+            "🔴 s2-eth1 is PRIMARY"
+
+# --- M33: a failed `ndt release` only warns ----------------------------------------------------
+# 🔴 A ROUND MUST NOT PRINT PASS WITH THE LAB STILL CLAIMED. `bad` prints and leaves the verdict
+# alone, so the step ends green while the next person to want the lab finds it held.
+cat > "$A/m33.old" <<'EOF'
+            || fail "'ndt release' did not take -- THE LAB IS STILL CLAIMED; run it by hand"
+EOF
+cat > "$A/m33.new" <<'EOF'
+            || bad "'ndt release' did not take -- run it by hand"
+EOF
+check_fires "M33: a failed 'ndt release' only warns" m33 \
+            "🔴 a failing 'ndt release' fails the round" \
+            "🔴 and the LAST line is FAIL, not PASS"
 
 # --- the controls for this half --------------------------------------------------------------------------
 cat > "$A/c3.old" <<'EOF'
@@ -634,7 +708,7 @@ check_control "C3: a comment above the cell's verdict" c3
 # scores as a SURVIVOR, and correctly: a control that mutated whichever site came first would
 # not be the control anybody wrote.
 cat > "$A/c4.old" <<'EOF'
-    local onpath="$1" integral="$2" label="$3" rc=0 key bits kind
+    local onpath="$1" integral="$2" label="$3" rc=0 key bits kind cls delta
     if [[ ! -s "$onpath" ]]; then
         fail "$label (control): the on-path interface set is EMPTY -- with no traffic measured, 'the twin reports nothing' is true of any twin at all"
 EOF

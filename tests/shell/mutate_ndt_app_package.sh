@@ -1250,15 +1250,59 @@ EOF
 check_fires "M69: a surviving link emitter is not called residue" m69 \
             "🔴 an emitter that outlived the teardown is residue"
 
-# --- M70: a stale manifest is not residue ---------------------------------------------------------------------------------
+# --- M70 (§9 ruling 19①(b), re-anchored): the stale manifest is neither removed nor reported ----
+# 🔴 THE ANCHOR MOVED WITH THE BEHAVIOUR. Until the first live run this mutation deleted the
+# `residue: ... is gone.` warning, because reporting was all `ndt down` did with a dead pid.
+# Ruling 19①(b) replaced that report with a REMOVAL, so the old anchor is gone and the
+# mutation worth making is the one that drops the whole `dead` arm: no removal, no sentence,
+# and the next reader of that file is told about an emitter that does not exist.
 cat > "$A/m70.old" <<'EOF'
-            warn "residue: $LINK_TELEMETRY_MANIFEST is still there and the pid it names ($em_pid) is gone."
+            if rm -f "$LINK_TELEMETRY_MANIFEST" 2>/dev/null; then
+                say "stale link manifest removed (pid $em_pid gone)"
+            else
 EOF
 cat > "$A/m70.new" <<'EOF'
-            info "$LINK_TELEMETRY_MANIFEST names pid $em_pid."
+            if true; then
+                :
+            else
 EOF
-check_fires "M70: a stale link-telemetry manifest is not residue" m70 \
-            "🔴 a stale manifest is residue too"
+check_fires "M70: a stale link-telemetry manifest is left in place, silently" m70 \
+            "🔴 a stale manifest is REMOVED, not reported" \
+            "🔴 and the file really is gone"
+
+# --- M74 (§9 ruling 19①(b)): the stale manifest goes back to being reported ---------------------
+# 🔴 THE LIVE DEFECT, RESTORED. `topo-stop`'s SIGHUP kills the pane's process group before
+# tear_down can run, so live 02/03/05 all ended with a manifest naming a dead pid. Reporting it
+# and exiting non-zero does the reporting half of a teardown and skips the doing -- and every
+# one of those rounds then reads as a failed teardown for a file `ndt down` could have deleted.
+cat > "$A/m74.old" <<'EOF'
+            if rm -f "$LINK_TELEMETRY_MANIFEST" 2>/dev/null; then
+                say "stale link manifest removed (pid $em_pid gone)"
+EOF
+cat > "$A/m74.new" <<'EOF'
+            if false; then
+                say "stale link manifest removed (pid $em_pid gone)"
+EOF
+check_fires "M74: a provably stale link manifest is reported, not removed" m74 \
+            "🔴 a stale manifest is REMOVED, not reported" \
+            "🔴 and the file really is gone"
+
+# --- M75 (widening): a LIVE emitter's manifest is deleted too -------------------------------------
+# 🔴 THE CONTROL FOR M74, and the line the ruling draws. `dead` is removable because
+# `process_is_the_emitter` has just proved nothing is running; `alive` is a root process this
+# command must not touch, and deleting the manifest that names it would remove the only record
+# of which pid to stop.
+cat > "$A/m75.old" <<'EOF'
+        alive)
+            warn "residue: the link-telemetry emitter is still running -- pid $em_pid, $em_nsw switch(es)"
+EOF
+cat > "$A/m75.new" <<'EOF'
+        alive)
+            rm -f "$LINK_TELEMETRY_MANIFEST"
+            warn "residue: the link-telemetry emitter is still running -- pid $em_pid, $em_nsw switch(es)"
+EOF
+check_fires "M75 (widening): a live emitter's manifest is deleted as well" m75 \
+            "  the manifest is left exactly where it was"
 
 # --- two more controls, for the half of the file this round added ------------------------------------
 # 🔴 Without them the eleven "caught" lines above say nothing about the NEW cells: a suite that

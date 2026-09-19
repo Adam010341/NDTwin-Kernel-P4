@@ -193,6 +193,19 @@ take_claim() {   # take_claim <note>
 #      and a --force here would be this script signing for a state it created.
 finish() {
     local rc=$?
+    # 🔴 `set +e` FIRST, BEFORE ANYTHING ELSE (TICKET-P3 §9 ruling 19②, found by the first live
+    # run). This file runs under `set -euo pipefail`, and this function is the EXIT trap -- so a
+    # teardown step that exits non-zero killed the trap itself, half way through. Live 02 ended
+    # at `== teardown` and live 03 at "stopping the exercise controller": no `ndt down rc=` line,
+    # no `ndt release`, and NO VERDICT LINE, while the README promises the last line is PASS or
+    # FAIL. A teardown is the one place where every step must run precisely BECAUSE an earlier
+    # one failed; `-e` inverts that, and it silently took the release with it -- leaving the lab
+    # claimed by a finished run.
+    #
+    # 🔴 THE rc IS NOT DISCARDED, it is folded in: `ndt down` exiting non-zero becomes a `fail`
+    # with its rc below, so the verdict still reports it -- it just no longer prevents the
+    # verdict from being printed at all.
+    set +e
     trap - EXIT INT TERM
     say "teardown"
     if [[ -n "$CTRL_PID" ]] && kill -0 "$CTRL_PID" 2>/dev/null; then
@@ -207,8 +220,13 @@ finish() {
     # nothing, and a teardown on that path would be this script destroying a lab it was just
     # told to keep its hands off. The same flag gates the release, for the same reason.
     if (( CLAIMED )) && [[ -n "$RUN" ]]; then
-        "$NDT" down > "$RUN/90_down.txt" 2>&1; note "ndt down rc=$? -> $(basename "$RUN")/90_down.txt"
+        "$NDT" down > "$RUN/90_down.txt" 2>&1
+        local down_rc=$?
+        note "ndt down rc=$down_rc -> $(basename "$RUN")/90_down.txt"
         tail -3 "$RUN/90_down.txt" | sed 's/^/     /'
+        # 🔴 FOLDED INTO THE VERDICT, NOT INTO AN ABORT (§9 ruling 19②). Before `set +e` this
+        # rc ended the trap; now it is reported and the teardown carries on to the release.
+        (( down_rc == 0 )) || fail "'ndt down' exited $down_rc -- see $(basename "$RUN")/90_down.txt"
         if [[ -e "$APP_KNOB" ]]; then
             sed 's/^/       /' "$APP_KNOB" >&2
             # 🔴 A FAILURE, not a warning. This file decides which fabric the next `ndt up p4`,
@@ -226,7 +244,12 @@ finish() {
     # restore_telemetry_knob's own note gives -- nothing downstream refuses over this one.
     restore_telemetry_knob || true
     if (( CLAIMED )); then
-        "$NDT" release 2>&1 | sed 's/^/   /' || bad "'ndt release' did not take -- run it by hand"
+        # 🔴 `fail`, NOT `bad` -- THE ROUND MUST NOT PRINT PASS WITH THE LAB STILL CLAIMED.
+        # `bad` only prints; the verdict stays whatever it was, so a round whose release did not
+        # take could end `PASS`, and the next person to want the lab finds it held by a step
+        # that reported success. (The same shape worker E's judge found today.)
+        "$NDT" release 2>&1 | sed 's/^/   /' \
+            || fail "'ndt release' did not take -- THE LAB IS STILL CLAIMED; run it by hand"
     fi
     printf '\n'
     # 🔴 A REFUSAL KEEPS ITS OWN CODE. `die` exits 2 and 2 means "nothing was started" -- the
@@ -646,8 +669,33 @@ for line in open("/proc/net/dev"):
 ' "$1"
 }
 
-# onpath_ifaces <before> <after> [threshold-bytes] -- the interfaces that carried the flow,
-# one per line, sorted. THE MEASUREMENT, not a list this file knows.
+# 🔴 An interface that appears in only one of the two readings is NOT on the path and is not
+# silently zero either: it is skipped and named on stderr, because "the interface went away
+# mid-window" and "it moved no bytes" are different facts and only one of them is a reading.
+#: The share of the LARGEST switch-interface delta below which an interface that still passed
+#: the absolute byte threshold is called MINOR rather than primary (TICKET-P3 §9 ruling 20①).
+: "${LINK_USAGE_PRIMARY_FRACTION:=0.05}"
+#: What the sampler can see, used only to print an expected sample count beside a MINOR row.
+: "${LINK_USAGE_MTU_BYTES:=1500}"
+: "${LINK_USAGE_SAMPLE_RATE:=256}"
+
+# onpath_ifaces <before> <after> [threshold-bytes] -- "<iface> <class> <delta>" per interface
+# that moved at least the threshold, sorted. THE MEASUREMENT, not a list this file knows.
+#
+# 🔴 THREE CLASSES, BECAUSE "CARRIED THE FLOW" AND "THE SAMPLER COULD SEE IT" ARE DIFFERENT
+# FACTS (§9 ruling 20①, from the first live run). qos/solution's real deltas were s1-eth3
+# 2,162,160 B and s2-eth1 2,162,160 B -- the flow -- plus s1-eth4 15,120 B and s3-eth1
+# 15,120 B: TEN datagrams down a side branch. The old rule called all four on-path because all
+# four passed 10 kB, and then required a non-zero twin integral on each. But at 1 sample in 256
+# the EXPECTED number of samples for ten packets is 0.04 -- so the twin correctly integrated
+# zero there, and the cell went red on a twin that was right.
+#
+#   PRIMARY  delta >= max(<threshold>, 5% of the largest switch-interface delta)
+#            -- big enough that a 1/256 sampler must have seen it. Integral MUST be > 0.
+#   MINOR    <threshold> <= delta < that 5%
+#            -- real traffic the sampler may or may not have caught. ASSERTED ON NEITHER SIDE,
+#               and printed with its expected sample count so a reader can see why.
+#   (below the threshold it is not listed at all: that is the off-path floor's business.)
 #
 # 🔴 An interface that appears in only one of the two readings is NOT on the path and is not
 # silently zero either: it is skipped and named on stderr, because "the interface went away
@@ -655,7 +703,7 @@ for line in open("/proc/net/dev"):
 onpath_ifaces() {
     "$PY" -c '
 import sys
-thresh = int(sys.argv[3])
+thresh = int(sys.argv[3]); frac = float(sys.argv[4])
 def read(p):
     d = {}
     for line in open(p):
@@ -666,11 +714,28 @@ def read(p):
 b, a = read(sys.argv[1]), read(sys.argv[2])
 for k in sorted(set(b) ^ set(a)):
     sys.stderr.write("   onpath_ifaces: %s is in only one of the two readings -- skipped\n" % k)
-for k in sorted(set(b) & set(a)):
-    if a[k] - b[k] > thresh:
-        print(k)
-' "$1" "$2" "${3:-$LINK_USAGE_ONPATH_BYTES}"
+deltas = {k: a[k] - b[k] for k in sorted(set(b) & set(a))}
+# 🔴 THE REFERENCE IS THE LARGEST SWITCH-INTERFACE DELTA, not the largest of anything: a host
+# interface carrying the same flow is the same bytes counted at the other end, and taking a
+# max over both populations would not change the answer here but would make the rule depend on
+# which side of a link the biggest number happened to be on.
+sw = [d for k, d in deltas.items() if k.startswith("s")]
+biggest = max(sw) if sw else 0
+primary_at = max(thresh, biggest * frac)
+for k, d in sorted(deltas.items()):
+    # strictly greater, as before: an interface that moved EXACTLY the threshold is out.
+    if d <= thresh:
+        continue
+    print("%s %s %d" % (k, "P" if d >= primary_at else "M", d))
+' "$1" "$2" "${3:-$LINK_USAGE_ONPATH_BYTES}" "$LINK_USAGE_PRIMARY_FRACTION"
 }
+
+# onpath_primary <onpath-file> -- just the PRIMARY interface names, one per line.
+#
+# 🔴 THIS IS THE ONE LIST THAT IS ASSERTED ON, and it has a name so that a caller asking "which
+# interfaces did this round actually check?" gets the answer from the same place the assertion
+# uses, rather than re-deriving the class rule. `link_usage_round` prints it; the suite reads it.
+onpath_primary() { /usr/bin/awk '$2 == "P" {print $1}' "$1"; }
 
 # twin_usage_integral <out> <seconds> [hz] -- poll /ndt/get_graph_data and integrate each
 # edge's reported rate over the window. Writes "<key> <bits> <switch|host>" per edge, sorted,
@@ -756,9 +821,12 @@ import sys
 floor_abs = float(sys.argv[3]); frac = float(sys.argv[4])
 want = set()
 for line in open(sys.argv[1]):
-    line = line.strip()
-    if line:
-        want.add(line)
+    parts = line.split()
+    # PRIMARY ONLY: the floor is a fraction of what the flow actually deposited, and the
+    # integral of a MINOR row is expected to be 0 -- including one would drive the floor to 0.
+    # (No apostrophes in here: this block is inside a single-quoted shell string.)
+    if len(parts) >= 2 and parts[1] == "P":
+        want.add(parts[0])
 vals = []
 for line in open(sys.argv[2]):
     parts = line.split()
@@ -781,25 +849,43 @@ assert_link_usage_follows_path() {
         fail "$label: there is no twin integral for this window"
         return 1
     fi
-    while read -r key; do
+    # 🔴 PRIMARY IS ASSERTED, MINOR IS PRINTED (§9 ruling 20①). A MINOR interface carried real
+    # bytes -- too few for a 1/256 sampler to be expected to catch any of them -- so neither
+    # "the twin saw it" nor "the twin did not" is a finding, and asserting either way would
+    # make a correct twin red at random. What IS owed to the reader is the number and what the
+    # sampler could have been expected to do with it.
+    local cls delta expect_n
+    while read -r key cls delta; do
         [[ -n "$key" ]] || continue
         read -r _ bits kind < <(/usr/bin/grep -m1 "^$key " "$integral"; printf ' \n')
         if [[ -z "$kind" ]]; then
-            fail "$label: $key carried the flow and the twin has NO edge for it -- the link is not modelled, which is a gap this cell exists to find"
-            rc=1; continue
+            if [[ "$cls" == P ]]; then
+                fail "$label: $key carried the flow and the twin has NO edge for it -- the link is not modelled, which is a gap this cell exists to find"
+                rc=1
+            else
+                note "$label: minor    $key  ${delta} B moved, and the twin has no edge for it (not asserted)"
+            fi
+            continue
+        fi
+        if [[ "$cls" != P ]]; then
+            expect_n="$(awk "BEGIN{printf \"%.3f\", $delta / ($LINK_USAGE_MTU_BYTES * $LINK_USAGE_SAMPLE_RATE)}")"
+            note "$label: minor    $key  ${delta} B moved, twin $bits bit  ($kind); expected samples = ${delta} / (${LINK_USAGE_MTU_BYTES} x ${LINK_USAGE_SAMPLE_RATE}) = $expect_n -- NOT asserted"
+            continue
         fi
         if [[ "$(awk "BEGIN{print ($bits > 0) ? 1 : 0}")" == 1 ]]; then
-            note "$label: on-path  $key  $bits bit  ($kind)"
+            note "$label: on-path  $key  $bits bit  ($kind)  [primary, ${delta} B]"
         else
-            fail "$label: $key carried the flow and the twin integrated $bits bit over the window"
+            fail "$label: $key carried the flow ($delta B, primary) and the twin integrated $bits bit over the window"
             rc=1
         fi
     done < "$onpath"
     floor="$(link_usage_floor "$onpath" "$integral")"
-    note "$label: off-path floor $floor bit   = max(${LINK_USAGE_NOISE_BITS}, ${LINK_USAGE_OFFPATH_FRACTION} x the smallest on-path integral)"
+    note "$label: off-path floor $floor bit   = max(${LINK_USAGE_NOISE_BITS}, ${LINK_USAGE_OFFPATH_FRACTION} x the smallest PRIMARY on-path integral)"
     while read -r key bits kind; do
         [[ "$key" == \#* || -z "$key" ]] && continue
-        /usr/bin/grep -qx -- "$key" "$onpath" && continue
+        # 🔴 MINOR ROWS ARE NOT OFF-PATH EITHER. They moved real bytes; holding them to the
+        # off-path floor would be asserting the opposite of what the class means.
+        /usr/bin/awk -v k="$key" '$1 == k {found=1} END{exit !found}' "$onpath" && continue
         # 🔴 EVERY OFF-PATH EDGE'S RAW INTEGRAL IS RECORDED, judged or not (§9 ruling 9, R4).
         # The verdict is a comparison against a floor, and a floor only means something beside
         # the numbers it was applied to -- otherwise "under the bound" and "exactly zero" read
@@ -823,13 +909,16 @@ assert_link_usage_follows_path() {
 # flow must integrate to EXACTLY zero in the twin. Without this the cell above has no
 # discriminating power -- a twin that reported a constant non-zero on every edge would pass it.
 assert_link_usage_absent() {
-    local onpath="$1" integral="$2" label="$3" rc=0 key bits kind
+    local onpath="$1" integral="$2" label="$3" rc=0 key bits kind cls delta
     if [[ ! -s "$onpath" ]]; then
         fail "$label (control): the on-path interface set is EMPTY -- with no traffic measured, 'the twin reports nothing' is true of any twin at all"
         return 1
     fi
-    while read -r key; do
+    # 🔴 THE CONTROL JUDGES PRIMARIES ONLY, like the assertion it controls (§9 ruling 20①). A
+    # MINOR row is expected to read 0 with sampling ON, so "0 with sampling off" says nothing.
+    while read -r key cls delta; do
         [[ -n "$key" ]] || continue
+        [[ "$cls" == P ]] || continue
         read -r _ bits kind < <(/usr/bin/grep -m1 "^$key " "$integral" 2>/dev/null; printf ' \n')
         if [[ -z "$kind" ]]; then
             note "$label (control): $key has no twin edge at all"
@@ -908,13 +997,17 @@ link_usage_round() {
     wait "$srv" 2>/dev/null || true
     onpath_ifaces "$dir/netdev.before" "$dir/netdev.after" > "$dir/onpath.txt" 2>"$dir/onpath.err"
     [[ -s "$dir/onpath.err" ]] && sed 's/^/   /' "$dir/onpath.err"
-    note "$label: on-path interfaces: $(tr '\n' ' ' < "$dir/onpath.txt")"
+    # 🔴 THE TWO CLASSES ARE NAMED SEPARATELY (§9 ruling 20①). One list mixing P and M would
+    # read as "these all carried the flow and were all checked", and only the P rows were.
+    note "$label: primary=$(onpath_primary "$dir/onpath.txt" | tr '\n' ' ')  minor=$(/usr/bin/awk '$2=="M"{printf "%s ", $1}' "$dir/onpath.txt")"
     if [[ "$expect" == absent ]]; then
         assert_link_usage_absent "$dir/onpath.txt" "$dir/twin_integral.txt" "$label" || rc=1
     else
         assert_link_usage_follows_path "$dir/onpath.txt" "$dir/twin_integral.txt" "$label" || rc=1
     fi
-    printf 'LINK_USAGE %s expect=%s onpath=%s rc=%s\n' \
-        "$label" "$expect" "$(/usr/bin/grep -c . "$dir/onpath.txt" 2>/dev/null || echo 0)" "$rc"
+    printf 'LINK_USAGE %s expect=%s primary=%s minor=%s rc=%s\n' \
+        "$label" "$expect" \
+        "$(/usr/bin/awk '$2=="P"{n++} END{print n+0}' "$dir/onpath.txt" 2>/dev/null || echo 0)" \
+        "$(/usr/bin/awk '$2=="M"{n++} END{print n+0}' "$dir/onpath.txt" 2>/dev/null || echo 0)" "$rc"
     return $rc
 }
