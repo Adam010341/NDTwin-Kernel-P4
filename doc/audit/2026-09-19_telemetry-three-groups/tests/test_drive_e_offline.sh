@@ -550,7 +550,18 @@ end = s.index('        if (( release_rc != 0 )); then')
 # slice stopped matching, this cell's driver was never written, and three cells failed with
 # `cp: cannot stat .../driver.sh` -- a HARNESS error that looks exactly like a defect red.
 # The two `fi` are the shape being cut out; what comes after them is not this cell's business.
+#
+# That pattern is NOT unique in the file (it closes gate_control's nesting too), which is fine
+# because the search starts at `end` -- but "fine because of where the search starts" is exactly
+# the kind of reasoning that was wrong last time, so the cut is ASSERTED rather than trusted:
+# what comes out must be the release block (it must contain the FAILURES line this control
+# exists to remove) and must not have swallowed anything after it (the verdict guards).
 tail_end = s.index('        fi\n    fi\n', end)
+cut = s[start:tail_end]
+assert 'FAILURES+=("final: \'ndt release\' refused' in cut, \
+    "the slice missed the release block: the FAILURES line it removes is not inside it"
+assert 'arms_seen != arms_expected' not in cut, \
+    "the slice ran past the release block and swallowed the arm-count guard"
 old_shape = ('        "$NDT" release 2>&1 | sed \'s/^/   /\' '
              '|| bad "\'ndt release\' did not take -- run it by hand"\n')
 open(dst, "w").write(s[:start] + old_shape + s[tail_end + len("        fi\n"):])
