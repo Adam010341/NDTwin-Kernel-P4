@@ -193,6 +193,19 @@ take_claim() {   # take_claim <note>
 #      and a --force here would be this script signing for a state it created.
 finish() {
     local rc=$?
+    # 🔴 `set +e` FIRST, BEFORE ANYTHING ELSE (TICKET-P3 §9 ruling 19②, found by the first live
+    # run). This file runs under `set -euo pipefail`, and this function is the EXIT trap -- so a
+    # teardown step that exits non-zero killed the trap itself, half way through. Live 02 ended
+    # at `== teardown` and live 03 at "stopping the exercise controller": no `ndt down rc=` line,
+    # no `ndt release`, and NO VERDICT LINE, while the README promises the last line is PASS or
+    # FAIL. A teardown is the one place where every step must run precisely BECAUSE an earlier
+    # one failed; `-e` inverts that, and it silently took the release with it -- leaving the lab
+    # claimed by a finished run.
+    #
+    # 🔴 THE rc IS NOT DISCARDED, it is folded in: `ndt down` exiting non-zero becomes a `fail`
+    # with its rc below, so the verdict still reports it -- it just no longer prevents the
+    # verdict from being printed at all.
+    set +e
     trap - EXIT INT TERM
     say "teardown"
     if [[ -n "$CTRL_PID" ]] && kill -0 "$CTRL_PID" 2>/dev/null; then
@@ -207,8 +220,13 @@ finish() {
     # nothing, and a teardown on that path would be this script destroying a lab it was just
     # told to keep its hands off. The same flag gates the release, for the same reason.
     if (( CLAIMED )) && [[ -n "$RUN" ]]; then
-        "$NDT" down > "$RUN/90_down.txt" 2>&1; note "ndt down rc=$? -> $(basename "$RUN")/90_down.txt"
+        "$NDT" down > "$RUN/90_down.txt" 2>&1
+        local down_rc=$?
+        note "ndt down rc=$down_rc -> $(basename "$RUN")/90_down.txt"
         tail -3 "$RUN/90_down.txt" | sed 's/^/     /'
+        # 🔴 FOLDED INTO THE VERDICT, NOT INTO AN ABORT (§9 ruling 19②). Before `set +e` this
+        # rc ended the trap; now it is reported and the teardown carries on to the release.
+        (( down_rc == 0 )) || fail "'ndt down' exited $down_rc -- see $(basename "$RUN")/90_down.txt"
         if [[ -e "$APP_KNOB" ]]; then
             sed 's/^/       /' "$APP_KNOB" >&2
             # 🔴 A FAILURE, not a warning. This file decides which fabric the next `ndt up p4`,

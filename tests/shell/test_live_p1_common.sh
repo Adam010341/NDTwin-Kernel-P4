@@ -490,7 +490,19 @@ json.dump({"nodes": [{"device_name": "h1", "dpid": 0, "vertex_type": 1, "ip": ["
 OUT="$(drive "link_usage_round '$FIX/pkg1host' 'one-host' '$FIX/lur1'")"
 check "🔴 a model with one host cannot carry a flow"      "1" "$(rc_of "$OUT")"
 has   "  and says so instead of measuring nothing"       "does not name two hosts to run a flow between" "$OUT"
-OUT="$(drive "link_usage_round '$PKG3' 'no-ns' '$FIX/lur2'")"
+# 🔴 HOST NAMES NO FABRIC CAN HAVE, AND THAT IS THE POINT (found during the live-fix round).
+# This cell used `$PKG3`, whose hosts are h1..h3 -- the names a REAL fabric uses. It passed only
+# while no lab was up: with the orchestrator's live run in progress, `host_pid h1` returns a
+# genuine namespace pid, the refusal never fires, and the cell went red for a reason that has
+# nothing to do with the code under test. A test whose result depends on whether somebody else
+# has a fabric up is not testing what it says.
+mkdir -p "$FIX/pkg-nons/ndtwin"
+python3 -c '
+import json, sys
+json.dump({"nodes": [{"device_name": "zz1", "dpid": 0, "vertex_type": 1, "ip": ["10.9.9.1"]},
+                     {"device_name": "zz3", "dpid": 0, "vertex_type": 1, "ip": ["10.9.9.3"]}],
+           "edges": [], "links": []}, open(sys.argv[1], "w"))' "$FIX/pkg-nons/ndtwin/topology.json"
+OUT="$(drive "link_usage_round '$FIX/pkg-nons' 'no-ns' '$FIX/lur2'")"
 check "🔴 a host with no namespace is rc 2, a refusal"    "2" "$(rc_of "$OUT")"
 has   "  named as the permission answer it is"           "never a reading about link usage" "$OUT"
 
@@ -638,6 +650,67 @@ has   "  naming what it said"                            "ImportError" "$OUT"
 OUT="$(hazard_scan "$FIX/ok.sh")"; SCAN_RC=$?
 check "  a working interpreter is not reported as failed" "0" "$SCAN_RC"
 hasnt "  and prints no SCANNER-FAILED"                   "SCANNER-FAILED" "$OUT"
+
+# =============================================================================================
+section "10. 🔴 a teardown step that fails must not kill the teardown"
+# =============================================================================================
+# TICKET-P3 §9 ruling 19②, found by the first live run. `_common.sh` runs under
+# `set -euo pipefail` and `finish()` is the EXIT trap, so a non-zero `ndt down` ENDED THE TRAP
+# half way: live 02's log stops at `== teardown` and live 03's at "stopping the exercise
+# controller" -- no `ndt down rc=` line, no `ndt release`, and no verdict line at all, while the
+# README promises the last line is PASS or FAIL. A teardown is the one place where every step
+# must run BECAUSE an earlier one failed, and `-e` inverts exactly that; it took the release
+# with it, leaving the lab claimed by a finished run.
+FIX10="$(mktemp -d "${TMPDIR:-/tmp}/common-finish-XXXXXX")"
+mkdir -p "$FIX10/bin" "$FIX10/run"
+cat > "$FIX10/bin/ndt" <<'STUBNDT'
+#!/usr/bin/env bash
+echo "$*" >> "$NDTLOG"
+case "${1:-}" in
+    down)    echo "stub: down says something was wrong"; exit 1 ;;
+    release) echo "stub: released"; exit 0 ;;
+    claim)   exit 0 ;;
+    *)       exit 0 ;;
+esac
+STUBNDT
+chmod +x "$FIX10/bin/ndt"
+
+# The smallest driver that exercises the real `finish`: source the file under test, claim, and
+# let the EXIT trap run with a `down` that fails.
+cat > "$FIX10/step.sh" <<STEPSH
+set -uo pipefail
+export NDTLOG="$FIX10/ndt.log"
+source "$COMMON"
+NDT="$FIX10/bin/ndt"
+RUN="$FIX10/run"; STEP=10_finish; CLAIMED=1; CTRL_PID=""
+VERDICT_RC=0; VERDICT_WHY=""
+trap finish EXIT INT TERM
+exit 0
+STEPSH
+: > "$FIX10/ndt.log"
+OUT10="$(timeout 120 bash "$FIX10/step.sh" 2>&1)"; RC10=$?
+
+check "🔴 a failing 'ndt down' still produces a verdict"  "1" "$RC10"
+has   "  the 'ndt down rc=' line is printed"             "ndt down rc=1" "$OUT10"
+has   "🔴 its rc is folded into the verdict"             "'ndt down' exited 1" "$OUT10"
+has   "  the raw path is printed"                        "raw: " "$OUT10"
+check "🔴 and the LAST line is the verdict, as the README promises" "1" \
+      "$(printf '%s\n' "$OUT10" | tail -1 | /usr/bin/grep -cE '^(PASS|FAIL) ')"
+has   "🔴 'ndt release' still ran -- the lab is not left claimed" "release" "$(cat "$FIX10/ndt.log")"
+
+# 🔴 THE CONTROL: with a `down` that succeeds the verdict is PASS and nothing above is a fluke.
+cat > "$FIX10/bin/ndt" <<'STUBOK'
+#!/usr/bin/env bash
+echo "$*" >> "$NDTLOG"
+exit 0
+STUBOK
+chmod +x "$FIX10/bin/ndt"
+: > "$FIX10/ndt.log"
+OUT10="$(timeout 120 bash "$FIX10/step.sh" 2>&1)"; RC10=$?
+check "  a clean teardown still passes"                  "0" "$RC10"
+check "  and its last line is PASS"                      "1" \
+      "$(printf '%s\n' "$OUT10" | tail -1 | /usr/bin/grep -c '^PASS ')"
+rm -rf "$FIX10"
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"

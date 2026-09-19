@@ -617,6 +617,34 @@ check_fires "M28: the floor the verdict used is not in the raw" m28 \
 # interpreter that exits 1 => rc 3, a working interpreter => rc 0 and no SCANNER-FAILED, and
 # the positive/negative shape controls that were already there.
 
+# --- M29 (§9 ruling 19②): finish() loses its `set +e` --------------------------------------------
+# 🔴 THE LIVE DEFECT, RESTORED. Under `set -euo pipefail` a non-zero `ndt down` ends the EXIT
+# trap half way: live 02's log stops at `== teardown`, live 03's at "stopping the exercise
+# controller" -- no `ndt down rc=`, no `ndt release`, and no verdict line, while the README
+# promises the last line is PASS or FAIL. A teardown is the one place where every step must run
+# BECAUSE an earlier one failed.
+cat > "$A/m29.old" <<'EOF'
+    set +e
+    trap - EXIT INT TERM
+EOF
+cat > "$A/m29.new" <<'EOF'
+    trap - EXIT INT TERM
+EOF
+check_fires "M29: finish() runs under set -e again" m29 \
+            "🔴 a failing 'ndt down' still produces a verdict" \
+            "🔴 'ndt release' still ran -- the lab is not left claimed"
+
+# --- M30: the failing `ndt down` stops reaching the verdict ----------------------------------------
+# The other half: `set +e` alone would let the teardown finish while saying nothing about WHY.
+cat > "$A/m30.old" <<'EOF'
+        (( down_rc == 0 )) || fail "'ndt down' exited $down_rc -- see $(basename "$RUN")/90_down.txt"
+EOF
+cat > "$A/m30.new" <<'EOF'
+        :
+EOF
+check_fires "M30: a non-zero 'ndt down' is not folded into the verdict" m30 \
+            "🔴 its rc is folded into the verdict"
+
 # --- the controls for this half --------------------------------------------------------------------------
 cat > "$A/c3.old" <<'EOF'
     (( rc == 0 )) && note "$label: link usage follows the iperf path (off-path under $floor bit)"

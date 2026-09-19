@@ -1798,20 +1798,46 @@ section "21. 🔴 'ndt down' REPORTS the link-telemetry emitter and does not kil
 # is the other command's job; a teardown that started killing processes it did not start is how
 # `ndt down` begins killing the next round's.
 reset_fix; rm -f "$FIX/ndtwin_link_telemetry.json"
+mv "$FIX/manifest.json" "$FIX/manifest.json.aside" 2>/dev/null
 OUT="$(NDT_OWNER=t drive 'cmd_down')"
+#: The rc this fixture produces with NO link manifest at all. It is not 0 -- there is no fabric
+#: here, so `cmd_down` correctly answers 3, "nothing was up to tear down". The stale-manifest
+#: cell below compares against THIS, because the claim is "removing a stale manifest does not
+#: change the verdict", not "the verdict is 0".
+NOMANIFEST_RC="$(rc_of "$OUT")"
+mv "$FIX/manifest.json.aside" "$FIX/manifest.json" 2>/dev/null
 hasnt "  no manifest: 'ndt down' says nothing about it"   "link-telemetry emitter" "$OUT"
 
+# 🔴 A LIVE EMITTER IS RESIDUE, AND THE FILE STAYS. `ndt` does not kill it: the only safe way
+# is by the pid its manifest names, which is `ndtwin-lab topo-stop`'s job.
 mkmanifest "$EMIT_PID" 2 256
-OUT="$(NDT_OWNER=t drive 'cmd_down')"
+OUT="$(NDT_OWNER=t drive 'cmd_down')"; DOWN_RC="$(rc_of "$OUT")"
 has   "🔴 an emitter that outlived the teardown is residue" "residue: the link-telemetry emitter is still running -- pid $EMIT_PID" "$OUT"
 has   "  and the command says whose job stopping it is"   "ndtwin-lab topo-stop" "$OUT"
 hasnt "🔴 and this command does NOT kill it"              "pkill" "$OUT"
 check "  the manifest is left exactly where it was"       "1" "$([[ -e "$FIX/ndtwin_link_telemetry.json" ]] && echo 1 || echo 0)"
+check "🔴 and a LIVE emitter still makes 'ndt down' non-zero" "1" "$([[ "$DOWN_RC" -ne 0 ]] && echo 1 || echo 0)"
 
+# 🔴 A DEAD PID IS A FILE THIS COMMAND CAN PROVE IS STALE, SO IT REMOVES IT -- AND THAT IS NOT
+# A FAILED TEARDOWN (TICKET-P3 §9 ruling 19①(b), from the first live run). Live 02/03/05 all
+# ended here: `topo-stop`'s SIGHUP killed the pane's process group before tear_down could run,
+# so the fabric was down, the emitter was gone, and the only thing wrong was a file whose next
+# reader would be told about an emitter that does not exist. Reporting that as residue and
+# exiting non-zero did the reporting half of a teardown and skipped the doing.
+# 🔴 THE ONLY RESIDUE IN THIS CELL IS THE ONE UNDER TEST. The fixture also carries a switch
+# manifest, which `cmd_down` reports separately and which would make the rc 1 for a reason that
+# has nothing to do with the link manifest -- and then "rc 0 after the removal" could never be
+# observed. Moved aside for this cell and put back after it.
+mv "$FIX/manifest.json" "$FIX/manifest.json.aside" 2>/dev/null
 mkmanifest "$DEADPID" 2 256
-OUT="$(NDT_OWNER=t drive 'cmd_down')"
-has   "🔴 a stale manifest is residue too"                "the pid it names ($DEADPID) is gone" "$OUT"
-has   "  saying what the next reader would believe"       "would report an emitter that does not exist" "$OUT"
+OUT="$(NDT_OWNER=t drive 'cmd_down')"; DOWN_RC="$(rc_of "$OUT")"
+has   "🔴 a stale manifest is REMOVED, not reported"      "stale link manifest removed (pid $DEADPID gone)" "$OUT"
+check "🔴 and the file really is gone"                    "0" "$([[ -e "$FIX/ndtwin_link_telemetry.json" ]] && echo 1 || echo 0)"
+check "🔴 and the verdict is the same as with no manifest at all" "$NOMANIFEST_RC" "$DOWN_RC"
+check "🔴 in particular it is NOT 1 ('this ran and something was wrong')" "0" \
+      "$([[ "$DOWN_RC" == 1 ]] && echo 1 || echo 0)"
+hasnt "  it is not called residue any more"               "a stale $FIX/ndtwin_link_telemetry.json survived" "$OUT"
+mv "$FIX/manifest.json.aside" "$FIX/manifest.json" 2>/dev/null
 rm -f "$FIX/ndtwin_link_telemetry.json"
 
 printf '\n'
