@@ -1138,10 +1138,32 @@ class P4RuntimeClient:
             m = entry.match.add()
             m.field_id = field.id
             if kind == "EXACT":
+                # 🔴 ONE ELEMENT IS UNWRAPPED, TWO ARE STILL REFUSED (TICKET-P3 section 9
+                # ruling 23②). [Co-developed with claude code -- Adam]
+                #
+                # The upstream exercises write an exact value as a one-element list --
+                # `basic_tunnel/sX-runtime.json` has `"hdr.myTunnel.dst_id": [1]` -- and the
+                # reference controller they are written against unwraps it before inferring a
+                # type (~/tutorials/utils/p4runtime_lib/convert.py:71-75, `encode`). This
+                # writer refused it, so `basic_tunnel/solution` came up with three of its six
+                # entries missing on every switch and the exercise failed in both live passes
+                # (probe2-basic_tunnel-proxy.log). A proxy stricter than the reference
+                # implementation is a proxy the exercises cannot be brought up on.
+                #
+                # Two elements stay a refusal, and not for symmetry: `[value, prefix_len]` is
+                # the LPM shape and `[value, mask]` the ternary one. Taking either here would
+                # install a rule matching ONE address where the author wrote one matching a
+                # subnet -- it forwards, it blackholes the rest, and nothing errors.
+                #
+                # Before the type is inferred, exactly like upstream's, so a string inside the
+                # list is still read as a MAC or an address rather than as an integer literal.
                 if isinstance(raw, (list, tuple)):
-                    raise TableEntryInvalid(
-                        f"{table.preamble.name}.{field.name} is an EXACT match, so its value is "
-                        f"a plain value, not the pair {list(raw)!r}")
+                    if len(raw) != 1:
+                        raise TableEntryInvalid(
+                            f"{table.preamble.name}.{field.name} is an EXACT match, so its "
+                            f"value is a plain value or a one-element list, not "
+                            f"{list(raw)!r}")
+                    raw = raw[0]
                 m.exact.value = encode_value(raw, field.bitwidth)
             else:  # LPM
                 if not isinstance(raw, (list, tuple)) or len(raw) != 2:
