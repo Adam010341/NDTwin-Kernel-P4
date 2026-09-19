@@ -295,14 +295,18 @@ finish() {
             || bad "could NOT remove $TELEMETRY_KNOB -- the next 'ndt up p4' reads it"
     fi
     [[ -e "$APP_KNOB" ]] && bad "app_package_override SURVIVED the teardown -- the next 'ndt up p4' reads it"
-    # 🔴 A FAILED RESTORE IS A FAILURE OF THE ROUND, AND IT MUST NOT BE FOLLOWED BY A RE-CLAIM.
-    # This was `restore_host_knob || true`, and the combination with the re-claim below made
-    # cmd_release's knob guard VACUOUS: if the cp fails (this machine hit ENOSPC once today),
-    # the knob is still 4, the re-claim then records the baseline as 4, the release compares
-    # 4 == 4 and passes, and the round prints PASS with the knob left where `ndt up p4 4` put
-    # it -- which is the one value the next round's `ndt up p4` will read. The guard I added in
-    # round 2 to stop a release being refused had quietly become a guard that can never fire.
-    # (Ruling 24(3).)
+    # 🔴 A FAILED RESTORE IS A FAILURE OF THE ROUND, AND FAILURES IS THE ONLY THING THAT
+    # CATCHES IT. This was `restore_host_knob || true`: the cp can fail (this machine hit ENOSPC
+    # once today), the knob then stays at whatever `ndt up p4 4` wrote, and that is the one value
+    # the next round's `ndt up p4` reads.
+    #
+    # And `cmd_release` CANNOT protect this round, which my round-3 comment got wrong (ruling
+    # 25(2)): finish() calls teardown_fabric "final" FIRST, and that retracts the measurement
+    # with an `ndt claim` -- which runs record_round_baseline and writes host_count from the knob
+    # AS IT IS THEN, i.e. 4, before restore_host_knob has run at all. So by the time the release
+    # compares, the baseline is already 4 whatever happens next. The FAILURES+= below is the
+    # guard. Skipping the second re-claim (further down) is hygiene -- it keeps this round from
+    # re-asserting a baseline it knows is wrong -- not protection.
     local knob_restored=1
     restore_host_knob || knob_restored=0
     if (( ! knob_restored )); then
@@ -323,9 +327,11 @@ finish() {
         #
         # One more claim, after the restore, makes the baseline agree with the bytes that are
         # actually on disk -- which is what the release is entitled to compare against.
-        # Only re-claim when the knob really went back. Re-claiming re-records the round
-        # baseline from the bytes ON DISK, so doing it after a failed restore would tell
-        # cmd_release that 4 was where the round started -- see above.
+        # Only re-claim when the knob really went back. This is HYGIENE, NOT PROTECTION: the
+        # retraction inside teardown_fabric above has already recorded the baseline from the
+        # pre-restore knob, so cmd_release will compare 4 against 4 either way and pass. What
+        # this avoids is this round asserting, one more time and after it knows better, a
+        # baseline that does not describe the tree it is leaving behind. (Ruling 25(2).)
         if (( knob_restored )); then
             declare_measuring off "$FINAL_CLAIM_MINUTES"
         else

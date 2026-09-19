@@ -387,8 +387,22 @@ hasnt "🔴 a round whose knob did not go back does NOT pass" "PASS P3-E" "$OUT1
 has   "  and it says so in the failure list" "host_count_override was NOT put back" "$OUT12"
 has   "  naming the value the next 'ndt up p4' would read" \
       "the next 'ndt up p4' reads it" "$OUT12"
-has   "🔴 and it does NOT re-claim over the top of it" \
+# 🔴 HYGIENE, NOT PROTECTION -- and the cell says which it is. teardown_fabric's own
+# retraction has already recorded the baseline from the PRE-restore knob, so cmd_release will
+# compare 4 against 4 and pass whatever happens here; FAILURES above is what makes the round
+# fail. This asserts only that the round stops re-asserting a baseline it knows is wrong.
+has   "  hygiene: it does not re-claim over a knob it knows is wrong" \
       "not re-claiming: the knob is not back" "$OUT12"
+
+printf '\n=== 6e. ruling 25(4): the last claim before the release is a SHORT one\n'
+# 🔴 A REFUSED RELEASE MUST NOT LOCK THE LAB FOR THE WHOLE CLAIM. The final retraction is
+# also a renewal, and it used to renew by CLAIM_MINUTES (600) -- ten hours with nothing running
+# if the release then refuses. The stub records each call's argv, so this reads the real call.
+LASTCLAIM="$(/usr/bin/grep -E '^claim ' "$SB9/ndt_calls.txt" | tail -1)"
+has   "  the final claim renews for FINAL_CLAIM_MINUTES, not CLAIM_MINUTES" \
+      "claim 10 " "$LASTCLAIM"
+check "  and it is the last ndt call before the release" "release" \
+      "$(awk -F' \\| ' '{print $1}' "$SB9/ndt_calls.txt" | awk '{print $1}' | tail -1)"
 
 printf '\n=== 7. THE PRE-FIX CONTROLS -- each defect put back, each check must go RED\n'
 # (a) ndt verify_p4
@@ -438,8 +452,6 @@ has   "  because the shell died of it" "unbound variable" "$OUT5"
 has   "  the teardown still ran (the EXIT trap fires even on the dead shell)" \
       "teardown" "$OUT5"
 
-fi
-
 # (c) ruling 24(1): the OLD release line, and what it really did
 SB13="$SB/prefix-release"
 mkdir -p "$SB13"
@@ -465,6 +477,8 @@ has   "🔴 the old code DID print the refusal (the \`||\` fired -- pipefail)" \
       "'ndt release' did not take" "$OUT13"
 has   "🔴 ... and said PASS in the same breath, because bad() never touched FAILURES" \
       "PASS P3-E" "$OUT13"
+
+fi
 
 printf '\n=== 7b. and the refusals still refuse: a leftover link-telemetry manifest starts nothing\n'
 SB6="$SB/leftover"; build_sandbox "$SB6" "$REAL_DRIVER"

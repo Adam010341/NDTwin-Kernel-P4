@@ -66,6 +66,9 @@ BASE_PLOT="$(sha256sum "$PLOT" | cut -d' ' -f1)"
 BASE_TEST_A="$(sha256sum "$HERE/test_analyse.py" | cut -d' ' -f1)"
 BASE_TEST_P="$(sha256sum "$HERE/test_plot.py" | cut -d' ' -f1)"
 BASE_SYNTH="$(sha256sum "$HERE/synthetic.py" | cut -d' ' -f1)"
+BASE_DRIVER="$(sha256sum "$DRIVER" | cut -d' ' -f1)"
+BASE_SCANNER="$(sha256sum "$SCANNER" | cut -d' ' -f1)"
+BASE_TEST_OFF="$(sha256sum "$HERE/test_drive_e_offline.sh" | cut -d' ' -f1)"
 
 SURVIVORS=0
 MUTATIONS=0
@@ -228,6 +231,65 @@ control() {   # $1 = name, $2 = mutant dir -- a change that must NOT be caught
         /usr/bin/grep -E '^(FAIL|ERROR)' <<<"$out" | sed 's/^/             /'
     fi
 }
+
+# --- --self-test: does this gate report correctly when it CANNOT test? ----------------------
+# 🔴 AN INSTRUMENT NOBODY HAS SEEN FAIL IS A DECORATION, and that applies to the gate's own
+# refusal paths. Two of them exist and neither had ever been exercised in a saved run:
+#
+#   (a) ANCHOR DRIFT. A mutation whose anchor no longer matches is not applied at all, and the
+#       suite then passes -- which this gate used to print as SURVIVED, i.e. as evidence about a
+#       test. It is the opposite. Measured for real on 2026-09-19: M-E21's anchor drifted when
+#       round 3 rewrote the release block and the gate reported a survivor that never existed.
+#   (b) PARTIAL RED. report_shell takes several cells and requires ALL of them red; if only some
+#       go red the mutation is NOT caught, and saying otherwise would credit a cell that stayed
+#       green.
+#
+# Both run the real functions on the real tree. (Ruling 25(3) and 25(4).)
+if [[ "${1:-}" == "--self-test" ]]; then
+    echo "self-test (a): a mutation whose anchor cannot be found"
+    m=$(mutant st_drift "$ANALYSE" \
+        'MEDIAN_OVER_SD = 0.674   ### no such line exists' \
+        'MEDIAN_OVER_SD = 1.0')
+    report "ST-1: an anchor that matches nothing" "$m" \
+           "test_the_shot_noise_prediction_is_the_registered_formula"
+    drift_after=$DRIFTS
+    echo
+    echo "self-test (b): two required cells, only ONE of which can go red"
+    # The driver mutation really does redden the first cell; the second names a cell that does
+    # not exist, so it can never be red. report_shell must therefore NOT call this caught.
+    m=$(mutant st_partial "$DRIVER" \
+        '            FAILURES+=("$gen: '"'"'ndt status --check'"'"' rc=1 -- see $gen/11_verify.txt; the arms of this generation ran under it")' \
+        '            :')
+    surv_before=$SURVIVORS
+    report_shell "ST-2: one cell red, one cell that cannot be" "$m" \
+           "🔴 a generation whose status --check said rc 1 does NOT end in PASS" \
+           "  a cell name that does not exist in the suite"
+    echo
+    echo "--- self-test expectations"
+    st_rc=0
+    if (( drift_after == 1 )); then
+        echo "  ok    (a) an unmatchable anchor was reported as DRIFT, not as a survivor"
+    else
+        echo "  FAIL  (a) the drift path did not fire (drifted=$drift_after)"; st_rc=1
+    fi
+    if (( SURVIVORS == surv_before + 1 )); then
+        echo "  ok    (b) a partially-red mutation was reported SURVIVED, not caught"
+    else
+        echo "  FAIL  (b) a partially-red mutation was scored as caught"; st_rc=1
+    fi
+    echo
+    echo "mutations: $MUTATIONS   survivors: $SURVIVORS   drifted: $DRIFTS"
+    if (( st_rc != 0 )); then
+        echo "🔴 SELF-TEST FAILED: this gate does not refuse the way it says it does."
+        printf '\n### rc=1\n'
+        exit 1
+    fi
+    echo "🔴 REFUSING A VERDICT: $DRIFTS mutation(s) could not be applied at all. Fix their"
+    echo "   anchors and run this again -- a gate that did not mutate has not tested anything."
+    echo "   (this is the self-test: both refusal paths fired, which is the pass condition)"
+    printf '\n### rc=2\n'
+    exit 2
+fi
 
 echo "baseline (must be green before any mutation):"
 base="$BK/base"; copy_tree "$base"
@@ -414,13 +476,20 @@ m=$(mutant m23 "$DRIVER" \
 report_shell "M-E23: a failed knob restore goes back to being swallowed by || true" "$m" \
        "🔴 a round whose knob did not go back does NOT pass"
 
+# 🔴 M-E24 RETIRED (ruling 25(2)). It flipped `if (( knob_restored ))` to `if true`, and
+# that is BEHAVIOURALLY IDENTICAL: teardown_fabric's retraction has already written the round
+# baseline from the pre-restore knob, so the extra claim changes no outcome -- the release
+# compares 4 against 4 either way. It was killed only by the message string, and its label said
+# "release guard vacuous", which was the same wrong reasoning. A mutation whose only detectable
+# effect is a log line is not evidence about behaviour.
+#
+# What replaces it is a mutation with a real effect: the final retraction renewing for ten hours
+# instead of ten minutes, which is exactly what locks a lab after a refused release.
 m=$(mutant m24 "$DRIVER" \
-    '        if (( knob_restored )); then
-            declare_measuring off "$FINAL_CLAIM_MINUTES"' \
-    '        if true; then
-            declare_measuring off "$FINAL_CLAIM_MINUTES"')
-report_shell "M-E24: the round re-claims even when the knob is not back (release guard vacuous)" "$m" \
-       "🔴 and it does NOT re-claim over the top of it"
+    'FINAL_CLAIM_MINUTES="${FINAL_CLAIM_MINUTES:-10}"' \
+    'FINAL_CLAIM_MINUTES="${FINAL_CLAIM_MINUTES:-$CLAIM_MINUTES}"')
+report_shell "M-E24: the final retraction renews by CLAIM_MINUTES again (a refused release locks the lab)" "$m" \
+       "  the final claim renews for FINAL_CLAIM_MINUTES, not CLAIM_MINUTES"
 
 m=$(mutant_tests m25 "$SCANNER" \
     '    if could_not_read:
@@ -448,7 +517,12 @@ m=$(mutant c2 "$PLOT" \
 control "C-E2: a comprehension variable renamed in figure1_data (semantics unchanged)" "$m"
 
 # --- nothing underneath the gate moved while it ran ---------------------------------------------
+# 🔴 EVERY FILE THIS GATE MUTATES OR RUNS, not just the python half (ruling 25(4)). The
+# driver, the scanner and the offline suite are all under the gate now; a change to any of them
+# while it ran would make its verdict about a tree that no longer exists.
 for pair in "$ANALYSE:$BASE_ANALYSE" "$PLOT:$BASE_PLOT" \
+            "$DRIVER:$BASE_DRIVER" "$SCANNER:$BASE_SCANNER" \
+            "$HERE/test_drive_e_offline.sh:$BASE_TEST_OFF" \
             "$HERE/test_analyse.py:$BASE_TEST_A" "$HERE/test_plot.py:$BASE_TEST_P" \
             "$HERE/synthetic.py:$BASE_SYNTH"; do
     file="${pair%:*}"; want="${pair##*:}"
