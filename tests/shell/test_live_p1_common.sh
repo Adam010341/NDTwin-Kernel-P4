@@ -329,14 +329,19 @@ s1-eth2 1000
 s1-eth3 11001
 s2-eth1 11000
 ND
+# 🔴 THE CLASS TRAVELS WITH THE NAME (§9 ruling 20①): s1-eth1 moved 1,999,000 B and is the
+# PRIMARY; s1-eth3's 10,001 B is over the 10 kB threshold but far under 5% of the primary, so
+# it is MINOR -- real bytes the sampler cannot be expected to have caught.
 OUT="$(drive "onpath_ifaces '$FIX/nd.before' '$FIX/nd.after' | paste -sd, -")"
-check "🔴 only the interfaces that moved bytes are on the path" "s1-eth1,s1-eth3" "$(/usr/bin/grep -v '^RC=' <<<"$OUT" | head -1)"
+check "🔴 only the interfaces that moved bytes are on the path" "s1-eth1 P 1999000,s1-eth3 M 10001" "$(/usr/bin/grep -v '^RC=' <<<"$OUT" | head -1)"
+check "  and onpath_primary gives the old one-name shape"  "s1-eth1" \
+      "$(drive "onpath_ifaces '$FIX/nd.before' '$FIX/nd.after' > '$FIX/nd.onpath'" >/dev/null; drive "onpath_primary '$FIX/nd.onpath' | paste -sd, -" | /usr/bin/grep -v '^RC=' | head -1)"
 # 🔴 THE THRESHOLD IS 10 kB AND NOT "> 0 bytes". LLDP, ARP and the proxy's own probes keep every
 # link faintly busy; with a threshold of zero every interface in the fabric is on every path and
 # the off-path half of the assertion has nothing left to be about. s2-eth1 grew by EXACTLY 10000
 # and is out; s1-eth3 grew by 10001 and is in.
 OUT="$(drive "onpath_ifaces '$FIX/nd.before' '$FIX/nd.after' 1 | paste -sd, -")"
-check "  a threshold of 1 byte puts the noise on the path too" "s1-eth1,s1-eth3,s2-eth1" "$(/usr/bin/grep -v '^RC=' <<<"$OUT" | head -1)"
+check "  a threshold of 1 byte puts the noise on the path too" "s1-eth1 P 1999000,s1-eth3 M 10001,s2-eth1 M 10000" "$(/usr/bin/grep -v '^RC=' <<<"$OUT" | head -1)"
 
 printf 's1-eth1 1000\n' > "$FIX/nd.short"
 OUT="$(drive "onpath_ifaces '$FIX/nd.short' '$FIX/nd.after'")"
@@ -367,7 +372,9 @@ mkint() {   # mkint <file> <"<key> <bits> <kind>" ...>
     local row; for row in "$@"; do printf '%s\n' "$row" >> "$f"; done
     printf '# samples=4 span=1s\n' >> "$f"
 }
-printf 's1-eth1\ns1-eth3\n' > "$FIX/onpath.txt"
+# 🔴 `P` because these fixtures ARE the flow: the class column is onpath_ifaces' output
+# format now (§9 ruling 20①), and a file without it would exercise a shape nothing produces.
+printf 's1-eth1 P 2000000\ns1-eth3 P 2000000\n' > "$FIX/onpath.txt"
 mkint "$FIX/i_good.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
                         "s1-eth2 0.000 switch" "s2-eth1 400.000 host"
 OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_good.txt' 'green'")"
@@ -377,7 +384,7 @@ has   "  and it says so"                                 "green: link usage foll
 mkint "$FIX/i_zero.txt" "s1-eth1 8000.000 host" "s1-eth3 0.000 switch" "s1-eth2 0.000 switch"
 OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_zero.txt' 'zero'")"
 check "🔴 an interface that carried the flow and reads 0 is red" "1" "$(rc_of "$OUT")"
-has   "  naming it"                                      "s1-eth3 carried the flow and the twin integrated 0.000 bit" "$OUT"
+has   "  naming it"                                      "s1-eth3 carried the flow (2000000 B, primary) and the twin integrated 0.000 bit" "$OUT"
 
 mkint "$FIX/i_missing.txt" "s1-eth1 8000.000 host"
 OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_missing.txt' 'gap'")"
@@ -395,7 +402,7 @@ has   "  and says the link is not modelled"              "the twin has NO edge f
 check "  the floor with a 16 kbit smallest on-path integral" "5000.000" \
       "$(one "link_usage_floor '$FIX/onpath.txt' '$FIX/i_good.txt'")"
 mkint "$FIX/i_big.txt" "s1-eth1 16000000.000 host" "s1-eth3 16000000.000 switch"
-printf 's1-eth1\ns1-eth3\n' > "$FIX/onpath2.txt"
+printf 's1-eth1 P 16000000\ns1-eth3 P 16000000\n' > "$FIX/onpath2.txt"
 check "🔴 and with a real 16 Mbit flow it is 2% of it, not 5 kbit" "320000.000" \
       "$(one "link_usage_floor '$FIX/onpath2.txt' '$FIX/i_big.txt'")"
 
@@ -717,6 +724,76 @@ check "  a clean teardown still passes"                  "0" "$RC10"
 check "  and its last line is PASS"                      "1" \
       "$(printf '%s\n' "$OUT10" | tail -1 | /usr/bin/grep -c '^PASS ')"
 rm -rf "$FIX10"
+
+# =============================================================================================
+section "11. 🔴 qos/solution's real numbers: a side branch the sampler cannot see"
+# =============================================================================================
+# TICKET-P3 §9 ruling 20①, from the first live run. These are the ACTUAL tx deltas of
+# runs/2026-09-19T053856Z_qos_solution_ndtwin/link_usage/netdev.{before,after} and the actual
+# twin integrals from its twin_integral.txt -- not numbers chosen to make a point:
+#
+#   s1-eth3  2,162,160 B   twin 22,443,167 bit    <- the flow
+#   s2-eth1  2,162,160 B   twin 14,704,115.5 bit  <- the flow
+#   s1-eth4     15,120 B   twin 0                 <- TEN datagrams down a side branch
+#   s3-eth1     15,120 B   twin 0                 <- the same ten, other end
+#   s1-eth2        340 B / s2-eth3 170 / s3-eth2 170 / the rest 0
+#
+# 10 kB made all four "on-path" and demanded a non-zero integral on each. At 1 sample in 256
+# the EXPECTED samples for ten packets is 15120/(1500*256) = 0.04 -- so the twin integrating
+# zero on the 15 kB pair was CORRECT, and the cell went red on a twin that was right.
+cat > "$FIX/qos.before" <<'NB'
+s1-eth1 1000
+s1-eth2 1000
+s1-eth3 1000
+s1-eth4 1000
+s2-eth1 1000
+s2-eth2 1000
+s2-eth3 1000
+s2-eth4 1000
+s3-eth1 1000
+s3-eth2 1000
+s3-eth3 1000
+NB
+cat > "$FIX/qos.after" <<'NA'
+s1-eth1 1000
+s1-eth2 1340
+s1-eth3 2163160
+s1-eth4 16120
+s2-eth1 2163160
+s2-eth2 1000
+s2-eth3 1170
+s2-eth4 1000
+s3-eth1 16120
+s3-eth2 1170
+s3-eth3 1000
+NA
+mkint "$FIX/qos.int" "s1-eth1 0.000 host" "s1-eth2 0.000 host" "s1-eth3 22443167.000 switch" \
+                     "s1-eth4 0.000 switch" "s2-eth1 14704115.500 host" "s2-eth2 0.000 host" \
+                     "s2-eth3 0.000 switch" "s2-eth4 0.000 switch" "s3-eth1 0.000 host" \
+                     "s3-eth2 0.000 switch" "s3-eth3 0.000 switch"
+
+OUT="$(drive "onpath_ifaces '$FIX/qos.before' '$FIX/qos.after' > '$FIX/qos.onpath'")"
+ONP="$(cat "$FIX/qos.onpath")"
+has   "🔴 s1-eth3 is PRIMARY"                            "s1-eth3 P 2162160" "$ONP"
+has   "🔴 s2-eth1 is PRIMARY"                            "s2-eth1 P 2162160" "$ONP"
+has   "🔴 s1-eth4 is MINOR, not primary"                 "s1-eth4 M 15120" "$ONP"
+has   "🔴 s3-eth1 is MINOR, not primary"                 "s3-eth1 M 15120" "$ONP"
+hasnt "  and the 340 B interface is not listed at all"   "s1-eth2" "$ONP"
+hasnt "  nor the 170 B ones"                             "s2-eth3" "$ONP"
+
+OUT="$(drive "assert_link_usage_follows_path '$FIX/qos.onpath' '$FIX/qos.int' 'qos'")"
+check "🔴 the real qos/solution reading PASSES"           "0" "$(rc_of "$OUT")"
+has   "  the two primaries are asserted and named"       "on-path  s1-eth3" "$OUT"
+has   "🔴 the minor rows are printed, not asserted"      "minor    s1-eth4" "$OUT"
+has   "🔴 with the expected sample count beside them"    "expected samples = 15120 / (1500 x 256) = 0.039" "$OUT"
+has   "  and said to be NOT asserted"                    "NOT asserted" "$OUT"
+
+# 🔴 THE PRIMARY HALF STILL HAS TEETH: a primary interface the twin never saw is still red.
+mkint "$FIX/qos.int0" "s1-eth3 0.000 switch" "s2-eth1 14704115.500 host" "s1-eth4 0.000 switch" \
+                      "s3-eth1 0.000 host"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/qos.onpath' '$FIX/qos.int0' 'qos0'")"
+check "🔴 a PRIMARY interface with a zero integral is still red" "1" "$(rc_of "$OUT")"
+has   "  naming it as primary, with its byte count"      "s1-eth3 carried the flow (2162160 B, primary)" "$OUT"
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"

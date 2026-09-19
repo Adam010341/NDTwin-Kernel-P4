@@ -645,6 +645,35 @@ EOF
 check_fires "M30: a non-zero 'ndt down' is not folded into the verdict" m30 \
             "🔴 its rc is folded into the verdict"
 
+# --- M31 (§9 ruling 20①): every interface over 10 kB is PRIMARY again ------------------------
+# 🔴 THE LIVE DEFECT, RESTORED. With the share at 0 the 15,120 B side branch is primary again
+# and the cell demands a non-zero twin integral on it -- while a 1/256 sampler is expected to
+# catch 0.04 samples from ten packets. That is qos/solution's real reading going red on a twin
+# that was right.
+cat > "$A/m31.old" <<'EOF'
+: "${LINK_USAGE_PRIMARY_FRACTION:=0.05}"
+EOF
+cat > "$A/m31.new" <<'EOF'
+: "${LINK_USAGE_PRIMARY_FRACTION:=0}"
+EOF
+check_fires "M31: every interface over the byte threshold is primary again" m31 \
+            "🔴 s1-eth4 is MINOR, not primary" \
+            "🔴 the real qos/solution reading PASSES"
+
+# --- M32 (widening): nothing is primary ------------------------------------------------------
+# 🔴 THE CONTROL FOR M31. At a share of 1.0 only the single largest interface is primary, so
+# the OTHER end of the same flow stops being asserted -- and "usage follows the path" would be
+# a claim about one interface.
+cat > "$A/m32.old" <<'EOF'
+: "${LINK_USAGE_PRIMARY_FRACTION:=0.05}"
+EOF
+cat > "$A/m32.new" <<'EOF'
+: "${LINK_USAGE_PRIMARY_FRACTION:=1.5}"
+EOF
+check_fires "M32 (widening): the share is so high nothing is primary" m32 \
+            "🔴 s1-eth3 is PRIMARY" \
+            "🔴 s2-eth1 is PRIMARY"
+
 # --- the controls for this half --------------------------------------------------------------------------
 cat > "$A/c3.old" <<'EOF'
     (( rc == 0 )) && note "$label: link usage follows the iperf path (off-path under $floor bit)"

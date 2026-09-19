@@ -1456,7 +1456,19 @@ class Steps(object):
         and `1` are different strings and only the exercise's README says which one its scapy
         prints.
         """
-        return re.findall(r"^\s*%s\s*=\s*(\S+)\s*$" % re.escape(field), text, re.M)
+        # 🔴 SCAPY INDENTS NESTED LAYERS WITH `|`, AND THE FIELD IS STILL THE FIELD
+        # (TICKET-P3 §9 ruling 23①, from the second live 06). An IP OPTION is a nested layer,
+        # so receive.py prints it as
+        #       |###[ MRI ]###
+        #       |  count     = 2
+        #       |  \swtraces  \
+        #       |   |###[ SwitchTrace ]###
+        #       |   |  swid      = 2
+        # -- every line carrying one or more `|` before the name. `^\s*` does not match those,
+        # so `count` read 0 and `swid` read [], and BOTH mri arms reported
+        # "injection: the MRI option survived to h2 got=0" while the transcript printed the
+        # option in full. The prefix is presentation, not data: strip `|` and spaces first.
+        return re.findall(r"^[|\s]*%s\s*=\s*(\S+)\s*$" % re.escape(field), text, re.M)
 
     def _send_once(self, host, argv, feed=None, label=""):
         """One sender, run to completion in the host namespace. -> its combined output."""
@@ -1931,12 +1943,37 @@ class Steps(object):
         """
         out = []
         for pkt in self._packets(text):
-            if not re.search(r"^\s*src\s*=\s*%s\s*$" % re.escape(src), pkt["text"], re.M):
+            head = self._outer_ip(pkt["text"])
+            if head is None:
                 continue
-            m = re.search(r"^\s*tos\s*=\s*(\S+)\s*$", pkt["text"], re.M)
-            if m:
-                out.append(m.group(1))
+            m_src = re.search(r"^[|\s]*src\s*=\s*(\S+)\s*$", head, re.M)
+            m_tos = re.search(r"^[|\s]*tos\s*=\s*(\S+)\s*$", head, re.M)
+            if m_src and m_tos and m_src.group(1) == src:
+                out.append(m_tos.group(1))
         return out
+
+    @staticmethod
+    def _outer_ip(block):
+        """The text of a block's FIRST `###[ IP ]###` layer, up to the next layer header.
+
+        🔴 AN ICMP ERROR CARRIES A SECOND IP HEADER, AND IT IS THE ONE THAT MATCHED
+        (TICKET-P3 §9 ruling 20②, from the first live 06). h2 answers the UDP probe with a port
+        unreachable whose OUTER header is `src = 10.0.2.2, tos = 0xc0` and whose payload embeds
+        the original datagram as `###[ IP in ICMP ]###` with `src = 10.0.1.1, tos = 0x1`. One
+        `got a packet` block therefore has two `src =` lines and two `tos =` lines: the old
+        filter matched the INNER src (h1, so the block was kept) and then took the FIRST tos it
+        found, which is the OUTER 0xc0. `got ['0x1', '0xc0']` -- h2's own error reported as one
+        of h1's frames.
+
+        Taking src and tos from the same, outer, header makes the pair consistent: this block
+        is h2 -> h1 and is dropped, exactly as a block whose src is h2 always should have been.
+        """
+        start = re.search(r"^[|\s]*###\[ IP \]###", block, re.M)
+        if start is None:
+            return None
+        rest = block[start.end():]
+        nxt = re.search(r"^[|\s]*###\[", rest, re.M)
+        return rest[:nxt.start()] if nxt else rest
 
     def _qos_round(self, proto, tag):
         """One `send.py --p=<proto>` run with h2 sniffing. -> (tos of h1's frames, out, n)."""

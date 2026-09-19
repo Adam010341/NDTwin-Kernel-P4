@@ -905,6 +905,30 @@ add "88. the second flush lands between the first and second re-measure ping" \
             again += [(src, self.h.ping(src, self.h.ips["h4"], 5)) for src in group[1:]]' \
     'test_the_second_flush_happens_after_the_pingall'
 
+# 89: THE LAST IP HEADER INSTEAD OF THE FIRST (§9 ruling 20②). h2's ICMP port-unreachable
+# embeds the original datagram, so the block has an outer header (h2 -> h1, tos 0xc0) and an
+# inner one (h1 -> h2, tos 0x1). Reading the last one makes the filter and the value disagree
+# again -- which is how `UDP tos stays 0x1` came back `got ['0x1', '0xc0']` on the live run.
+add "89. _tos_from reads the LAST IP header of a block, not the first" \
+    "$DRIVER" \
+    '        start = re.search(r"^[|\s]*###\[ IP \]###", block, re.M)
+        if start is None:
+            return None' \
+    '        start = list(re.finditer(r"^[|\s]*###\[ IP", block, re.M))[-1:]  # MUTANT
+        start = start[0] if start else None
+        if start is None:
+            return None' \
+    'test_h2s_icmp_error_is_not_read_as_one_of_h1s_frames'
+
+# 90: THE NESTING PREFIX IS NOT STRIPPED (§9 ruling 23①). scapy prints an IP option as a nested
+# layer with `|` on every line; anchoring on `^\s*` reads the MRI count as 0 and the swids as
+# [], which is what both mri arms reported while the transcript showed the option in full.
+add "90. _field_values goes back to anchoring at line start" \
+    "$DRIVER" \
+    '        return re.findall(r"^[|\s]*%s\s*=\s*(\S+)\s*$" % re.escape(field), text, re.M)' \
+    '        return re.findall(r"^\s*%s\s*=\s*(\S+)\s*$" % re.escape(field), text, re.M)  # MUTANT' \
+    'test_the_mri_count_is_read_through_the_nesting_prefix'
+
 CTRL_SRC="$DRIVER"
 CTRL_ANCHOR='def host_key(name):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.
