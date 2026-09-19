@@ -234,6 +234,12 @@ SEEOF
     # --- PATH shims. `sudo` swallows the mnexec/iperf3 calls the sender control makes (there is
     # no lab here and there must be no sudo); `ps` answers with a host namespace so the control
     # is REACHED rather than skipped -- being reached is the whole point of cell B.
+    # 🔴 A REAL-SHAPED SWITCH MANIFEST. The stub used to write `argv` as a LIST, which is
+    # the shape run_group_arm.sh assumed -- so this suite was green while the arm script could
+    # never have worked against the lab, and the first real campaign marked every arm invalid.
+    # It is the manifest the lab really wrote -- all ten switches, byte for byte. (Ruling 27.)
+    cp "$HERE/fixtures/ndtwin_p4_switches.real.json" "$dir/ndtwin_p4_switches.json"
+
     printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/bin/sudo"
     printf '#!/usr/bin/env bash\necho "  12345 mininet:h1"\n' > "$dir/bin/ps"
     # 🔴 A `cp` THAT FAILS ONLY ON THE KNOB RESTORE. NDT_BREAK_RESTORE=1 makes
@@ -403,6 +409,30 @@ has   "  the final claim renews for FINAL_CLAIM_MINUTES, not CLAIM_MINUTES" \
       "claim 10 " "$LASTCLAIM"
 check "  and it is the last ndt call before the release" "release" \
       "$(awk -F' \\| ' '{print $1}' "$SB9/ndt_calls.txt" | awk '{print $1}' | tail -1)"
+
+printf '\n=== 6f. ruling 27: the arm script can name the binary the lab is actually running\n'
+# 🔴 THE CAMPAIGN-STOPPING BUG, as a cell. The manifest's `argv` is ONE STRING; iterating
+# it yields characters, so the old reader found no binary and every arm was marked
+# `invalid=no simple_switch binary ... this arm cannot name what it measured` -- after
+# none_f64_a had already measured a confirmed 30 kpps ceiling that then could not be used.
+# This runs the REAL reader against the manifest the lab really wrote.
+MANI="$HERE/fixtures/ndtwin_p4_switches.real.json"
+check "  the fixture is the shape that broke it (argv is a string)" "str" \
+      "$(python3 -c 'import json,sys;print(type(json.load(open(sys.argv[1]))["s1"]["argv"]).__name__)' "$MANI")"
+check "🔴 the binary is found in a string argv" "/usr/local/bmv2-fast/bin/simple_switch_grpc" \
+      "$(python3 "$ROUND/manifest.py" binary "$MANI")"
+check "  and all ten switches give a pid and a device id" "10" \
+      "$(python3 "$ROUND/manifest.py" rows "$MANI" | wc -l)"
+# and the shape the OLD reader needed must not be what makes it pass
+check "  the old iterate-the-argv reader finds nothing here (that was the bug)" "" \
+      "$(python3 -c '
+import json, os, sys
+d = json.load(open(sys.argv[1]))
+for e in d.values():
+    for t in (e or {}).get("argv") or []:
+        if os.path.basename(str(t)).startswith("simple_switch"):
+            print(t); raise SystemExit(0)
+' "$MANI")"
 
 printf '\n=== 7. THE PRE-FIX CONTROLS -- each defect put back, each check must go RED\n'
 # (a) ndt verify_p4

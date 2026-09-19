@@ -123,7 +123,8 @@ if (( DRY )); then
     printf '  curl -sf --max-time 10 %s/p4/switch_state\n' "$PROXY_URL"
     printf '  curl -sf --max-time 10 %s/ndt/get_sflow_stats\n' "$KERNEL_URL"
     printf '  sha256sum %s\n' "$KERNEL_BIN"
-    printf '  sha256sum $SWITCH_BIN          # $SWITCH_BIN read from %s argv\n' "$SW_MANIFEST"
+    printf '  %s %s/manifest.py binary %s     # the argv is ONE STRING; shlex, not iteration\n' \
+        "$PY" "$HERE" "$SW_MANIFEST"
     printf '  nm -DC $SWITCH_BIN | /usr/bin/grep -c EventLogger    # fast=0, stock=24 (1b section 3)\n'
     printf '  sha256sum %s\n' "$PIPELINE_JSON"
     printf '  %s %s --out %s/cpu.jsonl --duration <arm seconds> --hz %s \\\n' "$PY" "$PROBE" "$OUT" "$CPU_HZ"
@@ -219,19 +220,14 @@ if [[ "$GROUP" == link ]]; then
 fi
 
 # --- 2. what is being measured, identified ---------------------------------------------------
-SWITCH_BIN="$("$PY" - "$SW_MANIFEST" <<'PY'
-import json, os, sys
-try:
-    manifest = json.load(open(sys.argv[1]))
-except Exception:
-    raise SystemExit(0)
-for entry in manifest.values():
-    for token in (entry or {}).get("argv") or []:
-        if os.path.basename(str(token)).startswith("simple_switch"):
-            print(token)
-            raise SystemExit(0)
-PY
-)"
+# 🔴 THE MANIFEST'S `argv` IS ONE STRING, NOT A LIST OF TOKENS. This block used to
+# iterate it -- and iterating a string yields CHARACTERS, so no token ever matched and every arm
+# of the first real campaign was marked `invalid=no simple_switch binary ... this arm cannot
+# name what it measured`, after none_f64_a had already measured a confirmed 30 kpps ceiling that
+# then could not be used. The reader now lives in manifest.py, where it can be tested against
+# the manifest the lab really writes (tests/fixtures/ndtwin_p4_switches.real.json, copied
+# verbatim from the campaign's own /tmp/ndtwin_p4_switches.json). Ruling 27.
+SWITCH_BIN="$("$PY" "$HERE/manifest.py" binary "$SW_MANIFEST")"
 OVERRIDE_BIN="$(/usr/bin/grep -v '^[[:space:]]*#' "$BMV2_OVERRIDE" 2>/dev/null \
                 | /usr/bin/grep -v '^[[:space:]]*$' | head -1 | xargs)"
 if [[ -z "$SWITCH_BIN" ]]; then
@@ -243,19 +239,9 @@ ELOG="$(nm -DC "$SWITCH_BIN" 2>/dev/null | /usr/bin/grep -c EventLogger)"
 [[ "$ELOG" == "0" ]] \
     || invalid "the switch binary has $ELOG EventLogger symbols -- that is the stock signature, not bmv2-fast"
 
-mapfile -t SWROWS < <("$PY" - "$SW_MANIFEST" <<'PY'
-import json, sys
-try:
-    manifest = json.load(open(sys.argv[1]))
-except Exception:
-    raise SystemExit(0)
-for name, entry in sorted(manifest.items()):
-    pid = (entry or {}).get("pid")
-    device = (entry or {}).get("device_id")
-    if pid:
-        print("%s %s" % (pid, name if device is None else device))
-PY
-)
+# `pid` and `device_id` ARE the manifest's own key names and are plain integers -- checked
+# against the real file, not assumed this time.
+mapfile -t SWROWS < <("$PY" "$HERE/manifest.py" rows "$SW_MANIFEST")
 (( ${#SWROWS[@]} > 0 )) || invalid "no switch pids in $SW_MANIFEST"
 # Cross-check against the exact comm. /proc/<pid>/comm truncates at 15 characters, so
 # `simple_switch_grpc` reads back `simple_switch_g` -- matching the untruncated name silently
