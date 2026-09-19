@@ -415,8 +415,10 @@ EOF
 # sentence and the fact that no edge was judged at all. (mutate_live_p1_common.sh's own M10
 # carries the same note about the probe half.)
 check_fires "M15: an EMPTY on-path set passes the cell" m15 \
-            "  saying why" \
-            "🔴 and it refuses WITHOUT judging a single edge"
+            "🔴 an EMPTY on-path set is refused, not satisfied" \
+            "  saying why"
+# (not "refuses WITHOUT judging a single edge": this mutation returns 0 and judges nothing
+# either, so that cell is true of both and cannot see it.)
 
 # --- M16 (M-D6): the positive control stops discriminating --------------------------------------------
 # 🔴 WITHOUT THE CONTROL THE CELL ABOVE IS UNFALSIFIABLE. `none` is the group with no sampling at
