@@ -14,15 +14,15 @@
 
 | | |
 |---|---|
-| 日期／時間 | `<UTC 起迄>` |
-| 誰跑的 | `<orchestrator>` |
+| 日期／時間 | 2026-09-19 11:57:37Z 起（run id `2026-09-19T115737Z_full`），六世代連續跑完 |
+| 誰跑的 | orchestrator（本 session），機器全空、無閘門並行 |
 | fabric | `ndt up p4 4 --telemetry {none|cooperative|link}`，10 台 bmv2、4 主機、NDTwin pipeline |
-| 路徑 | h1(s1:3) → h4(s4:3)；**實際量到的 on-path 介面集合**＝`<列出來>` |
+| 路徑 | h1(s1:3) → h4(s4:3)；**實際量到的 on-path 介面集合**＝`s1-eth2`／`s6-eth4`／`s8-eth2`／`s10-eth4`（4 條，等於 PREREG 5.2 註冊的數目；fabric 共 32 條 inter-switch 埠） |
 | kernel binary | sha256 `<full>`（`<前 8 碼>`），每一臂頭尾相同 |
-| bmv2 binary | `<路徑>`、sha256 `<...>`、`EventLogger=0`（fast 簽章，雙向斷言過） |
+| bmv2 binary | `/usr/local/bmv2-fast/bin/simple_switch_grpc`、sha256 前綴 `be70b5dd3235`、`EventLogger=0`（fast 簽章，雙向斷言過） |
 | pipeline | `ndtwin_switch.json` sha256 `<...>`（`SAMPLE_RATE=256` 編在裡面） |
 | 世代／臂 | 6 世代、12 梯子臂、27 個取樣誤差視窗、3 個控制 |
-| 作廢／重跑 | `<哪一臂、觸發 PREREG 7 哪一條、兩次的值都留著>`；沒有就寫「無」 |
+| 作廢／重跑 | 無（本輪 12 臂全部產出讀數；`invalid_arms` 為空） |
 
 ---
 
@@ -30,9 +30,9 @@
 
 | 控制 | 量到 | 判準 | 結果 |
 |---|---|---|---|
-| C1 產生器上限（64 B frame，h1→h1 loopback，不經 bmv2，3 rep） | `<pps>` | ≥ 5× 本輪 64 B 經 bmv2 的最高 pps（＝`<pps>`） | `<PASS / FAIL>` |
-| C2 產生器上限（1024 B frame） | `<pps>` | ≥ 5× 本輪 1024 B 的最高 pps（＝`<pps>`） | `<PASS / FAIL>` |
-| C3 外部 CPU 閘的陽性對照 | `external` `<無 burner>` → `<有 burner>` | 差 > 0.15 絕對值 | `<FIRES / DID NOT FIRE>` |
+| C1 產生器上限（64 B frame，h1→h1 loopback，不經 bmv2，3 rep） | 733469.6 pps（3 rep：733469.6 690606.7 731634.2） | ≥ 5× 本輪 64 B 經 bmv2 的最高 pps（＝150000 pps） | **PASS** |
+| C2 產生器上限（1024 B frame） | 727636.4 pps（3 rep：727636.4 669448.4 612424.2） | ≥ 5× 本輪 1024 B 的最高 pps（＝150000 pps） | **PASS** |
+| C3 外部 CPU 閘的陽性對照 | `external` 0.1066 → 0.2805 | 差 > 0.15 絕對值 | **FIRES** |
 
 🔴 C1／C2 任一 FAIL ⇒ **該 frame 尺寸只報「產生器受限」**，不得對該尺寸的 bmv2 pps 說任何話（PREREG 7）。
 🔴 C3 不觸發 ⇒ 閘門 unvalidated，本輪不開跑（PREREG 6.3）。
@@ -127,6 +127,13 @@ emitter 統計行（每臂的 `emitter.log`）：`samples=<> emitted=<> dropped_
 ---
 
 ## 4. 三、CPU
+
+🔴 **本節的 H-C 判決暫不填寫,理由與 §3 同類但不同因**:我沒有驗過 PREREG 把 H-C 註冊在
+「逐格」還是「逐組」。裁決 38 是查 PREREG 之後才發現 H-B 的註冊層級與碼不一致的,
+**在對 H-C 做同一次查證之前,填上去的標籤沒有依據**。數字(`cpu_kernel`/`cpu_bmv2` 與
+`fits`)與圖 `fig3_cpu.png` 都在 summary.json 裡,擋住的一樣是標籤不是資料。
+(§5(b) 的 H-C1 是 `analyse.py` 自己輸出、照原樣轉錄的對帳結果,不是我在這裡下的判定。)
+
 
 **圖：`fig3_cpu.png` / `.pdf`（bmv2／kernel／proxy+emitter 三個面板）。**
 
