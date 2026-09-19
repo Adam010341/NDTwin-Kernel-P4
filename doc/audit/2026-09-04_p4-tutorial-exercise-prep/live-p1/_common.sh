@@ -866,14 +866,17 @@ link_usage_floor() {
     local onpath="$1" integral="$2"
     "$PY" -c '
 import sys
-floor_abs = float(sys.argv[3]); frac = float(sys.argv[4])
 # 🔴 THE FLOOR IS AT LEAST ONE SAMPLE WORTH OF BITS (§9 ruling 26①). A single sampled frame on
 # an off-path link is banked as rate x frame x 8 bits -- one 170-byte packet at 1/256 is
-# 348 kbit, thirty-five times the old 10 kbit floor -- so a floor below one sample means the
-# cell reds on the smallest thing the sampler can possibly report. Nothing can be measured
-# below one sample; a bound under it is a bound on noise that does not exist.
+# 348 kbit, thirty-five times the old 5 kbit constant -- so a floor below one sample reds on
+# the smallest thing the sampler can possibly report. Nothing is measurable below one sample.
+#
+# 🔴 AND THE OLD ABSOLUTE CONSTANT IS GONE, NOT KEPT AS A MAX. `max(5000, one_sample)` is
+# always one_sample, so leaving it in would be a term no input can reach -- dead arithmetic
+# that reads like a rule. One sample IS the absolute floor now; the relative term below still
+# takes over for a big enough flow.
 one_sample = float(sys.argv[5]) * float(sys.argv[6]) * 8
-floor_abs = max(floor_abs, one_sample)
+floor_abs = one_sample; frac = float(sys.argv[4])
 want = set()
 for line in open(sys.argv[1]):
     parts = line.split()
@@ -942,7 +945,7 @@ assert_link_usage_follows_path() {
         fi
     done < "$onpath"
     floor="$(link_usage_floor "$onpath" "$integral")"
-    note "$label: off-path floor $floor bit   = max(${LINK_USAGE_NOISE_BITS}, ONE SAMPLE = ${LINK_USAGE_SAMPLE_RATE} x ${LINK_USAGE_MTU_BYTES} x 8 = $(( LINK_USAGE_SAMPLE_RATE * LINK_USAGE_MTU_BYTES * 8 )) bit, ${LINK_USAGE_OFFPATH_FRACTION} x the smallest PRIMARY on-path integral)"
+    note "$label: off-path floor $floor bit   = max(ONE SAMPLE = ${LINK_USAGE_SAMPLE_RATE} x ${LINK_USAGE_MTU_BYTES} x 8 = $(( LINK_USAGE_SAMPLE_RATE * LINK_USAGE_MTU_BYTES * 8 )) bit, ${LINK_USAGE_OFFPATH_FRACTION} x the smallest PRIMARY on-path integral)"
     while read -r key bits kind; do
         [[ "$key" == \#* || -z "$key" ]] && continue
         # 🔴 MINOR ROWS ARE NOT OFF-PATH EITHER. They moved real bytes; holding them to the

@@ -403,7 +403,7 @@ check_fires "M14: an unmodelled on-path link is skipped instead of red" m14 \
 # iperf, a missing sudo grant and a dead switch all produce.
 cat > "$A/m15.old" <<'EOF'
     if [[ ! -s "$onpath" ]]; then
-        fail "$label: the on-path interface set is EMPTY -- nothing measurably carried the flow, so 'usage follows the path' is a sentence about a fabric that moved no packets"
+        fail "$label: the on-path interface set is EMPTY -- nothing measurably carried the flow (iperf -l ${LINK_USAGE_DATAGRAM}, so ${LINK_USAGE_DATAGRAM}+28 B on the wire plus any encapsulation); 'usage follows the path' is a sentence about a fabric that moved no packets"
         return 1
     fi
 EOF
@@ -556,24 +556,14 @@ cat > "$A/m24.new" <<'EOF'
 print("%.3f" % floor_abs)
 EOF
 check_fires "M24: the floor loses its relative term" m24 \
-            "🔴 and with a real 16 Mbit flow it is 2% of it, not 5 kbit" \
-            "🔴 one sampled LLDP beacon off the path is NOT a failure"
+            "🔴 above 153.6 Mbit the 2% term decides again"
 
-# --- M25: the floor loses its absolute term -------------------------------------------------------
-# The other half. In a window where the flow itself was small, 2% of it is a handful of bits and
-# an off-path link with real traffic on it slips under -- the bound has to have a floor of its own.
-cat > "$A/m25.old" <<'EOF'
-floor_abs = float(sys.argv[3]); frac = float(sys.argv[4])
-EOF
-cat > "$A/m25.new" <<'EOF'
-floor_abs = 0.0; frac = float(sys.argv[4])
-EOF
-# 🔴 NOT THE rc CELL. With floor_abs gone the quiet window's floor is 2% of 8000 = 160 bit and
-# the 6000 bit off-path edge is still over it -- rc 1 either way, a different number in the
-# message. What sees it is the floor the run PRINTS, which is the number the verdict used.
-check_fires "M25: the floor loses its absolute term" m25 \
-            "  the floor with a 16 kbit smallest on-path integral" \
-            "  naming that floor"
+# --- (no M25) the absolute constant is gone, so there is nothing to remove ---------------------
+# 🔴 §9 ruling 26① replaced `max(LINK_USAGE_NOISE_BITS, ...)` with ONE SAMPLE, and
+# `max(5000, 3072000)` is always 3072000 -- the old constant was a term no input could reach.
+# Keeping a mutation that deletes dead arithmetic would be a mutation nothing can observe, so
+# the constant is gone from the floor and M25 with it. M35 is the mutation that matters now:
+# it drops the one-sample term itself.
 
 # --- M26: the floor is computed from the LARGEST on-path integral --------------------------------
 # On a fabric whose on-path edges differ -- the host-facing one carries the flow once, an
@@ -587,7 +577,7 @@ print("%.3f" % max(floor_abs, frac * max(vals)) if vals else "%.3f" % floor_abs)
 EOF
 check_fires "M26: the floor is taken from the largest on-path integral" m26 \
             "  the floor follows the SMALLEST on-path integral" \
-            "🔴 and 100 kbit off the path is red against it"
+            "🔴 and 10 Mbit off the path is red against it"
 
 # --- M27: the off-path integrals are not recorded ---------------------------------------------------
 # 🔴 A FLOOR ONLY MEANS SOMETHING BESIDE THE NUMBERS IT WAS APPLIED TO. With the reading gone,
@@ -604,7 +594,7 @@ check_fires "M27: the off-path edges' raw integrals are not recorded" m27 \
 
 # --- M28: the floor is not printed ------------------------------------------------------------------
 cat > "$A/m28.old" <<'EOF'
-    note "$label: off-path floor $floor bit   = max(${LINK_USAGE_NOISE_BITS}, ${LINK_USAGE_OFFPATH_FRACTION} x the smallest PRIMARY on-path integral)"
+    note "$label: off-path floor $floor bit   = max(ONE SAMPLE = ${LINK_USAGE_SAMPLE_RATE} x ${LINK_USAGE_MTU_BYTES} x 8 = $(( LINK_USAGE_SAMPLE_RATE * LINK_USAGE_MTU_BYTES * 8 )) bit, ${LINK_USAGE_OFFPATH_FRACTION} x the smallest PRIMARY on-path integral)"
 EOF
 cat > "$A/m28.new" <<'EOF'
     :
@@ -718,7 +708,7 @@ floor_abs = max(floor_abs, one_sample)
 EOF
 check_fires "M35: the off-path floor falls back below one sample" m35 \
             "🔴 the floor is at least ONE sample's worth of bits" \
-            "🔴 one sampled frame off the path is NOT a failure"
+            "  the floor is one sample even for a small on-path integral"
 
 # --- M36 (§9 ruling 26②): the iperf datagram goes back to the default --------------------------
 # 1470 + 28 + a 4-byte tunnel header exceeds 1500: p4runtime and flowcache read 273 B on every

@@ -875,7 +875,7 @@ printf 's1-eth3 P 690928\ns2-eth1 P 691131\n' > "$FIX/ecn.onpath"
 FLOOR="$(one "link_usage_floor '$FIX/ecn.onpath' '$FIX/ecn.int'")"
 check "🔴 the floor is at least ONE sample's worth of bits" "3072000.000" "$FLOOR"
 OUT="$(drive "assert_link_usage_follows_path '$FIX/ecn.onpath' '$FIX/ecn.int' 'ecn'")"
-has   "  and the raw says how that number was reached"   "ONE SAMPLE = 256 x 1500 x 8" "$OUT"
+has   "  and the raw says how that number was reached"   "ONE SAMPLE = 256 x 1500 x 8 = 3072000 bit" "$OUT"
 has   "🔴 one sampled frame off the path is NOT a failure" "off-path s1-eth1  348002.000 bit" "$OUT"
 
 # ... and a PRIMARY link the twin never saw is still red -- the window is what changes, not
