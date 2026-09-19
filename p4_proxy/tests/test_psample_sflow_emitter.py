@@ -32,6 +32,7 @@ caught.
 import json
 import os
 import shutil
+import signal
 import struct
 import sys
 import tempfile
@@ -426,6 +427,46 @@ class TheStatisticsLineTest(unittest.TestCase):
             [f for f in emitter_module.Stats.FIELDS if f.startswith("dropped_")],
             ["dropped_unknown_ifindex", "dropped_no_direction", "dropped_ambiguous_direction",
              "dropped_no_origsize", "dropped_other_group", "dropped_decode_error"])
+
+
+class StoppingIsAFlagAndNotARaiseTest(unittest.TestCase):
+    """TICKET-P3 section 9 ruling 19(1): SIGHUP is how this process actually dies."""
+
+    def test_all_three_stop_signals_are_installed(self):
+        # 🔴 SIGHUP ABOVE ALL. `ndtwin-lab topo-stop` ends with `kill-session`, which SIGHUPs
+        # the tmux pane's process group -- and this process is in it, because the topology
+        # script started it. With the default disposition it died on the spot, mid-datagram,
+        # with no last statistics line, which is half of why the 2026-09-19 live runs ended
+        # with a manifest naming a pid that was gone.
+        installed = []
+        stopping = []
+        names = emitter_module.install_stop_handlers(
+            stopping, install=lambda number, handler: installed.append((number, handler)))
+        self.assertEqual(names, ["SIGTERM", "SIGINT", "SIGHUP"])
+        self.assertEqual([number for number, _h in installed],
+                         [signal.SIGTERM, signal.SIGINT, signal.SIGHUP])
+
+    def test_the_handler_sets_the_flag_rather_than_raising(self):
+        # A handler that raised would unwind out of `sock.recv` and lose whatever was buffered.
+        # Teardown SIGTERMs this process on purpose: that path is the normal one.
+        installed = []
+        stopping = []
+        emitter_module.install_stop_handlers(
+            stopping, install=lambda number, handler: installed.append(handler))
+        self.assertEqual(stopping, [])
+        installed[0](signal.SIGTERM, None)
+        self.assertEqual(stopping, [True])
+
+    def test_the_loop_stops_on_that_flag_and_prints_a_last_line(self):
+        stopping = []
+        stats = emitter_module.Stats(started=0.0)
+        said = []
+        emitter_module.run(FakeNetlinkSocket([]), FAMILY_ID,
+                           emitter_module.PortMap(json.loads(json.dumps(MANIFEST))),
+                           RecordingEmitter(), stats, lambda: True,
+                           stats_interval=1000.0, report=said.append, now=lambda: 0.0)
+        self.assertEqual(len(said), 1)
+        self.assertTrue(said[0].startswith("psample_sflow_emitter: samples=0"))
 
 
 class TheBytesAreTheProxysBuilderTest(PortMapFixture):

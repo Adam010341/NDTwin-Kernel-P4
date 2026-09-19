@@ -5,7 +5,9 @@
 # what a dead emitter means, the three layers of the telemetry knob, TCLink's on/off condition,
 # the units bandwidth is expressed in, the direction a sample carries onto the wire, the length
 # the kernel multiplies by the sampling rate, and the teardown that takes the filters off.
-# TICKET-P3 section 4.3 (M-B1 .. M-B11), plus seven the ticket does not list -- four of them
+# TICKET-P3 section 4.3 (M-B1 .. M-B11), plus thirteen the ticket does not list -- six of them
+# added in the live-fix round for section 9 ruling 19(1), the one defect only a real fabric
+# could show -- -- four of them
 # added in round 2 for the three claims the judge found were made in prose only (F1's abort
 # path, F2's pre-flight, the attach/start/write ordering) -- and the reason each is here is
 # written beside it. M-B11 is split: M-B11a is the coarse "the whole teardown call goes" and
@@ -47,6 +49,7 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 LINKTEL="$REPO/p4_proxy/mininet/link_telemetry.py"
+BRIDGE="$REPO/p4_proxy/mininet/ntg_bmv2_topo.py"
 EMITTER="$REPO/p4_proxy/mininet/psample_sflow_emitter.py"
 PKG="$REPO/p4_proxy/mininet/app_package.py"
 TESTBED="$REPO/p4_proxy/mininet/p4_testbed_topo.py"
@@ -83,6 +86,7 @@ ln -s "$REPO/setting" "$BK/setting"
 ln -s "$REPO/tools" "$BK/tools"
 
 BASE_LINKTEL=$(sha256sum "$LINKTEL" | cut -d' ' -f1)
+BASE_BRIDGE=$(sha256sum "$BRIDGE" | cut -d' ' -f1)
 BASE_EMITTER=$(sha256sum "$EMITTER" | cut -d' ' -f1)
 BASE_PKG=$(sha256sum "$PKG" | cut -d' ' -f1)
 BASE_TESTBED=$(sha256sum "$TESTBED" | cut -d' ' -f1)
@@ -340,6 +344,64 @@ m=$(mutant m_b21 "$LINKTEL" \
 report "M-B21: the SIGTERM grace loop counts by subtracting floats" "$m" \
        "test_one_that_will_not_go_is_killed_after_the_grace_period"
 
+# --- ruling 19(1): the only defect live found -------------------------------------------------
+#
+# `ndt down` reported "residue: /tmp/ndtwin_link_telemetry.json is still there and the pid it
+# names (2386073) is gone" after every live run on 2026-09-19. `ndtwin-lab topo-stop` sends C-c
+# to the tmux pane, waits ten seconds, then `kill-session`; Mininet's CLI catches
+# KeyboardInterrupt and carries on by design, so the C-c did nothing, and the SIGHUP landed on
+# a process whose `main()` was a bare `CLI(net)` followed by `tear_down(net)`. Python died
+# between the two lines, `link_telemetry.shut_down` never ran, and the emitter -- in the same
+# process group -- died of the same SIGHUP. The manifest outlived the process it names.
+
+m=$(mutant m_b23 "$TESTBED" \
+    '        CLI(net)
+    finally:
+        tear_down(net)' \
+    '        CLI(net)
+        tear_down(net)  # MUTANT: not a finally -- exactly the pre-2026-09-19 shape
+    finally:
+        pass')
+report "M-B23 (19(1)): the teardown is not a finally, so a shutdown signal skips it" "$m" \
+       "test_the_topology_script_tears_down_when_the_cli_is_cut_short"
+
+m=$(mutant m_b24 "$TESTBED" \
+    '    install_teardown_signal_handlers()
+    try:' \
+    '    pass  # MUTANT: SIGHUP keeps its default disposition and kills python outright
+    try:')
+report "M-B24 (19(1)): the topology script arms no handler, so the finally is never reached" "$m" \
+       "test_the_handlers_are_armed_before_the_cli_is_entered"
+
+m=$(mutant m_b25 "$BRIDGE" \
+    '    testbed.install_teardown_signal_handlers()' \
+    '    pass  # MUTANT: the entry point topo-start actually launches arms nothing')
+report "M-B25 (19(1)): the bridge -- the main that really runs -- arms no handler" "$m" \
+       "test_the_bridge_arms_them_too"
+
+# `topo-stop` sends C-c and then SIGHUP ten seconds later, so the second one can land while the
+# teardown the first asked for is still running. Re-raising there aborts it halfway and leaves
+# exactly the residue this exists to remove.
+m=$(mutant m_b26 "$TESTBED" \
+    '        if fired:' \
+    '        if False:  # MUTANT: every signal re-raises, including into the teardown')
+report "M-B26: a second shutdown signal aborts the teardown the first one asked for" "$m" \
+       "test_the_second_signal_does_not_interrupt_the_teardown_the_first_asked_for"
+
+m=$(mutant m_b27 "$TESTBED" \
+    'TEARDOWN_SIGNALS = ("SIGINT", "SIGTERM", "SIGHUP")' \
+    'TEARDOWN_SIGNALS = ("SIGINT",)  # MUTANT: the one signal that was never the problem')
+report "M-B27: only SIGINT is handled, and SIGINT is the one Mininet already swallows" "$m" \
+       "test_all_three_signals_are_installed"
+
+# The emitter is in the same tmux pane process group, so `kill-session`'s SIGHUP reaches it
+# directly. With the default disposition it died mid-datagram with no last statistics line.
+m=$(mutant m_b28 "$EMITTER" \
+    'STOP_SIGNALS = ("SIGTERM", "SIGINT", "SIGHUP")' \
+    'STOP_SIGNALS = ("SIGTERM", "SIGINT")  # MUTANT: SIGHUP kills it where it stands')
+report "M-B28: the emitter does not handle the signal that actually kills it" "$m" \
+       "test_all_three_stop_signals_are_installed"
+
 # --- three the ticket does not list ----------------------------------------------------------
 
 # Linux recycles pids and this teardown runs as root. `pkill -f` is forbidden in this repo, and a
@@ -416,11 +478,12 @@ echo
 [[ "$(sha256sum "$EMITTER" | cut -d' ' -f1)" == "$BASE_EMITTER" ]] || { echo "🔴 baseline CHANGED -- psample_sflow_emitter.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$PKG" | cut -d' ' -f1)" == "$BASE_PKG" ]] || { echo "🔴 baseline CHANGED -- app_package.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TESTBED" | cut -d' ' -f1)" == "$BASE_TESTBED" ]] || { echo "🔴 baseline CHANGED -- p4_testbed_topo.py was written during the gate"; exit 3; }
+[[ "$(sha256sum "$BRIDGE" | cut -d' ' -f1)" == "$BASE_BRIDGE" ]] || { echo "🔴 baseline CHANGED -- ntg_bmv2_topo.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_LINKTEL" | cut -d' ' -f1)" == "$BASE_TEST_LINKTEL" ]] || { echo "🔴 baseline CHANGED -- test_link_telemetry.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_EMITTER" | cut -d' ' -f1)" == "$BASE_TEST_EMITTER" ]] || { echo "🔴 baseline CHANGED -- test_psample_sflow_emitter.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_BRINGUP" | cut -d' ' -f1)" == "$BASE_TEST_BRINGUP" ]] || { echo "🔴 baseline CHANGED -- test_fabric_bring_up.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_PKG" | cut -d' ' -f1)" == "$BASE_TEST_PKG" ]] || { echo "🔴 baseline CHANGED -- test_app_package.py was written during the gate"; exit 3; }
-echo "baseline byte-identical: yes (4 sources, 4 test files)"
+echo "baseline byte-identical: yes (5 sources, 4 test files)"
 if [[ "$SURVIVORS" -eq 0 ]]; then
     echo "mutation gate: $MUTATIONS mutations, 0 survived"; exit 0
 else

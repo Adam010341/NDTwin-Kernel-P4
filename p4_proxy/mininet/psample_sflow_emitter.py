@@ -470,6 +470,38 @@ def run(sock, family_id, ports, emitter, stats, stop, stats_interval=10.0,
     return stats
 
 
+#: What "stop sampling" arrives as. TICKET-P3 section 9 ruling 19(1).
+#:
+#: [Co-developed with claude code -- Adam]
+#: SIGTERM is what `link_telemetry.stop_emitter` sends. SIGHUP is what `ndtwin-lab topo-stop`'s
+#: `kill-session` sends to the tmux pane's process group -- which this process is IN, because
+#: the topology script started it -- and with the default disposition that killed it on the
+#: spot, mid-datagram, with no last statistics line. SIGINT is the operator's Ctrl-C on the
+#: same pane.
+STOP_SIGNALS = ("SIGTERM", "SIGINT", "SIGHUP")
+
+
+def install_stop_handlers(stopping, signals=None, install=None):
+    """Set a flag rather than raise: the loop finishes its iteration and flushes.
+
+    A handler that raised would unwind out of `sock.recv` and lose whatever the emitter had
+    buffered. Teardown SIGTERMs this process on purpose, so that path is the NORMAL one, not
+    the exceptional one. Returns the names actually installed, which is what a test reads.
+    """
+    install = install or signal.signal
+    installed = []
+    for name in (signals or STOP_SIGNALS):
+        number = getattr(signal, name, None)
+        if number is None:
+            continue
+        try:
+            install(number, lambda _sig, _frame: stopping.append(True))
+        except (ValueError, OSError, RuntimeError):
+            continue
+        installed.append(name)
+    return installed
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         description="Turn psample notifications from `tc ... action sample` filters into the "
@@ -507,8 +539,7 @@ def main(argv=None) -> int:
     # SIGTERM sets a flag; the loop finishes its iteration and flushes. A handler that raised
     # would unwind out of `sock.recv` and lose whatever the emitter had buffered -- teardown
     # SIGTERMs this process on purpose, so that path is the normal one, not the exceptional one.
-    signal.signal(signal.SIGTERM, lambda _sig, _frame: stopping.append(True))
-    signal.signal(signal.SIGINT, lambda _sig, _frame: stopping.append(True))
+    install_stop_handlers(stopping)
 
     emitter = build_emitter(ports)
     stats = Stats()
