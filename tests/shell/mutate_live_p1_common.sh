@@ -604,7 +604,7 @@ check_fires "M27: the off-path edges' raw integrals are not recorded" m27 \
 
 # --- M28: the floor is not printed ------------------------------------------------------------------
 cat > "$A/m28.old" <<'EOF'
-    note "$label: off-path floor $floor bit   = max(${LINK_USAGE_NOISE_BITS}, ${LINK_USAGE_OFFPATH_FRACTION} x the smallest on-path integral)"
+    note "$label: off-path floor $floor bit   = max(${LINK_USAGE_NOISE_BITS}, ${LINK_USAGE_OFFPATH_FRACTION} x the smallest PRIMARY on-path integral)"
 EOF
 cat > "$A/m28.new" <<'EOF'
     :
