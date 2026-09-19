@@ -1051,7 +1051,11 @@ FlowLinkUsageCollector::noteFrameIdentity(const FrameIdentity& identity,
         return;
     }
 
-    const int64_t nowMs = utils::getCurrentTimeMillisSystemClock();
+    // Two clocks, on purpose, and the header says which is which: the steady one decides who
+    // leaves when the table is full, the wall one is what a reader outside this process can
+    // compare with anything. [Co-developed with claude code -- Adam] Round 3, ruling 11c.
+    const int64_t nowSteadyMs = utils::getCurrentTimeMillisSteadyClock();
+    const int64_t nowWallMs = utils::getCurrentTimeMillisSystemClock();
 
     std::unique_lock<std::shared_mutex> lk(m_nonIpv4ObservationsMutex);
     auto it = m_nonIpv4Observations.find(identity.key);
@@ -1077,7 +1081,7 @@ FlowLinkUsageCollector::noteFrameIdentity(const FrameIdentity& identity,
             for (auto scan = m_nonIpv4Observations.begin(); scan != m_nonIpv4Observations.end();
                  ++scan)
             {
-                if (scan->second.lastSeenMs < oldest->second.lastSeenMs)
+                if (scan->second.lastSeenSteadyMs < oldest->second.lastSeenSteadyMs)
                 {
                     oldest = scan;
                 }
@@ -1089,7 +1093,11 @@ FlowLinkUsageCollector::noteFrameIdentity(const FrameIdentity& identity,
     }
     it->second.samples += 1;
     it->second.estimatedBytes += uint64_t(frameLength) * samplingRate;
-    it->second.lastSeenMs = nowMs;
+    // Written on every hit, not only on the insert: a hit is what makes an identity recently
+    // seen, and without this line the table would evict in insertion order no matter how busy
+    // an identity is. [Co-developed with claude code -- Adam] Round 3, ruling 11c/11e(1).
+    it->second.lastSeenSteadyMs = nowSteadyMs;
+    it->second.lastSeenWallMs = nowWallMs;
 }
 
 // [Co-developed with claude code -- Adam]
@@ -1131,7 +1139,9 @@ FlowLinkUsageCollector::frameFamilyStatsJson() const
         nlohmann::json row = flowKeyIdentityJson(key);
         row["samples"] = observation.samples;
         row["estimated_bytes"] = observation.estimatedBytes;
-        row["last_seen_ms"] = observation.lastSeenMs;
+        // The wall clock, deliberately: the steady one beside it orders the evictions and means
+        // nothing outside this process. [Co-developed with claude code -- Adam] Round 3, 11c.
+        row["last_seen_ms"] = observation.lastSeenWallMs;
         observed.push_back(row);
     }
 
@@ -1142,9 +1152,10 @@ FlowLinkUsageCollector::frameFamilyStatsJson() const
         // network from a table that stopped accepting new keys.
         {"non_ipv4_flows",
          {{"tracked", table.size()},
-          {"dropped_over_capacity", m_nonIpv4ObservationsDropped.load(std::memory_order_relaxed)},
           // Non-zero means this list is a window over the most recently seen identities rather
           // than everything since startup. [Co-developed with claude code -- Adam]
+          // Round 3, ruling 11b: `dropped_over_capacity` used to sit here and could only ever
+          // read 0 once the table started evicting instead of refusing. See the header.
           {"evicted_least_recently_seen",
            m_nonIpv4ObservationsEvicted.load(std::memory_order_relaxed)},
           {"capacity", kMaxNonIpv4Observations},

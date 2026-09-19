@@ -125,16 +125,22 @@ struct FlowKey
 //      which is why nothing in it could ever be told "here is a frame, what is it" -- the
 //      question did not exist as a function;
 //   3. the offsets it replaces were written three times (Brocade, HPE, and the ICMP special
-//      case) and had drifted apart -- see the HPE ICMP read, where the shift is inside ntohl.
+//      case) and had drifted apart -- in the deleted HPE branch the ICMP shift was applied to
+//      the wrong side of an ntohl, so that branch's ICMP type was the constant 0.
 //
 // 🔴 The IPv4 numbers this produces are the ones the old inline reads produced, field for field,
 // for a well-formed frame with ihl == 5: same octet order (srcIP/dstIP are network order, as the
 // FlowKey comment says), ICMP type and code in the port fields, and the ICMP code still masked to
 // four bits -- that mask is a wart, but it is *today's* wart and this change is not allowed to
-// move an IPv4 number. The one deliberate difference is the TCP ACK flag: the old code read it 3
-// bytes past the flags byte (frame byte 50, i.e. TCP byte 16, the checksum) in both vendor
-// branches. It is read from TCP byte 13 here. Nothing consumes isAck/isPureAck but a TRACE log --
-// checked, not assumed -- so no reported number moves.
+// move an IPv4 number. TWO deliberate differences, not one:
+//   a. the TCP ACK flag. The old code read it 3 bytes past the flags byte (frame byte 50, i.e.
+//      TCP byte 16, the checksum) in both vendor branches; it is read from TCP byte 13 here.
+//      Nothing consumes isAck/isPureAck but a TRACE log -- checked, not assumed.
+//   b. the ICMP type of an HPE (sample type 3) sample. The deleted branch's shift made it the
+//      constant 0 for every ICMP frame; it is the frame's real type now. No capture from that
+//      vendor exists in this repository, so nothing measured has ever depended on the 0 --
+//      which is exactly why it went unnoticed. See P3-A-SUMMARY.md section 5-5.
+// Neither moves a number any Brocade/emitter path ever reported.
 // =================================================================================================
 
 /// Largest sampled header identifyFrame will look at. The agents in this project capture 128

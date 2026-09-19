@@ -15,10 +15,12 @@
 # user's own application with it (README and doc/audit/2026-09-02*). The guard is re-entrant, so
 # running this script under an outer guard is safe and does not deadlock.
 #
-# ⏱  Four of the eight mutations are in include/common_types/SFlowType.hpp, which ~46 translation
-# units include, and at JOBS=1 each of those is a multi-minute rebuild. Budget most of an hour.
-# The two .cpp-only mutations rebuild one file. That asymmetry is why section 3.4 caps this at
-# six mutations.
+# ⏱  Five of the eight mutations, and one of the two controls, are in
+# include/common_types/SFlowType.hpp, which ~46 translation units include, and at JOBS=1 each of
+# those is a multi-minute rebuild; the other three mutations and the other control rebuild one
+# file. Two more full rebuilds bracket the run -- the baseline (which touches both files, so it
+# cannot inherit a previous run's binary) and the final one from the restored tree. Budget two
+# hours. That asymmetry is why section 3.4 caps the table at a handful of mutations.
 #
 # Usage:  tests/shell/mutate_flowkey_families.sh
 #   BUILD_DIR=build       configured build directory (ninja), relative to the worktree root
@@ -89,6 +91,7 @@ MAC_HASH='        hashCombine(seed, key.srcMac);
         hashCombine(seed, key.dstMac);'
 IPV4_CLEARS_L2='        out.key = FlowKey{};
         out.key.family = FlowKeyFamily::IPv4;'
+CHAIN_BOUND='        for (int hop = 0; hop <= kMaxIpv6ExtensionHeaders; ++hop)'
 CONTROL_CPP='// [Co-developed with claude code -- Adam] TICKET-P3 §2.3.
 void
 FlowLinkUsageCollector::noteFrameIdentity'
@@ -103,6 +106,7 @@ add_anchor "ipv6-branch"   "$SFLOW" "$IPV6_BRANCH"
 add_anchor "ihl-offset"    "$SFLOW" "$IHL_OFFSET"
 add_anchor "mac-hash"      "$SFLOW" "$MAC_HASH"
 add_anchor "ipv4-clears-l2" "$SFLOW" "$IPV4_CLEARS_L2"
+add_anchor "chain-bound"   "$SFLOW" "$CHAIN_BOUND"
 add_anchor "control-hdr"   "$SFLOW" "$CONTROL_HDR"
 
 # 🔴 `grep -cF` is the WRONG TOOL for a multi-line anchor and it fails in the direction that hides
@@ -136,30 +140,37 @@ for f in "${FILES[@]}"; do
     cp -p "$f" "$s"; SNAP["$f"]="$s"; SHA["$f"]=$(sha256sum "$f" | cut -d' ' -f1)
 done
 
-# Which files this run has written since the last restore. Maintained at the three `apply`
-# call sites -- see the note above apply() for why it cannot live inside it.
-DIRTY=()
-
+# 🔴 restore() IS IDEMPOTENT, AND THAT IS THE WHOLE POINT.
+# [Co-developed with claude code -- Adam] Round 3, ruling 11a.
+#
+# `cp -p` puts the ORIGINAL mtime back, which is older than the object built from the mutant -- so
+# ninja sees nothing to do and the NEXT mutation would be measured against a binary that still
+# contains the previous one, while the source on disk looks pristine. The sha256 check at the
+# verdict passes either way, because it checks the file and not the artifact. That is why a
+# restore that changes a file must also `touch` it.
+#
+# Round 2 tried to pay for that only where it was owed -- a set of "files this run wrote" -- and
+# broke the ending: the second control restores at the end of classify_control, then section 7
+# restores AGAIN, and the second call cp -p'd the just-touched file back to the snapshot's old
+# mtime while the dirty set was already empty, so nothing was touched. The "rebuild from the
+# restored tree" that follows had nothing to do, and the binary left on disk was the SECOND
+# CONTROL's (SFlowType.hpp plus one comment line) -- which is the binary the round-2 report then
+# named as the one every regression number came from. The EXIT trap did it once more, so the next
+# gate's baseline would not have rebuilt either.
+#
+# Asking the file system instead of a bookkeeping array answers the question directly and cannot
+# fall out of step with reality: identical to the snapshot -> there is nothing to restore and
+# nothing to invalidate; different -> put it back AND make it newer than every object built from
+# the mutant. Called twice in a row, the second call is a no-op by construction.
 restore() {
     local f
     for f in "${FILES[@]}"; do
-        cp -p "${SNAP[$f]}" "$f"
-        # `cp -p` puts the ORIGINAL mtime back, which is older than the object built from the
-        # mutant -- so ninja sees nothing to do and the NEXT mutation is measured against a binary
-        # that still contains the previous one, while the source on disk looks pristine. The
-        # sha256 check below passes either way, because it checks the file and not the artifact.
-        #
-        # Only the file this run actually wrote needs it, and that distinction is worth making
-        # here: SFlowType.hpp is included by ~46 translation units, so touching it for a mutation
-        # that lives in the .cpp doubled the wall clock of every single step -- the first full run
-        # took 1h45m, and a run that long is how the 05:34 disk-full incident got to interrupt one
-        # halfway through. A file nobody wrote still has a correct object.
-        # [Co-developed with claude code -- Adam] Round 2.
-        if [[ " ${DIRTY[*]-} " == *" $f "* ]]; then
-            touch "$f"
+        if cmp -s "${SNAP[$f]}" "$f"; then
+            continue
         fi
+        cp -p "${SNAP[$f]}" "$f"
+        touch "$f"
     done
-    DIRTY=()
 }
 trap 'restore; rm -rf "$BK"' EXIT
 
@@ -210,11 +221,19 @@ in_scope() {
 # --- 4. baseline --------------------------------------------------------------------------------
 echo
 echo "=== baseline (unmutated working tree) must build and be green ==="
+# 🔴 A BINARY LEFT BY A PREVIOUS RUN CAN NEVER BE THE BASELINE. [Co-developed with claude code
+# -- Adam] Round 3, ruling 11a. The build below is what every verdict is measured against, so it
+# has to be a build: if the last run (or the last interrupted run) left objects that are newer
+# than these two files, ninja does nothing here and "baseline green" is a statement about
+# somebody else's binary. One touch costs one rebuild of the 46 translation units SFlowType.hpp
+# reaches, which is the price of the sentence being true.
+touch "${FILES[@]}"
 if ! build; then
     echo "🔴 THE BASELINE DOES NOT COMPILE. Nothing below means anything." >&2
     JOBS=1 LOCK_WAIT=10800 "$GUARD" cmake --build "$BUILD_DIR" --target "$TARGET" 2>&1 | tail -40 >&2
     exit 2
 fi
+BASELINE_BIN_SHA=$(sha256sum "$BIN" 2>/dev/null | cut -c1-16)
 run_tests '*'
 case "$STATUS" in
   pass)  echo "  ok       baseline green ($(/usr/bin/grep -c '^\[       OK \]' <<<"$OUT") cases)" ;;
@@ -264,9 +283,6 @@ PY
 mutate() {
     local label="$1" file="$2" old="$3" new="$4"; shift 4
     local expected=("$@")
-    # See apply(): the dirty-file bookkeeping lives at the call sites, so restore() knows which
-    # file to touch without apply() looking like a table builder to check_gate_anchors.py.
-    DIRTY+=("$file")
     MUTATIONS=$((MUTATIONS + 1))
     printf '\n=== %d. %s ===\n' "$MUTATIONS" "$label"
     printf '  expect red: %s\n' "${expected[*]}"
@@ -374,6 +390,17 @@ mutate "M-A7 the IPv4 branch keeps the MAC addresses of the frame" "$SFLOW" \
     FlowKeyFamiliesTest.OneIpv4FlowStaysOneRowWhenTheMacsChangeAtEveryHop \
     FlowKeyFamiliesTest.TheParsersOwnIpv4KeyCarriesNoL2Fields
 
+# M-A8. ROUND 3, ruling 11e(6). The chain walk runs exactly the bound and then falls out with
+# `resolved` still true, which is the defect fable-judge F4 found: a chain longer than we are
+# willing to walk was reported as IPv6 whose protocol is an extension header number (0, 43, 44),
+# with the ports read from whatever bytes sat at the offset. The extra turn is the only thing that
+# makes exhaustion distinguishable from resolution, and `<` deletes it while leaving eight-hop
+# chains -- the green arm of the same test -- working, so only the second arm can see this.
+mutate "M-A8 the IPv6 chain walk stops one turn short of noticing exhaustion" "$SFLOW" \
+"$CHAIN_BOUND" \
+'        for (int hop = 0; hop < kMaxIpv6ExtensionHeaders; ++hop)' \
+    SFlowParsingFixture.AChainWithinTheBoundResolvesAndOneBeyondItDoesNot
+
 # --- 6. negative controls -----------------------------------------------------------------------
 # One per file. They must SURVIVE. If the suite goes red on a comment, the gate above is measuring
 # "a file was edited and rebuilt" rather than "the behaviour changed", and every ✅ is worthless.
@@ -410,7 +437,6 @@ classify_control() {
 }
 
 printf '\n=== CONTROL (comment in the collector -- MUST survive) ===\n'
-DIRTY+=("$COLL")
 if apply "$COLL" \
 "$CONTROL_CPP" \
 '// mutation-gate negative control: text with no behaviour
@@ -423,7 +449,6 @@ else
 fi
 
 printf '\n=== CONTROL (comment in SFlowType.hpp -- MUST survive) ===\n'
-DIRTY+=("$SFLOW")
 if apply "$SFLOW" \
 "$CONTROL_HDR" \
 '// mutation-gate negative control: text with no behaviour
@@ -438,11 +463,20 @@ fi
 # One rebuild after the final restore, and its result is CHECKED. `build || true` would leave the
 # next gate running against a binary built from the last mutant while every file on disk looked
 # pristine -- the same failure `touch` exists to prevent, one level up.
+#
+# 🔴 AND THE REBUILD IS CHECKED BY ITS OUTPUT, NOT BY ITS EXIT CODE. [Co-developed with claude
+# code -- Adam] Round 3, ruling 11a. A `build` that has nothing to do also exits 0, which is how
+# round 2 could print "rebuilt from the restored tree" over a no-op and leave the second control's
+# binary on disk. The baseline binary and the final binary are built from byte-identical sources
+# through the same compiler in the same directory, so they must be the same file; if they are not,
+# either the rebuild did not happen or this build is not reproducible, and BOTH of those make
+# every number a later report takes off this binary unattributable.
 restore
 REBUILD_OK=1
 if ! build; then
     REBUILD_OK=0
 fi
+FINAL_BIN_SHA=$(sha256sum "$BIN" 2>/dev/null | cut -c1-16)
 
 printf '\n=== restore ===\n'
 ok=1
@@ -462,7 +496,13 @@ else
     echo "     mutation left. Do not run another gate against it."
     ok=0
 fi
-echo "  test binary: $(sha256sum "$BIN" 2>/dev/null | cut -c1-16) (was $BIN_SHA_BEFORE)"
+echo "  test binary: $FINAL_BIN_SHA (baseline $BASELINE_BIN_SHA, on disk before this run $BIN_SHA_BEFORE)"
+if [[ "$FINAL_BIN_SHA" != "$BASELINE_BIN_SHA" ]]; then
+    echo "  🔴 THE FINAL BINARY IS NOT THE BASELINE BINARY. Same sources, different artifact:"
+    echo "     either the rebuild above was a no-op and this is some mutant's build, or this"
+    echo "     build is not reproducible. Either way nothing may be measured on it."
+    ok=0
+fi
 
 printf '\n=== verdict ===\n'
 printf '  %d mutations, %d survived\n' "$MUTATIONS" "$SURVIVORS"

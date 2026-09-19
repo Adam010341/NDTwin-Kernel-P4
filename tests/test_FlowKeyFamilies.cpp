@@ -39,6 +39,8 @@
 #include "utils/Utils.hpp"
 
 #include <arpa/inet.h>
+#include <array>
+#include <chrono>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
@@ -46,6 +48,7 @@
 #include <optional>
 #include <shared_mutex>
 #include <string>
+#include <thread>
 #include <vector>
 
 namespace
@@ -570,7 +573,11 @@ TEST_F(FlowKeyFamiliesTest, TheStatsObjectCarriesEveryFamilyAndTheNonIpv4Identit
 
     const auto& nonIpv4 = stats.at("non_ipv4_flows");
     EXPECT_EQ(nonIpv4.at("tracked").get<size_t>(), 3u) << "ARP, IPv6 and 0x1234";
-    EXPECT_EQ(nonIpv4.at("dropped_over_capacity").get<uint64_t>(), 0u);
+    // Round 3, ruling 11b: there is no `dropped_over_capacity` key any more. The table evicts,
+    // so that key could only ever have read 0, and asserting a constant is not a test.
+    // [Co-developed with claude code -- Adam]
+    EXPECT_FALSE(nonIpv4.contains("dropped_over_capacity"))
+        << "a key that can only read 0 is a claim that something was measured";
     ASSERT_EQ(nonIpv4.at("observed").size(), 3u);
 
     // Each row must carry the keys its own family is described by, and not the other families'.
@@ -612,7 +619,8 @@ TEST_F(FlowKeyFamiliesTest, RepeatedFramesOfOneIdentityAccumulateOnOneRow)
     ASSERT_TRUE(observation.has_value()) << "three frames of one identity are one row";
     EXPECT_EQ(observation->second.samples, 3u);
     EXPECT_EQ(observation->second.estimatedBytes, 3 * kCustomFrameLen * kSamplingRate);
-    EXPECT_GT(observation->second.lastSeenMs, 0);
+    EXPECT_GT(observation->second.lastSeenSteadyMs, 0) << "the clock eviction orders by";
+    EXPECT_GT(observation->second.lastSeenWallMs, 0) << "the clock the API publishes";
     EXPECT_EQ(families().at("l2").get<uint64_t>(), 3u);
 }
 
@@ -969,8 +977,6 @@ TEST_F(FlowKeyFamiliesTest, TheSideTableEvictsItsOldestIdentityRatherThanRefusin
     EXPECT_EQ(stats.at("non_ipv4_flows").at("tracked").get<size_t>(), 1024u);
     EXPECT_GE(stats.at("non_ipv4_flows").at("evicted_least_recently_seen").get<uint64_t>(), 1u)
         << "the cap was reached, so something must have been evicted and said so";
-    EXPECT_EQ(stats.at("non_ipv4_flows").at("dropped_over_capacity").get<uint64_t>(), 0u)
-        << "nothing is refused any more; a non-zero here would mean the old behaviour is back";
 }
 
 TEST_F(FlowKeyFamiliesTest, AnArpOnlySwitchCountsAsASwitchThatIsSampling)
@@ -993,4 +999,222 @@ TEST_F(FlowKeyFamiliesTest, AnArpOnlySwitchCountsAsASwitchThatIsSampling)
     const auto otherAgent = m_collector->telemetryStatusFor(::inet_addr("192.168.123.99"), 1u, 5.0);
     EXPECT_EQ(otherAgent.status, "unknown")
         << "the control: an agent we have never heard from is not made live by someone else's ARP";
+}
+
+// =================================================================================================
+// ROUND 3 -- the orchestrator's ruling 11e
+//
+// [Co-developed with claude code -- Adam]
+// Five behaviours round 2 changed or introduced and did not pin. Four of them are cheap to state
+// and were simply not stated; the fifth -- which identity the side table evicts -- is the one that
+// was measured the wrong way round: round 2's case counted how many rows survived and never
+// asked WHICH, so a table that evicted the newest arrival every time would have passed it.
+// =================================================================================================
+
+namespace
+{
+
+/// The key l2FrameWithSourceIndex(index) produces, so a test can ask the table about one identity
+/// by name instead of counting rows. Six bytes of destination, the index in the low four bytes of
+/// the source, and the exercise ethertype -- read by mac48(), which is big-endian.
+sflow::FlowKey l2KeyForSourceIndex(uint32_t index)
+{
+    sflow::FlowKey key{};
+    key.family = sflow::FlowKeyFamily::L2;
+    key.dstMac = 0x020202020202ULL;
+    key.srcMac = index;
+    key.ethType = 0x1234;
+    return key;
+}
+
+const std::array<uint8_t, 16> kIpv6Src{0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x11};
+const std::array<uint8_t, 16> kIpv6Dst{0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x22};
+
+/// Ethernet (optionally carrying one 802.1Q tag) + IPv6 + 8 bytes of upper layer.
+///
+/// @p firstL4Word and @p secondL4Word are the two 16-bit words the L4 header opens with. For TCP
+/// and UDP those are the source and destination ports; for ICMPv6 the first byte is the type and
+/// the second the code, and this parser puts both in the port fields -- so an ICMPv6 case passes
+/// (type << 8) | code as the first word. Stating it once here is cheaper than two builders that
+/// would differ only in the names of two arguments.
+std::vector<uint8_t> ipv6Frame(uint8_t dstMacByte,
+                               uint8_t srcMacByte,
+                               uint8_t nextHeader,
+                               uint16_t firstL4Word,
+                               uint16_t secondL4Word,
+                               bool withVlanTag = false)
+{
+    std::vector<uint8_t> frame =
+        ethernetHeader(dstMacByte, srcMacByte, withVlanTag ? uint16_t(0x8100) : uint16_t(0x86DD));
+    if (withVlanTag)
+    {
+        pushBe16(frame, 100);    // priority 0, CFI 0, VID 100
+        pushBe16(frame, 0x86DD); // and the real ethertype behind the tag
+    }
+    frame.push_back(0x60); // version 6
+    frame.push_back(0x00);
+    pushBe16(frame, 0); // flow label, low 16 bits
+    pushBe16(frame, 8); // payload length
+    frame.push_back(nextHeader);
+    frame.push_back(64); // hop limit
+    frame.insert(frame.end(), kIpv6Src.begin(), kIpv6Src.end());
+    frame.insert(frame.end(), kIpv6Dst.begin(), kIpv6Dst.end());
+    pushBe16(frame, firstL4Word);
+    pushBe16(frame, secondL4Word);
+    pushBe16(frame, 8); // length
+    pushBe16(frame, 0); // checksum
+    return frame;
+}
+
+} // namespace
+
+TEST_F(FlowKeyFamiliesTest, TheSideTableEvictsTheLeastRecentlySeenIdentityAndAHitCountsAsSeen)
+{
+    // 🔴 WHICH identity leaves, not how many. Round 2 asserted `tracked == 1024` and
+    // `evicted >= 1`, both of which a table that threw away its newest arrival would satisfy --
+    // and that table is the exact failure the eviction policy exists to avoid, because the
+    // identity an operator is looking for is the one happening now.
+    //
+    // The sleeps are the instrument, not a delay: the ordering clock is in milliseconds and a
+    // thousand of these feeds fit inside one tick, so without a gap every entry carries the same
+    // timestamp and "the oldest" is decided by std::map's key order. Identity 0 is made strictly
+    // older than everything else; that makes it the unique minimum.
+    constexpr uint32_t kCapacity = 1024;
+
+    {
+        auto first = brocadeDatagram({{l2FrameWithSourceIndex(0), 1, 2}});
+        feedBytes(first);
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(3));
+
+    for (uint32_t i = 1; i <= kCapacity; ++i)
+    {
+        auto datagram = brocadeDatagram({{l2FrameWithSourceIndex(i), 1, 2}});
+        feedBytes(datagram);
+    }
+
+    auto table = m_collector->nonIpv4Observations();
+    ASSERT_EQ(table.size(), size_t(kCapacity));
+    EXPECT_EQ(table.count(l2KeyForSourceIndex(0)), 0u)
+        << "the identity nobody has seen since before every other one is the one that leaves";
+    EXPECT_EQ(table.count(l2KeyForSourceIndex(kCapacity)), 1u)
+        << "and the newest arrival is in the table, not refused at the door";
+
+    // Now the other half: a HIT is a sighting. Identity 1 is the oldest survivor, so it is next
+    // in line; touching it must move it to the back of the queue and send identity 2 instead.
+    // Without this, the table would evict in insertion order regardless of who is busy.
+    std::this_thread::sleep_for(std::chrono::milliseconds(3));
+    {
+        auto hit = brocadeDatagram({{l2FrameWithSourceIndex(1), 1, 2}});
+        feedBytes(hit);
+        auto newcomer = brocadeDatagram({{l2FrameWithSourceIndex(kCapacity + 1), 1, 2}});
+        feedBytes(newcomer);
+    }
+
+    table = m_collector->nonIpv4Observations();
+    ASSERT_EQ(table.size(), size_t(kCapacity));
+    EXPECT_EQ(table.count(l2KeyForSourceIndex(1)), 1u)
+        << "it was the oldest by insertion, but it was seen a moment ago";
+    EXPECT_EQ(table.count(l2KeyForSourceIndex(2)), 0u)
+        << "so the eviction fell on the one behind it";
+    EXPECT_EQ(table.count(l2KeyForSourceIndex(kCapacity + 1)), 1u);
+}
+
+TEST_F(FlowKeyFamiliesTest, AnIcmpv6SampleCarriesItsTypeAndItsWholeCodeInThePortFields)
+{
+    // Type 1 (destination unreachable), code 0x1F. The code is the point: IPv4's ICMP code is
+    // masked to four bits here because the pre-P3 parser did that and an IPv4 number may not
+    // move, and round 2 copied the mask onto the new family by reflex. 0x1F masked would read
+    // 0x0F -- a different code, silently.
+    auto datagram = brocadeDatagram({{ipv6Frame(0x02, 0x01, 58, 0x011F, 0), 1, 2}});
+    feedBytes(datagram);
+
+    const auto observation = soleObservation();
+    ASSERT_TRUE(observation.has_value());
+    EXPECT_EQ(observation->first.family, sflow::FlowKeyFamily::IPv6);
+    EXPECT_EQ(int(observation->first.protocol), 58);
+    EXPECT_EQ(observation->first.srcPort, 1) << "the ICMPv6 type, in the source-port field";
+    EXPECT_EQ(observation->first.dstPort, 0x1F)
+        << "the whole code byte; 0x0F here would be IPv4's four-bit mask copied to a family that "
+           "never had it";
+}
+
+TEST_F(FlowKeyFamiliesTest, AnIpv4SampleOfAnotherProtocolBanksItsBytesAndIsCountedWithoutBeingAFlow)
+{
+    // OSPF and IGMP: IPv4 frames with no five-tuple. §2.2's rule is that the link bytes are
+    // recorded for every well-formed sample, and §2.3's is that the flow table stays TCP/UDP/ICMP
+    // -- so these three assertions have to hold together, which is the combination round 1 said
+    // only in prose ("non-IPv4 also banks") and round 2 left untested.
+    const std::vector<SampleSpec> samples{
+        {ipv4Frame(0x02, 0x01, "10.0.0.1", "10.0.0.2", 89, 0, 0), 1, 2},
+        {ipv4Frame(0x02, 0x01, "10.0.0.3", "10.0.0.4", 2, 0, 0), 1, 2}};
+    auto datagram = brocadeDatagram(samples);
+    feedBytes(datagram);
+
+    EXPECT_EQ(m_collector->malformedDatagramCount(), 0u);
+    EXPECT_TRUE(m_collector->getFlowInfoTable().empty())
+        << "an OSPF packet has no ports, and a row keyed on two zeros would merge every one of "
+           "them into one flow";
+    EXPECT_TRUE(m_collector->nonIpv4Observations().empty())
+        << "and it is not the side table's business either -- it is IPv4";
+
+    const uint64_t bothFrames =
+        uint64_t(samples[0].frame.size() + samples[1].frame.size()) * kSamplingRate;
+    EXPECT_EQ(m_collector->sampledByteCreditFor(kAgentIp, 1u), bothFrames)
+        << "the bytes crossed the link whatever the protocol was";
+    EXPECT_EQ(families().at("ipv4").get<uint64_t>(), 2u)
+        << "both are IPv4 frames and samples_by_family counts frames, not flows";
+    EXPECT_EQ(m_collector->ingestHealthJson().at("addressed_total").get<uint64_t>(), 2u)
+        << "telemetry_health.addressed_total is now every flow sample -- see the objection in "
+           "P3-A-SUMMARY.md; E reconciles sampling error against this number";
+}
+
+TEST_F(FlowKeyFamiliesTest, AnHpeIcmpSampleCarriesTheRealIcmpTypeRatherThanAConstantZero)
+{
+    // The second deliberate difference from the pre-P3 reads (the TCP ACK offset is the first).
+    // The deleted HPE branch computed the ICMP type as `ntohl(word >> 8) & 0xFF` -- the shift on
+    // the wrong side of the byte swap -- which is 0 for every frame on a little-endian host. No
+    // capture from that vendor exists in this repository, which is why a constant went unnoticed.
+    //
+    // 0x0301 as the first L4 word is type 3, code 1: this parser puts an ICMP type and code in
+    // the port fields. The 20 trailing bytes are hpeDatagram's documented shortfall -- the branch
+    // believes the sample ends two words early, so a minimal frame would have its L4 header
+    // outside the bound and this test would be measuring the truncation instead.
+    const SampleSpec spec{
+        ipv4Frame(0x02, 0x01, "10.0.0.7", "10.0.0.8", 1, 0x0301, 0, 0, /*trailing=*/20), 1, 2};
+    auto datagram = hpeDatagram(spec);
+    feedBytes(datagram);
+
+    EXPECT_EQ(m_collector->malformedDatagramCount(), 0u);
+    const auto table = m_collector->getFlowInfoTable();
+    ASSERT_EQ(table.size(), 1u);
+    const sflow::FlowKey key = table.begin()->first;
+    EXPECT_EQ(int(key.protocol), 1);
+    EXPECT_EQ(key.srcPort, 3) << "the real ICMP type; this branch used to report 0 for all of them";
+    EXPECT_EQ(key.dstPort, 1) << "and the code, masked to four bits exactly as IPv4 always was";
+}
+
+TEST_F(FlowKeyFamiliesTest, AVlanTaggedIpv6SampleIsIdentifiedAsIpv6AfterOneTagIsStripped)
+{
+    // The tag strip and the IPv6 branch meet here. A committed fixture covers 0x8100 over IPv4
+    // (emitted_vlan_ipv4.bin); nothing covered 0x8100 over IPv6, and the two share exactly one
+    // line of code -- the one that rewrites `ethType` after stepping over the tag.
+    auto datagram = brocadeDatagram(
+        {{ipv6Frame(0x02, 0x01, 17, 5201, 33334, /*withVlanTag=*/true), 1, 2}});
+    feedBytes(datagram);
+
+    const auto observation = soleObservation();
+    ASSERT_TRUE(observation.has_value()) << "0x8100 wrapping 0x86DD is an IPv6 frame";
+    EXPECT_EQ(observation->first.family, sflow::FlowKeyFamily::IPv6);
+    EXPECT_EQ(observation->first.srcIp6, kIpv6Src);
+    EXPECT_EQ(observation->first.dstIp6, kIpv6Dst);
+    EXPECT_EQ(int(observation->first.protocol), 17);
+    EXPECT_EQ(observation->first.srcPort, 5201);
+    EXPECT_EQ(observation->first.dstPort, 33334);
+    EXPECT_EQ(observation->first.ethType, 0u)
+        << "an L3 key carries no L2 fields, and 0x8100 in one would be the tag becoming part of "
+           "the flow's identity";
+    EXPECT_EQ(families().at("ipv6").get<uint64_t>(), 1u);
+    EXPECT_EQ(families().at("l2").get<uint64_t>(), 0u)
+        << "one tag is stripped; a frame reported as L2 here means it was not";
 }

@@ -448,7 +448,20 @@ class FlowLinkUsageCollector
         uint64_t samples = 0;
         /// frame_length * sampling_rate, i.e. the same estimator the link counters use.
         uint64_t estimatedBytes = 0;
-        int64_t lastSeenMs = 0;
+        /// 🔴 THE ORDERING CLOCK, AND THE ONLY ONE EVICTION MAY READ.
+        /// [Co-developed with claude code -- Adam] Round 3, ruling 11c. Monotonic milliseconds
+        /// (utils::getCurrentTimeMillisSteadyClock), the same clock the per-port liveness
+        /// timestamps already use. "Least recently seen" is a question about the order two
+        /// observations happened in, and a wall clock does not answer that one: NTP or a manual
+        /// set can step it backwards, and then the entry that was just written looks like the
+        /// oldest one in the table and is the next to be evicted -- repeatedly, because every
+        /// insert re-reads the same stepped clock. Never published.
+        int64_t lastSeenSteadyMs = 0;
+        /// The wall clock at the same moment, published as `last_seen_ms` and read by nothing
+        /// else. A reader outside this process cannot do anything with a monotonic number whose
+        /// origin is this machine's boot, so the API keeps the comparable one -- but it is a
+        /// separate field precisely so that no ordering decision can be made on it.
+        int64_t lastSeenWallMs = 0;
     };
 
     /// Per-family sample counts since startup, plus the two malformed-shape counters.
@@ -711,10 +724,14 @@ class FlowLinkUsageCollector
     std::atomic<uint64_t> m_samplesL2{0};
     std::atomic<uint64_t> m_samplesUndecodable{0};
     std::atomic<uint64_t> m_malformedIpv4Ihl{0};
-    /// Distinct identities refused once the table was full. Kept, and published, although the
-    /// table now evicts rather than refuses: a reader has to be able to tell the two regimes
-    /// apart, and a counter that silently stops being reachable is worse than one that reads 0.
-    std::atomic<uint64_t> m_nonIpv4ObservationsDropped{0};
+    // 🔴 There is no "dropped over capacity" counter here, and there must not be one.
+    // [Co-developed with claude code -- Adam] Round 3, ruling 11b. Round 2 kept the member and
+    // the `dropped_over_capacity` key after the table was changed from refusing to evicting, on
+    // the theory that a reader should be able to tell the two regimes apart. Nothing wrote it
+    // any more, so the key could only ever read 0 -- an API key whose value is a constant is not
+    // a measurement, it is a claim that a thing was measured. The test that asserted it was 0
+    // was a tautology and went with it. The regime a reader actually needs to tell apart is
+    // published by evicted_least_recently_seen below, which is written.
     /// Identities evicted to make room for a newer one. A non-zero value means the table is
     /// showing a window, not a history -- which is exactly what a silently capped table would
     /// hide. [Co-developed with claude code -- Adam] Round 2, fable-judge F5.
