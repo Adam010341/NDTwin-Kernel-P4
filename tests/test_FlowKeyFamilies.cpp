@@ -904,9 +904,18 @@ TEST_F(FlowKeyFamiliesTest, AnIpv6KeyCarriesNoL2FieldsEither)
 TEST_F(FlowKeyFamiliesTest, ANonFirstFragmentBanksItsBytesAndDoesNotEndTheDatagram)
 {
     // Two samples in one datagram: a non-first fragment, then an ordinary packet. Before this
-    // ticket the fragment took `continue` WITHOUT advancing the read position, so the loop's own
-    // no-progress guard broke out and every later sample in that datagram was discarded -- a
-    // fragment on the wire cost the twin every sample batched behind it.
+    // ticket the fragment took `continue`, and every later sample in that datagram was lost --
+    // a fragment on the wire cost the twin everything batched behind it.
+    //
+    // 🔴 HOW it was lost is not what round 1 and round 2 said, and the difference matters because
+    // the wrong mechanism suggests the wrong fix. [Co-developed with claude code -- Adam]
+    // Round 3, ruling 11g. The loop's own "read position did not advance" guard did NOT fire: the
+    // MININET index shift (base FlowLinkUsageCollector.cpp:1259,
+    // `index += flowDataLength / 4 + 2;`) runs BEFORE the `continue` at base :1455, so the read
+    // position HAD advanced -- just into the middle of the sample rather than past it. The parser
+    // then read the sample's own dropped/ingress words as the next sample's type and length and
+    // desynchronised from there. The symptom was the same, which is why a guard that never ran
+    // could be blamed for it.
     const std::vector<SampleSpec> samples{
         {ipv4Frame(0x02, 0x01, "10.0.0.1", "10.0.0.4", 17, 1111, 2222, /*fragmentOffset=*/100),
          1, 2},
@@ -1165,8 +1174,10 @@ TEST_F(FlowKeyFamiliesTest, AnIpv4SampleOfAnotherProtocolBanksItsBytesAndIsCount
     EXPECT_EQ(families().at("ipv4").get<uint64_t>(), 2u)
         << "both are IPv4 frames and samples_by_family counts frames, not flows";
     EXPECT_EQ(m_collector->ingestHealthJson().at("addressed_total").get<uint64_t>(), 2u)
-        << "telemetry_health.addressed_total is now every flow sample -- see the objection in "
-           "P3-A-SUMMARY.md; E reconciles sampling error against this number";
+        << "telemetry_health.addressed_total is now every flow sample. That outward calibre "
+           "change is accepted in doc/audit/2026-09-04_p4-tutorial-exercise-prep/"
+           "TICKET-P3-observation.md section 9, ruling 8 item 4; E reconciles sampling error "
+           "against this number";
 }
 
 TEST_F(FlowKeyFamiliesTest, AnHpeIcmpSampleCarriesTheRealIcmpTypeRatherThanAConstantZero)

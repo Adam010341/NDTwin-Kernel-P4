@@ -1635,9 +1635,10 @@ FlowLinkUsageCollector::handlePacket(char* buffer, size_t len)
             noteFrameIdentity(identity, frameLength, samplingRate);
 
             // The flow table is IPv4-only -- see FlowLinkUsageCollector.hpp for the two frozen
-            // contract tests that fix that and P3-A-SUMMARY.md for the objection. A non-first
-            // fragment carries no ports, so it is banked above and identified above but is not a
-            // flow. [Co-developed with claude code -- Adam]
+            // contract tests that fix that, and doc/audit/2026-09-04_p4-tutorial-exercise-prep/TICKET-P3-observation.md
+            // section 9, ruling 8 item 1, for the decision to observe non-IPv4 identities in a
+            // side table instead. A non-first fragment carries no ports, so it is banked above and
+            // identified above but is not a flow. [Co-developed with claude code -- Adam]
             const bool isClassifiableIpv4 =
                 identity.identified && identity.key.family == FlowKeyFamily::IPv4 &&
                 identity.ipv4FragmentOffset == 0 &&

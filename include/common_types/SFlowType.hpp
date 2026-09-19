@@ -139,7 +139,9 @@ struct FlowKey
 //   b. the ICMP type of an HPE (sample type 3) sample. The deleted branch's shift made it the
 //      constant 0 for every ICMP frame; it is the frame's real type now. No capture from that
 //      vendor exists in this repository, so nothing measured has ever depended on the 0 --
-//      which is exactly why it went unnoticed. See P3-A-SUMMARY.md section 5-5.
+//      which is exactly why it went unnoticed. Accepted in
+//      doc/audit/2026-09-04_p4-tutorial-exercise-prep/TICKET-P3-observation.md section 9, ruling 10 item 5,
+//      and its offsets are reconciled against the sFlow v5 layout under ruling 11d there.
 // Neither moves a number any Brocade/emitter path ever reported.
 // =================================================================================================
 

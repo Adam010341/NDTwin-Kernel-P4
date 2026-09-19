@@ -436,9 +436,11 @@ class FlowLinkUsageCollector
     // forbids editing either file while requiring both to stay green. Non-IPv4 traffic is therefore
     // *observed* here, in its own bounded table, instead of being routed into a structure whose
     // consumers (rate passes, the classifier's five-tuple lookup, the path walk, the historical
-    // serialiser) all assume an IPv4 five-tuple. See P3-A-SUMMARY.md "objections" -- merging the
-    // two is a decision for the orchestrator, not for this worker, because it means changing files
-    // this ticket assigns to nobody.
+    // serialiser) all assume an IPv4 five-tuple. The side table rather than one merged table is
+    // the orchestrator's decision, not this worker's, because merging them means editing files
+    // this ticket assigns to nobody: see
+    // doc/audit/2026-09-04_p4-tutorial-exercise-prep/TICKET-P3-observation.md
+    // section 9, ruling 8 item 1.
     // =============================================================================================
 
     /// One non-IPv4 identity and what has been seen of it. Sample counts, not rates: a rate here
