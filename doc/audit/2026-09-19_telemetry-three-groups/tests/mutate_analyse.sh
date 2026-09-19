@@ -31,6 +31,7 @@ ANALYSE="$ROUND/analyse.py"
 PLOT="$ROUND/plot.py"
 DRIVER="$ROUND/drive_e.sh"
 SCANNER="$HERE/hazard_scan.py"
+MANIFEST="$ROUND/manifest.py"
 
 # The interpreter. A git worktree has no venv of its own (p4_proxy/venv/ is gitignored and lives
 # in the main checkout), so the main worktree is consulted before giving up -- asked of git
@@ -69,6 +70,7 @@ BASE_SYNTH="$(sha256sum "$HERE/synthetic.py" | cut -d' ' -f1)"
 BASE_DRIVER="$(sha256sum "$DRIVER" | cut -d' ' -f1)"
 BASE_SCANNER="$(sha256sum "$SCANNER" | cut -d' ' -f1)"
 BASE_TEST_OFF="$(sha256sum "$HERE/test_drive_e_offline.sh" | cut -d' ' -f1)"
+BASE_MANIFEST="$(sha256sum "$MANIFEST" | cut -d' ' -f1)"
 
 SURVIVORS=0
 MUTATIONS=0
@@ -80,7 +82,8 @@ copy_tree() {   # copy_tree <destination>
     cp "$ANALYSE" "$PLOT" "$d/"
     # the three shell scripts too: since ruling 21 the gate also mutates the DRIVER, and
     # tests/test_drive_e_offline.sh finds them beside itself exactly as it does in the round.
-    cp "$ROUND/drive_e.sh" "$ROUND/run_group_arm.sh" "$ROUND/sample_error.sh" "$d/"
+    cp "$ROUND/drive_e.sh" "$ROUND/run_group_arm.sh" "$ROUND/sample_error.sh" \
+       "$ROUND/manifest.py" "$d/"
     chmod +x "$d"/*.sh
     cp "$HERE"/*.py "$HERE"/*.sh "$d/tests/" 2>/dev/null
     chmod +x "$d"/tests/*.sh 2>/dev/null
@@ -499,6 +502,25 @@ m=$(mutant_tests m25 "$SCANNER" \
 report_shell "M-E25: an unreadable path is counted as a clean scan (rc 0)" "$m" \
        "🔴 a path that cannot be read is rc 2, not rc 0"
 
+m=$(mutant m26 "$MANIFEST" \
+    '    if isinstance(argv, str):
+        try:
+            return shlex.split(argv)
+        except ValueError:
+            return argv.split()' \
+    '    if isinstance(argv, str):
+        return argv')
+report_shell "M-E26: a string argv is not split, so iterating it yields characters (ruling 27)" "$m" \
+       "🔴 the binary is found in a string argv"
+
+m=$(mutant m27 "$MANIFEST" \
+    '    if previous is not None and previous.startswith("-"):
+        return False' \
+    '    if False:
+        return False')
+report_shell "M-E27: an option VALUE (--log-file /tmp/simple_switch.log) can be taken for the binary" "$m" \
+       "  the fixture is the shape that broke it (argv is a string)"
+
 # --- the controls: changes that must NOT be caught -------------------------------------------------
 # A suite that goes red on a comment is not sensitive, it is fragile, and a fragile suite gets
 # ignored -- which costs more than the mutations it catches.
@@ -521,7 +543,7 @@ control "C-E2: a comprehension variable renamed in figure1_data (semantics uncha
 # driver, the scanner and the offline suite are all under the gate now; a change to any of them
 # while it ran would make its verdict about a tree that no longer exists.
 for pair in "$ANALYSE:$BASE_ANALYSE" "$PLOT:$BASE_PLOT" \
-            "$DRIVER:$BASE_DRIVER" "$SCANNER:$BASE_SCANNER" \
+            "$DRIVER:$BASE_DRIVER" "$SCANNER:$BASE_SCANNER" "$MANIFEST:$BASE_MANIFEST" \
             "$HERE/test_drive_e_offline.sh:$BASE_TEST_OFF" \
             "$HERE/test_analyse.py:$BASE_TEST_A" "$HERE/test_plot.py:$BASE_TEST_P" \
             "$HERE/synthetic.py:$BASE_SYNTH"; do
