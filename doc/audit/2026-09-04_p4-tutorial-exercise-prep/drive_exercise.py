@@ -321,6 +321,9 @@ IPERF_SECONDS = 3     # `iperf -c ... -t 3`, the README's own flow length
 IPERF_TIMEOUT = 25    # s of wall clock before a client that never connected is killed
 IPERF_WARMUP = 1.0    # s to let `iperf -s` bind before the client is started
 PROBE_SECONDS = 8     # s of link_monitor send.py, which emits one probe per second
+#: How long to wait for flowcache's controller to install the punted flow (§9 ruling 28②).
+FLOWCACHE_WARM_SECONDS = 10.0
+
 SEND_SECONDS = 6      # s of the ecn/mri/qos senders, whose argv carries a packet count
 BG_SECONDS = 20       # s of the ecn/mri background iperf -u (must outlast SEND_SECONDS)
 CTRL_SETTLE = 12      # s to let an exercise's own controller push its pipeline and rules
@@ -2117,6 +2120,32 @@ class Steps(object):
             self._add("switches the controller programmed", "[1, 2, 3]", str(loaded),
                       loaded == [1, 2, 3], G_SRC,
                       "mycontroller.py:457-472 connects to s1, s2 and s3")
+            # 🔴 THE CACHE HAS TO BE WARM BEFORE LOSS IS A READING ABOUT FORWARDING
+            # (§9 ruling 28②). flowcache's FIRST packet of a flow is punted to the controller,
+            # which then installs the entry -- so a single `ping -c5` measures the install
+            # latency as loss and calls a working exercise red. Three probes first, then a wait
+            # for the controller's own "added table entry" line, and only then the measurement.
+            probe = self.h.ping("h1", self.ips["h2"], count=3)
+            say("$ h1: ping -c3 %s (warming the cache) -> %s" % (self.ips["h2"], probe.label()))
+            self.steps.append(("W0  h1 probes h2 to warm the flow cache",
+                               "ping -c 3 -W 2 %s" % self.ips["h2"], probe.raw or probe.label()))
+            warm, waited = False, 0.0
+            while waited < FLOWCACHE_WARM_SECONDS:
+                fh.flush()
+                try:
+                    with open(path) as _fh:
+                        warm = bool(re.search(r"^For switch s\d+ flow \(SA=.*added table entry",
+                                              _fh.read(), re.M))
+                except OSError:
+                    warm = False
+                if warm:
+                    break
+                time.sleep(0.5); waited += 0.5
+            say("   flow cache warm after %.1fs: %s" % (waited, warm))
+            self.steps.append(("W0b waited for the controller to install the flow",
+                               "poll %s for 'added table entry'" % path,
+                               "warm=%s after %.1fs" % (warm, waited)))
+
             ping = self.h.ping("h1", self.ips["h2"], count=5)
             say("$ h1: ping -c5 %s -> %s" % (self.ips["h2"], ping.label()))
             self.steps.append(("W1  h1 ping h2 with the controller running",
@@ -2129,7 +2158,9 @@ class Steps(object):
                       "it the ping below would be evidence about something else")
             self._add("h1 -> h2 forwards once the cache is warm", "0.0%", ping.label(),
                       ping.tested and ping.loss == 0, G_BOTH,
-                      "README step 3: 'You should start to see ICMP replies'")
+                      "README step 3: 'You should start to see ICMP replies'. Measured AFTER "
+                      "three probe datagrams and a wait for the controller's own install line, "
+                      "so this is forwarding and not the install latency (§9 ruling 28②)")
         finally:
             if proc.poll() is None:
                 text = self._stop_controller(proc, fh, path)
@@ -2392,7 +2423,15 @@ def link_usage_applies(spec, which):
     return True, (want if isinstance(want, str) else None), ""
 
 
-def link_usage_cell(package, label, out_dir, expect="follows", runner=None, dst=None):
+#: `link_usage_round`'s "the exercise controller is gone, so this measures its absence" code.
+#: 🔴 NOT 0 AND NOT 2 (§9 ruling 28①). 0 came back here as `ok=True` -- a PASS G1 over a dead
+#: controller, the exact thing that branch exists to prevent -- and 2 already means "no
+#: namespace / no sudo".
+LINK_USAGE_NOT_RUN_RC = 3
+
+
+def link_usage_cell(package, label, out_dir, expect="follows", runner=None, dst=None,
+                    ctrl_pid=None):
     """The generic cell of TICKET-P3 §2.7, run through live-p1/_common.sh's own helper.
 
     -> (ok, transcript).  `expect` is "follows" (the cell) or "absent" (the control).
@@ -2410,14 +2449,22 @@ def link_usage_cell(package, label, out_dir, expect="follows", runner=None, dst=
     expectation naming that, never as a quiet skip and never as link usage.
     """
     runner = runner or run
+    # 🔴 THE CONTROLLER'S PID CROSSES THE SHELL BOUNDARY (§9 ruling 28①). This spawns a FRESH
+    # bash that sources _common.sh, and that file used to reset CTRL_PID unconditionally -- so
+    # the liveness check inside `link_usage_round` could never see a pid and the whole
+    # "controller dead => NOT RUN" branch was unreachable from the driver. Setting it in the
+    # script is what makes the check about this arm's controller.
     script = ("set -u\n"
+              "CTRL_PID=%s\n"
               "source %s\n"
-              "link_usage_round %s %s %s %s %s\n" % (_sh(LIVE_COMMON), _sh(package),
+              "link_usage_round %s %s %s %s %s\n" % (_sh(str(ctrl_pid or "")),
+                                                     _sh(LIVE_COMMON), _sh(package),
                                                      _sh(label), _sh(out_dir), _sh(expect),
                                                      _sh(dst or "")))
     rc, out = runner(["bash", "-c", script], cwd=REPO, timeout=240, env=ndt_env())
     say(trim(out, 4000).rstrip())
-    return rc == 0, out
+    # 🔴 THREE ANSWERS, NOT TWO. NOT RUN is neither ok nor a failure of the fabric.
+    return ("not-run" if rc == LINK_USAGE_NOT_RUN_RC else bool(rc == 0)), out
 
 
 def _sh(word):
@@ -2685,28 +2732,47 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
                                   "NOT RUN: %s" % why))
             else:
                 usage_dir = os.path.join(log_dir, "link_usage")
+                # 🔴 THE ARM'S CONTROLLER, IF IT HAS ONE AND IT IS STILL ALIVE (§9 ruling 28①).
+                # flowcache's first packet of a flow needs its packet-in and p4runtime's entries
+                # are its too; a G1 measured after it exited measures its absence.
+                ctrl = getattr(run_on_ndtwin, "ctrl_pid", None)
                 ok, usage_out = link_usage_cell(pkg, "%s/%s" % (ex, which), usage_dir,
-                                                dst=usage_dst)
+                                                dst=usage_dst, ctrl_pid=ctrl)
                 steps_out.append(("N8  G1 link usage follows the iperf path",
                                   "live-p1/_common.sh link_usage_round %s (to %s)"
                                   % (pkg, usage_dst or "the model's last host"), usage_out))
-                run_on_ndtwin.expects = list(run_on_ndtwin.expects) + [Expect(
-                    # 🔴 THE STRING SAYS WHAT THE CELL ACTUALLY ASSERTS (round-3 ruling 7).
-                    # It said `off-path == 0` -- which is the rule R4 REMOVED, because a single
-                    # sampled LLDP beacon (1/256, banked as 256x its frame length) would red a
-                    # correct fabric at random. An expectation line that names a bound nobody
-                    # applies is worse than none: a reader reconciling a green cell against it
-                    # concludes the off-path edges integrated to zero, which they did not.
-                    "G1  link usage follows the iperf path",
-                    # 🔴 THE WORDS NAME THE THREE CLASSES (§9 ruling 20① + round-3 ruling 7's
-                    # principle): a reader reconciling a green cell has to know which rows were
-                    # asserted, which were only printed, and which the floor covered.
-                    "primary on-path > 0; minor rows printed, not asserted; "
-                    "off-path under max(5 kbit, 2% of the smallest PRIMARY on-path)",
-                    "PASS" if ok else "see the transcript", ok, G_SRC,
-                    "TICKET-P3 §2.7's program-independent cell, through live-p1/_common.sh's "
-                    "link_usage_round -- the same function live-p1/05 runs. The floor and every "
-                    "off-path edge's raw integral are in that transcript.")]
+                if ok == "not-run":
+                    # 🔴 NOT RUN IS RECORDED, NEVER SCORED. It is not a pass (nothing was
+                    # measured) and not a failure of the fabric (the controller was gone).
+                    say("   G1 NOT RUN: the exercise controller was not alive for the flow")
+                    steps_out.append(("N8b G1 -- NOT RUN",
+                                      "link_usage_round (controller not alive)", usage_out))
+                    run_on_ndtwin.expects = list(run_on_ndtwin.expects) + [Expect(
+                        "G1  link usage follows the iperf path",
+                        "a flow measured with the arm's controller alive",
+                        "NOT RUN -- the exercise controller was not alive", False, G_SRC,
+                        "flowcache's first packet needs its packet-in and p4runtime's entries "
+                        "are its own; a cell measured without it measures the controller's "
+                        "absence, so it is recorded as not run and never as a pass")]
+                else:
+                    run_on_ndtwin.expects = list(run_on_ndtwin.expects) + [Expect(
+                        # 🔴 THE STRING SAYS WHAT THE CELL ACTUALLY ASSERTS (round-3 ruling 7).
+                        # It said `off-path == 0` -- which is the rule R4 REMOVED, because a single
+                        # sampled LLDP beacon (1/256, banked as 256x its frame length) would red a
+                        # correct fabric at random. An expectation line that names a bound nobody
+                        # applies is worse than none: a reader reconciling a green cell against it
+                        # concludes the off-path edges integrated to zero, which they did not.
+                        "G1  link usage follows the iperf path",
+                        # 🔴 THE WORDS NAME THE THREE CLASSES (§9 ruling 20① + round-3 ruling 7's
+                        # principle): a reader reconciling a green cell has to know which rows were
+                        # asserted, which were only printed, and which the floor covered.
+                        "primary on-path > 0; minor rows printed, not asserted; "
+                        "off-path under one sample's worth (256 x MTU x 8 bit) or 2% of the "
+                        "smallest PRIMARY on-path, whichever is larger",
+                        "PASS" if ok else "see the transcript", ok, G_SRC,
+                        "TICKET-P3 §2.7's program-independent cell, through live-p1/_common.sh's "
+                        "link_usage_round -- the same function live-p1/05 runs. The floor and "
+                        "every off-path edge's raw integral are in that transcript.")]
     finally:
         rule("teardown: ndt down, the two knobs, then ndt release")
         run_on_ndtwin.teardown_problem = ndtwin_teardown(knob_before, steps_out,

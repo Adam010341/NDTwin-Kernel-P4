@@ -930,6 +930,29 @@ add "90. _field_values goes back to anchoring at line start" \
     '        return re.findall(r"^\s*%s\s*=\s*(\S+)\s*$" % re.escape(field), text, re.M)  # MUTANT' \
     'test_the_mri_count_is_read_through_the_nesting_prefix'
 
+# 91: flowcache measures loss without warming the cache (§9 ruling 28②). Its FIRST packet is
+# punted to the controller, so a single ping measures the install latency as loss.
+add "91. flowcache stops warming the cache before it measures loss" \
+    "$DRIVER" \
+    '            probe = self.h.ping("h1", self.ips["h2"], count=3)' \
+    '            probe = None  # MUTANT' \
+    'test_flowcache_warms_the_cache_before_it_measures_loss'
+
+# 92: the cell no longer carries the controller pid, so the NOT RUN branch is unreachable from
+# the driver again (§9 ruling 28①).
+add "92. the generic cell is called without the arm's controller pid" \
+    "$DRIVER" \
+    '                                                dst=usage_dst, ctrl_pid=ctrl)' \
+    '                                                dst=usage_dst)  # MUTANT' \
+    'test_the_generic_cell_is_given_the_arms_controller_pid'
+
+# 93: NOT RUN is scored as a pass again (§9 ruling 28①).
+add "93. a NOT RUN generic cell is reported as a pass" \
+    "$DRIVER" \
+    '    return ("not-run" if rc == LINK_USAGE_NOT_RUN_RC else bool(rc == 0)), out' \
+    '    return rc == 0, out  # MUTANT' \
+    'test_a_not_run_generic_cell_is_never_a_pass'
+
 CTRL_SRC="$DRIVER"
 CTRL_ANCHOR='def host_key(name):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.

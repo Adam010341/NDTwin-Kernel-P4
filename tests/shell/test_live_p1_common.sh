@@ -849,7 +849,7 @@ json.dump({"links": [{"a": ["h1", 0], "b": ["s1", 1], "bandwidth_bps": 100000000
                      {"a": ["s2", 1], "b": ["h2", 0], "bandwidth_bps": 1000000000.0}]},
           open(sys.argv[1], "w"))' "$FIX/ecnpkg/package.json"
 
-read -r ECN_T ECN_BPS ECN_AT8 < <(drive "link_usage_window '$FIX/ecnpkg'" | /usr/bin/grep -v '^RC=')
+read -r ECN_T ECN_BPS ECN_AT8 ECN_CARRIED < <(drive "link_usage_window '$FIX/ecnpkg'" | /usr/bin/grep -v '^RC=')
 check "🔴 the slowest declared link is the 500 kbit/s bottleneck" "500000" "$ECN_BPS"
 # (1.30 = bandwidth x time / (rate x MTU x 8). The ruling quotes ~1.8, which is the same
 # quantity computed from the bytes ecn actually delivered -- 691,131 B -- rather than from the
@@ -857,15 +857,19 @@ check "🔴 the slowest declared link is the 500 kbit/s bottleneck" "500000" "$E
 check "🔴 at the old 8 s window only ~1.3 samples were expected" "1.30" "$ECN_AT8"
 check "🔴 so the window grows to 62 s"                    "62" "$ECN_T"
 
-# 🔴 THE CONTROL: an unshaped package keeps the 8 s window -- the rule must not slow every
-# round down to 61 s for a bottleneck that is not there.
+# 🔴 AN UNSHAPED PACKAGE IS CAPPED BY WHAT iperf OFFERS, NOT BY THE LINK (§9 ruling 28⑤).
+# A 1 Gbit/s link carries only the 2 Mbit/s the sender offers, so the old formula -- which
+# divided by the LINK speed -- reported "2604 expected samples" for a window that really
+# delivers about five. The window that reaches ten samples at 2 Mbit/s is 16 s, not 8.
 mkdir -p "$FIX/fastpkg"
 python3 -c '
 import json, sys
 json.dump({"links": [{"a": ["s1", 3], "b": ["s2", 3], "bandwidth_bps": 1000000000.0}]},
           open(sys.argv[1], "w"))' "$FIX/fastpkg/package.json"
-read -r F_T F_BPS F_AT8 < <(drive "link_usage_window '$FIX/fastpkg'" | /usr/bin/grep -v '^RC=')
-check "  a 1 Gbit/s path keeps the 8 s window"            "8" "$F_T"
+read -r F_T F_BPS F_AT8 F_CARRIED < <(drive "link_usage_window '$FIX/fastpkg'" | /usr/bin/grep -v '^RC=')
+check "🔴 a 1 Gbit/s path gets 16 s, because iperf offers only 2 Mbit/s" "16" "$F_T"
+check "  and the carried rate is the offered one, not the link's" "2000000" "$F_CARRIED"
+check "  while ecn's bottleneck is below the offer, so it carries 500 kbit/s" "500000" "$ECN_CARRIED"
 
 # 🔴 ONE SAMPLED FRAME IS THE SMALLEST THING THE SAMPLER CAN REPORT, so the off-path floor
 # cannot be below it: a single 170-byte packet is 256 x 170 x 8 = 348 kbit, thirty-five times
@@ -876,7 +880,10 @@ FLOOR="$(one "link_usage_floor '$FIX/ecn.onpath' '$FIX/ecn.int'")"
 check "🔴 the floor is at least ONE sample's worth of bits" "3072000.000" "$FLOOR"
 OUT="$(drive "assert_link_usage_follows_path '$FIX/ecn.onpath' '$FIX/ecn.int' 'ecn'")"
 has   "  and the raw says how that number was reached"   "ONE SAMPLE = 256 x 1500 x 8 = 3072000 bit" "$OUT"
-has   "🔴 one sampled frame off the path is NOT a failure" "off-path s1-eth1  348002.000 bit" "$OUT"
+# 🔴 THE ABSENCE OF THE VERDICT, NOT THE PRESENCE OF THE NOTE (§9 ruling 28④). Every off-path
+# edge's integral is printed BEFORE the comparison, so "off-path s1-eth1 ... bit" appears
+# whether the floor cleared it or reddened it -- that cell was true either way.
+hasnt "🔴 one sampled frame off the path is NOT a failure" "s1-eth1 is a host-facing link off the path" "$OUT"
 
 # ... and a PRIMARY link the twin never saw is still red -- the window is what changes, not
 # the assertion.
@@ -915,7 +922,10 @@ OUT="$(drive "CTRL_PID=999999; link_usage_round '$PKG3' 'noctrl' '$FIX/lur3'")"
 has   "🔴 a dead exercise controller makes G1 NOT RUN"   "G1 NOT RUN" "$OUT"
 has   "  naming the pid it checked"                      "pid 999999" "$OUT"
 has   "  and the summary line says NOT-RUN"              "rc=NOT-RUN" "$OUT"
-hasnt "🔴 and it never reports the flow as measured"     "LINK_USAGE noctrl expect=follows primary=s" "$OUT"
+# 🔴 AND THE rc IS THE THING (§9 ruling 28④). `primary=s...` can never appear -- the
+# LINK_USAGE line prints COUNTS -- so that cell asserted nothing. NOT RUN has its own code,
+# which is what keeps `link_usage_cell` from reading it as a pass.
+check "🔴 NOT RUN has its own rc, not 0 and not 2"       "3" "$(rc_of "$OUT")"
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"

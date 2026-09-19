@@ -42,7 +42,17 @@ VERDICT_RC=0
 VERDICT_WHY=""
 KNOB_ENTRY_COPY=""
 CLAIMED=0
-CTRL_PID=""
+#: 🔴 NOT RESET WHEN THE CALLER ALREADY SET ONE (§9 ruling 28①). `link_usage_cell` sources this
+#: file in a fresh shell to call one function; an unconditional `CTRL_PID=""` there threw away
+#: the pid the driver had just passed in, so the liveness check below could never see one and
+#: the whole "controller dead => NOT RUN" branch was unreachable from the driver.
+CTRL_PID="${CTRL_PID:-}"
+
+#: 🔴 NOT RUN IS NOT 0 AND NOT 2 (§9 ruling 28①). 0 made `link_usage_cell` report
+#: `ok=True` -- a PASS G1 over a dead controller, the exact thing the branch exists to prevent;
+#: 2 is already "no namespace / no sudo", a permission answer. Its own code, mapped by both
+#: callers.
+LINK_USAGE_NOT_RUN_RC=3
 
 # --- output ----------------------------------------------------------------------------------
 say()  { printf '\n== %s\n' "$*"; }
@@ -643,7 +653,6 @@ pingall_loss() {
 #: (~16 Mbit on-path) dwarfs -- 2% of that is 320 kbit, which is two orders of magnitude above
 #: a sampled beacon and two orders below the flow. Every edge's raw integral is printed either
 #: way, so a reader can see the margin rather than take the verdict's word for it.
-: "${LINK_USAGE_NOISE_BITS:=5000}"
 : "${LINK_USAGE_OFFPATH_FRACTION:=0.02}"
 #: The twin refreshes usage once a second; sample above that. Same rate as cmd_check.
 : "${LINK_USAGE_HZ:=4}"
@@ -657,6 +666,8 @@ pingall_loss() {
 #: the expectation reachable: enough seconds for >= this many samples on the SLOWEST link of
 #: the path.
 : "${LINK_USAGE_MIN_SAMPLES:=10}"
+#: The longest window a caller will wait for. `link_usage_cell` runs this under timeout=240.
+: "${LINK_USAGE_MAX_SECONDS:=200}"
 #: The bandwidth of an unshaped link, matching app_package.DEFAULT_LINK_BPS.
 : "${LINK_USAGE_DEFAULT_BPS:=1000000000}"
 : "${LINK_USAGE_RATE:=2M}"
@@ -702,13 +713,30 @@ for line in open("/proc/net/dev"):
 #
 # Prints "<seconds> <min_bps> <expected_samples_at_8s>" so the caller can put the arithmetic in
 # the raw rather than a number with no derivation.
+# link_usage_offered_bps -- LINK_USAGE_RATE ("2M") as bits per second.
+link_usage_offered_bps() {
+    local r="$LINK_USAGE_RATE"
+    case "$r" in
+        *[Mm]) echo $(( ${r%[Mm]} * 1000000 )) ;;
+        *[Kk]) echo $(( ${r%[Kk]} * 1000 )) ;;
+        *[Gg]) echo $(( ${r%[Gg]} * 1000000000 )) ;;
+        *)     echo "$r" ;;
+    esac
+}
+
 link_usage_window() {
     local pkg="$1"
     "$PY" - "$pkg" "$LINK_USAGE_SECONDS" "$LINK_USAGE_MIN_SAMPLES" \
-          "$LINK_USAGE_SAMPLE_RATE" "$LINK_USAGE_MTU_BYTES" "$LINK_USAGE_DEFAULT_BPS" <<'PYW'
+          "$LINK_USAGE_SAMPLE_RATE" "$LINK_USAGE_MTU_BYTES" "$LINK_USAGE_DEFAULT_BPS" \
+          "$(link_usage_offered_bps)" <<'PYW'
 import json, math, os, sys
 pkg, base_t, want_n = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
 rate, mtu, default_bps = int(sys.argv[4]), int(sys.argv[5]), int(sys.argv[6])
+# 🔴 THE MINIMUM IS OVER ALL THE PACKAGE'S LINKS, NOT JUST THE PATH (§9 ruling 28⑤). The path
+# is not known here -- the cell picks two hosts and the fabric routes -- so this is the
+# conservative reading: a bottleneck anywhere in the package lengthens the window. For ecn the
+# two agree (the only shaped link IS on the path); for a package with a slow link off the path
+# it buys a longer window than needed, which costs time and never correctness.
 bps = []
 try:
     with open(os.path.join(pkg, "package.json")) as fh:
@@ -720,10 +748,16 @@ try:
 except (OSError, ValueError):
     pass
 min_bps = min(bps) if bps else float(default_bps)
-need = want_n * rate * mtu * 8 / min_bps
+# 🔴 THE FLOW IS ALSO CAPPED BY WHAT THE SENDER OFFERS (§9 ruling 28⑤). iperf is told
+# LINK_USAGE_RATE (2 Mbit/s), so on an UNSHAPED 1 Gbit/s path the bits per second that reach a
+# link are the offered rate, not the link speed -- the old formula reported "2604 expected
+# samples" for a window that really delivers about 5. What matters is the smaller of the two.
+offered = float(sys.argv[7])
+carried = min(min_bps, offered)
+need = want_n * rate * mtu * 8 / carried
 secs = max(base_t, int(math.ceil(need)))
-at_base = base_t * min_bps / (rate * mtu * 8)
-print("%d %d %.2f" % (secs, int(min_bps), at_base))
+at_base = base_t * carried / (rate * mtu * 8)
+print("%d %d %.2f %d" % (secs, int(min_bps), at_base, int(carried)))
 PYW
 }
 
@@ -847,7 +881,9 @@ sys.exit(0 if n else 1)
 # assert_link_usage_follows_path <onpath-file> <integral-file> <label> -- THE CELL.
 #   * every interface that carried the flow has a twin edge, and that edge integrated > 0;
 #   * every inter-switch edge that did NOT carry it integrated to exactly 0;
-#   * every host-facing edge that did not carry it stayed under LINK_USAGE_NOISE_BITS.
+#   * every edge that did not carry it stayed under the floor: ONE SAMPLE's worth of bits
+#     (LINK_USAGE_SAMPLE_RATE x LINK_USAGE_MTU_BYTES x 8) or LINK_USAGE_OFFPATH_FRACTION of the
+#     smallest PRIMARY on-path integral, whichever is larger.
 # rc 0 when all three hold. Each disagreement is a named `fail`.
 #
 # 🔴 AN EMPTY ON-PATH SET IS REFUSED. With nothing measured as on-path the first clause is
@@ -860,8 +896,9 @@ sys.exit(0 if n else 1)
 # link" is the most important thing this cell can find, and skipping it would report the gap as
 # a clean run.
 # link_usage_floor <onpath-file> <integral-file> -- the documented off-path bound for this
-# window: max(LINK_USAGE_NOISE_BITS, LINK_USAGE_OFFPATH_FRACTION x the SMALLEST on-path
-# integral). Printed by the assertion so the number is in the raw beside the readings it judged.
+# window: max(ONE SAMPLE = LINK_USAGE_SAMPLE_RATE x LINK_USAGE_MTU_BYTES x 8,
+# LINK_USAGE_OFFPATH_FRACTION x the SMALLEST PRIMARY on-path integral). Printed by the
+# assertion so the number is in the raw beside the readings it judged.
 link_usage_floor() {
     local onpath="$1" integral="$2"
     "$PY" -c '
@@ -875,8 +912,9 @@ import sys
 # always one_sample, so leaving it in would be a term no input can reach -- dead arithmetic
 # that reads like a rule. One sample IS the absolute floor now; the relative term below still
 # takes over for a big enough flow.
-one_sample = float(sys.argv[5]) * float(sys.argv[6]) * 8
-floor_abs = one_sample; frac = float(sys.argv[4])
+one_sample = float(sys.argv[4]) * float(sys.argv[5]) * 8
+floor_abs = one_sample
+frac = float(sys.argv[3])
 want = set()
 for line in open(sys.argv[1]):
     parts = line.split()
@@ -894,7 +932,7 @@ for line in open(sys.argv[2]):
         except ValueError:
             pass
 print("%.3f" % max(floor_abs, frac * min(vals)) if vals else "%.3f" % floor_abs)
-' "$onpath" "$integral" "$LINK_USAGE_NOISE_BITS" "$LINK_USAGE_OFFPATH_FRACTION" \
+' "$onpath" "$integral" "$LINK_USAGE_OFFPATH_FRACTION" \
       "$LINK_USAGE_SAMPLE_RATE" "$LINK_USAGE_MTU_BYTES"
 }
 
@@ -1047,7 +1085,7 @@ link_usage_round() {
         bad "  This arm's data plane needs it (flowcache's packet-in, p4runtime's entries), so a"
         bad "  flow measured without it would be measuring the controller's absence."
         printf 'LINK_USAGE %s expect=%s primary=- minor=- rc=NOT-RUN\n' "$label" "$expect"
-        return 0
+        return $LINK_USAGE_NOT_RUN_RC
     fi
 
     # 🔴 WHICH TWO HOSTS, SAID BEFORE ANYTHING IS ASKED ABOUT THEM. The pair is a decision --
@@ -1055,10 +1093,19 @@ link_usage_round() {
     # refusals below are about whether those namespaces exist. Printing the decision after
     # the refusal would leave a reader of a red run guessing which hosts it meant.
     # 🔴 THE WINDOW IS COMPUTED, AND ITS ARITHMETIC GOES IN THE RAW (§9 ruling 26①).
-    local secs min_bps at_base
-    read -r secs min_bps at_base < <(link_usage_window "$pkg")
-    note "$label: slowest declared link = $min_bps bit/s; at ${LINK_USAGE_SECONDS}s that is only $at_base expected samples per primary link"
-    note "$label: window = max(${LINK_USAGE_SECONDS}, ceil(${LINK_USAGE_MIN_SAMPLES} x ${LINK_USAGE_SAMPLE_RATE} x ${LINK_USAGE_MTU_BYTES} x 8 / $min_bps)) = ${secs}s"
+    local secs min_bps at_base carried
+    read -r secs min_bps at_base carried < <(link_usage_window "$pkg")
+    note "$label: slowest declared link = $min_bps bit/s; iperf offers $(link_usage_offered_bps) bit/s; a link therefore carries at most $carried bit/s"
+    note "$label: at ${LINK_USAGE_SECONDS}s that is only $at_base expected samples per primary link"
+    note "$label: window = max(${LINK_USAGE_SECONDS}, ceil(${LINK_USAGE_MIN_SAMPLES} x ${LINK_USAGE_SAMPLE_RATE} x ${LINK_USAGE_MTU_BYTES} x 8 / $carried)) = ${secs}s"
+    # 🔴 A WINDOW THE CALLER CANNOT WAIT FOR IS A REFUSAL, NOT A SHORTER WINDOW (§9 ruling 28⑤).
+    # `link_usage_cell` runs this under timeout=240; silently measuring for less than the
+    # computed window would put back exactly the defect ruling 26① fixed, with the arithmetic
+    # on screen saying it had not.
+    if (( secs > LINK_USAGE_MAX_SECONDS )); then
+        fail "$label: the window this path needs (${secs}s) exceeds the caller's limit (${LINK_USAGE_MAX_SECONDS}s) -- at $carried bit/s it takes that long to expect ${LINK_USAGE_MIN_SAMPLES} samples per link. Measuring for less would report a sampler miss as a routing fault."
+        return 1
+    fi
     # 🔴 `-l 1200`, NOT THE 1470-BYTE DEFAULT (§9 ruling 26②). advanced_tunnel adds a 4-byte
     # myTunnel header, so 1470 + 28 + 4 > the 1500 MTU and the fabric dropped EVERY datagram --
     # p4runtime and flowcache both read 273 B on every interface, the driver's 64-byte pings

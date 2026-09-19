@@ -1657,6 +1657,72 @@ class TheLoadBalanceArms(unittest.TestCase):
                 self.assertFalse(verdict(self.session(which, 0, 0))[key].ok)
 
 
+class TheGenericCellsThirdAnswer(unittest.TestCase):
+    """🔴 NOT RUN is neither a pass nor a fabric failure (TICKET-P3 §9 ruling 28①).
+
+    The live run showed the branch was unreachable from the driver: `link_usage_cell` spawns a
+    fresh shell that sources `_common.sh`, which reset CTRL_PID unconditionally, and NOT RUN
+    returned 0 -- which this module read as ok=True. A PASS G1 over a dead controller.
+    """
+
+    def setUp(self):
+        self.mod = load_driver()
+
+    def test_a_not_run_generic_cell_is_never_a_pass(self):
+        got = []
+
+        def runner(argv, **kw):
+            got.append(argv)
+            return self.mod.LINK_USAGE_NOT_RUN_RC, "LINK_USAGE x expect=follows rc=NOT-RUN"
+        ok, _out = self.mod.link_usage_cell("/pkg", "x", "/out", runner=runner)
+        self.assertEqual("not-run", ok, "NOT RUN must be its own answer, not True/False")
+        self.assertIsNot(ok, True)
+
+    def test_a_clean_cell_is_still_a_pass_and_a_red_one_still_fails(self):
+        self.assertIs(True, self.mod.link_usage_cell(
+            "/pkg", "x", "/out", runner=lambda a, **k: (0, "ok"))[0])
+        self.assertIs(False, self.mod.link_usage_cell(
+            "/pkg", "x", "/out", runner=lambda a, **k: (1, "red"))[0])
+
+    def test_the_generic_cell_is_given_the_arms_controller_pid(self):
+        """🔴 AND THE PID HAS TO CROSS THE SHELL BOUNDARY. The cell runs `bash -c` on a script
+        that sources _common.sh; unless the script sets CTRL_PID, the file's own default wins
+        and the liveness check has nothing to check."""
+        seen = {}
+
+        def runner(argv, **kw):
+            seen["script"] = argv[-1]
+            return 0, ""
+        self.mod.link_usage_cell("/pkg", "x", "/out", runner=runner, ctrl_pid=4242)
+        self.assertIn("CTRL_PID=", seen["script"])
+        self.assertIn("4242", seen["script"])
+        # ... and the source happens AFTER, or the file's default would overwrite it.
+        self.assertLess(seen["script"].index("CTRL_PID="), seen["script"].index("source "))
+
+    def test_the_driver_passes_the_controller_pid_through(self):
+        src = open(DRIVER_PATH).read()
+        self.assertIn("ctrl_pid=ctrl", src)
+        self.assertIn('getattr(run_on_ndtwin, "ctrl_pid", None)', src)
+
+
+class TheFlowcacheWarmUp(unittest.TestCase):
+    """🔴 flowcache's FIRST packet is punted to the controller (§9 ruling 28②)."""
+
+    def setUp(self):
+        self.mod = load_driver()
+
+    def test_flowcache_warms_the_cache_before_it_measures_loss(self):
+        src = open(DRIVER_PATH).read()
+        i = src.index("def steps_flowcache")
+        body = src[i:src.index("\n    def ", i + 10)]
+        self.assertIn('probe = self.h.ping("h1", self.ips["h2"], count=3)', body,
+                      "three probe datagrams must precede the measurement")
+        self.assertIn("FLOWCACHE_WARM_SECONDS", body,
+                      "and the arm must wait for the controller's own install line")
+        # the probe comes BEFORE the measured ping, or it is not a warm-up
+        self.assertLess(body.index("count=3"), body.index("count=5"))
+
+
 class TheNestedLayerReader(unittest.TestCase):
     """🔴 scapy prints a NESTED layer with a `|` on every line, and the field is still the field.
 
@@ -2363,7 +2429,14 @@ class TheGenericLinkUsageCell(unittest.TestCase):
         # of the two-class world too; what a reader needs is which rows were asserted at all.
         self.assertIn("primary on-path > 0", src)
         self.assertIn("minor rows printed, not asserted", src)
-        self.assertIn("off-path under max(5 kbit, 2% of the smallest PRIMARY on-path)", src)
+        # 🔴 AND THE FLOOR'S WORDS FOLLOW THE FLOOR (§9 ruling 28③, ruling 7's shape a third
+        # time): ruling 26① replaced the 5 kbit constant with one sample's worth, so a `want`
+        # still naming 5 kbit describes a bound nobody applies.
+        self.assertNotIn("max(5 kbit", src)
+        # (the source splits it across two literals, so both halves are checked)
+        self.assertIn("off-path under one sample's worth (256 x MTU x 8 bit) or 2% of the",
+                      src)
+        self.assertIn("smallest PRIMARY on-path, whichever is larger", src)
 
     def test_every_other_solution_arm_runs_the_cell(self):
         runs = sorted(ex for ex in self.mod.EXERCISES

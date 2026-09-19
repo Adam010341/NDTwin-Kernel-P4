@@ -734,6 +734,53 @@ check_fires "M37: G1 runs with the exercise controller dead" m37 \
             "🔴 a dead exercise controller makes G1 NOT RUN" \
             "  and the summary line says NOT-RUN"
 
+# --- M38 (§9 ruling 28①): NOT RUN goes back to rc 0 -----------------------------------------
+# 🔴 THE DEFECT THAT MADE THE WHOLE BRANCH DECORATIVE. `link_usage_cell` reads rc == 0 as
+# ok=True, so a NOT RUN that returned 0 became a PASS G1 over a dead controller.
+cat > "$A/m38.old" <<'EOF'
+        return $LINK_USAGE_NOT_RUN_RC
+EOF
+cat > "$A/m38.new" <<'EOF'
+        return 0
+EOF
+check_fires "M38: NOT RUN returns 0 again, which callers read as a pass" m38 \
+            "🔴 NOT RUN has its own rc, not 0 and not 2"
+
+# --- M39 (§9 ruling 28①): the caller's CTRL_PID is thrown away again -------------------------
+# 🔴 `link_usage_cell` sources this file in a fresh shell; an unconditional reset there made
+# the liveness check unreachable from the driver no matter how the arm was written.
+cat > "$A/m39.old" <<'EOF'
+CTRL_PID="${CTRL_PID:-}"
+EOF
+cat > "$A/m39.new" <<'EOF'
+CTRL_PID=""
+EOF
+check_fires "M39: sourcing the file discards the caller's controller pid" m39 \
+            "🔴 a dead exercise controller makes G1 NOT RUN" \
+            "🔴 NOT RUN has its own rc, not 0 and not 2"
+
+# --- M40 (§9 ruling 28⑤): the window ignores what iperf actually offers -----------------------
+# 🔴 A 1 Gbit/s link carries only the 2 Mbit/s the sender offers. Dividing by the LINK speed
+# reported 2604 expected samples for a window that delivers about five.
+cat > "$A/m40.old" <<'EOF'
+carried = min(min_bps, offered)
+EOF
+cat > "$A/m40.new" <<'EOF'
+carried = min_bps
+EOF
+check_fires "M40: the window uses the link speed, not the offered rate" m40 \
+            "🔴 a 1 Gbit/s path gets 16 s, because iperf offers only 2 Mbit/s" \
+            "  and the carried rate is the offered one, not the link's"
+
+# --- M41 (§9 ruling 28⑤): a window longer than the caller can wait for is silently truncated --
+cat > "$A/m41.old" <<'EOF'
+    if (( secs > LINK_USAGE_MAX_SECONDS )); then
+EOF
+cat > "$A/m41.new" <<'EOF'
+    if false; then
+EOF
+check_control "C5: the over-long-window refusal (no fixture reaches it yet)" m41
+
 # --- the controls for this half --------------------------------------------------------------------------
 cat > "$A/c3.old" <<'EOF'
     (( rc == 0 )) && note "$label: link usage follows the iperf path (off-path under $floor bit)"
