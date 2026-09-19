@@ -44,10 +44,33 @@ set -uo pipefail
 # would describe a file that was never on disk.
 export PYTHONDONTWRITEBYTECODE=1
 
-PYTHON="${PYTHON:-p4_proxy/venv/bin/python}"
-PREP=doc/audit/2026-09-04_p4-tutorial-exercise-prep
+# [Co-developed with claude code -- Adam]
+# 🔴 ABSOLUTE, DERIVED FROM THIS SCRIPT'S OWN LOCATION (TICKET-P3 §9 ruling 14d) -- the way
+# every other gate in this directory already does it.
+#
+# These four were RELATIVE, so "which files this gate measured" depended on the caller's cwd.
+# Run from another checkout, `$DRIVER` resolved to THAT checkout's drive_exercise.py: the
+# anchors genuinely were not in the file the gate read, and it reported
+# `ANCHOR IS NOT UNIQUE (0 matches) -- Fix the anchor.` -- a true statement about the wrong
+# file, and indistinguishable from an anchor that had really gone stale. That is exactly the
+# failure §9 ruling 12a named for `bash -n`, in a second place: A TOOL THAT MEASURED THE WRONG
+# THING, OR COULD NOT MEASURE AT ALL, MUST SAY SO ABOUT ITSELF -- never about its subject.
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$HERE/.." && cd .. && pwd)"
+PYTHON="${PYTHON:-$REPO/p4_proxy/venv/bin/python}"
+PREP="$REPO/doc/audit/2026-09-04_p4-tutorial-exercise-prep"
 DRIVER="$PREP/drive_exercise.py"
 TESTS="$PREP/tests"
+
+# 🔴 THE LOG SAYS WHAT THIS RUN READ (§9 ruling 14d). Round 4's bad run was only diagnosable
+# by re-deriving it afterwards; a log that names the cwd, the resolved interpreter, the resolved
+# subject and its sha cannot be mistaken for a run against a different checkout.
+printf 'gate       : %s\n' "${BASH_SOURCE[0]}"
+printf 'cwd        : %s\n' "$PWD"
+printf 'interpreter: %s\n' "$(realpath "$PYTHON" 2>/dev/null || echo "MISSING: $PYTHON")"
+printf 'subject    : %s\n' "$(realpath "$DRIVER" 2>/dev/null || echo "MISSING: $DRIVER")"
+printf 'subject sha: %s\n' "$(sha256sum "$DRIVER" 2>/dev/null | cut -d' ' -f1)"
+echo
 
 ANCHOR_CHECK="${ANCHOR_CHECK:-0}"
 if [[ "${1:-}" == "--dry-run" ]]; then
@@ -66,11 +89,64 @@ fi
 #
 # python, not `grep -c -F`: grep splits a multi-line -F pattern into several patterns and
 # counts matching LINES, so a multi-line anchor would report the wrong number.
+# 🔴 IT REFUSES INSTEAD OF ANSWERING A NUMBER IT DOES NOT HAVE (§9 ruling 14d). When the
+# interpreter could not run, this printed nothing, `n` became the empty string, and the caller's
+# arithmetic turned that into 0 -- reported as `ANCHOR IS NOT UNIQUE (0 matches)`, i.e. a claim
+# about the anchor. There is no number to report: the gate stops, rc 2, no verdict line, the
+# same refusal a dead mutant gets in mutate_ndt_up_down_robust.sh.
+# 🔴 THE REFUSAL, REACHED FROM THE PARENT SHELL (§9 ruling 15①). `anchor_count` cannot end the
+# gate from inside `$(...)`, so it returns 2 and every call site funnels here. This is the only
+# place that ends the process, and it ends it the way a refusal must: rc 2, no verdict line.
+#: How many times the suite failed to RUN (no `Ran N tests` line). 🔴 SEPARATE FROM SURVIVORS
+#: AND IT REFUSES EVERYWHERE (TICKET-P3 §9 ruling 16②). Round 6 made NO-SUITE a refusal at the
+#: baseline only: inside `mutate` it was SURVIVORS++ and the gate carried on to print
+#: `N mutations, M survived` -- a verdict about a comparison that never happened, the exact
+#: shape ruling 12a forbids; at the negative control it printed "A COMMENT TURNED THE SUITE
+#: RED: NO-SUITE" (it did not -- the suite never ran); and the closing check called it
+#: "THE SUITE IS RED". A suite that did not execute is not red, not green and not a survivor.
+NOSUITE=0
+
+refuse_no_suite() {   # refuse_no_suite <where>
+    NOSUITE=$((NOSUITE+1))
+    echo
+    echo "🔴 REFUSED: the test suite did not run at all (no 'Ran N tests' line) -- $1."
+    echo "   interpreter: $PYTHON"
+    echo "   That is neither red nor green nor a survivor: nothing was measured. No verdict"
+    echo "   line is printed, because a count of survivors would describe a comparison that"
+    echo "   never happened."
+    exit 2
+}
+
+refuse_anchor_count() {
+    echo
+    echo "🔴 REFUSED: the gate could not count anchors, so it measured nothing."
+    echo "   No verdict line is printed at all: a count of survivors would be a claim about a"
+    echo "   comparison that never happened. See the REFUSED lines above for what failed."
+    exit 2
+}
+
 anchor_count() {
-    ANCHOR="$2" "$PYTHON" - "$1" <<'PY'
+    local out rc
+    out="$(ANCHOR="$2" "$PYTHON" - "$1" 2>&1 <<'PY'
 import os, pathlib, sys
 print(pathlib.Path(sys.argv[1]).read_text().count(os.environ["ANCHOR"]))
 PY
+)"; rc=$?
+    if [[ "$rc" -ne 0 || ! "$out" =~ ^[0-9]+$ ]]; then
+        echo "🔴 REFUSED: anchor_count could not run (rc=$rc)" >&2
+        echo "   interpreter : $PYTHON" >&2
+        echo "   subject     : $1" >&2
+        echo "   it printed  : ${out:-<nothing>}" >&2
+        echo "   This is NOT 'the anchor is stale' -- the gate could not look. No verdict." >&2
+        # 🔴 `return 2`, NOT `exit 2` (TICKET-P3 §9 ruling 15①). Every call site is
+        # `n=$(anchor_count ...)`, and `exit` inside a command substitution ends only THAT
+        # subshell: the parent read `n=""`, `[[ "" -ne 1 ]]` was true, and the gate printed
+        # `ANCHOR IS NOT UNIQUE ( matches)`, counted a survivor, and still printed
+        # `86 mutations, 87 survived` / rc 1. In gate mode round 5's "refusal" changed nothing
+        # but a line on stderr. A refusal has to travel as an EXIT STATUS the caller checks.
+        return 2
+    fi
+    printf '%s\n' "$out"
 }
 
 # --- the mutation table -------------------------------------------------------------------------
@@ -147,12 +223,10 @@ add "8. a host with no namespace comes back as pid 0 instead of a named failure"
 # asking (CLAUDE.md: ndt 指令都帶 NDT_OWNER).
 add "9. a FAILED pre-flight goes on to claim the lab and bring the fabric up" \
     "$DRIVER" \
-    '    if rc != 0:
-        say("!! pre-flight FAILED (rc %d). '"'"'ndt up p4 --app'"'"' would refuse this too;"
+    '        say("!! pre-flight FAILED (rc %d). '"'"'ndt up p4 --app'"'"' would refuse this too;"
             " nothing was started." % rc)
         return 2, pkg, state' \
-    '    if False:  # MUTANT: the lab is held while the package is being rejected
-        pass' \
+    '        pass  # MUTANT: the lab is held while the package is being rejected' \
     'test_a_refused_preflight_never_takes_the_claim'
 
 add "10. the claim is not given back when a step raised" \
@@ -394,6 +468,443 @@ add "43. the receiver is started buffered, so its output dies with the SIGTERM" 
     '        cmd = [VENV_PY, self._script(script)]  # MUTANT: a file is block-buffered' \
     'test_every_receive_py_is_started_unbuffered_with_u_before_the_script'
 
+# ---------------------------------------------------------------------------------------------
+# TICKET-P3 §6.2: the other nine exercises, the `--telemetry` flag and the generic cell.
+#
+# 🔴 EVERY ONE OF THESE AIMS AT A DECISION THE DRIVER MAKES, not at a reading the stub could
+# have answered for it. The nine new arms are the shape most at risk of being decoration: none
+# of them has ever been run, so a cell can be green because the expectation is right or because
+# nothing ever produced a value for it.
+
+# 44-45: exercises/basic_tunnel is the one exercise whose claim is that the TUNNEL routed the
+# packet. Both of these turn it back into a claim about IP routing.
+add "44. the two tunnel rounds change the destination IP, not just dst_id" \
+    "$DRIVER" \
+    '        scmd = [VENV_PY, self._script("send.py"), self.ips["h2"], "P4 driver probe",
+                "--dst_id", str(dst_id)]' \
+    '        scmd = [VENV_PY, self._script("send.py"), self.ips["h%d" % dst_id],
+                "P4 driver probe", "--dst_id", str(dst_id)]  # MUTANT' \
+    'test_both_rounds_send_to_the_same_ip_and_only_dst_id_moves'
+
+add "45. a tunnel packet arriving at BOTH hosts is accepted" \
+    "$DRIVER" \
+    '                      n3_b >= 1 and n2_b == 0, G_BOTH,' \
+    '                      n3_b >= 1, G_BOTH,  # MUTANT: h2 may have it too' \
+    'test_a_tunnel_that_delivered_to_the_wrong_host_is_red'
+
+# 46: exercises/calc's answer is a LINE. As a substring, `2` is in half the error messages that
+# file can print -- including "cannot find P4calc header in the packet" the moment a count
+# appears in it -- so the failure would be read as the answer.
+add "46. the calc answer is matched as a substring instead of a line" \
+    "$DRIVER" \
+    '        answered = bool(re.search(r"^2$", out, re.M))' \
+    '        answered = "2" in out  # MUTANT' \
+    'test_the_answer_is_a_line_and_not_a_substring'
+
+# 47: the REPL is never told to quit, so every calc round ends on SEND_TIMEOUT and a driver
+# timeout is reported as the switch not answering.
+add "47. calc.py is never told to quit" \
+    "$DRIVER" \
+    '        out = self._send_once("h1", scmd, feed=b"1+1\nquit\n", label="K1  h1 calc.py <<< 1+1")' \
+    '        out = self._send_once("h1", scmd, feed=b"1+1\n", label="K1  h1 calc.py <<< 1+1")' \
+    'test_the_repl_is_fed_the_expression_and_the_quit'
+
+# 48: 🔴 ecn WITHOUT THE QUEUE. ecn.p4:9's ECN_THRESHOLD is 10 enqueued packets; nothing else in
+# the exercise builds a queue, so the solution arm would be red for a reason that is not ecn.p4
+# and the report would say "no congestion mark" about a fabric that was never congested.
+add "48. ecn stops running the background flow that builds the queue" \
+    "$DRIVER" \
+    '        srv, cli, fh = self._background_udp("h11", "h22", self.ips["h22"], rate="1M")
+        try:
+            recv, rfh, rpath, rcmd = self._start_receiver("h2", "h2")
+            self.steps.append(("E1  h2 starts the sniffer", rcmd, "(background; output below)"))' \
+    '        srv = cli = fh = None  # MUTANT: no queue, no congestion, no mark
+        try:
+            recv, rfh, rpath, rcmd = self._start_receiver("h2", "h2")
+            self.steps.append(("E1  h2 starts the sniffer", rcmd, "(background; output below)"))' \
+    'test_ecn_runs_a_background_flow_between_h11_and_h22'
+
+# 49: the ecn skeleton arm tolerates a marked packet, so the two arms stop being two arms.
+add "49. the ecn skeleton arm accepts a congestion mark" \
+    "$DRIVER" \
+    '                      bool(tos) and set(tos) == {"0x1"}, G_BOTH,
+                      "README step 1.8: '"'"'the ipv4.tos field is always 1'"'"'; ecn.p4:132-138 "' \
+    '                      bool(tos), G_BOTH,  # MUTANT
+                      "README step 1.8: '"'"'the ipv4.tos field is always 1'"'"'; ecn.p4:132-138 "' \
+    'test_the_ecn_arms_are_distinguishable'
+
+# 50: only one protocol is sent. A switch that stamped 0xb9 on everything would then pass, and
+# the classification IS exercises/qos.
+add "50. qos sends only UDP" \
+    "$DRIVER" \
+    '        udp_tos, udp_out, udp_n = self._qos_round("UDP", "1")
+        tcp_tos, tcp_out, tcp_n = self._qos_round("TCP", "2")' \
+    '        udp_tos, udp_out, udp_n = self._qos_round("UDP", "1")
+        tcp_tos, tcp_out, tcp_n = udp_tos, udp_out, udp_n  # MUTANT' \
+    'test_qos_sends_both_protocols_with_the_flags_its_send_py_parses'
+
+# 51: the qos TCP class is asserted against UDP's value, which is the same mistake one layer in.
+add "51. qos expects the UDP class on TCP as well" \
+    "$DRIVER" \
+    '                      str(sorted(set(tcp_tos))), "0xb1" in tcp_tos, G_BOTH,' \
+    '                      str(sorted(set(tcp_tos))), "0xb9" in tcp_tos, G_BOTH,  # MUTANT' \
+    'test_a_fabric_that_stamped_one_class_on_both_protocols_is_red'
+
+# 52: mri stops asserting that the option arrived at all, so "count = 0" becomes true of a
+# packet whose MRI option was never there -- which is a different exercise failing.
+add "52. mri no longer checks that the MRI option reached h2" \
+    "$DRIVER" \
+    '        self._add("injection: the MRI option survived to h2", ">=1 count field",
+                  "%d" % len(counts), bool(counts), G_SRC,' \
+    '        self._add("injection: the MRI option survived to h2", ">=1 count field",
+                  "%d" % len(counts), True, G_SRC,  # MUTANT' \
+    'test_a_packet_with_no_mri_option_fails_its_own_check'
+
+# 53: the mri skeleton arm accepts any count, so a solution-shaped trace passes it.
+add "53. the mri skeleton arm accepts any hop count" \
+    "$DRIVER" \
+    '                      bool(counts) and set(counts) == {0}, G_BOTH,' \
+    '                      bool(counts), G_BOTH,  # MUTANT' \
+    'test_the_mri_arms_are_distinguishable'
+
+# 54: one send instead of ten. A single packet is consistent with BOTH load_balance arms --
+# the skeleton always picks h2 and the solution picks one of the two -- so the exercise's whole
+# claim disappears while every cell stays green-looking.
+add "54. load_balance sends one packet instead of ten" \
+    "$DRIVER" \
+    '        for i in range(10):' \
+    '        for i in range(1):  # MUTANT' \
+    'test_ten_packets_are_sent_to_the_load_balanced_address'
+
+# 55: the load_balance solution arm accepts a fabric that only ever used h2 -- the skeleton's
+# own result.
+add "55. the load_balance solution arm accepts only h2 being used" \
+    "$DRIVER" \
+    '                      n2 >= 1 and n3 >= 1, G_BOTH,' \
+    '                      n2 >= 1, G_BOTH,  # MUTANT' \
+    'test_the_load_balance_arms_are_distinguishable'
+
+# 56: 🔴 THE HALF OF multicast THAT IS NOT REACHABILITY. sig-topo/s1-runtime.json:47-65
+# replicates ports 1,2,3 and the fourth is the student's own TODO, so a fabric that reached h4
+# is running something the package does not carry -- and without this the solution arm is
+# "everything pings", which is the answer for a completely different runtime json.
+add "56. multicast stops requiring h4 to be unreachable" \
+    "$DRIVER" \
+    '        h4_blocked = bool(to_h4) and all(r.tested and r.loss == 100 for r in to_h4)' \
+    '        h4_blocked = True  # MUTANT' \
+    'test_a_solution_that_also_reached_h4_is_red'
+
+# 57: an untested pair counts as a blocked one. A host whose namespace could not be entered
+# then reads exactly like a host the multicast group does not replicate to.
+add "57. an untested pair passes multicast's injection check" \
+    "$DRIVER" \
+    '                  pa.untested == 0, G_SRC,' \
+    '                  True, G_SRC,  # MUTANT' \
+    'test_an_untested_pair_is_not_a_blocked_one'
+
+# 58: multicast runs the exercise'\''s disable_ipv6.sh as shipped -- `sudo sysctl` on the BOX.
+# It would turn IPv6 off for everything on this laptop, which is not this driver'\''s to do.
+add "58. multicast disables IPv6 on the machine instead of in the namespaces" \
+    "$DRIVER" \
+    '            out = self.h.cmd(name, "sysctl -w net.ipv6.conf.all.disable_ipv6=1 "
+                                   "&& sysctl -w net.ipv6.conf.default.disable_ipv6=1")' \
+    '            out = self.h.cmd(name, "sudo sysctl -w net.ipv6.conf.all.disable_ipv6=1")  # MUTANT' \
+    'test_ipv6_is_disabled_inside_every_host_and_not_on_the_box'
+
+# 59: 🔴 THE CONTROLLER'\''S HARD-CODED PORTS ON THE WRONG FABRIC. exercises/p4runtime'\''s
+# mycontroller.py dials 127.0.0.1:5005N and device_id N-1; on NDTwin those are not the truth and
+# tools/p4_exercise/run_external_controller.py is what rewrites them (TICKET-P1D). Without the
+# adapter the controller connects to nothing and every arm reads as "the exercise does not work
+# on NDTwin".
+add "59. the ndtwin arm runs the exercise controller without the adapter" \
+    "$DRIVER" \
+    '            argv = [CTRL_PY, os.path.join(REPO, "tools", "p4_exercise",
+                                          "run_external_controller.py"), self.package, ctrl]' \
+    '            argv = [CTRL_PY, os.path.join(self.exdir, ctrl)]  # MUTANT' \
+    'test_the_ndtwin_arm_goes_through_the_adapter_live_p1_03_uses'
+
+# 60: the controller'\''s liveness is not checked. "h1 cannot ping h2" is then true of the
+# skeleton, of a controller that died at import and of a fabric that never came up alike.
+add "60. a controller that exited is reported as having stayed up" \
+    "$DRIVER" \
+    '        alive = proc.poll() is None' \
+    '        alive = True  # MUTANT' \
+    'test_a_controller_that_died_fails_the_injection_check'
+
+# 61: the set of switches the controller programmed stops being asserted, which is the same
+# property live-p1/_common.sh'\''s controller_program_set carries on the twin'\''s side.
+add "61. the p4runtime arm accepts any set of programmed switches" \
+    "$DRIVER" \
+    '            self._add("switches the controller programmed", "[1, 2]", str(loaded),
+                      loaded == [1, 2], G_SRC,' \
+    '            self._add("switches the controller programmed", "[1, 2]", str(loaded),
+                      bool(loaded), G_SRC,  # MUTANT' \
+    'test_a_controller_that_programmed_the_wrong_switches_is_red'
+
+# 62: the flowcache arm stops noticing that it should never have got there. The skeleton is
+# supposed to stop at p4c; reaching the data plane with it means the red arm is not red.
+add "62. reaching flowcache's steps with the skeleton is no longer a finding" \
+    "$DRIVER" \
+    '        if self.which == "skeleton":
+            self._add("RED ARM: the skeleton must not compile", "p4c refuses it",
+                      "it compiled and the steps ran", False, G_BOTH,' \
+    '        if False:  # MUTANT
+            self._add("RED ARM: the skeleton must not compile", "p4c refuses it",
+                      "it compiled and the steps ran", False, G_BOTH,' \
+    'test_reaching_the_flowcache_steps_with_the_skeleton_is_itself_the_finding'
+
+# 63: flowcache stops checking that a flow was ever cached, so the ping becomes evidence about
+# whatever else happens to forward.
+add "63. flowcache accepts a ping with no cached flow behind it" \
+    "$DRIVER" \
+    '                      "cached" if cached else "no '"'"'added table entry'"'"' line", cached, G_SRC,' \
+    '                      "cached" if cached else "no '"'"'added table entry'"'"' line", True, G_SRC,  # MUTANT' \
+    'test_a_flowcache_round_with_no_cached_flow_is_red'
+
+# 64: 🔴 --telemetry IS SPELLED OUT WHEN IT WAS NOT ASKED FOR. `auto` looks harmless and is not:
+# it overrules every package that declared telemetry.source and the round then reports the
+# result as that package's.
+add "64. the driver always passes --telemetry, overruling the package" \
+    "$DRIVER" \
+    '        if getattr(args, "telemetry", None):
+            up_argv += ["--telemetry", args.telemetry]' \
+    '        up_argv += ["--telemetry", getattr(args, "telemetry", None) or "auto"]  # MUTANT' \
+    'test_no_flag_means_the_package_decides'
+
+# 65: the telemetry knob is not put back. Nothing refuses over it -- `ndt down` leaves it and
+# `ndt release` does not read it -- so the next bring-up silently inherits this round's source.
+add "65. the telemetry knob is left where this round moved it" \
+    "$DRIVER" \
+    '    tok, twhy = knob_restore(telemetry_before, TELEMETRY_KNOB)' \
+    '    tok, twhy = (True, "left alone")  # MUTANT' \
+    'test_the_telemetry_knob_is_put_back_by_the_teardown'
+
+# 66: the generic cell gets its own copy of the rule instead of live-p1/_common.sh's. Two
+# instruments, and "the same cell over thirteen exercises" becomes a comparison between them.
+add "66. the generic link-usage cell stops going through live-p1/_common.sh" \
+    "$DRIVER" \
+    '              "link_usage_round %s %s %s %s %s\n" % (_sh(LIVE_COMMON), _sh(package),' \
+    '              "true %s %s %s %s %s\n" % (_sh(LIVE_COMMON), _sh(package),  # MUTANT' \
+    'test_the_cell_is_live_p1_commons_own_function_and_not_a_second_copy'
+
+# 67: a cell that could not run is reported as a cell that passed. rc 2 from link_usage_round
+# is "no namespace / no sudo" -- a permission answer, and the greenest possible way to publish
+# one.
+add "67. any rc from the generic cell counts as a pass" \
+    "$DRIVER" \
+    '    return rc == 0, out' \
+    '    return True, out  # MUTANT' \
+    'test_a_non_zero_rc_is_a_failed_cell_and_not_a_skip'
+
+# 68: the generic cell is never run at all. Every exercise's own arms stay exactly as green as
+# before, which is the point: this is the cell that is about NDTwin.
+add "68. the round never runs the generic link-usage cell" \
+    "$DRIVER" \
+    '                ok, usage_out = link_usage_cell(pkg, "%s/%s" % (ex, which), usage_dir,
+                                                dst=usage_dst)' \
+    '                ok, usage_out = True, "(MUTANT: not run)"' \
+    'test_the_round_runs_it_after_the_steps_and_records_the_expectation'
+
+# 69: a skeleton that COMPILED when it was supposed not to is reported as the designed refusal.
+add "69. flowcache's compile arm is green whichever way the compile went" \
+    "$DRIVER" \
+    '            "p4c rc=%d" % rc, rc != 0, G_BOTH,' \
+    '            "p4c rc=%d" % rc, True, G_BOTH,  # MUTANT' \
+    'test_a_flowcache_skeleton_that_DOES_compile_is_the_finding'
+
+# 70: every exercise's compile failure becomes "by design", so a broken tool chain is filed as
+# a red arm on twelve exercises that have none.
+add "70. any compile failure is treated as a designed red arm" \
+    "$DRIVER" \
+    '    red_stage = spec.get("red_arm") if which == "skeleton" else None' \
+    '    red_stage = "compile"  # MUTANT' \
+    'test_a_compile_failure_anywhere_else_is_still_exit_2'
+
+# 71: --telemetry is accepted on the tutorials fabric, where nothing reads it.
+add "71. --telemetry is accepted on the tutorials fabric" \
+    "$DRIVER" \
+    '    if args.telemetry and args.fabric != "ndtwin":' \
+    '    if False:  # MUTANT' \
+    'test_the_flag_is_refused_on_the_tutorials_fabric'
+
+# 72: the table itself. An exercise in EXERCISES with no steps_ method compiles, brings a
+# fabric up and then raises inside Steps.run -- exit 2, after the lab was claimed.
+add "72. an exercise can sit in the table with no scripted steps" \
+    "$DRIVER" \
+    '    "load_balance": {
+        "topo": "topology.json",' \
+    '    "load_balance_typo": {
+        "topo": "topology.json",' \
+    'test_all_thirteen_exercises_are_in_the_table'
+
+# 73-74: 🔴 exercises/p4runtime has NO solution/*.p4. Measured by reading the real tree on
+# 2026-09-19 -- advanced_tunnel.p4 has no TODO in it, the exercise IS the controller, and both
+# arms run the same pipeline. Either half of the flag that says so is a round that never starts,
+# or a round that silently compiles the skeleton and calls it the solution.
+add "73. the controller-variant exercises look for a solution/*.p4 that is not there" \
+    "$DRIVER" \
+    '    if which == "skeleton" or spec.get("variant") == "controller":' \
+    '    if which == "skeleton":  # MUTANT' \
+    'test_p4runtime_compiles_the_same_program_on_both_arms'
+
+add "74. a missing solution/*.p4 silently falls back to the skeleton everywhere" \
+    "$DRIVER" \
+    '    if cands:
+        return cands[0], base
+    return None, base' \
+    '    if cands:
+        return cands[0], base
+    return os.path.join(exdir, spec["prog"]), base  # MUTANT' \
+    'test_an_exercise_with_no_solution_program_is_still_an_error_everywhere_else'
+
+# 75-78: the generic cell needs a FLOW, and four ways to lose that.
+add "75. the generic cell runs on the skeleton arm too" \
+    "$DRIVER" \
+    '    if which != "solution":
+        return False, None, ("the skeleton arm is a fabric the exercise says should not "
+                             "forward; there is no path for a program-independent cell to follow")' \
+    '    if False:  # MUTANT
+        return False, None, ""' \
+    'test_the_cell_does_not_run_on_a_skeleton_arm'
+
+# 🔴 THE REPLACEMENT KEEPS A BODY. `if False:` alone leaves the `if` with no suite, the mutant
+# does not PARSE, and this gate scores that as a SURVIVOR -- correctly: a mutation that never
+# reached the interpreter established nothing about the behaviour it was aimed at.
+add "76. an exercise that forwards nothing is measured anyway" \
+    "$DRIVER" \
+    '    if want is False:
+        return False, None, spec.get("link_usage_why") or "this exercise declares no path"' \
+    '    if False:  # MUTANT
+        pass' \
+    'test_three_solutions_forward_nothing_and_are_named'
+
+add "77. the destination override is ignored, so two exercises measure to a host they cannot reach" \
+    "$DRIVER" \
+    '    return True, (want if isinstance(want, str) else None), ""' \
+    '    return True, None, ""  # MUTANT' \
+    'test_the_two_unreachable_last_hosts_are_overridden'
+
+add "78. the destination never reaches the shell helper" \
+    "$DRIVER" \
+    '                                                     _sh(dst or "")))' \
+    '                                                     _sh("")))  # MUTANT' \
+    'test_the_destination_reaches_the_shell_helper'
+
+# 79: A6 half-done again -- the verdict asks which fabric it was, so `basic_tunnel`'s skeleton
+# goes back to reading `PASS (1/1)` / exit 0 on tutorials and `RED ARM (1/1)` / exit 1 on NDTwin.
+# ONE EXERCISE MUST NOT READ TWO WAYS ON TWO FABRICS (round-3 ruling 1).
+add "79. the designed-refusal verdict is restricted to one fabric again" \
+    "$DRIVER" \
+    '    designed = DESIGNED_REFUSAL["hit"]' \
+    '    designed = (args.fabric == "ndtwin" and DESIGNED_REFUSAL["hit"])  # MUTANT' \
+    'test_the_tutorials_arm_reads_the_same_as_the_ndtwin_one'
+
+# 80: the tutorials harness refusal stops setting the flag at all -- the same arm, reported as
+# an ordinary pass because `program_switches` raising is what it is SUPPOSED to do here.
+add "80. the tutorials harness refusal is not recorded as a designed one" \
+    "$DRIVER" \
+    '                designed_refusal_seen()
+                return False' \
+    '                return False  # MUTANT' \
+    'test_the_tutorials_arm_reads_the_same_as_the_ndtwin_one'
+
+# 81: the flag is module state and is never cleared, so round N reports round N-1's refusal --
+# and `06_thirteen.sh` runs twenty-six rounds in one loop.
+add "81. the designed-refusal flag leaks from one round into the next" \
+    "$DRIVER" \
+    '    DESIGNED_REFUSAL["hit"] = False
+
+    if args.fabric == "ndtwin":' \
+    '    if args.fabric == "ndtwin":  # MUTANT' \
+    'test_the_flag_does_not_leak_from_one_round_into_the_next'
+
+# 82: multicast measures from whatever ARP state the fabric happens to be in. h4's own ARP IS
+# answered, so once it has run every other host holds h4's MAC and hX -> h4 becomes a plain
+# unicast that h4's mac_forward entry delivers -- 0% on a fabric that has not changed.
+add "82. multicast no longer empties the ARP caches before measuring" \
+    "$DRIVER" \
+    '        flushed = self.h.flush_arp()' \
+    '        flushed = []  # MUTANT' \
+    'test_the_arp_caches_are_emptied_before_and_between_the_passes'
+
+# 83: the re-measure from cold caches goes away, so "h4 is unreachable" is once again only as
+# true as the order the pairs happened to be walked in.
+add "83. the cold-cache re-measure of hX -> h4 is dropped" \
+    "$DRIVER" \
+    '            reflushed = self.h.flush_arp()' \
+    '            reflushed = []  # MUTANT' \
+    'test_the_arp_caches_are_emptied_before_and_between_the_passes'
+
+# 84: pingall walks dst-major, so h1 -> h4 is measured AFTER h4 -> h1 has taught h1 h4's MAC and
+# the expectation inverts on a fabric that is behaving exactly as the exercise describes.
+add "84. pingall walks dst-major, poisoning the h4 expectation" \
+    "$DRIVER" \
+    '        for src in self.names():
+            for dst in self.names():' \
+    '        for dst in self.names():          # MUTANT
+            for src in self.names():' \
+    'test_the_pingall_order_is_src_major'
+
+# 85: the generic cell's expectation string goes back to naming a bound nobody applies. R4
+# replaced "exactly 0 off the path" with a floor; a reader reconciling a green cell against
+# `off-path == 0` concludes the off-path edges integrated to zero, which they did not.
+add "85. the generic cell claims an off-path bound that is not the one applied" \
+    "$DRIVER" \
+    '                    "on-path > 0, off-path under max(5 kbit, 2% of the smallest on-path)",' \
+    '                    "on-path > 0, off-path == 0",  # MUTANT' \
+    'test_the_generic_cell_states_the_bound_it_actually_applies'
+
+# 86: THE FLUSH MOVES TO AFTER THE WALK (TICKET-P3 §9 ruling 12c). Two flushes still happen, so
+# a cell that COUNTS them is satisfied -- and the measurement is taken from whatever ARP state
+# the fabric was already in, which is the state the expectation is not true in. This is the
+# mutation round 3's cell could not see.
+add "86. multicast flushes the ARP caches AFTER the pingall instead of before" \
+    "$DRIVER" \
+    '        flushed = self.h.flush_arp()
+        say("$ ip neigh flush all, in each host namespace -> %s" % (", ".join(flushed) or "none"))
+        self.steps.append(("ARP caches emptied before the measurement",
+                           "ip neigh flush all (each host)", ", ".join(flushed) or "none"))
+        pa = self._pingall()' \
+    '        pa = self._pingall()  # MUTANT: the walk first
+        flushed = self.h.flush_arp()
+        say("$ ip neigh flush all, in each host namespace -> %s" % (", ".join(flushed) or "none"))
+        self.steps.append(("ARP caches emptied before the measurement",
+                           "ip neigh flush all (each host)", ", ".join(flushed) or "none"))' \
+    'test_the_first_flush_happens_BEFORE_the_pingall'
+
+# 87: THE SECOND FLUSH MOVES TO AFTER THE RE-MEASURE (TICKET-P3 §9 ruling 15⑤). Two flushes
+# still happen and both still sit after the walk, so the arithmetic round 5 asserted is
+# satisfied -- while the three hX -> h4 pairs are re-measured with h4's MAC still cached from
+# the pairs above them, which is the one state in which their expectation is not true.
+add "87. the cold-cache re-measure runs BEFORE its own flush" \
+    "$DRIVER" \
+    '            reflushed = self.h.flush_arp()
+            say("$ ip neigh flush all again -> %s; re-measuring the three hX -> h4 pairs"
+                % (", ".join(reflushed) or "none"))
+            again = [(src, self.h.ping(src, self.h.ips["h4"], 5)) for src in group]' \
+    '            again = [(src, self.h.ping(src, self.h.ips["h4"], 5)) for src in group]  # MUTANT
+            reflushed = self.h.flush_arp()
+            say("$ ip neigh flush all again -> %s; re-measuring the three hX -> h4 pairs"
+                % (", ".join(reflushed) or "none"))' \
+    'test_the_second_flush_happens_after_the_pingall'
+
+# 88: THE FLUSH LANDS IN THE MIDDLE OF THE RE-MEASURE (TICKET-P3 §9 ruling 16①). One ping on
+# warm caches, then the flush, then the other two -- so two flushes still happen, both still
+# follow the walk, and the LAST ping still follows the LAST flush. Round 6's cell passed this
+# exactly as written; it is the arm that cell's own comment claimed to block.
+add "88. the second flush lands between the first and second re-measure ping" \
+    "$DRIVER" \
+    '            reflushed = self.h.flush_arp()
+            say("$ ip neigh flush all again -> %s; re-measuring the three hX -> h4 pairs"
+                % (", ".join(reflushed) or "none"))
+            again = [(src, self.h.ping(src, self.h.ips["h4"], 5)) for src in group]' \
+    '            again = [(group[0], self.h.ping(group[0], self.h.ips["h4"], 5))]  # MUTANT
+            reflushed = self.h.flush_arp()
+            say("$ ip neigh flush all again -> %s; re-measuring the three hX -> h4 pairs"
+                % (", ".join(reflushed) or "none"))
+            again += [(src, self.h.ping(src, self.h.ips["h4"], 5)) for src in group[1:]]' \
+    'test_the_second_flush_happens_after_the_pingall'
+
 CTRL_SRC="$DRIVER"
 CTRL_ANCHOR='def host_key(name):'
 CTRL_REPL='# MUTANT: a comment, and nothing else.
@@ -410,14 +921,14 @@ if [[ "$ANCHOR_CHECK" != "0" ]]; then
     echo "================================================================"
     broken=0
     for i in "${!MUT_LABEL[@]}"; do
-        n=$(anchor_count "${MUT_SRC[$i]}" "${MUT_ANCHOR[$i]}")
+        n=$(anchor_count "${MUT_SRC[$i]}" "${MUT_ANCHOR[$i]}") || refuse_anchor_count
         if [[ "$n" -eq 1 ]]; then
             printf '  ok    %s  (%s)\n' "$n" "${MUT_LABEL[$i]}"
         else
             printf '  🔴 %s matches  (%s)\n' "$n" "${MUT_LABEL[$i]}"; broken=$((broken + 1))
         fi
     done
-    n=$(anchor_count "$CTRL_SRC" "$CTRL_ANCHOR")
+    n=$(anchor_count "$CTRL_SRC" "$CTRL_ANCHOR") || refuse_anchor_count
     if [[ "$n" -eq 1 ]]; then
         printf '  ok    %s  (negative control)\n' "$n"
     else
@@ -453,6 +964,14 @@ red_tests() {
     out=$(DRIVE_EXERCISE_UNDER_TEST="$drv" timeout 600 \
           "$PYTHON" -m unittest discover -s "$TESTS" -t "$TESTS" 2>&1); rc=$?
     if [[ $rc -eq 124 ]]; then echo "HUNG"; return; fi
+    # 🔴 A SUITE THAT NEVER RAN IS NOT A SUITE WITH NO RED CELLS (§9 ruling 15①). unittest
+    # always prints `Ran N tests`; an interpreter that died prints no such line, and rc != 0
+    # with nothing parsable came back as the empty string -- which the caller reads as "nothing
+    # went red". At the baseline that printed `ok baseline green` over a suite that never
+    # executed; for a mutation it would have reported a survivor.
+    if ! /usr/bin/grep -qE '^Ran [0-9]+ tests?' <<<"$out"; then
+        echo "NO-SUITE"; return
+    fi
     if [[ $rc -eq 0 ]]; then echo ""; return; fi
     sed -n 's/^\(FAIL\|ERROR\): \([A-Za-z_][A-Za-z0-9_]*\) .*/\2/p' <<<"$out" | sort -u | tr '\n' ' '
 }
@@ -463,7 +982,7 @@ red_tests() {
 # tests/shell/check_gate_anchors.py reads -- and the file that is WRITTEN is the copy.
 mutate() {
     local label="$1" src="$2" anchor="$3" repl="$4" expected="$5"
-    local n; n=$(anchor_count "$src" "$anchor")
+    local n; n=$(anchor_count "$src" "$anchor") || refuse_anchor_count
     printf '\n=== %s ===\n' "$label"
     printf '  subject           : %s  (mutated as a copy in %s)\n' "$src" "$WORK"
     printf '  anchor occurrences: %s\n' "$n"
@@ -493,6 +1012,9 @@ PY
     fi
 
     local failed; failed=$(red_tests "$MUTANT")
+    if [[ "$failed" == "NO-SUITE" ]]; then
+        refuse_no_suite "while measuring mutation: $label"
+    fi
     if [[ "$failed" == "HUNG" ]]; then
         echo "  🔴 THE SUITE DID NOT FINISH (timeout) -- a run that hung caught nothing."
         SURVIVORS=$((SURVIVORS + 1))
@@ -523,6 +1045,11 @@ printf '  baseline    : %s %s\n' "${BASE_SUM:0:16}" "$DRIVER"
 echo
 echo "baseline (unmutated) must be green:"
 BASE_RED=$(red_tests)
+if [[ "$BASE_RED" == "NO-SUITE" ]]; then
+    DRIVE_EXERCISE_UNDER_TEST="$DRIVER" "$PYTHON" -m unittest discover -s "$TESTS" -t "$TESTS" 2>&1 \
+        | tail -10 | sed 's/^/     /'
+    refuse_no_suite "at the baseline, before any mutation"
+fi
 if [[ -n "$BASE_RED" ]]; then
     echo "  REFUSE: baseline is RED before any mutation."
     printf '    red: %s\n' "$BASE_RED"
@@ -545,7 +1072,7 @@ done
 # if this goes red the suite is a change detector, not a specification.
 
 printf '\n=== NEGATIVE CONTROL: comment-only edit must stay GREEN ===\n'
-n=$(anchor_count "$CTRL_SRC" "$CTRL_ANCHOR")
+n=$(anchor_count "$CTRL_SRC" "$CTRL_ANCHOR") || refuse_anchor_count
 printf '  subject           : %s\n' "$CTRL_SRC"
 printf '  anchor occurrences: %s\n' "$n"
 if [[ "$n" -ne 1 ]]; then
@@ -562,6 +1089,7 @@ PY
     if [[ -z "$ctrl_red" ]]; then
         echo "  ✅ green: the suite does not react to a comment"
     else
+        [[ "$ctrl_red" == "NO-SUITE" ]] && refuse_no_suite "at the negative control"
         printf '  🔴 A COMMENT TURNED THE SUITE RED: %s\n' "$ctrl_red"
         echo "     These tests are change detectors, not a specification."
         SURVIVORS=$((SURVIVORS + 1))
@@ -583,6 +1111,7 @@ fi
 printf '  byte-identical  %s  sha256 %s\n' "$DRIVER" "$BASE_SUM"
 
 after_red=$(red_tests)
+[[ "$after_red" == "NO-SUITE" ]] && refuse_no_suite "on the closing re-check against the real file"
 if [[ -n "$after_red" ]]; then
     printf '🔴 THE SUITE IS RED AGAINST THE REAL FILE: %s\n' "$after_red"
     exit 2

@@ -1614,6 +1614,295 @@ else:
 ' "$dir" "$REPO" 2>/dev/null || echo unreadable
 }
 
+# --- the telemetry knob (TICKET-P3 §2.1) ------------------------------------------
+#
+# [Co-developed with claude code -- Adam]
+# p4_proxy/mininet/telemetry_override: one word out of `auto | none | cooperative | link`,
+# in the same directive-file shape as host_count_override two screens up -- first non-empty
+# non-comment line, absent means `auto`. It decides where a switch's sFlow samples come from:
+#
+#   cooperative   the pipeline clones to the CPU port and the proxy synthesises sFlow
+#   link          `tc ... action sample` on the switch-side veths and a root emitter
+#   none          nothing samples (the control group of the three-group measurement)
+#   auto          PER SWITCH: NDTwin's own pipeline -> cooperative, anybody else's -> link
+#
+# 🔴 `ndt` IS THE ONLY WRITER, and that is a decision rather than a convention (§2.1). Three
+# readers act on this file -- the topology script, the proxy and this script -- and a fabric
+# whose bring-up wrote one word while its proxy read another is the 2026-08-21 shape with a
+# new file in it. The topology script is launched through tmux under a fixed root environment
+# where no operator-set variable arrives, which is why it is a file and not an export.
+#
+# 🔴 `ndt down` DOES NOT CLEAR IT. Unlike app_package_override, this knob is not a description
+# of a running fabric -- it is a standing choice about the next one -- and clearing it on
+# teardown would mean every round silently reverted to `auto`. What that costs is that a round
+# which moved it has to put it back itself; drive_exercise.py and live-p1/_common.sh both do.
+TELEMETRY_WORDS="auto none cooperative link"
+
+telemetry_knob_path() { printf '%s\n' "$REPO/p4_proxy/mininet/telemetry_override"; }
+
+# telemetry_knob_word -- the word the knob names, or `absent`. Never a guess: `absent` is its
+# own answer and the resolver below is what turns it into `auto`.
+telemetry_knob_word() {
+    local f line; f="$(telemetry_knob_path)"
+    [[ -f "$f" ]] || { echo absent; return 0; }
+    while read -r line; do
+        line="${line%%$'\r'}"; line="${line#"${line%%[![:space:]]*}"}"
+        [[ -z "$line" || "$line" == \#* ]] && continue
+        printf '%s\n' "${line%%[[:space:]]*}"; return 0
+    done < "$f"
+    echo absent
+}
+
+telemetry_word_valid() {
+    local w="$1" x
+    for x in $TELEMETRY_WORDS; do [[ "$w" == "$x" ]] && return 0; done
+    return 1
+}
+
+# telemetry_knob_write <word> -- temp file + rename + read-back, the same discipline
+# app_knob_write has and for the same reason: a half-written directive file is a state three
+# readers disagree about.
+telemetry_knob_write() {
+    local w="$1" f tmp back
+    telemetry_word_valid "$w" || {
+        err "telemetry source '$w' is not one of: $TELEMETRY_WORDS"; return 2; }
+    f="$(telemetry_knob_path)"
+    mkdir -p "$(dirname "$f")" 2>/dev/null
+    tmp="$f.ndt.$$"
+    {
+        printf '# written by ndt up p4 at %s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+        printf '%s\n' "$w"
+    } > "$tmp" 2>/dev/null || { err "could not write $(short_repo_path "$f")"; rm -f "$tmp"; return 1; }
+    mv -f "$tmp" "$f" 2>/dev/null || { err "could not put $(short_repo_path "$f") in place"; rm -f "$tmp"; return 1; }
+    back="$(telemetry_knob_word)"
+    if [[ "$back" != "$w" ]]; then
+        err "wrote $(short_repo_path "$f") and it did NOT take: it reads '$back', not '$w'"
+        return 1
+    fi
+    info "telemetry    $w   ($(short_repo_path "$f"))"
+    return 0
+}
+
+# telemetry_knob_apply <word> -- put <word> in force, which for `auto` means REMOVING the file.
+#
+# 🔴 ABSENT IS `auto`, SO `auto` IS ABSENT. telemetry_knob_word answers `absent` for a missing
+# file and the resolver turns that into `auto`, so a file containing the word `auto` says
+# exactly what its own absence already said -- and creating one is a command inventing state to
+# describe a default. That is the shape `ndt` already uses one screen up: app_knob_clear REMOVES
+# app_package_override for a baseline bring-up rather than writing "none" into it, and
+# set_host_count is only called when a count was asked for.
+#
+# 🔴 AND IT IS A REMOVAL, NOT A SKIP. A knob left at `link` while this bring-up resolved `auto`
+# is the next round's fabric being decided by the last one, which is the whole reason the word
+# is applied on every bring-up rather than only when --telemetry was given.
+telemetry_knob_apply() {
+    local w="$1" f
+    telemetry_word_valid "$w" || {
+        err "telemetry source '$w' is not one of: $TELEMETRY_WORDS"; return 2; }
+    [[ "$w" != auto ]] && { telemetry_knob_write "$w"; return $?; }
+    f="$(telemetry_knob_path)"
+    if [[ -e "$f" ]]; then
+        rm -f "$f" 2>/dev/null || {
+            err "could NOT remove $(short_repo_path "$f"); it still names $(telemetry_knob_word)"
+            return 1; }
+        info "telemetry    auto   (cleared $(short_repo_path "$f") -- an absent knob IS auto)"
+    else
+        info "telemetry    auto   ($(short_repo_path "$f") absent -- auto, then the package)"
+    fi
+    return 0
+}
+
+# app_package_telemetry <dir> -- the package's own declared telemetry.source, or empty.
+#
+# 🔴 OPTIONAL AND ADDITIVE. package.json format stays 1: a package that says nothing about
+# telemetry is answered with nothing here, and the resolver turns that into `auto`. An
+# unreadable manifest is also empty -- app_package_row already raises the problem for it, and
+# inventing a source for a package this script could not parse is the silent substitution that
+# whole row exists to remove.
+app_package_telemetry() {
+    python3 -c '
+import json, sys
+try:
+    v = json.load(open(sys.argv[1]))["telemetry"]["source"]
+except Exception:
+    pass
+else:
+    if isinstance(v, str):
+        print(v)' "$(app_manifest "$1")" 2>/dev/null
+}
+
+# telemetry_source_word [app-dir] -- what the knob SAYS, resolved one level: the knob when it
+# names one, else the package's declaration, else `auto`. Not per switch -- that is the next
+# function -- because this is the word `ndt status` prints and the word the knob carries.
+telemetry_source_word() {
+    local dir="${1:-}" w
+    w="$(telemetry_knob_word)"
+    if [[ "$w" != absent && "$w" != auto ]]; then printf '%s\n' "$w"; return 0; fi
+    [[ -z "$dir" ]] && { dir="$(app_knob_state)"; case "$dir" in absent|empty) dir="" ;; esac; }
+    if [[ -n "$dir" && -d "$dir" ]]; then
+        local p; p="$(app_package_telemetry "$dir")"
+        if [[ -n "$p" ]] && telemetry_word_valid "$p" && [[ "$p" != auto ]]; then
+            printf '%s\n' "$p"; return 0
+        fi
+    fi
+    echo auto
+}
+
+# telemetry_word_for_bring_up [app-dir] -- what `ndt up p4` writes when no --telemetry was
+# given: the package's own declaration, else `auto`. rc 2 when the package declares a word
+# that is not a telemetry source.
+#
+# 🔴 THE KNOB DOES NOT WIN HERE, and telemetry_source_word above is not this function. That one
+# answers "what is in force" and the knob is the top of its priority list; this one answers
+# "what should this bring-up write", and letting the knob win would make every round inherit
+# the last one's choice while the operator read the package's declaration off package.json.
+#
+# 🔴 A DECLARED WORD THAT IS NOT A SOURCE IS A REFUSAL, not a fall back to `auto`. Writing
+# `auto` over a package that asked for something this script did not recognise is the silent
+# substitution app_package_row exists to remove, one file over.
+telemetry_word_for_bring_up() {
+    local dir="${1:-}" p
+    if [[ -n "$dir" && -d "$dir" ]]; then
+        p="$(app_package_telemetry "$dir")"
+        if [[ -n "$p" ]]; then
+            if telemetry_word_valid "$p"; then printf '%s\n' "$p"; return 0; fi
+            err "the package declares telemetry.source '$p', which is not one of: $TELEMETRY_WORDS"
+            return 2
+        fi
+    fi
+    echo auto
+}
+
+# telemetry_resolved_rows <word> <pipeline-kind> -- "<dpid> <source>" per switch, or
+# "ALL <source>" when every switch agrees.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 THE RULE LIVES IN app_package.telemetry_source AND THIS CALLS IT (TICKET-P3 §9 ruling 9,
+# round 2). Round 1 had a third copy of §2.1's three layers here, beside B's in app_package and
+# C's in proxy_agent/main.py -- and this one is the one `ndt status` prints and `verify_p4`
+# gates on, so an operator reading a disagreement would have been reading whichever of three
+# implementations they happened to open. B's is now the only one that decides; what remains
+# here is the CALL and the printing.
+#
+# 🔴 verify_p4_telemetry IS STILL A COMPARISON AND IS STILL WORTH MAKING. It checks this
+# answer against the PROXY's disclosure -- a different process, which computes the same three
+# layers from its own reading of the same three inputs (§2.1 has C not import this name for
+# exactly that reason). Collapsing the rule did not collapse the two processes.
+#
+# `pipe` is app_pipeline_kind's word, kept for the two answers app_package cannot give: a
+# package this script could not parse, and a fabric with no package at all.
+telemetry_resolved_rows() {
+    local word="$1" pipe="${2:-}" dir
+    case "$pipe" in
+        unreadable) printf '%s\n' "ALL unresolved (the package could not be parsed)"; return 0 ;;
+    esac
+    dir="$(app_knob_state)"
+    case "$dir" in
+        absent|empty)
+            # No package: every switch runs NDTwin's own pipeline, so `auto` is cooperative
+            # everywhere. There is no Package object for app_package.telemetry_source to take.
+            [[ "$word" == auto ]] && { printf '%s\n' "ALL cooperative"; return 0; }
+            printf '%s\n' "ALL $word"; return 0 ;;
+    esac
+    [[ -d "$dir" ]] || { printf '%s\n' "ALL unresolved (the package directory is not there)"; return 0; }
+    python3 -c '
+import os, sys
+sys.path.insert(0, os.path.join(sys.argv[2], "p4_proxy", "mininet"))
+try:
+    import app_package
+    pkg = app_package.load(sys.argv[1])
+    base = os.path.join(sys.argv[2], "p4_proxy")
+    knob = sys.argv[3] or None
+    rows = [(s.dpid, app_package.telemetry_source(pkg, s.dpid, knob_path=knob, base_dir=base))
+            for s in pkg.switches]
+except Exception as e:                                       # noqa: BLE001
+    print("ALL unresolved (%s)" % (e,))
+else:
+    sources = {src for _d, src in rows}
+    if len(sources) == 1:
+        print("ALL " + sources.pop())
+    else:
+        for dpid, src in sorted(rows):
+            print(dpid, src)
+' "$dir" "$REPO" "$(telemetry_knob_path)" 2>/dev/null || printf '%s\n' "ALL unresolved (app_package could not be asked)"
+}
+
+#: The manifest p4_proxy/mininet/link_telemetry.py writes when it attaches tc filters and
+#: starts the psample emitter (TICKET-P3 §2.5). Outside the repo on purpose: it describes a
+#: RUNNING fabric, like /tmp/ndtwin_switches.json beside it, and a stale copy in the checkout
+#: would be read as a fabric that is up.
+LINK_TELEMETRY_MANIFEST="${LINK_TELEMETRY_MANIFEST:-/tmp/ndtwin_link_telemetry.json}"
+
+# link_emitter_row -- "<state> <pid> <switches> <rate>" for the link-telemetry emitter.
+# state is `none` (no manifest), `alive`, `dead` or `unreadable`.
+#
+# 🔴 `dead` IS NOT `none`. A manifest naming a pid that is gone means the emitter this fabric
+# was brought up with has exited: the tc filters are still sampling into a group nobody is
+# reading and every `link` switch is silently contributing nothing. "No manifest" is the
+# ordinary state of a cooperative fabric and is not a problem at all.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 `pid`, NOT `emitter_pid`, AND link_telemetry's OWN READERS (judge A1, §9 ruling 5). Round 1
+# read a key B never writes -- manifest_document's field is `pid` (link_telemetry.py:402-405) --
+# and built its test fixture by hand with the wrong name, so 391 offline cells were green over a
+# reader that would have answered `unreadable` for every live fabric: `verify_p4_telemetry`
+# would have failed [3/3] on every `--telemetry link` and on `auto` over a foreign pipeline,
+# `status --check` would have carried an extra problem and `down` would have reported residue,
+# on all thirteen driver arms. read_manifest and process_is_the_emitter are B's, so the shape of
+# that file is now asked of the module that writes it.
+#
+# 🔴 AND `alive` IS process_is_the_emitter, NOT os.path.isdir("/proc/<pid>"). A pid recorded at
+# bring-up is not evidence that the same process holds it now -- Linux recycles them -- and the
+# difference decides whether `ndt down` reports residue and tells an operator to kill it.
+link_emitter_row() {
+    [[ -e "$LINK_TELEMETRY_MANIFEST" ]] || { echo "none - - -"; return 0; }
+    python3 -c '
+import os, sys
+sys.path.insert(0, os.path.join(sys.argv[2], "p4_proxy", "mininet"))
+try:
+    import link_telemetry
+except Exception:                                            # noqa: BLE001
+    print("unreadable - - -"); raise SystemExit(0)
+d = link_telemetry.read_manifest(sys.argv[1])
+if d is None:
+    print("unreadable - - -"); raise SystemExit(0)
+pid = d.get("pid")
+sw = d.get("switches") or []
+rate = d.get("rate", "-")
+if not isinstance(pid, int) or isinstance(pid, bool):
+    print("unreadable - %d %s" % (len(sw), rate)); raise SystemExit(0)
+alive = link_telemetry.process_is_the_emitter(pid)
+print("%s %d %d %s" % ("alive" if alive else "dead", pid, len(sw), rate))
+' "$LINK_TELEMETRY_MANIFEST" "$REPO" 2>/dev/null || echo "unreadable - - -"
+}
+
+# app_shaped_links [dir] -- one `ndt status` line per link the package asks to be shaped
+# (TICKET-P3 §2.4's G2-C), already formatted. Empty when there is no package, or when every
+# link is the plain default that tools/p4_exercise/common.py writes for an unannotated one.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 app_package.shaped_links AND app_package.format_shaped_link, NOT A SECOND READING OF
+# package.json (§9 ruling 9, round 2). shaped_links is what `build_net` passes `link=TCLink`
+# on, so the status row and the fabric that installs the shaping now read one function -- and
+# format_shaped_link exists in that file for this caller. Round 1's local reader also got the
+# endpoint shape wrong: they are `["h1", 1]` pairs, not strings.
+app_shaped_links() {
+    local dir="${1:-}"
+    [[ -z "$dir" ]] && { dir="$(app_knob_state)"; case "$dir" in absent|empty) return 0 ;; esac; }
+    [[ -d "$dir" ]] || return 0
+    python3 -c '
+import os, sys
+sys.path.insert(0, os.path.join(sys.argv[2], "p4_proxy", "mininet"))
+try:
+    import app_package
+    pkg = app_package.load(sys.argv[1])
+    for entry in app_package.shaped_links(pkg):
+        print(app_package.format_shaped_link(entry))
+except Exception:                                            # noqa: BLE001
+    raise SystemExit(0)
+' "$dir" "$REPO" 2>/dev/null
+}
+
 # The interpreter tools/p4_exercise/preflight.py needs -- it parses p4info through protobuf,
 # which only the proxy's venv has.
 #
@@ -2830,6 +3119,29 @@ up_p4() {
         app_knob_clear "this 'ndt up' asked for the baseline fabric" || return 1
     fi
     # [Co-developed with claude code -- Adam]
+    # 🔴 THE TELEMETRY KNOB, HERE, AND `ndt` IS ITS ONLY WRITER (TICKET-P3 §2.1). Beside the
+    # app knob because it is the same kind of thing -- a persistent file three readers act on
+    # -- and after the last refusal for the same reason: a bring-up that said no must not have
+    # chosen a telemetry source on its way out.
+    #
+    # 🔴 THE FLAG WINS, THEN THE PACKAGE, THEN `auto`. Not giving --telemetry is not `auto`:
+    # it means "whatever this package declares", and a command that wrote `auto` over a
+    # package's own `link` would report that package's numbers as the package's while having
+    # overruled it. The word is written EVERY time, including when it is `auto`, because the
+    # alternative -- leave the file alone when nothing was asked for -- makes this bring-up
+    # inherit the last one's choice with nothing on screen saying so.
+    local tel_word="${NDT_TELEMETRY:-}"
+    if [[ -z "$tel_word" ]]; then
+        tel_word="$(telemetry_word_for_bring_up "$app_dir")" || {
+            knob_restore "the package's telemetry source is not one this script knows"
+            err "nothing was started."
+            return 1; }
+    fi
+    telemetry_knob_apply "$tel_word" || {
+        knob_restore "the telemetry knob could not be written"
+        err "nothing was started."
+        return 1; }
+    # [Co-developed with claude code -- Adam]
     # 🔴 THE NOTE DOES NOT NAME THE PACKAGE, deliberately. This line is the literal anchor of
     # mutate_ndt_honesty.sh's M10 ("ndt up p4 stops writing the note"), and an anchor that no
     # longer resolves makes that gate report a SURVIVOR -- a cell losing its power is worse
@@ -3148,6 +3460,119 @@ for dpid in sorted(sw, key=lambda k: (0, int(k)) if str(k).isdigit() else (1, st
 print("\n".join(out))' 2>/dev/null
 }
 
+# switch_state_telemetry_rows -- "<dpid> <source> <clone_session> <sflow_registered>" per
+# switch, out of GET /p4/switch_state's per-switch `telemetry` object (TICKET-P3 §2.6).
+# rc 1 when there is no readable switch report at all; a switch with no `telemetry` object
+# comes back with the literal word `absent`, which the gate treats as unchecked, not as fine.
+switch_state_telemetry_rows() {
+    python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    raise SystemExit(1)
+sw = d.get("switches")
+if isinstance(sw, list):
+    sw = {str(s.get("dpid")): s for s in sw}
+if not isinstance(sw, dict) or not sw:
+    raise SystemExit(1)
+def word(v):
+    return "null" if v is None else ("true" if v else "false")
+out = []
+for dpid in sorted(sw, key=lambda k: (0, int(k)) if str(k).isdigit() else (1, str(k))):
+    s = sw[dpid] or {}
+    t = s.get("telemetry")
+    if not isinstance(t, dict):
+        out.append("%s absent - -" % dpid)
+        continue
+    out.append("%s %s %s %s" % (dpid, t.get("source") or "absent",
+                                word(t.get("clone_session")), word(t.get("sflow_registered"))))
+print("\n".join(out))' 2>/dev/null
+}
+
+# verify_p4_telemetry <pipeline-kind> <switch_state json> -- the TICKET-P3 §2.7 gate:
+# the proxy's per-switch telemetry source is the one this script resolves, a `link` switch has
+# a live emitter behind it, and a `cooperative` switch really has its clone session.
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 THE TWO ANSWERS ARE COMPARED, NOT ONE OF THEM PRINTED. `ndt` resolves the source from the
+# knob, the package and app_pipeline_kind; the proxy resolves it again from the same three
+# inputs (TICKET-P3 §2.1 gives both the same rule on purpose, and says the orchestrator folds
+# them into one after the merge). Until then the useful thing is not either answer -- it is
+# that they agree, because the fabric was built by one and is being sampled by the other.
+#
+# 🔴 A PROXY THAT DISCLOSES NOTHING IS RED. `telemetry` absent from a switch's report is not
+# "cooperative, as usual": it is a proxy that cannot say what it is doing, and an unchecked
+# gate is a failure (verify_p4_probes and verify_p4_package_entries both say the same).
+verify_p4_telemetry() {
+    local pipe="${1:-}" state="${2:-}" rc=0 word rows resolved
+    word="$(telemetry_source_word)"
+    [[ -n "$state" ]] || state="$(proxy_switch_state)"
+    if ! rows="$(switch_state_telemetry_rows <<<"$state")"; then
+        err "telemetry: GET /p4/switch_state gave no readable switch report, so this script"
+        err "  cannot say which telemetry source each switch is on. An unchecked gate is not"
+        err "  a passed one."
+        return 1
+    fi
+    resolved="$(telemetry_resolved_rows "$word" "$pipe")"
+    local all="" d src clone reg want emit_state emit_pid _nsw _rate
+    [[ "$resolved" == ALL\ * ]] && all="${resolved#ALL }"
+    read -r emit_state emit_pid _nsw _rate < <(link_emitter_row)
+    local n_link=0 n_coop=0 n_none=0
+    while read -r d src clone reg; do
+        [[ -n "$d" ]] || continue
+        if [[ -n "$all" ]]; then want="$all"
+        else want="$(/usr/bin/grep -m1 "^$d " <<<"$resolved" | cut -d' ' -f2)"; fi
+        if [[ -z "$want" || "$want" == unresolved* ]]; then
+            err "telemetry: this script could not resolve a source for switch $d (knob '$word')"
+            err "  and so has nothing to check the proxy's '$src' against. Not a pass."
+            rc=1; continue
+        fi
+        if [[ "$src" == absent ]]; then
+            err "telemetry: switch $d's report carries no telemetry object at all -- the proxy"
+            err "  is not saying which source it put that switch on, and 'it did not say' is"
+            err "  not 'cooperative, as usual'."
+            rc=1; continue
+        fi
+        if [[ "$src" != "$want" ]]; then
+            err "telemetry: switch $d -- this bring-up resolved '$want' and the proxy reports"
+            err "  '$src'. One of them built the fabric and the other is sampling it."
+            rc=1; continue
+        fi
+        case "$want" in
+            link)
+                n_link=$(( n_link + 1 ))
+                if [[ "$emit_state" != alive ]]; then
+                    err "telemetry: switch $d is on the link source and the emitter is $emit_state"
+                    err "  ($LINK_TELEMETRY_MANIFEST). Its tc filters sample into a group nobody reads."
+                    rc=1
+                fi
+                if [[ "$clone" == true ]]; then
+                    err "telemetry: switch $d is on the link source and the proxy still wrote it a"
+                    err "  clone session -- the two sources are exclusive, and both at once counts"
+                    err "  every sampled frame twice."
+                    rc=1
+                fi ;;
+            cooperative)
+                n_coop=$(( n_coop + 1 ))
+                if [[ "$clone" != true ]]; then
+                    err "telemetry: switch $d is on the cooperative source and its clone_session is"
+                    err "  '$clone' -- nothing is being cloned to the CPU port, so it samples nothing."
+                    rc=1
+                fi ;;
+            none)
+                n_none=$(( n_none + 1 ))
+                if [[ "$clone" == true || "$reg" == true ]]; then
+                    err "telemetry: switch $d is on the 'none' source and the proxy reports"
+                    err "  clone_session=$clone sflow_registered=$reg -- something is still sampling it."
+                    rc=1
+                fi ;;
+        esac
+    done <<<"$rows"
+    (( rc == 0 )) && ok "telemetry: $word -- $n_coop cooperative, $n_link link, $n_none none; the proxy agrees switch by switch"
+    return $rc
+}
+
 # topo_model_switch_dpids <file> -- the dpids the model declares, one per line, sorted.
 # Companion to topo_model_switches, which answers how many. The same `vertex_type == 0` rule.
 topo_model_switch_dpids() {
@@ -3412,6 +3837,13 @@ verify_p4() {
     fi
 
     verify_p4_graph "$topo" "$mode" || rc=1
+
+    # [Co-developed with claude code -- Adam]
+    # TICKET-P3 §2.7. Asked on EVERY P4 bring-up and not only under a package: the baseline
+    # fabric has a telemetry source too (`auto` over NDTwin's own pipeline, which resolves to
+    # cooperative on every switch), and a gate that only ran under a package would leave the
+    # one configuration everything else is measured against unchecked.
+    verify_p4_telemetry "$pipe" "$state" || rc=1
 
     # Same blind spot as the OVS path, for a different reason: the destination-path count
     # above is what the proxy *says* it installed, and install-then-delete on bmv2 has been
@@ -4425,6 +4857,40 @@ cmd_down() {
             info "  its ending, and it is not carried to the exit code. (ROLE-12, 2026-09-12)"
         fi
     fi
+    # [Co-developed with claude code -- Adam]
+    # 🔴 TICKET-P3 §2.7: THE LINK-TELEMETRY EMITTER IS RESIDUE, AND IT IS NOT KILLED HERE.
+    # `ndtwin-lab topo-stop` owns it -- p4_testbed_topo.tear_down SIGTERMs the pid its own
+    # manifest names and then removes the manifest (§2.5) -- so an emitter still alive after
+    # this teardown means that path did not run or did not finish. Reported, because a python
+    # process holding a psample netlink group while the fabric under it is gone is invisible to
+    # every other row on this screen; NOT swept, because the only safe way to stop it is by the
+    # pid its manifest names and that is the other command's job. Naming it here and killing it
+    # here are different things, and the second one is how a teardown starts killing the next
+    # round's processes.
+    local em_state em_pid em_nsw em_rate
+    read -r em_state em_pid em_nsw em_rate < <(link_emitter_row)
+    case "$em_state" in
+        alive)
+            warn "residue: the link-telemetry emitter is still running -- pid $em_pid, $em_nsw switch(es)"
+            warn "  named by $LINK_TELEMETRY_MANIFEST. 'ndtwin-lab topo-stop' is what stops it"
+            warn "  (it SIGTERMs that pid and removes the manifest); this command does not, because"
+            warn "  the only safe way to stop it is by that pid."
+            warn "  if the fabric really is gone:  kill $em_pid && rm -f $LINK_TELEMETRY_MANIFEST"
+            down_rc=1
+            not_verified "the link-telemetry emitter (pid $em_pid) outlived this teardown" ;;
+        dead)
+            warn "residue: $LINK_TELEMETRY_MANIFEST is still there and the pid it names ($em_pid) is gone."
+            warn "  Stale: the next reader of that file would report an emitter that does not exist."
+            warn "  remove it:  rm -f $LINK_TELEMETRY_MANIFEST"
+            down_rc=1
+            not_verified "a stale $LINK_TELEMETRY_MANIFEST survived this teardown" ;;
+        unreadable)
+            warn "residue: $LINK_TELEMETRY_MANIFEST is there and cannot be parsed, so whether the"
+            warn "  link-telemetry emitter survived cannot be answered. Unchecked is not clean."
+            down_rc=1
+            not_verified "$LINK_TELEMETRY_MANIFEST could not be read after the teardown" ;;
+    esac
+
     # I-4's other half. `up` writes "in use" into the note; without this the sentence would
     # outlive the fabric it describes, which is the same defect with the sign flipped -- a
     # reader would wait for a machine that is already free. Written AFTER the assertion above,
@@ -5510,6 +5976,73 @@ print(len(d.get("switches",{})) + len(d.get("hosts",{})))' "$f" 2>/dev/null)"
 #     different cause, and rendering it as "mode ndtwin" because that is the default would be
 #     the silent substitution this whole feature exists to remove.
 # `none` is not a problem and never colours: it is what every baseline lab reads.
+# telemetry_rows <pipeline-kind> -- `ndt status`'s two TICKET-P3 §2.7 rows.
+#
+# [Co-developed with claude code -- Adam]
+#   telemetry      the word in force, where it came from, and what it resolves to per switch
+#   link shaping   which of the package's links are not the plain 1 Gbit/s default (G2-C)
+#
+# 🔴 A DEAD EMITTER IS A --check PROBLEM AND AN ABSENT ONE IS NOT. No manifest is the ordinary
+# state of a cooperative fabric. A manifest naming a pid that is gone is a fabric whose tc
+# filters are still sampling into a netlink group nobody reads: every `link` switch contributes
+# nothing, the twin's link usage quietly goes to zero, and no other row on this screen says so.
+#
+# 🔴 THE WORD AND THE RESOLUTION ARE PRINTED SEPARATELY. `auto` is not a source -- it is a rule
+# -- and a row that printed only `auto` would leave the operator to re-derive per switch which
+# of two mechanisms is running. That derivation is app_pipeline_kind's and is already done.
+STATUS_TELEMETRY_PROBLEMS=()
+telemetry_rows() {
+    local pipe="${1:-}" rel="p4_proxy/mininet/telemetry_override"
+    local knobw word rows state pid nsw rate
+    STATUS_TELEMETRY_PROBLEMS=()
+    knobw="$(telemetry_knob_word)"
+    word="$(telemetry_source_word)"
+    if [[ "$knobw" == absent ]]; then
+        printf '  %-14s %s\n' "telemetry" "$word   ($rel absent -- auto, then the package)"
+    elif ! telemetry_word_valid "$knobw"; then
+        printf '  %-14s %s\n' "telemetry" "${Y}$rel names '$knobw', which is not a telemetry source${N}"
+        printf '  %-14s %s\n' "" "the proxy refuses to start on it; one of: $TELEMETRY_WORDS"
+        STATUS_TELEMETRY_PROBLEMS+=("the telemetry knob ($rel) names '$knobw', which is not one of: $TELEMETRY_WORDS -- the proxy refuses to start on it")
+        return 0
+    else
+        printf '  %-14s %s\n' "telemetry" "$word   ($rel)"
+    fi
+    while read -r rows; do
+        [[ -n "$rows" ]] || continue
+        if [[ "$rows" == ALL\ * ]]; then
+            printf '  %-14s %s\n' "" "every switch: ${rows#ALL }"
+        else
+            printf '  %-14s %s\n' "" "s${rows%% *} -> ${rows#* }"
+        fi
+    done < <(telemetry_resolved_rows "$word" "$pipe")
+    read -r state pid nsw rate < <(link_emitter_row)
+    case "$state" in
+        none)  printf '  %-14s %s\n' "" "link emitter: none ($LINK_TELEMETRY_MANIFEST absent)" ;;
+        alive) printf '  %-14s %s\n' "" "link emitter: alive pid $pid, $nsw switch(es), rate $rate" ;;
+        dead)
+            printf '  %-14s %s\n' "" "${Y}link emitter: DEAD -- $LINK_TELEMETRY_MANIFEST names pid $pid and it is gone${N}"
+            printf '  %-14s %s\n' "" "the tc filters are still sampling into a group nobody reads; those switches report no link usage"
+            STATUS_TELEMETRY_PROBLEMS+=("the link-telemetry emitter is DEAD: $LINK_TELEMETRY_MANIFEST names pid $pid and no such process exists -- every 'link' switch is sampling into a netlink group nobody is reading") ;;
+        *)
+            printf '  %-14s %s\n' "" "${Y}link emitter: $LINK_TELEMETRY_MANIFEST is there and cannot be read${N}"
+            STATUS_TELEMETRY_PROBLEMS+=("$LINK_TELEMETRY_MANIFEST exists and cannot be parsed -- whether the link-telemetry emitter is running cannot be answered, and an unchecked question is not a clean one") ;;
+    esac
+    local shaped
+    shaped="$(app_shaped_links)"
+    if [[ -z "$shaped" ]]; then
+        printf '  %-14s %s\n' "link shaping" "off (no package link asks for one)"
+    else
+        printf '  %-14s %s\n' "link shaping" "on"
+        # Already formatted by app_package.format_shaped_link -- the function that exists in
+        # that file for this caller, so the row and the fabric agree by construction.
+        local line
+        while read -r line; do
+            [[ -n "$line" ]] || continue
+            printf '  %-14s %s\n' "" "$line"
+        done <<<"$shaped"
+    fi
+}
+
 STATUS_APP_PROBLEMS=()
 app_package_row() {
     local rel="p4_proxy/mininet/app_package_override"
@@ -5723,6 +6256,8 @@ cmd_status() {
     # today's behaviour, because a package this script could not parse is not evidence that the
     # pipeline moved (app_package_row above already raises the problem for it).
     local pkgpipe; pkgpipe="$(app_pipeline_kind)"
+    telemetry_rows "$pkgpipe"
+    (( ${#STATUS_TELEMETRY_PROBLEMS[@]} > 0 )) && problems+=("${STATUS_TELEMETRY_PROBLEMS[@]}")
     status_rate_rows "$rate" "$plane_now" "$pkgpipe"
     status_pipeline_is_stale "$plane_now" "$pkgpipe" \
         && problems+=("the fabric predates the current build of ndtwin_switch.json")
@@ -9389,26 +9924,58 @@ cmd_ntg() {
 # operator's cwd is still the operator's cwd is the only place the answer is knowable.
 NDT_APP_DIR=""
 NDT_UP_ARGV=()
+#: `ndt up p4 ... --telemetry <word>` (TICKET-P3 §2.1). Empty means the flag was not given,
+#: which is NOT the same as `auto`: without it the bring-up writes what the package declares.
+NDT_TELEMETRY=""
 up_take_app_flag() {
     NDT_APP_DIR=""
     NDT_UP_ARGV=()
+    NDT_TELEMETRY=""
     # `seen` is tracked apart from the VALUE, and that is the whole point of it. `--app=` and
     # `--app ""` both set NDT_APP_DIR to the empty string, and an emptiness test alone reads
     # that as "no package was asked for" -- so the command would build the BASELINE fabric and
     # clear p4_proxy/mininet/app_package_override on the way, under an argv that says --app.
     # A flag given with no value is a typo, not a request for the default.
-    local a want=0 seen=0
+    local a want=0 seen=0 twant=0 tseen=0
     for a in "$@"; do
         if (( want )); then NDT_APP_DIR="$a"; want=0; seen=1; continue; fi
+        if (( twant )); then NDT_TELEMETRY="$a"; twant=0; tseen=1; continue; fi
         case "$a" in
             --app)   want=1 ;;
             --app=*) NDT_APP_DIR="${a#--app=}"; seen=1 ;;
+            --telemetry)   twant=1 ;;
+            --telemetry=*) NDT_TELEMETRY="${a#--telemetry=}"; tseen=1 ;;
             *)       NDT_UP_ARGV+=("$a") ;;
         esac
     done
     if (( want )); then
         err "ndt up --app needs a package directory:  ndt up p4 --app <dir>"
         return 2
+    fi
+    # 🔴 THE SAME `seen` DISCIPLINE AS --app, AND THE SAME REASON. `--telemetry=` and
+    # `--telemetry ""` both leave the value empty, which the bring-up reads as "no flag was
+    # given" -- and it would then write the PACKAGE's source under an argv that says
+    # otherwise. A flag with no value is a typo, not a request for the default.
+    if (( twant )); then
+        err "ndt up --telemetry needs one of: $TELEMETRY_WORDS"
+        err "  usage:  ndt up p4 --app <dir> --telemetry link"
+        return 2
+    fi
+    if (( tseen )); then
+        if [[ -z "$NDT_TELEMETRY" ]]; then
+            err "--telemetry was given an EMPTY value."
+            err "  an empty value is not 'no flag': taken as one, this command would write"
+            err "  whatever the package declares under an argv that says --telemetry."
+            err "  usage:  ndt up p4 --telemetry {$(tr ' ' '|' <<<"$TELEMETRY_WORDS")}"
+            return 2
+        fi
+        if ! telemetry_word_valid "$NDT_TELEMETRY"; then
+            err "--telemetry $NDT_TELEMETRY is not a telemetry source."
+            err "  it must be one of: $TELEMETRY_WORDS"
+            err "  (p4_proxy/mininet/telemetry_override carries the same four words, and the"
+            err "   proxy refuses to start on anything else -- TICKET-P3 §2.1.)"
+            return 2
+        fi
     fi
     if (( seen )) && [[ -z "$NDT_APP_DIR" ]]; then
         err "--app was given an EMPTY package directory."
@@ -9485,6 +10052,18 @@ case "${1:-}" in
             err "--app is a P4 flag: ${plan%% *} builds an OVS fabric, and nothing on that plane"
             err "  reads a package's pipeline, election id or control-plane mode."
             err "  did you mean:  ndt up p4 --app $NDT_APP_DIR"
+            exit 2
+        fi
+        # 🔴 --telemetry IS A P4 FLAG TOO, refused on every other plane rather than ignored
+        # there (TICKET-P3 §2.1). p4_proxy/mininet/telemetry_override decides where a bmv2
+        # switch's sFlow samples come from; the OVS plane samples on its bridges and reads
+        # none of it, so an accepted-and-ignored --telemetry would build a 128-host OVS fabric
+        # while the operator believed they had chosen a telemetry source for it.
+        if [[ -n "$NDT_TELEMETRY" && "${plan%% *}" != up_p4 ]]; then
+            err "--telemetry is a P4 flag: ${plan%% *} builds an OVS fabric, whose sampling is"
+            err "  an sFlow record on the bridges and reads nothing from"
+            err "  p4_proxy/mininet/telemetry_override."
+            err "  did you mean:  ndt up p4 --telemetry $NDT_TELEMETRY"
             exit 2
         fi
         # shellcheck disable=SC2086 -- plan is "<fn> <arg>", both produced by resolve_up_target

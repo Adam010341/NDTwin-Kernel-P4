@@ -123,6 +123,15 @@ EXERCISES = {
         "prog": "source_routing.p4",
         "default_prog": "source_routing.p4",
         "hosts": 3, "switches": 3,
+        # 🔴 NO GENERIC CELL HERE. solution/source_routing.p4:127-138 is
+        # `if (hdr.srcRoutes[0].isValid()) { ... } else { drop(); }` -- the SOLUTION drops
+        # every frame that does not carry the 0x1234 source-route stack, which is why
+        # audit-raw 7af2f352 measured this exercise with send.py/receive.py and a ttl rather
+        # than with a ping (TICKET-P2 §7-10 says the same). An iperf between two hosts here
+        # moves nothing, so "link usage follows the iperf path" has no path to follow.
+        "link_usage": False,
+        "link_usage_why": ("solution/source_routing.p4:127-138 drops every frame without a "
+                           "0x1234 source-route stack, so an iperf crosses nothing"),
         "plan_steps": ("h2 receive.py; h1 send.py 10.0.2.2 with '2 3 2 2 1' then '2 1'; "
                        "assert packet count + ttl"),
     },
@@ -147,6 +156,156 @@ EXERCISES = {
         "hosts": 4, "switches": 4,
         "plan_steps": "h1 receive.py + h1 send.py probes; assert swid and port fields",
     },
+    # ---------------------------------------------------------------------------------
+    # TICKET-P3 §2.7, the other NINE. Everything above this line shipped on 2026-09-08 and
+    # 2026-09-18 and its plan block is FROZEN; everything below is new and has never been
+    # run on either fabric by the session that wrote it.
+    #
+    # `topo` and `default_prog` were read out of each exercise's own Makefile and
+    # utils/Makefile:13-23 (TOPO defaults to topology.json, DEFAULT_PROG to the wildcard
+    # *.p4 in the exercise directory, which never matches solution/). NONE of the nine sets
+    # DEFAULT_PROG, and only `multicast` sets TOPO -- so every `default_prog` below is the
+    # exercise's own single program, and `companion_programs` returns [] for all nine.
+    #
+    # Three optional keys appear here and nowhere above:
+    #   `red_arm`     how the SKELETON is red when it is not red in the data plane:
+    #                 "compile"  -- p4c refuses it (flowcache; TICKET-P3 §2.7)
+    #                 "entries"  -- it compiles, and the runtime json the harness installs
+    #                               names a table it does not declare (basic_tunnel)
+    #   `controller`  the exercise's own external controller, relative to the exercise dir.
+    #                 The skeleton arm runs that path and the solution arm runs
+    #                 solution/<basename>, which is how live-p1/03 already drives p4runtime.
+    #   `needs`       a property of the FABRIC this exercise's expectations depend on, named
+    #                 so a red run can be read. "shaped_links" is TICKET-P3 §2.4's G2-C.
+    "basic_tunnel": {
+        "topo": "topology.json",
+        "prog": "basic_tunnel.p4",
+        "default_prog": "basic_tunnel.p4",
+        "hosts": 3, "switches": 3,
+        # 🔴 THE SKELETON DOES NOT REACH THE DATA PLANE. README:41-43 says so itself: "Since
+        # the control plane tries to access the myTunnel_exact table, and that table does not
+        # yet exist, the `make run` command will not work with the starter code." It COMPILES;
+        # what fails is installing sX-runtime.json's six entries, three of which name
+        # MyIngress.myTunnel_exact. So the red arm is "the entries do not go in", and a run
+        # in which they DID go in is the finding.
+        "red_arm": "entries",
+        "plan_steps": ("h2/h3 receive.py; h1 send.py 10.0.2.2 --dst_id 2 then --dst_id 3; "
+                       "assert which host the tunnel delivered to"),
+    },
+    "calc": {
+        "topo": "topology.json",
+        "prog": "calc.p4",
+        "default_prog": "calc.p4",
+        "hosts": 2, "switches": 1,
+        # 🔴 NO GENERIC CELL HERE either, and for the same shape: calc.p4:205-210 is
+        # `if (hdr.p4calc.isValid()) { calculate.apply(); } else { operation_drop(); }`. The
+        # switch handles the 0x1234 calculator protocol and drops everything else, so an
+        # iperf between h1 and h2 moves nothing whichever arm is running.
+        "link_usage": False,
+        "link_usage_why": ("calc.p4:205-210 drops everything that is not the 0x1234 "
+                           "calculator protocol, so an iperf crosses nothing"),
+        "plan_steps": "h1 calc.py <<< '1+1'; assert the answer line (solution 2, skeleton no response)",
+    },
+    "ecn": {
+        "topo": "topology.json",
+        "prog": "ecn.p4",
+        "default_prog": "ecn.p4",
+        "hosts": 5, "switches": 3,
+        # topology.json:65-69 is `[ "s1-p3", "s2-p3", "0", 0.5 ]` -- a 0.5 Mbit/s bottleneck.
+        # Without it enq_qdepth never reaches ECN_THRESHOLD (ecn.p4:9, 10) and the SOLUTION
+        # arm cannot show 0x3 however correct it is.
+        "needs": "shaped_links",
+        "plan_steps": ("h22 iperf -s; h11 iperf -u -> h22 to fill the 0.5 Mbit/s queue; "
+                       "h1 send.py -> h2 receive.py; assert ipv4.tos"),
+    },
+    "mri": {
+        "topo": "topology.json",
+        "prog": "mri.p4",
+        "default_prog": "mri.p4",
+        "hosts": 5, "switches": 3,
+        # The same throttled link as ecn, but MRI's assertion is the hop COUNT and the swids,
+        # which do not need a queue -- only qdepth would, and nothing below reads it.
+        "plan_steps": ("h11 iperf -u -> h22 beside it; h1 send.py -> h2 receive.py; "
+                       "assert the MRI count and swids"),
+    },
+    "flowcache": {
+        "topo": "topology.json",
+        "prog": "flowcache.p4",
+        "default_prog": "flowcache.p4",
+        "hosts": 3, "switches": 3,
+        # 🔴 THE SKELETON DOES NOT COMPILE, BY DESIGN. flowcache.p4:83-91 declares
+        # packet_out_header_h and packet_in_header_h with NO fields and the body then reads
+        # hdr.packet_out.opcode (:232) and hdr.packet_in.input_port (:269); README:29 states
+        # it: "you need to define the fields in the packet_in and packet_out headers;
+        # otherwise, you'll get compilation errors." A compile that SUCCEEDS is the finding.
+        "red_arm": "compile",
+        "controller": "mycontroller.py",
+        "plan_steps": "run the exercise's controller; h1 ping h2/h3; assert ICMP replies",
+    },
+    "load_balance": {
+        "topo": "topology.json",
+        "prog": "load_balance.p4",
+        "default_prog": "load_balance.p4",
+        "hosts": 3, "switches": 3,
+        # 🔴 NO GENERIC CELL HERE (judge A3). s1-runtime.json:6-25 gives ecmp_group ONE lpm
+        # entry -- 10.0.0.1/32, the load-balanced service address -- and a default action of
+        # drop. An iperf from h1 to any real host address is dropped at s1, so the on-path set
+        # would be empty and the cell would refuse: correctly, and about the wrong thing.
+        # Sending to 10.0.0.1 instead does not rescue it either -- the reply path from h2/h3
+        # goes through s2/s3, whose own tables carry the same single entry.
+        "link_usage": False,
+        "link_usage_why": ("s1-runtime.json:6-25 forwards only 10.0.0.1/32 and drops the rest, "
+                           "so an iperf between two real host addresses crosses nothing"),
+        "plan_steps": ("h2 and h3 receive.py; h1 send.py 10.0.0.1 x10; "
+                       "assert both servers got some (solution) / only h2 did (skeleton)"),
+    },
+    "multicast": {
+        "topo": "sig-topo/topology.json",   # exercises/multicast/Makefile:5
+        "prog": "multicast.p4",
+        "default_prog": "multicast.p4",
+        "hosts": 4, "switches": 1,
+        # exercises/multicast/disable_ipv6.sh is `sysctl -w net.ipv6.conf.{all,default}.
+        # disable_ipv6=1`. It is run INSIDE each host namespace here rather than on the box:
+        # the script as shipped would turn IPv6 off for the whole machine, which is not this
+        # driver's to do, and what it is for is the IPv6 multicast noise inside the fabric.
+        "disable_ipv6": True,
+        # 🔴 THE GENERIC CELL RUNS TO h3, NOT TO THE MODEL'S LAST HOST. h4 is the one host
+        # sig-topo/s1-runtime.json:47-65 deliberately does not replicate to (README:122 is
+        # the student's TODO to add it), so a flow to h4 would produce an EMPTY on-path set
+        # and the cell would refuse -- correctly, and about the wrong thing.
+        "link_usage": "h3",
+        "plan_steps": ("disable IPv6 in each host; pingall; assert h1/h2/h3 reach each other "
+                       "and nobody reaches h4 (sig-topo's group is ports 1,2,3)"),
+    },
+    "p4runtime": {
+        "topo": "topology.json",
+        "prog": "advanced_tunnel.p4",
+        "default_prog": "advanced_tunnel.p4",
+        "hosts": 3, "switches": 3,
+        # 🔴 The .p4 has no TODO at all and there is NO solution/*.p4: the exercise is the
+        # CONTROLLER, and the skeleton's gap is the transit rule (mycontroller.py:76 prints
+        # "TODO Install transit tunnel rule"). Both arms therefore compile the SAME program,
+        # which is what `variant: controller` says -- without it pick_source finds nothing to
+        # compile for the solution arm and the round stops before it starts.
+        # exercises/flowcache is the control: it ships solution/flowcache.p4 as well.
+        "variant": "controller",
+        "controller": "mycontroller.py",
+        # 🔴 AND THE GENERIC CELL RUNS TO h2. The controller wires ONE tunnel, h1 <-> h2
+        # (mycontroller.py:172-178), and never contacts s3 at all -- so h3, which is the
+        # model's last host, is unreachable by design on this fabric.
+        "link_usage": "h2",
+        "plan_steps": "run the exercise's controller; h1 ping h2; assert the transit rule and the ping",
+    },
+    "qos": {
+        "topo": "topology.json",
+        "prog": "qos.p4",
+        "default_prog": "qos.p4",
+        "hosts": 5, "switches": 3,
+        # 🔴 qos's topology.json has NO throttled link (unlike ecn's and mri's, whose
+        # :65-69 carries `"0", 0.5`), so this exercise does not need G2-C.
+        "plan_steps": ("h2 receive.py; h1 send.py --p=UDP then --p=TCP; "
+                       "assert ipv4.tos (solution 0xb9 / 0xb1, skeleton 0x1)"),
+    },
 }
 
 # Evidence grades, verbatim from M7-source_routing.md so the two can be compared
@@ -162,6 +321,22 @@ IPERF_SECONDS = 3     # `iperf -c ... -t 3`, the README's own flow length
 IPERF_TIMEOUT = 25    # s of wall clock before a client that never connected is killed
 IPERF_WARMUP = 1.0    # s to let `iperf -s` bind before the client is started
 PROBE_SECONDS = 8     # s of link_monitor send.py, which emits one probe per second
+SEND_SECONDS = 6      # s of the ecn/mri/qos senders, whose argv carries a packet count
+BG_SECONDS = 20       # s of the ecn/mri background iperf -u (must outlast SEND_SECONDS)
+CTRL_SETTLE = 12      # s to let an exercise's own controller push its pipeline and rules
+CTRL_PY = VENV_PY     # the only interpreter with grpc + the tutorials' p4runtime_lib
+
+#: live-p1/_common.sh, whose link_usage_round IS the generic cell (TICKET-P3 §2.7).
+#: 🔴 NOT A SECOND COPY OF THE RULE. live-p1/05 runs the same function three times and this
+#: driver runs it once per exercise; a Python re-implementation here would make "the same cell
+#: over thirteen exercises" a comparison between two instruments that were meant to agree.
+LIVE_COMMON = os.path.join(HERE, "live-p1", "_common.sh")
+
+#: The telemetry knob (TICKET-P3 §2.1). `ndt up p4 --telemetry <word>` writes it and `ndt down`
+#: does not put it back, so a round that moved it restores it itself -- the same discipline
+#: HOST_KNOB gets, and for the same reason: it decides the NEXT bring-up.
+TELEMETRY_KNOB = os.path.join(REPO, "p4_proxy", "mininet", "telemetry_override")
+TELEMETRY_WORDS = ("auto", "none", "cooperative", "link")
 
 # -------------------------------------------------------------------- output --
 
@@ -240,6 +415,18 @@ def ndt_env():
     env = dict(os.environ)
     env["NDT_OWNER"] = NDT_OWNER
     return env
+
+
+def local_popen(argv, **kw):
+    """A process started on THIS machine rather than inside a host namespace.
+
+    The only user is the exercise's own external controller (`p4runtime`, `flowcache`): it is
+    a gRPC client of the switches' control ports, which are reachable from here, and it must
+    NOT be entered into a host's netns. A named seam rather than a bare subprocess.Popen so
+    the offline suite can drive that arm at all -- and so this file has exactly one place
+    where a process is started outside a HostRunner.
+    """
+    return subprocess.Popen(argv, **kw)
 
 
 def trim(text, cap=6000):
@@ -488,9 +675,22 @@ def preflight(ex, which, exdir, fabric="tutorials"):
 
 
 def pick_source(exdir, spec, which):
-    """Return (source .p4 path, output basename) for the requested variant."""
+    """Return (source .p4 path, output basename) for the requested variant.
+
+    🔴 ONE EXERCISE'S VARIANT IS NOT ITS PROGRAM. exercises/p4runtime ships
+    solution/mycontroller.py and NO solution/*.p4: advanced_tunnel.p4 has no TODO in it,
+    the exercise IS the controller, and both arms run the same pipeline. Without
+    spec["variant"] == "controller" this function returns None there and `main()` stops
+    with "no .p4 source for p4runtime/solution" -- measured 2026-09-19 by reading the real
+    tree, before the orchestrator's live round rather than during it.
+
+    The flag is explicit rather than "fall back to the skeleton when solution/ has no .p4",
+    because for every other exercise a missing solution/*.p4 IS the error this returns None
+    for. exercises/flowcache is the control: it has BOTH solution/flowcache.p4 and
+    solution/mycontroller.py, so its two arms differ in the program as well.
+    """
     base = spec["prog"][:-3]                       # what sX-runtime.json names
-    if which == "skeleton":
+    if which == "skeleton" or spec.get("variant") == "controller":
         return os.path.join(exdir, spec["prog"]), base
     cands = sorted(glob.glob(os.path.join(exdir, "solution", "*.p4")))
     for c in cands:
@@ -584,9 +784,15 @@ class PingAll(object):
         self.pairs = self.zero = self.lossy = self.untested = 0
         self.sent = self.received = 0
         self.lines = []
+        #: (src, dst) -> PingResult, kept because `multicast` is the one exercise whose
+        #: expectation is NOT the aggregate: its solution reaches h1/h2/h3 and must NOT reach
+        #: h4 (sig-topo/s1-runtime.json:47-65 replicates ports 1,2,3 and the fourth is the
+        #: student's TODO), so an aggregate loss number is a reading no arm can be written on.
+        self.results = {}
 
     def add(self, src, dst, dst_ip, r):
         self.pairs += 1
+        self.results[(src, dst)] = r
         if not r.tested:
             self.untested += 1
             self.lines.append("%s -> %s (%s): %s" % (src, dst, dst_ip, r.label()))
@@ -663,7 +869,39 @@ class HostRunner(object):
         recv = int(t.group(2)) if t else 0
         return PingResult(float(m.group(1)), recv, trans, raw=out)
 
+    def flush_arp(self):
+        """Empty every host's ARP cache. Returns the hosts it actually flushed.
+
+        🔴 A CACHED MAC MAKES AN UNREACHABLE HOST REACHABLE (round-3 ruling 5). multicast's
+        expectation is that hX -> h4 is 100% because the ARP request for h4 floods to ports
+        1,2,3 and h4 never sees it -- but that is a statement about a host that has NOT already
+        learned h4's MAC. Once h4 has sent its own ARP (which IS answered, because the group
+        reaches h1/h2/h3 and their unicast replies hit h4's mac_forward entry), h1-h3 hold h4's
+        MAC and a later hX -> h4 ping is a plain unicast that h4's own entry forwards: 0% loss,
+        on a fabric that has not changed at all.
+
+        So the measurement only means what it says from a known cache state, and this is how it
+        is put into one. `ip neigh flush all` is a read-modify of the host's own namespace and
+        needs no lab claim.
+        """
+        done = []
+        for name in self.names():
+            try:
+                self.cmd(name, "ip neigh flush all")
+                done.append(name)
+            except Exception:                                # noqa: BLE001
+                pass
+        return done
+
     def pingall(self, count=5):
+        """Every ordered pair, SRC-MAJOR: h1->h2, h1->h3, ..., h4->h1, h4->h2, h4->h3.
+
+        🔴 THE ORDER IS LOAD-BEARING FOR multicast AND IS PINNED BY A TEST
+        (`TheMulticastArms.test_the_pingall_order_is_src_major`). With h4 last as a SOURCE,
+        every hX -> h4 pair is measured before h4 has ever ARPed, which is the only state in
+        which "h4 is unreachable" is observable. A dst-major walk would measure h1 -> h4 after
+        h4 -> h1 had already taught h1 h4's MAC, and the expectation would invert.
+        """
         pa = PingAll()
         for src in self.names():
             for dst in self.names():
@@ -752,13 +990,21 @@ class Steps(object):
     two scripts that were meant to agree.
     """
 
-    def __init__(self, hosts, exercise, which, exdir, log_dir, args, ips=None):
+    def __init__(self, hosts, exercise, which, exdir, log_dir, args, ips=None,
+                 fabric="tutorials", package=None):
         self.h = hosts
         self.exercise, self.which = exercise, which
         self.exdir, self.log_dir, self.args = exdir, log_dir, args
         self.ips = ips if ips is not None else hosts.ips
         self.expects = []
         self.steps = []          # (label, command-string, raw-output)
+        #: Which fabric these steps are running on, and the package directory when that is
+        #: `ndtwin`. Only the two external-controller exercises read them: the exercise's own
+        #: controller has 127.0.0.1:5005N and device_id N-1 written into it, which is the
+        #: truth on the tutorials harness and is not on NDTwin's, where
+        #: tools/p4_exercise/run_external_controller.py rewrites both (TICKET-P1D).
+        self.fabric, self.package = fabric, package
+        self.exercise_spec = EXERCISES.get(exercise) or {}
 
     # -------------------------------------------------------- utilities --
 
@@ -1192,6 +1438,667 @@ class Steps(object):
 
         self._log_sizes()
 
+    # ================================================ TICKET-P3 §2.7: the other nine ==
+    #
+    # 🔴 EVERY EXPECTATION BELOW IS 【源碼推導，未執行】 OR 【README 宣稱】 UNTIL THE
+    # ORCHESTRATOR'S LIVE ROUND. None of the nine has been run on either fabric by the session
+    # that wrote them; what the offline suite asserts is that the driver ASKS the question this
+    # way and that the two arms are distinguishable. DRIVER.md §6 carries the grade per cell.
+
+    # -- shared readers -------------------------------------------------------------------
+
+    @staticmethod
+    def _field_values(text, field):
+        """Every `field = <value>` scapy show2() printed, in arrival order.
+
+        show2() renders one `     tos       = 0x1` per layer that has the field, so this is
+        the reading both `ecn` and `qos` are written on. The value is taken verbatim -- `0x1`
+        and `1` are different strings and only the exercise's README says which one its scapy
+        prints.
+        """
+        return re.findall(r"^\s*%s\s*=\s*(\S+)\s*$" % re.escape(field), text, re.M)
+
+    def _send_once(self, host, argv, feed=None, label=""):
+        """One sender, run to completion in the host namespace. -> its combined output."""
+        say("$ %s: %s%s" % (host, " ".join(argv), ("   <<< %r" % feed) if feed else ""))
+        kw = {"stdout": subprocess.PIPE, "stderr": subprocess.STDOUT}
+        if feed is not None:
+            kw["stdin"] = subprocess.PIPE
+        proc = self.h.popen(host, argv, **kw)
+        try:
+            out, _ = proc.communicate(input=feed, timeout=SEND_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            out, _ = proc.communicate()
+        out = (out or b"").decode("utf-8", "replace")
+        say(trim(out, 2500))
+        if label:
+            self.steps.append((label, " ".join(argv) + (("   <<< " + repr(feed)) if feed else ""), out))
+        return out
+
+    def _background_udp(self, client, server, server_ip, rate="1M", seconds=None):
+        """`iperf -s -u` on the server and `iperf -c -u` on the client, both left running.
+
+        🔴 THE QUEUE IS THE SUBJECT, NOT THE THROUGHPUT. ecn's bottleneck is
+        topology.json:65-69's 0.5 Mbit/s link and what fills it is offered load; the numbers
+        iperf reports are never read. Both handles are returned so the caller stops them by
+        the handle it holds -- never by name, never with pkill.
+        """
+        seconds = BG_SECONDS if seconds is None else seconds
+        log = os.path.join(self.log_dir, "driver-bg-iperf-%s-to-%s.log" % (client, server))
+        fh = open(log, "wb")
+        say("$ %s: iperf -s -u   (> %s)" % (server, log))
+        srv = self.h.popen(server, ["iperf", "-s", "-u"], stdout=fh, stderr=subprocess.STDOUT)
+        time.sleep(IPERF_WARMUP)
+        ccmd = ["iperf", "-c", server_ip, "-u", "-b", rate, "-t", str(seconds)]
+        say("$ %s: %s" % (client, " ".join(ccmd)))
+        cli = self.h.popen(client, ccmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        self.steps.append(("BG  %s -> %s background UDP (fills the bottleneck queue)" % (client, server),
+                           "iperf -s -u on %s; %s on %s" % (server, " ".join(ccmd), client),
+                           "(background; the numbers it reports are not read)"))
+        return srv, cli, fh
+
+    def _start_controller(self, which, tag):
+        """The exercise's OWN controller, by the same seam live-p1/03 uses.
+
+        🔴 TWO PATHS, ONE DECISION. On the tutorials fabric the controller's hard-coded
+        127.0.0.1:5005N / device_id N-1 are exactly what the harness built, so it is run as
+        itself. On the NDTwin fabric they are not, and tools/p4_exercise/
+        run_external_controller.py is the adapter that rewrites them (TICKET-P1D) -- the same
+        launcher live-p1/03 uses, so "the exercise's controller ran" means one thing on both.
+
+        The process is stopped by the handle returned here. Nothing uses pkill.
+        """
+        rel = self.exercise_spec.get("controller")
+        ctrl = rel if self.which == "skeleton" else os.path.join("solution", os.path.basename(rel))
+        path = os.path.join(self.log_dir, "driver-controller-%s.log" % tag)
+        fh = open(path, "wb")
+        if self.fabric == "ndtwin":
+            if not self.package:
+                raise RuntimeError("the ndtwin arm has no package directory to hand the adapter")
+            argv = [CTRL_PY, os.path.join(REPO, "tools", "p4_exercise",
+                                          "run_external_controller.py"), self.package, ctrl]
+        else:
+            argv = [CTRL_PY, os.path.join(self.exdir, ctrl)]
+        env = dict(os.environ)
+        env["PYTHONUNBUFFERED"] = "1"
+        say("$ %s   (> %s)" % (" ".join(argv), path))
+        proc = local_popen(argv, cwd=self.exdir, stdout=fh, stderr=subprocess.STDOUT,
+                           stdin=subprocess.DEVNULL, env=env)
+        time.sleep(CTRL_SETTLE)
+        alive = proc.poll() is None
+        fh.flush()
+        with open(path, "r", errors="replace") as f:
+            text = f.read()
+        say("-- controller log (%s) --" % path)
+        say(trim(text, 4000))
+        self.steps.append(("C1  %s under its own interpreter" % ctrl, " ".join(argv), text))
+        return proc, fh, path, text, alive, ctrl
+
+    def _stop_controller(self, proc, fh, path):
+        self._stop_proc(proc)
+        try:
+            fh.flush()
+            fh.close()
+        except (OSError, ValueError):                         # noqa: BLE001
+            pass
+        with open(path, "r", errors="replace") as f:
+            return f.read()
+
+    # -------------------------------------------------- basic_tunnel ------
+
+    def _tunnel_round(self, dst_id, tag):
+        """One `send.py <ip> <msg> --dst_id N` with h2 AND h3 sniffing. -> (n2, n3, sent)."""
+        r2, f2, p2, c2 = self._start_receiver("h2", "h2-%s" % tag)
+        r3, f3, p3, c3 = self._start_receiver("h3", "h3-%s" % tag)
+        scmd = [VENV_PY, self._script("send.py"), self.ips["h2"], "P4 driver probe",
+                "--dst_id", str(dst_id)]
+        sout = self._send_once("h1", scmd, label="T%s  h1 send.py --dst_id %d" % (tag, dst_id))
+        t2 = self._stop_receiver(r2, f2, p2)
+        t3 = self._stop_receiver(r3, f3, p3)
+        say("-- h2 (%s) --" % p2); say(trim(t2, 2000))
+        say("-- h3 (%s) --" % p3); say(trim(t3, 2000))
+        self.steps.append(("T%s  h2 sniffer" % tag, c2, t2))
+        self.steps.append(("T%s  h3 sniffer" % tag, c3, t3))
+        return len(self._packets(t2)), len(self._packets(t3)), sout
+
+    def steps_basic_tunnel(self):
+        """exercises/basic_tunnel, README steps 2.4 and 2.6.
+
+        WHAT DISTINGUISHES THE ARMS. The tunnel header carries the destination, not the IP:
+        README:138-140 -- "The packet should be received at h2, even though that IP address is
+        the address of h3." Both rounds below therefore send to the SAME IP (h2's) and change
+        only `--dst_id`, which is the only way to tell "the tunnel routed it" from "IP routing
+        routed it". A driver that changed the IP as well would pass over a fabric with no
+        tunnel at all.
+
+        The skeleton's red arm is NOT here: it is the entries (spec["red_arm"] == "entries",
+        README:41-43). If this ever runs with the skeleton, nothing should arrive anywhere.
+        """
+        emitted = 0
+        n2_a, n3_a, s_a = self._tunnel_round(2, "1")
+        emitted += len(re.findall(r"^sending on interface .* to dst_id 2$", s_a, re.M))
+        n2_b, n3_b, s_b = self._tunnel_round(3, "2")
+        emitted += len(re.findall(r"^sending on interface .* to dst_id 3$", s_b, re.M))
+
+        self._add("injection: send.py built 2 tunnel frames", "2", str(emitted),
+                  emitted == 2, G_SRC,
+                  "send.py:38 prints 'sending on interface <i> to dst_id <n>' before sendp()")
+
+        if self.which == "solution":
+            self._add("--dst_id 2 lands on h2", "h2=1 h3=0", "h2=%d h3=%d" % (n2_a, n3_a),
+                      n2_a >= 1 and n3_a == 0, G_BOTH,
+                      "README step 2.4: the packet should be received at h2")
+            self._add("--dst_id 3 lands on h3, same IP", "h2=0 h3>=1",
+                      "h2=%d h3=%d" % (n2_b, n3_b),
+                      n3_b >= 1 and n2_b == 0, G_BOTH,
+                      "README step 2.4: 'try to send to 10.0.3.3 ... will instead be received "
+                      "by h3'; here the IP is h2's and only dst_id moved, which is the whole tunnel")
+        else:
+            self._add("nothing is delivered by the skeleton", "0 everywhere",
+                      "h2=%d/%d h3=%d/%d" % (n2_a, n2_b, n3_a, n3_b),
+                      (n2_a + n2_b + n3_a + n3_b) == 0, G_SRC,
+                      "basic_tunnel.p4:71-75 parses no myTunnel header and :183 emits none; "
+                      "the arm's real red is that its runtime entries do not install at all")
+        self._log_sizes()
+
+    # ---------------------------------------------------------- calc ------
+
+    def steps_calc(self):
+        """exercises/calc, README step 1.3 (skeleton) and step 3 (solution).
+
+        calc.py is the exercise's whole client: no send.py/receive.py pair, no argv, a REPL on
+        `input('> ')` that quits on the line `quit` (calc.py:80-83). So the step feeds it one
+        expression and the quit, and reads its own printed lines back.
+
+        🔴 THE TWO ARMS ARE TWO DIFFERENT LINES, both quoted by the README verbatim:
+          solution   `> 1+1` then `2`               (README:109-113)
+          skeleton   `> 1+1` then `Didn't receive response`  (README:54-58)
+        `2` is asserted as a LINE OF ITS OWN and not as a substring: `1+1` contains no `2`, but
+        an error message might, and a substring test would then read a failure as the answer.
+        """
+        scmd = [VENV_PY, "-u", self._script("calc.py")]
+        out = self._send_once("h1", scmd, feed=b"1+1\nquit\n", label="K1  h1 calc.py <<< 1+1")
+
+        echoed = bool(re.search(r"^> 1\+1$", out, re.M))
+        self._add("injection: calc.py read the expression", "> 1+1", "yes" if echoed else "no",
+                  echoed, G_BOTH,
+                  "calc.py:80-84 prints the prompt and echoes the line it read; without this "
+                  "'no answer' would also describe a client that never sent anything")
+
+        answered = bool(re.search(r"^2$", out, re.M))
+        silent = "Didn't receive response" in out
+        if self.which == "solution":
+            self._add("the switch answered 1+1", "2", "2" if answered else "(no line '2')",
+                      answered, G_BOTH, "README step 3's own transcript")
+            self._add("and it did not time out", "no timeout",
+                      "timed out" if silent else "answered", not silent, G_SRC,
+                      "calc.py:101 prints \"Didn't receive response\" when srp1 returns None")
+        else:
+            self._add("RED ARM: the skeleton must not answer", "Didn't receive response",
+                      "answered 2" if answered else ("Didn't receive response" if silent
+                                                     else "(neither)"),
+                      silent and not answered, G_BOTH,
+                      "README step 1.3's own transcript; calc.p4:116-126 leaves check_p4calc "
+                      "with no transition, so hdr.p4calc is never valid and :205-210 drops. "
+                      "If this is green the solution's answer proves nothing.")
+        self._log_sizes()
+
+    # ----------------------------------------------------------- ecn ------
+
+    def steps_ecn(self):
+        """exercises/ecn, README step 1.8 (skeleton) and step 3 (solution).
+
+        🔴 THIS ARM NEEDS A QUEUE, AND THE QUEUE NEEDS G2-C. ecn.p4:9 sets ECN_THRESHOLD = 10
+        and the solution only marks when `standard_metadata.enq_qdepth >= ECN_THRESHOLD`
+        (solution/ecn.p4:131-139). The only thing that builds a queue here is
+        topology.json:65-69's `[ "s1-p3", "s2-p3", "0", 0.5 ]` -- a 0.5 Mbit/s link. On a
+        fabric that does not shape that link the queue is empty, `tos` never leaves 0x1, and
+        the SOLUTION arm is red for a reason that is not about ecn.p4. spec["needs"] says so
+        and DRIVER.md §6 repeats it; TICKET-P3 §2.4 keeps this exercise out of the gate until
+        G2-C lands.
+        """
+        srv, cli, fh = self._background_udp("h11", "h22", self.ips["h22"], rate="1M")
+        try:
+            recv, rfh, rpath, rcmd = self._start_receiver("h2", "h2")
+            self.steps.append(("E1  h2 starts the sniffer", rcmd, "(background; output below)"))
+            scmd = [VENV_PY, self._script("send.py"), self.ips["h2"], "P4 driver probe",
+                    str(SEND_SECONDS)]
+            sout = self._send_once("h1", scmd, label="E2  h1 send.py (one packet per second)")
+            rtext = self._stop_receiver(recv, rfh, rpath)
+        finally:
+            self._stop_proc(cli)
+            self._stop_proc(srv)
+            fh.flush(); fh.close()
+        say("-- h2 receive.py output (%s) --" % rpath)
+        say(trim(rtext, 4000))
+        self.steps.append(("E3  h2 sniffer output", rcmd, rtext))
+
+        pkts = self._packets(rtext)
+        tos = self._field_values(rtext, "tos")
+        self._add("injection: packets reached h2", ">=1", "%d" % len(pkts),
+                  len(pkts) >= 1, G_SRC,
+                  "send.py:35-41 sends one UDP/4321 datagram per second; receive.py:34 filters "
+                  "'udp and port 4321'. Every claim below is vacuous without this.")
+        self._add("injection: send.py showed the frame it built", "1 show2",
+                  str(len(self._field_values(sout, "tos"))),
+                  len(self._field_values(sout, "tos")) >= 1, G_SRC,
+                  "send.py:36 pkt.show2() before the loop; the sender sets tos=1 (:35)")
+
+        if self.which == "solution":
+            self._add("h2 saw a congestion-marked packet", "0x3 among the tos values",
+                      str(sorted(set(tos))), "0x3" in tos, G_BOTH,
+                      "README step 3: 'tos values change from 1 to 3 as the queue builds up'; "
+                      "solution/ecn.p4:131-139 sets ecn=3 when enq_qdepth >= 10. Needs the "
+                      "0.5 Mbit/s link of topology.json:65-69 (G2-C).")
+        else:
+            self._add("RED ARM: every tos stays 0x1", "['0x1']", str(sorted(set(tos))),
+                      bool(tos) and set(tos) == {"0x1"}, G_BOTH,
+                      "README step 1.8: 'the ipv4.tos field is always 1'; ecn.p4:132-138 "
+                      "leaves MyEgress.apply empty. If this is red the solution's 0x3 proves "
+                      "nothing -- a fabric that marked everything would look the same.")
+        self._log_sizes()
+
+    # ----------------------------------------------------------- mri ------
+
+    def steps_mri(self):
+        """exercises/mri, README step 1.7 (skeleton) and step 3 (solution).
+
+        WHAT DISTINGUISHES THE ARMS is the MRI option's `count` and the swids under it.
+        README:85 for the skeleton: "At h2, the MRI header has no hop info (count=0)".
+        README:171-212 for the solution: a `count = 2` with `swid = 2` and `swid = 1` -- the
+        two switches h1 -> s1 -> s2 -> h2 crosses.
+
+        🔴 `qdepth` IS DELIBERATELY NOT ASSERTED. It is 0 unless the 0.5 Mbit/s link of
+        topology.json:65-69 is shaped (G2-C), and README's own troubleshooting item 4 is
+        about exactly that; `count` and the swids are the exercise's claim and need no queue.
+        """
+        srv, cli, fh = self._background_udp("h11", "h22", self.ips["h22"], rate="1M")
+        try:
+            recv, rfh, rpath, rcmd = self._start_receiver("h2", "h2")
+            self.steps.append(("M1  h2 starts the sniffer", rcmd, "(background; output below)"))
+            scmd = [VENV_PY, self._script("send.py"), self.ips["h2"], "P4 driver probe",
+                    str(SEND_SECONDS)]
+            sout = self._send_once("h1", scmd, label="M2  h1 send.py (MRI option, one per second)")
+            rtext = self._stop_receiver(recv, rfh, rpath)
+        finally:
+            self._stop_proc(cli)
+            self._stop_proc(srv)
+            fh.flush(); fh.close()
+        say("-- h2 receive.py output (%s) --" % rpath)
+        say(trim(rtext, 4000))
+        self.steps.append(("M3  h2 sniffer output", rcmd, rtext))
+
+        pkts = self._packets(rtext)
+        counts = [int(v) for v in self._field_values(rtext, "count") if v.isdigit()]
+        swids = sorted({int(v) for v in self._field_values(rtext, "swid") if v.isdigit()})
+
+        self._add("injection: packets reached h2", ">=1", "%d" % len(pkts),
+                  len(pkts) >= 1, G_SRC,
+                  "send.py:69-83 sends one UDP/4321 datagram per second carrying "
+                  "IPOption_MRI(count=0); receive.py:63 filters 'udp and port 4321'")
+        self._add("injection: the MRI option survived to h2", ">=1 count field",
+                  "%d" % len(counts), bool(counts), G_SRC,
+                  "receive.py:33-50 decodes IP option 31 as IPOption_MRI; no count line means "
+                  "the option was not there at all, which is a different failure")
+
+        if self.which == "solution":
+            self._add("hop count at h2", "2", str(sorted(set(counts))),
+                      bool(counts) and set(counts) == {2}, G_BOTH,
+                      "README step 3: h1 -> s1 -> s2 -> h2 is two switches")
+            self._add("switch ids in the trace", "[1, 2]", str(swids),
+                      swids == [1, 2], G_BOTH,
+                      "sX-runtime.json:6-13 sets MyEgress.swtrace's DEFAULT action to "
+                      "add_swtrace(swid=N), so s1 and s2 stamp 1 and 2")
+        else:
+            self._add("RED ARM: the hop count stays 0", "[0]", str(sorted(set(counts))),
+                      bool(counts) and set(counts) == {0}, G_BOTH,
+                      "README step 1.7: 'the MRI header has no hop info (count=0)'; "
+                      "mri.p4:205 leaves add_swtrace empty and :268 emits no swtraces. "
+                      "If this is red the solution's count=2 proves nothing.")
+            self._add("and no swid is ever stamped", "[]", str(swids),
+                      swids == [], G_SRC,
+                      "the skeleton's parse_swtrace is a bare `transition accept` (mri.p4:137)")
+        self._log_sizes()
+
+    # ----------------------------------------------------- load_balance ---
+
+    def steps_load_balance(self):
+        """exercises/load_balance, README step 1 (skeleton) and step 3 (solution).
+
+        WHAT DISTINGUISHES THE ARMS. README:24-25 says the skeleton "initially sends all
+        packets of the load balance IP to h2"; README:102-104 says the solution delivers to
+        "h2 or h3. If you send several messages, some should be received by each server."
+        So the reading is a SPLIT over ten sends, and the skeleton's is the degenerate one --
+        which is why ten and not one: a single packet is consistent with both arms.
+
+        🔴 THE DESTINATION IS 10.0.0.1 AND IT IS NOBODY'S ADDRESS. It is the load-balanced
+        service address s1's ecmp_group matches on (s1-runtime.json:5-70), so the hosts that
+        answer are decided by the fabric and not by the IP.
+        """
+        r2, f2, p2, c2 = self._start_receiver("h2", "h2")
+        r3, f3, p3, c3 = self._start_receiver("h3", "h3")
+        self.steps.append(("D1  h2 and h3 start sniffers", c2 + " | " + c3,
+                           "(background; output below)"))
+        sent = 0
+        for i in range(10):
+            scmd = [VENV_PY, self._script("send.py"), "10.0.0.1", "P4 driver probe %d" % i]
+            sout = self._send_once("h1", scmd)
+            sent += len(re.findall(r"^sending on interface .* to 10\.0\.0\.1$", sout, re.M))
+        self.steps.append(("D2  h1 send.py 10.0.0.1 x10",
+                           "%s %s 10.0.0.1 'P4 driver probe <i>'  (x10)"
+                           % (VENV_PY, self._script("send.py")),
+                           "%d of 10 sends printed their 'sending on interface' line" % sent))
+        t2 = self._stop_receiver(r2, f2, p2)
+        t3 = self._stop_receiver(r3, f3, p3)
+        say("-- h2 (%s) --" % p2); say(trim(t2, 2500))
+        say("-- h3 (%s) --" % p3); say(trim(t3, 2500))
+        self.steps.append(("D3  h2 sniffer output", c2, t2))
+        self.steps.append(("D4  h3 sniffer output", c3, t3))
+        n2, n3 = len(self._packets(t2)), len(self._packets(t3))
+
+        self._add("injection: send.py emitted 10 frames", "10", str(sent),
+                  sent == 10, G_SRC,
+                  "send.py:34 prints 'sending on interface <i> to 10.0.0.1' before sendp()")
+
+        if self.which == "solution":
+            self._add("both servers were used", "h2>=1 and h3>=1", "h2=%d h3=%d" % (n2, n3),
+                      n2 >= 1 and n3 >= 1, G_BOTH,
+                      "README step 3: 'some should be received by each server'; "
+                      "solution/load_balance.p4:106-115 hashes the 5-tuple into ecmp_select")
+        else:
+            self._add("RED ARM: only h2 is used", "h2>=1 and h3==0", "h2=%d h3=%d" % (n2, n3),
+                      n2 >= 1 and n3 == 0, G_BOTH,
+                      "README:24-25 'initially sends all packets of the load balance IP to h2'; "
+                      "load_balance.p4:107 leaves set_ecmp_select empty so ecmp_select stays 0 "
+                      "and s1-runtime.json maps 0 to port 2. If this is red the solution's "
+                      "split proves nothing.")
+        self._log_sizes()
+
+    # -------------------------------------------------------- multicast ---
+
+    def steps_multicast(self):
+        """exercises/multicast, README step 1 (skeleton) and step 3 (solution).
+
+        🔴 THE EXPECTATION IS PER PAIR, NOT THE AGGREGATE. README:119-120: "you should be able
+        to successfully ping between h1, h2 and h3 but not h4". sig-topo/s1-runtime.json:47-65
+        replicates ports 1, 2 and 3 only -- adding the fourth is the student's own TODO
+        (README:122) -- so the SOLUTION arm's correct result is a fabric that is partly
+        unreachable, and a `pingall` loss number cannot express it.
+
+        IPv6 is turned off INSIDE each host first. exercises/multicast/disable_ipv6.sh is the
+        exercise's own `sysctl -w net.ipv6.conf.{all,default}.disable_ipv6=1`; run as shipped
+        it would turn IPv6 off for the whole machine, which is not this driver's to do, so it
+        is run in the namespaces whose multicast noise it is about.
+        """
+        for name in self.h.names():
+            out = self.h.cmd(name, "sysctl -w net.ipv6.conf.all.disable_ipv6=1 "
+                                   "&& sysctl -w net.ipv6.conf.default.disable_ipv6=1")
+            say("$ %s: disable_ipv6 -> %s" % (name, out.strip().replace("\n", " | ")))
+        self.steps.append(("U1  IPv6 off in every host namespace",
+                           "sysctl -w net.ipv6.conf.{all,default}.disable_ipv6=1 in each host",
+                           "exercises/multicast/disable_ipv6.sh's two lines, per namespace"))
+
+        # 🔴 FROM A KNOWN CACHE STATE (round-3 ruling 5). See HostRunner.flush_arp.
+        flushed = self.h.flush_arp()
+        say("$ ip neigh flush all, in each host namespace -> %s" % (", ".join(flushed) or "none"))
+        self.steps.append(("ARP caches emptied before the measurement",
+                           "ip neigh flush all (each host)", ", ".join(flushed) or "none"))
+        pa = self._pingall()
+        group = ("h1", "h2", "h3")
+        inside = [pa.results.get((s, d)) for s in group for d in group if s != d]
+        # 🔴 h4 IS UNREACHABLE IN ONE DIRECTION ONLY (judge A4). sig-topo/s1-runtime.json:36-45
+        # installs a mac_forward entry for h4's MAC to port 4 like every other host -- it is
+        # only the MULTICAST GROUP (:47-65) that leaves port 4 out. So an ARP request from hX
+        # floods to ports 1,2,3 and never reaches h4 (hX -> h4 is 100% loss), while h4's own
+        # ARP request floods to 1,2,3 and IS answered, and the unicast reply hits h4's
+        # mac_forward entry: h4 -> hX forwards at 0%. Round 1 asserted 100% on all six pairs
+        # and would have been red on three of them for a fabric behaving exactly as the
+        # exercise describes.
+        to_h4 = [r for (s, d), r in sorted(pa.results.items()) if d == "h4"]
+        from_h4 = [r for (s, d), r in sorted(pa.results.items()) if s == "h4"]
+        inside_ok = bool(inside) and all(r is not None and r.tested and r.loss == 0 for r in inside)
+        inside_label = ", ".join("%s" % (r.label() if r else "MISSING") for r in inside)
+        h4_blocked = bool(to_h4) and all(r.tested and r.loss == 100 for r in to_h4)
+        h4_label = ", ".join(r.label() for r in to_h4)
+        h4_out_ok = bool(from_h4) and all(r.tested and r.loss == 0 for r in from_h4)
+        h4_out_label = ", ".join(r.label() for r in from_h4)
+
+        self._add("injection: every ordered pair was tested", "0 untested",
+                  "%d untested of %d" % (pa.untested, pa.pairs),
+                  pa.untested == 0, G_SRC,
+                  "an untested pair is not a blocked one; without this 'h4 is unreachable' "
+                  "would also describe a host whose namespace could not be entered")
+
+        if self.which == "solution":
+            self._add("h1/h2/h3 reach each other", "0% on all 6 pairs", inside_label,
+                      inside_ok, G_BOTH,
+                      "README step 3; solution/multicast.p4:74-76 floods to mcast_grp 1 and "
+                      ":113-114 prunes the ingress copy")
+            self._add("nobody reaches h4", "100% on the three hX -> h4 pairs", h4_label,
+                      h4_blocked, G_BOTH,
+                      "sig-topo/s1-runtime.json:47-65 replicates ports 1,2,3 only -- port 4 is "
+                      "README:122's TODO and this driver does not edit the exercise; an ARP "
+                      "request for h4 floods to 1,2,3 and h4 never sees it")
+            self._add("but h4 reaches them", "0% on the three h4 -> hX pairs", h4_out_label,
+                      h4_out_ok, G_SRC,
+                      "sig-topo/s1-runtime.json:36-45 DOES give h4's MAC a mac_forward entry "
+                      "to port 4; only the group leaves 4 out. h4's own ARP floods to 1,2,3, "
+                      "is answered, and the unicast reply hits that entry.")
+            # 🔴 AND IT IS NOT AN ARTEFACT OF THE PING ORDER (round-3 ruling 5). The pass above
+            # got hX -> h4 right because h4 is last as a source, so nobody had learned its MAC
+            # yet. That is true of THIS walk; it would not be true of a dst-major one, nor of a
+            # second pingall on the same fabric -- by now h1-h3 DO hold h4's MAC, from the
+            # replies they sent it. So: flush again and re-measure just that direction. If the
+            # 100% only held because of ordering, this cell is where it shows.
+            reflushed = self.h.flush_arp()
+            say("$ ip neigh flush all again -> %s; re-measuring the three hX -> h4 pairs"
+                % (", ".join(reflushed) or "none"))
+            again = [(src, self.h.ping(src, self.h.ips["h4"], 5)) for src in group]
+            again_ok = all(r.tested and r.loss == 100 for _s, r in again)
+            again_label = ", ".join("%s->h4 %s" % (s, r.label()) for s, r in again)
+            self.steps.append(("hX -> h4 re-measured from cold ARP caches",
+                               "ip neigh flush all; ping -c 5 -W 2 h4", again_label))
+            self._add("and h4 is unreachable from cold caches, not just from this ping order",
+                      "100% on all three, after a second flush", again_label, again_ok, G_SRC,
+                      "the first pass measured hX -> h4 before h4 had ever ARPed, which this "
+                      "walk guarantees only because h4 sorts last as a source; this repeats it "
+                      "from a state that does not depend on the order at all")
+        else:
+            self._add("RED ARM: nothing pings at all", "100.0%", pa.label(),
+                      pa.loss == 100, G_BOTH,
+                      "README:78-80 'multicast.p4 ... drops all packets on arrival'; "
+                      "multicast.p4:91 default_action = drop, so even ARP dies and no host "
+                      "ever learns a MAC. If this is red the solution's reachability proves "
+                      "nothing.")
+        self._log_sizes()
+
+    # ------------------------------------------------------------- qos ----
+
+    def _tos_from(self, text, src):
+        """The tos of every sniffed packet whose IP src is `src` -- and of nothing else.
+
+        🔴 qos/receive.py:22 HAS NO BPF FILTER (judge A5). It prints every frame on h2's eth0,
+        h2's OWN replies included -- and h2 replies: nothing is listening on UDP/4321, so the
+        kernel answers ICMP port-unreachable (tos 0xc0), and the TCP round's SYN to port 80
+        gets a RST (tos 0x0). Reading every `tos` line in the capture therefore makes the
+        skeleton arm's `set(tos) == {"0x1"}` red over a fabric doing exactly what the exercise
+        says, and makes the solution arm's reading a mixture of two hosts' traffic.
+
+        Per PACKET, not per file: `_packets` already splits the capture into one block per
+        `got a packet`, so the src and the tos are read out of the same block and cannot come
+        from two different frames.
+        """
+        out = []
+        for pkt in self._packets(text):
+            if not re.search(r"^\s*src\s*=\s*%s\s*$" % re.escape(src), pkt["text"], re.M):
+                continue
+            m = re.search(r"^\s*tos\s*=\s*(\S+)\s*$", pkt["text"], re.M)
+            if m:
+                out.append(m.group(1))
+        return out
+
+    def _qos_round(self, proto, tag):
+        """One `send.py --p=<proto>` run with h2 sniffing. -> (tos of h1's frames, out, n)."""
+        recv, fh, rpath, rcmd = self._start_receiver("h2", "h2-%s" % tag)
+        scmd = [VENV_PY, self._script("send.py"), "--p=%s" % proto,
+                "--des=%s" % self.ips["h2"], "--m=P4 driver probe", "--dur=%d" % SEND_SECONDS]
+        sout = self._send_once("h1", scmd, label="Q%s  h1 send.py --p=%s" % (tag, proto))
+        rtext = self._stop_receiver(recv, fh, rpath)
+        say("-- h2 (%s) --" % rpath); say(trim(rtext, 3000))
+        self.steps.append(("Q%s  h2 sniffer output (%s)" % (tag, proto), rcmd, rtext))
+        mine = self._tos_from(rtext, self.ips["h1"])
+        say("   tos values on frames from %s: %s   (of %d packet(s) sniffed in total)"
+            % (self.ips["h1"], sorted(set(mine)), len(self._packets(rtext))))
+        return mine, sout, len(mine)
+
+    def steps_qos(self):
+        """exercises/qos, README step 1.6 (skeleton) and step 3 (solution).
+
+        BOTH PROTOCOLS, because the solution's two classes are the exercise: README:110-111
+        "you should see tos values change from 0x1 to 0xb9 for UDP and 0xb1 for TCP", and
+        solution/qos.p4:208-214 dispatches on hdr.ipv4.protocol. One protocol alone cannot
+        tell a fabric that classifies from one that stamps a constant.
+
+        🔴 qos/receive.py:22 HAS NO BPF FILTER -- it prints every frame on eth0, ARP and IPv6
+        included -- so the reading is the SET of tos values seen, not "the last packet".
+        """
+        udp_tos, udp_out, udp_n = self._qos_round("UDP", "1")
+        tcp_tos, tcp_out, tcp_n = self._qos_round("TCP", "2")
+
+        self._add("injection: h1's packets reached h2 in both rounds", ">=1 each",
+                  "udp=%d tcp=%d" % (udp_n, tcp_n), udp_n >= 1 and tcp_n >= 1, G_SRC,
+                  "send.py:40-54 loops for --dur seconds. Counted on frames whose IP src is "
+                  "h1: receive.py:22 has no BPF filter, so h2's own ICMP unreachable and RST "
+                  "replies are in the same capture and would make a bare count non-zero even "
+                  "if nothing arrived from h1")
+
+        if self.which == "solution":
+            self._add("UDP is expedited forwarding", "0xb9 among the tos values",
+                      str(sorted(set(udp_tos))), "0xb9" in udp_tos, G_BOTH,
+                      "README step 3; solution/qos.p4:208-210 calls expedited_forwarding(), "
+                      "diffserv 46 -> tos 46<<2 | ecn 1 = 0xb9")
+            self._add("TCP is voice admit", "0xb1 among the tos values",
+                      str(sorted(set(tcp_tos))), "0xb1" in tcp_tos, G_BOTH,
+                      "README step 3; solution/qos.p4:211-213 calls voice_admit(), "
+                      "diffserv 44 -> tos 44<<2 | ecn 1 = 0xb1")
+        else:
+            self._add("RED ARM: UDP tos stays 0x1", "['0x1']", str(sorted(set(udp_tos))),
+                      bool(udp_tos) and set(udp_tos) == {"0x1"}, G_BOTH,
+                      "README step 1.6: 'the ipv4.tos field is always 1'; qos.p4:138 leaves "
+                      "the ingress apply with nothing but ipv4_lpm. Read on h1's frames only: "
+                      "h2's own ICMP port-unreachable carries tos 0xc0")
+            self._add("RED ARM: TCP tos stays 0x1", "['0x1']", str(sorted(set(tcp_tos))),
+                      bool(tcp_tos) and set(tcp_tos) == {"0x1"}, G_BOTH,
+                      "the same TODO; h2's RST to the SYN carries tos 0x0, which is why this "
+                      "reads h1's frames and not the capture. If either of these is red the "
+                      "solution's 0xb9/0xb1 proves nothing")
+        self._log_sizes()
+
+    # ------------------------------------------------------ p4runtime -----
+
+    def steps_p4runtime(self):
+        """exercises/p4runtime, README step 1.3 (skeleton) and step 3 (solution).
+
+        The .p4 has no TODO: the exercise is the CONTROLLER, and the skeleton's gap is the
+        transit rule -- mycontroller.py:76 prints "TODO Install transit tunnel rule" where the
+        solution prints "Installed transit tunnel rule on s2" (solution/mycontroller.py:85).
+
+        🔴 THE CONTROLLER'S OWN LOG IS THE INJECTION ASSERTION, and it comes first. README
+        step 1.2: "Because there are no rules on the switches, you should not receive any
+        replies yet" -- so "h1 cannot ping h2" is true of a controller that never started, of
+        a fabric that never came up and of the skeleton alike, and only the pipeline lines in
+        the log tell them apart. It is the same rule live-p1/_common.sh's
+        controller_program_set enforces for the twin's liveness.
+        """
+        proc, fh, path, text, alive, ctrl = self._start_controller(self.which, "p4runtime")
+        try:
+            self._add("injection: the controller stayed up", "alive after %ds" % CTRL_SETTLE,
+                      "alive" if alive else "exited", alive, G_SRC,
+                      "mycontroller.py:205-212 exits 1 when build/ is missing; a dead "
+                      "controller makes every claim below vacuous")
+            loaded = sorted(set(int(d) for d in re.findall(
+                r"^Installed P4 Program using SetForwardingPipelineConfig on s(\d+)\s*$",
+                text, re.M)))
+            self._add("switches the controller programmed", "[1, 2]", str(loaded),
+                      loaded == [1, 2], G_SRC,
+                      "mycontroller.py:142-152 connects to s1 and s2 only; s3 is never "
+                      "contacted, which live-p1/03 asserts on the twin's side too")
+            ping = self.h.ping("h1", self.ips["h2"], count=5)
+            say("$ h1: ping -c5 %s -> %s" % (self.ips["h2"], ping.label()))
+            self.steps.append(("P1  h1 ping h2 with the controller running",
+                               "ping -c 5 -W 2 %s" % self.ips["h2"], ping.raw or ping.label()))
+            transit = "Installed transit tunnel rule" in text
+            todo = "TODO Install transit tunnel rule" in text
+            if self.which == "solution":
+                self._add("the transit rule went in", "Installed transit tunnel rule",
+                          "installed" if transit else ("still a TODO" if todo else "neither"),
+                          transit, G_SRC, "solution/mycontroller.py:85")
+                self._add("h1 -> h2 forwards through the tunnel", "0.0%", ping.label(),
+                          ping.tested and ping.loss == 0, G_BOTH,
+                          "README step 3: 'You should start to see ICMP replies'")
+            else:
+                self._add("RED ARM: the transit rule is still the student's TODO",
+                          "TODO Install transit tunnel rule",
+                          "installed" if transit else ("still a TODO" if todo else "neither"),
+                          todo and not transit, G_SRC,
+                          "mycontroller.py:76. If the skeleton installed it, the solution's "
+                          "green says nothing about the transit rule.")
+                self._add("RED ARM: h1 -> h2 does not forward", "100% loss", ping.label(),
+                          ping.tested and ping.loss == 100, G_BOTH,
+                          "README step 1.3: only s1's ingress counter moves; the packets die "
+                          "inside s1 for want of the transit rule")
+        finally:
+            text = self._stop_controller(proc, fh, path)
+            self.steps.append(("P9  controller log after the round", path, text))
+        self._log_sizes()
+
+    # ------------------------------------------------------- flowcache ----
+
+    def steps_flowcache(self):
+        """exercises/flowcache, README step 1.2 (skeleton) and step 3 (solution).
+
+        🔴 THE SKELETON NEVER REACHES THIS FUNCTION. flowcache.p4:83-91 declares both
+        controller headers with no fields while the body reads them (:232, :269-271), so p4c
+        refuses it -- README:29 says so -- and spec["red_arm"] == "compile" makes that refusal
+        the arm's whole verdict. A run that got here with `--which skeleton` means the
+        skeleton COMPILED, which is the finding, and the first expectation below says so.
+        """
+        if self.which == "skeleton":
+            self._add("RED ARM: the skeleton must not compile", "p4c refuses it",
+                      "it compiled and the steps ran", False, G_BOTH,
+                      "README:29 and flowcache.p4:83-91 vs :232/:269-271. Reaching the data "
+                      "plane with the skeleton means the red arm is not red.")
+        proc, fh, path, text, alive, ctrl = self._start_controller(self.which, "flowcache")
+        try:
+            self._add("injection: the controller stayed up", "alive after %ds" % CTRL_SETTLE,
+                      "alive" if alive else "exited", alive, G_SRC,
+                      "mycontroller.py:546-553 exits 1 when build/ is missing")
+            loaded = sorted(set(int(d) for d in re.findall(
+                r"^Installed P4 Program using SetForwardingPipelineConfig on s(\d+)\s*$",
+                text, re.M)))
+            self._add("switches the controller programmed", "[1, 2, 3]", str(loaded),
+                      loaded == [1, 2, 3], G_SRC,
+                      "mycontroller.py:457-472 connects to s1, s2 and s3")
+            ping = self.h.ping("h1", self.ips["h2"], count=5)
+            say("$ h1: ping -c5 %s -> %s" % (self.ips["h2"], ping.label()))
+            self.steps.append(("W1  h1 ping h2 with the controller running",
+                               "ping -c 5 -W 2 %s" % self.ips["h2"], ping.raw or ping.label()))
+            text = self._stop_controller(proc, fh, path)
+            cached = bool(re.search(r"^For switch s\d+ flow \(SA=.*added table entry", text, re.M))
+            self._add("the controller cached the flow it was punted", "a flow_cache entry",
+                      "cached" if cached else "no 'added table entry' line", cached, G_SRC,
+                      "mycontroller.py:372-376 prints one line per flow it installs; without "
+                      "it the ping below would be evidence about something else")
+            self._add("h1 -> h2 forwards once the cache is warm", "0.0%", ping.label(),
+                      ping.tested and ping.loss == 0, G_BOTH,
+                      "README step 3: 'You should start to see ICMP replies'")
+        finally:
+            if proc.poll() is None:
+                text = self._stop_controller(proc, fh, path)
+            self.steps.append(("W9  controller log after the round", path, text))
+        self._log_sizes()
+
     # ---------------------------------------------------------------------
 
     def _log_sizes(self):
@@ -1221,7 +2128,15 @@ def make_driver(base_cls, exercise, which, exdir, spec, args, ips):
                 self.net.start()
                 time.sleep(1)
                 self.program_hosts()
-                self.program_switches()
+                # 🔴 THE ARM WHOSE RED IS HERE AND NOT IN THE DATA PLANE (TICKET-P3 §2.7).
+                # exercises/basic_tunnel's README:41-43 says the starter code's `make run`
+                # does not work, because sX-runtime.json names MyIngress.myTunnel_exact and
+                # the skeleton declares no such table. That refusal IS the arm, so it is
+                # caught and recorded rather than escaping as "the harness blew up" -- which
+                # is exit 2, "nothing to look at", and would make the one exercise whose red
+                # arm is a control-plane refusal indistinguishable from a broken driver.
+                if not self._program_switches_arm():
+                    return
                 time.sleep(1)
                 self.do_net_cli()
             finally:
@@ -1232,6 +2147,48 @@ def make_driver(base_cls, exercise, which, exdir, spec, args, ips):
                 except Exception as e:                      # noqa: BLE001
                     say("!! net.stop() raised: %r" % (e,))
 
+        def _program_switches_arm(self):
+            """program_switches(), and the designed refusal of the `entries` red arm.
+
+            -> True to go on to the steps, False when the arm is finished here.
+            """
+            want = spec.get("red_arm") == "entries" and which == "skeleton"
+            try:
+                self.program_switches()
+            except Exception as e:                           # noqa: BLE001
+                if not want:
+                    raise
+                import traceback
+                rule("the skeleton's runtime entries")
+                say(traceback.format_exc())
+                self.expects = [Expect(
+                    "RED ARM: the skeleton's runtime entries must NOT install",
+                    "the control plane refuses", "%r" % (e,), True, G_BOTH,
+                    "README:41-43: 'the control plane tries to access the myTunnel_exact "
+                    "table, and that table does not yet exist, [so] the `make run` command "
+                    "will not work with the starter code'")]
+                self.steps = [("T0  program_switches (the exercise's own sX-runtime.json)",
+                               "ExerciseRunner.program_switches()", traceback.format_exc())]
+                # 🔴 THE SAME VERDICT THE NDTwin ARM GETS (round-3 ruling 1). The refusal lands
+                # here as a harness exception instead of a pre-flight rc, but it is the refusal
+                # README:41-43 describes and the arm met every expectation it has. Reporting it
+                # as `PASS (1/1)` / exit 0 here while the other fabric says `RED ARM (1/1)` /
+                # exit 1 is one exercise reading two ways -- which is what the two-fabric driver
+                # exists to make impossible.
+                designed_refusal_seen()
+                return False
+            if want:
+                self.expects = [Expect(
+                    "RED ARM: the skeleton's runtime entries must NOT install",
+                    "the control plane refuses", "every entry went in", False, G_BOTH,
+                    "README:41-43. If the skeleton's entries install, the solution's tunnel "
+                    "delivery is not evidence that the tunnel table did anything.")]
+                self.steps = [("T0  program_switches (the exercise's own sX-runtime.json)",
+                               "ExerciseRunner.program_switches()",
+                               "it returned cleanly, which this arm says it must not")]
+                return False
+            return True
+
         # ---- replaces run_exercise.py:324-363 (which ends in CLI(self.net)) ----
         def do_net_cli(self):
             rule("topology as brought up")
@@ -1241,7 +2198,8 @@ def make_driver(base_cls, exercise, which, exdir, spec, args, ips):
                 h.describe()
             rule("scripted steps (no CLI, no xterm)")
             hosts = MininetHosts(self.net, ips, cwd=exdir)
-            session = Steps(hosts, exercise, which, exdir, self.log_dir, args)
+            session = Steps(hosts, exercise, which, exdir, self.log_dir, args,
+                            fabric="tutorials")
             try:
                 session.run()
             finally:
@@ -1368,7 +2326,69 @@ def knob_restore(before, path=None):
     return True, "put back to the %d bytes this round found" % len(before)
 
 
-def ndtwin_teardown(knob_before, steps_out=None):
+def link_usage_applies(spec, which):
+    """(run it?, destination host or None, why not) for the generic cell on ONE ndtwin arm.
+
+    🔴 THE CELL NEEDS A FLOW, AND TWO KINDS OF ARM DO NOT HAVE ONE. "Link usage follows the
+    iperf path" is a claim about NDTwin and is program-independent -- but it still needs the
+    exercise's fabric to carry a packet, and:
+
+      * a SKELETON is, for most of these exercises, a fabric that deliberately forwards
+        nothing. Running the cell there produces an EMPTY on-path set, which
+        assert_link_usage_follows_path refuses -- correctly, and about the wrong thing;
+      * two SOLUTIONS forward nothing either. source_routing's drops every frame without a
+        0x1234 stack and calc's drops everything that is not the calculator protocol, both
+        in the solution (see their spec entries). Those are properties of the exercise, not
+        of the twin.
+
+    🔴 AND "NOT RUN" IS NOT "PASSED". Neither case produces an expectation: the round records
+    a named reading saying the cell did not run and why, the way `ndt`'s own NOT CHECKED
+    branches do. Inventing a green cell for a fabric that moved no packet is the exact shape
+    this whole ticket keeps refusing.
+    """
+    if which != "solution":
+        return False, None, ("the skeleton arm is a fabric the exercise says should not "
+                             "forward; there is no path for a program-independent cell to follow")
+    want = spec.get("link_usage", True)
+    if want is False:
+        return False, None, spec.get("link_usage_why") or "this exercise declares no path"
+    return True, (want if isinstance(want, str) else None), ""
+
+
+def link_usage_cell(package, label, out_dir, expect="follows", runner=None, dst=None):
+    """The generic cell of TICKET-P3 §2.7, run through live-p1/_common.sh's own helper.
+
+    -> (ok, transcript).  `expect` is "follows" (the cell) or "absent" (the control).
+
+    🔴 ONE INSTRUMENT, TWO CALLERS, AND THIS IS THE SECOND ONE. `link_usage_round` is defined
+    in live-p1/_common.sh and live-p1/05 runs it three times; a Python re-implementation here
+    would make "the same program-independent cell over thirteen exercises" a comparison
+    between two pieces of code that were meant to agree and had no way of saying when they
+    stopped. _common.sh defines names and sets variables when sourced and runs nothing until
+    start_step, which is what makes it safe to source for one function (the same thing
+    tests/shell/test_live_p1_common.sh does).
+
+    🔴 A CELL THAT COULD NOT RUN IS NOT A CELL THAT PASSED. rc 2 from link_usage_round is
+    "no namespace / no sudo" -- a permission answer -- and it comes back as a FAILED
+    expectation naming that, never as a quiet skip and never as link usage.
+    """
+    runner = runner or run
+    script = ("set -u\n"
+              "source %s\n"
+              "link_usage_round %s %s %s %s %s\n" % (_sh(LIVE_COMMON), _sh(package),
+                                                     _sh(label), _sh(out_dir), _sh(expect),
+                                                     _sh(dst or "")))
+    rc, out = runner(["bash", "-c", script], cwd=REPO, timeout=240, env=ndt_env())
+    say(trim(out, 4000).rstrip())
+    return rc == 0, out
+
+
+def _sh(word):
+    """One shell word, quoted. The driver builds exactly one shell command and this is it."""
+    return "'" + str(word).replace("'", "'\\''") + "'"
+
+
+def ndtwin_teardown(knob_before, steps_out=None, telemetry_before=None):
     """`ndt down`, then the host knob, then `ndt release`.  -> "" or what went wrong.
 
     🔴 THE ORDER IS _common.sh finish()'s, AND THE MIDDLE STEP IS NOT OPTIONAL.
@@ -1391,6 +2411,16 @@ def ndtwin_teardown(knob_before, steps_out=None):
     say("   host_count_override: %s" % why)
     if not ok:
         problems.append(why)
+    # 🔴 THE TELEMETRY KNOB TOO, and for the reason the host knob is put back rather than the
+    # reason `ndt release` gives. `ndt down` does not touch p4_proxy/mininet/telemetry_override
+    # (TICKET-P3 §2.1) and `ndt release` does not check it, so nothing refuses over it -- which
+    # is exactly why a round that moved it and walked away would decide the NEXT bring-up's
+    # telemetry source with nothing on screen saying so. Bytes, not the word, for the same
+    # reason as the host knob: the file may be annotated.
+    tok, twhy = knob_restore(telemetry_before, TELEMETRY_KNOB)
+    say("   telemetry_override: %s" % twhy)
+    if not tok:
+        problems.append(twhy)
     rrc, rout = ndt(["release"])
     say("   ndt release rc=%d" % rrc)
     if steps_out is not None:
@@ -1429,7 +2459,28 @@ def convert_p4_arg(exdir, spec, which):
     return default
 
 
-def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=None):
+#: Whether this round ended on the refusal its arm is SUPPOSED to end on (judge A6, and the
+#: round-3 ruling that it must read the same on both fabrics). It is neither an error nor a
+#: pass: the verdict is `RED ARM (n/n): ... by design` and the exit code is 1 -- the pair
+#: `flowcache`'s compile arm has always reported.
+#:
+#: 🔴 A DICT, AND MODULE-LEVEL, BECAUSE BOTH FABRICS HAVE TO SET IT. Round 2 hung it on
+#: `run_on_ndtwin`, which is only reachable from the NDTwin path, and then read it under
+#: `args.fabric == "ndtwin"` -- so `basic_tunnel`'s skeleton still printed `PASS (1/1)` / exit 0
+#: on tutorials while printing `RED ARM (1/1)` / exit 1 on NDTwin. That is the same defect A6
+#: named, half-fixed: ONE EXERCISE MUST NOT READ TWO WAYS ON TWO FABRICS. The tutorials refusal
+#: happens inside the harness (`program_switches` raises) rather than in a pre-flight, but it is
+#: the same refusal, for the reason README:41-43 gives.
+DESIGNED_REFUSAL = {"hit": False}
+
+
+def designed_refusal_seen():
+    """Call when the arm ended on its own designed refusal. Both fabrics call this."""
+    DESIGNED_REFUSAL["hit"] = True
+
+
+def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=None,
+                  red_stage=None):
     """convert -> pre-flight -> claim -> up -> steps -> down -> release.
 
     🔴 THE TEARDOWN IS IN A `finally` AND IT IS BOTH HALVES, in _common.sh
@@ -1471,6 +2522,25 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
     say(trim(out, 4000).rstrip())
     steps_out.append(("N2  preflight.py", " ".join(cmd), out))
     if rc != 0:
+        # 🔴 THE ONE ARM WHOSE RED IS A REFUSAL (TICKET-P3 §2.7). basic_tunnel's skeleton
+        # declares no myTunnel_exact and its own sX-runtime.json writes three entries into it
+        # (README:41-43), so pre-flight's entries-match-p4info check is where that arm is
+        # supposed to stop. Reported as the expectation it is, not as rc 2 "nothing was
+        # started" -- which is the answer for a package that is merely broken.
+        if red_stage == "entries":
+            run_on_ndtwin.expects = [Expect(
+                "RED ARM: the skeleton's runtime entries must NOT install",
+                "pre-flight refuses them", "pre-flight rc=%d" % rc, True, G_BOTH,
+                "README:41-43; tools/p4_exercise/preflight.py checks every entry against the "
+                "p4info the package carries, and the skeleton's does not declare that table")]
+            # 🔴 THE VERDICT IS THE DESIGNED-REFUSAL ONE, NOT `ERROR` (judge A6). Returning a
+            # bare non-zero rc made main() print `ERROR`, because that is what a non-zero round
+            # means everywhere else -- while the SAME arm on the tutorials fabric printed
+            # `PASS (1/1)`. One exercise reading two different ways on two fabrics is the thing
+            # the two-fabric driver exists to make impossible.
+            designed_refusal_seen()
+            say("!! pre-flight FAILED (rc %d) -- and for this arm that IS the expectation." % rc)
+            return 1, pkg, state
         say("!! pre-flight FAILED (rc %d). 'ndt up p4 --app' would refuse this too;"
             " nothing was started." % rc)
         return 2, pkg, state
@@ -1481,6 +2551,12 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
     say("host_count_override snapshot: %s"
         % ("absent" if knob_before is None else "%d bytes (%r)"
            % (len(knob_before), knob_before[:40])))
+    # The telemetry knob, snapshot at the same point and for the same reason: `ndt up p4
+    # --telemetry` writes it, `ndt down` leaves it, and it decides the next bring-up.
+    telemetry_before = knob_snapshot(TELEMETRY_KNOB)
+    say("telemetry_override snapshot: %s"
+        % ("absent" if telemetry_before is None else "%d bytes (%r)"
+           % (len(telemetry_before), telemetry_before[:40])))
 
     # 🔴 THE CLAIM IS TAKEN HERE, after convert and pre-flight -- neither touches
     # the lab, and a package that will not pre-flight must not have held the lab
@@ -1496,11 +2572,26 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
     run_on_ndtwin.teardown_problem = ""
     try:
         rule("ndt up p4 --app")
-        rc, out = ndt(["up", "p4", "--app", pkg])
-        steps_out.append(("N3  ndt up p4 --app", "ndt up p4 --app %s" % pkg, out))
+        # 🔴 `--telemetry` IS PASSED ONLY WHEN IT WAS ASKED FOR (TICKET-P3 §2.1). Not giving
+        # the flag is not the same as giving `auto`: without it `ndt` writes what the PACKAGE
+        # declares, and a driver that always spelled a word out would silently overrule every
+        # package's own telemetry.source and then report the result as the package's.
+        up_argv = ["up", "p4", "--app", pkg]
+        if getattr(args, "telemetry", None):
+            up_argv += ["--telemetry", args.telemetry]
+        rc, out = ndt(up_argv)
+        steps_out.append(("N3  ndt up p4 --app", " ".join(["ndt"] + up_argv), out))
         if rc != 0:
             say("!! 'ndt up p4 --app' exited %d" % rc)
             exit_code = 1
+            if red_stage == "entries":
+                run_on_ndtwin.expects = [Expect(
+                    "RED ARM: the skeleton's runtime entries must NOT install",
+                    "the bring-up refuses them", "'ndt up p4 --app' exited %d" % rc, True,
+                    G_BOTH,
+                    "README:41-43; verify_p4_package_entries is the gate that says the "
+                    "package's own entries did not go on the switches")]
+                designed_refusal_seen()
         else:
             state = switch_state()
             rule("GET /p4/switch_state")
@@ -1525,15 +2616,60 @@ def run_on_ndtwin(ex, which, exdir, spec, args, ips, log_dir, steps_out, env=Non
             rule("scripted steps (no CLI, no xterm)")
             hosts = NdtwinHosts(ips, cwd=exdir)
             say("   " + hosts.describe())
-            session = Steps(hosts, ex, which, exdir, log_dir, args)
+            session = Steps(hosts, ex, which, exdir, log_dir, args, fabric="ndtwin",
+                            package=pkg)
             try:
                 session.run()
             finally:
                 steps_out.extend(session.steps)
                 run_on_ndtwin.expects = session.expects
+                if red_stage == "entries":
+                    run_on_ndtwin.expects = [Expect(
+                        "RED ARM: the skeleton's runtime entries must NOT install",
+                        "pre-flight or the bring-up refuses them",
+                        "the fabric came up and the steps ran", False, G_BOTH,
+                        "README:41-43. Nothing refused the skeleton's entries, so the "
+                        "solution's tunnel delivery is not evidence about the tunnel table."
+                    )] + list(session.expects)
+
+            # 🔴 THE GENERIC CELL, LAST AND ON EVERY EXERCISE (TICKET-P3 §2.7). Everything
+            # above is a claim about ONE exercise's program; this one is a claim about
+            # NDTwin -- while a flow crosses the fabric the twin's link usage must be
+            # non-zero exactly on the interfaces that carried it. It is run after the
+            # exercise's own steps so that a failure here cannot be confused with one of
+            # theirs, and before the teardown because it needs the fabric.
+            rule("G1  link usage follows the iperf path (program-independent)")
+            run_it, usage_dst, why = link_usage_applies(spec, which)
+            if not run_it:
+                say("   NOT RUN: %s" % why)
+                say("   (a cell with no flow to follow is recorded as not run, never as a pass)")
+                steps_out.append(("N8  G1 link usage follows the iperf path -- NOT RUN",
+                                  "live-p1/_common.sh link_usage_round (not called)",
+                                  "NOT RUN: %s" % why))
+            else:
+                usage_dir = os.path.join(log_dir, "link_usage")
+                ok, usage_out = link_usage_cell(pkg, "%s/%s" % (ex, which), usage_dir,
+                                                dst=usage_dst)
+                steps_out.append(("N8  G1 link usage follows the iperf path",
+                                  "live-p1/_common.sh link_usage_round %s (to %s)"
+                                  % (pkg, usage_dst or "the model's last host"), usage_out))
+                run_on_ndtwin.expects = list(run_on_ndtwin.expects) + [Expect(
+                    # 🔴 THE STRING SAYS WHAT THE CELL ACTUALLY ASSERTS (round-3 ruling 7).
+                    # It said `off-path == 0` -- which is the rule R4 REMOVED, because a single
+                    # sampled LLDP beacon (1/256, banked as 256x its frame length) would red a
+                    # correct fabric at random. An expectation line that names a bound nobody
+                    # applies is worse than none: a reader reconciling a green cell against it
+                    # concludes the off-path edges integrated to zero, which they did not.
+                    "G1  link usage follows the iperf path",
+                    "on-path > 0, off-path under max(5 kbit, 2% of the smallest on-path)",
+                    "PASS" if ok else "see the transcript", ok, G_SRC,
+                    "TICKET-P3 §2.7's program-independent cell, through live-p1/_common.sh's "
+                    "link_usage_round -- the same function live-p1/05 runs. The floor and every "
+                    "off-path edge's raw integral are in that transcript.")]
     finally:
-        rule("teardown: ndt down, the host knob, then ndt release")
-        run_on_ndtwin.teardown_problem = ndtwin_teardown(knob_before, steps_out)
+        rule("teardown: ndt down, the two knobs, then ndt release")
+        run_on_ndtwin.teardown_problem = ndtwin_teardown(knob_before, steps_out,
+                                                         telemetry_before)
         if run_on_ndtwin.teardown_problem:
             say("!! TEARDOWN WAS NOT CLEAN: %s" % run_on_ndtwin.teardown_problem)
     if run_on_ndtwin.teardown_problem and exit_code == 0:
@@ -1706,6 +2842,14 @@ def main():
                          "ndtwin: convert to an app package and run it on `ndt up p4 --app`.")
     ap.add_argument("--dry-run", action="store_true",
                     help="pre-flight + compile + plan only; no root needed")
+    # 🔴 NO DEFAULT, AND THE DEFAULT IS NOT `auto` (TICKET-P3 §2.1). Omitting the flag makes
+    # `ndt up p4 --app` write the telemetry source the PACKAGE declares; spelling `auto` out
+    # would overrule a package that declared `link` and then report its numbers as the
+    # package's. Only meaningful on --fabric ndtwin: the tutorials harness has no NDTwin
+    # telemetry at all, and passing it there is refused rather than ignored.
+    ap.add_argument("--telemetry", choices=list(TELEMETRY_WORDS), default=None,
+                    help="ndtwin fabric only: the telemetry source `ndt up p4` writes into "
+                         "p4_proxy/mininet/telemetry_override. Omitted = what the package says.")
     ap.add_argument("--recv-warmup", type=float, default=RECV_WARMUP)
     ap.add_argument("--drain-wait", type=float, default=DRAIN_WAIT)
     args = ap.parse_args()
@@ -1731,6 +2875,15 @@ def main():
     # .test_run/, the package directory, runs/ -- comes out root-owned, and the operator's next
     # unprivileged `ndt` then cannot read its own state (live-p1/_common.sh:64-71 says the same
     # thing about the same files). Refused before the compile, so nothing has been written yet.
+    # 🔴 REFUSED, NOT IGNORED. `--fabric tutorials` builds the exercise's own Mininet: there is
+    # no proxy, no kernel and no telemetry_override in it, so a `--telemetry` there would be a
+    # word the operator typed, this driver accepted, and nothing read.
+    if args.telemetry and args.fabric != "ndtwin":
+        say("")
+        say("!! --telemetry is an ndtwin-fabric flag: the tutorials harness has no NDTwin")
+        say("   telemetry to choose. Drop it, or add --fabric ndtwin.")
+        return 2
+
     if args.fabric == "ndtwin" and euid() == 0:
         say("")
         say("!! refusing: --fabric ndtwin must NOT be run as root (euid 0).")
@@ -1753,8 +2906,26 @@ def main():
         say("!! no .p4 source for %s/%s" % (ex, which))
         return 2
 
+    # 🔴 WHICH DESIGNED REFUSAL THIS ARM IS SUPPOSED TO HIT (TICKET-P3 §2.7). Only the skeleton
+    # has one; `None` is every other arm, whose red is a data-plane difference.
+    red_stage = spec.get("red_arm") if which == "skeleton" else None
+
     rc, json_out, cinfo = compile_prog(exdir, src, base)
-    if rc != 0:
+    compile_arm = None
+    if red_stage == "compile":
+        # exercises/flowcache. The refusal IS the arm, so it is an expectation and not an
+        # error: a compile that SUCCEEDED here is the finding, and a report that said
+        # "compile failed -- stopping / exit 2" would file the designed case and the broken
+        # case under the same code.
+        compile_arm = Expect(
+            "RED ARM: the skeleton must NOT compile", "p4c refuses it",
+            "p4c rc=%d" % rc, rc != 0, G_BOTH,
+            "README:29 'you need to define the fields in the packet_in and packet_out "
+            "headers; otherwise, you'll get compilation errors'; flowcache.p4:83-91 declares "
+            "both with no fields and :232/:269-271 read them")
+        rule("red arm")
+        say("   " + compile_arm.line())
+    elif rc != 0:
         say("!! compile failed -- stopping")
         return 2
 
@@ -1794,9 +2965,42 @@ def main():
         say("  %s %s %s --topology %s --p4 %s --out %s" %
             (PROXY_PY, CONVERT, exdir, spec["topo"], spec["default_prog"], pkg))
         say("  %s %s %s" % (PROXY_PY, PREFLIGHT, pkg))
-        say("  NDT_OWNER=%s %s claim %s '...' && NDT_OWNER=%s %s up p4 --app %s"
-            % (NDT_OWNER, NDT, CLAIM_MINUTES, NDT_OWNER, NDT, pkg))
+        say("  NDT_OWNER=%s %s claim %s '...' && NDT_OWNER=%s %s up p4 --app %s%s"
+            % (NDT_OWNER, NDT, CLAIM_MINUTES, NDT_OWNER, NDT, pkg,
+               " --telemetry %s" % args.telemetry if args.telemetry else ""))
         say("  ... the scripted steps above, then `ndt down` and `ndt release`.")
+        say("telemetry: %s" % (args.telemetry if args.telemetry
+                               else "whatever the package declares (no --telemetry given)"))
+
+    # 🔴 THE ARM THAT ENDS AT THE COMPILER (TICKET-P3 §2.7). exercises/flowcache's skeleton is
+    # supposed not to compile, so there is no fabric to bring up either way: with the refusal
+    # the arm is red BY DESIGN, and without it the arm is red because the red arm is not red.
+    # Both are exit 1 and both write a report; neither is exit 2, which means "nothing to look
+    # at on the machine".
+    if compile_arm is not None:
+        stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H%M%SZ")
+        verdict = ("RED ARM (1/1): skeleton does not compile, by design" if compile_arm.ok
+                   else "FAIL (1/1): the skeleton COMPILED -- the red arm is not red")
+        rule("verdict")
+        say("   " + compile_arm.line() + "   " + compile_arm.grade)
+        say("")
+        say(">>> %s" % verdict)
+        if not os.path.isdir(RUNS):
+            os.makedirs(RUNS)
+        rpath = os.path.join(RUNS, "%s_%s_%s%s.md" % (
+            stamp, ex, which, "" if args.fabric == "tutorials" else "_ndtwin"))
+        out, err = transcript()
+        write_report(rpath, {
+            "utc": stamp, "exercise": ex, "which": which, "exdir": exdir,
+            "fabric": args.fabric, "package": None, "switch_state": {},
+            "env": env, "compile": cinfo, "compile_extra": [],
+            "topo_summary": topo_summary, "steps": [], "expects": [compile_arm],
+            "artifacts": [], "notes": notes, "verdict": verdict, "exit": 1,
+            "stdout": out, "stderr": err,
+        })
+        say("")
+        say("report: %s" % rpath)
+        return 1
 
     if args.dry_run:
         rule("dry run stops here")
@@ -1816,6 +3020,10 @@ def main():
     state = {}
     steps = []
     expects = []
+    # 🔴 RESET BEFORE THE ROUND, ON EITHER FABRIC. The flag is module state so that both the
+    # tutorials harness-exception path and the NDTwin pre-flight path can set it; module state
+    # that is never cleared is module state that reports the PREVIOUS round's refusal.
+    DESIGNED_REFUSAL["hit"] = False
 
     if args.fabric == "ndtwin":
         # 🔴 NO ROOT, AND NOT BY OVERSIGHT.  `ndt` is designed to be run as the
@@ -1828,7 +3036,7 @@ def main():
         run_on_ndtwin.expects = []
         try:
             exit_code, package, state = run_on_ndtwin(
-                ex, which, exdir, spec, args, ips, log_dir, steps, env)
+                ex, which, exdir, spec, args, ips, log_dir, steps, env, red_stage)
         except Exception as e:                               # noqa: BLE001
             import traceback
             say("!! driver raised: %r" % (e,))
@@ -1884,7 +3092,17 @@ def main():
     for e in expects:
         say("   " + e.line() + "   " + e.grade)
     failed = [e for e in expects if not e.ok]
-    if exit_code == 0:
+    # 🔴 THE DESIGNED REFUSAL HAS ITS OWN VERDICT, and it is the same sentence on both fabrics
+    # (judge A6). `basic_tunnel`'s skeleton cannot install its own runtime entries -- README:41-43
+    # says so -- and the round therefore ends non-zero having met every expectation it has. On
+    # the tutorials fabric the refusal lands as a harness exception and on NDTwin as a pre-flight
+    # rc; BOTH set DESIGNED_REFUSAL, and this branch does not ask which fabric it was. Round 2
+    # asked, and `basic_tunnel`'s skeleton went on reading two ways (round-3 ruling 1).
+    designed = DESIGNED_REFUSAL["hit"]
+    if designed and expects and not failed:
+        verdict, exit_code = ("RED ARM (%d/%d): the skeleton does not get past the control "
+                              "plane, by design" % (len(expects), len(expects))), 1
+    elif exit_code == 0:
         if not expects:
             verdict, exit_code = "NO RESULT", 2
         elif failed:

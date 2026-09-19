@@ -283,6 +283,362 @@ OUT="$(drive "assert_probe_ok_follows_set '$SS_OK' '$PKG_BAD' '1,2' 'after skel'
 check "🔴 an unreadable model is refused, not assumed"   "1" "$(rc_of "$OUT")"
 has   "  saying there is no universe to check against"   "no universe to check the probes against" "$OUT"
 
+# =============================================================================================
+section "5. TICKET-P3 §2.7 -- the generic cell: link usage follows the iperf path"
+# =============================================================================================
+# 🔴 THE ONE CHECK IN THIS SUITE THAT IS ABOUT NDTwin RATHER THAN ABOUT AN EXERCISE. Every other
+# acceptance here is a claim about one program: source_routing's ttl, the twin's liveness under
+# p4runtime's controller. This one says that while a flow crosses the fabric the twin's
+# `link_bandwidth_usage_bps` is non-zero exactly on the interfaces that carried it -- whatever
+# program the switches are running -- and it is the assertable half of §2.2's "record the link
+# bytes BEFORE you ask what the flow was".
+#
+# 🔴 THE ON-PATH SET IS MEASURED, NOT WRITTEN DOWN. It is the tx_bytes delta on each `sN-ethP`
+# across the same window. A path this file typed out would be this file agreeing with itself,
+# and would be wrong the first time an exercise's own control plane routed a flow the other way
+# round the pod.
+
+# mkgraph_usage <file> <"<src_dpid>:<port>:<dst_dpid>:<bps>" ...> -- a /ndt/get_graph_data body.
+# dst_dpid 0 is the host placeholder, which is how a host-facing edge is spelled.
+mkgraph_usage() {
+    local f="$1"; shift
+    python3 - "$f" "$@" <<'PYU'
+import json, sys
+nodes = [{"device_name": "s%d" % d, "dpid": d, "vertex_type": 0, "is_up": True}
+         for d in (1, 2, 3)]
+nodes += [{"device_name": "h%d" % h, "dpid": 0, "vertex_type": 1} for h in (1, 2)]
+edges = []
+for spec in sys.argv[2:]:
+    src, port, dst, bps = spec.split(":")
+    edges.append({"src_dpid": int(src), "src_interface": int(port), "dst_dpid": int(dst),
+                  "dst_interface": 1, "link_bandwidth_usage_bps": float(bps)})
+json.dump({"nodes": nodes, "edges": edges}, open(sys.argv[1], "w"))
+PYU
+}
+
+# --- 5a. onpath_ifaces: the measurement -------------------------------------------------------
+cat > "$FIX/nd.before" <<'ND'
+s1-eth1 1000
+s1-eth2 1000
+s1-eth3 1000
+s2-eth1 1000
+ND
+cat > "$FIX/nd.after" <<'ND'
+s1-eth1 2000000
+s1-eth2 1000
+s1-eth3 11001
+s2-eth1 11000
+ND
+OUT="$(drive "onpath_ifaces '$FIX/nd.before' '$FIX/nd.after' | paste -sd, -")"
+check "🔴 only the interfaces that moved bytes are on the path" "s1-eth1,s1-eth3" "$(/usr/bin/grep -v '^RC=' <<<"$OUT" | head -1)"
+# 🔴 THE THRESHOLD IS 10 kB AND NOT "> 0 bytes". LLDP, ARP and the proxy's own probes keep every
+# link faintly busy; with a threshold of zero every interface in the fabric is on every path and
+# the off-path half of the assertion has nothing left to be about. s2-eth1 grew by EXACTLY 10000
+# and is out; s1-eth3 grew by 10001 and is in.
+OUT="$(drive "onpath_ifaces '$FIX/nd.before' '$FIX/nd.after' 1 | paste -sd, -")"
+check "  a threshold of 1 byte puts the noise on the path too" "s1-eth1,s1-eth3,s2-eth1" "$(/usr/bin/grep -v '^RC=' <<<"$OUT" | head -1)"
+
+printf 's1-eth1 1000\n' > "$FIX/nd.short"
+OUT="$(drive "onpath_ifaces '$FIX/nd.short' '$FIX/nd.after'")"
+has   "🔴 an interface in only ONE reading is named, not silently zero" "is in only one of the two readings -- skipped" "$OUT"
+hasnt "  and it is not on the path"                      "s1-eth3" "$(/usr/bin/grep -v 'only one of' <<<"$OUT")"
+
+# --- 5b. twin_usage_integral: the twin's side -------------------------------------------------
+G_USAGE="$FIX/g_usage.json"
+mkgraph_usage "$G_USAGE" 1:1:0:8000 1:3:2:16000 2:3:1:0 3:1:0:0 0:1:1:99999
+OUT="$(drive "GRAPH_SEQ='$G_USAGE'; twin_usage_integral '$FIX/int.txt' 1 4; cat '$FIX/int.txt'")"
+check "  the integral is rc 0 when the graph answered"   "0" "$(rc_of "$OUT")"
+# 1 s at 4 Hz is four samples, each weighted by the nominal 1/4 s: 8000 bps -> 8000 bit.
+has   "  a host-facing edge integrates its rate over the window" "s1-eth1 8000.000 host" "$OUT"
+has   "  and an inter-switch edge is marked as one"      "s1-eth3 16000.000 switch" "$OUT"
+has   "  an edge the twin reports at zero is still listed" "s2-eth3 0.000 switch" "$OUT"
+has   "  with the sample count and the measured span"    "# samples=4" "$OUT"
+# 🔴 THE host->switch DIRECTION IS DROPPED, and it has to be: its key would be `s0-eth1`, which
+# is no interface at all, and /proc/net/dev has nothing to join it to.
+hasnt "🔴 the host->switch direction has no sN-ethP to be" "s0-eth" "$OUT"
+OUT="$(drive "twin_usage_integral '$FIX/int2.txt' 1 4")"
+check "🔴 a graph that never answered is rc 1, not an empty integral" "1" "$(rc_of "$OUT")"
+has   "  saying there is no twin reading for the window" "there is no twin reading for this window" "$OUT"
+
+# --- 5c. assert_link_usage_follows_path -------------------------------------------------------
+mkint() {   # mkint <file> <"<key> <bits> <kind>" ...>
+    local f="$1"; shift
+    : > "$f"
+    local row; for row in "$@"; do printf '%s\n' "$row" >> "$f"; done
+    printf '# samples=4 span=1s\n' >> "$f"
+}
+printf 's1-eth1\ns1-eth3\n' > "$FIX/onpath.txt"
+mkint "$FIX/i_good.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
+                        "s1-eth2 0.000 switch" "s2-eth1 400.000 host"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_good.txt' 'green'")"
+check "  usage on the path and nothing off it is green"  "0" "$(rc_of "$OUT")"
+has   "  and it says so"                                 "green: link usage follows the iperf path" "$OUT"
+
+mkint "$FIX/i_zero.txt" "s1-eth1 8000.000 host" "s1-eth3 0.000 switch" "s1-eth2 0.000 switch"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_zero.txt' 'zero'")"
+check "🔴 an interface that carried the flow and reads 0 is red" "1" "$(rc_of "$OUT")"
+has   "  naming it"                                      "s1-eth3 carried the flow and the twin integrated 0.000 bit" "$OUT"
+
+mkint "$FIX/i_missing.txt" "s1-eth1 8000.000 host"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_missing.txt' 'gap'")"
+check "🔴 an on-path interface with NO twin edge is red"  "1" "$(rc_of "$OUT")"
+has   "  and says the link is not modelled"              "the twin has NO edge for it" "$OUT"
+
+# --- 5c-bis. the off-path FLOOR (TICKET-P3 §9 ruling 9, R4) --------------------------------
+# 🔴 "EXACTLY 0" OFF THE PATH WOULD GO RED ON A CORRECT FABRIC, AT RANDOM. After the kernel
+# banks a sample's frame length BEFORE it asks what the flow was (§2.2), ARP and LLDP count
+# toward link usage; the proxy beacons LLDP along every switch-switch link and the pipeline
+# samples 1/256, so ONE beacon drawn in an eight-second window is banked as 256 x its frame
+# length -- tens of kilobits on an edge that carried nothing. The bound is therefore a floor:
+# max(5 kbit, 2% of the SMALLEST on-path integral). Absolute so a quiet window still has a
+# bound; relative so it cannot be a fixed number an 8 s 2 Mbit/s flow dwarfs.
+check "  the floor with a 16 kbit smallest on-path integral" "5000.000" \
+      "$(one "link_usage_floor '$FIX/onpath.txt' '$FIX/i_good.txt'")"
+mkint "$FIX/i_big.txt" "s1-eth1 16000000.000 host" "s1-eth3 16000000.000 switch"
+printf 's1-eth1\ns1-eth3\n' > "$FIX/onpath2.txt"
+check "🔴 and with a real 16 Mbit flow it is 2% of it, not 5 kbit" "320000.000" \
+      "$(one "link_usage_floor '$FIX/onpath2.txt' '$FIX/i_big.txt'")"
+
+# A sampled LLDP beacon on an off-path inter-switch link: ~500 bit frame x 256 = ~128 kbit,
+# under 2% of a 16 Mbit on-path integral and over the absolute 5 kbit.
+mkint "$FIX/i_beacon.txt" "s1-eth1 16000000.000 host" "s1-eth3 16000000.000 switch" \
+                          "s1-eth2 128000.000 switch"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath2.txt' '$FIX/i_beacon.txt' 'beacon'")"
+check "🔴 one sampled LLDP beacon off the path is NOT a failure" "0" "$(rc_of "$OUT")"
+has   "  and the floor it was judged against is in the raw" "off-path floor 320000.000 bit" "$OUT"
+has   "  with the edge's own integral beside it"         "off-path s1-eth2  128000.000 bit" "$OUT"
+
+# ... and an edge carrying real traffic off the path still is one.
+mkint "$FIX/i_leak.txt" "s1-eth1 16000000.000 host" "s1-eth3 16000000.000 switch" \
+                        "s1-eth2 4000000.000 switch"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath2.txt' '$FIX/i_leak.txt' 'leak'")"
+check "🔴 an inter-switch link off the path carrying the FLOW is red" "1" "$(rc_of "$OUT")"
+has   "  naming it, the bits and the floor"              "s1-eth2 is an inter-switch link that did NOT carry the flow and the twin integrated 4000000.000 bit on it, at or over the 320000.000 bit floor" "$OUT"
+
+# 🔴 THE FLOOR IS TAKEN FROM THE SMALLEST ON-PATH INTEGRAL, AND THE TWO ENDS DIFFER IN
+# PRACTICE. The on-path edges of one window are not equal: the host-facing edge carries the
+# flow once and an inter-switch edge on a longer path carries it again, so `min` and `max` are
+# a factor of several apart -- and `min` is the conservative end, the one that still catches an
+# off-path link with real traffic on it.
+mkint "$FIX/i_spread.txt" "s1-eth1 1000000.000 host" "s1-eth3 16000000.000 switch" \
+                          "s1-eth2 100000.000 switch"
+check "  the floor follows the SMALLEST on-path integral"  "20000.000" \
+      "$(one "link_usage_floor '$FIX/onpath2.txt' '$FIX/i_spread.txt'")"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath2.txt' '$FIX/i_spread.txt' 'spread'")"
+check "🔴 and 100 kbit off the path is red against it"     "1" "$(rc_of "$OUT")"
+has   "  naming the floor the smallest on-path edge set"  "at or over the 20000.000 bit floor" "$OUT"
+
+# 🔴 THE FLOOR IS NOT A BLANK CHEQUE: in a quiet window it is the absolute 5 kbit, so an
+# off-path edge with real traffic on it is still red there.
+mkint "$FIX/i_offpath.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
+                           "s1-eth2 6000.000 switch"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_offpath.txt' 'quiet'")"
+check "🔴 and in a quiet window the floor is the absolute 5 kbit" "1" "$(rc_of "$OUT")"
+has   "  naming that floor"                              "at or over the 5000.000 bit floor" "$OUT"
+mkint "$FIX/i_under.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
+                         "s1-eth2 12.000 switch"
+check "  12 bit of stray on an off-path link is under it" "0" \
+      "$(rc_of "$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_under.txt' 'stray'")")"
+
+# host-facing edges are held to the same floor -- a host's link is never quiet.
+mkint "$FIX/i_arp.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
+                       "s2-eth1 4999.000 host"
+check "  a host-facing edge under the floor is fine"     "0" \
+      "$(rc_of "$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_arp.txt' 'arp'")")"
+mkint "$FIX/i_arplot.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
+                          "s2-eth1 5001.000 host"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_arplot.txt' 'arp2'")"
+check "🔴 and one over it is red"                         "1" "$(rc_of "$OUT")"
+has   "  naming the floor it passed"                     "at or over the 5000.000 bit floor" "$OUT"
+
+# 🔴 THE CONTROL. With nothing measured as on-path the first clause is vacuous and the second is
+# "every edge is zero" -- which a fabric that moved no packet at all satisfies perfectly, and
+# that fabric is what a broken iperf, a missing sudo grant and a dead switch all look like.
+: > "$FIX/onpath_empty.txt"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath_empty.txt' '$FIX/i_good.txt' 'empty'")"
+check "🔴 an EMPTY on-path set is refused, not satisfied" "1" "$(rc_of "$OUT")"
+has   "  saying why"                                     "the on-path interface set is EMPTY" "$OUT"
+# 🔴 rc 1 ALONE DOES NOT SAY IT REFUSED. With the refusal gone the loops still run, every edge
+# falls into the off-path half, and the host-facing one is over the ARP allowance -- rc 1 for a
+# completely different reason, over a window this helper should never have judged. The evidence
+# that it refused is that no edge was named at all.
+hasnt "🔴 and it refuses WITHOUT judging a single edge"   "s1-eth1" "$OUT"
+
+# --- 5d. assert_link_usage_absent: the positive control ---------------------------------------
+# 🔴 WITHOUT THIS THE CELL ABOVE HAS NO DISCRIMINATING POWER. A twin that reported a constant
+# non-zero on every edge would pass "usage follows the path" on every run, for ever.
+mkint "$FIX/i_silent.txt" "s1-eth1 0.000 host" "s1-eth3 0.000 switch"
+OUT="$(drive "assert_link_usage_absent '$FIX/onpath.txt' '$FIX/i_silent.txt' 'none-group'")"
+check "  telemetry off: the twin reports nothing on the path" "0" "$(rc_of "$OUT")"
+has   "  and says what that proves"                      "with telemetry off the twin reports nothing on the path" "$OUT"
+OUT="$(drive "assert_link_usage_absent '$FIX/onpath.txt' '$FIX/i_good.txt' 'none-group'")"
+check "🔴 telemetry off and the twin still reporting is RED" "1" "$(rc_of "$OUT")"
+has   "  because the cell above would then prove nothing" "the cell above has no discriminating power" "$OUT"
+OUT="$(drive "assert_link_usage_absent '$FIX/onpath_empty.txt' '$FIX/i_silent.txt' 'none-group'")"
+check "🔴 and an EMPTY on-path set is refused here too"   "1" "$(rc_of "$OUT")"
+has   "  for the same reason"                            "the on-path interface set is EMPTY" "$OUT"
+
+# --- 5e. link_usage_round: the two refusals it can decide offline -----------------------------
+# The measurement itself needs a fabric and is the orchestrator's to run. What CAN be decided
+# here is the pair of refusals, and both are the same rule: an answer about permissions or about
+# the package is never rendered as a reading about link usage.
+mkdir -p "$FIX/pkg1host/ndtwin"
+python3 -c '
+import json, sys
+json.dump({"nodes": [{"device_name": "h1", "dpid": 0, "vertex_type": 1, "ip": ["10.0.1.1"]}],
+           "edges": [], "links": []}, open(sys.argv[1], "w"))' "$FIX/pkg1host/ndtwin/topology.json"
+OUT="$(drive "link_usage_round '$FIX/pkg1host' 'one-host' '$FIX/lur1'")"
+check "🔴 a model with one host cannot carry a flow"      "1" "$(rc_of "$OUT")"
+has   "  and says so instead of measuring nothing"       "does not name two hosts to run a flow between" "$OUT"
+OUT="$(drive "link_usage_round '$PKG3' 'no-ns' '$FIX/lur2'")"
+check "🔴 a host with no namespace is rc 2, a refusal"    "2" "$(rc_of "$OUT")"
+has   "  named as the permission answer it is"           "never a reading about link usage" "$OUT"
+
+# 🔴 THE DESTINATION IS A PARAMETER, AND TWO EXERCISES NEED IT. "The model's last host" is a
+# property of the MODEL, and for exercises/multicast and exercises/p4runtime it is a host the
+# exercise deliberately cannot reach -- sig-topo replicates ports 1,2,3 and p4runtime's
+# controller wires h1<->h2 and never touches s3. Measuring to those produces an EMPTY on-path
+# set, which this cell refuses: correctly, and about the wrong thing.
+OUT="$(drive "link_usage_round '$PKG3' 'to-h2' '$FIX/lur3' follows h2")"
+has   "  a named destination is the one the flow runs to" "h1 -> h2 (10.0.2.2)" "$OUT"
+OUT="$(drive "link_usage_round '$PKG3' 'default' '$FIX/lur4'")"
+has   "  and with none named it is the model's LAST host" "h1 -> h3 (10.0.3.3)" "$OUT"
+OUT="$(drive "link_usage_round '$PKG3' 'to-h9' '$FIX/lur5' follows h9")"
+check "🔴 a destination the model does not declare is refused" "1" "$(rc_of "$OUT")"
+has   "  rather than silently falling back to another host" "declares no host 'h9'" "$OUT"
+
+# =============================================================================================
+section "9. 🔴 no live-p1 script reintroduces the \`set -u\` \`local\` hazard"
+# =============================================================================================
+# Under `set -u`, bash 5.2 declares EVERY name in a `local` list before assigning any of them,
+# so `local a="$1" b="${a}.log"` expands an unset `a` and the function dies on its own first
+# line. `05_link_usage_generic.sh` and `06_thirteen.sh` both had it and NEITHER HAD EVER BEEN
+# RUN, so nothing in the repo said a word (found in round 2, via 06's new test).
+#
+# 🔴 WHY THIS IS A SCANNER AND NOT A RUN OF 05. `group()` is reachable only after p4c, two
+# convert.py runs, two pre-flights and a lab claim; a stub deep enough to reach it would be a
+# stub of the whole step, and would pin the stub rather than the script. What actually
+# regresses here is the SHAPE, in any of these files, including ones written later -- so that
+# is what is checked, with a positive control below so the check cannot pass by finding nothing.
+# 🔴 `python3`, NOT `$PY`. The first version used `$PY`, which is not set in this file's scope
+# -- so the scan errored, printed NOTHING, and the "no script has the hazard" check went GREEN
+# on empty output. The positive control below is the only reason that was caught, which is the
+# entire argument for having one.
+# 🔴 THE SCANNER MUST FAIL WHEN THE SCANNER FAILS (TICKET-P3 §9 ruling 12d). The first version
+# printed nothing when `python3` itself could not run -- and "prints nothing" is exactly what
+# "no script has the hazard" looks like, so the check went GREEN on a scan that never happened.
+# (That is not hypothetical: it shipped that way for one iteration, with `$PY` unset, and only
+# the positive control caught it.) A tool that cannot run has not answered; this returns
+# non-zero and says so on stderr, and `hazard_check` below turns that into a FAILED cell.
+hazard_scan() {   # hazard_scan <file>... -- prints "<file>:<line> <name> reads $<earlier>"
+    local out err rc
+    err="$(mktemp "${TMPDIR:-/tmp}/hazard-err-XXXXXX")"
+    out="$(hazard_scan_raw "$@" 2>"$err")"; rc=$?
+    if (( rc != 0 )) || [[ -s "$err" ]]; then
+        printf 'SCANNER-FAILED rc=%s %s\n' "$rc" "$(tr '\n' ' ' < "$err")"
+        rm -f "$err"
+        return 3
+    fi
+    rm -f "$err"
+    printf '%s' "$out"
+    [[ -z "$out" ]] || printf '\n'
+    return 0
+}
+
+hazard_scan_raw() {
+    python3 - "$@" <<'PYH'
+import re, sys
+for path in sys.argv[1:]:
+    try:
+        lines = open(path, errors="replace").read().splitlines()
+    except OSError:
+        continue
+    for n, line in enumerate(lines, 1):
+        m = re.match(r"\s*local\s+(.*)$", line)
+        if not m:
+            continue
+        seen = []
+        for chunk in re.finditer(r"([A-Za-z_][A-Za-z0-9_]*)=(\"(?:[^\"\\]|\\.)*\"|\S*)",
+                                 m.group(1)):
+            name, val = chunk.group(1), chunk.group(2)
+            for prev in seen:
+                if re.search(r"\$\{?%s\b" % re.escape(prev), val):
+                    print("%s:%d %s reads $%s" % (path, n, name, prev))
+            seen.append(name)
+PYH
+}
+
+OUT="$(hazard_scan "$LIVE"/*.sh)"; SCAN_RC=$?
+check "  the scanner itself ran"                         "0" "$SCAN_RC"
+check "🔴 no live-p1 script has a cross-referencing \`local\`" "" "$(printf '%s' "$OUT")"
+[[ -n "$OUT" ]] && printf '%s\n' "$OUT" | sed 's/^/             /'
+
+# 🔴 THE POSITIVE CONTROL. Without it "found nothing" and "cannot find anything" read the same.
+mkdir -p "$FIX/bin"
+cat > "$FIX/hazard.sh" <<'HZ'
+f() {
+    local ex="$1" which="$2" log="$RUN/${ex}_${which}.log" rc
+    echo "$log$rc"
+}
+HZ
+OUT="$(hazard_scan "$FIX/hazard.sh")"
+has   "  and the scanner finds one that IS there"        "log reads \$ex" "$OUT"
+has   "  naming both of the names it read"               "log reads \$which" "$OUT"
+
+# ... and the shape that is FINE must not be flagged: separate statements are the fix.
+cat > "$FIX/ok.sh" <<'OK'
+f() {
+    local ex="$1" which="$2"
+    local log rc
+    log="$RUN/${ex}_${which}.log"
+    echo "$log$rc"
+}
+OK
+check "🔴 and the FIXED shape is not flagged"            "" "$(hazard_scan "$FIX/ok.sh")"
+
+# 🔴 THE CONTROL THE JUDGE ASKED FOR (§9 ruling 12d): break the INTERPRETER, not the input.
+# With no `python3` reachable the scan cannot happen -- and the cell above, which asserts an
+# EMPTY result, would be satisfied by that silence. This is the difference between "I looked
+# and found nothing" and "I could not look".
+# 🔴 THE PATH MUST STILL HAVE coreutils (TICKET-P3 §9 ruling 14g). `PATH=/nonexistent` killed
+# `mktemp` inside hazard_scan before python3 was ever reached -- so that cell proved the
+# function fails when the SHELL loses its tools, which is not the thing under test. This PATH
+# has everything the function itself uses and nothing called `python3`, so the only thing that
+# can fail is the interpreter, and the rc it reports must be 127 (command not found).
+mkdir -p "$FIX/nopy"
+for t in mktemp tr rm cat sed grep; do
+    src="$(command -v "$t" 2>/dev/null)" && ln -sf "$src" "$FIX/nopy/$t"
+done
+OUT="$(PATH="$FIX/nopy" hazard_scan "$FIX/hazard.sh" 2>&1)"; SCAN_RC=$?
+check "🔴 no python3 on PATH is NOT a clean scan"         "3" "$SCAN_RC"
+has   "  and it says so out loud"                        "SCANNER-FAILED" "$OUT"
+has   "🔴 naming the rc that says 'command not found'"    "rc=127" "$OUT"
+# ... and the control for THIS control: the same PATH still runs the function's own tools, so a
+# red here would mean the fixture broke the shell rather than the interpreter.
+# (`/bin/bash` by absolute path: the trimmed PATH deliberately has no `bash` either, and this
+# control is about the tools the FUNCTION uses, not about how this line finds a shell.)
+check "  (the trimmed PATH still has the tools hazard_scan itself uses)" "0" \
+      "$(PATH="$FIX/nopy" /bin/bash -c 'mktemp -u >/dev/null && tr -d "" </dev/null' >/dev/null 2>&1; echo $?)"
+# (an empty needle matches everything, so "it did not print an empty result" is asserted by
+# the rc-3 and SCANNER-FAILED cells above, not by a `hasnt ""` that can never fail)
+
+# ... and the same for an interpreter that exists but fails.
+cat > "$FIX/bin/python3" <<'BOGUS'
+#!/bin/sh
+echo "ImportError: something the scanner needs is missing" >&2
+exit 1
+BOGUS
+chmod +x "$FIX/bin/python3"
+OUT="$(PATH="$FIX/bin:$PATH" hazard_scan "$FIX/hazard.sh" 2>&1)"; SCAN_RC=$?
+check "🔴 an interpreter that fails is not a clean scan either" "3" "$SCAN_RC"
+has   "  naming what it said"                            "ImportError" "$OUT"
+
+# 🔴 THE NEGATIVE CONTROL FOR THE CONTROL: a working interpreter must NOT trip the guard, or
+# every run of this suite would refuse and the two cells above would be vacuous.
+OUT="$(hazard_scan "$FIX/ok.sh")"; SCAN_RC=$?
+check "  a working interpreter is not reported as failed" "0" "$SCAN_RC"
+hasnt "  and prints no SCANNER-FAILED"                   "SCANNER-FAILED" "$OUT"
+
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"
 (( FAIL == 0 ))

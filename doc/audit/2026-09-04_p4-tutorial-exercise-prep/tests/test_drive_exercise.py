@@ -30,20 +30,48 @@ Run:  p4_proxy/venv/bin/python -m unittest discover \
           -t doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests
 Env:  DRIVE_EXERCISE_UNDER_TEST=<path>   (the mutation gate points it at a copy)
 """
+import glob
 import importlib.util
 import io
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
+import types
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FIXTURES = os.path.join(HERE, "fixtures")
 DEFAULT_DRIVER = os.path.join(os.path.dirname(HERE), "drive_exercise.py")
 DRIVER_PATH = os.path.abspath(os.environ.get("DRIVE_EXERCISE_UNDER_TEST", DEFAULT_DRIVER))
+
+
+#: Every temp dir THIS PROCESS handed out, in order. `TheSuiteLeavesNoLitter` asserts on these
+#: and on nothing else: two copies of this suite running at once (a mutation gate does exactly
+#: that) must not report each other's live directories as leaks (round-3 ruling 4).
+MADE_TEMP_DIRS = []
+
+
+def mkdtemp(case, prefix):
+    """A temp dir this test OWNS and gives back, registered with the case that made it.
+
+    🔴 THE TESTS FILLED THE ROOT FILESYSTEM (TICKET-P3 section 9 ruling 9, R3). Every cell built
+    a tutorials tree of its own -- a ~50 KB package copy -- and none of them removed it; the
+    2026-09-19 mutation round was 78 mutants x 124 cells, and with the orchestrator's reruns
+    /tmp held 59,679 `drv-*` directories and `/` reached 0 bytes free, which killed worker A's
+    gate and two reruns. A test that leaves its own litter behind is a test that decides whether
+    somebody else's round finishes.
+
+    `addCleanup`, not `tearDown`: it runs even when setUp itself raises half way through, which
+    is exactly the run that leaves the directory behind and no result to notice it by.
+    """
+    path = tempfile.mkdtemp(prefix=prefix)
+    MADE_TEMP_DIRS.append(path)
+    case.addCleanup(shutil.rmtree, path, ignore_errors=True)
+    return path
 
 
 def load_driver():
@@ -89,6 +117,26 @@ def build_tut_root(root):
                        extra=("basic.p4",))
     make_exercise_tree(root, "link_monitor", "pod-topo/topology.json", "link_monitor.p4",
                        ["h1", "h2", "h3", "h4"], ["s1", "s2", "s3", "s4"], POD_LINKS)
+    # TICKET-P3 §2.7's other nine, at the shapes their own Makefiles and topologies declare.
+    # Only what the driver READS out of a tree is reproduced: the topology the Makefile names,
+    # the program the wildcard finds, and solution/.
+    make_exercise_tree(root, "basic_tunnel", "topology.json", "basic_tunnel.p4",
+                       ["h1", "h2", "h3"], ["s1", "s2", "s3"], SR_LINKS)
+    make_exercise_tree(root, "calc", "topology.json", "calc.p4",
+                       ["h1", "h2"], ["s1"], [["h1", "s1-p1"], ["h2", "s1-p2"]])
+    for ex in ("ecn", "mri", "qos"):
+        make_exercise_tree(root, ex, "topology.json", "%s.p4" % ex,
+                           ["h1", "h11", "h2", "h22", "h3"], ["s1", "s2", "s3"], SR_LINKS)
+    make_exercise_tree(root, "flowcache", "topology.json", "flowcache.p4",
+                       ["h1", "h2", "h3"], ["s1", "s2", "s3"], SR_LINKS)
+    make_exercise_tree(root, "load_balance", "topology.json", "load_balance.p4",
+                       ["h1", "h2", "h3"], ["s1", "s2", "s3"], SR_LINKS)
+    # 🔴 multicast is the one whose Makefile moves TOPO (Makefile:5 -> sig-topo/topology.json).
+    make_exercise_tree(root, "multicast", "sig-topo/topology.json", "multicast.p4",
+                       ["h1", "h2", "h3", "h4"], ["s1"],
+                       [["h1", "s1-p1"], ["h2", "s1-p2"], ["h3", "s1-p3"], ["h4", "s1-p4"]])
+    make_exercise_tree(root, "p4runtime", "topology.json", "advanced_tunnel.p4",
+                       ["h1", "h2", "h3"], ["s1", "s2", "s3"], SR_LINKS)
     return root
 
 
@@ -142,6 +190,7 @@ class FakeProc(object):
 
     def __init__(self, out=b"", fh=None, timeout_first=False):
         self.out, self.fh = out, fh
+        self.fed = None
         self.terminated = self.killed = False
         self.timeout_first, self._timed_out = timeout_first, False
         if fh is not None:
@@ -149,6 +198,7 @@ class FakeProc(object):
             fh.flush()
 
     def communicate(self, input=None, timeout=None):
+        self.fed = input
         if self.timeout_first and not self._timed_out:
             self._timed_out = True
             raise subprocess.TimeoutExpired("stub", timeout or 0)
@@ -163,6 +213,10 @@ class FakeProc(object):
     def wait(self, timeout=None):
         return 0
 
+    def poll(self):
+        """Alive until somebody stops it -- the controller arm's `alive` reading."""
+        return None if not (self.terminated or self.killed) else 0
+
 
 class StubHosts(object):
     """A HostRunner the steps cannot tell from a fabric, and that moves no packet.
@@ -172,17 +226,53 @@ class StubHosts(object):
     the parser itself has its own cells above.
     """
 
-    def __init__(self, ips, popen_texts=None, cmd_texts=None, pa=None, popen_timeouts=()):
+    def __init__(self, ips, popen_texts=None, cmd_texts=None, pa=None, popen_timeouts=(),
+                 pings=None):
         self.ips = dict(ips)
         self.popen_texts = popen_texts or {}
         self.cmd_texts = cmd_texts or {}
         self.pa = pa
         self.popen_timeouts = tuple(popen_timeouts)
+        #: (host, dst) -> PingResult, for the two exercises whose acceptance is a single ping
+        #: with the exercise's own controller running rather than a pingall.
+        self.pings = dict(pings or {})
         self.popened = []
         self.cmds = []
+        self.procs = []
+        self.arp_flushes = 0
+        #: What the arm did, in order: "flush" / "pingall" / "ping". 🔴 THE ORDER IS THE POINT
+        #: (§9 ruling 12c): a flush after the pingall is not a flush at all for the pairs whose
+        #: expectation depends on cold caches, and a count cannot tell the two apart.
+        self.events = []
 
     def names(self):
         return sorted(self.ips)
+
+    def flush_arp(self):
+        """🔴 RECORDED IN ORDER, NOT JUST COUNTED (TICKET-P3 §9 ruling 12c).
+
+        Round 3's cell counted flushes and got 2 either way -- so an arm that flushed AFTER the
+        pingall, which is the same as not flushing at all for the pairs that matter, passed it.
+        `events` is the sequence, and the cell below reads the sequence.
+        """
+        self.arp_flushes += 1
+        self.events.append("flush")
+        return self.names()
+
+    def ping(self, host, dst, count=5):
+        # 🔴 RECORDED TOO (TICKET-P3 §9 ruling 14e). The `events` comment claimed "ping" was one
+        # of the three, and it was not -- so "the re-measure happens AFTER the second flush",
+        # which is the whole point of the second flush, was not pinned by anything.
+        self.events.append("ping")
+        # After a flush the arm re-measures hX -> h4 from cold caches; that repeat is answered
+        # from `pings` when the case supplies it, and otherwise from the pingall table, which is
+        # what "the fabric did not change between the two passes" looks like here.
+        if (host, dst) in self.pings:
+            return self.pings[(host, dst)]
+        for (s_, d_), r in (self.pa.results.items() if self.pa else {}.items()):
+            if s_ == host and self.ips.get(d_) == dst:
+                return r
+        raise KeyError((host, dst))
 
     def describe(self):
         return "stub hosts"
@@ -193,8 +283,10 @@ class StubHosts(object):
         for key, val in self.popen_texts.items():
             if key in " ".join(argv):
                 text = val if isinstance(val, bytes) else val.encode()
-        return FakeProc(text, kw.get("stdout") if hasattr(kw.get("stdout"), "write") else None,
-                        timeout_first=any(k in " ".join(argv) for k in self.popen_timeouts))
+        p = FakeProc(text, kw.get("stdout") if hasattr(kw.get("stdout"), "write") else None,
+                     timeout_first=any(k in " ".join(argv) for k in self.popen_timeouts))
+        self.procs.append((host, list(argv), p))
+        return p
 
     def cmd(self, host, line):
         self.cmds.append((host, line))
@@ -204,6 +296,7 @@ class StubHosts(object):
         return ""
 
     def pingall(self, count=5):
+        self.events.append("pingall")
         return self.pa
 
 
@@ -240,12 +333,19 @@ def quiet(mod):
     mod.say = lambda *_a, **_k: None
 
 
-def steps_for(mod, exercise, which, hosts, tmp):
+def steps_for(mod, exercise, which, hosts, tmp, fabric="tutorials", package=None):
     mod.IPERF_WARMUP = 0.0
     mod.PROBE_SECONDS = 0.0
+    # The nine new exercises' own waits. Zeroed for the same reason PROBE_SECONDS is: what
+    # these cells are about is the decision, and a suite that slept through every sender's
+    # duration would take minutes to say it.
+    mod.SEND_SECONDS = 0
+    mod.BG_SECONDS = 0
+    mod.CTRL_SETTLE = 0
     args = Args()
     args.which = which
-    return mod.Steps(hosts, exercise, which, tmp, tmp, args, ips=hosts.ips)
+    return mod.Steps(hosts, exercise, which, tmp, tmp, args, ips=hosts.ips,
+                     fabric=fabric, package=package)
 
 
 def verdict(session):
@@ -259,7 +359,7 @@ class PlanBlockIsFrozen(unittest.TestCase):
     """🔴 The 09-08 control: same command, same plan, same sudo line."""
 
     def setUp(self):
-        self.tmp = tempfile.mkdtemp(prefix="drv-plan-")
+        self.tmp = mkdtemp(self, "drv-plan-")
         self.mod = load_driver()
         self.mod.TUT = build_tut_root(self.tmp)
         self.mod.UTILS = os.path.join(self.tmp, "utils")
@@ -298,7 +398,7 @@ class TheRootRefusal(unittest.TestCase):
     """🔴 The NDTwin fabric is refused to root, and refused BEFORE anything is written."""
 
     def setUp(self):
-        self.tmp = tempfile.mkdtemp(prefix="drv-root-")
+        self.tmp = mkdtemp(self, "drv-root-")
         self.mod = load_driver()
         self.mod.TUT = build_tut_root(self.tmp)
         self.mod.UTILS = os.path.join(self.tmp, "utils")
@@ -332,7 +432,7 @@ class TheRecordedSource(unittest.TestCase):
 
     def setUp(self):
         self.mod = load_driver()
-        self.tmp = tempfile.mkdtemp(prefix="drv-src-")
+        self.tmp = mkdtemp(self, "drv-src-")
         build_tut_root(self.tmp)
 
     def exdir(self, ex):
@@ -360,7 +460,7 @@ class TheBmv2Identity(unittest.TestCase):
 
     def setUp(self):
         self.mod = load_driver()
-        self.tmp = tempfile.mkdtemp(prefix="drv-bmv2-")
+        self.tmp = mkdtemp(self, "drv-bmv2-")
 
     def test_a_path_in_the_status_row_is_hashed(self):
         binary = os.path.join(self.tmp, "simple_switch_grpc")
@@ -502,7 +602,7 @@ class TheNdtwinRound(unittest.TestCase):
     """convert -> pre-flight -> claim -> up -> steps -> down -> release."""
 
     def setUp(self):
-        self.tmp = tempfile.mkdtemp(prefix="drv-ndtwin-")
+        self.tmp = mkdtemp(self, "drv-ndtwin-")
         self.mod = load_driver()
         quiet(self.mod)
         self.mod.PKG_ROOT = os.path.join(self.tmp, "packages")
@@ -692,7 +792,7 @@ class TheCompanionProgram(unittest.TestCase):
 
     def setUp(self):
         self.mod = load_driver()
-        self.tmp = tempfile.mkdtemp(prefix="drv-compile-")
+        self.tmp = mkdtemp(self, "drv-compile-")
         build_tut_root(self.tmp)
 
     def test_firewall_builds_its_own_program_and_the_default_one(self):
@@ -725,7 +825,7 @@ class TheFirewallArms(unittest.TestCase):
     def setUp(self):
         self.mod = load_driver()
         quiet(self.mod)
-        self.tmp = tempfile.mkdtemp(prefix="drv-fw-")
+        self.tmp = mkdtemp(self, "drv-fw-")
         self.ips = {"h1": "10.0.1.1", "h2": "10.0.2.2", "h3": "10.0.3.3", "h4": "10.0.4.4"}
 
     def session(self, which, transfers):
@@ -788,7 +888,7 @@ class TheLinkMonitorArms(unittest.TestCase):
     def setUp(self):
         self.mod = load_driver()
         quiet(self.mod)
-        self.tmp = tempfile.mkdtemp(prefix="drv-lm-")
+        self.tmp = mkdtemp(self, "drv-lm-")
         self.ips = {"h1": "10.0.1.1", "h2": "10.0.2.2", "h3": "10.0.3.3", "h4": "10.0.4.4"}
 
     def session(self, which, received):
@@ -845,7 +945,7 @@ class TheReceiverIsUnbuffered(unittest.TestCase):
     def setUp(self):
         self.mod = load_driver()
         quiet(self.mod)
-        self.tmp = tempfile.mkdtemp(prefix="drv-unbuf-")
+        self.tmp = mkdtemp(self, "drv-unbuf-")
         self.ips = {"h1": "10.0.1.1", "h2": "10.0.2.2", "h3": "10.0.3.3", "h4": "10.0.4.4"}
 
     def receivers(self, exercise):
@@ -902,7 +1002,7 @@ class TheReport(unittest.TestCase):
 
     def setUp(self):
         self.mod = load_driver()
-        self.tmp = tempfile.mkdtemp(prefix="drv-report-")
+        self.tmp = mkdtemp(self, "drv-report-")
 
     def state(self):
         return {"control_plane": {"mode": "ndtwin", "package": "/pkg",
@@ -956,6 +1056,1351 @@ class TheReport(unittest.TestCase):
         self.assertIn("| fabric | `ndtwin` |", text)
         self.assertIn("| package | `/pkg` |", text)
         self.assertIn("p4info_sha256=abc123", text)
+
+
+# ======================================================= TICKET-P3 §2.7: the other nine ==
+#
+# 🔴 WHAT THESE CELLS CAN AND CANNOT SAY. Not one of the nine has ever been run on either
+# fabric by the session that wrote them. Every expectation in the driver is
+# 【源碼推導，未執行】 or 【README 宣稱】 (DRIVER.md §6 grades each one), and what is asserted
+# here is only that the driver ASKS the question that way, and that the two arms of each
+# exercise are DISTINGUISHABLE -- the solution's own output must fail the skeleton's check and
+# the skeleton's must fail the solution's. Without that second half a pair of arms can both be
+# green over a fabric that is doing neither thing.
+
+
+def show2(*layers):
+    """A scapy show2() block the way receive.py prints one, per delivered packet."""
+    out = ["got a packet", "###[ Ethernet ]###", "  type      = IPv4"]
+    for name, fields in layers:
+        out.append("###[ %s ]###" % name)
+        for k, v in fields:
+            out.append("     %-9s = %s" % (k, v))
+    return "\n".join(out) + "\n"
+
+
+def sniffed(*blocks):
+    return "sniffing on eth0\n" + "".join(blocks)
+
+
+def mk_pingall(mod, ips, loss_of):
+    """A PingAll over every ordered pair, built from real PingResults.
+
+    `loss_of(src, dst)` returns the loss percentage, or None for UNTESTED. Real objects and
+    not a table of numbers, because `multicast` is asserted PER PAIR and a stub that answered
+    the aggregate would be the test supplying the answer it is checking.
+    """
+    pa = mod.PingAll()
+    names = sorted(ips, key=mod.host_key)
+    for s in names:
+        for d in names:
+            if s == d:
+                continue
+            loss = loss_of(s, d)
+            if loss is None:
+                r = mod.PingResult(None, 0, 0, why="stub: untested")
+            else:
+                recv = int(round(5 * (100 - loss) / 100.0))
+                r = mod.PingResult(float(loss), recv, 5)
+            pa.add(s, d, ips[d], r)
+    return pa
+
+
+def fake_controller(text, alive=True):
+    """A stand-in for the exercise's own controller: it writes its log and stays up."""
+    def go(argv, **kw):
+        fh = kw.get("stdout")
+        if hasattr(fh, "write"):
+            fh.write(text.encode() if isinstance(text, str) else text)
+            fh.flush()
+        p = FakeProc(b"")
+        if not alive:
+            p.terminated = True          # poll() -> 0, i.e. it exited
+        return p
+    return go
+
+
+IPS3 = {"h1": "10.0.1.1", "h2": "10.0.2.2", "h3": "10.0.3.3"}
+IPS5 = {"h1": "10.0.1.1", "h11": "10.0.1.11", "h2": "10.0.2.2",
+        "h22": "10.0.2.22", "h3": "10.0.3.3"}
+
+
+class TheThirteen(unittest.TestCase):
+    """The table itself: thirteen exercises, each with steps and each fully described."""
+
+    def setUp(self):
+        self.mod = load_driver()
+
+    def test_all_thirteen_exercises_are_in_the_table(self):
+        self.assertEqual(
+            sorted(["basic", "basic_tunnel", "calc", "ecn", "firewall", "flowcache",
+                    "link_monitor", "load_balance", "mri", "multicast", "p4runtime",
+                    "qos", "source_routing"]),
+            sorted(self.mod.EXERCISES))
+
+    def test_every_exercise_has_scripted_steps(self):
+        """A spec with no steps_ method is `main()`'s 'not scripted yet' path wearing a
+        table entry, and the operator only finds out after the compile."""
+        for ex in self.mod.EXERCISES:
+            with self.subTest(exercise=ex):
+                self.assertTrue(hasattr(self.mod.Steps, "steps_" + ex),
+                                "%s is in EXERCISES with no steps_%s" % (ex, ex))
+
+    def test_every_exercise_declares_what_the_driver_reads(self):
+        for ex, spec in self.mod.EXERCISES.items():
+            with self.subTest(exercise=ex):
+                for key in ("topo", "prog", "default_prog", "hosts", "switches", "plan_steps"):
+                    self.assertIn(key, spec)
+                self.assertTrue(spec["prog"].endswith(".p4"))
+                self.assertTrue(spec["default_prog"].endswith(".p4"))
+
+    def test_multicast_is_the_one_exercise_whose_makefile_moves_the_topology(self):
+        """exercises/multicast/Makefile:5 sets TOPO=sig-topo/topology.json; every other one
+        of the nine falls through to utils/Makefile:13-15's topology.json. Reading the wrong
+        file would build a four-host star as a three-host triangle and call it multicast."""
+        moved = sorted(ex for ex, s in self.mod.EXERCISES.items()
+                       if s["topo"] not in ("topology.json",))
+        self.assertEqual(["basic", "firewall", "link_monitor", "multicast"], moved)
+        self.assertEqual("sig-topo/topology.json", self.mod.EXERCISES["multicast"]["topo"])
+
+    def test_none_of_the_nine_has_a_companion_program_to_build(self):
+        """utils/Makefile:20-22's DEFAULT_PROG is the wildcard *.p4 and none of the nine
+        overrides it, so each is its own default -- unlike firewall, whose Makefile:6 names
+        basic.p4 and whose s2-s4 would start on a json nobody built."""
+        tmp = mkdtemp(self, "drv-13-")
+        build_tut_root(tmp)
+        for ex in ("basic_tunnel", "calc", "ecn", "mri", "flowcache", "load_balance",
+                   "multicast", "p4runtime", "qos"):
+            with self.subTest(exercise=ex):
+                self.assertEqual([], self.mod.companion_programs(
+                    os.path.join(tmp, "exercises", ex), self.mod.EXERCISES[ex], "solution"))
+
+    def test_only_two_exercises_declare_a_red_arm_that_is_not_the_data_plane(self):
+        red = {ex: s["red_arm"] for ex, s in self.mod.EXERCISES.items() if s.get("red_arm")}
+        self.assertEqual({"flowcache": "compile", "basic_tunnel": "entries"}, red)
+
+    def test_p4runtime_compiles_the_same_program_on_both_arms(self):
+        """🔴 exercises/p4runtime ships solution/mycontroller.py and NO solution/*.p4.
+
+        advanced_tunnel.p4 has no TODO in it -- the exercise IS the controller -- so both arms
+        run the same pipeline. Without `variant: controller` pick_source returns None for the
+        solution arm and the round stops with "no .p4 source for p4runtime/solution" before it
+        starts anything. Measured by reading the real tree on 2026-09-19.
+        """
+        tmp = mkdtemp(self, "drv-p4rt-")
+        build_tut_root(tmp)
+        exdir = os.path.join(tmp, "exercises", "p4runtime")
+        os.remove(os.path.join(exdir, "solution", "advanced_tunnel.p4"))
+        for which in ("skeleton", "solution"):
+            with self.subTest(which=which):
+                src, base = self.mod.pick_source(exdir, self.mod.EXERCISES["p4runtime"], which)
+                self.assertEqual(os.path.join(exdir, "advanced_tunnel.p4"), src)
+                self.assertEqual("advanced_tunnel", base)
+
+    def test_an_exercise_with_no_solution_program_is_still_an_error_everywhere_else(self):
+        """🔴 THE CONTROL for the flag above. `variant: controller` is explicit rather than
+        "fall back to the skeleton whenever solution/ has no .p4", because for every other
+        exercise a missing solution/*.p4 IS the error -- and a silent fallback would compile
+        the SKELETON and report it as the solution arm.
+        """
+        tmp = mkdtemp(self, "drv-nosol-")
+        build_tut_root(tmp)
+        exdir = os.path.join(tmp, "exercises", "flowcache")
+        os.remove(os.path.join(exdir, "solution", "flowcache.p4"))
+        src, base = self.mod.pick_source(exdir, self.mod.EXERCISES["flowcache"], "solution")
+        self.assertIsNone(src)
+
+    def test_only_the_two_external_controller_exercises_name_a_controller(self):
+        ctrl = {ex: s["controller"] for ex, s in self.mod.EXERCISES.items()
+                if s.get("controller")}
+        self.assertEqual({"flowcache": "mycontroller.py", "p4runtime": "mycontroller.py"}, ctrl)
+
+
+class TheBasicTunnelArms(unittest.TestCase):
+    """The tunnel routes by dst_id, not by IP -- so only dst_id may move between rounds."""
+
+    def setUp(self):
+        self.mod = load_driver()
+        quiet(self.mod)
+        self.tmp = mkdtemp(self, "drv-bt-")
+
+    def session(self, which, h2_text, h3_text):
+        """h2 and h3 both sniff both rounds; the stub answers per receiver TAG."""
+        hosts = StubHosts(IPS3, popen_texts={
+            "driver-h2": "", "driver-h3": "",
+            "send.py": ("sending on interface eth0 to dst_id 2\n"
+                        if which else ""),
+        })
+        s = steps_for(self.mod, "basic_tunnel", which, hosts, self.tmp)
+        # The receivers' output is whatever the tag's log file holds; write it as the step
+        # runs by patching _stop_receiver's reader through the log files themselves.
+        texts = {"h2-1": h2_text[0], "h3-1": h3_text[0],
+                 "h2-2": h2_text[1], "h3-2": h3_text[1]}
+        real_stop = s._stop_receiver
+
+        def stop(proc, fh, path, drain=None):
+            real_stop(proc, fh, path, drain)
+            for tag, txt in texts.items():
+                if path.endswith("driver-%s-receive.log" % tag):
+                    return txt
+            return ""
+        s._stop_receiver = stop
+        sends = []
+        real_send = s._send_once
+
+        def send(host, argv, feed=None, label=""):
+            sends.append(list(argv))
+            dst = argv[argv.index("--dst_id") + 1]
+            real_send(host, argv, feed, label)
+            return "sending on interface eth0 to dst_id %s\n" % dst
+        s._send_once = send
+        s.run()
+        self.sends = sends
+        return s
+
+    ONE = show2(("IP", [("ttl", "63")]))
+
+    def test_the_solution_wants_dst_id_2_at_h2_and_dst_id_3_at_h3(self):
+        s = self.session("solution", (self.ONE, ""), ("", self.ONE))
+        v = verdict(s)
+        self.assertTrue(v["--dst_id 2 lands on h2"].ok)
+        self.assertTrue(v["--dst_id 3 lands on h3, same IP"].ok)
+        self.assertTrue(v["injection: send.py built 2 tunnel frames"].ok)
+
+    def test_both_rounds_send_to_the_same_ip_and_only_dst_id_moves(self):
+        """🔴 README:138-140 is the whole exercise: 'received at h2, even though that IP
+        address is the address of h3'. A driver that changed the IP too would pass over a
+        fabric with no tunnel table at all."""
+        self.session("solution", (self.ONE, ""), ("", self.ONE))
+        dests = {a[2] for a in self.sends}
+        ids = [a[a.index("--dst_id") + 1] for a in self.sends]
+        self.assertEqual({IPS3["h2"]}, dests, self.sends)
+        self.assertEqual(["2", "3"], ids)
+
+    def test_the_basic_tunnel_arms_are_distinguishable(self):
+        """The skeleton's own (empty) result must fail the solution's checks, and the
+        solution's must fail the skeleton's."""
+        v = verdict(self.session("solution", ("", ""), ("", "")))
+        self.assertFalse(v["--dst_id 2 lands on h2"].ok)
+        v = verdict(self.session("skeleton", (self.ONE, ""), ("", self.ONE)))
+        self.assertFalse(v["nothing is delivered by the skeleton"].ok)
+
+    def test_a_tunnel_that_delivered_to_the_wrong_host_is_red(self):
+        """🔴 dst_id 3 arriving at h3 AND at h2 is not the tunnel working.
+
+        The IP in both rounds is h2's, so a copy reaching h2 with `--dst_id 3` means the
+        switch also forwarded on the IP header -- flooding, a leftover ipv4_lpm entry, a
+        tunnel that did not replace the route. "h3 got one" alone is satisfied by all of
+        those, which is why both halves are asserted.
+        """
+        v = verdict(self.session("solution", (self.ONE, self.ONE), ("", self.ONE)))
+        self.assertTrue(v["--dst_id 2 lands on h2"].ok)
+        self.assertFalse(v["--dst_id 3 lands on h3, same IP"].ok)
+
+
+class TheCalcArms(unittest.TestCase):
+    """calc.py is the client, the REPL is the interface, and the two arms are two lines."""
+
+    SOLUTION = "> 1+1\n2\n> "
+    SKELETON = "> 1+1\nDidn't receive response\n> "
+
+    def setUp(self):
+        self.mod = load_driver()
+        quiet(self.mod)
+        self.tmp = mkdtemp(self, "drv-calc-")
+
+    def session(self, which, out):
+        hosts = StubHosts({"h1": "10.0.1.1", "h2": "10.0.1.2"},
+                          popen_texts={"calc.py": out})
+        s = steps_for(self.mod, "calc", which, hosts, self.tmp)
+        s.run()
+        self.hosts = hosts
+        return s
+
+    def test_the_repl_is_fed_the_expression_and_the_quit(self):
+        """calc.py:80-83 loops on input() until the line is exactly `quit`; a run that never
+        quit would sit on the driver's SEND_TIMEOUT and report a timeout as no answer."""
+        self.session("solution", self.SOLUTION)
+        argv = [a for _h, a in self.hosts.popened if any("calc.py" in x for x in a)][0]
+        self.assertIn("-u", argv)
+        self.assertLess(argv.index("-u"), [i for i, a in enumerate(argv)
+                                           if a.endswith("calc.py")][0])
+        proc = [p for _h, a, p in self.hosts.procs if any("calc.py" in x for x in a)][0]
+        self.assertEqual(b"1+1\nquit\n", proc.fed)
+
+    def test_the_solution_wants_the_answer_line(self):
+        v = verdict(self.session("solution", self.SOLUTION))
+        self.assertTrue(v["the switch answered 1+1"].ok)
+        self.assertTrue(v["and it did not time out"].ok)
+
+    def test_the_skeleton_wants_the_timeout_line(self):
+        v = verdict(self.session("skeleton", self.SKELETON))
+        self.assertTrue(v["RED ARM: the skeleton must not answer"].ok)
+
+    def test_the_calc_arms_are_distinguishable(self):
+        self.assertFalse(verdict(self.session("solution", self.SKELETON))
+                         ["the switch answered 1+1"].ok)
+        self.assertFalse(verdict(self.session("skeleton", self.SOLUTION))
+                         ["RED ARM: the skeleton must not answer"].ok)
+
+    def test_a_client_that_never_read_the_expression_fails_the_injection_check(self):
+        """No `> 1+1` echo means calc.py never got that far, and then 'no answer' is a
+        statement about the client rather than about the switch."""
+        v = verdict(self.session("skeleton", "Traceback (most recent call last):\n"))
+        self.assertFalse(v["injection: calc.py read the expression"].ok)
+
+    def test_the_answer_is_a_line_and_not_a_substring(self):
+        """`2` inside a longer line is not the answer: calc.py:97 prints it alone."""
+        v = verdict(self.session("solution", "> 1+1\ncannot find P4calc header in 2 packets\n"))
+        self.assertFalse(v["the switch answered 1+1"].ok)
+
+
+class TheEcnAndQosArms(unittest.TestCase):
+    """Both arms are read off one field -- ipv4.tos -- and both need the whole SET of it."""
+
+    def setUp(self):
+        self.mod = load_driver()
+        quiet(self.mod)
+        self.tmp = mkdtemp(self, "drv-tos-")
+        self.ips = IPS5
+
+    def ecn(self, which, tos_values):
+        rx = sniffed(*[show2(("IP", [("tos", t)])) for t in tos_values])
+        hosts = StubHosts(IPS5, popen_texts={
+            "receive.py": rx,
+            "send.py": "###[ IP ]###\n     tos       = 0x1\n"})
+        s = steps_for(self.mod, "ecn", which, hosts, self.tmp)
+        s.run()
+        self.hosts = hosts
+        return s
+
+    def qos(self, which, udp_tos, tcp_tos, noise=()):
+        """`udp_tos`/`tcp_tos` are the tos of the frames H1 SENT; `noise` is what h2 replied.
+
+        🔴 qos/receive.py:22 has no BPF filter, so h2's own replies are in the same capture --
+        ICMP port-unreachable (tos 0xc0) for the UDP round, RST (tos 0x0) for the TCP SYN.
+        Every cell below therefore feeds both and asserts on h1's half.
+        """
+        seq = {"1": [(self.ips["h1"], t) for t in udp_tos] + list(noise),
+               "2": [(self.ips["h1"], t) for t in tcp_tos] + list(noise)}
+        hosts = StubHosts(IPS5, popen_texts={
+            "receive.py": "", "send.py": "###[ IP ]###\n     tos       = 0x1\n"})
+        s = steps_for(self.mod, "qos", which, hosts, self.tmp)
+        real_stop = s._stop_receiver
+
+        def stop(proc, fh, path, drain=None):
+            real_stop(proc, fh, path, drain)
+            for tag, values in seq.items():
+                if path.endswith("driver-h2-%s-receive.log" % tag):
+                    return sniffed(*[show2(("IP", [("src", src), ("tos", t)]))
+                                     for src, t in values])
+            return ""
+        s._stop_receiver = stop
+        s.run()
+        self.hosts = hosts
+        return s
+
+    # -- ecn ------------------------------------------------------------------------------
+
+    def test_ecn_runs_a_background_flow_between_h11_and_h22(self):
+        """ecn.p4:9's ECN_THRESHOLD is 10 enqueued packets and nothing else in this exercise
+        builds a queue. A run without the background flow would report the solution as red
+        for a reason that is not about ecn.p4."""
+        self.ecn("solution", ["0x1", "0x3"])
+        iperfs = [(h, a) for h, a in self.hosts.popened if a and a[0] == "iperf"]
+        self.assertEqual([("h22", ["iperf", "-s", "-u"])], [(h, a) for h, a in iperfs if "-s" in a])
+        cli = [(h, a) for h, a in iperfs if "-c" in a]
+        self.assertEqual(1, len(cli), cli)
+        self.assertEqual("h11", cli[0][0])
+        self.assertIn("-u", cli[0][1])
+        self.assertIn(IPS5["h22"], cli[0][1])
+
+    def test_the_ecn_solution_wants_a_marked_packet(self):
+        v = verdict(self.ecn("solution", ["0x1", "0x1", "0x3"]))
+        self.assertTrue(v["h2 saw a congestion-marked packet"].ok)
+
+    def test_the_ecn_skeleton_wants_every_packet_unmarked(self):
+        v = verdict(self.ecn("skeleton", ["0x1", "0x1"]))
+        self.assertTrue(v["RED ARM: every tos stays 0x1"].ok)
+
+    def test_the_ecn_arms_are_distinguishable(self):
+        self.assertFalse(verdict(self.ecn("solution", ["0x1", "0x1"]))
+                         ["h2 saw a congestion-marked packet"].ok)
+        self.assertFalse(verdict(self.ecn("skeleton", ["0x1", "0x3"]))
+                         ["RED ARM: every tos stays 0x1"].ok)
+
+    def test_no_packet_at_all_fails_the_injection_check_rather_than_passing_vacuously(self):
+        """'every tos is 0x1' is true of an empty list, which is what a dead fabric, a dead
+        sender and a sniffer that never started all produce."""
+        for which in ("solution", "skeleton"):
+            with self.subTest(which=which):
+                v = verdict(self.ecn(which, []))
+                self.assertFalse(v["injection: packets reached h2"].ok)
+                key = ("h2 saw a congestion-marked packet" if which == "solution"
+                       else "RED ARM: every tos stays 0x1")
+                self.assertFalse(v[key].ok)
+
+    # -- qos ------------------------------------------------------------------------------
+
+    def test_qos_sends_both_protocols_with_the_flags_its_send_py_parses(self):
+        """qos/send.py:27-32 is argparse with --p/--des/--m/--dur and its body runs only when
+        all four are given (:34): a positional argv would be accepted silently and do nothing."""
+        self.qos("solution", ["0xb9"], ["0xb1"])
+        sends = [a for _h, a in self.hosts.popened if any("send.py" in x for x in a)]
+        protos = sorted(x.split("=")[1] for a in sends for x in a if x.startswith("--p="))
+        self.assertEqual(["TCP", "UDP"], protos)
+        for a in sends:
+            self.assertTrue(any(x.startswith("--des=") for x in a), a)
+            self.assertTrue(any(x.startswith("--m=") for x in a), a)
+            self.assertTrue(any(x.startswith("--dur=") for x in a), a)
+
+    def test_the_qos_solution_wants_a_different_class_per_protocol(self):
+        v = verdict(self.qos("solution", ["0x1", "0xb9"], ["0x1", "0xb1"]))
+        self.assertTrue(v["UDP is expedited forwarding"].ok)
+        self.assertTrue(v["TCP is voice admit"].ok)
+
+    def test_a_fabric_that_stamped_one_class_on_both_protocols_is_red(self):
+        """🔴 The reason both protocols are sent. With only UDP asserted, a switch that put
+        0xb9 on everything would pass -- and the exercise IS the classification."""
+        v = verdict(self.qos("solution", ["0xb9"], ["0xb9"]))
+        self.assertTrue(v["UDP is expedited forwarding"].ok)
+        self.assertFalse(v["TCP is voice admit"].ok)
+
+    def test_the_qos_skeleton_wants_0x1_on_both(self):
+        v = verdict(self.qos("skeleton", ["0x1"], ["0x1"]))
+        self.assertTrue(v["RED ARM: UDP tos stays 0x1"].ok)
+        self.assertTrue(v["RED ARM: TCP tos stays 0x1"].ok)
+
+    def test_h2s_own_replies_do_not_enter_the_qos_reading(self):
+        """🔴 judge A5. qos/receive.py:22 has NO BPF filter, so the capture also holds what h2
+        sent back: nothing listens on UDP/4321 so the kernel answers ICMP port-unreachable
+        (tos 0xc0), and the TCP round's SYN to port 80 gets a RST (tos 0x0). Reading every
+        `tos` line makes the SKELETON arm's `set(tos) == {"0x1"}` red over a fabric doing
+        exactly what README step 1.6 says, and makes the solution arm a mixture of two hosts.
+        """
+        noise = [(self.ips["h2"], "0xc0"), (self.ips["h2"], "0x0")]
+        v = verdict(self.qos("skeleton", ["0x1"], ["0x1"], noise=noise))
+        self.assertTrue(v["RED ARM: UDP tos stays 0x1"].ok, v["RED ARM: UDP tos stays 0x1"].got)
+        self.assertTrue(v["RED ARM: TCP tos stays 0x1"].ok, v["RED ARM: TCP tos stays 0x1"].got)
+        v = verdict(self.qos("solution", ["0x1", "0xb9"], ["0x1", "0xb1"], noise=noise))
+        self.assertTrue(v["UDP is expedited forwarding"].ok)
+        self.assertTrue(v["TCP is voice admit"].ok)
+
+    def test_the_injection_check_counts_h1s_frames_and_not_the_capture(self):
+        """🔴 THE CONTROL FOR IT. With h2 replying, a capture is never empty -- so a count over
+        the whole capture would say "packets reached h2" for a round in which h1's own frames
+        never arrived, which is the one thing that check exists to rule out."""
+        noise = [(self.ips["h2"], "0xc0")]
+        v = verdict(self.qos("solution", [], [], noise=noise))
+        self.assertFalse(v["injection: h1's packets reached h2 in both rounds"].ok)
+        self.assertIn("udp=0 tcp=0", v["injection: h1's packets reached h2 in both rounds"].got)
+
+    def test_the_qos_arms_are_distinguishable(self):
+        self.assertFalse(verdict(self.qos("skeleton", ["0xb9"], ["0xb1"]))
+                         ["RED ARM: UDP tos stays 0x1"].ok)
+        self.assertFalse(verdict(self.qos("solution", ["0x1"], ["0x1"]))
+                         ["UDP is expedited forwarding"].ok)
+
+
+class TheMriArms(unittest.TestCase):
+    """The hop count and the swids, which are what the MRI option is for."""
+
+    def setUp(self):
+        self.mod = load_driver()
+        quiet(self.mod)
+        self.tmp = mkdtemp(self, "drv-mri-")
+
+    SOLUTION = sniffed(show2(("IPOption_MRI", [("count", "2")]),
+                             ("SwitchTrace", [("swid", "2"), ("qdepth", "0")]),
+                             ("SwitchTrace", [("swid", "1"), ("qdepth", "17")])))
+    SKELETON = sniffed(show2(("IPOption_MRI", [("count", "0")])))
+
+    def session(self, which, rx):
+        hosts = StubHosts(IPS5, popen_texts={"receive.py": rx, "send.py": ""})
+        s = steps_for(self.mod, "mri", which, hosts, self.tmp)
+        s.run()
+        return s
+
+    def test_the_solution_wants_two_hops_and_both_swids(self):
+        v = verdict(self.session("solution", self.SOLUTION))
+        self.assertTrue(v["hop count at h2"].ok)
+        self.assertTrue(v["switch ids in the trace"].ok)
+
+    def test_the_skeleton_wants_an_empty_trace(self):
+        v = verdict(self.session("skeleton", self.SKELETON))
+        self.assertTrue(v["RED ARM: the hop count stays 0"].ok)
+        self.assertTrue(v["and no swid is ever stamped"].ok)
+
+    def test_the_mri_arms_are_distinguishable(self):
+        self.assertFalse(verdict(self.session("solution", self.SKELETON))["hop count at h2"].ok)
+        self.assertFalse(verdict(self.session("skeleton", self.SOLUTION))
+                         ["RED ARM: the hop count stays 0"].ok)
+
+    def test_a_packet_with_no_mri_option_fails_its_own_check(self):
+        """A UDP datagram that arrived without the option is not 'count = 0': the option was
+        stripped or never built, and mri.p4 is not the subject of that."""
+        v = verdict(self.session("skeleton", sniffed(show2(("IP", [("ttl", "62")])))))
+        self.assertTrue(v["injection: packets reached h2"].ok)
+        self.assertFalse(v["injection: the MRI option survived to h2"].ok)
+        self.assertFalse(v["RED ARM: the hop count stays 0"].ok)
+
+    def test_qdepth_is_not_asserted_in_either_arm(self):
+        """🔴 It is 0 without the 0.5 Mbit/s link of topology.json:65-69 (G2-C), and this
+        exercise's claim is the count and the swids. A cell on qdepth would make mri red for
+        a property of the fabric rather than of mri.p4."""
+        for which in ("solution", "skeleton"):
+            with self.subTest(which=which):
+                s = self.session(which, self.SOLUTION if which == "solution" else self.SKELETON)
+                self.assertEqual([], [e for e in s.expects if "qdepth" in e.name])
+
+
+class TheLoadBalanceArms(unittest.TestCase):
+    """Ten sends, because one packet is consistent with both arms."""
+
+    def setUp(self):
+        self.mod = load_driver()
+        quiet(self.mod)
+        self.tmp = mkdtemp(self, "drv-lb-")
+
+    def session(self, which, n2, n3):
+        hosts = StubHosts(IPS3, popen_texts={
+            "receive.py": "", "send.py": "sending on interface eth0 to 10.0.0.1\n"})
+        s = steps_for(self.mod, "load_balance", which, hosts, self.tmp)
+        texts = {"h2": sniffed(*[show2(("IP", [("ttl", "62")]))] * n2),
+                 "h3": sniffed(*[show2(("IP", [("ttl", "62")]))] * n3)}
+        real_stop = s._stop_receiver
+
+        def stop(proc, fh, path, drain=None):
+            real_stop(proc, fh, path, drain)
+            for tag, txt in texts.items():
+                if path.endswith("driver-%s-receive.log" % tag):
+                    return txt
+            return ""
+        s._stop_receiver = stop
+        s.run()
+        self.hosts = hosts
+        return s
+
+    def test_ten_packets_are_sent_to_the_load_balanced_address(self):
+        """🔴 10.0.0.1 is nobody's host address -- it is what s1's ecmp_group matches on --
+        so the hosts that answer are decided by the fabric, which is the whole exercise."""
+        self.session("solution", 5, 5)
+        sends = [a for _h, a in self.hosts.popened if any("send.py" in x for x in a)]
+        self.assertEqual(10, len(sends), sends)
+        self.assertEqual({"10.0.0.1"}, {a[2] for a in sends})
+
+    def test_the_solution_wants_both_servers_used(self):
+        self.assertTrue(verdict(self.session("solution", 6, 4))["both servers were used"].ok)
+
+    def test_the_skeleton_wants_only_h2(self):
+        self.assertTrue(verdict(self.session("skeleton", 10, 0))["RED ARM: only h2 is used"].ok)
+
+    def test_the_load_balance_arms_are_distinguishable(self):
+        self.assertFalse(verdict(self.session("solution", 10, 0))["both servers were used"].ok)
+        self.assertFalse(verdict(self.session("skeleton", 6, 4))["RED ARM: only h2 is used"].ok)
+
+    def test_a_fabric_that_delivered_nothing_fails_both_arms(self):
+        for which, key in (("solution", "both servers were used"),
+                           ("skeleton", "RED ARM: only h2 is used")):
+            with self.subTest(which=which):
+                self.assertFalse(verdict(self.session(which, 0, 0))[key].ok)
+
+
+class TheMulticastArms(unittest.TestCase):
+    """🔴 The solution's correct result is a fabric that is PARTLY unreachable."""
+
+    IPS = {"h1": "10.0.0.1", "h2": "10.0.0.2", "h3": "10.0.0.3", "h4": "10.0.0.4"}
+
+    def setUp(self):
+        self.mod = load_driver()
+        quiet(self.mod)
+        self.tmp = mkdtemp(self, "drv-mc-")
+
+    def session(self, which, loss_of):
+        hosts = StubHosts(self.IPS, pa=mk_pingall(self.mod, self.IPS, loss_of))
+        s = steps_for(self.mod, "multicast", which, hosts, self.tmp)
+        s.run()
+        self.hosts = hosts
+        return s
+
+    @staticmethod
+    def GROUP_ONLY(s, d):
+        """🔴 h4 IS UNREACHABLE IN ONE DIRECTION ONLY (judge A4).
+
+        sig-topo/s1-runtime.json:36-45 installs a mac_forward entry for h4's MAC to port 4 like
+        every other host; it is only the multicast GROUP (:47-65) that leaves port 4 out. So an
+        ARP request from hX floods to ports 1,2,3 and h4 never sees it -- hX -> h4 is 100% --
+        while h4's own ARP floods to 1,2,3, IS answered, and the unicast reply hits h4's
+        mac_forward entry: h4 -> hX is 0%.
+        """
+        return 100 if d == "h4" else 0
+
+    def test_ipv6_is_disabled_inside_every_host_and_not_on_the_box(self):
+        """exercises/multicast/disable_ipv6.sh as shipped is `sudo sysctl` on the machine.
+        Run as the exercise ships it this driver would turn IPv6 off for everything on the
+        laptop, which is not its to do; what it is FOR is the noise inside the fabric."""
+        self.session("solution", self.GROUP_ONLY)
+        hosts = sorted(h for h, line in self.hosts.cmds if "disable_ipv6" in line)
+        self.assertEqual(["h1", "h2", "h3", "h4"], hosts)
+        for _h, line in self.hosts.cmds:
+            if "disable_ipv6" in line:
+                self.assertIn("net.ipv6.conf.all.disable_ipv6=1", line)
+                self.assertNotIn("sudo", line)
+
+    def test_the_solution_wants_the_group_reachable_and_h4_not(self):
+        v = verdict(self.session("solution", self.GROUP_ONLY))
+        self.assertTrue(v["h1/h2/h3 reach each other"].ok)
+        self.assertTrue(v["nobody reaches h4"].ok)
+        self.assertTrue(v["but h4 reaches them"].ok)
+
+    def test_the_first_flush_happens_BEFORE_the_pingall(self):
+        """🔴 A FLUSH AFTER THE PINGALL IS NOT A FLUSH AT ALL (TICKET-P3 §9 ruling 12c).
+
+        Round 3's cell counted flushes; it got 2 whether the first one ran before or after the
+        walk, so an arm that measured from whatever ARP state the fabric was already in passed
+        it. What the expectation rests on is that hX -> h4 is measured while nobody holds h4's
+        MAC -- which is a statement about ORDER, so this reads the order.
+        """
+        sess = self.session("solution", self.GROUP_ONLY)
+        self.assertIn("flush", sess.h.events)
+        self.assertIn("pingall", sess.h.events)
+        self.assertEqual("flush", sess.h.events[0],
+                         "the first thing the arm does must be the flush: %r" % (sess.h.events,))
+        self.assertLess(sess.h.events.index("flush"), sess.h.events.index("pingall"),
+                        "the flush must precede the pingall: %r" % (sess.h.events,))
+
+    def test_the_second_flush_happens_after_the_pingall(self):
+        """The other half of the order: the re-measure is only independent of the first walk if
+        its flush comes after that walk -- AND the re-measure's pings come after that flush.
+
+        🔴 THE SECOND HALF IS §9 ruling 14e. A flush placed after the walk but after the
+        re-measure too would satisfy the arithmetic below and measure nothing: the pings it was
+        supposed to isolate would already have happened. `ping` is now an event, so the order
+        that matters can actually be read.
+        """
+        sess = self.session("solution", self.GROUP_ONLY)
+        ev = sess.h.events
+        self.assertGreater(len([e for e in ev if e == "flush"]), 1, ev)
+        last_flush = len(ev) - 1 - ev[::-1].index("flush")
+        self.assertGreater(last_flush, ev.index("pingall"),
+                           "the second flush must follow the pingall: %r" % (ev,))
+        self.assertIn("ping", ev, ev)
+        # 🔴 EVERY PING, NOT "THE FIRST ONE AFTER" (TICKET-P3 §9 ruling 16①). Round 6 rewrote
+        # this cell's words and not its meaning: `after` being non-empty is the same statement
+        # as "the LAST ping is after last_flush" (round 5's), and the equality that followed was
+        # a tautology -- `ev[last_flush]` IS the flush, so the pings in `ev[last_flush:]` are
+        # exactly `after`, and `len(after) == len(after)` holds for anything. The arm the
+        # comment claimed to block -- a flush in the MIDDLE of the re-measure,
+        # [flush, pingall, ping, flush, ping, ping] -- passed it. Mutation 87 was killed by
+        # `after` being EMPTY, never by the boundary this cell was supposed to be about.
+        #
+        # The stub's `pingall` records one "pingall" event and no per-pair pings, so every
+        # "ping" in a multicast session is one of the three re-measure pings. "All of them come
+        # after the last flush" is therefore exactly "the re-measure ran on cold caches".
+        pings = [i for i, e in enumerate(ev) if e == "ping"]
+        after = [i for i in pings if i > last_flush]
+        self.assertTrue(after, "no ping at all after the second flush: %r" % (ev,))
+        self.assertEqual(len(pings), len(after),
+                         "every re-measure ping must follow the last flush -- a flush in the "
+                         "middle of the re-measure leaves the earlier pings on warm caches: %r"
+                         % (ev,))
+
+    def test_the_arp_caches_are_emptied_before_and_between_the_passes(self):
+        """🔴 THE EXPECTATION IS ONLY TRUE FROM COLD CACHES (round-3 ruling 5).
+
+        `hX -> h4 is 100%` describes a host that has not learned h4's MAC. h4's own ARP IS
+        answered (the group reaches h1-h3, and their unicast replies hit h4's mac_forward
+        entry), so after the h4 -> hX pairs every other host holds h4's MAC and a later
+        hX -> h4 ping is a plain unicast that forwards at 0% -- on a fabric that did not change.
+        Two flushes: one before the walk, one before the direction is re-measured on its own.
+        """
+        sess = self.session("solution", self.GROUP_ONLY)
+        self.assertEqual(2, sess.h.arp_flushes)
+
+    def test_the_pingall_order_is_src_major(self):
+        """🔴 AND THE ORDER IS WHY THE FIRST PASS IS READABLE AT ALL.
+
+        With h4 last as a SOURCE, every hX -> h4 pair is measured before h4 has ever ARPed. A
+        dst-major walk would measure h1 -> h4 after h4 -> h1 had taught h1 h4's MAC and the
+        expectation would invert. The re-measure above is what makes the arm not DEPEND on this,
+        but the order is still a property of `pingall` that a refactor could silently change.
+        """
+        seen = []
+
+        class Recorder(StubHosts):
+            def ping(self, host, dst, count=5):
+                seen.append((host, dst))
+                return StubHosts.ping(self, host, dst, count)
+
+        ips = {"h1": "10.0.1.1", "h2": "10.0.2.2", "h3": "10.0.3.3", "h4": "10.0.4.4"}
+        rec = Recorder(ips, pa=None)
+        ok = self.mod.PingResult(0.0, 5, 5)
+        rec.pings = {(s, ips[d]): ok for s in ips for d in ips if s != d}
+        self.mod.HostRunner.pingall(rec, count=1)
+        srcs = [s for s, _d in seen]
+        self.assertEqual(sorted(srcs), srcs, "pingall must walk src-major: %r" % (seen,))
+        self.assertEqual("h4", srcs[-1], "h4 must be the LAST source: %r" % (srcs,))
+
+    def test_the_h4_expectation_is_directional(self):
+        """🔴 judge A4: round 1 asserted 100% on all six h4 pairs and would have gone red on
+        three of them over a fabric behaving exactly as the exercise describes. A fabric where
+        h4 -> hX ALSO fails is a different fault (h4's mac_forward entry missing), and is red."""
+        v = verdict(self.session("solution", lambda s, d: 100 if "h4" in (s, d) else 0))
+        self.assertTrue(v["nobody reaches h4"].ok)
+        self.assertFalse(v["but h4 reaches them"].ok)
+
+    def test_a_solution_that_also_reached_h4_is_red(self):   # noqa: D401
+        """🔴 sig-topo/s1-runtime.json:47-65 replicates ports 1,2,3; the fourth is README:122's
+        own TODO and this driver does not edit the exercise. A fabric that reached h4 is
+        running something other than what the package carries."""
+        v = verdict(self.session("solution", lambda s, d: 0))
+        self.assertTrue(v["h1/h2/h3 reach each other"].ok)
+        self.assertFalse(v["nobody reaches h4"].ok)
+
+    def test_the_skeleton_wants_nothing_to_ping_at_all(self):
+        v = verdict(self.session("skeleton", lambda s, d: 100))
+        self.assertTrue(v["RED ARM: nothing pings at all"].ok)
+
+    def test_the_multicast_arms_are_distinguishable(self):
+        self.assertFalse(verdict(self.session("skeleton", self.GROUP_ONLY))
+                         ["RED ARM: nothing pings at all"].ok)
+        self.assertFalse(verdict(self.session("solution", lambda s, d: 100))
+                         ["h1/h2/h3 reach each other"].ok)
+
+    def test_an_untested_pair_is_not_a_blocked_one(self):
+        """A host whose namespace could not be entered looks exactly like a host the group
+        does not replicate to, and only this cell tells them apart."""
+        v = verdict(self.session("solution",
+                                 lambda s, d: None if "h4" in (s, d) else 0))
+        self.assertFalse(v["injection: every ordered pair was tested"].ok)
+        self.assertFalse(v["nobody reaches h4"].ok)
+
+
+class TheControllerArms(unittest.TestCase):
+    """exercises/p4runtime and exercises/flowcache: the controller IS the exercise."""
+
+    P4RT_SOLUTION = ("Installed P4 Program using SetForwardingPipelineConfig on s1\n"
+                     "Installed P4 Program using SetForwardingPipelineConfig on s2\n"
+                     "Installed ingress tunnel rule on s1\n"
+                     "Installed transit tunnel rule on s2\n"
+                     "Installed egress tunnel rule on s2\n")
+    P4RT_SKELETON = ("Installed P4 Program using SetForwardingPipelineConfig on s1\n"
+                     "Installed P4 Program using SetForwardingPipelineConfig on s2\n"
+                     "Installed ingress tunnel rule on s1\n"
+                     "TODO Install transit tunnel rule\n")
+    FC_SOLUTION = ("Installed P4 Program using SetForwardingPipelineConfig on s1\n"
+                   "Installed P4 Program using SetForwardingPipelineConfig on s2\n"
+                   "Installed P4 Program using SetForwardingPipelineConfig on s3\n"
+                   "Received PacketIn message of length 64 bytes from switch s1\n"
+                   "For switch s1 flow (SA=10.0.1.1, DA=10.0.2.2, proto=1) added table entry "
+                   "to send packets to port 2 with new DSCP 5\n")
+
+    def setUp(self):
+        self.mod = load_driver()
+        quiet(self.mod)
+        self.tmp = mkdtemp(self, "drv-ctrl-")
+
+    def session(self, exercise, which, log, loss, fabric="tutorials", package=None, alive=True):
+        self.mod.local_popen = fake_controller(log, alive=alive)
+        hosts = StubHosts(IPS3, pings={("h1", IPS3["h2"]):
+                                       self.mod.PingResult(float(loss),
+                                                           int(5 * (100 - loss) / 100), 5)})
+        s = steps_for(self.mod, exercise, which, hosts, self.tmp,
+                      fabric=fabric, package=package)
+        s.run()
+        return s
+
+    def controller_argv(self):
+        return self.started
+
+    # -- which command starts the controller -------------------------------------------
+
+    def test_the_tutorials_arm_runs_the_controller_as_itself(self):
+        """Its 127.0.0.1:5005N and device_id N-1 are the truth of the harness it was written
+        for, so nothing has to rewrite them there."""
+        started = []
+        self.mod.local_popen = lambda argv, **kw: (started.append(list(argv)),
+                                                   fake_controller(self.P4RT_SOLUTION)(argv, **kw))[1]
+        hosts = StubHosts(IPS3, pings={("h1", IPS3["h2"]): self.mod.PingResult(0.0, 5, 5)})
+        steps_for(self.mod, "p4runtime", "solution", hosts, self.tmp).run()
+        self.assertEqual(1, len(started))
+        self.assertTrue(started[0][-1].endswith("solution/mycontroller.py"), started[0])
+        self.assertNotIn("run_external_controller.py", " ".join(started[0]))
+
+    def test_the_ndtwin_arm_goes_through_the_adapter_live_p1_03_uses(self):
+        """🔴 On NDTwin the hard-coded ports and device ids are NOT the truth, and
+        tools/p4_exercise/run_external_controller.py is what rewrites them (TICKET-P1D).
+        Two launchers for one controller would make 'the exercise's controller ran' mean two
+        different things on the two fabrics."""
+        started = []
+        self.mod.local_popen = lambda argv, **kw: (started.append(list(argv)),
+                                                   fake_controller(self.P4RT_SKELETON)(argv, **kw))[1]
+        hosts = StubHosts(IPS3, pings={("h1", IPS3["h2"]): self.mod.PingResult(100.0, 0, 5)})
+        steps_for(self.mod, "p4runtime", "skeleton", hosts, self.tmp,
+                  fabric="ndtwin", package="/pkg").run()
+        self.assertIn("run_external_controller.py", " ".join(started[0]))
+        self.assertIn("/pkg", started[0])
+        self.assertIn("mycontroller.py", started[0])
+
+    # -- p4runtime ---------------------------------------------------------------------
+
+    def test_the_p4runtime_solution_wants_the_transit_rule_and_the_ping(self):
+        v = verdict(self.session("p4runtime", "solution", self.P4RT_SOLUTION, 0))
+        self.assertTrue(v["the transit rule went in"].ok)
+        self.assertTrue(v["h1 -> h2 forwards through the tunnel"].ok)
+        self.assertTrue(v["switches the controller programmed"].ok)
+
+    def test_the_p4runtime_skeleton_wants_the_todo_and_no_forwarding(self):
+        v = verdict(self.session("p4runtime", "skeleton", self.P4RT_SKELETON, 100))
+        self.assertTrue(v["RED ARM: the transit rule is still the student's TODO"].ok)
+        self.assertTrue(v["RED ARM: h1 -> h2 does not forward"].ok)
+
+    def test_the_p4runtime_arms_are_distinguishable(self):
+        self.assertFalse(verdict(self.session("p4runtime", "solution",
+                                              self.P4RT_SKELETON, 100))
+                         ["the transit rule went in"].ok)
+        self.assertFalse(verdict(self.session("p4runtime", "skeleton",
+                                              self.P4RT_SOLUTION, 0))
+                         ["RED ARM: the transit rule is still the student's TODO"].ok)
+
+    def test_a_controller_that_died_fails_the_injection_check(self):
+        """🔴 'h1 cannot ping h2' is true of a controller that never started, of a fabric that
+        never came up and of the skeleton alike. Only the controller's own log tells them
+        apart, which is why it is asserted first."""
+        v = verdict(self.session("p4runtime", "skeleton", "", 100, alive=False))
+        self.assertFalse(v["injection: the controller stayed up"].ok)
+        self.assertFalse(v["switches the controller programmed"].ok)
+
+    def test_a_controller_that_programmed_the_wrong_switches_is_red(self):
+        """mycontroller.py:142-152 connects to s1 and s2 and never touches s3; live-p1/03
+        asserts the same set on the twin's side."""
+        log = self.P4RT_SOLUTION + \
+            "Installed P4 Program using SetForwardingPipelineConfig on s3\n"
+        v = verdict(self.session("p4runtime", "solution", log, 0))
+        self.assertFalse(v["switches the controller programmed"].ok)
+
+    # -- flowcache ---------------------------------------------------------------------
+
+    def test_the_flowcache_solution_wants_three_switches_a_cached_flow_and_the_ping(self):
+        v = verdict(self.session("flowcache", "solution", self.FC_SOLUTION, 0))
+        self.assertTrue(v["switches the controller programmed"].ok)
+        self.assertTrue(v["the controller cached the flow it was punted"].ok)
+        self.assertTrue(v["h1 -> h2 forwards once the cache is warm"].ok)
+
+    def test_reaching_the_flowcache_steps_with_the_skeleton_is_itself_the_finding(self):
+        """🔴 spec['red_arm'] == 'compile': the skeleton is supposed to stop at p4c
+        (flowcache.p4:83-91 vs :232/:269-271, README:29). A run that got here compiled it."""
+        v = verdict(self.session("flowcache", "skeleton", self.FC_SOLUTION, 0))
+        self.assertIn("RED ARM: the skeleton must not compile", v)
+        self.assertFalse(v["RED ARM: the skeleton must not compile"].ok)
+
+    def test_a_flowcache_round_with_no_cached_flow_is_red(self):
+        log = "\n".join(self.FC_SOLUTION.splitlines()[:3]) + "\n"
+        v = verdict(self.session("flowcache", "solution", log, 0))
+        self.assertTrue(v["switches the controller programmed"].ok)
+        self.assertFalse(v["the controller cached the flow it was punted"].ok)
+
+
+class TheRedArmsThatAreNotTheDataPlane(unittest.TestCase):
+    """flowcache stops at the compiler and basic_tunnel stops at the control plane."""
+
+    def setUp(self):
+        self.tmp = mkdtemp(self, "drv-red-")
+        self.mod = load_driver()
+        self.mod.TUT = build_tut_root(self.tmp)
+        self.mod.UTILS = os.path.join(self.tmp, "utils")
+        self.mod.RUNS = os.path.join(self.tmp, "runs")
+        stub_preflight(self.mod)
+
+    def compiler(self, rc):
+        def fake(exdir, src, base):
+            info = {"cmd": "p4c (stubbed)", "rc": rc, "out": "", "warnings": 0, "src": src}
+            if rc == 0:
+                # The real compile_prog only returns these when both files exist, and
+                # write_report stats the p4info -- so the stand-in has to produce them too.
+                build = os.path.join(exdir, "build")
+                os.makedirs(build, exist_ok=True)
+                for name in (base + ".json", base + ".p4.p4info.txtpb"):
+                    with open(os.path.join(build, name), "w") as f:
+                        f.write("{}\n")
+                info.update({"json": os.path.join(build, base + ".json"), "bytes": 1,
+                             "sha": "j" * 16,
+                             "p4info": os.path.join(build, base + ".p4.p4info.txtpb")})
+            return rc, (info.get("json")), info
+        self.mod.compile_prog = fake
+
+    def test_a_flowcache_skeleton_that_does_not_compile_is_exit_1_and_says_by_design(self):
+        """🔴 NOT exit 2. Two means 'nothing was started, there is nothing to look at', and
+        filing the designed refusal under it would put it with the broken cases."""
+        self.compiler(1)
+        rc, text = render_main(self.mod, ["flowcache", "--which", "skeleton"], self.mod.TUT)
+        self.assertEqual(1, rc)
+        self.assertIn("skeleton does not compile, by design", text)
+        self.assertIn("RED ARM: the skeleton must NOT compile", text)
+
+    def test_a_flowcache_skeleton_that_DOES_compile_is_the_finding(self):
+        self.compiler(0)
+        rc, text = render_main(self.mod, ["flowcache", "--which", "skeleton"], self.mod.TUT)
+        self.assertEqual(1, rc)
+        self.assertIn("the red arm is not red", text)
+
+    def test_the_flowcache_solution_is_not_treated_as_a_red_arm(self):
+        self.compiler(0)
+        rc, text = render_main(self.mod, ["flowcache", "--dry-run"], self.mod.TUT)
+        self.assertEqual(0, rc)
+        self.assertNotIn("RED ARM", text)
+
+    def test_basic_tunnels_ndtwin_refusal_reads_like_flowcaches(self):
+        """🔴 ONE EXERCISE MUST NOT READ TWO WAYS ON TWO FABRICS (judge A6).
+
+        basic_tunnel's skeleton cannot install its own runtime entries -- README:41-43 -- and
+        the round therefore ends non-zero having met every expectation it has. On the tutorials
+        fabric the harness raises and the driver records `PASS (1/1)`; on NDTwin the pre-flight
+        refuses, `run_on_ndtwin` returns 1, and round 1's main() printed the word it prints for
+        a driver that fell over: ERROR.
+        """
+        mod = load_driver()
+        mod.TUT = self.mod.TUT
+        mod.RUNS = mkdtemp(self, "drv-a6-")
+        stub_preflight(mod)
+        self.mod, real_mod = mod, self.mod          # compiler() writes into self.mod
+        self.compiler(0)
+        self.mod = real_mod
+        mod.euid = lambda: 1000
+
+        def refuse(ex, which, exdir, spec, args, ips, log_dir, steps, env=None, red_stage=None):
+            mod.run_on_ndtwin.expects = [mod.Expect(
+                "RED ARM: the skeleton's runtime entries must NOT install",
+                "pre-flight refuses them", "pre-flight rc=1", True, mod.G_BOTH, "")]
+            mod.designed_refusal_seen()
+            return 1, "/pkg", {}
+        refuse.expects = []
+        refuse.teardown_problem = ""
+        mod.run_on_ndtwin = refuse
+        rc, text = render_main(mod, ["basic_tunnel", "--which", "skeleton",
+                                     "--fabric", "ndtwin"], mod.TUT)
+        self.assertEqual(1, rc)
+        self.assertIn("RED ARM (1/1)", text)
+        self.assertIn("by design", text)
+        self.assertNotIn(">>> ERROR", text)
+
+    def test_the_tutorials_arm_reads_the_same_as_the_ndtwin_one(self):
+        """🔴 ONE EXERCISE, ONE VERDICT, ON BOTH FABRICS (round-3 ruling 1).
+
+        Round 2 fixed only the NDTwin half: the flag lived on `run_on_ndtwin` and the verdict
+        asked `args.fabric == "ndtwin"`, so `basic_tunnel/skeleton` still printed `PASS (1/1)`
+        and exited 0 on tutorials while printing `RED ARM (1/1)` and exiting 1 on NDTwin -- the
+        same defect A6 named, half-done. The refusal arrives differently (a harness exception
+        from `program_switches`, not a pre-flight rc); it is the same refusal.
+        """
+        mod = load_driver()
+        mod.TUT = self.mod.TUT
+        mod.RUNS = mkdtemp(self, "drv-a6t-")
+        stub_preflight(mod)
+        self.mod, real_mod = mod, self.mod
+        self.compiler(0)
+        self.mod = real_mod
+        mod.euid = lambda: 0                       # the tutorials path refuses non-root
+
+        # 🔴 THE REAL TUTORIALS PATH, with the harness replaced rather than the verdict forced.
+        # `make_driver` wraps whatever ExerciseRunner it is handed, so a stub whose
+        # `program_switches` RAISES is exactly the fabric this arm meets: README:41-43 says the
+        # skeleton's runtime entries name a table it does not declare, and the tutorials harness
+        # raises rather than pre-flighting.
+        class StubNet(object):
+            switches = []
+            hosts = []
+
+            def start(self):
+                pass
+
+            def stop(self):
+                pass
+
+        class StubRunner(object):
+            def __init__(self, *a, **kw):
+                self.net = StubNet()
+
+            def create_network(self):
+                pass
+
+            def program_hosts(self):
+                pass
+
+            def program_switches(self):
+                # README:41-43: sX-runtime.json names MyIngress.myTunnel_exact and the
+                # skeleton declares no such table, so the harness raises here.
+                raise Exception("P4RuntimeWriteException: no such table myTunnel_exact")
+
+        fake = types.ModuleType("run_exercise")
+        fake.ExerciseRunner = StubRunner
+        sys.modules["run_exercise"] = fake
+        self.addCleanup(sys.modules.pop, "run_exercise", None)
+
+        rc, text = render_main(mod, ["basic_tunnel", "--which", "skeleton",
+                                     "--fabric", "tutorials"], mod.TUT)
+        self.assertEqual(1, rc, text[-3000:])
+        self.assertIn("RED ARM (", text)
+        self.assertIn("by design", text)
+        self.assertNotIn(">>> PASS", text)
+
+    def test_the_flag_does_not_leak_from_one_round_into_the_next(self):
+        """🔴 MODULE STATE THAT IS NEVER CLEARED REPORTS THE PREVIOUS ROUND'S REFUSAL.
+
+        The flag had to become module-level so both fabrics could set it; that makes resetting
+        it per round load-bearing, and `06_thirteen.sh` runs twenty-six rounds in one loop.
+        """
+        mod = load_driver()
+        mod.TUT = self.mod.TUT
+        mod.RUNS = mkdtemp(self, "drv-a6leak-")
+        stub_preflight(mod)
+        self.mod, real_mod = mod, self.mod
+        self.compiler(0)
+        self.mod = real_mod
+        mod.euid = lambda: 1000                    # stops at the root check; the RESET is the point
+        mod.DESIGNED_REFUSAL["hit"] = True          # as if a previous round had refused
+        rc, text = render_main(mod, ["basic", "--which", "solution",
+                                     "--fabric", "tutorials"], mod.TUT)
+        self.assertNotIn("RED ARM (", text)
+        self.assertFalse(mod.DESIGNED_REFUSAL["hit"])
+
+    def test_a_round_that_really_failed_still_reads_ERROR(self):
+        """🔴 THE CONTROL. The new verdict is reached only when the round ended on the refusal
+        it was SUPPOSED to end on AND every expectation held; a round that fell over, or one
+        whose expectations did not hold, must still say so."""
+        mod = load_driver()
+        mod.TUT = self.mod.TUT
+        mod.RUNS = mkdtemp(self, "drv-a6b-")
+        stub_preflight(mod)
+        self.mod, real_mod = mod, self.mod
+        self.compiler(0)
+        self.mod = real_mod
+        mod.euid = lambda: 1000
+
+        def blew_up(ex, which, exdir, spec, args, ips, log_dir, steps, env=None, red_stage=None):
+            mod.run_on_ndtwin.expects = []
+            return 2, "/pkg", {}
+        blew_up.expects = []
+        blew_up.teardown_problem = ""
+        mod.run_on_ndtwin = blew_up
+        rc, text = render_main(mod, ["basic_tunnel", "--which", "skeleton",
+                                     "--fabric", "ndtwin"], mod.TUT)
+        self.assertEqual(2, rc)
+        self.assertIn(">>> ERROR", text)
+        self.assertNotIn("RED ARM (", text)
+
+    def test_a_compile_failure_anywhere_else_is_still_exit_2(self):
+        """Every other exercise's compile failure is a broken tool chain, not an arm."""
+        self.compiler(1)
+        rc, text = render_main(self.mod, ["basic", "--which", "skeleton"], self.mod.TUT)
+        self.assertEqual(2, rc)
+        self.assertIn("compile failed -- stopping", text)
+
+
+class TheTelemetryFlag(unittest.TestCase):
+    """`--telemetry` is an ndtwin flag, and omitting it is not the same as saying `auto`."""
+
+    def setUp(self):
+        self.tmp = mkdtemp(self, "drv-tel-")
+        self.mod = load_driver()
+        quiet(self.mod)
+        self.mod.TUT = build_tut_root(self.tmp)
+        self.mod.PKG_ROOT = os.path.join(self.tmp, "packages")
+        self.mod.NDT = "/fake/ndt"
+        self.mod.PROXY_PY = "/fake/python"
+        self.mod.CONVERT = "/fake/convert.py"
+        self.mod.PREFLIGHT = "/fake/preflight.py"
+        self.mod.HOST_KNOB = os.path.join(self.tmp, "host_count_override")
+        self.mod.TELEMETRY_KNOB = os.path.join(self.tmp, "telemetry_override")
+        self.mod.switch_state = lambda *_a, **_k: {"switches": {}}
+        self.mod.link_usage_cell = lambda *_a, **_k: (True, "LINK_USAGE stub rc=0")
+        self.calls = []
+        mod = self.mod
+
+        def runner(cmd, cwd=None, timeout=None, env=None):
+            self.calls.append(list(cmd))
+            return 0, "stub ok"
+        mod.run = runner
+
+        class NoSteps(object):
+            def __init__(self, *a, **kw):
+                self.expects, self.steps = [], []
+
+            def run(self):
+                pass
+        mod.Steps = NoSteps
+        mod.NdtwinHosts = lambda *a, **kw: StubHosts({"h1": "10.0.1.1"})
+        self.args = Args()
+        self.args.telemetry = None
+
+    def go(self):
+        steps = []
+        return self.mod.run_on_ndtwin("basic", "solution", "/ex",
+                                      self.mod.EXERCISES["basic"], self.args,
+                                      {"h1": "10.0.1.1"}, self.tmp, steps, None)
+
+    def up_argv(self):
+        return [c for c in self.calls if c and c[0] == self.mod.NDT and c[1] == "up"][0]
+
+    def test_no_flag_means_the_package_decides(self):
+        """🔴 Not `auto`. Without --telemetry `ndt` writes the package's own telemetry.source;
+        spelling a word out here would overrule every package that declared one and then
+        report the result as the package's."""
+        self.go()
+        self.assertNotIn("--telemetry", self.up_argv())
+
+    def test_the_word_is_passed_through_when_it_is_given(self):
+        for word in ("none", "cooperative", "link", "auto"):
+            with self.subTest(word=word):
+                self.calls = []
+                self.args.telemetry = word
+                self.go()
+                argv = self.up_argv()
+                self.assertIn("--telemetry", argv)
+                self.assertEqual(word, argv[argv.index("--telemetry") + 1])
+
+    def test_the_telemetry_knob_is_put_back_by_the_teardown(self):
+        """🔴 `ndt down` does not touch it and `ndt release` does not check it (TICKET-P3
+        §2.1), so nothing refuses over a knob this round moved -- which is exactly why the
+        round has to put it back itself. It decides the NEXT bring-up's telemetry."""
+        with open(self.mod.TELEMETRY_KNOB, "wb") as f:
+            f.write(b"# mine\nauto\n")
+        self.args.telemetry = "link"
+        mod = self.mod
+
+        def runner(cmd, cwd=None, timeout=None, env=None):
+            self.calls.append(list(cmd))
+            if "--telemetry" in cmd:
+                with open(mod.TELEMETRY_KNOB, "wb") as f:
+                    f.write(b"link\n")
+            return 0, "stub ok"
+        mod.run = runner
+        self.go()
+        with open(self.mod.TELEMETRY_KNOB, "rb") as f:
+            self.assertEqual(b"# mine\nauto\n", f.read())
+
+    def test_a_telemetry_knob_this_round_created_is_removed_again(self):
+        self.args.telemetry = "none"
+        mod = self.mod
+
+        def runner(cmd, cwd=None, timeout=None, env=None):
+            self.calls.append(list(cmd))
+            if "--telemetry" in cmd:
+                with open(mod.TELEMETRY_KNOB, "wb") as f:
+                    f.write(b"none\n")
+            return 0, "stub ok"
+        mod.run = runner
+        self.go()
+        self.assertFalse(os.path.exists(self.mod.TELEMETRY_KNOB))
+
+    def test_the_flag_is_refused_on_the_tutorials_fabric(self):
+        """There is no proxy, no kernel and no telemetry_override in the exercise's own
+        Mininet: an accepted-and-ignored flag is a word nobody read."""
+        mod = load_driver()                 # a module whose `say` still prints
+        mod.TUT = self.mod.TUT
+        stub_preflight(mod)
+        stub_compile(mod)
+        rc, text = render_main(mod, ["basic", "--telemetry", "link", "--dry-run"], mod.TUT)
+        self.assertEqual(2, rc)
+        self.assertIn("--telemetry is an ndtwin-fabric flag", text)
+        self.assertNotIn("compile", text, "refused before anything was built")
+
+
+class TheGenericLinkUsageCell(unittest.TestCase):
+    """🔴 The one cell that is about NDTwin rather than about an exercise's program."""
+
+    def setUp(self):
+        self.tmp = mkdtemp(self, "drv-usage-")
+        self.mod = load_driver()
+        quiet(self.mod)
+
+    def test_the_cell_does_not_run_on_a_skeleton_arm(self):
+        """🔴 A SKELETON IS A FABRIC THE EXERCISE SAYS SHOULD NOT FORWARD. Running the cell
+        there produces an empty on-path set, which the assertion refuses -- correctly, and
+        about the wrong thing. NOT RUN, with the reason, and NO expectation either way."""
+        run, dst, why = self.mod.link_usage_applies(self.mod.EXERCISES["basic"], "skeleton")
+        self.assertFalse(run)
+        self.assertIn("should not forward", why)
+
+    def test_three_solutions_forward_nothing_and_are_named(self):
+        """source_routing's solution drops every frame without a 0x1234 stack, calc's drops
+        everything that is not the calculator protocol, and load_balance's s1 forwards only
+        10.0.0.1/32 and drops the rest (judge A3). All three are properties of the EXERCISE;
+        a cell that went red on them would be reporting the twin for it."""
+        for ex, fragment in (("source_routing", "0x1234 source-route stack"),
+                             ("calc", "calculator protocol"),
+                             ("load_balance", "forwards only 10.0.0.1/32")):
+            with self.subTest(exercise=ex):
+                run, dst, why = self.mod.link_usage_applies(self.mod.EXERCISES[ex], "solution")
+                self.assertFalse(run)
+                self.assertIn(fragment, why)
+
+    def test_the_generic_cell_states_the_bound_it_actually_applies(self):
+        """🔴 AN EXPECTATION LINE THAT NAMES A BOUND NOBODY APPLIES IS WORSE THAN NONE.
+
+        R4 replaced "off-path integrates to exactly 0" with a floor, because after the kernel
+        merge a single sampled LLDP beacon (1/256, banked as 256x its frame length) would red a
+        correct fabric at random. The Expect's `want` string went on saying `off-path == 0`
+        (round-3 ruling 7), so a reader reconciling a GREEN cell against it would conclude the
+        off-path edges carried nothing measurable -- which is not what was checked.
+        """
+        src = open(self.mod.__file__ if hasattr(self.mod, "__file__") else DRIVER).read()
+        self.assertNotIn('"on-path > 0, off-path == 0"', src)
+        self.assertIn("off-path under max(5 kbit, 2% of the smallest on-path)", src)
+
+    def test_every_other_solution_arm_runs_the_cell(self):
+        runs = sorted(ex for ex in self.mod.EXERCISES
+                      if self.mod.link_usage_applies(self.mod.EXERCISES[ex], "solution")[0])
+        # load_balance is out as of judge A3: s1-runtime.json:6-25 forwards 10.0.0.1/32 and
+        # drops the rest, so an iperf between two real host addresses crosses nothing.
+        self.assertEqual(
+            sorted(["basic", "basic_tunnel", "ecn", "firewall", "flowcache", "link_monitor",
+                    "mri", "multicast", "p4runtime", "qos"]), runs)
+
+    def test_the_two_unreachable_last_hosts_are_overridden(self):
+        """🔴 "The model's last host" is a property of the MODEL, and for two packages it is a
+        host the exercise deliberately cannot reach: multicast's sig-topo group replicates
+        ports 1,2,3 (README:122 is the TODO to add the fourth) and p4runtime's controller
+        wires h1<->h2 and never contacts s3. Measuring to those is an empty on-path set."""
+        self.assertEqual("h3", self.mod.link_usage_applies(
+            self.mod.EXERCISES["multicast"], "solution")[1])
+        self.assertEqual("h2", self.mod.link_usage_applies(
+            self.mod.EXERCISES["p4runtime"], "solution")[1])
+        # everybody else takes the model's own last host, which is what None means here
+        self.assertIsNone(self.mod.link_usage_applies(
+            self.mod.EXERCISES["basic"], "solution")[1])
+
+    def test_the_destination_reaches_the_shell_helper(self):
+        seen = []
+        self.mod.link_usage_cell("/pkg", "x", self.tmp, dst="h3",
+                                 runner=lambda cmd, **kw: (seen.append(cmd), (0, ""))[1])
+        self.assertIn("'h3'", seen[0][2])
+
+    def test_the_cell_is_live_p1_commons_own_function_and_not_a_second_copy(self):
+        """🔴 live-p1/05 runs link_usage_round three times and the driver runs it once per
+        exercise. A Python re-implementation here would make 'the same program-independent
+        cell over thirteen exercises' a comparison between two instruments."""
+        seen = []
+
+        def runner(cmd, cwd=None, timeout=None, env=None):
+            seen.append(list(cmd))
+            return 0, "LINK_USAGE basic/solution expect=follows onpath=3 rc=0\n"
+        ok, out = self.mod.link_usage_cell("/pkg", "basic/solution", self.tmp, runner=runner)
+        self.assertTrue(ok)
+        self.assertEqual(1, len(seen))
+        self.assertEqual("bash", seen[0][0])
+        script = seen[0][2]
+        self.assertIn("live-p1/_common.sh", script)
+        self.assertIn("link_usage_round", script)
+        self.assertIn("'/pkg'", script)
+        self.assertIn("'follows'", script)
+
+    def test_a_non_zero_rc_is_a_failed_cell_and_not_a_skip(self):
+        """rc 2 from link_usage_round is 'no namespace / no sudo' -- a permission answer.
+        Rendered as a skip it would read as a fabric whose link usage was fine."""
+        ok, out = self.mod.link_usage_cell(
+            "/pkg", "x", self.tmp,
+            runner=lambda *_a, **_k: (2, "no namespace for h1"))
+        self.assertFalse(ok)
+
+    def test_the_control_asks_for_the_absent_variant(self):
+        seen = []
+        self.mod.link_usage_cell("/pkg", "x", self.tmp, expect="absent",
+                                 runner=lambda cmd, **kw: (seen.append(cmd), (0, ""))[1])
+        self.assertIn("'absent'", seen[0][2])
+
+    def test_the_round_runs_it_after_the_steps_and_records_the_expectation(self):
+        """Last, so a failure here cannot be confused with one of the exercise's own, and
+        before the teardown because it needs the fabric."""
+        mod = self.mod
+        mod.PKG_ROOT = os.path.join(self.tmp, "packages")
+        mod.NDT = "/fake/ndt"
+        mod.PROXY_PY = "/fake/python"
+        mod.CONVERT = "/fake/convert.py"
+        mod.PREFLIGHT = "/fake/preflight.py"
+        mod.HOST_KNOB = os.path.join(self.tmp, "host_count_override")
+        mod.TELEMETRY_KNOB = os.path.join(self.tmp, "telemetry_override")
+        mod.switch_state = lambda *_a, **_k: {"switches": {}}
+        order = []
+        mod.run = lambda cmd, cwd=None, timeout=None, env=None: (
+            order.append(cmd[1] if cmd and cmd[0] == mod.NDT else "other"), (0, "ok"))[1]
+        mod.link_usage_cell = lambda *a, **kw: (order.append("link_usage"), (False, "nope"))[1]
+
+        class NoSteps(object):
+            def __init__(self, *a, **kw):
+                self.expects, self.steps = [], []
+
+            def run(self):
+                order.append("steps")
+        mod.Steps = NoSteps
+        mod.NdtwinHosts = lambda *a, **kw: StubHosts({"h1": "10.0.1.1"})
+        args = Args()
+        args.telemetry = None
+        rc, pkg, state = mod.run_on_ndtwin("basic", "solution", "/ex",
+                                           mod.EXERCISES["basic"], args,
+                                           {"h1": "10.0.1.1"}, self.tmp, [], None)
+        self.assertLess(order.index("steps"), order.index("link_usage"))
+        self.assertLess(order.index("link_usage"), order.index("down"))
+        names = [e.name for e in mod.run_on_ndtwin.expects]
+        self.assertIn("G1  link usage follows the iperf path", names)
+        self.assertNotIn("link_usage", order[:order.index("steps")])
+        self.assertEqual("G1  link usage follows the iperf path", names[-1],
+                         "the generic cell is the LAST expectation, after the exercise's own")
+        self.assertFalse([e for e in mod.run_on_ndtwin.expects
+                          if e.name.startswith("G1")][0].ok)
+        # rc is the ROUND's rc (did the fabric come up, did the lab come back); a failed
+        # expectation becomes exit 1 in main()'s verdict block, which is where every other
+        # expectation is judged too.
+        self.assertEqual(0, rc)
+
+
+class TheSuiteLeavesNoLitter(unittest.TestCase):
+    """🔴 A TEST RUN THAT FILLS THE DISK DECIDES WHETHER SOMEBODY ELSE'S ROUND FINISHES.
+
+    TICKET-P3 section 9 ruling 9 (R3). Every cell here builds a tutorials tree of its own --
+    a ~50 KB package copy -- and until 2026-09-19 none of them removed it. 78 mutants x 124
+    cells, plus the orchestrator's reruns, left 59,679 `/tmp/drv-*` directories and took `/`
+    to 0 bytes free; worker A's gate and two reruns died of it. `mkdtemp()` above registers
+    every directory with the case that made it, and this cell is what says so out loud.
+
+    It runs LAST by name (`TheSuiteLeavesNoLitter` sorts after every other class here), so the
+    directories it counts are the ones the rest of this file has already finished with.
+    """
+
+    def test_no_drv_temp_directory_outlives_this_run(self):
+        """🔴 ONLY THE ONES THIS PROCESS MADE (round-3 ruling 4).
+
+        Round 2 asserted on every `/tmp/drv-*` on the machine. Two copies of this suite running
+        at once -- which is exactly what a mutation gate does, and what the overnight fleet does
+        across worktrees -- would then red each other: B's live directories are not A's litter.
+        The suite can only honestly speak for its own.
+        """
+        made = set(MADE_TEMP_DIRS)
+        # A cell of the same shape as every other one in this file.
+        tmp = mkdtemp(self, "drv-litter-")
+        build_tut_root(tmp)
+        self.assertTrue(os.path.isdir(tmp))
+        # ... and the helper hands it back when this case ends. Every directory THIS RUN made
+        # before now must already be gone: this class sorts last, so the rest of the suite has
+        # finished and a leak anywhere above shows up right here.
+        leaked = sorted(d for d in made if os.path.isdir(d))
+        self.assertEqual(
+            [], leaked,
+            "these /tmp/drv-* directories outlived the tests that made them:\n  "
+            + "\n  ".join(leaked[:20])
+            + ("\n  ... and %d more" % (len(leaked) - 20) if len(leaked) > 20 else ""))
+
+    def test_the_helper_removes_the_directory_it_handed_out(self):
+        """The mechanism, on its own, so the cell above cannot be green because nothing ran."""
+        class Probe(unittest.TestCase):
+            def runTest(self):
+                Probe.made = mkdtemp(self, "drv-probe-")
+                assert os.path.isdir(Probe.made)
+        probe = Probe()
+        result = probe.run()
+        self.assertTrue(result.wasSuccessful(), result.errors + result.failures)
+        self.assertFalse(os.path.exists(Probe.made),
+                         "addCleanup did not remove %s" % Probe.made)
 
 
 if __name__ == "__main__":                      # pragma: no cover

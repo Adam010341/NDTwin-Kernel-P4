@@ -349,13 +349,26 @@ m=$(mutant m17 "$MAIN" \
 report "M17: the skipped steps are not reported -- skipping becomes silence" "$m" \
        "test_an_external_startup_names_every_step_it_skipped"
 
+# 🔴 THE ANCHOR IS THE DECISION'S OWN SENTENCE, NOT ITS BODY (TICKET-P3 §2.7 gate hygiene,
+# recorded as an open item in TICKET-P2 §7-3; D's round 2, R2 -- this file is worker B's and
+# nothing else in it is touched). `    if not read_only:` occurs TWICE in main.py -- the LLDP
+# guard and the watchdog's -- so the first version bought its uniqueness from the two lines of
+# BODY underneath it, which made the mutation break the moment anybody moved the `try` into a
+# helper, and made the anchor an unwritten constraint on how the production code spells this
+# decision (that is the "read_only rebound rather than a second boolean" note in §7-3).
+#
+# The uniqueness now comes from the comment sentence that belongs to this decision and to
+# nothing else in the file, and the guard line follows it. A mutation that FLIPS a guard has to
+# name that guard -- that much is unavoidable -- but it no longer depends on the body, and a
+# rewrite of this decision rewrites its own comment with it, which is where a stale anchor
+# should show up.
 m=$(mutant m18 "$MAIN" \
-    '    if not read_only:
-        try:
-            topo.start_lldp_discovery()' \
-    '    if True:
-        try:
-            topo.start_lldp_discovery()')
+    '    # `install_initial_routes` is never reached either (its only automatic callers are this and
+    # the watchdog below) -- is exactly why both appear in `control_plane.skipped`.
+    if not read_only:' \
+    '    # `install_initial_routes` is never reached either (its only automatic callers are this and
+    # the watchdog below) -- is exactly why both appear in `control_plane.skipped`.
+    if True:')
 report "M18: external startup beacons LLDP onto somebody else's fabric" "$m" \
        "test_an_external_control_plane_starts_no_lldp_and_no_watchdog"
 

@@ -136,7 +136,13 @@ check_fires() {   # <label> <name> <check text that MUST go red> [<more check te
     else
         printf '  SURVIVED %-56s (red, but NOT on every named check)\n' "$label"
         printf '             still green: %s\n' "${missing[@]}"
-        /usr/bin/grep 'FAILED' <<<"$out" | head -3 | sed 's/^/             /'
+        # 🔴 `^  FAILED`, ANCHORED. A bare `grep FAILED` also matches cells that PASSED and
+        # merely have the word in their label -- "🔴 a FAILED pre-flight leaves the telemetry
+        # knob alone" is one, and on 2026-09-19 it was printed under a SURVIVED verdict and
+        # read by the orchestrator as the named check that stayed green. The line that names
+        # that check is the `still green:` one above; this one is context, and context that
+        # shows passing cells as failures is worse than no context.
+        /usr/bin/grep '^  FAILED' <<<"$out" | head -3 | sed 's/^/             /'
         SURVIVED=$((SURVIVED+1))
     fi
 }
@@ -158,7 +164,13 @@ check_control() {   # <label> <name> -- a behaviour-preserving edit; the suite m
         printf '  control  %-56s (stayed green, as it must)\n' "$label"
     else
         printf '  🔴 CONTROL %-53s (went RED -- this harness reddens for any edit)\n' "$label"
-        /usr/bin/grep 'FAILED' <<<"$out" | head -3 | sed 's/^/             /'
+        # 🔴 `^  FAILED`, ANCHORED. A bare `grep FAILED` also matches cells that PASSED and
+        # merely have the word in their label -- "🔴 a FAILED pre-flight leaves the telemetry
+        # knob alone" is one, and on 2026-09-19 it was printed under a SURVIVED verdict and
+        # read by the orchestrator as the named check that stayed green. The line that names
+        # that check is the `still green:` one above; this one is context, and context that
+        # shows passing cells as failures is worse than no context.
+        /usr/bin/grep '^  FAILED' <<<"$out" | head -3 | sed 's/^/             /'
         CONTROLS_RED=$((CONTROLS_RED+1))
     fi
 }
@@ -915,6 +927,367 @@ cat > "$A/c2.new" <<'EOF'
             --app=*) NDT_APP_DIR="${a:6}"; seen=1 ;;
 EOF
 check_control "C2: --app=<dir> stripped by offset instead of prefix" c2
+
+
+# =================================================================================================
+# TICKET-P3 §6.3: the telemetry source, the emitter and the fingerprint.
+#
+# 🔴 THE SHAPE OF THIS FEATURE'S FAILURES IS SILENCE. A telemetry knob that is not written, an
+# emitter whose death nobody notices, a fingerprint that cannot tell two proxies apart -- none of
+# them produces an error message, a red row or a refused command. What they produce is a twin
+# whose link usage is zero, or double, over a fabric every other row calls healthy.
+# =================================================================================================
+
+# --- M48 (M-D1): --telemetry does not reach the knob --------------------------------------------
+# The operator names a source, the command accepts it, and the file three readers act on keeps
+# the last round's word. Every banner still prints what was asked for.
+cat > "$A/m48.old" <<'EOF'
+    local tel_word="${NDT_TELEMETRY:-}"
+    if [[ -z "$tel_word" ]]; then
+EOF
+cat > "$A/m48.new" <<'EOF'
+    local tel_word=""
+    if [[ -z "$tel_word" ]]; then
+EOF
+check_fires "M48: --telemetry never reaches the knob" m48 \
+            "🔴 the flag is what lands in the knob" \
+            "🔴 and the flag outranks the package" \
+            "🔴 the start_bg fingerprint carries the telemetry source"
+
+# --- M49 (widening): the bring-up writes `auto` over the package's own choice --------------------
+# 🔴 THE PLAUSIBLE ONE. `auto` reads as "no opinion" and is not: it overrules a package that
+# asked for `link`, and the round then reports that package's numbers as the package's.
+cat > "$A/m49.old" <<'EOF'
+        tel_word="$(telemetry_word_for_bring_up "$app_dir")" || {
+EOF
+cat > "$A/m49.new" <<'EOF'
+        tel_word="auto"; false || {
+EOF
+check_fires "M49 (widening): no flag means auto, overruling the package" m49 \
+            "🔴 with no flag the PACKAGE decides"
+
+# --- M50: a package that declares a word nobody knows falls back to auto -------------------------
+# The proxy refuses to start on that word, so the fabric this builds is one nobody asked for --
+# and the substitution happens in the one command that could have said so.
+cat > "$A/m50.old" <<'EOF'
+            err "the package declares telemetry.source '$p', which is not one of: $TELEMETRY_WORDS"
+            return 2
+EOF
+cat > "$A/m50.new" <<'EOF'
+            echo auto
+            return 0
+EOF
+check_fires "M50: an unknown declared source falls back to auto" m50 \
+            "🔴 a package declaring a word nobody knows refuses" \
+            "  naming the word and the four it accepts"
+
+# --- M51: the knob is only written when a word was asked for -------------------------------------
+# 🔴 INVISIBLE ON THE ROUND THAT DOES IT AND WRONG ON THE NEXT ONE. With the write skipped, the
+# fabric this command builds inherits whatever the last round chose, and the banner it prints is
+# the one the operator asked for.
+cat > "$A/m51.old" <<'EOF'
+    telemetry_knob_apply "$tel_word" || {
+EOF
+cat > "$A/m51.new" <<'EOF'
+    [[ -n "${NDT_TELEMETRY:-}" ]] && telemetry_knob_apply "$tel_word" || {
+EOF
+check_fires "M51: a bring-up that asked for nothing leaves the last round's word" m51 \
+            "🔴 a stale knob does NOT survive a bring-up that asked for nothing"
+
+# --- M72: applying `auto` writes the word into the file instead of removing it ------------------
+# 🔴 A COMMAND INVENTING STATE TO DESCRIBE A DEFAULT. A file containing `auto` says exactly what
+# its own absence already said, and it is a file: it appears in `git status` of whatever tree the
+# bring-up ran in, and every later reader has to know that `auto` and absent are the same thing.
+# It is also how a test that drives up_p4 against the real checkout starts leaving junk in it.
+cat > "$A/m72.old" <<'EOF'
+    [[ "$w" != auto ]] && { telemetry_knob_write "$w"; return $?; }
+EOF
+cat > "$A/m72.new" <<'EOF'
+    telemetry_knob_write "$w"; return $?
+EOF
+check_fires "M72: applying auto writes a file instead of removing one" m72 \
+            "  a package that declares nothing leaves no knob" \
+            "🔴 a stale knob does NOT survive a bring-up that asked for nothing"
+
+# --- M52: the refusal path writes the knob anyway -------------------------------------------------
+# The ROLE-9 shape with a third file in it: a bring-up that said no, having already chosen a
+# telemetry source for the fabric it refused to build.
+cat > "$A/m52.old" <<'EOF'
+        if ! app_preflight "$app_dir"; then
+EOF
+cat > "$A/m52.new" <<'EOF'
+        telemetry_knob_apply "${NDT_TELEMETRY:-auto}" >/dev/null 2>&1
+        if ! app_preflight "$app_dir"; then
+EOF
+check_fires "M52: a refused bring-up has already chosen a source" m52 \
+            "🔴 a FAILED pre-flight leaves the telemetry knob alone"
+
+# --- M53: --telemetry with no value means the default ---------------------------------------------
+# `--telemetry=` then builds whatever the package declares under an argv that says otherwise --
+# --app's own defect, on the flag beside it.
+cat > "$A/m53.old" <<'EOF'
+    if (( tseen )); then
+        if [[ -z "$NDT_TELEMETRY" ]]; then
+EOF
+cat > "$A/m53.new" <<'EOF'
+    if (( tseen )); then
+        if false; then
+EOF
+# 🔴 NOT THE rc CELL. With this branch gone the empty value falls through to
+# telemetry_word_valid, which refuses "" as well -- rc 2 either way, for a reason that has
+# nothing to do with the flag having been GIVEN. What sees it is the sentence: `--telemetry=`
+# is a typo and `--telemetry link` on a package that declares `none` is not, and only the
+# refusal that knows the flag was seen can tell an operator which one they typed.
+check_fires "M53: --telemetry= is read as 'no flag'" m53 \
+            "  saying why an empty value is not 'no flag'"
+
+# --- M54: any word is a telemetry source ----------------------------------------------------------
+# The knob then carries something the proxy refuses to start on, and the refusal happens two
+# commands later with no argv anywhere near it.
+cat > "$A/m54.old" <<'EOF'
+        if ! telemetry_word_valid "$NDT_TELEMETRY"; then
+EOF
+cat > "$A/m54.new" <<'EOF'
+        if false; then
+EOF
+check_fires "M54: any word is accepted as a telemetry source" m54 \
+            "🔴 a word that is not a source is a usage error"
+
+# --- M55: --telemetry is accepted on the OVS plane -------------------------------------------------
+cat > "$A/m55.old" <<'EOF'
+        if [[ -n "$NDT_TELEMETRY" && "${plan%% *}" != up_p4 ]]; then
+EOF
+cat > "$A/m55.new" <<'EOF'
+        if false; then
+EOF
+check_fires "M55: --telemetry is accepted on the OVS plane" m55 \
+            "🔴 --telemetry on the OVS plane is refused"
+
+# --- M56 (M-D2): a dead emitter is not a --check problem --------------------------------------------
+# 🔴 THE ROW STAYS. The screen still says `link emitter: DEAD`, and only the problem list decides
+# whether anything ACTS on it -- which is the difference between a row a person may read and a
+# verdict a script does.
+cat > "$A/m56.old" <<'EOF'
+            STATUS_TELEMETRY_PROBLEMS+=("the link-telemetry emitter is DEAD: $LINK_TELEMETRY_MANIFEST names pid $pid and no such process exists -- every 'link' switch is sampling into a netlink group nobody is reading") ;;
+EOF
+cat > "$A/m56.new" <<'EOF'
+            ;;
+EOF
+check_fires "M56: a DEAD link emitter is printed but not a problem" m56 \
+            "🔴 and it is a --check problem"
+
+# --- M57 (widening): no manifest is reported as a dead emitter --------------------------------------
+# 🔴 THE OPPOSITE MISTAKE, and it is the one that makes the check useless rather than silent:
+# every cooperative fabric has no manifest, so --check would be red on the baseline lab for ever
+# and the row would stop meaning anything.
+cat > "$A/m57.old" <<'EOF'
+    [[ -e "$LINK_TELEMETRY_MANIFEST" ]] || { echo "none - - -"; return 0; }
+EOF
+cat > "$A/m57.new" <<'EOF'
+    [[ -e "$LINK_TELEMETRY_MANIFEST" ]] || { echo "dead - 0 -"; return 0; }
+EOF
+check_fires "M57 (widening): an absent manifest reads as a dead emitter" m57 \
+            "🔴 and NO manifest is not a problem at all"
+
+# --- M58: a knob naming a word nobody knows is printed and not raised ---------------------------------
+cat > "$A/m58.old" <<'EOF'
+        STATUS_TELEMETRY_PROBLEMS+=("the telemetry knob ($rel) names '$knobw', which is not one of: $TELEMETRY_WORDS -- the proxy refuses to start on it")
+EOF
+cat > "$A/m58.new" <<'EOF'
+        :
+EOF
+check_fires "M58: an unusable telemetry knob is not a --check problem" m58 \
+            "  and --check lists it as a problem"
+
+# --- M59 (M-D3): verify_p4 does not check the emitter behind a `link` switch ----------------------------
+# The switches say `link`, the tc filters are attached, the emitter is gone, and the bring-up
+# ends `ready` over a fabric whose telemetry goes nowhere.
+cat > "$A/m59.old" <<'EOF'
+                if [[ "$emit_state" != alive ]]; then
+EOF
+cat > "$A/m59.new" <<'EOF'
+                if false; then
+EOF
+check_fires "M59: a link fabric with no emitter passes the gate" m59 \
+            "🔴 a link fabric with no emitter behind it is red"
+
+# --- M60: a switch that discloses no telemetry at all passes -------------------------------------------
+# "It did not say" becomes "cooperative, as usual" -- the silent substitution app_package_row
+# exists to remove, one endpoint over.
+cat > "$A/m60.old" <<'EOF'
+        if [[ "$src" == absent ]]; then
+EOF
+cat > "$A/m60.new" <<'EOF'
+        if false; then
+EOF
+# 🔴 NOT THE rc CELL, AND THE GATE IS WHAT SAID SO. With this branch gone the switch falls
+# through to the source COMPARISON -- the reader emits the literal word `absent`, which does
+# not equal `cooperative`, so the gate still returns 1. Same exit code, a completely different
+# sentence, and the difference matters to whoever reads it: "the proxy resolved a different
+# source" sends an operator to look at the proxy's own resolution, and "the proxy said nothing"
+# sends them to look at whether it is disclosing at all.
+check_fires "M60: a switch with no telemetry object passes the gate" m60 \
+            "  and 'it did not say' is not 'as usual'"
+
+# --- M61 (widening): the two answers are not compared at all ---------------------------------------------
+# 🔴 THE WHOLE POINT OF THE GATE. `ndt` resolved one source and the proxy resolved another; one of
+# them built the fabric and the other is sampling it, and with the comparison gone the bring-up is
+# green over exactly that.
+cat > "$A/m61.old" <<'EOF'
+        if [[ "$src" != "$want" ]]; then
+EOF
+cat > "$A/m61.new" <<'EOF'
+        if false; then
+EOF
+# 🔴 NOT THE rc CELL either, and for the same reason one mutation up. With the comparison gone
+# the disagreeing switch falls into the branch for the source THIS script resolved -- it is
+# `cooperative`, its clone_session is false because the proxy really put it on `link`, and the
+# gate returns 1 complaining about a missing clone session. The fabric is misreported and the
+# exit code is identical; the sentence is the whole of what changed.
+check_fires "M61 (widening): the proxy's source is never compared to this one" m61 \
+            "  naming both answers"
+
+# --- M62: a cooperative switch with no clone session passes -----------------------------------------------
+cat > "$A/m62.old" <<'EOF'
+                if [[ "$clone" != true ]]; then
+EOF
+cat > "$A/m62.new" <<'EOF'
+                if false; then
+EOF
+check_fires "M62: a cooperative switch that clones nothing passes" m62 \
+            "🔴 a cooperative switch with no clone session is red"
+
+# --- M63: an unreadable switch_state passes the telemetry gate -----------------------------------------------
+cat > "$A/m63.old" <<'EOF'
+        err "  cannot say which telemetry source each switch is on. An unchecked gate is not"
+        err "  a passed one."
+        return 1
+EOF
+cat > "$A/m63.new" <<'EOF'
+        err "  cannot say which telemetry source each switch is on. An unchecked gate is not"
+        err "  a passed one."
+        return 0
+EOF
+check_fires "M63: an unreadable switch_state passes the telemetry gate" m63 \
+            "🔴 an unreadable switch_state is red, not a pass"
+
+# --- M64: verify_p4 never runs the telemetry gate -------------------------------------------------------------
+# 🔴 THE P1-A M19 SHAPE. The function stays perfect and becomes unreachable from the one command
+# that would have run it, and every unit cell above stays green.
+cat > "$A/m64.old" <<'EOF'
+    verify_p4_telemetry "$pipe" "$state" || rc=1
+EOF
+cat > "$A/m64.new" <<'EOF'
+    true
+EOF
+check_fires "M64: the bring-up never runs the telemetry gate" m64 \
+            "🔴 verify_p4 runs the telemetry gate" \
+            "🔴 and its verdict reaches the bring-up's rc"
+
+# --- M65: the gate's verdict does not reach the bring-up's rc ---------------------------------------------------
+cat > "$A/m65.old" <<'EOF'
+    verify_p4_telemetry "$pipe" "$state" || rc=1
+EOF
+cat > "$A/m65.new" <<'EOF'
+    verify_p4_telemetry "$pipe" "$state" || true
+EOF
+check_fires "M65: the telemetry gate is run and its verdict ignored" m65 \
+            "🔴 and its verdict reaches the bring-up's rc"
+
+# --- M66: `auto` resolves foreign switches to cooperative --------------------------------------------------------
+# 🔴 THE ONE THAT DOUBLE-COUNTS. A switch running somebody else's program has no NDTwin
+# cooperative header at all, so `cooperative` there means the proxy writes a clone session for a
+# pipeline that cannot clone -- and the link emitter, which the fabric DID attach, is then the
+# only source while the twin believes there are two.
+# 🔴 THE ANCHOR MOVED WITH THE RULE (§9 ruling 9 R1, round 2). `ndt` no longer re-derives the
+# split from `foreign:<dpids>`: it CALLS app_package.telemetry_source once per switch, which is
+# the only implementation of §2.1's three layers on this side of the merge. So the edit that
+# reproduces the old defect is the one that asks about ONE switch and prints its answer for all
+# of them -- the same fabric-wide claim, reached the new way.
+cat > "$A/m66.old" <<'EOF'
+    rows = [(s.dpid, app_package.telemetry_source(pkg, s.dpid, knob_path=knob, base_dir=base))
+            for s in pkg.switches]
+EOF
+cat > "$A/m66.new" <<'EOF'
+    one = app_package.telemetry_source(pkg, pkg.switches[0].dpid, knob_path=knob, base_dir=base)
+    rows = [(s.dpid, one) for s in pkg.switches]
+EOF
+check_fires "M66: auto puts a foreign switch on the cooperative source" m66 \
+            "🔴 auto over a mixed package splits switch by switch"
+
+# --- M67: an unreadable package resolves to cooperative ------------------------------------------------------------
+cat > "$A/m67.old" <<'EOF'
+        unreadable) printf '%s\n' "ALL unresolved (the package could not be parsed)"; return 0 ;;
+EOF
+cat > "$A/m67.new" <<'EOF'
+        unreadable) printf '%s\n' "ALL cooperative"; return 0 ;;
+EOF
+check_fires "M67: an unreadable package is resolved as cooperative" m67 \
+            "🔴 an unreadable package resolves to NOTHING, not to a default"
+
+# --- M68: `ndt down` clears the telemetry knob ------------------------------------------------------------------------
+# Every round would then silently revert to `auto`, and the standing choice this file exists to
+# carry would last exactly one bring-up.
+cat > "$A/m68.old" <<'EOF'
+app_knob_clear "this checkout is being put back" || rc=1
+EOF
+cat > "$A/m68.new" <<'EOF'
+app_knob_clear "this checkout is being put back" || rc=1
+    rm -f "$(telemetry_knob_path)"
+EOF
+check_fires "M68: the teardown clears the telemetry knob too" m68 \
+            "  and so does 'ndt clean'"
+
+# --- M69: a live emitter is not reported as residue ----------------------------------------------------------------------
+# A python process holding a psample netlink group while the fabric under it is gone, and nothing
+# on the teardown's screen names it.
+cat > "$A/m69.old" <<'EOF'
+            warn "residue: the link-telemetry emitter is still running -- pid $em_pid, $em_nsw switch(es)"
+EOF
+cat > "$A/m69.new" <<'EOF'
+            info "link telemetry emitter pid $em_pid still running, $em_nsw switch(es)"
+EOF
+check_fires "M69: a surviving link emitter is not called residue" m69 \
+            "🔴 an emitter that outlived the teardown is residue"
+
+# --- M70: a stale manifest is not residue ---------------------------------------------------------------------------------
+cat > "$A/m70.old" <<'EOF'
+            warn "residue: $LINK_TELEMETRY_MANIFEST is still there and the pid it names ($em_pid) is gone."
+EOF
+cat > "$A/m70.new" <<'EOF'
+            info "$LINK_TELEMETRY_MANIFEST names pid $em_pid."
+EOF
+check_fires "M70: a stale link-telemetry manifest is not residue" m70 \
+            "🔴 a stale manifest is residue too"
+
+# --- two more controls, for the half of the file this round added ------------------------------------
+# 🔴 Without them the eleven "caught" lines above say nothing about the NEW cells: a suite that
+# reddened for any edit to the telemetry code would print the same table.
+cat > "$A/c3.old" <<'EOF'
+    local w="$1" x
+    for x in $TELEMETRY_WORDS; do [[ "$w" == "$x" ]] && return 0; done
+    return 1
+EOF
+cat > "$A/c3.new" <<'EOF'
+    local w="$1" x
+    for x in $TELEMETRY_WORDS; do
+        if [[ "$w" == "$x" ]]; then
+            return 0
+        fi
+    done
+    return 1
+EOF
+check_control "C3: telemetry_word_valid written the long way" c3
+
+cat > "$A/c4.old" <<'EOF'
+    local shaped
+    shaped="$(app_shaped_links)"
+EOF
+cat > "$A/c4.new" <<'EOF'
+    local shaped                    # the links the package asks to be shaped
+    shaped="$(app_shaped_links)"
+EOF
+check_control "C4: the shaped-links read split over two lines" c4
 
 echo
 NOW_SUM="$(sha256sum "$NDT" | cut -d' ' -f1)"

@@ -1068,10 +1068,20 @@ cmd_up() {
         # (P1-A §5-9, handed to this ticket.) On the baseline it changes nothing observable --
         # $topo IS DEFAULT_TOPO_FILE at 4 hosts, and the 4- and 128-host models declare the
         # same ten agent addresses (192.168.123.11-20), checked.
+        # [Co-developed with claude code -- Adam]
+        # 🔴 AND THE TELEMETRY SOURCE, for exactly the reason the app package is here
+        # (TICKET-P3 §2.1). p4_proxy/mininet/telemetry_override is a third file the proxy reads
+        # at import and that is not on its command line: `ndt up p4 --telemetry cooperative`
+        # followed by `--telemetry link` produces two proxies with identical argv, one writing
+        # clone sessions and registering switches for sFlow and one deliberately doing neither.
+        # start_bg would reuse the first, and every link-usage number afterwards would be
+        # describing a proxy nobody asked for.
         START_BG_IDENTITY="hosts=$(sed -n 's/^[[:space:]]*\([0-9][0-9]*\).*/\1/p' \
             "$KERNEL_DIR/p4_proxy/mininet/host_count_override" 2>/dev/null | head -1) app=$(sed -n \
             '/^[[:space:]]*#/d; /^[[:space:]]*$/d; s/^[[:space:]]*//; p; q' \
-            "$KERNEL_DIR/p4_proxy/mininet/app_package_override" 2>/dev/null) topo=$topo" \
+            "$KERNEL_DIR/p4_proxy/mininet/app_package_override" 2>/dev/null) telemetry=$(sed -n \
+            '/^[[:space:]]*#/d; /^[[:space:]]*$/d; s/^[[:space:]]*//; s/[[:space:]].*//; p; q' \
+            "$KERNEL_DIR/p4_proxy/mininet/telemetry_override" 2>/dev/null) topo=$topo" \
         start_bg p4_proxy "$LOG_DIR/p4_proxy.log" \
             env PYTHONPATH="$KERNEL_DIR/p4_proxy" NDTWIN_TOPO_FILE="$topo" \
             bash -c "cd '$KERNEL_DIR/p4_proxy' && '$P4_PROXY_PY' proxy_agent/main.py"

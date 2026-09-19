@@ -37,7 +37,13 @@
 # SURVIVOR -- never as skipped.
 #
 # Exit: 0 every mutation behaved as declared, 1 one did not, 2 refused (baseline red /
-#       harness), 3 the file under test changed while the gate ran.
+#       harness / A MUTANT THAT IS NOT VALID BASH -- §9 ruling 12a), 3 the file under test
+#       changed while the gate ran.
+#
+# 🔴 2 AND 1 ARE DIFFERENT ANSWERS. 1 is "the suite let a real mutation through"; 2 is "this
+# gate could not measure, so it is not answering". Round 3 collapsed the second into the first
+# by incrementing SURVIVORS for a dead mutant while its comments and the ticket's report both
+# said it refused -- and the verdict line then reported a measurement that never happened.
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
@@ -49,12 +55,39 @@ BASE_NDT=$(sha256sum "$NDT" | cut -d' ' -f1)
 
 SURVIVORS=0
 MUTATIONS=0
+#: Mutants that are not valid bash. 🔴 SEPARATE FROM SURVIVORS, AND IT DECIDES THE EXIT CODE
+#: (TICKET-P3 §9 ruling 12a). Round 3 added the `bash -n` guard, wrote "refused, not a
+#: survivor" in the comments AND in the report -- and then incremented SURVIVORS, so a dead
+#: mutant still came out as `N mutations, N survived`, rc 1. That is the SAME defect one level
+#: up: the gate saying one thing about itself and doing another. A dead mutant means the gate
+#: could not measure this mutation at all, which is neither "caught" nor "survived": there is
+#: no verdict line, and the exit code is 2 (refused), the code this gate already uses for a red
+#: baseline.
+DEAD=0
 
 run_against() { NDT_UNDER_TEST="$1/ndt" timeout 600 bash "$TEST" 2>&1; }
 
+# [Co-developed with claude code -- Adam]
+# 🔴 A MUTANT THAT DOES NOT PARSE IS NOT A MUTANT (round-3 ruling 3; the accounting that
+# makes that true rather than merely stated is §9 ruling 12a). `bash -n` is the whole
+# guard: a syntactically dead `ndt` reddens every cell for one reason -- it cannot run -- which
+# looks exactly like "the suite is sensitive" while proving nothing, and leaves the NAMED cell
+# absent from the output, which `report` cannot tell from green. That is how M9 was reported as
+# a survivor for a defect that was in the GATE. Refuse instead: a gate that cannot say what it
+# measured must not print a verdict.
+syntax_ok() {   # $1 = mutant dir; prints the error when it is not
+    bash -n "$1/ndt" 2>&1
+}
+
 report() {   # $1 = mutation name, $2 = mutant dir, $3 = case that must fail
-    local out rc
+    local out rc err
     MUTATIONS=$((MUTATIONS+1))
+    if ! err="$(syntax_ok "$2")" || [[ -n "$err" ]]; then
+        DEAD=$((DEAD+1))
+        printf '  🔴 DEAD   %-58s (the mutant is not valid bash -- it measures nothing)\n' "$1"
+        sed 's/^/             /' <<<"$err"
+        return
+    fi
     out=$(run_against "$2"); rc=$?
     if [[ "$rc" -ne 0 ]] && grep -qF "FAILED   $3" <<<"$out"; then
         printf '  caught   %-58s (%s went red)\n' "$1" "$3"
@@ -74,8 +107,14 @@ report() {   # $1 = mutation name, $2 = mutant dir, $3 = case that must fail
 # must leave the suite GREEN, and a red here is the suite over-fitted to the implementation's
 # text rather than to what it does.
 report_green() {   # $1 = mutation name, $2 = mutant dir, $3 = why it changes nothing
-    local out rc
+    local out rc err
     MUTATIONS=$((MUTATIONS+1))
+    if ! err="$(syntax_ok "$2")" || [[ -n "$err" ]]; then
+        DEAD=$((DEAD+1))
+        printf '  🔴 DEAD   %-58s (the mutant is not valid bash -- it measures nothing)\n' "$1"
+        sed 's/^/             /' <<<"$err"
+        return
+    fi
     out=$(run_against "$2"); rc=$?
     if [[ "$rc" -eq 0 ]]; then
         printf '  green    %-58s (%s)\n' "$1" "$3"
@@ -223,11 +262,19 @@ report "M8: a REUSED fabric is rolled back as if we built it" "$m" \
 
 # 🔴 And the other opposite error: rolling back a stack that came up and merely failed its
 # verification, which destroys the one state an operator needs to be able to read.
+# 🔴 THE ANCHOR IS THE COMPLETE CALL, AND IT WAS NOT (TICKET-P3 round-3 ruling 3).
+# `verify_p4 "$topo" "$want_paths"` became a PREFIX of the real line when verify_p4 grew two
+# more arguments (`ndt:3307` now passes "$app_mode" "$app_pipe"). The mutant therefore became
+#     verify_p4 "$topo" "$want_paths" || { ... } "$app_mode" "$app_pipe"
+# -- a bash syntax error. The whole of `ndt` then failed to parse, all 424 cells went red, and
+# the NAMED cell never printed at all, so `report` read it as "stayed green" and called M9 a
+# survivor. A gate whose mutant does not PARSE is measuring nothing; the bash -n below turns
+# that into a refusal instead of a survivor, and this anchor stops it happening here.
 m=$(mutant m9 "$NDT" \
     '    say "[3/3] verify"
-    verify_p4 "$topo" "$want_paths"' \
+    verify_p4 "$topo" "$want_paths" "$app_mode" "$app_pipe"' \
     '    say "[3/3] verify"
-    verify_p4 "$topo" "$want_paths" || { rollback_up "verification failed"; return 1; }')
+    verify_p4 "$topo" "$want_paths" "$app_mode" "$app_pipe" || { rollback_up "verification failed"; return 1; }')
 report "M9: a stack that failed VERIFICATION is torn down too" "$m" \
        "🔴 and is NOT rolled back"
 
@@ -1203,5 +1250,17 @@ if [[ "$NOW_NDT" != "$BASE_NDT" ]]; then
     exit 3
 fi
 echo "baseline byte-identical: yes  tools/test_workflow/ndt  sha256 $BASE_NDT"
-echo "mutation gate: $MUTATIONS mutations, $SURVIVORS survived"
+# 🔴 A DEAD MUTANT MEANS THERE IS NO VERDICT TO PRINT (§9 ruling 12a). Not "0 survived" (it was
+# never measured), not "1 survived" (that is a claim about the SUITE, and the suite never ran
+# against a working mutant). The gate refuses, the way it refuses a red baseline -- and it must
+# not print a `N mutations, N survived` line at all, because that line is what every reader,
+# every log scraper and this ticket's own report table take as the result.
+if [[ "$DEAD" -gt 0 ]]; then
+    echo "🔴 REFUSED: $DEAD mutant(s) are not valid bash -- see the DEAD line(s) above."
+    echo "   A mutant that does not parse reddens every cell for one reason (it cannot run) and"
+    echo "   leaves the named cell absent, which is indistinguishable from green. This gate"
+    echo "   measured nothing for those mutations, so it prints no verdict for any of them."
+    exit 2
+fi
+echo "mutation gate: $MUTATIONS mutations, $SURVIVORS survived, $DEAD dead"
 [[ "$SURVIVORS" -eq 0 ]]

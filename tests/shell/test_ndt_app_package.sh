@@ -36,6 +36,9 @@ export NO_COLOR=1
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NDT="${NDT_UNDER_TEST:-$HERE/../../tools/test_workflow/ndt}"
 REAL_REPO="$(cd "$HERE/../.." && pwd)"
+#: stack.sh's own seam, the same shape NDT_UNDER_TEST is: section 18 evaluates the production
+#: START_BG_IDENTITY assignment out of this file, and its mutation gate points it at a copy.
+STACK="${STACK_UNDER_TEST:-$REAL_REPO/tools/test_workflow/stack.sh}"
 [[ -r "$NDT" ]] || { echo "  FAILED   no ndt at $NDT"; echo "Ran 1 checks, 1 failed"; exit 1; }
 
 PASS=0; FAIL=0
@@ -133,7 +136,10 @@ printf 'this is not json\n' > "$PKG_UNREADABLE/package.json"
 # Package.pipeline_is_ndtwin (TICKET-P2 §2.1) and imports it from $REPO/p4_proxy/mininet --
 # which under these stubs is $FIX -- so the three modules that answer the question are
 # symlinked in. A stand-in for them would be this suite deciding the answer it is checking.
-for m in app_package.py topo_from_json.py grpc_ports.py; do
+# link_telemetry.py joined the list in round 2: `ndt`'s link_emitter_row now asks B's own
+# read_manifest and process_is_the_emitter about the manifest's shape instead of guessing a key
+# (judge A1). It imports app_package and topo_from_json from beside itself, which are here.
+for m in app_package.py topo_from_json.py grpc_ports.py link_telemetry.py; do
     ln -sf "$REAL_REPO/p4_proxy/mininet/$m" "$FIX/p4_proxy/mininet/$m"
 done
 
@@ -238,6 +244,12 @@ teardown_in_flight() { return 1; }
 curl() { return 1; }
 git_lines() { :; }
 port_open() { return 1; }
+# 🔴 THE LINK-TELEMETRY MANIFEST IS A FIXTURE PATH, NOT /tmp. It describes a RUNNING fabric
+# (TICKET-P3 §2.5), and a suite that read the real one would be green or red depending on
+# whether somebody had a fabric up on this laptop -- and the cmd_down cells would report a
+# live emitter belonging to somebody else as residue of the teardown under test.
+# (No apostrophes in this block: it lives inside a single-quoted stub set.)
+LINK_TELEMETRY_MANIFEST="'"$FIX"'/ndtwin_link_telemetry.json"
 '
 
 # verify_p4 is stubbed for every `up_p4` cell -- what those measure is what reaches it -- and
@@ -654,6 +666,7 @@ json.dump({"status": "success",
 VSTUB='
 verify_p4_graph() { echo "GRAPH CHECKED $1"; return 0; }
 verify_dataplane() { echo "PINGED $1 -> $2"; return 0; }
+verify_p4_telemetry() { echo "TELEMETRY CHECKED pipe=${1:-<none>}"; return ${TEL_RC:-0}; }
 json_len() { echo 12; }
 curl() { case "$*" in */p4/switch_state) cat "'"$SS_EXT3"'" ;; *) echo "{}" ;; esac; }
 '
@@ -1011,6 +1024,11 @@ SS_JUNK="$FIX/ss_junk.json"    ; printf 'not json at all\n' > "$SS_JUNK"
 # presence in the output is how a cell proves the READING path was NOT taken.
 FSTUB='
 verify_p4_graph() { echo "GRAPH CHECKED $1"; return 0; }
+# 🔴 STUBBED HERE AND REAL IN SECTION 18, the same split verify_p4_graph has one line up and
+# for the same reason: what these cells measure is what REACHES the telemetry gate, and a cell
+# that also had to build a whole telemetry disclosure would be measuring two things. The echo
+# is what lets a mutation that stops CALLING it be caught here rather than nowhere.
+verify_p4_telemetry() { echo "TELEMETRY CHECKED pipe=${1:-<none>}"; return ${TEL_RC:-0}; }
 # 🔴 The stub honours DP_RC too, so "a package fabric is not failed for a silent data
 # plane" is a claim about the RC and not only about the wording: with the stub always
 # returning 0, a mutation that routed the foreign branch back through verify_dataplane
@@ -1215,6 +1233,7 @@ P_NULL="$FIX/p_null.json"    ; mkprobe "$P_NULL"  "1:null:-" "2:null:-" "3:null:
 # replaced. The graph now comes off a fixture through the same `curl` stub the probes do.
 ESTUB='
 verify_dataplane() { echo "PINGED $1 -> $2"; return 0; }
+verify_p4_telemetry() { echo "TELEMETRY CHECKED pipe=${1:-<none>}"; return ${TEL_RC:-0}; }
 fabric_host_count() { echo 3; }
 json_len() { echo 0; }
 sleep() { :; }
@@ -1342,6 +1361,458 @@ hasnt "  and gets no reading line"                       "up/enabled above is a 
 reset_fix
 OUT="$(run_status --check "$DOWN_STUBS")"
 has   "  and so is the baseline fabric with no package"  "3 switch(es) are down" "$OUT"
+
+# =============================================================================================
+section "18. 🔴 TICKET-P3 §2.1: --telemetry, and the knob ndt is the only writer of"
+# =============================================================================================
+# p4_proxy/mininet/telemetry_override carries one of `auto none cooperative link` and decides
+# where a bmv2 switch's sFlow samples come from. Three readers act on it -- the topology script,
+# the proxy and this script -- so a bring-up that wrote one word while its proxy read another is
+# the 2026-08-21 two-trees defect with a new file in it.
+#
+# 🔴 THE THREE THINGS THAT MUST NOT HAPPEN, and they are what this section is:
+#   * a REFUSED bring-up must not have chosen a telemetry source on its way out;
+#   * omitting --telemetry must not be read as `auto`: it means "whatever the package declares",
+#     and writing `auto` over a package that asked for `link` would overrule it silently;
+#   * a word this script does not know must not fall back to anything. The proxy refuses to
+#     start on it, so a bring-up that quietly wrote `auto` instead would build a fabric the
+#     operator did not ask for.
+TELKNOB="$FIX/p4_proxy/mininet/telemetry_override"
+# one_of <shell> -- the first line a driven expression printed. The resolver functions answer
+# with exactly one word, and the RC= line drive() appends is not part of the answer.
+one_of() { drive "$1" | /usr/bin/grep -v '^RC=' | head -1; }
+tel_state() {   # absent | <the word it names>
+    [[ -e "$TELKNOB" ]] || { echo absent; return; }
+    local line
+    while read -r line; do
+        line="${line#"${line%%[![:space:]]*}"}"
+        [[ -z "$line" || "$line" == \#* ]] && continue
+        printf '%s' "${line%%[[:space:]]*}"; return
+    done < "$TELKNOB"
+    echo empty
+}
+# A package that declares its own telemetry source, and one that declares a word nobody knows.
+mkpkg "$FIX/packages/tel-link" ndtwin 4 4
+python3 - "$FIX/packages/tel-link/package.json" link <<'PYT'
+import json, sys
+d = json.load(open(sys.argv[1])); d["telemetry"] = {"source": sys.argv[2]}
+json.dump(d, open(sys.argv[1], "w"), indent=2, sort_keys=True)
+PYT
+PKG_TEL="$FIX/packages/tel-link"
+mkpkg "$FIX/packages/tel-junk" ndtwin 4 4
+python3 - "$FIX/packages/tel-junk/package.json" sideways <<'PYT'
+import json, sys
+d = json.load(open(sys.argv[1])); d["telemetry"] = {"source": sys.argv[2]}
+json.dump(d, open(sys.argv[1], "w"), indent=2, sort_keys=True)
+PYT
+PKG_TELJUNK="$FIX/packages/tel-junk"
+
+# --- the flag parser ---------------------------------------------------------------------
+OUT="$(drive 'up_take_app_flag p4 --telemetry link; echo "TEL=$NDT_TELEMETRY"; echo "LEFT=${NDT_UP_ARGV[*]}"')"
+has   "--telemetry <word> is lifted out of argv"          "TEL=link" "$OUT"
+has   "  and the plane is left behind for resolve_up_target" "LEFT=p4" "$OUT"
+OUT="$(drive 'up_take_app_flag p4 --telemetry=none; echo "TEL=$NDT_TELEMETRY"')"
+has   "--telemetry=<word> means the same thing"           "TEL=none" "$OUT"
+OUT="$(drive 'up_take_app_flag p4; echo "TEL=[$NDT_TELEMETRY]"')"
+has   "🔴 no flag leaves it EMPTY, which is not 'auto'"   "TEL=[]" "$OUT"
+OUT="$(drive 'up_take_app_flag p4 --telemetry')"
+check "--telemetry with no value is a usage error"        "2" "$(rc_of "$OUT")"
+has   "  and says what it wanted"                         "ndt up --telemetry needs one of" "$OUT"
+OUT="$(drive 'up_take_app_flag p4 --telemetry=')"
+check "🔴 an EMPTY value is a usage error, not the default" "2" "$(rc_of "$OUT")"
+has   "  saying why an empty value is not 'no flag'"      "an empty value is not 'no flag'" "$OUT"
+OUT="$(drive 'up_take_app_flag p4 --telemetry sideways')"
+check "🔴 a word that is not a source is a usage error"   "2" "$(rc_of "$OUT")"
+has   "  naming the four it accepts"                      "auto none cooperative link" "$OUT"
+OUT="$(drive "up_take_app_flag p4 --app $(q "$PKG_OK") --telemetry link; echo \"DIR=\$NDT_APP_DIR\"; echo \"TEL=\$NDT_TELEMETRY\"")"
+has   "  both flags together: the package"                "DIR=$PKG_OK" "$OUT"
+has   "  and the source"                                  "TEL=link" "$OUT"
+
+# 🔴 THE PLANE CHECK, through the real dispatch. The OVS plane samples on its bridges and reads
+# nothing from this file, so an accepted-and-ignored --telemetry would build a 128-host OVS
+# fabric while the operator believed they had chosen a telemetry source for it.
+OVSOUT3="$(cd "$FIX" && NDT_OWNER=t bash "$NDT" up ovs --telemetry link 2>&1)"; OVSRC3=$?
+check "🔴 --telemetry on the OVS plane is refused"        "2" "$OVSRC3"
+has   "  saying it is a P4 flag"                          "--telemetry is a P4 flag" "$OVSOUT3"
+has   "  and what to type instead"                        "ndt up p4 --telemetry link" "$OVSOUT3"
+
+# --- what the bring-up writes -------------------------------------------------------------
+reset_fix; rm -f "$TELKNOB"
+OUT="$(drive "NDT_TELEMETRY=link; NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+check "🔴 the flag is what lands in the knob"             "link" "$(tel_state)"
+has   "  and the bring-up says so on its own banner"      "telemetry    link" "$OUT"
+
+reset_fix; rm -f "$TELKNOB"
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_TEL"); up_p4")"
+check "🔴 with no flag the PACKAGE decides"               "link" "$(tel_state)"
+
+reset_fix; rm -f "$TELKNOB"
+OUT="$(drive "NDT_TELEMETRY=none; NDT_APP_DIR=$(q "$PKG_TEL"); up_p4")"
+check "🔴 and the flag outranks the package"              "none" "$(tel_state)"
+
+# 🔴 `auto` IS THE ABSENT FILE, so applying it REMOVES one rather than writing the word into
+# it. telemetry_knob_word answers `absent` for a missing file and the resolver turns that into
+# `auto`, so a file containing `auto` says exactly what its own absence already said -- and
+# `ndt` already works this way one knob over: app_knob_clear removes app_package_override for a
+# baseline bring-up instead of writing "none" into it.
+reset_fix; rm -f "$TELKNOB"
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+check "  a package that declares nothing leaves no knob"  "absent" "$(tel_state)"
+has   "  and the banner says which state that is"         "telemetry    auto" "$OUT"
+
+reset_fix; rm -f "$TELKNOB"
+OUT="$(drive 'up_p4 4')"
+check "  and so does the baseline fabric"                 "absent" "$(tel_state)"
+
+# 🔴 THE WORD IS APPLIED EVERY TIME, AND FOR `auto` THAT IS A REMOVAL. The alternative -- leave
+# the file alone when nothing was asked for -- makes this bring-up inherit the last one's choice
+# with nothing on screen saying so, which is the failure mode host_count_override has a banner
+# row for.
+reset_fix
+printf 'link\n' > "$TELKNOB"
+OUT="$(drive 'up_p4 4')"
+check "🔴 a stale knob does NOT survive a bring-up that asked for nothing" "absent" "$(tel_state)"
+has   "  and the removal is said out loud"                "cleared p4_proxy/mininet/telemetry_override" "$OUT"
+
+reset_fix
+printf 'link\n' > "$TELKNOB"
+OUT="$(drive 'NDT_TELEMETRY=auto; up_p4 4')"
+check "  --telemetry auto clears it too"                  "absent" "$(tel_state)"
+
+# 🔴 A DECLARED WORD THAT IS NOT A SOURCE IS A REFUSAL, not a fall back to auto.
+reset_fix; rm -f "$TELKNOB"
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_TELJUNK"); up_p4")"
+check "🔴 a package declaring a word nobody knows refuses" "1" "$(rc_of "$OUT")"
+has   "  naming the word and the four it accepts"         "telemetry.source 'sideways', which is not one of" "$OUT"
+check "🔴 and nothing was written"                        "absent" "$(tel_state)"
+check "  and no fabric was started"                       "sudo=0 stack=0" "$(touched)"
+
+# 🔴 A REFUSED BRING-UP MUST NOT HAVE CHOSEN A SOURCE. The pre-flight refusal is above every
+# write, and this is the same assertion section 3 makes about the app knob.
+reset_fix; rm -f "$TELKNOB"
+touch "$PREFLIGHT_FAIL"
+OUT="$(drive "NDT_TELEMETRY=link; NDT_APP_DIR=$(q "$PKG_BAD"); up_p4")"
+check "🔴 a FAILED pre-flight leaves the telemetry knob alone" "absent" "$(tel_state)"
+rm -f "$PREFLIGHT_FAIL"
+
+# --- `ndt down` does NOT clear it ----------------------------------------------------------
+# 🔴 UNLIKE app_package_override. This knob is not a description of a running fabric -- it is a
+# standing choice about the next one -- and clearing it on teardown would make every round
+# silently revert to `auto`. What that costs is that a round which MOVED it puts it back
+# itself, which drive_exercise.py and live-p1/_common.sh both do.
+reset_fix
+printf 'link\n' > "$TELKNOB"
+OUT="$(NDT_OWNER=t drive 'cmd_down')"
+check "🔴 'ndt down' leaves the telemetry knob where it is" "link" "$(tel_state)"
+OUT="$(NDT_OWNER=t drive 'cmd_clean')"
+check "  and so does 'ndt clean'"                         "link" "$(tel_state)"
+rm -f "$TELKNOB"
+
+# --- stack.sh's start_bg fingerprint ----------------------------------------------------------
+#
+# 🔴 THE PROXY READS THREE FILES AT IMPORT AND NONE OF THEM IS ON ITS COMMAND LINE. `ndt up p4
+# --telemetry cooperative` and then `--telemetry link` produce two proxies with identical argv,
+# one writing clone sessions and registering switches for sFlow and one deliberately doing
+# neither -- and start_bg would reuse the first. Every link-usage number afterwards would then
+# be describing a proxy nobody asked for, which is the measured 128-vs-4 failure with a third
+# file behind it.
+#
+# 🔴 THE PRODUCTION EXPRESSION IS EVALUATED, not a copy of it. The assignment is lifted out of
+# stack.sh by its own text and run with KERNEL_DIR pointed at the fixture, so a cell here cannot
+# agree with a fingerprint stack.sh no longer builds.
+stack_identity() {   # stack_identity <tree> -- START_BG_IDENTITY as stack.sh builds it
+    local assign
+    assign="$(sed -n '/START_BG_IDENTITY="hosts=/,/topo=\$topo" \\$/p' "$STACK")"
+    assign="${assign%\\}"
+    [[ -n "$assign" ]] || { echo "NO-ASSIGNMENT-IN-stack.sh"; return; }
+    bash -c "KERNEL_DIR=$(q "$1"); topo=/model.json
+$assign
+printf '%s\n' \"\$START_BG_IDENTITY\""
+}
+reset_fix; rm -f "$TELKNOB"
+OUT="$(drive "NDT_TELEMETRY=link; NDT_APP_DIR=$(q "$PKG_OK"); up_p4")"
+IDENT="$(stack_identity "$FIX")"
+has   "🔴 the start_bg fingerprint carries the telemetry source" "telemetry=link" "$IDENT"
+has   "  beside the host count"                           "hosts=4" "$IDENT"
+has   "  and the app package"                             "app=$PKG_OK" "$IDENT"
+has   "  and the model"                                   "topo=/model.json" "$IDENT"
+reset_fix; rm -f "$TELKNOB"
+IDENT="$(stack_identity "$FIX")"
+has   "  an absent knob leaves the field empty, not missing" "telemetry= topo=" "$IDENT"
+
+# --- the resolver ---------------------------------------------------------------------------
+# 🔴 THE KNOB WINS FOR "WHAT IS IN FORCE" AND LOSES FOR "WHAT SHOULD THIS BRING-UP WRITE", and
+# they are two functions on purpose. One function for both would make every round inherit the
+# previous round's choice while the operator read the package's declaration off package.json.
+printf 'none\n' > "$TELKNOB"
+check "  in force: the knob outranks the package"         "none" "$(one_of "telemetry_source_word $(q "$PKG_TEL")")"
+check "🔴 for the WRITE it does not"                      "link" "$(one_of "telemetry_word_for_bring_up $(q "$PKG_TEL")")"
+printf 'auto\n' > "$TELKNOB"
+check "  a knob reading 'auto' defers to the package"     "link" "$(one_of "telemetry_source_word $(q "$PKG_TEL")")"
+rm -f "$TELKNOB"
+check "  an absent knob defers to the package too"        "link" "$(one_of "telemetry_source_word $(q "$PKG_TEL")")"
+check "  and to 'auto' when the package says nothing"     "auto" "$(one_of "telemetry_source_word $(q "$PKG_OK")")"
+
+# --- `auto` is PER SWITCH, and the split is app_pipeline_kind's ------------------------------
+# 🔴 NOT A SECOND READING OF package.json. `foreign:<dpids>` already names exactly the switches
+# running somebody else's program (Package.pipeline_is_ndtwin), which is the predicate §2.1
+# defines `auto` on. A second implementation here would be a second answer to one question.
+check "  auto over NDTwin's own pipeline: all cooperative" "ALL cooperative" "$(one_of "telemetry_resolved_rows auto ndtwin")"
+check "  a named word applies to every switch"            "ALL link" "$(one_of "telemetry_resolved_rows link foreign:1,2")"
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$PKG_FOREIGN"); up_p4")"
+OUT="$(drive 'telemetry_resolved_rows auto foreign:1 | paste -sd, -')"
+has   "🔴 auto over a mixed package splits switch by switch" "1 link,2 cooperative,3 cooperative,4 cooperative" "$OUT"
+OUT="$(drive 'telemetry_resolved_rows auto unreadable')"
+has   "🔴 an unreadable package resolves to NOTHING, not to a default" "ALL unresolved" "$OUT"
+
+# =============================================================================================
+section "19. 🔴 'ndt status' names the telemetry source, the emitter and the shaped links"
+# =============================================================================================
+# mkmanifest <pid> [<switches>] [<rate>] -- the link-telemetry manifest, AS B'S OWN WRITER
+# WRITES IT.
+#
+# 🔴 NOT A HAND-WRITTEN DICT (judge A1, TICKET-P3 §9 ruling 5). Round 1 wrote the key
+# `emitter_pid`; link_telemetry.manifest_document writes `pid` (link_telemetry.py:402-405), and
+# its switches are a LIST, not a dict. All 391 cells were green over an `ndt` reader that would
+# have answered `unreadable` for every real fabric: verify_p4_telemetry requires a `link`
+# switch's emitter to be alive, so [3/3] would have failed on every `--telemetry link` and on
+# `auto` over a foreign pipeline, `status --check` would have carried an extra problem and
+# `down` would have reported residue -- on all thirteen driver arms. A fixture nobody generates
+# from the writer is a fixture that agrees with whatever the reader guessed.
+mkmanifest() {   # mkmanifest <pid> [<switches>] [<rate>]
+    python3 - "$FIX/ndtwin_link_telemetry.json" "$1" "${2:-2}" "${3:-256}" "$REAL_REPO" <<'PYM'
+import sys, os, json
+f, pid, nsw, rate, repo = (sys.argv[1], sys.argv[2], int(sys.argv[3]),
+                           int(sys.argv[4]), sys.argv[5])
+sys.path.insert(0, os.path.join(repo, "p4_proxy", "mininet"))
+import link_telemetry as lt
+
+
+class _Port:                  # what manifest_document reads off a planned port
+    def __init__(self, port):
+        self.port, self.ifname, self.ifindex = port, "s1-eth%d" % port, 100 + port
+        self.key, self.ingress, self.egress = (100 + port) & 0xFFFF, True, False
+
+
+class _Switch:
+    def __init__(self, dpid):
+        self.dpid, self.name = dpid, "s%d" % dpid
+        self.agent_ip = "192.168.123.%d" % (10 + dpid)
+        self.ports = [_Port(1)]
+
+
+class _Plan:
+    rate, trunc, group, ifindex_width = rate, 128, 1, 16
+    collector, sub_agent_id, commands = ("127.0.0.1", 6343), 1, []
+    switches = [_Switch(i) for i in range(1, nsw + 1)]
+
+
+json.dump(lt.manifest_document(_Plan(), None if pid == "-" else int(pid)),
+          open(f, "w"), indent=2)
+PYM
+}
+reset_fix; rm -f "$FIX/ndtwin_link_telemetry.json" "$TELKNOB"
+
+OUT="$(run_status)"
+has   "  an absent knob prints the word and where it is not" "telemetry      auto   (p4_proxy/mininet/telemetry_override absent" "$OUT"
+has   "  and the baseline fabric resolves to cooperative"    "every switch: cooperative" "$OUT"
+has   "  with no emitter, which is the ordinary state"       "link emitter: none" "$OUT"
+has   "  and no shaping"                                     "link shaping   off (no package link asks for one)" "$OUT"
+# 🔴 THE PROBLEM LINE, NOT THE RC. STATUS_STUBS carries a stale pipeline and a rate token that
+# samples nothing (section 15's note), so `--check` is rc 1 here for reasons this section is not
+# about; a cell on the rc would be green or red for the wrong question.
+hasnt "  and raises no telemetry problem"                 "- the link-telemetry emitter" "$(run_status --check)"
+
+printf 'link\n' > "$TELKNOB"
+OUT="$(run_status)"
+has   "  a knob that names one prints it"                 "telemetry      link   (p4_proxy/mininet/telemetry_override)" "$OUT"
+
+# 🔴 A LIVE EMITTER IS A ROW; A DEAD ONE IS A --check PROBLEM. `$$` is this shell, which is
+# alive by construction; pid 1 is init, so a pid that CANNOT be alive has to be manufactured.
+# 🔴 `alive` IS link_telemetry.process_is_the_emitter, NOT "/proc/<pid> exists" (§9 ruling 5):
+# a pid recorded at bring-up is not evidence that the same process holds it now, because Linux
+# recycles pids and this teardown runs as root. So the live fixture is a real process whose
+# cmdline really names the emitter -- a sleeping python started from a file called
+# psample_sflow_emitter.py -- and not merely some pid that happens to exist.
+EMIT_DIR="$FIX/emitter"; mkdir -p "$EMIT_DIR"
+printf 'import time\ntime.sleep(600)\n' > "$EMIT_DIR/psample_sflow_emitter.py"
+python3 "$EMIT_DIR/psample_sflow_emitter.py" & EMIT_PID=$!
+trap 'kill "$EMIT_PID" 2>/dev/null; rm -rf "$FIX"' EXIT INT TERM
+mkmanifest "$EMIT_PID" 3 256
+OUT="$(run_status --check)"
+has   "  an emitter that is running is named with its pid" "link emitter: alive pid $EMIT_PID, 3 switch(es), rate 256" "$OUT"
+hasnt "  and is not a problem"                             "- the link-telemetry emitter" "$OUT"
+
+# A pid that is not there: the highest pid the kernel will hand out, plus one.
+DEADPID="$(( $(cat /proc/sys/kernel/pid_max 2>/dev/null || echo 4194304) - 1 ))"
+while [[ -d "/proc/$DEADPID" ]]; do DEADPID=$(( DEADPID - 1 )); done
+mkmanifest "$DEADPID" 3 256
+OUT="$(run_status --check)"
+has   "🔴 an emitter whose pid is GONE says so"           "link emitter: DEAD" "$OUT"
+has   "  and says what that costs"                        "sampling into a group nobody reads" "$OUT"
+has   "🔴 and it is a --check problem"                    "- the link-telemetry emitter is DEAD" "$OUT"
+# 🔴 THE CONTROL: no manifest is NOT a problem. Every cooperative fabric has none, so a check
+# that treated absence as a fault would be red on the baseline lab for ever.
+rm -f "$FIX/ndtwin_link_telemetry.json"
+hasnt "🔴 and NO manifest is not a problem at all"        "- the link-telemetry emitter" "$(run_status --check)"
+printf 'not json\n' > "$FIX/ndtwin_link_telemetry.json"
+OUT="$(run_status --check)"
+has   "🔴 a manifest that cannot be read is neither alive nor absent" "cannot be read" "$OUT"
+has   "  and unchecked is not clean"                      "cannot be parsed" "$OUT"
+rm -f "$FIX/ndtwin_link_telemetry.json"
+
+printf 'sideways\n' > "$TELKNOB"
+OUT="$(run_status --check)"
+has   "🔴 a knob naming a word nobody knows is a problem" "which is not a telemetry source" "$OUT"
+has   "  and --check lists it as a problem"               "- the telemetry knob" "$OUT"
+rm -f "$TELKNOB"
+
+# --- link shaping (G2-C's disclosure) --------------------------------------------------------
+mkpkg "$FIX/packages/shaped" ndtwin 4 4
+# 🔴 THE PACKAGE'S OWN LINK FORMAT, which is `["s1", 3]` pairs and not `"s1:3"` strings
+# (app_package._endpoint). Round 1's local reader in `ndt` invented the string form and agreed
+# with this fixture about it; app_package.shaped_links -- the function build_net passes
+# link=TCLink on -- would have raised on both.
+python3 - "$FIX/packages/shaped/package.json" <<'PYS'
+import json, sys
+d = json.load(open(sys.argv[1]))
+d["links"] = [{"a": ["s1", 3], "b": ["s2", 3], "bandwidth_bps": 500000.0},
+              {"a": ["h1", 0], "b": ["s1", 1], "bandwidth_bps": 1000000000.0},
+              {"a": ["s2", 4], "b": ["s3", 2], "bandwidth_bps": 1000000000.0, "delay_ms": 5}]
+json.dump(d, open(sys.argv[1], "w"), indent=2, sort_keys=True)
+PYS
+reset_fix
+OUT="$(drive "NDT_APP_DIR=$(q "$FIX/packages/shaped"); up_p4")"
+OUT="$(run_status)"
+has   "🔴 only the links that ask for shaping are listed" "s1:3<->s2:3 0.5 Mbit/s" "$OUT"
+has   "  including one that asks only for delay"          "s2:4<->s3:2 5ms" "$OUT"
+hasnt "🔴 and the plain 1 Gbit/s links are NOT"           "h1:0<->s1:1" "$OUT"
+reset_fix
+OUT="$(run_status)"
+has   "  a fabric with no package says shaping is off"    "link shaping   off" "$OUT"
+
+# =============================================================================================
+section "20. 🔴 verify_p4_telemetry: the proxy has to agree, switch by switch"
+# =============================================================================================
+# TICKET-P3 §2.7. `ndt` resolves each switch's source from the knob, the package and
+# app_pipeline_kind; the proxy resolves it again from the same three inputs and DISCLOSES the
+# result (§2.6). The useful thing is not either answer -- it is that they agree, because one of
+# them built the fabric and the other is sampling it.
+#
+# 🔴 A PROXY THAT DISCLOSES NOTHING IS RED. `telemetry` absent from a switch's report is not
+# "cooperative, as usual": it is a proxy that cannot say what it is doing.
+mktel() {   # mktel <file> <dpid>:<source>:<clone>:<reg>... ; NOTEL for a switch with no object
+    local f="$1"; shift
+    python3 - "$f" "$@" <<'PYE'
+import json, sys
+d = {"status": "success", "switches": {}}
+for spec in sys.argv[2:]:
+    parts = spec.split(":")
+    dpid = parts[0]
+    if parts[1] == "NOTEL":
+        d["switches"][dpid] = {}
+        continue
+    src, clone, reg = parts[1], parts[2] == "true", parts[3] == "true"
+    d["switches"][dpid] = {"telemetry": {"source": src, "clone_session": clone,
+                                         "sflow_registered": reg}}
+json.dump(d, open(sys.argv[1], "w"), indent=1)
+PYE
+}
+vtel() {   # vtel <switch_state file> <pipe> [<extra shell>]
+    drive_v 'curl() { cat "$SS_FILE"; }'$'\n'"SS_FILE=$(q "$1"); ${3:-:}
+verify_p4_telemetry '$2' \"\$(cat $(q "$1"))\""
+}
+reset_fix; rm -f "$TELKNOB" "$FIX/ndtwin_link_telemetry.json"
+
+T_COOP="$FIX/t_coop.json"; mktel "$T_COOP" 1:cooperative:true:true 2:cooperative:true:true
+check "  a cooperative fabric the proxy agrees about is green" "0" \
+      "$(rc_of "$(vtel "$T_COOP" ndtwin)")"
+OUT="$(vtel "$T_COOP" ndtwin)"
+has   "  and it says how many of each"                    "2 cooperative, 0 link, 0 none" "$OUT"
+
+T_NOCLONE="$FIX/t_noclone.json"; mktel "$T_NOCLONE" 1:cooperative:true:true 2:cooperative:false:true
+OUT="$(vtel "$T_NOCLONE" ndtwin)"
+check "🔴 a cooperative switch with no clone session is red" "1" "$(rc_of "$OUT")"
+has   "  saying it samples nothing"                       "nothing is being cloned to the CPU port" "$OUT"
+
+T_NOTEL="$FIX/t_notel.json"; mktel "$T_NOTEL" 1:cooperative:true:true 2:NOTEL
+OUT="$(vtel "$T_NOTEL" ndtwin)"
+check "🔴 a switch with no telemetry object at all is red" "1" "$(rc_of "$OUT")"
+has   "  and 'it did not say' is not 'as usual'"          "not 'cooperative, as usual'" "$OUT"
+
+T_DISAGREE="$FIX/t_dis.json"; mktel "$T_DISAGREE" 1:link:false:false 2:cooperative:true:true
+OUT="$(vtel "$T_DISAGREE" ndtwin)"
+check "🔴 a proxy that resolved a different source is red" "1" "$(rc_of "$OUT")"
+has   "  naming both answers"                             "resolved 'cooperative' and the proxy reports" "$OUT"
+
+# --- the `link` half, which is where the emitter comes in --------------------------------
+printf 'link\n' > "$TELKNOB"
+T_LINK="$FIX/t_link.json"; mktel "$T_LINK" 1:link:false:false 2:link:false:false
+OUT="$(vtel "$T_LINK" ndtwin)"
+check "🔴 a link fabric with no emitter behind it is red" "1" "$(rc_of "$OUT")"
+has   "  saying where the samples go"                     "tc filters sample into a group nobody reads" "$OUT"
+mkmanifest "$EMIT_PID" 2 256
+check "🔴 and green once the emitter is alive"            "0" "$(rc_of "$(vtel "$T_LINK" ndtwin)")"
+T_BOTH="$FIX/t_both.json"; mktel "$T_BOTH" 1:link:true:false 2:link:false:false
+OUT="$(vtel "$T_BOTH" ndtwin)"
+check "🔴 a link switch that ALSO has a clone session is red" "1" "$(rc_of "$OUT")"
+has   "  because both at once counts every frame twice"   "the two sources are exclusive" "$OUT"
+rm -f "$FIX/ndtwin_link_telemetry.json"
+
+# --- the `none` control group ------------------------------------------------------------
+printf 'none\n' > "$TELKNOB"
+T_NONE="$FIX/t_none.json"; mktel "$T_NONE" 1:none:false:false 2:none:false:false
+check "  a 'none' fabric with nothing sampling is green"  "0" "$(rc_of "$(vtel "$T_NONE" ndtwin)")"
+T_NONEBAD="$FIX/t_nonebad.json"; mktel "$T_NONEBAD" 1:none:false:false 2:none:false:true
+OUT="$(vtel "$T_NONEBAD" ndtwin)"
+check "🔴 a 'none' switch still registered for sFlow is red" "1" "$(rc_of "$OUT")"
+has   "  saying something is still sampling it"           "something is still sampling it" "$OUT"
+rm -f "$TELKNOB"
+
+T_JUNK="$FIX/t_junk.json"; printf 'not json\n' > "$T_JUNK"
+OUT="$(vtel "$T_JUNK" ndtwin)"
+check "🔴 an unreadable switch_state is red, not a pass"  "1" "$(rc_of "$OUT")"
+has   "  because an unchecked gate is not a passed one"   "An unchecked gate is not" "$OUT"
+
+# 🔴 AND verify_p4 HAS TO CALL IT. The function can be perfect and unreachable -- the P1-A M19
+# shape -- so the stubbed cells above assert the call site by its echo.
+OUT="$(vp4 "$SS_GOOD" ndtwin foreign:1,2,3,4)"
+has   "🔴 verify_p4 runs the telemetry gate"              "TELEMETRY CHECKED pipe=foreign:1,2,3,4" "$OUT"
+OUT="$(drive_v "$VSTUB"$'\n'"verify_p4 '$PKG_EXT/ndtwin/topology.json' 6 external")"
+has   "  on the external plane too"                       "TELEMETRY CHECKED" "$OUT"
+OUT="$(vp4 "$SS_GOOD" ndtwin foreign:1,2,3,4 "TEL_RC=1")"
+check "🔴 and its verdict reaches the bring-up's rc"      "1" "$(rc_of "$OUT")"
+has   "  under the unverified verdict"                    "but not verified" "$OUT"
+
+# =============================================================================================
+section "21. 🔴 'ndt down' REPORTS the link-telemetry emitter and does not kill it"
+# =============================================================================================
+# TICKET-P3 §2.5 gives the emitter's lifetime to p4_testbed_topo.tear_down, which SIGTERMs the
+# pid its own manifest names and then removes the manifest. So an emitter still alive after a
+# teardown means that path did not run or did not finish -- a python process holding a psample
+# netlink group while the fabric under it is gone, invisible to every other row `ndt down`
+# prints.
+#
+# 🔴 NAMED, NOT SWEPT. The only safe way to stop it is by the pid its manifest names, and that
+# is the other command's job; a teardown that started killing processes it did not start is how
+# `ndt down` begins killing the next round's.
+reset_fix; rm -f "$FIX/ndtwin_link_telemetry.json"
+OUT="$(NDT_OWNER=t drive 'cmd_down')"
+hasnt "  no manifest: 'ndt down' says nothing about it"   "link-telemetry emitter" "$OUT"
+
+mkmanifest "$EMIT_PID" 2 256
+OUT="$(NDT_OWNER=t drive 'cmd_down')"
+has   "🔴 an emitter that outlived the teardown is residue" "residue: the link-telemetry emitter is still running -- pid $EMIT_PID" "$OUT"
+has   "  and the command says whose job stopping it is"   "ndtwin-lab topo-stop" "$OUT"
+hasnt "🔴 and this command does NOT kill it"              "pkill" "$OUT"
+check "  the manifest is left exactly where it was"       "1" "$([[ -e "$FIX/ndtwin_link_telemetry.json" ]] && echo 1 || echo 0)"
+
+mkmanifest "$DEADPID" 2 256
+OUT="$(NDT_OWNER=t drive 'cmd_down')"
+has   "🔴 a stale manifest is residue too"                "the pid it names ($DEADPID) is gone" "$OUT"
+has   "  saying what the next reader would believe"       "would report an emitter that does not exist" "$OUT"
+rm -f "$FIX/ndtwin_link_telemetry.json"
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"

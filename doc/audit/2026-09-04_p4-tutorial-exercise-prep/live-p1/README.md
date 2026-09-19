@@ -116,3 +116,93 @@ operator 對這兩件事的處置不同（前者重試／power-cycle，後者是
   `NDT_OWNER=adam ndt down && NDT_OWNER=adam ndt release`，並確認上面那個 knob 檔不在。
 - 檔案／目錄：`_common.sh` 是三支共用的前置（工單只列四個檔，多出來的這一個與理由寫在
   `P1-C-SUMMARY.md`；三份同樣的 claim／teardown 程式碼正是這個 repo 反覆記錄的那種缺陷）。
+
+---
+
+## 階段三新增的兩支（TICKET-P3 §2.7）
+
+| 步 | 貼這一行 | 最後一行應該是 |
+|---|---|---|
+| ⑤ | `NDT_OWNER=adam bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/05_link_usage_generic.sh` | `PASS 05_link_usage_generic` |
+| ⑥ | `NDT_OWNER=adam bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/06_thirteen.sh` | `PASS 06_thirteen -- 26 arm(s), every arm as the exercise says it should be` |
+
+**跑的順序**：①②②b③ 之後才跑 ⑤，⑤ 綠了才跑 ⑥。⑥ 很長（26 個 arm，每個都自己起一次 fabric）。
+
+### ⑤ `05_link_usage_generic.sh` — 通用格，三組
+
+**在驗什麼。** 前面每一支驗的都是某一支 exercise 的程式；這一支驗的是 **NDTwin**：
+iperf 期間，twin 的 `link_bandwidth_usage_bps` 在**真的搬了位元組的那些 `sN-ethP` 上非零、
+在沒搬的交換機間邊上為零**——不管交換機在跑誰的程式。這是 TICKET-P3 §2.2「先記鏈路位元組、
+再談流身份」可以被斷言的那一半。
+
+三組，第三組是讓前兩組有意義的那一組：
+
+| 組 | package | `--telemetry` | 斷言 |
+|---|---|---|---|
+| 1 `link` | `convert.py --p4 solution/basic.p4`（**exercise 自己的程式**） | `link` | on-path > 0、off-path == 0 |
+| 2 `cooperative` | 同一支 exercise，`--ndtwin-pipeline`（**NDTwin 自己的程式**） | `cooperative` | 同上 |
+| 3 `none`（陽性對照） | 同組 2 的 package | `none` | **on-path 必須恰好 0** |
+
+**為什麼第二組要換 package 而不是只換那個字**：`basic.p4` 沒有合作式的 `packet_in` header，
+`cooperative` 對它會在啟動時被拒（§2.1）。要看合作式那條路就得讓交換機跑 NDTwin 自己的程式。
+
+**不證明**：它不比較三組的取樣誤差或成本——那是工單 E（`doc/audit/2026-09-19_telemetry-three-groups/`）。
+這裡只有「非零／在門檻之下」。
+
+#### 🔴 為什麼 off-path 的界是「門檻」而不是「恰好 0」
+
+第一版寫的是「非路徑的交換機間邊積分 == 0」。**那會在一個完全正常的 fabric 上隨機判紅**：
+
+- 工單 A 併回之後，kernel **先記鏈路位元組、再問流身份**（§2.2）——ARP、LLDP、IPv6 鄰居探索
+  全都會計入鏈路使用率，而它們以前在 `etherType != 0x0800` 那一行就被丟掉了；
+- NDTwin 自己的 pipeline 上，proxy 會沿**每一條**交換機間鏈路送 LLDP 信標，而 pipeline 取樣 1/256。
+  八秒視窗裡抽中一顆信標是很平常的事，**而抽中一顆就會被記成 256 倍的訊框長度**——
+  一條什麼都沒載的邊上幾十 kbit。
+
+所以界改成 **`max(5 kbit, 2% × 最小的 on-path 積分)`**：
+
+- **絕對項**讓安靜的視窗仍然有界（流本身很小的時候，2% 是幾個 bit，等於沒有界）；
+- **相對項**讓界不會是一個被流量輾過的固定數（8 秒 2 Mbit/s ≈ 16 Mbit on-path，2% 是 320 kbit
+  ——比一顆被抽到的信標高兩個數量級，比流本身低兩個數量級）；
+- 取**最小**的 on-path 積分而不是最大：一個視窗裡的 on-path 邊本來就不相等（host 那條載一次、
+  路徑長的交換機間邊載第二次），**最小的那個是保守的一端**。
+
+**每一條 off-path 邊的原始積分都會印出來**，判了或沒判都印。界不是零的時候，
+「在界之下」和「恰好是零」在 raw 裡長得一樣，而**餘裕本身才是要看的東西**。
+（TICKET-P3 §9 ruling 9 的 R4；紅綠雙向的格在 `tests/shell/test_live_p1_common.sh` §5c-bis。）
+
+### ⑥ `06_thirteen.sh` — 13 支 × 兩臂
+
+**它自己不判定**：每一格的判定都在 `drive_exercise.py` 裡，它自己 claim、自己 `ndt up`、
+自己 down＋release、自己寫 report。⑥ 加的是那 26 次分開跑看不到的東西：一張表，
+說哪些 arm 跑了、各自 exit 多少，以及——**重點**——**每一臂都守住了它自己那組期望**。
+
+🔴 **「紅」是期望的性質，不是 rc 的性質。** driver 的骨架臂斷言的就是紅的那些事
+（「h2 收到 0 個」「每個回報的 port 都是 0」「這條流**沒有**被擋」），所以
+**骨架照 exercise 說的方式表現時，那些期望全部 PASS，driver exit 0**——09-08／09-18 的實跑就是
+`>>> PASS (2/2)`、`PASS (4/4)`、exit 0。第一版把骨架的期望值寫成 rc 1，
+**一輪完全正確的 26 臂會印成 `FAIL 06_thirteen -- 11 of 26`**（judge A2）。
+
+**骨架臂 exit 1 ＝ FAIL**：代表它的紅斷言有一條沒守住，也就是骨架沒有照 exercise 說的方式表現——
+那一支的解答臂就不再是關於解答的證據了。
+
+**兩個例外**，紅在「拒絕」而不在資料面，driver 印 `RED ARM (n/n): … by design`、exit 1：
+
+- `flowcache` 骨架（兩個 fabric 都是）——`p4c` 拒編（README:29）；
+- `basic_tunnel` 骨架（**兩個 fabric 都是**）——它的 runtime entries 指名一張骨架沒有宣告的表
+  （README:41-43）。NDTwin 上是 pre-flight 拒絕，tutorials 上是 harness 自己丟例外——
+  **同一個拒絕，兩條路**。
+  🔴 第二輪只修了 NDTwin 那半（旗標掛在 `run_on_ndtwin` 上、判定又問 `args.fabric`），於是
+  同一支 exercise 在 tutorials 印 `PASS (1/1)`／exit 0、在 NDTwin 印 `RED ARM (1/1)`／exit 1
+  ——**正是 A6 指的那個缺陷，只做了一半**。第三輪把旗標改成 module-level、判定不再問 fabric。
+
+**⑥ 自己不 claim lab**，因為每一次 driver 的 round 會自己 claim；這支若持有 claim 會擋掉自己的子程序。
+所以它**不 source `_common.sh` 的 `start_step`**，也沒有自己的 fabric 要拆——它唯一碰的狀態是
+三個 knob，而且是**檢查**而不是寫（每一 round 自己會寫回；⑥ 是在斷言它們真的寫回了）。
+
+`ONLY=basic,calc bash .../06_thirteen.sh` 可以只重跑一部分。
+
+**rc 2 的那一格不是結果**：pre-flight／claim／compile／root 任一個擋掉都是 2，代表那一 round
+根本沒跑，既不算紅也不算綠，表上會標出來。
+
+[Co-developed with claude code -- Adam]
