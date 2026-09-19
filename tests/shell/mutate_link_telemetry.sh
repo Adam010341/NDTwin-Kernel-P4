@@ -388,6 +388,11 @@ m=$(mutant m_b26 "$TESTBED" \
 report "M-B26: a second shutdown signal aborts the teardown the first one asked for" "$m" \
        "test_the_second_signal_does_not_interrupt_the_teardown_the_first_asked_for"
 
+# 🔴 THIS ONE SURVIVED ONCE, AND THE GATE WAS RIGHT. With SIGHUP back at SIG_DFL, the cell
+# that raises it at itself TERMINATED the test runner -- and unittest prints its failures at
+# the END, so the run produced no output at all and the mutant scored a survivor of nothing.
+# The cells now assert the disposition before raising (`raise_guarded`), so a missing handler
+# is a red cell rather than a dead process. A test that can kill its own runner is not a test.
 m=$(mutant m_b27 "$TESTBED" \
     'TEARDOWN_SIGNALS = ("SIGINT", "SIGTERM", "SIGHUP")' \
     'TEARDOWN_SIGNALS = ("SIGINT",)  # MUTANT: the one signal that was never the problem')

@@ -2010,6 +2010,21 @@ class TheShutdownSignalReachesTheTeardownTest(FabricFixture):
             if number is not None:
                 self.addCleanup(signal.signal, number, signal.getsignal(number))
 
+    def raise_guarded(self, name):
+        """Raise this signal at ourselves, but never with its default disposition in place.
+
+        🔴 THE GUARD IS THE WHOLE POINT, and it is here because its absence cost a gate run:
+        with SIGHUP left at SIG_DFL, `signal.raise_signal` TERMINATES the test runner. The
+        suite then produces no output at all -- unittest prints its failures at the end -- so a
+        mutant that removed a handler came back as a SURVIVOR of nothing rather than as a red
+        cell. A test that can kill its own runner is not a test.
+        """
+        number = getattr(signal, name)
+        self.assertNotIn(signal.getsignal(number), (signal.SIG_DFL, signal.SIG_IGN, None),
+                         f"{name} still has its default disposition -- raising it here would "
+                         f"terminate this process instead of testing anything")
+        signal.raise_signal(number)
+
     def test_all_three_signals_are_installed(self):
         installed = testbed.install_teardown_signal_handlers(
             report=lambda _line: None, install=lambda number, handler: None)
@@ -2021,12 +2036,8 @@ class TheShutdownSignalReachesTheTeardownTest(FabricFixture):
         # so this cell can never be the thing that kills the suite.
         testbed.install_teardown_signal_handlers(report=lambda _line: None)
         for name in ("SIGINT", "SIGTERM", "SIGHUP"):
-            number = getattr(signal, name)
-            self.assertNotIn(signal.getsignal(number),
-                             (signal.SIG_DFL, signal.SIG_IGN, None),
-                             f"{name} still has its default disposition")
             with self.assertRaises(SystemExit) as ctx:
-                signal.raise_signal(number)
+                self.raise_guarded(name)
             self.assertEqual(ctx.exception.code, 0)
             # Re-armed for the next one: each iteration is a fresh "first" signal.
             testbed.install_teardown_signal_handlers(report=lambda _line: None)
@@ -2038,9 +2049,9 @@ class TheShutdownSignalReachesTheTeardownTest(FabricFixture):
         said = []
         testbed.install_teardown_signal_handlers(report=said.append)
         with self.assertRaises(SystemExit):
-            signal.raise_signal(signal.SIGINT)
-        signal.raise_signal(signal.SIGHUP)      # must NOT raise
-        signal.raise_signal(signal.SIGTERM)     # nor this
+            self.raise_guarded("SIGINT")
+        self.raise_guarded("SIGHUP")      # must NOT raise
+        self.raise_guarded("SIGTERM")     # nor this
         self.assertEqual(len([line for line in said if "tearing the fabric down" in line]), 1)
         self.assertEqual(len([line for line in said if "still going" in line]), 2)
 
@@ -2055,11 +2066,12 @@ class TheShutdownSignalReachesTheTeardownTest(FabricFixture):
         # mininet/*.py on this machine, so nothing puts the default disposition back.
         testbed.install_teardown_signal_handlers(report=lambda _line: None)
         loops = []
+        raise_guarded = self.raise_guarded
 
         def mininets_cli_loop():
             while True:
                 try:
-                    signal.raise_signal(signal.SIGINT)   # what topo-stop's C-c becomes
+                    raise_guarded("SIGINT")              # what topo-stop's C-c becomes
                     return "the signal did nothing at all"
                 except KeyboardInterrupt:
                     loops.append(1)
