@@ -58,9 +58,14 @@ TEST_PROXY="$REPO/p4_proxy/tests/test_app_package_proxy.py"
 # converter, A's runtime files. They are in their own file because mutate_app_package.sh
 # runs its baseline in a tree that holds only p4_proxy/ -- see that file's own header.
 TEST_FOREIGN="$REPO/p4_proxy/tests/test_foreign_pipeline.py"
+# TICKET-P3 section 9 ruling 23②: the live 13/13 found this writer refusing the one-element
+# exact value the upstream exercises actually ship. That suite's subject is the REAL
+# basic_tunnel runtime file, so it belongs to this gate's baseline.
+TEST_EXACT="$REPO/p4_proxy/tests/test_exact_one_element_list.py"
 
 MODULES="tests.test_p4_client_writes tests.test_table_entry_route tests.test_startup \
-tests.test_readopt tests.test_app_package_proxy tests.test_foreign_pipeline"
+tests.test_readopt tests.test_app_package_proxy tests.test_foreign_pipeline \
+tests.test_exact_one_element_list"
 
 # The interpreter. A git worktree has no venv of its own (p4_proxy/venv/ is gitignored and lives
 # in the main checkout), so the main worktree is consulted before giving up -- asked of git
@@ -111,6 +116,7 @@ BASE_TEST_STARTUP=$(sha256sum "$TEST_STARTUP" | cut -d' ' -f1)
 BASE_TEST_READOPT=$(sha256sum "$TEST_READOPT" | cut -d' ' -f1)
 BASE_TEST_PROXY=$(sha256sum "$TEST_PROXY" | cut -d' ' -f1)
 BASE_TEST_FOREIGN=$(sha256sum "$TEST_FOREIGN" | cut -d' ' -f1)
+BASE_TEST_EXACT=$(sha256sum "$TEST_EXACT" | cut -d' ' -f1)
 
 SURVIVORS=0
 MUTATIONS=0
@@ -239,6 +245,32 @@ m=$(mutant b6 "$CLIENT" \
     '            if False:')
 report "M-B6: a ternary match is built as something else instead of answering 501" "$m" \
        "test_a_ternary_match_is_501_and_names_the_match_type"
+
+# TICKET-P3 section 9 ruling 23②, both directions. The upstream exercises write an exact value
+# as a one-element list (`"hdr.myTunnel.dst_id": [1]`) and the reference controller unwraps it
+# (~/tutorials/utils/p4runtime_lib/convert.py:71-75). This writer refused it, and three of
+# basic_tunnel/solution's six entries were missing on every switch in both live passes -- while
+# `tools/p4_exercise/preflight.py` passed the same package. M-B40 is the refusal coming back;
+# M-B41 is the over-correction, which is worse than the refusal was: `[value, prefix_len]` is
+# the LPM shape, and taken on an EXACT field it installs a rule matching ONE address where the
+# author wrote one matching a subnet -- forwarding, blackholing the rest, erroring nowhere.
+m=$(mutant b40 "$CLIENT" \
+    '                if isinstance(raw, (list, tuple)):
+                    if len(raw) != 1:' \
+    '                if isinstance(raw, (list, tuple)):
+                    if True:  # MUTANT: stricter than the reference implementation again')
+report "M-B40: the exercises' own one-element exact value is refused again" "$m" \
+       "test_all_six_of_basic_tunnels_entries_go_on"
+
+m=$(mutant b41 "$CLIENT" \
+    '                    if len(raw) != 1:
+                        raise TableEntryInvalid(
+                            f"{table.preamble.name}.{field.name} is an EXACT match, so its "' \
+    '                    if len(raw) > 2:
+                        raise TableEntryInvalid(
+                            f"{table.preamble.name}.{field.name} is an EXACT match, so its "')
+report "M-B41: an lpm-shaped pair is taken on an EXACT field, so a subnet rule matches one host" "$m" \
+       "test_a_two_element_pair_on_an_exact_field_is_still_refused"
 
 m=$(mutant b16 "$CLIENT" \
     '                return bytes.fromhex("".join(groups))' \
@@ -573,7 +605,8 @@ echo
 [[ "$(sha256sum "$TEST_READOPT" | cut -d' ' -f1)" == "$BASE_TEST_READOPT" ]] || { echo "🔴 baseline CHANGED -- test_readopt.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_PROXY" | cut -d' ' -f1)" == "$BASE_TEST_PROXY" ]] || { echo "🔴 baseline CHANGED -- test_app_package_proxy.py was written during the gate"; exit 3; }
 [[ "$(sha256sum "$TEST_FOREIGN" | cut -d' ' -f1)" == "$BASE_TEST_FOREIGN" ]] || { echo "🔴 baseline CHANGED -- test_foreign_pipeline.py was written during the gate"; exit 3; }
-echo "baseline byte-identical: yes (4 sources, 6 test files)"
+[[ "$(sha256sum "$TEST_EXACT" | cut -d' ' -f1)" == "$BASE_TEST_EXACT" ]] || { echo "🔴 baseline CHANGED -- test_exact_one_element_list.py was written during the gate"; exit 3; }
+echo "baseline byte-identical: yes (4 sources, 7 test files)"
 if [[ "$SURVIVORS" -eq 0 ]]; then
     echo "mutation gate: $MUTATIONS mutations, 0 survived"; exit 0
 else
