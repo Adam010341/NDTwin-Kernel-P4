@@ -1,0 +1,289 @@
+{
+  "directory_classes": {
+    "control": [
+      "c<N>a.log",
+      "c<N>b.log",
+      "control.meta",
+      "pps.txt",
+      "rep<N>.json"
+    ],
+    "control arm": [
+      "arm.meta",
+      "cpu.jsonl",
+      "cpu_probe.log",
+      "k<N>_rep<N>.json",
+      "k<N>_repc<N>.json",
+      "ladder.tsv",
+      "netdev_after.txt",
+      "netdev_before.txt",
+      "rungs.tsv",
+      "sflow_after.json",
+      "sflow_before.json",
+      "sflow_rung<N>_after.json",
+      "sflow_rung<N>_before.json",
+      "switch_state_after.json",
+      "switch_state_before.json"
+    ],
+    "generation": [
+      "<N>_down.txt",
+      "<N>_up.txt",
+      "<N>_verify.txt",
+      "cooperative_f<N>_a.log",
+      "cooperative_f<N>_b.log",
+      "link_f<N>_a.log",
+      "link_f<N>_b.log",
+      "none_f<N>_a.log",
+      "none_f<N>_b.log",
+      "sampling_error.log"
+    ],
+    "ladder arm": [
+      "arm.meta",
+      "cpu.jsonl",
+      "cpu_probe.log",
+      "emitter.log",
+      "k<N>_rep<N>.json",
+      "k<N>_repc<N>.json",
+      "ladder.tsv",
+      "link_telemetry_manifest.json",
+      "netdev_after.txt",
+      "netdev_before.txt",
+      "rungs.tsv",
+      "sflow_after.json",
+      "sflow_before.json",
+      "sflow_rung<N>_after.json",
+      "sflow_rung<N>_before.json",
+      "switch_state_after.json",
+      "switch_state_before.json"
+    ],
+    "run root": [
+      "<N>_down.txt",
+      "<N>_host_count_override.entry",
+      "<N>_release.txt",
+      "driver.log",
+      "summary.json"
+    ],
+    "sampling window": [
+      "emitter.log",
+      "iperf<N>.json",
+      "sflow_after.json",
+      "sflow_before.json",
+      "switch_state.json",
+      "window.json"
+    ]
+  },
+  "file_keys": {
+    "arm.meta": [
+      "arm",
+      "bmv2_share",
+      "build_signature_EventLogger",
+      "burners",
+      "clean_pct",
+      "clone_sessions",
+      "cpu_samples",
+      "cpu_window_s",
+      "d_addressed_total",
+      "d_app_drop_total",
+      "d_family_ipv4",
+      "d_family_ipv6",
+      "d_family_l2",
+      "d_family_undecodable",
+      "d_malformed_ipv4_ihl",
+      "d_rx_total",
+      "d_sock_ovfl_total",
+      "emitter_pid",
+      "emitter_share",
+      "external",
+      "finished",
+      "frame_bytes",
+      "gate",
+      "group",
+      "group_mismatch",
+      "highest_clean_kpps",
+      "host_pair",
+      "invalid",
+      "iperf3_share",
+      "kernel_pid",
+      "kernel_sha256_end",
+      "kernel_sha256_start",
+      "kernel_share",
+      "ladder_kpps",
+      "ladder_truncated_at",
+      "link_emitter_alive",
+      "link_emitter_pid",
+      "link_emitter_rate",
+      "loopback",
+      "payload_bytes",
+      "pipeline_json_sha256",
+      "proxy_pid",
+      "proxy_share",
+      "rep_rule",
+      "sflow_counter_level",
+      "sflow_registered",
+      "softirq_share",
+      "started",
+      "step_s",
+      "switch_binary",
+      "switch_binary_override_agrees",
+      "switch_binary_sha256",
+      "switch_count",
+      "switch_count_manifest",
+      "switch_pids",
+      "telemetry_knob",
+      "telemetry_package",
+      "telemetry_sources",
+      "top_rung_confirmation",
+      "total_busy"
+    ],
+    "control.meta": [
+      "burners",
+      "ceiling_pps",
+      "control",
+      "external_with_burners",
+      "external_without_burners",
+      "frame_bytes",
+      "ladder",
+      "payload_bytes",
+      "reps_pps",
+      "requirement",
+      "threshold",
+      "verdict"
+    ],
+    "cpu.jsonl": [
+      "clk_tck",
+      "comms",
+      "hz",
+      "nproc",
+      "started",
+      "stat_columns",
+      "static",
+      "unreadable_at_start"
+    ],
+    "ladder.tsv": [
+      "clean",
+      "kpps_offered",
+      "loss_reps",
+      "loss_scored",
+      "recv_pps",
+      "reps",
+      "sent_pps"
+    ],
+    "rungs.tsv": [
+      "kpps",
+      "loss",
+      "recv_pps",
+      "rep",
+      "sent_pps",
+      "t_end",
+      "t_start"
+    ],
+    "sflow_rung<N>_after.json": [
+      "malformed_ipv4_ihl",
+      "non_ipv4_flows",
+      "samples_by_family",
+      "status",
+      "telemetry_health"
+    ],
+    "sflow_rung<N>_before.json": [
+      "malformed_ipv4_ihl",
+      "non_ipv4_flows",
+      "samples_by_family",
+      "status",
+      "telemetry_health"
+    ],
+    "window.json": [
+      "abs_error",
+      "duration_s",
+      "elapsed_s",
+      "excluded_host_facing",
+      "frame_bytes",
+      "group",
+      "hz",
+      "invalid",
+      "keys",
+      "nonzero_twin_readings",
+      "offered_mbit",
+      "payload_bytes",
+      "per_edge_peak_bps",
+      "ratio",
+      "ratio_note",
+      "sflow_deltas",
+      "signed_error",
+      "telemetry_sources",
+      "truth_bps",
+      "truth_bytes",
+      "twin_bps",
+      "twin_samples",
+      "window"
+    ]
+  },
+  "file_sizes": {
+    "cpu.jsonl": {
+      "comms": [
+        1,
+        1
+      ],
+      "stat_columns": [
+        8,
+        8
+      ],
+      "static": [
+        12,
+        13
+      ],
+      "unreadable_at_start": [
+        0,
+        0
+      ]
+    },
+    "sflow_rung<N>_after.json": {
+      "non_ipv4_flows": [
+        4,
+        4
+      ],
+      "samples_by_family": [
+        4,
+        4
+      ],
+      "telemetry_health": [
+        12,
+        12
+      ]
+    },
+    "sflow_rung<N>_before.json": {
+      "non_ipv4_flows": [
+        4,
+        4
+      ],
+      "samples_by_family": [
+        4,
+        4
+      ],
+      "telemetry_health": [
+        12,
+        12
+      ]
+    },
+    "window.json": {
+      "excluded_host_facing": [
+        4,
+        4
+      ],
+      "keys": [
+        32,
+        32
+      ],
+      "per_edge_peak_bps": [
+        0,
+        4
+      ],
+      "sflow_deltas": [
+        6,
+        6
+      ],
+      "telemetry_sources": [
+        10,
+        10
+      ]
+    }
+  }
+}

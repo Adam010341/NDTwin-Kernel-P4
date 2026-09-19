@@ -71,6 +71,11 @@ BASE_DRIVER="$(sha256sum "$DRIVER" | cut -d' ' -f1)"
 BASE_SCANNER="$(sha256sum "$SCANNER" | cut -d' ' -f1)"
 BASE_TEST_OFF="$(sha256sum "$HERE/test_drive_e_offline.sh" | cut -d' ' -f1)"
 BASE_MANIFEST="$(sha256sum "$MANIFEST" | cut -d' ' -f1)"
+# ruling 35(3): the structural reconciliation and the shape extractor it uses are under the
+# gate too -- a change to either while it runs would make this verdict about a different tree.
+BASE_TEST_SHAPE="$(sha256sum "$HERE/test_real_shape.py" | cut -d' ' -f1)"
+BASE_INVENTORY="$(sha256sum "$HERE/inventory.py" | cut -d' ' -f1)"
+BASE_REAL_INV="$(sha256sum "$HERE/fixtures/real_run_inventory.json" | cut -d' ' -f1)"
 
 SURVIVORS=0
 MUTATIONS=0
@@ -592,6 +597,28 @@ report_shell "M-E32: the arm count is no longer compared against the selection" 
        "🔴 a round that measured fewer arms than it selected does NOT pass" \
        "🔴 and the verdict says how many of how many"
 
+# --- ruling 35: the sample count and the label that left the axes --------------------------------
+
+# 🔴 THE DEFECT EXACTLY AS IT WAS. `links=len(window["keys"])` counted all 32 inter-switch ports
+# of the fabric instead of the 4 the flow crossed, so N was eight times too large, the predicted
+# median 2.83x too tight, and five of the fourth campaign's six treated cells were reported
+# outside a band they were inside.
+m=$(mutant m33 "$ANALYSE" \
+    '    peaks = window.get("per_edge_peak_bps") or {}
+    carrying = sorted(key for key, value in peaks.items() if value)' \
+    '    peaks = window.get("per_edge_peak_bps") or {}
+    carrying = sorted(window.get("keys") or [])')
+report "M-E33: N counts every edge in the fabric again, not the ones that carried the flow" "$m" \
+       "test_N_counts_the_edges_that_carried_the_flow_not_every_edge_in_the_fabric"
+
+# The axes stop being given room, which is how this round's own label fix pushed the bmv2
+# panel's top label 8.2 pt above the frame and onto the panel title.
+m=$(mutant m34 "$PLOT" \
+    '            needed = max(needed, (y - low) * height_points / headroom)' \
+    '            needed = needed')
+report "M-E34: the axes are not raised, so a staggered top label is drawn outside them" "$m" \
+       "test_no_label_is_drawn_above_the_top_of_its_own_axes"
+
 # --- the controls: changes that must NOT be caught -------------------------------------------------
 # A suite that goes red on a comment is not sensitive, it is fragile, and a fragile suite gets
 # ignored -- which costs more than the mutations it catches.
@@ -617,7 +644,9 @@ for pair in "$ANALYSE:$BASE_ANALYSE" "$PLOT:$BASE_PLOT" \
             "$DRIVER:$BASE_DRIVER" "$SCANNER:$BASE_SCANNER" "$MANIFEST:$BASE_MANIFEST" \
             "$HERE/test_drive_e_offline.sh:$BASE_TEST_OFF" \
             "$HERE/test_analyse.py:$BASE_TEST_A" "$HERE/test_plot.py:$BASE_TEST_P" \
-            "$HERE/synthetic.py:$BASE_SYNTH"; do
+            "$HERE/synthetic.py:$BASE_SYNTH" \
+            "$HERE/test_real_shape.py:$BASE_TEST_SHAPE" "$HERE/inventory.py:$BASE_INVENTORY" \
+            "$HERE/fixtures/real_run_inventory.json:$BASE_REAL_INV"; do
     file="${pair%:*}"; want="${pair##*:}"
     now="$(sha256sum "$file" | cut -d' ' -f1)"
     [[ "$now" == "$want" ]] || {

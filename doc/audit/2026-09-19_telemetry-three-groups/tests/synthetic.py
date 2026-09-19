@@ -7,8 +7,24 @@ A synthetic raw/ tree for the three-group telemetry round, with the answers know
 The tests need raw data whose correct analysis is known, and the only raw this round will ever
 produce comes from a live fabric nobody may run offline. So the shapes -- arm.meta's key=value
 lines, ladder.tsv, rungs.tsv, cpu_arm_probe.py's JSONL, sample_error.sh's window.json,
-get_sflow_stats' document -- are written here EXACTLY as the scripts write them, and the numbers
-are chosen so that each registered branch of PREREG is exercised by at least one cell:
+get_sflow_stats' document -- are written here with THE SAME KEYS THE REAL RAW CARRIES FOR EVERY
+FILE THE ANALYSIS READS, and the numbers are chosen so that each registered branch of PREREG is
+exercised by at least one cell.
+
+🔴 WHAT IS DELIBERATELY NOT WRITTEN, because the sentence used to say "EXACTLY as the scripts
+write them" and that was an over-claim (ruling 35(3)):
+
+  * twelve arm.meta keys nothing reads today -- rep_rule, switch_pids, gate, switch_count,
+    telemetry_knob, telemetry_package, link_emitter_pid, link_emitter_alive, link_emitter_rate,
+    clone_sessions, sflow_registered, top_rung_confirmation;
+  * every file class the analysis never opens: the per-rung iperf3 JSON (k<N>_rep<N>.json),
+    netdev_before/after.txt, switch_state*.json, cpu_probe.log, the per-arm sflow_before/after
+    pair, link_telemetry_manifest.json, the generation and driver logs, and the run root's own
+    files.
+
+Both lists are ENFORCED, not just written down: tests/test_real_shape.py compares this tree
+against a structural inventory of a real run (tests/fixtures/real_run_inventory.json) and fails
+if the difference is anything other than exactly those. The table below is what each cell is for:
 
     ceiling      none/1024 = 20,20      resolved
                  coop/1024 = 20,12      one rung apart -> resolved, ratio 0.80  -> H-A1
@@ -44,10 +60,25 @@ CTRL_BURNERS = 4
 #: whole purpose of the pair -- and the reason neither belongs in the gate's own reference.
 C3_EXTERNAL_NOBURN = 0.0538
 C3_EXTERNAL_BURN = 0.2262
-#: The four inter-switch interfaces h1 -> h4 crosses on the 4-host model (s1 -> agg -> core ->
-#: agg -> s4). Written out because the window's own key set is what drives the shot-noise
-#: prediction, and a test that left it implicit would not notice the prediction changing.
-ONPATH_KEYS = ["s1-eth1", "s5-eth3", "s9-eth3", "s7-eth2"]
+#: 🔴 THE TWO EDGE SETS ARE NOT THE SAME SET, AND THE FIXTURE USED TO PRETEND THEY WERE.
+#: `keys` is what sample_error.sh:189 computes -- `twin ∩ netdev`, i.e. EVERY inter-switch port
+#: on all ten switches, 32 of them -- while only the four the flow crosses ever report a rate,
+#: and those four are the ones that appear in `per_edge_peak_bps`. The old fixture wrote four
+#: keys and four peaks, so `len(keys)` and "the edges that carried the flow" were the same
+#: number and analyse.py's `links=len(keys)` looked right. In the real raw they differ 32 vs 4,
+#: N came out eight times too large and five of six H-B verdicts were the wrong one.
+#: Both lists are copied from raw/2026-09-19T105759Z_full/G2/se_cooperative_2M_p1/window.json.
+ALL_EDGE_KEYS = [
+    "s1-eth1", "s1-eth2", "s10-eth1", "s10-eth2", "s10-eth3", "s10-eth4", "s2-eth1", "s2-eth2",
+    "s3-eth1", "s3-eth2", "s4-eth1", "s4-eth2", "s5-eth1", "s5-eth2", "s5-eth3", "s5-eth4",
+    "s6-eth1", "s6-eth2", "s6-eth3", "s6-eth4", "s7-eth1", "s7-eth2", "s7-eth3", "s7-eth4",
+    "s8-eth1", "s8-eth2", "s8-eth3", "s8-eth4", "s9-eth1", "s9-eth2", "s9-eth3", "s9-eth4",
+]
+#: The four inter-switch interfaces h1 -> h4 actually crosses (s1 -> agg -> core -> agg -> s4),
+#: as the twin reported them. PREREG 5.2's N counts these and only these.
+ONPATH_KEYS = ["s1-eth2", "s6-eth4", "s8-eth2", "s10-eth4"]
+#: the host-facing ports sample_error.sh excludes, real shape (four, one per host switch)
+EXCLUDED_HOST_FACING = ["s1-eth3", "s2-eth3", "s3-eth3", "s4-eth3"]
 
 #: (group, frame) -> the two arms' highest clean rungs, in pass order.
 DEFAULT_CELLS = {
@@ -99,19 +130,29 @@ def _write(path, text):
 
 
 def _sflow_document(addressed, families=True):
-    """get_sflow_stats' body, with the counters under telemetry_health where the kernel puts
-    them. samples_by_family is worker A's addition and is present here so the analysis is
-    exercised against the shape it will actually meet."""
+    """get_sflow_stats' body, in the shape the kernel really answers with.
+
+    🔴 THE FAMILY COUNTS ARE AT THE TOP LEVEL, NOT INSIDE telemetry_health. This fixture had
+    them nested, which no real document does -- found by the structural reconciliation of
+    ruling 35(3), not by a test that reads them (nothing reads them from here today; the
+    analysis takes the family deltas from arm.meta). It is corrected because the next reader
+    of this file will believe it: raw/2026-09-19T105759Z_full/G2/cooperative_f1024_a/
+    sflow_rung20_before.json has exactly these five top-level keys.
+    """
     health = {"status": "ok", "samples_in_window": addressed, "offered_in_window": addressed,
               "dropped_in_window": 0, "socket_drops_in_window": 0, "app_drops_in_window": 0,
               "loss_fraction": 0.0, "window_seconds": 8.0,
               "rx_total": addressed // 4, "addressed_total": addressed,
               "sock_ovfl_total": 0, "app_drop_total": 0}
+    document = {"status": "success", "telemetry_health": health}
     if families:
-        health["samples_by_family"] = {"ipv4": int(addressed * 0.98), "ipv6": 0,
-                                       "l2": addressed - int(addressed * 0.98), "undecodable": 0}
-        health["malformed_ipv4_ihl"] = 0
-    return {"status": "success", "telemetry_health": health}
+        document["samples_by_family"] = {"ipv4": int(addressed * 0.98), "ipv6": 0,
+                                         "l2": addressed - int(addressed * 0.98),
+                                         "undecodable": 0}
+        document["malformed_ipv4_ihl"] = 0
+        document["non_ipv4_flows"] = {"capacity": 4096, "tracked": 0, "observed": 0,
+                                      "evicted_least_recently_seen": 0}
+    return document
 
 
 def write_arm(root, group, frame, pass_label, clean_kpps, external=None, softirq=None,
@@ -132,7 +173,15 @@ def write_arm(root, group, frame, pass_label, clean_kpps, external=None, softirq
     rung_rows, cpu_rows, spans = [], [], {}
     # cumulative jiffies. 100 jiffies = one core-second, so a process at P% of one core gains
     # P jiffies per second -- which is what makes the expected percentages exact.
-    totals = {"kernel:11": 500000, "proxy:12": 400000, "bmv2-1:21": 900000, "iperf3:31": 0}
+    # 🔴 TEN SWITCHES, NOT ONE. The fabric runs ten simple_switch_grpc processes and the real
+    # cpu.jsonl carries all ten (raw/.../cpu.jsonl's `static` has 12 entries, 13 on a link arm);
+    # this fixture used to write a single `bmv2-1`, so `label_of`'s folding of ten pids into one
+    # class -- the thing every bmv2 number in the round depends on -- was never exercised. Found
+    # by the structural reconciliation of ruling 35(3). The total is unchanged: ten processes at
+    # BMV2_BASE/10 each.
+    totals = {"kernel:11": 500000, "proxy:12": 400000, "iperf3:31": 0}
+    for switch in range(1, 11):
+        totals["bmv2-%d:%d" % (switch, 20 + switch)] = 900000
     if group == "link":
         totals["emitter:13"] = 300000
     machine = {"user": 10 ** 7, "nice": 0, "system": 10 ** 6, "idle": 10 ** 8, "iowait": 0,
@@ -158,7 +207,9 @@ def write_arm(root, group, frame, pass_label, clean_kpps, external=None, softirq
         # the pass label rather than on the rung
         kernel += kernel_spread if pass_label == "a" else -kernel_spread
         rates = {"kernel:11": kernel, "proxy:12": 4.0 if group == "none" else 12.0,
-                 "bmv2-1:21": BMV2_BASE, "iperf3:31": 110.0}
+                 "iperf3:31": 110.0}
+        for switch in range(1, 11):
+            rates["bmv2-%d:%d" % (switch, 20 + switch)] = BMV2_BASE / 10.0
         if group == "link":
             rates["emitter:13"] = 8.0
         step = 0.5
@@ -176,10 +227,14 @@ def write_arm(root, group, frame, pass_label, clean_kpps, external=None, softirq
                              "proc": {k: int(v) for k, v in totals.items()}})
         t = end + 4.0
 
+    static = {"kernel": 11, "proxy": 12}
+    if group == "link":
+        static["emitter"] = 13
+    static.update({"bmv2-%d" % switch: 20 + switch for switch in range(1, 11)})
     header = {"clk_tck": CLK_TCK, "nproc": 14, "hz": 2.0,
               "stat_columns": ["user", "nice", "system", "idle", "iowait", "irq", "softirq",
                                "steal"],
-              "static": {"kernel": 11, "proxy": 12}, "comms": {"iperf3": "iperf3"},
+              "static": static, "comms": {"iperf3": "iperf3"},
               "unreadable_at_start": [], "started": 1000.0}
     _write(os.path.join(directory, "cpu.jsonl"),
            "\n".join([json.dumps(header)] + [json.dumps(row) for row in cpu_rows]) + "\n")
@@ -238,9 +293,12 @@ def write_window(root, group, rate_mbit, label, abs_error=None, signed_error=Non
     truth_bps = (truth_mbit or rate_mbit) * 1e6
     document = {
         "group": group, "offered_mbit": rate_mbit, "window": label, "payload_bytes": 1400,
-        "frame_bytes": 1442, "duration_s": 8.0, "hz": 4.0, "keys": list(ONPATH_KEYS),
-        "excluded_host_facing": ["s1-eth3", "s4-eth3"], "twin_samples": 32,
+        "frame_bytes": 1442, "duration_s": 8.0, "hz": 4.0,
+        # every inter-switch port of the fabric, as sample_error.sh:189 writes it ...
+        "keys": list(ALL_EDGE_KEYS),
+        "excluded_host_facing": list(EXCLUDED_HOST_FACING), "twin_samples": 32,
         "elapsed_s": 8.0, "truth_bps": truth_bps, "truth_bytes": int(truth_bps * 8 / 8),
+        # ... and only the four that carried the flow, as sample_error.sh:210 writes it
         "per_edge_peak_bps": {k: truth_bps / 4 for k in ONPATH_KEYS},
         "telemetry_sources": {str(d): group for d in range(1, 11)},
         "sflow_deltas": {"rx_total": 0 if group == "none" else 900,
@@ -254,11 +312,16 @@ def write_window(root, group, rate_mbit, label, abs_error=None, signed_error=Non
         "invalid": invalid,
     }
     if group == "none":
+        # 🔴 AND NO PER-EDGE PEAKS AT ALL. Under `none` the twin never reports a rate, so
+        # sample_error.sh's per_edge_peak dict stays EMPTY -- which is what the real
+        # G1/se_none_*/window.json carries, and what makes analyse.py fall back to PREREG's
+        # registered four edges instead of inferring zero of them.
         document.update({"ratio": None, "abs_error": None, "signed_error": None,
                          "nonzero_twin_readings": 0 if nonzero_readings is None
                                                   else nonzero_readings,
-                         "twin_bps": 0.0,
-                         "ratio_note": "n/a -- the none group has no twin readings"})
+                         "twin_bps": 0.0, "per_edge_peak_bps": {},
+                         "ratio_note": "n/a -- the none group has no twin readings; reporting 0 "
+                                       "would turn an absence into a measurement"})
     else:
         signed = signed_error if signed_error is not None else -abs_error
         document.update({"ratio": 1.0 + signed, "abs_error": abs(signed), "signed_error": signed,
@@ -313,10 +376,18 @@ def build(root, cells=None, coop_error=0.045, link_error=0.150, emitter_dropped=
                     # a little spread around the cell's median, all with the same sign
                     write_window(generation, group, rate, label,
                                  signed_error=-(base + (index - 1) * base * 0.1))
+    # `requirement` and `verdict` are written because the real C1/C2 control.meta carry them
+    # (drive_e.sh:576-582) -- another gap the structural reconciliation of ruling 35(3) found.
     write_control(root, "C1", frame_bytes=64, payload_bytes=22, ceiling_pps=c1_ceiling,
-                  reps_pps="%s %s %s" % (c1_ceiling, c1_ceiling - 900, c1_ceiling + 900))
+                  reps_pps="%s %s %s" % (c1_ceiling, c1_ceiling - 900, c1_ceiling + 900),
+                  requirement=">= 5x the highest 64B pps this round measures through bmv2 "
+                              "(PREREG 4.3)",
+                  verdict="computed by analyse.py once the 64B cells exist")
     write_control(root, "C2", frame_bytes=1024, payload_bytes=982, ceiling_pps=c2_ceiling,
-                  reps_pps="%s %s %s" % (c2_ceiling, c2_ceiling - 900, c2_ceiling + 900))
+                  reps_pps="%s %s %s" % (c2_ceiling, c2_ceiling - 900, c2_ceiling + 900),
+                  requirement=">= 5x the highest 1024B pps this round measures through bmv2 "
+                              "(PREREG 4.3)",
+                  verdict="computed by analyse.py once the 1024B cells exist")
     # 🔴 C3'S TWO THROWAWAY LADDERS, WHERE AND AS THE DRIVER WRITES THEM. They were missing
     # until now, and that absence is why nothing could see analyse.py pooling them into
     # `none|1024`: the fixture disagreed with the raw about what a run directory contains, so

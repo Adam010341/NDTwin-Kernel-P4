@@ -190,6 +190,44 @@ def end_label_offsets(ends, ylim, height_points, label_points=LABEL_HEIGHT_PT):
     return placed
 
 
+def place_end_labels(ends, ylim, height_points, label_points=LABEL_HEIGHT_PT):
+    """-> ((low, high), placed): the axes limits these labels need, and where each one goes.
+
+    🔴 STAGGERING CAN PUSH THE TOP LABEL OUT OF THE AXES, and on the fourth campaign's figure 3
+    it did: the bmv2 panel is 206.5 pt tall, matplotlib's 5% margin leaves 9.4 pt above the
+    highest line end -- less than one label height -- and `coop`, displaced 12.1 pt to clear
+    `none`, ended with its glyph top at 214.7 pt, 8.2 pt ABOVE the axes and on top of the panel
+    title (`annotate` does not clip). That is a defect this round's own fix introduced: the old
+    rule left that label at offset 0, inside the axes, and illegibly on top of another label.
+    Both are wrong, and they are not a trade-off.
+
+    So the labels are not pushed back down -- that is the overlap again -- the AXES ARE GIVEN
+    ROOM: the top limit is raised until the highest glyph fits under it. Raising the limit moves
+    no data point, adds no text, and changes only how much blank sky the panel has.
+
+    The needed limit is SOLVED, not approached. Stacking gives the i-th label (in y order)
+    f_i = max_{j<=i} (natural_j + (i-j) x label), so the top one sits at
+    max_j (natural_j + (n-1-j) x label) and has to satisfy `+ label/2 <= height`. Each j turns
+    into one lower bound on the span, and the largest of them is the answer. Raising by the
+    overflow instead, in a loop, only converges ON the answer from above -- it is still 1e-6 pt
+    over after eight passes, which is invisible but is not what the code claims to do.
+    """
+    low, high = float(ylim[0]), float(ylim[1])
+    ordered = sorted(ends)
+    if ordered and height_points > 0 and high > low:
+        count = len(ordered)
+        needed = high - low
+        for index, (y, _x, _name) in enumerate(ordered):
+            headroom = height_points - (count - 1 - index) * label_points - label_points / 2.0
+            if headroom <= 0:
+                # more labels than this axes can hold however tall the span is: no limit fixes
+                # it, so nothing is claimed here and the containment test will say so.
+                continue
+            needed = max(needed, (y - low) * height_points / headroom)
+        high = low + needed
+    return (low, high), end_label_offsets(ends, (low, high), height_points, label_points)
+
+
 def figure_data(summary):
     return {"fig1_pps_ceiling": figure1_data(summary),
             "fig2_sampling_error": figure2_data(summary),
@@ -260,7 +298,11 @@ def _line_panels(plt, data, out_base):
         # land within a label height of each other on the DISPLAY would print their names on top
         # of one another, so those labels are staggered -- which moves the text, never the data.
         height_points = axes.get_position().height * inches * 72.0
-        for label in end_label_offsets(ends, axes.get_ylim(), height_points):
+        ylim, labels = place_end_labels(ends, axes.get_ylim(), height_points)
+        # 🔴 the axes get the room, the labels keep their separation. set_ylim after
+        # tight_layout() changes the scale inside the box, not the box, so height_points holds.
+        axes.set_ylim(*ylim)
+        for label in labels:
             axes.annotate(label["name"], (label["x"], label["y"]), textcoords="offset points",
                           xytext=(5, label["offset"]), ha="left", va="center", fontsize=9)
     for extension in ("png", "pdf"):

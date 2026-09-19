@@ -150,6 +150,42 @@ class SamplingErrorTest(unittest.TestCase):
         self.assertIsNone(row["median_signed_error"])
         self.assertIn("n/a", row["note"])
 
+    def test_N_counts_the_edges_that_carried_the_flow_not_every_edge_in_the_fabric(self):
+        # 🔴 PREREG 5.2 REGISTERS FOUR EDGES, AND THE FIXTURE NOW HAS THE REAL SHAPE: 32 keys
+        # (every inter-switch port of the ten switches) and 4 per-edge peaks (the ones the flow
+        # crossed). Counting `keys` made N eight times too large, the predicted median 2.83x
+        # too tight, and five of the fourth campaign's six treated cells "above the band" when
+        # they were inside it. At 2 Mbit/s over 1400 B payloads for 8 s, N = 4 x 178.571 x 8 /
+        # 256 = 22.32 and the prediction is 0.674 / sqrt(22.32) = 0.1427.
+        row = self.row("cooperative", 2)
+        self.assertAlmostEqual(row["predicted"]["n_samples"], 22.32, places=2)
+        self.assertAlmostEqual(row["predicted"]["median_abs"], 0.1427, places=4)
+        self.assertEqual(row["links_used"], 4)
+        self.assertEqual(row["keys_total"], 32)
+        self.assertIsNone(row["links_note"])          # it agrees with PREREG, so nothing to say
+
+    def test_a_group_with_no_twin_readings_falls_back_to_the_registered_four_and_says_so(self):
+        # The `none` windows have an EMPTY per_edge_peak_bps -- nothing was ever seen to carry
+        # anything -- so the count cannot be measured there. Falling back is allowed; doing it
+        # silently is not.
+        row = self.row("none", 2)
+        self.assertEqual(row["links_used"], analyse.DEFAULT_ONPATH_LINKS)
+        self.assertEqual(row["keys_total"], 32)
+        self.assertIn("no edge reported traffic", row["links_note"])
+        self.assertIn("registered 4", row["links_note"])
+
+    def test_a_fabric_where_more_edges_carried_the_flow_is_reported_not_hidden(self):
+        # The other half of the same rule: when the measurement disagrees with PREREG's 4, the
+        # row says which edges and how many, instead of quietly using a different number.
+        window = {"keys": ["e%d" % i for i in range(32)], "payload_bytes": 1400,
+                  "duration_s": 8.0,
+                  "per_edge_peak_bps": {"s1-eth2": 10.0, "s6-eth4": 10.0, "s8-eth2": 10.0,
+                                        "s10-eth4": 10.0, "s5-eth1": 10.0, "s9-eth2": 0}}
+        links, keys_total, note = analyse.links_for_prediction(window)
+        self.assertEqual((links, keys_total), (5, 32))
+        self.assertIn("5 edges carried the flow, not the 4", note)
+        self.assertIn("s5-eth1", note)
+
     def test_the_shot_noise_prediction_is_the_registered_formula(self):
         predicted = analyse.shot_noise_prediction(20, 1400, 8.0, links=4, divisor=256)
         self.assertAlmostEqual(predicted["n_samples"], 223.214, places=2)

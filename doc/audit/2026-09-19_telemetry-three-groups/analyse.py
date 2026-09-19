@@ -334,6 +334,40 @@ def shot_noise_prediction(rate_mbit, payload_bytes, duration_s,
     return {"n_samples": n, "median_abs": MEDIAN_OVER_SD / math.sqrt(n)}
 
 
+def links_for_prediction(window):
+    """-> (links, keys_total, note): how many edges the shot-noise prediction may count.
+
+    🔴 N IS ABOUT THE EDGES THE FLOW CROSSED, NOT THE EDGES THAT EXIST. PREREG 5.2 registers
+    four on-path switch-switch edges and N = 4 x pps x duration / 256. This used to pass
+    `len(window["keys"])`, and `keys` is sample_error.sh's `twin ∩ netdev` -- every
+    inter-switch port on all ten switches, 32 of them in the real fabric. Twenty-eight of those
+    carry no part of the flow and cannot produce a sample of it, so counting them inflated N
+    eight-fold, tightened the predicted median by sqrt(8) = 2.83, and pushed five of the six
+    treated cells of the fourth campaign out of a band they were inside.
+
+    The four edges are not a constant to be hard-coded either: the same window.json already
+    names them. `per_edge_peak_bps` holds the twin's own per-edge peak and only the edges that
+    ever read non-zero appear in it -- exactly `s1-eth2, s6-eth4, s8-eth2, s10-eth4` for
+    h1 -> h4. So the count is MEASURED, and when it disagrees with the registered 4 the row
+    says so instead of quietly changing what the number means.
+
+    The `none` group is the one case with no measurement to make: it has no twin readings at
+    all, so no edge can be seen to carry anything, and the registered 4 is used with a note.
+    """
+    peaks = window.get("per_edge_peak_bps") or {}
+    carrying = sorted(key for key, value in peaks.items() if value)
+    keys_total = len(window.get("keys") or [])
+    if not carrying:
+        return (DEFAULT_ONPATH_LINKS, keys_total,
+                "no edge reported traffic (a group with no twin readings), so PREREG 5.2's "
+                "registered %d on-path edges are used" % DEFAULT_ONPATH_LINKS)
+    note = None
+    if len(carrying) != DEFAULT_ONPATH_LINKS:
+        note = ("%d edges carried the flow, not the %d PREREG 5.2 registered: %s"
+                % (len(carrying), DEFAULT_ONPATH_LINKS, ", ".join(carrying)))
+    return len(carrying), keys_total, note
+
+
 EMITTER_STAT = re.compile(r"(\w+)=(\d+)")
 
 
@@ -367,11 +401,16 @@ def sampling_summary(windows):
         row = {"group": group, "offered_mbit": rate, "windows": len(members),
                "median_abs_error": None, "median_signed_error": None,
                "predicted": None, "verdict": None, "note": None,
+               "links_used": None, "keys_total": None, "links_note": None,
                "nonzero_twin_readings": sum(m.get("nonzero_twin_readings") or 0 for m in members)}
         sample = members[0]
+        # 🔴 BOTH NUMBERS ARE RECORDED, because they are different and a reader has to be able
+        # to see that they are: `links_used` is what N counts, `keys_total` is how many edges
+        # the fabric has. Reporting only the first is how the 32 went unnoticed for four rounds.
+        row["links_used"], row["keys_total"], row["links_note"] = links_for_prediction(sample)
         row["predicted"] = shot_noise_prediction(
             rate, sample.get("payload_bytes") or 1400, sample.get("duration_s") or 8.0,
-            links=len(sample.get("keys") or []) or DEFAULT_ONPATH_LINKS)
+            links=row["links_used"])
         if group == "none":
             # 🔴 n/a, never 0. PREREG 5.2: the group has no twin readings, and reporting a zero
             # would turn an absence into a measurement.
@@ -862,12 +901,16 @@ def render(summary, stream=sys.stdout):
     write("\n=== (2) sampling error, |twin/truth - 1|\n")
     for row in summary["sampling_error"]:
         predicted = row["predicted"]["median_abs"] if row["predicted"] else None
-        write("  %-12s %6s Mbit/s  median|err|=%-8s signed=%-9s predicted=%-8s %s\n"
+        write("  %-12s %6s Mbit/s  median|err|=%-8s signed=%-9s predicted=%-8s (N over %s of %s "
+              "edges)  %s\n"
               % (row["group"], row["offered_mbit"],
                  "n/a" if row["median_abs_error"] is None else "%.4f" % row["median_abs_error"],
                  "n/a" if row["median_signed_error"] is None else "%+.4f" % row["median_signed_error"],
                  "n/a" if predicted is None else "%.4f" % predicted,
+                 row.get("links_used"), row.get("keys_total"),
                  row["verdict"] or row["note"] or ""))
+        if row.get("links_note"):
+            write("      🔴 %s\n" % row["links_note"])
     for row in summary["sampling_error_cross_group"]:
         write("  link/coop at %6s Mbit/s: %-8s %s%s\n"
               % (row["offered_mbit"],
