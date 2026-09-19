@@ -97,7 +97,17 @@ DEFAULT_SOFTIRQ = {"none": 0.01, "cooperative": 0.011, "link": 0.09}
 KERNEL_BASE = 10.0
 KERNEL_FIXED = 5.0
 KERNEL_MARGINAL = 0.0206
-BMV2_BASE = 150.0
+#: 🔴 TEN UNEQUAL SHARES, AND THE TOTAL IS DERIVED FROM THEM (ruling 37(4)). The ten switches
+#: used to be given BMV2_BASE/10 each, which was chosen so the total would not change -- and
+#: ten equal values make "sum the ten" and "take one and multiply by ten" the same function, so
+#: no test of the fold could tell them apart. That is the rule this file already states about
+#: samples_per_second (test_analyse.py's link-arm case) applied where it had not been.
+#: Every weight is even, so each one is a whole number of jiffies at the 0.5 s sampling step
+#: (42 -> 21, 30 -> 15, ... 2 -> 1; 75 per step in total), and dropping any one of them changes
+#: the folded total by a different amount -- M-E35 drops bmv2-3 and leaves 130.
+BMV2_WEIGHTS = [42, 30, 20, 16, 12, 10, 8, 6, 4, 2]
+#: derived, not typed: the two cannot drift apart.
+BMV2_BASE = float(sum(BMV2_WEIGHTS))                      # 150.0
 #: 🔴 THE TWO GROUPS DO NOT SAMPLE THE SAME NUMBER OF PACKETS, and the fixture must not pretend
 #: they do. Under `cooperative` the five switches on the path each clone 1/256 of what they
 #: forward; under `link` the host-facing ports carry an EGRESS filter as well as an ingress one,
@@ -181,7 +191,8 @@ def write_arm(root, group, frame, pass_label, clean_kpps, external=None, softirq
     # BMV2_BASE/10 each.
     totals = {"kernel:11": 500000, "proxy:12": 400000, "iperf3:31": 0}
     for switch in range(1, 11):
-        totals["bmv2-%d:%d" % (switch, 20 + switch)] = 900000
+        # unequal lifetimes too: nothing may depend on the ten having started together
+        totals["bmv2-%d:%d" % (switch, 20 + switch)] = 900000 + 1000 * switch
     if group == "link":
         totals["emitter:13"] = 300000
     machine = {"user": 10 ** 7, "nice": 0, "system": 10 ** 6, "idle": 10 ** 8, "iowait": 0,
@@ -209,7 +220,7 @@ def write_arm(root, group, frame, pass_label, clean_kpps, external=None, softirq
         rates = {"kernel:11": kernel, "proxy:12": 4.0 if group == "none" else 12.0,
                  "iperf3:31": 110.0}
         for switch in range(1, 11):
-            rates["bmv2-%d:%d" % (switch, 20 + switch)] = BMV2_BASE / 10.0
+            rates["bmv2-%d:%d" % (switch, 20 + switch)] = float(BMV2_WEIGHTS[switch - 1])
         if group == "link":
             rates["emitter:13"] = 8.0
         step = 0.5
@@ -377,7 +388,13 @@ def build(root, cells=None, coop_error=0.045, link_error=0.150, emitter_dropped=
                     write_window(generation, group, rate, label,
                                  signed_error=-(base + (index - 1) * base * 0.1))
     # `requirement` and `verdict` are written because the real C1/C2 control.meta carry them
-    # (drive_e.sh:576-582) -- another gap the structural reconciliation of ruling 35(3) found.
+    # (sender_control writes them at drive_e.sh:645-646, inside the block that redirects to
+    # $out/control.meta at :648). The earlier citation here said :576-582, which is the top of
+    # sampling_block and supports nothing -- ruling 37(1).
+    #
+    # 🔴 Only `requirement` was ever PROVEN missing by a log: the union of C1, C2 and C3 hid
+    # the `verdict` half, because C3 writes one. inventory.py now compares control.meta per
+    # control, so both halves are visible; the red run for it is in the round 9 record.
     write_control(root, "C1", frame_bytes=64, payload_bytes=22, ceiling_pps=c1_ceiling,
                   reps_pps="%s %s %s" % (c1_ceiling, c1_ceiling - 900, c1_ceiling + 900),
                   requirement=">= 5x the highest 64B pps this round measures through bmv2 "

@@ -258,6 +258,35 @@ class Figure3LabelsStayInsideTest(unittest.TestCase):
             self.assertGreaterEqual(ylim[1], original[1] - 1e-9, panel)
             self.assertAlmostEqual(ylim[0], original[0], places=9, msg=panel)
 
+    def test_a_stack_taller_than_its_axes_is_not_reported_as_fitting(self):
+        # 🔴 THE headroom <= 0 BRANCH, WHICH NOTHING HAD EVER EXECUTED (ruling 37(5)). The three
+        # real panels are 206.5 pt with three labels, where the tightest headroom is 179 pt; to
+        # reach this branch an axes has to be under about 27.5 pt for three labels. Twenty
+        # labels in 50 pt cannot fit however far the limit is raised -- 20 x 11 pt of text into
+        # 50 pt of axes -- and the question this case answers is what the function does then.
+        ends = [(float(index), 110.0, "s%d" % index) for index in range(20)]
+        returned = plot.place_end_labels(ends, (0.0, 19.0), 50.0)
+        ylim, placed = returned
+        self.assertEqual(len(placed), 20)
+        # (i) the stagger stays honest: every neighbouring pair is still a label height apart
+        positions = [p["display_points"] for p in placed]
+        for lower, upper in zip(positions, positions[1:]):
+            self.assertGreaterEqual(upper - lower, plot.LABEL_HEIGHT_PT - 1e-9)
+        # (ii) it does NOT pretend to fit: the top label is placed above the axes top, and that
+        # is visible in what it returns -- a caller can subtract and find out.
+        glyph_top = positions[-1] + plot.LABEL_HEIGHT_PT / 2.0
+        self.assertGreater(glyph_top, 50.0)
+        self.assertGreater(glyph_top - 50.0, plot.LABEL_HEIGHT_PT)      # not a rounding sliver
+        # (iii) 🔴 AND THAT IS ALL THE CALLER GETS. No flag, no exception, no third element:
+        # the return is the same 2-tuple as a panel that fits, so a caller has to do the
+        # subtraction itself, and _line_panels does not do it -- it annotates whatever comes
+        # back. That is a finding about the interface, not only about this test, and it is
+        # asserted here so that adding a signal later has to come past this case deliberately.
+        self.assertEqual(len(returned), 2)
+        self.assertEqual(sorted(placed[0]),
+                         ["display_points", "name", "natural_points", "offset", "x", "y"])
+        self.assertGreaterEqual(ylim[1], 19.0)      # it still raised what it could
+
     def test_only_the_panel_that_needs_room_is_given_any(self):
         # The control: a rule that inflated every axis would be as wrong as one that inflated
         # none. Only bmv2 has labels within a label height of each other at the top.

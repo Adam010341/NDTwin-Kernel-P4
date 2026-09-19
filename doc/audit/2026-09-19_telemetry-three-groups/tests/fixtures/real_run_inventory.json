@@ -3,7 +3,9 @@
     "control": [
       "c<N>a.log",
       "c<N>b.log",
-      "control.meta",
+      "control.meta (C1)",
+      "control.meta (C2)",
+      "control.meta (C3)",
       "pps.txt",
       "rep<N>.json"
     ],
@@ -134,17 +136,30 @@
       "top_rung_confirmation",
       "total_busy"
     ],
-    "control.meta": [
-      "burners",
+    "control.meta (C1)": [
       "ceiling_pps",
       "control",
-      "external_with_burners",
-      "external_without_burners",
       "frame_bytes",
-      "ladder",
       "payload_bytes",
       "reps_pps",
       "requirement",
+      "verdict"
+    ],
+    "control.meta (C2)": [
+      "ceiling_pps",
+      "control",
+      "frame_bytes",
+      "payload_bytes",
+      "reps_pps",
+      "requirement",
+      "verdict"
+    ],
+    "control.meta (C3)": [
+      "burners",
+      "control",
+      "external_with_burners",
+      "external_without_burners",
+      "ladder",
       "threshold",
       "verdict"
     ],

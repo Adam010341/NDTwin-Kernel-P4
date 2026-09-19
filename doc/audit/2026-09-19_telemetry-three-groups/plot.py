@@ -220,8 +220,17 @@ def place_end_labels(ends, ylim, height_points, label_points=LABEL_HEIGHT_PT):
         for index, (y, _x, _name) in enumerate(ordered):
             headroom = height_points - (count - 1 - index) * label_points - label_points / 2.0
             if headroom <= 0:
-                # more labels than this axes can hold however tall the span is: no limit fixes
-                # it, so nothing is claimed here and the containment test will say so.
+                # 🔴 MORE LABELS THAN THIS AXES CAN HOLD, whatever the span is: this one needs
+                # (count-1-index) label heights above it plus half its own, and the axes is not
+                # that tall. No limit fixes it, so this label contributes no bound.
+                #
+                # What the caller gets in that case is EXACTLY the same 2-tuple as always: no
+                # flag, no exception, no third element. The overflow is visible -- the returned
+                # placement puts the top label's glyph above `height_points` and a caller can
+                # subtract -- but nothing forces it to look, and _line_panels does not.
+                # test_plot.py's `test_a_stack_taller_than_its_axes...` pins both halves of
+                # that: the overflow is in the return, and the return has no signal in it.
+                # (Ruling 37(5); the interface half is in the round 9 candidate list.)
                 continue
             needed = max(needed, (y - low) * height_points / headroom)
         high = low + needed

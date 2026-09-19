@@ -619,6 +619,18 @@ m=$(mutant m34 "$PLOT" \
 report "M-E34: the axes are not raised, so a staggered top label is drawn outside them" "$m" \
        "test_no_label_is_drawn_above_the_top_of_its_own_axes"
 
+# --- ruling 37: the fold that ran in production and never in a test ------------------------------
+# 🔴 THIS GATE HAD NO MUTATION ON label_of AT ALL. Ten switches' CPU is folded into one class by
+# it and summed; every bmv2 number in the round depends on that, and until now the sum could
+# have been a max, a first, or a mean and all 34 mutations would still have been caught. The
+# fixture's ten weights are unequal (42,30,20,16,12,10,8,6,4,2 = 150), so dropping bmv2-3 takes
+# exactly 20 off the folded total -- the expected value follows from the weights.
+m=$(mutant m35 "$ANALYSE" \
+    '    return "bmv2" if name.startswith("bmv2") else name' \
+    '    return "bmv2" if name.startswith("bmv2") and name != "bmv2-3" else name')
+report "M-E35: one switch falls out of the bmv2 class, so the fold stops being a sum of ten" "$m" \
+       "test_the_ten_bmv2_processes_are_folded_into_one_class_and_SUMMED"
+
 # --- the controls: changes that must NOT be caught -------------------------------------------------
 # A suite that goes red on a comment is not sensitive, it is fragile, and a fragile suite gets
 # ignored -- which costs more than the mutations it catches.

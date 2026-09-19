@@ -267,6 +267,25 @@ class CpuTest(unittest.TestCase):
         for measured in by_rung.values():
             self.assertAlmostEqual(measured["kernel"], synthetic.KERNEL_BASE, places=3)
 
+    def test_the_ten_bmv2_processes_are_folded_into_one_class_and_SUMMED(self):
+        # 🔴 THE FOLD, ASSERTED (ruling 37(4)). label_of() turns ten pids into one class and
+        # cpu_for_window sums them; every bmv2 number in the round goes through it, and in
+        # production it always has -- a real cpu.jsonl has carried ten bmv2 pids all along.
+        # What had never happened is a TEST executing it: the fixture wrote one process, and
+        # when it grew to ten it gave them equal shares, which makes "sum the ten" and "take
+        # one and multiply by ten" the same function. The weights are unequal now, so only a
+        # real sum gives the total.
+        arm = next(a for a in self.arms if a["arm"] == "none_f1024_a")
+        by_rung = analyse.cpu_by_rung(arm)
+        self.assertTrue(by_rung)
+        for kpps, measured in by_rung.items():
+            self.assertAlmostEqual(measured["bmv2"], synthetic.BMV2_BASE, places=3,
+                                   msg="rung %s" % kpps)
+        # and the fixture cannot make the two arithmetics agree by accident
+        self.assertEqual(len(set(synthetic.BMV2_WEIGHTS)), 10)
+        self.assertNotAlmostEqual(max(synthetic.BMV2_WEIGHTS) * 10.0, synthetic.BMV2_BASE)
+        self.assertEqual(sum(synthetic.BMV2_WEIGHTS), synthetic.BMV2_BASE)
+
     def test_a_process_that_appears_inside_the_window_IS_charged_from_zero(self):
         rows = [
             {"t": 0.0, "machine": {"user": 0, "nice": 0, "system": 0, "idle": 0, "iowait": 0,

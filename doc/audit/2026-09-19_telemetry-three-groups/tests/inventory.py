@@ -37,10 +37,31 @@ _DIGITS = re.compile(r"\d+")
 CONSUMED = ("arm.meta", "control.meta", "window.json", "ladder.tsv", "rungs.tsv", "cpu.jsonl",
             "sflow_rung<N>_before.json", "sflow_rung<N>_after.json", "emitter.log")
 
+#: 🔴 PER CONTROL, NOT UNIONED (ruling 37(1)). C1, C2 and C3 all write a file called
+#: control.meta and they do not carry the same keys: C1/C2 have frame_bytes, ceiling_pps,
+#: reps_pps, requirement, verdict; C3 has burners, ladder, the two externals, threshold,
+#: verdict. Folding them into one class unions their keys, so "only C1 and C2 are missing a
+#: key" can never surface -- which is exactly what happened: the fixture wrote no `verdict` for
+#: C1/C2, C3's own `verdict` filled the union, and the instrument reported only `requirement`.
+#: A file whose shape depends on which instance wrote it needs the instance in its class.
+PER_INSTANCE = ("control.meta",)
 
-def file_class(name):
-    """`k110_rep3.json` -> `k<N>_rep<N>.json`; `arm.meta` -> `arm.meta`."""
-    return _DIGITS.sub("<N>", name)
+
+def file_class(name, directory=None):
+    """`k110_rep3.json` -> `k<N>_rep<N>.json`; `arm.meta` -> `arm.meta`.
+
+    For the per-instance files above the owning directory's name joins the class, so C1's
+    control.meta and C3's are compared separately rather than merged.
+    """
+    cls = _DIGITS.sub("<N>", name)
+    if cls in PER_INSTANCE and directory:
+        return "%s (%s)" % (cls, os.path.basename(directory.rstrip(os.sep)))
+    return cls
+
+
+def consumed(cls):
+    """Is this file class one the analysis reads? `control.meta (C1)` counts as control.meta."""
+    return cls.split(" (", 1)[0] in CONSUMED
 
 
 def directory_class(path, root):
@@ -94,6 +115,12 @@ def keys_of(path):
 def cardinalities(path):
     """{key: length} for every top-level key of a JSON file whose value is a list or a dict.
 
+    🔴 KNOWN BLIND SPOT (ruling 37(6a)): for a .jsonl this reads ONLY THE FIRST LINE. cpu.jsonl's
+    header is reconciled; its sample rows are not, and neither are the ten bmv2 entries inside
+    each row's `proc`. The ten processes were caught through the header's `static` block, not
+    through the rows -- so a fixture that declared ten in the header and wrote one in every row
+    would pass this reconciliation. Registered, not fixed.
+
     🔴 A KEY SET IS NOT A SHAPE. ruling 35(1)'s defect was that `keys` holds 32 edges and
     `per_edge_peak_bps` holds 4 -- the key NAMES were identical in the fixture and in the real
     raw, and only their sizes disagreed. A reconciliation that compared names alone would have
@@ -128,9 +155,9 @@ def inventory(root):
         kind = directory_class(path, root)
         classes = dirs.setdefault(kind, set())
         for name in sorted(names):
-            cls = file_class(name)
+            cls = file_class(name, path)
             classes.add(cls)
-            if cls in CONSUMED:
+            if consumed(cls):
                 full = os.path.join(path, name)
                 keys = keys_of(full)
                 if keys is not None:
