@@ -165,6 +165,13 @@ def main(tee=None, enter_cli=None) -> None:
     print("NTG cannot interrupt an experiment -- let flows finish.")
     print("======================================================================\n")
 
+    # 🔴 THE SAME HANDLERS THE OTHER MAIN INSTALLS, from the same function. Ruling 19(1): this
+    # file already had the `try/finally` the topology script was missing, so the SIGHUP that
+    # `ndtwin-lab topo-stop` sends ten seconds after its C-c still killed python outright --
+    # a `finally` is not reached by a default-disposition signal. This is the entry point
+    # `topo-start` actually launches, so it is the one where that mattered every night.
+    testbed.install_teardown_signal_handlers()
+
     try:
         if tee is not None:
             # 🔴 THE TEE COMES OFF FOR THE PROMPT, and this is not a convenience. NTG's
