@@ -329,14 +329,19 @@ s1-eth2 1000
 s1-eth3 11001
 s2-eth1 11000
 ND
+# 🔴 THE CLASS TRAVELS WITH THE NAME (§9 ruling 20①): s1-eth1 moved 1,999,000 B and is the
+# PRIMARY; s1-eth3's 10,001 B is over the 10 kB threshold but far under 5% of the primary, so
+# it is MINOR -- real bytes the sampler cannot be expected to have caught.
 OUT="$(drive "onpath_ifaces '$FIX/nd.before' '$FIX/nd.after' | paste -sd, -")"
-check "🔴 only the interfaces that moved bytes are on the path" "s1-eth1,s1-eth3" "$(/usr/bin/grep -v '^RC=' <<<"$OUT" | head -1)"
+check "🔴 only the interfaces that moved bytes are on the path" "s1-eth1 P 1999000,s1-eth3 M 10001" "$(/usr/bin/grep -v '^RC=' <<<"$OUT" | head -1)"
+check "  and onpath_primary gives the old one-name shape"  "s1-eth1" \
+      "$(drive "onpath_ifaces '$FIX/nd.before' '$FIX/nd.after' > '$FIX/nd.onpath'" >/dev/null; drive "onpath_primary '$FIX/nd.onpath' | paste -sd, -" | /usr/bin/grep -v '^RC=' | head -1)"
 # 🔴 THE THRESHOLD IS 10 kB AND NOT "> 0 bytes". LLDP, ARP and the proxy's own probes keep every
 # link faintly busy; with a threshold of zero every interface in the fabric is on every path and
 # the off-path half of the assertion has nothing left to be about. s2-eth1 grew by EXACTLY 10000
 # and is out; s1-eth3 grew by 10001 and is in.
 OUT="$(drive "onpath_ifaces '$FIX/nd.before' '$FIX/nd.after' 1 | paste -sd, -")"
-check "  a threshold of 1 byte puts the noise on the path too" "s1-eth1,s1-eth3,s2-eth1" "$(/usr/bin/grep -v '^RC=' <<<"$OUT" | head -1)"
+check "  a threshold of 1 byte puts the noise on the path too" "s1-eth1 P 1999000,s1-eth3 M 10001,s2-eth1 M 10000" "$(/usr/bin/grep -v '^RC=' <<<"$OUT" | head -1)"
 
 printf 's1-eth1 1000\n' > "$FIX/nd.short"
 OUT="$(drive "onpath_ifaces '$FIX/nd.short' '$FIX/nd.after'")"
@@ -367,7 +372,9 @@ mkint() {   # mkint <file> <"<key> <bits> <kind>" ...>
     local row; for row in "$@"; do printf '%s\n' "$row" >> "$f"; done
     printf '# samples=4 span=1s\n' >> "$f"
 }
-printf 's1-eth1\ns1-eth3\n' > "$FIX/onpath.txt"
+# 🔴 `P` because these fixtures ARE the flow: the class column is onpath_ifaces' output
+# format now (§9 ruling 20①), and a file without it would exercise a shape nothing produces.
+printf 's1-eth1 P 2000000\ns1-eth3 P 2000000\n' > "$FIX/onpath.txt"
 mkint "$FIX/i_good.txt" "s1-eth1 8000.000 host" "s1-eth3 16000.000 switch" \
                         "s1-eth2 0.000 switch" "s2-eth1 400.000 host"
 OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_good.txt' 'green'")"
@@ -377,7 +384,7 @@ has   "  and it says so"                                 "green: link usage foll
 mkint "$FIX/i_zero.txt" "s1-eth1 8000.000 host" "s1-eth3 0.000 switch" "s1-eth2 0.000 switch"
 OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_zero.txt' 'zero'")"
 check "🔴 an interface that carried the flow and reads 0 is red" "1" "$(rc_of "$OUT")"
-has   "  naming it"                                      "s1-eth3 carried the flow and the twin integrated 0.000 bit" "$OUT"
+has   "  naming it"                                      "s1-eth3 carried the flow (2000000 B, primary) and the twin integrated 0.000 bit" "$OUT"
 
 mkint "$FIX/i_missing.txt" "s1-eth1 8000.000 host"
 OUT="$(drive "assert_link_usage_follows_path '$FIX/onpath.txt' '$FIX/i_missing.txt' 'gap'")"
@@ -395,7 +402,7 @@ has   "  and says the link is not modelled"              "the twin has NO edge f
 check "  the floor with a 16 kbit smallest on-path integral" "5000.000" \
       "$(one "link_usage_floor '$FIX/onpath.txt' '$FIX/i_good.txt'")"
 mkint "$FIX/i_big.txt" "s1-eth1 16000000.000 host" "s1-eth3 16000000.000 switch"
-printf 's1-eth1\ns1-eth3\n' > "$FIX/onpath2.txt"
+printf 's1-eth1 P 16000000\ns1-eth3 P 16000000\n' > "$FIX/onpath2.txt"
 check "🔴 and with a real 16 Mbit flow it is 2% of it, not 5 kbit" "320000.000" \
       "$(one "link_usage_floor '$FIX/onpath2.txt' '$FIX/i_big.txt'")"
 
@@ -490,7 +497,19 @@ json.dump({"nodes": [{"device_name": "h1", "dpid": 0, "vertex_type": 1, "ip": ["
 OUT="$(drive "link_usage_round '$FIX/pkg1host' 'one-host' '$FIX/lur1'")"
 check "🔴 a model with one host cannot carry a flow"      "1" "$(rc_of "$OUT")"
 has   "  and says so instead of measuring nothing"       "does not name two hosts to run a flow between" "$OUT"
-OUT="$(drive "link_usage_round '$PKG3' 'no-ns' '$FIX/lur2'")"
+# 🔴 HOST NAMES NO FABRIC CAN HAVE, AND THAT IS THE POINT (found during the live-fix round).
+# This cell used `$PKG3`, whose hosts are h1..h3 -- the names a REAL fabric uses. It passed only
+# while no lab was up: with the orchestrator's live run in progress, `host_pid h1` returns a
+# genuine namespace pid, the refusal never fires, and the cell went red for a reason that has
+# nothing to do with the code under test. A test whose result depends on whether somebody else
+# has a fabric up is not testing what it says.
+mkdir -p "$FIX/pkg-nons/ndtwin"
+python3 -c '
+import json, sys
+json.dump({"nodes": [{"device_name": "zz1", "dpid": 0, "vertex_type": 1, "ip": ["10.9.9.1"]},
+                     {"device_name": "zz3", "dpid": 0, "vertex_type": 1, "ip": ["10.9.9.3"]}],
+           "edges": [], "links": []}, open(sys.argv[1], "w"))' "$FIX/pkg-nons/ndtwin/topology.json"
+OUT="$(drive "link_usage_round '$FIX/pkg-nons' 'no-ns' '$FIX/lur2'")"
 check "🔴 a host with no namespace is rc 2, a refusal"    "2" "$(rc_of "$OUT")"
 has   "  named as the permission answer it is"           "never a reading about link usage" "$OUT"
 
@@ -638,6 +657,162 @@ has   "  naming what it said"                            "ImportError" "$OUT"
 OUT="$(hazard_scan "$FIX/ok.sh")"; SCAN_RC=$?
 check "  a working interpreter is not reported as failed" "0" "$SCAN_RC"
 hasnt "  and prints no SCANNER-FAILED"                   "SCANNER-FAILED" "$OUT"
+
+# =============================================================================================
+section "10. 🔴 a teardown step that fails must not kill the teardown"
+# =============================================================================================
+# TICKET-P3 §9 ruling 19②, found by the first live run. `_common.sh` runs under
+# `set -euo pipefail` and `finish()` is the EXIT trap, so a non-zero `ndt down` ENDED THE TRAP
+# half way: live 02's log stops at `== teardown` and live 03's at "stopping the exercise
+# controller" -- no `ndt down rc=` line, no `ndt release`, and no verdict line at all, while the
+# README promises the last line is PASS or FAIL. A teardown is the one place where every step
+# must run BECAUSE an earlier one failed, and `-e` inverts exactly that; it took the release
+# with it, leaving the lab claimed by a finished run.
+FIX10="$(mktemp -d "${TMPDIR:-/tmp}/common-finish-XXXXXX")"
+mkdir -p "$FIX10/bin" "$FIX10/run"
+cat > "$FIX10/bin/ndt" <<'STUBNDT'
+#!/usr/bin/env bash
+echo "$*" >> "$NDTLOG"
+case "${1:-}" in
+    down)    echo "stub: down says something was wrong"; exit 1 ;;
+    release) echo "stub: released"; exit 0 ;;
+    claim)   exit 0 ;;
+    *)       exit 0 ;;
+esac
+STUBNDT
+chmod +x "$FIX10/bin/ndt"
+
+# The smallest driver that exercises the real `finish`: source the file under test, claim, and
+# let the EXIT trap run with a `down` that fails.
+# 🔴 `set -euo pipefail`, THE LINE EVERY REAL STEP SCRIPT HAS (02_app_basic.sh:43, and the
+# others). `_common.sh` does NOT set it -- the steps do -- so a driver here that used
+# `set -uo pipefail` would never have `-e` on, and the whole scenario would be vacuous: the
+# mutation that removes `set +e` from finish() would change nothing and the cells below would
+# pass for a defect that is still there. (That is exactly what happened on the first attempt;
+# the gate's M29 caught it.)
+cat > "$FIX10/step.sh" <<STEPSH
+set -euo pipefail
+export NDTLOG="$FIX10/ndt.log"
+source "$COMMON"
+NDT="$FIX10/bin/ndt"
+RUN="$FIX10/run"; STEP=10_finish; CLAIMED=1; CTRL_PID=""
+VERDICT_RC=0; VERDICT_WHY=""
+trap finish EXIT INT TERM
+exit 0
+STEPSH
+: > "$FIX10/ndt.log"
+OUT10="$(timeout 120 bash "$FIX10/step.sh" 2>&1)"; RC10=$?
+
+check "🔴 a failing 'ndt down' still produces a verdict"  "1" "$RC10"
+has   "  the 'ndt down rc=' line is printed"             "ndt down rc=1" "$OUT10"
+has   "🔴 its rc is folded into the verdict"             "'ndt down' exited 1" "$OUT10"
+has   "  the raw path is printed"                        "raw: " "$OUT10"
+check "🔴 and the LAST line is the verdict, as the README promises" "1" \
+      "$(printf '%s\n' "$OUT10" | tail -1 | /usr/bin/grep -cE '^(PASS|FAIL) ')"
+has   "🔴 'ndt release' still ran -- the lab is not left claimed" "release" "$(cat "$FIX10/ndt.log")"
+
+# 🔴 A RELEASE THAT DID NOT TAKE MUST FAIL THE ROUND (the shape E's judge found today). `bad`
+# only prints: the verdict stayed whatever it was, so a round whose release failed could end
+# PASS -- and the next person to want the lab finds it held by a step that reported success.
+cat > "$FIX10/bin/ndt" <<'STUBREL'
+#!/usr/bin/env bash
+echo "$*" >> "$NDTLOG"
+case "${1:-}" in
+    release) echo "stub: release did NOT take"; exit 1 ;;
+    *)       exit 0 ;;
+esac
+STUBREL
+chmod +x "$FIX10/bin/ndt"
+: > "$FIX10/ndt.log"
+OUT10="$(timeout 120 bash "$FIX10/step.sh" 2>&1)"; RC10=$?
+check "🔴 a failing 'ndt release' fails the round"        "1" "$RC10"
+check "🔴 and the LAST line is FAIL, not PASS"            "1" \
+      "$(printf '%s\n' "$OUT10" | tail -1 | /usr/bin/grep -c '^FAIL ')"
+has   "  saying the lab is still claimed"                "THE LAB IS STILL CLAIMED" "$OUT10"
+
+# 🔴 THE CONTROL: with a `down` that succeeds the verdict is PASS and nothing above is a fluke.
+cat > "$FIX10/bin/ndt" <<'STUBOK'
+#!/usr/bin/env bash
+echo "$*" >> "$NDTLOG"
+exit 0
+STUBOK
+chmod +x "$FIX10/bin/ndt"
+: > "$FIX10/ndt.log"
+OUT10="$(timeout 120 bash "$FIX10/step.sh" 2>&1)"; RC10=$?
+check "  a clean teardown still passes"                  "0" "$RC10"
+check "  and its last line is PASS"                      "1" \
+      "$(printf '%s\n' "$OUT10" | tail -1 | /usr/bin/grep -c '^PASS ')"
+rm -rf "$FIX10"
+
+# =============================================================================================
+section "11. 🔴 qos/solution's real numbers: a side branch the sampler cannot see"
+# =============================================================================================
+# TICKET-P3 §9 ruling 20①, from the first live run. These are the ACTUAL tx deltas of
+# runs/2026-09-19T053856Z_qos_solution_ndtwin/link_usage/netdev.{before,after} and the actual
+# twin integrals from its twin_integral.txt -- not numbers chosen to make a point:
+#
+#   s1-eth3  2,162,160 B   twin 22,443,167 bit    <- the flow
+#   s2-eth1  2,162,160 B   twin 14,704,115.5 bit  <- the flow
+#   s1-eth4     15,120 B   twin 0                 <- TEN datagrams down a side branch
+#   s3-eth1     15,120 B   twin 0                 <- the same ten, other end
+#   s1-eth2        340 B / s2-eth3 170 / s3-eth2 170 / the rest 0
+#
+# 10 kB made all four "on-path" and demanded a non-zero integral on each. At 1 sample in 256
+# the EXPECTED samples for ten packets is 15120/(1500*256) = 0.04 -- so the twin integrating
+# zero on the 15 kB pair was CORRECT, and the cell went red on a twin that was right.
+cat > "$FIX/qos.before" <<'NB'
+s1-eth1 1000
+s1-eth2 1000
+s1-eth3 1000
+s1-eth4 1000
+s2-eth1 1000
+s2-eth2 1000
+s2-eth3 1000
+s2-eth4 1000
+s3-eth1 1000
+s3-eth2 1000
+s3-eth3 1000
+NB
+cat > "$FIX/qos.after" <<'NA'
+s1-eth1 1000
+s1-eth2 1340
+s1-eth3 2163160
+s1-eth4 16120
+s2-eth1 2163160
+s2-eth2 1000
+s2-eth3 1170
+s2-eth4 1000
+s3-eth1 16120
+s3-eth2 1170
+s3-eth3 1000
+NA
+mkint "$FIX/qos.int" "s1-eth1 0.000 host" "s1-eth2 0.000 host" "s1-eth3 22443167.000 switch" \
+                     "s1-eth4 0.000 switch" "s2-eth1 14704115.500 host" "s2-eth2 0.000 host" \
+                     "s2-eth3 0.000 switch" "s2-eth4 0.000 switch" "s3-eth1 0.000 host" \
+                     "s3-eth2 0.000 switch" "s3-eth3 0.000 switch"
+
+OUT="$(drive "onpath_ifaces '$FIX/qos.before' '$FIX/qos.after' > '$FIX/qos.onpath'")"
+ONP="$(cat "$FIX/qos.onpath")"
+has   "🔴 s1-eth3 is PRIMARY"                            "s1-eth3 P 2162160" "$ONP"
+has   "🔴 s2-eth1 is PRIMARY"                            "s2-eth1 P 2162160" "$ONP"
+has   "🔴 s1-eth4 is MINOR, not primary"                 "s1-eth4 M 15120" "$ONP"
+has   "🔴 s3-eth1 is MINOR, not primary"                 "s3-eth1 M 15120" "$ONP"
+hasnt "  and the 340 B interface is not listed at all"   "s1-eth2" "$ONP"
+hasnt "  nor the 170 B ones"                             "s2-eth3" "$ONP"
+
+OUT="$(drive "assert_link_usage_follows_path '$FIX/qos.onpath' '$FIX/qos.int' 'qos'")"
+check "🔴 the real qos/solution reading PASSES"           "0" "$(rc_of "$OUT")"
+has   "  the two primaries are asserted and named"       "on-path  s1-eth3" "$OUT"
+has   "🔴 the minor rows are printed, not asserted"      "minor    s1-eth4" "$OUT"
+has   "🔴 with the expected sample count beside them"    "expected samples = 15120 / (1500 x 256) = 0.039" "$OUT"
+has   "  and said to be NOT asserted"                    "NOT asserted" "$OUT"
+
+# 🔴 THE PRIMARY HALF STILL HAS TEETH: a primary interface the twin never saw is still red.
+mkint "$FIX/qos.int0" "s1-eth3 0.000 switch" "s2-eth1 14704115.500 host" "s1-eth4 0.000 switch" \
+                      "s3-eth1 0.000 host"
+OUT="$(drive "assert_link_usage_follows_path '$FIX/qos.onpath' '$FIX/qos.int0' 'qos0'")"
+check "🔴 a PRIMARY interface with a zero integral is still red" "1" "$(rc_of "$OUT")"
+has   "  naming it as primary, with its byte count"      "s1-eth3 carried the flow (2162160 B, primary)" "$OUT"
 
 printf '\n'
 echo "Ran $((PASS+FAIL)) checks, $FAIL failed"

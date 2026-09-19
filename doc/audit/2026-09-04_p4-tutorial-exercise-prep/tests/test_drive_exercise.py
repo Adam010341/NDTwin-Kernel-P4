@@ -1495,6 +1495,57 @@ class TheEcnAndQosArms(unittest.TestCase):
         self.assertFalse(v["injection: h1's packets reached h2 in both rounds"].ok)
         self.assertIn("udp=0 tcp=0", v["injection: h1's packets reached h2 in both rounds"].got)
 
+    #: The ICMP port-unreachable h2 really sent, copied out of
+    #: runs/2026-09-19T053755Z_qos_skeleton_ndtwin.md. Two `src =` lines and two `tos =` lines
+    #: in ONE block: the outer header is h2 -> h1 with tos 0xc0, the embedded original is
+    #: h1 -> h2 with tos 0x1.
+    REAL_ICMP_BLOCK = """got a packet
+###[ Ethernet ]###
+  dst       = 08:00:00:00:02:00
+  src       = 08:00:00:00:02:02
+  type      = IPv4
+###[ IP ]###
+     version   = 4
+     ihl       = 5
+     tos       = 0xc0
+     len       = 71
+     proto     = icmp
+     src       = 10.0.2.2
+     dst       = 10.0.1.1
+     \\options   \\
+###[ ICMP ]###
+        type      = dest-unreach
+        code      = port-unreachable
+###[ IP in ICMP ]###
+           version   = 4
+           ihl       = 5
+           tos       = 0x1
+           len       = 43
+           proto     = udp
+           src       = 10.0.1.1
+           dst       = 10.0.2.2
+###[ UDP in ICMP ]###
+              sport     = 1234
+              dport     = 4321
+"""
+
+    def test_h2s_icmp_error_is_not_read_as_one_of_h1s_frames(self):
+        """🔴 TICKET-P3 §9 ruling 20②, on the real block from the live transcript.
+
+        The filter matched the INNER src (10.0.1.1 = h1, so the block was kept) and then took
+        the FIRST tos, which is the OUTER 0xc0 -- h2's own error counted as one of h1's frames,
+        and `UDP tos stays 0x1` read `got ['0x1', '0xc0']`. src and tos must come from the same
+        header, and that header is the outer one.
+        """
+        mod = self.mod
+        # `_tos_from` reads only the text it is handed, so an instance without __init__ is
+        # enough -- and keeps the fixture about the PARSER rather than about a session.
+        probe = object.__new__(mod.Steps)
+        self.assertEqual([], probe._tos_from(self.REAL_ICMP_BLOCK, "10.0.1.1"),
+                         "h2's ICMP error must not be read as an h1 frame")
+        # ... and the same block IS h2's, read as h2's: the outer header decides both fields.
+        self.assertEqual(["0xc0"], probe._tos_from(self.REAL_ICMP_BLOCK, "10.0.2.2"))
+
     def test_the_qos_arms_are_distinguishable(self):
         self.assertFalse(verdict(self.qos("skeleton", ["0xb9"], ["0xb1"]))
                          ["RED ARM: UDP tos stays 0x1"].ok)
@@ -1604,6 +1655,68 @@ class TheLoadBalanceArms(unittest.TestCase):
                            ("skeleton", "RED ARM: only h2 is used")):
             with self.subTest(which=which):
                 self.assertFalse(verdict(self.session(which, 0, 0))[key].ok)
+
+
+class TheNestedLayerReader(unittest.TestCase):
+    """🔴 scapy prints a NESTED layer with a `|` on every line, and the field is still the field.
+
+    TICKET-P3 §9 ruling 23①, from the second live 06. An IP option is a nested layer, so
+    mri/receive.py renders it with one or more `|` before each name. `_field_values` anchored on
+    `^\s*`, which does not match those, so `count` came back empty and `swid` came back [] --
+    and BOTH mri arms reported "injection: the MRI option survived to h2 got=0" while the
+    transcript printed the option in full, twice, with both switch traces.
+    """
+
+    #: Copied verbatim out of runs/2026-09-19T070148Z_mri_solution_ndtwin.md (the `###[ MRI ]###`
+    #: block at :586-598). Two SwitchTrace layers, nested one level deeper than the MRI layer.
+    REAL_MRI_BLOCK = """###[ IP ]###
+     version   = 4
+     ihl       = 8
+     tos       = 0x0
+     proto     = udp
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \\options   \\
+      |###[ MRI ]###
+      |  copy_flag = 0
+      |  optclass  = control
+      |  option    = 31
+      |  length    = 20
+      |  count     = 2
+      |  \\swtraces  \\
+      |   |###[ SwitchTrace ]###
+      |   |  swid      = 2
+      |   |  qdepth    = 0
+      |   |###[ SwitchTrace ]###
+      |   |  swid      = 1
+      |   |  qdepth    = 0
+###[ UDP ]###
+        sport     = 1234
+        dport     = 4321
+"""
+
+    def setUp(self):
+        self.mod = load_driver()
+
+    def test_the_mri_count_is_read_through_the_nesting_prefix(self):
+        self.assertEqual(["2"], self.mod.Steps._field_values(self.REAL_MRI_BLOCK, "count"),
+                         "the MRI count is a nested field and must still be read")
+
+    def test_the_switch_ids_are_read_through_two_levels_of_nesting(self):
+        self.assertEqual(["2", "1"], self.mod.Steps._field_values(self.REAL_MRI_BLOCK, "swid"),
+                         "both SwitchTrace layers are nested one level deeper than MRI")
+
+    def test_an_unnested_field_still_reads(self):
+        """🔴 THE CONTROL. A prefix-stripping regex that matched too much would also change how
+        ordinary top-level fields read; `tos` and `src` sit at the outer level here."""
+        self.assertEqual(["0x0"], self.mod.Steps._field_values(self.REAL_MRI_BLOCK, "tos"))
+        self.assertEqual(["10.0.1.1"], self.mod.Steps._field_values(self.REAL_MRI_BLOCK, "src"))
+
+    def test_a_field_name_that_is_a_substring_is_not_matched(self):
+        """`count` must not be found inside `copy_flag`/`optclass`, nor `swid` inside anything
+        else: the prefix got looser, the name did not."""
+        self.assertEqual([], self.mod.Steps._field_values(self.REAL_MRI_BLOCK, "cou"))
+        self.assertEqual([], self.mod.Steps._field_values(self.REAL_MRI_BLOCK, "wid"))
 
 
 class TheMulticastArms(unittest.TestCase):
@@ -2246,7 +2359,11 @@ class TheGenericLinkUsageCell(unittest.TestCase):
         """
         src = open(self.mod.__file__ if hasattr(self.mod, "__file__") else DRIVER).read()
         self.assertNotIn('"on-path > 0, off-path == 0"', src)
-        self.assertIn("off-path under max(5 kbit, 2% of the smallest on-path)", src)
+        # 🔴 AND IT NAMES ALL THREE CLASSES (§9 ruling 20①). "off-path under ..." alone was true
+        # of the two-class world too; what a reader needs is which rows were asserted at all.
+        self.assertIn("primary on-path > 0", src)
+        self.assertIn("minor rows printed, not asserted", src)
+        self.assertIn("off-path under max(5 kbit, 2% of the smallest PRIMARY on-path)", src)
 
     def test_every_other_solution_arm_runs_the_cell(self):
         runs = sorted(ex for ex in self.mod.EXERCISES

@@ -4879,11 +4879,31 @@ cmd_down() {
             down_rc=1
             not_verified "the link-telemetry emitter (pid $em_pid) outlived this teardown" ;;
         dead)
-            warn "residue: $LINK_TELEMETRY_MANIFEST is still there and the pid it names ($em_pid) is gone."
-            warn "  Stale: the next reader of that file would report an emitter that does not exist."
-            warn "  remove it:  rm -f $LINK_TELEMETRY_MANIFEST"
-            down_rc=1
-            not_verified "a stale $LINK_TELEMETRY_MANIFEST survived this teardown" ;;
+            # 🔴 A DEAD PID IS A FILE THIS COMMAND CAN PROVE IS STALE, SO IT REMOVES IT
+            # (TICKET-P3 §9 ruling 19①(b), found by the first live run). `alive` above is
+            # residue because the only safe way to stop that process is by the pid its manifest
+            # names, and that is `ndtwin-lab topo-stop`'s job. `dead` is the opposite case:
+            # `process_is_the_emitter` has just read /proc and answered no, so nothing is
+            # running, there is nothing to kill, and the ONLY thing left is a file whose next
+            # reader would be told about an emitter that does not exist. Removing it is the
+            # whole of the cleanup -- and a teardown that leaves a lie on disk while exiting
+            # non-zero to complain about it has done the reporting half and skipped the doing.
+            #
+            # 🔴 AND IT DOES NOT MAKE `ndt down` FAIL. Live 02/03/05 all ended this way because
+            # `topo-stop`'s SIGHUP kills the pane's process group before tear_down can run
+            # (ruling 19①(a), B's half): the fabric IS down, the emitter IS gone, and the only
+            # thing wrong was a leftover file that this command has now deleted. Exiting
+            # non-zero for a condition it just fixed would make every one of those rounds read
+            # as a failed teardown.
+            if rm -f "$LINK_TELEMETRY_MANIFEST" 2>/dev/null; then
+                say "stale link manifest removed (pid $em_pid gone)"
+            else
+                warn "residue: $LINK_TELEMETRY_MANIFEST names a dead pid ($em_pid) and could NOT"
+                warn "  be removed -- check its ownership and permissions."
+                warn "  remove it:  rm -f $LINK_TELEMETRY_MANIFEST"
+                down_rc=1
+                not_verified "a stale $LINK_TELEMETRY_MANIFEST could not be removed"
+            fi ;;
         unreadable)
             warn "residue: $LINK_TELEMETRY_MANIFEST is there and cannot be parsed, so whether the"
             warn "  link-telemetry emitter survived cannot be answered. Unchecked is not clean."
