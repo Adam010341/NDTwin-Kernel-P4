@@ -37,9 +37,10 @@ encodes them as sFlow (`p4_proxy/proxy_agent/sflow_emitter.py`).
 
 - **OVS + Ryu** — the original backend; OpenFlow via a Ryu controller.
 - **P4 + BMv2** — this fork's addition; a Python proxy agent translates the kernel's REST
-  calls into P4Runtime and reports flow/counter telemetry back through the same sFlow
-  pipeline the kernel already uses, so `FlowLinkUsageCollector`, the classifier and every
-  `/ndt/` metric work without modification.
+  calls into P4Runtime. Sampled packets come back through the same sFlow pipeline the kernel
+  already uses (the proxy builds the sFlow v5 datagrams), and per-rule counters are served on
+  the Ryu-compatible `/stats/flow/{dpid}` REST endpoint, so `FlowLinkUsageCollector`, the
+  classifier and every `/ndt/` metric work without modification.
 
 Both are driven through the same endpoints — install/delete/modify flow, group and meter
 entries, topology and flow-usage queries, power management, and fault injection
