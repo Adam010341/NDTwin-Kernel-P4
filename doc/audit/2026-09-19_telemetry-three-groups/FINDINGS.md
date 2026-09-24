@@ -1,6 +1,6 @@
 # FINDINGS — 三組遙測同 fabric 量測（無遙測／合作式 A／鏈路式 B）
 
-> 🔴 **骨架，尚未有任何數字。** 本輪還沒跑過一臂；所有 `<>` 是待填。
+> 數字由腳本從 `raw/2026-09-19T115737Z_full/summary.json` 抽出（不是轉抄）。**§3 取樣誤差與 §4 CPU 的假設標籤刻意留空**——等 E 第十輪把 PREREG 註冊層級的判決做出來（裁決 38）；其餘空格都在 §3／§4，同一個原因。
 > 設計正本＝`PREREG.md`（＋AMENDMENT-1），**區間與判準在資料之前就註冊完了，這裡只填數字與敘述**。
 > 填表的人：先跑 `analyse.py --raw <run>` 拿 `summary.json`，**每一格都從它抄，不要從別的地方抄**。
 > 儀器：`drive_e.sh`（driver）、`run_group_arm.sh`（梯子臂）、`sample_error.sh`（取樣誤差視窗）、
@@ -18,9 +18,9 @@
 | 誰跑的 | orchestrator（本 session），機器全空、無閘門並行 |
 | fabric | `ndt up p4 4 --telemetry {none|cooperative|link}`，10 台 bmv2、4 主機、NDTwin pipeline |
 | 路徑 | h1(s1:3) → h4(s4:3)；**實際量到的 on-path 介面集合**＝`s1-eth2`／`s6-eth4`／`s8-eth2`／`s10-eth4`（4 條，等於 PREREG 5.2 註冊的數目；fabric 共 32 條 inter-switch 埠） |
-| kernel binary | sha256 `<full>`（`<前 8 碼>`），每一臂頭尾相同 |
+| kernel binary | sha256 `be70b5dd3235684786dc074b79ec43ad285757af4661459e993b204d1833cb49`（`be70b5dd3235`），12 臂同一顆（`binaries` 只有一個值） |
 | bmv2 binary | `/usr/local/bmv2-fast/bin/simple_switch_grpc`、sha256 前綴 `be70b5dd3235`、`EventLogger=0`（fast 簽章，雙向斷言過） |
-| pipeline | `ndtwin_switch.json` sha256 `<...>`（`SAMPLE_RATE=256` 編在裡面） |
+| pipeline | `ndtwin_switch.json` sha256 `0b19d789d74fc9963861a20ea168e72d99390841bc592a04c4b2881fddb29743`，12 臂同一份（`SAMPLE_RATE=256` 編在裡面） |
 | 世代／臂 | 6 世代、12 梯子臂、27 個取樣誤差視窗、3 個控制 |
 | 作廢／重跑 | 無（本輪 12 臂全部產出讀數；`invalid_arms` 為空） |
 
@@ -41,21 +41,31 @@
 
 | 組 | 每臂 `addressed_total` 增量 | twin 非零讀數（取樣誤差視窗） | 斷言 |
 |---|---|---|---|
-| `none` | `<必須 0>` | `<必須 0>` | `<PASS / 作廢>` |
-| `cooperative` | `<大於 0>` | `<大於 0>` | `<PASS / 作廢>` |
-| `link` | `<大於 0>` | `<大於 0>` | `<PASS / 作廢>` |
+| `none` | 0（4 臂全 0） | 0（三個速率都 0） | **PASS**（`invalid_arms` 空） |
+| `cooperative` | 41,208–69,674／臂（4 臂合計 226,267） | 168／384／384（2／20／100 Mbit/s） | **PASS**（`invalid_arms` 空） |
+| `link` | 66,215–104,214／臂（4 臂合計 329,003） | 198／388／385（2／20／100 Mbit/s） | **PASS**（`invalid_arms` 空） |
 
 `samples_by_family` 增量（ARP／LLDP 的貢獻**看得見**，不是被假設掉）：
-`<ipv4 / ipv6 / l2 / undecodable 逐組>`；`malformed_ipv4_ihl`＝`<>`。
+`none` ipv4 0／ipv6 0／l2 0／undecodable 0；`cooperative` ipv4 226,267／ipv6 0／l2 0／undecodable 0；`link` ipv4 328,998／ipv6 0／l2 5／undecodable 0（4 臂合計）；`malformed_ipv4_ihl`＝**0**（本 run 397 份 sflow 快照全為 0）。
 
 ### 1.2 負載閘（組內比，PREREG 6.2）
 
 | 臂 | 組 | `external` | 該組中位數 | softirq | 觸發？ |
 |---|---|---|---|---|---|
-| `<...>` | | | | | |
+| `cooperative_f1024_a` | `cooperative` | 0.0532 | 0.0417 | 0.0075 | 否 |
+| `cooperative_f64_a` | `cooperative` | 0.1249 | 0.0417 | 0.0075 | 否 |
+| `cooperative_f1024_b` | `cooperative` | 0.0207 | 0.0417 | 0.0099 | 否 |
+| `cooperative_f64_b` | `cooperative` | 0.0302 | 0.0417 | 0.0088 | 否 |
+| `link_f1024_a` | `link` | 0.1070 | 0.0793 | 0.0129 | 否 |
+| `link_f64_a` | `link` | 0.0797 | 0.0793 | 0.0091 | 否 |
+| `link_f1024_b` | `link` | 0.0789 | 0.0793 | 0.0113 | 否 |
+| `link_f64_b` | `link` | 0.0415 | 0.0793 | 0.0085 | 否 |
+| `none_f1024_a` | `none` | 0.0560 | 0.0560 | 0.0106 | 否 |
+| `none_f64_a` | `none` | 0.0149 | 0.0560 | 0.0083 | 否 |
+| `none_f1024_b` | `none` | 0.0707 | 0.0560 | 0.0105 | 否 |
 
 🔴 **組間的 `external` 與 softirq 差是量測，不是閘門**——`tc action sample` 的成本在 softirq 脈絡、
-歸屬不到任何 pid。逐組：`<none / cooperative / link 的 softirq 份額>`。
+歸屬不到任何 pid。逐組（4 臂各自的 `softirq_share`，中位數）：`none` 0.0105、`cooperative` 0.0082、`link` 0.0102。
 
 ---
 
@@ -81,9 +91,9 @@
 | `link`/`none` @64 B | 0.533 | 落在區間內＝H-A1 | **H-A2 telemetry costs data-plane pps** |
 | `link`/`none` @1024 B | 0.533 | 落在區間內＝H-A1 | **H-A2 telemetry costs data-plane pps** |
 
-**這代表什麼**：`<照 PREREG 9 的表填；H-A3 先當儀器嫌疑不當發現>`
+**這代表什麼**（PREREG 9 的表）：`link` 兩格 H-A2 ⇒ **tc 取樣在資料面收費**，B 路要標一個吞吐量代價（本 fabric：30.0 → 16.0 kpps，比值 0.533），並與 §4 的 softirq 量測互證；`cooperative` 兩格 H-A0 ⇒ **一階內不可分辨**，只報兩臂值 12.0／30.0、不報比值，更細的梯子是另一輪的事。沒有任何一格落到 H-A3，所以「儀器嫌疑」那條這輪用不到。
 
-**方向性預期有沒有成真**（PREREG 5.1 末：若有任何一組低於 `none`，更可能是 `link`）：`<>`
+**方向性預期有沒有成真**（PREREG 5.1 末：若有任何一組低於 `none`，更可能是 `link`）：**與觀測一致但只驗到一半**——低於 `none` 的是 `link`（16.0 vs 30.0，64 B 與 1024 B 兩格都是）；`cooperative` 兩格因臂差 2 階判不出是否低於 `none`，所以「更可能是 link 而不是 cooperative」這句本輪只能說前半。
 
 ---
 
@@ -182,7 +192,7 @@ vs 3 跳 ③kernel binary 不同 ④**08-28 的臂開著合作式取樣**。
 | 固定份額（link） | 0.062 | 0.81 | 大於等於 0.5 | **不成立** |
 
 任一成立＝與「成本固定」一致。兩個都不成立 ⇒ **「固定成本的結論在 10 台 fabric／8 s 視窗上沒有重現」
-是一個結果**：`<點名三項差異（fabric 大小／視窗長度／零點）中的候選，以及什麼能判定>`。
+是一個結果**——本輪它只落在 `link`（`cooperative` 的 m 落在區間內，所以 cooperative 與「成本固定」一致）。候選（INFERRED，未量）：① **視窗長度**（8 s vs 08-20 的長視窗）——短視窗把 emitter 的啟動成本攤進斜率，會把 m 壓低（本輪 79.0 < 103）；② **fabric 大小**（10 台、32 條交換機間埠）——`link` 的 psample 成本分散在多個 softirq 脈絡，「集中在單一執行緒」的固定份額（0.062）自然變小；③ **零點**——08-20 的零點是「零取樣但機制開著」，本輪的 `none` 是「機制關掉」，兩者對「固定成本」的定義不同。能判定的：同 fabric 把視窗拉到 30 s（若 m 進區間＝①）；同視窗換 4 台 fabric（若固定份額回到 ≥0.5＝②）；加一個「取樣率趨近 0 但 emitter 開著」的臂（釘住 ③）。三者都是另一輪。
 
 比 `m` 不比 `F` 的理由（註冊過）：`m` 是邊際斜率該跨 fabric 轉移；`F` 跟圖的大小走，本來就不該轉移。
 
@@ -242,6 +252,6 @@ vs 3 跳 ③kernel binary 不同 ④**08-28 的臂開著合作式取樣**。
 
 | 支持 | 不支持 |
 |---|---|
-| `<>` | `<>` |
+| C1／C2 產生器天花板 733,469.6／727,636.4 pps ≥ 5×150,000 ⇒ 天花板數字不是產生器的；C3 陽性對照 FIRES ⇒ 外部 CPU 閘會動；`link` 在 64 B 與 1024 B 都把 pps 天花板從 30.0 壓到 16.0 kpps（H-A2）；對帳 (b) `cooperative` 的 m＝122.9 µs/sample 落在 [103,618]；對帳 (c) 四列並排、無一格除以另一格 | `cooperative` 的天花板比值（H-A0，臂差 2 階，不報比值）；六格 H-B 取樣誤差判決與 H-C 標籤（**等第十輪的 PREREG 註冊層級判決，此處不引用逐格標籤**）；對帳 (a) `none` 30.0 vs 舊 16.0 落外 ⇒ 舊的 pps 天花板數字不能直接沿用到本 fabric；對帳 (b) `link` 的 m＝79.0 落外且固定份額 0.062 ⇒「成本固定」在 link 路沒有重現（§5 候選） |
 
 **[Co-developed with claude code -- Adam]**
