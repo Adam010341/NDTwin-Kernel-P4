@@ -942,6 +942,21 @@ class CapabilitiesFromStartupTest(unittest.TestCase):
         self.assertEqual(summary["capabilities"]["1"]["reroute"], True)
         self.assertEqual(summary["capabilities"]["1"]["link_discovery"], "lldp")
 
+    def test_roles_do_not_apply_to_an_ndtwin_switch_beside_a_foreign_one(self):
+        # 2.1-3: a mixed package with roles -- the NDTwin switch is bound to the baseline, and
+        # switch_state says so (binding_source baseline), before and after startup.
+        from tests.test_declared_links import SeedingTopo, a_foreign_package, bound, clients_bound
+        from tests.test_startup import run_startup
+
+        package = a_foreign_package(dpids=(1,), owner="ndtwin")
+        predicted = main._capabilities_blank(package, (1, 2))
+        self.assertEqual((predicted["2"]["ipv4_route"], predicted["2"]["binding_source"]),
+                         ("ndtwin", "baseline"))
+        summary, _ = run_startup(clients_bound(bound("ndtwin"), main.route_binding.BASELINE),
+                                 topo=SeedingTopo(), package=package)
+        self.assertEqual(summary["capabilities"]["2"]["binding_source"], "baseline")
+        self.assertEqual(summary["capabilities"]["1"]["binding_source"], "package")
+
     def test_the_prediction_before_startup_says_the_same_about_a_foreign_owned_package(self):
         from tests.test_declared_links import a_foreign_package
 

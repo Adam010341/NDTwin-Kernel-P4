@@ -462,6 +462,11 @@ def _check_roles(report, package_dir, package, model, pipeline_p4info, reference
                   f"{first.action}({first.dst_mac_param}, {first.port_param} "
                   f"bit<{first.port_bitwidth}>), owner {first.owner}")
 
+    if not bound:
+        # Nothing resolved, so there is no owned table to check entries against -- saying
+        # "the owned table has no package entries" about a table the program does not have
+        # would be a green row about nothing. [Co-developed with claude code -- Adam]
+        return
     if role.owner != route_binding.OWNER_NDTWIN:
         report.note("roles.ipv4_route owner",
                     "package: the author owns the table; NDTwin reads and renders it and "
@@ -470,7 +475,7 @@ def _check_roles(report, package_dir, package, model, pipeline_p4info, reference
     # 🔴 2.1-5 / Adam's ruling 8-1: NDTwin owns the table exclusively, so the package may not
     # declare match entries for it -- each one named. A default action is not a route and stays.
     owned, defaults = [], []
-    for dpid in own:
+    for dpid, _binding in bound:
         path = referenced.get(f"switches[{dpid}].entries")
         if path is None:
             continue
@@ -505,7 +510,7 @@ def _check_roles(report, package_dir, package, model, pipeline_p4info, reference
             report.bad("", extra)
     else:
         report.ok("owned table has no package entries",
-                  f"{role.table} is NDTwin's on {len(own)} switch(es)")
+                  f"{role.table} is NDTwin's on {len(bound)} switch(es)")
     if defaults:
         report.note("owned table default action",
                     f"kept on {len(defaults)} switch(es) (a default is not a route): "

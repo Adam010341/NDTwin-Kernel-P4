@@ -122,11 +122,9 @@ class SeedingTheGraphTest(unittest.TestCase):
                       for link in ryu_topology.render_links(self.topo.net,
                                                             self.topo.down_link_endpoints()))
 
-    def test_before_seeding_the_graph_has_no_inter_switch_link_at_all(self):
-        # The state live 062604Z_02 shows the kernel: nothing to enable.
-        self.assertEqual(self.rendered(), [])
-
     def test_all_eight_directions_are_served_to_the_kernels_topology_poll(self):
+        # Before: the state live 062604Z_02 shows the kernel -- nothing to enable.
+        self.assertEqual(self.rendered(), [])
         self.assertEqual(self.topo.seed_declared_links(self.model), 8)
         self.assertEqual(self.rendered(), POD_DIRECTIONS)
 

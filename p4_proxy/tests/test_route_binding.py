@@ -294,7 +294,7 @@ class ResolvingBasicTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
-class ResolveRefusesTest(unittest.TestCase):
+class ResolveRefusesOnTheRenamedFixtureTest(unittest.TestCase):
     """Every rule of section 2.1-4, one test each, on the renamed fixture's real p4info."""
 
     def setUp(self):
@@ -426,7 +426,7 @@ class TheFactoryBindsEveryClientTest(unittest.TestCase):
     def test_ndtwins_own_pipeline_is_bound_to_the_baseline(self):
         self.assertIs(self.build(app_package.baseline()).route_binding, BASELINE)
 
-    def test_a_foreign_pipeline_with_roles_is_bound_to_the_resolved_names(self):
+    def test_a_renamed_foreign_pipeline_with_roles_is_bound_to_the_renamed_names(self):
         binding = self.build(self.renamed).route_binding
         self.assertEqual((binding.table, binding.action, binding.source),
                          ("RouteIngress.dest_routes", "RouteIngress.send_via", "package"))
@@ -438,7 +438,7 @@ class TheFactoryBindsEveryClientTest(unittest.TestCase):
         binding = self.build(self.basic_owned).route_binding
         self.assertEqual((binding.owner, binding.source), ("package", "package"))
 
-    def test_the_install_time_record_keys_by_the_bound_table(self):
+    def test_the_install_time_record_keys_by_the_renamed_table(self):
         # The record's key is the table name read_table_entries will report for this switch.
         self.assertEqual(self.build(self.renamed).IPV4_LPM_TABLE, "RouteIngress.dest_routes")
         self.assertEqual(self.build(app_package.baseline()).IPV4_LPM_TABLE, BASELINE.table)
@@ -468,10 +468,12 @@ class TheFactoryBindsEveryClientTest(unittest.TestCase):
         self.assertEqual(module_level_calls(main.__file__, "inject_readopt")[0][0],
                          "build_p4_client")
 
-    def test_two_builds_resolve_twice_against_each_clients_own_p4info(self):
-        first, second = self.build(self.renamed), self.build(self.renamed)
-        self.assertEqual(first.route_binding, second.route_binding)
-        self.assertIsNot(first.p4info, second.p4info)
+    def test_a_second_build_of_the_same_switch_is_resolved_again_not_remembered(self):
+        # What readopt relies on: the switch that comes back is bound by what it runs NOW.
+        first = self.build(self.renamed)
+        second = self.build(self.unbound)
+        self.assertIsNotNone(first.route_binding)
+        self.assertIsNone(second.route_binding)
 
 
 def module_level_calls(path, attribute):
@@ -499,7 +501,7 @@ class FakeRequest:
 
 
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
-class AWriteWithNoBindingIs501Test(unittest.TestCase):
+class AWriteWithNoBindingIs501OnTheRenamedFixtureTest(unittest.TestCase):
     """2.2-3: unbound / owner package / a 5-tuple on a foreign switch -> 501 unsupported_on_p4."""
 
     def setUp(self):

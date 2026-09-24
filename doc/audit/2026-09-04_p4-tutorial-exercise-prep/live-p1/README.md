@@ -229,4 +229,22 @@ M 不斷言的理由要說清楚：取樣器**可能**抽到、**可能**抽不�
 **rc 2 的那一格不是結果**：pre-flight／claim／compile／root 任一個擋掉都是 2，代表那一 round
 根本沒跑，既不算紅也不算綠，表上會標出來。
 
+---
+
+## 階段四第一刀新增的一支（TICKET-P4-roles §5-2）
+
+| 步 | 貼這一行 | 最後一行應該是 |
+|---|---|---|
+| ⑦ | `NDT_OWNER=adam bash doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/07_roles_basic.sh` | `PASS 07_roles_basic` |
+
+**寫的人沒跑過它**（沒有 sudo、沒有 lab）。離線自測：`bash .../07_roles_basic.sh --self-test`——每個判定
+各餵一份該綠、一份該紅的合成 capture，再拿真的 `2026-09-19T062604Z_02_app_basic` 驗 L1 的判定讀出 0/8
+（那一份不在版控裡，`SELFTEST_OLD_RUN=`／`SELFTEST_OLD_TOPO=` 指到跑過它的那個 checkout）。自測只證明
+判定分得出兩種答案，**不證明任何 fabric 的事**。
+
+**兩段、一個 claim。** 先 `convert.py --role-ipv4-route owner=ndtwin,...` 產 `basic_roles`（ipv4_lpm 的比對 entries
+被拿掉、只留 default action）跑 L1／L2／L3／L4／L6；`ndt down` 後換成不帶 roles 的 `basic_noroles` 跑 L5 與
+unbound 的 L6。L4 **不斷言改路**（第一刀 (c) 不成立，`capabilities.reroute: false`），斷鏈期間的流量照實記在
+`54_pingall_during_cut.txt`。外來 fabric 上邊的 `is_up` 來自**宣告**的鏈路，不是斷線偵測。
+
 [Co-developed with claude code -- Adam]

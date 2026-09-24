@@ -869,6 +869,10 @@ class ReverseControlsTest(RolesCase):
         self.assertIn("'MyIngress.ipv4_lpm' is not a table of this pipeline",
                       rows["roles.ipv4_route resolves"][1])
 
+    def test_no_owned_table_row_is_claimed_for_a_table_the_program_does_not_have(self):
+        rows = self.fails_on(CALC, "topology.json", "calc.p4")
+        self.assertNotIn("owned table has no package entries", rows)
+
     def test_multicast_has_no_ipv4_lpm_and_says_so(self):
         rows = self.fails_on(os.path.join(FIXTURES, "multicast"), "sig-topo/topology.json",
                              "multicast.p4")
