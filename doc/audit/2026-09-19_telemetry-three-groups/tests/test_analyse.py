@@ -712,8 +712,12 @@ class RungWindowTest(unittest.TestCase):
       * whether the confirmation reps are PART of rung k's CPU: PREREG does not say. 4.1 (:161-162)
         names the confirmation as part of the ladder procedure ("梯頂三 rep 再確認＋walk-down",
         from 08-28's (3) AMENDMENT-2 11.1(b), a loss re-check), and nothing registers which
-        seconds CPU(k) is taken over. So both readings are computed and neither is called the
-        registered one; the cases below pin each reading's arithmetic, not a choice between them.
+        seconds CPU(k) is taken over. So both readings are computed, and neither is called the
+        registered one; the cases below pin each reading's arithmetic.
+      * which one the primary summary keys use: "climb", decided by Adam on 2026-09-24
+        (TICKET-P4 section 7 ruling 4) and NOT registered by PREREG. That choice is pinned where
+        it reaches a reader -- figure 3's title and the render (test_plot.py, M-E54) -- and every
+        downstream CPU output must name its reading (M-E56).
     """
 
     REAL_ROWS = ("rungs.115737Z.G4.link_f64_b.tsv",          # the orchestrator's example
@@ -817,9 +821,11 @@ class RungWindowTest(unittest.TestCase):
         self.assertEqual(pooled["_samples_per_s"], climb["_samples_per_s"])
 
     def test_both_readings_are_in_the_summary_side_by_side_and_neither_is_called_registered(self):
-        # 🔴 NOT A RULING. The summary carries every CPU quantity under both readings, says which
-        # one the primary keys (cpu_kernel, cpu_bmv2, cpu_bmv2_ratio, reconciliation (b)) were
-        # computed under, and says PREREG did not decide it. (M-E52: the two readings collapse.)
+        # 🔴 NOT A REGISTERED READING. The summary carries every CPU quantity under both
+        # readings, says which one the primary keys (cpu_kernel, cpu_bmv2, cpu_bmv2_ratio,
+        # reconciliation (b)) were computed under, WHO decided that (Adam, TICKET-P4 section 7
+        # ruling 4), and that PREREG did not. (M-E52: the two readings collapse; M-E53: the
+        # summary says PREREG decided it.)
         import io
         root, _arms = self.confirmed_tree(kernel_extra=4.0)
         summary = analyse.analyse(root)
@@ -827,8 +833,11 @@ class RungWindowTest(unittest.TestCase):
                         "the summary does not say which rung window its CPU was taken over")
         block = summary["cpu_window"]
         self.assertIs(block["decided_by_prereg"], False)
+        self.assertEqual(block.get("decided_by"), "Adam 2026-09-24, TICKET-P4 §7 ruling 4")
         self.assertEqual(sorted(block["readings"]), sorted(analyse.CPU_WINDOW_READINGS))
         self.assertIn(block["primary"], analyse.CPU_WINDOW_READINGS)
+        self.assertEqual(block.get("secondary"),
+                         [r for r in analyse.CPU_WINDOW_READINGS if r != block["primary"]])
         per_reading = {reading: block["readings"][reading]["cpu_kernel"]["per_group"]
                        ["cooperative"][8.0]["cpu"] for reading in analyse.CPU_WINDOW_READINGS}
         self.assertAlmostEqual(per_reading["climb"], self.level_at(8), delta=0.2)
@@ -842,11 +851,45 @@ class RungWindowTest(unittest.TestCase):
                          primary["reconciliation_b"])
         buffer = io.StringIO()
         analyse.render(summary, buffer)
-        self.assertIn("NOT decided by PREREG", buffer.getvalue())
+        self.assertIn("NOT registered by PREREG", buffer.getvalue())
+        self.assertIn("decided by Adam 2026-09-24, TICKET-P4 §7 ruling 4", buffer.getvalue())
+
+    def test_every_downstream_cpu_output_names_the_rung_window_it_was_taken_over(self):
+        # 🔴 TICKET-P4 section 7 ruling 4: the registered bmv2 ratio and reconciliation (b) are
+        # computed over a reading Adam chose and PREREG did not register, so each of them -- in
+        # summary.json and in the render -- says which reading it is. A number that reaches
+        # FINDINGS without its reading is the round-1 state this case exists to refuse. (M-E56)
+        import io
+        root, _arms = self.confirmed_tree(kernel_extra=4.0)
+        summary = analyse.analyse(root)
+        primary = summary["cpu_window"]["primary"]
+        for key in ("cpu_kernel", "cpu_bmv2", "cpu_bmv2_ratio"):
+            self.assertEqual((summary.get(key) or {}).get("rung_window_reading"), primary, key)
+        rows_b = [r for r in summary["reconciliation"] if r["id"] == "b"]
+        self.assertTrue(rows_b)
+        for row in rows_b:
+            self.assertEqual(row.get("rung_window_reading"), primary, row["group"])
+        buffer = io.StringIO()
+        analyse.render(summary, buffer)
+        text = buffer.getvalue()
+        named = "rung window: %s (decided by Adam 2026-09-24, TICKET-P4 §7 ruling 4; NOT " \
+                "registered by PREREG)" % primary
+        kernel_header = next(line for line in text.splitlines() if "=== (3) CPU" in line)
+        self.assertIn(named, kernel_header)
+        bmv2_header = next(line for line in text.splitlines() if "=== (3b) bmv2" in line)
+        self.assertIn("rung window: %s" % primary, bmv2_header)
+        for line in text.splitlines():
+            if line.strip().startswith("(b) "):
+                self.assertIn("[rung window: %s]" % primary, line)
+            if line.strip().startswith("(a) "):
+                self.assertNotIn("rung window", line)     # (a) is the pps ceiling, not CPU
 
     def test_the_default_tree_has_no_confirmation_rows_so_both_readings_agree_there(self):
         # the tree every other case is pinned to: one rep per rung, no c-rows. The two readings
         # must give the same numbers on it, or the fix moved something it had no business moving.
+        # (M-E55: the second reading keeps only the rungs that were re-confirmed -- round 1 had no
+        # behavioural mutant here; this case was red on the pre-fix code only because
+        # cpu_by_rung had no `reading` at all.)
         self.assert_has_reading_parameter()
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
