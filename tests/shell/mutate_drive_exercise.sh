@@ -683,16 +683,22 @@ add "65. the telemetry knob is left where this round moved it" \
 # instruments, and "the same cell over thirteen exercises" becomes a comparison between them.
 add "66. the generic link-usage cell stops going through live-p1/_common.sh" \
     "$DRIVER" \
-    '              "link_usage_round %s %s %s %s %s\n" % (_sh(LIVE_COMMON), _sh(package),' \
+    '              "link_usage_round %s %s %s %s %s\n" % (_sh(str(ctrl_pid or "")),
+                                                     _sh(LIVE_COMMON), _sh(package),' \
     '              "true %s %s %s %s %s\n" % (_sh(LIVE_COMMON), _sh(package),  # MUTANT' \
     'test_the_cell_is_live_p1_commons_own_function_and_not_a_second_copy'
 
 # 67: a cell that could not run is reported as a cell that passed. rc 2 from link_usage_round
 # is "no namespace / no sudo" -- a permission answer, and the greenest possible way to publish
 # one.
+# 🔴 THE ANCHOR MOVED WITH RULING 33, AND THE ANCHOR CHECK IS WHAT SAID SO. 67 and 93 shared
+# the one-line `return ("not-run" if ...)`, which the four-answer map replaced; 93 was
+# repointed with the ruling and this one was not, so `ANCHOR_CHECK=1` reported `0 matches`
+# before any verdict was produced. It now names the last line of that map -- the one that
+# still decides true/false -- which is the same mutation it always was.
 add "67. any rc from the generic cell counts as a pass" \
     "$DRIVER" \
-    '    return rc == 0, out' \
+    '    return bool(rc == 0), out' \
     '    return True, out  # MUTANT' \
     'test_a_non_zero_rc_is_a_failed_cell_and_not_a_skip'
 
@@ -701,7 +707,7 @@ add "67. any rc from the generic cell counts as a pass" \
 add "68. the round never runs the generic link-usage cell" \
     "$DRIVER" \
     '                ok, usage_out = link_usage_cell(pkg, "%s/%s" % (ex, which), usage_dir,
-                                                dst=usage_dst)' \
+                                                dst=usage_dst, ctrl_pid=ctrl)' \
     '                ok, usage_out = True, "(MUTANT: not run)"' \
     'test_the_round_runs_it_after_the_steps_and_records_the_expectation'
 
@@ -850,8 +856,9 @@ add "84. pingall walks dst-major, poisoning the h4 expectation" \
 # `off-path == 0` concludes the off-path edges integrated to zero, which they did not.
 add "85. the generic cell claims an off-path bound that is not the one applied" \
     "$DRIVER" \
-    '                    "primary on-path > 0; minor rows printed, not asserted; "
-                    "off-path under max(5 kbit, 2% of the smallest PRIMARY on-path)",' \
+    '                        "primary on-path > 0; minor rows printed, not asserted; "
+                        "off-path under one sample'"'"'s worth (256 x MTU x 8 bit) or 2% of the "
+                        "smallest PRIMARY on-path, whichever is larger",' \
     '                    "on-path > 0, off-path == 0",  # MUTANT' \
     'test_the_generic_cell_states_the_bound_it_actually_applies'
 
@@ -929,6 +936,71 @@ add "90. _field_values goes back to anchoring at line start" \
     '        return re.findall(r"^[|\s]*%s\s*=\s*(\S+)\s*$" % re.escape(field), text, re.M)' \
     '        return re.findall(r"^\s*%s\s*=\s*(\S+)\s*$" % re.escape(field), text, re.M)  # MUTANT' \
     'test_the_mri_count_is_read_through_the_nesting_prefix'
+
+# 91: flowcache measures loss without warming the cache (§9 ruling 28②). Its FIRST packet is
+# punted to the controller, so a single ping measures the install latency as loss.
+add "91. flowcache stops warming the cache before it measures loss" \
+    "$DRIVER" \
+    '            probe = self.h.ping("h1", self.ips["h2"], count=3)' \
+    '            probe = None  # MUTANT' \
+    'test_flowcache_warms_the_cache_before_it_measures_loss'
+
+# 92: the cell no longer carries the controller pid, so the NOT RUN branch is unreachable from
+# the driver again (§9 ruling 28①). 🔴 REPOINTED (§9 ruling 31①): the cell that used to catch
+# this was `assertIn("ctrl_pid=ctrl", open(DRIVER_PATH).read())` -- a grep for this very line,
+# which was green while `run_on_ndtwin.ctrl_pid` was an attribute nothing ever assigned. The
+# cell that catches it now starts a real process and reads the pid the cell was handed.
+add "92. the generic cell is called without the arm's controller pid" \
+    "$DRIVER" \
+    '                                                dst=usage_dst, ctrl_pid=ctrl)' \
+    '                                                dst=usage_dst)  # MUTANT' \
+    'test_the_cell_is_handed_the_pid_of_the_process_the_round_started'
+
+# 93: NOT RUN stops being an answer of its own and folds back into true/false (§9 ruling 28①).
+# The anchor moved with ruling 33, which turned the one-line return into the four-answer map;
+# the mutation is the same one -- rc 3 falls through to `bool(rc == 0)`.
+add "93. a NOT RUN generic cell is folded back into true/false" \
+    "$DRIVER" \
+    '    if rc == LINK_USAGE_NOT_RUN_RC:' \
+    '    if False:  # MUTANT' \
+    'test_a_not_run_generic_cell_is_never_a_pass'
+
+# 96 (§9 ruling 33): the window refusal falls through to `bool(rc == 0)` again, so an NDTwin
+# arm records "the caller would have had to wait 308 s" under the twin's own sentence -- the
+# misattribution ruling 31③ removed from live-p1/05 and this file did not follow.
+add "96. the over-long-window refusal is reported as a reading about the twin" \
+    "$DRIVER" \
+    '    if rc == LINK_USAGE_WINDOW_RC:' \
+    '    if False:  # MUTANT' \
+    'test_the_round_names_the_window_and_never_the_twin_sentence'
+
+# 97 (§9 ruling 33): the two files stop agreeing on the protocol. rc 4 is _common.sh's, and a
+# driver that spells it 5 maps nothing -- which is precisely the state ruling 33 found, one
+# round after the shell side gained the code.
+add "97. the driver's window rc drifts from the shell file's" \
+    "$DRIVER" \
+    'LINK_USAGE_WINDOW_RC = 4' \
+    'LINK_USAGE_WINDOW_RC = 5  # MUTANT' \
+    'test_the_two_refusal_codes_are_the_shell_files_own'
+
+# 94: the arm's controller is stopped BEFORE the generic cell again -- the order the driver had
+# until §9 ruling 31①, in which every G1 on p4runtime and flowcache measured a fabric whose
+# controller had already exited. The mutation restores it in one line, at the top of the branch
+# that runs the cell.
+add "94. the controller is stopped before the generic cell measures" \
+    "$DRIVER" \
+    '                usage_dir = os.path.join(log_dir, "link_usage")' \
+    '                usage_dir = os.path.join(log_dir, "link_usage"); steps_out.extend(session.stop_controller())  # MUTANT' \
+    'test_the_controller_is_alive_while_the_cell_measures_and_stopped_after'
+
+# 95: the channel loses its source -- Steps publishes no pid, so the cell is handed None and the
+# liveness check has nothing to check again (§9 ruling 31①). 92 kills the sink; this kills the
+# spring, which is the half that was missing at f87580cb.
+add "95. _start_controller publishes no pid for the process it started" \
+    "$DRIVER" \
+    '        self.ctrl_pid = proc.pid' \
+    '        self.ctrl_pid = None  # MUTANT' \
+    'test_start_controller_publishes_the_pid_of_the_process_it_started'
 
 CTRL_SRC="$DRIVER"
 CTRL_ANCHOR='def host_key(name):'
