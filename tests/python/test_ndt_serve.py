@@ -90,8 +90,9 @@ class Serve:
         self.token_file = os.path.join(self.tmp, "config", "ndt-serve", "token")
         self.app_root = os.path.join(self.tmp, "packages")
         os.makedirs(self.app_root, exist_ok=True)
-        self.env = dict(os.environ)
-        self.env.pop("NDT_OWNER", None)
+        # hermetic: no NDT_* of the shell running the tests (this gate's own NDT_*_UNDER_TEST
+        # included) reaches the server, only what a case sets
+        self.env = {k: v for k, v in os.environ.items() if not k.startswith("NDT_")}
         self.env.update(env or {})
         self.extra = list(extra)
         self.proc = None
@@ -592,6 +593,34 @@ class Jobs(ServeCase):
         self.assertNotEqual(runner["runner_sid"], server_sid, "the runner shares the server's session")
         self.assertNotEqual(call["sid"], runner["runner_sid"], "ndt shares the runner's session")
         self.assertNotEqual(call["sid"], server_sid)
+
+    def test_an_orphaned_ndt_still_holds_the_slot(self):
+        """The runner is gone and ndt is still building: that is not a free slot."""
+        self.s.behave(up={"sleep": 3})
+        st, j, _, _ = self.s.post("/up", {"plane": "ovs", "hosts": 4})
+        job_id = j["job"]["id"]
+        rj = os.path.join(self.s.state, "jobs", job_id, "runner.json")
+        deadline = time.monotonic() + 5
+        while not os.path.exists(rj) and time.monotonic() < deadline:
+            time.sleep(0.05)
+        runner = json.loads(_read(rj))
+        # the runner this test's server started, by the pid it recorded -- checked before the signal
+        with open("/proc/%d/cmdline" % runner["runner_pid"], "rb") as f:
+            self.assertIn(b"runner.py", f.read())
+        os.kill(runner["runner_pid"], signal.SIGKILL)
+        deadline = time.monotonic() + 5
+        while self.s.get("/jobs/" + job_id)[1]["job"]["state"] == "running" and time.monotonic() < deadline:
+            time.sleep(0.1)
+        self.assertEqual(self.s.get("/jobs/" + job_id)[1]["job"]["state"], "orphaned")
+        st, j, _, _ = self.s.post("/down")
+        self.assertEqual((st, j["error"], j["job"]["id"]), (409, "busy", job_id))
+        deadline = time.monotonic() + 10
+        while not self.s.calls(done=True) and time.monotonic() < deadline:
+            time.sleep(0.1)
+        time.sleep(0.3)
+        job = self.s.get("/jobs/" + job_id)[1]["job"]
+        self.assertEqual((job["state"], job["rc"]), ("lost", None), "its rc was never recorded, so none is claimed")
+        self.assertEqual(self.s.run_job("/down")["state"], "finished")
 
     def test_a_job_nobody_recorded_is_lost_not_finished(self):
         d = os.path.join(self.s.state, "jobs", "20260101T000000Z-abcdef")
