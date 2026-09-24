@@ -48,6 +48,11 @@ if the difference is anything other than exactly those. The table below is what 
                  six-rung throwaway ladder, clean=12, external 0.0538 / 0.2262  -> tagged
                                                                                    `control`,
                                                                                    in NO cell
+    rung window  NOT in the default tree: build(confirm=...) appends the top-rung
+                 re-confirmation rows (rep c1..c3) after the climb, in the real
+                 shape; write_cpu_following_real_rungs() puts a CPU trace under a
+                 real rungs.tsv copied verbatim                                 -> each rung reads
+                                                                                   its own level
 
 Nothing here imports analyse.py: a fixture that borrowed the code under test would agree with it
 by construction.

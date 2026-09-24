@@ -778,9 +778,16 @@ class RungWindowTest(unittest.TestCase):
     def test_the_confirmed_rungs_climb_window_does_not_reach_the_rungs_climbed_after_it(self):
         # the synthetic version, with the arithmetic known: cooperative re-confirms 8 kpps after
         # climbing to 20. Rung 8's CPU is its own 8 s rep, whatever came after.
+        # The climb reading is asked for BY NAME where it exists: which reading the primary keys
+        # use is a placeholder no case may pin (the gate's control C-E3 flips it). On a
+        # cpu_by_rung that has no readings at all -- the pre-fix one -- the call is its only
+        # window, which is the one under test.
+        import inspect
         _root, arms = self.confirmed_tree()
         arm = next(a for a in arms if a["arm"] == "cooperative_f1024_a")
-        by_rung = analyse.cpu_by_rung(arm)
+        named = ({"reading": "climb"}
+                 if "reading" in inspect.signature(analyse.cpu_by_rung).parameters else {})
+        by_rung = analyse.cpu_by_rung(arm, **named)
         self.assertAlmostEqual(by_rung[8.0]["kernel"], self.level_at(8), delta=0.2)
         self.assertAlmostEqual(by_rung[8.0]["_elapsed_s"], 8.0, places=3)
         self.assertAlmostEqual(by_rung[20.0]["kernel"], self.level_at(20), delta=0.2)
