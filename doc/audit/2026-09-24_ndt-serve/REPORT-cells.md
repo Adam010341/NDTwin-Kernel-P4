@@ -4,7 +4,7 @@
 
 - 裁定：Adam 在 09-24 21:4x 用表單決定（`REPORT.md` §4.6）。內容是「包 live_cells 格子」加「逐步引導模式」，排在第一刀交件之後，接著在同一條分支上做。
 - 目的（Adam 原話）：讓他能快速親眼看到、驗證 AI 的工作成果，「這樣我才不會心虛」。
-- 分支：`feat/ndt-serve-0924`。第一刀的審查停在 `f023b388`；本單的 commit 從 `727d4b00` 開始。**沒有併進 trunk，也沒有推任何遠端。**
+- 分支：`feat/ndt-serve-0924`。第一刀的判官審查停在 `e4589399`（`f023b388` 是它之後只補了報告一列的 commit）；本單的 commit 從 `727d4b00` 開始，判官第二輪（審 `e4589399..e28bcfe4`）之後的修正在 `8f2fbb5b`（§5）。**沒有併進 trunk，也沒有推任何遠端。**
 - raw 放在 `scratch/overnight-2026-09-05/logs/ndt-serve-0924/live-cells-20260924T2224/`，下文簡稱 `CLOGS/`。
 
 ---
@@ -30,7 +30,11 @@
 2. **步驟的粒度。** 現在每一格是 4 到 8 個粗步驟：`old`、`new`、`status`、`claim`、`run`、`release`、`compare`、`verdict`。「run」一步就跑完整個 observe 加 judge 加還原。
 
    如果你想看的是 **observe 內部的每一個動作**（例如先 `ndt up`，停下來讓你看，再去 curl），那每一格都要另外寫一份步驟檔。代價是這份檔會跟 cell 腳本分家、漂移（兩份各自描述同一段行為）。我建議先用現在的粒度，等 GUI 出來、你實際用過之後再決定。
-3. **`requires idle` 的兩格**（`up_refuses_*`）在 live 還沒有用 walk 跑過。它們會刻意在 lab 上製造「被拒絕」的情境，程式路徑跟 ovs4 那格相同，但有沒有副作用只讀過碼、沒有實測。要不要排一個 lab 時段補跑？
+3. **`requires idle` 的兩格**（`up_refuses_*`）在 live 還沒有用 walk 跑過。它們會刻意在 lab 上製造「被拒絕」的情境。
+   - 🔴 **其中 `up_refuses_a_model_of_another_network` 會改寫 `host_count_override`**：observe 先把它寫成 128 當作前提，最後再把原本的位元組寫回去（該格的 `cell_observe`）。
+   - 如果中途被外力殺掉（這台的 systemd-oomd 就會），knob 就停在 128：下一次 `ndt up p4` 會建 128 台；walk 的 release 也會因為 knob 變了，被 ndt 拒絕。
+   - 所以現在（`8f2fbb5b`）直接 run 或開 walk 這一格，都必須帶 `{"confirm_shared_state_write": true}`，否則回 400；run 步驟的 look_at 也會點名這次寫入，並提醒跑完用 `git diff` 核對 knob。
+   - 要不要排一個 lab 時段補跑，由你決定。
 4. **畫面放在下一刀**，跟第一刀 §1 的第 2、3 題（GUI 放哪、token 怎麼給網頁）一起裁。
 
 ## 2. 推翻／更正
@@ -121,7 +125,7 @@
 - **條件**：
   - 伺服器用 `940c1233` 的碼，驅動 `~/.local/bin/ndt`（sha256 `cb134ccc…`），也就是主 checkout 的 `fd7382a3`；
   - owner 是 `ndt-serve-0924`；
-  - 開跑前 claim 是 none、measuring 是 nothing；
+  - 開跑前 claim 是 none、measuring 是 nothing（證據偏弱：只在 walk 的 status 步驟回應裡，`walk-…/08-GET…json`；`00-before.txt` 沒有記 claim）；
   - knob 前後都是未提交的 4。
 - **`help_drops_deleted_claims`**：步驟是 old、new、run、compare，停在 verdict。
   - 格子的判決：`CELL: PASS … ndt=3273df8b…`。
@@ -131,7 +135,8 @@
   - 22:25:20 到 22:25:52，佔用 lab 約 30 秒。
   - 格子的判決：`CELL: PASS`。
   - `h4nl_*` 共 8 條紅轉綠；still_red：無。
-  - 還原：`3-down.rc=0`、`4-clean.rc=0`、`VERDICT: CLEAN`（只查了行程那一半；kernel 已經關掉，網路那一半沒查，這是 run_cells 本身的設計）。
+  - 還原：`3-down.rc=0`、`4-clean.rc=0`、`VERDICT: CLEAN`。
+    - ⚠️ 更正：之前寫「網路那一半沒查」是錯的。run_cells 的設計是在 **down 之前**先問網路那一半：`2-verdict-predown.txt` 有讀到 `network=0/0/0`、`stack=whole-up`，只是當時 flow table 是空的，**沒有鑑別力**。down 之後的 `6-verdict-postclean.txt` 才是只查行程那一半，因為 kernel 已經關了。
   - 結束後 claim 是 none，knob 仍是 4。
 - **raw**：
   - `CLOGS/walk-*/` 裡是每一個請求的回應全文；
@@ -143,7 +148,7 @@
 | 性質 | 跑過（單元，用 stub grid） | 跑過（live） | 只讀碼、未實測 |
 |---|---|---|---|
 | 格子只能是 grid 自己列的 | C1 | 11 格都出自 `--list` | — |
-| old/ 和 new/ 唯讀 | C2（改成 observe 會被抓到） | 22 次判定，lab 的 claim 沒有被動到 | judge 本身的純函數性，靠的是 grid 自己的契約，以及它的 `mutate_live_cells.sh` |
+| old/ 和 new/ 唯讀 | C2（改成 observe 會被抓到） | 22 次判定都經 API 跑完 | 「lab 的 claim 沒有被動到」這句是 UNDER-EVIDENCED：那 22 次前後沒有存 claim 讀數，是讀碼支持的（`cell_judge` 裡沒有任何 ndt、curl、sudo）。judge 的純函數性，靠的是 grid 自己的契約和它的 `mutate_live_cells.sh` |
 | raw 檔讀不出界 | C3 | — | — |
 | run 佔用同一個槽 | C4 | — | — |
 | SKIP 不是 pass，還原失敗是 harness | C5、C8 | 兩格都是真的 PASS | 真的 SKIP 和真的還原失敗，在 live 都沒有遇到 |
@@ -155,7 +160,8 @@
 | verdict 是你的 | C13 | 兩條都停在 verdict | — |
 | GET 不寫檔 | C14 | — | — |
 | old/ 不再 FAIL 時流程會停 | C15 | — | — |
-| 先 release 再判定 | C16 | ovs4 那格在 compare 之前就已經 release | — |
+| 先 release 再判定 | C16 | ovs4 那格在 compare 之前就已經 release | 「新測試先在 `727d4b00` 上跑出紅」是 UNDER-EVIDENCED：那次紅沒有存 raw。C16 在最終閘門被抓到，可以視為等價證據 |
+| cells 的 GET 要 token | 單元：M43 系列的讀取閘門涵蓋 `/cells`、`/cells/x/old`、`/guided…` | **沒有 live 證據**：cells 的 live 是在 GET 加上 token 之前跑的，`walk.py` 的 GET 不帶 token | — |
 
 閘門全部 58 個變異的結果：`scratch/overnight-2026-09-05/logs/ndt-serve-0924/mutate_ndt_serve.940c1233.log`。判官修正輪之後閘門合計 77 個，在 `5c07acf3` 上 77 個全部抓到（`logs/ndt-serve-0924/final-5c07acf3/mutate_ndt_serve.log`），C1–C16 一個都沒有少。
 
@@ -166,3 +172,41 @@
 - **cells 的讀取沒有限流**：`run_cells.sh --list` 每次都會對 11 格各跑一次 `meta`，大約 1 秒；第一刀的 status 和 apps 有兩個名額的限流，這裡沒有。
 - **cells-raw 和 guided 目錄會一直長大**，跟 job 目錄一樣沒有保留期限。
 - **沒有歸檔進 audit-raw**：orchestrator 說要等你看過第一刀再決定。
+
+## 5. 判官第二輪（審 `e4589399..e28bcfe4`）：擋下 cells 新碼，已修在 `8f2fbb5b`
+
+### 5.1 修了什麼
+
+1. **需要 lab 的格子，只在你自己的 claim 下跑**（新發現 1）。
+   - 直接 `POST /cells/<需要 lab 的格>/run`，和 walk 的 run 步驟，都在持有槽位鎖時、spawn 之前，先讀 `ndt status` 的 claim 行。
+   - 必須是 `yours` 才開跑。`none`、別人的 claim、`EXPIRED`、讀不到，一律回 409 `claim`。
+   - walk 的 run 步驟遇到這種情況會停住（blocked），並寫明原因。這也補掉了「兩個分頁同時 walk，A release 之後 B 的 run 在沒有 claim 的情況下執行」這個後半段（新發現 3）。
+   - 這是讀 ndt 的輸出，不算重寫 ndt 的判斷。
+2. **會寫共用狀態的格子要明確確認**（新發現 2）。
+   - `cells.WRITES_SHARED_STATE` 點名 `up_refuses_a_model_of_another_network`；`GET /cells` 的 `writes_shared_state` 欄位會說明它寫了什麼。
+   - 直接 run 或開 walk 都必須帶 `{"confirm_shared_state_write": true}`，否則回 400 `confirm`。
+   - 這份清單是 ndt serve 自己的，所以有測試拿真的 grid 去對：凡是提到 P4 knob 檔名的格子都必須在清單上，而且清單上只能有這些格子。
+3. **grid 的呼叫比照 `run_read` 處理逾時**（新發現 4）。
+   - 開新 session；逾時時對自己建立的 group 做 killpg；管線最多再等 `PIPE_GRACE_S`；回結構化的逾時，不回 500。
+   - 逾時秒數跟 `--read-timeout` 一致。
+   - 靜態掃描也新增一條：不准再出現 `subprocess.run(timeout=…)`。
+
+### 5.2 第二輪新測試在舊碼（`e28bcfe4`）上的結果（`logs/ndt-serve-0924/r2-red-e28bcfe4.log`）
+
+| 類別 | 測試與變異 |
+|---|---|
+| 有意義的紅 | 需要 lab 的格子不用 claim 就能跑（C17、C18：舊碼回 202）；walk 在 claim 消失之後照跑（C19：`'release' != 'run'`）；walk 不確認就能開（C21：舊碼回 201）；judge 逾時沒被停掉（C23：等了 20 秒）；隱式 kill（C24：`cells.py:109`） |
+| 舊碼不認得新介面 | `writes_shared_state` 欄位（C20：`KeyError`）；`SHARED_STATE_FILES` 登記表（C22：`AttributeError`） |
+| 預期序列更新 | 三條 walk 測試的呼叫序列多了一次 `status`：run 步驟開跑前會重讀 claim |
+| 夾具變動 | `test_cells_are_the_grids_own_list`：stub grid 多了第三格 |
+| 舊碼上本來就綠 | `test_offline_cell_run_does_not_ask_for_the_claim`：舊碼本來就不會去讀 claim |
+
+### 5.3 閘門
+
+- 閘門合計 **86 個變異**（M1–M62、C1–C24），在 `490513fe` 上實跑，結果見 `logs/ndt-serve-0924/final-490513fe/mutate_ndt_serve.log` 和 `REPORT.md` §4.7。
+- `8f2fbb5b` 那一輪因為 C6 的錨點失效而作廢；`3638ebd3` 那一輪有一條並發測試失敗，查出是 listen backlog 的缺陷，修在 `490513fe`（`REPORT.md` §2）。
+
+### 5.4 排進下一刀（orchestrator 裁定，列在 `REPORT.md` §1 第 8 題）
+
+- walk 的 claim 和 release 以 owner 為單位：開 walk 會覆寫你原本的 claim，結束時也會一起放掉。
+- walk 的 status 步驟因為 plain status 永遠回 0，形同不擋。

@@ -93,10 +93,10 @@ server drives; the cells are what `run_cells.sh --list` prints.
 | GET | `/cells/<name>/old` | `<cell>.sh judge tests/fixtures/live_cells/<name>/old` | the **pre-fix red**: ASSERT rows, the CELL: line, whether the failing set equals `EXPECTED-FAILS`, `PROVENANCE.md` |
 | GET | `/cells/<name>/new` | the same over `new/` | the first **green**, as it was the night of the fix |
 | GET | `/cells/<name>/old/raw/<file>` | nothing | a raw file of the fixture (cannot leave it) |
-| POST | `/cells/<name>/run` `{}` | `run_cells.sh --cell <name> --raw-root <state>/cells-raw/…` | 202 + job, in the one slot. **Claim first** for a cell that needs the lab |
+| POST | `/cells/<name>/run` `{}` | `run_cells.sh --cell <name> --raw-root <state>/cells-raw/…` | 202 + job, in the one slot. A cell that needs the lab runs **only under your own claim**: inside the slot, `ndt status`'s claim line must say `yours`, else 409 `claim`. A cell that writes shared state (`writes_shared_state` in `/cells`) needs `{"confirm_shared_state_write": true}`, else 400 |
 | GET | `/cells/<name>/runs/<job>` | nothing | that run's ASSERT rows, and per row: red on old/, and now |
 | GET | `/jobs/<job>/raw/<path>` | nothing | a raw file of a run (cannot leave its raw root) |
-| POST | `/cells/<name>/guided` `{}` | nothing | 201 + a walk |
+| POST | `/cells/<name>/guided` `{}` | nothing | 201 + a walk (a shared-state cell needs the same confirmation field) |
 | GET | `/guided`, `/guided/<id>` | nothing | the walks; a walk's state is derived, a GET writes nothing |
 | POST | `/guided/<id>/next` `{}` | the current step | the walk, one step further (or the same step again, if it was blocked) |
 | POST | `/guided/<id>/verdict` `{"verdict":"green"\|"red","note":"..."}` | nothing | Adam's call; `next` refuses to make it |
@@ -108,8 +108,10 @@ could not run, or the restore after the cell failed and **the lab is not restore
 
 A walk, for a cell that needs the lab: `old → new → status → claim → run → release → compare →
 verdict` (no status/claim/release for a `requires none` cell; no `new` where there is no new/).
-Every step says where to look and what green looks like. The lab is given back right after the
-run -- judging reads the raw, not the lab. A step that did not come out **blocks** the walk: a
+Every step says where to look and what green looks like. The run step reads the claim again
+inside the slot (another tab's walk may have released it). The lab is given back right after the
+run -- judging reads the raw, not the lab. The walk's claim and release are the OWNER's: a walk
+opened while you already hold the lab re-claims it and releases it at the end (next cut). A step that did not come out **blocks** the walk: a
 refused claim never leads to a run, a failed restore never leads to a release. The verdict is
 Adam's.
 
@@ -146,7 +148,7 @@ still holds the slot), `lost` (it ended and nobody recorded its rc).
 ## Tests
 
 ```bash
-python3 tests/python/test_ndt_serve.py        # 71 cases against a stub ndt (RcProvenance reads the real ndt), no lab
-python3 tests/python/test_ndt_serve_cells.py  # 25 cases against a stub grid, no lab
-bash tests/shell/mutate_ndt_serve.sh          # 77 named mutations, each must redden its case
+python3 tests/python/test_ndt_serve.py        # 72 cases against a stub ndt (RcProvenance reads the real ndt), no lab
+python3 tests/python/test_ndt_serve_cells.py  # 32 cases against a stub grid, no lab
+bash tests/shell/mutate_ndt_serve.sh          # 86 named mutations, each must redden its case
 ```
