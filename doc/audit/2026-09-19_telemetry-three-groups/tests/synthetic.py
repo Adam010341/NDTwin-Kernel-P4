@@ -174,7 +174,7 @@ def _sflow_document(addressed, families=True):
 
 def write_arm(root, group, frame, pass_label, clean_kpps, external=None, softirq=None,
               kernel_spread=0.0, invalid=None, ladder=None, arm_name=None, burners=0,
-              bmv2_factor=1.0):
+              bmv2_factor=1.0, bmv2_spread=0.0, kernel_fixed=None, kernel_marginal=None):
     """One ladder arm directory, exactly as run_group_arm.sh writes one.
 
     `arm_name` and `burners` exist for C3's two throwaway ladders, which run_group_arm.sh writes
@@ -183,8 +183,15 @@ def write_arm(root, group, frame, pass_label, clean_kpps, external=None, softirq
 
     `bmv2_factor` scales all ten switches of this arm together, for the registered bmv2
     comparison of PREREG 5.3 (cooperative/none at the same rung, against [0.90, 1.15]); 1.0 is
-    every arm's default, so the default tree is unchanged by it.
+    every arm's default, so the default tree is unchanged by it. `bmv2_spread` does for the ten
+    switches what `kernel_spread` does for the kernel: pass a runs at (1 + spread), pass b at
+    (1 - spread), so the two arms of a cell disagree by that much and no rung can resolve a
+    group difference smaller than it (the H-C0 condition, ruling 40(b)). `kernel_fixed` /
+    `kernel_marginal` replace KERNEL_FIXED / KERNEL_MARGINAL for this arm (ruling 40(a) needs
+    a fit whose fixed share is small); None keeps the module's values.
     """
+    kernel_fixed = KERNEL_FIXED if kernel_fixed is None else kernel_fixed
+    kernel_marginal = KERNEL_MARGINAL if kernel_marginal is None else kernel_marginal
     ladder = LADDER if ladder is None else ladder
     arm = arm_name or ("%s_f%d_%s" % (group, frame, pass_label))
     directory = os.path.join(root, arm)
@@ -230,15 +237,16 @@ def write_arm(root, group, frame, pass_label, clean_kpps, external=None, softirq
         _write(os.path.join(directory, "sflow_rung%d_after.json" % kpps),
                json.dumps(_sflow_document(1000 * (index + 1) + counted)))
         kernel = KERNEL_BASE if group == "none" else (
-            KERNEL_BASE + KERNEL_FIXED + KERNEL_MARGINAL * recoverable)
+            KERNEL_BASE + kernel_fixed + kernel_marginal * recoverable)
         # the spread the H-C0 branch looks at is BETWEEN THE ARMS of a cell, so it is keyed on
         # the pass label rather than on the rung
         kernel += kernel_spread if pass_label == "a" else -kernel_spread
         rates = {"kernel:11": kernel, "proxy:12": 4.0 if group == "none" else 12.0,
                  "iperf3:31": 110.0}
         for switch in range(1, 11):
-            rates["bmv2-%d:%d" % (switch, 20 + switch)] = (float(BMV2_WEIGHTS[switch - 1])
-                                                           * bmv2_factor)
+            rates["bmv2-%d:%d" % (switch, 20 + switch)] = (
+                float(BMV2_WEIGHTS[switch - 1]) * bmv2_factor
+                * (1.0 + bmv2_spread if pass_label == "a" else 1.0 - bmv2_spread))
         if group == "link":
             rates["emitter:13"] = 8.0
         step = 0.5
@@ -399,7 +407,8 @@ def _window_errors(spec, rate):
 
 def build(root, cells=None, coop_error=0.045, link_error=0.150, emitter_dropped=0,
           kernel_spread=0.0, c1_ceiling=770000.0, c2_ceiling=500000.0, ladders=None,
-          bmv2_factor=None):
+          bmv2_factor=None, bmv2_spread=0.0, kernel_fixed=None, kernel_marginal=None,
+          invalid_windows=()):
     """The whole tree. Returns root.
 
     `coop_error` / `link_error`: see _window_errors -- one number for all three rates, or a
@@ -408,6 +417,10 @@ def build(root, cells=None, coop_error=0.045, link_error=0.150, emitter_dropped=
     rungs, which is how a case builds "a rung one group does not have" (PREREG 5.3 fits over the
     rungs all three groups share). `bmv2_factor`: {group: factor} for the ten switches. Every
     one of them defaults to the tree the rest of the suite has always been built on.
+    `bmv2_spread`, `kernel_fixed`, `kernel_marginal`: passed to every arm (see write_arm).
+    `invalid_windows`: {(group, rate, "p1"|"p2"|"p3")} written with `invalid` set, which is how a
+    case builds a cell with fewer than three valid windows (ruling 40(c)) or a registered rate
+    with no reading at all.
     """
     cells = DEFAULT_CELLS if cells is None else cells
     ladders = ladders or {}
@@ -419,7 +432,9 @@ def build(root, cells=None, coop_error=0.045, link_error=0.150, emitter_dropped=
             directory = write_arm(os.path.join(root, generations[(group, pass_label)]),
                                   group, frame, pass_label, clean,
                                   kernel_spread=kernel_spread, ladder=ladders.get(group),
-                                  bmv2_factor=bmv2_factor.get(group, 1.0))
+                                  bmv2_factor=bmv2_factor.get(group, 1.0),
+                                  bmv2_spread=bmv2_spread, kernel_fixed=kernel_fixed,
+                                  kernel_marginal=kernel_marginal)
             if group == "link":
                 write_emitter_log(directory, dropped=emitter_dropped)
     for group, spec in (("none", None), ("cooperative", coop_error), ("link", link_error)):
@@ -427,10 +442,13 @@ def build(root, cells=None, coop_error=0.045, link_error=0.150, emitter_dropped=
         for rate in (2, 20, 100):
             errors = None if spec is None else _window_errors(spec, rate)
             for index, label in enumerate(("p1", "p2", "p3")):
+                invalid = ("invalid by the case that built this tree"
+                           if (group, rate, label) in invalid_windows else None)
                 if errors is None:
-                    write_window(generation, group, rate, label)
+                    write_window(generation, group, rate, label, invalid=invalid)
                 else:
-                    write_window(generation, group, rate, label, signed_error=errors[index])
+                    write_window(generation, group, rate, label, signed_error=errors[index],
+                                 invalid=invalid)
     # `requirement` and `verdict` are written because the real C1/C2 control.meta carry them
     # (sender_control writes them at drive_e.sh:645-646, inside the block that redirects to
     # $out/control.meta at :647 -- `} > "$out/control.meta"`; :648 is the `note` after it,

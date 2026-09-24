@@ -268,8 +268,9 @@ class RegisteredLevelTest(unittest.TestCase):
 
     def test_the_fifth_campaigns_shape_outside_at_the_FIRST_rate_is_not_H_B1_either(self):
         # The other placement, and the real one: raw/2026-09-19T115737Z_full's cooperative 2 M
-        # windows read -0.3508, -0.2953, +0.1865 (median 0.2953, above the 0.2854 top of the
-        # band) while 20 and 100 Mbit/s are inside. A roll-up that looked at the LAST cell only
+        # windows read -0.3508, -0.2953, +0.1865 (median 0.2953, above the 0.285318 top of the
+        # band -- 2 x 0.674/sqrt(22.3214); it read "0.2854" until ruling 40(e)) while 20 and
+        # 100 Mbit/s are inside. A roll-up that looked at the LAST cell only
         # would call this H-B1.
         summary = self.summary(coop_error={2: (-0.3508, -0.2953, 0.1865), 20: 0.0451,
                                            100: 0.0202})
@@ -297,6 +298,31 @@ class RegisteredLevelTest(unittest.TestCase):
         h_b2 = self.group(summary, "cooperative")["H-B2"]
         self.assertEqual(h_b2["offered_mbit"], 100)
         self.assertIs(h_b2["holds"], False)
+
+    def test_a_100_Mbit_cell_with_only_two_valid_windows_cannot_be_H_B2(self):
+        # 🔴 ruling 40(c): PREREG :252 is "三個視窗的 ratio-1 同號" -- THREE windows of one sign.
+        # The same excess as the positive case below, with one of the three windows invalid:
+        # two same-sign windows do not satisfy it, however far above the band they are. (M-E46)
+        summary = self.summary(coop_error={2: 0.1427, 20: 0.0451, 100: 0.0606},
+                               invalid_windows={("cooperative", 100, "p3")})
+        cell = self.cells(summary, "cooperative")[100]
+        self.assertEqual(cell["windows"], 2)
+        self.assertEqual(cell.get("description"),
+                         "above the shot-noise band, every window the same sign")
+        group = self.group(summary, "cooperative")
+        self.assertIs(group["H-B2"]["holds"], False, group["H-B2"])
+        self.assertFalse(group["label"].startswith("H-B2"), group["label"])
+
+    def test_a_registered_rate_with_no_reading_leaves_the_group_not_decided(self):
+        # every 20 Mbit/s window of the group invalid: that registered rate has no cell at all,
+        # and the other two are inside. Missing is not inside -- H-B1 is not decided. (M-E47)
+        summary = self.summary(coop_error={2: 0.1427, 20: 0.0451, 100: 0.0202},
+                               invalid_windows={("cooperative", 20, label)
+                                                for label in ("p1", "p2", "p3")})
+        self.assertNotIn(20, self.cells(summary, "cooperative"))
+        group = self.group(summary, "cooperative")
+        self.assertIsNone(group["H-B1"]["holds"])
+        self.assertTrue(group["label"].startswith("not decided"), group["label"])
 
     def test_one_signed_excess_at_100_Mbit_IS_H_B2(self):
         summary = self.summary(coop_error={2: 0.1427, 20: 0.0451, 100: 0.0606})
@@ -488,7 +514,93 @@ class CpuTest(unittest.TestCase):
         self.assertTrue(analyse.cpu_verdict(mixed).startswith("H-C3"))
         per_sample = {"fixed_percent": 0.1, "marginal_percent_per_sample": 0.09,
                       "marginal_us_per_sample": 900.0, "points": 3, "max_samples_per_s": 1000.0}
-        self.assertTrue(analyse.cpu_verdict(per_sample).startswith("H-C2"))
+        # 🔴 ruling 40(a): this used to assert "H-C2", which is one of H-C2's two conditions
+        self.assertTrue(analyse.cpu_verdict(per_sample).startswith("not decided: H-C2"))
+
+    # --- ruling 40(a): H-C2 cannot be decided this round --------------------------------------
+    # PREREG 5.3 :271 registers H-C2 as "F/(F+m*S_top) <= 0.2 且 Δ(高階)/Δ(低階) ≈ S(高)/S(低)".
+    # The second condition has no registered tolerance, and choosing one after the data would be
+    # deciding the hypothesis, so no string may start with "H-C2" while it is unevaluated.
+    NOT_DECIDED = "not decided: H-C2 condition 1 holds (share <= 0.2); condition 2 (delta ratio ~ S ratio) has no registered tolerance"
+
+    def fixture_comparison(self, **kwargs):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        synthetic.build(tmp.name, **kwargs)
+        arms, _windows, _controls = analyse.walk_raw(tmp.name)
+        return tmp.name, analyse.cpu_comparison(arms, frame=1024, label="kernel")
+
+    def test_H_C2_is_NOT_DECIDED_while_its_second_condition_has_no_tolerance(self):
+        # share = 0.1 / (0.1 + 0.09 x 1000) << 0.2 and m = 900 us/sample, outside H-C1's band:
+        # exactly the fifth campaign's link shape. (M-E44)
+        per_sample = {"fixed_percent": 0.1, "marginal_percent_per_sample": 0.09,
+                      "marginal_us_per_sample": 900.0, "points": 3, "max_samples_per_s": 1000.0}
+        verdict = analyse.cpu_verdict(per_sample)
+        self.assertEqual(verdict, self.NOT_DECIDED)
+        self.assertFalse(verdict.startswith("H-C2"), verdict)
+
+    def test_the_fit_block_carries_both_H_C2_conditions_and_the_two_ratios(self):
+        # a kernel whose fixed share is tiny and whose marginal is 900 us/sample
+        _root, comparison = self.fixture_comparison(kernel_fixed=0.1, kernel_marginal=0.09)
+        entry = comparison["fits"]["cooperative"]
+        self.assertEqual(entry["verdict"], self.NOT_DECIDED)
+        block = entry.get("H-C2")
+        self.assertIsNotNone(block, "no machine-readable H-C2 block in the fit")
+        self.assertIs(block["condition_1"], True)
+        self.assertIsNone(block["condition_2"])
+        self.assertLessEqual(block["share"], analyse.FIXED_SHARE_PER_SAMPLE)
+        # the ratios are the lowest and the highest rung of the fit (PREREG 8(b) :357 names those
+        # two points), reported and not judged
+        rows = sorted((r for r in comparison["rows"] if r["group"] == "cooperative"),
+                      key=lambda r: r["kpps"])
+        self.assertEqual((block["low_kpps"], block["high_kpps"]), (rows[0]["kpps"], rows[-1]["kpps"]))
+        self.assertAlmostEqual(block["delta_ratio"],
+                               rows[-1]["delta_percent"] / rows[0]["delta_percent"])
+        self.assertAlmostEqual(block["s_ratio"],
+                               rows[-1]["samples_per_s"] / rows[0]["samples_per_s"])
+
+    def test_when_H_C1_holds_the_block_still_says_H_C2_condition_1_held(self):
+        # the fifth campaign's cooperative shape: m in [103, 618] (H-C1) AND share <= 0.2. The
+        # label is H-C1, as registered, and FINDINGS must be able to disclose the other half.
+        _root, comparison = self.fixture_comparison(kernel_fixed=0.1, kernel_marginal=0.0206)
+        entry = comparison["fits"]["cooperative"]
+        self.assertTrue(entry["verdict"].startswith("H-C1"), entry["verdict"])
+        block = entry.get("H-C2")
+        self.assertIsNotNone(block, "no machine-readable H-C2 block in the fit")
+        self.assertIs(block["condition_1"], True)
+        self.assertIsNone(block["condition_2"])
+
+    def test_the_reconciliation_row_and_the_render_say_what_the_fit_says(self):
+        import io
+        root, _comparison = self.fixture_comparison(kernel_fixed=0.1, kernel_marginal=0.09)
+        summary = analyse.analyse(root)
+        fit_entry = summary["cpu_kernel"]["fits"]["cooperative"]
+        row = next(r for r in summary["reconciliation"]
+                   if r["id"] == "b" and r["group"] == "cooperative")
+        self.assertEqual(row["verdict"], self.NOT_DECIDED)
+        self.assertIsNotNone(row.get("H-C2"), "the reconciliation row carries no H-C2 block")
+        self.assertEqual(row.get("H-C2"), fit_entry.get("H-C2"))
+        buffer = io.StringIO()
+        analyse.render(summary, buffer)
+        self.assertIn(self.NOT_DECIDED, buffer.getvalue())
+        self.assertNotIn("H-C2 cost is per sample", buffer.getvalue())
+
+    def test_bmv2_gets_no_H_C0_either_when_no_rung_resolves(self):
+        # 🔴 ruling 40(b): the round-10 fix kept H-C labels off bmv2's FIT, but the H-C0 branch
+        # ran before the `registered` check, so a bmv2 panel whose arms disagree more than the
+        # groups do still printed "H-C0 ...". Here the two arms of every cell differ by 150% of
+        # one core (pass a at 1.5x, pass b at 0.5x) while the groups do not differ at all. (M-E45)
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        synthetic.build(tmp.name, bmv2_spread=0.5)
+        summary = analyse.analyse(tmp.name)
+        bmv2 = summary["cpu_bmv2"]
+        self.assertTrue(bmv2["rows"])
+        self.assertFalse(any(row["resolved"] for row in bmv2["rows"]), "a rung resolved")
+        for group, entry in bmv2["fits"].items():
+            self.assertNotIn("H-C", entry.get("verdict") or "", group)
+        # the kernel, on the same tree, keeps its registered label
+        self.assertTrue(summary["cpu_kernel"]["fits"]["cooperative"]["verdict"].startswith("H-C1"))
 
     # --- where PREREG 5.3 registers the CPU hypotheses, and whether the code labels there --------
     # PREREG 5.3 (`PREREG.md:262-266`): the main axis is "1024 B 梯子上三組共同有的每一階", the
