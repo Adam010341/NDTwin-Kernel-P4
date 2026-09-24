@@ -1,0 +1,80 @@
+drive_exercise.py -- flowcache / skeleton
+(non-interactive: no mininet CLI, no xterm; kills nothing)
+fabric   : ndtwin -- the package fabric `ndt up p4 --app` builds; no root needed
+
+== pre-flight (read-only) ==============================================
+OK   lab is free (claim: owner=- expires=- measuring=nothing)
+OK   host scripts will run under /home/adam/p4dev-python-venv/bin/python
+OK   ndt /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt, converter /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py, pre-flight /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py
+--   switch  n/a: `ndt up p4` chooses the bmv2 binary -- see the `ndt status` capture
+OK   p4c     /usr/local/bin/p4c-bm2-ss  sha256[:16]=226f3f66df515c9e  --version=Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release)
+OK   exercise dir /home/adam/tutorials/exercises/flowcache
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/flowcache/build/flowcache.p4.p4info.txtpb -o /home/adam/tutorials/exercises/flowcache/build/flowcache.json /home/adam/tutorials/exercises/flowcache/flowcache.p4
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(9): [--Wwarn=unused] warning: 'egressSpec_t' is unused
+typedef bit<9> egressSpec_t;
+               ^^^^^^^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(232): [--Werror=type-error] error: Field opcode is not a member of header packet_out_header_h
+            switch (hdr.packet_out.opcode) {
+                                   ^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(84)
+header packet_out_header_h {
+       ^^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(234): [--Werror=type-error] error: Field operand0 is not a member of header packet_out_header_h
+                    standard_metadata.egress_spec = (PortId_t) hdr.packet_out.operand0;
+                                                                              ^^^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(84)
+header packet_out_header_h {
+       ^^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(240): [--Werror=type-error] error: Field opcode is not a member of header packet_out_header_h
+                        hdr.packet_out.opcode);
+                                       ^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(84)
+header packet_out_header_h {
+       ^^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(269): [--Werror=type-error] error: Field input_port is not a member of header packet_in_header_h
+        hdr.packet_in.input_port = (PortIdToController_t) ingress_port;
+                      ^^^^^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(89)
+header packet_in_header_h {
+       ^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(270): [--Werror=type-error] error: Field punt_reason is not a member of header packet_in_header_h
+        hdr.packet_in.punt_reason = punt_reason;
+                      ^^^^^^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(89)
+header packet_in_header_h {
+       ^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(271): [--Werror=type-error] error: Field opcode is not a member of header packet_in_header_h
+        hdr.packet_in.opcode = ControllerOpcode_t.NO_OP;
+                      ^^^^^^
+/home/adam/tutorials/exercises/flowcache/flowcache.p4(89)
+header packet_in_header_h {
+       ^^^^^^^^^^^^^^^^^^
+!! compile FAILED rc=1
+
+== red arm =============================================================
+   PASS RED ARM: the skeleton must NOT compile         want=p4c refuses it         got=p4c rc=1
+
+== plan ================================================================
+topology : topology.json
+hosts    : h1, h2, h3
+switches : s1, s2, s3
+links    : 6
+program  : /home/adam/tutorials/exercises/flowcache/flowcache.p4 -> build/flowcache.json
+switch   : /usr/local/bin/simple_switch_grpc
+steps    : run the exercise's controller; h1 ping h2/h3; assert ICMP replies
+package  : /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/flowcache-skeleton
+equivalent to (from the repo root, as the operator -- no sudo):
+  /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py /home/adam/tutorials/exercises/flowcache --topology topology.json --p4 flowcache.p4 --out /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/flowcache-skeleton
+  /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/flowcache-skeleton
+  NDT_OWNER=orch-0924 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt claim 45 '...' && NDT_OWNER=orch-0924 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/flowcache-skeleton
+  ... the scripted steps above, then `ndt down` and `ndt release`.
+telemetry: whatever the package declares (no --telemetry given)
+
+== verdict =============================================================
+   PASS RED ARM: the skeleton must NOT compile         want=p4c refuses it         got=p4c rc=1   【README 宣稱】＋【源碼推導，未執行】
+
+>>> RED ARM (1/1): skeleton does not compile, by design
+
+report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T192102Z_flowcache_skeleton_ndtwin.md

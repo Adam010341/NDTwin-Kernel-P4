@@ -1,0 +1,27 @@
+5f985c1ef743045310ec587650c5c57b293a970e
+# gate    : check_gate_anchors.py <sha> --gates mutate_drive_exercise.sh (read-only)
+# cmd     : (cwd worktree) JOBS=1 LOCK_WAIT=10800 tools/build_guard/guarded_build.sh /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python tests/shell/check_gate_anchors.py 5f985c1ef743045310ec587650c5c57b293a970e --gates mutate_drive_exercise.sh
+# worktree: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-ecn-0925
+# branch  : fix/ecn-probe-power-0925
+# head    : 5f985c1ef743045310ec587650c5c57b293a970e
+# dirty   : 0 tracked path(s) (clean)
+# blob    : WT 938bc883b2da13b315869324308788a69536f57d  HEAD 938bc883b2da13b315869324308788a69536f57d  doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+# blob    : WT da1176a681ae7e43af2c6c85a8a43fd36ea73630  HEAD da1176a681ae7e43af2c6c85a8a43fd36ea73630  doc/audit/2026-09-04_p4-tutorial-exercise-prep/tests/test_drive_exercise.py
+# blob    : WT e10eacb8f6b203ae31f23810ff406c4bcdb26b19  HEAD e10eacb8f6b203ae31f23810ff406c4bcdb26b19  tests/shell/mutate_drive_exercise.sh
+# start   : 2026-09-25T01:29:48+08:00
+# /tmp/drv-* before: 0
+
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python tests/shell/check_gate_anchors.py 5f985c1ef743045310ec587650c5c57b293a970e --gates mutate_drive_exercise.sh
+anchors of each gate, counted in each rev's own files
+columns:
+  c0   5f985c1ef743045310ec587650c5c57b293a970e
+
+                          c0            
+mutate_drive_exercise.sh  ok(117)       
+
+1/1 cells ok  (0 not ok, of which 0 were NOT CHECKED AT ALL)
+guarded_build: exit 0
+# rc=0
+# end 2026-09-25T01:29:48+08:00  /tmp/drv-* after: 0  /tmp/drive-exercise-mutate-*: 0
+# dirty at end: 0 tracked path(s)

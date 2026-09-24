@@ -1,0 +1,647 @@
+drive_exercise.py -- qos / skeleton
+(non-interactive: no mininet CLI, no xterm; kills nothing)
+fabric   : ndtwin -- the package fabric `ndt up p4 --app` builds; no root needed
+
+== pre-flight (read-only) ==============================================
+OK   lab is free (claim: owner=- expires=- measuring=nothing)
+OK   host scripts will run under /home/adam/p4dev-python-venv/bin/python
+OK   ndt /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt, converter /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py, pre-flight /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py
+--   switch  n/a: `ndt up p4` chooses the bmv2 binary -- see the `ndt status` capture
+OK   p4c     /usr/local/bin/p4c-bm2-ss  sha256[:16]=226f3f66df515c9e  --version=Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release)
+OK   exercise dir /home/adam/tutorials/exercises/qos
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/qos/build/qos.p4.p4info.txtpb -o /home/adam/tutorials/exercises/qos/build/qos.json /home/adam/tutorials/exercises/qos/qos.p4
+/home/adam/tutorials/exercises/qos/qos.p4(10): [--Wwarn=unused] warning: 'IP_PROTOCOLS_ICMP' is unused
+const bit<8> IP_PROTOCOLS_ICMP = 1;
+             ^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/qos.p4(11): [--Wwarn=unused] warning: 'IP_PROTOCOLS_IGMP' is unused
+const bit<8> IP_PROTOCOLS_IGMP = 2;
+             ^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/qos.p4(12): [--Wwarn=unused] warning: 'IP_PROTOCOLS_IPV4' is unused
+const bit<8> IP_PROTOCOLS_IPV4 = 4;
+             ^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/qos.p4(13): [--Wwarn=unused] warning: 'IP_PROTOCOLS_TCP' is unused
+const bit<8> IP_PROTOCOLS_TCP = 6;
+             ^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/qos.p4(14): [--Wwarn=unused] warning: 'IP_PROTOCOLS_UDP' is unused
+const bit<8> IP_PROTOCOLS_UDP = 17;
+             ^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/qos.p4(15): [--Wwarn=unused] warning: 'IP_PROTOCOLS_IPV6' is unused
+const bit<8> IP_PROTOCOLS_IPV6 = 41;
+             ^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/qos.p4(16): [--Wwarn=unused] warning: 'IP_PROTOCOLS_GRE' is unused
+const bit<8> IP_PROTOCOLS_GRE = 47;
+             ^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/qos.p4(17): [--Wwarn=unused] warning: 'IP_PROTOCOLS_IPSEC_ESP' is unused
+const bit<8> IP_PROTOCOLS_IPSEC_ESP = 50;
+             ^^^^^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/qos.p4(18): [--Wwarn=unused] warning: 'IP_PROTOCOLS_IPSEC_AH' is unused
+const bit<8> IP_PROTOCOLS_IPSEC_AH = 51;
+             ^^^^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/qos.p4(19): [--Wwarn=unused] warning: 'IP_PROTOCOLS_ICMPV6' is unused
+const bit<8> IP_PROTOCOLS_ICMPV6 = 58;
+             ^^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/qos.p4(20): [--Wwarn=unused] warning: 'IP_PROTOCOLS_EIGRP' is unused
+const bit<8> IP_PROTOCOLS_EIGRP = 88;
+             ^^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/qos.p4(21): [--Wwarn=unused] warning: 'IP_PROTOCOLS_OSPF' is unused
+const bit<8> IP_PROTOCOLS_OSPF = 89;
+             ^^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/qos.p4(22): [--Wwarn=unused] warning: 'IP_PROTOCOLS_PIM' is unused
+const bit<8> IP_PROTOCOLS_PIM = 103;
+             ^^^^^^^^^^^^^^^^
+/home/adam/tutorials/exercises/qos/qos.p4(23): [--Wwarn=unused] warning: 'IP_PROTOCOLS_VRRP' is unused
+const bit<8> IP_PROTOCOLS_VRRP = 112;
+             ^^^^^^^^^^^^^^^^^
+-> /home/adam/tutorials/exercises/qos/build/qos.json  13827 B  sha256[:16]=0f95ff3844e7b4aa  warnings=14
+
+== plan ================================================================
+topology : topology.json
+hosts    : h1, h11, h2, h22, h3
+switches : s1, s2, s3
+links    : 8
+program  : /home/adam/tutorials/exercises/qos/qos.p4 -> build/qos.json
+switch   : /usr/local/bin/simple_switch_grpc
+steps    : h2 receive.py; h1 send.py --p=UDP then --p=TCP; assert ipv4.tos (solution 0xb9 / 0xb1, skeleton 0x1)
+package  : /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/qos-skeleton
+equivalent to (from the repo root, as the operator -- no sudo):
+  /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py /home/adam/tutorials/exercises/qos --topology topology.json --p4 qos.p4 --out /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/qos-skeleton
+  /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/qos-skeleton
+  NDT_OWNER=orch-0924 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt claim 45 '...' && NDT_OWNER=orch-0924 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/qos-skeleton
+  ... the scripted steps above, then `ndt down` and `ndt release`.
+telemetry: whatever the package declares (no --telemetry given)
+
+== convert the exercise into an app package ============================
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py /home/adam/tutorials/exercises/qos --topology topology.json --p4 qos.p4 --out /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/qos-skeleton
+package 'qos' -> /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/qos-skeleton
+  control plane : ndtwin
+  pipelines     : s1=build/qos.json, s2=build/qos.json, s3=build/qos.json
+  model         : 3 switches, 5 hosts, 16 edges (8 links, both directions stored)
+  files         : 9
+                  build/qos.json
+                  build/qos.p4.p4info.txtpb
+                  ndtwin/topology.json
+                  package.json
+                  qos.p4
+                  s1-runtime.json
+                  s2-runtime.json
+                  s3-runtime.json
+                  topology.json
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/qos-skeleton
+
+== pre-flight the package ==============================================
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/qos-skeleton
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/qos-skeleton
+  PASS  format                            1
+  INFO  name                              qos
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     255
+  PASS  switches keys                     3 dpids: [1, 2, 3]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  8 present
+  PASS  topo_from_json.switches           3 entries
+  PASS  topo_from_json.hosts              5 entries
+  PASS  topo_from_json.switch_links       3 entries
+  PASS  topo_from_json.host_links         5 entries
+  PASS  switches agree                    model and package.json both say [1, 2, 3]
+  PASS  links agree                       8 links in both
+  PASS  hosts named h<last octet>         5 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h11', 'h2', 'h22', 'h3']
+  PASS  switches pipeline                 3 of 3 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/qos.json  p4info sha256:f71c1fb75f39c62d  program=/home/adam/tutorials/exercises/qos/qos.p4
+  INFO  s2 pipeline                       build/qos.json  p4info sha256:f71c1fb75f39c62d  program=/home/adam/tutorials/exercises/qos/qos.p4
+  INFO  s3 pipeline                       build/qos.json  p4info sha256:f71c1fb75f39c62d  program=/home/adam/tutorials/exercises/qos/qos.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              11 entries across 3 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  3 switch(es); entries and pipeline name the same p4info
+  INFO  roles suggestion                  no roles declared, so NDTwin writes none of this program's tables. Its p4info has a destination-route-shaped table on every switch; to let NDTwin route here, add to package.json: "roles": {"ipv4_route": {"owner": "ndtwin", "table": "MyIngress.ipv4_lpm", "match_field": "hdr.ipv4.dstAddr", "action": "MyIngress.ipv4_forward", "params": {"dst_mac": "dstAddr", "port": "port"}}} (owner ndtwin: NDTwin writes that table and the package's own entries for it must go -- convert.py --role-ipv4-route takes them out; owner package: NDTwin only reads it)
+  INFO  telemetry.source                  not declared (auto: NDTwin's pipeline gets the cooperative path, anybody else's gets link telemetry)
+  INFO  PRE entries                       none declared (no multicast group, no clone session)
+  PASS  gRPC port block                   30051-30053 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  qos.json sha256:e5515347b3f8d072  qos.p4.p4info.txtpb sha256:f71c1fb75f39c62d
+
+PASS -- every check passed
+host_count_override snapshot: 2 bytes (b'4\n')
+telemetry_override snapshot: absent
+
+== claim the lab =======================================================
+$ NDT_OWNER=orch-0924 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt claim 45 drive_exercise qos/skeleton on the ndtwin fabric
+  recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+  ok  lab claimed by orch-0924 for 45m (drive_exercise qos/skeleton on the ndtwin fabric)
+
+== ndt up p4 --app =====================================================
+$ NDT_OWNER=orch-0924 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/qos-skeleton
+app package pre-flight
+  package      /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/qos-skeleton
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/qos-skeleton
+  PASS  format                            1
+  INFO  name                              qos
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     255
+  PASS  switches keys                     3 dpids: [1, 2, 3]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  8 present
+  PASS  topo_from_json.switches           3 entries
+  PASS  topo_from_json.hosts              5 entries
+  PASS  topo_from_json.switch_links       3 entries
+  PASS  topo_from_json.host_links         5 entries
+  PASS  switches agree                    model and package.json both say [1, 2, 3]
+  PASS  links agree                       8 links in both
+  PASS  hosts named h<last octet>         5 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h11', 'h2', 'h22', 'h3']
+  PASS  switches pipeline                 3 of 3 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/qos.json  p4info sha256:f71c1fb75f39c62d  program=/home/adam/tutorials/exercises/qos/qos.p4
+  INFO  s2 pipeline                       build/qos.json  p4info sha256:f71c1fb75f39c62d  program=/home/adam/tutorials/exercises/qos/qos.p4
+  INFO  s3 pipeline                       build/qos.json  p4info sha256:f71c1fb75f39c62d  program=/home/adam/tutorials/exercises/qos/qos.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              11 entries across 3 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  3 switch(es); entries and pipeline name the same p4info
+  INFO  roles suggestion                  no roles declared, so NDTwin writes none of this program's tables. Its p4info has a destination-route-shaped table on every switch; to let NDTwin route here, add to package.json: "roles": {"ipv4_route": {"owner": "ndtwin", "table": "MyIngress.ipv4_lpm", "match_field": "hdr.ipv4.dstAddr", "action": "MyIngress.ipv4_forward", "params": {"dst_mac": "dstAddr", "port": "port"}}} (owner ndtwin: NDTwin writes that table and the package's own entries for it must go -- convert.py --role-ipv4-route takes them out; owner package: NDTwin only reads it)
+  INFO  telemetry.source                  not declared (auto: NDTwin's pipeline gets the cooperative path, anybody else's gets link telemetry)
+  INFO  PRE entries                       none declared (no multicast group, no clone session)
+  PASS  gRPC port block                   30051-30053 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0
+... [trimmed; 5570 chars total]
+
+== GET /p4/switch_state ================================================
+   control_plane.mode    ndtwin
+   control_plane.package /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/qos-skeleton
+   control_plane.skipped ['install_initial_routes', 'link_watchdog', 'lldp_discovery']
+   s1  ndtwin=False p4info_sha256=f71c1fb75f39c62d  entries recorded=4 applied=4 failed=0 api_writes=0  (entries_recorded=4)
+   s2  ndtwin=False p4info_sha256=f71c1fb75f39c62d  entries recorded=4 applied=4 failed=0 api_writes=0  (entries_recorded=4)
+   s3  ndtwin=False p4info_sha256=f71c1fb75f39c62d  entries recorded=3 applied=3 failed=0 api_writes=0  (entries_recorded=3)
+
+== ndt status (raw; and the bmv2 binary it names) ======================
+$ NDT_OWNER=orch-0924 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt status
+lab
+  claim          yours -- 45m left (until 03:50:19)
+  note           in use: ndt up p4 5 at 2026-09-25 03:05:20 by orch-0924
+  prev claim     orch-0924 (until 03:49:46), superseded 2026-09-25 03:05:18  (.test_run/lab.claim.prev)
+                 the same owner re-claimed it -- a rewrite, not a handover
+                 it said: down at 2026-09-25 03:05:18; verified clean; claim kept
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           0c96c1d0  +79 file(s) with uncommitted changes
+                 3 of them can change behaviour:
+                 p4_proxy/mininet/host_count_override
+                 p4_proxy/mininet/app_package_override
+                 tools/remote-lab/dorm_lab/
+  knob baseline  5, written by 'ndt up p4 5' at 03:05:20 this round; the round started at 4 -- write 4 back before 'ndt release'
+                   echo 4 > p4_proxy/mininet/host_count_override      # write it back; 'git checkout --' would give you HEAD
+                 'ndt release' refuses while these differ; 'ndt release --force' releases anyway
+  tree vs round  0 file(s) LEFT the uncommitted set, 1 joined it
+                 + p4_proxy/mininet/app_package_override
+  ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6685d3a9)
+
+configuration
+  hosts          5   (what the last 'ndt up' asked for: p4)
+  topology       .test_run/packages/qos-skeleton/ndtwin/topology.json
+  p4 host knob   5   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  app package    /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/qos-skeleton (mode ndtwin)
+                 qos -- p4_proxy/mininet/app_package_override; it decides the next 'ndt up p4' and the next proxy
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  telemetry      auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+                 every switch: link
+                 link emitter: alive pid 2490814, 3 switch(es), rate 256
+  link shaping   off (no package link asks for one)
+  sample rate    n/a (package pipeline)
+  rate source    the app package runs a foreign pipeline on dpid 1,2,3 -- p4_proxy/p4_src/build/ndtwin_switch.json is NOT what those switches loaded, and stale_pipeline is not judged
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  3       topo session   present
+  host/switch    8       manifest       present
+  :8000 kernel   open    :8081 proxy    open    :8080 ryu closed
+  binary         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  pidfiles       kernel.child.pid=2491067 alive,kernel.pid=2491062 alive,p4_proxy.child.pid=2490975 alive,p4_proxy.pid=2490970 alive
+
+network health
+  switches       3 up, 3 enabled, 0 admin-disabled
+  links          16 total, 0 down, 0 admin-disabled
+  tc netem       none
+  sudo grants    all 3 granted
+  apps           none running
+
+kernel graph
+  3 switches (3 up, 3 ena
+... [trimmed; 3774 chars total]
+   bmv2 sha256[:16]=3ff54b5c1901c9d3  1.15.3-f0b7d201   (ndt status: /usr/local/bmv2-fast/bin/simple_switch_grpc)
+
+== scripted steps (no CLI, no xterm) ===================================
+   hosts: h1=10.0.1.1, h2=10.0.2.2, h3=10.0.3.3, h11=10.0.1.11, h22=10.0.2.22
+$ h2: /home/adam/p4dev-python-venv/bin/python -u /home/adam/tutorials/exercises/qos/receive.py   (> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T190519Z_qos_skeleton_ndtwin/driver-h2-1-receive.log)
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/qos/send.py --p=UDP --des=10.0.2.2 --m=P4 driver probe --dur=6
+......###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x1
+     len       = 43
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = udp
+     chksum    = 0x63be
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ UDP ]### 
+        sport     = 1234
+        dport     = 4321
+        len       = 23
+        chksum    = 0xc2ad
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+-- h2 (/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T190519Z_qos_skeleton_ndtwin/driver-h2-1-receive.log) --
+sniffing on eth0
+got a packet
+###[ Ethernet ]### 
+  dst       = 33:33:00:00:00:fb
+  src       = 96:42:b7:4f:23:0d
+  type      = IPv6
+###[ IPv6 ]### 
+     version   = 6
+     tc        = 0
+     fl        = 569023
+     plen      = 149
+     nh        = UDP
+     hlim      = 255
+     src       = fe80::9442:b7ff:fe4f:230d
+     dst       = ff02::fb
+###[ UDP ]### 
+        sport     = mdns
+        dport     = mdns
+        len       = 149
+        chksum    = 0x6cc4
+###[ DNS ]### 
+           id        = 0
+           qr        = 0
+           opcode    = QUERY
+           aa        = 0
+           tc        = 0
+           rd        = 0
+           ra        = 0
+           z         = 0
+           ad        = 0
+           cd        = 0
+           rcode     = ok
+           qdcount   = 9
+           ancount   = 0
+           nscount   = 0
+           arcount   = 0
+           \qd        \
+            |###[ DNS Question Record ]### 
+            |  qname     = '_ipps._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_ftp._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_webdav._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_webdavs._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_sftp-ssh._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_smb._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_afpovertcp._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_nfs._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+            |###[ DNS Question Record ]### 
+            |  qname     = '_ipp._tcp.local.'
+            |  qtype     = PTR
+            |  qclass    = IN
+           an        = None
+           ns        = None
+           ar        = None
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 33:33:00:00:00:02
+  src       = 08:00:00:00:02:02
+  type      = IPv6
+###[ IPv6 ]### 
+     version   = 6
+     tc        = 0
+     fl        = 0
+     plen      = 16
+     nh        = ICMPv6
+     hlim      = 255
+     src       = fe80::a00:ff:fe00:202
+     dst       = ff02::2
+###[ ICMPv6 Neighbor Discovery - Router Solicitation ]### 
+        type      = Router Solicitation
+        code      = 0
+        cksum     = 0x672a
+        res       = 0
+###[ ICMPv6 Neighbor Discovery Option - Source Link-Layer Address ]### 
+           type      = 1
+           len       = 1
+           lladdr    = 08:00:00:00:02:02
+
+got a 
+... [trimmed; 17187 chars total]
+   tos values on frames from 10.0.1.1: ['0x1']   (of 17 packet(s) sniffed in total)
+$ h2: /home/adam/p4dev-python-venv/bin/python -u /home/adam/tutorials/exercises/qos/receive.py   (> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T190519Z_qos_skeleton_ndtwin/driver-h2-2-receive.log)
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/qos/send.py --p=TCP --des=10.0.2.2 --m=P4 driver probe --dur=6
+......###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x1
+     len       = 55
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x63bd
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = ftp_data
+        dport     = http
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x6810
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+Sent 1 packets.
+
+-- h2 (/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T190519Z_qos_skeleton_ndtwin/driver-h2-2-receive.log) --
+sniffing on eth0
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x1
+     len       = 55
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = ftp_data
+        dport     = http
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x6810
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:00
+  src       = 08:00:00:00:02:02
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 40
+     id        = 0
+     flags     = DF
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x23ce
+     src       = 10.0.2.2
+     dst       = 10.0.1.1
+     \options   \
+###[ TCP ]### 
+        sport     = http
+        dport     = ftp_data
+        seq       = 0
+        ack       = 16
+        dataofs   = 5
+        reserved  = 0
+        flags     = RA
+        window    = 0
+        chksum    = 0x985a
+        urgptr    = 0
+        options   = ''
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x1
+     len       = 55
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = ftp_data
+        dport     = http
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x6810
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:00
+  src       = 08:00:00:00:02:02
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 40
+     id        = 0
+     flags     = DF
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x23ce
+     src       = 10.0.2.2
+     dst       = 10.0.1.1
+     \options   \
+###[ TCP ]### 
+        sport     = http
+        dport     = ftp_data
+        seq       = 0
+        ack       = 16
+        dataofs   = 5
+        reserved  = 0
+        flags     = RA
+        window    = 0
+        chksum    = 0x985a
+        urgptr    = 0
+        options   = ''
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl    
+... [trimmed; 9139 chars total]
+   tos values on frames from 10.0.1.1: ['0x1']   (of 13 packet(s) sniffed in total)
+   PASS injection: h1's packets reached h2 in both rounds want=>=1 each               got=udp=6 tcp=6
+   PASS RED ARM: UDP tos stays 0x1                     want=['0x1']                got=['0x1']
+   PASS RED ARM: TCP tos stays 0x1                     want=['0x1']                got=['0x1']
+
+-- switch logs --
+   /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T190519Z_qos_skeleton_ndtwin/driver-h2-1-receive.log 17187 B
+   /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T190519Z_qos_skeleton_ndtwin/driver-h2-2-receive.log 9139 B
+
+== G1  link usage follows the iperf path (program-independent) =========
+   NOT RUN: the skeleton arm is a fabric the exercise says should not forward; there is no path for a program-independent cell to follow
+   (a cell with no flow to follow is recorded as not run, never as a pass)
+
+== teardown: ndt down, the two knobs, then ndt release =================
+$ NDT_OWNER=orch-0924 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt down
+ndt down
+  this teardown is about:
+        3 bmv2 switch(es)
+        8 host/switch process(es)
+        a topo tmux session
+        the switch manifest /tmp/ndtwin_p4_switches.json
+        the registry entry .test_run/pids/app_viz.pid
+        the registry entry .test_run/pids/kernel.child.pid
+        the registry entry .test_run/pids/kernel.pid
+        the registry entry .test_run/pids/p4_proxy.child.pid
+        the registry entry .test_run/pids/p4_proxy.pid
+        a held port in ports.sh's table
+[1/3] kernel + proxy/Ryu
+        stopped kernel
+        kernel exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        stopped p4_proxy
+        p4_proxy exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30051 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30052 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30053 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9091 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9092 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only 
+... [trimmed; 5425 chars total]
+   ndt down rc=0
+   host_count_override: put back to the 2 bytes this round found
+   telemetry_override: unchanged (absent)
+$ NDT_OWNER=orch-0924 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+  the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+  this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+  ok  lab released
+   ndt release rc=0
+
+== verdict =============================================================
+   PASS injection: h1's packets reached h2 in both rounds want=>=1 each               got=udp=6 tcp=6   【源碼推導，未執行】
+   PASS RED ARM: UDP tos stays 0x1                     want=['0x1']                got=['0x1']   【README 宣稱】＋【源碼推導，未執行】
+   PASS RED ARM: TCP tos stays 0x1                     want=['0x1']                got=['0x1']   【README 宣稱】＋【源碼推導，未執行】
+
+>>> PASS (3/3)
+
+report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T190519Z_qos_skeleton_ndtwin.md

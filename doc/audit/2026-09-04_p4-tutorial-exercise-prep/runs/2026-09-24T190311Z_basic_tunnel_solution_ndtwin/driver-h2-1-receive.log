@@ -1,0 +1,38 @@
+sniffing on eth0
+got a packet
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:11
+  type      = 0x1212
+###[ MyTunnel ]### 
+     pid       = 2048
+     dst_id    = 2
+###[ IP ]### 
+        version   = 4
+        ihl       = 5
+        tos       = 0x0
+        len       = 55
+        id        = 1
+        flags     = 
+        frag      = 0
+        ttl       = 64
+        proto     = tcp
+        chksum    = 0x63be
+        src       = 10.0.1.1
+        dst       = 10.0.2.2
+        \options   \
+###[ TCP ]### 
+           sport     = 60610
+           dport     = 1234
+           seq       = 0
+           ack       = 0
+           dataofs   = 5
+           reserved  = 0
+           flags     = S
+           window    = 8192
+           chksum    = 0x76df
+           urgptr    = 0
+           options   = []
+###[ Raw ]### 
+              load      = 'P4 driver probe'
+

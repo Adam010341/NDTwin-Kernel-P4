@@ -1,0 +1,768 @@
+drive_exercise.py -- load_balance / skeleton
+(non-interactive: no mininet CLI, no xterm; kills nothing)
+fabric   : ndtwin -- the package fabric `ndt up p4 --app` builds; no root needed
+
+== pre-flight (read-only) ==============================================
+OK   lab is free (claim: owner=- expires=- measuring=nothing)
+OK   host scripts will run under /home/adam/p4dev-python-venv/bin/python
+OK   ndt /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt, converter /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py, pre-flight /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py
+--   switch  n/a: `ndt up p4` chooses the bmv2 binary -- see the `ndt status` capture
+OK   p4c     /usr/local/bin/p4c-bm2-ss  sha256[:16]=226f3f66df515c9e  --version=Version 1.2.5.15 (SHA: 5b948b037a BUILD: Release)
+OK   exercise dir /home/adam/tutorials/exercises/load_balance
+
+== compile =============================================================
+$ /usr/local/bin/p4c-bm2-ss --p4v 16 --p4runtime-files /home/adam/tutorials/exercises/load_balance/build/load_balance.p4.p4info.txtpb -o /home/adam/tutorials/exercises/load_balance/build/load_balance.json /home/adam/tutorials/exercises/load_balance/load_balance.p4
+/home/adam/tutorials/exercises/load_balance/load_balance.p4(106): [--Wwarn=unused] warning: 'ecmp_base' is unused
+    action set_ecmp_select(bit<16> ecmp_base, bit<32> ecmp_count) {
+                                   ^^^^^^^^^
+/home/adam/tutorials/exercises/load_balance/load_balance.p4(106): [--Wwarn=unused] warning: 'ecmp_count' is unused
+    action set_ecmp_select(bit<16> ecmp_base, bit<32> ecmp_count) {
+                                                      ^^^^^^^^^^
+/home/adam/tutorials/exercises/load_balance/load_balance.p4(106): [--Wwarn=unused] warning: Unused action parameter ecmp_base
+    action set_ecmp_select(bit<16> ecmp_base, bit<32> ecmp_count) {
+                                   ^^^^^^^^^
+/home/adam/tutorials/exercises/load_balance/load_balance.p4(106): [--Wwarn=unused] warning: Unused action parameter ecmp_count
+    action set_ecmp_select(bit<16> ecmp_base, bit<32> ecmp_count) {
+                                                      ^^^^^^^^^^
+-> /home/adam/tutorials/exercises/load_balance/build/load_balance.json  19737 B  sha256[:16]=c83a6ccbd7275e1d  warnings=4
+
+== plan ================================================================
+topology : topology.json
+hosts    : h1, h2, h3
+switches : s1, s2, s3
+links    : 6
+program  : /home/adam/tutorials/exercises/load_balance/load_balance.p4 -> build/load_balance.json
+switch   : /usr/local/bin/simple_switch_grpc
+steps    : h2 and h3 receive.py; h1 send.py 10.0.0.1 x10; assert both servers got some (solution) / only h2 did (skeleton)
+package  : /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/load_balance-skeleton
+equivalent to (from the repo root, as the operator -- no sudo):
+  /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py /home/adam/tutorials/exercises/load_balance --topology topology.json --p4 load_balance.p4 --out /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/load_balance-skeleton
+  /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/load_balance-skeleton
+  NDT_OWNER=orch-0924 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt claim 45 '...' && NDT_OWNER=orch-0924 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/load_balance-skeleton
+  ... the scripted steps above, then `ndt down` and `ndt release`.
+telemetry: whatever the package declares (no --telemetry given)
+
+== convert the exercise into an app package ============================
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/convert.py /home/adam/tutorials/exercises/load_balance --topology topology.json --p4 load_balance.p4 --out /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/load_balance-skeleton
+package 'load_balance' -> /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/load_balance-skeleton
+  control plane : ndtwin
+  pipelines     : s1=build/load_balance.json, s2=build/load_balance.json, s3=build/load_balance.json
+  model         : 3 switches, 3 hosts, 12 edges (6 links, both directions stored)
+  files         : 9
+                  build/load_balance.json
+                  build/load_balance.p4.p4info.txtpb
+                  load_balance.p4
+                  ndtwin/topology.json
+                  package.json
+                  s1-runtime.json
+                  s2-runtime.json
+                  s3-runtime.json
+                  topology.json
+  read back through p4_proxy/mininet/topo_from_json.py: ok
+  next: tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/load_balance-skeleton
+
+== pre-flight the package ==============================================
+$ /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python /home/adam/Desktop/NDTwin-Kernel/tools/p4_exercise/preflight.py /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/load_balance-skeleton
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/load_balance-skeleton
+  PASS  format                            1
+  INFO  name                              load_balance
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     255
+  PASS  switches keys                     3 dpids: [1, 2, 3]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  8 present
+  PASS  topo_from_json.switches           3 entries
+  PASS  topo_from_json.hosts              3 entries
+  PASS  topo_from_json.switch_links       3 entries
+  PASS  topo_from_json.host_links         3 entries
+  PASS  switches agree                    model and package.json both say [1, 2, 3]
+  PASS  links agree                       6 links in both
+  PASS  hosts named h<last octet>         3 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h2', 'h3']
+  PASS  switches pipeline                 3 of 3 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/load_balance.json  p4info sha256:5b2b6b09abd0e778  program=/home/adam/tutorials/exercises/load_balance/load_balance.p4
+  INFO  s2 pipeline                       build/load_balance.json  p4info sha256:5b2b6b09abd0e778  program=/home/adam/tutorials/exercises/load_balance/load_balance.p4
+  INFO  s3 pipeline                       build/load_balance.json  p4info sha256:5b2b6b09abd0e778  program=/home/adam/tutorials/exercises/load_balance/load_balance.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              14 entries across 3 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  3 switch(es); entries and pipeline name the same p4info
+  INFO  telemetry.source                  not declared (auto: NDTwin's pipeline gets the cooperative path, anybody else's gets link telemetry)
+  INFO  PRE entries                       none declared (no multicast group, no clone session)
+  PASS  gRPC port block                   30051-30053 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  load_balance.json sha256:d03490f044f1a884  load_balance.p4.p4info.txtpb sha256:5b2b6b09abd0e778
+
+PASS -- every check passed
+host_count_override snapshot: 2 bytes (b'4\n')
+telemetry_override snapshot: absent
+
+== claim the lab =======================================================
+$ NDT_OWNER=orch-0924 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt claim 45 drive_exercise load_balance/skeleton on the ndtwin fabric
+  recorded this round's starting point in .test_run/round.baseline -- 'ndt status' compares against it
+  ok  lab claimed by orch-0924 for 45m (drive_exercise load_balance/skeleton on the ndtwin fabric)
+
+== ndt up p4 --app =====================================================
+$ NDT_OWNER=orch-0924 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt up p4 --app /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/load_balance-skeleton
+app package pre-flight
+  package      /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/load_balance-skeleton
+pre-flight: /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/load_balance-skeleton
+  PASS  format                            1
+  INFO  name                              load_balance
+  PASS  control_plane.mode                ndtwin
+  PASS  control_plane.grpc_base           30050
+  PASS  control_plane.device_id           dpid
+  PASS  control_plane.election_id         [0, 65535]
+  PASS  bmv2.cpu_port                     255
+  PASS  switches keys                     3 dpids: [1, 2, 3]
+  PASS  switches name                     every sN has dpid N
+  PASS  referenced files                  8 present
+  PASS  topo_from_json.switches           3 entries
+  PASS  topo_from_json.hosts              3 entries
+  PASS  topo_from_json.switch_links       3 entries
+  PASS  topo_from_json.host_links         3 entries
+  PASS  switches agree                    model and package.json both say [1, 2, 3]
+  PASS  links agree                       6 links in both
+  PASS  hosts named h<last octet>         3 hosts
+  PASS  hosts agree                       model and package.json both say ['h1', 'h2', 'h3']
+  PASS  switches pipeline                 3 of 3 switch(es) carry their own program; p4info tables and actions are all in the bmv2 json
+  INFO  s1 pipeline                       build/load_balance.json  p4info sha256:5b2b6b09abd0e778  program=/home/adam/tutorials/exercises/load_balance/load_balance.p4
+  INFO  s2 pipeline                       build/load_balance.json  p4info sha256:5b2b6b09abd0e778  program=/home/adam/tutorials/exercises/load_balance/load_balance.p4
+  INFO  s3 pipeline                       build/load_balance.json  p4info sha256:5b2b6b09abd0e778  program=/home/adam/tutorials/exercises/load_balance/load_balance.p4
+  PASS  p4info parses                     google.protobuf.text_format into p4.config.v1.P4Info
+  PASS  entries match p4info              14 entries across 3 switch(es); recorded, NOT applied in stage one
+  PASS  entries p4info is the pipeline's  3 switch(es); entries and pipeline name the same p4info
+  INFO  telemetry.source                  not declared (auto: NDTwin's pipeline gets the cooperative path, anybody else's gets link telemetry)
+  INFO  PRE entries                       none declared (no multicast group, no clone session)
+  PASS  gRPC port block                   30051-30053 safe on this machine
+  PASS  p4c-bm2-ss                        rc=0  load_balance.json sha256:d03490f044f1a884  load_balance.p4.p4info.txtpb sha256:5b2b6b09abd0e778
+
+PASS -- every check passed
+
+ndt up p4
+  hosts        3        (p4_proxy/mininet/host_count_override)
+  topology     .test_run/packages/load_balance-skeleton/ndtwin/topology.json
+  app package  /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/load_balance-skeleton (mode ndtwin, 3 switch(es))
+  bmv2         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  sample rate  1/256     (compiled into n
+... [trimmed; 5388 chars total]
+
+== GET /p4/switch_state ================================================
+   control_plane.mode    ndtwin
+   control_plane.package /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/load_balance-skeleton
+   control_plane.skipped ['install_initial_routes', 'link_watchdog', 'lldp_discovery']
+   s1  ndtwin=False p4info_sha256=5b2b6b09abd0e778  entries recorded=6 applied=6 failed=0 api_writes=0  (entries_recorded=6)
+   s2  ndtwin=False p4info_sha256=5b2b6b09abd0e778  entries recorded=4 applied=4 failed=0 api_writes=0  (entries_recorded=4)
+   s3  ndtwin=False p4info_sha256=5b2b6b09abd0e778  entries recorded=4 applied=4 failed=0 api_writes=0  (entries_recorded=4)
+
+== ndt status (raw; and the bmv2 binary it names) ======================
+$ NDT_OWNER=orch-0924 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt status
+lab
+  claim          yours -- 45m left (until 03:49:12)
+  note           in use: ndt up p4 3 at 2026-09-25 03:04:13 by orch-0924
+  prev claim     orch-0924 (until 03:48:12), superseded 2026-09-25 03:04:11  (.test_run/lab.claim.prev)
+                 the same owner re-claimed it -- a rewrite, not a handover
+                 it said: down at 2026-09-25 03:04:11; verified clean; claim kept
+  exclusive cpu  no (heavy local jobs may overlap this claim)
+  measuring      nothing
+  code           0c96c1d0  +79 file(s) with uncommitted changes
+                 3 of them can change behaviour:
+                 p4_proxy/mininet/host_count_override
+                 p4_proxy/mininet/app_package_override
+                 tools/remote-lab/dorm_lab/
+  knob baseline  3, written by 'ndt up p4 3' at 03:04:13 this round; the round started at 4 -- write 4 back before 'ndt release'
+                   echo 4 > p4_proxy/mininet/host_count_override      # write it back; 'git checkout --' would give you HEAD
+                 'ndt release' refuses while these differ; 'ndt release --force' releases anyway
+  tree vs round  0 file(s) LEFT the uncommitted set, 1 joined it
+                 + p4_proxy/mininet/app_package_override
+  ok  helper: /usr/local/sbin/ndtwin-lab is tools/test_workflow/ndtwin-lab (sha256 6685d3a9)
+
+configuration
+  hosts          3   (what the last 'ndt up' asked for: p4)
+  topology       .test_run/packages/load_balance-skeleton/ndtwin/topology.json
+  p4 host knob   3   (p4_proxy/mininet/host_count_override -- P4 only; decides the next 'ndt up p4')
+  app package    /home/adam/Desktop/NDTwin-Kernel/.test_run/packages/load_balance-skeleton (mode ndtwin)
+                 load_balance -- p4_proxy/mininet/app_package_override; it decides the next 'ndt up p4' and the next proxy
+  bmv2           /usr/local/bmv2-fast/bin/simple_switch_grpc
+  telemetry      auto   (p4_proxy/mininet/telemetry_override absent -- auto, then the package)
+                 every switch: link
+                 link emitter: alive pid 2485558, 3 switch(es), rate 256
+  link shaping   off (no package link asks for one)
+  sample rate    n/a (package pipeline)
+  rate source    the app package runs a foreign pipeline on dpid 1,2,3 -- p4_proxy/p4_src/build/ndtwin_switch.json is NOT what those switches loaded, and stale_pipeline is not judged
+  note           /ndt/get_cpu_utilization is fabricated in MININET mode; use cpu_probe.py
+
+running
+  bmv2 switches  3       topo session   present
+  host/switch    6       manifest       present
+  :8000 kernel   open    :8081 proxy    open    :8080 ryu closed
+  binary         /usr/local/bmv2-fast/bin/simple_switch_grpc
+  pidfiles       kernel.child.pid=2485757 alive,kernel.pid=2485752 alive,p4_proxy.child.pid=2485669 alive,p4_proxy.pid=2485664 alive
+
+network health
+  switches       3 up, 3 enabled, 0 admin-disabled
+  links          12 total, 0 down, 0 admin-disabled
+  tc netem       none
+  sudo grants    all 3 granted
+  apps           none running
+
+kernel grap
+... [trimmed; 3809 chars total]
+   bmv2 sha256[:16]=3ff54b5c1901c9d3  1.15.3-f0b7d201   (ndt status: /usr/local/bmv2-fast/bin/simple_switch_grpc)
+
+== scripted steps (no CLI, no xterm) ===================================
+   hosts: h1=10.0.1.1, h2=10.0.2.2, h3=10.0.3.3
+$ h2: /home/adam/p4dev-python-venv/bin/python -u /home/adam/tutorials/exercises/load_balance/receive.py   (> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T190412Z_load_balance_skeleton_ndtwin/driver-h2-receive.log)
+$ h3: /home/adam/p4dev-python-venv/bin/python -u /home/adam/tutorials/exercises/load_balance/receive.py   (> /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T190412Z_load_balance_skeleton_ndtwin/driver-h3-receive.log)
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/load_balance/send.py 10.0.0.1 P4 driver probe 0
+sending on interface eth0 to 10.0.0.1
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.0.1
+     \options   \
+###[ TCP ]### 
+        sport     = 60905
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x4797
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 0'
+
+
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/load_balance/send.py 10.0.0.1 P4 driver probe 1
+sending on interface eth0 to 10.0.0.1
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.0.1
+     \options   \
+###[ TCP ]### 
+        sport     = 59989
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x4a2b
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 1'
+
+
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/load_balance/send.py 10.0.0.1 P4 driver probe 2
+sending on interface eth0 to 10.0.0.1
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.0.1
+     \options   \
+###[ TCP ]### 
+        sport     = 49849
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x70c7
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 2'
+
+
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/load_balance/send.py 10.0.0.1 P4 driver probe 3
+sending on interface eth0 to 10.0.0.1
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.0.1
+     \options   \
+###[ TCP ]### 
+        sport     = 53157
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x62db
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 3'
+
+
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/load_balance/send.py 10.0.0.1 P4 driver probe 4
+sending on interface eth0 to 10.0.0.1
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.0.1
+     \options   \
+###[ TCP ]### 
+        sport     = 60923
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x4385
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 4'
+
+
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/load_balance/send.py 10.0.0.1 P4 driver probe 5
+sending on interface eth0 to 10.0.0.1
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.0.1
+     \options   \
+###[ TCP ]### 
+        sport     = 62005
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x3e4b
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 5'
+
+
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/load_balance/send.py 10.0.0.1 P4 driver probe 6
+sending on interface eth0 to 10.0.0.1
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.0.1
+     \options   \
+###[ TCP ]### 
+        sport     = 60085
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x44cb
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 6'
+
+
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/load_balance/send.py 10.0.0.1 P4 driver probe 7
+sending on interface eth0 to 10.0.0.1
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.0.1
+     \options   \
+###[ TCP ]### 
+        sport     = 64290
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x335e
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 7'
+
+
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/load_balance/send.py 10.0.0.1 P4 driver probe 8
+sending on interface eth0 to 10.0.0.1
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.0.1
+     \options   \
+###[ TCP ]### 
+        sport     = 52225
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x617f
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 8'
+
+
+$ h1: /home/adam/p4dev-python-venv/bin/python /home/adam/tutorials/exercises/load_balance/send.py 10.0.0.1 P4 driver probe 9
+sending on interface eth0 to 10.0.0.1
+###[ Ethernet ]### 
+  dst       = ff:ff:ff:ff:ff:ff
+  src       = 08:00:00:00:01:01
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 64
+     proto     = tcp
+     chksum    = 0x65bd
+     src       = 10.0.1.1
+     dst       = 10.0.0.1
+     \options   \
+###[ TCP ]### 
+        sport     = 53508
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x5b7c
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 9'
+
+
+-- h2 (/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T190412Z_load_balance_skeleton_ndtwin/driver-h2-receive.log) --
+sniffing on eth0
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x65bc
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = 60905
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x4797
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 0'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x65bc
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = 59989
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x4a2b
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 1'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+     proto     = tcp
+     chksum    = 0x65bc
+     src       = 10.0.1.1
+     dst       = 10.0.2.2
+     \options   \
+###[ TCP ]### 
+        sport     = 49849
+        dport     = 1234
+        seq       = 0
+        ack       = 0
+        dataofs   = 5
+        reserved  = 0
+        flags     = S
+        window    = 8192
+        chksum    = 0x70c7
+        urgptr    = 0
+        options   = []
+###[ Raw ]### 
+           load      = 'P4 driver probe 2'
+
+got a packet
+###[ Ethernet ]### 
+  dst       = 08:00:00:00:02:02
+  src       = 08:00:00:00:02:00
+  type      = IPv4
+###[ IP ]### 
+     version   = 4
+     ihl       = 5
+     tos       = 0x0
+     len       = 57
+     id        = 1
+     flags     = 
+     frag      = 0
+     ttl       = 62
+  
+... [trimmed; 7337 chars total]
+-- h3 (/home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T190412Z_load_balance_skeleton_ndtwin/driver-h3-receive.log) --
+sniffing on eth0
+
+   PASS injection: send.py emitted 10 frames           want=10                     got=10
+   PASS RED ARM: only h2 is used                       want=h2>=1 and h3==0        got=h2=10 h3=0
+
+-- switch logs --
+   /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T190412Z_load_balance_skeleton_ndtwin/driver-h2-receive.log 7337 B
+   /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T190412Z_load_balance_skeleton_ndtwin/driver-h3-receive.log 17 B
+
+== G1  link usage follows the iperf path (program-independent) =========
+   NOT RUN: the skeleton arm is a fabric the exercise says should not forward; there is no path for a program-independent cell to follow
+   (a cell with no flow to follow is recorded as not run, never as a pass)
+
+== teardown: ndt down, the two knobs, then ndt release =================
+$ NDT_OWNER=orch-0924 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt down
+ndt down
+  this teardown is about:
+        3 bmv2 switch(es)
+        6 host/switch process(es)
+        a topo tmux session
+        the switch manifest /tmp/ndtwin_p4_switches.json
+        the registry entry .test_run/pids/app_viz.pid
+        the registry entry .test_run/pids/kernel.child.pid
+        the registry entry .test_run/pids/kernel.pid
+        the registry entry .test_run/pids/p4_proxy.child.pid
+        the registry entry .test_run/pids/p4_proxy.pid
+        a held port in ports.sh's table
+[1/3] kernel + proxy/Ryu
+        stopped kernel
+        kernel exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        stopped p4_proxy
+        p4_proxy exit status 143 (terminated by SIGTERM (15) -- or exit(143), which bash cannot distinguish)
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30051 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30052 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> an orphan holding one makes the next fabric fail to bind, with an error that reads like a P4 pipeline problem rather than a leftover process
+        :30053 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9091 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only one of them is half a check
+        :9092 is still listening, held by a process this user cannot see (probably root-owned)
+          This script did not start it. The next 'up' would find the port open and
+          measure the wrong process, so this is reported rather than ignored.
+        -> the same leftover switch that holds a gRPC port holds this one; the same line of code assigns both, so a check that names only 
+... [trimmed; 5434 chars total]
+   ndt down rc=0
+   host_count_override: put back to the 2 bytes this round found
+   telemetry_override: unchanged (absent)
+$ NDT_OWNER=orch-0924 /home/adam/Desktop/NDTwin-Kernel/tools/test_workflow/ndt release
+  the claim you held is kept as .test_run/lab.claim.prev -- 'ndt status' reads it back
+  this round's starting point is now .test_run/round.baseline.prev -- 'ndt status' will say no round baseline is recorded
+  ok  lab released
+   ndt release rc=0
+
+== verdict =============================================================
+   PASS injection: send.py emitted 10 frames           want=10                     got=10   【源碼推導，未執行】
+   PASS RED ARM: only h2 is used                       want=h2>=1 and h3==0        got=h2=10 h3=0   【README 宣稱】＋【源碼推導，未執行】
+
+>>> PASS (2/2)
+
+report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T190412Z_load_balance_skeleton_ndtwin.md

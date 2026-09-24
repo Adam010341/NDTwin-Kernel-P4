@@ -1,0 +1,25 @@
+== 06_thirteen
+   repo: /home/adam/Desktop/NDTwin-Kernel
+   raw : /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-24T183854Z_06_thirteen
+   owner: orch-0924
+
+== ecn / skeleton
+   rc=0 (want 0)   PASS (3/3)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T183854Z_ecn_skeleton_ndtwin.md
+
+== ecn / solution
+   rc=0 (want 0)   PASS (4/4)
+   report: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T184022Z_ecn_solution_ndtwin.md
+
+== the table
+   exercise  which     rc  verdict     report
+   ecn       skeleton  0   PASS (3/3)  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T183854Z_ecn_skeleton_ndtwin.md
+   ecn       solution  0   PASS (4/4)  /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T184022Z_ecn_solution_ndtwin.md
+
+== what the rounds left behind
+   p4_proxy/mininet/host_count_override: 4
+   p4_proxy/mininet/app_package_override: absent
+   p4_proxy/mininet/telemetry_override: absent
+
+raw: /home/adam/Desktop/NDTwin-Kernel/doc/audit/2026-09-04_p4-tutorial-exercise-prep/live-p1/runs/2026-09-24T183854Z_06_thirteen
+PASS 06_thirteen -- 2 arm(s), every arm as the exercise says it should be

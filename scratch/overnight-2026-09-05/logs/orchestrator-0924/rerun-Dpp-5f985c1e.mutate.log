@@ -1,0 +1,12 @@
+# HEAD 5f985c1ef743045310ec587650c5c57b293a970e 2026-09-24T18:02:18Z
+guarded_build: jobs=1 mem_high=3G mem_max=4G lock=/tmp/ndtwin-build.lock
+guarded_build: $ bash tests/shell/mutate_drive_exercise.sh
+gate       : tests/shell/mutate_drive_exercise.sh
+cwd        : /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-ecn-0925
+interpreter: MISSING: /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-ecn-0925/p4_proxy/venv/bin/python
+subject    : /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-ecn-0925/doc/audit/2026-09-04_p4-tutorial-exercise-prep/drive_exercise.py
+subject sha: 5cb44094f336c659facf8bff5ebde664306665e3c91b549dd877d8292b6cadf2
+
+REFUSE: no interpreter at /home/adam/Desktop/NDTwin-Kernel/scratch/overnight-2026-09-05/wt-p4-ecn-0925/p4_proxy/venv/bin/python (override with PYTHON=).
+guarded_build: exit 2
+# rc=2

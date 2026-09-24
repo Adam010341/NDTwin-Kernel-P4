@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # copy-audit-raw-0924.sh -- mirror stage 4's raw into the audit-raw worktree, repo paths preserved.
-# Usage: copy-audit-raw-0924.sh [--with-r]    (--with-r adds R's summary and p4r gate logs, after R merges)
+# Usage: copy-audit-raw-0924.sh [--with-r] [--with-dpp]
+#        (--with-r adds R's summary and p4r gate logs, after R merges; --with-dpp adds ruling 7's D'' and live-0925b raw)
 # Held back on purpose (Adam decides): the Web-GUI draft's summary and p4g logs (the draft is local-only
 # by his ruling), the ndt serve ticket (branch-only until he reviews), and index-backup-0924 (a backup of
 # private memory index files, not raw evidence).
@@ -50,6 +51,19 @@ if [[ "${1:-}" == --with-r ]]; then
     D=doc/audit/2026-09-04_p4-tutorial-exercise-prep
     for d in "$REPO/$D"/live-p1/runs/2026-09-24T16*; do copy "${d#$REPO/}"; done
     n=0; for f in "$REPO/$D"/runs/2026-09-24T16*; do mkdir -p "$AR/$D/runs"; cp -a "$f" "$AR/$D/runs/" && n=$((n+1)); done
+    echo "   $n per-arm report(s) and dir(s) under $D/runs"
+fi
+
+if [[ "${1:-}" == --with-dpp || "${2:-}" == --with-dpp ]]; then
+    echo "== ruling 7: D''s summary, evidence and p4dpp gate logs; live-0925b raw (runs named after 2026-09-24T1830Z)"
+    copy "$S/hunt-0911/fix/P4-Dpp-SUMMARY.md"
+    copy "$S/hunt-0911/fix/P4-Dpp-evidence"
+    n=0; for f in "$REPO/$S"/logs/gates-0910/*.p4dpp-*.log; do [[ -e "$f" ]] && cp -a "$f" "$AR/$S/logs/gates-0910/" && n=$((n+1)); done
+    echo "   $n p4dpp gate log(s)"
+    D=doc/audit/2026-09-04_p4-tutorial-exercise-prep
+    for d in "$REPO/$D"/live-p1/runs/2026-09-2*; do b=$(basename "$d"); [[ "$b" > 2026-09-24T1830Z ]] && copy "${d#$REPO/}"; done
+    n=0; for f in "$REPO/$D"/runs/2026-09-2*; do b=$(basename "$f"); [[ "$b" > 2026-09-24T1830Z ]] || continue
+        mkdir -p "$AR/$D/runs"; cp -a "$f" "$AR/$D/runs/" && n=$((n+1)); done
     echo "   $n per-arm report(s) and dir(s) under $D/runs"
 fi
 

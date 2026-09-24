@@ -1,0 +1,29 @@
+# basic: skeleton, absolute paths
+/home/adam/tutorials/exercises/basic/basic.p4(7): [--Wwarn=unused] warning: 'TYPE_IPV4' is unused
+const bit<16> TYPE_IPV4 = 0x800;
+              ^^^^^^^^^
+/home/adam/tutorials/exercises/basic/basic.p4(119): [--Wwarn=unused] warning: 'dstAddr' is unused
+    action ipv4_forward(macAddr_t dstAddr, egressSpec_t port) {
+                                  ^^^^^^^
+/home/adam/tutorials/exercises/basic/basic.p4(119): [--Wwarn=unused] warning: 'port' is unused
+    action ipv4_forward(macAddr_t dstAddr, egressSpec_t port) {
+                                                        ^^^^
+/home/adam/tutorials/exercises/basic/basic.p4(119): [--Wwarn=unused] warning: Unused action parameter dstAddr
+    action ipv4_forward(macAddr_t dstAddr, egressSpec_t port) {
+                                  ^^^^^^^
+/home/adam/tutorials/exercises/basic/basic.p4(119): [--Wwarn=unused] warning: Unused action parameter port
+    action ipv4_forward(macAddr_t dstAddr, egressSpec_t port) {
+                                                        ^^^^
+rc=0
+# p4runtime: relative, in the exercise dir
+advanced_tunnel.p4(140): [--Wwarn=invalid-header] warning: accessing a field of an invalid header hdr.myTunnel
+        egressTunnelCounter.count((bit<32>) hdr.myTunnel.dst_id);
+                                            ^^^^^^^^^^^^
+rc=0
+same  basic/build/basic.json
+same  basic/build/basic.p4.p4info.txtpb
+same  p4runtime/build/advanced_tunnel.json
+same  p4runtime/build/advanced_tunnel.p4.p4info.txtpb
+Ran 187 tests in 1.663s
+
+OK

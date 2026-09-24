@@ -1,0 +1,30 @@
+# source : /home/adam/tutorials/exercises/ecn/logs/s1.log (root-owned, world-readable; overwritten by the next tutorials ecn run)
+# sha256 : a11ddb342d52005119f1179b70bbe55f4a3d992911146ff5d756847139bb6213
+# mtime  : 2026-09-24 17:55:02.865462067 +0800
+# run    : doc/audit/2026-09-04_p4-tutorial-exercise-prep/runs/2026-09-24T095442Z_ecn_solution.md (fabric tutorials, PASS, h2 tos 0x1 0x3 0x3) -- untracked in the main checkout
+# parser : s1parse.py (this directory); times are seconds relative to the first background packet h11->s1:1->s1:3
+# cmd    : /home/adam/Desktop/NDTwin-Kernel/p4_proxy/venv/bin/python s1parse.py <s1.log>
+
+bg (port1->port3): n=1313 first=4.67 last=19.16 (rel to log start)
+  bg t= 0.. 1 s: in= 91 egressed= 91 dropped_at_queue=  0  mean sojourn=0.000 s
+  bg t= 1.. 2 s: in= 89 egressed= 89 dropped_at_queue=  0  mean sojourn=0.000 s
+  bg t= 2.. 3 s: in= 89 egressed= 89 dropped_at_queue=  0  mean sojourn=0.000 s
+  bg t= 3.. 4 s: in= 89 egressed= 89 dropped_at_queue=  0  mean sojourn=0.000 s
+  bg t= 4.. 5 s: in= 89 egressed= 89 dropped_at_queue=  0  mean sojourn=0.481 s
+  bg t= 5.. 6 s: in= 89 egressed= 55 dropped_at_queue= 34  mean sojourn=1.314 s
+  bg t= 6.. 7 s: in= 90 egressed= 46 dropped_at_queue= 44  mean sojourn=1.188 s
+  bg t= 7.. 8 s: in= 89 egressed= 28 dropped_at_queue= 61  mean sojourn=1.659 s
+  bg t= 8.. 9 s: in= 89 egressed= 46 dropped_at_queue= 43  mean sojourn=1.304 s
+  bg t= 9..10 s: in= 89 egressed= 45 dropped_at_queue= 44  mean sojourn=1.331 s
+  bg t=10..11 s: in= 89 egressed= 48 dropped_at_queue= 41  mean sojourn=1.229 s
+  bg t=11..12 s: in= 89 egressed= 47 dropped_at_queue= 42  mean sojourn=1.380 s
+  bg t=12..13 s: in= 94 egressed= 19 dropped_at_queue= 75  mean sojourn=0.800 s
+  bg t=13..14 s: in= 99 egressed= 60 dropped_at_queue= 39  mean sojourn=1.003 s
+  bg t=14..15 s: in= 49 egressed= 25 dropped_at_queue= 24  mean sojourn=0.634 s
+probes (ecn==1 evaluated at egress, or port2 ingress):
+  pkt   391 in=3.24 eport=3 eg=3.24 mark=False tx=4.82
+  pkt   488 in=4.27 eport=3 eg=4.82 mark=True tx=7.02
+  pkt   580 in=5.29 eport=3 eg=6.49 mark=True tx=9.23
+  pkt   674 in=6.32 eport=3 eg=DROPPED/none mark=None tx=-
+  pkt   767 in=7.34 eport=3 eg=DROPPED/none mark=None tx=-
+  pkt   861 in=8.36 eport=3 eg=9.23 mark=True tx=12.81
