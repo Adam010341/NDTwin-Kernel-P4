@@ -117,6 +117,76 @@ class AForeignSwitchIsRenderedThroughItsBindingTest(unittest.TestCase):
         self.assertFalse(hasattr(client, "last_flow_render"))
 
 
+# --- NDTwin's own /stats/flow, in HTTP-body bytes (TICKET-P4-roles section 7 ruling 5, item 4) --
+#
+# [Co-developed with claude code -- Adam]
+# 🔴 RECORDED AT THE BASE, NOT WRITTEN HERE. tests/record_stats_flow_http_body.py, copied verbatim
+# into a `git archive d492a346` tree (its production code is trunk 6291db35's) and run there,
+# printed these bytes; that file's docstring is the provenance, and the run is logged in
+# logs/gates-0910/record_stats_flow_http_body_at_base.p4r-57aae1bf.log (recorder sha256 89e35766).
+# Round 1 compared the renderer's output re-serialised with sort_keys=True, which cannot see a
+# change of key ORDER -- and key order is what the kernel's parser is handed.
+
+#: 2346 bytes, sha256 aca1a88af0d889a8a7cc84468ee775cbccfb34ed1f3b8d3c1d3d4373f87a8659.
+BASELINE_NDTWIN_HTTP_BODY = (
+    b'{"1":[{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.4","dl_type":2048'
+    b'},"actions":["OUTPUT:6"],"byte_count":0,"packet_count":0,"duration_sec":0,"d'
+    b'uration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"leng'
+    b'th":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.1.0/24","dl_type":'
+    b'2048},"actions":["OUTPUT:2"],"byte_count":0,"packet_count":0,"duration_sec":'
+    b'0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"'
+    b'length":0},{"table_id":0,"priority":101,"match":{"nw_src":"10.0.0.1","nw_dst'
+    b'":"10.0.0.4","nw_proto":6,"in_port":3,"dl_type":2048},"actions":["OUTPUT:4"]'
+    b',"byte_count":0,"packet_count":0,"duration_sec":0,"duration_nsec":0,"idle_ti'
+    b'meout":0,"hard_timeout":0,"cookie":0,"flags":0,"length":0},{"table_id":0,"pr'
+    b'iority":0,"match":{"nw_src":"10.0.0.1","nw_dst":"10.0.0.4","nw_proto":6,"dl_'
+    b'type":2048},"actions":["OUTPUT:9"],"byte_count":0,"packet_count":0,"duration'
+    b'_sec":0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flag'
+    b's":0,"length":0},{"table_id":0,"priority":0,"match":{"dl_dst":"00:00:00:00:0'
+    b'0:04"},"actions":["OUTPUT:3"],"byte_count":1500,"packet_count":3,"duration_s'
+    b'ec":0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags"'
+    b':0,"length":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.9","dl_t'
+    b'ype":2048},"actions":["OUTPUT:CONTROLLER"],"byte_count":0,"packet_count":0,"'
+    b'duration_sec":0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie"'
+    b':0,"flags":0,"length":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.'
+    b'0.8","dl_type":2048},"actions":[],"byte_count":0,"packet_count":0,"duration_'
+    b'sec":0,"duration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags'
+    b'":0,"length":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.7","dl_'
+    b'type":2048},"actions":[],"byte_count":0,"packet_count":0,"duration_sec":0,"d'
+    b'uration_nsec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"leng'
+    b'th":0},{"table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.6","dl_type":204'
+    b'8},"actions":[],"byte_count":0,"packet_count":0,"duration_sec":0,"duration_n'
+    b'sec":0,"idle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"length":0},{"'
+    b'table_id":0,"priority":0,"match":{"nw_dst":"10.0.0.5","dl_type":2048},"actio'
+    b'ns":[],"byte_count":0,"packet_count":0,"duration_sec":0,"duration_nsec":0,"i'
+    b'dle_timeout":0,"hard_timeout":0,"cookie":0,"flags":0,"length":0}]}'
+)
+BASELINE_NDTWIN_HTTP_BODY_SHA256 = "aca1a88af0d889a8a7cc84468ee775cbccfb34ed1f3b8d3c1d3d4373f87a8659"
+
+
+class TheNdtwinClientsHttpBodyIsByteIdenticalToTheBaseTest(unittest.TestCase):
+    """GET /stats/flow/1 for an NDTwin-pipeline switch, through FastAPI's own serialisation."""
+
+    def test_the_constant_is_the_recording(self):
+        import hashlib
+
+        self.assertEqual(hashlib.sha256(BASELINE_NDTWIN_HTTP_BODY).hexdigest(),
+                         BASELINE_NDTWIN_HTTP_BODY_SHA256)
+
+    def test_the_body_is_the_one_the_base_answered_byte_for_byte(self):
+        from tests.record_stats_flow_http_body import record
+
+        self.assertEqual(record(), (200, "application/json", BASELINE_NDTWIN_HTTP_BODY))
+
+    def test_a_client_bound_to_the_baseline_answers_the_same_bytes(self):
+        # What every real NDTwin client carries since the roles cut; the base had no binding.
+        from proxy_agent import route_binding
+        from tests.record_stats_flow_http_body import record
+
+        self.assertEqual(record({"route_binding": route_binding.BASELINE}),
+                         (200, "application/json", BASELINE_NDTWIN_HTTP_BODY))
+
+
 class AFailedReadIsNotAnEmptyTableTest(unittest.TestCase):
     def tearDown(self):
         api_routes.topology = None

@@ -184,14 +184,18 @@ class SeedingTheGraphTest(unittest.TestCase):
 class SeedingTopo(FakeTopo):
     """FakeTopo plus the two calls a foreign fabric's startup now makes."""
 
-    def __init__(self):
+    def __init__(self, seed_result=8):
         super().__init__()
         self.seeded = []
         self.installs = 0
+        #: What seed_declared_links answers: a count, or an exception it raises.
+        self.seed_result = seed_result
 
     def seed_declared_links(self, path=None):
         self.seeded.append(path)
-        return 8
+        if isinstance(self.seed_result, BaseException):
+            raise self.seed_result
+        return self.seed_result
 
     def install_initial_routes(self, only_dpid=None):
         self.installs += 1
@@ -261,6 +265,22 @@ class WhichFabricsSeedAndWhenRoutesComeBackTest(unittest.TestCase):
         _summary, topo = self.start(clients_bound(None, None), a_foreign_package())
         self.assertEqual(len(topo.seeded), 1)
 
+    def test_a_fabric_that_skips_its_routes_tells_the_route_writer(self):
+        # Section 7 ruling 5 item 1: the declared cables are in `net` now, so the fabric's
+        # route skip has to reach whatever writes routes later (readopt), not only startup.
+        _summary, topo = self.start(clients_bound(None, None), a_foreign_package())
+        self.assertIs(topo.routes_to_attached_hosts_only, True)
+
+    def test_a_fabric_whose_routes_ndtwin_owns_does_not_restrict_the_writer(self):
+        _summary, topo = self.start(clients_bound(bound("ndtwin"), bound("ndtwin")),
+                                    a_foreign_package(owner="ndtwin"))
+        self.assertIs(topo.routes_to_attached_hosts_only, False)
+        self.assertEqual(topo.installs, 1)
+
+    def test_an_all_ndtwin_fabric_does_not_restrict_the_writer(self):
+        _summary, topo = self.start({1: FakeClient(1), 2: FakeClient(2)}, app_package.baseline())
+        self.assertIs(topo.routes_to_attached_hosts_only, False)
+
     def test_every_foreign_switch_owned_by_ndtwin_brings_the_routes_back(self):
         summary, topo = self.start(clients_bound(bound("ndtwin"), bound("ndtwin")),
                                    a_foreign_package(owner="ndtwin"))
@@ -303,10 +323,75 @@ class WhichFabricsSeedAndWhenRoutesComeBackTest(unittest.TestCase):
         self.assertEqual(topo.seeded, [])
 
     def test_a_topology_double_without_the_seeding_call_does_not_stop_startup(self):
-        # Every pre-roles FakeTopo is this; the endpoint then says link_discovery "none".
+        # Every pre-roles FakeTopo is this. Round 2 (TICKET-P4-roles section 7 ruling 5, item
+        # 8): the fabric's MODE is still "declared" -- the seed failing does not make it an
+        # external fabric -- and the failure is disclosed at fabric level instead.
         summary, _parts = run_startup(clients_bound(None), topo=FakeTopo(),
                                       package=a_foreign_package(dpids=(1,)))
-        self.assertEqual(summary["capabilities"]["1"]["link_discovery"], "none")
+        self.assertEqual(summary["capabilities"]["1"]["link_discovery"], "declared")
+        self.assertIn("AttributeError", main.declared_links_report()["error"])
+
+
+@unittest.skipUnless(HAVE_PROXY, "proxy dependencies not available in this interpreter")
+class LinkDiscoveryIsTheModeNotTheSeedCountTest(unittest.TestCase):
+    """
+    TICKET-P4-roles section 7 ruling 5, item 8. [Co-developed with claude code -- Adam]
+
+    Round 1 derived `link_discovery` from how many directions the seed entered, so a foreign
+    fabric whose package declares no inter-switch cable -- or whose seed raised -- said "none",
+    the word that also means an external control plane. A reader could not tell the two apart.
+    The word is now the fabric's MODE (lldp / declared / none = external only), and what the
+    seed actually did is a separate, fabric-level `declared_links` object on switch_state.
+    """
+
+    def setUp(self):
+        saved = (dict(main._fabric), dict(main._capabilities))
+
+        def restore():
+            main._fabric.clear()
+            main._fabric.update(saved[0])
+            main._capabilities.clear()
+            main._capabilities.update(saved[1])
+        self.addCleanup(restore)
+
+    def start(self, topo, package=None, clients=None):
+        clients = clients_bound(None) if clients is None else clients
+        package = a_foreign_package(dpids=(1,)) if package is None else package
+        summary, _parts = run_startup(clients, topo=topo, package=package)
+        return summary
+
+    def test_a_foreign_fabric_that_declares_no_link_still_says_declared(self):
+        summary = self.start(SeedingTopo(seed_result=0))
+        self.assertEqual(summary["capabilities"]["1"]["link_discovery"], "declared")
+        self.assertEqual(main.declared_links_report(), {"directions": 0, "error": None})
+
+    def test_a_seed_that_raises_says_declared_and_names_the_error(self):
+        summary = self.start(SeedingTopo(seed_result=OSError("no such model")))
+        self.assertEqual(summary["capabilities"]["1"]["link_discovery"], "declared")
+        self.assertEqual(main.declared_links_report(),
+                         {"directions": 0, "error": "OSError: no such model"})
+
+    def test_a_seed_that_worked_reports_its_count_and_no_error(self):
+        self.start(SeedingTopo(seed_result=8))
+        self.assertEqual(main.declared_links_report(), {"directions": 8, "error": None})
+
+    def test_a_fabric_that_declares_nothing_reports_null(self):
+        self.start(SeedingTopo(), package=app_package.baseline(),
+                   clients={1: FakeClient(1)})
+        self.assertIsNone(main.declared_links_report())
+        external = app_package.Package(dir="/packages/p4runtime", name="p4runtime",
+                                       mode="external", election_id=(0, 65535))
+        self.start(SeedingTopo(), package=external, clients={1: FakeClient(1)})
+        self.assertIsNone(main.declared_links_report())
+
+    def test_none_is_for_an_external_control_plane_only(self):
+        # An all-NDTwin fabric whose LLDP did not start is still an LLDP fabric by mode; that
+        # nothing reroutes there is what `reroute: false` says.
+        stopped = {"lldp": False, "watchdog": False, "declared_links": False}
+        caps = main.capabilities_for("ndtwin", "baseline", True, False, stopped)
+        self.assertEqual((caps["link_discovery"], caps["reroute"]), ("lldp", False))
+        caps = main.capabilities_for("unbound", None, False, True, stopped)
+        self.assertEqual(caps["link_discovery"], "none")
 
 
 if __name__ == "__main__":

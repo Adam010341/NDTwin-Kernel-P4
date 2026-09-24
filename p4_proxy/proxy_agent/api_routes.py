@@ -137,6 +137,18 @@ capabilities_report = None
 flow_stats_report = None
 
 
+#: TICKET-P4-roles section 7 ruling 5, item 8: what seeding the declared links did, for the
+#: FABRIC -- {directions, error} on a fabric whose links are declared, null on one whose are
+#: not. Its own injector, for the same reason as the one below: not injected, no key.
+#: [Co-developed with claude code -- Adam]
+declared_links_report = None
+
+
+def inject_declared_links_report(report):
+    global declared_links_report
+    declared_links_report = report
+
+
 def inject_roles_reports(capabilities, flow_stats):
     global capabilities_report, flow_stats_report
     capabilities_report = capabilities
@@ -744,8 +756,9 @@ async def switch_state():
     #                 ndtwin / package / unbound), five_tuple, reroute, link_discovery and
     #                 binding_source. Appendix A of the ticket: the kernel will copy this object
     #                 verbatim onto get_graph_data's node in the third cut.
-    #   flow_stats    `unrendered_entries`: how many rows the last /stats/flow render of this
-    #                 switch left out because their action is not one it recognises.
+    #   flow_stats    `unrendered_entries`: how many non-default rows the last /stats/flow
+    #                 render of this switch did not list -- an action it does not recognise, or
+    #                 a match it cannot translate (section 7 ruling 5, item 3).
     if capabilities_report is not None:
         caps = capabilities_report()
         for dpid, entry in state.get("switches", {}).items():
@@ -754,6 +767,11 @@ async def switch_state():
         rendered = flow_stats_report()
         for dpid, entry in state.get("switches", {}).items():
             entry["flow_stats"] = rendered.get(str(dpid), {"unrendered_entries": None})
+    # [Co-developed with claude code -- Adam] Section 7 ruling 5, item 8: top level, because a
+    # seed runs once for the whole fabric. `link_discovery` says the fabric's links are
+    # DECLARED; this says whether the declaration actually reached the graph.
+    if declared_links_report is not None:
+        state["declared_links"] = declared_links_report()
     return state
 
 

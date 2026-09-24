@@ -147,6 +147,20 @@ class TheBaselineIsTheLiteralsTest(unittest.TestCase):
         self.assertEqual(app_package.ROLE_OWNERS, route_binding.OWNERS)
 
 
+def _string_constant_nodes(tree):
+    """The str Constant NODES `_string_constants` reports (docstrings excluded)."""
+    docstrings = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            body = getattr(node, "body", [])
+            if body and isinstance(body[0], ast.Expr) and isinstance(
+                    getattr(body[0], "value", None), ast.Constant) and isinstance(
+                    body[0].value.value, str):
+                docstrings.add(id(body[0].value))
+    return [n for n in ast.walk(tree) if isinstance(n, ast.Constant)
+            and isinstance(n.value, str) and id(n) not in docstrings]
+
+
 def _string_constants(tree):
     """[(value, lineno, qualified function name or '')] for every str constant that is not a
     docstring. A docstring naming the table is documentation; a string it is compared against
@@ -175,17 +189,83 @@ def _string_constants(tree):
     return out
 
 
+def _assignment_targets(tree):
+    """{id(str Constant): the name of the innermost assignment it sits in, or None}.
+
+    [Co-developed with claude code -- Adam] How a named exception is named: by the constant it
+    belongs to (`FIVE_TUPLE_FIELD_MAP`), not by a line number that moves with every edit above it.
+    """
+    out = {}
+
+    def visit(node, target):
+        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+            first = node.targets[0] if isinstance(node, ast.Assign) else node.target
+            target = (first.id if isinstance(first, ast.Name)
+                      else first.attr if isinstance(first, ast.Attribute) else target)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            out[id(node)] = target
+        for child in ast.iter_child_nodes(node):
+            visit(child, target)
+
+    visit(tree, None)
+    return out
+
+
 @unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
 class TheLiteralsLiveOnlyInTheBaselineTest(unittest.TestCase):
     """TICKET-P4-roles 2.2-1: after the refactor the literals appear only in BASELINE.
 
     [Co-developed with claude code -- Adam]
-    🔴 ONE DISCLOSED EXCEPTION. `P4RuntimeClient.IPV4_LPM_TABLE = "MyIngress.ipv4_lpm"` stays a
-    literal because tests/shell/mutate_p4_rule_install_time.sh (not this ticket's file) anchors
-    on that exact line and mutates it; removing it would break that gate. It is not a route
-    name any write uses -- the writes use the binding -- it is the install-time record's key for
-    a client bound to the baseline, and it is asserted equal to BASELINE.table below.
+    Round 2 (section 7 ruling 5, item 2) widened this from two names to four: the route table,
+    the route action, the route MATCH FIELD and the MAC parameter. Round 1 checked the first two
+    only, and `ryu_flow_stats.FIELD_TO_RYU` still spelled "hdr.ipv4.dstAddr" -- the read-back of
+    NDTwin's own route rows, next to an action that already came from BASELINE.
+
+    🔴 NAMED EXCEPTIONS, each by the constant it belongs to (NAMED_EXCEPTIONS below):
+      * `P4RuntimeClient.IPV4_LPM_TABLE` -- the table name. tests/shell/
+        mutate_p4_rule_install_time.sh (not this ticket's file) anchors on that exact line; it
+        is not a name any write uses (the writes use the binding), and it is asserted equal to
+        BASELINE.table below.
+      * `P4RuntimeClient._FIVE_TUPLE_KEY_BYTES`, `FIVE_TUPLE_FIELD_MAP` and
+        `IPV4_VALUED_MATCH_FIELDS` -- "hdr.ipv4.dstAddr" as a key of `flow_5tuple`, a DIFFERENT
+        table that happens to match on the same header field. Not the route role; this cut has
+        no 5-tuple role (every foreign 5-tuple write is a 501).
+    🔴 EXEMPT, NOT CHECKED: BASELINE.port_param, "port". It is also forward_l2's and the 5-tuple
+    action's parameter name and an OpenFlow action field, so a string equal to it says nothing
+    about the route role -- a value scan cannot tell those apart, and pretending it can would
+    be a gate that is either always red or always switched off.
     """
+
+    #: (file, assignment) -> the one route name that constant may spell.
+    NAMED_EXCEPTIONS = {
+        ("p4_client.py", "IPV4_LPM_TABLE"): BASELINE.table,
+        ("p4_client.py", "_FIVE_TUPLE_KEY_BYTES"): BASELINE.match_field,
+        ("topology_manager.py", "FIVE_TUPLE_FIELD_MAP"): BASELINE.match_field,
+        ("topology_manager.py", "IPV4_VALUED_MATCH_FIELDS"): BASELINE.match_field,
+    }
+
+    def test_no_module_spells_the_four_route_names_outside_baseline_and_the_named_exceptions(
+            self):
+        checked = {BASELINE.table, BASELINE.action, BASELINE.match_field,
+                   BASELINE.dst_mac_param}
+        found, used, scanned = [], set(), 0
+        for filename, tree in self.modules():
+            scanned += 1
+            targets = _assignment_targets(tree)
+            # Docstrings excluded: a docstring naming the table is documentation, not a use.
+            for node in _string_constant_nodes(tree):
+                if node.value not in checked:
+                    continue
+                key = (filename, targets.get(id(node)))
+                if self.NAMED_EXCEPTIONS.get(key) == node.value:
+                    used.add(key)
+                    continue
+                found.append(f"{filename}:{node.lineno} in {key[1] or 'no assignment'} "
+                             f"{node.value!r}")
+        self.assertGreaterEqual(scanned, 10, "the scan read almost nothing -- wrong directory?")
+        self.assertEqual(found, [], "a route name is spelled outside BASELINE")
+        # Guard the guard: an exception that no longer matches anything is a stale hole.
+        self.assertEqual(used, set(self.NAMED_EXCEPTIONS), "a named exception matched nothing")
 
     def modules(self):
         for filename in sorted(os.listdir(PROXY_AGENT)):
@@ -193,29 +273,6 @@ class TheLiteralsLiveOnlyInTheBaselineTest(unittest.TestCase):
                 path = os.path.join(PROXY_AGENT, filename)
                 with open(path) as fh:
                     yield filename, ast.parse(fh.read())
-
-    @staticmethod
-    def the_disclosed_exception(tree):
-        """The line of `P4RuntimeClient.IPV4_LPM_TABLE = "..."`, or None."""
-        for node in ast.walk(tree):
-            if isinstance(node, ast.ClassDef) and node.name == "P4RuntimeClient":
-                for stmt in node.body:
-                    if (isinstance(stmt, ast.Assign) and len(stmt.targets) == 1
-                            and isinstance(stmt.targets[0], ast.Name)
-                            and stmt.targets[0].id == "IPV4_LPM_TABLE"):
-                        return stmt.value.lineno
-        return None
-
-    def test_no_other_module_spells_the_route_table_or_the_route_action(self):
-        found, scanned = [], 0
-        for filename, tree in self.modules():
-            scanned += 1
-            allowed = self.the_disclosed_exception(tree) if filename == "p4_client.py" else None
-            for value, lineno, scope in _string_constants(tree):
-                if value in (BASELINE.table, BASELINE.action) and lineno != allowed:
-                    found.append(f"{filename}:{lineno} ({scope or 'module'}) {value!r}")
-        self.assertGreaterEqual(scanned, 10, "the scan read almost nothing -- wrong directory?")
-        self.assertEqual(found, [], "the route table / action is spelled outside BASELINE")
 
     def test_the_one_disclosed_exception_is_the_baselines_own_table_name(self):
         self.assertEqual(P4RuntimeClient.IPV4_LPM_TABLE, BASELINE.table)
@@ -241,6 +298,11 @@ class TheLiteralsLiveOnlyInTheBaselineTest(unittest.TestCase):
 
         self.assertEqual(ryu_flow_stats.FORWARDING_ACTIONS.get(BASELINE.action),
                          BASELINE.port_param)
+
+    def test_the_renderer_reads_the_route_match_field_back_as_nw_dst(self):
+        from proxy_agent import ryu_flow_stats
+
+        self.assertEqual(ryu_flow_stats.FIELD_TO_RYU.get(BASELINE.match_field), "nw_dst")
 
 
 # --- resolve(): the names the package wrote, checked against one p4info ------------------------
@@ -551,6 +613,25 @@ class AWriteWithNoBindingIs501OnTheRenamedFixtureTest(unittest.TestCase):
         err = self.post(api_routes.add_flow_entry, body)
         self.assertEqual((err.status_code, err.detail["reason"]), (501, "no_five_tuple_role"))
         self.assertEqual(client.stub.requests, [])
+
+    #: A 5-tuple match (source + protocol beside the destination) -- flow_5tuple, not a route.
+    FIVE_TUPLE = dict(ROUTE, priority=101, match={"dl_type": 2048, "nw_dst": "10.0.1.1",
+                                                  "ip_proto": 6, "nw_src": "10.0.2.2"})
+
+    def five_tuple_refused(self, handler):
+        """Section 7 ruling 5, item 5: round 1 tested add over HTTP and insert on the client;
+        delete and modify reach the switch through their own client calls."""
+        client = self.switch(route_binding.resolve(RENAMED_ROLE, a_p4info(RENAMED_P4INFO)))
+        err = self.post(handler, dict(self.FIVE_TUPLE))
+        self.assertEqual((err.status_code, err.detail["outcome"], err.detail["reason"]),
+                         (501, "unsupported_on_p4", "no_five_tuple_role"))
+        self.assertEqual(client.stub.requests, [], "a foreign switch was sent a 5-tuple write")
+
+    def test_a_five_tuple_delete_on_a_foreign_switch_answers_501(self):
+        self.five_tuple_refused(api_routes.delete_flow_entry)
+
+    def test_a_five_tuple_modify_on_a_foreign_switch_answers_501(self):
+        self.five_tuple_refused(api_routes.modify_flow_entry)
 
     def test_the_body_keeps_the_shape_the_other_501s_use_and_the_remedy_fits_the_window(self):
         self.switch(None)

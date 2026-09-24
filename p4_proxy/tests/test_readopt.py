@@ -882,7 +882,8 @@ class ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest(unittest.TestCase):
         self.old1.route_binding = self.old2.route_binding = self.owned
         self._real_sleep = topology_manager.time.sleep
         topology_manager.time.sleep = lambda seconds: None
-        saved = (dict(main._table_entries), dict(main._capabilities))
+        saved = (dict(main._table_entries), dict(main._capabilities),
+                 dict(main._control_plane))
 
         def restore():
             topology_manager.time.sleep = self._real_sleep
@@ -890,8 +891,16 @@ class ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest(unittest.TestCase):
             main._table_entries.update(saved[0])
             main._capabilities.clear()
             main._capabilities.update(saved[1])
+            main._control_plane.clear()
+            main._control_plane.update(saved[2])
         self.addCleanup(restore)
         self.made = []
+        # What startup left on this fabric: every foreign switch owned, so LLDP and the
+        # watchdog are skipped and the routes are not (round 2, section 7 ruling 5 item 1).
+        self.startup_skipped([main.SKIP_LLDP, main.SKIP_WATCHDOG])
+
+    def startup_skipped(self, skipped):
+        main._control_plane.update({"skipped": sorted(skipped)})
 
     def factory(self, binding):
         def make(dpid):
@@ -926,6 +935,135 @@ class ReadoptOnAFabricWhoseRouteTablesNdtwinOwnsTest(unittest.TestCase):
         main.readopt_switch(self.topo, 1, self.factory(None), sample_sink,
                             package=self.package())
         self.assertEqual(main.capabilities_report()["1"]["ipv4_route"], "unbound")
+
+    def test_a_fabric_that_skipped_its_routes_at_startup_is_not_refilled_now(self):
+        # Round 2, section 7 ruling 5 item 1: the same predicate as startup -- the FABRIC did
+        # not skip the routes, and this switch's binding is owner ndtwin. Round 1 asked only
+        # whether every client is owned NOW, so a switch that was unbound (or absent) at
+        # startup and comes back owned would get NDTwin's routes into its table while the rest
+        # of the fabric carries none: a path half-installed.
+        self.startup_skipped([main.SKIP_LLDP, main.SKIP_WATCHDOG, main.SKIP_ROUTES])
+        result = main.readopt_switch(self.topo, 1, self.factory(self.owned), sample_sink,
+                                     package=self.package())
+        self.assertEqual(result["routes"], "skipped")
+        self.assertEqual(self.made[0].routes, [])
+
+    def test_before_startup_has_run_a_foreign_switch_is_not_refilled(self):
+        # `skipped` is null until startup records it: no decision is not a yes.
+        main._control_plane.update({"skipped": None})
+        result = main.readopt_switch(self.topo, 1, self.factory(self.owned), sample_sink,
+                                     package=self.package())
+        self.assertEqual(result["routes"], "skipped")
+        self.assertEqual(self.made[0].routes, [])
+
+    def test_a_package_owned_switch_is_not_refilled_on_a_fabric_that_installs_routes(self):
+        from proxy_agent import route_binding
+
+        kept = route_binding.RouteBinding(**dict(vars(self.owned), owner="package"))
+        result = main.readopt_switch(self.topo, 1, self.factory(kept), sample_sink,
+                                     package=self.package())
+        self.assertEqual(result["routes"], "skipped")
+        self.assertEqual(self.made[0].routes, [])
+
+
+class ReadoptOnAFabricThatSkipsItsRoutesTest(unittest.TestCase):
+    """
+    TICKET-P4-roles section 7 ruling 5, item 1: readopt obeys the fabric's route skip.
+
+    [Co-developed with claude code -- Adam]
+    A mixed fabric -- s1 on NDTwin's pipeline, s2 on a package's with no roles -- skips
+    install_initial_routes for the whole fabric at startup, because s2's table is nobody's to
+    write and a shortest path through it would be half-installed. Round 1 entered the declared
+    s1-s2 cable into `net` (2.3-1), and readopt of s1 kept refilling over the whole graph -- so
+    it wrote s1's route to h2, a path that crosses s2. Before the cut `net` had no inter-switch
+    edge on such a fabric, and the same refill could reach only the hosts attached to s1. That
+    is the behaviour kept: on a fabric that skips its routes, no route NDTwin writes may cross
+    another switch.
+    """
+
+    def setUp(self):
+        if main is None:  # pragma: no cover -- environment, not behaviour
+            self.skipTest("proxy_agent.main is not importable in this interpreter")
+        self.topo, self.old1, self.old2 = build_topology()   # h1 -- s1 -- s2 -- h2
+        self.old2.route_binding = None
+        self._real_sleep = topology_manager.time.sleep
+        topology_manager.time.sleep = lambda seconds: None
+        saved = (dict(main._table_entries), dict(main._capabilities),
+                 dict(main._control_plane), dict(main._pipelines))
+
+        def restore():
+            topology_manager.time.sleep = self._real_sleep
+            for live, old in zip((main._table_entries, main._capabilities,
+                                  main._control_plane, main._pipelines), saved):
+                live.clear()
+                live.update(old)
+        self.addCleanup(restore)
+        self.made = []
+
+    def fabric(self, skips_routes):
+        """What startup leaves behind on this fabric, in both places it leaves it."""
+        skipped = [main.SKIP_LLDP, main.SKIP_WATCHDOG] + ([main.SKIP_ROUTES] if skips_routes
+                                                          else [])
+        main._control_plane.update({"skipped": sorted(skipped)})
+        self.topo.routes_to_attached_hosts_only = skips_routes
+
+    def package(self):
+        switches = (main.app_package.SwitchSpec(dpid=1, name="s1", pipeline=None, entries=None),
+                    main.app_package.SwitchSpec(dpid=2, name="s2",
+                                                pipeline=PLAIN_FOREIGN_PIPELINE, entries=None))
+        return main.app_package.Package(dir="/pkg", name="mixed", switches=switches)
+
+    def factory(self):
+        def make(dpid):
+            client = FakeClient(dpid)
+            self.made.append(client)
+            return client
+        return make
+
+    def readopt_s1(self):
+        return main.readopt_switch(self.topo, 1, self.factory(), sample_sink,
+                                   package=self.package())
+
+    def test_readopting_the_ndtwin_switch_writes_no_route_through_the_unbound_one(self):
+        self.fabric(skips_routes=True)
+        result = self.readopt_s1()
+        self.assertEqual(result["status"], "success")
+        self.assertEqual([r[0] for r in self.made[0].routes], [H1],
+                         "a route to h2 from s1 crosses s2, whose table NDTwin may not write")
+        self.assertEqual((result["routes_installed"], result["routes_attempted"]), (1, 1))
+
+    def test_it_says_the_refill_stopped_at_the_attached_hosts_and_why(self):
+        self.fabric(skips_routes=True)
+        result = self.readopt_s1()
+        self.assertEqual(result["routes_scope"], "attached_hosts")
+        self.assertIn(main.SKIP_ROUTES, result["routes_note"])
+
+    def test_on_a_fabric_that_installs_routes_the_same_readopt_refills_every_host(self):
+        # The other direction, so "write nothing" cannot pass the test above.
+        self.fabric(skips_routes=False)
+        result = self.readopt_s1()
+        self.assertEqual(sorted(r[0] for r in self.made[0].routes), sorted([H1, H2]))
+        self.assertNotIn("routes_scope", result)
+
+
+class OnlyTheAttachedHostsTest(unittest.TestCase):
+    """TopologyManager.install_initial_routes under `routes_to_attached_hosts_only`.
+    [Co-developed with claude code -- Adam] Section 7 ruling 5 item 1, at the route writer."""
+
+    def setUp(self):
+        self.topo, self.s1, self.s2 = build_topology()
+
+    def test_the_default_is_every_host_as_before(self):
+        self.assertFalse(self.topo.routes_to_attached_hosts_only)
+        self.topo.install_initial_routes()
+        self.assertEqual(sorted(r[0] for r in self.s1.routes), sorted([H1, H2]))
+
+    def test_restricted_each_switch_routes_only_to_its_own_hosts_and_counts_only_those(self):
+        self.topo.routes_to_attached_hosts_only = True
+        installed, attempted = self.topo.install_initial_routes()
+        self.assertEqual([r[0] for r in self.s1.routes], [H1])
+        self.assertEqual([r[0] for r in self.s2.routes], [H2])
+        self.assertEqual((installed, attempted), (2, 2))
 
 
 class InstallRoutesIsAParameterTest(ReadoptTestBase):

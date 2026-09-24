@@ -45,8 +45,13 @@ ETH_TYPE_IPV4 = 0x0800
 # P4 field name -> Ryu match key. Derived from ndtwin_switch.p4's table keys; anything not
 # listed is deliberately dropped, because the Classifier ignores unknown keys anyway and
 # passing them through would only make the payload look richer than it is.
+#
+# [Co-developed with claude code -- Adam] TICKET-P4-roles section 7 ruling 5, item 2: the route
+# match field is BASELINE's, like the route action below -- `hdr.ipv4.dstAddr` is written once,
+# in route_binding.BASELINE. (flow_5tuple matches on the same header field and reads it back
+# under this same key, so this one entry serves both of NDTwin's tables.)
 FIELD_TO_RYU = {
-    "hdr.ipv4.dstAddr": "nw_dst",
+    route_binding.BASELINE.match_field: "nw_dst",
     "hdr.ipv4.srcAddr": "nw_src",
     "hdr.ipv4.protocol": "nw_proto",
     "meta.l4_src_port": "tp_src",
@@ -259,6 +264,14 @@ def entry_to_ryu(entry: dict, age_seconds: Optional[float] = None, field_to_ryu=
 # LISTED, and `GET /p4/switch_state` says how many were left out (`flow_stats.unrendered_entries`):
 # a rule the twin cannot describe is absent and counted, never described wrongly.
 #
+# 🔴 THE COUNT IS EVERY NON-DEFAULT ROW NOT LISTED (section 7 ruling 5, item 3): an unknown
+# action, OR a match this module cannot translate (reporting that row would be a match-everything
+# rule, so it is not listed on any pipeline). Round 1 counted only unknown-action rows whose match
+# it could translate -- and a foreign program's non-route tables match on the program's own
+# field names (renamed_route's proto_tags: `hdr.ip4.proto`), so its real rows were neither listed
+# nor counted. A default row is not a rule and is never counted. NDTwin's own pipeline is not
+# counted at all: its body is the base's, byte for byte, and its count stays 0.
+#
 # The route action is recognised through the switch's binding: a package's roles add its own
 # route action and match field to NDTwin's vocabulary. An UNBOUND foreign switch is rendered in
 # NDTwin's vocabulary, as it was before roles existed -- so a package without roles keeps its
@@ -304,12 +317,9 @@ def render_flow_stats_counted(dpid: int, entries, install_times=None,
     field_to_ryu, forwarding_actions = _vocabulary(binding)
     flows, unrendered = [], 0
     for entry in entries or []:
-        if (foreign and not entry.get("is_default")
-                and not recognises_action(entry.get("action"), forwarding_actions)):
-            # Counted only when it would otherwise have been listed: a default row or a row
-            # with no usable match is never reported, on any pipeline, so it is not "left out".
-            if _match_to_ryu(entry.get("match") or {}, field_to_ryu):
-                unrendered += 1
+        counts = foreign and not entry.get("is_default")
+        if counts and not recognises_action(entry.get("action"), forwarding_actions):
+            unrendered += 1
             continue
         age = None
         if install_times is not None:
@@ -319,6 +329,9 @@ def render_flow_stats_counted(dpid: int, entries, install_times=None,
                                  forwarding_actions=forwarding_actions)
         if converted is not None:
             flows.append(converted)
+        elif counts:
+            # A known action on a match this module cannot translate: not listed, so counted.
+            unrendered += 1
     return {str(dpid): flows}, unrendered
 
 

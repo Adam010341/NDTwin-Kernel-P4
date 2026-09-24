@@ -489,9 +489,49 @@ def a_renamed_route(dst=b"\x0a\x00\x03\x03", port=3):
 
 
 def a_tag_row():
+    # fixtures/renamed_route/pod-topo/s1-runtime.json's last row, as read_table_entries reports
+    # it: proto_tags matches on the program's OWN field name, hdr.ip4.proto (p4info :41), not
+    # ndtwin_switch's hdr.ipv4.protocol -- round 1 used the latter, a row the fixture never
+    # produces (section 7 ruling 5, item 3). [Co-developed with claude code -- Adam]
     return {"table": "RouteIngress.proto_tags", "priority": 0, "is_default": False,
-            "match": {"hdr.ipv4.protocol": {"type": "exact", "value": b"\x11"}},
+            "match": {"hdr.ip4.proto": {"type": "exact", "value": b"\x11"}},
             "action": {"name": "RouteIngress.tag_proto", "params": {"tag": b"\x04"}}}
+
+
+RENAMED_S1_RUNTIME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures",
+                                  "renamed_route", "pod-topo", "s1-runtime.json")
+
+
+def _canonical(value):
+    """An integer as P4Runtime's canonical bytestring (big-endian, no leading zeros)."""
+    return value.to_bytes(max(1, (value.bit_length() + 7) // 8), "big")
+
+
+def rows_as_read_back(runtime_json):
+    """A runtime file's table_entries in read_table_entries' shape -- the rows that switch would
+    hold after the package's entries went on. Section 7 ruling 5, item 3: the unrendered count
+    is tested on the fixture's REAL rows, not on a hand-made one. [Co-developed with claude
+    code -- Adam]"""
+    import socket
+
+    with open(runtime_json) as fh:
+        entries = json.load(fh)["table_entries"]
+    rows = []
+    for entry in entries:
+        match = {}
+        for field, value in (entry.get("match") or {}).items():
+            if isinstance(value, list):
+                match[field] = {"type": "lpm", "value": socket.inet_aton(value[0]),
+                                "prefix_len": value[1]}
+            else:
+                match[field] = {"type": "exact", "value": _canonical(value)}
+        params = {name: (bytes.fromhex(value.replace(":", "")) if isinstance(value, str)
+                         else _canonical(value))
+                  for name, value in (entry.get("action_params") or {}).items()}
+        rows.append({"table": entry["table"], "priority": 0,
+                     "is_default": bool(entry.get("default_action")), "match": match,
+                     "action": {"name": entry["action_name"], "params": params}})
+    return rows
 
 
 class ARenamedBindingIsReadBackThroughItsOwnNamesTest(unittest.TestCase):
@@ -541,14 +581,38 @@ class OnAForeignPipelineAnUnknownActionIsLeftOutAndCountedTest(unittest.TestCase
         self.assertEqual(body["1"][0]["actions"], [])
         self.assertEqual(left_out, 0)
 
-    def test_rows_that_are_never_listed_are_not_counted_as_left_out(self):
+    def test_the_renamed_fixtures_own_rows_list_its_four_routes_and_count_its_tag_row(self):
+        # Section 7 ruling 5, item 3: `unrendered_entries` is every non-default row a foreign
+        # switch holds that /stats/flow does not list. The fixture's s1 holds a default, four
+        # routes and one proto_tags row whose action nothing here knows.
+        rows = rows_as_read_back(RENAMED_S1_RUNTIME)
+        self.assertEqual(len(rows), 6, "the fixture changed under this test")
+        body, left_out = rf.render_flow_stats_counted(1, rows, binding=a_renamed_binding())
+        self.assertEqual(sorted(f["actions"][0] for f in body["1"]),
+                         ["OUTPUT:1", "OUTPUT:2", "OUTPUT:3", "OUTPUT:4"])
+        self.assertEqual(left_out, 1)
+
+    def test_a_default_row_is_never_counted(self):
         default = a_tag_row()
         default["is_default"] = True
-        unusable = a_tag_row()
-        unusable["match"] = {"meta.nothing_ryu_knows": {"type": "exact", "value": b"\x01"}}
-        _body, left_out = rf.render_flow_stats_counted(1, [default, unusable],
+        _body, left_out = rf.render_flow_stats_counted(1, [default],
                                                        binding=a_renamed_binding())
         self.assertEqual(left_out, 0)
+
+    def test_a_row_with_no_usable_match_is_counted_whatever_its_action(self):
+        # A route the renderer knows the action of, on a match field it cannot translate: not
+        # listed (it would read as match-everything), so counted. Round 1 counted only rows
+        # whose match it could translate -- which left the fixture's own tag row uncounted.
+        unusable = a_renamed_route()
+        unusable["match"] = {"meta.nothing_ryu_knows": {"type": "exact", "value": b"\x01"}}
+        body, left_out = rf.render_flow_stats_counted(1, [unusable, a_tag_row()],
+                                                      binding=a_renamed_binding())
+        self.assertEqual(body["1"], [])
+        self.assertEqual(left_out, 2)
+
+    def test_on_an_unbound_foreign_switch_the_same_rows_are_counted(self):
+        body, left_out = rf.render_flow_stats_counted(1, [a_tag_row()], binding=None)
+        self.assertEqual((body["1"], left_out), ([], 1))
 
     def test_ndtwins_own_pipeline_leaves_nothing_out(self):
         body, left_out = rf.render_flow_stats_counted(1, ndtwin_pipeline_rows())

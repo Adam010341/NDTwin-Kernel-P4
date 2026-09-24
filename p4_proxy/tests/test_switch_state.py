@@ -1010,6 +1010,43 @@ class CapabilitiesOnTheEndpointTest(unittest.TestCase):
                          [["capabilities_report", "flow_stats_report"]])
 
 
+class TheDeclaredLinksReportOnTheEndpointTest(unittest.TestCase):
+    """TICKET-P4-roles section 7 ruling 5, item 8: what the seed did, at FABRIC level.
+    [Co-developed with claude code -- Adam]"""
+
+    def setUp(self):
+        self.saved = (api_routes.topology, api_routes.declared_links_report)
+        self.addCleanup(self.restore)
+        api_routes.topology = CapabilitiesOnTheEndpointTest.FakeTopology()
+
+    def restore(self):
+        api_routes.topology, api_routes.declared_links_report = self.saved
+
+    def test_the_seed_outcome_is_a_top_level_key_not_a_per_switch_one(self):
+        api_routes.inject_declared_links_report(
+            lambda: {"directions": 0, "error": "OSError: no such model"})
+        body = asyncio.run(api_routes.switch_state())
+        self.assertEqual(body["declared_links"], {"directions": 0,
+                                                  "error": "OSError: no such model"})
+        self.assertNotIn("declared_links", body["switches"]["1"])
+
+    def test_a_fabric_that_declares_nothing_serves_null_rather_than_no_key(self):
+        api_routes.inject_declared_links_report(lambda: None)
+        body = asyncio.run(api_routes.switch_state())
+        self.assertIn("declared_links", body)
+        self.assertIsNone(body["declared_links"])
+
+    def test_an_uninjected_seed_reporter_adds_no_key(self):
+        api_routes.inject_declared_links_report(None)
+        self.assertNotIn("declared_links", asyncio.run(api_routes.switch_state()))
+
+    def test_the_proxy_wires_the_reporter_at_import(self):
+        from tests.test_route_binding import module_level_calls
+
+        self.assertEqual(module_level_calls(main.__file__, "inject_declared_links_report"),
+                         [["declared_links_report"]])
+
+
 class TheUnrenderedCountTest(unittest.TestCase):
     """main.flow_stats_report: the count the last render left, null before any."""
 

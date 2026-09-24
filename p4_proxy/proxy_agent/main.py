@@ -1094,11 +1094,22 @@ _pre_entries.update({str(dpid): _blank_pre_counts() for dpid in DEFAULT_SWITCH_D
 # 🔴 "none" is not in the ticket's two-word list, on purpose and disclosed (P4-R-SUMMARY,
 # Dissent): under `control_plane.mode: external` nothing discovers links and nothing seeds them
 # (this cut leaves external exactly as it was, 2.2-4), and "lldp" or "declared" would each be a
-# claim about a mechanism that is not running.
+# claim about a mechanism that is not running. Appendix A carries it since section 7 ruling 5.
+#
+# 🔴 THE WORD IS THE FABRIC'S MODE, NOT WHAT HAPPENED TO IT (section 7 ruling 5, item 8). Round 1
+# said "none" when the seed entered nothing or raised, so a foreign fabric with a broken model
+# read exactly like an external one. Now: external -> "none", any other fabric with a foreign
+# switch -> "declared", every other fabric -> "lldp" -- whether LLDP started (`reroute` says
+# that) and whether the declaration reached the graph (the fabric-level `declared_links` on
+# switch_state says that) are separate facts, reported separately.
 
 #: What startup did to the fabric as a whole. None until it has run; the endpoint predicts from
 #: the package until then, like `_pipelines`.
-_fabric = {"lldp": None, "watchdog": None, "declared_links": None}
+_fabric = {"lldp": None, "watchdog": None, "declared_links": None,
+           # {directions, error} once a foreign fabric's startup has tried the seed; None on
+           # every other fabric. Section 7 ruling 5, item 8. [Co-developed with claude code --
+           # Adam]
+           "declared_links_seed": None}
 
 #: {dpid as string: capabilities}, re-recorded by startup and readopt.
 _capabilities = {}
@@ -1116,12 +1127,12 @@ def capabilities_for(owner_word, source_word, ndtwin, external, fabric):
         # (`_refuse_write`, 409 on /p4/table_entry) whatever the roles say.
         owner_word = (route_binding.OWNER_PACKAGE if source_word is not None
                       else route_binding.REASON_UNBOUND)
-    if fabric.get("lldp"):
-        discovery = "lldp"
+    if external:
+        discovery = "none"
     elif fabric.get("declared_links"):
         discovery = "declared"
     else:
-        discovery = "none"
+        discovery = "lldp"
     return {
         "ipv4_route": owner_word,
         "five_tuple": bool(ndtwin and not external
@@ -1171,10 +1182,11 @@ def capabilities_report():
 def flow_stats_report():
     """{dpid as string: {"unrendered_entries": n or None}} from each client's last render.
 
-    [Co-developed with claude code -- Adam] TICKET-P4-roles 2.5-1. The count is of rows the most
-    recent /stats/flow render of that switch left OUT because their action is not one it
-    recognises (a foreign pipeline only -- NDTwin's own renders every action it has). None
-    before the first render: "nobody rendered this switch" is not "nothing was left out".
+    [Co-developed with claude code -- Adam] TICKET-P4-roles 2.5-1. The count is of the non-default
+    rows the most recent /stats/flow render of that switch did not list -- an action it does not
+    recognise, or a match it cannot translate (section 7 ruling 5, item 3) -- on a foreign
+    pipeline only; NDTwin's own is 0 once read. None before the first render: "nobody rendered
+    this switch" is not "nothing was left out".
     """
     out = {}
     for dpid, client in list(topo.switches.items()):
@@ -1210,6 +1222,24 @@ def routes_owned_by_ndtwin(clients, foreign):
     return True
 
 
+def declared_links_report():
+    """{"directions": n, "error": "Type: message" or None} on a fabric whose links are declared,
+    None on one whose are not (or before startup). Section 7 ruling 5, item 8.
+    [Co-developed with claude code -- Adam]"""
+    seed = _fabric.get("declared_links_seed")
+    if not _fabric.get("declared_links") or seed is None:
+        return None
+    return dict(seed)
+
+
+def _fabric_installs_routes():
+    """Whether startup left install_initial_routes ON for this fabric. False before startup
+    has recorded anything: no decision is not a yes. Section 7 ruling 5, item 1.
+    [Co-developed with claude code -- Adam]"""
+    skipped = _control_plane.get("skipped")
+    return skipped is not None and SKIP_ROUTES not in skipped
+
+
 def _record_and_report_capabilities(package, clients, foreign):
     _record_capabilities(package, clients, foreign)
     return capabilities_report()
@@ -1227,23 +1257,27 @@ def _declared_links_path(package):
 
 
 def _seed_declared_links(topo, package):
-    """Enter the package topology's inter-switch links into the proxy's graph. Returns the count.
+    """Enter the package topology's inter-switch links into the proxy's graph.
+
+    Returns `(directions entered, "Type: message" or None)`.
 
     [Co-developed with claude code -- Adam] TICKET-P4-roles 2.3-1. Never raises: a fabric whose
-    links could not be declared still forwards on the package's own entries, and the endpoint
-    says `link_discovery: "none"` rather than claiming a declaration that did not happen.
+    links could not be declared still forwards on the package's own entries. What went wrong is
+    returned, and served as the fabric-level `declared_links.error` on switch_state (section 7
+    ruling 5, item 8) -- round 1 folded it into `link_discovery: "none"`, which is external's
+    word.
     """
     try:
         seeded = topo.seed_declared_links(_declared_links_path(package))
     except Exception as e:  # noqa: BLE001 -- disclosed below, never fatal
         print(f"[Proxy Agent] could not enter the package's declared links "
               f"({type(e).__name__}: {e}); the twin's inter-switch edges stay disabled")
-        return 0
+        return 0, f"{type(e).__name__}: {e}"
     print(f"[Proxy Agent] {seeded} declared inter-switch link direction(s) entered from the "
           f"package topology. Their is_up is the DECLARATION, not failure detection: this "
           f"fabric runs no LLDP and no watchdog, so a cut link is not noticed and not "
           f"rerouted around (capabilities.reroute is false).")
-    return seeded
+    return seeded, None
 
 
 def _install_owned_routes(topo):
@@ -1377,6 +1411,16 @@ def readopt_switch(topology, dpid, client_factory, sample_callback, package=None
             f"this switch on purpose. Its samples come from somewhere else, and programming "
             f"one here would count every packet twice")
 
+    if (ndtwin and result.get("status") == "success"
+            and getattr(topology, "routes_to_attached_hosts_only", False)):
+        # Section 7 ruling 5, item 1. [Co-developed with claude code -- Adam]
+        result["routes_scope"] = "attached_hosts"
+        result["routes_note"] = (
+            f"this fabric skips {SKIP_ROUTES} (a switch on it runs a package pipeline whose "
+            f"route table NDTwin may not write), so the refill wrote only the routes to hosts "
+            f"attached to this switch; a route through another switch would be a path "
+            f"half-installed")
+
     if ndtwin or result.get("status") != "success":
         return result
 
@@ -1405,8 +1449,14 @@ def readopt_switch(topology, dpid, client_factory, sample_callback, package=None
     # else would put them back (no watchdog runs here), and a package with owner ndtwin carries
     # no entries of its own for that table, so the switch would come back forwarding nothing.
     # After the package's entries, so the table's default action is in place first.
-    foreign = {d for d in topology.switches if not _pipeline_is_ndtwin(package, d)}
-    if routes_owned_by_ndtwin(topology.switches, foreign):
+    #
+    # 🔴 THE SAME PREDICATE AS STARTUP (section 7 ruling 5, item 1): the FABRIC did not skip the
+    # routes, and THIS switch's new binding is owner ndtwin. Round 1 asked whether every client
+    # is owned now -- so a switch that was unbound or absent at startup (routes skipped for the
+    # whole fabric) and came back owned got NDTwin's routes while no other switch had any.
+    binding = getattr(topology.switches.get(dpid), "route_binding", None)
+    if (_fabric_installs_routes() and binding is not None
+            and binding.owner == route_binding.OWNER_NDTWIN):
         routes, attempted = topology.install_initial_routes(only_dpid=dpid)
         result.update({"routes": "installed", "routes_installed": routes,
                        "routes_attempted": attempted,
@@ -1434,6 +1484,9 @@ api_routes.inject_telemetry_reports(telemetry_report, pre_entries_report,
 # TICKET-P4-roles 2.5: per-switch `capabilities` and `flow_stats`. [Co-developed with claude
 # code -- Adam]
 api_routes.inject_roles_reports(capabilities_report, flow_stats_report)
+# Section 7 ruling 5, item 8: the fabric-level outcome of the seed. [Co-developed with claude
+# code -- Adam]
+api_routes.inject_declared_links_report(declared_links_report)
 
 
 async def startup(clients_factory, sflow, kernel, topo,
@@ -1490,7 +1543,7 @@ async def startup(clients_factory, sflow, kernel, topo,
     # What this startup does to the fabric as a whole, recorded as it happens (TICKET-P4-roles
     # 2.5-2). Reset first: a module global that kept the last run's answer would describe a
     # fabric that is not this one. [Co-developed with claude code -- Adam]
-    _fabric.update(lldp=False, watchdog=False, declared_links=False)
+    _fabric.update(lldp=False, watchdog=False, declared_links=False, declared_links_seed=None)
 
     clients = clients_factory()
     for dpid, client in clients.items():
@@ -1860,13 +1913,22 @@ async def startup(clients_factory, sflow, kernel, topo,
         # LLDP, through the same add_link LLDP uses -- and NOTHING is sent to the kernel's
         # link_recovery_detected / link_failure_detected. A declaration says "this cable exists",
         # not "this cable just came back"; see TopologyManager.seed_declared_links.
-        seeded = _seed_declared_links(topo, package)
-        _fabric.update(lldp=False, watchdog=False, declared_links=seeded > 0)
-        if routes_owned:
-            route_counts = _install_owned_routes(topo)
+        # 🔴 `declared_links` is the MODE, set whatever the seed managed (section 7 ruling 5,
+        # item 8); the seed's own outcome is `declared_links_seed`, served at fabric level.
+        seeded, seed_error = _seed_declared_links(topo, package)
+        _fabric.update(lldp=False, watchdog=False, declared_links=True,
+                       declared_links_seed={"directions": seeded, "error": seed_error})
     elif read_only:
         # `external`: nothing discovers links and nothing seeds them -- unchanged by this cut.
         _fabric.update(lldp=False, watchdog=False, declared_links=False)
+
+    # [Co-developed with claude code -- Adam] Section 7 ruling 5, item 1: the fabric's route
+    # skip reaches the route writer itself, so every later writer (readopt's refill) obeys it --
+    # not only this startup. Set before the one install below, which only runs when the routes
+    # are NOT skipped.
+    topo.routes_to_attached_hosts_only = SKIP_ROUTES in skipped
+    if routes_owned:
+        route_counts = _install_owned_routes(topo)
 
     # Start LLDP dynamic topology discovery
     #

@@ -31,6 +31,11 @@
 #   L5  negative control, the same exercise WITHOUT roles: a kernel write answers 501
 #       `unsupported_on_p4` (reason `unbound`) and lands in the dispatch failures, and the
 #       author's own ipv4_lpm entries are row-for-row what they were before the write.
+#       Round 2 (section 7 ruling 5, item 6): one of the writes is aimed at the author's OWN /32
+#       -- s1's 10.0.1.1, declared -> port 1, written here with port 2. That is the hazard the
+#       cut exists to close: before it, the INSERT failed on the existing /32 and the proxy
+#       fell back to a MODIFY that silently rewrote the author's entry. It must answer 501, and
+#       s1 must still send 10.0.1.1 out of port 1 afterwards.
 #   L6  `GET /p4/switch_state` -- every switch's `capabilities` is section 2.5's
 #       {ipv4_route: ndtwin, five_tuple: false, reroute: false, link_discovery: declared,
 #        binding_source: package}; and on the control, {unbound, false, false, declared, null}.
@@ -56,6 +61,9 @@ CUT='{"src_dpid":1,"src_interface":3,"dst_dpid":3,"dst_interface":1}'
 CUT_A="1 3 3 1"; CUT_B="3 1 1 3"
 #: A destination nothing in pod-topo owns, for L2's write and L5's refused one.
 PROBE_DST="10.0.9.9"
+#: The author's own /32 on s1 (exercises/basic/pod-topo/s1-runtime.json: 10.0.1.1 -> port 1),
+#: and the port L5 tries to move it to.
+AUTHOR_DST="10.0.1.1"; AUTHOR_PORT=1; AUTHOR_MOVED_TO=2
 #: What section 2.5-2 says each switch of each fabric must report.
 CAPS_OWNED='{"ipv4_route":"ndtwin","five_tuple":false,"reroute":false,"link_discovery":"declared","binding_source":"package"}'
 CAPS_UNBOUND='{"ipv4_route":"unbound","five_tuple":false,"reroute":false,"link_discovery":"declared","binding_source":null}'
@@ -338,10 +346,18 @@ for d in (1, 2):
                       ("moved", [row("10.0.1.1", 2)])):
         with open(os.path.join(t, sub, f"stats_flow_{d}.json"), "w") as fh:
             json.dump({str(d): rows}, fh)
+disabled = copy.deepcopy(up)
+disabled["edges"][2]["is_enabled"] = False     # up, but the kernel has not enabled it
+dump("graph_disabled.json", disabled)
 open(os.path.join(t, "code_501"), "w").write("501\n")
 open(os.path.join(t, "code_500"), "w").write("500\n")
 dump("body_501.json", {"detail": {"error": "no NDTwin route binding for this write",
                                   "outcome": "unsupported_on_p4", "reason": "unbound"}})
+dump("body_501_owned.json", {"detail": {"error": "no NDTwin route binding for this write",
+                                        "outcome": "unsupported_on_p4",
+                                        "reason": "owned_by_package"}})
+dump("body_501_other.json", {"detail": {"error": "group tables are not supported",
+                                        "outcome": "not_implemented", "reason": "unbound"}})
 dump("dispatch_clean.json", {"request_id": 7, "enqueued": 1, "complete": True,
                              "counters": {"dispatched": 1, "dispatched_ok": 1,
                                           "dispatch_failed": 0},
@@ -352,6 +368,8 @@ dump("dispatch_failed.json", {"request_id": 8, "enqueued": 1, "complete": True,
                               "switch_outcome": {"rejected_by_switch": 1}})
 dump("dispatch_global.json", {"recent_failures": [{"dpid": 1, "message":
     'HTTP 501: {"detail":{"error":"no NDTwin route binding for this write","outcome":"unsupported_on_p4","reason":"unbound"'}]})
+dump("dispatch_global_owned.json", {"recent_failures": [{"dpid": 1, "message":
+    'HTTP 501: {"detail":{"error":"no NDTwin route binding for this write","outcome":"unsupported_on_p4","reason":"owned_by_package"'}]})
 dump("dispatch_global_empty.json", {"recent_failures": []})
 open(os.path.join(t, "tc_clean"), "w").write("qdisc noqueue 0: root refcnt 2\n")
 open(os.path.join(t, "tc_netem"), "w").write("qdisc netem 8001: root refcnt 2 limit 1000 loss 100%\n")
@@ -364,11 +382,13 @@ PY
     expect OK  "L1 all eight up"                 "$(edges_all_up "$t/graph_up.json" "$t/model.json")"
     expect BAD "L1 all eight down (062604Z's shape)" "$(edges_all_up "$t/graph_all_down.json" "$t/model.json")"
     expect BAD "L1 one direction down"           "$(edges_all_up "$t/graph_half_cut.json" "$t/model.json")"
+    expect BAD "L1 up but not enabled"           "$(edges_all_up "$t/graph_disabled.json" "$t/model.json")"
     expect OK  "L4 the cut is down both ways"    "$(cut_is_down "$t/graph_cut.json")"
     expect BAD "L4 only one direction down"      "$(cut_is_down "$t/graph_half_cut.json")"
     expect BAD "L4 nothing down"                 "$(cut_is_down "$t/graph_up.json")"
     expect OK  "L4 back up"                      "$(cut_is_up "$t/graph_up.json")"
     expect BAD "L4 still down"                   "$(cut_is_up "$t/graph_cut.json")"
+    expect BAD "L4 only one direction back up"   "$(cut_is_up "$t/graph_half_cut.json")"
     expect OK  "L4 no netem left"                "$(no_netem "$t/tc_clean" "$t/tc_clean")"
     expect BAD "L4 netem left on one end"        "$(no_netem "$t/tc_clean" "$t/tc_netem")"
     expect OK  "L6 capabilities owned"           "$(caps_are "$t/state_owned.json" "$CAPS_OWNED")"
@@ -387,9 +407,12 @@ PY
     expect BAD "L2 dispatch failed"              "$(dispatch_clean "$t/dispatch_failed.json")"
     expect OK  "L5 the proxy said 501 unbound"   "$(refused_501 "$t/code_501" "$t/body_501.json")"
     expect BAD "L5 a 500 is not the 501"         "$(refused_501 "$t/code_500" "$t/body_501.json")"
+    expect BAD "L5 a 501 for another reason"     "$(refused_501 "$t/code_501" "$t/body_501_owned.json")"
+    expect BAD "L5 a 501 that is not unsupported_on_p4" "$(refused_501 "$t/code_501" "$t/body_501_other.json")"
     expect OK  "L5 dispatch failed, reason kept" "$(dispatch_refused_unbound "$t/dispatch_failed.json" "$t/dispatch_global.json")"
     expect BAD "L5 a clean dispatch is not the refusal" "$(dispatch_refused_unbound "$t/dispatch_clean.json" "$t/dispatch_global.json")"
     expect BAD "L5 no failure record names it"   "$(dispatch_refused_unbound "$t/dispatch_failed.json" "$t/dispatch_global_empty.json")"
+    expect BAD "L5 a refusal for another reason" "$(dispatch_refused_unbound "$t/dispatch_failed.json" "$t/dispatch_global_owned.json")"
     expect OK  "L5 counters moved, rows did not" "$(rows_unchanged "$t/before" "$t/same")"
     expect BAD "L5 a row changed"                "$(rows_unchanged "$t/before" "$t/moved")"
     # 🔴 Against the REAL capture the ticket reconciles L1 with, where it exists on this machine:
@@ -658,6 +681,13 @@ if (( DOWN_RC == 0 )); then
             "{\"dpid\":1,\"match\":{\"dl_type\":2048,\"nw_dst\":\"$PROBE_DST\"},\"actions\":[{\"type\":\"OUTPUT\",\"port\":3}]}" \
             "$RUN/73_proxy_add"
         judge "$(refused_501 "$RUN/73_proxy_add.code" "$RUN/73_proxy_add.json")" "L5 proxy"
+        # The author's OWN /32 with another port -- round 1's silent-MODIFY hazard, aimed at
+        # directly (section 7 ruling 5, item 6).
+        post_json "$PROXY_URL/stats/flowentry/add" \
+            "{\"dpid\":1,\"match\":{\"dl_type\":2048,\"nw_dst\":\"$AUTHOR_DST\"},\"actions\":[{\"type\":\"OUTPUT\",\"port\":$AUTHOR_MOVED_TO}]}" \
+            "$RUN/73b_proxy_add_author_32"
+        judge "$(refused_501 "$RUN/73b_proxy_add_author_32.code" "$RUN/73b_proxy_add_author_32.json")" \
+              "L5 proxy, the author's own /32"
         RID3="$(batch "$INSTALL" "$RUN/74_batch_install_plain")"
         note "kernel batch: HTTP $(cat "$RUN/74_batch_install_plain.code" 2>/dev/null) request_id=${RID3:-none}"
         if [[ -n "$RID3" ]] && dispatch_until "$RID3" "$RUN/75_dispatch_plain.json"; then
@@ -667,8 +697,22 @@ if (( DOWN_RC == 0 )); then
         else
             fail "L5: the kernel batch has no completed dispatch record (request_id '${RID3:-none}')"
         fi
+        # Through the kernel too: the same /32 in a batch install, which the kernel dispatches
+        # to the proxy exactly as it dispatched the one above.
+        INSTALL_AUTHOR="{\"install_flow_entries\":[{\"dpid\":1,\"priority\":10,\"match\":{\"eth_type\":2048,\"ipv4_dst\":\"$AUTHOR_DST\"},\"actions\":[{\"type\":\"OUTPUT\",\"port\":$AUTHOR_MOVED_TO}]}],\"modify_flow_entries\":[],\"delete_flow_entries\":[]}"
+        RID4="$(batch "$INSTALL_AUTHOR" "$RUN/76b_batch_install_author_32")"
+        note "kernel batch at the author's /32: HTTP $(cat "$RUN/76b_batch_install_author_32.code" 2>/dev/null) request_id=${RID4:-none}"
+        if [[ -n "$RID4" ]] && dispatch_until "$RID4" "$RUN/76c_dispatch_author_32.json"; then
+            get_json "$KERNEL_URL/ndt/get_flow_dispatch_status" "$RUN/76d_dispatch_global.json" || true
+            judge "$(dispatch_refused_unbound "$RUN/76c_dispatch_author_32.json" "$RUN/76d_dispatch_global.json")" \
+                  "L5 recent_failures, the author's own /32"
+        else
+            fail "L5: the author-/32 batch has no completed dispatch record (request_id '${RID4:-none}')"
+        fi
         stats_flows "$RUN/77_after"
         judge "$(rows_unchanged "$RUN/72_before" "$RUN/77_after")" "L5 author's entries"
+        judge "$(flow_has "$RUN/77_after/stats_flow_1.json" 1 "$AUTHOR_DST" "$AUTHOR_PORT")" \
+              "L5 the author's /32 still goes out of port $AUTHOR_PORT"
         # Recorded: the same declared links on the control fabric, and the author's own
         # forwarding (NDTwin wrote nothing here).
         V="$(graph_until 30 edges_all_up "$RUN/78_graph_plain.json" "$PKG_PLAIN/ndtwin/topology.json")"

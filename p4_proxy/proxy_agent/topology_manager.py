@@ -656,6 +656,16 @@ class TopologyManager:
         #: `link_liveness`. [Co-developed with claude code -- Adam]
         self._declared_links = set()
 
+        #: TICKET-P4-roles section 7 ruling 5, item 1. True on a fabric that skips
+        #: install_initial_routes (startup sets it from `control_plane.skipped`): every route
+        #: written after that -- readopt's refill is the one writer left there -- stops at the
+        #: hosts attached to the switch it is written on. Before the declared links existed,
+        #: `net` had no inter-switch edge on such a fabric and no other route was computable;
+        #: with them, a shortest path can cross a switch whose table NDTwin may not write, and
+        #: that is a path half-installed. False (every host, as before) everywhere else.
+        #: [Co-developed with claude code -- Adam]
+        self.routes_to_attached_hosts_only = False
+
         #: TICKET-P4-roles 2.4 -- what `report_external_link_state` has been told, and what it
         #: did with it. Guarded by _liveness_lock. [Co-developed with claude code -- Adam]
         self._external_reports = {"received": 0, "routed_through_watchdog": 0,
@@ -1257,6 +1267,12 @@ class TopologyManager:
                 path = path_info['path']
                 # The next node in the path
                 next_node = path[path.index(src) + 1]
+                if self.routes_to_attached_hosts_only and next_node != dst:
+                    # Crosses another switch on a fabric that skips its routes -- see
+                    # `routes_to_attached_hosts_only`. Not attempted, so not counted: the same
+                    # answer the graph gave before the declared links were in it.
+                    # [Co-developed with claude code -- Adam]
+                    continue
                 # The port connecting src to next_node
                 out_port = self.net.edges[src, next_node]['port']
 
