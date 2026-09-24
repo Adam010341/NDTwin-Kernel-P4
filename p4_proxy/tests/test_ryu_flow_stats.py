@@ -376,5 +376,93 @@ class DurationComesFromTheProxysOwnRecordTest(unittest.TestCase):
         self.assertEqual((flow["duration_sec"], flow["duration_nsec"]), (0, 0))
 
 
+# --- NDTwin's own pipeline, rendered, frozen in bytes (TICKET-P4-roles section 2.5-1) ---------
+#
+# [Co-developed with claude code -- Adam]
+#
+# 🔴 CAPTURED AT THE BASE. The roles ticket makes this renderer read its names out of a binding
+# and stop listing actions it does not recognise -- and promises that the NDTwin pipeline's
+# /stats/flow body does not move by one byte. A table of every kind of row ndtwin_switch.p4 can
+# hold (both route tables, the l2 table, the four actions it declares plus one it does not, a
+# default row, a row with no usable match, a row with no action), rendered and serialised with
+# sorted keys, is what "does not move" is compared against. The string below was produced by
+# `ndtwin_pipeline_render()` against trunk 6291db35's proxy_agent/ in the commit that adds it,
+# which changes no production file.
+
+
+def ndtwin_pipeline_rows():
+    """Every row shape ndtwin_switch.p4's tables can return, as read_table_entries reports it."""
+    route_24 = an_lpm_route(dst=b"\x0a\x00\x01\x00", prefix=24, port=2)
+    to_cpu = an_lpm_route(dst=b"\x0a\x00\x00\x09", port=1)
+    to_cpu["action"] = {"name": "MyIngress.send_to_cpu", "params": {}}
+    dropped = an_lpm_route(dst=b"\x0a\x00\x00\x08", port=1)
+    dropped["action"] = {"name": "MyIngress.drop", "params": {}}
+    no_action = an_lpm_route(dst=b"\x0a\x00\x00\x07", port=1)
+    no_action["action"] = {"name": "NoAction", "params": {}}
+    future = an_lpm_route(dst=b"\x0a\x00\x00\x06", port=1)
+    future["action"] = {"name": "MyIngress.some_future_action", "params": {"port": b"\x05"}}
+    missing = an_lpm_route(dst=b"\x0a\x00\x00\x05", port=1)
+    missing["action"] = None
+    l2 = {"table": "MyIngress.l2_forward", "priority": 0, "is_default": False,
+          "match": {"hdr.ethernet.dstAddr": {"type": "exact",
+                                             "value": b"\x00\x00\x00\x00\x00\x04"}},
+          "action": {"name": "MyIngress.forward_l2", "params": {"port": b"\x03"}},
+          "counters": {"bytes": 1500, "packets": 3}}
+    unusable = {"table": "MyIngress.l2_forward", "priority": 0, "is_default": False,
+                "match": {"meta.nothing_ryu_knows": {"type": "exact", "value": b"\x01"}},
+                "action": {"name": "MyIngress.forward_l2", "params": {"port": b"\x03"}}}
+    return [an_lpm_route(), route_24, a_ternary_rule(priority=101, port=4),
+            a_ternary_rule(priority=-5, in_port_mask=b"\x00"), l2, to_cpu, dropped, no_action,
+            future, missing, an_lpm_route(default=True), unusable]
+
+
+def ndtwin_pipeline_render():
+    import json
+    return json.dumps(rf.render_flow_stats(1, ndtwin_pipeline_rows()), sort_keys=True)
+
+
+#: Produced by ndtwin_pipeline_render() at 6291db35's proxy_agent/ (see the block above).
+BASELINE_NDTWIN_RENDER = (
+    '{"1": [{"actions": ["OUTPUT:6"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "durati'
+    'on_sec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_t'
+    'ype": 2048, "nw_dst": "10.0.0.4"}, "packet_count": 0, "priority": 0, "table_id": 0}, {"act'
+    'ions": ["OUTPUT:2"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 0, '
+    '"flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_type": 2048, '
+    '"nw_dst": "10.0.1.0/24"}, "packet_count": 0, "priority": 0, "table_id": 0}, {"actions": ["'
+    'OUTPUT:4"], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": '
+    '0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_type": 2048, "in_port"'
+    ': 3, "nw_dst": "10.0.0.4", "nw_proto": 6, "nw_src": "10.0.0.1"}, "packet_count": 0, "prior'
+    'ity": 101, "table_id": 0}, {"actions": ["OUTPUT:9"], "byte_count": 0, "cookie": 0, "durati'
+    'on_nsec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length"'
+    ': 0, "match": {"dl_type": 2048, "nw_dst": "10.0.0.4", "nw_proto": 6, "nw_src": "10.0.0.1"}'
+    ', "packet_count": 0, "priority": 0, "table_id": 0}, {"actions": ["OUTPUT:3"], "byte_count"'
+    ': 1500, "cookie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0,'
+    ' "idle_timeout": 0, "length": 0, "match": {"dl_dst": "00:00:00:00:00:04"}, "packet_count":'
+    ' 3, "priority": 0, "table_id": 0}, {"actions": ["OUTPUT:CONTROLLER"], "byte_count": 0, "co'
+    'okie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0, "idle_time'
+    'out": 0, "length": 0, "match": {"dl_type": 2048, "nw_dst": "10.0.0.9"}, "packet_count": 0,'
+    ' "priority": 0, "table_id": 0}, {"actions": [], "byte_count": 0, "cookie": 0, "duration_ns'
+    'ec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, '
+    '"match": {"dl_type": 2048, "nw_dst": "10.0.0.8"}, "packet_count": 0, "priority": 0, "table'
+    '_id": 0}, {"actions": [], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec"'
+    ': 0, "flags": 0, "hard_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_type": 2'
+    '048, "nw_dst": "10.0.0.7"}, "packet_count": 0, "priority": 0, "table_id": 0}, {"actions": '
+    '[], "byte_count": 0, "cookie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": 0, "hard'
+    '_timeout": 0, "idle_timeout": 0, "length": 0, "match": {"dl_type": 2048, "nw_dst": "10.0.0'
+    '.6"}, "packet_count": 0, "priority": 0, "table_id": 0}, {"actions": [], "byte_count": 0, "'
+    'cookie": 0, "duration_nsec": 0, "duration_sec": 0, "flags": 0, "hard_timeout": 0, "idle_ti'
+    'meout": 0, "length": 0, "match": {"dl_type": 2048, "nw_dst": "10.0.0.5"}, "packet_count": '
+    '0, "priority": 0, "table_id": 0}]}'
+)
+
+
+class TheNdtwinPipelinesFlowStatsAreByteIdenticalToTheBaseTest(unittest.TestCase):
+    """TICKET-P4-roles 2.5-1: NDTwin's own /stats/flow body does not move."""
+
+    def test_the_render_is_the_one_the_base_produced(self):
+        self.assertTrue(BASELINE_NDTWIN_RENDER, "the base capture is missing")
+        self.assertEqual(ndtwin_pipeline_render(), BASELINE_NDTWIN_RENDER)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

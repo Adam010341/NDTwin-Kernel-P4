@@ -1944,5 +1944,166 @@ class WriteTableEntryTest(unittest.TestCase):
         self.assertIn("external control plane", str(caught.exception))
 
 
+# --- the NDTwin pipeline's writes, frozen in bytes (TICKET-P4-roles section 2.2-5) ------------
+#
+# [Co-developed with claude code -- Adam]
+#
+# 🔴 CAPTURED AT THE BASE, NOT DESCRIBED. The roles ticket moves every name the ipv4_lpm writes
+# use out of literals and into a binding, and promises that for NDTwin's own pipeline nothing on
+# the wire changes. "Nothing changes" asserted field by field is only as strong as the list of
+# fields somebody remembered to check; asserted as the SERIALISED WriteRequest it covers every
+# field, including the ones nobody thought of (update order, the election id, the width of the
+# port parameter, the order of the two action parameters).
+#
+# The hex below was produced by `baseline_write_capture()` against the unmodified production
+# code of trunk 6291db35 (worktree head 0c85ad9c, whose p4_proxy/ is byte-identical to it), and
+# the commit that adds this block changes no production file -- so checking that commit out and
+# running this class is how the capture is re-verified. The capture function is the SAME one the
+# test calls; a second recorder would be a second opinion about a third thing.
+#
+# `SerializeToString(deterministic=True)`: WriteRequest carries no map fields, so this is the
+# encoding bmv2 receives, and `deterministic` only rules out a future map field making the
+# comparison flaky rather than wrong.
+
+
+def _serialised(messages):
+    return [m.SerializeToString(deterministic=True).hex() for m in messages]
+
+
+def baseline_write_capture():
+    """{case: [hex of every request the stub saw, in order]} for the ipv4_lpm write paths.
+
+    [Co-developed with claude code -- Adam]
+    Every case builds its own client (or fabric) so no case sees another's install stamps.
+    `install_initial_routes` runs over the square the property test uses, with two hosts on
+    opposite corners, so it writes every switch and exercises an equal-cost choice.
+    """
+    from proxy_agent.topology_manager import TopologyManager
+
+    out = {}
+
+    client = a_client()
+    client.insert_ipv4_route("10.0.0.4", 32, "00:00:00:00:00:04", 3)
+    out["insert"] = _serialised(client.stub.requests)
+
+    client = a_client(RecordingStub(write_error=FakeRpcError(grpc.StatusCode.ALREADY_EXISTS)))
+    client.insert_ipv4_route("10.0.0.4", 32, "00:00:00:00:00:04", 7)
+    out["insert_then_modify"] = _serialised(client.stub.requests)
+
+    client = a_client()
+    client.modify_ipv4_route("10.0.0.0", 24, "0a:0b:0c:0d:0e:0f", 257)
+    out["modify"] = _serialised(client.stub.requests)
+
+    client = a_client()
+    client.delete_ipv4_route("10.0.0.4", 32)
+    out["delete"] = _serialised(client.stub.requests)
+
+    client = a_client(RecordingStub(write_error=FakeRpcError(grpc.StatusCode.UNKNOWN),
+                                    always=True))
+    client.delete_ipv4_route("10.0.1.1", 32)
+    out["delete_unknown_writes"] = _serialised(client.stub.requests)
+    out["delete_unknown_reads"] = _serialised(client.stub.reads)
+
+    keys = {"hdr.ipv4.srcAddr": "10.0.0.1", "hdr.ipv4.dstAddr": "10.0.0.4",
+            "hdr.ipv4.protocol": 6, "meta.l4_dst_port": 80}
+    client = a_client()
+    client.insert_5tuple_rule(keys, 101, "00:00:00:00:00:04", 3)
+    client.modify_5tuple_rule(keys, 101, "00:00:00:00:00:04", 2)
+    client.delete_5tuple_rule(keys, 101)
+    out["five_tuple"] = _serialised(client.stub.requests)
+
+    topo = TopologyManager()
+    for dpid in (1, 2, 3, 4):
+        topo.add_switch(dpid, a_client(device_id=dpid))
+    for a, b, pa, pb in ((1, 2, 2, 1), (1, 3, 3, 1), (2, 4, 3, 2), (3, 4, 4, 3)):
+        topo.add_link(a, b, pa, pb)
+    topo.add_host("10.0.0.1", "00:00:00:00:00:01", 1, 9)
+    topo.add_host("10.0.0.2", "00:00:00:00:00:02", 4, 9)
+    topo.install_initial_routes()
+    for dpid in (1, 2, 3, 4):
+        out[f"install_initial_routes_s{dpid}"] = _serialised(topo.switches[dpid].stub.requests)
+    return out
+
+
+#: Produced by baseline_write_capture() at 6291db35's p4_proxy/ (see the block comment above).
+BASELINE_WRITE_REQUESTS = {
+    'delete': [
+        '08011a021001221908031215121308b499e911120c080122080a040a0000041020',
+    ],
+    'delete_unknown_reads': [
+        '0801120412023a00',
+    ],
+    'delete_unknown_writes': [
+        '08011a021001221908031215121308b499e911120c080122080a040a0001011020',
+    ],
+    'five_tuple': [
+        '08011a021001226808011264126208b5cef117121008031a0c0a040a0000041204ffffffff120a08041a060a'
+         '01061201ff121008021a0c0a040a0000011204ffffffff120c08061a080a0200501202ffff1a1b0a1908d5ac'
+         'dd0d220a10011a06000000000004220610021a0200032065',
+        '08011a021001226808021264126208b5cef117121008031a0c0a040a0000041204ffffffff120a08041a060a'
+         '01061201ff121008021a0c0a040a0000011204ffffffff120c08061a080a0200501202ffff1a1b0a1908d5ac'
+         'dd0d220a10011a06000000000004220610021a0200022065',
+        '08011a021001224b08031247124508b5cef117121008031a0c0a040a0000041204ffffffff120a08041a060a'
+         '01061201ff121008021a0c0a040a0000011204ffffffff120c08061a080a0200501202ffff2065',
+    ],
+    'insert': [
+        '08011a021001223608011232123008b499e911120c080122080a040a00000410201a1b0a1908d5acdd0d220a'
+         '10011a06000000000004220610021a020003',
+    ],
+    'insert_then_modify': [
+        '08011a021001223608011232123008b499e911120c080122080a040a00000410201a1b0a1908d5acdd0d220a'
+         '10011a06000000000004220610021a020007',
+        '08011a021001223608021232123008b499e911120c080122080a040a00000410201a1b0a1908d5acdd0d220a'
+         '10011a06000000000004220610021a020007',
+    ],
+    'install_initial_routes_s1': [
+        '08011a021001223608011232123008b499e911120c080122080a040a00000110201a1b0a1908d5acdd0d220a'
+         '10011a06000000000001220610021a020009',
+        '08011a021001223608011232123008b499e911120c080122080a040a00000210201a1b0a1908d5acdd0d220a'
+         '10011a06000000000002220610021a020002',
+    ],
+    'install_initial_routes_s2': [
+        '08021a021001223608011232123008b499e911120c080122080a040a00000110201a1b0a1908d5acdd0d220a'
+         '10011a06000000000001220610021a020001',
+        '08021a021001223608011232123008b499e911120c080122080a040a00000210201a1b0a1908d5acdd0d220a'
+         '10011a06000000000002220610021a020003',
+    ],
+    'install_initial_routes_s3': [
+        '08031a021001223608011232123008b499e911120c080122080a040a00000110201a1b0a1908d5acdd0d220a'
+         '10011a06000000000001220610021a020001',
+        '08031a021001223608011232123008b499e911120c080122080a040a00000210201a1b0a1908d5acdd0d220a'
+         '10011a06000000000002220610021a020004',
+    ],
+    'install_initial_routes_s4': [
+        '08041a021001223608011232123008b499e911120c080122080a040a00000110201a1b0a1908d5acdd0d220a'
+         '10011a06000000000001220610021a020003',
+        '08041a021001223608011232123008b499e911120c080122080a040a00000210201a1b0a1908d5acdd0d220a'
+         '10011a06000000000002220610021a020009',
+    ],
+    'modify': [
+        '08011a021001223608021232123008b499e911120c080122080a040a00000010181a1b0a1908d5acdd0d220a'
+         '10011a060a0b0c0d0e0f220610021a020101',
+    ],
+}
+
+
+@unittest.skipUnless(HAVE_P4RUNTIME, "P4Runtime protobufs not available in this interpreter")
+class TheNdtwinPipelinesWritesAreByteIdenticalToTheBaseTest(unittest.TestCase):
+    """TICKET-P4-roles 2.2-5: the binding refactor puts the same bytes on the wire."""
+
+    def setUp(self):
+        self.captured = baseline_write_capture()
+
+    def test_every_case_was_captured_and_none_is_empty(self):
+        self.assertEqual(sorted(self.captured), sorted(BASELINE_WRITE_REQUESTS))
+        for case, requests in BASELINE_WRITE_REQUESTS.items():
+            self.assertTrue(requests, f"{case}: the base capture recorded no request at all")
+
+    def test_every_request_is_byte_identical_to_the_one_the_base_sent(self):
+        for case in sorted(BASELINE_WRITE_REQUESTS):
+            with self.subTest(case=case):
+                self.assertEqual(self.captured.get(case), BASELINE_WRITE_REQUESTS[case])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

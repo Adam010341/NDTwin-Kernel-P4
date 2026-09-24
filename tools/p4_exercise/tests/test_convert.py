@@ -758,5 +758,219 @@ class ThePreEntriesSurviveTheConversion(TmpMixin, unittest.TestCase):
                          ["h1", "h2", "h3", "h4"])
 
 
+# --- convert without --role-ipv4-route writes what it wrote before (TICKET-P4-roles 2.1-7) -----
+#
+# [Co-developed with claude code -- Adam]
+#
+# 🔴 CAPTURED AT THE BASE. The roles flag is the first option that makes convert REWRITE a
+# runtime file instead of copying it, so the claim "without the flag nothing changes" has to be
+# asserted on bytes, file by file, across every exercise shape the fixtures hold. The digests
+# below were produced by `conversion_digests()` against trunk 6291db35's tools/p4_exercise/ in
+# the commit that adds this block, which changes no production file.
+#
+# One field is not a property of the converter: `source.exercise_dir` is the absolute path of
+# wherever the fixture tree was checked out, so package.json is hashed with that one value
+# replaced by `<EXERCISE>`. Every other byte of every file is hashed as written.
+
+#: (case, exercise, topology, --p4, --ndtwin-pipeline). Every shape the fixtures can convert.
+CONVERSION_CASES = (
+    ("basic_pod_p4", "basic", "pod-topo/topology.json", "solution/basic.p4", False),
+    ("basic_pod_null", "basic", "pod-topo/topology.json", None, False),
+    ("basic_pod_ndtwin_pipeline", "basic", "pod-topo/topology.json", None, True),
+    ("basic_triangle_p4", "basic", "triangle-topo/topology.json", "solution/basic.p4", False),
+    ("firewall_pod_p4", "firewall", "pod-topo/topology.json", "basic.p4", False),
+    ("calc_p4", "calc", "topology.json", "calc.p4", False),
+    ("multicast_sig_p4", "multicast", "sig-topo/topology.json", "multicast.p4", False),
+    ("p4runtime_external", "p4runtime", "topology.json", None, False),
+)
+
+
+def conversion_digests(root):
+    """{case: {package-relative path: sha256}} for every CONVERSION_CASES entry, under `root`."""
+    out = {}
+    for case, exercise, topology, p4, ndtwin in CONVERSION_CASES:
+        pkg = os.path.join(root, case)
+        convert.convert(os.path.join(FIXTURES, exercise), topology, pkg, p4_rel=p4,
+                        ndtwin_pipeline=ndtwin)
+        digests = {}
+        for dirpath, _dirs, files in os.walk(pkg):
+            for filename in files:
+                path = os.path.join(dirpath, filename)
+                rel = os.path.relpath(path, pkg)
+                if rel == "package.json":
+                    doc = common.load_json(path)
+                    doc["source"]["exercise_dir"] = "<EXERCISE>"
+                    digests[rel] = hashlib.sha256(common.dumps(doc).encode()).hexdigest()
+                else:
+                    digests[rel] = sha(path)
+        out[case] = digests
+    return out
+
+
+#: Produced by conversion_digests() at 6291db35's tools/p4_exercise/ (see the block above).
+BASELINE_CONVERSIONS = {
+    'basic_pod_ndtwin_pipeline': {
+        'build/basic.json':
+            '7fefd0e1e6ae734dbc33823f6243de27a837cbd87ffe5574bf9ba8f90cc8ea78',
+        'build/basic.p4.p4info.txtpb':
+            'f71c1fb75f39c62dc1b9b5bc9963ba2925b6bc2c66c4cb59c3c455de814fbb08',
+        'ndtwin/topology.json':
+            'd9dc6f1e772933ada1d882e93275112551a3c15c9e3eb36e0d773df078f6d69e',
+        'package.json':
+            'd403678cf847c7b6a5d3e1684c95597822a5fa9c852734979b8cbbe772f76315',
+        'pod-topo/s1-runtime.json':
+            'f9de81615ff9fb75c7e9147a90e8d70cac459a5525d7d45e8ac6c8974d25de84',
+        'pod-topo/s2-runtime.json':
+            '1a312d61af096da667ffbdef3347d364e3cdf48f01103b05910f15d7f387a672',
+        'pod-topo/s3-runtime.json':
+            'cd008ba9a7f78157df646011e7f0b2f7ecf0000935b3432f0c9e84bc5201f588',
+        'pod-topo/s4-runtime.json':
+            '1288942cb792273c211bb4e2cf8a9dddba2db72abdee34f93a7c5f0c9647adfd',
+        'pod-topo/topology.json':
+            '9fc28629df356c87340d415c659a719c744a9e6d602ab7d3054446d309ad76be',
+    },
+    'basic_pod_null': {
+        'build/basic.json':
+            '7fefd0e1e6ae734dbc33823f6243de27a837cbd87ffe5574bf9ba8f90cc8ea78',
+        'build/basic.p4.p4info.txtpb':
+            'f71c1fb75f39c62dc1b9b5bc9963ba2925b6bc2c66c4cb59c3c455de814fbb08',
+        'ndtwin/topology.json':
+            'd9dc6f1e772933ada1d882e93275112551a3c15c9e3eb36e0d773df078f6d69e',
+        'package.json':
+            'd403678cf847c7b6a5d3e1684c95597822a5fa9c852734979b8cbbe772f76315',
+        'pod-topo/s1-runtime.json':
+            'f9de81615ff9fb75c7e9147a90e8d70cac459a5525d7d45e8ac6c8974d25de84',
+        'pod-topo/s2-runtime.json':
+            '1a312d61af096da667ffbdef3347d364e3cdf48f01103b05910f15d7f387a672',
+        'pod-topo/s3-runtime.json':
+            'cd008ba9a7f78157df646011e7f0b2f7ecf0000935b3432f0c9e84bc5201f588',
+        'pod-topo/s4-runtime.json':
+            '1288942cb792273c211bb4e2cf8a9dddba2db72abdee34f93a7c5f0c9647adfd',
+        'pod-topo/topology.json':
+            '9fc28629df356c87340d415c659a719c744a9e6d602ab7d3054446d309ad76be',
+    },
+    'basic_pod_p4': {
+        'build/basic.json':
+            '7fefd0e1e6ae734dbc33823f6243de27a837cbd87ffe5574bf9ba8f90cc8ea78',
+        'build/basic.p4.p4info.txtpb':
+            'f71c1fb75f39c62dc1b9b5bc9963ba2925b6bc2c66c4cb59c3c455de814fbb08',
+        'ndtwin/topology.json':
+            'd9dc6f1e772933ada1d882e93275112551a3c15c9e3eb36e0d773df078f6d69e',
+        'package.json':
+            '8252348d64822c1836c73c022d10a6be8e3e36bba282ca84c9854727e53b22e9',
+        'pod-topo/s1-runtime.json':
+            'f9de81615ff9fb75c7e9147a90e8d70cac459a5525d7d45e8ac6c8974d25de84',
+        'pod-topo/s2-runtime.json':
+            '1a312d61af096da667ffbdef3347d364e3cdf48f01103b05910f15d7f387a672',
+        'pod-topo/s3-runtime.json':
+            'cd008ba9a7f78157df646011e7f0b2f7ecf0000935b3432f0c9e84bc5201f588',
+        'pod-topo/s4-runtime.json':
+            '1288942cb792273c211bb4e2cf8a9dddba2db72abdee34f93a7c5f0c9647adfd',
+        'pod-topo/topology.json':
+            '9fc28629df356c87340d415c659a719c744a9e6d602ab7d3054446d309ad76be',
+        'solution/basic.p4':
+            'f7294f2e4872c3c4f43161bd1a9a62e921d7b8a34cda274218ae862df5e3c834',
+    },
+    'basic_triangle_p4': {
+        'build/basic.json':
+            '7fefd0e1e6ae734dbc33823f6243de27a837cbd87ffe5574bf9ba8f90cc8ea78',
+        'build/basic.p4.p4info.txtpb':
+            'f71c1fb75f39c62dc1b9b5bc9963ba2925b6bc2c66c4cb59c3c455de814fbb08',
+        'ndtwin/topology.json':
+            'f635d32a0dd399d5133fefb1c3d597fb0ff4757469415f250d59df20a7e88c9d',
+        'package.json':
+            'd7b0ea0d03f94d9b0f194859a1a3bc4b9e5a572e7d29e9e49ef62dba0e4c3f90',
+        'solution/basic.p4':
+            'f7294f2e4872c3c4f43161bd1a9a62e921d7b8a34cda274218ae862df5e3c834',
+        'triangle-topo/s1-runtime.json':
+            '1a034e7e6532215e30b37b8ba2ab4582d14c3f94dacd442a69413ecfaae1db01',
+        'triangle-topo/s2-runtime.json':
+            '24902291d86daa96e49e304b7626c023a701e0508cf297140ae91d19bf258dda',
+        'triangle-topo/s3-runtime.json':
+            'c6fa19df8cb4e3a2000c31dcbf0dd55a5affd7abe2ac32434c3bcd7c279f34d7',
+        'triangle-topo/topology.json':
+            '89fcf5abdd0252b5974e779dd1521c6e145792e4244db7ca8bcfb9253084073b',
+    },
+    'calc_p4': {
+        'build/calc.json':
+            'b70e4ffd6c14d9b2849c0ea1a92e1a39ed779cd138b841e692bf71c9699c96df',
+        'build/calc.p4.p4info.txtpb':
+            '728f02730b0a09b39ebcd1c1a7844a24bc8cf298165bfcde491de0a90a20573b',
+        'calc.p4':
+            'd75fa9e69db69a27ad82524d050d44076b49af84f2c08c351542278dc602c628',
+        'ndtwin/topology.json':
+            '815e31bb4d985814c68baa826565873b8a99736a9963a5ad8543ff2789a369f0',
+        'package.json':
+            '74e5ee718613e238e01691939fac71700c35d05b5c16a1fe6a37efc844d3ab4c',
+        's1-runtime.json':
+            'c6a77fb971f458f9e90a295fc0993e0ad3e3b7130018124433347ead3b2e7f72',
+        'topology.json':
+            'a17de4008c0d015cdd9ca225caaa2becdbcb3759395c91d3d3acc5286cdb6e32',
+    },
+    'firewall_pod_p4': {
+        'basic.p4':
+            '6b5b39f5ef9c6f36066ce9f43dcba7e011e2b1f3ca559ac55c0ccccedffed763',
+        'build/basic.json':
+            '2e2eaaa92bbc95f7933f3f1a705aab313f26000ebb3972d660f7b55be8b9bf4b',
+        'build/basic.p4.p4info.txtpb':
+            '9213871cee36bd93c4f7816548ca9af8a7f74807ed4dd0087a082025ecabb614',
+        'build/firewall.json':
+            '08afd28735ada9af1894e5a9a27b0347393e1ab7785113cc46a92793c2fb50d4',
+        'build/firewall.p4.p4info.txtpb':
+            'ef7561c073ee3b7f5f3db82390a110f32ba83ca23e8a4f1b05ca16b7401f35bf',
+        'ndtwin/topology.json':
+            'd9dc6f1e772933ada1d882e93275112551a3c15c9e3eb36e0d773df078f6d69e',
+        'package.json':
+            '9ce7b29165369deb5e15165b5e8f8a30b35d665d86f1204944200594903c4ee0',
+        'pod-topo/s1-runtime.json':
+            'cd6d4562a38d2d82b961e2dabb57b2bc16c4b8a25aa5b2fed7ed2830cbf1713c',
+        'pod-topo/s2-runtime.json':
+            '1a312d61af096da667ffbdef3347d364e3cdf48f01103b05910f15d7f387a672',
+        'pod-topo/s3-runtime.json':
+            'cd008ba9a7f78157df646011e7f0b2f7ecf0000935b3432f0c9e84bc5201f588',
+        'pod-topo/s4-runtime.json':
+            '1288942cb792273c211bb4e2cf8a9dddba2db72abdee34f93a7c5f0c9647adfd',
+        'pod-topo/topology.json':
+            '48dfae44a70609c8778baad5a20d8d438fda8516057097391b352ad108fa05a9',
+    },
+    'multicast_sig_p4': {
+        'build/multicast.json':
+            '36c1ce893daeb425b7b82349eb264edf5729c89b5c2eb4650a39566c1133384d',
+        'build/multicast.p4.p4info.txtpb':
+            '54ec81d7c604860a9136723205006e1f8fe8127ae3158a27968e972dfc765815',
+        'multicast.p4':
+            '5056ac9c4e02429db425f5ee6c01599033b745ae5a326326f8619fd3d76dee70',
+        'ndtwin/topology.json':
+            '4699c79d955aae95e8f52db757a84626eff98c6ba04431982a4cf6bff70bec92',
+        'package.json':
+            '4ffeab430ec9dd6dd47c4c40b9f45b48d7675a07728b72bbd4db262bcc05ba80',
+        'sig-topo/s1-runtime.json':
+            'b0adad5ef7dbf9ca791fa71e5085f327ae4039735a041e2977296a3a4f1c1378',
+        'sig-topo/topology.json':
+            'ffdc7900a5e59717ddd697e19e1bcb13acbf73de4468848c596148645ba38dfe',
+    },
+    'p4runtime_external': {
+        'ndtwin/topology.json':
+            'f635d32a0dd399d5133fefb1c3d597fb0ff4757469415f250d59df20a7e88c9d',
+        'package.json':
+            '9faf20d6a974e3e9aa8f1de6e0b7398dc88debf3fc8ead8c2b2a12bd6de011fe',
+        'topology.json':
+            '02436f3b98de732c2371ffdf03193a2a32643d04d3103596052d78bf81fd7754',
+    },
+}
+
+
+class WithoutTheRoleFlagTheOutputIsByteIdenticalTest(TmpMixin, unittest.TestCase):
+    """TICKET-P4-roles 2.1-7: no --role-ipv4-route => every written file is the base's."""
+
+    def test_every_file_of_every_conversion_is_the_one_the_base_wrote(self):
+        self.assertTrue(BASELINE_CONVERSIONS, "the base capture is missing")
+        now = conversion_digests(self.tmp)
+        self.assertEqual(sorted(now), sorted(BASELINE_CONVERSIONS))
+        for case in sorted(BASELINE_CONVERSIONS):
+            with self.subTest(case=case):
+                self.assertEqual(now[case], BASELINE_CONVERSIONS[case])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

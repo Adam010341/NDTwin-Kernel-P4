@@ -1324,6 +1324,145 @@ class ShapedLinksTest(unittest.TestCase):
                          "s1:3<->s3:1 0.5 Mbit/s 5ms")
 
 
+# --- a package without `roles` loads byte-identically (TICKET-P4-roles section 2.1-1) -----------
+#
+# [Co-developed with claude code -- Adam]
+#
+# 🔴 CAPTURED AT THE BASE. `roles` is additive (format stays 1), and every package that exists
+# today has none -- so the loader must hand every caller the same object it handed them before
+# the field existed. That is asserted on the WHOLE loaded object, serialised: the fields that
+# existed at 6291db35 must hash to what they hashed to there, and any field added since must be
+# None for a package that does not declare it. The hashes below were produced by
+# `loaded_packages_digest()` against 6291db35's p4_proxy/mininet/ in the commit that adds this
+# block, which changes no production file.
+#
+# The packages are the shapes that exist: the baseline, the hand-written manifest the rest of
+# this file uses, an external one, and four made by the real converter out of tutorials' own
+# files (every switch on basic.p4; firewall's mixed program; the phase-1 --ndtwin-pipeline cell;
+# p4runtime, which is external). Absolute paths are the one thing that is not a property of the
+# loader -- each run builds its packages in a new temp directory -- so the package directory is
+# replaced by `<PKG>` before hashing.
+
+
+def _tools_convert():
+    tools = os.path.join(REPO, "tools")
+    if tools not in sys.path:
+        sys.path.insert(0, tools)
+    from p4_exercise import convert  # noqa: E402  (path has to be set first)
+    return convert
+
+
+def _normalised(value, package_dir):
+    if isinstance(value, dict):
+        return {k: _normalised(v, package_dir) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_normalised(v, package_dir) for v in value]
+    if isinstance(value, str) and package_dir:
+        return value.replace(package_dir, "<PKG>")
+    return value
+
+
+def loaded_packages_digest(root):
+    """{case: {"fields": [...], "sha256": ...}} for every package shape, built under `root`."""
+    import dataclasses
+    import hashlib
+
+    convert = _tools_convert()
+    fixtures = os.path.join(REPO, "tools", "p4_exercise", "tests", "fixtures")
+    cases = {"baseline": app_package.baseline(),
+             "manifest": app_package.load(build_package(root, name="manifest")),
+             "external": app_package.load(build_package(
+                 root, manifest=with_manifest(control_plane={"mode": "external"}),
+                 name="external"))}
+    for case, exercise, topology, p4, ndtwin in (
+            ("convert_basic_p4", "basic", "pod-topo/topology.json", "solution/basic.p4", False),
+            ("convert_firewall_p4", "firewall", "pod-topo/topology.json", "basic.p4", False),
+            ("convert_basic_ndtwin_pipeline", "basic", "pod-topo/topology.json", None, True),
+            ("convert_p4runtime", "p4runtime", "topology.json", None, False)):
+        out = os.path.join(root, case)
+        convert.convert(os.path.join(fixtures, exercise), topology, out, p4_rel=p4,
+                        ndtwin_pipeline=ndtwin)
+        cases[case] = app_package.load(out)
+
+    digest = {}
+    for case, package in cases.items():
+        fields = dataclasses.asdict(package)
+        text = json.dumps(_normalised(fields, package.dir), sort_keys=True)
+        digest[case] = {"fields": sorted(fields),
+                        "sha256": hashlib.sha256(text.encode()).hexdigest(),
+                        "json": text}
+    return digest
+
+
+#: The fourteen fields a loaded Package had at 6291db35 -- the same for every case.
+BASELINE_PACKAGE_FIELDS = [
+    'cpu_port', 'device_id', 'dir', 'election_id', 'grpc_base', 'hosts', 'links', 'mode',
+    'name', 'pipeline', 'prefix_len', 'switches', 'telemetry_source', 'topology']
+
+#: Produced by loaded_packages_digest() at 6291db35's p4_proxy/mininet/ (see the block above).
+BASELINE_PACKAGE_LOADS = {
+    'baseline': {
+        "fields": BASELINE_PACKAGE_FIELDS,
+        "sha256": '3fef61c62e3f350ced73981097aa66c8b622093ba45c7880ecc0a20760107b2c',
+    },
+    'convert_basic_ndtwin_pipeline': {
+        "fields": BASELINE_PACKAGE_FIELDS,
+        "sha256": 'b71273c03d4f90ef43a2a5bc714f113a64f10c2436d3304dbdb0b75415608d1c',
+    },
+    'convert_basic_p4': {
+        "fields": BASELINE_PACKAGE_FIELDS,
+        "sha256": '7129131c1124553877819ae5ad36a0fd5c3a99a667075d407731935baa769af1',
+    },
+    'convert_firewall_p4': {
+        "fields": BASELINE_PACKAGE_FIELDS,
+        "sha256": '79df825219a8d07dc6e9790119f6f948a53a04000907e4c6ddb8cf56b16b2f9a',
+    },
+    'convert_p4runtime': {
+        "fields": BASELINE_PACKAGE_FIELDS,
+        "sha256": '3538b94af2776e6112e91c36d2bf006294b4fa02c822d16d0ae6211a4f98d1ae',
+    },
+    'external': {
+        "fields": BASELINE_PACKAGE_FIELDS,
+        "sha256": '5c6bfb32e64c413e41265e5ccfb4434b4146e73eb6d4b1bc03d0d53a1981609b',
+    },
+    'manifest': {
+        "fields": BASELINE_PACKAGE_FIELDS,
+        "sha256": '0e1e647e97cbd3e5f937a48eb0a03726365f7a56e075ab45fa53dc5e149f0dbf',
+    },
+}
+
+
+class APackageWithoutRolesLoadsByteIdenticallyTest(unittest.TestCase):
+    """TICKET-P4-roles 2.1-1: no `roles` => the loader's answer has not moved."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="ndtwin_app_pkg_roles_base_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.now = loaded_packages_digest(self.tmp)
+
+    def test_every_case_was_captured(self):
+        self.assertTrue(BASELINE_PACKAGE_LOADS, "the base capture is missing")
+        self.assertEqual(sorted(self.now), sorted(BASELINE_PACKAGE_LOADS))
+
+    def test_the_fields_that_existed_at_the_base_hash_to_what_they_hashed_to_there(self):
+        import hashlib
+
+        for case, base in sorted(BASELINE_PACKAGE_LOADS.items()):
+            with self.subTest(case=case):
+                now = json.loads(self.now[case]["json"])
+                added = sorted(set(now) - set(base["fields"]))
+                for name in added:
+                    # A field this ticket (or a later one) added: a package that does not
+                    # declare it must not be told anything by it.
+                    self.assertIsNone(now[name], f"{case}: new field {name!r} is not None")
+                missing = sorted(set(base["fields"]) - set(now))
+                self.assertEqual(missing, [], f"{case}: field(s) the base had are gone")
+                kept = {k: v for k, v in now.items() if k in base["fields"]}
+                text = json.dumps(kept, sort_keys=True)
+                self.assertEqual(hashlib.sha256(text.encode()).hexdigest(), base["sha256"],
+                                 f"{case}: the loaded package moved; it now reads {text[:600]}")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
 
